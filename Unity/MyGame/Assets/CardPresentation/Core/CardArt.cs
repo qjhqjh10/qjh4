@@ -437,6 +437,73 @@ namespace CardPresentation
             return Get(Root + "cards/art_" + Slug(artKey));
         }
 
+        // ==================================================================
+        //  🆕 2026-10-25（B2）：**场上 3D 卡体的「立绘 UV 窗」** —— 唯一实现
+        // ==================================================================
+        //  背景（判据全部现读，不是转抄）：
+        //   · 原版 `BattleCardUI.SetCardImageTo3DBase` 只做一句
+        //     `material.SetTexture(_CardImage, rawCard.cardSprite.texture)`
+        //     （`d:/2/tools/decomp_full/BattleCardUI__SetCardImageTo3DBase.c`，逐行读过）
+        //     ⇒ 喂进去的是 **sprite 所在的那张【整页】贴图**，不是裁好的子图。
+        //   · 采样坐标 = mesh 的第二套 UV（UV1），**写死在网格上**
+        //     （正面四角 0.1818–0.8203 × 0.0017–0.9978，出处 `资料/3DBody_原版场上卡体规格.md` §一
+        //      + PS 反汇编：`tex2D(_CardImage, uv1)`）。
+        //   ⇒ 原版不管哪张卡，**永远只采整页上那一窗**。
+        //
+        //  我们的 `art_*.png` 有两种来源（1168 张全量实测：672 张裁块 + 496 张整页）：
+        //   ① **sprite 裁块**（宽 670/671 × 高 1024）：`Sprite/*.json` 的 `textureRect`
+        //      = x176.5 y0 w670.5 h1024 ⇒ 原版那一窗换算到 PNG 坐标 =
+        //        u [(186.1632−176.5)/670.5, (840.0−176.5)/670.5] = [0.014412, 0.989541]
+        //        v [0.0017, 0.9978]（裁块是整高 ⇒ v 不缩放）
+        //      ⚠️ 这条窗的左右边界**正好落在白边外侧 ~1.7 px** ⇒ 屏上一像素要盖住 ~4.5 个源像素、
+        //        而场上卡的缩放每帧按深度重算 ⇒ 双线性采样点每帧落在不同格，会把 PNG 边那圈
+        //        纯白卡框内沿采回来（= 用户报的「场上卡白边一直闪」）。
+        //        🔴 2026-10-25 就地订正：这条**不是 mipmap 造成的** —— 立绘 `.meta` 是
+        //        `enableMipMap: 0`（art_am1/am39/um11/sau19 逐份现读），机制是**双线性 + 每帧缩放**。
+        //        实测四边近白条最大宽度 **左 8 / 右 7 / 上 2 / 下 2 px** ⇒ 统一再多让 **3 px**：
+        //        左 11 · 右 10 · 上 5 · 下 5 px（窗只缩 0.66%/0.59%，不拉变形）。
+        //   ② **整页方图**（1024²×495、512²×1）：这些卡的原版 sprite `m_RD.textureRect` **就是整页**
+        //      （现读：`bundle_astramilitarumcardassets_assets_all/Sprite/AstraMilitarum_strat_Born Soldier.json`
+        //       → `{x:0,y:0,w:1024,h:1024}`；`bundle_orksgoffcardassets_assets_all/Sprite/Ork_Goff_strat_Uge Choppa.json`
+        //       → `{0,0,512,512}`）⇒ PNG 坐标里原版窗 = **归一化原值** `[0.1818,0.8203]×[0.0017,0.9978]`。
+        //      🔴 这一支**不加余量**：实测窗边没有白条（方图最宽的近白竖列只占 26% 行，那是画作亮部，
+        //        不是卡框内沿）⇒ 多让就成了「比原版少采」。
+        //  判别式 = **方图 ⇒ 整页**。当前 1168 张只有四种尺寸（1024²/512²/671×1024/670×1024），
+        //  方图与非方图正好把两种来源分开；`CardBaseDemo` 有一条断言在扫这个前提
+        //  （出现「非方图且宽既不≈670 也不≈671」时红 —— 那时换算没覆盖到，别静默按裁块处理）。
+        //
+        //  ⚠️ 返回值喂给 `Card3D.shader` 的 `_ArtUvRect`（xy = min, zw = max）。
+        //     `_ArtUvRect` 的**属性默认值必须逐位等于本函数对「裁块」的返回值** ——
+        //     没被 C# 写过的材质（老调用点 / 诊断）就吃那个默认；`AssertBoardArtNoWhiteEdge` ① 会对。
+        //  ⛔ 别把这两支合成一组常量：裁块是「再往里缩」、整页是「从缩过头改回原版窗」（左右各放开 18%）。
+        const float SpriteCropW = 670.5f;      // 原版 sprite 的 textureRect 宽（页 1024 上 x176.5 起）
+        const float SpriteCropH = 1024f;       // 裁块是整高
+        const float CropPadLeft = 11f, CropPadRight = 10f, CropPadTop = 5f, CropPadBottom = 5f;
+        // 原版立绘窗（页面归一化坐标；= mesh UV1 正面四角）
+        const float ArtWinU0 = 0.1818f, ArtWinU1 = 0.8203f;
+        const float ArtWinV0 = 0.0017f, ArtWinV1 = 0.9978f;
+
+        /// <summary>「sprite 裁块」那一支的 UV 窗 —— 也是 `Card3D.shader` 里 `_ArtUvRect` 的属性默认值。</summary>
+        public static readonly Vector4 ArtUvRectSpriteCrop = new Vector4(
+            CropPadLeft / SpriteCropW,                     // 0.016406
+            CropPadBottom / SpriteCropH,                   // 0.004883
+            (SpriteCropW - CropPadRight) / SpriteCropW,    // 0.985086
+            (SpriteCropH - CropPadTop) / SpriteCropH);     // 0.995117
+
+        /// <summary>「整页方图」那一支的 UV 窗（= 原版窗原样）。</summary>
+        public static readonly Vector4 ArtUvRectWholePage = new Vector4(ArtWinU0, ArtWinV0, ArtWinU1, ArtWinV1);
+
+        /// <summary>这张立绘贴图对应的 **`_CardImage` UV 窗**（xy = min, zw = max）。
+        /// 判据与两种来源 → 本节文件头那段注释（唯一出处）。
+        /// <para>`tex == null`（占位图 / 还没建体）⇒ 返回裁块那一支（= 与改前的行为同型）。</para></summary>
+        public static Vector4 ArtUvRect(Texture2D tex)
+        {
+            if (tex == null) return ArtUvRectSpriteCrop;
+            // 方图 = 原版 sprite 的 textureRect 就是整页（见文件头 ②）
+            if (Mathf.Abs(tex.width - tex.height) <= 1) return ArtUvRectWholePage;
+            return ArtUvRectSpriteCrop;
+        }
+
         /// <summary>督军的**方形整身立绘**（`UI_Deck_Warlord_&lt;督军名&gt;`，`bundle_uiwarlords_assets_all`，
         /// **2048×2048 方形**、透明底抠图、构图居中；本机现读 63 张）。
         /// <para>🔴🔴 **2026-10-18 适用范围改判（铁律 5）—— 卡组格不用它**：

@@ -78,6 +78,29 @@ namespace RuleEngine
         public bool EphemeralMarked;
 
         /// <summary>
+        /// 🆕 **2026-10-25（引擎线 `A2` · `A2-3`）：换牌档位**（原版 `CardScript.mulliganOption`，`+0x260`）。
+        /// `-1` = **没打过档**（本局没跑换牌阶段 / 不是起手牌 / 旧数据）；其余 = 原版四档之一。
+        ///
+        /// <para>**判据**（第一权威 = `PlayerHand._AddCardsToMulligan_d__41__MoveNext.c:104-117`）：
+        /// 记 `pos = max(督军 initialHandModifier, 0)`、`e = secondExtraCards`（**只给非先手那一侧**）、
+        /// `base = startingHand + min(mod, 0)`、`count = pos + base + e`，逐张按**换牌列表下标** `i`：
+        /// `i &lt; +0x3c` → **30** · `i &lt; +0x3c + pos` → **20** · 否则 **10**，且
+        /// `e + +0x3c + pos &lt;= i` → **0**。⚠️ 那个 `+0x3c` 在同一协程里被写死成 **0**
+        /// ⇒ **30 档本路径不可达**（`P` 报告 §2/§8 同结论）。⇒ 实际 = `i &lt; pos → 20` ·
+        /// `pos &lt;= i &lt; pos+e → 10` · `i &gt;= pos+e → 0`。
+        /// <br>⚠️ **`PlayerHand__GetMulliganOption.c:5-16` 那份同族实现的标签不一样**（同样三个区间
+        /// 分别给 30 / 20 / 10），但它在全量反编译里**没有任何调用点** ⇒ 死代码，以协程为准。
+        /// 本条差异已记进 A2 报告「顺手发现」。</para>
+        /// <para>**消费点只有两处**（全反编译对 `+0x260` 的读取）：`CardScript__ClickMulliganSelected.c:27`
+        /// 与 `AI__GetAiMulliganCards.c:39`，**都是 `==30` 才拦** ⇒ 今天 30 不可达、20/10 没有消费者，
+        /// 所以这条字段**现读零可观测差异**（`play check` 指纹不变）。</para>
+        /// <para>⚠️ **档值不是坐标**：换牌摆位只由 `MoveCardToMulliganPos(hand, card, i, count)`
+        /// （= `CardsHorizontalLayout.GetPosition(i, count, …)`）吃 `i`/`count` 决定 —— 表现层照旧按
+        /// 下标摆，⛔ 别拿这个字段去算位置。</para>
+        /// </summary>
+        public int MulliganOption = -1;
+
+        /// <summary>
         /// 挂在这一份上的**手牌加成**（打出时以新上场的单位为靶跑一遍）。
         ///
         /// ✅ **2026-10-18（`A885`）：这里就是原来的那个存放处** ——

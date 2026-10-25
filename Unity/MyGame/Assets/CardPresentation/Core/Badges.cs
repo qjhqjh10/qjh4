@@ -428,8 +428,34 @@ namespace CardPresentation
             get { var a = new string[InPlayIconKeys.Count]; InPlayIconKeys.CopyTo(a); System.Array.Sort(a); return a; }
         }
 
+        // ── 「去重告警」与「本轮观测」是**两个集合** ──────────────────────────────────
+        //  ⚠️ **2026-10-25 更正（执行代理 `S` · 任务线 `T07` · 铁律 5 留痕）**：原来**只有一个**
+        //  `HashSet`（当时叫 `_notInDataWarned`），它同时是 ①「每个图名只告警一次」的**去重集**
+        //  和 ②`UnknownIconSpritesForTest`（自检读「这一趟见过哪些」）的**数据源** ⇒
+        //  `ResetUnknownForTest()` 一 `Clear()`，**告警也一起重新武装** ⇒ 自检
+        //  （`Editor/BadgeFilterAssert.cs` 每轮开扫前先 Reset）**每轮把同样那 17 个图名再打 17 行
+        //  `[Badges]` 日志**，而那 17 条在断言里被当成「已知/预期」解释掉 ⇒ **噪声被当成正常**。
+        //  现在拆开，各管一件事（⛔ 别再把两件事塞回同一个集合）：
+        /// <summary>去重告警集：**一辈子**每个图名只放行一次 `Debug.LogWarning`。
+        /// <para>⛔ `ResetUnknownForTest()` **不清它** —— 「只告警一次」的语义不该被自检的读口左右。</para></summary>
         static readonly HashSet<string> _notInDataWarned = new HashSet<string>();
-        /// <summary>自检用：到目前为止**不在那 47 条白名单里**的图名（去重、已排序）。
+        /// <summary>本轮观测集：`PlaysInPlayIcon` 每遇到一个**不在白名单里**的图名就记一笔。
+        /// <para>`ResetUnknownForTest()` **只清它** ⇒ 自检读到的是「这一趟见过的完整名单」。</para></summary>
+        static readonly HashSet<string> _notInDataSeen = new HashSet<string>();
+        /// <summary>真打出过多少行 `[Badges]` 告警（**只增不减**，不随 `ResetUnknownForTest` 归零）。
+        /// 自检用**差值**断「Reset 之后重跑同一批 ⇒ 新增 0 行」。见
+        /// <see cref="UnknownIconWarnCountForTest"/>。</summary>
+        static int _notInDataWarnCount;
+
+        /// <summary>自检用：自进程启动以来 `[Badges]` 未知图名告警**真打出的行数**（单调递增）。
+        /// <para>用法：判断「这一批有没有再告警」时取**差值**（`after - before`），⛔ 别比绝对值
+        /// —— 它不是「这一趟」的计数器（那一趟的名单看 <see cref="UnknownIconSpritesForTest"/>）。</para></summary>
+        public static int UnknownIconWarnCountForTest { get { return _notInDataWarnCount; } }
+
+        /// <summary>自检用：**这一趟**（自上次 <see cref="ResetUnknownForTest"/> 起）遇到过的、
+        /// **不在那 47 条白名单里**的图名（去重、已排序）。
+        /// <para>⚠️ 数据源是 <see cref="_notInDataSeen"/>（**本轮观测集**），**不是**告警去重集
+        /// —— 两者 2026-10-25 起是分开的（见上）。</para>
         /// <para>🔴 **2026-10-24（执行代理 `W24` · `D2_BattleScene11红诊断.md` §11）就地订正（铁律 5）**：
         /// 本段原来写「正常卡池里**应当是空的**（78 张图里除那 17 张外都能对上）」—— **自相矛盾**：
         /// 这个集合记的正是 <see cref="PlaysInPlayIcon"/> 里**被原版三列（`hasIcon` / `isInPlayIcon` /
@@ -438,31 +464,42 @@ namespace CardPresentation
         /// ⇒ 正常卡池里它**应当恰好是那 17 条**，⛔ **不是空**。</para>
         /// <para>⚠️ 真正那一格「图集里有、但 `trait_collection.json` 的 77 条里没有」**本集合从来没记过**
         /// （判它需要一份 77 条的完整键集，运行期读不到那份 JSON）。</para>
-        /// <para>⚠️ 它是**全进程累积**的（任何更早的 `Badges.For` 都会加数）⇒ 要「只看这一趟」先调
-        /// <see cref="ResetUnknownForTest"/>。</para></summary>
+        /// <para>⚠️ 它是**这一趟累积**的（自上次 <see cref="ResetUnknownForTest"/> 起，任何 `Badges.For`
+        /// 都会加数）⇒ 要「只看这一趟」先调 <see cref="ResetUnknownForTest"/>。</para></summary>
         public static string[] UnknownIconSpritesForTest
         {
-            get { var a = new string[_notInDataWarned.Count]; _notInDataWarned.CopyTo(a); System.Array.Sort(a); return a; }
+            get { var a = new string[_notInDataSeen.Count]; _notInDataSeen.CopyTo(a); System.Array.Sort(a); return a; }
         }
 
-        /// <summary>自检用：清空 <see cref="UnknownIconSpritesForTest"/> 的**累积**
+        /// <summary>自检用：清空 <see cref="UnknownIconSpritesForTest"/>（= **本轮观测集**）
         /// （全池扫那一趟开始前调一次，否则数里混着更早调用的残留 —— `D2` §11）。
-        /// <para>⚠️ 这个集合同时也是「每个新键只告警一次」的去重集 ⇒ 清空之后同样的图名**会再告警一次**
-        /// （有意的：自检里要的是「这一趟」的完整名单）。</para></summary>
-        public static void ResetUnknownForTest() { _notInDataWarned.Clear(); }
+        /// <para>⚠️ **2026-10-25 更正（执行代理 `S` · `T07` · 铁律 5）**：本段原来写着
+        /// 「这个集合同时也是『每个新键只告警一次』的去重集 ⇒ 清空之后同样的图名**会再告警一次**（有意的）」
+        /// —— **那句已不成立**：两个集合拆开了，本方法**只清观测集**，
+        /// 去重告警集 `_notInDataWarned` **不清** ⇒ Reset 之后同样的图名**不会再告警**
+        /// （自检因此不再每轮重打那 17 行日志），而「这一趟的名单」仍然完整
+        /// （观测集从空开始、本轮遇到就记）。旧写法见 `W24` / `W26` 的报告。</para></summary>
+        public static void ResetUnknownForTest() { _notInDataSeen.Clear(); }
 
         /// <summary>这个**图名**（`Art/traits/` 的文件名，= `SpriteOf` 的返回值）能不能进场上徽标。
         /// 判据 = 归一化后是否在 <see cref="InPlayIconKeys"/> 里（= 原版那三列在本 build 数据上的等价值）。
         /// <para>⚠️ **认不出的一律 false**（原版：不在 `TraitCollection` 里 ⇒ 永远进不了那张列表），
-        /// 且**每个新键只告警一次**（⛔ 不静默：真出现这种词说明数据/图集对不上，要人看一眼）。</para></summary>
+        /// 且**每个新键只告警一次**（⛔ 不静默：真出现这种词说明数据/图集对不上，要人看一眼）。
+        /// 🔴 **2026-10-25（`T07`）**：这里记两个集合 —— <see cref="_notInDataSeen"/>（**每遇到就记**，
+        /// Reset 会清，供自检读「这一趟」）与 <see cref="_notInDataWarned"/>（**一辈子只放行一次告警**，
+        /// Reset 不清）。⛔ 别把两句合成一句「`Add` 成功才记」—— 那正是旧的「一集两用」写法。</para></summary>
         public static bool PlaysInPlayIcon(string sprite)
         {
             if (string.IsNullOrEmpty(sprite)) return false;
             if (InPlayIconKeys.Contains(Key(sprite))) return true;
-            if (_notInDataWarned.Add(sprite))
+            _notInDataSeen.Add(sprite);                 // 本轮观测集：每遇到就记（Reset 只清这个）
+            if (_notInDataWarned.Add(sprite))           // 去重告警集：一辈子只放行一次
+            {
+                _notInDataWarnCount++;
                 Debug.LogWarning("[Badges] 图 `" + sprite + "` 不在「场上图标」那 47 条里（判据 = `trait_collection.json`"
                                + " 的 `hasIcon && isInPlayIcon && traitIcon != null`）⇒ 按原版口径**不画**这枚徽标。"
                                + " 若它确实该画：先重跑 `工具/export_trait_collection.py` 核数据，再补进 `Badges.InPlayIconKeys`。");
+            }
             return false;
         }
 

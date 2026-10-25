@@ -365,6 +365,38 @@ namespace RuleEngine
                            + "原版 `StartBattlePhase` → `AddGoesSecondCardToDeck`）"
                          : $"（防御卡发给了后手 {ctx.Players[ctx.SecondSeat].Name}）"));
             }
+            // 🆕 **2026-10-25（引擎线 `A2` · `A2-3`）：给每张【起手牌】打换牌档位**
+            //   （原版 `CardScript.mulliganOption`，`CardScript + 0x260`）。
+            //   判据（第一权威）= `PlayerHand._AddCardsToMulligan_d__41__MoveNext.c:104-117`：
+            //     `pos = max(督军 initialHandModifier(+0x118), 0)` ·
+            //     `e   = secondExtraCards(+0x20)`（**只给非先手那一侧**）·
+            //     `count = pos + base + e`（`base = startingHand + min(mod, 0)`）；
+            //     逐张按换牌列表下标 `i`：`i < +0x3c` → 30（**`+0x3c` 被写死 0 ⇒ 不可达**）·
+            //     `i < +0x3c + pos` → 20 · 否则 10，且 `e + +0x3c + pos <= i` → 0。
+            //   ⇒ 实际区间：`i < pos → 20` · `pos <= i < pos+e → 10` · `i >= pos+e → 0`。
+            //   ⚠️ **这条不影响摆位**（摆位只吃 `index/count`，见 `CardInstance.MulliganOption` 的 doc）；
+            //      今天 1351 张 `initialHandModifier` 全 0 ⇒ `pos=0`，只有后手那张（`e=1`）的**下标 0** 是 10 档。
+            //   ⚠️ 教程局 `mulliganOpenNow == false` ⇒ 一个字段都不打（原版教程根本不跑这条协程）。
+            if (mulliganOpenNow && tutorial == null)
+            {
+                for (int seat = 0; seat < 2; seat++)
+                {
+                    int mod = (ctx.Players[seat].Warlord != null && ctx.Players[seat].Warlord.Card != null)
+                            ? ctx.Players[seat].Warlord.Card.InitialHandModifier : 0;
+                    int pos = System.Math.Max(mod, 0);
+                    int extra = (seat == ctx.SecondSeat) ? extraCards : 0;
+                    var hand = ctx.Players[seat].Hand;
+                    for (int i = 0; i < hand.Count; i++)
+                    {
+                        if (hand[i] == null) continue;
+                        hand[i].MulliganOption = i < pos ? 20 : (i < pos + extra ? 10 : 0);
+                    }
+                    if (pos > 0 || extra > 0)
+                        ctx.Log($"{ctx.Players[seat].Name} 的换牌档位：下标 0..{pos - 1} = 20 · "
+                              + $"{pos}..{pos + extra - 1} = 10 · 其余 = 0"
+                              + "（原版 `CardScript.mulliganOption` @0x260；档值不是坐标）");
+                }
+            }
             // 开局上手（`Start the game with <卡名> in hand.`）—— 见 `CardDef.StartWithInHand`。
             // ⚠️ **排在发完起手牌之后**：它是「**额外**指定某张卡一定在手里」，不是替换起手牌。
             for (int p = 0; p < 2; p++) SetupStartWith(ctx, p);
@@ -419,6 +451,16 @@ namespace RuleEngine
             {
                 int k = handIndices[i];
                 if (k < 0 || k >= ps.Hand.Count || idx.Contains(k)) continue;
+                // 🆕 **2026-10-25（引擎线 `A2` · `A2-3`）：`mulliganOption == 30` 的牌不许换**
+                //   （原版唯一闸 = `CardScript__ClickMulliganSelected.c:27` 的 `+0x260 != 0x1e`）。
+                //   ⚠️ 今天 30 档**本路径不可达**（协程里 `+0x3c` 写死 0，见 `CardInstance.MulliganOption`）
+                //   ⇒ 这一段现读零行为变化；它是**结构性对齐**，别当缺陷修复读。
+                if (ps.Hand[k].MulliganOption == 30)
+                {
+                    ctx.Log($"{ps.Name} 的「{ps.Hand[k].Card.Name}」换牌档位 = 30 ⇒ **不许换掉**"
+                          + "（原版 `CardScript__ClickMulliganSelected.c:27`）");
+                    continue;
+                }
                 // 🔴 **2026-10-08（`D28` 施工单 A）：这里原来有一条「防御卡不许换掉」的守卫 —— 已删。**
                 //    它存在的唯一理由是「我们图省事把防御卡放在了**换牌之前**」（原版是「抽完起手牌 →
                 //    换牌 → **再**置入防御卡」，规则书 `:121`）。现在置入时机已经照原版挪到换牌之后
@@ -6677,6 +6719,23 @@ namespace RuleEngine
         /// </summary>
         public static int DamageAfterReduction(UnitState u, int dmg)
         {
+            int _;
+            return DamageAfterReduction(u, dmg, out _);
+        }
+
+        /// <summary>🆕 **2026-10-25（执行代理 `E4` · `E4-3`）：同 <see cref="DamageAfterReduction(UnitState,int)"/>，
+        /// 另把「**易伤那第二拍**那一份」单独吐出来（<paramref name="vulnPart"/>）。
+        ///
+        /// <para>**为什么要拆**：原版易伤是**另一条 `DamageInfo` / 另一个动作**
+        /// （`CardScript._ReceiveDamage_d__381__MoveNext.c:226 / :252-254`）⇒ 表现层要**两条** `Hit`。
+        /// 那份的量与「落不落」的闸（`actual > 0` ∧ 非残骸 ∧ 主伤害之后还活着）**只在这里算一次**
+        /// —— 消费端（`RuleCore.ApplyDamage`）拿 `vulnPart` 拆事件，⛔ 别在那边按同样条件再推一遍
+        /// （推错一次就静默多发/少发一条 `Hit`）。</para>
+        /// <para>契约：`vulnPart == 0` ⇒ 这一下**没有**第二拍（返回的主伤害里也不含它）；
+        /// `> 0` ⇒ 返回值 = 主 + `vulnPart`。</para></summary>
+        public static int DamageAfterReduction(UnitState u, int dmg, out int vulnPart)
+        {
+            vulnPart = 0;
             if (u == null) return 0;
             if (u.HasShield) return 0;                  // 盾挡下（并会碎）—— 所以「带盾的」判不出「打得死」
                                                         // 🔴 `A1106`：`HasShield` 现在是 `Has("shield")` 的派生属性
@@ -6755,7 +6814,8 @@ namespace RuleEngine
             //      **一击就能致死 + 带易伤**那一档**不再成立**（非致死档仍然相等 ——
             //      `RuleEngineTest` 的 `A1563` ⑤ 取的就是非致死档）。
             if (actual <= 0 || u.IsRemnant || u.Health - actual <= 0) return actual;
-            return actual + VulnerableDamagePart(u);
+            vulnPart = VulnerableDamagePart(u);
+            return actual + vulnPart;
         }
 
         /// <summary>
@@ -7648,7 +7708,12 @@ namespace RuleEngine
             // ⚠️ 数值**一律走 `DamageAfterReduction`**（全仓唯一一份公式）——
             //    这一支只负责**副作用**：日志 / 事件 / 消费盾与闪避 / 翻伏击 / 扣血。
             //    2026-09-14：公式原来内联在这里，抽出去是为了让 `WouldKill` 的**预测**与实际**不可能分叉**。
-            int actual = DamageAfterReduction(u, dmg);
+            // 🔴🆕 **2026-10-25（执行代理 `E4` · `E4-3`）**：`vulnSecondPart` = **易伤那第二拍**那一份
+            //   （原版是**另一条 `DamageInfo` / 另一个动作**：`_ReceiveDamage…:226 / :252-254`）——
+            //   由 `DamageAfterReduction` 的**同一个收口**吐出来（那道「落不落」的闸只在那里算一次）。
+            //   下面两条分支（空投舱 / 堡垒）会**各自覆盖**它（它们的量不是主伤害走护甲那条路算的）。
+            //   ⚠️ 它在函数尾被**拆成第二条 `EvtKind.Hit`**（`Amount = 它`），主那条只带 `actual − 它`。
+            int actual = DamageAfterReduction(u, dmg, out int vulnSecondPart);
 
 
             // ---- ① 盾 / 闪避（**一次性**：挡下这一下 + 把这条摘掉）----
@@ -7906,6 +7971,10 @@ namespace RuleEngine
                     //   ⚠️ **可达性**：全池 **0 张**卡带 `dropPod`（`cards_engine.json` 现扫）⇒
                     //     改前改后**今天都不可达**，行为差异 = 0（铁律 11：仍然照原版做）。
                     actual = podVuln;
+                    // 🔴 2026-10-25（`E4` · `E4-3`）：这一支里**主伤害只进血池、一点不进血**
+                    //   ⇒ 落到血上的 `actual` **整个都是易伤那一份** ⇒ 拆事件时第二拍 = 它、主那份 = 0。
+                    //   （⚠️ 全池 0 张卡带 `dropPod` ⇒ 今天不可达，照原版补齐、如实标着。）
+                    vulnSecondPart = podVuln;
                 }
                 else
                 {
@@ -7963,6 +8032,9 @@ namespace RuleEngine
                 int vuln = alreadyVulnerableHit ? 0 : VulnerableDamagePart(u);
                 bool vulnSecond = vuln > 0 && hit > 0 && !u.IsRemnant && (u.Health - overflow) > 0;
                 actual = vulnSecond ? overflow + vuln : overflow;
+                // 🔴 2026-10-25（`E4` · `E4-3`）：这一支的「第二拍落不落」判据就在上面这一句里
+                //   ⇒ 拆事件时直接用同一个结论（⛔ 别在函数尾按别的条件再推一遍）。
+                vulnSecondPart = vulnSecond ? vuln : 0;
                 ctx.Log($"{u.Name} 的 Bastion {bastion} 被打穿 —— {source} 的 {hit} 点里"
                       + $"溢出 {overflow} 点打到生命"
                       + (vulnSecond ? $"；另有易伤那一发 {vuln} 点（堡垒已空 ⇒ 走护甲路）" : ""));
@@ -8072,7 +8144,22 @@ namespace RuleEngine
             //      —— 原版第二发是**另一条** `DealMultiDamage`、有它自己的 `DamageInfo`
             //      （`GetAdjustedDamage` 那时 `dropPod` 已摘 ⇒ `absorbed = 0`）⇒ 这一发**本来就该广播**。
             //      ⛔ 别为了「统一」写成 `EmitHit(ctx, u, actual, absorbed)`（那会漏掉第二发）。
-            EmitHit(ctx, u, actual);
+            // 🔴🆕 **2026-10-25（执行代理 `E4` · `E4-3`）：**这一下要发【两条】`EvtKind.Hit`。**
+            //   判据（第一权威 = `CardScript._ReceiveDamage_d__381__MoveNext.c` 373 行读全，
+            //   全表 → `资料/普查产出_1025/J3_判据_战斗剩余四条.md` §3）：
+            //     · 主那一拍（`:188` 之前）= **1.0 s**，`Amount` = **不含易伤那份**的主伤害；
+            //     · 易伤那一拍是**另一条 `DamageInfo`**（`:226` 造、`:252-254 DealMultiDamage`）=
+            //       **1.4 s**，量 = `CurrentVulnerable` 再走一遍管线（= `VulnerableDamagePart`）；
+            //     · 两拍**串行**（`DealMultiDamage` 是 `void`、只入队 `priority = 2`）⇒ **主在前**。
+            //   改前我们把两份**折进一条** `Hit`（`actual` 是合计）⇒ 表现层只能整体按「易伤」排 1.4 s，
+            //   主那 1.0 s 根本没建模、而且飘字多算一份。
+            //   ⚠️ `vulnSecondPart` 由 `DamageAfterReduction` / 空投舱 / 堡垒三处之一给出
+            //     （⛔ 别在这里重新推条件 —— 那道闸只该有一份）。
+            //   ⚠️ 两条都过 `EmitHit` ⇒ 各自发 `EvtKind.Hit` + `damaged` 广播 —— 原版第二拍
+            //     也是完整走一遍 `_ResolveMultiDamage`（`:141 BroadcastUnitDamaged`）⇒ **双广播是对的**。
+            int _mainPart = actual - vulnSecondPart;
+            EmitHit(ctx, u, _mainPart);
+            if (vulnSecondPart > 0) EmitHit(ctx, u, vulnSecondPart, vulnerableSecond: true);
             u.Health -= actual;
             // 🆕 2026-09-23 战果：算给**被打那个单位的对方**（「打自己人」因此不会被记成「对敌方伤害」）
             // ⚠️ `OwnerOf` **是 `RuleCore` 这个 partial 类里早就有的那一份**（定义在 `Core/EffectResolver.cs`），
@@ -8302,12 +8389,26 @@ namespace RuleEngine
         /// **返回它归谁**（`-1` = 不在场上）—— 调用方常要拿它再发一条，别再自己找一遍（判据只有一处）。
         /// 🆕 2026-10-19：**实例号在这一处统一填**（`BattleEvent.InstanceId` = `u.Instance.Id`）——
         /// 这是「单位相关事件带稳定身份」的唯一默认口（其它直接 `ctx.Emit` 的落点各自显式传）。</summary>
-        static int EmitUnit(BattleContext ctx, EvtKind kind, UnitState u, int amount, string effect = null)
+        static int EmitUnit(BattleContext ctx, EvtKind kind, UnitState u, int amount, string effect = null,
+                            // 🔴🆕 2026-10-25（执行代理 `E4` · `E4-3`）：这条 `Hit` 是不是易伤那第二拍。
+                            //   只有 `EmitHit` 会传 true；别的种类/调用点一律缺省 false。
+                            bool vulnerableSecond = false)
         {
             int owner, slot;
             FindUnit(ctx, u, out owner, out slot);
-            ctx.Emit(kind, owner, slot, u != null ? u.Name : null, amount: amount, effect: effect,
-                     instanceId: u != null ? u.InstanceId : 0);
+            // ⚠️ 这里**显式构造**（不用 `ctx.Emit(kind, …)` 那个按字段的重载）—— 因为要多带
+            //   `IsVulnerableSecondHit` 这一位。字段集合与改前那一次调用**逐字相同**（同值同序）。
+            ctx.Emit(new BattleEvent
+            {
+                Kind = kind,
+                Player = owner,
+                Slot = slot,
+                CardId = u != null ? u.Name : null,
+                Amount = amount,
+                Effect = effect,
+                InstanceId = u != null ? u.InstanceId : 0,
+                IsVulnerableSecondHit = vulnerableSecond,
+            });
             return owner;
         }
 
@@ -8401,9 +8502,13 @@ namespace RuleEngine
         /// <param name="absorbed">原版 `DamageInfo.damageAbsorbed` —— 已挡下。今天所有挡下的调用点
         /// 传的都是 `amount = 0`（两条闸任一命中即可），这个形参是给「**挡下了但数值非 0**」那种
         /// 原版形态留的（`GetAdjustedDamage.c:39-50` 置 absorbed **不改** damageValue）。</param>
-        static void EmitHit(BattleContext ctx, UnitState u, int amount, bool absorbed = false)
+        static void EmitHit(BattleContext ctx, UnitState u, int amount, bool absorbed = false,
+                            // 🔴🆕 2026-10-25（执行代理 `E4` · `E4-3`）：`true` = **易伤那第二拍**
+                            //   （`BattleEvent.IsVulnerableSecondHit` 的 doc 有完整判据）。
+                            bool vulnerableSecond = false)
         {
-            int owner = EmitUnit(ctx, EvtKind.Hit, u, amount);   // ⚠️ 表现层**不受**下面那两条闸影响
+            int owner = EmitUnit(ctx, EvtKind.Hit, u, amount, vulnerableSecond: vulnerableSecond);
+            // ⚠️ 表现层**不受**下面那两条闸影响
 
             // 🆕 `When <单位> receives damage, …`（2026-09-13 第三十四轮）。
             // ⚠️ 在这之前 `WhenEventKind.Damaged` **一个广播点都没有** ——
@@ -9078,7 +9183,15 @@ namespace RuleEngine
             // ⚠️ **排在死者自己的死亡族【之后】**（判据见上面那段 `_ResolveBacklash…:88` vs `:144`）。
             // ⚠️ `who = p`（**死者的阵营**）—— 极性判据（friendly / enemy）在
             //    `WhenEvents.Matches` 里拿它和监听者的阵营比。给错就等于整档反着触发。
-            BroadcastWhen(ctx, WhenEventKind.Die, p, u.Card, u);
+            BroadcastWhen(ctx, WhenEventKind.Die, p, u.Card, u,
+                          // 🔴🆕 **2026-10-25（执行代理 `E3` · `E2` 报告 §六）**：原版这一跳的
+                          //   **`actingCard` = 凶手**（`RawCardScript.OnMinionDeath(manager, thisCard,
+                          //   actingCard, deadCard, …)` 里它与 `deadCard` 是**两个形参**；
+                          //   判据 `d:/2/tools/il2cpp_out/dump.cs:23526`）。
+                          //   我们这一路 = `CleanupDeaths` 的 `actingCard` 形参（`DamageInfo.actingCard`
+                          //   一路带下来的来源卡）。`null`（毒 / 反噬 / 反击 / 无来源清场）
+                          //   ⇒ ability 级 `actingCardCriteria` 那道闸**判不了 ⇒ 出声并跳过**。
+                          actingCard: actingCard);
 
             // ---- 🔴🆕 **死因分派（原版 `RawCardScript__OnMinionDeath.c:25-37`）** ----
             //   原版同一个调用里：`10 → 175 UnitDeathAttacking` / **`20 → 180 UnitDeathByAbility`** /
@@ -9355,6 +9468,13 @@ namespace RuleEngine
                 // 🔴 `holdNestedDeaths: true` —— 本死者触发段里的嵌套死亡**留给本循环**
                 //   追加到队尾（见上面那段 P2-1 判据）。
                 CleanupDeaths(ctx, nowP, nowSlot, pd.Killer, maySurvive: pd.MaySurvive,
+                              // 🆕 2026-10-25（执行代理 `E3`）：**`actingCard` 也要回放** —— 它原本只
+                              //   用来记击杀（`TryCreditKill`），从这个批次开始还要喂 `Die` 广播的
+                              //   `actingCardCriteria` 第一道闸（原版 `BattleAction.actingCard` = 凶手）。
+                              //   ⚠️ 行为不变：本调用显式传 `holdNestedDeaths: true` ⇒ 方法尾段那条
+                              //   `&& actingCard == null` 的 flush 闸被短路，`actingCard` 不进任何判据；
+                              //   `ctx.AddPendingDeath` 那一支按身份去重（同 `PendingDeath.ActingCard` 的 doc）。
+                              actingCard: pd.ActingCard,
                               holdNestedDeaths: true, deathType: pd.DeathType);
                 // ---- 这一个死者的击杀记账（`W58-INTERLEAVE` 的交错点）----
                 // ⚠️ 放在 `CleanupDeaths` **之后**（见上面那段判据）；`TryCreditKill` 自己判
@@ -10074,23 +10194,411 @@ namespace RuleEngine
         /// |---|---|---|
         /// | 先锋 Vanguard | **不管** —— 原文是「其他单位不能被选为**攻击目标**」 | 规则书 :223 |
         /// | 飞行 Flying | **不管** —— 原文是「只能被…以**近战攻击**选中」 | 规则书 :188 |
-        /// | 潜行 Stealth | **管** —— 原文是「不能被**任何方式**选中」 | 规则书 :211 |
+        /// | 潜行 Stealth | **管，但只在【异侧】** —— 原文是「不能被**任何方式**选中」；原版的实现是 `isPlayer !=` 才看它 | 规则书 :211 · `BattleManager__IsValidActiveAbilityTarget.c:47-50` |
         /// | 无法攻击 Can't Attack | **不管** —— 只禁攻击。0 攻单位能放技能，正是它的价值 | 规则书 :174 |
+        ///
+        /// 🔴🆕 **2026-10-25（执行代理 `E5` · `E5-2`）**：候选合法性的**全部判据**（含上面这一行、
+        /// 「督军不是一律不可点」、以及四道现池 0 张的闸）都收在 <see cref="CanUseAbilityTarget"/> 上面
+        /// 那一段注释里 —— ⛔ 别在本方法的注释里写第二份。
         /// </summary>
         /// <param name="targetSlot">技能目标需要选单位时才用（`EffectTargets.NeedsPick`）</param>
         public static int CanUseAbility(BattleContext ctx, int p, int slot, int targetSlot = -1)
         {
+            int owner;
+            return CanUseAbility(ctx, p, slot, targetSlot, out owner);
+        }
+
+        /// <summary><see cref="CanUseAbility"/> 的**带所有者输出**版本 —— 结算侧（`UseAbilityCore`）用它拿
+        /// “这一手实际解到哪一侧的棋盘”，⛔ 别在结算里另算一次（那会与闸判出不同的侧 = 静默错打）。
+        ///
+        /// <para>🔴🆕 **2026-10-25（执行代理 `E8` · `E8-1`）：候选所有者不再写死 `1 - p`。**
+        /// 改前 = <see cref="CanUseAbilityTarget"/> 的「候选恒为敌方」包装（`targetOwner = 1 - p`），
+        /// 而原版候选侧由 `ActiveAbility.targetCriteria` 决定（`enemyUnits` / `friendlyUnits` 两格）⇒
+        /// 「友方 / 双方」两档在引擎侧**走不到**（`AU1` §十五·三 的卡点 ①②）。现在按
+        /// <see cref="AbilityPickSideOf"/> 的结论取所有者：
+        /// 敌方 ⇒ `1 - p`（与现状**逐位相同**）· 友方 ⇒ `p` · 任意 ⇒ **两侧都试**（次序见
+        /// <see cref="AbilityPickOwnersOf"/>）· 判不出 ⇒ **退回敌方 + 出声**（⛔ 不猜）。
+        /// 判据 = `BattleManager__IsValidActiveAbilityTarget.c:47-56` +
+        /// `RawCardScript__IsValidActiveAbilityTarget.c:94-107`（见 <see cref="CanUseAbilityTarget"/> 的 doc）。</para>
+        /// <para>⚠️ **今天的可达面 = 0 张**：`Ability:` 那一档在我们池内 0 张（`EffectTargets.FriendlyUnit` 的 doc）
+        /// ⇒ 既有卡的行为一个字节都没变，只有合成夹具走得到。</para>
+        /// </summary>
+        /// <param name="targetOwner">实际选中的候选所有者座位（`0/1`）。只在
+        /// <see cref="EffectTargets.NeedsPick"/> 的技能上才有意义；其余情况回 `1 - p`（老口径、未被使用）。</param>
+        public static int CanUseAbility(BattleContext ctx, int p, int slot, int targetSlot, out int targetOwner)
+        {
+            targetOwner = 1 - p;
             int code = CanStartAbility(ctx, p, slot);
             if (code != RuleCodes.OK) return code;
 
-            if (!EffectTargets.NeedsPick(ctx.Players[p].Board[slot].Ability.Target)) return RuleCodes.OK;
+            var caster = ctx.Players[p].Board[slot];
+            if (!EffectTargets.NeedsPick(caster.Ability.Target)) return RuleCodes.OK;
 
             if (!BoardSpec.IsValid(targetSlot)) return RuleCodes.ErrTarget;
-            var t = ctx.Players[1 - p].Board[targetSlot];
-            // 要选**单位**的目标就只能是部队 —— 想打督军的卡，目标那一栏会直接写 `EnemyWarlord`
-            if (t == null || t.IsWarlord) return RuleCodes.ErrTarget;
-            if (t.Has(KeywordTable.Stealth)) return RuleCodes.ErrTarget;
+            // 🔴🆕 **2026-10-25（执行代理 `E5` · `E5-2`）：候选合法性整段搬进 `CanUseAbilityTarget`** ——
+            //   改前这里是三句老闸（`t == null || t.IsWarlord` / `t.Has(Stealth)`），
+            //   其中「督军一律不可点」与「潜行不分侧」两条都与原版不符（判据见那个方法的 doc）。
+            // 🔴🆕 **2026-10-25（执行代理 `E8` · `E8-1`）：候选**所有者**也搬进
+            //   `ResolveAbilityTargetOwner`（按原版 criteria 的候选侧；⛔ 不再是恒 `1 - p`）。
+            return ResolveAbilityTargetOwner(ctx, p, caster, targetSlot, out targetOwner);
+        }
 
+        // ==================================================================
+        //  🆕 2026-10-25（执行代理 `E8` · `E8-1`）：主动能力的**候选侧**（原版 criteria 两格）
+        // ==================================================================
+        //  判据（第一权威 = 全量反编译）：
+        //   · `ActiveAbility.targetCriteria`（`+0x38`）的 `friendlyUnits(+0x14)` / `enemyUnits(+0x15)`
+        //     两格决定候选池的**侧**（`AbilityLogic__GetTargets.c` 的
+        //     `GetUnitsInPlayList(manager, list, …, both = friendly != 0 || enemy != 0)` 那一族调用；
+        //     两格各自筛同侧 / 异侧、都开 = 两侧都留）；`includeSelf` 是**过滤器**不是第三侧
+        //     （→ `E5_引擎剩余小缺口.md` §E5-2/§E5-3）。
+        //   · `BattleManager__IsValidActiveAbilityTarget.c` 65 行**没有**「候选恒敌方」这一条。
+        //   · `targetsAffected = any` 时原版 `return 1` 且生成器**不落那一行** ⇒ 我们这边
+        //     `set == null && why == null` ⇒ **任意侧**（与 `ActiveAbilityPickGate` 同一条读法）。
+        //  ⚠️ **与表现层同一个决策**：`BattleDriver.AbilityPickOwner` 读的也是这两格
+        //     （它那边叫 `AbilityPickSideOf`，是**同一判据的另一个副本** ——
+        //      2026-10-25 `E8` 已把引擎这一份开成 public，表现层那份应当改成转发过来，
+        //      `BattleDriver.cs` 不在本片白名单 ⇒ 已记账，见 `E8_友方目标与监听器次序.md` §三）。
+
+        /// <summary>这一次主动能力原版的**候选侧**。`Unknown` 与 `Any` **不是一回事**：
+        /// `Any` = 原版说「两侧都行」· `Unknown` = **判不出来**（列没落 / 支判不出 / 两格都不是 0/1）。</summary>
+        public enum AbilityPickSide { Unknown = 0, Enemy = 1, Friendly = 2, Any = 3 }
+
+        static readonly HashSet<string> _abilityPickOwnerNoted = new HashSet<string>();
+        static int _abilityPickOwnerWarn;
+
+        /// <summary>🔴 **只为自检开门**（同 `ActiveAbilityPickCriteriaWarningsForTest` 的纪律：**不改任何行为**）。</summary>
+        public static int AbilityPickOwnerWarningsForTest { get { return _abilityPickOwnerWarn; } }
+        /// <summary>自检用：把上面的计数清零（**不清闩** —— 生产路径不调）。</summary>
+        public static void ResetAbilityPickOwnerWarningsForTest() { _abilityPickOwnerWarn = 0; }
+
+        /// <summary>候选侧判不出时的出声口（同一 `(卡, 原因)` 只喊一次；走 `Debug.LogWarning`
+        /// —— ⛔ 不进 `ctx.Log`，那会改 `ctx.Events.Count` ⇒ 动到 `Fingerprint`，见 `NoteActivePickGap`）。</summary>
+        static void NoteAbilityPickOwnerGap(CardDef card, string why)
+        {
+            _abilityPickOwnerWarn++;
+            string k = (card != null ? card.Id : "?") + "|" + (why ?? "?");
+            if (_abilityPickOwnerNoted.Count > 512) _abilityPickOwnerNoted.Clear();
+            if (!_abilityPickOwnerNoted.Add(k)) return;
+            UnityEngine.Debug.LogWarning($"[RuleEngine] 主动能力候选侧：「{card?.Name}」判不出来 —— {why}"
+                                       + " ⇒ 本次**退回敌方候选**（⛔ 不猜一个侧）。"
+                                       + "判据 → `AbilityLogic__GetTargets.c` 的 friendly/enemy 两格");
+        }
+
+        /// <summary>判据本体（纯读，不写行为）。`why` = 判不出时的原因（判得出时为 `null`）。</summary>
+        public static AbilityPickSide AbilityPickSideOf(BattleContext ctx, int p, UnitState caster, out string why)
+        {
+            why = null;
+            if (ctx == null || caster == null || caster.Card == null) { why = "没有卡数据"; return AbilityPickSide.Unknown; }
+
+            // 走普通支还是替代支（原版 `RawCardScript.GetActiveAbility` 的等价物）；判不出就不猜。
+            bool? alt = caster.Card.UsesAlternativeAbility(ctx, p, caster);
+            if (alt == null) { why = "判不出走的是普通支还是替代支"; return AbilityPickSide.Unknown; }
+            int ab = alt.Value ? CardDef.AlternativeAbilityObject : CardDef.ActiveAbilityObject;
+
+            string setWhy;
+            var set = caster.Card.ActiveAbilityPickCriteriaFor(ab, out setWhy);
+            if (set == null)
+            {
+                // `why == null` ⇒ 原版 `targetsAffected = any`（生成器不落行）= **任意侧**；
+                // 否则 = 这一列判不了（⛔ 不当作「任意」）。
+                if (setWhy == null) return AbilityPickSide.Any;
+                why = "criteria 判不了：" + setWhy;
+                return AbilityPickSide.Unknown;
+            }
+            int en = set.EnemyUnits, fr = set.FriendlyUnits;
+            if (en == 1 && fr == 0) return AbilityPickSide.Enemy;
+            if (fr == 1 && en == 0) return AbilityPickSide.Friendly;
+            if (en == 1 && fr == 1) return AbilityPickSide.Any;
+            why = $"criteria 的候选侧两格不是 0/1（`enemyUnits={en}` / `friendlyUnits={fr}`）";
+            return AbilityPickSide.Unknown;
+        }
+
+        /// <summary>候选所有者（座位）的**尝试次序**。`second < 0` = 只有一个候选。
+        /// <para>🔴 **`Any` 的次序是「先敌方、后友方」—— 这是我们挑的，原版没有这一格**：
+        /// 原版把两侧合进**同一个候选池**（`GetUnitsInPlayList(…, both=true)`），由 36 格 criteria 筛，
+        /// 不按侧排序。我们这边的对外入口只传「一个格号」（`targetSlot`），两侧同号格都有人时
+        /// **判不出玩家点的是哪一侧** ⇒ 定一个**确定性**次序（敌方优先 = 改前行为），
+        /// 联机 / 回放两端因此必然一致。⚠️ 真要做「两侧都能点、同号格也分得清」，
+        /// 得给入口加一个显式 `targetOwner`（`CanUseAbilityTarget` 已经有那一格）——
+        /// 表现层那一半在 `BattleDriver.cs`（不在本片白名单），已记账。</para></summary>
+        static void AbilityPickOwnersOf(int p, AbilityPickSide side, out int first, out int second)
+        {
+            second = -1;
+            switch (side)
+            {
+                case AbilityPickSide.Friendly: first = p; return;
+                case AbilityPickSide.Any: first = 1 - p; second = p; return;
+                default: first = 1 - p; return;       // Enemy / Unknown（后者由调用方先出声）
+            }
+        }
+
+        /// <summary>把「候选侧 + 点到的格号」解成 **实际选中的所有者**，并用
+        /// <see cref="CanUseAbilityTarget"/> 过一遍候选合法性（**判据只此一份**）。
+        /// <para>返回首个成功那一侧的 `OK`；两侧都不行 ⇒ 回**第一候选**（敌方）的错误码
+        /// —— 与改前逐位相同（改前只有敌方一档，报的就是那一档的码）。</para></summary>
+        static int ResolveAbilityTargetOwner(BattleContext ctx, int p, UnitState caster, int targetSlot,
+                                             out int targetOwner)
+        {
+            string why;
+            var side = AbilityPickSideOf(ctx, p, caster, out why);
+            if (side == AbilityPickSide.Unknown)
+            {
+                NoteAbilityPickOwnerGap(caster != null ? caster.Card : null, why);
+                side = AbilityPickSide.Enemy;         // 退回敌方候选（= 改前的唯一一档）
+            }
+
+            int first, second;
+            AbilityPickOwnersOf(p, side, out first, out second);
+
+            int firstCode = RuleCodes.ErrTarget;
+            for (int i = 0; i < 2; i++)
+            {
+                int owner = i == 0 ? first : second;
+                if (owner < 0 || owner > 1) break;
+                int code = CanUseAbilityTarget(ctx, p, caster, owner, targetSlot);
+                if (code == RuleCodes.OK) { targetOwner = owner; return RuleCodes.OK; }
+                if (i == 0) firstCode = code;
+            }
+            targetOwner = first;
+            return firstCode;
+        }
+
+        // ==================================================================
+        //  🆕 2026-10-25（执行代理 `E5` · `E5-2`）：主动能力的**候选合法性**
+        //  （原版 `BattleManager.IsValidActiveAbilityTarget`，逐条）
+        // ==================================================================
+        //  判据（第一权威 = `d:/2/tools/decomp_full/BattleManager__IsValidActiveAbilityTarget.c`，65 行）：
+        //   1. `:21-28` 候选非 null + `CardScript__IsInPlay(候选)`（`:28`）；
+        //      `CardScript__IsInPlay.c` = `cardState(+0x228) ∈ {2 inPlay, 15, 3, 17}`；
+        //   2. `:30-35` 教程许可（我们没做教程战斗 ⇒ 这条恒过）；
+        //   3. `:39-46` **`thisCard.isPlayer(+0x40) == IsPlayerTurn()`** —— 施放者必须是**当前回合方**
+        //      （我们的 `CanStartAbility` 已要求 `p == ctx.Active` ⇒ 等价）；
+        //   4. 🔴 `:47-50` **潜行只在【异侧】才挡**：
+        //      `if (thisCard.isPlayer != 候选.isPlayer && HasCurrentTrait(候选, 0x46 = 70 stealth)) ⇒ 0`；
+        //   5. `:51-54` 同理 `isCurrentlyWarded` 也**只在异侧**挡 ——
+        //      `EntityScript__get_isCurrentlyWarded.c` = `HasCurrentTrait(0x8c=140 ward) ||
+        //      HasCurrentTrait(0x91=145 wardWb)`；
+        //   6. `:55-56` 候选带 `summonRift(0x2da = 730)` ⇒ **一律**不可点（不分侧）；
+        //   7. 最后 `CardScript__IsValidActiveAbilityTarget`（虚派发 → `RawCardScript__IsValidActiveAbilityTarget.c`）
+        //      `:94-102` 再判一次 ward / stealth（同样异侧才挡）、`tainted(0xa0 = 160)` 那一闸
+        //      （候选 tainted 且 !(候选 vanguard ∧ 非隐身) 且**异侧** 且**载体 `cardType == 10 Hero`**）⇒ 0；
+        //      然后 `:103-107` 才把候选喂给
+        //      `FilterMethods.CheckIfMeetsCriteria(thisCard, 候选, 候选, activeAbility.targetCriteria(+0x38), 0)`
+        //      （= `ActiveAbilityPickGate` 那 36 格）。
+        //  ⇒ 🔴 **原版【没有】「督军不能当主动能力目标」这条**：督军只要 `IsInPlay`、且 criteria 的
+        //     `includeHero` 允许，就能被点。**改前我们一句 `t.IsWarlord ⇒ ErrTarget` 把它一律拒了** ——
+        //     现读池内（`cards_engine.json` v28）`activeAbilityPickCriteria` 有 **62 行 `includeHero = 1`**
+        //     （例如 `AM68` / `SW4` / `SOR6` 这类「Deal N damage to an enemy」：`enemyUnits = 1 ∧
+        //     includeHero = 1 ∧ includeMinions = 1` = 原版认为**督军也算「an enemy」**）⇒ 那批全被老闸挡住。
+        //     ⛔ 别把这条当成「我们自己的文法 `EnemyUnit` 不含督军」—— 项目口径是
+        //     「卡面写 `unit(s)` 时**督军要算**、写 `troops` 才不算」（CLAUDE.md「单位 ≠ 部队」那条）。
+        //  ✅ **2026-10-25（执行代理 `E7`）：「四道现池 0 张的闸本版未建」已【全部建完】** ——
+        //     `ward(140)` · `wardWb(145)` · `summonRift(730)` · `tainted(160)` 四道都落在下面
+        //     `CanUseAbilityTarget` 的方法体里（编号 ①–③：`ward` 与 `wardWb` 合成 ①；出处 = 上面第 4/5/6/7 条）。
+        //     池内仍然 **0 张**（`cards_engine.json` v28 的 `keywords`/`desc`/`descZh` 与
+        //     `cards_raw.json` 1,351 张的 `cardTraits` 现扫各 0 命中；只有**卡名**里出现
+        //     `Warden` 这类字符串 —— 卡名不过 `Normalize`）⇒ **零行为变化**。
+        //     🔑 但四个词已登记进 `KeywordTable.Prefixes`：不登记 ⇒ `Normalize` 返回 null ⇒
+        //     `KeywordTable.Parse` 与构造函数**双双丢弃**（卡数据/卡面正文写它们会被静默吃掉，
+        //     正是「不许静默失败」红线）⇒ **将来有卡带这些词时自动生效**，不必回来改这一处。
+        //     ⚠️ 判据来源：`BattleManager__IsValidActiveAbilityTarget.c:47-56`（外两层）+
+        //     `RawCardScript__IsValidActiveAbilityTarget.c:94-102`（tainted 那一闸）+
+        //     `EntityScript__get_isCurrentlyWarded.c` / `EntityScript__HasVanguardTrait.c`。
+
+        /// <summary>主动能力的候选合法性（判据见上面那一段）。
+        /// <para>🔴 **候选侧显式**（原版这一跳本来就带候选的 `isPlayer`）。`CanUseAbility` / `UseAbilityCore`
+        /// 现在按原版 criteria 的候选侧（<see cref="AbilityPickSideOf"/>）从这里取对应那一侧的候选
+        /// ⇒ **同侧候选也走得到**（🆕 2026-10-25 `E8` · `E8-1`）；单独开成 public 仍然保留一个用途：
+        /// **「潜行 / ward 只在异侧挡」这条判据要可断言**（自己点名传哪一侧，不必依赖 criteria 数据）。
+        /// ⛔ 别把断言写成「潜行恒拒」；反过来 `summonRift` **真就是不分侧**（同侧也拒，见 ②）。</para></summary>
+        /// <param name="targetOwner">候选所在座位（`p` = 己方 / `1 - p` = 敌方）。</param>
+        public static int CanUseAbilityTarget(BattleContext ctx, int p, UnitState caster,
+                                              int targetOwner, int targetSlot)
+        {
+            if (ctx == null || caster == null) return RuleCodes.ErrTarget;
+            if (p != 0 && p != 1) return RuleCodes.ErrTarget;
+            if (targetOwner != 0 && targetOwner != 1) return RuleCodes.ErrTarget;
+            if (!BoardSpec.IsValid(targetSlot)) return RuleCodes.ErrTarget;
+
+            var t = ctx.Players[targetOwner].Board[targetSlot];
+            if (t == null) return RuleCodes.ErrTarget;                            // 判据 1（含 `IsInPlay`）
+
+            bool opposite = targetOwner != p;                                     // `thisCard.isPlayer != 候选.isPlayer`
+            // 判据 4：潜行 —— **只在异侧**挡（`BattleManager__IsValidActiveAbilityTarget.c:47-50`）
+            if (opposite && t.Has(KeywordTable.Stealth)) return RuleCodes.ErrTarget;
+            // 判据 5 / ①：**ward(140) ∨ wardWb(145)**（= 原版 `isCurrentlyWarded`）—— 同样**只在异侧**挡。
+            //   `BattleManager__IsValidActiveAbilityTarget.c:51-54` 与
+            //   `RawCardScript__IsValidActiveAbilityTarget.c:94-100` 各判一次，两处**口径相同**
+            //   （`candidate.isPlayer != thisCard.isPlayer`）⇒ 我们合成这一句。
+            if (opposite && IsCurrentlyWarded(t)) return RuleCodes.ErrTarget;
+            // 判据 6 / ②：`summonRift(730)` —— **不分侧**：`BattleManager__IsValidActiveAbilityTarget.c:55-56`
+            //   是裸的 `HasCurrentTrait(候选, 0x2da)` ⇒ 连**自己人**也不能点它（同族：攻击侧
+            //   `BattleManager__IsValidAttackTarget.c:210-213` 也有一道同形的裸闸）。
+            if (t.Has(KeywordTable.SummonRift)) return RuleCodes.ErrTarget;
+            // 判据 7 / ③：`tainted(160)` 那一闸（`RawCardScript__IsValidActiveAbilityTarget.c:94-102`）。
+            //   反编译原文（逐字）：
+            //     `HasCurrentTrait(候选,0xa0) == 0 || HasVanguardTrait(候选)`
+            //     || `候选.isPlayer == thisCard.isPlayer`
+            //     || `get_cardType(thisCard) != 10 /*Hero*/`
+            //   ⇒ **整串为假**才拒 = `候选 tainted ∧ !HasVanguardTrait(候选) ∧ 异侧 ∧ 载体是 Hero`。
+            //   ⚠️ `HasVanguardTrait`（`EntityScript__HasVanguardTrait.c`）= **非隐身 ∧ vanguard**
+            //     （`HasCurrentTrait(候选,0x46=70) ⇒ 恒 false`；否则看 `0x3d4=980 vanguard`）
+            //     ⇒ **tainted + vanguard + 隐身 仍然会被拒**，别写成「有 vanguard 就放」。
+            //   ⚠️ 「载体」= **施放者 `thisCard`** 的 `cardType`（不是候选的）；我们的等价物 =
+            //     `caster.Card.Type == "hero"`（`CardTypeOptions.Hero = 10`，见 `DeckRules` 那条注释）。
+            if (opposite && t.Has(ConditionEval.Tainted)
+                && !HasVanguardTrait(t)
+                && caster.Card != null && caster.Card.Type == "hero")
+                return RuleCodes.ErrTarget;
+
+            return ActiveAbilityPickGate(ctx, p, caster, t);                      // 判据 7 的 36 格
+        }
+
+        /// <summary>原版 `EntityScript.get_isCurrentlyWarded`（`EntityScript__get_isCurrentlyWarded.c`）
+        /// = `HasCurrentTrait(0x8c = 140 ward) || HasCurrentTrait(0x91 = 145 wardWb)`。
+        /// <para>⚠️ 读的是**当前**关键词（`UnitState.Has` —— 含光环/运行时授予），不是卡面印的那一份
+        /// （同 <see cref="KeywordTable.Stealth"/> 那条注释的纪律）。</para></summary>
+        static bool IsCurrentlyWarded(UnitState u)
+        {
+            return u != null && (u.Has(ConditionEval.Ward) || u.Has(ConditionEval.WardWb));
+        }
+
+        /// <summary>原版 `EntityScript.HasVanguardTrait`（`EntityScript__HasVanguardTrait.c`）：
+        /// **带 `stealth(70)` ⇒ 恒 `false`**；否则看 `vanguard(0x3d4 = 980)`。
+        /// <para>⚠️ 原版签名还带一个「相对谁」的实参，但实现里**只在做 null 检查时用到**（`param_3 != 0`），
+        /// 不参与判定 ⇒ 这里只吃单位。`tainted` 那一闸就靠这一格（见 <see cref="CanUseAbilityTarget"/> ③）。</para></summary>
+        static bool HasVanguardTrait(UnitState u)
+        {
+            if (u == null) return false;
+            if (u.Has(KeywordTable.Stealth)) return false;
+            return u.Has(KeywordTable.Vanguard);
+        }
+
+        // ==================================================================
+        //  🆕 2026-10-25（执行代理 `E4` · `E4-2`）：主动能力目标闸
+        //  （原版 `ActiveAbility.targetCriteria` `+0x38`）
+        // ==================================================================
+        //  判据（第一权威 = 全量反编译）：
+        //    · `RawCardScript__IsValidActiveAbilityTarget.c:103-107` ——
+        //      `CheckIfMeetsCriteria(thisCard, 候选, 候选, *(activeAbility(+0x260) + 0x38), 0)`
+        //      ⇒ 被筛对象 = **候选目标**、criteria = **`ActiveAbility` 对象自己的那一格**。
+        //      （⛔ 不是 `activeAbilityLogic[j].targetCriteria` —— 那是建池用的，见 `CardDef` v25 那一列。）
+        //    · `targetsAffected == 0 (any)` ⇒ 原版 `return 1` ⇒ 生成器**不落那一行**（零信息）。
+        //  🔴🆕 **2026-10-25（执行代理 `E8` · `E8-1`）就地订正下面那一段「今天的可达范围」**：
+        //     候选**不再恒为敌方** —— `CanUseAbility` / `UseAbilityCore` 现在按
+        //     `ActiveAbility.targetCriteria` 的候选侧（`AbilityPickSideOf`）从**对应那一侧**的棋盘取候选
+        //     ⇒ 「友方」那一档的候选终于落在原版候选集**里面**，可以忠实地过 36 格闸了。
+        //     ⇒ 本闸原来的 `if (set.EnemyUnits != 1) ⇒ 放行 + 出声` 整条**退役**
+        //       （它存在的唯一理由就是「候选恒敌方」，见下面 `ActiveAbilityPickGate` 里的注释）。
+        //     仍然保留「判不了 ⇒ 放行 + 出声」的只有两档：候选不在任何棋盘上 / 这一侧的格子没落。
+        //     ⚠️ 表现层 `BattleDriver.CommandTargetSide` 目前**仍**把友方/任意档退回敌方
+        //       （那一半在 `BattleDriver.cs`，不在本片白名单）⇒ 今天「友方档真卡」可达 **0 张**
+        //       （池内 `Ability:` 0 张），记在 `E8_友方目标与监听器次序.md` §三。
+
+        static readonly HashSet<string> _aaPickGateNoted = new HashSet<string>();
+        static int _aaPickGateWarn;
+
+        /// <summary>🔴 **只为自检开门**（同 `AbilityActingCriteriaWarningsForTest` 的纪律：**不改任何行为**）。</summary>
+        public static int ActiveAbilityPickCriteriaWarningsForTest { get { return _aaPickGateWarn; } }
+
+        /// <summary>这道闸判不了时的**出声出口**（同一 `(卡, 原因)` 只喊一次 —— 这是每帧都会被问的查询口）。
+        /// ⚠️ 走 `Debug.LogWarning`、**⛔ 不走 `ctx.Log`**：后者会改 `ctx.Events.Count` ⇒ 动到自检的
+        /// `Fingerprint`（同 `Ambush` 那段的纪律）；而且这是个**每帧都会被问**的查询口，写进战斗日志只会刷屏。</summary>
+        static void NoteActivePickGap(BattleContext ctx, CardDef card, string key, string why)
+        {
+            _aaPickGateWarn++;
+            string k = (card != null ? card.Id : "?") + "|" + key;
+            if (_aaPickGateNoted.Count > 512) _aaPickGateNoted.Clear();
+            if (!_aaPickGateNoted.Add(k)) return;
+            UnityEngine.Debug.LogWarning($"[RuleEngine] 主动能力目标闸：「{card?.Name}」判不了 —— {why}"
+                                       + " ⇒ 这一格**按合法放行**（⛔ 不是「不满足」）。"
+                                       + "判据 → `RawCardScript__IsValidActiveAbilityTarget.c:103-107`");
+        }
+
+        /// <summary>主动能力的目标闸（见上面那一段判据）。返回
+        /// <see cref="RuleCodes.OK"/> = 可点 · <see cref="RuleCodes.ErrTarget"/> = **确定不可点**。</summary>
+        static int ActiveAbilityPickGate(BattleContext ctx, int p, UnitState caster, UnitState candidate)
+        {
+            var card = caster != null ? caster.Card : null;
+            if (card == null || candidate == null) return RuleCodes.OK;
+
+            // 走的是普通支还是替代支（原版 `RawCardScript.GetActiveAbility` 的等价物）——
+            // 判不了就不猜（⛔ 挑一档 = 拿错那一格 criteria）。
+            bool? alt = card.UsesAlternativeAbility(ctx, p, caster);
+            if (alt == null)
+            {
+                NoteActivePickGap(ctx, card, "which",
+                    "判不出走的是普通支还是替代支（`hasAlternativeAbility` / 板面 criteria 未知）");
+                return RuleCodes.OK;
+            }
+            int ab = alt.Value ? CardDef.AlternativeAbilityObject : CardDef.ActiveAbilityObject;
+
+            string why;
+            var set = card.ActiveAbilityPickCriteriaFor(ab, out why);
+            if (set == null)
+            {
+                // `why == null` = **明确没有这一格条件**（`ta = any` / 没落行）⇒ 不筛、不出声。
+                if (why != null) NoteActivePickGap(ctx, card, "no-set:" + ab, why);
+                return RuleCodes.OK;
+            }
+            // 🔴🆕 **2026-10-25（执行代理 `E8` · `E8-1`）：候选侧闸改成「按候选自己在哪一侧取那一格」。**
+            //   原版 `CheckIfMeetsCriteria.c:216-228`：候选与载体**同方**看 `friendlyUnits(+0x14)`、
+            //   **异方**看 `enemyUnits(+0x15)`，对应那一格为假 ⇒ 淘汰。
+            //   ⇒ 本闸**只**在这里处理「判不了」（候选不在棋盘上 / 这一侧格子没落）——
+            //      「0 / 1」两档一律交给 `TargetCriteriaEval.Matches` 的 ②
+            //      （**判据只一份**；⛔ 别在这里再写一遍「不是 1 就拒」，那会与 `ta=20 self` 那类
+            //       短路档打架：`Matches` 在 side 闸**之前**就按 `ta` 短路返回了）。
+            //   改前这里是一句 `if (set.EnemyUnits != 1) ⇒ 放行 + 出声`，成立的前提是
+            //   「我们的候选恒为敌方」（那一前提已随 `AbilityPickSideOf` 落地消失）。
+            int candSide = OwnerOf(ctx, candidate);
+            if (candSide < 0)
+            {
+                NoteActivePickGap(ctx, card, "side:offboard:" + ab,
+                    "候选不在任何一方的棋盘上 ⇒ 求不出它相对载体的同/异侧，阵营那一格判不了");
+                return RuleCodes.OK;
+            }
+            {
+                int sideGate = candSide == p ? set.FriendlyUnits : set.EnemyUnits;
+                if (sideGate == CardDef.CountSetSpec.Unknown)
+                {
+                    NoteActivePickGap(ctx, card, "side:" + ab + ":" + (candSide == p ? "friendly" : "enemy"),
+                        (candSide == p ? "`friendlyUnits`" : "`enemyUnits`") + " 没落（判不了这一侧的候选闸）");
+                    return RuleCodes.OK;
+                }
+                // 0 / 1 两档 ⇒ 往下走 `Matches`（它用**同一条**判据，见上面那段）。
+            }
+            // ---- 🆕 2026-10-25（执行代理 `E5` · `E5-1`）：`conditionsFilter` / `excludeCondition` 两格 ----
+            //  原版 `activeAbility.targetCriteria` 是**一个** `TargetCriteria` 对象，`+0x38` 那两格与
+            //  其余 36 格同属一份（`FilterMethods__CheckIfMeetsCriteria.c:298-303` 是那 36 格链里的第 ⑧ 步）。
+            //  **数据早就在**：生成器 `scan_ability(-1/-2, …)` 对 `activeAbility` / `alternativeAbility`
+            //  的**对象级** `targetCriteria` 落的行就是 `{ab: -1|-2, lg: -1, role: "target"}`（v15 起）——
+            //  ⚠️ `E4` 报告 §五·3 说「那是 logic 级、带 `lg`，不是同一格」**不成立**（现读 `SW9` 的
+            //  `unitConditions` = `[{ab:-1, lg:-1, role:"target", cond:50, name:"flying", ex:1}]`，
+            //  `lg = -1` = 直接挂在能力对象上），错在只看了 `lg >= 0` 那一批。
+            //  ⇒ 缺的只是**消费**：`TargetCriteriaEval.Matches` 的 `cond` 形参原来传的是 `null`
+            //  （= 明确「没有条件」），把 `ex` 那一格静默当成放行。
+            CardDef.ConditionSpec cond;
+            if (!card.TryGetCondition(ab, -1, "target", out cond))
+            {
+                // `TryGetCondition` 回 false 有两义（见它的 doc）：**没有这一行**（= 无条件，放行）
+                // vs **这一列没落**（旧表 < v15 = 未知）。后者**不能**当成「没有条件」：
+                // 送一个 `Condition = ConditionUnknown(-1)` 的哨兵下去 ⇒ `ConditionEval` 回 `null`
+                // ⇒ `Matches` 走到第 ⑧ 步时给「判不了」⇒ 本方法按既有契约**放行 + 出声**。
+                // 🔑 为什么不直接 `return OK`：前面那 7 步（阵营 / 卡种 / 残骸 …）**是本版判得了的**，
+                //    它们若判出「确定不满足」（`false`）比「整道闸放行」更准；⛔ 别拿一个未知格
+                //    把已经知道的那几格一起丢掉。
+                cond = card.ConditionsVersioned
+                     ? null
+                     : new CardDef.ConditionSpec { Condition = CardDef.ConditionUnknown, Role = "target" };
+            }
+            bool? ok = TargetCriteriaEval.Matches(ctx, p, set, candidate, cond, caster, candidate, out why);
+            if (ok == null)
+            {
+                NoteActivePickGap(ctx, card, "gap:" + ab, "36 格判不了：" + why);
+                return RuleCodes.OK;
+            }
+            if (!ok.Value) return RuleCodes.ErrTarget;
             return RuleCodes.OK;
         }
 
@@ -10108,7 +10616,10 @@ namespace RuleEngine
         /// <summary><see cref="RuleCore.BeginAction"/> 包住的原文（2026-10-21 `T03·c` 批 B 接线）。</summary>
         static int UseAbilityCore(BattleContext ctx, int p, int slot, int targetSlot = -1)
         {
-            int code = CanUseAbility(ctx, p, slot, targetSlot);
+            // 🔴🆕 **2026-10-25（执行代理 `E8` · `E8-1`）：`targetOwner` 由**同一次**闸判给出** ——
+            //   闸与结算必须解到同一侧（否则「闸说能点 A 侧、结算去打 B 侧」= `E5-2` 那类静默错打）。
+            int targetOwner;
+            int code = CanUseAbility(ctx, p, slot, targetSlot, out targetOwner);
             if (code != RuleCodes.OK) return code;
 
             var u = ctx.Players[p].Board[slot];
@@ -10117,7 +10628,7 @@ namespace RuleEngine
             //   重挑攻击型（原版 `ResolveActiveAbilityPlayed.c:29-42`，判据见本方法）。
             RecomputeAttackTypeAfterActiveAbility(u);
             var spec = u.Ability;
-            var chosen = EffectTargets.NeedsPick(spec.Target) ? ctx.Players[1 - p].Board[targetSlot] : null;
+            var chosen = EffectTargets.NeedsPick(spec.Target) ? ctx.Players[targetOwner].Board[targetSlot] : null;
 
             u.Exhausted = true;
             u.AttacksThisTurn++;      // 算「本回合已行动」
@@ -10146,8 +10657,10 @@ namespace RuleEngine
             //    `chosen != null` **就是**「+0x28 那个引用非 null」。
             //    ⚠️ **没有目标就一个都不填**（保持 `-1` / `null`）—— 原版的判别式就是「引用为 null」，
             //       ⛔ 别拿哨兵值顶替（那会让「有目标」在记录上**永远为真**，`ActionTargetedAbility` 恒选中）。
-            //    ⚠️ 只管**跨半场**的目标：`CanUseAbility` 已判过「要选单位的目标只能是对面那一侧」
-            //       （`t.IsWarlord` / `t == null` 都被挡掉）⇒ 命中这里时 `chosen` 一定在 `1 - p` 那一侧。
+            //    🔴🆕 **2026-10-25（执行代理 `E8` · `E8-1`）就地订正上面那一句**：
+            //       「要选单位的目标只能是对面那一侧」**不成立**了（原版候选侧由 criteria 定，
+            //       友方档 / 任意档都在同一侧）⇒ 命中这里时 `chosen` 在 **`targetOwner`** 那一侧，
+            //       不再恒为 `1 - p`。⛔ 别把这一格写回 `1 - p`（那会把友方目标的技能记成敌方）。
             //    🔴 **消费面（本笔改完请一并核）**：`BattleDriver.BuildCardContext` 直读这两个字段算
             //       `targetIsPlayer = e.TargetPlayer == _me`（→ `WFModuleCollisions` / `WFModuleTransformModifier`）
             //       ⇒ 填了之后**AI 施放的带目标技能**会把 `targetIsPlayer` 由 `false` 翻成 `true`
@@ -10155,7 +10668,7 @@ namespace RuleEngine
             //       `资料/普查产出_1018第三会话/W_Targeted填充.md`。
             ctx.Emit(EvtKind.Ability, p, slot, u.Name,
                      keyword: KeywordTable.Ability, effect: spec.Source, amount: spec.Amount,
-                     targetPlayer: chosen != null ? 1 - p : -1,
+                     targetPlayer: chosen != null ? targetOwner : -1,
                      targetSlot:   chosen != null ? targetSlot : -1,
                      targetCardId: chosen != null ? chosen.Name : null,
                      instanceId: u.InstanceId);
@@ -10536,8 +11049,12 @@ namespace RuleEngine
             }
             else if (spec != null && EffectTargets.NeedsPick(spec.Target))
             {
-                pickedEnemySide = true;        // 封闭文法那条路的目标恒在对面（`EffectTargets` 只有敌方那几个）
-                chosen = ctx.Players[1 - p].Board[targetSlot];
+                // 🔴🆕 **2026-10-25（执行代理 `E8` · `E8-1`）就地订正**：原来这里写「封闭文法那条路的
+                //   目标恒在对面」，成立的前提是 `EffectTargets` 只有敌方那几个 —— 现在多了
+                //   `FriendlyUnit` ⇒ 按**规格自己说的那一侧**取（⛔ 别再写死 `1 - p`，
+                //   那会把友方目标的替代行动静默落到对面棋盘上 = `E5-2` 那类静默错打）。
+                pickedEnemySide = spec.Target == EffectTargets.EnemyUnit;
+                chosen = ctx.Players[pickedEnemySide ? 1 - p : p].Board[targetSlot];
             }
 
             u.Exhausted = true;
@@ -11781,6 +12298,27 @@ namespace RuleEngine
                 //       ` (某督军的 Talent)` 后缀）⇒ 天赋**静默不生成**，只有一行日志。
                 //    ⚠️ 表里没有这张卡（本卡或那张天赋落不进我们池子）⇒ 才退回下面那条按名字的老路。
                 var cands = TalentCardData.Resolve(ctx.CardPool, u.Card.Id);
+
+                // ---- 🔴🆕 2026-10-25（引擎线 `A3` · `C5` Q1）：**「天赋」那一拍的触发事件** ----
+                // 判据（第一权威，五跳全有出处；逐句 → `资料/普查产出_1024c/C5_引擎战斗剩余判据.md` §Q1）：
+                //   `CardScript.OnTurnStart.c:160` `if (HasCurrentTrait(card, 0x34d /* talent */))`
+                //     → `:167 RawCardScript.OnTrigger(raw, 0x2e /* AbilityTrigger.Talent = 46 */, …)`
+                //     → `RawCardScript.TriggerAbility.c:60 PlayTriggerTraitAnim(…, 46, …)`
+                //     → `BattleAction kind 0x44` → `CardScript.ActivateTriggerTraitAnim(card, 46)`
+                //     → `GetTraitFromAbilityTrigger(46)` = **845 `DefinedTrait.talent`** →
+                //       `BattleCardUI.HighlightTraitIcon(845)` + `DisplayTriggerAnim(845, true)`
+                //       ⇒ 播 `Talent.asset` 的 trait 框（`triggerType 3 / TalentTraitTrigger`）。
+                // 🔴 **次序：先发事件、再造卡** —— 原版 `OnTrigger(46)` 在天赋卡**生成之前**；
+                //    手牌满导致「造不成」时**动画照样演**（`_AddCardNotDrawnToHand` 是之后的事）。
+                //    ⇒ 这一句必须放在两条生成分支（真值表 / 按名字）**之前**，⛔ 别挪到 `continue` 后面。
+                // 🔴 **闸 = 「这张卡有天赋」**，⛔ **不是** `u.Has("talent")` —— `CardDef` **没有**
+                //    `CardTraits` 列（数据是纯落值、不喂引擎，见 `EffectResolver.cs` 那段注释）。
+                //    这里用引擎**已有的**两条天赋判据（与 96 张 trait 卡**逐张相等**，本轮现读：
+                //    `cardTraits` 含 `talent` = 96 · `abilityTriggers` 含 46 = 96 · `desc` 有 `Talent:` = 96，
+                //    三个集合完全相同 ⇒ 拿其中任一条当闸都不多不少）。
+                if (cands.Count > 0 || u.Card.TalentName != null)
+                    EmitTalentTrigger(ctx, u.Card, side, u);
+
                 if (cands.Count > 0)
                 {
                     var pick = cands[ctx.Rng.Next(cands.Count)];
@@ -11842,7 +12380,7 @@ namespace RuleEngine
         /// <summary>
         /// 结算一个效果。**这是效果的唯一出口** —— 主动技能和触发都调它。
         /// </summary>
-        /// <param name="chosen">调用方已选定的目标单位（目标栏写 `EnemyUnit` 时才有）</param>
+        /// <param name="chosen">调用方已选定的目标单位（目标栏写 `EnemyUnit` / 🆕 `FriendlyUnit` 时才有）</param>
         static void ResolveEffect(BattleContext ctx, int owner, UnitState source, EffectSpec spec, UnitState chosen)
         {
             string by = source != null ? source.Name : "效果";
@@ -11899,9 +12437,19 @@ namespace RuleEngine
         /// <summary>
         /// 效果的目标是谁。
         ///
+        /// 🆕 **2026-10-25（执行代理 `E8` · `E8-1`）**：目标规格从四档扩到五档 —— 多了
+        /// <see cref="EffectTargets.FriendlyUnit"/>（与 `EnemyUnit` 逐句镜像，见那一支的注释）。
+        ///
         /// ⚠️ `EnemyUnit` 在没有「选目标」这一步的**触发类**效果里，取敌方**槽号最小**的活部队 ——
         ///    **定死规则，不掷骰**：种子只该影响洗牌，同一局必须永远可复现。
         ///    对面场上一个部队都没有时效果**空过**，不自动改打督军（那是替玩家做决定）。
+        /// 🔴 **2026-10-25（执行代理 `E5` · `E5-2`）订正**：上面那句**只管「没有选目标」那一档**。
+        ///    原版**没有**「督军不能当主动能力目标」这条（判据 = `BattleManager__IsValidActiveAbilityTarget.c`
+        ///    65 行；能不能点由 `ActiveAbility.targetCriteria` 的 `includeHero` 决定，见
+        ///    `CanUseAbilityTarget` 的 doc）⇒ **玩家/调用方确实点了一个督军时，效果必须落在他身上**。
+        ///    改前这里有一句 `&& !chosen.IsWarlord`，把显式选中的督军**静默换成**「槽号最小的那个部队」
+        ///    （场上没部队就空过）—— 那是**比拒绝更糟的静默错打**（`E5` 的离线探针实测：点督军 ⇒
+        ///    技能说放成功、督军一滴血没掉）。
         /// </summary>
         static UnitState ResolveTarget(BattleContext ctx, int owner, UnitState source, string target, UnitState chosen)
         {
@@ -11915,8 +12463,28 @@ namespace RuleEngine
                     return ctx.Players[1 - owner].Warlord;
                 case EffectTargets.EnemyUnit:
                 {
-                    if (chosen != null && chosen.IsAlive && !chosen.IsWarlord) return chosen;
+                    // 显式选中的那个（**含督军** —— 见上面那段订正）
+                    if (chosen != null && chosen.IsAlive) return chosen;
+                    // 没有选目标 ⇒ 老口径：敌方槽号最小的活部队（**不含督军**），没有就空过
                     var b = ctx.Players[1 - owner].Board;
+                    for (int s = 0; s < BoardSpec.Size; s++)
+                        if (b[s] != null && !b[s].IsWarlord && b[s].IsAlive) return b[s];
+                    return null;
+                }
+                // 🆕 **2026-10-25（执行代理 `E8` · `E8-1`）：友方单位** —— 与 `EnemyUnit` **逐句镜像**，
+                //   只把棋盘从 `1 - owner` 换成 `owner`。
+                //   判据：原版候选池的「友方」那一侧 = `AbilityLogic__GetTargets.c` 里
+                //   `GetUnitsInPlayList(…, both = friendly||enemy)` 那一族调用（侧由
+                //   `ActiveAbility.targetCriteria` 的 `friendlyUnits` / `enemyUnits` 两格定，
+                //   见 `AbilityPickSideOf` 的 doc）。
+                //   ⚠️ **「没有选目标」那一档的兜底（槽号最小、不含督军）是我们挑的，不是原版的做法**：
+                //     原版总是先建候选池再在池里挑（挑法由 `targetSelectMethod` 决定），
+                //     我们这套封闭文法没有「多候选」这一步 ⇒ 沿用 `EnemyUnit` 已经定死的那条口径
+                //     （定死规则、不掷骰，保证可复现）。⛔ 别把它写成「原版就是这样」。
+                case EffectTargets.FriendlyUnit:
+                {
+                    if (chosen != null && chosen.IsAlive) return chosen;
+                    var b = ctx.Players[owner].Board;
                     for (int s = 0; s < BoardSpec.Size; s++)
                         if (b[s] != null && !b[s].IsWarlord && b[s].IsAlive) return b[s];
                     return null;

@@ -11,8 +11,12 @@
 //                           → 世界尺寸 **8.694 × 8.791**
 //   · `CrosshairLine 3D` —— LineRenderer，`widthMultiplier 0.1` × lossyScale 1.6301 → 宽 **0.163**，
 //                           `m_UseWorldSpace = true`；场景里存了 21 个采样点
-// 控制器 `AttackTargetReticleController`：`colorPresets`（按 `attackType` 给准星色/拖尾色）、
+// 控制器 `TargetReticleController`：`colorPresets`（按 `attackType` 给准星色/拖尾色）、
 // `colorChangeSpeed = 8.0`、`floorReference` → 地板参考点、`scaleOnChangeModifier = 0.2`。
+// 🔴 **2026-10-25 就地订正（铁律 5）**：这两行原来写的类名是 `AttackTargetReticleController` ——
+//   全量反编译里**没有这个类**；那份序列化数据（`bundle_scenes_scenes_battlearena1/MonoBehaviour/
+//   MonoBehaviour_5098.json`，挂在 GO 347 上）的 `m_Script` 就是 **`TargetReticleController`**
+//   （四档 preset：`attackType` 1 / 2 / 3 / 4，逐值与下面 `Melee`/`Ranged`/`Gold` 相同）。
 //
 // 🔴 **尺寸换算（2026-09-18 更正）**：那 8.694 / 0.163 / 2.0 是**原版自己的世界单位**，
 //    但**它们属于不同的帧** —— 准星 sprite 在 **hudCamera 画布平面帧**（14.84 px/单位），
@@ -132,13 +136,21 @@ namespace CardPresentation
         /// <summary>
         /// 推进淡入淡出（原版 `TargetReticleController.Update`）。
         ///
-        /// **原版逐帧做的两件事**（照抄，**别按"直觉"改**）：
-        ///   · 准星 sprite 的 `color.a` **+= dir × dt × colorChangeSpeed`（`dir` = `toggleFadeAnimationDirection ? +1 : -1`）
-        ///   · **弧线材质的 `color.a` 走【相反】方向**（`if (dir) -1 else +1`）—— 看着反直觉，
-        ///     但 `.c` 里就是这么写的两行，**别当 bug 改掉**。
+        /// **原版逐帧做的两件事**（逐句照 `TargetReticleController__Update.c:39-68`）：
+        ///   · 准星 sprite 的 `color.a` **+= dir × dt × colorChangeSpeed**（`dir` = `toggleFadeAnimationDirection ? +1 : -1`）
+        ///   · **弧线材质的 `color.a` 走【同一个】方向**（同一段里两块代码都是
+        ///     `iVar = 1; if (+0xa8 == 0) iVar = -1;` —— **同一个字段、同一个符号**）。
         ///   · sprite 的 alpha 到 `1`（淡入完）或 `0`（淡出完）就 `enabled = false`；
         ///     **淡出那一支还会顺手 `ToggleCrosshair(false)` 把节点关掉**。
-        /// ⚠️ 批处理没有帧循环 ⇒ 由 `BattleDriver.AdvanceTimeline` 泵（自检走 `BattleScene.Step`）。
+        /// 🔴🔴 **2026-10-25 就地订正（铁律 5）**：本段原来写着「弧线走【相反】方向 …… 别当 bug 改掉」——
+        ///   **那是读错了**：`.c` 里那两块是**同一方向**（见上；`grep -n "iVar10\|iVar7" TargetReticleController__Update.c`
+        ///   两处守卫完全一样）。按「反向」实现（`1 − fadeAlpha`）的后果是**准星完全亮起来那一刻，
+        ///   弧线材质 alpha 正好是 0 ⇒ 整条弧线在正常游玩里【始终看不见】**（批处理自检也看不出来，
+        ///   因为没有任何断言读弧线的颜色）。
+        /// ⚠️ 泵只有一个：`BattleDriver.AdvanceTimeline`（自检走 `BattleScene.Step`）。
+        ///   ⛔ **本件【不】再自带 `Update`** —— 2026-10-25 之前这里有一个 `void Update() { TickFade(dt); }`，
+        ///   而 `BattleDriver.Update` 每帧又调 `AdvanceTimeline(dt)` ⇒ 真机上淡入淡出**按 2 倍速**跑
+        ///   （0.125 s 变 0.0625 s；批处理里 `Update` 不跑，所以自检永远看不出来）。
         /// </summary>
         public bool TickFade(float dt)
         {
@@ -151,16 +163,22 @@ namespace CardPresentation
             return true;
         }
 
-        void Update() { TickFade(Time.deltaTime); }
+        // ⛔ **2026-10-25 删掉过一句 `void Update() { TickFade(Time.deltaTime); }`** ——
+        //    唯一的泵是 `BattleDriver.AdvanceTimeline`（它每帧调一次 `TickFade`），
+        //    两处一起泵 = 真机 2 倍速、批处理看不出来（判据 → `TickFade` 的 doc）。
 
-        /// <summary>把当前的 `_fadeAlpha` 铺到准星与弧线上（弧线**反向**，见 <see cref="TickFade"/>）。</summary>
+        /// <summary>把当前的 `_fadeAlpha` 铺到准星与弧线上（**同一方向**，见 <see cref="TickFade"/>）。
+        /// <para>准星：`preset.a × fade`（原版 `SpriteRenderer.set_color` 只改 a，rgb 不动）。
+        /// 弧线：只改材质 `_Color` 的 a（rgb 恒 1，颜色由 `LineRenderer.colorGradient` 供）。
+        /// ⚠️ 原版**不夹** alpha（`+=` 到越界就靠 `set_color` 自己收），我们在 `TickFade` 里夹到 [0,1]，
+        /// 终值一致（`ToggleCrosshair(immediate)` 那两支都是直接写 0/1）。</para></summary>
         void ApplyFade()
         {
             if (_cross != null)
                 _cross.SetTint(new Color(CrossColor.r, CrossColor.g, CrossColor.b, CrossColor.a * _fadeAlpha));
 
             var mt = (_line != null) ? _line.sharedMaterial : null;
-            if (mt != null) mt.SetColor("_Color", new Color(1f, 1f, 1f, 1f - _fadeAlpha));
+            if (mt != null) mt.SetColor("_Color", new Color(1f, 1f, 1f, _fadeAlpha));
         }
 
         /// <summary>把两个节点真的关掉（淡出走完 / `Hide(immediate)` 走这条）。</summary>
@@ -206,14 +224,22 @@ namespace CardPresentation
             Trail = new Color(0.9137256f, 0.5411765f, 0f, 1f),
         };
 
-        /// <summary>打法 → 配色。红 = 近战、紫 = 远程、金 = 技能 —— 和三个按钮的配色一一对应</summary>
-        static Preset PresetOf(AttackKind k)
+        /// <summary>打法 → 配色。红 = 近战、紫 = 远程、金 = 技能 —— 和三个按钮的配色一一对应。
+        /// <para>🔴 **2026-10-25 就地订正（铁律 5）：`AttackKind.None`（attackType 0）【没有】配色。**
+        /// 判据 = `TargetReticleController__SetAttackType.c` 里那个
+        /// `if (*(int *)(preset + 0x10) == param_2)` 循环 —— 预置表只有 **1 / 2 / 3 / 4** 四条
+        /// （`MonoBehaviour_5098.json` 实读：`attackType 3` 与 `4` 逐值相同），**0 一条都没有**
+        /// ⇒ 那一下**一个颜色都不写**（准星保持 `SpriteRenderer.m_Color = (1,1,1,1)` 的白、
+        /// 弧线保持材质/渐变原色）。原来我们 `default: return Melee` ⇒ 起手（还没选打法）那一帧
+        /// **凭空变红**，与原版不符（`BattleDriver.OpenCommand` 里第一次 `Show` 喂的就是 `_command = None`）。</para></summary>
+        static bool TryPresetOf(AttackKind k, out Preset p)
         {
             switch (k)
             {
-                case AttackKind.Ranged: return Ranged;
-                case AttackKind.Ability: return Gold;
-                default: return Melee;
+                case AttackKind.Melee:   p = Melee;  return true;
+                case AttackKind.Ranged:  p = Ranged; return true;
+                case AttackKind.Ability: p = Gold;   return true;
+                default: p = Melee; return false;          // attackType 0 / 不在表内 ⇒ 原版不写颜色
             }
         }
 
@@ -260,9 +286,12 @@ namespace CardPresentation
 
         public bool Visible { get; private set; }
 
-        /// <summary>现在用的准星色 / 拖尾色（自检断言「近战红、远程紫、技能金」用）</summary>
-        public Color CrossColor { get; private set; }
-        public Color TrailColor { get; private set; }
+        /// <summary>现在用的准星色 / 拖尾色（自检断言「近战红、远程紫、技能金」用）。
+        /// <para>初值 = **原版序列化值**：准星 `SpriteRenderer_1754.m_Color = (1,1,1,1)`；
+        /// 弧线 `LineRenderer_1609` 的 `colorGradient` 前两个颜色键也是白 ⇒ 两条都取**白**。
+        /// 🔴 这一条有判据意义：`attackType 0` 那一下原版**不改色**（见 `TryPresetOf`）⇒ 起手看到的就是它们。</para></summary>
+        public Color CrossColor { get; private set; } = Color.white;
+        public Color TrailColor { get; private set; } = Color.white;
 
         /// <summary>准星的世界尺寸（宽 × 高）。自检断言「那个 px 换算对不对」用 —— **判据只有这一份**</summary>
         public static Vector2 CrosshairWorldSize { get { return new Vector2(W(CrossW), W(CrossH)); } }
@@ -534,11 +563,13 @@ namespace CardPresentation
         public void Aim(Vector3 anchor, Vector3 pointerWorld, AttackKind kind)
         {
             if (!Visible) return;                       // 状态没开 ⇒ 什么都别做（`Show` 才是开状态那一刻）
+            // 换打法那一拍 = 原版 `AttackButtonClick → SetAttackType`（改色 + punch，见 `ApplyAttackType`）
+            if (kind != _lastPunchKind) ApplyAttackType(kind);
             var aim = ResolveAim(pointerWorld);
             aim.z = Z;
             if (_cross != null) _cross.transform.localPosition = aim + new Vector3(0f, 0f, -0.02f);
             anchor.z = Z;
-            UpdateArc(anchor, aim, kind, PresetOf(kind));
+            UpdateArc(anchor, aim, kind);
         }
 
 
@@ -556,11 +587,12 @@ namespace CardPresentation
         public void AnimTo(Vector3 anchor, Vector3 world, AttackKind kind)
         {
             if (!Visible) return;
+            if (kind != _lastPunchKind) ApplyAttackType(kind);      // 同 `Aim`：换打法就换色 + punch
             var aim = world;
             aim.z = Z;
             if (_cross != null) _cross.transform.localPosition = aim + new Vector3(0f, 0f, -0.02f);
             anchor.z = Z;
-            UpdateArc(anchor, aim, kind, PresetOf(kind));
+            UpdateArc(anchor, aim, kind);
         }
 
         /// <summary>
@@ -576,9 +608,6 @@ namespace CardPresentation
         {
             Build();
 
-            var p = PresetOf(kind);
-            CrossColor = p.Cross;
-            TrailColor = p.Trail;
             from.z = Z; to.z = Z;
 
             if (_cross != null)
@@ -588,32 +617,58 @@ namespace CardPresentation
                 _cross.transform.localPosition = to + new Vector3(0f, 0f, -0.02f);
             }
 
-            UpdateArc(from, to, kind, p);
+            // 原版 `PrepareMovement` 的收尾三句就是 SetPoints → **SetAttackType** ⇒
+            //   「颜色（有 preset 才写）+ 换打法 punch」都发生在**每次开始选目标**这一拍，
+            //   ⛔ 不是「只在换打法时」（见 <see cref="ApplyAttackType"/>）。
+            ApplyAttackType(kind);
+            UpdateArc(from, to, kind);
             Visible = true;
             // 🆕 2026-09-29 照原版：准星亮起来时**藏掉系统光标**（`TargetReticleController__ToggleCrosshair`
             //   里的 `Cursor.set_visible(show ^ 1)`）—— 原版就是「准星代替鼠标指针」。
             Cursor.visible = false;
 
             // 🆕 淡入（原版 `ToggleCrosshair(show=true)` ⇒ `toggleFadeAnimationDirection = true`
-            //   ⇒ `Update` 里 sprite 的 alpha 往 1 走；弧线材质**反向**，见 `TickFade`）+ 换打法 punch
+            //   ⇒ `Update` 里 sprite 的 alpha 往 1 走；弧线材质**同方向**，见 `TickFade`）
             _fadeDir = +1;
             ApplyFade();
-            PunchIfKindChanged(kind);
         }
 
-        /// <summary>换打法时那一下 scale punch（原版 `TargetReticleController.SetAttackType`）：
-        /// `DOPunchScale(原始Scale × scaleOnChangeModifier(0.2), 时长 0.5s, vibrato 0, elasticity 1.0)`。
-        /// ⚠️ 原版是「**正在播就 `DORestart`、没在播就归位再 punch**」，而且**只在换打法那一下** ——
-        /// **不是每帧、也不是每次显示**。</summary>
-        void PunchIfKindChanged(AttackKind kind)
+        /// <summary>原版 `TargetReticleController.SetAttackType(attackType)` **整件事**：
+        /// ① 表里有这一档才写准星 / 弧线的颜色（`attackType 0` 不写 —— 见 `TryPresetOf`）；
+        /// ② **无条件** punch（原版那个方法里颜色循环之后紧接着就是 `DOPunchScale`，没有「同一档就不弹」的闸）。
+        /// <para>调用点（原版）= `PrepareMovement`（**每次开始选目标**，`StartAttackFrom` / `StartSpellFrom` /
+        /// `StartTargetedActiveAbility` / `StartChoosingAbilityTargetByClick` / `EnemyTargetingAnim` 都走它）
+        /// ＋ `UnitOnBoardAttackTypeSelector.AttackButtonClick`（**换打法**那一拍）。
+        /// ⇒ 我们这边：`Show`（= PrepareMovement）每次调；`Aim`/`AnimTo` 在打法**变了**时调（= 点击换打法）。</para>
+        /// <para>🔴 **2026-10-25 就地订正（铁律 5）**：原来只有一个 `PunchIfKindChanged`，注释写「只在换打法那一下，
+        /// 不是每次显示」—— **与 `.c` 不符**（`PrepareMovement.c` 收尾就调 `SetAttackType`）。
+        /// 而且它**顺带漏了另一件事**：换打法时我们原来**只换了弧线颜色**（`Aim` 里 `PresetOf(kind)`），
+        /// **准星本体不换色**（`CrossColor` 只在 `Show` 里写）⇒ 近战→远程时「弧线紫、准星还红」。</para></summary>
+        void ApplyAttackType(AttackKind kind)
         {
-            if (_cross == null || kind == _lastPunchKind) return;
+            Preset p;
+            if (TryPresetOf(kind, out p))
+            {
+                CrossColor = p.Cross;
+                TrailColor = p.Trail;
+                ApplyFade();                     // 准星 tint 立刻跟上（保持当前淡入进度）
+            }
             _lastPunchKind = kind;
+            Punch();
+        }
+
+        /// <summary>原版那一拍 `DOPunchScale(原始Scale × scaleOnChangeModifier(0.2), 0.5s, vibrato 0, elasticity 1.0)`：
+        /// **正在播就 `DORestart`、没在播就先归位再 punch**（`TargetReticleController__SetAttackType.c`）。
+        /// 自检用 <see cref="PunchCount"/> 数「弹过几次」（⛔ 它不判弹成什么形状 —— 形状由 `BattleScene` 那两条采样断言管）。</summary>
+        void Punch()
+        {
+            if (_cross == null) return;
             PunchCount++;
-            _cross.transform.localScale = _crossOriginalScale;      // 先归位（原版 `set_localScale(originalScale)`）
-            _cross.transform
-                  .DOPunchScale(_crossOriginalScale * ScaleOnChangeModifier, ScalePunchTime, 0, 1f)
-                  .SetUpdate(CardTween.Mode);
+            var t = _cross.transform;
+            if (DOTween.IsTweening(t)) { t.DORestart(); return; }        // 原版 `IsTweening ⇒ DORestart(tween, true)`
+            t.localScale = _crossOriginalScale;                          // 原版 `set_localScale(originalScale)`
+            t.DOPunchScale(_crossOriginalScale * ScaleOnChangeModifier, ScalePunchTime, 0, 1f)
+             .SetUpdate(CardTween.Mode);
         }
 
         /// <summary>自检用：换打法 punch 触发过几次（**只在换打法那一下**，不是每次显示）。</summary>
@@ -622,7 +677,25 @@ namespace CardPresentation
         /// <summary>自检用：准星当前的 `localScale.x`。</summary>
         public float CrossScaleX { get { return _cross != null ? _cross.transform.localScale.x : 0f; } }
 
-        void UpdateArc(Vector3 from, Vector3 to, AttackKind kind, Preset p)
+        /// <summary>自检用：**弧线材质 `_Color.a`** —— 原版与准星**同方向**（`TickFade` 那段的判据）：
+        /// 淡入完 = 1、淡出完 = 0。没建出线 ⇒ `NaN`（⛔ 别拿 0 冒充「量到了」）。
+        /// <para>🔴 这条探针是给「2026-10-25 之前写成 `1 − fade`（⇒ 稳定态恒 0 = 弧线整条看不见）」
+        /// 那个缺陷配的断言用的：断开进后 ≈ 1、断淡出后 ≈ 0。</para></summary>
+        public float LineColorAlpha
+        {
+            get
+            {
+                var mt = (_line != null) ? _line.sharedMaterial : null;
+                return mt != null ? mt.GetColor("_Color").a : float.NaN;
+            }
+        }
+
+        /// <summary>弧线形状 + 颜色。`kind` 只决定**拱高曲线**（原版 `CrosshairLineEffect__SetAttackType.c`：
+        /// `attackType == 2` ⇒ range 曲线，其余（含 **0**）⇒ melee 曲线；⚠️ 原版对 `0` 还会
+        /// `CustomDebug.LogWarning` 一句「这一档本不该走到」—— 我们**不打这条 warning**：`attackType 0`
+        /// 在「还没选打法」那一整段时间里是**正常态**，逐帧刷会淹掉真告警）。
+        /// 颜色取**当前 `TrailColor`**（`ApplyAttackType` 只在有 preset 时改它 ⇒ 0 档保持上一次/初始白）。</summary>
+        void UpdateArc(Vector3 from, Vector3 to, AttackKind kind)
         {
             if (_line == null) return;
             _line.gameObject.SetActive(true);
@@ -655,7 +728,7 @@ namespace CardPresentation
             var g = new Gradient();
             g.mode = GradientMode.Fixed;                 // 原版 `set_mode(1)`
             g.SetKeys(
-                new[] { new GradientColorKey(p.Trail, 0f) },
+                new[] { new GradientColorKey(TrailColor, 0f) },
                 new[]
                 {
                     new GradientAlphaKey(0f, 0f),

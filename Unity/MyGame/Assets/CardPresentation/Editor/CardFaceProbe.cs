@@ -236,13 +236,16 @@ public static class CardFaceProbe
                   "A1659 前提：字体资产在（不在 ⇒ 下面几条**没验到**，别读成通过）");
             Check(v.FaceLayerRoot != v.transform,
                   "A1659 前提：`2DCard` 那一层真的建出来了（倾摆挂在它身上）");
+            // 🔴 **2026-10-25（`M2`）**：卡面各层现在挂在 `2DCard/Front`（`FaceContentRoot`）下，
+            //    不再是 `2DCard`（`FaceLayerRoot`）的直接子件 —— 两者仍在同一棵倾摆树里（Front 是
+            //    `2DCard` 的直接子件）⇒ 下面那条「倾摆时同面」的判别力一个字节没减。
             if (v.KeywordsText != null)
-                Check(v.KeywordsText.transform.parent == v.FaceLayerRoot,
-                      $"A1659 效果文字挂 `2DCard` 下（不是卡根）实际父件 = "
+                Check(v.KeywordsText.transform.parent == v.FaceContentRoot,
+                      $"A1659 效果文字挂 `2DCard/Front` 下（不是卡根）实际父件 = "
                     + (v.KeywordsText.transform.parent != null ? v.KeywordsText.transform.parent.name : "<null>"));
             else Check(!TmpFont.Available, "A1659 效果文字那层没建出来（只有「没字体资产」才允许）");
             if (v.TitleText != null)
-                Check(v.TitleText.transform.parent == v.FaceLayerRoot, "A1659 卡名也挂 `2DCard` 下");
+                Check(v.TitleText.transform.parent == v.FaceContentRoot, "A1659 卡名也挂 `2DCard/Front` 下");
 
             // 🔴 **灭自证（结构上不可能同时满足）**：把 `2DCard` 转 10°（= `AutoCardRotation.maxYAngle`），
             //    断「文字层与底板层的**相对距离**不变」。两块都在 `2DCard` 下 ⇒ 一起刚性旋转 ⇒ 不变；
@@ -260,7 +263,48 @@ public static class CardFaceProbe
             Object.DestroyImmediate(root);
         }
 
-        // ---------------------------------------------------------------- A1665
+        // ---------------------------------------------------------------- M2（2026-10-25）
+        // 原版父链是**三级**：`2DCard(apos 0,0) → Front(apos.y **+0.08**) → CardImage(−0.044/−0.065) /
+        // CardFrame(−0.03) / 文字族`（判据 = UnityPy 逐节点 `m_AnchoredPosition` 全库普查 1 + 152 实例，
+        // → `资料/普查产出_1024d/X1_三处判据补查.md` §二）。
+        // 我们原来把「`Front` 局部」当「`2DCard` 局部」用 ⇒ **整张卡面（框/文字/立绘）比原版低 0.08 卡单位**
+        // （= 2.4% 卡高）。2026-10-25 补出 `Front` 那一级（`CardView.FrontAposY`）。
+        {
+            var root = new GameObject("chk_m2");
+            var v = CardView.Create(root.transform, data, "chk_m2");
+            var content = v.FaceContentRoot;
+            // ★ 前提：三条缺一条下面就等于没验
+            Check(content != null && content != v.FaceLayerRoot,
+                  $"M2 前提：原版第三级节点 `Front` 建出来了（实际 {(content == null ? "<null>" : content.name)}）");
+            Check(v.KeywordsText != null,
+                  "M2 前提：效果文字那层在（不在 ⇒ 下面那条差分**没验到**，别读成通过）");
+            if (content != null && content != v.FaceLayerRoot && v.KeywordsText != null)
+            {
+                Check(content.parent == v.FaceLayerRoot,
+                      "M2 ① `Front` 挂在 `2DCard`（`FaceLayerRoot`）下 —— 实际父件 = "
+                    + (content.parent == null ? "<null>" : content.parent.name));
+                Check(Mathf.Abs(content.localPosition.y - CardView.FrontAposY) < 1e-4f
+                      && Mathf.Abs(content.localPosition.x) < 1e-4f,
+                      $"M2 ② `Front.localPosition.y` = **+0.08**（原版 `m_AnchoredPosition`；"
+                    + $"实际 {content.localPosition.y:F4}, x {content.localPosition.x:F4}）");
+
+                // 🔴 **灭自证（结构上不可能同时满足）**：把 `Front` 临时按回 0，量文字层的**世界位移**。
+                //    文字若真挂在 `Front` 下 ⇒ 位移 = 0.08 × 卡的世界缩放；若哪个入口又把文字挂回了
+                //    `2DCard`（或整卡面没跟着 `Front` 走）⇒ 位移 **= 0** ⇒ 必红。
+                //    🧨 改坏法：`Fill` 里那句 `TmpFont.NewText(FaceContentRoot, …)` 改回 `FaceRoot` ⇒ 红。
+                Vector3 p0 = content.localPosition;
+                float y0 = v.KeywordsText.transform.position.y;
+                content.localPosition = new Vector3(p0.x, 0f, p0.z);
+                float y1 = v.KeywordsText.transform.position.y;
+                content.localPosition = p0;
+                float expect = CardView.FrontAposY * v.transform.lossyScale.y;
+                Check(Mathf.Abs((y0 - y1) - expect) < 1e-3f,
+                      $"M2 ③ ★ 文字层真的跟着 `Front` 走（把 `Front.y` 归零 ⇒ 世界 y 变化 {y0 - y1:F5}，"
+                    + $"应为 {expect:F5}）—— 位移 0 = 文字还挂在 `2DCard` 上，整脸偏低没修掉");
+            }
+            Object.DestroyImmediate(root);
+        }
+
         // 「一张卡 = 一段队列」+ 布局给每张不同的号。**卡内层序仍靠 z**，所以判据用
         // `SubtreeQueues()` 的 min/max（前卡整段 > 后卡整段），别写死「一个号」。
         {
@@ -782,7 +826,690 @@ public static class CardFaceProbe
         //  `F1` §六·1：条带那条早退路跳过了「与硬矩形取交集」⇒ 非单位卡上前景层的 `_Clamp_Range` 空转。
         CheckArtClampReachesStrip(pool);
 
+        // ---------------------------------------------------------------- CF · 攻击类型高亮（`HighlightAttackType`）
+        //  判据（一手）→ `资料/普查产出_1025/J2_判据_卡面高亮族与渲染残项.md` §A1 / §A2
+        CheckAttackTypeHighlight(pool);
+
+        // ---------------------------------------------------------------- CF-3 · 2D 卡面四个数值 = 真 TMP
+        //  判据（一手）→ `bundle_battleprefabs_vfxandmisc_assets_all` 的
+        //  `CardPrefab/2DCard/Front/Card Info/{Melee,Range} Attack Container/*Attack Text` 等四件
+        CheckFaceStatTexts(pool);
+
+        // ---------------------------------------------------------------- CF-6 · 手牌文字档（原版 9 态里的 5–8）
+        //  判据（一手）→ `BasicCardUI__SetCardTextInHand.c` + `CardTextsController__ToggleSimplifiedView.c`
+        //  + prefab `Name and description` 子树（四个 Big 变体）
+        CheckHandTextStates(pool);
+
+        // ---------------------------------------------------------------- CF-7 / CF-8 · 态 2/4 的专用节点 + 战术卡无底板
+        //  判据（一手）→ prefab `Name and description` 子树的 `NameTextUnit No description` / `DescTacticSmall`
+        //  + 9 态的 `objectsToActivate` 名单（`Textbackgrounds` 只在态 1/2/5/6）
+        CheckInitialTextStates(pool);
+
         Debug.Log($"[cardface-chk] === 合计：{_pass} 通过 / {_fail} 失败 ===");
+    }
+
+    // ==================================================================
+    //  CF（2026-10-25）：卡面「攻击类型高亮」（原版 `HighlightAttackType`，每卡 2 个实例）
+    //
+    //  判据全文 → `资料/普查产出_1025/J2_判据_卡面高亮族与渲染残项.md` §A1 / §A2（逐句反编译 + UnityPy 直读）
+    //    · 行为 = **开关底光 + `DOScale(基准 × 倍数, 0.15 s)`**，**无 `SetEase`**（吃 DOTween 全局默认 `OutQuad`）
+    //    · 倍数按卡 prefab 族：战斗 `CardPrefab`（手牌/场上/督军）= **1.35**；其余（Full/详情/卡池）= **1.2**
+    //    · `originalSize`（基准）= **惰性捕获**（没有 `Start`/`Awake`），阈值 = 平方距离 < **1e-10**
+    //    · 驱动源 = **这张卡自己的 `attackType`**（不是「目标合法性」—— 那条已撤，只剩 `SetHighlight` 描边）
+    // ==================================================================
+    static void CheckAttackTypeHighlight(List<CardDef> pool)
+    {
+        var def = FindByName(pool, "Heavy Intercessor");
+        if (def == null)
+        {
+            Debug.LogError("[cardface-chk] 卡池里没有 `Heavy Intercessor` ⇒ CF 攻击类型高亮这一段"
+                         + "**什么都没验到**（别读成通过）");
+            return;
+        }
+        var data = BattleDriver.ToCardData(def, def.Faction);
+
+        var rootBoard = new GameObject("chk_cf_hl_board");
+        var rootFull = new GameObject("chk_cf_hl_full");
+        var rootHand = new GameObject("chk_cf_hl_hand");
+        var prevMode = CardTween.Mode;
+        try
+        {
+            // ⚠️ `CardTween.Mode` 必须在**建补间之前**切 `Manual`（`CardTween.Use` 建的时候读它）——
+            //   纯「读时长」不需要推，但「缓动是不是 OutQuad」只能靠**采样曲线**判（见下）。
+            CardTween.Mode = DG.Tweening.UpdateType.Manual;
+            var bv = CardView.Create(rootBoard.transform, data, "chk_cf_hl_board_card", CardFace.Board);
+            var fv = CardView.Create(rootFull.transform, data, "chk_cf_hl_full_card", CardFace.Full);
+            var hv = CardView.Create(rootHand.transform, data, "chk_cf_hl_hand_card", CardFace.Hand);
+
+            bool built = bv.StatShown(CardView.StatMelee) >= 0;
+            Check(built, "CF 前提：场上形态的近战数值层建出来了"
+                       + "（不在 ⇒ 下面几条**没验到**，别读成通过；多半是 `PragatiDigits.Available` 为假）");
+            if (!built) return;
+
+            // ── ① 倍数 = `scaleModifierOnHighLight`，**按卡 prefab 族**两档 ─────────────────
+            //  🧨 改坏法：把 `AttackScaleModifier` 写成单值（1.35 或 1.2 之一，或写死 1.3 那个选择器的值）⇒ 必有两红。
+            Check(Mathf.Abs(bv.AttackScaleModifier - CardView.AttackScaleModifierFight) < 1e-6f,
+                  $"CF 战斗 `CardPrefab`（手牌 / 场上 / 督军）的倍数 = **1.35**"
+                + $"（实测 {bv.AttackScaleModifier:F4}；全库 304 个实例里只有这 2 个是 1.35）");
+            Check(Mathf.Abs(fv.AttackScaleModifier - CardView.AttackScaleModifierOther) < 1e-6f,
+                  $"CF 其余卡 prefab（Full / 详情窗 / 卡池）的倍数 = **1.2**（ctor 默认；实测 {fv.AttackScaleModifier:F4}）");
+
+            // ── ② 惰性捕获：没调用过 ⇒ 基准还是零向量（原版没有 Start/Awake）────────────────
+            Check(bv.StatBaseScale(CardView.StatMelee).sqrMagnitude < 1e-10f,
+                  "CF `originalSize` **惰性捕获**：还没调用过 ⇒ 基准 = 零向量（🧨 改成在 `Build`/`Start` 里捕获 ⇒ 红）");
+
+            // ── ③ 命中：数值放大 ×1.35、时长 0.15 s、缓动 = DOTween 默认（OutQuad）────────────
+            bv.SetOwnAttackType(AttackTypes.Melee);
+            var tw = bv.StatHighlightTween(CardView.StatMelee);
+            Check(tw != null && Mathf.Abs(DG.Tweening.TweenExtensions.Duration(tw) - 0.15f) < 1e-4f,
+                  $"CF 那条 `DOScale` 时长 = **0.15 s**（原版 `scaleTime` = `dump.cs:38853`；实测 "
+                + (tw == null ? "没起补间" : DG.Tweening.TweenExtensions.Duration(tw).ToString("F4")) + "）"
+                + "｜🧨 写成选择器那个 0.3 ⇒ 红");
+            Check(Vector3.Distance(bv.StatBaseScale(CardView.StatMelee), Vector3.one) < 1e-5f,
+                  $"CF 首次调用把**当刻**的 `localScale` 记成基准（实测 {bv.StatBaseScale(CardView.StatMelee)}）");
+            //  半程采样 = 「有没有 `SetEase`」唯一能红/绿的地方：
+            //    OutQuad(0.5) = 0.75 ⇒ 1 + 0.35×0.75 = **1.2625**；Linear ⇒ 1.175；OutBack ⇒ 1.319。
+            //  ⚠️ 分 5 小步推（每步 0.015 s）而不是一次推 0.075 —— 与 `Editor/BattleScene` 采 punch 曲线
+            //     那条断言同一种推法（`CardTween.Advance(1f/60f)` 逐拍），免得「一次推一大步」在
+            //     `DOTween.ManualUpdate` 上走出不同的插值路径。
+            for (int k = 0; k < 5; k++) CardTween.Advance(0.015f);
+            float mid = bv.StatScaleNow(CardView.StatMelee).x;
+            Check(Mathf.Abs(mid - 1.2625f) < 0.01f,
+                  $"CF 半程值 {mid:F4} ⇒ 走的是 **DOTween 默认 `OutQuad`**（原版**没有** `SetEase`）"
+                + "｜🧨 换成 `Linear` 得 1.1750、`OutBack` 得 1.3190 ⇒ 红");
+            CardTween.Advance(0.08f);
+            Check(Mathf.Abs(bv.StatScaleNow(CardView.StatMelee).x - 1.35f) < 1e-4f,
+                  $"CF 走完 = 基准 × 1.35（实测 {bv.StatScaleNow(CardView.StatMelee).x:F4}）");
+            Check(Mathf.Abs(bv.StatScaleNow(CardView.StatRanged).x - 1f) < 1e-4f,
+                  $"CF **只放大命中的那一颗**：未命中的远程回基准（实测 {bv.StatScaleNow(CardView.StatRanged).x:F4}）"
+                + "｜🧨 两颗一起放大 ⇒ 红");
+
+            // ── ④ 底光开关（原版 `highlightObject.SetActive`）──────────────────────────────
+            Check(bv.AttackGlowBuilt, "CF 前提：两颗底光（`40K_melee_glow` / `40K_ranged_glow`）建出来了"
+                                    + "（缺图 ⇒ 下面两条**没验到**，别读成通过）");
+            if (bv.AttackGlowBuilt)
+                Check(bv.AttackGlowOn(false) && !bv.AttackGlowOn(true),
+                      "CF 近战态：**近战那颗底光亮**、远程灭（原版每卡两个 `Highlight` 各管一颗）");
+
+            // ── ⑤ 连续两次调用**不改基准**（惰性捕获只记一次）──────────────────────────────
+            bv.SetOwnAttackType(AttackTypes.Melee);
+            Check(Vector3.Distance(bv.StatBaseScale(CardView.StatMelee), Vector3.one) < 1e-5f,
+                  "CF 连续两次调用 ⇒ 基准**仍是 1**（不把高亮态的 1.35 当新基准；"
+                + $"实测 {bv.StatBaseScale(CardView.StatMelee).x:F4}）｜🧨 无条件重捕获 ⇒ 红");
+            CardTween.Advance(0.2f);
+
+            // ── ⑥ 换远程：近战回基准、远程放大 + 底光换颗 ─────────────────────────────────
+            bv.SetOwnAttackType(AttackTypes.Ranged);
+            CardTween.Advance(0.2f);
+            Check(Mathf.Abs(bv.StatScaleNow(CardView.StatMelee).x - 1f) < 1e-4f
+                  && Mathf.Abs(bv.StatScaleNow(CardView.StatRanged).x - 1.35f) < 1e-4f,
+                  $"CF 换远程 ⇒ 近战回 1、远程 1.35（实测 {bv.StatScaleNow(CardView.StatMelee).x:F3} / "
+                + $"{bv.StatScaleNow(CardView.StatRanged).x:F3}）");
+            if (bv.AttackGlowBuilt)
+                Check(!bv.AttackGlowOn(false) && bv.AttackGlowOn(true), "CF 换远程：底光换成**远程**那颗");
+
+            // ── ⑦ `Spell` / `Active` 两档卡面**不动**（原版没有这两个实例）──────────────────
+            bv.SetOwnAttackType(AttackTypes.Active);
+            CardTween.Advance(0.2f);
+            Check(Mathf.Abs(bv.StatScaleNow(CardView.StatMelee).x - 1f) < 1e-4f
+                  && Mathf.Abs(bv.StatScaleNow(CardView.StatRanged).x - 1f) < 1e-4f
+                  && !bv.AttackGlowOn(false) && !bv.AttackGlowOn(true),
+                  "CF 技能（Active/Spell）⇒ 卡面**什么都不亮**（原版只有近战/远程两个实例；"
+                + "技能靠准星与弧线的金色表达）");
+
+            // ── ⑧ 负例：**目标合法性不再点底光**（拍板项 = 走原版语义）────────────────────────
+            //  原版 `CardHighlight.ChangeState` 只改描边色 + 卡体缩放，**不碰底光/数值**。
+            Check(bv.CurrentGem == TargetGem.None, "CF 前提：先回到 `None`（上一档是 Active）");
+            float beforeMelee = bv.StatScaleNow(CardView.StatMelee).x;
+            bv.SetHighlight(CardHighlightState.ValidTarget);
+            CardTween.Advance(0.2f);
+            Check(bv.CurrentGem == TargetGem.None
+                  && Mathf.Abs(bv.StatScaleNow(CardView.StatMelee).x - beforeMelee) < 1e-4f
+                  && !bv.AttackGlowOn(false) && !bv.AttackGlowOn(true),
+                  "CF 负例：`SetHighlight(ValidTarget)` **只点那圈描边**，不动攻击类型高亮"
+                + $"（底光两颗都没亮、数值仍 {bv.StatScaleNow(CardView.StatMelee).x:F4}）"
+                + "｜🧨 把「目标合法性」又接回底光/数值 ⇒ 红");
+
+            // ── ⑨ 惰性捕获的**阈值**：`|originalSize − zero|² < 1e-10`（`DAT_1834b2ba8`）才重捕获 ─────
+            //  🔴 **判据的门看的是【已存的基准】**，不是「当刻 scale」（原版那句就是拿 `originalSize` 去比零）——
+            //     ⇒ 两个用例都先**把基准写成阈值两侧的值**，再**把 scale 写成一个显然不同的值**，看它会不会被重记。
+            //     上侧 3×(1.2e-5)² = 4.32e-10 **>** 1e-10 ⇒ **不**重捕获（基准保持 1.2e-5）；
+            //     下侧 3×(5.0e-6)² = 7.50e-11 **<** 1e-10 ⇒ 重捕获（基准被改成当刻的 2.0）。
+            bv.StatBaseForTest(CardView.StatMelee, new Vector3(1.2e-5f, 1.2e-5f, 1.2e-5f));
+            bv.StatScaleForTest(CardView.StatMelee, new Vector3(2f, 2f, 2f));
+            bv.SetOwnAttackType(AttackTypes.Melee);
+            Check(Mathf.Abs(bv.StatBaseScale(CardView.StatMelee).x - 1.2e-5f) < 1e-9f,
+                  "CF 阈值上侧：基准的 |Δ|² = 4.32e-10 **> 1e-10** ⇒ **不**重捕获（基准仍是 1.2e-5，"
+                + $"实测 {bv.StatBaseScale(CardView.StatMelee).x:E2}）｜🧨 阈值写成 1e-9 ⇒ 这里被重捕获成 2.0 ⇒ 红");
+            bv.StatBaseForTest(CardView.StatMelee, new Vector3(5e-6f, 5e-6f, 5e-6f));
+            bv.StatScaleForTest(CardView.StatMelee, new Vector3(2f, 2f, 2f));
+            bv.SetOwnAttackType(AttackTypes.Melee);
+            Check(Mathf.Abs(bv.StatBaseScale(CardView.StatMelee).x - 2f) < 1e-5f,
+                  "CF 阈值下侧：基准的 |Δ|² = 7.50e-11 **< 1e-10** ⇒ **重捕获**（基准变成当刻的 2.0，"
+                + $"实测 {bv.StatBaseScale(CardView.StatMelee).x:F4}）｜🧨 阈值写成 1e-12 ⇒ 这里不重捕获 ⇒ 红");
+
+            // ── ⑩ 手牌 / 详情窗：**原版就没有这一档**（别给它们接上来）────────────────────────
+            //  判据（2026-10-25 `CF` 现核，父链 + MB 计数两条独立证据）：
+            //    · 整份 `CardPrefab` 里 `HighlightAttackType` **只有 2 个**，父链都是
+            //      `CardPrefab/Board Elements/3DBody/Base Attack Counters/{Melee,Range} Attack Container`；
+            //    · 2D 卡那一支（`CardPrefab/2DCard/Front/Card Info/Melee Attack Container/Melee Attack Text`）
+            //      **一个都没有**；场上 / 手牌是两棵互斥子树（`BattleCardUI.SetObjectVisibility`
+            //      同时切 `Card2DController` 与 `ToggleBody3D`）。
+            //  ⇒ 原版的「底光 + ×1.35」**只作用于场上**。我们这侧两张卡的独立**网格**数值层本来就是隐藏的
+            //    （手牌/详情窗的四个数走另一套载体 = 四件 TMP，2026-10-25 `CF-3` 起；见 `CheckFaceStatTexts`），
+            //    所以「网格层不可见」这一条必须一直成立。
+            hv.SetOwnAttackType(AttackTypes.Melee);
+            CardTween.Advance(0.2f);
+            Check(hv.StatShown(CardView.StatMelee) == -1 && fv.StatShown(CardView.StatMelee) == -1,
+                  "CF 负例：手牌 / 详情窗形态**没有这一档高亮**（独立**网格**数值层是隐藏的 ⇒ 放大不可见）"
+                + " —— 与原版一致：整份卡 prefab 只有 2 个 `HighlightAttackType`、全在 "
+                + "`Board Elements/3DBody/Base Attack Counters/*`，`2DCard/Front/Card Info/*` 一个都没有"
+                + "｜🧨 哪天把数值层开到 Hand/Full 上（或把手牌数字拆成可缩放件）⇒ 这里红；"
+                + "先回来看这条判据，别默认「手牌也应该放大」");
+        }
+        catch (System.Exception e)
+        {
+            Check(false, $"CF 攻击类型高亮这一段抛异常 ⇒ **没跑完，别读成通过**：{e.GetType().Name}: {e.Message}");
+        }
+        finally
+        {
+            CardTween.Mode = prevMode;
+            // ⚠️ 必须从场景里清掉：`Run()` 在 `CheckLayers()` 之后还要接着渲图，
+            //    留在原点的卡会出现在每一张截图里（与上面 `新账-67` 那条同样的理由）。
+            Object.DestroyImmediate(rootBoard);
+            Object.DestroyImmediate(rootFull);
+            Object.DestroyImmediate(rootHand);
+        }
+    }
+
+    // ==================================================================
+    //  CF-3（2026-10-25）：2D 卡面那四个数值 = **真 TMP 节点**（原版 `2DCard/Front/Card Info/…`）
+    //
+    //  判据（一手，逐值抄自 prefab `bundle_battleprefabs_vfxandmisc_assets_all`）：
+    //    `Melee Attack Container/Melee Attack Text` · `Range Attack Container/Range Attack Text`
+    //    · `Health Container/HealthText` · `Armour Container/Armour Text`
+    //      · `m_LocalScale` 全 **1** · `m_fontSize` **0.34**（`m_enableAutoSizing=1`、min **0.025**）
+    //      · `m_fontColor` **白** · hAlign **2 Center** / vAlign **512 Middle**
+    //      · `m_SizeDelta`：近战/远程 **0.30006×0.35** · 生命 **0.33×0.35** · 护甲 **0.32×0.35**
+    //      · 容器 `m_AnchoredPosition`：近战 (−0.836,−1.190) · 远程 (−0.595,−1.405)
+    //        · 生命 (0.740,−1.360) · 护甲 (0.899,−0.991)；护甲那件文字在容器里再偏 (−0.00495,−0.04197)
+    //  ⚠️ 原版**原版 em 口径**：`m_fontSize 0.34` × `m_LocalScale 1` = **0.34 卡单位 em**
+    //     ⇒ 我们这份拉丁资产是 `em = fontSize × 0.1`，所以填进去的是 **3.4**（断言断 em，不断那个 3.4）。
+    // ==================================================================
+    static void CheckFaceStatTexts(List<CardDef> pool)
+    {
+        var def = FindByName(pool, "Heavy Intercessor");
+        if (def == null)
+        {
+            Debug.LogError("[cardface-chk] 卡池里没有 `Heavy Intercessor` ⇒ CF-3 这一段"
+                         + "**什么都没验到**（别读成通过）");
+            return;
+        }
+        var data = BattleDriver.ToCardData(def, def.Faction);
+
+        var rootHand = new GameObject("chk_cf3_hand");
+        var rootBoard = new GameObject("chk_cf3_board");
+        try
+        {
+            var hv = CardView.Create(rootHand.transform, data, "chk_cf3_hand_card", CardFace.Hand);
+            var bv = CardView.Create(rootBoard.transform, data, "chk_cf3_board_card", CardFace.Board);
+
+            bool built = hv.FaceStatText(CardView.StatMelee) != null;
+            Check(built, "CF-3 前提：手牌档那四件数值 TMP 建出来了"
+                       + "（不在 ⇒ 下面几条**没验到**，别读成通过；缺 = 字体资产取不到）");
+            if (!built) return;
+
+            // ---- ① 字号 = 原版 em（0.34 卡单位），不是把原版那个 0.34 直接填进 fontSize ----
+            {
+                var t = hv.FaceStatText(CardView.StatMelee);
+                float em = t.fontSizeMax * TmpFont.EmPerFontSize(TmpFont.Face.LatinCardBody);
+                Check(Mathf.Abs(em - 0.34f) < 0.0034f,
+                      $"CF-3 字号：`fontSizeMax` 折成 **em = {em:F4} 卡单位**（原版 `m_fontSize` 0.34 × `m_LocalScale` 1）"
+                    + "｜🧨 直接把原版 0.34 填进我们的 `fontSize`（我们的资产 em = fontSize × 0.1）⇒ 小 10 倍 ⇒ 红");
+                float emMin = t.fontSizeMin * TmpFont.EmPerFontSize(TmpFont.Face.LatinCardBody);
+                Check(t.enableAutoSizing && Mathf.Abs(emMin - 0.025f) < 0.0003f,
+                      $"CF-3 自适应：`m_enableAutoSizing = 1`、`fontSizeMin` 折成 em = {emMin:F4}（原版 0.025）");
+                Check(t.horizontalAlignment == HorizontalAlignmentOptions.Center
+                      && t.verticalAlignment == VerticalAlignmentOptions.Middle,
+                      $"CF-3 对齐 = 原版 hAlign **Center(2)** / vAlign **Middle(512)**"
+                    + $"（实测 {t.horizontalAlignment} / {t.verticalAlignment}）");
+                Check(t.color.r > 0.99f && t.color.g > 0.99f && t.color.b > 0.99f,
+                      $"CF-3 颜色 = **白**（原版 `m_fontColor` = 1,1,1,1；实测 {t.color}）");
+            }
+
+            // ---- ② 版面 = 原版 rect（逐值，见本节文档头）--------------------------------
+            {
+                //  近战/远程 0.30006×0.35 · 生命 0.33×0.35 · 护甲 0.32×0.35
+                float[] wantW = { 0f, 0.30006f, 0.30006f, 0.32f, 0.33f };
+                for (int s = CardView.StatMelee; s <= CardView.StatHealth; s++)
+                {
+                    var rt = hv.FaceStatRect(s);
+                    Check(rt != null && Mathf.Abs(rt.sizeDelta.x - wantW[s]) < 1e-3f
+                          && Mathf.Abs(rt.sizeDelta.y - 0.35f) < 1e-3f
+                          && Mathf.Abs(rt.localScale.x - 1f) < 1e-4f,
+                          $"CF-3 第 {s} 格的 `m_SizeDelta` = 原版 **{wantW[s]:F5} × 0.35**、`m_LocalScale` = 1"
+                        + $"（实测 {(rt == null ? "没建" : $"{rt.sizeDelta.x:F5} × {rt.sizeDelta.y:F5} · 缩放 {rt.localScale.x:F3}")}）");
+                }
+            }
+
+            // ---- ③ 位置 = 原版容器 `m_AnchoredPosition`（容差 0.03 卡单位，见下）------------
+            //  ⚠️ 容差 0.03 的理由：我们的落点走 `FaceStatAt01`（**跟着卡框凹槽走**，判据 → `CardView` 里那段
+            //     W15 注释）；原版是**固定容器位**。W15 实测两者差 1–2 px（≈0.002–0.015 卡单位）⇒ 0.03 是
+            //     「跟着凹槽」这条已知差异的上界，**不是**放水到「随便都对」。
+            {
+                var want = new[]
+                {
+                    new Vector2(0f, 0f),                    // 0 空着
+                    new Vector2(-0.836f, -1.190f),          // 近战
+                    new Vector2(-0.595f, -1.405f),          // 远程
+                    new Vector2(0.899f, -0.991f),           // 护甲
+                    new Vector2(0.740f, -1.360f),           // 生命
+                };
+                for (int s = CardView.StatMelee; s <= CardView.StatHealth; s++)
+                {
+                    var p = hv.FaceStatLocalPos(s);
+                    Check(Mathf.Abs(p.x - want[s].x) < 0.03f && Mathf.Abs(p.y - want[s].y) < 0.03f,
+                          $"CF-3 第 {s} 格落点 ≈ 原版容器 `m_AnchoredPosition` ({want[s].x:F3},{want[s].y:F3})"
+                        + $"（实测 ({p.x:F4},{p.y:F4})；容差 0.03 = 「跟凹槽走」那条已知差异的上界）");
+                }
+            }
+
+            // ---- ④ 值来自正确字段（换一份数据验证），护甲 0 不显示 --------------------------
+            {
+                var d2 = data;
+                d2.melee = 1; d2.ranged = 7; d2.armor = 4; d2.health = 9;
+                hv.SetData(d2);
+                Check(hv.FaceStatText(CardView.StatMelee).text == "1"
+                      && hv.FaceStatText(CardView.StatRanged).text == "7"
+                      && hv.FaceStatText(CardView.StatArmour).text == "4"
+                      && hv.FaceStatText(CardView.StatHealth).text == "9",
+                      "CF-3 四个数各来自**自己的**字段（近战/远程/护甲/生命 = 1/7/4/9；"
+                    + $"实测 {hv.FaceStatText(CardView.StatMelee).text}/{hv.FaceStatText(CardView.StatRanged).text}/"
+                    + $"{hv.FaceStatText(CardView.StatArmour).text}/{hv.FaceStatText(CardView.StatHealth).text}）"
+                    + "｜🧨 把某一格的字段接错（如护甲读成血量）⇒ 红");
+                var d3 = d2; d3.armor = 0;
+                hv.SetData(d3);
+                Check(!hv.FaceStatVisible(CardView.StatArmour) && hv.FaceStatVisible(CardView.StatMelee),
+                      "CF-3 护甲 **0 ⇒ 那一格不显示**（原版 `BasicCardUI.SetRawCardData` 对护甲那件单独 `Toggle`）"
+                    + "；其余三个照常显示"
+                    + "｜🧨 把 0 也画出来 ⇒ 红");
+                // 🆕 CF-5：**远程 = 0 照印**（那条「值 ≠ 0」的门只属于护甲）—— 见 `CardView.StatShownFor` 的 doc
+                var d0 = d3; d0.ranged = 0;
+                hv.SetData(d0);
+                Check(hv.FaceStatVisible(CardView.StatRanged) && hv.FaceStatText(CardView.StatRanged).text == "0",
+                      "CF-5 远程 = **0 仍然显示**（原版对远程那一件的 `Toggle` 参数只是 `IsUnit`；"
+                    + "`dump.cs` 的 `RawCardScript.rangeAttack` @0xA8 / `armour` @0xA0 逐字段核过）"
+                    + "｜🧨 把「值为 0 就藏」也套到远程上 ⇒ 红");
+                var d4 = d2; d4.armor = 1;
+                hv.SetData(d4);
+                Check(hv.FaceStatVisible(CardView.StatArmour) && hv.FaceStatText(CardView.StatArmour).text == "1",
+                      "CF-5 护甲 = **1 ⇒ 显示**（与上一条是同一判据的两侧）"
+                    + "｜🧨 判据写成「恒不显示」或「0/1 都藏」⇒ 红");
+            }
+
+            // ---- ⑤ 载体互斥：手牌 = TMP、场上 = 网格层（两边**同时只有一套**）----------------
+            {
+                bool handNoMesh = hv.StatShown(CardView.StatMelee) == -1;
+                bool handTmpOn = hv.FaceStatVisible(CardView.StatMelee);
+                bool boardMesh = bv.StatShown(CardView.StatMelee) >= 0;
+                bool boardTmpOff = !bv.FaceStatVisible(CardView.StatMelee);
+                Check(handNoMesh && handTmpOn && boardMesh && boardTmpOff,
+                      "CF-3 载体互斥：**手牌 = 四件 TMP（网格层关）· 场上 = 四个网格层（TMP 关）**"
+                    + $"（手牌 mesh={hv.StatShown(CardView.StatMelee)}/tmp={handTmpOn}；"
+                    + $"场上 mesh={bv.StatShown(CardView.StatMelee)}/tmp={!boardTmpOff}）"
+                    + "｜🧨 两边同时画 ⇒ 数字画两遍（`SplitStats` 那个坑）；一边都不画 ⇒ 没数字");
+            }
+
+            // ---- ⑥ 负例：这四件**不挂**攻击类型高亮（原版只有场上有那一档）------------------
+            {
+                float before = hv.FaceStatRect(CardView.StatMelee).localScale.x;
+                hv.SetOwnAttackType(AttackTypes.Melee);
+                CardTween.Advance(0.2f);                 // 若真有人把它接上高亮，这里会把它推到 ×1.35
+                float after = hv.FaceStatRect(CardView.StatMelee).localScale.x;
+                Check(Mathf.Abs(before - 1f) < 1e-4f && Mathf.Abs(after - 1f) < 1e-4f,
+                      "CF-3 负例：`SetOwnAttackType(Melee)` **不动**手牌这四个 TMP（`localScale` 仍是 1）"
+                    + " —— 原版的攻击类型高亮只挂在 `Board Elements/3DBody/Base Attack Counters/*`，"
+                    + "`2DCard/Front/Card Info/*` 一件都没有（父链证据 → 本文件 `CheckAttackTypeHighlight` ⑩ 节）"
+                    + $"（实测 {before:F4} → {after:F4}）｜🧨 把这四件接上高亮 ⇒ 红");
+                hv.SetOwnAttackType(AttackTypes.None);
+                CardTween.Advance(0.2f);
+            }
+
+            // ---- ⑦ `SmallScreenUI` / 简化视图 **不改**这四格（原版 `activationRules` 四条全是 `[0]`）----
+            //  判据（一手，prefab 直读）：每张卡有 **5 个** `CardTextCountersController`（近战/远程/生命/护甲/费用），
+            //    四个数值的 `containers[0].activationRules` 实测**全是 `[0] = Normal`**；
+            //    只有费用那两档是 `Cost Container [0,15]` / `Cost Container Big [5,10]`
+            //    ⇒ rule **5 `SmallScreen`** 与 rule **10/15 简化视图**只切换**费用**的两种底板，
+            //      **从不关四个数值格**。出处 = `bundle_battleprefabs_vfxandmisc_assets_all` 的
+            //      `MonoBehaviour_-3358613892933444672.json`（远程）等四份 + `…_6320885271709195200.json`（费用）。
+            {
+                bool keepPersist = SmallScreenUI.PersistOverride;
+                bool wasOn = SmallScreenUI.Enabled;
+                try
+                {
+                    SmallScreenUI.PersistOverride = true;      // 只改内存、不写玩家的 PlayerPrefs（同自检规矩）
+                    var dAll = data;
+                    dAll.melee = 1; dAll.ranged = 2; dAll.armor = 3; dAll.health = 4;
+                    SmallScreenUI.Set(true);
+                    hv.SetData(dAll);
+                    bool onWhenSmall = hv.FaceStatVisible(CardView.StatMelee) && hv.FaceStatVisible(CardView.StatRanged)
+                                    && hv.FaceStatVisible(CardView.StatHealth) && hv.FaceStatVisible(CardView.StatArmour);
+                    SmallScreenUI.Set(false);
+                    hv.SetData(dAll);
+                    bool onWhenNormal = hv.FaceStatVisible(CardView.StatMelee) && hv.FaceStatVisible(CardView.StatRanged)
+                                     && hv.FaceStatVisible(CardView.StatHealth) && hv.FaceStatVisible(CardView.StatArmour);
+                    Check(onWhenSmall && onWhenNormal,
+                          "CF-4 `SmallScreenUI`（原版 `GameStaticData.smallScreenUI`）**不改**四个数值格的显隐"
+                        + "（四个 `activationRules` 全是 `[0] Normal`；rule 5/10/15 只用在费用的两档底板上）"
+                        + $"（小屏开 = {onWhenSmall} / 关 = {onWhenNormal}）"
+                        + "｜🧨 把 `SmallScreenUI`（或简化视图）接到这四格上 ⇒ 红");
+                }
+                finally
+                {
+                    if (wasOn) SmallScreenUI.Set(true); else SmallScreenUI.ResetForTest();
+                    SmallScreenUI.PersistOverride = keepPersist;     // Set/Reset 都在「不落盘」的窗口里做的
+                }
+            }
+        }
+        catch (System.Exception e)
+        {
+            Check(false, $"CF-3 2D 数值 TMP 这一段抛异常 ⇒ **没跑完，别读成通过**：{e.GetType().Name}: {e.Message}");
+        }
+        finally
+        {
+            Object.DestroyImmediate(rootHand);
+            Object.DestroyImmediate(rootBoard);
+        }
+    }
+
+    // ==================================================================
+    //  CF-6（2026-10-25）：手牌文字档（原版 `CardTextsController` 9 态里的 **5–8**）
+    //
+    //  判据（一手）：
+    //    · `BasicCardUI__SetCardTextInHand.c` —— 手牌 **永远** `on = 1`，option = `GameStaticData.cardsTextInHandFormat`
+    //    · `CardTextsController__ToggleSimplifiedView.c` —— option 0 ⇒ **不改**；初始1+1⇒5、1+2⇒6、初始2+1/2⇒6、
+    //      战术+1⇒8、战术+2⇒7
+    //    · 四个 Big 变体的字号/版面 = prefab `Name and description` 子树逐字段（正文见 `CardView` 里那组常量）
+    // ==================================================================
+    static void CheckHandTextStates(List<CardDef> pool)
+    {
+        var defU = FindByName(pool, "Heavy Intercessor");      // 单位（有 desc、有兵种行）
+        if (defU == null)
+        {
+            Debug.LogError("[cardface-chk] 卡池里没有 `Heavy Intercessor` ⇒ CF-6 这一段"
+                         + "**什么都没验到**（别读成通过）");
+            return;
+        }
+        var dU = BattleDriver.ToCardData(defU, defU.Faction);
+        // 战术卡：**必须带 desc**（态 8 要显示 `DescTextTactic Big`）——按候选表逐个试，别赌某一个名字有描述
+        CardData dT = default;
+        bool haveT = false;
+        foreach (var nmT in new[] { "Awakened Dynasty", "Armoured Offensive", "Da Old Ways" })
+        {
+            var c = FindByName(pool, nmT);
+            if (c == null) continue;
+            var cd = BattleDriver.ToCardData(c, c.Faction);
+            if (!cd.isUnit && !string.IsNullOrEmpty(cd.keywords)) { dT = cd; haveT = true; break; }
+        }
+        Check(haveT, "CF-6 前提：卡池里找得到一张**带 desc 的战术卡**"
+                   + "（`Awakened Dynasty` / `Armoured Offensive` / `Da Old Ways` 逐个试）"
+                   + " —— 找不到 ⇒ 战术那两条**没验到**，别读成通过");
+        if (!haveT) return;
+        if (string.IsNullOrEmpty(dU.keywords))
+        {
+            Check(false, "CF-6 前提：`Heavy Intercessor` 要有 desc（否则态 5 那一支验不到）");
+            return;
+        }
+
+        var rootHand = new GameObject("chk_cf6_hand");
+        var rootFull = new GameObject("chk_cf6_full");
+        try
+        {
+            var hv = CardView.Create(rootHand.transform, dU, "chk_cf6_unit", CardFace.Hand);
+            var ht = CardView.Create(rootHand.transform, dT, "chk_cf6_tactic", CardFace.Hand);
+            var fv = CardView.Create(rootFull.transform, dU, "chk_cf6_full_unit", CardFace.Full);
+
+            bool built = hv.TitleText != null && hv.KeywordsText != null;
+            Check(built, "CF-6 前提：手牌卡的卡名/效果文字两层都建出来了"
+                       + "（不在 ⇒ 下面几条**没验到**，别读成通过；多数字体资产不在）");
+            if (!built) return;
+            bool builtT = ht.TitleText != null && ht.KeywordsText != null;
+            Check(builtT, "CF-6 前提：战术卡那两层文字也都在（不在 ⇒ 战术那两条**没验到**）");
+
+            // 🔴 **2026-10-25（`CF-9` 修）：字号必须用【短文本卡】量** ——
+            //   `Fill` 末尾会 `FitToWidth` / `FitToBox` **按真实文本回缩字号**（这是原版
+            //   `m_enableAutoSizing` 的语义、生产上就该缩）。拿真卡量「字号 = 原版 em」等于在量
+            //   「这条长 desc 被缩到了多少」⇒ 一换语言/换字体/换卡就红，**而且红得没有意义**。
+            //   ⇒ 判据改成：**短文本（"A"）不触发回缩** ⇒ `fontSize` 就是名义值（em 口径与字体墨高无关：
+            //   `EmPerFontSize(Latin*)` 是常量 0.1，不是量墨迹）；再用一条**宽松的墨高**断言兜底（见 ①·b）。
+            var dShortU = dU; dShortU.title = "A"; dShortU.keywords = "A";
+            var dShortT = dT; dShortT.title = "A"; dShortT.keywords = "A";
+            var su = CardView.Create(rootHand.transform, dShortU, "chk_cf6_short_unit", CardFace.Hand);
+            var st = CardView.Create(rootHand.transform, dShortT, "chk_cf6_short_tactic", CardFace.Hand);
+            bool builtS = su.TitleText != null && su.KeywordsText != null
+                       && st.TitleText != null && st.KeywordsText != null;
+            Check(builtS, "CF-6 前提：两张**短文本**夹具（单位 / 战术）的文字层都建出来了"
+                        + " —— 不在 ⇒ 下面所有字号断言**没验到**，别读成通过");
+            if (!builtS) return;
+
+            float emU = TmpFont.EmPerFontSize(TmpFont.Face.LatinUi) * su.TitleText.fontSize;
+            float emD = TmpFont.EmPerFontSize(TmpFont.Face.LatinCardBody) * su.KeywordsText.fontSize;
+
+            // ---- ① 出厂档（option 0）：**初始态，逐位不变** --------------------------------
+            Check(CardView.HandTextFormat == 0, "CF-6 前提：全局手牌文字档出厂 = 0（Default）");
+            Check(hv.TextState == CardTextState.MinionWithDescription,
+                  $"CF-6 option 0 ⇒ 单位卡仍是**初始态 1**（实测 {hv.TextState}）"
+                + "；🧨 把 option 0 也映射进 5–8 ⇒ 红");
+            Check(hv.TitleText.gameObject.activeSelf && hv.KeywordsText.gameObject.activeSelf,
+                  "CF-6 option 0 ⇒ 卡名 + 效果文字**都在**（初始态 1 的名单）");
+            Check(Mathf.Abs(emU - 0.19f) < 0.004f && Mathf.Abs(emD - 0.2355f) < 0.005f,
+                  $"CF-6 option 0 的字号 = 初始态那两档（**短文本、不触发回缩**：卡名 em {emU:F4} ≈ 0.19 · "
+                + $"效果 em {emD:F4} ≈ 0.2355）｜🧨 名义字号接错档 ⇒ 红（量的是 `fontSize`，与字形墨高无关）");
+            // ①·b **宽松的墨高兜底**（±10%）：`fontSize → 屏幕上的字多大` 这一段只由字体资产决定 ⇒
+            //   `墨高 ÷ fontSize` 应当 = `CapPerFontSize(拉丁面)`（按面实测的常量）。它防的是
+            //   「`fontSize` 对了但被别的缩放假象盖住」——⛔ 别把容差收紧到 1%（字形面换了会红）。
+            {
+                float l0, h0;
+                if (InkSpanY(su.KeywordsText, out l0, out h0) && h0 - l0 > 1e-4f)
+                {
+                    float capPer = (h0 - l0) / su.KeywordsText.fontSize;
+                    float want = TmpFont.CapPerFontSize(TmpFont.Face.LatinCardBody);
+                    Check(Mathf.Abs(capPer - want) <= want * 0.10f,
+                          $"CF-6 ①·b 墨高兜底：`墨高 ÷ fontSize` = {capPer:F4} ≈ 原版 Pragati 的 {want:F4}（±10%）"
+                        + "｜🧨 字号对了但字体/缩放接错（例如换了面、或 `m_Scale` 变了）⇒ 红");
+                }
+                else Debug.LogWarning("[cardface-chk] CF-6 ①·b 墨高量不到（短文本 \"A\" 没有可见字形）⇒ 这一条**没验到**");
+            }
+
+            // ---- ② option 1（只看描述）⇒ 单位 = **5**：只显示 Big 效果文字 -------------------
+            CardView.SetHandTextFormat(1);
+            Check(hv.TextState == CardTextState.MinionWithDescOnlyDescription,
+                  $"CF-6 option 1 + 单位有 desc ⇒ **态 5**（实测 {hv.TextState}）"
+                + "｜🧨 映射写错（初始1+1 应是 5）/ 写死初始态 ⇒ 红");
+            Check(!hv.TitleText.gameObject.activeSelf && hv.KeywordsText.gameObject.activeSelf,
+                  "CF-6 态 5 ⇒ **只有效果文字**（卡名那件关着；原版 `DescTextUnit Big` 一个）");
+            float em5 = TmpFont.EmPerFontSize(TmpFont.Face.LatinCardBody) * su.KeywordsText.fontSize;
+            Check(Mathf.Abs(em5 - 0.26f) < 0.004f,
+                  $"CF-6 态 5 的字号 = 原版 `DescTextUnit Big` **fs26 × 0.01 = em 0.26**（实测 {em5:F4}）"
+                + "｜🧨 沿用初始态那档 0.2355 ⇒ 红");
+            Check(hv.TextBgVisible && hv.TextBgMeshName == "TextBgQuad_textBg",
+                  $"CF-6 态 5 的暗底 = **Big**（`TextBackground Big UI`；实测 {hv.TextBgMeshName}）");
+
+            // ---- ③ option 2（只看名字）⇒ 单位 = **6**：只显示 Big 卡名 + Small 暗底 -----------
+            CardView.SetHandTextFormat(2);
+            Check(hv.TextState == CardTextState.MinionWithoutDescriptionSimplifiedView,
+                  $"CF-6 option 2 + 单位 ⇒ **态 6**（实测 {hv.TextState}）；🧨 写成 5 ⇒ 红");
+            Check(hv.TitleText.gameObject.activeSelf && !hv.KeywordsText.gameObject.activeSelf,
+                  "CF-6 态 6 ⇒ **只有卡名**（效果文字关着；原版 `NameTextUnit No Description Big`）");
+            float em6 = TmpFont.EmPerFontSize(TmpFont.Face.LatinUi) * su.TitleText.fontSize;
+            Check(Mathf.Abs(em6 - 0.24f) < 0.004f && Mathf.Abs(su.TitleText.lineSpacing - (-0.08f)) < 0.005f,
+                  $"CF-6 态 6 的字号/行距 = 原版 `NameTextUnit No Description Big`"
+                + $"（**fs24 ⇒ em 0.24**、`m_lineSpacing −8 ⇒ −0.08`；实测 em {em6:F4} / 行距 {su.TitleText.lineSpacing:F3}）");
+            Check(hv.TextBgVisible && hv.TextBgMeshName == "TextBgQuad_textBgSmall",
+                  $"CF-6 态 6 的暗底 = **Small**（`TextBackground Small UI`；实测 {hv.TextBgMeshName}）"
+                + "｜🧨 继续用 Big 那张 ⇒ 红");
+
+            // ---- ④ 战术卡：option 1 ⇒ **8**（只看描述）· option 2 ⇒ **7**（只看名字）--------
+            if (builtT)
+            {
+            // 🔴 **2026-10-25（`CF-9` 修）**：这里原来**漏了一句 `SetHandTextFormat(1)`** ——
+            //   上一格（③）把全局档留在 **2**，于是「战术 + option 1」实际是拿 option 2 量的
+            //   ⇒ 实测落到 **态 7**（`TacticOnlyName`）而断言要 8。**是实现对、夹具错**（主对话复跑抓到的）。
+            CardView.SetHandTextFormat(1);
+            bool tacticOk8 = ht.TextState == CardTextState.TacticOnlyDescription
+                          && ht.KeywordsText.gameObject.activeSelf && !ht.TitleText.gameObject.activeSelf;
+            float em8 = TmpFont.EmPerFontSize(TmpFont.Face.LatinCardBody) * st.KeywordsText.fontSize;
+            Check(tacticOk8 && Mathf.Abs(em8 - 0.252f) < 0.004f,
+                  $"CF-6 战术 + option 1 ⇒ **态 8**（只有 Big 战术效果文字，`DescTextTactic Big` fs25.2 ⇒ em 0.252；"
+                + $"实测态 {ht.TextState} · em {em8:F4}）");
+            Check(!ht.TextBgVisible, "CF-6 态 8 ⇒ **不画文字底板**（原版 7/8 的 activate 名单里没有 `Textbackgrounds`）");
+            CardView.SetHandTextFormat(2);
+            Check(ht.TextState == CardTextState.TacticOnlyName
+                  && ht.TitleText.gameObject.activeSelf && !ht.KeywordsText.gameObject.activeSelf,
+                  $"CF-6 战术 + option 2 ⇒ **态 7**（只有 Big 战术卡名，`NameTextTacticBig`；实测态 {ht.TextState}）");
+            float em7 = TmpFont.EmPerFontSize(TmpFont.Face.LatinUi) * st.TitleText.fontSize;
+            Check(Mathf.Abs(em7 - 0.24f) < 0.004f, $"CF-6 态 7 的字号 = `NameTextTacticBig` fs24 ⇒ em 0.24（实测 {em7:F4}）");
+            Check(!ht.TextBgVisible, "CF-6 态 7 ⇒ 同样**不画底板**");
+            }
+
+            // ---- ⑤ 负例：**非手牌**（详情窗/卡池）不吃这个档 --------------------------------
+            CardView.SetHandTextFormat(1);
+            bool fullInit = fv.TextState == CardTextState.MinionWithDescription
+                         && fv.TitleText != null && fv.KeywordsText != null
+                         && fv.TitleText.gameObject.activeSelf && fv.KeywordsText.gameObject.activeSelf;
+            Check(fullInit,
+                  $"CF-6 负例：**非手牌**（`CardFace.Full`）即使全局档 = 1 也仍是**初始态 1**"
+                + $"（实测 {fv.TextState}；卡名/效果都在）｜🧨 把简化档推广到所有形态 ⇒ 红");
+
+            // ---- ⑥ 回出厂档：手牌卡必须**逐位回到初始态**（灭自证的另一半）--------------------
+            CardView.SetHandTextFormat(0);
+            float emU2 = TmpFont.EmPerFontSize(TmpFont.Face.LatinUi) * su.TitleText.fontSize;
+            float emD2 = TmpFont.EmPerFontSize(TmpFont.Face.LatinCardBody) * su.KeywordsText.fontSize;
+            Check(hv.TextState == CardTextState.MinionWithDescription
+                  && hv.TitleText.gameObject.activeSelf && hv.KeywordsText.gameObject.activeSelf
+                  && Mathf.Abs(emU2 - emU) < 1e-4f && Mathf.Abs(emD2 - emD) < 1e-4f,
+                  $"CF-6 回 option 0 ⇒ 手牌卡**逐位回到初始态 1**（em {emU2:F4}/{emD2:F4} vs 原 {emU:F4}/{emD:F4}）"
+                + "｜🧨 「只进不出」（回来时不重刷/不重新显示）⇒ 红");
+        }
+        catch (System.Exception e)
+        {
+            Check(false, $"CF-6 手牌文字档这一段抛异常 ⇒ **没跑完，别读成通过**：{e.GetType().Name}: {e.Message}");
+        }
+        finally
+        {
+            CardView.SetHandTextFormat(0);       // 全局静态：无论如何都要还原（否则影响后续断言/宿主）
+            Object.DestroyImmediate(rootHand);
+            Object.DestroyImmediate(rootFull);
+        }
+    }
+
+    // ==================================================================
+    //  CF-7 / CF-8（2026-10-25）：初始态里那两条「专用节点」+ 战术卡**不画文字底板**
+    //
+    //  判据（一手，prefab `CardPrefab/2DCard/Front/Card Info/Name and description` 子树）：
+    //    · 态 2 的卡名 = `NameTextUnit No description`：apos(0,0)+容器(−0.7745) ⇒ y01 **0.7325** ·
+    //      size 160×23.7666 ⇒ 1.6000×0.2377 · fs 19（em 0.19）· Midline
+    //    · 态 4 的效果文字 = `DescTacticSmall`：apos(0,−0.0901) ⇒ y01 **0.7595** · size 160×62.6409 ⇒ 高 0.6264 ·
+    //      fs **19 ⇒ em 0.19** · ls 5 / ps 8
+    //    · 态 3 的效果文字 = `DescTextTactic`：y01 **0.7876**（不变）· 同样 **em 0.19**
+    //    · `Textbackgrounds` 只在态 **1/2/5/6** 的 activate 名单里 ⇒ 战术（态 3/4）**不画**
+    // ==================================================================
+    static void CheckInitialTextStates(List<CardDef> pool)
+    {
+        var defU = FindByName(pool, "Heavy Intercessor");       // 单位·有 desc（态 1）
+        var defT3 = FindByName(pool, "Master of the Fleet");     // 战术·无 race（态 3）
+        var defT4 = FindByName(pool, "Diabolic Strength");       // 战术·有 race（态 4，subtype = Psychic Power）
+        Check(defU != null && defT3 != null && defT4 != null,
+              "CF-7/8 前提：卡池里有 `Heavy Intercessor`（态 1）/ `Master of the Fleet`（态 3）/ "
+            + "`Diabolic Strength`（态 4）—— 缺一张 ⇒ 对应那几条**没验到**，别读成通过");
+        if (defU == null || defT3 == null || defT4 == null) return;
+
+        var root = new GameObject("chk_cf78");
+        try
+        {
+            var v1 = CardView.Create(root.transform, BattleDriver.ToCardData(defU, defU.Faction), "cf78_s1");
+            var v3 = CardView.Create(root.transform, BattleDriver.ToCardData(defT3, defT3.Faction), "cf78_s3");
+            var v4 = CardView.Create(root.transform, BattleDriver.ToCardData(defT4, defT4.Faction), "cf78_s4");
+            var v2 = CardView.Create(root.transform, CardData.Placeholder(1), "cf78_s2");   // 单位·无 desc
+
+            // 🔴 **2026-10-25（`CF-9` 修）**：字号必须用**短文本**夹具量 —— `Fill` 末尾会按真实文本
+            //    `FitToBox` **回缩字号**（那是原版 `m_enableAutoSizing` 的语义、生产上就该缩）⇒
+            //    拿长 desc 量出来的是「这条被缩到了多少」，不是名义 em（复跑实测 态3 0.1089 / 态4 0.1611 就是这个）。
+            var dS3 = BattleDriver.ToCardData(defT3, defT3.Faction); dS3.keywords = "A"; dS3.title = "A";
+            var dS4 = BattleDriver.ToCardData(defT4, defT4.Faction); dS4.keywords = "A"; dS4.title = "A";
+            var s3 = CardView.Create(root.transform, dS3, "cf78_s3_short");
+            var s4 = CardView.Create(root.transform, dS4, "cf78_s4_short");
+            bool okS = s3.KeywordsText != null && s4.KeywordsText != null;
+            Check(okS, "CF-8 前提：两张**短文本**战术夹具的效果文字层建出来了（不在 ⇒ 字号那两条**没验到**）");
+
+            bool ok = v1.TitleText != null && v3.KeywordsText != null && v4.KeywordsText != null && v2.TitleText != null;
+            Check(ok, "CF-7/8 前提：四张卡的对应文字层都建出来了（缺 ⇒ 下面没验到）");
+            if (!ok || !okS) return;
+
+            // ---- ① 态 2：卡名用 `NameTextUnit No description`（y01 0.7325）----------------------
+            float y2, y1;
+            bool m2 = InkCenterY01(v2, v2.TitleText, out y2);
+            bool m1 = InkCenterY01(v1, v1.TitleText, out y1);
+            Check(m2 && Mathf.Abs(y2 - 0.7325f) < 0.02f,
+                  $"CF-8 态 2（单位·无 desc）卡名墨心 y01 = 原版 `NameTextUnit No description` **0.7325**"
+                + $"（实测 {(m2 ? y2.ToString("F4") : "量不到")}）"
+                + "｜🧨 继续沿用态 1 的 `UnitNameAt`（0.5821）⇒ 红");
+            // ---- ② 反向：态 1 的卡名**不受影响**（仍是 `UnitNameAt` 的 0.5821）------------------
+            Check(m1 && Mathf.Abs(y1 - 0.5821f) < 0.02f,
+                  $"CF-8 反向：态 1（单位·有 desc）卡名墨心仍是 **0.5821**（实测 {(m1 ? y1.ToString("F4") : "量不到")}）"
+                + "｜🧨 把态 2 那套几何套到所有单位卡 ⇒ 红");
+
+            // ---- ③ 态 3 / 态 4 的**效果文字**（两个不同节点）----------------------------------
+            float c3, c4, em3, em4;
+            bool m3 = InkCenterY01(v3, v3.KeywordsText, out c3);
+            bool m4 = InkCenterY01(v4, v4.KeywordsText, out c4);
+            em3 = TmpFont.EmPerFontSize(TmpFont.Face.LatinCardBody) * s3.KeywordsText.fontSize;
+            em4 = TmpFont.EmPerFontSize(TmpFont.Face.LatinCardBody) * s4.KeywordsText.fontSize;
+            Check(m3 && Mathf.Abs(c3 - 0.7876f) < 0.02f,
+                  $"CF-8 态 3（战术·无 race）效果文字中心仍是 **0.7876**（`DescTextTactic`；"
+                + $"实测 {(m3 ? c3.ToString("F4") : "量不到")}）");
+            Check(m4 && Mathf.Abs(c4 - 0.7595f) < 0.02f,
+                  $"CF-8 态 4（战术·有 race）效果文字中心 = 原版 `DescTacticSmall` **0.7595**（实测 "
+                + $"{(m4 ? c4.ToString("F4") : "量不到")}）｜🧨 继续用 `DescTextTactic`（0.7876）⇒ 红");
+            Check(Mathf.Abs(em3 - 0.19f) < 0.005f && Mathf.Abs(em4 - 0.19f) < 0.005f,
+                  "CF-8 战术卡两档效果文字 em = 原版 **0.19**（`DescTextTactic` / `DescTacticSmall` 都是 fs19；"
+                + $"**短文本、不触发回缩** ⇒ 实测 态3 {em3:F4} / 态4 {em4:F4}）"
+                + "｜🧨 沿用单位卡那档 0.2355（大 24%）⇒ 红");
+
+            // ---- ④ 文字底板：战术两态**不画**、单位两态照画（不是一刀切）-----------------------
+            bool bgArt = v1.TextBgMeshName != null;      // 前提：底板图取得到（取不到 ⇒ 这一档没验到）
+            Check(bgArt, "CF-7 前提：文字底板那一层建出来了（图 `Card_Text_smooth_background` 在）"
+                       + " —— 不在 ⇒ 下面「画/不画」两条**没验到**，别读成通过");
+            if (bgArt)
+            {
+                Check(v1.TextBgVisible,
+                      "CF-7 反向：**单位卡**（态 1）文字底板照画（原版态 1 的名单里有 `TextBackground Big UI`）"
+                    + "｜🧨 一刀切全关 ⇒ 红");
+                Check(!v3.TextBgVisible && !v4.TextBgVisible,
+                      "CF-7 战术卡（态 3 / 态 4）**不画文字底板**（原版 `objectsToActivate` 名单里没有 `Textbackgrounds`；"
+                    + $"实测 态3 {v3.TextBgVisible} / 态4 {v4.TextBgVisible}）"
+                    + "｜🧨 删掉 `ApplyTextBgForState` 里那句「战术/简化战术 ⇒ 关」⇒ 红");
+            }
+        }
+        catch (System.Exception e)
+        {
+            Check(false, $"CF-7/8 这一段抛异常 ⇒ **没跑完，别读成通过**：{e.GetType().Name}: {e.Message}");
+        }
+        finally { Object.DestroyImmediate(root); }
+    }
+
+    /// <summary>卡面某层 TMP 的**墨心**在 `FaceContentRoot` 局部系里的 y01（0 = 卡顶）。
+    /// ⚠️ 标架必须是 `FaceContentRoot`（`2DCard/Front`）—— 期望值全是 `Front` 局部 y01（同 `CardBaseDemo.InkBoxCardLocal`）。</summary>
+    static bool InkCenterY01(CardView v, TextMeshPro t, out float y01)
+    {
+        y01 = 0f;
+        if (v == null || t == null) return false;
+        float l, h;
+        if (!InkSpanY(t, out l, out h) || h - l <= 1e-4f) return false;
+        var frame = v.FaceContentRoot != null ? v.FaceContentRoot : v.transform;
+        Vector3 world = t.transform.TransformPoint(new Vector3(0f, 0.5f * (l + h), 0f));
+        y01 = 0.5f - frame.InverseTransformPoint(world).y / CardView.Height;
+        return true;
     }
 
     // ==================================================================

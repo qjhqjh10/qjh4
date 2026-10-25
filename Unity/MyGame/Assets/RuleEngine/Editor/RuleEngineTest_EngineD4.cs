@@ -73,9 +73,22 @@ public static partial class RuleEngineTest
     static void D4Shape(CardDatabase.FileDto dto)
     {
         // ---- A1 · 表版本 / 张数（加列必须 bump —— `CardDatabase` 的守卫靠它出声）----
-        Check(dto.version, 25,
-              "★ A1 卡表 `version` = **25**（v25 = 这两列；⛔ 不 bump 的话新列会被旧守卫静默读成 `null`）"
-            + "｜🧨 生成器 return 里改回 24（或忘了 bump）⇒ 红");
+        // 🔴 2026-10-25（执行代理 `F1` · 铁律 5 就地订正）：期望值原来是 **25**。
+        //   同会话的 `E2`（`资料/普查产出_1025/E2_ability_criteria管线.md`）加了第三列
+        //   **`abilityLevelCriteria`（v26）** ⇒ 表已 bump 到 **26**，本行过期。
+        //   ⛔ 判据没有放宽：仍然钉**确切版本号**（不是 `>= 25`）——
+        //   「加列必须 bump」这条纪律靠的就是这个等式。
+        // 🔴 2026-10-25（执行代理 `E3` · 铁律 5 就地订正）：同会话的 `E3` 又加了第四列
+        //   **`abilityActingCriteria`（v27，`CardAbility.actingCardCriteria` `+0x28`）** ⇒ 表已 bump 到
+        //   **27**。归因 → `资料/普查产出_1025/E3_actingCardCriteria.md`。
+        // 🔴 2026-10-25（执行代理 `E4` · 铁律 5 就地订正）：同会话的 `E4` 又加了第五列
+        //   **`activeAbilityPickCriteria`（v28，`ActiveAbility.targetCriteria` `+0x38`）** ⇒ 表已 bump 到
+        //   **28**。归因 → `资料/普查产出_1025/E4_trigger目标与activeAbility目标池.md`。
+        Check(dto.version, 28,
+              "★ A1 卡表 `version` = **28**（v28 = `activeAbilityPickCriteria` 一列：`ActiveAbility` "
+            + "对象级 `targetCriteria` 36 格；v27 `abilityActingCriteria` / v26 / v25 各列照旧；"
+            + "⛔ 不 bump 的话新列会被旧守卫静默读成 `null`）"
+            + "｜🧨 生成器 return 里改回 27（或忘了 bump）⇒ 红");
 
         // ---- A2 · 两列「每张卡都落」：`null` 与空数组必须分得开 ----
         int aatNull = 0, atcNull = 0;

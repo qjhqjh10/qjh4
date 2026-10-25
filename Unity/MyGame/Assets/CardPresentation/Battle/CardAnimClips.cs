@@ -52,6 +52,20 @@ namespace CardPresentation
         /// （`T = Offset + CardAnimTime.Delay`），两处都加 = 等两次（原版 `_DelayedVFXPlay:17-27` 只等一次）。
         /// 消费点原来那处已删（`BattleDriver.PlayUnitSkillAnim`）。</summary>
         public float VfxDelay;
+        /// <summary>🆕 **2026-10-25（`AU1` · `新账 N4`）：`startDelay`（秒，`AnimInfo` 偏移 `0x28`）**
+        /// —— **每一拍起播之前先等这么久**（再进 `DelayedVFXPlay` 的 `vfxDelayTime`）。
+        ///
+        /// <para>**判据（第一权威）= `BattleManager._ResolveAnim_d__466__MoveNext.c:67-75`**：
+        /// state 0 的末尾是 `WaitForSeconds(*(float *)(AnimInfo + 0x28))` → state 1 才
+        /// `StartCoroutine(DelayedVFXPlay)` + 震屏/`UnitShake`/`UnitTweenSO`。
+        /// `dump.cs` 的 `AnimInfo` 字段序（`vfxDelayTime 0x24` → **`startDelay 0x28`** → `timeAtStartPos 0x2c`）
+        /// 与 `AnimInfo__GetAnimDuration.c` 读的 `0x24/0x2c/0x30/0x34` 逐项对齐 ⇒ `0x28` 就是 `startDelay`。
+        /// ⚠️ **它不算进 `GetAnimDuration()`**（那是四字段直加）⇒ 只影响**起播时刻**，不影响这一拍占多久。</para>
+        ///
+        /// <para>**数据面**（`Resources/cardanim_clips.json` 的 `sd` 列，生成器只在非 0 时写）：
+        /// 全池现读 **1 行** = `Cuts Brutal Warp Spider` **0.5 s**（`Empyric Ambush SaimHann` 的 `play` 桶）。
+        /// ⚠️ 改前**整列零消费**（N4）⇒ 那一件比原版早 0.5 s 起播。默认 `0` = 原版绝大多数件。</para></summary>
+        public float StartDelay;
         /// <summary>`timeAtStartPos`（秒）—— `PlayAbilityBeat` 的 `ts`。</summary>
         public float Ts;
         /// <summary>`timeMoving`（秒）—— `PlayAbilityBeat` 的 `tm`。</summary>
@@ -85,6 +99,77 @@ namespace CardPresentation
         /// <summary>三轴随机幅度区间 `[min,max]`（`minMax{X,Y,Z}Offset`；每拍初始化时抽一次）。</summary>
         public float Mnx, Mxx, Mny, Mxy, Mnz, Mxz;
 
+        // ── 🆕 2026-10-25（`AU1` · `J3` §2）：`minionMovementInfo` 的**三轴旋转** ──
+        //  判据（`J3` §2 现查，第一权威 `_d__358:284-365` + `CardScript__ApplyMovementDisappearAnimRotations.c`）：
+        //   · 轴 = **世界 right(X) / up(Y) / forward(Z)**（`Vector3` 静态块 `+0x3C / +0x18 / +0x48`，
+        //     `il2cpp.h:5149-5160` 的声明序 + 四条独立互证）；
+        //   · 单轴：`enable==0 ⇒ identity`；否则 `Quaternion.SlerpUnclamped(startRot, AngleAxis(maxValue 度, axisVec),
+        //     curve.Evaluate(elapsed/animTime))` —— 🔴 **必须 Unclamped**（曲线中键 −0.952，钳到 0 会抹掉「先反拧再甩」）；
+        //   · 连乘：`transform.rotation = qX * qY * qZ * startRotation`，**三次 Apply 的 `cur` 都是 `startRotation`**。
+        //  ⚠️ `maxValue` 单位 = **度**（现读两行都是 45.0）；字段名 = `rotateXAxis/YAxis/ZAxis`
+        //     （`AnimationDefinition{enable@0x10, curve@0x18, maxValue@0x20}`）。
+
+        /// <summary>`rotateXAxis`（`+0x40`）的 `enable` —— 绕**世界 X（right）**转不转。</summary>
+        public bool RotXOn;
+        /// <summary>`rotateXAxis.maxValue`（**度**）。</summary>
+        public float RotXDeg;
+        /// <summary>`rotateXAxis.curve`（扁平 `[t,v,…]`；`null` = 该轴没有曲线 ⇒ 按 identity 处理）。</summary>
+        public float[] RotXCurve;
+        /// <summary>`rotateYAxis`（`+0x48`）的 `enable` —— 绕**世界 Y（up）**。</summary>
+        public bool RotYOn;
+        /// <summary>`rotateYAxis.maxValue`（度）。</summary>
+        public float RotYDeg;
+        /// <summary>`rotateYAxis.curve`。</summary>
+        public float[] RotYCurve;
+        /// <summary>`rotateZAxis`（`+0x50`）的 `enable` —— 绕**世界 Z（forward）**。</summary>
+        public bool RotZOn;
+        /// <summary>`rotateZAxis.maxValue`（度）。</summary>
+        public float RotZDeg;
+        /// <summary>`rotateZAxis.curve`。</summary>
+        public float[] RotZCurve;
+
+        // ── 🆕 2026-10-25（`AU1` · `J1` §9/§10）：`minionMovementInfo` 与 `screenShake` ──
+        //  判据（J1 现查，第一权威仍是 `BattleManager._ResolveAnim_d__466__MoveNext.c`）：
+        //   · `:165-233`：`animInfo+0x70 != null` 时走 `CardScript.MoveAndDisappearAnim(...)` 并 `yield`
+        //     —— 与「等 `GetAnimDuration()`」是 **if/else** ⇒ **这一拍时长变成 `delay + animTime`**（不是原来的
+        //     `GetAnimDuration`）。`shouldActivateMinionMovement(+0x14) == 0` 时退回 `GetAnimDuration`。
+        //   · `:79-105`：`DelayedVFXPlay` 起播的**同一帧**，`if (preset != null) OverwriteCameraShakePreset.Play()`
+        //     （`CanPlay()` 就只判 preset 非空）⇒ 屏震与这一拍**并行**，不进时长。
+        //  ⚠️ **运行期表的数据已在 2026-10-25 由 `TL` 补齐**（`工具/gen_cardanim_clips.py`）：现读
+        //     `mvt==1` **2 行**（`Scarab_Explosion` / `SporeMine_Explosion`，`mvd=0` `mva=0.6` `mvvis=0`
+        //     `mvxz=1` `mvy=1` `mox/moy/moz = −0.1/0.2/−0.1`）、`shk` **57 行**（10 个 preset）。
+        //     缺键仍是 0/null = 「这一档不成立」（旧表 / 别的生成器跑的副本）。
+
+        /// <summary>`minionMovementInfo.shouldActivateMinionMovement`（`+0x14`）—— 这一拍要不要**卡本体沿曲线位移**。
+        /// 真 ⇒ 这一拍时长 = <see cref="MoveBodyDelay"/> + <see cref="MoveBodyTime"/>（`J1` §9）。</summary>
+        public bool MoveBody;
+        /// <summary>`minionMovementInfo.delay`（`+0x10`）—— 位移前先等多久（`_d__358:71-77`）。</summary>
+        public float MoveBodyDelay;
+        /// <summary>`minionMovementInfo.animTime`（`+0x58`）—— 位移本身跑多久（`_d__358:269-283` 的 `WaitUntil`）。</summary>
+        public float MoveBodyTime;
+        /// <summary>`visibilityStateAfterFinish` —— 位移结束后卡本体的可见性（现读 2 行都是 **0 = 隐藏**）。</summary>
+        public int MoveBodyEndVis;
+        /// <summary>`useXZCurve` / `useYCurve` —— 哪几条曲线参与（现读 2 行都是 1/1）。</summary>
+        public bool MoveUseXZ, MoveUseY;
+        /// <summary>三条位移曲线（扁平 `[t,v,…]`，同 <see cref="Ease"/> 的约定）。</summary>
+        public float[] MoveCurveX, MoveCurveY, MoveCurveZ;
+        /// <summary>三轴偏移（`xOffset/yOffset/zOffset`；现读 2 行都是 `(-0.1, 0.2, -0.1)`）。</summary>
+        public float MoveOffX, MoveOffY, MoveOffZ;
+
+        /// <summary>`screenShake.presetSO` 解析出来的 **preset 名**（空 = 这一拍不震；原版 `CanPlay()` 只判非空）。
+        /// 消费点 = 拍子起播**同帧**（`_ResolveAnim:79-105`），走现成的 `WFModuleScreenShake.Resolve` + `OnShake`。
+        /// ✅ **2026-10-25（`TL` §3）**：生成器已做 **PathID → 名字**那一跳（`m_Script` pid + `m_Name` 判据），
+        /// 现读 **57 行全部解出名字**、distinct **10 个**、且都在这 17 个 preset 里；解不出的那档生成器**出声 + 留空**（⛔ 不给默认 preset）。</summary>
+        public string ShakePreset;
+        /// <summary>`screenShake.delay`（现读取值 0 / 1.0）。</summary>
+        public float ShakeDelay;
+        /// <summary>`screenShake.amplitude` 覆盖值（现读 34 条 0 = 用 preset 自身、1 条 4.0、1 条 6.0）。</summary>
+        public float ShakeAmplitude;
+        /// <summary>`screenShake.frequency` 覆盖值（同上，0 = 用 preset 自身）。</summary>
+        public float ShakeFrequency;
+        /// <summary>`overwriteAmplitude` / `overwriteFrequency` 两个开关（0/1）。</summary>
+        public int ShakeOverAmplitude, ShakeOverFrequency;
+
         /// <summary>这一拍在进度 <paramref name="t01"/> / <paramref name="pEased"/> 处的偏移量
         /// （= 曲线值 × 随机幅度）。**判据只此一处** = `CardAnimOrder.OffsetAt`
         /// （`CardAnimBeat.OffsetAt` 也转发到那儿）。`OffsetAo == false` ⇒ 零。</summary>
@@ -102,7 +187,8 @@ namespace CardPresentation
         public string Anim;
         /// <summary>prefab 名（空 = **纯计时拍**，原版合法：`Wait_1s` 那种，只占时长不出件）。</summary>
         public string Prefab;
-        /// <summary>相对事件起播的偏移（秒）= 组内 `Offset` + 自身 `vfxDelayTime`（`VfxMap.ResolvedVfx.T`）。</summary>
+        /// <summary>相对事件起播的偏移（秒）= 组内 `Offset` + 自身 `vfxDelayTime`（`VfxMap.ResolvedVfx.T`）
+        /// ＋🆕 自身 `startDelay`（<see cref="CardAnimPlacement.StartDelay"/>，2026-10-25 `AU1`）。</summary>
         public float T;
         /// <summary>这一拍演多久（秒，`AnimInfo.GetAnimDuration()`；0 = 没有逐卡时间）。</summary>
         public float Duration;
@@ -123,12 +209,33 @@ namespace CardPresentation
             public string n;      // prefab 名（诊断用）
             public int sp, ep, pt, mv;
             public float vd, ts, tm, te;
+            /// <summary>🆕 2026-10-25（`AU1`）：`startDelay`（只在非 0 时由生成器写 ⇒ 缺键 = 0）。
+            /// 判据与消费点见 <see cref="CardAnimPlacement.StartDelay"/>。</summary>
+            public float sd;
             // 🆕 2026-10-23（`新账-83`）：`AnimInfo` 的「VFX movement」那几位（短名同 `CardAnimBeat`）
             public int otv;                       // orientToVelocity
             public float[] ease;                  // easeCurve（扁平 [t,v,…]；只对 mv==1 的行写）
             public int ao, ont;                   // applyMovementOffsets / useNonModifiedAnimTime
             public float[] ofx, ofy, ofz;         // 三轴偏移曲线
             public float mnx, mxx, mny, mxy, mnz, mxz;   // 三轴随机幅度区间
+            // 🆕 2026-10-25（`AU1` · `J1` §9/§10）—— ✅ **生成器已由 `TL` 补齐**（`gen_cardanim_clips.py`，现读 2 行 / 57 行）：
+            //   · 卡本体位移：`mvt`(shouldActivateMinionMovement) `mvd`(delay) `mva`(animTime)
+            //     `mvvis`(visibilityStateAfterFinish) `mvxz`/`mvy`(useXZCurve/useYCurve)
+            //     `mvcx`/`mvcy`/`mvcz`(三条曲线，扁平 `[t,v,…]`) `mox`/`moy`/`moz`(三轴偏移)
+            //   · 屏震：`shk`(**preset 名**，空 = 无) `shkd`(delay) `shka`(amplitude) `shkf`(frequency)
+            //     `shkoa`/`shkof`(两个 overwrite 开关)
+            //   缺键 ⇒ 0 / null = 改前行为（JsonUtility 不吃不来就不赋值）。
+            public int mvt, mvvis, mvxz, mvy;
+            public float mvd, mva, mox, moy, moz;
+            public float[] mvcx, mvcy, mvcz;
+            public string shk;
+            public float shkd, shka, shkf;
+            public int shkoa, shkof;
+            // 🆕 2026-10-25（`AU1` · `J3` §2）：`minionMovementInfo` 的**三轴旋转**（生成器 2026-10-25 前就在写，现读 10 行）：
+            //   `mmRxE/mmRxM/mmRxC`（X 轴 enable / maxValue 度 / curve 扁平）· 同形 `mmRy*` / `mmRz*`。
+            public int mmRxE, mmRyE, mmRzE;
+            public float mmRxM, mmRyM, mmRzM;
+            public float[] mmRxC, mmRyC, mmRzC;
         }
         [Serializable] public class RtFile
         {
@@ -180,11 +287,23 @@ namespace CardPresentation
                 {
                     StartPos = r.sp, EndPos = r.ep, PointTowards = r.pt,
                     Move = r.mv != 0, VfxDelay = r.vd, Ts = r.ts, Tm = r.tm, Te = r.te,
+                    StartDelay = r.sd,
                     // 🆕 2026-10-23（`新账-83`）：「VFX movement」三列（判据见 `CardAnimPlacement` 那段）
                     Ease = r.ease, OrientToVelocity = r.otv != 0,
                     OffsetAo = r.ao != 0, OffsetOnt = r.ont != 0,
                     Ofx = r.ofx, Ofy = r.ofy, Ofz = r.ofz,
                     Mnx = r.mnx, Mxx = r.mxx, Mny = r.mny, Mxy = r.mxy, Mnz = r.mnz, Mxz = r.mxz,
+                    // 🆕 2026-10-25（`AU1` · `J1` §9/§10）：卡本体位移 + 屏震（缺键 = 0/null = 改前行为）
+                    MoveBody = r.mvt != 0, MoveBodyDelay = r.mvd, MoveBodyTime = r.mva,
+                    MoveBodyEndVis = r.mvvis, MoveUseXZ = r.mvxz != 0, MoveUseY = r.mvy != 0,
+                    MoveCurveX = r.mvcx, MoveCurveY = r.mvcy, MoveCurveZ = r.mvcz,
+                    MoveOffX = r.mox, MoveOffY = r.moy, MoveOffZ = r.moz,
+                    ShakePreset = r.shk, ShakeDelay = r.shkd, ShakeAmplitude = r.shka, ShakeFrequency = r.shkf,
+                    ShakeOverAmplitude = r.shkoa, ShakeOverFrequency = r.shkof,
+                    // 🆕 2026-10-25（`AU1` · `J3` §2）：三轴旋转（字段名与数据列逐字对应）
+                    RotXOn = r.mmRxE != 0, RotXDeg = r.mmRxM, RotXCurve = r.mmRxC,
+                    RotYOn = r.mmRyE != 0, RotYDeg = r.mmRyM, RotYCurve = r.mmRyC,
+                    RotZOn = r.mmRzE != 0, RotZDeg = r.mmRzM, RotZCurve = r.mmRzC,
                 };
             }
             Loaded = true;
@@ -300,11 +419,16 @@ namespace CardPresentation
             {
                 var it = items[i];
                 var place = PlacementOf(it.Anim);
+                // 🆕 2026-10-25（`AU1` · `新账 N4`）：**`startDelay` 折进起播偏移**。
+                //   原版 `_ResolveAnim` state 0 先 `WaitForSeconds(AnimInfo.startDelay)`（`:67-75`）
+                //   才进 `DelayedVFXPlay`（那里再等 `vfxDelayTime` = 已含在 `it.T` 里）
+                //   ⇒ 起播 = `startDelay + 组内偏移 + vfxDelayTime`。查不到参数 ⇒ 0（= 改前行为）。
+                float sd = place.HasValue ? Mathf.Max(0f, place.Value.StartDelay) : 0f;
                 buf[i] = new CardAnimClip
                 {
                     Anim = it.Anim,
                     Prefab = it.Name,
-                    T = it.T,
+                    T = it.T + sd,
                     Duration = it.Duration,
                     // 查不到 ⇒ 出声（PlacementOf 里）后按「自己 + 不移动」（显式降级，见文件头）
                     Place = place ?? new CardAnimPlacement(),

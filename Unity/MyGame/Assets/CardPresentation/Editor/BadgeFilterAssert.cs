@@ -23,7 +23,10 @@ using CardPresentation;
 using RuleEngine;   // CardDatabase / CardDef（判据 = 卡池现读，⛔ 不写死张数）
 using UnityEngine;
 
-/// <summary>`W10` 的断言集合。`Run()` 幂等（除了 `Badges` 那两处「只告警一次」的静态诊断计数）。</summary>
+/// <summary>`W10` 的断言集合。`Run()` 幂等（除了 `Badges` 那几处静态诊断计数）。
+/// <para>🔴 **2026-10-25 补（`T07`）**：`Badges` 里「去重告警集」与「本轮观测集」已拆成两个集合，
+/// 本文件第 4·b 段钉的就是这件事 —— `ResetUnknownForTest()` **不再重新武装告警**
+/// （所以 `Run()` 跑第二遍/第二趟不会再刷那 17 行 `[Badges]` 日志），但「这一趟的名单」仍完整。</para></summary>
 public static class BadgeFilterAssert
 {
     public static int Passed { get; private set; }
@@ -87,9 +90,11 @@ public static class BadgeFilterAssert
         //    这一条**不复用 `PlaysInPlayIcon`**（那是被测实现），而是拿上面两张名单**独立**比 —— 灭自证。
         {
             // 🔴 **2026-10-24（`W26` · `D2` §11 / `W24` §11）：全池扫**之前**先清空累积** ——
-            //    `Badges.UnknownIconSpritesForTest` 记的是**全进程累积**（上面第 2、3 段也调过 `Badges.For`），
-            //    不清就等于「不限于这一趟」。清空之后 `PlaysInPlayIcon` 里那批图名会**再告警一次**
-            //    （它同时是「每个新键只告警一次」的去重集 —— 已写在 `Badges.ResetUnknownForTest` 的 doc 里，有意为之）。
+            //    不清就等于「不限于这一趟」（读口记的是「自上次 Reset 起见过的」）。
+            //    ⚠️ **2026-10-25 更正（`T07` · 铁律 5）**：本段原来接着写「清空之后同样那批图名会**再告警一次**
+            //    （它同时是去重集，有意为之）」—— **已不成立**：`Badges` 里两个集合拆开了，
+            //    `ResetUnknownForTest()` 只清**观测集**、不清去重告警集 ⇒ Reset **不会再告警**。
+            //    现在这条语义由下面 §4·b 的三条断言钉住（含一条灭自证）。
             Badges.ResetUnknownForTest();
 
             var banned = new HashSet<string>();
@@ -161,12 +166,80 @@ public static class BadgeFilterAssert
             // 只判 `unexplained == 0` 会**全绿**（「一条都没报」不等于「都对得上」）。
             Check(explained.Count > 0,
                   "★ T2·诊断：计数器**真的记了账**（这一趟报出 " + unknown.Length + " 条，其中已知 " + explained.Count + " 条）"
-                + " —— 🧨 把 `PlaysInPlayIcon` 里那句 `_notInDataWarned.Add(sprite)` 删掉 ⇒ 一条都不记 ⇒ 本条红");
+                + " —— 🧨 把 `PlaysInPlayIcon` 里那句 `_notInDataSeen.Add(sprite)` 删掉 ⇒ 一条都不记 ⇒ 本条红"
+                + "（⚠️ 2026-10-25 `T07` 起观测走 `_notInDataSeen`，不是去重集 `_notInDataWarned`）");
             Check(unexplained.Count == 0,
                   "★ T2·诊断：计数器里**没有没解释过**的图名（被原版三列挡掉的 17 条属于预期、不算；"
                 + "这一趟报出 " + unknown.Length + " 条 / 已知 " + explained.Count + " 条）"
                 + (unexplained.Count == 0 ? "" : "｜✗ " + string.Join(" / ", unexplained.ToArray()))
                 + " —— 🧨 图集里多一张对不上 `trait_collection.json`、又被当关键词用 ⇒ 红（不静默）");
+        }
+
+        // ── 4·b. 「去重告警集」vs「本轮观测集」（2026-10-25 · 任务线 `T07`）──────────────
+        //    旧写法 = **一个** `HashSet` 两用 ⇒ `ResetUnknownForTest()` 一调，「每个图名只告警一次」也重新
+        //    武装 ⇒ 本文件每轮开扫前先 Reset ⇒ 同样那 17 个图名**每轮重打 17 行** `[Badges]` 日志，
+        //    而第 4 段又把它们当「已知/预期」解释掉 ⇒ **噪声被当成正常**。
+        //    现在 `Core/Badges.cs` 拆成两个集合，下面三条各钉一头：
+        //      ① Reset 之后重跑同一批 ⇒ 告警新增 **0** 行（去重告警集没被清）；
+        //      ② Reset 之后观测集**从空开始**、跑完**恰好**等于本轮真实遇到的那几条（⛔ 不是上一轮残留）；
+        //      ③ 灭自证：一个**从没见过**的图名 ⇒ 仍然必须告警**一次**（去重集没把「没见过」也吞掉）。
+        //    🧨 每条都能回答「改回旧写法会不会红」——写在各自的断言文案末尾。
+        {
+            var prevSeen = Badges.UnknownIconSpritesForTest;   // 上一段（全池扫）留下的观测集，用来对照「不是残留」
+            Badges.ResetUnknownForTest();
+            var afterReset = Badges.UnknownIconSpritesForTest;
+            Check(afterReset.Length == 0,
+                  "★ T07·`ResetUnknownForTest()` 之后观测集**从空开始**（现读 " + afterReset.Length
+                + " 条；上一段它是 " + prevSeen.Length + " 条）"
+                + " —— 🧨 让 Reset 什么都不清（或错清去重集而不是观测集）⇒ 这里留着上一段的 "
+                + prevSeen.Length + " 条 ⇒ 红");
+
+            // ② Reset 后**只**喂 `hasIcon == false` 那 5 条 ⇒ 观测集必须**恰好**是这 5 条的图名。
+            //    喂的比上一段少 ⇒ 若读口「拿上一轮留下的冒充」，立刻会多出另 12 条 ⇒ 红。
+            var five = new HashSet<string>();
+            foreach (var k in HasIconFalse) { var s = Badges.SpriteOf(k); if (s != null) five.Add(s); }
+            foreach (var k in HasIconFalse) Badges.For(One(k), null);
+            var onlyFive = Badges.UnknownIconSpritesForTest;
+            Check(SameSet(onlyFive, five),
+                  "★ T07·Reset 后**只喂那 5 条** ⇒ 本轮观测集**恰好**是这 5 条的图名（现读 " + onlyFive.Length
+                + " 条：" + string.Join(" / ", onlyFive) + "；期望 " + five.Count + " 条：" + JoinSet(five) + "）"
+                + " —— 🧨 读口改成「全进程累积/拿上一轮留下的」、或 Reset 不清 ⇒ 多出另 12 条 ⇒ 红");
+
+            // ① Reset 之后重跑**同一批**（第 2 段那 17 条负例 + 第 3 段那 47 条正例；这批前面已经全部跑过一遍
+            //    ⇒ 去重告警集里早就有它们了）⇒ **一行告警都不许新增**。
+            int w0 = Badges.UnknownIconWarnCountForTest;
+            foreach (var k in HasIconFalse) Badges.For(One(k), null);
+            foreach (var k in NotInPlayIcon) Badges.For(One(k), null);
+            foreach (var k in Badges.InPlayIconKeysForTest) Badges.For(One(k), null);
+            int w1 = Badges.UnknownIconWarnCountForTest;
+            Check(w1 == w0,
+                  "★ T07·Reset 之后重跑同一批图名（5 + 12 条负例 + 47 条正例）⇒ **告警新增 0 行**（读口增量 "
+                + (w1 - w0) + "，累计 " + w0 + " → " + w1 + "）"
+                + " —— 🧨 退回「一个集合两用」（Reset 把去重集一起清）⇒ 这一批那 17 条各再告警一次 ⇒ 红");
+
+            // ③ 灭自证①：「Reset 不重打日志」不能靠「干脆永不告警」骗到 ⇒ 一个**从没见过**的图名必须报一次。
+            const string probe = "wf_t07_probe_never_in_data";
+            int w2 = Badges.UnknownIconWarnCountForTest;
+            bool ok = Badges.PlaysInPlayIcon(probe);
+            int w3 = Badges.UnknownIconWarnCountForTest;
+            Check(!ok && w3 - w2 == 1,
+                  "★ T07·**没见过**的图名 `" + probe + "` ⇒ 仍然告警**一次**（返回 " + ok
+                + "，告警增量 " + (w3 - w2) + "）"
+                + " —— 🧨 把 `Debug.LogWarning` 那一段整个删掉（不静默的红线）⇒ 增量 0 ⇒ 红");
+            // ③ 灭自证②：同一个名字**第二次**不许再报（「只告警一次」这条语义本身）。
+            int w4 = Badges.UnknownIconWarnCountForTest;
+            bool ok2 = Badges.PlaysInPlayIcon(probe);
+            int w5 = Badges.UnknownIconWarnCountForTest;
+            Check(!ok2 && w5 - w4 == 0,
+                  "★ T07·同一个图名**第二次** ⇒ 不再告警（读口增量 " + (w5 - w4) + "）"
+                + " —— 🧨 去掉 `_notInDataWarned` 那层去重（退化成「每次都报」）⇒ 增量 1 ⇒ 红");
+            // ③ 灭自证③：报过的那条**同时**要进本轮观测集（两句不能合成一句）。
+            bool seenProbe = false;
+            foreach (var s in Badges.UnknownIconSpritesForTest) if (s == probe) { seenProbe = true; break; }
+            Check(seenProbe,
+                  "★ T07·告警的那条**同时**记进了本轮观测集（`" + probe + "` 现读 "
+                + (seenProbe ? "在" : "不在") + "）"
+                + " —— 🧨 把两句写成一句（只在 `_notInDataWarned.Add` 成功时才记）⇒ 这里红");
         }
 
         // ── 5. 敌方伏击整排不画（原版 `BattleCardUI__UpdateTraitIcons.c:40-46`）──────────────
@@ -232,6 +305,23 @@ public static class BadgeFilterAssert
 
     /// <summary>一条关键词的「最小输入」（值给 1 = 引擎的兜底值，不画角标）。</summary>
     static Dictionary<string, int> One(string key) { return new Dictionary<string, int> { { key, 1 } }; }
+
+    /// <summary>两条名单是否**逐条相同**（`got` 是 `Badges` 读口给的已排序数组；`want` 是期望集合）。
+    /// 用于 `T07` 那条「本轮观测集恰好等于本轮真实遇到的图名」。</summary>
+    static bool SameSet(string[] got, HashSet<string> want)
+    {
+        if (got.Length != want.Count) return false;
+        foreach (var s in got) if (!want.Contains(s)) return false;
+        return true;
+    }
+
+    /// <summary>把集合摊成一行（排序只为让失败信息稳定可读）。</summary>
+    static string JoinSet(HashSet<string> set)
+    {
+        var a = new List<string>(set);
+        a.Sort(System.StringComparer.Ordinal);
+        return string.Join(" / ", a.ToArray());
+    }
 
     /// <summary>这一组词条**一条都不许画**（逐条单独喂，避免互相占 7 格）。</summary>
     static void CheckAllHidden(string[] keys, string label)

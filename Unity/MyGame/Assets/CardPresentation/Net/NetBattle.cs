@@ -1040,6 +1040,31 @@ namespace CardPresentation.Net
             Debug.Log("[Net] 已把「投降」告诉对面");
         }
 
+        /// <summary>🆕 **2026-10-25（执行代理 `CH`）**：**本机督军**说了 6 颗台词钮里的第 `chatId` 句
+        /// ⇒ 告诉对面（原版 `BattleCommsManager.SendChatMessage`：单 int RPC）。
+        ///
+        /// <para>🔴 **只由「本地玩家开口」那一路调**（宿主的 `SpeakChat` 播完之后）。
+        /// ⛔ **收到别人的聊天时不许调它** —— 原版的防回环就是「收到那一档根本不进发送支」
+        /// （`DisplayWarlordChatMessage.c:53` 那个 `isLocal != 0` 闸），见 `NetChat` 文件头 ③。</para>
+        ///
+        /// <para>⚠️ **不改引擎状态**（不消耗 `Ctx.Rng`、不进 `Log`、不影响指纹）⇒ 它**不走**
+        /// `OnLocalRawAction` 那条动作流。📌 会话重连时聊天**不补发**（它没有录像语义，
+        /// 原版重连也只恢复局面；要看聊天得回放——那一档我们由宿主录 `0x37`）。</para></summary>
+        public void OnLocalChat(int chatId)
+        {
+            if (_aborted) return;
+            // 只发「6 颗钮」那一档：0/1 是开幕台词（原版 `:65` 那两道闸），其余越界值一律不发（出声）。
+            if (!NetChat.IsButtonLine(chatId) || !NetChat.IsRelayable(chatId))
+            {
+                Debug.LogWarning($"[Net] 本机督军那句 `chatId={chatId}` **没有发给对面**："
+                               + $"它不在「6 颗台词钮」那一档（{NetChat.FirstButtonChatId}…{NetChat.LastButtonChatId}）"
+                               + " —— 判据 = 原版 `SendChatMessage` 之前那两道闸（`DisplayWarlordChatMessage.c:65`）");
+                return;
+            }
+            Send(NetKind.Chat, new MsgChat { seat = MySeat, chatId = chatId });
+            Debug.Log($"[Net] 本机督军说了第 {chatId} 句，已告诉对面（座位 {MySeat}）");
+        }
+
         /// <summary>每回合末对一次指纹（**两端算的是同一个状态点**：`EndTurn` + `BeginTurn` 之后）。</summary>
         public void SendFingerprint()
         {
@@ -1259,6 +1284,52 @@ namespace CardPresentation.Net
                         //   这条投降**判不了**（对面已经退出，本机却什么都没发生）。
                         Debug.LogWarning("[Net] NET/BYE-R7/no-host 收到对面投降，但**本机没有对局宿主**（`_d == null`）"
                                        + " ⇒ 判负这一跳走不了，这一局不会结束（真 Play 看到它就是缺陷）");
+                    return;
+                }
+                case NetKind.Chat:
+                {
+                    // 🆕 **2026-10-25（执行代理 `CH`）**：对面督军说了第 `chatId` 句。
+                    //   判据链（逐句）→ `NetChat` 文件头；这里只做**四道闸**，然后交给宿主显示：
+                    //     ① 包解不出来 ⇒ 出声丢掉；
+                    //     ② **发送方 == 本机座位** ⇒ **什么都不做**（原版 `PUNReceiveChatMessage`
+                    //        那条「自己那条回显不显示」的过滤；⛔ **也不回发** —— 回环防护就在这一支，
+                    //        原版收到那一档压根不进发送支，`DisplayWarlordChatMessage.c:53`）；
+                    //     ③ 座位越界 ⇒ 出声丢掉（协议只有 0/1）；
+                    //     ④ `chatId` 不在 5…10 ⇒ 出声丢掉（对面可以发任意 int，⛔ 不许拿它去索引台词表）。
+                    var m = NetProtocol.Unpack<MsgChat>(f.payload);
+                    if (m == null)
+                    {
+                        Debug.LogWarning("[Net] 对面发来的 `chat` **解不出来**（payload 坏了 / 版本对不上）"
+                                       + "—— 丢掉这一条，不显示也不转发");
+                        return;
+                    }
+                    if (m.seat == MySeat)
+                    {
+                        // 正常情况走不到这里（对端不会把本机那条回显回来）；走到 = 有人伪造 / 对端
+                        // 把消息发反了方向 ⇒ 出声。**但绝不回发**（否则两端会打乒乓）。
+                        Debug.LogWarning($"[Net] 收到一条 `chat` 带着**本机座位**（{MySeat}，chatId={m.chatId}）"
+                                       + "—— 按原版的发送者过滤**不显示**，也**不回发**（防回环）");
+                        return;
+                    }
+                    if (m.seat != RemoteSeat)
+                    {
+                        Debug.LogWarning($"[Net] 收到一条 `chat`，座位 `{m.seat}` 既不是本机（{MySeat}）"
+                                       + $"也不是对面（{RemoteSeat}）—— 丢掉这一条");
+                        return;
+                    }
+                    if (!NetChat.IsButtonLine(m.chatId))
+                    {
+                        Debug.LogWarning($"[Net] 对面发来的 `chat` 台词号 `{m.chatId}` 不在"
+                                       + $" {NetChat.FirstButtonChatId}…{NetChat.LastButtonChatId} 这一档"
+                                       + " —— 丢掉这一条（⛔ 不猜一个最接近的：那会把一句伪造的话说成督军台词）");
+                        return;
+                    }
+                    if (_d is INetChatHost chatHost) chatHost.NetRemoteChat(m.chatId);
+                    else
+                        // 🔴 不许静默：宿主没接显示面（自检里那些只管动作流的假宿主就是这一档）
+                        Debug.LogWarning($"[Net] 对面督军说了第 {m.chatId} 句，但本机宿主**没有接聊天显示**"
+                                       + $"（`{_d?.GetType().Name ?? "<null>"}` 没实现 `INetChatHost`）"
+                                       + " —— 这一句不会出现在任何气泡上");
                     return;
                 }
             }

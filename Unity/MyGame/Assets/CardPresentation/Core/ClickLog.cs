@@ -193,7 +193,10 @@ namespace CardPresentation
             }
         }
 
-        /// <summary>自检用：不落盘、只把它会写成什么吐出来（`End` 的干跑）。</summary>
+        /// <summary>自检用：读回**上一次 `End()` 写出去的正文**（= `LastBlock`）。
+        /// 🔴 **2026-10-25 就地订正（铁律 5）**：原来这条注释写「不落盘、只把它会写成什么吐出来（`End` 的干跑）」——
+        /// **代码里没有「干跑」这回事**：它就是把上一趟的结果原样返回。真要干跑得先把 `End()` 的拼串抽出来
+        /// （现在全仓**零调用点**，⛔ 不为一条死注释去动结构；要用时再抽 `BuildBlock()`）。</summary>
         public static string DryRun() { var s = LastBlock; return s; }
     }
 }

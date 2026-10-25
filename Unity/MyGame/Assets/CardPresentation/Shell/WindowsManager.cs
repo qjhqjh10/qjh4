@@ -1357,8 +1357,15 @@ namespace CardPresentation
         /// <param name="messageKey">**I2 术语键**（⛔ 不是明文 —— 见 `PopUpGameWindow` 文件头 ③）。</param>
         /// <param name="primaryKey">主按钮的术语键。原版 `ShowPopUp(…, primaryButton, secondButton)` 里
         /// primary 落在 **`LiveButtons[0]` = `ButtonLeft`（左）**。</param>
+        /// <param name="closeOnEsc">🆕 **2026-10-25**：= 原版 `ShowPopUp(text, localizeTexts, **closeOnEsc**, …)` 的
+        /// 第 3 个形参（`WindowsManager.ShowPopUp*` 三个重载**都是这个位次**，见签名桩
+        /// `d:/2/Warpforge_code/Scripts/Assembly-CSharp/WindowsManager.cs:327/331/335`）。
+        /// 原版运行时**由调用方给**（经 `LoadPopUpAndShow` → `ConfigurePopUp` 写进窗字段）。
+        /// ⛔ **默认 `false` = 保持现状**：两扇 prefab 自己的序列化值是 `0`，而**每个原版调用点传什么要逐条核**
+        /// （反例：`DeckEditingWindow.TrySaveDeck` 传 **0**、`BattleLogItem.ClickReplayButton` 的失败弹窗传 **1**）。</param>
         public PopUpGameWindow ShowMessagePopUp(string messageKey, string primaryKey, System.Action onPrimary,
-                                                string secondaryKey = null, System.Action onSecondary = null)
+                                                string secondaryKey = null, System.Action onSecondary = null,
+                                                bool closeOnEsc = false)
         {
             // 🔴 **2026-10-24（`A11` · 铁律 5 就地改实现）：照原版【销毁旧的、按按钮数重建】。**
             //   判据（第一权威 = 反编译方法体，亲读）→ `WindowsManager._LoadPopup_d__55__MoveNext.c:20-45`：
@@ -1388,7 +1395,8 @@ namespace CardPresentation
                 Debug.Log("[Win] 消息弹窗**已在场** ⇒ 照原版**先关旧的、销毁、再新建**"
                         + $"（旧的 `{(wasOpen ? "还开着" : "已经关掉")}` · 新建按钮数 = {(string.IsNullOrEmpty(secondaryKey) ? 1 : 2)}）");
             }
-            var win = PopUpGameWindow.Create(this, messageKey, primaryKey, onPrimary, secondaryKey, onSecondary);
+            var win = PopUpGameWindow.Create(this, messageKey, primaryKey, onPrimary, secondaryKey, onSecondary,
+                                             closeOnEsc);
             _lastMessagePopup = win;
             // = 原版 `_LoadPopUpAndShow` 最后那一跳 `OpenWindow(this, *(this+0x60))`。
             // ⚠️ 现在**没有**「复用支」了 ⇒ 上一版那段「复用一扇还开着的窗时 `Open()` 早退、

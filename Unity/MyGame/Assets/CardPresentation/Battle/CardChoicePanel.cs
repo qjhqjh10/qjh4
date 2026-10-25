@@ -22,7 +22,11 @@
 // 不是我们推算的）—— 见 `SpacingPx` 与报告 §③那张表。
 //
 // **哪些是「我们挑的」**（文件里每处都单独标了）：
-//   · 压暗层（原版有 `Shade.SwitchShade`，**颜色/透明度没查到**）
+//   · ~~压暗层（原版有 `Shade.SwitchShade`，颜色/透明度没查到）~~ —— 🔴 **2026-10-25（审查代理 `AU2` · 铁律 5）
+//     已订正：两样**都查得到**（`Shade.onAlphaLevel = 0.8` + 底图 `m_Color (0,0,0,0)`/`no sprite`/`rt=0`，
+//     3 形参重载 ⇒ 硬切）⇒ 已改成 <see cref="ShadeAlpha"/>（原来是 0.55）。
+//     🔴 **2026-10-25（`M1` 追加单）**：它现在**转发** `MulliganPanel.ShadeAlpha`（按工程色彩空间取值：
+//     原版 γ 口径 0.8 / 我们 Linear = 0.945）⇒ ⛔ 别再把这行写成「= 0.8」。⛔ 本件不再有这一条。
 //   · 卡行的**纵向位置**（原版那个 anchor 节点**只有 Transform、没有 RectTransform** ⇒ 无据可查）
 //   · 卡上按钮的**纵向偏移**（原版那个 prefab 是运行时实例化的，静态 dump 里没有）
 //
@@ -221,6 +225,44 @@ namespace CardPresentation
         /// 场上的粒子在 −0.5 那层会飘到面板上面（那个坑记在 `BattleLogPanel` 的注释里）</summary>
         protected const float Z = -0.9f;
 
+        /// <summary>整屏压暗的不透明度 = **原版 `Shade.onAlphaLevel`**（`battlearena2/FrontCanvas/ShadePanel`
+        /// 的 `MonoBehaviour_4598.json`：`"onAlphaLevel": 0.800000011920929` · `"defaultTimeToSwitch": 0.5`）。
+        /// <para>🔴 **2026-10-25（审查代理 `AU2`）**：原来这里是**行内字面量 `0.55f`**、且注释写着
+        /// 「颜色/透明度没查到 ⇒ 我们挑的」。**判据其实一直在**（同一份值 `MulliganPanel.ShadeAlpha` 2026-10-22
+        /// 就落地了）—— 选牌与换牌在原版**共用同一个 `ShadePanel`**（`BattleManager.shade`，`+0x230`；
+        /// 调用点 `ChooseCardMenu__ShowChooseCardElements.c` / `MulliganManager__ShowMulliganElements.c:16`）
+        /// ⇒ 两处**必须同值**。⚠️ 3 形参重载 ⇒ `useAnim=false` ⇒ **硬切**，所以本件不做淡入。</para>
+        /// <para>底图是 `Image.m_Color = (0,0,0,0)` + `m_Sprite = null`、`m_RaycastTarget = 0`
+        /// ⇒ **黑 + 只改 α + 不吃射线**（我们这颗是世界 quad，本来也不进输入链 ✓）。</para>
+        /// <para>🔴 **2026-10-25（`M1` 追加单 · 主对话裁定「做」）：本件【不再自己写死 0.8】**。
+        /// 原版那 0.8 的语义是「**显示空间**透过率 0.2」，而**原版工程是 Gamma、我们是 Linear** ——
+        /// 世界 quad 在线性光里混 ⇒ 同一个 0.8 在我们这里显示空间只剩 ≈0.48（背景亮一倍）。
+        /// 换牌面板（`MulliganPanel.ShadeAlpha`）2026-10-25 已按色彩空间换算（Linear 下 = 0.945），
+        /// **选牌与换牌在原版就是同一个 `ShadePanel`** ⇒ 这里**直接转发同一个值**，
+        /// ⛔ 别在选牌这边抄第二份数（抄了就会一边对一边错，而且没人发现）。
+        /// 推导 / 残差表 / 切 Gamma 后怎么回 0.8 → `MulliganPanel.ShadeAlphaOriginalGamma` 那条 doc；
+        /// 判据与实拍 → `资料/普查产出_1025/M1_换牌背景亮度.md`。</para></summary>
+        public static float ShadeAlpha { get { return MulliganPanel.ShadeAlpha; } }
+
+        /// <summary>压暗层的**渲染队列** = **3006** · 候选卡的 = **3007** —— 直接复用
+        /// `MulliganPanel.QMulliganShade` / `QMulliganCard`（**判据只此一处**，⛔ 别在这里写第二个 3006）。
+        ///
+        /// <para>🔴 **2026-10-25（审查代理 `AU2`）：这两格是本件补的 —— 改前两颗都在默认队列 3000。**
+        /// 病灶（与 `M1`/`D6` 那次**同一族**）：压暗层是**世界空间 `ImageQuad`**、候选卡是**世界空间
+        /// `MeshRenderer`**，两者**队列相同（3000）、z 也相同（`Z = −0.9`）** ⇒ 先后只剩「到相机的距离」
+        /// 这一个含糊的次序（压暗层中心 = 屏心，比任何一张卡都更靠近相机 ⇒ 实测语义上**压在卡上面**），
+        /// 而战场几何里队列 **3001/3003/3004/3005** 的那 18 件又会反过来盖住 3000 的卡
+        /// （队列优先于 z）。</para>
+        /// <para>**原版怎么保证的**：`ShadePanel` 与 `ChooseCardMenu` 都是 `FrontCanvas` 的子节点，
+        /// 而 `ShadePanel` 是**更早的兄弟**（`FrontCanvas` 的 `m_Children` 里 `ShadePanel` 在
+        /// `Safe area FrontCanvas` 之前）⇒ 压暗**先画**、面板与卡**后画** ⇒ **卡永不被压暗**。
+        /// 我们两颗都在世界空间 ⇒ 用队列把这条「先画/后画」显式写死：
+        /// 压暗 **3006**（高于战场全部几何，见 `MulliganPanel.QMulliganShade` 的逐场计数）
+        /// ＜ 卡 **3007**（＜ `CardFan.QCardBase` 3009 ⇒ 「点卡放大」那扇窗照样压在卡上）。</para></summary>
+        public const int QChoiceShade = MulliganPanel.QMulliganShade;   // 3006
+        /// <summary>见 <see cref="QChoiceShade"/>（同一对常量，必须成对改）。</summary>
+        public const int QChoiceCard = MulliganPanel.QMulliganCard;     // 3007
+
         /// <summary>🔴 **2026-10-16（`T09` 批 3）**：本扇**子画布**的名字（= 原版宿主 GO 名 + ` Canvas`）。
         /// ⚠️ 本类**只有 `ChoosePanel` 一个派生类**（2026-10-16 现核，见文件头）⇒ 常量够用；
         /// 真出现第二扇派生（原版那一扇是 `Mulligan`）时，把它改成 `protected virtual` 属性、
@@ -395,7 +437,23 @@ namespace CardPresentation
             HudCanvas.FillParent((RectTransform)_panel);
             HudCanvas.Add((RectTransform)_panel, ZBody);   // 登记兄弟序（子画布下只有它一个）
 
-            // 压暗（**我们挑的**：原版只查到有个 `Shade.SwitchShade`，颜色/透明度没查到）
+            // 压暗（🔴 **2026-10-25（审查代理 `AU2` · 铁律 5）**：这里原文写「**我们挑的**：原版只查到有个
+            //    `Shade.SwitchShade`，颜色/透明度没查到」—— **不成立，两样都有判据**：
+            //      · `battlearena2` 的 `FrontCanvas/ShadePanel` 那是**同一个**压暗件（`BattleManager.shade`，偏移 `+0x230`），
+            //        选牌与换牌**共用它**（`ChooseCardMenu__ShowChooseCardElements.c` 末尾那句
+            //        `Shade__SwitchShade(BattleManager.shade, param_2, 0, 0)`；换牌那侧同一条 →
+            //        `MulliganManager__ShowMulliganElements.c:16`）；
+            //      · 它的 `Shade` 组件（`MonoBehaviour_4598.json`）：`onAlphaLevel = **0.8**` · `defaultTimeToSwitch = 0.5`；
+            //        底下那颗 `Image`（`MonoBehaviour_4413.json`）：`m_Color = (0,0,0,**0**)`（**黑，α 由组件写**）、
+            //        `m_Sprite = null`、`m_RaycastTarget = **0**`（⇒ **不吃射线**，正好与「我们这颗世界 quad 本来就
+            //        不参与输入」一致）；
+            //      · 调用是 **3 形参重载** ⇒ `useAnim = false` ⇒ **硬切**（没有淡入），α 取 `onAlphaLevel`。
+            //    ⇒ 我们这颗取 `ShadeAlpha`（原来是 0.55 —— 那才是「我们挑的」）。判据与「换牌那层同源」的落地
+            //      见 `MulliganPanel.ShadeAlpha`（同一份 `onAlphaLevel`）。
+            //    🔴 **2026-10-25（`M1` 追加单）**：`ShadeAlpha` 已改成**转发** `MulliganPanel.ShadeAlpha`
+            //      —— 那个值按工程的色彩空间换算过（原版 γ 口径 0.8 / 我们 Linear = 0.945；
+            //      同一个 0.8 在我们这里是「线性 ×0.2」，换成显示空间只剩 ≈0.48 ⇒ 背景亮一倍）。
+            //      ⛔ 别在本件再出现第二个 α 字面量。
             // 🔴 **2026-10-16（`T09` 批 3）：这一件【有意留在世界空间】** —— ⛔ 别顺手迁上去，理由三条
             //    写在文件头（核心：它必须画在**卡片后面**，而卡片是 `MeshRenderer`、不归画布管，
             //    画布上的件一律画在卡片**上面**）。`MultiCardDisplay.mcd_mask` 是同一条。
@@ -404,7 +462,8 @@ namespace CardPresentation
             if (_shade != null)
             {
                 _shade.SetAspect(1920f / 1080f);
-                _shade.SetTint(new Color(0f, 0f, 0f, 0.55f));
+                _shade.SetTint(new Color(0f, 0f, 0f, ShadeAlpha));
+                _shade.SetRenderQueue(QChoiceShade);   // 🔴 2026-10-25：压在战场之上、候选卡之下（见 QChoiceShade）
                 _shade.transform.localPosition += new Vector3(0f, 0f, Z);
             }
             else Debug.LogError("[选卡面板] 整屏压暗（`ChoiceShade`）没建起来（`CardArt.Solid()` 取不到？）");
@@ -688,6 +747,12 @@ namespace CardPresentation
                 var c = _cards[i];
                 c.transform.localScale = new Vector3(CardScale, CardScale, 1f);
                 c.transform.localPosition = new Vector3(left + spacing * i, y, Z);
+                // 🔴 **2026-10-25（审查代理 `AU2`）：候选卡的渲染队列显式抬到 3007**
+                //   —— 与压暗层 `QChoiceShade`(3006) **成对**（只改一边 ⇒ 回到「卡被压暗」或「压暗被卡盖住」）。
+                //   同时把战场里 3001/3003/3004/3005 那 18 件几何甩在下面（队列优先于 z）。
+                //   ⚠️ 这几张卡由调用方在收场时 `Kill` 掉（`ClearChooseViews` / `ClearEnvPickViews`）
+                //      ⇒ **不需要还原**（换牌面板那边是复用手牌卡，所以它才要还队列）。
+                c.SetQueue(QChoiceCard);
                 c.SetHighlight(CardHighlightState.Normal);
 
                 if (_panel == null) continue;      // 子画布没立起来那一支：卡照摆、装饰不建（已出声）

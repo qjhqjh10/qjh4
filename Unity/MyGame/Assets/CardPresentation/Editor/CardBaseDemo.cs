@@ -1789,12 +1789,19 @@ public static class CardBaseDemo
     //    那正是立绘 PNG 的**纯白卡框内沿**（实测左/右各 5–6 px · 664/1168 张都有）。
     //    屏上卡片约 150 px 宽 ⇒ 5–6 px 缩成 ~1 px 亚像素白线；场上卡每帧按深度重算 `localScale`
     //    （`CardFeel.HookDepthScale` 0.36→0.70）+ 相机 autoZoom ⇒ 那条线每帧落进不同像素格 ⇒「一直闪」。
-    //  ⇒ 修法 = 把 `artUv` 再内缩到 crop 的内子矩形 `[0.014412, 0.989541] × [0.001700, 0.997800]`。
+    //  ⇒ 修法（2026-10-24 W14 内缩 → **2026-10-25 B2 收边 + 按贴图来源给窗**）：
+    //     `artUv` 的窗口改由材质属性 `_ArtUvRect` 给（唯一算法 = `CardArt.ArtUvRect`）：
+    //       · **sprite 裁块**（672 张）→ 内缩到 `[0.016406, 0.985086] × [0.004883, 0.995117]`
+    //         （= 原版窗 `[0.014412, 0.989541] × [0.001700, 0.997800]` 再四边各让 3~5 px，
+    //           因为原来的余量只有 0~1.7 px ⇒ 一走 mip 白边就摊回来）
+    //       · **整页方图**（496 张）→ **原版窗原样** `[0.1818, 0.8203] × [0.0017, 0.9978]`
+    //         （这批的原版 sprite `textureRect` 就是整页，写死那组会把左右各 18% 的多余内容铺上去）
     //
     //  断两条：
-    //    ① **常量普查**（确定性，不渲图）：shader 里那四个数必须能由
-    //       `textureRect`（x176.5 w670.5 h1024，图集 1024²）与 UV1 角点**算回来**（误差 < 1 px），
-    //       而且那对常量**真的被 `artUv` 用了**（防「常量定义了但没用」这种静默失败）。
+    //    ① **常量普查**（确定性，不渲图）：shader 的 `_ArtUvRect` 默认值必须**逐位等于**
+    //       `CardArt.ArtUvRect(<sprite 裁块>)`；裁块那一支的四个收边量 = 左 11 / 右 10 / 上 5 / 下 5 px
+    //       且**落在原版窗内侧**；整页那一支 = 原版窗原样；窗口**真的被 `artUv` 用了**；
+    //       最后扫一遍 1168 张立绘的尺寸，确认只有「方图 / 宽 670–671」两种来源。
     //    ② **渲图级**：把场卡放到上半屏空地、渲 1920×1080，沿立绘窗左右边界 ±3 px 扫列，
     //       不许出现「整列近白（r,g,b 都 >180 且通道差 <24、且该列 ≥90% 的行都这样）且邻列 <80」的列。
     //       ⚠️ 为什么加「近白 + 整列一致」这两条而不是只按亮度 180/80：
@@ -1808,38 +1815,78 @@ public static class CardBaseDemo
                                                    "CardPresentation/Shaders/Card3D.shader");
         string src = File.Exists(shaderPath) ? File.ReadAllText(shaderPath) : null;
         Check(!string.IsNullOrEmpty(src), $"★ 前提：读得到 `{shaderPath}`（读不到 ⇒ ① 这一组没验到）");
-        Vector2 uvMin, uvMax, cropMin, cropMax;
+        Vector2 uvMin, uvMax;
+        Vector4 artRect;    // shader 的 `_ArtUvRect` **属性默认值**（xy = min, zw = max）
         bool gotMin = ParseShaderFloat2(src, "ArtUvMin", out uvMin);
         bool gotMax = ParseShaderFloat2(src, "ArtUvMax", out uvMax);
-        bool gotCropMin = ParseShaderFloat2(src, "ArtCropUvMin", out cropMin);
-        bool gotCropMax = ParseShaderFloat2(src, "ArtCropUvMax", out cropMax);
-        Check(gotMin && gotMax && gotCropMin && gotCropMax,
-              "★ 前提：shader 里 `ArtUvMin` / `ArtUvMax` / `ArtCropUvMin` / `ArtCropUvMax` **四组都在**"
-            + $"（实读 {gotMin}/{gotMax}/{gotCropMin}/{gotCropMax}）"
+        bool gotRect = ParseShaderVector4(src, "_ArtUvRect", out artRect);
+        Check(gotMin && gotMax && gotRect,
+              "★ 前提：shader 里 `ArtUvMin` / `ArtUvMax`（原版立绘窗）与 `_ArtUvRect` 的属性默认值 **都在**"
+            + $"（实读 {gotMin}/{gotMax}/{gotRect}）"
             + "｜🧨 把内缩那层删掉（回到 `artUv = (uv1−Min)/(Max−Min)`）⇒ 这里就红");
-        if (gotMin && gotMax && gotCropMin && gotCropMax)
+        if (gotMin && gotMax && gotRect)
         {
-            Check(src.IndexOf("lerp(ArtCropUvMin, ArtCropUvMax", System.StringComparison.Ordinal) >= 0,
-                  "★ `artUv` **真的用了**那对内缩常量（`lerp(ArtCropUvMin, ArtCropUvMax, …)`）"
-                + "｜🧨 常量留着、`artUv` 改回不内缩 ⇒ 本条红（防「定义了但没用」）");
+            Check(src.IndexOf("lerp(_ArtUvRect.xy, _ArtUvRect.zw", System.StringComparison.Ordinal) >= 0,
+                  "★ `artUv` **真的用了**那个 UV 窗（`lerp(_ArtUvRect.xy, _ArtUvRect.zw, artT)`）"
+                + "｜🧨 属性留着、`artUv` 改回不内缩 ⇒ 本条红（防「定义了但没用」）");
 
-            // 判据 = 原版立绘在 **1024² 图集**里的采样范围，换算到 crop 坐标。
-            //   `textureRect` = x176.5 y0 w670.5 h1024（`工具/import_original_art.py:28` 与 `:1022`）
-            const float TrX = 176.5f, TrW = 670.5f, TrH = 1024f, Atlas = 1024f;
-            var wantMin = new Vector2((uvMin.x * Atlas - TrX) / TrW, (uvMin.y * Atlas) / TrH);
-            var wantMax = new Vector2((uvMax.x * Atlas - TrX) / TrW, (uvMax.y * Atlas) / TrH);
-            float tolU = 1f / TrW, tolV = 1f / TrH;      // 1 px
-            Check(Mathf.Abs(cropMin.x - wantMin.x) < tolU && Mathf.Abs(cropMax.x - wantMax.x) < tolU,
-                  $"① 内缩的 u 两端 = (UV1角点×1024 − 176.5)/670.5 ⇒ "
-                + $"[{wantMin.x:F6}, {wantMax.x:F6}]（实读 [{cropMin.x:F6}, {cropMax.x:F6}]，容差 1 px = {tolU:F6}）"
-                + "｜🧨 改回 [0, 1] ⇒ 差 0.0144 ≫ 容差 ⇒ 红");
-            Check(Mathf.Abs(cropMin.y - wantMin.y) < tolV && Mathf.Abs(cropMax.y - wantMax.y) < tolV,
-                  $"①·b v 两端 = [0.001700, 0.997800]（crop 是整高 ⇒ v 不缩放；"
-                + $"实读 [{cropMin.y:F6}, {cropMax.y:F6}]）");
-            // ★ 前提：这组数**真的内缩了** —— 否则「和 0..1 几乎相等」时上面两条也会绿
-            Check(cropMin.x > 0.005f && cropMax.x < 0.995f,
-                  $"★ 前提：内缩量**不是零**（左 {cropMin.x:F4} / 右 1−{cropMax.x:F4}）"
-                + " —— 左右各对应 9.663 / 7.013 个 crop 像素");
+            // ---------- ①·a 属性默认值 == `CardArt.ArtUvRect(<sprite 裁块>)`（两处必须一样）----------
+            //   🔴 2026-10-25（B2）：窗从「shader 里两颗写死的 const」改成**按贴图来源给**
+            //     （`_ArtUvRect`）：672 张 sprite 裁块 · 496 张整页方图，两种窗不同
+            //     （判据与算式唯一出处 = `CardArt.ArtUvRect` 的文件头那一段）。
+            //     这条断言就是**两处的绑定**：谁改了一边不改另一边 ⇒ 红。
+            var cropTex = Resources.Load<Texture2D>("Art/cards/art_am1");    // 671×1024 = sprite 裁块
+            var pageTex = Resources.Load<Texture2D>("Art/cards/art_am39");   // 1024²  = 整页方图
+            Check(cropTex != null && cropTex.width < cropTex.height,
+                  $"★ 前提：裁块样本 `art_am1` 在（{(cropTex == null ? "读不到" : cropTex.width + "×" + cropTex.height)}）"
+                + " —— 读不到 ⇒ ①·a 没验到");
+            Check(pageTex != null && pageTex.width == pageTex.height,
+                  $"★ 前提：整页样本 `art_am39` 在（{(pageTex == null ? "读不到" : pageTex.width + "×" + pageTex.height)}）"
+                + " —— 读不到 ⇒ ①·c 没验到");
+            if (cropTex != null && pageTex != null)
+            {
+                var wantCrop = CardArt.ArtUvRect(cropTex);
+                float d = Mathf.Max(Mathf.Abs(artRect.x - wantCrop.x), Mathf.Abs(artRect.y - wantCrop.y));
+                d = Mathf.Max(d, Mathf.Max(Mathf.Abs(artRect.z - wantCrop.z), Mathf.Abs(artRect.w - wantCrop.w)));
+                Check(d < 1e-5f,
+                      $"①·a shader 的 `_ArtUvRect` 默认值 = `CardArt.ArtUvRect(<sprite 裁块>)` ⇒ "
+                    + $"({wantCrop.x:F6},{wantCrop.y:F6},{wantCrop.z:F6},{wantCrop.w:F6})"
+                    + $"（实读 ({artRect.x:F6},{artRect.y:F6},{artRect.z:F6},{artRect.w:F6})，最大差 {d:E2}）"
+                    + "｜🧨 只改一边 ⇒ 红（默认值服务于「没被 C# 写过的材质」）");
+
+                // ①·b 裁块那一支的**四个收边量**（px）+ 必须**落在原版窗内侧**
+                const float TrX = 176.5f, TrW = 670.5f, TrH = 1024f, Atlas = 1024f;
+                var origMin = new Vector2((uvMin.x * Atlas - TrX) / TrW, (uvMin.y * Atlas) / TrH);
+                var origMax = new Vector2((uvMax.x * Atlas - TrX) / TrW, (uvMax.y * Atlas) / TrH);
+                float padL = wantCrop.x * TrW, padR = (1f - wantCrop.z) * TrW;
+                float padB = wantCrop.y * TrH, padT = (1f - wantCrop.w) * TrH;
+                Check(Mathf.Abs(padL - 11f) < 0.02f && Mathf.Abs(padR - 10f) < 0.02f
+                      && Mathf.Abs(padB - 5f) < 0.02f && Mathf.Abs(padT - 5f) < 0.02f,
+                      $"①·b 裁块那一支的四边收边量 = 左 11 / 右 10 / 下 5 / 上 5 px"
+                    + $"（实读 {padL:F2}/{padR:F2}/{padB:F2}/{padT:F2}）"
+                    + "｜判据 = 1168 张实测每边近白条**最大** 左 8 / 右 7 / 上 2 / 下 2 px，统一 +3 px");
+                Check(wantCrop.x > origMin.x && wantCrop.z < origMax.x
+                      && wantCrop.y > origMin.y && wantCrop.w < origMax.y,
+                      $"★ 前提：收边后的窗**落在原版窗内侧**（原版窗 = [{origMin.x:F5},{origMax.x:F5}]×"
+                    + $"[{origMin.y:F5},{origMax.y:F5}]，我们 = [{wantCrop.x:F5},{wantCrop.z:F5}]×"
+                    + $"[{wantCrop.y:F5},{wantCrop.w:F5}]）—— 跑出去 = 比原版**多采**，画面反而更错");
+
+                // ①·c 整页方图那一支 = **原版窗原样**（不加余量：方图窗边没有卡框白边，实测最宽近白竖列只占 26% 行）
+                var wantPage = CardArt.ArtUvRect(pageTex);
+                Check(Mathf.Abs(wantPage.x - uvMin.x) < 1e-4f && Mathf.Abs(wantPage.y - uvMin.y) < 1e-4f
+                      && Mathf.Abs(wantPage.z - uvMax.x) < 1e-4f && Mathf.Abs(wantPage.w - uvMax.y) < 1e-4f,
+                      $"①·c 整页方图的窗 = 原版窗原样 ({uvMin.x:F4},{uvMin.y:F4},{uvMax.x:F4},{uvMax.y:F4})"
+                    + $"（实读 ({wantPage.x:F4},{wantPage.y:F4},{wantPage.z:F4},{wantPage.w:F4})）"
+                    + "｜🧨 把裁块那组余量套到方图上 ⇒ 比原版少采 18%，红");
+                Check(wantPage.z - wantPage.x > 0.6f,
+                      $"★ 前提：整页那一支**没有**被裁块那组收边误用（窗宽 {wantPage.z - wantPage.x:F4} 应 ≈ 0.6385；"
+                    + $"裁块那组只有 {wantCrop.z - wantCrop.x:F4}）");
+
+                // ①·d ★ 前提：**每张立绘要么是方图（整页）、要么宽 ≈ 670/671（sprite 裁块）**
+                //   —— 别的形状出现时，`ArtUvRect` 的判别式（方图 ⇒ 整页）没覆盖到，
+                //     那时会静默按裁块换算（错的），所以这里宁可红。
+                CheckArtSizeCensus();
+            }
         }
 
         // ---------- ② 渲图级：沿立绘窗左右边界 ±3 px 扫列 ----------
@@ -1869,6 +1916,23 @@ public static class CardBaseDemo
                        + $"（实得 `{(artTex == null ? "<null>" : artTex.name)}`）"
                        + " —— 挂不上 ⇒ 退回白图 / 换错图 ⇒ 下面这条「没验到」");
             if (!artOk) return;
+
+            // ★ ①·e **材质上真的写进了窗**（不只是 shader 里声明了那个属性）。
+            //   为什么要单独断：`_ArtUvRect` 有属性默认值，而**这张卡正好是 671 裁块**（默认值就是对的）
+            //   ⇒ 「`BuildBody3D` 漏调 `ApplyArtUvRect`」在画面上**一点都看不出来**，只有回读材质才抓得到。
+            {
+                var rectTex = artTex as Texture2D;
+                var wantRect = CardArt.ArtUvRect(rectTex);
+                bool wired = mr.sharedMaterial.HasProperty(CardView.ArtUvRectProp);
+                var gotVec = wired ? mr.sharedMaterial.GetVector(CardView.ArtUvRectProp) : Vector4.zero;
+                float dr = wired ? Mathf.Max(Mathf.Abs(gotVec.x - wantRect.x), Mathf.Abs(gotVec.y - wantRect.y)) : 999f;
+                dr = Mathf.Max(dr, wired ? Mathf.Max(Mathf.Abs(gotVec.z - wantRect.z), Mathf.Abs(gotVec.w - wantRect.w)) : 999f);
+                Check(wired && dr < 1e-5f,
+                      $"①·e 场卡材质 `_ArtUvRect` = `CardArt.ArtUvRect(<它的立绘>)` ⇒ "
+                    + $"({wantRect.x:F6},{wantRect.y:F6},{wantRect.z:F6},{wantRect.w:F6})"
+                    + $"（实读 {(wired ? $"({gotVec.x:F6},{gotVec.y:F6},{gotVec.z:F6},{gotVec.w:F6})" : "<没有这个属性>")}）"
+                    + "｜🧨 `BuildBody3D` / `SetCardImageTo3DBase` 漏调 `ApplyArtUvRect` ⇒ 只吃默认值 ⇒ 红");
+            }
 
             var mesh = mf.sharedMesh;
             var verts = mesh.vertices;
@@ -2018,6 +2082,71 @@ public static class CardBaseDemo
         if (!float.TryParse(parts[1].Trim().TrimEnd('f', 'F'), NS, inv, out b)) return false;
         v = new Vector2(a, b);
         return true;
+    }
+
+    /// <summary>从 shader 的 `Properties` 块里读 `_Key ("...", Vector) = (a,b,c,d,0)` 的**前四个分量**
+    /// （第 5 个是 Unity 的占位 0，丢掉）。
+    /// <para>⚠️ 找 `= (` 时从属性名那一次出现往后找 —— 属性上方的注释里也可能提到这个名字。</para></summary>
+    static bool ParseShaderVector4(string src, string key, out Vector4 v)
+    {
+        v = Vector4.zero;
+        if (string.IsNullOrEmpty(src)) return false;
+        int i = src.IndexOf(key, System.StringComparison.Ordinal);
+        if (i < 0) return false;
+        int eq = src.IndexOf("= (", i, System.StringComparison.Ordinal);
+        if (eq < 0) return false;
+        int rp = src.IndexOf(')', eq);
+        if (rp < 0) return false;
+        var body = src.Substring(eq + 3, rp - eq - 3);
+        var parts = body.Split(',');
+        if (parts.Length < 4) return false;
+        var inv = System.Globalization.CultureInfo.InvariantCulture;
+        const System.Globalization.NumberStyles NS = System.Globalization.NumberStyles.Float;
+        var f = new float[4];
+        for (int k = 0; k < 4; k++)
+            if (!float.TryParse(parts[k].Trim().TrimEnd('f', 'F'), NS, inv, out f[k])) return false;
+        v = new Vector4(f[0], f[1], f[2], f[3]);
+        return true;
+    }
+
+    /// <summary>①·d ★ 前提：`Resources/Art/cards/art_*.png` **每张的尺寸**都能被 `CardArt.ArtUvRect`
+    /// 的判别式覆盖 —— 要么**方图**（= 原版 sprite 的 rect 是整页），要么**宽 ≈ 670/671**（= sprite 裁块）。
+    /// <para>⚠️ 只读 PNG 的 IHDR 前 24 字节（**不加载纹理**），1168 张 ≈ 几十毫秒。</para>
+    /// <para>为什么要有这条：出现第三种形状时 `ArtUvRect` 会**静默**按「裁块」换算（错的）；
+    /// 那说明导出侧变了（`工具/import_original_art.py`），必须回来把换算补上，⛔ 不能当成绿。</para></summary>
+    static void CheckArtSizeCensus()
+    {
+        string dir = System.IO.Path.Combine(Application.dataPath, "CardPresentation/Resources/Art/cards");
+        var files = Directory.Exists(dir) ? Directory.GetFiles(dir, "art_*.png") : null;
+        Check(files != null && files.Length > 0,
+              $"★ 前提：`{dir}` 下有立绘（实得 {(files == null ? 0 : files.Length)} 张）—— 没有 ⇒ ①·d 没验到");
+        if (files == null || files.Length == 0) return;
+        int square = 0, crop = 0, other = 0;
+        string firstOther = null;
+        foreach (var f in files)
+        {
+            int w, h;
+            try
+            {
+                var head = new byte[24];
+                using (var fs = File.OpenRead(f))
+                {
+                    if (fs.Read(head, 0, 24) != 24) { other++; firstOther = firstOther ?? System.IO.Path.GetFileName(f); continue; }
+                }
+                // PNG IHDR：宽/高各 4 字节大端，偏移 16 / 20
+                w = (head[16] << 24) | (head[17] << 16) | (head[18] << 8) | head[19];
+                h = (head[20] << 24) | (head[21] << 16) | (head[22] << 8) | head[23];
+            }
+            catch { other++; firstOther = firstOther ?? System.IO.Path.GetFileName(f); continue; }
+            if (Mathf.Abs(w - h) <= 1) square++;                       // 整页方图
+            else if (w == 670 || w == 671) crop++;                     // sprite 裁块
+            else { other++; firstOther = firstOther ?? (System.IO.Path.GetFileName(f) + " " + w + "×" + h); }
+        }
+        Check(other == 0,
+              $"①·d 立绘尺寸普查：{files.Length} 张里 方图 {square} · 裁块 {crop} · **其它 {other}**"
+            + (other > 0 ? $"（第一个：`{firstOther}`）⇒ `CardArt.ArtUvRect` 的判别式没覆盖这种形状，"
+                         + "要么补换算、要么改导出（⛔ 别让它静默按裁块算）"
+                         : " —— 只有这两种来源，判别式覆盖完整"));
     }
 
     /// <summary>
@@ -2387,7 +2516,16 @@ public static class CardBaseDemo
 
                 t.ForceMeshUpdate();                          // 批处理没有帧循环
                 float ix0, ix1, iy0, iy1;
-                Check(InkBoxCardLocal(v.transform, t, out ix0, out ix1, out iy0, out iy1),
+                // 🔴 **2026-10-25（B2·补）：标架必须是 `FaceContentRoot`（= `2DCard/Front`），不是卡根。**
+                //   下面每一条期望值（`DescCenter01` / `FaceDescBand01` / `StatBandTop01`）都是
+                //   **`Front` 局部 y01**：它们的源数据是原版 prefab 里 `Front/DescText*` 与
+                //   `Front/Card Info/Melee Attack Container` 的 `m_AnchoredPosition`（原版层级现读 →
+                //   `资料/说明书/01_战斗_对战/2D层_battlearena1全树.md:355-361`：`Card Info` 在 `Front` 下）。
+                //   拿卡根量会整体偏 `FrontAposY = 0.08` 卡单位（= **0.02401 y01** —— 正是 E16 那两条
+                //   报出来的差）。⚠️ 与同族的 `LayerCenterY` / `TmpInkCenterY` 同一条规则。
+                //   ⛔ 别改期望值、也别改 `UnitDescAt`/`TacticDescAt`（那会把生产真的压低 0.08）。
+                var inkFrame = v.FaceContentRoot != null ? v.FaceContentRoot : v.transform;
+                Check(InkBoxCardLocal(inkFrame, t, out ix0, out ix1, out iy0, out iy1),
                       $"★ 前提：`{c.name}` 量到了**可见字墨**（量不到的话下面几条会拿 0 假绿）");
                 if (!(iy1 > iy0)) continue;
 
@@ -2442,12 +2580,15 @@ public static class CardBaseDemo
         }
     }
 
-    /// <summary>**字墨**在**卡根局部坐标**里的 bbox（x0/x1/y0/y1）—— 扫该 TMP 全部 `isVisible` 字形的四角顶点。
+    /// <summary>**字墨**在**传入标架**局部坐标里的 bbox（x0/x1/y0/y1）—— 扫该 TMP 全部 `isVisible` 字形的四角顶点。
+    /// <para>🔴 **2026-10-25（B2·补）**：`card` 这个标架由调用方给，**不是卡根** ——
+    /// `AssertFaceTextFit` 传的是 `CardView.FaceContentRoot`（= `2DCard/Front`），因为它的期望值
+    /// 全是 `Front` 局部 y01（见调用点那段注释）。拿卡根量会整体偏 `FrontAposY = 0.08`（= 0.02401 y01）。</para>
     /// <para>槽号按**字形自己的** `materialReferenceIndex` 取（效果文字里会混 `&lt;sprite name=…&gt;`
     /// ⇒ TMP 切出第二个材质槽；写死 `[0]` 会把那个字串到 0 号槽里同下标那个字的顶点上，
     /// 索引仍在数组内、**不报错**）。</para>
     /// <para>⚠️ 全仓同族已有两份（`CardFaceProbe.InkSpanY` 只出 y · `ShellScene.TmpSpanPx` 出屏幕像素），
-    /// 都拿不到「卡根局部系的 bbox」，而 `CardFaceProbe` 不在本笔白名单里 ⇒ 本文件写这一份，
+    /// 都拿不到「指定局部系的 bbox」，而 `CardFaceProbe` 不在本笔白名单里 ⇒ 本文件写这一份，
     /// **只服务 `AssertFaceTextFit`**（⛔ 别在别处再写第四份）。</para></summary>
     static bool InkBoxCardLocal(Transform card, TMPro.TextMeshPro t,
                                 out float x0, out float x1, out float y0, out float y1)
@@ -4123,18 +4264,21 @@ public static class CardBaseDemo
         return null;
     }
 
-    /// <summary>一层 quad 的**中心 y**（卡单位：0 = 卡心、向上为正）。
+    /// <summary>一层 quad 的**中心 y**（卡单位：0 = **`2DCard/Front` 原点**、向上为正）。
     /// 网格顶点烘在层自己的局部系里（`CardView.AddLayer` 只给 z 偏移、不给旋转缩放）⇒ 先换到
-    /// **卡根坐标系**，再按 `PlaceAt` 那套量纲折成卡单位（1 卡单位 = `Height / CardUnitH` 个局部单位，
+    /// **`Front` 坐标系**，再按 `PlaceAt` 那套量纲折成卡单位（1 卡单位 = `Height / CardUnitH` 个局部单位，
     /// 今天 = 1 —— `Width`/`Height` 与 `CardUnitW`/`CardUnitH` 是同一对字面量）。
     /// ⚠️ 用 `InverseTransformPoint`、⛔ 不读 `localPosition`：位置**烘在网格顶点里**、不在 `transform` 上，
-    ///    而且卡根自己带缩放与扇形角。</summary>
+    ///    而且卡根自己带缩放与扇形角。
+    /// 🔴 **2026-10-25（`M2`）**：标架从**卡根**改成 **`FaceContentRoot`（= `2DCard/Front`）** ——
+    ///    卡面各层现在挂 `Front`（`+0.08`，见 `CardView.FrontAposY`），而本文件里所有期望值
+    ///    （`BigY` / `SmallY` / 卡名墨心那一族）**本来就是 `Front` 局部值** ⇒ 量在卡根空间会整体多 0.08、全部假红。</summary>
     static float LayerCenterY(CardView card, MeshRenderer r)
     {
         var mf = r.GetComponent<MeshFilter>();
         if (mf == null || mf.sharedMesh == null) return float.NaN;
         Vector3 w = r.transform.TransformPoint(mf.sharedMesh.bounds.center);
-        return card.transform.InverseTransformPoint(w).y * (CardView.CardUnitH / CardView.Height);
+        return card.FaceContentRoot.InverseTransformPoint(w).y * (CardView.CardUnitH / CardView.Height);
     }
 
     /// <summary>一层 quad 的**尺寸**（卡单位）。量的是网格顶点 —— 那才是真正被画出来的矩形。</summary>
@@ -4208,7 +4352,9 @@ public static class CardBaseDemo
         var parent = t.rectTransform.parent;
         Vector3 local = t.rectTransform.localPosition + new Vector3(0f, (lo + hi) * 0.5f, 0f);
         Vector3 w = parent != null ? parent.TransformPoint(local) : local;
-        return card.transform.InverseTransformPoint(w).y * (CardView.CardUnitH / CardView.Height);
+        // 🔴 2026-10-25（`M2`）：与 `LayerCenterY` 同一个标架（`2DCard/Front`）—— 本文件里
+        //    卡名/效果文字的期望 y 全是 `Front` 局部值。
+        return card.FaceContentRoot.InverseTransformPoint(w).y * (CardView.CardUnitH / CardView.Height);
     }
 
     /// <summary>一层 quad 在**屏幕像素**里的外接矩形（原点左下，与 `ReadPixels` 同一套）。

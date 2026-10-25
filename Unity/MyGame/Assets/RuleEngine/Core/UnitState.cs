@@ -676,6 +676,46 @@ namespace RuleEngine
         readonly Dictionary<string, int> _keywords;
 
         /// <summary>
+        /// 🆕 **2026-10-25（引擎线 `A2` · `A2-2`）：「已移除 trait」簿记** ——
+        /// 原版 `EntityScript.HasRemovedTrait(card, trait)`（`d:/2/tools/decomp_full/EntityScript__HasRemovedTrait.c`）
+        /// 遍历的**不是**当前 trait 表（`CardScript +0x128`），而是 `activeEffects`（`+0x108`）里
+        /// **`CardEffect.buffType == removeTrait(4)`**（`BuffType.cs`）且 `trait(+0x3C) == 查询值` 的条目。
+        /// ⇒ 「曾经被**移除效果**摘掉过」与「**当前**带不带」是两件事（只在「有过、后来被移除」时不同）。
+        ///
+        /// <para>**写入点** = `EffectResolver.ApplyOneGain` 的 `lose &lt;trait&gt;` 那一支
+        /// （= 原版加一条 `CardEffect{buffType=removeTrait}`；原版 `AddEffect` 的 `case 4` 见
+        /// `CardScript__AddEffect.c:680-694`：先 `RemoveActiveEffects(4, trait)` 去重、再 `List.Add`
+        /// 这条效果、最后 `RemoveBuffedTrait + RemoveTrait`）。</para>
+        /// <para>**清除点** = <see cref="AddKeyword"/>（= 原版 `AddEffect` 的 `case 3`：`case 3` 进门第一句是
+        /// `CardScript__RemoveActiveEffects(card, 4)` —— **不带 trait 过滤 ⇒ 清掉全部 removeTrait 记录**
+        /// （`CardScript__AddEffect.c:474`）。⚠️ 这条看着怪，但它是原版行为，照抄并留着。</para>
+        /// <para>⚠️ **不写账的路径**（原版也不写，因为那几条走的是 `RemoveTrait` / `RemoveTraitAndEffects`
+        /// **本身**，不是「加一条 removeTrait 效果」）：护盾/闪避消耗、开空投舱、失明/眩晕到期、
+        /// 伏击翻开（`RemoveTraitAndEffects`）、光环收回。⇒ 我们的 `RemoveAll` **不写账**，
+        /// 只有 `ApplyOneGain(lose)` 那一处调 <see cref="MarkTraitRemoved"/>。</para>
+        /// </summary>
+        readonly HashSet<string> _removedTraits = new HashSet<string>();
+
+        /// <summary>🆕 `EntityScript.HasRemovedTrait(trait)` —— 这条 trait **曾经被「移除效果」摘掉过**。
+        /// 判据/写入点/清除点全在 <see cref="RemovedTraits"/> 那段 doc 里（⛔ 别拿 `Has()` 顶替：
+        /// 那个问的是「**当前**带不带」）。⚠️ 今天唯一消费者 = `ConditionEval` 的 `280 siege`
+        /// （`CardScript__DoesAbilityRequireLoading.c:35` 的 `HasRemovedTrait(0x1ea = 490 reload)`）。</summary>
+        public bool HasRemovedTrait(string trait)
+        {
+            return !string.IsNullOrEmpty(trait) && _removedTraits.Contains(trait);
+        }
+
+        /// <summary>🆕 记一条「已被移除」的 trait（写入点见 <see cref="RemovedTraits"/> 那段 doc）。
+        /// ⚠️ 只由 `ApplyOneGain` 的 `lose` 支调用；内部幂等。</summary>
+        public void MarkTraitRemoved(string trait)
+        {
+            if (!string.IsNullOrEmpty(trait)) _removedTraits.Add(trait);
+        }
+
+        /// <summary>🆕 只看不写（自检/报表用）：这本账里现在有哪些 trait。</summary>
+        public IReadOnlyCollection<string> RemovedTraits { get { return _removedTraits; } }
+
+        /// <summary>
         /// **真对局用的构造**：把手上的 / 弃牌堆里的**那一份**放上场。
         /// 实例由 <see cref="BattleContext.NewInstance"/> 发（新造一张）或从来源区域**沿用**（挪一份）。
         /// </summary>
@@ -892,6 +932,14 @@ namespace RuleEngine
         {
             if (string.IsNullOrEmpty(keyword)) return;
             _keywords[keyword] = KwValue(keyword) + value;
+            // 🆕 2026-10-25（引擎线 `A2` · `A2-2`）：**加一条 trait 会把「已移除」簿记整本清掉**。
+            //   判据 = 原版 `CardScript__AddEffect.c` 的 `case 3`（`buffType == addTrait`）进门第一句
+            //   `CardScript__RemoveActiveEffects(card, 4)` —— **不带 trait 过滤** ⇒ 所有
+            //   `buffType == removeTrait` 的 `CardEffect` 都被摘掉（`RemoveActiveEffects.c` 里
+            //   `param_3 == 0` 时只看 `+0x38 == param_2`，不比 `+0x3c`）。
+            //   ⚠️ 看着像 bug、但它是**原版行为**：`HasRemovedTrait` 因此在「又加了一条别的 trait」之后
+            //      会变假。照抄；别改成「只清同名 trait」。
+            if (_removedTraits.Count > 0) _removedTraits.Clear();
             SyncKeywordState(keyword, value);
         }
 

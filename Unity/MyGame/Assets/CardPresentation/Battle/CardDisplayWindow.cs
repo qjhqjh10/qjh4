@@ -65,6 +65,11 @@
 //      🔴 **这一条我们按实情收了口径**：守卫多加了「窗的地界」（`ContainsPointer`），
 //      否则窗里的语音/眼睛钮永远点不到。**待实机核**（触屏是不是「抬手即关」产物里证实不了 ——
 //      `StandaloneInputModule` 没反编译）。判据全文 → `资料/待办判据_战场与战斗视图.md` §8b。
+//   🔴 **2026-10-25（AU4）另记一条【仍欠】**：原版本窗 `closeOnESC = 1`
+//   （`MonoBehaviour_4750.json` 现读；消费者 = 继承来的 `GameWindow.ESCPressed → Close`）⇒
+//   **ESC 也该关窗**。我们的 ESC 只在结算屏那一路处理（`BattleDriver`）⇒ 本窗开着按 ESC 不关。
+//   补齐要动 `BattleDriver`（或全局面板 ESC 分发），**不在本文件白名单内** ⇒ 账记在 AU4 报告里。
+//   🆕 同一批补上的是**窗级声音**（开/关各一条，判据与 pid 见 `Show` / `HideCore` 里那两段）。
 //
 // ═══════════════════════════════════════════════════════════════════════════════════════
 // 🔴 **2026-10-16（`T09` 批 3 · `OverHand` 组）：本窗已从【世界空间 quad】迁到【uGUI 子画布】**
@@ -224,6 +229,25 @@ namespace CardPresentation
         /// 都在 `Card Display Window` 那一级，而那一级现在在画布上）。</summary>
         const string WorldShellName = "Card Display Window (world)";
 
+        /// <summary>换位那一声的 **cue 名** —— 原版 `CardDisplayWindow.soundOnCardSwap`。
+        /// 🔴 **2026-10-25（执行代理 `T` · 音效线缺口）**：本窗换位音**已接通**（`SwapToFront` 里喊
+        /// <see cref="CardPresentation.WindowSounds.PlayFx"/>）；此前这一格只有注释、没有数据也没有调用。
+        /// <para>判据（逐条亲读）：<br/>
+        /// ① 引用者 = 本窗根 MB。**亲扫全解包：带 `soundOnCardSwap` 的 MB 共 14 个**（13 个战场
+        ///    `bundle_scenes_scenes_battlearena*` 各一个 + 主菜单 `…mainmenuwarpforge` 一个），
+        ///    **14 个全是同一个 pid** `4812904303840730115`（例：战场版 `battlearena1/MonoBehaviour_4750.json`
+        ///    的 `soundOnCardSwap = PPtr(fileID 12, m_PathID 4812904303840730115)`）。<br/>
+        /// ② cue 资产 = `bundle_soundcollection_assets_all/MonoBehaviour/CardMove_4812904303840730115.json`，
+        ///    `m_Name = "CardMove"`，`clipList` **4 条**（`CardMove` / `CardMove_1` / `CardMove_2` / `CardMove_3`），
+        ///    `minPitch 0.8 / maxPitch 1.1` · `minVolume = maxVolume = 1` · `timeToPlayAgain 0.1`。<br/>
+        /// ③ 消费点 = `CardDisplayWindow__ChangeCardPosition.c:68-73`：
+        ///    `SoundManager__Play2D(…, *(param_1 + 0xd8), 0, 0)`（第 4 实参 **0 = MixerType.FX**），
+        ///    **位置在两条换位补间之前**（紧跟 `SetupTutorialObj` / `+0x150 = 1`，早于 `SetImageOverDraw`
+        ///    与 `DOTween.Sequence`）⇒ 我们放在 `_swapping = true;` 之后、`ArtOverdraw` 之前。</para>
+        /// <para>⚠️ 数据侧由 `工具/import_original_sfx.py` 的 `EXTRA_CUES` 收（pid 在 `animfx_modules.json`
+        /// 里推不出来）⇒ ⛔ 改 cue 名要两边一起改（自检 `SoundCueAssertT` 钉着「表里有、且是本串」）。</para></summary>
+        public const string SwapSoundCue = "CardMove";
+
         /// <summary>🔴 **2026-10-16（`T09` 批 3）**：`_root` = 画布上那个**铺满子画布**的节点
         /// （= 本组件自己那个节点）；`_cardsShell` = **世界空间那层壳**（卡体那一族的父节点）；
         /// `_cards` / `_lower` / `_bg` 与迁之前同名同义（只有 `_cards` 那一支改挂世界壳下）。</summary>
@@ -380,7 +404,11 @@ namespace CardPresentation
         public string LastVoiceFile { get; private set; }
 
         /// <summary>只有**前台那张**吃 tooltip（原版 `InitializeCardForDisplay` 的
-        /// `Card2DController.ToggleTooltips(index == 0)`）—— 外面问这一条，不要自己数槽位。</summary>
+        /// `Card2DController.ToggleTooltips(index == 0)`）—— 外面问这一条，不要自己数槽位。
+        /// <para>🔴 **2026-10-25（AU4）如实记：本口目前【零调用】** —— 我们的 tooltip 泵是
+        /// `BattleDriver.TickTooltipAt`，它遍历的是棋盘/手牌那批卡的命中区，**不含本窗这 5 格**
+        /// ⇒ 放大窗里的卡**悬停不出关键词/数值 tooltip**（原版会）。补齐要动 `BattleDriver`
+        /// （把本窗**前台那一格**加进候选卡），不在本文件白名单内 ⇒ 账记在 AU4 报告里。</para></summary>
         public static bool SlotHasTooltips(int i) { return i == 0; }
 
         public static CardDisplayWindow Create(Transform parent)
@@ -1192,7 +1220,26 @@ namespace CardPresentation
         /// （消费者 → `BattleDriver.DisplayEnemyCardInCenter`）。⛔ 别在窗里自行按卡的状态推该不该露背。</para></summary>
         public void Show(CardData d, CardDef def, IReadOnlyList<EffectRow> effects, bool faceDown)
         {
-            Hide();                       // 先把上一次那一叠拆干净（换阵营要换卡框贴图，原地改不换图）
+            bool wasOpen = Visible;       // 🆕 2026-10-25（AU4）：开窗音只在「关 → 开」那一拍响（见下）
+            HideCore(false);              // 先把上一次那一叠拆干净（换阵营要换卡框贴图，原地改不换图）；
+                                          // ⚠️ `playSound: false` —— 这一句是**开窗内部的清理**，
+                                          //    原版那一下不播关窗音（`GameWindow.Close` 才会）
+
+            // 🆕 **2026-10-25（AU4 · 铁律 11/14）：开窗音**（原版 `GameWindow.TryOpen` 的第一句）。
+            //   判据（逐字段现读）：本窗 MB `bundle_scenes_scenes_battlearena1/MonoBehaviour_4750.json` 的
+            //   `openSound = PPtr(fileID 12, m_PathID 4006604330728631164)`（**非空**），
+            //   而**菜单版**同一个脚本（`bundle_scenes_scenes_mainmenuwarpforge/MonoBehaviour_2033.json`）
+            //   的 `openSound` 是**同一个 pid** ⇒ cue 名沿用音效线已直读出来的
+            //   `WindowSounds.CardExpandCue`（`CardExpand`，clip `CardExpand`，pitch 0.8–1.1 · ttp 0.1）。
+            //   消费点 = `GameWindow__TryOpen.c`：`if (CurrentState == 0) { if (openSound != null)
+            //   SoundManager.Play2D(openSound, MixerType.FX); SetActive(true); … }` ——
+            //   **只有「本来是关着的」才响**；已经开着那一档只走 `ToFocus`、不播音。
+            //   ⚠️ 组 = **FX(0)**（`WFSoundPlayer` 挂的就是 FX 组）⇒ 走 `WindowSounds.PlayFx`。
+            //   ⚠️ 那两颗 pid 在 `bundle_soundcollection_assets_all` 里**没有导出 MonoBehaviour**
+            //      （613 条容器只导出了 610 条），所以名字是从**同一 pid 的菜单版**取的 —— 这是**旁证**，
+            //      不是对这两个资产本身的直读（如实记）。
+            if (!wasOpen)
+                WindowSounds.PlayFx(WindowSounds.CardExpandCue, "[展示窗] 战斗版 `Card Display Window` 开窗音");
 
             ShownTitle = d.title;
             ShownBody = d.keywords;
@@ -1259,6 +1306,25 @@ namespace CardPresentation
 
         public void Hide()
         {
+            HideCore(true);
+        }
+
+        /// <summary><see cref="Hide"/> 的本体。`playSound` 只有 <see cref="Show"/> 内部那次清理会传 false
+        /// —— 那一下在**原版里没有关窗音**（`GameWindow.Close` 才播；`ShowCard` 之前那次清理走的是
+        /// 重建/复位，不是关窗）。</summary>
+        void HideCore(bool playSound)
+        {
+            // 🆕 **2026-10-25（AU4 · 铁律 11/14）：关窗音**（原版 `GameWindow.Close` 的第一句）。
+            //   判据：本窗 MB_4750 的 `closeSound = PPtr(fileID 12, m_PathID 3524674544779823761)`（**非空**）
+            //   + `useDefaultCloseSoundIfNull = 1`（只因 closeSound 非空才轮不到默认音）；
+            //   **菜单版 MB_2033 的 closeSound 是同一个 pid** ⇒ cue 名沿用音效线已直读出来的
+            //   `WindowSounds.CloseCardDisplayCue`（`Close Card Display`）。
+            //   闸 = `GameWindow__Close.c` 的 `if (!gameObject.activeSelf) return;` —— 对应我们的
+            //   **`Visible`**（本窗的 `Hide()` 不关 GameObject，只切 chrome ⇒ 不能用 activeSelf）：
+            //   **关一扇本来就关着的窗不出声**。
+            if (playSound && Visible)
+                WindowSounds.PlayFx(WindowSounds.CloseCardDisplayCue, "[展示窗] 战斗版 `Card Display Window` 关窗音");
+
             Visible = false;
             ShownTitle = null;
             ShownBody = null;
@@ -1514,6 +1580,17 @@ namespace CardPresentation
             if (a == null || b == null) return;
             _swapping = true;
 
+            // 🆕 **2026-10-25（执行代理 `T`）：换位音 —— 已接通**（此前只有注释、数据也没有）。
+            //   判据 = 原版 `CardDisplayWindow__ChangeCardPosition.c:68-73`（亲读）：
+            //   `SoundManager__Play2D(…, *(param_1 + 0xd8), 0, 0)` —— 第 4 实参 `0` = **MixerType.FX**，
+            //   而 `+0xd8` 就是本窗 MB 的 `soundOnCardSwap`（pid `4812904303840730115` ⇒ cue `CardMove`）。
+            //   ⚠️ **位置是判据的一部分**：原版这一跳在 `SetupTutorialObj` 之后、
+            //      `SetImageOverDraw`（我们下面那两行 `ArtOverdraw`）与 `DOTween.Sequence` **之前**
+            //      ⇒ ⛔ 别挪到 `OnComplete`（那是 `CardSwapFinished`）。
+            //   播放口 = `WindowSounds.PlayFx`（`WFSoundPlayer` 挂 FX 组；⛔ 不是 `PlayJingles`）。
+            //   `timeToPlayAgain = 0.1` 的节流在 `WindowSounds.Play` 里 —— 那是**原版行为**，不是失败。
+            WindowSounds.PlayFx(SwapSoundCue, "[展示窗] 换位音（原版 `soundOnCardSwap`）");
+
             // 🔴 **2026-10-22（卡牌线 `T04` 第二笔）：换位【一开始】就换「谁能溢出」。**
             //    原版 `CardDisplayWindow__ChangeCardPosition.c:75-79`（亲读）——
             //    `BasicCardUI__SetImageOverDraw(cardInFront, 0)` ⇒ 让位那张收回；
@@ -1567,7 +1644,16 @@ namespace CardPresentation
             // （原版 `ChangeCardPosition.c:203-221` 那两条 tween，同一时长）。
             CardFan.TweenTint(b, CardFan.BackTint, CardFan.FrontTint, CardFan.SwapTime);
             CardFan.TweenTint(a, CardFan.FrontTint, CardFan.BackTint, CardFan.SwapTime);
-            Debug.Log($"[展示窗] 换位：第 {idx} 格 ⇄ 前台（{CardFan.SwapTime}s = 原版 `relatedCardSwapTime`）");
+            // ✅ **2026-10-25（执行代理 `T`）就地订正（铁律 5）**：这里原来写「如实记【仍欠】：
+            //   换位音 `soundOnCardSwap` 没接 … **挡在数据侧**」—— **已不成立**，两半都补上了：
+            //   ① **数据侧**：`工具/import_original_sfx.py` 的 `EXTRA_CUES` 已收这条 4-clip cue
+            //      （`animfx_sounds.json` 现读 461 条，含 `CardMove` → `CardMove` / `_1` / `_2` / `_3`）；
+            //   ② **调用侧**：本方法开头（`_swapping = true;` 之后、`ArtOverdraw` 之前）已喊
+            //      `WindowSounds.PlayFx(SwapSoundCue, …)` —— 位置与组号都照原版
+            //      （`ChangeCardPosition.c:68-73`，FX(0)），判据全文在 `SwapSoundCue` 那张 `<summary>` 里。
+            //   自检 = `Editor/SoundCueAssertT.cs`（cue 存在 + 4 个 clip 名 + 换位常量就是它）。
+            Debug.Log($"[展示窗] 换位：第 {idx} 格 ⇄ 前台（{CardFan.SwapTime}s = 原版 `relatedCardSwapTime`；"
+                    + $"换位音 cue `{SwapSoundCue}`）");
         }
 
         // ============================================================ 下缘那条（文字 + 两颗钮）

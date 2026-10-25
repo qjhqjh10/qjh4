@@ -91,7 +91,8 @@ public static partial class RuleEngineTest
         "TestB6EngineThird", "TestB7EnginePickAndCount", "TestF8EnginePlayOrder", "TestG1bSpiritStone", "TestG1bStatusApplied", "TestG2DeathRoutes",
         "TestG3AiTargetsTrim", "TestG5BareDealAndReferencedCards", "TestG6MultiCountRepeats", "TestE8PreviousAbilityDrawnCards", "TestG10HandCountScope", "TestG12ActiveAbilityLogic",
         "TestEngineE2", "TestEngineE6", "TestW12SummonedAndReanimate", "TestEngineP3", "TestEngineD4", "TestEngineC5",
-        "TestReplayTrace",
+        "TestReplayTrace", "TestA2EngineFive", "TestA3EngineAtTurnCriteria", "TestE2AbilityLevelCriteria", "TestE3AbilityActingCriteria", "TestE4TriggerTargetAndActivePick",
+        "TestE5SmallEngineGaps", "TestE7FourGates", "TestE6AbilityLevelGateFamilies", "TestE8AbilityOwnerAndListenerOrder", "TestEngineE9",
     };
 
     // 本次诊断真正跑过的用例（顺序同 `RunCaseNames`）—— 只给对账用
@@ -567,6 +568,16 @@ public static partial class RuleEngineTest
         Safe("TestEngineD4", () => TestEngineD4());
         Safe("TestEngineC5", () => TestEngineC5());
         Safe("TestReplayTrace", () => TestReplayTrace());
+        Safe("TestA2EngineFive", () => TestA2EngineFive());
+        Safe("TestA3EngineAtTurnCriteria", () => TestA3EngineAtTurnCriteria());
+        Safe("TestE2AbilityLevelCriteria", () => TestE2AbilityLevelCriteria());
+        Safe("TestE3AbilityActingCriteria", () => TestE3AbilityActingCriteria());
+        Safe("TestE4TriggerTargetAndActivePick", () => TestE4TriggerTargetAndActivePick());
+        Safe("TestE5SmallEngineGaps", () => TestE5SmallEngineGaps());
+        Safe("TestE7FourGates", () => TestE7FourGates());
+        Safe("TestE6AbilityLevelGateFamilies", () => TestE6AbilityLevelGateFamilies());
+        Safe("TestE8AbilityOwnerAndListenerOrder", () => TestE8AbilityOwnerAndListenerOrder());
+        Safe("TestEngineE9", () => TestEngineE9());
 
         VerifyDiagCoverage();
 

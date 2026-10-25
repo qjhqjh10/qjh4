@@ -163,7 +163,37 @@ EXTRA_CUES = ["Reward open item by item", "CardStartDrag",
               # ⚠️ 它**推不出来**：`Swarm Card Merge VFX` 不是 AnimFX 模块（没有 `AnimFXController`），
               #   音效挂在那份 prefab 的 `SwarmVFXController` 序列化字段上 ⇒ 只能声明在这里。
               #   反向查漏也独立指到了它（`WarpforgeUiFxProbe.cs:245`）。
-              "Trait Swarm Tyranid"]
+              "Trait Swarm Tyranid",
+              # —— 战斗线 / 音效线（2026-10-25 · 执行代理 `T`）：
+              #   **卡牌放大窗「换位」那一声** —— `CardDisplayWindow.soundOnCardSwap`。
+              #   判据（逐条亲读，2026-10-25）：
+              #   · 引用者 = 放大窗根 MB。**亲扫全解包：带 `soundOnCardSwap` 的 MB 共 14 个**
+              #     （13 个战场 `bundle_scenes_scenes_battlearena*` + 主菜单 `…mainmenuwarpforge`），
+              #     **14 个全是同一个 pid 4812904303840730115**（例：战场版
+              #     `bundle_scenes_scenes_battlearena1/MonoBehaviour/MonoBehaviour_4750.json`；
+              #     菜单版 `bundle_scenes_scenes_mainmenuwarpforge/MonoBehaviour/MonoBehaviour_2033.json`）。
+              #   · 消费点 = `CardDisplayWindow__ChangeCardPosition.c`（反编译，亲读 `:68-73`）：
+              #     `SoundManager__Play2D(&local_38, <SoundManager 单例>, *(param_1 + 0xd8), 0, 0)`
+              #     —— 第 4 实参 `0` = **MixerType.FX**；**位置在两条换位补间之前**
+              #     （紧跟 `SetupTutorialObj` / `+0x150 = 1`，早于 `SetImageOverDraw` 与 DOTween Sequence）。
+              #     我们的落点 = `Battle/CardDisplayWindow.cs` 的 `SwapToFront()`（`_swapping = true;` 之后、
+              #     `ArtOverdraw` 那两行之前），cue 常量 = `CardDisplayWindow.SwapSoundCue`。
+              #   · cue 包装 = `bundle_soundcollection_assets_all/MonoBehaviour/
+              #     CardMove_4812904303840730115.json`（`m_Name = "CardMove"`）：
+              #     **`clipList` 4 条** `[-6740773956303463874, 5303275677218709805,
+              #     -1522524771764259241, 8024429088123589697]` ·
+              #     `minPitch 0.8 / maxPitch 1.1` · `minVolume = maxVolume = 1` · `timeToPlayAgain 0.1`。
+              #     🔴 **就地订正 `AU4` 报告**：它写「`minPitch=maxPitch=1`」—— 资产实读是 **0.8–1.1**
+              #     （与 `CardStartDrag` 同值）；以资产为准。
+              #   ⚠️ **与两张同名/近名资产划清界限**（⛔ 别混）：
+              #     ① `CardStartDrag`（**另一个 cue**）的 clipList 只有 1 条，恰好就是本 cue 4 条里的第 1 条
+              #        `CardMove`（**那是 clip 名**，不是 cue 名）—— 所以「表里已经有 CardMove 的 clip」≠「有 cue」；
+              #     ② `bundle_soundcollection_assets_all/MonoBehaviour/Cardmove.json`（小写 m）是**另一个**
+              #        1-clip cue（`Cardmove`，pitch 1.0），本笔**不要**它；
+              #     ③ `battle_sounds.json` 里的 `moveCardIntoBattle` / `createCardInHand` 是**战斗字段名**表，
+              #        它们的 `clips` 里出现 `CardMove` / `CardMove_1..3` 也是 **clip 名** ⇒ 与 cue 名不冲突
+              #        （两张表装同一个字典时 `WFSoundBank` 按 `name` 撞名，这里撞不上）。
+              "CardMove"]
 
 # 🔴 **2026-10-16（A828）第三来源 —— `collisionEvent` 上的 `PlaySound`。**
 #   `AnimFXModuleCollisions` 的 `collisionAndParticles[i].particleSystemsDefinition[j].collisionEvent`

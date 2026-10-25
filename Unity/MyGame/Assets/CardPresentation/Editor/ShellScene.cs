@@ -9753,6 +9753,328 @@ public static class ShellScene
             }
         }
 
+        // ============================================================ ★ A1520（2026-10-25）：壳卡死 —— 六条状态不变量
+        //
+        // 判据（只读代理 F 现查闭合）→ `资料/普查产出_1025/F_判据_界面与台账订正.md` §任务1；
+        // 可疑机制本体 → `资料/普查产出_1024/C3_界面卡牌活动判据总表.md:237-251`。
+        //   链：`MainMenuRuntime.OpenHome` → `OpenWindow(BaseMenu, closeAll:true)` → `WindowsManager.CloseAllWindows`
+        //   → `GameWindow.Close()` 首句守卫（`!activeSelf ⇒ return`，**一旦脏态永久**）→ `:776`（`BaseMenu == this` ⇒ `Hide(); return`）。
+        //   冻结链：`PointerLayer.KeyCancel`（顶窗非 `Open` ⇒ ESC 直接 false）·
+        //           `MainMenuRuntime` 的模态闸（`top.BlocksLeftNav` ⇒ 左栏命中区降到 `QNavHitBlocked`）。
+        // 🔴 本段只断**不变量**（= 批处理能断的那半边）；「冻结态在真机上可不可达」是另一半 → 按 C3 的 H2/H3 真机跑。
+        // ⚠️ 本段**自己建一棵真 `MainMenuRuntime`**：I3 要它那批**真命中区 quad**（`ShellScene` 这一档本来没有左栏），
+        //    I5 要它按原版登记出来的 `BaseMenu`。收尾照 W59（续）那一节同一套（还原 `BaseMenu` · 拆探针树 ·
+        //    收回安全区 · 关快照 · 清壳常驻件 · 拆探针建的那颗 toast）。
+        Section("★ A1520：壳卡死六条状态不变量（I1 状态对偶 · I2 顶窗 · I3 导航闸 · I4 清场 · I5 OpenHome · I6 ESC 必关）");
+        {
+            var wm = shell.Windows;
+            CheckTrue(wm != null && WindowsManager.Instance == wm,
+                      "（前提·不静默）`WindowsManager` 在、且就是壳那一台（不在 ⇒ 下面整段空转 —— 这条红就是证据）");
+            if (wm != null)
+            {
+                var prevBase = wm.BaseMenu;
+                var probes = new List<GameObject>();
+                System.Func<string, WindowType, WindowsPlacement, bool, GameWindow> mkProbe =
+                    (name, ty, pl, esc) =>
+                    {
+                        var go = new GameObject(name);
+                        probes.Add(go);
+                        var w = go.AddComponent<GameWindow>();
+                        w.type = ty; w.placement = pl; w.closeOnEsc = esc;
+                        WindowsManager.AttachToAnchor(w);
+                        return w;
+                    };
+
+                // ---- I1 的检测器（纯函数）：∀win，`activeSelf == (CurrentState != Closed)` ----
+                // 🔴 **唯一一处例外 = 常驻主菜单**：原版 `MainMenuWindow.ToBackground` 的末句就是 `SetActive(false)`
+                //   （判据 → `Shell/MainMenuWindow.cs` 文件头 ④）⇒ 它的对偶是 `activeSelf == (state == Open)`
+                //   （`Background` 与 `Closed` 都不活）。⛔ 这不是放宽断言：两者各自逐句对上原版。
+                //   ⚠️ 其余窗（含 `Background`）**物体是活的** —— 基类 `ToBackground` 只写状态、不关物体。
+                System.Func<IList<GameWindow>, List<string>> dualityBad = list =>
+                {
+                    var bad = new List<string>();
+                    foreach (var w in list)
+                    {
+                        if (w == null) continue;                    // Unity 假 null（已销毁 / 换了场景）
+                        bool active = w.gameObject.activeSelf;
+                        bool wantActive = (w == wm.BaseMenu)
+                            ? (w.CurrentState == WindowState.Open)
+                            : (w.CurrentState != WindowState.Closed);
+                        if (active != wantActive)
+                            bad.Add(w.name + "：activeSelf=" + active + " / state=" + w.CurrentState);
+                    }
+                    return bad;
+                };
+
+                // ---- 被检查的「宇宙」：册上每一扇 + `BaseMenu` + 本段每一颗探针 ----
+                // （⛔ 不扫全场景：前面各段留下的 inactive 窗不归这一段负责，那是另一条口径。）
+                System.Func<List<GameWindow>> universe = () =>
+                {
+                    var u = new List<GameWindow>();
+                    foreach (var w in wm.openWindows) if (w != null && !u.Contains(w)) u.Add(w);
+                    if (wm.BaseMenu != null && !u.Contains(wm.BaseMenu)) u.Add(wm.BaseMenu);
+                    foreach (var g in probes)
+                    {
+                        if (g == null) continue;
+                        var w = g.GetComponent<GameWindow>();
+                        if (w != null && !u.Contains(w)) u.Add(w);
+                    }
+                    return u;
+                };
+
+                try
+                {
+                    // ---- 基线：空场（上一段刚拆完活动窗；这里再收一次，把假 null 摘干净）----
+                    wm.CloseAllWindows();
+                    Check(wm.openWindows.Count, 0, "（基线）空场：`openWindows` = 0");
+
+                    // ---- 夹具：一棵**真** `MainMenuRuntime`（I3 的命中区 quad / I5 的 `BaseMenu` 都从它来）----
+                    var mmGo = new GameObject("A1520 MainMenu Probe");
+                    probes.Add(mmGo);
+                    var mmRt = mmGo.AddComponent<MainMenuRuntime>();
+                    mmRt.Build();
+                    var baseWin = wm.BaseMenu;
+                    CheckTrue(baseWin != null && baseWin.gameObject != null,
+                              "（前提·不静默）`MainMenuRuntime.Build()` 把常驻主菜单登记上了（空 ⇒ I5 全空转）");
+                    CheckTrue(baseWin != null && baseWin.gameObject.activeSelf && baseWin.IsOpen(),
+                              "（前提）登记之后主菜单 = 活的 + `Open`（原版 `MainMenuWindow.Initialize` 末尾 `OpenWindow(this)`）");
+                    CheckTrue(mmRt.NavHitQueueForTest != -1,
+                              "（前提）左栏命中区建出来了（`-1` = 左栏没建 ⇒ I3 没有可观察对象，⛔ 不许当成通过）");
+
+                    var fs = mkProbe("A1520 非模态探针", WindowType.Fullscreen, WindowsPlacement.World, true);
+                    var pop = mkProbe("A1520 模态探针", WindowType.Popup, WindowsPlacement.Popup, true);
+
+                    // ============================================================ I5 · `OpenHome()`
+                    // 先把场面搞乱：全屏窗（`HideAllWindows` ⇒ 主菜单 `Closed`）+ 弹窗（全屏窗被压到 `Background`）
+                    wm.OpenWindow(fs);
+                    wm.OpenWindow(pop);
+                    CheckTrue(wm.openWindows.Count >= 3, "（前提）I5 之前至少 3 扇在册（主菜单 + 全屏 + 弹窗）");
+                    {
+                        // 灭自证的前提：`OpenHome` 之前场上**真的不止一扇活着** —— 否则「恰好 1 扇」可能是
+                        // 「本来就只剩一扇」蒙对的（两态对照：先 ≥2，之后 =1）。
+                        int activeBefore = 0;
+                        foreach (var w in universe()) if (w != null && w.gameObject.activeSelf) activeBefore++;
+                        CheckTrue(activeBefore >= 2,
+                                  "（前提）`OpenHome()` **之前**活着的窗 ≥ 2 扇（实测 " + activeBefore + "）"
+                                + " —— 少了 ⇒ 下面「恰好 1 扇」是空转，抓不到「`closeAll` 没关别人」");
+                    }
+                    mmRt.OpenHome();        // = 左栏第 1 颗 PLAY/Home（原版 `closeOtherMenus = 1` 那一跳）
+                    CheckTrue(baseWin != null && baseWin.gameObject.activeSelf && baseWin.IsOpen(),
+                              "★ I5-1 `OpenHome()` 之后主菜单 = `activeSelf` + `Open`"
+                            + "（`CloseAllWindows` 之后由 `TryOpen` 的 `Closed` 支重开；🧨 少关一扇 / 关完不开回来 ⇒ 红）");
+                    Check(wm.TopWindow, baseWin, "★ I5-2 …而且它就是顶窗（`OpenWindow(BaseMenu, closeAll: true)`）");
+                    {
+                        var u5 = universe();
+                        int activeOpen = 0;
+                        foreach (var w in u5) if (w != null && w.gameObject.activeSelf && w.IsOpen()) activeOpen++;
+                        Check(activeOpen, 1, "★ I5-3 **恰好 1 扇** `active + Open` 的窗"
+                            + "（🧨 改坏法：`OpenHome` 的 `closeAll` 传 false / `CloseAllWindows` 漏关一扇 ⇒ ≥2 ⇒ 红）");
+                        foreach (var w in u5)
+                        {
+                            if (w == null || w == baseWin) continue;
+                            CheckTrue(!w.gameObject.activeSelf && w.CurrentState == WindowState.Closed,
+                                      "★ I5-4 其余窗（`" + w.name + "`）全 `inactive + Closed`"
+                                    + "（原版 `closeOtherMenus = 1` 的语义：回主菜单时别的窗一扇都不许留着）");
+                        }
+                        CheckTrue(u5.Count >= 3, "（前提）I5 的宇宙 ≥ 3 扇（少了 ⇒「其余全关」那几条是空转）");
+                    }
+
+                    // ============================================================ I1 · 状态对偶（两个方向）
+                    {
+                        var bad0 = dualityBad(universe());
+                        CheckTrue(bad0.Count == 0,
+                                  "★ I1-1 干净态：∀win `activeSelf == (state != Closed)`"
+                                + "（常驻主菜单按它自己那一档 `== (state == Open)`；`Shell/MainMenuWindow.cs` 文件头 ④）"
+                                + (bad0.Count > 0 ? " —— 违规：" + string.Join("、", bad0.ToArray()) : "")
+                                + "｜🧨 改坏法：`Hide()` 少写 `state = Closed` / `ToBackground` 顺手关物体 ⇒ 红");
+                        CheckTrue(universe().Count >= 3, "（前提）I1 的宇宙 ≥ 3 扇（少了 ⇒ 上面那条是空转）");
+
+                        // 灭自证：绕过 `Close()`/`Hide()` 手工置灰（生产路径零个站）⇒ 检测器**必须**报它
+                        var dirtyGo = new GameObject("A1520 脏态探针");
+                        probes.Add(dirtyGo);
+                        var dirty = dirtyGo.AddComponent<GameWindow>();
+                        dirty.type = WindowType.Fullscreen;
+                        dirty.placement = WindowsPlacement.Canvas;
+                        dirty.closeOnEsc = true;
+                        WindowsManager.AttachToAnchor(dirty);
+                        wm.OpenWindow(dirty);
+                        CheckTrue(dirty.gameObject.activeSelf && dirty.IsOpen(), "（前提）脏态探针先真的开着");
+                        dirtyGo.SetActive(false);                    // ← 非法写法：物体灰了、状态还是 `Open`
+                        var badDirty = dualityBad(new List<GameWindow> { dirty });
+                        CheckTrue(badDirty.Count == 1 && badDirty[0].StartsWith(dirty.name),
+                                  "★ I1-2 灭自证：手工 `SetActive(false)` 而状态仍 `Open` ⇒ 检测器**必须**只报这一扇"
+                                + "（" + (badDirty.Count > 0 ? badDirty[0] : "<空>") + "）"
+                                + "｜🧨 检测器改成「只看 state」或「只看 activeSelf」⇒ 本条红（那就抓不到「绕过两条路置灰」）");
+                        Object.DestroyImmediate(dirtyGo);            // 脏窗只能拆（`Close()` 被首句守卫挡回）
+                        wm.CloseAllWindows();                        // 顺带把假 null 从册上摘掉
+                        Check(wm.openWindows.Count, 0, "（收尾）清场 ⇒ `openWindows` = 0");
+                    }
+
+                    // ============================================================ I2 · 顶窗
+                    // `TopWindow == null || TopWindow.IsOpen() || TopWindow == BaseMenu`
+                    System.Func<List<string>> topBad = () =>
+                    {
+                        var bad = new List<string>();
+                        var top = wm.TopWindow;
+                        if (top == null) return bad;         // 没有顶窗 = 合法（原版那一刻什么都不做）
+                        if (top.IsOpen()) return bad;         // `Open` ⇒ ESC 打得通
+                        if (top == wm.BaseMenu) return bad;   // 常驻主菜单那一支：`Close()` 只 `Hide()`、不摘 `currentWindow`
+                        bad.Add(top.name + "：state=" + top.CurrentState + "（既非 `Open`、也不是 `BaseMenu`）");
+                        return bad;
+                    };
+                    CheckTrue(wm.TopWindow == null, "（前提）I2 基线：没有顶窗（`CloseAllWindows` 收尾清了顶窗记账）");
+                    CheckTrue(topBad().Count == 0, "★ I2-1 没有顶窗 ⇒ 合法");
+                    wm.OpenWindow(baseWin);
+                    Check(wm.TopWindow, baseWin, "（前提）顶窗 = 常驻主菜单");
+                    CheckTrue(topBad().Count == 0, "★ I2-2 常驻主菜单在 `Open` 态 ⇒ 合法（ESC 那一跳走得通）");
+                    wm.OpenWindow(pop);
+                    Check(wm.TopWindow, pop, "（前提）弹窗成为顶窗");
+                    CheckTrue(topBad().Count == 0, "★ I2-3 顶窗在 `Open` 态 ⇒ 合法");
+                    // 原版 `GameWindow.Close` 的 baseMenu 支（`GameWindow.cs:776`）：只 `Hide()` 就 return ⇒ `currentWindow` **仍指着它**
+                    pop.Close();
+                    baseWin.Close();
+                    Check(baseWin.CurrentState, WindowState.Closed, "（前提）常驻主菜单进了 `Closed`（baseMenu 支的 `Hide()`）");
+                    Check(wm.TopWindow, baseWin, "（前提）`currentWindow` **仍指着它**（baseMenu 支不摘 `currentWindow` —— 原版 `CloseWindowCO` 逐句）");
+                    CheckTrue(topBad().Count == 0,
+                              "★ I2-4 顶窗 = `BaseMenu` 但**不在 `Open` 态** ⇒ **合法**（第三个别支）"
+                            + "｜🧨 把 `|| top == BaseMenu` 删掉 ⇒ 本条红 —— 而那一支**不是缺陷**：原版 `CloseWindowCO` 的 baseMenu 支就只 `Hide()`");
+                    wm.OpenWindow(baseWin);
+                    // 灭自证：**普通**窗停在 `Background` 却仍是顶窗 ⇒ 检测器必须报（= 「ESC 直接 return false」的预演）
+                    wm.OpenWindow(fs);
+                    Check(wm.TopWindow, fs, "（前提）顶窗 = 全屏探针");
+                    fs.ToBackground();                  // 造「顶窗不在 `Open` 态」的处境
+                    var badTop = topBad();
+                    CheckTrue(badTop.Count == 1 && badTop[0].StartsWith(fs.name),
+                              "★ I2-5 灭自证：顶窗停在 `Background` 且不是 `BaseMenu` ⇒ 检测器**必须**报"
+                            + "（" + (badTop.Count > 0 ? badTop[0] : "<空>") + "）"
+                            + "｜🧨 删掉 `top.IsOpen()` 那半个判据 ⇒ 本条红；这一格正是「ESC 什么都不做」的预演");
+                    fs.TryOpen();                       // `Background` 支 → 回 `Open`（A217②，不重建内容）
+                    CheckTrue(topBad().Count == 0, "（收尾）`TryOpen()` 把它带回 `Open` ⇒ 检测器归零");
+                    wm.CloseAllWindows();
+
+                    // ============================================================ I3 · 导航闸对偶（两个方向都断）
+                    // `NavHitQueueForTest == (top != null && top.BlocksLeftNav ? QNavHitBlocked : QNavHit)`
+                    // 🔴 期望值从**两处独立来源**取：档号来自 `MainMenuRuntime.QNavHit*ForTest`，翻面依据来自
+                    //    **顶窗自己的** `BlocksLeftNav`（原版 prefab 的 `type` / `windowsPlacement` 算的）——
+                    //    ⛔ 不是拿同一个式子自证；实际读数 = 命中区 quad 的 `RenderQueue`（`NavHitQueueForTest`）。
+                    System.Func<int> expectQ = () =>
+                    {
+                        var top = wm.TopWindow;
+                        return (top != null && top.BlocksLeftNav)
+                            ? MainMenuRuntime.QNavHitBlockedForTest
+                            : MainMenuRuntime.QNavHitForTest;
+                    };
+                    CheckTrue(MainMenuRuntime.QNavHitBlockedForTest < MainMenuRuntime.QNavHitForTest,
+                              "（前提）`QNavHitBlocked` 必须**严格低于** `QNavHit`（差 = "
+                            + (MainMenuRuntime.QNavHitForTest - MainMenuRuntime.QNavHitBlockedForTest) + "）");
+                    Check(mmRt.NavHitQueueForTest, MainMenuRuntime.QNavHitForTest,
+                          "★ I3-1 **无窗** ⇒ 左栏命中区 = `QNavHit`（可点）");
+                    wm.OpenWindow(baseWin);
+                    CheckTrue(!baseWin.BlocksLeftNav, "（前提）常驻主菜单（`type=0` / `placement=0`）是**非模态**");
+                    int qNonModal = mmRt.NavHitQueueForTest;
+                    Check(qNonModal, expectQ(), "★ I3-2 非模态顶窗（`BaseMenu`）⇒ 仍是 `QNavHit`");
+                    wm.OpenWindow(pop);
+                    CheckTrue(pop.BlocksLeftNav, "（前提）弹窗探针（`type=1` / `placement=15`）是**模态**");
+                    Check(mmRt.NavHitQueueForTest, expectQ(),
+                          "★ I3-3 **模态顶窗** ⇒ 降到 `QNavHitBlocked`（左栏不可点）"
+                        + "｜🧨 删掉 `RefreshNavHitQueue` 的模态判断 ⇒ 本条红");
+                    CheckTrue(mmRt.NavHitQueueForTest != qNonModal,
+                              "★ I3-3″ 灭自证：**同一个读口**在「非模态 → 模态」之间**真的翻了面**（"
+                            + qNonModal + " → " + mmRt.NavHitQueueForTest + "）"
+                            + "｜🧨 读口恒返回同一个数 / `RefreshNavHitQueue` 没被 `OpenWindow` 调到 ⇒ 本条红");
+                    Check(mmRt.NavHitQueueForTest, MainMenuRuntime.QNavHitBlockedForTest,
+                          "★ I3-3′ …而且确实等于 `QNavHitBlocked` 自己（与 I3-2 期望值**反向** ⇒ 两个方向都断住了）");
+                    pop.Close();
+                    Check(mmRt.NavHitQueueForTest, expectQ(), "★ I3-4 关掉模态窗 ⇒ 回到 `QNavHit`（两态对照）");
+                    wm.OpenWindow(fs);
+                    CheckTrue(!fs.BlocksLeftNav, "（前提）全屏探针（`type=0` / `placement=10`）非模态");
+                    Check(mmRt.NavHitQueueForTest, expectQ(),
+                          "★ I3-5 非模态窗开着 ⇒ 仍是 `QNavHit`（🧨 一刀切成「有窗就挡」⇒ 本条红；2026-10-18 那条修复不许回退）");
+                    wm.CloseAllWindows();
+
+                    // ============================================================ I4 · `CloseAllWindows()` 之后
+                    wm.OpenWindow(baseWin);
+                    wm.OpenWindow(fs);
+                    wm.OpenWindow(pop);
+                    CheckTrue(wm.openWindows.Count >= 3, "（前提）I4 之前至少 3 扇在册");
+                    var regBefore = new List<GameWindow>(wm.openWindows);
+                    wm.CloseAllWindows();
+                    Check(wm.openWindows.Count, 0,
+                          "★ I4-1 之后 `openWindows` **空**（原版收尾 `List.Clear()` 的等价净效果）");
+                    {
+                        var badActive = new List<string>();
+                        var badState = new List<string>();
+                        foreach (var w in regBefore)
+                        {
+                            if (w == null) continue;
+                            if (w.gameObject.activeSelf) badActive.Add(w.name);
+                            if (w.CurrentState != WindowState.Closed) badState.Add(w.name + "=" + w.CurrentState);
+                        }
+                        CheckTrue(badActive.Count == 0,
+                                  "★ I4-2 收掉的每一扇都**不活**"
+                                + (badActive.Count > 0 ? " —— 还活着的：" + string.Join("、", badActive.ToArray()) : "")
+                                + "｜🧨 改坏法：`CloseAllWindows` 漏关一扇 ⇒ 红");
+                        CheckTrue(badState.Count == 0,
+                                  "★ I4-3 收掉的每一扇 `state` 都是 `Closed`（`Hide()` 与 `Close()` 两条路都写）"
+                                + (badState.Count > 0 ? " —— 没写的：" + string.Join("、", badState.ToArray()) : ""));
+                    }
+                    // 灭自证：「活着却不在册」的孤儿（= `A1709` 那种）⇒ 检测器必须报
+                    var orph = mkProbe("A1520 孤儿探针", WindowType.Fullscreen, WindowsPlacement.Canvas, true);
+                    wm.OpenWindow(orph);
+                    wm.openWindows.Remove(orph);        // ← 只摘册、不收窗
+                    var obs = new List<string>();
+                    foreach (var w in universe())
+                        if (w != null && w.gameObject.activeSelf && !wm.openWindows.Contains(w)) obs.Add(w.name);
+                    CheckTrue(obs.Count == 1 && obs[0] == orph.name,
+                              "★ I4-4 灭自证：活窗被从册上摘掉 ⇒ **检出孤儿**"
+                            + "（" + (obs.Count > 0 ? string.Join("、", obs.ToArray()) : "<空>") + "）"
+                            + "｜🧨 把「活 + 不在册」那半个判据删掉 ⇒ 本条红");
+                    orph.Close();
+                    wm.CloseAllWindows();
+
+                    // ============================================================ I6 · `KeyCancel()` 不许静默 false
+                    var pl = PointerLayer.Instance;
+                    CheckTrue(pl != null, "（前提）`PointerLayer` 在（不在 ⇒ ESC 这条路根本没人打）");
+                    CheckTrue(PointerLayer.InputEnabled, "（前提）输入层启用（原版第一道门槛；停用 ⇒ ESC 必然 false，那是另一档）");
+                    wm.OpenWindow(baseWin);             // 顶窗保持「不是 `BaseMenu`」，ESC 才走 `ESCPressed` 那条路
+                    var escWin = mkProbe("A1520 ESC 探针", WindowType.Popup, WindowsPlacement.Popup, true);
+                    wm.OpenWindow(escWin);
+                    Check(wm.TopWindow, escWin, "（前提）ESC 探针是顶窗（≠ `BaseMenu`）");
+                    CheckTrue(escWin.IsOpen() && escWin.closeOnEsc, "（前提）它在 `Open` 态、`closeOnEsc = true`");
+                    bool escClosed = pl != null && pl.KeyCancel();
+                    CheckTrue(escClosed,
+                              "★ I6-1 `closeOnEsc` 的 `Open` 窗上 `KeyCancel()` **必须返回 true**"
+                            + "｜🧨 `PointerLayer.KeyCancel` 改回恒 `false` / `ESCPressed` 里那句 `Close()` 删掉 ⇒ 红"
+                            + "（⛔ 不许静默 false：「按了没反应」必须能被断言抓到）");
+                    Check(escWin.CurrentState, WindowState.Closed, "★ I6-2 …它真的进了 `Closed`");
+                    CheckTrue(!escWin.gameObject.activeSelf, "★ I6-3 …物体也不活了（两条一起 = 真的关了，不是只改状态）");
+                    CheckTrue(!wm.openWindows.Contains(escWin), "★ I6-4 …而且从 `openWindows` 摘掉了（`NotifyClosed` 那一跳）");
+                    // 阴性对照：`closeOnEsc = false` ⇒ **原版就什么都不做**（那不是缺陷）
+                    var noEsc = mkProbe("A1520 ESC 阴性探针", WindowType.Popup, WindowsPlacement.Popup, false);
+                    wm.OpenWindow(noEsc);
+                    Check(wm.TopWindow, noEsc, "（前提）阴性探针是顶窗");
+                    CheckTrue(pl == null || !pl.KeyCancel(),
+                              "★ I6-5 阴性对照：`closeOnEsc = false` ⇒ `KeyCancel()` = false（原版第二道门槛）");
+                    CheckTrue(noEsc.IsOpen(), "★ I6-6 …窗**还开着**（与 I6-1 合起来 = 两种状态分得开，不是「永远关不掉 / 永远关得掉」）");
+                    noEsc.Close();
+                    wm.CloseAllWindows();
+                }
+                finally
+                {
+                    // 收尾（照 W59（续）那一节的同一套）：`BaseMenu` 还原 · 探针树拆掉 · 安全区收回 ·
+                    //   快照关掉 · 壳常驻件（左栏/顶栏/聊天）清掉 · 探针 `Build` 建的那颗 toast 控制器拆掉
+                    wm.SetBaseMenu(prevBase);
+                    for (int i = 0; i < probes.Count; i++)
+                        if (probes[i] != null) Object.DestroyImmediate(probes[i]);
+                    PointerLayer.SetInputEnabled(true);
+                    shell.ReclaimSafeZones();
+                    shell.Bake.Toggle(false);
+                    ShellRuntime.ClearStaleMenuChrome(shell.SafeAreaOnlyHorizontal);
+                    ToastNotifications.DisposeForSceneChange();
+                }
+            }
+        }
+
         Debug.Log(P + $"=== 合计：{_sink.Pass} 通过 / {_sink.Fail} 失败 ===");
         // 🔴 **2026-10-11（A350 · 调度台裁定）**：这一串是**失败表的【重列】**（每条失败在
         //   `Check` 里**已经打过一次**）⇒ 行首标记必须是 `失败重列：`、⛔ **不能再是 `✗`** ——

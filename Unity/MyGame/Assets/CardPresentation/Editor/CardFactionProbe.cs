@@ -450,29 +450,77 @@ public static class CardFactionProbe
     {
         x0 = y0 = 0; x1 = W - 1; y1 = H - 1;
         var face = view != null ? view.FaceLayerRoot : null;
-        if (face == null) return false;
-
-        int n = face.childCount;
-        var wasActive = new bool[n];
-        bool found = false;
-        for (int i = 0; i < n; i++)
+        if (face == null)
         {
-            var ch = face.GetChild(i);
-            wasActive[i] = ch.gameObject.activeSelf;
-            if (ch.name == "frame") found = true;
-            else ch.gameObject.SetActive(false);
+            Debug.LogWarning("[cardfaction] 卡上没有 `2DCard` 根（`CardView.FaceLayerRoot == null`）⇒ 量不了卡框");
+            return false;
         }
-        if (!found)
+        // 🔴 **2026-10-25（B2）**：卡面各层现在挂在 **`2DCard/Front`** 那一级下面（原版三级节点，
+        //   `CardView.FrontAposY` 那段注释有判据）⇒ 找 `frame` **必须下钻一层**，
+        //   下钻规则与 `CardView.ApplyBoardSortingOrders` **同一条**（`FaceRoot` 的直接子件里
+        //   碰到卡面内容根要再往下走一层）。
+        //   ⛔ 原来只看 `2DCard` 的**直接子件**：加了 `Front` 之后 `frame` 变成孙件 ⇒ 永远找不到、
+        //      **静默**退回兜底 `FrameQuadCrop()`（不报错、结果错）。本方法起**两级都要看、找不到就出声**。
+        var content = view.FaceContentRoot;
+        if (content == null)
         {
-            for (int i = 0; i < n; i++) face.GetChild(i).gameObject.SetActive(wasActive[i]);
+            Debug.LogWarning("[cardfaction] `CardView.FaceContentRoot` 取不到（卡还没 `Build`？）⇒ 量不了卡框");
             return false;
         }
 
-        Color32[] px;
-        try { px = RenderPixels(opaque: false); }          // 透明底 ⇒ alpha 就是卡框自己的 alpha
-        finally { for (int i = 0; i < n; i++) face.GetChild(i).gameObject.SetActive(wasActive[i]); }
+        // 要临时关掉的两圈：
+        //   ① `2DCard` 下**除卡面内容根以外**的直接子件 —— 数值层（`stat0..3`）/ 徽标 / 状态环……
+        //      它们 2026-10-25 起**不在** `Front` 下（坐标是 `3DBody` 空间）⇒ 不关会混进这张「只有卡框」的渲图。
+        //   ② 卡面内容根下**除 `frame` 以外**的层。
+        // 两圈都要**原样还原**（含原本就关着的）。
+        int nOuter = 0;
+        var outer = new Transform[Mathf.Max(0, face.childCount)];
+        if (content != face)
+            for (int i = 0; i < face.childCount; i++)
+            {
+                var ch = face.GetChild(i);
+                if (ch == content) continue;
+                outer[nOuter++] = ch;
+            }
+        int nIn = content.childCount;
+        var inner = new Transform[nIn];
+        var innerWas = new bool[nIn];
+        var outerWas = new bool[nOuter];
+        try
+        {
+            for (int i = 0; i < nOuter; i++)
+            {
+                outerWas[i] = outer[i].gameObject.activeSelf;
+                outer[i].gameObject.SetActive(false);
+            }
+            bool found = false;
+            for (int i = 0; i < nIn; i++)
+            {
+                inner[i] = content.GetChild(i);
+                innerWas[i] = inner[i].gameObject.activeSelf;
+                if (inner[i].name == "frame") found = true;
+                else inner[i].gameObject.SetActive(false);
+            }
+            if (!found)
+            {
+                // ⛔ 不静默：层名改了 / `Front` 下面又插了中间节点 ⇒ 这里必须说出来（调用方会退回兜底矩形）
+                var sb = new System.Text.StringBuilder();
+                for (int i = 0; i < nIn; i++) { if (i > 0) sb.Append(" / "); sb.Append(inner[i].name); }
+                Debug.LogWarning($"[cardfaction] 卡面层里**找不到 `frame`**（`2DCard` 下旁支 {nOuter} 个 + "
+                               + $"`{content.name}` 下 {nIn} 个层：{sb}）⇒ 本次并排图退回 `FrameQuadCrop()` 的矩形"
+                               + "（我们那侧可能带透明边）。⛔ 这不是正常情况：层名变了或层级又加了一级 —— "
+                               + "对齐 `CardView.AddLayer` / `ApplyBoardSortingOrders` 的路径再来。");
+                return false;
+            }
 
-        return BodyRect(px, W, H, PnpAlphaMin, out x0, out y0, out x1, out y1);
+            var px = RenderPixels(opaque: false);          // 透明底 ⇒ alpha 就是卡框自己的 alpha
+            return BodyRect(px, W, H, PnpAlphaMin, out x0, out y0, out x1, out y1);
+        }
+        finally
+        {
+            for (int i = 0; i < nIn; i++) if (inner[i] != null) inner[i].gameObject.SetActive(innerWas[i]);
+            for (int i = 0; i < nOuter; i++) if (outer[i] != null) outer[i].gameObject.SetActive(outerWas[i]);
+        }
     }
 
     /// <summary>`FrameQuadSize` → 屏幕像素矩形（`OurFrameRect` 的兜底）。
@@ -481,8 +529,12 @@ public static class CardFactionProbe
     {
         float ppu = H / (2f * OrthoHalfH);
         var q = CardView.FrameQuadSize;                    // (宽, 高, 中心 y)，世界单位
+        // 🔴 2026-10-25（B2）：`FrameQuadSize.z`（= `FrameUnitY` = −0.03）是**原版 `Front` 局部值**
+        //   （判据 → `CardView.FrontAposY` 那段）。卡面层现在真的挂在 `2DCard/Front` 下 ⇒
+        //   换算到**卡根**坐标要补 `+FrontAposY`；不补的话这条兜底会整体低 0.08 卡单位（≈2.4% 卡高）。
+        float cy0 = q.z + CardView.FrontAposY;
         float cx = W * 0.5f;
-        float cy = H * 0.5f + (q.z - CamY) * ppu;          // bottom-up 像素
+        float cy = H * 0.5f + (cy0 - CamY) * ppu;          // bottom-up 像素
         float hw = q.x * ppu * 0.5f, hh = q.y * ppu * 0.5f;
         x0 = Mathf.Clamp(Mathf.FloorToInt(cx - hw), 0, W - 1);
         x1 = Mathf.Clamp(Mathf.CeilToInt(cx + hw), 1, W - 1);

@@ -82,6 +82,42 @@ namespace CardPresentation
         /// （原版那个 `bool isPlayer` 也是这个意思 —— `PlayerHand._AddDrawnCardToHand` 的实参）。</para></summary>
         public static System.Func<int, bool> IsLocalSeat;
 
+        /// <summary>🆕 **2026-10-25（`AU1`）：(卡名, 关键词) → 这张卡**有没有**这个关键词**（按卡面/基础关键词表，
+        /// 不是运行时 buff）。`null` = 没挂钩 ⇒ 一律回 `false` **并出声一次**（见 `ReturnHoldOf`）。
+        ///
+        /// <para>**为什么需要**：`EvtKind.Return`（回手）这一拍在原版对**带 `teleport` 的卡**多等一次
+        /// `GetHandToBoardAnimEventTime()`（`CardScript._TransformUnitInPlayToCard_d__256__MoveNext.c:134-141`
+        /// 的 `RawCardScript.HasDefaultTrait(card, 0x4ce)` 支，`0x4ce = 1230 = teleport`，
+        /// 判据 → `数据/游戏数据/trait_collection.json` 的 `definedTrait: 1230`）——
+        /// 而「这张卡有没有 teleport」只有驱动（卡池）答得出来。模式与
+        /// <see cref="FactionOfSeat"/> / <see cref="AnimTimesOf"/> 完全一样：静态钩子 + 幂等覆盖，每次 `Begin` 重挂。</para></summary>
+        public static System.Func<string, string, bool> HasTraitOf;
+
+        // ==================================================================
+        //  🆕 2026-10-25（`AU1` · 第三批 · 判据代理 `J1`）—— **三个新钩子（同样由 `BattleDriver` 挂）**
+        // ==================================================================
+        //  为什么都要钩子而不是在这里自己查：这三格的判据都在**驱动/引擎**那一侧（卡池、棋盘状态、
+        //  这份实例现在落在手牌还是牌库）—— 本类是纯时间表，⛔ 别在这里载第二份数据源。
+
+        /// <summary>🆕 **2026-10-25（`AU1` · `J1` §3）：这一条 `Return` 的**目的地** ——
+        /// `0` = 回手 · `1` = 回牌库（含牌库顶）· `-1` = 判不出（旧事件 / 自检手工合成）。`null` = 没挂钩。
+        ///
+        /// <para>**为什么要钩子**：`BattleEvent` 只带 `Slot`（在场格号）、**没有「回手还是回牌库」那一位**
+        /// （`RuleEngine` 侧 `op.Dest` 没进事件）—— 但驱动**判得出**：引擎是先把那份实例搬进
+        /// `Players[p].Hand` 或 `.Deck` **之后**才发这条事件的（`EffectResolver` 的 `switch (op.Dest)`），
+        /// 而事件带 `InstanceId` ⇒ 按实例号在手上/牌库里反查即可。`cardback` 那一档（`MoveToDeck` 归零）**没接**，见 `ReturnHoldOf`。</para></summary>
+        public static System.Func<BattleEvent, int> ReturnDestOf;
+
+        /// <summary>🆕 **2026-10-25（`AU1` · `J1` §5）：这一条 `Hit` 打的是**易伤伤害**（`DamageType 7/8`）吗。
+        /// `null` = 没挂钩（⇒ 一律按普通命中 1.0 s）。判据与等价物 → <see cref="HitHoldOf"/>。</summary>
+        public static System.Func<BattleEvent, bool> HitIsVulnerable;
+
+        /// <summary>🆕 **2026-10-25（`AU1` · `J1` §6）：这一次「发动能力」原版走的是**替代支**吗。
+        /// `true` = `alternativeAbility`（SW21 那类）· `false` = `activeAbility`。`null` = 没挂钩。
+        /// 判据 = `RawCardScript.GetActiveAbility`（`hasAlternativeAbility &amp;&amp; !MeetsCriteria(normalAbilityBoardCriteria)`
+        /// ⇒ 替代支），驱动侧已有纯函数 `CardDef.UsesAlternativeAbility(ctx, owner, actor)`。→ <see cref="AbilityHoldOf"/></summary>
+        public static System.Func<BattleEvent, bool> AbilityUsesAlternative;
+
         /// <summary>🆕 **2026-10-22（`W64`）反击那一拍占多久**（秒，相对事件起播）。
         ///
         /// <para>**判据（第一权威）= `BattleManager._ResolveAttack_d__438__MoveNext.c:1114-1152`**：
@@ -122,6 +158,212 @@ namespace CardPresentation
             if (_retaliationFallbackWarned.Count >= 64 || !_retaliationFallbackWarned.Add(key)) return;
             UnityEngine.Debug.Log($"[EventTiming] 反击 `{key}`：解开的那件**没有** `AnimInfo` 时长（`ChainDuration` = 0）"
                     + $" ⇒ 这一拍按 `RangedVfxFallback` {RangedVfxFallback:F2}s 排（与攻方远程那一档同一条兜底）");
+        }
+
+        /// <summary>🆕 **2026-10-25（`AU1`）：`EvtKind.Return`（回手 / 回牌库 / 墓地取回）这一拍占多久**。
+        ///
+        /// <para>**判据（第一权威；`J1` 2026-10-25 现查、订正了本方法第一版的回牌库值）** ——
+        /// 原版这条**不是**瞬时的：</para>
+        /// <list type="number">
+        /// <item>`BattleManager._ResolveRecallToHand_d__542__MoveNext.c:273-278` 对在场单位
+        ///   `StartCoroutine(CardScript.TransformUnitInPlayToCard)` 并 **`yield return`**；
+        ///   那条协程（`CardScript._TransformUnitInPlayToCard_d__256__MoveNext.c:80-85`）在 state 0 末尾
+        ///   `WaitForSeconds(GetHandToBoardAnimEventTime())` = **0.55 s**（= `Card Hand To Board` 那条 clip
+        ///   **唯一一条 AnimationEvent** 的时刻：`AnimationClip_-3614292623624764332.json` 的
+        ///   `m_Events[0].time = 0.55` / `CardHandToBoardAnimationFinished`）；
+        ///   ⚠️ 同一 state 里那条 `DOMove(…, 0.208)` 是**并行**的，不额外加时间。</item>
+        /// <item>收尾按目的地分两支：
+        ///   · **回手** ⇒ `:55-60` `yield PlayerHand.AddCardNotDrawnToHand`，那条
+        ///     （`PlayerHand._AddCardNotDrawnToHandAtIndex_d__40__MoveNext.c:42-47`）末尾
+        ///     `WaitForSeconds(VarsGlobal.timeToPositionCard)` = **0.2 s** ⇒ **0.75 s**；
+        ///   · **回牌库 / 牌库顶** ⇒ `_ResolveRecallToDeck_d__543:350-356` 的 `WaitForSeconds(MoveToDeck(card,1,0))`，
+        ///     而 `CardScript__MoveToDeck.c` 的**返回值 = `timeToScaleIntoMoving 0.1 + 0.3 = 0.4`**
+        ///     （那个 0.3 是移动/翻转那一段 `DAT_1834b2dc8`、0.1 是尾段缩放 `VarsGlobal+0x78`；**两段相加**）
+        ///     ⇒ **0.95 s**。🔴 第一版记的 **0.85 是错的**（只算了 0.3）。
+        ///     ⚠️ 两个例外把 0.3 归零 ⇒ `MoveToDeck` 只返 0.1 ⇒ **0.65 s**：`BattleCardUI.ShouldShowCardback(card)`
+        ///     或 `card + 0x54 != 0`（**= `EntityScript.armedTrap`**，`J3` §1 已定名；那个 0.3 段整段跳过）—— **这两档没接**（见下）。</item>
+        /// </list>
+        ///
+        /// <para>⚠️ **一个值 ≠ 全部情况（铁律 5·c）**：</para>
+        /// <list type="bullet">
+        /// <item>**带 `teleport`（`HasDefaultTrait(0x4ce)` = 1230）的卡**：state 1 在 `SetStateInHand`
+        ///   之后**再等一次**同一个 0.55（`_d__256__MoveNext.c:108-115`）⇒ 回手 **1.30** / 回牌库 **1.50**。
+        ///   判据见 <see cref="HasTraitOf"/>。</item>
+        /// <item>**回手 vs 回牌库**：由 <see cref="ReturnDestOf"/> 回答（驱动按 `InstanceId` 反查那份实例
+        ///   现在落在 `Hand` 还是 `Deck`）。**判不出** ⇒ 按**回手 0.75** 排并出声一次。</item>
+        /// <item>**卡背朝上那一档（0.65）—— 判据已闭合（`J3` §1），但今天【不可达】、故意不接**：
+        ///   `CardScript__MoveToDeck.c:45-49` 的门是**并列**两条 —— `BattleCardUI.ShouldShowCardback(cardState)`
+        ///   **或** `card + 0x54 != 0`；后者 = **`EntityScript.armedTrap`**（`dump.cs:21983`；唯一置 1 点 =
+        ///   `CardScript__SetAsActiveTrap.c` ⇒ 「这张陷阱卡已布置、待触发」）。
+        ///   `ShouldShowCardback` 真值表（`J3` §1·④）：`inDeck(0)`/`inDeckDrawing(16)` ⇒ **1**；
+        ///   `inHand(1)` ⇒ **只有敌方手牌**；`inHandJustCreated(12)` ⇒ 我方看 `armedTrap`、敌方恒 1；**其余 11 档 ⇒ 0**。
+        ///   ⇒ 从**场上**回牌库（`cardState = inPlay(2)`）⇒ 那 0.3 段**照走** = 我们今天的 0.95（**对**）；
+        ///   只有「卡**没离过牌库**就回牌库（`_AddCardNotDrawnToDeck`，`state = inDeck(0)`）」与
+        ///   「`armedTrap == 1`」这两条路才是 0.65 —— **这两条路我们的引擎都没有**
+        ///   （我们只从场上发 `Return` 且有格号）⇒ ⛔ 不凭「回牌库就该 0.65」去改。</item>
+        /// </list>
+        ///
+        /// <para>⚠️ **`Slot &lt; 0`（不在棋盘上）两档**（`J1` §4 已闭合）：
+        /// · **墓地 → 手牌 / 牌库顶 / 牌库**（`EffectResolver` 的 `ResolveCopyUnitInCemetery` 那一族）：
+        ///   原版 `CardScript.CreateCardInGame(card, …, VarsGlobal.timeToDrawPlayerCard = 0.3)` 并 `yield`
+        ///   （`BattleManager._ResolveCopyUnitInCemetery_d__541:125` + `CardScript._CreateCardInGame_d__250:78-84`），
+        ///   **整条协程只有这一个等待** ⇒ **0.3 s**（= `CardFeel.DealDuration`，同一格字段）。
+        /// · **`ephemeral`（临时卡移出游戏）**：**判据为空**（全量反编译里战斗侧只有 `BattleCardUI.ShowEphemeral`
+        ///   —— 在卡位置 `Instantiate` 一颗粒子、**不等待、不协程**；没有「回合末移出」的原版实现可对）
+        ///   ⇒ **保持 0**（铁律 11 例外①）。判别式 = `BattleEvent.Effect == "ephemeral"`（`RuleCore` 那条发出点填的）。</para>
+        /// <para>⛔ 判据只此一处：`BattleDriver.PlayReturnFeel` 播的那条表现补间（0.9167 s）**不是**这个数 ——
+        /// 原版队列只等上面那几段，clip 剩下的时间与下一批动作**重叠**。</para></summary>
+        public static float ReturnHoldOf(BattleEvent e)
+        {
+            if (e == null) return 0f;
+
+            // ---- 不在棋盘上：墓地取回 0.3 / ephemeral 0 ----
+            if (e.Slot < 0)
+                return e.Effect == "ephemeral" ? 0f : ReturnGraveHold;
+
+            float s = ReturnCardAnimHold;
+            int dest = ReturnDestOf != null ? ReturnDestOf(e) : -1;
+            bool deck = dest == 1;
+            if (dest < 0) WarnNoReturnDest();
+            s += deck ? MoveToDeckTotal : ReturnHandRelayoutHold;
+
+            if (HasTraitOf == null) WarnNoTraitHook();
+            else if (HasTraitOf(e.CardId, KeywordTable.Teleport)) s += ReturnCardAnimHold;
+            return s;
+        }
+
+        static bool _warnedNoReturnDest;
+        static void WarnNoReturnDest()
+        {
+            if (_warnedNoReturnDest) return;
+            _warnedNoReturnDest = true;
+            UnityEngine.Debug.LogWarning(
+                "[EventTiming] `ReturnDestOf` 没挂 / 判不出这一条的**目的地** ⇒ `EvtKind.Return` 按**回手**那一档 "
+              + $"{ReturnCardAnimHold + ReturnHandRelayoutHold:F2}s 排（回牌库应 {ReturnCardAnimHold + MoveToDeckTotal:F2}s，"
+              + $"差 {MoveToDeckTotal - ReturnHandRelayoutHold:F2}s）。生产路径由 `BattleDriver.HookEventTimingCardSource` 挂钩。");
+        }
+
+        static bool _warnedNoTraitHook;
+        static void WarnNoTraitHook()
+        {
+            if (_warnedNoTraitHook) return;
+            _warnedNoTraitHook = true;
+            UnityEngine.Debug.LogWarning(
+                "[EventTiming] `HasTraitOf` 没挂（没有驱动）⇒ `EvtKind.Return` 一律按**非 teleport** 那一档 排；"
+              + $"带 teleport 的卡那一档（+{ReturnCardAnimHold:F2}s）在这条路径上取不到。"
+              + "生产路径由 `BattleDriver.HookEventTimingCardSource` 挂钩。");
+        }
+
+        /// <summary>🆕 2026-10-25（`AU1`）**回手时「倒放 `Card Hand To Board`」那一段的等待** = **0.55 s**
+        /// = `CardScript.GetHandToBoardAnimEventTime()`（`CardScript__GetHandToBoardAnimEventTime.c` 读的是
+        /// `AnimationClip.get_events()[0].time`）＝ 那张 clip 的**唯一一条 AnimationEvent**
+        /// `CardHandToBoardAnimationFinished`（clip 真件
+        /// `bundle_battleprefabs_vfxandmisc_assets_all/AnimationClip/AnimationClip_-3614292623624764332.json`
+        /// 的 `m_Events` 只有这一条、`time = 0.55`）。
+        /// 🔑 **引用 `CardFeel.HandToBoardDone`**（那条常量的 doc 就是「这个事件时刻」，⛔ 别另写一个 0.55 —
+        /// 铁律 6：两处写同一条规则迟早不一致）。消费点 = `ReturnHoldOf`。</summary>
+        public const float ReturnCardAnimHold = CardFeel.HandToBoardDone;
+
+        /// <summary>🆕 2026-10-25（`AU1`）**回手之后「手牌重新摆位」那一段** = `VarsGlobal.timeToPositionCard`
+        /// **0.2 s**（`PlayerHand._AddCardNotDrawnToHandAtIndex_d__40__MoveNext.c:42-47` 读 `globalVars + 0xa4`；
+        /// 与 `CardTween.RelayoutDuration` 同一个数、同一个出处 —— 这里**引用那个常量**，⛔ 别另写 0.2）。</summary>
+        public const float ReturnHandRelayoutHold = CardTween.RelayoutDuration;
+
+        /// <summary>🆕 2026-10-25（`AU1` · `J1` §3 订正）**回牌库那一支的收尾** = `CardScript.MoveToDeck(card,1,0)` 的**返回值**
+        /// = **`timeToScaleIntoMoving 0.1` ＋ `0.3`** = **0.4 s**（`CardScript__MoveToDeck.c`：
+        /// `fVar14 = VarsGlobal+0x78`（= `timeToScaleIntoMoving` 0.1，尾段缩放）＋ `fVar19 = DAT_1834b2dc8` 0.3
+        /// （移动/翻转那一段）；**两段相加**，尾段整体 `SetDelay(0.3)` 再跑 0.1）。
+        /// 🔑 0.1 直接引用 `CardTween.PickUpDuration`（同一条 `VarsGlobal.timeToScaleIntoMoving`，⛔ 别另写）；
+        /// 0.3 是那个通用字面量 `DAT_1834b2dc8`（与 `DeployLandHold` / `timeToLand` 同址不同用途 ⇒ 这里自带 doc）。
+        /// 消费点 = <see cref="ReturnHoldOf"/>（⛔ 别在别处再写 0.4）。</summary>
+        public const float MoveToDeckTotal = CardTween.PickUpDuration + 0.3f;
+
+        /// <summary>🆕 2026-10-25（`AU1` · `J1` §4）：**墓地 → 手牌/牌库**那一拍 = `VarsGlobal.timeToDrawPlayerCard`
+        /// **0.3 s**（`CardScript.CreateCardInGame(card, …, vars+0xa8)` 整条协程只有这一个等待；
+        /// 判据 = `BattleManager._ResolveCopyUnitInCemetery_d__541:125` + `CardScript._CreateCardInGame_d__250:78-84`）。
+        /// 🔑 引用 `CardFeel.DealDuration`（同一个字段，⛔ 别另写 0.3）。消费点 = <see cref="ReturnHoldOf"/> 的 `Slot<0` 支。
+        /// ⚠️ `ephemeral`（临时卡移出）**判据为空**（原版没有这条链）⇒ 仍是 0。</summary>
+        public const float ReturnGraveHold = CardFeel.DealDuration;
+
+        /// <summary>🆕 2026-10-25（`AU1` · `J1` §5）：**易伤伤害那一拍多出来的前置等待** = **0.4 s**
+        /// （`CardScript._ReceiveDamage_d__381__MoveNext.c:291-303`，`DAT_1834b3158` 实读 0.4 —— 只对
+        /// `GameStaticData.IsVulnerableDamage(t)`（`(t−7) &lt; 2`，即 `DamageType.Vulnerable 7 / VulnerableCombat 8`）那两档）。
+        /// 🔑 那 0.4 **不会跳过**后面那个 1.0（`state 2` 之后照旧走到 `:340-346`）⇒ 一拍 **1.4 s**。
+        /// ⚠️ `doItFast` 那个「快进」例外**本 build 不可达**（全库 6 个调用点第 3 个实参全是 0）⇒ ⛔ 不实现。
+        /// 数值只此一处：消费点 <see cref="HitHoldOf"/>。</summary>
+        public const float HitVulnerablePreWait = 0.4f;
+
+        /// <summary>🆕 2026-10-25（`AU1` · `J1` §1）：**手牌打出的普通单位：`play` 桶起播相对 `Deploy` 这一刻的偏移** = **1.30 s**。
+        ///
+        /// <para>判据（`BattleManager._ResolvePlayCardFromHand_d__447` 的 state 3→4→ 0xb；广播点 `:1426`
+        /// `BattleManagerSupport.BroadcastCardPlayed`，全库**唯一**调用点）：
+        /// `PlayMinionFromHand` 飞行 0.3 之后 `WaitForSeconds(GetMinionConversionTime)`
+        /// = `GetHandToBoardAnimEventTime()`(**0.55**) + `minionToConversionPointTime`(**0.3**) = **0.85**
+        /// （`MinionManager__GetMinionConversionTime.c:5-12`）＋ `yield MinionPlayedIntoField` = `delay(0.1)`
+        /// + `timeBeforeLand(0.05)` + `timeToLand(0.2)` + `attackStepTime(0.1)` = **0.45**
+        /// ⇒ **1.30**。⚠️ 改前我们按 0.4（`DeployHoldOf` 那三段）排 ⇒ `play` 桶早 0.9 s。</para>
+        ///
+        /// <para>⚠️ **别的档**（`J1` §1 的表；⛔ 别一刀切）：`teleport` 的卡 ≈ **1.25**（**这一格待核**，
+        /// 我们按 1.30 排）；**战术 / 法术 = 0**；**自动打出 / 效果召唤 ⇒ 原版根本不广播 `CardPlayed`**
+        /// （所以这两个来源的卡**不该**播 `play` 桶；我们引擎也只在 `RuleCore.PlayCard` / `PlayTactic` 发 `Play`）。
+        /// 战术卡 `targeted &amp;&amp; fromEnemyHand` 还有 0.5 的居中展示前置（`vars.targettingAnimTime`）—— 未接。</para></summary>
+        public const float PlayBucketHandPlayedHold = 1.30f;
+
+        /// <summary>🆕 **2026-10-25（`AU1` · `J3` §4）：敌方从手牌打出 `targeted` 的**战术 / 低语**时，
+        /// `play` 桶前面的那 0.5 s = **准星定位 `EnemyTargetingAnim`**（不是「居中展示」——`J1` 那个**值**对、名错）。
+        ///
+        /// <para>判据：`BattleManager__GetTargettingTime.c` = `VarsGlobal.targettingAnimTime`（`+0x88`）= **0.5**
+        /// （`资料/VarsGlobal_原版数值.md:47`）；消费点 `BattleManager._ResolvePlayCardFromHand_d__447:477-491`：
+        /// 取牌 + `PayCardCost` 之后 → `EnemyTargetingAnim(该方督军, 目标, 3)` + `WaitForSeconds(GetTargettingTime())`
+        /// → `state 0xC` → `TargetedSpellPlayed` ⇒ **法术生效之前**。
+        /// 门 = `cardType ∈ {Tactic(20), Whispers(40)}` ∧ `rawCardData.targeted(+0x268)` ∧ `BattleAction.fromEnemyHand(+0x3C)`。</para>
+        /// <para>⚠️ 真时演那一半**早就有了**（`BattleDriver` 的 `StartAiTargetingAnim`/`TickAiTargetingAnim`，
+        /// 时长 = <see cref="CardFeel.EnemyTargetingAnimTime"/>、OutQuad）⇒ 缺的只是**时间线**上的这个偏移。</para>
+        /// <para>🔑 引用 `CardFeel.EnemyTargetingAnimTime`（同一个 `VarsGlobal` 字段，⛔ 别另写 0.5）。</para></summary>
+        public const float EnemyTargetingHold = CardFeel.EnemyTargetingAnimTime;
+
+        /// <summary>🆕 2026-10-25（`AU1` · `J3` §4）：`ReplaySkipAnims()` 为真时上面那 0.5 要**除以 3**
+        /// （`BattleManager__GetTargettingTime.c` 的 `÷ DAT_1834b2e8c`，实读 **3.0**）⇒ **0.1667**。
+        /// 我们的等价门 = `BattleDriver._replaySession`（回放局）。消费点 → `PlayBucketOffsetOf`。</summary>
+        public const float ReplaySkipAnimDivisor = 3f;
+
+        /// <summary>🆕 **2026-10-25（`AU1` · `J1` §5 + `J3` §3 + `E4`）：这一条 `Hit` 占多久** —— 普通 **1.0**、易伤第二拍 **1.4**。
+        /// <para>普通档 = <see cref="HitWaitSeconds"/>（`_ReceiveDamage:342` 的 `WaitForSeconds(1.0)`；
+        /// `_ResolveAttack:1152` 以 0.2 一拍轮询 ⇒ 放行 ≈1.0）。</para>
+        /// <para>易伤档 = **+<see cref="HitVulnerablePreWait"/>**（`:291-303` 的 0.4，**不跳过**那个 1.0）。
+        /// 🔴 **2026-10-25（`AU1` · 第七批 · `E4`）就地改口径（铁律 5）**：原来这里写「我们的引擎把易伤折进同一条
+        /// `Hit`，我们只有一条 ⇒ 取 1.4 仍比原版短 1.0」—— **已过期**：引擎已把它拆成**两条串行**的 `EvtKind.Hit`
+        /// （主 = `actual − vulnPart`、第二拍 = `vulnPart` 且带 **`BattleEvent.IsVulnerableSecondHit`**）
+        /// ⇒ **主拍 1.0 + 第二拍 1.4 = 2.4 s**，与原版 1.0+1.4 **逐段同形**；
+        /// <see cref="HitVulnerablePreWait"/> 那 0.4 就是**第二拍自己头上的**等待（原版那一次 `_ReceiveDamage`
+        /// 里先等 0.4 再等 1.0），**不是额外前置**（两拍是串行入队，中间没有别的等待）。</para>
+        /// <para>⚠️ 判别式只读那一格：`EventTiming.HitIsVulnerable = e => e.IsVulnerableSecondHit`
+        /// （⛔ 别拿「受击方现在带 `vulnerable`」当替身 —— 那会让**两拍都**排 1.4）。</para></summary>
+        public static float HitHoldOf(BattleEvent e)
+        {
+            if (e == null) return HitWaitSeconds;
+            return (HitIsVulnerable != null && HitIsVulnerable(e))
+                 ? HitWaitSeconds + HitVulnerablePreWait
+                 : HitWaitSeconds;
+        }
+
+        /// <summary>🆕 **2026-10-25（`AU1` · `J1` §6）：这一条「发动能力」占多久 —— 先按【分支】分，再按卡查表**。
+        /// <list type="number">
+        /// <item>替代支（`CardDef.UsesAlternativeAbility` 为真，现读全池只有 `SW21 Wulfen Pack Leader`）⇒
+        ///   `AbilityAnimDurations.TryGetAlternative`（`alternative.seconds`，SW21 = **0.2**）；</item>
+        /// <item>普通支 / 没有替代表 ⇒ `AbilityAnimDurations.TryGet`（`active`，SW21 = **0.4**）；</item>
+        /// <item>查不到 ⇒ <see cref="AbilityFallbackSeconds"/>（**不是原版值**，`IsSourced` 如实回 false）。</item>
+        /// </list>
+        /// <para>✅ **2026-10-25（`TL` §2）**：`alt` 那一列已进运行期表（现读只有 `SW21 = 0.2`）⇒
+        /// 替代支**现在真的按 0.2 排**；没替代支的卡仍走普通支。</para></summary>
+        public static float AbilityHoldOf(BattleEvent e)
+        {
+            if (e == null) return AbilityFallbackSeconds;
+            bool alt = AbilityUsesAlternative != null && AbilityUsesAlternative(e);
+            float s;
+            if (alt && AbilityAnimDurations.TryGetAlternative(e.CardId, out s)) return s;
+            if (AbilityAnimDurations.TryGet(e.CardId, out s)) return s;
+            return AbilityFallbackSeconds;
         }
 
         /// <summary>
@@ -233,7 +475,9 @@ namespace CardPresentation
         static readonly EvtKind[] ZeroDurationKinds =
         {
             EvtKind.Play,           // 出牌本身不占（登场位移由紧随的 `Deploy` 负责，见 `DurationOf(Deploy)`）
-            EvtKind.Return,         // 离场位移是表现层补间（`CardFeel.ReturnToHand`），不进动作队列
+            // 🔴 **2026-10-25（`AU1`）`EvtKind.Return` 已从这张表搬走** —— 原版回手/洗回牌库
+            //   **会 `yield` 两段**（0.55 + 0.2 = 0.75，判据 → `ReturnHoldOf`）⇒ 它现在是「有时间」那一档，
+            //   ⛔ 别再登记回这里（那会让它重新变成 0 s）。
             EvtKind.GainFaith,      // 纯资源变化（HUD 计数），不起播任何占时动作
             EvtKind.GainSpirit,
             EvtKind.GainQuest,
@@ -250,12 +494,15 @@ namespace CardPresentation
 
         /// <summary>🆕 2026-10-24（`A2`）：**在 `DurationOf(EvtKind)` 里【有值】的事件种类**
         /// （每一项都在下面的 `switch` 里有自己的 `case`）。加值时**两处一起改**。
-        /// ⚠️ `Attack` / `Deploy` / `Retaliation` / `Draw` / `Ability` 的**精确值**还要看
-        /// `DurationOf(BattleEvent)` 那个重载（按远近 / 来源 / 座位 / 卡分档），这里只登记「它有时间」。</summary>
+        /// ⚠️ `Attack` / `Deploy` / `Retaliation` / `Draw` / `Ability` / **`Return`** 的**精确值**还要看
+        /// `DurationOf(BattleEvent)` 那个重载（按远近 / 来源 / 座位 / 卡 / `Slot` / teleport 分档），
+        /// 这里只登记「它有时间」。</summary>
         static readonly EvtKind[] TimedKinds =
         {
             EvtKind.Deploy, EvtKind.Attack, EvtKind.Hit, EvtKind.Death, EvtKind.Ability,
             EvtKind.Trigger, EvtKind.Draw, EvtKind.Heal, EvtKind.Retaliation,
+            // 🆕 2026-10-25（`AU1`）：回手/洗回牌库（原版 `yield return` 两段协程，见 `ReturnHoldOf`）
+            EvtKind.Return,
         };
 
         /// <summary>自检用：`DurationOf` 里登记成「零时长」的那一档吗（不触发未登记告警）。</summary>
@@ -427,6 +674,13 @@ namespace CardPresentation
                 //      这里引的是**那个常量本身**，所以仍然只有一张表）。
                 case EvtKind.Heal: return CardView.HealTextHoldSeconds;
 
+                // 🆕 **2026-10-25（`AU1`）回手 / 洗回牌库**：原版队列对它是**两段 `yield return`**
+                //   （`TransformUnitInPlayToCard` 的 0.55 + `AddCardNotDrawnToHand` 的 0.2，判据 →
+                //   <see cref="ReturnHoldOf"/>）。这条重载**拿不到「哪张卡 / 回手还是回牌库」**
+                //   ⇒ 只给**非 teleport 的基准 0.75**；生产路径走 `DurationOf(BattleEvent)`。
+                //   ⛔ 别把 teleport 那 +0.55 写在这里（那会让所有回手都多 0.55）。
+                case EvtKind.Return: return ReturnCardAnimHold + ReturnHandRelayoutHold;
+
                 // 🆕 2026-10-22（`W64` · 反击演出）：**只覆盖远程档**（原版 `_ResolveAttack…:1119-1131` ——
                 //   远程打法守方才 `ResolveAttackRangedAnim`；近战那一支 `:1132-1150` 守方什么都不播 ⇒ 0）。
                 //   本重载**拿不到 `Ranged` / 卡** ⇒ 回「远程档的兜底」（前摇 + `RangedVfxFallback`），
@@ -460,6 +714,12 @@ namespace CardPresentation
             //   ⚠️ 这条**必须**在带事件的重载里判（`Ranged` 只有事件知道），
             //      只按 `EvtKind` 的那条重载给的是**远程档兜底**（见那里的注释）。
             if (e.Kind == EvtKind.Retaliation) return RetaliationHoldOf(e);
+            // 🆕 **2026-10-25（`AU1`）回手/洗回牌库**：按 `Slot` 与「这张卡有没有 teleport」分档
+            //   （判据 → `ReturnHoldOf`；改前它登记成零时长 ⇒ 后面的事件在退场动画刚起播时就开场）。
+            if (e.Kind == EvtKind.Return) return ReturnHoldOf(e);
+            // 🆕 **2026-10-25（`AU1` · `J1` §5）：`Hit` 按「是不是易伤伤害」分档**（1.0 / 1.4）。
+            //   ⛔ 别退回 `DurationOf(EvtKind.Hit)`（那条只给普通档 1.0，易伤目标会早 0.4 s 放行）。
+            if (e.Kind == EvtKind.Hit) return HitHoldOf(e);
             if (e.Kind == EvtKind.Attack)
                 return e.Ranged ? AttackStepRanged : AttackStepMelee;
             // 🔴 **2026-10-21（W61 第 2 批 · 第 3 条）**：`Deploy` **按「怎么进来的」分档** ——
@@ -468,13 +728,9 @@ namespace CardPresentation
             if (e.Kind == EvtKind.Deploy) return DeployHoldOf(e.DeployFrom);
             // 🆕 `A1767`：**发动能力 = 逐卡真值**。`e.CardId` 装的是 `CardDef.Name`（英文卡名），
             //    表里 id 与卡名两个键都有（见 `AbilityAnimDurations.TryGet`）。
-            //    查不到 ⇒ 退回 `AbilityFallbackSeconds`，`TryGet` 自己会**出声**（每张卡一次，不刷屏）。
-            if (e.Kind == EvtKind.Ability)
-            {
-                float s;
-                if (AbilityAnimDurations.TryGet(e.CardId, out s)) return s;
-                return AbilityFallbackSeconds;
-            }
+            //    🆕 2026-10-25（`AU1` · `J1` §6）：**再按分支分**（替代支 `alternative.seconds`，SW21 = 0.2）
+            //    —— 判据与今天的数据缺口 → <see cref="AbilityHoldOf"/>。
+            if (e.Kind == EvtKind.Ability) return AbilityHoldOf(e);
             // 🆕 **2026-10-23（R19）抽卡按【座位】分档** —— 原版 `VarsGlobal.TimeToDrawCard(bool isPlayer)`
             //    是一对（0.3 / 0.15）。`e.Player` 就是抽牌那一方 ⇒ 这里能分。
             //    ⛔ 别退回 `DurationOf(e.Kind)`（它只会给我方档 0.3，敌方每抽一张多排 0.15 s）。
@@ -796,7 +1052,9 @@ namespace CardPresentation
         /// <para>🆕 **2026-10-24（`E2` · `DG2` 红 #1~#3）**：`TimedKinds` 里那 9 档（`Deploy`/`Attack`/`Hit`/
         /// `Trigger`/`Draw`/`Heal`/`Retaliation` + 上面显式回 `false` 的 `Death`/`Ability`）**也已登记** ⇒
         /// 除 `Death`/`Ability` 外一律回 `true`。判据 = <see cref="IsRegisteredEventKind"/>（两张表任一登记）。
-        /// `false` 只剩**三种**：`Death` · `Ability` · **未登记**（后者出声）。</para>
+        /// `false` 只剩**三种**：`Death` · `Ability` · **未登记**（后者出声）。
+        /// 🆕 **2026-10-25（`AU1`）**：`Return` 也进了 `TimedKinds`（回手 0.75 / teleport 1.30，判据 →
+        /// <see cref="ReturnHoldOf"/>），它有出处 ⇒ 照旧回 `true`。</para>
         /// </summary>
         public static bool IsSourced(EvtKind kind)
         {
@@ -872,14 +1130,19 @@ namespace CardPresentation
                                        + "（`BattleManager._ResolveAttack_d__438__MoveNext.c:999`）⇒ 那句真执行；"
                                        + "`_ResolveAttack…:1152` 又以 `twoFractDelay` 0.2 一拍轮询 "
                                        + "`wholeDamageAnimFlag` 等它清零 ⇒ **放行 ≈ 1.0 s**（帧序不利 1.2 s）。"
-                                       + "⚠️ 两个例外：`DamageType` 7/8（漏洞伤害）的 0.4 s 在**置旗之前** "
-                                       + "⇒ 原版那条路**没有这道门**；AoE（`_ResolveMultiDamage:154/168`）传 "
-                                       + "`battleAction.extraValue` ⇒ 可能快进（**未查清**）。"
-                                       + "判据全文 → `资料/普查产出_1024d/S2_受伤时长bool语义.md`";
+                                       + "🔴 2026-10-25（`AU1` · `J1` §5）订正两个例外："
+                                       + "①`DamageType` 7/8（Vulnerable/VulnerableCombat）**先等 0.4**（`:291-303`，"
+                                       + "`DAT_1834b3158`=0.4）**再走那 1.0** ⇒ **1.4 s**（不是「那条路没有这道门」）"
+                                       + "—— 见 `HitHoldOf`；"
+                                       + "②`doItFast`（AoE 快进）**本 build 不可达**：全库 6 个调用点第 3 实参全是 0 "
+                                       + "⇒ ⛔ 不实现。判据全文 → `资料/普查产出_1025/J1_判据_战斗时间线与HUD缺口.md` §5";
                 case EvtKind.Ability: return "🆕 2026-10-14（`A1767`）**逐卡真值**：该卡 `activeAbility` 各 CardAnim 的 "
                                              + "`AnimInfo.GetAnimDuration()`（`vfxDelayTime + timeAtStartPos + timeMoving "
                                              + "+ timeAtEndPos`）之和 → `AbilityAnimDurations`（**现读 93 张卡**）；"
-                                             + "**只按 `EvtKind` 的这条重载拿不到卡** ⇒ 返回兜底 "
+                                             + "🆕 2026-10-25（`AU1` · `J1` §6）**再按分支**：替代支（`CardDef.UsesAlternativeAbility`"
+                                             + " 为真，现读只有 `SW21`）取 `alternative.seconds`（SW21 = **0.2**）· 普通支取 `s`"
+                                             + "（SW21 = 0.4）—— **替代那一列运行期表今天还没有** ⇒ 两支都按 0.4（见 `AbilityHoldOf`）；"
+                                             + "查不到那张卡 ⇒ 兜底 "
                                              + $"{AbilityFallbackSeconds}（= 真值表中位数，与旧常数恰好相等）";
                 case EvtKind.Trigger: return "`BattleManager.twoFractDelay`(**+0x4C8**) = 0.2 —— `_ResolveTriggerTraitAnim` 那条链的等待";
                 // 🔴 **2026-10-23（P1 · 演出时序 ②）就地订正（铁律 5）**：原文写「0.2（督军那档 0.5 见
@@ -898,6 +1161,20 @@ namespace CardPresentation
                 case EvtKind.Heal: return "`CardScript._Heal_d__468__MoveNext.c:204` 的 `WaitForSeconds(1.5)`"
                                         + "（= `CardView.HealTextHoldSeconds`；`ResolveHeal` 每目标 `yield return` 等它跑完 "
                                         + "⇒ 多目标治疗严格串行，`BattleManager._ResolveHeal_d__491__MoveNext.c:114-147`）";
+                // 🆕 2026-10-25（`AU1`）回手 / 洗回牌库 / 墓地取回 —— 判据全文见 `ReturnHoldOf` 的 doc
+                case EvtKind.Return: return "`BattleManager._ResolveRecallToHand_d__542__MoveNext.c:273-278`"
+                                         + "（`yield return CardScript.TransformUnitInPlayToCard`）"
+                                         + " ⇒ **0.55**（`_d__256__MoveNext.c:80-85` = `GetHandToBoardAnimEventTime()`"
+                                         + " = clip `Card Hand To Board` 唯一一条 AnimationEvent 的时刻）"
+                                         + " **+ 收尾**：回手 `:55-60` `AddCardNotDrawnToHand` 等 `timeToPositionCard` **0.2**"
+                                         + "（`_d__40:42-47`）⇒ **0.75**；回牌库 `_ResolveRecallToDeck:350-356` 等"
+                                         + " `MoveToDeck(…,1,0)` 的返回值 = `timeToScaleIntoMoving 0.1 + 0.3` = **0.4**"
+                                         + " ⇒ **0.95**（🔴 `J1` §3 订正：上一版记 0.85 只算了 0.3）；"
+                                         + "卡背朝上那一档 0.65 的判据已闭合（`J3` §1：`ShouldShowCardback(cardState) || "
+                                         + "card+0x54 = EntityScript.armedTrap`）但**我们那两条路都不存在** ⇒ ⛔ 不改；"
+                                         + "⚠️ 带 `teleport`(0x4ce=1230) 的卡 state 1 再等一次 ⇒ 回手 **1.30** / 回牌库 **1.50**；"
+                                         + "⚠️ `Slot < 0`：墓地取回 `CreateCardInGame` 等 `timeToDrawPlayerCard` **0.3**（`J1` §4），"
+                                         + "`ephemeral` 原版无此链 ⇒ **0**";
                 case EvtKind.AmbushExit: return "**占 0**（原版 `CardScript.SetAmbush(card,false)` 是普通方法、不阻塞，"
                                               + "紧跟着就是同一击的 `Hit`）；那件特效自己的材质补间 = "
                                               + "`AmbushEffect` 的 `MaterialTweenFloat(_Blend)` delay 0.35 + duration 1.0 = 1.35"

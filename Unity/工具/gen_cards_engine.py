@@ -1933,6 +1933,261 @@ def ability_target_criteria_of(cid, name, trow, truth_by_path, report):
 
 
 # ==========================================================================================
+#  🆕 v26（2026-10-25 · 执行代理 `E2` · `资料/普查产出_1025/A3_引擎_at-turn与criteria管线.md` §A3-2）：
+#    **ability 级 `targetCriteria`（其余 36 格）** → 逐卡 `abilityLevelCriteria` 列
+# ==========================================================================================
+# 判据（第一权威 = 全量反编译 `d:/2/tools/decomp_full/`，逐句读过）：
+#   · 原版两个**同名**对象，别混：
+#       `AbilityLogic.targetCriteria`   —— logic 级（v25 的 `abilityTargetCriteria` 收的就是它）；
+#       **`CardAbility.targetCriteria`** —— **ability 级（`+0x30`）**，本列收它。
+#     字段表 → `d:/2/Warpforge_code/Scripts/Assembly-CSharp/CardAbility.cs:16`（`+0x30`）。
+#   · 消费点 = `CardAbility__CanTriggerAbility.c:131-135`（触发前的第二道闸）：
+#       `FilterMethods__CheckIfMeetsCriteria(thisCard, targetCard, targetCard, *(ability+0x30), 0)`
+#     ⚠️ 三个实参的位置读自 `CardAbility__CanTriggerAbility` 的**形参表**
+#       （`d:/2/tools/il2cpp_out/dump.cs:20360`：`(trigger, manager, thisCard, actingCard, targetCard, …)`）⇒
+#       `param_4 = thisCard` · `param_5 = actingCard` · `param_6 = targetCard`。
+#       **第一道闸（`+0x28 actingCardCriteria`）的被筛对象是 `actingCard`**，
+#       **第二道闸（`+0x30 targetCriteria`，本列）的被筛对象是 `targetCard`** —— 两闸的候选**不同**。
+#     （`FilterMethods__CheckIfMeetsCriteria` 的 `param_2` 就是「被筛的那个」：
+#       `lVar9+0x10 = param_2`，随后 `:216-263` 拿它和 `param_1`（thisCard）比阵营/身份。）
+#   · `targetsAffected == 0 (any)` ⇒ `CheckIfMeetsCriteria.c:56-59` **直接 `return 1`**
+#     ⇒ 其余 35 格全部失效 ⇒ 这一行**零信息**，**不落**（口径 = `criteria_carries_targets`）。
+#   · `conditionsFilter` / `excludeCondition` 已由 `unitConditions`（`role="target"` + `lg=-1`）落成
+#     那一行的 `cond`/`ex` ⇒ **本列只落其余 36 格**（与 v25 同一分工）。
+#
+# 形状（`JsonUtility` 不支持字典 ⇒ 数组；36 格装进子对象 `criteria`）：
+#   `abilityLevelCriteria: [{"ab": i, "trigger": 50, "criteria": {36 格}}]`
+#   · `ab` = `cardAbilities` 下标（**唯一**对齐键；`trigger` 只作可读性 ——
+#     实测同卡两条 ability 共用同一个 `trigger` 的情形存在，⛔ 别只按 trigger 对齐）；
+#   · 36 格 = **直接复用 `criteria_set_of()`**（⛔ 别另写一份字段表）；
+#   · `playerTurn` 在 `CardAbility.targetCriteria` 上**结构上没有**（那格属于 `BoardCriteria`）
+#     ⇒ `has_player_turn=False` ⇒ 落 `-1`、且**不进 `set_bad`**；
+#   · `lg` **不落**（本列的行恒为 ability 级 = `lg = -1`；DTO 的字段初值就是 `-1`）。
+#   · 🔴 **每张卡都落**（没有行 ⇒ `[]`）—— 「缺列」与「空数组」必须分得开（同 v25 两列）。
+#
+# ⚠️ **本列只落数据**：消费端 = `CardDef.AbilityLevelCriteriaForTrigger`（**唯一入口**），
+#   接线点 = `ActionPump.EnqueueAbility` 的触发前闸；定位不唯一 ⇒ 出声并跳过（⛔ 不许猜第几条）。
+# ⚠️ **不在本列**：`activeAbility.targetCriteria`（**另一个类**、另一个偏移 ——
+#   `RawCardScript__IsValidActiveAbilityTarget.c:103-107` 用的是 `activeAbility(+0x260)` 内部 `+0x38`）
+#   ⇒ 它是**主动能力的目标池闸**，不是 `CanTriggerAbility` 那道闸。另账。
+ABILITY_LEVEL_CRITERIA_REPORT = {
+    "cards": 0, "no_truth": 0, "with_rows": 0, "rows": 0, "skipped_noinfo": 0,
+    "bad": [], "set_bad": [], "set_unresolved": [],
+}
+
+
+def ability_level_criteria_of(cid, name, trow, truth_by_path, report):
+    """一张卡 → `[{"ab":…, "trigger":…, "criteria": {36 格}}]`（按 `cardAbilities` 顺序）。
+
+    真值快照里没有这张卡 ⇒ `None`（调用方**不落列** = 未知）；否则**照落**（没有行 = `[]`）。
+    `targetsAffected == 0`（= `any`，原版直接 `return 1`）的行**不落**（零信息，口径 →
+    `criteria_carries_targets`），计进 `skipped_noinfo`。
+    形状 / 判据 / 为什么带 `ab`、为什么不落 `lg` → 上面那一段长注释。
+    """
+    if trow is None:
+        report["no_truth"] += 1
+        return None
+    out = []
+    for i, ab in enumerate(trow.get("cardAbilities") or []):
+        if not isinstance(ab, dict):
+            report["bad"].append((cid, name, f"cardAbilities[{i}]", ab))
+            continue
+        cr = ab.get("targetCriteria")
+        if not isinstance(cr, dict):
+            report["bad"].append((cid, name, f"cardAbilities[{i}].targetCriteria", cr))
+            continue
+        if not criteria_carries_targets(cr):
+            report["skipped_noinfo"] += 1
+            continue
+        tg = ab.get("trigger")
+        if isinstance(tg, bool) or not isinstance(tg, int):
+            # `trigger` 只作可读性（消费端按 `ab` 对齐）⇒ 坏值落 -1，⛔ 不因此丢掉整行。
+            report["bad"].append((cid, name, i, "trigger", tg))
+            tg = -1
+        out.append({
+            "ab": i,
+            "trigger": tg,
+            "criteria": criteria_set_of(cid, name, cr, None, truth_by_path, report,
+                                        label=f"cardAbilities[{i}].targetCriteria.",
+                                        has_player_turn=False),
+        })
+        report["rows"] += 1
+    if out:
+        report["with_rows"] += 1
+    report["cards"] += 1
+    return out
+
+
+# ==========================================================================================
+#  🆕 v27（2026-10-25 · 执行代理 `E3` · `资料/普查产出_1025/E2_ability_criteria管线.md` §六）：
+#    **ability 级 `actingCardCriteria`（`+0x28`，其余 36 格）** → 逐卡 `abilityActingCriteria` 列
+# ==========================================================================================
+# 判据（第一权威 = 全量反编译 `d:/2/tools/decomp_full/`，逐句读过）：
+#   · `CardAbility__CanTriggerAbility.c:127-130`（**第一道闸**，本列收它）：
+#       `CheckIfMeetsCriteria(thisCard, actingCard, targetCard, *(ability+0x28), 0)`
+#     —— 被筛对象 = **`actingCard`**（不是 `targetCard`；那是第二道闸 `+0x30`，
+#     见 `ability_level_criteria_of` 上面那段）。
+#   · `CardAbility__CanTriggerAbility.c:131-135`（第二道闸）：同一函数里紧跟其后，
+#     ⇒ **短路次序 = acting(0x28) → target(0x30) → board(0x38)**（消费端照这个次序挂）。
+#   · 形参表 `d:/2/tools/il2cpp_out/dump.cs:20360`：
+#       `CanTriggerAbility(trigger, manager, thisCard, actingCard, targetCard, ignoreRandomTrigger)`
+#     ⇒ `param_4 = thisCard` · `param_5 = actingCard` · `param_6 = targetCard`。
+#   · `targetsAffected == 0 (any)` ⇒ `FilterMethods__CheckIfMeetsCriteria.c:56-59` **直接 `return 1`**
+#     ⇒ 其余 35 格全部失效 ⇒ 这一行**零信息**，**不落**（口径 = `criteria_carries_targets`）。
+#     ⚠️ **这与「36 格非平凡」不是一回事**：现读池内 93 行「36 格非平凡」里有 **10 行**
+#     `ta == 0`（另外 35 格有值）—— 原版仍 `return 1` ⇒ 按本口径**不落** ⇒ 落 **83 行 / 80 张**。
+#   · `conditionsFilter` / `excludeCondition` 已由 `unitConditions`（`role="acting"`）落成那一行的
+#     `cond`/`ex` ⇒ **本列只落其余 36 格**（与 v25/v26 同一分工）。
+#
+# 形状（`JsonUtility` 不支持字典 ⇒ 数组；36 格装进子对象 `criteria`）：
+#   `abilityActingCriteria: [{"ab": i, "trigger": 50, "criteria": {36 格}}]`
+#   · `ab` = `cardAbilities` 下标（**唯一**对齐键；`trigger` 只作可读性）；
+#   · 36 格 = **直接复用 `criteria_set_of()`**（⛔ 别另写一份字段表）；
+#   · `playerTurn` 在 `CardAbility.actingCardCriteria` 上结构上没有 ⇒ `-1`、**不进 `set_bad`**；
+#   · `lg` **不落**（本列的行恒为 ability 级 = `lg = -1`）；
+#   · 🔴 **每张卡都落**（没有行 ⇒ `[]`）—— 「缺列」与「空数组」必须分得开。
+#
+# 🔴 **列名为什么是 `abilityActingCriteria` 而不是 `actingCardCriteria`**：
+#   与 v26 的 `abilityLevelCriteria`（同一层 = **`CardAbility` 这个对象**）成套 ——
+#   前缀 `ability` 表示「ability 级」，尾巴点出**被筛的候选**（`Acting` = `actingCard`）。
+#   另一个候选名 `abilityTargetCriteria` **已被 v25 的 logic 级列占用** ⇒ 不能再拿它当
+#   「ability 级 + targetCard」的名字（会撞概念）。原版字段名 `actingCardCriteria` 逐字写在
+#   本条注释与 `CardDatabase.CardDto` 的 doc 里（可追溯），JSON 键用上名。
+#   ⛔ **不与 `abilityLevelCriteria` 共用一个字典**：两列是**两道闸、两个候选**（键虽同为 `ab`）。
+#
+# ⚠️ **本列只落数据**：消费端 = `CardDef.ActingLevelCriteriaForTrigger`（**唯一入口**），
+#   接线点 = `ActionPump.EnqueueAbility` 的第一道闸（`Attack` / `Die` 两族，见报告 §三）。
+ABILITY_ACTING_CRITERIA_REPORT = {
+    "cards": 0, "no_truth": 0, "with_rows": 0, "rows": 0, "skipped_noinfo": 0,
+    "bad": [], "set_bad": [], "set_unresolved": [],
+}
+
+
+def ability_acting_criteria_of(cid, name, trow, truth_by_path, report):
+    """一张卡 → `[{"ab":…, "trigger":…, "criteria": {36 格}}]`（按 `cardAbilities` 顺序）。
+
+    真值快照里没有这张卡 ⇒ `None`（调用方**不落列** = 未知）；否则**照落**（没有行 = `[]`）。
+    `targetsAffected == 0`（= `any`，原版直接 `return 1`）的行**不落**（零信息，口径 →
+    `criteria_carries_targets`），计进 `skipped_noinfo`。
+    形状 / 判据 / 为什么带 `ab`、为什么不落 `lg` → 上面那一段长注释。
+    """
+    if trow is None:
+        report["no_truth"] += 1
+        return None
+    out = []
+    for i, ab in enumerate(trow.get("cardAbilities") or []):
+        if not isinstance(ab, dict):
+            report["bad"].append((cid, name, f"cardAbilities[{i}]", ab))
+            continue
+        cr = ab.get("actingCardCriteria")
+        if not isinstance(cr, dict):
+            report["bad"].append((cid, name, f"cardAbilities[{i}].actingCardCriteria", cr))
+            continue
+        if not criteria_carries_targets(cr):
+            report["skipped_noinfo"] += 1
+            continue
+        tg = ab.get("trigger")
+        if isinstance(tg, bool) or not isinstance(tg, int):
+            # `trigger` 只作可读性（消费端按 `ab` 对齐）⇒ 坏值落 -1，⛔ 不因此丢掉整行。
+            report["bad"].append((cid, name, i, "trigger", tg))
+            tg = -1
+        out.append({
+            "ab": i,
+            "trigger": tg,
+            "criteria": criteria_set_of(cid, name, cr, None, truth_by_path, report,
+                                        label=f"cardAbilities[{i}].actingCardCriteria.",
+                                        has_player_turn=False),
+        })
+        report["rows"] += 1
+    if out:
+        report["with_rows"] += 1
+    report["cards"] += 1
+    return out
+
+
+# ==========================================================================================
+#  🆕 v28（2026-10-25 · 执行代理 `E4` · `E4-2`）：
+#    **`ActiveAbility.targetCriteria`（`+0x38`，对象级目标闸）** → 逐卡 `activeAbilityPickCriteria` 列
+# ==========================================================================================
+# 判据（第一权威 = 全量反编译 `d:/2/tools/decomp_full/`，逐句读过）：
+#   · **消费点 = `RawCardScript__IsValidActiveAbilityTarget.c`**（「这个格位能不能当主动能力的目标」）：
+#       `:103-107`  `FilterMethods__CheckIfMeetsCriteria(thisCard, 候选, 候选,
+#                    *(activeAbility(+0x260) + 0x38), 0)`
+#     ⇒ 被筛对象 = **候选目标**；criteria = **`ActiveAbility` 对象自己的 `targetCriteria`**。
+#     调用者 = `BattleManager__IsValidActiveAbilityTarget` → `GetAvailableActions` /
+#     `ShowPotentialTargets`（高亮）/ `StartChoosingAbilityTargetByClick`（点选）/
+#     `IsThereValidAbilityTarget` / `_ResolvePlayActiveAbility`（最后一刻复核）/ `Update`。
+#   · 进入 criteria 之前还有几道前置闸（同两个方法体，逐句）：
+#       `BattleManager__IsValidActiveAbilityTarget.c:29-52` —— 候选 `IsInPlay` · 教程许可 ·
+#       **`thisCard.isPlayer == 当前回合方`** · 异侧且候选带 `stealth(0x46)` ⇒ 假 ·
+#       异侧且候选 `isCurrentlyWarded` ⇒ 假 · 候选带 `summonRift(0x2da=730)` ⇒ 假；
+#       `RawCardScript__IsValidActiveAbilityTarget.c:76-105` —— 异侧且候选带 `tainted(0xa0=160)`
+#       且 `HasVanguardTrait` 不成立且 thisCard 是英雄 ⇒ 假。
+#   · `targetsAffected == 0 (any)` ⇒ `CheckIfMeetsCriteria` 直接 `return 1` ⇒ 零信息 ⇒ **不落**
+#     （口径 = `criteria_carries_targets`，与 v25/v26/v27 三列一致）。
+#
+# 🔴 **本列与 `activeAbilityTargets`（v25）不是同一格**：
+#   | 列 | 原版字段 | 层 | 键 |
+#   | `activeAbilityTargets` | `activeAbilityLogic[j].targetCriteria`（`AbilityLogic +0x28`） | logic 级 | `ab`, `lg` |
+#   | **`activeAbilityPickCriteria`（本列）** | **`ActiveAbility.targetCriteria`（`+0x38`）** | **对象级** | `ab`（**没有 `lg`**） |
+#   ⛔ 别合并（一个是「这条 logic 从哪儿取目标」，一个是「这个格位能不能被点」）。
+#
+# 形状：`activeAbilityPickCriteria: [{"ab": -1|-2, "criteria": {36 格}}]`
+#   · `ab` = `-1` = `activeAbility` / `-2` = `alternativeAbility`（与 `activeAbilityLogic` /
+#     `unitConditions` 的 `ab` **同词**）；
+#   · 36 格 = **直接复用 `criteria_set_of()`**；`playerTurn` 这一格在 `ActiveAbility.targetCriteria`
+#     上**结构上不存在**（现读真值 1351 张的键表里没有它）⇒ `-1`、**不进 `set_bad`**；
+#   · **每张卡都落**（没有行 ⇒ `[]`）—— 「缺列」与「空数组」必须分得开；真值快照里没有这张卡 ⇒ **不落列**。
+#   · ⚠️ `conditionsFilter` / `excludeCondition` 两格**不在本列**：现读非零的只有 **1 行**（`SW9`），
+#     而 `unitConditions` 里 `ab=-1/-2` 的那些行是 **logic 级**（带 `lg`）的 —— 不是同一格
+#     ⇒ 本列**不拼**那两格，消费端按「没有结构化条件」处理（放宽一格，**如实记**在报告里）。
+#
+# 消费端 = `CardDef.ActiveAbilityPickCriteriaFor(ab)`（唯一入口）→ `RuleCore.CanUseAbility` 的目标闸。
+ACTIVE_ABILITY_PICK_CRITERIA_REPORT = {
+    "cards": 0, "no_truth": 0, "with_rows": 0, "rows": 0, "skipped_noinfo": 0,
+    "bad": [], "set_bad": [], "set_unresolved": [],
+}
+
+
+def active_ability_pick_criteria_of(cid, name, trow, truth_by_path, report):
+    """一张卡 → `[{"ab": -1|-2, "criteria": {36 格}}]`。
+
+    真值快照里没有这张卡 ⇒ `None`（调用方**不落列** = 未知）；否则**照落**（没有行 = `[]`）。
+    `targetsAffected == 0`（= `any`，原版直接 `return 1`）⇒ 零信息、**不落**（计进 `skipped_noinfo`）。
+    形状 / 判据 / 与 `activeAbilityTargets` 的区别 → 上面那一段长注释。
+    """
+    if trow is None:
+        report["no_truth"] += 1
+        return None
+    out = []
+    for key, code in (("activeAbility", -1), ("alternativeAbility", -2)):
+        obj = trow.get(key)
+        if obj is None:
+            continue
+        if not isinstance(obj, dict):
+            report["bad"].append((cid, name, key, obj))
+            continue
+        cr = obj.get("targetCriteria")
+        if not isinstance(cr, dict):
+            report["bad"].append((cid, name, key + ".targetCriteria", cr))
+            continue
+        if not criteria_carries_targets(cr):
+            report["skipped_noinfo"] += 1
+            continue
+        out.append({
+            "ab": code,
+            "criteria": criteria_set_of(cid, name, cr, None, truth_by_path, report,
+                                        label=key + ".targetCriteria.",
+                                        has_player_turn=False),
+        })
+        report["rows"] += 1
+    if out:
+        report["with_rows"] += 1
+    report["cards"] += 1
+    return out
+
+
+# ==========================================================================================
 #  🆕 2026-10-24（引擎线 `A20` · 第三批 ①/②）：主动能力的**分支闸 / 装填位 / 任务位**
 # ==========================================================================================
 # 判据（第一权威 = 全量反编译 `d:/2/tools/decomp_full/`，逐句读过；来源 `资料/普查产出_1023e/`）：
@@ -4047,6 +4302,30 @@ def build():
         _atc = ability_target_criteria_of(cid, name, trow, truth_by_path, ABILITY_TARGET_CRITERIA_REPORT)
         if _atc is not None:
             entry["abilityTargetCriteria"] = _atc
+        # ---- 🆕 v26（执行代理 `E2` · `A3-2`）：**ability 级** `targetCriteria`（36 格）------------
+        # 判据 / 形状 / 为什么带 `ab`、为什么不落 `lg` → `ability_level_criteria_of` 上面那段长注释。
+        # ⚠️ **每张卡都落**（没有行 = `[]`；真值里没有这张卡才不落列）。
+        # 🔴 与 v25 的 `abilityTargetCriteria` 是**两层**：那列是 `AbilityLogic.targetCriteria`（lg>=0），
+        #    本列是 `CardAbility.targetCriteria`（`+0x30`，lg 恒 -1）。
+        _alc = ability_level_criteria_of(cid, name, trow, truth_by_path, ABILITY_LEVEL_CRITERIA_REPORT)
+        if _alc is not None:
+            entry["abilityLevelCriteria"] = _alc
+        # ---- 🆕 v27（执行代理 `E3`）：**ability 级 `actingCardCriteria`（`+0x28`，36 格）** ----------
+        # 判据 / 形状 / 为什么不落 `lg`、为什么列名带 `ability` 前缀 → `ability_acting_criteria_of` 上面那段。
+        # ⚠️ **每张卡都落**（没有行 = `[]`；真值里没有这张卡才不落列）。
+        # 🔴 与 v26 的 `abilityLevelCriteria` 是**同一层的两道闸**：那列筛 `targetCard`（`+0x30`），
+        #    本列筛 `actingCard`（`+0x28`）；原版短路次序 = acting → target → board。
+        _aac = ability_acting_criteria_of(cid, name, trow, truth_by_path, ABILITY_ACTING_CRITERIA_REPORT)
+        if _aac is not None:
+            entry["abilityActingCriteria"] = _aac
+        # ---- 🆕 v28（执行代理 `E4` · `E4-2`）：**`ActiveAbility.targetCriteria`（`+0x38`）** ----------
+        # 判据 / 形状 / 为什么**没有 `lg`**、为什么与 `activeAbilityTargets` 不是同一格
+        # → `active_ability_pick_criteria_of` 上面那段。
+        # ⚠️ **每张卡都落**（没有行 = `[]`；真值里没有这张卡才不落列）。
+        _aapc = active_ability_pick_criteria_of(cid, name, trow, truth_by_path,
+                                                ACTIVE_ABILITY_PICK_CRITERIA_REPORT)
+        if _aapc is not None:
+            entry["activeAbilityPickCriteria"] = _aapc
         # ---- 🆕 2026-10-24（引擎线 `A20` · 第三批 ①/②）：主动能力分支闸 / 装填位 / 任务位 ----------
         # 判据 / 落值口径 / 「缺席 = 恒真的默认 criteria」→ `ability_gate_of` 上面那一段。
         for _gk, _gv in ability_gate_of(cid, name, trow, truth_by_path, ABILITY_GATE_REPORT).items():
@@ -4517,7 +4796,7 @@ def build():
     talent_name_ids = build_talent_name_ids(truth_cards, truth_by_path, cards, talent_name_report)
 
     return {
-        "version": 25,         # v6: 每张卡带稳定 id（🔴 2026-10-18 `W25` 起按原版 `uniqueId` 直取，
+        "version": 28,         # v6: 每张卡带稳定 id（🔴 2026-10-18 `W25` 起按原版 `uniqueId` 直取，
                                #    名级联降为交叉校验；自造 = 生成期自检硬失败）
                                # v7（2026-10-14 `A1798`）：加 `inventoryOptions` / `showInCollectionOptions` 两列
                                # v8（2026-10-14 `A1775`）：加 `initiative` 一列（先后手；原版真值）
@@ -4695,6 +4974,50 @@ def build():
                                #    `AbilityLogic__GetTargets.c` + `FilterMethods__CheckIfMeetsCriteria.c`（逐字段）。
                                #    🔴 本批**只落数据、零行为变化**：消费端（`CardDef` 收 DTO →
                                #    `EffectText` 挂 op → `EffectResolver` 按 36 格筛）**另批做**。
+                               #    ⚠️ 加列【必须】bump（`CardDatabase.cs` 的 version 守卫靠它出声）。
+                               # v26（2026-10-25 · 执行代理 `E2` · `A3-2`）：
+                               #    加**一列** **`abilityLevelCriteria`** —— 原版
+                               #    **`CardAbility.targetCriteria`（`+0x30`，ability 级）的其余 36 格**：
+                               #    `[{"ab":i, "trigger":…, "criteria":{36 格}}]`（`lg` 不落 = 恒 -1）。
+                               #    🔴 与 v25 的 `abilityTargetCriteria` 是**两层同名对象**：
+                               #      那列 = `AbilityLogic.targetCriteria`（logic 级，`lg >= 0`）；
+                               #      本列 = `CardAbility.targetCriteria`（ability 级，`lg` 恒 -1）。
+                               #    判据：`CardAbility__CanTriggerAbility.c:131-135`
+                               #    （`CheckIfMeetsCriteria(thisCard, targetCard, targetCard, *(ability+0x30), 0)`；
+                               #      形参表 `dump.cs:20360` ⇒ 被筛对象 = **`targetCard`**，⛔ 不是 `actingCard`）。
+                               #    `targetsAffected == 0 (any)` ⇒ 原版 `return 1` ⇒ 零信息、**不落**
+                               #    （口径 = `criteria_carries_targets`）。
+                               #    消费端 = `CardDef.AbilityLevelCriteriaForTrigger`（**唯一入口**）→
+                               #    `ActionPump.EnqueueAbility` 的触发前闸（定位不唯一 ⇒ 出声并跳过）。
+                               #    ⚠️ 加列【必须】bump（`CardDatabase.cs` 的 version 守卫靠它出声）。
+                               # v27（2026-10-25 · 执行代理 `E3` · `E2` 报告 §六）：
+                               #    加**一列** **`abilityActingCriteria`** —— 原版
+                               #    **`CardAbility.actingCardCriteria`（`+0x28`，第一道闸）的其余 36 格**：
+                               #    `[{"ab":i, "trigger":…, "criteria":{36 格}}]`（`lg` 不落 = 恒 -1）。
+                               #    🔴 与 v26 的 `abilityLevelCriteria` 是**同一层的两道闸、两个候选**：
+                               #      那列筛 `targetCard`（`+0x30`）；本列筛 `actingCard`（`+0x28`）。
+                               #    判据：`CardAbility__CanTriggerAbility.c:127-130`
+                               #    （`CheckIfMeetsCriteria(thisCard, actingCard, targetCard, *(ability+0x28), 0)`；
+                               #      形参表 `dump.cs:20360`）。
+                               #    `targetsAffected == 0 (any)` ⇒ 原版 `return 1` ⇒ 零信息、**不落**
+                               #    （口径 = `criteria_carries_targets`；93 行「36 格非平凡」里那 10 行
+                               #     `ta = 0` 因此落成 **83 行**）。
+                               #    消费端 = `CardDef.ActingLevelCriteriaForTrigger`（**唯一入口**）→
+                               #    `ActionPump.EnqueueAbility` 的**第一道闸**（Attack / Die 两族）。
+                               #    ⚠️ 加列【必须】bump（`CardDatabase.cs` 的 version 守卫靠它出声）。
+                               # v28（2026-10-25 · 执行代理 `E4` · `E4-2`）：
+                               #    加**一列** **`activeAbilityPickCriteria`** —— 原版
+                               #    **`ActiveAbility.targetCriteria`（`+0x38`）的其余 36 格**：
+                               #    `[{"ab": -1|-2, "criteria":{36 格}}]`（**对象级、没有 `lg`**）。
+                               #    🔴 与 v25 的 `activeAbilityTargets`（= `activeAbilityLogic[j].targetCriteria`）
+                               #      **不是同一格**：那列是「这条 logic 从哪儿取目标」，本列是
+                               #      「这个格位能不能被点」（`RawCardScript__IsValidActiveAbilityTarget.c:103-107`）。
+                               #    `targetsAffected == 0 (any)` ⇒ 原版 `return 1` ⇒ 零信息、**不落**
+                               #    （口径 = `criteria_carries_targets`）。
+                               #    ⚠️ `conditionsFilter`/`excludeCondition` **不在本列**（现读只有 `SW9` 1 行非零，
+                               #      而 `unitConditions` 里 `ab=-1/-2` 那些行是 **logic 级**的）⇒ 放宽一格，如实记。
+                               #    消费端 = `CardDef.ActiveAbilityPickCriteriaFor(ab)`（**唯一入口**）→
+                               #    `RuleCore.CanUseAbility` 的目标闸。
                                #    ⚠️ 加列【必须】bump（`CardDatabase.cs` 的 version 守卫靠它出声）。
         "source": "Unity/数据/游戏数据/card_stats.json（稀有度另取 资料/卡牌数据表/卡牌宝石稀有度_0824.md；"
                   "英文名 / 中文名都以**原版官方表** 数据/游戏数据/官方本地化_en+zh-CN.json 的 `Card_Name/*` 为准"
@@ -5769,8 +6092,59 @@ def main():
         print(f"  ⚠️ 真值快照里没有的卡 {_atcr['no_truth']} 张 —— **不落列**（未知，⛔ 不是空表）")
     for _bad in _atcr["bad"]:
         print(f"  🔴 `abilityTargetCriteria` 坏行：{_bad} ⇒ `criteria` 全 -1（⛔ 不丢行）")
-    # 两列共用的 `criteria_set_of` 出声（`set_bad` / `set_unresolved`）—— ⛔ 不许静默吞掉。
-    for _name, _rep in (("activeAbilityTargets", _aatr), ("abilityTargetCriteria", _atcr)):
+
+    # 🆕 v26（执行代理 `E2` · `A3-2`）：ability 级 `targetCriteria`（`CardAbility.targetCriteria` `+0x30`）。
+    _alcr = ABILITY_LEVEL_CRITERIA_REPORT
+    _alc_rows = [r for _c in doc["cards"] for r in (_c.get("abilityLevelCriteria") or [])]
+    _alc_info, _alc_ta, _alc_ref = _crit_rows_readings(_alc_rows)
+    print(f"目标判据③    `abilityLevelCriteria` 落值 **{_alcr['cards']}/{doc['count']}** 张 · "
+          f"有行的 **{_alcr['with_rows']}** 张 · **{_alcr['rows']}** 行"
+          f"（原版 `CardAbility.targetCriteria`（`+0x30`）的 36 格；每张卡都落、没行落 `[]`）")
+    print(f"             36 格「有信息」的行 **{_alc_info}** 行 · "
+          f"`filterSpecificCards`/`excludeEnchantments` 非空 **{_alc_ref}** 行 · "
+          f"`targetsAffected == 0 (any)` **不落** {_alcr['skipped_noinfo']} 行（原版直接 return 1 = 零信息）")
+    print(f"             按 targetsAffected（行数）：{_ta_top(_alc_ta)}")
+    print("             消费端 = `CardDef.AbilityLevelCriteriaForTrigger` → `ActionPump.EnqueueAbility` 的触发前闸")
+    if _alcr["no_truth"]:
+        print(f"  ⚠️ 真值快照里没有的卡 {_alcr['no_truth']} 张 —— **不落列**（未知，⛔ 不是空表）")
+    for _bad in _alcr["bad"]:
+        print(f"  🔴 `abilityLevelCriteria` 坏行：{_bad} ⇒ 整行**不落**并出声")
+    # 🆕 v27（执行代理 `E3`）：ability 级 `actingCardCriteria`（`CardAbility.actingCardCriteria` `+0x28`）。
+    _aacr = ABILITY_ACTING_CRITERIA_REPORT
+    _aac_rows = [r for _c in doc["cards"] for r in (_c.get("abilityActingCriteria") or [])]
+    _aac_info, _aac_ta, _aac_ref = _crit_rows_readings(_aac_rows)
+    print(f"目标判据④    `abilityActingCriteria` 落值 **{_aacr['cards']}/{doc['count']}** 张 · "
+          f"有行的 **{_aacr['with_rows']}** 张 · **{_aacr['rows']}** 行"
+          f"（原版 `CardAbility.actingCardCriteria`（`+0x28`）的 36 格；每张卡都落、没行落 `[]`）")
+    print(f"             36 格「有信息」的行 **{_aac_info}** 行 · "
+          f"`filterSpecificCards`/`excludeEnchantments` 非空 **{_aac_ref}** 行 · "
+          f"`targetsAffected == 0 (any)` **不落** {_aacr['skipped_noinfo']} 行（原版直接 return 1 = 零信息）")
+    print(f"             按 targetsAffected（行数）：{_ta_top(_aac_ta)}")
+    print("             消费端 = `CardDef.ActingLevelCriteriaForTrigger` → `ActionPump.EnqueueAbility` 的**第一道闸**")
+    if _aacr["no_truth"]:
+        print(f"  ⚠️ 真值快照里没有的卡 {_aacr['no_truth']} 张 —— **不落列**（未知，⛔ 不是空表）")
+    for _bad in _aacr["bad"]:
+        print(f"  🔴 `abilityActingCriteria` 坏行：{_bad} ⇒ 整行**不落**并出声")
+    # 🆕 v28（执行代理 `E4`）：`ActiveAbility.targetCriteria`（`+0x38`，对象级目标闸）。
+    _aapr = ACTIVE_ABILITY_PICK_CRITERIA_REPORT
+    _aap_rows = [r for _c in doc["cards"] for r in (_c.get("activeAbilityPickCriteria") or [])]
+    _aap_info, _aap_ta, _aap_ref = _crit_rows_readings(_aap_rows)
+    print(f"目标判据⑤    `activeAbilityPickCriteria` 落值 **{_aapr['cards']}/{doc['count']}** 张 · "
+          f"有行的 **{_aapr['with_rows']}** 张 · **{_aapr['rows']}** 行"
+          f"（原版 `ActiveAbility.targetCriteria`（`+0x38`）的 36 格；每张卡都落、没行落 `[]`）")
+    print(f"             36 格「有信息」的行 **{_aap_info}** 行 · "
+          f"`filterSpecificCards`/`excludeEnchantments` 非空 **{_aap_ref}** 行 · "
+          f"`targetsAffected == 0 (any)` **不落** {_aapr['skipped_noinfo']} 行（原版直接 return 1 = 零信息）")
+    print(f"             按 targetsAffected（行数）：{_ta_top(_aap_ta)}")
+    print("             消费端 = `CardDef.ActiveAbilityPickCriteriaFor(ab)` → `RuleCore.CanUseAbility` 的目标闸")
+    if _aapr["no_truth"]:
+        print(f"  ⚠️ 真值快照里没有的卡 {_aapr['no_truth']} 张 —— **不落列**（未知，⛔ 不是空表）")
+    for _bad in _aapr["bad"]:
+        print(f"  🔴 `activeAbilityPickCriteria` 坏行：{_bad} ⇒ 整行**不落**并出声")
+    # 四列共用的 `criteria_set_of` 出声（`set_bad` / `set_unresolved`）—— ⛔ 不许静默吞掉。
+    for _name, _rep in (("activeAbilityTargets", _aatr), ("abilityTargetCriteria", _atcr),
+                        ("abilityLevelCriteria", _alcr), ("abilityActingCriteria", _aacr),
+                        ("activeAbilityPickCriteria", _aapr)):
         for _cid, _nm, _f, _v, _why in _rep["set_bad"]:
             print(f"  🔴 {_name} 的 criteria 坏值：{_cid} {_nm} · `{_f}` = {_v!r}（{_why}）⇒ 该格落 **-1**")
         for _cid, _nm, _f, _pid in _rep["set_unresolved"]:
@@ -5785,7 +6159,8 @@ def main():
     _crit_key_bad = 0
     _crit_rows_all = 0
     for _c in doc["cards"]:
-        for _k in ("activeAbilityTargets", "abilityTargetCriteria"):
+        for _k in ("activeAbilityTargets", "abilityTargetCriteria", "abilityLevelCriteria",
+                   "abilityActingCriteria", "activeAbilityPickCriteria"):
             for _r in (_c.get(_k) or []):
                 _crit_rows_all += 1
                 if list((_r.get("criteria") or {}).keys()) != _crit_expected:

@@ -290,8 +290,34 @@ namespace CardPresentation
             var rep = Node(row, "ReplayButton", repR);
             var repBg = Rect(ctx, rep, ArtBtn, repR, "Image", L_Btn);
             Rect(ctx, rep, ArtReplay, repR, "replayicon", L_BtnIcon);
-            // 🆕 A17：原版 `Battle Log Tab>…>Match Log>{ReplayButton,PinButton}` 是 SpriteSwap（普查 §块 5 第 10 行）
-            Hit(ctx, rep, "Hit", repR, L_Hit, () => OnReplay(m), repBg, ArtBtn);
+            // 🆕 **2026-10-25（`C5 Q5.3` · 铁律 11）**：回放钮的**可用性门槛** —— 原版
+            //   `BattleLogItem__Initialize.c:206-208`：
+            //     `replayButton.interactable = (replaysVersion != "-1")`（哨兵字面量 `DAT_184288ae8` → RVA
+            //     `0x4288AE8` → `il2cpp_out/stringliteral.json` = `"-1"`）。
+            //   我们这一侧**没有** `replaysVersion` 那格（原版是服务端下发）⇒ 判据映射 = 本地录像文件名
+            //   `BattleLogData.Match.ReplayFile`：「没有」= `null` / 空串；原版哨兵 `"-1"` 也一并认。
+            //   判据只写一份 = `ReplayStore.ReplayAvailable`（⛔ 别在这儿另写一遍比较）。
+            //   ⚠️ **与 `ReplayRecord.version` 无关** —— 那是**录像文件格式**的版本号（对不上就拒绝播放），
+            //      不是这里的「这一局有没有回放」。
+            bool canReplay = ReplayStore.ReplayAvailable(m.ReplayFile);
+            if (!canReplay)
+                // 红线「不许静默」：原版 `interactable = false` 是静默的，我们照仓规出声（每个 `where|值` 一条）。
+                ReplayStore.NoteNoReplay(m.ReplayFile, "对局历史行 `ReplayButton`");
+            if (canReplay)
+            {
+                // 🆕 A17：原版 `Battle Log Tab>…>Match Log>{ReplayButton,PinButton}` 是 SpriteSwap（普查 §块 5 第 10 行）
+                Hit(ctx, rep, "Hit", repR, L_Hit, () => OnReplay(m), repBg, ArtBtn);
+            }
+            else
+            {
+                // 不可回放 ⇒ **不建命中区**（= 原版 `interactable = false` 的等价物）。
+                // 🔴 为什么「不建 `Hit`」就够：`Shell/PointerLayer.cs` 的命中表只收 `ImageQuad`/`WindowButton`
+                //    （`MenuDraw.Hit` 那颗 quad 是唯一入口）⇒ 没有 `Hit` 节点就**真鼠标也点不到**，不是「点了没反应」。
+                // ⚠️ **不画灰态（如实标）**：原版那颗钮 `m_Transition = 2(SpriteSwap)`，`m_SpriteState.m_DisabledSprite`
+                //    确实有值（pid `5693181797853584851`），但**那个 pid 反查不到名字**（`资料/普查产出_0927/回放_界面真值.md:221`
+                //    已记「只查到 pid、没查到名」）⇒ 原版禁用态那张图**本地拿不到**，灰只能是我们挑的
+                //    ⇒ 按铁律 11 例外①**不做**（⛔ 别自己发明一个灰度值写成「原版灰」）。
+            }
 
             var pinR = UguiRect.Child(r, BtnA, BtnA, UguiRect.P50c, new Vector2(PinDx, BtnDy), BtnSz);
             var pin = Node(row, "PinButton", pinR);
@@ -406,6 +432,15 @@ namespace CardPresentation
 
         // ============================================================ 三个动作（原版各自的落点，两扇窗共用）
 
+        /// <summary>自检口：置 true 时 `OnReplay` 的**成功那一支不切场景**（只把要去的场景记进
+        /// <see cref="LastReplaySceneForTest"/>）。
+        /// <para>🔴 **为什么要这个口**：批量自检跑在**当前那个自检夹具场景**里，`SceneManager.LoadScene`
+        /// 会把整个夹具换掉（后面几百条断言随之消失）。同族先例 = `ReplayStore.OverrideDir`（只给自检）。
+        /// ⛔ 生产路径**恒 false**（全仓只有自检设它，`grep` 可核）。</para></summary>
+        public static bool SuppressSceneLoadForTest;
+        /// <summary>自检口：上一次 `OnReplay` 成功时**准备**切的场景名（`null` = 没成功过）。</summary>
+        public static string LastReplaySceneForTest;
+
         /// <summary>`ClickReplayButton` → 原版 `PlayerDataManager.RecoverMatchRecording(recordingIndex, …)`
         /// ⇒ 从**服务器**取回录制并重演。
         /// 🆕 **2026-09-27：我们改走本地录像**（用户当天拍板「做，我们需要录像」）——
@@ -421,12 +456,37 @@ namespace CardPresentation
                 return;
             }
             var rec = ReplayStore.Load(m.ReplayFile);
-            if (rec == null) return;                 // `Load` 自己已经出过声（版本不认识 / 文件没了 / 解不出）
+            if (rec == null)
+            {
+                // 🆕 **2026-10-25（`C5 Q5.1` · 铁律 11）**：读盘失败（缺失 / 解析失败 / 版本不认识）——
+                //   **与 `BattleDriver.PlayReplay(string)` 同一口径**：出声 + 弹原版那扇
+                //   `CustomErrors/ErrorLoadReplay` 窗，**不进回放**。
+                //   判据（第一权威 = 反编译方法体）→ `BattleLogItem.__c___ClickReplayButton_b__15_0.c:20-26`：
+                //     `if (param_2 == null) WindowsManager.ShowPopUp(<错误键>, 1, 1, <OK 键>, 0, 0);`
+                //     = `localizeTexts: true` · `closeOnEsc: true` · **一颗钮**（形参名见
+                //       `d:/2/Warpforge_code/Scripts/Assembly-CSharp/WindowsManager.cs:327` 的签名桩）。
+                //   ⚠️ 原来是「只 `LogWarning`」（`ReplayStore.Load` 自己那三条）⇒ **玩家真实这条路上
+                //      一扇窗都看不到**；现在补齐（键常量复用 `BattleDriver` 那两颗，⛔ 不另抄字符串）。
+                Debug.LogError("[BattleLog] 放录像 `" + m.ReplayFile + "` **读不出来**"
+                             + "（缺失 / 解析失败 / 版本不认识 —— `ReplayStore.Load` 已逐条出过声）"
+                             + " ⇒ 弹原版那扇 `" + BattleDriver.ReplayErrorKey + "` 窗、**不进回放**。"
+                             + "判据 = `BattleLogItem.__c___ClickReplayButton_b__15_0.c:20-26`。");
+                WindowsManager.Get().ShowMessagePopUp(BattleDriver.ReplayErrorKey, BattleDriver.ReplayErrorOkKey,
+                                                      null, closeOnEsc: true);
+                return;
+            }
             string scene = rec.start != null && !string.IsNullOrEmpty(rec.start.arena)
                          ? rec.start.arena : "Battle";
             ReplayStore.PendingPlay = rec;
+            LastReplaySceneForTest = scene;
             Debug.Log($"[BattleLog] 放录像 `{m.ReplayFile}` ⇒ 切战场 `{scene}`"
                     + $"（{rec.actions.Count} 条动作 · {rec.savedAt}）");
+            // ⚠️ 自检口（见 `SuppressSceneLoadForTest` 的 doc）：**只**为批量自检跳过这一跳，生产恒 false。
+            if (SuppressSceneLoadForTest)
+            {
+                Debug.Log("[BattleLog] （自检）`SuppressSceneLoadForTest` 开着 ⇒ **不切场景**，只记下 `" + scene + "`。");
+                return;
+            }
             UnityEngine.SceneManagement.SceneManager.LoadScene(scene);
         }
 

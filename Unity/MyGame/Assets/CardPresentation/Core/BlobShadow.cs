@@ -134,7 +134,7 @@ namespace CardPresentation
         /// <summary>整卡淡出（消散 / 置灰）跟着走 —— 卡淡没了、影子还实着，一眼就假。</summary>
         public void SetCardAlpha(float a) { _cardAlpha = Mathf.Clamp01(a); Sync(); }
 
-        /// <summary>原版 `Update` 那套（去掉 `hasChanged` 那个纯优化）。
+        /// <summary>原版 `Update` 那套（**`hasChanged` 早退闸已按原版补回** —— 见 <see cref="Tick"/> 的 doc）。
         /// ⚠️ **批处理下没有帧循环** ⇒ 由 `CardView.SetPose` / `SetCardAlpha` 显式调；
         ///    真 Play 里 `Update()` 也会调（原版就是在 `Update` 里做的）。</summary>
         public void Sync()
@@ -158,8 +158,54 @@ namespace CardPresentation
             transform.position = new Vector3(p.x, floorY + yOffsetForSnap, p.z);
 
             _sr.enabled = c.a != 0f;
+
+            // 🆕 2026-10-25（执行代理 `C` · `T08` / `C5 Q6` A5）：记下这一趟的输入，供 `Tick` 早退
+            _lastTargetPos = p;
+            _hasLastTargetPos = true;
         }
 
-        void Update() { Sync(); }
+        // ==================================================================
+        //  🔴 2026-10-25（执行代理 `C` · 账 `T08` / 判据 `C5 Q6` A5）：
+        //    **把原版那道 `hasChanged` 早退闸补回来**（每帧无谓重建 ⇒ 卡数 × 1 次 Lerp + 3 次写入）。
+        //  原版（`BlobShadowController__Update.c:17-20`）：
+        //      `if (!target.hasChanged) return;` … 处理完 `target.hasChanged = false;`
+        //  ⚠️ **判据为什么不能照抄成「只看 `target.hasChanged`」**：原版 `target` 就是**被移动的那个节点**；
+        //     而我们 `BlobShadow.Create(go.transform, go.transform)` 的 `go` 是**卡体子节点**，
+        //     真正的运动写在**卡根**（`CardView.transform`：`SetPose` / 补间 / 布局都动它）——
+        //     Unity 的 `Transform.hasChanged` **只在【自己】的 local 值被写时置真**，父节点动不会置子节点的
+        //     ⇒ 照抄会把影子冻住（卡滑走了影子留在原地）。
+        //  ⚠️ **也不能去读写卡根的 `hasChanged`**：`AutoCardRotation`（同一张卡上）用它做「动过 ⇒ 重置 2 s 计时器」
+        //     并且**帧末清零**；两个组件抢同一个 flag ⇒ 谁先跑谁吃掉，旋转的收尾会静默变形。
+        //  ⇒ 等价物 = **记住上一帧的 `target.position`（世界坐标，已含父链）**，相同就整帧跳过。
+        //     语义与原版一致：**静态卡 0 次重算**；动过的卡（含父节点带着动）立刻重算。
+        //     颜色里另一维（整卡淡出 `_cardAlpha`）由 `SetCardAlpha` **显式调 `Sync`** ⇒ 不在这道闸的管辖里。
+        // ==================================================================
+        Vector3 _lastTargetPos;
+        bool _hasLastTargetPos;
+
+        /// <summary>自检用：累计「真的重算了几次」/「被闸挡掉几次」（`Tick` 的口径）。</summary>
+        public static int SyncRecomputeCountForTest, SyncSkipCountForTest;
+
+        /// <summary>一帧的那套闸：位置没变 ⇒ **什么都不做**（返回 false）；变了 ⇒ `Sync()` 并返回 true。
+        /// ⚠️ 生产入口只有 `Update()`；自检用 <see cref="TickForTest"/>（批处理没有帧循环）。</summary>
+        bool Tick()
+        {
+            if (_sr == null || target == null) return false;
+            Vector3 p = target.position;
+            if (_hasLastTargetPos && p == _lastTargetPos)
+            {
+                SyncSkipCountForTest++;
+                return false;                        // = 原版 `if (!target.hasChanged) return;`
+            }
+            Sync();
+            SyncRecomputeCountForTest++;
+            return true;
+        }
+
+        /// <summary>自检用：跑一次 <see cref="Tick"/>（返回 true = 这一帧真的重算了）。
+        /// ⛔ 产品别调（生产由 `Update` 每帧调）。</summary>
+        public bool TickForTest() { return Tick(); }
+
+        void Update() { Tick(); }
     }
 }

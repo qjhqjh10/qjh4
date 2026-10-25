@@ -52,8 +52,10 @@
 //     ⚠️ **`_mask` 的字段类型保持 `ImageQuad`**（有意：它**没迁**，类型上就不该装成 `HudPiece`）。
 //
 // 🔴 **我们挑的（解包里查不到 / 我们没那套设施，如实标着，别当成原版行为）**：
-//   ① **卡与卡的间距 24 px** —— 解包里查不到（原版 `Content` 的宽由 `ContentSizeFitter` 运行时算，
-//      静态表里是塌缩值 −1917.7）。
+//   ① ~~**卡与卡的间距 24 px** —— 解包里查不到~~ 🔴 **2026-10-25（AU4 · 铁律 5）就地作废**：
+//      **间距 = 原版真值 350 屏 px**（= `Content` 的 `HorizontalOrVerticalLayoutGroup.m_Spacing 500`
+//      × `Viewport.m_LocalScale 0.7`；判据与逐字段出处见 `SpacingPx` 的 doc）。24 那一条是
+//      2026-10-24（`W64·B-25`）之前的自选值，那条账**已销**。
 //   ② **卡片高度 743 px** —— 🔴 **2026-09-28 查实：这不是「我们挑的」，是原版值**
 //      （原来写「原版 `CardUI Reference` 的 scale 在预制体里，本地没读到」—— 那个字段一直在，
 //       只是当时没找到节点）。它 = `RectTransform_3421.json` 的 `m_LocalScale = **223.14**`
@@ -108,16 +110,29 @@
 //  · `Header Text` 的 TMP `m_RaycastTarget = 1`（零处理器 ⇒ 挡射线但不响应）。
 //  · **翻页 = `ScrollRect`**（根上 `MB_4823`：`m_Horizontal=1` · `m_Vertical=0` ·
 //    `m_MovementType=1(Elastic)` · `Elasticity=0.1` · `Inertia=1` · `DecelerationRate=0.135` ·
-//    `m_ScrollSensitivity=1` · viewport `RT_3176` / content `RT_3174`）+ `RectMask2D`；
+//    `m_ScrollSensitivity=1` · viewport `RT_3176` / content `RT_3174`）；
 //    卡片 prefab 的 `CardCollider.sendEventsToScrollRect` 把拖拽转给 ScrollRect。
-//    🔴 **我们这一档没做滚动**（文件头 ③：卡片是世界物件、装不下时等比缩）⇒ **没有可迁的拖拽口**；
-//    ⛔ 本波不新造「假滚动」（那会改展示顺序/行为）。
+//    🔴 **2026-10-25（AU4 · 铁律 5）就地订正**：本行原写「**我们这一档没做滚动**（装不下时等比缩）
+//    ⇒ 没有可迁的拖拽口」—— **已过期**：横向滚动已于 2026-10-24（`W64·B-25`）照原版做了
+//    （`_scrollPx` + 惯性 + `CardView.SetPose(..., clip)`；见文件头 ③ 与 `TickScroll`）。
+//    ⚠️ **仍如实标的偏离**：① `m_Elasticity 0.1` 的越界回弹没做（硬夹）；② 拖拽阈值 6 px 是我们加的。
+//    ⚠️ **另注（2026-10-25 AU4 现读）**：`Viewport`（GO 769 / `RT_3176`）的 `m_Component` 只有
+//    **2 条**（`RectTransform` + 一条**没有导出 MonoBehaviour 的内置组件**）⇒ 解包里**找不到
+//    `RectMask2D` 的实例**。「视口裁切」这一层因此只有**间接判据**（原版是 `ScrollRect` + 视口节点、
+//    且 `Content` 只有 2.3 px 宽时靠 `ContentSizeFitter` 展开）⇒ **待核**，见本文件 `ViewportClipPx`。
 //  · 🔴 `_mask` **仍然留在世界空间**（必须画在卡片【后面】，见上面三条）—— 世界 `ImageQuad` 没有
 //    `raycastTarget`、uGUI 打不到它 ⇒ 背景关闭的输入由一块**全屏透明 uGUI 件**（`_bgClose`）承担：
 //    `color = clear`、不画像素、只吃射线；⛔ `_mask` 的 z / 渲染队列 / 排序**一个字节不动**。
 //  · ⚠️ **没有**改 `Show`/`Hide` 的次序、卡片顺序、`TickFeedback` 的悬停反馈判据 —— 本波只加输入口。
-//  · ⏭ **仍欠**（如实记）：`closeOnESC = 1`（原版 ESC 关窗；我们的 `BattleDriver` 只在结算屏处理 ESC）·
-//    `enableCardTooltips = 1`（卡片 tooltip）—— 两条都要动 `BattleDriver` 或卡片，**本波白名单外**。
+//  · 🔴 **2026-10-25（AU4）：窗级声音已接** —— 判据是本窗实例 MB_4182 的三个字段：`openSound = 空`
+//    （⇒ **开窗不出声，⛔ 别加**）· `closeSound = 空` + `useDefaultCloseSoundIfNull = 1`
+//    ⇒ 关窗走 `SoundManager.defaultCloseSound`（cue `ButtonClick Back`）。落点 = `HideCore(true)`。
+//  · ⏭ **仍欠**（如实记，两条都要动 `BattleDriver`，本文件白名单外）：
+//    ① `closeOnESC = 1`（MB_4182 实读；原版 `GameWindow__ESCPressed` → `Close`。我们的 `BattleDriver`
+//       只在结算屏处理 ESC ⇒ 本窗开着按 ESC 不会关）；
+//    ② `enableCardTooltips = 1`（MB_4182 实读）—— 卡要能悬停出关键词/数值 tooltip。我们的
+//       tooltip 泵是 `BattleDriver.TickTooltipAt`，它只遍历棋盘/手牌那批卡（`enableCardTooltips`
+//       两个消费窗都**没有贡献候选卡**）；`CardDisplayWindow.SlotHasTooltips(i)` 目前是**零调用**的死口。
 // ═════════════════════════════════════════════════════════════════════════════
 using System;
 using System.Collections.Generic;
@@ -734,7 +749,7 @@ namespace CardPresentation
 
         public void Show(IList<CardData> cards, string header)
         {
-            Hide();
+            HideCore(false);          // 内部清理：⛔ 不播关窗音（原版开窗那一拍不响 `closeSound`）
             ContentWidthPx = 0f;
             UsedScale = 0f;
             FirstCardXpx = 0f;
@@ -769,12 +784,29 @@ namespace CardPresentation
             _cardWNat = cardWpx;
             _gapPx = gapPx;
             _maxScrollPx = Mathf.Max(0f, totalPx - availPx);
-            _scrollPx = 0f;                 // 每次开窗从最左开始（`ScrollRect` 的初始位置）
+            // 🔴 **2026-10-25（AU4 · 铁律 5）：初位 = 【居中】，不是最左。**
+            //   判据 = UGUI `ScrollRect` 的初始 `horizontalNormalizedPosition`：`Content` 的
+            //   `m_AnchorMin/m_AnchorMax = (0,0)/(1,1)`（stretch）+ `m_Pivot = (0.5,0.5)`
+            //   + `m_AnchoredPosition = (−0.00098, 0)`（`RectTransform_3174.json` 现读）⇒ 宽由
+            //   `ContentSizeFitter(HorizontalFit = PreferredSize)` 撑开后**仍然是居中的**（枢轴居中、
+            //   anchoredPosition ≈ 0）⇒ `offset = (W − V)/2` ⇒ 归一化位置 **0.5**（= 正中间那几张）。
+            //   旧写法从最左起（`_scrollPx = 0`）⇒ 装不下时**看的是头几张**，与原版不同。
+            _scrollPx = _maxScrollPx * 0.5f;
             _scrollVelPx = 0f;
             _dragActive = false; _dragLastPx = float.NaN; _dragTravelPx = 0f;
 
-            // 竖：标题下面那一条的中点；横：装得下 ⇒ 居中（`MiddleCenter`）/ 装不下 ⇒ 从视口左沿起（滚动）
-            float cy = (BandTopPx + HeaderH + BandBottomPx) * 0.5f;
+            // 竖：🔴 **2026-10-25（AU4 · 铁律 5）：= 窗口带的【正中 540】，不是「标题下面那一条的中点」。**
+            //   判据（逐字段现读 `bundle_scenes_scenes_battlearena1`）：
+            //   · `Viewport`（`RectTransform_3176`）= `anchor (0,0)-(1,1)` stretch + `sizeDelta (0,0)`
+            //     ⇒ 它的 rect **就是**父件（根 RT_3175，`anchor(0,0.5)-(1,0.5)` + `sizeDelta.y 818.04`
+            //     ⇒ 屏幕 y[131,949]）的整块 ⇒ 视口中心 = **540**（`m_LocalScale 0.7` 只缩大小、不动中心）；
+            //   · `Content`（`RectTransform_3174`）= stretch + `sizeDelta.y 0` ⇒ 高度 = 视口高、中心同 540；
+            //   · `Content` 上的布局组（`MonoBehaviour_4822`）= `m_ChildAlignment = 4 (MiddleCenter)` +
+            //     `ChildControlHeight = 0` ⇒ 卡**垂直居中在 Content 里** ⇒ 卡心 y = **540**。
+            //   ⇒ 旧算式 `(131 + 63.204 + 949)/2 = 571.60` 把整排卡**压低 31.6 px**（卡高 520.3 ⇒ 6% 卡高）；
+            //     而 `Viewport` 若有遮罩，其真实竖向范围 = `818.04 × 0.7 = 572.63` ⇒ y[253.7, 826.3]，
+            //     卡在 540 时上下各留 26.3 px（对称），在 571.6 时**下沿会被裁掉 5.5 px** ⇒ 540 才是自洽值。
+            float cy = (BandTopPx + BandBottomPx) * 0.5f;
             CardCypx = cy;
             for (int i = 0; i < cards.Count; i++)
             {
@@ -810,6 +842,27 @@ namespace CardPresentation
 
         public void Hide()
         {
+            HideCore(true);
+        }
+
+        /// <summary><see cref="Hide"/> 的本体；`playSound:false` 只给 <see cref="Show"/> 内部那次清理用
+        /// （原版开窗那一拍不播关窗音）。</summary>
+        void HideCore(bool playSound)
+        {
+            // 🆕 **2026-10-25（AU4 · 铁律 11/14）：关窗音 = 原版的【默认关窗音】**。
+            //   判据（逐字段现读 `bundle_scenes_scenes_battlearena1/MonoBehaviour_4182.json`
+            //   = `UIMultiCardDisplay` 实例）：`openSound = {m_PathID:0}`（**空 ⇒ 开窗无声，别加**）·
+            //   `closeSound = {m_PathID:0}`（空）· **`useDefaultCloseSoundIfNull = 1`** ⇒ 走
+            //   `GameWindow__Close.c` 那一支：`if (closeSound == null && useDefaultCloseSoundIfNull)
+            //   closeSound = SoundManager.Instance.defaultCloseSound;` 再 `Play2D(closeSound, FX)`。
+            //   `defaultCloseSound` 就是壳侧那张表里的 `ButtonClick Back`（clip `UIButton Back`；
+            //   判据 → `Shell/WindowSounds.cs` 文件头那张表 + `DefaultCloseCue`）。
+            //   闸 = 原版 `GameWindow__Close.c` 的 `if (!gameObject.activeSelf) return;` —— 本窗的
+            //   `Hide()` 不关 GameObject ⇒ 用 **`Visible`**（关一扇本来就关着的窗不出声）。
+            if (playSound && Visible)
+                WindowSounds.PlayFx(WindowSounds.DefaultCloseCue,
+                                    "[多卡展示窗] `Generic Multi Card Display Combat` 关窗音（原版默认音）");
+
             Visible = false;
             HeaderShown = null;
             _dragActive = false; _dragLastPx = float.NaN; _dragTravelPx = 0f; _scrollVelPx = 0f;
@@ -837,7 +890,17 @@ namespace CardPresentation
 
         /// <summary>视口矩形（设计 px · **左上原点**）= 整条窗口带：`x[0,1920] y[BandTop,BandBottom]`。
         /// 判据 = 原版根 `Generic Multi Card Display Combat` 横向 stretch（拿父宽 1920）+ `sizeDelta.y 818.04`
-        /// 的那条带（`RT_3369/3370` 那一族；`Content` 的 padding 是 0）⇒ **裁切边界就是这条带**。</summary>
+        /// 的那条带（`RT_3369/3370` 那一族；`Content` 的 padding 是 0）⇒ **裁切边界就是这条带**。
+        /// <para>⚠️ **2026-10-25（AU4）如实标的【判据不足】**：`Viewport`（GO 769 / `RectTransform_3176`）
+        /// 的 `m_Component` 只有 **2 条**（`RectTransform` + 一条没有导出 MonoBehaviour 的内置组件）⇒
+        /// 解包里**找不到 `RectMask2D` / `Mask` 的实例**。两种读法：
+        /// ① **原版根本不裁**（视口铺满整屏 + `Clamped` 滚动本来就不会把内容带出屏幕）⇒ 我们这条「多半不裁」
+        ///    只是**多裁了一层**（当前卡心 540、卡高 520.3 ⇒ y[279.9,800.2]，**永远碰不到这两条边**）；
+        /// ② 若真有一颗挂在 `Viewport` 上：它带 **`m_LocalScale 0.7`** ⇒ 真实竖向范围不是 818.04 而是
+        ///    `818.04 × 0.7 = 572.63` ⇒ y[**253.7**, **826.3**]（横向因为 stretch 到父宽，仍是 x[0,1920]）。
+        /// ⇒ 两种读法的**可见结果相同**（卡都在范围内），故**暂不改值**；要收口得先坐实那颗组件是
+        /// 什么（`assets_full` 里没有它的导出）。⛔ 别照读法 ② 顺手改成 572.63 —— 那会让「根本没裁」
+        /// 的那一档变成**比原版更严**。</para></summary>
         public static PxRect ViewportClipPx
         {
             get { return new PxRect(0f, BandTopPx, LayoutSpace.DesignPxW, BandBottomPx); }
@@ -845,7 +908,8 @@ namespace CardPresentation
 
         /// <summary>按当前 `_scrollPx` 把这一排**重摆 + 重裁**（滚动 / 换分辨率 / 开窗的唯一入口）。
         /// <para>横：一排装得下 ⇒ **居中**（原版布局组 `m_ChildAlignment = 4 = MiddleCenter`）；
-        /// 装不下 ⇒ 从**视口左沿**起（`ScrollRect` 的初始位置 0）、再减 `_scrollPx`。</para></summary>
+        /// 装不下 ⇒ 内容左沿 = 视口左沿 **− `_scrollPx`**，而 `_scrollPx` 的**初值 = 上限的一半**
+        /// （= 原版 `ScrollRect` 初始 `horizontalNormalizedPosition 0.5`，判据见 `Show()` 里那一段）。</para></summary>
         void ApplyCardLayout()
         {
             if (_cards.Count == 0) return;
@@ -872,7 +936,12 @@ namespace CardPresentation
         public void TickScroll(Vector3 world, bool held, float dt)
         {
             if (!Visible) { _dragActive = false; _dragLastPx = float.NaN; _dragTravelPx = 0f; return; }
-            float xNow = world.x * EndPanel.PxPerUnit;       // 世界 → 设计 px（与 `HitContinue` 的兜底支同口径）
+            // 🔴 **2026-10-25（AU4）：x 的斜率换成 `LayoutSpace.PxPerWorldX`**（= `DesignPxW ÷ VisibleWidth`）。
+            //   旧写法 `world.x * EndPanel.PxPerUnit`（= 写死 108）**只在 16:9 是那个意思**：4:3 ⇒ 0.75 倍、
+            //   21:9 ⇒ 1.3125 倍 ⇒ **拖拽滚动量在别的宽高比下与指针不同步**（判据与整族说明 →
+            //   `LayoutSpace.ToPixel` / `ToDesignPixel` 那两段 doc；本文件 `HitContinue` 早就按这条订正过）。
+            //   ⚠️ 这里只要**差值**（不需要 +960 的中心项）⇒ 用斜率那一格，⛔ 别为它再去算一个整点。
+            float xNow = world.x * LayoutSpace.PxPerWorldX;
 
             if (held)
             {
@@ -1030,12 +1099,17 @@ namespace CardPresentation
                 float lx = l.x, ly = -l.y;
                 return lx >= hit.x1 && lx <= hit.x2 && ly >= hit.y1 && ly <= hit.y2;
             }
-            // ⛔ 兜底：只有「条不在画布上」时才对（**老口径，一字未改** —— `BarCx/BarCy` 现在只剩这一支用）
+            // ⛔ 兜底：只有「条不在画布上」时才对（`BarCx/BarCy` 现在只剩这一支用）
+            // 🔴 **2026-10-25（AU4）就地订正（铁律 5）**：本支原来写「老口径，一字未改」并用
+            //   `world.x × EndPanel.PxPerUnit + 960 / 540 − world.y × 108` —— **x 的斜率是写死 108**，
+            //   只在 16:9 是那个意思（4:3 ⇒ 0.75 倍 · 21:9 ⇒ 1.3125 倍）⇒ 与建件那条路的逆
+            //   （`LayoutSpace.FromPixel` / `ToDesignPixel`）在别的宽高比下不互逆。
+            //   ⇒ 换成**唯一那个逆**（判据 → `LayoutSpace.ToDesignPixel` 的 doc）。
             var hitFb = MenuDraw.PaddedRect(
                 new PxRect(BarCx - BarW * 0.5f, BarCy - BarH * 0.5f, BarCx + BarW * 0.5f, BarCy + BarH * 0.5f),
                 ContinuePad);
-            float px = world.x * EndPanel.PxPerUnit + 960f;
-            float py = 540f - world.y * EndPanel.PxPerUnit;
+            var ppx = LayoutSpace.ToDesignPixel(world);
+            float px = ppx.x, py = ppx.y;
             return px >= hitFb.x1 && px <= hitFb.x2 && py >= hitFb.y1 && py <= hitFb.y2;
         }
 

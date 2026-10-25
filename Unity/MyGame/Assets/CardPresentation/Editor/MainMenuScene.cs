@@ -6764,8 +6764,17 @@ public static class MainMenuScene
                         Check(AvatarTab.Columns, 5,
                               "头像网格 **5 列** = `floor((1044.65 − 13 + 25) ÷ (180 + 25))`（原版 `GridLayoutGroup` 柔性格）");
                         var av = pp.Page(WindowTabType.ProfileAvatar) as AvatarTab;
-                        CheckTrue(av != null && av.BuiltCells > 0 && av.BuiltCells < 40,
-                                  $"头像网格**只建了看得见的格子**（实得 {(av != null ? av.BuiltCells : -1)} 个；469 条全建会卡）");
+                        // 🔴 **2026-10-25（执行代理 V · 铁律 5 就地翻面）**：本条原来断「**只建看得见的格子**」
+                        //   （`BuiltCells > 0 && < 40`）—— **那是我们自加的口径**。原版
+                        //   `AvatarTab__InitializeGameObjects.c:140-160`（`:152` = 那句 `Instantiate`）对
+                        //   **过滤后的全表**逐格生成、**没有任何视口判据** ⇒ 期望翻面成「**全表全建**」。
+                        //   ⚠️ 视口外那些格的**图形与文字**由 `MenuDraw` 那条全工程通用的
+                        //   「整块在视口外 ⇒ 连节点一起不建」（A798）跳过 ⇒ 那几格是**空壳节点**
+                        //   （与原版 `RectMask2D`「建了但看不见」视觉等价）；**节点数恒 = 全表**。
+                        //   🧨 把 `AvatarTab.BuildRows` 那句 `if (!_scroll.Intersects(r)) continue;` 加回来 ⇒ 本条红。
+                        Check(av != null ? av.BuiltCells : -1, ProfileData.Avatars.Count,
+                              $"头像网格**全表 {ProfileData.Avatars.Count} 格全部建出**（原版逐格 `Instantiate`、无视口判据；"
+                            + $"视口外的靠 `MenuDraw` 的裁剪闸跳过图形，节点照建）（实得 {(av != null ? av.BuiltCells : -1)} 个）");
                         Check(ProfileData.Avatars.Count, 469, "头像清单 **469** 条（原版可选头像 SO 的实数）");
 
                         // 🆕 2026-10-07（波 8 · Label 折行族）—— A62 子表 A · A28/A29/A30 + §③（A31 那一处「碰巧对」）
@@ -7250,6 +7259,12 @@ public static class MainMenuScene
                                 OwnName = "Test Commander", EnemyName = "Bot",
                                 OwnSkulls = 3, EnemySkulls = 1,
                                 OwnScore = "987 (+12)", EnemyScore = "Gold IV", Mode = "Skirmish mode",
+                                // 🆕 **2026-10-25（`C5 Q5.3`）**：这一行**有录像** ⇒ 回放钮可点
+                                //   （下面那两条 `repHit` / `repBtn` 的前提）。判据 = 原版
+                                //   `BattleLogItem__Initialize.c:206-208`：`interactable = replaysVersion != "-1"`；
+                                //   我们这一侧的映射 = `Match.ReplayFile` 非空（判据只一份：`ReplayStore.ReplayAvailable`）。
+                                //   ⛔ 别把这一格删掉 —— 删了 `Hit` 就不建，那两条断言会红（那正是门槛在起作用）。
+                                ReplayFile = "__row_template_probe__.json",
                             });
                             tab3.RebuildRows();
                             Check(tab3.BuiltRows, 1, "喂一条 ⇒ **建出一行**（原版是 `Instantiate(logPrefab, holder)`）");
@@ -14800,6 +14815,11 @@ public static class MainMenuScene
                             OwnName = "Feed " + i, EnemyName = "Bot",
                             OwnSkulls = 1, EnemySkulls = 0, OwnScore = "1", EnemyScore = "2",
                             Mode = "Skirmish mode",
+                            // 🆕 **2026-10-25（`C5 Q5.3`）**：`Q5.3` 的门槛接上之后，**没有录像的行不再建
+                            //   `ReplayButton/Hit`** ⇒ 这六行必须**带一个录像名**，否则下面那条
+                            //   「列表末行的 `ReplayButton` 命中区也在」会红（它验的是**滚动后点得到**，
+                            //   不是「没有录像也点得到」）。
+                            ReplayFile = "__feed_probe_" + i + "__.json",
                         });
                     blp.RebuildForTest();
                     const float FTop = 130f, FBot = 963f;      // = `ViewportR`（原版值）
@@ -15120,6 +15140,147 @@ public static class MainMenuScene
                         blp.RebuildForTest();
                         Check(blp.BuiltRows, 0, "A833 那一块收尾：清空 ⇒ 行又没了（不留假数据，滚动偏移也回到 0）");
                     }
+                }
+
+                // ============================================================ 🆕 2026-10-25（`C5 Q5.3` + `Q5.1` · 壳侧那一跳）
+                // 判据（第一权威 = 反编译方法体 + 字符串字面量表）：
+                //  · **门槛** = 原版 `BattleLogItem__Initialize.c:206-208`：`interactable = (replaysVersion != "-1")`
+                //    （哨兵 `DAT_184288ae8` → RVA `0x4288AE8` → `il2cpp_out/stringliteral.json` = `"-1"`）；
+                //  · **失败弹窗** = `BattleLogItem.__c___ClickReplayButton_b__15_0.c:20-26`：
+                //    `ShowPopUp(<CustomErrors/ErrorLoadReplay>, localizeTexts:1, closeOnEsc:1, <MainMenu/General/OK>, …)`。
+                // ⚠️ 这一节的点击**走生产那条路**（行上 `ReplayButton/Hit` → `Shell/MatchLogRow.cs` 的 `OnReplay`），
+                //    ⛔ 不是直调 `ReplayStore.Load` —— 那样验不到「玩家点得到 / 点不到」。
+                {
+                    // ---- ① 纯函数真值表（最便宜的一条）----
+                    CheckTrue(!ReplayStore.ReplayAvailable("") && !ReplayStore.ReplayAvailable(null)
+                              && !ReplayStore.ReplayAvailable(ReplayStore.NoReplaySentinel),
+                              "Q5.3 真值表：空串 / `null` / 哨兵 `\"-1\"` ⇒ **没有回放**"
+                            + "（原版 `interactable = replaysVersion != \"-1\"`；我们这一侧的映射 = `Match.ReplayFile`）");
+                    CheckTrue(ReplayStore.ReplayAvailable("abc.json") && ReplayStore.ReplayAvailable("4"),
+                              "Q5.3 真值表：其它任何值 ⇒ **有回放**"
+                            + "（⚠️ 与 `ReplayRecord.version` 无关 —— 那是**录像文件格式**的版本号，不是这道门槛）");
+
+                    // 夹具：三行只差 `ReplayFile` 那一格
+                    BattleLogData.Match MkQ5(string replayFile) => new BattleLogData.Match
+                    {
+                        Result = BattleLogData.Outcome.Victory,
+                        OwnHeroName = "Uriel Ventris", EnemyHeroName = "Ghazghkull Thraka",
+                        OwnName = "Q5 probe", EnemyName = "Bot",
+                        OwnSkulls = 1, EnemySkulls = 0, OwnScore = "1", EnemyScore = "2",
+                        Mode = "Skirmish mode", ReplayFile = replayFile,
+                    };
+                    var q5Vp = FindChild(FindChild(FindChild(blp.transform, "Content"), "Matches"), "Viewport");
+                    Transform Q5Row() => FindChild(FindChild(q5Vp, "Content"), "Match Log");
+
+                    // ---- ② 行级：有录像 ⇒ 有 `Hit`；没录像 ⇒ **连 `Hit` 都不建** ----
+                    ReplayStore.ResetNoReplayWarningsForTest();
+                    BattleLogData.ResetForTest();
+                    BattleLogData.Add(MkQ5("__q5_has__.json"));
+                    blp.RebuildForTest();
+                    var q5RowHas = Q5Row();
+                    var q5HitHas = q5RowHas != null ? FindChild(FindChild(q5RowHas, "ReplayButton"), "Hit") : null;
+                    CheckTrue(q5HitHas != null && q5HitHas.GetComponent<WindowButton>() != null,
+                              "★★ Q5.3（有录像）`ReplayButton` 下**有命中区**（= 原版 `interactable = true` 那一档）");
+
+                    BattleLogData.ResetForTest();
+                    BattleLogData.Add(MkQ5(""));                    // 空 = 没有回放（判据见 ①）
+                    blp.RebuildForTest();
+                    var q5RowNone = Q5Row();
+                    CheckTrue(q5RowNone != null && FindChild(q5RowNone, "ReplayButton") != null,
+                              "（前提）Q5.3（没录像）`ReplayButton` 的**图还在**（门槛只管「点不点得到」，不藏钮）");
+                    CheckTrue(q5RowNone != null && FindChild(FindChild(q5RowNone, "ReplayButton"), "Hit") == null,
+                              "★★ Q5.3（没录像）`ReplayButton` 下**没有命中区** ⇒ **点不到**"
+                            + "（= 原版 `interactable = false` 的等价物；`PointerLayer` 的命中表只收 `ImageQuad`/`WindowButton`）"
+                            + "｜🧨 把 `Shell/MatchLogRow.cs` 那句 `if (canReplay)` 拆掉（永远建 `Hit`）⇒ 本条红"
+                            + "；🧨 把 `ReplayStore.ReplayAvailable` 改成恒 `true` ⇒ 本条也红（灭自证的另一面）");
+
+                    // ---- ③ `OnReplay` 读盘失败 ⇒ 弹原版那扇窗 + **不进回放**；负例 = 正常文件不弹 ----
+                    var q5Wm = WindowsManager.Instance;      // 前面 `menu.OpenBattleLogPopup()` 已经 `EnsureHost` 过
+                    CheckTrue(q5Wm != null, "（前提）Q5.1/Q5.3：`WindowsManager.Instance` 在（弹窗要它当宿主）");
+                    string q5Dir = Path.Combine(Path.GetTempPath(),
+                                                "wf_q5_shell_" + System.Guid.NewGuid().ToString("N"));
+                    Directory.CreateDirectory(q5Dir);
+                    string q5OldDir = ReplayStore.OverrideDir;
+                    bool q5OldSuppress = MatchLogRow.SuppressSceneLoadForTest;
+                    try
+                    {
+                        ReplayStore.OverrideDir = q5Dir;               // ⛔ 不碰玩家真录像目录
+                        MatchLogRow.SuppressSceneLoadForTest = true;   // 批处理里 `LoadScene` 会把整个夹具换掉
+                        ReplayStore.PendingPlay = null;
+                        MatchLogRow.LastReplaySceneForTest = null;
+
+                        // ③-a 失败档：文件不存在 ⇒ `ReplayStore.Load` 回 null
+                        BattleLogData.ResetForTest();
+                        BattleLogData.Add(MkQ5("__q5_missing__.json"));
+                        blp.RebuildForTest();
+                        var q5RowFail = Q5Row();
+                        var q5FailHit = q5RowFail != null ? FindChild(FindChild(q5RowFail, "ReplayButton"), "Hit") : null;
+                        var q5FailBtn = q5FailHit != null ? q5FailHit.GetComponent<WindowButton>() : null;
+                        CheckTrue(q5FailBtn != null && q5FailBtn.onClick != null,
+                                  "（前提）Q5.1：失败档那一行的回放钮**点得到**（否则这一组等于没验）");
+                        if (q5FailBtn != null) q5FailBtn.Click();
+
+                        var q5Pop = q5Wm != null ? q5Wm.popUpWindow as PopUpGameWindow : null;
+                        CheckTrue(q5Pop != null, "★ Q5.1（壳侧）读盘失败 ⇒ **弹出一扇消息窗**"
+                                               + "（改之前这里只有一行 `LogWarning` ⇒ 玩家真实这条路上**一扇窗都看不到**）");
+                        Check(q5Pop != null ? q5Pop.MessageKey : null, BattleDriver.ReplayErrorKey,
+                              "…正文键 = 原版 `CustomErrors/ErrorLoadReplay`（`DAT_18425d1a8` → RVA `0x425D1A8`）");
+                        Check(q5Pop != null ? q5Pop.PrimaryKey : null, BattleDriver.ReplayErrorOkKey,
+                              "…那颗钮 = `MainMenu/General/OK`（`DAT_1842be718` → RVA `0x42BE718`）");
+                        string q5Zh = Loc.T(BattleDriver.ReplayErrorKey);
+                        Check(q5Pop != null ? q5Pop.MessageShown : null, q5Zh,
+                              $"…正文是**本地化后**的「{q5Zh}」"
+                            + $"（实得 `{(q5Pop != null ? q5Pop.MessageShown : "<没弹窗>")}`）");
+                        CheckTrue(q5Pop != null && !string.IsNullOrEmpty(q5Pop.MessageShown)
+                                  && q5Pop.MessageShown != BattleDriver.ReplayErrorKey,
+                                  "★ 灭自证：印的**不是键名本身**"
+                                + "｜🧨 把 `PopUpGameWindow.Term` 末句改回 `return key ?? \"\"` ⇒ 本两条红");
+                        CheckTrue(q5Pop != null && q5Pop.closeOnEsc,
+                                  "★ …而且 **ESC 关得掉**：原版那一处传的是 `closeOnEsc: 1`"
+                                + "（`BattleLogItem.__c___ClickReplayButton_b__15_0.c:24` 的第 3 个实参 1；"
+                                + "形参名见 `d:/2/Warpforge_code/Scripts/Assembly-CSharp/WindowsManager.cs:327`）");
+                        CheckTrue(ReplayStore.PendingPlay == null && MatchLogRow.LastReplaySceneForTest == null,
+                                  "…而且**没进回放**（`PendingPlay` 仍空、一个场景都没切）");
+                        if (q5Pop != null)
+                        {
+                            q5Pop.Close();                               // 先摘表（`NotifyClosed` 清 `popUpWindow`）
+                            UnityEngine.Object.DestroyImmediate(q5Pop.gameObject);   // 批处理里 `Destroy` 不生效
+                        }
+
+                        // ③-b 负例：**正常录像 ⇒ 一扇窗都不弹**（切场景那一跳由自检口挡掉，见 `SuppressSceneLoadForTest`）
+                        var q5Rec = new ReplayRecord();                   // version = `ReplayRecord.version`（认识的）
+                        string q5Name = ReplayStore.Save(q5Rec);
+                        CheckTrue(!string.IsNullOrEmpty(q5Name) && ReplayStore.ReplayAvailable(q5Name),
+                                  "（前提）Q5.1（负例）先写出一份**合法录像**（落进自检临时目录）");
+                        BattleLogData.ResetForTest();
+                        BattleLogData.Add(MkQ5(q5Name));
+                        blp.RebuildForTest();
+                        var q5RowGood = Q5Row();
+                        var q5GoodHit = q5RowGood != null ? FindChild(FindChild(q5RowGood, "ReplayButton"), "Hit") : null;
+                        var q5GoodBtn = q5GoodHit != null ? q5GoodHit.GetComponent<WindowButton>() : null;
+                        CheckTrue(q5GoodBtn != null, "（前提）Q5.1（负例）正常录像那一行的回放钮点得到");
+                        if (q5GoodBtn != null) q5GoodBtn.Click();
+                        CheckTrue(ReplayStore.PendingPlay != null,
+                                  "Q5.1（负例·前提）合法录像 ⇒ **真的进回放了**（`PendingPlay` 已挂上）");
+                        Check(MatchLogRow.LastReplaySceneForTest, "Battle",
+                              "…而且切场景那一跳选的是 `Battle`（这份夹具没有开局头 ⇒ 兜底；"
+                            + $"实得 `{MatchLogRow.LastReplaySceneForTest}`）");
+                        var q5Pop2 = q5Wm != null ? q5Wm.popUpWindow as PopUpGameWindow : null;
+                        CheckTrue(q5Pop2 == null,
+                                  "★★ Q5.1（负例）**正常录像一扇窗都不弹**"
+                                + "｜🧨 把弹窗挪到无条件支（或拆掉 `if (rec == null)`）⇒ 本条红");
+                    }
+                    finally
+                    {
+                        MatchLogRow.SuppressSceneLoadForTest = q5OldSuppress;
+                        ReplayStore.OverrideDir = q5OldDir;
+                        ReplayStore.PendingPlay = null;
+                        MatchLogRow.LastReplaySceneForTest = null;
+                        try { if (Directory.Exists(q5Dir)) Directory.Delete(q5Dir, true); } catch { }
+                    }
+                    BattleLogData.ResetForTest();
+                    blp.RebuildForTest();
+                    Check(blp.BuiltRows, 0, "Q5.1/Q5.3 那一块收尾：清空 ⇒ 行又没了（不留假数据）");
                 }
                 Check(blp.MissingArt.Count, 0, "弹窗**没有取不到的图**");
                 CheckHoverSwap(blp.transform, "战斗日志弹窗");
@@ -17036,7 +17197,13 @@ public static class MainMenuScene
                 // ---- ① 窗参 = 根 MB `MonoBehaviour_-1838579764277826042.json` 逐字段实读 ----
                 Check(pw.type, WindowType.Fullscreen, "活动承载窗 `type` = **0**（Fullscreen）");
                 Check(pw.placement, WindowsPlacement.Popup, "活动承载窗 `windowsPlacement` = **15**（Popup）");
-                CheckTrue(!pw.closeOnEsc, "活动承载窗 `closeOnESC` = **0**（Two Sides 那份 MB `-1838579764277826042`）");
+                // 🔴 **2026-10-25（新账-103）就地翻面（铁律 5）**：本行原来是 `CheckTrue(!pw.closeOnEsc, … = 0)`。
+                //   现按【基座 `Parent Event Window`】那份 MB（`6349037533193994564`，实读 `closeOnESC = 1`）取 **1**
+                //   —— 与 `updateNavPanel` 同一条口径（这一件 = 基座外壳 + Two Sides 两页，窗参取外壳那份）。
+                //   行为断言（ESC 真的关掉窗 + 灯回 `Main`）在本节末尾那条；本行只钉**窗参本身**。
+                CheckTrue(pw.closeOnEsc,
+                          "活动承载窗 `closeOnESC` = **1**（基座 `Parent Event Window` MB `6349037533193994564` 实读）"
+                        + "｜🧨 改回 `0` ⇒ 下面「ESC 关得掉活动窗」那条也一起红");
                 // 🔴 **2026-10-23（W62②）就地改口径（铁律 5）**：本行原来是 `CheckTrue(!pw.updateNavPanel, … = 0)`。
                 //   现在按调度台裁定取**基座 `Parent Event Window`** 那份 MB（`6349037533193994564`）的 **`1`**
                 //   —— Two Sides 那份是 `0`，但它只是「两页内容」的来源、不是本窗外壳的窗参来源。
@@ -17515,9 +17682,9 @@ public static class MainMenuScene
                 //   `SetMainToggle(Main)` ⇒ **左竖导航灯回 `Main`**（不改 ⇒ 灯停在 `Event`）。
                 // 本仓这一扇 = 「基座外壳 + Two Sides 两页」的组合（见 `ParentEventWindow` 文件头）⇒
                 //   `updateNavPanel` 按 2026-10-23 裁定取**基座那份**（`ParentEventWindow.ParamsUpdateNavPanel = true`）。
-                // ⚠️ **夹具**：本窗的 `closeOnEsc` 仍取 Two Sides 那份（`0`）⇒ 本条显式把**前两道门槛**备好
-                //   （`PointerLayer.InputEnabled` + `evt.closeOnEsc = true`），**只让 `updateNavPanel` 这一个变量动**。
-                //   （`closeOnEsc = 0` 本身是另一条口径、不在本条射程内 —— 见 `ParentEventWindow.cs` 那条注释。）
+                // 🔴 **2026-10-25（新账-103 · 就地改夹具，铁律 5）**：本窗 `closeOnEsc` 原来取 Two Sides 那份（`0`），
+                //   本段靠 `evt.closeOnEsc = true` 把第二道门槛**借**过来。现在窗参已照基座对齐成 `1`
+                //   ⇒ **夹具撤销**，第二道门槛走的是**窗自己那条真值**（下面补了一条断言钉住它）。
                 // 🔴 **2026-10-24（用户口径）**：下面两条的**中途灯**从第 6 颗换成第 2 颗 `Collection`
                 //   （第 6 颗已隐藏、灯不可能停在 5）—— 断的仍只有 `updateNavPanel` 这一格，鉴别力不变。
                 if (evt != null)
@@ -17530,7 +17697,9 @@ public static class MainMenuScene
                               "…`Create()` 把它写进了窗实例（`win.updateNavPanel = ParamsUpdateNavPanel`）");
                     CheckTrue(PointerLayer.InputEnabled,
                               "（前提）输入层启用 —— `GameWindow.ESCPressed` 的第一道门槛");
-                    evt.closeOnEsc = true;           // 夹具（本条只验第三道门槛；见上面那段）
+                    CheckTrue(evt.closeOnEsc,
+                              "（前提·**窗自己的真值**，⛔ 不是夹具）`evt.closeOnEsc = true` —— 第二道门槛天然通过；"
+                            + "｜🧨 把 `ParamsCloseOnEsc` 改回 `false` ⇒ 本条 + 下面「ESC 真的关掉了」一起红");
                     // 🔴 **2026-10-24（用户口径 · 就地改夹具，铁律 5）**：这一条原来靠「灯先停在 `Event`（第 6 颗）」
                     //   来分「ESC 会不会拨灯」。第 6 颗**已隐藏** ⇒ 灯**不可能**停在 5（`SelectNav(5)` 是 no-op）。
                     //   ⇒ 中途灯改成**第 2 颗 `Collection`**（它是可见的那两颗之一、`SetNavToggle(Collection)`
@@ -17554,7 +17723,8 @@ public static class MainMenuScene
                     CheckTrue(evt2 != null, "（前提）灭自证：另开一扇活动窗（上一扇已关，`OpenByRef` 不复用）");
                     if (evt2 != null)
                     {
-                        evt2.closeOnEsc = true;        // 夹具（同上）
+                        CheckTrue(evt2.closeOnEsc,
+                                  "（前提）灭自证：新那扇的 `closeOnEsc` 也是**真值 true**（⛔ 不再靠夹具 —— 2026-10-25 新账-103）");
                         evt2.updateNavPanel = false;   // 👈 只翻这一格（= 今天之前那个值）
                         // 中途灯 = `Collection`（第 2 颗，可见）—— 同上一段那条 2026-10-24 的替换说明
                         MainMenuRuntime.SetNavToggle(MainMenuRuntime.NavigationPanelToggleType.Collection);

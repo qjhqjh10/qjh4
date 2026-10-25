@@ -1774,6 +1774,18 @@ namespace RuleEngine
                         }
                     }
                     else if (CreatePool.IsKindWord(s)) c.KindWord = s;   // 兵种/牌类词（唯一判据）
+                    // 🔴🆕 **2026-10-25（执行代理 `E6` · `E5-5` 的 `60` 那一行）：`warlord` 不是兵种词**
+                    //   —— `CreatePool.IsKindWord("warlord")` 为假（`KindWords` 里没有它，卡池也没有督军），
+                    //   于是它原来落到下面那行 `c.Name = "warlord"` ⇒ **按卡名全等匹配**
+                    //   ⇒ 没有任何一张卡叫 `warlord` ⇒ 这条监听器**永远不响、且不报错**。
+                    //   实测 = `BL8 Noise Marine`（`When your Warlord receives damage, …`，
+                    //   `crit.Name` 现读就是 `"warlord"`，`Matches(督军)` 恒 `false`）。
+                    //   ⇒ 落到与 **`CardCriteria.FromTarget` 完全同一条**口径（那一处早就这么做了，
+                    //   注释见 `CardCriteria.WarlordOnly` 的 doc：「`warlord` 不是兵种词 ⇒ 独立维度」）。
+                    //   ⚠️ 池内 `When` 短语的主语里出现 `warlord` 的**只有** `BL8` 一张
+                    //   （另 4 张是效果正文里的 `deal … to the enemy Warlord` / `give … to your Warlord`，
+                    //    走 `EffectTargetSpec` → `FromTarget`，**不经过本方法**）⇒ 安全边界明确。
+                    else if (s == "warlord") c.WarlordOnly = true;    // `When your Warlord …`
                     else c.Name = s;                                // 否则当卡名（全等匹配，见 CardCriteria.Name）
                 }
                 if (!string.IsNullOrEmpty(kw)) c.Keyword = kw;

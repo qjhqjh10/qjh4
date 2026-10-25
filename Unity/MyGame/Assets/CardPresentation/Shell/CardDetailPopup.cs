@@ -1061,6 +1061,17 @@ namespace CardPresentation
             if (a == null || b == null) return;
             _swapping = true;
 
+            // 🆕 **2026-10-25（执行代理 D · `D8`）：换位音 `CardMove`** —— 判据 = 原版
+            //   `CardDisplayWindow__ChangeCardPosition.c:68-73`：`SetupTutorialObj` / `+0x150 = 1`（换位状态置真）
+            //   **之后**、两条换位补间（`DOTween.Sequence`）**之前**，一声
+            //   `SoundManager.Play2D(<soundOnCardSwap>, MixerType 0 = FX)`。本窗的根 MB 与战斗那扇**同一个 pid（2033）**
+            //   ⇒ cue 名同 `CardDisplayWindow.SwapSoundCue`（`Battle/CardDisplayWindow.cs:249`，数据侧
+            //   `Resources/animfx_sounds.json` 的 `CardMove`：4 个 clip）。
+            //   ⚠️ **位置是判据的一部分**：⛔ 别挪到 `OnComplete`（那是 `CardSwapFinished`），也别挪到补间之后。
+            //   播放口 = `WindowSounds.PlayFx`（`WFSoundPlayer` 挂 FX 组；参数与战斗那扇逐字同形）。
+            WindowSounds.PlayFx(CardDisplayWindow.SwapSoundCue,
+                                "[CardDetail] 换位音（原版 `soundOnCardSwap` → `CardMove`）");
+
             // 🔴 **2026-10-22（卡牌线 `T04`）：换位【一开始】就换「谁能溢出」。**
             //    原版 `CardDisplayWindow__ChangeCardPosition.c:75-79`（亲读）——
             //    `BasicCardUI__SetImageOverDraw(cardInFront, 0)` ⇒ 让位那张收回；

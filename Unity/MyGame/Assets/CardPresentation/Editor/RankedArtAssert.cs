@@ -17,7 +17,12 @@
 //  ＋ 调度台定的红线：**⛔ 不许再拿『前缀顺序』当唯一依据**。
 //
 //  本文件断的事（每一条都写清「🧨 怎么改会红」）：
-//   A·1 段位表 = **7 项**，且每项的**两位前缀序号 == 它在表里的位置**（🧨 重排表 ⇒ 红）
+//   A·1 段位表 = **7 项**，且**逐项等于**原版 `RankedDivisionsSO` 的 `divisionNumber → image` 查表结果
+//       （🔴 **2026-10-25 执行代理 D（`D4`）：已拿到第一手字节证据**，⛔ 不再是「名字带序号前缀」那种推断 ——
+//        `d:/2/tools/assetripper_out/ExportedProject/Assets/MonoBehaviour/RankedDivisionsSO.asset` 的
+//        `divisions` 是 7 条 `{ divisionNumber: 1..7, image.m_AssetGUID: <guid> }`；每张 Sprite 的 YAML 里
+//        `m_RenderDataKey: { <guid>: 21300000 }` 正好等于它自己的源资产 GUID、`m_Name` 就是资产名
+//        ⇒ 逐号对应见下面 `DivGuidHead` / `RankGuidHead` 两张表；🧨 重排表 / 换一项 ⇒ 红）
 //   A·2 **两个实测锚点**：`DivisionArtName(4) == "04-Admiral"` · `DivisionArtName(7) == "07-Legend"`
 //       （证据：`账户-个人资料参考图.png` 的「当前排名 金 II」徽记 ↔ 04 = NCC 0.707 / 次优 0.577；
 //        `多人模式-经典-界面参考图.png` 左列「排名 / 传奇」徽记 ↔ 07 = NCC **0.939** / 次优 0.751。
@@ -39,7 +44,10 @@
 //       🧨 有人顺手把它点亮、又没有真名次数据 ⇒ 红
 //
 //  🔴 **期望值从哪来**（⛔ 不许拿我们自己的常量证明自己的实现）：
-//    段位/名次图名 = **解包资源里的原始文件名**（`bundle_rankeddivisionicons_assets_all/Texture2D/`，13 张）；
+//    段位/名次图名 = **第一手查表**：`d:/2/tools/assetripper_out/ExportedProject/Assets/MonoBehaviour/
+//      RankedDivisionsSO.asset` 的 `divisions`（7 条）/ `ranks`（6 条）各是 `{ divisionNumber, m_AssetGUID }`；
+//      每张 Sprite 的 `m_RenderDataKey.guid` 与之一一相等、`m_Name` 给出资产名
+//      （同时与解包目录 `bundle_rankeddivisionicons_assets_all/Texture2D/` 那 13 个原始文件名一致）；
 //    档号 = 官方本地化 `Ranked/Division/N` 的**条数**（7）与**顺序**；
 //    几何 = 原版 prefab 的 `m_SizeDelta` / `m_PreserveAspect`（`menu_dump.py` 现读那一行）；
 //    两个锚点 = **原版实拍截图**的像素比对（NCC），见 A·2。
@@ -111,22 +119,32 @@ public static class RankedArtAssert
             "01-Rook", "02-Veteran", "03-Commander", "04-Admiral",
             "05-Conqueror", "06-Galactic_Threat", "07-Legend",
         };
+        // 🔴 **2026-10-25 执行代理 D（`D4`）**：每一档的**源资产 GUID**（`RankedDivisionsSO.asset` 的
+        //   `divisions[n].image.m_AssetGUID`，与对应 Sprite 自己的 `m_RenderDataKey.guid` 逐条相等）。
+        //   ⛔ 这不是「我们挑的」：两份文件里的字符串**逐字节相同**，复算脚本见
+        //   `资料/普查产出_1025/D_界面线_执行报告.md` §D4。运行时拿不到 Unity GUID，所以这里只把它
+        //   写进断言文案（= 出处留痕）；真正被断的是 `DivisionArtName(n)` 的**逐项精确值**。
+        var guidHead = new[]
+        {
+            "541a2e07", "cfab7727", "80afab2f", "c8be32f4", "225606b2", "52405d32", "b075dd3b",
+        };
 
         Ok(RankedDivisionInfo.DivisionArtCount == 7,
-           $"★ A·1 段位表 = **7 项**（原版 7 大段位；实测 {RankedDivisionInfo.DivisionArtCount}）"
+           $"★ A·1 段位表 = **7 项**（原版 `RankedDivisionsSO.divisions` 就是 7 条；实测 {RankedDivisionInfo.DivisionArtCount}）"
          + "｜🧨 少一档 / 多一档 ⇒ 红");
 
-        bool allPrefix = true;
+        bool boundsOk = true;
         for (int i = 0; i < want.Length; i++)
         {
             string got = RankedDivisionInfo.DivisionArtName(i + 1);
-            if (got != want[i]) allPrefix = false;
+            if (got != want[i]) boundsOk = false;
             Ok(got == want[i],
-               $"★ A·1 第 {i + 1} 档 = `{want[i]}`（原版资源文件名，`bundle_rankeddivisionicons_assets_all/Texture2D/`）"
-             + $"—— 实测 `{got ?? "<null>"}`｜🧨 表里换了顺序 / 少了一项 ⇒ 红");
+               $"★ A·1 第 {i + 1} 档 = `{want[i]}`（原版 SO `divisionNumber = {i + 1}` → `m_AssetGUID {guidHead[i]}…`"
+             + $" → Sprite `m_Name`）—— 实测 `{got ?? "<null>"}`"
+             + "｜🧨 表里换了顺序 / 换了一项 ⇒ 红（⛔ 别再拿「名字前缀」当依据：这里断的是 SO 查表结果）");
         }
-        Ok(allPrefix && RankedDivisionInfo.DivisionArtName(0) == null
-                     && RankedDivisionInfo.DivisionArtName(8) == null,
+        Ok(boundsOk && RankedDivisionInfo.DivisionArtName(0) == null
+                    && RankedDivisionInfo.DivisionArtName(8) == null,
            "★ A·1b 越界（0 与 8）**返回 null**（调用方据此出声、⛔ 不拿别的段位顶替）"
          + $"｜🧨 改成 `Clamp` / 取模 ⇒ 越界会静默画出别的段位 ⇒ 红");
 
@@ -156,15 +174,22 @@ public static class RankedArtAssert
     static void CheckRankTable()
     {
         var want = new[] { "Roman_I", "Roman_II", "Roman_III", "Roman_IV", "Roman_V", "Roman_VI" };
+        // 🔴 同上（D4）：`RankedDivisionsSO.ranks[n].image.m_AssetGUID` 的前 8 位（与每张 Sprite 的
+        //   `m_RenderDataKey.guid` 逐条相等）—— 出处留痕，不是我们挑的值。
+        var guidHead = new[]
+        {
+            "46c79894", "f4304ddc", "ee72f98c", "bbe7723d", "06f63a9c", "49724dc8",
+        };
         Ok(RankedDivisionInfo.RankArtCount == 6,
-           $"★ A·6 名次表 = **6 项**（官方 `Ranked/Rank/1..6` = `I…VI`，与 6 张图**同数**；"
+           $"★ A·6 名次表 = **6 项**（原版 `RankedDivisionsSO.ranks` = 6 条；官方 `Ranked/Rank/1..6` = `I…VI`；"
          + $"实测 {RankedDivisionInfo.RankArtCount}）｜🧨 与段位族混成一张表 ⇒ 红");
 
         for (int i = 0; i < want.Length; i++)
         {
             string got = RankedDivisionInfo.RankArtName(i + 1);
             Ok(got == want[i],
-               $"★ A·6 名次 {i + 1} = `{want[i]}`（原版资源文件名）—— 实测 `{got ?? "<null>"}`");
+               $"★ A·6 名次 {i + 1} = `{want[i]}`（原版 SO `ranks` 第 {i + 1} 条 → `m_AssetGUID {guidHead[i]}…`"
+             + $" → Sprite `m_Name`）—— 实测 `{got ?? "<null>"}`");
         }
         Ok(RankedDivisionInfo.RankArtName(0) == null && RankedDivisionInfo.RankArtName(7) == null,
            "★ A·6b 名次号越界（0 与 7）**返回 null**｜🧨 取模 ⇒ 红");

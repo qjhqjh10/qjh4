@@ -34,7 +34,7 @@ public static class NetBattleTest
     // ==================================================================
     //  一个「裸 context」的联机宿主（真对局走的是 `BattleDriver`，接口同一套）
     // ==================================================================
-    class BareHost : INetBattleHost
+    class BareHost : INetBattleHost, INetChatHost
     {
         public BattleContext Ctx { get; set; }
         public bool Replayed; public string LastSay;
@@ -67,6 +67,12 @@ public static class NetBattleTest
             return NetApply.Apply(Ctx, m, MySeat, s => Debug.Log(P + "  · " + s));
         }
         public void NetSay(string s) { LastSay = s; }
+
+        /// <summary>🆕 **2026-10-25（执行代理 `CH`）**：**对面督军说过的每一句**（`NetRemoteChat` 收到的
+        /// `chatId`，按到达顺序）。它在本自检里扮演真宿主的「显示」那一半 ——
+        /// 断言只数它（= 显示了几次），⛔ 不去猜气泡长什么样（那是 `BattleScene.Run` 那一侧的事）。</summary>
+        public readonly List<int> Chats = new List<int>();
+        public void NetRemoteChat(int chatId) { Chats.Add(chatId); }
         /// <summary>对面投降 ⇒ 判**对面**负。
         /// 🔴 **2026-10-18 订正**：原来这里把座位写死成 `1`（「1 号位 = 对面」）—— 那只对 `MySeat == 0` 成立。
         ///    改成 `1 - MySeat`（与真宿主 `BattleDriver.NetRemoteResign` 的 `1 - _me` **同口径**）。
@@ -288,6 +294,76 @@ public static class NetBattleTest
                        "★ 防御卡**换进手牌**那一步也两端一致（只同步下标的话这一步会缺）");
                 Ok(true, $"（这一节：先手 = 座位 {firstSeat}、后手 = 座位 {secondSeat}；"
                        + $"防御卡 Id = `{defId ?? "<卡池里没有 defence 卡>"}`）");
+            }
+
+            // ---- 4c) 🆕 2026-10-25（执行代理 `CH`）：**对手聊天（联机收发）** ★ ----
+            //   判据 → `NetChat` 文件头（`BattleCommsManager__SendChatMessage.c:20-37` 单 int RPC ·
+            //   `PUNReceiveChatMessage.c:20-26` 的发送者过滤 · `VoiceLinesController__DisplayWarlordChatMessage.c`
+            //   的 `isLocal != 0` 发送支（= 回环防护）与 `chatId 0/1` 两道闸）。
+            //   ⚠️ 这里只验**我们这条线上的四件事**（发/收/过滤/越界）。
+            //      显示长什么样（气泡/语音/打字机）与「第 5 条 SmallTip」在宿主那一侧 ——
+            //      本夹具的 `BareHost` 只记「收到几句」（见 `BareHost.Chats`），那是**故意的**：
+            //      这一节不许把「显示」也自证了。
+            {
+                int hostChat0 = hb.Chats.Count, cliChat0 = cb.Chats.Count;
+                Ok(hostChat0 == 0 && cliChat0 == 0,
+                   "★（聊天负例基线）还没人说话 ⇒ 两端一次显示都没有");
+
+                // ① 客机说第 8 句 ⇒ 主机显示**一次**；说话那一端**不被自己那条再显示一遍**
+                cNB.OnLocalChat(8);
+                // 先等它到达（TCP 那一跳有排队，⛔ 别用固定短睡判「没到」），再多推一段让**重复**有机会露头。
+                bool chatArrived = PumpUntil2(hs, cs, hNB, cNB, () => hb.Chats.Count > hostChat0, 2000);
+                PumpBoth(hs, cs, hNB, cNB, 150);
+                Ok(chatArrived, "★ 客机发言 ⇒ 主机的收件口**收到了**（2 秒内）");
+                Eq(hb.Chats.Count, hostChat0 + 1, "★ …而且**只显示 1 次**（多推 150 ms 也没有第二条）");
+                Ok(hb.Chats.Count > 0 && hb.Chats[hb.Chats.Count - 1] == 8,
+                   $"★ …而且收到的就是**那一句**（实得 chatId = "
+                 + $"{(hb.Chats.Count > 0 ? hb.Chats[hb.Chats.Count - 1] : -1)}，应为 8）");
+                Eq(cb.Chats.Count, cliChat0,
+                   "★ 说话那一端**不会**把同一句再显示一遍（原版 `PUNReceiveChatMessage` 的发送者过滤）");
+
+                // ② 回环防护：**伪造「本机座位」的 chat** 打进来 ⇒ 不显示、**也不回发**
+                int hostBeforeEcho = hb.Chats.Count, cliBeforeEcho = cb.Chats.Count;
+                cs.Send(NetKind.Chat, new MsgChat { seat = 0, chatId = 7 });   // 客机冒充「座位 0」发来
+                PumpBoth(hs, cs, hNB, cNB, 200);                               // 负例：要给它**够**的时间到
+                Eq(hb.Chats.Count, hostBeforeEcho,
+                   "★ 带回**本机座位**的那条 ⇒ 主机**不显示**（发送者过滤）");
+                Eq(cb.Chats.Count, cliBeforeEcho,
+                   "★ …而且主机**没有把它回发**（回环防护 = 收到那一档根本不进发送支）");
+
+                // ③ 越界台词号 ⇒ 出声丢掉（⛔ 不许拿对端给的数去索引台词表/语音表）
+                cs.Send(NetKind.Chat, new MsgChat { seat = 1, chatId = 99 });
+                cs.Send(NetKind.Chat, new MsgChat { seat = 1, chatId = 0 });
+                PumpBoth(hs, cs, hNB, cNB, 200);
+                Eq(hb.Chats.Count, hostBeforeEcho,
+                   "★ `chatId=99` / `chatId=0` 那一档 ⇒ 主机**一句都不想显示**（两道都是越界）");
+
+                // ④ 对照：再来一条合法值 ⇒ 说明上面 ②③ **没有把通道堵死**（防「一律丢掉」也全绿）
+                hNB.OnLocalChat(NetChat.LastButtonChatId);
+                bool ctrlArrived = PumpUntil2(hs, cs, hNB, cNB, () => cb.Chats.Count > cliBeforeEcho, 2000);
+                PumpBoth(hs, cs, hNB, cNB, 100);
+                Ok(ctrlArrived, "★（对照）主机说第 10 句 ⇒ 客机**照样收到**（通道没被堵死）");
+                Eq(cb.Chats.Count, cliBeforeEcho + 1, "★（对照）…而且只收到 1 条");
+                Ok(cb.Chats.Count > 0 && cb.Chats[cb.Chats.Count - 1] == NetChat.LastButtonChatId,
+                   "★（对照）…收到的是第 10 句");
+
+                // ⑤ 本机发一条越界值 ⇒ **压根不发**（原版 `:65` 那两道闸的同族）
+                int hostBeforeBadLocal = hb.Chats.Count, cliBeforeBadLocal = cb.Chats.Count;
+                cNB.OnLocalChat(0);
+                PumpBoth(hs, cs, hNB, cNB, 200);
+                Eq(cb.Chats.Count, cliBeforeBadLocal, "★ 本机发 `chatId=0` ⇒ **一个字节都没出去**（对端没有回显）");
+                Eq(hb.Chats.Count, hostBeforeBadLocal, "★ …主机那边也没多出一句（同一个判据的另一侧）");
+
+                // ⑥ 判据原件（纯函数，不碰网络）：`NetChat.ShouldRecord` = 原版 `:138` 那三道闸
+                Ok(!NetChat.ShouldRecord(5, isReplay: true), "★ 判据：**回放（matchType 0xA0）不记**聊天动作");
+                Ok(!NetChat.ShouldRecord(0, isReplay: false) && !NetChat.ShouldRecord(4, isReplay: false),
+                   "★ 判据：`chatId == 0` / `chatId == 4` 不记（原版 `:138` 写死的那两个数）");
+                Ok(NetChat.ShouldRecord(5, isReplay: false) && NetChat.ShouldRecord(10, isReplay: false),
+                   "★ 判据：6 颗钮那一档（5…10）照记");
+                Ok(NetChat.ButtonIndex(NetChat.FirstButtonChatId) == 0
+                   && NetChat.ButtonIndex(NetChat.LastButtonChatId) == VoiceLines.ForChatButton.Length - 1,
+                   "★ 判据：`chatId 5…10` ⇄ 6 颗钮下标 0…5 一一对上"
+                 + "（`VoiceLinesPopupSelector__SetupChatOptions.c:54,112` 写死起点 5）");
             }
 
             // ---- 5) 脚本对打：谁的行动方谁就用引擎自己枚举出来的合法动作 ----

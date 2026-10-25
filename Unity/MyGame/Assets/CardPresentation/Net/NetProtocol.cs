@@ -163,6 +163,25 @@ namespace CardPresentation.Net
     /// <summary>🆕 **取消这一局的匹配**（A1）。⚠️ **我们设计的，不是复刻** —— 见 `NetKind.MatchCancel`。
     /// `reason` 只进日志（给对面看的那句话固定，不渲染对面传来的任意文本）。</summary>
     [Serializable] public class MsgMatchCancel { public string reason; }
+    /// <summary>🆕 **2026-10-25（执行代理 `CH`）：战斗内「督军聊天」那一条**。
+    ///
+    /// <para>**形状照原版**：`BattleCommsManager__SendChatMessage.c:20-37` 发的是
+    /// **一个 int（台词枚举号）装箱进 `object[]`** 的 Photon RPC ⇒ 语义上线上只有那一个数。
+    /// 我们再带一格 <see cref="seat"/> = **发送方座位**（绝对编号），因为
+    /// `PUNReceiveChatMessage.c:20-26` 那条「**是谁说的**」的过滤在原版是靠 Photon 的
+    /// 发送者标识做的，P2P 这边没有那一层，必须自己在消息里带上（⛔ 别拿「收到就是对面说的」代替：
+    /// 那条判据要在**测回显**时也成立）。</para>
+    ///
+    /// <para>⛔ **不带文本**（原版就不带：台词是**词条 + 语音资产**，两端各自按自己的语言取词）、
+    /// ⛔ **不带时长**（动作流水里那个 clip 长度是**收侧自己那颗 clip** 的长度，
+    /// 见 `NetChat` 文件头「④ 动作流水」那一格 —— 收侧按**它自己那颗 clip** 的长度记）、⛔ **不带 isEnemy**（= `seat != 本地座位`，一个数就够）。</para></summary>
+    [Serializable] public class MsgChat
+    {
+        /// <summary>谁说的 —— **绝对座位**（`0` = 主机 · `1` = 客机；两端同一套编号，⛔ 不翻）。</summary>
+        public int seat = -1;
+        /// <summary>台词枚举号（原版 `ChatMessage`：5…10 = 6 颗钮那一档，见 `NetChat.FirstButtonChatId`）。</summary>
+        public int chatId = -1;
+    }
     [Serializable] public class MsgHash { public int turn; public int hash; }
     [Serializable] public class MsgPing { public long t; }
     [Serializable] public class MsgBye { public string reason; }
@@ -194,6 +213,14 @@ namespace CardPresentation.Net
         public const string Mulligan  = "mulligan";
         public const string MulliganSync = "mulligan.sync";
         public const string Resign    = "resign";
+        /// <summary>🆕 **2026-10-25（执行代理 `CH`）**：战斗内「督军聊天」（原版 `BattleCommsManager`
+        /// 那条单 int RPC）。⚠️ **只在对局中发**，不落地、不改局面、不参与指纹。
+        /// <para>🔴 **为什么不 +`NetProtocol.Version`**（照同族先例 `NetWireText` 那段的口径）：
+        /// 我们没有改**任何既有消息**的格式，只是**新增一个 kind** —— 旧端收到它会走
+        /// `NetBattle.Dispatch` 末尾那句「不认识的联机消息」**出声**并丢掉（不崩、不影响对局）。
+        /// 为了一条**表现层**旁路把整条握手判死（版本不等时主机会直接拒绝）**代价不对等**。
+        /// ⚠️ 若以后要给 `MsgChat` 加字段（改形状），那就**必须** +版本（那才是「改消息格式」）。</para></summary>
+        public const string Chat      = "chat";
         public const string Hash      = "hash";
         public const string Ping      = "ping";
         public const string Pong      = "pong";

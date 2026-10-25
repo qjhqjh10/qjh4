@@ -14,11 +14,12 @@
 //     <动词> [数值] <目标>        动词 ∈ Damage / Heal / Draw
 //
 //     Damage 2 EnemyUnit      → 对敌方一个单位造成 2 点（**不吃反击**，技能不是攻击）
+//     Heal   2 FriendlyUnit   → 对友方一个单位治疗 2 点（🆕 2026-10-25 `E8`·`E8-1`）
 //     Heal   3 OwnWarlord     → 己方督军回 3 点（不超过上限）
 //     Draw   1                → 抽 1 张（Draw 不需要目标）
 //
 // 数值省略 = 1。目标：
-//     Self / OwnWarlord / EnemyWarlord / EnemyUnit
+//     Self / OwnWarlord / EnemyWarlord / EnemyUnit / FriendlyUnit
 //
 // ⚠️ 目标必须**写全**（Draw 除外）—— 不给默认值。默认值会让 `Damage 2` 变成
 //    「悄悄打了谁」，那种静默是这份工程最忌讳的（见 `资料/特效还原_进度与交接.md` 的教训）。
@@ -35,9 +36,21 @@ namespace RuleEngine
         public const string OwnWarlord = "ownwarlord";
         public const string EnemyWarlord = "enemywarlord";
         public const string EnemyUnit = "enemyunit";
+        /// <summary>🆕 **2026-10-25（执行代理 `E8` · `E8-1`）：友方棋盘上的一个单位**。
+        /// <para>补齐的是 `AU1` §十五·三 列的第 ③ 条卡点：`ResolveTarget` 原来只有
+        /// `self / ownwarlord / enemywarlord / enemyunit` 四支，**没有「友方单位」这一档** ⇒
+        /// 主动能力（`Ability:` 文法）点了友方目标也解不出来。</para>
+        /// <para>判据 = 原版 `ActiveAbility.targetCriteria` 的候选侧
+        /// （`friendlyUnits=1 / enemyUnits=0`；`AbilityLogic__GetTargets.c` 的
+        /// `GetUnitsInPlayList(manager, list, …, both = friendly||enemy)` 那一支按这两格建池）——
+        /// 「友方单位」在原版是**候选池的一侧**，不是另一个解析器。</para>
+        /// <para>⚠️ **今天池内可达 0 张**：`Ability:` 这一档是**我们自己设计的卡**用的文法，
+        /// 现读 `cards_engine.json` v28 里 `desc` 含 `Ability:` 的卡 = **0 张**
+        /// （`CardDef.HasActiveAbility` 的注释同一读数）⇒ 本档只有合成夹具走得到。</para></summary>
+        public const string FriendlyUnit = "friendlyunit";
 
         /// <summary>要玩家/调用方**指定一个格位**的目标（其余目标自己就能定）</summary>
-        public static bool NeedsPick(string target) { return target == EnemyUnit; }
+        public static bool NeedsPick(string target) { return target == EnemyUnit || target == FriendlyUnit; }
     }
 
     public class EffectSpec
@@ -69,6 +82,7 @@ namespace RuleEngine
                 case EffectTargets.OwnWarlord: return "OWN";
                 case EffectTargets.EnemyWarlord: return "FOE";
                 case EffectTargets.EnemyUnit: return "UNIT";
+                case EffectTargets.FriendlyUnit: return "ALLY";
                 default: return "?";
             }
         }
@@ -140,6 +154,7 @@ namespace RuleEngine
                 case "ownwarlord": return EffectTargets.OwnWarlord;
                 case "enemywarlord": return EffectTargets.EnemyWarlord;
                 case "enemyunit": return EffectTargets.EnemyUnit;
+                case "friendlyunit": return EffectTargets.FriendlyUnit;
                 default: return null;
             }
         }

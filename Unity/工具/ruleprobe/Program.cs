@@ -213,7 +213,42 @@ class Program
     //   本轮 `gen_cards_engine.py` 重生成卡表：version 18→19 + 新增 `spellType` 列（`cards_raw.json` 真值直搬），
     //   逐张语义 diff 只有这两处、其余 0 漂移（判据 → `普查产出_1023d/引擎批量_A1690_97_95_执行报告.md` §4）。
     //   基线文件 / 输出指纹**没动** ⇒ 只重钉这一条。
-    public const string PinnedPoolMd5 = "860044b773370da0b70a0134d3a7463d";  // 2026-10-24 重钉（执行代理 E9 / 第七十三会话同步点）：卡表 v24→v25，新增 logic/op 级 `targetCriteria` 两列（`activeAbilityTargets` 193 行 / `abilityTargetCriteria` 1616 行）。⚠️ **卡的内容一个没变**：同批 `ruleprobe check` 解析差异 0 行 · ⑦ 输出指纹仍 af836aa0… · 基线仍 71cedcd7… ⇒ 只重钉这一颗。归因 → 资料/普查产出_1024c/E9_卡表v25_logic级判据列.md
+    // 🔴 **2026-10-24（执行代理 `E9` / 第七十三会话同步点）：有意重钉 `PinnedPoolMd5`（`860044b7…`）。**
+    //   卡表 v24→v25，新增 logic/op 级 `targetCriteria` 两列（`activeAbilityTargets` 193 行 /
+    //   `abilityTargetCriteria` 1616 行）。⚠️ **卡的内容一个没变**：同批 `check` 解析差异 0 行 ·
+    //   ⑦ 输出指纹仍 `af836aa0…` · 基线仍 `71cedcd7…` ⇒ 只重钉这一颗。
+    //   归因 → `资料/普查产出_1024c/E9_卡表v25_logic级判据列.md`
+    // 🔴 **2026-10-25（执行代理 `E2` · 第七十五会话同步点 · 主对话裁定后重钉）：有意重钉 `PinnedPoolMd5`。**
+    //   本轮 `gen_cards_engine.py` 重生成卡表：version 25→**26** + 新增 **`abilityLevelCriteria`** 列
+    //   （原版 `CardAbility.targetCriteria` `+0x30` 的其余 36 格；**85 行 / 75 张卡**，每张卡都落、没行 = `[]`）。
+    //   ⚠️ **卡的内容一个没变**（既有列一个字段都没改）：同批
+    //     · `gen_cards_engine.py --check` 幂等一致（两次 `--write` 逐字节相同）；
+    //     · `ruleprobe check` 解析差异 **0 行** · ⑦ 输出指纹仍 `af836aa0…`；
+    //     · `ruleprobe play check` 主档 1127 张 + 电池 586 张 **逐字节零差异** · 结算指纹仍 `87209677…`。
+    //   ⇒ **只重钉这一颗**，`PinnedBaselineMd5` / `PinnedParseMd5` 原样不动。
+    //   卡池 md5：`860044b7…` → `af030379…`（2,929,811 → 3,024,683 B，+94,872 B 全部来自新列）。
+    //   归因 → `资料/普查产出_1025/E2_ability_criteria管线.md` §二·3 / §四。
+    // 🔴 **2026-10-25（执行代理 `E3` · 第七十五会话同步点 · 主对话裁定后重钉）：有意重钉 `PinnedPoolMd5`。**
+    //   本轮 `gen_cards_engine.py` 重生成卡表：version 26→**27** + 新增 **`abilityActingCriteria`** 列
+    //   （原版 `CardAbility.actingCardCriteria` `+0x28` 的其余 36 格；**83 行 / 80 张卡**，每张卡都落、没行 = `[]`）。
+    //   ⚠️ **卡的内容一个没变**（既有列一个字段都没改）：同批
+    //     · `gen_cards_engine.py --check` 幂等一致（两次 `--write` 逐字节相同）；
+    //     · `ruleprobe check` 解析差异 **0 行** · ⑦ 输出指纹仍 `af836aa0…`；
+    //     · `ruleprobe play check` 主档 1127 张 + 电池 586 张 **逐字节零差异** · 结算指纹仍 `87209677…`。
+    //   ⇒ **只重钉这一颗**，`PinnedBaselineMd5` / `PinnedParseMd5` 原样不动。
+    //   卡池 md5：`af030379…` → `5a17f6af…`（3,024,683 → 3,119,176 B，+94,493 B 全部来自新列）。
+    //   归因 → `资料/普查产出_1025/E3_actingCardCriteria.md` §二·3 / §五。
+    // 🔴 **2026-10-25（执行代理 `E4` · 第七十五会话同步点 · 主对话裁定后重钉）：有意重钉 `PinnedPoolMd5`。**
+    //   本轮 `gen_cards_engine.py` 重生成卡表：version 27→**28** + 新增 **`activeAbilityPickCriteria`** 列
+    //   （原版 `ActiveAbility.targetCriteria` `+0x38` 的其余 36 格；**107 行 / 107 张卡**，每张卡都落、没行 = `[]`）。
+    //   ⚠️ **卡的内容一个没变**（既有列一个字段都没改）：同批
+    //     · `gen_cards_engine.py --check` 幂等一致（两次 `--write` 逐字节相同）；
+    //     · `ruleprobe check` 解析差异 **0 行** · ⑦ 输出指纹仍 `af836aa0…`；
+    //     · `ruleprobe play check` 主档 1127 张 + 电池 586 张 **逐字节零差异** · 结算指纹仍 `87209677…`。
+    //   ⇒ **只重钉这一颗**，`PinnedBaselineMd5` / `PinnedParseMd5` 原样不动。
+    //   卡池 md5：`5a17f6af…` → `0397005d…`（3,119,176 → 3,235,327 B，+116,151 B 全部来自新列）。
+    //   归因 → `资料/普查产出_1025/E4_trigger目标与activeAbility目标池.md` §二·2 / §四。
+    public const string PinnedPoolMd5 = "0397005df1c7de826f56e651c4ca7b01";  // 2026-10-25 重钉（执行代理 E4）：卡表 v27→v28，新增主动能力目标闸 `ActiveAbility.targetCriteria` 一列（`activeAbilityPickCriteria` 107 行）。卡的内容没变；解析差异 0 行 · 输出指纹仍 af836aa0… · 结算零差异 ⇒ 只重钉这一颗。归因 → 资料/普查产出_1025/E4_trigger目标与activeAbility目标池.md
 
     /// <summary>钉住的基线内容指纹（`工具/ruleprobe/基线/out_baseline.txt` 的 md5，**按字节**）。
     /// 与上面那个配对使用 —— 判据见上面那段长注释。</summary>

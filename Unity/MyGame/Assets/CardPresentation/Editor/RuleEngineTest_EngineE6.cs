@@ -32,6 +32,59 @@ public static partial class RuleEngineTest
         E6T1DiedLastTurnNotProductionInput();
         E6T2WholeDescAltBlockHazard();
         E6T3FindMissAndDeathCardId();
+        // 🆕 2026-10-25（引擎线 `A4`）：督军 `abilityTargets` 的**序列化序 ≠ 卡面文字序**
+        E6T4AbilityBlockHeadAlignment();
+    }
+
+    // ==============================================================================================
+    //  ④ 🆕 2026-10-25（引擎线 `A4`）：块头对齐 —— `abilityTargets` 是**序列化序**，不是卡面序
+    // ==============================================================================================
+    //
+    // **判据**：`资料/普查产出_1024b/E6_DiedLastTurn与desc路.md` §七·1 顺手发现 1（就是本文件作者查出来的）。
+    //   `SOR65` 的 `desc` 印 `Pray: … . Talent: …`，而
+    //   `abilityTargets = [{trigger:46 Talent, ta:[0]}, {trigger:655 Pray, ta:[20]}]`
+    //   ⇒ 整条 desc 路按「块下标 == ability 下标」对齐时，**第 1 块（Talent）会拿到 Pray 行的 `ta`(20)**。
+    //   修法 = `EffectText.AlignAbilityIndexByBlockHead`（块头词 → `AbilityTrigger` 数 → 在 `abil` 里找
+    //   那一条；认不出 / 不唯一 ⇒ **退回下标**，⛔ 不猜）。
+    //
+    // ⚠️ **今天不可见**（督军从不出牌、生产侧 0 个读者）—— 这条断言是**防将来接 full-desc 时接错**。
+    static void E6T4AbilityBlockHeadAlignment()
+    {
+        var pool = CardDatabase.Load();
+        CardDef sor = null;
+        foreach (var c in pool) if (c != null && c.Id == "SOR65") { sor = c; break; }
+        CheckTrue(sor != null, "（前提）池里有 `SOR65`（`Celestian Sacresant Aveline`，按 **id** 找）");
+        if (sor == null) return;
+
+        // ---- 前提：数据序 ≠ 卡面序（这一条不成立的话，下面那条断言就测不到东西） ----
+        Check(sor.AbilityTargets.Count, 2, "（前提）`SOR65` 的 `abilityTargets` 有 **2** 行");
+        if (sor.AbilityTargets.Count != 2) return;
+        Check(sor.AbilityTargets[0].Trigger, 46, "（前提）`abilityTargets[0].trigger` = **46 (Talent)** —— **序列化序**");
+        Check(sor.AbilityTargets[1].Trigger, 655, "（前提）`abilityTargets[1].trigger` = **655 (Pray)**");
+        CheckTrue(sor.Desc != null && sor.Desc.TrimStart().StartsWith("Pray", StringComparison.Ordinal),
+                  "（前提）卡面**第一个**块是 `Pray:`（与上面那两行的顺序**相反** ⇒ 这就是 A4 那个反例）"
+                + "｜🧨 卡面/数据任一侧改了顺序 ⇒ 本行或上面两行红，那时 A4 的断言要按新数据重写");
+
+        var ops = EffectText.Parse(sor.Desc, out _, out _, false, card: sor);
+        CheckTrue(ops != null && ops.Count > 0, "（前提）`SOR65` 的整条 desc 解析得出 op");
+        if (ops == null) return;
+        EffectOp create = null, give = null;
+        foreach (var o in ops)
+        {
+            if (o == null) continue;
+            if (o.Verb == "create") create = o;          // `Talent: Daemonbreaker` 那一块
+            if (o.Verb == "give") give = o;              // `Pray: Give +1 …` 那一块
+        }
+        CheckTrue(create != null, "（前提）解析出 `Talent:` 块的 `create` op");
+        CheckTrue(give != null, "（前提）解析出 `Pray:` 块的 `give` op");
+        if (create == null || give == null) return;
+
+        Check(create.SubjectTargetsAffected, 0,
+              "★★ **按块头对齐**：`Talent:` 那一块拿到的是 **`abilityTargets[0]`（trigger 46）**的 `ta = 0`"
+            + "｜🧨 退回「按位置贴」⇒ 拿到 `abilityTargets[1]`（655 Pray）的 `ta = 20` ⇒ 本行实得 20 ⇒ 红");
+        Check(give.SubjectTargetsAffected, -1,
+              "★ 对照组：`Pray:` 那一块是**替代行动正文**（效果在 `activeAbilityLogic` 里）"
+            + " ⇒ `-1`（不贴 `cardAbilities` 的 ta）｜🧨 把 `IsAlternativeActionBlockHead` 那道闸去掉 ⇒ 红");
     }
 
     // ==============================================================================================

@@ -82,6 +82,7 @@
 //     `HoverPickReady` / 安全窗 / `_hoverSent` 的语义**一个字没动**（`TickHover` 仍是唯一判据）。
 // ═══════════════════════════════════════════════════════════════════════════════════════
 using System.Collections.Generic;
+using DG.Tweening;               // 🆕 2026-10-25：选中/取消选中那一拍的 0.3 s `DOScale`（原版是补间，⛔ 不是瞬切）
 using UnityEngine;
 using UnityEngine.EventSystems;   // 🆕 2026-10-20（A3-e）：`EventTrigger` 的 `PointerEnter/Exit`
 
@@ -125,6 +126,15 @@ namespace CardPresentation
         const float ButtonW = 118.372f, ButtonH = 118.806f;
         const float ButtonSpacing = 37f;
         const float HighlightScale = 1.3f;              // scaleMultiplierWhenSelected
+        /// <summary>「已选打法」那一格**放大 / 回落**的补间时长 = `DAT_1834b2dc8`（`工具/read_literal.py` 实读 **0.3**）。
+        /// <para>判据：`CardDisplayAttackTypeButton__HighlightIfNeeded.c` 与
+        /// `AttackTypesButtonsController__HighlightSelectedAttackTypeButtons.c` 里都是
+        /// `DOScale(target, DAT_1834b2dc8)`；**选中那一格再 `SetEase(0x1b)`** =
+        /// DOTween `Ease.OutBack`（枚举逐个实读：0 Unset · … · 26 `InBack` · **27 `OutBack`** · 28 `InOutBack`），
+        /// **回落那一格不带 `SetEase`** ⇒ 走 `DOTween.defaultEaseType`（本工程 = 6 `OutQuad`）。两级都是 0.3 s。</para>
+        /// <para>🧨 改坏法：把这个补间删掉、直接写 `localScale` ⇒ 原版那一下「弹出来」的手感没了
+        /// （画面仍然「看着对」，因为终值一样）。</para></summary>
+        const float PickTweenSeconds = 0.3f;
         /// <summary>选中黄圈（原版按钮的子件 `Highlight`）的**节点 rect** = **176.23 × 176.875**。
         /// 判据：`RT_3028 / 2776 / 3512`（`m_SizeDelta (176.22999572753906, 176.875)` · `m_LocalScale 1`）
         /// ＋ 它们的 `Image`（`MB_5267 / 4108 / 4478`）**`m_PreserveAspect = 0`** ⇒ 拉满。
@@ -145,15 +155,36 @@ namespace CardPresentation
         //    自己的高亮那一段管，不在本文件）。⛔ 本文件仍然**不**用这两张图（它只管按钮本身的底盘/金属环）。
         //    按钮本身自带底盘和金属环（`Attack type button Melee/Ranged`），不用再垫一层光。
 
-        // `Select Attack Background`：RectTransform 的 sizeDelta 是 780×285，**但它的 localScale = 0.44**，
-        // 显示时 `backgroundController`（`inputScaleModifier`/`elementsHorizontalScaleModifier` 都是 1.5）
-        // 再横向放大 1.5 倍 → **实际 514.8 × 125.4**，正好罩住那排 429.2 宽的按钮。
-        // ⚠️ 只看 sizeDelta 会以为是 780×285，做出来一大块（这块差点做错，别再用 sizeDelta）
-        const float BgW = 780f * 0.44f * 1.5f;          // 514.8
-        const float BgH = 285f * 0.44f;                 // 125.4
+        // ── 底板 `Select Attack Background` ──────────────────────────────────────────
+        // 节点真身 = **`RT_3061`**（`m_SizeDelta 780×285` · `m_LocalScale 0.44` · `m_Pivot (0.5,1)` ·
+        // `m_AnchorMin/Max (0.5,1)` · `m_AnchoredPosition (0,−18.375)`）。
+        // 🔴 **2026-10-25 就地订正（铁律 5）**：本段原来写「显示时再横向 ×1.5 ⇒ 实际 514.8 × 125.4」，
+        //   把一帧当成了常量 —— **实绘宽是 `count` 与入场进度 `t` 两个量的函数**：
+        //   · `SelectAttackBackgroundController.ChangeSizeByElements(count)`（产物在
+        //     `SelectAttackBackgroundController__ChangeSizeByElements.c`，同一段还被**内联**进
+        //     `AttackTypesButtonsController__ToggleAttackTypesSelector.c` 尾部）：
+        //     目标 = 原始 0.44 × `1 + (elementsHorizontalScaleModifier − 1) × clamp01(count − 2)`
+        //     ⇒ **2 颗钮** 0.44 · **3 颗钮** 0.66（`DAT_1834b2bbc` 实读 = **2.0**）；
+        //   · `AttackTypesButtonsController__MoveButtons.c` 每帧（= `ChangeSizeByInput` 的同一算式）：
+        //     `localScale = lerp(目标 × inputScaleModifier(1.5), 原始 0.44, t)`。
+        //   ⇒ **t=0（刚顶上来的那一帧）**：2 颗 **514.8** · 3 颗 **772.2**；
+        //     **t=1（归位后平常看到的那一帧）**：**343.2 × 125.4**（与颗数无关）。
+        //   判据值：`MonoBehaviour_5200.json`（GO 951 上那颗控制器）= `inputScaleModifier 1.5` /
+        //   `elementsHorizontalScaleModifier 1.5`；`DAT_1834b2bb8` = 1.0（插值上界）。
+        //   ⚠️ 只看 sizeDelta 会以为是 780×285，做出来一大块（这块差点做错，别再用 sizeDelta）
+        const float BgBaseW = 780f * 0.44f;             // 343.2 = 原始 scale 下的宽（t=1 实绘；t=0 起点另算）
+        const float BgH = 285f * 0.44f;                 // 125.4（高恒定，不参与补间）
+        /// <summary>`SelectAttackBackgroundController.inputScaleModifier`（`MB_5200` 实读 1.5）——
+        /// **入场补间起点那一侧的倍率**（`MoveButtons` / `ChangeSizeByInput` 里乘在「目标 scale」上）。</summary>
+        const float InputScaleModifier = 1.5f;
+        /// <summary>`SelectAttackBackgroundController.elementsHorizontalScaleModifier`（`MB_5200` 实读 1.5）——
+        /// **3 颗钮**相对 2 颗钮的额外横向倍率（`ChangeSizeByElements` 里乘在「原始 scale」上）。</summary>
+        const float ElementsHorizontalScaleModifier = 1.5f;
         /// <summary>`Select Attack Background` 的**顶边**在父 rect **顶边**下方多少 px
-        /// （`RT_3254.json`：`m_AnchorMin/Max = (0.5, **1**)`、`m_AnchoredPosition = (0, −18.375)`、
-        /// `m_Pivot = (0.5, **1**)` ⇒ 它的**顶边** = 父 rect 顶边 − 18.375）。</summary>
+        /// （`RT_3061.json`：`m_AnchorMin/Max = (0.5, **1**)`、`m_AnchoredPosition = (0, −18.375)`、
+        /// `m_Pivot = (0.5, **1**)` ⇒ 它的**顶边** = 父 rect 顶边 − 18.375）。
+        /// ⚠️ **2026-10-25 就地订正（铁律 5）**：原来这里引的是 `RT_3254` —— 那是**另一颗节点**
+        /// （`sizeDelta −26×0`、stretch 锚、pivot 0.5），值与本件对不上。真身 = `RT_3061`。</summary>
         const float BgDropY = 18.375f;
         /// <summary>底板**顶边**在**锚点**（= 父 rect 中心 = 三颗钮那一行的中心）**上方**多少 px
         /// = `BarH/2 − BgDropY` = **42.7485**。
@@ -172,7 +203,7 @@ namespace CardPresentation
         /// 42.7485**（`center = origin − (0, 42.7485)`）—— 代价是**整条选择器比原版低 42.7485 px**。
         /// 现在 = `center = origin`（钮心落在锚点上）+ 底板顶边抬到锚点上方 42.7485 ⇒ 两者之间仍是
         /// **42.7485**（原版的相对关系一直是对的，错的只是**整条相对锚点**的位置）。
-        /// 📌 判据出处：`RectTransform_3254/3166/3563/2819/2997.json` · `MonoBehaviour_4653.json`（布局组）·
+        /// 📌 判据出处：`RectTransform_3061/2973/3563/2819/2997.json` · `MonoBehaviour_4653.json`（布局组）·
         /// `资料/普查产出_1016并行/T09_AttackSelector_报告.md:251-256` · 上面的运行时 dump。
         /// 🧨 改坏法：`center` 再减掉一个 42.7485 ⇒ `Editor/BattleScene.cs` 的 `B-21` 两条断言红。</summary>
         const float BgTopAboveAnchorPx = BarH * 0.5f - BgDropY;   // 42.7485
@@ -190,11 +221,30 @@ namespace CardPresentation
         /// 夹到 `[0,1]`（夹的上界 `DAT_1834b2bb8` 从 DLL 浮点池读出来 = **1.0f**），
         /// 再把它交给每个按钮的 `CardDisplayAttackTypeButton.MoveButton(t)`。
         ///
-        /// ⚠️ **我们仍然把它当弹出阈值用**（`BattleDriver` 的拖拽判据）—— 这是**如实标注的偏离**：
-        /// 原版「真正的弹出阈值」是哪个常量**没定死**（下一行的 `DAT_1834b2bb0` 那条更正讲了原因）。
-        /// ⇒ **要坐实只能进原版实机量**，已挂 `资料/真Play待验清单.md`。
+        /// ⚠️ **我们原来把它当弹出阈值用**（`BattleDriver.cs:13464` 的拖拽判据）—— 那是**自造的替代**。
+        /// 🔴 **2026-10-25 判据已闭合（`DAT_1834b2bb0` 那条不再「没定死」）**：
+        ///   · 真入口 = `CardScript__OnTouchDrag.c:46` → `CardScript__TryDraggingFromBoard.c`；
+        ///     那里第一道闸是 `|pointer.position(+0x144) − 本次位置|² &lt;= DAT_1834b2bb0`
+        ///     （`read_literal.py` 实读 = **0.2**）⇒ 它的单位是**屏幕 px 的平方**，即「**挪动超过 ≈0.45 px**」
+        ///     —— 那是个**去抖死区**，不是手感阈值；
+        ///   · 真正的「拖拽开始」门在 **uGUI 自己**：`IDragHandler`（也就是上面那句所在的方法）
+        ///     **要 `EventSystem.pixelDragThreshold` 之后才会被派**，Unity 默认 **10 px**。
+        ///     ⚠️ 原版 `EventSystem` 的序列化值本地没搜到（`level0` / `battlearena1` / `menus` 三个包
+        ///     搜 `m_DragThreshold` **0 命中**，它可能由运行时默认值给出）⇒ 按 Unity 默认 **10 px** 记，
+        ///     并在报告里标「未在实机上量过」。
+        ///   ⇒ 手感口径 = **10 px**，不是 **92 px**（8.5% 屏高）。见 <see cref="PopDragThresholdPx"/>。
         /// </summary>
         public const float DragThreshold01 = 0.085f;
+
+        /// <summary>🆕 **2026-10-25**：**真正的手感门 = 拖出 10 px 才弹选择器**（判据 → `DragThreshold01` 的 doc：
+        /// 原版靠 uGUI 的 `EventSystem.pixelDragThreshold` 默认值把 `OnTouchDrag` 卡住）。
+        /// <para>⛔ **别再拿 `DragThreshold01`（0.085 屏高 ≈ 92 px）当弹出阈值** —— 它只是**入场动画的进度分母**，
+        /// 两个量在原版里是两件事，混用会让我们「必须拖 9 倍的距离才弹出」（量级错，不是微调）。</para>
+        /// <para>⚠️ 调用点在 `BattleDriver`（那边判 `dragged`），本文件只给**唯一的常量出处**。</para></summary>
+        public const float PopDragThresholdPx = 10f;
+
+        /// <summary>`PopDragThresholdPx` 的世界单位版（= 10/108 ≈ 0.0926；同 `W()` 的口径）。</summary>
+        public static float PopDragThresholdWorld { get { return W(PopDragThresholdPx); } }
 
         // 🔴 **2026-10-13（A658）就地更正：入场动画的驱动量【不是】时间，是「累计的视口拖拽位移」。**
         //    原来这里有一个 `const float EnterAnimSeconds = 0.085f`，注释写着「原版每一帧往
@@ -223,8 +273,9 @@ namespace CardPresentation
             {
                 if (_background == null) return Vector2.zero;
                 if (_background.IsUgui) return HudCanvas.SizePx(_background.Rect);
-                return new Vector2(_background.WorldH * _background.transform.localScale.x, _background.WorldH)
-                     * PxPerUnit;
+                // 🆕 2026-10-25：宽不再靠 `localScale.x` 拉伸（那是把 1:1 纯色板拉成 780×285 的老办法）——
+                //   现在宽与高都由 `SetAspect`（宽 = 高 × aspect）定，`WorldW` 就是**画出来的宽**。
+                return new Vector2(_background.WorldW, _background.WorldH) * PxPerUnit;
             }
         }
 
@@ -290,6 +341,17 @@ namespace CardPresentation
         /// <summary>设计分辨率下 1 世界单位 = 108 px（可见高恒定 10 单位 = 1080 px）</summary>
         const float PxPerUnit = 108f;
         static float W(float px) { return px / PxPerUnit; }
+
+        /// <summary>**矩形命中**（只给世界档用）：`d` = 指针 − 件中心（世界单位），`wPx/hPx` = 原版节点 rect。
+        /// 两轴各自按屏宽整体缩放折过来（同旧那行 `W(ButtonH) * 0.5 * LayoutSpace.Scale` 的口径）。
+        /// <para>判据 = 原版受体就是这两颗 `Image` 的矩形（见 `UpdatePointer` 里 2026-10-25 那段），
+        /// 与「圆」无关。uGUI 档不用它（那里由 `EventSystem` 按真实矩形判）。</para></summary>
+        static bool HitRect(Vector3 d, float wPx, float hPx)
+        {
+            float hw = W(wPx) * 0.5f * LayoutSpace.Scale;
+            float hh = W(hPx) * 0.5f * LayoutSpace.Scale;
+            return Mathf.Abs(d.x) <= hw && Mathf.Abs(d.y) <= hh;
+        }
 
         // z 分层：**越负越靠前**（相机看 -Z）。整块选择器都排在卡牌前面，见 `RefreshLayout`
         const float ZBg = -2.00f, ZIcon = -2.10f, ZRing = -2.15f, ZText = -2.20f;
@@ -555,8 +617,19 @@ namespace CardPresentation
         readonly Label[] _captions = new Label[3];
 
         HudPiece _background;
-        Label _title, _note;
-        string _titleText;
+        // 🔴 **2026-10-25（`W6`）**：自造的标题 `_title` / `_titleText` **已删** —— 原版 `Drag Attack Selector`
+        //   的 subtree 里没有这一件（判据见 `BuildOnCanvas` 里那段红字：逐颗列了原版 4 个子节点）；
+        //   官方本地化表（10,854 条的 `en+zh-CN`，I2 `I2Languages` 解码产物）也没有 `ChooseAction` 这个键
+        //   （`terms/Battle/**` 156 条里 0 命中，`ChooseAction` / `Choose action` 全 0）。
+        //   `Show(title:)` 的形参**保留**（不改正本外的调用点 `BattleDriver.cs:13756`），但不再显示任何东西。
+        //   ⛔ 别把标题建回来。
+        /// <summary>技能正文那一串（`Show(note: …)` 传进来的）。🔴 **2026-10-25（`W4`）起不再画成副标题行**
+        /// —— 原版 `Drag Attack Selector` 的 subtree 里没有这一件
+        /// （判据 → `资料/说明书/01_战斗_对战/2D层_battlearena1全树.md:233-241`：只有底板 / 三颗钮 / 三圈 /
+        /// `ValueText`）。这串仍然留着当**技能钮 tooltip 正文的兜底**（`RefreshAbilityTooltip`）——
+        /// 原版那串正是 `RawCardScript.GetLocalizedAbilityDesc` → `CardDisplayAttackTypeButton+0xa8`
+        /// （`AttackTypesButtonsController__ToggleAttackTypesSelector.c` 末段）⇒ 数据来源不变，只是不再是可见标签。
+        /// ⛔ 别把它加回一行 `Label`。</summary>
         string _noteText;
         bool _built;
 
@@ -603,6 +676,13 @@ namespace CardPresentation
         /// （`PointerEnter / PointerExit` = 原版 `CardDisplayAttackTypeButton` 那两个接口）。
         /// 下标 = `Order` 下标（同 `SlotOf`）；世界档恒 `null`；`null` = 那一格没挂上。</summary>
         readonly EventTrigger[] _hoverTriggers = new EventTrigger[3];
+        /// <summary>🆕 **2026-10-25**：三颗**钮本体**（`Image`，118.372×118.806）上的 `EventTrigger`。
+        /// <para>为什么原来没有：那时拿圈子当唯一受体；但原版 **`Highlight` 子件只在「已选打法」那一格
+        /// `SetActive(true)`**（`CardDisplayAttackTypeButton__HighlightIfNeeded.c` 第一句）⇒ 没选中的格子
+        /// 只有**钮本体**吃射线（`m_RaycastTarget = 1`）。圈一改成「只在选中时亮」（本次同批改），
+        /// 只挂圈就会让另外两格**整天悬停不中**。</para>
+        /// <para>⚠️ 下标 = `Order` 下标（同 `SlotOf`）；世界档恒 `null`。</para></summary>
+        readonly EventTrigger[] _iconTriggers = new EventTrigger[3];
         /// <summary>自检计数：`PointerEnter` 各来过几次（只增）。</summary>
         readonly int[] _hoverEnterCount = new int[3];
         /// <summary>自检计数：`PointerExit` 各来过几次（只增）。</summary>
@@ -655,7 +735,7 @@ namespace CardPresentation
         {
             bool wasVisible = Visible;
             var opts = new List<Option>(_options);
-            string title = _titleText, note = _noteText;
+            string title = null, note = _noteText;   // ⚠️ `title` 2026-10-25 起不显示（自造件已删），这里恒 null
             int sel = (int)_selected;                 // 枚举值 = 原版 `attackType` 位标志（0/1/2/4）⇒ 直接喂回去
             Vector3 at = _anchorAt;
 
@@ -674,8 +754,6 @@ namespace CardPresentation
         {
             var doomed = new List<GameObject>();
             if (_background != null) doomed.Add(_background.gameObject);
-            if (_title != null) doomed.Add(_title.gameObject);
-            if (_note != null) doomed.Add(_note.gameObject);
             for (int i = 0; i < Order.Length; i++)
             {
                 if (_icons[i] != null) doomed.Add(_icons[i].gameObject);
@@ -686,9 +764,7 @@ namespace CardPresentation
             foreach (var go in doomed) if (go != null) Object.DestroyImmediate(go);
 
             _background = null;
-            _title = null;
-            _note = null;
-            for (int i = 0; i < Order.Length; i++) { _icons[i] = null; _rings[i] = null; _captions[i] = null; _hoverTriggers[i] = null; }
+            for (int i = 0; i < Order.Length; i++) { _icons[i] = null; _rings[i] = null; _captions[i] = null; _hoverTriggers[i] = null; _iconTriggers[i] = null; }
             _frame = null;
         }
 
@@ -749,8 +825,10 @@ namespace CardPresentation
         }
 
         /// <summary>uGUI 档：件挂在**并进去的那块宿主画布**上；帧 = 原版 GO `Drag Attack Selector`。
-        /// 帧的 rect **逐字照原版**（`RectTransform_3166.json`：中心锚 + 中心枢轴 +
+        /// 帧的 rect **逐字照原版**（`RectTransform_2973.json`：中心锚 + 中心枢轴 +
         /// `sizeDelta 621.7249755859375 × 122.24700164794922`，我们的常量取 621.7 / 122.2）；
+        /// ⚠️ **2026-10-25 就地订正（铁律 5）**：原来这里引的是 `RT_3166` —— 那是另一颗 `722.66×403.13` 的节点，
+        /// 值与本件对不上（同批 `RT_2819/2997` 是它在 arena2 的兄弟件，别混）。
         /// 它的**位置**每次 `RefreshLayout` 按 `_anchorAt` 摆（原版运行期也是 `set_position(单位位置)`，
         /// `UnitOnBoardAttackTypeSelector__Toggle.c:112-126`）。</summary>
         void BuildOnCanvas(RectTransform host)
@@ -769,20 +847,26 @@ namespace CardPresentation
             // 实绘 514.8 × 125.4（= `m_SizeDelta 780×285` × `localScale 0.44` × 运行期横向 ×1.5）。
             // 中心 = **帧原点**（= 锚点）：原版那格是 pivot `(0.5,1)` + `ap (0,−18.375)` ⇒ 顶端挂在锚点那一级。
             _background = HudCanvas.MakeImageInParent(P, Solid(), "SelectorBackground",
-                                                      0f, 0f, BgW, BgH, ZBg, new Color(1f, 1f, 1f, 1f));
+                                                      0f, 0f, BgBaseW, BgH, ZBg, new Color(1f, 1f, 1f, 1f));
+            //   ⚠️ 初值给 `BgBaseW`（= t=1 归位后的实绘宽 343.2）；真正的宽由 `RefreshLayout` 每帧按
+            //      「颗数 × 入场进度」重算（见 `BgBaseW` 的 doc）。⛔ 别在这里写死 514.8。
             // 🆕 2026-10-20（`T09` A3-e）：原版 `Select Attack Background` 的 `Image.m_RaycastTarget = 1`
             //   （`MB_4492`；无 sprite、纯色）⇒ 照抄成射线靶。**不挂处理器** —— 原版那块也没有动作。
             if (_background != null && !_background.SetRaycastTarget(true))
                 Debug.LogWarning("[Battle] 攻击方式选择器：底板没设成射线靶（不静默）");
 
-            // 标题上面那行小字（技能效果）**不能塞在中场的提示行上** —— 提示行 y=532 正好是按钮的位置，
-            // 会被按钮压住（踩过）。这条与两档无关，照旧。
-            _title = HudCanvas.MakeText(P, "", 0f, 0f, 3,
-                                        new Color(0.86f, 0.89f, 0.94f), new Vector2(0.5f, 0.5f),
-                                        ZText, "SelectorTitle");   // A1024③ 判不出（自建标题，原版只有 ValueText）⇒ 保持 Cjk
-            _note = HudCanvas.MakeText(P, "", 0f, 0f, 2,
-                                       new Color(0.98f, 0.93f, 0.72f), new Vector2(0.5f, 0.5f),
-                                       ZText, "SelectorNote");   // A1024③ 判不出（自建副标题）⇒ 保持 Cjk
+            // 🔴 **2026-10-25（`W4` / `W6`）：这里原来建了两行自造文字**（标题 `SelectorTitle` + 技能小字 `SelectorNote`）
+            //   —— **两行都删了**。判据（两级，都查不到）：
+            //   ① 原版 `Drag Attack Selector` 的 subtree（解包原始资产逐颗核，`bundle_scenes_scenes_battlearena1`：
+            //      `RectTransform_2973.m_Children` = **恰好 4 个** → `Select Attack Background`(3061，无子件) ·
+            //      `Select Melee Button`(3368→`Highlight`) · `Select Active Skill Button`(2626→`Highlight`+`ValueText`) ·
+            //      `Select Range Button`(2804→`Highlight`)；同一结论见
+            //      `资料/说明书/01_战斗_对战/2D层_battlearena1全树.md:233-241`（13 场全树同构）
+            //   ② 官方本地化表（`Unity/数据/游戏数据/官方本地化_en+zh-CN.json`，10,854 条 = I2 `I2Languages` 解码产物）
+            //      里 `ChooseAction` **0 命中**（`terms/Battle/**` 共 156 条，也没有 `Phrase/*` 这一类键）
+            //   ⇒ 原版没有这块标题；那句 `CardText.Phrase("CHOOSE ACTION")` 只是我们手写 `Core/Loc.cs:2771` 的兜底短语。
+            //   ⚠️ 技能正文那串**没丢**：它现在是技能钮 tooltip 的正文兜底（`_noteText` / `RefreshAbilityTooltip`），
+            //   与原版 `CardDisplayAttackTypeButton +0xa8` 同源。⛔ 别把这两行建回来。
 
             for (int i = 0; i < Order.Length; i++)
             {
@@ -805,22 +889,32 @@ namespace CardPresentation
                     _rings[i] = HudCanvas.MakeImageInParent(P, rtex, "Highlight_" + k, 0f, 0f,
                                                             RingW, RingH,               // 原版固定 rect（PA=0）
                                                             ZRing, Color.white);
-                // 🆕 2026-10-20（`T09` A3-e）：**悬停即选中**的 uGUI 送达 —— 原版三颗钮各挂
-                //   `CardDisplayAttackTypeButton`（`IPointerEnter/ExitHandler`），而那颗子件 `Highlight`
-                //   的 `Image.m_RaycastTarget = 1` ⇒ 拿**圈**当受体，命中区就是原版那一圈（176.23 × 176.875）。
-                //   ⚠️ 圈只在 `SetSlotActive` 的 `on && opt.Enabled` 时为真 —— 关掉/灰掉的格子自动收不到
-                //      悬停（与今天 `UpdatePointer` 跳过 `!opt.Enabled` 同义）。
-                //   ⚠️ 圈没建出来（`Attack_type_button_highlight` 贴图缺）⇒ **退回图标本体**当受体
-                //      （原版那颗按钮 `Image` 也是 `m_RaycastTarget = 1`）—— ⛔ 不让这一格静默变成点不中。
-                var hoverPiece = _rings[i] != null ? _rings[i] : _icons[i];
-                if (hoverPiece != null)
+                // 🆕 2026-10-20（`T09` A3-e）· 🔴 **2026-10-25 补第二受体**：**悬停即选中**的 uGUI 送达 ——
+                //   原版三颗钮各挂 `CardDisplayAttackTypeButton`（`IPointerEnter/ExitHandler`），受体是
+                //   **钮自己的 `Image`**（`RT_3368/2804/2626` 118.372×118.806，`m_RaycastTarget = 1`）
+                //   ∪ 它的子件 `Highlight`（176.23×176.875，`m_RaycastTarget = 1`）。
+                //   🔴 **子件 `Highlight` 只在「这一格是已选打法」时才 `SetActive(true)`**
+                //      （`CardDisplayAttackTypeButton__HighlightIfNeeded.c` / `…HighlightSelectedAttackTypeButtons.c`
+                //       的第一句 `SetActive(highlightImage, param_2 == attackType)`）⇒ 原版**没选中**的格子
+                //      只有钮本体吃射线（118.372×118.806），**选中**那一格才是 钮 ∪ 圈。
+                //      ⇒ 我们两件都挂 `EventTrigger`；圈由 `RefreshPicked` 按「是不是已选」开关（关着的圈
+                //      收不到 uGUI 射线，正好等价于原版）。
+                //   ⚠️ 件没建出来（贴图缺）⇒ 出声，⛔ 不让这一格静默变成点不中。
+                if (_icons[i] != null)
                 {
-                    _hoverTriggers[i] = AddHoverTrigger(hoverPiece, k);
-                    if (_hoverTriggers[i] == null)
-                        Debug.LogError("[Battle] 攻击方式选择器：`" + k + "` 那一格的悬停件没挂上"
-                                     + " ⇒ 这一格**悬停选不中**（不静默）");
+                    _iconTriggers[i] = AddHoverTrigger(_icons[i], k);
+                    if (_iconTriggers[i] == null)
+                        Debug.LogError("[Battle] 攻击方式选择器：`" + k + "` 那一格的**钮本体**没挂上悬停"
+                                     + " ⇒ 未选中时这一格悬停选不中（不静默）");
                 }
-                else
+                if (_rings[i] != null)
+                {
+                    _hoverTriggers[i] = AddHoverTrigger(_rings[i], k);
+                    if (_hoverTriggers[i] == null)
+                        Debug.LogError("[Battle] 攻击方式选择器：`" + k + "` 那一格的 `Highlight` 圈没挂上悬停"
+                                     + " ⇒ 已选中时圈外那一圈选不中（不静默）");
+                }
+                if (_icons[i] == null && _rings[i] == null)
                 {
                     Debug.LogWarning("[Battle] 攻击方式选择器：`" + k + "` 那一格**既没有圈也没有图标**"
                                    + " ⇒ 这一格悬停选不中（贴图缺；不静默）");
@@ -842,22 +936,24 @@ namespace CardPresentation
             //    实读 `bundle_scenes_scenes_battlearena1/`（13 场都有同名节点）——
             //    `RectTransform_3061.json`：**sizeDelta 780×285 · localScale 0.44 · pivot (0.5,1)**；
             //    `MonoBehaviour_4492.json`（= 那个 Image）：**`m_Sprite` 空 · `m_Color = (1,1,1,1)`**（白、不透明）。
-            //    满编时 `SelectAttackBackgroundController` 再 ×1.5 ⇒ **实绘 514.8 × 125.4**（`BgW` × `BgH`）。
+            //    🔴 2026-10-25 订正：实绘宽**不是常量**（原版那是一条按「颗数 × 入场进度」插值的补间，
+            //    峰值 514.8（2 颗）/ 772.2（3 颗）、归位后恒 343.2）—— 判据与算式 → `BgBaseW` 的 doc。
             _background = HudPiece.Of(ImageQuad.Create(transform, Solid(), Vector3.zero,
                                            W(BgH), new Vector2(0.5f, 1f), "SelectorBackground"));
             if (_background != null)
             {
-                // `ImageQuad` 是按**高** + 贴图宽高比摆的，纯色图是 1:1 ⇒ 横向自己拉到 `BgW/BgH`
-                _background.transform.localScale = new Vector3(BgW / BgH, 1f, 1f);
+                // `ImageQuad` 按**高** + 贴图宽高比摆，纯色图 1:1 ⇒ 用 `SetAspect` 把宽定成 `BgBaseW`
+                //   （宽 = 高 × aspect，与 uGUI 档同一个口）。🔴 **2026-10-25**：原来写的是
+                //   `transform.localScale = (BgW/BgH, 1, 1)` —— 那条路与「宽由 `RefreshLayout` 按
+                //   颗数/入场进度重算」冲突（两处都在定宽），已收成一个口。
+                _background.SetAspect(BgBaseW / BgH);
                 _background.SetTint(new Color(1f, 1f, 1f, 1f));
             }
 
-            _title = Label.Create(transform, "", Vector3.zero, 3,
-                                  new Color(0.86f, 0.89f, 0.94f), new Vector2(0.5f, 0.5f), "SelectorTitle");   // A1024③ 判不出 ⇒ 保持 Cjk
-            // 标题上面那行小字（技能效果）。**不能塞在中场的提示行上** ——
-            // 提示行 y=532 正好是按钮的位置，会被按钮压住（踩过）
-            _note = Label.Create(transform, "", Vector3.zero, 2,
-                                 new Color(0.98f, 0.93f, 0.72f), new Vector2(0.5f, 0.5f), "SelectorNote");   // A1024③ 判不出 ⇒ 保持 Cjk
+            // 🔴 **2026-10-25（`W4` / `W6`）**：标题 `SelectorTitle` 与技能小字 `SelectorNote` **两行都已删** ——
+            //   原版 `Drag Attack Selector` 的 subtree 里没有这两件（判据 → 上面 `BuildOnCanvas` 那条红字的① ②，
+            //   解包原始资产的子件逐颗核过 + 官方本地化表 `ChooseAction` 0 命中）。
+            //   技能正文那串改当**技能钮 tooltip 正文**（`_noteText`）用，⛔ 别再把两行 `Label` 建回来。
 
             for (int i = 0; i < Order.Length; i++)
             {
@@ -920,6 +1016,11 @@ namespace CardPresentation
         /// 那圈黄圈 + 1.3 倍**挂的是它、不是指针悬停**（🆕 2026-09-29 照原版改）。</summary>
         AttackKind _selected = AttackKind.None;
 
+        /// <summary>🆕 **2026-10-25**：上一次**真把缩放/圈落下去**的那个打法 —— 只在它与 `_selected`
+        /// 不同时才起补间（原版 `HighlightSelectedAttackTypeButtons` 本来也是「被调用一次就补一次」；
+        /// 我们这边它每次 `RefreshLayout` 都会被叫到，所以必须先判「变没变」）。</summary>
+        AttackKind _pickedApplied = AttackKind.None;
+
         // ══════════════════════════════════════════════════════════════════════════════════
         //  🆕 2026-10-24（`W10`）· 原版 `UnitOnBoardAttackTypeSelector` / `CardDisplayAttackTypeButton`
         //  剩下那几件**表现层**行为。判据全部是反编译现读（每处自己的注释里带 `文件:行号`）。
@@ -929,8 +1030,9 @@ namespace CardPresentation
         /// `HasCurrentTrait(0x3ca /*970 = pindown*/) && param_2 == 1 ⇒ return`）。
         /// <para>⚠️ 原版那颗钮**照样亮、照样能悬停**（不置灰），只是**指令被吞掉** ⇒ 我们这里也只
         /// **不吃悬停**（= 选不中、也不会发出 commit），⛔ 不改 `Enabled`（那会让它变灰，原版不灰）。</para>
-        /// <para>🔴 **调用点待接**：`BattleDriver.OpenCommand` 组 `opts` 时把 `u.Has("pindown")` 赋给它；
-        /// 在那之前这条闸**恒不生效**（默认 `false`）。见执行报告「没做到」一节。</para></summary>
+        /// <para>✅ **调用点已接（2026-10-25 现核）**：`BattleDriver.cs:13664` 每次开选择器都显式
+        /// `selector.LockMelee = u.Has("pindown")`（置 false 那一半也在那儿）。原先本条写「调用点待接、
+        /// 在那之前这条闸恒不生效」—— **已过期**（铁律 5）。</para></summary>
         public bool LockMelee { get; set; }
 
         /// <summary>🆕 **`ToggleJustOne` 那一档**（原版 `UnitOnBoardAttackTypeSelector__ToggleJustOne.c`：
@@ -947,7 +1049,8 @@ namespace CardPresentation
         /// <para>本件只提供**幂等入口**：`Show()` 结束时若本回调非空就打一次（`RequestPreviewTargets`）。
         /// 回调由驱动层登记 —— 它要做的两件事是 `HighlightTargets()` + `ShowReticleNow()`
         /// （⚠️ 后者现在要求 `_command != None`，得放宽成「用单位当前 `attackType`，可为 0」）。</para>
-        /// <para>🔴 **调用点待接**：`BattleDriver.OpenCommand` 里挂一次即可（见执行报告）。没挂 ⇒ 行为与改前逐位相同。</para></summary>
+        /// <para>✅ **调用点已接（2026-10-25 现核）**：`BattleDriver.cs:25542` 把 `PreviewTargetsFromDrag`
+        /// 挂进来（`W20` 落地）。原先本条写「调用点待接」—— **已过期**（铁律 5）。</para></summary>
         public System.Action<AttackKind> PreviewTargets;
 
         /// <summary>这一次 `Show()` 里有没有已经请求过「预亮目标」（原版是一次性的：起手那一下）。</summary>
@@ -976,6 +1079,12 @@ namespace CardPresentation
         /// ② 走到 `Play` 但 `Played` 没涨（不该发生，真发生了就是调度链断了）。</summary>
         public static int SelectSoundMisses { get; private set; }
         static bool _selectSoundWarned;
+
+        /// <summary>🆕 **2026-10-25（`W2`）** 自检用：因「按军队查 `activeAbilityIcons` 取不到图标」而
+        /// **把整颗技能钮关掉**的次数（只增）。判据 = 原版 `AttackTypesButtonsController__ToggleAttackTypesSelector.c:54-56`
+        /// 的 `Toggle(btn, iconSprite != null & param_2)`。
+        /// <para>⚠️ 每一次 `Show()` 都会重刷一遍（调用方每次新建 `Option`、`Hidden` 归零）⇒ 断言要比**增量**。</para></summary>
+        public static int ArmyIconMissingHides { get; private set; }
 
         /// <summary>🆕 技能钮 tooltip —— 原版 `CardDisplayAttackTypeButton__HighlightIfNeeded.c:50-70`：
         /// **只有高亮的是 `attackType == 4`（主动技能）时才弹**，而且 `+0xb0`（当前那一条）非空就不再弹
@@ -1014,12 +1123,14 @@ namespace CardPresentation
             //   ⚠️ **只收自己弹的那条**（`Tooltip` 是全局单例，别人可能正拿它显示词条提示）。
             _justOne = AttackKind.None;
             _previewSent = false;
+            // 🆕 2026-10-25：这一趟结束 ⇒ 「已选」落点标记清掉、三件缩放**直接**归位（⛔ 不补间：
+            //   节点紧接着就 `SetActive(false)`）。下一趟 `Show` 会按当时的 `attackType` 重新补一次。
+            _pickedApplied = AttackKind.None;
+            ResetPickScales();
             if (_tooltipShown) Tooltip.Hide();
             _tooltipShown = false;
 
             if (_background != null) _background.gameObject.SetActive(false);
-            if (_title != null) _title.gameObject.SetActive(false);
-            if (_note != null) _note.gameObject.SetActive(false);
             for (int i = 0; i < Order.Length; i++) SetSlotActive(i, null);
         }
 
@@ -1027,7 +1138,14 @@ namespace CardPresentation
         /// 弹出并给选项。**按 `Kind` 对应按钮，不靠下标** ——
         /// 调用方给哪几项、给不给全，都不会串位。
         /// </summary>
-        /// <param name="note">标题上面再加一行小字（技能效果之类）。空就不显示</param>
+        /// <param name="title">🔴 **2026-10-25（`W6`）起完全不用**（连数据都不存）—— 原版 `Drag Attack Selector`
+        /// 的 subtree 里没有标题这一件（判据 → `BuildOnCanvas` 那段红字的① ②：解包原始资产子件逐颗核过 +
+        /// 官方本地化表 `ChooseAction` 0 命中）。形参保留只是为了**不动调用点**
+        /// （`BattleDriver.cs:13756` 的第一个字符串实参）。</param>
+        /// <param name="note">🔴 **2026-10-25（`W4`）起不再画成可见标签** —— 原版 `Drag Attack Selector`
+        /// 的 subtree 里没有那一行（判据 → `BuildOnCanvas` 那段红字）。这串现在只当**技能钮 tooltip 的正文兜底**
+        /// （`_noteText` → `RefreshAbilityTooltip`）；形参保留是为了**不动调用点**
+        /// （`BattleDriver.cs:13756` 那个 `CardText.Phrase(...)` 旁的第二实参）。</param>
         /// <param name="atWorld">🆕 2026-09-29：**被拖的那个单位在哪**（世界坐标 = 指针/布局空间）。
         /// 原版展开时把整条 `set_position(单位位置)`（`UnitOnBoardAttackTypeSelector__Toggle.c:112-126`）
         /// —— 传 null 就退回「屏幕中心」（那是我们原来的固定摆法）。</param>
@@ -1052,7 +1170,7 @@ namespace CardPresentation
             //    `ToggleJustOne` 那一档**不补**（原版那时就是把另外两颗关掉）。
             if (justOne == AttackKind.None) EnsureAttackTypeInvariant();
             ApplyOptionIcons();
-            _titleText = title;
+            // ⚠️ `title` 形参**收下但不用**（2026-10-25 `W6` 删了那块自造标题）；保留形参只为不动调用点。
             _noteText = note;
             Visible = true;
             Hovered = AttackKind.None;
@@ -1094,11 +1212,16 @@ namespace CardPresentation
 
         /// <summary>🆕 2026-10-24（`W10`）：**只显示一颗**（原版 `UnitOnBoardAttackTypeSelector.ToggleJustOne`）。
         /// 判据 → 上面 `_justOne` 那条注释（含触发条件）。
-        /// <para>⚠️ **调用点待接**：`BattleDriver` 在「`displaySummonSickness` && (`ferocity` ||
-        /// `oath`+`CanUseOathAbility`)」那一支调它。在那之前本方法没有生产调用者。</para></summary>
-        public void ShowJustOne(AttackKind kind, Vector3? atWorld = null, int selectedType = 0)
+        /// <para>✅ **调用点已接（2026-10-25 现核）**：`BattleDriver.cs:13654`（`displaySummonSickness` &&
+        /// (`ferocity` || `oath`+`CanUseOathAbility`) 那一支）。原先本条写「调用点待接」—— **已过期**（铁律 5）。
+        /// ⚠️ 那一处目前**没传 `army`**（用默认 0 ⇒ 技能钮仍是占位图）—— 见报告 AU3·未接项。</para>
+        /// <para>🆕 **2026-10-25**：补 `army` 形参（默认 0 = 不给）—— 原来这里造的 `Option` **不带 `Army`**
+        /// ⇒ 只显一颗时技能钮拿不到「按军队查的 `activeAbilityIcons`」那张图，落回占位图
+        /// （`ApplyOptionIcons` 里「给了 `Army` 才走按军队那条」）。调用方照原版
+        /// `UnitOnBoardAttackTypeSelector__Toggle.c` 把 `card.rawCard.army(+0x2c)` 传进来即可。</para></summary>
+        public void ShowJustOne(AttackKind kind, Vector3? atWorld = null, int selectedType = 0, int army = 0)
         {
-            var opts = new List<Option> { new Option { Kind = kind, Enabled = true } };
+            var opts = new List<Option> { new Option { Kind = kind, Enabled = true, Army = army } };
             Show(opts, null, null, atWorld, selectedType, kind);
         }
 
@@ -1121,7 +1244,13 @@ namespace CardPresentation
         /// 原版 `AttackButtonClick` 在**选定时**就 `ChangeAttackType`（写 `card.attackType` + 高亮那一圈），
         /// 而我们驱动层只在**结算时**写 `u.LastAttackType` ⇒ 同一回合内改选后再开选择器，高亮的还是
         /// 「上次打出去的那一档」（`U3 §七·4` 那条时序差的修法口）。
-        /// <para>⚠️ **调用点待接**：`BattleDriver.CommitCommand` 选完打法时调一次（见执行报告）。</para></summary>
+        /// <para>⚠️ **2026-10-25 订正（铁律 5）**：原来这里写「全仓 `selector.SetSelected(` **0 命中**、
+        /// 时序差仍然存在」—— **已过期**。实际 `BattleDriver.CommitCommand` 在**选定时**就写
+        /// `LastAttackType` 并调 `SetSelected`（`BattleDriver.cs:13932`；
+        /// `if (selector != null) { selector.SetSelected(kind); selector.Hide(); }`）
+        /// ⇒ 「同一回合内改选后再开选择器，高亮的还是上次打出去的那一档」这条时序差**已经不存在**。
+        /// 引擎侧「结算那一刻」那次写（`RuleCore.cs:5834/10157/10345/10556`）照旧，两处不冲突
+        /// （前者是表现层的即时反馈，后者是规则层的落账）。</para></summary>
         public void SetSelected(AttackKind kind)
         {
             if (_selected == kind) return;
@@ -1135,6 +1264,24 @@ namespace CardPresentation
         /// 为什么不建的时候一次定死：**同一个按钮格子在不同单位上要换图** ——
         /// 带 `Duty` 的兵那一格是修女/星军…那张专属图，普通的兵是占位图。
         /// ⚠️ 取不到图就**保持上一次的**（别 `SetTexture(null)` 把按钮刷没）。
+        /// <para>🔴 **2026-10-25（`W2` · `AU1-B` 残差）**：技能钮的图标**原版只按军队查**
+        /// （`UnitOnBoardAttackTypeSelector__Toggle.c:74-80` → `ArmyUtilities.GetActiveAbilityIconForArmy`
+        /// → `IconsByArmySO.activeAbilityIcons`，**只有 5 条** ⇒ 真值表只在 `Core/ArmyIcons.cs` 一处）。
+        /// 查不到（`iconSprite == null`）时原版是
+        /// **`CardDisplayAttackTypeButton__Toggle(btn, bVar4 & param_2)` 把整颗钮关掉**
+        /// （`AttackTypesButtonsController__ToggleAttackTypesSelector.c:54-56`），
+        /// ⛔ **不是**「给一张占位图」。本方法照此：**`Army > 0`**（= 合法阵营值）时**只认军队那条**，
+        /// 命中不了就 `Hidden = true` + 出声，并 `continue`（不再落回下面的 `IconName` 占位兜底）。
+        /// ⚠️ **`Army <= 0` 一律走旧口径（`IconName` / 占位图），不关钮、不报警**，两档：
+        ///   · `0` = 调用方没给（`BattleDriver` 在 `u.Card == null` 时给 0）；
+        ///   · `-1` = `ArmyIcons.Id(faction)` **认不出阵营**（我们自研的 `Ember` / `Tide` 两阵营）
+        ///     ⇒ 按 `BattleDriver.cs:13815-13817` 的既定口径落回占位图。
+        /// 🔴 **2026-10-25（`W2` 修，真缺陷留痕）**：这里一度写成 `Army != 0` ⇒ `-1` 被送进「按军队查」⇒
+        ///   `tex` 恒 null ⇒ **整颗技能钮被关掉** ⇒ 自研两阵营的主动技能**打不出来**（`BattleScene.Run` 连红 9 条）。
+        ///   根因 = 把「认不出阵营」误当成「阵营有但没有图标」。⛔ 别再把闸放宽到 `!= 0`。
+        /// ✅ **现核（2026-10-25，`W2`）**：`ArmyIcons.ActiveAbilityIconName` 返回的**已经是**我们
+        /// `Resources/Art/ui/` 的文件名（它内部走 `ResourceNameOf` 把原版名里的空格换成下划线）
+        /// ⇒ 直接喂 `CardArt.Ui` 取得到图，**不需要在调用点再做一次名字转换**。</para>
         /// </summary>
         void ApplyOptionIcons()
         {
@@ -1142,25 +1289,47 @@ namespace CardPresentation
             {
                 if (_icons[i] == null) continue;
                 var o = Find(Order[i]);
-                string want = (o != null && !string.IsNullOrEmpty(o.IconName)) ? o.IconName : null;
-                // 🆕 **2026-10-24（`W10`）：技能钮的图标原版是【按军队】查的**
-                //   （`UnitOnBoardAttackTypeSelector__Toggle.c:74-80` → `ArmyUtilities.GetActiveAbilityIconForArmy`
-                //    → `IconsByArmySO.activeAbilityIcons`，**只有 5 条**，逐条真值见 `Core/ArmyIcons.cs`）。
-                //   我们原来按**关键词**挑图（五阵营 1:1 时结果相同 ⇒ 看不出来），差别只在
-                //   「这张卡所属阵营不在那 5 条里」：原版那一下 `iconSprite == null` ⇒
-                //   `CardDisplayAttackTypeButton__Toggle(btn, bVar4 & param_2)` 直接**把整颗钮关掉**。
-                //   ⇒ 给了 `Army` 才走这条（没给 = 保持旧口径，⛔ 别拿它顶掉 `IconName`）。
-                if (want == null && o != null && o.Kind == AttackKind.Ability && o.Army > 0)
+                // 🆕 **2026-10-24（`W10`）：技能钮的图标原版是【按军队】查的**（见本方法 doc）。
+                //   我们原来按**关键词**挑图（五阵营 1:1 时结果相同 ⇒ 看不出来）。
+                // 🔴 **2026-10-25（`W2` 修・真缺陷）**：闸必须是 **`Army > 0`**，⛔ **不是 `Army != 0`** ——
+                //   `ArmyIcons.Id(faction)` 认不出阵营时回 **-1**（我们自研的 `Ember` / `Tide` 两阵营），
+                //   那一档**必须落回旧口径**（`IconName` / 占位图），见 `BattleDriver.cs:13815-13817` 的注释。
+                //   写成 `!= 0` 会把 -1 也送进「按军队查」⇒ 查不到 ⇒ 整颗技能钮消失 ⇒ **主动技能打不出来**。
+                bool abilityByArmy = o != null && o.Kind == AttackKind.Ability && o.Army > 0;
+                string want;
+                Texture2D tex;
+                if (abilityByArmy)
                 {
+                    // 🔴 原版这一格**只认军队** ⇒ 即使调用方同时给了 `IconName`（关键词那条），也按军队查
+                    //   （两条判据在本仓 5 个阵营上 1:1 吻合；不一致时以原版那条为准 —— 铁律 11）。
+                    //   ⚠️ `ArmyIcons.ActiveAbilityIconName` **已经**做过「原版 sprite 名（带空格）→ 我们
+                    //   `Resources/Art/ui/` 文件名（下划线）」那一跳（`ArmyIcons.ResourceNameOf`）⇒ 直接喂 `CardArt.Ui`。
+                    //   走到这里 `Army > 0` 是**合法阵营值**，取不到只能是「那 5 条里没有它」或「资源名取不到」
+                    //   ⇒ 才是原版要关钮的那一档（`iconSprite == null`）。
                     want = ArmyIcons.ActiveAbilityIconName(o.Army);
-                    if (string.IsNullOrEmpty(want))
+                    tex = string.IsNullOrEmpty(want) ? null : CardArt.Ui(want);
+                    if (tex == null)
                     {
-                        o.Hidden = true;
-                        o.Enabled = false;
+                        // 原版：`iconSprite == null` ⇒ 整颗钮关掉。我们同档 + **出声**（⛔ 不静默给占位图）。
+                        // 只报一次：`Hidden` 已经是 true 就不再刷这条（`Show` 每次会重建 Option，故仍需 `!o.Hidden` 闸）。
+                        if (!o.Hidden)
+                        {
+                            o.Hidden = true;
+                            o.Enabled = false;
+                            ArmyIconMissingHides++;
+                            Debug.LogWarning("[Battle] 攻击方式选择器：这张卡的阵营（`" + o.Army + "`）在"
+                                           + " `activeAbilityIcons` 那 5 条里查不到图标 ⇒ **整颗技能钮关掉**"
+                                           + "（原版 `Toggle(btn, iconSprite != null & …)`；⛔ 不拿占位图顶）");
+                        }
+                        continue;      // ⛔ 不落回 `IconName` 的占位图
                     }
                 }
-                if (string.IsNullOrEmpty(want)) want = IconName(Order[i]);
-                var tex = CardArt.Ui(want);
+                else
+                {
+                    want = (o != null && !string.IsNullOrEmpty(o.IconName)) ? o.IconName : null;
+                    if (string.IsNullOrEmpty(want)) want = IconName(Order[i]);
+                    tex = CardArt.Ui(want);
+                }
                 if (tex != null && !ReferenceEquals(_icons[i].Texture, tex))
                 {
                     _icons[i].SetTexture(tex);
@@ -1207,8 +1376,10 @@ namespace CardPresentation
             //    **整条 `Drag Attack Selector` 自己的 Transform**（组件就挂在 GO 158 上）。
             //    🔴 **2026-10-24（`B-21`）就地订正（铁律 5）**：本段原来写「那条的 `pivot = (0.5, 1)`
             //    （实读 `RectTransform_3061.json`）」—— **引错了节点**：`RT_3061` 是它的子件
-            //    `Select Attack Background`；**整条自己的** `RT_2973`/`RT_3166` 是 `pivot (0.5, 0.5)`
+            //    `Select Attack Background`；**整条自己的** `RT_2973` 是 `pivot (0.5, 0.5)`
             //    （中心）⇒ `set_position` 落在锚点上的是**条子的中心**（= 三颗钮那一行），不是底板顶边。
+            //    ⚠️ 2026-10-25 再订正：那句里原来还并列了 `RT_3166`（`722.66×403.13`、锚点 (0,0)）——
+            //      那也是**另一颗**节点，不是本条子的 rect；本条子的 rect 只有 `RT_2973`（`621.72×122.25`）。
             //
             // 🔴 **2026-10-16（`T09` 批 3）：原点在这一步按档取** ——
             //    · uGUI 档：帧节点摆到锚点上（画布单位），件全挂在帧下 ⇒ 下面的数**全部相对帧中心**；
@@ -1230,6 +1401,9 @@ namespace CardPresentation
             //    ⛔ 原来这里减了 `ButtonRowDownPx`(=42.7485)，整条比原版低 42.7485 px —— 见常量上的长注释。
             var center = origin;
 
+            // 这一次真要显示的那几颗 —— **背景宽**与**按钮排布**共用这一份（判据只此一处）
+            var shown = ShownKinds();
+
             if (_background != null)
             {
                 _background.gameObject.SetActive(true);
@@ -1241,33 +1415,28 @@ namespace CardPresentation
                 float bgTop = U(BgTopAboveAnchorPx);
                 float bgY = _background.IsUgui ? bgTop - U(BgH * 0.5f) : bgTop;
                 _background.transform.localPosition = center + new Vector3(0f, bgY, Z(ZBg));
+
+                // 🔴 **2026-10-25（判据见 `BgBaseW` 的长注释）**：实绘宽 = 343.2 × lerp(目标倍率×1.5, 1, t)
+                //   —— `count` 与入场进度**两个量都在里面**，⛔ 别写成一个常量。
+                //   · `countT` = `clamp01(颗数 − 2)`（`DAT_1834b2bbc` = 2.0）；
+                //   · `targetMul` = `1 + (1.5 − 1) × countT`（`elementsHorizontalScaleModifier`）；
+                //   · 起点那一侧再乘 `inputScaleModifier`（`MoveButtons` 就是这么乘的）。
+                //   `SetAspect` 是「宽 = 高 × aspect」的唯一口（两档同一行）——
+                //   ⛔ 别在 uGUI 档写 `sizeDelta.x`、世界档写 `localScale.x`（那是同一条规矩的两份写法）。
+                float countT = Mathf.Clamp01(shown.Count - 2f);
+                float targetMul = 1f + (ElementsHorizontalScaleModifier - 1f) * countT;
+                float bgMul = Mathf.Lerp(targetMul * InputScaleModifier, 1f, Mathf.Clamp01(_enterT));
+                _background.SetAspect((BgBaseW * bgMul) / BgH);
             }
-            if (_title != null)
-            {
-                _title.gameObject.SetActive(!string.IsNullOrEmpty(_titleText));
-                _title.SetText(_titleText);
-                _title.transform.localPosition = center + new Vector3(0f, U(BarH * 0.5f + 26f), Z(ZText));
-            }
-            if (_note != null)
-            {
-                _note.gameObject.SetActive(!string.IsNullOrEmpty(_noteText));
-                _note.SetText(_noteText);
-                _note.transform.localPosition = center + new Vector3(0f, U(BarH * 0.5f + 54f), Z(ZText));
-            }
+            // 🔴 **2026-10-25（`W6`）删**：这里原来是自造标题（`SelectorTitle`）的显隐 + 摆位
+            //   （`center + (0, BarH/2 + 26px)`）。原版 subtree 里没有这块标题，判据 → `BuildOnCanvas` 那条红字。
+            // ⚠️ 这里原来是第二行「技能效果」小字（`SelectorNote`）的摆位 —— **2026-10-25（`W4`）删**：
+            //   原版 subtree 里没有这一件（判据 → `BuildOnCanvas` 那段红字）。`_noteText` 只当 tooltip 正文用。
 
             // 只排**这次真的要显示**的那几项，居中 —— 原版是 HorizontalLayoutGroup(MiddleCenter)，
             // 所以只有两个按钮时它们会往中间收，不会留着技能那个空档
-            var shown = new List<AttackKind>();
-            for (int i = 0; i < Order.Length; i++)
-            {
-                var o = Find(Order[i]);
-                if (o == null) continue;
-                // 🆕 2026-10-24（`W10`）：`Hidden` = 原版「按军队查不到技能图标 ⇒ 整颗钮关掉」；
-                //   `_justOne` = 原版 `ToggleJustOne`（三颗全关、只开那一颗）。
-                if (o.Hidden) continue;
-                if (_justOne != AttackKind.None && o.Kind != _justOne) continue;
-                shown.Add(o.Kind);
-            }
+            // ⚠️ 2026-10-25：这份清单已提到上面（`var shown = ShownKinds();`）—— 背景宽也要按它算，
+            //    这里 ⛔ 别再算第二份（两处写同一条规则 = 迟早不一致）。
 
             for (int i = 0; i < Order.Length; i++) SetSlotActive(i, null);
 
@@ -1316,12 +1485,39 @@ namespace CardPresentation
             return new Vector3(p.x, p.y, 0f);
         }
 
+        /// <summary>这一次真要显示的那几颗（`Hidden` / `_justOne` 都在这里收）。**判据只此一处** ——
+        /// 背景宽（按颗数）与按钮排布（按颗数居中）共用它。</summary>
+        List<AttackKind> ShownKinds()
+        {
+            var shown = new List<AttackKind>();
+            for (int i = 0; i < Order.Length; i++)
+            {
+                var o = Find(Order[i]);
+                if (o == null || o.Hidden) continue;
+                if (_justOne != AttackKind.None && o.Kind != _justOne) continue;
+                shown.Add(o.Kind);
+            }
+            return shown;
+        }
+
+        /// <summary>🔴 **2026-10-25**：这一格是不是「**已选打法**」那一格 —— 原版那颗 `Highlight` 圈的显隐
+        /// **只由它决定**：`CardDisplayAttackTypeButton__HighlightIfNeeded.c` 第一句
+        /// `SetActive(highlightImage(+0x38), param_2 == attackType(+0x20))`，`…HighlightSelectedAttackTypeButtons.c`
+        /// 同一句 ⇒ **没选中的格子那圈是关着的**，⛔ 不是「全都亮、只是压暗」。
+        /// <para>判据只此一处：`SetSlotActive`（切显隐）与 `RefreshPicked`（切缩放/补间）都走它。</para></summary>
+        bool IsPickedSlot(Option opt)
+        {
+            return opt != null && opt.Enabled && !opt.Hidden
+                && _selected != AttackKind.None && opt.Kind == _selected;
+        }
+
         /// <summary>`opt` 传 null = 关掉这一格（三个按钮节点是**一次建满**的，之后只切显隐）</summary>
         void SetSlotActive(int i, Option opt)
         {
             bool on = opt != null;
             if (_icons[i] != null) _icons[i].gameObject.SetActive(on);
-            if (_rings[i] != null) _rings[i].gameObject.SetActive(on && opt.Enabled);
+            // 圈只在「已选打法」那一格亮（判据 → `IsPickedSlot`）；关着的圈同时收不到 uGUI 射线
+            if (_rings[i] != null) _rings[i].gameObject.SetActive(on && IsPickedSlot(opt));
             if (_captions[i] != null)
                 _captions[i].gameObject.SetActive(on && !string.IsNullOrEmpty(opt.Badge));
         }
@@ -1421,8 +1617,14 @@ namespace CardPresentation
             //   半径 = `W(ButtonH)/2 × Scale`（原样）；⛔ 拿 px 去比世界点 = 命中框**大 108 倍**、画面却完全正常。
             // 🔴 **2026-10-20（`T09` A3-e）**：uGUI 档那条「用 `_frame.lossyScale` 把 px 折成世界单位的圆判据」
             //   **已整段退场**（命中改由 `EventSystem` 送达，见上面的早退）—— ⛔ 别把它加回来（= 两条路抢 `Hovered`）。
-            float half = W(ButtonH) * 0.5f * LayoutSpace.Scale;   // A28：118.806（原版按钮高），⛔ 不再用旧的 118.8 合体常量
-
+            // 🔴 **2026-10-25 改判（判据充分 —— 顺手闭掉 `T16` §1·2 #17「模型③判据不足」那条）**：
+            //   原版**没有「圆」这个模型**：受体 = **两个矩形的并集** ——
+            //   钮本体 `Image`（`RT_3368/2804/2626` = **118.372 × 118.806**，`m_RaycastTarget = 1`）
+            //   ∪ 子件 `Highlight`（`RT_3028/2776/3512` = **176.23 × 176.875**，**只在「已选打法」那一格
+            //   `SetActive(true)`**，见 `IsPickedSlot`）。
+            //   ⇒ 世界档（= uGUI 宿主没建起来时的兜底）照同一条口径判**矩形包含**，圈只在 hot 那格参与。
+            //   ⛔ 别再回到「以图标中心为圆心、直径 118.8」：那个圆比原版小一圈（方角上点不到），
+            //     也判不出「已选那格因为圈变大 ⇒ 命中区跟着变大」这一档。
             var hit = AttackKind.None;
             for (int i = 0; i < Order.Length; i++)
             {
@@ -1430,36 +1632,88 @@ namespace CardPresentation
                 if (!Selectable(opt)) continue;      // 与 `OnHoverEnter` 同一个口（含 `pindown` 那条）
                 if (_icons[i] == null || !_icons[i].gameObject.activeSelf) continue;
 
-                // 命中按**圆形**判：图标是圆钮，用方形外接框会「还没碰上就选中」
                 var d = _icons[i].transform.position - world;
-                if (d.x * d.x + d.y * d.y <= half * half) { hit = opt.Kind; break; }
+                d.z = 0f;
+                if (HitRect(d, ButtonW, ButtonH)) { hit = opt.Kind; break; }
+                if (IsPickedSlot(opt) && _rings[i] != null && _rings[i].gameObject.activeSelf
+                    && HitRect(d, RingW, RingH)) { hit = opt.Kind; break; }
             }
 
             if (hit != Hovered) { Hovered = hit; RefreshPicked(); }
             return Hovered;
         }
 
-        /// <summary>把「已选打法」那一格画出来：**黄圈 + 放大 1.3 倍**（原版 `scaleMultiplierWhenSelected`）。
+        /// <summary>把「已选打法」那一格画出来：**黄圈 + 放大 1.3 倍 + 0.3 s 补间**（原版 `scaleMultiplierWhenSelected`）。
         /// 🔴 **2026-09-29 照原版改**：原来这个高亮挂在**指针悬停**上（`Hovered`），而原版挂的是
         /// `unit.attackType`（= 这个单位上一次用的打法，`HighlightSelectedAttackTypeButtons`）。
-        /// ⚠️ **悬停现在不再单独给视觉**（原版那一圈只有"已选"这一档）—— 实机觉得别扭再单记，别自己发明。</summary>
+        /// ⚠️ **悬停现在不再单独给视觉**（原版那一圈只有"已选"这一档）—— 实机觉得别扭再单记，别自己发明。
+        /// 🔴 **2026-10-25 按判据补三处**（原来都与原版不符，逐条见下）：
+        ///   ① 圈**只在已选那一格亮**（原来三格都亮、非选的压到 α0.28；原版第一句就是 `SetActive(false)`）；
+        ///   ② 缩放是 **0.3 s 补间**（选中 `Ease.OutBack` / 回落 `OutQuad`），原来是**瞬间赋值**；
+        ///   ③ `ValueText`（我们的 `Badge_*`）是**按钮的子件** ⇒ 原版一起 ×1.3，原来我们漏了它。</summary>
         void RefreshPicked()
         {
+            bool changed = _pickedApplied != _selected;
             for (int i = 0; i < Order.Length; i++)
             {
                 var opt = Find(Order[i]);
                 if (opt == null) continue;
+                bool hot = IsPickedSlot(opt);
 
-                bool hot = _selected != AttackKind.None && opt.Kind == _selected && opt.Enabled && !opt.Hidden;
-                float s = hot ? HighlightScale : 1f;
-                if (_icons[i] != null) _icons[i].transform.localScale = new Vector3(s, s, 1f);
-                if (_rings[i] != null && _rings[i].gameObject.activeSelf)
+                if (_rings[i] != null)
                 {
-                    _rings[i].transform.localScale = new Vector3(s, s, 1f);
-                    _rings[i].SetTint(hot ? Color.white : new Color(1f, 1f, 1f, 0.28f));
+                    // 圈显隐与 `SetSlotActive` 同一个判据（`IsPickedSlot`）—— 这里再做一遍是因为
+                    //   「只改 `_selected`、不重排」的调用点（`SetSelected`）也要把圈换过去。
+                    bool shown = _icons[i] != null && _icons[i].gameObject.activeSelf;
+                    _rings[i].gameObject.SetActive(shown && hot);
+                    if (shown && hot) _rings[i].SetTint(Color.white);   // 原版那颗 `Image` 不改色（贴图自带黄圈）
                 }
+
+                // 只在「已选打法」真的换了的那一拍起补间 —— 否则每次 `RefreshLayout`（每帧都可能来）
+                //   都会把补间重置回起点，看起来就是「永远弹不到位」。
+                if (!changed) continue;
+                ApplyPickScale(_icons[i], hot);
+                ApplyPickScale(_rings[i], hot);
+                ApplyPickScale(_captions[i], hot);     // `ValueText` 是钮的子件 ⇒ 一起缩放（原版整体 DOScale）
             }
+            if (changed) _pickedApplied = _selected;
             RefreshAbilityTooltip();
+        }
+
+        /// <summary>原版那一拍 `DOScale(原始 scale × (hot ? 1.3 : 1), 0.3 s)`（判据 → <see cref="PickTweenSeconds"/>）。
+        /// ⚠️ 走 `CardTween.Mode`（批处理 = `Manual`，由 `BattleScene.Step` 推）
+        /// —— ⛔ 直写 `localScale` 等于把原版那条补间吞掉，而且会被下一次 `RefreshLayout` 覆盖回来。
+        /// <para>⚠️ 原版放大的是**按钮整条 transform**（钮 + 子件 `Highlight` + `ValueText`），
+        /// 我们这三件是平铺的兄弟件（见报告 §⑤ 的历史偏离）⇒ 逐个调同一份算式。</para></summary>
+        void ApplyPickScale(Transform t, bool hot)
+        {
+            if (t == null) return;
+            float s = hot ? HighlightScale : 1f;
+            var tw = t.DOScale(new Vector3(s, s, 1f), PickTweenSeconds)
+                      .SetEase(hot ? Ease.OutBack : DOTween.defaultEaseType)
+                      .SetUpdate(CardTween.Mode);
+            if (CardTween.LinkEnabled) tw.SetLink(t.gameObject);   // 拆旧建新 / 换场景时别留野补间
+        }
+        void ApplyPickScale(HudPiece piece, bool hot) { if (piece != null) ApplyPickScale(piece.transform, hot); }
+        void ApplyPickScale(Label cap, bool hot) { if (cap != null) ApplyPickScale(cap.transform, hot); }
+
+        /// <summary>收起时把三件的缩放**直接**拉回 1（⛔ 不补间 —— 节点马上就不可见了）。
+        /// <para>为什么要有：`Hide()` 之后节点是 `SetActive(false)`，留着上一趟的 1.3 会在下一趟
+        /// 「没选中那一格」上闪一下；原版 `OnDisable` 只归位 `localPosition`（它的按钮出生态就是 1）。</para></summary>
+        void ResetPickScales()
+        {
+            for (int i = 0; i < Order.Length; i++)
+            {
+                ResetPickScale(_icons[i] != null ? _icons[i].transform : null);
+                ResetPickScale(_rings[i] != null ? _rings[i].transform : null);
+                ResetPickScale(_captions[i] != null ? _captions[i].transform : null);
+            }
+        }
+        static void ResetPickScale(Transform t)
+        {
+            if (t == null) return;
+            t.DOKill();
+            t.localScale = Vector3.one;
         }
 
         /// <summary>🆕 2026-10-24（`W10`）：技能钮 tooltip —— 原版 `CardDisplayAttackTypeButton__HighlightIfNeeded.c`。
@@ -1609,6 +1863,16 @@ namespace CardPresentation
         }
         /// <summary>自检用：第 `i` 格的 `EventTrigger`（`PointerEnter/Exit`；`null` = 没挂上）。</summary>
         public EventTrigger HighlightTriggerForTest(int i) { return (i >= 0 && i < _hoverTriggers.Length) ? _hoverTriggers[i] : null; }
+        /// <summary>🆕 **2026-10-25** 自检用：第 `i` 格**钮本体**（`Image` 118.372×118.806）上的 `EventTrigger`。
+        /// 圈改成「只在已选那一格亮」之后，**没选中那两格的唯一受体就是它**（原版同样如此）。</summary>
+        public EventTrigger IconTriggerForTest(int i) { return (i >= 0 && i < _iconTriggers.Length) ? _iconTriggers[i] : null; }
+        /// <summary>🆕 **2026-10-25** 自检用：第 `i` 格的 `Highlight` 圈现在**亮着吗**
+        /// （原版 = 只有「已选打法」那一格 `SetActive(true)`）。没建出来 ⇒ `false`。</summary>
+        public bool HighlightActiveForTest(int i)
+        {
+            var p = HighlightPieceForTest(i);
+            return p != null && p.gameObject != null && p.gameObject.activeSelf;
+        }
         /// <summary>自检用：第 `i` 格 `PointerEnter` 来过几次（只增）。</summary>
         public int HighlightEnterCountForTest(int i) { return (i >= 0 && i < _hoverEnterCount.Length) ? _hoverEnterCount[i] : -1; }
         /// <summary>自检用：第 `i` 格 `PointerExit` 来过几次（只增）。</summary>

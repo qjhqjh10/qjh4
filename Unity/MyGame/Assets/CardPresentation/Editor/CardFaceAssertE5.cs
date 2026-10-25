@@ -4,6 +4,7 @@
 //   A. **大图档状态切换的补间**（原版 `CardImageController.DoChange` 的 `scaleTime` = 0.3s / `Ease.OutBack`）
 //   B. **`CardView.Create` 收两条 overDraw 轴**（`artOverdraw:` / `useOverDraw:`；不传 = 既有调用点零影响）
 //   C. **锻造按钮的完整链路**（命中区 → 请求 → 特效；`Shell/CardDetailPopup` 那一串）
+//   D. 🆕 **换位音 `CardMove`**（菜单侧 `Shell/CardDetailPopup.SwapToFront`；2026-10-25 执行代理 D）
 //
 // 用法（⚠️ 要**主对话**跑 —— 子代理不许 `-executeMethod`）：
 //   unset ELECTRON_RUN_AS_NODE && "D:/Unity/Hub/Editor/6000.3.23f1/Editor/Unity.exe" -batchmode -quit \
@@ -11,6 +12,9 @@
 //
 // 判绿红：`grep "^E5"` 的**合计行**；逐条按**行首** `E5 ✓` / `E5 ✗` 数
 //   （⛔ 别 `grep -c ✗` —— `✗` 会出现在断言文案里）。
+//   🆕 **2026-10-25（执行代理 `T`）**：末尾还挂了 `SoundCueAssertT`（战斗侧换位音）的 10+2 条，
+//   它的行前缀是 **`BT T ✓` / `BT T ✗`**（同 `BT W10` 先例）⇒ **合计行里已经含它**；
+//   要连它的明细一起数就 `grep -E "^(E5|BT T) [✓✗]"`。
 //
 // ⚠️ 本宿主**不建场景、不存盘**：只在临时根下建对象，收尾全部 `DestroyImmediate`。
 // ⚠️ `CardProgress.ResetForTest()` 会**关掉落盘**并清空内存态 —— 本宿主必须先调它，
@@ -55,6 +59,19 @@ public static class CardFaceAssertE5
             else { Check(false, "A/B 组：找不到单位样本 ⇒ 本组判不了（⛔ 不静默跳过）"); }
             if (common != null && legendary != null) RunCraftChain(common, legendary);
             else Check(false, "C 组：样本不齐 ⇒ 本组判不了（⛔ 不静默跳过）");
+
+            RunSwapSound(pool);
+
+            // 🆕 **2026-10-25（执行代理 `T` · 台账 `AUD` 那条「跑不到」）**：把**战斗侧**那套换位音断言
+            //   （`SoundCueAssertT`：cue 存在 / 4 个 clip 名 / 参数 / 常量 / 两条负例 / `PlayFx` 走通 /
+            //   **读源码**断战斗窗「恰好一处 + 顺序」/ 元断言）挂在**本宿主**跑一次。
+            //   **为什么挂这儿**：它是「卡面 / 窗」的事（同本宿主 C/D 组），而 `Editor/BattleScene.cs`
+            //   本批**另有代理在改** ⇒ 借这个已有入口，不再动那个文件。
+            //   ⚠️ **计数隔离**：`SoundCueAssertT.Run()` 自己**首尾各 `WindowSounds.ResetCounters()` 一次**，
+            //      它的 T-7 只读 `Played` 的「单次增量」（== 1）⇒ **不会**搅乱本宿主 D 组那几个 `Played` 读数；
+            //      这里跑完再 reset 一次兜底，免得后面的宿主读到我们这一趟的窗口音计数。
+            //   ⚠️ 它自己的行前缀是 **`BT T`**（同 `BadgeFilterAssert` 的 `BT W10` 先例）⇒ 逐条数时要连它一起数。
+            RunSoundCueAssertT();
         }
         catch (System.Exception e)
         {
@@ -278,12 +295,24 @@ public static class CardFaceAssertE5
             // ---- C3 真点一下 ⇒ 请求真的发出去了（扣 1 张通配符 + owned +1）----
             int wild0 = CardProgress.Wildcards(common.Rarity);
             int owned0 = CardProgress.Owned(common.Id, common.Rarity);
-            if (wb != null) wb.Click(); else pop.OnCraftClicked();
+            // 🔴 **2026-10-25（执行代理 D · 铁律 5）：走【真实入口】`WindowButton.Click()`** ——
+            //   原来的 `else pop.OnCraftClicked()` 那条兜底已删：`C2` 已经断过 `wb != null`，
+            //   再留兜底就等于「这条路断了也能绿」（断言自证）。
+            // 🔴🔴 **2026-10-25 第二轮就地订正（α：断言写错）**：`wb` 必须在**点之前**判。
+            //   `DoCraft()` 末尾是 `RebuildKeepingState()` → `Build()`，它把整棵子树**销毁重建**
+            //   ⇒ 点完之后 `wb` 是**已销毁组件**（Unity 假 null）⇒ `wb != null` 恒 false。
+            //   上一版把它写进点击【之后】的 `Check(...)` 里 ⇒ 数明明动了（3→2 / 11→12）却判红。
+            //   （同族先例 = `Editor/MainMenuScene.cs` 的「首格点击后节点被重建 ⇒ 再查恒 null」。）
+            bool hadBtn = wb != null;
+            if (hadBtn) wb.Click();
             int wild1 = CardProgress.Wildcards(common.Rarity);
             int owned1 = CardProgress.Owned(common.Id, common.Rarity);
-            Check(wild1 == wild0 - 1 && owned1 == owned0 + 1,
-                  "C3 点一下 = **真发请求**：通配符 " + wild0 + "→" + wild1 + " · 拥有数 " + owned0 + "→" + owned1
-                  + "（空实现 ⇒ 两个数都不动 ⇒ 红）");
+            Check(hadBtn && wild1 == wild0 - 1 && owned1 == owned0 + 1,
+                  "C3 点一下（走真实入口 `CraftHit` 的 `WindowButton.Click()`）= **真发请求**：通配符 "
+                  + wild0 + "→" + wild1 + " · 拥有数 " + owned0 + "→" + owned1
+                  + "（空实现 ⇒ 两个数都不动 ⇒ 红）"
+                  + "｜🧨 `wb` 的判空必须在**点击之前**（`DoCraft → RebuildKeepingState` 会重建整棵树，"
+                  + "点完之后那颗 `WindowButton` 是已销毁对象 ⇒ 假 null）");
 
             // ---- C4/C5 同一拍播了两件特效，且按这张卡的稀有度选件 ----
             var players = go1.GetComponentsInChildren<WarpforgeEffectPlayer>(true);
@@ -324,13 +353,20 @@ public static class CardFaceAssertE5
             var pop3 = go3.GetComponent<CardDetailPopup>();
             int wildB = CardProgress.Wildcards(legendary.Rarity);
             int ownedB = CardProgress.Owned(legendary.Id, legendary.Rarity);
-            pop3.OnCraftClicked();
+            // 🔴 **2026-10-25（执行代理 D）：走【真实入口】**（原来这里直调 `pop3.OnCraftClicked()`）——
+            //   传奇且 owned==1 那张的钮**仍是可点的**（有通配符 ⇒ `CheckButtons` 给可交互），
+            //   所以这一条不该靠直调绕开钮。⛔ 只有 C6（通配符 0 ⇒ 钮本来就灰）那一支才保留直调，
+            //   它模拟的是「有人绕过灰钮」的负例。
+            // ⚠️ 「钮在且可交互」必须在**点击之前**判（同 C3：点一下会重建整棵树 ⇒ 点完是假 null）。
+            var wb3 = pop3.CraftHit != null ? pop3.CraftHit.GetComponent<WindowButton>() : null;
+            bool hadBtn3 = wb3 != null && wb3.Interactable;
+            if (hadBtn3) wb3.Click();
             var pl3 = go3.GetComponentsInChildren<WarpforgeEffectPlayer>(true);
-            Check(ownedB == 1 && pop3.CraftConfirmPopup != null
+            Check(ownedB == 1 && hadBtn3 && pop3.CraftConfirmPopup != null
                   && CardProgress.Wildcards(legendary.Rarity) == wildB
                   && CardProgress.Owned(legendary.Id, legendary.Rarity) == ownedB
                   && (pl3 == null || pl3.Length == 0),
-                  "C7 传奇 + owned==1 ⇒ **只弹确认窗**（不走合成、不播特效；通配符 " + wildB + " 不变、"
+                  "C7 传奇 + owned==1 ⇒ **点真实入口只弹确认窗**（不走合成、不播特效；通配符 " + wildB + " 不变、"
                   + "owned " + ownedB + " 不变、特效 " + (pl3 != null ? pl3.Length : 0) + " 件）");
             pop3.HideCraftConfirm();
         }
@@ -363,6 +399,139 @@ public static class CardFaceAssertE5
     }
 
     // ================================================================== 小工具
+
+    // ==================================================================
+    //  D · 换位音 `CardMove`（菜单侧）—— 🆕 2026-10-25 执行代理 D
+    // ==================================================================
+    //
+    // 判据（一手）：
+    //   · 原版 `CardDisplayWindow__ChangeCardPosition.c:68-73`：换位状态置真（`+0x150 = 1`）**之后**、
+    //     `SetImageOverDraw` 与两条换位补间**之前**，一声 `SoundManager.Play2D(<soundOnCardSwap>, MixerType 0 = FX)`。
+    //   · cue = **`CardMove`**（pid 4812904303840730115 · 4 clip）。菜单侧 `CardDetailPopup` 的根 MB
+    //     与战斗那扇 `CardDisplayWindow` **同一个 pid（2033）** ⇒ 同一个 cue 常量（`CardDisplayWindow.SwapSoundCue`）。
+    //   · 战斗侧早已接（`Battle/CardDisplayWindow.cs:1592`，由 `SoundCueAssertT` 的 T-8a/T-8b 钉着）
+    //     ⇒ **本组钉菜单侧这一声**（在此之前它一直是默片）。
+    static void RunSwapSound(List<CardDef> pool)
+    {
+        Debug.Log("[E5] --- D 组：换位音 `CardMove`（菜单侧 `CardDetailPopup.SwapToFront`）---");
+
+        // ③ 先做**静态**那条（不依赖运行期）：读源码断「位置」。⚠️ 批处理里补间不推进，
+        //    纯运行期断言**证明不了**「在补间之前」。
+        CheckSwapSoundCallSite();
+
+        // 找一个**带相关卡**的样本（扇形要有第 1 格才能换位）
+        CardDef sample = null;
+        for (int i = 0; i < pool.Count && sample == null; i++)
+        {
+            var d = pool[i];
+            if (d == null || string.IsNullOrEmpty(d.Id)) continue;
+            var rel = RelatedCards.Find(d, CardDetailPopup.Slots - 1);
+            if (rel != null && rel.Count > 0) sample = d;
+        }
+        Check(sample != null,
+              "D0 找到一张**带相关卡**的样本（换位要有第 1 格可点；实得 "
+            + (sample != null ? sample.Name : "<没有这样的卡>") + "）");
+        if (sample == null) return;
+
+        bool keepEnabled = WFSoundPlayer.Enabled;
+        var go = NewPopup(sample);
+        try
+        {
+            var pop = go.GetComponent<CardDetailPopup>();
+
+            // ① 负例：**只开窗 / 重建，不换位** ⇒ 换位音一声都不出
+            WindowSounds.ResetCounters();
+            pop.ShowCard(sample);                       // = 生产那条「开窗/换卡」路（`ShowCard → Build`）
+            Check(WindowSounds.Played == 0 && WindowSounds.LastCue != CardDisplayWindow.SwapSoundCue,
+                  "D1 **负例**：只开窗 / 重建（不换位）⇒ 换位音**一声都不出**（Played = " + WindowSounds.Played
+                + " · LastCue = `" + WindowSounds.LastCue + "`）"
+                + "｜🧨 把那行 `PlayFx` 挪进 `Build()` / `ShowCard()` ⇒ 本条红");
+
+            Check(pop.SlotCount >= 2, "D2 前提：扇形有第 1 格可换（`SlotCount` 实得 " + pop.SlotCount + "）");
+            if (pop.SlotCount < 2) return;
+            Check(pop.SlotViews[1] != null, "D2b 前提：第 1 格真的建出了卡（`SlotViews[1] != null`）");
+            if (pop.SlotViews[1] == null) return;
+
+            // ② 正例：换一次位 ⇒ 该 cue **恰好 1 次**
+            WFSoundPlayer.Enabled = false;               // 自检：不建 AudioSource、不出声（同 `SoundCueAssertT`）
+            WindowSounds.ResetCounters();
+            pop.SwapToFront(1);
+            Check(WindowSounds.Played == 1 && WindowSounds.LastCue == CardDisplayWindow.SwapSoundCue,
+                  "D3 换位 ⇒ cue `" + CardDisplayWindow.SwapSoundCue + "` **恰好播 1 次**"
+                + "（Played = " + WindowSounds.Played + " · LastCue = `" + WindowSounds.LastCue + "`）"
+                + "｜🧨 删掉 `SwapToFront` 里那行 `PlayFx` ⇒ Played = 0 ⇒ 红；"
+                + "🧨 播两次（比如 `Open` 和 `Swap` 各一次）⇒ Played = 2 ⇒ 红");
+        }
+        finally
+        {
+            WFSoundPlayer.Enabled = keepEnabled;
+            WindowSounds.ResetCounters();
+            Object.DestroyImmediate(go);                 // 顺带把还没推进的补间一起带走（`SetLink` 会杀）
+        }
+    }
+
+    /// <summary>读源码断**换位音的位置**：`_swapping = true;` &lt; `PlayFx(CardDisplayWindow.SwapSoundCue…)` &lt;
+    /// `b.ArtOverdraw = true;`（原版那两句 `SetImageOverDraw` 在两条补间之前 ⇒ 用它当「补间之前」的界桩）。
+    /// <para>⚠️ 读不到源码 = **没验到**，必须报红（⛔ 不能静默通过）。</para></summary>
+    static void CheckSwapSoundCallSite()
+    {
+        const string rel = "CardPresentation/Shell/CardDetailPopup.cs";
+        string path = System.IO.Path.Combine(Application.dataPath, rel);
+        if (!System.IO.File.Exists(path))
+        {
+            Check(false, "D4 找不到源码 `" + path + "` ⇒ 「换位音的**位置**」**没有验到**"
+                       + "（⛔ 这不是「验过没问题」）");
+            return;
+        }
+
+        var lines = System.IO.File.ReadAllLines(path);
+        int iMethod = -1, iSwapTrue = -1, iPlay = -1, iOverdraw = -1, nPlay = 0;
+        for (int i = 0; i < lines.Length; i++)
+        {
+            string s = lines[i].Trim();
+            if (iMethod < 0)
+            {
+                if (s.StartsWith("public void SwapToFront(int idx)")) iMethod = i;
+                continue;
+            }
+            // 出了这个方法就停（下一个成员一定有 XML 文档注释；`void FinishSwap()` 是方法内的局部函数 ⇒ 不能当界）
+            if (s.StartsWith("/// <summary>") || s.StartsWith("public ")) break;
+            if (s.StartsWith("//") || s.StartsWith("*") || s.StartsWith("/*")) continue;   // 注释行不算
+            if (s == "_swapping = true;") iSwapTrue = i;
+            if (s.Contains("WindowSounds.PlayFx(CardDisplayWindow.SwapSoundCue")) { nPlay++; if (iPlay < 0) iPlay = i; }
+            if (s.StartsWith("b.ArtOverdraw = true;")) iOverdraw = i;
+        }
+
+        Check(nPlay == 1,
+              "D4a `SwapToFront` 里 `WindowSounds.PlayFx(CardDisplayWindow.SwapSoundCue, …)` **恰好一处**"
+            + "（非注释行，现读 " + nPlay + " 处）"
+            + "｜🧨 删掉（换位变默片）⇒ 0 处 ⇒ 红；🧨 换成一个写死的别的 cue 名 ⇒ 本串不再被引用 ⇒ 红");
+        Check(nPlay == 1 && iSwapTrue >= 0 && iOverdraw >= 0 && iSwapTrue < iPlay && iPlay < iOverdraw,
+              "D4b **位置**也是判据 —— `_swapping = true;`（行 " + (iSwapTrue + 1) + "） < PlayFx（行 "
+            + (iPlay + 1) + "） < `b.ArtOverdraw = true;`（行 " + (iOverdraw + 1) + "）"
+            + "（原版 `ChangeCardPosition.c:68-73`：播音在 `SetImageOverDraw` 与两条补间**之前**）"
+            + "｜🧨 把它挪进 `OnComplete`（= `CardSwapFinished` 之后）/ 挪到补间之后 ⇒ 顺序不成立 ⇒ 红");
+    }
+
+    /// <summary>🆕 **2026-10-25（执行代理 `T`）**：把 `SoundCueAssertT`（**战斗侧**换位音：
+    /// `Battle/CardDisplayWindow.SwapToFront` 那一跳 + `CardMove` cue 的数据侧）挂在本宿主上跑一次，
+    /// 并把它那两条计数并进本文件的总数（与 `BattleVfxAssertE3` 挂 `BadgeFilterAssert` 同一个做法）。
+    /// <para>**为什么要有这一步**：`SoundCueAssertT` 原来**全仓没有宿主调用**（台账
+    /// `资料/任务线/音效线/任务总表.md:20` 记的就是这条）⇒ 它那 10 条断言**永远跑不到**。
+    /// 本文件已经覆盖**菜单侧**（D 组 = `Shell/CardDetailPopup`），战斗侧正缺一个跑它的地方。</para>
+    /// <para>🔴 **计数隔离**（D 组那几条 `WindowSounds.Played` 依赖它）：`SoundCueAssertT.Run()` 内部
+    /// 在 T-7 前后**各 `WindowSounds.ResetCounters()` 一次**、只读「单次增量 == 1」⇒ 不看历史累计；
+    /// 这里再 reset 一次兜底。⛔ 别把这两行调换到 `RunSwapSound(pool)` **之前** —— D1 的负例
+    /// （「只开窗不换位 ⇒ Played == 0」）会读到我们这一趟的清零动作之前的状态，语义就混了。</para>
+    /// <para>⚠️ 它的 `✗`/`✓` 行前缀是 **`BT T`**（各断各的）⇒ `grep "^E5"` 数「合计行」时要记得
+    /// 合计里**已经含**它那 10+1 条。</para></summary>
+    static void RunSoundCueAssertT()
+    {
+        SoundCueAssertT.Run();
+        _pass += SoundCueAssertT.Passed;
+        _fail += SoundCueAssertT.Failed;
+        WindowSounds.ResetCounters();        // 兜底：本宿主收尾时窗口音计数归零
+    }
 
     static CardDef FindByName(List<CardDef> pool, string name)
     {

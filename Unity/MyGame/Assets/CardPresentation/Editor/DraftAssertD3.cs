@@ -28,13 +28,15 @@
 //    →（服务端）`numberOfMatchesWon/Lost`；`DraftRunDisplay__Initialize.c` 第一句
 //    `victoryCounterText.text = save+0x48.ToString()` ⇒ **Victories 数字 = 胜场**。
 //    平局是**第三格**（`numberOfMatchesDraw +0x50`）⇒ 两边都不算。
-//  · **(C) 状态机**：`DraftEventBase.UpdateState`（泛型实例 **VA `0x181814090`**，逐句反汇编）：
+//  · **(C) 状态机**：原版 `DraftEventBase.UpdateState`（泛型实例 **VA `0x181814090`**，逐句反汇编）有三支：
 //    `lost >= maxTries` / `joinState == Finished(2)` / `won >= matches.Length` ⇒ `rewardsCollected ? 22 : 20`；
 //    否则 `selectedPacks.Count < draftRounds ? 10 : 15`；`selectedWarlord == null` 时
 //    `(joinState==Joined && payState==notPaid) ? 0 : 5`。
+//    🔴 **本仓现行口径（2026-10-24 用户拍板「轮抽不做奖励」+ 主对话定的本地收尾值）**：
+//    **打满 `DraftModeWindow.MatchesToFinish`（4）场 · 败满 `MaxTries`（3）场 · `joinState == Finished`
+//     ⇒ 一律落 `Finished(20)`**，**没有领奖步、没有 `Collected(22)`**；否则
+//    `selectedPacks.Count < draftRounds ? 10 : 15`。`matches.Length` 那条**随「不做奖励」一并消失**。
 //    ⇒ 🔴 **「4 轮打完」落 `OngoingRun(15)`，⛔ 不是 `Finished(20)`**（第 ⑤ 组那条专门钉它）。
-//    第三条（`won >= matches.Length`）的 `matches` 是**服务端值、本地 0 命中** ⇒ 我们**不设胜场上限**
-//    （第 ⑯ 条把「没有上限」钉住：谁自己编一个上限就红）。
 //  · **`maxTries = 3`**：`StagedEventData.maxTries(+0x90)` 在服务端；本地唯一的旁证 =
 //    prefab 的 `Losses container` **恒 3 格**（S3 §2.7「失败 3 场结束」）+ `SetupStageMarks` 把它当 `max`。
 //    🔴 **3 是我们挑的**，本条断言钉的是「= `DraftModeWindow.MaxTries` 且 = 败场格数」，不是「原版就是 3」。
@@ -77,6 +79,8 @@ public static class DraftAssertD3
             PreviewGroup(win);
             BattleResultGroup(win);
             FinishedGroup(win);
+            RunSaveGroup();
+            RewardPanelNotCalledGroup();
             ResumeGroup(wm);
         }
         catch (Exception e)
@@ -115,6 +119,108 @@ public static class DraftAssertD3
     static bool Near(float got, float want, float tol, string msg)
     {
         return Ok(Mathf.Abs(got - want) <= tol, msg + $"（实得 {got:F2} / 期望 {want:F2} ± {tol:F2}）");
+    }
+
+    // ==================================================================
+    //  🆕 V（2026-10-25）：行模板那几条要用的三个小工具
+    // ==================================================================
+
+    /// <summary>原版 `CardUIDisplayColorsSO` 的六档色 —— **自检侧独立抄的一份**（按 `rarity` 0..5）。
+    /// 判据 = `d:/2/新解包资源/assets_full/bundle_menus_assets_all/MonoBehaviour/CardUIDisplayColorsSO.json`
+    /// 的 `colors[]` 逐条现读。🔴 **故意不复用 `Core/RarityColors`** —— 拿被测实现证明被测实现 = 自证。</summary>
+    static readonly Color[] SoRarity =
+    {
+        new Color(0.50943398f, 0.50943398f, 0.50943398f, 1f),           // 0 None
+        new Color(0.15841937f, 0.28123885f, 0.37735850f, 1f),           // 1 Common
+        new Color(0.18866073f, 0.34905660f, 0.07409222f, 1f),           // 2 Rare
+        new Color(0.41509432f, 0.17817728f, 0.39588487f, 1f),           // 3 Epic
+        new Color(0.79245281f, 0.43817982f, 0f,           1f),           // 4 Legendary
+        new Color(0.62264150f, 0.07262561f, 0.05580276f, 0.63921571f),  // 5 Special
+    };
+
+    /// <summary>卡面 `rarity` 串 → 原版 `CardRarity` 档号（`CardRarity.cs`：None0/Common1/Rare2/Epic3/Legendary4/Special5）。</summary>
+    static int SoRarityTier(string rarity)
+    {
+        switch ((rarity ?? "").ToLowerInvariant())
+        {
+            case "common": return 1;
+            case "rare": return 2;
+            case "epic": return 3;
+            case "legendary": return 4;
+            case "special": return 5;
+            default: return 0;
+        }
+    }
+
+    static bool ColorNear(Color a, Color b, float tol)
+    {
+        return Mathf.Abs(a.r - b.r) <= tol && Mathf.Abs(a.g - b.g) <= tol
+            && Mathf.Abs(a.b - b.b) <= tol && Mathf.Abs(a.a - b.a) <= tol;
+    }
+
+    /// <summary>子树里第一颗 quad（九宫格根自己有 9 块、根上通常没有 quad）。</summary>
+    static ImageQuad FirstQuadIn(Transform root)
+    {
+        if (root == null) return null;
+        var qs = root.GetComponentsInChildren<ImageQuad>(true);
+        return qs.Length > 0 ? qs[0] : null;
+    }
+
+    /// <summary>一棵**九宫格根**自己那几块的并集（设计帧 px）—— 只收**名字 = `<根名>_ij` 的直接子件**。
+    /// <para>🔴 **2026-10-25 实测踩过（第一次跑 ⑤c 的 12 条红里 9 条是这一条引起的）**：原版
+    /// `Background` 底下**还挂着** `Rarity Gradient` / `Background Border` / `Cost Image` / `banned Icon` /
+    /// `Text fill`（父链就是这样，我们的树也照它建）⇒ 用 `GetComponentsInChildren` 全收会把
+    /// 「探出行外 3px 的费用圈」与「隐藏的 banned 圈」并进来 —— 实测量到
+    /// **左沿 1530 / 上沿 311.39 / 高 48…54.11**（= 那两颗探出格子的边），而真值 18.48 / 0 / 45。
+    /// 只收 `<根名>_ij` 才是「这一颗九宫格自己的 9 块」。</para>
+    /// <para>⚠️ 九宫格那 9 块的命名见 `ImageQuad.CreateNineSlice`：`$"{name}_{i}{j}"`（`Battle/ImageQuad.cs:631`）。</para></summary>
+    static bool OwnQuadsPx(Transform root, out PxRect u)
+    {
+        u = default(PxRect);
+        if (root == null) return false;
+        string prefix = root.name + "_";
+        bool any = false;
+        float x1 = 0f, y1 = 0f, x2 = 0f, y2 = 0f;
+        for (int i = 0; i < root.childCount; i++)
+        {
+            var ch = root.GetChild(i);
+            if (ch == null || !ch.name.StartsWith(prefix, System.StringComparison.Ordinal)) continue;
+            var q = ch.GetComponent<ImageQuad>();
+            if (q == null) continue;
+            var r = MenuDraw.QuadRectPx(q);
+            if (!any) { x1 = r.x1; y1 = r.y1; x2 = r.x2; y2 = r.y2; any = true; }
+            else
+            {
+                x1 = Mathf.Min(x1, r.x1); y1 = Mathf.Min(y1, r.y1);
+                x2 = Mathf.Max(x2, r.x2); y2 = Mathf.Max(y2, r.y2);
+            }
+        }
+        if (any) u = new PxRect(x1, y1, x2, y2);
+        return any;
+    }
+
+    /// <summary>期望矩形**先与滚动视口求交** —— 原版 `RectMask2D` 也会把探出视口的那一段裁掉
+    /// （本批实测：第 0 行费用圈的 −3 上探被视口顶 270 裁成 270；我们的 `ViewportClip` 同一条口径）。
+    /// 完全在视口内的件 ⇒ 逐位不变。</summary>
+    static PxRect ClipView(PxRect r)
+    {
+        var v = DraftModeWindow.DeckScrollRectForTest;
+        float x1 = Mathf.Max(r.x1, v.x1), y1 = Mathf.Max(r.y1, v.y1);
+        float x2 = Mathf.Min(r.x2, v.x2), y2 = Mathf.Min(r.y2, v.y2);
+        return new PxRect(x1, y1, Mathf.Max(x1, x2), Mathf.Max(y1, y2));
+    }
+
+    /// <summary>一颗 `Label` 的**墨迹**左右沿（设计帧 px）。
+    /// 依据：`Label.AlignLeftOn/AlignRightOn` 的写入口径是 `node.localPosition.x = 目标 − 父x + WorldW/2`
+    /// ⇒ **节点中心 = 墨迹中心**、`WorldW` = 墨迹宽（`Battle/Label.cs` 的 `PlaceLeftNow` / `WorldW`）。</summary>
+    static void InkSpanPx(Label lb, out float left, out float right)
+    {
+        left = right = 0f;
+        if (lb == null) return;
+        var p = lb.transform.position;
+        float cx = LayoutSpace.ToDesignPixel(p).x;
+        float half = LayoutSpace.ToDesignPixel(p + new Vector3(lb.WorldW * 0.5f, 0f, 0f)).x - cx;
+        left = cx - half; right = cx + half;
     }
 
     static string GoToPacks(DraftModeWindow win)
@@ -401,14 +507,23 @@ public static class DraftAssertD3
         Eq(win.State, DraftModeState.Finished,
            "⑤ **输满 `maxTries` ⇒ `Finished(20)`**（原版 `UpdateState` 的 `lost >= data.maxTries ⇒ 收尾`）"
          + "🧨 怎么改会红：`UpdateState` 不读败场（那输多少都停在进行中页）");
-        Ok(win.RewardPanelNode != null && win.RewardPanelNode.gameObject.activeSelf,
-           "⑤ `Finished` ⇒ `Reward Info Panel` **显示**（S3 §2.7：`DraftState == 20` 那一支）");
+        // 🔴 **2026-10-25（执行代理 D · 铁律 5 就地改期望）**：用户 2026-10-24 拍板「轮抽不做奖励」
+        //   ⇒ `Reward Info Panel`（宝箱图 + 领奖钮）**整块不建**（`BuildOngoingPage` 里 `_rewardPanelRoot = null`）。
+        //   原来的期望是「Finished ⇒ 面板显示」——那条随领奖步一起作废。
+        Ok(win.RewardPanelNode == null,
+           "⑤ `Finished` ⇒ **不建 `Reward Info Panel`**（本版没有奖励 / 领奖步；非空 = 有人把奖励面板接回来了）");
+        Ok(win.ResetNode != null && win.ResetNode.gameObject.activeSelf,
+           "⑤ `Finished` ⇒ `Reset Event Button` **仍显示**（有意偏离：原版那一刻唯一的出口是领奖钮，"
+         + "我们把 Reset 留作「结束这一局 / 重开一轮」的出口）🧨 改回 `SetOn(_resetNode, !finished)` ⇒ 本条红");
         Ok(win.ToBattleNode != null && !win.ToBattleNode.gameObject.activeSelf,
            "⑤ `Finished` ⇒ `To Battle Button` **藏起来**（S3 §2.7 同一支）");
         Eq(win.FilledLossMarks, 3, "⑤ 败场格亮满 3 格");
         Ok(!string.IsNullOrEmpty(win.QuoteText), "⑤ `Quote End` 出了一句结束语（按胜场档取，见 `QuoteTermForWins`）");
 
-        // ---- ⑥ 没有 `matches.Length` ⇒ **不设胜场上限**（如实标，⛔ 别自己编一个） ----
+        // ---- ⑥ 「**打满 `MatchesToFinish`（4）场结束**」—— 2026-10-24 主对话定的本地收尾口径 ----
+        //   🔴 原版那第三条（`won >= data.matches.Length`）随「轮抽不做奖励」一并消失（`matches` 是服务端值、
+        //   本地 0 命中）⇒ 现在按**场次**收尾：`matchesWon + matchesLost >= MatchesToFinish`。
+        //   ⛔ 别再回到「不设胜场上限」（那是旧口径，2026-10-25 已作废）。
         win.BeginRun(TestSeed);
         if (GoToPacks(win) == null) return;
         guard = 0;
@@ -418,17 +533,33 @@ public static class DraftAssertD3
             win.PickPack(win.OfferedPacks[0].key);
         }
         DraftModeWindow.RunForTest.consumedDraftMatches = 0;
-        var manyWins = new List<BattleLogData.Match>();
-        for (int i = 0; i < 10; i++) manyWins.Add(LogRow(BattleLogData.Outcome.Victory, d));
-        win.IngestBattleResults(manyWins);
-        Eq(win.Victories, 10, "⑥ 吃进 10 场胜（原版这格就是计数器，没有上限）");
+        var threeWins = new List<BattleLogData.Match>
+        {
+            LogRow(BattleLogData.Outcome.Victory, d),
+            LogRow(BattleLogData.Outcome.Victory, d),
+            LogRow(BattleLogData.Outcome.Victory, d),
+        };
+        win.IngestBattleResults(threeWins);
+        Eq(win.Victories, 3, "⑥ 吃进 3 场胜");
         Eq(win.State, DraftModeState.OngoingRun,
-           "⑥ **10 胜 0 负仍是 `OngoingRun`** —— 原版那条「`won >= data.matches.Length` 就收尾」的 "
-         + "`matches` 是**服务端值、本地 0 命中**（S3 §五）⇒ 我们**不设胜场上限**"
-         + "🧨 怎么改会红：自己编一个「赢够 N 场收尾」（那会提前掐掉玩家的一局）");
-        Ok(win.FilledWinMarks >= 10,
-           "⑥ 胜场格**至少亮 10 格**（格子数 = `max(RoundsPerDraft, 胜场)`；⛔ 不许把多出来的胜场藏起来）"
-         + "（实得 " + win.FilledWinMarks + "）");
+           "⑥ **3 胜 0 负 ⇒ 还没打满 " + DraftModeWindow.MatchesToFinish + " 场 ⇒ 仍在 `OngoingRun`**"
+         + "🧨 提前收尾（比如写死「赢 3 场就结束」）⇒ 本条红");
+        var fourth = new List<BattleLogData.Match>
+        {
+            LogRow(BattleLogData.Outcome.Victory, d),      // 新的一条（第 4 场）
+            LogRow(BattleLogData.Outcome.Victory, d),
+            LogRow(BattleLogData.Outcome.Victory, d),
+            LogRow(BattleLogData.Outcome.Victory, d),
+        };
+        win.IngestBattleResults(fourth);
+        Eq(win.Victories, 4, "⑥ 又吃掉 1 场 ⇒ 4 胜");
+        Eq(win.State, DraftModeState.Finished,
+           "⑥ **打满 `MatchesToFinish`（" + DraftModeWindow.MatchesToFinish + "）场 ⇒ `Finished(20)`**"
+         + "（2026-10-24 收尾口径：打满 4 场结束 · 败满 3 场提前结束）"
+         + "🧨 改回「不设场次上限」⇒ 本条红");
+        Ok(win.FilledWinMarks >= DraftModeWindow.MatchesToFinish,
+           "⑥ 胜场格**至少亮 " + DraftModeWindow.MatchesToFinish + " 格**（格子数 = `max(RoundsPerDraft, 胜场)`；"
+         + "⛔ 不许把多出来的胜场藏起来）（实得 " + win.FilledWinMarks + "）");
     }
 
     // ==================================================================
@@ -447,28 +578,25 @@ public static class DraftAssertD3
         Eq(DraftModeWindow.RunForTest != null ? DraftModeWindow.RunForTest.joinState : -1, (int)DraftJoinState.Finished,
            "① 顺手把 `joinState` 钉成 `Finished(2)`（原版 `set_DraftState` 那半边）");
 
-        // ---- ② `rewardsCollected` 一开 ⇒ 同一处落 `Collected(22)` 并关窗（原版 `cmove edx, 0x14 / 0x16`）----
+        // ---- ② `rewardsCollected` **不再影响收尾页**（本版没有领奖步，2026-10-25 执行代理 D 就地改期望）----
         DraftModeWindow.RunForTest.rewardsCollected = true;
         win.UpdateState();
-        Eq(win.State, DraftModeState.Collected,
-           "② `rewardsCollected = true` 后 `UpdateState()` ⇒ `Collected(22)`"
-         + "（原版 `state = rewardsCollected ? 22 : 20`）🧨 怎么改会红：领奖后还停在 20（那能无限点领奖）");
-        Ok(!win.gameObject.activeSelf, "② `Collected` ⇒ 窗被关掉（原版那一档没有独立页）");
+        Eq(win.State, DraftModeState.Finished,
+           "② `rewardsCollected = true` 也**只落 `Finished(20)`** —— 本版没有 `Collected(22)` 那一跳"
+         + "（用户 2026-10-24「轮抽不做奖励」）"
+         + "🧨 把 `_run.rewardsCollected ? Collected : Finished` 加回来 ⇒ 本条红");
+        Ok(win.gameObject.activeSelf, "② 收尾页**不关窗**（`Collected` 那一支已不存在）");
 
-        // ---- ③ 生产那条路 `CollectReward()`：发不了奖（奖励表在服务端）**但**要把这一局清掉 ----
-        win.BeginRun(TestSeed);       // 回到活的一局（窗对象还活着，只是 inactive —— 批处理里不需要真的开窗）
-        // ★ `CollectReward` 的**合法前提**是「此刻已经在 Finished」（生产上 `Collect Button` 只在 Finished 页建，
-        //   `DraftModeWindow.cs` 的 `var btn = MenuDraw.Node(info, "Collect Button", CollectR)` 建钮、
-        //   `CollectReward` 的 doc 写着「只有 Finished 有」）⇒ 必须先把这一局造到 `Finished(20)`。
-        //   不插这句的话新局的 `joinState = NotJoined`、`matchesLost = 0` ⇒ `UpdateState` 落到 `SelectWarlord`，
-        //   断言实测值就是 `SelectWarlord(5)`（2026-10-24 第七十三会话 E12 修：夹具前提没造到）。
-        //   ⚠️ 走 `FinishRun()`（生产入口）而不是直写 `joinState = 2` —— 直写就绕过了被测的那一跳。
+        // ---- ③ `CollectReward()` 现在只是「结束这一局并清档」的兼容口（⛔ 不发奖励）----
+        win.BeginRun(TestSeed);
+        // ★ 它的合法前提仍是「此刻已经在 Finished」——走生产入口 `FinishRun()` 把这一局造到那里
+        //   （⛔ 别直写 `joinState = 2`，那会绕过被测的那一跳）。
         win.FinishRun();              // ⇒ joinState = Finished(2) ⇒ Finished(20)
         win.CollectReward();
-        Eq(win.State, DraftModeState.Collected, "③ `CollectReward()` ⇒ `Collected`");
         Ok(DraftModeWindow.RunForTest == null,
-           "③ 收尾后**静态存档被清**（原版 `ResetCollectedDraft`）"
-         + "🧨 怎么改会红：留着那一局（下次开窗会接着一局已领奖的收尾页，玩家再也开不了新局）");
+           "③ `CollectReward()` ⇒ **清掉这一局存档**（= 原版 `ResetCollectedDraft` 那一半）"
+         + "🧨 怎么改会红：留着那一局（下次开窗会接着一局已结束的收尾页，玩家再也开不了新局）");
+        Ok(!win.gameObject.activeSelf, "③ 顺带关窗（本版没有领奖钮；它是旧调用点/旧自检的兼容口）");
 
         // ---- ④ `UpdateState` 的两条「没战将」分支 = 原版那两行 ----
         win.BeginRun(TestSeed);
@@ -501,11 +629,116 @@ public static class DraftAssertD3
     // ==================================================================
     //  (B-续) 跨窗续打：关窗（= 进对局）之后回壳再开，战绩与进度还在
     // ==================================================================
+    // ==================================================================
+    //  (D) 一局存档落盘（🆕 2026-10-25 执行代理 D）
+    // ==================================================================
+    //  判据 / 口径：`资料/任务线/界面线/任务总表.md` §一 轮抽「⑤ 一局存档落盘（原版在服务端，我们现只在进程内）」。
+    //  原版这一局活在服务端 `DraftEventSaveGame` 里 ⇒ 重启也在；我们此前只有静态 `_run`（退出即丢）。
+    //  ⚠️ 本组用 `OverrideDir` 指向临时目录 ⇒ **绝不碰玩家真档**（`DraftModeWindow.StoreOn` 的第 ① 支）。
+    static void RunSaveGroup()
+    {
+        Debug.Log(P + "--- (D) 一局存档落盘（`persistentDataPath/WarpforgeDraft/run.json`）---");
+        var prevDir = DraftModeWindow.OverrideDir;
+        var tmp = Path.Combine(Path.GetTempPath(), "wf_draft_store_" + Guid.NewGuid().ToString("N"));
+        try
+        {
+            DraftModeWindow.OverrideDir = tmp;
+            DraftModeWindow.DeleteRunForTest();
+            Ok(!File.Exists(DraftModeWindow.StorePath), "① 前提：临时目录里一开始**没有**存档");
+
+            var run = new DraftRunSave
+            {
+                joinState = (int)DraftJoinState.Joined,
+                payState = (int)DraftPayState.Free,
+                seed = 424242,
+                warlordId = "TESTWL",
+                reRolls = 2,
+                matchesWon = 1,
+                matchesLost = 1,
+                pickedKeys = new[] { "k1", "k2" },
+                selectedCards = new[] { "c1", "c2", "c3" },
+                consumedDraftMatches = 7,
+            };
+            DraftModeWindow.SetRunForTest(run);
+            DraftModeWindow.SaveRunNowForTest();
+            Ok(File.Exists(DraftModeWindow.StorePath),
+               "② 落盘：存档文件真的写出来了（`" + DraftModeWindow.StorePath + "`）"
+             + "🧨 怎么改会红：`SaveRunNow` 没接进 `SyncRun`/`BeginRun`（本组是直调口，红说明写盘本身坏了）");
+
+            DraftModeWindow.ReloadRunForTest();
+            var got = DraftModeWindow.RunForTest;
+            Ok(got != null, "③ 重读：盘上那一份读回来了");
+            if (got != null)
+            {
+                Eq(got.seed, 424242, "③ 种子");
+                Eq(got.warlordId, "TESTWL", "③ 战将 id");
+                Eq(got.reRolls, 2, "③ 重掷次数（原版 `currentReRolls`）");
+                Eq(got.matchesWon, 1, "③ 胜场");
+                Eq(got.matchesLost, 1, "③ 败场");
+                Eq(got.consumedDraftMatches, 7, "③ 战绩游标（⛔ 丢了会把已经吃过的旧对局再算一遍）");
+                Ok(got.pickedKeys != null && got.pickedKeys.Length == 2 && got.pickedKeys[1] == "k2",
+                   "③ 已选包（**顺序**也在 —— 顺序就是轮次）");
+                Ok(got.selectedCards != null && got.selectedCards.Length == 3, "③ 已拿到的卡");
+            }
+
+            // ④ 清档 ⇒ 写盘 = 删文件（放弃 / 收尾之后不该再留一局）
+            DraftModeWindow.SetRunForTest(null);
+            DraftModeWindow.SaveRunNowForTest();
+            Ok(!File.Exists(DraftModeWindow.StorePath),
+               "④ `_run == null` ⇒ 写盘 = **删档**（否则下次开窗会接着一局已结束的收尾页）");
+        }
+        finally
+        {
+            DraftModeWindow.DeleteRunForTest();          // 清静态 + 删文件
+            DraftModeWindow.OverrideDir = prevDir;       // ⛔ 必须还原（后面的组 + 真 Play 都靠它）
+            try { if (Directory.Exists(tmp)) Directory.Delete(tmp, true); } catch { }
+        }
+    }
+
+    // ==================================================================
+    //  (E) `BuildRewardPanel` 当前**不被调用**（🆕 2026-10-25 执行代理 D）
+    // ==================================================================
+    //  用户 2026-10-24 拍板「轮抽不做奖励」⇒ 那一块**整块不建**（`BuildOngoingPage` 里显式
+    //  `_rewardPanelRoot = null`）。方法本体**保留**（将来恢复奖励的唯一入口，doc 已写明）。
+    //  ⇒ 必须有一条断言证明它**现在没人调**：否则将来有人「顺手接回去」时没有任何东西会红
+    //     （= 领奖步静默复活，而这正是这一批要拆掉的东西）。
+    static void RewardPanelNotCalledGroup()
+    {
+        Debug.Log(P + "--- (E) `BuildRewardPanel` 当前不被调用（奖励面板整块不建）---");
+        const string rel = "CardPresentation/Shell/DraftModeWindow.cs";
+        var path = Path.Combine(Application.dataPath, rel);
+        if (!File.Exists(path))
+        {
+            Ok(false, "⑧ 找不到源码 `" + path + "` ⇒ 「`BuildRewardPanel` 当前不被调用」**没有验到**"
+                    + "（⛔ 这不是「验过没问题」）");
+            return;
+        }
+
+        var lines = File.ReadAllLines(path);
+        int defs = 0, calls = 0, nullAssign = 0;
+        for (int i = 0; i < lines.Length; i++)
+        {
+            string s = lines[i].Trim();
+            if (s.StartsWith("//") || s.StartsWith("*") || s.StartsWith("/*")) continue;
+            if (s.Contains("Transform BuildRewardPanel(Transform page)")) { defs++; continue; }
+            if (s.Contains("BuildRewardPanel(")) calls++;
+            if (s.Replace(" ", "") == "_rewardPanelRoot=null;") nullAssign++;
+        }
+
+        Ok(defs == 1, "⑧ `BuildRewardPanel` **只有一处定义**（现读 " + defs + " 处）");
+        Ok(calls == 0,
+           "⑧ `BuildRewardPanel(` **没有任何非注释调用点**（现读 " + calls + " 处）"
+         + "｜🧨 把 `_rewardPanelRoot = BuildRewardPanel(page);` 接回来 ⇒ 本条红（领奖步会静默复活）");
+        Ok(nullAssign >= 1,
+           "⑧ 源码里**显式** `_rewardPanelRoot = null`（`BuildOngoingPage` 那处 = 「奖励面板整块不建」的落点，"
+         + "`Build()` 重建时也清一次；现读 " + nullAssign + " 处）");
+    }
+
     static void ResumeGroup(WindowsManager wm)
     {
         Debug.Log(P + "--- (B-续) 关窗再开 ⇒ 接着上一局（原版进度在服务端）---");
 
-        // 前一组的窗可能已经被 `Collected` 关掉了，而且它带着别的状态 ⇒ 干脆起一扇**新的**（钉种子 = 新局）
+        // 前一组的窗可能已经被关掉了，而且它带着别的状态 ⇒ 干脆起一扇**新的**（钉种子 = 新局）
         var old = DraftModeWindow.LastOpened;
         if (old != null) { try { UnityEngine.Object.DestroyImmediate(old.gameObject); } catch { } }
         var win = DraftModeWindow.Create(wm, TestSeed);
@@ -871,10 +1104,265 @@ public static class DraftAssertD3
            "⑤ `Card counter` 文本 = `张数/卡组张数`（原版 `deck.CardCount + \"/\" + deckSize`）"
          + "🧨 怎么改会红：prefab 那个 `30/30` 是占位默认值，直接照抄就红");
 
+        // ---- ⑤b 🆕 D5（2026-10-25）：`Card List` 的 `Scroll View` 真挂上（原版 `ScrollRect v=1 / Elastic / 50`）----
+        //   判据：`m_ScrollSensitivity=50 · m_Horizontal=0 · m_Vertical=1 · m_MovementType=1(Elastic) ·
+        //   m_Elasticity=0.1 · m_Inertia=1 · m_DecelerationRate=0.135`（`MonoBehaviour_-1440327974928745787.json:22`）；
+        //   Content VLG `m_Spacing=2.5`；行高 45 ⇒ 步距 47.5；视口 330.97×588.88。
+        win.BeginRun(TestSeed);
+        if (GoToPacks(win) == null) return;
+        if (win.OfferedPacks.Count == 0) { Ok(false, "⑤b 第一轮没包"); return; }
+        win.PickPack(win.OfferedPacks[0].key);       // 3 张卡入手
+        win.SetDeckTab(1);
+        int gotCards = win.SelectedCards.Count;
+        // 🔴 V（2026-10-25 执行代理）：原版 `DeckListDrawer.stackCopies = 1`（`MB_1819977727535512261` 实读）⇒
+        //   **同一种卡并成一行**（`DeckListDrawer__Initialize.c`：命中已存在那一行就 `SetCount(count+1)`）
+        //   ⇒ 行数 = **去重后的卡种数**，⛔ 不是张数（同一个包里可能重复出同一张）。
+        var deckIds = new List<string>();
+        for (int i = 0; i < win.SelectedCards.Count; i++)
+            if (!deckIds.Contains(win.SelectedCards[i])) deckIds.Add(win.SelectedCards[i]);
+        Eq(win.DeckListCounterText, gotCards + "/" + DraftModeWindow.DeckSizeForDraft,
+           "⑤b 有卡之后 `Card counter` 跟着变（" + gotCards + " 张）");
+        var dlScroll = win.DeckListScrollForTest;
+        Ok(dlScroll != null, "⑤b `Scroll View` 真的挂上了 `MenuScroll`（此前这一页**根本没有滚动**）");
+        if (dlScroll != null)
+        {
+            Ok(dlScroll.Vertical && dlScroll.Elastic && dlScroll.Inertia,
+               "⑤b 滚动参数 = 原版 `m_Vertical=1` · `m_MovementType=1`(Elastic) · `m_Inertia=1`"
+             + "｜🧨 改回横向 / Clamped ⇒ 本条红");
+            Near(dlScroll.Viewport.W, 330.97f, 0.05f, "⑤b 视口宽 = **330.97**（原版 `Scroll View` 的 `m_SizeDelta`）");
+            Near(dlScroll.Viewport.H, 588.88f, 0.05f, "⑤b 视口高 = **588.88**");
+            Near(dlScroll.NotchPx, 50f, 1e-4f, "⑤b `m_ScrollSensitivity` = **50**（原版这台 `ScrollRect` 实读）");
+            var content = win.DeckListContentForTest;
+            Eq(content != null ? content.childCount : -1, deckIds.Count,
+               "⑤b `Content` 底下**一种卡一行**（原版 `stackCopies=1` ⇒ 去重；也不按视口高度截断 —— "
+             + "截断 = 多出来的卡看不到）");
+            float wantH = deckIds.Count <= 0 ? 0f
+                        : deckIds.Count * DraftModeWindow.DeckRowH + (deckIds.Count - 1) * DraftModeWindow.DeckRowGap;
+            Near(dlScroll.ContentX2 - dlScroll.ContentX1, wantH, 0.01f,
+                 "⑤b 内容高 = **n×45 + (n−1)×2.5**（行高 45 · VLG `m_Spacing 2.5`）"
+               + "🧨 把行高改回 38 / 漏掉 spacing ⇒ 本条红");
+            // 滚一格 = 50 px（口径 = uGUI `ScrollRect.OnScroll`：`position += delta × m_ScrollSensitivity`）。
+            // ⚠️ 12 张的内容高 567.5 < 视口 588.88 ⇒ 本来**滚不动**（ClampHi = 0），所以这里临时把内容撑高
+            //    并**摘掉 OnChanged**（否则回调会把内容高写回真值、顺手把偏移夹回 0 ⇒ 量到的是 0）。
+            float realContent = dlScroll.ContentX2;
+            var cb = dlScroll.OnChanged;
+            dlScroll.OnChanged = null;
+            dlScroll.ContentX2 = dlScroll.Viewport.y1 + 1000f;
+            dlScroll.Offset = 0f;
+            dlScroll.Wheel(-1f);
+            Near(dlScroll.Offset, 50f, 0.01f,
+                 "⑤b 滚一格 = **50 px**（`Wheel(-1)` ⇒ `delta × m_ScrollSensitivity`）"
+               + "🧨 传 `1f` / `120f` 当灵敏度 ⇒ 本条红");
+            dlScroll.OnChanged = cb;
+            dlScroll.ContentX2 = realContent;
+            dlScroll.Offset = 0f;
+        }
+
+        // ---- ⑤c 🆕 V（2026-10-25 执行代理）：**行模板 `Deck Selector Card Info button`** 的子件 / 几何 / 染色 / 滚动
+        //   🔴 期望值**全部来自 prefab 字段**，⛔ 不是抄 `DraftModeWindow` 的常量：
+        //     `python -I -X utf8 d:/4/Unity/工具/menu_dump.py bundle_menus_assets_all \
+        //        --rt -6068752977877108027 --depth 8 --relative --md`
+        //     （行 330.97×45；`Background` 行内 18.48..330.97 · `Rarity Gradient` 207.32..330.97 × 0..44.89 ·
+        //      `Background Border` 19.59..330.97 · `Cost Image` 2.18..53.18 × −3..48 · `Text fill` 59.10..322.85 × 3.15..41.85）
+        //   染色判据 = `UICardInfoItem__Initialize.c` 那两句（只染 `Rarity Gradient` + `Background Border`）；
+        //   色值 = `CardUIDisplayColorsSO.json`（本文件顶部 `SoRarity` 独立抄的一份）。
+        {
+            var pool = CardDatabase.Load();
+            float rowX1 = DraftModeWindow.DeckScrollRectForTest.x1;       // 1530
+            float rowX2 = DraftModeWindow.DeckScrollRectForTest.x2;       // 1860.97
+            float rowTop = DraftModeWindow.DeckScrollRectForTest.y1;      // 270
+            int rows = win.DeckListRowCountForTest;
+            Eq(rows, deckIds.Count, "⑤c 行数 = **去重后的卡种数**（原版 `stackCopies=1`）");
+            int scan = Mathf.Min(rows, deckIds.Count);
+            for (int i = 0; i < scan; i++)
+            {
+                string who = "⑤c 第 " + i + " 行";
+                var row = win.DeckListRowForTest(i);
+                if (!Ok(row != null && row.name == "Deck Selector Card Info button",
+                        who + " 根节点名 = 原版 `Deck Selector Card Info button`（行高 45 · `LayoutElement.m_MinHeight`）"))
+                    continue;
+                float ry = rowTop + i * (DraftModeWindow.DeckRowH + DraftModeWindow.DeckRowGap);
+                var def = CardDatabase.FindById(pool, deckIds[i]);
+                var wantTint = SoRarity[SoRarityTier(def != null ? def.Rarity : null)];
+
+                // ① 行底（九宫 150,0,150,0）
+                PxRect rb;
+                bool hasBg = OwnQuadsPx(DraftModeWindow.DeckListRowChildForTest(row, "Background"), out rb);
+                Ok(hasBg, who + " 前提：`Background`（`40k_deck_cardlist_bg` 九宫格）建出来了");
+                if (hasBg)
+                {
+                    var wantBg = ClipView(new PxRect(rowX1 + 18.48f, ry, rowX2, ry + 45f));
+                    Near(rb.x1, wantBg.x1, 0.6f, who + " 行底左沿 = 行左 + **18.48**（锚 0.05584 × 行宽 330.97）"
+                       + "🧨 把行底铺满整行 ⇒ 左沿变成 1530 ⇒ 红");
+                    Near(rb.x2, wantBg.x2, 0.6f, who + " 行底右沿 = 行右（**1860.97**）");
+                    Near(rb.y1, wantBg.y1, 0.6f, who + " 行底上沿 = 行顶");
+                    Near(rb.H, wantBg.H, 0.6f, who + " 行底高 = **45**（= 行高，`LayoutElement.m_MinHeight`）");
+                }
+
+                // ② 稀有度色条（**吃稀有度色**）
+                var gradT = DraftModeWindow.DeckListRowChildForTest(row, "Rarity Gradient");
+                var gradQ = gradT != null ? gradT.GetComponent<ImageQuad>() : null;
+                Ok(gradQ != null, who + " `Rarity Gradient` 在（原版 `Background` 的第一个子件 · Simple 拉伸）");
+                if (gradQ != null)
+                {
+                    var gr = MenuDraw.QuadRectPx(gradQ);
+                    Near(gr.x1, rowX1 + 207.32f, 0.6f, who + " 色条左沿 = 行左 + **207.32**（锚 0.60575）");
+                    Near(gr.x2, rowX2, 0.6f, who + " 色条右沿 = 行右");
+                    Near(gr.H, 44.89f, 0.6f, who + " 色条高 = **44.89**（锚 0→1 + sizeDelta.y −0.1035）");
+                    Ok(ColorNear(gradQ.Tint, wantTint, 0.01f),
+                       who + " 色条 tint = 原版 `CardUIDisplayColorsSO` 该稀有度的色（rarity="
+                     + (def != null ? def.Rarity : "?") + " ⇒ 实得 " + gradQ.Tint + " / 期望 " + wantTint + "）"
+                     + "🧨 拿 `CardRarityColorsSO` 那份（宝箱用的另一颗 SO）顶 / 忘了染色 ⇒ 红");
+                }
+
+                // ③ 描边（**也吃稀有度色**）
+                PxRect rbd;
+                bool hasBd = OwnQuadsPx(DraftModeWindow.DeckListRowChildForTest(row, "Background Border"), out rbd);
+                Ok(hasBd, who + " 前提：`Background Border`（九宫 5,5,5,5）建出来了");
+                if (hasBd)
+                {
+                    var wantBd = ClipView(new PxRect(rowX1 + 19.59f, ry, rowX2, ry + 45f));
+                    Near(rbd.x1, wantBd.x1, 0.6f, who + " 描边左沿 = 行左 + **19.59**（比行底外扩 1.11）");
+                    Near(rbd.x2, wantBd.x2, 0.6f, who + " 描边右沿 = 行右");
+                    var bdQ = FirstQuadIn(DraftModeWindow.DeckListRowChildForTest(row, "Background Border"));
+                    Ok(bdQ != null && ColorNear(bdQ.Tint, wantTint, 0.01f),
+                       who + " 描边 tint 与色条**同一个**稀有度色（原版 `imagesToChangeColorByRarity` 那两颗）");
+                }
+
+                // ④ 费用圈 + `Cost`（`cost < 0` ⇒ 两件都不建）
+                var costT = DraftModeWindow.DeckListRowChildForTest(row, "Cost Image");
+                var costQ = costT != null ? costT.GetComponent<ImageQuad>() : null;
+                int cost = def != null ? def.Cost : -1;
+                if (cost < 0)
+                    Ok(costT == null, who + " `cost < 0` ⇒ `Cost Image` **不建**（原版 `SetActive(cost >= 0)`）");
+                else
+                {
+                    Ok(costQ != null, who + " `Cost Image` 在（`Card Frame Cost Icon` · 51×51）");
+                    if (costQ != null)
+                    {
+                        var cr = MenuDraw.QuadRectPx(costQ);
+                        // 费用圈**上下各探出行外 3px** ⇒ 第 0 行那 3px 会被视口顶裁掉（原版 `RectMask2D` 同）
+                        var wantCost = ClipView(new PxRect(rowX1 + 2.18f, ry - 3f, rowX1 + 53.18f, ry + 48f));
+                        Near(cr.x1, wantCost.x1, 0.6f, who + " 费用圈左沿 = 行左 + **2.18**（锚 0.03 · 中心 27.68）");
+                        Near(cr.W, wantCost.W, 0.6f, who + " 费用圈宽 = **51**（高 = 行高 45 + sizeDelta.y 6；ARF 1:1 高控宽）");
+                        Near(cr.y1, wantCost.y1, 0.6f, who + " 费用圈上沿 = 行顶 **−3**（**探出行外**，原版就这样；"
+                           + "第 0 行被视口顶裁到 270 = 原版 `RectMask2D` 同一条）");
+                        Near(cr.H, wantCost.H, 0.6f, who + " 费用圈高 = **51**（整块在视口内时）");
+                    }
+                    Eq(DraftModeWindow.DeckListRowTextForTest(row, "Cost"), cost.ToString(),
+                       who + " `Cost` 文本 = 费用数字（`UICardInfoItem.SetCost` 的 `cost.ToString()`）");
+                    var costLb = DraftModeWindow.DeckListRowChildForTest(row, "Cost");
+                    var costLabel = costLb != null ? costLb.GetComponent<Label>() : null;
+                    float cl, crr; InkSpanPx(costLabel, out cl, out crr);
+                    Near((cl + crr) * 0.5f, rowX1 + 27.68f, 1.5f,
+                         who + " `Cost` 的墨迹中心 x = 行左 + **27.68**（= 费用圈中心）");
+                }
+
+                // ⑤ `banned Icon`：节点在、**恒关着**（轮抽没有限时活动 ⇒ `IsCardBanned` 恒 false）
+                var banned = DraftModeWindow.DeckListRowChildForTest(row, "banned Icon");
+                Ok(banned != null && !banned.gameObject.activeSelf,
+                   who + " `banned Icon` **节点在但关着**（原版 `SetActive(banned)`；轮抽没有 LiveOps 活动 ⇒ 恒 false）"
+                 + "🧨 把它删掉 / 让它显示 ⇒ 红");
+
+                // ⑥ 文字区：卡名（左对齐）+ 份数（右对齐，>1 张才印）
+                var tf = DraftModeWindow.DeckListRowChildForTest(row, "Text fill");
+                Ok(tf != null, who + " `Text fill` 在（原版那颗 `HorizontalLayoutGroup`）");
+                Eq(DraftModeWindow.DeckListRowTextForTest(row, "Card Name"),
+                   def != null ? CardText.Name(def) : deckIds[i],
+                   who + " `Card Name` = 本地化卡名（原版 `GetLocalizedCardName`）");
+                var nameT = DraftModeWindow.DeckListRowChildForTest(row, "Card Name");
+                var nameLb = nameT != null ? nameT.GetComponent<Label>() : null;
+                float nl, nr; InkSpanPx(nameLb, out nl, out nr);
+                Near(nl, rowX1 + 59.10f, 1.5f,
+                     who + " 卡名**墨迹左沿** = 行左 + **59.10**（`Text fill` 左沿；原版 `HorizontalAlignment=Left`）"
+                   + "🧨 退回居中 ⇒ 墨迹左沿会跑到 ~150 ⇒ 红");
+                Ok(nameLb != null && ColorNear(nameLb.color, new Color(0.934f, 0.934f, 0.934f, 1f), 0.01f),
+                   who + " 卡名字色 = **(0.934,0.934,0.934)**（原版 `m_fontColor` 实读；⛔ 不是纯白）");
+                int nCopies = 0;
+                for (int k = 0; k < win.SelectedCards.Count; k++)
+                    if (win.SelectedCards[k] == deckIds[i]) nCopies++;
+                var cntT = DraftModeWindow.DeckListRowChildForTest(row, "Count");
+                if (nCopies > 1)
+                {
+                    Eq(DraftModeWindow.DeckListRowTextForTest(row, "Count"), "x" + nCopies,
+                       who + " `Count` 文本 = `x{n}`（原版 `SetCount` 的 `String.Format(\"x{0}\", n)`，小写 x 无空格）");
+                    var cntLb = cntT != null ? cntT.GetComponent<Label>() : null;
+                    float xl, xr; InkSpanPx(cntLb, out xl, out xr);
+                    Near(xr, rowX1 + 322.85f, 1.5f,
+                         who + " 份数**墨迹右沿** = 行左 + **322.85**（`Text fill` 右沿；原版 `HorizontalAlignment=Right`）");
+                }
+                else
+                    Ok(cntT == null, who + " 只有 1 张 ⇒ `Count` **不建**（原版 `SetActive(1 < count)`）");
+            }
+
+            // ⑦ 命中区 = `Background` 的矩形（原版那颗 `EverguildButton` 的 `m_TargetGraphic`）
+            var row0 = win.DeckListRowForTest(0);
+            var hitT = DraftModeWindow.DeckListRowChildForTest(row0, "Deck Selector Card Info button Hit");
+            // ⚠️ `MenuDraw.Hit` 的 quad 挂在命中节点**底下那颗 `Hit`** 上（`MakeHitQuad`），节点自己身上没有
+            //    ⇒ 必须 `GetComponentInChildren`（第一次跑就是栽在这一句：拿 `GetComponent` 恒 null）。
+            var hitQ = hitT != null ? hitT.GetComponentInChildren<ImageQuad>(true) : null;
+            Ok(hitQ != null, "⑤c 行上有命中区（原版那整行是 `EverguildButton`）");
+            if (hitQ != null)
+            {
+                var hr = MenuDraw.QuadRectPx(hitQ);
+                Near(hr.x1, rowX1 + 18.48f, 0.6f, "⑤c 命中区左沿 = 行左 + **18.48**（= `Background` 左沿；"
+                   + "色条/描边/费用圈/文字全 `m_RaycastTarget = 0`）");
+                Near(hr.x2, rowX2, 0.6f, "⑤c 命中区右沿 = 行右");
+            }
+
+            // ⑧ 滚动之后行位置仍对（Elastic ⇒ 内容不够高也拖得动）：行整体位移 = −Offset
+            //   🔴 **方向有讲究**（第一次跑失败的那条）：往上拖（Offset > 0）时第 0 行整块**移出视口顶**
+            //   ⇒ 量到的是「被视口裁过的那一块」（恒 270），断言等于没断。**往下拖**（Offset < 0）让整行
+            //   落在视口内，量到的才是真位置。
+            var dl2 = win.DeckListScrollForTest;
+            if (dl2 != null && scan > 0)
+            {
+                float baseY = rowTop;                       // 第 0 行的行顶
+                dl2.BeginDrag(470f);
+                dl2.DragTo(500f);                           // 往下拖 30px ⇒ Elastic 越界 ⇒ Offset 为负
+                float off = dl2.Offset;
+                Ok(off < -1f, "⑤c 前提：向下拖动产生了**负**偏移（Elastic 橡皮筋；实得 " + off.ToString("F2") + "）");
+                var g1 = DraftModeWindow.DeckListRowChildForTest(win.DeckListRowForTest(0), "Rarity Gradient");
+                var q1 = g1 != null ? g1.GetComponent<ImageQuad>() : null;
+                Ok(q1 != null, "⑤c 滚动后第 0 行还在（重建过 ⇒ 要现取节点）");
+                if (q1 != null)
+                    Near(MenuDraw.QuadRectPx(q1).y1, baseY - off, 0.9f,
+                         "⑤c 滚动后第 0 行的色条上沿 = 基准 **270** − Offset(" + off.ToString("F2") + ")"
+                       + "🧨 滚了但没重画（`OnChanged` 没接）⇒ 位置停在 270 ⇒ 红");
+                dl2.EndDrag();
+                dl2.SetOffset(0f);                          // 复位（会回调重建）
+                var g2 = DraftModeWindow.DeckListRowChildForTest(win.DeckListRowForTest(0), "Rarity Gradient");
+                var q2 = g2 != null ? g2.GetComponent<ImageQuad>() : null;
+                if (q2 != null)
+                    Near(MenuDraw.QuadRectPx(q2).y1, baseY, 0.9f, "⑤c 复位后第 0 行回 **270**（偏移夹回 0 也重画）");
+            }
+
+            // ⑨ 🔴 「新加一层要配一条『该藏的时候藏住了吗』」：切到 Deck Info 页 ⇒ **整行（含底/色条/描边）都不显示**
+            //   （原版三页 `SetActive` 互斥；只关文字会留下一条条空壳底板）
+            win.SetDeckTab(0);
+            var rowHidden = win.DeckListRowForTest(0);
+            Ok(rowHidden == null || !rowHidden.gameObject.activeInHierarchy,
+               "⑤c 切到 Deck Info 页 ⇒ **行整棵不显示**（`Cards in deck panel` 的 `SetActive(false)` 管住整棵子树）"
+             + "🧨 把行底/色条挂到面板根上（不挂在 `Scroll View` 底下）⇒ 这一页会留下一排空壳 ⇒ 红");
+            win.SetDeckTab(1);                              // 还回 Card List 页（后面的组按这一页看不看得见行）
+        }
+
         // ---- ⑥ 三页互斥：切到 Card List ⇒ Deck Info 那三件跟着关（原版三页 SetActive 互斥）----
         Ok(win.DeckInfoHolder != null && win.DeckInfoHolder.childCount == 0,
            "⑥ 切到 Card List 页 ⇒ `Energy View panel` 的内容被收掉（原版三页 `SetActive` 互斥）"
          + "🧨 怎么改会红：把卡背/费用分布挂到面板根上（那样三页同时显示）");
+
+        // ---- ⑦ 🆕 D6（2026-10-25）：Alliance Info 页 = 提示节点在 + **出声恰好一次** ----
+        int hintBefore = DraftModeWindow.AllianceHintLogCountForTest;
+        win.SetDeckTab(2);
+        var tabHolder2 = win.transform.Find("Draft Mode Deck Info Panel/Cards in deck panel");
+        var hint = tabHolder2 != null ? tabHolder2.Find("Alliance Hint") : null;
+        Ok(hint != null && hint.gameObject.activeSelf,
+           "⑦ 切到第 3 页（Alliance Info）⇒ **`Alliance Hint` 节点在且显示**（原版这一页要服务端数据，本地留空 + 一句自拟提示）");
+        win.SetDeckTab(2);                            // 同一页再刷一次 ⇒ 不该再出声
+        Eq(DraftModeWindow.AllianceHintLogCountForTest - hintBefore, 1,
+           "⑦ 「本机没有联盟/排行榜数据」那条日志**恰好出声一次**（同页重复刷新不刷屏）"
+         + "🧨 把 `_deckAllianceSaid` 那道闸删掉 ⇒ 本条红");
 
         win.SetDeckTab(0);
         win.BeginRun(TestSeed);        // 收尾：别把选中态/时钟带给后面的组

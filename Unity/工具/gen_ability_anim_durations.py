@@ -90,6 +90,17 @@ OUT_RT = ROOT4 + "/MyGame/Assets/CardPresentation/Resources/ability_anim_duratio
 # 四字段之和的中位（旧常数）—— 生成器会把**本表的**中位算出来写进产物，供自检核对
 FALLBACK = 1.0
 
+# 🔴 2026-10-25（执行代理 `TL`）：**跨哪几个事件桶收 anim 行**（顺序固定 ⇒ 产物确定）。
+#   `card_vfx_by_card.json` 的 `byCard[*]` 自 2026-10-18 T21 / 2026-10-24 W2·R4 起按原版
+#   `CardAbility.trigger` 把 `cardAbilities[]` 的行分流到这些桶里（见 `gen_card_vfx_by_card.py`
+#   的 `TRIGGER_EVENT` / `trigger_event()`）；`ability` 桶**只剩 `activeAbility` +
+#   `ThisUnitAbilityUsed(400)`**。
+#   ⛔ 不按桶名判「是不是 ability 链上的行」—— 桶名是**播放路由**（会随引擎发射口变），
+#      `soField`（`cardSO.activeAbility…` / `cardSO.cardAbilities[N]…`）才是 SO 的原始字段路径。
+#   `ability` 排第一只为**让 `activeAnims` 的顺序与旧产物逐条一致**（少出无意义的 diff）。
+ABILITY_ROW_BUCKETS = ("ability", "play", "trigger", "trait_onplay", "trigger_unmapped",
+                       "attack_melee", "attack_ranged", "hit", "death", "deploy")
+
 
 def load(p):
     return json.load(io.open(p, encoding="utf-8"))
@@ -347,47 +358,81 @@ def build():
 
     cards = []
     unresolved = []
-    not_ability = []           # 不是 `activeAbility` 链上的行（见下面 `if not slot` 那段）
+    not_ability = []           # 不是 ability 链上的 anim 行（关键词演出 / 没 `abilitySlot` 的）
     unknown_card = []          # byCard 里的键不在我们卡池（不该发生，发生就报）
     for cid, e in vfx["byCard"].items():
         act, other = [], []
-        for it in (e.get("ability") or []):
-            if it.get("conf") != "authoritative":
-                continue
-            slot = it.get("abilitySlot") or ""
-            ca = it.get("cardanim")
-            bundle = it.get("assetBundle")
-            if not slot:
-                # 🔴 2026-10-23（A11 就地修 `新账-72 ④`）：633 条 `inferred-keyword` 升
-                #   `authoritative`（2026-10-23）之后，`card_vfx_by_card.json` 的 `ability` 桶里
-                #   混进了 **142 条 `src == "cardtrait-so"`** 的**关键词演出**行
-                #   （`FlyingTraitPlay` / `StealthTraitPlay` / `CamouflageTraitPlay` …：没有
-                #   `abilitySlot`、没有 `assetBundle`）。它们**不是** `activeAbility` 链上的
-                #   CardAnim（原版那条链只遍历 `activeAbilityLogic[*].cardAnimations[*]`）⇒
-                #   既不进时长求和，也**不该**算「映射缺口」。
-                #   如实列进 `notAbilityRows`（⛔ 不静默丢），`unresolved` 只留给真正的缺口。
-                not_ability.append({"id": cid, "cardanim": ca, "src": it.get("src"),
-                                    "prefab": it.get("prefab"),
-                                    "why": "没有 `abilitySlot` ⇒ 不是 `activeAbility` 链上的 CardAnim"
-                                           "（`src == \"cardtrait-so\"` 的关键词演出行，别混进本表）"})
-                continue
-            p = dump_path(bundle, ca)
-            if not ca or not bundle or not os.path.exists(p):
-                unresolved.append({"id": cid, "cardanim": ca, "soField": it.get("soField"),
-                                   "why": "CardAnim 名或束查不到" if not ca or not bundle
-                                          else "dump 文件不在盘上：" + str(p)})
-                continue
-            ai = (load(p).get("animInfo") or {})
-            row = {
-                "cardanim": ca,
-                "seconds": round(anim_duration(ai), 4),
-                "slot": slot,
-                "trigger": it.get("abilityTriggerName"),
-                "chosenAbility": it.get("chosenAbilityName"),
-                "waitAnimToApplyEffect": int(ai.get("waitAnimToApplyEffect") or 0),
-                "tweenAnim": tween_row(ai.get("tweenAnim") or {}, tween_names, unit_tweens),
-            }
-            (act if slot.startswith("activeAbility") else other).append(row)
+        # 🔴 2026-10-25（执行代理 `TL` · 就地修「`otherAbilityAnims` 断源」）——
+        #   以前这里只读 `e["ability"]`。而 `card_vfx_by_card.json` 自 **2026-10-18 T21 /
+        #   2026-10-24 W2·R4** 起，已把 `cardAbilities[]` 的行**按原版 `CardAbility.trigger` 归到
+        #   各自的事件桶**（见 `工具/gen_card_vfx_by_card.py` 的 `TRIGGER_EVENT` 与 `trigger_event()`），
+        #   `ability` 桶**只留 `activeAbility` 与 `ThisUnitAbilityUsed(400)`** ⇒ 只读 `ability`
+        #   会把「别的时机」那一整族（本表 ③ 明说要留在 `cards[*].otherAbilityAnims` 备查的）
+        #   静默丢掉（现读：`otherAbilityAnims` 从 453 条变成 0 条、`cards[]` 从 364 张变成 93 张）。
+        #
+        #   **判据（全量反编译，⛔ 不是拍脑袋）**：
+        #     · `cardAbilities[i]` 是**一个个独立的 `CardAbility`**，各有自己的 `trigger`
+        #       （`RawCardScript__TriggerAbility.c:24` 读 `ability+0x10` 那个枚举；`:62-110` 拿
+        #        **这个 ability 自己的** `abilityLogic[*]` 逐组 `AbilityLogic.PlayAbility`）；
+        #     · `AbilityLogic__PlayAnim.c:32-60` 遍历 `abilityLogic+0x18`（= `cardAnimations`）逐条播；
+        #     · `activeAbility` 是**另一个 SO 字段**（`+0x260`；替代支 `+0x2b8`，由
+        #       `RawCardScript__GetActiveAbility.c:9-18` 按棋盘状态二选一）—— 只有它对应
+        #       「发动技能」那一拍（`EvtKind.Ability`）。
+        #   ⇒ **原版语义：`cardAbilities[]` 的 anim 行归「它自己那个 trigger 的时机」，
+        #     不是「发动技能」那一拍**；本表只把 `activeAbility` 那批求和，其余**如实备查**。
+        #   ⇒ 取源改成**跨所有事件桶**收，再按 `soField` 前缀区分两类：
+        #        `activeAbility…` → `act`（求和）· `cardAbilities…` → `other`（备查，不计入时长）。
+        #      ⛔ 不按桶名猜（桶名是**播放路由**，会随引擎发射口变；`soField` 是 SO 的原始字段路径，稳定）。
+        for bk in ABILITY_ROW_BUCKETS:
+            for it in (e.get(bk) or []):
+                if not isinstance(it, dict) or it.get("conf") != "authoritative":
+                    continue
+                src = it.get("src") or ""
+                sf = it.get("soField") or ""
+                slot = it.get("abilitySlot") or ""
+                ca = it.get("cardanim")
+                bundle = it.get("assetBundle")
+                if src == "cardtrait-so":
+                    # 🔴 关键词演出行（`FlyingTraitPlay` / `RallyTraitStart` …）：`trait_collection.json`
+                    #   的 `TraitEffects[...]`，**不在 ability 链上**（没有 `abilitySlot`）⇒ 单列备查。
+                    #   现读 633 条（`trigger` 491 + `trait_onplay` 142；旧表只有 142，因为当时它们
+                    #   全被塞在 `ability` 桶里）。⛔ 既不算时长、也不算「映射缺口」。
+                    not_ability.append({"id": cid, "cardanim": ca, "src": src,
+                                        "prefab": it.get("prefab"), "bucket": bk,
+                                        "why": "**关键词演出行**（`src == \"cardtrait-so\"`，"
+                                               "来自 `trait_collection.json` 的 `TraitEffects`）"
+                                               "⇒ 不是 ability 链上的 CardAnim，别混进本表"})
+                    continue
+                if not (sf.startswith("cardAbilities") or sf.startswith("activeAbility")):
+                    # 别的都不是 anim 行：卡 SO 的 VFX 字段（`customDeathParticles` /
+                    # `remnantBodyPrefab` / `summonAnimDelayed` / `customRangedAttackParticles`）
+                    # 与 `_assetRefs`（立绘/语音）。⛔ 别把它们当缺口。
+                    continue
+                if not slot:
+                    # ability 链上的行**理论上**必带 `abilitySlot`（= `cardAbilities[i].abilityLogic[j]`
+                    # 或 `activeAbility.activeAbilityLogic[j]`）。没有 ⇒ 如实记，⛔ 不补猜。
+                    not_ability.append({"id": cid, "cardanim": ca, "src": src,
+                                        "prefab": it.get("prefab"), "bucket": bk,
+                                        "why": "ability 链上的行（soField=%s）却没有 `abilitySlot`"
+                                               " ⇒ 判不出是哪一组，⛔ 不计时长" % sf})
+                    continue
+                p = dump_path(bundle, ca)
+                if not ca or not bundle or not os.path.exists(p):
+                    unresolved.append({"id": cid, "cardanim": ca, "soField": it.get("soField"),
+                                       "why": "CardAnim 名或束查不到" if not ca or not bundle
+                                              else "dump 文件不在盘上：" + str(p)})
+                    continue
+                ai = (load(p).get("animInfo") or {})
+                row = {
+                    "cardanim": ca,
+                    "seconds": round(anim_duration(ai), 4),
+                    "slot": slot,
+                    "trigger": it.get("abilityTriggerName"),
+                    "chosenAbility": it.get("chosenAbilityName"),
+                    "waitAnimToApplyEffect": int(ai.get("waitAnimToApplyEffect") or 0),
+                    "tweenAnim": tween_row(ai.get("tweenAnim") or {}, tween_names, unit_tweens),
+                }
+                (act if slot.startswith("activeAbility") else other).append(row)
 
         if not act and not other:
             continue
@@ -658,16 +703,24 @@ def build():
         "⚠️ **运行时也没接**（`Core/AbilityAnimDurations.cs` 读的仍是 `active`）；"
         "要接由卡牌线定（会改对局节奏）；"
         "③ `cardAbilities[*]`（`ThisCardPlayed` / `Slay` / … 那一族）是**别的时机**播的，"
-        "**不进这张表**（留在 `cards[*].otherAbilityAnims` 备查）；"
-        f"④ `card_vfx_by_card.json` 的 `ability` 桶里有 **{len(not_ability)} 条**"
-        "（`src == \"cardtrait-so\"` 的关键词演出行：`FlyingTraitPlay` / `StealthTraitPlay` …）"
-        "**没有 `abilitySlot`** ⇒ 不是 `activeAbility` 链上的 CardAnim，单列在 `notAbilityRows`，"
-        "⛔ 既不算时长、也不算「映射缺口」（2026-10-23 修 `新账-72 ④`）。"
+        "**不进这张表**（全量件留在 `cards[*].otherAbilityAnims` 备查；"
+        "🔴 2026-10-25 `TL`：`card_vfx_by_card.json` 已按 `CardAbility.trigger` 把它们分流到 "
+        "`play`/`trigger`/`death`/`hit`/… 各桶 ⇒ 本表**跨所有事件桶按 `soField` 前缀**收，"
+        "⛔ 不再只读 `ability` 桶）；"
+        f"④ 跨所有事件桶共 **{len(not_ability)} 条** `src == \"cardtrait-so\"` 的**关键词演出行**"
+        "（`FlyingTraitPlay` / `RallyTraitStart` …，来自 `trait_collection.json` 的 `TraitEffects`）"
+        "**没有 `abilitySlot`** ⇒ 不是 ability 链上的 CardAnim，单列在 `notAbilityRows`，"
+        "⛔ 既不算时长、也不算「映射缺口」（2026-10-23 修 `新账-72 ④`；"
+        "2026-10-25 `TL` 把取源从 `ability` 桶扩到全桶，条数 142 → 现读值）。"
     )
 
     conventions = {
         "scope": "只取 `activeAbility.activeAbilityLogic[*].cardAnimations[*]`（原版「单位主动发动能力」那一条路）；"
-                 "`cardAbilities[*]` 归 `EvtKind.Trigger`/`Play`，不在本表",
+                 "`cardAbilities[*]`（`ThisCardPlayed` / `Slay` / `Rage` … 那一族）是**别的时机**播的，不在本表 —— "
+                 "它们在 `card_vfx_by_card.json` 里按原版 `CardAbility.trigger` 分流到 "
+                 "`play`/`trigger`/`death`/`hit`/`attack_melee`/`trait_onplay`/`trigger_unmapped` 各桶，"
+                 "本表**跨这些桶**按 `soField` 前缀（`cardAbilities…` / `activeAbility…`）收，"
+                 "只把 `activeAbility` 那批求和、其余如实留在 `cards[*].otherAbilityAnims` 备查（2026-10-25 `TL`）",
         "formula": "AnimInfo.GetAnimDuration() = vfxDelayTime + timeAtStartPos + timeMoving + timeAtEndPos（不含 startDelay）",
         "aggregate": "一张卡的值 = 它 `activeAbility` 全部 CardAnim 的时长**求和** —— 依据 "
                      "`AbilityLogic__PlayAnim.c` 会把这一整串逐条 `AddCardAnim` 排队播完",
@@ -736,8 +789,22 @@ def build():
         "stats": stats,
     }
 
-    rt_items = [{"id": c["id"], "name": c["name"], "s": c["active"], "n": len(c["activeAnims"])}
-                for c in withtruth]
+    # 🆕 2026-10-25（执行代理 `TL` · 消费端 `AU1` 已接、只差这一列）：
+    #   运行期 `AbilityAnimEntry.alt`（`Core/AbilityAnimDurations.cs` 的 `TryGetAlternative`）——
+    #   **替代支 `alternativeAbility` 的时长**。判据 = 上面 `cards[*].alternative.seconds`
+    #   （`RawCardScript.GetActiveAbility`：`hasAlternativeAbility` 且**不满足**
+    #    `normalAbilityBoardCriteria` 时返回替代支）。**只在非 0 / 非 None 时写**（缺键 = 0 = 没有替代支）。
+    #   现读全池只有 `SW21 Wulfen Pack Leader`（普通 0.4 / 替代 **0.2**）。
+    #   ⚠️ 写的是**普通时长**（`s` = `active`）之外的**第二列**，⛔ 不是把 `s` 换成替代值 ——
+    #   两张表（`active` / `alternative`）按棋盘状态二选一，选哪支由引擎的 `BoardAnalysis.MeetsCriteria` 决定。
+    rt_items = []
+    for c in withtruth:
+        it = {"id": c["id"], "name": c["name"], "s": c["active"], "n": len(c["activeAnims"])}
+        alt = ((c.get("alternative") or {}) or {}).get("seconds")
+        if alt:
+            it["alt"] = round(float(alt), 4)
+        rt_items.append(it)
+    rt_alt_cards = [it["id"] for it in rt_items if "alt" in it]
     rt = {
         "schema": "ability_anim_durations/v1+rt",
         "generatedBy": "d:/4/Unity/工具/gen_ability_anim_durations.py",
@@ -745,6 +812,9 @@ def build():
             f"`A1767`：逐卡「发动能力」时长 = 该卡 `activeAbility` 各 CardAnim 的 "
             f"`AnimInfo.GetAnimDuration()` 之和。{len(rt_items)} 张卡 · 中位 {med} · "
             "表里没有这张卡 ⇒ 退回 `fallbackSeconds` 并**出声**。"
+            f"另有 {len(rt_alt_cards)} 张卡的**替代支**时长在 `alt` 列"
+            f"（{', '.join(rt_alt_cards) if rt_alt_cards else '无'}）—— 原版按棋盘状态二选一，"
+            "两张时长都记着，⛔ 不是二选一后覆盖 `s`。"
             "判据长文 / 未覆盖名单 → `数据/游戏数据/ability_anim_durations.json` 的 `_headline` 与 `uncovered`。"),
         "fallbackSeconds": med,
         "count": len(rt_items),
@@ -811,6 +881,10 @@ def main():
     for c in full["conditional"]:
         print("   ~ 条件分支 %s %s：普通 %s s / 替代 %s s（⛔ 不是一个固定值）"
               % (c["id"], c["name"], c["normal"], c["alternative"]))
+    # 🆕 2026-10-25（`TL`）：运行期那份的 `alt` 列（= 替代支时长）
+    _alt = [it for it in rt["items"] if "alt" in it]
+    print("运行期 `alt` 列：%d 张（%s）"
+          % (len(_alt), " · ".join("%s=%s" % (it["id"], it["alt"]) for it in _alt) or "无"))
     return 0
 
 

@@ -77,38 +77,29 @@ namespace CardPresentation
         const string ArtTrophy = "WF_UI_Trophy_Gold";        // `Global Rating/Secondary Icon`
 
         // ------------------------------------------------------------ 段位徽章（2026-10-24 · E19）
-        /// <summary>段位大图那 7 张的**资源名**（`Resources/Art/ui_menu/`，落地时已经把空格换成下划线）。
-        /// <para>出处：`d:/2/新解包资源/assets_full/bundle_rankeddivisionicons_assets_all/Texture2D/` 的 13 张
-        /// （7 张 512² 段位 + `Roman I–VI` 六张 128² 名次）。反编译那条链 =
-        /// `DivisionImageDisplay__Initialize.c:35-42`：`RankedDivisions.GetDivisionData(divisionNumber)` →
-        /// 返回项的 `+0x18` 是 `AssetReferenceTyped` → `Load` → `Image.set_sprite`（挂的就是 `DivisionImage` 那颗 Image）。
-        /// </para>
-        /// <para>🔴 **「段位号 → 图名」那张 SO 本地仍然没有**（`RankedDivisions` 全盘只有 MonoScript、**一个实例都没有**；
-        /// S4 已扫 84 个 bundle + `sharedassets0` / `resources` / `globalgamemanagers` / `level0` / `level1`，
-        /// `catalog.bin` 里也没有；判据 → `资料/普查产出_1024b/S4_模式窗细节与徽章.md` §①「缺数据」）。
-        /// **但顺序【不再是】「按前缀猜」—— 中间有两行是实测钉死的**（🔴 **2026-10-24 · A1**，逐块像素比对）：
-        /// <list type="bullet">
-        /// <item>**4 = `04-Admiral`**：用户参考图
-        ///   `C:/Users/qjh36/Desktop/warpforge参考图/账户-个人资料参考图.png` 的「当前排名 **金 II**」那颗徽记，
-        ///   与 `04-Admiral` 的**掩盖归一化相关 NCC = 0.707**（次优 `05-Conqueror` 0.577 · `03-Commander` 0.498）
-        ///   ⇒ **图案认定 4**；而「金」= 官方词条 `Ranked/Division/4`
-        ///   （现读 `Iron/Bronze/Silver/**Gold**/Platinum/Diamond/Legendary`）⇒ **文字也指 4**。
-        ///   **两条独立信号同指 4**。</item>
-        /// <item>**7 = `07-Legend`**：`…/多人模式-经典-界面参考图.png` 左列（「排名」下面写 **传奇**）那颗徽记，
-        ///   与 `07-Legend` 的 **NCC = 0.939**（次优 `06-Galactic Threat` 0.751）⇒ 基本是直接认定；
-        ///   而「传奇」= `Ranked/Division/7` = `Legendary`、图名也是 `Legend` ⇒ **两条信号同指 7**。</item>
-        /// </list>
-        /// 其余五档的证据 = **图名自带的 `01…07` 序号 + 图案的单调升级**（7 张逐张亲读）：
-        /// 1/2 **无金无紫**（暗铁环，2 比 1 更厚、底部多机械臂）→ 3 **首现金环 + 紫色辉光 + 红义眼**
-        /// → 4 **外环变成大方形齿轮**（1–3 都没有这一圈齿）→ 5 **加钢色双翼冠 + 底部机甲利爪**
-        /// → 6 **双翼变金 + 骷髅戴上防毒面具**（全族唯一）→ 7 **加金桂冠 + 两侧蜡烛（带火焰）+ 骷髅圣龛**。
-        /// 两个锚点（4、7）与序号顺序**完全自洽** ⇒ 「序号 = 段位号」只在 1/2/3/5/6 上仍是**插值**。
-        /// 逐行证据表 → `资料/普查产出_1024c/A1_段位图案映射.md`。
-        /// ⚠️ **还剩一个假设（没查清的就是这一条）**：反编译那条是**按 `divisionNumber` 查表**、不是按数组下标
-        /// （`RankedDivisions__GetDivisionData.c:26-34`：`Math.Max(n,1)` 装箱后 `FirstOrDefault(pred)`，
-        /// 查不到退回 `Last()`）⇒ 本表是「号 → 图」的**下标式**表达，**前提**是 SO 里 `divisionNumber` 正好 1..7 连号。
-        /// 另：`RankedDivisionData` 只有 `divisionNumber(+0x10)` + `image(+0x18)` 两个字段（类声明现读）。
-        /// ⛔ 别把这里改成一条 `if` 链：**7 项表**就是「号 → 图」这件事的唯一落点，将来拿到 SO 只换这张表。</para></summary>
+        /// <summary>段位大图那 7 张的**资源名**（`Resources/Art/ui_menu/`，导入时已把空格换成下划线）。
+        /// <para>🔴🔴 **2026-10-25（执行代理 D · 铁律 5 就地订正）：本表【不再是前缀推断】，每一行都有第一手字节证据。**
+        /// 上一条注释写的是「`RankedDivisions` 全盘一个实例都没有」—— **那条已作废**：SO 就在
+        /// `d:/2/tools/assetripper_out/ExportedProject/Assets/MonoBehaviour/RankedDivisionsSO.asset`
+        /// （`S4` 当时只扫了 `assets_full` 那 84 个 bundle，**没扫这份 AssetRipper 导出** ⇒ 记成了「没有」）。</para>
+        /// <para>**证据链（可逐字节复算）**：
+        /// ① `RankedDivisionsSO.asset` 的 `divisions` = **7 条** `{ divisionNumber: 1..7, image.m_AssetGUID: &lt;guid&gt; }`
+        ///    （`ranks` = 6 条，`divisionNumber: 1..6`，同形）；
+        /// ② 每张 Sprite 的 YAML 里 `m_RenderDataKey: { &lt;guid&gt;: 21300000 }` —— 那个 guid **就是它自己的源资产 GUID**，
+        ///    与 ① 的 `m_AssetGUID` 逐条相等 ⇒ `divisionNumber → Sprite` 是**查表直读**，不是按名字排序推的；
+        /// ③ 该 Sprite 的 `m_Name` 就是下表那一串（`06-Galactic Threat` 原名带空格，进 `Resources` 时换成下划线）。</para>
+        /// <para>逐号对应（GUID 前 8 位 → 资产名）：
+        /// 1=`541a2e07…`→`01-Rook` · 2=`cfab7727…`→`02-Veteran` · 3=`80afab2f…`→`03-Commander` ·
+        /// 4=`c8be32f4…`→`04-Admiral` · 5=`225606b2…`→`05-Conqueror` · 6=`52405d32…`→`06-Galactic Threat` ·
+        /// 7=`b075dd3b…`→`07-Legend`。</para>
+        /// <para>旁证（与上表**互不依赖**，2026-10-24 `A1` 的逐块像素比对，仍然成立）：
+        /// **4 = `04-Admiral`** —— 用户参考图「当前排名 **金 II**」那颗徽记 NCC **0.707**（次优 0.577）；
+        /// **7 = `07-Legend`** —— 「多人模式-经典」参考图左列 NCC **0.939**（次优 0.751）。
+        /// ⇒ 两条独立信号与查表结果**同指**。逐行证据表 → `资料/普查产出_1024c/A1_段位图案映射.md`。</para>
+        /// <para>⚠️ 反编译口径不变：`GetDivisionData(n)` = `Math.Max(n,1)` + `FirstOrDefault(divisionNumber == n)`，
+        /// 查不到退回 `Last()`（`RankedDivisions__GetDivisionData.c`）⇒ 越界号会被夹到 1 / 落到最后一条。
+        /// 本表只表达 1..7，越界由 <see cref="DivisionArtName"/> 返回 null（调用方出声、不画）。
+        /// `RankedDivisionData` 只有 `divisionNumber(+0x10)` + `image(+0x18)` 两个字段（dump 现读）。</para></summary>
         static readonly string[] DivisionArt =
         {
             "01-Rook", "02-Veteran", "03-Commander", "04-Admiral",
@@ -132,8 +123,14 @@ namespace CardPresentation
 
         // ------------------------------------------------------------ 名次（罗马数字）· 2026-10-24（A1）
         /// <summary>**名次（小档）**那 6 张 —— ⛔ **不是段位**，是「同一段位内的第几小档」。
-        /// <para>判据三条（2026-10-24 · A1）：
-        /// ① 反编译 `DivisionImageDisplay__Initialize.c:62` —— 最高段位那一支里
+        /// <para>🔴 **2026-10-25（执行代理 D）：本表的「号 → 图」也已升级成字节证据**（与 `DivisionArt` 同一条链）：
+        /// `RankedDivisionsSO.asset` 的 `ranks` = 6 条 `{ divisionNumber: 1..6, image.m_AssetGUID }`，
+        /// 与每张 Sprite 自己的 `m_RenderDataKey.guid` 逐条相等 ⇒
+        /// 1=`46c79894…`→`Roman I` · 2=`f4304ddc…`→`Roman II` · 3=`ee72f98c…`→`Roman III` ·
+        /// 4=`bbe7723d…`→`Roman IV` · 5=`06f63a9c…`→`Roman V` · 6=`49724dc8…`→`Roman VI`
+        /// （原名带空格，进 `Resources` 时换成下划线）。</para>
+        /// <para>其余判据（2026-10-24 · A1，仍然成立）：
+        /// ① 反编译 `DivisionImageDisplay__Initialize.c` —— 最高段位那一支里
         ///   `RankedDivisions.GetRankData(rankNumber)` 取返回项 `+0x18` 的 `AssetReference` → `Load` →
         ///   `Image.set_sprite(rankImage)`；而 `RankedDivisions__GetRankData.c` 与 `GetDivisionData` **同构**
         ///   （`RankedDivisions` 两张表 = `divisions`(+0x18) / `ranks`(+0x20)，元素**同一个类** `RankedDivisionData`）。

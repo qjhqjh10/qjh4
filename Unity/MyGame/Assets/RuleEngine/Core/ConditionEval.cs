@@ -449,9 +449,12 @@ namespace RuleEngine
                 //   `hasAlternativeAbility` / `normalAbilityBoardCriteria` 五样都落了。
                 //   今天**恒假是数据事实**（1,351 张真值里两处 `needsLoading` **全是 0**），
                 //   ⛔ 不是「判不了」、也别写成「缺加载位」。
-                // 🔴 **已知偏离（如实标着）**：原版 `:35` 读的是 `HasRemovedTrait`（**已移除簿记**），
-                //   我们读 `u.Has("reload")`（**当前带不带**）—— 二者只在「曾经有过、后来被移除」时不同。
-                //   全池 `reload` 关键词 **0 张**（生成器现读）⇒ 今天不可达；要逐字对齐得先建簿记层。
+                // ✅ **2026-10-25（引擎线 `A2` · `A2-2`）已逐字对齐**：`UnitState` 现在有「已移除 trait」
+                //   簿记（`MarkTraitRemoved` / `HasRemovedTrait`），写入点 = `EffectResolver.ApplyOneGain`
+                //   的 `lose` 支（= 原版加一条 `CardEffect{buffType = removeTrait(4)}`），清除点 =
+                //   `AddKeyword`（原版 `AddEffect` 的 `case 3` 进门 `RemoveActiveEffects(4)`）。
+                //   ⇒ 这里读的**就是** `HasRemovedTrait`，不再是「当前带不带」。
+                //   ⚠️ 全池 `reload` 关键词 **0 张**（生成器现读）⇒ 今天仍然不可达，但语义已对。
                 // ⚠️ **不能拿 `CardDef.Ability != null` 顶 `hasActiveAbility`**：池内 `desc` 一条
                 //   `Ability:` 都没有（那个语法是另一族卡面的写法），而真值 `hasActiveAbility == 1`
                 //   有 **87 张** ⇒ 拿它判会把那 87 张静默判成假（`C2_引擎线判据_卡表加载位与字段.md` F-01）。
@@ -462,7 +465,7 @@ namespace RuleEngine
                     int ha = c.HasActiveAbility;
                     if (ha < 0) return null;                 // 未知（旧表 / 真值里没这张卡）⇒ 不猜
                     if (ha == 0) return false;               // 原版 `:14-16` 早退
-                    if (u != null && u.Has(ReloadTrait)) return false;    // 原版 `:35`
+                    if (u != null && u.HasRemovedTrait(ReloadTrait)) return false;    // 原版 `:35`
                     int o = owner >= 0 ? owner : OwnerOf(ctx, u);
                     bool? alt = c.UsesAlternativeAbility(ctx, o, u);      // 原版 `:24-31`
                     if (alt == null) return null;

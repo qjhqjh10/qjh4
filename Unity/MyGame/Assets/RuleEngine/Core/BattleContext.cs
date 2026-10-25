@@ -1044,6 +1044,40 @@ namespace RuleEngine
         public readonly List<UnitState> LastTargets = new List<UnitState>();
 
         /// <summary>
+        /// 🔴🆕 **2026-10-25（执行代理 `E4` · `E4-1`）：一条已经发出去的 `EvtKind.Trigger`，
+        /// 它的**目标**要等这条 ability 真的选出目标之后才填得出来。**
+        ///
+        /// <para><b>为什么需要「事后再填」而不是发的时候就知道</b>：原版
+        /// `RawCardScript.TriggerAbility` → `AbilityLogic.PlayAbility` **自己就算目标**
+        /// （`AbilityLogic__PlayAbility.c:257-264`：`abilityLogic.targetCriteria(+0x28)` →
+        /// `AbilityLogic.GetTargets(...)` → 存进 `possibleTargets(+0x78)` →
+        /// `PlayAnim(logic, manager, abilityData, possibleTargets)`），
+        /// 而 `PlayAnim.c:171-248` 是**按这个列表逐目标**各 `AddCardAnim` 一次
+        /// （`AbilityLogic__GetPos(manager, animData, 目标, 位置选项)` 算落点）。
+        /// 我们这边「广播（发 `EvtKind.Trigger`）」和「结算（`ResolveOps`）」是**两拍**
+        /// （`EmitAtTurnTriggers` 整趟发完 → 再 `EnqueueAbility` 入队），发的那一刻目标还没选。</para>
+        ///
+        /// <para><b>做法</b>：发射体把**它自己刚发的那个 `BattleEvent` 对象**放进这一格（arm），
+        /// 结算那一拍由 <see cref="EffectResolver.ResolveTargets"/> 的**唯一收口**
+        /// 记下**第一个**落到的目标（<see cref="TriggerTargetSinkFirst"/>），收尾再写回事件。
+        /// 因为 `BattleContext.Signals` 存的就是**同一个对象引用**、表现层要等整段引擎调用返回
+        /// 才 `DrainSignals`，所以事后填的字段**一定能被表现层看到**（不重排、不多发一条事件）。</para>
+        ///
+        /// <para>⚠️ **原版是「每个目标各播一份」，我们的事件只能带 1 个**（`BattleEvent` 的
+        /// `TargetPlayer/TargetSlot/TargetCardId` 是标量；表现层也是按 0/1 个目标处理的，
+        /// 见 `BattleDriver.ExpandAbilityBeats` 的多目标拍注释）⇒ **如实记：取第一个**。</para>
+        ///
+        /// <para>⚠️ 只在**有延后结算体**的那几条路上 arm（今天是回合起止的棋盘单位那一趟）；
+        /// 其余发射点（监听者 / 天赋 / 605 / 410 …）**保持 `-1`**，理由见
+        /// `资料/普查产出_1025/E4_trigger目标与activeAbility目标池.md`。</para>
+        /// </summary>
+        public BattleEvent TriggerTargetSink;
+
+        /// <summary>配合 <see cref="TriggerTargetSink"/>：这条事件的目标**已经填好了**（`true` ⇒ 后面的目标不再覆盖）。
+        /// 落在 `ResolveTargets` 那一个收口里，判据见 `EffectResolver.NoteTriggerTargetSink`。</summary>
+        public bool TriggerTargetSinkDone;
+
+        /// <summary>
         /// 🆕 **2026-10-24（引擎线 `A1` 第 1 件）：上一条能力留下的目标集合** —
         /// 原版 `AbilityLogic` 的**静态表**（反编译里是 `pooledPossibleTargets`，函数名
         /// `SetPreviousAbilityTargets`）：`AbilityLogic__SetPreviousAbilityTargets.c:19-28`

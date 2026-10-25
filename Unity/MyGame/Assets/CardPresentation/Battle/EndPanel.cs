@@ -92,6 +92,29 @@ namespace CardPresentation
         /// <summary>`RewardsHolder` 行心 = **面板中心 −316.88**（同上，见 <see cref="RewardRowAnchorY"/>）。</summary>
         public const float RewardRowPanelY = -316.88f;
 
+        // ── 🔴 2026-10-25（审查代理 `AU2` · 铁律 5 就地订正）：压暗层的**颜色/不透明度**照原版 ──
+        //    判据（`bundle_scenes_scenes_battlearena2` 现读，`EndBattlePanel/Background` 那颗 `Image`）：
+        //      · `MonoBehaviour_5043.json`：`m_Color = (0.0283019, 0.0283019, 0.0283019, **0.7529412**)`
+        //        · `m_Type = 1`（**Sliced**）· `m_Sprite = {m_FileID 9, m_PathID 1660267235368898380}`
+        //        · `m_RaycastTarget = 1` · `m_RaycastPadding = (0,0,0,0)` · `m_PixelsPerUnitMultiplier = 1`
+        //      · 那颗 sprite 的**名字就叫 `Background`**（运行时 dump `runtime_ui_dump_Battle_Arena_1.tsv:1150`
+        //        最后一列 = `IMG  Background`；同一颗 sprite 也被 `ActiveSkillDesc/HideAbilityButton` 用，
+        //        见 `普查产出_1015战斗/B2_FrontCanvas与弹窗_层参数表.md:66`）。
+        //      · 🔴 **2026-10-25 订正（原文写「原版那张原图本地没有」→ 不成立）**：全库 `*/Sprite/*.json`
+        //        里 `m_Name == "Background"` 的**只有一份**，在
+        //        `d:/2/新解包资源/assets_full/bundle_Warpforge_unitybuiltinassets/Sprite/Background.json`
+        //        = **Unity 内置 UI sprite**（`m_Rect 32×32` · `m_Border (10,10,10,10)` · `m_PixelsToUnits 200`）。
+        //        它只能靠**编辑器** `AssetDatabase.GetBuiltinExtraResource<Sprite>("UI/Skin/Background.psd")`
+        //        取（运行时没有公开口），而 9 宫格那 10 px 的角块落在 **3840×2160 的四个角**上
+        //        —— 屏外，看不见 ⇒ **可见面就是一块均匀色**。
+        //        ⇒ 用「1×1 白图 + 下面那个 tint」在当前分辨率下**逐像素等价**；贴图这一半如实记为
+        //        「未接内置 sprite（运行时取不到），可见面无差」。
+        //    ⚠️ **改前是 `(0,0,0,0.97)`（纯黑、几乎不透）** —— 那是替代值：原版 α 0.753 ⇒ 战场会**透出 25%**。
+        /// <summary>压暗层的 tint = **原版 `EndBattlePanel/Background` 的 `Image.m_Color` 原文**
+        /// （`MonoBehaviour_5043.json`：0.0283019 三通道 + α 0.7529412）。</summary>
+        public static readonly Color DimColor =
+            new Color(0.028301894664764404f, 0.028301894664764404f, 0.028301894664764404f, 0.7529411911964417f);
+
         /// <summary>像素坐标（左上原点）→ **世界坐标**（屏心为原点、÷108）。z 越小越靠近相机。
         /// ⚠️ 加上开门视频之后面板分了**三层**，三个 z 的含义见 `BattleDoors`。
         /// <para>🔴 **2026-10-16（`T09` 批 2）：本件自己【不再用】它**（迁到 uGUI 之后位置一律走
@@ -253,8 +276,14 @@ namespace CardPresentation
             _root = transform;
 
             // 压暗背景：dump 里 `Background` 是一张 **3840×2160（两倍屏）的整屏图** ——
-            // 也就是说原版的结算界面**把战场整块盖住**。我们没有那张图，用**重压暗**替代
-            // （**这是替代，不是原版**）。压暗不够重的话，棋盘上的卡会从面板内容里透出来。
+            // 也就是说原版的结算界面**把战场整块盖住**。
+            // 🔴 **2026-10-25（审查代理 `AU2` · 铁律 5）**：这里原文写「我们没有那张图，用重压暗替代」
+            //    —— **两处都不成立了**：
+            //      · **颜色/不透明度有判据了**：原版 `m_Color = (0.0283, 0.0283, 0.0283, **0.753**)`
+            //        （`MonoBehaviour_5043.json`）⇒ 已改成 <see cref="DimColor"/>（原值 α 0.97 是替代值）；
+            //      · **那张"图"是 Unity 内置 sprite `Background`**（本地就有，`bundle_Warpforge_unitybuiltinassets`），
+            //        但运行时取不到、且 9 宫角块在屏外 ⇒ 纯色 + tint 在当前分辨率下逐像素等价。
+            //    推证全文 → <see cref="DimColor"/> 的 doc。
             // ⚠️ **压暗必须比卡靠前**（旧那套：z 越小越前）。原来建在 z=0 —— 和场上卡同层、
             //    而**手牌在 z 0~0.24（比它还远）**，于是手牌整排**没被压暗、从面板底下亮着**透出来
             //    （2026-09-12 看结算截图发现的；注释里早就担心「卡会透出来」，但 z 给错了）。
@@ -272,7 +301,7 @@ namespace CardPresentation
             //      这里 `Reorder` 挪到压暗层（新那套 z = **兄弟序键**、大的画在底下，见 `BattleDoors` 头部）。
             _dim = HudCanvas.MakeImagePiece(_root, CardArt.Solid(), "Background", 0f, 0f,
                                             3840f, 2160f,                       // 原版 `Background` 的 rect
-                                            new Color(0f, 0f, 0f, 0.97f));
+                                            DimColor);                          // 原版那颗 Image 的 m_Color（见 DimColor 的 doc）
             if (_dim != null)
             {
                 // 🔴🔴 **2026-10-24（`B-26`）**：节点名改成原版的 **`Background`**，矩形也照原版

@@ -850,7 +850,34 @@ namespace RuleEngine
                        // 「这一列**来自 v25 卡表**」的正面信号（只有 `CardDatabase.Parse` 知道）。
                        bool abilityTargetCriteriaVersioned = false,
                        IEnumerable<TargetCriteriaRowSpec> activeAbilityTargetCriteria = null,
-                       bool activeAbilityTargetCriteriaVersioned = false)
+                       bool activeAbilityTargetCriteriaVersioned = false,
+                       // 🆕 v26（2026-10-25 · 执行代理 `E2` · `A3-2`）：**ability 级 `targetCriteria`
+                       //   的其余 36 格**（原版 `CardAbility.targetCriteria` `+0x30`；
+                       //   消费点 `CardAbility__CanTriggerAbility.c:131-135`）。
+                       //   ⚠️ 与上面 v25 那两列**不是一层**：那两列是 `AbilityLogic.targetCriteria`（`lg >= 0`），
+                       //   本参数的行**恒 `lg = -1`**（走 `Logic` 字段的 `-1`，⛔ 别塞进同一个字典）。
+                       //   ⚠️ **追加在参数表末尾**（同前几条：全仓有位置传参的老调用点）。
+                       IEnumerable<TargetCriteriaRowSpec> abilityLevelCriteria = null,
+                       bool abilityLevelCriteriaVersioned = false,
+                       // 🆕 v27（2026-10-25 · 执行代理 `E3` · `E2` 报告 §六）：**ability 级
+                       //   `actingCardCriteria` 的其余 36 格**（原版 `CardAbility.actingCardCriteria` `+0x28`；
+                       //   消费点 `CardAbility__CanTriggerAbility.c:127-130` —— **第一道闸**，
+                       //   短路次序 acting → target → board）。
+                       //   ⚠️ 与 v26 那一列是**同一层的两道闸、两个候选**（那列筛 `targetCard`）——
+                       //   键同为 `ab`，但**⛔ 别塞进同一个字典**（谁覆盖谁都说不清）。
+                       //   ⚠️ **追加在参数表末尾**（同前几条：全仓有位置传参的老调用点）。
+                       IEnumerable<TargetCriteriaRowSpec> abilityActingCriteria = null,
+                       bool abilityActingCriteriaVersioned = false,
+                       // 🆕 v28（2026-10-25 · 执行代理 `E4` · `E4-2`）：**`ActiveAbility.targetCriteria`
+                       //   （`+0x38`）的其余 36 格** —— 主动能力的**目标闸**（「这个格位能不能被点」；
+                       //   消费点 `RawCardScript__IsValidActiveAbilityTarget.c:103-107` /
+                       //   `BattleManager__IsValidActiveAbilityTarget` 那一族）。
+                       //   ⚠️ 与 v25 的 `activeAbilityTargetCriteria` **不是同一格**：那一列是
+                       //   `activeAbilityLogic[j].targetCriteria`（**logic 级**、带 `lg`），本列是
+                       //   `ActiveAbility.targetCriteria`（**对象级**、只有 `ab = -1/-2`，⛔ 没有 `lg`）。
+                       //   ⚠️ **追加在参数表末尾**（同前几条：全仓有位置传参的老调用点）。
+                       IEnumerable<TargetCriteriaRowSpec> activeAbilityPickCriteria = null,
+                       bool activeAbilityPickCriteriaVersioned = false)
         {
             Id = id; Name = name; Type = type ?? ""; Desc = desc ?? ""; Rarity = rarity; Faction = faction;
             NameZh = nameZh ?? ""; DescZh = descZh ?? "";
@@ -961,6 +988,39 @@ namespace RuleEngine
             if (abilityTargets != null)
                 foreach (var _at in abilityTargets) _abilityTargets.Add(_at);
             AbilityTargetsVersioned = abilityTriggersVersioned;   // 同一列版本位（v17 一次加的）
+            // 🔴🆕 **2026-10-25（引擎线 `A3` · `A3-3`）：两列共用一个版本位 —— 出声，别静默。**
+            //
+            // **这不是原版语义**：`AbilityTriggersVersioned` / `AbilityTargetsVersioned` 是**我们数据管线
+            //   的版本位**（v17 一次加了这两列 ⇒ 只有一个「来自 v17 卡表」的正面信号）。原版那边只有
+            //   序列化字段 `cardAbilities[].trigger` 与 `abilityLogic[].targetCriteria.targetsAffected`，
+            //   没有「版本」这回事。⇒ 共用版本位是**我们这边的便利默认**，不是原版语义。
+            //
+            // **病灶（`A2` 2026-10-25 踩过）**：合成夹具只给 `abilityTargets: …`、忘了给
+            //   `abilityTriggersVersioned: true` ⇒ `AbilityTargetsVersioned` 静默是 `false`
+            //   ⇒ `EffectText.AssignAbilityTargets` / `AttachAtTurn*Criteria` 的
+            //   `if (!card.AbilityTargetsVersioned) return;` **整条静默跳过**：夹具「看着给了数据」，
+            //   引擎当「旧表整列没有」。⇒ 这里**出声**（每次构造喊一次，不静默、也不去替他猜）。
+            // ⚠️ 反方向也要喊：版本位给了、`trigger` 有、而 `targetsAffected` 整列空 —— 那是**数据缺列**，
+            //   消费端同样会走「未知」分支。现读 v25 卡池这两列**同进同出**（0 张不一致）⇒ 生产零噪声。
+            if (_abilityTargets.Count > 0 && !abilityTriggersVersioned)
+            {
+                AbilityVersionFlagWarningsForTest++;
+                UnityEngine.Debug.LogWarning(
+                    $"[RuleEngine] 卡「{Name}」（{Id}）给了 `abilityTargets`（{_abilityTargets.Count} 条）"
+                  + "却没给 `abilityTriggersVersioned: true` —— 这两列在 v17 卡表里**共用一个版本位**，"
+                  + "所以 `AbilityTargetsVersioned` 现在是 **false**，消费端会把它当「旧表整列没落」"
+                  + "**静默跳过**（`AssignAbilityTargets` / at-turn 的 criteria 贴片一条都不跑）。"
+                  + "合成夹具/手写卡请显式给 `abilityTriggersVersioned: true`（或干脆走 `CardDatabase` 装载）。");
+            }
+            else if (abilityTriggersVersioned && _abilityTriggers.Count > 0 && _abilityTargets.Count == 0)
+            {
+                AbilityVersionFlagWarningsForTest++;
+                UnityEngine.Debug.LogWarning(
+                    $"[RuleEngine] 卡「{Name}」（{Id}）的 `abilityTriggers` 有 {_abilityTriggers.Count} 条、"
+                  + "`abilityTargets` 却**整列为空** —— 两列在 v17 卡表里是同一批落盘的，"
+                  + "这个组合说明卡表缺列。消费端按「`targetsAffected` 未知」处置（回落旧近似并出声）。"
+                  + "请重跑 工具/gen_cards_engine.py。");
+            }
             // 🆕 v20（2026-10-24 · `A12`）：逐 `abilityLogic` 的 `furtherMultiplier` ——
             //   **并进同一批 `AbilityTargetSpec`**（`abilityMultipliers[i].Length == logic 数`，与 `ta` 同形）。
             //   ⚠️ 长度对不上 = 那条 ability 的 fm 读不到（保留 null ⇒ 消费端当**未知**，⛔ 不当 0），
@@ -1035,6 +1095,72 @@ namespace RuleEngine
                         continue;
                     }
                     _activeTargetCriteria[_k] = _tc.Criteria;
+                }
+            // 🆕 v26（2026-10-25 · 执行代理 `E2` · `A3-2`）：**ability 级 `targetCriteria` 的 36 格** ——
+            //   原样收下（行级形状校验在 `CardDatabase.MapAbilityLevelCriteria` 那一层出声丢弃；
+            //   这里只保留一道防静默串行的「撞键」检查 —— ⛔ 同一条 ability 两份 = 谁赢都说不清）。
+            //   🔴 键 = **只有 `ab`**（这一列的行恒 `lg = -1`，⛔ 别走 `CriteriaKey(ab, lg)`：
+            //   那会把 `ab` 与 `(ab, lg=-1)` 混进同一个 `long` 键空间，与 `unitConditions` 的
+            //   `lg = -1` 行也共用一个键 —— 两层对象虽然同名字段，是**不同对象**）。
+            AbilityLevelCriteriaVersioned = abilityLevelCriteriaVersioned;
+            if (abilityLevelCriteria != null)
+                foreach (var _tc in abilityLevelCriteria)
+                {
+                    if (_tc == null || _tc.Criteria == null) continue;
+                    if (_tc.Ability < 0 || _tc.Logic != -1) continue;   // 已经出过声（入口那一层）
+                    if (_abilityLevelCriteria.ContainsKey(_tc.Ability))
+                    {
+                        UnityEngine.Debug.LogError(
+                            $"[RuleEngine] 卡「{Name}」（{Id}）的 `abilityLevelCriteria` 有**重复的 "
+                          + $"ab={_tc.Ability}** —— 后一条已丢弃（⛔ 撞键 = 谁赢都说不清）。"
+                          + "重跑 工具/gen_cards_engine.py。");
+                        continue;
+                    }
+                    _abilityLevelCriteria[_tc.Ability] = _tc.Criteria;
+                }
+            // 🆕 v27（2026-10-25 · 执行代理 `E3` · `E2` 报告 §六）：**ability 级 `actingCardCriteria`
+            //   的 36 格** —— 原样收下（行级形状校验在 `CardDatabase.MapAbilityActingCriteria` 那一层
+            //   出声丢弃；这里只保留一道防静默串行的「撞键」检查）。
+            //   🔴 键 = **只有 `ab`**，而且**另开一个字典** —— 与 `_abilityLevelCriteria` 是两道闸：
+            //   那个筛 `targetCard`（`+0x30`），这个筛 `actingCard`（`+0x28`）。合用一个字典 = 后写的
+            //   静默盖掉先写的（零报错）。
+            AbilityActingCriteriaVersioned = abilityActingCriteriaVersioned;
+            if (abilityActingCriteria != null)
+                foreach (var _tc in abilityActingCriteria)
+                {
+                    if (_tc == null || _tc.Criteria == null) continue;
+                    if (_tc.Ability < 0 || _tc.Logic != -1) continue;   // 已经出过声（入口那一层）
+                    if (_abilityActingCriteria.ContainsKey(_tc.Ability))
+                    {
+                        UnityEngine.Debug.LogError(
+                            $"[RuleEngine] 卡「{Name}」（{Id}）的 `abilityActingCriteria` 有**重复的 "
+                          + $"ab={_tc.Ability}** —— 后一条已丢弃（⛔ 撞键 = 谁赢都说不清）。"
+                          + "重跑 工具/gen_cards_engine.py。");
+                        continue;
+                    }
+                    _abilityActingCriteria[_tc.Ability] = _tc.Criteria;
+                }
+            // 🆕 v28（2026-10-25 · 执行代理 `E4` · `E4-2`）：**`ActiveAbility.targetCriteria`（`+0x38`）
+            //   的 36 格** —— 原样收下（行级形状校验在 `CardDatabase.MapActiveAbilityPickCriteria`
+            //   那一层出声丢弃；这里只保留一道防静默串行的「撞键」检查）。
+            //   🔴 键 = `ab`（`-1` / `-2`），**另开一个字典** —— 与 `_activeTargetCriteria`
+            //   （`CriteriaKey(ab, lg)`，logic 级）不是同一格：那个管「这条 logic 从哪儿取目标」，
+            //   这个管「这个格位能不能被点」。合用一个字典会被 `-1` 与 `(-1, 0)` 的键差骗过去/撞上。
+            ActiveAbilityPickCriteriaVersioned = activeAbilityPickCriteriaVersioned;
+            if (activeAbilityPickCriteria != null)
+                foreach (var _tc in activeAbilityPickCriteria)
+                {
+                    if (_tc == null || _tc.Criteria == null) continue;
+                    if (_tc.Ability != ActiveAbilityObject && _tc.Ability != AlternativeAbilityObject) continue;
+                    if (_activeAbilityPickCriteria.ContainsKey(_tc.Ability))
+                    {
+                        UnityEngine.Debug.LogError(
+                            $"[RuleEngine] 卡「{Name}」（{Id}）的 `activeAbilityPickCriteria` 有**重复的 "
+                          + $"ab={_tc.Ability}** —— 后一条已丢弃（⛔ 撞键 = 谁赢都说不清）。"
+                          + "重跑 工具/gen_cards_engine.py。");
+                        continue;
+                    }
+                    _activeAbilityPickCriteria[_tc.Ability] = _tc.Criteria;
                 }
             // 🔴🆕 v18（`P1·①`）：原版 `AbilityTrigger` 名 → priority —— 原样收下
             //   （`cards_engine.json` 的 `abilityTriggerPriority` 列，**只落 != 1 的行**）。
@@ -2204,6 +2330,14 @@ namespace RuleEngine
             return _abilityTriggers.Contains(trigger) ? 1 : 0;
         }
 
+        /// <summary>🔴🆕 2026-10-25（引擎线 `A3` · `A3-3`）：`abilityTriggers` 列的**条数**
+        /// （生成器 `sorted(set(...))` **已去重**）。
+        ///
+        /// <para>**只给自检/诊断用**（数据一致性：本列与 <see cref="AbilityTargets"/> 同进同出 ——
+        /// 判据见构造函数里那条 warning）。⛔ **别拿它当「这张卡有几条 ability」** ——
+        /// 同一 `trigger` 可以有多条 ability，这里被去重掉了。</para></summary>
+        public int AbilityTriggerCount { get { return _abilityTriggers.Count; } }
+
         // ==================================================================
         //  🆕 v17（2026-10-23 · 引擎线 · 战斗审计 `B-17`）
         //  **逐 ability / 逐 logic 的 `targetsAffected`**（原版 `AbilityLogic.targetCriteria`）
@@ -2277,8 +2411,18 @@ namespace RuleEngine
         public IReadOnlyList<AbilityTargetSpec> AbilityTargets { get { return _abilityTargets; } }
 
         /// <summary>🆕 v17：`abilityTargets` 列**来自 v17 卡表**的正面信号（与
-        /// <see cref="AbilityTriggersVersioned"/> 同源 —— v17 一次加的两列）。</summary>
+        /// <see cref="AbilityTriggersVersioned"/> 同源 —— v17 一次加的两列）。
+        /// 🔴 **两列共用一个版本位**（不是原版语义，是我们数据管线的形状）⇒ 构造函数里
+        /// 「只给了一列」时**出声**（判据 / 踩过的坑 / 反方向那一条 → 那一处注释）。</summary>
         public bool AbilityTargetsVersioned { get; private set; }
+
+        /// <summary>🔴🆕 2026-10-25（引擎线 `A3` · `A3-3`）：构造函数里那条
+        /// 「`abilityTriggers` / `abilityTargets` 两列只给了一列」的 warning **发过几次**。
+        ///
+        /// <para>**只给自检用**：那条 warning 走 `UnityEngine.Debug.LogWarning`，离线探针与
+        /// `RuleEngineTest` 都抓不到输出流 ⇒ 用这个计数当**灭自证**的判别式（计数没涨 = 那声没发）；
+        /// ⛔ 引擎里没有任何生产消费者，⛔ 别拿它当「数据版本状态」。</para></summary>
+        public static int AbilityVersionFlagWarningsForTest { get; private set; }
 
         /// <summary>🆕 v20（2026-10-24 · 引擎线 `A12`）：`abilityMultipliers` 列**来自 v20 卡表**的正面信号。
         /// `false` = 旧表（&lt; v20）/ 解析路径没接这一列 ⇒ <see cref="AbilityTargetSpec.FurtherMultiplier"/>
@@ -2337,7 +2481,280 @@ namespace RuleEngine
             return _activeTargetCriteria.TryGetValue(CriteriaKey(abilityObject, logic), out s) ? s : null;
         }
 
-        /// <summary>`(ab, lg)` 的键。`ab` 可以是 `-1` / `-2` ⇒ 用 **左移后异或无符号 lg**，
+        // ==================================================================
+        //  🆕 v26（2026-10-25 · 执行代理 `E2` · `A3-2`）：
+        //  **ability 级 `targetCriteria` 的其余 36 格**（原版 `CardAbility.targetCriteria`）
+        // ==================================================================
+        //  判据（第一权威 = 全量反编译，逐句读过）：
+        //    · 字段 = `CardAbility.targetCriteria`（`CardAbility.cs:16`，**`+0x30`**）——
+        //      🔴 与 v25 收的 `AbilityLogic.targetCriteria`（`+0x28`）是**两个同名对象、两层语义**；
+        //    · 消费点 = `CardAbility__CanTriggerAbility.c:131-135`（**触发前的第二道闸**）：
+        //        `FilterMethods__CheckIfMeetsCriteria(thisCard, targetCard, targetCard, *(ability+0x30), 0)`
+        //      形参表 → `d:/2/tools/il2cpp_out/dump.cs:20360`
+        //        `(AbilityTrigger trigger, BattleManager manager, CardScript thisCard,
+        //          CardScript actingCard, CardScript targetCard, bool ignoreRandomTrigger)`
+        //      ⇒ **被筛对象 = `targetCard`**（`CheckIfMeetsCriteria` 的 `param_2`）；
+        //        ⛔ **不是 `actingCard`** —— 那是第一道闸（`+0x28 actingCardCriteria`）的候选。
+        //        （`FilterMethods__CheckIfMeetsCriteria.c:50` `lVar9+0x10 = param_2`，
+        //          `:216-263` 拿它和 `param_1`（thisCard）比阵营/身份 = 「候选」语义。）
+        //    · `targetsAffected == 0 (any)` ⇒ `:56-59` **直接 `return 1`** ⇒ 整条 criteria 无信息
+        //      ⇒ 生成器**不落那一行**（`criteria_carries_targets`）。
+        //  ⚠️ **缺行 = 没有这一格数据**（旧表 / 这条 ability 的 `ta = any`）⇒ 消费端**不筛**，
+        //    并**出声**（⛔ 不静默当「筛过了」）。
+        //  🔴 **`activeAbility.targetCriteria` 不在这里**：那是 `ActiveAbility` 类自己的字段
+        //    （`RawCardScript__IsValidActiveAbilityTarget.c:103-107` 读 `activeAbility(+0x260)` 内部 `+0x38`），
+        //    语义 = **主动能力的目标池闸**，不是 `CanTriggerAbility` 那道闸 ⇒ 另账。
+
+        readonly Dictionary<int, CountSetSpec> _abilityLevelCriteria = new Dictionary<int, CountSetSpec>();
+
+        /// <summary>🆕 v26：`abilityLevelCriteria` 列**来自 v26 卡表**的正面信号。
+        /// `false` = 旧表（&lt; 26）/ 解析路径没接这一列 ⇒ 访问器一律返回 `null`（未知）。</summary>
+        public bool AbilityLevelCriteriaVersioned { get; private set; }
+
+        /// <summary>🆕 v26：第 <paramref name="ability"/> 条 `cardAbilities` 的**ability 级** 36 格 criteria
+        /// （原版 `CardAbility.targetCriteria` `+0x30`）。`null` = 没有这一行 / 旧表。
+        /// <para>⚠️ 语义上它是「**触发前**判 `targetCard` 满不满足」，不是目标池 ——
+        /// 消费端 = <see cref="AbilityLevelCriteriaForTrigger"/>（⛔ 别在调用点各写一份定位逻辑）。</para></summary>
+        public CountSetSpec AbilityLevelCriteriaAt(int ability)
+        {
+            if (!AbilityLevelCriteriaVersioned || ability < 0) return null;
+            CountSetSpec s;
+            return _abilityLevelCriteria.TryGetValue(ability, out s) ? s : null;
+        }
+
+        /// <summary>这张卡有没有落这一格（区分「没有条件」与「列没落」）。
+        /// 只给自检/诊断用。</summary>
+        public int AbilityLevelCriteriaRowCount { get { return _abilityLevelCriteria.Count; } }
+
+        /// <summary>🆕 v26：**触发关键词 → 唯一 ability 下标**。
+        ///
+        /// <para>`triggerName` 是原版 `AbilityTrigger` **枚举名**（`UnitAttack` / `OtherUnitSummoned` …，
+        /// 与 <see cref="AbilityTriggerNumber"/> 同一套词）。返回 `>= 0` = 唯一命中的
+        /// `cardAbilities` 下标；`-1` = **定位不了**，且 <paramref name="why"/> 说明是哪一档：</para>
+        /// <list type="bullet">
+        /// <item>「列没落 / 旧表」—— `abilityTargets` 不是 v17+（拿不到逐 ability 的 trigger）；</item>
+        /// <item>「认不出 trigger 名」—— 名字不在 <see cref="AbilityTriggerNumberOfName"/> 里；</item>
+        /// <item>「这张卡没有这条 ability」—— 明确 `0`（不是「不知道」）；</item>
+        /// <item>🔴「**不唯一**」—— 这张卡有 **N≥2** 条同一 trigger 的 ability
+        ///       （实测存在：89 张卡两条 ability 共用一个 trigger）⇒ ⛔ **不猜是第几条**。</item>
+        /// </list>
+        /// <para>数据来源 = <see cref="AbilityTargets"/>（**下标 = `cardAbilities` 下标**，
+        /// 生成器逐 ability 一行；`Trigger` 是原版 `CardAbility.trigger`）⇒ 这是全仓**唯一**的
+        /// 「trigger 名 → ability 下标」判据，⛔ 别在别处再扫一遍 `AbilityTargets`。</para>
+        /// </summary>
+        public int UniqueAbilityIndexForTrigger(string triggerName, out string why)
+        {
+            bool amb;
+            return UniqueAbilityIndexForTrigger(triggerName, out why, out amb);
+        }
+
+        /// <summary>🆕 v26：同 <see cref="UniqueAbilityIndexForTrigger(string, out string)"/>，
+        /// 另把「**不唯一**」那一档单独标出来（<paramref name="ambiguous"/>）——
+        /// 消费端对**歧义**的处置与「列没落 / 认不出」不同（歧义 ⇒ **不触发** + 出声；其余 ⇒ 放行 + 出声）。
+        /// ⛔ 别拿 `why` 的文案去 `Contains` 判档（文案会改）。</summary>
+        public int UniqueAbilityIndexForTrigger(string triggerName, out string why, out bool ambiguous)
+        {
+            ambiguous = false;
+            why = null;
+            if (string.IsNullOrEmpty(triggerName)) { why = "trigger 名为空"; return -1; }
+            if (!AbilityTargetsVersioned) { why = "`abilityTargets` 列没落（旧表 < v17）⇒ 拿不到逐 ability 的 trigger"; return -1; }
+            int n = AbilityTriggerNumber(triggerName);
+            if (n < 0) { why = $"认不出 trigger 名「{triggerName}」（不在 AbilityTrigger 枚举表里）"; return -1; }
+            int hit = -1, count = 0, unknown = 0;
+            for (int i = 0; i < _abilityTargets.Count; i++)
+            {
+                var spec = _abilityTargets[i];
+                if (spec == null || spec.Trigger < 0) { unknown++; continue; }
+                if (spec.Trigger != n) continue;
+                count++;
+                if (hit < 0) hit = i;
+            }
+            if (count == 1) return hit;
+            if (count == 0)
+            {
+                why = unknown > 0
+                    ? $"这张卡的 `abilityTargets` 有 {unknown} 条 ability 的 `trigger` **未知**（-1）⇒ 判不出「没有」还是「就是它」"
+                    : $"这张卡**没有** `trigger = {n}`（{triggerName}）的 ability";
+                return -1;
+            }
+            ambiguous = true;
+            why = $"**不唯一**：这张卡有 {count} 条 `trigger = {n}`（{triggerName}）的 ability ⇒ ⛔ 不猜是第几条";
+            return -1;
+        }
+
+        /// <summary>🆕 v26：**本类唯一的 ability 级 criteria 读取口** ——
+        /// 「按 trigger 名定位到那唯一一条 ability，再取它的 36 格」。
+        ///
+        /// <para>返回值三态（消费端必须分清，⛔ 别把 `null` 一律当「放行」而不出声）：</para>
+        /// <list type="bullet">
+        /// <item>`set != null` ⇒ 有数据，**要筛**（`TargetCriteriaEval.Matches`）；</item>
+        /// <item>`set == null` 且 <paramref name="why"/> 形如「没有这一行」⇒ 这条 ability 的
+        ///       `targetsAffected = any` / 没落行 ⇒ **明确没有触发条件**（原版直接 `return 1`）；</item>
+        /// <item>`set == null` 且 <paramref name="why"/> 是别的（列没落 / 不唯一 / 认不出）⇒ **判不了**
+        ///       ⇒ 消费端**出声并放行**（⛔ 不许当「不满足」把触发掐死）。</item>
+        /// </list>
+        /// <para>⚠️ 设计取舍：**返回 `null` 时无法从返回值区分上面三类** ⇒ 统一靠
+        /// <paramref name="why"/> 判；调用点只该把它转成日志，⛔ 别自己再判一次
+        /// （`RuleCore.AbilityLevelCriteriaAllows` 是唯一消费实现）。</para>
+        /// </summary>
+        public CountSetSpec AbilityLevelCriteriaForTrigger(string triggerName, out string why)
+        {
+            bool amb;
+            return AbilityLevelCriteriaForTrigger(triggerName, out why, out amb);
+        }
+
+        /// <summary>🆕 v26：同 <see cref="AbilityLevelCriteriaForTrigger(string, out string)"/>，
+        /// 另把「ability 定位**不唯一**」那一档标出来（判档口径 → `UniqueAbilityIndexForTrigger` 的 doc）。</summary>
+        public CountSetSpec AbilityLevelCriteriaForTrigger(string triggerName, out string why, out bool ambiguous)
+        {
+            ambiguous = false;
+            if (!AbilityLevelCriteriaVersioned)
+            {
+                why = "`abilityLevelCriteria` 列没落（旧表 < v26）⇒ **未知**（⛔ 不是「没有条件」）";
+                return null;
+            }
+            int ab = UniqueAbilityIndexForTrigger(triggerName, out why, out ambiguous);
+            if (ab < 0) return null;
+            var set = AbilityLevelCriteriaAt(ab);
+            if (set == null)
+            {
+                why = null;                       // 明确「这条 ability 没有触发条件」（`ta = any` / 没落行）
+                return null;
+            }
+            why = null;
+            return set;
+        }
+
+        // ==================================================================
+        //  🆕 v27（2026-10-25 · 执行代理 `E3` · `E2` 报告 §六）：
+        //  **ability 级 `actingCardCriteria`（`+0x28`）—— 原版触发前的【第一道闸】**
+        // ==================================================================
+        //  判据（第一权威 = 全量反编译）：
+        //    · `CardAbility__CanTriggerAbility.c:127-130`：
+        //        `CheckIfMeetsCriteria(thisCard, actingCard, targetCard, *(ability+0x28), 0)`
+        //      —— 被筛对象 = **`actingCard`**（形参表 `d:/2/tools/il2cpp_out/dump.cs:20360`）。
+        //    · 同一函数 `:131-135` 才是第二道闸（`+0x30`，筛 `targetCard`，= v26 的
+        //      `abilityLevelCriteria`）⇒ **短路次序 = acting → target → board**。
+        //    · `targetsAffected == 0 (any)` ⇒ `CheckIfMeetsCriteria.c:56-59` **直接 `return 1`**
+        //      ⇒ 生成器**不落**那一行（零信息）。
+        //  ⚠️ **缺行 = 没有这一格数据**（旧表 / 这张卡没有这条 ability / 这条 ability 的
+        //     `ta = any`）⇒ 消费端**不筛**；其中「列没落 / 认不出 / 不唯一」那几档要**出声**
+        //     （⛔ 不静默当「筛过了」）。
+        // ==================================================================
+
+        readonly Dictionary<int, CountSetSpec> _abilityActingCriteria = new Dictionary<int, CountSetSpec>();
+
+        /// <summary>🆕 v27：`abilityActingCriteria` 列**来自 v27 卡表**的正面信号。
+        /// `false` = 旧表（&lt; 27）/ 解析路径没接这一列 ⇒ 访问器一律返回 `null`（未知）。</summary>
+        public bool AbilityActingCriteriaVersioned { get; private set; }
+
+        /// <summary>🆕 v27：第 <paramref name="ability"/> 条 `cardAbilities` 的**第一道闸** 36 格 criteria
+        /// （原版 `CardAbility.actingCardCriteria` `+0x28`）。`null` = 没有这一行 / 旧表。
+        /// <para>⚠️ 语义上它是「**触发前**判 `actingCard` 满不满足」（🔴 **不是** `targetCard` ——
+        /// 那是 <see cref="AbilityLevelCriteriaAt"/>）。消费端 = <see cref="ActingLevelCriteriaForTrigger"/>
+        /// （⛔ 别在调用点各写一份定位逻辑）。</para></summary>
+        public CountSetSpec AbilityActingCriteriaAt(int ability)
+        {
+            if (!AbilityActingCriteriaVersioned || ability < 0) return null;
+            CountSetSpec s;
+            return _abilityActingCriteria.TryGetValue(ability, out s) ? s : null;
+        }
+
+        /// <summary>这张卡有没有落这一格（区分「没有条件」与「列没落」）。只给自检/诊断用。</summary>
+        public int AbilityActingCriteriaRowCount { get { return _abilityActingCriteria.Count; } }
+
+        // =====================================================================================
+        //  🆕 v28（2026-10-25 · 执行代理 `E4` · `E4-2`）：**主动能力的目标闸**
+        //  （原版 `ActiveAbility.targetCriteria` `+0x38`；消费点
+        //   `RawCardScript__IsValidActiveAbilityTarget.c:103-107`）
+        // =====================================================================================
+        //  🔴 **与 `_activeTargetCriteria`（v25 `activeAbilityTargets`）不是同一格**：
+        //     · 那一列 = `activeAbilityLogic[j].targetCriteria`（`AbilityLogic +0x28`，**logic 级**、键 `(ab, lg)`）
+        //       —— 回答「**这条 logic 从哪儿取目标**」（结算时建池）；
+        //     · 本列 = `ActiveAbility.targetCriteria`（`ActiveAbility +0x38`，**对象级**、键只有 `ab`）
+        //       —— 回答「**这个格位能不能被点**」（高亮 / 点选 / 出手前一瞬的复核）。
+        //   ⛔ 别合并：键空间与语义都不同。
+        //  ⚠️ **缺行 = 没有这一格数据** ⇒ 消费端**不筛**；「列没落 / 取不到对象」要**出声**。
+
+        readonly Dictionary<int, CountSetSpec> _activeAbilityPickCriteria = new Dictionary<int, CountSetSpec>();
+
+        /// <summary>🆕 v28：`activeAbilityPickCriteria` 列**来自 v28 卡表**的正面信号。
+        /// `false` = 旧表（&lt; 28）/ 解析路径没接这一列 ⇒ 访问器一律返回 `null`（未知）。</summary>
+        public bool ActiveAbilityPickCriteriaVersioned { get; private set; }
+
+        /// <summary>🆕 v28：**本类唯一的「主动能力目标闸」读取口** ——
+        /// 按能力对象（<see cref="ActiveAbilityObject"/> `-1` / <see cref="AlternativeAbilityObject"/> `-2`）
+        /// 取那 36 格 criteria。三态：
+        /// · `set != null` ⇒ 有数据、要筛；
+        /// · `set == null` 且 <paramref name="why"/> 为 `null` ⇒ **明确没有这一格条件**
+        ///   （原版 `targetsAffected = any` ⇒ `return 1`）；
+        /// · `set == null` 且 <paramref name="why"/> 非空 ⇒ **判不了**（列没落 / `ab` 非法）
+        ///   ⇒ 消费端**出声并放行**（⛔ 不把「不知道」当「不满足」）。
+        /// <para>⚠️ 选哪一档能力对象（普通支 / 替代支）由调用方用
+        /// <see cref="UsesAlternativeAbility"/> 判 —— ⛔ 别在这里猜。</para></summary>
+        public CountSetSpec ActiveAbilityPickCriteriaFor(int abilityObject, out string why)
+        {
+            why = null;
+            if (!ActiveAbilityPickCriteriaVersioned)
+            {
+                why = "`activeAbilityPickCriteria` 列没落（旧表 < v28）⇒ **未知**（⛔ 不是「没有条件」）";
+                return null;
+            }
+            if (abilityObject != ActiveAbilityObject && abilityObject != AlternativeAbilityObject)
+            {
+                why = $"`ab={abilityObject}` 不是主动能力对象（只认 -1 / -2）";
+                return null;
+            }
+            CountSetSpec s;
+            return _activeAbilityPickCriteria.TryGetValue(abilityObject, out s) ? s : null;
+        }
+
+        /// <summary>这张卡有没有落这一格（区分「没有条件」与「列没落」）。只给自检/诊断用。</summary>
+        public int ActiveAbilityPickCriteriaRowCount { get { return _activeAbilityPickCriteria.Count; } }
+
+        /// <summary>🆕 v27：**本类唯一的「第一道闸」读取口** ——
+        /// 「按 trigger 名定位到那唯一一条 ability，再取它的 36 格（`actingCardCriteria`）」。
+        ///
+        /// <para>返回值三态（消费端必须分清，⛔ 别把 `null` 一律当「放行」而不出声）：</para>
+        /// <list type="bullet">
+        /// <item>`set != null` ⇒ 有数据，**要筛**（`TargetCriteriaEval.Matches`，候选 = `actingCard`）；</item>
+        /// <item>`set == null` 且 <paramref name="why"/> 为 `null` ⇒ 这条 ability 的
+        ///       `targetsAffected = any` / 没落行 ⇒ **明确没有这一格条件**（原版直接 `return 1`）；</item>
+        /// <item>`set == null` 且 <paramref name="why"/> 非空 ⇒ **判不了**（列没落 / 认不出 / 不唯一）
+        ///       ⇒ 消费端**出声**；其中**不唯一**（<paramref name="ambiguous"/>）按简报口径
+        ///       **不触发**，其余**放行**（⛔ 不许把「不知道」当「不满足」）。</item>
+        /// </list>
+        /// <para>⚠️ 定位只用 <see cref="UniqueAbilityIndexForTrigger"/>（**全仓唯一**的
+        /// 「trigger 名 → `cardAbilities` 下标」判据）—— ⛔ 别在这里再扫一遍 `AbilityTargets`。</para>
+        /// </summary>
+        public CountSetSpec ActingLevelCriteriaForTrigger(string triggerName, out string why)
+        {
+            bool amb;
+            return ActingLevelCriteriaForTrigger(triggerName, out why, out amb);
+        }
+
+        /// <summary>🆕 v27：同 <see cref="ActingLevelCriteriaForTrigger(string, out string)"/>，
+        /// 另把「ability 定位**不唯一**」那一档标出来（判档口径 → `UniqueAbilityIndexForTrigger` 的 doc）。</summary>
+        public CountSetSpec ActingLevelCriteriaForTrigger(string triggerName, out string why, out bool ambiguous)
+        {
+            ambiguous = false;
+            if (!AbilityActingCriteriaVersioned)
+            {
+                why = "`abilityActingCriteria` 列没落（旧表 < v27）⇒ **未知**（⛔ 不是「没有条件」）";
+                return null;
+            }
+            int ab = UniqueAbilityIndexForTrigger(triggerName, out why, out ambiguous);
+            if (ab < 0) return null;
+            var set = AbilityActingCriteriaAt(ab);
+            if (set == null)
+            {
+                why = null;                       // 明确「这条 ability 没有这一格条件」（`ta = any` / 没落行）
+                return null;
+            }
+            why = null;
+            return set;
+        }
+
         /// ⛔ 别用 `ab * 100 + lg` 那种「靠位数够用」的写法（`lg` 一超界就静默撞键）。</summary>
         static long CriteriaKey(int ability, int logic)
         {
@@ -5515,6 +5932,24 @@ namespace RuleEngine
         public const string Stealth = "stealth";
 
         /// <summary>
+        /// **召唤裂隙**（原版 `DefinedTrait.summonRift = 730` ——
+        /// `d:/2/Warpforge_code/Scripts/Assembly-CSharp/DefinedTrait.cs:73`；反编译里写作 `0x2da`）。
+        ///
+        /// <para>**语义（第一权威逐句读过）**：带这个词的单位**不可被交互** ——
+        ///   · **主动能力**：`BattleManager__IsValidActiveAbilityTarget.c:55-56` 是**裸闸**
+        ///     （`HasCurrentTrait(候选, 0x2da) ⇒ return 0`；**不分侧** ⇒ 连自己人也不能点它）；
+        ///   · **攻击**：`BattleManager__IsValidAttackTarget.c:210-213` 是同一形状的裸闸。
+        ///   ⇒ 我们的落点 = `RuleCore.CanUseAbilityTarget` 的 ②
+        ///     （⛔ 别「对偶地」写成「只在异侧挡」—— 那是 `stealth` / `ward` 的口径，不是它的）。</para>
+        ///
+        /// <para>⚠️ **全池今天 0 张卡带它**（2026-10-25 现扫：`cards_engine.json` v28 的
+        /// `keywords`/`desc`/`descZh` 与 `cards_raw.json` 1,351 张的 `cardTraits` 全 0 命中）
+        /// ⇒ **零行为变化**；补的是「原版有、我们缺」这一层（铁律 11）。
+        /// ⚠️ `Prefixes` 必须登记（见那一节 `E7` 那段注释）：不登记会被**静默丢弃**。</para>
+        /// </summary>
+        public const string SummonRift = "summonrift";
+
+        /// <summary>
         /// **飞行**。机制**只有一条**：**近战打不到它** —— `RuleCore` 的攻击校验里
         /// 「目标带 `flying` 且攻击者不带 `flying`」⇒ 拒（`ErrAttackBlockFlying`；
         /// 🆕 2026-10-23 `B-31` 拆码，此前是笼统的 `ErrTarget`）。
@@ -7074,6 +7509,33 @@ namespace RuleEngine
             //     `keywords` / `desc` / `descZh` 三列命中 **0 条**
             //     ⇒ 加这一条**不改动任何现有解析结果**。
             new[] { "spentallmana", SpentAllMana },
+            // 🆕 2026-10-25（执行代理 `E7` · 四道候选闸）：**`ward`(140) · `wardWb`(145) ·
+            //    `tainted`(160) · `summonRift`(730)** —— 机制本批建在
+            //    `RuleCore.CanUseAbilityTarget`（语义/判据 → 那边的 ①–④，以及
+            //    `ConditionEval.Ward` / `WardWb` / `Tainted` 与 `KeywordTable.SummonRift` 的 doc）。
+            //    ⚠️ **为什么必须登记在这里**（与 `noncombatant` / `unstunnable` 同一条先例）：
+            //    不登记 ⇒ `Normalize` 返回 null ⇒ `KeywordTable.Parse` 与构造函数**双双丢弃**
+            //    ⇒ 卡数据 `keywords` 列 / 卡面正文写这四个词会被**静默吃掉**
+            //    （卡面既不报「未实现」、也不打 `*`），正是本工程「不许静默失败」红线。
+            //    🔴 **`wardwb` 必须排在 `ward` 前面**：`Normalize` = `StartsWith` + **先到先得**
+            //    ⇒ 反过来 `wardWb` 会被 `ward` 抢先吃成 `"ward"`（145 静默变成 140，两族混成一个）。
+            //    ⚠️ **前缀撞车已现核**：`ward`/`wardwb` 与既有 `waystone` 在第 2 个字符分开
+            //    （`wa-r` vs `wa-y`）；`tainted` 与 `talent`/`terror`/`teleport`/`tide` 第 2 个字符分开
+            //    （`ta-i` vs `ta-l` / `te-*`）；`summonrift` 与任何 `s*` 条目都不互为前缀
+            //    （以 `su` 开头的既有条目只有 `survivor*`，第 3 个字符分开 `su-m` vs `su-r`）；
+            //    反向（新词抢先吃掉老词）也不成立（没有既有条目以这四个词开头）。
+            //    ⚠️ **影响面实测（2026-10-25，拿全池文本现扫）**：`cards_engine.json` v28 1127 张的
+            //    `keywords` / `desc` / `descZh` 命中 **0 条**；`cards_raw.json` 1,351 张的 `cardTraits`
+            //    命中 **0 条**（唯三命中是**卡名** `Royal Warden` / `Forward Deployment` /
+            //    `Iconward Malak Vorenth` —— 卡名不过 `Normalize`）⇒ 加这四条**不改动任何现有解析结果**。
+            //    ⚠️ **不进 `Implemented`**（如实）：今天真正读到它们的只有**主动能力候选闸**这一处；
+            //    原版 `ward` 还管**战术卡 / 通用目标**（`BattleManager__IsValidSpellTarget.c:51-53` ·
+            //    `RawCardScript__IsValidTarget.c:23-28`），那一半还没接 ⇒ 登记成「已实现」= 说谎
+            //    （带 ward 的卡会被 `UnimplementedKeywords` 少报一条）。等那一半接上再进。
+            new[] { "wardwb", ConditionEval.WardWb },
+            new[] { "ward", ConditionEval.Ward },
+            new[] { "tainted", ConditionEval.Tainted },
+            new[] { "summonrift", KeywordTable.SummonRift },
             // ⚠️ 本工程自定（原版 61 个里没有）—— 放最后，免得吃掉将来可能加进来的同前缀词
             new[] { "ability", Ability },
         };

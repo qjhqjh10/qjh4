@@ -549,9 +549,46 @@ namespace CardPresentation
         /// 透射 = **0.1206**（中位）⇒ 反推 alpha = **0.879** = 写死的 0.88（误差在 8bit 量化内）。
         /// **错因**：拿 **sRGB 空间的比值**当透射 —— 本工程是 **Linear**（`ProjectSettings.asset:50`
         /// `m_ActiveColorSpace: 1`），`0.88` alpha 在 sRGB 上看起来就是「只剩 ~0.29–0.33」而不是 0.12
-        /// （底色越暗这个比值越小，因为它是一个 gamma 曲线上的复合，不是一个常数）。
-        /// ⇒ 真机复拍时**判据用线性光透射**：压暗区 = `1 − alpha` = **0.20**；卡上 = **1.0**。</para></summary>
-        public const float ShadeAlpha = 0.8f;
+        /// （底色越暗这个比值越小，因为它是一个 gamma 曲线上的复合，不是一个常数）。</para>
+        /// <para>🔴🔴 **2026-10-25（`M1`）根因更正（铁律 5）—— 上面那条只说对了一半：原版那 0.8 是【显示空间】的透过率，
+        /// 不是线性的。** 判据两条：
+        /// ① **原版是 Gamma 工程**（`unity_run_ref/Warpforge_Data/globalgamemanagers` 的 ColorSpace 槽 = Gamma；
+        ///    我们是 Linear。首见于 `资料/普查产出_1022/W63_换牌倾斜与绿光判据_调查.md` §2「更深一层：原版是 Gamma、我们是 Linear」）
+        ///    ⇒ 原版所有透明混色都在**已经 sRGB 编码过的**画面上做；
+        /// ② **像素指纹**（13 场原版实拍 `资料/原版实拍/arena_0920/shot_*.png`；把原版换牌实拍
+        ///    `战斗—替换手卡参考图（后手）.png` 的三个背景窗 p95 = **14.0 / 16.3 / 16.3** 拿去比）：
+        ///    **γ 空间乘 0.2** 的预测 = **14.0 / 11.9 / 22.7**（对上了）；**线性空间乘 0.2** 的预测 =
+        ///    **28.9 / 23.7 / 51.1**（差一倍多）。先手那张同向（实测 top p95 21 / γ 预测 30.2 / 线性预测 68）。
+        ///    ⇒ **原版 0.8 = 显示空间透过率 0.2**。我们是 Linear ⇒ 这个世界 quad 在**线性光**里混色，
+        ///    写 0.8 只能得到「线性 0.2」，换算到显示空间约 **0.48** —— 这正是台账 `M1` 那个
+        ///    「背景 p95 我们 56–74 / 原版 11–22」的成因（同 α、不同色彩空间）。</para>
+        /// <para>**⇒ 做法：把原版的「γ 空间透过率 0.2」换算成等效的【线性透过率】**（与 `W63` 那个
+        /// `CardView.OutlineGlowScale = 1.35` 属同一类补偿：**不是原版参数，是色彩空间补偿**，⛔ 别把它当原版值读）。
+        /// 理想映射是逐像素 `L → lin(0.2 · srgb(L))`，**单靠一个常数 alpha 做不到**（需要的系数在暗端
+        /// （sRGB 线性段）是 0.2、在亮端（幂律段）是 `0.2^2.2 = 0.029`）。取值 = 按 **13 场实拍 × 4 个背景窗的 p95**
+        /// 拟合（RMS 对数误差最小）= **0.055**：残差 **中位 +10%、范围 −47%…+29%**；
+        /// 对照「写 0.8」的残差是 **中位 +128%（+80%…+141%）**。逐场表 →
+        /// `资料/普查产出_1025/M1_换牌背景亮度.md` §四。</para>
+        /// <para>🔴 **工程切 Gamma 之后这个值必须回到 0.8** ⇒ 所以它按 `QualitySettings.activeColorSpace` 分支：
+        /// 整体切 Gamma（`W63` §5·5 那条**待用户拍板**的工程级决定）之后**自动**回原版口径，不用改代码。</para>
+        /// <para>⚠️ **理想解 = 在显示空间里乘 0.2**（原版就是画布件、在最终 sRGB 图上混）：要么整个工程切 Gamma，
+        /// 要么做一条「抓当前帧颜色 → 转显示空间乘 0.2 → 转回」的 pass（本仓已有 `GrabPassTransparentFeature`
+        /// 那套基础设施）。两条都越出本单白名单 ⇒ 本单只落上面这个常数补偿。</para></summary>
+        public const float ShadeAlphaOriginalGamma = 0.8f;
+
+        /// <summary>等效的**线性**透过率 = **0.055**（怎么来的见 <see cref="ShadeAlphaOriginalGamma"/> 那条 doc）。</summary>
+        public const float ShadeTransmittanceLinear = 0.055f;
+
+        /// <summary>真正写进材质染色的 alpha = **按本工程的色彩空间二选一**（见 <see cref="ShadeAlphaOriginalGamma"/>）。</summary>
+        public static float ShadeAlpha
+        {
+            get
+            {
+                return QualitySettings.activeColorSpace == ColorSpace.Gamma
+                     ? ShadeAlphaOriginalGamma                    // 原版口径（Gamma 工程）
+                     : 1f - ShadeTransmittanceLinear;             // 我们现在的 Linear 工程：γ 等效
+            }
+        }
 
 
         // ==================================================================
@@ -748,11 +785,16 @@ namespace CardPresentation
             HudCanvas.Add(p._frame, Z);                 // 兄弟序那本账（画布上 z 只用来排先后）
             var frame = p._frame;                       // 面板内所有件的父节点（⛔ 不是 `go.transform`）
 
-            // 压暗（原版 `ShadePanel` / `Shade.SwitchShade`；透明度 = 原版 `onAlphaLevel`，见 `ShadeAlpha`）
+            // 压暗（原版 `ShadePanel` / `Shade.SwitchShade`；透明度见 `ShadeAlpha`）
+            // 🔴 **2026-10-25（`M1`）**：`ShadeAlpha` 现在**按工程的色彩空间**取 —— 原版那 0.8 是
+            //   **Gamma 工程里在最终画面上**混出来的（显示空间透过率 0.2）；我们是 **Linear**，世界 quad 在
+            //   线性光里混 ⇒ 同一画面要 **0.945**（= 1 − 0.055）。别把这里的 `ShadeAlpha` 当成「抄来的原版值」，
+            //   推导/残差表/切 Gamma 后怎么回 0.8 都写在 `ShadeAlphaOriginalGamma` 那条 doc 里。
             // 🔴🔴 **2026-10-24（第七十三会话 · 代理 `M1`）：这一件【改回世界空间 quad】。**
             //   **真机证据**（`_tmp_view/shots/2026-10-24_第七十三会话/11_after_match.png`，2560×1440）：
             //     换牌卡那一区（4 张全量）**max = 123**、p95 ≈ 100；背景 p95 ≈ 56–74。
-            //     123 → 线性 **0.198 ≈ 1 − 0.8**（`ShadeAlpha`）⇒ **卡确实被压暗层盖着**，
+            //     123 → 线性 **0.198 ≈ 1 − 0.8**（**当时**的 `ShadeAlpha` 还是原版那个 0.8；
+            //     2026-10-25 `M1` 已按色彩空间换算成 0.945，见下）⇒ **卡确实被压暗层盖着**，
             //     与 W62 `D6` 修之前**一模一样**（原版实拍同一区 max = 255）。
             //   **机制（W62 猜反的那一条）**：`renderQueue` 的优先级**不高于** `Canvas` 的排序层 ——
             //     换牌卡是**世界 `MeshRenderer`**（`Default` 层、队列 3001），压暗层是**画布件**

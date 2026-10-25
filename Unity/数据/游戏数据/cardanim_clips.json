@@ -1,7 +1,7 @@
 {
  "schema": 1,
  "generatedBy": "d:/4/Unity/工具/gen_cardanim_clips.py",
- "what": "逐 CardAnim 的 AnimInfo 位置/移动参数（**键 = `a`（CardAnim 名）**；`n` = prefab 名，诊断用）；判据 → 本脚本文件头",
+ "what": "逐 CardAnim 的 AnimInfo 位置/移动参数（**键 = `a`（CardAnim 名）**；`n` = prefab 名，诊断用）；判据 → 本脚本文件头。`mm*`/`ss*` = 原样全量记录；`mv*/mo*`(12) 与 `shk*`(6) = 运行期投影（= `CardAnimClips.RtRow` 的列名）（2026-10-25 · `TL`）",
  "source": "assets_full/bundle_*cardanims*_assets_all/MonoBehaviour/<CardAnim>.json 的 animInfo + 数据/索引/anim_address_map.json 的 cardanim_to_asset",
  "count": 1067,
  "rows": [
@@ -201,7 +201,13 @@
    "ssOvAttack": 0,
    "ssAttack": 0.0,
    "ssOvDecay": 0,
-   "ssDecay": 0.0
+   "ssDecay": 0.0,
+   "shk": "Shake Hit Medium",
+   "shkd": 1.1,
+   "shka": 0.0,
+   "shkf": 0.0,
+   "shkoa": 0,
+   "shkof": 0
   },
   {
    "n": "AlphaWarriorEffect",
@@ -322,7 +328,13 @@
    "ssOvAttack": 0,
    "ssAttack": 0.0,
    "ssOvDecay": 0,
-   "ssDecay": 0.0
+   "ssDecay": 0.0,
+   "shk": "Shake Hit Medium",
+   "shkd": 1.1,
+   "shka": 0.0,
+   "shkf": 0.0,
+   "shkoa": 0,
+   "shkof": 0
   },
   {
    "n": "Artillery Manticore down 1x",
@@ -365,7 +377,13 @@
    "ssOvAttack": 0,
    "ssAttack": 0.0,
    "ssOvDecay": 0,
-   "ssDecay": 0.0
+   "ssDecay": 0.0,
+   "shk": "Shake Hit Medium",
+   "shkd": 1.1,
+   "shka": 0.0,
+   "shkf": 0.0,
+   "shkoa": 0,
+   "shkof": 0
   },
   {
    "n": "Artillery Manticore down 4x",
@@ -395,7 +413,13 @@
    "ssOvAttack": 0,
    "ssAttack": 0.0,
    "ssOvDecay": 0,
-   "ssDecay": 0.0
+   "ssDecay": 0.0,
+   "shk": "Shake Hit Medium",
+   "shkd": 1.1,
+   "shka": 0.0,
+   "shkf": 0.0,
+   "shkoa": 0,
+   "shkof": 0
   },
   {
    "n": "Artillery Manticore down 4x spread",
@@ -438,7 +462,13 @@
    "ssOvAttack": 0,
    "ssAttack": 0.0,
    "ssOvDecay": 0,
-   "ssDecay": 0.0
+   "ssDecay": 0.0,
+   "shk": "Shake Hit Medium",
+   "shkd": 1.1,
+   "shka": 0.0,
+   "shkf": 0.0,
+   "shkoa": 0,
+   "shkof": 0
   },
   {
    "n": "Artillery Manticore up 4x",
@@ -468,7 +498,13 @@
    "ssOvAttack": 0,
    "ssAttack": 0.0,
    "ssOvDecay": 0,
-   "ssDecay": 0.0
+   "ssDecay": 0.0,
+   "shk": "Shake Hit Medium",
+   "shkd": 1.1,
+   "shka": 0.0,
+   "shkf": 0.0,
+   "shkoa": 0,
+   "shkof": 0
   },
   {
    "n": "BulletImpact_artillery_1shot",
@@ -685,7 +721,13 @@
    "ssOvAttack": 0,
    "ssAttack": 0.0,
    "ssOvDecay": 0,
-   "ssDecay": 0.0
+   "ssDecay": 0.0,
+   "shk": "Shake Light 2s",
+   "shkd": 0.0,
+   "shka": 0.0,
+   "shkf": 0.0,
+   "shkoa": 0,
+   "shkof": 0
   },
   {
    "n": "BolterSweep_2",
@@ -1287,7 +1329,13 @@
    "ssOvAttack": 1,
    "ssAttack": 1.0,
    "ssOvDecay": 0,
-   "ssDecay": 0.0
+   "ssDecay": 0.0,
+   "shk": "Shake Hit Small",
+   "shkd": 0.2,
+   "shka": 0.0,
+   "shkf": 0.0,
+   "shkoa": 0,
+   "shkof": 0
   },
   {
    "n": "BulletImpact_9shot_trail_chaos",
@@ -1317,7 +1365,13 @@
    "ssOvAttack": 1,
    "ssAttack": 1.0,
    "ssOvDecay": 0,
-   "ssDecay": 0.0
+   "ssDecay": 0.0,
+   "shk": "Shake Hit Small",
+   "shkd": 0.2,
+   "shka": 0.0,
+   "shkf": 0.0,
+   "shkoa": 0,
+   "shkof": 0
   },
   {
    "n": "BulletImpact_Abaddon_AA_StormBolter",
@@ -2444,7 +2498,13 @@
    "ssOvAttack": 0,
    "ssAttack": 0.0,
    "ssOvDecay": 0,
-   "ssDecay": 0.0
+   "ssDecay": 0.0,
+   "shk": "Shake Light 2s",
+   "shkd": 0.0,
+   "shka": 0.0,
+   "shkf": 0.0,
+   "shkoa": 0,
+   "shkof": 0
   },
   {
    "n": "BulletImpact_Ork Missile Big",
@@ -2508,7 +2568,13 @@
    "ssOvAttack": 0,
    "ssAttack": 0.0,
    "ssOvDecay": 0,
-   "ssDecay": 0.0
+   "ssDecay": 0.0,
+   "shk": "Shake Light 2s",
+   "shkd": 0.0,
+   "shka": 0.0,
+   "shkf": 0.0,
+   "shkoa": 0,
+   "shkof": 0
   },
   {
    "n": "BulletImpact_Ork Missiles 1",
@@ -2987,7 +3053,13 @@
    "ssOvAttack": 0,
    "ssAttack": 0.0,
    "ssOvDecay": 0,
-   "ssDecay": 0.0
+   "ssDecay": 0.0,
+   "shk": "Shake Light 2s",
+   "shkd": 0.0,
+   "shka": 0.0,
+   "shkf": 0.0,
+   "shkoa": 0,
+   "shkof": 0
   },
   {
    "n": "BulletImpact_Tau_Pulse Carbine",
@@ -3160,7 +3232,13 @@
    "ssOvAttack": 0,
    "ssAttack": 0.0,
    "ssOvDecay": 0,
-   "ssDecay": 0.0
+   "ssDecay": 0.0,
+   "shk": "Shake Light 2s",
+   "shkd": 0.0,
+   "shka": 0.0,
+   "shkf": 0.0,
+   "shkoa": 0,
+   "shkof": 0
   },
   {
    "n": "BulletImpact_Tyranid_Barblauncher",
@@ -3255,7 +3333,13 @@
    "ssOvAttack": 0,
    "ssAttack": 0.0,
    "ssOvDecay": 0,
-   "ssDecay": 0.0
+   "ssDecay": 0.0,
+   "shk": "Shake Light 2s",
+   "shkd": 0.0,
+   "shka": 0.0,
+   "shkf": 0.0,
+   "shkoa": 0,
+   "shkof": 0
   },
   {
    "n": "BulletImpact_Pyrovore",
@@ -3319,7 +3403,13 @@
    "ssOvAttack": 0,
    "ssAttack": 0.0,
    "ssOvDecay": 0,
-   "ssDecay": 0.0
+   "ssDecay": 0.0,
+   "shk": "Shake Light 2s",
+   "shkd": 0.0,
+   "shka": 0.0,
+   "shkf": 0.0,
+   "shkoa": 0,
+   "shkof": 0
   },
   {
    "n": "BulletImpact_Pyrovore OLD",
@@ -3349,7 +3439,13 @@
    "ssOvAttack": 0,
    "ssAttack": 0.0,
    "ssOvDecay": 0,
-   "ssDecay": 0.0
+   "ssDecay": 0.0,
+   "shk": "Shake Light 2s",
+   "shkd": 0.0,
+   "shka": 0.0,
+   "shkf": 0.0,
+   "shkoa": 0,
+   "shkof": 0
   },
   {
    "n": "BulletImpact_Screamer-Killer",
@@ -3379,7 +3475,13 @@
    "ssOvAttack": 0,
    "ssAttack": 0.0,
    "ssOvDecay": 0,
-   "ssDecay": 0.0
+   "ssDecay": 0.0,
+   "shk": "Shake Light 2s",
+   "shkd": 0.0,
+   "shka": 0.0,
+   "shkf": 0.0,
+   "shkoa": 0,
+   "shkof": 0
   },
   {
    "n": "BulletImpact_Spore Launch",
@@ -3443,7 +3545,13 @@
    "ssOvAttack": 0,
    "ssAttack": 0.0,
    "ssOvDecay": 0,
-   "ssDecay": 0.0
+   "ssDecay": 0.0,
+   "shk": "Shake Light 2s",
+   "shkd": 0.0,
+   "shka": 0.0,
+   "shkf": 0.0,
+   "shkoa": 0,
+   "shkof": 0
   },
   {
    "n": "BulletImpact_Tyranid_Stranglethorn",
@@ -3824,7 +3932,13 @@
    "ssOvAttack": 1,
    "ssAttack": 1.0,
    "ssOvDecay": 0,
-   "ssDecay": 0.0
+   "ssDecay": 0.0,
+   "shk": "Shake Hit Small",
+   "shkd": 0.2,
+   "shka": 0.0,
+   "shkf": 0.0,
+   "shkoa": 0,
+   "shkof": 0
   },
   {
    "n": "Atk_ChemVial_2",
@@ -4112,7 +4226,13 @@
    "ssOvAttack": 0,
    "ssAttack": 0.0,
    "ssOvDecay": 0,
-   "ssDecay": 0.0
+   "ssDecay": 0.0,
+   "shk": "Shake Light 2s",
+   "shkd": 0.5,
+   "shka": 0.0,
+   "shkf": 0.0,
+   "shkoa": 0,
+   "shkof": 0
   },
   {
    "n": "FlamethrowerSweepAttack_1",
@@ -4142,7 +4262,13 @@
    "ssOvAttack": 0,
    "ssAttack": 0.0,
    "ssOvDecay": 0,
-   "ssDecay": 0.0
+   "ssDecay": 0.0,
+   "shk": "Shake Light 2s",
+   "shkd": 0.0,
+   "shka": 0.0,
+   "shkf": 0.0,
+   "shkoa": 0,
+   "shkof": 0
   },
   {
    "n": "FlamethrowerSweepAttack_sororitas",
@@ -4172,7 +4298,13 @@
    "ssOvAttack": 0,
    "ssAttack": 0.0,
    "ssOvDecay": 0,
-   "ssDecay": 0.0
+   "ssDecay": 0.0,
+   "shk": "Shake Light 2s",
+   "shkd": 0.0,
+   "shka": 0.0,
+   "shkf": 0.0,
+   "shkoa": 0,
+   "shkof": 0
   },
   {
    "n": "FlamethrowerSweepAttack_sororitas",
@@ -4202,7 +4334,13 @@
    "ssOvAttack": 0,
    "ssAttack": 0.0,
    "ssOvDecay": 0,
-   "ssDecay": 0.0
+   "ssDecay": 0.0,
+   "shk": "Shake Light 2s",
+   "shkd": 0.0,
+   "shka": 0.0,
+   "shkf": 0.0,
+   "shkoa": 0,
+   "shkof": 0
   },
   {
    "n": "BulletImpact_FlamethrowerSororitas",
@@ -4258,7 +4396,13 @@
    "ssOvAttack": 0,
    "ssAttack": 0.0,
    "ssOvDecay": 0,
-   "ssDecay": 0.0
+   "ssDecay": 0.0,
+   "shk": "Shake Light 2s",
+   "shkd": 0.0,
+   "shka": 0.0,
+   "shkf": 0.0,
+   "shkoa": 0,
+   "shkof": 0
   },
   {
    "n": "NecronGauss",
@@ -5717,7 +5861,13 @@
    "ssOvAttack": 0,
    "ssAttack": 0.0,
    "ssOvDecay": 0,
-   "ssDecay": 0.0
+   "ssDecay": 0.0,
+   "shk": "Shake Small",
+   "shkd": 0.0,
+   "shka": 0.0,
+   "shkf": 0.0,
+   "shkoa": 0,
+   "shkof": 0
   },
   {
    "n": "BulletImpact_tank_baneblade",
@@ -5760,7 +5910,13 @@
    "ssOvAttack": 0,
    "ssAttack": 0.0,
    "ssOvDecay": 0,
-   "ssDecay": 0.0
+   "ssDecay": 0.0,
+   "shk": "Shake Small",
+   "shkd": 0.0,
+   "shka": 0.0,
+   "shkf": 0.0,
+   "shkoa": 0,
+   "shkof": 0
   },
   {
    "n": "BulletImpact_tank_huge",
@@ -5803,7 +5959,13 @@
    "ssOvAttack": 0,
    "ssAttack": 0.0,
    "ssOvDecay": 0,
-   "ssDecay": 0.0
+   "ssDecay": 0.0,
+   "shk": "Shake Small",
+   "shkd": 0.0,
+   "shka": 0.0,
+   "shkf": 0.0,
+   "shkoa": 0,
+   "shkof": 0
   },
   {
    "n": "Ork_Trampla_Charge",
@@ -6657,7 +6819,13 @@
    "ssOvAttack": 0,
    "ssAttack": 0.0,
    "ssOvDecay": 0,
-   "ssDecay": 0.0
+   "ssDecay": 0.0,
+   "shk": "Shake Earthquake",
+   "shkd": 0.0,
+   "shka": 0.0,
+   "shkf": 5.0,
+   "shkoa": 0,
+   "shkof": 1
   },
   {
    "n": "BlackCrusade_Battleground repeat",
@@ -6687,7 +6855,13 @@
    "ssOvAttack": 0,
    "ssAttack": 0.0,
    "ssOvDecay": 0,
-   "ssDecay": 0.0
+   "ssDecay": 0.0,
+   "shk": "Shake Earthquake",
+   "shkd": 0.0,
+   "shka": 0.0,
+   "shkf": 5.0,
+   "shkoa": 0,
+   "shkof": 1
   },
   {
    "n": "Blind_continuous_effect",
@@ -7340,7 +7514,13 @@
    "ssOvAttack": 0,
    "ssAttack": 0.0,
    "ssOvDecay": 0,
-   "ssDecay": 0.0
+   "ssDecay": 0.0,
+   "shk": "Shake Hit Medium-Big",
+   "shkd": 0.4,
+   "shka": 0.0,
+   "shkf": 0.0,
+   "shkoa": 0,
+   "shkof": 0
   },
   {
    "n": "Buff_Eldar_Warp Spider",
@@ -7422,7 +7602,13 @@
    "ssOvAttack": 0,
    "ssAttack": 0.0,
    "ssOvDecay": 0,
-   "ssDecay": 0.0
+   "ssDecay": 0.0,
+   "shk": "Shake Hit Small",
+   "shkd": 0.4,
+   "shka": 0.0,
+   "shkf": 0.0,
+   "shkoa": 0,
+   "shkof": 0
   },
   {
    "n": "Buff_GSC",
@@ -9044,7 +9230,13 @@
    "ssOvAttack": 0,
    "ssAttack": 0.0,
    "ssOvDecay": 0,
-   "ssDecay": 0.0
+   "ssDecay": 0.0,
+   "shk": "Shake Hit Small",
+   "shkd": 0.0,
+   "shka": 0.0,
+   "shkf": 0.0,
+   "shkoa": 0,
+   "shkof": 0
   },
   {
    "n": "BulletImpactBurst_crowd",
@@ -9202,7 +9394,13 @@
    "ssOvAttack": 0,
    "ssAttack": 0.0,
    "ssOvDecay": 0,
-   "ssDecay": 0.0
+   "ssDecay": 0.0,
+   "shk": "Shake Light 2s",
+   "shkd": 0.0,
+   "shka": 0.0,
+   "shkf": 0.0,
+   "shkoa": 0,
+   "shkof": 0
   },
   {
    "n": "BulletTrail_Single",
@@ -9257,7 +9455,13 @@
    "ssOvAttack": 0,
    "ssAttack": 0.0,
    "ssOvDecay": 0,
-   "ssDecay": 0.0
+   "ssDecay": 0.0,
+   "shk": "Shake Light 2s",
+   "shkd": 0.0,
+   "shka": 0.0,
+   "shkf": 0.0,
+   "shkoa": 0,
+   "shkof": 0
   },
   {
    "n": "BulletTrail_Stormraven_Single",
@@ -9287,7 +9491,13 @@
    "ssOvAttack": 0,
    "ssAttack": 0.0,
    "ssOvDecay": 0,
-   "ssDecay": 0.0
+   "ssDecay": 0.0,
+   "shk": "Shake Light 2s",
+   "shkd": 0.0,
+   "shka": 0.0,
+   "shkf": 0.0,
+   "shkoa": 0,
+   "shkof": 0
   },
   {
    "n": "CamouflageEffect",
@@ -9458,7 +9668,22 @@
    "mmX": 0.0,
    "mmY": 0.0,
    "mmZ": 0.0,
+   "mvt": 0,
+   "mvd": 0.0,
+   "mva": 0.0,
+   "mvvis": 0,
+   "mvxz": 0,
+   "mvy": 0,
+   "mox": 0.0,
+   "moy": 0.0,
+   "moz": 0.0,
    "mmCz": [
+    0.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "mvcz": [
     0.0,
     1.0,
     1.0,
@@ -9621,7 +9846,13 @@
    "ssOvAttack": 0,
    "ssAttack": 0.0,
    "ssOvDecay": 0,
-   "ssDecay": 0.0
+   "ssDecay": 0.0,
+   "shk": "Shake Resurrection Orb",
+   "shkd": 0.0,
+   "shka": 0.0,
+   "shkf": 0.0,
+   "shkoa": 0,
+   "shkof": 0
   },
   {
    "n": "Cosmic Serpent_Secondary",
@@ -9651,7 +9882,13 @@
    "ssOvAttack": 0,
    "ssAttack": 0.0,
    "ssOvDecay": 0,
-   "ssDecay": 0.0
+   "ssDecay": 0.0,
+   "shk": "Shake Resurrection Orb",
+   "shkd": 0.0,
+   "shka": 0.0,
+   "shkf": 0.0,
+   "shkoa": 0,
+   "shkof": 0
   },
   {
    "n": "CreateCard",
@@ -10018,7 +10255,22 @@
    "mmX": 0.0,
    "mmY": 3.0,
    "mmZ": 0.0,
+   "mvt": 0,
+   "mvd": 0.0,
+   "mva": 1.0,
+   "mvvis": 0,
+   "mvxz": 0,
+   "mvy": 0,
+   "mox": 0.0,
+   "moy": 3.0,
+   "moz": 0.0,
    "mmCy": [
+    0.0,
+    0.0,
+    1.0,
+    1.0
+   ],
+   "mvcy": [
     0.0,
     0.0,
     1.0,
@@ -10059,7 +10311,22 @@
    "mmX": 0.0,
    "mmY": 3.0,
    "mmZ": 0.0,
+   "mvt": 0,
+   "mvd": 0.0,
+   "mva": 1.0,
+   "mvvis": 0,
+   "mvxz": 0,
+   "mvy": 0,
+   "mox": 0.0,
+   "moy": 3.0,
+   "moz": 0.0,
    "mmCy": [
+    0.0,
+    1.006,
+    0.9968,
+    -0.0045
+   ],
+   "mvcy": [
     0.0,
     1.006,
     0.9968,
@@ -10100,7 +10367,22 @@
    "mmX": 0.0,
    "mmY": 3.0,
    "mmZ": 0.0,
+   "mvt": 0,
+   "mvd": 0.0,
+   "mva": 1.0,
+   "mvvis": 0,
+   "mvxz": 0,
+   "mvy": 0,
+   "mox": 0.0,
+   "moy": 3.0,
+   "moz": 0.0,
    "mmCy": [
+    0.0,
+    1.006,
+    0.9968,
+    -0.0045
+   ],
+   "mvcy": [
     0.0,
     1.006,
     0.9968,
@@ -10141,7 +10423,22 @@
    "mmX": 0.0,
    "mmY": 3.0,
    "mmZ": 0.0,
+   "mvt": 0,
+   "mvd": 0.0,
+   "mva": 1.0,
+   "mvvis": 0,
+   "mvxz": 0,
+   "mvy": 0,
+   "mox": 0.0,
+   "moy": 3.0,
+   "moz": 0.0,
    "mmCy": [
+    0.0,
+    1.006,
+    0.9968,
+    -0.0045
+   ],
+   "mvcy": [
     0.0,
     1.006,
     0.9968,
@@ -11406,7 +11703,13 @@
    "ssOvAttack": 0,
    "ssAttack": 0.0,
    "ssOvDecay": 0,
-   "ssDecay": 0.0
+   "ssDecay": 0.0,
+   "shk": "Shake Resurrection Orb",
+   "shkd": 0.5,
+   "shka": 0.0,
+   "shkf": 0.0,
+   "shkoa": 0,
+   "shkof": 0
   },
   {
    "n": "FrenziedEffect",
@@ -11596,7 +11899,22 @@
    "mmX": 0.0,
    "mmY": 3.0,
    "mmZ": 0.0,
+   "mvt": 0,
+   "mvd": 0.0,
+   "mva": 1.0,
+   "mvvis": 0,
+   "mvxz": 0,
+   "mvy": 0,
+   "mox": 0.0,
+   "moy": 3.0,
+   "moz": 0.0,
    "mmCy": [
+    0.0,
+    0.0,
+    1.0,
+    1.0
+   ],
+   "mvcy": [
     0.0,
     0.0,
     1.0,
@@ -11709,7 +12027,13 @@
    "ssOvAttack": 0,
    "ssAttack": 0.0,
    "ssOvDecay": 0,
-   "ssDecay": 0.0
+   "ssDecay": 0.0,
+   "shk": "Shake Medium 2s",
+   "shkd": 0.0,
+   "shka": 0.0,
+   "shkf": 0.0,
+   "shkoa": 0,
+   "shkof": 0
   },
   {
    "n": "NoMukkinAboutEffect",
@@ -12433,7 +12757,13 @@
    "ssOvAttack": 0,
    "ssAttack": 0.0,
    "ssOvDecay": 0,
-   "ssDecay": 0.0
+   "ssDecay": 0.0,
+   "shk": "Shake Hit Medium",
+   "shkd": 1.0,
+   "shka": 0.0,
+   "shkf": 0.0,
+   "shkoa": 0,
+   "shkof": 0
   },
   {
    "n": "HeroOfTheEmpire OLD",
@@ -12612,7 +12942,13 @@
    "ssOvAttack": 0,
    "ssAttack": 0.0,
    "ssOvDecay": 0,
-   "ssDecay": 0.0
+   "ssDecay": 0.0,
+   "shk": "Shake Very Light 4s",
+   "shkd": 0.0,
+   "shka": 4.0,
+   "shkf": 0.0,
+   "shkoa": 0,
+   "shkof": 0
   },
   {
    "n": "Invoke Minion Card Fade Default",
@@ -13845,7 +14181,13 @@
    "ssOvAttack": 0,
    "ssAttack": 0.0,
    "ssOvDecay": 0,
-   "ssDecay": 0.0
+   "ssDecay": 0.0,
+   "shk": "Shake Hit Medium",
+   "shkd": 0.5,
+   "shka": 0.0,
+   "shkf": 0.0,
+   "shkoa": 0,
+   "shkof": 0
   },
   {
    "n": "Pulse Onslaught",
@@ -14166,7 +14508,13 @@
    "ssOvAttack": 0,
    "ssAttack": 0.0,
    "ssOvDecay": 0,
-   "ssDecay": 0.0
+   "ssDecay": 0.0,
+   "shk": "Shake Resurrection Orb",
+   "shkd": 0.0,
+   "shka": 0.0,
+   "shkf": 0.0,
+   "shkoa": 0,
+   "shkof": 0
   },
   {
    "n": "Possession_self",
@@ -14196,7 +14544,13 @@
    "ssOvAttack": 1,
    "ssAttack": 0.1,
    "ssOvDecay": 0,
-   "ssDecay": 0.0
+   "ssDecay": 0.0,
+   "shk": "Shake Hit Medium",
+   "shkd": 1.4,
+   "shka": 6.0,
+   "shkf": 0.0,
+   "shkoa": 1,
+   "shkof": 0
   },
   {
    "n": "Explosion_Possession",
@@ -14226,7 +14580,13 @@
    "ssOvAttack": 0,
    "ssAttack": 0.0,
    "ssOvDecay": 0,
-   "ssDecay": 0.0
+   "ssDecay": 0.0,
+   "shk": "Shake Light 2s",
+   "shkd": 0.0,
+   "shka": 0.0,
+   "shkf": 0.0,
+   "shkoa": 0,
+   "shkof": 0
   },
   {
    "n": "Goff_Rok_Invasion",
@@ -14435,7 +14795,13 @@
    "ssOvAttack": 0,
    "ssAttack": 0.0,
    "ssOvDecay": 0,
-   "ssDecay": 0.0
+   "ssDecay": 0.0,
+   "shk": "Shake Medium 2s",
+   "shkd": 0.0,
+   "shka": 0.0,
+   "shkf": 0.0,
+   "shkoa": 0,
+   "shkof": 0
   },
   {
    "n": "ScytheAssaultShadow",
@@ -14471,7 +14837,13 @@
    "ssOvAttack": 0,
    "ssAttack": 0.0,
    "ssOvDecay": 0,
-   "ssDecay": 0.0
+   "ssDecay": 0.0,
+   "shk": "Shake Light 2s",
+   "shkd": 0.5,
+   "shka": 0.0,
+   "shkf": 0.0,
+   "shkoa": 0,
+   "shkof": 0
   },
   {
    "n": "Scarab Explosion",
@@ -14493,6 +14865,15 @@
    "mmX": -0.1,
    "mmY": 0.2,
    "mmZ": -0.1,
+   "mvt": 1,
+   "mvd": 0.0,
+   "mva": 0.6,
+   "mvvis": 0,
+   "mvxz": 1,
+   "mvy": 1,
+   "mox": -0.1,
+   "moy": 0.2,
+   "moz": -0.1,
    "mmCx": [
     0.0,
     0.0,
@@ -14516,6 +14897,38 @@
     1.001
    ],
    "mmCz": [
+    0.0,
+    0.0,
+    0.3962,
+    0.3532,
+    0.6001,
+    0.3546,
+    1.0,
+    1.0
+   ],
+   "mvcx": [
+    0.0,
+    0.0,
+    0.3962,
+    0.3532,
+    0.6001,
+    0.3546,
+    1.0,
+    1.0
+   ],
+   "mvcy": [
+    -0.001,
+    0.0,
+    0.3705,
+    3.1893,
+    0.5009,
+    3.3346,
+    0.6283,
+    3.2032,
+    0.9562,
+    1.001
+   ],
+   "mvcz": [
     0.0,
     0.0,
     0.3962,
@@ -14624,7 +15037,13 @@
    "ssOvAttack": 0,
    "ssAttack": 0.0,
    "ssOvDecay": 0,
-   "ssDecay": 0.0
+   "ssDecay": 0.0,
+   "shk": "Shake Land on ground",
+   "shkd": 0.0,
+   "shka": 0.0,
+   "shkf": 0.0,
+   "shkoa": 0,
+   "shkof": 0
   },
   {
    "n": "Scream_purple_nid",
@@ -14667,7 +15086,13 @@
    "ssOvAttack": 0,
    "ssAttack": 0.0,
    "ssOvDecay": 0,
-   "ssDecay": 0.0
+   "ssDecay": 0.0,
+   "shk": "Shake Land on ground",
+   "shkd": 0.0,
+   "shka": 0.0,
+   "shkf": 0.0,
+   "shkoa": 0,
+   "shkof": 0
   },
   {
    "n": "Scream_purple_Quick",
@@ -14749,7 +15174,13 @@
    "ssOvAttack": 0,
    "ssAttack": 0.0,
    "ssOvDecay": 0,
-   "ssDecay": 0.0
+   "ssDecay": 0.0,
+   "shk": "Shake Land on ground",
+   "shkd": 0.0,
+   "shka": 0.0,
+   "shkf": 0.0,
+   "shkoa": 0,
+   "shkof": 0
   },
   {
    "n": "Screen_Gold",
@@ -15503,6 +15934,15 @@
    "mmX": -0.1,
    "mmY": 0.2,
    "mmZ": -0.1,
+   "mvt": 1,
+   "mvd": 0.0,
+   "mva": 0.6,
+   "mvvis": 0,
+   "mvxz": 1,
+   "mvy": 1,
+   "mox": -0.1,
+   "moy": 0.2,
+   "moz": -0.1,
    "mmCx": [
     0.0,
     0.0,
@@ -15522,6 +15962,30 @@
     1.001
    ],
    "mmCz": [
+    0.0,
+    0.0,
+    1.0,
+    1.0
+   ],
+   "mvcx": [
+    0.0,
+    0.0,
+    1.0,
+    1.0
+   ],
+   "mvcy": [
+    -0.001,
+    0.0,
+    0.3824,
+    1.897,
+    0.5129,
+    2.0423,
+    0.6403,
+    1.9109,
+    0.9562,
+    1.001
+   ],
+   "mvcz": [
     0.0,
     0.0,
     1.0,
@@ -15602,7 +16066,13 @@
    "ssOvAttack": 0,
    "ssAttack": 0.0,
    "ssOvDecay": 0,
-   "ssDecay": 0.0
+   "ssDecay": 0.0,
+   "shk": "Shake Light 2s",
+   "shkd": 0.0,
+   "shka": 0.0,
+   "shkf": 0.0,
+   "shkoa": 0,
+   "shkof": 0
   },
   {
    "n": "StealthEffect",
@@ -15696,7 +16166,13 @@
    "ssOvAttack": 0,
    "ssAttack": 0.0,
    "ssOvDecay": 0,
-   "ssDecay": 0.0
+   "ssDecay": 0.0,
+   "shk": "Shake Medium 2s",
+   "shkd": 0.0,
+   "shka": 0.0,
+   "shkf": 0.0,
+   "shkoa": 0,
+   "shkof": 0
   },
   {
    "n": "UM_StormravenShadow_Perpendicular",
@@ -15726,7 +16202,13 @@
    "ssOvAttack": 0,
    "ssAttack": 0.0,
    "ssOvDecay": 0,
-   "ssDecay": 0.0
+   "ssDecay": 0.0,
+   "shk": "Shake Medium 2s",
+   "shkd": 1.2,
+   "shka": 0.0,
+   "shkf": 0.0,
+   "shkoa": 0,
+   "shkof": 0
   },
   {
    "n": "StrikeEffect",
@@ -15826,7 +16308,22 @@
    "mmX": 0.0,
    "mmY": 3.0,
    "mmZ": 0.0,
+   "mvt": 0,
+   "mvd": 0.0,
+   "mva": 1.0,
+   "mvvis": 0,
+   "mvxz": 0,
+   "mvy": 0,
+   "mox": 0.0,
+   "moy": 3.0,
+   "moz": 0.0,
    "mmCy": [
+    0.0,
+    0.0,
+    1.0,
+    1.0
+   ],
+   "mvcy": [
     0.0,
     0.0,
     1.0,
@@ -16197,7 +16694,22 @@
    "mmX": 0.0,
    "mmY": 3.0,
    "mmZ": 0.0,
+   "mvt": 0,
+   "mvd": 0.0,
+   "mva": 1.0,
+   "mvvis": 0,
+   "mvxz": 0,
+   "mvy": 0,
+   "mox": 0.0,
+   "moy": 3.0,
+   "moz": 0.0,
    "mmCy": [
+    0.0,
+    1.006,
+    0.9968,
+    -0.0045
+   ],
+   "mvcy": [
     0.0,
     1.006,
     0.9968,
@@ -16350,7 +16862,13 @@
    "ssOvAttack": 0,
    "ssAttack": 0.0,
    "ssOvDecay": 0,
-   "ssDecay": 0.0
+   "ssDecay": 0.0,
+   "shk": "Shake Hit Small",
+   "shkd": 1.5,
+   "shka": 0.0,
+   "shkf": 0.0,
+   "shkoa": 0,
+   "shkof": 0
   },
   {
    "n": "StompEffect",
@@ -16535,7 +17053,13 @@
    "ssOvAttack": 0,
    "ssAttack": 0.0,
    "ssOvDecay": 0,
-   "ssDecay": 0.0
+   "ssDecay": 0.0,
+   "shk": "Shake Light 2s",
+   "shkd": 0.0,
+   "shka": 0.0,
+   "shkf": 0.0,
+   "shkoa": 0,
+   "shkof": 0
   },
   {
    "n": "UM_Buff",
@@ -16603,7 +17127,13 @@
    "ssOvAttack": 0,
    "ssAttack": 0.0,
    "ssOvDecay": 0,
-   "ssDecay": 0.0
+   "ssDecay": 0.0,
+   "shk": "Shake Land on ground",
+   "shkd": 0.3,
+   "shka": 0.0,
+   "shkf": 0.0,
+   "shkoa": 0,
+   "shkof": 0
   },
   {
    "n": "UM_MasterOfArcanaEffect",
@@ -17004,7 +17534,13 @@
    "ssOvAttack": 0,
    "ssAttack": 0.0,
    "ssOvDecay": 0,
-   "ssDecay": 0.0
+   "ssDecay": 0.0,
+   "shk": "Shake Hit Medium-Big",
+   "shkd": 0.7,
+   "shka": 0.0,
+   "shkf": 0.0,
+   "shkoa": 0,
+   "shkof": 0
   },
   {
    "n": "KhaineBuff",

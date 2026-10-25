@@ -1244,7 +1244,66 @@ namespace RuleEngine
             return acting.ReferencedCards.Count;
         }
 
+        /// <summary>🆕 **2026-10-25（执行代理 `E4` · `E4-1`）：把一个「这条 ability 落到的目标」
+        /// 写进正等着填的那条 `EvtKind.Trigger`。调用点 = `ResolveTargets` 那一个收口
+        /// （⛔ 别在别处再写一次 —— 两处写同一条规则，迟早不一致）。
+        ///
+        /// <para><b>三条判据</b>：
+        /// ① **只填第一个**（`TriggerTargetSinkDone`）—— 原版按 `possibleTargets` 逐目标各播一份，
+        ///    我们的事件只能带 1 个（`BattleEvent.Target*` 是标量）；
+        /// ② **跳过「就是施放者自己」的目标** —— 原版落点 `boardPos = GetBoardPosOfCard(targetCard)`，
+        ///    自指时 `boardPos == start` ⇒ `normalize(0)`、**不位移**（与「没有目标」同一结果）。
+        ///    实据：`TL37 Spore Mine` 的两条 logic 是「对随机敌人 3 点」(lg=0) 与「摧毁自己」(lg=1)，
+        ///    **先解析出来的是后者的自指目标**；而那条 `SporeMine_Explosion` 位移挂在**敌人那条**上
+        ///    ⇒ 不跳过就永远填成自己（等于没修）。
+        /// ③ **必须在捕获这一刻就落格号**（`FindSlot`）—— 目标常常被这条效果**打死**，
+        ///    等结算完再查就查不到了（那会让「打死的那个」反而没有落点）。</para>
+        /// </summary>
+        static void NoteTriggerTargetSink(BattleContext ctx, List<UnitState> list)
+        {
+            var evt = ctx?.TriggerTargetSink;
+            if (evt == null || ctx.TriggerTargetSinkDone || list == null) return;
+            for (int i = 0; i < list.Count; i++)
+            {
+                var u = list[i];
+                if (u == null) continue;
+                if (ctx.ActingUnit != null && ReferenceEquals(u, ctx.ActingUnit)) continue;   // 判据 ②
+                int tp, ts;
+                if (!FindSlot(ctx, u, out tp, out ts)) continue;                              // 判据 ③
+                evt.TargetPlayer = tp;
+                evt.TargetSlot = ts;
+                evt.TargetCardId = u.Name;
+                ctx.TriggerTargetSinkDone = true;
+                return;
+            }
+        }
+
+        /// <summary>🔴🆕 **2026-10-25（执行代理 `E4` · `E4-1`）：`ResolveTargets` 的**唯一收口** ——
+        /// 它只做一件事：把「这条 ability **第一个**真的落到的目标」记进
+        /// <see cref="BattleContext.TriggerTargetSink"/>（如果那条 `EvtKind.Trigger` 正等着填）。
+        ///
+        /// <para>**为什么要包一层**：`ResolveTargets` 有 **13 个 `return list`**（每档目标规格各一个），
+        /// 在每个 `return` 前各补一句 = 13 份同一条规则。包一层 ⇒ **判据只此一处**。</para>
+        ///
+        /// <para>**为什么要填**：见 <see cref="BattleContext.TriggerTargetSink"/> 的 doc
+        /// （原版 `AbilityLogic__PlayAbility.c:257-264` 把 `GetTargets` 的结果交给
+        /// `PlayAnim`，而 `PlayAnim.c:171-248` 按目标逐张 `AddCardAnim` ⇒ 动画要落点就必须要目标）。
+        /// 我们的事件在**广播那一拍**发出、目标要等**结算那一拍**才选出来 ⇒ 事后填同一个对象。</para>
+        /// </summary>
         public static List<UnitState> ResolveTargets(BattleContext ctx, int owner,
+                                                     EffectTargetSpec spec, UnitState source,
+                                                     UnitState chosen,
+                                                     CardDef.ConditionSpec structuredCondition = null,
+                                                     EffectOp op = null)
+        {
+            var list = ResolveTargetsCore(ctx, owner, spec, source, chosen, structuredCondition, op);
+            NoteTriggerTargetSink(ctx, list);
+            return list;
+        }
+
+        /// <summary>`ResolveTargets` 的方法体（判据全在里面；**别直接调它** —— 走上面那个收口，
+        /// 否则「trigger 事件的目标」会漏记）。</summary>
+        static List<UnitState> ResolveTargetsCore(BattleContext ctx, int owner,
                                                      EffectTargetSpec spec, UnitState source,
                                                      UnitState chosen,
                                                      // 🆕 2026-10-22（`W64` · `B-16`）：这一格的结构化条件行
@@ -2705,6 +2764,62 @@ namespace RuleEngine
             // 卡面点名了攻击者（`Make …` / `Target …`）就按目标规格收：`Count == 0` = **全部各打一次**、
             // `Count == 1` = 玩家点的那一个。卡面**没写**（裸 `Attacks a random enemy …`）⇒ **本卡自己**
             // （`ctx.ActingUnit` 由 `ResolveOne` 在结算每条效果前设好）。
+            //
+            // 🔴🆕 **2026-10-25（引擎线 `A1`）：这条 op 的 `targetCriteria` 该筛哪一侧 —— 两族不一样。**
+            //   原版只有**一个** `logic.targetCriteria`，`PlayAbility` 先把它建成的 `possibleTargets`
+            //   放进 `abilityLogic +0x78`（`AbilityLogic__PlayAbility.c:278-282` 调
+            //   `AbilityLogic__GetTargets(manager, logic.targetCriteria, …)`），**然后按 `chosenAbility` 分派**：
+            //     · `0xe6 / 0xe7`（230 `forceAttack` / 231 `forceAttackDontCountAttack`）·
+            //       `0xe9`（233 `forceAttackFriendly`）—— 把 `possibleTargets[i]` 逐个传给
+            //       `AddForceAttack(targetCard, …)` / `AddForceAttackFriendlyUnits`，而
+            //       `BattleManager._ResolveForceAttack_d__504__MoveNext.c:33-66` 拿那张卡去
+            //       `AI__SelectBestAttackAction(…, card, …)` 再 `AddScriptedAttack(attacker = 那张卡, …)`
+            //       ⇒ **这张卡是被逼着去攻击的那一个** ⇒ `possibleTargets` = **攻击者**，
+            //       criteria 筛的是**攻击者池**（我们下面这一支今天的行为，**是对的**）。
+            //     · `0xeb / 0xec / 0xed / 0xee`（235 `scriptedSelfAttack` / 236 `scriptedActingCardAttack` /
+            //       237 `scriptedTargetCardAttackDontCount` / 238 `scriptedSelfCardAttackDontCount`）——
+            //       `AddScriptedAttack / AddScriptedForceAttack / AddRedirectedAttack` 的**攻击者由能力本身定死**
+            //       （`abilityData+0x10/+0x18/+0x20`），`possibleTargets[i]` 一律落**被打的那一个**
+            //       ⇒ `possibleTargets` = **受害者**，criteria 筛的是**受害者池**。
+            //   ⇒ **判据是 `chosenAbility` 那一格**（键在卡 SO 的 `abilityLogic[]` 上）；
+            //     我们的卡池 `cards_engine.json` **没有这一列**（见报告「没查清 / 还差什么」），
+            //     所以这里用**文本形状**做代理，并已**逐卡核过全池**（`desc`+触发正文里的 `attack` 句式）：
+            //       · `Target <攻击者> attacks <被打的>`（**两个目标都点名**）—— **全池只有 `EC46`**，
+            //         它的 `chosenAbility = 237` ⇒ criteria 归**受害者**；
+            //       · `Make <攻击者> attack by itself`（`BL64`，231）· 裸 `attack by itself`（`DA25`，231）
+            //         ⇒ criteria 归**攻击者**（保持原样）。
+            //   ⛔ 别把「criteria 一律挪到受害者池」当成通则 —— 那会把 `BL64`（`ta=30` +
+            //      `conditionsFilter=damaged`：**描述的是被点名的那个友方单位**）筛到敌人身上。
+            bool critOnDefender = op.Target != null && op.Target2 != null && op.TargetCriteriaSet != null
+                                  && !string.Equals(op.Payload, "byitself", System.StringComparison.Ordinal);
+
+            // 🆕 **2026-10-25（引擎线 `A2` · `A2-1`）：攻击者**没点名**（= 本卡自己打）那一族，criteria 同样筛受害者池。**
+            //   判据（`AbilityLogic__PlayAbility.c` 按 `chosenAbility` 分派；表见 `A1` 报告 §A1）：
+            //     · `230/231/233`（`forceAttack*`）—— `possibleTargets` 是被逼着攻击的**攻击者**；
+            //     · `235/236/237/238`（`scripted*`）—— 攻击者由能力本身定死，`possibleTargets` 是**被打的那个**。
+            //   `op.Target == null` 只可能是后者（卡面没点名攻击者 ⇒ 本卡自己出手），
+            //   ⇒ 这条 logic 的 `targetCriteria` 描述的是**受害者**。
+            //   本批这五张卡的裁定（逐张核过卡面 + `cards_truth.json` 的 `chosenAbility`）：
+            //     · `EC12`（238 `Attack a random enemy`）· `EC22`（238 `Attack the enemy with highest attack`）·
+            //       `SAU70`（238 `Attacks a random enemy with lowest Health`）·
+            //       `GOF86`（235 `attack a random non Flying enemy`）⇒ **criteria 归受害者**，本支生效；
+            //     · `SW9`（238，但 logic `ta=30 target`）⇒ **不套**：它的 huntMark 行是
+            //       **ability 级** criteria（`CardAbility.targetCriteria +0x30`，`CanTriggerAbility` 触发前判；
+            //       原版 `cards_truth.json` 的两条 ability 一行 `traitsFilter=1260 猎杀标记`、一行 `+excludeTrait`
+            //       ⇒ 那是「目标带不带猎杀标记 ⇒ 走哪条 ability」的**分支闸**，不是受害者筛子），
+            //       而 logic 级 `ta=30` = 事件目标原样入表 —— 与卡面 `Attack a non Flying enemy troop`
+            //       **不矛盾**（「非飞行」由文本 `NotKeyword` 承担）。⇒ 见报告 §A2-1。
+            //   ⚠️ **身份/承接档不套**：`ta ∈ {20 self, 30 target, 40 attacker, 70 abilityOwner, 80 actingCard,
+            //      90 targetIfMeetsCriteria, 140/150 previousAbilityTargets}` 描述的不是「受害者池」，
+            //      硬套会被 `TargetCriteriaEval.Matches` 的身份比较**整个筛空**（`ta=20`：候选必须等于施放者）。
+            if (!critOnDefender && op.Target == null && op.Target2 != null && op.TargetCriteriaSet != null)
+            {
+                int tta = op.TargetCriteriaSet.TargetsAffected;
+                if (tta != 20 && tta != 30 && tta != 40 && tta != 70 && tta != 80 && tta != 90
+                    && tta != 140 && tta != 150)
+                    critOnDefender = true;
+            }
+
             var attackers = new List<UnitState>();
             if (op.Target == null)
             {
@@ -2713,7 +2828,10 @@ namespace RuleEngine
             }
             else
             {
-                attackers.AddRange(ResolveTargets(ctx, owner, op.Target, null, chosen, op.TargetCondition, op));
+                // `critOnDefender` ⇒ 这一条 criteria **不**筛攻击者池（它描述的是被打的那个）。
+                attackers.AddRange(ResolveTargets(ctx, owner, op.Target, null, chosen,
+                                                  critOnDefender ? null : op.TargetCondition,
+                                                  critOnDefender ? null : op));
                 attackers.RemoveAll(u => u == null || !u.IsAlive);
             }
             if (attackers.Count == 0)
@@ -2743,7 +2861,12 @@ namespace RuleEngine
                             > RuleCore.FieldAttack(ctx, owner, atk, false);
 
                 // ---- ③ 打谁 ----
-                var cand = DefenderPool(ctx, owner, op);
+                // 🔴 `critOnDefender`（见 ① 上面那段判据）⇒ **这条 criteria 在这一侧生效**：
+                //    原版 `possibleTargets` 就是受害者集，`GetTargets` 建池时就过 `targetCriteria`，
+                //    **先筛再裁**（`maxTargets` / `targetSelectMethod` 在筛完之后才用）
+                //    ⇒ 必须把 criteria 交给 `ResolveTargets` 在**裁剪之前**过，⛔ 不能等 `DefenderPool`
+                //    取完一个再来补判（那就变成「挑错了再丢弃」，与 `GetTargets` 的次序不符）。
+                var cand = DefenderPool(ctx, owner, op, critOnDefender);
                 if (cand.Count == 0)
                 {
                     ctx.Log($"{by}：「{op.Source}」{atk.Name} 一个可打的敌人都没有，跳过");
@@ -2778,8 +2901,13 @@ namespace RuleEngine
         /// **没写**（`by itself` / `attack by itself`）⇒ 全场敌方单位，由**攻击合法性**去筛
         /// （`TryAttackOnce` 会逐个试），顺序再由 `PreferKillable` 把「打得死的」提到前面。
         /// ⚠️ 顺序**不掷骰**（同一局必须可复现）：先「打得死的」组、组内按**槽号**小的在前。
-        /// </summary>
-        static List<UnitState> DefenderPool(BattleContext ctx, int owner, EffectOp op)
+        ///
+        /// <param name="withCriteria">🆕 2026-10-25（引擎线 `A1`）：**这一条 op 的 `targetCriteria`
+        /// 筛的是受害者池**（判据 / 为什么不是一律 —— 见 `DoForceAttack` ① 上面那一大段）。
+        /// `true` ⇒ 把 `op` + `op.TargetCondition` 交给 <see cref="ResolveTargets"/>，
+        /// 让它**在裁剪之前**过 36 格 criteria（原版 `GetTargets` 的次序：先筛、再 `maxTargets`）。
+        /// `false` ⇒ 老行为（不筛）。</param>
+        static List<UnitState> DefenderPool(BattleContext ctx, int owner, EffectOp op, bool withCriteria)
         {
             var spec = op.Target2;
             if (spec == null)
@@ -2788,7 +2916,9 @@ namespace RuleEngine
                     Raw = "(未写目标：全场敌方单位，由攻击合法性筛)",
                     Side = "enemy", Kind = "any", Count = 0,
                 };
-            var list = ResolveTargets(ctx, owner, spec, null, null);
+            var list = ResolveTargets(ctx, owner, spec, null, null,
+                                      withCriteria ? op.TargetCondition : null,
+                                      withCriteria ? op : null);
             list.RemoveAll(u => u == null || !u.IsAlive);
             return list;
         }
@@ -6736,6 +6866,20 @@ namespace RuleEngine
                 // `When you trigger a Spirit Stone ability, …`（`ASH81 Bright Lance Vyper`）——
                 //   原版那条监听能力的 trigger 名 = `OtherCardSpiritStone`（455，`dump.cs` 枚举表）。
                 case WhenEventKind.SpiritAbility: return "OtherCardSpiritStone";
+                // 🔴🆕 **2026-10-25（执行代理 `E6` · `E5-5` 那 13 行）：补两条缺失的映射。**
+                //   改前这两条**没有分支** ⇒ `EmitListenerTrigger` 在 `tn == null` 时直接 return
+                //   ⇒ `EvtKind.Trigger` **从不发**（表现层那一拍永远等不到），
+                //   而且 ability 级两道闸也没有 trigger 名可用（`AbilityLevelGateTrigger` 回 `null`）。
+                //   判据（第一权威，逐句）：
+                //     · `CardScript__ReactToUnitMarkerlight.c:7` → `OnTrigger(0x203 = 515)`；
+                //       广播器 `BattleManagerSupport__BroadcastUnitObtainedMarkerlight.c:20`；
+                //     · `CardScript__ReactToUnitStunned.c:7` → `OnTrigger(0x123 = 291)`；
+                //       广播器 `BattleManagerSupport__BroadcastUnitStunned.c`（`(被晕者, 施害者)`）。
+                //   安全边界（现读 v28 池）：`abilityTriggers` 含 **515** 的只有 `TAU15`、
+                //   含 **291** 的只有 `ASH75` / `ASH74`（`ASH74` 另带 46）⇒ 补这两条**不会**给
+                //   别的卡凭空发事件；`HasTriggerSource` 的 presence 闸照旧先判（`presence == 0` ⇒ 不发）。
+                case WhenEventKind.GetsMarkerlight: return "UnitReceivesMarkerlight"; // 515
+                case WhenEventKind.GetsStun:        return "UnitStunned";             // 291
             }
             const string prefix = WhenEventKind.TriggersPrefix;
             if (kind.StartsWith(prefix, System.StringComparison.Ordinal))
@@ -6755,6 +6899,152 @@ namespace RuleEngine
                     case KeywordTable.Synapse:  return TN_TriggeredSynapse;
                 }
             }
+            return null;
+        }
+
+        // ==========================================================================================
+        //  🔴🆕 **2026-10-25（执行代理 `E2` · `A3-2`）：ability 级 `targetCriteria` 闸的
+        //  「trigger 名 / `targetCard`」两个实参 —— 只对**已经查清映射**的事件返回非 null。**
+        // ==========================================================================================
+        //  原版这一跳（`CardAbility__CanTriggerAbility.c:131-135`）的候选是 **`targetCard`**，
+        //  而我们的 `BroadcastWhen` 把事件宾语拆成 `subject` / `target` 两格 —— 两者**不是一回事**，
+        //  逐族查过（第一权威 = 全量反编译）：
+        //    · **`Attack`**：`CardScript__ResolveUnitAttacked.c:28` `OnTrigger(0x32, bm, thisCard, param_2,
+        //      param_3)`；广播器 `BattleManagerSupport__BroadcastUnitAttacked.c:22/:29` 两跳的
+        //      `param_3` 都是**被打者** ⇒ 我们的 `target`（`RuleCore.cs:6300` 传的就是它）。
+        //    · **`Die`**：`CardScript__TriggerOnMinionDeath.c:97-99` → `OnMinionDeath(…, thisCard,
+        //      actingCard=deadCard, targetCard=deadCard)`；我们的 `BroadcastWhen(Die, …, subject: u)`
+        //      **没有 `target`** ⇒ 候选取 `subject`（= 刚死的那个）。
+        //    · 🔴🆕 **2026-10-25（执行代理 `E6` · `E5-5` 那 13 行）再补五族**（逐句判据见下）：
+        //      `GetsDarkPact(510)` / `Reanimated(570)` / `GetsMarkerlight(515)` / `Damaged(60)` /
+        //      `GetsStun(291)`。
+        //      ⚠️ **`Damaged` 的旧注释被证伪、已就地改掉**（铁律 5）：原来这里写
+        //      「`CardScript__ResolveDamageDealt.c:98` 的 `targetCard` 是 `param_2`（**伤害来源**）」——
+        //      **不成立**。`OnTrigger` 的形参表是
+        //      `(trigger, manager, thisCard, **actingCard**, **targetCard**, …)`（`dump.cs:23487`），
+        //      而 `ResolveDamageDealt` 那一跳（`:158-161` / `:167-170` / `:182-184`）传的是
+        //      `OnTrigger(0x3c, …, thisCard=param_1, actingCard=*(DamageInfo+0x10), targetCard=param_2)`
+        //      ⇒ **`targetCard` = `param_2` = 被打者**（广播器 `BattleManagerSupport__BroadcastUnitDamaged.c:19`
+        //      的两跳实参 = `(被打者, 被打者, DamageInfo)`）⇒ 就是我们的 `subject`。
+        //      缺的是 **`actingCard`（伤害来源）**—— 那一道闸本批**不启用**（见 `AbilityActingGate*`）。
+        //      （同一条错句 `E5` 已在 `E2` 报告里订正，但**代码里这份漏了** ⇒ 本批一起改。）
+        //    · **`GetsDarkPact(510)`**：`CardScript__ReactToUnitMarked.c:7`
+        //      `OnTrigger(0x1fe, …, param_1 /*thisCard*/, **param_2** /*actingCard*/, **param_2** /*targetCard*/)`
+        //      且广播器 `BattleManagerSupport__BroadcastUnitObtainedMark.c:20` 是 `(param_2, param_2)`
+        //      ⇒ **acting = target = 被标记者 = 我们的 `subject`**。
+        //    · **`Reanimated(570)`**：`CardScript__ReactToUnitReanimated.c:7` 同一形状
+        //      （`OnTrigger(0x23a, …, param_2, param_2)`）⇒ 两者都 = `subject`（被复活者）。
+        //    · **`GetsMarkerlight(515)`**：`CardScript__ReactToUnitMarkerlight.c:7`
+        //      （`OnTrigger(0x203, …, param_2, param_2)`）+ 广播器 `…ObtainedMarkerlight.c:20`
+        //      `(param_2, param_2)` ⇒ 两者都 = `subject`（被标记者）。
+        //    · **`GetsStun(291)`**：`CardScript__ReactToUnitStunned.c:7`
+        //      `OnTrigger(0x123, …, thisCard=param_1, **actingCard=param_3**, **targetCard=param_2**)`
+        //      ⇒ 🔴 **两格不是同一个形参**：`targetCard` = 被晕者（= 我们的 `subject`）、
+        //      `actingCard` = 施害者（`BroadcastUnitStunned(manager, 被晕者, 施害者)`，我们那两跳
+        //      **只带了被晕者**）⇒ **target 闸能接、acting 闸接不了**（见 `AbilityActingGate*`）。
+        //    · ⛔ **其余事件仍一律不启用**（返回 `null`）——它们的 `targetCard` 是哪一格没查清。
+        //  ⚠️ 覆盖面（现读 v28 池）：`abilityLevelCriteria` 85 行 =
+        //    **已接 35 行**（`Attack` 6 + `Die` 16 + `510` 4 + `570` 5 + `515` 1 + `60` 1 + `291` 2）
+        //    ＋ **未接 50 行**（`ThisCardPlayed` 40 · `FollowUpResolution` 5 · `Strike` 2 ·
+        //    `AboutToAttack` 1 · `TriggeredSwarm` 1 · `OnSabotageCreated` 1 —— 都在**别的入队点 / 专路**）。
+        //    评估表 → `资料/普查产出_1025/E5_引擎剩余小缺口.md` §五；本批报告 →
+        //    `资料/普查产出_1025/E6_十三行接闸.md`。
+
+        /// <summary>🆕 2026-10-25（`E6`）：本族**要不要跑** ability 级 `targetCriteria`（`+0x30`）那道闸 ——
+        /// 只对**已经查清 `targetCard` 是哪一格**的事件返回 `true`（⛔ 不是「有事件就判」）。
+        /// <para>逐族判据见上面那段长注释；一句话：`Attack` → `target`，其余六族 → `subject`。</para></summary>
+        static bool AbilityLevelGateApplies(string kind)
+        {
+            switch (kind)
+            {
+                case WhenEventKind.Attack:
+                case WhenEventKind.Die:
+                case WhenEventKind.GetsDarkPact:      // 510（`ReactToUnitMarked.c:7`）
+                case WhenEventKind.Reanimated:        // 570（`ReactToUnitReanimated.c:7`）
+                case WhenEventKind.GetsMarkerlight:   // 515（`ReactToUnitMarkerlight.c:7`）
+                case WhenEventKind.Damaged:           // 60（`ResolveDamageDealt` 0x3c：targetCard = 被打者）
+                case WhenEventKind.GetsStun:          // 291（`ReactToUnitStunned.c:7`：targetCard = 被晕者）
+                    return true;
+            }
+            return false;
+        }
+
+        /// <summary>见上面那段：不适用 ⇒ `null`（不启用闸）；适用 ⇒ 该族 trigger 名。</summary>
+        static string AbilityLevelGateTrigger(string kind, bool selfOnly)
+        {
+            if (!AbilityLevelGateApplies(kind)) return null;
+            return TriggerNameOfWhenKind(kind, selfOnly);
+        }
+
+        /// <summary>见上面那段：`Attack` 取 `target`（被打者）、其余六族取 `subject`；不适用 ⇒ `null`
+        /// （`null` = 本路径没有 `targetCard` ⇒ 那道闸判不了 ⇒ 出声并放行）。</summary>
+        static UnitState AbilityLevelGateTarget(string kind, UnitState subject, UnitState target)
+        {
+            if (kind == WhenEventKind.Attack) return target;
+            return AbilityLevelGateApplies(kind) ? subject : null;
+        }
+
+        // ==========================================================================================
+        //  🔴🆕 **2026-10-25（执行代理 `E3` · `E2` 报告 §六）：ability 级 `actingCardCriteria`
+        //  （`+0x28`，**第一道闸**）的「这一族要不要跑 / `actingCard` 是哪一格」。**
+        // ==========================================================================================
+        //  判据（第一权威 = 全量反编译）：
+        //    · **`Attack`**：`CardScript__ResolveUnitAttacked.c:28` 的
+        //      `OnTrigger(0x32, bm, thisCard, param_2, param_3)` = (thisCard, **actingCard**, targetCard)；
+        //      广播器 `BattleManagerSupport__BroadcastUnitAttacked.c:22/:29` 两跳传的
+        //      `param_2` 都是**攻击者**（`_ResolveAttack_d__438:988` 实参 = `attacker, target`）
+        //      ⇒ 我们的 `subject`（`RuleCore.cs:6300` 的 `BroadcastWhen(Attack, …, subject: attacker)`）。
+        //    · **`Die`**：`RawCardScript.OnMinionDeath(manager, thisCard, **actingCard**, **deadCard**, …)`
+        //      （`d:/2/tools/il2cpp_out/dump.cs:23526`）—— 🔴 **`actingCard` 与 `deadCard` 是两个形参**；
+        //      `CardScript__TriggerOnMinionDeath` 把 `thisCard=观察者`、`actingCard`（来自
+        //      `ResolveDeadCard` 的 `BattleAction.actingCard`）、`deadCard` 分别传下去。
+        //      而我们的 `OtherUnitDeath(90)` 那一跳（`RuleCore.CleanupDeaths` 的 `BroadcastWhen(Die, …)`）
+        //      **只有死者那一格**（`subject`），凶手在 **`CleanupDeaths` 的 `actingCard` 形参**里
+        //      （= `DamageInfo.actingCard` 一路带下来的来源卡）⇒ 本函数的 `actingCard` 形参就是它。
+        //      ⚠️ **拿不到（毒 / 反噬 / 反击 / 不稳定 / 回合开始清场那些没有来源的死）
+        //      ⇒ 返回 `null` ⇒ 那道闸判不了 ⇒ 出声并跳过**（⛔ 别拿 `subject`（死者）顶 —— 那是筛错人）。
+        //    · ⛔ 其余事件一律**不启用**（返回 `null`）：它们的 `actingCard` 是哪一格**没查清**。
+        //  ⚠️ 覆盖面（现读 v27 池 · `abilityActingCriteria` 落 83 行 / 80 张）：
+        //    `trigger 50 UnitAttack` **14 行**（全是单位，判据已闭合）·
+        //    `trigger 90 OtherUnitDeath` **12 行**（其中 11 行是**战术卡** ⇒ 不是棋盘监听者，
+        //    这一跳根本到不了；1 行是 `SOR10`，它的卡面是 `When this unit kills an enemy` =
+        //    我们的 `Kills` 事件，也不走这一跳）· `trigger 80 ThisUnitDeath` 1 行（我们的 `Die`
+        //    广播恒映射成 90，到不了）⇒ **今天真正会被这道闸筛到的 = `Attack` 那 14 行**。
+        //    全文 → `资料/普查产出_1025/E3_actingCardCriteria.md` §三。
+        //  🔴🆕 **2026-10-25（执行代理 `E6`）：再启用三族** —— `GetsDarkPact(510)` / `Reanimated(570)` /
+        //    `GetsMarkerlight(515)`。判据（第一权威，逐句）= 那三个接收函数的 `OnTrigger` 实参：
+        //      `ReactToUnitMarked.c:7` / `ReactToUnitReanimated.c:7` / `ReactToUnitMarkerlight.c:7`
+        //      都是 `(…, thisCard=观察者, **actingCard=param_2**, **targetCard=param_2**)`，而广播器
+        //      （`…ObtainedMark.c:20` / `…Reanimated.c` / `…ObtainedMarkerlight.c:20`）传的是
+        //      `(主体, 主体)` ⇒ **actingCard = 被标记 / 被复活 / 被标记的那个单位 = 我们的 `subject`**。
+        //    ⚠️ 真正会**被筛到**的只有 `510` 那 **2 行**（`BL63 Havoc` / `BL72 Accursed Helbrute`，
+        //      `abilityActingCriteria` 现读 v28）；`570` / `515` 在 acting 表里 **0 行** ⇒
+        //      启用后走「明确没有这一格条件」那条（`why == null` ⇒ 放行、不出声）。
+        //    ⛔ **`Damaged(60)` / `GetsStun(291)` 不启用**：那两族的 `actingCard` 是**伤害来源 / 施害者**，
+        //      我们这两跳**广播里根本没带**（`EmitHit` 没有来源形参、`BroadcastKeywordEvent` 只有被晕者）
+        //      ⇒ 硬接就是「拿 subject 顶」= 筛错人。判据已查清、**缺的是发射口那一格**（记账，⛔ 不是不做）。
+
+        /// <summary>见上面那段：`Attack` / `Die` / `GetsDarkPact` / `Reanimated` / `GetsMarkerlight`
+        /// 五族**启用**第一道闸（其余 = 不判；`Damaged` / `GetsStun` 缺 `actingCard` 那一格）。</summary>
+        static bool AbilityActingGateApplies(string kind)
+        {
+            return kind == WhenEventKind.Attack || kind == WhenEventKind.Die
+                || kind == WhenEventKind.GetsDarkPact     // 510
+                || kind == WhenEventKind.Reanimated       // 570
+                || kind == WhenEventKind.GetsMarkerlight; // 515
+        }
+
+        /// <summary>见上面那段：`Attack` / `GetsDarkPact` / `Reanimated` / `GetsMarkerlight` 取 `subject`、
+        /// `Die` 取 `actingCard`（凶手）；其余 / 拿不到 ⇒ `null`（那道闸判不了 ⇒ 出声并跳过）。</summary>
+        static UnitState AbilityActingGateCard(string kind, UnitState subject, UnitState actingCard)
+        {
+            // 510 / 570 / 515：`OnTrigger(…, actingCard=param_2, targetCard=param_2)` ⇒ 两者都是被标记 /
+            // 被复活 / 被标记的那个单位（= 我们的 `subject`）。判据见上面那段长注释。
+            if (kind == WhenEventKind.Attack) return subject;
+            if (kind == WhenEventKind.Die) return actingCard;
+            if (kind == WhenEventKind.GetsDarkPact
+                || kind == WhenEventKind.Reanimated
+                || kind == WhenEventKind.GetsMarkerlight) return subject;
             return null;
         }
 
@@ -7191,18 +7481,61 @@ namespace RuleEngine
         }
 
         /// <summary>「有 ability、没动画行」的出声口 —— 同一个 `(卡, trigger)` **只喊一次**。
-        /// ⛔ 不是静默（`C5` Q2 明确要求保留这条日志）；⛔ 也不是每局刷屏（`Pray` 那 23 张）。</summary>
+        /// ⛔ 不是静默（`C5` Q2 明确要求保留这条日志）；⛔ 也不是每局刷屏（`Pray` 那 23 张）。
+        /// 🔴 **2026-10-25 订正（铁律 5 · 联机自检 7 红查实）**：原来这里还有一句
+        /// `if (ctx != null) ctx.Log(msg);` —— **已删**，因为：
+        ///   · `_abilityNoAnimNoted` 是**进程级静态**去重表 ⇒ 同一个进程里**第二个** `BattleContext`
+        ///     （联机自检/重放重建都这样跑）**拿不到**这条 note；
+        ///   · `NetProtocol.Fingerprint` 把 `ctx.Events.Count` 计入哈希 ⇒ 两端指纹差 **31² = 961**
+        ///     （实测 `-381087003` vs `-381087964`，局面其实逐位相同）；
+        ///   · 项目自家纪律：诊断类出声**只走 `Debug.LogWarning`**、⛔ 不进 `ctx.Log`
+        ///     （先例 `RuleCore.NoteAbilityPickOwnerGap` / `NoteActivePickGap` / `StructuredConditionNotice`）。
+        /// 「不许静默」由下面那句 `Debug.LogWarning` 满足。</summary>
         static void NoteAbilityWithoutAnimRow(CardDef card, string triggerName, string effect, BattleContext ctx)
         {
             string key = (card.Id ?? card.Name ?? "?") + "|" + triggerName;
             if (!_abilityNoAnimNoted.Add(key)) return;
-            string msg = $"[EffectResolver] 「{card.Name}」有 `{triggerName}` 这条 ability 但**没有对应动画行**"
-                       + $" ⇒ 照发事件（{effect}）—— 判据 = 原版 `CardAbility__CanTriggerAbility.c:46-48`"
-                       + "（ability presence 是第一道闸，动画在里头播）；表现层这一拍可能没有东西可播"
-                       + "（数据缺口，如实记着）。本消息同一 (卡,trigger) 只出现一次。";
+            string msg = BuildAbilityNoAnimRowMessage(card, triggerName, effect);
             UnityEngine.Debug.LogWarning(msg);
-            if (ctx != null) ctx.Log(msg);
+            // ⛔ 别再加回 `ctx.Log(msg)` —— 会动 `ctx.Events.Count` / 联机 Fingerprint（见上）。
         }
+
+        /// <summary>「有 ability、没动画行」那条日志的**文案**（唯一产地 —— `NoteAbilityWithoutAnimRow`
+        /// 与自检读口 <see cref="AbilityNoAnimRowMessageForTest"/> 共用，⛔ 别在两处各写一份）。</summary>
+        static string BuildAbilityNoAnimRowMessage(CardDef card, string triggerName, string effect)
+        {
+            if (string.Equals(triggerName, "Talent", System.StringComparison.Ordinal))
+            {
+                // 🆕 **2026-10-25（引擎线 `A2` · `A2-5`）：天赋那一拍换准确文案。**
+                //   原来它走下面那条通用句「有 ability 但**没有对应动画行**」—— 技术上真
+                //   （`animTimes` 里确实 0 行），但**误导**：天赋的表现**不走 `animTimes`**，
+                //   走的是 **trait 框**（`trait_effect_bindings.json` 的 `triggerType 3/6`，
+                //   由 `Core/TraitFrames.DisplayTrigger` 接；判据 → `EmitTalentTrigger` 的 doc
+                //   与 `资料/普查产出_1024c/C5_引擎战斗剩余判据.md` §Q1）。
+                //   ⛔ 仍然 `LogWarning` + `ctx.Log`（本工程红线：不许静默），只是**把话说准**。
+                return $"[EffectResolver] 「{card.Name}」的 `Talent`（AbilityTrigger 46）触发**已发出**"
+                    + $"（{effect}）—— 原版判据 `CardAbility__CanTriggerAbility.c:46-48`："
+                    + "ability presence 是第一道闸。**`animTimes` 里没有对应行不是缺陷**："
+                    + "天赋那一拍的表现是 **trait 框**（`Resources/trait_effect_bindings.json` 的 "
+                    + "`triggerType 3/6`，由 `Core/TraitFrames.DisplayTrigger` 接），不走 `animTimes`。"
+                    + "本消息同一 (卡,trigger) 只出现一次。";
+            }
+            return $"[EffectResolver] 「{card.Name}」有 `{triggerName}` 这条 ability 但**没有对应动画行**"
+                 + $" ⇒ 照发事件（{effect}）—— 判据 = 原版 `CardAbility__CanTriggerAbility.c:46-48`"
+                 + "（ability presence 是第一道闸，动画在里头播）；表现层这一拍可能没有东西可播"
+                 + "（数据缺口，如实记着）。本消息同一 (卡,trigger) 只出现一次。";
+        }
+
+        /// <summary>🔴 **只为自检开门**（同 `HurtForTest` / `CountForTest` 的纪律：**不改任何行为**）——
+        /// 返回 <see cref="NoteAbilityWithoutAnimRow"/> 会打的**文案**（不写日志、不进
+        /// `_abilityNoAnimNoted` 账）。用途 = `A2-5` 断言「天赋那一拍的说法准确」。
+        /// ⚠️ 自检只断**关键短语**，⛔ 别把整句抄进测试（改一个字就红，那不是判据）。</summary>
+        public static string AbilityNoAnimRowMessageForTest(CardDef card, string triggerName)
+        {
+            if (card == null || string.IsNullOrEmpty(triggerName)) return "";
+            return BuildAbilityNoAnimRowMessage(card, triggerName, "test");
+        }
+
 
         static readonly HashSet<string> _abilityNoAnimNoted = new HashSet<string>();
 
@@ -7255,6 +7588,39 @@ namespace RuleEngine
                      instanceId: unit != null ? unit.InstanceId : 0,
                      abilityIndex: abilityIndex);
             return true;
+        }
+
+        /// <summary>🔴🆕 **2026-10-25（引擎线 `A3` · `C5` Q1）：「天赋」那一拍（`talent`）的发射口。**
+        ///
+        /// <para>**为什么单开一个方法**：这一拍（`Talent` / 46）在**两个** `SpawnTalents` 生成分支
+        /// 之前都要发，且判据散文很长 ⇒ 收在这里当**唯一**入口（⛔ 别在调用点再抄第二份）。
+        /// ⚠️ 本文件与 `RuleCore.cs` 是**同一个 `partial class`**（本文件的 `namespace` 里就是
+        /// `public static partial class RuleCore` —— 全仓**没有**叫 `EffectResolver` 的类；
+        /// 文档里那些 `EffectResolver.Xxx` 是口头叫法），所以调用点直接写方法名。</para>
+        ///
+        /// <para>**判据**（五跳，逐句 → `资料/普查产出_1024c/C5_引擎战斗剩余判据.md` §Q1）：
+        /// `CardScript.OnTurnStart.c:160`（`HasCurrentTrait(0x34d trait talent)`）→
+        /// `:167 OnTrigger(0x2e = AbilityTrigger.Talent = 46)` → `RawCardScript.TriggerAbility.c:60`
+        /// `PlayTriggerTraitAnim` → `BattleAction 0x44` → `CardScript.ActivateTriggerTraitAnim` →
+        /// `GetTraitFromAbilityTrigger(46)` = `DefinedTrait.talent(845)` →
+        /// `BattleCardUI.DisplayTriggerAnim(845)` ⇒ 播 `Talent.asset` 的 trait 框
+        /// （`triggerType 3 / TalentTraitTrigger / TalentEffect`，现读 `trait_collection.json`）。</para>
+        ///
+        /// <para>⚠️ **闸在这里【不再】判「这张卡有没有天赋」** —— 那一条由调用方按引擎已有的天赋判据
+        /// 判过（`TalentCardData.Resolve(...).Count &gt; 0 || TalentName != null`；三个口径现读都等于
+        /// **96 张**）。本方法只走 <see cref="HasTriggerSource"/> 那条**统一**闸
+        /// （`abilityTriggers` 含 46 ⇒ presence = 1 ⇒ 发）。</para>
+        ///
+        /// <para>⚠️ **这一拍在 `animTimes` 里没有对应行**（trait 框走另一张表
+        /// `trait_effect_bindings.json`）⇒ <see cref="HasTriggerSource"/> 会按纪律打一条
+        /// 「有 ability、没动画行」的**一次性**日志（同一 `(卡,trigger)` 只喊一次）。
+        /// 这是**如实**的：`animTimes` 确实没有它；trait 框由 `Core/TraitFrames.cs` 接。</para>
+        /// </summary>
+        internal static void EmitTalentTrigger(BattleContext ctx, CardDef card, int owner, UnitState unit)
+        {
+            const string TN = "Talent";                       // `AbilityTrigger.Talent = 46`
+            if (!EmitCardTrigger(ctx, card, owner, unit, TN, "talent:turnStart")) return;
+            ctx.Log($"「{card.Name}」回合开始 → 触发事件 `{TN}`（原版 `AbilityTrigger.Talent = 46`）");
         }
 
         /// <summary>🆕 **2026-10-19（第五十七会话 `W57` · T21 C/D）：一张卡【自己的阵营能力】激活了** ——
@@ -7418,39 +7784,51 @@ namespace RuleEngine
 
         /// <summary>🔥 **F 族发射口**：回合起止段里一个单位/一张手牌/一条常驻效果发事件。
         /// 名字按 <see cref="TurnTriggerNameOf"/> 在当相位的那几个候选里二选一
-        /// （`turn_start` 走这条；`turn_end` 走 <see cref="EmitAtTurnTriggers"/> 的两遍）。</summary>
-        static void EmitTurnTrigger(BattleContext ctx, CardDef card, int owner, UnitState unit, string phase)
+        /// （`turn_start` 走这条；`turn_end` 走 <see cref="EmitAtTurnTriggers"/> 的两遍）。
+        /// <para>🆕 **2026-10-25（`E4` · `E4-1`）**：返回值改成**真发出去的那条 `BattleEvent`**
+        /// （`null` = 没发）—— 棋盘单位那一趟要靠它把「结算时才选出来的目标」事后填进去，
+        /// 见 <see cref="BattleContext.TriggerTargetSink"/>。</para></summary>
+        static BattleEvent EmitTurnTrigger(BattleContext ctx, CardDef card, int owner, UnitState unit, string phase)
         {
-            if (ctx == null || card == null) return;
+            if (ctx == null || card == null) return null;
             string tn = TurnTriggerNameOf(card, phase, ctx);
-            if (tn == null) return;
+            if (tn == null) return null;
             // ⚠️ 上面已经过闸（`TurnTriggerNameOf` 内部就是 `HasTriggerSource`）⇒ 这里**不再过第二次**，
             //    否则「有 ability、没动画行」那条出声日志会打两遍。
-            EmitTurnTriggerRaw(ctx, card, owner, unit, tn, phase);
+            return EmitTurnTriggerRaw(ctx, card, owner, unit, tn, phase);
         }
 
         /// <summary>🔥 **F 族发射口（指名版）**：只发 <paramref name="triggerName"/> 那一个名字。
         /// 闸 = <see cref="HasTriggerSource"/>（动画行 **或** 真值 ability 双闸）。
-        /// 返回 `true` = 真的发出去了。</summary>
-        static bool EmitTurnTriggerNamed(BattleContext ctx, CardDef card, int owner, UnitState unit,
+        /// 返回**真发出去的那条事件**（`null` = 没发，判据同 <see cref="EmitTurnTrigger"/>）。</summary>
+        static BattleEvent EmitTurnTriggerNamed(BattleContext ctx, CardDef card, int owner, UnitState unit,
                                          string triggerName, string phase)
         {
-            if (ctx == null || card == null || string.IsNullOrEmpty(triggerName)) return false;
-            if (!HasTriggerSource(card, triggerName, ctx, "turn:" + phase)) return false;
-            EmitTurnTriggerRaw(ctx, card, owner, unit, triggerName, phase);
-            return true;
+            if (ctx == null || card == null || string.IsNullOrEmpty(triggerName)) return null;
+            if (!HasTriggerSource(card, triggerName, ctx, "turn:" + phase)) return null;
+            return EmitTurnTriggerRaw(ctx, card, owner, unit, triggerName, phase);
         }
 
-        /// <summary>🔥 **F 族发射体**：不再过闸（调用方已经判过 —— 判据只留一处）。</summary>
-        static void EmitTurnTriggerRaw(BattleContext ctx, CardDef card, int owner, UnitState unit,
+        /// <summary>🔥 **F 族发射体**：不再过闸（调用方已经判过 —— 判据只留一处）。
+        /// 返回**真发出去的那条事件**（给 <see cref="AtTurnUnitJobDeferred"/> 事后填目标用）。</summary>
+        static BattleEvent EmitTurnTriggerRaw(BattleContext ctx, CardDef card, int owner, UnitState unit,
                                        string triggerName, string phase)
         {
             int slot = -1, p = owner;
             if (unit != null && FindSlot(ctx, unit, out p, out slot)) { /* 用找到的座位/格号 */ }
             else if (unit != null) { slot = -1; p = owner; }
-            ctx.Emit(EvtKind.Trigger, p, slot, card.Name,
-                     keyword: triggerName, effect: phase,
-                     instanceId: unit != null ? unit.InstanceId : 0);
+            var evt = new BattleEvent
+            {
+                Kind = EvtKind.Trigger,
+                Player = p,
+                Slot = slot,
+                CardId = card.Name,
+                Keyword = triggerName,
+                Effect = phase,
+                InstanceId = unit != null ? unit.InstanceId : 0,
+            };
+            ctx.Emit(evt);
+            return evt;
         }
 
         /// <summary>🆕 **2026-10-24（引擎线 `T21④` · 第四批 `A24`）：回合起止那一拍的
@@ -7504,10 +7882,10 @@ namespace RuleEngine
                                           List<AtTurnUnitJob> unitJobs, List<AtTurnHandJob> handJobs,
                                           List<AtTurnPersistJob> persistJobs)
         {
-            void EmitOne(CardDef c, int owner, UnitState unit)
+            BattleEvent EmitOne(CardDef c, int owner, UnitState unit)
             {
-                if (c == null) return;
-                if (onlyName == null) { EmitTurnTrigger(ctx, c, owner, unit, phase); return; }
+                if (c == null) return null;
+                if (onlyName == null) return EmitTurnTrigger(ctx, c, owner, unit, phase);
                 // ⚠️ 两张名字都有的卡今天**不存在**（现读全池 18 张 `Turn*` 卡各占一个名字：
                 //    TurnEnd 11 · TurnBeforeEnd 1 · TurnStart 3 · TurnStartPlayer 3）。
                 //    真出现时原版的**两条广播都会响**（两次 `OnTrigger`）⇒ 我们两遍各发一次，并出声。
@@ -7517,21 +7895,27 @@ namespace RuleEngine
                     ctx.Log($"[EffectResolver] 「{c.Name}」同时标了 `TurnEnd` 与 `TurnBeforeEnd` 两种"
                           + $" {phase} trigger ⇒ 两条广播各发一次"
                           + "（原版 `BroadcastTurnBeforeEnd` 与 `BroadcastTurnEnd` 是两趟，都会响）");
-                EmitTurnTriggerNamed(ctx, c, owner, unit, onlyName, phase);
+                return EmitTurnTriggerNamed(ctx, c, owner, unit, onlyName, phase);
             }
 
             // ① 棋盘（`allCardsInPlay`）：顺序 = `unitJobs` 的**进场序**
             //    （`ResolveAtTurn` 里那一次 `StableSortByPlayOrder` 是**唯一**排序点，⛔ 别在这里再排）。
             //    递归保护与结算那一趟同一套（回合起止效果自己可能又触发回合效果）——
             //    `ctx.EffectChain` 在这一趟里不会变（`EnqueueAbility` 只入队），但仍照原样判一次。
+            //    🆕 **2026-10-25（`E4` · `E4-1`）**：把这条事件**存进作业**（`j.TriggerEvent`）——
+            //    结算那一拍要靠它把「那一刻才选出来的目标」事后填进去（`AtTurnUnitJobDeferred`）。
+            //    ⚠️ `unitJobs` 存的是**结构体** ⇒ 必须按下标写回（`foreach` 拿到的是副本）。
             if (ctx.EffectChain < BattleContext.MaxEffectChain)
-                foreach (var j in unitJobs)
+                for (int i = 0; i < unitJobs.Count; i++)
                 {
+                    var j = unitJobs[i];
                     if (j.Unit == null || j.Unit.Card == null) continue;
-                    EmitOne(j.Unit.Card, j.Owner, j.Unit);
+                    var evt = EmitOne(j.Unit.Card, j.Owner, j.Unit);
+                    if (evt != null) { j.TriggerEvent = evt; unitJobs[i] = j; }
                 }
 
             // ② **当前玩家手牌**（`GetCardsInHandRef(IsPlayerTurn())`）
+            //    ⚠️ 手牌那一趟**不存事件**：没有棋盘格位可填（`Target*` 也只能是 `-1`）。
             foreach (var j in handJobs) EmitOne(j.Card, j.Owner, null);
 
             // ③ **对手手牌**（原版第三个循环）—— **今天这一趟恒空，所以没有循环体**：
@@ -7595,6 +7979,13 @@ namespace RuleEngine
                 if (at == null || at[0] != phase) continue;
                 var ops = EffectText.Parse(at[1], out _, out _);
                 if (ops == null || ops.Count == 0) continue;
+                // 🔴🆕 **2026-10-25（引擎线 `A3` · `A3-1`）：手牌陷阱这条路的正文同样是
+                //   `Parse(正文)`（不带 card）⇒ 一样没过 `targetCriteria` 的贴片。
+                //   命中的是 `Poisoned Supplies`（`At the end of your turn, your troops take 1 damage`，
+                //   唯一一条 trigger 40 的 ability、`ta=[10]`、criteria `friendlyUnits=1 +
+                //   includeMinions=1 + includeRemnants=0`）—— 最后那格是**文本层没有的信息**：
+                //   原版这一下**不打残骸**。窄闸（单 op + 单 ability + `ta==10`）见那个方法的 doc。
+                EffectText.AttachAtTurnBodyCriteria(c, ops, phase);
                 foreach (var o in ops)
                     o.Source = c.Name + "：" + at[1];      // 日志要看出「是哪张陷阱干的」
                 // 🆕 2026-10-19（`T21` · 缺口 F）：**记下是哪张手牌**（回合起止那一拍要按它的卡名
@@ -7643,6 +8034,15 @@ namespace RuleEngine
                         if (cl.View != "each" && pi != active) continue;
                         var ops = EffectText.Parse(cl.Body, out _, out _);
                         if (ops == null || ops.Count == 0) continue;
+                        // 🆕 **2026-10-25（引擎线 `A2` · `A2-1`）：at-turn 片段正文不走
+                        //   `Parse(desc, card:)`，`targetCriteria` 那条贴片路没跑过 ⇒ 这里补。
+                        //   窄闸（单 ability + 单 op + trigger 与相位一致）见那个方法的 doc；
+                        //   `A2` 那笔只做 `forceattack`（全池唯一 `GOF86`）。
+                        // 🔴 **2026-10-25（引擎线 `A3` · `A3-1`）**：改成总入口
+                        //   `AttachAtTurnBodyCriteria` —— 它再加一支 `deal` / `give`
+                        //   （`AM18` / `AM67` / `TAU6` / `TAU7` / `TAU13`；逐卡裁定见
+                        //   `AttachAtTurnDealGiveCriteria` 的 doc）。
+                        EffectText.AttachAtTurnBodyCriteria(u.Card, ops, phase);
                         unitJobs.Add(new AtTurnUnitJob
                         {
                             Owner = pi, Unit = u, Ops = ops,
@@ -7788,8 +8188,26 @@ namespace RuleEngine
             ctx.EffectChain++;
             try
             {
-                // 施放者传**这个单位** —— 「return to your hand」「heal 1」那种自我指代才认得对
-                ResolveOps(ctx, j.Owner, j.Unit, j.Ops, label);
+                // 🔴🆕 **2026-10-25（`E4` · `E4-1`）：这一条回合触发发出去的那条 `EvtKind.Trigger`**
+                //   要先「arm」起来 —— 结算这一拍第一次落到目标时由 `ResolveTargets` 的收口**当场写进事件**
+                //   （`BattleContext.Signals` 存的是同一个对象引用，表现层 `DrainSignals` 之后才读
+                //   ⇒ 一定看得到；落格号也必须**当场**取 —— 目标常常被这条效果打死）。
+                //   ⚠️ 保存/还原是必须的：效果会嵌套（`Repeat this effect` / 连锁触发），
+                //   和外层 `LastTargets` 那套同一个理由。
+                var prevSink = ctx.TriggerTargetSink;
+                var prevDone = ctx.TriggerTargetSinkDone;
+                ctx.TriggerTargetSink = j.TriggerEvent;
+                ctx.TriggerTargetSinkDone = false;
+                try
+                {
+                    // 施放者传**这个单位** —— 「return to your hand」「heal 1」那种自我指代才认得对
+                    ResolveOps(ctx, j.Owner, j.Unit, j.Ops, label);
+                }
+                finally
+                {
+                    ctx.TriggerTargetSink = prevSink;
+                    ctx.TriggerTargetSinkDone = prevDone;
+                }
             }
             finally { ctx.EffectChain--; }
         }
@@ -7816,6 +8234,12 @@ namespace RuleEngine
             public int Owner;
             public UnitState Unit;
             public List<EffectOp> Ops;
+            /// <summary>🔴🆕 **2026-10-25（`E4` · `E4-1`）：广播那一趟为这张卡发出的那条 `EvtKind.Trigger`**
+            /// （`null` = 这一趟没发）。结算体靠它把「第一个落到的目标」事后填进去 ——
+            /// 判据与机制见 <see cref="BattleContext.TriggerTargetSink"/>。
+            /// ⚠️ `turn_end` 那一趟会**跑两遍**（`TurnBeforeEnd` → `TurnEnd`）：同一张卡两遍都发得出来时，
+            /// 这里留**后一遍**那条；现池**没有一张卡两个名字都有**（18 张 `Turn*` 卡各占一个名字）。</summary>
+            public BattleEvent TriggerEvent;
             /// <summary>🔴🆕 **2026-10-24（引擎线 `T03·c` · `C1` §6）：这一条走的是原版
             /// `BroadcastTurnEnd` 棋盘趟的**第三支**（`!IsInPlay ∧ remnant(1050) ∧ cardState==5 waitingToDie`），
             /// 不是正常的「在场单位」那一支。
@@ -8687,7 +9111,8 @@ namespace RuleEngine
                                          UnitState actor = null, UnitState target = null,
                                          UnitState preCalled = null,
                                          UnitState preCalled2 = null,
-                                         List<BoardListener> boardListeners = null)
+                                         List<BoardListener> boardListeners = null,
+                                         UnitState actingCard = null)
         {
             // 🔴 **2026-10-22（`W62` · R1）：公开入口必须自带 `ActionScope`。**
             //   触发改「只入队」之后，广播**本身**会把监听器的 ability 排进队列；而泵点只在
@@ -8698,14 +9123,14 @@ namespace RuleEngine
             //   ⛔ 不是「新造泵点」—— 就是同族入口那个 `using (BeginAction(ctx))` 形状（照 `ApplyDamage`）。
             using (BeginAction(ctx))
                 BroadcastWhenCore(ctx, kind, who, card, subject, actor, target,
-                                  preCalled, preCalled2, boardListeners);
+                                  preCalled, preCalled2, boardListeners, actingCard);
         }
 
         /// <summary><see cref="BroadcastWhen"/> 的原文（2026-10-22 `W62` · R1 抽出，逐字搬下来）。</summary>
         static void BroadcastWhenCore(BattleContext ctx, string kind, int who, CardDef card,
                                       UnitState subject, UnitState actor, UnitState target,
                                       UnitState preCalled, UnitState preCalled2,
-                                      List<BoardListener> boardListeners)
+                                      List<BoardListener> boardListeners, UnitState actingCard = null)
         {
             if (ctx == null || kind == null || ctx.IsOver) return;
             if (ctx.EffectChain >= BattleContext.MaxEffectChain)
@@ -8772,7 +9197,7 @@ namespace RuleEngine
                         // 🆕 2026-10-22（`W63` #9）：`pinnedOwner` = 快照那一刻的归属 —— 出队时
                         //   那个人可能已经被洗回牌库 / 移出棋盘，现查会把它的监听器静默丢掉。
                         FireBoardWhenListener(ctx, l.Unit, kind, who, card, subject, actor, target, targetWho,
-                                              pinnedOwner: l.Owner);
+                                              pinnedOwner: l.Owner, actingCard: actingCard);
                         if (ctx.IsOver) break;
                     }
                 }
@@ -8931,11 +9356,21 @@ namespace RuleEngine
         /// ⇒ `UM83/GSC12/DA22`（context 0）不再多响 · `SAU31/UM70`（context 40）不再少响。
         /// 判据逐句 → `PendingDeathAllowsListener` 的 doc。
         /// </param>
+        /// <param name="actingCard">
+        /// 🆕 **2026-10-25（执行代理 `E3` · `E2` 报告 §六）：原版 `CanTriggerAbility` 的 `actingCard`**
+        /// —— **第一道闸**（`actingCardCriteria` `+0x28`）的被筛对象，与 `targetCard`（第二道闸）
+        /// **不是同一格**。只有调用点**已经查清**这一格是谁时才传（今天 = `Die` 广播传
+        /// `CleanupDeaths` 的 `actingCard` 形参 = **凶手**）。
+        /// `null` = 这条路径拿不到 ⇒ 那道闸**判不了 ⇒ 放行 + 出声**（⛔ 拿 `subject` / `actor` 顶上就是筛错人）。
+        /// ⚠️ `Attack` 那一族**不用这个形参**：它的 `actingCard` = 攻击者 = `subject`
+        /// （判据 → <see cref="AbilityActingGateCard"/>）。
+        /// </param>
         static void FireBoardWhenListener(BattleContext ctx, UnitState u, string kind, int who,
                                           CardDef card, UnitState subject, UnitState actor,
                                           UnitState target, int targetWho,
                                           bool selfOnlyOnly = false, bool allowPendingDeath = false,
-                                          int pinnedOwner = -1, bool preCall = false)
+                                          int pinnedOwner = -1, bool preCall = false,
+                                          UnitState actingCard = null)
         {
             // ⚠️ 快照之后世界可能已经变了（前一个监听器把人打死了）——再判一次。
             // 🔴🆕 2026-10-22（`W63` · C2）：预调那一跳改成**按 `abilityContext` 判**（判据 →
@@ -9000,7 +9435,14 @@ namespace RuleEngine
             //   我们的等价物就是这一条（报告 §三 E）。闸 = 那张卡真有该 trigger 的动画行。
             // 🆕 2026-10-24（`G2` · D8）：`selfOnlyOnly` 透传 —— `Deploy` 的「自己被召唤」
             //   那一跳发 `ThisUnitSummoned(195)`，其余仍 `OtherUnitSummoned(190)`（判据 → 映射方法的 doc）。
-            EmitListenerTrigger(ctx, u.Card, owner, u, kind, selfOnlyOnly);
+            // 🔴🆕 **2026-10-25（执行代理 `E8` · `E8-2`）：这里【不再】发 —— 挪到 `EnqueueAbility` 之后。**
+            //   判据（第一权威）`RawCardScript__TriggerAbilities.c:108 / :207`：原版**先**
+            //   `CardAbility.CanTriggerAbility`（两道 criteria 闸）⇒ 过了才 `TriggerAbility`
+            //   → `:60 PlayTriggerTraitAnim`。我们原来把 `EmitListenerTrigger`（= 那一拍动画的事件）
+            //   排在**入队闸之前** ⇒ 能力被 criteria 拒掉时动画仍播（`E6` 报告 §七·2）。
+            //   ⇒ 现在用它**下面** `EnqueueAbility` 的返回值当闸（那两道闸的裁决在
+            //   `ActionPump.EnqueueAbility` 里，**判据仍然只有一份**；本笔只是把「发事件」这一步
+            //   挪到判决之后）。⛔ 别在这里另写一份判定 —— 那就是第二份判据。
 
             // ============================================================
             //  🔴 **2026-10-21（引擎线 `T03·c` 批 B 接线）：监听器这条 ability**只入队，不结算**
@@ -9011,13 +9453,16 @@ namespace RuleEngine
             //  （判据汇总 → `资料/普查产出_1021/W61_引擎线_T03c批B判据.md` §2.3 / §2.6）
             //  ⇒ 「谁先听」仍由这一层（广播遍历序 = 进场序 `PlayOrder`）决定，
             //    「谁先结算」由队列道序决定 —— **跨道时 priority 压过 PlayOrder**，同道才轮得到它。
-            //  ⚠️ `EmitListenerTrigger`（`EvtKind.Trigger`）**仍在广播这一刻发**（判据见
-            //    `FireTriggerAt` 同款注释：它是「这件事发生了」的信号，不是结算结果）。
+            //  🔴🆕 **2026-10-25（执行代理 `E8` · `E8-2`）就地订正下面这一句**：原来写
+            //    「`EmitListenerTrigger` **仍在广播这一刻发**」—— 位置**改了**：现在排在
+            //    `EnqueueAbility` **之后**、且**只在它返回 `true` 时**发（原版次序 =
+            //    `CanTriggerAbility` → `TriggerAbility` → `PlayTriggerTraitAnim`，判据见上面那一笔）。
+            //    仍然是「广播这一刻」（不等出队）—— 只是「发不发」由那两道闸说了算。
             // ============================================================
             // ⚠️ `owner` / `u` / `subject` 全部**在入队时定死**（原版把 `actingCard` /
             //    `targetCard` 一起打包进 action；我们靠闭包）。⛔ 别改成「出队时现查」——
             //    监听者可能已经被别的动作打死/离场，现查会得到 -1。
-            EnqueueAbility(ctx, ListenerLane(u.Card, TriggerNameOfWhenKind(kind, selfOnlyOnly)), (u.Name ?? "?") + "·listen:" + kind,
+            bool queued = EnqueueAbility(ctx, ListenerLane(u.Card, TriggerNameOfWhenKind(kind, selfOnlyOnly)), (u.Name ?? "?") + "·listen:" + kind,
                            () => FireBoardListenerDeferred(ctx, u, owner, subject, kind, ops,
                                                           card, target, selfOnlyOnly),
                            // 🔴🆕 2026-10-21（审查 `W61b` 第 3 条）：施放者 = **监听者自己** `u`。
@@ -9028,7 +9473,35 @@ namespace RuleEngine
                            //   ⇒ 一律不取消（⛔ 取消会把「墓地也照听」那 11 条静默掐死）。
                            //   精确做法要读**这张卡这条 ability** 的 `abilityContext`（卡表没有该列 →
                            //   报告里的欠账）。`allowPendingDeath` 那一档（原版 40）当然更不取消。
-                           actor: u, requireActorInPlay: false);
+                           actor: u, requireActorInPlay: false,
+                           // 🔴🆕 **2026-10-25（执行代理 `E2` · `A3-2`）：ability 级 `targetCriteria` 闸**
+                           //   原版 `CardAbility__CanTriggerAbility.c:131-135` 在这一刻（入队前）判一次，
+                           //   被筛对象 = **`targetCard`**（`dump.cs:20360` 的形参表）。
+                           //   ⚠️ **只有 `AbilityLevelGateApplies` 里列出的七族** 已经查清 `targetCard`
+                           //     （`Attack` → `target`；`Die` / `510` / `570` / `515` / `60` / `291` → `subject`）；
+                           //     其余事件一律**不启用这道闸**（⛔ 不拿 subject 猜「就是 targetCard」）。
+                           //   覆盖面 / 残余 → `资料/普查产出_1025/E2_ability_criteria管线.md` ·
+                           //   `资料/普查产出_1025/E6_十三行接闸.md`（2026-10-25 `E6` 补齐后 35/85 行已接）。
+                           abilityTrigger: AbilityLevelGateTrigger(kind, selfOnlyOnly),
+                           abilityTarget: AbilityLevelGateTarget(kind, subject, target),
+                           // 🔴🆕 **2026-10-25（执行代理 `E3` · `E2` 报告 §六）：ability 级
+                           //   `actingCardCriteria`（`+0x28`）—— 原版**第一道闸**，在 target 那道【之前】。
+                           //   判据 `CardAbility__CanTriggerAbility.c:127-130`；⚠️ `Attack` / `Die` /
+                           //   `510` / `570` / `515` 五族的 `actingCard` 查清了（`Attack` = 攻击者 = `subject`；
+                           //   `Die` = 凶手 = `CleanupDeaths` 的 `actingCard` 形参，⛔ 不是死者；
+                           //   后三族 = 被标记 / 被复活者 = `subject`，见 `AbilityActingGateApplies` 的注释）。
+                           //   `Damaged` / `GetsStun` 缺那一格 ⇒ 不启用（⛔ 不拿 subject 顶）。
+                           //   拿不到 ⇒ `null` ⇒ 那道闸**判不了 ⇒ 出声并跳过**（⛔ 不猜）。
+                           abilityActingCard: AbilityActingGateCard(kind, subject, actingCard),
+                           abilityActingGate: AbilityActingGateApplies(kind));
+
+            // 🔴🆕 **2026-10-25（执行代理 `E8` · `E8-2`）：按原版次序发「这一拍真的触发了」。**
+            //   `RawCardScript__TriggerAbilities.c:108/:207`：**先** `CanTriggerAbility`
+            //   （= `EnqueueAbility` 里那两道 ability 级 criteria 闸）⇒ 过了才 `TriggerAbility`
+            //   → `PlayTriggerTraitAnim`（`:60`）。⇒ `queued == false`（被闸拒 / 参数非法）
+            //   ⇒ **连 `EvtKind.Trigger` 一起跳过**（只由 `EnqueueAbility` 那边出声）。
+            //   🧨 灭自证：把这一句改回无条件调用 ⇒ 「被拒 ⇒ `EvtKind.Trigger` 0 条」那条断言红。
+            if (queued) EmitListenerTrigger(ctx, u.Card, owner, u, kind, selfOnlyOnly);
         }
 
         /// <summary>
@@ -10437,7 +10910,20 @@ namespace RuleEngine
                         else if (p.Keyword == "markerlight") BroadcastKeywordEvent(ctx, WhenEventKind.GetsMarkerlight, u);
                     }
                 }
-                else u.RemoveKeyword(p.Keyword, -val);
+                else
+                {
+                    // 🆕 **2026-10-25（引擎线 `A2` · `A2-2`）：`lose <trait>` = 原版「加一条
+                    //   `CardEffect{buffType = removeTrait(4), trait = X}`」** —— `CardScript__AddEffect.c:680-694`
+                    //   的 `case 4`（先 `RemoveActiveEffects(4, trait)` 去重 → `List.Add` → `RemoveBuffedTrait`
+                    //   + `RemoveTrait`）。`EntityScript.HasRemovedTrait` 读的正是那些条目
+                    //   ⇒ 这一支必须写进 `UnitState` 的「已移除」簿记（写入点只此一处）。
+                    // ⚠️ **只在「这次真的把它摘干净了」时写账**：原版 `RemoveTrait` 找不到 trait 就
+                    //   `LogWarning` 直接返回、**不写账**；而「减一层还剩」不是「移除 trait」（原版那是
+                    //   另一条 addStats 减值的路）。
+                    bool hadKw = u.Has(p.Keyword);
+                    u.RemoveKeyword(p.Keyword, -val);
+                    if (hadKw && !u.Has(p.Keyword)) u.MarkTraitRemoved(p.Keyword);
+                }
             }
             else if (grantSource != null && p.Attr != "energy")
             {

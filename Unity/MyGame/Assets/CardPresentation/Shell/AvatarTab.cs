@@ -392,8 +392,12 @@ namespace CardPresentation
             Refresh();
         }
 
-        /// <summary>格子。原版 = `Instantiate(itemPrefab, contentHolder)` 逐张生成
-        /// （`AvatarTab__InitializeGameObjects.c:152`），**一屏只建看得见的那些**（视口外的整格不建）。</summary>
+        /// <summary>格子。原版 = `Instantiate(itemPrefab, contentHolder)` 对**过滤后的全表**逐张生成
+        /// （`AvatarTab__InitializeGameObjects.c:140-160`，`:152` 是那句 `Instantiate`）——**没有任何视口判据**。
+        /// 🔴 **2026-10-25（D7 · 铁律 5）**：本方法原来有一句 `if (!_scroll.Intersects(r)) continue;`
+        /// （「一屏只建看得见的那些」= **我们自加的口径**，注释还自陈过）—— **已删**：原版逐格建。
+        /// 视口外的格子由 `ViewportClip`（`RectMask2D` 的等价物）裁掉，⛔ 不再靠「不建」来省。
+        /// ⚠️ 代价如实记：本页 469 格 ⇒ 每格都建（真机首开略慢）；「不建」是偏离，不是优化（照原版优先）。</summary>
         void BuildRows()
         {
             var items = Avatars;
@@ -408,7 +412,6 @@ namespace CardPresentation
                 int col = i % cols, row = i / cols;
                 float x, y; CellXY(col, row, out x, out y);
                 var r = _scroll.Shift(new PxRect(x, y, x + CellW, y + CellH));
-                if (!_scroll.Intersects(r)) continue;
                 // 🔴 **子件一律从偏移后的 `r` 起算**（`ox/oy` = 这一格**在屏幕上**的左上角）。
                 //    拿未偏移的 `x/y` 摆子件 = 一滚就「底板走了、图与字没走」（2026-09-27 修，同 `ForgeTab` 的写法）。
                 float ox = r.x1, oy = r.y1;

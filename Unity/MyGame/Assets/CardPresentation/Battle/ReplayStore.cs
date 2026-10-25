@@ -261,6 +261,27 @@ namespace CardPresentation
         /// `true` / `false` = 录制那一刻的实际值。⛔ **别拿 `null` 当 `false`**。</summary>
         public bool? MulliganEnabledForReplay { get { return mulliganPlus1 == 0 ? (bool?)null : mulliganPlus1 == 2; } }
 
+        /// <summary>🔴🆕 **2026-10-25（执行代理 `C` · 账 `RE1` §1.4-A2）：双方【实际用的牌】的稳定卡 id。**
+        ///
+        /// <para>**为什么非记不可**：录像头原来只有 `MsgStart.hostDeckJson/clientDeckJson`（= **入口参数**，
+        /// 即「玩家存档里那副 `PlayerDeck`」），而**引擎自动凑的那副一张都没记** ⇒ 回放时靠
+        /// `StarterDeck`/`ResolveDeck` **重新算一遍**。原版不是这样：`BattleRecordData` **双方各存一份牌组**
+        /// （`playerData +0x40` / `oppData +0x38`，`DUMP:77673`；映射见 `资料/普查产出_0927/回放_入口与数据链.md` §C·①）。
+        /// 后果（今天可复现）：`StarterDeck` 顺序 / 卡池 / 补防御卡逻辑一改，**旧档就静默演成另一局**
+        /// —— 终局指纹会报「不是同一局」，但没人知道是「录像过期」还是「引擎分叉」。</para>
+        ///
+        /// <para>**取值 = `Begin` 里解析完成、真正喂给 `RuleCore.NewBattle` 的那两份 `List&lt;CardDef&gt;`**
+        /// 的 `CardDef.Id`（含督军卡与防御卡 —— 引擎按 `Type` 分流，尺寸/顺序都要原样）。
+        /// 回放时按 id 展开成 `CardDef` 列表，走 `Begin(exactMine:, exactFoe:)` **原样重建**。</para>
+        ///
+        /// <para>⚠️ **`null` / 空 = 「没记」**（老录像）⇒ 回放退回「按 `MsgStart` 的卡组重算」那条老路
+        /// （行为与加这两列之前**逐字相同**）。⚠️ **`version` 不 +1**：纯**新增**字段（纪律同
+        /// `tutorialStage` / `botSeatPlus2` / `mulliganPlus1`）；「改结构就 +1」那条防的是**同一格换语义**。
+        /// ⛔ **不进 `MsgStart`** —— 那是联机协议结构，往里加字段 = 把码送上网。</para></summary>
+        public List<string> hostCardIds;
+        /// <summary>见 <see cref="hostCardIds"/>（这一列 = 座位 1 / client）。`null` = 没记。</summary>
+        public List<string> clientCardIds;
+
         /// <summary>🆕 **2026-10-10（`A985⑬`）：录像【头】那一条 `[BattleResult]` 记录**（**只落盘**：
         /// ⛔ 不进 `actions`、⛔ 不上网 —— 理由见本文件头部那一节）。
         ///
@@ -325,6 +346,54 @@ namespace CardPresentation
         /// 📏 一局多大见 `LastSavedBytes`；50 局的总占用 = 50 × 那个数。</summary>
         public const int MaxKept = 50;
 
+        // ============================================================ 「有没有回放」的门槛（原版 `replaysVersion`）
+        //
+        // 🔴 **原版判据（第一权威 = 反编译 + 字符串字面量表，2026-10-25 亲读）**：
+        //   · 客户端**唯一**使用点 = `BattleLogItem__Initialize.c:206`：
+        //       replayButton.interactable = (match.replaysVersion != <const>)
+        //   · `<const>` = `DAT_184288ae8` → RVA `0x4288AE8` → `il2cpp_out/stringliteral.json` = **`"-1"`**。
+        //   · ⇒ **`"-1"` = 没有回放**（钮不可点）；**其它任何值**（真版本号 / 录像 id）= 有回放。
+        //     原版**只**跟 `"-1"` 比：`""` 与 `null` 在它那儿**都算「有」**（服务端总会下发一个值）。
+        //   · 字段来源 = `BattleLogMatch.replaysVersion`（`BattleLogMatch.cs:42`，`+0x78`），**服务端 → 客户端**；
+        //     客户端**不做**「本机版本 vs 服务端版本」的比较（`ServerVersion(replaysVersion)` 那两个
+        //     字段在客户端**没有读取点**，只有遥测模板）。
+        //
+        // 🔴 **我们这一侧的映射（如实标注：这不是原版，是等价物）**：我们没有服务端，判据是**本地录像文件名**
+        //   （`BattleLogData.Match.ReplayFile`）⇒「没有」= **`null` / 空串**；另外把原版那个哨兵 `"-1"`
+        //   **一并认**（将来若从远端拿回真的 `replaysVersion`，直接喂进来即可）。
+        //   ⛔ **别把 `ReplayRecord.version`（文件格式版本，现读 4）当这一格** —— 两件事，
+        //     `C5_引擎战斗剩余判据.md` Q5.3 明写「别把两条账混在一起」。
+        //   ⚠️ 「灰」的落地：原版那颗钮 `m_Transition = 2 (SpriteSwap)`，`m_SpriteState.m_DisabledSprite`
+        //     **有值**（pid `5693181797853584851`，与 `m_SelectedSprite` 同一颗）——
+        //     但**那个 pid 反查不到名字**（`资料/普查产出_0927/回放_界面真值.md:221` 已记「只查到 pid、没查到名」）
+        //     ⇒ 我们**拿不到原版那张「禁用态」图**（铁律 11 例外①：判据是空的）。
+        //     我们这一档的处置 = **不建命中区（点不到）** ＋ **出声**；要灰就只能是「我们挑的」灰，
+        //     ⛔ 别把它写成「原版灰」。
+        public const string NoReplaySentinel = "-1";
+
+        /// <summary>= 原版 `replayButton.interactable = (replaysVersion != "-1")`（`BattleLogItem__Initialize.c:206`）。
+        /// <para>`replaysVersionOrFile` 可以喂原版那格版本串，也可以喂我们的本地录像文件名 ——
+        /// 两者「没有」的判据见 <see cref="NoReplaySentinel"/> 那段注释。</para></summary>
+        public static bool ReplayAvailable(string replaysVersionOrFile)
+            => !string.IsNullOrEmpty(replaysVersionOrFile) && replaysVersionOrFile != NoReplaySentinel;
+
+        static readonly HashSet<string> _noReplayWarned = new HashSet<string>();
+
+        /// <summary>「这一行没有回放 ⇒ 回放钮不可点」—— **出声一次**（每个 `where|值` 一条，免得每帧刷日志）。
+        /// <para>⛔ 红线：**不许静默**。原版 `interactable = false` 是静默的，但本仓规矩是「没做/不可用要说出来」。</para></summary>
+        public static void NoteNoReplay(string replaysVersionOrFile, string where)
+        {
+            string k = (where ?? "") + "|" + (replaysVersionOrFile ?? "<null>");
+            if (!_noReplayWarned.Add(k)) return;
+            Debug.LogWarning("[Replay] " + (where ?? "回放钮") + "：**这一行没有回放**（判据 `"
+                           + (replaysVersionOrFile ?? "<null>") + "`）⇒ 回放钮按原版**不可点**"
+                           + "（`BattleLogItem__Initialize.c:206`：`interactable = replaysVersion != \"-1\"`；"
+                           + "我们这一侧的映射：空 / `-1` = 没有）");
+        }
+
+        /// <summary>自检用：清掉「没有回放」的去重表（每个宿主开头调一次，免得跨用例互相屏蔽）。</summary>
+        public static void ResetNoReplayWarningsForTest() { _noReplayWarned.Clear(); }
+
         /// <summary>🔴 **黑匣子开关**：开着才逐条记 `traceLogTail` / `traceState`（那两份字符串速写）。
         /// 关着只留 `trace`（每条 4 字节的哈希，够定位到「第几条分叉」）。
         /// 📏 实测：45 条动作 —— **关 9.0 KB / 开 23.1 KB**（差的那十几 KB 全是这两份速写）。
@@ -383,6 +452,7 @@ namespace CardPresentation
             {
                 Directory.CreateDirectory(Dir);
                 string name = FileNameFor(rec);
+                name = UniqueNameFor(name);              // 🔴 2026-10-25（C · RE1 §3-E3）：同一秒不许互相覆盖
                 string path = Path.Combine(Dir, name);
                 string json = JsonUtility.ToJson(rec);           // **紧凑格式**（不 prettyPrint：省一半）
                 File.WriteAllText(path, json);
@@ -402,11 +472,39 @@ namespace CardPresentation
         }
 
         /// <summary>文件名：`时间_我_vs_敌.json`。⚠️ 名字里**只留字母数字**（督军名里可能有空格/斜杠，
-        /// 带进去会变成子目录或非法路径）。</summary>
+        /// 带进去会变成子目录或非法路径）。
+        /// <para>🆕 2026-10-25（执行代理 `C` · `RE1` §3-E3）：**自检可以钉住「现在」** ——
+        /// `ClockForTest` 非 null 时用它（⛔ 生产恒 null）。用途 = 让「同一秒存两局」这条断言**不跨秒翻车**。</para></summary>
+        public static Func<DateTime> ClockForTest;
+
         static string FileNameFor(ReplayRecord rec)
         {
-            string t = DateTime.Now.ToString("yyyyMMdd_HHmmss");
+            var now = ClockForTest != null ? ClockForTest() : DateTime.Now;
+            string t = now.ToString("yyyyMMdd_HHmmss");
             return t + "_" + Safe(rec.myHero) + "_vs_" + Safe(rec.foeHero) + Ext;
+        }
+
+        /// <summary>🔴🆕 **2026-10-25（执行代理 `C` · `RE1` §3-E3）**：同名时加 `_2` / `_3` …（**并出声**，⛔ 不静默覆盖）。
+        /// <para>病灶：文件名精确到**秒**，同一秒里打两局、双方督军名又相同 ⇒ 后写**覆盖**前一份
+        /// （用户数据静默丢失）；而 `battlelog.json` 会留下**两行指向同一个文件**。</para>
+        /// <para>⚠️ 后缀法（不是「加毫秒」）：毫秒只是把窗口缩小 1000 倍、同一毫秒仍可能撞；后缀是**确定性**的。</para></summary>
+        static string UniqueNameFor(string name)
+        {
+            string path = Path.Combine(Dir, name);
+            if (!File.Exists(path)) return name;
+            string stem = Path.GetFileNameWithoutExtension(name);
+            for (int i = 2; i < 1000; i++)
+            {
+                string candName = stem + "_" + i + Ext;
+                if (File.Exists(Path.Combine(Dir, candName))) continue;
+                Debug.LogWarning($"[Replay] 同名录像已存在（`{name}`）⇒ 这一局改存 `{candName}`"
+                               + "（同一秒两局、双方督军名又相同的形状；⛔ 绝不覆盖前一份）");
+                return candName;
+            }
+            string ticks = DateTime.Now.Ticks.ToString();
+            string fallback = stem + "_" + ticks + Ext;
+            Debug.LogWarning($"[Replay] 同名录像的后缀已经用到 999 ⇒ 改存 `{fallback}`");
+            return fallback;
         }
 
         static string Safe(string s)

@@ -2018,7 +2018,18 @@ namespace RuleEngine
                     //   ⚠️ 判据仍是 `CardDef.IsActiveActionKeyword`（唯一一份词表）—— 本段只负责
                     //   「这一块的头是哪个词」（`BuildAbilityBlocks` 给出的块首段下标 → `segLeadKeyword`）。
                     if (IsAlternativeActionBlockHead(b, blockStartSeg, segLeadKeyword)) continue;
-                    var spec = abil[b];
+                    // 🔴🆕 **2026-10-25（引擎线 `A4`）：按【块头】对齐，⛔ 不再假定「第 b 块 = 第 b 条 ability」。**
+                    //   判据（数据级反例）：`SOR65` 的 `desc` 印的是 `Pray: … . Talent: …`，而
+                    //   `abilityTargets = [{trigger:46 Talent, ta:[0]}, {trigger:655 Pray, ta:[20]}]`
+                    //   —— **数组序 = `cardAbilities` 的序列化序**，与卡面文字序**不一致**
+                    //   （`资料/普查产出_1024b/E6_DiedLastTurn与desc路.md` §七·1 顺手发现 1）。
+                    //   按位置贴 ⇒ 第 1 块（`Talent`）拿到 `Pray` 行的 `ta`（真错位，不只是来源错）。
+                    //   ⇒ 块头**认得出**（`segLeadKeyword` → `AbilityTrigger` 数）且那条 trigger 在
+                    //   `abil` 里**唯一存在**时按 trigger 对齐；其余情况**原样退回下标 `b`**
+                    //   （= 改前行为，宁可不改也不猜 —— 这条纪律与 `TargetCriteriaEval` 的 `null` 一致）。
+                    int ab = AlignAbilityIndexByBlockHead(b, blockStartSeg, segLeadKeyword, abil, card);
+                    if (ab < 0 || ab >= abil.Count) continue;
+                    var spec = abil[ab];
                     var blk = blocks[b];
                     if (spec == null || blk == null) continue;
                     // ---- `targetsAffected`（v17）----
@@ -2039,7 +2050,7 @@ namespace RuleEngine
                             //   ⇒ 只有「这一块里恰好一条 op」时，「第 0 条 op = 第 0 条 logic」才成立。
                             //   多 op 块 ⇒ **不贴 + 记 `logic-gate`**（= 回到 v25 之前的「不筛」，
                             //   并在 `ApplyTargetCriteriaFilter` 出声；⛔ 不按位置猜）。
-                            if (blk.Count == 1) AttachTargetCriteria(card, blk[j], b, 0);
+                            if (blk.Count == 1) AttachTargetCriteria(card, blk[j], ab, 0);
                             else if (blk[j] != null && string.IsNullOrEmpty(blk[j].TargetCriteriaGap))
                                 blk[j].TargetCriteriaGap = "logic-gate";
                         }
@@ -2090,6 +2101,163 @@ namespace RuleEngine
                     }
                 }
             }
+        }
+
+        /// <summary>
+        /// 🆕 **2026-10-25（引擎线 `A2` · `A2-1`）：`At the start|end of ... turn` 这句**片段正文**
+        /// 里的 `forceattack`，把该卡唯一那条 ability 的 36 格 `targetCriteria` 贴上去。
+        ///
+        /// <para>**为什么需要它**：棋盘单位自己的回合起止正文是在 `RuleCore.ResolveAtTurn` 里
+        /// `EffectText.Parse(cl.Body, …)` **单独**解析的（不经过 `Parse(desc, card: …)`）⇒
+        /// `AssignAbilityTargets` 那条「贴 criteria」的路**根本没跑**。今天全池只有 **1 张**卡
+        /// 的 at-turn 正文是强制攻击：`GOF86 Unleashed Tramplasquig`
+        /// （`At the start of each turn attack a random non Flying enemy`，`abilityTargets = [{trigger:30, ta:[10]}]`）
+        /// ⇒ 它的 `targetCriteria` 里 `excludeCondition=dealtKillDmg` 那半格**今天完全没生效**
+        /// （「非飞行」那半由文本 `NotKeyword` 已覆盖，见 `ParseTarget` 的 `non <关键词>` 支）。</para>
+        ///
+        /// <para>🔴 **窄闸（任一不过 ⇒ 什么都不做）**，这样对其它 12 张 at-turn 单 ability 卡零影响：
+        /// ① `ops.Count == 1` 且它是 `forceattack`、`Target == null`（本卡自己打）、`Target2 != null`；
+        /// ② 卡表是 v17+、且**恰好一条** ability、`TargetsAffected` 恰好 1 格；
+        /// ③ 那条 ability 的 `trigger` 与这句话的相位一致（`turn_start` ⇒ 30/31 · `turn_end` ⇒ 40/41——
+        ///    31 = `TurnStartPlayer`「your turn」、30 = `TurnStart`「each turn」，与
+        ///    `EffectText.AtTurnClauses` 的 `View` 同义）。</para>
+        /// <para>⚠️ 贴「同一个 `TargetCriteria` 对象」的**两半**：36 格（`TargetCriteriaSet`）＋
+        /// `unitConditions` 的 `role="target"` 行（`TargetCondition` = `conditionsFilter`/`excludeCondition`）。
+        /// ⛔ 不贴 `SubjectTargetsAffected`：那一格（200/201 分派、`repeats`）的归位判据是另一条账，
+        /// at-turn 正文没有「第 j 条 op = 第 j 条 logic」的证明。</para>
+        /// </summary>
+        public static void AttachAtTurnForceAttackCriteria(CardDef card, List<EffectOp> ops, string phase)
+        {
+            if (card == null || ops == null || ops.Count != 1) return;
+            var op = ops[0];
+            if (op == null || op.Verb != "forceattack" || op.Target != null || op.Target2 == null) return;
+            if (op.TargetCriteriaSet != null) return;              // 已经贴过（例如整条 desc 就是这一句）
+            var abil = card.AbilityTargets;
+            if (abil == null || abil.Count != 1 || !card.AbilityTargetsVersioned) return;
+            var spec = abil[0];
+            if (spec == null) return;
+            var ta = spec.TargetsAffected;
+            if (ta == null || ta.Length != 1 || ta[0] < 0) return;
+            bool start = phase == "turn_start";
+            int trig = spec.Trigger;
+            if (start ? (trig != 30 && trig != 31) : (trig != 40 && trig != 41)) return;
+            AttachTargetCriteria(card, op, 0, 0);
+            // 同一格 `(ab=0, lg=0)` 的 `unitConditions` `role = "target"` 行
+            // （原版**同一个** `TargetCriteria` 对象里的 `conditionsFilter` / `excludeCondition`；
+            //  我们拆成两列，消费端按 `(ab,lg)` 拼回一个 —— 见 `CardDef` 那段 join 规则）。
+            // ⚠️ 只补 `null`（整条 desc 路已经贴过的不覆盖）；没有行 = `none(0)` = 放行。
+            CardDef.ConditionSpec cond;
+            if (op.TargetCondition == null && card.TryGetCondition(0, 0, "target", out cond) && cond != null)
+                op.TargetCondition = cond;
+        }
+
+        /// <summary>
+        /// 🆕 **2026-10-25（引擎线 `A3` · `A3-1`）：at-turn 片段正文的**总入口** ——
+        /// 棋盘单位 / 手牌陷阱那两条路都只调这一个，⛔ 别在调用点按动词各写一份。
+        ///
+        /// <para>今天管两族（判据各自写在被调方法上）：</para>
+        /// <list type="bullet">
+        /// <item><see cref="AttachAtTurnForceAttackCriteria"/> —— `Target == null` 的 `forceattack`
+        ///   （全池唯一 `GOF86`，`A2` 2026-10-25 建）。</item>
+        /// <item><see cref="AttachAtTurnDealGiveCriteria"/> —— `deal` / `give` 且 `Target != null`
+        ///   （`A3` 2026-10-25 建；全池命中 `AM18` / `AM67` / `TAU6` / `TAU7` / `TAU13` /
+        ///   手牌陷阱 `Poisoned Supplies`，逐卡裁定见那份方法 doc）。</item>
+        /// </list>
+        /// </summary>
+        public static void AttachAtTurnBodyCriteria(CardDef card, List<EffectOp> ops, string phase)
+        {
+            AttachAtTurnForceAttackCriteria(card, ops, phase);
+            AttachAtTurnDealGiveCriteria(card, ops, phase);
+        }
+
+        /// <summary>
+        /// 🆕 **2026-10-25（引擎线 `A3` · `A3-1`）：把 at-turn 片段正文里 `deal` / `give` 那一条 op
+        /// 挂上该 ability 的 logic 级 `targetCriteria`（36 格 + `role="target"` 的 cond/ex）。
+        ///
+        /// <para>**判据（第一权威 = 全量反编译）**：原版 `CardScript.OnTurnStart/OnTurnEnd`
+        /// （`CardScript__OnTurnStart.c:180-200`）走 `RawCardScript.OnTrigger(30/31/40/41, …)` →
+        /// `RawCardScript__TriggerAbilities.c:207-250`，对**通过 `CanTriggerAbility` 的那条
+        /// `cardAbilities[i]`** 取 `abilityLogic[j].targetCriteria` 交给
+        /// `AbilityLogic__GetTargets.c`（`:1086-1095` 的逐候选 `FilterMethods.CheckIfMeetsCriteria`）
+        /// ⇒ **回合起止能力的目标池同样按 logic 级 criteria 筛**，与打出族同一条链。</para>
+        ///
+        /// <para>🔴 **窄闸（任一不过 ⇒ 什么都不做）** —— 每一道都对应一个「说不清」的理由：</para>
+        /// <list type="number">
+        /// <item>`ops.Count == 1` 且它是 `deal` / `give`（多 op 的片段 ⇒ 「第 j 条 op = 第 j 条 logic」
+        ///   无判据，实测反例 = `TL37`「destroy this unit **and** deal 3 damage…」，文字序是
+        ///   destroy→deal 而 criteria 行序是 `lg0 = ta10 enemy` / `lg1 = ta20 self`，**正好相反**）。</item>
+        /// <item>`op.Target != null` 且**不是** `Subjectless` / `HandOnly` —— 那两族的目标不是
+        ///   `ResolveTargets` 的**棋盘池**：`Subjectless` 走「施放者自己」早退（`GSC5`），
+        ///   `HandOnly` 走 `DoGive` 的**手牌 buff** 支（原版那条 criteria 是 `HandEffect.targetCriteria`，
+        ///   `GOF82`；我们的等价物是 `spec.SubtypeFilter`，见 `EffectText` 的 `in your hand` 支）。</item>
+        /// <item>卡表 v17+ 且**恰好一条** ability 的 trigger 落在这个相位上
+        ///   （`turn_start` ⇒ 30/31 · `turn_end` ⇒ 40/41；同义见 `AtTurnClauses` 的 `View`）——
+        ///   ⛔ 不按「第几条」猜：`CanTriggerAbility.c:71` 是按 `ability.trigger == trigger` 选的。</item>
+        /// <item>那条 ability 的 `targetsAffected` **恰好 1 格且 = 10 (`allFiltered`)**
+        ///   —— 只有这一档的语义是「在 `ResolveTargets` 已经建好的棋盘候选池上逐候选筛」
+        ///   （`AbilityLogic__GetTargets.c` 的 `iVar6 == 10` 那一支之后才落到 `:1086` 的筛）。
+        ///   其余档是**别的建池器**，本版没接：`20 self`（身份比较）、`50 inHandFiltered`、
+        ///   `100 adjacentToSelfIfMeetsCriteria`（`TargetCriteriaEval` 对 `ta=100` 明确返回
+        ///   `null` = 判不了 ⇒ 贴上去只会每次出声、零筛）。</item>
+        /// </list>
+        ///
+        /// <para>⚠️ **今天的行为面（如实标着）**：命中的这 5 张卡的 36 格内容全是
+        /// `enemyUnits=1 + includeHero/includeMinions/includeRemnants=1 + maxTargets=1`
+        /// （= 「随机一个敌人」这件事文本层已经表达）＋（3 张）`excludeCondition=220`。
+        /// 而 220 的语义是「将死」（`EnoughPendingDamageToDie`），**我们从 `AddSide` 起就不收
+        /// `!IsAlive` 的候选** ⇒ 这一半今天也筛不掉任何人。⇒ **本笔零可观测行为变化**；
+        /// 它修的是「数据不流到消费端」这条结构缺口，将来 `AddSide` 按 `A1426`（原版目标层
+        /// 不按生死筛）放开时，这一格才会变成承重件。</para>
+        /// </summary>
+        public static void AttachAtTurnDealGiveCriteria(CardDef card, List<EffectOp> ops, string phase)
+        {
+            if (card == null || ops == null || ops.Count != 1) return;
+            var op = ops[0];
+            if (op == null) return;
+            if (op.Verb != "deal" && op.Verb != "give") return;
+            if (op.Target == null) return;                       // 无主语/自己那一族不是棋盘池
+            if (op.Target.Subjectless || op.Target.HandOnly) return;
+            if (op.TargetCriteriaSet != null) return;            // 整条 desc 路已经贴过
+            var abil = card.AbilityTargets;
+            if (abil == null || !card.AbilityTargetsVersioned) return;
+            int ab = UniqueAtTurnAbilityIndex(abil, phase);
+            if (ab < 0) return;
+            var spec = abil[ab];
+            if (spec == null) return;
+            var ta = spec.TargetsAffected;
+            if (ta == null || ta.Length != 1 || ta[0] != 10) return;   // 只认 allFiltered
+            AttachTargetCriteria(card, op, ab, 0);
+            CardDef.ConditionSpec cond;
+            if (op.TargetCondition == null && card.TryGetCondition(ab, 0, "target", out cond) && cond != null)
+                op.TargetCondition = cond;
+        }
+
+        /// <summary>
+        /// 🆕 2026-10-25（`A3-1`）：`phase` 对应的**唯一**那条 ability 的下标；不唯一 / 没有 ⇒ `-1`。
+        /// 判据 = `CardAbility__CanTriggerAbility.c:71` 的第一道闸（`ability.trigger == trigger`），
+        /// 而相位 ↔ 原版 `AbilityTrigger` 的两档由 `CardScript__OnTurnStart.c:180-190` /
+        /// `OnTurnEnd` 的 `OnTrigger(0x1e/0x1f … / 0x28/0x29 …)` 给出
+        /// （30 `TurnStart` 与 31 `TurnStartPlayer` 都落在 `turn_start`，40/41 落在 `turn_end`）。
+        /// ⚠️ 同相位落**两条** ability 时（例如同时有 30 与 31）⇒ 说不清是哪条 ⇒ `-1`（⛔ 不猜）。
+        /// </summary>
+        static int UniqueAtTurnAbilityIndex(System.Collections.Generic.IReadOnlyList<CardDef.AbilityTargetSpec> abil,
+                                            string phase)
+        {
+            if (abil == null) return -1;
+            bool start = phase == "turn_start";
+            if (!start && phase != "turn_end") return -1;
+            int found = -1, hits = 0;
+            for (int i = 0; i < abil.Count; i++)
+            {
+                var s = abil[i];
+                if (s == null) continue;
+                int t = s.Trigger;
+                bool match = start ? (t == 30 || t == 31) : (t == 40 || t == 41);
+                if (!match) continue;
+                found = i;
+                hits++;
+            }
+            return hits == 1 ? found : -1;
         }
 
         /// <summary>🆕 v25（2026-10-24 · 执行代理 `W2` · `C5` Q4）：把 `(ab, lg)` 那条 logic 的
@@ -2159,6 +2327,57 @@ namespace RuleEngine
             int s = blockStartSeg[b];
             if (s < 0 || s >= segLeadKeyword.Count) return false;
             return CardDef.IsActiveActionKeyword(segLeadKeyword[s]);
+        }
+
+        /// <summary>🔴🆕 **2026-10-25（引擎线 `A4`）：第 <paramref name="b"/> 个能力块该用
+        /// `cardAbilities` 里的**哪一条**（返回下标；**永远返回一个合法下标**，最坏 = `b`）。
+        ///
+        /// <para>**为什么要它**：`abilityTargets` 那一列的数组序 = **`cardAbilities` 的序列化序**，
+        /// **不是卡面文字序**。数据级反例（`资料/普查产出_1024b/E6_DiedLastTurn与desc路.md` §七·1）：
+        /// `SOR65` 的 `desc` = `Pray: … . Talent: …`，而
+        /// `abilityTargets = [{trigger:46 Talent, ta:[0]}, {trigger:655 Pray, ta:[20]}]`
+        /// ⇒ 按位置贴会把 `Pray` 块贴上 `Talent` 行的 `ta`（`E1`/`E6` 那笔账的「块序假设」不成立）。
+        /// 今天不可见（督军从不出牌、生产侧 0 读者），但**接 full-desc 之前必须先修**（台账 `A4`）。</para>
+        ///
+        /// <para>**判据链**：块头词（`Parse` 的 `SegResult.HeadKeyword`，由
+        /// <see cref="BuildAbilityBlocks"/> 的块首段下标取）→
+        /// <see cref="CardDef.AbilityTriggerNumber(string)"/>（原版 `AbilityTrigger` 数值，**唯一一份表**）
+        /// → 在 `abil` 里找 **`Trigger` 等于它的那一条**。</para>
+        ///
+        /// <para>🔴 **三种情况一律退回下标 `b`（⛔ 不猜）**：
+        /// ① 拿不到块头词（`segLeadKeyword` 没传 / 越界 / 空 = 主正文块 —— 那一块本来就该是第 b 条）；
+        /// ② 块头词认不出 `AbilityTrigger`（`-1`）；
+        /// ③ `abil` 里**没有或不止一条**这个 trigger（不是唯一 ⇒ 说不清是哪一条）。
+        /// 对齐结果与 `b` 不同时**出声一次**（同一 `(卡, b)` 只喊一次；⛔ 不许静默改来源）。</para>
+        /// </summary>
+        static int AlignAbilityIndexByBlockHead(int b, List<int> blockStartSeg,
+                                               List<string> segLeadKeyword,
+                                               System.Collections.Generic.IReadOnlyList<CardDef.AbilityTargetSpec> abil,
+                                               CardDef card)
+        {
+            if (blockStartSeg == null || segLeadKeyword == null || abil == null) return b;
+            if (b < 0 || b >= blockStartSeg.Count || b >= abil.Count) return b;
+            int s = blockStartSeg[b];
+            if (s < 0 || s >= segLeadKeyword.Count) return b;
+            string head = segLeadKeyword[s];
+            if (string.IsNullOrEmpty(head)) return b;                 // ① 主正文块
+            int trig = CardDef.AbilityTriggerNumber(head);
+            if (trig < 0) return b;                                   // ② 认不出
+            int found = -1, hits = 0;
+            for (int i = 0; i < abil.Count; i++)
+            {
+                if (abil[i] == null || abil[i].Trigger != trig) continue;
+                hits++;
+                found = i;
+            }
+            if (hits != 1) return b;                                  // ③ 没有 / 不唯一
+            if (found != b)
+                CardTargetNotice("abilalign|" + (card != null ? card.Id : "?") + "|" + b,
+                    $"卡「{(card != null ? card.Name : "?")}」第 {b} 个能力块的块头是 `{head}`"
+                  + $"（`AbilityTrigger` = {trig}），而 `cardAbilities[{found}]` 才是那一条"
+                  + $" ⇒ 按**块头**对齐（⛔ 不按位置）。判据 = 卡面文字序 ≠ `abilityTargets` 序列化序"
+                  + "（台账 `A4` · `E6` §七·1 的 `SOR65` 反例）。");
+            return found;
         }
 
         /// <summary>这一趟解析的是不是**整条 `desc`**（只有整条 desc 的段下标才等于 ability 下标）。

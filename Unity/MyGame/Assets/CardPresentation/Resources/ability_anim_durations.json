@@ -1,5 +1,5 @@
 {
- "_headline": "`A1767`：逐卡「发动能力」时长 = 该卡 `activeAbility` 各 CardAnim 的 `AnimInfo.GetAnimDuration()` 之和。93 张卡 · 中位 1.0 · 表里没有这张卡 ⇒ 退回 `fallbackSeconds` 并**出声**。判据长文 / 未覆盖名单 → `数据/游戏数据/ability_anim_durations.json` 的 `_headline` 与 `uncovered`。",
+ "_headline": "`A1767`：逐卡「发动能力」时长 = 该卡 `activeAbility` 各 CardAnim 的 `AnimInfo.GetAnimDuration()` 之和。93 张卡 · 中位 1.0 · 表里没有这张卡 ⇒ 退回 `fallbackSeconds` 并**出声**。另有 1 张卡的**替代支**时长在 `alt` 列（SW21）—— 原版按棋盘状态二选一，两张时长都记着，⛔ 不是二选一后覆盖 `s`。判据长文 / 未覆盖名单 → `数据/游戏数据/ability_anim_durations.json` 的 `_headline` 与 `uncovered`。",
  "count": 93,
  "fallbackSeconds": 1.0,
  "generatedBy": "d:/4/Unity/工具/gen_ability_anim_durations.py",
@@ -407,6 +407,7 @@
    "s": 0.5
   },
   {
+   "alt": 0.2,
    "id": "SW21",
    "n": 2,
    "name": "Wulfen Pack Leader",

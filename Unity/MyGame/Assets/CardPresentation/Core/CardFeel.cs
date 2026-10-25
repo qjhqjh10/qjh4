@@ -38,7 +38,13 @@ namespace CardPresentation
         /// <summary>我们这套的像素密度：可见高 10 世界单位 = 1080 px（`LayoutSpace`）</summary>
         public const float OurPxPerUnit = 108f;
 
-        /// <summary>原版 1 世界单位 = 我们 1.6865 世界单位（= 182.14 / 108）</summary>
+        /// <summary>原版 1 世界单位 = 我们 1.6865 世界单位（= 182.14 / 108）。
+        /// <para>🔴 **2026-10-25（`AU1` · `J1` §8 判据闭合）：这个换算**是对的，⛔ 别删**。**
+        /// 上一轮曾怀疑「原版卡的父链 `MinionManager` 可能带缩放 ⇒ 我们的后坐被放大 1.686 倍」——
+        /// `J1` 逐场实测 **13 个战场的 `MinionArea`（= `MinionManager` 的 transform）`lossyScale` 全 = (1,1,1)**
+        /// ⇒ 原版 `DOPunchPosition`（打 `localPosition`）的世界幅度就是 `GetPushBackFactor` 那 0.5/1.0/1.5 **原版单位**；
+        /// 而同一段**屏幕**位移在原版是 182.14 px/单位、在我们是 108 px/单位 ⇒ **×1.6865 正是把原版单位换成我们的单位**。
+        /// ⛔ 删掉它 ⇒ 后坐只有原版 **59%** 的屏幕位移。</para></summary>
         public const float UnitsToOurs = OriginalBoardPxPerUnit / OurPxPerUnit;
 
         /// <summary>把一个**原版世界单位的位移**换成我们的世界单位（见文件头「3D → 2D 的迁移」）</summary>
@@ -1100,10 +1106,22 @@ namespace CardPresentation
         {
             if (tr == null) return null;
             Quaternion homeRot = tr.rotation;
-            // 段2 的朝向：先绕 up 转 90°，再叠 `attackRotationAngle`（倾角）
-            Quaternion toTarget = homeRot
-                                * Quaternion.Euler(0f, AttackTurnDeg, 0f)
-                                * Quaternion.Euler(0f, 0f, AttackRotDeg);
+            // 段2 的朝向 🔴 **2026-10-25（`AU1` · `J1` §7 判据闭合）—— 改成【世界基】**：
+            //   原版 `CardScript._AttackMeleeAnim_d__357__MoveNext.c:216-257` 逐行是
+            //     ① `axis0 = Vector3.up`（`UnityEngine.Vector3` 的 static field `+0x18`）；
+            //     ② `v1 = (目标位置 − 自己位置).normalized()`（世界方向，同一个 `Vector3.normalized`）；
+            //     ③ `v2 = Quaternion.AngleAxis(90°, axis0) * v1`（`Quaternion × Vector3` 重载 ⇒ **Vector3**）；
+            //     ④ `q = Quaternion.AngleAxis(card.attackRotationAngle(25°), v2)` → `DORotateQuaternion(q, 0.1)`。
+            //   ⇒ **旋转基 = 世界 up + 世界空间「自己→目标」方向；不乘 home rotation、不乘目标旋转。**
+            //   ⚠️ 改前我们写的是 `homeRot × Euler(0,90,0) × Euler(0,0,25)`（先 25° 再绕 Y 转 90°）——
+            //     与原文**不等价**（顺序与基都不同）。上一轮把它记成「12 字节未解出」，实际那 12 字节就是 `Vector3.up`。
+            //   ⚠️ `endPos` = 段1 的落点（`MeleeEndPos` = 目标位置 − margin×方向）⇒ 它与「目标位置」在**同一条射线**上
+            //     ⇒ `normalize(endPos − 自己位置)` 与原文 `normalize(目标位置 − 自己位置)` **同向**（我们拿不到目标位置）。
+            Vector3 toTargetDir = endPos - tr.position;
+            Quaternion toTarget = toTargetDir.sqrMagnitude > 1e-8f
+                                ? Quaternion.AngleAxis(AttackRotDeg,
+                                      Quaternion.AngleAxis(AttackTurnDeg, Vector3.up) * toTargetDir.normalized)
+                                : homeRot;   // 两点重合：原版 `normalized()` 会给 0 向量（NaN）⇒ 我们保持原朝向
 
             var seq = DOTween.Sequence();
             seq.Append(tr.DOMove(endPos, AttackStepTime).SetEase(Ease.Linear));       // 段1（命中同帧）

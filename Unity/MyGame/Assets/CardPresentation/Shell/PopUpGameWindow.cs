@@ -278,10 +278,19 @@ namespace CardPresentation
         /// `Deck/DeckRuntime.cs` 那几处传的是**键**。两种都能用：`Term()` 先查 `Terms`、再转 `Loc.T`，
         /// 明文不是键 ⇒ 原样返回（见 `Term` 的 doc）。</para>
         /// <para>⚠️ `mgr == null` 时**也把它建出来**、只出声不挂锚点（同 `TrophyInfoPopup.Open` 那条兜底：
-        /// 红线「不许静默失败」）。</para></summary>
+        /// 红线「不许静默失败」）。</para>
+        /// <para>🆕 **2026-10-25（`C5 Q5.3` · 铁律 5 就地订正 `closeOnEsc`）**：原来这里**写死** `false`
+        /// 并注「实证 `closeOnESC = 0`」。那句实证说的是**两扇 prefab 自己的序列化值**，而**原版运行时那个值
+        /// 由调用方决定**：`WindowsManager.ShowPopUp(text, localizeTexts, closeOnEsc, …)` 的**第 3 个形参**
+        /// → `LoadPopUpAndShow(…, closeOnESC)` → `PopUpGameWindow.ConfigurePopUp(…, closeOnEsc)` 末尾
+        /// **写进这个字段**（`PopUpGameWindow__ConfigurePopUp.c:44`：`*(param_1 + 0x39) = param_5`；
+        /// 形参名 = `d:/2/Warpforge_code/Scripts/Assembly-CSharp/PopUpGameWindow.cs:25` 的签名桩）。
+        /// ⇒ 本方法现在**可由调用方指定**，默认 `false` = **现状不变**（⛔ 别一刀切成 1 —— 每个原版调用点
+        /// 传的值要逐条核，例如 `DeckEditingWindow.TrySaveDeck` 那处原版传的就是 **0**）。</para></summary>
         public static PopUpGameWindow Create(WindowsManager mgr, string messageKey,
                                              string primaryKey, System.Action onPrimary,
-                                             string secondaryKey = null, System.Action onSecondary = null)
+                                             string secondaryKey = null, System.Action onSecondary = null,
+                                             bool closeOnEsc = false)
         {
             bool two = !string.IsNullOrEmpty(secondaryKey);
             var go = new GameObject(two ? "MessagePopupWindow2Buttons" : "MessagePopupWindow");
@@ -289,7 +298,9 @@ namespace CardPresentation
             win._prefabTwo = two;                        // 🔴 prefab 版**建实例时定死**（复用不再换，见 `TwoButtons`）
             win.type = WindowType.Popup;                 // 实证 `type = 1`
             win.placement = WindowsPlacement.Popup;      // 实证 `windowsPlacement = 15`
-            win.closeOnEsc = false;                      // 实证 `closeOnESC = 0`（**ESC 关不掉它**）
+            // 🔴 2026-10-25：**不是**「实证 `closeOnESC = 0`」（那是 prefab 序列化值）；原版运行时由
+            //   `ShowPopUp` 的第 3 个实参经 `ConfigurePopUp` 覆盖 ⇒ 这里照调用方给的那个值写（见方法 doc）。
+            win.closeOnEsc = closeOnEsc;
             win.extraScaleSmallScreen = 1f;              // 实证 `extraScaleSmallScreen = 1.0`（=「不覆盖」语义）
             win.Configure(messageKey, primaryKey, onPrimary, secondaryKey, onSecondary);
             win.Manager = mgr;

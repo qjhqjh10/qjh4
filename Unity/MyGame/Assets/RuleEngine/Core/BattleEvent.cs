@@ -526,6 +526,32 @@ namespace RuleEngine
         /// 语义与哨兵同 <see cref="InstanceId"/>（`0` = 没写）。</summary>
         public int TargetInstanceId;
 
+        /// <summary>
+        /// 🔴🆕 **2026-10-25（执行代理 `E4` · `E4-3`）：这一条 <see cref="EvtKind.Hit"/> 是不是
+        /// 易伤那【第二拍】**（原版 `CardScript._ReceiveDamage_d__381__MoveNext.c:188-257`）。
+        ///
+        /// <para>**原版是两拍、两条 `DamageInfo`**：主伤害那一条走完（`:188` 之后血已扣），
+        /// 若目标还活着且带 `CurrentVulnerable > 0`，就再造一条
+        /// `DamageInfo(actingCard, damage = CurrentVulnerable, type = (本次 type==Attack(4)) + 7)`
+        /// 交给 `BattleManager.DealMultiDamage(..., priority:2)`（`:226` / `:252-254`）——
+        /// 它**再走一遍** dodge/shield/invuln → 堡垒 → 护甲 → 血，所以第二拍落到血上的是
+        /// `max(1, 易伤 − 护甲)`（我们的 `RuleCore.VulnerableDamagePart`）。
+        /// 时长上：主拍 `_ReceiveDamage` = **1.0 s**、易伤拍 = **1.4 s**（`:291-303` 的 0.4 不跳过 1.0）
+        /// ⇒ 合计 **2.4 s**（判据全表 → `资料/普查产出_1025/J3_判据_战斗剩余四条.md` §3）。</para>
+        ///
+        /// <para>**为什么要这一位**：我们的引擎原来把易伤那份**折进**同一条 `Hit` 的 `Amount` 里、
+        /// 只发一条事件 ⇒ 表现层（`EventTiming.HitIsVulnerable`）只能按「受击方现在带不带 `vulnerable`」
+        /// 猜，于是**唯一的**那条被排成 1.4 s（主拍那 1.0 s 根本没建模）。
+        /// 现在引擎发**两条** `EvtKind.Hit`：第 1 条 = 主伤害（本字段 `false`）、第 2 条 = 易伤那份
+        /// （本字段 `true`，`Amount` = <see cref="RuleCore.VulnerableDamagePart"/>）。
+        /// ⇒ 表现层应当**只按本字段**判 1.4 s（⛔ 别再按「受击方带不带 `vulnerable`」猜，
+        /// 那会把主拍也排成 1.4）。</para>
+        ///
+        /// <para>⚠️ 只有 `Hit` 会填；别的种类**保持 `false`**（⛔ 别拿它当「这次伤害含易伤」的判据 ——
+        /// 那是两条事件之间的关系，不是单条事件的属性）。</para>
+        /// </summary>
+        public bool IsVulnerableSecondHit;
+
         /// <summary>`Ability` / `Trigger` 专用：哪个关键词（`rally` / `slay` / `ability`…）</summary>
         public string Keyword;
         /// <summary>`Ability` / `Trigger` 专用：效果原文（`Damage 2 EnemyUnit`）；

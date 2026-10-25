@@ -87,6 +87,14 @@ namespace CardPresentation
         public string name;
         public float s;      // Σ GetAnimDuration()（秒）
         public int n;        // 累了几条 CardAnim（诊断：=1 的卡只有一条动画）
+
+        /// <summary>🆕 **2026-10-25（`AU1` · `J1` §6）：替代支（`alternativeAbility`）的时长（秒）**。
+        /// **只在非 0 时由生成器写** ⇒ 缺键 = 0 = 「这张卡没有替代支」。现读全池只有 `SW21`（0.2）。
+        /// <para>判据：`RawCardScript.GetActiveAbility` 在 `hasAlternativeAbility &amp;&amp; !MeetsCriteria(normalAbilityBoardCriteria)`
+        /// 时返回 `alternativeAbility`（`+0x2B8`）⇒ 那一次的动画时长按它的 `cardAnimations` 累。
+        /// ✅ **2026-10-25（`TL` §2）**：生成器已补这一列 —— 现读运行期件 **`{"alt": 0.2, "id": "SW21", …}`**
+        /// （全池只有这 1 张带替代支；缺键 = 0 = 「没有替代支」）。</para></summary>
+        public float alt;
     }
 
     [Serializable]
@@ -191,6 +199,21 @@ namespace CardPresentation
                     + "（= 表的中位数，与旧常数恰好相等）。原因只有两种：① 它不在 2022 快照里"
                     + "（UM/SW 那批扩军）② 原版这张卡的 `activeAbility` 一条 CardAnim 都没有。"
                     + "逐张名单 → `数据/游戏数据/ability_anim_durations.json` 的 `uncovered`");
+            return false;
+        }
+
+        /// <summary>🆕 **2026-10-25（`AU1` · `J1` §6）：按**替代支**取这张卡的时长（`alternativeAbility`）。
+        /// 返回 `false` = **这张卡没有替代支**（`alt` 缺键 / 0）—— 消费端 `EventTiming.AbilityHoldOf` 会退到普通支
+        /// （⛔ 别在这里拿普通支的值冒充替代支）。✅ 现读 `alt` 只有 `SW21 = 0.2`（`TL` §2 已补该列）。
+        /// 判据见 <see cref="AbilityAnimEntry.alt"/>。本方法**不出声**（「没有替代支」是常态，不是缺陷）。</summary>
+        public static bool TryGetAlternative(string cardIdOrName, out float seconds)
+        {
+            EnsureLoaded();
+            seconds = 0f;
+            if (string.IsNullOrEmpty(cardIdOrName)) return false;
+            AbilityAnimEntry e;
+            if (_byId.TryGetValue(cardIdOrName, out e) && e != null && e.alt > 0f) { seconds = e.alt; return true; }
+            if (_byName.TryGetValue(cardIdOrName, out e) && e != null && e.alt > 0f) { seconds = e.alt; return true; }
             return false;
         }
 

@@ -122,10 +122,24 @@ namespace CardPresentation
     }
 
     /// <summary>
-    /// 卡面左下那两颗攻击数值格 —— 「这个单位能被选中」的底光点亮哪一颗。
-    /// （原版 `Base Attack Counters` 下就两个 `Highlight`：近战一个、远程一个，**没有技能那一档**。）
+    /// 卡面左下那两颗攻击数值格的老三态读口（`None / Melee / Ranged`）。
+    /// <para>🔴 **2026-10-25（`CF`）：它已经只是 <see cref="CardView.SetOwnAttackType"/> 的**同义映射**，
+    /// ⛔ 不再表达「目标卡该亮哪一颗」。**原版没有「拿攻击方的打法去点亮**目标**卡底光」这条语义**
+    /// —— 底光与数值放大都由**这张卡自己的** `attackType` 驱动（判据 →
+    /// `资料/普查产出_1025/J2_判据_卡面高亮族与渲染残项.md` §A1·6，两条触发链逐句读过）。</para>
+    /// <para>保留它只为一件事：`Battle/BattleDriver.HighlightTargets` 与 `Editor/BattleScene` 的自检
+    /// 还在读 `CurrentGem` / 调 `SetTargetGem`。⚠️ **那几处要改接 `SetOwnAttackType`**
+    /// （数据源 = 引擎的 `UnitState.LastAttackType`）—— 那一跳在 `Battle/BattleDriver.cs`，不在本文件。</para>
     /// </summary>
     public enum TargetGem { None, Melee, Ranged }
+
+    /// <summary>原版 `AttackTypes`（`dump.cs:24798-24807`）—— **数值逐位照抄**：
+    /// `None 0 / Melee 1 / Ranged 2 / Spell 3 / Active 4`。
+    /// <para>卡面只有 **Melee / Ranged 两档**有 `HighlightAttackType` 实例（每卡恰好 2 个，
+    /// `Spell` / `Active` 没有实例）⇒ 后两档传进来时卡面底光与数值**都不动**。</para>
+    /// <para>⚠️ 与 `Battle/AttackSelector.cs` 的 `AttackKind`（`None 0 / Melee 1 / Ranged 2 / Ability 4`）
+    /// **数值天然兼容**（`Ability` = 4 = `Active`）—— 接线时直接整数转即可，别另写一张映射表。</para></summary>
+    public enum AttackTypes { None = 0, Melee = 1, Ranged = 2, Spell = 3, Active = 4 }
 
     /// <summary>
     /// **这张卡按哪个展示场景组装** —— 原版是**三条彼此独立的判据**，不是一个统一的「显示模式」枚举
@@ -207,6 +221,33 @@ namespace CardPresentation
         /// <summary>**战斗放大窗**（`Card Display Window/Card Display/Cards`）。原版那 5 张
         /// `fontSize = 16`，且 `InitializeCardForDisplay` 运行时显式把阴影设成 `(0,0,0,0.8)`。</summary>
         ZoomWindow = 1,
+    }
+
+    /// <summary>原版 `CardTextsController` 的**九个文字态**（2026-10-25 `CF-6`）。
+    /// <para>出处（一手）：`dump.cs` 的同名枚举 + 卡 prefab 上 `CardTextsController` 的 9 份
+    /// `objectsToActivate` / `objectsToDeactivate` 名单（逐态表 → `资料/普查产出_1025/
+    /// J2_判据_卡面高亮族与渲染残项.md` §B6）。**数值与枚举名逐位照抄**（`None` 是 0）。</para>
+    /// <para>逐态的「哪些文字件显示」：</para>
+    /// <list type="bullet">
+    ///   <item>1 `MinionWithDescription`：卡名 + 效果文字 + 兵种行（+ Big 暗底）</item>
+    ///   <item>2 `MinionWithoutDescription`：卡名（无 desc 那件）+ 兵种行（+ Small 暗底）</item>
+    ///   <item>3 `Tactic` / 4 `TacticWithRace`：战术卡名 + 战术效果文字（4 带兵种行）</item>
+    ///   <item>5 `MinionWithDescOnlyDescription`：**只有** Big 效果文字（+ Big 暗底）</item>
+    ///   <item>6 `MinionWithoutDescriptionSimplifiedView`：**只有** Big 卡名（+ Small 暗底）</item>
+    ///   <item>7 `TacticOnlyName`：**只有** Big 战术卡名（**无暗底**）</item>
+    ///   <item>8 `TacticOnlyDescription`：**只有** Big 战术效果文字（**无暗底**）</item>
+    /// </list></summary>
+    public enum CardTextState
+    {
+        None = 0,
+        MinionWithDescription = 1,
+        MinionWithoutDescription = 2,
+        Tactic = 3,
+        TacticWithRace = 4,
+        MinionWithDescOnlyDescription = 5,
+        MinionWithoutDescriptionSimplifiedView = 6,
+        TacticOnlyName = 7,
+        TacticOnlyDescription = 8,
     }
 
     [RequireComponent(typeof(MeshFilter), typeof(MeshRenderer))]
@@ -412,9 +453,12 @@ namespace CardPresentation
         /// 判据（一手，`资料/普查产出_第十八会话/D2_卡框几何量法.md` §三全表）：
         ///   · `Card Info/Cost Container` 的 `m_AnchoredPosition = (0.788, 0.746)`（anchor/pivot 都 (0.5,0.5)），
         ///     它挂在**纯 `Transform`** `Card Info` 下 ⇒ 锚点基准 = `Front` 原点的**局部**坐标；
-        ///   · **坐标换算（必写清）**：本文件一贯用「**卡根空间 = `Front` 局部**」——
+        ///   · **坐标换算（必写清）**：本文件各层的常量一贯是「**`Front` 局部**」——
         ///     证据 = `FrameUnitY = −0.03` 正好等于 D2 的 `CardFrame (0, 0.05)` **再减 0.08**
         ///     （0.08 = `Front` 在 2DCard 空间的 apos；`MeleeAt` 等也逐一对得上：D2 (−1.110) → 本文件 −1.190）。
+        ///     🔴 **2026-10-25（`M2`）补一句**：上面「卡根空间 = `Front` 局部」**已不再成立** ——
+        ///     当天补出了 `Front` 那一级节点（+0.08，见 `FrontAposY`）⇒ 这些常量仍是 `Front` 局部值
+        ///     （**所以本段所有换算一个字节都不用改**），但它们画出来的位置比改前**整体高 0.08**。
         ///     ⇒ 费用中心 = **(0.788, 0.746 − 0.08) = (0.788, 0.666)** 卡单位
         ///     ⇔ 归一化 **(0.8766, 0.3001)**，**正是本文件的 `CostAt`**（下方直接返回它）。
         ///   · 独立旁证：`A2138` 之前的 PnP 反算固定点 `FrameCostPx/Py = (751.7, 305.2)` 在
@@ -784,7 +828,9 @@ namespace CardPresentation
         /// （Rarity apos y = **−1.458**、子件 y = **−0.0055** ⇒ 宝石中心 = **−1.4635** 卡单位，正是旧常量）；
         /// `CardFrame` 的 Image `PA=0`；frame sprite `m_Rect = (171,11,682,998)` / `pivot (0.5,0.5)`
         /// （13 军 × 4 档 = 52 条实测）。**按原版映射（sprite rect 拉满矩形）**重算：
-        /// 凹槽中心 = **(−0.0016, −1.4547)**（我们的卡空间，`FrameUnitY = −0.03` 已含「整卡面低 0.08」；
+        /// 凹槽中心 = **(−0.0016, −1.4547)**（`Front` 局部空间；🔴 **2026-10-25（`M2`）更新**：原来这里写
+        /// 「`FrameUnitY = −0.03` 已含『整卡面低 0.08』」—— 那个「低 0.08」**已经在当天修掉**
+        /// （卡面各层改挂 `2DCard/Front`，见 `FrontAposY`）⇒ 本行数值现在就是**原版绝对位置**，不再是「偏低」的那一版；
         /// x 用连续坐标 `(511.5−171)/682`，⛔ 不是 `(511−171)/682`），
         /// 与 prefab 宝石中心 **(0, −1.4635)** 相差 **(+0.0016, −0.0088)** ⇒ **原版宝石就是基本对齐凹槽的**，
         /// **推不出 0.042**（疑因原版实拍那张卡带 `AutoCardRotation`（±10°）透视、或量的是屏幕坐标）。
@@ -1057,9 +1103,10 @@ namespace CardPresentation
         //     **文字与卡框 / 立绘 / 宝石的关系一起改错 0.08** —— 本文件里 `CardImage`(−0.044) /
         //     `CardFrame`(−0.03) / `Cost Container`(+0.666) 等**全部取的是不含 `+0.08` 的原始值**，
         //     底板是唯一的异类 ⇒ 改底板。
-        //  ❗ **仍开着**：整张卡面（立绘/框/宝石/数值/文字）相对 `2DCard` 比原版低 `0.08`
-        //     （原版绝对值 = `Front +0.08` + 局部值）。那是**整体平移**、不影响任何层间关系，
-        //     要动得全面动（见 `资料/普查产出_第十七会话/B_详情窗放大卡.md`），本轮只把底板拉回同一口径。
+        //  ✅ **2026-10-25（`M2`）已收口**：整张卡面（立绘/框/宝石/数值/文字）相对 `2DCard` 低 `0.08` 那件事
+        //     已经修掉 —— 卡面各层改挂 **`2DCard/Front`**（`localPosition.y = +0.08`，见 `FrontAposY`），
+        //     即原版那条父链本身；**层与层之间的相对关系一个字节没动**（各层仍用 `Front` 局部坐标）。
+        //     ⇒ 下面这两条 `TextBgAt` 的换算（`0.5 + |apos| / CardUnitH`）**仍然成立**（apos 本来就是 Front 局部值）。
         //  现核读数：`TextBackground Big UI` apos y = **−0.65** · `TextBackground Small UI` apos y = **−1.02**。
         static readonly Vector2 TextBgAt      = new Vector2(0.49952f, 0.69512f);  // 0.5+(−0.001)/2.0927 · 0.5+0.65/3.3313
         static readonly Vector2 TextBgSmallAt = new Vector2(0.50000f, 0.80621f);  // 0.5+0/2.0927 · **0.5+1.02/3.3313**（原版 apos y = −1.02 的**原值**）
@@ -1259,6 +1306,40 @@ namespace CardPresentation
         /// <summary>数值层（原版 `Card Info`）那层的 z（判据用，−0.02）。
         /// ⚠️ 名字带 `Layer` 是为了避开**同名的私有常量** `InfoZ`（那个是建层用的值，不公开）。</summary>
         public float InfoLayerZ { get { return _info != null ? _info.transform.localPosition.z : float.NaN; } }
+
+        /// <summary>🔴 **2026-10-25（`M2`）**：`_info`（整卡大小那一张 quad）的局部位置 —— **按形态取 y 和 z**。
+        /// <para>为什么 y 分形态：卡面各层现在挂在 `2DCard/Front`（`+0.08`，见 `FrontAposY`），
+        /// 而这张 `_info` 烘进去的内容**两套坐标系都用** ——</para>
+        /// <list type="bullet">
+        ///   <item>**非场上**（`Full`/`Hand`）：费用/卡名/效果/数值全按 **2D 卡面**归一化坐标烘
+        ///   （`FaceStatAt01` 一族）⇒ 与其它卡面层同一套 ⇒ **y = 0**。</item>
+        ///   <item>**场上**（`Board`）：四个数按 **`3DBody` 空间**烘（`BoardMeleeAt` 一族，卡根空间，
+        ///   见 `InfoTexture` 的 `statsOnly` 那几行）⇒ 要把 `Front` 的 `+0.08` **抵消掉**，
+        ///   否则场上的数字整体上浮 0.08 卡单位（≈2.4% 卡高）。
+        ///   ⚠️ 平时场上这张贴图是**全透明**（`skipStats`）看不出，只有「字形表不在 ⇒ 数字退回烘进 `_info`」
+        ///   那条兜底路才会现形 —— 正因为如此才更要写对，⛔ 别当成「反正看不见」。</item>
+        /// </list>
+        /// <para>⚠️ z 沿用原口径（场上 `BoardInfoZ` / 其它 `InfoZ`）。两个入口
+        /// （出生 `Build` · 换形态 `SetFace`）**都走这一个函数**（铁律 10 第 5 条）。</para></summary>
+        void PlaceInfoLayer()
+        {
+            if (_info == null) return;
+            bool board = _faceMode == CardFace.Board;
+            _info.transform.localPosition = new Vector3(0f, board ? -FrontAposY : 0f,
+                                                        board ? BoardInfoZ : InfoZ);
+        }
+
+        /// <summary>🔴 **2026-10-25（`M2`）**：护甲盾那层的局部位置 —— **按形态取 y 和 z**（同 `PlaceInfoLayer`）。
+        /// 场上那块网格（`armourIconBoard`）把 `BoardArmourShieldAt`（= `3DBody` 坐标）**烘进顶点**
+        /// ⇒ 它和卡面各层不在同一套坐标里 ⇒ 挂在 `Front`（+0.08）下要**抵消 0.08**。
+        /// 两个入口（出生 `Build` / 换形态 `SetFace`）都走这一个函数。</summary>
+        void PlaceArmourIcon()
+        {
+            if (_armourIcon == null) return;
+            bool board = _faceMode == CardFace.Board;
+            _armourIcon.transform.localPosition = new Vector3(0f, board ? -FrontAposY : 0f,
+                                                              board ? BoardArmourIconZ : ArmourIconZ);
+        }
         /// <summary>🆕 2026-10-12（`A1658`）效果文字底板那层的 z（判据用）。
         /// 判据 = 原版 `Front` 子序 `CardImage → Textbackgrounds → CardFrame → Card Info`
         /// ⇒ **必须比 `FrameZ` 大**（本仓 z 越小越靠前）、**比 `ArtZ` 小**。取不到那一层时 `NaN`。
@@ -1333,13 +1414,74 @@ namespace CardPresentation
         /// 为什么要拆：原版「受击时**那一个**数值变色 + bump」是按 counter 分别做的
         /// （`CardTextCountersController.DoColorChange` + `cardTextBumpSize/Time`），
         /// 四个数字烘在一张贴图里就动不了单个。判据 → `资料/待办判据_战场与战斗视图.md` §26 第 3 条。
-        /// ⚠️ **只在场上（`CardFace.Board`）建与显示** —— 手牌那个 2D 卡面的数值仍旧烘在 `_info` 里
-        /// （那边数值不随战斗变，且拆了要重做一套几何）。两条路互斥，判据是 `_faceMode`。</summary>
+        /// ⚠️ **只在场上（`CardFace.Board`）建与显示** —— 非场上那四档（手牌 / 详情窗 / 卡池）的数值
+        /// 是**另一套载体**：🔴 2026-10-25（`CF-3`）起 = 四件**真 TMP**（`_faceStatText`，原版
+        /// `2DCard/Front/Card Info/…` 同构）；再早是烘在 `_info` 贴图里（现在只剩「字体资产取不到」的兜底）。
+        /// 两条路互斥，判据是 `_faceMode` + `SplitStats`。</summary>
         readonly MeshRenderer[] _stats = new MeshRenderer[5];
         /// <summary>四个数值各自的「闪现色」（`CardFeel.StatUpColor` / `StatDownColor`；白 = 没在闪）。
         /// 🔴 **必须存一份** —— `ApplyTint` 会把 `_layers` 里每一层刷成状态色，不重贴的话
         /// 受击变色撑不过一帧（和徽标那个 `_badgeAlpha` 是同一个坑）。</summary>
         readonly Color[] _statFlash = new Color[5];
+        /// <summary>🆕 2026-10-25（`CF`）原版 `HighlightAttackType.originalSize`（`+0x48`）—— 那一格数值
+        /// **首次被调用时**的 `localScale`。索引 = `StatMelee..StatHealth`。
+        /// ⚠️ **惰性捕获**：原版**没有** `Start` / `Awake`（方法表只有 `get_TargetScale` / `HighlightIfNeeded` /
+        /// `.ctor`）⇒ 初值 `(0,0,0)`，什么时候第一次被调到才什么时候记（判据 → `J2 …md` §A2）。</summary>
+        readonly Vector3[] _statBase = new Vector3[5];
+        /// <summary>🆕 2026-10-25（`CF`）那一格数值上正在跑的那条 `DOScale`（自检读时长用；重开前先杀）。索引同 `_statBase`。</summary>
+        readonly Tween[] _statScaleTween = new Tween[5];
+        /// <summary>底光取不到图（删了 `Resources/Art/`）时只警告一次 —— 那一档是支持的配置，但**不许静默**。</summary>
+        bool _glowMissingWarned;
+
+        // ---- 🆕 2026-10-25（`CF-3`）**2D 卡面那四个数值 = 真 TMP 节点**（原版同构）------------
+        // 🔴 判据（一手，逐值抄自 prefab）：`CardPrefab/2DCard/Front/Card Info/`
+        //    · `Melee Attack Container/Melee Attack Text` · `Range Attack Container/Range Attack Text`
+        //    · `Health Container/HealthText` · `Armour Container/Armour Text`
+        //    四个都是 `TextMeshPro`（**不是**烘进位图），`m_LocalScale = 1`、`m_fontSize = 0.34`、
+        //    `m_enableAutoSizing = 1`（`0.025 ~ 0.34`）、`m_fontColor = 白`、对齐 Center/Middle、
+        //    字体 = `Pragati-Regular`（= 我们的 `TmpFont.Face.LatinCardBody`）、
+        //    材质 = `Pragati-Regular Atlas Material **Thin** Outline`（近战/远程/生命）
+        //         / `… **Thick** Outline`（**护甲**）—— 描边值逐项见 `ApplyStatOutline`。
+        //    · 数值来源 = `CardTextCountersController.SetText(...)`：近战/远程来自
+        //      `CardScript.UpdateAttackText`（`CurrentMeleeAttack` / `CurrentRangeAttack`）、
+        //      生命来自 `CardScript.UpdateHealthText`、护甲来自 `BasicCardUI.SetRawCardData`
+        //      （`RawCardScript +0x78`）；**我们这边统一走 `StatValue(Data, s)`**（与场上那四层同一个判据）。
+        //    ⛔ **这四件不挂 `HighlightAttackType`** —— 原版手牌/详情窗**没有**那一档（判据见 `J2 …md` §A1 与本节
+        //      「攻击类型高亮」那一整段的父链证据），别把高亮接上来。
+        readonly TextMeshPro[] _faceStatText = new TextMeshPro[5];      // 索引 = `StatMelee..StatHealth`
+        readonly RectTransform[] _faceStatRect = new RectTransform[5];  // 那件 TMP 自己的 rect（原版 sizeDelta）
+        readonly GameObject[] _faceStatContainer = new GameObject[5];   // 原版四个 Container（显隐挂在它上面）
+
+        // 原版逐值（`Card Info` 空间 = 卡单位，与 `MeleeAt` 那一套同标架）
+        /// <summary>原版 `Melee/Range/Health/Armour *Text` 的 `m_fontSize`（= autoSize 上限，同一个值）。
+        /// 🔴 **这是【原版 em】，不是我们该填的 `fontSize`** —— 原版那四件的 `m_LocalScale = 1`，
+        /// 而原版卡面文字的换算就是 `em = m_fontSize × m_LocalScale`（同 `NameTextUnit` 19 × 0.01 = 0.19）；
+        /// 我们这份拉丁字体资产是「em = fontSize × 0.1」（`TmpFont.TrueEmPerFontSize`）
+        /// ⇒ 填进 TMP 要 ×10（`FaceStatFontSizeOur`）。⛔ 直接把 0.34 填进去会**小 10 倍**。</summary>
+        public const float FaceStatFontSize = 0.34f;
+        /// <summary>原版那四件的 `m_fontSizeMin`（同样要 ×10 才填进我们的 TMP）。</summary>
+        public const float FaceStatFontSizeMin = 0.025f;
+        /// <summary>折算到我们 TMP 的 `fontSize`（= 原版 em ÷ `TrueEmPerFontSize` = 0.34 / 0.1 = **3.4**）。</summary>
+        public static float FaceStatFontSizeOur
+        {
+            get { return TmpFont.FontSizeForEm(TmpFont.Face.LatinCardBody, FaceStatFontSize); }
+        }
+        /// <summary>原版 `Melee/Range Attack Text` 的 `m_SizeDelta` = **0.30006 × 0.35**。</summary>
+        public static readonly Vector2 FaceStatTextSize = new Vector2(0.30006f, 0.35f);
+        /// <summary>原版 `HealthText` 的 `m_SizeDelta` = **0.33 × 0.35**。</summary>
+        public static readonly Vector2 FaceStatTextSizeHealth = new Vector2(0.33f, 0.35f);
+        /// <summary>原版 `Armour Text` 的 `m_SizeDelta` = **0.32 × 0.35**、`m_AnchoredPosition` = **(−0.00495, −0.04197)**。</summary>
+        public static readonly Vector2 FaceStatTextSizeArmour = new Vector2(0.32f, 0.35f);
+        static readonly Vector2 FaceStatArmourTextOffset = new Vector2(-0.0049498f, -0.0419734f);
+        /// <summary>原版三个容器（近战/远程/生命）的 `m_SizeDelta` = **0.4 × 0.4**；**护甲那个是 0.3 × 0.3**。</summary>
+        public const float FaceStatContainerSize = 0.4f;
+        /// <summary>原版 `Armour Container` 的 `m_SizeDelta` = **0.3 × 0.3**。</summary>
+        public const float FaceStatContainerSizeArmour = 0.3f;
+        // 描边（`bundle_fonts_assets_all/Material/Material_-8115038251467144366.json` 等，逐字段实读）
+        const float StatOutlineThin = 0.05f, StatOutlineThick = 0.097f;
+        const float StatFaceDilateThin = 0.05f, StatFaceDilateThick = 0.105f;
+        static readonly Color StatOutlineColorThin = new Color(0f, 0f, 0f, 0.8745098f);
+        static readonly Color StatOutlineColorThick = new Color(0f, 0f, 0f, 0.7882353f);
         MeshRenderer _ephemeral; // 🆕 「临时卡」角标（原版关键词图标；默认关掉）
 
         // ---- 🆕 棋盘单位卡的 buff / debuff 徽标（原版 `BattleCardUI.boardTraitIcons`）--------
@@ -1506,8 +1648,15 @@ namespace CardPresentation
             if (_faceMode != CardFace.Board) return;
             // ⚠️ **按 FaceRoot 的【每个直接子件】分别定序** —— 整棵树按 FaceRoot 的名字取号
             //    会把所有层都设成同一个号（2026-10-21 实现时踩过，当场改）。
+            // 🔴 **2026-10-25（`M2`）**：卡面各层现在在 `2DCard/Front` 那一级下面（见 `FrontAposY`）
+            //    ⇒ 碰到那颗 `Front` 要**再下钻一层**（否则整棵卡面树按名字 "Front" 取号 ⇒ 恒 −1 ⇒
+            //    一条层号都不设，场上「徽标被底板盖住」那类缺陷会静默回来）。
             if (FaceRoot != null)
-                foreach (Transform c in FaceRoot) ApplySortingOrderTree(c);
+                foreach (Transform c in FaceRoot)
+                {
+                    if (c == _frontRoot) { foreach (Transform cc in c) ApplySortingOrderTree(cc); continue; }
+                    ApplySortingOrderTree(c);
+                }
             // 卡根下还挂着：合法目标底光（`glow_melee/ranged`）与 3D 卡体 —— 也一并定序。
             foreach (Transform c in transform)
                 if (c != FaceRoot) ApplySortingOrderTree(c);
@@ -1805,6 +1954,28 @@ namespace CardPresentation
         /// <summary>卡面各层的父节点 = 原版 `2DCard` 那一层（**倾摆就发生在它身上**）。
         /// 还没建（`Build` 之前）时退回根节点。</summary>
         internal Transform FaceRoot { get { return _tiltRoot != null ? _tiltRoot : transform; } }
+
+        // ---- 🔴 2026-10-25（`M2`）原版第三级节点 `Front`（`apos.y = +0.08`）----
+        //  判据（UnityPy 逐节点读 `m_AnchoredPosition`，全库普查 → `普查产出_1024d/X1_三处判据补查.md` §二）：
+        //    战斗卡 `CardPrefab/2DCard/Front` **+0.08**（1 实例）
+        //    菜单/HUD/详情窗 `CardUI/2DCard/Front` **+0.08**（152 实例，无例外）
+        //  而 `CardImage(−0.044 / −0.065)` / `CardFrame(−0.03)` / 文字族那些 y **全是 `Front` 局部值**。
+        //  ⇒ 我们原来把「Front 局部」当作「2DCard 局部」用 ⇒ **整张卡面（框/文字/立绘）比原版低 0.08 卡单位**
+        //     （= 2.4% 卡高；详情窗尺度约 20 px）。层与层之间是自洽的，差的只有这一次整体平移。
+        //  ⛔ 别把这个 `+0.08` 分别加进各层的 y 常量（几十处、必漏）；也⛔别加在 `_tiltRoot` 上 ——
+        //     原版 `2DCard` 自己的 apos 是 (0,0)，而且命中区（`HitFrame()` = `_tiltRoot`）、倾摆枢轴、
+        //     手牌特效锚点（`EffectAnchorHand` = `card2DController.transform` = `2DCard`）都锚在它身上。
+        /// <summary>原版 `Front` 在 `2DCard` 空间的 `m_AnchoredPosition.y` —— **判据只此一处**
+        /// （建节点、`PlaceRim`、`HitAt`/`StatWorld` 三处共用）。</summary>
+        public const float FrontAposY = 0.08f;
+
+        Transform _frontRoot;
+
+        /// <summary>**卡面各层的真正父节点** = 原版 `2DCard/Front`（层坐标全是 `Front` 局部系）。
+        /// <para>⚠️ 与 <see cref="FaceRoot"/> 的分工：`FaceRoot` = `2DCard`（倾摆 / 命中 / 特效锚点那一级），
+        /// 本属性 = 它下面那颗 `Front`（卡面各层）。⛔ 别把两者混用。</para>
+        /// <para>还没建（`Build` 之前 / 老调用点）时退回 `FaceRoot`。</para></summary>
+        public Transform FaceContentRoot { get { return _frontRoot != null ? _frontRoot : FaceRoot; } }
 
         // ==================================================================
         //  🆕 2026-10-16 **卡上特效的锚点**（原版 `CardScript.GetEffectAnchor()`）
@@ -2137,6 +2308,11 @@ namespace CardPresentation
             //    判据共用 `CreatedByVisible` 一个口（⛔ 别在这儿再拼一遍「8 / 10 + isPlayer」）。
             //    ⚠️ `_faceMode` 在本函数开头就写过了 ⇒ 这个属性读到的已经是**新**形态。
             Show(_createdBy, CreatedByVisible);
+            // 🔴 2026-10-25（`CF-6`）：上面那几句是**按形态**开/关文字层的，而**文字档**（原版 9 态）是
+            //   **另一条轴**（手牌 = 简化档时只该显示一件）。⇒ 非场上这一支**最后**再按档位走一次，
+            //   否则「SetFace 一把全开」会把简化档的显示规则盖掉（`BuildTextLayers` 自身幂等：
+            //   初始态原地重刷、简化态走 5–8 那一支；Board 不建文字层）。
+            if (!board && TmpFont.Available) BuildTextLayers(Data);
             // ⚠️ **`_armourIcon` 不关**：护甲是数值，原版场上也显示（`Board Elements` 里有它）
             // 🔴 但**位置要跟着换**（2026-09-20）：2D 卡面与 3D 卡体是两套坐标，盾牌不跟着走
             //    就会和它上面那个数字**分家**（`SpriteQuad` 把位置烘进 mesh ⇒ 换 mesh，不是换 transform）。
@@ -2147,16 +2323,12 @@ namespace CardPresentation
                                                              board ? BoardArmourShieldAt : ArmourIconAt,
                                                              board ? BoardArmourIconW : ArmourIconW,
                                                              board ? BoardArmourIconH : ArmourIconH);
-                // z 也要换：场上是 3D 卡体，覆盖层必须落在**卡体正面之前**（见 `BoardInfoZ` 那段注释）
-                var ap = _armourIcon.transform.localPosition; ap.z = board ? BoardArmourIconZ : ArmourIconZ;
-                _armourIcon.transform.localPosition = ap;
+                // z 与 y 都要换（y：场上那块网格烘的是 `3DBody` 坐标 ⇒ 要抵消 `Front` 的 +0.08，
+                // 见 `PlaceArmourIcon`）；z：场上是 3D 卡体，覆盖层必须落在**卡体正面之前**。
+                PlaceArmourIcon();
             }
             // 数值层同理（它是**整卡大小的一张 quad**，场上的数字靠它画）
-            if (_info != null)
-            {
-                var ip = _info.transform.localPosition; ip.z = board ? BoardInfoZ : InfoZ;
-                _info.transform.localPosition = ip;
-            }
+            PlaceInfoLayer();
             // 徽标的三个层 z 是常量（`BadgePlateZ`/`BadgeIconZ`/`BadgeCounterZ`）——
             // 徽标**只在场上出现**，那些常量本身已经改到卡体正面之前了。
             // 🔴 2026-10-18（W15）：把**这张卡的卡框**传进去 —— 四个数值/费用的落点按它的 uv 反算。
@@ -2167,6 +2339,16 @@ namespace CardPresentation
             //    （`_info` 里烘一份 + 四个独立层再画一份）。
             BuildStatLayers();
             SyncStatLayers();
+            // 🆕 2026-10-25（`CF-3`）：换形态入口（铁律 10 第 5 条）—— 四个数的载体**按档换**：
+            //   场上 = 四个网格层（`_stats`）、非场上 = 四件 TMP（`_faceStatText`）。
+            //   两个方向都要刷：手牌 → 场上要把 TMP 收起来，反之要放出来并重排一次。
+            BuildFaceStatTexts();
+            SyncFaceStatTexts();
+            // 🆕 2026-10-25（`CF`）：**换形态入口**（铁律 10 第 5 条）—— 攻击类型高亮的倍数按
+            //   「卡 prefab 族」取（`AttackScaleModifier` ← `ArtUsesFightFamily`），而族跟着形态走。
+            //   今天唯一的迁移是 Hand → Board（同族 ⇒ 倍数不变），仍然在这里显式补一次：
+            //   将来加 Full ↔ Hand 路径时不必再想起来这一层（漏了就是「形态切了、数值还停在上一个族」）。
+            if (OwnAttackType != AttackTypes.None) HighlightAttackTypes();
             // 🔴 **2026-10-20（`W58`）**：徽标 / 虫群图标 / 治疗飘字**只在场上出现** → 换到非场上形态
             //    必须显式关掉（铁律 10 第 5 条：换形态入口只有这一处）。
             //    ⚠️ `SetFace(Hand)` 原来**不隐藏**那 7 个 `badge*` 层（今天没有 board→hand 路径，
@@ -2201,11 +2383,17 @@ namespace CardPresentation
             ApplyArtTransform();
         }
 
-        /// <summary>**场上要不要把四个数值拆成独立图层** —— 判据只有这一处（`Build` 与 `SetFace`
-        /// 的 `_info` 重烘都要用它，两处不一致就会把数字画两遍）。</summary>
+        /// <summary>**这一档的四个数值要不要拆成独立件（不烘进 `_info`）** —— 判据只有这一处
+        /// （`Build` 与 `SetFace` 的 `_info` 重烘都要用它，两处不一致就会把数字画两遍）。
+        /// <para>🔴 **2026-10-25（`CF-3`）起两档各有各的独立件**（原版同构）：
+        /// · **场上**（`Board`）= 四个独立**网格层**（`BuildStatLayers`，原版 `Board Elements/3DBody/…`）；
+        /// · **非场上**（`Hand` / `Full`）= 四件**真 TMP**（`BuildFaceStatTexts`，原版 `2DCard/Front/Card Info/…`）。
+        /// 两档各自**取不到素材**时才退回「烘进 `_info`」（那一档仍有数字，只是载体不同）—— ⛔ 别把它变成「没有数字」。</para></summary>
         bool SplitStats(CardData d)
         {
-            return _faceMode == CardFace.Board && d.isUnit && PragatiDigits.Available;
+            if (!d.isUnit) return false;
+            if (_faceMode == CardFace.Board) return PragatiDigits.Available;
+            return TmpFont.Available;
         }
 
         /// <summary>卡面上要不要画「**费用**」那一格（右上角那块六边形底板 + 圆里那个数）。
@@ -2436,6 +2624,11 @@ namespace CardPresentation
         public const string RemnantCardImageProp = "_CardImage";
         /// <inheritdoc cref="RemnantCardImageProp"/>
         public const string RemnantMatCapProp = "_MatCap";
+
+        /// <summary>🆕 2026-10-25（B2）：`Card3D.shader` 上那个**立绘 UV 窗**属性
+        /// （`float4`，xy = min / zw = max）。写入点 = <see cref="ApplyArtUvRect"/>，
+        /// 唯一算法 = <see cref="CardArt.ArtUvRect"/>（判据在那里）。</summary>
+        public const string ArtUvRectProp = "_ArtUvRect";
 
         /// <summary>这具残骸体「转成残骸」该播哪条片段（未知 prefab ⇒ `null`，`PlayRemnantClip` 会出声）。</summary>
         static string RemnantToClipOf(string prefabName)
@@ -2806,6 +2999,17 @@ namespace CardPresentation
         public bool FrameVisible { get { return _frame != null && _frame.gameObject.activeSelf; } }
         /// <summary>效果文字底板那一层现在可见吗（场上为 false）。</summary>
         public bool TextBgVisible { get { return _textBg != null && _textBg.gameObject.activeSelf; } }
+        /// <summary>自检用：文字底板用的是哪一张网格（`TextBgQuad_textBg` = Big · `…textBgSmall` = Small ·
+        /// 没建 = null）。简化视图那两档（原版 6/5）要靠它验「换档」。</summary>
+        public string TextBgMeshName
+        {
+            get
+            {
+                if (_textBg == null) return null;
+                var mf = _textBg.GetComponent<MeshFilter>();
+                return mf != null && mf.sharedMesh != null ? mf.sharedMesh.name : null;
+            }
+        }
         /// <summary>费用六边形可见吗（场上为 false）。</summary>
         public bool CostVisible { get { return _costBg != null && _costBg.gameObject.activeSelf; } }
         /// <summary>稀有度宝石可见吗（场上为 false）。</summary>
@@ -3087,6 +3291,10 @@ namespace CardPresentation
             //    漏了这一步就会出现「场上这张卡没有数字」这种静默缺件。
             BuildStatLayers();
             SyncStatLayers();
+            // 🆕 2026-10-25（`CF-3`）：**每刷新一次都要刷**（掉血 / 加 buff / 换卡都走这条路）——
+            //   四件 TMP 的值、护甲那一格的显隐、以及「手牌 ⇄ 场上」换载体，全由它一处收口。
+            BuildFaceStatTexts();
+            SyncFaceStatTexts();
             // 🆕 2026-10-08（A181）：**重裁一次**（换卡 = 换网格/换文字 ⇒ 上一次那一刀作废）。
             //    ⚠️ 只在**已经裁过一次**时走（`_clipOn`）—— 没设过裁切的调用点（战斗/手牌那一族）一个字节都不动。
             //    🔴 2026-10-13（A435 辛 · A774）：判据是 `Clipping`（显式矩形**或**跟随节点），
@@ -3527,7 +3735,7 @@ namespace CardPresentation
             //      ③ **整图内接**：可见板只有 0.2064 宽（还把透明边与右下投影一起画了进去），
             //         原版 Sliced 出来是 **0.3312**。
             var plateMr = AddLayer("badgePlate" + i, plate, BadgePlateZ, plate,
-                                   BadgePlateQuad("badgePlate" + i, plateAt, at.x < 0f));
+                                   BadgePlateQuad("badgePlate" + i, plateAt, at.x < 0f), parent: FaceRoot);
             SetBadgePlateInk(plateMr, _alpha);
             _badgePlates.Add(plateMr);
             // 图标层走**自建灰化 shader**（原版 `disabledMaterial` = `Sprite Greyscale`，见 `TraitDisabled.shader`）：
@@ -3544,6 +3752,10 @@ namespace CardPresentation
             //    在位移中分成两个平面）。徽标底板/图标本来就在 `FaceRoot` 下。
             // 🔴 **2026-10-17（`A1024`③ 批 6）**：角标数字 = 原版 `TraitCounter` 的 `m_fontAsset` = **Pragati**
             //    （普查表 §2·5 卡面那一格）⇒ `LatinCardBody`。
+            // ⚠️ **2026-10-25（`M2`）徽标【不挂】`Front`**：`Badges.SlotAt` 的坐标是 **`3DBody` 空间**
+            //    （原版 `TraitIcons` 挂在 `3DBody` 下，见 `Core/Badges.cs` 头部），与 `BoardMeleeAt` 一族同源
+            //    ⇒ 挂在 `2DCard`（`FaceRoot`），⛔ 别搬进 `Front`（那会让整排徽标上浮 0.08）。
+            //    ⚠️ 徽标本来就只在场上出现（那里 2D 卡面是关的），与「卡根空间」一致。
             var t = TmpFont.NewText(FaceRoot, "badgeCounter" + i, "", BadgeCounterFontSize, BadgeCounterInk,
                                     TmpFont.Face.LatinCardBody);
             // 🔴 2026-10-20（`W58`）：原版 `TraitCounter` 是 **Bold + Extra Thick Outline 0.106**
@@ -3888,6 +4100,19 @@ namespace CardPresentation
                 _tilt.enabled = _faceMode != CardFace.Board;
             }
 
+            // 🔴 **2026-10-25（`M2`）：原版是三级节点 `2DCard → Front(+0.08) → 卡面各层`** ——
+            //   我们原来把各层直接挂在 `2DCard`（= 用 `Front` 局部坐标当 `2DCard` 局部坐标用）
+            //   ⇒ 整张卡面低 0.08 卡单位。这里补出 `Front` 那一级（判据与理由 → `FrontAposY` 的 doc）。
+            //   ⚠️ 与 collider 一样：**不嵌在 `if (_tiltRoot == null)` 里**，`Build` 重入时也要保证它在
+            //   （幂等；两个出生入口 `Build` / `SetFace`→`Build` 都从这一处走）。
+            if (_frontRoot == null && _tiltRoot != null)
+            {
+                var frontGo = new GameObject("Front");
+                frontGo.transform.SetParent(_tiltRoot, false);
+                frontGo.transform.localPosition = new Vector3(0f, FrontAposY, 0f);
+                _frontRoot = frontGo.transform;
+            }
+
             // 🆕 2026-10-19（`T09` 步骤 B 前半，`W57`）：真 collider 挂在 `_tiltRoot`（原版 `2DCard` 那一级）
             //   —— 出生入口（另一个入口 = `SetFace` 换形态，两处各显式刷一次，铁律 10 第 5 条）。
             //   ⚠️ 放在 `_tiltRoot` 建好**之后**、且**不嵌在 `if (_tiltRoot == null)` 里**：
@@ -4138,6 +4363,7 @@ namespace CardPresentation
                 //    （对照 `D:/2/Warpforge部队卡片/…/4计策/*.png` —— 战术卡只有费用和稀有度）
                 var armourTex = d.isUnit && d.armor > 0 ? CardArt.DeckUi("pedestal_icon_armor") : null;
                 if (armourTex != null)
+                {
                     // 🔴 **2026-10-12：z 与位置要按形态取**（原来无条件写 2D 那一档）。
                     //    `Build` 是**出生入口**、`SetFace` 是**换形态入口**（铁律 10 第 5 条：两个入口
                     //    都要显式设一次）—— 而 `SetFace` 在「出生就在场上」（`Create(face: Board)`）
@@ -4153,6 +4379,10 @@ namespace CardPresentation
                                                       board ? BoardArmourShieldAt : ArmourIconAt,
                                                       board ? BoardArmourIconW : ArmourIconW,
                                                       board ? BoardArmourIconH : ArmourIconH));
+                    // 🔴 2026-10-25（`M2`）：y 按形态取（场上要抵消 `Front` 的 +0.08）——
+                    //    判据与两个入口 → `PlaceArmourIcon`。⚠️ 必须在 `AddLayer` 之后。
+                    PlaceArmourIcon();
+                }
                 // ⚠️ 数值层：场上传 `statsOnly` —— **费用/卡名/效果文字都不烘进去**
                 //    （原版场上那些层整棵关掉；只有攻/血/甲留着）
                 // 🆕 2026-09-29：**场上那四个数字改由四个独立图层画**（`BuildStatLayers`）——
@@ -4165,6 +4395,9 @@ namespace CardPresentation
                 //    画面；这里跟着挪只为「两个入口同一个值」+ 免得它与四个数值层**同 z 共面**。
                 _info = AddLayer("info", frameTex, board ? BoardInfoZ : InfoZ,
                                  InfoTexture(d, board, SplitStats(d), frameTex));
+                // 🔴 2026-10-25（`M2`）：这张 quad 的 y 按形态取（场上要抵消 `Front` 的 +0.08，
+                //    判据与两个入口 → `PlaceInfoLayer`）。⚠️ **必须在 `AddLayer` 之后**（它写 (0,0,z)）。
+                PlaceInfoLayer();
                 if (SplitStats(d)) { BuildStatLayers(); SyncStatLayers(); }
                 // 稀有度宝石：叠在卡框那颗**暗色凹槽**上（原版 `Rarity` 节点）。
                 // 卡框分档改的是框的形制，**光靠它看不出稀有度** —— 颜色在这颗宝石上。
@@ -4220,6 +4453,8 @@ namespace CardPresentation
             //   `_RendererColor`，而我们是 **MeshRenderer**、根本没有那条通道）⇒ **状态色只能写 `_Outline`**
             //   （它就是这个 shader 里那圈的颜色；原版材质 `Card board Frame SDF` 的 `_Outline = (1,1,1,0.447)`）。
             var rimGo = new GameObject("rim");
+            // ⚠️ **2026-10-25（`M2`）这一层【不挂】`Front`**：原版那颗 `MinionLight` 是卡体上的
+            //    SpriteRenderer（不在 `2DCard/Front` 树里）⇒ 挂在 `2DCard`，`+0.08` 由 `PlaceRim` 显式补。
             rimGo.transform.SetParent(FaceRoot, false);   // 环圈的是「看得见的那张卡」⇒ 跟着倾摆
             PlaceRim(rimGo.transform);            // 🆕 2026-09-29：位置与尺寸照原版（见 `PlaceRim`）
             rimGo.AddComponent<MeshFilter>().sharedMesh = Quad();
@@ -4245,6 +4480,10 @@ namespace CardPresentation
             //    `face=Board · isUnit=True · Pragati=True` 却是 `[-1,-1,-1,-1]`）。
             BuildStatLayers();
             SyncStatLayers();
+            // 🆕 2026-10-25（`CF-3`）：出生入口（`Create` → `Build`）—— 2D 那四件 TMP 也在这里建/刷。
+            //   场上档建出来是**关着**的（`SyncFaceStatTexts` 里 `face = false`），只有手牌/详情窗才显示。
+            BuildFaceStatTexts();
+            SyncFaceStatTexts();
 
             // 🆕 **2026-10-17（T09 第 2 步）**：分段计时只在真 Play 出声；批处理/自检零影响。
             if (bt)
@@ -4427,14 +4666,39 @@ namespace CardPresentation
         {
             if (!TmpFont.Available) return;
 
+            // 🔴🔴 **2026-10-25（`CF-6`）：先定「文字态」** —— 原版 `CardTextsController` 9 态里，
+            //   手牌是 **always simplified**（`BasicCardUI.SetCardTextInHand` 传的是 `on = 1`），
+            //   档位由全局 `GameStaticData.cardsTextInHandFormat`（`+0x140`）决定落到 5–8 中的哪一个。
+            //   ⇒ 本函数是**唯一入口**：初始态走下面原来的那套（一个字节没改），简化态走
+            //   `BuildSimplifiedTextLayers`（只显示一件 + Big 字号/版面）。
+            _textState = ComputeTextState(d);
+            if (IsSimplifiedTextState(TextState))
+            {
+                BuildSimplifiedTextLayers(d);
+                return;
+            }
+
+            // 🔴 2026-10-25（`CF-6`）：**从简化视图/场上回来要显式放开这三层** —— `Fill` 只改字，
+            //    **不会**把藏起来的对象重新激活；而 `SetFace` 那处只按「形态」开关，管不到「文字态」这条轴。
+            Show(_title, true);
+            Show(_keywords, true);
+            Show(_race, true);
+            ApplyTextBgForState(_textState);
+
             // 单位卡 / 战术卡**两套模板**：位置和版面框都不一样（见上面那两组常量，A3 表）
             bool unit = d.isUnit;
             float k = Width / CardUnitW;                  // 卡单位 → 世界（当前 = 1）
             var nameAt = unit ? UnitNameAt : TacticNameAt;
             var descAt = unit ? UnitDescAt : TacticDescAt;
+            // 🔴 **2026-10-25（`CF-8`）：态 2（单位·无 desc）的卡名是【另一个节点】**
+            //    `NameTextUnit No description`：apos (0,0)（容器 −0.7745）· size 160×23.7666 ⇒ **1.6000×0.2377** ·
+            //    fs 19（em 0.19，与我们 `NameFontSize` 同值）· `Midline`。原来我们沿用了态 1 那个
+            //    `NameTextUnit`（y01 0.5821 / 高 0.2973）⇒ 无 desc 的单位卡**卡名偏低、框偏高**。
+            bool noDescName = _textState == CardTextState.MinionWithoutDescription;
             var armyAt = unit ? UnitArmyAt : TacticArmyAt;
-            float nameW = (unit ? NameBoxW : TacticNameBoxW) * k;
-            float nameH = (unit ? NameBoxH : TacticNameBoxH) * k;
+            float nameW = (noDescName ? UnitNameNoDescW : (unit ? NameBoxW : TacticNameBoxW)) * k;
+            float nameH = (noDescName ? UnitNameNoDescH : (unit ? NameBoxH : TacticNameBoxH)) * k;
+            if (noDescName) nameAt = UnitNameNoDescAt;
             float descW = (unit ? DescBoxW : TacticDescBoxW) * k;
             // ⚠️ 效果文字的**高度预算**不在这里定 —— 它由 `FaceDescBand01` 现算（见 ② 那一段），
             //    因为那是个**对称预算**（中心 = 原版矩形中心），不是「矩形高」也不是「区块剩余高」。
@@ -4503,15 +4767,30 @@ namespace CardPresentation
             var descAt01 = new Vector2(descAt.x, descCenter01);
             //    ⚠️ `descAt.y` 就是 `descCenter01`（同一个常量，见 `FaceDescBand01`）——
             //       这里显式取一次只是让「x 用原版矩形、y 用区间中心」这件事在调用点上看得出来。
+            // 🔴 **2026-10-25（`CF-8`）：态 4（战术·带兵种行）的效果文字是【另一个节点】**
+            //    `DescTacticSmall`：apos (0,−0.0901)（容器 −0.7745 ⇒ 绝对 −0.8646 ⇒ y01 **0.7595**）·
+            //    size 160×62.6409 ⇒ 框高 **0.6264** · fs **19**（em 0.19）· ls 5 / ps 8 · `Middle`。
+            //    原来我们沿用了态 3 的 `DescTextTactic`（中心 0.7876 / 框高 0.7898）⇒ 排版偏下、框偏高。
+            bool smallDesc = _textState == CardTextState.TacticWithRace;
+            if (smallDesc)
+            {
+                descAt01 = new Vector2(TacticDescSmallAt.x, TacticDescSmallAt.y);
+                descH = TacticDescSmallH;
+            }
+            // 🔴 **同批订正（同一判据链，`CF-8`）**：战术卡两档效果文字的 em 都是 **0.19**
+            //    （`DescTextTactic` 与 `DescTacticSmall` 都是 `m_fontSize = 19`、`m_LocalScale = 0.01`）；
+            //    而 `KeywordFontSize` 取的是**单位卡**那档 `DescTextUnit`（23.55 ⇒ 0.2355）—— 战术卡原来**大 24%**。
+            //    ⛔ 别把两档合成一个常量：`DescTextUnit` 与 `DescTextTactic[Small]` 在原版就是两个字号。
 
             // ②·图标：`d.keywords` 里的 `[Attack]` 这类**记号**已经在 `BattleDriver.FaceTextFull`
             //    里换成了 TMP 行内 sprite（**只换那一处**，见那里的注释）。
             //    `FontScaleFor` 现在**恒返回 1** —— 试过按标高放大字号，反而把字号缩死
             //    （行更宽 ⇒ 折行更多 ⇒ 整块更高 ⇒ `FitToBox` 往死里缩），原因写在那个函数的注释里。
             float kwScale = CardIcons.FontScaleFor(d.keywords);
+            float descFont = (unit ? KeywordFontSize : TacticKeywordFontSize) * kwScale;
             //    ⚠️ `bottomAlign = false` ⇒ 走 `PlaceAt`（块中心摆到 `descAt01`），**与原版 Middle 对齐同构**；
             //       改成 `true` 就是退回「下沿对齐」那个已被真机否掉的旧口径。
-            _keywords = Fill(_keywords, "keywords", d.keywords, descAt01, descW, KeywordFontSize * kwScale,
+            _keywords = Fill(_keywords, "keywords", d.keywords, descAt01, descW, descFont,
                              InkDesc, true, descH, false, DescLineSpacing, unit ? 0f : DescParaSpacing,
                              face: TmpFont.Face.LatinCardBody);    // 原版 `DescTextUnit*` = Pragati（§2·5）
 
@@ -4569,6 +4848,192 @@ namespace CardPresentation
             //    ⚠️ **原地刷、不重建**：`BuildTextLayers` 每次 `SetData` 都走（战场每刷新一次都走）
             //    ⇒ 内容从 `_createdByName` 现取（那个字段由 `SetCreatedBy` 维护），没来源时这一层被拆掉。
             FillCreatedBy();
+        }
+
+        // ==================================================================
+        //  手牌文字档（原版 `CardTextsController` 9 态里的 5–8 态）—— 2026-10-25（`CF-6`）
+        // ==================================================================
+        // 🔴 判据（一手）：
+        //   · `BasicCardUI__SetCardTextInHand.c` —— 手牌态**永远** `ToggleSimplifiedView(on = 1, option)`，
+        //     option = `GameStaticData.cardsTextInHandFormat`（静态 +0x140，`CardTextsInHandOptions` = 0/1/2）；
+        //   · `CardTextsController__ToggleSimplifiedView.c` 逐句：`on == 0` ⇒ 回初始态（1/2/3/4）；
+        //     初始 1 + option 1 ⇒ **5**、+2 ⇒ **6**；初始 2 + 1/2 ⇒ **6**；战术 + 1 ⇒ **8**、+2 ⇒ **7**；
+        //     **option 0 ⇒ 什么都不改**（保持初始态）—— 所以我们出厂（0）渲染逐位不变；
+        //   · 逐态「哪些件显示 / 字号 / 版面」= prefab `Name and description` 子树逐字段实读（见下表常量）。
+        // ⚠️ `CardTextsController.ToggleSimplifiedCardView` 那一处反编译出的是 **0 参调用**（实参丢了）⇒
+        //    「它传什么」**查不到**；但手牌这条路（`SetCardTextInHand`）的实参是齐的，本节按它实现。
+        // ==================================================================
+
+        /// <summary>= 原版 `GameStaticData.cardsTextInHandFormat`（`CardTextsInHandOptions`：
+        /// **0 Default / 1 OnlyDescription / 2 OnlyName**）。⚠️ **只影响手牌**（非手牌恒走初始态）。出厂 **0**。</summary>
+        public static int HandTextFormat { get; private set; }
+
+        /// <summary>本卡**当前的文字态**（原版 `CardTextsController` 9 态；见 <see cref="CardTextState"/>）。
+        /// ⚠️ **每次读都现算**（不缓存）⇒ 不会出现「场上的卡停在 None」这种过期值；缓存只用于
+        /// 「档位变了才重建」那条判断（`_textState`）。</summary>
+        public CardTextState TextState { get { return ComputeTextState(Data); } }
+
+        CardTextState _textState;      // 上一次**真正建出来**的态（只给 `RefreshTextState` 做变化检测）
+
+        /// <summary>改全局手牌文字档并**立刻重刷在场所有卡**（原版换语言那条路同构）。返回真重刷的张数。
+        /// ⚠️ 越界值**出声**并归 0 —— ⛔ 不静默。</summary>
+        public static int SetHandTextFormat(int option)
+        {
+            if (option < 0 || option > 2)
+            {
+                Debug.LogWarning("[CardView] `cardsTextInHandFormat` 只允许 0/1/2"
+                               + $"（`CardTextsInHandOptions`），收到 {option} ⇒ 按 0（Default）处理");
+                option = 0;
+            }
+            HandTextFormat = option;
+            return RefreshAllHandTextStates();
+        }
+
+        /// <summary>按当前档位把所有卡的**文字态**重算一遍（只有手牌形态、且态真的变了才动手）。</summary>
+        public static int RefreshAllHandTextStates()
+        {
+            var all = Object.FindObjectsByType<CardView>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+            int n = 0;
+            foreach (var v in all) if (v != null && v.RefreshTextState()) n++;
+            return n;
+        }
+
+        /// <summary>按当前全局档位重算**这一张**。返回 true = 真的重建了文字层。</summary>
+        public bool RefreshTextState()
+        {
+            if (_faceMode != CardFace.Hand || !TmpFont.Available) return false;
+            var want = ComputeTextState(Data);
+            if (want == _textState) return false;
+            BuildTextLayers(Data);
+            return true;
+        }
+
+        /// <summary>5–8 那四态是「简化视图」（只显示一件）。</summary>
+        public static bool IsSimplifiedTextState(CardTextState s)
+        {
+            return s == CardTextState.MinionWithDescOnlyDescription
+                || s == CardTextState.MinionWithoutDescriptionSimplifiedView
+                || s == CardTextState.TacticOnlyName
+                || s == CardTextState.TacticOnlyDescription;
+        }
+
+        /// <summary>原版那套映射（逐句见本节开头）。**判据只此一处**。</summary>
+        CardTextState ComputeTextState(CardData d)
+        {
+            bool unit = d.isUnit;
+            bool hasDesc = !string.IsNullOrEmpty(d.keywords);          // 我们的 `keywords` 就是效果文字（desc）
+            bool hasRace = !string.IsNullOrEmpty(SubtypeLine(d));
+            // 初始态（原版 `CardTextsController.SetStartingState`）：单位 = 1/2（按 desc 有无）· 战术 = 3/4（按 race）
+            var init = unit
+                ? (hasDesc ? CardTextState.MinionWithDescription : CardTextState.MinionWithoutDescription)
+                : (hasRace ? CardTextState.TacticWithRace : CardTextState.Tactic);
+            if (_faceMode != CardFace.Hand) return init;               // 非手牌 = 初始态（原版 `on = 0`）
+            int opt = HandTextFormat;
+            if (opt == 0) return init;                                 // 原版 option 0 ⇒ **不改**
+            if (unit)
+                return (init == CardTextState.MinionWithDescription && opt == 1)
+                    ? CardTextState.MinionWithDescOnlyDescription          // 5：单位有 desc + 只看 desc
+                    : CardTextState.MinionWithoutDescriptionSimplifiedView; // 6：其余单位档
+            return opt == 1 ? CardTextState.TacticOnlyDescription : CardTextState.TacticOnlyName;  // 8 / 7
+        }
+
+        // 4 个 Big 变体的**原版逐值**（`Name and description` 子树；节点 `m_LocalScale = 0.01`
+        // ⇒ 字号 × 0.01 = em、rect 尺寸 × 0.01 = 卡单位；容器 `Name and description` 的 apos = (0, −0.7745)）
+        //  · `DescTextUnit Big`            fs 26   · size 160×103.6453 · apos (0, +0.1183) · ls 5 · ps 0  · Middle
+        //  · `NameTextUnit No Description Big` fs 24 · size 160×57.5474 · apos (0, −0.1370) · ls **−8** · Midline
+        //  · `NameTextTacticBig`           fs 24   · size 160×80      · apos (0, −0.0700) · ls 0        · Midline
+        //  · `DescTextTactic Big`          fs 25.2 · size 160×99.2930 · apos (0, −0.0883) · ls 5 · ps 8 · Middle
+        static readonly Vector2 UnitDescBigAt        = new Vector2(0.5f, 0.6970f);  // y01 = 0.5 + (0.7745−0.1183)/3.3313
+        static readonly Vector2 UnitNameNoDescBigAt  = new Vector2(0.5f, 0.7736f);  // 0.5 + (0.7745+0.1370)/3.3313
+        static readonly Vector2 TacticNameBigAt      = new Vector2(0.5f, 0.7535f);  // 0.5 + (0.7745+0.0700)/3.3313
+        static readonly Vector2 TacticDescBigAt      = new Vector2(0.5f, 0.7590f);  // 0.5 + (0.7745+0.0883)/3.3313
+        const float BigTextW        = 1.6000f;                 // 四件全 160 px × 0.01
+        const float UnitDescBigH    = 1.0365f;                 // 103.6453 × 0.01
+        const float UnitNameBigH    = 0.5755f;                 // 57.5474 × 0.01
+        const float TacticNameBigH  = 0.8000f;                 // 80 × 0.01
+        const float TacticDescBigH  = 0.9929f;                 // 99.2930 × 0.01
+        const float UnitDescBigEm   = 0.26f;                   // 26 × 0.01
+        const float UnitNameBigEm   = 0.24f;                   // 24 × 0.01
+        const float TacticNameBigEm = 0.24f;
+        const float TacticDescBigEm = 0.252f;                  // 25.2 × 0.01
+        const float BigLineSpacing  = 0.05f;                   // 5 × 0.01（战术 desc / 单位 desc 同值）
+        const float UnitNameBigLine = -0.08f;                  // **−8** × 0.01：`NameTextUnit No Description Big` 是负行距（三行挤在一起）
+        const float TacticDescBigPara = 0.08f;                 // 8 × 0.01
+
+        // ---- CF-8：**态 2 / 态 4 那两个专用节点**（原版逐值，容器 apos 同为 (0, −0.7745)）----
+        //  · `NameTextUnit No description`：size 160×23.7666 · apos (0, 0)      · fs 19（em 0.19）· Midline
+        //  · `DescTacticSmall`            ：size 160×62.6409 · apos (0, −0.0901) · fs 19（em 0.19）· ls 5 / ps 8
+        static readonly Vector2 UnitNameNoDescAt = new Vector2(0.5f, 0.7325f);   // 0.5 + 0.7745/3.3313
+        const float UnitNameNoDescW = 1.6000f, UnitNameNoDescH = 0.2377f;        // 23.7666 × 0.01
+        static readonly Vector2 TacticDescSmallAt = new Vector2(0.5f, 0.7595f);  // 0.5 + (0.7745+0.0901)/3.3313
+        const float TacticDescSmallH = 0.6264f;                                  // 62.6409 × 0.01
+
+        /// <summary>简化态（5–8）的文字层：**只显示一件**，字号/版面按上表那四个 Big 变体。</summary>
+        void BuildSimplifiedTextLayers(CardData d)
+        {
+            bool tactic = TextState == CardTextState.TacticOnlyName || TextState == CardTextState.TacticOnlyDescription;
+            bool nameOnly = TextState == CardTextState.MinionWithoutDescriptionSimplifiedView
+                         || TextState == CardTextState.TacticOnlyName;
+
+            if (nameOnly)
+            {
+                var at = tactic ? TacticNameBigAt : UnitNameNoDescBigAt;
+                float h = tactic ? TacticNameBigH : UnitNameBigH;
+                float em = tactic ? TacticNameBigEm : UnitNameBigEm;
+                float ls = tactic ? 0f : UnitNameBigLine;
+                // 🔴 次序守卫同 ①（`A994③`）：`Fill` 末句是 `PlaceAt`，必须先用出厂 `Middle` 摆、再设 `Midline` 真档位
+                if (_title != null) _title.verticalAlignment = VerticalAlignmentOptions.Middle;
+                _title = Fill(_title, "title", d.title, at, BigTextW,
+                              TmpFont.FontSizeForEm(TmpFont.Face.LatinUi, em), InkName, false, h, false, ls, 0f,
+                              face: TmpFont.Face.LatinUi);
+                if (_title != null)
+                {
+                    _title.verticalAlignment = VerticalAlignmentOptions.Geometry;   // 原版 `Midline`(4096)
+                    _title.ForceMeshUpdate();
+                }
+                TmpFont.ApplyOutline(_title, TmpFont.TextOutline.Name);
+                Show(_title, true);
+                Show(_keywords, false);
+            }
+            else
+            {
+                var at = tactic ? TacticDescBigAt : UnitDescBigAt;
+                float h = tactic ? TacticDescBigH : UnitDescBigH;
+                float em = tactic ? TacticDescBigEm : UnitDescBigEm;
+                float ps = tactic ? TacticDescBigPara : 0f;
+                _keywords = Fill(_keywords, "keywords", d.keywords, at, BigTextW,
+                                 TmpFont.FontSizeForEm(TmpFont.Face.LatinCardBody, em), InkDesc, true, h, false,
+                                 BigLineSpacing, ps, face: TmpFont.Face.LatinCardBody);
+                TmpFont.ApplyOutline(_keywords, TmpFont.TextOutline.Body);
+                Show(_keywords, true);
+                Show(_title, false);
+            }
+
+            // 原版 5–8 的 `objectsToActivate` 名单里**没有**这三行 ⇒ 显式关（铁律 10 第 5 条：这一档入口也要设）
+            Show(_army, false);
+            Show(_race, false);
+            Show(_createdBy, CreatedByVisible);   // 这一行不归 `CardTextsController` 管（`SetCreatedBy` 自己维护）
+            ApplyTextBgForState(TextState);
+        }
+
+        /// <summary>文字底板**按态取** —— 判据只此一处（初始态与简化态共用）。
+        /// <para>原版 `CardTextsController` 9 态的 `objectsToActivate` 名单（J2 §B6 逐态实读）：
+        /// **只有态 1（Big）/ 态 2（Small）/ 态 5（Big）/ 态 6（Small）** 里有 `Textbackgrounds`；
+        /// **态 3 / 4（战术）与态 7 / 8（战术简化）都没有** ⇒ 战术卡**不画**文字底板。</para>
+        /// <para>⚠️ 网格走 `TextBgQuad` 的缓存（按名字），只换 `sharedMesh`、不重建层。</para></summary>
+        void ApplyTextBgForState(CardTextState st)
+        {
+            if (_textBg == null) return;
+            bool big = st == CardTextState.MinionWithDescription
+                    || st == CardTextState.MinionWithDescOnlyDescription;
+            bool small = st == CardTextState.MinionWithoutDescription
+                      || st == CardTextState.MinionWithoutDescriptionSimplifiedView;
+            if (!big && !small) { Show(_textBg, false); return; }   // 态 3/4/7/8：原版没有这一层
+            var target = small ? TextBgQuad("textBgSmall", TextBgSmallAt, TextBgSmallW, TextBgSmallH)
+                               : TextBgQuad("textBg", TextBgAt, TextBgW, TextBgH);
+            var mf = _textBg.GetComponent<MeshFilter>();
+            if (mf != null && mf.sharedMesh != target) mf.sharedMesh = target;
+            Show(_textBg, true);
         }
 
         /// <summary>🔴 2026-10-24（`E24`）：兵种行摆位**走哪颗原版节点** —— 判据只有这一处
@@ -4708,7 +5173,7 @@ namespace CardPresentation
                 // 🔴 **2026-10-17（`A1024`③ 批 6）**：字体面**按层**传（默认 `Cjk` ⇒ 旧调用点零行为变化）。
                 //    判据 → `资料/普查产出_1017/UI/R_A1024_字体按用途普查.md` §2·5 卡面那一格
                 //    （`NameTextUnit*` / `NameTextTactic*` / `CreatedByText` = Asar；其余 = Pragati）。
-                t = TmpFont.NewText(FaceRoot, name, "", fontSize, baseColor, face);
+                t = TmpFont.NewText(FaceContentRoot, name, "", fontSize, baseColor, face);
                 // 图标 sprite asset 由 `TmpFont.NewText` 统一挂上（全工程只那一处设）。
                 // 原地更新的那条路上它已经在 TMP 里了，不用重设。
                 StampTmpQueue(t);      // 🆕 A1665：TMP 也是这张卡的一层（含它的 sprite 子网格）
@@ -4870,6 +5335,15 @@ namespace CardPresentation
         /// <summary>0.2355 / 3.3313 —— 效果文字的 em 对卡高比</summary>
         const float DescEmOfCard = 0.0707f;
 
+        /// <summary>🔴 **2026-10-25（`CF-8`）**：**战术卡**效果文字的 em —— 原版 `DescTextTactic` 与
+        /// `DescTacticSmall` **都是 `m_fontSize = 19`、`m_LocalScale = 0.01` ⇒ em 0.19**；
+        /// 而 <see cref="KeywordFontSize"/> 取的是**单位卡**那档 `DescTextUnit`（23.55 ⇒ 0.2355）。
+        /// 原来两档共用一个常量 ⇒ **战术卡效果文字大 24%**（本轮订正）。</summary>
+        public static float TacticKeywordFontSize
+        {
+            get { return TmpFont.FontSizeForEm(TmpFont.Face.LatinCardBody, 0.19f); }
+        }
+
         /// <summary>
         /// 把整块文字**居中**摆到卡面归一化坐标 (x 从左、y 从**顶部**) 上。
         /// 用 `textBounds` 反推而不是「把原点放上去」：TMP 的原点在**第一行的基线**上，
@@ -4913,10 +5387,12 @@ namespace CardPresentation
         /// <param name="opaque">true = 用 `CardPresentation/ArtOpaque` 画（**只取 RGB、忽略贴图 alpha**）。
         /// 只有立绘底层要它 —— 立绘的 alpha 是角色抠图，直接按它混合的话底层就没法铺满拱窗。</param>
         MeshRenderer AddLayer(string name, Texture2D basis, float z, Texture2D tex, Mesh mesh = null,
-                              bool opaque = false, Material mat = null)
+                              bool opaque = false, Material mat = null, Transform parent = null)
         {
             var go = new GameObject(name);
-            go.transform.SetParent(FaceRoot, false);      // 卡面层挂在 `2DCard` 内层（倾摆跟着它走）
+            // 默认挂 `2DCard/Front`（卡面各层，见 `FrontAposY`）；`parent` 只给「坐标其实是
+            // `3DBody` 空间」的那几层用（今天的唯一调用点 = 徽标底板 `badgePlate`，见它的注释）。
+            go.transform.SetParent(parent != null ? parent : FaceContentRoot, false);
             go.transform.localPosition = new Vector3(0f, 0f, z);
             go.AddComponent<MeshFilter>().sharedMesh = mesh != null ? mesh : Quad();
             var mr = go.AddComponent<MeshRenderer>();
@@ -5900,6 +6376,20 @@ namespace CardPresentation
             var tex = ArtTexture(Data);
             if (_faceDown) { var amb = FaceDownArtTexture(); if (amb != null) tex = amb; }
             _body3D.sharedMaterial.SetTexture("_CardImage", tex);
+            // 🆕 2026-10-25（B2）：立绘 UV 窗**按这张贴图是哪种来源**给（sprite 裁块 / 整页方图）。
+            //   原版只采「整页上 UV1 那一窗」，而我们的 `art_*.png` 有两种来源（672 裁块 + 496 整页）
+            //   ⇒ 同一组常量盖不住两种。判据与算式**只写在 `CardArt.ArtUvRect`**（⛔ 别在这儿再写一份）。
+            //   ⚠️ 放在这一处 = 四条路（`SetData` / `SetCardMaterial` / `RestoreOriginalMaterial` /
+            //      `SetAmbush`）都覆盖到，与上面 `_CardImage` 同一口径。
+            ApplyArtUvRect(_body3D.sharedMaterial, tex);
+        }
+
+        /// <summary>把立绘的 UV 窗写进 `Card3D` 材质的 `_ArtUvRect`（属性不在 ⇒ 说明用的不是我们的 shader，跳过）。
+        /// <para>判据/算式唯一出处 = <see cref="CardArt.ArtUvRect"/>。</para></summary>
+        static void ApplyArtUvRect(Material m, Texture2D tex)
+        {
+            if (m == null || !m.HasProperty(ArtUvRectProp)) return;
+            m.SetVector(ArtUvRectProp, CardArt.ArtUvRect(tex));
         }
 
         // ==================================================================
@@ -6539,6 +7029,8 @@ namespace CardPresentation
             m.SetTexture("_BaseMap", CardArt.Card3DBase());
             m.SetTexture("_MatCap", CardArt.Card3DMatcap());
             m.SetTexture("_CardImage", artTex != null ? artTex : Texture2D.whiteTexture);
+            // 🆕 2026-10-25（B2）：立绘 UV 窗（sprite 裁块 / 整页方图两支）—— 算式只写在 `CardArt.ArtUvRect`
+            ApplyArtUvRect(m, artTex != null ? artTex : Texture2D.whiteTexture);
             if (m.HasProperty("_MatCap_Intensity"))   m.SetFloat("_MatCap_Intensity", 1.69f);
             if (m.HasProperty("_MatCapPower"))        m.SetFloat("_MatCapPower", 1.24f);
             if (m.HasProperty("_CountersIntensity"))  m.SetFloat("_CountersIntensity", 1.12f);
@@ -6755,6 +7247,10 @@ namespace CardPresentation
             // 🆕 2026-10-18（`A985④`）：「由谁造出来的」也一样跟整卡状态色 × 淡出走
             // （它不在 `_layers` 里，上面那个 foreach 刷不到它 —— 同 `_title` 那一族）。
             if (_createdBy != null) _createdBy.color = Greyed((Color)CreatedByInk * c);
+            // 🆕 2026-10-25（`CF-3`）：2D 卡面那四个**数值 TMP** 也一样走顶点色（原版 `m_fontColor` = 白）
+            // —— 它们不在 `_layers` 里（TMP 没有 `_Color` 材质属性可刷），同 `_title` 那一族。
+            for (int i = StatMelee; i <= StatHealth; i++)
+                if (_faceStatText[i] != null) _faceStatText[i].color = Greyed(Color.white * c);
 
             // 🆕 2026-09-29：整组徽标自己的那个不透明度（原版 `NestedFadeGroup.alpha`）——
             // 上面那个 foreach 已经把徽标各层刷成「状态色 × 整卡 α」了，这里再乘一层**只属于徽标**的。
@@ -7107,8 +7603,13 @@ namespace CardPresentation
             bool board = _faceMode == CardFace.Board;
             // 原版那一层的实绘尺寸 = sprite(0.79 × 1.07) × `MinionLight.localScale`(3.1555 / 3.0920)
             const float RingW = 0.79f * 3.1555f, RingH = 1.07f * 3.0920f;     // 2.4928 × 3.3084
+            // 🔴 **2026-10-25（`M2`）**：这一层**不挂 `Front`**（它固定在 `FaceRoot` 下，见 `Build` 那处），
+            //   所以非场上那支要把 `Front` 的 `+0.08` 显式补进 `localPosition.y` —— 否则整脸抬上去、
+            //   状态环留在原地（环圈的是「看得见的那张卡」，原版那颗 `MinionLight` 也在卡体上）。
+            //   ⚠️ 场上那支取的是 `From3DBody`（3DBody 空间、与 2D 卡面无关）⇒ **不加**。
+            //   ⚠️ 两个入口（`Build` 建完即调 / `SetFace` 换形态）都走这一个函数 ⇒ 只此一处。
             t.localPosition = board ? From3DBody(-0.001f, 1.326f, 0f) + new Vector3(0f, 0f, 0.05f)
-                                    : new Vector3(0f, 0f, 0.05f);
+                                    : new Vector3(0f, FrontAposY, 0.05f);
             t.localScale = board ? new Vector3(RingW / Width, RingH / Height, 1f)   // 网格是 `Quad()`（= 卡大小）
                                  : new Vector3(1.09f, 1.06f, 1f);
         }
@@ -7684,10 +8185,11 @@ namespace CardPresentation
         public Tween HealTweenNow { get { return _healSeq; } }
 
         // ==================================================================
-        //  合法目标的底光（原版 `Highlight` / `Highlight ranged`）
+        //  攻击类型底光（原版 `HighlightAttackType.highlightObject` = `Highlight` / `Highlight ranged`）
+        //  2026-10-25（`CF`）：驱动源已改成「**这张卡自己的** attackType」（见 `SetOwnAttackType`）。
         // ==================================================================
 
-        /// <summary>底光直径 ÷ 卡宽。算式见 `SetTargetGem`</summary>
+        /// <summary>底光直径 ÷ 卡宽。算式见 `SetOwnAttackType`</summary>
         const float GlowOfCard = 1.13f / 2.09f;      // ≈ 0.54
 
         /// <summary>底光的 z。判据 = **画在数字后面**（原版 `Highlight.SortingOrder` 比数值小）。
@@ -7702,36 +8204,206 @@ namespace CardPresentation
         bool _glowTried;
 
         /// <summary>
-        /// 点亮某颗攻击数值格的底光 —— 「这个单位**能被选中**」。
+        /// ⛔ **已弃用（2026-10-25 `CF`）—— 新代码请用 <see cref="SetOwnAttackType"/>。**
         ///
-        /// 出处：原版卡预制体 `Base Attack Counters/{Melee,Range} Attack Container/` 下各挂一个
-        /// `Highlight`（图 `40K_melee_glow`，红）/ `Highlight ranged`（图 `40K_ranged_glow`，紫），
-        /// 3D 版 `HighlightAttackType.highlightObject` 指向它们。
-        /// ⚠️ **锚点是钉死的**（四条独立证据）：它在**卡体那颗攻击数值格上**，与数字同点同心、
-        ///    `SortingOrder` 比数字小（所以画在数字**后面**）、旋转 identity 且等比缩放。
-        ///    **不是**单位脚下的地板（同 prefab 里真贴地的东西必须翻 -90°X），也**不是** 2D 印刷卡面
-        ///    那颗（那条链是 RectTransform + CanvasRenderer，而且运行时 32 个 UI 版容器
-        ///    `highlightObject` 全是 0 —— 根本没接光圈）。
+        /// <para>它原来是「**这张卡是合法目标**」那条语义的入口（点亮哪一颗数值格的底光）。
+        /// 原版**没有**这条语义：底光与数值的 `DOScale` 都由**这张卡自己的 `attackType`** 驱动
+        /// （判据 → `资料/普查产出_1025/J2_判据_卡面高亮族与渲染残项.md` §A1·6 —— 两条触发链
+        /// `ChangeAttackType` / `ToggleCombatPreviewHighlight` 逐句读过，受体永远是「这张卡自己的两颗实例」）。</para>
         ///
-        /// 尺寸：sprite 128 px ÷ PPU 100 = 1.28（原版卡体空间）× `m_LocalScale` 0.655 = **0.84**；
-        /// 点亮瞬间再 × `scaleModifierOnHighLight` **1.35** = 1.13。卡体宽 `Card 3D` = 2.09
-        /// → **1.13 / 2.09 = 54% 卡宽**。
+        /// <para>为什么还留着：`Battle/BattleDriver.HighlightTargets` 与 `Editor/BattleScene` 仍在调它。
+        /// 这里只做**同义转发**（旧三态 → <see cref="AttackTypes"/>），行为与原来逐位一致（含 `CurrentGem`），
+        /// 好让那几个调用点先编得过、不静默丢功能。</para>
         ///
-        /// ⚠️ **技能没有对应的那一档** —— 原版就两个 `Highlight`（近战/远程），所以放技能时不点亮底光，
-        ///    靠准星和弧线的金色来表达。
+        /// 🔴 **还欠的一跳（不在本文件）**：`Battle/BattleDriver.cs` 要把这条调用改成「把**这张卡自己的**
+        /// `UnitState.LastAttackType` 喂给 `SetOwnAttackType`」（`CommitCommand` 在 `:13997` 写那个字段；
+        /// 广播点 ≈ `RefreshAll` / `HighlightTargetsCore`）。改完「目标合法性」只剩
+        /// `SetHighlight(CardHighlightState.ValidTarget)` 那圈描边（原版 `CardHighlight.ChangeState`
+        /// 只改描边色 + 卡体缩放，**不碰底光**）。</para>
         ///
-        /// 没有图（删掉美术目录）时什么都不做 —— 和 `CardArt.Available` 一个路子。
+        /// <para>⚠️ 底光那层的锚点是钉死的（四条独立证据）：在**卡体那颗攻击数值格上**，与数字同点同心、
+        /// `SortingOrder` 比数字小（画在数字**后面**）、旋转 identity 且等比缩放。
+        /// **不是**单位脚下的地板，也**不是** 2D 印刷卡面那颗（那条链运行时 `highlightObject` 全是 0）。
+        /// 尺寸：sprite 128 px ÷ PPU 100 = 1.28 × `m_LocalScale` 0.655 = 0.84 卡单位
+        /// ⇒ **0.84 / 2.09 = 54% 卡宽**（`GlowOfCard`）。
+        /// ⚠️ **2026-10-25（`CF`）就地订正（铁律 5）**：这段注释原来还写着「点亮瞬间再 ×
+        /// `scaleModifierOnHighLight` **1.35** = 1.13」—— **不成立**：1.35 / 1.2 在原版**只作用在数值 TMP
+        /// （`textCounter`）**上，底光节点 `Highlight` / `Highlight ranged` 身上**没有**
+        /// `HighlightAttackType` 组件 ⇒ 底光自己不会被 ×1.35。那句把两件事混成一件了。
+        /// （`GlowOfCard` 的 1.13 是「0.84 → 54% 卡宽」那个算式的历史中间量，**不是**高亮倍数。）</para>
         /// </summary>
         public void SetTargetGem(TargetGem gem)
         {
-            CurrentGem = gem;
-            if (gem != TargetGem.None) EnsureGlow();
-            if (_glowMelee != null) _glowMelee.gameObject.SetActive(gem == TargetGem.Melee);
-            if (_glowRanged != null) _glowRanged.gameObject.SetActive(gem == TargetGem.Ranged);
+            SetOwnAttackType(gem == TargetGem.Melee ? AttackTypes.Melee
+                           : gem == TargetGem.Ranged ? AttackTypes.Ranged
+                           : AttackTypes.None);
         }
 
-        /// <summary>现在点亮的是哪颗数值格（自检断言用 —— 截图上看不出「点亮的是不是该亮的那颗」）</summary>
+        /// <summary>现在点亮的是哪颗数值格（自检断言用 —— 截图上看不出「点亮的是不是该亮的那颗」）。
+        /// ⚠️ 2026-10-25（`CF`）起它只是 <see cref="OwnAttackType"/> 的同义映射（旧读口，别在新代码里用）。</summary>
         public TargetGem CurrentGem { get; private set; }
+
+        // ==================================================================
+        //  卡面「攻击类型高亮」（原版 `HighlightAttackType`，每卡 2 个实例）—— 2026-10-25（`CF`）
+        // ==================================================================
+        // 🔴 判据全文 → `资料/普查产出_1025/J2_判据_卡面高亮族与渲染残项.md` §A1 / §A2（逐句反编译 + UnityPy 直读）
+        //    · 组件：`Melee Attack Container`（attackType=1）/ `Range Attack Container`（attackType=2）各一个；
+        //      `Spell` / `Active` **没有**实例 ⇒ 那两档卡面底光与数字都不动。
+        //    · 行为（`HighlightAttackType__HighlightIfNeeded.c` 逐句）：
+        //        if (textCounter == null) return;
+        //        if (|originalSize − Vector3.zero|² < 1e-10f) originalSize = textCounter.localScale;   ← 惰性捕获
+        //        if (selected == attackType) { highlightObject.SetActive(true);  DOScale(originalSize × 倍数, 0.15f); }
+        //        else                        { DOScale(originalSize, 0.15f);      highlightObject.SetActive(false); }
+        //      **没有 `SetEase`** ⇒ 吃 DOTween 全局默认（本工程 `Assets/Resources/DOTweenSettings.asset`
+        //      `defaultEaseType: 6` = `OutQuad`）。
+        //    · 倍数 = `scaleModifierOnHighLight`，**两族两个值**：战斗 `CardPrefab`（手牌 / 场上 / 督军）= **1.35**
+        //      （全库 304 个实例里只有这 2 个）；其余 302 个（menus / 13 场 HUD / 主菜单）= **1.2**（= ctor 默认值）。
+        //      ⚠️ 这与选择器那颗钮的 1.3 / 0.3 s / `OutBack` 是**另一个类**（`CardDisplayAttackTypeButton`），
+        //      两套参数别混（判据 → 同文件 §A3）。
+        //    · 我们这侧的对应物：原版 `textCounter`（那颗数值 TMP 的 transform）= 我们的 `_stats[StatMelee]` /
+        //      `_stats[StatRanged]`；原版 `highlightObject` = `_glowMelee` / `_glowRanged`。
+        // ✅ **手牌 / 详情窗那一档：原版本来就没有这一套**（2026-10-25 `CF` 现核，父链 + MB 计数两条证据）：
+        //    · 整份 `CardPrefab` 里 `HighlightAttackType` **只有 2 个**，父链都是
+        //      `CardPrefab / Board Elements / 3DBody / Base Attack Counters / {Melee,Range} Attack Container`；
+        //    · 2D 卡那一支（`CardPrefab / 2DCard / Front / Card Info / Melee Attack Container / Melee Attack Text`）
+        //      **没有** `HighlightAttackType`；场上 / 手牌是**两棵互斥的子树**
+        //      （`BattleCardUI.SetObjectVisibility` 同时切 `Card2DController` 与 `ToggleBody3D`）。
+        //    ⇒ 原版的「底光 + ×1.35」**只作用于场上（3D 卡体）那一档**。我们这侧的 `_stats` 就是那四个
+        //    3D 数值节点的对应物；手牌/详情窗的四个数是**另一套**（`Card Info` 里，
+        //    我们目前烘在 `_info` 贴图里）—— ⛔ **别为了「让手牌也能放大」把它们接进来**，
+        //    那是**多做的自我设计**（铁律 11 例外①：原版本身就没有）。
+        // ==================================================================
+
+        /// <summary>原版 `HighlightAttackType.scaleTime` —— `private const float = 0.15`（`dump.cs:38853`）。
+        /// 两条独立证据：① 反汇编里那个常量 `DAT_1834b3178` 用 `read_literal` 读 4 字节 = `0.15f`；
+        /// ② 符号表那条 `const`。两者逐位一致。</summary>
+        public const float AttackHighlightScaleTime = 0.15f;
+
+        /// <summary>`DAT_1834b2ba8 = 1e-10f` —— 原版判「这个 `Vector3` 还算不算零」用的**平方**距离阈值
+        /// （= (1e-5)²；同族判据 `NetworkingPeer.AlmostEquals` / `CardScript.AlreadyInPosition` 都用它）。</summary>
+        const float VectorZeroSqr = 1e-10f;
+
+        /// <summary>战斗 `CardPrefab`（手牌 / 场上 / 督军）的 `scaleModifierOnHighLight` = **1.35**。
+        /// 出处：`bundle_battleprefabs_vfxandmisc_assets_all` 的两个实例（全库 304 个里只有这 2 个）。</summary>
+        public const float AttackScaleModifierFight = 1.35f;
+
+        /// <summary>其余卡 prefab（menus 82 · 13 个 arena 各 16 · mainmenu 10 · staticgeneralassets 2 = 302 个）
+        /// 的 `scaleModifierOnHighLight` = **1.2** —— 与 ctor 里的默认值（`0x3f99999a`）同值。</summary>
+        public const float AttackScaleModifierOther = 1.2f;
+
+        /// <summary>现在高亮的是**这张卡自己的**哪个攻击类型（原版 `HighlightAttackTypes(int)` 的那个入参）。</summary>
+        public AttackTypes OwnAttackType { get; private set; }
+
+        /// <summary>`HighlightAttackType.scaleModifierOnHighLight` —— **按卡 prefab 族**取两档之一。
+        /// 🔴 族判据复用 <see cref="ArtUsesFightFamily"/>（`Hand` / `Board` = 战斗 `CardPrefab`；`Full` = 通用
+        /// `CardUI`）—— 与「立绘中心 y 分两族」是**同一个族**（原版 304 个 prefab 实例的分布正落在这两族上）。</summary>
+        public float AttackScaleModifier
+        {
+            get { return ArtUsesFightFamily ? AttackScaleModifierFight : AttackScaleModifierOther; }
+        }
+
+        /// <summary>点亮 / 熄灭「**这张卡自己的**攻击类型」那一格（原版 `BasicCardUI.AttackTypeChanged`
+        /// → 逐实例 `HighlightAttackType.HighlightIfNeeded`）。
+        /// <para>传 <see cref="AttackTypes.None"/> = 两颗都熄、两个数值都回基准 —— 原版 `CardHighlight.Start`
+        /// 与 `BattleManager._ResolveAttack` 里的敌方卡走的就是这一支。</para>
+        /// <para>⚠️ 原版**每调用一次就重开一次** 0.15 s 补间（没有「值没变就跳过」的短路）—— 这里照抄；
+        /// ⇒ 别每帧调（那会永远推不动，停在起点）。</para></summary>
+        public void SetOwnAttackType(AttackTypes type)
+        {
+            OwnAttackType = type;
+            // 旧读口（`SetTargetGem` 时代）留一份同义映射：`Editor/BattleScene` 那几条断言还在读它。
+            CurrentGem = type == AttackTypes.Melee ? TargetGem.Melee
+                       : type == AttackTypes.Ranged ? TargetGem.Ranged
+                       : TargetGem.None;
+            HighlightAttackTypes();
+        }
+
+        /// <summary>原版 `CardHighlight.HighlightAttackTypes(int)`：遍历那两个实例逐个 `HighlightIfNeeded`。</summary>
+        void HighlightAttackTypes()
+        {
+            HighlightOneAttackStat(StatMelee, OwnAttackType == AttackTypes.Melee);
+            HighlightOneAttackStat(StatRanged, OwnAttackType == AttackTypes.Ranged);
+        }
+
+        /// <summary>一个 `HighlightAttackType` 实例的 `HighlightIfNeeded`（逐句对照见本节开头那张伪代码）。</summary>
+        void HighlightOneAttackStat(int s, bool lit)
+        {
+            var mr = _stats[s];
+            // 原版第一句 `if (textCounter == null) return;` —— **连底光都不碰**（不是「只跳过缩放」）。
+            if (mr == null) return;
+
+            var tr = mr.transform;
+            var baseScale = StatBaseScaleOf(s);
+            float mult = lit ? AttackScaleModifier : 1f;
+            if (_statScaleTween[s] != null && _statScaleTween[s].IsActive()) _statScaleTween[s].Kill();
+            // 原版 `DOScale(textCounter, originalSize × 倍数, 0.15f)`，**没有 `SetEase`**
+            // ⇒ 显式传 `DOTween.defaultEaseType`（本工程 = 6 `OutQuad`），与「不写 `SetEase`」逐位等价。
+            // ⛔ 别在这里换成 `OutBack` / `OutQuad` 之类的硬编码值（那就成了「我们挑的缓动」）。
+            var tw = tr.DOScale(baseScale * mult, AttackHighlightScaleTime);
+            _statScaleTween[s] = CardTween.Use(tw, DOTween.defaultEaseType, this);
+
+            // 底光 = 原版 `highlightObject.SetActive(...)`。
+            // ⚠️ 原版**不防御**「命中但 `highlightObject == null`」（那一支直接空引用抛，用来暴露预制体接错）；
+            //    我们这边的 null 只有一个**正当**来源 —— `Resources/Art/` 被删（`CardArt.Ui` 取不到图）。
+            //    那一档不能抛（它是全工程支持的配置）⇒ **警告一次**，出声、不静默。
+            if (lit) EnsureGlow();
+            var q = s == StatMelee ? _glowMelee : _glowRanged;
+            if (q != null) q.gameObject.SetActive(lit);
+            else if (lit && !_glowMissingWarned)
+            {
+                _glowMissingWarned = true;
+                Debug.LogWarning("[CardView] 攻击类型底光取不到图（`40K_melee_glow` / `40K_ranged_glow`）"
+                               + " ⇒ 数值照常放大，但底光不亮。多半是删了 `Resources/Art/`"
+                               + "（那一档是支持的配置；若美术在，就是 `CardArt.Ui` 的名字对不上）。");
+            }
+        }
+
+        /// <summary>原版 `originalSize`（`+0x48`）的惰性捕获 —— **判据只有这一处**（高亮与 bump 都要它）。
+        /// 条件照抄原版：`|base − zero|² < 1e-10f` 时才把**当刻**的 `localScale` 记下来。
+        /// ⚠️ 原版没处理「初始 scale 真的是 0」的边界（那种格每次调用都会重记）—— 同上，别自己加短路。</summary>
+        Vector3 StatBaseScaleOf(int s)
+        {
+            var mr = _stats[s];
+            if (mr == null) return Vector3.one;
+            if (_statBase[s].sqrMagnitude < VectorZeroSqr) _statBase[s] = mr.transform.localScale;
+            return _statBase[s];
+        }
+
+        // ---- 自检读口（截图上看不出「放大的是不是那一格、放大了多少」）------------------
+
+        /// <summary>自检用：第 `s` 格数值**现在**的 `localScale`（层没建 ⇒ 零向量）。</summary>
+        public Vector3 StatScaleNow(int s)
+        {
+            var mr = _stats[s];
+            return mr != null ? mr.transform.localScale : Vector3.zero;
+        }
+
+        /// <summary>自检用：第 `s` 格的**基准**（原版 `originalSize`；还没被捕获过 = 零向量）。</summary>
+        public Vector3 StatBaseScale(int s) { return _statBase[s]; }
+
+        /// <summary>自检用：第 `s` 格那条 `DOScale`（没起过 / 已被 bump 杀掉 = null）。
+        /// 读 `Duration()` 验 0.15 s。</summary>
+        public Tween StatHighlightTween(int s) { return _statScaleTween[s]; }
+
+        /// <summary>自检用：那一颗底光**亮着没有**（`ranged` = 远程那颗；没建出来也算 false）。</summary>
+        public bool AttackGlowOn(bool ranged)
+        {
+            var q = ranged ? _glowRanged : _glowMelee;
+            return q != null && q.gameObject.activeSelf;
+        }
+
+        /// <summary>自检用：两颗底光建出来没有 —— `Resources/Art/` 被删时是 false（那几条断言算「没验到」）。</summary>
+        public bool AttackGlowBuilt { get { return _glowMelee != null || _glowRanged != null; } }
+
+        /// <summary>自检用：把某一格的 `localScale` 硬写成某值（验惰性捕获的**阈值判别**）。⛔ 生产代码别调。</summary>
+        public void StatScaleForTest(int s, Vector3 v)
+        {
+            var mr = _stats[s];
+            if (mr != null) mr.transform.localScale = v;
+        }
+
+        /// <summary>自检用：把某一格的**基准**硬写成某值（同上）。⛔ 生产代码别调。</summary>
+        public void StatBaseForTest(int s, Vector3 v) { _statBase[s] = v; }
 
         void EnsureGlow()
         {
@@ -8220,12 +8892,20 @@ namespace CardPresentation
                 default: return transform.position;
             }
             // 归一化坐标 y 从**顶部**数（和 `CostAt` 那批同口径）⇒ 局部 y 要翻过来
-            return transform.TransformPoint(new Vector3((at.x - 0.5f) * Width, (0.5f - at.y) * Height, 0f));
+            // 🔴 **2026-10-25（`M2`）**：非场上那套要补 `Front` 的 `+0.08`（卡面层挂在 `2DCard/Front` 下）；
+            //    场上那套取 `BoardMeleeAt` 一族（3DBody 空间）⇒ 不补。同 `HitAt`。
+            return transform.TransformPoint(new Vector3((at.x - 0.5f) * Width,
+                                                       (0.5f - at.y) * Height + (board ? 0f : FrontAposY), 0f));
         }
 
         bool HitAt(Vector3 local, Vector2 at)
         {
-            var c = new Vector3((at.x - 0.5f) * Width, (0.5f - at.y) * Height, 0f);
+            // 🔴 **2026-10-25（`M2`）**：`local` 是**卡根**空间（`StatAt` 那句 `transform.InverseTransformPoint`），
+            //   而 `at` 是**卡面归一化**坐标 —— 非场上那套卡面层现在挂 `2DCard/Front`（+0.08，见 `FrontAposY`）
+            //   ⇒ 要补回那 0.08，否则「看着在这颗圈里、点上去弹出隔壁那颗的说明」会以 2.4% 卡高的偏移回来。
+            //   场上那套（`BoardMeleeAt` 一族）本来就在 3DBody / 卡根空间 ⇒ **不加**。
+            float dy = _faceMode == CardFace.Board ? 0f : FrontAposY;
+            var c = new Vector3((at.x - 0.5f) * Width, (0.5f - at.y) * Height + dy, 0f);
             return (local - c).sqrMagnitude <= StatHitR * StatHitR;
         }
 
@@ -8478,10 +9158,15 @@ namespace CardPresentation
             if (!_clip.HasValue) return;
 
             var clip = _clip.Value;
-            // 🔴 **换算**：画布矩形 → 卡面那一层（`FaceRoot`）的局部系。
+            // 🔴 **换算**：画布矩形 → 卡面那一层（`2DCard/Front`）的局部系。
             //    卡在画布上轴对齐时它还是个轴对齐矩形 ⇒ 与「沿画布轴裁」逐位等价；
             //    转过的话取外接矩形（会多画一点）⇒ 出声一次。
-            var fr = FaceRoot;
+            //    ⚠️ **2026-10-25（`M2`）**：标架从 `FaceRoot`（`2DCard`）改成 `FaceContentRoot`（`Front`）
+            //    —— 被裁的网格（`CropLayer` 直接吃 meshes 顶点）都在 `Front` 局部系里。
+            //    ⚠️ 两个例外：`rim` 与四个数值层**不挂 `Front`**（见那两处注释）⇒ 它们被裁时会差
+            //    `+0.08`（≈2.4% 卡高）。这两层平时 `enabled=false` / 只在场上出现，且裁切本身是
+            //    「转过时取外接矩形」的近似档 ⇒ **按近似处理，不另开第二套标架**（如实记在这里）。
+            var fr = FaceContentRoot;
             if (!_clipWarned
                 && (Quaternion.Angle(fr.rotation, transform.rotation) > 0.01f
                     || Quaternion.Angle(transform.rotation, Quaternion.identity) > 0.01f))
@@ -11413,8 +12098,9 @@ namespace CardPresentation
         //   · `cardTextBumpSize / cardTextBumpTime` —— 那一下的缩放。
         //  我们原来把攻/远/甲/血四个数字**烘在同一张大图**（`InfoTexture`）里 ⇒ 单个动不了。
         //
-        //  ⚠️ **只在 `CardFace.Board` 走这条**：手牌那个 2D 卡面的数值仍旧烘在 `_info` 里
-        //     （那边不随战斗变，拆了还要重做一套几何）。两边的判据都是 `_faceMode`，只有一处。
+        //  ⚠️ **只在 `CardFace.Board` 走这条**：非场上那四档的数值是**另一套载体** ——
+        //     🔴 2026-10-25（`CF-3`）起 = 四件真 TMP（`BuildFaceStatTexts`，原版 `2DCard/Front/Card Info/…` 同构）；
+        //     再早是烘在 `_info` 贴图里，现在那条只剩「字体资产取不到」的兜底。两边的判据都是 `SplitStats`（一处）。
         //  ⚠️ 字形表不在（`PragatiDigits.Available == false`）⇒ **不拆**，退回老路（不静默不画）。
         // ==================================================================
 
@@ -11459,6 +12145,23 @@ namespace CardPresentation
                 case StatArmour: return d.armor;
                 default:         return d.health;
             }
+        }
+
+        /// <summary>某一格数值**该不该显示** —— 🔴 **判据只此一处**（两档载体都调它：场上的网格层
+        /// `SyncStatLayers` · 非场上的四件 TMP `SyncFaceStatTexts`；⛔ 别在任一处再拼一遍）。
+        /// <para>判据（一手）= 原版 `BasicCardUI__SetRawCardData.c` 对**每个** counter 各一次
+        /// `CardTextCountersController.Toggle(...)`，配合 `dump.cs` 的 `RawCardScript` 字段表：</para>
+        /// <list type="bullet">
+        ///   <item>近战 `+0xb0` ← `meleeAttack(+0xA4)` · 远程 `+0xb8` ← `rangeAttack(+0xA8)` · 生命 `+0xa0` ← `maxHealth`
+        ///   —— 三者的 Toggle 参数**都只是 `IsUnit`** ⇒ **远程 = 0 也照印一个 `0`**。</item>
+        ///   <item>护甲 `+0xc0` ← `armour(+0xA0)` —— Toggle 的参数是 `IsUnit && armour != 0` ⇒ **0 就整格不显示**
+        ///   （那条「值 ≠ 0」的门**只属于护甲**，别推广到远程）。</item>
+        /// </list>
+        /// <para>⚠️ 督军不印**费用**是另一件事（`ShowsCost`，`manaCost(+0x78)` 的高字节哨兵），与本函数无关。</para></summary>
+        static bool StatShownFor(int s, CardData d)
+        {
+            if (!d.isUnit) return false;
+            return s != StatArmour || d.armor != 0;
         }
 
         /// <summary>这个数值用哪一档字形（描边宽度由 <see cref="PragatiDigits.OutlineWidth(PragatiDigits.Variant)"/> 读，
@@ -11544,6 +12247,9 @@ namespace CardPresentation
                 _statFlash[s] = Color.white;
                 var at = StatAt01(s, true);
                 var go = new GameObject("stat" + s);
+                // ⚠️ **2026-10-25（`M2`）四个数值层【不挂】`Front`**：它们的位置取 `StatAt01(s, true)`
+                //    = 原版 `3DBody` 空间的四个 TMP 节点（`BoardMeleeAt` 那一族），**不是** `Front` 局部系
+                //    ⇒ 挂在 `2DCard`（`FaceRoot`），跟 3D 卡体同一套坐标。⛔ 别把它们搬进 `Front`。
                 go.transform.SetParent(FaceRoot, false);  // 四个数值层也是卡面（场上的倾摆是关的，见 `SetFace`）
                 go.transform.localPosition = new Vector3((at.x - 0.5f) * Width, (0.5f - at.y) * Height, BoardInfoZ);
                 go.AddComponent<MeshFilter>().sharedMesh = CenteredQuad("stat" + s, StatCell, StatCell, null);
@@ -11568,9 +12274,9 @@ namespace CardPresentation
                 var mr = _stats[s];
                 if (mr == null) continue;
                 int v = StatValue(Data, s);
-                // 护甲**只有 > 0 才画**（原版 `ArmourText` 有值才有字）；其余三个 0 也画
-                // （`ranged == 0` 要印一个 0 —— 判据见 `InfoTexture` 里那段注释）。
-                bool show = board && Data.isUnit && !(s == StatArmour && v <= 0);
+                // 逐格显隐走**唯一判据** `StatShownFor`（原版逐 counter `Toggle`；**远程 = 0 照印 `0`**，
+                // 只有**护甲 0** 才整格不显示 —— 判据与出处见那个函数的 doc）。
+                bool show = board && StatShownFor(s, Data);
                 var tex = show ? StatTexture(s, v) : null;
                 if (tex == null) show = false;
                 mr.gameObject.SetActive(show);
@@ -11583,6 +12289,135 @@ namespace CardPresentation
                 c.a *= _alpha;
                 mr.sharedMaterial.color = (_tint * c);
             }
+        }
+
+        // ==================================================================
+        //  2D 卡面那四个数值 = 真 TMP 节点（原版 `2DCard/Front/Card Info/…`）—— 2026-10-25（`CF-3`）
+        // ==================================================================
+        // 🔴 **为什么要有这一套**：原版 2D 卡（手牌 / 详情窗 / 卡池）的四个数是**四件独立 TMP**，
+        //    不是烘进位图；我们原来把它们烘在 `_info` 里（结构差异）。逐值判据见
+        //    `_faceStatText` 那段字段注释（父链 / rect / 字号 / 颜色 / 材质 / 数值来源）。
+        // ⛔ **与原版一样：这四件不参与「攻击类型高亮」**（那一档只有场上的 `Base Attack Counters` 有）。
+
+        /// <summary>懒建那四件 TMP（第一次用到时）。拿不到字体资产就**不建** ——
+        /// 那时 `SplitStats` 返回 false，数字仍旧烘在 `_info` 里（两条路互斥、由 `SplitStats` 一处判）。</summary>
+        void BuildFaceStatTexts()
+        {
+            if (_faceStatText[StatMelee] != null) return;
+            if (string.IsNullOrEmpty(Data.id) || !Data.isUnit) return;
+            if (!TmpFont.Available) return;
+
+            for (int s = StatMelee; s <= StatHealth; s++)
+            {
+                // 名字与原版 prefab 逐字一致（自检 / 排查时能直接对上）
+                string cname = s == StatMelee ? "Melee Attack Container"
+                             : s == StatRanged ? "Range Attack Container"
+                             : s == StatHealth ? "Health Container"
+                             : "Armour Container";
+                string tname = s == StatMelee ? "Melee Attack Text"
+                             : s == StatRanged ? "Range Attack Text"
+                             : s == StatHealth ? "HealthText"
+                             : "Armour Text";
+
+                var cgo = new GameObject(cname);
+                cgo.transform.SetParent(FaceContentRoot, false);
+                cgo.transform.localScale = Vector3.one;      // 原版四个 Container 的 `m_LocalScale` 全是 1
+                var at = StatAt01(s, false, _frameTex);
+                // z 跟 `_info` 同层：原版这两样都挂在 `Card Info` 里（同一层），
+                // 且必须是「卡框之前、正文文字之后」（`InfoZ = −0.02` < `TextZ = −0.03` 那个次序）。
+                cgo.transform.localPosition = new Vector3((at.x - 0.5f) * Width,
+                                                          (0.5f - at.y) * Height, InfoZ);
+                _faceStatContainer[s] = cgo;
+
+                var t = TmpFont.NewText(cgo.transform, tname, "", FaceStatFontSizeOur, Color.white,
+                                        TmpFont.Face.LatinCardBody);
+                if (t == null) { DestroyImmediate(cgo); _faceStatContainer[s] = null; return; }
+                var rt = t.rectTransform;
+                var size = s == StatHealth ? FaceStatTextSizeHealth
+                         : s == StatArmour ? FaceStatTextSizeArmour
+                         : FaceStatTextSize;
+                rt.sizeDelta = size;
+                // 原版 `Armour Text` 在容器里带一个很小的偏移（其余三个是 (0,0)）
+                rt.localPosition = s == StatArmour
+                    ? new Vector3(FaceStatArmourTextOffset.x, FaceStatArmourTextOffset.y, 0f)
+                    : Vector3.zero;
+                rt.localScale = Vector3.one;                 // 原版四件 `m_LocalScale` 全是 1（不是 0.01 那一档）
+                // 原版 `m_enableAutoSizing = 1`、`fontSizeMin/Max = 0.025 / 0.34`（**原版 em 口径**）
+                // ⇒ 两个界都要过 `FontSizeForEm` 折成我们的 fontSize（见 `FaceStatFontSizeOur` 的 doc）
+                t.enableAutoSizing = true;
+                t.fontSizeMin = TmpFont.FontSizeForEm(TmpFont.Face.LatinCardBody, FaceStatFontSizeMin);
+                t.fontSizeMax = FaceStatFontSizeOur;
+                t.fontSize = FaceStatFontSizeOur;
+                t.alignment = TextAlignmentOptions.Center;   // 原版 hAlign 2 (Center) + vAlign 512 (Middle)
+                ApplyStatOutline(t, s == StatArmour);        // 护甲那一件是 Thick，其余 Thin
+                cgo.SetActive(false);                        // 由 `SyncFaceStatTexts` 按形态/数值开关
+                StampTmpQueue(t);                            // A1665：TMP 也是这张卡的一层
+                _faceStatText[s] = t;
+                _faceStatRect[s] = rt;
+            }
+        }
+
+        /// <summary>把四件 TMP 的**值 / 显隐**刷一遍（`_info` 那半已由 `SplitStats` 停掉）。
+        /// 判据：数值走 `StatValue(Data, s)`（与场上那四层同一个口）；**护甲 ≤ 0 不显示**
+        /// （`BasicCardUI.SetRawCardData` 的 `Toggle(armour, bVar6)` 那一支；口径与 `SyncStatLayers` 同一份）。</summary>
+        void SyncFaceStatTexts()
+        {
+            if (_faceStatText[StatMelee] == null) return;
+            bool face = _faceMode != CardFace.Board;         // 场上走四个网格层（`_stats`）
+            for (int s = StatMelee; s <= StatHealth; s++)
+            {
+                var t = _faceStatText[s];
+                var cgo = _faceStatContainer[s];
+                if (t == null || cgo == null) continue;
+                int v = StatValue(Data, s);
+                // 显隐走**唯一判据** `StatShownFor`（与场上那四个网格层同一份：原版逐 counter `Toggle`，
+                // **远程 = 0 照印**、只有**护甲 0** 不显示）。⚠️ 简化视图 / `SmallScreenUI` **不参与**这一条 ——
+                // 原版那四个 `CardTextCounterContainer.activationRules` 实测**全是 `[0] = Normal`**
+                // （只有 `Cost Container` 是 `[0,15]`、`Cost Container Big` 是 `[5,10]`）。
+                bool on = face && StatShownFor(s, Data);
+                bool wasOn = cgo.activeSelf;
+                if (wasOn != on) cgo.SetActive(on);
+                if (!on) continue;
+                string txt = v.ToString();
+                bool changed = t.text != txt;
+                if (changed) t.text = txt;
+                // ⚠️ 批处理没有帧循环（CLAUDE.md §三）⇒ 值变了 / 刚显示出来的那一拍必须手动排版
+                //    （`ForceMeshUpdate` 对**未激活**对象会早退 —— 所以这句只能写在 `SetActive(true)` 之后）
+                if (changed || !wasOn) t.ForceMeshUpdate();
+            }
+        }
+
+        /// <summary>原版两档描边材质（`Pragati-Regular Atlas Material {Thin,Thick} Outline`）——
+        /// `_OutlineWidth` / `_FaceDilate` / `_OutlineColor` 逐字段实读，写在 `StatOutline*` 那几个常量上。
+        /// ⚠️ 必须用**实例材质**（`fontMaterial`），改共享材质会让全工程的字一起变（同 `TmpFont.ApplyOutline`）。</summary>
+        void ApplyStatOutline(TextMeshPro t, bool thick)
+        {
+            var mat = t.fontMaterial;
+            if (mat == null) return;
+            mat.EnableKeyword("OUTLINE_ON");
+            mat.SetColor(ShaderUtilities.ID_OutlineColor,
+                         thick ? StatOutlineColorThick : StatOutlineColorThin);
+            mat.SetFloat(ShaderUtilities.ID_OutlineWidth, thick ? StatOutlineThick : StatOutlineThin);
+            mat.SetFloat(ShaderUtilities.ID_FaceDilate, thick ? StatFaceDilateThick : StatFaceDilateThin);
+            t.UpdateMeshPadding();   // 描边会画到 quad 之外 ⇒ 重算留白（同 `TmpFont.ApplyOutline`）
+        }
+
+        // ---- 自检读口（这四个数是 TMP，读 `_info` 那张贴图的像素是读不到「哪件画了什么」的）----
+        /// <summary>自检用：第 `s` 格 2D 数值的 TMP（没建 = null）。</summary>
+        public TextMeshPro FaceStatText(int s) { return _faceStatText[s]; }
+        /// <summary>自检用：那件 TMP 自己的 rect（`sizeDelta` / `localScale` 都对原版用）。</summary>
+        public RectTransform FaceStatRect(int s) { return _faceStatRect[s]; }
+        /// <summary>自检用：那个 Container 现在显示着吗（= 这一格该不该画）。</summary>
+        public bool FaceStatVisible(int s)
+        {
+            var c = _faceStatContainer[s];
+            return c != null && c.activeSelf;
+        }
+        /// <summary>自检用：Container 在 `Front` 局部系的坐标（与原版 `Card Info` 的 `m_AnchoredPosition` 同标架）。</summary>
+        public Vector3 FaceStatLocalPos(int s)
+        {
+            var c = _faceStatContainer[s];
+            return c != null ? c.transform.localPosition : Vector3.zero;
         }
 
         /// <summary>那一个数值**涨 / 落**了：变色 + bump（原版 `CardTextCountersController` 那两件事）。
@@ -11600,11 +12435,17 @@ namespace CardPresentation
             //    · 再 `DOPunchScale(基准 × cardTextBumpSize, cardTextBumpTime, vibrato = 10, elasticity = 2.0f)`
             //      —— **幅度是「乘」不是「打到」**（三处 `mulss`），弹性那个 `2.0f` 是常量池 `0x1834B2BBC`。
             //    · 基准 = 攻击类型高亮态用 `HighlightAttackType.TargetScale`、否则 `originalScales[i]`
-            //      （我们这四个数值层没有那套高亮，基准恒 `Vector3.one`）。
+            //      🔴 **2026-10-25（`CF`）已接上**：基准走 `StatBaseScaleOf`（= 原版 `originalSize` 惰性捕获），
+            //      高亮态再 × 倍数（`AttackScaleModifier`）。原来这里写死 `Vector3.one` —— 那样一涨一落
+            //      就把高亮放大的数值**弹回 ×1.0**（原版的 `SetText` 复位用的是 `TargetScale`，不是 1）。
             var tr = mr.transform;
             tr.DOKill();
-            tr.localScale = Vector3.one;                     // 原版先复位
-            CardTween.Use(tr.DOPunchScale(Vector3.one * CardFeel.StatBumpSize, CardFeel.StatBumpTime,
+            _statScaleTween[s] = null;                       // `DOKill` 刚才把那条高亮补间一起杀了
+            bool lit = (s == StatMelee && OwnAttackType == AttackTypes.Melee)
+                    || (s == StatRanged && OwnAttackType == AttackTypes.Ranged);
+            var bumpBase = StatBaseScaleOf(s) * (lit ? AttackScaleModifier : 1f);
+            tr.localScale = bumpBase;                        // 原版先复位到基准
+            CardTween.Use(tr.DOPunchScale(bumpBase * CardFeel.StatBumpSize, CardFeel.StatBumpTime,
                                           CardFeel.StatBumpVibrato, CardFeel.StatBumpElasticity),
                           Ease.Linear, tr);
             StatBumps++;
@@ -11634,8 +12475,10 @@ namespace CardPresentation
             var mr = _stats[s];
             if (mr != null) return mr.transform.position;
             var at = StatAt01(s, _faceMode == CardFace.Board, _frameTex);
-            return transform.TransformPoint(new Vector3((at.x - 0.5f) * Width, (0.5f - at.y) * Height,
-                                                        _faceMode == CardFace.Board ? BoardInfoZ : InfoZ));
+            bool boardFallback = _faceMode == CardFace.Board;
+            return transform.TransformPoint(new Vector3((at.x - 0.5f) * Width,
+                                                        (0.5f - at.y) * Height + (boardFallback ? 0f : FrontAposY),
+                                                        boardFallback ? BoardInfoZ : InfoZ));
         }
 
         /// <summary>自检用：第 `s` 个数值层的 z（**卡根空间**；层没建就用该形态该用的常量）。

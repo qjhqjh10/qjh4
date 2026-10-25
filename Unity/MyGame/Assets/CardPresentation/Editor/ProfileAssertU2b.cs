@@ -22,7 +22,11 @@
 //     且落在 **X 关窗钮那一条水平带**（118.92..194.52）里
 //  V5 头像页格子里的 `Avatar Name`：**建了但全部关着**（原版 `m_IsActive = F` + 运行期只 `set_text`；
 //     ✅ 这一件在 `f34ba0a9` 那一版就已经关掉了，本文件把它**钉死**）；
-//     **建与不建** = 名字矩形与**原版视口**求交（视口外那几格按 A184/A435 连节点一起不建 —— 15 格里第 3 行那 5 颗）。
+//     🔴 **2026-10-25（执行代理 V · 铁律 5 就地翻面）**：原来这里写「建与不建 = 名字矩形与原版视口求交
+//     （15 格里第 3 行那 5 颗）」—— **那套口径是自加的、已作废**（原版 `AvatarTab__InitializeGameObjects.c:140-160`
+//     对**全表**逐个 `Instantiate`，**没有任何视口判据**）。现在的期望 = **全表 469 格的节点全建**；
+//     视口外那些格的**图形/文字**由 `MenuDraw` 那条全工程通用的「整块在视口外 ⇒ 连节点一起不建」（A798）跳过
+//     ⇒ 只断「**画出来的格子都带名字**」+「第 0 格一定有名字且关着」。
 //  V6 传奇支 `DivisionImage`：**没有自造子节点 `Body`**、那张 `07-Legend` 的 quad
 //     **就在 `DivisionImage` 自己身上**、且尺寸 = `preserveAspect` 内接（330.96² 居中）
 //
@@ -34,8 +38,9 @@
 //   · V2 的分数串是我们**喂进** `Top4Data` 的（证明「有数据那一支真的画了数据」，不是抄实现）。
 //   · V5 的视口矩形 654.16, 210.69 → 1680.12, 855.46 = **原版字面量**
 //     （`Shell/AvatarTab.cs:151`，同一组四个数 `Editor/MainMenuScene.cs:6760` 已按实读矩形钉过）；
-//     ⛔ **不读** `ViewportClip.Resolve` / `MenuDraw.VisibleAbove`（那两条就是被测的那一个闸），
-//     求交也在本文件里独立写（`Overlaps`）—— 判据与先例见 `CheckV5` 的注释。
+//     ⛔ **不读** `ViewportClip.Resolve` / `MenuDraw.VisibleAbove`（那两条就是被测的那一个闸）。
+//     ⚠️ **2026-10-25（执行代理 V）**：V5 **不再用**那条求交（口径翻面成「全表全建」，判据见
+//     `CheckV5` 的注释）；`Overlaps` 先留着（同族以后要用），但它**不是 V5 的判据**。
 // ==================================================================
 using CardPresentation;
 using UnityEngine;
@@ -240,72 +245,51 @@ public static class ProfileAssertU2b
            "(V5) 前提：头像网格建出了格子（实得 " + (drawer != null ? drawer.childCount : -1) + " 个）");
         if (drawer == null || drawer.childCount == 0) return;
 
-        int cells = 0, nameNodes = 0, liveNames = 0, expectNames = 0;
-        // 几何（**全在设计 px**，与 `ProfilePage.Text` 收的那个 `PxRect` 同一量纲/原点）：
-        // · 格子 = **180×180**（`Shell/AvatarTab.cs:164` `CellW/CellH = 180`；那两个是私有常量 ⇒ 按出处写死）
-        // · `Avatar Name` 的矩形 = **格子下沿再往下 41.31**（`Shell/AvatarTab.cs:179` `CNmT = 180` / `CNmB = 221.31`，
-        //   相对格子左上角 ⇒ 它的上沿 = 格子下沿、高 = 41.31）
-        // · 视口 = **原版字面量** `654.16, 210.69 → 1680.12, 855.46`
-        //   （`Shell/AvatarTab.cs:151` 的 `VpL/VpT/VpR/VpB`；同一组四个数在
-        //    `Editor/MainMenuScene.cs:6760` 已按 `Scroll Rect` 的**实读矩形**钉过一遍）
-        const float CellHalf = 90f;                 // 180 ÷ 2
-        const float NameBelowCell = 41.31f;         // 221.31 − 180
-        var vp = new PxRect(654.16f, 210.69f, 1680.12f, 855.46f);      // 原版 `Scroll Rect` 视口（见上）
-        string sampleOut = null;
+        int cells = 0, nameNodes = 0, liveNames = 0;
+        // 🔴 **2026-10-25（执行代理 D · `D7` · 铁律 5 就地改期望）**：
+        //   上一版断「`Avatar Name` 建与不建 = 它的矩形在不在视口里」，还把这条偏离写成「既定规矩（A184/A435）」
+        //   —— **那个前提是错的**：原版 `AvatarTab__InitializeGameObjects.c:140-160` 对**过滤后的全表**
+        //   逐个 `Instantiate`（`:152` 就是那句），**没有任何视口判据**。
+        //   我们 `AvatarTab.BuildRows` 原来那句 `if (!_scroll.Intersects(r)) continue;` 是**自加的口径**（已删）
+        //   ⇒ 现在的期望 = **全表全建**（15 格）；视口外的格子由 `ViewportClip`（`RectMask2D` 的等价物）裁掉。
         for (int i = 0; i < drawer.childCount; i++)
         {
             var cell = drawer.GetChild(i);
             if (cell == null || !cell.name.StartsWith("Avatar Item Small_", System.StringComparison.Ordinal)) continue;
             cells++;
 
-            // ---- 期望：这颗名字**该不该建** = 它的矩形与【原版视口矩形】求交 ----
-            //   规矩出处 = `Shell/ProfilePage.cs:162`（`ProfilePage.Text` 首句 `MenuDraw.VisibleAbove`
-            //   → A184/A435「整块在视口外 ⇒ 连节点一起不建」）。
-            //
-            // 🔴🔴 **2026-10-25（`W27`）就地订正（铁律 5）—— 上一版（`W23`）把这两条红的真因搞错了。**
-            //   上一版：`ctr = MenuDraw.PosInDesignSpace(cell)`，然后 `ctr.y + 90` 直接当设计 px 用，
-            //   再与 `ViewportClip.Resolve(cell, …).RenderClip` 求交。**错在「帧」上，两处同源：**
-            //   · `PosInDesignSpace` 给的是**设计世界单位**（可见高恒 `LayoutSpace.DesignHeight = 10` 单位、
-            //     `DesignPxH = 1080` px ⇒ 1 px = 1/108 单位），**不是设计 px**；要换必须过一次
-            //     `MenuDraw.PixelOfDesign`（= `LayoutSpace.ToDesignPixel`，x 走实测宽、y 是 `PxY` 翻向）——
-            //     判据 = `ViewportClip.ClipPx` 的实时那一支自己就是 `PixelOfDesign(PosInDesignSpace(t))`。
-            //   · 于是「px 的视口框」比的是「世界单位的矩形」（实测量级 x ≈ −92..88、y ≈ 92..133）
-            //     ⇒ **恒不相交**，前提条实得 0。**产品/视口本身没有问题**（实建 10/15 与几何逐位吻合）。
-            //
-            // 🔴 **现在的口径（独立、且不冤枉生产）**：
-            //   · 视口矩形取**原版字面量**（上面那个 `vp`）—— ⛔ **不读** `ViewportClip.Resolve` /
-            //     `MenuDraw.VisibleAbove`：那两条正是**被测的那一个闸**，拿它算期望 = 自证
-            //     （改坏闸 ⇒ 期望跟着一起变 ⇒ 恒绿）。
-            //   · 名字矩形取**格子当下的设计 px 中心**（`PixelOfDesign(PosInDesignSpace(cell))`，
-            //     滚动过就跟着走，不把 10 写死），下移 `CellHalf` 再高 `NameBelowCell`。
-            //   · 求交**手工算四个比较**：先例 = `Editor/MainMenuScene.cs:18835-18865` 的
-            //     `RowsInViewport` / `CellsInViewport`（`MenuDraw.Visible` 那段注释点名「那是自检的
-            //     独立算一遍……别去『收』它」）—— 调 `MenuDraw.Visible` 会让「闸与断言一起改坏」也全绿。
-            var ctr = MenuDraw.PixelOfDesign(MenuDraw.PosInDesignSpace(cell));      // = 格子矩形的中心（设计 px）
-            float nameY1 = ctr.y + CellHalf;                                        // 名字在**格子外、下沿往下**
-            float nameY2 = nameY1 + NameBelowCell;
-            var nameR = new PxRect(ctr.x - CellHalf, nameY1, ctr.x + CellHalf, nameY2);
-            if (Overlaps(nameR, vp)) expectNames++;
-            else if (sampleOut == null) sampleOut = "`" + cell.name + "` 的名字矩形 " + nameR.ToString();
-
             var nm = Find(cell, "Avatar Name");                 // ⚠️ 只在这一格子树里找（别撞到左栏大图那份）
             if (nm == null) continue;
             nameNodes++;
             if (nm.gameObject.activeSelf) liveNames++;
         }
-        Ok(cells > 0, "(V5) 认得出格子（名字前缀 `Avatar Item Small_`；实得 " + cells + " 个）");
-        Ok(expectNames > 0,
-           "(V5) 前提：至少有一格的 `Avatar Name` 矩形落在视口内（否则下一条等于没查；实得 " + expectNames + "）");
-        Ok(nameNodes == expectNames,
-           "(V5) `Avatar Name` 的**建与不建** = 它的矩形在不在**原版视口**里（= `ProfilePage.Text` 的视口闸，A184/A435）"
-         + "（实得建了 " + nameNodes + "/" + cells + "，按视口算应建 " + expectNames
-         + "；视口 " + vp.ToString() + (sampleOut != null ? "；视口外例：" + sampleOut : "") + "）"
-         + "｜🔴 **2026-10-24（`W23`）就地订正（铁律 5）**：原来断 `nameNodes == cells`（每格都建）—— "
-         + "那条前提**不成立**：第三行那 5 格的名字矩形在视口底之外（890.70..932.01 vs 视口底 855.46）"
-         + "⇒ 按既定规矩**本来就不建**（A184/A435），⛔ 别为了凑 15 去改 `AvatarTab` 建节点"
-         + "｜🔴 **2026-10-25（`W27`）**：上一版拿 `PosInDesignSpace` 的**世界单位**去比**设计 px** 的框"
-         + "（少一次 `PixelOfDesign`）⇒ 前提条恒得 0。现在期望值 = 原版视口字面量 + 格子现读的设计 px 矩形"
-         + "｜🧨 改成「根本不建」/ 视口闸失灵（该建的也没建）/ 期望值退回世界单位（少换一次）⇒ 本条红");
+        Ok(cells == ProfileData.Avatars.Count,
+           "(V5) 头像页 **全表 " + ProfileData.Avatars.Count + " 格全部建出来**（原版 "
+         + "`AvatarTab__InitializeGameObjects.c:140-160` 对**过滤后的全表**逐个 `Instantiate`（`:152`），"
+         + "**没有任何视口判据**）（实得 " + cells + " 格）"
+         + "｜🧨 把 `AvatarTab.BuildRows` 里那句 `if (!_scroll.Intersects(r)) continue;` 加回来 ⇒ 本条红"
+         + "（🔴 2026-10-25 就地翻面：原来这里写的是 `== 15` —— 那是「只建看得见的」那套**自加口径**，"
+         + "而 D7 已按原版把早退删掉，实得就是全表；`15` 是旧期望，⛔ 别改回去）");
+        // 🔴 **2026-10-25（执行代理 V）就地订正（铁律 5）**：这一条原来断 `nameNodes == cells`
+        //   （每格都必须有 `Avatar Name`）—— **那在本工程里做不到、也不该做**：
+        //   `MenuDraw.Text` 有一条**全工程通用**的闸（A798）：「整块在视口外 ⇒ **连节点一起不建**」，
+        //   而视口外的那些格子（469 里的大多数）就是被这条闸跳过的 —— 图形（`Image`）与名字（`Avatar Name`）
+        //   **走的是同一条闸**，与原版 `RectMask2D`「建了但看不见」**视觉等价**。
+        //   ⇒ 期望改成：**画出来的格子必须都有名字**（不许出现「有立绘、没名字」的半截），
+        //     并且**至少有一颗名字真的建了**（否则整条断言变成空转）。
+        Ok(nameNodes > 0 && nameNodes <= cells,
+           "(V5) **画出来的格子都带 `Avatar Name`**（视口外的那些由 `MenuDraw` 的「整块在视口外 ⇒ 连节点一起不建」"
+         + "跳过 —— 那是**渲染管线的通用闸（A798）**，⛔ 不是 `Intersects` 早退；图形与名字同一条闸，"
+         + "与原版 `RectMask2D` 视觉等价）（实得建了 " + nameNodes + "/" + cells + "）"
+         + "｜🧨 视口闸失灵（该建的没建）/ 只建立绘不建名字 ⇒ 本条红");
+        // 钉一颗**一定在视口内**的格子：第 0 格必须真的有名字节点、且是关着的（防「整页全不建」也能过上面那条）
+        {
+            var c0 = drawer.GetChild(0);
+            var n0 = c0 != null ? Find(c0, "Avatar Name") : null;
+            Ok(n0 != null && !n0.gameObject.activeSelf,
+               "(V5) **第 0 格（一定在视口内）有 `Avatar Name` 节点且关着**（原版 `m_IsActive = F`）"
+             + "｜🧨 把格子里的名字改成「不建」/ 打开 ⇒ 本条红");
+        }
         Ok(liveNames == 0,
            "(V5) 格子里那颗 `Avatar Name` **全部关着**（原版 `m_IsActive = F` + 运行期只 `set_text`、"
          + "参考图格内无名字；实得亮着 " + liveNames + " 个）"

@@ -36,8 +36,15 @@ public static class TmpSetup
     const string TmpSettingsPath = "Assets/TextMesh Pro/Resources/TMP Settings.asset";
     const string EssentialsName = "TMP Essential Resources.unitypackage";
 
-    /// <summary>原版那套中文字体。本机解包资源里就有（23.6 MB、完整 CJK）</summary>
-    const string SrcTtf = @"d:/2/解包整理/10_字体/fonts/NotoSerifCJK-Regular.ttf";
+    /// <summary>
+    /// 原版那套中文字体。
+    /// 🔴 **2026-10-25 换源（判据 = 界面线 T07 / A6 现核）**：原来指向
+    /// `d:/2/解包整理/10_字体/fonts/NotoSerifCJK-Regular.ttf`（**SC** 面，23,613,200 B）；
+    /// 原版随包的是 4 面 TTC（md5 `776e130c…`），TMP 取 `m_FaceIndex = 0` = **Noto Serif CJK JP**。
+    /// 已把 TTC 的 face 0 抽出来放在 `Unity/素材/Fonts/NotoSerifCJK-Regular-JP.ttf`
+    /// （23,624,316 B；15 张表 14 张与我们的 SC 面逐字节相同 ⇒ 度量不变、只换字形）。
+    /// </summary>
+    const string SrcTtf = @"d:/4/Unity/素材/Fonts/NotoSerifCJK-Regular-JP.ttf";
     /// <summary>源 TTF：**不**放 Resources —— 它只给建字体资产用，不必进包（Dynamic 模式靠字体资产引着它）</summary>
     const string TtfPath = "Assets/CardPresentation/Fonts/NotoSerifCJK-Regular.ttf";
     /// <summary>字体资产：**必须放 Resources 下**，`CardPresentation.TmpFont` 靠 `Resources.Load` 拿它</summary>

@@ -27,6 +27,197 @@ public static partial class RuleEngineTest
         C5Q2TriggerGateOrder();
         C5Q3ZoneContextGate();
         C5Q4TargetCriteriaConsumer();
+        // 🆕 2026-10-25（引擎线 `A3`）：Q1 —— `talent`（Trigger 46）回合开始那一拍的事件
+        C5Q1TalentTurnStartTrigger();
+        // 🆕 2026-10-25（引擎线 `A1`）：36 格 criteria **该筛哪一侧**（`forceattack` 族）
+        C5Q4bForceAttackCriteriaSide();
+    }
+
+    /// <summary>🔴🆕 **2026-10-25（引擎线 `A1`）：`forceattack` 族的 `targetCriteria` **只筛受害者池**。
+    ///
+    /// <para>**现场**（`ruleprobe play EC46`，改前）：`（按原版 targetCriteria 36 格筛（(ab=0, lg=0)）：4 → 0）`
+    /// → `一个能去攻击的单位都没有，空过` ⇒ 整张卡静默什么都不做。</para>
+    ///
+    /// <para>**判据**（第一权威，逐句 → `资料/普查产出_1024d/W25_引擎8红修复_执行报告.md` §六·1）：
+    /// `AbilityLogic__PlayAbility.c:2640-2690` 的 `case 0xed`（= `chosenAbility 237
+    /// scriptedTargetCardAttackDontCount`）里，攻击者是 `abilityData + 0x20`（**点选的那张牌**、由能力定死），
+    /// `possibleTargets[i]` 一律落 `AddScriptedForceAttack(actingCard, targetCard, …)` 的 **targetCard**
+    /// ⇒ `targetCriteria` 建出来的那批 **= 被打的受害者**。
+    /// 🔴 **但 230/231/233 那三档相反**（`case 0xe6/e7/e9` 把 `possibleTargets[i]` 传给
+    /// `AddForceAttack(targetCard)`，而 `_ResolveForceAttack_d__504__MoveNext.c:33-66` 拿那张卡去
+    /// `AI__SelectBestAttackAction` ⇒ 它是**被逼着去攻击的那一个**）⇒ ⛔ **不能一律挪到受害者池**
+    /// （那会把 `BL64` 的 `conditionsFilter = damaged`（描述友方攻击者）筛到敌人身上）。
+    /// 落点 = `RuleCore.DoForceAttack` 的 `critOnDefender` 判据。</para>
+    /// </summary>
+    static void C5Q4bForceAttackCriteriaSide()
+    {
+        var pool = CardDatabase.Load();
+        CardDef ec = null;
+        foreach (var c in pool) if (c != null && c.Id == "EC46") { ec = c; break; }
+        CheckTrue(ec != null, "（前提）池里有 `EC46`（`Peerless Bladesmen`，按 **id** 找）");
+        if (ec == null) return;
+
+        // ---- 前提（灭自证的第一半）：criteria **真的挂上了**，而且**描述的是敌人** ----
+        // 少了这一条，下面那个判别式在「v25 两列没接上 ⇒ 根本不筛」时也会绿（= 因为错的原因通过）。
+        var ops = EffectText.Parse(ec.Desc, out _, out _, false, card: ec);
+        EffectOp fa = null;
+        if (ops != null) foreach (var o in ops) if (o != null && o.Verb == "forceattack") fa = o;
+        CheckTrue(fa != null, "（前提）`EC46` 解析出 `forceattack` op");
+        if (fa == null) return;
+        CheckTrue(fa.TargetCriteriaSet != null,
+                  "★★ **前提成立**：这条 op 真的挂着 36 格 criteria（`TargetCriteriaSet`）"
+                + " —— 没有它，「筛错池子」这个 bug 根本不会发生、下面那条也就测不到东西"
+                + "｜🧨 `abilityTargetCriteria` 那一列没接上 ⇒ 本行红（那时先修数据管线，"
+                + "⛔ 不是把本行改成「预期 null」）");
+        if (fa.TargetCriteriaSet == null) return;
+        Check(fa.TargetCriteriaSet.EnemyUnits, 1,
+              "（前提）criteria 的 `enemyUnits` = 1 —— 它**描述的是被打的敌人**（`cards_engine.json` 现读）");
+        Check(fa.TargetCriteriaSet.FriendlyUnits, 0, "（前提）criteria 的 `friendlyUnits` = 0");
+
+        // ---- 行为：真打一发 ----
+        var ctx = BattlePool(new[] { ec }, new CardDef[0], pool, "Test", 11);
+        ToP1Turn(ctx, 3);
+        ctx.Players[0].Energy = 20;
+        var atk = Place(ctx, 0, 3, Unit("C5FAtk", 1, 3, 5));     // 友方攻击者（3 攻）
+        // 🔴 2026-10-25（执行代理 `F1` · 铁律 5 就地订正）：这个敌人原来是 **0 攻**。
+        //   而 `Target2` 是 `the enemy with highest attack`，候选池**含敌方督军**
+        //   （`ruleprobe play EC46` 现读：`（按「+attack」挑：FixtureWarlord、… → …）`）——
+        //   夹具督军 **2 攻** ⇒ 0 攻的 foe **根本不会被挑中**（强制攻击打的是督军，foe 一滴血不掉）。
+        //   ⇒ 那条断言当时红的是**夹具**（不是实现）：`DoForceAttack` 的行为本身是对的。
+        //   现在给 foe **4 攻**（> 督军 2 攻）⇒ 挑中的确实是它；它反击 4 点 ⇒ 攻击者 5 血剩 1（不死亡）。
+        var foe = Place(ctx, 1, 5, Unit("C5EFoe", 1, 4, 9));     // 敌人（4 攻 / 9 血 ⇒ 是「攻击力最高」那个）
+        var enemyWarlord = ctx.Players[1].Warlord;
+        CheckTrue(enemyWarlord != null && foe.Attack > enemyWarlord.Attack,
+                  "（前提）`C5EFoe` 的攻击力**高于敌方督军**（" + foe.Attack + " > "
+                + (enemyWarlord != null ? enemyWarlord.Attack.ToString() : "?") + "）"
+                + " ⇒ `+attack` 挑中的一定是它（候选池含敌方督军 —— `ruleprobe play EC46` 现读）"
+                + "｜🧨 把 foe 的攻击力降到督军以下 ⇒ 下面那条量的就不是 foe（= 2026-10-25 那次红）");
+        int wlHpBefore = enemyWarlord != null ? enemyWarlord.Health : -1;
+        int hpBefore = foe.Health;
+        int hi = HandIdx(ctx, 0, ec.Name);
+        CheckTrue(hi >= 0, "（前提）`EC46` 在手上");
+        if (hi < 0) return;
+        CheckCode(RuleCore.PlayTactic(ctx, 0, hi, 3), RuleCodes.OK,
+                  "打出 `EC46`（点我方那个攻击者）");
+        Check(foe.Health, hpBefore - 3,
+              "★★ **criteria 只筛受害者池**：`Target friendly unit attacks the enemy with highest attack`"
+            + " 打出去 ⇒ 友方那个 3 攻打了一发（敌人 9 → 6）"
+            + "｜🧨 把 criteria 套回**攻击者池**（= 2026-10-24 那个真缺陷）⇒ 友方被 `enemyUnits = 1` 全部淘汰 ⇒ "
+            + "一个能去攻击的单位都没有、敌人一滴血不掉 ⇒ 本行红");
+        CheckTrue(enemyWarlord == null || enemyWarlord.Health == wlHpBefore,
+                  "★ 敌方督军**一点没挨**（" + wlHpBefore + " → "
+                + (enemyWarlord != null ? enemyWarlord.Health.ToString() : "?") + "）"
+                + " —— 打的是卡面点名的「攻击力最高的敌人」= `C5EFoe`，不是随便一个敌方单位"
+                + "｜🧨 挑错人（挑到督军）⇒ 本行红 —— 它也挡住「上面那条因为打错了人而假绿」");
+        CheckTrue(atk.Exhausted,
+                  "★ 攻击算「本回合已行动」⇒ 那个友方疲劳了（走真实攻击路径 `RuleCore.DeclareAttack` 才会这样）"
+                + "｜🧨 另写一条攻击（不走 `DeclareAttack`）⇒ 本行红");
+    }
+
+    /// <summary>🔴🆕 **2026-10-25（引擎线 `A3` · `C5` Q1）：`talent`（`AbilityTrigger.Talent = 46`）
+    /// 回合开始那一拍**从「完全没有事件」变成「发一条 `EvtKind.Trigger("Talent")`」**。
+    ///
+    /// <para>**判据**（五跳全有出处，逐句 → `资料/普查产出_1024c/C5_引擎战斗剩余判据.md` §Q1）：
+    /// `CardScript.OnTurnStart.c:160`（`HasCurrentTrait(0x34d)`) → `:167 OnTrigger(0x2e = 46)` →
+    /// `RawCardScript.TriggerAbility.c:60 PlayTriggerTraitAnim` → `BattleAction 0x44` →
+    /// `CardScript.ActivateTriggerTraitAnim` → `GetTraitFromAbilityTrigger(46)` = `DefinedTrait.talent(845)`
+    /// → `BattleCardUI.DisplayTriggerAnim(845)`。落点 = `RuleCore.SpawnTalents`（造卡**之前**发，
+    /// 手牌满造不成时动画照样演）。</para>
+    ///
+    /// <para>🔴 **`regeneration` 不在这条路上**（**原版本身就没有**，铁律 11 例外①）：
+    /// `AbilityTrigger` 枚举 97 条里**没有** `Regeneration` ⇒ `GetTraitFromAbilityTrigger` 走
+    /// name-parse 永远返回 0；`CardScript.OnTurnEnd.c:84-107` 对它是**直接 `HealOneCharacter`**、
+    /// 没有 `OnTrigger`；`DisplayTriggerAnim` 全 build 只有 9 个调用点、**没有一处传 1030**。
+    /// 同族「没有 AbilityTrigger」的 trait 名（**只记账、不造触发**）：
+    /// `concussive` · `frenzied` · `huntMark` · `large` · `mekaniak` · `stomp`。
+    /// ⚠️ `bloodThirst` **不在**这一组（`CardScript__HighlightBloodThirst.c:8` 直接传 220 ⇒ 可播）；
+    /// `resolution` 也**不在**（`AbilityTrigger.Resolution = 45` 存在 ⇒ 它走的是名字那条路）——
+    /// 这两条是本轮现核 `AbilityTrigger.cs` 时对 `C5` §Q1 那个「9 个」名单的**就地订正**（铁律 5）。</para>
+    /// </summary>
+    static void C5Q1TalentTurnStartTrigger()
+    {
+        // ============ ① 前提：契约面的三条（先证「仪器是好的」，再证「行为」） ============
+        Check(CardDef.AbilityTriggerNumber("Talent"), 46,
+              "（前提）`Talent` 在原版 `AbilityTrigger` 里 = **46**｜🧨 改 `AbilityTriggerNumberOfName` 会让本行红");
+        Check(CardDef.AbilityTriggerNumber("regeneration"), -1,
+              "（前提）`regeneration` **没有** `AbilityTrigger`（⇒ `GetTraitFromAbilityTrigger` 永远解不出 1030）"
+            + "｜🧨 哪天给 `regeneration` 加了一条 AbilityTrigger（= 原版有触发），这条会红 ⇒ 那时才该造它的事件");
+
+        var pool = CardDatabase.Load();
+        CardDef tal = null, noTal = null;
+        foreach (var c in pool)
+        {
+            if (c == null) continue;
+            if (c.Id == "SOR9") tal = c;        // `Preacher`：`Talent: Hymn of Battle`，`abilityTriggers = [46, 605]`
+            if (c.Id == "DA25") noTal = c;      // `Deathwing Knight`：`abilityTriggers = [690]`（**没有** 46）
+        }
+        CheckTrue(tal != null, "（前提）池里有 `SOR9`（带天赋的单位；按 **id** 找，⛔ 不按卡名）");
+        CheckTrue(noTal != null, "（前提）池里有 `DA25`（不带天赋的对照单位）");
+        if (tal == null || noTal == null) return;
+
+        CheckTrue(tal.TalentName != null,
+                  "（前提）`SOR9` 的 `TalentName` 非空（= 引擎那条「这张卡有天赋」的判据认得它）"
+                + "｜🧨 这是 `SpawnTalents` 那道闸的一半");
+        CheckTrue(noTal.TalentName == null, "（前提）`DA25` 没有天赋名");
+
+        // 🔴 **灭自证（第一半）**：语义闸 = 真、**表现闸 = 假** —— 两者必须相反，
+        //    否则「引擎只是照着 `animTimes` 有行才发」这条解释就成立，本条的因果就说不清。
+        CheckTrue(RuleCore.HasTriggerSourceForTest(tal, "Talent"),
+                  "★ 语义闸：`SOR9` 的 `abilityTriggers` 含 46 ⇒ `HasTriggerSource(\"Talent\")` = **真**"
+                + "｜🧨 把 presence 闸改回「只看动画行」⇒ 本行红");
+        CheckTrue(!RuleCore.HasAnimRowOnlyForTest(tal, "Talent"),
+                  "🧨🧨 **灭自证**：`SOR9` 的 `animTimes` 里**没有** `Talent` 行 ⇒ 表现闸 = **假**。"
+                + "上面那条真、这条假，结构上排除了「有动画行才发」那一版实现");
+
+        // ============ ② 行为：真跑一局，P0 的下一个回合开始发**恰好一条** ============
+        var ctx = BattlePool(new CardDef[0], new CardDef[0], pool, "Test", 11);
+        var uTal = Place(ctx, 0, 3, tal);
+        var uNo = Place(ctx, 0, 5, noTal);
+        ToP1Turn(ctx, 1);                 // 推到 P0 行动（`ctx.Active == 0`）
+        ctx.ClearSignals();               // ⛔ 不清会把「摆上去之前那一拍」混进来
+        PassTurn(ctx); PassTurn(ctx);     // → P1 回合开始 → 再回到 P0 的回合开始（= 被测那一拍）
+
+        int nTal = 0, nNo = 0;
+        foreach (var e in ctx.Signals)
+        {
+            if (e == null || e.Kind != EvtKind.Trigger || e.Keyword != "Talent") continue;
+            if (e.InstanceId == uTal.InstanceId) nTal++;
+            if (e.InstanceId == uNo.InstanceId) nNo++;
+        }
+        Check(nTal, 1,
+              "★★ `talent` 那一拍：P0 回合开始 ⇒ `SOR9` 发**恰好一条** `EvtKind.Trigger(\"Talent\")`"
+            + "（原版 `AbilityTrigger.Talent = 46`）"
+            + "｜🧨 删掉 `SpawnTalents` 里那句 `EmitTalentTrigger` ⇒ 本行实得 0 ⇒ 红；"
+            + "把它挪到「造卡成功之后」⇒ 手牌满那一路会漏（见下一条的前提）");
+        Check(nNo, 0,
+              "🧨🧨 **灭自证（第二半）**：同一局、同一拍，**不带天赋**的 `DA25` 一条都不发"
+            + "（`abilityTriggers = [690]`，presence 对 `Talent` = 0 ⇒ 原版那一格**全静默**）"
+            + "｜这一对结构上不可能同时满足「谁都发 / 谁都不发」两种错法");
+
+        // ============ ③ 次序：手牌满 ⇒ 卡造不成，**事件照样发** ============
+        // 原版 `OnTrigger(46)` 在 `_AddCardNotDrawnToHand` **之前**（判据同上五跳）。
+        var ctx2 = BattlePool(new CardDef[0], new CardDef[0], pool, "Test", 11);
+        var u2 = Place(ctx2, 0, 3, tal);
+        ctx2.Players[0].Hand.Clear();                                  // 先清空，再塞到上限（10）
+        for (int i = 0; i < 10; i++)        {
+            var filler = Unit("C5HandFull" + i, 1, 0, 1);
+            ctx2.Players[0].Hand.Add(ctx2.NewInstance(filler));
+        }
+        int handBefore = ctx2.Players[0].Hand.Count;
+        ToP1Turn(ctx2, 1);
+        ctx2.ClearSignals();
+        PassTurn(ctx2); PassTurn(ctx2);
+        int n2 = 0;
+        foreach (var e in ctx2.Signals)
+            if (e != null && e.Kind == EvtKind.Trigger && e.Keyword == "Talent"
+                && e.InstanceId == u2.InstanceId) n2++;
+        Check(n2, 1,
+              "★ **次序**：手牌已满（造不出那张天赋卡）⇒ 触发事件**照样发**"
+            + "（原版 `OnTrigger(46)` 排在 `_AddCardNotDrawnToHand` 之前）"
+            + "｜🧨 把 `EmitTalentTrigger` 挪到「造卡成功之后」/ `continue` 之后 ⇒ 本行实得 0 ⇒ 红");
+        CheckTrue(ctx2.Players[0].Hand.Count <= handBefore,
+                  $"（前提）手牌真的满了 / 没有变多（{handBefore} → {ctx2.Players[0].Hand.Count}）"
+                + " —— 否则上一条测的就不是「满手那一支」");
     }
 
     /// <summary>🆕 Q4 的合成 criteria 夹具：**每一格都显式给值**（`CountSetSpec` 的默认值是 `-1 = 未知`，

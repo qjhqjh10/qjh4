@@ -23,7 +23,8 @@
 //    20 self          ⇒ 候选 == thisCard（`Object.op_Equality(param_1, …)`；取不到 ⇒ 原版抛异常 ⇒ 我们 `null`）
 //    30 target        ⇒ 候选 == targetCard（同上）
 //    70 abilityOwner / 40 attacker / 80 actingCard ⇒ 候选 == thisCard（80 另有 `:169 return 1` 一支）
-//    90 targetIfMeetsCriteria ⇒ 候选 == targetCard
+//    90 targetIfMeetsCriteria ⇒ 候选 == targetCard **只是准入**（不等 ⇒ false），
+//       **相符后继续走下面那批常规格**（`:193-201`；⚠️ 与 30 不是同一档 —— 2026-10-25 `E9` 订正）
 //    140 / 150        ⇒ 候选 ∈「上一条能力的目标」静态表（`:176-206`）
 //    200 / 201        ⇒ 候选 ∈ `thisCard.referencedCards`（**我们的 `ResolveTargets` 早已单独处理这两档并返回**）
 //    235 warlordsTalent ⇒ 拿督军天赋卡比卡名（**未建模** ⇒ `null`）
@@ -114,9 +115,21 @@ namespace RuleEngine
                     if (thisCard == null) { gap = $"`ta={ta}` 要拿 thisCard 比身份，本版没有载体"; return null; }
                     return ReferenceEquals(candidate, thisCard);
                 case 30:                                  // target
-                case 90:                                  // targetIfMeetsCriteria（候选必须就是 targetCard）
+                    // 原版 `:76-94`（`0x1e`）：`candidate == targetCard` —— 比完身份**直接 `return`**
+                    // （满足 ⇒ 1 / 不满足 ⇒ 0），**不再走** ①..⑮ 那批常规格。与 90 分开写（见下）。
                     if (targetCard == null) { gap = $"`ta={ta}` 要拿 targetCard 比身份，这次没有点选目标"; return null; }
                     return ReferenceEquals(candidate, targetCard);
+                case 90:                                  // targetIfMeetsCriteria
+                    // 🔴🆕 **2026-10-25（执行代理 `E9` · `J5` §二 F5·b）：与 30 **不是**同一档。**
+                    //   原版 `:193-201`（`0x5a`）只做一件事：候选 ≠ targetCard ⇒ `return 0`；
+                    //   **身份相符 ⇒ 不 return，继续落到 `:203` 起的常规格**（阵营 / 卡种 / ⑧ /
+                    //   keyword / trait / 四组 stat / 白名单 / 附魔 / army 全都还要判）。
+                    //   ⇒ 改前把 30/90 合并成一句 `return ReferenceEquals(...)` ⇒ 这一档
+                    //   **少判了整条 36 格**（真偏差，不是「多筛」）。
+                    //   判据 = `d:/2/tools/decomp_full/FilterMethods__CheckIfMeetsCriteria.c:193-201`。
+                    if (targetCard == null) { gap = $"`ta={ta}` 要拿 targetCard 比身份，这次没有点选目标"; return null; }
+                    if (!ReferenceEquals(candidate, targetCard)) return false;
+                    break;                                // 身份相符 ⇒ 继续走下面那批常规筛
                 case 140:                                 // previousAbilityTargets
                 case 150:                                 // previousAbilityFiltered
                     if (ctx == null) { gap = "`ta=150` 需要 ctx"; return null; }
@@ -716,7 +729,18 @@ namespace RuleEngine
                 case 1170: return "markerlight";
                 case 1200: return "ambush";
                 case 1240: return "stomp";
-                case 1260: return "huntMark";
+                // 🔴 2026-10-25（引擎线 `F1`）**就地订正（铁律 5）**：原来是 `return "huntMark";`
+                //   —— 那串**过不了 `KeywordTable.Normalize`**：`Prefixes` 表里只登记了
+                //   `new[] { "hunt mark", "huntmark" }`（**表头 = 带空格那一条**，第二半只是规范键），
+                //   camelCase 的 `huntMark` 小写后是 `huntmark` ⇒ 前缀匹配不到 ⇒ `Normalize` 返回 `null`
+                //   ⇒ `TraitPasses` 返回 **`null`（判不了）** ⇒ 消费端（`ApplyTargetCriteriaFilter` 的
+                //   null 支）**整条 criteria 静默不筛**。
+                //   影响面（卡池现读）：`traitsFilter = 1260` 共 **17 行 / 10 张卡**
+                //   （`abilityLevelCriteria` 8 行 · `abilityTargetCriteria` 7 行 · `activeAbilityTargets` 2 行，
+                //   全是 Space Wolves 那批猎杀标记卡）—— 它们此前**一格都没生效**。
+                //   ⇒ 用卡面上的写法 `hunt mark`（`KeywordTable.Parse("Hunt Mark")` 现核 = `huntmark`）。
+                //   ⛔ 别改成 `huntmark`：那不是前缀表里的**表头**（它只是别名那一半，`Normalize` 只比表头）。
+                case 1260: return "hunt mark";
                 default: return null;
             }
         }

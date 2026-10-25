@@ -2667,7 +2667,36 @@ class PlayProbe
     //     8 张全部能在 W58/W59 的报告里按卡名找到「改前 → 改后」的原文读数。
     //   重生成 `play all pf` 连跑两次逐字节一致（**755,372 B**；新增 0 / 消失 0），行数 **1713 不变**
     //   （主档 1127 ＋ 电池 586）；重生成后 `play check` **rc=0**（①-a/①-b 差异 0 · ② 哨兵过）。
-    public const string PinnedPlayMd5 = "c7236f26c4a0cbcd1cef184fe2c4a7c9";  // 2026-10-24 重钉（Z71 · G10 收尾）：只有 GSC75 一行（手牌计数 1 而不是盘面 2）；归因 → 资料/普查产出_1024/G10_GSC75解析缺陷.md
+    // 🔴 **2026-10-25（第七十五会话 · 引擎线执行代理 `A` · 本笔 `A1`/`A2`）有意重钉** —— **4 行，逐张对过卡面**：
+    //   本批**只改了一处引擎代码**（`EffectResolver.DoForceAttack`：`forceattack` 的 `targetCriteria`
+    //   按 `chosenAbility` 归侧 —— 见那个函数 ① 上面那段判据），全池**只有 `EC46` 走那条新分支**
+    //   （全池仅它同时点名攻击者与受害者）⇒ 它从「筛错池、4→0 空过」回到基线那一版（**这一行本来就该是它**，
+    //   所以它**没有**出现在下面 4 行里）。剩下 4 行**不是本批引入的** —— 它们是 2026-10-24 `W2`/`W25`
+    //   把 v25 的 `abilityTargetCriteria`（原版 `TargetCriteria` 其余 36 格）接进目标池之后，
+    //   **探针第一次看得见筛子**造成的正确收敛（旧基线是「不筛」那一版录的）：
+    //     · `AM41`（主档）`Give Flank to all your Infantry troops` —— criteria `friendlyUnits/kw=5(Infantry)`
+    //       ⇒ 只该给 `FIX_A`（Infantry）；旧基线给 3 个（含载具 / 兽）⇒ 旧值是**宽了**。
+    //     · `E|EC23` `…to another random friendly troop` —— `includeSelf=0` + `maxTargets=1`
+    //       ⇒ 只给 1 个「别人」；旧基线给了 3 个（含自己）。
+    //     · `E|UM13` `…to your Infantry troops` —— `kw=5` ⇒ 只给 `FIX_A`；旧基线给 3 个。
+    //     · `E|UM22` `…to your other troops` —— `includeSelf=0` ⇒ 自己不再吃那一口（下游战斗读数连带变）。
+    //   判据出处：原版字段 → `d:/2/Warpforge_code/Scripts/Assembly-CSharp/TargetCriteria.cs`
+    //   ＋ `Keyword.cs`（`Infantry = 5`）＋ `TargetSelectMethod.cs`（`highestAttack = 1`）；
+    //   卡面 → `cards_engine.json` 的 `desc`/`descZh`。**⛔ 没有一条是「为了让 check 变绿」**：
+    //   本笔只动引擎那一处（typecheck 0 error），4 行的期望值全部来自**卡面文字**而不是我们的实现。
+    //   新增 0 / 消失 0 · 行数 **1713 不变**（主档 1127 ＋ 电池 586）· 重生成后 `play check` rc=0。
+    //  🔴 **2026-10-25（执行代理 `E6` · 引擎线「13 行接闸」）有意重钉** —— 主对话裁定允许重钉这一颗。
+    //    归因（**不是把红抹平**）：本批修好了一处**主语解析缺陷** —— `WhenEvents.Subjects.Parse` 原把
+    //    `warlord` 当**卡名**（`CreatePool.IsKindWord("warlord")` 为假 ⇒ 落到 `c.Name = "warlord"`），
+    //    而没有任何一张卡叫 `warlord` ⇒ `BL8 Noise Marine` 的
+    //    `When your Warlord receives damage, gain a ❄ Dark Pact of Excess` **监听器一次都不响**（静默）。
+    //    修法 = 与 `CardCriteria.FromTarget` / `CardCriteria.WarlordOnly` 早就采用的口径统一。
+    //    ⇒ 现算里 `BL8` 真的能拿到 `{darkpact1}`（主档 `selfPlace 1→0 / other 0→1`、电池 `net 0→14`），
+    //      **与卡面文字逐字一致**；逐卡 diff 只有 `BL8` 与 `E|BL8` 两行（1713 行里 2 行）。
+    //    ⛔ **另外三颗指纹原样不动**：`PinnedPoolMd5`（卡池没改）· `PinnedParseMd5`（`check` 现跑
+    //      解析差异仍 0 行、输出指纹 ✓）· `PinnedBaselineMd5`（`基线/out_baseline.txt` 没重生成）。
+    //    判据全文 → `资料/普查产出_1025/E6_十三行接闸.md` §五·2 / §六。
+    public const string PinnedPlayMd5 = "fc591fb38dd3f56ea17d072d1c8d3b23";  // 2026-10-25 重钉（执行代理 E6）：BL8 的 `warlord` 主语解析修好之后监听器真能拿到 `{darkpact1}`（1713 行里只有 BL8 / E|BL8 两行变）—— 见上方注释块
 
 
     /// <summary>`play check` 的缺省基线 —— **按名字往上找**（形状照 `Program.CheckMain.DefaultBaseline`，

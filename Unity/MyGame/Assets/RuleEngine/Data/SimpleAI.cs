@@ -1698,6 +1698,10 @@ namespace RuleEngine
             {
                 var c = hand[i].Card;              // 第 7 行第 2 步：换牌判据只看卡面
                 if (c == null) continue;
+                // 🆕 **2026-10-25（引擎线 `A2` · `A2-3`）：原版 `AI__GetAiMulliganCards.c:39` 的第一句
+                //   —— `mulliganOption == 30` 的牌**跳过（保留）**。**不换** = 不放进换牌下标表。
+                //   ⚠️ 今天 30 档本路径不可达（见 `CardInstance.MulliganOption` 的 doc）⇒ 零行为变化。
+                if (hand[i].MulliganOption == 30) continue;
                 // 防御卡跳过 —— 🔴 **2026-10-08（`D28` 施工单 A）订正：这里原来写「引擎规矩：防御卡不许换」，
                 //   那条守卫**已被删**（见上面 summary ②）。留着这句是**防御性**的，**行为不变**；
                 //   ⛔ 但别再由它反推「换牌阶段手牌里会有防御卡」—— 那正是这条过期注释误导的方向。

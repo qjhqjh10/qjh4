@@ -718,6 +718,20 @@
    "timeToPlayAgain": 0.1
   },
   {
+   "name": "CardMove",
+   "clips": [
+    "CardMove",
+    "CardMove_1",
+    "CardMove_2",
+    "CardMove_3"
+   ],
+   "minPitch": 0.8,
+   "maxPitch": 1.1,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.1
+  },
+  {
    "name": "CardStartDrag",
    "clips": [
     "CardMove"

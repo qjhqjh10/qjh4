@@ -9,7 +9,10 @@
 //      · `type = 0`(Fullscreen) · `windowsPlacement = 15`(Popup) · `closeOnESC = 0` · `updateNavPanel = 0`
 //      🔴 **2026-10-23 注：`updateNavPanel` 我们**不取**这份（0），改为取基座 `Parent Event Window` 那份的 `1`
 //         （MB `6349037533193994564`）—— 裁定与理由 → `ParamsUpdateNavPanel` 那段注释。
-//         `closeOnEsc` 仍取本份（0），如实记（基座那份是 1）。
+//      🔴 **2026-10-25 注（新账-103）：`closeOnESC` 同样改为取基座那份的 `1`** —— 这一扇是「基座外壳 +
+//         Two Sides 两页」的组合（见下），**窗参取外壳那一份**才自洽（`updateNavPanel` 已经是这么取的）。
+//         改前取 `0` ⇒ 活动窗按 ESC **什么都不做**；改后 ESC 真关窗（且因 `updateNavPanel = 1` 灯回 `Main`）。
+//         理由与判据 → `ParamsCloseOnEsc` 那段注释 + `Editor/MainMenuScene.cs` 的 T28 断言与 ESC 行为条。
 //      · `extraScaleSmallScreen = 1.0` · `useDefaultCloseSoundIfNull = 1` · `openSound/closeSound = {0,0}`
 //      · `tabs` = **2 个 PPtr**：`5874186985141415430`(`TwoSidesEvent_ChooseSideTab`) ·
 //        `-7528133727782064634`(`TwoSidesEvent_OnGoingTab`) · `backgroundCloseButton = 2610068799221640710`
@@ -174,9 +177,10 @@ namespace CardPresentation
         public const string RootName = "Parent Event Window";
 
         // ============================================================ 窗参（MB `-1838579764277826042` 实读）
-        // ⚠️ 见文件头「两个 prefab」：这一组里 `closeOnEsc` / `extraScaleSmallScreen` / `useDefaultCloseSound`
-        //    是 **Two Sides 那份**的值（任务简报指定）；基座 `Parent Event Window` 自己那一份是
+        // ⚠️ 见文件头「两个 prefab」：`extraScaleSmallScreen` / `useDefaultCloseSound`
+        //    取 **Two Sides 那份**的值；基座 `Parent Event Window` 自己那一份是
         //    `placement=5 / closeOnESC=1 / updateNavPanel=1 / tabs=[]`。
+        //    🔴 `closeOnEsc` 与 `updateNavPanel` **两项取基座那份**（2026-10-23 / 2026-10-25 两次对齐）。
         // 🔴 **2026-10-23（界面线 W62② · 调度台裁定）：`updateNavPanel` 照【基座 `Parent Event Window`】对齐成 `1`。**
         //    判据（原版 MB 现读）：基座那份 = `MonoBehaviour_6349037533193994564.json`
         //    （GO `-3290546486736551612` = `Parent Event Window`）`updateNavPanel = 1`；
@@ -184,9 +188,11 @@ namespace CardPresentation
         //    `updateNavPanel = 0`。语义 = `GameWindow__ESCPressed.c` 末段：ESC 真的关掉窗之后
         //    `updateNavPanel` 为真 ⇒ `SetMainToggle(Main)` ⇒ **左竖导航灯回 `Main`**
         //    （不改 ⇒ 从活动窗 ESC 关回主菜单后灯**停在 `Event`**）。
-        //    ⚠️ **`closeOnEsc` 仍是 Two Sides 的 `0`**（本件外壳 + 两页是两份 prefab 的组合，见文件头）——
-        //      那是**另一条口径**、不在本条裁定射程内（如实记：基座那份是 `1`）。
-        public const bool ParamsCloseOnEsc = false;        // `closeOnESC = 0`（Two Sides 那份）
+        //        ⚠️ **`closeOnEsc` 2026-10-25（新账-103）起也照【基座】对齐成 `1`** —— 与 `updateNavPanel`
+        //          同一条口径：这一件是「基座外壳 + Two Sides 两页」的组合，**窗参取外壳那一份**。
+        //          改前取 Two Sides 的 `0` ⇒ 活动窗按 ESC 什么都不做（真机 2026-10-24 报的就是这个）。
+        //          判据 = 基座 MB `6349037533193994564` 实读 `closeOnESC = 1`（`updateNavPanel = 1` 也在这份）。
+        public const bool ParamsCloseOnEsc = true;         // `closeOnESC = 1`（基座 `Parent Event Window` 那份）
         public const bool ParamsUpdateNavPanel = true;     // `updateNavPanel = 1`（基座 `Parent Event Window` 那份）
         public const float ParamsExtraScale = 1f;          // `extraScaleSmallScreen = 1.0`
         public const bool ParamsUseDefaultCloseSound = true; // `useDefaultCloseSoundIfNull = 1`
@@ -543,7 +549,7 @@ namespace CardPresentation
             var win = go.AddComponent<ParentEventWindow>();
             win.type = WindowType.Fullscreen;                        // MB 实读 `type = 0`
             win.placement = WindowsPlacement.Popup;                  // MB 实读 `windowsPlacement = 15`
-            win.closeOnEsc = ParamsCloseOnEsc;                       // MB 实读 `closeOnESC = 0`（Two Sides 那份）
+            win.closeOnEsc = ParamsCloseOnEsc;                       // MB 实读 `closeOnESC = 1`（基座 `Parent Event Window` 那份；见 `ParamsCloseOnEsc` 的注释）
             win.updateNavPanel = ParamsUpdateNavPanel;               // MB 实读 `updateNavPanel = 1`（基座 `Parent Event Window` 那份；见 `ParamsUpdateNavPanel` 的注释）
             win.extraScaleSmallScreen = ParamsExtraScale;            // MB 实读 1.0（= 不覆盖）
             win.useDefaultCloseSoundIfNull = ParamsUseDefaultCloseSound;

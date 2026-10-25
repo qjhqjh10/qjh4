@@ -1081,6 +1081,75 @@ public static partial class RuleEngineTest
         //   测试体在 `RuleEngineTest_ReplayTrace.cs`（同一 partial 类）。
         Step(TestReplayTrace);
 
+        // 🆕 2026-10-25（执行代理 `A2`）：`Target == null` 的 forceattack criteria 归栏（五张卡）·
+        //   at-turn 片段正文的 criteria 贴片 · 「已移除 trait」簿记 · 换牌档位 `MulliganOption` ·
+        //   天赋 warning 文案。测试体在 `RuleEngineTest_EngineA2.cs`（同一 partial 类）。
+        Step(TestA2EngineFive);
+
+        // 🆕 2026-10-25（执行代理 `A3`）：at-turn 片段正文的 `deal`/`give` 也贴 logic 级 criteria
+        //   （5 张真卡 + 手牌陷阱）· 说不清的 5 张「故意不贴」窄闸 · `CardDef` 两列共用一个版本位时出声。
+        //   测试体在 `RuleEngineTest_EngineA3.cs`（同一 partial 类）。
+        Step(TestA3EngineAtTurnCriteria);
+
+        // 🆕 2026-10-25（执行代理 `E2`）：ability 级 `targetCriteria`（原版 `CardAbility.targetCriteria`
+        //   `+0x30`）—— v26 数据管线（`abilityLevelCriteria` 列）· `CardDef` 唯一入口三态 ·
+        //   触发前闸的正例 / 负例 / 歧义例（⚠️ 被筛对象是 `targetCard`，不是 `actingCard`）。
+        //   测试体在 `RuleEngineTest_EngineE2.cs`（同一 partial 类）。
+        Step(TestE2AbilityLevelCriteria);
+
+        // 🆕 2026-10-25（执行代理 `E3`）：ability 级 **第一道闸** `actingCardCriteria`（原版
+        //   `CardAbility.actingCardCriteria` `+0x28`）—— v27 数据管线（`abilityActingCriteria` 列）·
+        //   `CardDef.ActingLevelCriteriaForTrigger` 三态 · 触发前闸（⚠️ 被筛对象 = `actingCard`，
+        //   在 `targetCard` 那道【之前】；`Die` 的 `actingCard` = **凶手**不是死者）。
+        //   测试体在 `RuleEngineTest_EngineE3.cs`（同一 partial 类）。
+        Step(TestE3AbilityActingCriteria);
+
+        // 🆕 2026-10-25（执行代理 `E4`）：三件 —— ① **`EvtKind.Trigger` 带目标**（原版
+        //   `AbilityLogic.PlayAbility` → `GetTargets` → `PlayAnim` 按目标逐个播；我们的事件在广播
+        //   那一拍发、目标要等结算那一拍才选出来 ⇒ 事后填同一个事件对象）；
+        //   ② **`ActiveAbility.targetCriteria`（`+0x38`）目标闸**（v28 `activeAbilityPickCriteria` 列 ·
+        //   `CardDef.ActiveAbilityPickCriteriaFor` 唯一入口 · `CanUseAbility` 消费）；
+        //   ③ **易伤发两条 `Hit`**（原版是第二拍另一条 `DamageInfo`）。
+        //   测试体在 `RuleEngineTest_EngineE4.cs`（同一 partial 类）。
+        Step(TestE4TriggerTargetAndActivePick);
+
+        // 🆕 2026-10-25（执行代理 `E5`）：引擎线剩下的两条小缺口 ——
+        //   ① **`activeAbility` 对象级 criteria 的 `conditionsFilter`/`excludeCondition`**（数据早在
+        //      v15 的 `unitConditions` 里 `{ab:-1|-2, lg:-1, role:"target"}`，缺的是消费；
+        //      真卡 = `SW9` 的 `cond=50(flying)` + `ex=1`）；
+        //   ② **主动能力的候选合法性 = 原版 `BattleManager.IsValidActiveAbilityTarget` 逐句**
+        //      （督军**不是**一律不可点 —— 由 criteria 的 `includeHero` 决定；潜行 / ward **只在异侧**挡）。
+        //   另附 ③ 两条前提校正的读数（`AM69` 不是「只打督军」；`ta=200/201` 是运行期 `referencedCards`
+        //   而不是卡数据列）。测试体在 `RuleEngineTest_EngineE5.cs`（同一 partial 类）。
+        Step(TestE5SmallEngineGaps);
+
+        // 🆕 2026-10-25（执行代理 `E7`）：E5 留下的**四道「现池 0 张、判据已查全、但没建」的候选闸**
+        //   ① `ward(140)` / `wardWb(145)` —— 原版 `isCurrentlyWarded`，**只在异侧**挡；
+        //   ② `summonRift(730)` —— **不分侧**，一律不可点（原版是裸闸）；
+        //   ③ `tainted(160)` —— **异侧 ∧ 载体(`thisCard`)卡型 = Hero(10) ∧ !(非隐身 vanguard)**。
+        //   落点 = `RuleCore.CanUseAbilityTarget`（①–④ 编号在方法体里）；四个词同时登记进
+        //   `KeywordTable.Prefixes`（不登记会被 `Normalize` 静默丢弃）。测试体在
+        //   `RuleEngineTest_EngineE7.cs`（同一 partial 类），判据 → `资料/普查产出_1025/E7_四道闸.md`。
+        Step(TestE7FourGates);
+
+        // 🆕 2026-10-25（执行代理 `E6`）：`E5-5` 评估表里「判据齐、只差接闸」的 **13 行** ——
+        //   `abilityLevelCriteria` 再补五族（`510` 4 · `570` 5 · `515` 1 · `60` 1 · `291` 2），
+        //   外加两条缺失的 trigger 名映射（`GetsStun ⇒ UnitStunned` / `GetsMarkerlight ⇒ UnitReceivesMarkerlight`）
+        //   和一处主语解析缺陷（`When your Warlord …` 原来把 `warlord` 当卡名 ⇒ `BL8` 的监听器永不响应）。
+        //   测试体在 `RuleEngineTest_EngineE6.cs`（同一 partial 类）。
+        Step(TestE6AbilityLevelGateFamilies);
+
+        // 🆕 2026-10-25（执行代理 `E8` · `E8-1`/`E8-2`）：主动能力的**候选侧**（敌/友/任意/判不出，
+        //   候选所有者不再写死 `1 - p`）＋ 监听器事件 `EvtKind.Trigger` 排在两道能力级闸**之后**。
+        //   测试体在 `RuleEngineTest_EngineE8.cs`（同一 partial 类）。
+        Step(TestE8AbilityOwnerAndListenerOrder);
+
+        // 🆕 2026-10-25（执行代理 `E9`）：第 ⑧ 格 `cond` 拼回 criteria（`unitConditions`）·
+        //   `ta=90` 不再早返（只挡身份、继续走常规格）·
+        //   战术卡（`actor == null`）的两道 ability 级闸。
+        //   测试体在 `RuleEngineTest_EngineE9.cs`（同一 partial 类）。
+        Step(TestEngineE9);
+
         // 🆕 2026-10-24（执行代理 `E2`）：`GameplayVariables.For(ClosedDeck)` 显式档（复用了 Skirmish 那套
         //   = **我们挑的**，原版轮抽参数在服务端）+ `EvtKind` 三处 `default` 的「登记了却没 case」闸。
         //   ⚠️ **缩进深一层**：`工具/gen_diag_runner.py` 只把 8 空格缩进的顶层语句当用例
@@ -27232,8 +27301,17 @@ public static partial class RuleEngineTest
 
         // 目标合法性：空格 / 督军 / 越界
         CheckCode(RuleCore.CanUseAbility(ctx, 0, 3, 8), RuleCodes.ErrTarget, "空格 → 目标非法");
-        CheckCode(RuleCore.CanUseAbility(ctx, 0, 3, BoardSpec.WarlordSlot), RuleCodes.ErrTarget,
-                  "选不中督军 —— 要打督军的技能，目标栏会直接写 EnemyWarlord");
+        // 🔴 **2026-10-25（执行代理 `E5` · `E5-2`）就地订正**：这里原来断言
+        //    「选不中督军 —— 要打督军的技能，目标栏会直接写 `EnemyWarlord`」，**判据不成立**。
+        //    原版 `BattleManager__IsValidActiveAbilityTarget.c`（65 行）**没有**「督军不能当主动能力
+        //    目标」这一条：候选只要 `IsInPlay`，能不能点由 `ActiveAbility.targetCriteria` 的
+        //    `includeHero` 决定（现读池内 62 行 `includeHero = 1`，例如 `SW4` / `SOR6` 的
+        //    「Deal N damage to an enemy」—— 卡面写 `an enemy` 就**含督军**）。
+        //    这张夹具**没有** `activeAbilityPickCriteria` 列 ⇒ 这道闸判不了 ⇒ 按 `E4` 立的契约
+        //    **放行 + 出声**（⛔ 不把「不知道」当「不满足」）。真正的正/负例在
+        //    `RuleEngineTest_EngineE5.cs` 的 ②·a / ②·b（同一张卡只翻 `includeHero` 那一格）。
+        CheckCode(RuleCore.CanUseAbility(ctx, 0, 3, BoardSpec.WarlordSlot), RuleCodes.OK,
+                  "督军**可以**被点为主动能力目标（原版没有那条禁令；这张夹具没有 criteria 列 ⇒ 判不了 ⇒ 放行）");
 
         // 攻击者自己不存在 / 格位越界
         CheckCode(RuleCore.CanUseAbility(ctx, 0, 0), RuleCodes.ErrNotUnit, "空格上放技能");
@@ -27966,8 +28044,12 @@ public static partial class RuleEngineTest
         CheckCode(RuleCore.UseAbility(ctx, 1, s, t), RuleCodes.OK, "AI 挑的这一手真放得出来");
 
         // ② 伤害类：技能伤害 ≥ 攻击力就放 —— 技能不吃反击，没道理去平A
-        var brute = new CardDef("Brute", "Brute", "unit", "", null, "Test", 3, 2, 5, 0,
-                                new[] { "Ability: Damage 2 EnemyUnit" });
+        // 🔴 **2026-10-25（执行代理 `E5` · `E5-2`）夹具改写**：原版**没有**「督军不能当主动能力目标」
+        //    这条（判据 → `RuleCore.CanUseAbilityTarget`）⇒ 改前用「督军被一律拒」当「只有一个候选」
+        //    的夹具，改后敌方督军也是合法目标（他的分还更高）⇒ 本组会挑到督军、`Check(t, 3)` 就不确定了。
+        //    ⇒ 给夹具一条**明确**的目标判据 `includeHero = 0`（= 只能打部队），把这一组的问题收窄成
+        //    「技能分 vs 同一目标的平A分」。督军那一档由下面的 ⑤ 单独验。
+        var brute = AiAbilityDamageCard("Brute", 3, 2, 5, includeHero: 0);
         var ctx2 = ToP2TurnWith(brute);
         Place(ctx2, 0, 3, Unit("Prey", 1, 0, 5));
         CheckTrue(SimpleAI.NextAbility(ctx2, out s, out t), "2 攻打 2 伤技能 → 放技能");
@@ -27975,15 +28057,32 @@ public static partial class RuleEngineTest
         CheckCode(RuleCore.UseAbility(ctx2, 1, s, t), RuleCodes.OK, "放得出来");
 
         // ③ 攻击力更高 → 平A更划算
-        var big = new CardDef("Big", "Big", "unit", "", null, "Test", 3, 9, 5, 0,
-                              new[] { "Ability: Damage 2 EnemyUnit" });
+        var big = AiAbilityDamageCard("Big", 3, 9, 5, includeHero: 0);
         var ctx3 = ToP2TurnWith(big);
         Place(ctx3, 0, 3, Unit("Prey", 1, 0, 5));
         CheckTrue(!SimpleAI.NextAbility(ctx3, out s, out t), "9 攻打 2 伤技能 → 平A划算，不放技能");
 
         // ④ 对面场上没部队 → 伤害技能空过，不放
+        //    （这一档今天由**数据**判：`includeHero = 0` ⇒ 督军也不是合法目标 ⇒ 一个合法目标都没有）
         var ctx4 = ToP2TurnWith(brute);
         CheckTrue(!SimpleAI.NextAbility(ctx4, out s, out t), "对面没有部队可打 → 不放（不白扔一次行动）");
+
+        // ⑤ 🆕 `E5-2` 的正例：同一张卡改成 `includeHero = 1` ⇒ **敌方督军**是合法目标 ⇒ 放技能打督军
+        //    （判据 = 原版 `BattleManager__IsValidActiveAbilityTarget.c` 全表**没有**督军禁令；
+        //      现读池内 62 行 `activeAbilityPickCriteria` 的 `includeHero = 1` —— 例如 `SW4` 的
+        //      「Deal 3 damage to an enemy」，卡面写 `an enemy` 就含督军。）
+        var bruteHero = AiAbilityDamageCard("BruteHero", 3, 2, 5, includeHero: 1);
+        var ctx5 = ToP2TurnWith(bruteHero);
+        CheckTrue(SimpleAI.NextAbility(ctx5, out s, out t), "★★ `includeHero = 1` + 对面没部队 ⇒ **放技能打督军**"
+                                                        + "｜🧨 把 `t.IsWarlord ⇒ ErrTarget` 那句加回来 ⇒ 红");
+        Check(t, BoardSpec.WarlordSlot, "★★ 目标就是敌方督军那一格"
+                                     + "｜🧨 把 criteria 的候选侧判成「友方」⇒ 红");
+        int wlBefore = ctx5.Players[0].Warlord.Health;
+        CheckCode(RuleCore.UseAbility(ctx5, 1, s, t), RuleCodes.OK, "★ 这一手真放得出来（督军挨 2 点）");
+        Check(ctx5.Players[0].Warlord.Health, wlBefore - 2,
+              "★★ 督军**真的掉 2 血** —— ⛔ 不许「说放成功、伤害落到别的兵 / 空过」"
+            + "｜🧨 把 `ResolveTarget` 的 `EnemyUnit` 支改回 `chosen != null && chosen.IsAlive && !chosen.IsWarlord`"
+            + "（改前就是）⇒ 显式选中的督军被静默换成「槽号最小的部队」或空过 ⇒ 这一条红");
     }
 
     /// <summary>造一个「轮到 P2 的第 1 回合，P2 槽 1 站着 card」的场景</summary>
@@ -27996,6 +28095,36 @@ public static partial class RuleEngineTest
         RuleCore.BeginTurn(ctx);          // 轮到 P2
         Place(ctx, 1, 3, card);
         return ctx;
+    }
+
+    /// <summary>🆕 **2026-10-25（执行代理 `E5` · `E5-2`）**：`TestAiUsesAbility` 的伤害技能夹具 ——
+    /// `Ability: Damage 2 EnemyUnit` + **一条明确的主动能力目标判据**（`includeHero` 决定督军能不能点）。
+    ///
+    /// <para>🔴 **为什么必须给这一列**：改前「敌方督军一律不是主动能力目标」（`t.IsWarlord ⇒ ErrTarget`），
+    /// 而原版**没有**这条（判据 → `RuleCore.CanUseAbilityTarget` 的 doc）⇒ 不给判据时督军也是合法候选
+    /// （且分更高）⇒ 「AI 挑了哪个目标」那几条断言就不确定了。</para>
+    /// <para>判据形状 = `E2Criteria10`（`ta=10` / `enemyUnits=1` / 36 格满值），只翻 `includeHero` 这一格
+    /// —— 与 `RuleEngineTest_EngineE5.cs` ②·a / ②·b 是同一对正负例。</para></summary>
+    static CardDef AiAbilityDamageCard(string name, int cost, int atk, int hp, int includeHero)
+    {
+        var set = E2Criteria10(1, 0);
+        set.IncludeHero = includeHero;
+        return new CardDef(name, name, "unit", "", null, "Test", cost, atk, hp, 0,
+                           new[] { "Ability: Damage 2 EnemyUnit" },
+                           // `UsesAlternativeAbility` 先看这一位；`-1`（未知）⇒ 整道闸判不了 ⇒ 放行。
+                           hasAlternativeAbility: 0,
+                           // 🔴 `conditionsVersioned: true` **必须给**：`unitConditions` 那一列若标成
+                           //    「旧表没落」，`ActiveAbilityPickGate` 会把 `conditionsFilter` 当**未知**
+                           //    ⇒ 整道闸落到「判不了 ⇒ 放行 ⇒ 出声」（夹具会静默变成「什么都没验到」）。
+                           conditionsVersioned: true,
+                           activeAbilityPickCriteria: new List<CardDef.TargetCriteriaRowSpec>
+                           {
+                               new CardDef.TargetCriteriaRowSpec
+                               {
+                                   Ability = CardDef.ActiveAbilityObject, Trigger = -1, Logic = -1, Criteria = set,
+                               },
+                           },
+                           activeAbilityPickCriteriaVersioned: true);
     }
 
     /// <summary>
@@ -32920,7 +33049,30 @@ public static partial class RuleEngineTest
             ctx.ClearSignals();
             Check(RuleCore.ApplyDamage(ctx, t, 2, "自检"), 4, "★ 结算侧同一个数");
             Check(t.Health, 2, "★ 生命 6 → 2（`6 − 2 − 2`）");
-            Check(S14Sig(ctx, EvtKind.Hit, null, 4), 1, "★ 那条 `Hit` 的 `Amount` = **4**");
+            // 🔴 **2026-10-25（铁律 5 · 执行代理 `F2`）就地订正本行**：`S14Sig(..., 4) == 1` 是
+            //   `E4-3` **改前**的口径（两份折进同一条 `Hit`）。改后按原版两拍 = **两条独立
+            //   `DamageInfo`**（`J3` §③①）⇒ 实际发出 **`(2, 2)`**：第 1 拍 = 主伤害 2、
+            //   第 2 拍 = 易伤 `max(1, 2 − 0)` = 2 且带 `IsVulnerableSecondHit`
+            //   （实测：离线探针（`dotnet`，纯 `RuleEngine/Core`）重放本夹具 ⇒ `Hit 条数 = 2`、`Amount 序列 = (2, 2)`、
+            //   合计 4、`Health 6 → 2`）。同格的 (a) 致死档仍是**一条** `3`（易伤那份被闸挡住）。
+            //   ⚠️ 判据**没有变松**：现在是「恰好两条 + 各自的值 + 拍位标记 + 合计」，
+            //   旧那条对「折成一条 4」也会绿（= `E4-3` 修的那个形状）。
+            //   🧨 易伤那份不落 ⇒ 只有一条 `2` ⇒ 下面几条全红。
+            {
+                var hits = S14Hits(ctx);
+                Check(hits.Count, 2,
+                      "★★ 两拍 = **两条 `EvtKind.Hit`**（与 `E4-3` 的 ④a 同一个口径）"
+                    + "｜🧨 折成一条 `Hit` ⇒ 1 条 ⇒ 红");
+                if (hits.Count >= 2)
+                {
+                    Check(hits[0].Amount, 2, "★ 第 1 拍 = **主伤害 2**（⛔ 不含易伤那份；🧨 发合计 4 ⇒ 红）");
+                    CheckTrue(!hits[0].IsVulnerableSecondHit, "★ 第 1 拍**不是**易伤拍");
+                    Check(hits[1].Amount, 2, "★ 第 2 拍 = **易伤那一发** `max(1, 2 − 0)` = 2");
+                    CheckTrue(hits[1].IsVulnerableSecondHit,
+                              "★★ 第 2 拍带 `IsVulnerableSecondHit`（表现层据此排 1.4 s）");
+                }
+                Check(S14HitSum(ctx), 4, "★ 两拍**合计 4** = 返回值 / 真掉的血（`6 → 2`）");
+            }
         }
         {
             // (c) 闸的**另一半**：残骸（`EntityScript.isRemnant` = `+0x65`）—— 血还够、照样挡住

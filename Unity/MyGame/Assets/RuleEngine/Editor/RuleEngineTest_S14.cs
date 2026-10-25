@@ -39,6 +39,28 @@ public static partial class RuleEngineTest
         return n;
     }
 
+    /// <summary>把 `ctx.Signals` 里**所有** `EvtKind.Hit` **按发出次序**取出来（= `S14Sig` 的「列全」版）。
+    /// 用途：原版易伤是**两条** `DamageInfo`（`J3` §③①）⇒ 要断「几条、各多少、哪条带
+    /// `IsVulnerableSecondHit`」；`S14Sig(ctx, kind, null, 4)` 那种「有没有某个值」的写法
+    /// **看不出拆没拆开**（折成一条 4 也会绿 —— 2026-10-25 就是这么红的两条）。
+    /// ⚠️ 顺序 = `Signals` 的次序 = 发出次序，⛔ 别再排一次（「主拍在前」是本组断言的一部分）。</summary>
+    static List<BattleEvent> S14Hits(BattleContext ctx)
+    {
+        var list = new List<BattleEvent>();
+        if (ctx == null) return list;
+        foreach (var e in ctx.Signals)
+            if (e != null && e.Kind == EvtKind.Hit) list.Add(e);
+        return list;
+    }
+
+    /// <summary>`S14Hits` 的 `Amount` 合计 —— 断「两拍加起来 == 返回值 / 真掉的血」用。</summary>
+    static int S14HitSum(BattleContext ctx)
+    {
+        int n = 0;
+        foreach (var e in S14Hits(ctx)) n += e.Amount;
+        return n;
+    }
+
     /// <summary>第一条「这条 kind + 这个关键词」的事件在 `Signals` 里的下标（`-1` = 没有）。
     /// **只用来量两条触发之间的先后**（次序判别式）。</summary>
     static int S14SigIndex(BattleContext ctx, EvtKind kind, string keyword)
@@ -677,7 +699,35 @@ public static partial class RuleEngineTest
                 + "（改前是 2 —— 只报溢出量）");
             Check(t2.Health, hp2 - 4, "★ 生命 5 → 1（`5 − 溢出 2 − 易伤 2`）");
             CheckTrue(!t2.Has(KeywordTable.Bastion), "★ 堡垒见底 ⇒ 整个摘掉");
-            Check(S14Sig(ctx2, EvtKind.Hit, null, 4), 1, "……发的是那条 `Hit{Amount = 4}`");
+            // 🔴 **2026-10-25（铁律 5 · 执行代理 `F2`）就地订正本行**：原来写的是
+            //   `Check(S14Sig(ctx2, EvtKind.Hit, null, 4), 1, "……发的是那条 `Hit{Amount = 4}`")`
+            //   —— 那是 `E4-3` **改前**的口径（两份**折进同一条** `Hit`）。改后按原版
+            //   （`J3` §③①：第二拍是**另一条 `DamageInfo`**）实际发出的是 **`(2, 2)`**：
+            //   第 1 拍 = 堡垒打穿后的**溢出 2**、第 2 拍 = 易伤 `max(1, 2 − 0)` = 2 且带
+            //   `IsVulnerableSecondHit`（实测：离线探针（`dotnet`，纯 `RuleEngine/Core`）重放本夹具 ⇒ `Hit 条数 = 2`、
+            //   `Amount 序列 = (2, 2)`、合计 4、`Health 5 → 1`）。
+            //   ⚠️ 断言**没有变松**：从「某条 `Hit` 的值」改成「**条数 + 逐条值 + 拍位标记 + 合计**」
+            //   —— 旧那条对「折成一条 4」也会绿，现在会红（那正是 `E4-3` 要钉的形状）。
+            //   🧨 易伤那份不落 ⇒ 只有 1 条 `2` ⇒ 下面几条全红（鉴别力与旧那条相同）。
+            {
+                var hits2 = S14Hits(ctx2);
+                Check(hits2.Count, 2,
+                      "★★ 原版那两拍 = **两条 `EvtKind.Hit`**（主 + 易伤各一条 `DamageInfo`）"
+                    + "｜🧨 退回「折进一条 `Hit`」⇒ 1 条 ⇒ 红");
+                if (hits2.Count >= 2)
+                {
+                    Check(hits2[0].Amount, 2,
+                          "★ 第 1 拍 = **溢出 2**（主伤害那一份，⛔ 不含易伤）"
+                        + "｜🧨 第 1 拍仍发合计（4）⇒ 红");
+                    CheckTrue(!hits2[0].IsVulnerableSecondHit, "★ 第 1 拍**不是**易伤拍");
+                    Check(hits2[1].Amount, 2, "★ 第 2 拍 = **易伤那一发** `max(1, 2 − 0)` = 2");
+                    CheckTrue(hits2[1].IsVulnerableSecondHit,
+                              "★★ 第 2 拍带 `IsVulnerableSecondHit`（表现层据此排 1.4 s）");
+                }
+                Check(S14HitSum(ctx2), 4,
+                      "★ 两拍**合计 4** = 返回值 / 真掉的血（`5 → 1`）"
+                    + "｜🧨 易伤那份没落 ⇒ 合计 **2**");
+            }
         }
     }
 
