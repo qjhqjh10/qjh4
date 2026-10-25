@@ -1888,6 +1888,12 @@ namespace RuleEngine
             //    判据与码的语义见 `RuleCodes.ErrNotPlayable`。
             if (card.Cost < 0) return RuleCodes.ErrNotPlayable;
 
+            // 🆕 2026-10-25（`X20`）：**隐藏附魔模板（`type = enchantment`）不可打出** ——
+            //   同 `RuleCore.CanPlayCard` 那条（这里是 `PlayCard` 的分流入口，两条路都要挡）。
+            //   为什么必须显式挡：本卡 `desc` 为空 ⇒ `EffectText.IsFullyParsed` 会说「没有不认识的句子」
+            //   ⇒ 被当成「可打、但什么都不做」（花 2 费、静默）。判据 = `CardDef.IsEnchantment` 一处。
+            if (card.IsEnchantment) return RuleCodes.ErrNotPlayable;
+
             // ✅ **防御卡走同一条路**（2026-09-13 第三十三轮）。
             //    以前这里直接 `return ErrUnimplemented`，理由是「引擎里除了组卡校验没有任何地方认识 `defence`」。
             //    实测：39 张防御卡的 desc **39/39 都能完整解析**，动词也都是已实现的那批

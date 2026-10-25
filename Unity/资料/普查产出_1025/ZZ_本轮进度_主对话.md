@@ -45,3 +45,20 @@
 4. **自检全套**（RuleEngineTest 347 条 · BattleScene 含 X8/X9/X14 新断言 · Collection 2360 · CardBaseDemo/CardFaceProbe · MainMenu/Shell）
 5. 自检修红 → 修
 6. 卡牌线方案（一代理一条线 4 件）
+
+## 2026-10-25 收尾段（继续追加）
+
+### 用户新增口径
+- **去掉三条**（原话「去掉，有问题我会反应」）：`S04` 真机听感 · 「两台机器真连一次」（联机 `T06` + 远端 `P01` 镜像）· `R01` 两格评级数值。⇒ **总任务 184 → 181 行**。
+- **`Pray Enchantment` 允许入池**（照原版走卡数据链）。
+
+### 已完成
+- `X20`：`Pray Enchantment` 入池（卡表 **v30 / count 1128**）；`UnitState.PrayEnchantment` **删除**、改走 `CardInstance.ActiveEnchantments`；120 张附魔全量能力表 → `X20_附魔能力表.tsv`；
+  **其余 31 张的缺口精确到两层**（① 父卡 `buffEffect{buffType 12/15/16}` 无执行器，`EffectResolver.cs:6405-6427` 是注释不是代码 ② 隐藏卡 `desc` 为空 ⇒ `Enchantments.Matching` 永远匹配不到）。
+- 重钉：`PinnedPoolMd5` = `e3041b072a28a07d4e363726449f6d88` · `PinnedPlayMd5` = `0da717c67b66f37e40d5f21fe30ddedc`（结算基线同日重生成，`play check` rc=0）。
+- 三处「池 +1」前提已改：`BattleScene.cs` 1128 + FNV `0x152CA48F` · `RuleEngineTest_EngineE1.cs` 1128。
+- `BattleScene.Run` = **5434 / 0 全绿**。
+- 台账：引擎线 §一 新增两行任务（附魔执行器 / Carnifex 未查清）；交接 §3·1 与 §二 已同步。
+
+### 进行中
+- `X20` 第二批：修 `RuleEngineTest` 6 红（附魔卡列形状 `null → []` + `version 29→30` + `TurnStartPlayer(31)` 7→8）⇒ 改完我重钉 md5 并复跑，全绿再提交。

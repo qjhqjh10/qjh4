@@ -486,11 +486,13 @@ public static partial class RuleEngineTest
             }
             CheckTrue(pool.Count > 0 && pool[0].AbilityTargetCriteriaVersioned,
                       "Q4(a) 前提：卡表 ≥ v25（`AbilityTargetCriteriaVersioned` 为真）");
-            Check(atcRows, 1616,
-                  $"★ Q4(a) `abilityTargetCriteria` 进 `CardDef` 的行数 = **1616**（现读 {atcRows}；"
-                + "`C5`/`E9` 口径：1008 张 / 1616 行）｜🧨 少一行 = 某个 `(ab,lg)` 键被合并/丢了");
-            Check(atcCards, 1008,
-                  $"★ Q4(a) 带行的卡数 = **1008**（现读 {atcCards}）"
+            // 🔴 2026-10-25（`X20`）：1616/1008 → **1619/1009**（池内新增的附魔卡自带 2 条 ability / 3 条
+            //   logic，`targetCriteria` 各落 1 行 ⇒ +3 行 / +1 张）。
+            Check(atcRows, 1619,
+                  $"★ Q4(a) `abilityTargetCriteria` 进 `CardDef` 的行数 = **1619**（现读 {atcRows}；"
+                + "`C5`/`E9` 口径：1009 张 / 1619 行）｜🧨 少一行 = 某个 `(ab,lg)` 键被合并/丢了");
+            Check(atcCards, 1009,
+                  $"★ Q4(a) 带行的卡数 = **1009**（现读 {atcCards}）"
                 + "｜🧨 `MapTargetCriteriaRows` 把某批行整批丢掉（比如 `lg` 校验写反）⇒ 红");
             Check(aatRows, 193,
                   $"★ Q4(a) `activeAbilityTargets` 行数 = **193**（现读 {aatRows}；132 张）"

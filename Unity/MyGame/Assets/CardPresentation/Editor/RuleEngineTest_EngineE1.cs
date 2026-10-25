@@ -74,7 +74,7 @@ public static class EngineE1Assert
     /// <summary>193 行全部带 `ca` / `pa` / `dmg`，且**逐格对齐** `ta`/`fm`；分布与生成器现读一致。</summary>
     static void E1KindColumnsReadings(List<CardDef> pool)
     {
-        Check(pool.Count, 1127, "(前提) 卡池 1127 张");
+        Check(pool.Count, 1128, "(前提) 卡池 1128 张｜🔴 2026-10-25：v30 新增 1 张隐藏附魔");
 
         int rows = 0, caMissing = 0, lenBad = 0, dmgUnknown = 0;
         int ca10 = 0, ca30 = 0, ca462 = 0, ca0 = 0;

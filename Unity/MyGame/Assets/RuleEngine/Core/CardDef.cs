@@ -60,10 +60,25 @@ namespace RuleEngine
         /// <summary>英文卡名（卡面标题行）。**重名是真的**（见 <see cref="Id"/>）⇒ 键一律用 `Id`。</summary>
         public string Name { get; }
         /// <summary>
-        /// 卡类：`unit` / `tactic` / `hero` / `defence`（现核卡池 586 / 445 / 56 / 39）。
+        /// 卡类：`unit` / `tactic` / `hero` / `defence` / **`enchantment`**
+        /// （前四种现核卡池 586 / 445 / 56 / 39；`enchantment` 现读 **1** 张 —— 见下面那一段）。
         /// 🔴 **它决定的是「谁走路」**，不是「谁强」：`unit`+`hero` 才上棋盘
         /// （<see cref="IsUnit"/>）、才收事件监听（<see cref="CanListenForEvents"/>）；
         /// `tactic`/`defence` 走另一条路（打出即结算 / 手牌陷阱）。
+        ///
+        /// <para>🔴 **🆕 2026-10-25（引擎线 `X20`）：`enchantment` = 原版 `cardType 20` 的【隐藏附魔模板】**
+        /// —— 它**不是**「可打出的卡」：不进卡组、不进手牌、不进收藏、不能被 `create` 造出来
+        /// （原版 `inventoryOptions = 10 NotInInventory` ∧ `showInCollectionOptions = 0 Hide`）。
+        /// 它的唯一存在形式是**挂在某个 `CardInstance` 上**（见 `Core/Enchantment.cs` 的附魔层，
+        /// 原版 `EntityScript.activeEnchantments // +0x110`）。
+        /// 现读池内只有一张：`Pray Enchantment`（`id = 9218576fd3e26554db5b4c239a36dbc7`，
+        /// 23 张 `pray` 卡在祈祷时挂它）。判据 → `资料/普查产出_1025/X20_PrayEnchantment入池_执行报告.md`。</para>
+        ///
+        /// <para>⛔ **别把 `enchantment` 塞进任何「卡种白名单」**（`IsUnit` / `CanListenForEvents` /
+        /// `DeckRules` / `CreatePool` 的候选池 / `CardDatabase.OfFaction` 的阵营卡表）——
+        /// 那会让一张**永远不会被打出**的模板卡出现在玩家能看见/能操作的地方。
+        /// 判据落点：`IsEnchantment` 一处，消费点逐处写明。</para>
+        ///
         /// ⚠️ 多处按**字符串相等**判卡类（`c.Type != "tactic"`），**改这里的取值会静默改变卡池分组**。
         /// </summary>
         public string Type { get; }
@@ -5849,6 +5864,16 @@ namespace RuleEngine
         /// ⇒ 改 `Type` 的取值 / 改本属性 = **成片改行为**，且是静默的。
         /// </summary>
         public bool IsUnit { get { return Type == "unit" || Type == "hero"; } }
+
+        /// <summary>
+        /// 🆕 **2026-10-25（引擎线 `X20`）：这是一张「隐藏附魔模板」**（`Type == "enchantment"`，
+        /// 原版 `cardType 20` 的附魔卡；判据/语义 → <see cref="Type"/> 的 doc）。
+        ///
+        /// <para>它**不是可打出的卡**：`IsUnit` 恒假、不进卡组/手牌/收藏、不能被 `create` 造出来。
+        /// 唯一存在形式 = 挂在某个 `CardInstance` 上（`Core/Enchantment.cs`）。
+        /// ⛔ **判据只此一处**（原来那些「按 `Type` 逐个字符串相等」的地方不要各写一份）。</para>
+        /// </summary>
+        public bool IsEnchantment { get { return Type == "enchantment"; } }
 
         /// <summary>
         /// 这张卡**能不能当事件监听者** —— 也就是 `When &lt;事件&gt;, …` 收下来的监听器**有没有人会消费它**。

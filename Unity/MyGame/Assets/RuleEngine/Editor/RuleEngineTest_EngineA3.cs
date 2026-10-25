@@ -488,7 +488,7 @@ public static partial class RuleEngineTest
             Check(mismatch, 0,
                   "★★ ④ 现读卡池：`abilityTriggers` 与 `abilityTargets` **同进同出**（0 张不一致）"
                 + "⇒ 上面两条 warning 在正式装载时**零噪声**"
-                + "｜🧨 生成器改了某一列的形状（只落一列）⇒ 这里红，说明那声会对 1127 张刷屏");
+                + "｜🧨 生成器改了某一列的形状（只落一列）⇒ 这里红，说明那声会对全池刷屏（现读 1128 张）");
         }
     }
 }

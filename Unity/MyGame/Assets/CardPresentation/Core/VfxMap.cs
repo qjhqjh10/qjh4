@@ -3398,6 +3398,7 @@ namespace CardPresentation
                 {
                     var card = CardDatabase.FindById(pool, kv.Key);
                     if (card == null || card.AnimTimes == null || card.AnimTimes.Count == 0) continue;
+                    if (string.Equals(card.Type, "enchantment", System.StringComparison.OrdinalIgnoreCase)) continue;   // 🔴 2026-10-25：附魔不是单位（它的 trigger 60 是附魔能力，不是单位技能动画）⇒ 不进 unit_*_anim 桶、本自检也不要求搬
                     List<string> want = null;
                     for (int i = 0; i < card.AnimTimes.Count; i++)
                     {
@@ -3518,6 +3519,7 @@ namespace CardPresentation
                 {
                     var card = pool[c];
                     if (card == null || card.AnimTimes == null || card.AnimTimes.Count == 0) continue;
+                    if (string.Equals(card.Type, "enchantment", System.StringComparison.OrdinalIgnoreCase)) continue;   // 🔴 2026-10-25：附魔不是单位（它的 trigger 60 是附魔能力，不是单位技能动画）⇒ 不进 unit_*_anim 桶、本自检也不要求搬
                     int rows = 0;
                     for (int i = 0; i < card.AnimTimes.Count; i++)
                     {

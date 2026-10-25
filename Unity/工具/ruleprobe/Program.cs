@@ -248,7 +248,7 @@ class Program
     //   ⇒ **只重钉这一颗**，`PinnedBaselineMd5` / `PinnedParseMd5` 原样不动。
     //   卡池 md5：`5a17f6af…` → `0397005d…`（3,119,176 → 3,235,327 B，+116,151 B 全部来自新列）。
     //   归因 → `资料/普查产出_1025/E4_trigger目标与activeAbility目标池.md` §二·2 / §四。
-    public const string PinnedPoolMd5 = "ef431e8054822f359162862fdf51dd5b";  // 2026-10-25 重钉（执行代理 E4）：卡表 v27→v28，新增主动能力目标闸 `ActiveAbility.targetCriteria` 一列（`activeAbilityPickCriteria` 107 行）。卡的内容没变；解析差异 0 行 · 输出指纹仍 af836aa0… · 结算零差异 ⇒ 只重钉这一颗。归因 → 资料/普查产出_1025/E4_trigger目标与activeAbility目标池.md｜🔴 2026-10-25 再重钉（执行代理 X6）：卡表 v28→v29，`abilityLevelCriteria[]` 新增 `ca` 列（族别）85 行；卡内容一字未改、count 1127 不变，解析差异 0 行 · 输出指纹仍 af836aa0… · `play check` 基线 fc591fb3… 未变 ⇒ 只重钉这一颗。归因 → 资料/普查产出_1025/X6_口径乙ca列_执行报告.md
+    public const string PinnedPoolMd5 = "84c0f84ef2fc4e473df09698cf546cb6";  // 2026-10-25 重钉（执行代理 E4）：卡表 v27→v28，新增主动能力目标闸 `ActiveAbility.targetCriteria` 一列（`activeAbilityPickCriteria` 107 行）。卡的内容没变；解析差异 0 行 · 输出指纹仍 af836aa0… · 结算零差异 ⇒ 只重钉这一颗。归因 → 资料/普查产出_1025/E4_trigger目标与activeAbility目标池.md｜🔴 2026-10-25 再重钉（执行代理 X6）：卡表 v28→v29，`abilityLevelCriteria[]` 新增 `ca` 列（族别）85 行；卡内容一字未改、count 1127 不变，解析差异 0 行 · 输出指纹仍 af836aa0… · `play check` 基线 fc591fb3… 未变 ⇒ 只重钉这一颗。归因 → 资料/普查产出_1025/X6_口径乙ca列_执行报告.md｜🔴 2026-10-25 再重钉（执行代理 X20）：卡表 v29→v30，新增 1 张隐藏附魔 `Pray Enchantment`（`cardType 20`/`type=enchantment`）；既有卡改动 0 张。归因 → 资料/普查产出_1025/X20_PrayEnchantment入池_执行报告.md
 
     /// <summary>钉住的基线内容指纹（`工具/ruleprobe/基线/out_baseline.txt` 的 md5，**按字节**）。
     /// 与上面那个配对使用 —— 判据见上面那段长注释。</summary>

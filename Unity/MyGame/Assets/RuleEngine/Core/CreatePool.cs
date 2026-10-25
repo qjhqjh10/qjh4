@@ -128,14 +128,21 @@ namespace RuleEngine
             }
 
             // ---- ① 候选名单：`a Gun Drone, Guardian Drone or Marker Drone` ----
+            // ⛔ 🆕 2026-10-25（`X20`）：**隐藏附魔模板不许被造出来**（`CardDef.IsEnchantment`）——
+            //    原版那些是 `cardType 20` 的附魔卡（`inventoryOptions = NotInInventory`），
+            //    只作为「挂在载体身上」的模板存在，从不出现在手牌/棋盘上。
+            //    判据/语义 → `CardDef.Type` 的 doc。⛔ 别改成「按 `CannotAddToDeck` 挡」——
+            //    那会连带改掉 98 张战术卡的造牌结果（另一条判据）。
             if (what.IndexOf(" or ", StringComparison.Ordinal) >= 0)
             {
                 foreach (string piece in SplitList(what))
                 {
                     string name = CleanListName(piece);
                     var c = FindByName(pool, name);
-                    if (c != null) r.Cards.Add(c);
-                    else r.Detail = AppendDetail(r.Detail, "名单里的「" + name + "」原版数据里没有这张卡");
+                    if (c != null && !c.IsEnchantment) r.Cards.Add(c);
+                    else r.Detail = AppendDetail(r.Detail, c != null
+                        ? "名单里的「" + name + "」是隐藏附魔模板（`enchantment`）⇒ 不许造"
+                        : "名单里的「" + name + "」原版数据里没有这张卡");
                 }
                 if (r.Cards.Count == 0) r.Why = "名单里的卡原版数据里一张都没有";
                 else SortByName(r.Cards);
@@ -171,6 +178,7 @@ namespace RuleEngine
                 foreach (var c in pool)
                 {
                     if (c == null) continue;
+                    if (c.IsEnchantment) continue;          // 🆕 `X20`：隐藏附魔模板不进造牌候选（见 ① 那段）
                     if (unitsOnly && !c.IsUnit) continue;
                     if (kind[1] == "type" && c.Type != kind[2]) continue;
                     if (kind[1] == "subtype" && !SubtypeIn(c, kind, 2)) continue;
@@ -200,6 +208,7 @@ namespace RuleEngine
                     foreach (var c in pool)
                     {
                         if (c == null) continue;
+                        if (c.IsEnchantment) continue;      // 🆕 `X20`：隐藏附魔模板不进造牌候选（见 ① 那段）
                         if (unitsOnly && !c.IsUnit) continue;
                         // 🔴 **2026-10-14（`A2006③`）：督军不进这一支 —— 补上原版那道 type 门。**
                         //   判据 = 原版 `FilterMethods.CheckIfRawCardMeetsCriteria`
@@ -242,6 +251,13 @@ namespace RuleEngine
             var named = FindByNameLoose(pool, kindPhrase);
             if (named != null)
             {
+                // 🆕 2026-10-25（`X20`）：隐藏附魔模板**不许被具名造出来**（同 ① 那段；
+                //   普通卡面上不存在「Create a Pray Enchantment」这种句子，这条是防回归闸）。
+                if (named.IsEnchantment)
+                {
+                    r.Why = "「" + named.Name + "」是隐藏附魔模板（`enchantment`），不是可打出的卡 ⇒ 不造";
+                    return r;
+                }
                 if (unitsOnly && !named.IsUnit)
                 {
                     r.Why = "「" + named.Name + "」是" + named.Type + "卡，**不是单位**，部署不了";

@@ -173,7 +173,10 @@ public static partial class RuleEngineTest
     /// 真值（池内 1,127 张，2026-10-23 现读）：
     ///   · `FollowUpResolution(410)`：有 ability **30** 张 / 有动画行 **24** 张 ⇒ **6 张**只在前者里
     ///     （`EC40`/`EC42`/`GOF31`/`GOF93`/`TL3`/`UM64`）；
-    ///   · `TurnStartPlayer(31)`：7 / 3 ⇒ 缺 4；`TurnStart(30)`：5 / 3 ⇒ 缺 2。
+    ///   · `TurnStartPlayer(31)`：**8 / 4** ⇒ 缺 **4**；`TurnStart(30)`：5 / 3 ⇒ 缺 2。
+    ///     🔴 2026-10-25（`X20`）：31 这一对 7/3 → **8/4**（池内新增的隐藏附魔 `Pray Enchantment`
+    ///       自己有 31 这条 ability、`animTimes` 里也真有 `Pray_Success` 那条 31 动画行 ⇒ 两边各 +1，
+    ///       差值仍是 4）。归因 → `资料/普查产出_1025/X20_PrayEnchantment入池_执行报告.md`。
     /// 🧨 闸改回只看 `HasAnimTrigger` ⇒ 「只发得出 24 张」那条成立、发射断言红（`TL3` 不发事件）。
     /// 🧨 把闸**整个删掉** ⇒ `DA12`（没有 410、也没有 410 动画行）也会发 ⇒ 下面的反例红。
     /// </summary>
@@ -195,10 +198,10 @@ public static partial class RuleEngineTest
         Check(W67CountByAbility(pool, "FollowUpResolution"), 30,
               "★ W67T3 有 `FollowUpResolution` **ability**的卡 = 30 张（真值 `abilityTriggers`）"
             + " —— 🧨 两数相等 ⇒ 说明数据/闸没区分开，本组断言失去鉴别力");
-        Check(W67CountByAnim(pool, "TurnStartPlayer"), 3,
-              "W67T3 有 `TurnStartPlayer(31)` 动画行 = 3 张");
-        Check(W67CountByAbility(pool, "TurnStartPlayer"), 7,
-              "W67T3 有 `TurnStartPlayer(31)` ability = 7 张（缺 4 张动画行）");
+        Check(W67CountByAnim(pool, "TurnStartPlayer"), 4,
+              "W67T3 有 `TurnStartPlayer(31)` 动画行 = **4** 张（`X20` 新增的附魔卡带 `Pray_Success` 那条）");
+        Check(W67CountByAbility(pool, "TurnStartPlayer"), 8,
+              "W67T3 有 `TurnStartPlayer(31)` ability = **8** 张（缺 4 张动画行；`X20` +1）");
         Check(W67CountByAnim(pool, "TurnStart"), 3, "W67T3 有 `TurnStart(30)` 动画行 = 3 张");
         Check(W67CountByAbility(pool, "TurnStart"), 5, "W67T3 有 `TurnStart(30)` ability = 5 张（缺 2 张）");
 

@@ -1127,8 +1127,10 @@ public static partial class RuleEngineTest
         //   （官方文案 `CardTraitDescription/pray`）。上一轮曾误判成「原版没有」；真值**在卡数据里**：
         //   隐藏附魔 `Pray Enchantment`（23 张 pray 卡 `trigger=655` 挂 `buffType:15` 附魔；
         //   该附魔 `trigger 60 UnitDamaged → removeThisEnchantment` · `trigger 31 TurnStartPlayer →
-        //   buffMana{faithMana:1} + removeThisEnchantment`）。本版按**引擎内等价状态**实现
-        //   （`UnitState.PrayEnchantment`）；卡数据那条链另立一笔（会动卡池 md5）。
+        //   buffMana{faithMana:1} + removeThisEnchantment`）。🔴 **2026-10-25 `X20` 起走卡数据**：
+        //   该附魔卡已按原版唯一性 id 入池（`type = enchantment`），挂/摘全在 `Enchantments`
+        //   （`AttachPray` / `HasPray` / `RemovePray`），`UnitState.PrayEnchantment` 那个 bool **已删除**。
+        //   卡数据链的判据/能力表 → `资料/普查产出_1025/X20_PrayEnchantment入池_执行报告.md`。
         //   判据全文 → `资料/待办判据_祈祷信仰与任务点_1025b.md` §二·④ / §四·3。
         //   测试体在 `RuleEngineTest_EngineX13.cs`（同一 partial 类）。
         Step(TestPrayEnchantmentX13);
@@ -21975,7 +21977,12 @@ public static partial class RuleEngineTest
                 //    判据 = 拿 HEAD 版卡池与现池按 `id` 求差集：**只多这一张、一张都没少**）。
                 //    ⚠️ 这一格**只是前提检查**，权威数字仍写在 `资料/阵营推进_清单与交接.md` §一
                 //    （那份文件里现在写的 1126 是**旧读数**，⛔ 本笔不动别的文件）。
-                CheckTrue(pool.Count == 1127,
+                // 🔴 **2026-10-25（引擎线 `X20`）就地改期望值（铁律 5）：1127 → 1128。**
+                //    多的是原版隐藏附魔模板 **`Pray Enchantment`**（`type = "enchantment"`，
+                //    `uniqueId 9218576fd3e26554db5b4c239a36dbc7`）—— 用户 2026-10-25 拍板「允许加入」，
+                //    判据 → `资料/普查产出_1025/X20_PrayEnchantment入池_执行报告.md`。
+                //    ⚠️ 与上面 `A1763` 那条同一性质：**前提检查**，不是卡池合法性的判据。
+                CheckTrue(pool.Count == 1128,
                           $"（前提）卡池张数（判据只写在 `资料/阵营推进_清单与交接.md` §一，这里只做前提检查）：{pool.Count}");
                 // 🔴 **2026-10-15（P3 相 · `A1763` 数据层）就地改期望值（铁律 5）：82 / 33 → 60 / 32。**
                 //    **成因查实**：本轮把 `descZh` 全池换成**官方模板**（`Card_Description/*`）——
@@ -35368,7 +35375,7 @@ public static partial class RuleEngineTest
             + (noneBad.Count > 0 ? " —— 不对：" + string.Join(" / ", noneBad.ToArray()) : "")
             + "｜🧨 把「查不到」和「无条件」并成一个哨兵 ⇒ 红");
         CheckTrue(noneOk >= 800,
-                  $"★ 无条件的卡 {noneOk} 张（现池 1127 - 285 = 842）—— 数量级对才说明整列没漏读");
+                  $"★ 无条件的卡 {noneOk} 张（现池 1128 - 285 = 843）—— 数量级对才说明整列没漏读");
 
         // ---- ④ 旧版表（version 14）⇒ **出声 + 未知**（且不是「无条件」）----
         //   `unitConditions` 加列在 v15；v14 的表整列没有 ⇒ 必须出声，⛔ 不许静默当「全池都没条件」。

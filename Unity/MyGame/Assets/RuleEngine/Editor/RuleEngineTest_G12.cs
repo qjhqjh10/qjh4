@@ -53,7 +53,8 @@ public static partial class RuleEngineTest
     /// <summary>v23 的**每一张卡**都带这一列（没行 = `[]`）；读数 = D11 §三 的表。</summary>
     static void G12DataReadings(List<CardDef> pool)
     {
-        Check(pool.Count, 1127, "(前提) 卡池 1127 张");
+        // 🔴 2026-10-25（`X20`）就地改期望值：1127 → 1128（池内新增隐藏附魔模板 `Pray Enchantment`）。
+        Check(pool.Count, 1128, "(前提) 卡池 1128 张");
 
         int notVersioned = 0, nullColumn = 0, cardsWith = 0, cardsEmpty = 0;
         int objects = 0, logicRows = 0, gate0Cards = 0, gate0Rows = 0, fmPositive = 0;
@@ -89,7 +90,7 @@ public static partial class RuleEngineTest
         }
 
         Check(notVersioned, 0,
-              "★ v23 卡表 ⇒ **1127/1127** 张卡都带 `activeAbilityLogic` 的正面信号"
+              "★ v23 卡表 ⇒ **1128/1128** 张卡都带 `activeAbilityLogic` 的正面信号"
             + "｜🧨 `CardDatabase.Parse` 里写成 `>= 24` / 漏传那一格 ⇒ 红");
         Check(nullColumn, 0,
               "★ **没有一张卡的这一列是 `null`**（v23 每张卡都落；`null` 只该出现在旧表 / 调用方没给）"
@@ -97,8 +98,10 @@ public static partial class RuleEngineTest
         Check(cardsWith, 132,
               "★ 有 active/alt 行的卡 = **132 张**（D11 §3·3 现读）"
             + "｜🧨 生成器的 `active_ability_logic_of()` 少扫一个能力对象 / 生成器换了数据源 ⇒ 红");
-        Check(cardsEmpty, 995,
-              "★ 明确没有行的卡 = **995 张**（1127 − 132）"
+        // 🔴 2026-10-25（`X20`）：995 → **996**（池内新增的附魔卡没有 active/alt 行 ⇒ `[]`；
+        //    1128 − 132 = 996）。
+        Check(cardsEmpty, 996,
+              "★ 明确没有行的卡 = **996 张**（1128 − 132）"
             + "｜🧨 把「没有行」写成不落列 ⇒ 这个数掉、上面 `nullColumn` 涨 ⇒ 两条一起红");
         Check(objects, 133,
               "★ 能力对象总数 = **133**（132 个 `activeAbility` ＋ `SW21` 的 1 个 `alternativeAbility`）"

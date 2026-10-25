@@ -2955,10 +2955,23 @@ namespace RuleEngine
             return outList;
         }
 
+        /// <summary>
+        /// 按阵营取卡（**不含隐藏附魔模板**）。
+        ///
+        /// <para>⛔ **🆕 2026-10-25（引擎线 `X20`）：`Type == "enchantment"` 的卡不在这里返回。**
+        /// 它们（原版 `cardType 20` 的附魔卡，现读池内 1 张 `Pray Enchantment`）**不是可打出的卡** ——
+        /// 不进卡组、不进手牌、不进收藏、不出现在卡包里；唯一存在形式是挂在某个 `CardInstance` 上
+        /// （`Core/Enchantment.cs`）。判据/语义 → `CardDef.Type` 的 doc。</para>
+        /// <para>⚠️ **为什么在这里挡而不是在每个调用点挡**：这个方法就是「这个阵营有哪些**卡**」的唯一入口，
+        /// 下游有 `BattleDriver.DefensiveChoices`（防御池）/ `BoosterPackOpenWindow.RollPack`（开包摇号）等
+        /// —— 后者按 `System.Random(seed)` 摇，把模板卡混进去会**静默改掉每一包的确定性内容**。
+        /// 引擎侧要取那张附魔卡走 `ctx.CardPool`（`CardDatabase.Load()` 的**全池**，不过这一层）。</para>
+        /// </summary>
         public static List<CardDef> OfFaction(IEnumerable<CardDef> pool, string faction)
         {
             var outList = new List<CardDef>();
-            foreach (var c in pool) if (c != null && c.Faction == faction) outList.Add(c);
+            foreach (var c in pool)
+                if (c != null && !c.IsEnchantment && c.Faction == faction) outList.Add(c);
             return outList;
         }
 

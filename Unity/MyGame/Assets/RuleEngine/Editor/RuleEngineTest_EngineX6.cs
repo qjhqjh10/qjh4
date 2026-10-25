@@ -83,14 +83,16 @@ public static partial class RuleEngineTest
                 if (Array.IndexOf(X6FamilyWhitelist, f) < 0) bad.Add(c.Id + ":" + f);
             }
         }
-        Check(rows, 85,
-              "★ ① 全池 `abilityLevelCriteria` 行数 = **85**（原版 `CardAbility.targetCriteria` `+0x30`）"
+        // 🔴 2026-10-25（`X20`）：85/5 → **86/6**（池内新增的附魔卡带 1 条 ability 级
+        //   `targetCriteria` 行，它的 `chosenAbility = 340 removeThisEnchantment` 不在族表里 ⇒ 落「无 logic」那一档）。
+        Check(rows, 86,
+              "★ ① 全池 `abilityLevelCriteria` 行数 = **86**（原版 `CardAbility.targetCriteria` `+0x30`）"
             + "｜🧨 卡表改了 / 生成器换了 `criteria_carries_targets` 的落法 ⇒ 按新数据重钉");
         Check(known, 80,
               "★ ① 其中 `ca` 可判（族名非空）的行 = **80**"
             + "｜🧨 `ca` 生成逻辑变了（例如把「混族」也硬归一族）⇒ 红");
-        Check(unknownOrEmpty, 5,
-              "★ ① `ca` 为空（家族判不了）的行 = **5**（3 行混族 + 2 行无 abilityLogic）"
+        Check(unknownOrEmpty, 6,
+              "★ ① `ca` 为空（家族判不了）的行 = **6**（3 行混族 + 3 行无 abilityLogic）"
             + "｜🧨 同上");
         Check(bad.Count, 0,
               "★★ ① **跨语言对账**：`ca` 落出去的族名全部在 `CardDef.ActiveAbilityKindFamilyNames` 白名单里"

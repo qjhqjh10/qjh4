@@ -1561,12 +1561,16 @@ namespace RuleEngine
         /// → 再 `chosenAbility 340 removeThisEnchantment`；结算链 `BattleManager__ProcessManaBuff.c:28,79`。
         /// `TurnStartPlayer` 那道闸 = `CardScript__OnTurnStart.c:145` 的 `card.owner == IsPlayerTurn()`
         /// ⇒ **只有它主人自己的回合才发**（= 调用方为什么只扫当前行动方）。
-        /// 我们这一版是**引擎内等价实现**（卡数据那条链另立一笔）—— 见 `UnitState.PrayEnchantment` 的 doc。</para>
+        /// 我们这一版**走卡数据**（🆕 2026-10-25 引擎线 `X20`）—— 挂/摘全在 `Enchantments` 那一层
+        /// （`Enchantments.AttachPray` / `HasPray` / `RemovePray`，附魔卡 = 卡池里的
+        /// `Pray Enchantment`，`id = Enchantments.PrayEnchantmentCardId`）。
+        /// ⚠️ `X13` 的「引擎内 bool」（`UnitState.PrayEnchantment`）**已删除**、⛔ 别再长回来
+        /// （两处写同一条规则 = 迟早不一致）。判据全文 → `UnitState` 里那一段「为什么没有这个字段」。</para>
         /// </summary>
         static void GrantPrayEnchantmentFaith(BattleContext ctx, int p, UnitState u)
         {
-            if (ctx == null || u == null || !u.PrayEnchantment) return;
-            u.PrayEnchantment = false;                       // 一次性：先摘再给（绝不重复发）
+            if (ctx == null || u == null || !Enchantments.HasPray(u)) return;
+            Enchantments.RemovePray(ctx, u);                 // 一次性：先摘再给（绝不重复发）
             var ps = ctx.Players[p];
             ps.Faith += 1;
             ctx.Log($"{u.Name} 的祈祷附魔到期 ⇒ {ps.Name} 信仰 +1（现 {ps.Faith}；"
@@ -2940,7 +2944,8 @@ namespace RuleEngine
                 // 🆕 2026-10-25（`X13`）：疲劳这一支**绕开了 `ApplyDamage`** ⇒ 祈祷附魔也要在这里照同一条判据撤
                 //   （原版疲劳同样走 `DealMultiDamage` → `BroadcastUnitDamaged` → `ResolveDamageDealt:161`
                 //    的 `UnitDamaged(60)`，附魔 ability[0] 照响）。疲劳值恒 ≥ 1 ⇒ 不需要 `dmg != 0` 那道闸。
-                ps.Warlord.PrayEnchantment = false;
+                //   🔴 2026-10-25 `X20`：走附魔层（卡数据），不再是引擎内 bool。
+                Enchantments.RemovePray(ctx, ps.Warlord);
                 // 🔴 **2026-10-19（`A1649` 同一条判据 · 疲劳这个第二落点）**：
                 //   `_ResolveMultiDamage_d__456__MoveNext.c:141` 的 `BroadcastUnitDamaged`
                 //   **排在 `:154/:168 ReceiveDamage` 之前** ⇒ 广播那一刻督军的血**还没掉**。
@@ -3128,6 +3133,13 @@ namespace RuleEngine
             //    ⚠️ 不挡的话 `CostOf` 会把 `-1` clamp 成 `0` ⇒ 「不可打出」被误判成「免费可打」。
             //    判据与码的语义见 `RuleCodes.ErrNotPlayable`。
             if (card.Cost < 0) return RuleCodes.ErrNotPlayable;
+
+            // 🆕 2026-10-25（`X20`）：**隐藏附魔模板（`type = enchantment`）永远不可打出。**
+            //   ⚠️ 正常路径它进不了手牌（`inventoryOptions = NotInInventory` ⇒ 卡组/造牌都进不去），
+            //   但**万一**被某条路塞进手牌（夹具 / 未来的效果），它 `desc` 为空 ⇒ 下面那条
+            //   `CanPlayTactic` 会把它当「没有不认识的句子、可打」⇒ **花 2 费、什么都不做**（静默）。
+            //   判据 = `CardDef.IsEnchantment` 一处；⛔ 别用 `Cost < 0` 顶替（真值 `manaCost = 2`）。
+            if (card.IsEnchantment) return RuleCodes.ErrNotPlayable;
 
             // 战术卡走**另一条判据**（不落格位、可能要选目标 —— 见 `EffectResolver.CanPlayTactic`），
             // 但**入口仍然是这一个**：表现层只问 `CanPlayCard`，免得两处各判一份、迟早不一致。
@@ -8278,8 +8290,9 @@ namespace RuleEngine
                 //   的 ability[0]：`trigger 60 (UnitDamaged) → chosenAbility 340 removeThisEnchantment`。
                 //   ⚠️ **它与 `Prayed` 共用同一个闸**（`!absorbed && dmg != 0`），这正是判据要的那条：
                 //     `CardScript__ResolveDamageDealt.c:25-28` 对 `damage == 0` 直接 `return`
-                //     ⇒ **护甲/盾挡掉的 0 伤不算打断**（判别式：把这句删掉 ⇒ 测试②红）。
-                u.PrayEnchantment = false;
+                //     ⇒ **护甲/盾挡掉的 0 伤不算打断**（判别式：把这句删掉 ⇒ 测试③红）。
+                //   🔴 2026-10-25 `X20`：不再是引擎内 bool —— 走附魔层那一份**卡数据**（`Enchantments.RemovePray`）。
+                Enchantments.RemovePray(ctx, u);
             }
 
             // 🔴 **2026-10-19（`A1649`）：`damaged` 广播排在【扣血之前】—— 原版就是这个次序。**
@@ -11307,9 +11320,10 @@ namespace RuleEngine
                 // 🆕 2026-10-25（`X13`）：**祈祷附魔挂上** —— 经典/冲突**都**有，与上面那面 flag 无关。
                 //   原版 = 卡数据里那张隐藏附魔 `Pray Enchantment`（23 张 pray 卡的
                 //   `cardAbilities[trigger=655].abilityLogic[0].buffEffect{buffType:15, enchantment}`）；
-                //   本版按**引擎内等价状态**实现，判据/差异全写在 `UnitState.PrayEnchantment` 的 doc 里。
+                //   🔴 2026-10-25 `X20` 起**真的把那张卡挂上去**（`Enchantments.AttachPray`，
+                //   卡从 `ctx.CardPool` 取）—— 不再是引擎内 bool。
                 //   ⚠️ 它**不**受 `alternativeTraitLogic` 影响（那是「再立刻 +1」，见 `EffectResolver.FinishActiveAbility`）。
-                u.PrayEnchantment = true;
+                Enchantments.AttachPray(ctx, u);
             }
 
             // 走**所有触发唯一的那个出口** —— 事件、递归保护、`When … triggers <关键词>` 广播

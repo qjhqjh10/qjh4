@@ -87,12 +87,15 @@ public static partial class RuleEngineTest
         // 🔴 2026-10-25（执行代理 `X6` · 铁律 5 就地订正）：同会话的 `X6` 又给
         //   **`abilityLevelCriteria` 每行加了 `ca`（能力种类族名）** ⇒ 表已 bump 到 **29**。
         //   归因 → `资料/普查产出_1025/X6_口径乙ca列_执行报告.md`。
-        Check(dto.version, 29,
-              "★ A1 卡表 `version` = **29**（v29 = `abilityLevelCriteria` 各行的 `ca` 一格：该 ability 的 "
-            + "`chosenAbility` 家族；v28 `activeAbilityPickCriteria` / v27 `abilityActingCriteria` / "
-            + "v26 / v25 各列照旧；"
-            + "⛔ 不 bump 的话新列会被旧守卫静默读成 `null`）"
-            + "｜🧨 生成器 return 里改回 28（或忘了 bump）⇒ 红");
+        // 🔴 2026-10-25（执行代理 `X20` · 铁律 5 就地订正）：同会话的 `X20` **加了一张卡不加列**
+        //   （隐藏附魔模板 `Pray Enchantment`，池 1127→1128）⇒ 表 bump 到 **30**。
+        //   归因 → `资料/普查产出_1025/X20_PrayEnchantment入池_执行报告.md`。
+        Check(dto.version, 30,
+              "★ A1 卡表 `version` = **30**（v30 = **加卡不加列**：池内新增隐藏附魔模板 `Pray Enchantment`；"
+            + "v29 `abilityLevelCriteria` 的 `ca` 一格 / v28 `activeAbilityPickCriteria` / v27 "
+            + "`abilityActingCriteria` / v26 / v25 各列照旧；"
+            + "⛔ 不 bump 的话卡池变更没有版本可认）"
+            + "｜🧨 生成器 return 里改回 29（或忘了 bump）⇒ 红");
 
         // ---- A2 · 两列「每张卡都落」：`null` 与空数组必须分得开 ----
         int aatNull = 0, atcNull = 0;
@@ -164,8 +167,10 @@ public static partial class RuleEngineTest
                     || r.criteria.excludeEnchantments == null) nUnbound++;
             }
         }
-        Check(atcRows, 1616,
-              "★ A4a `abilityTargetCriteria` 共 **1616 行**（= `abilityTargets` 的 1616 个 logic，逐一对应）"
+        // 🔴 2026-10-25（`X20`）：1616 → **1619**（池内新增的附魔卡自己带 2 条 ability / 3 条 logic，
+        //   它们的 `targetCriteria` 各落 1 行 ⇒ +3 行；`abilityTargets` 的 logic 数同步 1616→1619）。
+        Check(atcRows, 1619,
+              "★ A4a `abilityTargetCriteria` 共 **1619 行**（= `abilityTargets` 的 1619 个 logic，逐一对应）"
             + "｜🧨 漏落某条 ability 的 logic / 把 ability 级的 `targetCriteria` 也塞进来 ⇒ 红");
         Check(nBadAb, 0, "★ A4b `ab` 全部 ≥ 0（= `cardAbilities` 下标）｜🧨 写成 -1 ⇒ 红");
         Check(nBadLg, 0, "★ A4c `lg` 全部 ≥ 0｜🧨 漏写 ⇒ 红");
@@ -235,8 +240,9 @@ public static partial class RuleEngineTest
         Check(aatCards, 132,
               "★ B1 `activeAbilityTargets` **有行的 132 张**（= `activeAbilityLogic` 有行的 132 张，逐卡同集）"
             + "｜🧨 生成器把这一列写成「只给 `hasActiveAbility=1` 的 87 张」⇒ 红（死数据也要落，见 `gate:0` 口径）");
-        Check(atcCards, 1008,
-              "★ B2 `abilityTargetCriteria` **有行的 1008 张**（其余 119 张没有 `abilityLogic` ⇒ `[]`）"
+        // 🔴 2026-10-25（`X20`）：1008 → **1009**（新增的附魔卡自己就有 `abilityLogic.targetCriteria` 行）。
+        Check(atcCards, 1009,
+              "★ B2 `abilityTargetCriteria` **有行的 1009 张**（其余 119 张没有 `abilityLogic` ⇒ `[]`）"
             + "｜🧨 只给带 `abilityTargets` 非空的卡落 ⇒ 红");
         Check(aatTa0, 17,
               "★ B3 `activeAbilityTargets` 里 `targetsAffected == 0`（`any`）的 **17 行** ——"
@@ -331,7 +337,9 @@ public static partial class RuleEngineTest
                 if (r != null) gotAPos.Add(r.ab + "/" + r.lg);
             if (!wantAPos.SetEquals(gotAPos)) aatPosMismatch++;
         }
-        Check(cards, 1127, "★ C0 对账覆盖 1127 张卡｜🧨 池子换了 ⇒ 提醒改这批字面量（不是缺陷，是过期）");
+        // 🔴 2026-10-25（`X20`）就地改期望值：1127 → 1128（池内新增隐藏附魔模板 `Pray Enchantment`；
+        //    它没有 `abilityTargets`/`activeAbilityLogic` 行 ⇒ 只把「逐卡对账」的卡数 +1，不增任何行）。
+        Check(cards, 1128, "★ C0 对账覆盖 1128 张卡｜🧨 池子换了 ⇒ 提醒改这批字面量（不是缺陷，是过期）");
         Check(countMismatch, 0,
               "★ C1a 每张卡 `abilityTargetCriteria` 的**行数** = 该卡 `abilityTargets[].ta` 的长度和"
             + "（1616 个 logic ⇒ 1616 行）｜🧨 漏一条 logic ⇒ 红");

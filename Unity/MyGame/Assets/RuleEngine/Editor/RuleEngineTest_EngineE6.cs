@@ -178,10 +178,10 @@ public static partial class RuleEngineTest
             }
         }
 
-        // ①·d 覆盖面：13 行 = 510:4 · 570:5 · 515:1 · 60:1 · 291:2（现读 v28）
+        // ①·d 覆盖面：14 行 = 510:4 · 570:5 · 515:1 · **60:2** · 291:2（🔴 2026-10-25：卡表 v30 新增隐藏附魔 `Pray Enchantment`，它带一行 `UnitDamaged` 的 ability 级 criteria ⇒ 60 由 1→2、合计 13→14）
         string[] names = { "UnitReceivesMarkOfChaos", "Reanimated", "UnitReceivesMarkerlight",
                            "UnitDamaged", "UnitStunned" };
-        int[] expect = { 4, 5, 1, 1, 2 };
+        int[] expect = { 4, 5, 1, 2, 2 };
         int total = 0;
         for (int i = 0; i < names.Length; i++)
         {
@@ -197,7 +197,7 @@ public static partial class RuleEngineTest
                   $"★★ ① 全池 `abilityLevelCriteria` 里 `{names[i]}` 的行数"
                 + "｜🧨 生成器那边少落一族 / 本件接错族 ⇒ 数字变 ⇒ 红");
         }
-        Check(total, 13, "★★ ① 本批 13 行（判据 = `E5_引擎剩余小缺口.md` §五 第 2 档）");
+        Check(total, 14, "★★ ① 本批 14 行（判据 = `E5_引擎剩余小缺口.md` §五 第 2 档；🔴 2026-10-25 v30 新增附魔 +1 行）");
     }
 
     /// <summary>一张真卡的 level 行：`enemy / friendly / hero / minion / self` 逐格写死。

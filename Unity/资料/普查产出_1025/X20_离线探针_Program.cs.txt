@@ -1,0 +1,152 @@
+// X20 离线探针（2026-10-25）—— **不进工程、不参与编译**，只是把 `RuleEngineTest_EngineX13` 的
+// 四种情形在 net8 下真跑一遍（Unity 批处理本批禁跑）。复现办法：
+//   mkdir /tmp/x20probe && cd /tmp/x20probe
+//   cp <repo>/Unity/工具/ruleprobe/Stub.cs .
+//   cp <repo>/Unity/MyGame/Assets/RuleEngine/Core/*.cs .   (改名前缀 Core_ 以免与 Stub 冲突)
+//   cp <repo>/Unity/MyGame/Assets/RuleEngine/Data/CardDatabase.cs .
+//   cp 本文件 Program.cs ; 写一份 net8 的 csproj（EnableDefaultCompileItems=false，
+//   Compile = Stub.cs / CardDatabase.cs / Core_*.cs / Program.cs）
+//   CARDS_JSON=<repo>/Unity/MyGame/Assets/RuleEngine/Resources/cards_engine.json dotnet run
+// 现读结果 = 33 ok / 0 FAIL（池 1128 张，用的就是生成的 cards_engine.json）。
+
+using System;
+using System.Collections.Generic;
+using System.IO;
+using RuleEngine;
+
+static class X20
+{
+    static int pass = 0, fail = 0;
+    static void Chk(bool ok, string what)
+    {
+        if (ok) { pass++; Console.WriteLine("  ok   " + what); }
+        else { fail++; Console.WriteLine("  FAIL " + what); }
+    }
+    static void Eq(int a, int b, string what) { Chk(a == b, what + " (got " + a + ", want " + b + ")"); }
+
+    static CardDef Hero() { return new CardDef("FixtureWarlord", "FixtureWarlord", "hero", "", null, "Test", 0, 2, 30, 0, null); }
+    static CardDef Unit(string n, int c, int a, int h, params string[] kws)
+        { return new CardDef(n, n, "unit", "", null, "Test", c, a, h, 0, kws); }
+
+    static BattleContext MakeBattle(List<CardDef> pool)
+    {
+        var d0 = new List<CardDef> { Hero() };
+        var d1 = new List<CardDef> { Hero() };
+        return RuleCore.NewBattle(d0, d1, seed: 0, shuffle: false, cardPool: pool);
+    }
+
+    static UnitState Place(BattleContext ctx, int p, int slot, CardDef card)
+    {
+        var u = new UnitState(ctx.NewInstance(card), false) { Exhausted = false };
+        u.DeployedTurn = ctx.Turn;
+        u.PlayOrder = ctx.TakePlayOrder();
+        ctx.Players[p].Board[slot] = u;
+        return u;
+    }
+
+    static void ToP1Turn(BattleContext ctx, int n)
+    {
+        int target = 2 * n - 1, guard = 0;
+        while (ctx.Turn != target || ctx.Active != 0)
+        {
+            if (ctx.Turn == 0) RuleCore.BeginTurn(ctx);
+            else { RuleCore.EndTurn(ctx); RuleCore.BeginTurn(ctx); }
+            if (++guard > 40) throw new Exception("turn guard");
+        }
+    }
+    static void PassTurn(BattleContext ctx) { RuleCore.EndTurn(ctx); RuleCore.BeginTurn(ctx); }
+
+    static void Main()
+    {
+        string p = Environment.GetEnvironmentVariable("CARDS_JSON");
+        var pool = CardDatabase.Parse(File.ReadAllText(p));
+        Console.WriteLine("pool = " + pool.Count);
+        var prayCard = CardDatabase.FindById(pool, Enchantments.PrayEnchantmentCardId);
+        Chk(prayCard != null, "pool has Pray Enchantment by id");
+        if (prayCard == null) return;
+        Chk(prayCard.Type == "enchantment", "type == enchantment (got " + prayCard.Type + ")");
+        Chk(prayCard.Name == "Pray Enchantment", "name == Pray Enchantment (got " + prayCard.Name + ")");
+
+        var prayer = new CardDef("FX13Prayer", "FX13Prayer", "unit", "Pray: Gain Shield",
+                                 "common", "Test", 2, 1, 6, 0, new[] { "Pray" }, subtype: "Infantry");
+
+        // ① classic
+        {
+            var ctx = MakeBattle(pool);
+            ToP1Turn(ctx, 3);
+            var a = Place(ctx, 0, 2, prayer);
+            int f0 = ctx.Players[0].Faith;
+            Eq(RuleCore.UseAlternative(ctx, 0, 2, "pray"), RuleCodes.OK, "1 UseAlternative pray");
+            var e1 = Enchantments.FindPray(a);
+            Chk(e1 != null, "1 attached ActiveEnchantment present");
+            Chk(e1 != null && ReferenceEquals(e1.Card, prayCard), "1 attached card is pool object");
+            Chk(e1 != null && e1.Effect != null && e1.Effect.BuffType == 15, "1 buffType == 15");
+            Eq(a.Instance.ActiveEnchantments.Count, 1, "1 exactly one enchantment");
+            Eq(ctx.Players[0].Faith, f0, "1 classic: no immediate faith");
+            PassTurn(ctx);
+            Eq(ctx.Players[0].Faith, f0, "1 enemy turn start: no faith");
+            Chk(Enchantments.HasPray(a), "1 enemy turn start: still attached");
+            PassTurn(ctx);
+            Eq(ctx.Players[0].Faith, f0 + 1, "1 own turn start: +1 faith");
+            Chk(!Enchantments.HasPray(a), "1 own turn start: removed");
+            Eq(a.Instance.ActiveEnchantments.Count, 0, "1 enchantment list empty");
+            PassTurn(ctx); PassTurn(ctx);
+            Eq(ctx.Players[0].Faith, f0 + 1, "1 one-shot: no second grant");
+            Chk(!Enchantments.HasPray(a), "1 not re-attached");
+        }
+        // ② damage
+        {
+            var ctx = MakeBattle(pool);
+            ToP1Turn(ctx, 3);
+            var b = Place(ctx, 0, 2, prayer);
+            int f0 = ctx.Players[0].Faith;
+            Eq(RuleCore.UseAlternative(ctx, 0, 2, "pray"), RuleCodes.OK, "2 pray");
+            Chk(Enchantments.HasPray(b), "2 attached");
+            b.RemoveAll(KeywordTable.Shield);
+            RuleCore.ApplyDamage(ctx, b, 2, "selfcheck");
+            Chk(!Enchantments.HasPray(b), "2 damaged: removed");
+            Eq(b.Instance.ActiveEnchantments.Count, 0, "2 list empty");
+            PassTurn(ctx); PassTurn(ctx);
+            Eq(ctx.Players[0].Faith, f0, "2 damaged: no faith next turn");
+        }
+        // ③ 0 damage (shield)
+        {
+            var ctx = MakeBattle(pool);
+            ToP1Turn(ctx, 3);
+            var c = Place(ctx, 0, 2, prayer);
+            int f0 = ctx.Players[0].Faith;
+            Eq(RuleCore.UseAlternative(ctx, 0, 2, "pray"), RuleCodes.OK, "3 pray");
+            c.AddKeyword(KeywordTable.Shield, 1);
+            RuleCore.ApplyDamage(ctx, c, 3, "selfcheck");
+            Chk(Enchantments.HasPray(c), "3 absorbed 0 damage: still attached");
+            PassTurn(ctx); PassTurn(ctx);
+            Eq(ctx.Players[0].Faith, f0 + 1, "3 absorbed: faith +1 next turn");
+            Chk(!Enchantments.HasPray(c), "3 then removed");
+        }
+        // ④ conflict
+        {
+            var ctx = MakeBattle(pool);
+            ToP1Turn(ctx, 3);
+            ctx.Vars.alternativeTraitLogic = true;
+            var e = Place(ctx, 0, 2, prayer);
+            int f0 = ctx.Players[0].Faith;
+            Eq(RuleCore.UseAlternative(ctx, 0, 2, "pray"), RuleCodes.OK, "4 pray (alt)");
+            Eq(ctx.Players[0].Faith, f0 + 1, "4 alt: immediate +1");
+            Chk(Enchantments.HasPray(e), "4 alt: attached");
+            Eq(e.Instance.ActiveEnchantments.Count, 1, "4 alt: one enchantment");
+            PassTurn(ctx); PassTurn(ctx);
+            Eq(ctx.Players[0].Faith, f0 + 2, "4 alt: next own turn +1");
+            Chk(!Enchantments.HasPray(e), "4 alt: removed");
+        }
+        // ⑤ no pool -> loud, no attach (behaviour change documented)
+        {
+            var ctx = MakeBattle(new List<CardDef>());
+            ToP1Turn(ctx, 3);
+            var u = Place(ctx, 0, 2, prayer);
+            Eq(RuleCore.UseAlternative(ctx, 0, 2, "pray"), RuleCodes.OK, "5 pray with empty pool");
+            Chk(!Enchantments.HasPray(u), "5 empty pool: not attached (documented)");
+        }
+        Console.WriteLine("X20 probe: " + pass + " ok / " + fail + " FAIL");
+        Environment.ExitCode = fail == 0 ? 0 : 1;
+    }
+}

@@ -700,8 +700,12 @@ def load_cardface_fixes():
 KEEP = ("name", "type", "cost", "attack", "health", "ranged_attack",
         "keywords", "desc", "faction", "rarity")
 
-# 卡牌类型白名单 —— 引擎认识这四种（见 CardDef.Type）
-TYPES = ("unit", "tactic", "hero", "defence")
+# 卡牌类型白名单 —— 引擎认识这五种（见 CardDef.Type）
+# ⚠️ `enchantment` **不是 OCR 源表里的取值**：它只由下面 `build_enchantment_entries()` 从
+#    `cards_raw.json` 的 `cardType 20` 造出来（🆕 2026-10-25 引擎线 `X20`）。
+#    ⛔ 别往 `card_stats.json` 里写 `type: enchantment` —— 那会让主循环当真去跑它那一整套 OCR 层
+#    （稀有度宝石表 / 卡面修正 / art 守卫），而那些层对隐藏卡**全都没有判据**。
+TYPES = ("unit", "tactic", "hero", "defence", "enchantment")
 
 
 def _norm_name(s):
@@ -3760,6 +3764,278 @@ def norm_list(v):
     return [str(v)]
 
 
+# ==========================================================================================
+#  🆕 2026-10-25（引擎线 `X20`）：**隐藏附魔模板入池**（判据驱动，现读入池 1 张）
+# ==========================================================================================
+# 判据 / 能力表 / 逐张缺口 → `资料/普查产出_1025/X20_PrayEnchantment入池_执行报告.md`
+#                            ＋ `资料/普查产出_1025/X20_附魔能力表.tsv`。
+#
+# 🔴 **为什么不能塞进主循环的 `raw`**（`card_stats.json`）：主循环那一整套层是为**可打出的卡**
+#    准备的（宝石稀有度表 / 卡面逐张修正 / `armor` 家族判据 / `art` 守卫 / 中文表 / 官方名）。
+#    隐藏附魔卡在那些表里**一条判据都没有** —— 塞进去只会得到「空稀有度」「art 为空」这类
+#    假缺口，而且 `inventoryOptions` 那一层会按 `card_inventory_options.json` 查不到而落 `-1`
+#    （`-1` = 「引擎不拦」⇒ 这张卡会出现在卡组编辑器里！）。⇒ **单独一条窄路，只造 entry**。
+#
+# 🔴 **普查读数（2026-10-25 现读，`cards_raw.json` 1,351 张）**：
+#    · 名字含 `enchant` 的 **120** 张：`cardType == 20` 的附魔模板 **118** 张 ＋ 2 张兄弟卡
+#      （`Wurrboy` / `Sergeant Gadriel`，`cardType 0`、SO 名尾也带 `_enchantment`，**本体是部队卡**、
+#      两张都不在我们池里）；
+#    · `cardType 20` **不是附魔专用型** —— 全表 680 张都是 20（含普通战术卡）；
+#    · `buffEffect.enchantment` 的非零 PPtr 引用 **260 条 / 114 张父卡**（其中 **63 张父卡在池内**）；
+#      `buffType == 15` 的父卡 **39 张**（36 张在池内）。
+#      ⚠️ 「`enchantment` 字段」那个键在**每个 `buffEffect` 对象里都有**（13012 处 / 1351 张卡）——
+#        **键存在 ≠ 引用**：要判「引用了哪张附魔」只看 `enchantment.m_PathID != 0`。
+#
+# 🔴 **为什么现读只入池 1 张**（⛔ 不是「按名字挑的」）：
+#    判据 = ① 被**池内卡**以 `buffEffect{buffType 12/15/16, enchantment}` 引用到（否则没人挂它 = 死卡）
+#          ∧ ② 它自己 `cardAbilities[].abilityLogic[]` 的 `(trigger, chosenAbility)` 形状
+#               **逐条命中**一个**已实现**的附魔执行点（`ENCHANTMENT_EXECUTORS`，逐条给代码位置）。
+#    现读：有池内挂载者的模板 **32** 张，其中只有 `Pray Enchantment` 命中执行点
+#    （它的两跳在 `RuleCore`/`Enchantments` 里是手接的）⇒ 入池 1 张；
+#    31 张**有池内挂载者但形状不支持**（逐张缺口 → 那张 TSV），**87 张没有池内挂载者**。
+#    ⛔ **共同缺的那一跳是同一个**：引擎**没有**「被动 `cardAbilities[].abilityLogic[]`」的解释器
+#      （`EffectResolver` 只解释 `activeAbility` / `alternativeAbility` 的 `chosenAbility`，v23/v24）。
+#      ⇒ 把这 31 张收进来 = 有数据没人用，而且会改掉 `create` / 开包按阵营摇号的确定性结果。
+#
+# ⚠️ 这一层的条目**故意只落「它需要的列」**：下面列出的那些没落的列（`animTimes` / `abilityTargets` /
+#    `abilities` 各类 criteria …）在 `CardDef` 里读出来是「未知」，而这张卡
+#    **永远不进手牌/棋盘/卡面**（`showInCollectionOptions = 0`）⇒ 那些列**没有可达的消费者**。
+#    不落 ≠ 不知道：真值在 `cards_raw.json` 里，接显示/动画那条链时再补（⛔ 别在这里编造空行）。
+# ------------------------------------------------------------------------------------------
+# 引擎【已实现】的附魔执行点（**唯一判据**）—— 每一格都指向真代码，⛔ 不许写「机制没接」这种空话。
+#
+# 一个附魔模板能入池 = ① 它被**池内卡**以 `buffEffect{buffType 12/15/16, enchantment → 它}` 引用到
+#                     （否则挂了也没人挂 = 死卡）**且** ② 它自己 `cardAbilities[].abilityLogic[]` 的
+#                     `(trigger, chosenAbility)` 形状**逐条**命中某个执行点。
+#
+# ⚠️ **`ids` 是执行点自己的适用范围，不是「我挑的白名单」**：今天这两跳（受伤即撤 / 自己回合开始
+#    +1 信仰、一次性）在 `Core/RuleCore.cs` + `Core/Enchantment.cs` 里是**按这张卡的 id 认的**
+#    （`Enchantments.PrayEnchantmentCardId`）。同形状的别的卡**真不会跑** —— 所以 `ids` 必须写上；
+#    而 `pairs` 是那个执行点**假设**的卡面形状 ⇒ 数据一漂（模板改了一条 ability）就**当场炸**，
+#    ⛔ 别让它静默变成「入池了但什么都不做」。
+# 要扩大这个集合 = 先接一个通用执行器（被动 `cardAbilities[].abilityLogic[]` 的解释器），
+# 那是独立一件（缺口清单见 `资料/普查产出_1025/X20_附魔能力表.tsv` 与报告 §缺口）。
+ENCHANTMENT_EXECUTORS = (
+    {
+        "name": "Pray Enchantment",
+        "ids": ("9218576fd3e26554db5b4c239a36dbc7",),   # Z-NC Sororitas-Pray_enchantment
+        # 卡面形状 = ability[0] `UnitDamaged(60) → removeThisEnchantment(340)`；
+        #            ability[1] `TurnStartPlayer(31) → buffMana(60)` 然后 `removeThisEnchantment(340)`。
+        "pairs": ((60, 340), (31, 60), (31, 340)),
+        "why": "挂 = RuleCore.UseAlternativeCore 的 Pray 支 → Enchantments.AttachPray；"
+               "结算 = RuleCore.BeginTurn → GrantPrayEnchantmentFaith（+1 信仰后 RemovePray）；"
+               "中断 = RuleCore.ApplyDamage / 疲劳支 → Enchantments.RemovePray",
+    },
+)
+ENCHANTMENT_ATTACH_BUFFTYPES = (12, 15, 16)     # `CardEffect__IsEnchantment.c:9-12`
+
+
+def _enchant_shape(r):
+    """模板自己的 `cardAbilities[].abilityLogic[]` → `[(trigger, chosenAbility), …]`（**保序、保留重复**）。"""
+    out = []
+    for a in (r.get("cardAbilities") or []):
+        for lg in (a.get("abilityLogic") or []):
+            out.append((a.get("trigger"), lg.get("chosenAbility")))
+    return out
+
+
+def build_enchantment_entries(truth_cards, raw, cards, truth_by_path=None,
+                              anim_idx=None, anim_cache=None, anim_trig_names=None,
+                              anim_report=None):
+    """从真值快照造「隐藏附魔模板」的卡池条目 → `(entries, report)`。
+
+    **判据**（不是名字清单 —— 见 `ENCHANTMENT_EXECUTORS` 顶上那段）：
+      ① 被**池内卡**以 `buffEffect{buffType∈{12,15,16}, enchantment → 它}` 引用；
+      ② 它自己的 `(trigger, chosenAbility)` 形状**逐条**命中一个已实现执行点（`ENCHANTMENT_EXECUTORS`）。
+    `report` = 只记账的读数（普查张数 / 有池内挂载者的 / 入池的 / 未入池的原因），由调用方打印。
+
+    🔴 **2026-10-25（`X20` 第二版 · 主对话 `RuleEngineTest` 6 红后修）**：本层**必须与主循环落同一批列**。
+       第一版只手写了「它用得到的列」⇒ 那 9 个「**每张卡都落**」的列在它身上是 `null`，而 `null`
+       的语义是「**整列缺席**（旧表 / 调用方没给）」—— 与「没有行 = `[]`」**必须分得开**
+       （这是 `CardDef`/`CardDatabase` 的契约，也是测试 A2 那几条判据）。⇒ 本函数现在**逐列调用主循环
+       用的同一个 helper**（`ability_triggers_of` / `ability_targets_of` / `active_ability_logic_of` …）：
+       没有行的落 `[]`、有真值行的落真值。⛔ 别改回「只写需要的列」。
+    """
+    report = {"mname_hits": 0, "templates": 0, "siblings": [], "pooled": [],
+              "pending": [], "skipped_reason": [], "no_pool_attach": [], "shape_mismatch": [],
+              "attach_rows": 0, "attach_cards_in_pool": 0}
+    # 真值 `cardArmy`（数值）→ 我们的阵营名：从**源表**那对 `(faction, factionId)` 现建，
+    # ⛔ 不写死 80 = Sororitas（那是判据的复制，迟早漂）。
+    army2fac = {}
+    for c in raw:
+        _fid = norm_int(c.get("factionId"))
+        _fac = norm_str(c.get("faction"))
+        if _fid > 0 and _fac:
+            army2fac.setdefault(_fid, _fac)
+
+    # ---- ① 谁把哪个模板挂上去（只看 `buffEffect.enchantment` 的非零 PPtr）----
+    pool_ids = {c.get("id") for c in cards}
+    attach = {}          # 模板 path_id → [(owner 卡名, owner uid, owner 在池?, owner cardType, buffType, owner trigger)]
+    for owner in truth_cards.values():
+        for a in (owner.get("cardAbilities") or []):
+            for lg in (a.get("abilityLogic") or []):
+                be = lg.get("buffEffect") or {}
+                if be.get("buffType") not in ENCHANTMENT_ATTACH_BUFFTYPES:
+                    continue
+                en = be.get("enchantment") or {}
+                pid = en.get("m_PathID") if isinstance(en, dict) else None
+                if not pid:
+                    continue
+                attach.setdefault(pid, []).append(
+                    (norm_str(owner.get("cardName")), owner.get("uniqueId"),
+                     owner.get("uniqueId") in pool_ids, owner.get("cardType"),
+                     be.get("buffType"), a.get("trigger")))
+    report["attach_rows"] = sum(len(v) for v in attach.values())
+    report["attach_cards_in_pool"] = len({r[1] for v in attach.values() for r in v if r[2]})
+
+    # ---- ② 全表普查（只记账）：名字含 `enchant` 的分「`cardType 20` 模板」与「兄弟卡」----
+    for r in truth_cards.values():
+        if "enchant" not in norm_str(r.get("m_Name")).lower():
+            continue
+        report["mname_hits"] += 1
+        if r.get("cardType") == 20:
+            report["templates"] += 1
+        else:
+            report["siblings"].append((norm_str(r.get("cardName")), r.get("cardType"),
+                                       norm_str(r.get("m_Name"))))
+
+    # ---- ③ 按判据挑（+ 形状硬校验；不符 = 数据漂了，当场炸）----
+    want = {}            # uid → executor
+    for ex in ENCHANTMENT_EXECUTORS:
+        for uid in ex["ids"]:
+            r = truth_cards.get(uid)
+            if r is None:
+                report["skipped_reason"].append(f"{uid} —— 真值快照里没有这一行（⛔ 不编造）")
+                continue
+            shape = tuple(_enchant_shape(r))
+            if shape != tuple(ex["pairs"]):
+                sys.exit(f"❌ 附魔模板形状漂了：{ex['name']}（{uid}）现在的 ability 形状 = {shape}，"
+                         f"而引擎执行点假设的是 {tuple(ex['pairs'])} —— 先核执行点，"
+                         "⛔ 别改这里的期望值把红抹平。")
+            want[uid] = ex
+
+    entries = []
+    have = {c.get("id") for c in cards}
+    for r in truth_cards.values():
+        if r.get("cardType") != 20 or "enchant" not in norm_str(r.get("m_Name")).lower():
+            continue
+        uid = r.get("uniqueId")
+        owners = attach.get(r.get("path_id"), [])
+        owners_pool = [o for o in owners if o[2]]
+        if uid not in want:
+            report["pending"].append((norm_str(r.get("cardName")), uid, bool(owners_pool), len(owners)))
+            if owners_pool:
+                report["shape_mismatch"].append(
+                    (norm_str(r.get("cardName")), tuple(_enchant_shape(r)), sorted({o[0] for o in owners_pool})))
+            else:
+                report["no_pool_attach"].append(norm_str(r.get("cardName")))
+            continue
+        if not owners_pool:
+            # 执行点有、但**没有池内卡会挂它** ⇒ 入池 = 死卡（判据 ①）。
+            report["skipped_reason"].append(
+                f"{uid} —— 形状命中执行点，但没有**池内**卡引用它（挂载者 {len(owners)} 条全在池外）"
+                "⇒ 不入池（死卡）")
+            continue
+        if uid in have:
+            report["skipped_reason"].append(f"{uid} —— 主循环已经收过这张卡（id 会撞）⇒ 不重复入池")
+            continue
+        army = r.get("cardArmy")
+        faction = army2fac.get(army)
+        if not faction:
+            report["skipped_reason"].append(
+                f"{uid} —— `cardArmy = {army}` 在源表里找不到对应阵营名（⛔ 不猜）")
+            continue
+        rarity = TRUTH_RARITY.get(r.get("cardRarity"), "")
+        if not rarity:
+            report["skipped_reason"].append(
+                f"{uid} —— `cardRarity = {r.get('cardRarity')}` 不在 1..5（⛔ 不猜）")
+            continue
+        # 🔴 隐藏卡的**判据本身**：`inventoryOptions = 10 NotInInventory` ∧ `showInCollectionOptions = 0 Hide`。
+        #    这两格一漂，这张卡就会出现在卡组编辑器/收藏/开包里 ⇒ 当场炸，⛔ 不静默放过。
+        inv = truth_int(r, "inventoryOptions", -1)
+        show = truth_int(r, "showInCollectionOptions", -1)
+        if inv != 10 or show != 0:
+            sys.exit(f"❌ 附魔模板 {norm_str(r.get('cardName'))}（{uid}）的隐藏位变了："
+                     f"inventoryOptions={inv}（期望 10 NotInInventory）· "
+                     f"showInCollectionOptions={show}（期望 0 Hide）—— "
+                     "它会被卡组编辑器/收藏/开包看见；先核判据再改本行。")
+        name = norm_str(r.get("cardName")).strip() or norm_str(r.get("m_Name")).split("_")[0]
+        entry = {
+            "id": uid,
+            "name": name,
+            "type": "enchantment",
+            # 数值照真值直搬（它**从不被打出**：`cost` 只是把原版 SO 的值如实带过来）
+            "cost": norm_int(r.get("manaCost")),
+            "attack": norm_int(r.get("meleeAttack")),
+            "health": norm_int(r.get("maxHealth")),
+            "ranged": norm_int(r.get("rangeAttack")),
+            "keywords": [],
+            # 原版**没有卡面文字**（隐藏卡、无 PnP 成品）⇒ 空串。⛔ 别编一句英文塞进来。
+            "desc": "",
+            "faction": faction,
+            "rarity": rarity,
+            "subtype": "",
+            "armour": norm_int(r.get("armour")),
+            "cardTraits": norm_list(r.get("CardTraits")),
+            "spellType": truth_int(r, "spellType", -1),
+            "inventoryOptions": inv,
+            "showInCollectionOptions": show,
+            "initiative": truth_int(r, "initiative", -1),
+        }
+        # ==========================================================================================
+        #  🔴 **2026-10-25（`X20` 第二版）：其余列必须与主循环**逐列同形**。
+        #     判据 = `CardDef`/`CardDatabase` 的契约 + 测试 A2：「`null`（整列缺席）与 **没有行**（`[]`）
+        #     必须分得开」—— 第一版只手写了它用得到的列 ⇒ 它在池里成了唯一的 `null` ⇒ 6 红。
+        #     ⚠️ 这里**调用主循环用的同一批 helper**（⛔ 不要另写一份取值逻辑：两处写同一条规则）。
+        #     没有行的落 `[]`；真值里**有行**的照落真值（本卡 `abilityTriggers/abilityTargets/
+        #     abilityTargetCriteria/abilityLevelCriteria` 就有行 —— 见 §十 的 diff）。
+        # ==========================================================================================
+        # ---- `A1799` 那 10 个 SO 字段列（缺值 `-1` / `""`，与主循环同一循环）----
+        for _col, _tf, _dflt, _doc in A1799_FIELDS:
+            entry[_col] = truth_ref_name(r, _tf) if _dflt == "" else truth_int(r, _tf, _dflt)
+        # ---- `choicesDefinition` 三列（本卡没有 ⇒ `-1 / -1 / []`，与主循环同一段）----
+        _cd = (r.get("choicesDefinition") or {})
+        _cd_ta, _cd_mt = _cd.get("targetsAffected"), _cd.get("maxTargets")
+        entry["choicesTargetsAffected"] = _cd_ta if isinstance(_cd_ta, int) and not isinstance(_cd_ta, bool) else -1
+        entry["choicesMaxTargets"] = _cd_mt if isinstance(_cd_mt, int) and not isinstance(_cd_mt, bool) else -1
+        entry["choicesSpecificCardIds"] = [truth_by_path.get((_ref or {}).get("m_PathID"))
+                                           for _ref in (_cd.get("filterSpecificCards") or [])
+                                           if truth_by_path.get((_ref or {}).get("m_PathID"))]
+        # ---- `animTimes`（主循环**每张卡都落**；本卡真值里有 3 行动画 ⇒ 落真值）----
+        entry["animTimes"] = anim_times_of(r, anim_idx, anim_cache, anim_trig_names, anim_report)
+        # ---- 9 个「每张卡都落」的结构化列（`None` 只会在「真值里没有这张卡」时出现）----
+        _atg = ability_triggers_of(uid, name, r, ABILITY_TRIGGER_REPORT)
+        if _atg is not None: entry["abilityTriggers"] = _atg
+        _atgt = ability_targets_of(uid, name, r, ABILITY_TARGETS_REPORT)
+        if _atgt is not None: entry["abilityTargets"] = _atgt
+        _amul = ability_multipliers_of(uid, name, r, ABILITY_MULTIPLIERS_REPORT)
+        if _amul is not None: entry["abilityMultipliers"] = _amul
+        _aal = active_ability_logic_of(uid, name, r, ACTIVE_ABILITY_LOGIC_REPORT)
+        if _aal is not None: entry["activeAbilityLogic"] = _aal
+        _aat = active_ability_targets_of(uid, name, r, truth_by_path or {},
+                                         ACTIVE_ABILITY_TARGETS_REPORT)
+        if _aat is not None: entry["activeAbilityTargets"] = _aat
+        _atc = ability_target_criteria_of(uid, name, r, truth_by_path or {},
+                                          ABILITY_TARGET_CRITERIA_REPORT)
+        if _atc is not None: entry["abilityTargetCriteria"] = _atc
+        _alc = ability_level_criteria_of(uid, name, r, truth_by_path or {},
+                                         ABILITY_LEVEL_CRITERIA_REPORT)
+        if _alc is not None: entry["abilityLevelCriteria"] = _alc
+        _aac = ability_acting_criteria_of(uid, name, r, truth_by_path or {},
+                                          ABILITY_ACTING_CRITERIA_REPORT)
+        if _aac is not None: entry["abilityActingCriteria"] = _aac
+        _aapc = active_ability_pick_criteria_of(uid, name, r, truth_by_path or {},
+                                                ACTIVE_ABILITY_PICK_CRITERIA_REPORT)
+        if _aapc is not None: entry["activeAbilityPickCriteria"] = _aapc
+        # ---- 主动能力闸六列（只落**非默认**键；本卡全 0 ⇒ 一条都不落 = 与主循环同形）----
+        for _gk, _gv in ability_gate_of(uid, name, r, truth_by_path or {}, ABILITY_GATE_REPORT).items():
+            entry[_gk] = _gv
+        entries.append(entry)
+        report["pooled"].append((uid, name, faction, rarity, inv, show,
+                                 len(owners_pool), want[uid]["name"]))
+    return entries, report
+
+
 def build():
     with open(SRC, encoding="utf-8") as f:
         raw = json.load(f)["cards"]
@@ -4586,6 +4862,38 @@ def build():
                 desc_zh_order_violations.append((cid, name, _man_desc, entry.get("descZh") or ""))
         cards.append(entry)
 
+    # ---- 🆕 2026-10-25（引擎线 `X20`）：隐藏附魔模板入池（当前只收 `Pray Enchantment`）--------
+    # 🔴 **落在主循环【之后】**：它绕开上面那一整套 OCR 层（理由见 `build_enchantment_entries` 顶上那段）。
+    #    这条链的消费端 = `Core/Enchantment.cs` 的附魔层（`Enchantments.AttachPray` / `HasPray`），
+    #    卡从 `ctx.CardPool` 取（`BattleDriver` 传 `CardDatabase.Load()` 的全池）。
+    _ench_entries, _ench_report = build_enchantment_entries(
+        truth_cards, raw, cards, truth_by_path=truth_by_path,
+        anim_idx=anim_idx, anim_cache=anim_cache, anim_trig_names=anim_trig_names,
+        anim_report=anim_report)
+    for _e in _ench_entries:
+        cards.append(_e)
+    print(f"\n隐藏附魔模板   名字含 `enchant` **{_ench_report['mname_hits']}** 张 —— "
+          f"`cardType 20` 模板 **{_ench_report['templates']}** 张 · "
+          f"兄弟卡（`cardType != 20`）**{len(_ench_report['siblings'])}** 张"
+          f"（{' · '.join(f'{n}({t})' for n, t, _ in _ench_report['siblings'])}）")
+    print(f"              挂载引用：`buffEffect{{buffType 12/15/16, enchantment}}` 共 "
+          f"**{_ench_report['attach_rows']}** 条 · 落在**池内卡**上的 **{_ench_report['attach_cards_in_pool']}** 张父卡")
+    print(f"              入池 **{len(_ench_report['pooled'])}** 张"
+          + ("：" + " · ".join(f"{i} {n}({f}/{r}) inv={inv} show={sh} ← 执行点 {ex}"
+                              for i, n, f, r, inv, sh, _o, ex in _ench_report["pooled"])
+             if _ench_report["pooled"] else "")
+          + f"；未入池 **{len(_ench_report['pending'])}** 张模板（判据 = 形状不在已实现执行点）")
+    print(f"              其中：**有池内挂载者**但形状不支持 **{len(_ench_report['shape_mismatch'])}** 张 · "
+          f"**没有池内挂载者** **{len(_ench_report['no_pool_attach'])}** 张")
+    for _nm, _shape, _own in _ench_report["shape_mismatch"][:8]:
+        print(f"                · {_nm}：模板形状 {_shape} · 池内挂载者 {', '.join(_own[:3])}"
+              + (" …" if len(_own) > 3 else "")
+              + " ⇒ 缺「被动 abilityLogic 解释器」（逐张缺口 → 资料/普查产出_1025/X20_附魔能力表.tsv）")
+    if len(_ench_report["shape_mismatch"]) > 8:
+        print(f"                · … 其余 {len(_ench_report['shape_mismatch']) - 8} 张逐条见那张 TSV")
+    for _why in _ench_report["skipped_reason"]:
+        print(f"  ⚠️ 附魔入池跳过：{_why}")
+
     # ---- 督军后手那张防御卡（`A1070` 第 ③ 档，2026-10-14）----
     # 🔴 **落在 `cards` 造完之后**（要按阵营在**我们自己卡池的防御卡**里定位 —— 见那个函数）。
     #    值写在**督军卡**上（原版那个字段本来就长在督军 SO 上），按【阵营】填 ——
@@ -4896,7 +5204,9 @@ def build():
     talent_name_ids = build_talent_name_ids(truth_cards, truth_by_path, cards, talent_name_report)
 
     return {
-        "version": 29,         # v6: 每张卡带稳定 id（🔴 2026-10-18 `W25` 起按原版 `uniqueId` 直取，
+        "version": 30,         # v30（2026-10-25 `X20`）= 加卡不加列：池内新增隐藏附魔模板
+                               #    `Pray Enchantment`（`type = enchantment`，见下面 v30 那段）。
+                               # v6: 每张卡带稳定 id（🔴 2026-10-18 `W25` 起按原版 `uniqueId` 直取，
                                #    名级联降为交叉校验；自造 = 生成期自检硬失败）
                                # v7（2026-10-14 `A1798`）：加 `inventoryOptions` / `showInCollectionOptions` 两列
                                # v8（2026-10-14 `A1775`）：加 `initiative` 一列（先后手；原版真值）
@@ -5130,6 +5440,16 @@ def build():
                                #    族名白名单 = `CardDef.ActiveAbilityKindFamilyNames`（自检有跨语言对账断言）。
                                #    消费端 = `RuleCore.AbilityFamilyTargetAllows` → `EffectResolver` 出牌正文逐 op 闸。
                                #    ⚠️ 加列【必须】bump（`CardDatabase.cs` 的 version 守卫靠它出声）。
+                               # v30（🆕 2026-10-25 · 引擎线 `X20` · 用户拍板「允许加入」）：
+                               #    **没有加列，加的是「卡」**：把原版隐藏附魔卡 `Pray Enchantment`
+                               #    （`uniqueId 9218576fd3e26554db5b4c239a36dbc7`，`cardType 20`）
+                               #    按卡数据链入池（`type = "enchantment"`，池 1127 → 1128 张）。
+                               #    造法 = `build_enchantment_entries()`（**绕开**主循环那套 OCR 层，
+                               #    理由见那段顶上）；其余 117 张附魔模板**只记账、不入池**。
+                               #    消费端 = `Core/Enchantment.cs` 的附魔层（`AttachPray` / `HasPray` /
+                               #    `RemovePray`，落点 `RuleCore` 的 pray 支 / 回合开始 / 受伤 / 疲劳）。
+                               #    ⚠️ 只有 `< N` 的守卫、没有「> N」的守卫 ⇒ 不 bump 也读得进来；
+                               #    仍 bump 是因为**卡池内容变了**（`PinnedPoolMd5` / 走查工具要认这一版）。
         "source": "Unity/数据/游戏数据/card_stats.json（稀有度另取 资料/卡牌数据表/卡牌宝石稀有度_0824.md；"
                   "英文名 / 中文名都以**原版官方表** 数据/游戏数据/官方本地化_en+zh-CN.json 的 `Card_Name/*` 为准"
                   "（🔴 2026-10-18 用户改判：**`name` 也换官方显示名** —— 此前「卡名一个字不动」的 PnP 时代口径作废；"

@@ -12844,12 +12844,16 @@ public static class BattleScene
                     {
                         var pool = RuleEngine.CardDatabase.Load();
                         foreach (var cd in pool)
+                        {
+                            // 🔴 2026-10-25：**附魔不是单位** —— 它的 trigger 60 是附魔能力（如 `Pray_Exit`），不算单位技能动画。
+                            if (string.Equals(cd.Type, "enchantment", System.StringComparison.OrdinalIgnoreCase)) continue;
                             for (int i = 0; i < cd.AnimTimes.Count; i++)
                             {
                                 string tn = cd.AnimTimes[i] != null ? cd.AnimTimes[i].TriggerName : null;
                                 if (string.Equals(tn, "UnitAttack", System.StringComparison.OrdinalIgnoreCase)) uaRows++;
                                 else if (string.Equals(tn, "UnitDamaged", System.StringComparison.OrdinalIgnoreCase)) udRows++;
                             }
+                        }
                     }
                     Check(uaRows == 13,
                           $"★ W63/技能动画：原版 `UnitAttack(50)` 在卡池里 **13 行 / 11 张卡**（实得 {uaRows}）"
@@ -24584,9 +24588,9 @@ public static class BattleScene
                             foreach (byte bt in System.Text.Encoding.UTF8.GetBytes(s)) { h ^= bt; h *= 16777619u; }
                             n++;
                         }
-                        Check(n == 1127, $"④（前提）卡池张数 = 1127（实得 {n}）");
-                        Check(h == 0xE85616DAu,
-                              "★ ④ `desc`/`descZh` 数据 hash 与上一次有意更新后逐字节相同（FNV-1a 32 = `0xE85616DA`）"
+                        Check(n == 1128, $"④（前提）卡池张数 = 1128（实得 {n}）｜🔴 2026-10-25：卡表 v30 新增 1 张隐藏附魔 `Pray Enchantment`（`X20`）");
+                        Check(h == 0x152CA48Fu,
+                              "★ ④ `desc`/`descZh` 数据 hash 与上一次有意更新后逐字节相同（FNV-1a 32 = `0x152CA48F`；🔴 2026-10-25 由 `0xE85616DA` 更新 —— 池 +1 张附魔卡，其 `desc`/`descZh` 为空但参与 hash）"
                             + $"｜实得 `0x{h:X8}` —— 显示层只换渲染串、⛔ 没动数据（`A1945` 方案 A）"
                             + "（期望值的来源：第五十七会话 + `SAU28`/`UM80` 两张 desc + 2026-10-23 `ASH83` 补 `路标石。`）");
                     }

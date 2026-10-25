@@ -586,6 +586,116 @@ namespace RuleEngine
             return null;
         }
 
+        // ==================================================================
+        //  ⑥ 祈祷附魔（`X20` · 2026-10-25）—— 原版隐藏卡 `Pray Enchantment`
+        // ==================================================================
+        // 🔴 **为什么这一段在附魔层**：原版这条语义**不在 C# 里，在卡数据里** ——
+        //   23 张带 `pray` 特性的卡在 `cardAbilities[trigger = 655 (AbilityTrigger.Pray)]
+        //   .abilityLogic[0].buffEffect` 挂 `{buffType: 15 singleUseEnchantment, enchantment → PE}`
+        //   ⇒ **祈祷那一刻把这张附魔挂到自己身上**（`CardScript__AddEffect.c:826-828` →
+        //   `CardScript__AddEnchantment.c`，本文件 ①）。
+        //   `X13` 的旧版是「引擎内 bool」（`UnitState.PrayEnchantment`）；`X20` 起改成**真的挂这张卡**，
+        //   bool 已删除（⛔ 别再长回来 —— 两处写同一条规则 = 迟早不一致）。
+        //
+        //   该附魔卡自己的两条能力（`cards_raw.json` 现读，`path_id 1528516720421242597`）：
+        //     · ability[0] `trigger 60 (UnitDamaged)` → `chosenAbility 340 removeThisEnchantment`
+        //       = **受伤即撤**（⚠️ `CardScript__ResolveDamageDealt.c:25-28` 对 `damage == 0` 直接 `return`
+        //       ⇒ **盾/甲挡掉的 0 伤不算**；落点 = `RuleCore.ApplyDamage` 那一闸 ＋ 疲劳那一支）；
+        //     · ability[1] `trigger 31 (TurnStartPlayer)` → `chosenAbility 60 buffMana`
+        //       `{manaAmount:1, faithMana:1}` → 再 `340 removeThisEnchantment` = **自己回合开始 +1 信仰、一次性**。
+        //
+        //   ⚠️ **`buffType == 15` 的映射沿用本文件 `BuffTypeSingleUse` 那张既有表**（判据
+        //   `CardEffect__IsEnchantment.c:9-12` 只给了「∈ {12,15,16}」，**`BuffType` 枚举本体没有在
+        //   `dump.cs` 里逐值核到**）—— 这里如实标着：**沿用既有表、未逐值核**。
+        //
+        //   ⚠️ **卡从 `ctx.CardPool` 取**（`Core` 不能引用 `Data/CardDatabase`：`ruleprobe` 只编 `Core/*.cs`）。
+        //   生产侧 `BattleDriver` 把 `CardDatabase.Load()` 传进 `NewBattle(cardPool:)`；自检夹具要自己传
+        //   （`RuleEngineTest_EngineX13` 传真卡池 ⇒ 断言钉的是**卡数据**，不是引擎里那面 flag）。
+
+        /// <summary>原版 `Pray Enchantment` 的 `uniqueId`（= 我们卡池的 `id`）。
+        /// 判据 = `资料/普查产出_1018/allcards_1350/cards_raw.json` 的 `m_Name = Z-NC Sororitas-Pray_enchantment`。</summary>
+        public const string PrayEnchantmentCardId = "9218576fd3e26554db5b4c239a36dbc7";
+
+        /// <summary>显示名（`cards_raw.json` 的 `cardName`）。⚠️ 它是**兜底判据**（按 id 找不到时才用它），
+        /// 而且必须同时是 <see cref="CardDef.IsEnchantment"/> —— ⛔ 别只按名字匹配普通卡。</summary>
+        public const string PrayEnchantmentName = "Pray Enchantment";
+
+        /// <summary>这张附魔在本局卡池里（找不到返回 `null`）。**只按 id 认**，id 不中才退「名字 + `enchantment` 型」。</summary>
+        public static CardDef FindPrayCard(BattleContext ctx)
+        {
+            if (ctx == null || ctx.CardPool == null) return null;
+            CardDef byName = null;
+            for (int i = 0; i < ctx.CardPool.Count; i++)
+            {
+                var c = ctx.CardPool[i];
+                if (c == null) continue;
+                if (c.Id == PrayEnchantmentCardId) return c;
+                if (byName == null && c.IsEnchantment && c.Name == PrayEnchantmentName) byName = c;
+            }
+            return byName;
+        }
+
+        /// <summary>载体身上挂着的那一条祈祷附魔（没有返回 `null`）。</summary>
+        public static ActiveEnchantment FindPray(UnitState carrier)
+        {
+            if (carrier == null || carrier.Instance == null) return null;
+            foreach (var e in carrier.Instance.ActiveEnchantments)
+                if (e != null && e.Card != null && e.Card.Id == PrayEnchantmentCardId) return e;
+            return null;
+        }
+
+        /// <summary>载体身上有没有祈祷附魔。</summary>
+        public static bool HasPray(UnitState carrier)
+        {
+            return FindPray(carrier) != null;
+        }
+
+        /// <summary>
+        /// **祈祷那一刻把「祈祷附魔」挂到 <paramref name="carrier"/> 身上**（原版
+        /// `cardAbilities[trigger = 655].abilityLogic[0].buffEffect{buffType 15, enchantment → PE}`）。
+        ///
+        /// <para>**幂等**：已经挂着就返回那一条、不重复挂 —— 与 `X13` 的 bool 语义一致
+        /// （bool 置两遍还是 `true`；原版理论上会追加第二条，但祈祷一回合一次、且它在**自己下个回合开始**
+        /// 就摘掉 ⇒ 实战中到不了「同一个人身上两条」那一格）。</para>
+        /// <para>⚠️ **卡池里没有这张卡 ⇒ 不挂、并且出声**（⛔ 不拿引擎内 flag 顶替 —— 那会静默回到旧口径）。
+        /// 生产侧卡池恒有它；自检夹具要自己传（见文件尾 ⑥ 段顶上的说明）。</para>
+        /// </summary>
+        public static ActiveEnchantment AttachPray(BattleContext ctx, UnitState carrier)
+        {
+            if (carrier == null) return null;
+            var existing = FindPray(carrier);
+            if (existing != null) return existing;
+            if (carrier.Instance == null)
+            {
+                if (ctx != null) ctx.Log("附魔层：「祈祷附魔」没有载体实例（`UnitState.Instance == null`）—— 这一条没挂上");
+                return null;
+            }
+            var card = FindPrayCard(ctx);
+            if (card == null)
+            {
+                if (ctx != null)
+                    ctx.Log("附魔层：⚠️ 本局卡池里找不到「" + PrayEnchantmentName + "」（`id "
+                          + PrayEnchantmentCardId + "`）—— **祈祷附魔没挂上**，"
+                          + "那一份「下回合开始 +1 信仰」因此不会发生（⛔ 不静默退回旧 flag；"
+                          + "自检请给 `NewBattle(cardPool:)` 传真卡池）");
+                return null;
+            }
+            var eff = Attach(ctx, carrier.Instance, card, BuffTypeSingleUse,
+                             source: carrier.Card != null ? carrier.Card.Name : null, acting: carrier);
+            return eff != null ? eff.Enchantment : null;
+        }
+
+        /// <summary>**摘掉祈祷附魔**（受伤 / 疲劳 / 回合开始结算三个落点共用）。返回真 = 真摘掉了。</summary>
+        public static bool RemovePray(BattleContext ctx, UnitState carrier)
+        {
+            var e = FindPray(carrier);
+            if (e == null) return false;
+            if (e.Effect != null) return Remove(ctx, carrier.Instance, e.Effect);
+            // 兜底（正常挂载路径不会走到）：`Effect` 丢了也要把 `+0x110` 那条摘掉，⛔ 不留半条。
+            carrier.Instance.ActiveEnchantments.Remove(e);
+            return true;
+        }
+
         static string NameOf(CardDef c) { return c != null ? c.Name : "?"; }
     }
 }

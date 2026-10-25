@@ -500,7 +500,7 @@ public static partial class RuleEngineTest
         //   ⇒ 全池**不再**人人都是 Play；正确形状 = **iff**：`presence==1` 的卡 ⇔ 读成 `Play(0)`。
         Check(nHopPlay, nPresence,
               $"★ T27⑩ 全池 `Slay(120)` 读成 **`Play(0)`** 的卡数 == 真有这条 trigger 的卡数（现读 {nPresence} 张）"
-            + " —— 🧨 删掉前提② ⇒ 全池 1127 张都变 Play ⇒ 红；删掉「versioned ⇒ Play(0)」那一跳 ⇒ 0 张 ⇒ 红");
+            + " —— 🧨 删掉前提② ⇒ 全池每张卡都变 Play ⇒ 红；删掉「versioned ⇒ Play(0)」那一跳 ⇒ 0 张 ⇒ 红");
         Check(nRawUnknown, pool10.Count,
               "🧪 T27⑩ 对照：**原始**访问器对 `Slay` 一律 `-1`（证明确实是那一跳在供值，不是数据里有行）"
             + " —— 🧨 把 `AbilityContextOfAbilityV14` 改成直接转调原始访问器 ⇒ 上一条红、本条仍绿（两条一起钉死）");

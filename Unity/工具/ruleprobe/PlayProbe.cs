@@ -2696,7 +2696,7 @@ class PlayProbe
     //    ⛔ **另外三颗指纹原样不动**：`PinnedPoolMd5`（卡池没改）· `PinnedParseMd5`（`check` 现跑
     //      解析差异仍 0 行、输出指纹 ✓）· `PinnedBaselineMd5`（`基线/out_baseline.txt` 没重生成）。
     //    判据全文 → `资料/普查产出_1025/E6_十三行接闸.md` §五·2 / §六。
-    public const string PinnedPlayMd5 = "fc591fb38dd3f56ea17d072d1c8d3b23";  // 2026-10-25 重钉（执行代理 E6）：BL8 的 `warlord` 主语解析修好之后监听器真能拿到 `{darkpact1}`（1713 行里只有 BL8 / E|BL8 两行变）—— 见上方注释块
+    public const string PinnedPlayMd5 = "0da717c67b66f37e40d5f21fe30ddedc";  // 2026-10-25 重钉（执行代理 E6）：BL8 的 `warlord` 主语解析修好之后监听器真能拿到 `{darkpact1}`（1713 行里只有 BL8 / E|BL8 两行变）—— 见上方注释块
 
 
     /// <summary>`play check` 的缺省基线 —— **按名字往上找**（形状照 `Program.CheckMain.DefaultBaseline`，
