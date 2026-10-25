@@ -88,7 +88,14 @@
 ⇒ **「什么时候、按什么条件把临时卡扫掉」这一段的原版实现，本地查不到。**
    规则书 `:183`+`:229` 写得够清楚，**按规则书做**，并如实标「原版实现没查到」。
 
-### 2.4 🔴 glitch 素材**本地没有**
+### 2.4 ~~🔴 glitch 素材**本地没有**~~ → 🔴 **订正：素材都在，只差自建 shader**（2026-10-25 R16）
+
+> ⚠️ **2026-10-25 就地订正（铁律 5）**：本节原结论「glitch 素材本地没有」**不成立**。
+> 下面那几条「`*glitch*` 零命中」只说明**按文件名搜不到** —— 素材**是用别的名字存在的**：
+> - **材质** `Material_-2877403367212247079.json`，`m_Name =` **`Card Frame Glitch`**（全参数齐全）
+> - **shader** `Shader_-5025784757600742591.json` = **`Everguild/FX/Sprite Scan Lines`**
+> - **噪声图** **`Noise Combined.png`**
+> ⇒ **要做，只差自建 shader**（不再属于铁律 11 例外①）。判据出处 = `报告/R16_卡牌面遗留C_第2轮.md` §①·5 / §②。
 
 - `d:/2/新解包资源/` 全盘 `*glitch*` **零命中**
 - `d:/2/` 全盘 `*glitch*` **零命中**
@@ -185,11 +192,11 @@ bool IsEphemeral(BattleContext ctx, CardDef c)
 
 ## 四、表现侧：要动什么
 
-### 4.1 卡面「临时」标记（**原版是 glitch，素材没有，自建**）
+### 4.1 卡面「临时」标记（**原版是 glitch；素材都在，只差自建 shader**）
 
 | 项 | 怎么做 | 出处 |
 |---|---|---|
-| **视觉** | 卡面材质换成自建 glitch shader（UV 抖动 + 扫描线） | 原版 `Card2DController.ToggleGlitch` / `glitchMaterial` —— **但那是原版资产，本地没有**。⇒ **自建**，文件头标「这是我们挑的」 |
+| **视觉** | 卡面材质换成自建 glitch shader（UV 抖动 + 扫描线） | 原版 `Card2DController.ToggleGlitch` / `glitchMaterial` —— ~~**但那是原版资产，本地没有**~~ 🔴 **2026-10-25 订正：资产都在**（`Material_-2877403367212247079.json` = `Card Frame Glitch`，参数齐全；shader = `Everguild/FX/Sprite Scan Lines`；贴图 = `Noise Combined.png`）⇒ **自建 shader 即可，参数照 Material JSON 抄** |
 | **时机** | 手牌里 `IsEphemeral` 为真时打开 | 原版 `CardScript__ActivateCard.c:141-143`（`HasCurrentTrait(5)` 就开） |
 | **颜色** | 原版有 `ephemeralCardPlayableColor`（可打出时的着色） | `BattleCardUI.cs:242` —— ⚠️ 具体色值在预制体里，**本地拿不到**，自己挑 |
 
@@ -225,7 +232,7 @@ bool IsEphemeral(BattleContext ctx, CardDef c)
 | **`Talent`（91 张）** | 它是**生成**临时卡的来源（`:218`），要「回合开始往手里塞一张战术」那一整套。`Ephemeral` 是它的**地基**，先地基后它 |
 | **`Companion`（9 张）** | 同上，`伴生 X` = 打出时从牌库带出 X 张 |
 | **`Tide X`（24 张）** | 要「本回合可打出 X 张额外复制；费用与首张相同」。⚠️ **但它的复制是临时的**（`:220`+`:229`）⇒ 这一轮把「标记成临时」的**接口**留好（§3.3），下一轮接 |
-| **glitch shader 的原版参数** | 本地没有素材，拿不到参数 |
+| **glitch shader 的原版参数** | ~~本地没有素材，拿不到参数~~ 🔴 **2026-10-25 订正：材质参数能拿到**（`Material_-2877403367212247079.json` 的 `Card Frame Glitch` **全参数**）；**shader 的 HLSL 源码确实被剥**，但**属性表 + 编译字节码（`Shader.compressedBlob` → DXBC）在** ⇒ 用 `工具/dump_shader.py` / `dump_shader_blob.py` 读，别再说「拿不到」 |
 
 ---
 
@@ -284,7 +291,9 @@ bool IsEphemeral(BattleContext ctx, CardDef c)
 
 - 原版路径是 `BattleCardUI.ShowEphemeral()`（在卡的位置实例化状态图标 prefab）
   + `Card2DController.ToggleGlitch()`（换 `glitchMaterial`）。
-- ⚠️ **glitch 素材本地没有**（`d:/2` 全盘 `*glitch*` 零命中，特效导出报告也零命中）。
+- ⚠️ ~~**glitch 素材本地没有**（`d:/2` 全盘 `*glitch*` 零命中，特效导出报告也零命中）。~~
+  🔴 **2026-10-25 订正**：**素材都在**（材质 `Card Frame Glitch` · shader `Everguild/FX/Sprite Scan Lines` · 噪声图 `Noise Combined.png`），
+  只是**按文件名搜不到** ⇒ **要做，只差自建 shader**。见 §2.4 的更正块。
 - ⇒ 改用原版图集里的 **`Atlas_trait_icon_ephemeral.png`**（80×80，78 张 trait 图标之一，
   **切片文件名就是英文关键词**）。导入走 `工具/import_original_art.py` 新增的 `TRAIT_SRC` 段。
 - ⚠️ **位置/大小是「我们挑的」**：那个 prefab 不在我们手上，dump 里也看不到它的 rect。

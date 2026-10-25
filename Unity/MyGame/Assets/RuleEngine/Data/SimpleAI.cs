@@ -590,7 +590,9 @@ namespace RuleEngine
             int atk = RuleCore.FieldAttack(ctx, side, u, ranged);
             if (atk <= 0) return 0f;
 
+            var tr = TraceAttack;       // 🔬 只给 `工具/ruleprobe ai` 用的读数钩子（产品恒 null）
             float s = ScoreDamaging(target, atk);       // 里面已经按「是不是督军」分了两支
+            if (tr != null) tr("① 伤害分 = " + s.ToString("0.###") + "（atk=" + atk + "）");
 
             // 反击：取守方**本次打法那一档**的攻击力（原版 `GetCombatDamage(守方, 本次打法)`；
             //   引擎侧同一口径 = `RuleCore.DeclareAttack` 的
@@ -603,9 +605,88 @@ namespace RuleEngine
             int counter = RuleCore.FieldAttack(ctx, foe, target, ranged);
             if (!noCounter && counter > 0)
             {
+                float before = s;
                 s -= ScoreDamaging(u, counter);
-                if (RuleCore.DamageAfterReduction(u, counter) < u.Health) s += SurvivalBonus;
+                // 🔴 2026-10-25（`R11` · `R6-07`）：原版判据是 **`thisCard.health > tgtDmg`（扣甲【前】）**
+                //   —— `AI__ScoreFromBuffedAttack.c:87-91` + `DAT_1834b2dc4 = 0.1f`（判据 §6·4）。
+                //   改前是 `DamageAfterReduction(u, counter) < u.Health`（扣甲【后】）⇒ 有护甲时偏乐观
+                //   （把「其实会被反杀」判成「还活着」而白给 0.1 分）。
+                if (u.Health > counter) s += SurvivalBonus;
+                if (tr != null)
+                    tr("② 反击/存活 = " + (s - before).ToString("0.###")
+                     + "（counter=" + counter + " · 存活奖励=" + (u.Health > counter ? SurvivalBonus.ToString("0.###") : "0") + "）");
             }
+            else if (tr != null)
+                tr("② 反击 = 0（" + (noCounter ? "豁免" : "守方攻击 0") + "）");
+
+            // ---- 毒（poisonous 380）：**只有这一下打不死时**才加分 ----
+            // 判据 = `AI__ScoreFromBuffedAttack.c:96-123`（判据 §6·4）：
+            //   `has(poisonous) && !t.dodge && !t.shield && !t.dropPod && atkDmg < t.health + t.CurrentBastion`
+            //   ⇒ `+= ScorePoisoning(t) × 0.7f`（常量 `DAT_1834b3188`）。
+            // ⚠️ 闸门里用**扣甲前**的 `atk`（原版 `atkDmg` 同样是扣甲前）。
+            // ⚠️ 池内 0 张卡带 `poisonous`（现数 `cards_engine.json` 的 keywords / cardTraits 均 0）
+            //    ⇒ 今天不可观测；铁律 11 照做。
+            if (u.Has(PoisonousKeyword)
+                && !target.Has(KeywordTable.Dodge) && !target.Has(KeywordTable.Shield)
+                && !target.Has(KeywordTable.DropPod)
+                && atk < target.Health + target.Bastion)
+            {
+                float add = ScorePoisoning(target) * PoisonousScale;
+                s += add;
+                if (tr != null) tr("③ 毒 = +" + add.ToString("0.###"));
+            }
+
+            // ---- 献祭（sacrifice 470）：只有「这一刀会把自己换掉」时才值钱 ----
+            // 判据 = `AI__ScoreFromAttack.c:39-70`（判据 §6·3；`.c` 的结构完整）：
+            //   dmg = 守方【本次打法那一档】的攻击力（近战 ⇒ CurrentMeleeAttack / 远程 ⇒ CurrentRangeAttack）
+            //   if (thisCard.health <= dmg && !dodge && !shield)
+            //       非 special ⇒ +2.0f ；special ⇒ + ScoreFromCriteria(rawCard.attackScoringCriteria)
+            // ⚠️ 池内 0 张卡带 `sacrifice`（现数）⇒ 今天不可观测；铁律 11 照做。
+            if (u.Has(KeywordTable.Sacrifice))
+            {
+                int back = ranged ? target.RangedAttack : target.Attack;
+                if (u.Health <= back && !u.Has(KeywordTable.Dodge) && !u.Has(KeywordTable.Shield))
+                {
+                    float add = HasSpecialAttackScoring(u)
+                              ? AttackScoringCriteriaScore(u)     // ⚠️ 数据未接 ⇒ 恒 0（见该方法 doc）
+                              : SacrificeBonus;                   // 2.0f
+                    s += add;
+                    if (tr != null) tr("④ 献祭 = +" + add.ToString("0.###") + "（守方攻击 " + back + " ≥ 我方血 " + u.Health + "）");
+                }
+            }
+
+            // ---- 爆裂 Blast X：`+= CurrentBlast × 目标的相邻单位数` ----
+            // 判据 = `AI__ScoreFromAttack.c:71-78`（结构实读）+ cpp2il 的
+            //   `num2 += (float)currentBlast * adjacentUnits.Count`（增量算式外推 —— 很直白）。
+            // ⚠️ 相邻 = **目标**那一行的左右紧邻（原版 `BattleManager.GetAdjacentUnits(targetCard)`）
+            //   ⇒ 走 `BoardSpec.AdjacentSlots`（「谁算相邻」全仓唯一判据），数**非空格**。
+            // ⚠️ 池内 41 张卡带 `blast` ⇒ **这一条会真的改变 AI 出招偏好**（见 `R11` 报告读数）。
+            int blast = u.KwValue("blast");              // 原版 `CurrentBlast` = trait 0x15e 的当前值
+            if (blast > 0)
+            {
+                int adj = OccupiedAdjacentCount(ctx, foe, target);
+                if (adj > 0)
+                {
+                    float add = blast * adj;
+                    s += add;
+                    if (tr != null) tr("⑤ 爆裂 = +" + add.ToString("0.###") + "（blast " + blast + " × 相邻 " + adj + "）");
+                }
+            }
+
+            // ---- 标记光：**只对远程这一下加分** ----
+            // 判据 = `AI__ScoreFromAttack.c:80-86`：
+            //   `if (target != null && target.CurrentMarkerlight > 0 && attackType == 2) s += CurrentMarkerlight`。
+            // ⚠️ 池内 0 张卡带 `markerlight`（现数）⇒ 今天不可观测。
+            if (ranged)
+            {
+                int ml = target.KwValue("markerlight");
+                if (ml > 0)
+                {
+                    s += ml;
+                    if (tr != null) tr("⑥ 标记光 = +" + ml);
+                }
+            }
+
             return s;
         }
 
@@ -695,6 +776,12 @@ namespace RuleEngine
         public static float ValueInPlay(UnitState u)
         {
             if (u == null || u.Card == null) return 0f;
+            // ⚠️ 2026-10-25（`R11` · `R6-08`）：原版基础值是
+            //   `rawCard.overrideDefaultValueInPlay ? (int)rawCard.manualValueInPlay : rawCard.manaCost`
+            //   （判据 §6·6 `GetCardValueInPlay` / §8 `R6-08`）。我方**做不到**：`CardDef` 上
+            //   **没有这两个字段**（`Core/` 本批由 `E1` 独占），`cards_engine.json` 也没有这两列。
+            //   真值分布现读：`cards_raw.json` 的 `full_raw` 里 `overrideDefaultValueInPlay` **1,351/1,351 = 0**、
+            //   `manualValueInPlay` 全 0 ⇒ **今天逐字等价**、无行为影响。**改动请求已写进 `R11` 报告**。
             float v = 2f * u.Card.Cost + 1f + AiScoring.ValueOfEnchantments(u);
             if (u.MaxHealth > 0 && u.Health < u.MaxHealth)
                 v *= 0.5f * u.Health / u.MaxHealth + 0.5f;
@@ -714,12 +801,17 @@ namespace RuleEngine
         ///   ④ `longrange`(1160) → **3.0**（我们原来是 **0**，`A2144`）
         ///   ⑤ `dropPod`(230) 且 `!ignoreDroppod` → **0.5**
         ///   ⑥ 督军：致死 **1e6** / 非致死 `伤害 × (剩余血 > 15 ? 1.2 : 1.8)`
-        ///   ⑦ 小兵：致死 `卡价值 × (survivor ? 0.8 : 1.0)` / 非致死 `卡价值 × 0.6 × 实际伤害 / 血上限`
+        ///   ⑦ 小兵：致死 `卡价值 × (survivor ? 0.8 : 1.0)` /
+        ///      非致死 `卡价值 × 0.6 × 扣甲前伤害 / (血上限 + 堡垒)`
         ///   ⑧ 最后 `+= extraScoreFromDamaging`（致死再 `+= extraScoreFromKilling`）——
         ///      **真值里 0 张非零**（`AUD_T06` §三表 #6）⇒ 本批不读（报告已记）。
         ///
-        /// ⚠️ **护甲那层照我们引擎改写**：原版是「伤害 ≥ 血 + bastion」，我们引擎里护甲已经在
-        ///    `RuleCore.DamageAfterReduction` 里减过（且最低 1 点）⇒ 直接用**实际伤害 ≥ 当前血**判死。
+        /// 🔴 **伤害口径（2026-10-25 `R11` 第二段订正，判据 §6·5）**：原版这一族**整份都用扣甲前的
+        ///   `damageValue`**（含易伤），**不是** `DamageAfterReduction` 之后的值 —— 闸（`dmg < totalCur`）
+        ///   与比值（`dmg / totalMax`）读的是**同一个** `dmg`。
+        ///   ⚠️ 本段原来写着「护甲那层照我们引擎改写 ⇒ 用实际伤害判死」—— **那句已废**：
+        ///   它让有护甲的目标被低估（4 血 1 甲挨 4 伤：原版判「打死 = 满额」，改前判「没打死 = 0.45V」）。
+        ///   现在两处都是 `PreArmorDamage`。
         /// </summary>
         public static float ScoreDamaging(UnitState target, int dmg, bool ignoreDroppod = false)
         {
@@ -732,26 +824,59 @@ namespace RuleEngine
             if (target.Has(KeywordTable.LongRange)) return 3f;
             if (target.Has(KeywordTable.DropPod) && !ignoreDroppod) return 0.5f;
 
-            int dealt = RuleCore.DamageAfterReduction(target, dmg);
             if (target.IsWarlord) return ScoreWarlordDamage(target, dmg);
 
+            // 🔴 2026-10-25（`R11` 第二段 · 调度台裁定「两条真缺口都做」）：
+            //   **「打没打死」的闸也改成【扣甲前】**，与下面那条比值同口径。
+            //   原版 `AI__ScoreFromDamagingBuffedUnit`（判据 §6·5）：
+            //     `dmg = damageValue; if (CurrentVulnerable>0 && !IsVulnerableDamage(type)) dmg += CurrentVulnerable;`
+            //     `if (dmg < totalCur) 比值支 else 满额支`，其中 `totalCur = currentHealth + bastion`
+            //   —— 两处（闸 + 比值）读的都是**同一个扣甲前的 `dmg`**。
+            //   改前闸用的是扣甲后的 `dealt` ⇒ 有护甲时分叉（4 血 1 甲挨 4 伤：原版判「打死 = 满额」，我们 0.45V）。
+            //   · `buff.healthChange`：原版是「本次施加的那个 buff」，无 buff 这一路恒 0；而我们的
+            //     `MaxHealth` **本来就是** `currentMaxHealthProcessed`（含全部属性 buff）
+            //     ⇒ 分母 = `MaxHealth + Bastion`，⛔ 别再加一次 `healthChange`。
+            int totalMax = target.MaxHealth + target.Bastion;
+            if (totalMax <= 0) return 0f;      // 原版 `LogError("Trying to divide by 0! in ScoreFromDamagingUnit…") + return 0`
+            int preArmor = PreArmorDamage(target, dmg);
+            int totalCur = target.Health + target.Bastion;
+
             float v = ValueInPlay(target);
-            if (dealt >= target.Health)                             // 打死
+            if (preArmor >= totalCur)                               // 打死（原版 `dmg < totalCur` 取反）
                 return v * (target.Survivor > 0 ? SurvivorDiscount : 1f);
-            return v * MinionPartial * dealt / System.Math.Max(1, target.MaxHealth);
+            // 没打死：`卡价值 × 0.6 × 扣甲前伤害 / (血上限 + 堡垒)`（判据 §6·5 的 `num6 / num3` 支）
+            return v * MinionPartial * preArmor / totalMax;
+        }
+
+        /// <summary>
+        /// 原版 `AI.ScoreFromDamagingBuffedUnit` 里那个 **`damageValue`（扣甲【前】）**：
+        /// `dmg = damageInfo.damageValue; if (target.CurrentVulnerable > 0 && !IsVulnerableDamage(damageInfo.damageType))
+        /// dmg += target.CurrentVulnerable;`（判据 §6·5 逐句）。
+        ///
+        /// ⚠️ 我们打分这一族**没有伤害类型**参数（所有调用点传的都是普通攻击/普通效果伤害）
+        ///   ⇒ `IsVulnerableDamage(...)` 那道闸按「不成立」处理（= 加易伤）。真值池内 `vulnerable` = **0 张**
+        ///   （现数 `cards_engine.json`），所以今天这一项恒 0；照原版补齐，不靠「反正是 0」省掉。
+        /// </summary>
+        static int PreArmorDamage(UnitState target, int dmg)
+        {
+            int v = dmg + RuleCore.VulnerableRaw(target);
+            return v > 0 ? v : 0;
         }
 
         /// <summary>
         /// 打**督军**值多少分（原版 `ScoreFromDamagingBuffedUnit` 的英雄那一支）：
         /// 打死 → **1e6**（压倒性）；没打死 → `伤害 × (剩余血 &gt; 15 ? 1.2 : 1.8)`。
+        /// 🔴 2026-10-25（`R11` 第二段）：**伤害与「剩余血」都改成【扣甲前】**，与小兵那一支同口径
+        ///   （原版两处读的都是同一个 `dmg`，判据 §6·5；改前用的是 `DamageAfterReduction` 之后的 `dealt`）。
         /// </summary>
         public static float ScoreWarlordDamage(UnitState warlord, int dmg)
         {
             if (warlord == null || !warlord.IsAlive) return 0f;
-            int dealt = RuleCore.DamageAfterReduction(warlord, dmg);
-            if (dealt <= 0) return 0f;
-            if (dealt >= warlord.Health) return WarlordKillScore;
-            return dealt * (warlord.Health - dealt > 15 ? HeroDamageLow : HeroDamageHigh);
+            int preArmor = PreArmorDamage(warlord, dmg);
+            if (preArmor <= 0) return 0f;
+            int totalCur = warlord.Health + warlord.Bastion;
+            if (preArmor >= totalCur) return WarlordKillScore;      // 原版 `dmg < totalCur` 取反
+            return preArmor * (totalCur - preArmor > 15 ? HeroDamageLow : HeroDamageHigh);
         }
 
         /// <summary>
@@ -1816,6 +1941,71 @@ namespace RuleEngine
         static void InstallAiScorerOnLoad()
         {
             InstallAiScorer();
+        }
+
+        // ==================================================================
+        //  ⑦ 🆕 2026-10-25（第八十会话 · `R11`）：`ScoreFromAttack` 新增四支的常量与子过程
+        //     判据 = `资料/完全复刻/判据/AI打分与动作选择_第2轮.md` §6·3 / §6·4（`R6-03` / `R6-04`）
+        //     ⚠️ 一律**追加在类尾** —— 插进成员之间会让账里的 `A` 行号整体下移（`check_ledger_points`）。
+        // ==================================================================
+
+        /// <summary>`poisonous`（原版 `DefinedTrait.poisonous = 380`）。
+        /// ⚠️ 我们 `KeywordTable` 里**没有**这个常量（全池 0 张卡带它），按既有惯例用裸串
+        /// （同 `ScoreDamaging` 里的 `"invulnerable"` / `ValueInPlay` 里的 `"pindown"`）。
+        /// 数据里一旦出现这个 trait，`KwValue/ Has` 照样认（键就是字符串）。</summary>
+        const string PoisonousKeyword = "poisonous";
+
+        /// <summary>毒追加分的系数（`DAT_1834b3188` = `0.7f`；判据 §6·1 逐字节核过）。</summary>
+        const float PoisonousScale = 0.7f;
+
+        /// <summary>献祭那一支「非 special」的固定加分（原版 `+2.0f`，`AI__ScoreFromAttack.c:52`）。</summary>
+        const float SacrificeBonus = 2f;
+
+        /// <summary>🔬 只给 `工具/ruleprobe ai` 用的**攻击分分解**读数钩子（🆕 2026-10-25 · `R11` 第二段）。
+        /// 非 `null` 时 <see cref="ScoreFromAttack(BattleContext,int,UnitState,UnitState,bool)"/> 每算完一段就报一行
+        /// （① 伤害分 / ② 反击+存活 / ③ 毒 / ④ 献祭 / ⑤ 爆裂 / ⑥ 标记光）。
+        /// 🔴 **产品路径恒 `null`（默认值）⇒ 行为零变化**；⛔ 别在游戏代码里给它赋值。
+        /// 为什么需要它：`ruleprobe play all dump` 是结算层读数，**结构上看不见 AI**（详见 `R11` 报告 §四）。</summary>
+        public static System.Action<string> TraceAttack;
+
+        /// <summary>
+        /// 原版 `AI.ScoreFromAttack` 里 `sacrifice` 的 **special** 那一支：
+        /// `s += ScoreFromCriteria(manager, thisCard, targetCard, rawCard.attackScoringCriteria /* +0x300 */)`。
+        ///
+        /// 🔴 **本轮只能返回 0 —— 是「数据层没有这一列」，**不是**「原版也是 0」**：
+        ///   · `AiScoringData.cs:10-13` 明写「`attackScoringCriteria` 不在里面，**也别加回来**」，
+        ///     理由是它 1,351/1,351 是**同一份序列化默认模板**（本会话现读复核：
+        ///     `cards_raw.json` 的 `full_raw.attackScoringCriteria` 只有 **1 种**取值）。
+        ///   · 那份模板 `baseValueFriend/Enemy` 缺省 0、`scoringOption` 缺省 0（= `FixedValue`）
+        ///     ⇒ 就算喂进我方 `AiScoring.ScoreFromCriteria` 也**恰好返回 0**。
+        ///   ⇒ 今天「有数据 / 无数据」两支**同值**；等真值里出现非默认模板时，
+        ///     这里要换成「把那一列切进 `ai_scoring.json` 再调 `AiScoring.ScoreFromCriteria`」。
+        ///   ⚠️ 可达性：池内 **0 张**卡带 `sacrifice` ⇒ 这一支今天一次都不会走到。
+        /// </summary>
+        static float AttackScoringCriteriaScore(UnitState u)
+        {
+            return 0f;
+        }
+
+        /// <summary>目标的**相邻单位数**（原版 `BattleManager.GetAdjacentUnits(targetCard)`）。
+        /// 「谁算相邻」只有 `BoardSpec.AdjacentSlots` 一处判据 ⇒ 转发，别在这里写 `slot ± 1`
+        /// （原版 `MinionManager.GetAdjacentUnits` 只管**同一方棋盘行内**的左右格）。
+        /// 只数**非空格**（原版那张表里装的是单位、不是格子）。</summary>
+        static int OccupiedAdjacentCount(BattleContext ctx, int foeSide, UnitState target)
+        {
+            if (ctx == null || target == null) return 0;
+            if (foeSide < 0 || foeSide > 1) return 0;
+            var board = ctx.Players[foeSide].Board;
+            int slot = -1;
+            for (int s = 0; s < BoardSpec.Size; s++)
+                if (ReferenceEquals(board[s], target)) { slot = s; break; }
+            if (slot < 0) return 0;
+            var slots = new List<int>(2);
+            BoardSpec.AdjacentSlots(slot, slots);
+            int n = 0;
+            for (int i = 0; i < slots.Count; i++)
+                if (BoardSpec.IsValid(slots[i]) && board[slots[i]] != null) n++;
+            return n;
         }
     }
 }

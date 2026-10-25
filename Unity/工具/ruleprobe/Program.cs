@@ -404,7 +404,7 @@ class Program
                               + "layers <out.jsonl> | "
                               + "willrun [dump <out>] | faith [dump <out>] | play <id|卡名> | play all [dump <out>] [pf <out>] | "
                               + "play check [<pf.txt>] | nonkw | jackal | emergency | suppressor | played | b19test | "
-                              + "dbparse");
+                              + "dbparse | ai <卡id|卡名>");
             Environment.Exit(1);
         }
         if (args[0] == "scan")
@@ -432,6 +432,16 @@ class Program
         if (args[0] == "dbparse")
         {
             Environment.Exit(DbParse.Run());
+        }
+        // 🆕 **`ai <卡id|卡名>`**（`R11`，2026-10-25 · 第八十会话）：把 **AI 打分**逐条拆开摆出来
+        //   （每一项 criteria 的贡献 · 攻击分逐段分解 · 挨打分/督军分曲线）。
+        //   🔴 为什么需要它：`play all dump` 是**结算层**读数，**结构上看不见 AI** ——
+        //   实测「只改 AI 打分」的那一版前后 dump **逐字节相同**（`R11` 报告 §四）
+        //   ⇒ 在那之前每一笔 AI 改动都只能给「解析式读数」（手算）。
+        //   ⛔ 只读：不碰基线、不碰三个指纹、不改 `check`/`play` 的任何输出。
+        if (args[0] == "ai")
+        {
+            Environment.Exit(AiProbe.Run(args.Length > 1 ? args[1] : ""));
         }
         if (args[0] == "check" && !File.Exists(PoolPath)) { Console.Error.WriteLine("!! 找不到卡池：" + PoolPath); Environment.Exit(2); }
         int i = 0;

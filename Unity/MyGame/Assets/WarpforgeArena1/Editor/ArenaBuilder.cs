@@ -516,14 +516,14 @@ public static class ArenaBuilder
         public bool inMask;            // layer 在射线掩码（0 / 30）里吗 —— 只作审计
         public bool hasMesh;           // 这颗宿主是不是已被 `meshes[]` 建过（决定「挂上去」还是「新建」）
         public float[] pos, rot, scale;// 世界 TRS（与 `meshes[]` 同口径）
-        public TapColliderEntry collider;   // null = 原版这条**永远不触发**（宿主没碰撞体，arena3 场根）
+        public TapColliderEntry collider;   // null = 原版这条**永远不触发**（宿主没碰撞体，arena3 场根）。🔴 判「在不在」用 `TapColliderPresent()`，⛔ 别写 `!= null`（JsonUtility 会把 null 物化）
         public string particles;       // 粒子 prefab 名（`WarpforgeVFX/Prefabs/<它>.prefab`）
         public string particlesGuid;   // 原版 AssetGUID（审计用）
         public string audio;           // 音效 cue 名（`Resources/animfx_sounds.json` 的 `name`）
         public string audioGuid;
         public float delay;            // 原版 `delayTimeToPlayAgain`（0 = 不限）
         public int useTargetAnchor;    // 🔴 死字段（本 build 运行时从不读）；照抄只为逐字段对齐
-        public TapAnchorEntry anchor;  // null = 世界点 + 法线
+        public TapAnchorEntry anchor;  // null = 世界点 + 法线。🔴 判「在不在」用 `TapAnchorPresent()`，⛔ 别写 `!= null`（JsonUtility 会把 null 物化 ⇒ 恒真）
     }
 
     [System.Serializable] public class TapColliderEntry
@@ -4268,13 +4268,15 @@ public static class ArenaBuilder
         // 整棵树扫一次（`ApplyGroupNodes` 之后层级已按原版改挂过，所以按「名字 + 世界坐标」认）
         var all = root.GetComponentsInChildren<Transform>(true);
         int nBuilt = 0, nNoCollider = 0, nHostNew = 0, nDef = 0, nControl = 0;
-        int nOutMask = 0, nAnchorOk = 0, nAnchorFail = 0;
+        int nOutMask = 0, nAnchorOk = 0, nAnchorFail = 0, nAnchorRebuilt = 0;
 
         foreach (var e in mf.tapHits)
         {
-            if (e.collider == null)
+            if (!TapColliderPresent(e.collider))
             {
                 // 原版永远不触发（宿主没碰撞体）—— 建出来只会凭空多一颗能挡射线的碰撞体 ⇒ **不建**
+                // 🔴 判据**不能**写 `e.collider == null`：`JsonUtility` 把 JSON 的 `null` 物化成整棵子树
+                //    ⇒ 恒假（见 `TapColliderPresent` / `TapAnchorPresent` 上面那段）。2026-10-25 Q2 修。
                 nNoCollider++;
                 Debug.Log($"[Arena] {mf.scene}：`{e.go}` 在原版**没有碰撞体**（判据 §6 第 4 条）"
                         + " ⇒ 照原版**不建碰撞体、不挂定义**（这条永远不触发）");
@@ -4316,9 +4318,37 @@ public static class ArenaBuilder
             def.delayTimeToPlayAgain = e.delay;
             def.useTargetAnchor = e.useTargetAnchor != 0;      // 死字段：照抄，运行时没人读
             def.remainingNotPlayTime = 0f;
-            if (e.anchor != null)
+            if (TapAnchorPresent(e.anchor))
             {
                 def.targetAnchor = FindBuiltByGo(all, e.anchor.go, e.anchor.pos, out _, null, e.anchor.scale);
+                if (def.targetAnchor == null)
+                {
+                    // 🆕 2026-10-25（Q2）：原版这颗锚点我们**没建出来**（旁挂 `nodes[]` 里没有它）。
+                    //   两个已查实的根因（判据 → `报告/Q2_建场清单与锚点_第2轮.md` §②·4 / §②·5）：
+                    //     ① 父是 **`worldBaked` 网格**（arena2 的 `Rubble`）⇒ 被 `gen_arena_groups.wanted_paths()`
+                    //        排在 `want` 之外 ⇒ 子树不展开（`Squig Anchor` 就是这么丢的）；
+                    //     ② 父是**不可见命中盒**（blacklegion 的 `Grill collision (0..3)`：只有
+                    //        `MeshFilter` + `BoxCollider`、**没有 `MeshRenderer`**）⇒ 不在 manifest `meshes[]`
+                    //        ⇒ 也不在 `want`（那 4 颗 `Grill Anchor` / `Grill anchor` / `GameObject`×2 就是这么丢的）。
+                    //   ⇒ **按清单自建**（铁律 11「原版有、我们没建出」）：原版这 5 颗都是**纯空叶子**
+                    //     （只有 `Transform`、0 子件），而清单里的 `anchor.pos/rot/scale` 已经是**世界**口径
+                    //     （生成器 `world_trs()`），`root` 是 identity ⇒ 写 local 等于写世界；
+                    //     原版 `PlayParticle` 只拿它 `SetParent` + 本地零位 ⇒ **世界位姿一致就等价**，
+                    //     不依赖层级路径。
+                    //   ⚠️ 清单的 scale 是**模长**（恒 ≥0，见 `world_scale()`）⇒ 若将来遇到镜像锚点，
+                    //     自建出来的符号会是正的（这 5 颗都是正缩放，实测无影响）。
+                    //   ⛔ **别改成「往 `gen_arena_groups.py` 的 `nodes[]` 里塞」**：`ApplyGroupNodes`(:3005)
+                    //     早于 `BuildTapHits`(:3009)，那时父还不存在 ⇒ 节点会被挂到**场根**并带原版 local TRS
+                    //     （pos 全 0）⇒ **粒子跑到世界原点**，比原来更糟。
+                    var anchorGo = new GameObject(e.anchor.go);
+                    anchorGo.transform.SetParent(root, false);
+                    ApplyTransform(anchorGo.transform, e.anchor.pos, e.anchor.rot, e.anchor.scale);
+                    def.targetAnchor = anchorGo.transform;
+                    nAnchorRebuilt++;
+                    Debug.Log($"[Arena] {mf.scene}：`{e.go}` 的锚点 `{e.anchor.go}` 旁挂里**没有**"
+                            + $"（path `{e.anchor.path}`）⇒ **按清单世界 TRS 自建**一颗空节点"
+                            + $"（pos {Vec3Str(e.anchor.pos)} · 原版这颗是纯空叶子，世界位姿与清单一致）");
+                }
                 if (def.targetAnchor == null)
                 {
                     nAnchorFail++;
@@ -4350,7 +4380,8 @@ public static class ArenaBuilder
                 + $" ⇒ 建碰撞体 {nBuilt} 颗（其中另建空宿主 {nHostNew}）· 挂定义 {nDef} 个"
                 + $" · 控制器 {nControl} 颗"
                 + $" · **掩码外（layer 0/30 之外，原版射线打不到）{nOutMask} 条**"
-                + $" · 无碰撞体跳过 {nNoCollider} 条 · 锚点 {nAnchorOk} 条接上/失败 {nAnchorFail}");
+                + $" · 无碰撞体跳过 {nNoCollider} 条 · 锚点 接上 {nAnchorOk} / 失败 {nAnchorFail}"
+                + $"（本场带锚点 {nAnchorOk + nAnchorFail} 条，其中自建 {nAnchorRebuilt} 条）");
         if (nOutMask > 0)
             Debug.Log($"[Arena] Tap：那 {nOutMask} 条是**照原版**设在别的 layer 上的（每场 1 条 `CardLowBoardLimit`，"
                     + "原版 layer 11 `BoardCardLimit`）—— 原版点棋盘空地**本来就不触发**，⛔ 别改成 layer 0");
@@ -4434,11 +4465,24 @@ public static class ArenaBuilder
         return null;
     }
 
+    /// <summary>世界缩放比较（1% 相对容差）。
+    /// <para>🔴 **2026-10-25（Q2，调度台裁定）：必须比【模长】，比较前两侧都取绝对值。**</para>
+    /// <para>判据：清单那一侧 `gen_unity_arena_manifest.py:895 world_scale()` 算的是世界矩阵**列长**
+    ///   （`sqrt(sum(M[i][j]^2))`）⇒ **恒 ≥ 0**；而 Unity 的 `Transform.lossyScale` 在**镜像链**
+    ///   （链上 `localScale` 有负值、世界矩阵行列式为负）上会给**负分量**。原样逐轴相减 ⇒ 符号不同就
+    ///   **结构性必假**，与「位置对不对」无关。</para>
+    /// <para>实证：`battlearena3` 的 `Scenario/Battle Arena 3 Baked/Monolith Front Right/Tap Particles Anchor`
+    ///   `localScale = (-0.025694, -0.025694, -0.025694) × 父 44.0796` ⇒ lossyScale `(-1.1326, …)`，
+    ///   而清单写 `(+1.1326, …)` ⇒ 改成绝对值之前它被误判成「锚点找不到」（那颗节点其实建出来了）。</para>
+    /// <para>✅ 绝对值化**对正缩放节点零影响**（两侧同号时 `|a|-|b| ≡ a-b`）。</para>
+    /// <para>⚠️ 本函数同时用于 `tapHits` 宿主匹配（`requireMesh` 两个方向都用）⇒ 少数原本「另建空宿主」的条目
+    ///   会改成挂到**已建节点**上（那才是原版结构）。逐场影响见
+    ///   `资料/完全复刻/报告/Q2_建场清单与锚点_第2轮.md` §⑥-1。</para></summary>
     static bool ScaleClose(Vector3 a, Vector3 b)
     {
-        return Mathf.Abs(a.x - b.x) <= 0.01f * Mathf.Max(1f, Mathf.Abs(b.x))
-            && Mathf.Abs(a.y - b.y) <= 0.01f * Mathf.Max(1f, Mathf.Abs(b.y))
-            && Mathf.Abs(a.z - b.z) <= 0.01f * Mathf.Max(1f, Mathf.Abs(b.z));
+        return Mathf.Abs(Mathf.Abs(a.x) - Mathf.Abs(b.x)) <= 0.01f * Mathf.Max(1f, Mathf.Abs(b.x))
+            && Mathf.Abs(Mathf.Abs(a.y) - Mathf.Abs(b.y)) <= 0.01f * Mathf.Max(1f, Mathf.Abs(b.y))
+            && Mathf.Abs(Mathf.Abs(a.z) - Mathf.Abs(b.z)) <= 0.01f * Mathf.Max(1f, Mathf.Abs(b.z));
     }
 
     static GameObject LoadTapPrefab(string name, string scene, string hostGo)
@@ -5729,5 +5773,35 @@ public static class ArenaBuilder
         if (string.IsNullOrEmpty(s)) return "unnamed";
         foreach (var c in Path.GetInvalidFileNameChars()) s = s.Replace(c, '_');
         return s.Replace('/', '_').Trim();
+    }
+
+    // ---------- 🆕 2026-10-25（Q2）：Tap 清单里「这条到底带不带锚点 / 碰撞体」的唯一判据 ----------
+    //  🔴 **`JsonUtility.FromJson` 会把 JSON 里的 `"x": null` 物化成整棵子树**
+    //     ⇒ 对这两个 `[System.Serializable] class` 字段写 `e.collider == null` / `e.anchor != null`
+    //     **不是判据**（前者恒假、后者恒真）。建场侧原来就是那么写的 ⇒ 计数口径错了：
+    //       · `battlearena1` 清单 20 条**全部**写着 `"anchor": null`，日志却报「锚点 失败 20」
+    //         （还连带打 20 条 `LogWarning` 说锚点 `` 找不到）；
+    //       · `battlearena3` 唯一那条 `"collider": null` 没被「无碰撞体跳过」数进去（该格报 0），
+    //         反而打了一句「认不出的碰撞体类型 ``」（`AddTapCollider` 的 switch 落到 default）。
+    //     实证：`MyGame/Assets/WarpforgeArena1/arenas/battlearena1/battlearena1_manifest.json`
+    //           `tapHits[0].anchor` 文本上是 `null`，`JsonUtility` 读回来是 `{go:null,pos:null,…}`。
+    //     判据出处 = 项目记忆 `jsonutility-null-subtree`（同一个坑 2026-09-22 把 34/34 颗粒子
+    //     的速度钳到 1 单位/秒）。⇒ **判「在不在」只能看显式字段值。**
+    //  ⚠️ 这两个函数**只用于计数与出声**，建场逻辑一个字没动：
+    //     · `FindBuiltByGo` 自己有兜底（`string.IsNullOrEmpty(goName) || pos == null ⇒ return null`），
+    //       所以物化出来的空锚点本来就只会得到 `targetAnchor = null`（= 世界点 + 法线），**运行时行为不变**；
+    //     · `AddTapCollider` 遇到 `type == null` 本来也只会 `return false`（⛔ 别拿 Box 顶上）。
+    //     ⇒ 修前修后**建出来的 prefab 应当逐字节同形**，变的只有日志与两格计数。
+
+    /// <summary>清单这条**真的**带锚点吗？⛔ 别退回 `anchor != null`（见上面那段）。</summary>
+    static bool TapAnchorPresent(TapAnchorEntry a)
+    {
+        return a != null && !string.IsNullOrEmpty(a.go) && a.pos != null && a.pos.Length >= 3;
+    }
+
+    /// <summary>清单这条**真的**带碰撞体吗？⛔ 别退回 `collider != null`（见上面那段）。</summary>
+    static bool TapColliderPresent(TapColliderEntry c)
+    {
+        return c != null && !string.IsNullOrEmpty(c.type);
     }
 }

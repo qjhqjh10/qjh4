@@ -468,12 +468,15 @@ namespace CardPresentation
         /// <summary>批处理 / 自检可直调（本文件没有帧循环也能推进）。</summary>
         public void Tick(float dt)
         {
-            if (!_active) return;
+            // #230：整条链停掉（完成 / 跳过 / 关教程）⇒ **允许表必须清掉**，否则整层菜单从此点不动。
+            //   放在 `!_active` 这一支上：`FinishAll` / `SkipAll` / `ToggleTutorial(false)` 三条路各自最后都把
+            //   `_active` 置 false 且**没有**再调 `RefreshPointer` 的机会 ⇒ 这里是它们在运行期唯一的收口。
+            if (!_active) { RaycastFilter.ClearRaycastFilters(); return; }
             // 🔴 本对象**跨场景存活**（`DontDestroyOnLoad`，为的是 `PlayRanked` 那条观测）——
             //   离开主菜单之后 `_menu` 会被销毁（Unity 假 null）⇒ 这里直接停手。
             //   ⛔ **不能省这一句**：下面第一件事就是 `WindowsManager.Get()`，而它会在**没有宿主**的场景里
             //   走 `EnsureHost()` **建一个**（战斗场景凭空多出一套窗口管理器 = 静默污染）。
-            if (_menu == null) return;
+            if (_menu == null) { RaycastFilter.ClearRaycastFilters(); return; }   // #230：同上（允许表里指着别的场景的件）
             if (_wantMessage)
             {
                 _wantMessage = false;
@@ -527,6 +530,9 @@ namespace CardPresentation
             if (_pointer != null) _pointer.Hide();
             if (_highlight != null) _highlight.HideImmediate();
             _lastTop = null; _lastTab = WindowTabType.None; _lastPoint = new Vector2(-1f, -1f);
+            // #230：指针被收 ⇒ 允许表同拍清掉（原版 `SceneHasChanged` 那条链也是「清指针」+ `ClearRaycastFilters`）。
+            //   ⛔ 不清的话表里指着**上一个场景**的件 ⇒ 新场景里一颗都判不中 ⇒ 整层点不动。
+            RaycastFilter.ClearRaycastFilters();
             if (!_active) return;
 
             // 原版：`TutorialStagePlayRanked.CheckForCompletion` 读 `PlayerData` 的排位计数（服务器）。
@@ -652,6 +658,15 @@ namespace CardPresentation
         // ============================================================ 指针 / 聚光灯
         void RefreshPointer()
         {
+            // 🆕 2026-10-25（账 #230 · `CustomRaycaster.Raycast`）：**先把射线过滤表清空，目标定下来再按档注册**。
+            //   = 原版 `TutorialManager.AddPointerAction` 的形状（`cpp2il/.../TutorialManager.cs:1389-1397`：
+            //   `if (!filterRaycast) ClearRaycastFilters(); else { ClearRaycastFilters(); RegisterObjectAndChildrenGraphics(target); }`）
+            //   ⇒ 本函数里**注册之前**的每一条 early return（简报盖住 / 目标不在 / `def == null`）自动落到
+            //   「表是空的 = 不过滤」，正好等于原版那三处 `ClearRaycastFilters()`
+            //   （`DestroyPointer` / `DisablePointer` / `TutorialMessageWindowPopUp.cs:133`）。
+            //   ⚠️ 注册**之后**那条 `(p - _lastPoint)` 的提前返回**不算**（那时表已经按档建好了，正确）。
+            //   ⚠️ 每 0.2s 轮询会重建一次表（原版每次 `AddPointer` 也只重建一次）—— 代价 = 一次小数组扫描，可忽略。
+            RaycastFilter.ClearRaycastFilters();
             var def = MenuTutorialStages.At(_index);
             if (def == null || _pointer == null) return;
             var wm = WindowsManager.Get();
@@ -669,6 +684,8 @@ namespace CardPresentation
 
             Transform target = null;
             Vector2 off = def.PointerOffset;
+            // #230：这一拍**最终用的是哪一档目标** —— 它决定「要不要开射线过滤」（见 `FiltersRaycast` 那张表）。
+            MenuTutorialTargetKind usedKind = MenuTutorialTargetKind.None;
 
             // = 原版 `DoMenuActions` 的三步：① explain 简报 → ② 窗里那颗（`TargetInWindow`）→ ③ 页里那颗钮（`DeepTarget`）。
             if (top != null)
@@ -678,19 +695,19 @@ namespace CardPresentation
                 if (_explainShown && def.DeepTarget != MenuTutorialTargetKind.None)
                 {
                     target = Resolve(def.DeepTarget, top);
-                    if (target != null) off = def.DeepOffset;
+                    if (target != null) { off = def.DeepOffset; usedKind = def.DeepTarget; }
                 }
                 // 第三步**另一支**（同一步在不同上下文指不同件，例：GetCampaignNode 的战役页签 ↔ 战役窗）
                 if (target == null && _explainShown && def.DeepTarget2 != MenuTutorialTargetKind.None)
                 {
                     target = Resolve(def.DeepTarget2, top);
-                    if (target != null) off = def.DeepOffset2;
+                    if (target != null) { off = def.DeepOffset2; usedKind = def.DeepTarget2; }
                 }
                 // 第二步：窗里那一颗（`TargetInWindow`），没有再看菜单上那一颗（`Target`）。
                 if (target == null && def.TargetInWindow != MenuTutorialTargetKind.None)
                 {
                     target = Resolve(def.TargetInWindow, top);
-                    if (target != null) off = def.PointerOffset;
+                    if (target != null) { off = def.PointerOffset; usedKind = def.TargetInWindow; }
                     // 进了窗 ⇒ 弹第二份简报（原版 `explain…`，每阶段只弹一次）。
                     // 🔴 **2026-10-19（E01 收尾）**：原版这一步是**认页签/认窗类型**的 ——
                     //   `GetMission/GetCampaignNode/ClaimForge` 的 `explain…` 只在**对应页签是当前页**时才弹
@@ -712,7 +729,7 @@ namespace CardPresentation
             if (target == null)
             {
                 target = Resolve(def.Target, top);
-                off = def.PointerOffset;
+                off = def.PointerOffset; usedKind = def.Target;
             }
 
             if (target == null)
@@ -723,6 +740,14 @@ namespace CardPresentation
                 _lastPoint = new Vector2(-1f, -1f);
                 return;
             }
+
+            // 🆕 2026-10-25（账 #230）：**指针真的要画出来了 ⇒ 按原版的 `filterRaycast` 注册允许表**。
+            //   判据 = 三处 `AddPointer(..., filterRaycast: true)` 调用点 + `GetMission` 那两颗 SO 指针
+            //   （逐条列在 `FiltersRaycast` 那张表里）⇒ 其余档一律**不过滤**（表留在上面那句清空的状态）。
+            //   🔴 「只在指针真的挂上时才过滤」= 原版 `AddPointerAction` 的语义；⛔ 别把它挪到 `Enter()` 或每帧开头
+            //   —— 简报窗盖住 / 目标不在时原版是**没有指针**、也就**没有过滤**（否则玩家点不动简报的 Continue ⇒ 软卡死）。
+            if (FiltersRaycast(def.Id, usedKind))
+                RaycastFilter.RegisterObjectAndChildrenGraphics(target.gameObject);
 
             var p = CenterPx(target);
             // 🔴 原版 `TutorialPointerData.offset`：指针根 `SetParent(target)` + `localPosition = offset`
@@ -946,6 +971,41 @@ namespace CardPresentation
         {
             var tabs = w as GameWindowWithTabs;
             return tabs != null ? tabs.CurrentTab : WindowTabType.None;
+        }
+
+        // ============================================================ 🆕 2026-10-25（账 #230）：射线过滤判据
+        //
+        // 原版哪些 `AddPointer` 带 `filterRaycast: true` —— **逐调用点实读**（⛔ 不是「整个 stage 一律过滤」）：
+        //   · `TutorialStageGetMission.cs:246`：`tutorialPointerData.filterRaycast = true`
+        //         ⇒ 第三步（任务行的 `Collect`，原版 id `CollectMissionTutorial_Challenge_0`）。
+        //     同一 stage 的两颗 SO 指针**也是 1**（`MenuTutorialStageDef.cs:229-233` 逐字节实读：
+        //     `RewardsMenuButton` / `RewardsMenu_MissionsButton`，offset 均 (0,0)、filterRaycast=1）。
+        //   · `TutorialStageGetCampaignNode.cs:361`：`AddPointer(node, offset, filterRaycast: true)`
+        //         ⇒ **只有**战役页签里那颗轨道节点（`GetTutorialTrackArmyNode(2)`）。
+        //     同一 stage 的另一颗 `claimRewardNodeButton`（`:503-506` `AddPointer(pointerData)`）走的是 SO 的
+        //     `TutorialPointerData`，而那张表（`MenuTutorialStageDef.cs:39-51`）**没有**把它记成 1 ⇒ **不过滤**。
+        //   · `TutorialStageClaimForgeFirstLevel.cs:299`：`AddPointer(claimButton, 鼠标位置, filterRaycast: true)`
+        //         ⇒ **只有**锻造格那颗 `Claim`。
+        //     同一 stage 的 `AddPointer(pointerData)`（`:186`）走 SO ⇒ 不过滤。
+        // ⇒ 结论：**过滤是「某一档目标」的属性，不是「整个阶段」的属性**。
+        //   ⛔ 别把它简化成「这三个 stage 一律过滤」：那会把 `GetCampaignNode` 的 `Unlock Button` / 页签、
+        //      `ClaimForgeFirstLevel` 的导航钮也一并禁掉 —— 一旦当拍那颗目标**不可点**（例：战役节点还没解锁），
+        //      玩家就**什么都点不了**（软卡死，且没有任何报错）。
+        //   ⚠️ 反过来「漏过滤」只是回到 #230 之前的行为（教程期能点到别的件），**不会卡死** ⇒ 拿不准时选漏。
+        static bool FiltersRaycast(MenuTutorialStageId stage, MenuTutorialTargetKind kind)
+        {
+            switch (stage)
+            {
+                case MenuTutorialStageId.GetMission:
+                    return kind == MenuTutorialTargetKind.NavRewards          // SO `RewardsMenuButton`（=1）
+                        || kind == MenuTutorialTargetKind.RewardsTabMissions  // SO `RewardsMenu_MissionsButton`（=1）
+                        || kind == MenuTutorialTargetKind.MissionClaimButton; // 代码常量（`TutorialStageGetMission.cs:246`）
+                case MenuTutorialStageId.GetCampaignNode:
+                    return kind == MenuTutorialTargetKind.CampaignTrackNode;  // `:361` filterRaycast: true
+                case MenuTutorialStageId.ClaimForgeFirstLevel:
+                    return kind == MenuTutorialTargetKind.ForgeClaimButton;   // `:299` filterRaycast: true
+            }
+            return false;
         }
     }
 }

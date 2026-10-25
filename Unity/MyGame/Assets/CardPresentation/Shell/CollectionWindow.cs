@@ -1678,7 +1678,9 @@ namespace CardPresentation
                 // 🆕 2026-10-23（`C3`）：点之前先来一下选中 punch（原版 `CollectionCard.SelectedHighlight(true)`）——
                 //   幅度/时长/vibrato/elasticity 全在原版 `.rdata`（见 `PunchCardCell` 那段判据）。
                 var cHit = AddHit(parent, "CardHit_" + i, r, QPageRow,
-                                  () => { PunchCardCell(cellT); OpenCardDetail(def); });
+                                  // 🆕 2026-10-25（R13）：原版 `CollectionDisplay<T>.Select` 的第一道闸 ——
+                                  // **列表正在被拖滚时点格子什么都不做**（判据 → `ListBusy` 的 doc）。
+                                  () => { if (ListBusy(CardsScroll)) return; PunchCardCell(cellT); OpenCardDetail(def); }, clickCue: CardClickCue);
                 AttachCardHover(cHit, v);                     // 悬停描边（原版 `CollectionCard.HoverHighlight`；徽记**不**走这条，见 `CheckFocusedArmy`）
                 BuildWatch.CellPhase("⑤ 张数条（`Rect`+`Text`）+ 命中区（`AddHit`）");
                 // 🆕 **2026-10-24（A18）**：入场动画（原版 `CollectionCard.AnimateIn`，四个参数见本节头部）。
@@ -1981,9 +1983,12 @@ namespace CardPresentation
                 //     ctor 的符号错配成 `UpgradeCardSignal___ctor`，字段 `+0x10 = item` / `+0x18 = amount`）。
                 //    ⇒ 点一张卡背开 **`Item Display Window`**（`Shell/ItemDisplayWindow.cs`，T18 建的）。
                 var cbHit = AddHit(cell, "Hit", r, QPageRow,
-                       () => WindowsManager.OpenItemDisplay(ItemDisplayWindow.ForCardback(cbName)));
+                       // 🆕 2026-10-25（R13）：同一条「列表忙就不选」（原版那道闸在 `CollectionDisplay<T>.Select`，
+                       // 四个页签共用 ⇒ 卡背页也吃它）。判据 → `ListBusy`。
+                       () => { if (ListBusy(CosmoScroll)) return;
+                               WindowsManager.OpenItemDisplay(ItemDisplayWindow.ForCardback(cbName)); });
                 // 🆕 N70 P0-5：原版 `CollectionCosmetic.HoverHighlight` = 材质颜色 alpha 0.2s 补到 1/0。
-                AttachOutlineHover(cbHit, hoverMat);
+                AttachOutlineHover(cbHit, hoverMat); DisableClickSound(cbHit);   // 原版 `Collection Cosmetic.onClickSound = null` ⇒ **不响**
                 CosmoCells.Add(cell);
             }
         }
@@ -2663,7 +2668,8 @@ namespace CardPresentation
                 _styleUsed.Add(v);
                 // 🆕 2026-10-23（`C3`）：异画格与卡池格同一颗 punch（原版同一个 `CollectionCard.SelectedHighlight`）。
                 var aHit = AddHit(parent, "AltArtHit_" + a.CardId, r, QPageRow,
-                                  () => { PunchCardCell(cellT); OpenCardDetail(card); });
+                                  // 🆕 2026-10-25（R13）：同一条「列表忙就不选」（判据 → `ListBusy`）。
+                                  () => { if (ListBusy(StyleScroll)) return; PunchCardCell(cellT); OpenCardDetail(card); }, clickCue: CardClickCue);
                 AttachCardHover(aHit, v);      // 🆕 N70 P0-5：悬停描边 0.2s（同卡牌格）
                 BuildWatch.CellPhase("⑤ 命中区（`AddHit`；本页**没有**张数条）");
                 // 🆕 **2026-10-24（A18）**：入场动画 —— 与卡池页**同一条实现**（原版两页的格子都是
@@ -4957,6 +4963,21 @@ namespace CardPresentation
 
         public void RebuildDeckCells(Transform holder)
         {
+            // ============================================================ 🆕 2026-10-25（R13 · 卡组拖拽重排）
+            // 重建 = 把旧格（连命中区）整个销毁 ⇒ **它们的拖拽登记必须先摘掉**。
+            // 原版对位：`CollectionItem<T>.OnDisable()` 把两个回调从**静态** `DragAndDropItem.OnStartDragEvent /
+            //   OnEndDragEvent` 上摘下来（`CollectionItem.cs:193`），`CollectionDisplay<T>.OnDisable()` 同理
+            //   （`CollectionDisplay.cs:582`）—— 原版是「关页才摘」，我们是「重建就摘」，因为**我们这一层
+            //   没有 cell 复用**（每趟重建都换一批 GameObject）。
+            // ⚠️ `PointerLayer.PruneDrags` 也会清「按钮已销毁」的死条目，但那是**惰性**的（下一次 `RegisterDrag`
+            //   才跑）⇒ 拖到一半被重建（滚动 / 筛选）时会留一个半死的 `DragSource`。这里显式摘一次。
+            PointerLayer.UnregisterDragsOwnedBy(holder != null ? holder.gameObject : null);
+            _deckDragLive = false; _deckDragCell = null; _deckDragFromPos = -1;
+
+            // 原版 `CollectionDisplay<T>.SetCell` 的闸（RVA 0x1815EEB64 实读，见 `DeckDragAllowed`）：
+            // `allowItemDrag && collection.Count == filteredCollection.Count` ⇒ 每格给不给拖。
+            bool dragOk = DeckDragAllowed();
+
             for (int i = holder.childCount - 1; i >= 0; i--)
             {
                 var ch = holder.GetChild(i);
@@ -4971,6 +4992,7 @@ namespace CardPresentation
             var parent = vp != null ? vp : holder;
             for (int i = parent.childCount - 1; i >= 0; i--) Object.DestroyImmediate(parent.GetChild(i).gameObject);
             DeckCells.Clear();
+            _deckCellPos.Clear();      // 🆕 R13：与 `DeckCells` 同一趟清（见那个字段的 doc）
 
             // 🔴 **2026-10-13（A435 阶段 2 · 乙 · A19）**：原来这里是一对「`Clip = DeckViewport;` → 循环 →
             //   `Clip = prevClip;`」—— **整对删掉**（状态长在 `holder/Viewport` 那颗 `ViewportClip` 上）。
@@ -4985,7 +5007,7 @@ namespace CardPresentation
                 var content = DeckCellRect(p);
                 var r = DeckScroll != null ? DeckScroll.Shift(content) : content;
                 if (DeckScroll != null && !DeckScroll.Intersects(r)) continue;
-                DeckCells.Add(BuildDeckCell(parent, idxs[p], r));
+                DeckCells.Add(BuildDeckCell(parent, idxs[p], r, p, dragOk));
             }
         }
 
@@ -5229,7 +5251,11 @@ namespace CardPresentation
         /// 但理由换了：**不是「本窗设着」，而是「节点说了算」**。
         /// ⚠️ 走这一个重载的**语义**是「用本窗的那份状态（旧路）」，要「由父链节点说了算」得改走裸重载
         /// 并显式写 `clip: null`（`MenuDraw.DeckCell` 那两处注释里有这条订正）。</summary>
-        Transform BuildDeckCell(Transform parent, int i, PxRect r)
+        /// <param name="displayPos">这一格在**本次显示序列**（= `FilteredDeckIndices()` 的下标）里的序号；
+        /// `-1` = 没有序号（不该发生，防御用）。它**总是**被记进 <see cref="_deckCellPos"/>，
+        /// 因为「拖到哪一格上」要按它算。</param>
+        /// <param name="dragOk">这一格**给不给拖**（原版 `SetCell` 那道闸，见 <see cref="DeckDragAllowed"/>）。</param>
+        Transform BuildDeckCell(Transform parent, int i, PxRect r, int displayPos = -1, bool dragOk = false)
         {
             int idx = i;                                   // ⚠️ 闭包别捕 `i`（循环变量）
             var info = CollectionData.DeckAt(i);
@@ -5257,7 +5283,7 @@ namespace CardPresentation
             //     `useSelectedHighlight=1` 的变体上才有效）⇒ 实拍里当前那一套被一整片金环糊住（`A1525⑥` 的现象）。
             //   ⚠️ 「当前是哪一套」这件事在**本页没有别处用到**（只有这里喂过 `selected`；`CollectionData.Select`
             //     那条链照旧）；高亮那一支**照旧留给弹窗**（`Shell/DeckSelectionPopup.cs:731` 传的才是真值）。
-            return MenuDraw.DeckCell(this, parent, "CollectionDeck_" + i, r, info,
+            var built = MenuDraw.DeckCell(this, parent, "CollectionDeck_" + i, r, info,
                                      false,
                                      QPageRow,
                                      // 🆕 **2026-10-17（A1529①）**：`qBelow` = 选中金环那一档（原版 `Highlight`
@@ -5267,8 +5293,22 @@ namespace CardPresentation
                                      //   缺省 = 下一个调用点静默把金环画到最顶，A1529 就是这么来的）。
                                      QPageSdf,
                                      QPageText, QPageOverlay, QPageRow,
-                                     () => SelectDeck(idx),
+                                     // 🆕 2026-10-25（R13）：同一条「列表忙就不选」（判据 → `ListBusy`）——
+                                     // 原版这一句在**基类** `CollectionDisplay<T>.Select` 里，四个页签共用。
+                                     () => { if (ListBusy(DeckScroll)) return; SelectDeck(idx); },
                                      gameMode: info.GameMode);   // `DeckInfo` 是 **struct** ⇒ 没有 null 那一档
+
+            // ============================================================ 🆕 2026-10-25（R13 · 拖拽重排）
+            // 🔴 **只有 Deck 页能拖** —— 原版 `Collection Display` 三份 prefab 里**只有这一份**
+            // `allowItemDrag = 1`（`bundle_menus_assets_all` 的 8 份 MB 实读：`MonoBehaviour_3428528622247862997`
+            // = 1，其余 7 份 = 0；本页那一份的 `m_GameObject` = 4855765916858770133）。
+            // 闸在**调用点**（`dragOk` 由 `RebuildDeckCells` 算好传进来），不在本函数里再判一次。
+            if (displayPos >= 0)
+            {
+                _deckCellPos[built] = displayPos;      // 「拖到哪一格上」按它算（⛔ 不是 `DeckCells` 下标）
+                if (dragOk) AttachDeckDrag(built, displayPos);
+            }
+            return built;
         }
 
         /// <summary>点一格卡组：**选中 + 开 `Deck info Popup`**（2026-09-23 起 —— 那扇窗建好了）。
@@ -5931,6 +5971,355 @@ namespace CardPresentation
                 GlyphsAtBegin = GlyphsAtEnd = CharsAtBegin = CharsAtEnd = -1;
                 BuildMs = -1.0;
             }
+        }
+
+        // ============================================================ 🆕 2026-10-25（R13 · 完全复刻批次 2）
+        //   收藏「卡组页」的 **列表拖拽重排** —— 原版 12 个方法的落地。
+        //   判据（唯二）→ `资料/完全复刻/判据/收藏_未读132条_第2轮.md` §二·1（`CollectionItem<T>` 8 条）/
+        //   §二·2（`CollectionDisplay<T>` 4 条）/ §三（施工序）；反汇编实读 → 报告 `R8_收藏未读_第2轮.md` §五。
+        //
+        //   ## 原版三件（缺一不可）
+        //     ① **输入** `DragAndDropItem`：按下记 parent + 把 ghost 摆到原 siblingIndex、本体 `SetParent(root)` 跟指针
+        //        （`DragAndDropItem__OnBeginDrag.c` / `__OnDrag.c`）；松手找**最近的兄弟**再
+        //        `SetSiblingIndex(nearest + 1)`，然后调**静态** `OnEndDragEvent(transform)`（`__OnEndDrag.c` 尾段，RVA 级实读）。
+        //     ② **算法** `CollectionDisplay<T>.ReorderCollectionByHierarchy`：`siblingIndex = target.GetSiblingIndex()` →
+        //        取 `siblingIndex-1` 那个兄弟（不是 CollectionItem 就再退一格、offset=1）→
+        //        `newIndex = offset + filteredCollection.IndexOf(prev.Item)` → `Remove` → `Insert` →
+        //        存 `normalizedPosition` → `ReloadData()` → 还回去。
+        //        （RVA `0x15ED470` 逐条实读；`decomp_full` 里这一族**没有产物**，cpp2il 版本把 List 调用全丢了。）
+        //     ③ **落盘** `DeckCollectionDisplay.SaveDeckOrder`：`collection` 与 `filteredCollection` **逐格比引用**，
+        //        只要有一格不同 ⇒ `DeckInventory.UpdateOrder(filteredCollection)`；**两张表长度不等就直接 return**
+        //        （RVA `0x1806E0000` 实读：`cmp [rcx+0x18],[rax+0x18]` 不等就跳到收尾 `ret`）。
+        //        调用点 = `DeckCollectionDisplay.OnDisable`（RVA `0x1806DFFB0` 末句 `jmp 0x1806E0000` = **尾调**）。
+        //
+        //   ## 我们这三件的对位（①②③ 的**前置件今天都已就绪**，本段只做接线 + 数据算法）
+        //     ① `Shell/PointerLayer.cs:313 RegisterDrag(btn, onDrag, onDrop)`（2026-10-25 落地，
+        //        「可拖件优先于滚动区」+ 越过 `DragThreshold`=10 才算拖、拖过就**不派发 onClick**）。
+        //     ② `DeckDropTargetPos`（最近的另一格）+ `MoveDeckInOrder`（Remove/Insert 到库序里）。
+        //        滚动位置那一半**天然满足**：我们的 `RebuildDeckCells` 不碰 `MenuScroll.Offset`（只按新序重摆），
+        //        与原版「存 `normalizedPosition` → ReloadData → 还回去」等价。
+        //     ③ `RuleEngine/Data/DeckLibrary.cs:297 UpdateOrder(IList<string>)`（2026-10-25 落地：按名重排 +
+        //        `_current` 跟人走 + 尾句 `return Save();`）。
+        //
+        //   ## 🔴 两处**如实偏离**（架构不同，不是漏做；R13 报告里有逐条交代）
+        //     ⓐ **落盘时机**：原版把重排先只落在视图上、**等离页（`OnDisable`）才写盘**。我们**松手即写**。
+        //        原因：`DeckLibrary` **没有**「只改内存不落盘」的口（`UpdateOrder` 尾句就是 `return Save();`），
+        //        而它在 `Assets/RuleEngine/**`（本批白名单外，`E1`/`R11` 正在那边写）。
+        //        可观测差别只有「写文件的时刻」；玩家看到的顺序一致 ⇒ 改动请求见报告 §六。
+        //     ⓑ **拖起来那一格**：原版 `SetParent(root)` 跳出裁切/层级 + 原位留 ghost。我们是**绝对摆位网格**
+        //        （没有 LayoutGroup ⇒ 原位不会被挤掉，不需要 ghost）⇒ **不 reparent**，只把它抬到
+        //        `QPageRow + DeckDragQueueBoost`（高过本页页头与筛选栏 3044、仍低于弹窗那一段 3100+），
+        //        免得同一队列下被邻格盖住（本工程透明件的层**靠 `SetRenderQueue`、不靠 z**）。
+        //        ⚠️ 因此**拖到视口外不会被裁**（原版会）—— 如实记，没有装作复刻了。
+
+        /// <summary>拖起来那一格抬多少队列。值 = **3044（`QFltHit`，本页最高的筛选栏）之上、3100（弹窗那一段）之下**
+        /// —— ⛔ 别抬到 3100+：那会盖到随后弹出来的 `Deck info Popup` 上。</summary>
+        public const int DeckDragQueueBoost = 20;
+
+        /// <summary>正在被拖的那一格（`null` = 没在拖）。重建时会被清空（见 `RebuildDeckCells` 头部）。</summary>
+        Transform _deckDragCell;
+        /// <summary>起拖前那一格的 `localPosition`（位移的**基准**；松手后一律重建 ⇒ 不需要单独还原）。</summary>
+        Vector3 _deckDragHomeLocal;
+        /// <summary>起拖那一帧的指针（`PointerLayer` 给的**设计帧 px**，见 `RegisterDrag` 的 doc）。</summary>
+        Vector2 _deckDragPressPx;
+        /// <summary>起拖时它在**显示序列**里的序号（= `FilteredDeckIndices()` 的下标）。</summary>
+        int _deckDragFromPos = -1;
+        /// <summary>🔴 **格子 → 显示序号**。⛔ 别拿 `DeckCells.IndexOf` 当序号 —— `RebuildDeckCells` 会
+        /// **跳过视口外的格子**（`!DeckScroll.Intersects(r) ⇒ continue`）⇒ 滚到第二屏时
+        /// `DeckCells[0]` 是**第 12 个**显示序号，两者只在「一屏装得下」时相等。
+        /// 每趟重建清空重填（与 `DeckCells` 同一趟、同一批格子）。</summary>
+        readonly Dictionary<Transform, int> _deckCellPos = new Dictionary<Transform, int>();
+        /// <summary>`CollectionItem&lt;T&gt;.listenToPointerEvents` 的等价物 —— 原版 `OnStartDragEvent` 置 false、
+        /// `OnEndDragEvent` 置 true（RVA `0x54B310` = `c6 41 40 00` / `0x15F2950` = `c6 41 40 01`）。
+        /// <para>⚠️ 我们**不是在格子上再挂一层闸**：本工程没有 uGUI 事件，点击/悬停都走 `PointerLayer`，
+        /// 而它「拖起来过 ⇒ 抬起不派发 `onClick`」已经把这一条吃掉了；悬停那一半另有 `HoverSuppressed`
+        /// （鼠标主键按住 = 可能有拖拽）。本字段只作**状态读口**给自检与诊断用。</para></summary>
+        bool _deckDragLive;
+        static bool _deckDragNoPointerWarned;
+
+        /// <summary>自检读口：正在拖吗（= 原版 `CollectionItem.listenToPointerEvents == false` 的等价态）。</summary>
+        public bool DeckDragActive { get { return _deckDragLive; } }
+        /// <summary>自检读口：这一趟从哪个显示序号起拖（`-1` = 没在拖）。</summary>
+        public int DeckDragFromPos { get { return _deckDragFromPos; } }
+        /// <summary>自检读口：一格在**当前显示序列**里的序号（不在这一趟里 ⇒ −1）。</summary>
+        public int DeckCellDisplayPos(Transform cell)
+        {
+            int p;
+            return cell != null && _deckCellPos.TryGetValue(cell, out p) ? p : -1;
+        }
+
+        /// <summary>原版 `CollectionDisplay&lt;T&gt;.Select(collectable, button)` 的**第一道闸**：
+        /// **列表正在被拖动时，点格子什么都不做**。
+        /// <para>判据（RVA `0x1815ED9C0` 反汇编前 8 条，实读）：
+        /// `mov rax,[this+0x20]`（= `listView`）→ `cmp byte [rax+0x18a], 0` → `jne 收尾`。
+        /// `+0x18A` = `RecyclableScrollRect.Dragging`（`d:/2/tools/il2cpp_out/dump.cs:120852`），
+        /// 它的**全部**写入点只有两处：`OnBeginDrag` 置 1 / `OnEndDrag` 置 0
+        /// （`decomp_full/PolyAndCode.UI.RecyclableScrollRect__OnBeginDrag.c`、`__OnEndDrag.c` 各一行）
+        /// ⇒ 语义 = **「按着列表在拖」这一段**，⛔ **不含惯性滑行**（松手那一刻它已经是 0）。</para>
+        /// <para>我们的等价物 = `MenuScroll.Dragging`（`m_Dragging`，同一条 Begin/End 语义）。</para>
+        /// <para>⚠️ 真指针那条路上这条已经被 `PointerLayer` 吃掉了（拖起滚动区 ⇒ 抬起**不派发** `onClick`）；
+        /// 这里补的是**同一句原版行为**：程序化 `Click()` / 自检直调在拖动途中也照样被挡住
+        /// （⛔ 别因为「真输入碰不到」就删 —— 原版这一句在基类，四个页签共用）。</para></summary>
+        static bool ListBusy(MenuScroll s) { return s != null && s.Dragging; }
+
+        /// <summary>原版 `DeckCollectionTab.GetCollection()` 的等价物：**只过「模式」那一道筛**的那一份（库序；
+        /// `_deckModeFilter &lt; 0` ⇒ 全部）。
+        /// <para>🔴 为什么必须单列一份：原版那张**权威表** `collection`(`+0x50`) 收的就是 `GetCollection()` 的结果 ——
+        /// **已经按当前 liveops 事件（= 我们的 `_deckModeFilter`）筛过**；名字 / 阵营那两道才是
+        /// `filteredCollection`(`+0x58`) 做的。`SetCell` 的闸比的是**这两张表**的长度
+        /// ⇒ **模式筛不算「有筛选」**（选了模式照样能拖）。</para>
+        /// <para>⚠️ **本轮自查抓到的**：第一版直接拿 `CollectionData.DeckCount()`（= 全库）去比，
+        /// 而生产流程「进 Deck 页 ⇒ 先出模式页 ⇒ 点一张模式卡」**必然**设上 `_deckModeFilter`
+        /// （`ChooseDeckMode:4557`）⇒ 那样写等于**整个功能在默认流程里永远关着**。</para></summary>
+        List<int> BaseDeckIndices()
+        {
+            var list = new List<int>();
+            int n = CollectionData.DeckCount();
+            for (int i = 0; i < n; i++)
+            {
+                if (_deckModeFilter >= 0 && CollectionData.DeckAt(i).GameMode != _deckModeFilter) continue;
+                list.Add(i);
+            }
+            return list;
+        }
+
+        /// <summary>原版 `CollectionDisplay&lt;T&gt;.SetCell` 里那道闸 —— **能不能拖，只此一处判**。
+        /// <para>判据（RVA `0x1815EEB64`，反汇编逐条）：`cmp byte [this+0x49], 0`（= `allowItemDrag`）
+        /// ⇒ 非 0 才比 `collection.Count`(`+0x50`) 与 `filteredCollection.Count`(`+0x58`)，
+        /// **相等**时才 `GetComponent&lt;DragAndDropItem&gt;(cell).Initialize(父 ScrollRect)` + `Toggle(true)`；
+        /// 否则 `Toggle(false)`。</para>
+        /// <para>⇒ **原版：有「名字 / 阵营」筛选时格子根本不可拖**（两张表长度不等）。
+        /// 我们照抄这一条，比较基准是 <see cref="BaseDeckIndices"/>（= 模式筛之后，**不含**名字/阵营筛）。</para>
+        /// <para>`allowItemDrag` 那一半我们在**调用点**表达（只有 Deck 页调 `AttachDeckDrag`；
+        /// 原版三份 prefab 里也只有 Deck 那一份是 1，见 `BuildDeckCell` 尾部那段出处）。</para></summary>
+        bool DeckDragAllowed()
+        {
+            var baseIdx = BaseDeckIndices();
+            if (baseIdx.Count < 2) return false;               // 一格没有「前后」可言
+            return FilteredDeckIndices().Count == baseIdx.Count;
+        }
+
+        /// <summary>把一格挂成可拖件（原版 `CollectionItem&lt;T&gt;.OnEnable` 里往**静态**
+        /// `DragAndDropItem.OnStartDragEvent / OnEndDragEvent` 上挂的两个回调 —— 我们按格登记，
+        /// 两个回调在同一处给齐，等价）。
+        /// <para>⚠️ `PointerLayer` 不在时**只出声一次**（每格一条会把日志刷满，而那是「环境没建」不是「这一格有错」）。</para></summary>
+        void AttachDeckDrag(Transform cell, int displayPos)
+        {
+            if (cell == null || displayPos < 0) return;
+            if (PointerLayer.Instance == null)
+            {
+                if (!_deckDragNoPointerWarned)
+                {
+                    _deckDragNoPointerWarned = true;
+                    Debug.LogWarning("[Collection] `PointerLayer` 不在 ⇒ Deck 页的**卡组拖拽重排不会发生**"
+                                     + "（先 `PointerLayer.Ensure()`；出声一次，不静默）");
+                }
+                return;
+            }
+            var wb = cell.GetComponentInChildren<WindowButton>(true);
+            if (wb == null) return;                             // 整格被视口裁没了（`MenuDraw.DeckCell` 不建 `Hit`）
+            PointerLayer.RegisterDrag(wb,
+                pos => DeckDragMove(cell, displayPos, pos),
+                pos => DeckDragDrop(cell, displayPos, pos));
+        }
+
+        /// <summary>原版 `DragAndDropItem.OnDrag`（跟指针）+ `CollectionItem` 的 `OnBeginDrag/OnDrag` 转发。
+        /// <para>`pos` = `PointerLayer` 给的**设计帧 px**（父链缩放还留着，见 `RegisterDrag` 的 doc）；
+        /// 我们只取**相对起拖点的位移**，再换回设计单位（`Δdesign = Δpointer / k`，按画布中心为不动点 ——
+        /// 判据 = `MenuDraw.PointerFramePxFromDesign` 那条恒等式 `pointer = C + (design − C)·k`）。</para></summary>
+        void DeckDragMove(Transform cell, int displayPos, Vector2 pos)
+        {
+            if (cell == null) { _deckDragLive = false; return; }
+            // ⚠️ `_deckDragCell != cell` 也当成「新的一趟」：万一上一趟没收尾（重建 / 断线），
+            //    不能让这一趟去拖上一趟那一格的位移。
+            if (!_deckDragLive || _deckDragCell != cell)
+            {
+                _deckDragLive = true;
+                _deckDragCell = cell;
+                _deckDragHomeLocal = cell.localPosition;
+                _deckDragPressPx = pos;
+                _deckDragFromPos = displayPos;
+                // 原版在这一刻 `SetParent(root)`（⇒ 画在最上）；我们不 reparent ⇒ 用队列做等价（见本节头注释 ⓑ）。
+                var quads = cell.GetComponentsInChildren<ImageQuad>(true);
+                for (int i = 0; i < quads.Length; i++)
+                    if (quads[i] != null) quads[i].SetRenderQueue(quads[i].RenderQueue + DeckDragQueueBoost);
+            }
+            cell.localPosition = _deckDragHomeLocal + DeckDragDesignDelta(pos - _deckDragPressPx, cell.parent);
+        }
+
+        /// <summary>指针位移（**指针帧 px**）→ 本格的 `localPosition` 位移（**设计单位**）。
+        /// <para>两跳：① 除回父级 `lossyScale`（`pointer = C + (design − C)·k` 的逆，逐分量）；
+        /// ② 设计 px → 设计世界（`LayoutSpace.FromPixel` 的**差**，⛔ 不用绝对值 —— 那个映射的零点不在原点，
+        /// 差才是位移）。</para>
+        /// <para>⚠️ 退化：`k` 非有限 / ≈0 ⇒ 该分量按 1（同 `MenuDraw.ScaleAboutPx` 的守卫）。</para></summary>
+        static Vector3 DeckDragDesignDelta(Vector2 pointerDelta, Transform parent)
+        {
+            var k = parent != null ? parent.lossyScale : Vector3.one;
+            float dx = (float.IsNaN(k.x) || float.IsInfinity(k.x) || Mathf.Abs(k.x) < 1e-6f)
+                       ? pointerDelta.x : pointerDelta.x / k.x;
+            float dy = (float.IsNaN(k.y) || float.IsInfinity(k.y) || Mathf.Abs(k.y) < 1e-6f)
+                       ? pointerDelta.y : pointerDelta.y / k.y;
+            return LayoutSpace.FromPixel(dx, dy) - LayoutSpace.FromPixel(0f, 0f);
+        }
+
+        /// <summary>原版 `DragAndDropItem.OnEndDrag` 的**落点算法**：在（没被拖走的）兄弟里找**离指针最近**的那一格。
+        /// <para>判据（`DragAndDropItem__OnEndDrag.c` 实读）：`minDist = float.MaxValue`，
+        /// 逐个 `content.GetChild(i)` 算 `Vector3.Distance(child.position, this.transform.position)`，
+        /// 取最近者 `best`，然后 `SetSiblingIndex(best + 1)`；随后 `ReorderCollectionByHierarchy` 用
+        /// `siblingIndex − 1`（= `best`）那格的 `Item` 反查下标 ⇒ **等价于「插到最近那一格的位置上」**。</para>
+        /// <para>⚠️ 原版那一刻「本体」已经 reparent 到 root、不在 `content` 的兄弟里；我们**不 reparent**，
+        /// 所以这里必须**显式跳过自己**（`c == dragged`）—— 否则最近的一定是它自己（距离 0）。</para>
+        /// <para>🔴 遍历的是 <see cref="_deckCellPos"/>（格子 → **显示序号**），⛔ 不是 `DeckCells` 的下标：
+        /// 视口外的格子**根本没建**（`RebuildDeckCells` 会 `continue`）⇒ 两个下标只在「一屏装得下」时相等。</para></summary>
+        int DeckDropTargetPos(Transform dragged)
+        {
+            int best = -1;
+            float bestSq = float.MaxValue;
+            Vector3 p = dragged != null ? dragged.position : Vector3.zero;
+            foreach (var kv in _deckCellPos)
+            {
+                var c = kv.Key;
+                if (c == null || c == dragged) continue;
+                float d = (c.position - p).sqrMagnitude;
+                if (d < bestSq) { bestSq = d; best = kv.Value; }
+            }
+            return best;
+        }
+
+        /// <summary>原版 `CollectionDisplay&lt;T&gt;.OnEndDragEvent` + `ReorderCollectionByHierarchy` 的落地。
+        /// <para>原版首句是 `if (gameObject.activeInHierarchy) ReorderCollectionByHierarchy(target)` ——
+        /// 我们这里 `cell == null`（重建过 / 已销毁）就是「不在场」那一档。</para></summary>
+        void DeckDragDrop(Transform cell, int displayPos, Vector2 pos)
+        {
+            var dragged = _deckDragCell != null ? _deckDragCell : cell;
+            int from = _deckDragLive ? _deckDragFromPos : displayPos;
+            bool wasLive = _deckDragLive;
+            _deckDragLive = false;
+            _deckDragCell = null;
+            _deckDragFromPos = -1;
+            if (dragged == null) return;
+
+            int to = DeckDropTargetPos(dragged);
+            // 位置没变（拖了一点点又放回原处）⇒ **不动数据**，只把这一格挪回原位、队列靠重建还原。
+            if (wasLive && to >= 0 && to != from) MoveDeckInOrder(from, to);
+            // ⚠️ **无论变没变都重建一趟**：这一趟把「拖起来的 `localPosition`」「抬高的渲染队列」一起还原
+            //   （原版靠 `SetParent(content)` + `SetSiblingIndex` + `ReloadData` 收这个尾）。
+            RebuildDeckListNow();
+        }
+
+        /// <summary>把显示序第 <paramref name="fromPos"/> 格挪到第 <paramref name="toPos"/> 格的位置上，
+        /// 并**落盘**（原版 `DeckInventory.UpdateOrder`）。
+        /// <para>算法照 `ReorderCollectionByHierarchy`（RVA `0x15ED470` 实读）：新下标取自**目标格在移动前的**下标
+        /// ⇒ `Remove(from)` 之后直接 `Insert(to)`（移动前 `to` 那格的槽位，移除后正好前移一格给它）。</para>
+        /// <para>⚠️ **按名重排**（`DeckLibrary.UpdateOrder` 的口）：我们没有 `deckId`，`PlayerDeck` 只有 `Name`
+        /// （老账见 `Shell/CollectionData.cs` 文件头）⇒ 同名卡组有歧义，`UpdateOrder` 自己会出声。</para></summary>
+        /// <returns>真的写进库并落盘了吗。</returns>
+        bool MoveDeckInOrder(int fromPos, int toPos)
+        {
+            var baseIdx = BaseDeckIndices();
+            // 拖拽只可能在「显示序 == 模式筛之后的全序」时发生（见 `DeckDragAllowed`）；
+            // 不满足 ⇒ 位置语义对不上库序，**不做**（出声，不静默改错顺序）。
+            if (FilteredDeckIndices().Count != baseIdx.Count)
+            {
+                Debug.LogWarning("[Collection] 卡组拖拽重排被跳过：当前有名字/阵营筛选 ⇒ 显示序与库序对不上"
+                                 + "（原版 `SetCell` 在两张表长度不等时根本不给拖）");
+                return false;
+            }
+            if (fromPos < 0 || fromPos >= baseIdx.Count || toPos < 0 || toPos >= baseIdx.Count) return false;
+            if (fromPos == toPos) return false;
+
+            int n = CollectionData.DeckCount();
+            var names = new List<string>(n);
+            for (int i = 0; i < n; i++)
+            {
+                var d = CollectionData.Raw(i);
+                names.Add(d != null ? (d.Name ?? "") : "");
+            }
+            // 🔴 **只重排模式筛那一段**（`baseIdx` 那些槽位）；别的模式的卡组**留在原位**。
+            //   原版是 `UpdateOrder(filteredCollection)`（只把这一组交给背包）—— 我们这份 `UpdateOrder`
+            //   按名字摆整张表，所以必须**自己把非本组的那几格钉回原位**，否则它们会被挤走
+            //   （那会是一次「拖一格动全库」的静默破坏）。⚠️ 这是对齐原版**结果**的补丁，不是原版写法。
+            var baseNames = new List<string>(baseIdx.Count);
+            for (int k = 0; k < baseIdx.Count; k++) baseNames.Add(names[baseIdx[k]]);
+            string moved = baseNames[fromPos];
+            baseNames.RemoveAt(fromPos);
+            baseNames.Insert(toPos, moved);          // 新下标 = 目标格**移动前**的序号（同原版 Remove/Insert）
+            for (int k = 0; k < baseIdx.Count; k++) names[baseIdx[k]] = baseNames[k];
+
+            // 🔴 **落盘走 `CollectionData.ReorderDecks`（= 原版 `DeckInventory.UpdateOrder` 的薄口）**。
+            //   2026-10-25（`R17`）收掉了 `R13` 那条绕路（`DeckLibrary.Load()` → `UpdateOrder` → `InvalidateLibrary`）：
+            //   绕路会**重读一次盘**、丢掉 `CollectionData` 的进程级缓存 ⇒ 将来有人在内存里改了卡组**没落盘**时它会丢。
+            //   薄口直接改缓存那一份（`DeckLibrary.UpdateOrder` 原地改 `_decks` 后 `return Save()`）⇒ 顺序当场就是新的，
+            //   `RebuildDeckCells` 不必再作废缓存就画得对；失败原因由 `ReorderDecks` 写进 `LastReorderError`（⛔ 别在这里再拼一遍）。
+            if (!CollectionData.ReorderDecks(names))
+            {
+                Debug.LogWarning("[Collection] 卡组拖拽重排失败（是哪一种看 `LastReorderError`，⛔ 别在这里再判一遍）："
+                               + CollectionData.LastReorderError);
+                return false;
+            }
+            // ⚠️ 成功那一支的日志在下面（那两行没动；失败那一支的人话由 `ReorderDecks` 负责）。
+            Debug.Log("[Collection] 卡组拖拽重排：「" + moved + "」→ 第 " + (toPos + 1) + " 格"
+                      + "（本组 " + baseIdx.Count + " 套，" + fromPos + " → " + toPos + "）");
+            return true;
+        }
+
+        /// <summary>自检口：直接走一次「把显示序第 `fromPos` 格挪到 `toPos`」（不经过指针层）。
+        /// ⚠️ 仅供 `Editor/CollectionScene.cs` 断言用；生产路径一律走 `AttachDeckDrag` 那条真指针链。</summary>
+        public bool DeckMoveForTest(int fromPos, int toPos) { return MoveDeckInOrder(fromPos, toPos); }
+
+        // ============================================================ 🆕 **2026-10-25（执行代理 `R17`）**：收藏格点击音 + 拖拽自检口
+        //
+        // 判据（`R13` §七·1 / §七·3 已查好，本轮只**落地**、不重查；cue→clip 那一跳本轮亲核）：
+        //   · `Collection Card`（GO `-3932997974561655464`）`onClickSound` = pid `604076303329428464`
+        //     ⇒ **`CardClick 1`**（`clipList` 唯一一条 = `UI Select Toggle` · pitch 0.8–1.1 · vol 1–1 · ttp 0.1）。
+        //     ⚠️ 它与 `ButtonClick` **共用同一个 clip**，差别只在 pitch ⇒ ⛔ 别把两条 cue 合并（那会把随机 pitch 弄丢）。
+        //   · `Collection Cosmetic`（GO `-586895015824482954`）= **null** ⇒ 卡背格**不响**（`playClickSound = false`）。
+        //   · `Collection Deck` 那一条**不在这里**：卡组格只有一个画法（`MenuDraw.DeckCell`），
+        //     cue 常量落在 `MenuDraw.DeckCellClickCue`（⛔ 别在这儿再抄一遍 —— 两处写同一条规则 = 迟早不一致）。
+
+        /// <summary>卡池格 / 异画格的点击音（原版 `CollectionItem.onClickSound` 的 `Collection Card` 那一档）。
+        /// 🔴 **为什么这个常量在本文件、而不在 `Shell/WindowSounds.cs`**：本轮 `R17` 的白名单**不含**
+        /// `WindowSounds.cs` ⇒ 先落在**唯一使用点**（`RebuildCardsCells` / `RebuildStyleCells` 两处 `AddHit`）。
+        /// 将来要把壳侧 cue 收口到那张「唯一一张表」，**只需搬这一行**（值不许改）。</summary>
+        public const string CardClickCue = "CardClick 1";
+
+        /// <summary>把一颗命中区的按钮音**关掉**（原版 `Collection Cosmetic.onClickSound = null` ⇒ 卡背格不响）。
+        /// <para>⚠️ 走「建完再改」而不是给 `MenuDraw.Hit` 加形参：`Hit` 是**共用件**、本轮不扩它的签名
+        /// （`DeckCell` 那两个尾参是另一回事 —— 它自己建 `WindowButton`）。`null` / 视口外
+        /// （`Hit` 整块在视口外时**连节点都不建**、返回 null）一律安全早退。</para></summary>
+        static void DisableClickSound(Transform hit)
+        {
+            if (hit == null) return;
+            var wb = hit.GetComponent<WindowButton>();
+            if (wb != null) wb.playClickSound = false;
+        }
+
+        /// <summary>按**显示序号**取这一格。判据 = <see cref="_deckCellPos"/>（⛔ 不是 `DeckCells` 的下标：
+        /// 视口外的格子根本没建 ⇒ 两个下标只在「一屏装得下」时相等，见那个字段的 doc）。</summary>
+        Transform DeckCellAtDisplayPos(int displayPos)
+        {
+            foreach (var kv in _deckCellPos)
+                if (kv.Value == displayPos && kv.Key != null) return kv.Key;
+            return null;
+        }
+
+        /// <summary>自检口：走**真的落点算法 + 真的落盘 + 真的重建**那一段（`DeckDragDrop`），
+        /// 只省掉 `PointerLayer` 的 press/move/release 派发（那一层要真鼠标 + 帧循环，批处理里都没有）。
+        /// <para>做法（= 玩家那一趟的可观测等价）：起拖（`DeckDragMove` 记 home / 抬渲染队列）→
+        /// 把这一格摆到**目标格的中心**（「指针压在目标格上」那一瞬）→ `DeckDragDrop`
+        /// （`DeckDropTargetPos` 找最近 ⇒ `MoveDeckInOrder` ⇒ `RebuildDeckListNow`）。</para>
+        /// <para>⚠️ **如实记**：**不覆盖** `PointerLayer.Update` 那两条（10px 起拖阈值 · 拖过就不派发 `onClick`）
+        /// —— 它们的判据在 `Shell/PointerLayer.cs`（本轮不在白名单）⇒ 真机验法见 `R17` 报告 §四。</para></summary>
+        /// <returns>两格都建着（在视口内）并跑完那一趟 ⇒ true。</returns>
+        public bool DeckDragDropForTest(int fromPos, int toPos)
+        {
+            var from = DeckCellAtDisplayPos(fromPos);
+            var to = DeckCellAtDisplayPos(toPos);
+            if (from == null || to == null) return false;
+            DeckDragMove(from, fromPos, Vector2.zero);      // 起拖：记 `_deckDragHomeLocal` / `_deckDragPressPx`
+            from.position = to.position;                    // = 指针落在目标格中心（落点算法取最近格）
+            DeckDragDrop(from, fromPos, Vector2.zero);      // 真落点 + 真落盘 + 重建
+            return true;
         }
     }
 

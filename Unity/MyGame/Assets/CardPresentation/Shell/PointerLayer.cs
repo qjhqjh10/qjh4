@@ -1568,6 +1568,16 @@ namespace CardPresentation
             float bestZ = float.MaxValue;
             foreach (var c in CollectHits(px, py))
             {
+                // 🆕 2026-10-25（账 #230 · `CustomRaycaster.Raycast`）：**教程期的点击过滤**。
+                //   原版 `CustomRaycaster.Raycast` = `base.Raycast(...)` 之后
+                //   `RaycastFilter.FilterRaycastResults(resultAppendList)` —— 也就是**射线结果表在排序/取最上面之前**
+                //   被 `RemoveAll` 剪掉（`cpp2il/.../CustomRaycaster.cs:7-11` · `RaycastFilter.cs:115-161`）。
+                //   本函数就是那张「射线结果表」的等价物（`CollectHits` 的候选 → 下面按 队列/z/层级 取赢家）
+                //   ⇒ 剪枝必须在**进 `take` 判据之前**：剪晚一步，被禁的件就会先赢下 `best`、再被跳过 = 什么都不响。
+                //   ⚠️ 两个 GameObject 都传（按钮根 + 真正被射到的那颗 `ImageQuad`），理由 → `RaycastFilter.AllowsHit`。
+                //   ⚠️ 表空 ⇒ `AllowsHit` 恒真（原版「空表 = 不过滤」），所以**非教程期这一句是零影响**。
+                //   判据全文 → `资料/完全复刻/报告/E6_N10五条+未分类_第2轮.md` §③·3 请求 1。
+                if (!RaycastFilter.AllowsHit(c.btn.gameObject, c.q.gameObject)) continue;
                 var q = c.q; float z = q.transform.position.z;
                 bool take;
                 if (best == null) take = true;

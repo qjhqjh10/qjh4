@@ -94,11 +94,19 @@ namespace CardPresentation
         const int QCellBase = 3210;        // 奖杯格那一带的起点（页带 3200–3209 之后、聊天窗 3300 之前）
         const int QCellStride = 6;         // 一格 6 个号（= 格内那 6 层）
         const int QCellMax = 15;           // 带子装得下的格数 = 5 列 × 3 排（见上面那道几何推导）
-        // 格内阶梯（**一格内**的偏移，0 最底、5 最上）：
-        const int LC_Ring = 0;             // `Collectable Highlight`（最底：只露格子外那一圈）
-        const int LC_Back = 1;             // 格子底板 `bg`
-        const int LC_Slot = 2;             // `ProgressBar>Background`（槽底）
-        const int LC_End = 3;              // `Fill>end`（端帽）
+        // 格内阶梯（**一格内**的偏移，-1 最底、5 最上）：
+        // 🔴 **2026-10-25（E4 · 账 88④ 进度条填充）**：**7 层塞进 6 号** —— 阶梯整体下移一格，
+        //   把 `LC_Ring` 放到 `-1`：第 0 格那一号 = `3210 - 1 = 3209`，正好是本页带
+        //   （`QBandMember` = 3205–3209）**唯一没被用掉的那一个**（`L_Panel..L_Text` 只吃到 3208）。
+        //   换来 `LC_Fill` 这一层（原版兄弟序 `槽底 < Fill < end`，三者两两重叠 ⇒ **必须各占一个号**）。
+        //   ⚠️ 代价（如实记）：相邻两格现在**共享一个号** —— 第 i 格的 `LC_Text`(5) 与第 i+1 格的
+        //   `LC_Ring`(-1) 同号（都是 `3210+6i+5`）。两者**几何不重叠**（Ring 只画格沿外一圈 52px 描边、
+        //   Text 在格内 y+237 起）⇒ 同号只在「万一」时才有意义；⛔ 别再往下挪（`-2` 就会撞 `L_Text`=3208）。
+        const int LC_Ring = -1;            // `Collectable Highlight`（最底：只露格子外那一圈）
+        const int LC_Back = 0;             // 格子底板 `bg`
+        const int LC_Slot = 1;             // `ProgressBar>Background`（槽底）
+        const int LC_Fill = 2;             // `Fill Area>Fill`（进度填充；🆕 2026-10-25 新增）
+        const int LC_End = 3;              // `Fill>end`（端帽，钉在 Fill 的**右**边、跟着填充头走）
         const int LC_Frame = 4;            // `ProgressBar>Outline`（描边，压 `end`）
         const int LC_Text = 5;             // `title` / `counter`（字压一切；`Hit` 仍用 `L_Hit`：透明区不吃层序）
         /// <summary>一格占的那一段带里的**第 `layer` 层号**。`builtIndex` = **建出来的第几格**（⛔ 不是 `n` 的下标）。</summary>
@@ -437,15 +445,17 @@ namespace CardPresentation
 
         // ---------------------------------------------------------- `TrophiesWindow`（`AllianceTrophiesView`）
 
-        /// <summary>联盟奖杯页。⚠️ **两个标题用的就是 prefab 里的字面样例串**
-        /// （`Featured: Trophy Name` / `45 Trophies Achieved!` —— 都是资产里的真字符串，不是我们编的）；
+        /// <summary>联盟奖杯页。两个标题：有数据时走**官方词条**（`Trophies/CurrentFeatured` 与
+        /// `Trophies/Count{,/Singular}`，判据 = `AllianceTrophiesView.Draw` 那三处 `GetTranslation`）；
+        /// 没有数据时退回 prefab 里的字面样例串（`Featured: Trophy Name` / `45 Trophies Achieved!`
+        /// —— 那两条都是资产里的真字符串，不是我们编的）。⇒ 见 `FeaturedTrophyText` / `TrophyCountText`。
         /// 奖杯行是 `TrophyDisplay`（`Item Drawer` 里的一个，运行期按数量生成）。
         /// 🔴 这一支**本地走不到**（见文件头 ①）⇒ 我们只把**看得见的骨架**照建。</summary>
         void BuildTrophies(Transform root)
         {
             var nm = Node(root, "CurrentActiveBadge Name",
                           new PxRect(598.41f, 217.39f, 1493.50f, 267.22f));
-            Text(nm, new PxRect(598.41f, 217.39f, 1493.50f, 267.22f), "Featured: Trophy Name",
+            Text(nm, new PxRect(598.41f, 217.39f, 1493.50f, 267.22f), FeaturedTrophyText(),
                  Color.white, "Text", 50f, L_Text, 12f, wrap: false, alignLeft: true);   // A319 #2（原版 `Left`(1)）· 原版 `折行=0`（判据见 `Toggle` 那段）
             var cnt = Node(root, "CurrentActiveBadge Count",
                            new PxRect(597.94f, 267.62f, 1504.44f, 318.73f));
@@ -720,26 +730,42 @@ namespace CardPresentation
 
             // `Fill Area` > `Fill`（原版出厂宽 **0** —— `Slider.value` 系列化就是 0）
             //   > `end`（端帽：`40k_campaign_bar_end` 22×18 · Simple · preserveAspect · 染色 α **0.698**）
+            //
+            // 🔴 **2026-10-25（E4 · 账 88④）：填充宽度画出来了**。判据逐句现读
+            //   `ProgressBar__SetProgress.c`（`d:/2/tools/cpp2il/out_cpp2il_dev_ilspy/ProgressBar.cs:25-58`）：
+            //     `slider.wholeNumbers = useWholeNumbers` → `slider.maxValue = maxValue` → `slider.value = value`
+            //     （Unity `Slider` 自己把 `value` 夹在 `[minValue=0, maxValue]`）⇒ **填充比例 =
+            //     `Clamp01(value / maxValue)`**（这里**没有**按里程碑等分那套 —— 那是计分条 `AllianceScoreBar` 的）。
+            //   `value / maxValue` 的取法 = `AllianceTrophyEntry__Initialize.c:136-190`：
+            //     · `target = GetTargetMilestone()`；`target == 0` ⇒ **`value = 1, maxValue = 1`**（那一支）；
+            //     · 否则 `value = save.groupScore`, `maxValue = target`。
+            //   `end` 的钉法 = prefab 实读（`RectTransform_-1932795137986862941.json`）：
+            //     `anchorMin = anchorMax = (1, 0.5)` · `pivot = (1, 0.5)` · `anchoredPos = (5.7, -1)` ·
+            //     `sizeDelta = 29.4369 × 31.8572` ⇒ 它钉在 **`Fill` 的右边**（= 填充头），
+            //     ⇒ 填充宽度一变，端帽**跟着走**（改前我们把它写死在槽左边 = 零宽那一档的巧合位置）。
             var fa = Node(bgT, "Fill Area",
                           new PxRect(r.x1 + 23.75f, r.y1 + 294.84f, r.x1 + 273.00f, r.y1 + 318.53f));
-            var fillR = new PxRect(r.x1 + 23.75f, r.y1 + 294.84f, r.x1 + 23.75f, r.y1 + 318.53f);
+            float fillT01 = TrophyFillFraction(trophyDef, trophyState);
+            float fillL = r.x1 + 23.75f, fillFullR = r.x1 + 273.00f;
+            float fillHead = fillL + (fillFullR - fillL) * fillT01;      // 填充头 = `Fill` 的右边缘
+            var fillR = new PxRect(fillL, r.y1 + 294.84f, fillHead, r.y1 + 318.53f);
             var fillGo = NineSoft(fa, "40k_campaign_bar_fill", fillR,
-                                  new Vector4(10f, 0f, 10f, 0f), "Fill", CellQ(LC_Slot),
+                                  new Vector4(10f, 0f, 10f, 0f), "Fill", CellQ(LC_Fill),
                                   new Color(1f, 0.509f, 0f, 1f), true,
                                   new Vector4(10f / 0.9f, 0f, 10f / 0.9f, 0f));
             // 🔴 **零宽那一支**：`MenuDraw.ClipRect:75`（有裁切时）对 `W ≤ 0.01` 的矩形判「不建」
             //   ⇒ `NineSoft` 会返回 null。**但节点必须在**（原版树里 `Fill` 就是这一层、`end` 挂在它下面）
             //   ⇒ 退回一个**只占位、不画图**的节点（`Fill` 的**零宽**是原版出厂的**真值**，不是我们省的）。
-            //   ⚠️ **队列**：它今天**没有 quad**（`fillR` 是写死的零宽）⇒ 取哪一档都看不出来，这里与槽底
-            //   同号（`LC_Slot`）。哪天真做进度条（给 `fillR` 一个宽度）就必须把它**单开一号** ——
-            //   位置在 `LC_Slot` 与 `LC_End` 之间（原版兄弟序：槽底 < `Fill` < `end`）。
-            //   ⚠️ **A74② 之后这个「单开一号」是字面可行的**（格子已经有 6 号一段的带）—— 但那要
-            //   `QCellStride` 变 7、而 90 号带子装不下 15 格×7（见本类顶部那段）⇒ 真做进度条时要**先扩容**。
+            //   ⚠️ **队列**：零宽时它没有 quad ⇒ 取哪一档都看不出来；有宽度时它必须**单独一号**
+            //   （`LC_Fill`，位置在 `LC_Slot` 与 `LC_End` 之间 = 原版兄弟序 `槽底 < Fill < end`）。
             if (fillGo == null) fillGo = Node(fa, "Fill", fillR).gameObject;
             var fillT = fillGo.transform;
-            // `end` 的队列 = `CellQ(LC_End)`：它在 `Fill` 里 ⇒ 压槽底、被 `Outline` 压（原版兄弟序）。
+            // `end` 的队列 = `CellQ(LC_End)`：它在 `Fill` 里 ⇒ 压 `Fill`、被 `Outline` 压（原版兄弟序）。
+            //   x 区间照 prefab 的锚/轴推：右边界 = 填充头 + 5.7、宽 29.4369 ⇒ 左 = 填充头 − 23.7369。
+            //   ⚠️ 填充为 0 时填充头 = 槽左（`r.x1+23.75`）⇒ 左 = `r.x1+0.01`、右 = `r.x1+29.45`
+            //      —— 与改前那两个字面值**逐位相同**（零宽这一档没有行为变化）。
             RectSoft(fillT, "40k_campaign_bar_end",
-                     new PxRect(r.x1 + 0.01f, r.y1 + 291.75f, r.x1 + 29.45f, r.y1 + 323.61f),
+                     new PxRect(fillHead - 23.7369f, r.y1 + 291.75f, fillHead + 5.70f, r.y1 + 323.61f),
                      "end", CellQ(LC_End), new Color(1f, 1f, 1f, 0.698f), true);
 
             // `Outline`（那一圈描边）：`40k_campaign_bar_outline` 46×22 · 九宫 (20,0,20,0) · ppuMul 0.9
@@ -768,17 +794,21 @@ namespace CardPresentation
             //   ⇒ 弹窗开出来是**零值态**（名字/描述/进度留空、徽标不画），它在 `Open()` 里如实出声。
             //   ⚠️ 本地奖杯数恒 0 ⇒ 一格都不建 ⇒ **这条命中路本地走不到**（文件头 ①）；
             //   队列号 = `L_Hit`（页带，**没进格子带** —— 透明命中区只吃点击优先级，见本类顶部那段）。
-            Hit(cell, "Hit", r, L_Hit, OpenTrophyPopup);
+            Hit(cell, "Hit", r, L_Hit, () => OpenTrophyPopup(trophyDef, trophyState, trophyTier));
         }
 
         /// <summary>点奖杯格 → 开 `TrophyInfoPopup`（原版 `AllianceTrophiesView.HandleTrophyClick`：
         /// `WindowsManager.OpenWindow(trophyInfoPopup, 那一枚奖杯)`）。
-        /// ⚠️ 那枚奖杯（`AllianceTrophy`）本地没有（服务器）⇒ 开的是**零值态**，`TrophyInfoPopup` 里出声。</summary>
-        void OpenTrophyPopup()
+        /// 🔴 **2026-10-25（E4 · 账 74）**：原来这里调的是 **无参** `TrophyInfoPopup.Open(wm)` ⇒ 弹窗恒为零值态
+        /// （名字/描述/进度/徽标全空，即使 `AllianceTrophyModel` 里有那份定义也传不进去）。
+        /// 原版那一下传的是**那一枚 `AllianceTrophy` 实例**，弹窗里 `TrophyInfoPopup` 从它读
+        /// `Data.LocalizedName / Data.LocalizedDescription / Save.CurrentValue / GetTargetMilestone() / IsFeatured`
+        /// （`TrophyInfoPopup__Open.c`）⇒ 我们照 `TrophyInfoPopup.TrophyView` 那一份逐字段填（同一个语义）。
+        /// ⚠️ 本地没有定义表时 `def == null` ⇒ 仍然传 `null`（= 零值态，与改前一致，⛔ 不编数据）。</summary>
+        void OpenTrophyPopup(AllianceTrophyDef def, AllianceTrophyState st, int tier)
         {
             Say("点奖杯那一格：原版 `AllianceTrophyEntry.backgroundButton` → `HandleClick` → "
-              + "`AllianceTrophiesView.HandleTrophyClick` → `WindowsManager.OpenWindow(trophyInfoPopup, 那一枚奖杯)`。"
-              + "⚠️ 奖杯数据在服务器 ⇒ 本地这一格压根不会有（见文件头 ①），开出来是零值态。");
+              + "`AllianceTrophiesView.HandleTrophyClick` → `WindowsManager.OpenWindow(trophyInfoPopup, 那一枚奖杯)`。");
             var wm = Win != null && Win.Manager != null ? Win.Manager : WindowsManager.Instance;
             if (wm == null)
             {
@@ -786,7 +816,19 @@ namespace CardPresentation
                                + "（先走 `WindowsManager.EnsureHost()`）。");
                 return;
             }
-            TrophyInfoPopup.Open(wm);
+            if (def == null) { TrophyInfoPopup.Open(wm); return; }     // 无定义表 ⇒ 零值态（同改前）
+            int target = AllianceTrophyModel.TargetMilestone(def, st);
+            var view = new TrophyInfoPopup.TrophyView
+            {
+                Name = TrophyTitleOf(def),
+                Description = string.IsNullOrEmpty(def.DescTerm) ? "" : Loc.T(def.DescTerm),
+                Value = st.GroupScore,
+                Max = target == int.MinValue ? 0 : target,
+                Featured = def.IsFeatured,
+                // 原版：`progressHolder.SetActive(!progressBar.IsFilled && !Data.DontShowProgress)`
+                ShowProgress = ShowTrophyProgress(def, st, tier),
+            };
+            TrophyInfoPopup.Open(wm, view);
         }
 
         // ============================================================ 软边（`RectMask2D.m_Softness`）
@@ -971,17 +1013,51 @@ namespace CardPresentation
         public int SelectedTrophy { get { return _trophySel; } }
 
         /// <summary>`CurrentActiveBadge Count` 那一行（「N Trophies Achieved!」）。
-        /// 🔴 **2026-10-25（N9 · 账 73④）**：原来写死 prefab 出厂样例串 `45 Trophies Achieved!` ⇒
-        /// 现在按**达成数**拼：有定义表 = `AllianceTrophyModel.VisibleCountOrMinusOne`（= 可见的达成档数），
-        /// 没有定义表 = `SocialData.AllianceTrophies`（同 `BuildTrophyRows` 的退路口径）。
-        /// <para>⚠️ 原版那两句是 I2 **复数词条**（`Trophies/Count` 与 `…/Count/Singular`），本地没有 value
-        /// ⇒ 用 prefab 出厂串的字面形状拼（`{n} Trophies Achieved!` / 单数 `{n} Trophy Achieved!`）——
-        /// **这是我们的口径，不是原版词条**。</para></summary>
+        /// 🔴 **2026-10-25（E4 · 账 73③）就地订正（铁律 5）**：N9 那一版写的是
+        /// 「原版那两句是 I2 **复数词条**（`Trophies/Count` 与 `…/Count/Singular`），**本地没有 value**
+        /// ⇒ 用 prefab 出厂串的字面形状拼」—— **「本地没有 value」不成立**：官方本地化表（`K07` 并入的那份）
+        /// 里这两条**都在**：`SocialMenu/Alliances/Trophies/Count` = `You have achieved {0} trophies!` /
+        /// `你已经获得了{0}个奖杯！`；`…/Count/Singular` = `You have achieved 1 trophy!` / `你获得了1个战利品！`。
+        /// ⇒ 现在走 `Loc.T`（判据 = 原版 `AllianceTrophiesView.cs:267-277`：`count != 1` 取 `Count` 并
+        /// `string.Format(count)`、`count == 1` 取 `Count/Singular`（那一支**不带参数**））。
+        /// 达成数 = 有定义表用 `AllianceTrophyModel.VisibleCountOrMinusOne`，没有则 `SocialData.AllianceTrophies`。</summary>
         static string TrophyCountText()
         {
             int n = AllianceTrophyModel.VisibleCountOrMinusOne;
             if (n < 0) n = SocialData.AllianceTrophies;
-            return n + (n == 1 ? " Trophy Achieved!" : " Trophies Achieved!");
+            if (n == 1) return Loc.T("SocialMenu/Alliances/Trophies/Count/Singular");
+            return string.Format(Loc.T("SocialMenu/Alliances/Trophies/Count"), n);
+        }
+
+        /// <summary>`CurrentActiveBadge Name` 那一行（原版 `selectedBadgeText`）。
+        /// 判据 = 原版 `AllianceTrophiesView.Draw`（`AllianceTrophiesView.cs:236-256`）：
+        /// 只有**存在 featured 那一枚奖杯**时才
+        /// `selectedBadgeText.text = string.Format(Loc("SocialMenu/Alliances/Trophies/CurrentFeatured"), 那一枚的名字)`；
+        /// **没有 featured 那一支什么都不做** ⇒ 保留 prefab 出厂样例串 `Featured: Trophy Name`（本文件那个字面量）。
+        /// 🔴 **2026-10-25（E4 · 账 73③）**：原来这一格**恒**为 prefab 样例串（N9 只做了 Count 那一行）。
+        /// ⚠️ 那条词条在官方表里**有值**（`Displayed Trophy: {0}` / `展示的战利品：{0}`）⇒ 走 `Loc.T`。</summary>
+        static string FeaturedTrophyText()
+        {
+            var def = FeaturedTrophyDef();
+            if (def == null) return "Featured: Trophy Name";     // 原版无 featured ⇒ 不动（prefab 出厂串）
+            return string.Format(Loc.T("SocialMenu/Alliances/Trophies/CurrentFeatured"), TrophyTitleOf(def));
+        }
+
+        /// <summary>当前 featured 的那一枚（原版 `AllianceTrophiesView.Draw` 里那个 `allianceTrophy`）。
+        /// 本地：`AllianceTrophyModel.Defs` 里 `IsFeatured` 且**可见**的第一枚；没有 ⇒ null。
+        /// ⚠️ 那个大徽标（`CurrentActiveBadge>Frame`）**仍然空着** —— 徽标图本地无 id→图 映射
+        /// （同 `BuildTrophyCell` 里 `WarnNoBadgeArtOnce` 那条），账 73③ 的图画那一半记着。</summary>
+        static AllianceTrophyDef FeaturedTrophyDef()
+        {
+            var defs = AllianceTrophyModel.Defs;
+            if (defs == null) return null;
+            for (int i = 0; i < defs.Length; i++)
+            {
+                var d = defs[i];
+                if (d != null && d.IsFeatured && AllianceTrophyModel.IsVisible(d, AllianceTrophyModel.StateOf(d)))
+                    return d;
+            }
+            return null;
         }
 
         // ---- 一格奖杯的三件数据（账 8 / 88）----
@@ -994,15 +1070,40 @@ namespace CardPresentation
             return Loc.T(def.TitleTerm);
         }
 
-        /// <summary>进度条那一格该不该显示：原版 `AllianceTrophiesView.Draw` 的两条早退 ——
-        /// `dontShowProgress` 为真、或**已满档**（`CurrentTier >= 里程碑数`）⇒ 整条进度条关掉。
-        /// 无定义表 ⇒ **显示**（出厂 `0/0` 就是原版的出厂态）。</summary>
+        /// <summary>进度条那一格该不该显示：原版 `AllianceTrophyEntry.Initialize` 那一段（逐句现读
+        /// `AllianceTrophyEntry.cs:127-190`）是三条**并列**的早退，任一条成立 ⇒ `progress.gameObject.SetActive(false)`：
+        /// ① `dontShowProgress` ② **`progress.IsFilled`**（= `value >= maxValue` ⇒ 已满档）
+        /// ③ `CurrentTier >= challenge.rewards.Length`（档数超过里程碑条数）。
+        /// 无定义表 ⇒ **显示**（出厂 `0/0` 就是原版的出厂态）。
+        /// 🔴 **2026-10-25（E4 · 账 88）补上第 ② 条** —— 原来只有 ①③，满档时进度条还挂在那儿（原版已关）。</summary>
         static bool ShowTrophyProgress(AllianceTrophyDef def, AllianceTrophyState st, int tier)
         {
             if (def == null) return true;
-            if (def.DontShowProgress) return false;
+            if (def.DontShowProgress) return false;              // ①
+            int target = AllianceTrophyModel.TargetMilestone(def, st);
+            if (target == 0) return false;                       // ② `target == 0` ⇒ value=maxValue=1 ⇒ IsFilled
+            if (target != int.MinValue && st.GroupScore >= target) return false;   // ② 已满档
             int len = def.MilestoneTargets != null ? def.MilestoneTargets.Length : 0;
-            return !(len > 0 && tier >= len);
+            return !(len > 0 && tier >= len);                    // ③
+        }
+
+        /// <summary>进度填充比例（0..1）= 原版 `Slider` 的 `Clamp01(value / maxValue)`，
+        /// 其中 `(value, maxValue)` 照 `AllianceTrophyEntry.Initialize` 取：
+        /// `target = GetTargetMilestone()`；`target == 0` ⇒ `(1, 1)`；否则 `(save.groupScore, target)`。
+        /// 无定义表 / 无里程碑（`int.MinValue`）⇒ **0**（原版那一支 `Enumerable.Last(empty)` 会抛，本地没有等价态
+        /// ⇒ 按出厂零宽处理，⛔ 不编一个比例出来）。
+        /// ⚠️ 与计分条（`AllianceScoreBar`）的 `InterpolateMilestones` **不是同一套**：那一条是**按档等分**，
+        /// 这一条就是**段内线性**（`ProgressBar.SetProgress` 只写 `slider.value/maxValue`，没有分段逻辑）。</summary>
+        static float TrophyFillFraction(AllianceTrophyDef def, AllianceTrophyState st)
+        {
+            if (def == null) return 0f;
+            int target = AllianceTrophyModel.TargetMilestone(def, st);
+            if (target == int.MinValue) return 0f;
+            int value, maxValue;
+            if (target == 0) { value = 1; maxValue = 1; }
+            else { value = Mathf.Max(0, st.GroupScore); maxValue = target; }
+            if (maxValue <= 0) return 0f;
+            return Mathf.Clamp01(value / (float)maxValue);
         }
 
         /// <summary>`counter` 那串 `{groupScore}/{target}`（原版 `AllianceTrophyEntry.Initialize` 里
@@ -1638,7 +1739,7 @@ namespace CardPresentation
             // 🆕 **2026-10-16（A712 阶段 2）**：原版 `member name` = `对齐=Left/**Midline**`（同一份 dump）。
             //   ⚠️ 同格的 `member role`（下一句）原版是 `Left/**Middle**` ⇒ **两行不同档**，⛔ 别一刀切。
             MenuDraw.SetVAlign(lbMemName, Label.VAlign.Midline, memNameR);
-            v.Text(row, new PxRect(r.x1 + 149.44f, r.y1 + 59.26f, r.x1 + 495.52f, r.y1 + 98.56f), m.Role ?? "",
+            v.Text(row, new PxRect(r.x1 + 149.44f, r.y1 + 59.26f, r.x1 + 495.52f, r.y1 + 98.56f), RoleText(m.Role),
                    new Color(0.887f, 0.887f, 0.887f, 1f), "member role", 41.45f, 3, 18f, wrap: true,
                    alignLeft: true);   // A319 #12（原版 `Left`(1)）· A258：原版 `折行=1`
             // 两处评级（`VerticalLayoutGroup` 里上下两行，各 46.5 高）
@@ -1732,7 +1833,36 @@ namespace CardPresentation
             //   = `对齐=Right/**Midline**`（两颗同档；判据 = `AllianceMemberVariant --depth 20` 那一份 dump ——
             //   ⚠️ 与**上面页内**那两颗同名的 `{Alliance,Draft} Rating Display/Individual rating value`
             //   （`Left/Midline`）是**同名不同档**，见本文件头那张表：横向取 `Right`、纵向**两颗都是 `Midline`**）。
-            MenuDraw.SetVAlign(lb, Label.VAlign.Midline, tr);
+            //   ⚠️ `lb` 可能是 null（`v.Text` 在裁切整块在框外时会不建）⇒ 这里必须带判空。
+            if (lb != null) MenuDraw.SetVAlign(lb, Label.VAlign.Midline, tr);
+
+            // 🔴 **2026-10-25（E4 · 账 60①）：`disableIfZero`**。原版 `AllianceRatingDisplay.Initialize`
+            //   （`AllianceRatingDisplay.cs:15-60` 的方法体头两句）：
+            //   `if (disableIfZero && value == 0) { gameObject.SetActive(false); return; }`
+            //   —— 两处调用点**都传 `true`** ⇒ **值 0 时整块评级关掉**（不是画个空字）。
+            //   我们原来恒画「图标 + 空字」⇒ 零值成员行上多出两块浮空图标（账 60①）。
+            //   ⚠️ 我们的值是**显示串**（`DraftRating` / `RankedRating`）：`null` / 空串 / 能解析成 0 的串
+            //      一律按「值 == 0」处理（`int.TryParse` 失败但串非空 ⇒ 当真值显示，⛔ 不猜）。
+            bool zero = string.IsNullOrEmpty(value);
+            if (!zero)
+            {
+                int parsed;
+                zero = int.TryParse(value.Trim(), out parsed) && parsed == 0;
+            }
+            if (zero)
+            {
+                // 节点照建、只是关掉（原版也是先建后 `SetActive(false)`；自检按节点名找得到 ——
+                // `MenuCheck.FindChild` 走 `GetComponentsInChildren<Transform>(true)`，含 inactive）。
+                // ⚠️ 这一族两个子件的**节点名里带斜杠**（`"Draft Rating/Main Icon"` /
+                //    `"Draft Rating/Individual rating value"`）⇒ `Transform.Find` 会把斜杠当**路径分隔**、
+                //    永远找不到 ⇒ 只能逐个子件**按整名精确比**。
+                string iconName = name + "/Main Icon", valName = name + "/Individual rating value";
+                for (int i = 0; i < row.childCount; i++)
+                {
+                    var c = row.GetChild(i);
+                    if (c.name == iconName || c.name == valName) c.gameObject.SetActive(false);
+                }
+            }
         }
 
         /// <summary>成员列表的**排序视图**（原版 `AllianceMemberList.Initialize`）：
@@ -1758,6 +1888,28 @@ namespace CardPresentation
             var list = new System.Collections.Generic.List<SocialData.Member>(n);
             for (int i = 0; i < n; i++) list.Add(src[order[i]]);
             return list;
+        }
+
+        /// <summary>行里 `member role` 那一格的文字。
+        /// 判据（逐句现读 `AllianceMemberEntry.cs:159-230` 的 `Initialize`）：
+        /// `string term = "SocialMenu/Alliances/Role/" + member.role.ToString();` →
+        /// `playerRole.text = LocalizationManager.GetTranslation(term, …)` ——
+        /// 原版那一格印的是 **`GroupRole` 枚举名的词条**，不是原始串。
+        /// <para>🔴 **2026-10-25（E4 · 账 26①）**：我们原来直接把 `Role` 原串印出去。
+        /// 现在：`Role` **恰好是那 4 个枚举名之一**（`Member` / `Moderator` / `Admin` / `Leader`，
+        /// 判据 = 官方本地化表里 `SocialMenu/Alliances/Role/*` 的 4 条：`…/Member` `…/Moderator`
+        /// `…/Admin` `…/Leader`）⇒ 走 `Loc.T`；否则**原样印**（我们的 `Role` 是显示串，
+        /// prefab 出厂样例是 `Alliance Master`，与那 4 个枚举名不是一套词汇 ⇒ ⛔ 不给它硬套前缀）。</para></summary>
+        public static string RoleText(string role)
+        {
+            if (string.IsNullOrEmpty(role)) return "";
+            switch (role)
+            {
+                case "Member": case "Moderator": case "Admin": case "Leader":
+                    return Loc.T("SocialMenu/Alliances/Role/" + role);
+                default:
+                    return role;
+            }
         }
     }
 

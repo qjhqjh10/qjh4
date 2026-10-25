@@ -8,4 +8,4 @@
 本地化	LanguageSelector	ResetLanguagesDropdown()	LanguageSelector.cs:52	按 languagesDefinition 重建选项	B	Shell/SettingsWindow.cs			R1	
 本地化	LocalizationKeyChangerByPlatform	Awake()	LocalizationKeyChangerByPlatform.cs:8	touchInput 时给 key 加平台后缀	D	—			R1	断点：`if (!GameStaticData.touchInput) return;`（桌面不触发）
 本地化	LocalizedMessage	GetLocCodes()	Everguild.LiveOps/LocalizedMessage.cs:38	取当前支持的语言码列表	B	Core/Loc.cs			R1	
-本地化	TranslationService	Translate(string text, Action<string> onSuccess, Action onError)	TranslationService.cs:46	调云翻译并回填	D	—			R1	断点：云翻译 HTTP/云函数调用
+本地化	TranslationService	Translate(string text, Action<string> onSuccess, Action onError)	TranslationService.cs:46	调云翻译并回填	D	—			R1	断点：云翻译 HTTP/云函数调用 ｜ G2 ⑤：不在 Q4 a 档 ⇒ 保持 C，**等用户裁定**（⛔ 别顺手判 D）

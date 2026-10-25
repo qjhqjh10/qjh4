@@ -1,5 +1,6 @@
 // 极简 UnityEngine 桩 —— 只为让 RuleEngine 在 net8 下跑得起来（离屏探针用，不进工程）
 // B28：比 b14/b24 那两份多一个 `JsonUtility`（`CardDatabase.Parse` 要它才能吃 cards_engine.json）。
+using System;
 using System.Text.Json;
 
 namespace UnityEngine
@@ -32,5 +33,26 @@ namespace UnityEngine
             PropertyNameCaseInsensitive = false,
         };
         public static T FromJson<T>(string json) { return JsonSerializer.Deserialize<T>(json, Opt); }
+    }
+
+    /// <summary>🆕 2026-10-25（`R11`）：为把 `Data/SimpleAI.cs` 编进探针（`ai` 模式）而加的两个形状。
+    /// 它只有一个用处 —— 让 `SimpleAI` 的**静态构造**（`InstallAiScorer`）编得过；
+    /// 探针**不跑** Unity 的启动回调，所以这个特性在探针里**不会被执行**。
+    /// ⛔ 别往这里加「行为」：桩只提供**形状**，语义一律以真 Unity 为准。</summary>
+    [AttributeUsage(AttributeTargets.Method)]
+    public class RuntimeInitializeOnLoadMethodAttribute : Attribute
+    {
+        public RuntimeInitializeOnLoadMethodAttribute() { }
+        public RuntimeInitializeOnLoadMethodAttribute(RuntimeInitializeLoadType type) { }
+    }
+
+    /// <summary>同上（只为编得过）。取值照 Unity：`SubsystemRegistration = 4`。</summary>
+    public enum RuntimeInitializeLoadType
+    {
+        AfterSceneLoad = 0,
+        BeforeSceneLoad = 1,
+        AfterAssembliesLoaded = 2,
+        BeforeSplashScreen = 3,
+        SubsystemRegistration = 4,
     }
 }

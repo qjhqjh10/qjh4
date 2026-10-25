@@ -1223,6 +1223,17 @@ public static partial class RuleEngineTest
                 _failures.Add($"EngineClosedDeckAssert：{EngineClosedDeckAssert.Fail} 条失败（明细见它自己的 ✗ 行）");
         }
 
+        // 🆕 2026-10-25（第八十会话 · 批次 2 · 代理 `R11`）：AI 打分判据落地的三条回归断言。
+        //   判据 = `资料/完全复刻/判据/AI打分与动作选择_第2轮.md` §1·5 / §6·5 / §8（`R6-02` / `R6-05` / `R6-10`）；
+        //   落地报告 = `资料/完全复刻/报告/R11_AI打分落地_第2轮.md`。
+        //   测试体在**本文件末尾**（同一 partial 类）；⛔ 别把测试体插到中间 —— 会让账里的行号整体下移。
+        //   ⚠️ 本轮**没跑自检**（用户 2026-10-25 暂停自检）⇒ 只保证 `typecheck` 0/0；
+        //     红绿以收口那次实跑为准。
+        Section("🆕 R11 · AI 打分判据（option5 mightAct · option35 base 进乘法 · 护甲不参与估值）");
+        Step(TestR11Option5MightActGate);
+        Step(TestR11Option35BaseInsideMultiplier);
+        Step(TestR11ArmourIgnoredInDamageScore);
+
         // 🔴 **`Run()` 自己的「静默少跑」闸**（`A1591`）—— 必须在【汇总】之前跑，
         //    否则它的 `Check` 不计进 `_pass/_fail`（汇总行会漏掉它）。
         // ⚠️ **故意缩进深一层**：`工具/gen_diag_runner.py` 只把「**8 空格缩进的顶层语句**」当用例
@@ -6448,15 +6459,39 @@ public static partial class RuleEngineTest
                 if (e.Kind == EvtKind.Trigger && e.Keyword == KeywordTable.BloodThirst) n++;
             Check(n, 0, "★ 没有嗜血的单位：一条 bloodthirst 事件都不发");
         }
-        // ⑤ 标记光 X：**远程**伤害 +X，受远程伤害后标记光全部移除（规则书 :192）
+        // ⑤ 标记光 X：**远程**伤害 +X；受远程伤害后**只置标志，回合末才摘**
+        //
+        // 🔴 **2026-10-25（`E1` · 第四段 · F2 判据现核）：期望值改了**（旧断言写的是「挨过远程伤害后
+        //    标记光移除」= **我们以前的即时摘除**）。判据（cpp2il 现读）：
+        //    · `BattleManager._ResolveAttack…:1633` → `CardScript.SetRemoveMarkerlight`
+        //      （`CardScript.cs:11260-11296`）= **只置 `removeMarkerlightAtEndOfTurn(+0x57)`** + 播「用掉了」的表现；
+        //    · `CardScript.OnTurnEnd`（`:16599-16607`）= `if (标志 && CurrentMarkerlight > 0) { 摘；清标志 }`。
+        //   ⇒ 两条断言**成对**：攻击后还在（🧨 改回即时摘 ⇒ 红）+ 回合末没了且发 `TraitRemoved`（🧨 不发事件 ⇒ 红）。
         {
             var ctx = Battle(new[] { Unit("A", 1, 1, 1) }, new[] { Unit("X", 1, 1, 1) });
             ToP1Turn(ctx, 1);
             Place(ctx, 0, 3, Ranged("Shooter", 1, 1, 9, 3));
             var tgt = Place(ctx, 1, 3, Unit("Marked", 1, 0, 9, "Markerlight 2"));
+            ctx.ClearSignals();
             Check(RuleCore.DeclareAttack(ctx, 0, 3, 1, 3, ranged: true), RuleCodes.OK, "远程攻击");
             Check(tgt.Health, 4, $"远程 3 攻 + 标记光 2 = 掉 5 点（9 → {tgt.Health}）");
-            Check(tgt.Has("markerlight"), false, "挨过远程伤害后标记光移除");
+            CheckTrue(tgt.Has("markerlight"),
+                      "★ 挨过远程伤害后标记光**还在**（原版 `SetRemoveMarkerlight` 只置 `+0x57`）"
+                    + "｜🧨 改回「当场 `RemoveAll`」⇒ 本行红");
+            CheckTrue(tgt.RemoveMarkerlightAtEndOfTurn, "……「回合末摘」的标志置上了");
+            int nImmediate = 0;
+            foreach (var e in ctx.Signals) if (e.Kind == EvtKind.TraitRemoved) nImmediate++;
+            Check(nImmediate, 0, "★ 攻击那一段**不发** `TraitRemoved`（这一刻还没摘）");
+
+            ctx.ClearSignals();
+            PassTurn(ctx);                                  // = EndTurn + BeginTurn
+            CheckTrue(!tgt.Has("markerlight"),
+                      "★ **回合末**才摘（原版 `CardScript.OnTurnEnd` `:16599-16607`）");
+            int nRemoved = 0;
+            foreach (var e in ctx.Signals)
+                if (e.Kind == EvtKind.TraitRemoved && e.CardId == "markerlight") nRemoved++;
+            Check(nRemoved, 1, "★ 摘的那一刻发一条 `EvtKind.TraitRemoved`（W9）"
+                             + "｜🧨 不发 ⇒ 表现层的 `Expiring State` 永远看不见");
         }
         // ⑥ 伪装：**攻击后失去**（规则书 :173「攻击前不能被敌方战术/效果选中」）
         {
@@ -7613,7 +7648,16 @@ public static partial class RuleEngineTest
                       "★ `Patriarch` 认得出「对手每张手牌便宜 1 费」");
         }
 
-        // ① `This troop's Melee is always equal to its Health` —— **现算**，且**只换基础值**
+        // ① `This troop's Melee is always equal to its Health` —— **快照 + 动作边界重挂**（不是读时活读）
+        //
+        // 🔴 **2026-10-25（`E1` · 第三段）：期望值整组重写**，依据 = `判据/战斗逻辑驱动_Stage2前置_第2轮.md`
+        //    §1·1 / §1·2 / §1·4 / §1·7（原版 `SAU27` = `trigger 240 WhileInPlayVariable` +
+        //    `buffType 70 setMeleeAttack` + `meleeAttackValueOptions = 50 ThisCardHealth`）：
+        //    · 折叠（`ValueOptions → Change`）发生在 `PlayAbility` ⇒ **存进去的是那一刻的 Health 快照**；
+        //    · 「跟血走」靠 `FinishResolvingAction` 尾部 `BroadcastWhileInPlay` **每个动作边界重挂一次**；
+        //    · `get_CurrentMeleeAttack` 命中 `buffType==70` 即 `return` ⇒ **`addStats` 的近战加成一概不计**。
+        //    ⇒ 旧断言「生命掉到 3 ⇒ 近战跟着变 3（**每次现算**）」是**我们以前的近似**，已作废。
+        //    我们这边的等价物 = `Auras.Recompose`（部署 / 每次棋盘变动 / **每条顶层动作结束**）。
         {
             var f = new CardDef("FixtureMeleeHealth", "FixtureMeleeHealth", "unit",
                                 "This troop's Melee is always equal to its Health",
@@ -7622,9 +7666,21 @@ public static partial class RuleEngineTest
             var ctx = ProbeBattle(new CardDef[0], new CardDef[0]);
             ToP1Turn(ctx, 1);
             var u = Place(ctx, 0, 3, f, exhausted: false);
-            Check(RuleCore.FieldAttack(ctx, 0, u, false), 5, "★ 近战 = 生命 5（卡面写的是 2）");
+            // ⚠️ `Place` 是白盒放盘、**不走棋盘钩子**（同本文件 `:17374` 那条注释）⇒ 手动跑一趟重挂
+            Auras.Recompose(ctx);
+            Check(RuleCore.FieldAttack(ctx, 0, u, false), 5,
+                  "★ 重挂后 近战 = 生命 5（卡面写的是 2）");
+            u.AddStatMod("attack", 4);
+            Check(RuleCore.FieldAttack(ctx, 0, u, false), 5,
+                  "★ 再叠 `addStats(+4 近战)` ⇒ **仍是 5**（`setMeleeAttack` 命中即 return，"
+                  + "原版 `get_CurrentMeleeAttack.c:44-47`）｜🧨 改成「加值照常叠」⇒ 本行红");
             u.Health = 3;
-            Check(RuleCore.FieldAttack(ctx, 0, u, false), 3, "★ 生命掉到 3 ⇒ 近战跟着变 3（**每次现算**）");
+            Check(RuleCore.FieldAttack(ctx, 0, u, false), 5,
+                  "★ **同一动作内部**掉血 ⇒ 近战仍 5（**快照**，判据 §1·2 证据 C）"
+                  + "｜🧨 改成「读时活读 Health」⇒ 本行红");
+            Auras.Recompose(ctx);                 // = 下一个动作边界
+            Check(RuleCore.FieldAttack(ctx, 0, u, false), 3,
+                  "★ 走到下一个动作边界 ⇒ 重挂刷新成 3（判据 §1·4 第 1 条）");
             Check(RuleCore.FieldAttack(ctx, 0, u, true), 3,
                   "……**远程不受影响**（卡面写的是 `Melee`，远程照旧用卡面的 3）");
         }
@@ -18403,6 +18459,46 @@ public static partial class RuleEngineTest
                       "★ 到了**对方回合**：`during your turn` 那条**灭掉**（钩子挂在 `BeginTurn`）");
         }
 
+        // ---- ⑤·b 🔴 2026-10-25（`E1` · 第四段 · H1 裁定）：**「重算」与「真移除」必须分开** ----
+        //
+        //  判据：原版 `trigger 20`（光环）的**重复施加是幂等空操作**（`AddEffect` 的
+        //  `ContainsExtrinsicEffectFrom` 已为真 ⇒ `return false`），只有 `trigger 240` 才「摘 + 加」；
+        //  而「摘 `+N health` 夹到新上限」那条（`RemoveEffect.c:147-181`）是给**真移除**用的。
+        //  我们的 `Auras.Recompose` 是「先全清、再加回」⇒ 若不区分，**每次棋盘变动都会给带
+        //  `+N health` 光环的单位回血**（清的时候夹一次、加回来又 `+=` 一次）。
+        //
+        //  🔴 **两条断言是「结构上不可能同时满足」的一对**（灭自证）：
+        //    · 把**重算**也改成夹 ⇒ 第一段红（3/6 变成 6/6）；
+        //    · 把**真移除**也改成什么都不做 ⇒ 第二段红（6/4 而不是 4/4）。
+        //  只断其中一条，都会被「两边改成同一个」的实现混过去。
+        {
+            var ctx = Battle(new CardDef[0], new CardDef[0]);
+            ToP1Turn(ctx, 1);
+            var auraSrc = new CardDef("FixtureAuraHealth", "FixtureAuraHealth", "unit",
+                                      "Adjacent units have +2 health",
+                                      "common", "Test", 1, 1, 4, 0, null, subtype: "Infantry");
+            CheckTrue(auraSrc.AuraSpecs != null && auraSrc.AuraSpecs.Count > 0,
+                      "夹具卡认得出「相邻单位 +2 生命」这条光环");
+            var t = Place(ctx, 0, 3, Unit("AuraHealthTarget", 1, 2, 4), exhausted: true);
+            Place(ctx, 0, 2, auraSrc, exhausted: true);
+            Auras.Recompose(ctx);
+            Check(t.MaxHealth, 6, "（前提）光环 +2 生命 ⇒ 上限 6");
+            Check(t.Health, 6, "（前提）首次施加时**当场加到当前生命**（原版 `addStats.health` 正加）");
+
+            t.Health = 3;                                  // 掉血
+            Auras.Recompose(ctx);                          // 「棋盘无关的变动」= 纯重算
+            Check(t.Health, 3, "★ 纯重算 ⇒ `Health` **一个字节都不动**（3/6）"
+                             + "｜🧨 让重算也走「夹到新上限」⇒ 本行实得 6，红");
+            Check(t.MaxHealth, 6, "……上限仍是 6（修饰还在）");
+
+            t.Health = 6;                                  // 回满（模拟「真移除时生命高于新上限」）
+            ctx.Players[0].Board[2] = null;                // 光环来源离场 = **真移除**
+            Auras.Recompose(ctx);
+            Check(t.MaxHealth, 4, "★ 真移除 ⇒ 上限回到 4");
+            Check(t.Health, 4, "★ 真移除 ⇒ `currentHealth = min(当前, 新上限)` = **4**（`RemoveEffect.c:147-181`）"
+                             + "｜🧨 让真移除也「什么都不做」⇒ 本行实得 6，红");
+        }
+
         // ---- ⑥ 自指型：`Has Flying during your turn`（督军 `Commander O'Maisos`）----
         {
             var ctx = Battle(new CardDef[0], new CardDef[0]);
@@ -28849,7 +28945,7 @@ public static partial class RuleEngineTest
 
         for (int i = 0; i < 2; i++)
         {
-            ctx.Players[i].Warlord.MaxHealth = 999;
+            ctx.Players[i].Warlord.MaxHealthBase = 999;
             ctx.Players[i].Warlord.Health = 999;
         }
 
@@ -36688,7 +36784,7 @@ public static partial class RuleEngineTest
             CheckTrue(ConditionEval.MeetsUnit(ctx, tgt, 110, false, atk) == true,
                       "★ B-16 · 110：**施法者**攻击 2 ≤ 目标 `Bastion 3` ⇒ 真（`HasBastionHigherThanAttack.c:18-21`）"
                     + "｜🧨 把主语误读成候选（= 目标自己，9 > 3）⇒ 本行红");
-            atk.Attack = 5;                       // 改的是**施法者**的攻击 —— 目标那 9 点从头到尾不参与
+            atk.AttackBase = 5;                   // 改的是**施法者**的攻击 —— 目标那 9 点从头到尾不参与
             CheckTrue(ConditionEval.MeetsUnit(ctx, tgt, 110, false, atk) == false,
                       "★ B-16 · 110：**施法者**攻击 5 > 目标 Bastion 3 ⇒ 假"
                     + "（`EntityScript__get_currentCombatAttack.c`：残骸 ⇒ 0，否则按攻击型取近战/远程）");
@@ -36761,7 +36857,7 @@ public static partial class RuleEngineTest
 
             var zero = Place(ctx, 0, 1, Unit("B16_245z", 1, 0, 5));
             CheckTrue(ConditionEval.MeetsUnit(ctx, zero, 245) == false, "★ B-16 · 245 `hasAttackValues`：近战远程都 0 ⇒ 假");
-            zero.Attack = 2;
+            zero.AttackBase = 2;
             CheckTrue(ConditionEval.MeetsUnit(ctx, zero, 245) == true, "★ B-16 · 245：近战 2 ⇒ 真");
         }
 
@@ -37602,5 +37698,142 @@ public static partial class RuleEngineTest
                 + "（反向闸 ∩ 白名单 = ∅ · **12** 个正向名都在 · PascalCase/小写/全大写三态都命中）"
                 + (bad.Length == 0 ? "" : "\n  ✗ " + string.Join("\n  ✗ ", bad)));
         }
+    }
+
+    // ==================================================================
+    //  🆕 2026-10-25（第八十会话 · 批次 2 · 代理 `R11`）：AI 打分判据落地的三条回归断言
+    //     判据 = `资料/完全复刻/判据/AI打分与动作选择_第2轮.md`（§1·5 / §6·5 / §8）
+    //     落地报告 = `资料/完全复刻/报告/R11_AI打分落地_第2轮.md`
+    //     ⛔ 测试体放**文件末尾**（插在中间会让账里的行号整体下移）。
+    //     ⚠️ 本轮**没跑**自检（用户 2026-10-25 暂停自检）⇒ 只保证 `typecheck` 0/0。
+    // ==================================================================
+
+    /// <summary>
+    /// `R6-02`：`AI.ScoreFromCriteria` 的 option 5（`ValueOfBuffingAttack`）**循环体第一句是
+    /// `t.mightAct` 闸**（判据 §1·5 第 5 行；`AI__ScoreFromCriteria.c` 的 `:0x18093A934-0x18093A936`）。
+    ///
+    /// 🧨 **改坏法**：删掉 `Data/AiScoring.cs` case 5 里那句
+    /// `if (!AiTargets.MightAct(ctx, targets[i])) continue;` ⇒ 探针那一侧会拿到与对照**相同**的分 ⇒ 红。
+    ///
+    /// ⚠️ **判别器为什么不用「已疲劳」**：`SimpleAI.BestAttackScore` 自己第一句就是
+    /// `if (u.Exhausted || u.IsStunned) return 0f` ⇒ 拿疲劳当探针会**两处同时为 0**、分不出闸在不在。
+    /// 这里改用 `cantAttack`（`mightAct` 为假，而 `BestAttackScore` 不管它）。
+    /// </summary>
+    static void TestR11Option5MightActGate()
+    {
+        var e = new AiScoringEntryDto
+        {
+            scoringOption = 5,
+            targetCriteria = new AiTargetCriteriaDto { targetsAffected = 30 },   // 30 = 这条动作选中的那个目标
+            buff = new AiBuffDto { buffType = 1, meleeAttackChange = 2 },
+            multiplyByFriend = 1f,
+        };
+
+        // 对照组与探针组：**同形、同位置**，只差 `cantAttack` 这一位
+        UnitState ctrl, foe1, gated, foe2;
+        var c1 = Duel(Unit("R11Atk", 1, 2, 5), Unit("R11Foe", 1, 0, 20), out ctrl, out foe1);
+        var c2 = Duel(Unit("R11Atk", 1, 2, 5), Unit("R11Foe", 1, 0, 20), out gated, out foe2);
+        gated.AddKeyword(KeywordTable.CantAttack, 1);
+        CheckTrue(gated.Has(KeywordTable.CantAttack), "（前提）探针单位真带 `cantAttack`");
+        CheckTrue(!ctrl.Has(KeywordTable.CantAttack), "（前提）对照单位不带 `cantAttack`");
+        CheckTrue(!ctrl.Exhausted && !gated.Exhausted,
+                  "（前提）两边都不疲劳（否则 `BestAttackScore` 自己就返回 0，验不到闸）");
+        CheckTrue(!ctrl.SummonSickness && !gated.SummonSickness,
+                  "（前提）两边都没有召唤病（否则 `mightAct` 两边都假）");
+
+        Check(AiTargets.GetTargets(c1, e.targetCriteria, ctrl.Card, null, 0, ctrl).Count, 1,
+              "（前提）`targetsAffected=30` ⇒ 目标表 = 这一个单位");
+        Check(AiTargets.GetTargets(c2, e.targetCriteria, gated.Card, null, 0, gated).Count, 1,
+              "（前提）同上（探针那一侧）");
+
+        float sCtrl = AiScoring.ScoreFromCriteria(c1, ctrl.Card, null, 0, ctrl, e);
+        float sGated = AiScoring.ScoreFromCriteria(c2, gated.Card, null, 0, gated, e);
+
+        CheckTrue(sCtrl > 0.01f,
+                  "★ 对照（能行动）⇒ option 5 的加成真的进来（> 0）"
+                + "｜🧨 改成「无条件 0」这里必红");
+        CheckFloatDelta(sGated, 0f,
+                  "★ 探针（带 `cantAttack` ⇒ `mightAct` 假）⇒ 这个目标被**跳过**，分 = 0");
+        CheckTrue(Math.Abs(sCtrl - sGated) > 0.01f,
+                  "★【灭自证】两边**必须不同** —— 任何「不看 mightAct」的写法都会让它们相等"
+                + "（这一条与上一条结构上不可能被同一个常量同时满足）");
+    }
+
+    /// <summary>
+    /// `R6-10`：option 35（`ValueOfDrawingCard`）里 **`baseValue` 进乘法一次、再在外面加一次** ⇒
+    /// `base + M·mult·(delta + base)`（判据 §1·6 的两条 `addss`：`:0x18093B083` / `:0x18093B0A9`）。
+    /// ⚠️ **牌库空那一支不带里层那个 `base`**（`:0x18093B092-0x18093B096` 把 `xmm1` 整个覆盖）——
+    /// 本断言只覆盖「牌库非空」那一支，并先断「牌库非空」这条前提。
+    ///
+    /// 🧨 **改坏法**：把 `Data/AiScoring.cs` case 35 改回 `base + M·mult·delta`
+    /// （= 去掉 `inner` 里的 `base`）⇒ 第二条「两次只差 multiplyByFriend」那条会少 2 ⇒ 红。
+    ///
+    /// ⚠️ **为什么用「两次不同乘数取差」当判别器**：绝对值那条依赖夹具的 `delta`，
+    /// 而差值的解析形式里那个 `+2`（= 2×base）是旧写法**必然拿不到**的 ⇒ 两条一起看糊不过去。
+    /// </summary>
+    static void TestR11Option35BaseInsideMultiplier()
+    {
+        var card = Unit("R11Card", 2, 1, 2);
+        var ctx = Battle(new[] { card }, new[] { Unit("R11Foe", 1, 1, 5) });
+        ToP1Turn(ctx, 3);
+        CheckTrue(ctx.Players[0].Deck.Count > 0,
+                  "（前提）牌库非空 ⇒ 走的是 `HandMax − hand − 1` 那一支，**不是** `−2 − 疲劳` 那一支");
+
+        int delta = RuleCore.HandMaxFor(ctx) - ctx.Players[0].Hand.Count - 1;
+        var e3 = new AiScoringEntryDto { scoringOption = 35, baseValueFriend = 1f, multiplyByFriend = 3f };
+        var e5 = new AiScoringEntryDto { scoringOption = 35, baseValueFriend = 1f, multiplyByFriend = 5f };
+
+        float s3 = AiScoring.ScoreFromCriteria(ctx, card, null, 0, null, e3);
+        float s5 = AiScoring.ScoreFromCriteria(ctx, card, null, 0, null, e5);
+
+        CheckFloatDelta(s3, 1f + 3f * (delta + 1f),
+                  "★ option 35 = `base + M·mult·(delta + base)`（base=1 · mult=3 · M=1 · delta=" + delta + "）");
+        CheckFloatDelta((s5 - s3) - 2f * delta, 2f,
+                  "★【灭自证】`mult 3→5` 的差值 − 2·delta 必须是 **2**（= 2×base）"
+                + "｜🧨 旧写法 `base + M·mult·delta` 这里会是 **0** ⇒ 改回去必红");
+    }
+
+    /// <summary>
+    /// `R6-05` ＋「打死 / 没打死」的闸：**两处都读扣甲【前】的伤害**（判据 §6·5）——
+    ///   · 闸：`dmg < health + bastion`（原版）⇒ 打死那支拿满额；
+    ///   · 比值：`V × 0.6 × dmg / (maxHealth + bastion)`。
+    /// ⇒ **护甲完全不参与 AI 估值**（它只在真结算里起作用）。
+    ///
+    /// 🧨 **改坏法**：把 `Data/SimpleAI.cs` 里 `PreArmorDamage(...)` 换回
+    /// `RuleCore.DamageAfterReduction(target, dmg)`（或只把比值那一处换回去）⇒ 第 2/3 条与第 5/6 条必红。
+    /// </summary>
+    static void TestR11ArmourIgnoredInDamageScore()
+    {
+        // 卡价值 = 2×费 + 1 ⇒ 3 费 = **7**（三张同费，好让「甲不同、分必须相同」成立）
+        var plain = new UnitState(Unit("R11P", 3, 1, 4), false);
+        var arm1 = new UnitState(Unit("R11A1", 3, 1, 4, "Armour 1"), false);
+        var arm2 = new UnitState(Unit("R11A2", 3, 1, 4, "Armour 2"), false);
+        Check(arm1.Armor, 1, "（前提）`Armour 1` 解析成护甲 1");
+        Check(arm2.Armor, 2, "（前提）`Armour 2` 解析成护甲 2");
+
+        Check(SimpleAI.ScoreDamaging(plain, 4), 7f, "（基准）4 血挨 4 ⇒ 打死 = 卡价值 **7**");
+        Check(SimpleAI.ScoreDamaging(arm1, 4), 7f,
+              "★ 1 甲也判「打死」（扣甲前 4 ≥ 4）｜🧨 改前扣甲后 3 < 4 ⇒ 这里会变 3.15");
+        Check(SimpleAI.ScoreDamaging(arm2, 4), 7f, "★ 2 甲同样（护甲不进 AI 估值）");
+
+        CheckFloatDelta(SimpleAI.ScoreDamaging(plain, 3), 3.15f,
+              "（基准）3 伤没打死 ⇒ `7 × 0.6 × 3/4` = **3.15**");
+        CheckFloatDelta(SimpleAI.ScoreDamaging(arm1, 3), 3.15f,
+              "★ 1 甲同值｜🧨 改前 `7 × 0.6 × 2/4` = 2.1");
+        CheckFloatDelta(SimpleAI.ScoreDamaging(arm2, 3), 3.15f,
+              "★ 2 甲同值｜🧨 改前 `7 × 0.6 × 1/4` = 1.05");
+
+        // 督军那一支同口径：20 血挨 5 ⇒ 剩余 15（**不是** >15）⇒ ×1.8 = 9.0
+        var w0 = new UnitState(Unit("R11W0", 3, 1, 20), true);
+        var w1 = new UnitState(Unit("R11W1", 3, 1, 20, "Armour 1"), true);
+        CheckFloatDelta(SimpleAI.ScoreWarlordDamage(w0, 5), 9f,
+              "（基准）督军 20 血挨 5 ⇒ `5 × 1.8` = **9**");
+        CheckFloatDelta(SimpleAI.ScoreWarlordDamage(w1, 5), 9f,
+              "★ 有 1 甲同值｜🧨 改前扣甲后 4 伤、剩余 16 > 15 ⇒ `4 × 1.2` = 4.8（**两个分支都不同**）");
+
+        // 灭自证：同伤害下「2 甲 vs 0 甲」的 AI 分必须**恒等**
+        CheckTrue(Math.Abs(SimpleAI.ScoreDamaging(arm2, 3) - SimpleAI.ScoreDamaging(plain, 3)) < 1e-4f,
+                  "★【灭自证】同伤害下「2 甲 vs 0 甲」必须同分 —— 任何把护甲折进打分的写法"
+                + "都不可能同时满足这一条与上面的 3.15");
     }
 }

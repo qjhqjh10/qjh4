@@ -4064,7 +4064,7 @@ namespace CardPresentation
             if (scroll) return false;                    // 滚动的手势：不弹错、也不起拖
             if (err != DeckError.None)
             {
-                Say("拖不进去：" + DeckErrorText(err));
+                Say("拖不进去：" + State.AddErrorText(def));   // 🆕 2026-10-25（R3）：`CanAdd` 有两条都借 `CopyLimitExceeded` ⇒ 文案必须问 State（传奇总数那条用原版自己的键）
                 Debug.Log("[Drag] `CanAdd` 没过（" + err + "）⇒ **不起拖**（原版这一支 = `UIMessageController.ShowError`）");
                 return false;
             }
@@ -5572,7 +5572,21 @@ namespace CardPresentation
         /// ⚠️ 本类**没法**替 `DeckEditorState.TryAdd` 收口：那个 `out string why` 出的也是键
         /// （`Deck/DeckEditorState.cs` 不在本笔白名单里）⇒ 谁显示它谁负责过一道 `Loc.T`。
         /// </summary>
-        public static string DeckErrorText(DeckError e) { return Loc.T(DeckRules.Describe(e)); }
+        public static string DeckErrorText(DeckError e)
+        {
+            if (e == DeckError.None) return "";
+            // 🟢 **2026-10-25（`E1` · 第八段）：「上屏用哪个键」的判据收在 `DeckRules.ErrorTextKey`（只此一处）。**
+            //   原版真实路径（cpp2il `DeckUtility.cs:149-170` 现读）：`term = $"MenuDeck/Error/{枚举}"`
+            //   —— `{0}` 是**枚举本身（名字）**，取不到就退 `MenuDeck/Error/InvalidDeck`。
+            //   ⇒ 🔴 **数字族 `MenuDeck/Error/{2,4,5}` 那条判据已被推翻**（官方 I2 表一条数字键都没有），⛔ 别再走它。
+            //   三档：① 原版有具名键 ⇒ 具名；② 我们自己的槽位判据（`WarlordAlreadySet`/`DefensiveAlreadySet`）⇒ 保留具名；
+            //        ③ 其余 10 档 ⇒ 映射到**原版那 6 个枚举名**再走具名族
+            //           （`NoWarlord→MissingHero` · `TooFew/TooMany→IncompleteDeck` · 其余→`InvalidDeck`）。
+            //   ⚠️ `MenuDeckErrorNumber` / `MenuDeckErrorKey`（数字族）**保留**：`DeckRuntime.cs` 另一处弹窗还在用，
+            //     但它只是「取不到就退 `InvalidDeck`」，与 `ToRawLocalizationString` 的兜底同形 ⇒ 不是本函数的判据。
+            //   ⛔ 别在调用点各写一份这个选择。
+            return Loc.T(DeckRules.ErrorTextKey(e));
+        }
 
         /// <summary>「卡组存档**写不进去**」那条**人话**的词条键（🔴 **2026-10-18 `G8` 自拟**）。
         ///
@@ -5941,6 +5955,10 @@ namespace CardPresentation
         //   · `TooFew/TooMany`   → **5** `IncompleteDeck`    —— 原版那条是「张数**恰好等于** deckSize」（`:69` ⇒ `:80`）
         //   · `WarlordNotHero`   → **4**（`:36` ⇒ `:84`）· `WrongFaction` → **4**（`:58-62`）
         //   · `WarlordInCards`   → **4**（`:63-67`）· `CopyLimitExceeded` → **4**（`:111-121`）
+        //   · 🆕 **2026-10-25（`E1` · 第六段）：`LegendaryTotalExceeded` → 也走 `default` = 4** ——
+        //     它就是原版 `:111-121` 那一支（整副传奇张数），与 `CopyLimitExceeded`（同名上限）**共用同一个号 4**；
+        //     两档的**文案**靠 `DeckRules.Describe` 分开（`MaxCopiesReached` vs `MaxLegendayCopiesReached`），
+        //     ⛔ 不要为它单独编号（原版没有第 6 个号）。
         //   · `EffectOnlyCard`   → **4**（原版对应判据是 `inventoryOptions != InInventory` ⇒ `:68-72` 归 4）
         //   · **1（`CardsNotOwned`）与 3（`InvalidDeckBannedCards`）我们【永远不回】** ——
         //     前者是「持有数」、单机全解锁 ⇒ 恒真；后者是**事件禁卡表**（LiveOps 远端下发、本地没有）。
@@ -5953,7 +5971,15 @@ namespace CardPresentation
         //     对未知 id 的返回值**本件没查到**（方法体在 `decomp_full` 里是那一大坨泛型/LINQ 展开）⇒
         //     **按原版的 catch-all（4）落账，不猜 1**。
         /// <summary>我们的 `DeckError` → **原版 `DeckError` 的号**（`MenuDeck/Error/{0}` 里那个 `{0}`）。
-        /// ⛔ **别改我们的枚举去对齐原版**（下标被 `Describe` 的文案表与历史断言引用过）⇒ 映射只此一处。</summary>
+        /// ⛔ **别改我们的枚举去对齐原版**（下标被 `Describe` 的文案表与历史断言引用过）⇒ 映射只此一处。
+        /// <para>🔴 **2026-10-25（`E1` · 第八段）：上面那张「逐条对位」表引的 `.c` 出处【待核】。**
+        /// 复核时发现：`DeckUtility__CanAddCard.c` **在 `decomp_full` 里不存在**（只有 `CardDeck__CanAddCard.c`，183 行）；
+        /// `DeckUtility__ValidateDeck.c`(96) / `ValidateDeckCards.c`(130) / `ValidateDeckWarlord.c`(54) **全部只 `return 0/1`（bool）**、
+        /// 不返回错误号；而现表引的是 `__ValidateDeck.c:32,88 / :69 / :80 / :111-121` —— 行号**超出这三个文件的长度**。
+        /// ⇒ **号码本身沿用旧结论（`A330` 报告），本轮未能独立复核**；下一批若要动它，
+        /// **按内容认函数、别按文件名认**（G4「文件名与内容不符」那一族）。
+        /// ⚠️ 但**今天不影响任何上屏**：号只在 `UsesNumericErrorText` 为真的 10 档上用，
+        /// 而那 10 档的号里 `2` / `5` / `4` 三个值全部来自这张表 —— **6 个原版值先当真值用，⛔ 不要因为复核不了就改号**。</para></summary>
         public static int MenuDeckErrorNumber(DeckError e)
         {
             switch (e)

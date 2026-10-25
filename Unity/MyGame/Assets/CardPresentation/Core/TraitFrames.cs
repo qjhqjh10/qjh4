@@ -755,6 +755,18 @@ namespace CardPresentation
         /// 返回这一轮**新挂上的框**数（断言用）。</summary>
         public int SyncKeywords(IEnumerable<string> current)
         {
+            // 旧签名转发 —— `valueOf == null` ⇒ 「没有值可传」（判据 §6.0 P0-2：⛔ 别把值塞进 `CardData`）
+            return SyncKeywords(current, null);
+        }
+
+        /// <summary>🆕 **2026-10-25（W5 · 判据 §6.0 `P0-2`）**：带**取值的委托**的版本。
+        /// <para>`valueOf(key)` 必须返回**当前 trait 总值**（基值 + Σmodifier、钳 ≥ 0）——
+        /// 原版 `EntityScript.GetCurrentTraitValueWithModifiers`，我们的等价物 = `UnitState.KwValue(key)`。
+        /// ⛔ 不是卡面上的固定值、⛔ 不是「本次增加量」（判据 §6.0 / 报告 N15 §⑥ 的共同前提）。</para>
+        /// <para>它同时驱动 **W1/W2/W3**（「新出现」那条路把值一路带到 `UpdateValue`）与 **W8**
+        /// （值变化兜底：只在值真的变了才刷）。</para></summary>
+        public int SyncKeywords(IEnumerable<string> current, System.Func<string, int> valueOf)
+        {
             int added = 0;
             var now = new HashSet<string>();
             if (current != null)
@@ -762,10 +774,11 @@ namespace CardPresentation
                 {
                     now.Add(k);
                     if (_prev.Contains(k)) continue;
-                    if (DisplayStatus(k)) added++;
+                    if (DisplayStatus(k, ValueOf(valueOf, k))) added++;
                 }
             _prev.Clear();
             foreach (var k in now) _prev.Add(k);
+            RefreshChangedValues(now, valueOf);  // 🆕 W8：兜底（只在值真的变了才刷）
             Clean(now, false);                  // 不再持有的 ⇒ 清掉（原版 `CleanStatusAnims(false)` 那条谓词）
             return added;
         }
@@ -787,13 +800,25 @@ namespace CardPresentation
         /// 返回 `true` = **OnPlay 那张持久框这次新挂上**（`SyncKeywords` 的 `added` 就数这个）；
         /// 只播了 Start(0)、或本来就没有 OnPlay 那条 ⇒ `false`（Start 的播放次数看
         /// <see cref="StartPlayCount"/> / <see cref="StartPlayCountOf"/>）。</summary>
-        public bool DisplayStatus(string trait)
+        public bool DisplayStatus(string trait) { return DisplayStatus(trait, NoTraitValue); }
+
+        /// <summary>🆕 **2026-10-25（W1 / W2 / W7 接线）**：带**当前 trait 总值**的重载。
+        /// `value == <see cref="NoTraitValue"/>` ⇒ 调用方没有值可传（老调用点 / 自检），**不刷计数器**
+        /// （⛔ 不许拿 0 顶替 —— 那会把计数器写成 `0`，比不刷更糟）。
+        /// 判据：原版 `ResolveTraitAnim` 的回调里是 `component.UpdateValue(traitValue)`
+        /// （`BattleManager.__c__DisplayClass465_0___ResolveTraitAnim_b__0.c:14-31`），
+        /// 「已在字典」那一支是 `UpdateValue(GetCurrentTraitValueWithModifiers(trait))`
+        /// （`BattleCardUI__DisplayStatusAnim.c:190-196`）。</summary>
+        public bool DisplayStatus(string trait, int value)
         {
             var key = Norm(trait);
             if (key.Length == 0) return false;
 
             // ① Start(0) 档 —— **先播、且不受下面那张 OnPlay 去重表影响**（原版 `:86-119` 在 `:121` 那一支之前）
-            PlayStartRows(key);
+            //    🆕 W3：原版这一档同样把 `traitValue` 传给 `ResolveTraitAnim`（`…DisplayStatusAnim.c:86-119`）
+            //    ⇒ 每次 `Play` 之后都要发一次 `UpdateValue`。⚠️ 这两条 trait 的 Start prefab **不带控制器**
+            //    ⇒ 事实上空转，但**调用必须发生**（`UpdateValueCalls` 记账；A-E3 数的就是它）。
+            PlayStartRows(key, value);
 
             // ② OnPlay(2) 档 —— 原版 `:121-198`
             WarpforgeEffectPlayer old;
@@ -804,6 +829,9 @@ namespace CardPresentation
                     old.transform.localPosition = Vector3.zero;
                     old.gameObject.SetActive(true);
                 }
+                // 🆕 W2：原版「已在字典」这一支除了归位 + 激活，**还要再刷一次计数器**
+                //   （`DisplayStatusAnim.c:126-198`，`UpdateValue` 在 `:190-196`）。⛔ 不重建、不重播。
+                RefreshCounter(key, value, old, false);
                 return false;                       // 「已有 ⇒ 不重播」也是原版的行为，不是失败
             }
 
@@ -819,6 +847,9 @@ namespace CardPresentation
             var p = Play(name, held: true);     // 🆕 N5：`_play` 那一档由本类持有（状态消失 `Exit()` 收）
             if (p == null) return false;
             _play[key] = p;
+            // 🆕 W1：原版「框刚出生」这一拍就调 `UpdateValue`（`CreateAnim` 的 `Instantiate` 之后**立刻**
+            //   invoke 回调，在 `CardAnimController.Initialize` 之前 —— `BattleManager__CreateAnim.c:62-81`）。
+            RefreshCounter(key, value, p, false);
             return true;
         }
 
@@ -828,7 +859,7 @@ namespace CardPresentation
         /// 对比 OnPlay 那档要留着被 `Remove`/`Clean` 收）。
         /// ⚠️ `firstStrike` / `piercing` 的 `effectAnim` 是**空引用** ⇒ 原版那一档什么都不播
         /// ⇒ 这里**只出声一次、不猜替身**（铁律 11 例外①）。</summary>
-        int PlayStartRows(string key)
+        int PlayStartRows(string key, int value)
         {
             var rows = StartBindingsFor(key);
             if (rows.Length == 0)
@@ -854,6 +885,9 @@ namespace CardPresentation
                 int n;
                 _startPlaysByTrait.TryGetValue(key, out n);
                 _startPlaysByTrait[key] = n + 1;
+                // 🆕 W3：原版这一档也把 `traitValue` 交给 `ResolveTraitAnim` ⇒ 每播一条就发一次 `UpdateValue`
+                //   （`BattleCardUI__DisplayStatusAnim.c:86-119`）。⚠️ 本档的 prefab 都不带控制器 ⇒ 空转，但调用要发生。
+                RefreshCounter(key, value, p, false);
             }
             return played;
         }
@@ -880,7 +914,11 @@ namespace CardPresentation
         /// </summary>
         /// <param name="isWarlord">这张卡是不是督军（原版 `CardScript.IsWarlordEquivalent`；
         /// 我们这边 = `UnitState.IsWarlord`，由 `BattleDriver.PlayTraitPulse` 从棋盘上取）。</param>
-        public bool DisplayTrigger(string trait, bool isWarlord = false)
+        /// <param name="value">🆕 **2026-10-25（W4）**：当前 trait 总值（`UnitState.KwValue(keyword)`）。
+        /// 原版 `DisplayTriggerAnim` 把 `traitValue` 一起传给 `ResolveTraitAnim`
+        /// （`BattleCardUI__DisplayTriggerAnim.c:97-104`）⇒ 触发那一拍也要刷计数器。
+        /// `NoTraitValue` = 调用方没有值（老调用点 / 自检）⇒ 不刷。</param>
+        public bool DisplayTrigger(string trait, bool isWarlord = false, int value = NoTraitValue)
         {
             var key = Norm(trait);
             if (key.Length == 0) return false;
@@ -907,6 +945,10 @@ namespace CardPresentation
                 if (p == null) continue;                             // 取不到 ⇒ 出声（`Play` 里已警告）并跳过
                 playedAny = true;
                 _triggerPlays++;
+                // 🆕 W4：原版这一档把 `traitValue` 传给 `ResolveTraitAnim`（`…DisplayTriggerAnim.c:97-104`）
+                //   ⇒ 触发那一拍也刷计数器。⚠️ 刷的是**这一条 effect 播出来的那个实例**（原版就是那个实例的组件），
+                //   ⛔ 不是 `_play` 里那张持久框 —— 两条链各管各的（判据 §2.2 那张表）。
+                RefreshCounter(key, value, p, false);
                 if (rows[i].TriggerType == 6) _trigger[key] = p;     // ④ 只有 6 那条写表
             }
             return playedAny;
@@ -992,7 +1034,172 @@ namespace CardPresentation
             if (p == null)
                 Debug.LogWarning($"[TraitFrames] 效果库里没有 `{prefabName}` ⇒ 这张状态框挂不上"
                                + "（是不是重导过 prefab 没重建效果库？Tools > Warpforge > 生成效果库）");
+            else if (TraitEffectControllers.Attach(p.gameObject, prefabName) != null)
+                AttachedCount++;                    // 🆕 W0
             return p;
+        }
+
+        // ══════════════════════════════════════════════════════════════════════════════════════
+        //  🆕 2026-10-25（第八十会话 · 执行代理 `E5`）：`TraitEffectController` 钩子层 **W0–W8 接线**
+        //
+        //  判据 → `资料/完全复刻/判据/TraitEffectController_钩子层.md` · 判定表 → `报告/N15_TraitEffect_第1轮.md` §⑥
+        //
+        //  一句话：原版这层是「**框上那个计数器组件**，在『框出生 / 框再次显示 / 触发』这几拍把
+        //  `GetCurrentTraitValueWithModifiers(trait)` 写上去并弹一下」。它**不是**「值一变就刷」的观察者
+        //  （`HuntMarkController__UpdateValue.c:13-30` 里没有任何同值早退）。
+        //
+        //  🔴 **为什么这些新成员放在类尾**：CLAUDE.md §三（2026-10-25 `N9` 实测）—— 插在中间会让
+        //     整本账的落点行号整体漂移。**新增一律追到类尾**。
+        //
+        //  🔴 **`_prevValue` 同时是 W8 的去重锁**（= 判据 §6.3 说的「与 `StatusApplied` 同一把锁」）：
+        //     · **W1–W4 / W7 是「显式显示」** ⇒ **一律刷**（`onlyIfChanged: false`）—— 原版每次
+        //       `DisplayStatusAnim` / `DisplayTriggerAnim` 都会调 `UpdateValue`，哪怕值没变；
+        //     · **W8 是「值变化兜底」**（我们自拟的补偿：原版还有 modifier 变化那条路）⇒ **只在值变了才刷**。
+        //     ⇒ 只要显式那一路刷过，它就把当次的数记进 `_prevValue`，兜底那一路同帧就不会再刷一次
+        //       （**不会双弹**）。⚠️ 这条**依赖 `RefreshAll` 的顺序**：`PlaySignals()` 在前、`SyncBoard`
+        //       在后（`BattleDriver.cs` 的 `RefreshAll`）⇒ `StatusApplied`（W7）先刷、`SyncKeywords`（W8）后判。
+        //       ⛔ **改那个顺序会让计数器弹两下**。
+        // ══════════════════════════════════════════════════════════════════════════════════════
+
+        /// <summary>「**调用方没有值可传**」的哨兵（老调用点 / 自检 / 事件里取不到单位）。
+        /// ⛔ 别用 `0` 顶替 —— 那会把计数器写成 `0`，比不刷更糟。</summary>
+        public const int NoTraitValue = int.MinValue;
+
+        /// <summary>🆕 **W1–W4 的「调用发生了吗」计数器**（判据 §6.5 `UpdateCalls`）。
+        /// ⚠️ 它数的是**本类发出更新请求的次数**，**包含「实例上没有控制器」的那些** ——
+        /// 原版这两条 trait 的 `Start(0)` / 触发 prefab **本来就不带控制器**（判据 §2.2 那张表），
+        /// 「空转」本身是原版行为；断言（A-E3/A-E4）要证的正是**调用必须发生**。</summary>
+        public int UpdateValueCalls { get; private set; }
+
+        /// <summary>🆕 **W0 的「挂上了几个控制器」**（判据 §6.5 `AttachedCount`）。
+        /// 应恒等于「播过的、带控制器的那两张 idle 框实例数」（全库只有 2 个 prefab 带）。</summary>
+        public int AttachedCount { get; private set; }
+
+        /// <summary>最近一次写进控制器的值（`NoTraitValue` = 还没写过）。断言用。</summary>
+        public int LastTraitValue { get; private set; } = NoTraitValue;
+
+        /// <summary>W8 的去重锁 / W7 的记账 —— 「这条 trait 上一回写进计数器的是几」。
+        /// ⚠️ 只有**真的打到控制器**（`ctl != null`）时才写，否则空转的 Start(0) 会把数写脏、
+        /// 让紧接着的 OnPlay 那一档误以为「没变」而漏掉唯一一次弹。</summary>
+        readonly Dictionary<string, int> _prevValue = new Dictionary<string, int>();
+
+        /// <summary>取值：优先用调用方给的值；没给就问 `valueOf`；都没有 ⇒ `NoTraitValue`。</summary>
+        static int ValueOf(System.Func<string, int> valueOf, string key)
+        {
+            if (valueOf == null || string.IsNullOrEmpty(key)) return NoTraitValue;
+            return valueOf(key);
+        }
+
+        /// <summary>🆕 **W1–W4 / W8 的唯一出口**：把「这条 trait 现在几」发给**这个实例**上的控制器。
+        /// <para>落点依据：原版 `BattleManager.CreateAnim` 的 `Instantiate` 之后立刻 invoke 的那个回调
+        /// = `component.UpdateValue(traitValue)`（`__c__DisplayClass465_0…b__0.c:14-31`）。</para>
+        /// <para>`onlyIfChanged = false` ⇒ 显式显示拍（原版每次调、⛔ 不做同值早退）；
+        /// `true` ⇒ 值变化兜底（W8）。返回 1 = 真的调了控制器；0 = 没值 / 没实例 /
+        /// 这一档没有控制器 / 兜底判定「值没变」。</para></summary>
+        int RefreshCounter(string key, int value, WarpforgeEffectPlayer instance, bool onlyIfChanged)
+        {
+            if (value == NoTraitValue || instance == null) return 0;
+            UpdateValueCalls++;                       // A-E3：**调用发生了就记账**，⛔ 不看有没有控制器
+            var ctl = instance.GetComponent<TraitEffectController>();
+            if (ctl == null) return 0;                // 该 prefab 上本来就没有控制器（全库只有 2 个带）
+            if (onlyIfChanged)
+            {
+                int last;
+                if (_prevValue.TryGetValue(key, out last) && last == value) return 0;
+            }
+            _prevValue[key] = value;
+            LastTraitValue = value;
+            ctl.UpdateValue(value);
+            return 1;
+        }
+
+        /// <summary>🆕 **W8**：值变化兜底（判据 §6.3 末段）。
+        /// <para>原版还有一条「非 `AddEffect` 路径导致的数值变化」（`GetCurrentTraitValueWithModifiers` 里
+        /// modifier 变了）—— 那条我们引擎侧没有对应事件 ⇒ 只能靠每轮同步时对差。</para>
+        /// <para>⚠️ **只在「值真的变了」才刷**：这条是**我们自拟的补偿**，⛔ 不能变成「每帧刷」——
+        /// `UpdateValue` 里有 `DOPunchScale`，每帧刷会让计数器一直抖（判据 §6.3 那段警告）。</para>
+        /// <para>范围：**只看 `_play` 里已有的键** —— 计数器只活在那两档 OnPlay(2) 框上
+        /// （`huntMark` / `markerlight`，判据 §2.1）。别的 trait 全库没有控制器，纳进来只会有噪音。</para></summary>
+        void RefreshChangedValues(ICollection<string> now, System.Func<string, int> valueOf)
+        {
+            if (_prevValue.Count > 0)
+            {
+                var drop = new List<string>();
+                foreach (var kv in _prevValue) if (now == null || !now.Contains(kv.Key)) drop.Add(kv.Key);
+                for (int i = 0; i < drop.Count; i++) _prevValue.Remove(drop[i]);
+            }
+            if (valueOf == null || _play.Count == 0) return;
+            foreach (var kv in _play)                 // `RefreshCounter` 只改 `_prevValue`（另一本）⇒ 可安全遍历
+            {
+                if (now != null && !now.Contains(kv.Key)) continue;   // 已不再持有 ⇒ 交给 `Clean` 收
+                RefreshCounter(kv.Key, ValueOf(valueOf, kv.Key), kv.Value, true);
+            }
+        }
+
+        // ── W9 / W10 的**接收端**（本轮 0 调用点；缺的那一侧写在每条的 doc 里）────────────────────
+
+        /// <summary>🆕 **W9 接收端**：原版 `CardScript.SetRemoveMarkerlight`（`CardScript.cs:11260-11296`）
+        /// 在标记光被打掉那一刻，对 **play 表与 trigger 表各取一次** `GetComponent<MarkerlightController>()
+        /// → MarkerLightUsed()` ⇒ Normal off / Expiring on。
+        /// <para>本方法就是那个「取两次」的等价物。返回真的切了几个实例（0 = 这张卡上没有该框）。</para>
+        /// <para>🔴 **本轮 0 调用点 —— 缺的是【引擎事件】**：我们引擎侧 `RuleCore.cs:6884` 打完标记光伤害就
+        /// `target.RemoveAll("markerlight")`，**没有发任何事件**（现读全仓：`EvtKind` 里没有「trait 被摘掉」那一档）。
+        /// ⇒ 要接上得先在 `RuleEngine/Core/BattleEvent.cs` 加一条 `EvtKind` 并在 `RuleCore` 那一处 `Emit`。
+        /// ⚠️ 那条事件落地时**必须同批处理 F2**（原版标记光是**留到回合末**才摘，
+        /// `CardScript__OnTurnEnd.c:135-141`；我们现在当场摘）—— 否则 Expiring 态几乎永远看不到。</para></summary>
+        public int MarkerLightUsed(string trait)
+        {
+            var key = Norm(trait);
+            int n = 0;
+            if (MarkerLightUsedIn(_play, key)) n++;
+            if (MarkerLightUsedIn(_trigger, key)) n++;
+            return n;
+        }
+
+        static bool MarkerLightUsedIn(Dictionary<string, WarpforgeEffectPlayer> dict, string key)
+        {
+            WarpforgeEffectPlayer p;
+            if (!dict.TryGetValue(key, out p) || p == null) return false;
+            var c = p.GetComponent<MarkerlightController>();
+            if (c == null) return false;
+            c.MarkerLightUsed();
+            return true;
+        }
+
+        /// <summary>🆕 **W10 接收端**：原版 `CardScript.SetTraitsOnPlayAttackingStatus(hideStatus)`
+        /// （`CardScript.cs:11298-11333`）→ 两本字典各 `AimingAttack(...)`；
+        /// 上游 = `PrepareAttack`（开始攻击 `hideStatus: true` / 结束攻击 `hideStatus: false`，
+        /// `CardScript._PrepareAttack_d__353__MoveNext.c:41 / :65`）。
+        /// <para>🔴 **仍然 0 调用点** —— 三样里**已补两样**（2026-10-25 · 第八十会话 · `R5`）：
+        /// ① ✅ `Core/MarkerlightController.cs`：`AimingAttack` 已是原版三句（按 `alreadyAttacked` 选 fader 后
+        ///    `Toggle(!option, fadeTime)` —— 反编译里写作 `(option?1u:0u) ^ 1u`），
+        ///    两个 `materialFader*` 字段类型**已改回 `MaterialFader`**；
+        /// ② ✅ 两个 `MaterialFader` 由 `MarkerlightController.EnsureFaders()` 建在 `Normal State/Fixed` /
+        ///    `Expiring State/Fixed`（各 `BindRenderers` 4 条 + `ApplyPrefabFlags(false,false,true)`）；
+        /// ③ ✅ **两拍都已接上**（2026-10-25 · 同批 `R5`）：`Battle/BattleDriver.cs` 的 `AimAttackingStatusPair`
+        ///    —— 起手 = `PlaySignal` 的 `EvtKind.Attack` 那一拍（`hideStatus: true` = 淡出），
+        ///    收手 = **同拍排一条**「攻方动作序列跑完」的回调（`hideStatus: false` = 淡回）。
+        ///    判据两拍 = `CardScript.cs:3649`（起手）/ `:3637`（收手）。
+        ///    🔴 **就地订正（2026-10-25 · R5 · 铁律 5）**：本段原来写「`EvtKind.Attack` 是**结算**那一拍，不是起手」
+        ///    —— 不成立（`BattleDriver.cs:20460-20461` 写着「正好是抬手那一拍」，且被 `AttackWindUp` 排到动作起点）。
+        ///    ⚠️ 唯一的**调用点**就是那两个（成对）；⛔ 别在别处再加第三个（会让同一记攻击多淡一次）。</para></summary>
+        public int AimingAttack(string trait, bool option)
+        {
+            var key = Norm(trait);
+            int n = 0;
+            if (AimingAttackIn(_play, key, option)) n++;
+            if (AimingAttackIn(_trigger, key, option)) n++;
+            return n;
+        }
+
+        static bool AimingAttackIn(Dictionary<string, WarpforgeEffectPlayer> dict, string key, bool option)
+        {
+            WarpforgeEffectPlayer p;
+            if (!dict.TryGetValue(key, out p) || p == null) return false;
+            var c = p.GetComponent<MarkerlightController>();
+            if (c == null) return false;
+            c.AimingAttack(option);
+            return true;
         }
     }
 }

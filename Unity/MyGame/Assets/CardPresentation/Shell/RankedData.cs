@@ -175,8 +175,11 @@ namespace CardPresentation
             _loaded = true;
             try
             {
-                if (!File.Exists(StorePath)) return;
-                var s = JsonUtility.FromJson<Save>(File.ReadAllText(StorePath));
+                // 🆕 Step 4 双写期过渡读法：**先中央档、再旧档**（`ReadThroughLegacy` 内部判 `SaveCenter.StoreOn`
+                // ⇒ 批处理/自检照旧只读旧档那一份）。⛔ 别删旧读。
+                string text = SaveCenter.ReadThroughLegacy(SaveKeys.PlayerSeason, StorePath);
+                if (text == null) return;
+                var s = JsonUtility.FromJson<Save>(text);
                 if (s == null) return;
                 _points = s.points; _isRanked = s.isRanked; _lossStreak = s.lossStreak;
                 _season = s.season <= 0 ? 1 : s.season;
@@ -196,13 +199,23 @@ namespace CardPresentation
             Load();
             try
             {
-                Directory.CreateDirectory(StoreDir);
                 var s = new Save
                 {
                     points = _points, isRanked = _isRanked, lossStreak = _lossStreak,
                     season = _season, lastPlayedSeason = _lastPlayedSeason, savedTier = _savedTier,
                 };
-                File.WriteAllText(StorePath, JsonUtility.ToJson(s, true));
+                string json = JsonUtility.ToJson(s, true);
+                // 🆕 2026-10-25（执行代理 R4 · 存档 Step 4「双写期」）：**不再自己写盘** —— 走
+                // `SaveCenter.SaveThroughLegacy`：中央档 `PlayerSeason`（带 `_v`）+ 旧档 `WarpforgeRanked/ranked.json`
+                // （**不带 `_v`**）各一份。
+                // ⚠️ 本类**没有** `StoreOn` 那道门（切换前就是无条件写）；切换口内部仍判 `SaveCenter.StoreOn`：
+                //    关着（批处理）⇒ 退回「只写旧档」⇒ **与切换前的行为逐字同**（只是换名变原子了）。
+                string werr;
+                if (!SaveCenter.SaveThroughLegacy(SaveKeys.PlayerSeason, StorePath, json, out werr))
+                {
+                    // 不许静默：写不进去要说出来
+                    Debug.LogWarning("[Ranked] 存档写盘失败（" + StorePath + "）：" + werr);
+                }
             }
             catch (Exception e)
             {

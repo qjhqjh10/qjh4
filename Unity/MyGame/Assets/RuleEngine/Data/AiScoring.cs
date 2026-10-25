@@ -26,13 +26,19 @@
 //
 // ⚠️ **已实现 / 未实现（如实标注）**：
 //   ✅ option 0 / 1 / 2 / 3 / 4 / 5 / 6 / 9 / 10 / 12 / 13 / 14 / 25 / 35 —— 池内 577 条**全覆盖**
+//   ✅ **2026-10-25（第八十会话 · `R11` · `R6-01`）：7 / 8 / 11 / 20 / 30 / 40 六支已补齐** ——
+//      判据 = `判据/AI打分与动作选择_第2轮.md` §1·5 的 RVA；池内 0 条用这六支（现数：
+//      `ai_scoring.json` 的 `scoringOption` 只有 0/1/2/3/4/5/6/12/13/14/25/35）⇒ **行为零变化**，
+//      铁律 11 仍要做。⚠️ option 7 的 `ValueOfTraits` 因缺 `_aIScore` 数据只能算 0（见 `ScoreFromJam`）。
 //      （2026-10-19 续工补上 option 5 = `ScoreFromBestAttack`、option 12 = `ScoreFromHandBuff`；
 //       ⚠️ option 13 只接「手牌费用」那一半，原版后半段数「主动技 manaCost」的那一支未接，
 //       我们的 `EffectSpec` 上没有主动技费用字段）。
 //   ✅ `ValueOfEnchantments` 的 enchantment +1 / SecretOrder −2 已接 E3 的
 //      `CardInstance.ActiveEffects`（`Core/Enchantment.cs`）；`addStats` 仍是「运行时属性 − 卡面」。
 //   ⚠️ option 5 的 `extraScoreFromAttacking/TargetingOnAttack`（真值 0 非零张）与 poisonous 追加分未做；
-//      option 12 的 `ScoreFromPlayingCard` 递推不再带目标（原版会把动作目标传进去；池内 2 条都无目标）。
+//      option 12 的 `ScoreFromHandBuff`：**原版内部确实把 `targetCard = null` 传下去**
+//      （`判据` §8 `R6-09`；我方 `HandBuffValue` 传的是 `slot=-1 / targetSide=-1` ⇒ 与之一致）。
+//      ⚠️ 2026-10-25（`R11` · 铁律 5）订正：这一句原来写「原版会把动作目标传进去」，**已过期**。
 //   ✅ **`DamageCriteria/HealCriteria.valueOptions` 已按反编译逐支对齐**（2026-10-20）：`80` ⇒
 //      `min + max × multiplierCount`；`90/204` 与 `0` 同为 default（银行家舍入）—— 原版本来就是同一支
 //      （见 `AverageValue` 的注释）。池内非 0 的只有 `GSC59`/`BL53`/`SOR14` 三条。
@@ -43,6 +49,25 @@ namespace RuleEngine
 {
     public static class AiScoring
     {
+        // ==================================================================
+        //  🔬 只给离线探针用的**读数钩子**（🆕 2026-10-25 · `R11` 第二段）
+        //
+        //  为什么需要：`工具/ruleprobe play all dump` 是**结算层**读数，结构上看不见 AI 打分
+        //  （它没有 AI 决策列）⇒ 每一笔 AI 改动都只能给「解析式读数」。
+        //  这个钩子供 `工具/ruleprobe` 的 `ai <卡id>` 子命令把**每条 criteria 各贡献多少**打出来。
+        //
+        //  🔴 **产品路径恒 `null`（默认值）** ⇒ 只多一次 null 判断，行为零变化。
+        //     ⛔ **别在游戏代码里给它赋值**（表现层 / 自检都不该依赖它）；
+        //     `RuleEngineTest` 那一批断言走的是「直接调 `ScoreFromCriteria` 取返回值」，不碰这里。
+        // ==================================================================
+        public static Action<string> TraceCriteria;
+
+        static void Trace(string line)
+        {
+            var t = TraceCriteria;
+            if (t != null) t(line);
+        }
+
         // ==================================================================
         //  出牌主链
         // ==================================================================
@@ -75,7 +100,9 @@ namespace RuleEngine
                     if (e == null) continue;
                     // 原版先 `FilterMethods.CheckIfMeetsCriteria(card, target, target, e.targetCriteria)`
                     if (!AiTargets.MatchesTarget(ctx, e.targetCriteria, card, inst, thisSide, target)) continue;
-                    sum += ScoreFromCriteria(ctx, card, inst, thisSide, target, e);
+                    float v = ScoreFromCriteria(ctx, card, inst, thisSide, target, e);
+                    sum += v;
+                    Trace("cardTarget[" + i + "] option=" + e.scoringOption + " ⇒ " + v.ToString("0.###"));
                 }
             }
 
@@ -86,7 +113,9 @@ namespace RuleEngine
                 {
                     var e = dto.nonTargetScoringCriteria[i];
                     if (e == null) continue;
-                    sum += ScoreFromCriteria(ctx, card, inst, thisSide, target, e);
+                    float v = ScoreFromCriteria(ctx, card, inst, thisSide, target, e);
+                    sum += v;
+                    Trace("nonTarget[" + i + "] option=" + e.scoringOption + " ⇒ " + v.ToString("0.###"));
                 }
             }
             return sum;
@@ -196,6 +225,12 @@ namespace RuleEngine
                     int meleeDelta = e.buff != null ? e.buff.meleeAttackChange : 0;
                     for (int i = 0; i < targets.Count; i++)
                     {
+                        // 🔴 2026-10-25（`R11` · `R6-02`）：原版循环体**第一句**就是 `t.mightAct` 闸
+                        //   （`AI__ScoreFromCriteria.c` 的 `:0x18093A934-0x18093A936`：
+                        //   `CardScript.get_mightAct` 为假 ⇒ `je 0x18093AA63` 跳过这个目标）。
+                        //   `mightAct` 的引擎侧唯一判据 = `ConditionEval` 的 `case 20`（同源：
+                        //   `CardScript__get_mightAct.c`）⇒ 走 `AiTargets.MightAct` 转发，别在这里另写一份。
+                        if (!AiTargets.MightAct(ctx, targets[i])) continue;
                         if (targets[i].Unit == null) continue;
                         float withBuff = BestAttackScore(ctx, targets[i], meleeDelta);
                         float noBuff = BestAttackScore(ctx, targets[i], 0);
@@ -212,6 +247,92 @@ namespace RuleEngine
                         var u = targets[i].Unit;
                         int atk = u != null ? u.Attack : (targets[i].Card != null ? targets[i].Card.Attack : 0);
                         sum += atk * SideMul(targets[i].Side, thisSide, e) * mult;
+                    }
+                    return sum;
+                }
+
+                // ============================================================
+                //  🆕 2026-10-25（`R11` · `R6-01`）：7 / 8 / 11 / 20 / 30 / 40 —— **池内 0 条用它们**
+                //  （现数 `ai_scoring.json`：scoringOption 只出现 0/1/2/3/4/5/6/12/13/14/25/35）
+                //  ⇒ 补齐是「铁律 11：只有先后、没有不做」。判据逐条 = 判据 §1·5 的 RVA。
+                // ============================================================
+
+                case 7:     // SumValueOfJam（`:0x18093AB10-0x18093AB41`）
+                {
+                    float sum = baseValue;
+                    for (int i = 0; i < targets.Count; i++)
+                    {
+                        var u = targets[i].Unit;
+                        if (u == null) continue;
+                        sum += ScoreFromJam(u) * SideMul(targets[i].Side, thisSide, e) * mult;
+                    }
+                    return sum;
+                }
+
+                case 8:     // RandomValue（`:0x18093ABA7-0x18093ABCC`）
+                    // 原版 `acc + (float)manager.GetRandomInt(0, 100)` —— **不乘 M、不乘 mul**。
+                    // ⚠️ 走 `ctx.AiRng`（`BattleContext.AiRng`，种子派生 ⇒ 同一局可复现），
+                    //   与 `TweakAvailableActions` 用同一个骰子池；**别改成 `ctx.Rng`**。
+                    return baseValue + ctx.AiRng.Next(0, 100);
+
+                case 11:    // ValueOfBuffing（`:0x18093AC34-0x18093ACC2`）
+                {
+                    float sum = baseValue;
+                    if (e.buff == null) return sum;
+                    for (int i = 0; i < targets.Count; i++)
+                    {
+                        var u = targets[i].Unit;
+                        if (u == null) continue;
+                        sum += ScoreFromBuff(u, e.buff) * SideMul(targets[i].Side, thisSide, e) * mult;
+                    }
+                    return sum;
+                }
+
+                case 20:    // SumValueOfPoison（`:0x18093ADAC-0x18093AE42`）
+                {
+                    float sum = baseValue;
+                    for (int i = 0; i < targets.Count; i++)
+                    {
+                        var u = targets[i].Unit;
+                        if (u == null) continue;
+                        // 前置（`!poisoned && !resistant && !督军`）已经在 `SimpleAI.ScorePoisoning` 里
+                        sum += SimpleAI.ScorePoisoning(u) * SideMul(targets[i].Side, thisSide, e) * mult;
+                    }
+                    return sum;
+                }
+
+                case 30:    // SumValueOfGivingCharge（`:0x18093AED9-0x18093AF8A`）
+                {
+                    // 原版 `ScoreFromGivingCharge` 被**内联**：
+                    //   `(!t.CanActNow() && t.summonSickness(+0x58)) ? t.CurrentMeleeAttack : 0`
+                    // 🔴 **不在这里重写一份** —— 转发现成的 `SimpleAI.ScoreGivingCharge`
+                    //   （它内部的 `RuleCore.CanActNow` 是引擎那个共用口，注释里点明「⛔ 别重写
+                    //   `!u.Exhausted && !u.IsStunned`」）。两条判据 = 迟早不一致。
+                    float sum = baseValue;
+                    for (int i = 0; i < targets.Count; i++)
+                    {
+                        var u = targets[i].Unit;
+                        if (u == null) continue;
+                        int tSide = SideOf(ctx, u);
+                        int tSlot = SlotOf(ctx, tSide, u);
+                        if (tSlot < 0) continue;
+                        sum += SimpleAI.ScoreGivingCharge(ctx, thisSide, tSlot,
+                                                          tSide == thisSide ? "own" : "enemy")
+                             * SideMul(targets[i].Side, thisSide, e) * mult;
+                    }
+                    return sum;
+                }
+
+                case 40:    // ValueOfChangeWeapon（`:0x18093B0BE-0x18093B13D`）
+                {
+                    // 原版：只对 `t.rawCard.maxHealth(+0x9C) == 0` 的目标**加系数本身**
+                    // （不乘任何数、不乘 M）。`maxHealth == 0` = 非单位卡（战术/低语）。
+                    float sum = baseValue;
+                    for (int i = 0; i < targets.Count; i++)
+                    {
+                        var c = targets[i].Card;
+                        if (c == null || c.Health != 0) continue;
+                        sum += SideMul(targets[i].Side, thisSide, e);
                     }
                     return sum;
                 }
@@ -254,15 +375,44 @@ namespace RuleEngine
 
                 case 35:    // ValueOfDrawingCard（`:0x18093AF8F-0x18093B0B0`）
                 {
-                    // 🔴 原版这一支的 side 系数只比**这一方**是不是 0（AI 那一侧）：
-                    //    `cmp byte[thisCard+0x40], bpl(0)` → 相等取 multiplyByFriend。
-                    //    我们是按「AI 自己出牌」调用的 ⇒ 恒取 multiplyByFriend（报告 §三 已记）。
+                    // 🔴 原版这一支的 side 系数只比**这一方**是不是 0：
+                    //    `cmp byte[thisCard+0x40], 0` → 相等取 multiplyByFriend(+0x18)、否则 multiplyByEnemy(+0x1C)。
+                    //
+                    // ✅ **2026-10-25（`R11` 第二段 · 前提已核）：原版 AI 的卡 `side` 恒为 0**
+                    //    ⇒ 这一支在原版 AI 打分里**恒取 `multiplyByFriend`** —— 我方硬取 friend 是**对的**
+                    //    （复现的是「原版 AI 的可观测行为」，⛔ 不是「照字面把三元抄过来」）。
+                    //    证据三条（都可复核）：
+                    //      ① `BattleManager` 的字段名与偏移：`playerFatigue @ +0x378` / `enemyFatigue @ +0x38C`
+                    //         （`d:/2/tools/il2cpp_out/dump.cs:30862 / :30864`）；
+                    //      ② 这一支自己就是这么取疲劳的：`thisCard.side == 0 ? enemyFatigue(+0x38C)
+                    //         : playerFatigue(+0x378)`（判据 §1·6 实读）⇒ **0 号位的疲劳存在 `enemyFatigue` 里**
+                    //         ⇒ **0 号位 = 敌方 = AI**、1 号位 = 本地玩家；
+                    //      ③ `ResolveFatigue(bool playerDrawing)`（`dump.cs:32216`）的协程体
+                    //         （`BattleManager._ResolveFatigue_d__587__MoveNext.c:60-82`）：
+                    //         `playerDrawing == 0` ⇒ 加 `+0x38C`（enemyFatigue）—— 与 ② 互证；
+                    //         而 `AI.PlayTurn` 拿动作时传的是 `GetAvailableActions(isPlayer: false)`
+                    //         （cpp2il `AI.cs:118` / `.c` 的 `param_2 = 0`）⇒ **AI 取的是非玩家那一侧**。
+                    //
+                    // ⚠️ **为什么不能改成「字面三元」**（这才是坑）：我方 AI **两条席位都可能是它**。
+                    //    若换成 `thisSide == 0 ? multF : multE`，AI 坐 1 号位时这一支会取 `multiplyByEnemy`
+                    //    —— 而池内 **56 条** option 35 的 `multiplyByEnemy` **全部缺键 = SO 里就是 0.0**
+                    //    （`cards_truth.json` 的 `defaults.exceptions` 明写这两列「照抄原值；SO 里模板是
+                    //    1.0/-1.0，列表条目多为 0.0」）⇒ 那 56 张卡的抽牌分会**整段塌成 0**。
+                    //    那是**偏离**（原版 AI 从没坐在 1 号位），不是复刻。
                     int p = thisSide;
                     int hand = ctx.Players[p].Hand.Count;
-                    float v = RuleCore.HandMaxFor(ctx) - hand - 1;
-                    if (ctx.Players[p].Deck.Count == 0)
-                        v = -2f - ctx.Players[p].Fatigue;      // ⚠️ A2144 原写「手牌数」= 误读，见文件头
-                    return baseValue + e.multiplyByFriend * mult * v;
+                    bool deckEmpty = ctx.Players[p].Deck.Count == 0;
+                    // 牌库空 ⇒ `−2 − 该方疲劳`（⚙️ `A2144` 原来写「手牌数」= 误读，见文件头）
+                    float delta = deckEmpty
+                        ? -2f - ctx.Players[p].Fatigue
+                        : RuleCore.HandMaxFor(ctx) - hand - 1;
+                    // 🔴 2026-10-25（`R11` · `R6-10`）：**`baseValue` 进乘法一次、再在外面加一次**
+                    //   （判据 §1·6：`:0x18093B083` 的 `addss xmm1, xmm7` + `:0x18093B0A9` 的
+                    //   `addss xmm0, xmm7`）⇒ `base + M·mult·(delta + base)`。
+                    //   ⚠️ **牌库空那一支【不带】里层那个 `base`** —— `:0x18093B092-0x18093B096`
+                    //   把 `xmm1` 整个覆盖成 `−2−疲劳` ⇒ 空库 = `base + M·mult·(−2−疲劳)`。
+                    float inner = deckEmpty ? delta : delta + baseValue;
+                    return baseValue + e.multiplyByFriend * mult * inner;
                 }
 
                 default:
@@ -503,7 +653,10 @@ namespace RuleEngine
                 for (int i = 0; i < aa.nonTargetScoringCriteria.Length; i++)
                 {
                     var e = aa.nonTargetScoringCriteria[i];
-                    if (e != null) sum += ScoreFromCriteria(ctx, card, inst, thisSide, target, e);
+                    if (e == null) continue;
+                    float v = ScoreFromCriteria(ctx, card, inst, thisSide, target, e);
+                    sum += v;
+                    Trace("ability.nonTarget[" + i + "] option=" + e.scoringOption + " ⇒ " + v.ToString("0.###"));
                 }
             }
             if (target != null && aa.cardTargetScoringCriteria != null)
@@ -511,7 +664,10 @@ namespace RuleEngine
                 for (int i = 0; i < aa.cardTargetScoringCriteria.Length; i++)
                 {
                     var e = aa.cardTargetScoringCriteria[i];
-                    if (e != null) sum += ScoreFromCriteria(ctx, card, inst, thisSide, target, e);
+                    if (e == null) continue;
+                    float v = ScoreFromCriteria(ctx, card, inst, thisSide, target, e);
+                    sum += v;
+                    Trace("ability.cardTarget[" + i + "] option=" + e.scoringOption + " ⇒ " + v.ToString("0.###"));
                 }
             }
             return sum;
@@ -579,6 +735,113 @@ namespace RuleEngine
         {
             if (valueOptions == 80) return min + max * multiplierFactor;
             return (int)Math.Round((min + max) / 2.0, MidpointRounding.ToEven);
+        }
+
+        // ==================================================================
+        //  option 7 / 11 的子打分器（🆕 2026-10-25 `R11` · `R6-01`；池内 0 条用）
+        // ==================================================================
+
+        /// <summary>单位在**哪一格**（`side` 那一行的槽号；不在场 / 侧非法 ⇒ `-1`）。
+        /// 与 <see cref="SideOf"/> 配对用（option 30 要把目标交给只吃槽号的
+        /// `SimpleAI.ScoreGivingCharge`）。</summary>
+        static int SlotOf(BattleContext ctx, int side, UnitState u)
+        {
+            if (ctx == null || u == null || side < 0 || side > 1) return -1;
+            var board = ctx.Players[side].Board;
+            for (int s = 0; s < BoardSpec.Size; s++)
+                if (ReferenceEquals(board[s], u)) return s;
+            return -1;
+        }
+
+        /// <summary>原版 `AI.ScoreFromJam`（判据 §6·6）：
+        /// `ValueOfEnchantments(t) + ValueOfTraits(t) + (t.has(jam) ? 0 : rawCard.extraScoreFromJamming)`。
+        ///
+        /// 🔴 **`ValueOfTraits` 本条未实现（如实标注）**：
+        ///   · 原版 = `Σ CardTraitCollection.GetTrait(trait)._aIScore`；
+        ///   · **遍历的是哪个集合**本身没查清（判据 §9-2）；
+        ///   · 而且**本地一条 `_aIScore` 数据都没有** —— `cards_truth.json` / `cards_raw.json` 的
+        ///     `CardTraits` 只有 `name / _trait / _traitValue / _hide` 四格（现读）。
+        ///   ⇒ 这里按 **0** 计。可达性：option 7 在池内 **0 条**、`extraScoreFromJamming`
+        ///     真值 1,351/1,351 = 0 ⇒ **今天行为影响为零**；数据接进来再补 `ValueOfTraits`。
+        /// </summary>
+        static float ScoreFromJam(UnitState t)
+        {
+            if (t == null) return 0f;
+            // `+ (t.has(jam) ? 0 : rawCard.extraScoreFromJamming)` —— `extraScoreFromJamming`
+            // 真值 1,351/1,351 = 0，且本工程没有这一列 ⇒ 那一项今天恒为 0（数据出现时再加）。
+            return ValueOfEnchantments(t);      // + ValueOfTraits(t)（未实现，见上）
+        }
+
+        /// <summary>原版 `AI.ScoreFromBuff(t, e)`（判据 §6·6，逐句）：
+        ///   · `buffType == 1 addStats` ⇒ `e.healthChange + e.rangeAttackChange + e.meleeAttackChange`；
+        ///   · `buffType == 12 enchantment / 15 singleUse` ⇒ **1**；
+        ///   · `buffType == 3 addTrait / 90 addTraitRemnant` ⇒ 按 `e.trait` 查 <see cref="TraitAiScore"/>；
+        ///   · 其余 buffType ⇒ **0**（注意 `16 choice` **不加** —— `ValueOfEnchantments` 才把它算 +1）。
+        /// </summary>
+        static float ScoreFromBuff(UnitState t, AiBuffDto e)
+        {
+            if (e == null) return 0f;
+            switch (e.buffType)
+            {
+                case 1:                       // addStats
+                    return e.healthChange + e.rangeAttackChange + e.meleeAttackChange;
+                case 12:                      // enchantment
+                case 15:                      // singleUse
+                    return 1f;
+                case 3:                       // addTrait
+                case 90:                      // addTraitRemnant
+                    return TraitAiScore(t, e.trait, e.traitValue);
+                default:
+                    return 0f;
+            }
+        }
+
+        /// <summary>原版 `ScoreFromBuff` 的 **trait → 分** 表（`AI.cs:1807-1965`，判据 §6·6 逐条）。
+        ///
+        /// 键 = 原版 `DefinedTrait` 的**数值**（`d:/2/tools/il2cpp_out/dump.cs:45721-45859` 现读），
+        /// ⛔ 别按名字键 —— 我们 `KeywordTable` 只登记了其中一部分，按名字会静默漏项
+        /// （同 `AiTargets.TraitName` 那条「未登记 ⇒ 不成立」的坑）。
+        ///
+        /// | 分 | trait |
+        /// |---:|---|
+        /// | **2.0** | vanguard(980) dodge(240) shield(80) survivor(430) firstStrike(630) precognition(640) |
+        /// | **1.5** | stealth(70) sneakAttack(20) sacrifice(470) pack(610) |
+        /// | **1.0** | ward(140) camouflage(985) longrange(1160) unstoppable(180) flying(390) syphon(110) tainted(160) coward(190) backlash(120) relentless(450) transient(455) resolution(840) terror(520) psyker(620) reactor(625) requiem(760) landing(770) |
+        /// | **0.5** | dropPod(230) berzerk(360) |
+        /// | **−1.5** | stun(100) pindown(970) blind(975) |
+        /// | **−1.0** | vulnerable(480) markerlight(1170) |
+        /// | **−2.0** | cantAttack(150) |
+        /// | **−4.0** | poisoned(200) |
+        /// | **3.0** | poisonous(380) |
+        /// | 取值 | bloodThirst(220) → `t.CurrentMeleeAttack` · maintenance(370) → `t.CurrentMaintenance` · bastion(850) → `t.CurrentBastion` · mutation(780) → `GetCurrentTraitValue(mutation)` |
+        /// | `e.traitValue` | blast(350) · shuriken(1120) |
+        /// | 其它 | 0 |
+        ///
+        /// ⚠️ `mutation(780)` 我们引擎**没有建模**（`KeywordTable` 无此键）⇒ 按 `KwValue("mutation")` 取，
+        ///    现有数据里恒 0；option 11 池内 0 条 ⇒ 今天无可观测影响。
+        /// </summary>
+        static float TraitAiScore(UnitState t, int trait, int traitValue)
+        {
+            switch (trait)
+            {
+                case 980: case 240: case 80: case 430: case 630: case 640: return 2f;
+                case 70:  case 20:  case 470: case 610: return 1.5f;
+                case 140: case 985: case 1160: case 180: case 390: case 110: case 160: case 190:
+                case 120: case 450: case 455: case 840: case 520: case 620: case 625: case 760:
+                case 770: return 1f;
+                case 230: case 360: return 0.5f;
+                case 100: case 970: case 975: return -1.5f;
+                case 480: case 1170: return -1f;
+                case 150: return -2f;
+                case 200: return -4f;
+                case 380: return 3f;
+                case 220: return t != null ? t.Attack : 0f;                              // bloodThirst
+                case 370: return t != null ? t.KwValue(RuleCore.Maintenance) : 0f;        // maintenance
+                case 850: return t != null ? t.Bastion : 0f;                              // bastion
+                case 780: return t != null ? t.KwValue("mutation") : 0f;                  // mutation（未建模）
+                case 350: case 1120: return traitValue;                                   // blast / shuriken
+                default: return 0f;
+            }
         }
     }
 }

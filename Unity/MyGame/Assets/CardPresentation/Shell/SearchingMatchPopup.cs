@@ -170,6 +170,9 @@ namespace CardPresentation
         /// <summary>这一份正在「等对手」（`BeginSearch` / `BeginNetWait` → `Cancel` / 等满 / `AbortSearch`）。
         /// 🔴 **只由 <see cref="SyncTicker"/> 读** —— 它是「要不要注册到常驻 ticker」的唯一判据。</summary>
         bool _waiting;
+        /// <summary>这一次倒计时的**起点秒数**（`BeginSearch(seconds:)` 传进来的那个值；只给日志用 ——
+        /// `SecondsLeft` 归零之后就看不出「本来等了几秒」了）。默认 = 原版 12 秒那一档。</summary>
+        float _startSeconds = WaitForOpponentSeconds;
 
         public bool IsShowing { get { return _root != null && _root.gameObject.activeSelf; } }
         /// <summary>正在匹配中（自检用）。</summary>
@@ -377,17 +380,19 @@ namespace CardPresentation
         /// <param name="show">要不要把这扇弹窗**显示出来**。排位那条路走的是
         /// **全屏** `SearchingOpponentWindow`（本地入口是我们定的）⇒ 那边传 `false`：
         /// 倒计时还是这一份（**别写两遍**），只是画面由全屏那扇负责。</param>
-        public void BeginSearch(bool show = true)
+        public void BeginSearch(bool show = true, float seconds = WaitForOpponentSeconds)
         {
             if (show) Show();
             Searching = true;
-            SecondsLeft = WaitForOpponentSeconds;
+            SecondsLeft = seconds > 0f ? seconds : WaitForOpponentSeconds;
+            _startSeconds = SecondsLeft;
             _waiting = true;
             // 🔴 **注册**（= 原版 `StartCoroutine(WaitForHumanOpponent)`）。⚠️ `show == false`（排位那条：
             //    画面由全屏窗负责）也**必须**注册 —— 否则这一份没有 `Update` 可依，12 秒一条都不推。
             SyncTicker();
-            Debug.Log("[Searching] 匹配开始：最多等 " + WaitForOpponentSeconds + "s（原版 `GetTimeToWaitForOpponent` 的"
-                      + "「不能匹配真人」分支 = 12）；轮询间隔原版 1s；推进方 = "
+            Debug.Log("[Searching] 匹配开始：最多等 " + SecondsLeft + "s（原版 `GetTimeToWaitForOpponent` 的"
+                      + "「不能匹配真人」分支 = 12；⚠️ `1` 那一档 = 原版 `MatchMakerManager.StartMatch` 带 `enemyDeck` 时"
+                      + "的 `StartBattleWithDelay(waitLoadTime = 1)`，见联机账 79）；轮询间隔原版 1s；推进方 = "
                       + (HostDrivesItself ? "宿主窗口自己 (`Update`)" : "常驻 `SearchOpponentManager`"));
         }
 
@@ -454,7 +459,7 @@ namespace CardPresentation
             _waiting = false;
             Searching = false;
             SecondsLeft = 0f;
-            Debug.Log("[Searching] 等满了 " + WaitForOpponentSeconds + "s，没等到真人 ⇒ 转 bot 对局"
+            Debug.Log("[Searching] 等满了 " + _startSeconds + "s，没等到真人 ⇒ 转 bot 对局"
                       + "（原版 `_WaitForHumanOpponent → ChangeToBotBattle → StartBotBattle`）");
             Hide();
             if (OnSearchDone != null) OnSearchDone();
@@ -666,8 +671,14 @@ namespace CardPresentation
         //     （实测 `Editor/MainMenuScene.cs` 的 `BeginNetWait()` 就是 `BeginNetWait()` 之后再 `Show()` 一次），
         //     挂在 `Show()` 上会**订两次**（`OnHint` 是多播委托 ⇒ 同一条提示画两遍、还要摘两次）。
         //     ⛔ `OnDestroy` 也必须摘（不摘的话，窗销毁之后提示一来就 `MissingReferenceException`）。
-        void OnEnable() { NetMatchmaking.OnHint += ShowHint; }
-        void OnDisable() { NetMatchmaking.OnHint -= ShowHint; }
+        //
+        //  🆕 **2026-10-25（执行代理 `E4` · 账 162）**：`NetMatchmaking.OnMatchAborted` 同一个订法 ——
+        //     联机层**自己撤掉这一局**时（两端模式不一致），这扇窗必须跟着收。改前它**不知道**，
+        //     会话都撤了还一直在打「Searching…」= 对玩家说假话（与 `OnHint` 那条同源）。
+        //     ⚠️ **玩家点取消那条路不走它**（那条 `Cancel → AbortSearch` 自己就收了），
+        //        见 `NetMatchmaking.OnMatchAborted` 的 doc。
+        void OnEnable() { NetMatchmaking.OnHint += ShowHint; NetMatchmaking.OnMatchAborted += AbortFromNet; }
+        void OnDisable() { NetMatchmaking.OnHint -= ShowHint; NetMatchmaking.OnMatchAborted -= AbortFromNet; }
         void OnDestroy()
         {
             // 🔴 销毁 ⇒ **必须**从常驻 ticker 摘掉：`LiveOpsEventWindow.Build()` 每次开窗都把根下子件整棵销毁重建
@@ -676,6 +687,17 @@ namespace CardPresentation
             _waiting = false;
             SearchOpponentManager.End(this);      // 「不是它就不动」 ⇒ 不会误伤重建出来的那份新的
             NetMatchmaking.OnHint -= ShowHint;
+            NetMatchmaking.OnMatchAborted -= AbortFromNet;
+        }
+
+        /// <summary>联机层撤了这一局 ⇒ 收起这扇窗（**不**回调宿主 `OnCancel`：宿主那条路会再转回
+        /// `NetMatchmaking.Cancel`，而这一局已经被撤掉了 ⇒ 会多弹一句「这一局还没进入联机匹配」）。
+        /// 🔴 与 `AbortSearch` 的唯一区别 = **没有** `OnCancel` 回调；其余（清状态 + 摘 ticker + 收起）逐条相同。</summary>
+        void AbortFromNet()
+        {
+            if (!_waiting && !IsShowing) return;      // 没在等也没在显示 ⇒ 什么都不做（不制造日志噪声）
+            Debug.Log("[Searching] 联机层撤了这一局（两端模式不一致）⇒ 收起搜索窗");
+            AbortSearch();
         }
     }
 }

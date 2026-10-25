@@ -1,4 +1,4 @@
-// TraitEffectAssert.cs — `N15` · `TraitEffectController` 钩子层的断言（8 组，含 2 条灭自证）
+// TraitEffectAssert.cs — `N15` + `E5` · `TraitEffectController` 钩子层的断言（**13 组**：8 组控制器层 + 5 组接线端到端，含 3 条灭自证）
 //
 // 判据正本 → `Unity/资料/完全复刻/判据/TraitEffectController_钩子层.md`（下称「判据」）
 // 上一轮报告 → `Unity/资料/完全复刻/报告/N15_TraitEffect_第1轮.md`（接线点表 W0–W10）
@@ -23,6 +23,17 @@
 // ⏳ 还**不能**写、但接线后必须补的（见文件末「待接线」那段注释）：
 //   A-E3 的原版形（「prefab 上没有控制器也要发生调用」= `TraitFrames` 侧）、A-E2 的 `InstanceId` 部分、
 //   A-LIFE（idle 框 >6 s 不自毁）、灭自证「同帧连刷 3 次 ⇒ `PunchCount` 仍 1」（= W8 的帧锁）。
+//
+// 🆕 **2026-10-25（`E5` · 追加轮：W0–W8 接线后的端到端那 5 组 `A-W*`）**
+//   ① 前 8 组（A-E1…灭自证 2）**只用假 GO**；新增的 5 组 `A-W1 / A-W2 / A-W3W4 / A-W8 / A-W8灭自证`
+//      **要用真 prefab + 真效果库** —— 因为 W0–W8 的行为本身就是「**真的实例化出一张框**、再往框上的
+//      计数器写数」。它们**仍然不建场景、不碰 `BattleDriver`**：只 `new GameObject` + `TraitFrames.Attach`。
+//      ⚠️ 效果库取不到那件 prefab ⇒ 会**显式报「没验到」**（`(前提 …)` 那一条红），⛔ **不会**报通过。
+//   ② 判据（原版）→ `BattleManager__CreateAnim.c:62-81`（出生那拍调 `UpdateValue`）·
+//      `BattleCardUI__DisplayStatusAnim.c:86-119 / :126-198`（Start 档每次都刷 / 已有框只归位+刷）·
+//      `…__DisplayTriggerAnim.c:97-104`（触发档也刷）· `HuntMarkController__UpdateValue.c:13-30`（写文本+弹，**无同值早退**）。
+//   ③ `RefreshAll` 里 **`PlaySignals()` 必须排在 `SyncBoard()` 之前**（W7 先刷、W8 兜底后判 ⇒ 不双弹）——
+//      这条**不是**本文件的断言能盖住的（它要 `BattleDriver`），所以在 `BattleDriver.RefreshAll` 里写了禁改注释。
 using System;
 using System.Collections.Generic;
 using System.Reflection;
@@ -47,7 +58,7 @@ public static class TraitEffectAssert
 
         UpdateType oldMode = CardTween.Mode;
         CardTween.Mode = UpdateType.Manual;   // 批处理没有帧循环（见文件头 ③）
-        Debug.Log(P + "=== TraitEffectController 钩子层断言（N15）开始 ===");
+        Debug.Log(P + "=== TraitEffectController 钩子层断言（N15 的 8 组 + E5 追加的 5 组端到端）开始 ===");
 
         try
         {
@@ -59,6 +70,13 @@ public static class TraitEffectAssert
             Safe("A-ML2", Block_ML2);
             Safe("灭自证1", Block_AntiSelfProof1);
             Safe("灭自证2", Block_AntiSelfProof2);
+
+            // 🆕 **2026-10-25（`E5` · 追加轮）**：W0–W8 接线后的**端到端**那 5 组（真 prefab + 真效果库）
+            Safe("A-W1", Block_W1_FirstSpawn);
+            Safe("A-W2", Block_W2_Reshow);
+            Safe("A-W3W4", Block_W3W4_StartAndTrigger);
+            Safe("A-W8", Block_W8_ValueFallback);
+            Safe("A-W8灭自证", Block_W8_AntiSelfProof);
         }
         finally
         {
@@ -434,19 +452,276 @@ public static class TraitEffectAssert
     }
 
     // ════════════════════════════════════════════════════════════════════════════
-    // ⏳ 待接线（W5 / W7 / W8 / P0-1）之后才能写、也必须补的断言 —— **现在写不了**（相应 API 还不存在，
-    //    写进来会编译不过）。⛔ 别用「跳过」的假断言占位。
+    //  🆕 2026-10-25（`E5` · 追加轮）：**W0–W8 接线后的端到端**（真 prefab + 真效果库）
     //
-    //   · A-E3 的原版形：`TraitFrames.PlayStartRows` / `DisplayTrigger` 里**即使实例上没有控制器**，
-    //     也必须调一次 `UpdateValue`（判据 §6.4 A-E3）⇒ 观测量在 **`TraitFrames`** 那侧（`UpdateCalls`）。
-    //   · A-E2 的「`InstanceId` 不变 / `PlayCount` 不增」：断的是 **`TraitFrames._play` 里那个 `WarpforgeEffectPlayer`**。
-    //   · A-LIFE：`HuntMark_IdleEffect` / `MarkerlightIdle` 实例化 **>6 s 仍 `!= null`**
-    //     （挡 `AutoLifetime` 回落到 `natural` 4.3 s / 4 s —— 判据 §6.0 P0-1、§七 F1）。
-    //   · 灭自证 1 的**原版原话**：同一帧内把 `SyncKeywords` / `SyncBoard` 连跑 3 次（值不变）
-    //     ⇒ `PunchCount` **仍为 1**（值 = `TraitFrames` 的帧锁，属 W8；判据 §6.4）。
-    //   · 「`UpdateValue` 不改引擎状态」的**强形**：调前/调后 **局面哈希**（`BattleContext` 的局面摘要）相等
-    //     （W7 接上 `BattleDriver` 之后写）。
-    //   · W9 / W10（`MarkerLightUsed` 的引擎事件、`AimingAttack` + `MaterialFader`）接线后的断言。
+    //  与上面 8 组的区别：那 8 组只碰 `TraitEffectController` 自己（假 GO + 假 TMP，不依赖效果库）；
+    //  这 5 组走**生产那条链** `TraitFrames.DisplayStatus / DisplayTrigger / SyncKeywords`
+    //  ⇒ 真的从 `WarpforgeEffectLibrary` 实例化出 prefab、真的 `AddComponent` 出控制器。
+    //  ⛔ 仍然**不建场景、不碰 `BattleDriver`**（所以「W7 的调用点」那一半不在这里，见 A-W2 的说明）。
+    //
+    //  ⚠️ **数据前提（现读 `Resources/trait_effect_bindings.json`，期望值都是从这儿推出来的）**：
+    //     `huntMark` = Start(0)→`HuntMark_StackEffect`（**无控制器**）·
+    //                  OnPlay(2)→`HuntMark_IdleEffect`（**有控制器**）·
+    //                  Trigger(6)→`HuntMark_StartEffect`（无控制器）
+    //     `armour`   = **只有** Start(0)→`ArmourEffect`（无控制器）
+    //     `oath`     = **只有** Trigger(3)→`Oath_Effect`（无控制器）
+    //  ⇒ 「全库只有 `huntMark` / `markerlight` 那两张 OnPlay 框带控制器」这句话，在这 5 组里是**可观测**的。
+    //  ⚠️ 四件 prefab 现读**都在** `Resources/WarpforgeVFX/WarpforgeEffectLibrary.asset` 里；
+    //     万一将来取不到，`(前提 …)` 那一条会**显式红并说「没验到」**，⛔ 不会假绿。
+    // ════════════════════════════════════════════════════════════════════════════
+
+    // ────────────────────────────────────────────────────────────────────────────
+    // A-W1 · **W0 + W1**：框出生这一拍就挂控制器 + 把值写上去
+    //   期望值依据：
+    //     · 挂载 = 判据 §6.2（`TraitFrames.Play` 是**唯一**出生口；按 prefab 名挂，⛔ 不按 trait 名）
+    //     · `UpdateValue` 在 `Instantiate` **那一拍**就调 = `BattleManager__CreateAnim.c:62-81`
+    //     · 写文本 + 弹一次、且**没有同值早退** = `HuntMarkController__UpdateValue.c:13-30`
+    //     · `UpdateValueCalls == 2` = Start(0) 那条（`…DisplayStatusAnim.c:86-119`）**加**
+    //       OnPlay(2) 那条（`:121-198`）—— **两条都发生了调用**，只有后一条真的弹
+    //   改坏法：删掉 `TraitFrames.Play` 里那句 `TraitEffectControllers.Attach` ⇒ `AttachedCount 0` / 控制器 null ⇒ 红；
+    //           删掉 `DisplayStatus` **首次**那支的 `RefreshCounter` ⇒ 文本停在 prefab 写的 `"1"`、`UpdateValueCalls 1` ⇒ 红。
+    // ────────────────────────────────────────────────────────────────────────────
+    static void Block_W1_FirstSpawn()
+    {
+        GameObject host = null;
+        try
+        {
+            host = NewRoot("TraitFramesHost");
+            var tf = TraitFrames.Attach(host.transform);
+            Check(tf != null && TraitFrames.BindingsLoaded,
+                  "(前提 A-W1) `TraitFrames` 挂得上 且 绑定表载得进来（`BindingsProblem` = "
+                + (TraitFrames.BindingsProblem ?? "null") + "）—— 载不进 ⇒ 本节**没验到**，⛔ 别读成通过");
+            if (tf == null || !TraitFrames.BindingsLoaded) return;
+
+            bool created = tf.DisplayStatus("huntmark", 2);
+            var h = HuntOn(host);
+            Check(created && tf.PlayCount == 1,
+                  "A-W1·首次 `DisplayStatus(\"huntmark\", 2)` ⇒ **新挂了一张框**（返回 " + created
+                + " / `PlayCount` " + tf.PlayCount + "；原版 `DisplayStatusAnim.c:121-198` 字典里没有才播）"
+                + " —— 🧨 效果库取不到 `HuntMark_IdleEffect` ⇒ 这条红且本节**没验到**（看上面有没有 `[TraitFrames]` 警告）");
+            Check(h != null && tf.AttachedCount == 1,
+                  "A-W1·**W0**：框上挂出了 `HuntMarkController`（现得 " + TypeName(h)
+                + "；`AttachedCount` = " + tf.AttachedCount + "）"
+                + " —— 🧨 删掉 `TraitFrames.Play` 里那句 `TraitEffectControllers.Attach` ⇒ 红（判据 §6.2）");
+            if (h == null) return;
+            Check(h.TextForTest == "2" && h.PunchCount == 1 && h.LastValue == 2 && h.UpdateCalls == 1,
+                  "A-W1·**W1**：出生那拍就写上了值（文本 \"" + (h.TextForTest ?? "null") + "\" / `PunchCount` "
+                + h.PunchCount + " / `LastValue` " + h.LastValue + " / 控制器侧 `UpdateCalls` " + h.UpdateCalls
+                + "；期望 2 / 1 / 2 / 1，依据 `CreateAnim.c:62-81` + `UpdateValue.c:13-30`）"
+                + " —— 🧨 删掉首次那支的 `RefreshCounter` ⇒ 文本停在 prefab 写的 \"1\"、不弹 ⇒ 红");
+            Check(tf.UpdateValueCalls == 2 && tf.LastTraitValue == 2,
+                  "A-W1·`TraitFrames` 侧记账 = **2 次调用**（Start(0) 那条空转 + OnPlay(2) 那条真的写）"
+                + "（现得 " + tf.UpdateValueCalls + "；`LastTraitValue` = " + tf.LastTraitValue + "）"
+                + " —— 🧨 把记账挪到「实例上有控制器才记」⇒ 得 1 ⇒ 红（A-E3 要的就是「调用必须发生」）");
+        }
+        finally { Kill(host); }
+    }
+
+    // ────────────────────────────────────────────────────────────────────────────
+    // A-W2 · **W2**：框已在字典里 ⇒ 只归位 + 激活 + **再刷一次计数器**（⛔ 不重建、不重播）
+    //   期望值依据：
+    //     · 已有 ⇒ 只归位/SetActive/不重播 = `BattleCardUI__DisplayStatusAnim.c:126-198`
+    //     · 那一支里的 `UpdateValue(GetCurrentTraitValueWithModifiers(trait))` = `…:190-196`
+    //     · `UpdateValueCalls` 每次显示 **+2**（Start(0) 空转 + OnPlay 真的写；数据见本节顶部的行表）
+    //   改坏法：删掉「已在字典」那支的 `RefreshCounter` ⇒ 文本停在上一回的值、`PunchCount` 不涨 ⇒ 红；
+    //           把那一支改成「先销毁再重建」⇒ 控制器 `InstanceID` 变 ⇒ 红。
+    //   📌 **本组只覆盖 W2 那一半**：W7 的**调用点**在 `BattleDriver.PlaySignal` 的 `EvtKind.StatusApplied` 支
+    //      （那一行是 `DisplayStatus(e.CardId, StatusValueOf(e.Player, e.Slot, e.CardId))`）——
+    //      它的端到端要由 `Editor/BattleScene.cs` 那种**带 `BattleDriver`** 的宿主补，⛔ 别把本节当成「W7 已验」。
+    // ────────────────────────────────────────────────────────────────────────────
+    static void Block_W2_Reshow()
+    {
+        GameObject host = null;
+        try
+        {
+            host = NewRoot("TraitFramesHost");
+            var tf = TraitFrames.Attach(host.transform);
+            if (tf == null || !TraitFrames.BindingsLoaded)
+            { Check(false, "(前提 A-W2) `TraitFrames`/绑定表没就绪 ⇒ 本节**没验到**（`BindingsProblem` = "
+                         + (TraitFrames.BindingsProblem ?? "null") + "）"); return; }
+
+            bool c1 = tf.DisplayStatus("huntmark", 2);
+            var h1 = HuntOn(host);
+            if (h1 == null || !c1)
+            { Check(false, "(前提 A-W2) 第一张框没实例化出来（效果库缺 `HuntMark_IdleEffect`?）⇒ 本节**没验到**"); return; }
+
+            int ctlId = h1.GetInstanceID();
+            int p0 = h1.PunchCount;              // 期望 1
+            int calls0 = tf.UpdateValueCalls;    // 期望 2
+            int play0 = tf.PlayCount;            // 期望 1
+
+            bool c2 = tf.DisplayStatus("huntmark", 3);
+            var h2 = HuntOn(host);
+            Check(!c2,
+                  "A-W2·再次显示 **不新挂框**（`DisplayStatus` 返回 " + c2 + "）"
+                + "（原版 `DisplayStatusAnim.c:121-198`：「已有 ⇒ 只归位、不重播」）"
+                + " —— 🧨 每次显示都重播一张新框 ⇒ 红");
+            Check(h2 != null && h2.GetInstanceID() == ctlId && tf.PlayCount == play0,
+                  "A-W2·**实例一个都没换**（控制器 `InstanceID` "
+                + (h2 == null ? "<null>" : (h2.GetInstanceID() == ctlId ? "不变" : "**变了**"))
+                + " / `PlayCount` " + play0 + " → " + tf.PlayCount + "）"
+                + " —— 🧨 用「销毁旧框重建新框」冒充刷新 ⇒ 红");
+            Check(h2 != null && h2.TextForTest == "3" && h2.PunchCount == p0 + 1 && h2.LastValue == 3,
+                  "A-W2·**W2**：那一支**再刷了一次**（文本 \"" + (h2 != null ? h2.TextForTest : "-") + "\" / `PunchCount` "
+                + p0 + " → " + (h2 != null ? h2.PunchCount : -1) + "；期望文本 3、弹 2 次）"
+                + "（依据 `DisplayStatusAnim.c:190-196`）—— 🧨 删掉那一支的 `RefreshCounter` ⇒ 红");
+            Check(tf.UpdateValueCalls == calls0 + 2,
+                  "A-W2·`TraitFrames` 侧再记 **2 次**调用（Start(0) 空转 + OnPlay 那一支真的写）"
+                + "（" + calls0 + " → " + tf.UpdateValueCalls + "）"
+                + " —— 🧨 漏掉 Start(0) 那一条 ⇒ 只 +1 ⇒ 红（判据 §6.4 A-E3）");
+        }
+        finally { Kill(host); }
+    }
+
+    // ────────────────────────────────────────────────────────────────────────────
+    // A-W3W4 · **W3 + W4**：Start(0) 档与触发档**也要发调用**，即使那件 prefab 上没有控制器
+    //   期望值依据（数据见本节顶部的行表）：
+    //     · `armour` 只有 Start(0)→`ArmourEffect`（无控制器）⇒ `UpdateValueCalls` **恰好 +1**，一个都不弹
+    //     · `oath` 只有 Trigger(3)→`Oath_Effect`（无控制器）⇒ `UpdateValueCalls` **恰好 +1**，一个都不弹
+    //     · 「`traitValue` 一起传下去」= `…DisplayStatusAnim.c:86-119` / `…DisplayTriggerAnim.c:97-104`
+    //     · 「这一档的 prefab 本来就不带控制器」= 判据 §1.3 的全库唯一性（只有那两个 idle prefab 带）
+    //   改坏法：删掉 `PlayStartRows` 里的 `RefreshCounter` ⇒ `armour` 那段 +0 ⇒ 红；
+    //           删掉 `DisplayTrigger` 里的 `RefreshCounter` ⇒ `oath` 那段 +0 ⇒ 红。
+    // ────────────────────────────────────────────────────────────────────────────
+    static void Block_W3W4_StartAndTrigger()
+    {
+        GameObject host = null;
+        try
+        {
+            host = NewRoot("TraitFramesHost");
+            var tf = TraitFrames.Attach(host.transform);
+            if (tf == null || !TraitFrames.BindingsLoaded)
+            { Check(false, "(前提 A-W3W4) `TraitFrames`/绑定表没就绪 ⇒ 本节**没验到**"); return; }
+
+            int u0 = tf.UpdateValueCalls;
+            tf.DisplayStatus("armour", 3);                       // Start(0) 档 → `ArmourEffect`（无控制器）
+            int u1 = tf.UpdateValueCalls;
+            Check(u1 == u0 + 1 && host.GetComponentInChildren<TraitEffectController>(true) == null,
+                  "A-W3·`DisplayStatus(\"armour\", 3)` ⇒ `UpdateValueCalls` **+1**（" + u0 + " → " + u1 + "），"
+                + "而实例上**没有控制器**（所以一次都不弹）"
+                + "（依据 `DisplayStatusAnim.c:86-119`：Start(0) 这一档同样把 `traitValue` 传下去；"
+                + "「这一档 prefab 不带控制器」= 判据 §1.3）"
+                + " —— 🧨 删掉 `PlayStartRows` 里的 `RefreshCounter` ⇒ 得 +0 ⇒ 红；"
+                + "🧨 取不到 `ArmourEffect` ⇒ 也是 +0 ⇒ **没验到**（看有没有 `[TraitFrames]` 警告）");
+
+            int u2 = tf.UpdateValueCalls;
+            bool played = tf.DisplayTrigger("oath", false, 1);   // Trigger(3) 档 → `Oath_Effect`（无控制器）
+            int u3 = tf.UpdateValueCalls;
+            Check(played && u3 == u2 + 1,
+                  "A-W4·`DisplayTrigger(\"oath\", false, 1)` ⇒ 播了（" + played + "）且 `UpdateValueCalls` **+1**（"
+                + u2 + " → " + u3 + "）"
+                + "（依据 `DisplayTriggerAnim.c:97-104`）—— 🧨 删掉 `DisplayTrigger` 里的 `RefreshCounter` ⇒ 得 +0 ⇒ 红");
+
+            Check(tf.PlayCount == 0,
+                  "A-W3W4·这两个 trait 都**没有 OnPlay(2)** 那条 ⇒ 一张持久框都不该建（现得 `PlayCount` "
+                + tf.PlayCount + "）—— 🧨 把 Start(0)/Trigger(3) 也塞进 `_play` 字典 ⇒ 红");
+        }
+        finally { Kill(host); }
+    }
+
+    // ────────────────────────────────────────────────────────────────────────────
+    // A-W8 · **W8**：值变化兜底 —— **值变了才刷、值没变一个都不刷**
+    //   期望值依据：
+    //     · 兜底闸 = 判据 §6.3 末段（原版还有「modifier 变化」那条路，我们没有对应事件 ⇒ 靠每轮同步对差）
+    //     · 第一次 `SyncKeywords` 走的是**「新出现」**那条路（W1），不是兜底 ⇒ 弹一次
+    //     · 同值再来 ⇒ 兜底判「没变」⇒ **+0**（⛔ 否则 `DOPunchScale` 会让计数器一直抖）
+    //     · 值 3 → 5 ⇒ 兜底刷 **1 次**，文本变 `"5"`
+    //   改坏法：把 `RefreshChangedValues` 里的 `onlyIfChanged` 改成 `false` ⇒ 同值那两次也刷 ⇒ 红；
+    //           删掉 `SyncKeywords` 里对 `RefreshChangedValues` 的调用 ⇒ 3→5 那一次不刷 ⇒ 红。
+    // ────────────────────────────────────────────────────────────────────────────
+    static void Block_W8_ValueFallback()
+    {
+        GameObject host = null;
+        try
+        {
+            host = NewRoot("TraitFramesHost");
+            var tf = TraitFrames.Attach(host.transform);
+            if (tf == null || !TraitFrames.BindingsLoaded)
+            { Check(false, "(前提 A-W8) `TraitFrames`/绑定表没就绪 ⇒ 本节**没验到**"); return; }
+
+            int added = tf.SyncKeywords(new string[] { "huntmark" }, k => 3);   // 「新出现」⇒ 建框 + 显式刷
+            var h = HuntOn(host);
+            if (h == null || added != 1)
+            { Check(false, "(前提 A-W8) 第一张框没实例化出来 / `added` 不是 1（现得 " + added + "）⇒ 本节**没验到**"); return; }
+
+            int p1 = h.PunchCount, u1 = tf.UpdateValueCalls;
+
+            tf.SyncKeywords(new string[] { "huntmark" }, k => 3);               // 值没变 ⇒ 兜底不刷
+            int p2 = h.PunchCount, u2 = tf.UpdateValueCalls;
+            Check(p2 == p1 && u2 == u1,
+                  "A-W8·**值没变 ⇒ 兜底一个都不刷**（`PunchCount` " + p1 + " → " + p2
+                + " / `UpdateValueCalls` " + u1 + " → " + u2 + "）"
+                + "（判据 §6.3 末段：⛔ 不能变成「每帧刷」，否则计数器一直抖）"
+                + " —— 🧨 兜底那一路不加去重 ⇒ 每轮同步都弹 ⇒ 红");
+
+            tf.SyncKeywords(new string[] { "huntmark" }, k => 5);               // 值 3 → 5 ⇒ 兜底刷 1 次
+            Check(h.PunchCount == p1 + 1 && h.TextForTest == "5" && h.LastValue == 5,
+                  "A-W8·**值变了（3 → 5）⇒ 兜底刷 1 次**（`PunchCount` " + p1 + " → " + h.PunchCount
+                + " / 文本 \"" + (h.TextForTest ?? "null") + "\"）"
+                + "（依据：`UpdateValue` 写的是「当前总值」= `GetCurrentTraitValueWithModifiers`）"
+                + " —— 🧨 删掉 `SyncKeywords` 里对 `RefreshChangedValues` 的调用 ⇒ 不刷 ⇒ 红");
+        }
+        finally { Kill(host); }
+    }
+
+    // ────────────────────────────────────────────────────────────────────────────
+    // A-W8灭自证 · 判据 §6.4 灭自证 1 的**原话**：同一帧内连跑 3 次同步（值不变）⇒ `PunchCount` **仍为 1**
+    //   为什么这条必须单独存在：它挡的是「每次 sync 都无脑刷新」那个**看着对、实际每帧抖**的实现
+    //   —— 上面 A-W8 只验「两次之间」，这条验「连跑三次」的累积效应。
+    //   改坏法：把 `RefreshChangedValues` 的 `onlyIfChanged` 改成 `false` ⇒ 掉到 4 ⇒ 红；
+    //           把 `_prevValue` 的写在「没控制器」那条路上也做（空转也会写脏）⇒ 第一次显式刷之后兜底会误判 ⇒ 红。
+    // ────────────────────────────────────────────────────────────────────────────
+    static void Block_W8_AntiSelfProof()
+    {
+        GameObject host = null;
+        try
+        {
+            host = NewRoot("TraitFramesHost");
+            var tf = TraitFrames.Attach(host.transform);
+            if (tf == null || !TraitFrames.BindingsLoaded)
+            { Check(false, "(前提 A-W8灭自证) `TraitFrames`/绑定表没就绪 ⇒ 本节**没验到**"); return; }
+
+            tf.SyncKeywords(new string[] { "huntmark" }, k => 3);       // 第 1 次：「新出现」那条路 ⇒ 弹 1 次
+            var h = HuntOn(host);
+            if (h == null)
+            { Check(false, "(前提 A-W8灭自证) 第一张框没实例化出来 ⇒ 本节**没验到**"); return; }
+            int p0 = h.PunchCount;                                     // 期望 1
+
+            for (int i = 0; i < 3; i++)
+                tf.SyncKeywords(new string[] { "huntmark" }, k => 3);    // 同一帧连跑 3 次，值不变
+
+            Check(h.PunchCount == p0 && p0 == 1,
+                  "A-W8灭自证·**同一帧内连跑 3 次 `SyncKeywords`（值不变）⇒ `PunchCount` 仍为 1**"
+                + "（现得 " + h.PunchCount + "，期望 " + p0 + "）"
+                + "（判据 §6.4 灭自证 1 的**原话**）"
+                + " —— 🧨 兜底那一路「无脑刷」⇒ 变 4 ⇒ 红；🧨 空转（没控制器）那条也写 `_prevValue` ⇒ 会漏掉/多弹 ⇒ 红");
+        }
+        finally { Kill(host); }
+    }
+
+    /// <summary>宿主上挂着的那个 `HuntMarkController`（框是 `TraitFrames` 的 `effectsAnchor` 子件）。</summary>
+    static HuntMarkController HuntOn(GameObject host)
+    {
+        return host != null ? host.GetComponentInChildren<HuntMarkController>(true) : null;
+    }
+
+    // ════════════════════════════════════════════════════════════════════════════
+    // ⏳ 还是写不了 / 不属于本文件的（⛔ 别用「跳过」的假断言占位）
+    //
+    //   ✅ **已经补上了（2026-10-25 `E5` · 追加轮）**：
+    //      · W0+W1 → `A-W1`；W2 → `A-W2`；W3/W4 → `A-W3W4`；W8 → `A-W8`；W8 灭自证 → `A-W8灭自证`；
+    //      · A-E3 的原版形（「实例上没有控制器也要发生调用」）已由 `A-W1 / A-W3W4` 的 `UpdateValueCalls` 覆盖。
+    //
+    //   ⏳ **仍然没写的**（各有各的原因，⛔ 别硬凑）：
+    //      · **A-LIFE**（`HuntMark_IdleEffect` / `MarkerlightIdle` 实例化 **>6 s 仍 `!= null`**）：
+    //        批处理**没有帧循环**、`Update()` 不跑 ⇒ 时间型断言在这里**测不了**。要验只能进 player 实测
+    //        （判据 §6.0 P0-1 / §七 F1；`TraitFrames.Play` 的 `held` 已把 `destroyTime < 0` 的框设成 ∞）。
+    //      · **W7 的端到端**（`EvtKind.StatusApplied` → `DisplayStatus(key, value)`）：
+    //        要一个真的 `BattleDriver`（`PlaySignal` 是它的私有实例方法）⇒ 属 `Editor/BattleScene.cs` 那种宿主。
+    //      · **「`UpdateValue` 不改引擎状态」的强形**（前后**局面哈希**相等）：同上，要 `BattleContext`。
+    //      · **W9 / W10**（`MarkerLightUsed` 的引擎事件、`AimingAttack` + `MaterialFader`）：
+    //        两侧都还没接完（缺 `EvtKind` / 缺 `MarkerlightController` 的改动 + 攻击起拍事件）——
+    //        见 `资料/完全复刻/报告/E5_TraitEffect接线_第2轮.md` §①。
     // ════════════════════════════════════════════════════════════════════════════
 
     // ── 工具 ────────────────────────────────────────────────────────────────────

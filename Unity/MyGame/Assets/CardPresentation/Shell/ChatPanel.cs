@@ -294,6 +294,8 @@ namespace CardPresentation
                 clickCue: WindowSounds.SendMessageCue);
             var sendWb = sendHit != null ? sendHit.GetComponent<WindowButton>() : null;
             if (sendWb != null && sendIcon != null) sendWb.TintOn(sendIcon);
+            // 🔴 **2026-10-25（E4 · 账 311②）**：`CheckChatBan` 要按禁言态置灰/置文字 ⇒ 这两颗得抓住。
+            _sendBtn = sendWb; _inputHint = ph;
 
             // 右上关闭钮（`ChatPanel.closeButton` 指的就是它）
             // 🔴🔴 **2026-10-18（A1149 第一半）圆底盘【挂点】归真**（本件 = 第九会话 P6）：
@@ -337,8 +339,11 @@ namespace CardPresentation
                  "Background", QContent, new Color(0.311f, 0.201f, 0.201f, 1f));
             // 🔴 **A406**：`Holder/Chat/Player Options Panel/Name` 原版
             //   `auto[10.0~**40.0**] 基准=**21.0**` ⇒ 上限 40（= 标称）· base **21.0**（同一条 dump）。
-            Text(_options, OptNameR, "Fulanito Name", Color.white, "Name", 40f, QText, 10f, false, 40f, 21f,
-                 face: TmpFont.Face.LatinCardBody);
+            // 🔴 **2026-10-25（E4 · 账 303/314/330）**：把 `Name` 那一颗抓在手里 —— 它现在要按
+            //   **被点的那条消息**填 `messageData.playerName`（原版 `ChatPlayerOptionsPanel.ShowOptionsFor`
+            //   第一句 `title.text = messageData.playerName`）。改前它恒为 prefab 样例串 `Fulanito Name`。
+            _optName = Text(_options, OptNameR, "Fulanito Name", Color.white, "Name", 40f, QText, 10f, false, 40f, 21f,
+                            face: TmpFont.Face.LatinCardBody);
             // `Buttons`（原版是个 `VerticalLayoutGroup`，5 个键排在它下面 —— 保留这一层，别把键挂到面板上）
             var optBtns = Node(_options, "Buttons", new PxRect(176.58f, 399f, 563.88f, 727f));
             string[] acts = { "Add as a friend", "Challenge", "Report message", "Block player", "Profile" };
@@ -379,6 +384,11 @@ namespace CardPresentation
                                       clickCue: WindowSounds.PositiveCue);
                 var owb = oh != null ? oh.GetComponent<WindowButton>() : null;
                 if (owb != null) owb.BindNine(rowNine, "UI_Button_Mulligan");
+                // 🔴 **2026-10-25（E4 · 账 330②）**：`Add as a friend` 这颗的可点态是**按被点的那条消息**
+                //   算的 —— 原版 `ChatPlayerOptionsPanel.ShowOptionsFor` 里
+                //   `AddButton.interactable = 好友表里查不到该 playerId`（判据 `ChatPlayerOptionsPanel.cs:74-112`）。
+                //   抓在手里，由 `ShowOptionsFor(message)` 每次刷。
+                if (act == "Add as a friend") _optAddFriend = owb;
             }
             _options.gameObject.SetActive(false);   // 出厂 act F（判据 ⑤）
 
@@ -603,6 +613,103 @@ namespace CardPresentation
                 if (ct != null && ct.gameObject.activeSelf) ct.Rebuild();
             }
         }
+
+        // ============================================================ 选项面板 / 禁言（2026-10-25 · E4 · 账 303/314/330/311）
+        // 🔴 新增成员一律追加在类尾（同日纪律：本文件被账按行号引用得多，插进已有成员之间会把下游行号整体推移）。
+
+        Label _optName;
+        Label _inputHint;
+        WindowButton _optAddFriend, _sendBtn;
+
+        /// <summary>当前选项面板对着的那条消息（`null` = 面板没开 / 已收起）。自检读口。</summary>
+        public SocialData.ChatMessage OptionsFor { get; private set; }
+
+        /// <summary>= 原版 `ChatPanel.ShowOptionsPanel(message)` + `ChatPlayerOptionsPanel.ShowOptionsFor(message)`：
+        /// 按**被点的那条消息**填面板并摆出来。判据逐句现读（`ChatPanel.cs:561-563` ·
+        /// `ChatPlayerOptionsPanel.cs:74-112`）：① `title.text = messageData.playerName`；
+        /// ② `AddButton.interactable = 好友表里查不到该 playerId`。
+        /// <para>⚠️ **按行定位那一跳不在本件**（原版把面板摆到被点消息旁边）—— 账 328 单独记着。</para>
+        /// <para>⚠️ 本地**没有** `playerId` 的写入方：`SocialData.ChatMessage.PlayerId` 是本轮新加的字段，
+        /// 默认 null ⇒ ② 退化成「一律可点」（与改前同观感），但**链路已经通了**：真数据填上 id 与好友表
+        /// 之后这两条自己就生效（⛔ 不编一个假 id）。</para></summary>
+        public void ShowOptionsFor(SocialData.ChatMessage m)
+        {
+            if (_options == null) { Debug.LogWarning("[Chat] 选项面板没建起来（`_options == null`）—— 点不开"); return; }
+            OptionsFor = m;
+            if (_optName != null)
+                _optName.SetText(m != null && !string.IsNullOrEmpty(m.Sender) ? m.Sender : "");
+            if (_optAddFriend != null)
+            {
+                bool alreadyFriend = m != null && IsFriend(m.PlayerId);
+                _optAddFriend.Interactable = !alreadyFriend;
+            }
+            _options.gameObject.SetActive(true);
+            Debug.Log("[Chat] 开选项面板：对着「" + (m != null ? m.Sender : "?") + "」"
+                    + "（原版 `ChatPanel.ShowOptionsPanel → ChatPlayerOptionsPanel.ShowOptionsFor(message)`；"
+                    + "5 个钮的落地仍要服务器）");
+        }
+
+        /// <summary>好友表里有没有这个 id（原版 `FriendsManager` 的本地等价）。
+        /// ⚠️ `SocialData.Friend.Id` 是本轮新加的字段；空 id 一律当「查不到」。</summary>
+        public static bool IsFriend(string playerId)
+        {
+            if (string.IsNullOrEmpty(playerId)) return false;
+            var list = SocialData.Friends;
+            for (int i = 0; i < list.Count; i++)
+                if (list[i] != null && list[i].Id == playerId) return true;
+            return false;
+        }
+
+        /// <summary>= 原版 `ChatPanel.OnTabChange()`（判据 `ChatPanel.cs:462-470`，逐句）：
+        /// `base.OnTabChange()` → **`optionsPanel.SetActive(false)`** → `CheckChatBan()`。
+        /// 🔴 原来我们**没有覆写** ⇒ 选项面板挂在 `Chat` 下、不随页签收 ⇒ 切页之后它还亮着（账 311①）。</summary>
+        protected override void OnTabChange()
+        {
+            base.OnTabChange();
+            if (_options != null && _options.gameObject.activeSelf)
+            {
+                _options.gameObject.SetActive(false);
+                Debug.Log("[Chat] 切页 ⇒ 收起 `Player Options Panel`（原版 `ChatPanel.OnTabChange` 第一句）");
+            }
+            OptionsFor = null;
+            CheckChatBan();
+        }
+
+        /// <summary>= 原版 `ChatPanel.CheckChatBan()`（判据 `ChatPanel.cs:472-530`，逐句）：
+        /// 按**当前页那个频道**问一次禁言 —— 禁言 ⇒ 发送键 / 输入框 `interactable = false` + 输入框写那句禁言文案；
+        /// 没禁 ⇒ 都恢复、输入框清空。
+        /// <para>🔴 **本地没有禁言数据源**：原版读 `PlayerDataManager.singletonManager.IsBannedFromChat(channelType)`
+        /// （PlayFab 玩家档案）⇒ 接线口 = <see cref="ChatBanProvider"/>（**默认 null = 不禁言**）。</para>
+        /// <para>⚠️ 两处**如实差异**（今天观感不受影响，因为默认不禁言）：
+        /// ① 我们的「输入框」是**占位文字**（`MainMenu/Chat/TypeMessage`），没有真 `TMP_InputField`
+        /// ⇒ 「清空输入框」那一支**不执行**（清掉占位串反而是错的样子）；
+        /// ② 禁言文案原版是 I2 词条（本地无 value）⇒ 用 <see cref="BannedInputText"/> 那句自拟措辞。</para></summary>
+        public void CheckChatBan()
+        {
+            int channelType = CurrentChannelType();
+            bool banned = ChatBanProvider != null && ChatBanProvider(channelType);
+            if (_sendBtn != null) _sendBtn.Interactable = !banned;
+            if (_inputHint != null)
+                _inputHint.SetText(banned ? BannedInputText : Loc.T("MainMenu/Chat/TypeMessage"));
+            Debug.Log("[Chat] 禁言检查：频道 " + channelType + " ⇒ " + (banned ? "**已禁言**（发送键置灰）" : "没禁言")
+                    + (ChatBanProvider == null ? "（本地没有禁言数据源 ⇒ 恒「没禁言」）" : ""));
+        }
+
+        /// <summary>禁言判据的接线口：参数 = 频道号（`0 = Global` / `1 = Alliance`，同 `ChatChannel.ChannelType`）。
+        /// **默认 `null` = 一律没禁言**（本地没有 `PlayerDataManager.IsBannedFromChat` 的等价数据）。</summary>
+        public static System.Func<int, bool> ChatBanProvider;
+
+        /// <summary>禁言时输入框里那句。⚠️ 原版是 I2 词条（本地无 value）⇒ **这句是我们自拟的**。</summary>
+        public const string BannedInputText = "You are banned from this chat channel.";
+
+        /// <summary>当前页那个频道的号（`0 = Global` / `1 = Alliance`）—— 取不到页时按 0。</summary>
+        int CurrentChannelType()
+        {
+            var tab = CurrentTabView as ChatTab;
+            string ch = tab != null ? tab.Channel : (Channels.Length > 0 ? Channels[0] : null);
+            for (int i = 0; i < Channels.Length; i++) if (Channels[i] == ch) return i;
+            return 0;
+        }
     }
 
 
@@ -743,12 +850,14 @@ namespace CardPresentation
             // 点头像 ⇒ 开玩家选项面板（原版 `ChatMessageUI.OnMessageClicked` / `ChatPlayerOptionsPanel`）
             // ⚠️ `clip` 也传下去（判据 = 原版 `RectMask2D` 的**射线那一面**：框外的点判不中任何东西）
             //    ⇒ 滚出视口的行**点不到**、压在视口边上的命中区**截到视口内**。
-            MenuDraw.Hit(pb, "Hit", pbr, ChatPanel.QHit, () =>
-            {
-                Debug.Log("[Chat] 点头像 ⇒ 原版开 `ChatPlayerOptionsPanel`（5 个钮全要服务器）。");
-                var panel = win.transform.Find("Holder/Chat/Player Options Panel");
-                if (panel != null) panel.gameObject.SetActive(!panel.gameObject.activeSelf);
-            }, clip: clip);
+            // 🔴 **2026-10-25（E4 · 账 303/314/330 同一根因）**：原来这里只是「面板显隐取反」——
+            //   **被点的那条消息 `m` 整个丢了** ⇒ 面板标题恒为 prefab 样例串、`Add as a friend` 恒可点、
+            //   也没法按行定位。原版那三跳是：
+            //     `ChatMessageUI.ShowOptions()`（`:270`）→ `ChatPanel.ShowOptionsPanel(message)`（`:561-563`，
+            //     三行就一句 `optionsPanel.ShowOptionsFor(message)`）→
+            //     `ChatPlayerOptionsPanel.ShowOptionsFor(ChatMessageUI message)`（`:74-112`）。
+            //   ⇒ 现在把 `m` 原样传下去（`ShowOptionsFor` 是唯一消费口）。
+            MenuDraw.Hit(pb, "Hit", pbr, ChatPanel.QHit, () => win.ShowOptionsFor(m), clip: clip);
         }
 
         // ============================================================ 分侧参数（2026-10-25 · 账 300/301）

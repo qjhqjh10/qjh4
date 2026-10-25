@@ -2958,6 +2958,22 @@ namespace CardPresentation
             }
             if (_search == null) AttachSearch();
             _search.OnSearchDone = StartBotBattle;
+            // 🔴 **2026-10-25（E4 · 联机账 79）：带 `enemyDeck` 的练习赛**不走那 12 秒搜索。
+            //   判据 = 原版 `MatchMakerManager.StartMatch(playMode, playerBattleData, playerDeck, **enemyDeck**, …,
+            //   waitLoadTime = 1)`（`Everguild/MatchMakerManager.cs:364-414` 逐句）：它**根本不搜索** ——
+            //   `MoveToBattleRoom(...)` 之后直接 `StartBattleWithDelay(1f)` ⇒ 约 **1 秒**开打。
+            //   而「等不到真人就换 bot」那 12 秒（`GetTimeToWaitForOpponent` = 12）属于 `FindMatch` 那条链。
+            //   ⇒ 本窗里 `OpponentDeck != null` 只有一条来路 = `StartPracticeMatch`（`Deck info ▸ Practice Deck`
+            //     那条把对手那副牌挑好了，原版就是 `enemyDeck`）⇒ 那一条改成 **1 秒**倒计时（不再是 12）。
+            //   ⚠️ 走同一个 `SearchingMatchPopup`（倒计时/取消那套原样复用），只是**秒数**不同 ——
+            //     所以画面上仍然是「Searching…」那一小段，与原版那 1 秒的等待窗同形。
+            if (OpponentDeck != null)
+            {
+                Debug.Log("[Practice] 「本局对手」已指定（原版 `StartMatch(…, enemyDeck)`）⇒ **不跑 12 秒搜索**，"
+                          + "等 1 秒就开打（原版 `StartBattleWithDelay(waitLoadTime = 1)`）");
+                _search.BeginSearch(seconds: 1f);
+                return;
+            }
             _search.BeginSearch();
         }
 

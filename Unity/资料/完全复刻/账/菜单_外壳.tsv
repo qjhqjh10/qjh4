@@ -1,8 +1,8 @@
 域	原版类	方法	判据出处	判据要点	状态	我们的落点	差异	等级	轮次	备注
-菜单/外壳	AdaptFlexibleGridLayoutByAspectRatio	ModifyFlexibleLayout()	AdaptFlexibleGridLayoutByAspectRatio.cs:88	按宽高比改网格参数	D	—	不适用：uGUI 布局管线（我们按 16:9 设计值 + CanvasScaler 缩放）		R1	
-菜单/外壳	AdaptFlexibleGridLayoutByAspectRatio	OnDisable()	AdaptFlexibleGridLayoutByAspectRatio.cs:113	退订分辨率变化	D	—	不适用：同上		R1	
-菜单/外壳	AdaptFlexibleGridLayoutByAspectRatio	OnEnable()	AdaptFlexibleGridLayoutByAspectRatio.cs:14	订阅分辨率变化	D	—	不适用：同上		R1	
-菜单/外壳	AdaptFlexibleGridLayoutByAspectRatio	ResolutionHasChanged()	AdaptFlexibleGridLayoutByAspectRatio.cs:63	分辨率变化 ⇒ 重算	D	—	不适用：同上		R1	
+菜单/外壳	AdaptFlexibleGridLayoutByAspectRatio	ModifyFlexibleLayout()	AdaptFlexibleGridLayoutByAspectRatio.cs:88	按宽高比改网格参数	C	无（活件（mainmenuwarpforge 场景 1 处挂接），方法体是按宽高比重算 uGUI LayoutGroup；非服务器非空）	（G2 未进账类普查 §3.3/§3.6/§3.7 + D2/D3 逐条核对）：**判 C 的书面判据** —— 活件（mainmenuwarpforge 场景 1 处挂接），方法体是按宽高比重算 uGUI LayoutGroup；非服务器非空（原记「无判据的 D」）		R1	
+菜单/外壳	AdaptFlexibleGridLayoutByAspectRatio	OnDisable()	AdaptFlexibleGridLayoutByAspectRatio.cs:113	退订分辨率变化	C	无（活件（mainmenuwarpforge 场景 1 处挂接），方法体是按宽高比重算 uGUI LayoutGroup；非服务器非空）	（G2 未进账类普查 §3.3/§3.6/§3.7 + D2/D3 逐条核对）：**判 C 的书面判据** —— 活件（mainmenuwarpforge 场景 1 处挂接），方法体是按宽高比重算 uGUI LayoutGroup；非服务器非空（原记「无判据的 D」）		R1	
+菜单/外壳	AdaptFlexibleGridLayoutByAspectRatio	OnEnable()	AdaptFlexibleGridLayoutByAspectRatio.cs:14	订阅分辨率变化	C	无（活件（mainmenuwarpforge 场景 1 处挂接），方法体是按宽高比重算 uGUI LayoutGroup；非服务器非空）	（G2 未进账类普查 §3.3/§3.6/§3.7 + D2/D3 逐条核对）：**判 C 的书面判据** —— 活件（mainmenuwarpforge 场景 1 处挂接），方法体是按宽高比重算 uGUI LayoutGroup；非服务器非空（原记「无判据的 D」）		R1	
+菜单/外壳	AdaptFlexibleGridLayoutByAspectRatio	ResolutionHasChanged()	AdaptFlexibleGridLayoutByAspectRatio.cs:63	分辨率变化 ⇒ 重算	C	无（活件（mainmenuwarpforge 场景 1 处挂接），方法体是按宽高比重算 uGUI LayoutGroup；非服务器非空）	（G2 未进账类普查 §3.3/§3.6/§3.7 + D2/D3 逐条核对）：**判 C 的书面判据** —— 活件（mainmenuwarpforge 场景 1 处挂接），方法体是按宽高比重算 uGUI LayoutGroup；非服务器非空（原记「无判据的 D」）		R1	
 菜单/外壳	AlternateArtPanel	BuyOriginalCard()	AlternateArtPanel.cs:634	买原版画（服务器扣费）	D	—	不适用：商店扣费走服务器（用户 2026-09-17 拍板不做真实经济）		R1	
 菜单/外壳	AlternateArtPanel	ForceSetNonAlternateArtCard(RawCardScript card)	AlternateArtPanel.cs:410	强制切回原画	A	CardPresentation/Shell/CardDetailPopup.cs:1543（BuildAltArt）（等价实现 = BuildAltArt：原版只把「非异画那张」记进字段，供 GetCurrentSelectedCard 回落；我们的等价是 AltStyleIndex=0 这一档（AltArtTexture:1533 返回 null ⇒ 卡面用原画那张））	一致（同一份 artOverride 表）		R3	
 菜单/外壳	AlternateArtPanel	GetCurrentSelectedCard()	AlternateArtPanel.cs:593	当前选中的异画卡	A	CardPresentation/Shell/CardDetailPopup.cs:1543（BuildAltArt）（等价实现 = BuildAltArt：原版返回「当前风格对应的那张卡」（无当前异画 ⇒ 非异画那张）；我们的「当前选择」= AltStyleIndex（BuildAltArt 里夹定 0..Count），0 ⇒ 原画、>0 ⇒ 第 n 档异画）	一致		R3	
@@ -10,7 +10,7 @@
 菜单/外壳	AlternateArtPanel	NavigationButtonClick(bool isLeft)	AlternateArtPanel.cs:418	左右切画	A	CardPresentation/Shell/CardDetailPopup.cs:1734（BuildAltArrow）（等价实现 = BuildAltArrow：原版给左右两颗钮各挂 NavigationButtonClick(isLeft)（先两颗 interactable=false → SwapStyle(±1) → 再开回）；我们的两颗钮各挂 Hit(...) => ChangeAltStyle(left ? -1 : +1)，可观察量 = AltStyleIndex 回绕地 ±1）	一致		R3	
 菜单/外壳	AlternateArtPanel	Refresh()	AlternateArtPanel.cs:393	刷新异画预览	A	CardPresentation/Shell/CardDetailPopup.cs:1543（BuildAltArt）（等价实现 = BuildAltArt：原版 Refresh = 重新 Initialize 一次再 SetStyle(当前卡那一档)；我们的重画入口 RebuildKeepingState → BuildAltArt 重算 has/档位并按当前 AltStyleIndex 出图）	一致		R3	
 菜单/外壳	AlternateArtPanel	SetStyle(AlternateArtSyle style, Sprite image)	AlternateArtPanel.cs:501	设画风 + 预览图	A	CardPresentation/Shell/CardDetailPopup.cs:1533（AltArtTexture）（等价实现 = AltArtTexture：原版 SetStyle 把该风格的图画到前台卡上（BasicCardUI.SetCardImage）；我们的等价 = AltArtTexture() 给出当前档那张图，SetData 时作为 artOverride 喂卡面（0 档返回 null = 原画））	一致		R3	
-菜单/外壳	AlternateArtPanel	Start()	AlternateArtPanel.cs:275	启动（取异画表）	A	CardPresentation/Shell/CollectionWindow.cs:2318（BuildStylesPage）（BuildStylesPage 消费 AltArtCards 表）（等价实现 = BuildStylesPage：原版 Start 只做三颗钮的接线（左右换画 + 购买原画）；我们这两条接线在同一族的 BuildAltArrow/购买钮那一格，而异画**表**（风格清单）由 CollectionWindow.BuildStylesPage 消费 AltArtCards 建 —— 启动这一格没有独立逻辑）	一致		R3	
+菜单/外壳	AlternateArtPanel	Start()	AlternateArtPanel.cs:275	启动（取异画表）	A	CardPresentation/Shell/CollectionWindow.cs:2323（BuildStylesPage）（BuildStylesPage 消费 AltArtCards 表）（等价实现 = BuildStylesPage：原版 Start 只做三颗钮的接线（左右换画 + 购买原画）；我们这两条接线在同一族的 BuildAltArrow/购买钮那一格，而异画**表**（风格清单）由 CollectionWindow.BuildStylesPage 消费 AltArtCards 建 —— 启动这一格没有独立逻辑）	一致		R3	
 菜单/外壳	AlternateArtPanel	SwapStyle(bool isLeft)	AlternateArtPanel.cs:427	切上一/下一风格	A	CardPresentation/Shell/CardDetailPopup.cs:1734（BuildAltArrow）（等价实现 = BuildAltArrow：原版 SwapStyle = index ±1 再回绕，然后 SetStyle；我们的点击进 ChangeAltStyle(dir)（:1971 同一个 (i+dir) mod n 回绕、0 = 原画），由 BuildAltArrow 的 Hit 接线传 ±1）	一致		R3	
 菜单/外壳	AlternateArtPanel	ToggleButtons(bool toggle)	AlternateArtPanel.cs:863	异画左右钮显隐	A	CardPresentation/Shell/CardDetailPopup.cs:1734（BuildAltArrow）（等价实现 = BuildAltArrow：原版 ToggleButtons 切左右两颗钮的显隐（总是两颗一起）；我们的等价是整块异画面板 p.gameObject.SetActive(has)（BuildAltArt 末尾）—— 无风格 ⇒ 两颗钮一起不可见）	一致		R3	
 菜单/外壳	AlternateArtPanel	TogglePurchaseBasicCard(bool option)	AlternateArtPanel.cs:607	原画购买按钮显隐	D	—	不适用：不做真实经济（用户 2026-09-17）		R1	
@@ -25,8 +25,8 @@
 菜单/外壳	AttackTypesButtonsController	ToggleAttackTypesSelector(bool option, RawCardScript cardWithActiveAbility, Sprite customIcon, int customIconValue)	AttackTypesButtonsController.cs:195	开/收选择器（含自定义图标与数值）	A	Battle/AttackSelector.cs:1160 Show / :1121 Hide / :1294 ApplyOptionIcons（Show）（等价实现 = Show：原版开/收选择器并支持自定义图标与数值；我们的 Show(options,...) 建/刷整套圈、Hide 收起、ApplyOptionIcons 按选项换图标 —— 依次对应 :1160 / :1121 / :1294）	一致		R1	
 菜单/外壳	AttackTypesButtonsController	ToggleAttackTypesSelectorJustOne(bool option, AttackTypes attackType)	AttackTypesButtonsController.cs:347	只显示一颗（已定打法那张卡）	A	Battle/AttackSelector.cs:1230 ShowJustOne（等价实现 = ShowJustOne：原版只显示一颗（已定打法那张卡）；我们的 ShowJustOne(kind,...) 同义（只建那一种并带上 selectedType/army））	一致		R1	
 菜单/外壳	AttackTypesButtonsController	Update()	AttackTypesButtonsController.cs:38	每帧：累计拖拽 + 重排	A	Battle/AttackSelector.cs:426 Tick（等价实现 = Tick：原版 Update 只调 MoveButtons；我们的 Tick(dt) = TickHover(dt) + PushDrag(每帧拖距)，由驱动层每帧调）	一致		R1	
-菜单/外壳	AutoGridLayout	CalculateLayoutInputHorizontal()	AutoGridLayout.cs:13	uGUI 网格布局回调	D	—	不适用：uGUI 布局管线（替代 = 各窗手算列）		R1	
-菜单/外壳	AutoLayoutSpacingByItemSize	OnEnable()	AutoLayoutSpacingByItemSize.cs:14	按子件尺寸自动调 spacing	D	—	不适用：uGUI 布局管线；替代 = 各窗写死原版 spacing		R1	
+菜单/外壳	AutoGridLayout	CalculateLayoutInputHorizontal()	AutoGridLayout.cs:13	uGUI 网格布局回调	D	—	（G2 未进账类普查 §3.3/§3.6/§3.7 + D2/D3 逐条核对）：**判 D 的书面判据** —— **死代码**：decomp 0 外部调用、il2csharp 0 引用、assets 0 挂接（原记「无判据的 D」）		R1	
+菜单/外壳	AutoLayoutSpacingByItemSize	OnEnable()	AutoLayoutSpacingByItemSize.cs:14	按子件尺寸自动调 spacing	C	无（活件（menus 包 1 处挂接），`OnEnable` 按屏幕宽高比在 curve 上插值并 set_spacing）	（G2 未进账类普查 §3.3/§3.6/§3.7 + D2/D3 逐条核对）：**判 C 的书面判据** —— 活件（menus 包 1 处挂接），`OnEnable` 按屏幕宽高比在 curve 上插值并 set_spacing（原记「无判据的 D」）		R1	
 菜单/外壳	BasicLoginWithEmailWindow	CheckLoginButtonState()	BasicLoginWithEmailWindow.cs:185	按输入合法性启用登录钮	D	—	不适用：离线版无登录（替代 = PlayerBoot 直接进 Shell）		R1	
 菜单/外壳	BasicLoginWithEmailWindow	Close()	BasicLoginWithEmailWindow.cs:65	关窗	D	—	不适用：同上		R1	
 菜单/外壳	BasicLoginWithEmailWindow	EmailInputChanged(string emailText)	BasicLoginWithEmailWindow.cs:139	邮箱输入	D	—	不适用：同上		R1	
@@ -90,7 +90,7 @@
 菜单/外壳	ContainerDrawer	GetItemName(ShopContainerBase item)	ContainerDrawer.cs:36	容器名	A	CardPresentation/Shell/ItemDrawer.cs:1480（DrawView（名字层在这里画））（等价实现 = DrawView：原版 GetItemName 返回容器显示名；我们的 DrawView 在名字层画同一个名字）	一致		R3	
 菜单/外壳	CosmeticDrawer	Draw(CosmeticItem item, int quantity)	CosmeticDrawer.cs:9	画装饰品	A	CardPresentation/Shell/ItemDrawer.cs:840（Draw）	一致		R3	
 菜单/外壳	CosmeticDrawer	GetItemName(CosmeticItem item)	CosmeticDrawer.cs:16	装饰名	A	CardPresentation/Shell/ItemDrawer.cs:1480（DrawView（名字层在这里画））（等价实现 = DrawView：原版 GetItemName 返回装饰件显示名；我们的 DrawView 在名字层画同一个名字）	一致		R3	
-菜单/外壳	CustomDropTableDefinition	GetID()	CustomDropTableDefinition.cs:71	掉落表 id	D	—	不适用：ScriptableObject 数据（服务端掉落表）；本地无该资产		R1	
+菜单/外壳	CustomDropTableDefinition	GetID()	CustomDropTableDefinition.cs:71	掉落表 id	D	—	（G2 未进账类普查 §3.3/§3.6/§3.7 + D2/D3 逐条核对）：**判 D 的书面判据** —— **原版空**：5 个成员全是 getter（RewardType 返回常量、LocalizedName 返回空串、Items/GetID 直返字段、CounterKey 只有一个 IsNullOrWhiteSpace 分支）（原记「无判据的 D」）		R1	
 菜单/外壳	DebugPlayWindow	OnDisable()	DebugPlayWindow.cs:41	停用	D	—	不适用：调试窗口		R1	
 菜单/外壳	DebugPlayWindow	OnEnable()	DebugPlayWindow.cs:31	启用	D	—	不适用：调试窗口		R1	
 菜单/外壳	DebugPlayWindow	Play()	DebugPlayWindow.cs:47	调试：开一局	D	—	不适用：调试窗口		R1	
@@ -255,11 +255,11 @@
 菜单/外壳	ExpansionPassPointDrawer	Draw(ExpansionPassPoints item, int quantity)	ExpansionPassPointDrawer.cs:38	画通行证点数	A	CardPresentation/Shell/ItemDrawer.cs:840（Draw）	一致		R3	
 菜单/外壳	ExpansionPassPointDrawer	DrawForArmy(CardArmy army)	ExpansionPassPointDrawer.cs:14	按阵营取点数图	B	Shell/ItemDrawer.cs + Core/CardArt.FlavorBg	一致 ｜G审计 2026-10-25：A 落点无法精确定位（文件级＋被多方法共用(3)）⇒ 退 B，待重新找本方法实现		R3	
 菜单/外壳	ExpansionPassPointDrawer	GetItemName(ExpansionPassPoints item)	ExpansionPassPointDrawer.cs:31	点数名	A	CardPresentation/Shell/ItemDrawer.cs:1480（DrawView（名字层在这里画））（等价实现 = DrawView：原版 GetItemName 返回点数件显示名；我们的 DrawView 在名字层画同一个名字）	一致		R3	
-菜单/外壳	FeedbackButton	Initialize()	FeedbackButton.cs:31	初始化反馈钮	D	—	不适用：客服/反馈走 Helpshift（第三方 SDK，离线不可用）		R1	
-菜单/外壳	FeedbackButton	OnEnable()	FeedbackButton.cs:26	启用	D	—	不适用：同上		R1	
-菜单/外壳	FeedbackButton	OpenFeedbackMenu()	FeedbackButton.cs:67	开反馈菜单	D	—	不适用：同上		R1	
-菜单/外壳	FeedbackButton	Refresh()	FeedbackButton.cs:36	刷新显隐（有设置时才显示）	D	—	不适用：同上		R1	
-菜单/外壳	FeedbackButton	Start()	FeedbackButton.cs:19	启动	D	—	不适用：同上		R1	
+菜单/外壳	FeedbackButton	Initialize()	FeedbackButton.cs:31	初始化反馈钮	D	—	（G2 未进账类普查 §3.3/§3.6/§3.7 + D2/D3 逐条核对）：**判 D 的书面判据** —— **死代码**：decomp 0 外部调用、il2csharp 除自身 0 引用；84 包 + level0/共享资源 **0 挂接**（722 MonoScript 名单里没有它）。⚠️ 旧理由「走 Helpshift」不成立（Helpshift 只在 SupportTab/RatePopup）（原记「无判据的 D」）		R1	
+菜单/外壳	FeedbackButton	OnEnable()	FeedbackButton.cs:26	启用	D	—	（G2 未进账类普查 §3.3/§3.6/§3.7 + D2/D3 逐条核对）：**判 D 的书面判据** —— **死代码**：decomp 0 外部调用、il2csharp 除自身 0 引用；84 包 + level0/共享资源 **0 挂接**（722 MonoScript 名单里没有它）。⚠️ 旧理由「走 Helpshift」不成立（Helpshift 只在 SupportTab/RatePopup）（原记「无判据的 D」）		R1	
+菜单/外壳	FeedbackButton	OpenFeedbackMenu()	FeedbackButton.cs:67	开反馈菜单	D	—	（G2 未进账类普查 §3.3/§3.6/§3.7 + D2/D3 逐条核对）：**判 D 的书面判据** —— **死代码**：decomp 0 外部调用、il2csharp 除自身 0 引用；84 包 + level0/共享资源 **0 挂接**（722 MonoScript 名单里没有它）。⚠️ 旧理由「走 Helpshift」不成立（Helpshift 只在 SupportTab/RatePopup）（原记「无判据的 D」）		R1	
+菜单/外壳	FeedbackButton	Refresh()	FeedbackButton.cs:36	刷新显隐（有设置时才显示）	D	—	（G2 未进账类普查 §3.3/§3.6/§3.7 + D2/D3 逐条核对）：**判 D 的书面判据** —— **死代码**：decomp 0 外部调用、il2csharp 除自身 0 引用；84 包 + level0/共享资源 **0 挂接**（722 MonoScript 名单里没有它）。⚠️ 旧理由「走 Helpshift」不成立（Helpshift 只在 SupportTab/RatePopup）（原记「无判据的 D」）		R1	
+菜单/外壳	FeedbackButton	Start()	FeedbackButton.cs:19	启动	D	—	（G2 未进账类普查 §3.3/§3.6/§3.7 + D2/D3 逐条核对）：**判 D 的书面判据** —— **死代码**：decomp 0 外部调用、il2csharp 除自身 0 引用；84 包 + level0/共享资源 **0 挂接**（722 MonoScript 名单里没有它）。⚠️ 旧理由「走 Helpshift」不成立（Helpshift 只在 SupportTab/RatePopup）（原记「无判据的 D」）		R1	
 菜单/外壳	FlareScenarioToggler	DoScenarioBlend(ScenarioBlendOptions scenarioBlendOptions)	FlareScenarioToggler.cs:11	按混合选项切 flare	A	CardPresentation/Battle/FlareScenarioToggler.cs:35（DoScenarioBlend）	一致（落点在战斗线同名文件）		R3	
 菜单/外壳	FlareScenarioToggler	Initialize()	FlareScenarioToggler.cs:27	初始化	B	Battle/FlareScenarioToggler.cs	一致 ｜G审计 2026-10-25：A 落点无法精确定位（文件级）⇒ 退 B，待重新找本方法实现		R3	
 菜单/外壳	FlareScenarioToggler	OnValidate()	FlareScenarioToggler.cs:33	编辑器校验	D	—	不适用：纯编辑器		R1	
@@ -327,7 +327,7 @@
 菜单/外壳	GameWindowWithTabs	ToFocus()	GameWindowWithTabs.cs:430	当前页 ToFocus + OnTabChanged	A	CardPresentation/Shell/GameWindowWithTabs.cs:220（ToFocus）（ToFocus，override：当前页 ToFocus + OnTabChanged）	一致；生产路径 = `GameWindow.TryOpen` 的 Background 支（回前台）		R3	
 菜单/外壳	GeneralMenuController	ActivateLoadingFade(bool activate)	GeneralMenuController.cs:523	加载遮罩淡入淡出	A	CardPresentation/Shell/ShellRuntime.cs:204（CoFadeBackAfterLoad）（等价实现 = CoFadeBackAfterLoad：原版只把 loadingMenu.gameObject.SetActive(activate)；我们的加载遮罩由 CoFadeBackAfterLoad 协程按 0→1 淡出并关掉，可观察量 = 遮罩 alpha 回 0 且对象失活）	一致		R3	
 菜单/外壳	GeneralMenuController	Awake()	GeneralMenuController.cs:182	缓存控制器/服务	A	CardPresentation/Shell/ShellRuntime.cs:309（Awake）	等价（我们拆成多组件）		R3	
-菜单/外壳	GeneralMenuController	Initialize()	GeneralMenuController.cs:195	初始化菜单控制器（建顶栏/资源条等）	A	CardPresentation/Shell/ShellRuntime.cs:611（Build）（等价实现 = Build：原版 Initialize 建整台菜单控制器（顶栏/资源条/导航/工具提示等）；我们的等价是 ShellRuntime.Build 一次建起外壳的那批常驻件）	等价		R3	
+菜单/外壳	GeneralMenuController	Initialize()	GeneralMenuController.cs:195	初始化菜单控制器（建顶栏/资源条等）	A	CardPresentation/Shell/ShellRuntime.cs:624（Build）（等价实现 = Build：原版 Initialize 建整台菜单控制器（顶栏/资源条/导航/工具提示等）；我们的等价是 ShellRuntime.Build 一次建起外壳的那批常驻件）	等价		R3	
 菜单/外壳	GeneralMenuController	OnDestroy()	GeneralMenuController.cs:509	清理	D	—	不适用：生命周期		R1	
 菜单/外壳	GeneralMenuController	RemoveHighlights()	GeneralMenuController.cs:552	移除所有指示高亮	A	CardPresentation/Shell/TutorialPointerUi.cs:171（Hide）（等价实现 = Hide：原版 RemoveHighlights = screenHighlight.Toggle(false, instant:true)；我们的教程指示层由 TutorialPointerUi.Hide 一次收掉同一块高亮）	一致		R3	
 菜单/外壳	GeneralMenuController	ShowHighlight(Vector3 position)	GeneralMenuController.cs:529	在世界点放指示高亮	A	CardPresentation/Shell/TutorialPointerUi.cs:140（Show）（等价实现 = Show：原版 ShowHighlight = screenHighlight.HighlightPosition(worldPos, null)；我们的 TutorialPointerUi.Show 在世界点放同一块指示高亮）	一致		R3	
@@ -387,10 +387,10 @@
 菜单/外壳	GraphicsTab	SmallScreenToggleClick(bool option)	GraphicsTab.cs:119	小屏缩放开关	B	Shell/TransformScalerBySmallScreenUI.cs（开关）	一致 ｜G审计 2026-10-25：A 落点无法精确定位（文件级）⇒ 退 B，待重新找本方法实现		R3	
 菜单/外壳	GraphicsTab	SuperSamplingToggleClick(bool option)	GraphicsTab.cs:101	超采样开关	B	Shell/SettingsWindow.cs 图像页（SuperSampling 项）	一致 ｜G审计 2026-10-25：A 落点无法精确定位（文件级＋被多方法共用(9)）⇒ 退 B，待重新找本方法实现		R3	
 菜单/外壳	GraphicsTab	VSyncToggleClick(bool option)	GraphicsTab.cs:130	垂直同步开关	B	Shell/SettingsWindow.cs 图像页	一致 ｜G审计 2026-10-25：A 落点无法精确定位（文件级＋被多方法共用(9)）⇒ 退 B，待重新找本方法实现		R3	
-菜单/外壳	Group	GetEventScore(string eventId)	Group.cs:214	公会在某活动里的分数（服务器）	D	—	不适用：公会活动数据来自服务器（PlayFab），离线不可达		R1	
-菜单/外壳	Group	HasJoinedEvent(string eventId)	Group.cs:219	公会是否参加某活动	D	—	不适用：同上		R1	
-菜单/外壳	GroupMember	GetEventScore(string eventId)	GroupMember.cs:208	成员在某活动的分数	D	—	不适用：同上		R1	
-菜单/外壳	GroupMember	OnAfterRead(JToken rawJson)	GroupMember.cs:173	反序列化后处理	D	—	不适用：同上		R1	
+菜单/外壳	Group	GetEventScore(string eventId)	Group.cs:214	公会在某活动里的分数（服务器）	D	无（**同名但不等价**）	（G2 未进账类普查 §3.3/§3.6/§3.7 + D2/D3 逐条核对）：**同名但不等价**：我方 `Group`（`Battle/HudCanvas.cs`）是按 z 排兄弟序的**容器账本**；原版是**公会服务器数据模型**（events 字典，实例来自 `DraftRankingDataProvider.FetchRanking` 回包）⇒ 保持 D		R1	
+菜单/外壳	Group	HasJoinedEvent(string eventId)	Group.cs:219	公会是否参加某活动	D	无（**同名但不等价**）	（G2 未进账类普查 §3.3/§3.6/§3.7 + D2/D3 逐条核对）：**同名但不等价**：我方 `Group`（`Battle/HudCanvas.cs`）是按 z 排兄弟序的**容器账本**；原版是**公会服务器数据模型**（events 字典，实例来自 `DraftRankingDataProvider.FetchRanking` 回包）⇒ 保持 D		R1	
+菜单/外壳	GroupMember	GetEventScore(string eventId)	GroupMember.cs:208	成员在某活动的分数	D	—	（G2 未进账类普查 §3.3/§3.6/§3.7 + D2/D3 逐条核对）：**判 D 的书面判据** —— 服务器：`OnAfterRead(JToken)` 用 `PlayerAvatarDataManager.UnpackPlayfabAvatarAndBorderData` 解 PlayFab 头像/边框回包（原记「无判据的 D」）		R1	
+菜单/外壳	GroupMember	OnAfterRead(JToken rawJson)	GroupMember.cs:173	反序列化后处理	D	—	（G2 未进账类普查 §3.3/§3.6/§3.7 + D2/D3 逐条核对）：**判 D 的书面判据** —— 服务器：`OnAfterRead(JToken)` 用 `PlayerAvatarDataManager.UnpackPlayfabAvatarAndBorderData` 解 PlayFab 头像/边框回包（原记「无判据的 D」）		R1	
 菜单/外壳	GroupRoleExtensions	LocalizationString(GroupRole role)	GroupRoleExtensions.cs:20	公会职位词条键	D	—	不适用：公会数据离线不可达		R1	
 菜单/外壳	GroupRoleExtensions	LocalizedName(GroupRole role)	GroupRoleExtensions.cs:7	公会职位本地化名	D	—	不适用：同上		R1	
 菜单/外壳	ItemDisplayWindow	OnDisable()	ItemDisplayWindow.cs:68	停用	D	—	不适用：生命周期		R1	
@@ -399,9 +399,9 @@
 菜单/外壳	ItemDrawerConfig	GetDrawingOptions(Type type)	ItemDrawerConfig.cs:261	按类型取抽屉配置	A	CardPresentation/Shell/ItemDrawer.cs:471（PickDrawer）（等价实现 = PickDrawer：原版按 item 类型返回该类型对应的抽屉配置；我们的 ItemDrawer.PickDrawer 同一张 类型→抽屉 表，可观察量 = 画出来的件形状随类型变）	一致（按 ItemKind/类型表选）		R3	
 菜单/外壳	ItemInformationPanel	Initialize(ObtainableItem Item, ItemDrawerOptions Options)	ItemInformationPanel.cs:15	物品信息面板初始化	A	CardPresentation/Shell/ItemDisplayWindow.cs:248（`Build`）（等价实现 = Build：原版 Initialize(item, options) 按这一件铺面板内容（先清空重来）；G 语义复核指出 Create:208 只建窗壳 + 转 Open→Build ⇒ 内容填充在这里）	一致		R3	
 菜单/外壳	ItemInformationPanel	SetText(TextMeshProUGUI text, string key, bool localize)	ItemInformationPanel.cs:57	按词条/明文写字	A	CardPresentation/Battle/Label.cs:367（SetText）	一致		R3	
-菜单/外壳	LaunchWishlistPopup	Initialize()	LaunchWishlistPopup.cs:10	愿望单弹窗初始化	D	—	不适用：平台商店愿望单		R1	
-菜单/外壳	LayoutGroupContentFixer	FixLayout()	LayoutGroupContentFixer.cs:18	修布局组内容尺寸	D	—	不适用：uGUI 布局管线（替代 = 各窗按矩形手算）		R1	
-菜单/外壳	LayoutGroupContentFixer	OnEnable()	LayoutGroupContentFixer.cs:10	启用时修一次	D	—	不适用：同上		R1	
+菜单/外壳	LaunchWishlistPopup	Initialize()	LaunchWishlistPopup.cs:10	愿望单弹窗初始化	D	—	（G2 未进账类普查 §3.3/§3.6/§3.7 + D2/D3 逐条核对）：**判 D 的书面判据** —— **死代码**：decomp 0 外部调用、il2csharp 0 引用、assets 0 挂接（原记「无判据的 D」）		R1	
+菜单/外壳	LayoutGroupContentFixer	FixLayout()	LayoutGroupContentFixer.cs:18	修布局组内容尺寸	C	无（活件（menus 包 **733 处**挂接），方法体逐子件 ForceRebuildLayoutImmediate；非服务器非空）	（G2 未进账类普查 §3.3/§3.6/§3.7 + D2/D3 逐条核对）：**判 C 的书面判据** —— 活件（menus 包 **733 处**挂接），方法体逐子件 ForceRebuildLayoutImmediate；非服务器非空（原记「无判据的 D」）		R1	
+菜单/外壳	LayoutGroupContentFixer	OnEnable()	LayoutGroupContentFixer.cs:10	启用时修一次	C	无（活件（menus 包 **733 处**挂接），方法体逐子件 ForceRebuildLayoutImmediate；非服务器非空）	（G2 未进账类普查 §3.3/§3.6/§3.7 + D2/D3 逐条核对）：**判 C 的书面判据** —— 活件（menus 包 **733 处**挂接），方法体逐子件 ForceRebuildLayoutImmediate；非服务器非空（原记「无判据的 D」）		R1	
 菜单/外壳	LiveOpsContentPanel	Initialize()	LiveOpsContentPanel.cs:21	活动内容面板初始化	D	—	**原版调用链断在这儿（三查齐全）**：**整个类 0 引用**（`out_il2csharp` 全程序集 `LiveopsContentPanel` 0 命中）。 ① 全程序集引用见备注；② prefab/场景包里方法名字符串 0 命中；③ 其它程序集元数据 0 命中。		R1	2026-10-25 N5：C→D。**原版调用链断在这儿（三查齐全）**：① `d:/2/tools/cpp2il/out_il2csharp/Assembly-CSharp`（2785 个 `.cs`、`throw null` **0 个** ⇒ 方法体全在）**全程序集只有定义那一处、0 引用**；② prefab/场景（`bundle_menus_assets_all` / `bundle_generalgamewindows_assets_all` / `bundle_mainmenualwaysloaded_assets_all` / `bundle_scenes_scenes_mainmenu*` 等）里方法名字符串 0 命中（名 -> 方法名绑定 / `SendMessage` 都没有；**对照**：同族 `CheckLinkText` 在这些包里命中 1 颗 `m_PersistentCalls` ⇒ 搜法有效）；③ 其它 IL2CPP 程序集元数据 0 命中。
 菜单/外壳	LiveopHelpWindow	Close()	LiveopHelpWindow.cs:82	关活动帮助窗	C	—	缺（活动线暂停，待用户恢复）	P2	R1	N5定级 P2·序19：活动线暂停（还差 = 活动帮助窗；判据 = `out_il2csharp/LiveopHelpWindow.cs`）。
 菜单/外壳	LiveopHelpWindow	Open()	LiveopHelpWindow.cs:53	开活动帮助窗	C	—	缺（同上）	P2	R1	N5定级 P2·序19：同上（一组 2 条）。
@@ -417,8 +417,8 @@
 菜单/外壳	LiveopUIDrawer_GameModeIcon	OnDestroy()	LiveopUIDrawer_GameModeIcon.cs:84	解绑	D	—	不适用：该类未建		R1	
 菜单/外壳	LoadingMenu	Awake()	LoadingMenu.cs:39	加载菜单初始化	A	CardPresentation/Shell/LoadingMenu.cs:120（Awake）	一致		R3	
 菜单/外壳	LoadingMenu	LoadingFade(bool show, Action callback)	LoadingMenu.cs:52	加载淡入淡出 + 回调	A	Shell/LoadingMenu.cs:164	一致		R1	
-菜单/外壳	MainMenuDemoVersion	Initialize()	MainMenuDemoVersion.cs:40	Demo 版本初始化	D	—	不适用：Demo 构建专用		R1	
-菜单/外壳	MainMenuDemoVersion	OnDestroy()	MainMenuDemoVersion.cs:44	解绑	D	—	不适用：同上		R1	
+菜单/外壳	MainMenuDemoVersion	Initialize()	MainMenuDemoVersion.cs:40	Demo 版本初始化	D	—	（G2 未进账类普查 §3.3/§3.6/§3.7 + D2/D3 逐条核对）：**判 D 的书面判据** —— **原版空**：`Initialize` 与 `OnDestroy` 方法体为空（同 RVA 0x4B33B0），其余只有 Priority/Status 的 get/set（out_il2csharp 交叉确认）（原记「无判据的 D」）		R1	
+菜单/外壳	MainMenuDemoVersion	OnDestroy()	MainMenuDemoVersion.cs:44	解绑	D	—	（G2 未进账类普查 §3.3/§3.6/§3.7 + D2/D3 逐条核对）：**判 D 的书面判据** —— **原版空**：`Initialize` 与 `OnDestroy` 方法体为空（同 RVA 0x4B33B0），其余只有 Priority/Status 的 get/set（out_il2csharp 交叉确认）（原记「无判据的 D」）		R1	
 菜单/外壳	MainMenuMatchResultData	HasDoneRankUpAnim()	MainMenuMatchResultData.cs:222	结算后是否已播段位提升动画（服务器结果）	D	—	不适用：排位结算来自服务器；且结算面板的评分/段位行按用户拍板不建		R1	
 菜单/外壳	MainMenuMatchResultData	HasDoneSealAnim()	MainMenuMatchResultData.cs:217	是否已播徽章动画	D	—	不适用：同上（徽章/评分行不建）		R1	
 菜单/外壳	MainMenuMatchResultData	HasToDoAnim(ref bool hasDoneAnimFlag, Func<EndMatchResult, bool> condition)	MainMenuMatchResultData.cs:72	是否还要播某个结算动画	D	—	不适用：同上		R1	
@@ -555,11 +555,11 @@
 菜单/外壳	RatePopup	Open()	RatePopup.cs:139	打开	D	—	不适用：同上		R1	
 菜单/外壳	RatePopup	RequireRateAndroid()	RatePopup.cs:213	Android 评价	D	—	不适用：同上		R1	
 菜单/外壳	RatePopup	RequireRateIOS()	RatePopup.cs:220	iOS 评价	D	—	不适用：同上		R1	
-菜单/外壳	RecyclableScrollerDemo	Awake()	RecyclableScrollerDemo.cs:15	循环列表 Demo 初始化	D	—	不适用：Demo 示例（我们的列表用 `MenuScroll` + 固定行）		R1	
-菜单/外壳	RecyclableScrollerDemo	GetItemCount()	RecyclableScrollerDemo.cs:107	条目数	D	—	不适用：Demo 示例		R1	
-菜单/外壳	RecyclableScrollerDemo	InitData()	RecyclableScrollerDemo.cs:24	造数据	D	—	不适用：Demo 示例		R1	
-菜单/外壳	RecyclableScrollerDemo	RefreshCell(ICell cell)	RecyclableScrollerDemo.cs:190	刷新一格	D	—	不适用：Demo 示例		R1	
-菜单/外壳	RecyclableScrollerDemo	SetCell(ICell cell, int index)	RecyclableScrollerDemo.cs:120	按索引填一格	D	—	不适用：Demo 示例		R1	
+菜单/外壳	RecyclableScrollerDemo	Awake()	RecyclableScrollerDemo.cs:15	循环列表 Demo 初始化	D	—	（G2 未进账类普查 §3.3/§3.6/§3.7 + D2/D3 逐条核对）：**判 D 的书面判据** —— **死代码/Demo 桩**：`RefreshCell` 直接 throw NotImplementedException；decomp 0 外部调用、assets 0 挂接（原记「无判据的 D」）		R1	
+菜单/外壳	RecyclableScrollerDemo	GetItemCount()	RecyclableScrollerDemo.cs:107	条目数	D	—	（G2 未进账类普查 §3.3/§3.6/§3.7 + D2/D3 逐条核对）：**判 D 的书面判据** —— **死代码/Demo 桩**：`RefreshCell` 直接 throw NotImplementedException；decomp 0 外部调用、assets 0 挂接（原记「无判据的 D」）		R1	
+菜单/外壳	RecyclableScrollerDemo	InitData()	RecyclableScrollerDemo.cs:24	造数据	D	—	（G2 未进账类普查 §3.3/§3.6/§3.7 + D2/D3 逐条核对）：**判 D 的书面判据** —— **死代码/Demo 桩**：`RefreshCell` 直接 throw NotImplementedException；decomp 0 外部调用、assets 0 挂接（原记「无判据的 D」）		R1	
+菜单/外壳	RecyclableScrollerDemo	RefreshCell(ICell cell)	RecyclableScrollerDemo.cs:190	刷新一格	D	—	（G2 未进账类普查 §3.3/§3.6/§3.7 + D2/D3 逐条核对）：**判 D 的书面判据** —— **死代码/Demo 桩**：`RefreshCell` 直接 throw NotImplementedException；decomp 0 外部调用、assets 0 挂接（原记「无判据的 D」）		R1	
+菜单/外壳	RecyclableScrollerDemo	SetCell(ICell cell, int index)	RecyclableScrollerDemo.cs:120	按索引填一格	D	—	（G2 未进账类普查 §3.3/§3.6/§3.7 + D2/D3 逐条核对）：**判 D 的书面判据** —— **死代码/Demo 桩**：`RefreshCell` 直接 throw NotImplementedException；decomp 0 外部调用、assets 0 挂接（原记「无判据的 D」）		R1	
 菜单/外壳	ReferralPopupWindow	OnSetReferrer()	ReferralPopupWindow.cs:159	提交推荐码	C	—	缺：提交走服务器（ReferralManager/PlayFab），离线不可达；本地无提交路径	P2	R2	判据 ReferralPopupWindow.cs:159 ｜ N5定级 P2·序13：**不可达（服务端）**：提交走 `ReferralManager`/PlayFab，本地无提交路径 ⇒ 铁律 11 例外② 挂起（等远端/用户拍板）。
 菜单/外壳	ReferralPopupWindow	Open()	ReferralPopupWindow.cs:76	开窗	A	CardPresentation/Shell/ReferralPopupWindow.cs:310（Open）	一致		R3	
 菜单/外壳	ReferralPopupWindow	Refresh()	ReferralPopupWindow.cs:82	刷新推荐内容	B	Shell/ReferralPopupWindow.cs Refresh	差：内容源（服务器推荐计数）本地为空		R2	
@@ -611,14 +611,14 @@
 菜单/外壳	ScrollViewFocusFunctions	FocusOnItem(ScrollRect scrollView, RectTransform item)	ScrollViewFocusFunctions.cs:415	对位到某 item（瞬跳）	A	CardPresentation/Shell/MenuScroll.cs:370（FocusOn）（等价实现 = FocusOn：原版 FocusOnItem = CalculateFocusedScrollPosition 后写 scrollView.normalizedPosition；我们的 FocusOn(item) 同一支（瞬跳到该 item））	一致（清单里四个调用点都是『把选中项对到中间』）		R3	
 菜单/外壳	ScrollViewFocusFunctions	FocusOnItemCoroutine(ScrollRect scrollView, RectTransform item, float speed, Action onFinish)	ScrollViewFocusFunctions.cs:458	补间对位到 item（速度）	D	—	判死：同上（0 调用点）		R3	
 菜单/外壳	ScrollViewFocusFunctions	LerpToScrollPositionCoroutine(ScrollRect scrollView, Vector2 targetNormalizedPos, float speed, Action onFinish)	ScrollViewFocusFunctions.cs:424	补间到归一化位置	D	—	判死：三个 coroutine 全量反编译 **0 调用点**（实际被用的是**瞬跳**的 `FocusOnItem` 包装 —— 我们的等价物 = `MenuScroll.FocusOn`）；方法体语义（ease-out t+=dt·speed）已记在报告		R3	
-菜单/外壳	SearchingMatchWindowDemo	Awake()	SearchingMatchWindowDemo.cs:231	初始化	A	CardPresentation/Shell/SearchingMatchPopup.cs:209（Attach）（等价实现 = Attach：原版 Awake 绑取消钮、缓存原始搜索文案；我们的 SearchingMatchPopup.Attach 同一支（建/绑面板并把要显示的那一份挂上））	一致		R3	
-菜单/外壳	SearchingMatchWindowDemo	CancelSearch()	SearchingMatchWindowDemo.cs:308	取消搜索	A	Shell/SearchingMatchPopup.cs:343 Cancel（等价实现 = Cancel：原版 CancelSearch 收搜索并回调；我们的 SearchingMatchPopup.Cancel 同一支（停计时 + 关面板 + 通知上层））	一致		R2	
-菜单/外壳	SearchingMatchWindowDemo	CancelSearchButtonOnClick()	SearchingMatchWindowDemo.cs:303	取消钮	A	CardPresentation/Shell/SearchingMatchPopup.cs:343（Cancel 方法）（等价实现 = Cancel：原版取消钮只转调 CancelSearch()；我们的取消钮直接接 Cancel（同一支，中间没有第二层））	一致		R3	
+菜单/外壳	SearchingMatchWindowDemo	Awake()	SearchingMatchWindowDemo.cs:231	初始化	A	CardPresentation/Shell/SearchingMatchPopup.cs:212（Attach）（等价实现 = Attach：原版 Awake 绑取消钮、缓存原始搜索文案；我们的 SearchingMatchPopup.Attach 同一支（建/绑面板并把要显示的那一份挂上））	一致		R3	
+菜单/外壳	SearchingMatchWindowDemo	CancelSearch()	SearchingMatchWindowDemo.cs:308	取消搜索	A	Shell/SearchingMatchPopup.cs:346 Cancel（等价实现 = Cancel：原版 CancelSearch 收搜索并回调；我们的 SearchingMatchPopup.Cancel 同一支（停计时 + 关面板 + 通知上层））	一致		R2	
+菜单/外壳	SearchingMatchWindowDemo	CancelSearchButtonOnClick()	SearchingMatchWindowDemo.cs:303	取消钮	A	CardPresentation/Shell/SearchingMatchPopup.cs:346（Cancel 方法）（等价实现 = Cancel：原版取消钮只转调 CancelSearch()；我们的取消钮直接接 Cancel（同一支，中间没有第二层））	一致		R3	
 菜单/外壳	SearchingMatchWindowDemo	ESCPressed()	SearchingMatchWindowDemo.cs:288	ESC 取消搜索	B	Shell/PointerLayer ESC + SearchingMatchPopup	差：无窗级 ESC 覆写		R2	
-菜单/外壳	SearchingMatchWindowDemo	OnDisable()	SearchingMatchWindowDemo.cs:277	停用：退订	A	Shell/SearchingMatchPopup.cs:670 OnDisable	一致		R2	
-菜单/外壳	SearchingMatchWindowDemo	OnEnable()	SearchingMatchWindowDemo.cs:245	启用：订阅提示	A	Shell/SearchingMatchPopup.cs:669 OnEnable（NetMatchmaking.OnHint）	一致		R2	
-菜单/外壳	SearchingMatchWindowDemo	ShowPlayersMessage(float time)	SearchingMatchWindowDemo.cs:330	轮播「正在寻找…」提示	A	Shell/SearchingMatchPopup.cs:641 ShowHint（等价实现 = ShowHint：原版 ShowPlayersMessage 是「轮流播那几句正在寻找…」的协程；我们的 SearchingMatchPopup.ShowHint 同一条轮播（文案 + 时长））	一致		R2	
-菜单/外壳	SearchingMatchWindowDemo	TypeWriteEffect(TextMeshProUGUI text, float timeBetweenLetters)	SearchingMatchWindowDemo.cs:318	打字机效果	A	Shell/SearchingMatchPopup.cs:418 Tick + :464 TypedText（Tick）（等价实现 = Tick：原版 TypeWriteEffect 是逐字追加的协程（间隔 timeBetweenLetters）；我们没有协程，Tick 每帧按间隔推进 TypedChars，TypedText（:464）就是打出来的那截字）	一致		R2	
+菜单/外壳	SearchingMatchWindowDemo	OnDisable()	SearchingMatchWindowDemo.cs:277	停用：退订	A	Shell/SearchingMatchPopup.cs:681 OnDisable	一致		R2	
+菜单/外壳	SearchingMatchWindowDemo	OnEnable()	SearchingMatchWindowDemo.cs:245	启用：订阅提示	A	Shell/SearchingMatchPopup.cs:680 OnEnable（NetMatchmaking.OnHint）	一致		R2	
+菜单/外壳	SearchingMatchWindowDemo	ShowPlayersMessage(float time)	SearchingMatchWindowDemo.cs:330	轮播「正在寻找…」提示	A	Shell/SearchingMatchPopup.cs:646 ShowHint（等价实现 = ShowHint：原版 ShowPlayersMessage 是「轮流播那几句正在寻找…」的协程；我们的 SearchingMatchPopup.ShowHint 同一条轮播（文案 + 时长））	一致		R2	
+菜单/外壳	SearchingMatchWindowDemo	TypeWriteEffect(TextMeshProUGUI text, float timeBetweenLetters)	SearchingMatchWindowDemo.cs:318	打字机效果	A	Shell/SearchingMatchPopup.cs:423 Tick + :464 TypedText（Tick）（等价实现 = Tick：原版 TypeWriteEffect 是逐字追加的协程（间隔 timeBetweenLetters）；我们没有协程，Tick 每帧按间隔推进 TypedChars，TypedText（:464）就是打出来的那截字）	一致		R2	
 菜单/外壳	SearchingOpponentWindow	CancelButtonClick()	SearchingOpponentWindow.cs:49	取消匹配钮	A	Shell/SearchingOpponentWindow.cs:477 Cancel（等价实现 = Cancel：原版取消钮 → 取消匹配并关窗；我们的 SearchingOpponentWindow.Cancel 同一支）	一致		R2	
 菜单/外壳	SearchingOpponentWindow	CancelMatchMatchmaking()	SearchingOpponentWindow.cs:54	取消匹配（通知大厅）	B	Shell/SearchOpponentManager.cs Cancel	一致 ｜G审计 2026-10-25：A 落点无法精确定位（文件级）⇒ 退 B，待重新找本方法实现		R3	
 菜单/外壳	SearchingOpponentWindow	Close()	SearchingOpponentWindow.cs:38	关窗	A	CardPresentation/Shell/SearchingOpponentWindow.cs:342（Close）	一致		R3	
@@ -652,11 +652,11 @@
 菜单/外壳	ShaderProperySetter	Update()	ShaderProperySetter.cs:58	每帧写	D	—	不适用：同上		R2	
 菜单/外壳	SimpleSceneTransition	InAnimation()	Everguild.Scenes/SimpleSceneTransition.cs:196	简单转场·进场	A	CardPresentation/Shell/ShellRuntime.cs:120（LoadSceneWithFade）（等价实现 = LoadSceneWithFade：原版 SimpleSceneTransition.InAnimation 是简化版进场（淡入）；我们的 ShellRuntime.LoadSceneWithFade 同一支（切完场景把遮罩淡回 0））	一致		R3	
 菜单/外壳	SimpleSceneTransition	OutAnimation()	Everguild.Scenes/SimpleSceneTransition.cs:185	简单转场·出场	A	CardPresentation/Shell/ShellRuntime.cs:120（LoadSceneWithFade）（等价实现 = LoadSceneWithFade：原版 SimpleSceneTransition.OutAnimation 是简化版出场（压暗 → 切场景）；我们同一个方法覆盖这条链）	一致		R3	
-菜单/外壳	SupportTab	OnClickSupport()	SupportTab.cs:42	联系客服（Helpshift）	D	—	不适用：Helpshift 第三方客服（离线不可用）		R1	
-菜单/外壳	SupportTab	OnDestroy()	SupportTab.cs:35	解绑	D	—	不适用：同上		R1	
-菜单/外壳	SupportTab	OnSetup()	SupportTab.cs:17	支持页建立	D	—	不适用：同上（页签里的按钮全走客服链）		R1	
-菜单/外壳	TMProFontSizeMatchLayout	OnRectTransformDimensionsChange()	TMProFontSizeMatchLayout.cs:10	尺寸变化同步字号	D	—	不适用：uGUI/TMP 回调；替代 = `Label.SetAutoFitBox` + `SetGlyphHeight`		R1	
-菜单/外壳	TMProFontSizeMatchLayout	OnValidate()	TMProFontSizeMatchLayout.cs:22	编辑器校验	D	—	不适用：纯编辑器		R1	
+菜单/外壳	SupportTab	OnClickSupport()	SupportTab.cs:42	联系客服（Helpshift）	D	—	（G2 未进账类普查 §3.3/§3.6/§3.7 + D2/D3 逐条核对）：**判 D 的书面判据** —— 第三方 SDK：`OnClickSupport` 直接调 `HelpshiftManager.ShowFAQ`（Helpshift）（原记「无判据的 D」）		R1	
+菜单/外壳	SupportTab	OnDestroy()	SupportTab.cs:35	解绑	D	—	（G2 未进账类普查 §3.3/§3.6/§3.7 + D2/D3 逐条核对）：**判 D 的书面判据** —— 第三方 SDK：`OnClickSupport` 直接调 `HelpshiftManager.ShowFAQ`（Helpshift）（原记「无判据的 D」）		R1	
+菜单/外壳	SupportTab	OnSetup()	SupportTab.cs:17	支持页建立	D	—	（G2 未进账类普查 §3.3/§3.6/§3.7 + D2/D3 逐条核对）：**判 D 的书面判据** —— 第三方 SDK：`OnClickSupport` 直接调 `HelpshiftManager.ShowFAQ`（Helpshift）（原记「无判据的 D」）		R1	
+菜单/外壳	TMProFontSizeMatchLayout	OnRectTransformDimensionsChange()	TMProFontSizeMatchLayout.cs:10	尺寸变化同步字号	D	—	（G2 未进账类普查 §3.3/§3.6/§3.7 + D2/D3 逐条核对）：**判 D 的书面判据** —— **死代码**：decomp 0 外部调用、il2csharp 0 引用、assets 0 挂接（原记「无判据的 D」）		R1	
+菜单/外壳	TMProFontSizeMatchLayout	OnValidate()	TMProFontSizeMatchLayout.cs:22	编辑器校验	D	—	（G2 未进账类普查 §3.3/§3.6/§3.7 + D2/D3 逐条核对）：**判 D 的书面判据** —— **死代码**：decomp 0 外部调用、il2csharp 0 引用、assets 0 挂接（原记「无判据的 D」）		R1	
 菜单/外壳	TMProWarpText	Awake()	TMProWarpText.cs:56	缓存 TMP 并首刷	B	—	已查：**34 个实例全在 `bundle_boosterpacks_assets_all` 的 `Army Text` / `Army Text 2`**（16+16+2）。原版 = TMP 每帧沿 `AnimationCurve`（0→0.25→0，端点切线 30 / -30，`postWrapMode=1`）做**逐字顶点偏移**，并订阅 `TMP_Text.OnPreRenderText`。**差**：TMP 顶点级 warp 通用件未做（我们的 `Label` 只到 TMP 文本层，没写 `textInfo.characterInfo` 顶点）；且 34 个宿主都在**卡包开启界面**、属装饰效果。		R3	判据 TMProWarpText.cs
 菜单/外壳	TMProWarpText	OnDisable()	TMProWarpText.cs:73	还原原网格	B	—	已查：**34 个实例全在 `bundle_boosterpacks_assets_all` 的 `Army Text` / `Army Text 2`**（16+16+2）。原版 = TMP 每帧沿 `AnimationCurve`（0→0.25→0，端点切线 30 / -30，`postWrapMode=1`）做**逐字顶点偏移**，并订阅 `TMP_Text.OnPreRenderText`。**差**：TMP 顶点级 warp 通用件未做（我们的 `Label` 只到 TMP 文本层，没写 `textInfo.characterInfo` 顶点）；且 34 个宿主都在**卡包开启界面**、属装饰效果。		R3	
 菜单/外壳	TMProWarpText	OnEnable()	TMProWarpText.cs:66	应用弯曲	B	—	已查：**34 个实例全在 `bundle_boosterpacks_assets_all` 的 `Army Text` / `Army Text 2`**（16+16+2）。原版 = TMP 每帧沿 `AnimationCurve`（0→0.25→0，端点切线 30 / -30，`postWrapMode=1`）做**逐字顶点偏移**，并订阅 `TMP_Text.OnPreRenderText`。**差**：TMP 顶点级 warp 通用件未做（我们的 `Label` 只到 TMP 文本层，没写 `textInfo.characterInfo` 顶点）；且 34 个宿主都在**卡包开启界面**、属装饰效果。		R3	
@@ -670,7 +670,7 @@
 菜单/外壳	TabButtons	Toggle(bool state, WindowTabBase tab)	TabButtons.cs:269	选中/取消某页签（切页中枢）	A	CardPresentation/Shell/TabButtons.cs:124（Toggle）	等价（**生产仍走 `Click(visualIndex)`**；`Toggle` 已建待下一轮接线）		R3	
 菜单/外壳	TabButtons	ToggleInteractable(WindowTabBase tab, bool state)	TabButtons.cs:468	页签可点性	B	Shell/TabButtons.cs:ToggleInteractable（`WindowButton.Interactable`）	已建；差：无生产调用点		R3	
 菜单/外壳	TabButtons	UpdateTab(WindowTabBase tab)	TabButtons.cs:284	刷新页签显隐/文案（活动页用）	A	CardPresentation/Shell/TabButtons.cs:147（UpdateTab）	等价（原版写 toggle.isOn；我们写两个读口，左栏高亮由 `RefreshHighlights` 画）		R3	
-菜单/外壳	TemporaryMenu	OpenCollection()	TemporaryMenu.cs:7	临时菜单：开收藏	D	—	不适用：临时/调试菜单		R1	
+菜单/外壳	TemporaryMenu	OpenCollection()	TemporaryMenu.cs:7	临时菜单：开收藏	D	—	（G2 未进账类普查 §3.3/§3.6/§3.7 + D2/D3 逐条核对）：**判 D 的书面判据** —— **死代码**：decomp 0 外部调用、il2csharp 0 引用、assets 0 挂接（原记「无判据的 D」）		R1	
 菜单/外壳	TestButtonConnectionChecker	Start()	TestButtonConnectionChecker.cs:11	调试：检查按钮连接	D	—	不适用：调试脚本		R1	
 菜单/外壳	TestButtonConnectionChecker	Update()	TestButtonConnectionChecker.cs:25	调试：每帧检查	D	—	不适用：调试脚本		R1	
 菜单/外壳	TestWindow	Close()	TestWindow.cs:8	测试窗关闭	D	—	不适用：调试窗		R1	
@@ -712,13 +712,13 @@
 菜单/外壳	ToggleShaderProperties	ToggleAlpha(bool option)	ToggleShaderProperties.cs:38	开关 alpha 混合	D	—	不适用：同上		R2	
 菜单/外壳	ToggleShaderProperties	ToggleShaderFeature(bool option)	ToggleShaderProperties.cs:10	开关着色器关键字	D	—	不适用：同上		R2	
 菜单/外壳	ToggleShaderProperties	ToggleShaderFeature(bool option, string shaderFeature)	ToggleShaderProperties.cs:24	开关指定关键字	D	—	不适用：同上		R2	
-菜单/外壳	TogglerByBuildType	OnEnable()	TogglerByBuildType.cs:13	按构建类型切对象	D	—	不适用：Demo/正式构建开关；离线全量版恒正式		R1	
+菜单/外壳	TogglerByBuildType	OnEnable()	TogglerByBuildType.cs:13	按构建类型切对象	D	—	（G2 未进账类普查 §3.3/§3.6/§3.7 + D2/D3 逐条核对）：**判 D 的书面判据** —— **死代码**：decomp 0 外部调用、il2csharp 0 引用、assets 0 挂接（原记「无判据的 D」）		R1	
 菜单/外壳	TransformScalerBySmallScreenUI	Initialize()	TransformScalerBySmallScreenUI.cs:53	按设置初始化缩放	A	CardPresentation/Shell/TransformScalerBySmallScreenUI.cs:130（Initialize）	一致		R3	
 菜单/外壳	TransformScalerBySmallScreenUI	LateUpdate()	TransformScalerBySmallScreenUI.cs:17	每帧按开关应用缩放	A	CardPresentation/Shell/TransformScalerBySmallScreenUI.cs:137（LateUpdate）	一致		R3	
 菜单/外壳	TransformScalerBySmallScreenUI	OnEnable()	TransformScalerBySmallScreenUI.cs:12	启用时应用	A	CardPresentation/Shell/TransformScalerBySmallScreenUI.cs:135（OnEnable）	一致		R3	
 菜单/外壳	TransformScalerBySmallScreenUI	SetScale(float scaleToUse)	TransformScalerBySmallScreenUI.cs:47	设缩放值	A	CardPresentation/Shell/TransformScalerBySmallScreenUI.cs:122（SetScale）	一致		R3	
-菜单/外壳	TransitionUIAnchor	DisableAnchor()	TransitionUIAnchor.cs:14	关转场锚点	D	—	不适用（例外①）：替代 = 我们的转场不换锚点（`Safe area` 两区常驻，`ShellRuntime` 建一次）		R2	
-菜单/外壳	TransitionUIAnchor	EnableAnchor()	TransitionUIAnchor.cs:8	开转场锚点	D	—	不适用：同上		R2	
+菜单/外壳	TransitionUIAnchor	DisableAnchor()	TransitionUIAnchor.cs:14	关转场锚点	C	无（活件（simpletransition 场景 1 处挂接），方法体改父节点/锚点/缩放；非服务器非空）	（G2 未进账类普查 §3.3/§3.6/§3.7 + D2/D3 逐条核对）：**判 C 的书面判据** —— 活件（simpletransition 场景 1 处挂接），方法体改父节点/锚点/缩放；非服务器非空（原记「无判据的 D」）		R2	
+菜单/外壳	TransitionUIAnchor	EnableAnchor()	TransitionUIAnchor.cs:8	开转场锚点	C	无（活件（simpletransition 场景 1 处挂接），方法体改父节点/锚点/缩放；非服务器非空）	（G2 未进账类普查 §3.3/§3.6/§3.7 + D2/D3 逐条核对）：**判 C 的书面判据** —— 活件（simpletransition 场景 1 处挂接），方法体改父节点/锚点/缩放；非服务器非空（原记「无判据的 D」）		R2	
 菜单/外壳	TwoSidesTeamDrawer	Initialize(TwoSidesEventData.TeamInfo teamInfo)	TwoSidesTeamDrawer.cs:16	两侧活动队伍展示	C	—	缺（活动线暂停，待用户恢复）	P2	R1	N5定级 P2·序19：活动线暂停（两侧活动队伍展示）。
 菜单/外壳	TwoSidesTeamDrawer	OnDisable()	TwoSidesTeamDrawer.cs:60	停用	D	—	不适用：该类未建（见 C）		R1	
 菜单/外壳	UIAnchorAvoidSafeArea	CheckAdaptToParent(float anchorMin, float anchorMax)	UIAnchorAvoidSafeArea.cs:214	判断是否贴边（需适配）	D	—	不适用：同上		R2	
@@ -760,15 +760,15 @@
 菜单/外壳	UIGradientUtils	Lerp(UIVertex a, UIVertex b, float t, ref UIVertex c)	UIGradientUtils.cs:149	顶点插值	D	—	不适用：uGUI `UIVertex` 类型；替代 = 我们直接写四角顶点色		R1	
 菜单/外壳	UIGradientUtils	LocalPositionMatrix(Rect rect, Vector2 dir)	UIGradientUtils.cs:45	渐变方向换算	B	Core/CardArt.cs:766 Gradient(angleDeg)	差：无矩阵形态（按角度直接算，等价）		R2	
 菜单/外壳	UIGradientUtils	RotationDir(float angle)	UIGradientUtils.cs:88	角度 → 方向（(sin,cos)）	A	CardPresentation/Core/CardArt.cs:776（`Gradient`）（等价实现 = Gradient：原版 RotationDir(θ) 返回 **(cosθ, sinθ)** —— CONCAT44 的低 dword = FUN_180488130、高 dword = FUN_1804886e0，而 FUN_1804886e0 在 `ParticleSystemVelocity__CalculateMaxHeight` 里以 v²·sin²θ/2g 的形态被平方 ⇒ 它是 sin；我们 Gradient:775-776 的 dx=cos(rad)/dy=sin(rad) 与它**同一约定** ⇒ 方向向量这一步没有差）（等价实现 = Gradient：`RotationDir` **两侧同为 (cos,sin)** —— 本仓在 `CardArt.cs:775-776`（dx=cos、dy=sin），原版由 `CONCAT44(FUN_180488130, FUN_1804886e0)` 给出（后者在 `ParticleSystemVelocity__CalculateMaxHeight` 里以 v²·sin²θ/2g 被平方 ⇒ 是 sin）；**有效轴变成 (sin,cos) 来自 `UIGradient.ModifyMesh.c:148-149` 的换位**（`pos.y·(dir.x/size.y) + pos.x·(dir.y/size.x)`），我们靠 188° = 90−82+180 的换算已补偿（8 个调用点全走这条，`调度台日志:367`、`资料/主菜单_原版规格.md:288`、`普查产出_1011/F1_W1修复.md:90-92` = A320 已裁「结论不变、只改解释」））	一致（RotationDir 同为 (cos,sin)；有效轴的 (sin,cos) 由 ModifyMesh 换位产生，已用 188° 换算补偿）		R3	2026-10-25 第3轮订正（铁律 5）：本行先被我写成「原版是 (sin,cos) ⇒ 差 90°」（错），又一度想改成「没有 90° 差」（也错）。正解：**函数返回值**两侧一致，**屏幕上的轴**因 `ModifyMesh` 换位而转置 —— 拿返回值当屏幕轴就是这次的坑。⛔ 别把这条读成「`未分类_其他.tsv:677`（`UIGradient.ModifyMesh`，现 B）没问题」。 ｜ 2026-10-25 N5：[非缺口] 备注那段是**纠正史**（先说差 90°、后来又想说不存在），结论是「两侧函数返回值一致、轴上差由 ModifyMesh 换位产生」⇒ 不是缺口。
-菜单/外壳	UIGroupTint	DoColorChange()	UIGroupTint.cs:84	把组色铺到子树图形	D	Shell/UIGroupTint.cs（实现保留；列表只在显式 Refresh 后才非空 ⇒ 生产空转）	原版 `Refresh()` 零调用点 + 306 实例 `m_PersistentCalls` 全空 ⇒ 该组件**空转**；我们同样空转 = 行为一致（铁律 11 例外①；⛔ 不自动 Refresh、不接实例）		R3	
-菜单/外壳	UIGroupTint	OnDestroy()	UIGroupTint.cs:37	退订	D	Shell/UIGroupTint.cs（未写 OnDestroy —— 原版也是空实现；且组件空转 ⇒ 无可解绑）	原版 `Refresh()` 零调用点 + 306 实例 `m_PersistentCalls` 全空 ⇒ 该组件**空转**；我们同样空转 = 行为一致（铁律 11 例外①；⛔ 不自动 Refresh、不接实例）		R3	
-菜单/外壳	UIGroupTint	OnEnable()	UIGroupTint.cs:32	订阅颜色变化	D	Shell/UIGroupTint.cs:OnEnable（只 `DoColorChange()`，列表空 ⇒ 空循环）	原版 `Refresh()` 零调用点 + 306 实例 `m_PersistentCalls` 全空 ⇒ 该组件**空转**；我们同样空转 = 行为一致（铁律 11 例外①；⛔ 不自动 Refresh、不接实例）		R3	
-菜单/外壳	UIGroupTint	Refresh()	UIGroupTint.cs:41	重刷整组色	D	Shell/UIGroupTint.cs:Refresh（保留；**任何生命周期都不调**，只有自检显式调）	原版 `Refresh()` 零调用点 + 306 实例 `m_PersistentCalls` 全空 ⇒ 该组件**空转**；我们同样空转 = 行为一致（铁律 11 例外①；⛔ 不自动 Refresh、不接实例）		R3	
-菜单/外壳	UIGroupTint	SetColor(Color color, float time)	UIGroupTint.cs:148	整组染色（带时长）	D	Shell/UIGroupTint.cs:SetColor（只改 tint/补间状态；列表空 ⇒ 不写任何件）	原版 `Refresh()` 零调用点 + 306 实例 `m_PersistentCalls` 全空 ⇒ 该组件**空转**；我们同样空转 = 行为一致（铁律 11 例外①；⛔ 不自动 Refresh、不接实例）		R3	
-菜单/外壳	UIGroupTint	Toggle(bool option)	UIGroupTint.cs:143	开关整组色	D	Shell/UIGroupTint.cs:Toggle（只改 enabled；不 Refresh）	原版 `Refresh()` 零调用点 + 306 实例 `m_PersistentCalls` 全空 ⇒ 该组件**空转**；我们同样空转 = 行为一致（铁律 11 例外①；⛔ 不自动 Refresh、不接实例）		R3	
-菜单/外壳	UIGroupTint	Update()	UIGroupTint.cs:116	补间推进	D	Shell/UIGroupTint.cs:Step（阈值/自停逐句同原版；列表空 ⇒ 空写）	原版 `Refresh()` 零调用点 + 306 实例 `m_PersistentCalls` 全空 ⇒ 该组件**空转**；我们同样空转 = 行为一致（铁律 11 例外①；⛔ 不自动 Refresh、不接实例）		R3	
-菜单/外壳	UIGroupTint	_003CSetColor_003Eb__12_0()	UIGroupTint.cs:191	闭包：取当前色	D	—	不适用：编译器生成（原版 DOTween getter）；组件空转 ⇒ 不实现闭包		R3	
-菜单/外壳	UIGroupTint	_003CSetColor_003Eb__12_1(Color x)	UIGroupTint.cs:200	闭包：写色	D	—	不适用：编译器生成（原版 DOTween setter）；组件空转 ⇒ 不实现闭包		R3	
+菜单/外壳	UIGroupTint	DoColorChange()	UIGroupTint.cs:84	把组色铺到子树图形	A	CardPresentation/Shell/UIGroupTint.cs:126（DoColorChange）（等价实现 = DoColorChange）	（G2 未进账类普查 §3.3/§3.6/§3.7 + D2/D3 逐条核对）：活的 `OnEnable`/`Update`/`DoColorChange`/`SetColor`/`OnDestroy`/两个闭包与原版等价（A）；`Refresh`/`Toggle` **原版 0 调用点**（死代码 ⇒ D）		R3	
+菜单/外壳	UIGroupTint	OnDestroy()	UIGroupTint.cs:37	退订	D	无（原版空体 / 我方无同名成员）	（G2 未进账类普查 §3.3/§3.6/§3.7 + D2/D3 逐条核对）：**原版空体 / 我方无同名成员** ⇒ 不声明即同一行为，按「原版没有行为」口径 D。		R3	
+菜单/外壳	UIGroupTint	OnEnable()	UIGroupTint.cs:32	订阅颜色变化	A	CardPresentation/Shell/UIGroupTint.cs:173（OnEnable）（等价实现 = OnEnable）	（G2 未进账类普查 §3.3/§3.6/§3.7 + D2/D3 逐条核对）：活的 `OnEnable`/`Update`/`DoColorChange`/`SetColor`/`OnDestroy`/两个闭包与原版等价（A）；`Refresh`/`Toggle` **原版 0 调用点**（死代码 ⇒ D）		R3	
+菜单/外壳	UIGroupTint	Refresh()	UIGroupTint.cs:41	重刷整组色	D	Shell/UIGroupTint.cs:Refresh（保留；**任何生命周期都不调**，只有自检显式调）	（G2 未进账类普查 §3.3/§3.6/§3.7 + D2/D3 逐条核对）：**同名但不等价（死代码）**：原版 0 调用点 ⇒ 客户端不执行。		R3	
+菜单/外壳	UIGroupTint	SetColor(Color color, float time)	UIGroupTint.cs:148	整组染色（带时长）	A	CardPresentation/Shell/UIGroupTint.cs:151（SetColor）（等价实现 = SetColor）	（G2 未进账类普查 §3.3/§3.6/§3.7 + D2/D3 逐条核对）：活的 `OnEnable`/`Update`/`DoColorChange`/`SetColor`/`OnDestroy`/两个闭包与原版等价（A）；`Refresh`/`Toggle` **原版 0 调用点**（死代码 ⇒ D）		R3	
+菜单/外壳	UIGroupTint	Toggle(bool option)	UIGroupTint.cs:143	开关整组色	D	Shell/UIGroupTint.cs:Toggle（只改 enabled；不 Refresh）	（G2 未进账类普查 §3.3/§3.6/§3.7 + D2/D3 逐条核对）：**同名但不等价（死代码）**：原版 0 调用点 ⇒ 客户端不执行。		R3	
+菜单/外壳	UIGroupTint	Update()	UIGroupTint.cs:116	补间推进	A	CardPresentation/Shell/UIGroupTint.cs:178（Update）（等价实现 = Update）	（G2 未进账类普查 §3.3/§3.6/§3.7 + D2/D3 逐条核对）：活的 `OnEnable`/`Update`/`DoColorChange`/`SetColor`/`OnDestroy`/两个闭包与原版等价（A）；`Refresh`/`Toggle` **原版 0 调用点**（死代码 ⇒ D）		R3	
+菜单/外壳	UIGroupTint	_003CSetColor_003Eb__12_0()	UIGroupTint.cs:191	闭包：取当前色	D	无（原版空体 / 我方无同名成员）	（G2 未进账类普查 §3.3/§3.6/§3.7 + D2/D3 逐条核对）：**原版空体 / 我方无同名成员** ⇒ 不声明即同一行为，按「原版没有行为」口径 D。		R3	
+菜单/外壳	UIGroupTint	_003CSetColor_003Eb__12_1(Color x)	UIGroupTint.cs:200	闭包：写色	D	无（原版空体 / 我方无同名成员）	（G2 未进账类普查 §3.3/§3.6/§3.7 + D2/D3 逐条核对）：**原版空体 / 我方无同名成员** ⇒ 不声明即同一行为，按「原版没有行为」口径 D。		R3	
 菜单/外壳	UIImageMaterialColorChanger	Awake()	UIImageMaterialColorChanger.cs:21	缓存材质实例	B	Shell/UIImageMaterialColorChanger.cs:Awake（enabled = false）	**通用件已建**；**本轮未接 666 处实例**（menus 83 + battleprefabs 583，用户要求分两轮）		R3	已查：全库 666 处（menus 83 + battleprefabs 583）
 菜单/外壳	UIImageMaterialColorChanger	DoColorChange(Color targetColor, int shaderPropertyId, float time, bool instant)	UIImageMaterialColorChanger.cs:53	按着色器属性补间改色	B	Shell/UIImageMaterialColorChanger.cs:DoColorChange（实例化材质 + instant 直写 / 补间）	已建；未接实例。原版挂 `Image.material`，我们挂 `Renderer.sharedMaterial`（无 uGUI 的结构性适配）；缺属性时出声一次		R3	
 菜单/外壳	UIImageMaterialColorChanger	Initialize()	UIImageMaterialColorChanger.cs:95	初始化目标材质	B	Shell/UIImageMaterialColorChanger.cs:EnsureMaterial（等价：`new Material(sharedMaterial)` 并换上去）	已建（合并进 EnsureMaterial）；未接实例		R3	

@@ -956,6 +956,23 @@ namespace CardPresentation
         //   `Shell/DailyData` = `persistentDataPath/WarpforgeDaily/daily.json`）：
         //   **`persistentDataPath/WarpforgeProfile/profile.json`**。
         // · 形状 = 一个 JSON（`JsonUtility`），字段见 <see cref="SaveDto"/>。
+        // · 🆕 **2026-10-25（执行代理 `R10` · 切换单 C8）：这份档已经进中央存档的双写期**。
+        //   中央 key = `SaveKeys.CosmeticData`（**整份** payload，7 个字段一个不少），旧档 = 本文件那份
+        //   `profile.json`（**同一份 payload、不带 `_v` 信封**，旧客户端照旧读得懂）。
+        //   写：`SaveCenter.SaveThroughLegacy` · 读：`SaveCenter.ReadThroughLegacy`（先中央后旧档）。
+        //   🔴 **6 个字段各归谁**（原版出处 → 我们的落点）：
+        //     ┌ `playerName`      → 原版在 **PlayFab 玩家档案**（`PlayerDataManager.SetPlayfabDisplayName`
+        //     │                     → `UpdateUserTitleDisplayName`），**不是** `PlayerDataKey` 里的任何一个
+        //     │                     ⇒ 我们放 `CosmeticData`（本地没有「玩家档案」这一层）。
+        //     │                     ⚠️ **不是 `NameChanges`** —— 那个 key 装的是改名历史
+        //     │                     （`NameChangeRecord { originalName, changes[] }`）。
+        //     ├ `avatarIndex` / `titleIndex` / `avatarBorderOn`
+        //     │                   → 原版 `CosmeticData`（key 13）✅ 同一个 key。
+        //     └ `achIds` / `achValues`
+        //                         → 原版 `AchievementsData`（key 10），形状 = `Dictionary<string, AchievementPersistence>`
+        //                           ⇒ `LegacySaveReader.BuildAchievementsPayload` 从同一份 `_achProgress` 投影。
+        //                           ⚠️ **读口仍走 `CosmeticData`/`profile.json`**（见 `SaveNow` 那段注释：
+        //                           旧客户端回滚时不至于读到过期的投影）。
         // · 🔴 **批处理（`-batchmode`）默认不读也不写真存档**：自检会把 `TitleIndex` 写成 7 / 9999、
         //   把 `AvatarIndex` 拨来拨去（`SetAvatarIndexForTest` 那一族）—— 若照写，测试状态会污染玩家存档、
         //   下次跑又读到脏值（自检不幂等）。自检验落盘走 `SaveNowForTest()` / `ReloadSaveForTest()`。
@@ -1030,8 +1047,25 @@ namespace CardPresentation
         {
             try
             {
-                if (!System.IO.File.Exists(SavePath)) return;
-                var d = JsonUtility.FromJson<SaveDto>(System.IO.File.ReadAllText(SavePath));
+                // 🆕 2026-10-25（执行代理 `R10` · 切换单 C8）：**先中央档、再旧档**（同 `DailyData` 那一族的双写期读法）。
+                //   · 落盘开着（真 Play）⇒ `CosmeticData` 在就用它，不在/读不出来才退回 `profile.json`；
+                //   · 落盘关着（批处理 / 自检）⇒ `ReadThroughLegacy` **根本不看中央档**，只读 `SavePath`
+                //     —— 与切换前逐字节同（自检注入的是 `SavePathOverrideForTest`，它算「旧档路径」这一侧）。
+                // ⚠️ 为什么不直接调 `ReadThroughLegacy`：两边都没有时它会走 `SafeRead` 打一条「读不到」的
+                //    warning，而「第一次跑、什么都还没有」是**正常状态** ⇒ 这里先探一下存在性，别刷假警告。
+                bool hasLegacy = System.IO.File.Exists(SavePath);
+                bool hasCentral = SaveCenter.StoreOn && SaveCenter.Exists(SaveKeys.CosmeticData);
+                if (!hasLegacy && !hasCentral) return;                 // 第一次跑
+
+                string text = SaveCenter.ReadThroughLegacy(SaveKeys.CosmeticData, SavePath);
+                if (text == null)
+                {
+                    // 两边都在、但都读不出来（坏档 / 未来版本）—— `SaveCenter` 已经逐条出过声了，这里再点一次名
+                    Debug.LogWarning("[Profile] 存档读不出来（中央档 `" + SaveKeys.CosmeticData + "` 与旧档 `"
+                                   + SavePath + "` 都不行）⇒ 用默认值。⛔ 别当成「没存过」：查上面 `[SaveCenter]` 的日志");
+                    return;
+                }
+                var d = JsonUtility.FromJson<SaveDto>(text);
                 if (d == null) return;
                 _save = d;
                 _nameOverride = string.IsNullOrEmpty(d.playerName) ? null : d.playerName;
@@ -1047,7 +1081,12 @@ namespace CardPresentation
             }
         }
 
-        /// <summary>写盘（正式入口；内部会先做「越界值不落盘」的净化）。批处理下由 <see cref="SaveIfAuto"/> 挡掉。</summary>
+        /// <summary>写盘（正式入口；内部会先做「越界值不落盘」的净化）。批处理下由 <see cref="SaveIfAuto"/> 挡掉。
+        /// <para>🆕 **2026-10-25（执行代理 `R10` · 切换单 C8）**：改走 `SaveCenter.SaveThroughLegacy` ——
+        /// 真 Play 里「中央档 `CosmeticData` + 旧档 `profile.json`」各写一份（两边是**同一份 payload**），
+        /// 批处理 / 自检（`SaveCenter.StoreOn == false`）只写旧档、**一个字节都不碰玩家中央档**。
+        /// 🔴 **payload 必须是 `SaveDto` 的整份**（7 个字段）：双写是「1 个 key ↔ 1 份旧档」，
+        /// 少写一个字段 = 用少字段覆盖多字段 = 抹掉玩家名/成就（E3/R4 点名的地雷）。</para></summary>
         public static void SaveNow()
         {
             EnsureSave();
@@ -1063,15 +1102,49 @@ namespace CardPresentation
             var ids = new List<string>(); var vals = new List<int>();
             foreach (var kv in _achProgress) { ids.Add(kv.Key); vals.Add(kv.Value); }
             _save.achIds = ids.ToArray(); _save.achValues = vals.ToArray();
-            try
-            {
-                System.IO.Directory.CreateDirectory(System.IO.Path.GetDirectoryName(SavePath));
-                System.IO.File.WriteAllText(SavePath, JsonUtility.ToJson(_save, true));
-            }
+
+            string json;
+            try { json = JsonUtility.ToJson(_save, true); }
             catch (Exception e)
             {
+                Debug.LogError("[Profile] 存档序列化失败：" + e.Message + " ⇒ **没写盘**（红线：不许静默失败）");
+                return;
+            }
+
+            // 🔴 **写盘前的最后一道闸**（2026-10-25 · `R10`）：payload 必须含 `profile.json` 该有的**每一个**顶层键。
+            //   为什么要它：双写是「同一份 payload 写两份」，**少一个字段 = 用少字段覆盖多字段** ——
+            //   就是 E3/R4 点名的那颗地雷（当年中央档只有 2 个字段、旧档有 6 个）。有了这道闸，
+            //   以后谁改 `SaveDto`（改名 / 删字段）会**当场拒绝写盘并出声**，而不是静默抹掉玩家数据。
+            string missing = LegacySaveReader.MissingProfileFields(json);
+            if (missing != null)
+            {
+                Debug.LogError("[Profile] 存档 payload **字段不全**（缺 " + missing + "）⇒ **不写盘**。"
+                             + "`Shell/ProfileData.cs` 的 `SaveDto` 与 `LegacySaveReader.ProfileFields` 必须一一对应；"
+                             + "这份档（含 `profile.json`）原地不动，玩家数据没被动过（红线：不许静默失败）");
+                return;
+            }
+
+            string werr;
+            if (!SaveCenter.SaveThroughLegacy(SaveKeys.CosmeticData, SavePath, json, out werr))
+            {
                 // 不许静默：写不进去要说出来（原版这一步是上传服务器）
-                Debug.LogWarning("[Profile] 存档写盘失败（" + SavePath + "）：" + e.Message);
+                Debug.LogError("[Profile] 存档写盘失败（" + SavePath + "）：" + werr
+                             + " ⇒ 这一份状态**只在内存里**，重启会丢（红线：不许静默失败）");
+                return;
+            }
+
+            // ---- 成就进度的中央投影（原版 `AchievementsData`，key 10）------------------------------
+            // 🔴 **只在落盘开着时写**：关着时 `SaveThroughLegacy` 那支只写旧档（自检常态），
+            //    再调 `SetRaw` 只会换来一条「落盘关着」的噪声（而且自检本来就不该有中央档）。
+            // ⚠️ 这份是**投影**（只写、暂时没人读）：读口仍然走 `CosmeticData`/`profile.json` 那份
+            //    —— 那样「用户回滚旧客户端玩过一轮」时读到的还是最新的（旧档里有 achIds/achValues）。
+            if (SaveCenter.StoreOn)
+            {
+                string ap = LegacySaveReader.BuildAchievementsPayload(ids.ToArray(), vals.ToArray());
+                if (!SaveCenter.SetRaw(SaveKeys.AchievementsData, ap))
+                    Debug.LogError("[Profile] 成就投影写盘失败（`" + SaveKeys.AchievementsData + "`）："
+                                 + SaveCenter.LastWriteError + " ⇒ 中央档里成就进度是旧的"
+                                 + "（`profile.json` 那一份仍是新的，玩家进度没丢）");
             }
         }
 

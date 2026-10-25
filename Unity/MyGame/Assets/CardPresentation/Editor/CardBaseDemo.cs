@@ -306,6 +306,14 @@ public static class CardBaseDemo
         // ---- 4b. 卡面第四件：兵种行中文化（D5，2026-10-17）----
         Debug.Log(P + "--- 卡面：兵种行（原版 `RaceText`）按语言取词 ---");
         AssertSubtypeLine();
+        // 🆕 2026-10-25（R16 · 原版 `CardTextsController.SetStartingState/SetCardTextLayout`）：
+        //   战术卡的**文字态 3/4** 与**兵种行印不印**是**同一件事**（都 = `spellType != 0`）——
+        //   本工程已把判据收口到 `CardData.spellType` + `spellTypeKnown`（未填 ⇒ 退回白名单兜底）。
+        Debug.Log(P + "--- 卡面：战术卡态 3/4 = `spellType != 0`（`spellTypeKnown` 两档 + 单位不受影响）---");
+        AssertSpellTypeDrivesTacticState();
+        // 🆕 2026-10-25（R16 · 原版 `CardCollider2D.colliderShowInBig`）：第二颗 collider 的几何/开关/并集命中
+        Debug.Log(P + "--- 卡面：第三档命中（原版 `colliderShowInBig` = 1.25×2.53 @ (0,−2.62)）---");
+        AssertShowInBigCollider();
         // 🆕 2026-10-25（`E`）：官方 `MenuDeck/Error/*` 里那**两条 `/Short`** 必须解析出**非键名**的字串
         //   —— `Loc.T` 缺词条时会**把键名原样返回**，遭遇窗那一行就会印键名（红线）。
         Debug.Log(P + "--- 词条：MenuDeck/Error 两条 /Short（遭遇窗「卡组不可用」那一行）---");
@@ -5962,5 +5970,180 @@ public static class CardBaseDemo
         File.WriteAllBytes($"{OutDir}/cardbase_{tag}.png", tex.EncodeToPNG());
         Object.DestroyImmediate(tex);
         RenderTexture.ReleaseTemporary(rt);
+    }
+
+    // ==================================================================
+    //  🆕 2026-10-25（R16）：战术卡的**态 3/4** = 原版 `spellType != 0`
+    //  —— 判据 = `CardTextsController__SetStartingState.c` / `__SetCardTextLayout.c`
+    //     （`cardType == 0x14 || 0x28 ⇒ state = 3 + (spellType != 0)`）＋
+    //     `GameStaticData__CardRaceToString.c`（`spellType == 0` ⇒ 兵种行返回空串 ⇒ 不印）。
+    //  ⇒ 两条（文字态 / 兵种行）是**同一件事**，本工程收口在 `CardView.TacticSubtypeLineShown`。
+    //
+    //  ⚠️ 期望值写 **`CardTextState` 枚举名**（原版判据的语义），⛔ 不拿 `ComputeTextState` 反推。
+    //  🧨 改坏法：把 `TacticSubtypeLineShown` 里的 `spellTypeKnown` 分支删掉 ⇒ ② 红（态变 4）；
+    //     把白名单兜底删掉 ⇒ ① 红（态变 3）。
+    // ==================================================================
+    static void AssertSpellTypeDrivesTacticState()
+    {
+        var root = new GameObject("spelltype_probe");
+        try
+        {
+            // ① 兜底档（今天全工程的真实状态：生产者还没填 `spellType`）⇒ 白名单说印，就印、态 4
+            {
+                var d = CardData.Placeholder(0);
+                d.isUnit = false; d.type = "tactic"; d.subtype = "Psychic Power"; d.keywords = "";
+                var v = CardView.Create(root.transform, d, "spelltype_blank");
+                Check(v.TextState == CardTextState.TacticWithRace,
+                      $"① `spellType` 未填 ⇒ 退回白名单（`Psychic Power` 在白名单里）⇒ 兵种行**印**、态 4"
+                    + $"（实得 {v.TextState}）｜🧨 删掉白名单兜底 ⇒ 本档变 3");
+            }
+            // ② 原版真判据：`spellType == 0`（`Normal` 是**合法值**，所以必须有 `spellTypeKnown`）⇒ **不印**、态 3
+            //    ← 这一档就是 `Spear of Macragge`（`d94f91051ecfe014f97577ff573571aa`，`spellType=0` 而 subtype 写 Psychic Power）
+            {
+                var d = CardData.Placeholder(0);
+                d.isUnit = false; d.type = "tactic"; d.subtype = "Psychic Power"; d.keywords = "";
+                d.spellTypeKnown = true; d.spellType = 0;
+                var v = CardView.Create(root.transform, d, "spelltype_zero");
+                Check(v.RaceDisplayName(d) == null && v.TextState == CardTextState.Tactic,
+                      $"② `spellType == 0` ⇒ 兵种行**不印**、态 **3**（实得 {v.TextState}，"
+                    + $"行=\"{v.RaceDisplayName(d) ?? "null"}\"）｜🧨 删掉 `spellTypeKnown` 分支 ⇒ 本档变 4");
+            }
+            // ③ `spellType != 0` ⇒ 印、态 4
+            {
+                var d = CardData.Placeholder(0);
+                d.isUnit = false; d.type = "tactic"; d.subtype = "Psychic Power"; d.keywords = "";
+                d.spellTypeKnown = true; d.spellType = 90;      // `SpellType.PsychicPower`
+                var v = CardView.Create(root.transform, d, "spelltype_90");
+                Check(v.RaceDisplayName(d) != null && v.TextState == CardTextState.TacticWithRace,
+                      $"③ `spellType == 90`（`PsychicPower`）⇒ 印、态 4（实得 {v.TextState}）"
+                    + $"｜🧨 把判据写成 `spellType == 90 才印` / 写成「恒不印」⇒ ②③ 至少红一条");
+            }
+            // ④ ★ 判别式（灭自证）：② 与 ③ 只有 `spellType` 不同 ⇒ 两档**必须不同**
+            {
+                var a = CardData.Placeholder(0); a.isUnit = false; a.type = "tactic"; a.subtype = "Psychic Power"; a.keywords = "";
+                a.spellTypeKnown = true; a.spellType = 0;
+                var b = CardData.Placeholder(0); b.isUnit = false; b.type = "tactic"; b.subtype = "Psychic Power"; b.keywords = "";
+                b.spellTypeKnown = true; b.spellType = 90;
+                var va = CardView.Create(root.transform, a, "spelltype_diff_a");
+                var vb = CardView.Create(root.transform, b, "spelltype_diff_b");
+                Check(va.TextState != vb.TextState,
+                      $"④ ★ 判别式：同一张战术卡、只改 `spellType` 0→90 ⇒ 文字态必须变"
+                    + $"（{va.TextState} vs {vb.TextState}）｜🧨 把两边一起写死成同一档 ⇒ 本条红");
+            }
+            // ⑤ 单位卡**不受** `spellType` 影响（原版 `SetStartingState` 的 `race` 形参在单位那一支完全没读）
+            {
+                var d0 = CardData.Placeholder(0);
+                d0.isUnit = true; d0.type = "unit"; d0.keywords = "Deal 2 damage.";
+                d0.spellTypeKnown = true; d0.spellType = 0;
+                var v0 = CardView.Create(root.transform, d0, "spelltype_unit_0");
+                var d1 = d0; d1.spellType = 90;
+                var v1 = CardView.Create(root.transform, d1, "spelltype_unit_90");
+                Check(v0.TextState == CardTextState.MinionWithDescription
+                   && v1.TextState == CardTextState.MinionWithDescription,
+                      $"⑤ 单位卡两档都 = **1**（有 desc ⇒ `MinionWithDescription`），`spellType` 不参与"
+                    + $"（实得 {v0.TextState} / {v1.TextState}）"
+                    + $"｜🧨 把 `spellType` 判据写到单位那一支 ⇒ 本条红（态会掉成 3/4）");
+            }
+        }
+        finally { Object.DestroyImmediate(root); }
+    }
+
+    // ==================================================================
+    //  🆕 2026-10-25（R16）：第三档命中 —— 原版 `CardCollider2D.colliderShowInBig`
+    //  判据（一手）= 解包预制体那两颗 `BoxCollider2D`（`bundle_battleprefabs_vfxandmisc_assets_all/`）：
+    //    · 主面 `BoxCollider2D_7520353667969031104.json` → `m_Size 1.97 × 3.02` · `m_Offset (0,0)`
+    //    · 第二面 `BoxCollider2D_2582590304383179712.json` → **`m_Size 1.25 × 2.53` · `m_Offset (0,−2.62)`**
+    //    · **两颗 `m_GameObject` 相同**（同一个 `2DCard`）、都 `m_IsTrigger: false`
+    //  行为判据 = `CardCollider2D__{Initialize,SetCollidersShowBig,Toggle,ToggleShowInBigCollider}.c`：
+    //    出厂 `enabled=false`；`SetCollidersShowBig(true)` ⇒ 第二面开 + 主面回**常态**矩形；
+    //    `Toggle(false)` ⇒ 第二面**一起关**；`ToggleShowInBigCollider(on)` ⇒ **只**动第二面。
+    //
+    //  🧨 改坏法：把 `BigRectContains` 的并集删掉 ⇒ ③ 红；把 `SetHitEnabled` 里那句「关第二面」删掉 ⇒ ④ 红；
+    //     让 `ToggleShowInBigCollider` 顺手改主面几何 ⇒ ⑤ 红；把第二面尺寸抄成 `hoverScale 1.3` 推出来的值 ⇒ ① 红。
+    // ==================================================================
+    static void AssertShowInBigCollider()
+    {
+        var root = new GameObject("showinbig_probe");
+        try
+        {
+            var d = CardData.Placeholder(0);
+            d.isUnit = true; d.type = "unit"; d.subtype = "Infantry";
+            var v = CardView.Create(root.transform, d, "showinbig_card", CardFace.Hand);
+            var main = v.ColliderForTest;
+            var big = v.BigColliderForTest;
+            if (main == null || big == null)
+            {
+                Check(false, "① 两颗 collider 都建出来了（主面 / 第二面）—— 实得 "
+                           + $"main={(main == null ? "null" : "ok")} big={(big == null ? "null" : "ok")}"
+                           + "｜🧨 删掉 `EnsureBigHitCollider` 的建立 ⇒ 红");
+                return;
+            }
+
+            // ① 几何 = 原版字面量（⛔ 不从卡面尺寸反推）
+            bool geom = Mathf.Abs(big.size.x - 1.25f) < 1e-3f
+                     && Mathf.Abs(big.size.y - 2.53f) < 1e-3f
+                     && Mathf.Abs(big.offset.x) < 1e-3f
+                     && Mathf.Abs(big.offset.y + 2.62f) < 1e-3f;
+            Check(geom, $"① 第二面几何 = 原版 `1.25 × 2.53 @ (0, −2.62)`"
+                      + $"（实得 {big.size.x} × {big.size.y} @ ({big.offset.x}, {big.offset.y})）"
+                      + "｜🧨 拿 `hoverScale 1.3` 或卡面尺寸去推这块 ⇒ 红");
+            Check(big.gameObject == main.gameObject && !big.isTrigger,
+                  "①b 两颗 collider **同一个 GameObject** 且都不是触发器（原版 `2DCard` 上并排两颗）"
+                + $"｜🧨 `AddComponent` 到别的节点 / 把 `isTrigger` 设 true ⇒ 红");
+            Check(!big.enabled,
+                  "①c 出厂 **关**（= 原版 `Initialize()` 末尾那句 `SetCollidersShowBig(false)`）"
+                + "｜🧨 建完就 `enabled = true` ⇒ 红");
+
+            // ② 手牌档主面 = in-hand 矩形（第二面还没开时的基线；与 ③ 的常态矩形**必须不同** ⇒ 灭自证）
+            Vector2 mainInHand = main.size, offInHand = main.offset;
+            bool inHandOk = Mathf.Abs(mainInHand.y - 3.0502f) < 1e-3f && Mathf.Abs(offInHand.y + 0.0151f) < 1e-3f;
+            Check(inHandOk, $"② `CardFace.Hand` 主面 = in-hand 档 `1.97 × 3.0502 @ y −0.0151`"
+                          + $"（实得 {mainInHand.x} × {mainInHand.y} @ y {offInHand.y}）");
+
+            // ③ 「showing in hand」档：第二面开 + 主面回常态 + 命中并集（手算 vs 物理两条路必须一致）
+            float dy = -2.0f;      // 局部点：主面常态档**够不到**（|y|≤1.51），第二面档**够得到**（y ∈ [−3.885,−1.355]）
+            Vector3 world = main.transform.TransformPoint(new Vector3(0f, dy, 0f));
+            v.SetCollidersShowBig(true);
+            Physics2D.SyncTransforms();
+            bool mainReset = Mathf.Abs(main.size.y - 3.02f) < 1e-3f && Mathf.Abs(main.offset.y) < 1e-3f;
+            Check(big.enabled && mainReset,
+                  $"③ `SetCollidersShowBig(true)` ⇒ 第二面**开** + 主面回**常态** `1.97 × 3.02 @ (0,0)`"
+                + $"（实得 big.enabled={big.enabled}、主面 {main.size.x} × {main.size.y} @ y {main.offset.y}）"
+                + "｜🧨 只写 `big.enabled` 而漏 `ResetCollider` ⇒ 红");
+            bool c1 = v.Contains(world), h1 = v.HitByCollider(world);
+            Check(c1 && h1 && c1 == h1,
+                  $"③b 卡心**下方**那个点（局部 y={dy}）⇒ 两条命中判据**都**为真，且**逐点一致**"
+                + $"（`Contains`={c1} / `HitByCollider`={h1}）"
+                + "｜🧨 把 `BigRectContains` 的并集删掉 / 让 `HitByCollider` 只比主面 ⇒ 红");
+
+            // ④ 关 ⇒ 两条判据都回到 false（第二面真的退出物理世界）
+            v.SetCollidersShowBig(false);
+            Physics2D.SyncTransforms();
+            bool c0 = v.Contains(world), h0 = v.HitByCollider(world);
+            Check(!big.enabled && !c0 && !h0 && c0 == h0,
+                  $"④ `SetCollidersShowBig(false)` ⇒ 第二面**关**，同一那个点两条判据**都**为假"
+                + $"（big.enabled={big.enabled} / `Contains`={c0} / `HitByCollider`={h0}）");
+
+            // ⑤ `Toggle(false)` 语义：主面关 ⇒ **第二面也一起关**（`CardCollider2D__Toggle.c:6-9`）
+            v.SetCollidersShowBig(true);
+            v.SetHitEnabled(false);
+            Check(!big.enabled,
+                  "⑤ `SetHitEnabled(false)`（= 原版 `Toggle(false)`）⇒ **第二面也一起关**"
+                + $"（实得 big.enabled={big.enabled}）｜🧨 删掉那一句 ⇒ 红");
+            v.SetHitEnabled(true);
+
+            // ⑥ `ToggleShowInBigCollider` **只**动第二面（⛔ 不碰主面几何 —— 那是 `SetCollidersShowBig` 的事）
+            v.SetCollidersShowBig(false);
+            Vector2 sizeBefore = main.size, offBefore = main.offset;
+            bool bigBefore = big.enabled;
+            v.ToggleShowInBigCollider(!bigBefore);
+            Check(big.enabled == !bigBefore
+               && main.size == sizeBefore && main.offset == offBefore,
+                  "⑥ `ToggleShowInBigCollider(on)` **只**写第二面，主面 `size/offset` **一个字节都不动**"
+                + $"（big {bigBefore}→{big.enabled}；主面 {sizeBefore}@{offBefore} → {main.size}@{main.offset}）"
+                + "｜🧨 让它顺手 `SyncHitCollider` ⇒ 红");
+            v.ToggleShowInBigCollider(false);
+        }
+        finally { Object.DestroyImmediate(root); }
     }
 }

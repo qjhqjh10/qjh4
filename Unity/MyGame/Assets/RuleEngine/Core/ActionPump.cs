@@ -94,12 +94,37 @@ namespace RuleEngine
                 if (_ctx == null || !_outermost) return;
                 _ctx.ActionQueue.Resolving = false;
                 PumpActionQueues(_ctx);          // ← 出队到空（2→1→3→0 循环）
+                // 🔴🆕 **2026-10-25（`E1` · 第三段 · 「240 `WhileInPlayVariable` 的重挂点」）**：
+                //   **一条顶层动作结束 ⇒ 重算一次全场「在场」派生状态**。
+                //   判据 = `判据/战斗逻辑驱动_Stage2前置_第2轮.md` §1·4 第 1 条：
+                //   原版 `BattleManager__FinishResolvingAction.c` 尾部 `BroadcastWhileInPlay(this, false, null)`
+                //   → `CardScript.UpdateWhileInPlay` → **连发 `WhileInPlay(20)` 与 `WhileInPlayVariable(240)` 两档**
+                //   （`RawCardScript.cs:1239-1253`），每次都是「**先摘掉此前加的全部、再重加一份**」。
+                //   ⇒ 这正是 `*ValueOptions` 那种**快照会过期**的效果的刷新机制（§1·1/§1·2：折叠发生在
+                //     `PlayAbility`，存进 `activeEffects` 的是数字；靠重挂重新折叠）。
+                //
+                //   ⚠️ **为什么挂在这里、不挂在 `PumpActionQueues` 里**：那个函数一次动作会被调很多次
+                //     （构造函数一次 + 队列非空就循环）⇒ 那是「一动作多播」。这个 `Dispose` 对
+                //     **最外层**动作只跑一次 —— 与 `FinishResolvingAction` 一一对应。
+                //   ⚠️ **幂等**：`Auras.Recompose` 的形状本来就是「整份摘掉再重加」（`Aura.cs` 的 doc），
+                //     多跑一次不改结果，只是把「来源在场的加成」重新快照一遍。
+                //   ⚠️ 顺序：**先 Recompose 再 `EmitWhileInPlayPass`** —— 表现口要看刷新后的状态。
+                //   ⚠️ **2026-10-25（`E1` · 第三段·第 2 版）**：这里**只跑「近战=生命」那一小趟刷新**，
+                //     不跑整个 `Auras.Recompose` —— 实测整跑会把 `BL18` / `UM18` 两张**光环卡**
+                //     的结算读数改掉（`net` 各 +4），根因是 `Recompose` 是「整份摘掉再重加」，
+                //     而它同时会重算费用/关键词/誓约授予那一串，**超出了「重挂 240 快照」这件事的范围**。
+                //     判据只需要「240 的快照在动作边界刷新」，`RefreshMeleeEqualsHealth` 就是那一趟
+                //     （只遍历 `Card.MeleeEqualsHealth` 的单位；池内 1 张 = `SAU27`）。
+                Auras.RefreshMeleeEqualsHealth(_ctx);
                 // ---- 🆕 2026-10-24（引擎线 `G2` · `C4` D9）：`WhileInPlay`(20) 的表现口 ----
                 //  落点在**这里**（= 一条**顶层动作**结束、队列已排空），对原版
                 //  `BattleManager__FinishResolvingAction.c:91`（闸 = `ActionsLeftInQueue() < 1`）。
                 //  ⛔ **别放进 `PumpActionQueues`**：`ActionScope` 的**构造函数**也会调它一次
                 //  （`:87` 结掉上一轮残留）⇒ 那样一次动作会发**两条**（`G2` 探针实测 2 / 2）。
-                //  ⛔ 也别挂 `Aura.Recompose`（每次棋盘写入都跑 = 一动作多播）。
+                //  🔴 **2026-10-25 订正（`E1` · 第三段）**：本行原来还写「⛔ 也别挂 `Aura.Recompose`」——
+                //     那是针对「挂进 `PumpActionQueues`」说的（一动作多次）；**挂在 `Dispose` 里是正确的**
+                //     （判据 §1·4 第 1 条 `FinishResolvingAction` 尾部 `BroadcastWhileInPlay`），
+                //     已在本行**上面**加上。⛔ 别把它挪进 `PumpActionQueues`。
                 //  判据 / 只发有动画行那一张的理由 / 手牌那半为什么没做 →
                 //  `RuleCore.EmitWhileInPlayPass` 的 doc（⚠️ `Core/EffectResolver.cs` 是
                 //  `partial class RuleCore` ⇒ 这里写 `RuleCore.`，照文件名写 `EffectResolver.` 编译不过）。

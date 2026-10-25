@@ -1886,14 +1886,18 @@ namespace CardPresentation
                 return;
             }
             var path = StorePath;
-            if (!System.IO.File.Exists(path))
+            // 🆕 2026-10-25（执行代理 R4 · 存档 Step 4「双写期」过渡读法）：**先中央档、再旧档**。
+            // `ReadThroughLegacy` 内部判 `SaveCenter.StoreOn` ⇒ 本进程落盘关着时它只读旧档那一份，
+            // 不会读到玩家真中央档（上面的 `if (!StoreOn)` 也已经先返回了）。⛔ 别删旧读。
+            string text = SaveCenter.ReadThroughLegacy(SaveKeys.DailyCounters, path);
+            if (text == null)
             {
                 Debug.Log("[Daily] 还没有存档（`" + path + "`）⇒ 按出厂值走");   // 第一次跑
                 return;
             }
             try
             {
-                var dto = JsonUtility.FromJson<StoreDto>(System.IO.File.ReadAllText(path));
+                var dto = JsonUtility.FromJson<StoreDto>(text);
                 if (dto == null)
                 {
                     Debug.LogWarning("[Daily] 存档解不出内容（`" + path + "`）⇒ 按出厂值走，"
@@ -2014,12 +2018,20 @@ namespace CardPresentation
             var path = StorePath;
             try
             {
-                System.IO.Directory.CreateDirectory(StoreDir);
                 string json = JsonUtility.ToJson(MakeDto());       // 紧凑（这一份很小）
-                string tmp = path + ".tmp";                        // 先写临时文件再换名（照 `DeckStore.SaveAll`）
-                System.IO.File.WriteAllText(tmp, json);
-                if (System.IO.File.Exists(path)) System.IO.File.Delete(path);
-                System.IO.File.Move(tmp, path);
+                // 🆕 2026-10-25（执行代理 R4 · 存档 Step 4「双写期」）：原来的「先写 `.tmp` → 删旧 → 换名」
+                // 由 `SaveCenter.SaveThroughLegacy` 取代 —— 它内部是 `tmp → File.Replace`（NTFS 上原子），
+                // 失败才退回两步法**并出声**（`SaveCenter.AtomicWrite` 的注释里写了）。
+                // 🔴 **「原子写」这条性质必须保住**（切换单 C4 的硬要求）：
+                //   · 落盘开着 ⇒ 中央档 `DailyCounters` + 旧档 `WarpforgeDaily/daily.json` 各一份；
+                //   · 只注入了 `OverrideDir`（自检常态）⇒ 只写旧档，**内容与切换前逐字节同**，换名照样走原子路。
+                string werr;
+                if (!SaveCenter.SaveThroughLegacy(SaveKeys.DailyCounters, path, json, out werr))
+                {
+                    Debug.LogError("[Daily] 落盘失败（" + why + "）：" + werr + "（目录 " + StoreDir + "）⇒ "
+                                 + "这一份状态**只在内存里**，重启会丢（红线：不许静默失败）");
+                    return;
+                }
                 LastStorePath = path;
                 LastStoreBytes = new System.Text.UTF8Encoding(false).GetByteCount(json);
                 Debug.Log("[Daily] 落盘（" + why + "）：`" + path + "`（" + LastStoreBytes + " B）—— " + BriefState()
@@ -2106,6 +2118,9 @@ namespace CardPresentation
                 var p = StorePath;
                 if (System.IO.File.Exists(p)) { System.IO.File.Delete(p); Debug.Log("[Daily] 自检：已删掉存档 `" + p + "`"); }
                 if (System.IO.File.Exists(p + ".tmp")) System.IO.File.Delete(p + ".tmp");
+                // 🆕 Step 4 双写期：中央档那一份也一起清 —— 否则「删了旧档再 `ReloadForTest`」会从中央档
+                // 把上一趟的状态读回来（读口是先中央后旧档）。走 `SaveCenter.Delete`（**不真删**：改名到 `.del-*`）。
+                if (SaveCenter.StoreOn && SaveCenter.Exists(SaveKeys.DailyCounters)) SaveCenter.Delete(SaveKeys.DailyCounters);
             }
             catch (System.Exception e) { Debug.LogError("[Daily] 自检：删存档失败：" + e.Message); }
         }

@@ -1,0 +1,725 @@
+类	方法	档位	证据(文件:行号 或 判据)	备注
+<>f__AnonymousType100<<CardID>j__TPar>	public override bool Equals(object value) { }	A	cpp2il --f__AnonymousType100.cs:19；RVA 0xEBF2C0 处是真实机器码（首字节 48 89 5c 24 …）	
+<>f__AnonymousType100<<CardID>j__TPar>	public override int GetHashCode() { }	A	cpp2il --f__AnonymousType100.cs:62；RVA 0xEC09C0 处是真实机器码（首字节 40 53 48 83 …）	
+<>f__AnonymousType100<<CardID>j__TPar>	public override string ToString() { }	A	cpp2il --f__AnonymousType100.cs:71；RVA 0xEC0A10 处是真实机器码（首字节 48 89 5c 24 …）	cpp2il 体内有 "Method not found" 空洞，需 VA 补
+<>f__AnonymousType101<<CardID>j__TPar,	public override bool Equals(object value) { }	A	cpp2il --f__AnonymousType101.cs:28；RVA 0xEBF9D0 处是真实机器码（首字节 48 89 5c 24 …）	
+<>f__AnonymousType101<<CardID>j__TPar,	public override int GetHashCode() { }	A	cpp2il --f__AnonymousType101.cs:71；RVA 0xEC0F90 处是真实机器码（首字节 48 89 5c 24 …）	
+<>f__AnonymousType101<<CardID>j__TPar,	public override string ToString() { }	A	cpp2il --f__AnonymousType101.cs:80；RVA 0xEC1580 处是真实机器码（首字节 48 89 5c 24 …）	cpp2il 体内有 "Method not found" 空洞，需 VA 补
+<>f__AnonymousType102<<ItemId>j__TPar,	public override bool Equals(object value) { }	A	cpp2il --f__AnonymousType102.cs:28；RVA 0xEBF9D0 处是真实机器码（首字节 48 89 5c 24 …）	
+<>f__AnonymousType102<<ItemId>j__TPar,	public override int GetHashCode() { }	A	cpp2il --f__AnonymousType102.cs:71；RVA 0xEC16F0 处是真实机器码（首字节 48 89 5c 24 …）	
+<>f__AnonymousType102<<ItemId>j__TPar,	public override string ToString() { }	A	cpp2il --f__AnonymousType102.cs:80；RVA 0xEC1970 处是真实机器码（首字节 48 89 5c 24 …）	cpp2il 体内有 "Method not found" 空洞，需 VA 补
+<>f__AnonymousType103<<ids>j__TPar,	public override bool Equals(object value) { }	A	cpp2il --f__AnonymousType103.cs:36；RVA 0xEC2020 处是真实机器码（首字节 48 89 5c 24 …）	
+<>f__AnonymousType103<<ids>j__TPar,	public override int GetHashCode() { }	A	cpp2il --f__AnonymousType103.cs:79；RVA 0xEC27F0 处是真实机器码（首字节 48 89 5c 24 …）	
+<>f__AnonymousType103<<ids>j__TPar,	public override string ToString() { }	A	cpp2il --f__AnonymousType103.cs:88；RVA 0xEC28E0 处是真实机器码（首字节 40 53 55 56 …）	cpp2il 体内有 "Method not found" 空洞，需 VA 补
+<>f__AnonymousType104<<eventID>j__TPar,	public override bool Equals(object value) { }	A	cpp2il --f__AnonymousType104.cs:33；RVA 0xEC3560 处是真实机器码（首字节 48 89 5c 24 …）	
+<>f__AnonymousType104<<eventID>j__TPar,	public override int GetHashCode() { }	A	cpp2il --f__AnonymousType104.cs:76；RVA 0xEC36A0 处是真实机器码（首字节 48 89 5c 24 …）	
+<>f__AnonymousType104<<eventID>j__TPar,	public override string ToString() { }	A	cpp2il --f__AnonymousType104.cs:85；RVA 0xEC41D0 处是真实机器码（首字节 48 89 5c 24 …）	cpp2il 体内有 "Method not found" 空洞，需 VA 补
+<>f__AnonymousType105<<extraArgs>j__TPar>	public override bool Equals(object value) { }	A	cpp2il --f__AnonymousType105.cs:19；RVA 0xEBF2C0 处是真实机器码（首字节 48 89 5c 24 …）	
+<>f__AnonymousType105<<extraArgs>j__TPar>	public override int GetHashCode() { }	A	cpp2il --f__AnonymousType105.cs:62；RVA 0xEC4510 处是真实机器码（首字节 40 53 48 83 …）	
+<>f__AnonymousType105<<extraArgs>j__TPar>	public override string ToString() { }	A	cpp2il --f__AnonymousType105.cs:71；RVA 0xEC4560 处是真实机器码（首字节 48 89 5c 24 …）	cpp2il 体内有 "Method not found" 空洞，需 VA 补
+<>f__AnonymousType106<<army>j__TPar>	public override bool Equals(object value) { }	A	cpp2il --f__AnonymousType106.cs:19；RVA 0xEBF2C0 处是真实机器码（首字节 48 89 5c 24 …）	
+<>f__AnonymousType106<<army>j__TPar>	public override int GetHashCode() { }	A	cpp2il --f__AnonymousType106.cs:62；RVA 0xEC4910 处是真实机器码（首字节 40 53 48 83 …）	
+<>f__AnonymousType106<<army>j__TPar>	public override string ToString() { }	A	cpp2il --f__AnonymousType106.cs:71；RVA 0xEC4D20 处是真实机器码（首字节 48 89 5c 24 …）	cpp2il 体内有 "Method not found" 空洞，需 VA 补
+<>f__AnonymousType107<<extraArgs>j__TPar,	public override bool Equals(object value) { }	A	cpp2il --f__AnonymousType107.cs:24；RVA 0xEC4E10 处是真实机器码（首字节 48 89 5c 24 …）	
+<>f__AnonymousType107<<extraArgs>j__TPar,	public override int GetHashCode() { }	A	cpp2il --f__AnonymousType107.cs:67；RVA 0xEC50D0 处是真实机器码（首字节 48 89 5c 24 …）	
+<>f__AnonymousType107<<extraArgs>j__TPar,	public override string ToString() { }	A	cpp2il --f__AnonymousType107.cs:76；RVA 0xEC5180 处是真实机器码（首字节 40 53 56 41 …）	cpp2il 体内有 "Method not found" 空洞，需 VA 补
+<>f__AnonymousType108<<Index>j__TPar,	public override bool Equals(object value) { }	A	cpp2il --f__AnonymousType108.cs:154；RVA 0xEBFAC0 处是真实机器码（首字节 48 89 54 24 …）	cpp2il 体内有 "Method not found" 空洞，需 VA 补
+<>f__AnonymousType108<<Index>j__TPar,	public override int GetHashCode() { }	A	cpp2il --f__AnonymousType108.cs:345；RVA 0xEC5820 处是真实机器码（首字节 40 55 56 57 …）	cpp2il 体内有 "Method not found" 空洞，需 VA 补
+<>f__AnonymousType108<<Index>j__TPar,	public override string ToString() { }	A	cpp2il --f__AnonymousType108.cs:464；RVA 0xEC59F0 处是真实机器码（首字节 48 89 4c 24 …）	cpp2il 体内有 "Method not found" 空洞，需 VA 补
+<>f__AnonymousType10<<eventId>j__TPar,	public override bool Equals(object value) { }	A	cpp2il --f__AnonymousType10.cs:28；RVA 0xEBF9D0 处是真实机器码（首字节 48 89 5c 24 …）	
+<>f__AnonymousType10<<eventId>j__TPar,	public override int GetHashCode() { }	A	cpp2il --f__AnonymousType10.cs:71；RVA 0xEC6100 处是真实机器码（首字节 48 89 5c 24 …）	
+<>f__AnonymousType10<<eventId>j__TPar,	public override string ToString() { }	A	cpp2il --f__AnonymousType10.cs:80；RVA 0xEC66F0 处是真实机器码（首字节 48 89 5c 24 …）	cpp2il 体内有 "Method not found" 空洞，需 VA 补
+<>f__AnonymousType11<<Handler>j__TPar>	public override bool Equals(object value) { }	A	cpp2il --f__AnonymousType11.cs:19；RVA 0xEBF2C0 处是真实机器码（首字节 48 89 5c 24 …）	
+<>f__AnonymousType11<<Handler>j__TPar>	public override int GetHashCode() { }	A	cpp2il --f__AnonymousType11.cs:62；RVA 0xEC6960 处是真实机器码（首字节 40 53 48 83 …）	
+<>f__AnonymousType11<<Handler>j__TPar>	public override string ToString() { }	A	cpp2il --f__AnonymousType11.cs:71；RVA 0xEC6C70 处是真实机器码（首字节 48 89 5c 24 …）	cpp2il 体内有 "Method not found" 空洞，需 VA 补
+<>f__AnonymousType12<<instanceId>j__TPar>	public override bool Equals(object value) { }	A	cpp2il --f__AnonymousType12.cs:19；RVA 0xEBF2C0 处是真实机器码（首字节 48 89 5c 24 …）	
+<>f__AnonymousType12<<instanceId>j__TPar>	public override int GetHashCode() { }	A	cpp2il --f__AnonymousType12.cs:62；RVA 0xEC6E60 处是真实机器码（首字节 40 53 48 83 …）	
+<>f__AnonymousType12<<instanceId>j__TPar>	public override string ToString() { }	A	cpp2il --f__AnonymousType12.cs:71；RVA 0xEC7170 处是真实机器码（首字节 48 89 5c 24 …）	cpp2il 体内有 "Method not found" 空洞，需 VA 补
+<>f__AnonymousType13<<coupon>j__TPar>	public override bool Equals(object value) { }	A	cpp2il --f__AnonymousType13.cs:19；RVA 0xEBF2C0 处是真实机器码（首字节 48 89 5c 24 …）	
+<>f__AnonymousType13<<coupon>j__TPar>	public override int GetHashCode() { }	A	cpp2il --f__AnonymousType13.cs:62；RVA 0xEC7260 处是真实机器码（首字节 40 53 48 83 …）	
+<>f__AnonymousType13<<coupon>j__TPar>	public override string ToString() { }	A	cpp2il --f__AnonymousType13.cs:71；RVA 0xEC73B0 处是真实机器码（首字节 48 89 5c 24 …）	cpp2il 体内有 "Method not found" 空洞，需 VA 补
+<>f__AnonymousType14<<dlcId>j__TPar,	public override bool Equals(object value) { }	A	cpp2il --f__AnonymousType14.cs:28；RVA 0xEBF9D0 处是真实机器码（首字节 48 89 5c 24 …）	
+<>f__AnonymousType14<<dlcId>j__TPar,	public override int GetHashCode() { }	A	cpp2il --f__AnonymousType14.cs:71；RVA 0xEC7930 处是真实机器码（首字节 48 89 5c 24 …）	
+<>f__AnonymousType14<<dlcId>j__TPar,	public override string ToString() { }	A	cpp2il --f__AnonymousType14.cs:80；RVA 0xEC79E0 处是真实机器码（首字节 48 89 5c 24 …）	cpp2il 体内有 "Method not found" 空洞，需 VA 补
+<>f__AnonymousType15<<ItemId>j__TPar,	public override bool Equals(object value) { }	A	cpp2il --f__AnonymousType15.cs:33；RVA 0xEC8090 处是真实机器码（首字节 48 89 5c 24 …）	
+<>f__AnonymousType15<<ItemId>j__TPar,	public override int GetHashCode() { }	A	cpp2il --f__AnonymousType15.cs:76；RVA 0xEC81D0 处是真实机器码（首字节 48 89 5c 24 …）	
+<>f__AnonymousType15<<ItemId>j__TPar,	public override string ToString() { }	A	cpp2il --f__AnonymousType15.cs:85；RVA 0xEC8560 处是真实机器码（首字节 48 89 5c 24 …）	cpp2il 体内有 "Method not found" 空洞，需 VA 补
+<>f__AnonymousType16<<eventID>j__TPar,	public override bool Equals(object value) { }	A	cpp2il --f__AnonymousType16.cs:37；RVA 0xEC8EF0 处是真实机器码（首字节 48 89 5c 24 …）	
+<>f__AnonymousType16<<eventID>j__TPar,	public override int GetHashCode() { }	A	cpp2il --f__AnonymousType16.cs:80；RVA 0xEC92D0 处是真实机器码（首字节 48 89 5c 24 …）	
+<>f__AnonymousType16<<eventID>j__TPar,	public override string ToString() { }	A	cpp2il --f__AnonymousType16.cs:89；RVA 0xEC9B60 处是真实机器码（首字节 48 89 5c 24 …）	cpp2il 体内有 "Method not found" 空洞，需 VA 补
+<>f__AnonymousType17<<eventID>j__TPar,	public override bool Equals(object value) { }	A	cpp2il --f__AnonymousType17.cs:28；RVA 0xEBF9D0 处是真实机器码（首字节 48 89 5c 24 …）	
+<>f__AnonymousType17<<eventID>j__TPar,	public override int GetHashCode() { }	A	cpp2il --f__AnonymousType17.cs:71；RVA 0xEC9D30 处是真实机器码（首字节 48 89 5c 24 …）	
+<>f__AnonymousType17<<eventID>j__TPar,	public override string ToString() { }	A	cpp2il --f__AnonymousType17.cs:80；RVA 0xEC9FB0 处是真实机器码（首字节 48 89 5c 24 …）	cpp2il 体内有 "Method not found" 空洞，需 VA 补
+<>f__AnonymousType18<<eventId>j__TPar>	public override bool Equals(object value) { }	A	cpp2il --f__AnonymousType18.cs:19；RVA 0xEBF2C0 处是真实机器码（首字节 48 89 5c 24 …）	
+<>f__AnonymousType18<<eventId>j__TPar>	public override int GetHashCode() { }	A	cpp2il --f__AnonymousType18.cs:62；RVA 0xECA760 处是真实机器码（首字节 40 53 48 83 …）	
+<>f__AnonymousType18<<eventId>j__TPar>	public override string ToString() { }	A	cpp2il --f__AnonymousType18.cs:71；RVA 0xECA7B0 处是真实机器码（首字节 48 89 5c 24 …）	cpp2il 体内有 "Method not found" 空洞，需 VA 补
+<>f__AnonymousType19<<eventID>j__TPar,	public override bool Equals(object value) { }	A	cpp2il --f__AnonymousType19.cs:28；RVA 0xEBF9D0 处是真实机器码（首字节 48 89 5c 24 …）	
+<>f__AnonymousType19<<eventID>j__TPar,	public override int GetHashCode() { }	A	cpp2il --f__AnonymousType19.cs:71；RVA 0xECAD30 处是真实机器码（首字节 48 89 5c 24 …）	
+<>f__AnonymousType19<<eventID>j__TPar,	public override string ToString() { }	A	cpp2il --f__AnonymousType19.cs:80；RVA 0xECB320 处是真实机器码（首字节 48 89 5c 24 …）	cpp2il 体内有 "Method not found" 空洞，需 VA 补
+<>f__AnonymousType1<<Id>j__TPar,	public override bool Equals(object value) { }	A	cpp2il --f__AnonymousType1.cs:24；RVA 0xEC4E10 处是真实机器码（首字节 48 89 5c 24 …）	
+<>f__AnonymousType1<<Id>j__TPar,	public override int GetHashCode() { }	A	cpp2il --f__AnonymousType1.cs:67；RVA 0xECB990 处是真实机器码（首字节 48 89 5c 24 …）	
+<>f__AnonymousType1<<Id>j__TPar,	public override string ToString() { }	A	cpp2il --f__AnonymousType1.cs:76；RVA 0xECC150 处是真实机器码（首字节 40 53 56 41 …）	cpp2il 体内有 "Method not found" 空洞，需 VA 补
+<>f__AnonymousType20<<eventID>j__TPar,	public override bool Equals(object value) { }	A	cpp2il --f__AnonymousType20.cs:28；RVA 0xEBF9D0 处是真实机器码（首字节 48 89 5c 24 …）	
+<>f__AnonymousType20<<eventID>j__TPar,	public override int GetHashCode() { }	A	cpp2il --f__AnonymousType20.cs:71；RVA 0xECC480 处是真实机器码（首字节 48 89 5c 24 …）	
+<>f__AnonymousType20<<eventID>j__TPar,	public override string ToString() { }	A	cpp2il --f__AnonymousType20.cs:80；RVA 0xECCA70 处是真实机器码（首字节 48 89 5c 24 …）	cpp2il 体内有 "Method not found" 空洞，需 VA 补
+<>f__AnonymousType21<<eventID>j__TPar,	public override bool Equals(object value) { }	A	cpp2il --f__AnonymousType21.cs:32；RVA 0xECCBE0 处是真实机器码（首字节 48 89 5c 24 …）	
+<>f__AnonymousType21<<eventID>j__TPar,	public override int GetHashCode() { }	A	cpp2il --f__AnonymousType21.cs:75；RVA 0xECCCD0 处是真实机器码（首字节 48 89 5c 24 …）	
+<>f__AnonymousType21<<eventID>j__TPar,	public override string ToString() { }	A	cpp2il --f__AnonymousType21.cs:84；RVA 0xECD490 处是真实机器码（首字节 40 53 56 41 …）	cpp2il 体内有 "Method not found" 空洞，需 VA 补
+<>f__AnonymousType22<<eventID>j__TPar,	public override bool Equals(object value) { }	A	cpp2il --f__AnonymousType22.cs:37；RVA 0xEC8EF0 处是真实机器码（首字节 48 89 5c 24 …）	
+<>f__AnonymousType22<<eventID>j__TPar,	public override int GetHashCode() { }	A	cpp2il --f__AnonymousType22.cs:80；RVA 0xECD650 处是真实机器码（首字节 48 89 5c 24 …）	
+<>f__AnonymousType22<<eventID>j__TPar,	public override string ToString() { }	A	cpp2il --f__AnonymousType22.cs:89；RVA 0xECE180 处是真实机器码（首字节 48 89 5c 24 …）	cpp2il 体内有 "Method not found" 空洞，需 VA 补
+<>f__AnonymousType23<<eventID>j__TPar>	public override bool Equals(object value) { }	A	cpp2il --f__AnonymousType23.cs:19；RVA 0xEBF2C0 处是真实机器码（首字节 48 89 5c 24 …）	
+<>f__AnonymousType23<<eventID>j__TPar>	public override int GetHashCode() { }	A	cpp2il --f__AnonymousType23.cs:62；RVA 0xECE350 处是真实机器码（首字节 40 53 48 83 …）	
+<>f__AnonymousType23<<eventID>j__TPar>	public override string ToString() { }	A	cpp2il --f__AnonymousType23.cs:71；RVA 0xECE760 处是真实机器码（首字节 48 89 5c 24 …）	cpp2il 体内有 "Method not found" 空洞，需 VA 补
+<>f__AnonymousType24<<eventID>j__TPar,	public override bool Equals(object value) { }	A	cpp2il --f__AnonymousType24.cs:28；RVA 0xEBF9D0 处是真实机器码（首字节 48 89 5c 24 …）	
+<>f__AnonymousType24<<eventID>j__TPar,	public override int GetHashCode() { }	A	cpp2il --f__AnonymousType24.cs:71；RVA 0xECEA20 处是真实机器码（首字节 48 89 5c 24 …）	
+<>f__AnonymousType24<<eventID>j__TPar,	public override string ToString() { }	A	cpp2il --f__AnonymousType24.cs:80；RVA 0xECF010 处是真实机器码（首字节 48 89 5c 24 …）	cpp2il 体内有 "Method not found" 空洞，需 VA 补
+<>f__AnonymousType25<<eventID>j__TPar,	public override bool Equals(object value) { }	A	cpp2il --f__AnonymousType25.cs:33；RVA 0xECF180 处是真实机器码（首字节 48 89 5c 24 …）	
+<>f__AnonymousType25<<eventID>j__TPar,	public override int GetHashCode() { }	A	cpp2il --f__AnonymousType25.cs:76；RVA 0xECF560 处是真实机器码（首字节 48 89 5c 24 …）	
+<>f__AnonymousType25<<eventID>j__TPar,	public override string ToString() { }	A	cpp2il --f__AnonymousType25.cs:85；RVA 0xECFDF0 处是真实机器码（首字节 48 89 5c 24 …）	cpp2il 体内有 "Method not found" 空洞，需 VA 补
+<>f__AnonymousType26<<eventID>j__TPar,	public override bool Equals(object value) { }	A	cpp2il --f__AnonymousType26.cs:28；RVA 0xEBF9D0 处是真实机器码（首字节 48 89 5c 24 …）	
+<>f__AnonymousType26<<eventID>j__TPar,	public override int GetHashCode() { }	A	cpp2il --f__AnonymousType26.cs:71；RVA 0xED0210 处是真实机器码（首字节 48 89 5c 24 …）	
+<>f__AnonymousType26<<eventID>j__TPar,	public override string ToString() { }	A	cpp2il --f__AnonymousType26.cs:80；RVA 0xED0800 处是真实机器码（首字节 48 89 5c 24 …）	cpp2il 体内有 "Method not found" 空洞，需 VA 补
+<>f__AnonymousType27<<eventID>j__TPar,	public override bool Equals(object value) { }	A	cpp2il --f__AnonymousType27.cs:37；RVA 0xEC8EF0 处是真实机器码（首字节 48 89 5c 24 …）	
+<>f__AnonymousType27<<eventID>j__TPar,	public override int GetHashCode() { }	A	cpp2il --f__AnonymousType27.cs:80；RVA 0xED0970 处是真实机器码（首字节 48 89 5c 24 …）	
+<>f__AnonymousType27<<eventID>j__TPar,	public override string ToString() { }	A	cpp2il --f__AnonymousType27.cs:89；RVA 0xED0D00 处是真实机器码（首字节 48 89 5c 24 …）	cpp2il 体内有 "Method not found" 空洞，需 VA 补
+<>f__AnonymousType28<<eventID>j__TPar,	public override bool Equals(object value) { }	A	cpp2il --f__AnonymousType28.cs:33；RVA 0xEC3560 处是真实机器码（首字节 48 89 5c 24 …）	
+<>f__AnonymousType28<<eventID>j__TPar,	public override int GetHashCode() { }	A	cpp2il --f__AnonymousType28.cs:76；RVA 0xED1910 处是真实机器码（首字节 48 89 5c 24 …）	
+<>f__AnonymousType28<<eventID>j__TPar,	public override string ToString() { }	A	cpp2il --f__AnonymousType28.cs:85；RVA 0xED21A0 处是真实机器码（首字节 48 89 5c 24 …）	cpp2il 体内有 "Method not found" 空洞，需 VA 补
+<>f__AnonymousType29<<eventId>j__TPar,	public override bool Equals(object value) { }	A	cpp2il --f__AnonymousType29.cs:110；RVA 0xED2380 处是真实机器码（首字节 48 89 5c 24 …）	
+<>f__AnonymousType29<<eventId>j__TPar,	public override int GetHashCode() { }	A	cpp2il --f__AnonymousType29.cs:153；RVA 0xED35C0 处是真实机器码（首字节 40 53 55 56 …）	
+<>f__AnonymousType29<<eventId>j__TPar,	public override string ToString() { }	A	cpp2il --f__AnonymousType29.cs:162；RVA 0xED6300 处是真实机器码（首字节 40 53 56 57 …）	cpp2il 体内有 "Method not found" 空洞，需 VA 补
+<>f__AnonymousType2<<id>j__TPar,	public override bool Equals(object value) { }	A	cpp2il --f__AnonymousType2.cs:24；RVA 0xEC4E10 处是真实机器码（首字节 48 89 5c 24 …）	
+<>f__AnonymousType2<<id>j__TPar,	public override int GetHashCode() { }	A	cpp2il --f__AnonymousType2.cs:67；RVA 0xED76C0 处是真实机器码（首字节 48 89 5c 24 …）	
+<>f__AnonymousType2<<id>j__TPar,	public override string ToString() { }	A	cpp2il --f__AnonymousType2.cs:76；RVA 0xED7940 处是真实机器码（首字节 40 53 56 41 …）	cpp2il 体内有 "Method not found" 空洞，需 VA 补
+<>f__AnonymousType30<<eventID>j__TPar,	public override bool Equals(object value) { }	A	cpp2il --f__AnonymousType30.cs:24；RVA 0xEC4E10 处是真实机器码（首字节 48 89 5c 24 …）	
+<>f__AnonymousType30<<eventID>j__TPar,	public override int GetHashCode() { }	A	cpp2il --f__AnonymousType30.cs:67；RVA 0xED7FE0 处是真实机器码（首字节 48 89 5c 24 …）	
+<>f__AnonymousType30<<eventID>j__TPar,	public override string ToString() { }	A	cpp2il --f__AnonymousType30.cs:76；RVA 0xED8260 处是真实机器码（首字节 40 53 56 41 …）	cpp2il 体内有 "Method not found" 空洞，需 VA 补
+<>f__AnonymousType31	public override bool Equals(object value) { }	A	cpp2il --f__AnonymousType31.cs:5；RVA 0x5C59B0 处是真实机器码（首字节 48 89 5c 24 …）	
+<>f__AnonymousType31	public override int GetHashCode() { }	A	cpp2il --f__AnonymousType31.cs:26；RVA 0x4BD440 处是真实机器码（首字节 33 c0 c3 cc …）	
+<>f__AnonymousType31	public override string ToString() { }	A	cpp2il --f__AnonymousType31.cs:31；RVA 0x5C5A20 处是真实机器码（首字节 48 83 ec 28 …）	
+<>f__AnonymousType32<<leaderboardKey>j__TPar,	public override bool Equals(object value) { }	A	cpp2il --f__AnonymousType32.cs:28；RVA 0xEBF9D0 处是真实机器码（首字节 48 89 5c 24 …）	
+<>f__AnonymousType32<<leaderboardKey>j__TPar,	public override int GetHashCode() { }	A	cpp2il --f__AnonymousType32.cs:71；RVA 0xED8AD0 处是真实机器码（首字节 48 89 5c 24 …）	
+<>f__AnonymousType32<<leaderboardKey>j__TPar,	public override string ToString() { }	A	cpp2il --f__AnonymousType32.cs:80；RVA 0xED90C0 处是真实机器码（首字节 48 89 5c 24 …）	cpp2il 体内有 "Method not found" 空洞，需 VA 补
+<>f__AnonymousType33<<EventId>j__TPar,	public override bool Equals(object value) { }	A	cpp2il --f__AnonymousType33.cs:28；RVA 0xEBF9D0 处是真实机器码（首字节 48 89 5c 24 …）	
+<>f__AnonymousType33<<EventId>j__TPar,	public override int GetHashCode() { }	A	cpp2il --f__AnonymousType33.cs:71；RVA 0xED9230 处是真实机器码（首字节 48 89 5c 24 …）	
+<>f__AnonymousType33<<EventId>j__TPar,	public override string ToString() { }	A	cpp2il --f__AnonymousType33.cs:80；RVA 0xED99F0 处是真实机器码（首字节 48 89 5c 24 …）	cpp2il 体内有 "Method not found" 空洞，需 VA 补
+<>f__AnonymousType34<<EventId>j__TPar,	public override bool Equals(object value) { }	A	cpp2il --f__AnonymousType34.cs:37；RVA 0xEC8EF0 处是真实机器码（首字节 48 89 5c 24 …）	
+<>f__AnonymousType34<<EventId>j__TPar,	public override int GetHashCode() { }	A	cpp2il --f__AnonymousType34.cs:80；RVA 0xED9E00 处是真实机器码（首字节 48 89 5c 24 …）	
+<>f__AnonymousType34<<EventId>j__TPar,	public override string ToString() { }	A	cpp2il --f__AnonymousType34.cs:89；RVA 0xEDA690 处是真实机器码（首字节 48 89 5c 24 …）	cpp2il 体内有 "Method not found" 空洞，需 VA 补
+<>f__AnonymousType35<<EventId>j__TPar,	public override bool Equals(object value) { }	A	cpp2il --f__AnonymousType35.cs:33；RVA 0xEDA860 处是真实机器码（首字节 48 89 5c 24 …）	
+<>f__AnonymousType35<<EventId>j__TPar,	public override int GetHashCode() { }	A	cpp2il --f__AnonymousType35.cs:76；RVA 0xEDAC40 处是真实机器码（首字节 48 89 5c 24 …）	
+<>f__AnonymousType35<<EventId>j__TPar,	public override string ToString() { }	A	cpp2il --f__AnonymousType35.cs:85；RVA 0xEDB4D0 处是真实机器码（首字节 48 89 5c 24 …）	cpp2il 体内有 "Method not found" 空洞，需 VA 补
+<>f__AnonymousType36<<Missions>j__TPar>	public override bool Equals(object value) { }	A	cpp2il --f__AnonymousType36.cs:19；RVA 0xEBF2C0 处是真实机器码（首字节 48 89 5c 24 …）	
+<>f__AnonymousType36<<Missions>j__TPar>	public override int GetHashCode() { }	A	cpp2il --f__AnonymousType36.cs:62；RVA 0xEDB720 处是真实机器码（首字节 40 53 48 83 …）	
+<>f__AnonymousType36<<Missions>j__TPar>	public override string ToString() { }	A	cpp2il --f__AnonymousType36.cs:71；RVA 0xEDB870 处是真实机器码（首字节 48 89 5c 24 …）	cpp2il 体内有 "Method not found" 空洞，需 VA 补
+<>f__AnonymousType37<<Action>j__TPar,	public override bool Equals(object value) { }	A	cpp2il --f__AnonymousType37.cs:37；RVA 0xEC8EF0 处是真实机器码（首字节 48 89 5c 24 …）	
+<>f__AnonymousType37<<Action>j__TPar,	public override int GetHashCode() { }	A	cpp2il --f__AnonymousType37.cs:80；RVA 0xEDBEC0 处是真实机器码（首字节 48 89 5c 24 …）	
+<>f__AnonymousType37<<Action>j__TPar,	public override string ToString() { }	A	cpp2il --f__AnonymousType37.cs:89；RVA 0xEDC750 处是真实机器码（首字节 48 89 5c 24 …）	cpp2il 体内有 "Method not found" 空洞，需 VA 补
+<>f__AnonymousType38<<eventId>j__TPar,	public override bool Equals(object value) { }	A	cpp2il --f__AnonymousType38.cs:28；RVA 0xEBF9D0 处是真实机器码（首字节 48 89 5c 24 …）	
+<>f__AnonymousType38<<eventId>j__TPar,	public override int GetHashCode() { }	A	cpp2il --f__AnonymousType38.cs:71；RVA 0xEDCAF0 处是真实机器码（首字节 48 89 5c 24 …）	
+<>f__AnonymousType38<<eventId>j__TPar,	public override string ToString() { }	A	cpp2il --f__AnonymousType38.cs:80；RVA 0xEDD0E0 处是真实机器码（首字节 48 89 5c 24 …）	cpp2il 体内有 "Method not found" 空洞，需 VA 补
+<>f__AnonymousType39<<EntryCountToFetch>j__TPar>	public override bool Equals(object value) { }	A	cpp2il --f__AnonymousType39.cs:15；RVA 0xEDD250 处是真实机器码（首字节 48 89 5c 24 …）	
+<>f__AnonymousType39<<EntryCountToFetch>j__TPar>	public override int GetHashCode() { }	A	cpp2il --f__AnonymousType39.cs:58；RVA 0xEDD400 处是真实机器码（首字节 40 53 48 83 …）	
+<>f__AnonymousType39<<EntryCountToFetch>j__TPar>	public override string ToString() { }	A	cpp2il --f__AnonymousType39.cs:67；RVA 0xEDD710 处是真实机器码（首字节 48 89 5c 24 …）	cpp2il 体内有 "Method not found" 空洞，需 VA 补
+<>f__AnonymousType3<<Values>j__TPar>	public override bool Equals(object value) { }	A	cpp2il --f__AnonymousType3.cs:19；RVA 0xEBF2C0 处是真实机器码（首字节 48 89 5c 24 …）	
+<>f__AnonymousType3<<Values>j__TPar>	public override int GetHashCode() { }	A	cpp2il --f__AnonymousType3.cs:62；RVA 0xEDD900 处是真实机器码（首字节 40 53 48 83 …）	
+<>f__AnonymousType3<<Values>j__TPar>	public override string ToString() { }	A	cpp2il --f__AnonymousType3.cs:71；RVA 0xEDDC10 处是真实机器码（首字节 48 89 5c 24 …）	cpp2il 体内有 "Method not found" 空洞，需 VA 补
+<>f__AnonymousType40<<eventID>j__TPar,	public override bool Equals(object value) { }	A	cpp2il --f__AnonymousType40.cs:45；RVA 0xEDDD00 处是真实机器码（首字节 48 89 5c 24 …）	
+<>f__AnonymousType40<<eventID>j__TPar,	public override int GetHashCode() { }	A	cpp2il --f__AnonymousType40.cs:88；RVA 0xEDE3C0 处是真实机器码（首字节 48 89 5c 24 …）	
+<>f__AnonymousType40<<eventID>j__TPar,	public override string ToString() { }	A	cpp2il --f__AnonymousType40.cs:97；RVA 0xEDE880 处是真实机器码（首字节 40 53 55 57 …）	cpp2il 体内有 "Method not found" 空洞，需 VA 补
+<>f__AnonymousType41<<eventID>j__TPar,	public override bool Equals(object value) { }	A	cpp2il --f__AnonymousType41.cs:45；RVA 0x1599240 处是真实机器码（首字节 48 89 5c 24 …）	
+<>f__AnonymousType41<<eventID>j__TPar,	public override int GetHashCode() { }	A	cpp2il --f__AnonymousType41.cs:88；RVA 0x15993C0 处是真实机器码（首字节 48 89 5c 24 …）	
+<>f__AnonymousType41<<eventID>j__TPar,	public override string ToString() { }	A	cpp2il --f__AnonymousType41.cs:97；RVA 0x159A2A0 处是真实机器码（首字节 40 53 55 57 …）	cpp2il 体内有 "Method not found" 空洞，需 VA 补
+<>f__AnonymousType42<<eventId>j__TPar,	public override bool Equals(object value) { }	A	cpp2il --f__AnonymousType42.cs:134；RVA 0x159B6A0 处是真实机器码（首字节 48 89 5c 24 …）	
+<>f__AnonymousType42<<eventId>j__TPar,	public override int GetHashCode() { }	A	cpp2il --f__AnonymousType42.cs:177；RVA 0x159C750 处是真实机器码（首字节 40 53 55 56 …）	
+<>f__AnonymousType42<<eventId>j__TPar,	public override string ToString() { }	A	cpp2il --f__AnonymousType42.cs:186；RVA 0x159CB80 处是真实机器码（首字节 40 53 56 57 …）	cpp2il 体内有 "Method not found" 空洞，需 VA 补
+<>f__AnonymousType43<<eventId>j__TPar,	public override bool Equals(object value) { }	A	cpp2il --f__AnonymousType43.cs:36；RVA 0x15A0130 处是真实机器码（首字节 48 89 5c 24 …）	
+<>f__AnonymousType43<<eventId>j__TPar,	public override int GetHashCode() { }	A	cpp2il --f__AnonymousType43.cs:79；RVA 0x15A0510 处是真实机器码（首字节 48 89 5c 24 …）	
+<>f__AnonymousType43<<eventId>j__TPar,	public override string ToString() { }	A	cpp2il --f__AnonymousType43.cs:88；RVA 0x15A0DA0 处是真实机器码（首字节 40 53 56 41 …）	cpp2il 体内有 "Method not found" 空洞，需 VA 补
+<>f__AnonymousType44<<eventId>j__TPar,	public override bool Equals(object value) { }	A	cpp2il --f__AnonymousType44.cs:24；RVA 0xEC4E10 处是真实机器码（首字节 48 89 5c 24 …）	
+<>f__AnonymousType44<<eventId>j__TPar,	public override int GetHashCode() { }	A	cpp2il --f__AnonymousType44.cs:67；RVA 0x15A0FF0 处是真实机器码（首字节 48 89 5c 24 …）	
+<>f__AnonymousType44<<eventId>j__TPar,	public override string ToString() { }	A	cpp2il --f__AnonymousType44.cs:76；RVA 0x15A17B0 处是真实机器码（首字节 40 53 56 41 …）	cpp2il 体内有 "Method not found" 空洞，需 VA 补
+<>f__AnonymousType45<<EventId>j__TPar,	public override bool Equals(object value) { }	A	cpp2il --f__AnonymousType45.cs:36；RVA 0x15A0130 处是真实机器码（首字节 48 89 5c 24 …）	
+<>f__AnonymousType45<<EventId>j__TPar,	public override int GetHashCode() { }	A	cpp2il --f__AnonymousType45.cs:79；RVA 0x15A1910 处是真实机器码（首字节 48 89 5c 24 …）	
+<>f__AnonymousType45<<EventId>j__TPar,	public override string ToString() { }	A	cpp2il --f__AnonymousType45.cs:88；RVA 0x15A1CA0 处是真实机器码（首字节 40 53 56 41 …）	cpp2il 体内有 "Method not found" 空洞，需 VA 补
+<>f__AnonymousType46<<Id>j__TPar>	public override bool Equals(object value) { }	A	cpp2il --f__AnonymousType46.cs:19；RVA 0xEBF2C0 处是真实机器码（首字节 48 89 5c 24 …）	
+<>f__AnonymousType46<<Id>j__TPar>	public override int GetHashCode() { }	A	cpp2il --f__AnonymousType46.cs:62；RVA 0x15A2730 处是真实机器码（首字节 40 53 48 83 …）	
+<>f__AnonymousType46<<Id>j__TPar>	public override string ToString() { }	A	cpp2il --f__AnonymousType46.cs:71；RVA 0x15A2A40 处是真实机器码（首字节 48 89 5c 24 …）	cpp2il 体内有 "Method not found" 空洞，需 VA 补
+<>f__AnonymousType47<<Referral>j__TPar>	public override bool Equals(object value) { }	A	cpp2il --f__AnonymousType47.cs:19；RVA 0xEBF2C0 处是真实机器码（首字节 48 89 5c 24 …）	
+<>f__AnonymousType47<<Referral>j__TPar>	public override int GetHashCode() { }	A	cpp2il --f__AnonymousType47.cs:62；RVA 0x15A2B30 处是真实机器码（首字节 40 53 48 83 …）	
+<>f__AnonymousType47<<Referral>j__TPar>	public override string ToString() { }	A	cpp2il --f__AnonymousType47.cs:71；RVA 0x15A2C80 处是真实机器码（首字节 48 89 5c 24 …）	cpp2il 体内有 "Method not found" 空洞，需 VA 补
+<>f__AnonymousType48<<eventID>j__TPar,	public override bool Equals(object value) { }	A	cpp2il --f__AnonymousType48.cs:24；RVA 0xEC4E10 处是真实机器码（首字节 48 89 5c 24 …）	
+<>f__AnonymousType48<<eventID>j__TPar,	public override int GetHashCode() { }	A	cpp2il --f__AnonymousType48.cs:67；RVA 0x15A3200 处是真实机器码（首字节 48 89 5c 24 …）	
+<>f__AnonymousType48<<eventID>j__TPar,	public override string ToString() { }	A	cpp2il --f__AnonymousType48.cs:76；RVA 0x15A32B0 处是真实机器码（首字节 40 53 56 41 …）	cpp2il 体内有 "Method not found" 空洞，需 VA 补
+<>f__AnonymousType49<<ItemId>j__TPar,	public override bool Equals(object value) { }	A	cpp2il --f__AnonymousType49.cs:28；RVA 0xEBF9D0 处是真实机器码（首字节 48 89 5c 24 …）	
+<>f__AnonymousType49<<ItemId>j__TPar,	public override int GetHashCode() { }	A	cpp2il --f__AnonymousType49.cs:71；RVA 0x15A3B20 处是真实机器码（首字节 48 89 5c 24 …）	
+<>f__AnonymousType49<<ItemId>j__TPar,	public override string ToString() { }	A	cpp2il --f__AnonymousType49.cs:80；RVA 0x15A3BD0 处是真实机器码（首字节 48 89 5c 24 …）	cpp2il 体内有 "Method not found" 空洞，需 VA 补
+<>f__AnonymousType4<<EventId>j__TPar>	public override bool Equals(object value) { }	A	cpp2il --f__AnonymousType4.cs:19；RVA 0xEBF2C0 处是真实机器码（首字节 48 89 5c 24 …）	
+<>f__AnonymousType4<<EventId>j__TPar>	public override int GetHashCode() { }	A	cpp2il --f__AnonymousType4.cs:62；RVA 0x15A4280 处是真实机器码（首字节 40 53 48 83 …）	
+<>f__AnonymousType4<<EventId>j__TPar>	public override string ToString() { }	A	cpp2il --f__AnonymousType4.cs:71；RVA 0x15A4690 处是真实机器码（首字节 48 89 5c 24 …）	cpp2il 体内有 "Method not found" 空洞，需 VA 补
+<>f__AnonymousType50<<Action>j__TPar,	public override bool Equals(object value) { }	A	cpp2il --f__AnonymousType50.cs:78；RVA 0x15A5150 处是真实机器码（首字节 48 89 5c 24 …）	
+<>f__AnonymousType50<<Action>j__TPar,	public override int GetHashCode() { }	A	cpp2il --f__AnonymousType50.cs:121；RVA 0x15A5B20 处是真实机器码（首字节 48 89 5c 24 …）	
+<>f__AnonymousType50<<Action>j__TPar,	public override string ToString() { }	A	cpp2il --f__AnonymousType50.cs:130；RVA 0x15A7270 处是真实机器码（首字节 40 53 55 57 …）	cpp2il 体内有 "Method not found" 空洞，需 VA 补
+<>f__AnonymousType51<<Action>j__TPar,	public override bool Equals(object value) { }	A	cpp2il --f__AnonymousType51.cs:88；RVA 0x15A7C00 处是真实机器码（首字节 48 89 5c 24 …）	
+<>f__AnonymousType51<<Action>j__TPar,	public override int GetHashCode() { }	A	cpp2il --f__AnonymousType51.cs:131；RVA 0x15A89D0 处是真实机器码（首字节 48 89 5c 24 …）	
+<>f__AnonymousType51<<Action>j__TPar,	public override string ToString() { }	A	cpp2il --f__AnonymousType51.cs:140；RVA 0x15A9480 处是真实机器码（首字节 40 53 56 57 …）	cpp2il 体内有 "Method not found" 空洞，需 VA 补
+<>f__AnonymousType52<<Action>j__TPar,	public override bool Equals(object value) { }	A	cpp2il --f__AnonymousType52.cs:88；RVA 0x15A7C00 处是真实机器码（首字节 48 89 5c 24 …）	
+<>f__AnonymousType52<<Action>j__TPar,	public override int GetHashCode() { }	A	cpp2il --f__AnonymousType52.cs:131；RVA 0x15AB6B0 处是真实机器码（首字节 48 89 5c 24 …）	
+<>f__AnonymousType52<<Action>j__TPar,	public override string ToString() { }	A	cpp2il --f__AnonymousType52.cs:140；RVA 0x15AD8E0 处是真实机器码（首字节 40 53 56 57 …）	cpp2il 体内有 "Method not found" 空洞，需 VA 补
+<>f__AnonymousType53<<Action>j__TPar,	public override bool Equals(object value) { }	A	cpp2il --f__AnonymousType53.cs:70；RVA 0x15AE5E0 处是真实机器码（首字节 48 89 5c 24 …）	
+<>f__AnonymousType53<<Action>j__TPar,	public override int GetHashCode() { }	A	cpp2il --f__AnonymousType53.cs:113；RVA 0x15AE830 处是真实机器码（首字节 48 89 5c 24 …）	
+<>f__AnonymousType53<<Action>j__TPar,	public override string ToString() { }	A	cpp2il --f__AnonymousType53.cs:122；RVA 0x15B02E0 处是真实机器码（首字节 48 89 5c 24 …）	cpp2il 体内有 "Method not found" 空洞，需 VA 补
+<>f__AnonymousType54<<SessionId>j__TPar,	public override bool Equals(object value) { }	A	cpp2il --f__AnonymousType54.cs:46；RVA 0x15B0B80 处是真实机器码（首字节 48 89 5c 24 …）	
+<>f__AnonymousType54<<SessionId>j__TPar,	public override int GetHashCode() { }	A	cpp2il --f__AnonymousType54.cs:89；RVA 0x15B1070 处是真实机器码（首字节 48 89 5c 24 …）	
+<>f__AnonymousType54<<SessionId>j__TPar,	public override string ToString() { }	A	cpp2il --f__AnonymousType54.cs:98；RVA 0x15B1BE0 处是真实机器码（首字节 48 89 5c 24 …）	cpp2il 体内有 "Method not found" 空洞，需 VA 补
+<>f__AnonymousType55<<Cards>j__TPar,	public override bool Equals(object value) { }	A	cpp2il --f__AnonymousType55.cs:28；RVA 0xEBF9D0 处是真实机器码（首字节 48 89 5c 24 …）	
+<>f__AnonymousType55<<Cards>j__TPar,	public override int GetHashCode() { }	A	cpp2il --f__AnonymousType55.cs:71；RVA 0x15B1EA0 处是真实机器码（首字节 48 89 5c 24 …）	
+<>f__AnonymousType55<<Cards>j__TPar,	public override string ToString() { }	A	cpp2il --f__AnonymousType55.cs:80；RVA 0x15B2120 处是真实机器码（首字节 48 89 5c 24 …）	cpp2il 体内有 "Method not found" 空洞，需 VA 补
+<>f__AnonymousType56<<playerId>j__TPar,	public override bool Equals(object value) { }	A	cpp2il --f__AnonymousType56.cs:24；RVA 0xEC4E10 处是真实机器码（首字节 48 89 5c 24 …）	
+<>f__AnonymousType56<<playerId>j__TPar,	public override int GetHashCode() { }	A	cpp2il --f__AnonymousType56.cs:67；RVA 0x15B27D0 处是真实机器码（首字节 48 89 5c 24 …）	
+<>f__AnonymousType56<<playerId>j__TPar,	public override string ToString() { }	A	cpp2il --f__AnonymousType56.cs:76；RVA 0x15B2F90 处是真实机器码（首字节 40 53 56 41 …）	cpp2il 体内有 "Method not found" 空洞，需 VA 补
+<>f__AnonymousType57<<Race>j__TPar>	public override bool Equals(object value) { }	A	cpp2il --f__AnonymousType57.cs:19；RVA 0xEBF2C0 处是真实机器码（首字节 48 89 5c 24 …）	
+<>f__AnonymousType57<<Race>j__TPar>	public override int GetHashCode() { }	A	cpp2il --f__AnonymousType57.cs:62；RVA 0x15B30F0 处是真实机器码（首字节 40 53 48 83 …）	
+<>f__AnonymousType57<<Race>j__TPar>	public override string ToString() { }	A	cpp2il --f__AnonymousType57.cs:71；RVA 0x15B3240 处是真实机器码（首字节 48 89 5c 24 …）	cpp2il 体内有 "Method not found" 空洞，需 VA 补
+<>f__AnonymousType58<<hasWon>j__TPar,	public override bool Equals(object value) { }	A	cpp2il --f__AnonymousType58.cs:41；RVA 0x15B35F0 处是真实机器码（首字节 48 89 5c 24 …）	
+<>f__AnonymousType58<<hasWon>j__TPar,	public override int GetHashCode() { }	A	cpp2il --f__AnonymousType58.cs:84；RVA 0x15B39D0 处是真实机器码（首字节 48 89 5c 24 …）	
+<>f__AnonymousType58<<hasWon>j__TPar,	public override string ToString() { }	A	cpp2il --f__AnonymousType58.cs:93；RVA 0x15B4260 处是真实机器码（首字节 48 89 5c 24 …）	cpp2il 体内有 "Method not found" 空洞，需 VA 补
+<>f__AnonymousType59<<recordName>j__TPar,	public override bool Equals(object value) { }	A	cpp2il --f__AnonymousType59.cs:33；RVA 0xEC8090 处是真实机器码（首字节 48 89 5c 24 …）	
+<>f__AnonymousType59<<recordName>j__TPar,	public override int GetHashCode() { }	A	cpp2il --f__AnonymousType59.cs:76；RVA 0x15B4490 处是真实机器码（首字节 48 89 5c 24 …）	
+<>f__AnonymousType59<<recordName>j__TPar,	public override string ToString() { }	A	cpp2il --f__AnonymousType59.cs:85；RVA 0x15B4FC0 处是真实机器码（首字节 48 89 5c 24 …）	cpp2il 体内有 "Method not found" 空洞，需 VA 补
+<>f__AnonymousType5<<eventId>j__TPar,	public override bool Equals(object value) { }	A	cpp2il --f__AnonymousType5.cs:28；RVA 0xEBF9D0 处是真实机器码（首字节 48 89 5c 24 …）	
+<>f__AnonymousType5<<eventId>j__TPar,	public override int GetHashCode() { }	A	cpp2il --f__AnonymousType5.cs:71；RVA 0x15B5380 处是真实机器码（首字节 48 89 5c 24 …）	
+<>f__AnonymousType5<<eventId>j__TPar,	public override string ToString() { }	A	cpp2il --f__AnonymousType5.cs:80；RVA 0x15B5970 处是真实机器码（首字节 48 89 5c 24 …）	cpp2il 体内有 "Method not found" 空洞，需 VA 补
+<>f__AnonymousType60<<recordName>j__TPar>	public override bool Equals(object value) { }	A	cpp2il --f__AnonymousType60.cs:19；RVA 0xEBF2C0 处是真实机器码（首字节 48 89 5c 24 …）	
+<>f__AnonymousType60<<recordName>j__TPar>	public override int GetHashCode() { }	A	cpp2il --f__AnonymousType60.cs:62；RVA 0x15B5BE0 处是真实机器码（首字节 40 53 48 83 …）	
+<>f__AnonymousType60<<recordName>j__TPar>	public override string ToString() { }	A	cpp2il --f__AnonymousType60.cs:71；RVA 0x15B5C30 处是真实机器码（首字节 48 89 5c 24 …）	cpp2il 体内有 "Method not found" 空洞，需 VA 补
+<>f__AnonymousType61<<recordName>j__TPar,	public override bool Equals(object value) { }	A	cpp2il --f__AnonymousType61.cs:37；RVA 0xEC8EF0 处是真实机器码（首字节 48 89 5c 24 …）	
+<>f__AnonymousType61<<recordName>j__TPar,	public override int GetHashCode() { }	A	cpp2il --f__AnonymousType61.cs:80；RVA 0x15B6280 处是真实机器码（首字节 48 89 5c 24 …）	
+<>f__AnonymousType61<<recordName>j__TPar,	public override string ToString() { }	A	cpp2il --f__AnonymousType61.cs:89；RVA 0x15B6370 处是真实机器码（首字节 48 89 5c 24 …）	cpp2il 体内有 "Method not found" 空洞，需 VA 补
+<>f__AnonymousType62<<recordIndex>j__TPar,	public override bool Equals(object value) { }	A	cpp2il --f__AnonymousType62.cs:24；RVA 0x15B6CE0 处是真实机器码（首字节 48 89 5c 24 …）	
+<>f__AnonymousType62<<recordIndex>j__TPar,	public override int GetHashCode() { }	A	cpp2il --f__AnonymousType62.cs:67；RVA 0x15B6DD0 处是真实机器码（首字节 48 89 5c 24 …）	
+<>f__AnonymousType62<<recordIndex>j__TPar,	public override string ToString() { }	A	cpp2il --f__AnonymousType62.cs:76；RVA 0x15B7050 处是真实机器码（首字节 40 53 56 41 …）	cpp2il 体内有 "Method not found" 空洞，需 VA 补
+<>f__AnonymousType63<<eventId>j__TPar,	public override bool Equals(object value) { }	A	cpp2il --f__AnonymousType63.cs:28；RVA 0xEBF9D0 处是真实机器码（首字节 48 89 5c 24 …）	
+<>f__AnonymousType63<<eventId>j__TPar,	public override int GetHashCode() { }	A	cpp2il --f__AnonymousType63.cs:71；RVA 0x15B7710 处是真实机器码（首字节 48 89 5c 24 …）	
+<>f__AnonymousType63<<eventId>j__TPar,	public override string ToString() { }	A	cpp2il --f__AnonymousType63.cs:80；RVA 0x15B7ED0 处是真实机器码（首字节 48 89 5c 24 …）	cpp2il 体内有 "Method not found" 空洞，需 VA 补
+<>f__AnonymousType64<<Decks>j__TPar>	public override bool Equals(object value) { }	A	cpp2il --f__AnonymousType64.cs:19；RVA 0xEBF2C0 处是真实机器码（首字节 48 89 5c 24 …）	
+<>f__AnonymousType64<<Decks>j__TPar>	public override int GetHashCode() { }	A	cpp2il --f__AnonymousType64.cs:62；RVA 0x15B8040 处是真实机器码（首字节 40 53 48 83 …）	
+<>f__AnonymousType64<<Decks>j__TPar>	public override string ToString() { }	A	cpp2il --f__AnonymousType64.cs:71；RVA 0x15B8450 处是真实机器码（首字节 48 89 5c 24 …）	cpp2il 体内有 "Method not found" 空洞，需 VA 补
+<>f__AnonymousType65<<hasWon>j__TPar,	public override bool Equals(object value) { }	A	cpp2il --f__AnonymousType65.cs:84；RVA 0x15B8540 处是真实机器码（首字节 48 89 5c 24 …）	
+<>f__AnonymousType65<<hasWon>j__TPar,	public override int GetHashCode() { }	A	cpp2il --f__AnonymousType65.cs:127；RVA 0x15B8F00 处是真实机器码（首字节 48 89 5c 24 …）	
+<>f__AnonymousType65<<hasWon>j__TPar,	public override string ToString() { }	A	cpp2il --f__AnonymousType65.cs:136；RVA 0x15B9180 处是真实机器码（首字节 40 53 55 57 …）	cpp2il 体内有 "Method not found" 空洞，需 VA 补
+<>f__AnonymousType66<<eventId>j__TPar,	public override bool Equals(object value) { }	A	cpp2il --f__AnonymousType66.cs:123；RVA 0x15BAB00 处是真实机器码（首字节 48 89 5c 24 …）	
+<>f__AnonymousType66<<eventId>j__TPar,	public override int GetHashCode() { }	A	cpp2il --f__AnonymousType66.cs:166；RVA 0x15BB950 处是真实机器码（首字节 40 53 55 56 …）	
+<>f__AnonymousType66<<eventId>j__TPar,	public override string ToString() { }	A	cpp2il --f__AnonymousType66.cs:175；RVA 0x15BDC00 处是真实机器码（首字节 40 53 56 57 …）	cpp2il 体内有 "Method not found" 空洞，需 VA 补
+<>f__AnonymousType67<<eventId>j__TPar,	public override bool Equals(object value) { }	A	cpp2il --f__AnonymousType67.cs:122；RVA 0x15BE2A0 处是真实机器码（首字节 48 89 5c 24 …）	
+<>f__AnonymousType67<<eventId>j__TPar,	public override int GetHashCode() { }	A	cpp2il --f__AnonymousType67.cs:165；RVA 0x15BE6A0 处是真实机器码（首字节 40 53 55 56 …）	
+<>f__AnonymousType67<<eventId>j__TPar,	public override string ToString() { }	A	cpp2il --f__AnonymousType67.cs:174；RVA 0x15BEA80 处是真实机器码（首字节 40 53 56 57 …）	cpp2il 体内有 "Method not found" 空洞，需 VA 补
+<>f__AnonymousType68<<opponentId>j__TPar,	public override bool Equals(object value) { }	A	cpp2il --f__AnonymousType68.cs:37；RVA 0xEC8EF0 处是真实机器码（首字节 48 89 5c 24 …）	
+<>f__AnonymousType68<<opponentId>j__TPar,	public override int GetHashCode() { }	A	cpp2il --f__AnonymousType68.cs:80；RVA 0x16DA6E0 处是真实机器码（首字节 48 89 5c 24 …）	
+<>f__AnonymousType68<<opponentId>j__TPar,	public override string ToString() { }	A	cpp2il --f__AnonymousType68.cs:89；RVA 0x16DA7D0 处是真实机器码（首字节 48 89 5c 24 …）	cpp2il 体内有 "Method not found" 空洞，需 VA 补
+<>f__AnonymousType69<<opponentId>j__TPar,	public override bool Equals(object value) { }	A	cpp2il --f__AnonymousType69.cs:28；RVA 0xEBF9D0 处是真实机器码（首字节 48 89 5c 24 …）	
+<>f__AnonymousType69<<opponentId>j__TPar,	public override int GetHashCode() { }	A	cpp2il --f__AnonymousType69.cs:71；RVA 0x16DB310 处是真实机器码（首字节 48 89 5c 24 …）	
+<>f__AnonymousType69<<opponentId>j__TPar,	public override string ToString() { }	A	cpp2il --f__AnonymousType69.cs:80；RVA 0x16DB3C0 处是真实机器码（首字节 48 89 5c 24 …）	cpp2il 体内有 "Method not found" 空洞，需 VA 补
+<>f__AnonymousType6<<eventID>j__TPar,	public override bool Equals(object value) { }	A	cpp2il --f__AnonymousType6.cs:33；RVA 0xEDA860 处是真实机器码（首字节 48 89 5c 24 …）	
+<>f__AnonymousType6<<eventID>j__TPar,	public override int GetHashCode() { }	A	cpp2il --f__AnonymousType6.cs:76；RVA 0x16DBD10 处是真实机器码（首字节 48 89 5c 24 …）	
+<>f__AnonymousType6<<eventID>j__TPar,	public override string ToString() { }	A	cpp2il --f__AnonymousType6.cs:85；RVA 0x16DC5A0 处是真实机器码（首字节 48 89 5c 24 …）	cpp2il 体内有 "Method not found" 空洞，需 VA 补
+<>f__AnonymousType70<<playerId>j__TPar>	public override bool Equals(object value) { }	A	cpp2il --f__AnonymousType70.cs:19；RVA 0xEBF2C0 处是真实机器码（首字节 48 89 5c 24 …）	
+<>f__AnonymousType70<<playerId>j__TPar>	public override int GetHashCode() { }	A	cpp2il --f__AnonymousType70.cs:62；RVA 0x16DC890 处是真实机器码（首字节 40 53 48 83 …）	
+<>f__AnonymousType70<<playerId>j__TPar>	public override string ToString() { }	A	cpp2il --f__AnonymousType70.cs:71；RVA 0x16DCBA0 处是真实机器码（首字节 48 89 5c 24 …）	cpp2il 体内有 "Method not found" 空洞，需 VA 补
+<>f__AnonymousType71<<sunsetData>j__TPar,	public override bool Equals(object value) { }	A	cpp2il --f__AnonymousType71.cs:28；RVA 0xEBF9D0 处是真实机器码（首字节 48 89 5c 24 …）	
+<>f__AnonymousType71<<sunsetData>j__TPar,	public override int GetHashCode() { }	A	cpp2il --f__AnonymousType71.cs:71；RVA 0x16DCE60 处是真实机器码（首字节 48 89 5c 24 …）	
+<>f__AnonymousType71<<sunsetData>j__TPar,	public override string ToString() { }	A	cpp2il --f__AnonymousType71.cs:80；RVA 0x16DCF10 处是真实机器码（首字节 48 89 5c 24 …）	cpp2il 体内有 "Method not found" 空洞，需 VA 补
+<>f__AnonymousType72<<Handlers>j__TPar,	public override bool Equals(object value) { }	A	cpp2il --f__AnonymousType72.cs:28；RVA 0xEBF9D0 处是真实机器码（首字节 48 89 5c 24 …）	
+<>f__AnonymousType72<<Handlers>j__TPar,	public override int GetHashCode() { }	A	cpp2il --f__AnonymousType72.cs:71；RVA 0x16DD790 处是真实机器码（首字节 48 89 5c 24 …）	
+<>f__AnonymousType72<<Handlers>j__TPar,	public override string ToString() { }	A	cpp2il --f__AnonymousType72.cs:80；RVA 0x16DD840 处是真实机器码（首字节 48 89 5c 24 …）	cpp2il 体内有 "Method not found" 空洞，需 VA 补
+<>f__AnonymousType73<<PlayerPlayfabId>j__TPar,	public override bool Equals(object value) { }	A	cpp2il --f__AnonymousType73.cs:28；RVA 0xEBF9D0 处是真实机器码（首字节 48 89 5c 24 …）	
+<>f__AnonymousType73<<PlayerPlayfabId>j__TPar,	public override int GetHashCode() { }	A	cpp2il --f__AnonymousType73.cs:71；RVA 0x16DDEF0 处是真实机器码（首字节 48 89 5c 24 …）	
+<>f__AnonymousType73<<PlayerPlayfabId>j__TPar,	public override string ToString() { }	A	cpp2il --f__AnonymousType73.cs:80；RVA 0x16DE6B0 处是真实机器码（首字节 48 89 5c 24 …）	cpp2il 体内有 "Method not found" 空洞，需 VA 补
+<>f__AnonymousType74<<CharacterId>j__TPar,	public override bool Equals(object value) { }	A	cpp2il --f__AnonymousType74.cs:43；RVA 0x16DE820 处是真实机器码（首字节 48 89 5c 24 …）	
+<>f__AnonymousType74<<CharacterId>j__TPar,	public override int GetHashCode() { }	A	cpp2il --f__AnonymousType74.cs:86；RVA 0x16DED10 处是真实机器码（首字节 48 89 5c 24 …）	
+<>f__AnonymousType74<<CharacterId>j__TPar,	public override string ToString() { }	A	cpp2il --f__AnonymousType74.cs:95；RVA 0x16DF880 处是真实机器码（首字节 48 89 5c 24 …）	cpp2il 体内有 "Method not found" 空洞，需 VA 补
+<>f__AnonymousType75<<DeckId>j__TPar,	public override bool Equals(object value) { }	A	cpp2il --f__AnonymousType75.cs:28；RVA 0xEBF9D0 处是真实机器码（首字节 48 89 5c 24 …）	
+<>f__AnonymousType75<<DeckId>j__TPar,	public override int GetHashCode() { }	A	cpp2il --f__AnonymousType75.cs:71；RVA 0x16DFB30 处是真实机器码（首字节 48 89 5c 24 …）	
+<>f__AnonymousType75<<DeckId>j__TPar,	public override string ToString() { }	A	cpp2il --f__AnonymousType75.cs:80；RVA 0x16DFDB0 处是真实机器码（首字节 48 89 5c 24 …）	cpp2il 体内有 "Method not found" 空洞，需 VA 补
+<>f__AnonymousType76<<DeckIds>j__TPar,	public override bool Equals(object value) { }	A	cpp2il --f__AnonymousType76.cs:28；RVA 0xEBF9D0 处是真实机器码（首字节 48 89 5c 24 …）	
+<>f__AnonymousType76<<DeckIds>j__TPar,	public override int GetHashCode() { }	A	cpp2il --f__AnonymousType76.cs:71；RVA 0x16E0460 处是真实机器码（首字节 48 89 5c 24 …）	
+<>f__AnonymousType76<<DeckIds>j__TPar,	public override string ToString() { }	A	cpp2il --f__AnonymousType76.cs:80；RVA 0x16E06E0 处是真实机器码（首字节 48 89 5c 24 …）	cpp2il 体内有 "Method not found" 空洞，需 VA 补
+<>f__AnonymousType77<<badge>j__TPar,	public override bool Equals(object value) { }	A	cpp2il --f__AnonymousType77.cs:37；RVA 0xEC8EF0 处是真实机器码（首字节 48 89 5c 24 …）	
+<>f__AnonymousType77<<badge>j__TPar,	public override int GetHashCode() { }	A	cpp2il --f__AnonymousType77.cs:80；RVA 0x16E1030 处是真实机器码（首字节 48 89 5c 24 …）	
+<>f__AnonymousType77<<badge>j__TPar,	public override string ToString() { }	A	cpp2il --f__AnonymousType77.cs:89；RVA 0x16E18C0 处是真实机器码（首字节 48 89 5c 24 …）	cpp2il 体内有 "Method not found" 空洞，需 VA 补
+<>f__AnonymousType78<<CardIds>j__TPar,	public override bool Equals(object value) { }	A	cpp2il --f__AnonymousType78.cs:33；RVA 0xEC3560 处是真实机器码（首字节 48 89 5c 24 …）	
+<>f__AnonymousType78<<CardIds>j__TPar,	public override int GetHashCode() { }	A	cpp2il --f__AnonymousType78.cs:76；RVA 0x16E1D30 处是真实机器码（首字节 48 89 5c 24 …）	
+<>f__AnonymousType78<<CardIds>j__TPar,	public override string ToString() { }	A	cpp2il --f__AnonymousType78.cs:85；RVA 0x16E1E20 处是真实机器码（首字节 48 89 5c 24 …）	cpp2il 体内有 "Method not found" 空洞，需 VA 补
+<>f__AnonymousType79<<promoId>j__TPar>	public override bool Equals(object value) { }	A	cpp2il --f__AnonymousType79.cs:19；RVA 0xEBF2C0 处是真实机器码（首字节 48 89 5c 24 …）	
+<>f__AnonymousType79<<promoId>j__TPar>	public override int GetHashCode() { }	A	cpp2il --f__AnonymousType79.cs:62；RVA 0x16E28A0 处是真实机器码（首字节 40 53 48 83 …）	
+<>f__AnonymousType79<<promoId>j__TPar>	public override string ToString() { }	A	cpp2il --f__AnonymousType79.cs:71；RVA 0x16E28F0 处是真实机器码（首字节 48 89 5c 24 …）	cpp2il 体内有 "Method not found" 空洞，需 VA 补
+<>f__AnonymousType7<<Army>j__TPar>	public override bool Equals(object value) { }	A	cpp2il --f__AnonymousType7.cs:15；RVA 0x16E2CA0 处是真实机器码（首字节 48 89 5c 24 …）	
+<>f__AnonymousType7<<Army>j__TPar>	public override int GetHashCode() { }	A	cpp2il --f__AnonymousType7.cs:58；RVA 0x16E2E50 处是真实机器码（首字节 40 53 48 83 …）	
+<>f__AnonymousType7<<Army>j__TPar>	public override string ToString() { }	A	cpp2il --f__AnonymousType7.cs:67；RVA 0x16E3160 处是真实机器码（首字节 48 89 5c 24 …）	cpp2il 体内有 "Method not found" 空洞，需 VA 补
+<>f__AnonymousType80<<messageIds>j__TPar>	public override bool Equals(object value) { }	A	cpp2il --f__AnonymousType80.cs:19；RVA 0xEBF2C0 处是真实机器码（首字节 48 89 5c 24 …）	
+<>f__AnonymousType80<<messageIds>j__TPar>	public override int GetHashCode() { }	A	cpp2il --f__AnonymousType80.cs:62；RVA 0x16E3380 处是真实机器码（首字节 40 53 48 83 …）	
+<>f__AnonymousType80<<messageIds>j__TPar>	public override string ToString() { }	A	cpp2il --f__AnonymousType80.cs:71；RVA 0x16E3690 处是真实机器码（首字节 48 89 5c 24 …）	cpp2il 体内有 "Method not found" 空洞，需 VA 补
+<>f__AnonymousType81<<newName>j__TPar>	public override bool Equals(object value) { }	A	cpp2il --f__AnonymousType81.cs:19；RVA 0xEBF2C0 处是真实机器码（首字节 48 89 5c 24 …）	
+<>f__AnonymousType81<<newName>j__TPar>	public override int GetHashCode() { }	A	cpp2il --f__AnonymousType81.cs:62；RVA 0x16E3880 处是真实机器码（首字节 40 53 48 83 …）	
+<>f__AnonymousType81<<newName>j__TPar>	public override string ToString() { }	A	cpp2il --f__AnonymousType81.cs:71；RVA 0x16E3B90 处是真实机器码（首字节 48 89 5c 24 …）	cpp2il 体内有 "Method not found" 空洞，需 VA 补
+<>f__AnonymousType82<<StoreId>j__TPar,	public override bool Equals(object value) { }	A	cpp2il --f__AnonymousType82.cs:46；RVA 0x15B0B80 处是真实机器码（首字节 48 89 5c 24 …）	
+<>f__AnonymousType82<<StoreId>j__TPar,	public override int GetHashCode() { }	A	cpp2il --f__AnonymousType82.cs:89；RVA 0x16E3FF0 处是真实机器码（首字节 48 89 5c 24 …）	
+<>f__AnonymousType82<<StoreId>j__TPar,	public override string ToString() { }	A	cpp2il --f__AnonymousType82.cs:98；RVA 0x16E4140 处是真实机器码（首字节 48 89 5c 24 …）	cpp2il 体内有 "Method not found" 空洞，需 VA 补
+<>f__AnonymousType83<<Action>j__TPar,	public override bool Equals(object value) { }	A	cpp2il --f__AnonymousType83.cs:43；RVA 0x16E4DA0 处是真实机器码（首字节 48 89 5c 24 …）	
+<>f__AnonymousType83<<Action>j__TPar,	public override int GetHashCode() { }	A	cpp2il --f__AnonymousType83.cs:86；RVA 0x16E5290 处是真实机器码（首字节 48 89 5c 24 …）	
+<>f__AnonymousType83<<Action>j__TPar,	public override string ToString() { }	A	cpp2il --f__AnonymousType83.cs:95；RVA 0x16E5E00 处是真实机器码（首字节 48 89 5c 24 …）	cpp2il 体内有 "Method not found" 空洞，需 VA 补
+<>f__AnonymousType84<<Rewards>j__TPar>	public override bool Equals(object value) { }	A	cpp2il --f__AnonymousType84.cs:19；RVA 0xEBF2C0 处是真实机器码（首字节 48 89 5c 24 …）	
+<>f__AnonymousType84<<Rewards>j__TPar>	public override int GetHashCode() { }	A	cpp2il --f__AnonymousType84.cs:62；RVA 0x16E60C0 处是真实机器码（首字节 40 53 48 83 …）	
+<>f__AnonymousType84<<Rewards>j__TPar>	public override string ToString() { }	A	cpp2il --f__AnonymousType84.cs:71；RVA 0x16E64D0 处是真实机器码（首字节 48 89 5c 24 …）	cpp2il 体内有 "Method not found" 空洞，需 VA 补
+<>f__AnonymousType85<<tag>j__TPar>	public override bool Equals(object value) { }	A	cpp2il --f__AnonymousType85.cs:19；RVA 0xEBF2C0 处是真实机器码（首字节 48 89 5c 24 …）	
+<>f__AnonymousType85<<tag>j__TPar>	public override int GetHashCode() { }	A	cpp2il --f__AnonymousType85.cs:62；RVA 0x16E65C0 处是真实机器码（首字节 40 53 48 83 …）	
+<>f__AnonymousType85<<tag>j__TPar>	public override string ToString() { }	A	cpp2il --f__AnonymousType85.cs:71；RVA 0x16E6710 处是真实机器码（首字节 48 89 5c 24 …）	cpp2il 体内有 "Method not found" 空洞，需 VA 补
+<>f__AnonymousType86<<tag>j__TPar,	public override bool Equals(object value) { }	A	cpp2il --f__AnonymousType86.cs:28；RVA 0xEBF9D0 处是真实机器码（首字节 48 89 5c 24 …）	
+<>f__AnonymousType86<<tag>j__TPar,	public override int GetHashCode() { }	A	cpp2il --f__AnonymousType86.cs:71；RVA 0x16E6C90 处是真实机器码（首字节 48 89 5c 24 …）	
+<>f__AnonymousType86<<tag>j__TPar,	public override string ToString() { }	A	cpp2il --f__AnonymousType86.cs:80；RVA 0x16E6D40 处是真实机器码（首字节 48 89 5c 24 …）	cpp2il 体内有 "Method not found" 空洞，需 VA 补
+<>f__AnonymousType87<<GroupId>j__TPar>	public override bool Equals(object value) { }	A	cpp2il --f__AnonymousType87.cs:19；RVA 0xEBF2C0 处是真实机器码（首字节 48 89 5c 24 …）	
+<>f__AnonymousType87<<GroupId>j__TPar>	public override int GetHashCode() { }	A	cpp2il --f__AnonymousType87.cs:62；RVA 0x16E74F0 处是真实机器码（首字节 40 53 48 83 …）	
+<>f__AnonymousType87<<GroupId>j__TPar>	public override string ToString() { }	A	cpp2il --f__AnonymousType87.cs:71；RVA 0x16E7800 处是真实机器码（首字节 48 89 5c 24 …）	cpp2il 体内有 "Method not found" 空洞，需 VA 补
+<>f__AnonymousType88<<Filter>j__TPar>	public override bool Equals(object value) { }	A	cpp2il --f__AnonymousType88.cs:19；RVA 0xEBF2C0 处是真实机器码（首字节 48 89 5c 24 …）	
+<>f__AnonymousType88<<Filter>j__TPar>	public override int GetHashCode() { }	A	cpp2il --f__AnonymousType88.cs:62；RVA 0x16E78F0 处是真实机器码（首字节 40 53 48 83 …）	
+<>f__AnonymousType88<<Filter>j__TPar>	public override string ToString() { }	A	cpp2il --f__AnonymousType88.cs:71；RVA 0x16E7D00 处是真实机器码（首字节 48 89 5c 24 …）	cpp2il 体内有 "Method not found" 空洞，需 VA 补
+<>f__AnonymousType89<<OrderBy>j__TPar,	public override bool Equals(object value) { }	A	cpp2il --f__AnonymousType89.cs:28；RVA 0xEBF9D0 处是真实机器码（首字节 48 89 5c 24 …）	
+<>f__AnonymousType89<<OrderBy>j__TPar,	public override int GetHashCode() { }	A	cpp2il --f__AnonymousType89.cs:71；RVA 0x16E7DF0 处是真实机器码（首字节 48 89 5c 24 …）	
+<>f__AnonymousType89<<OrderBy>j__TPar,	public override string ToString() { }	A	cpp2il --f__AnonymousType89.cs:80；RVA 0x16E8070 处是真实机器码（首字节 48 89 5c 24 …）	cpp2il 体内有 "Method not found" 空洞，需 VA 补
+<>f__AnonymousType8<<Action>j__TPar,	public override bool Equals(object value) { }	A	cpp2il --f__AnonymousType8.cs:43；RVA 0x16E4DA0 处是真实机器码（首字节 48 89 5c 24 …）	
+<>f__AnonymousType8<<Action>j__TPar,	public override int GetHashCode() { }	A	cpp2il --f__AnonymousType8.cs:86；RVA 0x16E8A90 处是真实机器码（首字节 48 89 5c 24 …）	
+<>f__AnonymousType8<<Action>j__TPar,	public override string ToString() { }	A	cpp2il --f__AnonymousType8.cs:95；RVA 0x16E9600 处是真实机器码（首字节 48 89 5c 24 …）	cpp2il 体内有 "Method not found" 空洞，需 VA 补
+<>f__AnonymousType90<<GroupName>j__TPar,	public override bool Equals(object value) { }	A	cpp2il --f__AnonymousType90.cs:28；RVA 0xEBF9D0 处是真实机器码（首字节 48 89 5c 24 …）	
+<>f__AnonymousType90<<GroupName>j__TPar,	public override int GetHashCode() { }	A	cpp2il --f__AnonymousType90.cs:71；RVA 0x16E9A10 处是真实机器码（首字节 48 89 5c 24 …）	
+<>f__AnonymousType90<<GroupName>j__TPar,	public override string ToString() { }	A	cpp2il --f__AnonymousType90.cs:80；RVA 0x16EA000 处是真实机器码（首字节 48 89 5c 24 …）	cpp2il 体内有 "Method not found" 空洞，需 VA 补
+<>f__AnonymousType91<<GroupName>j__TPar,	public override bool Equals(object value) { }	A	cpp2il --f__AnonymousType91.cs:64；RVA 0x16EA8F0 处是真实机器码（首字节 48 89 5c 24 …）	
+<>f__AnonymousType91<<GroupName>j__TPar,	public override int GetHashCode() { }	A	cpp2il --f__AnonymousType91.cs:107；RVA 0x16EB040 处是真实机器码（首字节 48 89 5c 24 …）	
+<>f__AnonymousType91<<GroupName>j__TPar,	public override string ToString() { }	A	cpp2il --f__AnonymousType91.cs:116；RVA 0x16EC1D0 处是真实机器码（首字节 48 89 5c 24 …）	cpp2il 体内有 "Method not found" 空洞，需 VA 补
+<>f__AnonymousType92<<GroupName>j__TPar,	public override bool Equals(object value) { }	A	cpp2il --f__AnonymousType92.cs:33；RVA 0x16EC960 处是真实机器码（首字节 48 89 5c 24 …）	
+<>f__AnonymousType92<<GroupName>j__TPar,	public override int GetHashCode() { }	A	cpp2il --f__AnonymousType92.cs:76；RVA 0x16ECAA0 处是真实机器码（首字节 48 89 5c 24 …）	
+<>f__AnonymousType92<<GroupName>j__TPar,	public override string ToString() { }	A	cpp2il --f__AnonymousType92.cs:85；RVA 0x16ECE30 处是真实机器码（首字节 48 89 5c 24 …）	cpp2il 体内有 "Method not found" 空洞，需 VA 补
+<>f__AnonymousType93<<GroupId>j__TPar,	public override bool Equals(object value) { }	A	cpp2il --f__AnonymousType93.cs:28；RVA 0xEBF9D0 处是真实机器码（首字节 48 89 5c 24 …）	
+<>f__AnonymousType93<<GroupId>j__TPar,	public override int GetHashCode() { }	A	cpp2il --f__AnonymousType93.cs:71；RVA 0x16ED7B0 处是真实机器码（首字节 48 89 5c 24 …）	
+<>f__AnonymousType93<<GroupId>j__TPar,	public override string ToString() { }	A	cpp2il --f__AnonymousType93.cs:80；RVA 0x16EDA30 处是真实机器码（首字节 48 89 5c 24 …）	cpp2il 体内有 "Method not found" 空洞，需 VA 补
+<>f__AnonymousType94<<desc>j__TPar,	public override bool Equals(object value) { }	A	cpp2il --f__AnonymousType94.cs:48；RVA 0x16EE0E0 处是真实机器码（首字节 48 89 5c 24 …）	
+<>f__AnonymousType94<<desc>j__TPar,	public override int GetHashCode() { }	A	cpp2il --f__AnonymousType94.cs:91；RVA 0x16EE900 处是真实机器码（首字节 48 89 5c 24 …）	
+<>f__AnonymousType94<<desc>j__TPar,	public override string ToString() { }	A	cpp2il --f__AnonymousType94.cs:100；RVA 0x16EEEF0 处是真实机器码（首字节 40 53 55 57 …）	cpp2il 体内有 "Method not found" 空洞，需 VA 补
+<>f__AnonymousType95<<GroupId>j__TPar,	public override bool Equals(object value) { }	A	cpp2il --f__AnonymousType95.cs:28；RVA 0xEBF9D0 处是真实机器码（首字节 48 89 5c 24 …）	
+<>f__AnonymousType95<<GroupId>j__TPar,	public override int GetHashCode() { }	A	cpp2il --f__AnonymousType95.cs:71；RVA 0x16F0200 处是真实机器码（首字节 48 89 5c 24 …）	
+<>f__AnonymousType95<<GroupId>j__TPar,	public override string ToString() { }	A	cpp2il --f__AnonymousType95.cs:80；RVA 0x16F0480 处是真实机器码（首字节 48 89 5c 24 …）	cpp2il 体内有 "Method not found" 空洞，需 VA 补
+<>f__AnonymousType96<<GroupBadge>j__TPar>	public override bool Equals(object value) { }	A	cpp2il --f__AnonymousType96.cs:19；RVA 0xEBF2C0 处是真实机器码（首字节 48 89 5c 24 …）	
+<>f__AnonymousType96<<GroupBadge>j__TPar>	public override int GetHashCode() { }	A	cpp2il --f__AnonymousType96.cs:62；RVA 0x16F0C30 处是真实机器码（首字节 40 53 48 83 …）	
+<>f__AnonymousType96<<GroupBadge>j__TPar>	public override string ToString() { }	A	cpp2il --f__AnonymousType96.cs:71；RVA 0x16F0C80 处是真实机器码（首字节 48 89 5c 24 …）	cpp2il 体内有 "Method not found" 空洞，需 VA 补
+<>f__AnonymousType97<<getPreviousRating>j__TPar>	public override bool Equals(object value) { }	A	cpp2il --f__AnonymousType97.cs:15；RVA 0x16F1030 处是真实机器码（首字节 48 89 5c 24 …）	
+<>f__AnonymousType97<<getPreviousRating>j__TPar>	public override int GetHashCode() { }	A	cpp2il --f__AnonymousType97.cs:58；RVA 0x16F11E0 处是真实机器码（首字节 40 53 48 83 …）	
+<>f__AnonymousType97<<getPreviousRating>j__TPar>	public override string ToString() { }	A	cpp2il --f__AnonymousType97.cs:67；RVA 0x16F14F0 处是真实机器码（首字节 48 89 5c 24 …）	cpp2il 体内有 "Method not found" 空洞，需 VA 补
+<>f__AnonymousType98<<amount>j__TPar,	public override bool Equals(object value) { }	A	cpp2il --f__AnonymousType98.cs:42；RVA 0x16F1600 处是真实机器码（首字节 48 89 5c 24 …）	
+<>f__AnonymousType98<<amount>j__TPar,	public override int GetHashCode() { }	A	cpp2il --f__AnonymousType98.cs:85；RVA 0x16F1AF0 处是真实机器码（首字节 48 89 5c 24 …）	
+<>f__AnonymousType98<<amount>j__TPar,	public override string ToString() { }	A	cpp2il --f__AnonymousType98.cs:94；RVA 0x16F1C40 处是真实机器码（首字节 48 89 5c 24 …）	cpp2il 体内有 "Method not found" 空洞，需 VA 补
+<>f__AnonymousType99<<cardId>j__TPar>	public override bool Equals(object value) { }	A	cpp2il --f__AnonymousType99.cs:19；RVA 0xEBF2C0 处是真实机器码（首字节 48 89 5c 24 …）	
+<>f__AnonymousType99<<cardId>j__TPar>	public override int GetHashCode() { }	A	cpp2il --f__AnonymousType99.cs:62；RVA 0x16F2910 处是真实机器码（首字节 40 53 48 83 …）	
+<>f__AnonymousType99<<cardId>j__TPar>	public override string ToString() { }	A	cpp2il --f__AnonymousType99.cs:71；RVA 0x16F2A60 处是真实机器码（首字节 48 89 5c 24 …）	cpp2il 体内有 "Method not found" 空洞，需 VA 补
+<>f__AnonymousType9<<eventId>j__TPar,	public override bool Equals(object value) { }	A	cpp2il --f__AnonymousType9.cs:51；RVA 0x16F2E10 处是真实机器码（首字节 48 89 5c 24 …）	
+<>f__AnonymousType9<<eventId>j__TPar,	public override int GetHashCode() { }	A	cpp2il --f__AnonymousType9.cs:94；RVA 0x16F2FD0 处是真实机器码（首字节 48 89 5c 24 …）	
+<>f__AnonymousType9<<eventId>j__TPar,	public override string ToString() { }	A	cpp2il --f__AnonymousType9.cs:103；RVA 0x16F35C0 处是真实机器码（首字节 40 53 55 57 …）	cpp2il 体内有 "Method not found" 空洞，需 VA 补
+AlternateArtStyleItem<T>	public bool TryGetItem(AlternateArtSyle alternateArtSyle, out T returnItem) { }	A	cpp2il AlternateArtStyleItem.cs:13；RVA 0x19F43B0 处是真实机器码（首字节 48 83 ec 28 …）	
+AlternateArtStyleItem<T>	public void Release(AddressableCacheGroup cacheGroup = 1) { }	A	cpp2il AlternateArtStyleItem.cs:26；RVA 0x19F4050 处是真实机器码（首字节 48 89 5c 24 …）	cpp2il 体内有 "Method not found" 空洞，需 VA 补
+AlternateArtStyleItem<T>	public void TryRelease(AlternateArtSyle alternateArtSyle) { }	A	cpp2il AlternateArtStyleItem.cs:58；RVA 0x19F43E0 处是真实机器码（首字节 40 53 48 83 …）	cpp2il 体内有 "Method not found" 空洞，需 VA 补
+ArmyItem<T>	public bool TryGetItem(CardArmy cardArmy, out T returnItem) { }	A	cpp2il ArmyItem.cs:11；RVA 0x19F43B0 处是真实机器码（首字节 48 83 ec 28 …）	
+ArmyItem<T>	public void Release(AddressableCacheGroup cacheGroup = 1) { }	A	cpp2il ArmyItem.cs:24；RVA 0x1ACAD90 处是真实机器码（首字节 48 89 5c 24 …）	cpp2il 体内有 "Method not found" 空洞，需 VA 补
+ArmyItem<T>	public void TryRelease(CardArmy armyToRelease) { }	A	cpp2il ArmyItem.cs:56；RVA 0x1ACAE50 处是真实机器码（首字节 40 53 48 83 …）	cpp2il 体内有 "Method not found" 空洞，需 VA 补
+AssetProvider<T>	private void Awake() { }	A	cpp2il AssetProvider.cs:7；RVA 0x1287B90 处是真实机器码（首字节 48 8b 42 20 …）	[P3] cpp2il 体内有 "Method not found" 空洞，需 VA 补；Addressables 远程资源引用
+BaseEventProgressClaimButtonController<TState>	protected virtual void CollectionClick() { }	A	cpp2il BaseEventProgressClaimButtonController.cs:247；RVA 0x506D00 处是真实机器码（首字节 48 8b 41 28 …）	
+BaseEventProgressClaimButtonController<TState>	public void Initialize(TState currentState, CurrencyValue normalPrice, Action onCollect) { }	A	cpp2il BaseEventProgressClaimButtonController.cs:215；RVA 0x13BFF70 处是真实机器码（首字节 48 89 5c 24 …）	cpp2il 体内有 "Method not found" 空洞，需 VA 补
+BaseEventProgressRewardDrawerController<TState>	public virtual void Initialize(IReadOnlyList<RewardInfo> rewards, bool isPremium, TState currentState) { }	A	cpp2il BaseEventProgressRewardDrawerController.cs:13；RVA 0x13C0010 处是真实机器码（首字节 48 89 5c 24 …）	
+BaseEventProgressRewardDrawerController<TState>	public void OverridePremiumBadge(Sprite sprite) { }	A	cpp2il BaseEventProgressRewardDrawerController.cs:40；RVA 0x13C0390 处是真实机器码（首字节 48 89 5c 24 …）	
+BaseProgressBarScaleAndPositionController<TState>	public void Initialize(TState currentState, TState previousState, int level) { }	A	cpp2il BaseProgressBarScaleAndPositionController.cs:20；RVA 0x158CEF0 处是真实机器码（首字节 48 89 5c 24 …）	
+BiDirectionalDictionary<TKey,	private IEnumerator System.Collections.IEnumerable.GetEnumerator() { }	A	cpp2il BiDirectionalDictionary.cs:688；RVA 0x15CA750 处是真实机器码（首字节 48 89 5c 24 …）	cpp2il 体内有 "Method not found" 空洞，需 VA 补
+BiDirectionalDictionary<TKey,	public IEnumerator<KeyValuePair<TKey, TValue>> GetEnumerator() { }	A	cpp2il BiDirectionalDictionary.cs:562；RVA 0x15C9D70 处是真实机器码（首字节 48 89 5c 24 …）	cpp2il 体内有 "Method not found" 空洞，需 VA 补
+BiDirectionalDictionary<TKey,	public TKey GetKey(TValue value) { }	A	cpp2il BiDirectionalDictionary.cs:308；RVA 0x15C9E00 处是真实机器码（首字节 48 89 5c 24 …）	cpp2il 体内有 "Method not found" 空洞，需 VA 补
+BiDirectionalDictionary<TKey,	public TValue GetValue(TKey key) { }	A	cpp2il BiDirectionalDictionary.cs:337；RVA 0x15CA050 处是真实机器码（首字节 48 89 5c 24 …）	cpp2il 体内有 "Method not found" 空洞，需 VA 补
+BiDirectionalDictionary<TKey,	public bool Contains(KeyValuePair<TKey, TValue> item) { }	A	cpp2il BiDirectionalDictionary.cs:480；RVA 0x15C9610 处是真实机器码（首字节 48 89 5c 24 …）	
+BiDirectionalDictionary<TKey,	public bool ContainsKey(TKey key) { }	A	cpp2il BiDirectionalDictionary.cs:503；RVA 0x15C94D0 处是真实机器码（首字节 48 83 ec 28 …）	
+BiDirectionalDictionary<TKey,	public bool ContainsValue(TValue value) { }	A	cpp2il BiDirectionalDictionary.cs:515；RVA 0x15C95E0 处是真实机器码（首字节 48 83 ec 28 …）	
+BiDirectionalDictionary<TKey,	public bool Remove(KeyValuePair<TKey, TValue> item) { }	A	cpp2il BiDirectionalDictionary.cs:620；RVA 0x15CA350 处是真实机器码（首字节 48 89 5c 24 …）	
+BiDirectionalDictionary<TKey,	public bool Remove(TKey key) { }	A	cpp2il BiDirectionalDictionary.cs:620；RVA 0x15CA2A0 处是真实机器码（首字节 48 89 5c 24 …）	
+BiDirectionalDictionary<TKey,	public bool TryGetKey(TValue value, out TKey key) { }	A	cpp2il BiDirectionalDictionary.cs:283；RVA 0x15CA7F0 处是真实机器码（首字节 48 89 5c 24 …）	cpp2il 体内有 "Method not found" 空洞，需 VA 补
+BiDirectionalDictionary<TKey,	public bool TryGetValue(TKey key, out TValue value) { }	A	cpp2il BiDirectionalDictionary.cs:663；RVA 0x15CAA30 处是真实机器码（首字节 48 89 5c 24 …）	cpp2il 体内有 "Method not found" 空洞，需 VA 补
+BiDirectionalDictionary<TKey,	public void Add(KeyValuePair<TKey, TValue> item) { }	A	cpp2il BiDirectionalDictionary.cs:412；RVA 0x15C91D0 处是真实机器码（首字节 48 89 5c 24 …）	
+BiDirectionalDictionary<TKey,	public void Add(TKey key, TValue value) { }	A	cpp2il BiDirectionalDictionary.cs:366；RVA 0x15C8DE0 处是真实机器码（首字节 48 89 5c 24 …）	
+BiDirectionalDictionary<TKey,	public void Clear() { }	A	cpp2il BiDirectionalDictionary.cs:460；RVA 0x15C9380 处是真实机器码（首字节 40 53 48 83 …）	
+BiDirectionalDictionary<TKey,	public void CopyTo(KeyValuePair<TKey, TValue>[] array, int arrayIndex) { }	A	cpp2il BiDirectionalDictionary.cs:527；RVA 0x15C9B70 处是真实机器码（首字节 48 89 5c 24 …）	cpp2il 体内有 "Method not found" 空洞，需 VA 补
+CollectionDisplay<T>	private void ToggleFilters(bool state) { }	A	cpp2il CollectionDisplay.cs:655；RVA 0x15EEC60 处是真实机器码（首字节 48 83 ec 28 …）	
+CollectionDisplay<T>	protected virtual void OnDisable() { }	A	cpp2il CollectionDisplay.cs:582；RVA 0x15EC5B0 处是真实机器码（首字节 48 89 6c 24 …）	cpp2il 体内有 "Method not found" 空洞，需 VA 补
+CollectionDisplay<T>	protected virtual void OnListDrag(Vector2 listPos) { }	A	cpp2il CollectionDisplay.cs:1218；RVA 0x15ECAF0 处是真实机器码（首字节 c6 41 60 00 …）	
+CollectionDisplay<T>	protected void OnEnable() { }	A	cpp2il CollectionDisplay.cs:542；RVA 0x15EC6F0 处是真实机器码（首字节 48 89 6c 24 …）	cpp2il 体内有 "Method not found" 空洞，需 VA 补
+CollectionDisplay<T>	protected void OnEndDragEvent(Transform target) { }	A	cpp2il CollectionDisplay.cs:622；RVA 0x15EC990 处是真实机器码（首字节 48 89 5c 24 …）	
+CollectionDisplay<T>	public CollectionItem<T> GetItemObject(T item) { }	A	cpp2il CollectionDisplay.cs:1149；RVA 0x15EB4F0 处是真实机器码（首字节 48 89 5c 24 …）	cpp2il 体内有 "Method not found" 空洞，需 VA 补
+CollectionDisplay<T>	public List<ICell> GetItems() { }	A	cpp2il CollectionDisplay.cs:530；RVA 0x15EBA50 处是真实机器码（首字节 48 83 ec 28 …）	
+CollectionDisplay<T>	public int GetItemCount() { }	A	cpp2il CollectionDisplay.cs:727；RVA 0x15EB4D0 处是真实机器码（首字节 48 83 ec 28 …）	
+CollectionDisplay<T>	public virtual void Initialize(List<T> collection, GameplayVariablesData gameplayVariablesData) { }	A	cpp2il CollectionDisplay.cs:216；RVA 0x15EC0A0 处是真实机器码（首字节 48 89 5c 24 …）	cpp2il 体内有 "Method not found" 空洞，需 VA 补
+CollectionDisplay<T>	public virtual void RefreshCollection() { }	A	cpp2il CollectionDisplay.cs:664；RVA 0x15ECB70 处是真实机器码（首字节 48 89 5c 24 …）	cpp2il 体内有 "Method not found" 空洞，需 VA 补
+CollectionDisplay<T>	public virtual void ReorderCollectionByHierarchy(Transform transformToChangeIndex) { }	A	cpp2il CollectionDisplay.cs:969；RVA 0x15ED470 处是真实机器码（首字节 40 55 56 57 …）	cpp2il 体内有 "Method not found" 空洞，需 VA 补
+CollectionDisplay<T>	public virtual void SetCell(ICell cell, int index) { }	A	cpp2il CollectionDisplay.cs:743；RVA 0x15EE7D0 处是真实机器码（首字节 40 53 41 54 …）	cpp2il 体内有 "Method not found" 空洞，需 VA 补
+CollectionDisplay<T>	public void ResetRelayTarget() { }	A	cpp2il CollectionDisplay.cs:635；RVA 0x15ED6D0 处是真实机器码（首字节 48 89 5c 24 …）	
+CollectionDisplay<T>	public void Select(CollectionItem<T> collectable, PointerEventData.InputButton button) { }	A	cpp2il CollectionDisplay.cs:1054；RVA 0x15ED9C0 处是真实机器码（首字节 48 89 5c 24 …）	cpp2il 体内有 "Method not found" 空洞，需 VA 补
+CollectionDisplay<T>	public void Select(T item) { }	A	cpp2il CollectionDisplay.cs:1120；RVA 0x15ED860 处是真实机器码（首字节 48 89 6c 24 …）	cpp2il 体内有 "Method not found" 空洞，需 VA 补
+CollectionDisplay<T>	public void UpdateCollection(List<T> collection) { }	A	cpp2il CollectionDisplay.cs:650；RVA 0x15EED80 处是真实机器码（首字节 40 53 48 83 …）	
+CollectionFilter<T>	protected void NotifyChange() { }	A	cpp2il CollectionFilter.cs:32；RVA 0x15F15A0 处是真实机器码（首字节 48 83 ec 28 …）	cpp2il 体内有 "Method not found" 空洞，需 VA 补
+CollectionFilter<T>	public virtual void OnFilterChange() { }	A	cpp2il CollectionFilter.cs:17；RVA 0x15F1600 处是真实机器码（首字节 48 83 ec 28 …）	cpp2il 体内有 "Method not found" 空洞，需 VA 补
+CollectionFilter<T>	public virtual void SetupFilter(CollectionFilterController<T> controller) { }	A	cpp2il CollectionFilter.cs:9；RVA 0x4D20F0 处是真实机器码（首字节 48 83 c1 20 …）	
+CollectionFilterController<T>	private void <Toggle>b__9_0() { }	A	cpp2il CollectionFilterController.cs:819；RVA 0x15F1090 处是真实机器码（首字节 48 83 ec 28 …）	
+CollectionFilterController<T>	public List<T> Filter(List<T> collection) { }	A	cpp2il CollectionFilterController.cs:575；RVA 0x15EF810 处是真实机器码（首字节 48 89 5c 24 …）	cpp2il 体内有 "Method not found" 空洞，需 VA 补
+CollectionFilterController<T>	public virtual void SetupFilters() { }	A	cpp2il CollectionFilterController.cs:205；RVA 0x15F0740 处是真实机器码（首字节 48 89 5c 24 …）	cpp2il 体内有 "Method not found" 空洞，需 VA 补
+CollectionFilterController<T>	public virtual void Toggle(bool option, bool withAnimation) { }	A	cpp2il CollectionFilterController.cs:154；RVA 0x15F0D30 处是真实机器码（首字节 48 89 5c 24 …）	
+CollectionFilterController<T>	public void ClearFilters() { }	A	cpp2il CollectionFilterController.cs:641；RVA 0x15EF6B0 处是真实机器码（首字节 48 89 5c 24 …）	cpp2il 体内有 "Method not found" 空洞，需 VA 补
+CollectionFilterController<T>	public void NotifyFilterChange() { }	A	cpp2il CollectionFilterController.cs:314；RVA 0x15F01A0 处是真实机器码（首字节 48 89 5c 24 …）	cpp2il 体内有 "Method not found" 空洞，需 VA 补
+CollectionItem<T>	private void OnDisable() { }	A	cpp2il CollectionItem.cs:193；RVA 0x15F2080 处是真实机器码（首字节 48 89 5c 24 …）	cpp2il 体内有 "Method not found" 空洞，需 VA 补
+CollectionItem<T>	private void OnEnable() { }	A	cpp2il CollectionItem.cs:70；RVA 0x15F24D0 处是真实机器码（首字节 48 89 5c 24 …）	cpp2il 体内有 "Method not found" 空洞，需 VA 补
+CollectionItem<T>	private void OnEndDragEvent(Transform obj) { }	A	cpp2il CollectionItem.cs:188；RVA 0x15F2950 处是真实机器码（首字节 c6 41 40 01 …）	
+CollectionItem<T>	private void OnStartDragEvent(Transform obj) { }	A	cpp2il CollectionItem.cs:183；RVA 0x54B310 处是真实机器码（首字节 c6 41 40 00 …）	
+CollectionItem<T>	public static T op_Implicit(CollectionItem<T> collectable) { }	A	cpp2il CollectionItem.cs:444；RVA 0x15F33A0 处是真实机器码（首字节 40 53 48 83 …）	
+CollectionItem<T>	public virtual void OnDeselect() { }	A	cpp2il CollectionItem.cs:401；RVA 0x15F1DE0 处是真实机器码（首字节 80 79 30 00 …）	
+CollectionItem<T>	public virtual void OnPointerClick(PointerEventData eventData) { }	A	cpp2il CollectionItem.cs:303；RVA 0x15F2B80 处是真实机器码（首字节 48 89 5c 24 …）	cpp2il 体内有 "Method not found" 空洞，需 VA 补
+CollectionItem<T>	public virtual void OnSelect() { }	A	cpp2il CollectionItem.cs:392；RVA 0x15F3020 处是真实机器码（首字节 80 79 30 00 …）	
+CollectionItem<T>	public void Config(T item, CollectionDisplay<T> display, bool animate, bool isSelected) { }	A	cpp2il CollectionItem.cs:40；RVA 0x15F1B10 处是真实机器码（首字节 48 89 5c 24 …）	
+CollectionItem<T>	public void OnBeginDrag(PointerEventData eventData) { }	A	cpp2il CollectionItem.cs:323；RVA 0x15F1D20 处是真实机器码（首字节 48 89 5c 24 …）	
+CollectionItem<T>	public void OnDrag(PointerEventData eventData) { }	A	cpp2il CollectionItem.cs:346；RVA 0x15F2410 处是真实机器码（首字节 48 89 5c 24 …）	
+CollectionItem<T>	public void OnEndDrag(PointerEventData eventData) { }	A	cpp2il CollectionItem.cs:369；RVA 0x15F2AC0 处是真实机器码（首字节 48 89 5c 24 …）	
+CollectionItem<T>	public void OnPointerEnter(PointerEventData eventData) { }	A	cpp2il CollectionItem.cs:431；RVA 0x15F2ED0 处是真实机器码（首字节 48 89 5c 24 …）	
+CollectionItem<T>	public void OnPointerExit(PointerEventData eventData) { }	A	cpp2il CollectionItem.cs:422；RVA 0x15F2F60 处是真实机器码（首字节 80 79 31 00 …）	
+CollectionItem<T>	public void ToggleDrag(bool state) { }	A	cpp2il CollectionItem.cs:168；RVA 0x15F3140 处是真实机器码（首字节 48 89 74 24 …）	
+CollectionTab<T>	protected List<ICell> GetItems() { }	A	cpp2il CollectionTab.cs:11；RVA 0x15F39D0 处是真实机器码（首字节 48 83 ec 28 …）	
+CollectionTab<T>	public override void Setup(GameWindow window) { }	A	cpp2il CollectionTab.cs:30；RVA 0x15F3C00 处是真实机器码（首字节 40 53 57 41 …）	cpp2il 体内有 "Method not found" 空洞，需 VA 补
+ContainerBuilder<TCont>	private static TCont MakeContainer(IContainerProvider evt, UiContainer container, Transform parent) { }	A	cpp2il ContainerBuilder.cs:106；RVA 0x16894E0 处是真实机器码（首字节 48 89 5c 24 …）	cpp2il 体内有 "Method not found" 空洞，需 VA 补
+ContainerBuilder<TCont>	public static TCont MakeContainer(IContainerProvider evt, EventComponentReferenceType componentReferenceType, Transform parent) { }	A	cpp2il ContainerBuilder.cs:106；RVA 0x1689610 处是真实机器码（首字节 48 89 6c 24 …）	cpp2il 体内有 "Method not found" 空洞，需 VA 补
+ContainerBuilder<TCont>	public static TCont MakeContainer(IContainerProvider evt, Transform parent) { }	A	cpp2il ContainerBuilder.cs:8；RVA 0x16893E0 处是真实机器码（首字节 48 89 6c 24 …）	cpp2il 体内有 "Method not found" 空洞，需 VA 补
+Decorator<T>	private void Awake() { }	A	cpp2il Decorator.cs:9；RVA 0x1694D60 处是真实机器码（首字节 40 53 48 83 …）	cpp2il 体内有 "Method not found" 空洞，需 VA 补
+Decorator<T>	private void OnDecorableUpdated(object sender, EventArgs e) { }	A	cpp2il Decorator.cs:20；RVA 0x1694E70 处是真实机器码（首字节 48 89 5c 24 …）	cpp2il 体内有 "Method not found" 空洞，需 VA 补
+Decorator<T>	private void OnDisable() { }	A	cpp2il Decorator.cs:70；RVA 0x1694F00 处是真实机器码（首字节 48 89 5c 24 …）	cpp2il 体内有 "Method not found" 空洞，需 VA 补
+Decorator<T>	private void OnEnable() { }	A	cpp2il Decorator.cs:58；RVA 0x1695160 处是真实机器码（首字节 48 89 5c 24 …）	cpp2il 体内有 "Method not found" 空洞，需 VA 补
+Draggable<T>	public void OnDrag() { }	A	cpp2il Draggable.cs:33；RVA 0x1815720 处是真实机器码（首字节 48 83 ec 28 …）	
+Draggable<T>	public void OnRelease() { }	A	cpp2il Draggable.cs:39；RVA 0x15F1090 处是真实机器码（首字节 48 83 ec 28 …）	
+DraggableController<T>	private void <OnEndDrag>b__6_2(IDropHandler<T> droppable) { }	A	cpp2il DraggableController.cs:494；RVA 0x18155E0 处是真实机器码（首字节 48 89 5c 24 …）	cpp2il 体内有 "Method not found" 空洞，需 VA 补
+DraggableController<T>	public void OnBeginDrag(PointerEventData eventData) { }	A	cpp2il DraggableController.cs:153；RVA 0x1814690 处是真实机器码（首字节 48 89 5c 24 …）	
+DraggableController<T>	public void OnDrag(PointerEventData eventData) { }	A	cpp2il DraggableController.cs:179；RVA 0x1814790 处是真实机器码（首字节 48 89 5c 24 …）	
+DraggableController<T>	public void OnEndDrag(PointerEventData eventData) { }	A	cpp2il DraggableController.cs:211；RVA 0x1814E90 处是真实机器码（首字节 48 89 5c 24 …）	cpp2il 体内有 "Method not found" 空洞，需 VA 补
+DraggableController<T>	public void SetDraggable(T content) { }	A	cpp2il DraggableController.cs:143；RVA 0x18153A0 处是真实机器码（首字节 48 83 ec 28 …）	
+DynamicList<T>	public IReadOnlyList<T> GetList() { }	A	cpp2il DynamicList.cs:198；RVA 0x4B8D90 处是真实机器码（首字节 48 8b 41 10 …）	
+DynamicList<T>	public List<T1> GetAll<T1>() { }	A	cpp2il DynamicList.cs:321；RVA 0xB8E0A0 处是真实机器码（首字节 48 89 5c 24 …）	cpp2il 体内有 "Method not found" 空洞，需 VA 补
+DynamicList<T>	public T1 Get<T1>(T element) { }	A	cpp2il DynamicList.cs:269；RVA 0xB8E490 处是真实机器码（首字节 48 89 5c 24 …）	cpp2il 体内有 "Method not found" 空洞，需 VA 补
+DynamicList<T>	public T1 Get<T1>(int index) { }	A	cpp2il DynamicList.cs:269；RVA 0xB8E3A0 处是真实机器码（首字节 48 89 5c 24 …）	cpp2il 体内有 "Method not found" 空洞，需 VA 补
+DynamicList<T>	public int IndexOf(T element) { }	A	cpp2il DynamicList.cs:582；RVA 0x1823710 处是真实机器码（首字节 48 83 ec 28 …）	
+DynamicList<T>	public override Type GetIndexType(int index) { }	A	cpp2il DynamicList.cs:211；RVA 0x18236D0 处是真实机器码（首字节 48 83 ec 28 …）	cpp2il 体内有 "Method not found" 空洞，需 VA 补
+DynamicList<T>	public override Type ListType() { }	A	cpp2il DynamicList.cs:203；RVA 0x10175C0 处是真实机器码（首字节 40 53 48 83 …）	
+DynamicList<T>	public void Add(T element) { }	A	cpp2il DynamicList.cs:555；RVA 0x1823650 处是真实机器码（首字节 48 83 ec 28 …）	
+DynamicList<T>	public void Clear() { }	A	cpp2il DynamicList.cs:593；RVA 0x1133CD0 处是真实机器码（首字节 48 83 ec 28 …）	
+DynamicList<T>	public void Inser(T element, int index) { }	A	cpp2il DynamicList.cs:577；RVA 0x1823740 处是真实机器码（首字节 48 83 ec 28 …）	
+DynamicList<T>	public void Remove(T element) { }	A	cpp2il DynamicList.cs:605；RVA 0x18237B0 处是真实机器码（首字节 48 83 ec 28 …）	
+DynamicList<T>	public void RemoveAt(int index) { }	A	cpp2il DynamicList.cs:610；RVA 0x1823780 处是真实机器码（首字节 48 83 ec 28 …）	
+Everguild.Addressables.AssetReferenceTyped<TObject>	public TObject Load(AddressableCacheGroup cacheGroup = 1) { }	A	cpp2il Everguild.Addressables/AssetReferenceTyped.cs:43；RVA 0x1287CB0 处是真实机器码（首字节 48 89 5c 24 …）	[P3] cpp2il 体内有 "Method not found" 空洞，需 VA 补；Addressables 远程资源引用
+Everguild.Addressables.AssetReferenceTyped<TObject>	public override bool ValidateAsset(Object obj) { }	A	cpp2il Everguild.Addressables/AssetReferenceTyped.cs:16；RVA 0x1287DB0 处是真实机器码（首字节 48 89 5c 24 …）	[P3] cpp2il 体内有 "Method not found" 空洞，需 VA 补；Addressables 远程资源引用
+Everguild.Addressables.AssetReferenceTyped<TObject>	public override bool ValidateAsset(string path) { }	A	cpp2il Everguild.Addressables/AssetReferenceTyped.cs:16；RVA 0x6FB110 处是真实机器码（首字节 32 c0 c3 cc …）	[P3] cpp2il 体内有 "Method not found" 空洞，需 VA 补；Addressables 远程资源引用
+Everguild.Addressables.AssetReferenceTyped<TObject>	public void Release(AddressableCacheGroup cacheGroup = 1, bool releaseAll = False) { }	A	cpp2il Everguild.Addressables/AssetReferenceTyped.cs:56；RVA 0x1287D30 处是真实机器码（首字节 48 89 5c 24 …）	[P3] Addressables 远程资源引用
+Everguild.Addressables.ComponentReference<TComponent>	private AsyncOperationHandle<TComponent> GameObjectReady(AsyncOperationHandle<GameObject> arg) { }	A	cpp2il Everguild.Addressables/ComponentReference.cs:231；RVA 0x1665810 处是真实机器码（首字节 48 89 5c 24 …）	[P3] cpp2il 体内有 "Method not found" 空洞，需 VA 补；Addressables 远程资源引用
+Everguild.Addressables.ComponentReference<TComponent>	public AsyncOperationHandle<TComponent> InstantiateAsync(Transform parent, bool instantiateInWorldSpace = False) { }	A	cpp2il Everguild.Addressables/ComponentReference.cs:98；RVA 0x1665910 处是真实机器码（首字节 48 89 5c 24 …）	[P3] cpp2il 体内有 "Method not found" 空洞，需 VA 补；Addressables 远程资源引用
+Everguild.Addressables.ComponentReference<TComponent>	public AsyncOperationHandle<TComponent> InstantiateAsync(Vector3 position, Quaternion rotation, Transform parent) { }	A	cpp2il Everguild.Addressables/ComponentReference.cs:20；RVA 0x1665B30 处是真实机器码（首字节 48 89 5c 24 …）	[P3] cpp2il 体内有 "Method not found" 空洞，需 VA 补；Addressables 远程资源引用
+Everguild.Addressables.ComponentReference<TComponent>	public AsyncOperationHandle<TComponent> LoadAssetAsync() { }	A	cpp2il Everguild.Addressables/ComponentReference.cs:172；RVA 0x1665DA0 处是真实机器码（首字节 48 89 5c 24 …）	[P3] cpp2il 体内有 "Method not found" 空洞，需 VA 补；Addressables 远程资源引用
+Everguild.Addressables.ComponentReference<TComponent>	public TComponent Load() { }	A	cpp2il Everguild.Addressables/ComponentReference.cs:323；RVA 0x1665F20 处是真实机器码（首字节 48 89 5c 24 …）	[P3] cpp2il 体内有 "Method not found" 空洞，需 VA 补；Addressables 远程资源引用
+Everguild.Addressables.ComponentReference<TComponent>	public override bool ValidateAsset(Object obj) { }	A	cpp2il Everguild.Addressables/ComponentReference.cs:261；RVA 0x1666110 处是真实机器码（首字节 48 89 5c 24 …）	[P3] cpp2il 体内有 "Method not found" 空洞，需 VA 补；Addressables 远程资源引用
+Everguild.Addressables.ComponentReference<TComponent>	public override bool ValidateAsset(string path) { }	A	cpp2il Everguild.Addressables/ComponentReference.cs:261；RVA 0x6FB110 处是真实机器码（首字节 32 c0 c3 cc …）	[P3] cpp2il 体内有 "Method not found" 空洞，需 VA 补；Addressables 远程资源引用
+Everguild.Addressables.ComponentReference<TComponent>	public override void ReleaseAsset() { }	A	cpp2il Everguild.Addressables/ComponentReference.cs:302；RVA 0x1665F90 处是真实机器码（首字节 48 89 5c 24 …）	[P3] cpp2il 体内有 "Method not found" 空洞，需 VA 补；Addressables 远程资源引用
+Everguild.Addressables.ComponentReference<TComponent>	public void Release(AddressableCacheGroup cacheGroup = 1) { }	A	cpp2il Everguild.Addressables/ComponentReference.cs:296；RVA 0x16660A0 处是真实机器码（首字节 48 89 5c 24 …）	[P3] Addressables 远程资源引用
+Everguild.Addressables.ReferenceList<T>	private void LoadReferences() { }	A	cpp2il Everguild.Addressables/ReferenceList.cs:161；RVA 0x1223290 处是真实机器码（首字节 48 89 5c 24 …）	[P3] cpp2il 体内有 "Method not found" 空洞，需 VA 补；Addressables 远程资源引用
+Everguild.Addressables.ReferenceList<T>	public static List<T> op_Implicit(ReferenceList<T> list) { }	A	cpp2il Everguild.Addressables/ReferenceList.cs:303；RVA 0x12234C0 处是真实机器码（首字节 40 53 48 83 …）	[P3] cpp2il 体内有 "Method not found" 空洞，需 VA 补；Addressables 远程资源引用
+Everguild.LiveOps.BaseInboxEvent<TSave,	private void <ClaimRewards>g__OnComplete|7_0(CollectedRewardsResult rewards) { }	A	cpp2il Everguild.LiveOps/BaseInboxEvent.cs:599；RVA 0x15897F0 处是真实机器码（首字节 48 89 6c 24 …）	[P3] 服务器收件箱事件
+Everguild.LiveOps.BaseInboxEvent<TSave,	public bool IsRead() { }	A	cpp2il Everguild.LiveOps/BaseInboxEvent.cs:533；RVA 0x1589740 处是真实机器码（首字节 48 83 ec 28 …）	[P3] 服务器收件箱事件
+Everguild.LiveOps.BaseInboxEvent<TSave,	public long StartDate() { }	A	cpp2il Everguild.LiveOps/BaseInboxEvent.cs:550；RVA 0x15897C0 处是真实机器码（首字节 48 83 ec 28 …）	[P3] 服务器收件箱事件
+Everguild.LiveOps.BaseInboxEvent<TSave,	public override string GetMessage() { }	A	cpp2il Everguild.LiveOps/BaseInboxEvent.cs:218；RVA 0x15892B0 处是真实机器码（首字节 40 53 48 83 …）	[P3] 服务器收件箱事件
+Everguild.LiveOps.BaseInboxEvent<TSave,	public override string GetTitle() { }	A	cpp2il Everguild.LiveOps/BaseInboxEvent.cs:152；RVA 0x1589550 处是真实机器码（首字节 48 89 5c 24 …）	[P3] 服务器收件箱事件
+Everguild.LiveOps.BaseInboxEvent<TSave,	public virtual DateTime RedeemableAt() { }	A	cpp2il Everguild.LiveOps/BaseInboxEvent.cs:474；RVA 0x1589770 处是真实机器码（首字节 48 83 ec 28 …）	[P3] 服务器收件箱事件
+Everguild.LiveOps.BaseInboxEvent<TSave,	public virtual LocalizedMessage GetMessageContent() { }	A	cpp2il Everguild.LiveOps/BaseInboxEvent.cs:286；RVA 0x1588FE0 处是真实机器码（首字节 48 89 5c 24 …）	[P3] cpp2il 体内有 "Method not found" 空洞，需 VA 补；服务器收件箱事件
+Everguild.LiveOps.BaseInboxEvent<TSave,	public virtual RewardInfo[] GetRewards() { }	A	cpp2il Everguild.LiveOps/BaseInboxEvent.cs:479；RVA 0x15894A0 处是真实机器码（首字节 40 53 48 83 …）	[P3] cpp2il 体内有 "Method not found" 空洞，需 VA 补；服务器收件箱事件
+Everguild.LiveOps.BaseInboxEvent<TSave,	public virtual void ClaimRewards() { }	A	cpp2il Everguild.LiveOps/BaseInboxEvent.cs:577；RVA 0x1588E80 处是真实机器码（首字节 48 89 6c 24 …）	[P3] cpp2il 体内有 "Method not found" 空洞，需 VA 补；服务器收件箱事件
+Everguild.LiveOps.Config.ConfigProvider<T>	protected virtual T UnpackInternal(Dictionary<string, string> titleData) { }	A	cpp2il Everguild.LiveOps.Config/ConfigProvider.cs:60；RVA 0x1682730 处是真实机器码（首字节 48 89 5c 24 …）	[P3] cpp2il 体内有 "Method not found" 空洞，需 VA 补；远端配置下发
+Everguild.LiveOps.Config.ConfigProvider<T>	protected virtual void OnDestroy() { }	A	cpp2il Everguild.LiveOps.Config/ConfigProvider.cs:112；RVA 0x16826E0 处是真实机器码（首字节 40 53 48 83 …）	[P3] cpp2il 体内有 "Method not found" 空洞，需 VA 补；远端配置下发
+Everguild.LiveOps.Config.ConfigProvider<T>	public virtual void Initialize(Dictionary<string, string> titleData) { }	A	cpp2il Everguild.LiveOps.Config/ConfigProvider.cs:51；RVA 0x16826B0 处是真实机器码（首字节 40 53 48 83 …）	[P3] 远端配置下发
+Everguild.LiveOps.DraftEventBase<TS,	private List<RawCardScript> GetPossibleWarlords() { }	A	cpp2il Everguild.LiveOps/DraftEventBase.cs:2933；RVA 0x18109D0 处是真实机器码（首字节 48 89 5c 24 …）	[P3] cpp2il 体内有 "Method not found" 空洞，需 VA 补；LiveOps 事件编排（PlayFab 云脚本驱动）
+Everguild.LiveOps.DraftEventBase<TS,	private bool <GetPossibleWarlords>b__20_1(RawCardScript warlord) { }	A	cpp2il Everguild.LiveOps/DraftEventBase.cs:5170；RVA 0x1813F80 处是真实机器码（首字节 48 89 5c 24 …）	[P3] LiveOps 事件编排（PlayFab 云脚本驱动）
+Everguild.LiveOps.DraftEventBase<TS,	private bool <GetRandomWarlords>b__19_1(RawCardScript wl) { }	A	cpp2il Everguild.LiveOps/DraftEventBase.cs:5153；RVA 0x1813FF0 处是真实机器码（首字节 48 89 5c 24 …）	[P3] LiveOps 事件编排（PlayFab 云脚本驱动）
+Everguild.LiveOps.DraftEventBase<TS,	private static List<LoadableReference<RawCardScript>> GetCardsFromPacks(DraftEventSaveGame desiredSaveGame) { }	A	cpp2il Everguild.LiveOps/DraftEventBase.cs:1361；RVA 0x180FC00 处是真实机器码（首字节 48 89 5c 24 …）	[P3] LiveOps 事件编排（PlayFab 云脚本驱动）
+Everguild.LiveOps.DraftEventBase<TS,	private void <SelectEvent>b__9_0() { }	A	cpp2il Everguild.LiveOps/DraftEventBase.cs:5147；RVA 0x1814060 处是真实机器码（首字节 48 83 ec 28 …）	[P3] cpp2il 体内有 "Method not found" 空洞，需 VA 补；LiveOps 事件编排（PlayFab 云脚本驱动）
+Everguild.LiveOps.DraftEventBase<TS,	private void SaveCards(TS desiredSaveGame, List<LoadableReference<RawCardScript>> cardsToSave, string eventIDToUse, Action onSuccess, Action onFail) { }	A	cpp2il Everguild.LiveOps/DraftEventBase.cs:1943；RVA 0x1813870 处是真实机器码（首字节 48 89 6c 24 …）	[P3] cpp2il 体内有 "Method not found" 空洞，需 VA 补；LiveOps 事件编排（PlayFab 云脚本驱动）
+Everguild.LiveOps.DraftEventBase<TS,	protected override bool Validate(TS save) { }	A	cpp2il Everguild.LiveOps/DraftEventBase.cs:1318；RVA 0x18143F0 处是真实机器码（首字节 48 89 5c 24 …）	[P3] cpp2il 体内有 "Method not found" 空洞，需 VA 补；LiveOps 事件编排（PlayFab 云脚本驱动）
+Everguild.LiveOps.DraftEventBase<TS,	protected override void OnMatchFinished(float matchWon, RankedMatchResult result, Action<OnlineMatchResult> callback) { }	A	cpp2il Everguild.LiveOps/DraftEventBase.cs:2030；RVA 0x18120F0 处是真实机器码（首字节 48 89 5c 24 …）	[P3] cpp2il 体内有 "Method not found" 空洞，需 VA 补；LiveOps 事件编排（PlayFab 云脚本驱动）
+Everguild.LiveOps.DraftEventBase<TS,	protected override void OnMatchFound(string otherPlayerName) { }	A	cpp2il Everguild.LiveOps/DraftEventBase.cs:2020；RVA 0x18124F0 处是真实机器码（首字节 48 89 5c 24 …）	[P3] cpp2il 体内有 "Method not found" 空洞，需 VA 补；LiveOps 事件编排（PlayFab 云脚本驱动）
+Everguild.LiveOps.DraftEventBase<TS,	protected override void OnMatchWon() { }	A	cpp2il Everguild.LiveOps/DraftEventBase.cs:2185；RVA 0x18125E0 处是真实机器码（首字节 48 89 5c 24 …）	[P3] cpp2il 体内有 "Method not found" 空洞，需 VA 补；LiveOps 事件编排（PlayFab 云脚本驱动）
+Everguild.LiveOps.DraftEventBase<TS,	public DraftEventData GetBaseData() { }	A	cpp2il Everguild.LiveOps/DraftEventBase.cs:4136；RVA 0x180FAA0 处是真实机器码（首字节 48 89 5c 24 …）	[P3] cpp2il 体内有 "Method not found" 空洞，需 VA 补；LiveOps 事件编排（PlayFab 云脚本驱动）
+Everguild.LiveOps.DraftEventBase<TS,	public DraftEventSaveGame GetBaseSave() { }	A	cpp2il Everguild.LiveOps/DraftEventBase.cs:4171；RVA 0x180FB50 处是真实机器码（首字节 48 89 5c 24 …）	[P3] cpp2il 体内有 "Method not found" 空洞，需 VA 补；LiveOps 事件编排（PlayFab 云脚本驱动）
+Everguild.LiveOps.DraftEventBase<TS,	public List<PrebuiltPack> GetRandomPack(RawCardScript warlord, int packCount) { }	A	cpp2il Everguild.LiveOps/DraftEventBase.cs:2197；RVA 0x18111F0 处是真实机器码（首字节 48 89 5c 24 …）	[P3] cpp2il 体内有 "Method not found" 空洞，需 VA 补；LiveOps 事件编排（PlayFab 云脚本驱动）
+Everguild.LiveOps.DraftEventBase<TS,	public List<RawCardScript> GetRandomWarlords() { }	A	cpp2il Everguild.LiveOps/DraftEventBase.cs:2353；RVA 0x18114F0 处是真实机器码（首字节 40 53 56 57 …）	[P3] cpp2il 体内有 "Method not found" 空洞，需 VA 补；LiveOps 事件编排（PlayFab 云脚本驱动）
+Everguild.LiveOps.DraftEventBase<TS,	public override CardDeck GetEventDeck() { }	A	cpp2il Everguild.LiveOps/DraftEventBase.cs:3821；RVA 0x1810280 处是真实机器码（首字节 40 55 56 57 …）	[P3] LiveOps 事件编排（PlayFab 云脚本驱动）
+Everguild.LiveOps.DraftEventBase<TS,	public override bool ValidateEventDeck(CardDeck deck, bool validateOwnership = True) { }	A	cpp2il Everguild.LiveOps/DraftEventBase.cs:4206；RVA 0x1814330 处是真实机器码（首字节 48 89 5c 24 …）	[P3] cpp2il 体内有 "Method not found" 空洞，需 VA 补；LiveOps 事件编排（PlayFab 云脚本驱动）
+Everguild.LiveOps.DraftEventBase<TS,	public override string GetMatchmakingFilter(int currentElo, int tryCount, int gamesLost) { }	A	cpp2il Everguild.LiveOps/DraftEventBase.cs:4403；RVA 0x1810840 处是真实机器码（首字节 48 89 5c 24 …）	[P3] LiveOps 事件编排（PlayFab 云脚本驱动）
+Everguild.LiveOps.DraftEventBase<TS,	public override void Expire(Action onComplete) { }	A	cpp2il Everguild.LiveOps/DraftEventBase.cs:5030；RVA 0x180F230 处是真实机器码（首字节 48 89 5c 24 …）	[P3] cpp2il 体内有 "Method not found" 空洞，需 VA 补；LiveOps 事件编排（PlayFab 云脚本驱动）
+Everguild.LiveOps.DraftEventBase<TS,	public override void LoadEventData(LiveOpsEventData data, LiveOpsEventPersistence saveGame, ILiveOpsHandler handler) { }	A	cpp2il Everguild.LiveOps/DraftEventBase.cs:1142；RVA 0x1812080 处是真实机器码（首字节 40 57 48 83 …）	[P3] cpp2il 体内有 "Method not found" 空洞，需 VA 补；LiveOps 事件编排（PlayFab 云脚本驱动）
+Everguild.LiveOps.DraftEventBase<TS,	public override void SelectEvent() { }	A	cpp2il Everguild.LiveOps/DraftEventBase.cs:1159；RVA 0x1813AB0 处是真实机器码（首字节 48 89 5c 24 …）	[P3] cpp2il 体内有 "Method not found" 空洞，需 VA 补；LiveOps 事件编排（PlayFab 云脚本驱动）
+Everguild.LiveOps.DraftEventBase<TS,	public override void SetCustomMatchOptions(RoomOptions options, int currentELO) { }	A	cpp2il Everguild.LiveOps/DraftEventBase.cs:4432；RVA 0x1813CB0 处是真实机器码（首字节 40 53 55 56 …）	[P3] cpp2il 体内有 "Method not found" 空洞，需 VA 补；LiveOps 事件编排（PlayFab 云脚本驱动）
+Everguild.LiveOps.DraftEventBase<TS,	public void CollectRewards(Action<RewardInfo[]> onSuccess, Action onError) { }	A	cpp2il Everguild.LiveOps/DraftEventBase.cs:4910；RVA 0x180F050 处是真实机器码（首字节 48 89 5c 24 …）	[P3] cpp2il 体内有 "Method not found" 空洞，需 VA 补；LiveOps 事件编排（PlayFab 云脚本驱动）
+Everguild.LiveOps.DraftEventBase<TS,	public void FinishRun(Action onFinish) { }	A	cpp2il Everguild.LiveOps/DraftEventBase.cs:4862；RVA 0x180F560 处是真实机器码（首字节 48 89 5c 24 …）	[P3] cpp2il 体内有 "Method not found" 空洞，需 VA 补；LiveOps 事件编排（PlayFab 云脚本驱动）
+Everguild.LiveOps.DraftEventBase<TS,	public void FreeEventEntrance(Action onSuccess, Action onError) { }	A	cpp2il Everguild.LiveOps/DraftEventBase.cs:4700；RVA 0x180F720 处是真实机器码（首字节 48 89 5c 24 …）	[P3] cpp2il 体内有 "Method not found" 空洞，需 VA 补；LiveOps 事件编排（PlayFab 云脚本驱动）
+Everguild.LiveOps.DraftEventBase<TS,	public void PayEventEntrance(bool is10X, Action onSuccess, Action onError) { }	A	cpp2il Everguild.LiveOps/DraftEventBase.cs:4478；RVA 0x18126F0 处是真实机器码（首字节 48 89 5c 24 …）	[P3] cpp2il 体内有 "Method not found" 空洞，需 VA 补；LiveOps 事件编排（PlayFab 云脚本驱动）
+Everguild.LiveOps.DraftEventBase<TS,	public void PickPack(PrebuiltPack pack, Action onSuccess, Action onFail) { }	A	cpp2il Everguild.LiveOps/DraftEventBase.cs:3439；RVA 0x1812A90 处是真实机器码（首字节 48 89 5c 24 …）	[P3] cpp2il 体内有 "Method not found" 空洞，需 VA 补；LiveOps 事件编排（PlayFab 云脚本驱动）
+Everguild.LiveOps.DraftEventBase<TS,	public void PickWarlord(RawCardScript warlord, Action onSuccess, Action onFail) { }	A	cpp2il Everguild.LiveOps/DraftEventBase.cs:3748；RVA 0x1813050 处是真实机器码（首字节 48 89 5c 24 …）	[P3] cpp2il 体内有 "Method not found" 空洞，需 VA 补；LiveOps 事件编排（PlayFab 云脚本驱动）
+Everguild.LiveOps.DraftEventBase<TS,	public void ReRollPack(Action onSuccess, Action onFail) { }	A	cpp2il Everguild.LiveOps/DraftEventBase.cs:3703；RVA 0x1813270 处是真实机器码（首字节 48 89 5c 24 …）	[P3] cpp2il 体内有 "Method not found" 空洞，需 VA 补；LiveOps 事件编排（PlayFab 云脚本驱动）
+Everguild.LiveOps.DraftEventBase<TS,	public void RefundRun(Action<RewardInfo[]> onComplete, Action onError) { }	A	cpp2il Everguild.LiveOps/DraftEventBase.cs:4955；RVA 0x1813450 处是真实机器码（首字节 48 89 5c 24 …）	[P3] cpp2il 体内有 "Method not found" 空洞，需 VA 补；LiveOps 事件编排（PlayFab 云脚本驱动）
+Everguild.LiveOps.DraftEventBase<TS,	public void ResetCollectedDraft(Action onComplete) { }	A	cpp2il Everguild.LiveOps/DraftEventBase.cs:1252；RVA 0x18136D0 处是真实机器码（首字节 48 89 6c 24 …）	[P3] cpp2il 体内有 "Method not found" 空洞，需 VA 补；LiveOps 事件编排（PlayFab 云脚本驱动）
+Everguild.LiveOps.DraftEventBase<TS,	public void UpdateState() { }	A	cpp2il Everguild.LiveOps/DraftEventBase.cs:4249；RVA 0x1814090 处是真实机器码（首字节 40 53 48 83 …）	[P3] LiveOps 事件编排（PlayFab 云脚本驱动）
+Everguild.LiveOps.Editor.Cache<T>	public static T op_Implicit(Cache<T> cache) { }	A	cpp2il Everguild.LiveOps.Editor/Cache.cs:406；RVA 0x15D6FB0 处是真实机器码（首字节 40 55 57 41 …）	cpp2il 体内有 "Method not found" 空洞，需 VA 补
+Everguild.LiveOps.Editor.Cache<T>	public void ForceChangedValueNotification() { }	A	cpp2il Everguild.LiveOps.Editor/Cache.cs:334；RVA 0x15D6B60 处是真实机器码（首字节 40 55 41 56 …）	cpp2il 体内有 "Method not found" 空洞，需 VA 补
+Everguild.LiveOps.Editor.Reference<T>	public static T op_Implicit(Reference<T> watchable) { }	A	cpp2il Everguild.LiveOps.Editor/Reference.cs:136；RVA 0x1223620 处是真实机器码（首字节 40 55 57 41 …）	cpp2il 体内有 "Method not found" 空洞，需 VA 补
+Everguild.LiveOps.GameNewsEvent<TPersistence,	public BaseMessageData GetBaseData() { }	A	cpp2il Everguild.LiveOps/GameNewsEvent.cs:104；RVA 0x1A65D30 处是真实机器码（首字节 48 89 5c 24 …）	[P3] cpp2il 体内有 "Method not found" 空洞，需 VA 补；LiveOps 新闻事件（远端下发）
+Everguild.LiveOps.GameNewsEvent<TPersistence,	public GameMessagePersistence GetBaseSave() { }	A	cpp2il Everguild.LiveOps/GameNewsEvent.cs:142；RVA 0x1A65DF0 处是真实机器码（首字节 48 89 5c 24 …）	[P3] cpp2il 体内有 "Method not found" 空洞，需 VA 补；LiveOps 新闻事件（远端下发）
+Everguild.LiveOps.GameNewsEvent<TPersistence,	public bool IsRead() { }	A	cpp2il Everguild.LiveOps/GameNewsEvent.cs:60；RVA 0x1589740 处是真实机器码（首字节 48 83 ec 28 …）	[P3] LiveOps 新闻事件（远端下发）
+Everguild.LiveOps.GameNewsEvent<TPersistence,	public long StartDate() { }	A	cpp2il Everguild.LiveOps/GameNewsEvent.cs:77；RVA 0x15897C0 处是真实机器码（首字节 48 83 ec 28 …）	[P3] LiveOps 新闻事件（远端下发）
+Everguild.LiveOps.GameNewsEvent<TPersistence,	public override void SelectEvent() { }	A	cpp2il Everguild.LiveOps/GameNewsEvent.cs:9；RVA 0x1A65EB0 处是真实机器码（首字节 40 53 48 83 …）	[P3] LiveOps 新闻事件（远端下发）
+Everguild.LiveOps.LiveOpsEvent<TSave,	protected virtual bool Validate(TSave save) { }	A	cpp2il Everguild.LiveOps/LiveOpsEvent.cs:877；RVA 0x4DE0E0 处是真实机器码（首字节 b0 01 c3 cc …）	[P3] LiveOps 事件基类（云存档往返）
+Everguild.LiveOps.LiveOpsEvent<TSave,	public TSave CreateNewSave(TData data) { }	A	cpp2il Everguild.LiveOps/LiveOpsEvent.cs:882；RVA 0x1016CA0 处是真实机器码（首字节 48 89 5c 24 …）	[P3] LiveOps 事件基类（云存档往返）
+Everguild.LiveOps.LiveOpsEvent<TSave,	public bool ValidateEventData(LiveOpsEventData data, LiveOpsEventPersistence save, out TData formatedData, out TSave formatedSave) { }	A	cpp2il Everguild.LiveOps/LiveOpsEvent.cs:727；RVA 0x10173D0 处是真实机器码（首字节 48 89 5c 24 …）	[P3] cpp2il 体内有 "Method not found" 空洞，需 VA 补；LiveOps 事件基类（云存档往返）
+Everguild.LiveOps.LiveOpsEvent<TSave,	public override LiveOpsEventData GetBaseData() { }	A	cpp2il Everguild.LiveOps/LiveOpsEvent.cs:645；RVA 0x4B3630 处是真实机器码（首字节 48 8b 41 18 …）	[P3] LiveOps 事件基类（云存档往返）
+Everguild.LiveOps.LiveOpsEvent<TSave,	public override LiveOpsEventPersistence GetBaseSave() { }	A	cpp2il Everguild.LiveOps/LiveOpsEvent.cs:652；RVA 0x4C68A0 处是真实机器码（首字节 48 8b 41 20 …）	[P3] LiveOps 事件基类（云存档往返）
+Everguild.LiveOps.LiveOpsEvent<TSave,	public override string GetID() { }	A	cpp2il Everguild.LiveOps/LiveOpsEvent.cs:631；RVA 0x7AE460 处是真实机器码（首字节 48 83 ec 28 …）	[P3] LiveOps 事件基类（云存档往返）
+Everguild.LiveOps.LiveOpsEvent<TSave,	public override void Initialize() { }	A	cpp2il Everguild.LiveOps/LiveOpsEvent.cs:671；RVA 0x1016E70 处是真实机器码（首字节 40 53 48 83 …）	[P3] LiveOps 事件基类（云存档往返）
+Everguild.LiveOps.LiveOpsEvent<TSave,	public override void LoadEventData(LiveOpsEventData data, LiveOpsEventPersistence saveGame, ILiveOpsHandler handler) { }	A	cpp2il Everguild.LiveOps/LiveOpsEvent.cs:701；RVA 0x1016F80 处是真实机器码（首字节 40 53 55 56 …）	[P3] cpp2il 体内有 "Method not found" 空洞，需 VA 补；LiveOps 事件基类（云存档往返）
+Everguild.LiveOps.LiveOpsEvent<TSave,	public override void ResetEventProgress() { }	A	cpp2il Everguild.LiveOps/LiveOpsEvent.cs:980；RVA 0x10170E0 处是真实机器码（首字节 48 89 5c 24 …）	[P3] LiveOps 事件基类（云存档往返）
+Everguild.LiveOps.LiveOpsEvent<TSave,	public override void SelectEvent() { }	A	cpp2il Everguild.LiveOps/LiveOpsEvent.cs:659；RVA 0x10171C0 处是真实机器码（首字节 40 53 48 83 …）	[P3] LiveOps 事件基类（云存档往返）
+Everguild.LiveOps.LiveOpsEvent<TSave,	public override void UpdateSaveGame(LiveOpsEventPersistence saveGame) { }	A	cpp2il Everguild.LiveOps/LiveOpsEvent.cs:944；RVA 0x1017340 处是真实机器码（首字节 48 89 5c 24 …）	[P3] cpp2il 体内有 "Method not found" 空洞，需 VA 补；LiveOps 事件基类（云存档往返）
+Everguild.LiveOps.LiveOpsEvent<TSave,	public sealed override long GetEndDate(bool useExpiration = False) { }	A	cpp2il Everguild.LiveOps/LiveOpsEvent.cs:1009；RVA 0x1016D10 处是真实机器码（首字节 48 89 5c 24 …）	[P3] LiveOps 事件基类（云存档往返）
+Everguild.LiveOps.LiveOpsEvent<TSave,	public void UpdateData(LiveOpsEventData data) { }	A	cpp2il Everguild.LiveOps/LiveOpsEvent.cs:903；RVA 0x1017250 处是真实机器码（首字节 48 89 6c 24 …）	[P3] cpp2il 体内有 "Method not found" 空洞，需 VA 补；LiveOps 事件基类（云存档往返）
+Everguild.LiveOps.PlayEvent<TSave,	private bool <GetEventDeck>b__26_0(CardDeck d) { }	A	cpp2il Everguild.LiveOps/PlayEvent.cs:1438；RVA 0x1128250 处是真实机器码（首字节 48 89 74 24 …）	[P3] LiveOps 对战事件编排（含匹配/云存档）
+Everguild.LiveOps.PlayEvent<TSave,	private void <CancelMatch>b__17_0() { }	A	cpp2il Everguild.LiveOps/PlayEvent.cs:1424；RVA 0x11281F0 处是真实机器码（首字节 40 53 48 83 …）	[P3] LiveOps 对战事件编排（含匹配/云存档）
+Everguild.LiveOps.PlayEvent<TSave,	private void StartMatchNoCheck(CardDeck playerDeck) { }	A	cpp2il Everguild.LiveOps/PlayEvent.cs:707；RVA 0x1127900 处是真实机器码（首字节 40 57 41 56 …）	[P3] cpp2il 体内有 "Method not found" 空洞，需 VA 补；LiveOps 对战事件编排（含匹配/云存档）
+Everguild.LiveOps.PlayEvent<TSave,	protected virtual LastOpponentInfo MakeOpponentInfo(MatchData matchData) { }	A	cpp2il Everguild.LiveOps/PlayEvent.cs:871；RVA 0x11273C0 处是真实机器码（首字节 48 89 5c 24 …）	[P3] cpp2il 体内有 "Method not found" 空洞，需 VA 补；LiveOps 对战事件编排（含匹配/云存档）
+Everguild.LiveOps.PlayEvent<TSave,	protected virtual void CheckPreviousMatch() { }	A	cpp2il Everguild.LiveOps/PlayEvent.cs:433；RVA 0x1126A30 处是真实机器码（首字节 48 89 5c 24 …）	[P3] cpp2il 体内有 "Method not found" 空洞，需 VA 补；LiveOps 对战事件编排（含匹配/云存档）
+Everguild.LiveOps.PlayEvent<TSave,	protected virtual void OnMatchDraw() { }	A	cpp2il Everguild.LiveOps/PlayEvent.cs:1068；RVA 0x1127620 处是真实机器码（首字节 48 83 ec 28 …）	[P3] LiveOps 对战事件编排（含匹配/云存档）
+Everguild.LiveOps.PlayEvent<TSave,	protected virtual void OnMatchFound(string otherPlayerName) { }	A	cpp2il Everguild.LiveOps/PlayEvent.cs:854；RVA 0x1127660 处是真实机器码（首字节 48 89 5c 24 …）	[P3] LiveOps 对战事件编排（含匹配/云存档）
+Everguild.LiveOps.PlayEvent<TSave,	protected virtual void OnMatchLost() { }	A	cpp2il Everguild.LiveOps/PlayEvent.cs:1048；RVA 0x1127770 处是真实机器码（首字节 48 83 ec 28 …）	[P3] LiveOps 对战事件编排（含匹配/云存档）
+Everguild.LiveOps.PlayEvent<TSave,	protected virtual void OnMatchWon() { }	A	cpp2il Everguild.LiveOps/PlayEvent.cs:1028；RVA 0x11277B0 处是真实机器码（首字节 48 83 ec 28 …）	[P3] LiveOps 对战事件编排（含匹配/云存档）
+Everguild.LiveOps.PlayEvent<TSave,	protected void ChangeState(PlayEventSaveGame.JoinStates stateToChange) { }	A	cpp2il Everguild.LiveOps/PlayEvent.cs:282；RVA 0x1126A10 处是真实机器码（首字节 48 83 ec 28 …）	[P3] LiveOps 对战事件编排（含匹配/云存档）
+Everguild.LiveOps.PlayEvent<TSave,	public PlayEventData GetBaseData() { }	A	cpp2il Everguild.LiveOps/PlayEvent.cs:324；RVA 0x1126CC0 处是真实机器码（首字节 48 89 5c 24 …）	[P3] cpp2il 体内有 "Method not found" 空洞，需 VA 补；LiveOps 对战事件编排（含匹配/云存档）
+Everguild.LiveOps.PlayEvent<TSave,	public PlayEventSaveGame GetBaseSave() { }	A	cpp2il Everguild.LiveOps/PlayEvent.cs:289；RVA 0x1126D60 处是真实机器码（首字节 48 89 5c 24 …）	[P3] cpp2il 体内有 "Method not found" 空洞，需 VA 补；LiveOps 对战事件编排（含匹配/云存档）
+Everguild.LiveOps.PlayEvent<TSave,	public override void Initialize() { }	A	cpp2il Everguild.LiveOps/PlayEvent.cs:359；RVA 0x11272C0 处是真实机器码（首字节 48 89 5c 24 …）	[P3] cpp2il 体内有 "Method not found" 空洞，需 VA 补；LiveOps 对战事件编排（含匹配/云存档）
+Everguild.LiveOps.PlayEvent<TSave,	public virtual CardDeck GetEventDeck() { }	A	cpp2il Everguild.LiveOps/PlayEvent.cs:1094；RVA 0x1127000 处是真实机器码（首字节 40 56 57 41 …）	[P3] cpp2il 体内有 "Method not found" 空洞，需 VA 补；LiveOps 对战事件编排（含匹配/云存档）
+Everguild.LiveOps.PlayEvent<TSave,	public virtual CardDeck GetEventDeck(CardArmy army) { }	A	cpp2il Everguild.LiveOps/PlayEvent.cs:1286；RVA 0x1126E00 处是真实机器码（首字节 48 89 5c 24 …）	[P3] cpp2il 体内有 "Method not found" 空洞，需 VA 补；LiveOps 对战事件编排（含匹配/云存档）
+Everguild.LiveOps.PlayEvent<TSave,	public virtual bool ValidateEventDeck(CardDeck deck, bool validateOwnership = True) { }	A	cpp2il Everguild.LiveOps/PlayEvent.cs:1017；RVA 0x11283B0 处是真实机器码（首字节 48 89 5c 24 …）	[P3] LiveOps 对战事件编排（含匹配/云存档）
+Everguild.LiveOps.PlayEvent<TSave,	public virtual void CancelMatch() { }	A	cpp2il Everguild.LiveOps/PlayEvent.cs:952；RVA 0x11268A0 处是真实机器码（首字节 48 89 6c 24 …）	[P3] LiveOps 对战事件编排（含匹配/云存档）
+Everguild.LiveOps.PlayEvent<TSave,	public virtual void MatchFinished(RankedMatchResult result, Action<OnlineMatchResult> onCompleted) { }	A	cpp2il Everguild.LiveOps/PlayEvent.cs:976；RVA 0x1127550 处是真实机器码（首字节 48 89 5c 24 …）	[P3] LiveOps 对战事件编排（含匹配/云存档）
+Everguild.LiveOps.PlayEvent<TSave,	public virtual void StartMatch() { }	A	cpp2il Everguild.LiveOps/PlayEvent.cs:520；RVA 0x1127DF0 处是真实机器码（首字节 40 53 56 57 …）	[P3] cpp2il 体内有 "Method not found" 空洞，需 VA 补；LiveOps 对战事件编排（含匹配/云存档）
+Everguild.LiveOps.PlayEvent<TSave,	public void SetDefaultDeck(CardDeck deck, bool upload = True) { }	A	cpp2il Everguild.LiveOps/PlayEvent.cs:1371；RVA 0x11277F0 处是真实机器码（首字节 48 89 5c 24 …）	[P3] LiveOps 对战事件编排（含匹配/云存档）
+Everguild.LiveOps.PlayEvent<TSave,	public void UploadDefaultDeck() { }	A	cpp2il Everguild.LiveOps/PlayEvent.cs:1398；RVA 0x11282D0 处是真实机器码（首字节 40 53 48 83 …）	[P3] LiveOps 对战事件编排（含匹配/云存档）
+Everguild.LiveOps.RankedEventBase<TSave,	public IRankedData GetBaseData() { }	A	cpp2il Everguild.LiveOps/RankedEventBase.cs:221；RVA 0x11854D0 处是真实机器码（首字节 48 89 5c 24 …）	[P3] cpp2il 体内有 "Method not found" 空洞，需 VA 补；LiveOps 排位事件（服务端 ELO）
+Everguild.LiveOps.RankedEventBase<TSave,	public virtual RankedV3ArmyState GetArmyState(CardArmy army, IReadOnlyList<RankedScoreBoostEvent> extraBoosts) { }	A	cpp2il Everguild.LiveOps/RankedEventBase.cs:216；RVA 0x4BD440 处是真实机器码（首字节 33 c0 c3 cc …）	[P3] LiveOps 排位事件（服务端 ELO）
+Everguild.LiveOps.RankedEventBase<TSave,	public void ToggleRankedMode(bool isRanked) { }	A	cpp2il Everguild.LiveOps/RankedEventBase.cs:256；RVA 0x1185570 处是真实机器码（首字节 48 89 5c 24 …）	[P3] LiveOps 排位事件（服务端 ELO）
+Everguild.LiveOps.ScoringEvent<TS,	public ScoringEventData GetBaseData() { }	A	cpp2il Everguild.LiveOps/ScoringEvent.cs:12；RVA 0x12447A0 处是真实机器码（首字节 48 89 5c 24 …）	[P3] cpp2il 体内有 "Method not found" 空洞，需 VA 补；LiveOps 计分事件（服务端榜单）
+Everguild.LiveOps.ScoringEvent<TS,	public virtual ScoringMilestone.State GetState(ScoringMilestone milestone) { }	A	cpp2il Everguild.LiveOps/ScoringEvent.cs:137；RVA 0x1244840 处是真实机器码（首字节 48 89 5c 24 …）	[P3] LiveOps 计分事件（服务端榜单）
+Everguild.LiveOps.ScoringEvent<TS,	public virtual bool IsMilestoneCollected(ScoringMilestone milestone) { }	A	cpp2il Everguild.LiveOps/ScoringEvent.cs:49；RVA 0x12448C0 处是真实机器码（首字节 40 57 48 83 …）	[P3] LiveOps 计分事件（服务端榜单）
+Everguild.LiveOps.ShopStore<TSave,	public ShopStoreData GetBaseData() { }	A	cpp2il Everguild.LiveOps/ShopStore.cs:409；RVA 0x12536A0 处是真实机器码（首字节 48 89 5c 24 …）	[P3] cpp2il 体内有 "Method not found" 空洞，需 VA 补；LiveOps 商店（远端下发）
+Everguild.LiveOps.ShopStore<TSave,	public ShopStorePersistence GetBaseSave() { }	A	cpp2il Everguild.LiveOps/ShopStore.cs:444；RVA 0x1253740 处是真实机器码（首字节 48 89 5c 24 …）	[P3] cpp2il 体内有 "Method not found" 空洞，需 VA 补；LiveOps 商店（远端下发）
+Everguild.LiveOps.ShopStore<TSave,	public int GetPurchaseCount(string id) { }	A	cpp2il Everguild.LiveOps/ShopStore.cs:569；RVA 0x12537E0 处是真实机器码（首字节 48 89 5c 24 …）	[P3] LiveOps 商店（远端下发）
+Everguild.LiveOps.ShopStore<TSave,	public override void Initialize() { }	A	cpp2il Everguild.LiveOps/ShopStore.cs:92；RVA 0x1253840 处是真实机器码（首字节 48 89 54 24 …）	[P3] cpp2il 体内有 "Method not found" 空洞，需 VA 补；LiveOps 商店（远端下发）
+Everguild.LiveOps.ShopStore<TSave,	public virtual void TryPurchase(IShopOffer offer, Action onComplete, Action onError) { }	A	cpp2il Everguild.LiveOps/ShopStore.cs:479；RVA 0x1253FA0 处是真实机器码（首字节 48 89 5c 24 …）	[P3] cpp2il 体内有 "Method not found" 空洞，需 VA 补；LiveOps 商店（远端下发）
+Everguild.LiveOps.ShopStore<TSave,	public void RemoveFinishedOffer() { }	A	cpp2il Everguild.LiveOps/ShopStore.cs:589；RVA 0x1253E50 处是真实机器码（首字节 40 56 48 83 …）	[P3] LiveOps 商店（远端下发）
+Everguild.LiveOps.SignalEventTrigger<T>	private void TryTrigger(T signal) { }	A	cpp2il Everguild.LiveOps/SignalEventTrigger.cs:49；RVA 0x1254A40 处是真实机器码（首字节 40 53 48 83 …）	[P3] LiveOps 远端信号触发
+Everguild.LiveOps.SignalEventTrigger<T>	public sealed override void Register(Action callback) { }	A	cpp2il Everguild.LiveOps/SignalEventTrigger.cs:22；RVA 0x12549A0 处是真实机器码（首字节 48 89 5c 24 …）	[P3] cpp2il 体内有 "Method not found" 空洞，需 VA 补；LiveOps 远端信号触发
+Everguild.LiveOps.SignalEventTrigger<T>	public sealed override void Unregister() { }	A	cpp2il Everguild.LiveOps/SignalEventTrigger.cs:67；RVA 0x1254B90 处是真实机器码（首字节 48 89 5c 24 …）	[P3] cpp2il 体内有 "Method not found" 空洞，需 VA 补；LiveOps 远端信号触发
+FastModeBaseEvent<TS,	private bool <GetEventDeck>b__12_0(CardDeck d) { }	A	cpp2il FastModeBaseEvent.cs:2188；RVA 0x1A12120 处是真实机器码（首字节 48 89 5c 24 …）	[P3] LiveOps 事件编排
+FastModeBaseEvent<TS,	private static string GetSqlFilter(int maxRating, int minRating, string guildId, bool isRanked, IEnumerable<string> blacklistedUsers, int gamesLost) { }	A	cpp2il FastModeBaseEvent.cs:946；RVA 0x1A103D0 处是真实机器码（首字节 48 89 5c 24 …）	[P3] cpp2il 体内有 "Method not found" 空洞，需 VA 补；LiveOps 事件编排
+FastModeBaseEvent<TS,	private void <>n__0(Action onComplete) { }	A	cpp2il FastModeBaseEvent.cs:2209；RVA 0x1A121B0 处是真实机器码（首字节 48 83 ec 28 …）	[P3] LiveOps 事件编排
+FastModeBaseEvent<TS,	private void RecordMatchFinished(int matchWon, int targetMilestone, int enemyMilestone, Action<OnlineMatchResult> callbackOnSuccess) { }	A	cpp2il FastModeBaseEvent.cs:2025；RVA 0x1A116B0 处是真实机器码（首字节 48 89 5c 24 …）	[P3] cpp2il 体内有 "Method not found" 空洞，需 VA 补；LiveOps 事件编排
+FastModeBaseEvent<TS,	protected override void OnMatchDraw() { }	A	cpp2il FastModeBaseEvent.cs:2169；RVA 0x1A109F0 处是真实机器码（首字节 40 53 48 83 …）	[P3] cpp2il 体内有 "Method not found" 空洞，需 VA 补；LiveOps 事件编排
+FastModeBaseEvent<TS,	protected override void OnMatchFinished(float matchWon, RankedMatchResult result, Action<OnlineMatchResult> callback) { }	A	cpp2il FastModeBaseEvent.cs:1397；RVA 0x1A10A40 处是真实机器码（首字节 48 89 5c 24 …）	[P3] cpp2il 体内有 "Method not found" 空洞，需 VA 补；LiveOps 事件编排
+FastModeBaseEvent<TS,	protected override void OnMatchFound(string otherPlayerName) { }	A	cpp2il FastModeBaseEvent.cs:1352；RVA 0x1A10E60 处是真实机器码（首字节 48 89 5c 24 …）	[P3] cpp2il 体内有 "Method not found" 空洞，需 VA 补；LiveOps 事件编排
+FastModeBaseEvent<TS,	protected override void OnMatchLost() { }	A	cpp2il FastModeBaseEvent.cs:2156；RVA 0x1A11070 处是真实机器码（首字节 40 53 48 83 …）	[P3] cpp2il 体内有 "Method not found" 空洞，需 VA 补；LiveOps 事件编排
+FastModeBaseEvent<TS,	protected override void OnMatchWon() { }	A	cpp2il FastModeBaseEvent.cs:2143；RVA 0x1A11660 处是真实机器码（首字节 40 53 48 83 …）	[P3] cpp2il 体内有 "Method not found" 空洞，需 VA 补；LiveOps 事件编排
+FastModeBaseEvent<TS,	protected virtual void OnMatchProcessSuccess(OnlineMatchResult result) { }	A	cpp2il FastModeBaseEvent.cs:1553；RVA 0x1A110C0 处是真实机器码（首字节 48 89 5c 24 …）	[P3] cpp2il 体内有 "Method not found" 空洞，需 VA 补；LiveOps 事件编排
+FastModeBaseEvent<TS,	public FastModeData GetBaseData() { }	A	cpp2il FastModeBaseEvent.cs:718；RVA 0x1A0FC70 处是真实机器码（首字节 48 89 5c 24 …）	[P3] cpp2il 体内有 "Method not found" 空洞，需 VA 补；LiveOps 事件编排
+FastModeBaseEvent<TS,	public FastModeSave GetBaseSave() { }	A	cpp2il FastModeBaseEvent.cs:1987；RVA 0x1A0FD30 处是真实机器码（首字节 48 89 5c 24 …）	[P3] cpp2il 体内有 "Method not found" 空洞，需 VA 补；LiveOps 事件编排
+FastModeBaseEvent<TS,	public override CardDeck GetEventDeck() { }	A	cpp2il FastModeBaseEvent.cs:756；RVA 0x1A0FDF0 处是真实机器码（首字节 48 89 6c 24 …）	[P3] LiveOps 事件编排
+FastModeBaseEvent<TS,	public override CardDeck GetEventDeck(CardArmy army) { }	A	cpp2il FastModeBaseEvent.cs:658；RVA 0x1A0FF80 处是真实机器码（首字节 48 89 5c 24 …）	[P3] cpp2il 体内有 "Method not found" 空洞，需 VA 补；LiveOps 事件编排
+FastModeBaseEvent<TS,	public override string GetMatchmakingFilter(int currentElo, int tryCount, int gamesLost) { }	A	cpp2il FastModeBaseEvent.cs:856；RVA 0x1A10120 处是真实机器码（首字节 48 89 74 24 …）	[P3] cpp2il 体内有 "Method not found" 空洞，需 VA 补；LiveOps 事件编排
+FastModeBaseEvent<TS,	public override void Expire(Action onComplete) { }	A	cpp2il FastModeBaseEvent.cs:1743；RVA 0x1A0F700 处是真实机器码（首字节 48 89 6c 24 …）	[P3] cpp2il 体内有 "Method not found" 空洞，需 VA 补；LiveOps 事件编排
+FastModeBaseEvent<TS,	public override void SetCustomMatchOptions(RoomOptions options, int currentElo) { }	A	cpp2il FastModeBaseEvent.cs:817；RVA 0x1A11AE0 处是真实机器码（首字节 48 89 5c 24 …）	[P3] cpp2il 体内有 "Method not found" 空洞，需 VA 补；LiveOps 事件编排
+FastModeBaseEvent<TS,	public virtual ArmyStatsV3 GetArmyStats(CardArmy army) { }	A	cpp2il FastModeBaseEvent.cs:463；RVA 0x1A0FBE0 处是真实机器码（首字节 48 89 5c 24 …）	[P3] LiveOps 事件编排
+FastModeBaseEvent<TS,	public virtual RankedV3ArmyState GetArmyState(CardArmy army, IReadOnlyList<RankedScoreBoostEvent> extraBoosts) { }	A	cpp2il FastModeBaseEvent.cs:482；RVA 0x1A0F8D0 处是真实机器码（首字节 48 89 5c 24 …）	[P3] cpp2il 体内有 "Method not found" 空洞，需 VA 补；LiveOps 事件编排
+FastModeBaseEvent<TS,	public void TryCollect(Action onComplete) { }	A	cpp2il FastModeBaseEvent.cs:1794；RVA 0x1A11D20 处是真实机器码（首字节 48 89 5c 24 …）	[P3] cpp2il 体内有 "Method not found" 空洞，需 VA 补；LiveOps 事件编排
+INotificationProvider<T>	public virtual IEnumerable<T> CheckNotification() { }	A	cpp2il INotificationProvider.cs:29；RVA 0x1AB0F10 处是真实机器码（首字节 48 8b 42 20 …）	cpp2il 体内有 "Method not found" 空洞，需 VA 补
+IdentifiableWrapper<T>	public override string GetID() { }	A	cpp2il IdentifiableWrapper.cs:149；RVA 0x1AB1740 处是真实机器码（首字节 40 53 48 83 …）	cpp2il 体内有 "Method not found" 空洞，需 VA 补
+IdentifiableWrapper<T>	public static T op_Implicit(IdentifiableWrapper<T> instanceRef) { }	A	cpp2il IdentifiableWrapper.cs:220；RVA 0x1AB18E0 处是真实机器码（首字节 48 83 ec 28 …）	
+Inventory<T>	private void OnItemCountModifyInternal(IIdentifiable itemChanged, int amountChanged) { }	A	cpp2il Inventory.cs:1055；RVA 0x1AE5150 处是真实机器码（首字节 48 89 5c 24 …）	cpp2il 体内有 "Method not found" 空洞，需 VA 补
+Inventory<T>	protected virtual void UpdateItemCollection() { }	A	cpp2il Inventory.cs:685；RVA 0x1AE5600 处是真实机器码（首字节 48 89 5c 24 …）	cpp2il 体内有 "Method not found" 空洞，需 VA 补
+Inventory<T>	public IEnumerable<IItemInfo<T>> GetWhere(Func<T, bool> predicate) { }	A	cpp2il Inventory.cs:1748；RVA 0x1AE4610 处是真实机器码（首字节 48 89 5c 24 …）	cpp2il 体内有 "Method not found" 空洞，需 VA 补
+Inventory<T>	public IItemInfo<T> Get(Func<T, bool> predicate) { }	A	cpp2il Inventory.cs:1689；RVA 0x1AE4D40 处是真实机器码（首字节 48 89 5c 24 …）	cpp2il 体内有 "Method not found" 空洞，需 VA 补
+Inventory<T>	public IItemInfo<T> Get(IIdentifiable item, bool autoCreate = False) { }	A	cpp2il Inventory.cs:1619；RVA 0x1AE4BB0 处是真实机器码（首字节 48 89 5c 24 …）	cpp2il 体内有 "Method not found" 空洞，需 VA 补
+Inventory<T>	public IItemInfo<T> Get(string id) { }	A	cpp2il Inventory.cs:1689；RVA 0x1AE4D20 处是真实机器码（首字节 49 8b 40 20 …）	cpp2il 体内有 "Method not found" 空洞，需 VA 补
+Inventory<T>	public bool TryGetItem(Func<T, bool> predicate, out IItemInfo<T> item) { }	A	cpp2il Inventory.cs:1458；RVA 0x1AE5490 处是真实机器码（首字节 48 89 5c 24 …）	cpp2il 体内有 "Method not found" 空洞，需 VA 补
+Inventory<T>	public bool TryGetItem(string id, out IItemInfo<T> item) { }	A	cpp2il Inventory.cs:1458；RVA 0x1AE5430 处是真实机器码（首字节 40 53 48 83 …）	cpp2il 体内有 "Method not found" 空洞，需 VA 补
+Inventory<T>	public virtual IEnumerable<IItemInfo<T>> GetItems() { }	A	cpp2il Inventory.cs:1554；RVA 0x1AE45E0 处是真实机器码（首字节 48 83 ec 28 …）	cpp2il 体内有 "Method not found" 空洞，需 VA 补
+Inventory<T>	public virtual IEnumerable<T> GetItemInstances(bool useQuantity = True) { }	A	cpp2il Inventory.cs:1566；RVA 0x1AE4370 处是真实机器码（首字节 48 89 5c 24 …）	cpp2il 体内有 "Method not found" 空洞，需 VA 补
+Inventory<T>	public virtual IItemInfo<IIdentifiable> Add(IIdentifiable item, int amount, string instanceId, Dictionary<string, string> customData, bool overrideAmount = False) { }	A	cpp2il Inventory.cs:1260；RVA 0x1AE3CD0 处是真实机器码（首字节 48 89 5c 24 …）	cpp2il 体内有 "Method not found" 空洞，需 VA 补
+Inventory<T>	public virtual IItemInfo<T> Create(IIdentifiable item, string instanceId, Dictionary<string, string> customData) { }	A	cpp2il Inventory.cs:1136；RVA 0x1AE3FA0 处是真实机器码（首字节 40 53 56 41 …）	cpp2il 体内有 "Method not found" 空洞，需 VA 补
+Inventory<T>	public virtual void RegisterSubset(Type type, InventorySubset set) { }	A	cpp2il Inventory.cs:1126；RVA 0x1AE5250 处是真实机器码（首字节 48 89 5c 24 …）	
+ItemDrawer<T>	protected override void Awake() { }	A	cpp2il ItemDrawer.cs:338；RVA 0x1AE9C70 处是真实机器码（首字节 40 53 48 83 …）	
+ItemDrawer<T>	protected virtual string GetItemName(T item) { }	A	cpp2il ItemDrawer.cs:888；RVA 0x6E6E80 处是真实机器码（首字节 48 83 ec 28 …）	
+ItemDrawer<T>	public override void HandlePointerClick() { }	A	cpp2il ItemDrawer.cs:955；RVA 0x1AEA100 处是真实机器码（首字节 48 89 5c 24 …）	
+ItemDrawer<T>	public override void OverrideOnClickAction(Action onClick) { }	A	cpp2il ItemDrawer.cs:880；RVA 0x519230 处是真实机器码（首字节 48 83 c1 50 …）	
+ItemDrawer<T>	public override void Refresh() { }	A	cpp2il ItemDrawer.cs:344；RVA 0x1AEA370 处是真实机器码（首字节 48 83 ec 38 …）	
+ItemDrawer<T>	public override void SetConvertedItem(RewardInfo convertedTo) { }	A	cpp2il ItemDrawer.cs:648；RVA 0x1AEA3B0 处是真实机器码（首字节 40 53 56 57 …）	cpp2il 体内有 "Method not found" 空洞，需 VA 补
+ItemDrawer<T>	public override void SetEphemeralDisplay(EphemeralState state) { }	A	cpp2il ItemDrawer.cs:752；RVA 0x1AEA690 处是真实机器码（首字节 48 89 6c 24 …）	cpp2il 体内有 "Method not found" 空洞，需 VA 补
+ItemDrawer<T>	public override void ToggleHighlight(bool toggle) { }	A	cpp2il ItemDrawer.cs:907；RVA 0x1AEA9D0 处是真实机器码（首字节 48 83 ec 28 …）	
+ItemDrawer<T>	public override void ToggleLock(bool toggle) { }	A	cpp2il ItemDrawer.cs:912；RVA 0x1AEAA00 处是真实机器码（首字节 48 83 ec 28 …）	
+ItemDrawer<T>	public sealed override void Draw(ObtainableItem item, int amount = 1, ItemDrawerOptions options) { }	A	cpp2il ItemDrawer.cs:356；RVA 0x1AE9CC0 处是真实机器码（首字节 44 89 44 24 …）	cpp2il 体内有 "Method not found" 空洞，需 VA 补
+ItemDrawer<T>	public sealed override void OverridePremiumBadge(Sprite sprite) { }	A	cpp2il ItemDrawer.cs:808；RVA 0x1AEA280 处是真实机器码（首字节 48 89 6c 24 …）	cpp2il 体内有 "Method not found" 空洞，需 VA 补
+ItemDrawer<T>	public sealed override void ToggleClaimedWarning(bool toggle) { }	A	cpp2il ItemDrawer.cs:790；RVA 0x1AEA940 处是真实机器码（首字节 48 89 5c 24 …）	cpp2il 体内有 "Method not found" 空洞，需 VA 补
+ItemDrawer<T>	public sealed override void TogglePremiumHighlight(bool toggle) { }	A	cpp2il ItemDrawer.cs:842；RVA 0x1AEAA30 处是真实机器码（首字节 48 89 6c 24 …）	cpp2il 体内有 "Method not found" 空洞，需 VA 补
+ItemDrawer<T>	public void OnPointerClick(PointerEventData eventData) { }	A	cpp2il ItemDrawer.cs:917；RVA 0x1AEA1B0 处是真实机器码（首字节 40 53 48 83 …）	
+ItemDrawer<T>	public void SetItemName(string newName) { }	A	cpp2il ItemDrawer.cs:628；RVA 0x1AEA8E0 处是真实机器码（首字节 40 53 48 83 …）	cpp2il 体内有 "Method not found" 空洞，需 VA 补
+ItemInfo<T>	public IItemInfo<TOut> Convert<TOut>() { }	A	cpp2il ItemInfo.cs:144；RVA 0xB8FCC0 处是真实机器码（首字节 48 89 5c 24 …）	cpp2il 体内有 "Method not found" 空洞，需 VA 补
+ItemInfo<T>	public virtual void Add(int amount, string instanceId) { }	A	cpp2il ItemInfo.cs:226；RVA 0x1AEAD70 处是真实机器码（首字节 48 89 5c 24 …）	
+ItemInfo<T>	public void AssignEphemeralState(EphemeralState rewardEphemeralState) { }	A	cpp2il ItemInfo.cs:252；RVA 0x1AEADC0 处是真实机器码（首字节 48 89 6c 24 …）	
+ItemInfo<T>	public void SetAmount(int amount) { }	A	cpp2il ItemInfo.cs:243；RVA 0x1AEAFA0 处是真实机器码（首字节 66 90 33 c0 …）	
+ItemInfo<T>	public void SetInfo(LoadableReference<T> setItem, int setQty, string instanceId) { }	A	cpp2il ItemInfo.cs:213；RVA 0x1AEAFB0 处是真实机器码（首字节 48 89 5c 24 …）	
+LiveOpsEventWindow<T>	protected override void SetupData(object data, GameWindowOptions options) { }	A	cpp2il LiveOpsEventWindow.cs:224；RVA 0x1016C10 处是真实机器码（首字节 48 89 5c 24 …）	cpp2il 体内有 "Method not found" 空洞，需 VA 补
+LiveOpsEventWindow<T>	protected virtual void OnRefresh() { }	A	cpp2il LiveOpsEventWindow.cs:71；RVA 0x1016A30 处是真实机器码（首字节 40 57 41 56 …）	cpp2il 体内有 "Method not found" 空洞，需 VA 补
+LiveOpsEventWindow<T>	public override void Close() { }	A	cpp2il LiveOpsEventWindow.cs:208；RVA 0x1016820 处是真实机器码（首字节 48 89 5c 24 …）	cpp2il 体内有 "Method not found" 空洞，需 VA 补
+LiveOpsEventWindow<T>	public sealed override void InitializeWindow(ILiveOps liveOpsEvent) { }	A	cpp2il LiveOpsEventWindow.cs:32；RVA 0x1016910 处是真实机器码（首字节 48 89 5c 24 …）	cpp2il 体内有 "Method not found" 空洞，需 VA 补
+LiveOpsEventWindowWithTabs<T>	protected override void SetupData(object data, GameWindowOptions options) { }	A	cpp2il LiveOpsEventWindowWithTabs.cs:31；RVA 0x1016780 处是真实机器码（首字节 48 89 5c 24 …）	cpp2il 体内有 "Method not found" 空洞，需 VA 补
+LiveOpsEventWindowWithTabs<T>	public sealed override void InitializeWindow(ILiveOps liveOpsEvent) { }	A	cpp2il LiveOpsEventWindowWithTabs.cs:66；RVA 0x1016700 处是真实机器码（首字节 48 89 5c 24 …）	cpp2il 体内有 "Method not found" 空洞，需 VA 补
+LiveOpsHandler<TEvent>	private void <ScheduleHandlerRefresh>b__25_0() { }	A	cpp2il LiveOpsHandler.cs:3487；RVA 0x1019BC0 处是真实机器码（首字节 48 89 5c 24 …）	[P3] cpp2il 体内有 "Method not found" 空洞，需 VA 补；LiveOps 事件编排
+LiveOpsHandler<TEvent>	private void ExpireEvent(ILiveOps newEvent, PopupOptions options, bool showExpirePopup, Action onComplete) { }	A	cpp2il LiveOpsHandler.cs:2078；RVA 0x1017C80 处是真实机器码（首字节 48 89 6c 24 …）	[P3] cpp2il 体内有 "Method not found" 空洞，需 VA 补；LiveOps 事件编排
+LiveOpsHandler<TEvent>	private void HandleBeforeRefresh() { }	A	cpp2il LiveOpsHandler.cs:2665；RVA 0x10181B0 处是真实机器码（首字节 40 53 48 83 …）	[P3] LiveOps 事件编排
+LiveOpsHandler<TEvent>	private void QueueEventPopup(ILiveOps newEvent, PopupOptions options, Action<Action> eventAction) { }	A	cpp2il LiveOpsHandler.cs:2319；RVA 0x1018490 处是真实机器码（首字节 4c 89 4c 24 …）	[P3] cpp2il 体内有 "Method not found" 空洞，需 VA 补；LiveOps 事件编排
+LiveOpsHandler<TEvent>	private void ScheduleEventPopups() { }	A	cpp2il LiveOpsHandler.cs:1606；RVA 0x1018D60 处是真实机器码（首字节 48 89 5c 24 …）	[P3] cpp2il 体内有 "Method not found" 空洞，需 VA 补；LiveOps 事件编排
+LiveOpsHandler<TEvent>	private void ScheduleHandlerRefresh(DateTime refreshTime) { }	A	cpp2il LiveOpsHandler.cs:2612；RVA 0x10191B0 处是真实机器码（首字节 48 89 5c 24 …）	[P3] LiveOps 事件编排
+LiveOpsHandler<TEvent>	private void ShowTriggerEventPopup(ILiveOps newEvent, PopupOptions options, Action onComplete) { }	A	cpp2il LiveOpsHandler.cs:1873；RVA 0x1019560 处是真实机器码（首字节 48 89 5c 24 …）	[P3] cpp2il 体内有 "Method not found" 空洞，需 VA 补；LiveOps 事件编排
+LiveOpsHandler<TEvent>	protected virtual Task RefreshHandler(LiveopsHandlerData data) { }	A	cpp2il LiveOpsHandler.cs:2656；RVA 0x10189A0 处是真实机器码（首字节 48 89 5c 24 …）	[P3] cpp2il 体内有 "Method not found" 空洞，需 VA 补；LiveOps 事件编排
+LiveOpsHandler<TEvent>	protected virtual Task SetupEvents(List<TEvent> allEvents) { }	A	cpp2il LiveOpsHandler.cs:2693；RVA 0x10194D0 处是真实机器码（首字节 48 83 ec 28 …）	[P3] LiveOps 事件编排
+LiveOpsHandler<TEvent>	protected virtual void DeserializeSharedData(JObject sharedData) { }	A	cpp2il LiveOpsHandler.cs:2523；RVA 0x1017BD0 处是真实机器码（首字节 48 89 5c 24 …）	[P3] cpp2il 体内有 "Method not found" 空洞，需 VA 补；LiveOps 事件编排
+LiveOpsHandler<TEvent>	public IEnumerable<ILiveOps> GetBaseEvents(bool includeBlockedEvents = False) { }	A	cpp2il LiveOpsHandler.cs:3135；RVA 0x1017FE0 处是真实机器码（首字节 4c 8b 01 49 …）	[P3] LiveOps 事件编排
+LiveOpsHandler<TEvent>	public IEnumerable<ILiveOps> GetBlockedEvents() { }	A	cpp2il LiveOpsHandler.cs:3149；RVA 0x4BD7A0 处是真实机器码（首字节 48 8b 41 28 …）	[P3] LiveOps 事件编排
+LiveOpsHandler<TEvent>	public T GetEvent<T>(string id) { }	A	cpp2il LiveOpsHandler.cs:3210；RVA 0xB90540 处是真实机器码（首字节 48 89 5c 24 …）	[P3] cpp2il 体内有 "Method not found" 空洞，需 VA 补；LiveOps 事件编排
+LiveOpsHandler<TEvent>	public Task RefreshHandler() { }	A	cpp2il LiveOpsHandler.cs:2638；RVA 0x1018AB0 处是真实机器码（首字节 48 89 5c 24 …）	[P3] cpp2il 体内有 "Method not found" 空洞，需 VA 补；LiveOps 事件编排
+LiveOpsHandler<TEvent>	public Task RefreshHandlerLocally() { }	A	cpp2il LiveOpsHandler.cs:2647；RVA 0x10188C0 处是真实机器码（首字节 48 89 5c 24 …）	[P3] cpp2il 体内有 "Method not found" 空洞，需 VA 补；LiveOps 事件编排
+LiveOpsHandler<TEvent>	public Task SetupEvents(List<ILiveOps> ops, List<ILiveOps> blockedEvents, JObject sharedData) { }	A	cpp2il LiveOpsHandler.cs:1597；RVA 0x1019390 处是真实机器码（首字节 48 89 5c 24 …）	[P3] cpp2il 体内有 "Method not found" 空洞，需 VA 补；LiveOps 事件编排
+LiveOpsHandler<TEvent>	public virtual IEnumerable<T> GetEvents<T>(bool includeBlockedEvents = False) { }	A	cpp2il LiveOpsHandler.cs:3113；RVA 0xB90650 处是真实机器码（首字节 48 89 5c 24 …）	[P3] LiveOps 事件编排
+LiveOpsHandler<TEvent>	public virtual IEnumerable<TEvent> GetEvents(bool includeBlockedEvents = False) { }	A	cpp2il LiveOpsHandler.cs:3093；RVA 0x1018130 处是真实机器码（首字节 48 89 5c 24 …）	[P3] LiveOps 事件编排
+LiveOpsHandler<TEvent>	public virtual TEvent GetEvent(string id) { }	A	cpp2il LiveOpsHandler.cs:3156；RVA 0x1018000 处是真实机器码（首字节 48 89 5c 24 …）	[P3] cpp2il 体内有 "Method not found" 空洞，需 VA 补；LiveOps 事件编排
+LiveOpsHandler<TEvent>	public virtual Task InitializeHandler() { }	A	cpp2il LiveOpsHandler.cs:2698；RVA 0x1018250 处是真实机器码（首字节 48 89 5c 24 …）	[P3] cpp2il 体内有 "Method not found" 空洞，需 VA 补；LiveOps 事件编排
+LiveOpsHandler<TEvent>	public virtual Task ValidateData(LiveopsHandlerData data) { }	A	cpp2il LiveOpsHandler.cs:1588；RVA 0x1019DE0 处是真实机器码（首字节 48 89 5c 24 …）	[P3] LiveOps 事件编排
+LiveOpsHandler<TEvent>	public void ClearEvents() { }	A	cpp2il LiveOpsHandler.cs:2791；RVA 0x10176B0 处是真实机器码（首字节 48 89 5c 24 …）	[P3] cpp2il 体内有 "Method not found" 空洞，需 VA 补；LiveOps 事件编排
+LiveOpsHandler<TEvent>	public void RegisterManager(LiveOpsManager manager) { }	A	cpp2il LiveOpsHandler.cs:1580；RVA 0x539760 处是真实机器码（首字节 48 83 c1 58 …）	[P3] LiveOps 事件编排
+LiveOpsHandler<TEvent>	public void ResetEvents() { }	A	cpp2il LiveOpsHandler.cs:3005；RVA 0x1018B90 处是真实机器码（首字节 48 89 5c 24 …）	[P3] cpp2il 体内有 "Method not found" 空洞，需 VA 补；LiveOps 事件编排
+LiveOpsHandler<TEvent>	public void TryScheduleHandlerRefresh(long milis) { }	A	cpp2il LiveOpsHandler.cs:2535；RVA 0x1019810 处是真实机器码（首字节 40 55 41 56 …）	[P3] cpp2il 体内有 "Method not found" 空洞，需 VA 补；LiveOps 事件编排
+LiveOpsHandler<TEvent>	public void UpdateCachedSave(LiveOpsEventPersistence saveGame) { }	A	cpp2il LiveOpsHandler.cs:1538；RVA 0x1019CB0 处是真实机器码（首字节 48 89 5c 24 …）	[P3] cpp2il 体内有 "Method not found" 空洞，需 VA 补；LiveOps 事件编排
+LoadableReference<T>	protected T GetReference() { }	A	cpp2il LoadableReference.cs:161；RVA 0x101AC80 处是真实机器码（首字节 48 89 5c 24 …）	[P3] cpp2il 体内有 "Method not found" 空洞，需 VA 补；Addressables 远程资源引用
+LoadableReference<T>	protected bool Equals(LoadableReference<T> other) { }	A	cpp2il LoadableReference.cs:653；RVA 0x101A8C0 处是真实机器码（首字节 48 89 5c 24 …）	[P3] cpp2il 体内有 "Method not found" 空洞，需 VA 补；Addressables 远程资源引用
+LoadableReference<T>	protected string GetTargetId() { }	A	cpp2il LoadableReference.cs:184；RVA 0x101AF10 处是真实机器码（首字节 40 53 48 83 …）	[P3] cpp2il 体内有 "Method not found" 空洞，需 VA 补；Addressables 远程资源引用
+LoadableReference<T>	public JToken WriteJson() { }	A	cpp2il LoadableReference.cs:780；RVA 0x101BEC0 处是真实机器码（首字节 48 89 5c 24 …）	[P3] cpp2il 体内有 "Method not found" 空洞，需 VA 补；Addressables 远程资源引用
+LoadableReference<T>	public Object GetReferenceObjEditor() { }	A	cpp2il LoadableReference.cs:808；RVA 0x101AAF0 处是真实机器码（首字节 40 53 48 83 …）	[P3] Addressables 远程资源引用
+LoadableReference<T>	public override bool Equals(object obj) { }	A	cpp2il LoadableReference.cs:653；RVA 0x101A5A0 处是真实机器码（首字节 48 89 5c 24 …）	[P3] cpp2il 体内有 "Method not found" 空洞，需 VA 补；Addressables 远程资源引用
+LoadableReference<T>	public override int GetHashCode() { }	A	cpp2il LoadableReference.cs:741；RVA 0x101AA10 处是真实机器码（首字节 48 89 5c 24 …）	[P3] cpp2il 体内有 "Method not found" 空洞，需 VA 补；Addressables 远程资源引用
+LoadableReference<T>	public static LoadableReference<T> op_Implicit(T instance) { }	A	cpp2il LoadableReference.cs:203；RVA 0x101C9D0 处是真实机器码（首字节 48 89 5c 24 …）	[P3] cpp2il 体内有 "Method not found" 空洞，需 VA 补；Addressables 远程资源引用
+LoadableReference<T>	public static LoadableReference<T> op_Implicit(string id) { }	A	cpp2il LoadableReference.cs:203；RVA 0x101C680 处是真实机器码（首字节 48 89 5c 24 …）	[P3] cpp2il 体内有 "Method not found" 空洞，需 VA 补；Addressables 远程资源引用
+LoadableReference<T>	public static T op_Implicit(LoadableReference<T> instanceRef) { }	A	cpp2il LoadableReference.cs:203；RVA 0x101C840 处是真实机器码（首字节 48 89 5c 24 …）	[P3] cpp2il 体内有 "Method not found" 空洞，需 VA 补；Addressables 远程资源引用
+LoadableReference<T>	public static bool op_Equality(LoadableReference<T> a, LoadableReference<T> b) { }	A	cpp2il LoadableReference.cs:541；RVA 0x101C3F0 处是真实机器码（首字节 48 89 5c 24 …）	[P3] cpp2il 体内有 "Method not found" 空洞，需 VA 补；Addressables 远程资源引用
+LoadableReference<T>	public static bool op_Inequality(LoadableReference<T> a, LoadableReference<T> b) { }	A	cpp2il LoadableReference.cs:603；RVA 0x101CEC0 处是真实机器码（首字节 48 89 5c 24 …）	[P3] cpp2il 体内有 "Method not found" 空洞，需 VA 补；Addressables 远程资源引用
+LoadableReference<T>	public static string op_Implicit(LoadableReference<T> instanceRef) { }	A	cpp2il LoadableReference.cs:203；RVA 0x101CB70 处是真实机器码（首字节 48 89 5c 24 …）	[P3] cpp2il 体内有 "Method not found" 空洞，需 VA 补；Addressables 远程资源引用
+LoadableReference<T>	public void OnBeforeRead(JToken rawJson) { }	A	cpp2il LoadableReference.cs:795；RVA 0x101B150 处是真实机器码（首字节 48 89 5c 24 …）	[P3] Addressables 远程资源引用
+LoadableReference<T>	public void SetReferenceById(string id) { }	A	cpp2il LoadableReference.cs:125；RVA 0x101B3D0 处是真实机器码（首字节 48 89 5c 24 …）	[P3] cpp2il 体内有 "Method not found" 空洞，需 VA 补；Addressables 远程资源引用
+LoadableReference<T>	public void SetReferenceByObject(T reference) { }	A	cpp2il LoadableReference.cs:137；RVA 0x101B650 处是真实机器码（首字节 48 89 5c 24 …）	[P3] cpp2il 体内有 "Method not found" 空洞，需 VA 补；Addressables 远程资源引用
+LoadableReference<T>	public void SetReferenceObjEditor(Object obj) { }	A	cpp2il LoadableReference.cs:842；RVA 0x101B6C0 处是真实机器码（首字节 48 89 5c 24 …）	[P3] cpp2il 体内有 "Method not found" 空洞，需 VA 补；Addressables 远程资源引用
+MissionEvent<TS,	protected MissionChallengeProgress GetProgressFor(MissionChallenge challenge) { }	A	cpp2il MissionEvent.cs:722；RVA 0x102EB40 处是真实机器码（首字节 48 89 5c 24 …）	[P3] cpp2il 体内有 "Method not found" 空洞，需 VA 补；LiveOps 任务事件编排
+MissionEvent<TS,	public DateTime GetNextRefreshTime() { }	A	cpp2il MissionEvent.cs:1009；RVA 0x102EA90 处是真实机器码（首字节 40 53 48 83 …）	[P3] LiveOps 任务事件编排
+MissionEvent<TS,	public MissionData GetBaseData() { }	A	cpp2il MissionEvent.cs:1603；RVA 0x102E8E0 处是真实机器码（首字节 48 89 5c 24 …）	[P3] cpp2il 体内有 "Method not found" 空洞，需 VA 补；LiveOps 任务事件编排
+MissionEvent<TS,	public MissionPersistence GetBaseSave() { }	A	cpp2il MissionEvent.cs:1638；RVA 0x102E990 处是真实机器码（首字节 48 89 5c 24 …）	[P3] cpp2il 体内有 "Method not found" 空洞，需 VA 补；LiveOps 任务事件编排
+MissionEvent<TS,	public bool IsActive(MissionChallenge challenge) { }	A	cpp2il MissionEvent.cs:770；RVA 0x102F080 处是真实机器码（首字节 48 89 5c 24 …）	[P3] cpp2il 体内有 "Method not found" 空洞，需 VA 补；LiveOps 任务事件编排
+MissionEvent<TS,	public override IUiContainer GetContainer() { }	A	cpp2il MissionEvent.cs:2292；RVA 0x102EA40 处是真实机器码（首字节 40 53 48 83 …）	[P3] LiveOps 任务事件编排
+MissionEvent<TS,	public override void Expire(Action onComplete) { }	A	cpp2il MissionEvent.cs:2315；RVA 0x102E650 处是真实机器码（首字节 40 56 57 41 …）	[P3] LiveOps 任务事件编排
+MissionEvent<TS,	public override void Initialize() { }	A	cpp2il MissionEvent.cs:820；RVA 0x102EE20 处是真实机器码（首字节 48 89 5c 24 …）	[P3] cpp2il 体内有 "Method not found" 空洞，需 VA 补；LiveOps 任务事件编排
+MissionEvent<TS,	public override void ReleaseContainer() { }	A	cpp2il MissionEvent.cs:2302；RVA 0x102F1C0 处是真实机器码（首字节 40 53 48 83 …）	[P3] LiveOps 任务事件编排
+MissionEvent<TS,	public override void UpdateSaveGame(LiveOpsEventPersistence save) { }	A	cpp2il MissionEvent.cs:1673；RVA 0x102FBD0 处是真实机器码（首字节 4c 89 44 24 …）	[P3] cpp2il 体内有 "Method not found" 空洞，需 VA 补；LiveOps 任务事件编排
+MissionEvent<TS,	public string LocalizedDescription(MissionChallenge challenge) { }	A	cpp2il MissionEvent.cs:710；RVA 0x102F190 处是真实机器码（首字节 48 83 ec 28 …）	[P3] cpp2il 体内有 "Method not found" 空洞，需 VA 补；LiveOps 任务事件编排
+MissionEvent<TS,	public virtual void Collect(MissionChallenge challenge, Action onComplete) { }	A	cpp2il MissionEvent.cs:1176；RVA 0x102E250 处是真实机器码（首字节 48 89 5c 24 …）	[P3] LiveOps 任务事件编排
+MissionEvent<TS,	public virtual void UpdateChallengeProgress(ChallengeUpdatePayload payload) { }	A	cpp2il MissionEvent.cs:1225；RVA 0x102F660 处是真实机器码（首字节 48 89 6c 24 …）	[P3] cpp2il 体内有 "Method not found" 空洞，需 VA 补；LiveOps 任务事件编排
+MissionEvent<TS,	public void Collect(Action onComplete) { }	A	cpp2il MissionEvent.cs:1046；RVA 0x102E320 处是真实机器码（首字节 40 55 57 41 …）	[P3] LiveOps 任务事件编排
+MissionEvent<TS,	public void DisableChallenge(MissionChallenge challenge) { }	A	cpp2il MissionEvent.cs:927；RVA 0x102E5C0 处是真实机器码（首字节 48 89 5c 24 …）	[P3] LiveOps 任务事件编排
+MissionEvent<TS,	public void InitializeChallenge(MissionChallenge challenge) { }	A	cpp2il MissionEvent.cs:938；RVA 0x102EC50 处是真实机器码（首字节 48 89 5c 24 …）	[P3] cpp2il 体内有 "Method not found" 空洞，需 VA 补；LiveOps 任务事件编排
+MissionEvent<TS,	public void RerollChallenge(MissionChallenge challenge, Action onComplete) { }	A	cpp2il MissionEvent.cs:1183；RVA 0x102F210 处是真实机器码（首字节 48 89 5c 24 …）	[P3] cpp2il 体内有 "Method not found" 空洞，需 VA 补；LiveOps 任务事件编排
+MissionEvent<TS,	public void TryCollect(Action onComplete) { }	A	cpp2il MissionEvent.cs:1462；RVA 0x102F400 处是真实机器码（首字节 40 56 57 41 …）	[P3] LiveOps 任务事件编排
+MultiKeyDictionary<T1,	public bool ContainsKey(T1 key1, T2 key2) { }	A	cpp2il MultiKeyDictionary.cs:47；RVA 0x1031F60 处是真实机器码（首字节 48 89 5c 24 …）	cpp2il 体内有 "Method not found" 空洞，需 VA 补
+Points<T>	public override string GetID() { }	A	cpp2il Points.cs:117；RVA 0x112CE30 处是真实机器码（首字节 48 8b 11 48 …）	
+Points<T>	public override void Collect(int amount) { }	A	cpp2il Points.cs:66；RVA 0x112CD30 处是真实机器码（首字节 48 89 5c 24 …）	cpp2il 体内有 "Method not found" 空洞，需 VA 补
+SingletonBehaviour<T>	protected virtual void Awake() { }	A	cpp2il SingletonBehaviour.cs:214；RVA 0x1257FE0 处是真实机器码（首字节 48 89 5c 24 …）	cpp2il 体内有 "Method not found" 空洞，需 VA 补
+SingletonBehaviour<T>	protected virtual void OnDestroy() { }	A	cpp2il SingletonBehaviour.cs:345；RVA 0x12581B0 处是真实机器码（首字节 48 89 5c 24 …）	
+SingletonInitializableBehaviour<T>	private void Awake() { }	A	cpp2il SingletonInitializableBehaviour.cs:291；RVA 0x1258550 处是真实机器码（首字节 48 89 5c 24 …）	
+SingletonInitializableBehaviour<T>	private void OnDestroy() { }	A	cpp2il SingletonInitializableBehaviour.cs:342；RVA 0x1258650 处是真实机器码（首字节 48 89 5c 24 …）	
+SingletonInitializableBehaviour<T>	public override void OnInitializationComplete() { }	A	cpp2il SingletonInitializableBehaviour.cs:214；RVA 0x1258730 处是真实机器码（首字节 48 89 5c 24 …）	cpp2il 体内有 "Method not found" 空洞，需 VA 补
+ToggleCollectionFilter<T,	private bool <Filter>b__7_2(T rc) { }	A	cpp2il ToggleCollectionFilter.cs:808；RVA 0x1366510 处是真实机器码（首字节 48 85 d2 75 …）	
+ToggleCollectionFilter<T,	private void <SetupFilter>b__5_0(bool b) { }	A	cpp2il ToggleCollectionFilter.cs:803；RVA 0x1366660 处是真实机器码（首字节 48 83 ec 28 …）	
+ToggleCollectionFilter<T,	public override List<T> Filter(List<T> collection) { }	A	cpp2il ToggleCollectionFilter.cs:330；RVA 0x1364BE0 处是真实机器码（首字节 40 55 57 41 …）	cpp2il 体内有 "Method not found" 空洞，需 VA 补
+ToggleCollectionFilter<T,	public override void ClearFilters() { }	A	cpp2il ToggleCollectionFilter.cs:611；RVA 0x13639C0 处是真实机器码（首字节 48 89 5c 24 …）	cpp2il 体内有 "Method not found" 空洞，需 VA 补
+ToggleCollectionFilter<T,	public override void FillToggleList(List<CollectionFilterToggle> currentList, int listLimit) { }	A	cpp2il ToggleCollectionFilter.cs:671；RVA 0x1364520 处是真实机器码（首字节 48 89 5c 24 …）	cpp2il 体内有 "Method not found" 空洞，需 VA 补
+ToggleCollectionFilter<T,	public override void OnFilterChange() { }	A	cpp2il ToggleCollectionFilter.cs:260；RVA 0x13658E0 处是真实机器码（首字节 48 89 5c 24 …）	cpp2il 体内有 "Method not found" 空洞，需 VA 补
+ToggleCollectionFilter<T,	public override void SetupFilter(CollectionFilterController<T> controller) { }	A	cpp2il ToggleCollectionFilter.cs:147；RVA 0x13661F0 处是真实机器码（首字节 48 89 5c 24 …）	cpp2il 体内有 "Method not found" 空洞，需 VA 补
+UiContainer<T>	protected virtual void OnDestroy() { }	A	cpp2il UiContainer.cs:369；RVA 0x1405E20 处是真实机器码（首字节 40 53 48 83 …）	cpp2il 体内有 "Method not found" 空洞，需 VA 补
+UiContainer<T>	protected void HandleClick() { }	A	cpp2il UiContainer.cs:381；RVA 0x1405540 处是真实机器码（首字节 40 53 48 83 …）	
+UiContainer<T>	public override void Initialize(object payload) { }	A	cpp2il UiContainer.cs:270；RVA 0x1405600 处是真实机器码（首字节 48 89 5c 24 …）	cpp2il 体内有 "Method not found" 空洞，需 VA 补
+UiContainer<T>	public void Initialize(T e) { }	A	cpp2il UiContainer.cs:270；RVA 0x1405DE0 处是真实机器码（首字节 48 89 5c 24 …）	cpp2il 体内有 "Method not found" 空洞，需 VA 补
+WindowTabBase<T>	public override void Setup(GameWindow window) { }	A	cpp2il WindowTabBase.cs:26；RVA 0x1572630 处是真实机器码（首字节 48 89 5c 24 …）	cpp2il 体内有 "Method not found" 空洞，需 VA 补
+CollectionDisplay<T>	public virtual void RefreshCells() { }	B	RVA 0x4B33B0 = 全局共享空桩「ret 0」（dump.cs 里 1,992 处共用；cpp2il CollectionDisplay.cs:1050 为 { }）	
+CollectionFilter<T>	public virtual void ClearFilters() { }	B	RVA 0x4B33B0 = 全局共享空桩「ret 0」（dump.cs 里 1,992 处共用；cpp2il CollectionFilter.cs:40 为 { }）	
+CollectionItem<T>	protected virtual void AnimateIn() { }	B	RVA 0x4B33B0 = 全局共享空桩「ret 0」（dump.cs 里 1,992 处共用；cpp2il CollectionItem.cs:299 为 { }）	
+CollectionItem<T>	protected virtual void Config(T item, GameplayVariablesData gameplayVariablesData) { }	B	RVA 0x4B33B0 = 全局共享空桩「ret 0」（dump.cs 里 1,992 处共用；cpp2il CollectionItem.cs:295 为 { }）	
+CollectionItem<T>	public virtual void HoverHighlight(bool state) { }	B	RVA 0x4B33B0 = 全局共享空桩「ret 0」（dump.cs 里 1,992 处共用；cpp2il CollectionItem.cs:414 为 { }）	
+CollectionItem<T>	public virtual void SelectedHighlight(bool state) { }	B	RVA 0x4B33B0 = 全局共享空桩「ret 0」（dump.cs 里 1,992 处共用；cpp2il CollectionItem.cs:410 为 { }）	
+CollectionItem<T>	public virtual void SetSortMode(bool state) { }	B	RVA 0x4B33B0 = 全局共享空桩「ret 0」（dump.cs 里 1,992 处共用；cpp2il CollectionItem.cs:418 为 { }）	
+CollectionTab<T>	protected override void OnOpen() { }	B	cpp2il CollectionTab.cs:153 只有 "Method not found @1804B33B0" 一句；RVA 0x15F3A00 机器码 = sub rsp,28h / test rcx,rcx / jz / xor edx,edx / jmp 0x4B33AF(空桩) ⇒ 实际不做事	
+CollectionTab<T>	protected virtual void OnItemSelected(CollectionItem<T> item, PointerEventData.InputButton button) { }	B	RVA 0x4B33B0 = 全局共享空桩「ret 0」（dump.cs 里 1,992 处共用；cpp2il CollectionTab.cs:158 为 { }）	
+Everguild.LiveOps.DraftEventBase<TS,	protected virtual void OnMatchProcessSuccess(OnlineMatchResult result) { }	B	RVA 0x4B33B0 = 全局共享空桩「ret 0」（dump.cs 里 1,992 处共用；cpp2il Everguild.LiveOps/DraftEventBase.cs:2181 为 { }）	[P3] LiveOps 事件编排（PlayFab 云脚本驱动）
+Everguild.LiveOps.LiveOpsEvent<TSave,	protected virtual void SaveEventProgress(Action onSuccess, Action onFail) { }	B	RVA 0x4B33B0 = 全局共享空桩「ret 0」（dump.cs 里 1,992 处共用；cpp2il Everguild.LiveOps/LiveOpsEvent.cs:1005 为 { }）	[P3] LiveOps 事件基类（云存档往返）
+Everguild.LiveOps.PlayEvent<TSave,	protected virtual void OnMatchFinished(float matchWon, RankedMatchResult result, Action<OnlineMatchResult> callback) { }	B	RVA 0x4B33B0 = 全局共享空桩「ret 0」（dump.cs 里 1,992 处共用；cpp2il Everguild.LiveOps/PlayEvent.cs:972 为 { }）	[P3] LiveOps 对战事件编排（含匹配/云存档）
+Everguild.LiveOps.PlayEvent<TSave,	public virtual void SetCustomMatchOptions(RoomOptions options, int currentElo) { }	B	RVA 0x4B33B0 = 全局共享空桩「ret 0」（dump.cs 里 1,992 处共用；cpp2il Everguild.LiveOps/PlayEvent.cs:1088 为 { }）	[P3] LiveOps 对战事件编排（含匹配/云存档）
+Inventory<T>	protected virtual void OnItemCountModify(T item, int amount) { }	B	RVA 0x4B33B0 = 全局共享空桩「ret 0」（dump.cs 里 1,992 处共用；cpp2il Inventory.cs:1122 为 { }）	
+Inventory<T>	public virtual void OnFinishUnpack() { }	B	RVA 0x4B33B0 = 全局共享空桩「ret 0」（dump.cs 里 1,992 处共用；cpp2il Inventory.cs:1256 为 { }）	
+LiveOpsHandler<TEvent>	protected virtual void BeforeRefresh() { }	B	RVA 0x4B33B0 = 全局共享空桩「ret 0」（dump.cs 里 1,992 处共用；cpp2il LiveOpsHandler.cs:2689 为 { }）	[P3] LiveOps 事件编排
+LoadableReference<T>	public void OnBeforeWrite() { }	B	RVA 0x4B33B0 = 全局共享空桩「ret 0」（dump.cs 里 1,992 处共用；cpp2il LoadableReference.cs:776 为 { }）	[P3] Addressables 远程资源引用
+LoadableReference<T>	public void ValidateReferences() { }	B	RVA 0x4B33B0 = 全局共享空桩「ret 0」（dump.cs 里 1,992 处共用；cpp2il LoadableReference.cs:199 为 { }）	[P3] Addressables 远程资源引用
+QuantityBoundItemInfo<T>	public override void Add(int amount, string instanceId) { }	B	RVA 0x4B33B0 = 全局共享空桩「ret 0」（dump.cs 里 1,992 处共用；cpp2il QuantityBoundItemInfo.cs:38 为 { }）	
+UiContainer<T>	protected virtual void OnClick() { }	B	RVA 0x4B33B0 = 全局共享空桩「ret 0」（dump.cs 里 1,992 处共用；cpp2il UiContainer.cs:394 为 { }）	
+CollectionItem<T>	public void ToggleListenToPointerEvents(bool option) { }	C	cpp2il CollectionItem.cs:291 为 { } （静默丢体，无 note）；但 RVA 0x663580 有真实机器码 88 51 40 c3 cc cc cc cc cc cc cc cc cc cc cc cc 48 83 ec 38 45 33 c9 48	可补：mov [this+0x40], arg ; ret ⇒ 单个 bool 字段赋值
+ItemDrawer<T>	public sealed override void ToggleShowInfoOnClick(bool option) { }	C	cpp2il ItemDrawer.cs:128 为 { } （静默丢体，无 note）；但 RVA 0x1AEAB20 有真实机器码 88 51 44 c3 cc cc cc cc cc cc cc cc cc cc cc cc 40 53 48 83 ec 20 80 3d	可补：mov [this+0x44], arg ; ret ⇒ 单个 bool 字段赋值
+<Module>	public override bool Equals(object value) { }	X	覆盖账 parse.py 的「空类型 {} 」缺陷造成的串档：<Module> 本身 0 个方法，这 3 条实际属于紧随其后的 <>f__AnonymousType0（td=1）	真身核查：cpp2il dev_ilspy --f__AnonymousType0.cs:20/60/69，三条 record 方法均有体
+<Module>	public override int GetHashCode() { }	X	覆盖账 parse.py 的「空类型 {} 」缺陷造成的串档：<Module> 本身 0 个方法，这 3 条实际属于紧随其后的 <>f__AnonymousType0（td=1）	真身核查：cpp2il dev_ilspy --f__AnonymousType0.cs:20/60/69，三条 record 方法均有体
+<Module>	public override string ToString() { }	X	覆盖账 parse.py 的「空类型 {} 」缺陷造成的串档：<Module> 本身 0 个方法，这 3 条实际属于紧随其后的 <>f__AnonymousType0（td=1）	真身核查：cpp2il dev_ilspy --f__AnonymousType0.cs:20/60/69，三条 record 方法均有体
+<Module>	public static Tweener DoSlideIn(Transform transform, Vector2 spacing, float duration) { }	X	覆盖账 parse.py 的「空类型 {} 」缺陷造成的串档：<Module> 本身 0 个方法，这 2 条实际属于紧随其后的 DOTweenExtensions（firstpass）（td=13280）	真身核查：out_cpp2il_dev_ilspy 未导出 Assembly-CSharp-firstpass；仅 stub 版有该文件
+<Module>	public static Tweener DoWidth(RectTransform rect, Vector2 targetSize, float duration) { }	X	覆盖账 parse.py 的「空类型 {} 」缺陷造成的串档：<Module> 本身 0 个方法，这 2 条实际属于紧随其后的 DOTweenExtensions（firstpass）（td=13280）	真身核查：out_cpp2il_dev_ilspy 未导出 Assembly-CSharp-firstpass；仅 stub 版有该文件
+ICampaignEvent	internal void <CollectRewards>g__OnCollect|2(IReadOnlyList<RewardInfo> collectedRewards) { }	X	覆盖账 parse.py 的「空类型 {} 」缺陷造成的串档：ICampaignEvent 本身 0 个方法，这 2 条实际属于紧随其后的 Campaign.<>c__DisplayClass11_0（td=3350）	真身核查：cpp2il dev_ilspy Everguild.LiveOps/Campaign.cs:26 / :496，两条本地函数各有 305 / 277 条语句
+ICampaignEvent	internal void <CollectRewards>g__OnSuccess|0(CollectedCampaignRewardsResult result) { }	X	覆盖账 parse.py 的「空类型 {} 」缺陷造成的串档：ICampaignEvent 本身 0 个方法，这 2 条实际属于紧随其后的 Campaign.<>c__DisplayClass11_0（td=3350）	真身核查：cpp2il dev_ilspy Everguild.LiveOps/Campaign.cs:26 / :496，两条本地函数各有 305 / 277 条语句
+IClassicEvent	protected virtual bool PrintMembers(StringBuilder builder) { }	X	覆盖账 parse.py 的「空类型 {} 」缺陷造成的串档：IClassicEvent 本身 0 个方法，这 9 条实际属于紧随其后的 RankedDivision（record）（td=3543）	真身核查：cpp2il dev_ilspy Everguild.LiveOps/RankedDivision.cs 有 10 个成员：ToString:70 / PrintMembers:95 / GetHashCode:120 / Equals:225 / Equals:243 / Deconstruct:255 等，均有体（op_Equality/op_Inequality/<Clone>$ 在该文件里以 C# 运算符/名字写法出现，未按名匹配）
+IClassicEvent	public override bool Equals(object obj) { }	X	覆盖账 parse.py 的「空类型 {} 」缺陷造成的串档：IClassicEvent 本身 0 个方法，这 9 条实际属于紧随其后的 RankedDivision（record）（td=3543）	真身核查：cpp2il dev_ilspy Everguild.LiveOps/RankedDivision.cs 有 10 个成员：ToString:70 / PrintMembers:95 / GetHashCode:120 / Equals:225 / Equals:243 / Deconstruct:255 等，均有体（op_Equality/op_Inequality/<Clone>$ 在该文件里以 C# 运算符/名字写法出现，未按名匹配）
+IClassicEvent	public override bool Equals(object obj) { }	X	覆盖账 parse.py 的「空类型 {} 」缺陷造成的串档：IClassicEvent 本身 0 个方法，这 9 条实际属于紧随其后的 RankedDivision（record）（td=3543）	真身核查：cpp2il dev_ilspy Everguild.LiveOps/RankedDivision.cs 有 10 个成员：ToString:70 / PrintMembers:95 / GetHashCode:120 / Equals:225 / Equals:243 / Deconstruct:255 等，均有体（op_Equality/op_Inequality/<Clone>$ 在该文件里以 C# 运算符/名字写法出现，未按名匹配）
+IClassicEvent	public override int GetHashCode() { }	X	覆盖账 parse.py 的「空类型 {} 」缺陷造成的串档：IClassicEvent 本身 0 个方法，这 9 条实际属于紧随其后的 RankedDivision（record）（td=3543）	真身核查：cpp2il dev_ilspy Everguild.LiveOps/RankedDivision.cs 有 10 个成员：ToString:70 / PrintMembers:95 / GetHashCode:120 / Equals:225 / Equals:243 / Deconstruct:255 等，均有体（op_Equality/op_Inequality/<Clone>$ 在该文件里以 C# 运算符/名字写法出现，未按名匹配）
+IClassicEvent	public override string ToString() { }	X	覆盖账 parse.py 的「空类型 {} 」缺陷造成的串档：IClassicEvent 本身 0 个方法，这 9 条实际属于紧随其后的 RankedDivision（record）（td=3543）	真身核查：cpp2il dev_ilspy Everguild.LiveOps/RankedDivision.cs 有 10 个成员：ToString:70 / PrintMembers:95 / GetHashCode:120 / Equals:225 / Equals:243 / Deconstruct:255 等，均有体（op_Equality/op_Inequality/<Clone>$ 在该文件里以 C# 运算符/名字写法出现，未按名匹配）
+IClassicEvent	public static bool op_Equality(RankedDivision left, RankedDivision right) { }	X	覆盖账 parse.py 的「空类型 {} 」缺陷造成的串档：IClassicEvent 本身 0 个方法，这 9 条实际属于紧随其后的 RankedDivision（record）（td=3543）	真身核查：cpp2il dev_ilspy Everguild.LiveOps/RankedDivision.cs 有 10 个成员：ToString:70 / PrintMembers:95 / GetHashCode:120 / Equals:225 / Equals:243 / Deconstruct:255 等，均有体（op_Equality/op_Inequality/<Clone>$ 在该文件里以 C# 运算符/名字写法出现，未按名匹配）
+IClassicEvent	public static bool op_Inequality(RankedDivision left, RankedDivision right) { }	X	覆盖账 parse.py 的「空类型 {} 」缺陷造成的串档：IClassicEvent 本身 0 个方法，这 9 条实际属于紧随其后的 RankedDivision（record）（td=3543）	真身核查：cpp2il dev_ilspy Everguild.LiveOps/RankedDivision.cs 有 10 个成员：ToString:70 / PrintMembers:95 / GetHashCode:120 / Equals:225 / Equals:243 / Deconstruct:255 等，均有体（op_Equality/op_Inequality/<Clone>$ 在该文件里以 C# 运算符/名字写法出现，未按名匹配）
+IClassicEvent	public virtual RankedDivision <Clone>$() { }	X	覆盖账 parse.py 的「空类型 {} 」缺陷造成的串档：IClassicEvent 本身 0 个方法，这 9 条实际属于紧随其后的 RankedDivision（record）（td=3543）	真身核查：cpp2il dev_ilspy Everguild.LiveOps/RankedDivision.cs 有 10 个成员：ToString:70 / PrintMembers:95 / GetHashCode:120 / Equals:225 / Equals:243 / Deconstruct:255 等，均有体（op_Equality/op_Inequality/<Clone>$ 在该文件里以 C# 运算符/名字写法出现，未按名匹配）
+IClassicEvent	public void Deconstruct(out int DivisionNumber, out LocalizedString DivisionLabel) { }	X	覆盖账 parse.py 的「空类型 {} 」缺陷造成的串档：IClassicEvent 本身 0 个方法，这 9 条实际属于紧随其后的 RankedDivision（record）（td=3543）	真身核查：cpp2il dev_ilspy Everguild.LiveOps/RankedDivision.cs 有 10 个成员：ToString:70 / PrintMembers:95 / GetHashCode:120 / Equals:225 / Equals:243 / Deconstruct:255 等，均有体（op_Equality/op_Inequality/<Clone>$ 在该文件里以 C# 运算符/名字写法出现，未按名匹配）
+IShopEvent	internal IEnumerable<ShopBadge> <CheckNotification>b__16_1(IStore s) { }	X	覆盖账 parse.py 的「空类型 {} 」缺陷造成的串档：IShopEvent 本身 0 个方法，这 8 条实际属于紧随其后的 Shops.<>c（td=3648）	真身核查：cpp2il dev_ilspy Everguild.LiveOps/Shops.cs:45/67/76/97/114/138/206/225，八条闭包均有体
+IShopEvent	internal IEnumerable<ShopElement> <InitializeHandler>b__10_0(IStore x) { }	X	覆盖账 parse.py 的「空类型 {} 」缺陷造成的串档：IShopEvent 本身 0 个方法，这 8 条实际属于紧随其后的 Shops.<>c（td=3648）	真身核查：cpp2il dev_ilspy Everguild.LiveOps/Shops.cs:45/67/76/97/114/138/206/225，八条闭包均有体
+IShopEvent	internal IEnumerable<string> <SetupEvents>b__8_0(IStore x) { }	X	覆盖账 parse.py 的「空类型 {} 」缺陷造成的串档：IShopEvent 本身 0 个方法，这 8 条实际属于紧随其后的 Shops.<>c（td=3648）	真身核查：cpp2il dev_ilspy Everguild.LiveOps/Shops.cs:45/67/76/97/114/138/206/225，八条闭包均有体
+IShopEvent	internal bool <CheckNotification>b__16_0(IStore s) { }	X	覆盖账 parse.py 的「空类型 {} 」缺陷造成的串档：IShopEvent 本身 0 个方法，这 8 条实际属于紧随其后的 Shops.<>c（td=3648）	真身核查：cpp2il dev_ilspy Everguild.LiveOps/Shops.cs:45/67/76/97/114/138/206/225，八条闭包均有体
+IShopEvent	internal bool <CheckNotification>b__16_2(IShopOffer o) { }	X	覆盖账 parse.py 的「空类型 {} 」缺陷造成的串档：IShopEvent 本身 0 个方法，这 8 条实际属于紧随其后的 Shops.<>c（td=3648）	真身核查：cpp2il dev_ilspy Everguild.LiveOps/Shops.cs:45/67/76/97/114/138/206/225，八条闭包均有体
+IShopEvent	internal bool <CheckNotification>b__16_3(IShopOffer o) { }	X	覆盖账 parse.py 的「空类型 {} 」缺陷造成的串档：IShopEvent 本身 0 个方法，这 8 条实际属于紧随其后的 Shops.<>c（td=3648）	真身核查：cpp2il dev_ilspy Everguild.LiveOps/Shops.cs:45/67/76/97/114/138/206/225，八条闭包均有体
+IShopEvent	internal bool <InitializeHandler>b__10_1(ShopElement x) { }	X	覆盖账 parse.py 的「空类型 {} 」缺陷造成的串档：IShopEvent 本身 0 个方法，这 8 条实际属于紧随其后的 Shops.<>c（td=3648）	真身核查：cpp2il dev_ilspy Everguild.LiveOps/Shops.cs:45/67/76/97/114/138/206/225，八条闭包均有体
+IShopEvent	internal string <SetupEvents>b__8_1(ShopElement o) { }	X	覆盖账 parse.py 的「空类型 {} 」缺陷造成的串档：IShopEvent 本身 0 个方法，这 8 条实际属于紧随其后的 Shops.<>c（td=3648）	真身核查：cpp2il dev_ilspy Everguild.LiveOps/Shops.cs:45/67/76/97/114/138/206/225，八条闭包均有体
+IUiContainer	public virtual void Refresh() { }	X	覆盖账 parse.py 的「空类型 {} 」缺陷造成的串档：IUiContainer 本身 0 个方法，这 1 条实际属于紧随其后的 UiContainer（非泛型）（td=2918）	真身核查：cpp2il dev_ilspy UiContainer.cs:15 为 { } —— 与 CollectionFilter<T>.ClearFilters 同一空桩语义

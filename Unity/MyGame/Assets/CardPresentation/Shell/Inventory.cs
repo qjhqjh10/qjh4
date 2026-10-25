@@ -426,7 +426,21 @@ namespace CardPresentation
                 }
                 System.IO.Directory.CreateDirectory(Dir);
                 string p = StorePath(name);
-                System.IO.File.WriteAllText(p, UnityEngine.JsonUtility.ToJson(new StoreDto { rows = rows.ToArray() }));
+                string json = UnityEngine.JsonUtility.ToJson(new StoreDto { rows = rows.ToArray() });
+                // 🆕 2026-10-25（执行代理 R4 · 存档 Step 4「双写期」）：**不再自己写盘** —— 走
+                // `SaveCenter.SaveThroughLegacy`（中央档 + 旧档各写一份，旧档**不带 `_v`**）。
+                // · 落盘关着（批处理 / 自检没注入任何目录）⇒ 上面 `if (!StoreOn) return false;` 已经挡住了；
+                // · **只注入了 `OverrideDir`、没注入 `SaveCenter.OverrideRoot`** ⇒ 切换口退回「只写旧档」，
+                //   与切换前**逐字节相同**（那批既有自检照旧能验落盘）。
+                // 判据 = `资料/完全复刻/判据/存档体系_原版语义与施工方案.md` §七 Step 4
+                //   （「切前 dump 与切后中央档逐字段相等」由 `SaveCenter.DiffPayload` 验）。
+                string werr;
+                if (!SaveCenter.SaveThroughLegacy(SaveKeys.OursInventoryPrefix + name, p, json, out werr))
+                {
+                    LastStoreError = werr;
+                    UnityEngine.Debug.LogWarning("[Inventory] 背包 `" + name + "` **没能落盘**（" + p + "）：" + werr);
+                    return false;
+                }
                 LastStorePath = p;
                 return true;
             }
@@ -447,8 +461,11 @@ namespace CardPresentation
             try
             {
                 string p = StorePath(name);
-                if (!System.IO.File.Exists(p)) return extras;
-                var dto = UnityEngine.JsonUtility.FromJson<StoreDto>(System.IO.File.ReadAllText(p));
+                // 🆕 Step 4 双写期过渡读法：**先中央档、再旧档**（`ReadThroughLegacy` 内部判落盘门 ⇒
+                // 批处理/自检照旧只读旧档那一份，不会读到玩家真中央档）。⛔ 别删旧读。
+                string text = SaveCenter.ReadThroughLegacy(SaveKeys.OursInventoryPrefix + name, p);
+                if (text == null) return extras;
+                var dto = UnityEngine.JsonUtility.FromJson<StoreDto>(text);
                 if (dto == null) { UnityEngine.Debug.LogWarning("[Inventory] `" + p + "` 解不出来 ⇒ 按出厂值走"); return extras; }
                 if (dto.version != new StoreDto().version)
                 {
@@ -473,13 +490,18 @@ namespace CardPresentation
             }
         }
 
-        /// <summary>删掉某个背包的存档（自检必须调，否则会读到上一趟的残留）。</summary>
+        /// <summary>删掉某个背包的存档（自检必须调，否则会读到上一趟的残留）。
+        /// <para>🆕 2026-10-25（Step 4 双写期）：**中央档那一份也要一起清** —— 否则「删了旧档再读」会
+        /// 从中央档把旧值读回来（`ReadThroughLegacy` 是先中央后旧档）。中央档走
+        /// `SaveCenter.Delete`（**不真删**：改名到 `.del-*`，可回滚）。</para></summary>
         public static void Delete(string name)
         {
             try
             {
                 if (!string.IsNullOrEmpty(name) && StoreOn && System.IO.File.Exists(StorePath(name)))
                     System.IO.File.Delete(StorePath(name));
+                string key = string.IsNullOrEmpty(name) ? null : SaveKeys.OursInventoryPrefix + name;
+                if (key != null && SaveCenter.StoreOn && SaveCenter.Exists(key)) SaveCenter.Delete(key);
             }
             catch (Exception e) { UnityEngine.Debug.LogWarning("[Inventory] 删背包存档失败：" + e.Message); }
             LastStorePath = null;

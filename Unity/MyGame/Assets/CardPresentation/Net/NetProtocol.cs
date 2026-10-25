@@ -163,6 +163,25 @@ namespace CardPresentation.Net
     /// <summary>🆕 **取消这一局的匹配**（A1）。⚠️ **我们设计的，不是复刻** —— 见 `NetKind.MatchCancel`。
     /// `reason` 只进日志（给对面看的那句话固定，不渲染对面传来的任意文本）。</summary>
     [Serializable] public class MsgMatchCancel { public string reason; }
+    /// <summary>🆕 **2026-10-25（执行代理 `E4` · 联机账 162）：两端模式不一致**。
+    ///
+    /// <para>**为什么要有它**（判据逐条现读 `d:/2/tools/cpp2il/out_cpp2il_dev_ilspy/SearchOpponentManager.cs`）：
+    /// 原版 `PUNReceiveStartGame`（`:1700-1770`）收开局包时比 `text2 != text3`（收到的模式 vs 本机期望的模式），
+    /// 不等就 `CustomDebug.LogError("Received start game with wrong playmode …")` 再
+    /// **`photonView.RPC("PUNReceiveWrongPlayMode", PhotonTargets.All, …)`**（`:1766`）；
+    /// 收到该 RPC 的一端（`:1915-1985`）打印一行之后 —— **若 `opponentDesired` 点名的是自己** ——
+    /// 做 `BattleNetworkManager.LeaveBattle()` + `CancelBattleSearch()`。
+    /// 🔴 **原版那一下【不拆连接】**（只离开战斗房间 + 取消搜索）⇒ 我们以前那套
+    /// 「主机发现不一致就 `sess.Close(true,…)` 关掉整条会话、客机必须重新输房间码」**比原版重**，
+    /// 而且客机只能看到一句通用的「对面离开了」，不知道是模式不对。</para>
+    ///
+    /// <para>**我们的形态**：一条独立消息（原版那是一条独立 RPC，不是 `start` 的一个分支）。
+    /// `playMode` = 我方期望的模式 · `expected` = 我看到的对面模式（**只进日志与弹窗**，不参与判断）。</para>
+    ///
+    /// <para>⚠️ 与 `Chat` / `MatchFinished` / `CardSeen` 同一条兼容口径：**只新增一个 kind、
+    /// 不动任何既有消息的格式 ⇒ 不 +`NetProtocol.Version`**；旧端收到会走 `PumpLobby` 的 `default:`
+    /// 「大厅阶段收到不认识的消息」**出声**并丢掉（不崩、不影响这一局）。</para></summary>
+    [Serializable] public class MsgModeMismatch { public string playMode; public string expected; }
     /// <summary>🆕 **2026-10-25（执行代理 `CH`）：战斗内「督军聊天」那一条**。
     ///
     /// <para>**形状照原版**：`BattleCommsManager__SendChatMessage.c:20-37` 发的是
@@ -217,6 +236,14 @@ namespace CardPresentation.Net
         /// （**服务端**撤单，`SearchingOpponentWindow__CancelMatchMatchmaking`），P2P 这边没有服务端
         /// ⇒ 只能自己发一条「我不打了」。**只在大厅阶段有效**（`MsgStart` 一发出去就算开局了）。</summary>
         public const string MatchCancel = "match.cancel";
+        /// <summary>🆕 **2026-10-25（执行代理 `E4` · 联机账 162）：两端模式不一致**（原版
+        /// `PUNReceiveWrongPlayMode` RPC，`SearchOpponentManager.cs:1915-1985` / 触发点 `:1766`）。
+        /// 载荷 = <see cref="MsgModeMismatch"/>。**两端都会发**（谁先看出不一致谁发）：
+        /// 主机在 `HostStartMatch` 比 `_foeMode`，客机在 `PumpLobby` 的 `case NetKind.Start` 比 `MsgStart.mode`
+        /// —— 后者是**安全口径**（客机不许只信主机单方面声明）。收到就**撤本地这一局、连接留着**，
+        /// ⛔ **不 `Close`**（原版只 `LeaveBattle` + `CancelBattleSearch`）。
+        /// ⚠️ 同 `Chat`/`MatchFinished`：**新增 kind 不改既有消息格式 ⇒ 不 +`NetProtocol.Version`**。</summary>
+        public const string ModeMismatch = "match.mode-mismatch";
         public const string Action    = "action";
         public const string Applied   = "applied";
         public const string Reject    = "reject";
@@ -323,8 +350,17 @@ namespace CardPresentation.Net
         /// <summary>协议版本。🔴 **改消息格式就必须 +1** —— 两端版本不等时主机**拒绝**并说明理由（不许静默兼容）。
         /// 🔴 **2026-10-01：1 → 2** —— 不是因为消息格式变了，而是因为**引擎语义变了**：
         /// 棋盘从「固定 9 格、可留洞」改成**连续无洞**模型（`RuleEngine/Core/BoardSlots.cs`），
-        /// 同一串动作在两版引擎里会落到**不同的格号** ⇒ 新旧版互通必然 desync，必须挡住。</summary>
-        public const int Version = 2;
+        /// 同一串动作在两版引擎里会落到**不同的格号** ⇒ 新旧版互通必然 desync，必须挡住。
+        /// 🔴 **2026-10-25：2 → 3** —— 同样不是消息格式变了，是**引擎语义变了**：
+        /// 属性模型 Stage 2 之后，`UnitState.Attack` / `RangedAttack` / `MaxHealth` 读的是**投影**
+        /// （`CurrentMeleeAttack` / `CurrentRangeAttack` / `CurrentMaxHealthProcessed`），
+        /// 而局面哈希（`PlayerHash` 那三行 `Warlord.Attack/RangedAttack/Armor`）读的正是它们
+        /// ⇒ **同一串动作在两版引擎里可能算出不同的哈希**（`blind ⇒ 远程 0`、`setXxx` 覆盖、
+        /// 负攻值 `clamp0` 这三处是新旧分界）⇒ 新旧版互通必然 desync，必须挡住。
+        /// ⚠️ **值本身今天多半一样**（池内没有带 `blind`/`set` 修饰的督军局面）—— 但**语义边界**变了，
+        /// 不能靠「碰巧一样」互通：那类差异只会在特定局面上现形，表现为**打到一半 desync**。
+        /// ⛔ **别把版本号改回去**：它挡的是「新旧引擎混连」，不是某一个具体字段。</summary>
+        public const int Version = 3;
 
         /// <summary>单帧上限（防对面塞个巨大帧把内存吃光）。1000 条动作的 `resume` 也就几十 KB。</summary>
         public const int MaxFrame = 4 * 1024 * 1024;

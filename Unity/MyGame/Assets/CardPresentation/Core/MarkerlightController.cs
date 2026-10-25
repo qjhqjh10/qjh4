@@ -27,9 +27,10 @@
 //   ② `updateMarkerLightVFX`：本 build 的 prefab 里是**空引用**（`MonoBehaviour_-3235397510437391791.json:33-36`）
 //      ⇒ `UpdateValue` 里那段 `Instantiate` 是**死支**（铁律 11 例外①：原版数据本身为空）。
 //      ⛔ 别猜一个 VFX 塞进去。
-//   ③ `MaterialFader`：本工程**还没有**这个共用件（判据 §6.6 · P2 要新写）⇒
-//      `AimingAttack` 走**明确的「未实现」出口**（出声，⛔ 不静默），`materialFader*` 两个字段的类型
-//      暂时放宽成 `MonoBehaviour` 以保留名字与字段位；P2 建出 `MaterialFader` 后**把类型改回去**。
+//   ③ `MaterialFader`：**2026-10-25（第八十会话 · R5）已建并接上** —— `Core/MaterialFader.cs` 是共用件，
+//      本类的两个 `materialFader*` 字段**已改回真类型 `MaterialFader`**，`AimingAttack` 走原版那三句。
+//      原版这两个 fader 是 `MarkerlightIdle` prefab 上**序列化好的组件**（挂在
+//      `Normal State/Fixed` 与 `Expiring State/Fixed`），我们是**运行时 AddComponent + 显式绑**（见 `EnsureFaders`）。
 using DG.Tweening;
 using System.Collections.Generic;
 using TMPro;
@@ -63,11 +64,12 @@ namespace CardPresentation
         // ── 原版 9 个序列化字段（名字逐一对应 `MarkerlightController.cs:7-23`）───────────────
         [SerializeField] TextMeshPro counter;
         [SerializeField] GameObject normalStateObject;
-        /// <summary>原版类型 = `MaterialFader`（本工程尚无 ⇒ 见本文件头 ③，P2 改回真类型）。</summary>
-        [SerializeField] MonoBehaviour materialFaderNormalState;
+        /// <summary>原版类型 = `MaterialFader`（`MarkerlightController.cs:10`）。原版是 prefab 序列化引用；
+        /// 我们是运行时建（见 <see cref="EnsureFaders"/>，节点 = `Normal State/Fixed`）。</summary>
+        [SerializeField] MaterialFader materialFaderNormalState;
         [SerializeField] GameObject expiringStateObject;
-        /// <summary>原版类型 = `MaterialFader`（同上）。</summary>
-        [SerializeField] MonoBehaviour materialFaderExpiringState;
+        /// <summary>原版类型 = `MaterialFader`（同上）。节点 = `Expiring State/Fixed`。</summary>
+        [SerializeField] MaterialFader materialFaderExpiringState;
         /// <summary>见本文件头 ①：**prefab 覆写 = 0.5**（`MonoBehaviour_-3235397510437391791.json:32`）。</summary>
         [SerializeField] float fadeTime = PrefabFadeTime;
         /// <summary>本 build = **空引用** ⇒ `UpdateValue` 里那段是死支（见本文件头 ②）。</summary>
@@ -90,6 +92,9 @@ namespace CardPresentation
         public Renderer[] FloorsForTest { get { return floors; } }
         /// <summary>`fadeTime` 的只读镜像（断言应断 **0.5**）。</summary>
         public float FadeTimeForTest { get { return fadeTime; } }
+        /// <summary>两个 `MaterialFader` 的只读镜像（W10 自检要读它们的 `ToggleCalls` / `TargetFadeForTest`）。</summary>
+        public MaterialFader NormalFaderForTest { get { return materialFaderNormalState; } }
+        public MaterialFader ExpiringFaderForTest { get { return materialFaderExpiringState; } }
 
         // ── 生命周期 ────────────────────────────────────────────────────────────
         /// <summary>⚠️ **我们的**（原版没有 `Awake`）：原版靠 prefab 序列化拿引用，我们靠名字绑。
@@ -150,20 +155,38 @@ namespace CardPresentation
                 Ease.Linear, counter.transform);
         }
 
-        /// <summary>原版 `:81-86`：
+        /// <summary>原版 `:81-86` 逐字：
         /// <code>
-        /// MaterialFader fader = (!alreadyAttacked) ? materialFaderNormalState : materialFaderExpiringState;
-        /// fader.Toggle(option ^ 1, fadeTime);
+        /// MaterialFader materialFader = (!alreadyAttacked) ? materialFaderNormalState : materialFaderExpiringState;
+        /// bool option2 = (option ? 1u : 0u) ^ 1u;
+        /// materialFader.Toggle(option2, fadeTime);
         /// </code>
-        /// 🔴 **本轮不假装实现**：`MaterialFader` 本工程**还没有**（判据 §6.6 · P2「要新写共用件」）
-        /// ⇒ 走**明确的「未实现」出口**，⛔ 不是空 body。（真正接线时若还没建 `MaterialFader`，这里会持续出声。）</summary>
+        /// ⇒ `option == true`（攻击**起手**）传 `0` = **淡出到全透明**；`option == false`（攻击**结束**）传 `1` = 淡回。
+        /// <para>⚠️ 两个 fader 在**我们这一版**是运行时建的（原版是 prefab 序列化组件）⇒ 建不出来时**出声一次**
+        /// （⛔ 不静默、也⛔ 不 NRE）。原版对 `materialFader` 没有空判（它拿得到序列化引用）。</para>
+        /// <para>📌 **谁调它**（2026-10-25 · R5 · W10 ③ 已接）：`Battle/BattleDriver.cs` 的 `AimAttackingStatusPair`
+        /// → `TraitFrames.AimingAttack("markerlight", bool)` → 本方法。起手 = `PlaySignal` 的 `EvtKind.Attack` 那一拍，
+        /// 收手 = 同一拍排的「攻方动作序列跑完」回调（判据两拍 = `CardScript.cs:3649` / `:3637`）。</para></summary>
         public override void AimingAttack(bool option)
         {
-            Debug.LogError("[MarkerlightController] AimingAttack 未实现：原版走 "
-                         + "`MaterialFader.Toggle(!option, fadeTime)`（`MarkerlightController.cs:81-86`），"
-                         + "而本工程还没有 `MaterialFader` 共用件（判据 §6.6 · P2）⇒ 这一次攻击前后**不会**淡入/淡出。"
-                         + "（option=" + option + "，fadeTime=" + fadeTime + "）"
-                         + "判据 → 资料/完全复刻/判据/TraitEffectController_钩子层.md §6.6");
+            EnsureFaders();
+            MaterialFader fader = !alreadyAttacked ? materialFaderNormalState : materialFaderExpiringState;
+            if (fader == null)
+            {
+                if (!_warnedNoFader)
+                {
+                    _warnedNoFader = true;
+                    Debug.LogError("[MarkerlightController] `AimingAttack` 取不到 "
+                                 + (alreadyAttacked ? "`materialFaderExpiringState`（`Expiring State/Fixed`）"
+                                                    : "`materialFaderNormalState`（`Normal State/Fixed`）")
+                                 + " ⇒ 这一次攻击前后**不会**淡入/淡出（原版在这里直接 NRE）。"
+                                 + "判据 → 资料/完全复刻/判据/TraitEffectController_钩子层.md §6.6 / §⑧·2 F-E");
+                }
+                return;
+            }
+            // 原版 `(byte)((option ? 1u : 0u) ^ 1u) != 0` = `!option`（`Toggle` 收的是 **bool**，
+            // ⛔ 照抄字面量 `option ^ 1` 会 CS0019：`^` 不能混用 `bool` 与 `int`）。
+            fader.Toggle(!option, fadeTime);
         }
 
         /// <summary>原版 `:88-93` 逐字（🔴 **直接三句，不走 `ChangeState`** ——
@@ -188,8 +211,8 @@ namespace CardPresentation
         }
 
         // 原版 `:103-106 FadeFixedElements(bool, MaterialFader)` = `whoToFade.Toggle(option, fadeTime);`
-        // ⇒ 参数类型是我们**还没有**的 `MaterialFader`，且本 build 类内零调用（死代码）
-        //   ⇒ 本轮**不复刻**（与 `AimingAttack` 同一个前置：P2 先建 `MaterialFader`）。已记进报告 §⑤。
+        // ⇒ 参数类型 `MaterialFader` 现在**已经有了**（2026-10-25 · R5），但本 build 类内**零调用 = 死代码**
+        //   ⇒ 仍然**不复刻**（铁律 11 例外①：原版自己没有调用点）。⛔ 别把它当接线点。
 
         // ── 绑定 ────────────────────────────────────────────────────────────────
         /// <summary>
@@ -227,6 +250,10 @@ namespace CardPresentation
                 if (hit.Count > 0) floors = hit.ToArray();
             }
 
+            // 🆕 W10（2026-10-25 · R5）：两个 `MaterialFader` —— 原版是 prefab 序列化组件，我们运行时建。
+            //   放在 `BindIfMissing` 里 = `Awake` / `Start` / `UpdateValue` 三个入口都会建（幂等，见 `EnsureFaders`）。
+            EnsureFaders();
+
             if (counter == null)
                 Debug.LogError("[MarkerlightController] 绑不上 `Counter`（TMPro.TextMeshPro）—— "
                              + "实测路径应为 ['Counter','MarkerlightIdle']。计数器不会更新、也不会弹。"
@@ -253,6 +280,94 @@ namespace CardPresentation
         {
             Transform t = transform.Find(childName);
             return t != null ? t.GetComponent<T>() : null;
+        }
+
+        // ══════════════════════════════════════════════════════════════════════════════════════
+        //  🆕 2026-10-25（第八十会话 · R5 · W10）：两个 `MaterialFader` 的**建 + 绑**
+        //
+        //  原版这两个 fader 是 `MarkerlightIdle` prefab 上**序列化好的组件**（我们运行时 `AddComponent`
+        //  的控制器里拿不到那两个引用）⇒ 照 `TraitEffectControllers.Attach` 的同一套做法：**按节点名 + 幂等**。
+        //
+        //  判据（逐条实读 `bundle_battleprefabs_vfxandmisc_assets_all` 的 `MarkerlightIdle`）：
+        //    · 节点树：`MarkerlightIdle/{Normal State,Expiring State}/Fixed`，两个 `Fixed` 各挂**一个** `MaterialFader`；
+        //      ⚠️ **⛔ 不是都在 `Expiring State`**（账 244 行那么写过，判据 §⑧·2 `F-E` 已订正）。
+        //    · `Normal State/Fixed` 的 `renderers[]`  = `Base VFX` / `Ground Effect` / `Ground glow pulse` / `Grid floor`
+        //    · `Expiring State/Fixed` 的 `renderers[]` = `Base Vfx` / `Ground Effect` / **null（PathID 0）** / `Grid floor`
+        //      （大小写不同是**原版如此**：`Base VFX` vs `Base Vfx`，⛔ 别「统一」掉）
+        //    · 两个实例的三个开关都是 `0 / 0 / 1`（`restoreOriginalMaterialsOnFadeOut = 0`、
+        //      `restoreOriginalMaterialsOnFadeIN = 0`、`disableOnFadeOut = 1`）⇒ 必须 `ApplyPrefabFlags(false,false,true)`，
+        //      而 C# 字段默认是 `true / false / true`（`MaterialFader` 类头那条）。
+        // ══════════════════════════════════════════════════════════════════════════════════════
+
+        /// <summary>原版两个 `MaterialFader` 所在的节点路径（相对本组件所在的根）。</summary>
+        public const string NormalFaderPath = "Normal State/Fixed";
+        public const string ExpiringFaderPath = "Expiring State/Fixed";
+        /// <summary>`Normal State/Fixed` 那个 fader 的 `renderers[]`（**原版实读，顺序不动**）。</summary>
+        static readonly string[] NormalFaderRendererNames = { "Base VFX", "Ground Effect", "Ground glow pulse", "Grid floor" };
+        /// <summary>`Expiring State/Fixed` 那个 fader 的 `renderers[]`。⚠️ 下标 2 原版就是 **null**（PathID 0），⛔ 别填。 </summary>
+        static readonly string[] ExpiringFaderRendererNames = { "Base Vfx", "Ground Effect", null, "Grid floor" };
+
+        /// <summary>`AimingAttack` 的空判出声只一次（`renderers` 那条由 `MaterialFader` 自己出声）。</summary>
+        bool _warnedNoFader;
+
+        /// <summary>建 + 绑两个 fader（幂等）。⚠️ 每次只重绑 `renderers[]` 为空的那些 ——
+        /// `BindRenderers` 会清掉「原材质」缓存 ⇒ 淡变中途重绑会把还原用的材质丢掉。</summary>
+        void EnsureFaders()
+        {
+            if (materialFaderNormalState == null)
+                materialFaderNormalState = AttachFader(NormalFaderPath, NormalFaderRendererNames);
+            if (materialFaderExpiringState == null)
+                materialFaderExpiringState = AttachFader(ExpiringFaderPath, ExpiringFaderRendererNames);
+        }
+
+        MaterialFader AttachFader(string nodePath, string[] rendererNames)
+        {
+            Transform node = transform.Find(nodePath);
+            if (node == null)
+            {
+                if (!_warnedNoFader)
+                {
+                    _warnedNoFader = true;
+                    Debug.LogError("[MarkerlightController] 找不到节点 `" + nodePath + "` —— 两个 `MaterialFader` 建不出来。"
+                                 + "实测路径应为 `MarkerlightIdle/[Normal|Expiring] State/Fixed`（判据 §⑧·2 F-E）。"
+                                 + "`AimingAttack` 的前后淡入淡出会失效（⛔ 不静默）。");
+                }
+                return null;
+            }
+
+            MaterialFader f = node.GetComponent<MaterialFader>();
+            if (f == null) f = node.gameObject.AddComponent<MaterialFader>();
+
+            // ⚠️ 只在「还没绑过」时绑：`BindRenderers` 会清 `originalMaterials` 缓存（见上面的 doc）。
+            if (f.BoundCount == 0)
+            {
+                f.BindRenderers(ResolveRenderers(node, rendererNames));
+                // 原版两个实例的序列化开关都是 0 / 0 / 1（本段开头那张表）。
+                f.ApplyPrefabFlags(false, false, true);
+            }
+            return f;
+        }
+
+        /// <summary>按**名字**在这个 `Fixed` 子树里取 `Renderer`（顺序照原版数组；`null` 名保持 `null`）。
+        /// ⚠️ 名字是**大小写敏感**的（原版 `Base VFX` / `Base Vfx` 两个节点名本来就不一样）。</summary>
+        static Renderer[] ResolveRenderers(Transform node, string[] names)
+        {
+            Renderer[] all = node.GetComponentsInChildren<Renderer>(true);
+            var res = new Renderer[names.Length];
+            for (int i = 0; i < names.Length; i++)
+            {
+                if (string.IsNullOrEmpty(names[i])) continue;      // 原版这一格本来就是 null
+                for (int k = 0; k < all.Length; k++)
+                {
+                    if (all[k] == null || all[k].gameObject.name != names[i]) continue;
+                    res[i] = all[k];
+                    break;
+                }
+                if (res[i] == null)
+                    Debug.LogError("[MarkerlightController] `" + node.name + "` 下找不到 renderer `" + names[i]
+                                 + "`（原版 `renderers[]` 的实读值）—— 重导过 prefab？这一格不参与淡变。");
+            }
+            return res;
         }
     }
 }

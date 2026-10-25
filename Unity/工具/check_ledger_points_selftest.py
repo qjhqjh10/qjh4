@@ -82,7 +82,22 @@ X_CS = """class X
     }
 }
 """
+# 🔴 盲点 6（2026-10-25 R1）：目标行是「字段 + 初始化器」—— `find_decl_candidates` 会接受，
+#    但 `dn_at`（verify_annot 同款）解析不出声明名 ⇒ `--fix` 必须跳过（NEED-HUMAN）。
+W_CS = """class W
+{
+    static readonly int[] ClaimTable = new int[]{1, 2};
+
+    void Claim(int i)
+    {
+    }
+}
+"""
 D_JSON = '{"a": 1}\n'
+# 🔴 盲点 7（2026-10-25 R1）：**裸 `\r`（`\r\r\n`）** —— 文本模式的 universal newlines 会把它也当换行
+#    ⇒ 其后所有行号整体偏大（实测 `RuleEngine/Core/DeckRules.cs` 有 7 个裸 CR ⇒ 行号偏 +7，
+#      `--fix` 把 15 行账改成了错行、而且闸变绿）。工具必须按二进制读、只把 `\r\n` 归成 `\n`。
+R_CS = b"class R\r\n{\r\n        int x = 1;\r\r\n        void Foo()\r\n        {\r\n        }\r\n        void Bar()\r\n        {\r\n        }\r\n}\r\n"
 
 TMP = None
 APP = None
@@ -191,6 +206,51 @@ def main():
         case("5- 普通方法不报 ForTest", "V.cs:19（`Claim`）", "P", "-")
 
         # ------------------------------------------------------------------
+        # 盲点 6：`--fix` 的目标行**必须能解析成声明**（`dn_at` 同款）；2026-10-25 R1 加
+        #   起因：Q3 投诉「工具报的『实际在 N 行』有 18/79 落在 `///` / `{` / `}` / 空行 / 别的方法上
+        #   ⇒ 直接 `--fix` 会改到错的位置、而且闸变绿」。
+        # ------------------------------------------------------------------
+        _write(os.path.join(APP, "W.cs"), W_CS)
+        ok("6- dn_at_name：普通方法 ⇒ 名字", C.dn_at_name("        void Claim(int i)") == "Claim")
+        ok("6- dn_at_name：属性（`{` 紧跟）⇒ 名字", C.dn_at_name("    public int Survivor { get { return KwValue(3); } }") == "Survivor")
+        ok("6+ dn_at_name：`///` 注释 ⇒ None", C.dn_at_name("        /// <summary>") is None)
+        ok("6+ dn_at_name：只有 `{` ⇒ None", C.dn_at_name("        {") is None)
+        ok("6+ dn_at_name：只有 `}` ⇒ None", C.dn_at_name("        }") is None)
+        ok("6+ dn_at_name：空行 ⇒ None", C.dn_at_name("") is None)
+        ok("6+ dn_at_name：字段 + 初始化器 ⇒ None", C.dn_at_name("    static readonly int[] ClaimTable = new int[]{1, 2};") is None)
+        # 负例（任务书点名）：目标行是 `///` 时 ⇒ 不许算「已修正」
+        _wl = ["class A", "{", "        /// <summary>", "        void Claim(int i) { }", "}"]
+        ok("6+ 负例：目标行是 `///` ⇒ fix_block_reason 报 NEED-HUMAN",
+           "NEED-HUMAN" in C.fix_block_reason(_wl, 3), C.fix_block_reason(_wl, 3))
+        ok("6+ 负例：目标行是 `}` / 空行 ⇒ 也报 NEED-HUMAN",
+           "NEED-HUMAN" in C.fix_block_reason(_wl, 5) and "NEED-HUMAN" in C.fix_block_reason(_wl, 0 + 1))
+        ok("6- 正常方法行 ⇒ fix_block_reason 放行（空串）", C.fix_block_reason(_wl, 4) == "", C.fix_block_reason(_wl, 4))
+        # 端到端：字段行是唯一「候选」，`--fix` 也必须一个字都不改
+        r = case("6+ 目标行是字段（候选但解析不出声明）⇒ 漂移、⛔ 不许 --fix",
+                 "W.cs:5（`ClaimTable`）", "D", do_fix=True)
+        ok("6+ …rewrites 为空", r["rewrites"] == [], r["rewrites"])
+        ok("6+ …漂移理由里写明 NEED-HUMAN", "NEED-HUMAN" in str(r["why"]), r["why"])
+
+        # ------------------------------------------------------------------
+        # 盲点 7：裸 `\r`（`\r\r\n`）不许让行号漂 —— 工具必须【二进制读】
+        #   负例判据：文本模式读时 `Foo` 会算成第 5 行；二进制读必须算第 4 行。
+        # ------------------------------------------------------------------
+        _raw = os.path.join(APP, "R.cs")
+        io.open(_raw, "wb").write(R_CS)      # ⚠️ 二进制写，\r\r\n 原样落盘
+        _rl = C.read_src_lines(_raw)
+        ok("7+ read_src_lines：`\\r\\r\\n` 之后行号不漂（`void Foo` 在第 4 行）",
+           _rl[3].strip().startswith("void Foo"), _rl[:6])
+        ok("7+ read_src_lines：`void Bar` 在第 7 行（文本模式会算成第 8 行）",
+           _rl[6].strip().startswith("void Bar"), [_x.strip() for _x in _rl[:9]])
+        ok("7+ read_src_lines：裸 `\\r` 留在行内、不当换行",
+           "\r" in _rl[2] and len(_rl) == 11, (len(_rl), repr(_rl[2])))
+        ok("7+ find_decl_candidates：Foo 唯一命中 4", C.find_decl_candidates(_rl, "Foo") == [4],
+           C.find_decl_candidates(_rl, "Foo"))
+        case("7+ 账写 `R.cs:4（Foo）` ⇒ 通过（⛔ 不许因裸 CR 判成漂移到 5）", "R.cs:4（`Foo`）", "P")
+        case("7+ 账写 `R.cs:7（Bar）` ⇒ 通过", "R.cs:7（`Bar`）", "P")
+        case("7+ 反证：账写 `R.cs:5（Foo）` ⇒ 漂移（真值 4）", "R.cs:5（`Foo`）", "D")
+
+        # ------------------------------------------------------------------
         # 基本失败 / 通过（老功能不许坏）
         # ------------------------------------------------------------------
         case("基础：文件不存在 ⇒ 失败", "Nope.cs:1（Foo）", "F")
@@ -267,6 +327,13 @@ def main():
         exit_of([fixf2, "--root", APP, "--fix"])
         after2 = io.open(fixf2, encoding="utf-8", newline="").read()
         ok("--fix：目标行是 getter ⇒ 账一个字都不改", before2 == after2, after2.strip())
+        # 盲点 6 的端到端：目标行是字段（候选但 `dn_at` 解析不出声明）⇒ 账一个字都不改
+        fixf3 = os.path.join(TMP, "fix3.tsv")
+        _write(fixf3, HDR + "A\t%s\tC\tM\t\n" % "W.cs:5（`ClaimTable`）")
+        before3 = io.open(fixf3, encoding="utf-8", newline="").read()
+        exit_of([fixf3, "--root", APP, "--fix"])
+        after3 = io.open(fixf3, encoding="utf-8", newline="").read()
+        ok("--fix：目标行解析不出声明 ⇒ 账一个字都不改（NEED-HUMAN 跳过）", before3 == after3, after3.strip())
 
         # ------------------------------------------------------------------
         # 辅助函数单测（形态判据的底）

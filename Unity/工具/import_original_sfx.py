@@ -210,7 +210,29 @@ EXTRA_CUES = ["Reward open item by item", "CardStartDrag",
               #       ⛔ 别拿 cue 名去 `Resources/` 找文件。
               "Tap Hit Rock", "Tap Hit Metal Heavy", "Tap Hit Metal Light", "Tap Hit General",
               "Tap Hit Fire", "Tap Hit Spark", "Tap Hit Squishy", "Tap Hit Water",
-              "Tap Monolith", "Tap Squig"]
+              "Tap Monolith", "Tap Squig",
+              # —— 收藏线 · 格子点击音（2026-10-25 · 执行代理 `R17`）——
+              #   判据（`R13` 已查好，本轮只**落地**、不重查；另**亲核**了 cue→clip 那一跳）：
+              #   · 引用者 = `CollectionItem` 基类的 `onClickSound`（`+0x38`，消费点 =
+              #     `CollectionItem.OnPointerClick`：`if (listenToPointerEvents) { display.Select(...);
+              #     if (onClickSound) SoundManager.Play2D(onClickSound); }`，RVA `0x15F2B80`）。
+              #   · `Collection Card`（GO `-3932997974561655464`）`onClickSound` = pid `604076303329428464`
+              #     ⇒ **`CardClick 1`**；`Collection Deck`（GO `-2024334647938937812`）与
+              #     `Collection Deck With Highlight`（GO `-7515975617742763446`）= pid `605815307224280273`
+              #     ⇒ **`DeckClick 1`**；`Collection Cosmetic`（GO `-586895015824482954`）= **null**（原版卡背格不响）。
+              #   · 🔴 **为什么必须单列在这里**：`CollectionItem` **不是** `EverguildButton|EverguildToggle`
+              #     ⇒ 原版**没有**默认按钮音（`SoundManager.defaultButtonSound`）；我们这一层建的是
+              #     `WindowButton`（缺省 `playClickSound = true`）⇒ 不登记这两条就只能听「错的那一声」。
+              #   · **cue→clip 亲核（2026-10-25 用 UnityPy 读 `soundcollection_assets_all.bundle`）**：
+              #     `CardClick 1` 的 `clipList` 唯一一条 pid `487309658559691530` = **`UI Select Toggle`**
+              #     （⚠️ 与 `ButtonClick` 的 clip **是同一个资产** —— 听感差别只在 pitch：本 cue 0.8–1.1 随机，
+              #      `ButtonClick` 恒 1.0 ⇒ ⛔ 别因为「clip 一样」就把两条 cue 合并）；
+              #     `DeckClick 1` 的唯一一条 pid **`-1688727879682680216`**（⚠️ 负数！`R13` 报告里写成正数，
+              #      铁律 5 就地订正）= **`UI Click Deck 1`** —— 这条 clip **工程里原本没有**，
+              #      所以本 cue 是「登记 + 重跑导入」才真的会响。
+              #   · 参数（资产实读）：`CardClick 1` pitch 0.8–1.1 / vol 1–1 / ttp 0.1；
+              #     `DeckClick 1` pitch 1.0 / vol 1–1 / ttp 0.1。
+              "CardClick 1", "DeckClick 1"]
 
 # 🔴 **2026-10-16（A828）第三来源 —— `collisionEvent` 上的 `PlaySound`。**
 #   `AnimFXModuleCollisions` 的 `collisionAndParticles[i].particleSystemsDefinition[j].collisionEvent`

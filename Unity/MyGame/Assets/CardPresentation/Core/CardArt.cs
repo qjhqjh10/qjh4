@@ -923,9 +923,18 @@ namespace CardPresentation
         ///
         /// **为什么要它**：临时卡（Ephemeral）的卡面标记 —— 规则书 `:183`/`:229` 说
         /// 临时卡「回合结束若在手牌则移除」，玩家得**看得出哪张是临时的**。
-        /// 原版那套是 `BattleCardUI.ShowEphemeral()` + `Card2DController.ToggleGlitch()`（换 glitch 材质），
-        /// ⚠️ **但 glitch 素材本地没有**（`d:/2` 全盘 `*glitch*` 零命中）
-        /// ⇒ 改用原版真有的这张关键词图标（比自绘更接近原版，而且它本来就在本地）。
+        /// 原版那套是 `BattleCardUI.ShowEphemeral()` + `Card2DController.ToggleGlitch()`（换 glitch 材质）。
+        /// 🔴 **2026-10-25（R16）就地订正（铁律 5）**：本行原来写「**glitch 素材本地没有**（`d:/2` 全盘 `*glitch*` 零命中）」
+        /// —— **不成立**，那句只证明「**按名字**搜不到」。实测三件都在本地：
+        /// ① 材质 `Card Frame Glitch` = `assets_full/bundle_duplicateassetisolation_assets_all/Material/Material_-2877403367212247079.json`
+        ///   （`m_Name = "Card Frame Glitch"`，参数已逐条读出）；② shader = **`Everguild/FX/Sprite Scan Lines`**
+        ///   （`bundle_shaders_assets_all/Shader/Shader_-5025784757600742591.json`；属性表与
+        ///   `WarpforgeVFX/Runtime/OriginalShaderBlendTable.cs:369` 那一行逐字对上）；
+        /// ③ 噪声图 `Noise Combined.png`（同一 bundle 的 `Texture2D/`）。
+        /// **错因**：原版是经 **PPtr** 引用的 —— 材质名之外没有 "glitch" 线索、shader 名里一个 "glitch" 都没有。
+        /// ⇒ 现在的结论是「**要做，只差一个自建 shader**」（铁律 11：⛔ 不许按成本判「不做」），**不是**「原版没有」。
+        /// 本轮**仍然先用**这张关键词图标顶上（比自绘接近原版、零风险），
+        /// 待办与判据全文 → `资料/完全复刻/报告/R16_卡牌面遗留C_第2轮.md` §没做·ToggleGlitch。
         ///
         /// ⚠️ 取不到时返回 `null` —— 调用方要判（卡面标记整块不画，而不是画个错的）。
         /// </summary>

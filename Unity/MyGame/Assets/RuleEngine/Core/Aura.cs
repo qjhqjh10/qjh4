@@ -569,6 +569,14 @@ namespace RuleEngine
         public const string GrantTag = "光环";
 
         /// <summary>
+        /// **「近战 = 生命」（`SAU27 Scarab Swarm`）那条 `setMeleeAttack` 修饰的来源标记**。
+        /// 用于 `Recompose` 的 ①·b **整份摘掉再重挂**（= 原版 `RemoveExtrinsicEffectsFrom` + `AddEffect`）。
+        /// ⚠️ 它与 <see cref="GrantTag"/> **必须分开**：`ClearAuraGrants` 按 `GrantTag` 整份撤，
+        /// 而这一条要按「每趟重算重建」的节奏走（值随 `Health` 变）。
+        /// </summary>
+        public const string MeleeEqualsHealthSource = "近战=生命";
+
+        /// <summary>
         /// **重算全场光环** —— 幂等：先**整份摘掉**上一次算出来的，再按当前棋盘**重加一遍**。
         ///
         /// 🔴 **形状照原版**：`CardScript__UpdateWhileInPlay.c` 就是「摘掉此前加的全部 + 重加一份」
@@ -611,6 +619,27 @@ namespace RuleEngine
         public static void Recompose(BattleContext ctx)
         {
             if (ctx == null || ctx.Players[0] == null || ctx.Players[1] == null) return;
+            // 🔴🆕 **2026-10-25（`E1` · 第四段 · H1 裁定）：重算期间**不许**产生「真移除」的副作用。**
+            //   把整段重算包在 `BeginAuraRecompute` / `EndAuraRecompute` 之间 ——
+            //   这两个口只做一件事：让 `health` 那一格在重算期间**一个字节都不动**，
+            //   重算结束时按「光环血修饰总量的前后差」结算一次（判据与理由 →
+            //   `UnitState.BeginAuraRecompute` 那段头注）。
+            //   ⚠️ `finally` 是必须的：`RecomposeCore` 的 ③ 里有多处 `return`。
+            for (int p = 0; p < 2; p++)
+                for (int s = 0; s < BoardSpec.Size; s++)
+                    if (ctx.Players[p].Board[s] != null) ctx.Players[p].Board[s].BeginAuraRecompute();
+            try { RecomposeCore(ctx); }
+            finally
+            {
+                for (int p = 0; p < 2; p++)
+                    for (int s = 0; s < BoardSpec.Size; s++)
+                        if (ctx.Players[p].Board[s] != null) ctx.Players[p].Board[s].EndAuraRecompute();
+            }
+        }
+
+        /// <summary>`Recompose` 的本体（见 <see cref="Recompose"/> 的外壳：重算期间禁副作用）。</summary>
+        static void RecomposeCore(BattleContext ctx)
+        {
 
             // ---- ① 整份摘掉 ----
             for (int p = 0; p < 2; p++)
@@ -622,6 +651,9 @@ namespace RuleEngine
                 }
             for (int i = ctx.CostMods.Count - 1; i >= 0; i--)
                 if (ctx.CostMods[i].Tag == GrantTag) ctx.CostMods.RemoveAt(i);
+
+            // ---- ①·b 🆕 2026-10-25（`E1` · 第三段）：**「近战 = 生命」的重挂**（实现见下面那个方法）----
+            RefreshMeleeEqualsHealth(ctx);
 
             // ---- ② 费用那半（`Other friendly Daemons cost 2 less`，实测 2 张）----
             //   🆕 **2026-10-19（`A1458`）：这一栏现在还有第二个来源** —— 卡面**只有费用、没有载荷**
@@ -738,6 +770,65 @@ namespace RuleEngine
                 if (!added) return;
             }
             ctx.Log("光环：重算 4 轮还有新增 —— 疑似**光环互相引用成环**，已按最后一轮的结果停下");
+        }
+
+        /// <summary>
+        /// **「近战 = 生命」的重挂**（`SAU27 Scarab Swarm`）—— 原版那条 `trigger 240 WhileInPlayVariable`
+        /// + `buffType 70 setMeleeAttack` + `meleeAttackValueOptions = 50 ThisCardHealth` 的等价物。
+        ///
+        /// <para>**判据**（`判据/战斗逻辑驱动_Stage2前置_第2轮.md` §1·1 / §1·2 / §1·4 / §1·7，全部现读 SO/IL）：
+        /// 折叠发生在 `AbilityLogic.PlayAbility → AdjustCardEffect`，存进 `activeEffects` 的是
+        /// **那一刻 `CurrentHealth` 的快照**；「跟血走」靠 `FinishResolvingAction` 尾部
+        /// `BroadcastWhileInPlay` **在每个动作边界重挂一次**（`IsSameEffect` 因值变了而返回假
+        /// ⇒ `RemoveExtrinsicEffectsFrom` 整份替换）。`get_CurrentMeleeAttack` 命中 `buffType==70`
+        /// 即 `return` ⇒ **`addStats` 的近战加成一概不计**。</para>
+        ///
+        /// <para>**谁调**：① `Recompose`（棋盘变动那一趟）② `ActionPump.ActionScope.Dispose`
+        /// （每条顶层动作结束 = 原版 `FinishResolvingAction`）。
+        /// ⚠️ **不调整个 `Recompose`** —— 那会把光环/费用/誓约那一串一并重算，实测会改掉
+        /// `BL18` / `UM18` 两张光环卡的结算读数（⛔ 超范围）。</para>
+        ///
+        /// <para>⛔ **别改成「读时活读 `Health`」**（那会与另外 1,127 张卡的读数语义分叉）。
+        /// 池内只有 `SAU27` 一张带这个标记。</para>
+        /// </summary>
+        public static void RefreshMeleeEqualsHealth(BattleContext ctx)
+        {
+            if (ctx == null || ctx.Players[0] == null || ctx.Players[1] == null) return;
+        //
+        //  `SAU27 Scarab Swarm`：`This troop's Melee is always equal to its Health`
+        //  = 原版 `abilities[0]`：`trigger = 240 WhileInPlayVariable` + `buffType = 70 setMeleeAttack`
+        //    + `meleeAttackValueOptions = 50 ThisCardHealth`（判据 = `判据/战斗逻辑驱动_Stage2前置_第2轮.md` §1·7，现读 SO）。
+        //
+        //  🔴 **原版怎么「跟血走」**（§1·1 / §1·4）：折叠（`ValueOptions → Change`）发生在 `PlayAbility`，
+        //     存进 `activeEffects` 的是**那一刻的生命快照**；「跟血走」靠的是
+        //     **每个动作边界**由 `FinishResolvingAction` 尾部 `BroadcastWhileInPlay` **重挂一次**
+        //     → 重新折叠 → `IsSameEffect` 因 `meleeAttackChange` 变了而返回假 ⇒
+        //     `RemoveExtrinsicEffectsFrom(这张卡)` 整份替换。
+        //  ⇒ 所以**每次调用本方法**都整份重建这一条 `IsSet` 修饰（值 = 当前 `Health`）。
+        //    调用点两处：① `Recompose`（每次棋盘变动）② `ActionPump.ActionScope.Dispose`
+        //    （每条顶层动作结束 = 原版 `FinishResolvingAction`）。
+        //  ⚠️ **不是「读时活读」**：同一次动作内部看到的仍是动作开始前那一份（原版如此）。
+        //  ⛔ **别把它改成在 `CurrentMeleeAttack` 里直接读 `Health`** —— 那会与另外 1,127 张卡的
+        //     读数语义分叉（判据 §1·7 末段点名）。
+        for (int p = 0; p < 2; p++)
+            for (int s = 0; s < BoardSpec.Size; s++)
+            {
+                var mu = ctx.Players[p].Board[s];
+                if (mu == null) continue;
+                if (mu.Card == null || !mu.Card.MeleeEqualsHealth)
+                {
+                    // 已经不再需要（或被别的路摘掉了）就清干净；幂等
+                    mu.RemoveStatModsFrom(MeleeEqualsHealthSource);
+                    continue;
+                }
+                mu.RemoveStatModsFrom(MeleeEqualsHealthSource);
+                // `isSet: true` ⇒ 投影「命中即 return」（= 原版 `get_CurrentMeleeAttack`) 的
+                // `buffType == 70` 那一支）：**`addStats` 的近战加成全部不再计入**。
+                // 判据 §1·7 末段的附带说明（"它天然吞掉其它近战修正 —— 原版如此、照抄"）。
+                // ⚠️ 这条也**顺带**取代了我们以前在 `RuleCore.FieldAttack` 里那个特判
+                //   （"换掉基础值、加值照常叠" = **我们挑的**，不是原版；本笔按判据改成覆盖语义）。
+                mu.AddStatMod("attack", mu.Health, MeleeEqualsHealthSource, extrinsic: true, isSet: true);
+            }
         }
 
         /// <summary>「这一条（来源 + 目标）挂过没有」的键 —— 见 <see cref="Recompose"/> 的迭代说明。</summary>

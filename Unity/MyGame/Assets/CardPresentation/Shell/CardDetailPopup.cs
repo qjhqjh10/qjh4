@@ -2036,6 +2036,12 @@ namespace CardPresentation
         /// `<TryCrafting>b__21_0` 调的就是它本身，判了会再弹一次窗）。</para></summary>
         void CraftNow()
         {
+            // 🔴 **2026-10-25（执行代理 E6 · 账 `未分类_其他` #116）**：原版 `CraftingPanel.TryCraftingInternal`
+            //   **首句**就是 `options.ResetDisplayOrder()`（`CraftingPanel.cs:655`）—— 先把**主卡**换回前台，
+            //   再发请求、再播那两件合成特效。为什么必须在**这里**：`PlayCraftVfx` 的「卡那件」落点 = **前台那张**
+            //   （`SlotViews[0]`，判据 `CraftingPanel__DoVFX.c`）⇒ 玩家先点过相关卡的话，不先复位就会把特效
+            //   打在**那张相关卡**身上。⚠️ 原版这句在**闸与请求之前**（`TryCraft` 失败时它也已经执行过）。
+            ResetDisplayOrder();
             int rarity;
             if (!TryCraft(out rarity)) return;
             PlayCraftVfx(rarity);
@@ -2326,6 +2332,9 @@ namespace CardPresentation
                       + "（卡框档 = tier" + after + "）"
                       + " —— 「升级」那颗钮：Lv" + before + "→Lv" + after
                       + "（**不扣货币**：单机资源固定 2000（2026-10-24 由 9999 改为 2000）；升级表数值**是我们编的**）");
+            // 原版 `UpgradePanel.TryUpgrade` 在这里那一声 `options.ResetDisplayOrder()` 的等价物 = 下面这次整窗重建
+            //（`Build()` 的槽 0 恒是主卡 ⇒ 展示顺序必然复位）。⛔ 别在这儿补一句 `ResetDisplayOrder()` ——
+            //  理由（会留下一条晚到的换位 `OnComplete` 去对调新一次的槽）见 `ResetDisplayOrder` 的 doc §②。
             RebuildKeepingState();
             return true;
         }
@@ -2484,6 +2493,63 @@ namespace CardPresentation
         Transform Hit(Transform parent, string name, PxRect r, System.Func<bool> onClick, int q)
         {
             return Hit(parent, name, r, () => { onClick(); }, q);
+        }
+
+        // ============================================================ 复位展示顺序（账 `未分类_其他` #116）
+        //
+        // 【判据 · 两侧到方法级】
+        //   原版 `CardDisplayOptions.ResetDisplayOrder()` = 一句 `display.ResetOrder();`
+        //     （`D:/2/tools/cpp2il/out_cpp2il_dev_ilspy/CardDisplayOptions.cs:41-44`）
+        //   → `CardDisplayWindow.ResetOrder()` = `ChangeCardPosition(mainCardUI);`
+        //     （同目录 `CardDisplayWindow.cs:568-571`；`mainCardUI` = `cardUIs[0]`，即**主卡**）
+        //   → `ChangeCardPosition(cardToFront)` 的闸① `swappingCards`、闸② `cardToFront == cardInFront`
+        //     （`CardDisplayWindow.cs:1158-1161`）—— 已在前台时**什么都不做**。
+        //   ⇒ **复位展示顺序 = 把主卡换回前台**（不是「恢复出厂布局」，扇形位姿本来就不变）。
+        //   🔴 我们的等价物就是本窗早已有的一条 `SwapToFront(idx)`（它逐句对着 `ChangeCardPosition` 建，
+        //     含 0.25s 换位音 / 两两互换 sibling / 着色 / 重排渲染队列，判据见那边的 doc）——
+        //     本方法只补「找主卡在哪一格 + 转发」，⛔ 不另写一份换位。
+        //
+        // 【原版的两个调用点，逐条对齐】
+        //   ① `CraftingPanel.TryCraftingInternal` **首句**（`CraftingPanel.cs:655`）⇒ 已接在 `CraftNow()` 开头；
+        //   ② `UpgradePanel.TryUpgrade`（`UpgradePanel.cs:222`：`DoingUpgrade` 之后、`levelUpAnimationController.DoAnim()`
+        //      之前）⇒ **本窗的结构性等价**：`DoUpgrade()` 末尾那句 `RebuildKeepingState()` 会把整棵子树销毁重建
+        //      （`Build()` → `BuildCardStack`，槽 0 恒 = `Card`）⇒ **展示顺序必然回到默认**。
+        //      🔴 **⛔ 别为了「对齐那一声」在 `DoUpgrade` 开头补一句 `ResetDisplayOrder()`** ——
+        //         那会起一条 0.25s 的换位补间，而它跑完前子树已被重建销毁；`SwapToFront.FinishSwap`
+        //         一旦晚到就会把**新**那一次 build 的 `_slotDefs` / `SlotViews` 再对调一次（静默错位）。
+        //         （本仓 DOTween 的 `SetLink` 正常情况下会随物体销毁把它杀掉，但 `WF_NO_SETLINK=1` 那一档不杀
+        //           —— 同 `Close()` 那段注释里记的那颗雷。）
+        /// <summary>= 原版 `CardDisplayOptions.ResetDisplayOrder()`（转发 `CardDisplayWindow.ResetOrder()`
+        /// → `ChangeCardPosition(mainCardUI)`）：**把主卡换回前台**，即恢复默认展示顺序。
+        /// <para>已在前台 / 窗上没有卡 / 上一次换位还没播完 ⇒ 什么都不做（原版那两道闸 + `swappingCards`）。</para>
+        /// <para>⚠️ 本窗的「主卡」= <see cref="Card"/>（`ShowCard` 传进来的那张，永远建在位姿槽 0）；
+        /// 玩家点相关卡之后它会被换到槽 `k`，这里按卡 id 把它找回来。</para></summary>
+        public void ResetDisplayOrder()
+        {
+            if (Card == null)
+            {
+                Debug.LogWarning("[CardDetail] `ResetDisplayOrder`：窗上没有卡（`Card == null`）⇒ 不动");
+                return;
+            }
+            int idx = SlotIndexOf(Card.Id);
+            if (idx <= 0)
+            {
+                // 原版闸②：`cardToFront == cardInFront` ⇒ `ChangeCardPosition` 直接 return（**不出声**）
+                return;
+            }
+            if (!Application.isPlaying)
+            {
+                // ⚠️ **这是我们的偏离（原版没有这道闸）**：`SwapToFront` 的换位是一条 0.25s 补间
+                //   （`CardView.TweenPose`），而**批处理/编辑模式没有帧循环** ⇒ 补间不会推进、
+                //   `OnComplete`（`FinishSwap`）永远不跑 ⇒ `_swapping` 会**永久卡在 true**，
+                //   之后任何一次换位都会被闸①挡掉。⇒ 这一档直接**不做**并出声（⛔ 不静默、也不留死补间）。
+                Debug.Log("[CardDetail] 复位展示顺序：主卡在第 " + idx + " 格，但**当前不是真 Play**"
+                        + "（批处理/编辑器没有帧循环 ⇒ 0.25s 换位补间不会完成）⇒ 这一档不换位，只出声");
+                return;
+            }
+            Debug.Log("[CardDetail] 复位展示顺序：主卡「" + Card.Name + "」在第 " + idx + " 格 ⇒ 换回前台"
+                    + "（= 原版 `CardDisplayOptions.ResetDisplayOrder` → `CardDisplayWindow.ResetOrder`）");
+            SwapToFront(idx);        // 闸① `swappingCards` 与换位本身都在那一条里
         }
     }
 }

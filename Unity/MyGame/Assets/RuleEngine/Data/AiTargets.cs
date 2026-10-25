@@ -32,6 +32,12 @@
 //     原版 `while (resource > i) { list.Add(hero); i++ }` ⇒ **列表长度 = 资源点数**。
 //     本条原来写的是「161/162 按『资源 > 0 时返回督军一个』近似」「160/170 评分数据 0 条 ⇒ 不实现」
 //     —— 两句都已过期（近似已改成原版形状；160/170 已按同一形状实现）。
+//
+// ⚠️ **与原版的一处【刻意不同】：返回值是【新表】，不是原版的【静态池】**
+//   原版 `AbilityLogic.GetTargets` 每次调用**先清空**那份静态池 `pooledPossibleTargets` 再填
+//   （判据 §3·3 ②），所以**调用方不能缓存返回值**；我们每次返回新的 `List`，
+//   语义上更安全（缓存了也不会被下一次调用冲掉），但**不要因此假设原版也能缓存**。
+//   —— 这一条是 `R6-09`（判据 §8）要求写清的，⛔ 别把「我们返回新表」当成「原版也是」。
 using System.Collections.Generic;
 
 namespace RuleEngine
@@ -1056,6 +1062,26 @@ namespace RuleEngine
                 case 1265: return "ferocity";
                 default: return null;
             }
+        }
+
+        /// <summary>
+        /// 原版 `CardScript.get_mightAct` —— `AI.ScoreFromCriteria` 的 option 5 循环体第一句就是它
+        /// （`AI__ScoreFromCriteria.c` 的 `:0x18093A934-0x18093A936`：`get_mightAct` 假 ⇒ `je` 跳过该目标）。
+        ///
+        /// 🔴 **不在这里另写一份判据** —— 转发到引擎侧唯一判据 `ConditionEval` 的 `case 20`
+        ///   （同源：`CardScript__get_mightAct.c`，逐句见 `ConditionEval.cs` 的 `20 mightAttack` 段：
+        ///   ① 本回合已攻击过 ⇒ 必须 `bloodThirst` 且 `== 1`；② 必须是单位/督军；③ `displaySummonSickness`；
+        ///   ④ `stun` / `cantAttack` / `nonCombatant` 任一）。
+        ///   `ConditionEval` 判不了时返回 `null` ⇒ 这里取 `false`（AI 侧保守口径：原版不成立就不算目标）。
+        ///
+        /// ⚠️ **不在场的候选**（手牌 / 牌库 / 弃牌堆里那一份）**没有 `EntityScript`** ⇒ 原版
+        ///   `mightAct` 无对象可读 ⇒ 这里返回 **false**（等价于「手牌卡不能行动」）。
+        /// </summary>
+        public static bool MightAct(BattleContext ctx, AiTargetRef t)
+        {
+            if (t.Unit == null) return false;
+            bool? r = ConditionEval.MeetsUnit(ctx, t.Unit, 20, false);
+            return r ?? false;
         }
     }
 }

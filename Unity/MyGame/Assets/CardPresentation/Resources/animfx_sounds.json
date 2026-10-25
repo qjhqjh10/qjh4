@@ -696,6 +696,17 @@
    "timeToPlayAgain": 0.1
   },
   {
+   "name": "CardClick 1",
+   "clips": [
+    "UI Select Toggle"
+   ],
+   "minPitch": 0.8,
+   "maxPitch": 1.1,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.1
+  },
+  {
    "name": "CardClick 2",
    "clips": [
     "UI Click Card 2"
@@ -1049,6 +1060,17 @@
    "minVolume": 0.5,
    "maxVolume": 0.5,
    "timeToPlayAgain": 0.0
+  },
+  {
+   "name": "DeckClick 1",
+   "clips": [
+    "UI Click Deck 1"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.1
   },
   {
    "name": "Delightful Agonies",

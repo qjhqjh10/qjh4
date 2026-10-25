@@ -1,0 +1,43 @@
+总文件数            : 25096
+exact              : 17756
+contains           : 15
+method_only        : 3195
+mismatch           : 4130
+unparsed           : 0
+不符文件字节 中位数 : 129 · 最大 17973 · ≤200B 的 3421 条
+不符文件里「方法体 ≤2 行」: 3008 条（占 72.8%）
+不符清单            : d:/4/Unity/资料/完全复刻/普查产出_第八十会话/G4_文件名与内容不符_全量.tsv（4130 行）
+
+--- 不符 前 30 条 ---
+AIBotsConfig.BotConfigFTUE__GetBotDecks.c                          => f__AnonymousType0<object>__get_itemId          [125B, 1行] return *(undefined8 *)(param_1 + 0x10);
+AIBotsConfig.BotConfig__GetBotDecks.c                              => f__AnonymousType0<object>__get_itemId          [125B, 1行] return *(undefined8 *)(param_1 + 0x10);
+AIBotsConfig__BeforeConfigUpload.c                                 => NetworkingPeer__OnMessage                      [61B, 1行] return;
+AIBotsConfig__GetBotList.c                                         => f__AnonymousType0<object>__get_itemId          [125B, 1行] return *(undefined8 *)(param_1 + 0x10);
+AIBotsConfig__GetBotListFTUE.c                                     => AuthenticationValues__get_AuthGetParameters    [129B, 1行] return *(undefined8 *)(param_1 + 0x18);
+AIBotsConfig__GetBotListFastMode.c                                 => FriendInfo__get_Room                           [106B, 1行] return *(undefined8 *)(param_1 + 0x20);
+AIBotsConfig__GetBotNames.c                                        => RoomOptions__get_customRoomPropertiesForLobby  [131B, 1行] return *(undefined8 *)(param_1 + 0x28);
+AIBotsConfig__IsFTUEDisabled.c                                     => PlayerHand__get_stopMulliganFlag               [118B, 1行] return *(undefined1 *)(param_1 + 0x60);
+AbilityLogic.__c___GetTargets_b__26_4.c                            => AbilityLogic_<>c__<GetTargets>b__26_3          [261B, 5行] if (param_2 != 0) { | CardScript__GetValueInPlay(param_2,0);
+AccountTab._LogOut_d__25__System.Collections.Generic.IEnumerator_System.Object_.get_Current.c => AuthenticationValues__get_AuthGetParameters    [129B, 1行] return *(undefined8 *)(param_1 + 0x18);
+AccountTab._LogOut_d__25__System.Collections.IEnumerator.get_Current.c => AuthenticationValues__get_AuthGetParameters    [129B, 1行] return *(undefined8 *)(param_1 + 0x18);
+AccountTab._LogOut_d__25__System.IDisposable.Dispose.c             => NetworkingPeer__OnMessage                      [61B, 1行] return;
+AccountTab___Login_b__23_0.c                                       => AccountTab__<ResetPassword>b__19_0             [550B, 9行] longlong *plVar1; | plVar1 = *(longlong **)(param_1 + 0x80);
+AchievementsManager__BlockAutoUpload.c                             => TextTooltipController__OnEnable                [119B, 2行] *(undefined1 *)(param_1 + 0x48) = 0; | return;
+AchievementsManager__get_Achievements.c                            => PhotonLagSimulationGui__get_Peer               [118B, 1行] return *(undefined8 *)(param_1 + 0x38);
+AchievementsManager__get_AutoUploadProgress.c                      => BattleNetworkManager__get_firstPlayerInPvProom [132B, 1行] return *(undefined1 *)(param_1 + 0x48);
+AchievementsManager__get_IsEnabled.c                               => PhotonPlayer__get_IsInactive                   [114B, 1行] return *(undefined1 *)(param_1 + 0x29);
+AchievementsManager__get_IsInitialized.c                           => PhotonPlayer__get_isLocal                      [111B, 1行] return *(undefined1 *)(param_1 + 0x28);
+AchievementsManager__set_AutoUploadProgress.c                      => BattleNetworkManager__set_firstPlayerInPvProom [159B, 2行] *(undefined1 *)(param_1 + 0x48) = param_2; | return;
+AchievementsManager__set_IsEnabled.c                               => PhotonPlayer__set_IsInactive                   [141B, 2行] *(undefined1 *)(param_1 + 0x29) = param_2; | return;
+AchievementsManager__set_IsInitialized.c                           => AddressablesManager__set_Initialized           [149B, 2行] *(undefined1 *)(param_1 + 0x28) = param_2; | return;
+ActionScheduler.__c__DisplayClass4_0___Schedule_b__1.c             => ChatGlobalManager_<>c__DisplayClass40_0__<SubscribeToChannel>b__0 [472B, 8行] if (param_2 != 0) { | if (*(longlong *)(param_1 + 0x10) != 0) {
+ActiveWarlordAbility__GetParentCard.c                              => FriendInfo__get_Room                           [106B, 1行] return *(undefined8 *)(param_1 + 0x20);
+AdSettingsData__get_adsEnabled.c                                   => f__AnonymousType97<bool>__get_getPreviousRating [135B, 1行] return *(undefined1 *)(param_1 + 0x10);
+AdSettingsData__get_gemsPerAd.c                                    => FeatureConfig_BotMatchmakingWaitTime__get_MaxWait [135B, 1行] return *(undefined4 *)(param_1 + 0x14);
+AdSettingsData__get_maxDailyAds.c                                  => WebRpcResponse__get_ReturnCode                 [116B, 1行] return *(undefined4 *)(param_1 + 0x18);
+AdSettingsData__set_adsEnabled.c                                   => RoomOptions__set_IsVisible                     [139B, 2行] *(undefined1 *)(param_1 + 0x10) = param_2; | return;
+AdSettingsData__set_gemsPerAd.c                                    => ScoringDataInfo__set_PreviousLevelScore        [152B, 2行] *(undefined4 *)(param_1 + 0x14) = param_2; | return;
+AdSettingsData__set_maxDailyAds.c                                  => WebRpcResponse__set_ReturnCode                 [143B, 2行] *(undefined4 *)(param_1 + 0x18) = param_2; | return;
+AddressablesConfig.Environment__get_Bucket.c                       => AuthenticationValues__get_AuthGetParameters    [129B, 1行] return *(undefined8 *)(param_1 + 0x18);
+
+--- 仍解析不出签名 前 10 条 ---

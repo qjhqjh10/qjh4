@@ -28,16 +28,20 @@ namespace CardPresentation.Net
         // 对面交上来的（主机收）
         static PlayerDeck _foeDeck; static string _foeMode, _foeFaction;
 
-        /// <summary>🆕 **2026-10-25（联机域审查 · D 域）**：因「两端模式不一致」而**关台告诉对面**的次数（累计）。
+        /// <summary>🆕 **2026-10-25（联机域审查 · D 域；同日 `E4` 按账 162 重做为独立消息）**：因「两端模式不一致」
+        /// 而**撤掉这一局**的次数（累计）。
         ///
         /// <para>为什么要有这一格：原来主机发现模式不一致时**只本机 `Notice` 就 return**，客机在
         /// `BeginNetWait` 里**无超时地等**（心跳一直有包 ⇒ 会话级 10 秒静默超时永不触发）
-        /// ⇒ **客机永久静默等待**（红线）。现在补上「关台 + `bye`」，原版对应
+        /// ⇒ **客机永久静默等待**（红线）。现在补上「发一条 `ModeMismatch` + 两端各自撤这一局」，原版对应
         /// `PUNReceiveWrongPlayMode`（`SearchOpponentManager.cs:1915-1985`：两边都离开并取消搜索）。</para>
         ///
-        /// <para>🔴 **自检反向断言的抓手**（待自检恢复时跑）：两端模式不一致 ⇒
-        /// ① `ModeMismatchCloses` 增量 == 1；② **客机** `State == Closed` 且 `LastError` 非空。
-        /// **把 `Close` 那两句删掉 ⇒ 客机会永远停在 `BeginNetWait`**（那两条断言会红）。</para></summary>
+        /// <para>🔴 **2026-10-25（`E4`）就地订正（铁律 5）**：本格原来写着「关台 + `bye`」「客机 `State == Closed`」——
+        /// **那套已作废**：现在**不关会话**（原版只 `LeaveBattle` + `CancelBattleSearch`，连接留着），
+        /// 会话停在 `Lobby`。⇒ 自检抓手改成：① `ModeMismatchCloses` 增量 == 1；
+        /// ② **客机** `State == Lobby`（⛔ 不再是 `Closed`）且 `LastError` **为空**；
+        /// ③ 客机 `NetMatchmaking.HasOpponent == false`（这一局撤干净了）。
+        /// **把 `RevokeForModeMismatch` 里那句 `ClearMatch()` 删掉 ⇒ ③ 会红**。</para></summary>
         public static int ModeMismatchCloses { get; private set; }
 
         // 🔴 **A1323（2026-10-19）**：原来只有**一个** `_started`，它同时当【我发过开局包】与
@@ -672,6 +676,22 @@ namespace CardPresentation.Net
                         // 🆕 客机在这一刻才知道「对面是谁」（大厅阶段拿不到，只有主机收得到 Deck）。
                         //    ⚠️ 这几个字段都是**主机视角**的名字：`myName` 是主机的名字、`hostDeckJson`
                         //    是主机那副牌 —— 对客机来说它们正是「对面」。
+                        // 🔴🔴 **2026-10-25（`E4` · 账 162 ③ = 安全口径，不是体验项）**：**客机必须自己复核
+                        //    `MsgStart.mode`**。原版 `PUNReceiveStartGame` 就是**两端各比一次**
+                        //    （`SearchOpponentManager.cs` 收 `start` 时 `text2 != text3` ⇒ `LogError` +
+                        //    `RPC("PUNReceiveWrongPlayMode", All)`，`:1700-1770` / `:1766`）。
+                        //    改前我们**只有主机单方面判**：主机声明别的模式就能把客机拉进一场模式对不上的局，
+                        //    而客机全程不校验 ⇒ 恶意 / 错版的**主机可以单方面指定模式开局**（两端账本对不上，
+                        //    客机的卡组是按自己选的模式构筑的 ⇒ 静默打出一场两边不一致的局）。
+                        //    ⚠️ 判据里 `st.mode` 是**对端（主机）可控的** ⇒ 只拿来比、不拿来定任何本地状态。
+                        {
+                            string myMode = _myMode ?? "Classic";
+                            if (!string.IsNullOrEmpty(st.mode) && st.mode != myMode)
+                            {
+                                RevokeForModeMismatch(st.mode, sendToPeer: true);
+                                break;      // ⛔ 不进战场（`GoToBattle` 一个字都不执行）
+                            }
+                        }
                         if (!string.IsNullOrEmpty(st.hostDeckJson))
                             _foeDeck = JsonUtility.FromJson<PlayerDeck>(st.hostDeckJson);
                         _foeFaction = st.hostFaction;
@@ -751,6 +771,23 @@ namespace CardPresentation.Net
                         }
                         break;
                     }
+                    case NetKind.ModeMismatch:                          // 🆕 2026-10-25（E4 · 账 162）两端都收
+                    {
+                        // 原版 = `PUNReceiveWrongPlayMode`（`SearchOpponentManager.cs:1915-1985`）：
+                        // 打一行日志 → **若点名的是自己** ⇒ `LeaveBattle()` + `CancelBattleSearch()`。
+                        var mm = NetProtocol.Unpack<MsgModeMismatch>(f.payload);
+                        // 🔴 **去重（不是消音）**：两个方向可能各发一条（主机看出不一致 + 客机复核也看出），
+                        //    先到的那条已经把这一局撤掉（`ClearMatch` 把 `_myDeck` 清空）
+                        //    ⇒ 后到的那条**只说一句日志**，⛔ 不再弹第二次窗、也不回包（否则两端会互相回包）。
+                        if (_myDeck == null && !Started)
+                        {
+                            Debug.Log("[Net] 收到对面报的「模式不一致」（对面期望 "
+                                    + (mm != null ? mm.playMode : "?") + "）—— 但本机这一局**已经撤过** ⇒ 不重复弹窗");
+                            break;
+                        }
+                        RevokeForModeMismatch(mm != null ? mm.playMode : null, sendToPeer: false);
+                        break;
+                    }
                     default:
                         // ⚠️ 走到这里说明「这条消息不该在大厅阶段出现」—— 出声（红线：不许静默）
                         Debug.LogWarning("[Net] 大厅阶段收到不认识的消息：" + f.kind);
@@ -781,23 +818,15 @@ namespace CardPresentation.Net
             string mode = _myMode ?? "Classic";
             if (!string.IsNullOrEmpty(_foeMode) && _foeMode != mode)
             {
-                Debug.LogError($"[Net] 🔴 两端模式不一样（我 {mode} / 对面 {_foeMode}）—— 拒绝开局，别打出两端不一致的账");
-                // 🔴 **红线**：原来只有这行日志 ⇒ 两边都卡在「正在搜索」上、**谁也不明白为什么开不了**。
+                // 🔴 **红线**：原来只有一行日志 ⇒ 两边都卡在「正在搜索」上、**谁也不明白为什么开不了**。
                 //    判据 → `项目任务.md` §三 第 14 条 表里的第 4 条。
-                NetRuntime.Notice(string.Format(Loc.T("Settings/Online/Lobby/ModeMismatch"), mode, _foeMode));
-                // 🔴 **2026-10-25（联机域审查 · D 域）补最后一跳**：**还要告诉对面**。
-                //    原来只有上面那句 `Notice`（= **只有主机自己看得见**），客机在 `BeginNetWait` 里
-                //    **无超时地等**，而心跳一直在发包（`NetSession` 只在 WaitingReconnect/Connecting 跳心跳）
-                //    ⇒ 会话级 10 秒静默超时**永远不触发** ⇒ **客机永远等、一个字都不说**（红线：不许静默失败）。
-                //    原版对应的是 `PUNReceiveWrongPlayMode`（`SearchOpponentManager.cs:1915-1985`）：
-                //    `LeaveBattle` + `CancelBattleSearch` —— **两边都离开并取消搜索**。
-                //    我们的等价动作 = 关台（`Close(say:true)` 会给对面捎 `bye`，客机那边走 `OnClosed`
-                //    → `NetMatchmaking` 的「对面取消」提示 + 撤回搜索）。
-                //    ⚠️ reason 用**不带占位符**的 `PeerCancelled`：这是个词条键，对面按**它自己的语言**取句子；
-                //       `ModeMismatch` 那条带 `{0}/{1}`，当 bye reason 传过去会原样显示成 `{0}`。
-                var sess = NetRuntime.Instance != null ? NetRuntime.Instance.Session : null;
-                if (sess != null) sess.Close(true, "Settings/Online/Lobby/PeerCancelled");
-                ModeMismatchCloses++;      // 🆕 计一次：给自检做反向断言用（见字段注释）
+                // 🔴 **2026-10-25（`E4` · 账 162 重做，原版判据现读）**：原来这一支是
+                //    `sess.Close(true, …)` —— **拆掉整条会话**，客机得重新建连/输房间码；
+                //    而原版 `PUNReceiveWrongPlayMode`（`SearchOpponentManager.cs:1915-1985`）只做
+                //    `LeaveBattle` + `CancelBattleSearch`，**连接留着、退回大厅**。
+                //    现在改走 `RevokeForModeMismatch`：发一条独立的 `ModeMismatch` 给对面 + 两端各自撤这一局，
+                //    **`NetSession` 保持 `Lobby`**（下一局两边重新点 `Battle!` 即可，不用重连）。
+                RevokeForModeMismatch(_foeMode, sendToPeer: true);
                 return;
             }
 
@@ -863,6 +892,23 @@ namespace CardPresentation.Net
             Debug.Log($"[Net] 进战场 `{pb.Arena}`（本机座位 {pb.MySeat}，先手座位 {pb.FirstSeat}"
                     + $"（{(pb.FirstSeat == pb.MySeat ? "我" : "对面")}））");
             if (Application.isBatchMode) { Debug.Log("[Net] （批处理：不切场景，只把开局参数放进静态槽）"); return; }
+            // 🆕 **2026-10-25（E4 · 联机账 74）：「Match found!」弹窗**（两端各一次 —— 主机发完/客机收到开局包）。
+            //   判据 = 原版 `MatchMakerManager.MatchMakingMatchFound`（`MatchMakerManager.cs:555-574` 逐句）：
+            //     `searchState = inactive` → `Debug.Log("Match found!")` →
+            //     **`WindowsManager.ShowPopUp(文案, localizeTexts:false, closeOnEsc:false, …)`**
+            //     → `SoundManager.Play2D(matchFoundSFX, MixerType)`。
+            //   ⇒ 我们的等价弹窗口 = `NetRuntime.Notice`（落 `WindowsManager.ShowPopUp(text, OK, null)`，
+            //     见 `NetRuntime.DrainNotices`）。⚠️ 三条**如实差异**：
+            //     ① 原版那句文案是 I2 词条（本地无 value）⇒ 用原版 `Debug.Log` 那句字面串 `Match found!`；
+            //     ② 原版那两颗钮是 prefab 上的（`closeOnEsc:false`），我们走通用 OK 钮；
+            //     ③ 🔴 **音效 `matchFoundSFX` 没接**：那一格是 `MatchMakerManager` 上的 `AudioCue` 序列化字段
+            //        （`dump.cs:122502`，偏移 `0xA0`），而本机**没有任何 bundle 的 MB JSON 带这个字段名**
+            //        （`assets_full` 全树 grep `matchFoundSFX` = 0 命中 ⇒ 那份实例没有 type tree）
+            //        ⇒ **cue 名读不到 ⇒ 音频先不接**（⛔ 不猜一个 cue 名当替身）。账 74 记着这一半。
+            //   ⚠️ `GoToBattle` 在 `Application.isBatchMode` 已经 return 过 ⇒ 自检的通知队列计数不受影响。
+            NetRuntime.Notice("Match found!");
+            Debug.Log("[Net] 找到对手 ⇒ 弹「Match found!」（原版 `MatchMakerManager.MatchMakingMatchFound` 的 ShowPopUp；"
+                    + "音效 `matchFoundSFX` 的 cue 名本地读不到 ⇒ 这一半没接，见账 74）");
             // 🆕 切场景之前给界面一口气：把「找到对手」那一态显示出来（**只有注册过的界面才拦**）。
             //    未注册 / 批处理 ⇒ 照旧立刻切（**单机与三个战斗入口窗的行为一字不改**）。
             if (HoldForPresentation != null && HoldForPresentation(st))
@@ -871,6 +917,57 @@ namespace CardPresentation.Net
                 return;
             }
             SceneManager.LoadScene(pb.Arena);
+        }
+
+        // ==================================================================
+        //  🆕 **2026-10-25（执行代理 `E4` · 联机账 162）：两端模式不一致**
+        //
+        //  判据（逐条现读 `d:/2/tools/cpp2il/out_cpp2il_dev_ilspy/SearchOpponentManager.cs`）：
+        //   · 收 `start` 时比模式：`PUNReceiveStartGame` `:1700-1770` —— `text2`（包里的模式）vs
+        //     `text3`（本机期望）不等 ⇒ `CustomDebug.LogError("Received start game with wrong playmode …")`
+        //     + `photonView.RPC("PUNReceiveWrongPlayMode", PhotonTargets.All, …)`（`:1766`）。
+        //     🔴 **两端各比一次**（发 `start` 的一端自己也比过；收的那一端再比）。
+        //   · 收到 `PUNReceiveWrongPlayMode`（`:1915-1985`）：打一行（`:1946` 起那段拼接）→
+        //     `if (opponentDesired == PhotonNetwork.player.name)` ⇒ `BattleNetworkManager.LeaveBattle()`
+        //     + `CancelBattleSearch()`。🔴 **不拆连接**（只离开战斗房间 + 停搜索）。
+        //  ⇒ 我们的等价动作 = ① 发一条独立的 `ModeMismatch`（取代以前的 `sess.Close`）
+        //    ② **撤本地这一局**（`ClearMatch`，= `CancelBattleSearch` 那一下）③ **`NetSession` 留在 `Lobby`**
+        //    （= `LeaveBattle` 之后连接仍在）④ 弹窗说清两边各是什么模式（不许静默）⑤ 那行提示改口
+        //    （⛔ 不许仍打着「Searching」说假话 —— 与 `HandleLobbyPeerLost` 同一条口径）。
+        //
+        //  ⚠️ **一条行为差异（如实记，不是缺口）**：原版那一下的 `opponentDesired` 是**对端点名**，
+        //     命中才动；我们只有两台机、没有第三方广播 ⇒ 收到就撤（等价于「点名的是自己」那一支恒成立）。
+        // ==================================================================
+
+        /// <summary>「这一局的匹配被撤了（不是玩家点的取消）」—— 界面据此把「正在搜索」那扇窗收掉。
+        /// <para>订阅方 = `Shell/SearchingMatchPopup.OnEnable/OnDisable`（本批新接，唯一消费方）。
+        /// ⚠️ 只由 <see cref="RevokeForModeMismatch"/> 发；⛔ **玩家点取消那条路不发**（那条由
+        /// `SearchingMatchPopup.Cancel → AbortSearch` 自己收，发两遍就是两条控制流）。</para></summary>
+        public static Action OnMatchAborted;
+
+        /// <summary>两端模式不一致 ⇒ 撤这一局（判据与口径 → 上面那一节）。
+        /// <param name="foeMode">对面那个模式（只进日志与弹窗）；主机传 `_foeMode`、客机传 `MsgStart.mode`。</param>
+        /// <param name="sendToPeer">要不要给对面发一条 `ModeMismatch`（**只发一次**：
+        /// 收到对面通报的那一端传 `false`，否则两端会互相回包）。</param></summary>
+        static void RevokeForModeMismatch(string foeMode, bool sendToPeer)
+        {
+            string mode = _myMode ?? "Classic";
+            Debug.LogError($"[Net] 🔴 两端模式不一样（我 {mode} / 对面 {foeMode ?? "?"}）—— 拒绝开局，"
+                         + "别打出两端不一致的账。原版 `PUNReceiveWrongPlayMode`：两边 `LeaveBattle` + `CancelBattleSearch`，"
+                         + "**连接留着**（不是断线重连）");
+            var s = NetRuntime.Instance != null ? NetRuntime.Instance.Session : null;
+            if (sendToPeer && s != null && s.Transport.IsConnected)
+            {
+                bool sent = s.Send(NetKind.ModeMismatch, new MsgModeMismatch { playMode = mode, expected = foeMode ?? "" });
+                if (!sent)
+                    Debug.LogWarning("[Net] 「模式不一致」没能发出去（这一刻连接已断）—— 本机照样撤这一局，"
+                                   + "对面会停在等待界面上（它那边的心跳还在，会话级超时不会触发）");
+            }
+            ClearMatch();                                  // = 原版 `CancelBattleSearch` 那一下（本地状态）
+            ModeMismatchCloses++;                          // 自检抓手（见字段注释）
+            NetRuntime.Notice(string.Format(Loc.T("Settings/Online/Lobby/ModeMismatch"), mode, foeMode ?? "?"));
+            SayHintOnly(Loc.T("Settings/Online/Lobby/MatchRevoked"));   // 那行字不许继续说「Searching…」
+            if (OnMatchAborted != null) OnMatchAborted();               // 收搜索窗
         }
 
         // ==================================================================

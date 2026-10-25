@@ -58,7 +58,11 @@
   · **调用行被当成声明**：`public void UiScroll(float dy) { …; RefreshDeckList(); }`
     —— 同一个闸门一并挡掉（同上「`{` 之后」判定），不再需要按名字猜。
 
-`--fix` 只改写「唯一命中 + 目标行不是 getter / `*ForTest`」的漂移行号（默认不写）。
+`--fix` 只改写「唯一命中 + 目标行不是 getter / `*ForTest` / **能解析成声明**」的漂移行号（默认不写）。
+目标行解析不出声明名时，漂移理由里会打 **`NEED-HUMAN`** 并**跳过**（不写），请人读。
+
+🔴 **`.cs` 一律按二进制读**（`read_src_lines`）：文本模式的 universal newlines 会把**裸 `\\r`** 当换行
+   ⇒ 文件里只要有一个 `\\r\\r\\n`，后面所有行号整体偏移（实测 `DeckRules.cs` 偏 +7 ⇒ 15 行账被改错且闸变绿）。
 
 用法
 ----
@@ -273,6 +277,12 @@ def find_decl_candidates(lines, name):
             continue
         if t.startswith(STMT):
             continue
+        # ④ **这一行必须真的声明了这个名字**（2026-10-25 R1 加）：
+        #    `CleanupDeaths(ctx, owner, slot, killer, …` 这种**跨行调用**（本行没有 `)`）
+        #    会被 `looks_like_decl` 放行（它只在「有 `(` 也有 `)`」时才查 DECL_TAIL）⇒ 假候选。
+        #    判据 = `decl_name_at` 取不出同名 ⇒ 不是声明（它本来就拒裸调用：名字在行首 ⇒ None）。
+        if decl_name_at(l) != name:
+            continue
         out.append(i)
     return out
 
@@ -331,6 +341,29 @@ def one_line_getter(lines, idx):
     return None
 
 
+# ---------------------------------------------------------------------------
+#  目标行「是不是声明」的最终闸 —— `dn_at` 同款正则（照 `工具/verify_annot.py`）
+# ---------------------------------------------------------------------------
+# 🔴 **2026-10-25 第八十会话批次 1（R1）加**：Q3 报告投诉「工具报的『实际在 N 行』有 18/79
+#    落在 `///` 注释 / `{` / `}` / 空行 / 另一个方法上 ⇒ 直接 `--fix` 会改到错的位置、而且闸变绿」。
+#    实测当前版本（同日加固后）已经没有那 18 条了，但 `find_decl_candidates` 仍能接受
+#    「字段 + 初始化器」这类**解析不出方法名的行**（`static readonly int[] T = new int[]{…};`）
+#    ⇒ `--fix` 照样会写上去。所以把「必须能解析成声明」做成最后一道闸：解析不出 ⇒ NEED-HUMAN，不写。
+#    判据口径 = `verify_annot.py` 的 `dn_at`（名字后面紧跟 `(` 或 `{`），两处工具**必须同一口径**。
+_DN_AT = re.compile(
+    r'\s*(?:(?:public|private|protected|internal|static|sealed|override|virtual|async|abstract|'
+    r'extern|new|unsafe|partial)\s+)*[\w<>\[\],\.\? ]+?\s(\w+)\s*[\({]')
+
+
+def dn_at_name(line):
+    """`verify_annot.py` 的 `dn_at` 同款：能解析成「声明名 + `(`/`{`」⇒ 返回名字，否则 None。
+
+    ⛔ 拿不准就返回 None —— 调用方按「不是声明」处理（NEED-HUMAN），**不猜**。
+    """
+    m = _DN_AT.match(line)
+    return m.group(1) if m else None
+
+
 def check_file(path, roots, show_pass=False, do_fix=False):
     """返回 `(total, fails, drifts, rewrites, getters, warns)`。
 
@@ -384,7 +417,7 @@ def check_file(path, roots, show_pass=False, do_fix=False):
                           "文件不存在（试过 原样 / Assets / Assets/CardPresentation / Unity）：" + rel))
             continue
         try:
-            lines = io.open(full, encoding="utf-8", errors="ignore").read().split(NL)
+            lines = read_src_lines(full)
         except Exception as e:
             fails.append((base, who, land, "读不了文件：" + str(e)))
             continue
@@ -491,11 +524,26 @@ def check_file(path, roots, show_pass=False, do_fix=False):
     return total, fails, drifts, rewrites, getters, warns
 
 
+def read_src_lines(path):
+    """🔴 **按二进制读再切行**（2026-10-25 第八十会话批次 1 · R1 加）。
+
+    文本模式（`io.open(..., encoding=...)`）会做 **universal newlines**：把**裸 `\\r`** 也当换行
+    ⇒ 文件里只要有一个 `\\r\\r\\n`，它后面的行号就整体偏大。实测踩过：`RuleEngine/Core/DeckRules.cs`
+    有 7 个裸 `\\r` ⇒ 该文件行号**整体偏 +7**，`--fix` 会把 15 行账「修」成错行、**而且闸变绿**。
+    ⇒ 这里只把 **`\\r\\n`** 归成 `\\n`，裸 `\\r` 留在行内（与编辑器/`git diff` 的行号口径一致）。
+    """
+    raw = io.open(path, "rb").read().decode("utf-8", "ignore")
+    return raw.replace("\r\n", "\n").split("\n")
+
+
 def fix_block_reason(lines, ln):
     """`--fix` 该不该拒绝改到这一行 ⇒ 返回理由（空串 = 可以改）。
 
     🔴 历史事故：`--fix` 曾把 `KwValue` 的漂移「修正」到一个**属性 getter** 上（392），
        真值在 938；`*ForTest` 转发口同理。
+    🔴 **2026-10-25（R1）第三道闸**：目标行必须能被 `dn_at_name`（= `verify_annot.py` 的 `dn_at`）
+       解析成**声明**；解析不出（注释行 / `{` / `}` / 空行 / 字段带初始化器 …）⇒ `NEED-HUMAN`，
+       **不写**。否则闸会「变绿」而落点其实是错的（Q3 投诉：18/79 落在注释行 / 别的方法上）。
     """
     if ln < 1 or ln > len(lines):
         return ""
@@ -505,6 +553,13 @@ def fix_block_reason(lines, ln):
     dn = decl_name_at(lines[ln - 1]) or ""
     if dn.endswith("ForTest"):
         return "（⚠️ 该行是自检/转发口 `%s`：--fix 不自动改）" % dn
+    got = dn_at_name(lines[ln - 1])
+    if got is None:
+        return "（🔴 NEED-HUMAN：目标行解析不出声明名（不是声明）：--fix 跳过、请人读 `%s`）" \
+               % lines[ln - 1].strip()[:50]
+    if dn and got != dn:
+        return "（🔴 NEED-HUMAN：目标行解析出的名字是 `%s`，与那一行声明的 `%s` 不一致：--fix 跳过）" \
+               % (got, dn)
     return ""
 
 

@@ -29,7 +29,10 @@
 //
 // ⚠️ 本文件里还有 `TraitEffectControllers`（静态挂载助手，判据 §6.2）：它**不是 MonoBehaviour**，
 //    不受「类名 == 文件名」约束（CLAUDE.md A1506/A1508）；放在基类同一个文件里是有意的。
-//    🔴 本轮（N15）只**建文件**、⛔ **不接线**：没有任何既有文件会调它。
+//    ✅ **已接线**：`TraitFrames.Play(...)` 在每张状态框出生时调
+//    `TraitEffectControllers.Attach(p.gameObject, prefabName)`（`Core/TraitFrames.cs` 的 `Play()` 里，W0）。
+//    🔴 **就地订正（2026-10-25 · R5 · 铁律 5）**：本行原来写「本轮（N15）只**建文件**、⛔ 不接线：没有任何既有文件会调它」——
+//    那是 N15 当时的实况，**W0 接线之后就不成立了**。
 using UnityEngine;
 
 namespace CardPresentation
@@ -56,8 +59,13 @@ namespace CardPresentation
 
         /// <summary>原版 `:15`。两个实现的处境不同：
         /// `HuntMarkController` **直接 `throw NotImplementedException`**（原版就是这样，照抄）；
-        /// `MarkerlightController` 原版走 `MaterialFader.Toggle(!option, fadeTime)`，而本工程还没有
-        /// `MaterialFader` 共用件（判据 §6.6 · P2）⇒ 走**明确的「未实现」出口**（出声，⛔ 不静默）。</summary>
+        /// `MarkerlightController` 走 `MaterialFader.Toggle(!option, fadeTime)`（`MarkerlightController.cs:81-86`）——
+        /// ✅ **已实现**：`Core/MaterialFader.cs` 这个共用件与两个 `MaterialFader` 实例都已建好
+        /// （2026-10-25 · R5 · W10）。🔴 **就地订正（铁律 5）**：本段原来写「本工程还没有 `MaterialFader` 共用件
+        /// ⇒ 走明确的『未实现』出口」——那是建共用件之前的口径，**已过期**。
+        /// ⚠️ 调用点 = `Battle/BattleDriver.cs` 的 `AimAttackingStatusPair`（W10 ③：`PlaySignal` 的
+        /// `EvtKind.Attack` 那一拍起手、同拍排一条「攻方动作跑完」收手；原版两拍 =
+        /// `CardScript.cs:3649` `hideStatus: true` / `:3637` `hideStatus: false`）。</summary>
         public abstract void AimingAttack(bool option);
     }
 

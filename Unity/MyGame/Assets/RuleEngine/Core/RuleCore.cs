@@ -633,7 +633,9 @@ namespace RuleEngine
             //     「回复到上限」那类效果会把它加回去。
             if (ctx.Vars.warlordLifeChange != 0)
             {
-                p.Warlord.MaxHealth = System.Math.Max(1, p.Warlord.MaxHealth + ctx.Vars.warlordLifeChange);
+                // 🔴 **2026-10-25（`E1` · Stage 2b）**：这是**改 base 上限**（原版
+                //   `SetupWarlordsLifeAndEnchantment` 改的是 `currentMaxHealth` 那一格 = 我们的 `MaxHealthBase`）。
+                p.Warlord.MaxHealthBase = System.Math.Max(1, p.Warlord.MaxHealthBase + ctx.Vars.warlordLifeChange);
                 p.Warlord.Health = p.Warlord.MaxHealth;
             }
             p.Board[BoardSpec.WarlordSlot] = p.Warlord;
@@ -2298,6 +2300,25 @@ namespace RuleEngine
                 {
                     var u = ctx.Players[pl].Board[s];
                     if (u != null) reverted += u.RevertBuffs(true, ctx.Active);
+                    // 🔴🆕 **2026-10-25（`E1` · 第四段 · F2 + W9）**：**标记光留到回合末才摘**。
+                    //   判据 = 原版 `CardScript.OnTurnEnd`（`CardScript.cs:16599-16607`）：
+                    //     `if (removeMarkerlightAtEndOfTurn) { if (CurrentMarkerlight > 0) {
+                    //          RemoveActiveEffect(markerlight); RemoveTrait(markerlight); 该位 = false; } }`
+                    //   ⚠️ **门是 `CurrentMarkerlight > 0`**（原版同形）—— 已经没了的就只清标志。
+                    //   ⚠️ 摘完发 `EvtKind.TraitRemoved`（W9）：`Expiring State` 那一支靠它，
+                    //     而它**只能在这一刻**发（早发就等于把「留到回合末」这件事抹掉）。
+                    if (u != null && u.RemoveMarkerlightAtEndOfTurn)
+                    {
+                        int mlBefore = u.KwValue("markerlight");
+                        if (mlBefore > 0)
+                        {
+                            u.RemoveAll("markerlight");
+                            EmitTraitRemoved(ctx, u, "markerlight", mlBefore);
+                            ctx.Log($"回合末：{u.Name} 的标记光 {mlBefore} 被移除"
+                                  + "（原版 `OnTurnEnd` 才摘，攻击那一刻只置 `+0x57`）");
+                            u.RemoveMarkerlightAtEndOfTurn = false;
+                        }
+                    }
                 }
             if (reverted > 0) ctx.Log($"（{reverted} 条「本回合」增益到期）");
 
@@ -4478,10 +4499,17 @@ namespace RuleEngine
             var host = ctx.Players[p].Board[right];
             if (!IsSwarmHost(host, just)) return;                 // 右邻那一半判据见 `IsSwarmHost`
 
-            host.Attack += just.Attack;
-            host.RangedAttack += just.RangedAttack;
+            // 🔴 **2026-10-25（`E1` · 属性模型 Stage 2b）：蜂群合并落成「一条带来源的修饰」，
+            //   ⛔ 不并进 base。**（判据 §6·2·A 的注 + 调度台 2026-10-25 拍板；⚠️ **这一条原版无判据** ——
+            //   选它是因为 ① 同族 `addStats` 本来就落修饰、不写字段 ② 并进 base 会丢掉「这几点是谁给的」
+            //   ③ 将来若查到原版确实写 base，只需改这一处。）
+            //   ⚠️ `just.Attack` 等读到的是**投影值**（含被并那张身上的一切修饰）—— 与原版
+            //   `host.Attack += just.Attack` 在「读当前值」这一层同形。
+            const string SwarmSrc = "虫群合并";
+            host.AddStatMod("attack", just.Attack, SwarmSrc);
+            host.AddStatMod("ranged", just.RangedAttack, SwarmSrc);
             host.Health += just.Health;
-            host.MaxHealth += just.MaxHealth;
+            host.AddStatMod("health", just.MaxHealth, SwarmSrc);
             host.SwarmUnder.Add(just.Instance);   // 第 7 行第 2 步：压在下面的是**那一份实例**
             // 🔴 **2026-10-01：走 `RemoveAt`（会补位）而不是直接置 null** —— 原版棋盘是连续列表，
             //    被并掉的那一张离开列表之后，**它外侧的单位整体内移一格**
@@ -4859,11 +4887,15 @@ namespace RuleEngine
 
             int baseAtk = ranged ? u.RangedAttack : u.Attack;
 
-            // `This troop's Melee is always equal to its Health`（`Scarab Swarm`，2026-09-14 A5 批 4）——
-            // **只换基础值**：下面那些加值（`Pack` 的 +N）照常叠上去；
-            // **只有近战**（卡面写的是 `Melee`，远程不受影响）。
-            // 读点只此一处；「加值算不算」这一点是我们挑的，见 `CardDef.MeleeEqualsHealth` 的注释。
-            if (!ranged && u.Card != null && u.Card.MeleeEqualsHealth) baseAtk = u.Health;
+            // 🔴 **2026-10-25（`E1` · 第三段）就地订正（铁律 5）：这里原来有一条**
+            //   `if (!ranged && u.Card != null && u.Card.MeleeEqualsHealth) baseAtk = u.Health;`
+            //   —— **已删**。判据 = `判据/战斗逻辑驱动_Stage2前置_第2轮.md` §1·7：
+            //   原版 `SAU27` 走的是 `buffType 70 setMeleeAttack` + `trigger 240` 的**快照 + 动作边界重挂**，
+            //   而 `get_CurrentMeleeAttack` 命中那条记录就 **`return`**（`addStats` 的近战加成**全部不计**）。
+            //   我们以前那一条是「**换掉基础值、加值照常叠**」，文件自己也标着「**我们挑的**、规则书查不到」。
+            //   ⇒ 现在由 `Auras.Recompose` 的 ①·b 每趟重挂一条 `IsSet` 修饰，`u.Attack` 直接就是那个值
+            //     （`UnitState.ProjectMeleeAttack` 的「命中即 return」分支），**这里不再需要特判**。
+            //   ⛔ 别加回来 —— 加回来 = 同一条规则两处写（而且两处语义不同：这里是「叠 Pack」、原版是「吞掉」）。
 
             if (u.Has("pack"))
             {
@@ -6889,10 +6921,22 @@ namespace RuleEngine
                     int mld = Hurt(ctx, target, ml, attacker.Name + " 的 Markerlight", actingCard: attacker,
                                    // 🆕 2026-10-25（`X2`）：标记光单列一类（成就 `Ach_53` = `Deal damage with Markerlight`）。
                                    kind: DamageKind.Markerlight);
-                    // ⚠️ 规则书 :192 是「移除**全部**标记光」—— 用 `RemoveKeyword` 只会减一层
-                    target.RemoveAll("markerlight");
+                    // 🔴 **2026-10-25（`E1` · 第四段 · F2 判据现核，铁律 5 就地订正）**：
+                    //   改前这里是 `target.RemoveAll("markerlight")`（**攻击这一段跑完就摘**）——
+                    //   **比原版早了一整个回合**。判据（cpp2il 现读）：
+                    //     · `BattleManager._ResolveAttack…:1633`（case `0x1a`）调的是
+                    //       `CardScript.SetRemoveMarkerlight(target)`（`CardScript.cs:11260-11296`）=
+                    //       **只置 `removeMarkerlightAtEndOfTurn(+0x57) = true`** + 播「用掉了」的表现，
+                    //       **一个 trait 都不摘**；
+                    //     · 真正摘除在 `CardScript.OnTurnEnd`（`CardScript.cs:16599-16607`）：
+                    //       `if (removeMarkerlightAtEndOfTurn && CurrentMarkerlight > 0)
+                    //          { RemoveActiveEffect(markerlight); RemoveTrait(markerlight); 该位 = false; }`。
+                    //   ⇒ 现在只置位，**回合末**由 `RuleCore.EndTurn` 那一趟摘（并顺手发 W9 的
+                    //   `EvtKind.TraitRemoved`）。⚠️ 这是 E5 的 F2/W9 两条请求的引擎侧那一半。
+                    target.RemoveMarkerlightAtEndOfTurn = true;
                     ctx.Log($"Markerlight {ml}：{target.Name} 的标记光在**主攻击（与反击）之后**再算 → "
-                          + $"实际 {mld} 伤（剩 {target.Health}），标记光随后移除");
+                          + $"实际 {mld} 伤（剩 {target.Health}）；标记光**留到回合末**再移除"
+                          + "（原版 `SetRemoveMarkerlight` 只置 `+0x57`）");
                     if (mld > 0 && !target.IsAlive) targetDied = true;
                 }
             }
@@ -9463,8 +9507,8 @@ namespace RuleEngine
                     //   ⇒ 先按「沿用原号」实现（原号位置 = 翻面前的位置），待核缺口记在
                     //   `资料/普查产出_1020/W58_战斗结算_多词条顺序判据.md` §七。
                     PlayOrder = u.PlayOrder,
-                    Attack = 0, RangedAttack = 0,
-                    Health = 1, MaxHealth = 1,          // 挨任何一下就没（规则书：受伤害即被摧毁）
+                    AttackBase = 0, RangedAttackBase = 0,
+                    Health = 1, MaxHealthBase = 1,      // 挨任何一下就没（规则书：受伤害即被摧毁）
                     Exhausted = true,                   // 残骸不能行动
                 };
                 ps.Board[slot] = rem;

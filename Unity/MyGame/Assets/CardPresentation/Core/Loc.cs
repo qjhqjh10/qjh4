@@ -1726,6 +1726,13 @@ namespace CardPresentation
             //   两列文案 = **官方值**（现读官方表；⛔ 不是自拟）：
             { "MenuDeck/Error/MissingHero",             new Entry("请为您的卡组选择一个战将，将其拖入您的卡组列表。", "Please choose a Warlord for your deck, by dragging it into your deck list.") },
             { "MenuDeck/Error/IncompleteDeck",          new Entry("您的卡组不完整。您需要将30张牌添加到您的卡组中，将它们拖入左侧面板的卡组列表。", "Your deck is incomplete. You need to add 30 cards to your deck by dragging them into the deck list on the left panel.") },
+            // 🆕 **2026-10-25（`E1` · 第六段）：卡组编辑的「整副传奇张数」那一档** —— 
+            //   键名里的 **`Legenday`（少一个 r）是原版自己的拼写**，⛔ 别修正（改了 `Loc.T` 就取不到）。
+            //   引用点 = `RuleEngine/Core/DeckRules.cs` 的 `Describe`（`DeckError.LegendaryTotalExceeded` 那一档）。
+            //   两列文案 = **官方值，逐字取自** `数据/游戏数据/官方本地化_en+zh-CN.json`（2026-10-25 现读）：
+            //   EN `Decks in this game mode can contain only 4 legendary cards.` /
+            //   ZH「在这个游戏模式中，卡组只能包含4张传奇牌。」（⚠️ 官方中文在「卡组」后有个逗号，照抄）
+            { "MenuDeck/Error/MaxLegendayCopiesReached", new Entry("在这个游戏模式中，卡组只能包含4张传奇牌。", "Decks in this game mode can contain only 4 legendary cards.") },
 
             // ============================================================ 🆕 **2026-10-18（第四会话 · 双语③ 波 0）：现读扫出的缺键**
             //
@@ -3562,7 +3569,17 @@ namespace CardPresentation
             return "MainMenu/Settings/LanguageName/" + lang;
         }
 
-        /// <summary>本地有没有这个键的**任一**语言的文案（自检用：「表真的填了」那一条）。
+        /// <summary>**手写 `Table` 里**有没有这个键（自检用：「表真的填了」那一条）。
+        ///
+        /// <para>🔴 **2026-10-25（`E1` · 第七段）就地订正：这个函数【只认手写 `Table`】，
+        /// ⛔ 不能当成「运行时没有这条文案」。** `Loc.T` 有**三档兜底**：
+        /// ① 手写 `Table`（权威）→ ② 数据面 bulk（`Resources/official_names.json`，3,263 条）
+        /// → ③ 官方全表（`Resources/official_loc_13lang.json`，10,862 键）→ ④ 缺键档（返回键名 + 出声）。
+        /// ⇒ `HasEntry(key) == false` 只说明**手写表没登记**，运行时**照样可能取得到**。
+        /// 📌 判据实例：`MenuDeck/Error/MaxLegendayCopiesReached` 手写表没有、官方全表有 ⇒ `T` 正常出文案；
+        /// 而 `HasEntry` 对它返回 false。**上一轮就是把这句读成「会印键名」而误报了一次**（铁律 5）。
+        /// ⚠️ 因此 `HasEntry ? T(key) : 兜底` 这种写法**只适合「想在缺登记时换一条兜底」**，
+        /// **不适合**用来判「运行时有没有文案」（那要看 `T` 的返回值是否等于键名 / `MissingCount`）。</para>
         ///
         /// <para>🔴 **2026-10-18（`G9`）：`key == null` 要【出声】后返回 false，⛔ 不许丢给
         /// `Dictionary.ContainsKey`** —— 那会抛 `ArgumentNullException`，而上游只要有一处把

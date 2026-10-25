@@ -11674,7 +11674,7 @@ public static class BattleScene
                 var c = PNew(tac);
                 RuleCore.BeginTurn(c);
                 var victim = Put(c, 1, 3, PUnit("ProbeBlindVictim", 1, 2, 9));
-                victim.RangedAttack = 4;
+                victim.RangedAttackBase = 4;
                 Check(RuleCore.FieldAttack(c, 1, victim, true) == 4, "（前提）它远程 4");
                 int hi = HandOf(c, 0, "ProbeBlindTac");
                 Check(hi >= 0, "夹具：「Blind a random enemy troop」在起手里");
@@ -13897,7 +13897,7 @@ public static class BattleScene
                     int sTgtD3 = FreeSlot(cD3, foeD3);
                     if (sTgtD3 >= 0)
                         cD3.Players[foeD3].Board[sTgtD3] = new UnitState(dummyD3, false)
-                            { Attack = 0, Health = 40, MaxHealth = 40 };
+                            { AttackBase = 0, Health = 40, MaxHealthBase = 40 };
                     driver.RefreshAll();
                     Check(sSwD3 >= 0 && sDaD3 >= 0 && sVehD3 >= 0 && sTgtD3 >= 0
                           && driver.MyUnits.ContainsKey(sSwD3) && driver.MyUnits.ContainsKey(sDaD3)
@@ -16687,9 +16687,9 @@ public static class BattleScene
                                 var adjB = new CardDef("Probe_AdjB", "Probe_AdjB", "unit", "", null, "Test",
                                                        1, 0, 1, 0, null);
                                 c2.Players[0].Board[sA] = new UnitState(adjA, false)
-                                { Attack = 0, RangedAttack = 0, Health = 1, MaxHealth = 1, Exhausted = true };
+                                { AttackBase = 0, RangedAttackBase = 0, Health = 1, MaxHealthBase = 1, Exhausted = true };
                                 c2.Players[0].Board[sA + 1] = new UnitState(adjB, false)
-                                { Attack = 0, RangedAttack = 0, Health = 1, MaxHealth = 1, Exhausted = true };
+                                { AttackBase = 0, RangedAttackBase = 0, Health = 1, MaxHealthBase = 1, Exhausted = true };
                                 driver.RefreshAll();
                                 var vAdj = driver.BoardViewAt(sA + 1);
                                 Check(vAdj != null, "（前提）**相邻单位**那一格的视图建出来了");
@@ -20260,17 +20260,17 @@ public static class BattleScene
                                 if (u == null) continue;
                                 if (u.IsRemnant) continue;
                                 svEx = u.Exhausted; svStun = u.KwValue(KeywordTable.Stun); svAtk = u.AttacksThisTurn;
-                                svA = u.Attack; svR = u.RangedAttack;
+                                svA = u.AttackBase; svR = u.RangedAttackBase;
                                 // **把「能打」人为造出来** —— 攻击力本身由 `RuleEngineTest` 盯着，这里只验接线
                                 u.Exhausted = false; u.RemoveAll(KeywordTable.Stun); u.AttacksThisTurn = 0;
-                                u.Attack = Mathf.Max(1, u.Attack); u.RangedAttack = Mathf.Max(1, u.RangedAttack);
+                                u.AttackBase = Mathf.Max(1, u.AttackBase); u.RangedAttackBase = Mathf.Max(1, u.RangedAttackBase);
                                 if (RuleEngine.RuleCore.CanActNow(drv.Ctx, owner, s)) slot = s;
                                 else
                                 {
                                     why += $" {side}/{s}({u.Name},blind={u.IsBlind},pin={u.Has("pindown")})"
                                          + $"={RuleEngine.RuleCore.CanAttackNow(drv.Ctx, owner, s, true)};";
                                     u.Exhausted = svEx; RestoreKw(u, KeywordTable.Stun, svStun); u.AttacksThisTurn = svAtk;
-                                    u.Attack = svA; u.RangedAttack = svR;
+                                    u.AttackBase = svA; u.RangedAttackBase = svR;
                                 }
                             }
                         }
@@ -20282,7 +20282,7 @@ public static class BattleScene
                             bool lit = v1 != null && v1.CanActVisible;
                             var u = drv.Ctx.Players[owner].Board[slot];
                             u.Exhausted = svEx; RestoreKw(u, KeywordTable.Stun, svStun); u.AttacksThisTurn = svAtk;
-                            u.Attack = svA; u.RangedAttack = svR;
+                            u.AttackBase = svA; u.RangedAttackBase = svR;
                             drv.Ctx.Winner = svWinner;
                             drv.RefreshAll();
                             var v2 = drv.BoardViewAt(slot, owner == drv.MyIndex);
@@ -40551,7 +40551,7 @@ public static class BattleScene
                     Check(card5 != null, "★ B5·实例账（夹具）：拿得到一张卡模板来做两个同名单位");
                     var uA = new UnitState(b5ctx.NewInstance(card5), false) { Exhausted = false };
                     var uB = new UnitState(b5ctx.NewInstance(card5), false) { Exhausted = false };
-                    uA.Health = uA.MaxHealth = 10; uB.Health = uB.MaxHealth = 10;
+                    uA.Health = uA.MaxHealthBase = 10; uB.Health = uB.MaxHealthBase = 10;
                     uA.Armor = 0; uB.Armor = 0;
                     b5board[sA] = uA; b5board[sB] = uB;
                     driver.RefreshAll();
@@ -40640,7 +40640,7 @@ public static class BattleScene
                     if (sC4 >= 0 && cardC4 != null)
                     {
                         var uC4 = new UnitState(driver.Ctx.NewInstance(cardC4), false) { Exhausted = false };
-                        uC4.Health = uC4.MaxHealth = 20; uC4.Armor = 0;
+                        uC4.Health = uC4.MaxHealthBase = 20; uC4.Armor = 0;
                         boardC4[sC4] = uC4;
                         driver.RefreshAll();
                         CardView vC4;
@@ -41169,7 +41169,7 @@ public static class BattleScene
                     {
                         var uA = new UnitState(ctx6.NewInstance(tpl6), false) { Exhausted = false };
                         var uB = new UnitState(ctx6.NewInstance(tpl6), false) { Exhausted = false };
-                        uA.Health = uA.MaxHealth = 10; uB.Health = uB.MaxHealth = 10;
+                        uA.Health = uA.MaxHealthBase = 10; uB.Health = uB.MaxHealthBase = 10;
                         uA.Armor = 0; uB.Armor = 0;
                         Check(uA.Name == uB.Name && uA.Instance.Id != uB.Instance.Id,
                               $"★ B6·登场账（前提）：两个单位**同名、不同实例**（`{uA.Name}` / {uA.Instance.Id} vs {uB.Instance.Id}）");
@@ -46879,8 +46879,8 @@ public static class BattleScene
                                1, 0, 1, 0, new[] { keyword });
         ctx.Players[0].Board[slot] = new UnitState(card, false)
         {
-            IsRemnant = true, Attack = 0, RangedAttack = 0,
-            Health = 1, MaxHealth = 1, Exhausted = true,
+            IsRemnant = true, AttackBase = 0, RangedAttackBase = 0,
+            Health = 1, MaxHealthBase = 1, Exhausted = true,
         };
         // ⚠️ 白盒改棋盘**不发事件** ⇒ 得自己调一次刷新（正常路径是事件驱动 `RefreshAll`）
         driver.RefreshAll();

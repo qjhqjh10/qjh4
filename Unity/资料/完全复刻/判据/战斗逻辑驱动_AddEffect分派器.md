@@ -168,10 +168,10 @@
 | 项 | 内容 |
 |---|---|
 | **分支条件（原文）** | `.c:460-461` `case 3:` / `switchD_..._caseD_3:`（**`90 addTraitRemnant` 也跳到这里**，见 K10）。`.c:461-475` 先 `Log("Add Trait")` + `CardTraitCollection.GetTrait(trait)`。`.c:475` `if (trait != 0xc8 poisoned)` → 若身上有 `resistant(0x258)` ⇒ **取消这次中毒** + `HighlightTraitIcon` + `DisplayStatusAnim` + break。`.c:~480` `if (trait != 0x1ae survivor)` → `RemoveActiveEffects(4, trait)`（**授某关键词前先清掉同名的 removeTrait 记录**）→ `blind` 特例（见 K3）→ **挂载去重循环**：从 `activeEffects` **末尾向前**扫，命中条件 = `buffType == 3`（或 `== 90`）∧ `trait` 相同 ∧ `markOfChaosType` 相同 ∧ `daemonHostType` 相同 ∧ `SameTimingAsEffect` ∧ 两侧 `extrinsic` 都为假 ⇒ 按 `CardTrait._stackable` **三选一**：`replace` → `Math.Max(旧, 新)`；`add` → 累加；`count` → `+1`；`_stackable` 其它值 → 只认旧值。`.c:~655` 未命中 → `if (_stackable == count) newEffect.traitValue = 1;` + `List.Add` + **`AddTraitSilently(trait, false, 0)`**。`.c:678` `break` |
-| **枚举/常量真值** | `TraitStackType`（`replace / add / count`）在 `CardTrait` SO 上（**逐条真值见 `判据/CardTrait词条权威表.md` 的 `stackable` 列**，但该表把值都写成 `10`，⚠️ **那个 10 是「未解」的占位编码，不是枚举值** ⇒ 要用时回 `工具/ttread.py` 解 `_stackable`） |
+| **枚举/常量真值** | `TraitStackType`（`replace = 0 / add = 10 / count = 20`，`dump.cs:21302-21308` 带显式值现读）。🔴 **2026-10-25 就地订正（`Q1` 第 2 轮，铁律 5）**：本格原来写「该表把值都写成 `10`，那个 10 是『未解』的占位编码」—— **不成立**。**那个 `10` 就是枚举值 `add`**：73 个 `CardTrait` SO **逐对象**用原始字节解析、`bytesRead == byte_size` **73/73 全通过**（`工具/export_trait_collection.py --check`，md5 `cbb9809d…`），真值 = **74 条 `add(10)` · 1 条 `count(20)`（`MarkOfChaos`） · `berzerk`/`dodge` 两个 pair 无 SO**。逐条表 → **`判据/CardTrait_stackable_真值表_第2轮.md`**（⛔ 别再回 `ttread.py`，那个工具全仓 0 调用者） |
 | **我们落点** | `UnitState.AddKeyword`(`UnitState.cs:954`) · `UnitState.RemoveBuffedTrait`/`RemoveTrait` · `UnitState.Has`(`:806`) / `Keywords`(`:816`) · 挂载去重**未找到**（grep `_stackable` / `stackable` 无实现） |
 | **现状** | 🟡 → 部分 **⛔** —— 关键词是 `Dictionary<string,int>`，**没有「同源/同计时」去重键**、**没有三种叠层语义**。判据已定（`.c` 那一段），**可以直接认领去做** |
-| **置信度** | 高；**缺**：`_stackable` 的逐 trait 真值（`CardTrait词条权威表.md` 的 10 是占位） |
+| **置信度** | 高；~~**缺**：`_stackable` 的逐 trait 真值（`CardTrait词条权威表.md` 的 10 是占位）~~ 🔴 **2026-10-25 订正（`Q1` 第 2 轮）：这一格不再缺** —— 真值已实读定案，见 `判据/CardTrait_stackable_真值表_第2轮.md`（74×`add` / 1×`count` / 2 无 SO） |
 | **归属** | K2；叠层规则**单独**可给一个代理（它是纯数据 + 纯逻辑、文件互不相交） |
 
 ### K3 —— `addTrait(3)` 的 trait 特例族（11 条，逐条独立可核）

@@ -192,7 +192,7 @@ WF_ARENA=<场> "$UNITY" -batchmode -quit -projectPath "D:\4\Unity\MyGame" \
 |---|---|---|---|---|---|
 | battlearena1 | 20 | 20 | 13 | 1 | 0 / 0 |
 | battlearena2 | 27 | 27 | 21 | 1 | 0 / **1** |
-| battlearena3 | 14 | 13 | 3 | 1 | 2 / 0 |
+| battlearena3 | 14 | 13 | 3 | 1 | 1 / 1 |
 | battlearenaaeldari | 13 | 13 | 4 | 1 | 0 / 0 |
 | battlearenaastramilitarum | 27 | 27 | 1 | 1 | 0 / 0 |
 | battlearenablacklegion | 15 | 15 | 5 | 1 | 3 / **4** |
@@ -207,6 +207,16 @@ WF_ARENA=<场> "$UNITY" -batchmode -quit -projectPath "D:\4\Unity\MyGame" \
 
 ⚠️ 「掩码外 = 1」在**每一场**都是那颗 `CardLowBoardLimit`（layer 11）—— 见 §① / §⑤-1。
 ⚠️ 锚点那 5 条失败会打 `退回「世界点 + 法线 × 0.1」` 的 `LogWarning`（**这是偏差**，见 §⑤-2）。
+
+> 🔴 **2026-10-25 更正（Q2 · `报告/Q2_建场清单与锚点_第2轮.md`）**：
+> ① 上表 `battlearena3` 的「锚点接上 / 失败」**原来是 `2 / 0`，改成 `1 / 1`** —— 原值错在**没把 `ScaleClose` 的符号口径算进去**：
+> `Monolith Front Right/Tap Particles Anchor` 的 `localScale = -0.025694`、父 44.0796 ⇒ Unity `lossyScale = (-1.1326, …)`，
+> 而清单侧 `world_scale()` 给的是**模长**（恒 ≥0）`+1.1326` ⇒ 逐轴相减**结构性必假**，那颗锚点被判「找不到」。
+> 该条已在 `ArenaBuilder.ScaleClose` 里修掉（两侧取绝对值），修完这一格**应当变成 `2 / 0`**（= 上表原值，但理由是修了 bug，不是算错了）。
+> ② 下表那 **5 条失败**（arena2 1 + blacklegion 4）已改成 **`BuildTapHits` 找不到就按清单世界 TRS 自建空节点**（铁律 11）⇒
+> **建场日志里不会再出现「锚点 `X` 找不到」的 `LogWarning`**，取而代之是一条「**按清单世界 TRS 自建**」的 `Debug.Log`；
+> 汇总行的锚点段变成「接上 N / 失败 0（本场带锚点 N 条，**其中自建 K 条**）」。逐字预期见 `Q2_…_第2轮.md` §④·2（追加轮已更新）。
+> ⇒ **上表「合计 7 / 5」与 arena2 / blacklegion 那两格是修复前的口径**，以 Q2 报告为准。
 
 可选（只看画面，不影响战斗）：`-executeMethod ArenaBuilder.BuildFromCLI`（单场场景）/
 `ArenaBuilder.RenderPreviewFromCLI`（单场渲图）。

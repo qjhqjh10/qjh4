@@ -67,14 +67,22 @@ namespace RuleEngine
         //    两列文案（`Core/Loc.cs` 那条中文「这张是效果生成的卡（药剂/破坏/秘仪），不能放进卡组」）
         //    **还没跟着改** —— 那是**白名单之外**的文件，已如实记进
         //    `资料/普查产出_第二十八会话/W9_卡组分流按原版.md` 的「没做」一节，⛔ 别当成已收口。
-        EffectOnlyCard,
-        // 🆕 **2026-10-25（完全复刻 · 执行代理 A · 第 4 轮）：补上原版的 catch-all 那一档。**
-        //   判据 = 官方本地化 `MenuDeck/Error/InvalidDeck`（15 条具名族里的一条，EN/ZH 齐全），
-        //   且它是**唯一带 `/Short` 的两条之一**（`MenuDeck/Error/InvalidDeck/Short`）。
-        //   原版 `DeckUtility.ToRawLocalizationString` 对**认不出的错码**就落这一档 ⇒ 语义 = 「这副卡组无效，请编辑或换一副」。
-        //   ⚠️ **追加在枚举末尾**（⛔ 别插在中间：历史断言/存档按**名字**引用，但枚举序号一旦位移，
-        //      `DeckRuntime` 那一族按号取值的地方会静默错位）。
+        EffectOnlyCard,
+        // 🆕 **2026-10-25（完全复刻 · 执行代理 A · 第 4 轮）：补上原版的 catch-all 那一档。**
+        //   判据 = 官方本地化 `MenuDeck/Error/InvalidDeck`（15 条具名族里的一条，EN/ZH 齐全），
+        //   且它是**唯一带 `/Short` 的两条之一**（`MenuDeck/Error/InvalidDeck/Short`）。
+        //   原版 `DeckUtility.ToRawLocalizationString` 对**认不出的错码**就落这一档 ⇒ 语义 = 「这副卡组无效，请编辑或换一副」。
+        //   ⚠️ **追加在枚举末尾**（⛔ 别插在中间：历史断言/存档按**名字**引用，但枚举序号一旦位移，
+        //      `DeckRuntime` 那一族按号取值的地方会静默错位）。
         InvalidDeck,
+        // 🆕 **2026-10-25（`E1` · 第五段 · R3 §③·2 / §六·4）：补上「**传奇总数**」这一档。**
+        //   改前 `CanAddCard` 的「整副传奇张数」闸**借 `CopyLimitExceeded` 当载体** ——
+        //   它与「同名上限」撞同一个码，任何「只按返回值出文案」的地方都会把两句话**说反**
+        //   （原版两条文案是分开的：`MenuDeck/Error/MaxCopiesReached` vs `MaxLegendayCopiesReached`）。
+        //   判据 = 原版 `DeckUtility.CanAddCard.c:100-147`（这一闸只出一句话、没有错误枚举 ⇒
+        //   我们这一档是**为了把两句话分开**才造的枚举值，键名取原版实有的那一条）。
+        //   ⚠️ **追加在枚举末尾**（⛔ 别插中间：枚举序号一旦位移，按号取值的地方会静默错位）。
+        LegendaryTotalExceeded,
     }
 
     public static class DeckRules
@@ -165,14 +173,19 @@ namespace RuleEngine
         /// `BoardLayout.IsWarlord(slot)` = 「这一格是督军格」）—— 本函数答的是**卡型**那一问，只服务**同名上限**。</summary>
         public static bool IsWarlordCardType(string type) { return type == "hero"; }
 
-        /// <summary>遭遇模式：整副牌最多几张传说（规则书:64）。经典模式返回 int.MaxValue（**无此限制**）。
+        /// <summary>**整副**牌最多几张传说（规则书:64）。经典模式返回 `int.MaxValue`（**无此限制**）。
         /// 🔴 值住在 <see cref="GameplayVariables"/>（唯一出处）。
-        /// ⚠️ **经典那一支必须留 `int.MaxValue`，不许写成 `Classic.maxLegendaries`** ——
-        ///    经典模式的传说卡限制是**同名 1 张**（`numberOfCopiesLegendary`），**不是**「整副最多 1 张传说」；
-        ///    改成后者会**一刀砍掉所有经典卡组**（`RuleEngineTest` / 卡组编辑器立刻红）。
-        ///    原版那个字段叫 `maxLegendaries`，两种读法都说得通，我们按「只有遭遇用整副总数」这条走
-        ///    —— 因为那是改造前就在跑的行为（`资料/加时与冲突模式_原版规格.md` §2.5 第 1 行给的是「经典 1 / 冲突 4」，
-        ///    但**没写清是整副总数还是同名上限**；真值拿到之前不改经典口径）。</summary>
+        /// <para>🟢 **2026-10-25（`E1` · 第五段 · R3 §六·2）就地订正：这条不再是「两种读法都说得通」的悬案，判据已经齐了。**
+        ///   · 官方文案 `Event_Description/Classic/Help` = **`No Legendary card limit`**（中文「无传奇张牌限制」）
+        ///     · `Event_Description/Skirmish/Help` = `Up to 4 Legendaries (Warlord not included)`；
+        ///   · 原版闸 `DeckUtility.CanAddCard.c:105` 是 `if (0 < gameplayVariables.maxLegendaries)` ⇒ 
+        ///     **非正数 = 本模式无上限**（`CanAddCard.c:132` 才是 `limit <= count ⇒ 挡`）。
+        ///   ⇒ 结论：**经典没有整副传奇总数上限**，遭遇是 4。`GameplayVariables.Classic.maxLegendaries` 已按此改成 **0**。</para>
+        /// ⚠️ **经典那一支仍然必须写字面 `int.MaxValue`，⛔ 不许写成 `return Classic.maxLegendaries`** —— 
+        ///    `maxLegendaries` 的 `0` 是**「关掉这条闸」的哨兵**，直接返回 `0` 会让
+        ///    `legendaries > limit` **任何一张传奇都被挡**（= 一刀砍掉所有经典卡组）。
+        ///    ⇒ 判据的两种表示在这里必须换算一次（`<= 0 ⇒ int.MaxValue`），
+        ///    ⛔ 别把换算省掉、也别把哨兵改成 `1`。</summary>
         public static int LegendaryTotalLimit(bool skirmish)
         {
             return skirmish ? GameplayVariables.Skirmish.maxLegendaries : int.MaxValue;
@@ -506,7 +519,7 @@ namespace RuleEngine
             // ⑧ 遭遇模式的传说卡总数
             int legendaries = 0;
             foreach (var c in cards) if (IsLegendary(c.Rarity)) legendaries++;
-            if (legendaries > LegendaryTotalLimit(skirmish)) return DeckError.CopyLimitExceeded;
+            if (legendaries > LegendaryTotalLimit(skirmish)) return DeckError.LegendaryTotalExceeded;
 
             return DeckError.None;
         }
@@ -578,7 +591,85 @@ namespace RuleEngine
             //   ⇒ 这一档归 **catch-all `MenuDeck/Error/InvalidDeck`**（官方表里已有、EN/ZH 两列齐全），
             //   与 `DeckRuntime` 数字族退兜底的口径一致。
             if (e == DeckError.EffectOnlyCard) return TermPrefix + "InvalidDeck";
+            // 🆕 **2026-10-25（`E1` · 第五段）**：这一档的原版键叫 `MaxLegendayCopiesReached`
+            //   （⚠️ 原版自己把 `Legendary` 拼成 **`Legenday`** —— 那是**本地化键的字面量**，
+            //    官方 EN/ZH 两列都在这个名字下；⛔ **别顺手把拼写改对**，改了 `Loc.T` 就取不到）。
+            //   判据 = 官方具名族地址表（`Describe` 的 doc 那张，`0x42CF8F0=MaxLegendayCopiesReached`）。
+            if (e == DeckError.LegendaryTotalExceeded) return TermPrefix + "MaxLegendayCopiesReached";
             return TermPrefix + e;
+        }
+
+        // ============================================================================================
+        //  🆕 2026-10-25（`E1` · 第八段）—— **「上屏用哪个键」的判据（只此一处）**
+        //
+        //  【为什么需要】`DeckError` 有 14 档，但**原版 `DeckError` 枚举只有 6 个值**：
+        //    `None0 · CardsNotOwned1 · MissingHero2 · InvalidDeckBannedCards3 · InvalidDeck4 · IncompleteDeck5`
+        //    （`DeckUtility.ToRawLocalizationString(DeckError)` 现读 cpp2il `DeckUtility.cs:149-170`：
+        //     `term = $"MenuDeck/Error/{error}"` —— **`{0}` 装的是枚举本身，`ToString()` 印的是【名字】**；
+        //     `GetTermData(term) == null ⇒ 返回 "MenuDeck/Error/InvalidDeck"`）。
+        //    ⇒ **原版真实上屏 = 具名族 `MenuDeck/Error/<枚举名>`，取不到退 `InvalidDeck`**。
+        //    🔴 **数字族 `MenuDeck/Error/{2,4,5}` 那条判据已被推翻**（`Loc.cs` 里 `A1872` 那一段已记；
+        //       本轮复核同一结论）：官方 I2 表里**一条数字键都没有**，且 `{0}` 装的是枚举。⛔ 别再走数字族。
+        //
+        //  【我们这侧的 14 档怎么落】三档（⛔ **不是**按「手写 `Loc` 表里有没有」推断 —— 
+        //    那正是本批踩过两次的同一个坑：手写表里有 ≠ 原版有）：
+        //   ① **原版有具名键** ⇒ 直接用它：
+        //      `InvalidDeck` · `EffectOnlyCard`（`Describe` 已归 `InvalidDeck`）·
+        //      `LegendaryTotalExceeded`（`Describe` 已归 `MaxLegendayCopiesReached`）；
+        //   ② **我们自己的槽位判据**（原版不查督军/防御卡槽位 ⇒ 原版没有对应错误码）⇒ **保留具名**
+        //      （摊到 `InvalidDeck` 会变成笼统的「卡组无效」，更没信息；这两条如实标「原版没有、我们补的」）：
+        //      `WarlordAlreadySet` · `DefensiveAlreadySet`；
+        //   ③ **其余 10 档** ⇒ **映射到原版那 6 个枚举名**，再走具名族（= 原版真实上屏路径）：
+        //      `NoWarlord → MissingHero` · `TooFewCards/TooManyCards → IncompleteDeck` · 其余 → `InvalidDeck`。
+        //      ⚠️ 这些自拟键**保留在 `Loc` 表里、⛔ 不要删**（语义标签，只是不当上屏文案）。
+        // ============================================================================================
+
+        /// <summary>这一档的**具名键**是不是【原版本地化表里真有】的。
+        /// 判据 = `官方本地化_en+zh-CN.json` 与 `Resources/official_loc_13lang.json` **两表一致**（2026-10-25 逐键核过）。
+        /// ⚠️ **⛔ 别拿「手写 `Loc` 表里有没有」当判据** —— 手写表里那 12 个自拟键**都在**，但那不代表原版有。
+        /// </summary>
+        public static bool HasOfficialNamedKey(DeckError e)
+        {
+            return e == DeckError.InvalidDeck                 // `MenuDeck/Error/InvalidDeck`（原版有）
+                || e == DeckError.EffectOnlyCard              // `Describe` 已把它映射成 `InvalidDeck`（原版有）
+                || e == DeckError.LegendaryTotalExceeded;     // 映射成 `MaxLegendayCopiesReached`（原版有）
+        }
+
+        /// <summary>这一档是**我们自己的槽位判据**（原版不查督军/防御卡槽位）⇒ 原版**没有对应错误码**。
+        /// 摊到 `InvalidDeck` 会变成笼统的「所选卡组无效…」，**比具名更没信息** ⇒ 保留具名
+        /// （`Loc` 里那两条中文是我们起的，⛔ 别当原版文案读）。
+        /// </summary>
+        public static bool IsOurOwnSlotRule(DeckError e)
+        {
+            return e == DeckError.WarlordAlreadySet || e == DeckError.DefensiveAlreadySet;
+        }
+
+        /// <summary>我们的档 → **原版 `DeckError` 那 6 个枚举名之一**（`DeckUtility.ToRawLocalizationString` 的 `{0}`）。
+        /// 只有 ③ 那一档会用到；①② 直接用 `Describe` 产出的具名键。
+        /// 判据 = cpp2il `DeckUtility.cs:149-170`（`term = $"MenuDeck/Error/{error}"`）+ 原版枚举 6 值。
+        /// </summary>
+        public static string OriginalErrorName(DeckError e)
+        {
+            switch (e)
+            {
+                case DeckError.None: return "None";
+                case DeckError.NoWarlord: return "MissingHero";
+                case DeckError.TooFewCards:
+                case DeckError.TooManyCards: return "IncompleteDeck";
+                default: return "InvalidDeck";
+            }
+        }
+
+        /// <summary>**上屏该用哪个词条键**（判据只此一处，见本段顶部那张三档表）。
+        /// `None` ⇒ 空串。
+        /// ① 原版有具名键 · ② 我们自己的槽位判据 ⇒ `Describe(e)`；③ 其余 ⇒ `MenuDeck/Error/<原版枚举名>`。
+        /// ⚠️ 调用方一律 `Loc.T(ErrorTextKey(e))` —— ⛔ 别在调用点再拼一遍 `Describe` / 数字族。
+        /// </summary>
+        public static string ErrorTextKey(DeckError e)
+        {
+            if (e == DeckError.None) return "";
+            if (HasOfficialNamedKey(e) || IsOurOwnSlotRule(e)) return Describe(e);
+            return TermPrefix + OriginalErrorName(e);
         }
 
         /// <summary>

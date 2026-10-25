@@ -45,6 +45,22 @@
          ⚠️ `Data/` 下**别的文件不要顺手加进来**：`DeckStore` 要 `persistentDataPath`，探针没有。 -->
     <Compile Include="../../MyGame/Assets/RuleEngine/Data/CardDatabase.cs" />
     <Compile Include="DbParse.cs" />
+    <!-- 🆕 `ai`（`R11`，2026-10-25 · 第八十会话）：AI 打分的**逐条贡献**读数口。
+         🔴 为什么必须把下面四个 `Data/` 文件编进来：`play all dump` 是**结算层**读数、
+         **结构上看不见 AI**（实测只改 AI 打分时它前后逐字节相同）⇒ 在那之前 AI 改动没有读数口。
+         · `SimpleAI.cs` —— `ScoreFromAttack` / `ScoreDamaging` / `ScoreWarlordDamage` / `ValueInPlay`
+         · `AiScoring.cs` —— `ScoreFromCriteria`（逐条贡献就从它的返回值来）
+         · `AiTargets.cs` —— `GetTargets` / `MatchesTarget` / `MightAct`
+         · `AiScoringData.cs` —— 只用它的 **DTO 类型**（`ai_scoring.json` 由探针自己读文件，
+           **不走**它的 `Resources.Load` 装载口 —— 探针里那是桩、恒 null）
+         ⚠️ 这四个文件对 Unity 类型的依赖只有 `Debug` / `Resources` / `JsonUtility` / `TextAsset`
+         ＋ [`RuntimeInitializeOnLoadMethod`]（`SimpleAI.cs:1940`）—— 全部在 `Stub.cs` 里。
+         ⛔ `Data/` 下**别的文件别顺手加**（`DeckStore` 要 `persistentDataPath`，探针没有）。 -->
+    <Compile Include="../../MyGame/Assets/RuleEngine/Data/SimpleAI.cs" />
+    <Compile Include="../../MyGame/Assets/RuleEngine/Data/AiScoring.cs" />
+    <Compile Include="../../MyGame/Assets/RuleEngine/Data/AiTargets.cs" />
+    <Compile Include="../../MyGame/Assets/RuleEngine/Data/AiScoringData.cs" />
+    <Compile Include="AiProbe.cs" />
     <!-- 被测对象：相对路径（原来写死 D:/4/... 绝对路径 ⇒ 换机器/换盘就编不过）。
          🔴 从 工具/ruleprobe/ 上去两级才是 Unity/ ⇒ ../../MyGame/... -->
     <Compile Include="../../MyGame/Assets/RuleEngine/Core/*.cs" />

@@ -390,17 +390,52 @@ namespace CardPresentation
         /// <summary>
         /// 能不能把这张加进卡组。**判据全部转发给 `DeckRules`**，这里只做「单张牌」这一层的检查 ——
         /// 整副牌的合法性另有 <see cref="Validate"/>，两件事别混。
+        /// <para>🆕 **2026-10-25（完全复刻 · R3）**：补上原版 `CanAddCard` 的「**传奇总数**」那一档
+        /// （判据/出处/为什么返回 `CopyLimitExceeded` → <see cref="LegendaryTotalReached"/>）；
+        /// 同时把「督军/防御卡槽里已经有人 ⇒ 一律挡」改成**原版口径：只挡「就是这张」与「异阵营」，同阵营 = 换**
+        /// （判据 = `CardDeck.CanAddHero` / `CanAddDefensive`，见下面那两支的注释）。</para>
         /// </summary>
         public DeckError CanAdd(CardDef c)
+        {
+            return CanAddCore(c);
+        }
+
+        /// <summary><see cref="CanAdd"/> 的真身。判据/出处 → <see cref="LegendaryTotalReached"/>。
+        /// <para>🟢 **2026-10-25（`E1` · 第五段）：不再需要 `out bool legendaryTotal` 那个载体了** ——
+        /// `DeckError` 已经补上 `LegendaryTotalExceeded`（住 `RuleEngine/Core/DeckRules.cs`），
+        /// 「同名上限」与「传奇总数」现在**返回值就能分开** ⇒ 任何按返回值出文案的地方都不会再说反。</para></summary>
+        DeckError CanAddCore(CardDef c)
         {
             if (c == null) return DeckError.UnknownCard;
 
             // 督军和防御卡走各自的位子，不占普通卡位，也各只能有一个。
-            // 换督军不走这里 —— 走 SetWarlord（它会把不合阵营的卡一并清掉）。
+            // ⚠️ 「换」有两个入口：① **这里**（`TryAdd` 直接替换槽位）② `SetWarlord`（先清不合阵营的卡再换，自检在用）。
+            // 🔴 **2026-10-25（R3）改口径：槽里已经有人 ≠ 一律挡。** 原来这两支见到 `!= null` 就回
+            //    `WarlordAlreadySet` / `DefensiveAlreadySet`；**原版不是那样** ——
+            //    `CardDeck.CanAddHero` / `CanAddDefensive`（`d:/2/tools/cpp2il/out_cpp2il_dev_ilspy/CardDeck.cs:960-1136`，
+            //    Ghidra 同形）的判定只有三层：
+            //      ① 槽里**就是这一张** ⇒ 挡（给 `MenuDeck/Error/MaxCopiesReached`）；
+            //      ② 槽里是**别的**同型卡 ⇒ **只比阵营**：`rawScript.cardArmy != card.cardArmy` ⇒ `MenuDeck/Error/InvalidArmy`；
+            //      ③ 其余 ⇒ **放行**（`TryAddCard` 随后整张替换：`deckHero = card; deckArmy = card.cardArmy` /
+            //         `deck[+0x48] = card`）。
+            //    ⇒ 玩家在池里点**同阵营**的另一位战将 / 另一张防御卡 = **换**，不是被挡；
+            //      只允许同阵营换 ⇒ 原有卡仍然合法，**换完不需要清卡**（原版 `TryAddCard` 里也没有清）。
+            //    ⚠️ 本工程对「槽里就是这一张」仍只回 `*AlreadySet`（原版给的是 `MaxCopiesReached`）——
+            //      两种都是「挡」，差别只在文案；要逐字对齐得给 `DeckError` 加一档（见账，本轮没动枚举）。
             if (c.Type == "hero")
-                return Deck.WarlordId == null ? DeckError.None : DeckError.WarlordAlreadySet;
+            {
+                if (Deck.WarlordId == null) return DeckError.None;
+                if (Deck.WarlordId == c.Id) return DeckError.WarlordAlreadySet;
+                var curW = Find(Deck.WarlordId);
+                return (curW == null || DeckRules.SameFaction(curW.Faction, c.Faction)) ? DeckError.None : DeckError.WrongFaction;
+            }
             if (c.Type == "defence")
-                return Deck.DefensiveId == null ? DeckError.None : DeckError.DefensiveAlreadySet;
+            {
+                if (Deck.DefensiveId == null) return DeckError.None;
+                if (Deck.DefensiveId == c.Id) return DeckError.DefensiveAlreadySet;
+                var curD = Find(Deck.DefensiveId);
+                return (curD == null || DeckRules.SameFaction(curD.Faction, c.Faction)) ? DeckError.None : DeckError.WrongFaction;
+            }
 
             // 🔴 **2026-10-14（`A1798`）改口径**：原来是「用户 2026-09-27 拍板的、按兵种猜的三类
             //    （药剂/破坏/秘仪）」。现在改用**原版真值**：判据只此一处 = `DeckRules.CannotAddToDeck`
@@ -419,6 +454,7 @@ namespace CardPresentation
             }
 
             if (Deck.CountOf(c.Id) >= DeckRules.CopyLimit(c.Rarity)) return DeckError.CopyLimitExceeded;
+            if (LegendaryTotalReached(c)) return DeckError.LegendaryTotalExceeded;   // 原版 `:100-147`（2026-10-25：不再借 CopyLimitExceeded）
             return DeckError.None;
         }
 
@@ -430,14 +466,17 @@ namespace CardPresentation
         /// 而它同时被当诊断串与「人话原因」用（`Editor/DeckScene.cs` 那条
         /// `CheckTrue(!string.IsNullOrEmpty(why), "被挡时给出了人话原因")`）。
         /// 判据与唯一先例 = `DeckRuntime.DeckErrorText`（`Loc.T(Describe(e))` 的那一处），⛔ 别在调用点再包第二遍
-        /// （`Loc.T` 拿到一个**不是键**的字符串会返回它自己 + 记一次 `MissingCount` + 出一条 warning）。</para></summary>
+        /// （`Loc.T` 拿到一个**不是键**的字符串会返回它自己 + 记一次 `MissingCount` + 出一条 warning）。
+        /// 🆕 **2026-10-25（R3）**：这一跳原来要问 `CanAddCore` 的 `out legendaryTotal` 才分得清两档文案；
+        /// **第五段起不用了** —— `DeckError.LegendaryTotalExceeded` 让 `Describe` 自己就能出对键
+        /// （`MenuDeck/Error/MaxLegendayCopiesReached`）⇒ 这里统一 `Loc.T(Describe(e))`。</para></summary>
         public bool TryAdd(CardDef c, out string why)
         {
-            var e = CanAdd(c);
-            why = Loc.T(DeckRules.Describe(e));
+            var e = CanAddCore(c);
+            why = e == DeckError.None ? "" : DeckRuntime.DeckErrorText(e);
             if (e != DeckError.None) return false;
 
-            if (c.Type == "hero") Deck.WarlordId = c.Id;
+            if (c.Type == "hero") Deck.WarlordId = c.Id;          // 换督军 = 直接替换（`CanAdd` 已保证只允许**同阵营**换 ⇒ 不需要清卡）
             else if (c.Type == "defence") Deck.DefensiveId = c.Id;
             else Deck.CardIds.Add(c.Id);
             return true;
@@ -923,5 +962,121 @@ namespace CardPresentation
             }
             return curve;
         }
+
+        // ============================================================ 传奇总数（原版 `CanAddCard` 的那一档）
+
+        /// <summary>卡组里现存的**传奇张数**（不含督军、防御卡）。
+        ///
+        /// <para>**判据 = 原版 `CardDeck.LegendaryCardsInDeck`**（`d:/2/tools/cpp2il/out_cpp2il_dev_ilspy/CardDeck.cs:1194-1218`；
+        /// Ghidra 同族 `decomp_full/CardDeck__LegendaryCardsInDeck.c`）：对 **`cardLibrary`** 做
+        /// `Enumerable.Count(…, c ⇒ c != null && c.cardType != Hero && c.Rarity == 4)`。
+        /// `cardLibrary` = 卡组里**普通卡**那一条 List（Ghidra `CardDeck__CanAddCard.c:113` 读的是 `deck + 0x58`）；
+        /// 督军住在 `+0x40`、防御卡住在 `+0x48`，**两者都不在这条 List 里** ⇒ 词条那句
+        /// 「Warlord not included」是**结构保证**的，不是额外判一条。
+        /// 我们的等价物 = `PlayerDeck.CardIds`（`TryAdd` 把 hero / defence 分别路由到
+        /// `WarlordId` / `DefensiveId`，不进 `CardIds`）。</para>
+        ///
+        /// <para>⚠️ 这里**仍然显式**跳过 hero / defence：万一某份存档把某一型混进了 `CardIds`，计数也不变
+        /// （原版那两格根本不进这条 List）。混进来的那两张另有 `Validate` 的 ⑥（`WarlordInCards`）管。</para>
+        /// <para>⚠️ 卡池里查不到的 id（`Find` 给 null）**不计** —— 原版 List 里存的是真卡引用、没有这一档；
+        /// 坏 id 由 `Validate` 的 ① 负责报，⛔ 别在这里静默编一张出来。</para></summary>
+        public int LegendaryCountInDeck()
+        {
+            int n = 0;
+            if (Deck == null) return 0;
+            foreach (var id in Deck.CardIds)
+            {
+                var d = Find(id);
+                if (d == null) continue;
+                if (d.Type == "hero" || d.Type == "defence") continue;
+                if (DeckRules.IsLegendary(d.Rarity)) n++;
+            }
+            return n;
+        }
+
+        /// <summary>「再加这一张就撞上本模式的**传奇总数**上限」—— 原版 `CardDeck.CanAddCard` 的
+        /// `:100-147` 那一段。
+        ///
+        /// <para>**原版逐句**（`d:/2/tools/decomp_full/CardDeck__CanAddCard.c:100-147`；cpp2il 同族
+        /// `CardDeck.cs:821-869`）：
+        /// <code>
+        /// if (PlayerItem__get_Rarity(card) == 4) {                    // :100-101  rarity == Legendary
+        ///   lVar6 = CardDeck__get_CustomGameModeEvent(this);           //         本局 PlayEventData
+        ///   gv    = *(longlong*)(lVar6 + 0x80);                        //         = gameplayVariables（PlayEventData+0x80）
+        ///   if (0 &lt; *(int*)(gv + 0x10)) {                              // :105    maxLegendaries &gt; 0 才生效
+        ///     iVar3 = Enumerable.Count(cardLibrary, 非督军 &amp;&amp; rarity==4);  // :128  已在这副牌里的传奇张数
+        ///     if (*(int*)(gv + 0x10) &lt;= iVar3) {                       // :132   limit &lt;= count ⇒ 挡
+        ///       error = "MenuDeck/Error/MaxLegendayCopiesReached";      // :136   （原版拼写就是 Legenday）
+        ///       String.Format(error, limit);                            // :143  把上限值塞进词条
+        ///     }
+        ///   }
+        /// }</code>
+        /// · 偏移判据：`gv + 0x10` = **`GameplayVariablesData.maxLegendaries`** —— 类字段序
+        ///   `maxLegendaries` / `numberOfCopiesOtherRarities` / `numberOfCopiesLegendary` / `slotsPerSide` ……
+        ///   与 `Everguild.LiveOps.GameplayVariablesData__GetMaxCopiesInDeck.c:10-13` 读的 `+0x18` / `+0x14`
+        ///   **两处互相印证**，且 `overtimeTurn = +0x28` 对得上 `il2cpp_out/dump.cs:130179`。
+        /// · 三个「不是」：**不是**同名上限（那是 `.c:48` 的 `MaxCopiesReached`，上面那一行先判过了）、
+        ///   **不是**持有数（`.c:76` 的 `MissingCopies` —— 我们单机全解锁，照 `DeckRules` 头那段跳过）、
+        ///   **不是**整副满（`.c:166` 的 `DeckFull`，我们那一档叫 `TooManyCards`，见下面「顺序差异」）。</para>
+        ///
+        /// <para>🔴 **两个模式的取值 —— 判据 = 官方【游戏内文案】实读**（`Unity/数据/游戏数据/官方本地化_en+zh-CN.json`，
+        /// 2026-10-25 现读）：
+        /// · `Event_Description/Classic/Help` = **`No Legendary card limit`**（中文「无传奇张牌限制」）
+        ///   ⇒ 经典 `maxLegendaries` **不是正数** ⇒ 上面那道 `&gt; 0` 闸直接跳过
+        ///   = **经典没有传奇总数上限**（与 `DeckRules.LegendaryTotalLimit(false)` 的 `int.MaxValue` 等价）；
+        /// · `Event_Description/Skirmish/Help` = `Up to 4 Legendaries (Warlord not included)` ⇒ 遭遇 = **4**；
+        ///   词条 `MenuDeck/Error/MaxLegendayCopiesReached` 的官方两列也写死 4
+        ///   （EN `Decks in this game mode can contain only 4 legendary cards.` / ZH「只能包含4张传奇牌」）。</para>
+        ///
+        /// <para>🟢 **2026-10-25（`E1` · 第五段）：不再「借码」了。** 原版这一支**只出一个字符串**、没有错误枚举；
+        /// 我们的 `DeckError` 已经补上 `LegendaryTotalExceeded`（住 `RuleEngine/Core/DeckRules.cs`，
+        /// `Describe` 出原版键 `MenuDeck/Error/MaxLegendayCopiesReached`）⇒ `CanAdd` / `Validate` 给同一个码，
+        /// 且**返回值本身**就能和「同名上限」区分开（⛔ 别再借 `CopyLimitExceeded`）。</para>
+        ///
+        /// <para>⚠️ **顺序差异（如实标，本轮未改）**：原版把「整副满」(`DeckFull`) 排在**最后**（`.c:166`），
+        /// 我们排在**第三**（`CanAdd` 里 `CardIds.Count &gt;= MaxDeckCount`）⇒ 两者同时成立时
+        /// 原版报「传奇总数已满」、我们报「卡组已满」。没动它的原因：`Editor/DeckScene.cs:2706` 那条断言
+        /// 钉死了「满 12 张的遭遇牌再加一张 ⇒ `TooManyCards`」，而那份夹具可能已含 4 张传奇
+        /// ⇒ 挪顺序会把它变成 `CopyLimitExceeded`（该文件本轮不在可写范围）。</para></summary>
+        public bool LegendaryTotalReached(CardDef c)
+        {
+            if (c == null || Deck == null) return false;
+            // 督军 / 防御卡各自只占一个位子、不进 `cardLibrary` ⇒ 不吃这一条（原版 `.c:32-39` 早就路由走了）
+            if (c.Type == "hero" || c.Type == "defence") return false;
+            if (!DeckRules.IsLegendary(c.Rarity)) return false;
+
+            // 唯一出处 = `GameplayVariables.{Classic,Skirmish}.maxLegendaries`（`DeckRules.LegendaryTotalLimit` 转发）
+            int limit = DeckRules.LegendaryTotalLimit(Skirmish);
+            if (limit <= 0) return false;              // 原版 `.c:105` 那道闸：`<= 0` ⇒ 本模式无上限
+            // ⚠️ 经典那一支在我们的表里编码成 `int.MaxValue`（「无上限」）⇒ 走这一支也恒不挡，与上面口径一致。
+            return LegendaryCountInDeck() >= limit;    // 原版 `.c:132` `limit <= count` ⇒ 挡
+        }
+
+        /// <summary>加不进时**给玩家看的那句话**（原版 `CanAddCard` 的 `out error` 那一路）；合得进去 ⇒ 空串。
+        ///
+        /// <para>🟢 **2026-10-25（`E1` · 第五~八段）：这里现在只有一句 `DeckRuntime.DeckErrorText(e)`。**
+        /// 它内部的选择规则（**只那一处** = `DeckRules.ErrorTextKey`，判据 = 「**这个键是不是原版就有的**」）：
+        /// ① 原版有具名键 ⇒ 具名；② 我们自己的槽位判据（`WarlordAlreadySet` / `DefensiveAlreadySet`）⇒ 保留具名；
+        /// ③ 其余 10 档（自拟键、官方表里没有）⇒ **映射到原版那 6 个枚举名**（`NoWarlord→MissingHero` ·
+        /// `TooFew/TooMany→IncompleteDeck` · 其余→`InvalidDeck`）再走具名族 —— 即原版 `ToRawLocalizationString` 的真实路径。
+        /// 两档文案的区分已经下沉到 `DeckError.LegendaryTotalExceeded` + `DeckRules.Describe`
+        /// （原版键 `MenuDeck/Error/MaxLegendayCopiesReached`）。
+        /// ⚠️ **顺序仍是原版口径**：一张传奇卡**同时**撞同名上限（1 张）与传奇总数时，先命中同名上限
+        /// （`CanAddCore` 里那一行排在前，= 原版 `.c:48` 早于 `.c:100`）⇒ 文案给 `MaxCopiesReached`。
+        /// 📌 **官方两条文案今天都没有 `{0}` 占位符**（数字写死 4）⇒ 原版那一步 `String.Format` 是空操作；
+        /// 我们**没有**照做（删掉了旧的 `LegendaryTotalErrorText`）—— 将来词条若真带占位符，
+        /// 在这一句上加一次 `string.Format(…, DeckRules.LegendaryTotalLimit(Skirmish))` 即可。</para>
+        /// <para>调用点：`DeckRuntime.BeginCardDragAt`（拖拽那条路的 `Say(...)`）。</para></summary>
+        public string AddErrorText(CardDef c)
+        {
+            var e = CanAddCore(c);
+            if (e == DeckError.None) return "";
+            // 🟢 **2026-10-25（`E1` · 第七段 · 裁定 (b)）**：这里原来直接 `Loc.T(DeckRules.Describe(e))` ——
+            //   对手写表 / 官方表**都没有具名键**的那 9 档会印**键名**（拖拽提示条上玩家可见）。
+            //   现在统一走 `DeckRuntime.DeckErrorText`（**判据只那一处** = `DeckRules.ErrorTextKey`：原版有具名键 ⇒ 具名；
+            //   我们自己的槽位判据 ⇒ 保留具名；其余 ⇒ 映射到原版那 6 个枚举名再走具名族）。
+            return DeckRuntime.DeckErrorText(e);
+        }
+
     }
 }

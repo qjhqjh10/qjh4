@@ -365,6 +365,27 @@ namespace RuleEngine
         /// 也**不进动作流**（录像存的是「起始条件 + 动作流」，`BattleEvent` 不进 `.json`）。</para>
         /// </summary>
         StatusApplied,
+
+        /// <summary>
+        /// 🆕 **2026-10-25（`E1` · 第四段 · W9）：一个关键词（trait）**从**这张卡身上被摘掉了** ——
+        /// `CardId` = **关键词本身**（`"markerlight"` / `"stun"` …），`Player` / `Slot` = **被摘的那张卡**，
+        /// `Amount` = 摘掉**之前**的值（`0` = 不知道）。
+        ///
+        /// <para>**为什么要单开一种**（E5 的 W9 请求）：原版 `CardScript.RemoveTrait` 之后卡片会进
+        /// **`Expiring State`**（`MarkerlightController.MarkerLightUsed()` 那一支：
+        /// `alreadyAttacked = true; Normal off; Expiring on;` —— 判据
+        /// `判据/TraitEffectController_钩子层.md` §6.1③ / §6·1 `MarkerLightUsed():88-93`）。
+        /// 我们这边原来**没有任何「摘掉了」的信号**（`UnitState.RemoveAll` 直接改字典），
+        /// 表现层只能靠 `SyncKeywords` 的**集合对差**猜 —— 而那个对差**分不出**「到期摘掉」
+        /// 与「换了一份」⇒ `Expiring State` 永远看不见。</para>
+        ///
+        /// <para>⚠️ **与 <see cref="StatusApplied"/> 成对**：那条管「挂上」、这条管「摘掉」。
+        /// ⛔ **别把两条合并成一条带 `bool` 的事件** —— 两条的 `Amount` 语义不同
+        /// （挂上那条的 `Amount` 是「重施加」标记，不是值）。</para>
+        ///
+        /// <para>⚠️ **纯表现信号**：本事件在**摘除已经发生之后**发，不改任何局面，也不进动作流。</para>
+        /// </summary>
+        TraitRemoved,
     }
 
     /// <summary>

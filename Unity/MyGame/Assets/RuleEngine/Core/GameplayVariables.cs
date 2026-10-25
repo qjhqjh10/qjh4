@@ -102,14 +102,18 @@ namespace RuleEngine
                          ClassicManaPerTurn = 1, ClassicStartingMana = 1, ClassicStartingManaSecond = 1,
                          ClassicOvertimeTurn = 10, ClassicDrawPerTurn = 1, ClassicManaAccumulation = 0,
                          ClassicWarlordLifeChange = 0,
-                         ClassicMaxLegendaries = 1, ClassicCopiesOther = 2, ClassicCopiesLegendary = 1;
+                         ClassicMaxLegendaries = 0, ClassicCopiesOther = 2, ClassicCopiesLegendary = 1;
         // 遭遇（Skirmish）—— 逐条的来源分【文案】/【规则书】/【推断】，见下面 `Skirmish` 那个实例
         public const int SkirmishDeckSize = 12, SkirmishStartingHand = 4, SkirmishHandLimit = 8,
                          SkirmishManaPerTurn = 2, SkirmishStartingManaSecond = 2, SkirmishManaAccumulation = 1,
                          SkirmishWarlordLifeChange = -10, SkirmishMaxLegendaries = 4;
 
         // ---- 1~3：卡组构筑 ----------------------------------------------------
-        /// <summary>【文案】传说卡上限（不含督军）：经典 1 · 遭遇 **4**（`Up to 4 Legendaries (Warlord not included)`）。</summary>
+        /// <summary>【文案】**整副**传说卡上限（不含督军）：经典 **0 = 无此限制** · 遭遇 **4**（`Up to 4 Legendaries (Warlord not included)`）。
+        /// <para>🔴 **2026-10-25（`E1` · 第五段 · R3 §六·2）就地订正**：这一格原来写 `1`，与官方文案 `Event_Description/Classic/Help` = **`No Legendary card limit`** 不符。
+        /// 原版的判据是**非正数 = 本模式无上限**：`DeckUtility.CanAddCard.c:105` 那道闸是 `if (0 < gameplayVariables.maxLegendaries)` ⇒ `<= 0` 直接跳过。
+        /// ⇒ 经典 = **0**。今天**零行为变化**（`DeckRules.LegendaryTotalLimit(false)` 仍显式返回 `int.MaxValue`），但谁哪天改成读本字段，`0` 会**正确**地表示「无限制」，而 `1` 会静默给经典加一条「整副只能 1 张传奇」。
+        /// ⚠️ ⛔ **别把 0 读成「一张都不许」** —— 本字段的 `<= 0` 语义就是「关掉这条闸」。</para></summary>
         public int maxLegendaries = ClassicMaxLegendaries;
         /// <summary>【规则书:53】普/稀/史同名上限。原版活值是 `GetMaxCopiesInDeck` 里读的那个（见 `DeckRules` 文件头）。</summary>
         public int numberOfCopiesOtherRarities = ClassicCopiesOther;

@@ -1846,6 +1846,140 @@ public static class CollectionScene
                 }
             }
 
+            // ============================================================ 🆕 **2026-10-25（执行代理 `R17`）**
+            //   Deck 页「卡组拖拽重排」（`R13` 施工）的 **6 条断言**。
+            //   判据（⛔ **不重查**，逐条出处都是 R13 已核过的反汇编/资产）：
+            //     `资料/完全复刻/报告/R13_收藏拖拽重排_第2轮.md` §三（施工序）+ §四（建议的断言与改坏法）：
+            //       · `CollectionDisplay.ReorderCollectionByHierarchy` RVA `0x15ED470`（Remove + Insert，下标取**移动前**）
+            //       · `DeckCollectionDisplay.SaveDeckOrder` RVA `0x1806E0000`（两张表等长才存）+ `OnDisable` RVA `0x1806DFFB0`
+            //       · `CollectionDisplay.SetCell` RVA `0x1815EEB64`（`allowItemDrag` ∧ 两表等长 ⇒ `Toggle(true)`）
+            //   🔴 **本轮不跑它**（用户 2026-10-25 定「暂停自检」）⇒ 这群是**只写不落跑**；
+            //      每条都带「🧨 改坏法」，且 §⑥ 把「哪一句删掉会让哪一条红」列清（灭自证）。
+            Section("Deck 页：卡组拖拽重排（R13 施工 · R17 断言）");
+            {
+                float savedOffD = win.DeckScroll != null ? win.DeckScroll.Offset : 0f;
+                if (win.DeckScroll != null) win.DeckScroll.SetOffset(0f);
+                win.ClearDeckFilters();
+                win.ClearDeckModeFilter();
+                win.RebuildDeckListNow();
+                int nBaseD = CollectionData.DeckCount();
+                var keepOrderD = new List<string>(nBaseD);
+                for (int i = 0; i < nBaseD; i++)
+                {
+                    var d = CollectionData.Raw(i);
+                    keepOrderD.Add(d != null ? (d.Name ?? "") : "");
+                }
+                var keepPopD = CollectionWindow.LastOpened;      // 拖拽**不该**开 `Deck info Popup`
+                int flipD = nBaseD - 1;
+                int flipModeSaved = flipD >= 0 ? CollectionData.Raw(flipD).GameMode : 0;
+                try
+                {
+                    // ---- ① 无筛选 ⇒ **每格一条**拖拽登记（原版 `SetCell` 的 `Toggle(true)`）----
+                    //   🧨 改坏法：把 `AttachDeckDrag` 里那句 `PointerLayer.RegisterDrag(...)` 删掉
+                    //      ⇒ 本格从「= 格数」变成 0（拖拽根本不会发生，松手什么都不做）。
+                    PointerLayer.ClearDrags();                       // 先清干净（别的夹子可能留着死条目）
+                    win.RebuildDeckListNow();                        // 再建一趟 ⇒ 表里只剩本页的登记
+                    CheckTrue(win.DeckCellCount > 0,
+                              $"（前提）Deck 页建出了 {win.DeckCellCount} 格（视口外的格不建 ⇒ 这个数 ≤ {nBaseD}）");
+                    Check(PointerLayer.DragCountForTest, win.DeckCellCount,
+                          "★ ① Deck 页：**每一格都登记成可拖件**（无名字/阵营筛选时）"
+                        + "｜🧨 删掉 `AttachDeckDrag` 里的 `PointerLayer.RegisterDrag(...)` ⇒ 实得 0");
+
+                    // ---- ② 有「名字 / 阵营」筛选 ⇒ **一格都不可拖**（原版两张表长度不等 ⇒ `Toggle(false)`）----
+                    //   🧨 改坏法：`DeckDragAllowed()` 改成恒 `true` ⇒ 本格从 0 变成 > 0。
+                    string facD = CollectionData.DeckAt(0).Faction;
+                    CheckTrue(!string.IsNullOrEmpty(facD), "（前提）第 1 套卡组推得出阵营（筛选用）");
+                    win.ToggleDeckFacFilter(facD);
+                    CheckTrue(win.DeckCellCount < nBaseD,
+                              $"（前提·本条的判别力）筛「{facD}」之后**格子数真的少了**"
+                            + $"（{nBaseD} → {win.DeckCellCount}）—— 否则两张表等长，这条断不出东西");
+                    Check(PointerLayer.DragCountForTest, 0,
+                          "★ ② 有「名字/阵营」筛选 ⇒ **拖拽全关**（原版 `collection.Count != filteredCollection.Count`）"
+                        + "｜🧨 `DeckDragAllowed()` 末尾改成恒 `true` ⇒ 实得 > 0");
+                    win.ClearDeckFilters();
+                    win.RebuildDeckListNow();
+                    Check(PointerLayer.DragCountForTest, win.DeckCellCount,
+                          "★ ② …清掉筛选 ⇒ 登记**全回来**（与 ① 同值；两态对比 ⇒ 写死恒开/恒关都过不了）");
+
+                    // ---- ③ **模式筛不算筛选** ⇒ 照样能拖（R13 §一·1 那条自查）----
+                    //   🧨 改坏法：把 `DeckDragAllowed` 的比较基准换回 `CollectionData.DeckCount()`（= 全库）
+                    //      ⇒ 模式筛之后两边不等 ⇒ 实得 0、本格红（= 「默认流程里拖拽永远关着」那个原缺陷）。
+                    if (flipD >= 0) CollectionData.Raw(flipD).GameMode = (int)GameMode.Skirmish;
+                    win.ChooseDeckMode((int)GameMode.Classic);
+                    CheckTrue(win.DeckCellCount > 0 && win.DeckCellCount < nBaseD,
+                              $"（前提·本条的判别力）模式筛之后格子 **{win.DeckCellCount}** 个、全库 {nBaseD} 套"
+                            + " ⇒ 两张表**数不同**，能分辨「模式筛算不算筛选」");
+                    Check(PointerLayer.DragCountForTest, win.DeckCellCount,
+                          "★ ③ 模式筛**不算**「有筛选」⇒ 格子照样能拖（基准 = `BaseDeckIndices()`，只过模式筛）"
+                        + "｜🧨 基准换回 `CollectionData.DeckCount()` ⇒ 实得 0");
+                    win.ClearDeckModeFilter();
+                    win.RebuildDeckListNow();
+
+                    // ---- ④ 重排：内存序 + **从盘上重读一份**（证明真落盘，不是只改内存）----
+                    //   🧨 改坏法：把 `CollectionData.ReorderDecks` 改成 `return true`（不动库）⇒ 前两条红；
+                    //      把 `DeckLibrary.UpdateOrder` 尾句 `return Save()` 改成 `return true` ⇒ 只有「盘上」那两条红。
+                    if (nBaseD >= 2)
+                    {
+                        string d0n = CollectionData.DeckAt(0).Name, d1n = CollectionData.DeckAt(1).Name;
+                        CheckTrue(win.DeckMoveForTest(0, 1), "（前提）`DeckMoveForTest(0,1)` 报「写进去了」");
+                        CheckText(CollectionData.DeckAt(0).Name, d1n,
+                                  "★ ④ 拖第 1 格到第 2 格 ⇒ **内存序**：第 1 格变成原第 2 套");
+                        CheckText(CollectionData.DeckAt(1).Name, d0n, "★ ④ …第 2 格变成原第 1 套（Remove + Insert，不是交换）");
+                        // ⚠️ 必须是**新读一份**（`DeckLibrary.Load()` 每次 new），⛔ 别读 `CollectionData` 的缓存（那是自证）
+                        var reloadedD = DeckLibrary.Load();
+                        CheckText(reloadedD != null && reloadedD.Decks.Count > 1 ? reloadedD.Decks[0].Name : null, d1n,
+                                  "★ ④ **盘上**第 1 套也是原第 2 套 ⇒ 真的落盘了（原版 `DeckInventory.UpdateOrder`）"
+                                + "｜🧨 `UpdateOrder` 尾句改成 `return true`（不存盘）⇒ 本格红");
+                        CheckText(reloadedD != null && reloadedD.Decks.Count > 1 ? reloadedD.Decks[1].Name : null, d0n,
+                                  "★ ④ …盘上第 2 套 = 原第 1 套（盘上两份一起看，挡「只换了第一条」）");
+                        CheckTrue(win.DeckMoveForTest(1, 0), "（还原）`DeckMoveForTest(1,0)` 报成功");
+                        CheckText(CollectionData.DeckAt(0).Name, d0n, "★ ④ 还原：第 1 格回到原第 1 套");
+                    }
+                    else CheckTrue(false, "（前提）夹具至少要有 2 套卡组才验得了重排");
+
+                    // ---- ⑤ 真落点链（`DeckDragDrop`：最近格 + 落盘 + 重建）+ **拖完不开窗** ----
+                    //   🧨 改坏法：删掉 `DeckDragDrop` 里 `if (wasLive && to >= 0 && to != from) MoveDeckInOrder(from, to);`
+                    //      ⇒ 格子跟手、松手顺序不变 ⇒ 前两条红；
+                    //      在 `DeckDragDrop` 末尾补一句 `SelectDeck(to)` ⇒ 最后那条「不开窗」红。
+                    win.RebuildDeckListNow();
+                    string e0n = CollectionData.DeckAt(0).Name, e1n = CollectionData.DeckAt(1).Name;
+                    CheckTrue(win.DeckDragDropForTest(0, 1),
+                              "★ ⑤ `DeckDragDropForTest(0,1)` 跑完了（起拖 → 摆到目标格中心 → 真落点 + 重建）");
+                    CheckText(CollectionData.DeckAt(0).Name, e1n,
+                              "★ ⑤ 落点算法（`DeckDropTargetPos` 取最近格）把第 1 格放到第 2 格的位置上");
+                    CheckText(CollectionData.DeckAt(1).Name, e0n, "★ ⑤ …原第 1 套挪到第 2 格");
+                    CheckTrue(CollectionWindow.LastOpened == keepPopD,
+                              "★ ⑤ 拖动后的松手**不该开 `Deck info Popup`**（原版 `OnEndDragEvent` 走的是重排，不是 `Select`）"
+                            + "｜🧨 `DeckDragDrop` 末尾补一句 `SelectDeck(to)` ⇒ 本格红");
+                    win.DeckMoveForTest(1, 0);                 // 还原
+                    CheckText(CollectionData.DeckAt(0).Name, e0n, "★ ⑤ 还原：第 1 格回到原第 1 套");
+
+                    // ---- ⑥ 灭自证（结构上不可能两边一起满足）----
+                    //   上面 ②③ 两态对比 + ④「内存 / 盘上」两份对照已经互锁；这里再钉一条**次序**：
+                    //   「清掉筛选之后格子数回到全库」且「登记数 = 格子数」—— 若有人把闸写成恒开
+                    //   （② 会红）或恒关（① 会红），这两条**不可能同时绿**。
+                    win.RebuildDeckListNow();
+                    Check(nBaseD, CollectionData.DeckCount(),
+                          "★ ⑥ 灭自证：清掉全部筛选后**库仍是 " + nBaseD + " 套**（重排/筛选没偷偷丢掉卡组）");
+                    Check(PointerLayer.DragCountForTest, win.DeckCellCount,
+                          "★ ⑥ 灭自证：闸写恒关 ⇒ ①红；写恒开 ⇒ ②红 ⇒ 这一对**不可能同时绿**");
+                }
+                finally
+                {
+                    if (flipD >= 0) CollectionData.Raw(flipD).GameMode = flipModeSaved;   // 还原夹具
+                    win.ClearDeckModeFilter();
+                    win.ClearDeckFilters();
+                    // 🔴 顺序**无条件**还原（⛔ 不靠「再拖回去」—— ④ 半路失败就再也回不来了），
+                    //   而且走的是**生产那条口**（`CollectionData.ReorderDecks`）。
+                    CollectionData.ReorderDecks(keepOrderD);
+                    win.RebuildDeckListNow();
+                    // ⚠️ 滚动偏移**最后**还原（同 W64 段那条纪律：先还原它会把「视口外的格不建」带回来）
+                    if (win.DeckScroll != null) win.DeckScroll.SetOffset(savedOffD);
+                }
+                CheckText(CollectionData.DeckAt(0).Name, keepOrderD.Count > 0 ? keepOrderD[0] : null,
+                          "★（收尾）卡组顺序回到进场前那一份（后面的段子拿第 1 套当「30 张那副」用）");
+            }
+
             // ---------------- Deck 页：视口 / 格 / 6 列 ----------------
             Section("Deck 页：卡组列表的几何（正本 §三；A2 实测）");
             var listHolder = FindChild(tabsRoot, "Deck Scroll View");

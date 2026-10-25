@@ -7600,6 +7600,22 @@ namespace RuleEngine
         }
 
         /// <summary>
+        /// 🆕 **2026-10-25（`E1` · 第四段 · W9）：一个 trait 被摘掉的**结构化发射口**。**
+        /// 与 <see cref="EmitStatusApplied"/> 成对（那条管「挂上」）。判据与「为什么要单开一种」→
+        /// <see cref="EvtKind.TraitRemoved"/> 的 doc（`Expiring State` 那一支需要它）。
+        /// ⚠️ **必须在摘除【之后】调**（`Amount` 记的是摘之前的层级）。
+        /// ⚠️ 只对**在场**单位发（`FindSlot` 失败 = 已经不在棋盘上 ⇒ 表现层也没东西可演）。
+        /// </summary>
+        public static void EmitTraitRemoved(BattleContext ctx, UnitState u, string keyword, int amountBefore)
+        {
+            if (ctx == null || u == null || string.IsNullOrEmpty(keyword)) return;
+            int p, slot;
+            if (!FindSlot(ctx, u, out p, out slot)) return;
+            ctx.Emit(EvtKind.TraitRemoved, p, slot, keyword,
+                     amount: amountBefore, instanceId: u.InstanceId);
+        }
+
+        /// <summary>
         /// 🔴🆕 **2026-10-24（引擎线 `T03·c` · `C1` §3）：`UnitDeathByAbility(180)` 的结构化发射口。**
         ///
         /// <para>**判据（第一权威，逐层方法体）**：
@@ -11468,6 +11484,10 @@ namespace RuleEngine
             //   判据只此一处 = `AddEffectRemnantAllows`；这里是「`addStats` 这一族」的那个调用点。
             if (!AddEffectRemnantAllowsPayload(ctx, u, p, val, by)) return;
 
+            // 🆕 2026-10-25（`E1` · 属性模型 Stage 2b）：这一条增益在**修饰表**里的那一格。
+            //   非关键词条目建好后交给下面「限时 → 记一条」那一段（那边把它挂到 `TempBuff.Mod` 上，
+            //   到期**摘格**而不是「减回去」）。`armour` 走关键词、不进修饰表 ⇒ 恒 `null`。
+            UnitState.StatMod appliedMod = null;
             if (p.IsKeyword)
             {
                 if (val >= 0)
@@ -11475,15 +11495,24 @@ namespace RuleEngine
                     // 🆕 2026-10-24（引擎线 `G1b` · `C2` §6）：**施加前**是否已经在身上 ——
                     //   写进 `StatusApplied.Amount`（重施加 = 1 / 首次 = 0，见 `EvtKind.StatusApplied` 的 doc）。
                     bool hadKw = u.KwValue(p.Keyword) > 0;
-                    u.AddKeyword(p.Keyword, val);
+                    // 🔴 **2026-10-25（`E1` · 第三段 D3/D4）**：`AddKeyword` 现在会**拒收**两种授予
+                    //   （毒 × 抗性），所以它返回 `false` ⇒ **不能**再无条件 `EmitStatusApplied` / 广播，
+                    //   否则会对外宣称「拿到了一个它其实没有的 trait」（静默不一致）。
+                    bool added = u.AddKeyword(p.Keyword, val);
+                    if (!added)
+                    {
+                        ctx.Log($"{by}：「{u.Name}」身上有 **Resistant** —— 这次「{p.Keyword}」**没有挂上**"
+                              + "（原版 `CardScript.AddEffect` 的毒 × 抗性闸）");
+                        if (unresolved == null) { /* 出声即可，不算「没解析」 */ }
+                    }
                     // `val > 0` 才算「加上了」（同下面广播那一族的口径；`+0` 是空给）。
-                    if (val > 0) EmitStatusApplied(ctx, u, p.Keyword, hadKw);
+                    if (added && val > 0) EmitStatusApplied(ctx, u, p.Keyword, hadKw);
                     // 🆕 事件层：`When an enemy gets Hunt Mark, …` / `When you gain [Shield], …`
                     // （2026-09-13 第三十四轮）—— **授予点就是这里**，原来只是没人广播。
                     // ⚠️ `val > 0` 才算「获得」：`val == 0` 是空给，不该触发「有人拿到了」。
                     // ⚠️ **只播这两个关键词**，别顺手推广成「任何关键词被给予」 ——
                     //    多播一种就多一类可能被误触发的监听器，而卡面并没有那种写法。
-                    if (val > 0)
+                    if (added && val > 0)
                     {
                         if (p.Keyword == "huntmark")
                         {
@@ -11514,24 +11543,65 @@ namespace RuleEngine
                     // ⚠️ **只在「这次真的把它摘干净了」时写账**：原版 `RemoveTrait` 找不到 trait 就
                     //   `LogWarning` 直接返回、**不写账**；而「减一层还剩」不是「移除 trait」（原版那是
                     //   另一条 addStats 减值的路）。
+                    int kwBefore = u.KwValue(p.Keyword);
                     bool hadKw = u.Has(p.Keyword);
-                    u.RemoveKeyword(p.Keyword, -val);
-                    if (hadKw && !u.Has(p.Keyword)) u.MarkTraitRemoved(p.Keyword);
+                    // 🔴 **2026-10-25（`E1` · 第三段 D5-①）：`stealth` 被摘掉要广播 `LosesStealth`。**
+                    //   判据 = 原版 `CardScript__AddEffect.c` 的 `case 4`（`removeTrait`）**第一步**：
+                    //   `if (trait == 0x46 stealth && HasCurrentTrait(stealth)) BroadcastUnitLoseStealth(this);`
+                    //   —— ⚠️ 它排在 `RemoveActiveEffects(4,T)` / `RemoveBuffedTrait` / `RemoveTrait` **之前**
+                    //     （`CardScript.cs` 对应段的顺序），所以我们也在摘之前广播。
+                    //   ⚠️ 池内这条**可达**：`lose Stealth` 出现在 6 张卡的正文里（`ASH63` / `AM43` / `DA27` /
+                    //     `SAU43` / `GOF99` / `UM7`），`removeTrait` 计 14 条（stealth 9 / camouflage 4 / invulnerable 1）。
+                    if (p.Keyword == KeywordTable.Stealth && hadKw)
+                        BroadcastKeywordEvent(ctx, WhenEventKind.LosesStealth, u);
+                    // 🔴 **2026-10-25（`E1` · 第三段 D5-②）：`lose <trait>` 是「**整条摘掉**」，不是「减一层」。**
+                    //   判据 = `CardScript__AddEffect.c:680-698` 的 `case 4`：`RemoveActiveEffects(4,T)`
+                    //   → `List.Add`（留下 removeTrait 记录，`HasRemovedTrait` 靠它）→ **`RemoveBuffedTrait(T)`**
+                    //   （摘掉该 trait 的**所有非 extrinsic 授予**）→ **`RemoveTrait(T)`**（把词条本身摘掉）。
+                    //   ⇒ 第 4+5 步合起来的净效果 = **该 trait 从身上消失**（不管原来叠了几层）。
+                    //   ⚠️ 我们以前的 `RemoveKeyword(kw, -val)` 只减一层 —— 对**布尔 trait** 恰好等价，
+                    //     对可叠的数值 trait 会少摘。**池内 14 条 `removeTrait` 全是布尔**
+                    //     （`stealth` / `camouflage` / `invulnerable`）⇒ 本次改动**零行为变化**，
+                    //     只是把口径改对（⛔ 别改回去）。
+                    //   ⚠️ `blindedAtStartOfTurn`（D5-③）已经在 `RemoveAll` 里（`UnitState.cs` 的
+                    //     `if (keyword == KeywordTable.Blind) BlindedAtStartOfTurn = false;`）⇒ 不用再来一遍。
+                    u.RemoveAll(p.Keyword);
+                    if (hadKw) u.MarkTraitRemoved(p.Keyword);
+                    // 🆕 **2026-10-25（`E1` · 第四段 · W9）**：**摘掉了**也要有一个结构化信号（`Expiring` 那一支靠它）。
+                    //   ⚠️ 只在「真的有过」时发（`kwBefore > 0`）—— 摘一个本来没有的 trait 不该演「消失」。
+                    if (kwBefore > 0) EmitTraitRemoved(ctx, u, p.Keyword, kwBefore);
                 }
             }
             else if (grantSource != null && p.Attr != "energy")
             {
-                u.RecordGrant(NormalizeAttr(p.Attr), val, grantSource);
+                appliedMod = u.RecordGrant(NormalizeAttr(p.Attr), val, grantSource);
             }            else
             {
                 switch (NormalizeAttr(p.Attr))
                 {
-                    case "attack": u.Attack += val; break;
-                    case "ranged": u.RangedAttack += val; break;
-                    // 生命增减**连上限一起动**（原版 `:3317`）；负值别把上限压到 0 以下
+                    // 🔴 **2026-10-25（`E1` · 属性模型 Stage 2b）**：`attack` / `ranged` **不再写字段** ——
+                    //   落一条**修饰**（= 原版 `buffType == 1 addStats` 的 `meleeAttackChange` /
+                    //   `rangeAttackChange` 那一格）。「当前值」由 `UnitState.CurrentMeleeAttack`
+                    //   现算（正序扫 + `setMeleeAttack` 命中即 return，判据 `get_CurrentMeleeAttack.c:29-67`）。
+                    //   ⚠️ **限时**（`duration` 非空）的那一种**不在这里建** —— 交给下面
+                    //   「限时 → 记一条」那一段（`AddTempBuff` 会在那里建同一条修饰），
+                    //   否则一次施加会记两条修饰（数值翻倍、且到期只摘得掉一条）。
+                    case "attack":
+                        if (string.IsNullOrEmpty(duration)) appliedMod = u.AddStatMod("attack", val);
+                        break;
+                    case "ranged":
+                        if (string.IsNullOrEmpty(duration)) appliedMod = u.AddStatMod("ranged", val);
+                        break;
+                    // 🔴 **2026-10-25（Stage 2b + K1）**：生命**正加**当场加到当前生命（原版
+                    //   `CardScript__AddEffect.c:331-346` `healthChange >= 1 ⇒ currentHealth += healthChange`，
+                    //   **没有向上夹上限** —— 可以超过上限）；
+                    //   **负值不在这里减**：原版那一支是 `currentHealth = min(currentHealth,
+                    //   get_currentMaxHealthProcessed())`（**只夹、不减**，而 `processed` 上限此时
+                    //   已经把这笔负值算进去了）⇒ 夹的动作放到本方法**末尾**（那时修饰一定已进表）。
+                    //   ⚠️ 以前这里是两条都 `Health += val` + 物化 `MaxHealth` ⇒ 负值会**多减一次**。
                     case "health":
-                        u.Health += val;
-                        u.MaxHealth = System.Math.Max(1, u.MaxHealth + val);
+                        if (val >= 1) u.Health += val;
+                        if (string.IsNullOrEmpty(duration)) appliedMod = u.AddStatMod("health", val);
                         break;
                     // 负甲 clamp 0（原版 `:3320`：防「负甲反而加伤」）
                     //
@@ -11631,15 +11701,30 @@ namespace RuleEngine
                 u.AddTempBuff(new UnitState.TempBuff
                 {
                     IsKeyword = p.IsKeyword,
-                    Name = p.IsKeyword ? p.Keyword : p.Attr,
+                    // 🔴 **2026-10-25（Stage 2b）**：非关键词要过 `NormalizeAttr`（`melee → attack`）。
+                    //   以前这里直接写 `p.Attr` ⇒ 名字是 `"melee"` 时 `RevertBuffs` 的
+                    //   `switch (b.Name)` 一个 case 都命中不了（**到期什么都不撤**，静默）。
+                    //   现在数值走修饰表，名字不对就是「这条增益根本不存在」——必须归一。
+                    Name = p.IsKeyword ? p.Keyword : NormalizeAttr(p.Attr),
                     Value = val,
                     Owner = owner,
                     UntilMyNextTurn = duration == "nextturn",
                     Src = by,
                     // 真卡名（`by` 在战术卡那条路上恒为「战术卡」，不足以定位「本卡施加的」）
                     SourceCard = ctx.PlayingCard != null ? ctx.PlayingCard.Name : by,
+                    // 带来源那条路（`RecordGrant`）已经建好了修饰 ⇒ 复用它，⛔ 别再建一条。
+                    Mod = appliedMod,
                 });
             }
+
+            // 🔴 **2026-10-25（`E1` · K1）**：`addStats.health` 的**负值那一支** ——
+            //   原版 `CardScript__AddEffect.c:331-346`：
+            //     `if (healthChange >= 1) currentHealth += healthChange;`
+            //     `else currentHealth = min(currentHealth, get_currentMaxHealthProcessed());`
+            //   ⚠️ **只夹、不减**，而且夹的是**已经含这笔负值**的 processed 上限。
+            //   ⇒ 必须放在「限时 → 记一条」**之后**（那时修饰一定已经进表）。
+            if (!p.IsKeyword && p.Attr != "energy" && NormalizeAttr(p.Attr) == "health" && val < 1)
+                u.ClampHealthToMax();
 
             // 🆕 **2026-10-18（`W5` · `K3` 账 · `+0x120` 第 10 个写点）**：
             //   攻值一变 ⇒ **按当前数值重挑攻击型**（原版 `CardScript.UpdateAttackText`，
@@ -14097,13 +14182,12 @@ namespace RuleEngine
         ///     setCurrentHealth`**（`cards_truth.json` 现读：`{buffType: 100, healthChange: 1}`）——
         ///     解析层已改判给**新动词 `setcurrenthealth`**（<see cref="DoSetCurrentHealth"/>）。
         ///   · `buffType == 9` 现读**池内 0 张** ⇒ 本方法今天**跑不到**。
-        ///   ⇒ 它的实现仍是**老近似**（只降不升 + 比当前小才改 + 查 `Invulnerable`），**与 9 的真语义不同**
-        ///     （原版 9 = 回满到 `currentMaxHealthProcessed`，而那一格我们**还没有**：`MaxHealth` 两格并一格）。
-        ///     ⛔ 别拿它当 100 的落点，也别把 100 的语义（无条件）搬回来 —— 两者是**两条规则**。
-        ///   · 补齐 9 要等**属性模型**那一刀（`currentMaxHealthProcessed` 现算），见账行 771 的 K8 段。
-        /// ⚠️ 保留的两条行为（若将来真有 9 的卡）：**只降不升**时如实打日志；
-        /// 走 `EmitHit` 发伤害事件（表现层靠它掉血飘字/血条动画；⛔ 但那是 9 的表现口径，
-        /// **100 那一支原版不发伤害** —— 两条别混）。
+        ///   🔴 **2026-10-25（`E1` · 铁律 5 就地订正）：上面那句「它的实现仍是老近似……」已不成立** ——
+        ///     属性模型 Stage 2c 落地后（`CurrentMaxHealthProcessed` 现算 + `IsSet` 修饰），
+        ///     本方法已按真语义重写：**记一条覆盖上限的修饰 → `Health = MaxHealth`（无 clamp、不查 `Invulnerable`）**。
+        ///     留痕原因：口径要变的时候先把「当时是什么」写下来，下个会话才知道这一条被核过。
+        /// ⚠️ 保留的一条**表现口径**（我们挑的，不是原版语义）：值变了就 `EmitHit` 发一条伤害事件
+        /// （表现层靠它掉血飘字/血条动画；原版 9 不经过 `ReceiveDamage`）—— **100 那一支不发**，两条别混。
         /// </summary>
         static bool DoSetHealth(BattleContext ctx, int owner, string by, EffectOp op,
                                 UnitState chosen, List<string> unresolved)
@@ -14131,22 +14215,37 @@ namespace RuleEngine
                 //   `setHealth(9)` / `setCurrentHealth(100)` 都不是 `addStats` 的生命项 ⇒ 残骸一律不收。
                 if (!AddEffectCardStateAllows(ctx, t, by)) continue;
                 if (!AddEffectRemnantAllowsOp(ctx, t, op, by)) continue;
-                if (t.Has("invulnerable"))
+                // 🔴 **2026-10-25（`E1` · 属性模型 Stage 2c + ② 合批）：「`setHealth(9)` 与 `MaxHealth`
+                //   两格并一格」在这一段落地。** 判据 = `CardScript__AddEffect.c:794-820` +
+                //   `get_currentMaxHealthProcessed.c:94/:104` + 判据 §7·6 ④.4：
+                //     ① 把这条 `setHealth` 记进**修饰表**（`IsSet`）—— 它**覆盖**上限算式里的
+                //        `base` 那一项（`base = MaxHealthBase + Σ非extrinsic`，**整项换掉、不是加**），
+                //        但**保留 extrinsic 的加血**（`iVar5`）；
+                //     ② 应用那一刻 `currentHealth = currentMaxHealthProcessed`；
+                //     ③ **不夹上限、不查 `Invulnerable`**（原版这一支两者都没有）。
+                //   ⚠️ 改前这里是老近似：`只降不升 + 比当前小才改 + 查 Invulnerable` —— 三条都不是原版。
+                //   ⚠️ 池内现在 **0 张**（`buffType 9` 现读 0）⇒ 这一笔**今天没有可观察量**，
+                //     但语义按判据补齐（铁律 11：只排先后、不排做不做）。
+                var setMod = t.AddStatMod("health", op.Amount, null, false, isSet: true);
+                if (!string.IsNullOrEmpty(op.Duration))
                 {
-                    // 无敌 = 「无法被伤害或摧毁」（规则书 :190）—— 直接改生命等于绕过它，不行
-                    ctx.Log($"{t.Name} 有 Invulnerable —— 「{op.Source}」改不了它的生命");
-                    continue;
-                }
-                if (t.Health <= op.Amount)
-                {
-                    ctx.Log($"{t.Name} 的生命已经是 {t.Health}（≤ {op.Amount}）—— 「降」不动它");
-                    continue;
+                    // 限时的那一份：到期**摘格**（`RevertBuffs` 会 `RemoveStatMod` + `ClampHealthToMax`）
+                    t.AddTempBuff(new UnitState.TempBuff
+                    {
+                        IsKeyword = false, Name = "health", Value = op.Amount, Owner = owner,
+                        UntilMyNextTurn = op.Duration == "nextturn", Src = by,
+                        SourceCard = ctx.PlayingCard != null ? ctx.PlayingCard.Name : by,
+                        Mod = setMod,
+                    });
                 }
                 int before = t.Health;
-                t.Health = op.Amount;
-                EmitHit(ctx, t, before - op.Amount);
+                t.Health = t.MaxHealth;                 // ② 应用那一刻 = 覆盖后的 `currentMaxHealthProcessed`
+                // 表现层靠伤害事件掉血飘字/血条动画（这一支**不是**伤害，原版不发 `ReceiveDamage`；
+                //   ⚠️ 这是**我们挑的**表现口，别把 `EmitHit` 当成原版语义）
+                if (before != t.Health) EmitHit(ctx, t, before - t.Health);
                 n++;
-                ctx.Log($"{t.Name} 的生命 {before} → {op.Amount}（「{op.Source}」）");
+                ctx.Log($"{t.Name} 的生命 {before} → {t.Health}（上限 {t.MaxHealth}）—— 「{op.Source}」"
+                      + "（原版 `setHealth`：写完 `currentHealth = currentMaxHealthProcessed`）");
             }
             if (n == 0) { unresolved.Add(op.Source + "（sethealth 一个都没改）"); return false; }
             return true;
@@ -14206,9 +14305,22 @@ namespace RuleEngine
                 if (!AddEffectCardStateAllows(ctx, t, by)) continue;
                 if (!AddEffectRemnantAllowsOp(ctx, t, op, by)) continue;
                 int a0 = t.Attack, h0 = t.Health, m0 = t.MaxHealth, r0 = t.RangedAttack;
-                if (dMelee) t.Attack *= 2;
-                if (dHealth) { t.MaxHealth *= 2; t.Health *= 2; }
-                if (dRanged) t.RangedAttack *= 2;
+                // 🔴 **2026-10-25（`E1` · K1 · 第一权威 `CardScript__AddEffect.c:198-207`）**：
+                //     `if (buffType == 0x14 doubleAttack) { buffType = 1;
+                //          if (CurrentMeleeAttack < 0x3fffffff) meleeAttackChange = CurrentMeleeAttack; }`
+                //   ⇒ 原版「翻倍」**不是写 base**，而是**落一条 `addStats` 修饰、值 = 施加那一刻的当前值**
+                //     （溢出保护：当前值 ≥ `0x3fffffff` 就**不写**、即不翻）。
+                //   🔴 **这一条订正了 `判据/战斗逻辑驱动_前置门与现算口径.md` §6·2·A 那句
+                //     「按 base 算新 base ⇒ 落 `ChangeBaseAttack` 等价」** —— 按方案 §三·9
+                //     （实现完回头核判据），以 `.c` 原文为准。第一版按那句写成 `AttackBase *= 2`，
+                //     实测把 `EC30`（9 base + 1 修饰）从 20 变成 19 ⇒ 探针基线报警，正好暴露了判据的错。
+                //   ⚠️ **只有近战那一支是原文**；`ranged` / `health` 两格原版没有独立方法体
+                //     （`doubleAttack` 只改写 `meleeAttackChange`）—— 我们的卡面写的是「近战和生命」
+                //     （`Possession`）/「近战和远程」（`Ecstasy 5`），这里按近战那一支**同形外推**，如实标着。
+                if (dMelee && a0 < 0x3fffffff) t.AddStatMod("attack", a0);
+                if (dRanged && r0 < 0x3fffffff) t.AddStatMod("ranged", r0);
+                if (dHealth) { t.AddStatMod("health", m0); t.Health = h0 * 2; }
+                if (dMelee || dRanged) RuleCore.RecomputeCurrentAttackTypeOf(ctx, t);
                 n++;
                 var parts = new System.Text.StringBuilder();
                 if (dMelee) parts.Append($"近战攻击 {a0} → {t.Attack}");

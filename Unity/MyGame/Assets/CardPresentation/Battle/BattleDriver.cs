@@ -1869,9 +1869,10 @@ namespace CardPresentation
         //    ⚠️ `CardText.TurnLabel` 那组词条**留着**：它还被 `CardBaseDemo` 的语档自检直接用，
         //    只是战斗 HUD 不再取它。
         Label _energyLabel, _endTurnLabel, _resultLabel;
-        /// <summary>🆕 2026-10-25（待A接线清单 #4）：上一次印在能量数字上的值（`int.MinValue` = 还没印过）。
-        /// 只在**值变了**那一帧弹一下（原版 `ManaTypeHolder.DoTextAnim` 是变更回调，不是每帧补间）。</summary>
-        int _energyShownLast = int.MinValue;
+        // 🔴 **2026-10-25（执行代理 `R15`）**：原来这里有一格 `_energyShownLast`（「上一次印在能量数字上的值」），
+        //   它服务的「能量数字变化时弹跳」**已删** —— 原版 `ManaHolder` 的 `useTweenOnValueChange = 0`
+        //   （13 个战场逐份现读），能量数字**本来就不弹**。同族的 `_qpShownLastMe/_qpShownLastFoe`
+        //   在类尾（任务点那两颗才是 tween=1 的）。
 
         // ==================================================================
         //  提示条（原版 `BattleHud/Canvas/FrontCanvas/Safe area FrontCanvas/AboveShader/TipText`
@@ -13924,7 +13925,18 @@ namespace CardPresentation
                                + " ⇒ 这一拍不播（原版是 `Instantiate(prefab, countDownAnimParent)`）");
                 return;
             }
+            // 🔴 **2026-10-25（执行代理 `R15` · 账 410/411）**：把**这一件生成的实例**记下来。
+            //   原版 `ClockManager.countdownAnim`(`+0x98`) 就是这么一个字段，而 `StopClock` /
+            //   `StopClockUi` / `EndCountdown` **三处都 `Destroy(countdownAnim)`**
+            //   （`cpp2il …/ClockManager.cs:286-288` / `:427-429` / `:790-792`）。
+            //   ⚠️ **不记就收不掉**：那件 prefab 的 `destroyTime = 17 s`，比一回合剩下的时间还长
+            //   ⇒ 玩家结束回合之后，那个「滴答」脉冲会**一直演到对手回合**（看得见）。
+            //   取法 = 播前后 `childCount` 的差（`WarpforgeEffectPlayer.Play` 同步 `Instantiate` ——
+            //   与 `CardEffects.Fire` 里 `StampNewChildren` 同一个前提）。
+            int before = anchor.childCount;
             CardEffects.Fire(CountdownAnimPrefab, Vector3.zero, anchor);
+            _countdownAnimGo = (anchor.childCount > before)
+                ? anchor.GetChild(anchor.childCount - 1).gameObject : null;
         }
         /// <summary>原版 `ClockManager.countdownAnimPrefab` 解析出来的 prefab 名（13/13 场同一件，见调用点注释）。</summary>
         public const string CountdownAnimPrefab = "TurnTimerTickPulse";
@@ -14037,7 +14049,7 @@ namespace CardPresentation
                 {
                     // 总时长走完 → 换成那 15 秒倒计时（原版 `ClockManager__Update.c:110-141`）
                     _clockInCountdown = true;
-                    _clockLeft = countdownSeconds;
+                    _clockLeft = CountdownSecondsForThisMatch;
                     // 🆕 2026-10-23（`W63` P3 收口）：**倒计时开始那一拍播 `countdownAnimPrefab`**。
                     //   判据 = `ClockManager__Update.c:100-110` 调 `ClockManager__CreateCountdownAnim`，
                     //   后者（`__CreateCountdownAnim.c:20-45`）= 若 `countdownAnim`(+0x98) 为空、
@@ -14143,6 +14155,20 @@ namespace CardPresentation
         void UpdateClockLabel()
         {
             if (_endTurnLabel == null) return;
+            // 🆕 2026-10-25（执行代理 `R15` · 账 407）：**回放局这颗钮恒印「重播」**。
+            //   判据（逐句现读 `cpp2il …/ClockManager.cs`）：`Start()` 里先 `SetEndTurnText(true)`，
+            //   紧接着 `if (matchType == MatchType.Replay)` ⇒ `clockButton.interactable = false` +
+            //   `clockText.text = GetTranslation("Battle/HUD/Replay").ToUpper()`（`:118-131`）；
+            //   而 `SetEndTurnText` 自己**开头就为回放局 early-return**（`:144-152`）⇒ 之后任何
+            //   回合/倒计时刷字都盖不掉它。
+            //   ⚠️ 我们的「回放局」等价物是 `_replaySession`（`PlayReplay` 置；原版那一档是
+            //      `MatchType.Replay = 160`，我们的 `Ctx.MatchType` 不跟着改）—— 两处都认，只此一处判据。
+            if (IsReplayMatch)
+            {
+                _endTurnLabel.SetText(Loc.T(ReplayButtonTerm).ToUpper());
+                _endTurnLabel.SetColor(Color.white);
+                return;
+            }
             // ④ 倒计时那一段：这颗 TMP 换成秒数（**颜色不动** —— 见 ⑥）
             if (_clockInCountdown)
             {
@@ -15952,6 +15978,12 @@ namespace CardPresentation
             _aiTimer = aiStepDelay;
             _aiSteps = 0;                 // 对手的新回合 → 步数清零
             _aiRejected.Clear();          // 同上：排除名单也只在本回合内有效
+            // 🆕 2026-10-25（执行代理 `R15` · 账 410/411）：**收掉倒计时（特效 + 那一格标志）**，
+            //   = 原版 `ClockManager.StopClock()` 的三件（① `Destroy(countdownAnim)` / ② `SetEndTurnText(false)` /
+            //   ③ `clockCountdownFlag = false`，见 `cpp2il …/ClockManager.cs:276-298`）。
+            //   位置 = **`BeginTurn` 之后**（`Ctx.Active` 已经换人）⇒ 那一串字当场就是「敌方回合」；
+            //   ⚠️ 不放在「拒绝结束回合」的早退之前（那几下没真的结束回合，原版也不 StopClock）。
+            StopClockVisuals();
             // 🆕 2026-10-17（A904）：回合推进也会结算到 ask 点 ⇒ 清账（同 `EndTurnAndAdvance`）
             ReportUnaskedChoices();
             RefreshAll();
@@ -18422,6 +18454,13 @@ namespace CardPresentation
             // ① 先把引擎**这一轮发生的事**翻译成特效。
             //    ⚠️ 必须赶在同步视图之前 —— 阵亡单位这一格马上就要空了，
             //       事件里带着格位号，趁现在把它变成世界坐标最省事。
+            // 🔴🔴 **2026-10-25（第八十会话 `E5` · `TraitEffectController` W7/W8）：⛔ 别把这两段换序。**
+            //   `PlaySignals()` 里 `EvtKind.StatusApplied` 那一支会调 `TraitFrames.DisplayStatus(key, value)`
+            //   （W7，计数器「显式刷」一次并把当次的数记进 `TraitFrames._prevValue`）；
+            //   紧接着的 `SyncBoard` → `TraitFrames.SyncKeywords` 里那条「值变化兜底」（W8）
+            //   只有在**值真的变了**才刷 —— 它靠的正是 W7 刚写下的 `_prevValue`。
+            //   ⇒ **换序（`SyncBoard` 先跑）= 兜底先刷一次、W7 再刷一次 ⇒ 计数器同一拍弹两下，
+            //     而且不会有任何报错、任何断言变红**（`TraitFrames` 里那段注释写着同一条）。
             PlaySignals();
 
             SyncBoard(_me, _myUnits, true);
@@ -21918,7 +21957,12 @@ namespace CardPresentation
                 {
                     var statusView = ViewAt(e.Player, e.Slot);
                     var statusTf = statusView != null ? statusView.GetComponent<TraitFrames>() : null;
-                    if (statusTf != null) statusTf.DisplayStatus(e.CardId);
+                    // 🆕 2026-10-25（第八十会话 `E5` · W7）：**把当前总值一起传下去** ——
+                    //   原版「已在字典」那一支是 `UpdateValue(GetCurrentTraitValueWithModifiers(trait))`
+                    //   （`BattleCardUI__DisplayStatusAnim.c:190-196`），只 `SetActive` 不刷数就少了一个钩子。
+                    //   取值口 = `StatusValueOf`（读 `UnitState.KwValue`，判据只此一处）。
+                    if (statusTf != null)
+                        statusTf.DisplayStatus(e.CardId, StatusValueOf(e.Player, e.Slot, e.CardId));
                 }
                 return;
             }
@@ -22224,7 +22268,7 @@ namespace CardPresentation
                 //  （名字仍能解出来，因为重名只是 3 组）。这一条在本批修掉。
                 // 🔴 C5（2026-10-25）：攻方卡自己的阵营（`cardArmy`）—— 见 `VfxFactionOf` 的 doc
                 string atkFaction = VfxFactionOf(e.Player, e.CardId, e.InstanceId, e.Slot);
-                _lastAttackEventAt = _clock;         // 🆕 2026-10-23（`新账-78①`）：自检锚点
+                _lastAttackEventAt = _clock; AimAttackingStatusPair(e);   // 🆕 2026-10-25（W10③）：markerlight 起手/收手在这一拍成对派发（见 `AimAttackingStatusPair`）
                 ScheduleAttackPresentation(e, evt, atkFaction, perCardOnly, triggerKeyword, cueMeleeHit, hitAmount);
                 _animfxCtx = default;
                 return;
@@ -23758,12 +23802,17 @@ namespace CardPresentation
             //   原版那个 `GameStaticData.IsWarlordEquivalent` 看的是卡类型 10 = 我们的 `Type == "hero"`，
             //   两者同一个身份，⛔ 别按「槽位 == 4」判 —— 那是布局，不是卡的属性）。
             bool isWarlord = false;
+            // 🆕 2026-10-25（第八十会话 `E5` · W4）：原版 `DisplayTriggerAnim` 把 `traitValue` 一起传给
+            //   `ResolveTraitAnim`（`BattleCardUI__DisplayTriggerAnim.c:97-104`）⇒ 触发那一拍**也要刷计数器**。
+            //   取不到（视图/单位不在）⇒ `NoTraitValue`（不刷），⛔ 不拿 0 顶替。
+            int traitValue = TraitFrames.NoTraitValue;
             if (Ctx != null && e.Player >= 0 && BoardSpec.IsValid(e.Slot))
             {
                 var u = Ctx.Players[e.Player].Board[e.Slot];
                 isWarlord = u != null && u.IsWarlord;
+                if (u != null && kw.Length > 0) traitValue = u.KwValue(kw);
             }
-            if (tf != null && tf.DisplayTrigger(kw, isWarlord))
+            if (tf != null && tf.DisplayTrigger(kw, isWarlord, traitValue))
                 Debug.Log($"[Battle] 「{kw}」触发 ⇒ 状态框上场（原版 `DisplayTriggerAnim`）");
             else if (tf != null && isWarlord && TraitFrames.BlocksForWarlord(kw))
                 Debug.Log($"[Battle] 「{kw}」触发但卡是督军、该 effect 的 `playIfWarlord = 0` ⇒ 原版不播（`DisplayTriggerAnim.c:62-68`）");
@@ -25433,7 +25482,13 @@ namespace CardPresentation
                 //   那几个分支上（trait 被加上那一刻），我们引擎不发那个事件 ⇒ 在这里**按集合对差**
                 //   （`RefreshAll` 就在动作结算之后跑，时机与原版一致）。
                 var tf = TraitFrames.Attach(v);
-                if (tf != null && u != null) tf.SyncKeywords(u.Keywords.Keys);
+                // 🆕 2026-10-25（第八十会话 `E5` · W6 · 判据 §6.0 `P0-2`）：**把「值」也传下去** ——
+                //   `TraitEffectController.UpdateValue` 要的是**当前 trait 总值**
+                //   （原版 `EntityScript.GetCurrentTraitValueWithModifiers` = 基值 + Σmodifier、钳 ≥0），
+                //   我们引擎侧的等价物就是 `UnitState.KwValue`。旧签名（只给键集合）仍然可用，
+                //   只是那一档刷不了计数器（`NoTraitValue`）。
+                //   ⛔ 别把值塞进 `CardData` —— 那会和「卡面数据」的口径混成一锅（判据 §6.0 原话）。
+                if (tf != null && u != null) tf.SyncKeywords(u.Keywords.Keys, k => u.KwValue(k));
 
                 // 🆕 2026-09-25：**残骸体**（原版 `RemnantBody3D <阵营>`）——
                 //   灵族 = 一枚漂浮的灵魂石（`Spirit Stone Idle`）· 死灵 = 一张碎裂的卡（`Card Remnant`）。
@@ -30643,19 +30698,13 @@ namespace CardPresentation
                 _waitBanner.SetVisible(ShowWaitBanner(InMulligan, _mulliganLocalSubmitted, _mulliganFoeApplied));
 
             _energyLabel.SetText($"{me.Energy}/{me.MaxEnergy}");
-            // 🆕 2026-10-25（待A接线清单 #4）：**能量数字变化时弹跳**
-            //   判据 = 原版 `ManaTypeHolder.DoTextAnim`（复位 `localScale` → `DOPunchScale(±0.2, 0.5s,
-            //   vibrato 10, elasticity 1.0)`）；E 的复核见 `E_HUD_B升A_第1轮.md` §11.2②（543/552）。
-            //   ⚠️ 只在**值变了**那一帧弹（`UpdateHud` 每帧都跑，不设这道闸就是永久抽搐）。
-            if (_energyShownLast == int.MinValue)
-                _energyShownLast = me.Energy;                     // 首帧只记值，不弹（开局那一下原版没有）
-            else if (me.Energy != _energyShownLast)
-            {
-                _energyShownLast = me.Energy;
-                var etf = _energyLabel.transform;
-                etf.localScale = Vector3.one;                     // 原版 `DoTextAnim` 先复位
-                CardTween.Use(etf.DOPunchScale(Vector3.one * 0.2f, 0.5f, 10, 1f), Ease.Linear, _energyLabel);
-            }
+            // 🔴 **2026-10-25（执行代理 `R15` · 账 542 就地订正 · 铁律 5）**：这里原本接着一句
+            //   「能量数字变化时弹跳」（当天早些时候按 `E_HUD_B升A_第1轮.md` §11.2② 的补丁接的）
+            //   —— **那是错的，已搬走**。原版 8 个 `ManaTypeHolder` 的 `useTweenOnValueChange` 逐场现读：
+            //     `QuestPointsHolder`×2 = **1** · `FaithHolder`×2 = 0 · `ManaHolder`×2 = **0** ·
+            //     `SpiritStoneHolder`×2 = 0（13 个战场逐份，每场都是 `n=8 / tween=1 的 2 个`）。
+            //   ⇒ **能量数字（`ManaHolder/ManaText`）在原版里既不弹也不闪**；弹跳只归**任务点**那两颗。
+            //   落点现在 = 下面「任务点数字」那两行之后的 `TickManaHolderValue(...)`（判据与实现见类尾）。
             // 🔴 **2026-10-18（第十二轮 · W6）改文案（复刻偏差）**：原版这两格**不是** `HAND n` / `DECK n DISC m`。
             //    原版的拼法（**唯一判据 = 反编译方法体 + 二进制字面量**）：
             //      · `PlayerHand.ShowHandSize`（`d:/2/tools/decomp_full/PlayerHand__ShowHandSize.c`）=
@@ -30758,6 +30807,13 @@ namespace CardPresentation
             int qpStep = RuleCore.QuestPointStepFor(Ctx);
             if (_qpTextMe != null) _qpTextMe.SetText($"{me.QuestPoints}/{qpStep}");
             if (_qpTextFoe != null) _qpTextFoe.SetText($"{foe.QuestPoints}/{qpStep}");
+            // 🆕 2026-10-25（执行代理 `R15` · 账 542 / 551）：**值变化的弹跳 + 降向特效**只归这两颗。
+            //   判据 = 原版 `ManaTypeHolder.SetMana` 的两跳（`:68-81` → `DoTextAnim` / `TryDOVfx`），
+            //   而 13 个战场现读 `QuestPointsHolder` 的 `useTweenOnValueChange / useVfxOnValueChange`
+            //   **都是 1**（`ManaHolder` / `SpiritStoneHolder` 都是 0，`FaithHolder` 只有 vfx=1）。
+            //   实现与逐项判据见类尾 `TickManaHolderValue` / `QuestDownVfxName` 那一段。
+            TickManaHolderValue(me.QuestPoints, ref _qpShownLastMe, _qpTextMe, QuestDownVfxName);
+            TickManaHolderValue(foe.QuestPoints, ref _qpShownLastFoe, _qpTextFoe, QuestDownVfxName);
 
             bool myTurn = Ctx.Active == _me && !Ctx.IsOver;
             // 🔴 **2026-10-18（第十三轮 · G2b）：字**每次刷 HUD 时都重取一遍。
@@ -32172,5 +32228,261 @@ namespace CardPresentation
 
         /// <summary>自检用：现在摆着「让位」预览态吗（= `_previewRequested ≥ 0`，`TickShufflePreview` 的第一道门）。</summary>
         public bool ShufflePreviewArmed { get { return _previewRequested >= 0; } }
+
+        // ═══════════════════════════════════════════════════════════════════════════════════════
+        //  🆕 2026-10-25（第八十会话 · 执行代理 `E5` · W7）：`TraitEffectController` 钩子层的**取值口**
+        //  🔴 **新成员放在类尾**（CLAUDE.md §三：插在中间会让整本账的落点行号整体漂移）。
+        // ═══════════════════════════════════════════════════════════════════════════════════════
+
+        /// <summary>🆕 **W7**：`(player, slot)` 那张卡上 `keyword` 的**当前 trait 总值**（原版
+        /// `EntityScript.GetCurrentTraitValueWithModifiers` = 基值 + Σmodifier、钳 ≥0；我们引擎侧的等价物
+        /// = `UnitState.KwValue`）。
+        /// <para>⚠️ 用的是 `u.KwValue`（**引擎键**），所以先按 `KeywordForDisplay` 拆掉
+        /// `BattleEvent.KeywordWithAbility` 的 `#i` 传输后缀（拆法只此一处，见那个函数的 doc）。</para>
+        /// <returns>取不到（没有 `Ctx` / 座位越界 / 格子空 / 关键词空）⇒ `TraitFrames.NoTraitValue`
+        /// （表现层据此**不刷**计数器，⛔ 不拿 0 顶替）。</returns></summary>
+        int StatusValueOf(int player, int slot, string keyword)
+        {
+            if (Ctx == null || Ctx.Players == null) return TraitFrames.NoTraitValue;
+            if (player < 0 || player >= Ctx.Players.Length) return TraitFrames.NoTraitValue;
+            if (!BoardSpec.IsValid(slot)) return TraitFrames.NoTraitValue;
+            var ps = Ctx.Players[player];
+            if (ps == null) return TraitFrames.NoTraitValue;
+            var u = ps.Board[slot];
+            if (u == null) return TraitFrames.NoTraitValue;
+            string kw = KeywordForDisplay(keyword);
+            if (string.IsNullOrEmpty(kw)) return TraitFrames.NoTraitValue;
+            return u.KwValue(kw);
+        }
+
+        // ═══════════════════════════════════════════════════════════════════════════════════════
+        //  🆕 2026-10-25（第八十会话 · 执行代理 `R5` · **W10 ③**）：`markerlight` 的「攻击起手 / 收手」两拍
+        //  🔴 **新成员放在类尾**（CLAUDE.md §三：插在中间会让整本账的落点行号整体漂移）。
+        //
+        //  原版两拍（cpp2il 逐句；比 `报告/E5_TraitEffect接线_第2轮.md` 引的 `.c` 清楚）：
+        //    · **起手** = `CardScript.SetupAttack`（`CardScript.cs:12400`）→ `StartCoroutine(PrepareAttack(true))`
+        //      → `CardScript.cs:3649` `SetTraitsOnPlayAttackingStatus(hideStatus: true)`
+        //      → `MarkerlightController.AimingAttack(true)` → `MaterialFader.Toggle(false)` = **淡出**。
+        //    · **收手** = `PrepareAttack(false)`（`CardScript.cs:3637` `hideStatus: false`）→ `Toggle(true)` = **淡回**。
+        //  上游调用者：起手 = `BattleManager.SetupAttack`（攻击动作开始那一刻）；
+        //              收手 = `FinishActiveAbility`（`:12533`）/ `CancelAttack`（`:12512`），都在**整条动作跑完之后**。
+        //
+        //  🔴 **就地订正（铁律 5）**：E5 报告 §① 写「`EvtKind.Attack` 是**结算**那一拍、不是起手」——**不成立**：
+        //     本文件 `:20460-20461` 的注释自己就写着它「正好是抬手那一拍」（`_AttackMeleeAnim` 起播那一帧），
+        //     而 `PlaySignal` 里 `if (e.Kind == EvtKind.Attack)` 那一段正是**攻方动作序列开始**的地方。
+        //
+        //  我们的两拍：
+        //    · 起手 = `PlaySignal` 里 `_lastAttackEventAt = _clock` **同一句**派发（= 攻击演出起点，时间线 `_clock`）。
+        //    · 收手 = **同一拍排一条**「攻方动作序列跑完」的回调。时长与 `CardFeel` 里那两条序列**逐项对应**：
+        //        近战 `CardFeel.MeleeAttack`  = 段1 `AttackStepTime` + 段3 `AttackHoldTime` + 段4/5 `AttackReturnTime`
+        //        远程 `CardFeel.AttackRecover` = 段1 `AttackStepTime` + `AfterAttackDelay` + 段2 `AttackStepTime`
+        //      ⛔ 别在这里写 0.4 / 0.85 两个字面量（卡那边的常量一改，这里就会**静默错位**）。
+        //
+        //  🔴 **为什么不直接用 `ScheduleAction`**：它里面会 `ExtendTimelineTail(at)` ⇒ 每记攻击都把队尾推到
+        //     0.85 s 之后 ⇒ **AI 回合的节奏被悄悄拖慢**（远程那条尤其）。收手只是一次 UI 回调，
+        //     不该参与「下一批事件能不能开场」的判据 ⇒ 走 `SchedulePresentationCallback`（不推队尾）。
+        // ═══════════════════════════════════════════════════════════════════════════════════════
+
+        /// <summary>W10 用的引擎键（`RuleCore` 摘标记光时用的也是这个字面量，见 `RuleCore.cs` 的 `RemoveAll("markerlight")`）。</summary>
+        const string MarkerlightKeyword = "markerlight";
+
+        /// <summary>自检/诊断读口：起手真的派发出去过几次（`AimingAttack(…, true)` 返回 &gt; 0 的次数）。</summary>
+        public int AimingAttackStartCount { get; private set; }
+        /// <summary>自检/诊断读口：收手回调真的跑到过几次。</summary>
+        public int AimingAttackEndCount { get; private set; }
+        /// <summary>自检/诊断读口：最近一次排的「收手」延时（近战 0.4 / 远程 0.85）。</summary>
+        public float LastAimMotionDurationForTest { get; private set; }
+        /// <summary>自检用：把上面三个读数清回初值（每段用例前调）。</summary>
+        public void ResetAimingAttackForTest()
+        {
+            AimingAttackStartCount = 0;
+            AimingAttackEndCount = 0;
+            LastAimMotionDurationForTest = 0f;
+        }
+
+        /// <summary>W10 ③：**成对**派发「攻击起手 / 收手」。调用点 = `PlaySignal` 的 `EvtKind.Attack` 支（唯一入口）。
+        /// <para>成对是硬要求：只挂起手 ⇒ 标记光淡出之后**再也不淡回**（静默、且玩家看不出来是 bug）。</para>
+        /// <para>这张卡上**没有** markerlight 框 ⇒ `AimingAttack` 回 0 ⇒ 连回调都不排（不污染时间线）。</para></summary>
+        void AimAttackingStatusPair(BattleEvent e)
+        {
+            if (e == null) return;
+            if (AimAttackingStatus(e.Player, e.Slot, true) <= 0) return;   // 框不在 ⇒ 无需收手
+            AimingAttackStartCount++;
+
+            int p = e.Player, s = e.Slot;                 // ⚠️ 抓局部：`e` 会被复用/回收，别把对象带进 lambda
+            float end = AttackMotionDurationOf(e);
+            LastAimMotionDurationForTest = end;
+            SchedulePresentationCallback(end, () =>
+            {
+                AimingAttackEndCount++;
+                AimAttackingStatus(p, s, false);
+            });
+        }
+
+        /// <summary>攻方那条动作序列的整条时长（判据见上面那段：`CardFeel.MeleeAttack` / `CardFeel.AttackRecover` 的首尾）。</summary>
+        static float AttackMotionDurationOf(BattleEvent e)
+        {
+            return e.Ranged
+                ? CardFeel.AttackStepTime + CardFeel.AfterAttackDelay + CardFeel.AttackStepTime   // AttackRecover 整条
+                : CardFeel.AttackStepTime + CardFeel.AttackHoldTime + CardFeel.AttackReturnTime;  // MeleeAttack 整条
+        }
+
+        /// <summary>`(player, slot)` 那张卡上的 markerlight 框切「瞄准中 / 结束」两态。
+        /// <para>⚠️ 走 `TraitFrames`（不是直接 `GetComponent<MarkerlightController>()`）——
+        /// 两本字典（`_play` / `_trigger`）各取一次的口只在那里（原版 `CardScript.SetTraitsOnPlayAttackingStatus`
+        /// 也是两本各取一次）。</para>
+        /// <returns>真的切了几个框（0 = 这张卡上没有该框 / 视图不在）。</returns></summary>
+        int AimAttackingStatus(int player, int slot, bool aiming)
+        {
+            var v = ViewAt(player, slot);
+            if (v == null) return 0;
+            var tf = v.GetComponent<TraitFrames>();
+            return tf != null ? tf.AimingAttack(MarkerlightKeyword, aiming) : 0;
+        }
+
+        /// <summary>排一条**纯回调**、**不推队尾**（与 `ScheduleAction` 的唯一区别）。
+        /// <para>为什么单开这一条：`ScheduleAction` 会 `ExtendTimelineTail(at + duration)`，而队尾判的是
+        /// 「下一批事件能不能开场」——收手这种一次 UI 回调不该参与那个判据（否则每记攻击都把
+        /// AI 回合往后推 0.4 / 0.85 s，而且**没有任何报错**）。</para>
+        /// <para>⚠️ 与 `ScheduleAction` 一样走 `_timeline` 这条泵（真机靠 `Update`、批处理靠
+        /// `BattleScene.Step` 推）——⛔ 别改成 `Invoke`/`StartCoroutine`，那会变成「只在一种环境下活」。</para></summary>
+        void SchedulePresentationCallback(float delay, System.Action act)
+        {
+            if (act == null) return;
+            _timeline.Add(new PendingSignal { at = _clock + Mathf.Max(0f, delay), cueAction = act });
+        }
+
+        // ==================================================================
+        //  🆕 2026-10-25（执行代理 `R15` · 账 542 / 551 / 395 / 407 / 410 / 411）
+        //     `ManaTypeHolder` 的两件「值变化」反应 ＋ 时钟三件
+        //  ⚠️ 本段一律**追加在类尾**（CLAUDE.md §三：「改 `.cs` 时新成员追加到类尾」—— 插在中间会把
+        //     下游所有 `账/*.tsv` 的 `文件:行号` 落点整体推走）。
+        // ==================================================================
+
+        // ------------------------------------------------------------------
+        //  一、`ManaTypeHolder` 的 `DoTextAnim` / `TryDOVfx`
+        //
+        //  原版每侧 4 个 holder（`ManaHolder` / `FaithHolder` / `SpiritStoneHolder` /
+        //  `QuestPointsHolder`），**谁动谁不动由两个序列化标志决定**（`SetMana` 里
+        //  `if (useTweenOnValueChange) DoTextAnim();` 与 `TryDOVfx(value)` ——
+        //  `cpp2il/out_cpp2il_dev_ilspy/ManaTypeHolder.cs:66-82`）。13 个战场逐份现读，分布完全一致：
+        //
+        //    | holder                | useTweenOnValueChange | useVfxOnValueChange | 原版上的那件 |
+        //    |-----------------------|----------------------:|--------------------:|--------------|
+        //    | `QuestPointsHolder`×2 | **1**                 | **1**              | 升 `Quest UI Gain` / 降 `Quest UI Trigger` |
+        //    | `FaithHolder`×2       | 0                     | **1**              | 升 `Faith UI Gain`；降那一格 **GUID 是空的** |
+        //    | `ManaHolder`×2        | 0                     | 0                  | ——（**能量数字原版不弹不闪**） |
+        //    | `SpiritStoneHolder`×2 | 0                     | 0                  | —— |
+        //
+        //  判据出处 = `d:/2/新解包资源/assets_full/bundle_scenes_scenes_battlearena*/MonoBehaviour/
+        //  MonoBehaviour_<pid>.json` 的这两个字段 + 父链解到 holder 名（arena1 那 8 颗 pid =
+        //  4153/4223 = SpiritStone · 4525/4703 = QuestPoints · 4868/5227 = Mana · 5031/5237 = Faith）。
+        //  资产名 = GUID 经 `资料/普查产出_1018/cardanim_guid_map/guid_map_bundles.tsv` 的 `name` 列。
+        // ------------------------------------------------------------------
+
+        /// <summary>上一帧印在**我方任务点**数字上的值（`int.MinValue` = 还没印过）。
+        /// 原版 `ManaTypeHolder.currentValue` 的等价物：原版那两个方法由 `SetMana` **事件式**调用，
+        /// 我们是每帧轮询（`UpdateHud`）⇒ 必须自己记上一次的值，否则就是永久抽搐。</summary>
+        int _qpShownLastMe = int.MinValue;
+        /// <summary>敌方任务点（同 <see cref="_qpShownLastMe"/>）。</summary>
+        int _qpShownLastFoe = int.MinValue;
+
+        /// <summary>原版 `QuestPointsHolder.vfxOnValueDown` 的资产名
+        /// （GUID `2223a4d235c6dbb44bc92c2db85bc13d` → `guid_map_bundles.tsv` 的 `name` 列 = **`Quest UI Trigger`**；
+        /// 件在 `WarpforgeVFX/Prefabs/Quest UI Trigger.prefab`，且已在
+        /// `Resources/WarpforgeVFX/WarpforgeEffectLibrary.asset` 的清单里 ⇒ `CardEffects.Fire` 按名字取得到）。
+        /// <para>⚠️ `Core/VfxMap.cs` 里**没有**这一行（那里只有升方向的 `GainQuest → Quest UI Gain`）——
+        /// 本轮白名单不含 `Core/`，先落在本类；建议后续并进 `VfxMap`（与 `GainFaith`/`GainSpirit`/`GainQuest` 同表）。</para></summary>
+        public const string QuestDownVfxName = "Quest UI Trigger";
+
+        /// <summary>一颗 `ManaTypeHolder` 数字「值变了」那一帧要做的两件事（= 原版 `SetMana` 的两跳）。
+        /// <para>· **弹**（`DoTextAnim`，判据 `decomp_full/ManaTypeHolder__DoTextAnim.c` 逐句）：先复位
+        ///   `localScale`（原版拿 `originalScale` —— 我们每颗 `Label` 的原始缩放恒 (1,1,1)，等价），
+        ///   再 `DOPunchScale(基向量 × 0.2, 0.5s, vibrato 10, elasticity 1.0)`。四个常量里三个是 `.rdata`
+        ///   现读（`0x1834b2bb0 = 0.2f` · `0x1834b2bb4 = 0.5f` · `0x1834b2bb8 = 1.0f`，`工具/read_literal.py`），
+        ///   `vibrato = 10` 是调用点的立即数。</para>
+        /// <para>· **闪**（`TryDOVfx` 的**降**那一半）：原版按 `target &lt; current` 取 `vfxOnValueDown`，
+        ///   `RuntimeKeyIsValid()` 为真才 `Instantiate(prefab, 本 holder 的 position, prefab 自己的 rotation)`
+        ///   —— 落点就是**这颗 holder 自己的 transform**（不是资源图标）。</para>
+        /// <para>⚠️ **升方向不在这里播**：升的那件已经由事件链播了
+        ///   （`EvtKind.GainQuest → GenericVfxFor → VfxMap.GainQuest = Quest UI Gain`），这里再补一次
+        ///   = 原版没有的第二下。⇒ 本方法只处理 `now &lt; old`。</para>
+        /// <para>⚠️ **首帧只记值、不弹不闪**：原版是事件式调用（值没变根本不会调 `SetMana`），
+        ///   我们是每帧轮询 ⇒ 开局那一帧必须当成「记初值」。</para></summary>
+        void TickManaHolderValue(int now, ref int last, Label label, string downVfxName)
+        {
+            if (last == int.MinValue) { last = now; return; }      // 首帧：只记值
+            if (now == last) return;                               // 没变（`UpdateHud` 每帧都跑）
+            int old = last;
+            last = now;
+            if (label != null)
+            {
+                var tf = label.transform;
+                tf.localScale = Vector3.one;                       // 原版 `DoTextAnim` 先复位
+                CardTween.Use(tf.DOPunchScale(Vector3.one * 0.2f, 0.5f, 10, 1f), Ease.Linear, label);
+            }
+            if (now < old && label != null && !string.IsNullOrEmpty(downVfxName))
+                CardEffects.Fire(downVfxName, label.transform.position);
+        }
+
+        // ------------------------------------------------------------------
+        //  二、时钟：倒计时秒数按剧本取（账 395）· 回放局钮文案（账 407）· 收掉倒计时特效（410/411）
+        // ------------------------------------------------------------------
+
+        /// <summary>本局**倒计时**那一段的秒数（原版 `ScenarioVariables.clockCountdownSec`）。
+        /// <para>判据（两条现读）：
+        /// ① `BattleManager.scenarioVariables` 的 getter（`cpp2il …/BattleManager.cs:14461-14476`）=
+        ///    **`IsTutorialMatch()` ⇒ `tutorialScenarioVars`**，否则 `defaultScenarioVars`
+        ///    （编辑期那一档走 `editorScenarioVars`，与默认值同数）；</para>
+        /// <para>② 三份剧本资产的这一格：`DefaultScenario = 15` · `EditorScenario = 15` ·
+        ///    **`TutorialScenario = 10`**（`bundle_duplicateassetisolationso_assets_all/MonoBehaviour/
+        ///    {Default,Editor,Tutorial}Scenario.json`）。</para>
+        /// ⇒ 只有**教程局**不同（10 s），其余 15 s。⛔ 别按别的 `matchType` 猜档（原版只看「是不是教程局」）。</summary>
+        float CountdownSecondsForThisMatch
+        {
+            get
+            {
+                bool tutorial = Ctx != null && Ctx.MatchType == MatchType.Tutorial;
+                return tutorial ? TutorialCountdownSeconds : countdownSeconds;
+            }
+        }
+        /// <summary>教程局的倒计时秒数（`TutorialScenario.json` 的 `clockCountdownSec` = **10**；默认档 15）。</summary>
+        public const float TutorialCountdownSeconds = 10f;
+
+        /// <summary>原版结束回合钮在**回放局**上的那条词条（`ClockManager` 的 `REPLAY_LOC_KEY`
+        /// = `"Battle/HUD/Replay"`，`cpp2il …/ClockManager.cs:16` 与 `:127` 两处同一个串；
+        /// 官方两列 =「重播」/「Replay」，`Core/Loc.cs` 有这一行、此前**零消费点**）。</summary>
+        const string ReplayButtonTerm = "Battle/HUD/Replay";
+
+        /// <summary>「这一局是回放局吗」—— <see cref="UpdateClockLabel"/> 那一档的**唯一判据**。
+        /// <para>· `_replaySession`：本工程的回放标记（`PlayReplay` 置、`Begin` 清）；</para>
+        /// <para>· `Ctx.MatchType == MatchType.Replay(160)`：原版那一档（万一将来某条路把它设进来，
+        ///   也走同一支 —— 两条是**同一件事的两种来源**，不是两套规则）。</para></summary>
+        bool IsReplayMatch
+        {
+            get { return _replaySession || (Ctx != null && Ctx.MatchType == MatchType.Replay); }
+        }
+
+        /// <summary>这一次倒计时特效**生成出来的那个实例**（= 原版 `ClockManager.countdownAnim` 的 `+0x98`）。
+        /// 原版 `StopClock` / `StopClockUi` / `EndCountdown` **三处都 `Destroy(countdownAnim)`**
+        /// （`cpp2il …/ClockManager.cs:286-288` / `:427-429` / `:790-792`）—— 那件 prefab 的
+        /// `destroyTime` 是 **17 s**（`WarpforgeEffectLibrary.asset` 现读），比一回合剩下的时间还长
+        /// ⇒ 不销毁就会**演到对手回合**去（玩家看得见）。</summary>
+        GameObject _countdownAnimGo;
+
+        /// <summary>原版 `ClockManager.StopClock()`（`cpp2il …/ClockManager.cs:276-298`）里与画面有关的那三件：
+        /// ① `Destroy(countdownAnim)`（那件 17 s 自毁的特效 —— 见 <see cref="_countdownAnimGo"/>）；
+        /// ② `SetEndTurnText(isPlayer:false)`（= 我们的 `UpdateClockLabel()`，换人不换人它自己判）；
+        /// ③ **`clockCountdownFlag = false`**（= 我们的 `_clockInCountdown`）。
+        /// <para>🔴 **③ 那一条原来没人做**：`_clockInCountdown` 只在 `ResetClock()`（**下一回合开始**）才清 ⇒
+        /// 「倒计时里结束回合」之后，`UpdateClockLabel` 会一直把那串**冻住的秒数**印在结束回合钮上，
+        /// 一直到对手回合走完（玩家看得见，且 `StopClock` 原版就是在这里清的）。</para>
+        /// <para>⚠️ 销毁走 <see cref="Kill"/> —— 批处理里 `Object.Destroy` 不生效（会静默留着）。</para></summary>
+        void StopClockVisuals()
+        {
+            if (_countdownAnimGo != null) { Kill(_countdownAnimGo); _countdownAnimGo = null; }
+            _clockInCountdown = false;
+            UpdateClockLabel();          // 原版 `SetEndTurnText(isPlayer:false)` —— 本方法只在 `BeginTurn` 之后被调，`Ctx.Active` 已经是对方
+        }
     }
 }

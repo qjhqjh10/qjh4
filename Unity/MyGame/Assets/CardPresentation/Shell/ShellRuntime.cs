@@ -311,6 +311,19 @@ namespace CardPresentation
             Instance = this;
             _ownSceneName = gameObject.scene.name;   // ⚠️ 必须在 DDOL 之前（之后读不到真名）
             DontDestroyOnLoad(gameObject);      // 壳要跨场景活着（进主菜单/战斗都不重建）
+
+            // 🆕 2026-10-25（执行代理 R4 · 存档 Step 4「双写期」）：**这里是 `LegacySaveReader.ImportAll()` 唯一的调用点**
+            // —— 不接这一句，Step 2 那整套「旧档 → 中央存档」的导入就是**死代码**（一行都不会跑）。
+            // 顺序固定：**先导入、后登记**（反过来的话，导入时那一批 `SetRaw` 会先触发双写，
+            // 把同一份内容再写一遍旧档 —— 无害但白写，而且日志里看不出正常顺序）。
+            // · `ImportAll()` 内部判 `SaveCenter.StoreOn` ⇒ 批处理/自检 **一个字节都不碰**；
+            // · `RegisterMirrors()` 只填进程内的登记表、不碰盘，但填的是 `LegacyRoot`（默认 = 玩家真目录）
+            //   下的路径 ⇒ 落盘关着时白登记、还会让日志误导人 ⇒ 一并挡在 `SaveCenter.StoreOn` 里。
+            if (SaveCenter.StoreOn)
+            {
+                LegacySaveReader.ImportAll();
+                LegacySaveReader.RegisterMirrors();
+            }
         }
 
         void Start()

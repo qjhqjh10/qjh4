@@ -1134,7 +1134,14 @@ namespace CardPresentation
         void BuildPersonalProgression(Transform root)
         {
             var prog = MenuDraw.Node(root, "Personal Progression", PersonalProgR);
-            _personalBar = MenuDraw.Node(prog, "Expansion Pass Progress Bar", PersonalBarRootR);
+            // 🔴 **2026-10-25（执行代理 E6 · 账 `未分类_其他` #292）**：矩形不再写死 `PersonalBarRootR` ——
+            //   原版这颗节点上挂着 `ExpansionPassProgressBarScaleAndPositionController`（会按里程碑档改位置/缩放），
+            //   等价物 = `PersonalBarRect(...)`（判据与算式见那个方法的 doc）。
+            //   ⚠️ 本地没有里程碑数据 ⇒ 三个实参恒 `(Locked, Locked, 0)` ⇒ 该函数**返回原矩形**（恒等），
+            //   与改之前逐像素相同；真数据到了走 `ApplyMilestoneState` 一条就生效。
+            _personalBar = MenuDraw.Node(prog, "Expansion Pass Progress Bar",
+                                         PersonalBarRect(PersonalBarRootR, MilestoneStateCurrent,
+                                                         MilestoneStatePrevious, MilestoneLevel));
 
             // `Bar`（`Slider` · 出厂填充 0 宽）：底 + 填充 + 端帽
             var bar = MenuDraw.Node(_personalBar, "Bar", PersonalBarR);
@@ -1691,6 +1698,99 @@ namespace CardPresentation
                                + "（导入器：`工具/import_original_art.py` 的 `MENU_IMAGES`）。");
             }
             return t;
+        }
+
+        // ============================================================ 个人进度条的「按档改位置/缩放」（账 `未分类_其他` #292）
+        //
+        // 【判据 · 两侧都到方法级】
+        // ① 原版 `ExpansionPassProgressBarScaleAndPositionController.SetPositionAndScale(...)`
+        //    （`D:/2/tools/cpp2il/out_cpp2il_dev_ilspy/ExpansionPassProgressBarScaleAndPositionController.cs:7-26`，
+        //     并与 Ghidra 那份交叉：`D:/2/tools/decomp_full/ExpansionPassProgressBarScaleAndPositionController__SetPositionAndScale.c:12-27`）：
+        //      **仅当** `state == LockedBecauseNotPremium(1) || state == Unlocked(2)`：
+        //          `rectTransform.anchoredPosition = positionToModify + positionOffset`
+        //          `rectTransform.sizeDelta      = scaleToModify    + scaleOffset`
+        //      （其余档 = 一个字段都不动）。
+        // ② 基类 `BaseProgressBarScaleAndPositionController<TState>.Initialize(currentState, previousState, level)`
+        //    （同目录 `BaseProgressBarScaleAndPositionController.cs:20-48`；⚠️ 泛型体在 cpp2il 里**实参名全丢**，
+        //     这里是按语句顺序 + 子类语义还原的，标「还原」不标「实读」）：
+        //      Ⅰ. 首次调用时把出厂矩形存进 `originalScale / originalPosition`（闸 = `originalScale == (0,0)`）；
+        //      Ⅱ. **无条件**先按【上一档】摆一次：`SetPositionAndScale(originalPosition, originalScale, previousState, …Previous)`；
+        //      Ⅲ. `if (level > 0)` 再按【当前档】在**Ⅱ 的结果上**叠加：`SetPositionAndScale(rt.anchoredPosition, rt.sizeDelta, currentState, …Current)`。
+        // ③ 调用点（三个实参从哪来）= `D:/2/tools/decomp_full/ExpansionPassRewardItemContainer__Initialize.c:110`：
+        //      `Initialize(GetState(milestone[milestoneIndex]), GetState(milestone[milestoneIndex-1]), milestoneIndex)`
+        //      ⇒ `level` 就是**里程碑序号**；第 0 档走不到 Ⅲ（`previous` 取到 null ⇒ `Locked`）。
+        // ④ 出厂值 = prefab `D:/2/tools/assetripper_out/ExportedProject/Assets/Expansion Pass Reward Container.prefab`
+        //    的 MB `114699617135816954`（`m_Script` guid `8bd238dc…`）逐字段实读：
+        //      `rectTransform` → 节点 **`Expansion Pass Progress Bar`**
+        //        （`anchoredPosition (-37.067, 0)` · `sizeDelta (301.271, 106.574)` · `m_Pivot (1, 0.5)`）
+        //      `positionOffsetCurrent (-74.34, 0)` · `scaleOffsetCurrent (-72.31, 0)`
+        //      `positionOffsetPrevious (0, 0)`     · `scaleOffsetPrevious (-72.31, 0)`
+        //    ⚠️ 我们 `PersonalBarRootR` 的**尺寸**逐位等于 `(301.271, 106.574)` ⇒ 同一来源，可反证。
+        //
+        // 【我们的等价物】原版改的是 `RectTransform`；我们这套没有 uGUI 布局，矩形就是设计 px。
+        //   ⇒ 用**同一个算式**把矩形反算出来（函数 = `PersonalBarRect`，纯函数、可自检）。
+        //   ⚠️ **如实标：非恒等档还差一步** —— 原版改 `sizeDelta` 时**子件按锚点跟着走**（pivot.x = 1 ⇒ 右缘不动、
+        //   左缘与左锚子件动）；我们的 `Bar` / `Points` 是**绝对设计 px**摆的（`MenuDraw.Rect` 按绝对框），
+        //   父件矩形一变它们**不跟着重排**。本地拿不到任何里程碑状态（`ExpansionPassEvent.Milestones` 是远端
+        //   LiveOps 下发）⇒ 这一档**无法用实况验证**，因此**没有**凭空编一套子件重排；真数据到了再按 prefab
+        //   子件锚点逐颗核（施工点就写在这儿）。
+
+        /// <summary>`ScoringMilestone.State` 的四个值（`Everguild.LiveOps/ScoringMilestone.cs:9-15`）。
+        /// ⚠️ 只有 `LockedBecauseNotPremium` 与 `Unlocked` 会让进度条挪位/改宽（见上面 ①）。</summary>
+        public const int MsStateLocked = 0, MsStateLockedBecauseNotPremium = 1, MsStateUnlocked = 2, MsStateCollected = 3;
+
+        /// <summary>原版两张偏移表（prefab 序列化实读，出处见上面 ④）。</summary>
+        static readonly Vector2 BarPosOffCurrent = new Vector2(-74.34f, 0f), BarSizeOffCurrent = new Vector2(-72.31f, 0f),
+                                BarPosOffPrevious = new Vector2(0f, 0f),    BarSizeOffPrevious = new Vector2(-72.31f, 0f);
+
+        /// <summary>本窗「已知」的三个里程碑实参（= 原版 `Initialize` 的形参）。
+        /// 本地没有里程碑数据 ⇒ 恒 `(Locked, Locked, 0)`（`ExpansionPassEvent.Milestones` 在远端 LiveOps）。</summary>
+        public int MilestoneStateCurrent = MsStateLocked, MilestoneStatePrevious = MsStateLocked, MilestoneLevel = 0;
+
+        static bool BarMovesFor(int state)
+        {
+            return state == MsStateLockedBecauseNotPremium || state == MsStateUnlocked;
+        }
+
+        /// <summary>把「位置偏移 + 尺寸偏移」落到我们的矩形上（= 原版那两行 `anchoredPosition/sizeDelta = ... + offset`）。
+        /// <para>锚点按 prefab 的 **pivot = (1, 0.5)** 反算：`anchoredPosition` 指的是**右缘中心**
+        /// ⇒ 位置偏移先挪右缘；`sizeDelta.x` 变而右缘不动 ⇒ 中心跟着挪 `−dw/2`。
+        /// ⚠️ Unity 的 `y` 向上、我们的 <see cref="PxRect"/> **y 向下** ⇒ `dy` 取负（本表 dy 恒 0，写成通用式）。</para></summary>
+        public static PxRect ShiftBar(PxRect r, Vector2 posOff, Vector2 sizeOff)
+        {
+            float w = r.W + sizeOff.x, h = r.H + sizeOff.y;
+            float right = r.x2 + posOff.x;
+            float cy = (r.y1 + r.y2) * 0.5f - posOff.y;
+            float cx = right - w * 0.5f;
+            return new PxRect(cx - w * 0.5f, cy - h * 0.5f, cx + w * 0.5f, cy + h * 0.5f);
+        }
+
+        /// <summary>= 原版 `BaseProgressBarScaleAndPositionController<TState>.Initialize` 那三句（见上面 ②）：
+        /// 先按**上一档**摆、`level > 0` 时再按**当前档**叠加。
+        /// <para>`level == 0` ⇒ 只走「上一档」那一次（原版第 0 颗里程碑就是这样，`previous` 取到 null ⇒ `Locked` ⇒ 恒等）。</para></summary>
+        public static PxRect PersonalBarRect(PxRect original, int currentState, int previousState, int level)
+        {
+            var r = original;
+            if (BarMovesFor(previousState)) r = ShiftBar(r, BarPosOffPrevious, BarSizeOffPrevious);
+            if (level > 0 && BarMovesFor(currentState)) r = ShiftBar(r, BarPosOffCurrent, BarSizeOffCurrent);
+            return r;
+        }
+
+        /// <summary>给了里程碑状态之后：重摆「个人进度条」那一块（= 原版 `Initialize` 在 `ExpansionPassRewardItemContainer`
+        /// 每次刷新时被调一次）。本地没有数据源 ⇒ 调用方只会在将来接上 LiveOps 时用它；
+        /// ⛔ 别拿它传「猜出来的档」—— 状态必须来自真数据（红线：不假装某一档已解锁）。</summary>
+        public void ApplyMilestoneState(int currentState, int previousState, int level)
+        {
+            MilestoneStateCurrent = currentState;
+            MilestoneStatePrevious = previousState;
+            MilestoneLevel = level;
+            if (_container == null) return;
+            // 复用的是同一棵模板子树（= 原版那件 `ExpansionPassRewardItemContainer` 的 prefab 实例）
+            MenuDraw.ClearChildren(_container);
+            BuildRewardContainer(_container);
+            Debug.Log("[ExpansionPass] 里程碑档 ⇒ 当前 " + currentState + " · 上一档 " + previousState
+                    + " · level " + level + " ⇒ 个人进度条矩形 = " + PersonalBarRect(PersonalBarRootR,
+                        currentState, previousState, level));
         }
     }
 }

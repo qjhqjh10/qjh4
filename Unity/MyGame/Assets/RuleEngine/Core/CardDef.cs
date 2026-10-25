@@ -4269,7 +4269,12 @@ namespace RuleEngine
         // ==================================================================
 
         /// <summary>`This troop's Melee is always equal to its Health`（`Scarab Swarm`，Sautekh）。
-        /// **读点**：`RuleCore.FieldAttack` —— 近战时把**基础值**换成当前生命，
+        /// **读点**🔴 **2026-10-25（`E1` · 第三段）就地订正（铁律 5）：不再是 `RuleCore.FieldAttack`** ——
+        /// 现在由 `Auras.Recompose` 的 ①·b 每趟重挂一条 **`IsSet`** 近战修饰
+        /// （`Auras.MeleeEqualsHealthSource`，值 = 当时的 `Health`）；`UnitState.CurrentMeleeAttack`
+        /// **命中即 `return`** ⇒ `addStats` 的近战加成一概不计（原版 `get_CurrentMeleeAttack` 的
+        /// `buffType==70` 那一支，判据 `判据/战斗逻辑驱动_Stage2前置_第2轮.md` §1·7）。
+        /// ⛔ 以前那句「换基础值、加值照常叠」**已作废**；`RuleCore.FieldAttack` 里那条特判**已删**。
         /// 后面那些加值（`Pack` 的 +N）**照常叠上去**。
         /// ⚠️ 「换掉基础值」而不是「换掉最终值」是**我们挑的**（规则书查不到这句的结算细则）——
         ///    卡面只说「always equal to its Health」，没说加值算不算。</summary>
@@ -6147,6 +6152,44 @@ namespace RuleEngine
         {
             return IsUnit ? $"{Name}({Cost}费 {Attack}/{Health})" : $"{Name}({Cost}费 {Type})";
         }
+
+        // ==================================================================
+        //  🆕 2026-10-25（E1 · 属性模型 Stage 2 · ②）—— `extrinsic` 的两个 trigger
+        // ==================================================================
+
+        /// <summary>
+        /// 原版 `AbilityTrigger.WhileInPlay(20)` / `WhileInPlayVariable(240)` —— **只有这两个**会产生
+        /// `CardEffect.extrinsic = true`（判据 §7·1）：
+        /// 写点 `RawCardScript.TriggerAbility`（`RawCardScript.cs:1770-1781`，`whileInPlay` / `whileInPlayVariable` 两格）
+        /// → 落点 `AbilityLogic__PlayAbility.c:1193-1199`（`effect.extrinsic(+0x30) = whileInPlay || whileInPlayVariable`）
+        /// 与 `:1352-1356`（`extrinsicVariable(+0x31) = whileInPlayVariable`）；
+        /// 枚举值 `AbilityTrigger.cs:6`=20 · `:39`=240。
+        /// ⚠️ **⛔ 别读 SO 里那两列**（`cards_raw.json` 的 `extrinsic`/`extrinsicVariable`）—— 运行时要被覆盖的序列化残留
+        /// （实测 `trigger==20` 的 17 个效果里只有 5 个 SO `extrinsic=1`）。
+        /// </summary>
+        public static bool IsExtrinsicAbilityTrigger(int trigger)
+        {
+            return trigger == 20 || trigger == 240;
+        }
+
+        /// <summary>
+        /// 这张卡有没有**带 extrinsic 的 ability**。三档同 <see cref="AbilityTriggerPresence"/>：
+        /// <c>1</c> 有 / <c>0</c> 明确没有 / <c>-1</c> **未知**（旧表 / 缺列 —— ⛔ 未知不许读成「没有」）。
+        /// <para>⚠️ **卡级近似**：同一张卡可以同时有 `Rally(30)` 与 `WhileInPlay(20)`，而我们的效果**按正文句子**结算、
+        /// 不记「这句话来自哪条 ability」⇒ 卡级 flag **不能**逐句判 extrinsic。运行时的判据是
+        /// `UnitState.IsExtrinsicSource`（`Auras.GrantTag` ⇒ extrinsic），它覆盖 trigger 20/240 里**所有光环形状**的效果
+        /// （实测 2026-10-25：trigger 20 的 13 张卡 19 段里 11 段、trigger 240 的 33 张卡 42 段里 27 段被
+        /// `Auras.TryParse` 收下；其余是印刷关键词或同卡其它 trigger 的一次性效果）。</para>
+        /// </summary>
+        public int ExtrinsicAbilityPresence
+        {
+            get
+            {
+                if (!AbilityTriggersVersioned) return -1;
+                return (_abilityTriggers.Contains(20) || _abilityTriggers.Contains(240)) ? 1 : 0;
+            }
+        }
+
     }
 
     /// <summary>
@@ -8131,5 +8174,7 @@ namespace RuleEngine
             "huntMark",       // (b) triggerType ∈ {0,2} ⇒ `ActivateTraitsOnSummonOrEnchantment.c:67`
             "stomp",          // (c) `BattleManager__ShouldTriggerStompDamage`（`0x4d8`）
         };
+
     }
+
 }

@@ -180,14 +180,40 @@ namespace CardPresentation
         /// （进度**已按原版重写** = `InterpolateMilestones`，不再是线性归一 —— 见本类尾那个静态方法。）</para></summary>
         public void SetMilestones(int currentScore, int[] thresholds)
         {
-            if (thresholds == null || thresholds.Length < 5)
+            // 🔴 **2026-10-25（E4 · 账 63）**：这一支按原版 `AllianceScoreBar.SetScoringMilestones`
+            //   **逐句重写**（Ghidra `AllianceScoreBar__SetScoringMilestones.c` + ILSpy 同一方法）。
+            //   原版每一档有**三种**处置（不是两种）：
+            //     ① `currentScore >= thresholds[i]` **且**「没有越过下一档」（i 是最后一档，或
+            //        `currentScore < thresholds[i+1]`）⇒ **换开箱图**（`Image.sprite = chestOpen`）；
+            //     ② 走到 IL_0130 那一支**且 `thresholds[i] < currentScore`**（严格小于）⇒
+            //        **把 `chestReward.color` 的 alpha 乘一个常量** —— 该常量 = `DAT_1834b2bb4`，
+            //        用 `工具/read_literal.py` 现读 = **`0.5f`**（`.rdata` 4 字节 float；上下文是
+            //        `fStack_2c = (float)rgba[3] * fVar3` ⇒ 取 4 字节那一档，不是 8 字节的 0.0078125）
+            //        ⇒ 语义 = **「已经越过这一档（拿到下一档去了）⇒ 这颗箱子压暗一半」**；
+            //     ③ 其余（未达成）⇒ 什么都不做（原版那一支的 `thresholds[i] < currentScore` 为假）。
+            //   ⚠️ 改前我们做的是「`>= 阈值` 就换开箱图」⇒ **①②两态被合并成一态**：
+            //      已经越过的那几档也被换成开箱图（原版这一档恰恰**不换图、只压暗**）。
+            //   ⚠️ 原版那一下是**乘当前 alpha**（不是「设成某个值」）⇒ 同一个档被重复喂分时会**继续压暗**；
+            //      我们照抄（⛔ 别改成幂等的「设成 0.5」，那与原版不一致）。
+            int n = thresholds == null ? 0 : thresholds.Length;
+            if (n == 0)
             {
-                Debug.LogWarning("[Alliance] `SetMilestones` 至少要 5 个阈值（原版 `scoringLines` 是 5 颗）；"
-                               + "这次传了 " + (thresholds == null ? 0 : thresholds.Length) + " 个 ⇒ **不画**（出声）");
+                Debug.LogWarning("[Alliance] `SetMilestones` 没拿到阈值（原版 `scoringLines` 是 5 颗）⇒ **不画**（出声）");
                 return;
             }
+            bool loggedExcess = false;
             for (int i = 0; i < 5; i++)
             {
+                if (i >= n)
+                {
+                    // 原版那一支的**原文**（ASCII 逐字）：`CustomDebug.LogError("[ERROR] Alliances scoring bar: …")`
+                    if (!loggedExcess)
+                    {
+                        loggedExcess = true;
+                        Debug.LogError("[ERROR] Alliances scoring bar: There are more scoring lines that thresholds");
+                    }
+                    break;      // 原版也是 break（后面的行不初始化）
+                }
                 if (_scores[i] != null)
                 {
                     _scores[i].SetText(thresholds[i].ToString());
@@ -196,10 +222,28 @@ namespace CardPresentation
                     //    ⛔ 这不是「顺手多做一步」：原版那三格是静态字段、不存在这个次序问题。
                     MenuDraw.AlignRight(_scores[i], _scoreRects[i]);
                 }
-                if (currentScore >= thresholds[i]) SwapChestOpen(i);
+                bool reached = currentScore >= thresholds[i];
+                bool passedNext = reached && (i + 1 < n) && currentScore >= thresholds[i + 1];
+                if (reached && !passedNext) SwapChestOpen(i);          // ① 正好达成这一档
+                else if (thresholds[i] < currentScore) DimChest(i);    // ② 已越过 ⇒ alpha × 0.5
             }
             SetProgress(InterpolateMilestones(currentScore, thresholds));
         }
+
+        /// <summary>原版 `SetScoringMilestones` IL_0130 那一支：`chestReward.color.a *= 0.5f`
+        /// （常量 `DAT_1834b2bb4` 现读 = 0.5，判据见调用处的注释）。</summary>
+        void DimChest(int i)
+        {
+            if (i < 0 || i >= _chests.Count) return;
+            var q = _chests[i];
+            if (q == null) return;
+            var c = q.Tint;
+            c.a *= DimFactor;
+            q.SetTint(c);
+        }
+
+        /// <summary>「已越过」那一档的压暗系数（原版 `DAT_1834b2bb4` = **0.5f**，`.rdata` 4 字节 float）。</summary>
+        const float DimFactor = 0.5f;
 
         void SwapChestOpen(int i)
         {

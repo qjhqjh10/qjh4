@@ -392,15 +392,24 @@ namespace CardPresentation
         {
             int n = _sealFills.Count;
             if (n == 0) return;
-            if (!_ctx.SealCurrent.HasValue) return;      // 出厂：全空（prefab 的 alpha 0）
-            int cur = Mathf.Clamp(_ctx.SealCurrent.Value, 0, n);
-            for (int i = 0; i < n; i++)
+            // 🔴 原版 `MilestonesStepDisplay.Initialize(currentPoints, totalPoints, …)` 会按 `totalPoints` 建**那么多**颗
+            //   （`stepPrefab[i]`，越界用 `Last()`）；我们只烘了 prefab 里的 4 颗模板（`StepR.Length`）⇒ 总数更多时
+            //   **摆不出多出来的那几颗**（原版靠 `steps` 上的 VLG 自动排）。⛔ 不许静默少画：出声一次。
+            if (_ctx.SealTotal.HasValue && _ctx.SealTotal.Value > n && !_warnedSealTotal)
             {
-                bool on = i < cur;
-                _sealFills[i].gameObject.SetActive(on);
-                if (on) _sealFills[i].SetTint(Color.white);   // 出厂 alpha 0 ⇒ 填上时恢复不透明
+                _warnedSealTotal = true;
+                Debug.LogWarning("[RankedDivChange] 印玺总数 " + _ctx.SealTotal.Value + " > prefab 的 " + n
+                               + " 颗模板 ⇒ **多出来的那几颗不建**（原版 `MilestonesStepDisplay.Initialize` 按 "
+                               + "`totalPoints` 实例化、由 `steps` 的 VLG 排版；我们的 4 个矩形是烘死的绝对框）。"
+                               + "本地拿不到 `TotalSeals`（服务端）⇒ 这条分支平时走不到。");
             }
+            // 出厂（`SealCurrent == null`）= 全空（prefab 的 `Fill` alpha 0）
+            int cur = _ctx.SealCurrent.HasValue ? Mathf.Clamp(_ctx.SealCurrent.Value, 0, n) : 0;
+            for (int i = 0; i < n; i++) ToggleSeal(i, i < cur);
         }
+
+        /// <summary>`ApplySeals` 那条「总数超出模板」的告警只出声一次（同 `_noArtWarned` 那套口径）。</summary>
+        static bool _warnedSealTotal;
 
         // ============================================================ 时钟
         void Update() { Tick(Time.deltaTime); }
@@ -1085,6 +1094,118 @@ namespace CardPresentation
                  + " rating=\"" + (_pointsQty != null ? _pointsQty.Text : "-") + "\""
                  + " divisionArt=" + (DivisionArtBlank ? "<blank>" : "?")
                  + " seals=" + _sealFills.Count + " missingArt=" + MissingArt.Count;
+        }
+
+        // ============================================================ `MilestoneStep.Toggle`（原版 · 印玺步点的两态 + 入场弹性缩放）
+        //
+        // 【判据】方法体 = `D:/2/tools/cpp2il/out_cpp2il_dev_ilspy/MilestoneStep.cs:53-113`（整类方法体，第一权威）。
+        //   逐句对应（原版 → 我们）：
+        //     `checkMark.enabled = option`                      → `Fill` 那颗 quad 的 `SetActive(on)`
+        //     `emptyMark.enabled = option ? alwaysShowEmptyMark : true` → `Empty` 那颗 quad
+        //     `if (!(doEnterAnimation & option)) return;`       → 同一个闸（**动的是 `doEnterAnimation`，⛔ 不是入参 `playAnim`**）
+        //     `checkMarkImage.color` 的 alpha 先置 0、`OnStart` 里还原 → `Tint` 的 alpha（**原版没有 DOFade**，别加）
+        //     `DOScale(localScale × animationScaleInitialMultiplier, animationTime).SetEase(OutElastic)
+        //        .SetDelay(index × between + start).From()`     → 同一串（`.From()` ⇒ **起点 = 传进去那个大值、终点 = 当前 1 倍**）
+        //     `OnStart` 里 `if (playSound) cue.Play2D()`        → 本类**不发声**：三个调用点一律 `playSounds: false`
+        //        （`RankedEventDivisionChangeWindowNewSystem.cs:421` · `RankedMenuContainer.cs:197` · `RankingDisplay.cs:182`）
+        //        ⇒ 原版这条也在**不响**的那一支；cue（`soundOnAppear`）本地未解出，如实留空。
+        //
+        // 【出厂值】逐 prefab 实读（`D:/2/tools/assetripper_out/ExportedProject/Assets/Ranked Division Change Window.prefab`
+        //   的 4 个 `MilestoneStep` 块；另见 `RankedSealStep.prefab` / `RankedSealStep Division Change Variant.prefab`）：
+        //     第 0 颗（= `RankedSealStep Division Change Variant` 那一档）：
+        //        alwaysShowEmptyMark **1** · doEnterAnimation **1** · scaleMultiplier **3** · time **0.6** · between **0.2** · start **0.25**
+        //     第 1–3 颗（= `RankedSealStep` 那一档）：
+        //        alwaysShowEmptyMark **0** · doEnterAnimation **1** · **3** · **0.8** · **0.3** · **0.5**
+        //   ⇒ 延迟逐颗不同（0.25 / 0.80 / 1.10 / 1.40），而 `GetTotalAnimationTime()` 只读**第 0 颗**
+        //     （`MilestonesStepDisplay.cs:62-75`）⇒ `(n−1)×0.2 + 1.05` —— 与 `PromoteDelay` 那条公式同源。
+        //
+        // 【我们侧的形状】`Fill` / `Empty` 是 `MenuDraw.Rect` 建出来的两颗**叶 quad**
+        //   （子树里按名字找：`Fill` 由 `_sealFills` 直接持有、`Empty` 走 `step.Find("Empty")`）；
+        //   `ImageQuad` 的尺寸由网格参数定、`localScale` 恒 1（同 `BuildStageMarkToggleTween` 那条 ⚠️）
+        //   ⇒ 缩它只影响画面、不会把几何毁掉。
+        /// <summary>一颗 `MilestoneStep` 的出厂参数（字段名照原版；值 = prefab 序列化实读，见上面那段）。</summary>
+        public struct MilestoneStepCfg
+        {
+            public bool AlwaysShowEmptyMark;
+            public bool DoEnterAnimation;
+            public float ScaleMultiplier;
+            public float Time;
+            public float BetweenStepsDelay;
+            public float StartDelay;
+        }
+
+        /// <summary>`Ranked Division Change Window.prefab` 那 4 颗的出厂参数（下标 = 步点序号；越界取最后一档）。</summary>
+        public static readonly MilestoneStepCfg[] SealCfgs =
+        {
+            // 第 0 颗 = `RankedSealStep Division Change Variant`
+            new MilestoneStepCfg { AlwaysShowEmptyMark = true,  DoEnterAnimation = true,
+                                   ScaleMultiplier = 3f, Time = 0.6f, BetweenStepsDelay = 0.2f, StartDelay = 0.25f },
+            // 第 1–3 颗 = `RankedSealStep`
+            new MilestoneStepCfg { AlwaysShowEmptyMark = false, DoEnterAnimation = true,
+                                   ScaleMultiplier = 3f, Time = 0.8f, BetweenStepsDelay = 0.3f, StartDelay = 0.5f },
+            new MilestoneStepCfg { AlwaysShowEmptyMark = false, DoEnterAnimation = true,
+                                   ScaleMultiplier = 3f, Time = 0.8f, BetweenStepsDelay = 0.3f, StartDelay = 0.5f },
+            new MilestoneStepCfg { AlwaysShowEmptyMark = false, DoEnterAnimation = true,
+                                   ScaleMultiplier = 3f, Time = 0.8f, BetweenStepsDelay = 0.3f, StartDelay = 0.5f },
+        };
+
+        /// <summary>步点 <paramref name="i"/> 的出厂参数（越界 ⇒ 最后一档，⛔ 不返回 default）。</summary>
+        public static MilestoneStepCfg SealCfgOf(int i)
+        {
+            if (SealCfgs.Length == 0) return new MilestoneStepCfg { DoEnterAnimation = false, ScaleMultiplier = 1f };
+            return SealCfgs[Mathf.Clamp(i, 0, SealCfgs.Length - 1)];
+        }
+
+        /// <summary>= 原版 `MilestoneStep.Toggle(option, index, playSound, playAnim)`（**只做两态 + 入场缩放**）。
+        /// 步点序号 = <paramref name="i"/>（= 原版那个 `index`，既是参数表下标也是延迟倍数）。
+        /// <para>⚠️ 原版的 `playAnim` 形参**在方法体里根本没被读**（读的是序列化字段 `doEnterAnimation`）
+        /// ⇒ 本方法**不带**那个形参，⛔ 别把它当成「要不要播动画」的开关。</para></summary>
+        public void ToggleSeal(int i, bool on)
+        {
+            if (i < 0 || i >= _sealFills.Count) return;
+            var fill = _sealFills[i];
+            var cfg = SealCfgOf(i);
+            var step = fill != null ? fill.transform.parent : null;
+            var empty = step != null ? step.Find("Empty") : null;
+
+            // ① `checkMark.enabled = option`
+            if (fill != null) fill.gameObject.SetActive(on);
+            // ② `emptyMark.enabled = option ? alwaysShowEmptyMark : true`
+            if (empty != null) empty.gameObject.SetActive(!on || cfg.AlwaysShowEmptyMark);
+            // ③ 入场动画：`doEnterAnimation && option`（⛔ 不是 playAnim）
+            if (!on || !cfg.DoEnterAnimation || fill == null) return;
+            if (!Application.isPlaying)
+            {
+                // 批处理没有帧循环（DOTween 不推进）⇒ 直接落到终态，⛔ 不起一条永远停在起点的补间
+                //（同 `DraftModeWindow.PlayPackOpenAnim` / `CollectionWindow.PlayCardAnimateIn` 的闸）
+                fill.SetTint(Color.white);
+                return;
+            }
+            BuildSealEnterTween(fill, i, cfg);
+        }
+
+        /// <summary>`MilestoneStep.Toggle` 的那条入场补间（拆出来给自检用 `CardTween.Mode = Manual` 手动推）。
+        /// <para>⚠️ 缓动必须经 <see cref="CardTween.Use"/> 的 `ease` 形参传（它在里面 `SetEase`；
+        /// 自己先 `SetEase(OutElastic)` 再交给它会**被覆盖成 Linear** —— 实测过）。</para></summary>
+        public static DG.Tweening.Tween BuildSealEnterTween(ImageQuad fill, int index, MilestoneStepCfg cfg)
+        {
+            if (fill == null) return null;
+            var tr = fill.transform;
+            // 原版先把 `checkMarkImage.color` 的 alpha 置 0（**不是** DOFade），`OnStart` 里还原成原色
+            var on = Color.white;
+            fill.SetTint(new Color(on.r, on.g, on.b, 0f));
+            // `DOScale(当前 × multiplier, time).SetEase(OutElastic).SetDelay(index×between + start).From()`
+            //   `.From()` ⇒ **起点 = 传进去那个大值**（当前缩放 × 3）、**终点 = 当前缩放**（= 1 倍）
+            DG.Tweening.Tweener tw = DG.Tweening.ShortcutExtensions.DOScale(tr, Vector3.one * cfg.ScaleMultiplier, cfg.Time);
+            tw = DG.Tweening.TweenSettingsExtensions.SetDelay(tw, index * cfg.BetweenStepsDelay + cfg.StartDelay);
+            tw = DG.Tweening.TweenSettingsExtensions.From(tw);
+            // 本文件没有 `using DG.Tweening;`（⚠️ 别为这两行加 —— 会和 `Ease`/`Sequence` 之类撞名）⇒ 一律走静态全名
+            DG.Tweening.TweenSettingsExtensions.OnStart(tw, () => { if (fill != null) fill.SetTint(on); });
+            // 与 `BuildStageMarkToggleTween` 同一条纪律：走完 / 被打断都把缩放显式复位
+            //（批处理下 `OnComplete` 不一定跑得到；这颗的缩放本来恒 1）
+            DG.Tweening.TweenSettingsExtensions.OnComplete(tw, () => { if (tr != null) tr.localScale = Vector3.one; });
+            DG.Tweening.TweenSettingsExtensions.OnKill(tw, () => { if (tr != null) tr.localScale = Vector3.one; });
+            return CardTween.Use(tw, DG.Tweening.Ease.OutElastic, fill);
         }
     }
 }

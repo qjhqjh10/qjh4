@@ -322,8 +322,12 @@ namespace CardPresentation
 
             // ---- 6) `Collider`（整屏透明 Image + `EverguildButton`；原版 `Open()` 把 `onClick += Close`）----
             //   它是**最后一个兄弟** ⇒ 盖在面板/文字之上 ⇒ **点屏幕任何地方 = 关窗**（同原版）。
+            //   🆕 2026-10-25（账 #230）：原版这一句**还带一句** `RaycastFilter.ClearRaycastFilters()`
+            //   （`TutorialMessageWindowPopUp.cs:133`，挂在 `Open()` 里 `trigger.onClick` 那个监听上）——
+            //   本批补上。⚠️ 这是**逐句对齐**用：功能上已被 `MenuTutorialFlow.RefreshPointer` 顶部那句清表覆盖
+            //   （简报窗变成 `TopWindow` 的下一帧 `OnWindowChanged` 就会清），⛔ 别以为缺了它会软卡死。
             _collider = MenuDraw.Node(transform, "Collider", FullR);
-            ColliderHit = MenuDraw.Hit(_collider, "Hit", FullR, QHit, () => Close());
+            ColliderHit = MenuDraw.Hit(_collider, "Hit", FullR, QHit, () => { RaycastFilter.ClearRaycastFilters(); Close(); });
 
             if (MissingArt.Count > 0)
                 Debug.LogWarning("[TutorialMsg] ⚠️ 有 " + MissingArt.Count + " 张图取不到（**这些件没画**）："

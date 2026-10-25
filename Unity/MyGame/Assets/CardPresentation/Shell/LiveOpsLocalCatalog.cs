@@ -13,7 +13,11 @@
 // 本类 = 把这 13 份 SO **逐字段抄成离线等价物**，并回答三类问题：
 //   ① `eventId → Event_Description 键`（16 个键，逐条见 <see cref="EventDescriptionKeys"/>）；
 //   ② `eventId → 日期`（`startDate` / `endDate` / `expirable` / `expireDate`）；
-//   ③ `eventId → 图片`（`EventAssets` 的 `key`(= `EventAssetReferenceType`) / `m_SubObjectName` / GUID / 所在 bundle）。
+//   ③ `eventId → 图片`（`EventAssets` 的 `key`(= `EventAssetReferenceType`) / `m_SubObjectName` / GUID / 所在 bundle）；
+//   ④ 🆕 **2026-10-25（R14）**: `eventId → 排期/入口字段` —— `priority`（排序键，降序）· `showInMainMenu` ·
+//      `location.type` + `location.parent.targetId` · `drawData` 的 4 个 bool（`ForceRun` /
+//      `ShowWindowOnTrigger` / `ShowWindowOnExpire` / `HideContainer`）。
+//      这 8 格此前**没抄** ⇒ `LiveOpsHandler.PriorityOf()` 全 0、排序键空转；现在逐份照 SO 抄足。
 //
 // 🔴 **等价物、不是真值**（如实标的边界）：
 //   · 「当前活动」= 本类按 **`DateTime` 落在 `[startDate, endDate)`** 选，**多个在期时取 `startDate` 最晚的那个**。
@@ -245,6 +249,48 @@ namespace CardPresentation
         static DateTime FromMs(long ms) { return DateTimeOffset.FromUnixTimeMilliseconds(ms).UtcDateTime; }
 
         public override string ToString() { return EventId + "(" + SoName + ")"; }
+
+        // ============================================================ SO 字段（2026-10-25 · R14 补抄）
+        // 🔴 这 8 格此前**没搬**（本类只抄了 id / enabled / uploadToLive / 日期 / 词条 / 资产 / 组件），
+        //    后果：`LiveOpsHandler.PriorityOf()` 全返回 0 ⇒ R12 接好的排序键**空转**。
+        // 判据 = 每份 SO 的同名 JSON 字段（不是枚举里推出来的）：
+        //   `priority` · `showInMainMenu` · `location.type` · `location.parent.targetId`
+        //   · `drawData.{ForceRun, ShowWindowOnTrigger, ShowWindowOnExpire, HideContainer}`。
+        // SO 路径 = `d:/2/新解包资源/assets_full/bundle_cosmeticsso_assets_all/MonoBehaviour/<SoName>.json`。
+        // ⚠️ `EventLocationType`（原版枚举，`EventLocationType.cs`）：`Main = 0` / `None = 1` / `Parent = 2`。
+        // ⚠️ `loadableReference` 的另外两格（`genericObjectReference` 的 `m_FileID/m_PathID`、
+        //    `reference` 的 `m_PathID`）是 **Unity 资产引用**，离线目录没有对应资产 ⇒ 只抄 `targetId`（判据见报告 §五）。
+        // 📌 **没抄但已经查清的两格（13/13 完全相同，给 C1-W2 直接取用，⛔ 别再去解包一遍）**：
+        //    `drawData.TriggerPopupOptions` = { `PopupLabel` 20, `ActionRule` 1, `TriggerBeforeOnboardingEnds` 0, `MarkOnScreenClose` 1 }
+        //    `drawData.ExpirePopupOptions`  = { `PopupLabel` 21, 同上三项 }
+        //    `drawData.showPreviousPrice` = 0（13/13）；`previousPrice` 全是空 PPtr（`m_PathID = 0`）。
+
+        /// <summary>SO 的 `priority`（= `LiveOpsEventData.priority`，反编译里读 `+0x40`）。排序键，**降序**。</summary>
+        public int Priority;
+        /// <summary>SO 的 `showInMainMenu`。13 份实测：只有 `ExpansionUM1` / `SWRelease` 两个 Parent 是 true。</summary>
+        public bool ShowInMainMenu;
+        /// <summary>SO 的 `location.type`（int 存 <see cref="LiveOpsLocationType"/>；⛔ 不编枚举名，值照 SO）。</summary>
+        public int LocationType;
+        /// <summary>SO 的 `location.parent.targetId`（`LoadableReference&lt;ParentEventData&gt;` 的 id 串）。
+        /// `LocationType != Parent` 时为 null（SO 里是空串 + `m_PathID = 0`）。</summary>
+        public string LocationParentId;
+        /// <summary>SO 的 `drawData.ForceRun`（13/13 = false）。</summary>
+        public bool ForceRun;
+        /// <summary>SO 的 `drawData.ShowWindowOnTrigger`（Parent 事件 = true，其余 false）。</summary>
+        public bool ShowWindowOnTrigger;
+        /// <summary>SO 的 `drawData.ShowWindowOnExpire`（Scoring 事件 = true，其余 false）。</summary>
+        public bool ShowWindowOnExpire;
+        /// <summary>SO 的 `drawData.HideContainer`（13/13 = false）。</summary>
+        public bool HideContainer;
+    }
+
+    /// <summary>原版 `EventLocationType`（**逐值照官方枚举**，`d:/2/tools/cpp2il/out_cpp2il_dev_ilspy/EventLocationType.cs`）。
+    /// ⚠️ 只给读数用；本地目录里存的是 int（见 <see cref="LiveOpsLocalEvent.LocationType"/>）。</summary>
+    public enum LiveOpsLocationType
+    {
+        Main = 0,
+        None = 1,
+        Parent = 2,
     }
 
     /// <summary>`Event_Description/*` 活动文案的**离线活动实例提供者**（等价物，如上）。</summary>
@@ -257,7 +303,7 @@ namespace CardPresentation
         {
             // ---------------------------------------------------------------- 已停（enabled=0，按用户边界不选）
             E("DarkZealots", "Dark Zealots Parent Event", LiveOpsLocalKind.Parent, false, false,
-              1713520800000, 1714730400000, false, 0,
+              1713520800000, 1714730400000, false, 0, 0, false, 0, null, false, true, false, false,
               new[]
               {
                   L((int)LiveOpsLabelRef.Title,       "Event_Description/LiveOps/DarkZealots/Title"),
@@ -273,7 +319,7 @@ namespace CardPresentation
 
             // ---------------------------------------------------------------- Orks1（2025-04-03 ~ 2025-05-01）
             E("ExpansionOrks1", "Expansion Orks1 Parent Event", LiveOpsLocalKind.Parent, true, true,
-              1743685200000, 1746090000000, false, 0,
+              1743685200000, 1746090000000, false, 0, 3, false, 0, null, false, true, false, false,
               new[]
               {
                   L((int)LiveOpsLabelRef.Title, "Event_Description/Expansion/General/JoinTheExpansionEvent"),
@@ -292,7 +338,7 @@ namespace CardPresentation
               C(LiveOpsComponentRef.TriggerPopup, "44c1eb3a347b840fd9e2e67ba85b7d02")),
 
             E("ExpansionOrks1_Premium_Item_Offer", "Expansion Orks1 Premium Item Offer", LiveOpsLocalKind.PremiumItemOffer, false, false,
-              1745107200000, 1745107200000, false, 0,
+              1745107200000, 1745107200000, false, 0, 0, false, 2, "ExpansionOrks1", false, false, false, false,
               new[]
               {
                   L((int)LiveOpsLabelRef.Title, "Event_Description/ExpansionPass/PurchasePremiumOfferTitle",
@@ -312,7 +358,7 @@ namespace CardPresentation
               C(LiveOpsComponentRef.Popup,     "3c7a2561b7c174784a9e6f1a97231492")),
 
             E("ExpansionOrks1Scoring", "Expansion Orks1 Scoring Event", LiveOpsLocalKind.Scoring, true, true,
-              1743685200000, 1746090000000, true, 1748768400000,
+              1743685200000, 1746090000000, true, 1748768400000, 5, false, 2, "ExpansionOrks1", false, false, true, false,
               new[]
               {
                   L((int)LiveOpsLabelRef.Title, "Event_Description/ExpansionPass/Title"),
@@ -336,7 +382,7 @@ namespace CardPresentation
 
             // ---------------------------------------------------------------- UM1（2025-12-18 ~ 2026-01-08）
             E("ExpansionUM1", "Expansion UM1 Parent Event", LiveOpsLocalKind.Parent, true, true,
-              1766073600000, 1767862800000, false, 0,
+              1766073600000, 1767862800000, false, 0, 42, true, 0, null, false, true, false, false,
               new[]
               {
                   L((int)LiveOpsLabelRef.Title, "Event_Description/Expansion/General/JoinTheExpansionEvent"),
@@ -356,7 +402,7 @@ namespace CardPresentation
               C(LiveOpsComponentRef.MainMenuContainer, "b28a4a686d3cc4366af8977a6ab69b5e")),
 
             E("ExpansionUM1_Premium_Item_Offer", "Expansion UM1 Premium Item Offer", LiveOpsLocalKind.PremiumItemOffer, true, true,
-              1766073600000, 1767862800000, false, 0,
+              1766073600000, 1767862800000, false, 0, 0, false, 2, "ExpansionUM1", false, false, false, false,
               new[]
               {
                   L((int)LiveOpsLabelRef.Title, "Event_Description/ExpansionPass/PurchasePremiumOfferTitle",
@@ -375,7 +421,7 @@ namespace CardPresentation
               C(LiveOpsComponentRef.Popup,     "3c7a2561b7c174784a9e6f1a97231492")),
 
             E("ExpansionUM1Scoring", "Expansion UM1 Scoring Event", LiveOpsLocalKind.Scoring, true, true,
-              1766073600000, 1767862800000, true, 1767862800000,
+              1766073600000, 1767862800000, true, 1767862800000, 5, false, 2, "ExpansionUM1", false, false, true, false,
               new[]
               {
                   L((int)LiveOpsLabelRef.Title, "Event_Description/ExpansionPass/Title"),
@@ -401,7 +447,7 @@ namespace CardPresentation
 
             // ---------------------------------------------------------------- EC（2025-05-22 ~ 2025-06-20）
             E("ECRelease", "Release Emperors Children Parent Event", LiveOpsLocalKind.Parent, true, true,
-              1747931400000, 1750410000000, false, 0,
+              1747931400000, 1750410000000, false, 0, 3, false, 0, null, false, true, false, false,
               new[]
               {
                   L((int)LiveOpsLabelRef.Title, "Event_Description/Expansion/General/JoinTheExpansionEvent"),
@@ -420,7 +466,7 @@ namespace CardPresentation
               C(LiveOpsComponentRef.TriggerPopup, "44c1eb3a347b840fd9e2e67ba85b7d02")),
 
             E("ECRelease_Premium_Item_Offer", "Release Emperors Children Premium Item Offer", LiveOpsLocalKind.PremiumItemOffer, true, true,
-              1747931400000, 1750410000000, false, 0,
+              1747931400000, 1750410000000, false, 0, 0, false, 2, "ECRelease", false, false, false, false,
               new[]
               {
                   L((int)LiveOpsLabelRef.Title, "Event_Description/ExpansionPass/PurchasePremiumOfferTitle",
@@ -439,7 +485,7 @@ namespace CardPresentation
               C(LiveOpsComponentRef.Popup,     "3c7a2561b7c174784a9e6f1a97231492")),
 
             E("ECReleaseScoring", "Release Emperors Children Scoring Event", LiveOpsLocalKind.Scoring, true, true,
-              1747931400000, 1750410000000, false, 0,
+              1747931400000, 1750410000000, false, 0, 5, false, 2, "ECRelease", false, false, true, false,
               new[]
               {
                   L((int)LiveOpsLabelRef.Title, "Event_Description/BattlePass/Title"),
@@ -463,7 +509,7 @@ namespace CardPresentation
 
             // ---------------------------------------------------------------- SW（2025-10-23 ~ 2025-11-21）
             E("SWRelease", "Release Space Wolves Parent Event", LiveOpsLocalKind.Parent, true, true,
-              1761228000000, 1763715600000, false, 0,
+              1761228000000, 1763715600000, false, 0, 42, true, 0, null, false, true, false, false,
               new[]
               {
                   // 🔴 SW Parent 的标题**不是** `JoinTheExpansionEvent`，而是它自己那条
@@ -486,7 +532,7 @@ namespace CardPresentation
               C(LiveOpsComponentRef.MainMenuContainer, "b28a4a686d3cc4366af8977a6ab69b5e")),
 
             E("SWRelease_Premium_Item_Offer", "Release Space Wolves Premium Item Offer", LiveOpsLocalKind.PremiumItemOffer, true, true,
-              1761228000000, 1763715600000, false, 0,
+              1761228000000, 1763715600000, false, 0, 0, false, 2, "SWRelease", false, false, false, false,
               new[]
               {
                   L((int)LiveOpsLabelRef.Title, "Event_Description/ExpansionPass/PurchasePremiumOfferTitle",
@@ -505,7 +551,7 @@ namespace CardPresentation
               C(LiveOpsComponentRef.Popup,     "3c7a2561b7c174784a9e6f1a97231492")),
 
             E("SWReleaseScoring", "Release Space Wolves Scoring Event", LiveOpsLocalKind.Scoring, true, true,
-              1761228000000, 1763715600000, true, 1766275200000,
+              1761228000000, 1763715600000, true, 1766275200000, 5, false, 2, "SWRelease", false, false, true, false,
               new[]
               {
                   L((int)LiveOpsLabelRef.Title, "Event_Description/BattlePass/Title"),
@@ -681,25 +727,14 @@ namespace CardPresentation
         static bool TryPickEventIn(LiveOpsLocalEvent[] table, LiveOpsLocalKind[] kinds, DateTime utc,
                                    Func<LiveOpsLocalEvent, bool> has, out LiveOpsLocalEvent ev, out string why)
         {
-            ev = null;
-            string blocked = null;
-            if (table != null)
-            for (int i = 0; i < table.Length; i++)
-            {
-                var e = table[i];
-                if (e == null) continue;
-                if (!KindIn(e.Kind, kinds)) continue;
-                if (!e.IsInPeriod(utc)) continue;
-                if (has != null && !has(e)) continue;
-                if (!e.Selectable) { blocked = e.EventId; continue; }   // 在期但 SO 说没启用/没上过 live
-                if (ev == null || e.StartMs > ev.StartMs) ev = e;
-            }
-            if (ev != null) { why = null; return true; }
-            why = blocked != null
-                ? "本地目录里在期的事件只有 `" + blocked + "`，但它的 SO 是 `enabled=0`/`uploadToLive=0` ⇒ 不选"
-                : "本地 " + (table == null ? 0 : table.Length) + " 个活动实例里**没有** `" + KindNames(kinds)
-                  + "` 类、且在期（" + utc.ToString("yyyy-MM-dd HH:mm:ss") + " UTC）、并满足该读口条件的事件";
-            return false;
+            // 🔴 2026-10-25（E2 · C1-W1）：挑选规则的**唯一实现**已搬去 `LiveOpsLocalHandler.SelectInTable`
+            // （判据 `资料/完全复刻/判据/日常与活动.md` §四 第 3 步「把『当前活动』的选择从 catalog 挪进 handler」）。
+            // 这里**只转发**，⛔ 不再留第二份规则（CLAUDE.md §三：两处写同一条规则 = 迟早不一致）。
+            // 行为不变：kinds → IsInPeriod → has → blocked（运营维）→ Selectable → StartMs 最大者。
+            var list = new List<LiveOpsLocalEvent>(table == null ? 0 : table.Length);
+            if (table != null) list.AddRange(table);
+            return LiveOpsLocalHandler.SelectInTable(list, kinds, utc, has,
+                                                     LiveOpsLocalHandler.Default.BlockedIds, out ev, out why);
         }
 
         // ============================================================ 🆕 FastMode（遭遇战）活动：本地表空
@@ -994,14 +1029,17 @@ namespace CardPresentation
             return ev.TryGetLabel(key, out l) ? l.Term : null;
         }
 
-        static bool KindIn(LiveOpsLocalKind k, LiveOpsLocalKind[] kinds)
+        /// <summary>类型筛选（`kinds` 里有没有 `k`）。⚠️ 2026-10-25：从 `static` 放开成 `public static` ——
+        /// 挑选规则的唯一实现搬进了 `LiveOpsLocalHandler.SelectInTable`，它要用这两个助手（⛔ 不为它抄第二份）。</summary>
+        public static bool KindIn(LiveOpsLocalKind k, LiveOpsLocalKind[] kinds)
         {
             if (kinds == null) return false;
             for (int i = 0; i < kinds.Length; i++) if (kinds[i] == k) return true;
             return false;
         }
 
-        static string KindNames(LiveOpsLocalKind[] kinds)
+        /// <summary>把 `kinds` 拼成一句话（错误文案用）。见 `KindIn` 上的说明（2026-10-25 放开成 public）。</summary>
+        public static string KindNames(LiveOpsLocalKind[] kinds)
         {
             if (kinds == null || kinds.Length == 0) return "?";
             var s = "";
@@ -1024,9 +1062,23 @@ namespace CardPresentation
         public static void ResetWarnedForTest() { _warned.Clear(); _warnedNoPremiumOffer = false; _warnedNoFastMode = false; }
 
         // ---- 数据表的构造助手（只是让上面那 13 份 SO 读起来像表，不改任何值）----
+        // 🔴 **`priority` 起的 8 个形参 = 2026-10-25（R14）追加**，逐个照 SO 同名 JSON 字段抄、⛔ 不换算：
+        //   ① priority → SO `priority`
+        //   ② showInMainMenu → SO `showInMainMenu`
+        //   ③ locationType → SO `location.type`（<see cref="LiveOpsLocationType"/>，只是数字照抄）
+        //   ④ locationParentId → SO `location.parent.targetId`（其余情况传 null）
+        //   ⑤ forceRun → SO `drawData.ForceRun`
+        //   ⑥ showWindowOnTrigger → SO `drawData.ShowWindowOnTrigger`
+        //   ⑦ showWindowOnExpire → SO `drawData.ShowWindowOnExpire`
+        //   ⑧ hideContainer → SO `drawData.HideContainer`
+        // 真值逐份见报告 `资料/完全复刻/报告/R14_LiveOps数据与调度_第2轮.md` §四。
         static LiveOpsLocalEvent E(string eventId, string soName, LiveOpsLocalKind kind,
                                    bool enabled, bool uploadToLive,
                                    long startMs, long endMs, bool expirable, long expireMs,
+                                   int priority, bool showInMainMenu,
+                                   int locationType, string locationParentId,
+                                   bool forceRun, bool showWindowOnTrigger,
+                                   bool showWindowOnExpire, bool hideContainer,
                                    LiveOpsLocalLabel[] labels, LiveOpsLocalAsset[] assets,
                                    params KeyValuePair<int, string>[] components)
         {
@@ -1035,6 +1087,10 @@ namespace CardPresentation
                 EventId = eventId, SoName = soName, Kind = kind,
                 Enabled = enabled, UploadToLive = uploadToLive,
                 StartMs = startMs, EndMs = endMs, Expirable = expirable, ExpireMs = expireMs,
+                Priority = priority, ShowInMainMenu = showInMainMenu,
+                LocationType = locationType, LocationParentId = locationParentId,
+                ForceRun = forceRun, ShowWindowOnTrigger = showWindowOnTrigger,
+                ShowWindowOnExpire = showWindowOnExpire, HideContainer = hideContainer,
                 Labels = labels, Assets = assets, Components = components,
             };
         }

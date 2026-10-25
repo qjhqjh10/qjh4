@@ -84,8 +84,8 @@ namespace CardPresentation
         /// （⚠️ **不是**把编辑器改成持有本类的实例 —— 那与 A397/A363 定过的口径相反，
         /// 见 `Deck/DeckRuntime.cs` 那段「维持现状、不加守卫」的裁定）。</para>
         ///
-        /// <para>🔴 **调用时机 = 「刚离开卡组编辑」那一跳**，唯一调用点 = `Shell/MainMenuRuntime.cs` 的 `Build`
-        /// 里消费 `TakePendingReturn` 那里（**两个来源都调**：`Collection` 与 `LiveOpsEvent` 都能改卡组、都写盘）。
+        /// <para>🔴 **调用时机 = 「刚离开卡组编辑」那一跳**（⚠️ **2026-10-25（`R17`）就地订正（铁律 5）：本行原来写「唯一调用点 = `Shell/MainMenuRuntime.cs` 的 `Build`」—— 现在全仓有 <b>三</b> 处**：① `Shell/MainMenuRuntime.cs:620` 的 `Build`（消费 `TakePendingReturn`，两个来源都调）
+        /// ② `Deck/DeckRuntime.cs:5299`（被窗托管那条腿，关窗那一拍）③ `Shell/FTUESelectDeckWindow.cs:628`（发放卡组之后）。⛔ 别把「唯一」再写回来 —— 那是查漏的人会照着去改错的地方）。
         /// ⛔ **别在 `Build` 里无条件调** —— 正常进主菜单也会白读一次盘。
         /// ⛔ **也别在编辑窗那条路上调**（`DeckRuntime.CommitDeck` / `BackToMenu`）—— 见下一段。</para>
         ///
@@ -465,6 +465,49 @@ namespace CardPresentation
             //     · `CardPresentation/Editor/CollectionScene.cs` 那类断「有话说」⇒ **假绿**
             //   ⇒ 一处清三格，自检之间才**真隔离**。（`A1068`）
             LastSelectError = ""; LastDeleteError = ""; LastDuplicateError = "";
+            // 🆕 **2026-10-25（`R17`）**：卡组拖拽重排的失败串**同进同出**（同 `A1068` 那条理由 ——
+            //   跨夹具时前一个夹子失败留下的串会漏进后一个 ⇒ 假红 / 假绿）。
+            LastReorderError = "";
+        }
+
+        // ============================================================ 🆕 **2026-10-25（执行代理 `R17`）**：卡组拖拽重排的薄口
+        //
+        // 为什么要有它（原版对位 = `DeckInventory.UpdateOrder(List<CardDeck> newOrder)`）：
+        //   `CollectionWindow.MoveDeckInOrder` 原来只能走「`DeckLibrary.Load()` → `UpdateOrder` →
+        //   `InvalidateLibrary()`」这条**绕路**（`R13` §六 请求 ① 记的），因为 `Lib` 是 `private static`、
+        //   本类又没有重排口。绕路的代价 = **重读一次盘**、丢掉本类那份进程级缓存
+        //   ⇒ 将来若有「内存里改了卡组还没落盘」的路径，一重排就被它丢掉（今天所有写口都会 `Save()`
+        //   ⇒ **今天没有可观测差异**，但那是隐患）。薄口直接在**缓存那一份**上重排 + 落盘。
+        // ⚠️ 语义与失败面全部沿用 `DeckLibrary.UpdateOrder`（⛔ 别在这里再判一遍）：
+        //   名字查不到的**保留原位接在末尾**（绝不丢卡组）· 同名按顺序各取一套（我们没 `deckId` 的老账）·
+        //   `_current` 跟着**那一套**走 · 尾句 `return Save()`。
+
+        /// <summary>上一次「卡组重排」**失败的人话**（成功时是空串）。与 <see cref="LastDeleteError"/> /
+        /// <see cref="LastSelectError"/> / <see cref="LastDuplicateError"/> 同一族：调用点直接打它，
+        /// ⛔ 别在那边自己再判一遍（CLAUDE.md §三：两处写同一条规则 = 迟早不一致）。</summary>
+        public static string LastReorderError { get; private set; } = "";
+
+        /// <summary>按名字数组**重排整套卡组**并落盘（原版 `DeckInventory.UpdateOrder` 的薄口）。
+        /// 返回「重排写进存档了吗」；失败时**是哪一种**看 <see cref="LastReorderError"/>。
+        /// <para>⚠️ 调用点要自己保证「传进来的名字只覆盖**同一组**」—— 原版交给它的是
+        /// `filteredCollection`（模式筛之后那一组），我们这条口按名字摆**整张表**（见
+        /// `CollectionWindow.MoveDeckInOrder` 里「只重排模式筛那一段、别的模式留原位」那段说明）。</para></summary>
+        public static bool ReorderDecks(IList<string> namesInOrder)
+        {
+            LastReorderError = "";
+            if (!Lib.UpdateOrder(namesInOrder))      // 它内部 `Save()`（A398 口径）⇒ ⛔ 别在后面再加一次
+            {
+                // 两种成因分开（同 `DeleteDeck` / `DuplicateDeck` 的 A503 口径）：
+                // ① 参数非法 / 库里一套都没有 ⇒ `UpdateOrder` **早退**、且**不清 `LastError`**
+                //    （那一刻它装的是**上一次**的旧值 ⇒ 只能靠「它是空的」来认这一支）；
+                // ② 重排了、但 `Save()` 失败 ⇒ 内存里已经是新序、盘上还是旧的（重启就回去）。
+                LastReorderError = string.IsNullOrEmpty(Lib.LastError)
+                    ? "**没重排** —— 名字表为空 / 库里一套卡组都没有（`DeckLibrary.UpdateOrder` 的第一道闸）"
+                    : "重排了，但**没写进存档**：" + SaveFailReason() + "（内存里是新序、盘上还是旧的 ⇒ 重启就回去）";
+                Debug.LogWarning("[CollectionData] 卡组重排失败：" + LastReorderError);
+                return false;
+            }
+            return true;
         }
     }
 }

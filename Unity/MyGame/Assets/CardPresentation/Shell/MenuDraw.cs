@@ -3197,6 +3197,20 @@ namespace CardPresentation
         /// ⛔ 别再合回一个标量 —— 那正是这条账的错法。</summary>
         public const float DcHiW = 289.75f, DcHiH = 427.27f, DcHiX = -19.8f, DcHiY = -10.9f;
 
+        /// <summary>🆕 **2026-10-25（执行代理 `R17`）**：卡组格点击音 —— 原版 `CollectionDeck.onClickSound`
+        /// （= `DeckInventory` 那一族的两份 prefab 变体**同一个值**）：pid `605815307224280273`
+        /// ⇒ cue **`DeckClick 1`**（clip `UI Click Deck 1`，pitch 1.0 · vol 1 · `timeToPlayAgain` 0.1）。
+        /// <para>🔴 **为什么默认值就是它**：`DeckCell` 只画卡组格，而原版**两份**卡组格 prefab
+        /// （`Collection Deck` GO `-2024334647938937812` = 收藏窗那一份 ·
+        /// `Collection Deck With Highlight` GO `-7515975617742763446` = 选卡组弹窗那一份）
+        /// `onClickSound` **都是这一条**（2026-10-25 扫 `bundle_menus_assets_all` 的
+        /// `useHoverHighlight`/`useSelectedHighlight` 四份 `CollectionItem` 子类 MB 现读）。
+        /// ⇒ 缺省即正确；调用点**不用**再各自写一遍 cue 名（CLAUDE.md §三：两处写同一条规则 = 迟早不一致）。
+        /// ⚠️ 它**不是**默认按钮音：`CollectionItem` **不是** `EverguildButton|EverguildToggle`
+        /// ⇒ 原版没有 `SoundManager.defaultButtonSound` 那一声（改前我们播的就是那个错音）。
+        /// 判据全文 → `资料/完全复刻/报告/R13_收藏拖拽重排_第2轮.md` §七·1 / §七·3。</para></summary>
+        public const string DeckCellClickCue = "DeckClick 1";
+
         /// <summary>🆕 **2026-10-11（A198③）：`DeckCell` 的 `GameWindow` 包装** —— 裁切与内缩**都取本窗**
         /// （`win.Clip` → `clip` · `win.ClipPad` → `maskPad`），调用点**不必**再自己写
         /// `clip:` / `maskPad: ClipPad`（那两样本来就是全族的状态，见 `GameWindow.ClipPad` 的注释）。
@@ -3226,7 +3240,12 @@ namespace CardPresentation
                                          CollectionData.DeckInfo info, bool selected,
                                          int q, int qBelow, int qText, int qOverlay, int qHit, System.Action onClick,
                                          int? gameMode = null, int? difficulty = null, bool showDifficulty = false,
-                                         bool sortMode = false)
+                                         bool sortMode = false,
+                                         // 🆕 **2026-10-25（执行代理 `R17`）**：两个**追加在末尾**的形参（缺省 ⇒ 既有调用点逐位不变）
+                                         //   —— 见 <see cref="DeckCellClickCue"/>（缺省 = 原版 `DeckClick 1`）与
+                                         //   <see cref="WindowButton.playClickSound"/>（`false` 优先于 `clickCue`：
+                                         //   原版**根本没有按钮音**的那一族，例 = `Collection Cosmetic.onClickSound = null`）。
+                                         string clickCue = DeckCellClickCue, bool playClickSound = true)
         {
             if (win == null)
             {
@@ -3237,10 +3256,12 @@ namespace CardPresentation
                                    + "**只有裸重载的 `clip: null` 这一个写法**（⚠️ 它**不等于**「显式不裁」，"
                                    + "见 `DeckCell(win, …)` 的注释里那条订正）。");
                 return DeckCell(parent, name, r, info, selected, q, qBelow, qText, qOverlay, qHit, onClick,
-                                null, gameMode, difficulty, showDifficulty, Vector4.zero, sortMode);
+                                null, gameMode, difficulty, showDifficulty, Vector4.zero, sortMode,
+                                clickCue, playClickSound);
             }
             return DeckCell(parent, name, r, info, selected, q, qBelow, qText, qOverlay, qHit, onClick,
-                            win.Clip, gameMode, difficulty, showDifficulty, win.ClipPad, sortMode);
+                            win.Clip, gameMode, difficulty, showDifficulty, win.ClipPad, sortMode,
+                            clickCue, playClickSound);
         }
 
         /// <summary>`DeckCell(win, …)` 收到 null 窗口的次数（只用来**限流那条警告**，不是缺陷计数）。</summary>
@@ -3279,7 +3300,7 @@ namespace CardPresentation
         /// 压在边上的 ⇒ 命中区截到视口内（判据同 `Hit`：原版 `RectMask2D` 的射线那一面）。</para>
         /// 🔴 **2026-10-11（A198③）**：`clip` 与 `maskPad` 在这一支里**全由调用点自己给**
         /// （本重载**不看**任何窗口）—— 「用本窗的 `Clip` + `ClipPad`」走
-        /// <see cref="DeckCell(GameWindow,Transform,string,PxRect,CollectionData.DeckInfo,bool,int,int,int,int,System.Action,int?,int?,bool)"/>
+        /// <see cref="DeckCell(GameWindow,Transform,string,PxRect,CollectionData.DeckInfo,bool,int,int,int,int,int,System.Action,int?,int?,bool,bool,string,bool)"/>
         /// 那个重载；**`clip: null` = 「不显式覆盖」**（⚠️ **2026-10-12 就地订正**：原来这一行写的是
         /// 「『我就是要不裁』的显式写法」—— `null` 分不出「没给」与「给的就是 null」，见上面那个重载的注释）
         /// ⇒ 从此起**父链上最近的 `ViewportClip` 节点说了算**（`ViewportClip.Resolve` 第 2 支；
@@ -3290,7 +3311,10 @@ namespace CardPresentation
                                          bool selected, int q, int qBelow, int qText, int qOverlay, int qHit,
                                          System.Action onClick, PxRect? clip = null,
                                          int? gameMode = null, int? difficulty = null, bool showDifficulty = false,
-                                         Vector4 maskPad = default(Vector4), bool sortMode = false)
+                                         Vector4 maskPad = default(Vector4), bool sortMode = false,
+                                         // 🆕 **2026-10-25（执行代理 `R17`）**：与上面那个重载**逐字同义**的两个尾参
+                                         //   （缺省 ⇒ 既有调用点逐位不变）。见 <see cref="DeckCellClickCue"/>。
+                                         string clickCue = DeckCellClickCue, bool playClickSound = true)
         {
             const float K = DeckCellK;
             // 🔴 **2026-10-12（A198② 阶段 1）：取裁切状态走【一处】共用解析**（`ViewportClip.Resolve`）——
@@ -3552,6 +3576,13 @@ namespace CardPresentation
                     MakeHitQuad(hit, hr, qHit, Vector3.zero);      // 节点已在矩形中心 ⇒ quad 摆 0
                     var wb = hit.gameObject.AddComponent<WindowButton>();
                     wb.onClick = onClick;
+                    // 🆕 **2026-10-25（执行代理 `R17`）**：卡组格的点击音 —— 原版本族是
+                    //   `CollectionDeck : CollectionItem`（**不是** `EverguildButton`）⇒ 播的是**自己的**
+                    //   `onClickSound = DeckClick 1`，**不是** `SoundManager.defaultButtonSound`（改前我们播的是后者）。
+                    //   `playClickSound = false` 那一档给「原版根本没有按钮音」的调用点（如卡背格），
+                    //   它**优先于** `clickCue`（`WindowButton.PlayClickSound` 第一句）。
+                    wb.clickCue = clickCue;
+                    wb.playClickSound = playClickSound;
                     // 🆕 **2026-10-19（`N70` P0-5）**：原版 `CollectionDeck.HoverHighlight` = 整格
                     // `localScale` 1.0 ↔ **1.05**（瞬切、无补间）⇒ 悬停时缩放进、离开还原。
                     // 判据与量纲 → `DeckCellHoverK` 的 doc。⛔ 不是色偏/换图（原版这一族没有 Selectable）。

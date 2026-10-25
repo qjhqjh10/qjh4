@@ -35,6 +35,10 @@ namespace CardPresentation
         public class Friend
         {
             public string Name;
+            /// <summary>🆕 **2026-10-25（E4 · 账 330②）**：好友的玩家 id —— `ChatPlayerOptionsPanel.ShowOptionsFor`
+            /// 里 `AddButton.interactable = 好友表里查不到该 playerId` 的**必要输入**（原版 `FriendInfo.playFabId`）。
+            /// ⚠️ 本地没有写入方（好友表恒空）⇒ 填上真数据之前这条判据恒为「查不到 ⇒ 可点」。</summary>
+            public string Id;
             /// <summary>在线 ⇒ 建 `Connected Image`（原版 act F，运行时才开）；离线 ⇒ `Disconnected`。</summary>
             public bool Online;
         }
@@ -107,6 +111,11 @@ namespace CardPresentation
             public string Text;
             /// <summary>自己发的 ⇒ 走 `Player Header`（头像靠右）；别人的 ⇒ `Friend Header`（头像靠左）。</summary>
             public bool Mine;
+            /// <summary>🆕 **2026-10-25（E4 · 账 303/314/330）**：发信人的玩家 id ——
+            /// 选项面板那两件（`Add as a friend.interactable` = 好友表里查不到该 id · `Block`/`Report`/`Profile`
+            /// 的目标）都要它（原版 `ChatMessageData.playerPlayfabId`）。
+            /// ⚠️ 本地**没有写入方**（聊天表由自检填）⇒ 默认 null；判据链已通，真数据到了自己生效。</summary>
+            public string PlayerId;
             public string AvatarArt;
             /// <summary>行高。&lt;= 0 就用原版 `_DefaultItemSize` = 60。</summary>
             public float Height;

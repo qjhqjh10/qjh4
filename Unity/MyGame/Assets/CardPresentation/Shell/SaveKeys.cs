@@ -68,8 +68,11 @@ namespace CardPresentation
         public const string ActiveCampaign = "ActiveCampaign";
 
         /// <summary>10 · `PlayerDataKey.cs:13` —— 原版成就（读名字符串实证：`PlayFabReadOnlyDataKeys.cs:5`）。
-        /// 【我们】**本轮空缺**：成就存在 `WarpforgeProfile/profile.json` 的 `achIds/achValues`
-        /// （`Shell/ProfileData.cs` 的 `SaveDto`），**按简报只迁 `avatarIndex/titleIndex`** ⇒ 成就这半没导（见报告 §五，建议下一轮补）。</summary>
+        /// 【我们】🆕 **2026-10-25（执行代理 `R10` · 切换单 C8）起有人写了**：`ProfileData.SaveNow` 从同一份
+        /// 成就进度（`_achProgress`，旧档 = `WarpforgeProfile/profile.json` 的 `achIds/achValues`）
+        /// **投影**成原版形状写进这个 key（`LegacySaveReader.BuildAchievementsPayload`，
+        /// 形状 = `Dictionary<string, AchievementPersistence>`：`id`/`highestValue`/`value`/`enabled` …）。
+        /// ⚠️ 现读**只写不读**：读口仍走 `CosmeticData`/`profile.json`（理由见 `ProfileData.SaveNow` 的注释）。</summary>
         public const string AchievementsData = "AchievementsData";
 
         /// <summary>11 · `PlayerDataKey.cs:14` —— 原版成就（新版）。【我们】**空缺**。</summary>
@@ -79,7 +82,11 @@ namespace CardPresentation
         public const string AchievementsCurrentData = "AchievementsCurrentData";
 
         /// <summary>13 · `PlayerDataKey.cs:16` —— 原版外观选择（头像/头衔一族）。
-        /// 【我们】`WarpforgeProfile/profile.json` 的 **`avatarIndex` + `titleIndex` 两个字段**（只迁这两个）。</summary>
+        /// 【我们】`WarpforgeProfile/profile.json` **整份**（🆕 2026-10-25 执行代理 `R10` / 切换单 C8 起：`ver` + 6 个字段
+        /// 全进，不再是「只取 avatarIndex/titleIndex」）—— 双写期它与那份旧档 **1:1 镜像**。
+        /// ⚠️ 为什么 `playerName` / `achIds` / `achValues` 也在这里：**双写是 1 个 key ↔ 1 份旧档**，
+        /// 而 `profile.json` 是一个文件装 6 个字段 ⇒ 中央 payload 必须是并集，否则双写会用少字段覆盖多字段。
+        /// 成就的**语义归属**另有 `AchievementsData`（见上一条）。</summary>
         public const string CosmeticData = "CosmeticData";
 
         /// <summary>14 · `PlayerDataKey.cs:17` —— 原版提示条。【我们】**空缺**。</summary>
@@ -191,8 +198,13 @@ namespace CardPresentation
         /// <summary>46 · `PlayerDataKey.cs:49` —— 原版成就（第三种写法）。【我们】**空缺**（同 `AchievementsData`）。</summary>
         public const string Achievements = "Achievements";
 
-        /// <summary>47 · `PlayerDataKey.cs:50` —— 原版改名次数。【我们】**空缺**
-        /// （玩家名在 `profile.json` 的 `playerName`，但**次数**没落盘）。</summary>
+        /// <summary>47 · `PlayerDataKey.cs:50` —— 原版改名记录（`NameChangeRecord { originalName, changes[] }`，
+        /// `Warpforge_code/.../NameChangeRecord.cs`）。【我们】**空缺**
+        /// （玩家名在 `profile.json` 的 `playerName`，但**改名历史 / 次数**没落盘）。
+        /// <para>🔴 **别把 `playerName` 塞进这个 key**（方案 §六·1 那条旧建议就是这么写的）——
+        /// 原版的**当前显示名**不在任何 `PlayerDataKey` 里，它是 PlayFab **玩家档案**的
+        /// `UpdateUserTitleDisplayName`（判据 = `PlayerDataManager__SetPlayfabDisplayName.c` 的调用链）；
+        /// 这个 key 装的是**改名历史**。两者语义不同，混进来会让「改名次数/原名」永远对不上。</para></summary>
         public const string NameChanges = "NameChanges";
 
         /// <summary>48 · `PlayerDataKey.cs:51` —— 原版掉落表计数。【我们】**空缺**。</summary>
@@ -344,6 +356,8 @@ namespace CardPresentation
                     if (All[j] == k) return "第 " + (i + 1) + " 与第 " + (j + 1) + " 条重复：`" + k + "`";
             }
             if (IsKnown("*")) return "`IsKnown(\"*\")` 居然是 true —— 键表防线没生效";
+            string fold = ValidateCaseFolding();
+            if (fold.Length > 0) return fold;
             return "";
         }
 
@@ -358,6 +372,44 @@ namespace CardPresentation
                 if (!ok) return false;
             }
             return true;
+        }
+
+        // ════════════════════════════════════════════════════════════════════════════════════
+        //  大小写折叠（2026-10-25 · 执行代理 R4；`CLAUDE.md` 铁律：新成员追加在类尾）
+        //  🔴 **Windows 的文件名大小写不敏感**，而 `SaveCenter.PathOf` 只做
+        //     `Path.Combine(root, key + ".json")`、**不做任何转义** ⇒ `Shop` 与 `shop` 会落到
+        //     **同一个文件**上（后写的静默盖掉先写的，两边都以为自己存住了）。
+        //     这一档最容易被漏掉的地方是 `_ours_Inventory.<name>`（name 来自旧档目录里的文件名，
+        //     玩家机器上完全可能是 `Shop.json` + `shop.json` 同时存在）。
+        // ════════════════════════════════════════════════════════════════════════════════════
+
+        /// <summary>键表（<see cref="All"/>）里「大小写折叠后不许重复」。返回 "" = 通过；非空 = 第一对撞车。</summary>
+        public static string ValidateCaseFolding()
+        {
+            return ValidateCaseFolding(All);
+        }
+
+        /// <summary>对**任意一组** key 做「大小写折叠后不许重复」的检查（运行时生成的 key 由调用方递进来，
+        /// 例：`LegacySaveReader` 枚举 `WarpforgeInventory/` 时把 `_ours_Inventory.<name>` 整组传进来）。
+        /// <para>返回 "" = 通过；非空 = 第一对撞车（含两条 key）。</para></summary>
+        public static string ValidateCaseFolding(string[] keys)
+        {
+            if (keys == null) return "key 表是 null";
+            for (int i = 0; i < keys.Length; i++)
+            {
+                if (string.IsNullOrEmpty(keys[i])) continue;
+                for (int j = i + 1; j < keys.Length; j++)
+                {
+                    if (string.IsNullOrEmpty(keys[j])) continue;
+                    if (!string.Equals(keys[i], keys[j], StringComparison.Ordinal)
+                        && string.Equals(keys[i], keys[j], StringComparison.OrdinalIgnoreCase))
+                    {
+                        return "`" + keys[i] + "` 与 `" + keys[j] + "` **大小写折叠后相同**"
+                             + " ⇒ Windows 上会落到同一份档（`<key>.json`），后写的静默盖掉先写的";
+                    }
+                }
+            }
+            return "";
         }
     }
 }

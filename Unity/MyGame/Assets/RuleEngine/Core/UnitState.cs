@@ -50,11 +50,14 @@ namespace RuleEngine
         public readonly string Name;
         public readonly bool IsWarlord;
 
-        public int Attack;            // 当前近战攻击力
-        public int RangedAttack;      // 当前远程攻击力
+        // 🔴 **2026-10-25（E1 · 属性模型 Stage 2a）**：这三格从「物化当前值」改名为 **base**
+        //   （原版 `currentBaseMeleeAttack`+0x7c / `currentBaseRangedAttack`+0x90 / `currentMaxHealth`+0xa4）。
+        //   旧名字 `Attack` / `RangedAttack` / `MaxHealth` 现在是**只读转发属性**（见**类尾**那一段）。
+        public int AttackBase;        // 近战攻击力（**base**，不含任何 `addStats` 修饰）
+        public int RangedAttackBase;  // 远程攻击力（**base**）
         public int Armor;             // 伤害减免（最低 1）。**只有 Armour X 关键词给护甲**
         public int Health;
-        public int MaxHealth;
+        public int MaxHealthBase;     // 最大生命（**base**；原版 `currentMaxHealth` +0xa4）
 
         // ============================================================================================
         // 🆕 2026-10-25（`N7` · 属性模型重构 **Stage 1：只加投影、无人调用**）
@@ -113,7 +116,7 @@ namespace RuleEngine
         /// ⚠️ **2c 改写点**：`return Attack;` 换成「扫记录 → **命中 set 立即返回它的值** /
         ///   否则 `clamp0(AttackBase + Σ addStats.meleeAttackChange)`」，⛔ **不能留着读 `Attack`**（见上 ②）。
         /// </summary>
-        public int CurrentMeleeAttack { get { return Attack; } }
+        public int CurrentMeleeAttack { get { return ProjectMeleeAttack(); } }
 
         /// <summary>
         /// **当前远程攻击力** —— 原版 `EntityScript.get_CurrentRangeAttack`
@@ -132,7 +135,7 @@ namespace RuleEngine
         /// ⚠️ **2c 改写点**：先 `if (IsBlind) return 0;`，再「扫记录 → 命中 set 即返回 /
         ///   否则 `clamp0(RangedAttackBase + Σ)`」，⛔ 不能读 `RangedAttack`（递归）。
         /// </summary>
-        public int CurrentRangeAttack { get { return RangedAttack; } }
+        public int CurrentRangeAttack { get { return ProjectRangeAttack(); } }
 
         /// <summary>
         /// **当前最大生命（已处理）** —— 原版 `EntityScript.get_currentMaxHealthProcessed`
@@ -159,7 +162,7 @@ namespace RuleEngine
         /// ⚠️ **2c 改写点**：`return MaxHealth;` 换成上面 4 步，**base 取 `MaxHealthBase`**
         ///   （⛔ 不能取 `MaxHealth` —— 2c 时它是转发到本属性的，会无限递归）。
         /// </summary>
-        public int CurrentMaxHealthProcessed { get { return MaxHealth; } }
+        public int CurrentMaxHealthProcessed { get { return ProjectMaxHealthProcessed(); } }
 
         /// <summary>
         /// **固有生命**（不含 extrinsic 加成）—— 原版 `EntityScript.get_CurrentIntrinsicHealth`
@@ -171,7 +174,7 @@ namespace RuleEngine
         /// **Stage 1**：恒等（`== Health`；Σ = 0）。**Stage 2c 才切换**。⚠️ 2c 改写点见上一条同型
         /// （`Health` 本身**不做投影** —— 原版 `currentHealth` 就是存档，判据 §6·2·C）。
         /// </summary>
-        public int CurrentIntrinsicHealth { get { return Health; } }
+        public int CurrentIntrinsicHealth { get { return ProjectIntrinsicHealth(); } }
 
         /// <summary>
         /// **固有近战**（不含 extrinsic 加成）—— 原版 `EntityScript.get_CurrentIntrinsicMeleeAttack`
@@ -187,7 +190,7 @@ namespace RuleEngine
         /// ⚠️ 同族的 `CurrentIntrinsicRangeAttack` **没有加** —— 原版那个方法体本轮**没读**
         ///   （判据 §3·5 ② 已如实记「未证」）⇒ 不凭对称猜着写。
         /// </summary>
-        public int CurrentIntrinsicMeleeAttack { get { return Attack; } }
+        public int CurrentIntrinsicMeleeAttack { get { return ProjectIntrinsicMeleeAttack(); } }
 
         public bool Exhausted;        // 本回合是否已行动（部署当回合 = true）
 
@@ -882,10 +885,10 @@ namespace RuleEngine
             Name = card != null ? card.Name : "?";
             IsWarlord = isWarlord;
 
-            Attack = card != null ? card.Attack : 0;
-            RangedAttack = card != null ? card.RangedAttack : 0;
+            AttackBase = card != null ? card.Attack : 0;
+            RangedAttackBase = card != null ? card.RangedAttack : 0;
             Health = card != null ? card.Health : 0;
-            MaxHealth = Health;
+            MaxHealthBase = Health;
 
             _keywords = new Dictionary<string, int>();
             if (card != null)
@@ -1084,19 +1087,64 @@ namespace RuleEngine
         /// 🔴 **2026-10-09（`A1106`）**：原来这里是**三个**（多一个 `shield`）—— `shield` 已从
         ///    `SyncKeywordState` 里**删掉**：`HasShield` 改成读关键词的**派生属性**，不需要也不许
         ///    再有第二处同步（见 <see cref="HasShield"/> 的注释）。</summary>
-        public void AddKeyword(string keyword, int value)
+        public bool AddKeyword(string keyword, int value)
         {
-            if (string.IsNullOrEmpty(keyword)) return;
-            _keywords[keyword] = KwValue(keyword) + value;
-            // 🆕 2026-10-25（引擎线 `A2` · `A2-2`）：**加一条 trait 会把「已移除」簿记整本清掉**。
-            //   判据 = 原版 `CardScript__AddEffect.c` 的 `case 3`（`buffType == addTrait`）进门第一句
-            //   `CardScript__RemoveActiveEffects(card, 4)` —— **不带 trait 过滤** ⇒ 所有
-            //   `buffType == removeTrait` 的 `CardEffect` 都被摘掉（`RemoveActiveEffects.c` 里
-            //   `param_3 == 0` 时只看 `+0x38 == param_2`，不比 `+0x3c`）。
-            //   ⚠️ 看着像 bug、但它是**原版行为**：`HasRemovedTrait` 因此在「又加了一条别的 trait」之后
-            //      会变假。照抄；别改成「只清同名 trait」。
-            if (_removedTraits.Count > 0) _removedTraits.Clear();
-            SyncKeywordState(keyword, value);
+            if (string.IsNullOrEmpty(keyword)) return false;
+
+            // 🔴 **D3/D4（第三段）：毒 × 抗性 —— 两个方向都要拦**（判据 `判据/战斗逻辑驱动_Stage2前置_第2轮.md` §2·1 S3 / §2·2）
+            //   · **加毒时**身上有 `resistant` ⇒ **这次中毒作废**（`CardScript.cs:17631-17643`，原版还会
+            //     `HighlightTraitIcon(resistant)` + `DisplayStatusAnim(resistant)` —— 那是**表现层**，我们没有对应层，
+            //     由调用方（`EffectResolver.ApplyOneGain`）打日志出声）。
+            //   · **加抗性时**身上有毒 ⇒ 见下面 S9 那一段（整条摘毒）。
+            //   ⚠️ 判据只此一处（D4 要求「`UnitState` 或 `EffectResolver` 二选一」⇒ 选 `UnitState`，
+            //     因为它是**所有**授予路的唯一收口，光环/附魔/效果都过它）。
+            if (keyword == KeywordTable.Poisoned && Has(KeywordTable.Resistant)) return false;
+
+            // 🔴 **D2（第三段）：`_stackable == count(20)` 的 trait 每次只 +1**（判据 §2·3）
+            //   原版 `CardTrait._stackable`：本 build **74 条 `add(10)`、1 条 `count(20)`（`markOfChaos(330)`）**、
+            //   0 条 `replace(0)`（真值表 → `判据/CardTrait_stackable_真值表_第2轮.md`）。
+            //   `count` 那一路：合并时 `旧 += 1`（**不看 `E.traitValue`**）、新挂时 `E.traitValue = 1`（S8①）
+            //   ⇒ 净效果 = **每次施加 +1**。
+            int add = (value > 0 && IsCountStackableTrait(keyword)) ? 1 : value;
+            _keywords[keyword] = KwValue(keyword) + add;
+            // 🆕 2026-10-25（引擎线 `A2` · `A2-2`）：**加一条 trait 会清掉「同名的已移除」簿记**。
+            // 🔴 **2026-10-25 第三段就地订正（`E1` · 铁律 5 —— 这一条不只是注释错，是【行为错】）**：
+            //   改前这里是 `_removedTraits.Clear()`（**整本清掉**），注释声称「原版 `RemoveActiveEffects(4)`
+            //   不带 trait 过滤、照抄」。**那个口径来自 Ghidra 少印实参的假象**：
+            //     · `decomp_full/CardScript__AddEffect.c:474` = `CardScript__RemoveActiveEffects(param_1, 4);`（**只有 2 个实参**）
+            //     · `out_cpp2il_dev_ilspy/CardScript.cs:17651` = `RemoveActiveEffects(BuffType.removeTrait, newEffect.trait);`
+            //     · `out_il2csharp/Assembly-CSharp/CardScript.cs:10855` = `this.RemoveActiveEffects(BuffType.removeTrait, newEffect.trait);`（**第二份独立 IL**）
+            //   两份 IL 一致、且 `CardScript__RemoveActiveEffects.c:34-40` 自证「`param_3 != 0` ⇒ 按 `+0x3c`(trait) 过滤」
+            //   ⇒ **原版只清 `T` 这一条**。裁定全文 → `判据/战斗逻辑驱动_Stage2前置_第2轮.md` §三·1。
+            //   ⚠️ 症状（改前）：加**任何** trait 都会把「已移除」整本清空 ⇒ `HasRemovedTrait(reload 490)`
+            //   在「摘掉 reload 之后又拿到别的 trait」时**假变真**（`ConditionEval:468` 的 siege 280 会误判可装填）。
+            if (_removedTraits.Count > 0) _removedTraits.Remove(keyword);
+            SyncKeywordState(keyword, add);
+
+            // 🔴 **D3（第三段）· §2·2 逐 trait 特例 —— 只做「池内 0 入口」那几条里还能落地的**。
+            //   ⚠️ **池内现读**（`cards_truth.json`，`buffType ∈ {3,90}` 全卡扫）：`poisoned(200)` /
+            //     `resistant(600)` / `survivor(430)` / `tide(910)` / `companion(1180)` / `pindown(970)` /
+            //     `dropPod(230)` **一条都没有** ⇒ 下面这几条**今天零可观察量**，按铁律 11 照样实现。
+            //   · **加抗性时身上有毒 ⇒ 整条摘毒**（`CardScript.cs:18142-18151`：`DisplayStatusAnim(resistant)`
+            //     + `RemoveTrait(poisoned)`）。⚠️ 注意它走的是 `RemoveTrait`（**不是** `removeTrait` 效果）
+            //     ⇒ **不写「已移除」簿记**，所以这里用 `RemoveAll` 而不是 `MarkTraitRemoved`。
+            if (keyword == KeywordTable.Resistant && Has(KeywordTable.Poisoned))
+                RemoveAll(KeywordTable.Poisoned);
+            //   · **加 `survivor` ⇒ 静默摘 `survivorSpent`**（`CardScript.cs:18138-18141`
+            //     `RemoveTraitSilently(survivorSpent=440)`）：`RemoveTraitSilently` **不碰面板/图标**，
+            //     也**不写「已移除」簿记** ⇒ 直接动字典（绕开 `RemoveAll` 的副作用那一串）。
+            if (keyword == KeywordTable.Survivor) _keywords.Remove(KeywordTable.SurvivorSpent);
+            //   · **`dropPod(230)` ⇒ 重置成默认值**（`CardScript.cs:18129-18137`）：
+            //     `currentDropPodHealth = dropPodMaxHealth` · `currentDropPodAttack = dropPodAttack`。
+            //     ⚠️ 我们**没有 dropPod 这两个字段**（`RuleCore.OpenDropPod` 那条链是另一套）⇒
+            //     **未建**，如实留在这里（池内 0 入口）。
+            //   · **`tide(910)` / `companion(1180)` 的计数器快照**：我们的 `CardInstance.CompanionCounter`
+            //     是「伴生链剩余环数」（`RuleCore.PlayCompanions` 写），**与「快照 CurrentCompanion」
+            //     不是同一个东西**（判据 §四·5 也如实标「未核」）⇒ **不改**，只记在这里。
+            //   · **`pindown(970)` 强制远程** 已在 `SyncKeywordState` 里（`AttackTypeRanged`）—— ✅
+            //   · **`markerlight(1170)` / `huntMark(1260)` 的广播**在 `EffectResolver.ApplyOneGain`
+            //     （与 `EmitStatusApplied` **不同事件种类**，见那里的注释：不双响）。
+            // 下面这条 `fast`/`flank` 是**已有**的（判据 `.c:570-572`），保留在原地。
             // 🔴 🆕 **2026-10-25（引擎线 · 真机报告「给部队加上侧翼，当回合仍不能进攻」）：
             //    `fast` / `flank` 一落地，就要重算「能动 / 能攻击」两位。**
             //    判据 = 原版 `CardScript__AddEffect.c` 的 `case 3`（= 加 trait）`:570-572`：
@@ -1109,6 +1157,20 @@ namespace RuleEngine
             //    ⛔ 别顺手把 `ferocity`/`oath` 也接上 —— 它们抬 `canAct` 的那一次是
             //       `ActivateMinion` 里的**第二写点**（部署那一刻求值），不是「加词就抬」。
             if (keyword == "fast" || keyword == "flank") RuleCore.RecomputeActAndAttack(this);
+            return true;
+        }
+
+        /// <summary>
+        /// **`CardTrait._stackable == count(20)` 的 trait** —— 每次施加 **只 +1**（不看给的值）。
+        /// 判据 = `判据/战斗逻辑驱动_Stage2前置_第2轮.md` §2·3 + `判据/CardTrait_stackable_真值表_第2轮.md`：
+        /// 本 build 75 个有 SO 的 trait 里 **74 个 `add(10)`**、**1 个 `count(20)` = `markOfChaos(330)`**
+        /// （`berzerk(360)` / `dodge(240)` 原版就没有 SO）。
+        /// ⚠️ 判据是「逐 trait 的 SO 真值」；这里**只写死那一条已经实读定案的 `count`**，
+        ///    ⛔ 别凭感觉再加（加错一条会让那条 trait 永远只能叠到 1）。
+        /// </summary>
+        public static bool IsCountStackableTrait(string keyword)
+        {
+            return keyword == KeywordTable.MarkOfChaos;   // 330 · `count(20)`
         }
 
         /// <summary>
@@ -1244,6 +1306,9 @@ namespace RuleEngine
             public int Value;
             /// <summary>谁给的（黑暗契约的种类名 / 卡名）。用来「整份收回」——见 <see cref="RevertGrantsFrom"/></summary>
             public string Source;
+            /// <summary>🆕 2026-10-25（Stage 2）：这条账在**修饰表**里对应的那一格（`armour` 为 `null` —— 护甲走关键词）。
+            /// ⚠️ **数值只在 `_statMods` 算一次**；本类只留「谁给的 / 关键词带出来的」这两件元数据（`PendingGrants` 的读点还在用）。</summary>
+            public StatMod Mod;
         }
 
         readonly List<GrantRecord> _grants = new List<GrantRecord>();
@@ -1254,11 +1319,40 @@ namespace RuleEngine
         /// `keyword` 非空 = 是某个关键词带出来的（关键词被移除时一起撤）；
         /// `source` = 给予者（比如黑暗契约的种类名），用来在来源被替换时整份收回。
         /// </summary>
-        public void RecordGrant(string attr, int value, string source = null, string keyword = null)
+        /// <returns>🆕 2026-10-25（Stage 2）：这条账在修饰表里的那一格（`armour` 返回 `null`）。</returns>
+        public StatMod RecordGrant(string attr, int value, string source = null, string keyword = null)
         {
             var g = new GrantRecord { Keyword = keyword, Attr = attr, Value = value, Source = source };
             _grants.Add(g);
+            g.Mod = AddStatMod(attr, value, source, IsExtrinsicSource(source));
             ApplyGrant(g, +1);
+            return g.Mod;
+        }
+
+        /// <summary>
+        /// 这个来源算不算**原版 `extrinsic`**（`CardEffect.extrinsic // +0x30`）。
+        /// 判据 §7·1：`extrinsic = (ability.trigger ∈ {20 WhileInPlay, 240 WhileInPlayVariable})`
+        /// （枚举/写点/落点逐句见 <see cref="CardDef.IsExtrinsicAbilityTrigger"/>）。
+        ///
+        /// <para>🔴 **我们这侧只有光环那条路**是 while-in-play 的载体（`Core/Aura.cs:180-181`：
+        /// 「原版把这一族做成 `AbilityTrigger.WhileInPlay = 20` 的**常驻**能力」），而 `Auras` 的
+        /// **正文形状**判据对 trigger 20 与 240 是同一套（实测 20: 11/19 段、240: 27/42 段被收下，
+        /// 其余是印刷关键词或同卡上其它 trigger 的一次性效果）⇒ **`Auras.GrantTag` 就是 `extrinsic` 的运行时刻判据**。</para>
+        ///
+        /// ⚠️ **这条是「卡级近似」之外的那一半**：卡级有没有 extrinsic ability 看
+        /// <see cref="CardDef.ExtrinsicAbilityPresence"/>；而**具体某一条增益**是不是 extrinsic，
+        /// 只能看它走的是哪条授予路（光环 ⇒ 是）。⛔ 别用卡级 flag 逐句判（同一张卡上
+        /// `Rally(30)` 与 `WhileInPlay(20)` 并存时会把 Rally 也给成 extrinsic）。
+        ///
+        /// 📌 **可观察量（如实记）**：`extrinsic` 只影响三处 ——
+        /// ① `CurrentMaxHealthProcessed` 里「`setHealth(9)` 只覆盖非 extrinsic 的 base」那一支
+        ///   （池内 `setHealth` **0 张** ⇒ 今天不可观察）；
+        /// ② `CurrentIntrinsicHealth` ③ `CurrentIntrinsicMeleeAttack`（**两个都零调用者**）。
+        /// ⇒ **本笔用行为验不了它**；下面「②」的验收只有结构读数（`StatMods` 里的 `Extrinsic` 位）。
+        /// </summary>
+        public static bool IsExtrinsicSource(string source)
+        {
+            return source == Auras.GrantTag;
         }
 
         /// <summary>撤掉某个关键词带出来的全部属性增益</summary>
@@ -1291,11 +1385,34 @@ namespace RuleEngine
             int v = g.Value * sign;
             switch (g.Attr)
             {
-                case "attack": Attack += v; break;
-                case "ranged": RangedAttack += v; break;
+                // 🔴 **2026-10-25（Stage 2）**：`attack` / `ranged` **不再写字段** ——
+                //   数值已经在 `_statMods` 里（`RecordGrant` 建的那条），投影现算。
+                //   撤销（`sign < 0`）时把那条修饰**摘掉**即可。
+                case "attack":
+                case "ranged":
+                    if (sign < 0) RemoveStatMod(g.Mod);
+                    break;
+                // 🔴 **2026-10-25（Stage 2）**：生命**加的时候当场加当前生命**（原版 `addStats.health`
+                //   就是 `currentHealth += healthChange`），**上限靠投影现算**。
+                //   撤销时**只夹、不减** —— 原版 `RemoveEffect.c:147-181`
+                //   `currentHealth = min(currentHealth, 新 currentMaxHealthProcessed)`（判据 §7·4）。
+                //   ⚠️ 以前这里是 `Health -= v; MaxHealth = Max(1, MaxHealth + v)`（直接减）——
+                //     只要在「挂着血 buff 的期间掉过血」就会多掉一截。
                 case "health":
-                    Health += v;
-                    MaxHealth = System.Math.Max(1, MaxHealth + v);
+                    // 🔴 **2026-10-25（第四段 · H1 裁定「区分重算与真移除」）**：
+                    //   `_recomputingAura` 为真 = 正在「**重算**」（`Auras.Recompose` 的先清后加），
+                    //   这时**一个字节都不许动 `Health`** —— 由 `EndAuraRecompute` 在本次重算**结束时**
+                    //   按「光环血修饰总量」的**前后差**统一结算（+差 ⇒ 加；−差 ⇒ 夹）。
+                    //   否则「清（夹到新上限）+ 加回（+= v）」每一步都赚一点 —— 那正是 H1 那个回血洞。
+                    if (sign < 0)
+                    {
+                        RemoveStatMod(g.Mod);
+                        if (!_recomputingAura) ClampHealthToMax();
+                    }
+                    // 原版 `AddEffect.c:331-346` 同口径：正加 = `currentHealth += healthChange`（不夹上限）；
+                    // 非正 = `min(currentHealth, currentMaxHealthProcessed)`（**只夹、不减**）。
+                    else if (g.Value >= 1) { if (!_recomputingAura) Health += g.Value; }
+                    else { if (!_recomputingAura) ClampHealthToMax(); }
                     break;
                 // 🔴 **2026-10-19（`T01 §六·6`①）：护甲要【两种表示一起动】。**
                 //   改前这一行只写 `Armor`、不同步 `_keywords["armour"]` —— 和 `A2015`
@@ -1500,11 +1617,27 @@ namespace RuleEngine
             ///    「**本卡**施加的那些」—— 所以单独记一个真卡名（取自 `ctx.PlayingCard`）。
             /// </summary>
             public string SourceCard;
+            /// <summary>
+            /// 🆕 2026-10-25（Stage 2）：这条限时增益在**修饰表**里的那一格（关键词那条为 `null`）。
+            /// ⚠️ 到期撤销 = **把这一格摘掉**（不是「减回去」）—— 见 <see cref="RevertBuffs"/>。
+            /// </summary>
+            public StatMod Mod;
         }
 
         readonly List<TempBuff> _buffs = new List<TempBuff>();
         public IReadOnlyList<TempBuff> TempBuffs { get { return _buffs; } }
-        public void AddTempBuff(TempBuff b) { _buffs.Add(b); }
+
+        /// <summary>
+        /// 登记一条限时增益。
+        /// 🔴 **2026-10-25（Stage 2）**：非关键词的那几条**在这里建修饰表那一格**（调用方不必自己建），
+        /// 除非调用方已经建好并塞进 <see cref="TempBuff.Mod"/>（`ApplyOneGain` 的带来源那条路）。
+        /// </summary>
+        public void AddTempBuff(TempBuff b)
+        {
+            if (b != null && !b.IsKeyword && b.Mod == null)
+                b.Mod = AddStatMod(b.Name, b.Value, null, false);
+            _buffs.Add(b);
+        }
 
         /// <summary>
         /// 撤掉到期的限时增益。
@@ -1526,16 +1659,22 @@ namespace RuleEngine
                 {
                     switch (b.Name)
                     {
-                        case "attack": Attack -= b.Value; break;
-                        case "ranged": RangedAttack -= b.Value; break;
-                        // 生命是**上限也跟着变**的（原版 `:3317` 同步 max_health），撤的时候一起回
-                        case "health": Health -= b.Value; MaxHealth -= b.Value; break;
+                        // 🔴 **2026-10-25（Stage 2）**：`attack` / `ranged` **不再「减回去」** ——
+                        //   数值只在 `_statMods` 算一次，撤销 = 把那一格摘掉（投影自动变）。
+                        //   以前这句是 `Attack -= b.Value`：同一件事两处记账，改一处漏一处。
+                        case "attack": RemoveStatMod(b.Mod); break;
+                        case "ranged": RemoveStatMod(b.Mod); break;
+                        // 🔴 **2026-10-25（Stage 2 · 判据 §7·4）**：生命到期是**夹到新上限**，
+                        //   **不是减**（原版 `RemoveEffect.c:147-181`）。以前 `Health -= b.Value;
+                        //   MaxHealth -= b.Value` 会在「挂 buff 期间掉过血」时多掉一截。
+                        case "health": RemoveStatMod(b.Mod); ClampHealthToMax(); break;
                         // 🔴 **2026-10-19（`T01 §六·6` 同族，顺手补）：护甲不能只回字段那一半。**
                         //    本支是**限时属性护甲**（`+N Armour this turn`，`IsKeyword == false`
                         //    ⇒ 当前这一格）—— 改前只减 `Armor`、关键词值还在，
                         //    到期后 `KwValue("armour")` 仍是非 0（同一件事两种表示又脱节，
                         //    与 `ApplyGrant` / `RemoveKeyword` 两处**同一条判据**）。
                         //    ⇒ 走 `RemoveKeyword`（它现在会把 `Armor` 一起减）。
+                        //   ⚠️ 护甲**不进**修饰表（它本来就是关键词的一种表示）⇒ 本支不需要 `b.Mod`。
                         case "armour": RemoveKeyword(KeywordTable.Armour, b.Value); break;
                     }
                 }
@@ -1576,9 +1715,11 @@ namespace RuleEngine
                 {
                     switch (b.Name)
                     {
-                        case "attack": Attack -= b.Value; break;
-                        case "ranged": RangedAttack -= b.Value; break;
-                        case "health": Health -= b.Value; MaxHealth -= b.Value; break;
+                        // 同 `RevertBuffs`：Stage 2 之后数值只在 `_statMods` 算一次（摘格即可）。
+                        case "attack": RemoveStatMod(b.Mod); break;
+                        case "ranged": RemoveStatMod(b.Mod); break;
+                        // 同 `RevertBuffs`：生命是**夹到新上限**、不是减（判据 §7·4）。
+                        case "health": RemoveStatMod(b.Mod); ClampHealthToMax(); break;
                         // 同 `RevertBuffs`：护甲走同一个口（`RemoveKeyword` 会同步减 `Armor`）。
                         case "armour": RemoveKeyword(KeywordTable.Armour, b.Value); break;
                     }
@@ -1638,6 +1779,338 @@ namespace RuleEngine
         public override string ToString()
         {
             return $"{Name} {Attack}/{Health}{(IsWarlord ? " (督军)" : "")}{(Exhausted ? " 疲劳" : "")}";
+        }
+
+        // ================================================================================================
+        // 🆕 2026-10-25（`E1` · 属性模型重构 **Stage 2**）—— 「当前值」改成**投影** + **修饰表**
+        //
+        // 【为什么有这一段】原版是「一半存档、一半现算」：存档的只有
+        //   `currentHealth`(+0x68) / `currentMaxHealth`(+0xa4) / `currentArmourValue`(+0xb8) /
+        //   `currentBaseMeleeAttack`(+0x7c) / `currentBaseRangedAttack`(+0x90)；
+        //   而 `CurrentMeleeAttack` / `CurrentRangeAttack` / `currentMaxHealthProcessed` 都是
+        //   **每次读时从 `activeEffects`(+0x108) 现算**的。
+        //   我们以前把「当前值」物化成了字段（`ApplyOneGain` 直接 `Attack += val`）⇒ 模型差一层，
+        //   可观察后果见判据 §6·4（`setMeleeAttack` 命中即 return、`blind ⇒ 远程 0` 只有一处生效…）。
+        //
+        // 【修饰表 = 原版 `activeEffects` 里「会改三围的那几档」的等价物】
+        //   `_statMods` **按施加顺序**保存；`CurrentMeleeAttack` 等的实现**完全照抄**
+        //   `get_CurrentMeleeAttack.c:29-67` / `get_CurrentRangeAttack.c:24-70` /
+        //   `get_currentMaxHealthProcessed.c:22-108` 的扫描顺序与早退（见各 `Project*` 的注释）。
+        //   ⚠️ **顺序有语义**：`setMeleeAttack(70)` / `setRangeAttack(85)` 是「**正序遍历、命中即 return**」
+        //      ⇒ 多条时**最先施加的那条**胜出。别把它改成「最后一条」或「取最大」。
+        //   ⚠️ **`_grants` / `_buffs` 不重复记账**：这两本账仍管「谁给的 / 什么时候到期」，
+        //      但**数值只在 `_statMods` 里算一次**；两边靠 `GrantRecord.Mod` / `TempBuff.Mod` 互相指。
+        //      ⛔ 别在投影里把 `_grants` / `_buffs` 再扫一遍（那就是「两处写同一条规则」）。
+        //
+        // 【本段替代了哪几处直写字段】判据 §6·2·A 那 20 个写点（编译器报的那 20 条 CS0200）。
+        // ================================================================================================
+
+        /// <summary>
+        /// **一条「会改三围」的修饰** —— 原版 `CardEffect` 里
+        /// `buffType ∈ {1 addStats, 70 setMeleeAttack, 85 setRangeAttack, 9 setHealth}` 那几档的等价物。
+        ///
+        /// <para>🔴 **2026-10-25（E1 · ① `doNotStack` 复核）：我们的模型【从不合并】= 永远等价于
+        /// `doNotStack = true`，这是**有意**的，不是漏做。** 判据如下（全部现读）：
+        ///  · 原版 `CardScript.AddEffect` 的 `addStats` 主体里有一个**合并**循环：同一个
+        ///    `enchantmentCardId` + `buffType` + `markOfChaosType` + `daemonHostType == none` +
+        ///    `mutationType == none` + **`!newEffect.doNotStack`** + `SameTimingAsEffect`
+        ///    ⇒ **把四个增量字段累加进已有那条记录**，而不是新加一条（`CardScript__AddEffect.c:331-402`；
+        ///    字段偏移实测：`+0xa4` = `enchantmentCardId`、`+0x38` = `buffType`、`+0x78` = `markOfChaosType`、
+        ///    `+0x7c` = `daemonHostType`、`+0x80` = `mutationType`、**`+0x75` = `doNotStack`**，
+        ///    按 `CardEffect.cs` 的字段序 + 对齐算出来的，与 `.c` 的用法逐个对上）。
+        ///  · **`doNotStack` 的唯一写点** = `PlayerHand.AddHandEffect`（`PlayerHand.cs:2507` 现读：
+        ///    `cardEffect3.doNotStack = true;` 然后才 `activeEffects.Add`）—— 也就是说
+        ///    **只有「手牌效果」会被强制标成不合并**，目的就是让手牌那一份与场上的那一份**分开记账**，
+        ///    各自到期各自撤。除此之外全库**没有任何写点**（`grep doNotStack` 只命中 `CardEffect.cs` 的定义/拷贝
+        ///    与 `PlayerHand.cs:2507`）。
+        ///  · **合并 / 不合并的数值完全一样**（合并 = 累加）。差别只在**「按记录摘」的粒度**：
+        ///    合并后摘一条 = 把几次贡献一起摘掉；我们是按条独立、摘哪条掉哪条。
+        ///  · 而原版**按记录摘**的场合恰恰是手牌效果（那里 `doNotStack` 恒 true ⇒ 原版也不合并）
+        ///    ⇒ **两条路在我们这里合流成同一个行为**。
+        /// ⚠️ 因此 **`cards_truth.json` 里那 22 条 `doNotStack` 是序列化残留**（运行时才由 `AddHandEffect` 覆盖），
+        ///    ⛔ **不能当成「池内 22 条会不叠」**（与 `extrinsic` 那两列同一个坑）。
+        /// 📌 实测读数（`_tmp_view/e1_probe2`）：连加两次 `+1 近战` ⇒ 5、条目 2；摘第一条 ⇒ 4（原版合并时 ⇒ 3）；
+        ///    再摘第二条 ⇒ 3（两边一致）。**求和逐字节相同**。</para>
+        /// </summary>
+        public class StatMod
+        {
+            /// <summary>`"attack"` / `"ranged"` / `"health"`（已过 `EffectResolver.NormalizeAttr`）</summary>
+            public string Attr;
+            /// <summary>数值。`IsSet == true` 时是**绝对覆盖值**，不是增量。</summary>
+            public int Value;
+            /// <summary>
+            /// 原版 `CardEffect.extrinsic`(+0x30)。判据 §7·1：`extrinsic = (ability.trigger ∈ {20 WhileInPlay, 240 WhileInPlayVariable})`。
+            /// ⚠️ **我们只在「光环那条路」上标 true**（`Auras.GrantTag`）—— 因为 `Aura` 就是
+            /// `WhileInPlay(20)` 那一族的宿主（`Core/Aura.cs:180-181`）。
+            /// 🔴 **240 那一档没有单独标**（我们把它当普通效果处理）⇒ 如实记「未覆盖」，见报告「没查清」。
+            /// </summary>
+            public bool Extrinsic;
+            /// <summary>`true` = `setMeleeAttack` / `setRangeAttack` / `setHealth` 那三档（**覆盖**语义）。</summary>
+            public bool IsSet;
+            /// <summary>来源标签（`Auras.GrantTag` / 黑暗契约种类 / `"虫群合并"` / `null`）。只用于「整份收回」。</summary>
+            public string Source;
+        }
+
+        readonly List<StatMod> _statMods = new List<StatMod>();
+
+        /// <summary>修饰表的只读视图（自检 / 报表用）。</summary>
+        public IReadOnlyList<StatMod> StatMods { get { return _statMods; } }
+
+        /// <summary>
+        /// 往修饰表里加一条（**不写任何字段**）。返回那条记录，方便调用方日后按引用摘掉。
+        /// ⚠️ 加完**自己**调一次 `SyncAttackTypeAfterStatChange()` —— 原版 `UpdateAttackText`
+        ///   被所有改属性的地方调到（见该方法注释）。
+        /// </summary>
+        public StatMod AddStatMod(string attr, int value, string source = null,
+                                  bool extrinsic = false, bool isSet = false)
+        {
+            // 🔴 **2026-10-25（K1 / K8）**：原版 `CardScript__AddEffect.c:208-213` 对
+            //   `buffType == 0x46 setMeleeAttack` / `0x55 setRangeAttack` **先**
+            //   `RemoveActiveEffects(buffType)` —— 同一档的旧记录**先被摘掉**再挂新的。
+            //   ⇒ 我们这里同样：`isSet` 的修饰**先清掉同属性的旧 set 记录**（永远只有一条）。
+            //   ⚠️ 这同时也把「正序遍历、命中即 return ⇒ 最先那条胜出」那个顺序怪癖**在实际上抹平**了
+            //     （因为永远只剩一条）。⛔ 但投影里的「命中即 return」**别删** —— 那是判据原文。
+            if (isSet)
+            {
+                for (int i = _statMods.Count - 1; i >= 0; i--)
+                    if (_statMods[i].IsSet && _statMods[i].Attr == attr) _statMods.RemoveAt(i);
+            }
+            var m = new StatMod
+            {
+                Attr = attr, Value = value, Source = source, Extrinsic = extrinsic, IsSet = isSet,
+            };
+            _statMods.Add(m);
+            return m;
+        }
+
+        /// <summary>按引用摘掉一条修饰（不在表里就什么都不做 —— 幂等）。</summary>
+        public void RemoveStatMod(StatMod m)
+        {
+            if (m == null) return;
+            _statMods.Remove(m);
+        }
+
+        /// <summary>摘掉**某一个来源**留下的全部修饰（例如被替换掉的那份黑暗契约 / 一个光环）。</summary>
+        public void RemoveStatModsFrom(string source)
+        {
+            if (string.IsNullOrEmpty(source)) return;
+            for (int i = _statMods.Count - 1; i >= 0; i--)
+                if (_statMods[i].Source == source) _statMods.RemoveAt(i);
+        }
+
+        /// <summary>
+        /// 摘掉修饰之后把当前生命**夹到新上限**（原版 `RemoveEffect.c:147-181`：
+        /// `currentHealth = min(currentHealth, 新 currentMaxHealthProcessed)` —— **只夹、不减**）。
+        ///
+        /// 🔴 **判据 §7·4**：我们以前是 `Health -= b.Value`（直接减）⇒ 只要在「挂着血 buff 的期间
+        ///   掉过血」，到期时就会多掉一截（实测差 = 掉血量）。**这一条是 ② 合批的核心。**
+        /// ⚠️ 别只断上限：两侧上限都是 4，断不出来的就是生命那一格。
+        /// </summary>
+        public void ClampHealthToMax()
+        {
+            int mx = MaxHealth;
+            if (Health > mx) Health = mx;
+        }
+
+        /// <summary>
+        /// **近战攻击力（当前值）** —— 原版 `EntityScript.get_CurrentMeleeAttack` 的投影。
+        /// 实现见 `ProjectMeleeAttack()`（**类尾**那一段）。
+        /// ⚠️ 名与旧字段逐字相同 ⇒ 全工程几百个读点**一个字都不用改**（2-甲的全部理由）。
+        /// </summary>
+        public int Attack { get { return ProjectMeleeAttack(); } }
+
+        /// <summary>**远程攻击力（当前值）** —— 原版 `get_CurrentRangeAttack` 的投影（**含 `blind ⇒ 0`**）。</summary>
+        public int RangedAttack { get { return ProjectRangeAttack(); } }
+
+        /// <summary>
+        /// **最大生命（processed）** —— 原版 `currentMaxHealthProcessed` 的投影。
+        /// ⚠️ `Health`（当前生命）**不是投影** —— 原版 `currentHealth` 就是存档（判据 §6·2·C）。
+        /// </summary>
+        public int MaxHealth { get { return ProjectMaxHealthProcessed(); } }
+
+        /// <summary>
+        /// <see cref="CurrentMeleeAttack"/> 的实现 —— 逐句照 `EntityScript__get_CurrentMeleeAttack.c:29-67`：
+        /// **正序**扫 ① `buffType == 1 addStats` ⇒ 累加 `meleeAttackChange`；
+        /// ② `buffType == 70 setMeleeAttack` ⇒ **立刻 `return` 它的值**（连 base、连已累加的都不算）；
+        /// ③ 扫完 ⇒ `clamp0(currentBaseMeleeAttack + Σ)`。
+        /// </summary>
+        int ProjectMeleeAttack()
+        {
+            int sum = 0;
+            for (int i = 0; i < _statMods.Count; i++)
+            {
+                var m = _statMods[i];
+                if (m.Attr != "attack") continue;
+                if (m.IsSet) return m.Value;             // `:44-47` 命中即 return（正序 ⇒ 最先那条胜出）
+                sum += m.Value;
+            }
+            int v = AttackBase + sum;
+            return v > 0 ? v : 0;                        // `:52-66` clamp0
+        }
+
+        /// <summary>
+        /// <see cref="CurrentRangeAttack"/> 的实现 —— 照 `EntityScript__get_CurrentRangeAttack.c:24-70`：
+        /// **第一句**判 `HasCurrentTrait(0x3cf blind) ⇒ return 0`（`:24-28`），其余同近战那一支。
+        ///
+        /// 🔴 **这一句就是判据 §7·2 那 11 组差异的落点**：以前只有 `RuleCore.FieldAttack` 在
+        ///   算伤害那一刻归零 ⇒ 条件 / 目标筛选 / AI / 卡面看到的都不是 0。改成投影之后**一次性全对**。
+        /// </summary>
+        int ProjectRangeAttack()
+        {
+            if (IsBlind) return 0;                       // `:24-28`
+            int sum = 0;
+            for (int i = 0; i < _statMods.Count; i++)
+            {
+                var m = _statMods[i];
+                if (m.Attr != "ranged") continue;
+                if (m.IsSet) return m.Value;             // `:41-49`
+                sum += m.Value;
+            }
+            int v = RangedAttackBase + sum;
+            return v > 0 ? v : 0;
+        }
+
+        /// <summary>
+        /// <see cref="CurrentMaxHealthProcessed"/> 的实现 —— 照 `EntityScript__get_currentMaxHealthProcessed.c:22-108`：
+        /// ① `base = currentMaxHealth`（= 我们的 `MaxHealthBase`）；
+        /// ② `base += Σ(非 extrinsic 的 addStats.healthChange)`；
+        /// ③ 存在 `setHealth(9)` ⇒ **`base` 整项被覆盖成它的 `healthChange`**（**不是加**）；
+        ///    ⚠️ 原版倒序遍历 ⇒ 下标 0 最后写入 ⇒ **最先施加的那条生效**；
+        /// ④ `+ Σ(extrinsic 的 addStats.healthChange)`（**全程无 clamp** —— 与近战不同）。
+        /// </summary>
+        int ProjectMaxHealthProcessed()
+        {
+            int nonExt = 0, ext = 0, setVal = 0;
+            bool hasSet = false;
+            for (int i = 0; i < _statMods.Count; i++)
+            {
+                var m = _statMods[i];
+                if (m.Attr != "health") continue;
+                if (m.IsSet)
+                {
+                    // 原版倒序遍历、后写的覆盖先写的 ⇒ 生效的是**下标 0**（最先施加的那条）
+                    if (!hasSet) { setVal = m.Value; hasSet = true; }
+                    continue;
+                }
+                if (m.Extrinsic) ext += m.Value;
+                else nonExt += m.Value;
+            }
+            int basePart = hasSet ? setVal : MaxHealthBase + nonExt;
+            return basePart + ext;                       // `:65` / `:107` 无 clamp
+        }
+
+        /// <summary>
+        /// <see cref="CurrentIntrinsicHealth"/> —— 原版 `get_CurrentIntrinsicHealth.c:26-50`：
+        /// `currentHealth − Σ(extrinsic ∧ addStats 的 healthChange)`（正序，无 clamp）。
+        /// </summary>
+        int ProjectIntrinsicHealth()
+        {
+            int ext = 0;
+            for (int i = 0; i < _statMods.Count; i++)
+            {
+                var m = _statMods[i];
+                if (m.Attr == "health" && !m.IsSet && m.Extrinsic) ext += m.Value;
+            }
+            return Health - ext;
+        }
+
+        /// <summary>
+        /// <see cref="CurrentIntrinsicMeleeAttack"/> —— 原版 `get_CurrentIntrinsicMeleeAttack.c:22-46`：
+        /// `CurrentMeleeAttack − Σ(extrinsic ∧ addStats 的 meleeAttackChange)`（**减的是投影值**，无 clamp）。
+        /// </summary>
+        int ProjectIntrinsicMeleeAttack()
+        {
+            int ext = 0;
+            for (int i = 0; i < _statMods.Count; i++)
+            {
+                var m = _statMods[i];
+                if (m.Attr == "attack" && !m.IsSet && m.Extrinsic) ext += m.Value;
+            }
+            return CurrentMeleeAttack - ext;
+        }
+
+        // ================================================================================================
+        // 🆕 2026-10-25（`E1` · 第四段）—— **「重算」与「真移除」分开**（H1 裁定）
+        //
+        // 【为什么】原版里这是**两件不同的事**：
+        //   · `trigger 20 WhileInPlay`（光环）**重复施加是幂等空操作** —— `AddEffect` 的
+        //     `ContainsExtrinsicEffectFrom` 已经为真就 `return false`（判据 §1·5 第二行）；
+        //   · `trigger 240 WhileInPlayVariable` 才是「`RemoveExtrinsicEffectsFrom` + 重新 AddEffect」。
+        // 而「摘 `+N health` 夹到新上限」那条判据（`RemoveEffect.c:147-181`）是给**真移除**用的。
+        // 我们的 `Auras.Recompose` 是「先全清、再加回」—— 等于每次棋盘变动都走了一遍
+        // 「真移除 + 重新施加」⇒ **净结果不为零**（清的时候夹一次、加回来又 += 一次 ⇒ 回血）。
+        //
+        // 【怎么分】`Auras.Recompose` 把整段重算包在 `BeginAuraRecompute` / `EndAuraRecompute` 之间：
+        //   · **重算期间**：`ApplyGrant` 对 `health` **一个字节都不动**（连夹也不夹）；
+        //   · **重算结束时**：按「光环给的血修饰总量」的**前后差**统一结算一次 ——
+        //       +差 ⇒ `Health += 差`（新出现的光环，与首次施加同效）
+        //       −差 ⇒ `ClampHealthToMax()`（光环离场 = **真移除**，照 Stage 2 的夹口径）
+        //       零差 ⇒ **什么都不做**（这就是「棋盘无关变动前后 `Health` 逐位相等」）
+        //
+        // ⚠️ 只有 `health` 需要这一层：`attack`/`ranged` 是「摘修饰 + 重加修饰」，本来就净零；
+        //   关键词 / 费用 / 誓约授予是「布尔或重登记」，也净零（见 `Aura.Recompose` 的 doc）。
+        // ⛔ 别把这段推广成「重算期间什么副作用都不许有」—— 那会把新出现的光环也吃掉。
+        // ================================================================================================
+
+        bool _recomputingAura;
+        int _auraHealthBefore;
+
+        /// <summary>光环重算**开始**（见本段顶部那段说明）。可嵌套安全：内层调用不重置基准。</summary>
+        public void BeginAuraRecompute()
+        {
+            if (_recomputingAura) return;       // 嵌套：保留最外层的基准
+            _recomputingAura = true;
+            _auraHealthBefore = AuraHealthGrantTotal();
+        }
+
+        /// <summary>光环重算**结束** ⇒ 按前后差结算一次（+差 加血 / −差 夹到新上限 / 零差 什么都不做）。</summary>
+        public void EndAuraRecompute()
+        {
+            if (!_recomputingAura) return;
+            _recomputingAura = false;
+            int after = AuraHealthGrantTotal();
+            if (after > _auraHealthBefore) Health += after - _auraHealthBefore;
+            else if (after < _auraHealthBefore) ClampHealthToMax();
+        }
+
+        /// <summary>
+        /// 🔴🆕 **2026-10-25（`E1` · 第四段 · F2）：标记光「攻击用掉后**留到回合末**才摘」的那一格。**
+        ///
+        /// <para>**判据（cpp2il 现读，`.c` 只交叉）**：
+        /// `CardScript.SetRemoveMarkerlight`（`CardScript.cs:11260-11296`）= **只置这一位**
+        /// （`removeMarkerlightAtEndOfTurn = true`，原版 `EntityScript +0x57`）+ 播「用掉了」的表现
+        /// （`MarkerlightController.MarkerLightUsed()`），**一个 trait 都不摘**；
+        /// 真正摘除在 `CardScript.OnTurnEnd`（`CardScript.cs:16599-16607`）：
+        /// `if (removeMarkerlightAtEndOfTurn) { if (CurrentMarkerlight &gt; 0) {
+        ///      RemoveActiveEffect(markerlight); RemoveTrait(markerlight); 该位 = false; } }`。</para>
+        ///
+        /// <para>⚠️ **改前我们是在攻击那一段打完就 `RemoveAll("markerlight")`**（`RuleCore.cs` 的
+        /// 「标记光 X」那一段）—— 比原版**早了一整个回合**，`Expiring` 态也就永远看不见（E5 的 F2/W9 就是这条）。</para>
+        ///
+        /// <para>🟢 **2026-10-25（`E1` · 第五段）「谁的回合末」已坐实：两边都扫，我们做的对。**
+        /// 判据（cpp2il 现读）= `BattleManagerSupport.BroadcastTurnEnd`（`BattleManagerSupport.cs:1516-1562`）：
+        /// 它遍历的是 **`manager.unitsInPlay` 这个【全局】在场列表**（不是某一方的列表），
+        /// 对每一张 `IsInPlay()` 的卡各调一次 `CardScript.OnTurnEnd(isPlayerTurn)`（残骸那一档另放行）；
+        /// 之后才分别扫**双方手牌**。
+        /// ⇒ **`OnTurnEnd` 跑在【所有在场卡】上、不分敌我** ⇒ 我们 `RuleCore.EndTurnCore` 那趟
+        /// `RevertBuffs(true, …)` **两边都扫**与它同形，⛔ 不用改。「我方打给敌方的标记光」不会被提前摘。</para>
+        /// </summary>
+        public bool RemoveMarkerlightAtEndOfTurn;
+
+        /// <summary>当前「由光环给的」生命修饰合计（`Source == Auras.GrantTag` 且 `Attr == "health"` 且非 set）。
+        /// ⚠️ 与 <see cref="ClampHealthToMax"/> 一起构成「重算零副作用」的判据 —— 两个方法只此一份。</summary>
+        public int AuraHealthGrantTotal()
+        {
+            int s = 0;
+            for (int i = 0; i < _statMods.Count; i++)
+            {
+                var m = _statMods[i];
+                if (m.IsSet) continue;
+                if (m.Attr != "health") continue;
+                if (m.Source != Auras.GrantTag) continue;
+                s += m.Value;
+            }
+            return s;
         }
     }
 }

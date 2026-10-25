@@ -1423,6 +1423,9 @@ namespace CardPresentation
                 _warlordNodes.Add(node);
             }
             ApplyWarlordSelectionVisuals();
+            // = 原版 `UICardSelector.Initialize` 里那句 `container.Initialize(..., animateIn: true, index, ...)`
+            // ⇒ 建完就**逐张入场**（见 `PlayWarlordCardsIn`）。⚠️ 滚动兜底重建（`WarlordsPerDraft` 超一屏才有滚动区）也会重播一次 —— 原版没有滚动区（`m_Enabled=0`）⇒ 兜底路径上的已知偏离，3 张时走不到。
+            PlayWarlordCardsIn();
         }
 
         /// <summary>按 `_warlordId` 刷一次「选中态」的三处可见反馈（⛔ 不重建卡）：
@@ -3162,6 +3165,12 @@ namespace CardPresentation
         public bool ContinueAfterWarlord()
         {
             if (State != DraftModeState.SelectWarlord) return false;
+            if (_warlordExiting)
+            {
+                // 原版这一刻 `continueButton.interactable = false` ⇒ 再点也没有回调
+                Debug.Log("[Draft] `Continue` 已在退场动画里（原版同样把钮禁掉了）⇒ 这一下忽略");
+                return false;
+            }
             if (string.IsNullOrEmpty(_warlordId))
             {
                 Debug.LogWarning("[Draft] `Continue` 点不动：**还没选战将**（原版 `Continue` 出厂就是灰的，"
@@ -3170,8 +3179,28 @@ namespace CardPresentation
             }
             // 战将定下来之后，候选包池就定了（按**阵营**，不是按战将 —— `DraftPacks.RollRound` 的粒度）
             SyncRun("选定战将");
+            // = 原版 `ContinueButtonOnClick`：先 `continueButton.interactable = false`，再发 `PickWarlord`，
+            //   **同一拍**起 `uiCardSelector.AnimateCardsOut(onComplete)`；两件事都完成
+            //   （`warlordServerUpdatedCorrectly && warlordExitAnimatedCompleted`）才 `ChangeTabCO` 进选包页。
+            //   我们没有服务端 ⇒ 「确认」恒为真 ⇒ 退场动画走完就换页。
+            if (_warlordContBtn != null) _warlordContBtn.Interactable = false;      // 原版那一句
+            if (PlayWarlordCardsOut())
+            {
+                _warlordExiting = true;
+                StartCoroutine(ContinueAfterWarlordAnimated());
+                return true;
+            }
             UpdateState();      // 原版 `PickWarlord` 成功 → `..._b__0.c` 第一句就是 `UpdateState`
             return true;
+        }
+
+        /// <summary>退场动画走完（= 原版 `AnimateCardsOut` 那条 Sequence 的 `OnComplete`）之后再换页。
+        /// <para>⚠️ 只在**真 Play** 会走到（批处理没有帧循环 ⇒ `PlayWarlordCardsOut` 返回 false ⇒ 同步推进）。</para></summary>
+        System.Collections.IEnumerator ContinueAfterWarlordAnimated()
+        {
+            yield return new WaitForSeconds(WarlordCardDuration);
+            _warlordExiting = false;
+            UpdateState();
         }
 
         /// <summary>选一个包：+3 张、轮次 +1；没到末轮 ⇒ 直接给下一轮的包；到末轮 ⇒ 进 Ongoing 页。
@@ -3469,6 +3498,138 @@ namespace CardPresentation
         static string OurText(string zh, string en)
         {
             return Loc.Current == AvailableLanguages.Chinese ? zh : en;
+        }
+
+        // ============================================================ 选将卡的入场 / 退场（原版 `UICardSelector.AnimateCardsIn/Out`）
+        //
+        // 【判据】`D:/2/tools/cpp2il/out_cpp2il_dev_ilspy/UICardSelector.cs:107-175`（两个方法整段）
+        //   + 真正干活的 `GenericSelectCardContainer.AnimIn/AnimOut`（同目录 `GenericSelectCardContainer.cs:100-152`）。
+        //   原版逐句（**两条独立补间**，不是 Sequence）：
+        //     入场：`delay = index * 0.2f`
+        //           · `canvasGroup.alpha = 0` → `DOFade(canvasGroup, 1, 0.4f).SetDelay(delay)`
+        //           · `transform.DOScale(0.6f, 0.4f).SetDelay(delay).SetEase(**OutBack**).From()`
+        //             （`.From()` ⇒ **起点 = 传进去的 0.6**、终点 = 当前 1 倍）
+        //           · 缩放那条 `OnStart` 里 `soundOnAppear.Play2D()`
+        //     退场：`AnimateCardsOut(onComplete)` 建一个 `Sequence`，对**除当前选中那张以外**的每张容器
+        //           `Join(AnimOut(index: **0**, null))` —— 即 `DOFade(0, 0.4)` + `DOScale(0.6, 0.4)` **同时起、无错峰**，
+        //           `OnComplete` 才回调（= `warlordExitAnimatedCompleted = true` → 换页）。
+        //   ⚠️ 原版 `AnimIn` 的**淡入是 DOFade**、而 `MilestoneStep` 那条不是 —— 两处别互相套。
+        //   ⚠️ 缓动：两条补间原版都**没有** `SetEase`（只有入场那条缩放显式 `OutBack`）⇒ 淡入 / 退场两条走
+        //     `DOTween.defaultEaseType`（= 6 = **OutQuad**）。⛔ 别给 Sequence 传非 Linear（Sequence 的 ease
+        //     是整条时间轴的，会在子补间之上再弯一次 —— 同 `CardDetailPopup.SwapToFront` 那段 ⚠️）。
+        //
+        // 【两侧形状差（如实标）】原版淡的是 `CanvasGroup.alpha`（整棵子树一起），我们淡的是
+        //   `CardView.SetAlpha`（= 整卡着色名单，`_layers` 的 `_Color.a` + TMP 顶点色那一档，
+        //   见 `Core/CardView.cs` 的 `ApplyTint`）—— 原版那张卡在 `Container/Content` 底下也是同一族件，
+        //   语义等价；`soundOnAppear` 的 cue 名已解出（**`Draft Mode Warlord Appear`**，
+        //   资产 guid `0962ba6dcb1134f439ac46350f260206` ← `Draft Mode Menu Demo.prefab` 的
+        //   `GenericSelectCardContainer.soundOnAppear` PPtr），但本地音效表里**没有这条 cue**
+        //   ⇒ 走 `WindowSounds.PlayFx` 会**出声一次**（红线：不静默），⛔ 不编 clip。
+
+        /// <summary>`DOFade/DOScale` 的时长（原版两个方法里都是 **0.4f**，⚠️ 与开包那条 `PackOpenDuration` 不是一回事）。</summary>
+        public const float WarlordCardDuration = 0.4f;
+        /// <summary>入场逐张错峰（原版 `delay = index * 0.2f`；**退场没有错峰** —— 原版 `AnimOut` 的 index 恒传 0）。</summary>
+        public const float WarlordCardStep = 0.2f;
+        /// <summary>入场起点 / 退场终点的缩放倍数（原版两处都写 `0.6f`；同一个数、两个用途）。</summary>
+        public const float WarlordCardScale = 0.6f;
+        /// <summary>原版 `GenericSelectCardContainer.soundOnAppear` 的 cue 名（资产名；本地音效表没有它）。</summary>
+        public const string WarlordAppearCue = "Draft Mode Warlord Appear";
+
+        /// <summary>`Continue` 已按下、退场动画还在走（原版 `warlordExitAnimatedCompleted` 的反面 + 那颗钮已被禁）。</summary>
+        bool _warlordExiting;
+
+        /// <summary>= 原版 `GenericSelectCardContainer.AnimIn(index)`（单张）。返回缩放那条补间（淡入那条另起）。
+        /// <para>⚠️ 缩放走 <see cref="CardView.SetBaseScale"/>、**⛔ 不写 `transform.localScale`**：
+        ///   卡的缩放是「基础 × 高亮系数」（`ApplyScale`），直写会在补间结束后被任何一次
+        ///   `SetHighlight` / `SetPose` 弹回去（静默）—— 同 `CardView.TweenPose` 那段 ⚠️。
+        ///   `SetHighlight(Selected)` 那条自己的 `_hlTween` 也走 `ApplyScale` ⇒ 两边叠起来是
+        ///   「0.6× → 1×」再乘高亮倍率，彼此不打架。</para></summary>
+        public static DG.Tweening.Tween BuildWarlordCardInTween(CardView cv, int index)
+        {
+            if (cv == null) return null;
+            float delay = index * WarlordCardStep;
+            // ① `canvasGroup.alpha = 0` → `DOFade(1, 0.4).SetDelay(delay)`
+            float a = 0f;
+            cv.SetAlpha(0f);
+            DG.Tweening.Tweener fade = DG.Tweening.DOTween.To(
+                () => a, v => { a = v; if (cv != null) cv.SetAlpha(v); }, 1f, WarlordCardDuration);
+            fade = DG.Tweening.TweenSettingsExtensions.SetDelay(fade, delay);
+            CardTween.Use(fade, DG.Tweening.Ease.OutQuad, cv);
+            // ② `DOScale(0.6, 0.4).SetDelay(delay).SetEase(OutBack).From()` —— `.From()` ⇒ 起点 `0.6 × base`
+            float baseScale = cv.BaseScale;
+            float s = baseScale * WarlordCardScale;
+            cv.SetBaseScale(s);
+            DG.Tweening.Tweener tw = DG.Tweening.DOTween.To(
+                () => s, v => { s = v; if (cv != null) cv.SetBaseScale(v); }, baseScale, WarlordCardDuration);
+            tw = DG.Tweening.TweenSettingsExtensions.SetDelay(tw, delay);
+            // 原版 `OnStart`（= 延迟走完、缩放刚开始那一刻）播 `soundOnAppear`
+            tw.OnStart(() => WindowSounds.PlayFx(WarlordAppearCue, "[Draft] 选将卡入场（原版 `soundOnAppear`）"));
+            tw.OnComplete(() => { if (cv != null) cv.SetBaseScale(baseScale); });
+            tw.OnKill(() => { if (cv != null) cv.SetBaseScale(baseScale); });
+            return CardTween.Use(tw, DG.Tweening.Ease.OutBack, cv);
+        }
+
+        /// <summary>= 原版 `GenericSelectCardContainer.AnimOut(index, onComplete)`（单张；index 在原版 `AnimateCardsOut` 里恒 0）。
+        /// 淡出与缩放**同时**起（原版 Sequence 里是 `Append(fade)` + `Join(scale)`）。</summary>
+        public static DG.Tweening.Tween BuildWarlordCardOutTween(CardView cv)
+        {
+            if (cv == null) return null;
+            var seq = DG.Tweening.DOTween.Sequence();
+            float a = cv.Alpha;
+            seq.Append(DG.Tweening.DOTween.To(
+                () => a, v => { a = v; if (cv != null) cv.SetAlpha(v); }, 0f, WarlordCardDuration)
+                .SetEase(DG.Tweening.Ease.OutQuad));
+            float baseScale = cv.BaseScale;
+            float s = baseScale;
+            seq.Join(DG.Tweening.DOTween.To(
+                () => s, v => { s = v; if (cv != null) cv.SetBaseScale(v); },
+                baseScale * WarlordCardScale, WarlordCardDuration)
+                .SetEase(DG.Tweening.Ease.OutQuad));
+            return CardTween.Use(seq, DG.Tweening.Ease.Linear, cv);
+        }
+
+        /// <summary>= 原版 `UICardSelector.AnimateCardsIn()`：对**每一张**候选卡重跑一次 `AnimIn(index)`。
+        /// 原版的唯一调用点是 `DraftModeWarlordSelectionStateDemo.OnWarlordFailed`（选将失败要把卡淡回来），
+        /// 我们本地没有「失败」那一支 ⇒ 本类改成**建完就调一次**（与 `Initialize(..., animateIn: true, i, ...)`
+        /// 逐张入场同一条动画，见 `RebuildWarlordCards` 末尾）。</summary>
+        public void AnimateWarlordCardsIn()
+        {
+            for (int i = 0; i < _warlordViews.Count; i++) BuildWarlordCardInTween(_warlordViews[i], i);
+        }
+
+        /// <summary>起入场动画（**只在真 Play**）。批处理没有帧循环 ⇒ 直接落到终态（`alpha 1` / 基础缩放），
+        /// ⛔ 不起一条永远停在起点的补间（同 `PlayPackOpenAnim` / `CollectionWindow.PlayCardAnimateIn` 的闸）。</summary>
+        void PlayWarlordCardsIn()
+        {
+            if (_warlordViews.Count == 0) return;
+            if (!Application.isPlaying)
+            {
+                // 批处理/编辑器：`CardView.Create` 出来就是 alpha 1、缩放 = `SetPose` 那一档 ⇒ 保持出厂终态即可
+                for (int i = 0; i < _warlordViews.Count; i++)
+                    if (_warlordViews[i] != null) _warlordViews[i].SetAlpha(1f);
+                return;
+            }
+            AnimateWarlordCardsIn();
+        }
+
+        /// <summary>= 原版 `UICardSelector.AnimateCardsOut(onComplete)`：**当前选中那张不动**，其余同时淡出 + 缩到 0.6×，
+        /// 全部走完才回调（我们用协程等 `WarlordCardDuration` 后 `UpdateState`）。
+        /// <para>返回 <c>false</c> = 没起动画（批处理 / 一张卡都没有）⇒ 调用方**同步**推进页面。</para></summary>
+        bool PlayWarlordCardsOut()
+        {
+            if (!Application.isPlaying) return false;
+            bool any = false;
+            for (int i = 0; i < _warlordViews.Count; i++)
+            {
+                var cv = _warlordViews[i];
+                if (cv == null) continue;
+                // 原版 `if (currentSelectedCard != container)` —— 选中的那张**留着**
+                bool sel = i < _warlords.Count && _warlords[i] != null
+                           && !string.IsNullOrEmpty(_warlordId) && _warlords[i].Id == _warlordId;
+                if (sel) continue;
+                if (BuildWarlordCardOutTween(cv) != null) any = true;
+            }
+            return any;
         }
     }
 }

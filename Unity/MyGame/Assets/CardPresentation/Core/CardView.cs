@@ -97,6 +97,15 @@ namespace CardPresentation
         /// `null` 或空 = 一个不画，和原版「先把 7 个位全部 Toggle(false)」一致。</summary>
         public System.Collections.Generic.List<Badge> badges;
 
+        /// <summary>🆕 2026-10-25（R16）：原版 `RawCardScript.spellType@0x90` —— **战术卡**的
+        /// 「文字态 3/4」与「兵种行印不印」共用这一个字段。⚠️ `0` 是合法值（`Normal`）⇒
+        /// 「未填」由 <see cref="spellTypeKnown"/> 表达（同 `statBasesKnown`）。判据与接线见类尾
+        /// `TacticSubtypeLineShown` 的 doc。</summary>
+        public int spellType;
+        /// <summary>见 <see cref="spellType"/>：`true` 时 `spellType` 才算数（`0` = `Normal` 也合法）。
+        /// 🔴 今天全工程 **没有任何构造点**置它（生产者 `BattleDriver.ToCardData` 在 `Battle/**`）。</summary>
+        public bool spellTypeKnown;
+
         public static CardData Simple(string title, int cost, int melee, int health)
         {
             return new CardData
@@ -1172,10 +1181,14 @@ namespace CardPresentation
         // **为什么是图标而不是原版那套**：原版的卡面标记是
         // `BattleCardUI.ShowEphemeral()`（`BattleCardUI__ShowEphemeral.c`，77 行 —— 在卡的位置
         // 实例化一个状态图标 prefab）+ `Card2DController.ToggleGlitch()`（把卡面材质换成
-        // `glitchMaterial`）。⚠️ **glitch 素材本地没有**（`d:/2` 全盘 `*glitch*` 零命中，
-        // 我们的特效导出报告里也零命中）⇒ 按工程既有做法（77 个原版 shader 逐个自建替代）
-        // 本该自建一个 glitch shader；本轮**先用原版真有的那张关键词图标顶上**
-        // （`Atlas_trait_icon_ephemeral.png`，80×80，就在本地图集里）。
+        // `glitchMaterial`）。🔴 **2026-10-25（R16）就地订正（铁律 5）**：本行原来写「**glitch 素材本地没有**」
+        // （`d:/2` 全盘 `*glitch*` 零命中）—— **不成立**，那只是「按名字搜不到」：
+        // 材质 `Card Frame Glitch`（`bundle_duplicateassetisolation_assets_all/Material/Material_-2877403367212247079.json`）、
+        // shader **`Everguild/FX/Sprite Scan Lines`**（`bundle_shaders_assets_all/Shader/Shader_-5025784757600742591.json`）、
+        // 噪声图 `Noise Combined.png` **三件都在本地**（原版走 PPtr，名字里没有 "glitch"）。
+        // ⇒ 结论改成「**要做，只差自建那个 shader**」（铁律 11），本轮**先用**原版真有的那张关键词图标顶上
+        // （`Atlas_trait_icon_ephemeral.png`，80×80，就在本地图集里）；判据/待办见
+        // `资料/完全复刻/报告/R16_卡牌面遗留C_第2轮.md` §没做·ToggleGlitch。
         //
         // ⚠️ **位置和大小是「我们挑的」**：原版的 `ShowEphemeral` 是拿组件在**运行时**实例化
         //    一个 prefab，dump 里看不到它的 rect；那个 prefab 本身也不在我们手上。
@@ -3442,7 +3455,9 @@ namespace CardPresentation
         ///
         /// 规则书说临时卡「回合结束若在手牌则移除」—— **玩家得看得出哪张是临时的**，
         /// 否则牌忽然没了就是「静默失败」。原版的标记是 `BattleCardUI.ShowEphemeral()` +
-        /// `ToggleGlitch()`（glitch 材质，⚠️ 素材本地没有），我们改用原版的**关键词图标**
+        /// `ToggleGlitch()`（glitch 材质 —— 🔴 2026-10-25（R16）更正：**素材本地有**
+        /// `<Material_-2877403367212247079.json>` / shader `Everguild/FX/Sprite Scan Lines` / `Noise Combined.png`，
+        /// 只是要自建那个 shader；见 <see cref="EphemeralIconAt"/> 上面那段），我们**暂时**改用原版的**关键词图标**
         /// （`Atlas_trait_icon_ephemeral.png`）。取舍与出处见 `EphemeralIconAt` 上面的注释。
         ///
         /// ⚠️ 图标没导进来时这个方法**什么都不做**（不画错的），
@@ -5147,6 +5162,11 @@ namespace CardPresentation
             bool hasDesc = !string.IsNullOrEmpty(d.keywords);          // 我们的 `keywords` 就是效果文字（desc）
             bool hasRace = !string.IsNullOrEmpty(SubtypeLine(d));
             // 初始态（原版 `CardTextsController.SetStartingState`）：单位 = 1/2（按 desc 有无）· 战术 = 3/4（按 race）
+            // 🔴 2026-10-25（R16）：战术那支的 `race` **就是**原版的 `spellType != 0` —— 原版
+            //   `SetStartingState.c` / `SetCardTextLayout.c` 写的是 `state = 3 + (spellType != 0)`，
+            //   而 `CardRaceToString(spellType == 0)` 返回空串（兵种行不印）⇒ 两条判据是**同一件事**。
+            //   于是这里不必另写一份 spellType 逻辑：`SubtypeLine` 背后的 `TacticSubtypeLineShown` 已经是
+            //   `spellTypeKnown ? spellType != 0 : 白名单` ⇒ **态 3/4 自动跟着换轨**（判据只留一处）。
             var init = unit
                 ? (hasDesc ? CardTextState.MinionWithDescription : CardTextState.MinionWithoutDescription)
                 : (hasRace ? CardTextState.TacticWithRace : CardTextState.Tactic);
@@ -5301,7 +5321,7 @@ namespace CardPresentation
                 case "unit":    return RaceTerm(d.subtype);
                 case "hero":    return RaceTerm("Warlord");
                 case "defence": return RaceTerm("Defence");
-                case "tactic":  return TacticSubtypeShown.Contains(d.subtype) ? RaceTerm(d.subtype) : null;
+                case "tactic":  return TacticSubtypeLineShown(d) ? RaceTerm(d.subtype) : null;   // 判据在类尾（R16）
                 default:        return null;
             }
         }
@@ -5416,7 +5436,12 @@ namespace CardPresentation
         /// 而 `subtype` 写 `Psychic Power` ⇒ **原版不印那一行，我们印**。
         /// ⇒ 判据换轨要 `CardData.spellType`（`0 = Normal` 是合法值、缺省得用 **-1** 表示「未填」；
         /// 接线在 `BattleDriver.ToCardData`）。在那之前白名单**逐张等价**（另 445 张战术卡 0 差），
-        /// ⛔ 别手工把这一张从白名单踢掉 —— 那会让**别的**同名 subtype 卡一起掉行。</para></summary>
+        /// ⛔ 别手工把这一张从白名单踢掉 —— 那会让**别的**同名 subtype 卡一起掉行。</para>
+        /// <para>🔴 **2026-10-25（R16）已落地一半（铁律 5 就地补记）**：上面的「只差一步接线」已经走进来了 ——
+        /// `CardData` 新增 `spellType` + `spellTypeKnown`，判据收口到 <see cref="TacticSubtypeLineShown"/>
+        /// （`spellTypeKnown` ⇒ 原版真判据；否则退回本白名单）。**本白名单同时降级为「未填时的兜底」**，
+        /// ⛔ 别删（`BattleDriver.ToCardData` 填 `spellType` 之前它仍然是**唯一**在用的那一档）。
+        /// ⇒ 还差的那一半只在 `Battle/**`（生产者），见报告 `R16_卡牌面遗留C_第2轮.md`。</para></summary>
         static readonly HashSet<string> TacticSubtypeShown = new HashSet<string>
         {
             "Dark Pact", "Overlord Power", "Combat Elixir", "Codicil", "Psychic Power",
@@ -9251,7 +9276,7 @@ namespace CardPresentation
 
         /// <summary>本卡的**真 `BoxCollider2D`**（挂在 `_tiltRoot` = 原版 `2DCard` 那一级）。
         /// `Build` 里建（`EnsureHitCollider`），in-hand 档切换时由 `SyncHitCollider` 刷 `size/offset`。
-        /// ⚠️ 只有一颗（主面）；第二面（悬停放大那档）还没落，见上面文件头的说明。</summary>
+        /// ⚠️ 这是**主面**那一颗；**第二颗**（原版 `colliderShowInBig`）叫 `_hitColliderBig`，声明在**类尾**（2026-10-25 R16）。</summary>
         BoxCollider2D _hitCollider;
 
         /// <summary>`OverlapPoint` 的结果缓冲。64 张卡叠在同一点的上限远高于实际
@@ -9282,7 +9307,7 @@ namespace CardPresentation
             var col = frame.GetComponent<BoxCollider2D>();
             if (col == null) col = frame.gameObject.AddComponent<BoxCollider2D>();
             col.isTrigger = false;
-            _hitCollider = col;
+            _hitCollider = col; EnsureBigHitCollider(frame);   // 第二颗（`colliderShowInBig`）同 GO，见类尾
             SyncHitCollider();
         }
 
@@ -9316,7 +9341,7 @@ namespace CardPresentation
         {
             if (_hitEnabled == on) return;
             _hitEnabled = on;
-            if (_hitCollider != null) _hitCollider.enabled = on;
+            if (_hitCollider != null) _hitCollider.enabled = on; if (!on) ShowInBigColliderEnabled = false;   // 原版 `Toggle(false)` 连第二面一起关（`CardCollider2D__Toggle.c:6-9`）
         }
         bool _hitEnabled = true;
 
@@ -9375,7 +9400,7 @@ namespace CardPresentation
         /// 判据 = 原版那两颗 `BoxCollider2D` + 序列化 `colliderHeightMultiplierInHand`（见文件头）。</summary>
         void HitRect(out float halfH, out float centerDy)
         {
-            bool inHand = _faceMode == CardFace.Hand;
+            bool inHand = _faceMode == CardFace.Hand && !_inHandBigGeometry;   // 「showing in hand」档 ⇒ 主面回常态矩形（= 原版 `ResetCollider`，判据见类尾 `SetCollidersShowBig`）
             halfH   = inHand ? HitHalfHInHand     : HitHalfH;
             centerDy = inHand ? HitCenterDyInHand : HitCenterDy;
         }
@@ -9436,7 +9461,7 @@ namespace CardPresentation
                                + " 颗）⇒ 更靠后的 collider 没被检查到；实际场景不该有这么多卡叠在一点。");
             }
             for (int i = 0; i < n; i++)
-                if (_hitQueryBuf[i] == col) return true;
+                if (_hitQueryBuf[i] == col || (_hitColliderBig != null && _hitQueryBuf[i] == _hitColliderBig)) return true;   // 两颗都算「在本卡上」（原版两颗挂在同一 GO ⇒ 同一套 pointer 处理）
             return false;
         }
 
@@ -9474,7 +9499,7 @@ namespace CardPresentation
             if (!_hitEnabled) return false;      // 原版 `CardCollider2D.Toggle(false)` ⇒ 不吃命中（见 `SetHitEnabled`）
             var l = HitFrame().InverseTransformPoint(world);
             HitRect(out float halfH, out float centerDy);
-            return Mathf.Abs(l.x) <= HitHalfW && Mathf.Abs(l.y - centerDy) <= halfH;
+            return (Mathf.Abs(l.x) <= HitHalfW && Mathf.Abs(l.y - centerDy) <= halfH) || BigRectContains(l);   // 并集 = 原版两颗 collider（见类尾 `BigRectContains`）
         }
 
         /// <summary>世界坐标在不在**原版 `UI Collider`** 那个矩形里（**只给战斗展示窗**
@@ -13794,6 +13819,180 @@ namespace CardPresentation
             m.RecalculateBounds();
             _quad = m;
             return m;
+        }
+
+        // ==================================================================
+        //  第三档命中：原版 `CardCollider2D.colliderShowInBig`（悬停放大档）—— 2026-10-25（R16）
+        // ==================================================================
+        // 🔴 **为什么追加在类尾**：本文件被几本账按 `<文件>:<行号>` 引用（`CardView.cs` 共 159 处），
+        //    往中间插成员会让**下游全部行号平移**（`工具/check_ledger_points.py` 报「漂移」，别的代理的账也跟着脏）
+        //    ⇒ **新成员一律追加在类尾**；就地改动保持**行数不变**（只替换同一行）。
+        //
+        // 判据（一手，四条互证）：
+        //  ① 预制体**两颗 `BoxCollider2D` 挂在同一个 GO（`2DCard`）** —
+        //     `d:/2/新解包资源/assets_full/bundle_battleprefabs_vfxandmisc_assets_all/BoxCollider2D/`
+        //     · `BoxCollider2D_7520353667969031104.json` = 主面 `m_Size 1.97 × 3.02` · `m_Offset (0,0)`
+        //     · `BoxCollider2D_2582590304383179712.json` = **第二面 `m_Size 1.25 × 2.53` · `m_Offset (0,−2.62)`**
+        //       （矩形 y ∈ [−3.885, −1.355]：**贴在卡心下方**，只与主面下沿重叠 0.155）
+        //     两颗都 `m_IsTrigger: false`，`m_GameObject` 同为 `9095217088215161792`（= `GameObject/2DCard.json`）。
+        //  ② 字段归属：`CardCollider2D.colliderShowInBig`（`BoxCollider2D`）· `colliderHeightMultiplierInHand`；
+        //     `CardCollider2D__.ctor.c` 只把 `+0x50` 写成 `0x3f99999a`（= **1.2f** 的 ctor 默认），
+        //     而**跑游戏的是 prefab 序列化值 1.01**（本文件 `HitHalfHInHand` 已按 1.01 落地）。
+        //  ③ 行为（`d:/2/tools/decomp_full/CardCollider2D__{Initialize,SetCollidersShowBig,Toggle,ToggleShowInBigCollider}.c`
+        //     ＋ `d:/2/tools/cpp2il/out_cpp2il_dev_ilspy/CardCollider2D.cs`）逐支：
+        //     · `Initialize()`            ⇒ 抓 originalSize/offset → **`SetCollidersShowBig(false)`**（出厂 = 第二面关）
+        //     · `SetCollidersShowBig(on)` ⇒ `big.enabled = on`；
+        //         `on`  ⇒ `Toggle(true)` + `ResetCollider()`（主面回**常态**矩形）
+        //         `!on` ⇒ 主面写成 **in-hand 档**（`size.y ×= 1.01`、`offset.y −= Δ/2`）+ `Toggle(true)`
+        //     · `Toggle(false)`           ⇒ 主面关，**并且把第二面也关**（`CardCollider2D__Toggle.c:6-9`）
+        //     · `ToggleShowInBigCollider` ⇒ **只**写 `big.enabled`（原版 `private`、**全库 0 调用点** = 死代码）
+        //     ⚠️ 两个方法的 `int indexInHand` 形参在**机器码里完全没读**（`__SetCollidersShowBig.c` 的签名
+        //        只有 `(this, option)`；`__ToggleShowInBigCollider.c` 同）⇒ 我们**不保留这个死形参**。
+        //  ④ 调用面：`CardScript.StartShowingCardInHand` ⇒ `SetCollidersShowBig(true, PositionInHand)`；
+        //     `CardScript.StopShowingCardInHand` ⇒ `SetCollidersShowBig(false)`（`CardScript.cs:10595` / `:11030`）。
+        //     「showing in hand」= 手牌里那张**抬起 + 放大**的态；我们的等价物 = `HandLayout.hoveredIndex`
+        //     （`hoverLift` / `hoverScale 1.3` → `HandLayout.cs:265-268`、`:796-800`，2026-10-23 `F6` 已认过这条对应）。
+        //     🔴 **接线点 = `Hand/CardInteraction`（`_hovered` 变迁处）或 `HandLayout.Refresh`** ——
+        //     这两个文件**不在 R16 白名单** ⇒ 本批只落 **Core 侧 API + 几何 + 命中并集**，
+        //     接线指令写在 `资料/完全复刻/报告/R16_卡牌面遗留C_第2轮.md`。
+        //
+        // ⚠️ 与 `Contains` 的关系：`Contains`（手算）与 `HitByCollider`（物理）必须仍然等价（`W57` 那条
+        //    「两份独立来源」的约定）⇒ 两边都取**并集**：`Contains` 加 `BigRectContains`，
+        //    `HitByCollider` 把 `_hitColliderBig` 也当成「本卡那一颗」。
+
+        /// <summary>原版第二颗 collider 的**半宽** = `m_Size.x 1.25 ÷ 2` = **0.625**。</summary>
+        public const float HitBigHalfW = 1.25f * 0.5f;
+        /// <summary>第二颗 collider 的**半高** = `m_Size.y 2.53 ÷ 2` = **1.265**。</summary>
+        public const float HitBigHalfH = 2.53f * 0.5f;
+        /// <summary>第二颗 collider 的**中心 y** = `m_Offset.y` = **−2.62**（整块在卡心**下方**）。
+        /// ⚠️ 这个矩形**不是**「放大的卡」的形状 —— 它是「卡被抬走后指针留在原处」那一段的接住区，
+        /// ⛔ 别拿 `hoverScale(1.3)` 或卡面尺寸去推它。</summary>
+        public const float HitBigCenterDy = -2.62f;
+
+        /// <summary>原版第二颗 `BoxCollider2D`（`colliderShowInBig`）。`EnsureHitCollider` 里建（幂等）。</summary>
+        BoxCollider2D _hitColliderBig;
+
+        /// <summary>「主面用常态矩形」那一档 = 原版 `SetCollidersShowBig(true)` 之后（内部调了 `ResetCollider`）。
+        /// ⚠️ 它**只管主面几何**；第二面开没开是另一件事（见 <see cref="ShowInBigColliderEnabled"/>）——
+        /// 原版也只有 `SetCollidersShowBig` 会 `ResetCollider`，`ToggleShowInBigCollider` 不动几何。</summary>
+        bool _inHandBigGeometry;
+
+        /// <summary>collider 还没建时先记在这里的逻辑态（`Build` 之后由 `EnsureBigHitCollider` 落进真组件）。</summary>
+        bool _bigEnabled;
+
+        static bool _hitColliderBigWarned;
+
+        /// <summary>第二颗 collider 现在**开没开** —— 物理世界的事实（`Contains` 的并集判据读它）。
+        /// <para>没建起来时退回逻辑态 <see cref="_bigEnabled"/>：这样「`Build` 之前设状态」不会丢（⛔ 不静默丢）。</para></summary>
+        public bool ShowInBigColliderEnabled
+        {
+            get { return _hitColliderBig != null ? _hitColliderBig.enabled : _bigEnabled; }
+            private set
+            {
+                _bigEnabled = value;
+                if (_hitColliderBig != null) _hitColliderBig.enabled = value;
+                else if (value && !_hitColliderBigWarned)
+                {
+                    _hitColliderBigWarned = true;
+                    Debug.LogWarning("[CardPresentation] " + name + "：第二颗 collider（`colliderShowInBig`）还没建就"
+                                   + "被要求打开 ⇒ 状态先记着，等 `Build()` 时落进真组件（唯一成因 = `Build()` 没跑过）");
+                }
+            }
+        }
+
+        /// <summary>建第二颗 `BoxCollider2D`（原版 `colliderShowInBig`；**幂等**，`Build` 重入安全）。
+        /// <para>出厂 **`enabled = false`** —— 对应原版 `Initialize()` 末尾那句 `SetCollidersShowBig(false)`
+        /// （`CardCollider2D__Initialize.c:20-24`）。</para>
+        /// <para>⚠️ 两颗 collider 在**同一个 GameObject**（原版 `2DCard`）上 —— `AddComponent` 第二颗是合法的，
+        /// Unity 允许同一 GO 挂多颗 `Collider2D`；`Physics2D.OverlapPoint` 会**逐颗**返回它们，
+        /// 所以 `HitByCollider` 必须两颗都比（已改）。</para></summary>
+        void EnsureBigHitCollider(Transform frame)
+        {
+            var cols = frame.GetComponents<BoxCollider2D>();
+            BoxCollider2D big = null;
+            for (int i = 0; i < cols.Length; i++)
+                if (cols[i] != _hitCollider) { big = cols[i]; break; }   // 排除主面那一颗
+            if (big == null) big = frame.gameObject.AddComponent<BoxCollider2D>();
+            big.isTrigger = false;                                       // 原版 `m_IsTrigger: false`
+            big.size = new Vector2(HitBigHalfW * 2f, HitBigHalfH * 2f);
+            big.offset = new Vector2(0f, HitBigCenterDy);
+            big.enabled = _bigEnabled;                                   // 幂等：重入时跟着逻辑态走（出厂 false）
+            _hitColliderBig = big;
+        }
+
+        /// <summary>原版 `CardCollider2D.SetCollidersShowBig(bool)` 的等价物 —— **手牌「亮出来」档的总开关**。
+        /// <para>行数顺序照 `__SetCollidersShowBig.c` 逐句：① `big.enabled = option` ② `Toggle(true)`
+        /// ③ 几何（`on` ⇒ 常态矩形 / `!on` ⇒ in-hand 档）。</para>
+        /// <para>⚠️ 与 `SetColliderInHand`/`SetColliderNotInHand` 的分工：那两条按**卡状态**给几何，
+        /// 我们这边几何归 `HitRect()`（按 `CardFace`），所以 `!on` 那一支**落到 `_faceMode == Hand`
+        /// 时自然就是 in-hand 档**；若调用方不在手牌档，得到的是常态矩形 ——
+        /// 原版那一支会无条件写 in-hand 矩形（**已知的极窄偏离**：原版调用点只有
+        /// `Start/StopShowingCardInHand` 两条，都在手牌档内）。</para></summary>
+        public void SetCollidersShowBig(bool on)
+        {
+            ShowInBigColliderEnabled = on;      // ①
+            _inHandBigGeometry = on;            // ③ 的前置：on ⇒ `ResetCollider` 那一档
+            SetHitEnabled(true);                // ② 原版两支都 `Toggle(true)`
+            SyncHitCollider();                  // ③ 把几何写进真 collider
+        }
+
+        /// <summary>原版 `CardCollider2D.ToggleShowInBigCollider(bool)`：**只**写 `colliderShowInBig.enabled`。
+        /// <para>⚠️ 原版是 `private` 且**全库 0 调用点**（死代码）—— 我们公开它只为 1:1 对账 + 断言；
+        /// ⛔ 生产路径应当走 <see cref="SetCollidersShowBig"/>（那条会连带主面几何）。</para></summary>
+        public void ToggleShowInBigCollider(bool on)
+        {
+            ShowInBigColliderEnabled = on;
+        }
+
+        /// <summary>`Contains` 的**并集**那一半：点落在第二颗 collider 的矩形里吗（参数是**卡局部**坐标）。
+        /// <para>只在第二面**开着**时才算 —— 两边（手算 / 物理）读的是同一个开关（<see cref="ShowInBigColliderEnabled"/>），
+        /// 所以 `Contains` ≡ `HitByCollider` 在「第二面开 / 关」两档都成立。</para></summary>
+        bool BigRectContains(Vector3 local)
+        {
+            if (!ShowInBigColliderEnabled) return false;
+            return Mathf.Abs(local.x) <= HitBigHalfW
+                && Mathf.Abs(local.y - HitBigCenterDy) <= HitBigHalfH;
+        }
+
+#if UNITY_EDITOR
+        /// <summary>自检用：第二颗 collider（没建 ⇒ `null`）。断言「存在 + 同 GO + 尺寸/偏移 = 原版字面量」用它。</summary>
+        public BoxCollider2D BigColliderForTest { get { return _hitColliderBig; } }
+        /// <summary>自检用：第二颗 collider 的 `size`（没建 ⇒ 零向量）。期望值从**原版字面量**来（`1.25 × 2.53`）。</summary>
+        public Vector2 BigColliderSizeForTest { get { return _hitColliderBig != null ? _hitColliderBig.size : Vector2.zero; } }
+        /// <summary>自检用：第二颗 collider 的 `offset`（没建 ⇒ 零向量）。期望 = `(0, −2.62)`。</summary>
+        public Vector2 BigColliderOffsetForTest { get { return _hitColliderBig != null ? _hitColliderBig.offset : Vector2.zero; } }
+#endif
+
+        // ==================================================================
+        //  战术卡的「印不印兵种行」/「文字态 3 还是 4」—— 同一件事（2026-10-25 · R16）
+        // ==================================================================
+        // 🔴 **为什么这个方法在类尾**：本文件被几本账按 `<文件>:<行号>` 引用，判据块放在调用点旁边会让
+        //    下游行号整体平移（`check_ledger_points.py` 报漂移）⇒ 只留调用点一行，判据全搬到这里。
+        //
+        // 🥇 原版判据（一手，两份方法体互证）：
+        //   · `decomp_full/GameStaticData__CardRaceToString.c` —— `cardType == 0x14`（战术/防御）那一支：
+        //     `name = Enum.ToString(spellType@0x90)` → `GetTranslation("Card_Race/" + name)`，
+        //     而 **`spellType == 0`（`Normal`）时返回空串** ⇒ **兵种行不印**。
+        //   · `decomp_full/CardTextsController__SetStartingState.c` / `__SetCardTextLayout.c` ——
+        //     `cardType == Tactic(0x14) || Whispers(0x28)` ⇒ `state = 3 + (spellType != 0)`；其余按 desc 有无。
+        //   ⇒ 两条是**同一个谓语**，所以我们只实现一处（这里），文字态读的是它的上游 `SubtypeLine`
+        //     （`ComputeTextState` 里 `hasRace = !IsNullOrEmpty(SubtypeLine(d))`）。
+        //
+        // ⚠️ **两档口径**：`spellTypeKnown == true` ⇒ 原版真判据；`false`（**今天全工程的状态**：生产者
+        //    `BattleDriver.ToCardData` 还没填，那个文件在 `Battle/**`）⇒ 退回 `TacticSubtypeShown` 白名单。
+        //    实测口径（`cards_engine.json` 1128 张 / tactic 446 张）：白名单与 `spellType != 0` **445/446 一致**，
+        //    唯一差的一张 = `Spear of Macragge`（`d94f91051ecfe014f97577ff573571aa`，`spellType=0` 而
+        //    subtype 写 `Psychic Power`）。调度台 2026-10-25 已裁定「**副标题行不印，以数字版字段为准**」
+        //    ⇒ 生产者一填 `spellType`，这张自动掉行（⛔ 别手工把它从白名单踢掉：那会让**别的**同名 subtype 卡一起掉行）。
+        //
+        // ⚠️ **已知未覆盖的边角**：`spellTypeKnown && spellType != 0` 而 `subtype` 为空串时，原版仍会印
+        //    `Enum.ToString(spellType)`；我们这条返回 true，但 `RaceTerm("")` 也是空 ⇒ `SubtypeLine` 得 null
+        //    （态会是 3 而不是 4）。**今天 0 例**（tactic 卡 `subtype` 全非空）；要闭合得再补一张
+        //    `spellType → 枚举名` 表（`RaceKeyBySubtype` 已有 6 对，其余枚举名与卡表写法逐字相同）。
+        static bool TacticSubtypeLineShown(CardData d)
+        {
+            if (d.spellTypeKnown) return d.spellType != 0;
+            return TacticSubtypeShown.Contains(d.subtype);
         }
     }
 }

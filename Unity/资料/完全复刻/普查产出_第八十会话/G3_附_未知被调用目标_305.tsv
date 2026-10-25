@@ -1,0 +1,309 @@
+## G3 附:cpp2il 「Method not found @<VA>」305 个不同的被调用目标 —— 用 il2cpp_out/script.json 的 Address(RVA) 反查名字
+## 命中 206 / 305(67.5%)；命中覆盖 1,628 / 6,651 条注记。未命中的是 il2cpp 运行时 helper(0x1800xxxxx / 0x1803Fxxxx 段)。
+## VA = RVA + ImageBase(0x180000000)。生成脚本: d:/4/Unity/_tmp_view/g3/resolve_callees.py
+va	rva	count	resolved_name	users
+0x1800021F0	0x21F0	999		AIBotsConfig.cs;AchievementsManager.cs;AchievementsMenu.cs;AddressablesManager.cs;AllianceMemberList.cs
+0x1803F3750	0x3F3750	945		--f__AnonymousType0.cs;--f__AnonymousType1.cs;--f__AnonymousType10.cs;--f__AnonymousType100.cs;--f__AnonymousType101.cs
+0x1803F3780	0x3F3780	640		AbilityLogic.cs;AchievementsMenu.cs;ActiveAbility.cs;AddressablesManager.cs;AllianceInvitationEntry.cs
+0x1803F4510	0x3F4510	562		AccountTab.cs;AddressableLocalizationLibrary.cs;AiScripted.cs;AnimFXInstanceParticleAdjacent.cs;AnimFXModuleChangeMaterial.cs
+0x1803F4020	0x3F4020	530		--f__AnonymousType0.cs;--f__AnonymousType1.cs;--f__AnonymousType10.cs;--f__AnonymousType100.cs;--f__AnonymousType101.cs
+0x1804B33B0	0x4B33B0	449	Unity.Services.Core.Telemetry.Internal.Metrics$$Unity.Services.Core.Telemetry.Internal.IMetrics.SendSumMetric	--f__AnonymousType108.cs;AI.cs;AIBotsConfig.cs;AbilityLogic.cs;AchievementsManager.cs
+0x180F3FA70	0xF3FA70	231	System.Collections.Generic.List\u003CVisualEffectControlTrackController.Clip\u003E$$GetEnumerator	AI.cs;AbilityLogic.cs;AchievementsManager.cs;AddressablesManager.cs;AlliancesTrophyController.cs
+0x1803F17A0	0x3F17A0	230		AIBotsConfig.cs;AchievementsManager.cs;AchievementsMenu.cs;AddressablesManager.cs;AllianceMemberList.cs
+0x1803F9520	0x3F9520	194		AllianceInvitationEntry.cs;AllianceListEntry.cs;AllianceMemberEntry.cs;AllianceMemberList.cs;AllianceSearchTab.cs
+0x180002340	0x2340	173		AIBotsConfig.cs;AchievementsManager.cs;AchievementsMenu.cs;AddressablesManager.cs;AllianceMemberList.cs
+0x180482360	0x482360	109		--f__AnonymousType108.cs;AI.cs;AiScripted.cs;BattleAction.cs;BattleManager.cs
+0x180D620D0	0xD620D0	75	PlayfabWrapper$$GenericCloudScriptHandler\u003Cobject\u003E	AchievementsManager.cs;AllianceTrophy.cs;AllianceView.cs;AlliancesController.cs;AlliancesManager.cs
+0x1803F4060	0x3F4060	57		--f__AnonymousType108.cs;ListExtensions.cs;PlayfabWrapper.cs
+0x180482520	0x482520	45		--f__AnonymousType108.cs;ListExtensions.cs;PlayfabWrapper.cs;SpreadsheetData.cs;UnityContext.cs
+0x181E134A0	0x1E134A0	45	System.Runtime.CompilerServices.ConfiguredTaskAwaitable.ConfiguredTaskAwaiter$$GetResult	AddressablesManager.cs;AddressablesResetController.cs;AudioSourcesController.cs;CardScript.cs;GameBootstrap.cs
+0x1812C46B0	0x12C46B0	45	System.Runtime.CompilerServices.ConfiguredTaskAwaitable.ConfiguredTaskAwaiter\u003CTimeCheatingDetector.OnlineTimeResult\u003E$$get_IsCompleted	AddressablesManager.cs;AddressablesResetController.cs;AudioSourcesController.cs;CardScript.cs;GameBootstrap.cs
+0x180EB0AE0	0xEB0AE0	45	TMPro.TMP_Text$$GetCompoundBounds	AddressablesManager.cs;AudioSourcesController.cs;BaseAddressableLibrary.cs;EntityObjectsManager.cs;GameModes.cs
+0x1804803F0	0x4803F0	43		--f__AnonymousType108.cs;ListExtensions.cs;PlayfabWrapper.cs;SpreadsheetData.cs;UnityContext.cs
+0x1816AE2A0	0x16AE2A0	36	System.Collections.Generic.Dictionary\u003CStyleSheetCache.SheetHandleKey, object\u003E$$GetEnumerator	AchievementsManager.cs;AddressablesManager.cs;AlliancesTrophyController.cs;AssetLocator.cs;CampaignNode.cs
+0x18307E3A0	0x307E3A0	36	UnityEngine.GUILayout$$EndHorizontal	InRoomChat.cs;PhotonStatsGui.cs;Reporter.cs
+0x180CF5FF0	0xCF5FF0	35	InventoryManager$$Add\u003Cobject\u003E	AlliancesManager.cs;AlternateArtInventory.cs;AlternateArtPanel.cs;CardServices.cs;CurrencyExtensions.cs
+0x181D34B80	0x1D34B80	34	Unity.Hierarchy.Hierarchy$$EnumerateNodeTypeHandlersBase	AnimFXModuleCardback.cs;AnimFXModuleChangeVelocity.cs;AnimFXModuleCollisions.cs;AnimFXModuleScaleByTarget.cs;AnimFxModuleMoveParticlesToTarget.cs
+0x1804B3000	0x4B3000	34	Unity.Services.Core.Environments.Internal.Environments$$.ctor	CollectionFilterController.cs;EventRelay.cs;FastModeBaseEvent.cs;Inventory.cs;InventoryManager.cs
+0x1805E38D0	0x5E38D0	32		AiScripted.cs;BattleCardUI.cs;BattleManagerSupport.cs;BattleTutorialManager.cs;CardScript.cs
+0x180001F90	0x1F90	29		BoosterInfoPopup.cs;CardCollectionFilterController.cs;Decorator.cs;EventRelay.cs;Extensions.cs
+0x1801EAF30	0x1EAF30	28		ItemDrawer.cs
+0x181F8EB10	0x1F8EB10	26	System.Diagnostics.TraceEventCache$$GetThreadId	AssetLocator.cs;ListExtensions.cs;MissionChallengeProgress.cs;ReflectionHelper.cs
+0x180004CF0	0x4CF0	24		ListExtensions.cs;PlayfabWrapper.cs
+0x1803F3740	0x3F3740	24		ListExtensions.cs;PlayfabWrapper.cs
+0x1804886E0	0x4886E0	22		AnimFXModuleChangeVelocity.cs;BouyancyEffect.cs;LightFlickerEffect.cs;MaterialFlickerEffect.cs;SpriteFlickerEffect.cs
+0x1806FB110	0x6FB110	20	Unity.Services.Core.Registration.CorePackageInitializer$$\u003CInitializeComponents\u003Eg__SendFailedInitDiagnostic|47_1	AudioSourcesController.cs;BattleManager.cs;EntityObjectsManager.cs;GameModeButtonDemoVersion.cs;LiveOpsHandler.cs
+0x180A89510	0xA89510	19	System.Xml.Linq.XNamespace$$op_Inequality	EverguildInput.cs;GameModes.cs;LiveopsHelper.cs;LoadableReference.cs;NetworkingPeer.cs
+0x1810800B0	0x10800B0	18	UnityEngine.U2D.Animation.NativeCustomSlice\u003C__Il2CppFullySharedGenericStructType\u003E$$Default	Reporter.cs
+0x1805E39D0	0x5E39D0	17		BattleManager.cs;CardScript.cs;GameWindow.cs;PlaySoundOnTime.cs
+0x180F4AB90	0xF4AB90	17	System.Collections.Generic.List\u003Cobject\u003E$$System.Collections.IList.get_Item	BiDirectionalDictionary.cs;CollectionDisplay.cs;DynamicList.cs
+0x181452130	0x1452130	17	System.Collections.Generic.Dictionary.ValueCollection\u003CTypeConverterRegistry.ConverterKey, object\u003E$$GetEnumerator	CampaignNode.cs;CardDeck.cs;LiveOpsHandler.cs;LiveOpsManager.cs;NetworkingPeer.cs
+0x1800066E0	0x66E0	16		UICornersGradient.cs;UIGradient.cs;UITextCornersGradient.cs;UITextGradient.cs
+0x1820CFE00	0x20CFE00	15	UnityEngine.Touch$$get_phase	BattleTutorialManager.cs;CombatCameraZoom.cs;InputToEvent.cs;Reporter.cs;TapParticleController.cs
+0x1805E3920	0x5E3920	14		AbilityLogic.cs;AiScripted.cs;BattleManager.cs;MatchResultData.cs
+0x1808649B0	0x8649B0	14	System.Dynamic.Utils.TypeUtils$$IsImplicitReferenceConversion	AddressablesManager.cs;AssetLocator.cs;ChallengeButton.cs;DailyRewardDrawerController.cs;DailyStreakItemContainer.cs
+0x180010D40	0x10D40	14		LoadBalancingPeer.cs
+0x180001F00	0x1F00	13		AlternateArtStyleItem.cs;ArmyItem.cs;InventoryManager.cs;PunTurnManager.cs;SceneInitializer.cs
+0x1809163D0	0x9163D0	13	Unity.Burst.Unsafe$$AreSame\u003C__Il2CppFullySharedGenericType\u003E	AssetLocator.cs;CollectionScreen.cs;EverguildButtonMaterialModifier.cs;OpenEventButton.cs;OpenWindowButton.cs
+0x1800020B0	0x20B0	13		DraftExpiringContent.cs;DraftModeExpirePopup.cs;DraftModeMenuPayStateDemo.cs;DraftModeSelectPacksStateDemo.cs;Extensions.cs
+0x180486C38	0x486C38	12		AbilityLogic.cs;BattleEndPlayerData.cs;CurrencyConfig.cs;MultiplyRewardsFunction.cs;TimeHelper.cs
+0x180002280	0x2280	12		AllianceRatingDisplay.cs;CatalogItemContainer.cs;Extensions.cs;PriceDisplayButton.cs;ProfileRankingSection.cs
+0x1810B6610	0x10B6610	12	UnityEngine.Touch$$get_position	InputToEvent.cs;Reporter.cs;TouchInputManager.cs
+0x1803F4050	0x3F4050	11		AddressablesManager.cs;DraftRankingDataProvider.cs;GrabScreenFeatureRenderGraphAPI.cs;NavigationPanelController.cs;ParentEventHandler.cs
+0x180002020	0x2020	11		ChangeRankedModeToggle.cs;GrabScreenFeatureRenderGraphAPI.cs;MissionsTab.cs;PlayerDataManager.cs;RankedEventWindow.cs
+0x1803F2020	0x3F2020	11		GameWindowWithTabs.cs;InventoryManager.cs;ListExtensions.cs;PlayerAvatarDataManager.cs;PlayfabWrapper.cs
+0x1830B7480	0x30B7480	10	UnityEngine.Touch$$get_deltaTime	AnimFXModuleChangeVelocity.cs;TapParticleController.cs
+0x182F56840	0x2F56840	10	UnityEngine.AudioSource$$set_resource	AudioCue.cs;AudioSourcesController.cs;FadingAudioSource.cs;MusicManager.cs;SoundManager.cs
+0x180D622F0	0xD622F0	9	PlayfabWrapper$$GenericCloudScriptHandler\u003Cobject\u003E	AllianceMemberOptionsPopup.cs;AlternateArtPanel.cs;DebugEventTogglerWindow.cs;DraftModeWarlordSelectionStateDemo.cs;ForgeWindowTab.cs
+0x180488130	0x488130	9		AnimFXModuleChangeVelocity.cs;BlinkGraphic.cs;LampsWindEffect.cs;UIFlippableAndRotableUVs.cs;UIGradient.cs
+0x1800122E0	0x122E0	9		DebugEventTogglerEntry.cs;EphemeralState.cs;ILiveOpsHandler.cs;LiveOpsManager.cs
+0x180D3ADB0	0xD3ADB0	8	UnityEngine.AddressableAssets.Addressables$$LoadAssetAsync\u003Cobject\u003E	AddressableAllianceItemsLibrary.cs;AddressableAlternateArtCardLibrary.cs;AddressableCardLibrary.cs;AddressableCosmeticsLibrary.cs;AddressableDeckLibrary.cs
+0x182F5D110	0x2F5D110	8	UnityEngine.RaycastHit$$get_point	AnimFxModuleMoveParticlesToTarget.cs;BattleManager.cs;InputToEvent.cs;TapParticleController.cs;TreeFloorPositioning.cs
+0x180F13D90	0xF13D90	8	Spine.ExposedList\u003C__Il2CppFullySharedGenericType\u003E$$.ctor	BiDirectionalDictionary.cs;CollectionDisplay.cs;CollectionFilterController.cs;DynamicList.cs;LiveOpsHandler.cs
+0x180007240	0x7240	8		DailyRewardItemContainer.cs;DropTableContainer.cs;ShopContainerV2.cs;SpreadsheetData.cs
+0x181AEAFB0	0x1AEAFB0	8	ItemInfo\u003C__Il2CppFullySharedGenericType\u003E$$SetInfo	DebugReward.cs;DebugRewardWindow.cs;PurchasesManager.cs;RewardInfo.cs
+0x180B11490	0xB11490	7	UnityEngine.Tilemaps.TileBase$$StartUp	BattleDeviceCompatibilityController.cs;BattleManager.cs;MaterialChangerByQuality.cs;TestLoginManager.cs
+0x180B13B00	0xB13B00	7	Firebase.Analytics.FirebaseAnalyticsInternalPINVOKE.SWIGStringHelper$$CreateString	BattleManager.cs;BattleTipController.cs;ChooseCardMenu.cs;MulliganManager.cs;RewardWindow.cs
+0x180012E50	0x12E50	7		CardListItemScript.cs
+0x180010E40	0x10E40	7		NetworkingPeer.cs
+0x1812BB0D0	0x12BB0D0	6	UnityEngine.Touch$$get_fingerId	BattleTutorialManager.cs;CombatCameraZoom.cs;EverguildTextMeshPro.cs;ResolutionManager.cs;TapParticleController.cs
+0x180534610	0x534610	6		CardScript.cs;OnJoinedInstantiate.cs;TMProWarpText.cs
+0x180526130	0x526130	6	Unity.Services.RemoteConfig.ConfigManagerImpl$$SetCustomUserID	ChallengeManager.cs;DeckInfoPopup.cs;PracticeModePopup.cs;TutorialManager.cs;TutorialModePopup.cs
+0x1815EB4F0	0x15EB4F0	6	CollectionDisplay\u003Cobject\u003E$$GetItemObject	CollectionDisplay.cs
+0x1816A4830	0x16A4830	6	System.Collections.Generic.Dictionary\u003CTypeConverterRegistry.ConverterKey, object\u003E$$System.Collections.Generic.IReadOnlyDictionary\u003CTKey,TValue\u003E.get_Values	Inventory.cs;ToggleCollectionFilter.cs
+0x180C02B60	0xC02B60	6	AssetLocator$$GetAsset\u003Cobject\u003E	LoadableReference.cs
+0x1800121A0	0x121A0	6		RankedDeckSelector.cs;RankedEventWindow.cs;RankedEventWindowV2.cs;SkirmishEventWindow.cs
+0x1803F4990	0x3F4990	5		--f__AnonymousType108.cs;ListExtensions.cs;PlayfabWrapper.cs
+0x1818A6ED0	0x18A6ED0	5	UnityEngine.Playables.PlayableSystems.PlayableSystemDelegate$$.ctor	AllianceMemberTab.cs;LiveOpsHandler.cs;PlayfabWrapper.cs;UiContainer.cs
+0x180F2E7A0	0xF2E7A0	5	System.Collections.Generic.List\u003CRegexCharClass.SingleRange\u003E$$GetEnumerator	BattleCardUI.cs;CardScript.cs;FilterMethods.cs
+0x182FF3EF0	0x2FF3EF0	5	UnityEngine.LayerMask$$op_Implicit	BattleTutorialManager.cs;GrabScreenFeature.cs;GrabScreenFeatureRenderGraphAPI.cs;GrabScreenFeatureU6.cs;TapParticleController.cs
+0x181F056E0	0x1F056E0	5	System.Char$$ToString	CardTraitCollection.cs;NameGenerator.cs
+0x1807903C0	0x7903C0	5	System.Xml.Linq.XElement$$get_NodeType	EnvironmentHelper.cs
+0x18048A744	0x48A744	5		Extensions.cs;NetworkingPeer.cs;PhotonTransformView.cs;PhotonTransformViewRotationControl.cs;TMProWarpText.cs
+0x180049F40	0x49F40	5		InventoryManager.cs
+0x180770DE0	0x770DE0	5		PurchasesManager.cs
+0x180486DA0	0x486DA0	4		AnimFXModuleChangeVelocity.cs;AnimFXModuleScaleByTarget.cs;CardAnimController.cs;DragAndDropItem.cs
+0x18048A0D0	0x48A0D0	4		AnimFXModuleScaleByTarget.cs;CamerasConversionHelper.cs;CardsHorizontalLayout.cs
+0x181F70B00	0x1F70B00	4	System.ValueType$$Equals	AnimateUIMaterialProperty.cs;AudioMixerAddresableReferences.cs;Enchantments.cs
+0x180D34D30	0xD34D30	4	UnityEngine.Object$$Instantiate\u003Cobject\u003E	BattleCardUI.cs;BattleManager.cs;MulliganManager.cs
+0x180002430	0x2430	4		BattleManager.cs;CardRarityFilter.cs;CardTypeFilter.cs;ToggleCollectionFilter.cs
+0x180632C40	0x632C40	4		BattleManager.cs;ObjAnimEffects.cs
+0x180C64AA0	0xC64AA0	4	UnityEngine.Component$$GetComponent\u003Cobject\u003E	CollectionDisplay.cs;Decorator.cs
+0x1811326E0	0x11326E0	4	System.Predicate\u003Cobject\u003E$$.ctor	DebugCardPickerGrid.cs;DynamicList.cs;Inventory.cs;ToggleCollectionFilter.cs
+0x1813BFF70	0x13BFF70	4	BaseEventProgressClaimButtonController\u003CInt32Enum\u003E$$Initialize	ExpansionPassProgressClaimButtonController.cs;ExpansionPassRewardItemContainer.cs;RaidEventRewardItemContainer.cs;RaidProgressClaimButtonController.cs
+0x181E548B0	0x1E548B0	4	System.Reflection.PropertyInfo$$op_Equality	ListExtensions.cs;SerializationHelper.cs;UnityRemoteConfigObjectToggler.cs
+0x180C06990	0xC06990	4	System.Runtime.CompilerServices.AsyncTaskMethodBuilder$$AwaitUnsafeOnCompleted\u003CTaskAwaiter, WebRequestStream.\u003CInitialize\u003Ed__36\u003E	LiveOpsHandler.cs
+0x180746B7A	0x746B7A	4		LoginScreenManager.cs
+0x1814521F0	0x14521F0	4	System.Collections.Generic.Dictionary.ValueCollection\u003CStylePropertyAnimationSystem.ElementPropertyPair, Int32Enum\u003E$$GetEnumerator	NetworkingPeer.cs;PhotonPlayer.cs
+0x1805C5AB0	0x5C5AB0	4		PhotonTransformView.cs;PhotonTransformViewPositionControl.cs;PhotonTransformViewScaleControl.cs
+0x1810BBD20	0x10BBD20	4	System.Data.SqlTypes.SqlMoney$$.ctor	TimerDisplay.cs
+0x18013FED0	0x13FED0	4		UnityContext.cs
+0x1800024F0	0x24F0	3		AddressableLocalizationLibrary.cs;SerializationHelper.cs
+0x181FB6EF0	0x1FB6EF0	3	NaughtyAttributes.MinMaxSliderAttribute$$set_MaxValue	AnimFXModuleChangeVelocity.cs;ParticleForceForceFieldController.cs
+0x1815600B0	0x15600B0	3	NaughtyAttributes.MinMaxSliderAttribute$$set_MinValue	AnimFXModuleChangeVelocity.cs;ParticleForceForceFieldController.cs
+0x18087E680	0x87E680	3	System.Xml.Schema.Datatype_date$$get_TypeCode	AssetBundleDataPlayfabAll.cs;AssetBundleManager.cs
+0x180002150	0x2150	3		BaseOfferPopup.cs;BoosterInfoPopup.cs;ShopItemContainer.cs
+0x180CD3D50	0xCD3D50	3	GameWindowWithTabs$$CreateTab\u003Cobject\u003E	BaseParentEventWindow.cs;ChatPanel.cs;ShopWindow.cs
+0x1804BD440	0x4BD440	3	Unity.Services.Core.Device.UnityAdsIdentifier$$get_UserId	BattleManager.cs;HelpshiftManager.cs
+0x180A93090	0xA93090	3	Unity.Properties.ConversionRegistry.ConverterKey$$.ctor	BiDirectionalDictionary.cs;GameWindowWithTabs.cs
+0x1805063C0	0x5063C0	3		CameraShakerManager.cs;PhotonTransformViewPositionControl.cs
+0x1804F0B80	0x4F0B80	3		CameraShakerManager.cs;UIImageGreyscaleController.cs
+0x18048AE48	0x48AE48	3		CamerasConversionHelper.cs
+0x1804EBF80	0x4EBF80	3	FlyingWormConsole3.LiteNetLib.EventBasedNetListener.OnNetworkLatencyUpdate$$.ctor	CollectionDisplay.cs;CollectionTab.cs;Inventory.cs
+0x1815F01A0	0x15F01A0	3	CollectionFilterController\u003Cobject\u003E$$NotifyFilterChange	CollectionFilter.cs;CollectionFilterController.cs
+0x181F58940	0x1F58940	3	UnityEngine.Timeline.DiscreteTime$$op_LessThan	DraftModeMenuPayStateDemo.cs;SupportMethods.cs;TimerDisplay.cs
+0x180CA2FB0	0xCA2FB0	3	System.Linq.Enumerable$$Where\u003Cobject\u003E	DynamicList.cs;Inventory.cs;ToggleCollectionFilter.cs
+0x1812B8F30	0x12B8F30	3	UnityEngine.TextCore.GlyphRect$$get_y	EverguildTextMeshPro.cs;ResolutionManager.cs
+0x180C94810	0xC94810	3	System.Linq.Enumerable$$FirstOrDefault\u003CKeyValuePair\u003Cobject, object\u003E\u003E	GameWindowWithTabs.cs;GeneralOfferPopupDrawer.cs
+0x18174F240	0x174F240	3	System.Collections.Generic.Dictionary\u003Cobject, SignedTokenVerification.CertificateCacheBase.CachedCertificates\u003E$$.ctor	Inventory.cs;MultiKeyDictionary.cs
+0x18004A210	0x4A210	3		LoadableReference.cs
+0x181A909E0	0x1A909E0	3	System.Collections.Generic.HashSet\u003CRFPhysic.RFIgnorePair\u003E$$GetEnumerator	NetworkingPeer.cs
+0x1805A9800	0x5A9800	3		NetworkingPeer.cs;PhotonHandler.cs;PhotonNetwork.cs
+0x1805C5A50	0x5C5A50	3		PhotonHandler.cs;PhotonNetwork.cs
+0x180003180	0x3180	3		PlayerDataManager.cs;PurchasesManager.cs
+0x1805343D0	0x5343D0	3		PlayerDataManager.cs
+0x18087E560	0x87E560	3	System.Xml.Linq.XCData$$get_NodeType	PlayerDataManager.cs
+0x18064D9C0	0x64D9C0	3	Everguild.LiveOps.RuntimeArmyStats$$op_Equality	ProfileRankingSection.cs;RankingDisplay.cs
+0x1820D56D0	0x20D56D0	3	UnityEngine.GUISkin$$get_horizontalScrollbar	Reporter.cs
+0x1820D56C0	0x20D56C0	3	UnityEngine.GUISkin$$get_horizontalScrollbarThumb	Reporter.cs
+0x182F9A0C0	0x2F9A0C0	3	UnityEngine.Renderer$$get_sharedMaterials	SwapSubmeshesMaterial.cs
+0x1803F4960	0x3F4960	2		--f__AnonymousType108.cs
+0x1803F4840	0x3F4840	2		--f__AnonymousType108.cs
+0x180002500	0x2500	2		AddressableLocalizationLibrary.cs
+0x182F3C720	0x2F3C720	2	UnityEngine.RaycastHit2D$$get_distance	AnimFXModuleChangeVelocity.cs
+0x180488DD8	0x488DD8	2		AnimFXModuleChangeVelocity.cs;ScreenUtilities.cs
+0x18091FB60	0x91FB60	2	\u003CPrivateImplementationDetails\u003E$$ComputeStringHash	ArmyUtilities.cs;GameStaticData.cs
+0x1803F46E0	0x3F46E0	2		BaseEventProgressClaimButtonController.cs
+0x18094F1C0	0x94F1C0	2		BattleManager.cs
+0x1800187B0	0x187B0	2		BattleManager.cs
+0x18087EBF0	0x87EBF0	2	System.Data.ExpressionParser.ReservedWords$$.ctor	BattleManager.cs
+0x1804CD030	0x4CD030	2	MB_DynamicAddDeleteExample.\u003ClargeNumber\u003Ed__6$$.ctor	BiDirectionalDictionary.cs
+0x18051F0D0	0x51F0D0	2		BoostManager.cs
+0x180508E50	0x508E50	2	Unity.Services.Core.Registration.CorePackageInitializer$$get_UnityThreadUtils	CardScript.cs;CardsHorizontalLayout.cs
+0x1805A98B0	0x5A98B0	2		CardScript.cs;Fake3DSpriteMovement.cs
+0x1806602C0	0x6602C0	2	ChatGlobalManager.\u003C\u003Ec__DisplayClass73_0$$\u003CProcessActionMessage\u003Eg__RefreshAlliance|0	ChatGlobalManager.cs
+0x180DC57C0	0xDC57C0	2	DG.Tweening.TweenSettingsExtensions$$From\u003Cfloat, float, FloatOptions\u003E	ChatPreview.cs;EventBadge.cs
+0x1815EF810	0x15EF810	2	CollectionFilterController\u003Cobject\u003E$$Filter	CollectionDisplay.cs
+0x1806043C0	0x6043C0	2		CombatCameraZoom.cs
+0x180146650	0x146650	2		ContainerBuilder.cs
+0x180C92FF0	0xC92FF0	2	System.Linq.Enumerable$$ElementAt\u003CKeyValuePair\u003Cobject, object\u003E\u003E	DeckUtility.cs
+0x180015390	0x15390	2		DraftModeMenuPayStateDemo.cs
+0x1819E96B0	0x19E96B0	2	System.Xml.Linq.XHashtable.ExtractKeyDelegate\u003Cobject\u003E$$.ctor	DraggableController.cs;Inventory.cs
+0x180C9A980	0xC9A980	2	System.Linq.Enumerable$$SelectMany\u003Cobject, object\u003E	DraggableController.cs;Inventory.cs
+0x1800130E0	0x130E0	2		DropTableContainer.cs;ShopContainerV2.cs
+0x18103BD80	0x103BD80	2	UnityEngine.XR.Bone$$get_featureIndex	EverguildTextMeshPro.cs;GrabScreenFeatureRenderGraphAPI.cs
+0x18158CEF0	0x158CEF0	2	BaseProgressBarScaleAndPositionController\u003CInt32Enum\u003E$$Initialize	ExpansionPassRewardItemContainer.cs;RaidEventRewardItemContainer.cs
+0x181A116B0	0x1A116B0	2	FastModeBaseEvent\u003Cobject, object\u003E$$RecordMatchFinished	FastModeBaseEvent.cs
+0x1803F3720	0x3F3720	2		FlexibleGridLayout.cs
+0x180D3AE90	0xD3AE90	2	UnityEngine.AddressableAssets.Addressables$$LoadAssetAsync\u003Cobject\u003E	GameBootController.cs;TestAddressablesLoader.cs
+0x180D90E10	0xD90E10	2	UnityEngine.Rendering.RenderGraphModule.RenderGraph$$AddRasterRenderPass\u003Cobject\u003E	GrabScreenFeatureRenderGraphAPI.cs
+0x1804BB3B0	0x4BB3B0	2	SolidUtilities.ListHelper$$Empty\u003C__Il2CppFullySharedGenericType\u003E	INotificationProvider.cs
+0x180CF8100	0xCF8100	2	InventoryManager$$RemoveAll\u003Cobject\u003E	InventoryManager.cs
+0x18004A150	0x4A150	2		InventoryManager.cs
+0x181AEB300	0x1AEB300	2	ItemInfo\u003Cobject\u003E$$.ctor	ItemInfo.cs;QuantityBoundItemInfo.cs
+0x180036490	0x36490	2		ListExtensions.cs
+0x1810181B0	0x10181B0	2	LiveOpsHandler\u003Cobject\u003E$$HandleBeforeRefresh	LiveOpsHandler.cs
+0x180C0C330	0xC0C330	2	System.Runtime.CompilerServices.AsyncTaskMethodBuilder$$Start\u003CLiveOpsHandler.\u003CRefreshHandler\u003Ed__26\u003Cobject\u003E\u003E	LiveOpsHandler.cs
+0x1804BB780	0x4BB780	2	UnityEngine.TextCore.LowLevel.MarkPositionAdjustment$$get_xPositionAdjustment	MinionScaleByPositionSO.cs
+0x180064E40	0x64E40	2		MissionEvent.cs
+0x181750440	0x1750440	2	System.Collections.Generic.Dictionary\u003Cobject, StyleComplexSelector.PseudoStateData\u003E$$ContainsKey	MultiKeyDictionary.cs
+0x1803F4440	0x3F4440	2		NetworkingPeer.cs
+0x180A895B0	0xA895B0	2	Steamworks.HSteamUser$$Equals	PhotonPlayer.cs
+0x1807DB1C0	0x7DB1C0	2	TimeHelper$$GetUtcOriginDate	PlayerDataManager.cs
+0x180013180	0x13180	2		PunTurnManager.cs
+0x1814CB440	0x14CB440	2	Unity.Mathematics.uint3$$.ctor	RankedTab.cs
+0x18090A3B0	0x90A3B0	2	System.Xml.Linq.XComment$$get_NodeType	Reporter.cs
+0x180488E78	0x488E78	2		ShowStatusWhenConnecting.cs
+0x180D33590	0xD33590	2	UnityEngine.Object$$FindObjectOfType\u003Cobject\u003E	SingletonBehaviour.cs;SingletonInitializableBehaviour.cs
+0x181F58930	0x1F58930	2	UnityEngine.Timeline.DiscreteTime$$op_LessThanOrEqual	TimerDisplay.cs
+0x181F58920	0x1F58920	2	UnityEngine.Timeline.DiscreteTime$$op_GreaterThan	TimerDisplay.cs
+0x180789AD0	0x789AD0	2		TouchInputManager.cs
+0x18080C1D0	0x80C1D0	2	UIMultiCardDisplay$$ToggleMask	TutorialStagePlayRanked.cs
+0x180487190	0x487190	1		AIBotsConfig.cs
+0x181665DA0	0x1665DA0	1	Everguild.Addressables.ComponentReference\u003Cobject\u003E$$LoadAssetAsync	AddressablesManager.cs
+0x180F1BAE0	0xF1BAE0	1	System.Collections.Generic.List\u003CRenderTreeManager.VisualChangesProcessor.EntryProcessingInfo\u003E$$GetEnumerator	AddressablesManager.cs
+0x182BF9A00	0x2BF9A00	1	UnityEngine.RaycastHit$$set_point	AnimFxModuleMoveParticlesToTarget.cs
+0x1806C3D70	0x6C3D70	1	ArmyItemContainer$$SetManualToggle	ArmySelectorRanked.cs
+0x182F4BA90	0x2F4BA90	1	UnityEngine.AssetBundle$$GetAllLoadedAssetBundles	AssetBundleManager.cs
+0x180C99220	0xC99220	1	System.Linq.Enumerable$$OfType\u003Cobject\u003E	AssetLocator.cs
+0x1804CF8D0	0x4CF8D0	1	Coffee.UIExtensions.UIParticle.\u003Cget_materials\u003Ed__55$$.ctor	AssetLocator.cs
+0x180C031E0	0xC031E0	1	AssetLocator$$RegisterProvider\u003C__Il2CppFullySharedGenericType\u003E	AssetProvider.cs
+0x1812AE300	0x12AE300	1	BaseEventProgressClaimButtonController.StateOption\u003CInt32Enum\u003E$$ApplyState	BaseEventProgressClaimButtonController.cs
+0x181A662F0	0x1A662F0	1	BaseEventProgressClaimButtonController.GameObjectElementsStateDefinition\u003CInt32Enum, Int32Enum\u003E$$ApplyState	BaseEventProgressClaimButtonController.cs
+0x180822D10	0x822D10	1	UnityEngine.UI.Text$$get_resizeTextMaxSize	BattleCardUI.cs
+0x180944280	0x944280	1	Unity.Collections.RewindableAllocator.MemoryBlock$$Rewind	BattleManager.cs
+0x180663370	0x663370	1	Missions$$EnableAutoUpdates	BattleManager.cs
+0x180663360	0x663360	1	Missions$$BlockAutoUpdates	BattleManager.cs
+0x18094F200	0x94F200	1		BattleManager.cs
+0x180617800	0x617800	1		BattleManager.cs
+0x1808F37B0	0x8F37B0	1		BattleManagerSupport.cs
+0x18065AC60	0x65AC60	1	CurrencyExtensions$$CanGetMore	CampaignPoints.cs
+0x180604230	0x604230	1		CardCollider.cs
+0x181AE3FA0	0x1AE3FA0	1	Inventory\u003Cobject\u003E$$Create	CardInventory.cs
+0x181AE3CD0	0x1AE3CD0	1	Inventory\u003Cobject\u003E$$Add	CardInventory.cs
+0x180F152B0	0xF152B0	1	System.Collections.Generic.List\u003CDebugUI.Foldout.ContextMenuItem\u003E$$get_Item	CardScript.cs
+0x1805F739F	0x5F739F	1		CardScript.cs
+0x18066D430	0x66D430	1	CatalogConfig.UploadCounter$$MarkUpload	CatalogConfig.cs
+0x1814CB450	0x14CB450	1	System.ValueTuple\u003Cobject, object, int\u003E$$.ctor	ChallengeLogMgr.cs
+0x1806CC5F0	0x6CC5F0	1		ChallengeManager.cs
+0x1810BF9D0	0x10BF9D0	1	Com.TheFallenGames.OSA.Core.OSA\u003Cobject, object\u003E$$ChangeItemsCount	ChatContentView.cs
+0x1805E3970	0x5E3970	1		ClockManager.cs
+0x1807903D0	0x7903D0	1	EverguildPlayfabSettings$$get_TitleId	CloudscriptHandler.cs
+0x1815EF6B0	0x15EF6B0	1	CollectionFilterController\u003Cobject\u003E$$ClearFilters	CollectionFilterController.cs
+0x180141EB0	0x141EB0	1		CollectionItem.cs
+0x180A89E90	0xA89E90	1	Unity.Collections.LowLevel.Unsafe.ILSupport$$AsRef\u003CNativeText.ReadOnly\u003E	Countdown.cs
+0x1809F9020	0x9F9020	1	Cinemachine.CinemachineSmoothPath.Waypoint$$get_AsVector4	CraftingPanel.cs
+0x180CD38C0	0xCD38C0	1	UnityEngine.GameObject$$GetComponents\u003C__Il2CppFullySharedGenericType\u003E	DraggableController.cs
+0x1810A9040	0x10A9040	1	UnityEngine.PhysicsShape2D$$get_vertexCount	EverguildTextMeshPro.cs
+0x1813C0010	0x13C0010	1	BaseEventProgressRewardDrawerController\u003CInt32Enum\u003E$$Initialize	ExpansionPassRewardDrawerController.cs
+0x181126A10	0x1126A10	1	Everguild.LiveOps.PlayEvent\u003Cobject, object\u003E$$ChangeState	FastModeBaseEvent.cs
+0x181A121B0	0x1A121B0	1	FastModeBaseEvent\u003Cobject, object\u003E$$\u003C\u003En__0	FastModeBaseEvent.cs
+0x1811284E0	0x11284E0	1	Everguild.LiveOps.PlayEvent\u003Cobject, object\u003E$$get_ShowInMainMenu	FastModeBaseEvent.cs
+0x181126CC0	0x1126CC0	1	Everguild.LiveOps.PlayEvent\u003Cobject, object\u003E$$GetBaseData	FastModeBaseEvent.cs
+0x181A103D0	0x1A103D0	1	FastModeBaseEvent\u003Cobject, object\u003E$$GetSqlFilter	FastModeBaseEvent.cs
+0x181127660	0x1127660	1	Everguild.LiveOps.PlayEvent\u003Cobject, object\u003E$$OnMatchFound	FastModeBaseEvent.cs
+0x181A11D20	0x1A11D20	1	FastModeBaseEvent\u003Cobject, object\u003E$$TryCollect	FastModeBaseEvent.cs
+0x181126D60	0x1126D60	1	Everguild.LiveOps.PlayEvent\u003Cobject, object\u003E$$GetBaseSave	FastModeBaseEvent.cs
+0x1811277B0	0x11277B0	1	Everguild.LiveOps.PlayEvent\u003Cobject, object\u003E$$OnMatchWon	FastModeBaseEvent.cs
+0x181127770	0x1127770	1	Everguild.LiveOps.PlayEvent\u003Cobject, object\u003E$$OnMatchLost	FastModeBaseEvent.cs
+0x181127620	0x1127620	1	Everguild.LiveOps.PlayEvent\u003Cobject, object\u003E$$OnMatchDraw	FastModeBaseEvent.cs
+0x181128440	0x1128440	1	Everguild.LiveOps.PlayEvent\u003Cobject, object\u003E$$.ctor	FastModeBaseEvent.cs
+0x1804DB260	0x4DB260	1	Unity.Burst.Intrinsics.X86.Sse2$$setzero_si128	FirebaseDataManager.cs
+0x1814CB340	0x14CB340	1	UnityEngine.UIElements.StyleSheets.MatchResultInfo$$.ctor	FlexibleGridLayout.cs
+0x180D34FB0	0xD34FB0	1	UnityEngine.Object$$Instantiate\u003Cobject\u003E	GameWindowWithTabs.cs
+0x182F790D0	0x2F790D0	1	UnityEngine.Sprite$$get_packingMode	GetAtlasUVForMaterial.cs
+0x182F29680	0x2F29680	1	UnityEngine.AndroidJavaObject$$_CallStatic	GooglePlayManager.cs
+0x180D23F50	0xD23F50	1	UnityEngine.XR.Bone$$get_deviceId	GrabScreenFeatureRenderGraphAPI.cs
+0x180C9A370	0xC9A370	1	System.Linq.Enumerable$$Repeat\u003Cobject\u003E	Inventory.cs
+0x1816AAFF0	0x16AAFF0	1	System.Collections.Generic.Dictionary\u003CTypeConverterRegistry.ConverterKey, object\u003E$$get_Count	Inventory.cs
+0x181A5DFE0	0x1A5DFE0	1	System.Func\u003CRectInt, int\u003E$$.ctor	Inventory.cs
+0x180C9F4F0	0xC9F4F0	1	System.Linq.Enumerable$$Sum\u003Cobject\u003E	Inventory.cs
+0x181A5DDA0	0x1A5DDA0	1	System.Func\u003CPluginContractKey, object\u003E$$.ctor	Inventory.cs
+0x180CA0CD0	0xCA0CD0	1	System.Linq.Enumerable$$ToDictionary\u003CKeyValuePair\u003Cobject, object\u003E, object, object\u003E	Inventory.cs
+0x18101C040	0x101C040	1	LoadableReference\u003Cobject\u003E$$.ctor	Inventory.cs
+0x180003330	0x3330	1		Inventory.cs
+0x1814CB350	0x14CB350	1	System.Xml.XmlSqlBinaryReader.QName$$Set	ItemDrawer.cs
+0x18101C220	0x101C220	1	LoadableReference\u003Cobject\u003E$$get_Reference	ItemInfo.cs
+0x18101AF10	0x101AF10	1	LoadableReference\u003Cobject\u003E$$GetTargetId	ItemInfo.cs
+0x181A89D80	0x1A89D80	1	System.Collections.Generic.HashSet\u003Cobject\u003E$$Add	ListExtensions.cs
+0x1800362D0	0x362D0	1		ListExtensions.cs
+0x180C91D90	0xC91D90	1	System.Linq.Enumerable$$DefaultIfEmpty\u003CKeyValuePair\u003Cobject, object\u003E\u003E	ListExtensions.cs
+0x181A63540	0x1A63540	1	System.Func\u003CKeyValuePair\u003Cobject, object\u003E, KeyValuePair\u003Cobject, object\u003E, KeyValuePair\u003Cobject, object\u003E\u003E$$.ctor	ListExtensions.cs
+0x180C8B810	0xC8B810	1	System.Linq.Enumerable$$Aggregate\u003CKeyValuePair\u003Cobject, object\u003E\u003E	ListExtensions.cs
+0x181019560	0x1019560	1	LiveOpsHandler\u003Cobject\u003E$$ShowTriggerEventPopup	LiveOpsHandler.cs
+0x181017C80	0x1017C80	1	LiveOpsHandler\u003Cobject\u003E$$ExpireEvent	LiveOpsHandler.cs
+0x180C06240	0xC06240	1	System.Runtime.CompilerServices.AsyncTaskMethodBuilder$$AwaitUnsafeOnCompleted\u003CTaskAwaiter\u003Cobject\u003E, UnityServices.\u003CInitializeAsync\u003Ed__26\u003E	LiveOpsHandler.cs
+0x180C06870	0xC06870	1	System.Runtime.CompilerServices.AsyncTaskMethodBuilder$$AwaitUnsafeOnCompleted\u003CTaskAwaiter, CoreRegistryInitializer.\u003C\u003Ec__DisplayClass3_0.\u003C\u003CInitializeRegistryAsync\u003Eg__TryInitializePackageAsync|0\u003Ed\u003E	LiveOpsHandler.cs
+0x180C06630	0xC06630	1	System.Runtime.CompilerServices.AsyncTaskMethodBuilder$$AwaitUnsafeOnCompleted\u003CTaskAwaiter, UnityServicesManager.\u003CSignInWithPlayfabId\u003Ed__1\u003E	LiveOpsHandler.cs
+0x181A60060	0x1A60060	1	System.Func\u003Cobject, Int32Enum\u003E$$.ctor	LiveOpsHandler.cs
+0x180C99380	0xC99380	1	System.Linq.Enumerable$$OrderByDescending\u003Cobject, int\u003E	LiveOpsHandler.cs
+0x181018D60	0x1018D60	1	LiveOpsHandler\u003Cobject\u003E$$ScheduleEventPopups	LiveOpsHandler.cs
+0x181018490	0x1018490	1	LiveOpsHandler\u003Cobject\u003E$$QueueEventPopup	LiveOpsHandler.cs
+0x180EB57C0	0xEB57C0	1	LiveOpsHandler.\u003C\u003Ec__DisplayClass21_0\u003Cobject\u003E$$\u003CExpireEvent\u003Eg__HandleOnComplete|0	LiveOpsHandler.cs
+0x181019810	0x1019810	1	LiveOpsHandler\u003Cobject\u003E$$TryScheduleHandlerRefresh	LiveOpsHandler.cs
+0x1810191B0	0x10191B0	1	LiveOpsHandler\u003Cobject\u003E$$ScheduleHandlerRefresh	LiveOpsHandler.cs
+0x180012240	0x12240	1		LiveOpsManager.cs
+0x18004A220	0x4A220	1		LoadableReference.cs
+0x1804BB790	0x4BB790	1	UnityEngine.PhysicsShape2D$$get_radius	MinionScaleByPositionSO.cs
+0x181016E70	0x1016E70	1	Everguild.LiveOps.LiveOpsEvent\u003Cobject, object\u003E$$Initialize	MissionEvent.cs
+0x1804B3630	0x4B3630	1	Unity.Services.Core.Registration.CorePackageInitializer$$get_InstallationId	MissionEvent.cs
+0x1804C68A0	0x4C68A0	1	Unity.Services.Core.Configuration.ProjectConfiguration$$get_Serializer	MissionEvent.cs
+0x1804EFA20	0x4EFA20	1	System.Runtime.Versioning.NonVersionableAttribute$$.ctor	MissionEvent.cs
+0x180012820	0x12820	1		MissionMilestonesDisplay.cs
+0x181019E90	0x1019E90	1	LiveOpsHandler\u003Cobject\u003E$$.ctor	MultiKeyLiveOpsHandler.cs
+0x180F1BB20	0xF1BB20	1	System.Collections.Generic.List\u003Csbyte\u003E$$GetEnumerator	NetworkCullingHandler.cs
+0x18051F190	0x51F190	1		PhotonTransformViewPositionControl.cs
+0x181E58450	0x1E58450	1	System.Reflection.PropertyInfo$$op_Inequality	PhotonView.cs
+0x180D60E40	0xD60E40	1	PlayerAvatarDataManager$$GetItemWithId\u003Cobject\u003E	PlayerAvatarDataManager.cs
+0x18063CE20	0x63CE20	1	Unity.Services.Core.Registration.CorePackageInitializer$$set_MetricsFactory	PlayerDataManager.cs
+0x180D62550	0xD62550	1	PlayfabWrapper$$ProcessCloudscriptResult\u003Cobject\u003E	PlayfabWrapper.cs
+0x1812A7190	0x12A7190	1	System.Runtime.CompilerServices.AsyncTaskMethodBuilder\u003CTimeCheatingDetector.OnlineTimeResult\u003E$$SetStateMachine	PlayfabWrapper.cs
+0x180D13600	0xD13600	1	LiveOpsManager$$GetHandler\u003Cobject\u003E	Points.cs
+0x18120A110	0x120A110	1	System.Span\u003CUnicode.Rune\u003E$$op_Implicit	PurchasesManager.cs
+0x18101C9D0	0x101C9D0	1	LoadableReference\u003Cobject\u003E$$op_Implicit	QuantityBoundItemInfo.cs
+0x180F286C0	0xF286C0	1	System.Collections.Generic.List\u003CRenderTreeManager.VisualChangesProcessor.EntryProcessingInfo\u003E$$get_Item	RecyclableScrollerDemo.cs
+0x18307E4D0	0x307E4D0	1	UnityEngine.GUILayout$$EndVertical	Reporter.cs
+0x181EE0280	0x1EE0280	1	System.IO.File$$WriteAllLines	Reporter.cs
+0x182F54770	0x2F54770	1	UnityEngine.AudioSource$$set_pitch	RewardWindow.cs
+0x180014BC0	0x14BC0	1		RewardWindow.cs
+0x1807C4840	0x7C4840	1		SceneInitializer.cs
+0x180CFBCC0	0xCFBCC0	1	UnityEngine.JsonUtility$$FromJson\u003CCrateBundleCustomData\u003E	ShopItemInstance.cs
+0x182EA0950	0x2EA0950	1	TMPro.TMP_Text$$SetText	ShowCurrentEnergyRegenText.cs
+0x18048A970	0x48A970	1		SoundManager.cs
+0x1804DE0E0	0x4DE0E0	1	Google.Apis.Http.StreamInterceptionHandler.InterceptingStream$$get_CanRead	SteamManager.cs
+0x180AB9F30	0xAB9F30	1	Steamworks.SteamAPI$$RestartAppIfNecessary	SteamManager.cs
+0x1800069D0	0x69D0	1		SupportMethods.cs
+0x182F9A950	0x2F9A950	1	UnityEngine.Renderer$$set_sharedMaterials	SwapSubmeshesMaterial.cs
+0x182F5D130	0x2F5D130	1	UnityEngine.RaycastHit$$get_normal	TapParticleController.cs
+0x1815F1600	0x15F1600	1	CollectionFilter\u003Cobject\u003E$$OnFilterChange	ToggleCollectionFilter.cs
+0x181702AC0	0x1702AC0	1	System.Collections.Generic.Dictionary\u003Cint, RenderGraph.DebugData.PassData.NRPInfo.NativeRenderPassInfo.PassCompatibilityInfo\u003E$$.ctor	ToggleCollectionFilter.cs
+0x1804B33C0	0x4B33C0	1	Unity.Services.Core.Components.ServicesBehaviour$$.ctor	ToggleCollectionFilter.cs
+0x180789A80	0x789A80	1		TouchInputManager.cs
+0x18183A330	0x183A330	1	UnityEngine.Touch$$get_deltaPosition	TouchInputManager.cs
+0x180827B10	0x827B10	1		TutorialModePopup.cs
+0x182DF0D60	0x2DF0D60	1	Unity.Services.Analytics.Data.DeviceDataWrapper$$get_ScreenWidth	UIAnchorAvoidSafeArea.cs
+0x182DF0D50	0x2DF0D50	1	Unity.Services.Analytics.Data.DeviceDataWrapper$$get_ScreenHeight	UIAnchorAvoidSafeArea.cs
+0x1815730A0	0x15730A0	1	UnityContext.WorkHandle\u003Cobject, object\u003E$$Execute	UnityContext.cs
+0x180C945C0	0xC945C0	1	System.Linq.Enumerable$$FirstOrDefault\u003CKeyValuePair\u003Cobject, int\u003E\u003E	VictoryCounter.cs
+0x18079BB00	0x79BB00	1	UIGenericEventCatcher$$Toggle	VoiceLineBox.cs
+0x180D10E40	0xD10E40	1	ListExtensions$$GetMax\u003CKeyValuePair\u003Cobject, object\u003E, int\u003E	WarlordMasteryContainer.cs

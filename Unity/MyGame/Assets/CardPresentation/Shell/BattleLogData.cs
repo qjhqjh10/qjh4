@@ -245,10 +245,13 @@ namespace CardPresentation
         static void LoadFromDisk()
         {
             var path = StorePath;
-            if (!System.IO.File.Exists(path)) return;         // 第一次跑：空表就是出厂态，不吵
+            // 🆕 Step 4 双写期过渡读法：**先中央档、再旧档**（`ReadThroughLegacy` 内部判落盘门 ⇒
+            // 批处理/自检照旧只读旧档那一份）。⛔ 别删旧读。
+            string text = SaveCenter.ReadThroughLegacy(SaveKeys.BattleLogData, path);
+            if (text == null) return;                          // 第一次跑：空表就是出厂态，不吵
             try
             {
-                var dto = JsonUtility.FromJson<StoreDto>(System.IO.File.ReadAllText(path));
+                var dto = JsonUtility.FromJson<StoreDto>(text);
                 if (dto == null) { Debug.LogWarning("[BattleLog] 存档解不出内容（" + path + "）⇒ 按空表走"); return; }
                 if (dto.version != new StoreDto().version)
                 {
@@ -292,8 +295,18 @@ namespace CardPresentation
             dto.matches = _all.ToArray();
             try
             {
-                System.IO.Directory.CreateDirectory(System.IO.Path.GetDirectoryName(StorePath));
-                System.IO.File.WriteAllText(StorePath, JsonUtility.ToJson(dto, true));
+                string json = JsonUtility.ToJson(dto, true);      // 带缩进（逐字段比较不受影响：不比空白）
+                // 🆕 2026-10-25（执行代理 R4 · 存档 Step 4「双写期」）：**不再自己写盘** —— 走
+                // `SaveCenter.SaveThroughLegacy`：中央档（带 `_v` 信封）+ 旧档 `battlelog.json`（**不带 `_v`**）各一份。
+                // · 上面 `if (!StoreOn) return;` 已挡住批处理（一个字节都不碰玩家真档）；
+                // · 切换口内部再判一次 `SaveCenter.StoreOn`：关着 ⇒ 退回「只写旧档」= 与切换前逐字节同
+                //   （自检只注入 `OverrideDir` 的那一档照旧能验落盘）。
+                string werr;
+                if (!SaveCenter.SaveThroughLegacy(SaveKeys.BattleLogData, StorePath, json, out werr))
+                {
+                    // 不许静默：写不进去要说出来（原版这一步是服务器写的）
+                    Debug.LogWarning("[BattleLog] 存档写盘失败（" + StorePath + "）：" + werr);
+                }
             }
             catch (System.Exception e)
             {
@@ -321,6 +334,9 @@ namespace CardPresentation
             }
             try { if (System.IO.File.Exists(StorePath)) System.IO.File.Delete(StorePath); }
             catch (System.Exception e) { Debug.LogWarning("[BattleLog] 删档失败：" + e.Message); }
+            // 🆕 Step 4 双写期：中央档那一份也一起清 —— 否则「删了旧档再 `ReloadForTest`」会从中央档
+            // 把上一趟的记录读回来（读口是先中央后旧档）。走 `SaveCenter.Delete`（**不真删**：改名到 `.del-*`）。
+            if (SaveCenter.StoreOn && SaveCenter.Exists(SaveKeys.BattleLogData)) SaveCenter.Delete(SaveKeys.BattleLogData);
         }
 
         // ============================================================ 🆕 2026-10-24（E13）：页面用的那一份（含录像兜底）
