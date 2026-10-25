@@ -953,6 +953,11 @@ namespace CardPresentation
         /// <summary>最近一次**记过的那一天**（本机时间的 `.Date.Ticks`；`0` = 从没记过）。</summary>
         static long _streakDayTicks;
 
+        /// <summary>🆕 **2026-10-25（`X2`）**：**累计登录天数**（只增不减；`Ach_17` 的计数源）。
+        /// `0` = 本机从没记过。口径与「为什么是我们挑的」→ <see cref="StoreDto.totalLoginDays"/>。</summary>
+        public static int TotalLoginDays { get { return _totalLoginDays; } }
+        static int _totalLoginDays;
+
         /// <summary>**记一次登录**（A815 那一页的计数源头）。
         /// <para>🔴 **挂在哪一拍**：`TryDailyReset()` 里、它那句 `if (now &lt; _nextReset) return false;` **之前**
         /// —— 而 `TryDailyReset()` 是 `MainMenuRuntime.Build()` 调的（`Shell/MainMenuRuntime.cs` 的 `TryDailyReset()`）
@@ -979,7 +984,17 @@ namespace CardPresentation
             else _streakDays = 1;                            // 从没记过 ⇒ 今天是第 1 天
             _streakDays = Mathf.Max(1, _streakDays);
             _streakDayTicks = today.Ticks;
-            Persist("记一次登录（连登 " + _streakDays + " 天）");
+            // 🆕 **2026-10-25（`X2`）**：**累计登录天数 +1**（成就 `Ach_17`）。
+            //   能走到这儿 ⇒ 今天一定是**新的一天**（同一天在上面 `gap == 0` 那一句已经早退）
+            //   ⇒ 首次记 = 1、之后每跨一天 +1。⚠️ 口径是我们挑的（判据 §N5，详见 `StoreDto.totalLoginDays`）。
+            _totalLoginDays = Mathf.Max(1, _totalLoginDays + 1);
+            Persist("记一次登录（连登 " + _streakDays + " 天 · 累计 " + _totalLoginDays + " 天）");
+            // 🆕 2026-10-25（`X2`）：把这两个数接进成就（`Ach_17` 累计 / `Ach_18` 连续）。
+            //   ⚠️ 用 **`SetAchievementValueAtLeast`**（不是累加）：这两条记的是**当前状态**，
+            //   而**连登断了会归 1** —— 原版存档带 `highestValue` ⇒ 进度**只涨不落**
+            //   （`AchievementPersistence { id, value, highestValue, enabled }`，判据 §B-1）。
+            ProfileData.SetAchievementValueAtLeast(ProfileData.IdAchLoginTotalDays, _totalLoginDays);
+            ProfileData.SetAchievementValueAtLeast(ProfileData.IdAchLoginStreakDays, _streakDays);
         }
 
         /// <summary>自检用：喂一个「现在」走**同一条实现**（⛔ 不是另写一份规则 —— 两处写同一条 = 迟早不一致）。
@@ -999,6 +1014,10 @@ namespace CardPresentation
         {
             return _streakDayTicks == 0 ? default(System.DateTime) : new System.DateTime(_streakDayTicks);
         }
+
+        /// <summary>自检用：把「累计登录天数」摆成**确定的一态**（⛔ 运行时别调；它**不落盘** ——
+        /// 要落盘显式调 `SaveNowForTest()`）。🆕 2026-10-25（`X2`）。</summary>
+        public static void ForceTotalLoginDaysForTest(int days) { _totalLoginDays = Mathf.Max(0, days); }
 
         /// <summary>一条连登轨上有几个奖格（原版由 `challenges` 长度定）。</summary>
         public const int StreakDays = 7;
@@ -1750,6 +1769,15 @@ namespace CardPresentation
             public int streakDays;
             /// <summary>🆕 A815：最近一次记过的那一天（`.Date.Ticks`，本机时间；`0` = 从没记过）。</summary>
             public long streakDayTicks;
+            /// <summary>🆕 **2026-10-25（执行代理 `X2`）**：**累计登录天数**（成就 `Ach_17` = `Log in counter` 的计数源）。
+            /// <para>与 <see cref="streakDays"/> 的区别：那个是**连续**（断签归 1），这个是**累计**（只增不减）。
+            /// 判据 = 成就定义 SO 的 `ConstantChallenge` + 阈值 `30/60/90/180/365`（英文 `Log in {0} days`，
+            /// ⚠️ 中文与 `Ach_18` 撞同一句 —— 判据 §F3，别按中文分）。</para>
+            /// <para>⚠️ **口径 = 我们挑的**：原版这一拍是**服务端**算的（`ConstantChallenge__UpdateProgress.c`
+            /// 只有一个 `int` 入参，抬升点的方法体没解出来 —— 判据 §N5）⇒ 我们按「**每个自然日 +1**」
+            /// （与 <see cref="streakDays"/> 同一个日界口径），**如实标为「我们挑的」**。</para>
+            /// <para>同 `streakDays`：`version` **不 +1**（`0` 有确定含义 = 本机从没记过）。</para></summary>
+            public int totalLoginDays;
         }
 
         static bool _loaded;          // 本进程读过盘了没有（**读失败也算读过** —— 不然每次进壳都重试、刷屏）
@@ -1860,6 +1888,8 @@ namespace CardPresentation
                 _streakDays = dto.streakDays;
                 _streakDayTicks = dto.streakDayTicks;
             }
+            // 🆕 2026-10-25（`X2`）：累计登录天数（与连登那一格**互不依赖** —— 它不是「两半都要有效」那一族）
+            _totalLoginDays = Mathf.Max(0, dto.totalLoginDays);
         }
 
         /// <summary>把内存里那一份整理成要写下去的形状。</summary>
@@ -1886,6 +1916,7 @@ namespace CardPresentation
             dto.loginState = (int)_loginState;
             dto.streakDays = _streakDays;                // 🆕 A815
             dto.streakDayTicks = _streakDayTicks;        // 🆕 A815
+            dto.totalLoginDays = _totalLoginDays;        // 🆕 2026-10-25（`X2`）
             return dto;
         }
 

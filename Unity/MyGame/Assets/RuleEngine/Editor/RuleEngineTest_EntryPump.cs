@@ -118,11 +118,26 @@ public static partial class RuleEngineTest
         var miHurt = typeof(RuleCore).GetMethod("Hurt", BindingFlags.NonPublic | BindingFlags.Static);
         CheckTrue(miHurt != null, "前提：`RuleCore.Hurt` 还在（改名 ⇒ 下面那条红，⛔ 别静默跳过）");
         if (miHurt != null)
+        {
+            // 🔴 **2026-10-25（`X16`）：反射 `Invoke` 【不走可选形参】** —— 实参个数必须 = 形参个数。
+            //   本轮 `X2` 给 `Hurt` 加了第 9 个形参 `DamageKind kind`（成就计数器，缺省 `Unknown` = 不计），
+            //   这里原来只喂 8 个 ⇒ `TargetParameterCountException`（`RuleEngineTest` 2 条红）。
+            //   ⚠️ 语义不变：`Unknown` 就是 `Hurt` 自己的缺省值、也是所有老调用点的行为
+            //   （这一条验的是「入口自带 `ActionScope`」，与伤害类别无关）。
+            //   ⇒ 先断一次「个数对得上」：将来再加形参时红得**看得懂**（而不是一条栈底异常）。
+            var hurtArgs = new object[] { null, null, 1, "W62E", -1, false, null,
+                                          UnitDeathType.Unknown, DamageKind.Unknown };
+            Check(hurtArgs.Length, miHurt.GetParameters().Length,
+                  "前提：`RuleCore.Hurt` 的形参个数 = 本夹具喂的个数（反射不走可选形参，少一个就抛 `TargetParameterCountException`）"
+                + "｜🧨 `Hurt` 加减形参而这里没跟着改 ⇒ 本行红 + 下面那条变成「夹具/入口抛异常」");
             W62EntryCase("`RuleCore.Hurt`（私有）", W62MinBattle, c =>
             {
                 var u = Place(c, c.Active, 3, Unit("W62E_Hurt", 1, 1, 9));
-                miHurt.Invoke(null, new object[] { c, u, 1, "W62E", -1, false, null, UnitDeathType.Unknown });
+                hurtArgs[0] = c;
+                hurtArgs[1] = u;
+                miHurt.Invoke(null, hurtArgs);
             });
+        }
 
         //  ⑩⑪⑫ 三个「花掉本回合行动」的口（主动技能 / 誓约 / 信仰）
         W62EntryCase("`RuleCore.UseAbility`", W62MinBattle, c =>

@@ -129,10 +129,17 @@ public static partial class RuleEngineTest
     /// name-parse 永远返回 0；`CardScript.OnTurnEnd.c:84-107` 对它是**直接 `HealOneCharacter`**、
     /// 没有 `OnTrigger`；`DisplayTriggerAnim` 全 build 只有 9 个调用点、**没有一处传 1030**。
     /// 同族「没有 AbilityTrigger」的 trait 名（**只记账、不造触发**）：
-    /// `concussive` · `frenzied` · `huntMark` · `large` · `mekaniak` · `stomp`。
+    /// 🔴 **2026-10-25（执行代理 `X3`）就地订正**：原来这里写的是
+    /// `concussive` · `frenzied` · `huntMark` · `large` · `mekaniak` · `stomp` —— **多了两个**。
+    /// 正确名单（三支全 ✗）见 `RuleEngine/Core/CardDef.cs` 的 `TraitReachability`：
+    /// `regeneration` · `concussive` · `frenzied` · `large` · `mekaniak`。
+    /// · `huntMark` **可达**：`traitEffect.triggerType ∈ {0,2}` ⇒
+    ///   `ActivateTraitsOnSummonOrEnchantment.c:67` 走 `DisplayStatusAnim`（判据 → `待办判据_引擎_1025b` §六）；
+    /// · `stomp` **机制可达**：`BattleManager__ShouldTriggerStompDamage`（`0x4d8`）。
     /// ⚠️ `bloodThirst` **不在**这一组（`CardScript__HighlightBloodThirst.c:8` 直接传 220 ⇒ 可播）；
-    /// `resolution` 也**不在**（`AbilityTrigger.Resolution = 45` 存在 ⇒ 它走的是名字那条路）——
-    /// 这两条是本轮现核 `AbilityTrigger.cs` 时对 `C5` §Q1 那个「9 个」名单的**就地订正**（铁律 5）。</para>
+    /// `resolution` 也**不在**（`AbilityTrigger.Resolution = 45` 存在，而且 `CardScript__OnTurnEnd.c:81`
+    /// **真的会发** `OnTrigger(0x2d)`）—— 这两条是本轮现核 `AbilityTrigger.cs` 时对 `C5` §Q1
+    /// 那个「9 个」名单的**就地订正**（铁律 5）。</para>
     /// </summary>
     static void C5Q1TalentTurnStartTrigger()
     {

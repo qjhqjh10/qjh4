@@ -852,6 +852,135 @@ namespace RuleEngine
             return ok;
         }
 
+        // ==========================================================================================
+        //  🆕 v29（2026-10-25 · 执行代理 `X6` · **口径乙**）：按 `chosenAbility` 家族认行的
+        //  ability 级闸 —— 专治「同一 trigger 有两条 ability」那 23 张卡（判据 →
+        //  `资料/待办判据_引擎_1025b.md` §一；数据 → 卡表 v29 的 `abilityLevelCriteria[].ca`）。
+        // ==========================================================================================
+        //  判据（原版）：`RawCardScript__TriggerAbilities.c:207/231` —— 原版**不选**，逐条 ability
+        //    各判各结算（`CanTriggerAbility` 每条各一次）。我们这条正文是一整块 thunk ⇒ 只能近似：
+        //    · 甲（多 ability 取 OR）：对 19/23 张**恒真空转**（criteria 行全在 `ab>=1`、`ab0` 无行）
+        //      ⇒ 主对话**否掉**；
+        //    · 乙（本函数）：按 op 的动词 → 能力种类族名 → 认那一行 —— 更接近，且真会筛。
+        //  ⚠️ 仍是近似：原版是「一条 ability 判一次、整条结算」，我们是「逐 op 判」——
+        //    差别只在「一条 ability 的 logic 混了两种家族」那种卡（实测 4 张 ⇒ 判不了 ⇒ 放行）。
+        //    这是**已知并接受**的近似，⛔ 别当成「等价于原版」。
+
+        /// <summary>🆕 v29：`AbilityFamilyTargetAllows` 判「判不了」时**出声**的次数（只增不减）。
+        /// <para>**只给自检用**：`Debug.LogWarning` 的输出流离线探针与 `RuleEngineTest` 都抓不到
+        /// ⇒ 用计数当判别式（同 <see cref="AbilityLevelCriteriaWarningsForTest"/> 的纪律）。
+        /// ⚠️ 同一个 `(卡, 族)` **只喊一次**（`_abilityFamilyGateNotices` 去重）⇒ 「出声一次」是可断言的。</para></summary>
+        public static int AbilityFamilyGateWarningsForTest { get; private set; }
+
+        /// <summary>🆕 v29：族闸真正**剔掉一批 op** 的次数（**每次触发 / 每次结算最多 +1**，
+        /// 不是「剔了几条 op」）。
+        /// <para>**只给自检用** —— 它是「criteria 真的筛了」在**生产路径**上的唯一仪器
+        /// （`ctx.Log` 的输出流离线探针与 `RuleEngineTest` 都抓不到）。</para></summary>
+        public static int AbilityFamilyGateSkipForTest { get; private set; }
+
+        /// <summary>🆕 v29：族闸**剔掉一批 op** 时调一次（两个调用点：`EffectResolver.ApplyAbilityFamilyGate`
+        /// 的出牌路 · `RuleCore.AbilityFamilyGateOpsForTrigger` 的触发路）。</summary>
+        internal static void NoteAbilityFamilyGateSkipForTest() { AbilityFamilyGateSkipForTest++; }
+
+        /// <summary>🆕 v29：把 <see cref="AbilityFamilyGateWarningsForTest"/> /
+        /// <see cref="AbilityFamilyGateSkipForTest"/> 与去重表清零 —— **只给自检用**
+        /// （否则前一条用例喊过一声、后一条就数不到）。⛔ 生产侧别调。</summary>
+        public static void ResetAbilityFamilyGateForTest()
+        {
+            AbilityFamilyGateWarningsForTest = 0;
+            AbilityFamilyGateSkipForTest = 0;
+            _abilityFamilyGateNotices.Clear();
+        }
+
+        static readonly System.Collections.Generic.HashSet<string> _abilityFamilyGateNotices =
+            new System.Collections.Generic.HashSet<string>(System.StringComparer.Ordinal);
+
+        /// <summary>🆕 v29：同 `(ab, role)` 的 8 格条件行（`unitConditions` 的 `lg = -1` 那一批）。
+        /// 与 <see cref="AbilityLevelConditionRow(CardDef,string,string)"/> 同一套三态，只是**按 `ab` 定位**
+        /// （家族认行已经拿到 `ab` 了，⛔ 别再用 trigger 名去猜一遍）。</summary>
+        static CardDef.ConditionSpec AbilityLevelConditionRowAt(CardDef card, int ability, string role)
+        {
+            if (card == null || ability < 0) return null;
+            CardDef.ConditionSpec spec;
+            if (card.TryGetCondition(ability, -1, role, out spec) && spec != null) return spec;
+            if (card.ConditionsVersioned) return null;      // 明确「这一格没有条件」
+            return new CardDef.ConditionSpec { Condition = CardDef.ConditionUnknown, Role = role };
+        }
+
+        /// <summary>🆕 v29（**口径乙**）：按能力种类族名判 ability 级 `targetCriteria`（`+0x30`）。
+        ///
+        /// <para>三态（与 <see cref="AbilityLevelCriteriaAllows(BattleContext,int,UnitState,CardDef,string,UnitState,out string,bool)"/>
+        /// **同一套**，⛔ 调用点别把 `null` 当 `false`）：</para>
+        /// <list type="bullet">
+        /// <item>`true`  = 满足 / **明确没有这一族的条件**（原版 `targetsAffected = any` 直接 `return 1`）；</item>
+        /// <item>`false` = **明确不满足** ⇒ 那一族的那条 op **不结算**（调用点出声）；</item>
+        /// <item>`null`  = **判不了**（旧表 / 这一族 ≥2 行 / 有行家族为空 / 没给族名 / 没有 `targetCard` /
+        ///       本版没建池器的那几档）⇒ 调用点**放行**；**本函数自己出声一次**（同卡同族去重）
+        ///       并 `AbilityFamilyGateWarningsForTest++`。</item>
+        /// </list>
+        /// <para>⚠️ 「判不了 ⇒ 放行」的方向与 <see cref="AbilityLevelCriteriaAllows"/> 的「不唯一 ⇒ 不触发」
+        /// **不同**，是**故意**的：那一档（按 trigger 定位）在 v26 就定了「不猜就不触发」；
+        /// 这一档没有「整条 ability」可丢，丢掉整个战术正文才是更坏的结果（`E9` §四 实测过）。</para></summary>
+        public static bool? AbilityFamilyTargetAllows(BattleContext ctx, int owner, UnitState thisCard,
+                                                     CardDef card, string triggerName, string family,
+                                                     UnitState candidate, out string why, out bool ambiguous)
+        {
+            ambiguous = false;
+            why = null;
+            if (card == null) { why = "没有卡（判不了）"; return null; }
+            int ab;
+            var set = card.AbilityLevelCriteriaForFamily(triggerName, family, out why, out ambiguous, out ab);
+            if (set == null)
+            {
+                if (why == null) return true;                 // 明确「这一族没有触发条件」
+                EmitAbilityFamilyGateNotice(card, triggerName, family, why);
+                return null;
+            }
+            if (candidate == null)
+            {
+                why = "这一族有触发条件，但本路径没有 `targetCard`（原版这一跳是 `targetCard` 解引用）⇒ 判不了";
+                EmitAbilityFamilyGateNotice(card, triggerName, family, why);
+                return null;
+            }
+            string gap;
+            // 8 格条件行（`conditionsFilter`/`excludeCondition`）按认出来的 `ab` 取 —— 与 36 格无关，
+            // 两者拼回原版同一个 `TargetCriteria` 对象（口径 → `TargetCriteriaEval` 文件头）。
+            var cond = AbilityLevelConditionRowAt(card, ab, "target");
+            bool? ok = TargetCriteriaEval.Matches(ctx, owner, set, candidate, cond, thisCard, candidate, out gap);
+            if (ok == null)
+            {
+                // 逐维判不了（`TargetCriteriaEval` 的 `null` 契约）⇒ **放行 + 出声**（同卡同族去重）。
+                why = string.IsNullOrEmpty(gap) ? "`TargetCriteriaEval` 判不了（没给原因）" : gap;
+                EmitAbilityFamilyGateNotice(card, triggerName, family, why);
+                return null;
+            }
+            return ok;
+        }
+
+        /// <summary>🆕 v29：`AbilityFamilyTargetAllows` 的**唯一出声口**（同 `(卡, trigger, 族)` 只喊一次、
+        /// 计数只加一次）。⛔ 别在调用点各喊一遍 —— 那是「两处写同一条规则」的同族坑。</summary>
+        static void EmitAbilityFamilyGateNotice(CardDef card, string triggerName, string family, string why)
+        {
+            // 🔴 **去重键分两档**（「出声一次」的可断言口径）：
+            //   · 这张卡**有行的 `ca` 为空**（`""` = 家族判不了，实测 5 行 / 4 张卡）⇒ 它是**整卡**
+            //     认不出来 ⇒ 键**不含族名**：同一张卡同一条 trigger **只喊一次**（`DA33` 有 damage
+            //     + resource 两族，但它整卡就一个洞 ⇒ 不该喊两遍）。
+            //   · 其余（例如「同一族 ≥2 行」的 `SOR31`）⇒ 键含族名（那确实是**按族**判不了的）。
+            bool cardLevel = card != null
+                          && card.AbilityLevelCriteriaRowCount > card.AbilityLevelCriteriaFamilyKnownRowCount;
+            string key = (card != null && card.Id != null ? card.Id : "?") + "|" + triggerName
+                       + (cardLevel ? "|*" : "|" + family);
+            if (!_abilityFamilyGateNotices.Add(key)) return;
+            AbilityFamilyGateWarningsForTest++;
+            UnityEngine.Debug.LogWarning(
+                $"[RuleEngine] 卡「{(card != null ? card.Name : "?")}」（{(card != null ? card.Id : "?")}）的 "
+              + $"ability 级 `targetCriteria` **按能力种类族名认行判不了**"
+              + $"（trigger={triggerName}{(cardLevel ? "" : ", 族=" + family)}）：{why}"
+              + " ⇒ 本次**不筛**（放行；⛔ 不把「不知道」当「不满足」）。"
+              + "判据 = `资料/待办判据_引擎_1025b.md` §一（口径乙）；数据 = 卡表 v29 的 "
+              + "`abilityLevelCriteria[].ca`。");
+        }
+
         /// <summary>
         /// 🆕 **2026-10-23（引擎线 `W63`）**：引擎侧触发关键词（`KeywordTable.*`）→
         /// 原版 `AbilityTrigger` **枚举名**（`CardAbility.trigger` 的那个名字）。
@@ -872,6 +1001,20 @@ namespace RuleEngine
             if (string.IsNullOrEmpty(keyword)) return null;
             switch (keyword)
             {
+                // 🆕 **2026-10-25（执行代理 `X3` · 判据文档 `待办判据_引擎_1025b` §二·④）**：
+                //   `rally` → `ThisCardPlayed`(0)。
+                //   判据 = 数据现读（`cards_engine.json` v28）：引擎解析后带 `rally` 关键词的卡
+                //   **105 张**（`keywords` 列里精确写 `Rally` 的 98 张 ＋ 写成 `Rally: <效果>` 的 7 张 ——
+                //   `KeywordTable.Parse` 按 `':'` 切前半段，两类都归成 `rally`），
+                //   这 105 张的 `abilityTriggers` 里 **`trigger 0` 全部存在**（105/105）
+                //   ⇒ 引擎「部署时触发 rally」与原版「打出这张卡 ⇒ `TriggerAbilities(0)`」是同一件事
+                //   （`RawCardScript__OnCardPlayedWithTarget.c:40` → `TriggerAbilities(0, …)`）。
+                //   ⚠️ **今天接上它是零行为变化**：`FireTriggerAt` 拿到这个名字后只会
+                //   `TriggerSkipsAbilityContext("ThisCardPlayed")`（= 原版 skip 表）⇒
+                //   `abilityContext` 传 `Unknown`，与改前「认不出 ⇒ Unknown」逐字相同。
+                //   它**是**给「`FireTriggerAt` 补 `abilityTrigger/abilityTarget`」那一步铺的路 ——
+                //   那一步落在 `RuleCore.cs`（本轮不在白名单），所以本行今天只是把映射补齐。
+                case KeywordTable.Rally:         return "ThisCardPlayed";    // 0
                 case KeywordTable.Slay:          return "Slay";              // 120
                 case KeywordTable.Codex:         return "Codex";             // 145
                 case KeywordTable.Sacrifice:     return "Sacrifice";         // 220

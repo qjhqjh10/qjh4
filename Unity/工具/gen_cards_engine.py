@@ -1970,9 +1970,90 @@ def ability_target_criteria_of(cid, name, trow, truth_by_path, report):
 # ⚠️ **不在本列**：`activeAbility.targetCriteria`（**另一个类**、另一个偏移 ——
 #   `RawCardScript__IsValidActiveAbilityTarget.c:103-107` 用的是 `activeAbility(+0x260)` 内部 `+0x38`）
 #   ⇒ 它是**主动能力的目标池闸**，不是 `CanTriggerAbility` 那道闸。另账。
+# ------------------------------------------------------------------------------------------
+#  🆕 v29（2026-10-25 · 执行代理 `X6` · 口径乙 · `资料/待办判据_引擎_1025b.md` §一）：
+#    `abilityLevelCriteria` 每行加 **`ca`（能力种类族名）**
+# ------------------------------------------------------------------------------------------
+#  为什么：这张表里有 **23 张卡**的 `trigger 0` ability **定位不唯一**（同一 trigger 两张
+#    ability）⇒ 消费端 `UniqueAbilityIndexForTrigger` 只能回「不唯一」⇒ 那 32 行 criteria
+#    一格都没被消费。主对话裁定走**口径乙**：按 `chosenAbility` 的**家族**把行认回来。
+#
+#  `ca` = 该 ability（`cardAbilities[ab]`）里 `abilityLogic[*].chosenAbility` 的**家族名**，
+#    家族表 = `CardDef.ActiveAbilityKindFamily`（C# 侧唯一权威，`CardDef.cs` 的
+#    `ActiveAbilityKindFamilyNames` 是允许取值的白名单 —— 自检里有一条**跨语言对账**
+#    断言：本文件落出去的 `ca` 必须全部在那张白名单里）。
+#
+#  三档取值（⛔ 别把「判不了」写成空串以外的花样，C# 侧按同一套判）：
+#    · `"damage"` 等族名 —— 该 ability 的 logic 行**家族唯一** ⇒ 可判；
+#    · `""`         —— **判不了**：家族不唯一（同一 ability 里混了两种家族，实测 3 行）
+#                      或一条 `abilityLogic` 都没有（实测 2 行）；
+#    · 键缺失       —— 不给（DTO 侧 `null` 哨兵 ⇒ 出声）。生成器本轮**每行都写**。
+#
+#  🔴 为什么按 **ability** 而不是按行：这一列的行是 **ability 级**（`lg = -1`，
+#    `CardAbility.targetCriteria` `+0x30`），它管的是「这条 ability 触不触发」——
+#    而「这条 ability 是什么种类」由它自己的 `abilityLogic[*].chosenAbility` 决定。
+#     实测：`ASH30` 两条 ability 都是 damage、`DA33 ab1` 混 damage+resource
+#     ⇒ 这 4 张（`ASH30`/`DA33`/`GSC46`/`SOR31`）认不出来，落 `""`（出声 + 放行）。
+#
+#  ⚠️ 本列**只落数据**；消费端 = `RuleCore.AbilityFamilyTargetAllows`（唯一实现）→
+#    `EffectResolver` 出牌正文的逐 op 闸。
+ABILITY_KIND_FAMILY = {
+    0: "draw", 10: "damage", 12: "damage", 13: "damage", 15: "damage",
+    20: "heal",
+    30: "buff", 31: "buff", 40: "buff", 50: "buff",
+    60: "resource",
+    70: "summon", 71: "summon", 72: "summon", 75: "summon", 77: "summon",
+    100: "create", 101: "create",
+    110: "destroy", 120: "jam", 130: "stun", 135: "stun",
+    140: "handmove", 150: "handmove", 160: "handmove", 162: "handmove",
+    165: "handmove", 170: "handmove", 175: "handmove", 180: "handmove",
+    185: "handmove", 190: "handmove", 200: "handmove", 210: "handmove",
+    220: "handmove", 240: "handmove", 250: "handmove", 270: "handmove",
+    290: "handmove", 300: "handmove", 301: "handmove", 310: "handmove",
+    260: "trigger", 370: "trigger", 375: "trigger", 380: "trigger",
+    390: "trigger", 400: "trigger", 410: "trigger", 411: "trigger",
+    420: "trigger", 430: "trigger", 440: "trigger", 450: "trigger",
+    460: "trigger", 461: "trigger", 462: "trigger", 465: "trigger",
+    466: "trigger", 467: "trigger", 468: "trigger",
+    # 320 followAfterResolution / 325 followResolutionIfPreviousMeetsCriteria：
+    # 语义是「跟着上一条结算」（不是一种效果）⇒ **故意不映射**（与 C# 侧逐条一致）。
+}
+
+
+def ability_kind_family_of(trow, ab_index):
+    """`cardAbilities[ab_index]` → (`ca`, 家族集合, 坏值列表)。
+
+    `ca` = 家族唯一时那个族名；否则 `""`（判不了，⛔ 不猜第一行）。
+    """
+    bad = []
+    fams = []
+    ab = None
+    abs_ = trow.get("cardAbilities") or []
+    if 0 <= ab_index < len(abs_):
+        ab = abs_[ab_index]
+    if not isinstance(ab, dict):
+        return "", [], [(ab_index, "cardAbilities")]
+    for j, lg in enumerate(ab.get("abilityLogic") or []):
+        if not isinstance(lg, dict):
+            return "", [], [(ab_index, f"abilityLogic[{j}]")]
+        cv = lg.get("chosenAbility")
+        if isinstance(cv, bool) or not isinstance(cv, int):
+            bad.append((ab_index, f"abilityLogic[{j}].chosenAbility", cv))
+            continue
+        fam = ABILITY_KIND_FAMILY.get(cv)
+        if fam is None:
+            # 320/325 与未列值：与 C# 的 `default: return null` 逐条一致 ⇒ 不算坏值。
+            continue
+        if fam not in fams:
+            fams.append(fam)
+    return (fams[0] if len(fams) == 1 else ""), fams, bad
+
+
 ABILITY_LEVEL_CRITERIA_REPORT = {
     "cards": 0, "no_truth": 0, "with_rows": 0, "rows": 0, "skipped_noinfo": 0,
     "bad": [], "set_bad": [], "set_unresolved": [],
+    "ca_single": 0, "ca_mixed": 0, "ca_none": 0, "ca_missing": 0,
+    "ca_family_counts": {}, "ca_ambiguous_cards": [],
 }
 
 
@@ -2004,14 +2085,33 @@ def ability_level_criteria_of(cid, name, trow, truth_by_path, report):
             # `trigger` 只作可读性（消费端按 `ab` 对齐）⇒ 坏值落 -1，⛔ 不因此丢掉整行。
             report["bad"].append((cid, name, i, "trigger", tg))
             tg = -1
+        # ---- v29：`ca`（能力种类族名；判不了 = 空串，判据 → `ABILITY_KIND_FAMILY` 上面那段）----
+        ca, fams, fam_bad = ability_kind_family_of(trow, i)
+        for _b in fam_bad:
+            report["bad"].append((cid, name, f"cardAbilities[{i}].{_b[1]}", _b[2]))
+            report["ca_missing"] += 1
+        if ca:
+            report["ca_single"] += 1
+            report["ca_family_counts"][ca] = report["ca_family_counts"].get(ca, 0) + 1
+        elif len(fams) >= 2:
+            report["ca_mixed"] += 1
+        else:
+            report["ca_none"] += 1
         out.append({
             "ab": i,
             "trigger": tg,
+            "ca": ca,
             "criteria": criteria_set_of(cid, name, cr, None, truth_by_path, report,
                                         label=f"cardAbilities[{i}].targetCriteria.",
                                         has_player_turn=False),
         })
         report["rows"] += 1
+    # 🔴 v29：**这张卡按家族可判吗** —— 同一族出现 ≥2 行，或出现过空串（`ca` 判不了），
+    #   消费端起闸时都只能「判不了 ⇒ 出声 + 放行」。实测 = 4 张
+    #   （`ASH30`/`DA33`/`GSC46`/`SOR31`，与 `待办判据_引擎_1025b.md` §一 的 19/4 一致）。
+    _ca = [r["ca"] for r in out]
+    if _ca and (any(x == "" for x in _ca) or len(set(_ca)) != len(_ca)):
+        report["ca_ambiguous_cards"].append(cid)
     if out:
         report["with_rows"] += 1
     report["cards"] += 1
@@ -4796,7 +4896,7 @@ def build():
     talent_name_ids = build_talent_name_ids(truth_cards, truth_by_path, cards, talent_name_report)
 
     return {
-        "version": 28,         # v6: 每张卡带稳定 id（🔴 2026-10-18 `W25` 起按原版 `uniqueId` 直取，
+        "version": 29,         # v6: 每张卡带稳定 id（🔴 2026-10-18 `W25` 起按原版 `uniqueId` 直取，
                                #    名级联降为交叉校验；自造 = 生成期自检硬失败）
                                # v7（2026-10-14 `A1798`）：加 `inventoryOptions` / `showInCollectionOptions` 两列
                                # v8（2026-10-14 `A1775`）：加 `initiative` 一列（先后手；原版真值）
@@ -5018,6 +5118,17 @@ def build():
                                #      而 `unitConditions` 里 `ab=-1/-2` 那些行是 **logic 级**的）⇒ 放宽一格，如实记。
                                #    消费端 = `CardDef.ActiveAbilityPickCriteriaFor(ab)`（**唯一入口**）→
                                #    `RuleCore.CanUseAbility` 的目标闸。
+                               #    ⚠️ 加列【必须】bump（`CardDatabase.cs` 的 version 守卫靠它出声）。
+                               # v29（2026-10-25 · 执行代理 `X6` · 口径乙 · `资料/待办判据_引擎_1025b.md` §一）：
+                               #    `abilityLevelCriteria` 的每一行加 **`ca`** —— 该 ability 的
+                               #    **能力种类族名**（`chosenAbility` 的家族；`""` = 判不了）。
+                               #    形状变成 `[{"ab":i, "trigger":…, "ca":"damage", "criteria":{36 格}}]`
+                               #    （只**新增一格**，键序 `ab`→`trigger`→`ca`→`criteria`）。
+                               #    为什么：23 张卡的 `trigger 0` ability 定位不唯一（同一 trigger 两条）
+                               #    ⇒ 那 32 行 criteria 一格都没被消费；按家族认回来才能接闸。
+                               #    判据 / 三档取值 / 为什么按 ability → 本文件 `ABILITY_KIND_FAMILY` 上面那段；
+                               #    族名白名单 = `CardDef.ActiveAbilityKindFamilyNames`（自检有跨语言对账断言）。
+                               #    消费端 = `RuleCore.AbilityFamilyTargetAllows` → `EffectResolver` 出牌正文逐 op 闸。
                                #    ⚠️ 加列【必须】bump（`CardDatabase.cs` 的 version 守卫靠它出声）。
         "source": "Unity/数据/游戏数据/card_stats.json（稀有度另取 资料/卡牌数据表/卡牌宝石稀有度_0824.md；"
                   "英文名 / 中文名都以**原版官方表** 数据/游戏数据/官方本地化_en+zh-CN.json 的 `Card_Name/*` 为准"
@@ -6105,6 +6216,44 @@ def main():
           f"`targetsAffected == 0 (any)` **不落** {_alcr['skipped_noinfo']} 行（原版直接 return 1 = 零信息）")
     print(f"             按 targetsAffected（行数）：{_ta_top(_alc_ta)}")
     print("             消费端 = `CardDef.AbilityLevelCriteriaForTrigger` → `ActionPump.EnqueueAbility` 的触发前闸")
+    # 🆕 v29（执行代理 `X6` · 口径乙）：`ca` 的能力种类族名读数 —— 这是「23 张 trigger 0
+    #   定位不唯一的卡，那 32 行 criteria 能不能被认回来」的唯一凭据。
+    #   ⚠️ 分两个口径打印，⛔ 别混：
+    #     · `按家族可判的卡` = 有 level 行、且**这一列本身**认得出（85 行层面）；
+    #     · `闸会遇到的判不了` = **只有**「某个 trigger 在同一张卡上出现 ≥2 次」的那些卡
+    #       （= 消费端真要按家族认的那批；现读正好 23 张 / 可判 19 / 判不了 4，
+    #       与 `资料/待办判据_引擎_1025b.md` §一 一致）。其余「判不了」卡走的是
+    #       既有的按 trigger 唯一定位那条路，**不受 `ca` 影响**。
+    _gate_cards, _gate_ok, _gate_amb = 0, [], []
+    for _c in doc["cards"]:
+        _rows = [r for r in (_c.get("abilityLevelCriteria") or [])]
+        if not _rows:
+            continue
+        _tr = {}
+        for _a in (_c.get("abilityTargets") or []):
+            _t = _a.get("trigger")
+            if isinstance(_t, int) and not isinstance(_t, bool):
+                _tr[_t] = _tr.get(_t, 0) + 1
+        _ambt = {t for t, n in _tr.items() if n >= 2}
+        _gr = [r for r in _rows if r.get("trigger") in _ambt or r.get("trigger") == -1]
+        if not _gr:
+            continue
+        _gate_cards += 1
+        _cas = [r.get("ca", "") for r in _gr]
+        if any(x == "" for x in _cas) or len(set(_cas)) != len(_cas):
+            _gate_amb.append(_c["id"])
+        else:
+            _gate_ok.append(_c["id"])
+    _ca_top = " · ".join(f"{k}:{v}" for k, v in sorted(_alcr["ca_family_counts"].items()))
+    print(f"             能力族 `ca`（v29）：可判 **{_alcr['ca_single']}** 行 · "
+          f"家族不唯一 **{_alcr['ca_mixed']}** 行 · 无 logic **{_alcr['ca_none']}** 行")
+    print(f"             闸会遇到的（trigger 重复的卡）**{_gate_cards}** 张 ⇒ 按家族可判 "
+          f"**{len(_gate_ok)}** 张 · 判不了 **{len(_gate_amb)}** 张"
+          f"（{', '.join(_gate_amb) or '（无）'}）")
+    print(f"             族别分布（行数）：{_ca_top or '（无）'}")
+    if _alcr["ca_missing"]:
+        print(f"  🔴 `abilityLevelCriteria` 的 `ca` 有 {_alcr['ca_missing']} 处 `chosenAbility` 坏值"
+              " ⇒ 该行 `ca` 落 `\"\"`（判不了 ⇒ 消费端出声 + 放行）")
     if _alcr["no_truth"]:
         print(f"  ⚠️ 真值快照里没有的卡 {_alcr['no_truth']} 张 —— **不落列**（未知，⛔ 不是空表）")
     for _bad in _alcr["bad"]:

@@ -322,6 +322,13 @@ namespace RuleEngine
         public readonly int[] AttacksDeclared = new int[2];
         public readonly int[] RangedAttacksDeclared = new int[2];
 
+        /// <summary>🆕 **2026-10-25（执行代理 `X2`）**：**本局的成就计数**（伤害分类 / 能力触发 / 出牌标签）。
+        /// <para>口径 = 上面 <see cref="DamageToEnemy"/> 那一族**同一条**：**只累加、不参与任何规则判定**。
+        /// 读点只有结算那一处（`BattleDriver.AwardAchievements` → `ProfileData.ApplyAchievementTally`）。</para>
+        /// <para>判据与施工单 → `资料/待办判据_成就计数器_1025b.md` §B-2 / §B-3；
+        /// 形状与每类的「谁记给谁」→ `Core/AchievementTally.cs` 的文件头。</para></summary>
+        public readonly AchievementTally Tally = new AchievementTally();
+
         /// <summary>全局回合序号（从 1 开始，每换一次边 +1）</summary>
         public int Turn;
 
@@ -1842,8 +1849,37 @@ namespace RuleEngine
         {
             if (e == null) return;
             e.Turn = Turn;
+            // 🆕 **2026-10-25（执行代理 `X2`）**：`EvtKind.Trigger` **单口计数**（成就 `Ach_5/8/9/11/13/64/66/67/72/73/79/80/81/88/90/91/98`）。
+            //   判据 = `资料/待办判据_成就计数器_1025b.md` §B-3 #2：**全引擎的触发事件都从这一个口进**
+            //   ⇒ 在这里数一处分，不可能漏（⛔ 别去各个 `EmitCardTrigger` 调用点各数一遍）。
+            //   · `e.Keyword` 有两种形态，都要认：
+            //     ① **已经是原版 trigger 名**（`EmitCardTrigger` 发的 `KeywordWithAbility(triggerName, …)`，
+            //        形如 `Slay` / `Slay#2`）—— 先带 `#i` 后缀剥掉；
+            //     ② **引擎关键词**（`SceneSig(EvtKind.Trigger, "landing")` 那一族，小写）——
+            //        走 `RuleCore.TriggerNameOfKeyword` 那张反向表（正本 = 生成器 `ABILITY_TRIGGER_KEYWORD`）。
+            //   ⚠️ `e.Player` 是**归属座位**（0/1，不是「是不是本人」）；越界就不记。
+            if (e.Kind == EvtKind.Trigger) CountTriggerForAchievements(e.Player, e.Keyword);
             Signals.Add(e);
             AppendLog(e);
+        }
+
+        /// <summary><see cref="Emit"/> 里那一笔成就触发计数（判据与两种 `Keyword` 形态见那里）。
+        /// ⚠️ 认不出 ⇒ **不记**（⛔ 不猜成 0 = `ThisCardPlayed`，那会静默错算 `Ach_*`）。</summary>
+        void CountTriggerForAchievements(int seat, string keyword)
+        {
+            if (seat != 0 && seat != 1) return;
+            if (string.IsNullOrEmpty(keyword)) return;
+            // ① 先剥 `#<能力序号>` 后缀（`BattleEvent.SplitKeywordAbility` 是**唯一**解码处）
+            int abilityIndex;
+            string word = BattleEvent.SplitKeywordAbility(keyword, out abilityIndex);
+            int ability = CardDef.AbilityTriggerNumber(word);
+            if (ability < 0)
+            {
+                // ② 引擎关键词 → 原版 trigger 名（认不出 ⇒ `null`）
+                string tn = RuleCore.TriggerNameOfKeyword(word);
+                if (tn != null) ability = CardDef.AbilityTriggerNumber(tn);
+            }
+            if (ability >= 0) Tally.AddTrigger(seat, ability);
         }
 
         /// <summary>

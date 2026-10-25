@@ -2809,7 +2809,25 @@ namespace CardPresentation
             //      `Ranked/Skirmish … 1x2` 三份逐值相同）：**标题顶距暗带顶 = 3.41**、倒计时行顶 = **61.73**；
             //      `Draft … 1x2`（`TextDarkening` 里**只有标题**）⇒ 标题顶 = (105.866 − 55.708)/2 = **25.08**。
             //    ⚠️ 原版 `m_text` 是占位串 `GAME MODE TITLE`，真标题运行时灌 ⇒ 这里用**模式名**。
-            float titleTop = by1 + (modeKind == "draft" ? 25.08f : 3.41f);
+            // 🔴🔴 **2026-10-25（`X4` · 真机 F1「模式卡底部印 `结束于：--`」）：这一行不再画。**
+            //   判据三条（逐条读过，⛔ 不是"看着像"）：
+            //     ① **有活动**：用户实拍 `C:/Users/qjh36/Desktop/warpforge参考图/主界面参考图.png`
+            //        两张卡印的是 `结束于：🕐 2d 2h 25m`（**真剩余时长**）；
+            //     ② **到期**：`d:/2/tools/decomp_full/TimerDisplay__UpdateTimer.c` —— 剩余 `<= 0` 那一支把
+            //        **`Timer Text` 那颗 GameObject `SetActive(false)`**（字段 `timer` = `0x20`，与
+            //        `d:/2/Warpforge_code/Scripts/Assembly-CSharp/TimerDisplay.cs` 的字段序吻合）⇒ **原版从不印 `--`**；
+            //        `--` 是我们早先为「本地无数据」发明的兜底串，⛔ 不是原版文案。
+            //     ③ **这个模式本来就没有倒计时**：原版有 `1x2 No Timer` 变体 —— `TextDarkening` 里**只剩
+            //        `Event Title`**（`资料/主菜单_原版规格.md:577`）。
+            //   ⇒ 本地拿不到 liveop 的到期时刻（服务端数据）⇒ 走③：**整行不建**，标题回到「只剩一个孩子」
+            //     那条 VLG 口径。真值现读（`工具/menu_dump.py bundle_menus_assets_all
+            //     "Draft Game Mode Container 1x2" --depth 4 --md`）：暗带顶 **1396.00** ·
+            //     `Event Title` 顶 **1421.08** ⇒ **25.08**（= (105.866 − 55.708)/2，与
+            //     `childForceExpandHeight=1` 自洽；`Base 1x1` + 两个倒计时变体是 **3.41**）。
+            //   ⚠️ 将来接上 liveop 数据 ⇒ 给 `modeTimerEnd` 赋值即可恢复 ⑤ 那一整块（代码留着没删）。
+            System.DateTime? modeTimerEnd = null;
+            bool hasTimerRow = modeTimerEnd.HasValue;        // 当前恒 false（见上面 ③）
+            float titleTop = by1 + (hasTimerRow ? 3.41f : 25.08f);
             // ⚠️ 原版 `m_text` 是占位串 `GAME MODE TITLE`，真标题运行时灌 ⇒ 这里用**模式名**（和 `Game Mode Title` 那个通用件的样例 `Draft Mode` 同口径）
             // 🔴 原版这行 TMP 带 **autosize 18→72**，框 513.7×55.7 ⇒ 让它自己缩着放进框里
             var ti = Text(card, title, x + 13f, x + 13f + 513.6959f, titleTop, titleTop + 55.708f, 8, Color.white, "Event Title", 58.8f,
@@ -2901,12 +2919,15 @@ namespace CardPresentation
             //    ⚠️ 三段宽度里 `Starts in:` 那一段是**反推**出来的：原版 `Timer Description` 的 `sizeDelta.x = 0`
             //    + `ContentSizeFitter PreferredSize` ⇒ 它等于字宽；行宽 424.7056 − 时钟 40.7607 − 时间 198.9886
             //    = **184.9563**（三段首尾相接，与 `Clock Icon`/`Timer Text` 的 `anchor (1,.5)` 链自洽）。
-            //    🔴 **数据源 = liveop 活动到期时刻，本地没有** ⇒ 按 `TimerDisplay` 的口径显示 `--` **并出声**
-            //    （⛔ 不许编一个日期顶上去）；`TimerDisplay.Attach(null, …)` 就是那条口径的唯一实现。
-            //    🔴 **`Draft` 卡没有这一行** —— 原版 `Draft Game Mode Container 1x2` 的 `TextDarkening` 里
-            //    **只有 `Event Title`**（Event Title y 765.48 = 暗带顶 + **25.08**，见 ③ 那条），
-            //    ⇒ 本块只在 `modeKind != "draft"` 时执行。⛔ 别给 Draft 补一行（与它自己的变体矛盾）。
-            if (modeKind != "draft")
+            //    🔴 **数据源 = liveop 活动到期时刻，本地没有** ⇒ ⛔ 编日期不行、印 `--` 也不行（原版从不印
+            //    `--`，见 ③ 那三条）⇒ 这一行**不建**；`modeTimerEnd` 一旦有值就整块照原版建回来。
+            //    🔴 **`Draft` 卡**原本就没有这一行（原版 `Draft Game Mode Container 1x2` 的 `TextDarkening`
+            //    里**只有 `Event Title`**，Event Title y 765.48 = 暗带顶 + **25.08**）—— 现在全部模式卡都走
+            //    这条口径，⛔ 别给 Draft 单独补一行（与它自己的变体矛盾）。
+            //    🔴 **2026-10-25（`X4`）现行口径**：这一行**只在 `hasTimerRow` 为真时建**（= 真有 liveop 到期
+            //    时刻）。本地没有那个数据源 ⇒ **整行不建**、标题走「只剩一个孩子」的 25.08（判据三条见 ③ 上方）。
+            //    ⚠️ 这一整块**留着**：将来接上 liveop 数据只需给 `modeTimerEnd` 赋值，几何/字号/词条全在这里。
+            if (hasTimerRow)
             {
                 float rowTop = by1 + 61.73f;
                 const float timerRowH = 40.729f;
@@ -2957,17 +2978,27 @@ namespace CardPresentation
                 }
                 else MissingArt.Add("WF_icon_clock_for_shader");
                 float timerX1 = clockX2, timerY1 = rowTop - 2.40f, timerY2 = rowTop + 45.5207f;
-                var timerLabel = Text(card, "--", timerX1, timerX1 + timerW, timerY1, timerY2, 8,
+                var timerLabel = Text(card, TimerDisplay.TextFor(modeTimerEnd, "", "模式卡 " + name,
+                                                                "liveop 活动没有到期时刻（本地没有该数据源）"),
+                                      timerX1, timerX1 + timerW, timerY1, timerY2, 8,
                                       new Color(0.737f, 0.737f, 0.737f, 1f), "Timer Text", 40f, QText,
                                       0f, 10f, 40f, 30f, face: TmpFont.Face.LatinCardBody);
                 if (timerLabel != null)
                 {
                     MenuDraw.AlignLeft(timerLabel, new PxRect(timerX1, timerY1, timerX1 + timerW, timerY2));
-                    TimerDisplay.Attach(timerLabel, null, "", "模式卡 " + name,
+                    TimerDisplay.Attach(timerLabel, () => modeTimerEnd, "", "模式卡 " + name,
                                         "liveop 活动没有到期时刻（本地没有该数据源）");
                     if (clip.HasValue && (cx1 > x + 0.01f || cx2 < x + w - 0.01f))
                         MenuDraw.ClipText(timerLabel, clip, Vector2.zero);
                 }
+            }
+            else
+            {
+                // 出声一次（⛔ 不静默失败）：这一行的**数据源**确实没有 ⇒ 界面按原版 `1x2 No Timer` 变体处理
+                // （⚠️ **不画** —— 原版从不印 `--`，判据三条见 ③ 上方）。
+                TimerDisplay.WarnUnknownOnce("模式卡 " + name,
+                    "liveop 活动没有到期时刻（本地没有该数据源）⇒ 这一行**不建**（原版 `1x2 No Timer` 变体；"
+                  + "⛔ 不印 `--`、也不编日期）");
             }
 
             // ⑤·b 🆕 2026-10-24（`E10`）：**只有轮抽卡**有那条 `State` 条（`DraftMenuContainer` 的 `stateGO` +

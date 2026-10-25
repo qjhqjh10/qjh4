@@ -40,7 +40,12 @@ namespace WarpforgeVFX
                 //   不补这一步，挂在卡上的特效会停在层 0、被 HUD 的正交相机画 ⇒ **位置和大小的量纲全错**。
                 //   ⚠️ `parent = null` 的**根特效**不走这一步 —— 它们由谁画是另一笔账（`A367`），
                 //     那一路的位置判据是「投到 HUD 平面」（见 `BoardLayout.DropTargetWorld`）。
-                if (parent != null) SetLayerRec(fx.gameObject, parent.gameObject.layer);
+                // 🆕 2026-10-25（`B14` · `X10`）：这一句**会盖掉 `Play` 里刚设的层** ⇒ 必须同样过
+                //   `GrabScreen501.FinalLayer`（否则失真效果被搬去 501 层之后又被这里搬回父层，
+                //   501 那一步就什么都画不到；开关关着时它原样返回父层，与改前同值）。
+                if (parent != null)
+                    SetLayerRec(fx.gameObject,
+                                GrabScreen501.FinalLayer(fx.gameObject, parent.gameObject.layer));
             };
         }
 

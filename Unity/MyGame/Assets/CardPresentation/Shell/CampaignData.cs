@@ -209,10 +209,42 @@ namespace CardPresentation
                 if (_prem[i]) { why = "高级档已经领过了"; return false; }
                 _prem[i] = true;
                 if (!_base[i]) _base[i] = true;            // 原版 `Collect(Premium)` 直接把 State 推到 30（基础+高级都算领了）
+                // 🆕 **2026-10-25（执行代理 `X18`）**：`Ach_16`（完成战役）的唯一写点（判据 §B-3 #8）。
+                NotifyCampaignCompletionIfAllClaimed();
                 return true;
             }
             if (_base[i]) { why = "基础档已经领过了"; return false; }
             _base[i] = true;
+            // 🆕 同上：这一格领完可能就是**最后一格** ⇒ 每次成功领取都问一次（幂等，见那个方法）。
+            NotifyCampaignCompletionIfAllClaimed();
+            return true;
+        }
+
+        /// <summary>🆕 **2026-10-25（执行代理 `X18`）**：**47 个节点的基础档是不是都领过了**
+        /// —— `Ach_16`（`CompleteCampaign`「完成战役」）的本地判据。
+        /// <para>⚠️ **为什么用 `_base` 而不是「基础 + 高级都领」**：表里有 16 个节点 `HasPremium == false`，
+        /// 它们**永远不可能有高级档** ⇒ 拿 `_base &amp;&amp; _prem` 当判据会**永假**、这条成就永远拿不到。
+        /// 原版 `CompleteCampaign` 判的是「整条战役走完」，走完 = **每个节点都领过基础档**。
+        /// ⚠️ 终点 `UM47` 是 `IsRepeatable`：`_base` 领过就是 true，不影响判据。</para></summary>
+        public static bool AllNodesClaimed()
+        {
+            if (Nodes.Length == 0) return false;
+            for (int i = 0; i < Nodes.Length; i++) if (!_base[i]) return false;
+            return true;
+        }
+
+        /// <summary>🆕 **2026-10-25（执行代理 `X18`）**：**战役全通 ⇒ `Ach_16` 记 1**（唯一写点 = `Claim` 成功之后）。
+        /// <para>口径（判据 §B-3 #8）：原版 `checkAlreadyCompleted = 1` = **只记一次** ⇒ 用
+        /// `ProfileData.SetAchievementValueAtLeast("Ach_16", 1)`（天然幂等），
+        /// ⛔ **不是**「每领一个节点 +1」、⛔ 也不是 `AddAchievementValue`。
+        /// **不依赖** F6（`_base/_prem` 全内存、不落盘）：成就进度自己落在 `profile.json` 里
+        /// ⇒ 重开游戏后战役进度归零、再走一遍全通，也**不会**从 1 涨到 2。</para>
+        /// <returns>本次真的把进度抬上去了吗（自检用；`false` = 没全领 / 已经记过）。</returns></summary>
+        public static bool NotifyCampaignCompletionIfAllClaimed()
+        {
+            if (!AllNodesClaimed()) return false;
+            if (ProfileData.AchievementValue(ProfileData.IdAchCompleteCampaign) >= 1) return false;
+            ProfileData.SetAchievementValueAtLeast(ProfileData.IdAchCompleteCampaign, 1);
             return true;
         }
 

@@ -34,8 +34,17 @@ public static class EffectIso
     const string FrameCachePath = @"d:\4\Unity\资料\比对基线\iso_frames.tsv";
     static string StatsPath { get { return $@"d:\4\Unity\资料\比对基线\iso_stats_{Side}.tsv"; } }
 
-    // 要隔离的效果
-    static readonly string[] Targets = { "ArtificeEffect", "EnvironmentalCondition Tau Solar Eclipse",
+    /// <summary>🆕 2026-10-25：`WFISO_FX` —— **只跑指定效果**（逗号分隔的**子串**，大小写不敏感）。
+    /// 例：`WFISO_FX="Void Combat,Raging Storm"` ⇒ 只跑匹配到的那几个。
+    /// **不设 / 空 ⇒ 跑 `DefaultTargets`（= 2026-10-02 那一版 9 个，默认档一字不变）**。
+    /// 候选池 = `DefaultTargets` ∪ `Assets/WarpforgeVFX/Prefabs/*.prefab` 的文件名
+    /// （根对象名与文件名一致；已核 `grep "m_Name: <文件名>"` 每份 prefab 各命中一次）⇒ 新效果**不用改代码**，点名即可。
+    /// ⚠️ 名字必须逐字对得上 prefab 文件名 —— 见下面「Asteroid Z 被静默跳过一整趟」那条。</summary>
+    static readonly string FxFilter = System.Environment.GetEnvironmentVariable("WFISO_FX");
+    static bool IsFiltered { get { return !string.IsNullOrWhiteSpace(FxFilter); } }
+
+    // 默认档要隔离的效果（**不设 WFISO_FX 时**跑的清单）
+    static readonly string[] DefaultTargets = { "ArtificeEffect", "EnvironmentalCondition Tau Solar Eclipse",
         // 🆕 2026-09-17：C 组最后一个。渲染器层（`CEmitProbe` 五项全同）与材质层（`MatIsoProbe` 整体 0.0%）
         // 都已排除，粒子模块值（`ParticleModuleProbe`）也**逐字段 0 处不同** —— 那三个探针**都是从「原版 prefab」
         // 出发换零件**，从来没直接比过「导出 prefab 原样渲出来」。逐发射器隔离就是为了回答「**哪个发射器暗**」。
@@ -65,6 +74,39 @@ public static class EffectIso
         //    `EffectIso` 找不到取景缓存时只 `LogError` 一句就 `continue`）。
         "Environmental Condition Dark Angels Asteroid Zone"
     };
+
+    static string[] _targets;
+    /// <summary>本趟真正要跑的效果清单（筛选逻辑见 `SelectTargets`）。只求值一次。</summary>
+    static string[] Targets { get { if (_targets == null) _targets = SelectTargets(); return _targets; } }
+
+    /// <summary>`WFISO_FX` → 本趟清单。
+    /// 🔴 不设时**返回 `DefaultTargets` 本身**（同一数组、同一顺序）⇒ 默认档行为与改动前完全一致。
+    /// 设了时：候选池里做**子串**匹配（`IndexOf(..., OrdinalIgnoreCase)`），一个都没匹配就 `LogError` 并且清单为空。</summary>
+    static string[] SelectTargets()
+    {
+        if (!IsFiltered) return DefaultTargets;
+        var pats = FxFilter.Split(',').Select(p => p.Trim()).Where(p => p.Length > 0).ToArray();
+        if (pats.Length == 0) return DefaultTargets;
+
+        var pool = new List<string>(DefaultTargets);
+        foreach (var guid in AssetDatabase.FindAssets("t:Prefab", new[] { PrefabDir }))
+        {
+            var n = Path.GetFileNameWithoutExtension(AssetDatabase.GUIDToAssetPath(guid));
+            if (!string.IsNullOrEmpty(n) && pool.IndexOf(n) < 0) pool.Add(n);
+        }
+
+        var picked = pool
+            .Where(n => pats.Any(p => n.IndexOf(p, StringComparison.OrdinalIgnoreCase) >= 0))
+            .Distinct()
+            .OrderBy(n => n, StringComparer.Ordinal)
+            .ToArray();
+
+        if (picked.Length == 0)
+            Debug.LogError($"[iso] WFISO_FX=\"{FxFilter}\" 没匹配到任何效果（候选池 {pool.Count} 个）—— 本趟不会跑任何东西");
+        else
+            Debug.Log($"[iso] WFISO_FX=\"{FxFilter}\" ⇒ 选中 {picked.Length} 个：{string.Join(" | ", picked)}");
+        return picked;
+    }
 
     // 关掉诊断阶段：跑得多的时候只保留「隔离渲染 + 逐项 shader 对照」
     static readonly bool RunDiagnostics = true;
@@ -104,7 +146,14 @@ public static class EffectIso
         Debug.Log($"=== 逐发射器隔离渲染 开始（Side={Side}）===");
         Directory.CreateDirectory(OutDir);
         EnsureIsolateLayer();
-        if (File.Exists(StatsPath)) File.Delete(StatsPath);   // 每趟重写本侧的数字（AppendStats 是追加写）
+        // 每趟重写**本趟要跑的那些**效果的数字（`AppendStats` 是追加写）。
+        // ⚠️ 筛跑（`WFISO_FX`）时**只剪掉这几个 target 的行**，别的效果那几行原样保留 —— 否则一次筛跑
+        //    就把整张 `iso_stats_<side>.tsv` 清空，别处的 A/B 数字得整套重跑才拿得回来。
+        if (File.Exists(StatsPath))
+        {
+            if (IsFiltered) PruneStats(Targets);
+            else File.Delete(StatsPath);
+        }
 
         // 🔴 2026-10-02 起：两侧**分进程**跑（见 `Side` 的注释）。
         //   原来这里只加载特效包一个包（旧注释写「不要加载全部 84 个包」）——
@@ -113,7 +162,13 @@ public static class EffectIso
         Dictionary<string, GameObject> originals = null;
         if (DoOrig)
         {
-            if (File.Exists(FrameCachePath)) File.Delete(FrameCachePath);   // 本趟重写缓存
+            // 本趟重写缓存。**筛跑时只重写这次点名的效果**：`PruneFrameCache` 剪掉它们那几行，
+            // 下面 `SaveFrame` 再追加新的 —— 否则会把这次没跑的其它效果的取景一起删掉。
+            if (File.Exists(FrameCachePath))
+            {
+                if (IsFiltered) PruneFrameCache(Targets);
+                else File.Delete(FrameCachePath);
+            }
             AssetBundle vfx = null;
             int loaded = 0;
             foreach (var f in Directory.GetFiles(BundleDir, "*.bundle"))
@@ -1405,6 +1460,29 @@ public static class EffectIso
             cam.look.x.ToString("R", Inv) + "\t" + cam.look.y.ToString("R", Inv) + "\t" + cam.look.z.ToString("R", Inv) + "\t" +
             cam.fov.ToString("R", Inv) + "\t" + cam.near.ToString("R", Inv) + "\t" + cam.far.ToString("R", Inv) + "\t" +
             string.Join("|", labels) + "\n");
+    }
+
+    /// <summary>筛跑（`WFISO_FX`）时只剪掉**本次要重跑的效果**的取景/标签行，其余原样保留。
+    /// 剪完为空就删文件 —— 保持「文件不存在 = 没缓存」这个既有语义（`LoadFrames` / `Run` 都按它判）。</summary>
+    static void PruneFrameCache(IEnumerable<string> names)
+    {
+        var drop = new HashSet<string>(names);
+        var keep = File.ReadAllLines(FrameCachePath)
+            .Where(l => l.Length > 0 && !drop.Contains(l.Split('\t')[0]))
+            .ToList();
+        if (keep.Count == 0) { File.Delete(FrameCachePath); return; }
+        File.WriteAllText(FrameCachePath, string.Concat(keep.Select(l => l + "\n")));
+    }
+
+    /// <summary>同上，作用于 `iso_stats_<side>.tsv`（第 0 列 = target；表头那一行保留）。</summary>
+    static void PruneStats(IEnumerable<string> names)
+    {
+        var drop = new HashSet<string>(names);
+        var keep = File.ReadAllLines(StatsPath)
+            .Where(l => l.Length > 0 && (l.StartsWith("target\t") || !drop.Contains(l.Split('\t')[0])))
+            .ToList();
+        if (keep.Count == 0) { File.Delete(StatsPath); return; }
+        File.WriteAllText(StatsPath, string.Concat(keep.Select(l => l + "\n")));
     }
 
     static Dictionary<string, CamFrame> LoadFrames()

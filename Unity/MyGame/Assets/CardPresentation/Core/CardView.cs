@@ -697,6 +697,14 @@ namespace CardPresentation
             return unitCard ? UnitDescAt : TacticDescAt;
         }
 
+        /// <summary>🆕 2026-10-25（`X17`）自检口：**卡名那一层的版面框宽**（卡单位）——
+        /// 就是 `BuildTextLayers` ① 传给 `Fill` 的那个 `nameW`（`FitToWidth` 拿它当尺子）。
+        /// ⛔ 期望值不许从这里读回去当「对不对」；它只让自检能算出「卡名有没有越框」。</summary>
+        public static float UiNameBoxWidth(bool unitCard)
+        {
+            return unitCard ? NameBoxW : TacticNameBoxW;
+        }
+
         /// <summary>这张卡印不印卡面下部那行橙字（原版 `RaceText`）—— `SubtypeLine` 的非空判定。
         /// 自检要按**同一条判据**算效果文字的可用区间（<see cref="FaceDescBand01"/> 的 `hasRace`），
         /// ⛔ 别在断言里另判一份（那两处一旦分叉，自检就会去量一个生产上不存在的版面）。</summary>
@@ -2676,6 +2684,10 @@ namespace CardPresentation
         void Update()
         {
             if (_remnantHideAt >= 0f) TickRemnantHide(Time.deltaTime);
+            // 🆕 X17（2026-10-25）：激活那一刻没量到（TMP 还没 `Awake`、或版面还停在半成品）⇒
+            //   再试几帧。真 Play 有帧循环 ⇒ 一定会收敛；**批处理没有帧循环** ⇒ 这一段跑不到，
+            //   自检里就按「量不出来」直接红（⛔ 不假绿 —— 见 `RefitTextForTest`）。
+            if (_textNeedsRefit && _refitTries < 3) { _refitTries++; RefitTextLayers(); }
         }
 
         /// <summary>立刻藏掉残骸体并恢复原卡卡身（原版 `Toggle(0, 0, 0)` 那一支 / 动画事件到点后的收尾）。
@@ -4506,7 +4518,96 @@ namespace CardPresentation
                         + $"图加载 {m0} · FrameMesh {m1 - m0} · 其他建层 {m2 - m1} · rim {m3 - m2} · "
                         + $"文字 {m4 - m3} · 收尾 {end - m4}");
             }
+
+            // 🔴 **2026-10-25（`X17`）**：记「这一趟是不是在**未激活父链**下建的」——
+            //   是 ⇒ 激活那一刻要**补一次完整重排**（`OnEnable` → `RefitTextLayers`）。
+            //   为什么必须记录（而不是激活时无条件重排）：卡池/手牌每次 `SetActive` 都会触发 `OnEnable`，
+            //   无条件重排会把「滚动复用」的每张卡都白重排一遍；只在**这一趟确实量不准**时才补。
+            //   两个触发条件（任一）：
+            //   ① 建的时候 `activeInHierarchy == false` —— `ForceMeshUpdate` 全程早退；
+            //   ② 拟合路自己报了「量不出来」（`_textNeedsRefit`，见 `Fill` / `FitToBox`）。
+            _built = true;
+            _builtWhileInactive = !gameObject.activeInHierarchy;
         }
+
+        // ==================================================================
+        //  激活那一刻的补重排（`X17` · 2026-10-25）
+        // ==================================================================
+        //  🔴 **为什么需要它**（真机 2026-10-25 的证据链）：
+        //   · `05_deckeditor.png`（卡池）：效果文字**收进去了**，但**卡名**「瓦利乌斯·帕克索恩」
+        //     被右边框切掉 ⇒ 说明这两条拟合路在同一次建卡里**一条成功、一条失败** ——
+        //     失败的正是原来还走裸 `ForceMeshUpdate` 的 `FitToWidth`（卡名/阵营/兵种那一档），
+        //     而它早退的条件只有一个：**建的时候父链不活跃**。
+        //   · `b14_B_hand_zoom.png`（手牌）：卡名与效果文字**都**越框 ⇒ 那一批连 `FitToBox` 也没量到。
+        //   ⇒ 共同的触发入口 = 「卡在未激活父链下被建出来」。生产上至少这两处：
+        //     ① `Deck/DeckRuntime.cs` 的卡池：空位那几格 `SetActive(false)` 保留视图、
+        //        `RefreshPool` 装配时先 `Create`/`SetActive(true)` 再 `SetData` —— 而**换档/筛选/切页**
+        //        这些装配可能整棵窗还是关着（`GameWindow.OpenByState` 的 `Closed` 支才会 `SetActive(true)`）。
+        //     ② `Battle/BattleDriver.cs` 的 `SyncHand`（`Create(transform, …)`）：战斗 HUD 根
+        //        在进场动画/预建阶段可能还没激活。
+        //   ⚠️ 这两条是**代码可读出来的形状**；「真机那一次到底是哪一支」需要 `CardBaseDemo` 的
+        //      断言 ⑥（未激活父链下建卡 → 激活 → 量字墨）跑一次才能钉死 —— 见报告。
+
+        bool _built;                 // `Build` 跑过（`Create` 里 `AddComponent` 那一刻的 `OnEnable` 要早退）
+        bool _builtWhileInactive;    // 这一趟是在**未激活父链**下建的
+        bool _textNeedsRefit;        // 拟合路自报「这一次量不到可用版面」
+        int _refitTries;             // `Update` 里已经重试过几帧（上限 3；批处理没有帧循环 ⇒ 只靠 `OnEnable` 那一刀）
+
+        /// <summary>自检口径：这张卡的拟合**有没有留下待补的重排**（`X17`）。
+        /// ⚠️ `false` **不代表版面一定对** —— 它只说明「量到了可用版面」；版面**像不像**由 ①②③④⑥ 去断。</summary>
+        public bool TextNeedsRefit { get { return _textNeedsRefit; } }
+        /// <summary>自检口径：这张卡是不是在**未激活父链**下建出来的（`X17`，断言 ⑥ 的前提）。</summary>
+        public bool BuiltInactive { get { return _builtWhileInactive; } }
+        /// <summary>自检口径：激活补排跑过几次（`X17`；🧨 删掉 `OnEnable` 的那一跳 ⇒ 停在 0 ⇒ 断言 ⑥ 红）。</summary>
+        public int TextRefitCount { get; private set; }
+
+        void OnEnable()
+        {
+            // ⚠️ `Create` 里 `AddComponent` 那一刻（对象本来就活跃）会先来一发 `OnEnable` ——
+            //    那时 `_built == false`（`Build` 还没跑）⇒ 必须早退，否则会对 `default(CardData)` 建层。
+            if (!_built) return;
+            if (!_textNeedsRefit && !_builtWhileInactive) return;
+            // 🔴 **2026-10-25（`X17` 第二轮）**：**出声记一笔**。真机/自检里「这一刀到底有没有被调用」
+            //    此前只能靠间接推断（`TextRefitCount` 停在 0 时，分不清「`OnEnable` 没来」还是
+            //    「来了但被某道闸挡回去」）。带上两个触发标志，下一趟日志就能一眼判死。
+            //    ⚠️ 只在**真的打算补排**时打（滚动复用的常态重激活不会打，避免刷屏）。
+            if (Debug.isDebugBuild || Application.isEditor)
+                Debug.Log($"[CardView] `{name}` 激活补排：`_builtWhileInactive={_builtWhileInactive}`"
+                        + $" · `_textNeedsRefit={_textNeedsRefit}` · `_faceMode={_faceMode}`"
+                        + $" · `TmpFont.Available={TmpFont.Available}`"
+                        + $" · `title={(Data.title == null ? "<null>" : "set")}`"
+                        + $" · `keywords={(Data.keywords == null ? "<null>" : "set")}`");
+            _refitTries = 0;
+            RefitTextLayers();
+        }
+
+        /// <summary>把五层文字**整套重排一遍**（`BuildTextLayers` 是唯一入口 —— 它自己会重算文字态）。
+        /// <para>⚠️ 场上档（`CardFace.Board`）根本不该有文字层（`Build` 里那条 `if`）⇒ 这里照同一条判据早退。</para>
+        /// <para>⚠️ 补排之后再量不出来 ⇒ **出声**（红线：不许静默失败），并交给 `Update` 再试两帧
+        /// （真 Play 有帧循环；批处理没有 ⇒ 自检里就是直接红，不会假绿）。</para></summary>
+        void RefitTextLayers()
+        {
+            if (!TmpFont.Available) return;
+            if (_faceMode == CardFace.Board) { _textNeedsRefit = false; _builtWhileInactive = false; return; }
+            // ⚠️ 不是一张真卡（`default(CardData)`：卡名与效果文字都是 null）⇒ **不要**在这里凭空把文字层建出来
+            //    —— 那些「空卡位」视图的层集合由 `Build` 的空卡分支决定，补排不该改变它。
+            if (Data.title == null && Data.keywords == null) { _textNeedsRefit = false; _builtWhileInactive = false; return; }
+            _builtWhileInactive = false;
+            _textNeedsRefit = false;
+            TextRefitCount++;
+            BuildTextLayers(Data);
+            if (_textNeedsRefit)
+            {
+                if (TextRefitCount <= 1)
+                    Debug.LogWarning($"[CardView] `{name}`：**激活之后**仍然量不出可用文字版面"
+                                   + "（`_textNeedsRefit` 又立起来）—— 版面可能停在名义字号上；不静默。");
+            }
+        }
+
+        /// <summary>自检用：**立刻**补一次并返回是否真的量到了（`X17`）。
+        /// ⛔ 生产不要用它代替激活钩子 —— 它不给 `TextRefitCount` 之外任何保障，存在只为「批处理没有帧循环」
+        /// 这一档（那条路 `Update` 跑不到）。</summary>
+        public bool RefitTextForTest() { RefitTextLayers(); return !_textNeedsRefit; }
 
         /// <summary>
         /// 🆕 2026-10-18（`A985④`）**「由谁造出来的」**（原版卡根下那个 `CreatedByText` 节点）。
@@ -4665,6 +4766,7 @@ namespace CardPresentation
         void BuildTextLayers(CardData d)
         {
             if (!TmpFont.Available) return;
+            _textNeedsRefit = false;      // 🆕 X17：本趟结束时由 `Fill` 按「量到没有」重新置位
 
             // 🔴🔴 **2026-10-25（`CF-6`）：先定「文字态」** —— 原版 `CardTextsController` 9 态里，
             //   手牌是 **always simplified**（`BasicCardUI.SetCardTextInHand` 传的是 `on = 1`），
@@ -4719,7 +4821,8 @@ namespace CardPresentation
             // 🔴 **字号用实例那份 `NameFontSize`（按 `CardUse` 分档），⛔ 不是静态的 `TitleFontSize`** ——
             //    `A2110`：放大窗那 5 张原版是 `fs16`、其余全 19。判据全在 `CardUse` 的注释里。
             _title = Fill(_title, "title", d.title, nameAt, nameW, NameFontSize, InkName, false, nameH,
-                          face: TmpFont.Face.LatinUi);        // 原版 `NameTextUnit/NameTextTactic` = Asar（§2·5）
+                          face: TmpFont.Face.LatinUi, outline: TmpFont.TextOutline.Name);
+                          // 原版 `NameTextUnit/NameTextTactic` = Asar（§2·5）；描边**在拟合之前**贴，见 `Fill` 里那段
             // 🔴 **2026-10-18（`A848` 那笔账的落点）**：**卡名那层的纵向对齐 = 原版的 `Midline`(4096)**。
             //   判据：原版卡预制体里那 6 个互斥变体（`NameTextUnit` / `…Unit Big` / `…Unit No description` /
             //   `…Unit No Description Big` / `NameTextTactic` / `NameTextTacticBig`）**全是 `m_VerticalAlignment
@@ -4792,7 +4895,8 @@ namespace CardPresentation
             //       改成 `true` 就是退回「下沿对齐」那个已被真机否掉的旧口径。
             _keywords = Fill(_keywords, "keywords", d.keywords, descAt01, descW, descFont,
                              InkDesc, true, descH, false, DescLineSpacing, unit ? 0f : DescParaSpacing,
-                             face: TmpFont.Face.LatinCardBody);    // 原版 `DescTextUnit*` = Pragati（§2·5）
+                             face: TmpFont.Face.LatinCardBody, outline: TmpFont.TextOutline.Body);
+                             // 原版 `DescTextUnit*` = Pragati（§2·5）；描边在拟合之前贴，见 `Fill` 里那段
 
             // ③ 🔴 **阵营行（原版 `ArmyTextUnit` / `ArmyTextTactc`）：按展示场景分档** ——
             //    **手牌 + 场上不印，其余都印**（**用户 2026-09-22 裁定**；三档定义见 `CardFace` 的注释）。
@@ -4821,7 +4925,8 @@ namespace CardPresentation
             //       ⇒ 关掉它只是空出那一行，**别的层一个都不动**（手牌版面与这一行启用之前逐字相同）。
             // 对照组：`RaceText`（兵种行）在 **state0/2 是被 `objectsToActivate` 激活的** ⇒ 兵种行照印（见 ④）。
             _army = Fill(_army, "army", CardText.Faction(d.faction), armyAt, nameW, ArmyFontSize, InkArmy, false,
-                         face: TmpFont.Face.LatinCardBody);   // 原版 `ArmyText*` = Pragati（§2·5）
+                         face: TmpFont.Face.LatinCardBody, outline: TmpFont.TextOutline.Body);
+                         // 原版 `ArmyText*` = Pragati（§2·5）；描边在拟合之前贴（同 `Fill` 里那段）
             Show(_army, FaceShowsArmy(_faceMode));
 
             // ④ 兵种行 —— 在卡面下部。**印不印不是「只有单位卡」那么简单**，判据见 `SubtypeLine`
@@ -4834,11 +4939,16 @@ namespace CardPresentation
             _raceY01 = RaceUsesTacticAt(d) ? TacticRaceAt.y : UnitRaceAt.y;
             _race = Fill(_race, "race", SubtypeLine(d), new Vector2(UnitRaceAt.x, _raceY01),
                          nameW, RaceFontSize, InkArmy, false,
-                         face: TmpFont.Face.LatinCardBody);   // 原版 `RaceText*` = Pragati（§2·5）
+                         face: TmpFont.Face.LatinCardBody, outline: TmpFont.TextOutline.Body);
+                         // 原版 `RaceText*` = Pragati（§2·5）；描边在拟合之前贴（同 `Fill` 里那段）
 
             // ⑤ 🆕 描边 —— **原版在材质里，不在 TMP 组件上**，见 `TmpFont.ApplyOutline` 的注释。
             //    卡名 0.15 + 一团软黑影；效果/阵营/兵种 0.05 细描边。
             //    这是「文字压在亮色立绘上读不出来」那条的正面修法（原版就是这么保证可读性的）。
+            // 🔴 **2026-10-25（`X17` 第四轮）**：描边现在**在 `Fill` 里、拟合之前**就贴好了
+            //    （理由：`ApplyOutline` 末尾的 `UpdateMeshPadding()` 会把字形四边形按 `m_padding` 外扩，
+            //     拟合时若还没贴 ⇒ 量到的字墨比画出来的小 `2p`，实测差 1.36%）。⇒ 下面这几句**幂等兜底**，
+            //    保留是因为别处（`FillCreatedBy` 之外的写层点）也可能建层；⛔ 不要把它们当成「第一次贴」。
             TmpFont.ApplyOutline(_title, TmpFont.TextOutline.Name);
             TmpFont.ApplyOutline(_keywords, TmpFont.TextOutline.Body);
             TmpFont.ApplyOutline(_army, TmpFont.TextOutline.Body);
@@ -4985,7 +5095,7 @@ namespace CardPresentation
                 if (_title != null) _title.verticalAlignment = VerticalAlignmentOptions.Middle;
                 _title = Fill(_title, "title", d.title, at, BigTextW,
                               TmpFont.FontSizeForEm(TmpFont.Face.LatinUi, em), InkName, false, h, false, ls, 0f,
-                              face: TmpFont.Face.LatinUi);
+                              face: TmpFont.Face.LatinUi, outline: TmpFont.TextOutline.Name);
                 if (_title != null)
                 {
                     _title.verticalAlignment = VerticalAlignmentOptions.Geometry;   // 原版 `Midline`(4096)
@@ -5003,7 +5113,8 @@ namespace CardPresentation
                 float ps = tactic ? TacticDescBigPara : 0f;
                 _keywords = Fill(_keywords, "keywords", d.keywords, at, BigTextW,
                                  TmpFont.FontSizeForEm(TmpFont.Face.LatinCardBody, em), InkDesc, true, h, false,
-                                 BigLineSpacing, ps, face: TmpFont.Face.LatinCardBody);
+                                 BigLineSpacing, ps, face: TmpFont.Face.LatinCardBody,
+                                 outline: TmpFont.TextOutline.Body);
                 TmpFont.ApplyOutline(_keywords, TmpFont.TextOutline.Body);
                 Show(_keywords, true);
                 Show(_title, false);
@@ -5147,7 +5258,8 @@ namespace CardPresentation
         TextMeshPro Fill(TextMeshPro t, string name, string text, Vector2 at, float maxWidth,
                          float fontSize, Color32 baseColor, bool wrap, float maxHeight = 0f,
                          bool bottomAlign = false, float lineSpacing = 0f, float paragraphSpacing = 0f,
-                         TmpFont.Face face = TmpFont.Face.Cjk)
+                         TmpFont.Face face = TmpFont.Face.Cjk,
+                         TmpFont.TextOutline outline = TmpFont.TextOutline.None)
         {
             if (string.IsNullOrEmpty(text))
             {
@@ -5187,9 +5299,26 @@ namespace CardPresentation
             t.lineSpacing = lineSpacing;
             t.paragraphSpacing = paragraphSpacing;
 
-            if (wrap) TmpFont.SetWrapWidth(t, maxWidth);
-            else FitToWidth(t, maxWidth);
-            if (maxHeight > 0f) FitToBox(t, maxWidth, maxHeight, wrap);
+            // 🔴🔴 **2026-10-25（`X17` 第四轮 · 1.36% 的根因）**：**描边必须在这里贴 —— 拟合之前**。
+            //   `TmpFont.ApplyOutline` 的最后一句是 `t.UpdateMeshPadding()`：开 `OUTLINE_ON` / 调
+            //   `_OutlineWidth` / `_FaceDilate` 之后，TMP 会把**每个字形四边形按 `m_padding` 外扩**
+            //   （`SaveGlyphVertexInfo(padding, …)`，`TMP_Text.cs:5290` 起）⇒ **字墨（四角并集）
+            //   比贴描边之前宽 `2 × padding`**（两端各一份）。
+            //   原来描边写在 `BuildTextLayers` ⑤（**所有 `Fill` 之后**）⇒ 拟合时量的是**没描边那份留白**，
+            //   而画出来的是**描边那份** ⇒ 实测「未激活量到 1.5961 / 激活后 1.6178」（同一张卡、同一个
+            //   `fontSize`）⇒ 差值 `0.0217 卡单位 ≈ 2p`，逐位对得上。
+            //   ⇒ **拟合与渲染必须用同一份留白** ⇒ 描边在 `Fill` 里、拟合之前贴。
+            //   ⚠️ `BuildTextLayers` ⑤ 那一组调用**保留**（幂等，且是别处写层的兜底），但它不再是「第一次贴」。
+            if (outline != TmpFont.TextOutline.None) TmpFont.ApplyOutline(t, outline);
+
+            // 🔴 **2026-10-25（`X17`）**：两条拟合路都回「这一次量到了可用版面没有」——
+            //   量不出来时**不缩、不写缓存**，并记一笔待办：激活那一刻由 `OnEnable` → `RefitTextLayers`
+            //   补一次完整重排（未激活父链下建卡的唯一兜底口，判据见 `Relayout` 的 doc）。
+            bool fitOk;
+            if (wrap) fitOk = Relayout(t, maxWidth, true);       // 就等于 `SetWrapWidth` + 一次生成
+            else fitOk = FitToWidth(t, maxWidth);
+            if (maxHeight > 0f) fitOk = FitToBox(t, maxWidth, maxHeight, wrap) && fitOk;
+            if (!fitOk) _textNeedsRefit = true;
 
             if (bottomAlign) PlaceBottomAt(t, at, TextZ);
             else PlaceAt(t, at, TextZ);
@@ -5223,46 +5352,245 @@ namespace CardPresentation
 
         static string FitKey(TextMeshPro t, float maxWidth, float maxHeight, bool wrap, float nominal)
         {
+            // 🔴 **2026-10-25（`X1`）补 `spriteAsset`**：`<sprite>` 的**绘制尺寸**由 sprite asset 的
+            //   每颗 `m_Scale` 决定（见 <see cref="InkBox"/> 的 doc），换一份 sprite asset ⇒ 同一个键
+            //   量出来的字墨不一样 ⇒ 不把它算进键里就是**跨上下文串味**的缓存。
             return (wrap ? "w" : "n") + "|" + (t.font != null ? t.font.GetInstanceID() : 0) + "|"
+                 + (t.spriteAsset != null ? t.spriteAsset.GetInstanceID() : 0) + "|"
                  + Mathf.RoundToInt(nominal * 1000f) + "|"
                  + Mathf.RoundToInt(maxWidth * 1000f) + "|" + Mathf.RoundToInt(maxHeight * 1000f) + "|"
                  + Mathf.RoundToInt(t.lineSpacing * 1000f) + "|" + Mathf.RoundToInt(t.paragraphSpacing * 1000f) + "|"
                  + (t.text ?? "");
         }
 
-        static void FitToBox(TextMeshPro t, float maxWidth, float maxHeight, bool wrap)
+        /// <summary>把「当前字号」的版面**权威地重算一遍** —— **激活 / 未激活都有效**。
+        /// <para>🔴 **2026-10-25（`X1`）**：`ForceMeshUpdate()` 在**未激活**对象上会**早退** ——
+        /// `TextMeshPro.cs:2119`：`if (!m_isAwake || (this.IsActive() == false &amp;&amp; m_ignoreActiveState == false)) return;`
+        /// ⇒ 那一刻量到的 `textBounds` / `textInfo.meshInfo[].vertices` 全是**上一档字号留下的**
+        /// （刚新建时是 0）⇒ `FitsBox` 一律答「装得下」⇒ **字号一次都不缩**（静默）。
+        /// `TmpFont.GenerateLayout` 走 `GetTextInfo(string)`（**没有那道闸**，判据见它的 doc）⇒ 版面数与顶点都重算。
+        /// ⇒ 两条都走：先 `GetTextInfo`（未激活时靠它），再 `ForceMeshUpdate`（激活时把渲染网格也推上去；未激活时无害）。</para>
+        /// <para>🔴 **2026-10-25（`X17`）两处加严**：
+        /// ① **返回值 = 这一次量到的版面是不是【可用测量】**（见 <see cref="LayoutUsable"/>）。
+        ///    原来本函数没有返回值 ⇒ 调用方（`FitsBox`）只看 `textBounds`，而**量不出来那次**
+        ///    `textBounds` 要么是 0（判「装得下」）、要么是 `GetTextBounds` 的空集哨兵 ±2.147e9
+        ///    ⇒ 前者让 fit 整段不缩、后者把字号打到 5%。两种都是静默错，都没人知道「这次没量到」。
+        /// ② **未激活那一档补一道收敛循环**（最多 8 趟）—— 同 `Battle/Label.cs` 的 `PushLayoutInactive`：
+        ///    单跑一遍 `GetTextInfo` 在某些档位上停在半成品（`characterCount` 仍是 0），
+        ///    判据全文在那个方法的 doc 里（那儿是同一族坑的正本）。</para></summary>
+        static bool Relayout(TextMeshPro t, float maxWidth, bool wrap)
         {
-            if (t == null) return;
+            if (t == null) return false;
+            if (wrap) TmpFont.SetWrapWidth(t, maxWidth);       // 内含 GenerateLayout
+            else TmpFont.GenerateLayout(t);                    // 不折行的那几层（卡名/阵营/兵种）同一道闸
+            t.ForceMeshUpdate();
+            if (LayoutUsable(t)) return true;
+            // 未激活 / 还没 `Awake` ⇒ `ForceMeshUpdate` 早退、`GetTextInfo` 可能停在半成品 ⇒ 再推几趟。
+            // ⚠️ 已激活的对象走不到这里（TMP 自己的 `OnPreRenderObject` 会收敛）；多跑的代价只在少数几帧。
+            for (int i = 0; i < 8; i++)
+            {
+                TmpFont.GenerateLayout(t);
+                if (LayoutUsable(t)) return true;
+            }
+            return LayoutUsable(t);
+        }
+
+        /// <summary>这一次量到的版面**能不能当测量用**（`X17` 2026-10-25）。
+        /// <para>判据三样都要：① `textInfo` 在；② `characterCount > 0`；③ `textBounds.size` 有限、非 0、且**不是哨兵**。
+        /// 哨兵的来源：`TMP_Text.GetTextBounds` 在没有排版结果时返回 `k_LargePositiveVector2`/`k_LargeNegativeVector2`
+        /// （±2.147e9）⇒ 尺寸 ≈ 4.29e9（同 `Battle/Label.cs` 的 `PushLayoutInactive` 记的那条）。
+        /// 卡单位下正常版面 ≤ 个位数 ⇒ 用 `1e5` 当「不像测量值」的界，留足余量。</para>
+        /// <para>空串**算可用**（没有东西可量，`FitsBox` 自然会答「装得下」—— 这是对的，不是静默错）。</para></summary>
+        static bool LayoutUsable(TextMeshPro t)
+        {
+            if (t == null) return false;
+            if (string.IsNullOrEmpty(t.text)) return true;
+            var ti = t.textInfo;
+            if (ti == null || ti.characterCount <= 0) return false;
+            var sz = t.textBounds.size;
+            return sz.x > 0f && Mathf.Abs(sz.x) < 1e5f && Mathf.Abs(sz.y) < 1e5f;
+        }
+
+        /// <summary>字墨 bbox（**网格顶点**，含 `<sprite>` 与全部材质槽）—— 尺寸与中心都在**文字自身局部系**。
+        /// <para>🔴 **2026-10-25（`X1`）为什么不能只信 `t.textBounds`**：
+        /// ① `<sprite>` 的**绘制尺寸被 `m_Scale` 放大**（现读 `Resources/Fonts/Warpforge Trait TextSprites.asset`：
+        ///    每颗 glyph 的 `m_Scale = 1.65 / 1.70`，而 `m_HorizontalAdvance` 仍是 80/68.6）⇒
+        ///    **图标的可见方框溢出行盒**；② 字形 overshoot 也不在行盒里。
+        ///    ⇒ 「行盒装得下」≠「**看得见的字**装得下」。
+        /// ② 自检那条断言（`CardBaseDemo.AssertFaceTextFit` 的 ①②④，量的是同一份顶点 bbox）
+        ///    与生产**必须用同一个量** —— 否则就是「自检全绿、真机溢出」。</para>
+        /// <para>🔴🔴 **2026-10-25（`X17`）就地订正上面 ① 的口径（铁律 5）—— 原句（以及 `X1` 报告 §二 里
+        /// 那句量化版）写的是「图标可见方框**比排版宽度**大 65~70%」，**那只对【竖向】成立，横向是错的**：
+        /// · **横向**：sprite 四边形的宽度走的仍是 `m_HorizontalAdvance`（80/68.6 px × 0.01）
+        ///   ⇒ **宽 == 前进宽**，`m_Scale` **不放大宽度**（TMP 只把 `m_Scale` 乘在竖直方向/绘制高度上）
+        ///   ⇒ **水平方向的「越框」不可能由 `m_Scale` 解释**。
+        /// · **竖向**：四边形**高 = `m_Scale` × ascender**（1.65 / 1.70 倍 ≈ **13% 卡单位**），
+        ///   而行盒只给它 `1 em ≈ 7.9%` ⇒ 上下各溢出 ~2.5%。
+        /// ⇒ 所以 `ClampToInk` 对图标行**真正管的是【竖向】**；横向那半条只在「字形本身 overshoot」
+        ///   与「整块比框宽」时起作用，而后者是**字号**问题（归 `FitToBox` 的二分）。
+        ///   ⚠️ **横向溢出（真机 2026-10-25 截图里那一族）⛔ 不能用本条解释** —— 它的嫌疑在
+        ///   「fit 根本没跑 / 量到的版面不可用」，见 `Relayout` 的返回值、`FitToWidth` 与 `FitsBox` 的注释。
+        /// **错因**：`m_Scale` 这个名字读起来像「整体缩放」，而资产里那一项只管竖直；当时没有逐轴验算。</para>
+        /// ⚠️ **位置无关**（只取 max−min 与中点）⇒ 在 `PlaceAt` 之前调用也有效。
+        /// ⚠️ 量的**不是墨迹**，是**字形四边形**的并集（含 `<sprite>` 放大后的方框、含 ascender/descender）
+        /// —— 它与自检 `CardBaseDemo.InkBoxCardLocal` 是同一个量（那边也读这四角），
+        /// 所以「自检绿 = 真机不越框」这条链才成立。⛔ 别改成量贴图 alpha 的紧包围盒（两边会分叉）。
+        /// 📌 **2026-10-25（`X17`）**：原来这里写「槽号按 `materialReferenceIndex` 取」，现在**不再有槽号**
+        /// （改读 `characterInfo[].vertex_*`，逐字自带四角 —— 见下面那段注释）。</summary>
+        /// <summary>🆕 2026-10-25（`X17` 第三轮）**自检口径**：把生产那份 `InkBox` 原样开出去。
+        /// <para>🔴 为什么要它：自检原来自己算一份（`CardBaseDemo.InkBoxCardLocal`，还把四角**变换到
+        /// `FaceContentRoot` 的局部系**再取 min/max）。上一轮出现了「生产判『够了』、自检量到 1.6178」
+        /// 这种**同一张卡两个数**的局面 —— 而 `maxWidth`（卡名框 1.6）是**文字自己局部系**里的量
+        /// （`sizeDelta` 就在那个系里）⇒ 宽度必须在**同一个系**里比。⇒ 宽度一律走这一个口；
+        /// 位置类（y01）才用 `Front` 系那份（`CardBaseDemo.InkBoxCardLocal`）。</para>
+        /// <para>⛔ 自检不要再写第四份（`CLAUDE.md` 那条「两处写同一条规则迟早不一致」）。</para></summary>
+        public static bool InkBoxLocal(TextMeshPro t, out Vector2 size, out Vector2 center)
+        {
+            return InkBox(t, out size, out center);
+        }
+
+        static bool InkBox(TextMeshPro t, out Vector2 size, out Vector2 center)
+        {
+            size = Vector2.zero; center = Vector2.zero;
+            var ti = t != null ? t.textInfo : null;
+            if (ti == null || ti.characterInfo == null) return false;
+            var chr = ti.characterInfo;
+            float lx = float.MaxValue, hx = float.MinValue, ly = float.MaxValue, hy = float.MinValue;
+            int n = Mathf.Min(ti.characterCount, chr.Length);
+            for (int i = 0; i < n; i++)
+            {
+                // 🔴 **2026-10-25（`X17` 第三轮）判据从「`isVisible`」改成「四角是否全 0」**：
+                //   `isVisible` 是 TMP 内部的可见性标记（`TextMeshPro.cs:2977/3667/3679/4540` 好几处会写它，
+                //   其中 4540 那一段在**逐字循环之后**才把不可见字清零），而**画出来的范围**由四角决定。
+                //   只看 `isVisible` 会在它被后续流程改掉时**静默漏掉整行字**（→ `InkBox` 回 false →
+                //   `ClampToInk`/`FitToWidth` 以为没东西可收）。改成「四角全 0 才跳过」= 与「画了什么」直接对齐。
+                var bl = chr[i].vertex_BL.position; var tl = chr[i].vertex_TL.position;
+                var tr = chr[i].vertex_TR.position; var br = chr[i].vertex_BR.position;
+                if (bl.x == 0f && bl.y == 0f && tl.x == 0f && tl.y == 0f
+                    && tr.x == 0f && tr.y == 0f && br.x == 0f && br.y == 0f) continue;
+                // 🔴 **2026-10-25（`X17`）改读 `characterInfo[i].vertex_*.position`（原来读 `meshInfo[slot].vertices`）**：
+                //   两者**是同一批数**——`SaveGlyphVertexInfo` / `SaveSpriteVertexInfo`（`TMP_Text.cs:5290` / `:5429` 起）
+                //   把字形的四角写进 `characterInfo[i].vertex_BL/TL/TR/BR.position`，这一步在**逐字循环（Phase II）**里；
+                //   而 `meshInfo[].vertices` 是 **Phase III**（`TextMeshPro.cs:5023`，闸 = `m_renderMode == Render && IsActive()`）
+                //   才把同一批角抄进网格数组。`GetTextInfo` 走 `DontRender` ⇒ **Phase III 被跳过** ⇒ 未激活 / 还没 `Awake`
+                //   的时候 `meshInfo` 里是**上一档的旧顶点**（这一条正是「`ClampToInk` 在真机那条路上量不到字墨」的隐患）。
+                //   四角字段没有这个闸；而且**不再依赖材质槽号**（`<sprite>` 会切第二份槽，槽号写死会静默串字）。
+                if (bl.x < lx) lx = bl.x; if (bl.x > hx) hx = bl.x;
+                if (bl.y < ly) ly = bl.y; if (bl.y > hy) hy = bl.y;
+                if (tl.x < lx) lx = tl.x; if (tl.x > hx) hx = tl.x;
+                if (tl.y < ly) ly = tl.y; if (tl.y > hy) hy = tl.y;
+                if (tr.x < lx) lx = tr.x; if (tr.x > hx) hx = tr.x;
+                if (tr.y < ly) ly = tr.y; if (tr.y > hy) hy = tr.y;
+                if (br.x < lx) lx = br.x; if (br.x > hx) hx = br.x;
+                if (br.y < ly) ly = br.y; if (br.y > hy) hy = br.y;
+            }
+            if (lx > hx || ly > hy) return false;
+            size = new Vector2(hx - lx, hy - ly);
+            center = new Vector2((lx + hx) * 0.5f, (ly + hy) * 0.5f);
+            return true;
+        }
+
+        /// <summary>按**字墨**把字号再收到框里（`FitToBox` 的第二段）。
+        /// <para>先用行盒二分（原版 `m_enableAutoSizing` 的语义、既有行为），再按**顶点 bbox** 收 ——
+        /// 原版真正保证的是「**看得见的字形**装进那块固定矩形」，而行盒在含 `<sprite>` 时会**少算**
+        /// （见 <see cref="InkBox"/> 的 doc）。⛔ 只缩不放 ⇒ 不会把原来排得下的卡撑大。</para>
+        /// <para>🔴 **2026-10-25（`X17`）**：对**图标行**来说，本条真正起作用的方向是**竖向**
+        /// （sprite 四边形高 = `m_Scale × ascender` ≈ 13% 卡单位，行盒只给 7.9%）；横向那一半
+        /// **不是 `m_Scale` 的事**（宽 == 前进宽）—— 横向越框归 `FitToBox` 的二分与 `FitsBox` 的量测
+        /// （见 <see cref="InkBox"/> 那条订正）。</para>
+        /// <para>收不下去（`InkBox` 一直报大）⇒ **出声一次**（卡名 + 两个尺寸），⛔ 不静默。</para></summary>
+        static void ClampToInk(TextMeshPro t, float maxWidth, float maxHeight, bool wrap)
+        {
+            const float slack = 0.998f;                      // 留一点点余量，别卡在边界上
+            for (int pass = 0; pass < 6; pass++)
+            {
+                Vector2 sz, ct;
+                if (!InkBox(t, out sz, out ct)) return;
+                float f = 1f;
+                if (sz.x > maxWidth * slack && sz.x > 1e-6f) f = Mathf.Min(f, maxWidth * slack / sz.x);
+                if (maxHeight > 0f && sz.y > maxHeight * slack && sz.y > 1e-6f)
+                    f = Mathf.Min(f, maxHeight * slack / sz.y);
+                if (f >= 0.9995f) return;                    // 已经收进去了
+                // 一次最多降 55%（等比缩放对折行不是线性的，分几趟收敛；趟数有上限 ⇒ 不会死循环）
+                t.fontSize = Mathf.Max(t.fontSize * f, t.fontSize * 0.45f);
+                Relayout(t, maxWidth, wrap);
+            }
+            Vector2 s2, c2;
+            if (InkBox(t, out s2, out c2)
+                && (s2.x > maxWidth * 1.001f || (maxHeight > 0f && s2.y > maxHeight * 1.001f)))
+            {
+                string tag = (t.name ?? "?") + "｜" + (t.text != null && t.text.Length > 24 ? t.text.Substring(0, 24) + "…" : t.text);
+                if (_inkWarned.Add(tag))
+                    Debug.LogWarning($"[CardView] 「{tag}」的字墨收不进版面框（墨 {s2.x:F4}×{s2.y:F4} vs 框 "
+                                   + $"{maxWidth:F4}×{maxHeight:F4} 卡单位，字号 {t.fontSize:F3}）—— "
+                                   + "图标/字形 overshoot 比行盒大；宁可出声，不静默。");
+            }
+        }
+
+        /// <summary>字墨收不进去时只出声一次的去重表（键 = 层名 + 文本前缀）。</summary>
+        static readonly HashSet<string> _inkWarned = new HashSet<string>();
+
+        /// <summary>把字号拟合进版面框。**返回真 = 这一次量到了可用版面**（`X17` 2026-10-25 新加的返回值）。
+        /// <para>🔴 **为什么要有返回值**：`FitsBox` 在两处会给「装得下」这个**假绿**——
+        /// ① `ForceMeshUpdate` 在未激活对象上早退 ⇒ `textBounds` 是**上一档/0**（现在 `Relayout` 挡住了）；
+        /// ② 即便走 `GetTextInfo`，某些档位仍会停在 `characterCount == 0` / 哨兵 `±2.147e9`
+        ///    ⇒ 前者 → 判「装得下」→ 字号停在名义（= 真机越框），后者 → 判「装不下」→ 字号被打到 5%。
+        /// 两种都**不允许**再往 `_fitCache` 里写（否则那次错读数会被全进程复用，
+        /// 之后就算激活了再重排也**永远命不中真测量**）。调用方（`Fill`）拿到假 ⇒ 记 `_textNeedsRefit`，
+        /// 由激活钩子（`OnEnable` → `RefitTextLayers`）在**真的能测**的时候补一刀。</para></summary>
+        static bool FitToBox(TextMeshPro t, float maxWidth, float maxHeight, bool wrap)
+        {
+            if (t == null) return false;
             float nominal = t.fontSize;
             string key = FitKey(t, maxWidth, maxHeight, wrap, nominal);
             float hit;
-            if (_fitCache.TryGetValue(key, out hit)) { t.fontSize = hit; return; }   // 见上面那段：排版交给调用方那次更新
-
-            if (FitsBox(t, maxWidth, maxHeight, wrap))              // 装得下就别缩
+            if (_fitCache.TryGetValue(key, out hit))
             {
-                _fitCache[key] = nominal;
-                return;
+                t.fontSize = hit;
+                // 🔴 **2026-10-25（`X1`）**：命中只跳过**量**，不跳过**排版** —— 但这一句原来是 `return`，
+                //    把「排版」全押在调用方那次 `PlaceAt → ForceMeshUpdate` 上；而那个口在**未激活**时早退。
+                //    ⇒ 这里显式重算一次（`Relayout` 对激活/未激活都有效）。
+                bool okHit = Relayout(t, maxWidth, wrap);
+                if (!okHit) t.fontSize = nominal;        // 量不出来 ⇒ 别把缓存值当前提（见方法头）
+                return okHit;
             }
+
+            if (FitsBox(t, maxWidth, maxHeight, wrap, out bool measured) && measured)   // 装得下就别缩
+            {
+                ClampToInk(t, maxWidth, maxHeight, wrap);           // 🆕 X1：行盒装得下 ≠ 字墨装得下
+                _fitCache[key] = t.fontSize;
+                return true;
+            }
+            if (!measured) return false;                            // 量不出来 ⇒ 不缩、不缓存、不打 5%
 
             float lo = nominal * 0.05f, hi = nominal;               // lo = 已知能装下（极小），hi = 装不下
             for (int i = 0; i < 8; i++)
             {
                 float mid = (lo + hi) * 0.5f;
                 t.fontSize = mid;
-                if (FitsBox(t, maxWidth, maxHeight, wrap)) lo = mid; else hi = mid;
+                if (FitsBox(t, maxWidth, maxHeight, wrap, out measured) && measured) lo = mid; else hi = mid;
+                if (!measured) { t.fontSize = nominal; return false; }
             }
             t.fontSize = lo;
-            FitsBox(t, maxWidth, maxHeight, wrap);                  // 把字号定下来的那次量测留下
-            _fitCache[key] = lo;
+            FitsBox(t, maxWidth, maxHeight, wrap, out measured);    // 把字号定下来的那次量测留下
+            ClampToInk(t, maxWidth, maxHeight, wrap);               // 🆕 X1 ②：再按字墨收一遍
+            if (measured) _fitCache[key] = t.fontSize;
+            return measured;
         }
 
-        /// <summary>量一次：当前字号装得进框吗？（顺带把折行宽度和网格更新做掉）</summary>
-        static bool FitsBox(TextMeshPro t, float maxWidth, float maxHeight, bool wrap)
+        /// <summary>量一次：当前字号装得进框吗？（顺带把折行宽度和网格更新做掉）
+        /// <paramref name="measured"/> 回传「这一次的读数**是不是可用测量**」（`X17`）——
+        /// ⇐ `false` 时 `fits` 那个返回值**没有意义**（⛔ 别当成「装得下」）。</summary>
+        static bool FitsBox(TextMeshPro t, float maxWidth, float maxHeight, bool wrap, out bool measured)
         {
-            if (wrap) TmpFont.SetWrapWidth(t, maxWidth);
-            t.ForceMeshUpdate();
+            // 🔴 **2026-10-25（`X1`）**：原来这里是 `if (wrap) SetWrapWidth(...); ForceMeshUpdate();`
+            //    —— 不折行那几层（卡名/阵营/兵种）只靠 `ForceMeshUpdate`，而它在**未激活**对象上早退
+            //    ⇒ 量到上一档（新建时是 0）的 `textBounds` ⇒ 判「装得下」⇒ 字号不缩。改走 `Relayout`。
+            // 🔴 **2026-10-25（`X17`）**：`Relayout` 现在带返回值 ⇒ 量不出来时如实回 `measured = false`。
+            measured = Relayout(t, maxWidth, wrap);
             var b = t.textBounds.size;
             const float eps = 1.002f;                               // 一点点余量，别卡在边界上来回跳
+            if (!measured) return false;
             return b.x <= maxWidth * eps && (maxHeight <= 0f || b.y <= maxHeight * eps);
         }
 
@@ -5352,8 +5680,18 @@ namespace CardPresentation
         static void PlaceAt(TextMeshPro t, Vector2 at, float z)
         {
             if (t == null) return;
-            t.ForceMeshUpdate();                 // 批处理没有帧循环，尺寸得手动推出来
+            // 🆕 X1：`ForceMeshUpdate` 在**未激活**对象上早退（见 `Relayout` 的 doc）⇒ 那一档改走
+            //    `GetTextInfo`；**激活时保持旧路径**（一次 `ForceMeshUpdate` 就够）⇒ 热路径不多付一次 `GetTextInfo`。
+            bool wrap = t.textWrappingMode == TextWrappingModes.Normal;
+            float wrapW = t.rectTransform != null ? t.rectTransform.sizeDelta.x : 0f;
+            if (wrap && wrapW <= 0f) wrap = false;      // 没设过折行宽 ⇒ 别拿 0 去折行
+            if (t.gameObject.activeInHierarchy) t.ForceMeshUpdate();
+            else Relayout(t, wrapW, wrap);
             var center = new Vector3((at.x - 0.5f) * Width, (0.5f - at.y) * Height, z);
+            // ⚠️ **2026-10-25（`X1`）这里【仍旧】按行盒中心摆**（= 原版 `m_VerticalAlignment = Middle`
+            //    的语义：矩形里装的是**行盒**）。⛔ 别改成「按字墨中心摆」：那会让每一层字整体挪
+            //    0.003~0.004 y01（墨心 ≠ 行盒心），而且含 `<sprite>` 的行会被额外推半个图标宽 ——
+            //    那是**偏离原版**，不是修缺陷。真正要收的是**字号**（见 `FitToBox` 的 `ClampToInk`）。
             t.rectTransform.localPosition = center - (Vector3)t.textBounds.center;
         }
 
@@ -5367,21 +5705,88 @@ namespace CardPresentation
         static void PlaceBottomAt(TextMeshPro t, Vector2 at, float z)
         {
             if (t == null) return;
-            t.ForceMeshUpdate();
+            // 🆕 X17（2026-10-25）：与 `PlaceAt` 同一条 —— `ForceMeshUpdate` 在未激活对象上早退，
+            //   那一档必须走 `Relayout`（`GetTextInfo`）才量得到 `textBounds`。
+            bool wrap = t.textWrappingMode == TextWrappingModes.Normal;
+            float wrapW = t.rectTransform != null ? t.rectTransform.sizeDelta.x : 0f;
+            if (wrap && wrapW <= 0f) wrap = false;
+            if (t.gameObject.activeInHierarchy) t.ForceMeshUpdate();
+            else Relayout(t, wrapW, wrap);
             float botY = (0.5f - at.y) * Height;
             var center = new Vector3((at.x - 0.5f) * Width, botY + t.textBounds.size.y * 0.5f, z);
             t.rectTransform.localPosition = center - (Vector3)t.textBounds.center;
         }
 
-        /// <summary>太宽就把字号整体回缩到装得下（原来点阵那条路也是「缩号到放得下」）</summary>
-        static void FitToWidth(TextMeshPro t, float maxWidth)
+        /// <summary>🆕 2026-10-25（`X17` 第三轮）`FitToWidth` 的**逐趟诊断**（只在 Debug/Editor 下出声，
+        /// 且只在「真的要缩一刀」或「行盒贴顶但量不到字墨」时打 —— 短卡名一趟都不打，不会刷屏）。
+        /// <para>为什么要它：上一轮复验的 `fontSize` 与 `字墨宽` **一个数都没变**，而这两条在 `FitToWidth`
+        /// 里没有别的写入点 ⇒ 只能是「这一趟判了够了」或「`InkBox` 拿不到」。这行日志把两者一眼分开：
+        /// `inkOk=0` ⇒ 这一趟**没量到字墨**（`characterCount` / `isVisible` / 顶点三者里有一个是空）。</para></summary>
+        static void LogFitW(TextMeshPro t, string why, int pass, float boxW, bool inkOk, float inkW, float maxWidth)
         {
-            if (t == null) return;
-            t.ForceMeshUpdate();
-            float w = t.textBounds.size.x;
-            if (w <= maxWidth || w <= 0f) return;
-            t.fontSize *= maxWidth / w;
-            t.ForceMeshUpdate();
+            if (!Debug.isDebugBuild && !Application.isEditor) return;
+            Debug.Log($"[CardView.fitW] `{(t != null ? t.name : "?")}` {why} pass{pass}"
+                    + $" fs={(t != null ? t.fontSize : 0f):F4} 行盒={boxW:F4}"
+                    + $" 字墨={(inkOk ? inkW.ToString("F4") : "n/a")} inkOk={(inkOk ? 1 : 0)} 框={maxWidth:F4}");
+        }
+
+        /// <summary>太宽就把字号整体回缩到装得下（原来点阵那条路也是「缩号到放得下」）。
+        /// <para>🔴 **2026-10-25（`X17`）**：不折行的那几层（**卡名 / 阵营行 / 兵种行**）走的是本函数，
+        /// 而它原来用的是**裸 `ForceMeshUpdate()`** —— 那个口在**未激活**对象上早退
+        /// （`TextMeshPro.cs:2119`），量到 0 ⇒ `w &lt;= 0f` ⇒ **一次都不缩**。`X1` 只把
+        /// `FitsBox`（`FitToBox` 那条）改成了 `Relayout`，**这条漏了** ⇒ 未激活父链下建出来的卡，
+        /// **效果文字会缩、卡名不缩** —— 真机 2026-10-25 `05_deckeditor.png` 里
+        /// 「瓦利乌斯·帕克索恩」卡名被右边框切掉正是这一支（效果文字那两行反而是收进去的）。
+        /// ⇒ 改走 `Relayout`（内含 `GetTextInfo` 收敛），并把「量不出来」如实往上报。</para>
+        /// <para>🔴🔴 **2026-10-25（`X17` 第二轮复核）—— 为什么现在按【字墨】收，而不是只按行盒**：
+        /// 只按 `textBounds`（行盒）收会**差一点点**：实机自检实测「行盒收到 = 卡名框 1.6000」之后，
+        /// **字墨仍是 1.6178（越框 +1.1%）** —— 首末字形的墨迹会略微探出各自的 `advance`。
+        /// 这与效果文字那条（`ClampToInk`）是同一条口径：**「行盒装得下」≠「看得见的字装得下」**
+        /// （见 `InkBox` 的 doc）。⇒ 现在 `max(行盒宽, 字墨宽)` 一起收，最多 3 趟（只缩不放）。
+        /// ⚠️ 与 `ClampToInk` 的区别：那条按宽×高两个方向收，这条**只收宽**（不折行的层高度由 `FitsBox`/`height` 管）。</para></summary>
+        static bool FitToWidth(TextMeshPro t, float maxWidth)
+        {
+            if (t == null) return false;
+            bool ok = Relayout(t, maxWidth, false);
+            if (!ok) return false;
+            bool inkSeen = false;
+            for (int pass = 0; pass < 6; pass++)
+            {
+                float boxW = t.textBounds.size.x;               // 行盒（既有口径）
+                Vector2 sz, ct;
+                bool inkOk = InkBox(t, out sz, out ct);
+                if (inkOk) inkSeen = true;
+                float w = (inkOk && sz.x > boxW) ? sz.x : boxW;  // 🆕 字墨（看得见的那一半）说了算
+                if (w <= maxWidth || w <= 1e-6f)
+                {
+                    // ⚠️ **只按行盒判「够了」不算验过**：字形墨迹可比 advance 累积宽 ~1.3%
+                    //    ⇒ 行盒贴着上限（> 98%）而这一趟**没量到字墨**时，如实回 false
+                    //    （= 「我证明不了它装得下」）⇒ 调用方 `Fill` 记 `_textNeedsRefit`，
+                    //    等激活那一刻（`OnEnable` → `RefitTextLayers`，那时一定量得到）再收一刀。
+                    //    ⛔ 不许在这里「算了，差不多」—— 那正是真机越框那一支。
+                    if (!inkSeen && boxW > maxWidth * 0.98f)
+                    {
+                        LogFitW(t, "未量到字墨 · 行盒贴顶", pass, boxW, inkOk, sz.x, maxWidth);
+                        return false;
+                    }
+                    return true;
+                }
+                // 只缩不放；等比缩对字形是线性的，几趟就收敛
+                LogFitW(t, "缩一刀", pass, boxW, inkOk, sz.x, maxWidth);
+                t.fontSize *= maxWidth / w;
+                ok = Relayout(t, maxWidth, false);
+                if (!ok) return false;
+            }
+            Vector2 s2, c2;
+            if (InkBox(t, out s2, out c2) && s2.x > maxWidth * 1.001f)
+            {
+                string tag = "fitWidth｜" + (t.name ?? "?") + "｜"
+                           + (t.text != null && t.text.Length > 16 ? t.text.Substring(0, 16) + "…" : t.text);
+                if (_inkWarned.Add(tag))         // 与 `ClampToInk` 共用去重表；⛔ 不静默
+                    Debug.LogWarning($"[CardView] 「{tag}」按字墨也收不进版面宽度（墨 {s2.x:F4} vs 框 {maxWidth:F4} 卡单位，"
+                                   + $"字号 {t.fontSize:F3}）—— 字形墨迹比前进宽大；宁可出声，不静默。");
+            }
+            return true;
         }
 
         /// <param name="opaque">true = 用 `CardPresentation/ArtOpaque` 画（**只取 RGB、忽略贴图 alpha**）。
@@ -7745,6 +8150,18 @@ namespace CardPresentation
             _willDieMr.sharedMaterial = m;
             _willDieMr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
             _willDieMr.receiveShadows = false;
+            // 🔴 **2026-10-25（`X8` · 顺手①）两处照原版补（铁律 5）**：
+            //   ① `m_SortingOrder = 2` —— 原版那层是 `SpriteRenderer`，序列化值就是 **2**
+            //      （`CardHighlight.minionWillDieObject` 的那颗；同族的卡面层是 0/1）。我们建的是
+            //      `MeshRenderer`，默认 0 ⇒ 卡内层序与卡面其它层**同号**，谁压谁只能靠距离碰运气。
+            //   ② **建层当场自己盖一次队列** —— `SetQueue` 虽然会扫整棵子树，但它是**建层之前**跑的
+            //      （这层是 `SetWillDie` 第一次调用才懒建的）⇒ 不补这一句，它就一直停在材质默认队列
+            //      （3000），而卡面那一整段可能已经被布局抬到 ≥3000 的另一档 ⇒ **这层被卡压住**。
+            //      同族先例：徽标 `:3819` / 数值层 `:12380` / 状态环 `:4465` 都是「晚建 ⇒ 必须当场补号」。
+            //   🧨 改坏法：删掉 `StampQueue` 那一句 ⇒ `Editor/BattleScene.cs` 的
+            //      「晚建的会死层建出来就落在本卡队列段」那条红（它先 `SetQueue(3005)` 再首次建层）。
+            _willDieMr.sortingOrder = 2;
+            StampQueue(_willDieMr);
             _willDie.SetActive(false);
             // 🔴 **不进 `_layers`** —— 那是「整卡着色」名单（高亮/置灰/淡出都会遍历它），
             //    而这层的颜色是它自己按 clip 补间说了算的，进去会被 `ApplyTint` 刷成卡的颜色。
@@ -7775,6 +8192,19 @@ namespace CardPresentation
         public Vector3 WillDieLocalPos { get { return _willDie != null ? _willDie.transform.localPosition : Vector3.zero; } }
         /// <summary>自检用：那层的**尺寸**（原版 `m_Size` = 1.27 × 1.8 世界单位）。</summary>
         public Vector3 WillDieLocalScale { get { return _willDie != null ? _willDie.transform.localScale : Vector3.zero; } }
+        /// <summary>自检用：那层材质的**渲染队列**（应当 = 这张卡当前的 `Queue`；`-1` = 还没建）。
+        /// <para>🔴 2026-10-25（`X8`）：这条是给「晚建层被卡压住」那一档配的 —— 先 `SetQueue(3005)`
+        /// 再首次建层，读它必须是 3005（不是材质默认的 3000）。</para></summary>
+        public int WillDieRenderQueue
+        {
+            get
+            {
+                var mt = _willDieMr != null ? _willDieMr.sharedMaterial : null;
+                return mt != null ? mt.renderQueue : -1;
+            }
+        }
+        /// <summary>自检用：那层的 `sortingOrder`（原版 `SpriteRenderer.m_SortingOrder` = **2**；`-1` = 还没建）。</summary>
+        public int WillDieSortingOrder { get { return _willDieMr != null ? _willDieMr.sortingOrder : -1; } }
         /// <summary>自检用：原版那条 clip 的**起点/终点**（3DBody 坐标已换算到卡根）。</summary>
         public static Vector3 WillDieFromForCheck { get { return WillDieFrom; } }
         public static Vector3 WillDieToForCheck { get { return WillDieTo; } }

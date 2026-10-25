@@ -2496,6 +2496,11 @@ public static class CardBaseDemo
                 new { name = "Chaplain Letharius",  why = "长中文效果文字",   needLines = 2 },
                 new { name = "Varro Tigurius",      why = "短中文效果文字",   needLines = 1 },
                 new { name = "Master of the Fleet", why = "战术卡（另一档框）", needLines = 1 },
+                // 🔴 **2026-10-25（`X1`）补的两张 = 真机 2026-10-25 截图里**报出来的卡
+                //    （`_tmp_view/shots/2026-10-25_第七十五会话/05_deckeditor.png`）。
+                //    原来那三张恰好都不是用户看到溢出的卡 ⇒ 自检全绿而真机溢出。⛔ 别再按「抽三张够用」砍。
+                new { name = "Marneus Calgar",      why = "真机报溢出的督军（1 行 + 行首图标）", needLines = 1 },
+                new { name = "Roboute Guilliman",   why = "真机报溢出的督军（2 行 + 两枚图标）", needLines = 2 },
             };
             var pool = RuleEngine.CardDatabase.Load();
             for (int ci = 0; ci < cases.Length; ci++)
@@ -2538,6 +2543,13 @@ public static class CardBaseDemo
                 float half = bandBudget * 0.5f;
 
                 float inkW = ix1 - ix0;
+                // 🔍 诊断（`X1` 2026-10-25）：把「字号是被缩过还是根本没动」打出来 ——
+                //    真机溢出的两种可能（fit 没跑 / fit 只量行盒）在这里一眼分得开：
+                //    `fontSize == 名义` **且** 字墨宽 > 版面框 ⇒ 是「fit 没跑」；`已缩` 但字墨仍越框 ⇒ 是「只量行盒」。
+                float nomFs = isUnit ? CardView.KeywordFontSize : CardView.TacticKeywordFontSize;
+                Debug.Log($"{P}[X1] `{c.name}`：fontSize {t.fontSize:F3} / 名义 {nomFs:F3}"
+                        + $"（{(Mathf.Abs(t.fontSize - nomFs) < 1e-3f ? "**未缩**" : "已缩")}）"
+                        + $" · 字墨宽 {inkW:F4} · 版面框宽 {box.x:F4}");
                 float top01 = 0.5f - iy1 / CardView.Height;
                 float bot01 = 0.5f - iy0 / CardView.Height;
                 float mid01 = 0.5f - (iy0 + iy1) * 0.5f / CardView.Height;
@@ -2546,6 +2558,15 @@ public static class CardBaseDemo
 
                 Check(lines >= c.needLines,
                       $"{tag} ★ 前提：至少 {c.needLines} 行 —— 只有 1 行时 ②③④ 量不到折行后的块");
+                // ★ **2026-10-25（`X16`）**：**「生产 fit 真的缩过字号」** —— 这是真机那一格溢出的**直接**判别式
+                //   （`X1` 已查实：`FitsBox` 靠 `ForceMeshUpdate` 量 `textBounds`，而它在**未激活**对象上早退
+                //    ⇒ 新建/池化那条路上字号**一次都不缩** ⇒ 正文按名义字号印出去、越框 16~19%）。
+                //   实测（2026-10-25 本轮）：5 张全部**已缩**（1.306/1.988/1.089/1.988/1.411 vs 名义 2.355/1.900）。
+                //   ⚠️ 这条是 ⑤ 那一组**都不管**的那一半（⑤ 管「图标溢出行盒」，不管「fit 到底跑没跑」）。
+                Check(t.fontSize < nomFs - 1e-3f,
+                      $"{tag} ★ 生产 fit 真的缩过字号（{t.fontSize:F3} < 名义 {nomFs:F3}）"
+                    + "｜🧨 `FitsBox` 退回「只 `ForceMeshUpdate`」（未激活时早退、量到上一档/0）⇒ 字号停在名义 ⇒ 红"
+                    + "（= 2026-10-25 真机「正文未缩 ⇒ 越框 16~19%」那一支）");
                 // ---- ① 渲染字墨宽 ≤ 版面框宽（量网格顶点，不量行盒）----
                 Check(inkW <= box.x * 1.02f,
                       $"{tag} ① 字墨宽 {inkW:F4} ≤ 版面框宽 {box.x:F4} 卡单位（余量 {(box.x - inkW):F4}）"
@@ -2571,12 +2592,272 @@ public static class CardBaseDemo
 
                 Object.DestroyImmediate(v.gameObject);
             }
+
+            // ---- ⑤ 图标行「行盒 vs 字墨」—— 生产 fit 必须按**字墨**收（🔴 2026-10-25 `X1`；`X16` 重钉前提）----
+            //   为什么要这一条：`FitsBox` 只判 `t.textBounds`（**行盒** = `origin`…`xAdvance`／`ascender`…`descender`，
+            //   见 `TMP_Text.cs` 的 `GetTextBounds`），而 `<sprite>` 的**四边形**是按
+            //   `metrics.width/height × currentElementScale` 画的（`TextMeshPro.cs:2860-2871`）
+            //   ⇒ 「行盒装得下」≠「**看得见的字**装得下」。上面 ①~④ 量的是**字墨**、生产 fit 量的却是行盒。
+            //   夹具 = 真卡（`Marneus Calgar`）的正文换成**一串 `<sprite>`** + 两个字。
+            //
+            //   🔴 **2026-10-25（`X16`）更正 `X1` 的一条前提（铁律 5）**：原来 ⑤-① 要求
+            //   「名义字号下**字墨宽 > 版面框宽**」，本轮实测 **1.4317 ≤ 1.5274 ⇒ 前提不成立 ⇒ 红**。
+            //   读源码后确认这**不是**「夹具被修好了」，而是那条前提**对任何折行层都达不到**：
+            //     · `keywords` 层是**折行**的（`Fill(..., wrap: true, descH, ...)`），TMP 按 `widthOfTextArea`
+            //       折行（`TMP_Text.cs:4483`）⇒ 每行的**前进宽**天然 ≤ 版面框；
+            //     · sprite 的**前进宽**（`TMP_Text.cs:4648`）与**四边形宽**（`TextMeshPro.cs:2871`）乘的是
+            //       **同一个** `currentElementScale`（`:4157/:4165`），而本资产的 glyph
+            //       `m_Width = m_HorizontalAdvance = 80`（`m_GlyphTable` 现读）⇒ 字墨宽**不会**超框。
+            //   ⇒ 前提改钉**竖向**（sprite 真正溢出的那一维，也是 `ClampToInk` 存在的理由）：
+            //     `elementAscentLine` 只到 `ascentLine × spriteScale`（`:4165`），而四边形高 =
+            //     `metrics.height × currentElementScale` = **1.65 ×** 那个 ascender（本资产 glyph `m_Scale = 1.65`）。
+            //   ⚠️ **宽度这一维的判别式在别处**：上面每张真卡的「生产 fit 真的缩过字号」＋ ①（字墨宽 ≤ 框）。
+            //   🧨 改坏法（本组）：删掉 `FitToBox` 里的 `ClampToInk(...)` ⇒ 字墨那一档不再收、只剩行盒
+            //      （若它在生产上确实在收 —— 见本报告「没查清」那一格，本轮没跑 Unity 判不了）；
+            //      把 `InkBox` 的槽号写死 `[0]` ⇒ 图标顶点串到 0 号槽 ⇒ 量出的字墨偏小 ⇒ 红。
+            if (CardIcons.SpriteAsset != null && CardIcons.SpriteAsset.spriteCharacterTable != null
+                && CardIcons.SpriteAsset.spriteCharacterTable.Count > 0)
+            {
+                string spName = CardIcons.SpriteAsset.spriteCharacterTable[0].name;
+                RuleEngine.CardDef iconBase = null;
+                for (int i = 0; i < pool.Count; i++) if (pool[i].Name == "Marneus Calgar") { iconBase = pool[i]; break; }
+                Check(iconBase != null && !string.IsNullOrEmpty(spName),
+                      $"★ 前提：图标夹具的料齐了（底卡 `Marneus Calgar` / sprite `{spName}`）");
+                if (iconBase != null && !string.IsNullOrEmpty(spName))
+                {
+                    var sbTag = new System.Text.StringBuilder();
+                    for (int i = 0; i < 8; i++) sbTag.Append("<sprite name=\"").Append(spName).Append("\">");
+                    sbTag.Append("才能");
+                    var icd = BattleDriver.ToCardData(iconBase, iconBase.Faction);
+                    icd.keywords = sbTag.ToString();
+                    icd.title = "A";                                        // 卡名不参与这条
+                    var iv = CardView.Create(root.transform, icd, "facefit_icons");
+                    var it = iv != null ? LayerTmp(iv.transform, "keywords") : null;
+                    Check(it != null, "★ 前提：图标夹具的 `keywords` 层建出来了");
+                    if (it != null)
+                    {
+                        var iframe = iv.FaceContentRoot != null ? iv.FaceContentRoot : iv.transform;
+                        float iboxW = CardView.DescBoxSize(true).x;
+                        float ix0, ix1, iy0, iy1;
+                        // ② 先量**生产 fit 的结果**（`Create` 里已经走完 `FitToBox`）
+                        it.ForceMeshUpdate();
+                        Check(InkBoxCardLocal(iframe, it, out ix0, out ix1, out iy0, out iy1),
+                              "★ 前提：图标夹具量到了可见字墨");
+                        float fitInkW = ix1 - ix0;
+                        // ⚠️ **本条的界限（如实标注，2026-10-25 `X16`）**：`keywords` 层**折行** ⇒ 每行前进宽 ≤ 版面框
+                        //   （头注释有 `TMP_Text.cs` 行号），所以「把 fit 整段跳过」**不会**让本行红（名义字号下也装得下）。
+                        //   它挡的是「生产 fit **收不进去**」（`ClampToInk` 收敛/traps 那一档）＋真正的排版回归。
+                        Check(fitInkW <= iboxW * 1.02f,
+                              $"⑤-② ★ 生产 fit 后**字墨**宽 {fitInkW:F4} ≤ 版面框宽 {iboxW:F4} 卡单位（含 8 枚 `<sprite>`）"
+                            + "｜🧨 生产 fit 收不进框（`ClampToInk` 的收敛坏掉 / 折行宽度被改坏）⇒ 红；"
+                            + "  ⛔ 它**不是** `ClampToInk` 的判别式 —— 折行层名义字号下本来就装得下（见本行上注）");
+                        // ① 再把字号退回**名义值**量一遍 —— 一条回归证据 + 一条竖向前提（🔴 2026-10-25 `X16` 重钉）
+                        it.fontSize = CardView.KeywordFontSize;
+                        TmpFont.GenerateLayout(it);
+                        it.ForceMeshUpdate();
+                        float nx0, nx1, ny0, ny1;
+                        if (InkBoxCardLocal(iframe, it, out nx0, out nx1, out ny0, out ny1))
+                        {
+                            float nomInkW = nx1 - nx0, nomInkH = ny1 - ny0;
+                            float nomBoxW = it.textBounds.size.x, nomBoxH = it.textBounds.size.y;
+                            Debug.Log($"{P}[X1] 图标夹具（名义字号）：字墨 {nomInkW:F4}×{nomInkH:F4} · "
+                                    + $"行盒 {nomBoxW:F4}×{nomBoxH:F4} · 版面框宽 {iboxW:F4}");
+                            // ---- ①-a **回归证据**：「修好之后原夹具不再溢出」----
+                            //   名义字号下它本来就装得下（2026-10-25 实测 1.4317 ≤ 1.5274）。
+                            //   ⛔ 别把这条再翻成「名义字号下字墨宽 > 版面框」：折行层的每行前进宽天然 ≤ 版面框
+                            //      （头注释那段更正有 `TMP_Text.cs` 行号），那一版前提**永远**不成立 ⇒ 必然假红。
+                            //   🧨 把 `keywords` 层改成**不折行**（`Fill(..., wrap:false, …)`）⇒ 一行长串 ⇒ 字墨宽 > 版面框 ⇒ 红
+                            //      （这正是「为什么会折行」的判别式）。
+                            Check(nomInkW <= iboxW,
+                                  $"⑤-① 回归证据：原图标夹具（8 枚 `<sprite>` + `才能`）**名义字号下不再溢出**"
+                                + $"（字墨宽 {nomInkW:F4} ≤ 版面框 {iboxW:F4}，余量 {(iboxW - nomInkW):F4}）"
+                                + "｜🧨 `keywords` 层改成不折行 ⇒ 红（折行把它兜在这里了，见本组头注释）");
+                            // ---- ①-b ★ **前提（竖向）**：名义字号下「字墨高 > 行盒高」----
+                            //   这才是 `<sprite>` 真正溢出的那一维，也是 `ClampToInk` 存在的理由：
+                            //   `elementAscentLine` 只到 `ascentLine × spriteScale`（`TMP_Text.cs:4165`），
+                            //   而四边形高 = `metrics.height × currentElementScale`（`TextMeshPro.cs:2860-2871`）
+                            //   = 1.65 × 那个 ascender（本资产 glyph 的 `m_Scale = 1.65`）。
+                            //   🧨 把 glyph 的 `m_Scale` 改回 1（图标与行盒等高）⇒ 红 —— 那时 ⑤ 对 `ClampToInk`
+                            //      就真的没有判别力了，应当把这一组整段说明改掉，而不是删断言。
+                            Check(nomInkH > nomBoxH + 1e-3f,
+                                  $"⑤-①′ ★ 前提：名义字号下**字墨高** {nomInkH:F4} > **行盒高** {nomBoxH:F4}"
+                                + $"（差 {nomInkH - nomBoxH:F4}；sprite 的四边形高 = metrics.height × elemScale，"
+                                + "而 `elementAscentLine` 只到 `ascentLine × spriteScale` ⇒ 图标高出 65%）"
+                                + "｜🧨 glyph `m_Scale` 改回 1 ⇒ 红");
+                        }
+                        else Check(false, "★ 前提：图标夹具在名义字号下也量得到字墨");
+                    }
+                    if (iv != null) Object.DestroyImmediate(iv.gameObject);
+                }
+            }
+            else Check(CardIcons.SpriteAsset != null,
+                       "★ 前提：`CardIcons.SpriteAsset` 取得到（取不到 ⇒ ⑤ 整条跳 = 那一段没有任何断言在跑）");
+
+            // ================================================================
+            //  ⑥ 未激活父链下建卡 → 激活 → 字墨必须收进版面框（🔴 2026-10-25 `X17`）
+            // ================================================================
+            //  **真机证据**（`_tmp_view/shots/2026-10-25_第七十五会话/`）：
+            //   · `05_deckeditor.png` 卡池 —— 同一张卡**效果文字收进去了、卡名被右边框切掉**
+            //     ⇒ 同一次建卡里两条拟合路**一成一败**。败的那条就是原来还走**裸 `ForceMeshUpdate`** 的
+            //     `FitToWidth`（卡名/阵营/兵种那一档；TMP 在未激活对象上早退 ⇒ 量到 0 ⇒ 不缩）。
+            //   · `b14_B_hand_zoom.png` 手牌 —— 卡名与效果文字**都**越框 ⇒ 那一批连 `FitToBox` 也没量到。
+            //  上面那几条 `cases` 全建在 `new GameObject("facefit_probe")`（**活跃**根）下 ⇒ 永远走「量得到」那一支，
+            //  所以它们全绿而真机溢出。⑥ 补的是「未激活父链」这一轴，⑦ 补的是「手牌档 + 手牌缩放」那一轴。
+            //
+            //  🔴 **2026-10-25（`X17` 第二轮）判死结果 —— 这一节原来断言的是【机制】，现在断言【不变量】**：
+            //  上一轮实测 `TextRefitCount 0 → 0`（`OnEnable` 那一刀在 edit 模式下没被调用到），
+            //  但**同一趟里版面其实已经是对的**（效果文字 `1.5226 ≤ 1.5274`、卡名从名义 1.899 缩到 1.481）
+            //  ⇒ 「建卡那一刻就量到了」（`GetTextInfo` 在未 `Awake` 的对象上是有效的，`Relayout` 靠的就是它）。
+            //  ⇒ 真正承担正确性的是 `FitToWidth` 那条修复，**不是激活钩子**；钩子只留作真 Play 的兜底。
+            //  ⛔ 所以「补排计数」只打日志、**不作断言**（断言一个不承担正确性的机制 = 给假红）；
+            //     而 `TextNeedsRefit == false`（建卡时就量到了）是**不变量**，它红了才是真缺陷。
+            {
+                var holder = new GameObject("facefit_inactive_holder");
+                holder.SetActive(false);                                  // ★ 未激活父链
+                try
+                {
+                    // 夹具 = `Varius, Lord Kakophonist`（`瓦里乌斯，卡科尼斯特领主`）：
+                    //   · 卡名 **12 个全角字** ⇒ 名义宽 12 × 0.19 = 2.28 > 卡名框 1.6 ⇒ **必须靠 `FitToWidth` 缩**；
+                    //   · 效果文字 37 字 ⇒ **必须靠 `FitToBox` 缩**（同一张卡覆盖两条路）。
+                    const string nm = "Varius, Lord Kakophonist";
+                    RuleEngine.CardDef defI = null;
+                    for (int i = 0; i < pool.Count; i++) if (pool[i].Name == nm) { defI = pool[i]; break; }
+                    Check(defI != null, $"★ ⑥ 前提：卡池里有 `{nm}`（长中文卡名 + 长效果文字）");
+                    if (defI != null)
+                    {
+                        var cdI = BattleDriver.ToCardData(defI, defI.Faction);
+                        var vi = CardView.Create(holder.transform, cdI, "facefit_inactive");
+                        Check(vi != null, "★ ⑥ 前提：未激活父链下把卡建出来了");
+                        if (vi != null)
+                        {
+                            Check(vi.BuiltInactive,
+                                  "★ ⑥ 前提：这一张**确实是**未激活父链下建的（`CardView.BuiltInactive`）"
+                                + "｜🧨 把 holder 设成活跃 ⇒ 这一节就不再测「未激活那条路」⇒ 红");
+                            // 🔴 **2026-10-25（`X17` 第三轮）把「决定性那条」挪到【激活之前】**：
+                            //   它断的是**建卡那一刻的版面**，不依赖「激活钩子会不会被调用」这个运行期语义
+                            //   （自检里实测 `TextRefitCount` 停在 0 ⇒ 那一刀在 edit 模式下没轮到）。
+                            //   激活之后只**记账**（打日志），不再拿机制当断言。
+                            CheckInkFitsCase(vi, "⑥ 未激活建卡（激活前）");
+                            holder.SetActive(true);                        // ★ 激活那一刻（生产上就是这一步之后画出去）
+                            Debug.Log($"{P}[X17] ⑥ 激活后：`TextRefitCount = {vi.TextRefitCount}`"
+                                    + $" · `TextNeedsRefit = {vi.TextNeedsRefit}`（**只记账，不断言**）"
+                                    + "｜`TextRefitCount == 0` ⇒ edit 模式下 `OnEnable` 那一刀没被轮到"
+                                    + "（真 Play 里 `SetActive` 一定会跑 `Awake`+`OnEnable`，`Battle/Label.cs` 的"
+                                    + "`TryApplyPendingWrap` 就是靠它，且线上一直是好的）");
+                            // 激活之后再量一次（同一把尺子）—— 只在乎「激活后也不许越框」这个**结果**
+                            CheckInkFitsCase(vi, "⑥ 未激活建卡（激活后）");
+                        }
+                    }
+                }
+                finally { Object.DestroyImmediate(holder); }
+            }
+
+            // ================================================================
+            //  ⑦ 手牌档 + 手牌缩放（下一轮找真机「手牌越框」的判别式）
+            // ================================================================
+            //  真机 `b14_B_hand_zoom.png` 是**手牌**：卡名与正文**都**越框。⑥ 只覆盖「未激活」这一轴，
+            //  这一节把**手牌那两轴**叠上（`CardFace.Hand` + `SetPose` 的手牌缩放 + 生产上每刷新一次的 `SetData`），
+            //  看自检里能不能复现：
+            //   · 复现 ⇒ 判别式成立，真机那条也归同一条路（两条修复应当一起覆盖它）；
+            //   · 不复现 ⇒ 真机那条**另有来源**（运行期语言/文字态/刷新次序/别的入口），下一轮要加运行期探针 ——
+            //     ⛔ 不许因为自检绿就说「已结案」。
+            //  夹具用 `Roboute Guilliman`：中文正文 2 行 ⇒ `FitToBox` 一定会缩（断言有判别力）。
+            {
+                var rootH = new GameObject("facefit_hand");
+                try
+                {
+                    const string nmH = "Roboute Guilliman";
+                    RuleEngine.CardDef defH = null;
+                    for (int i = 0; i < pool.Count; i++) if (pool[i].Name == nmH) { defH = pool[i]; break; }
+                    Check(defH != null, $"★ ⑦ 前提：卡池里有 `{nmH}`（2 行中文正文）");
+                    if (defH != null)
+                    {
+                        var cdH = BattleDriver.ToCardData(defH, defH.Faction);
+                        var vh = CardView.Create(rootH.transform, cdH, "facefit_hand", CardFace.Hand);
+                        Check(vh != null, "★ ⑦ 前提：手牌档的卡建出来了");
+                        if (vh != null)
+                        {
+                            vh.SetPose(Vector3.zero, 0f, 0.35f, null);   // 手牌那档缩放（版面应与之无关）
+                            vh.SetData(cdH);                            // 生产上每次刷新都走这一趟
+                            CheckInkFitsCase(vh, "⑦ 手牌档+缩放");
+                        }
+                    }
+                }
+                finally { Object.DestroyImmediate(rootH); }
+            }
         }
         finally
         {
             Loc.RestoreForTest(langBack);
             Loc.PersistOverride = false;
             Object.DestroyImmediate(root);
+        }
+    }
+
+    /// <summary>`X17`（2026-10-25）：量一张卡的**两处字墨**（卡名 + 效果文字）是否都收进各自的版面框，各配一条灭自证。
+    /// <para>为什么抽出来：断言 ⑥（未激活父链下建）与 ⑦（手牌档 + 手牌缩放）要用**同一把尺子** ——
+    /// 两处各写一份迟早不一致（`CLAUDE.md` 那条老坑）。</para>
+    /// <para>🔴🔴 **2026-10-25（`X17` 第三轮）：宽度一律用 `CardView.InkBoxLocal`（= 生产那一个口，文字自己局部系）**。
+    /// 上一轮自检自己算一份、还把四角**变换到 `FaceContentRoot` 系**再取 min/max，于是出现
+    /// 「生产判『够了』、自检量到 1.6178」这种**同一张卡两个数**。而 `maxWidth`（`NameBoxW` / `DescBoxW`）
+    /// 是**文字自己系**里的量（`sizeDelta` 就在那个系里）⇒ 宽度必须在同一个系里比。
+    /// `Front` 系那份（`InkBoxCardLocal`）**只留给位置类断言 ①②③④（y01）**，这里仅把它**打出来记账**，
+    /// 让下一趟能一眼看出「两个系到底差多少」。</para>
+    /// <para>🔴 **这里【不】调用任何补排 / 重拟合**（不调 `RefitTextForTest`）：量之前只 `ForceMeshUpdate()`
+    /// —— 那一步只把网格推上去、**不改字号**。否则就成了「用补排去救测量」，把要验的东西验没了。</para>
+    /// <para>⚠️ 容差 **1.005**：按字墨收（`FitToWidth` 新口径）/ `ClampToInk`（slack 0.998）都保证
+    /// `墨 ≤ 框`，1.005 只吸收浮点；上一轮「只按行盒收」时实测越框 **1.1%**，仍会被这条抓住。</para></summary>
+    static void CheckInkFitsCase(CardView v, string tag)
+    {
+        if (v == null) { Check(false, $"{tag} ★ 前提：卡建出来了"); return; }
+        var cd = v.Data;
+        var frame = v.FaceContentRoot != null ? v.FaceContentRoot : v.transform;
+
+        var tn = LayerTmp(v.transform, "title");
+        Check(tn != null, $"{tag} ★ 前提：卡名层建出来了");
+        if (tn != null)
+        {
+            tn.ForceMeshUpdate();
+            Vector2 lsz, lct;
+            bool gotL = CardView.InkBoxLocal(tn, out lsz, out lct);      // ← 与生产**同一个口**
+            float a0, a1, b0, b1;
+            bool gotF = InkBoxCardLocal(frame, tn, out a0, out a1, out b0, out b1);   // ← 仅记账
+            Check(gotL, $"{tag} ★ 前提：量到了卡名的**可见字墨**（`CardView.InkBoxLocal`；量不到 ⇒ 下面会拿 0 假绿）");
+            if (gotL && lsz.x > 0f)
+            {
+                float nameW = CardView.UiNameBoxWidth(cd.isUnit);
+                Debug.Log($"{P}[X17] {tag} · 卡名：fontSize {tn.fontSize:F3} · 字墨宽(文字自己系) {lsz.x:F4}"
+                        + $" · 卡名框宽 {nameW:F4} · 〔Front 系宽 {(gotF ? (a1 - a0).ToString("F4") : "n/a")}（仅记账）〕");
+                Check(lsz.x <= nameW * 1.005f,
+                      $"{tag} 卡名字墨宽 {lsz.x:F4} ≤ 卡名框宽 {nameW:F4}（容差 0.5%）"
+                    + "｜🧨 `FitToWidth` 退回裸 `ForceMeshUpdate`（未激活时量到 0、不缩）、"
+                    + "或退回**只按行盒**收（字形墨迹仍越 ~1.1%）、或把「量不到」当「够了」⇒ 红");
+            }
+        }
+
+        var tk = LayerTmp(v.transform, "keywords");
+        Check(tk != null, $"{tag} ★ 前提：效果文字层建出来了");
+        if (tk != null)
+        {
+            tk.ForceMeshUpdate();
+            Vector2 lsz, lct;
+            bool gotL = CardView.InkBoxLocal(tk, out lsz, out lct);
+            float a0, a1, b0, b1;
+            bool gotF = InkBoxCardLocal(frame, tk, out a0, out a1, out b0, out b1);
+            Check(gotL, $"{tag} ★ 前提：量到了效果文字的**可见字墨**（`CardView.InkBoxLocal`）");
+            if (gotL && lsz.x > 0f)
+            {
+                float boxW = CardView.DescBoxSize(cd.isUnit).x;
+                float nom = cd.isUnit ? CardView.KeywordFontSize : CardView.TacticKeywordFontSize;
+                Debug.Log($"{P}[X17] {tag} · 效果文字：fontSize {tk.fontSize:F3} / 名义 {nom:F3}"
+                        + $" · 字墨宽(文字自己系) {lsz.x:F4} · 版面框宽 {boxW:F4}"
+                        + $" · 〔Front 系宽 {(gotF ? (a1 - a0).ToString("F4") : "n/a")}（仅记账）〕");
+                Check(tk.fontSize < nom - 1e-3f,
+                      $"{tag} 效果文字字号**被缩过**（{tk.fontSize:F3} < 名义 {nom:F3}）"
+                    + "｜🧨 去掉拟合 / 让 `FitsBox` 把「量不到」当「装得下」⇒ 停在名义 ⇒ 红");
+                Check(lsz.x <= boxW * 1.005f,
+                      $"{tag} 效果文字字墨宽 {lsz.x:F4} ≤ 版面框宽 {boxW:F4}（容差 0.5%）");
+            }
         }
     }
 
@@ -2595,29 +2876,32 @@ public static class CardBaseDemo
     {
         x0 = x1 = y0 = y1 = 0f;
         var ti = t != null ? t.textInfo : null;
-        if (ti == null || ti.meshInfo == null || ti.meshInfo.Length == 0 || ti.characterInfo == null) return false;
-        var meshes = ti.meshInfo;
+        if (ti == null || ti.characterInfo == null) return false;
         var chr = ti.characterInfo;
         float lx = float.MaxValue, hx = float.MinValue, ly = float.MaxValue, hy = float.MinValue;
         int n = Mathf.Min(ti.characterCount, chr.Length);
         for (int i = 0; i < n; i++)
         {
-            if (!chr[i].isVisible) continue;                     // 不可见的字 TMP 写四角全 0
-            int slot = chr[i].materialReferenceIndex;
-            if (slot < 0 || slot >= meshes.Length) continue;     // 槽号越界 ⇒ 不出点（⛔ 不落回 0 号槽）
-            var v = meshes[slot].vertices;
-            if (v == null) continue;
-            int vi = chr[i].vertexIndex;
-            for (int k = 0; k < 4; k++)
-            {
-                int idx = vi + k;
-                if (idx < 0 || idx >= v.Length) continue;
-                Vector3 p = card.InverseTransformPoint(t.transform.TransformPoint(v[idx]));
-                if (p.x < lx) lx = p.x;
-                if (p.x > hx) hx = p.x;
-                if (p.y < ly) ly = p.y;
-                if (p.y > hy) hy = p.y;
-            }
+            // 判据 = 「四角是否全 0」（与生产 `CardView.InkBox` **逐字同一条**）——
+            // ⛔ 别用 `isVisible`：它在 TMP 内部会被后续流程改写（`TextMeshPro.cs:2977/3667/3679/4540`），
+            //   拿它当判据会**静默漏掉整行字**，于是「自检量到 0」而「生产量到真宽」两边分叉。
+            // 🔴 **2026-10-25（`X17`）改读 `characterInfo[].vertex_*.position`** —— 与生产
+            //   `CardView.InkBox` **逐字同一份数**（那边也读这四角），而且不依赖 `meshInfo`：
+            //   `meshInfo[].vertices` 只在 Phase III（`m_renderMode == Render && IsActive()`）才被写，
+            //   `GetTextInfo` 那条 `DontRender` 路径会跳过它 ⇒ 未激活/未 Awake 时读到的是旧顶点。
+            //   ⛔ 别退回「按材质槽号 + meshInfo」：那会让自检与生产量**两个东西**（老坑）。
+            Vector3 bl = chr[i].vertex_BL.position, tl = chr[i].vertex_TL.position;
+            Vector3 tr = chr[i].vertex_TR.position, br = chr[i].vertex_BR.position;
+            if (bl.x == 0f && bl.y == 0f && tl.x == 0f && tl.y == 0f
+                && tr.x == 0f && tr.y == 0f && br.x == 0f && br.y == 0f) continue;
+            Vector3 p0 = card.InverseTransformPoint(t.transform.TransformPoint(bl));
+            Vector3 p1 = card.InverseTransformPoint(t.transform.TransformPoint(tl));
+            Vector3 p2 = card.InverseTransformPoint(t.transform.TransformPoint(tr));
+            Vector3 p3 = card.InverseTransformPoint(t.transform.TransformPoint(br));
+            lx = Mathf.Min(lx, Mathf.Min(Mathf.Min(p0.x, p1.x), Mathf.Min(p2.x, p3.x)));
+            hx = Mathf.Max(hx, Mathf.Max(Mathf.Max(p0.x, p1.x), Mathf.Max(p2.x, p3.x)));
+            ly = Mathf.Min(ly, Mathf.Min(Mathf.Min(p0.y, p1.y), Mathf.Min(p2.y, p3.y)));
+            hy = Mathf.Max(hy, Mathf.Max(Mathf.Max(p0.y, p1.y), Mathf.Max(p2.y, p3.y)));
         }
         if (lx > hx || ly > hy) return false;
         x0 = lx; x1 = hx; y0 = ly; y1 = hy;

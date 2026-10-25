@@ -6,6 +6,16 @@
 //        以及 `CardView.TweenPose` 每帧把 `_baseScale` 一起带 —— `HandLayout.Place` 2026-10-24 已换过去）
 //   B. **手牌重排的「动画闸」**（原版 `PlayerHand.MoveCardsInHandToPosition` 里 `Toggle(false)` 那 0.2 s）
 //   C. **松手回弹 = 普通手牌重排**（原版**没有**回弹专用补间；0.2 s / 位置+角度+缩放 / OutQuad）
+//   D. 初始手牌缩放
+// 🆕 2026-10-25（`X9`）追加三组（同一宿主、**同一族只此一处**）：
+//   E. **战术卡落点只认卡面要的那一侧**（跨侧拒 + 不回落；本组是唯一读卡表的一组）
+//   F. **输入闸**（模态窗 / 选目标 / 打法选择器 / 终局 ⇒ 抓不起来 + 打断已拖那张）
+//   G. **回放档**（只禁拖；轻点看牌**必须仍然可以** —— 防一刀切）
+//   ⚠️ 真实引擎链路的落点复核不在这里，在 `Editor/BattleScene.cs` §10（`X9-A/B/C`）。
+// 🆕 2026-10-25（`X19/P1`）追加：
+//   H. **手牌文字的量测通道是活的**（`BattleDriver.ProbeHandText` 的灭自证）——
+//      真机 `b14_B_hand_zoom.png` 上「卡名 + 正文都越框」而自检复现不出来 ⇒ 这一组先钉住
+//      「尺子本身量得到、而且注入越框时它真的会报」（否则「没越框」= 假绿）。
 //
 // 用法（⚠️ 要**主对话**跑 —— 子代理不许 `-executeMethod`）：
 //   unset ELECTRON_RUN_AS_NODE && "D:/Unity/Hub/Editor/6000.3.23f1/Editor/Unity.exe" -batchmode -quit \
@@ -50,6 +60,12 @@ public static class HandAssertE8
             B_AnimGate();
             C_Bounce();
             D_InitialCardScale();
+            // 🆕 2026-10-25（`X9` · 授权改动）：战术卡落点（跨侧）+ 输入闸（硬闸 / 回放档）
+            E_DropSide();
+            F_InputGate();
+            G_ReplayDrag();
+            // 🆕 2026-10-25（`X19/P1`）：手牌文字**量测通道**（探针的灭自证；读卡表）
+            H_HandTextMeasure();
         }
         catch (System.Exception e)
         {
@@ -413,6 +429,416 @@ public static class HandAssertE8
             + $"卡区只有 {cardRect.H:F2} px ⇒ 会压进张数条 {naivePx - cardRect.H:F2} px"
             + "｜判据 = 原版实拍「无重叠」＋ `CardUI` 的 rect 在 prefab 里是 0×0（`sizeDelta.y` 是运行时值，"
             + "静态推不出来）｜🧨 把卡区改成整格 / 把 `CardsCellH` 抬大到让差值 <20 px ⇒ 红");
+    }
+
+    // ==================================================================
+    //  E · 战术卡落点：**只认卡面要的那一侧**（跨侧一律拒，且**不回落**）
+    // ==================================================================
+    //
+    // 判据（一手）：引擎的目标侧由**卡面正文**定 —— `Core/EffectResolver.cs:1864`
+    //   `spec.Side == "enemy" ? 1 - p : p`，而 `targetSlot` 只是**格号**
+    //   ⇒ 「指针压在哪块棋盘」与「效果落到哪一侧」本来是两件无关的事。
+    // 病根（改前，`X9` / `AUD8` #4）：`CardInteraction.DropReject` 先试敌方半场、再**回落**我方半场
+    //   ⇒ 友方目标卡丢在**敌人**身上，只要我方同号格有个合法友军就判「合法」⇒ 效果加到自己人身上、
+    //   指针下的敌人毫无反应（反向亦然），而且**零提示**。
+    // 现在：`want = EffectText.PickSide(Parse(desc))`；只试 `want` 那一侧，错侧 `EngineRefused` 且不回落。
+    //
+    // ⚠️ **本组是 E8 里唯一读卡表的一组**（`CardDatabase.Load()`）—— `TacticTargetSide` 的判据就是卡面正文。
+    //    读不到卡表 ⇒ `Check(false)` 收场，⛔ **不跳过**（跳过 = 假绿）。
+    // ⚠️ 引擎那一半用**替身**（`CanDropAtSlot`）按「目标侧那一格有没有单位」模拟 —— `DropReject` 里
+    //    被测的是「该试哪块棋盘 / 要不要回落」，那一段与引擎无关。**真实引擎链路**的复核在
+    //    `Editor/BattleScene.cs` §10（`X9-A/B/C`：真实卡 + 真实 `CanPlayTactic`）。
+    // ⚠️ 两条行心刻意分开（0.30 / 0.70），`TryResolveSlot` 的 y 容差（0.09）才分得开两块棋盘；
+    //    两侧都放一个单位在 `k=3` —— **那正是旧口径会错打的条件**。
+    //
+    // 灭自证：把 `DropReject` 里 `if (want.Length > 0) { … }` 整段删掉（= 回到旧口径）⇒
+    //   ★A / ★B 变成 `Ok` ⇒ **红**；★C / ★D 仍绿（旧口径同侧也收）—— A/B 与 C/D **结构互斥**。
+    static void E_DropSide()
+    {
+        var root = new GameObject("E8_E_dropside");
+        var made = new List<CardView>();
+        try
+        {
+            var layout = root.AddComponent<HandLayout>();
+            var pBoard = root.AddComponent<BoardLayout>();
+            var eBoard = root.AddComponent<BoardLayout>();
+            var it = root.AddComponent<CardInteraction>();
+            it.hand = layout;
+            it.board = pBoard;
+            it.foeBoard = eBoard;
+            it.SetRightButtonHeldForTest(false);
+            it.SetBattleStateBlockedForTest(false);     // 本组只验落点判据 ⇒ 闸全放行
+            pBoard.lineY = 0.30f;
+            eBoard.lineY = 0.70f;
+            const int k = 3;
+            // 替身引擎：按**卡面那一侧**看「这一格有没有单位」。两侧 k 都有人 ⇒ 与旧口径的错打条件一致。
+            it.CanDropAtSlot = (slot, card) =>
+            {
+                string side = CardInteraction.TacticTargetSideForTest(card);
+                if (side.Length > 0) return slot == k;   // enemy / own / any 都只看同一格
+                return true;                             // 不需要目标的战术卡：落哪都算数
+            };
+
+            // ---- 样卡（全部走真实卡表：`artId` → `CardDef` → `PickSide`）----
+            var pool = RuleEngine.CardDatabase.Load();
+            Check(pool != null && pool.Count > 0, "前提：卡表读得到（`CardDatabase.Load()` 非空）");
+            RuleEngine.CardDef friendDef = null, enemyDef = null, noneDef = null;
+            if (pool != null && pool.Count > 0)
+            {
+                friendDef = RuleEngine.CardDatabase.Find(pool, "Dance of Death");     // `Give Shuriken 2 to a friendly unit`
+                // 「不需要目标」那一张**按判据现挑**（不硬写卡名：卡面正文一改，硬写的那张会悄悄变成「要目标」
+                //   ⇒ ★D 会红得莫名其妙）。条件 = 战术卡 · 能进卡组 · **正文解析得出来** · `PickSide` 为空。
+                foreach (var c in pool)
+                {
+                    if (c == null || c.Type != "tactic" || c.IsUnit) continue;
+                    if (RuleEngine.DeckRules.CannotAddToDeck(c)) continue;
+                    if (!RuleEngine.EffectText.IsFullyParsed(c.Desc)) continue;
+                    var opsN = RuleEngine.EffectText.Parse(c.Desc, out _, out _);
+                    if (RuleEngine.EffectText.PickSide(opsN).Length > 0) continue;
+                    noneDef = c; break;
+                }
+                foreach (var c in pool)
+                {
+                    if (c == null || c.Type != "tactic" || c.IsUnit) continue;
+                    if (RuleEngine.DeckRules.CannotAddToDeck(c)) continue;
+                    var opsE = RuleEngine.EffectText.Parse(c.Desc, out _, out _);
+                    var t = RuleEngine.EffectText.PickTarget(opsE);
+                    if (t == null || t.Side != "enemy" || t.Kind != "unit") continue;
+                    bool allDeal = opsE.Count > 0;
+                    foreach (var o in opsE) if (o.Verb != "deal") allDeal = false;
+                    if (!allDeal) continue;
+                    enemyDef = c; break;
+                }
+                // 友方那一张也留一条兜底（同名/改名时别让整组静默跳过）
+                if (friendDef == null)
+                    foreach (var c in pool)
+                    {
+                        if (c == null || c.Type != "tactic" || c.IsUnit) continue;
+                        if (RuleEngine.DeckRules.CannotAddToDeck(c)) continue;
+                        var opsF = RuleEngine.EffectText.Parse(c.Desc, out _, out _);
+                        if (RuleEngine.EffectText.PickSide(opsF) != "own") continue;
+                        friendDef = c; break;
+                    }
+            }
+            Check(friendDef != null && enemyDef != null && noneDef != null,
+                  "前提：三张样卡都查得到（友方目标 / 敌方目标 / 无目标）"
+                + $"（friend={(friendDef != null)} · enemy={(enemyDef != null)} · none={(noneDef != null)}）");
+            if (friendDef == null || enemyDef == null || noneDef == null) return;
+
+            var vFriend = CardView.Create(root.transform, BattleDriver.ToCardData(friendDef, friendDef.Faction),
+                                          "E8_E_friend", CardFace.Hand);
+            var vEnemy = CardView.Create(root.transform, BattleDriver.ToCardData(enemyDef, enemyDef.Faction),
+                                         "E8_E_enemy", CardFace.Hand);
+            var vNone = CardView.Create(root.transform, BattleDriver.ToCardData(noneDef, noneDef.Faction),
+                                        "E8_E_none", CardFace.Hand);
+            made.Add(vFriend); made.Add(vEnemy); made.Add(vNone);
+
+            // ---- 前提：两个探针点各自**只**命中自己那块棋盘（否则下面的判别力全是假的）----
+            Vector3 ownPt = pBoard.SlotPosition(k), foePt = eBoard.SlotPosition(k);
+            int sOwn, sFoe;
+            Check(pBoard.TryResolveSlot(ownPt, out sOwn) && sOwn == k, "前提：我方探针命中我方槽 " + k);
+            Check(!eBoard.TryResolveSlot(ownPt, out sFoe), "前提：我方探针**不**命中敌方棋盘（两条行心分开）");
+            Check(eBoard.TryResolveSlot(foePt, out sFoe) && sFoe == k, "前提：敌方探针命中敌方槽 " + k);
+            Check(!pBoard.TryResolveSlot(foePt, out sOwn), "前提：敌方探针**不**命中我方棋盘");
+
+            int slot; BoardLayout which; string why;
+            string sideF = CardInteraction.TacticTargetSideForTest(vFriend);
+            Check(sideF == "own", $"★ X9-E0：友方目标战术卡的侧判 = **own**（实得「{sideF}」）"
+                + "｜🧨 按 `CardData.id`（= 英文卡名）去查 id 索引 ⇒ 恒查不到 ⇒ 这条红");
+
+            int kA = it.DropRejectKindForTest(foePt, vFriend, out slot, out which, out why);
+            Check(kA == (int)CardInteraction.DropRejectKind.EngineRefused,
+                  $"★ X9-A：友方目标卡拖到**敌方**那个单位上 ⇒ 必须**拒**（实得 {kA}；{why}）"
+                + "｜旧口径在这一格会判**合法**并把效果加到自己同号格（真机症状 = 敌人毫无反应）"
+                + "｜🧨 删掉侧比对（回落那条老路）⇒ 变 `Ok` ⇒ 红");
+
+            int kB = it.DropRejectKindForTest(ownPt, vEnemy, out slot, out which, out why);
+            Check(kB == (int)CardInteraction.DropRejectKind.EngineRefused,
+                  $"★ X9-B（双向之二）：敌方目标卡拖到**我方**那个单位上 ⇒ 必须**拒**（实得 {kB}；{why}）"
+                + "｜🧨 同上 ⇒ 旧口径会去打敌方同号格 ⇒ 红");
+
+            int kC1 = it.DropRejectKindForTest(ownPt, vFriend, out slot, out which, out why);
+            Check(kC1 == (int)CardInteraction.DropRejectKind.Ok && which == pBoard,
+                  $"★ X9-C1：友方目标卡拖我方目标 ⇒ **收**，且 `which` = 我方棋盘（实得 kind={kC1} · "
+                + $"which={(which == pBoard ? "pBoard" : "别的")} · 槽 {slot}；{why}）");
+            int kC2 = it.DropRejectKindForTest(foePt, vEnemy, out slot, out which, out why);
+            Check(kC2 == (int)CardInteraction.DropRejectKind.Ok && which == eBoard,
+                  $"★ X9-C2：敌方目标卡拖敌方目标 ⇒ **收**，且 `which` = 敌方棋盘（实得 kind={kC2} · "
+                + $"which={(which == eBoard ? "eBoard" : "别的")} · 槽 {slot}；{why}）"
+                + "｜🧨 把 `wantEnemy` 取反 ⇒ C1/C2 同时红、A/B 仍红 ⇒ 一次抓住「写反」这一档");
+
+            string sideN = CardInteraction.TacticTargetSideForTest(vNone);
+            int kD = it.DropRejectKindForTest(foePt, vNone, out slot, out which, out why);
+            Check(sideN.Length == 0 && kD == (int)CardInteraction.DropRejectKind.Ok,
+                  $"★ X9-D：**不需要目标**的战术卡侧判 = 空串、且拖到敌方半场也**收**（side=「{sideN}」· kind={kD}）"
+                + "｜🧨 把「不需要目标」也当成「只认我方」⇒ 红（那就是一刀切）");
+
+            // 边界：侧判据只服务战术卡 —— **单位卡**必须回空串（否则 `DropReject` 会把单位卡也按侧限制）
+            var vUnit = CardView.Create(root.transform, CardData.Placeholder(1), "E8_E_unit", CardFace.Hand);
+            made.Add(vUnit);
+            Check(CardInteraction.TacticTargetSideForTest(vUnit).Length == 0,
+                  "★ X9-E4（边界）：**单位卡**的侧判 = 空串（侧判据只服务战术卡）"
+                + "｜🧨 把 `TacticTargetSide` 开头的 `c.Data.isUnit` 早退删掉 ⇒ 单位卡也会被判侧 ⇒ 红");
+        }
+        finally
+        {
+            for (int i = 0; i < made.Count; i++) if (made[i] != null) Object.DestroyImmediate(made[i].gameObject);
+            Object.DestroyImmediate(root);
+        }
+    }
+
+    // ==================================================================
+    //  F · 输入闸：硬闸（模态窗 / 选目标 / 打法选择器 / 终局）⇒ 抓不起来 + **打断已经拖起来的那张**
+    // ==================================================================
+    //
+    // 判据（一手）：原版起拖闸 = `CardScript__OnTouchDrag.c:17-23` 的 `UIstate == 1`（＋全屏压暗层）；
+    //   我们这一层读裸指针、不经过 EventSystem ⇒ 那两道理所当然的闸原本**一条都不成立**
+    //   （真机症状：选牌面板 / 设置 / 日志 / 展示窗 开着还能把牌打出去）。
+    // ⚠️ 与 `Frozen`（掉线 / 演出未收尾）**不是一回事**：那一档原版也是整帧 `return`、**拖拽态留着**；
+    //   本档必须**收回**（`AbortDrag`），否则「窗关掉后松手」照样结算 —— 那正是改前的真机症状。
+    //
+    // 灭自证：★F 与 ★E-2 结构互斥 —— `AbortDrag` 删掉只留 `return` ⇒ ★F 红（`Dragging` 还在）、
+    //   E-1..E-2 仍绿；把整个闸去掉 ⇒ E-1 红、E-2/F 绿。
+    static void F_InputGate()
+    {
+        var root = new GameObject("E8_F_gate");
+        var made = new List<CardView>();
+        try
+        {
+            var layout = root.AddComponent<HandLayout>();
+            var bd = root.AddComponent<BoardLayout>();
+            var it = root.AddComponent<CardInteraction>();
+            it.hand = layout;
+            it.board = bd;
+            it.SetRightButtonHeldForTest(false);
+            layout.animateRelayout = false;
+            for (int i = 0; i < 3; i++)
+                made.Add(CardView.Create(root.transform, CardData.Placeholder(i + 3), "E8_F_" + i, CardFace.Hand));
+            const int n = 3;
+            it.SetCards(made, false);
+            Vector3 p0 = layout.SlotPosition(0, n);
+            Step(CardTween.RelayoutDuration * 2f);      // 🔴 夹具前提：把上一把重排的闸推完（否则 `HoveredCard` 恒 null）
+
+            // ① 硬闸开着 ⇒ 按下不抓、这一帧被吞
+            it.SetBattleStateBlockedForTest(true);
+            bool swallowed1 = it.SimulateTickForTest(p0, true, false);
+            Check(swallowed1 && !it.IsDragging,
+                  "★ X9-E-1：硬闸（= 模态窗 / 选目标 / 打法选择器 / 终局）开着时按下去 ⇒ 这一帧被吞且**抓不起来**"
+                + "｜🧨 把 `BlockedThisFrame` 里那道 `BattleStateBlocked()` 删掉 ⇒ 红");
+
+            // ② 对照：闸一放开，同一按**必须**抓得起来（与 ① 结构互斥 ⇒ 防「一刀切关死」）
+            it.SetBattleStateBlockedForTest(false);
+            bool swallowed2 = it.SimulateTickForTest(p0, true, false);
+            Check(!swallowed2 && it.IsDragging,
+                  "★ X9-E-2（对照）：闸一放开同一按就抓得起来 —— 🧨 ①若写成「永远禁」⇒ 红");
+
+            // ③ 打断「已经拖起来」的那张
+            Check(it.Dragging != null, "前提：此刻手里攥着一张");
+            it.SetBattleStateBlockedForTest(true);
+            bool swallowed3 = it.SimulateTickForTest(p0, false, false);
+            Check(swallowed3 && !it.IsDragging,
+                  "★ X9-F：闸落下的那一帧，**正在拖**的那张被**收回手牌**（`Dragging == null`）"
+                + "｜🧨 把 `BlockedThisFrame` 里那句 `AbortDrag(...)` 删掉、只留 `return` ⇒ 红"
+                + "（牌会留在手里 ⇒ 窗关掉后松手照样出牌 = 改前的真机症状）");
+            Check(it.HandCardCountForTest == n, "★ X9-F2：收回之后手牌张数不变（" + n + " ⇒ " + it.HandCardCountForTest + "）");
+            it.SetBattleStateBlockedForTest(null);
+            Step(CardTween.RelayoutDuration * 2f);
+        }
+        finally
+        {
+            for (int i = 0; i < made.Count; i++) if (made[i] != null) Object.DestroyImmediate(made[i].gameObject);
+            Object.DestroyImmediate(root);
+        }
+    }
+
+    // ==================================================================
+    //  G · 回放档：**只禁拖**，轻点看牌照旧允许（⛔ 不许一刀切）
+    // ==================================================================
+    //
+    // 判据（一手）：`CardScript__OnTouchDrag.c:17-23` 的 `matchType != 0xA0` ⇒ **禁的是「拖出去打」**；
+    //   而 `OnTouchDown` / `OnTouchUpAsButton` 全文**没有** 0xA0 闸，`CanDisplayHandCard`
+    //   （`dc/BattleManager__CanDisplayHandCard.c:7-11`）也只要求 `cardState==1 && UIstate==1`
+    //   ⇒ **回放里轻点手牌看牌是允许的**。整段关掉 = 把这一条一起关死。
+    //
+    // 灭自证：把 `ReplayDragBlocked()` 改成恒 `false`（= 取消回放档）⇒ ★G-1 红（按一下就抓起来了）；
+    //   而 ★G-2 仍绿 —— 这正说明 G-2 抓的是「**一刀切关死**」那一档（在 `BlockedThisFrame` 里加回放
+    //   ⇒ ★G-2 红），两条各管一头，互不替代。
+    static void G_ReplayDrag()
+    {
+        var root = new GameObject("E8_G_replay");
+        var made = new List<CardView>();
+        try
+        {
+            var layout = root.AddComponent<HandLayout>();
+            var bd = root.AddComponent<BoardLayout>();
+            var it = root.AddComponent<CardInteraction>();
+            it.hand = layout;
+            it.board = bd;
+            it.SetRightButtonHeldForTest(false);
+            layout.animateRelayout = false;
+            for (int i = 0; i < 3; i++)
+                made.Add(CardView.Create(root.transform, CardData.Placeholder(i + 6), "E8_G_" + i, CardFace.Hand));
+            const int n = 3;
+            it.SetCards(made, false);
+            Vector3 p0 = layout.SlotPosition(0, n);
+            Step(CardTween.RelayoutDuration * 2f);
+
+            int taps = 0;
+            System.Action<CardView> onTap = c => taps++;
+            it.OnTapped += onTap;
+            it.SetReplayDragBlockedForTest(true);
+
+            // ① 拖：过阈值也**不许抓**（原版 0xA0 闸）
+            bool swallowed = it.SimulateTickForTest(p0, true, false);
+            Check(!swallowed && !it.IsDragging,
+                  "前提：回放档是**软闸**（不吞整帧）—— 按下只记候选、不抓（" + (!swallowed) + " / "
+                + (!it.IsDragging) + "）");
+            // 朝**上**拖（`HandDragPastThreshold` 还有一道 ≤65° 的方向闸，横向挪会被它先拦掉）
+            Vector3 up = p0 + new Vector3(0f, LayoutSpace.VisibleHeight * 0.2f, 0f);
+            it.SimulateTickForTest(up, false, false);
+            Check(!it.IsDragging,
+                  "★ X9-G-1：回放里**拖**被禁（过了阈值也不抓 —— 原版 `matchType != 0xA0`）"
+                + "｜🧨 把 `ReplayDragBlocked()` 改成恒 `false`（= 取消回放档）⇒ 按一下就抓起来 ⇒ 红");
+            it.SimulateTickForTest(up, false, true);
+            Check(taps == 0, "★ X9-G-1b：拖过之后松手**不算轻点**（不开卡面展示窗；实得 " + taps + " 次）");
+
+            // ② 正例：轻点**必须仍然可以**（原版 `OnTouchDown` / `OnTouchUpAsButton` 没有 0xA0 闸）
+            it.SimulateTickForTest(p0, true, false);
+            it.SimulateTickForTest(p0, false, true);
+            Check(taps == 1,
+                  $"★ X9-G-2（正例）：回放里**轻点**手牌照旧开卡面展示窗（`OnTapped` 实得 {taps} 次）"
+                + "｜🧨 把回放档做成「整段关死」（例如在 `BlockedThisFrame` 里 `return true`）⇒ 这条红");
+
+            it.OnTapped -= onTap;
+            it.SetReplayDragBlockedForTest(null);
+            Step(CardTween.RelayoutDuration * 2f);
+        }
+        finally
+        {
+            for (int i = 0; i < made.Count; i++) if (made[i] != null) Object.DestroyImmediate(made[i].gameObject);
+            Object.DestroyImmediate(root);
+        }
+    }
+
+    // ==================================================================
+    //  H · 手牌文字的**量测通道是活的**（`X19/P1` 探针的灭自证）
+    // ==================================================================
+    //
+    // 🔴 为什么要它（证据 → `_tmp_view/shots/2026-10-25_第七十五会话/findings.md` F3++）：
+    //   真机手牌**卡名和正文都越框**（`b14_B_hand_zoom.png`：「圣典：恢复 3 点生命值」整行冲出右边框，
+    //   压到隔壁卡；「军团议会」三行超出卡体下沿），而**自检里复现不出来**。
+    //   两种可能：① 自检量的与真机画的**不是同一个量**；② 真机那条路**根本没走到拟合**。
+    //   这一组先把「尺子」钉住 —— 否则「越框=0」这个结论本身不可信：
+    //     ★H-1 **通道活**：`CardView.InkBoxLocal` 在这张真卡上真的量得到字墨（非 0）；
+    //     ★H-2 **注入一次越框，同一个量必须报出来**（检测器有牙）；★H-2b 还原后墨宽也还原
+    //          （防「量的是缓存 ⇒ 两个方向都不动」那种假绿）；
+    //     ★H-3 生产口径下这张真卡四边都装得下（宽/高/字号只缩不放/没有待补重排）。
+    //   ⛔ 本组只在**自己建的临时卡**上写 `fontSize`，收尾 `DestroyImmediate` ⇒ 不碰生产状态。
+    //   ⚠️ 本组与 E 组同属「读卡表」的两组（`CardDatabase.Load()`）；读不到 ⇒ `Check(false)`，⛔ 不跳过。
+    //
+    // 灭自证：把 ★H-2 的注入两行删掉（或把判据改成「恒不越框」）⇒ ★H-2 红；
+    //   把 `InkBoxLocal` 换成恒 `false` ⇒ ★H-1 红（★H-3 也会红：墨宽恒 n/a）。
+    static void H_HandTextMeasure()
+    {
+        var root = new GameObject("E8_H_handtext");
+        var made = new List<CardView>();
+        try
+        {
+            var pool = RuleEngine.CardDatabase.Load();
+            Check(pool != null && pool.Count > 0, "前提：卡表读得到（`CardDatabase.Load()` 非空）");
+            if (pool == null || pool.Count == 0) return;
+
+            // 挑「手牌上最容易被撑爆」的那张**单位卡**（卡名 + 效果文字，取**真正画在卡面上**的那一份）。
+            // ⚠️ 只挑单位卡：单位档走态 1/2，效果文字的高度预算可以直接用 `FaceDescBand01` 现算
+            //    （战术态 4 的 `DescTacticSmall` 预算是私有常量，这里不去猜它）。
+            RuleEngine.CardDef def = null;
+            CardData best = default(CardData);
+            int bestLen = -1;
+            foreach (var c in pool)
+            {
+                if (c == null || !c.IsUnit) continue;
+                var dd = BattleDriver.ToCardData(c, c.Faction);
+                int len = (dd.title != null ? dd.title.Length : 0) + (dd.keywords != null ? dd.keywords.Length : 0);
+                if (len <= bestLen) continue;
+                bestLen = len; def = c; best = dd;
+            }
+            Check(def != null, "前提：卡表里挑得出一张单位卡");
+            if (def == null) return;
+
+            var v = CardView.Create(root.transform, best, "E8_H_best", CardFace.Hand);
+            made.Add(v);
+            Check(v.TitleText != null && v.KeywordsText != null,
+                  "前提：卡名/效果文字两层都建出来了（`TmpFont` 可用）");
+            if (v.TitleText == null || v.KeywordsText == null) return;
+
+            // 框宽：**与生产同一口径、且与探针同一个口**（`BattleDriver.HandLayerBoxWidth`）。
+            // 🔴 **2026-10-25 修复（H2 假绿）**：原来这里读 TMP 的 `rectTransform.sizeDelta.x` ——
+            //    TMP **出厂就是 `(20, 5)`**，而**不折行**的卡名层从没被写过折行宽 ⇒ 量到 **20**（哨兵），
+            //    `墨 2.46 ≤ 20` 必然「没越框」⇒ H2 这条灭自证**当时没有任何判别力**（H3b 同样是空绿）。
+            //    ⇒ 现在一律走那个共用口，**并且先断「框量到了真值」**（取不到就红，⛔ 不拿兜底值继续判）。
+            float nameBox = BattleDriver.HandLayerBoxWidth(v, desc: false);
+            float descBox = BattleDriver.HandLayerBoxWidth(v, desc: true);
+            Check(nameBox >= 1.0f && nameBox <= 3.0f,
+                  $"★ X19-H0a（前提）卡名框宽量到的是**真值**：{nameBox:F4}（期望 1.0–3.0）"
+                + "｜🧨 读 TMP 出厂 `sizeDelta` ⇒ 得到 **20**（哨兵）⇒ 所有「越框」判断恒真 ⇒ 红");
+            Check(descBox >= 1.0f && descBox <= 3.0f,
+                  $"★ X19-H0b（前提）效果文字框宽量到的是真值：{descBox:F4}（期望 1.0–3.0）"
+                + "｜🧨 同上");
+            float fc, fb;
+            CardView.FaceDescBand01(best.isUnit, CardView.FaceShowsRace(best), out fc, out fb);
+            float descH = Mathf.Max(0.2f, fb * CardView.Height);
+
+            Vector2 inkT, cT, inkD, cD;
+            bool okT = CardView.InkBoxLocal(v.TitleText, out inkT, out cT);
+            bool okD = CardView.InkBoxLocal(v.KeywordsText, out inkD, out cD);
+
+            Check(okT && inkT.x > 1e-3f && okD && inkD.x > 1e-3f,
+                  $"★ X19-H1 量测通道是活的：卡名墨 {inkT.x:F4}×{inkT.y:F4}（ok={okT}）· "
+                + $"效果墨 {inkD.x:F4}×{inkD.y:F4}（ok={okD}）"
+                + "｜🧨 `InkBoxLocal` 恒 false / 读错层 ⇒ 红（那样所有「越框=0」都是瞎的）");
+
+            // ★H-2 注入越框 ⇒ 同一把尺子必须报出来
+            float nominalTitleFs = v.TitleText.fontSize;
+            v.TitleText.fontSize = nominalTitleFs * 2f;
+            v.TitleText.ForceMeshUpdate();
+            Vector2 injInk, injC;
+            bool injOk = CardView.InkBoxLocal(v.TitleText, out injInk, out injC);
+            Check(injOk && injInk.x > nameBox * 1.05f,
+                  $"★ X19-H2（灭自证）卡名字号 ×2（{nominalTitleFs:F4}→{v.TitleText.fontSize:F4}）后，"
+                + $"同一个量必须报越框：墨 {injInk.x:F4} vs 框 {nameBox:F4}（ok={injOk}）"
+                + "｜🧨 检测器写成恒「没越框」⇒ 红");
+
+            // ★H-2b 还原：同一把尺子**两个方向都要跟得动**
+            v.TitleText.fontSize = nominalTitleFs;
+            v.TitleText.ForceMeshUpdate();
+            Vector2 backInk, backC;
+            bool backOk = CardView.InkBoxLocal(v.TitleText, out backInk, out backC);
+            Check(backOk && Mathf.Abs(backInk.x - inkT.x) < 0.02f,
+                  $"★ X19-H2b 字号还原后墨宽也还原（{inkT.x:F4} → {backInk.x:F4}）"
+                + "｜🧨 上一格若因为「量的是缓存」而绿，这一格会红");
+
+            // ★H-3 生产口径（真卡 · 真 `CardFace.Hand` · 激活档）
+            Check(v.TitleText.fontSize <= v.NameFontSize * 1.001f,
+                  $"★ X19-H3a 卡名字号只缩不放：fs {v.TitleText.fontSize:F4} ≤ 名义 {v.NameFontSize:F4}"
+                + "｜🧨 `FitToWidth` 改成会放大 ⇒ 红");
+            Check(backInk.x <= nameBox * 1.001f,
+                  $"★ X19-H3b 卡名不越框：墨 {backInk.x:F4} ≤ 框 {nameBox:F4}"
+                + "｜🔴 这一格**红 = 真机那条「卡名越框」在批处理里也复现了**（是本组要抓的缺陷，不是本组写错）");
+            Check(inkD.x <= descBox * 1.001f,
+                  $"★ X19-H3c 效果文字不越**宽**：墨 {inkD.x:F4} ≤ 折行宽 {descBox:F4}"
+                + "｜🔴 红了就是真机 `b14_B_hand_zoom.png` 那条在批处理里复现（同上，是真发现）");
+            Check(inkD.y <= descH * 1.02f,
+                  $"★ X19-H3d 效果文字不越**高**：墨高 {inkD.y:F4} ≤ 预算 {descH:F4}"
+                + "｜判据 = 生产同一个 `FaceDescBand01` 预算（⛔ 断言里不另算一份）");
+            Check(!v.TextNeedsRefit,
+                  "★ X19-H3e 这张卡没有留下「待补重排」（`TextNeedsRefit=0`）—— 拟合这条路真的跑到了"
+                + "｜🧨 建卡时父链不活跃 / 拟合早退 ⇒ 红（`X17` 那条 `OnEnable` 兜底也兜不住时就现形）");
+        }
+        finally
+        {
+            for (int i = 0; i < made.Count; i++) if (made[i] != null) Object.DestroyImmediate(made[i].gameObject);
+            Object.DestroyImmediate(root);
+        }
     }
 
     // ==================================================================

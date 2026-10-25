@@ -136,37 +136,51 @@ public static class ProfileDataAssertE13
         int b1 = ProfileData.AchievementValue("Ach_1");
         int b19 = ProfileData.AchievementValue("Ach_19");
         int b63 = ProfileData.AchievementValue("Ach_63");
-        BattleDriver.AwardBattleAchievements(damageToEnemyWarlord: 120, skullsCollected: 3,
-                                             faithGained: 7, rankedNetMatch: false, won: true);
+        // 🆕 2026-10-25（`X2`）：形参换新版（模式 + 阵营），`rankedNetMatch` 那个布尔**已删**（判据 §F2）。
+        //   这里用 `OfflinePractice`（**非**排位/轮抽）⇒ 只验「督军伤害 / 骷髅 / 信仰」这三条。
+        BattleDriver.AwardBattleAchievements(new RuleEngine.AchievementTally(), 0,
+                                             damageToEnemyWarlord: 120, skullsCollected: 3,
+                                             faithGained: 7, mode: RuleEngine.GameMode.OfflinePractice,
+                                             faction: "Ultramarines", won: true, replay: false);
         Eq(ProfileData.AchievementValue("Ach_1"), b1 + 120, "A1 打督军 120 伤害 ⇒ `Damage To Warlord` +120");
         Eq(ProfileData.AchievementValue("Ach_19"), b19 + 3, "A1 拿了 3 颗骷髅 ⇒ `Collect Skulls` +3");
         Eq(ProfileData.AchievementValue("Ach_63"), b63 + 7, "A1 涨了 7 点信仰 ⇒ `Gain Faith` +7");
 
         // ---- A2 第二次结算 = **累加**（灭自证：写成覆盖的话这条会红）----
-        BattleDriver.AwardBattleAchievements(30, 1, 2, false, false);
+        BattleDriver.AwardBattleAchievements(new RuleEngine.AchievementTally(), 0, 30, 1, 2,
+                                             RuleEngine.GameMode.OfflinePractice, "Ultramarines", false, false);
         Eq(ProfileData.AchievementValue("Ach_1"), b1 + 150, "A2 再打 30 ⇒ **累加**成 +150（⛔ 不是覆盖成 30）");
         Eq(ProfileData.AchievementValue("Ach_19"), b19 + 4, "A2 再拿 1 颗 ⇒ 累计 +4");
         Eq(ProfileData.AchievementValue("Ach_63"), b63 + 9, "A2 再涨 2 点信仰 ⇒ 累计 +9");
 
         // ---- A3 0 值不写（也不落盘）----
         int c1 = ProfileData.AchievementValue("Ach_1");
-        BattleDriver.AwardBattleAchievements(0, 0, 0, false, false);
+        BattleDriver.AwardBattleAchievements(new RuleEngine.AchievementTally(), 0, 0, 0, 0,
+                                             RuleEngine.GameMode.OfflinePractice, "Ultramarines", false, false);
         Eq(ProfileData.AchievementValue("Ach_1"), c1, "A3 全 0 的一局 ⇒ 进度一动不动");
 
-        // ---- A4 「Multiplayer」那条闸：单机排位局**不算**（灭自证）----
+        // ---- A4 🔴 **2026-10-25（`X2`）口径变更（判据 §F2，主对话裁断）** ----
+        //    原版 `GamesPlayed__OnTrigger.c` 判的是**模式**（`IRankedEvent` / `IDraftEvent` 的运行时类型），
+        //    **没有「对手是不是真人」这一条** ⇒ 单机排位（`Classic`）也算。
+        //    （改前 E13 这里断的是「单机局**不**涨」—— 那条口径已按原版推翻，见判据 §F2。）
         int r37 = ProfileData.AchievementValue("Ach_37");
         int r38 = ProfileData.AchievementValue("Ach_38");
-        BattleDriver.AwardBattleAchievements(0, 0, 0, rankedNetMatch: false, won: true);
-        Eq(ProfileData.AchievementValue("Ach_37"), r37, "A4 单机局 ⇒ **不**涨 `Play Ranked Multiplayer Matches`（challenge 原文写的是 Multiplayer）");
-        Eq(ProfileData.AchievementValue("Ach_38"), r38, "A4 单机局赢了也 ⇒ **不**涨 `Win Ranked Multiplayer Matches`");
+        BattleDriver.AwardBattleAchievements(new RuleEngine.AchievementTally(), 0, 0, 0, 0,
+                                             RuleEngine.GameMode.Classic, "Ultramarines", true, false);
+        Eq(ProfileData.AchievementValue("Ach_37"), r37 + 1, "A4 单机**排位**（`Classic`）⇒ `Play Ranked…` +1（★ 原版判模式、不判对手是不是人）");
+        Eq(ProfileData.AchievementValue("Ach_38"), r38 + 1, "A4 那一局赢了 ⇒ `Win Ranked…` +1");
 
-        // ---- A5 真联机排位局才 +1 ----
-        BattleDriver.AwardBattleAchievements(0, 0, 0, rankedNetMatch: true, won: true);
-        Eq(ProfileData.AchievementValue("Ach_37"), r37 + 1, "A5 真联机排位局 ⇒ `Play Ranked…` +1");
-        Eq(ProfileData.AchievementValue("Ach_38"), r38 + 1, "A5 那一局赢了 ⇒ `Win Ranked…` +1");
-        BattleDriver.AwardBattleAchievements(0, 0, 0, rankedNetMatch: true, won: false);
-        Eq(ProfileData.AchievementValue("Ach_37"), r37 + 2, "A5 再打一局（输了）⇒ `Play Ranked…` 仍 +1");
-        Eq(ProfileData.AchievementValue("Ach_38"), r38 + 1, "A5 输了 ⇒ `Win Ranked…` 不动（灭自证：不是「玩了就加」）");
+        // ---- A5 ★ 灭自证：**非**排位/轮抽的模式 ⇒ 两条都不涨（证明涨的不是「什么局都加」）----
+        BattleDriver.AwardBattleAchievements(new RuleEngine.AchievementTally(), 0, 0, 0, 0,
+                                             RuleEngine.GameMode.OfflinePractice, "Ultramarines", true, false);
+        Eq(ProfileData.AchievementValue("Ach_37"), r37 + 1, "A5 ★ `OfflinePractice` ⇒ `Play Ranked…` **不动**");
+        Eq(ProfileData.AchievementValue("Ach_38"), r38 + 1, "A5 ★ 同上 ⇒ `Win Ranked…` **不动**");
+
+        // ---- A5b 输了 ⇒ `Win Ranked…` 不动（灭自证：不是「玩了就加」）----
+        BattleDriver.AwardBattleAchievements(new RuleEngine.AchievementTally(), 0, 0, 0, 0,
+                                             RuleEngine.GameMode.Classic, "Ultramarines", false, false);
+        Eq(ProfileData.AchievementValue("Ach_37"), r37 + 2, "A5b 再打一局排位（输了）⇒ `Play Ranked…` 仍 +1");
+        Eq(ProfileData.AchievementValue("Ach_38"), r38 + 1, "A5b 输了 ⇒ `Win Ranked…` 不动（灭自证）");
 
         // ---- A6 写进去的值在「档位 / 积分」那一侧算得出来（接口贯通）----
         int tier = ProfileData.AchievementTierOf(ach1);

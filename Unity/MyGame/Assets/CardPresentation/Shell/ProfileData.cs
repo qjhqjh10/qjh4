@@ -35,6 +35,7 @@
 // ⚠️ **`Avatar_WF_*` 两张是占位图不是可选头像**（`Warpforge Empty` / `Warpforge Splash`）⇒ 生成器已排除。
 using System;
 using System.Collections.Generic;
+using RuleEngine;              // 🆕 2026-10-25（`X2`）：`AchievementTally` / `GameMode` / `TargetCriteriaEval`
 using UnityEngine;
 
 namespace CardPresentation
@@ -64,7 +65,60 @@ namespace CardPresentation
             public int t;       // `achievementType`（位标志：1 Battle / 2 Collection / 4 Victories / 8 Account）
             public int[] v;     // 各档阈值（`rewards[].targetValue`）
             public int[] q;     // 各档奖励数量（`rewards[].rewards[0].quantity` ⇒ `Achievements/Points` 那个数）
+            /// <summary>🆕 **2026-10-25（`X2`）**：`challenge` 的 **`type.class`** ——
+            /// **原版触发源的类名**（`DamageDeltToEnemyUnit` / `GamesPlayed` / `UpgradeCard` / `TriggerAbility` …）。
+            /// 判据 = 成就定义 SO（`bundle_staticgeneralassets_assets_all/MonoBehaviour/ACH<n> <名>.json`
+            /// 的 `challenge` 是 `SerializeReference`，`references.RefIds[].type.class` 就是它）。
+            /// 🔴 有了它，27 条升级 / 30 条对局 / 17 条触发才**分得开**（它们的 challenge 原文有重名，见 §F5）。</summary>
+            public string k;
+            /// <summary>🆕 2026-10-25（`X2`）：过滤位 —— `data` **去掉 `id` / `rewards`** 之后的**原样 JSON 字符串**
+            /// （`JsonUtility` 吃不了 `Dictionary`，所以原样存、消费侧按 <see cref="Filters"/> 这个固定 DTO 再解一次）。</summary>
+            public string f;
+            /// <summary>🆕 2026-10-25（`X2`）：`allowOnTutorials`（0/1）。现读：**42 条 1 / 60 条 0**。</summary>
+            public int tut;
+            /// <summary>🆕 2026-10-25（`X2`）：`allowOnDuels`（0/1）。现读：**102 条全 0**（决斗一条都不计）。</summary>
+            public int duel;
         }
+
+        /// <summary>🆕 **2026-10-25（`X2`）**：成就 `challenge.data` 的**过滤位**（只列**消费端真的会读**的那些格；
+        /// 其余格子 `JsonUtility` 直接忽略）。字段名 = 原版 JSON 的键名（⛔ 别改成驼峰/中文）。
+        /// <para>判据 = 成就定义 SO 逐条现读；每一项在消费点（<see cref="ApplyAchievementTally"/>）都注了出处。</para>
+        /// <para>⚠️ **0 与 1 是两个意思**（`anyArmy=1` = 不过滤阵营、`anyArmy=0` = 按 `army` 筛），
+        /// 所以生成器把 0 也一起写出去了 —— ⛔ 别把 0 当「字段没写」。</para></summary>
+        [Serializable]
+        public class Filters
+        {
+            public int army;                  // 阵营 id（`CardArmy`：10 UM / 20 Goff / 40 Sautekh …）
+            public int anyArmy;               // 1 = 不过滤阵营
+            public int tier;                  // `UpgradeCard`：目标档（**0 基**：1 = Tier2 · 2 = Tier3）
+            public int anyTier;               // 1 = 不过滤档（`Ach_23` 的「任意档」）
+            public int onlyRanked;            // `GamesPlayed`：1 = 排位
+            public int onlyAccountWins;       // 1 = 只算胜场
+            public int anyGameMode;           // 1 = 不过滤模式（现读 0 条是 1）
+            public GameModeRef[] gameModes;   // 运行期类型（`IRankedEvent` / `IDraftEvent`）—— **原版判的就是它**
+            public int attackType;            // `DamageDeltToEnemyUnit`：`AttackTypes`（1 近战 / 2 远程 / 3 计谋）
+            public int anyAttackType;
+            public int damageType;            // `DamageType`（11 = `Stomp`）
+            public int anyDamageType;
+            public int onlyDamageByShuriken;      // `Ach_7`
+            public int onlyDamageByMarkerlight;   // `Ach_53`
+            public int triggerAbility;        // `TriggerAbility`：`AbilityTrigger` 数值（145 Codex / 300 Mob …）
+            public int anyTrait;
+            public int[] withTrait;           // `DefinedTrait` 数值表（5 = ephemeral · 610 = pack）
+            public int anyKeyword;
+            public int keyword;               // `Keyword` 枚举（35 = Beast）
+            public int anySpellType;
+            public int spellType;             // 260 = `CombatElixir`
+            public int anyCardType;           // 0 = 要看卡型（`Ach_89`）
+            public int onlyCountCompanions;   // `Ach_54`
+            public int[] playModeBlocklist, playModeAllowlist;   // 102 条**全空** ⇒ 全模式放行
+        }
+
+        /// <summary>🆕 2026-10-25（`X2`）：`gameModes[]` 里那一格 —— 原版 `GamesPlayed` 只读
+        /// `TypeReference` 的**运行时类型名**（`GamesPlayed__OnTrigger.c` 那段 `Type.IsAssignableFrom`）。</summary>
+        [Serializable]
+        public class GameModeRef { public string _typeNameAndAssembly; }
+
 
         [Serializable]
         public class CosmeticDto
@@ -120,6 +174,17 @@ namespace CardPresentation
             public int[] Thresholds;
             /// <summary>各档奖励数量（就是 `Achievements/Points` 那个数）。</summary>
             public int[] Quantities;
+            /// <summary>🆕 **2026-10-25（`X2`）**：原版触发源的**类名**（`DamageDeltToEnemyUnit` /
+            /// `GamesPlayed` / `UpgradeCard` / `TriggerAbility` / `ConstantChallenge` …）。
+            /// 结算时按它分流（判据 = 成就定义 SO 的 `challenge.type.class`）。</summary>
+            public string Class;
+            /// <summary>🆕 2026-10-25（`X2`）：过滤位的**原样 JSON**（解析结果缓存见 <see cref="FiltersOf"/>）。</summary>
+            public string FiltersJson;
+            /// <summary>🆕 2026-10-25（`X2`）：`allowOnTutorials` —— **教程局这一条计不计**
+            /// （判据 = `MissionChallenge__ValidateMatchConditions.c`：`IsTutorialMatch` ⇒ 直接回它）。</summary>
+            public bool TutorialOk;
+            /// <summary>🆕 2026-10-25（`X2`）：`allowOnDuels` —— **决斗局这一条计不计**（现读 102 条全 false）。</summary>
+            public bool DuelOk;
             public int TierCount { get { return Thresholds != null ? Thresholds.Length : 0; } }
             public override string ToString() { return Name; }
         }
@@ -358,9 +423,419 @@ namespace CardPresentation
             return hit;
         }
 
+        // ============================================================================
+        //  🆕 2026-10-25（执行代理 `X2`）：成就的「原版触发源」那一半
+        //  —— 过滤位 / 教程·决斗·回放闸 / 按 `Ach_N` 写入 / 结算那一句
+        //
+        //  判据与施工单 = `资料/待办判据_成就计数器_1025b.md`（§B-0 数据层 · §B-1 存哪 ·
+        //  §B-4 结算统一成一处 · §二① 教程闸）。
+        //  🔴 **为什么要有这一节**：97 条成就的触发源在引擎里**没有计数器**（近战/远程伤害拆分、
+        //     关键词触发次数、升级卡、对局胜负…），E13 只接了 5 条。用户 2026-10-25 拍板**要补**。
+        //  🔴 **两条硬口径**：
+        //     ① **一律按 `Ach_N` 写**（⛔ 不再走 `FindIdByChallenge`）—— challenge 原文**有重名**
+        //        （`Upgrade Sautekh Cards T2` = `Ach_27`/`Ach_29` 等三组，判据 §F5）⇒ 按原文找会串台；
+        //     ② **闸在写之前**（回放一律不计 / 教程按 `TutorialOk` / 决斗按 `DuelOk`）——
+        //        原来完全没有这道闸（判据 §F1：`Ach_63` 在教程局会**误涨**）。
+        // ============================================================================
+
+        /// <summary>`Ach_17`（`ConstantChallenge`：累计登录天数）—— 由 `DailyData.RecordLogin` 写。</summary>
+        public const string IdAchLoginTotalDays = "Ach_17";
+        /// <summary>`Ach_18`（`ConstantChallenge`：连续登录天数）—— 同上。</summary>
+        public const string IdAchLoginStreakDays = "Ach_18";
+        /// <summary>`Ach_15`（`ContainersOpen`：开卡包）—— 由 `Shell/BoosterPackOpenWindow.Open` 写。</summary>
+        public const string IdAchContainersOpen = "Ach_15";
+        /// <summary>`Ach_20`（`DraftWins`：一次轮抽 run 内的胜场）—— 由 `Shell/DraftModeWindow` 收尾那一拍写。</summary>
+        public const string IdAchDraftWins = "Ach_20";
+        /// <summary>`Ach_24`（`RewardCollected`：收集不同的牌）—— 由 <see cref="RecordCardPoolCollectedOnce"/> 写。</summary>
+        public const string IdAchCardPool = "Ach_24";
+        /// <summary>`Ach_16`（`CompleteCampaign`：完成战役）—— 由
+        /// `Shell/CampaignData.NotifyCampaignCompletionIfAllClaimed` 写（唯一写点，`checkAlreadyCompleted=1` 语义）。</summary>
+        public const string IdAchCompleteCampaign = "Ach_16";
+
+        static Dictionary<string, Filters> _filters;
+
+        /// <summary>一条成就的**过滤位**（`f` 那一格解出来的固定形状）。解析一次后缓存。
+        /// <para>返回 `null` = 这一份 json **没有那三格**（旧生成的 `profile_cosmetics.json`）
+        /// 或解析失败 —— 调用方必须**当作「判不了」放行还是拦下要自己说清**（本类一律**不写**，
+        /// 因为写错进度比不写更糟；`EnsureLoad` 会汇总出声一次）。</para></summary>
+        public static Filters FiltersOf(Achievement a)
+        {
+            if (a == null || string.IsNullOrEmpty(a.Id)) return null;
+            EnsureLoad();
+            if (_filters == null) _filters = new Dictionary<string, Filters>();
+            Filters f;
+            if (_filters.TryGetValue(a.Id, out f)) return f;
+            if (string.IsNullOrEmpty(a.FiltersJson)) { _filters[a.Id] = null; return null; }
+            try { f = JsonUtility.FromJson<Filters>(a.FiltersJson); }
+            catch (Exception e)
+            {
+                Debug.LogWarning("[Profile] 成就「" + a.Id + "」的过滤位解析失败：" + e.Message
+                               + " ⇒ 这一条按「判不了」处理（不写进度）");
+                f = null;
+            }
+            _filters[a.Id] = f;
+            return f;
+        }
+
+        /// <summary>按 `Ach_N` 找那一条成就（102 条线性扫，够快）。找不到 ⇒ `null`。</summary>
+        public static Achievement AchievementById(string id)
+        {
+            if (string.IsNullOrEmpty(id)) return null;
+            var all = Achievements;
+            for (int i = 0; i < all.Count; i++)
+                if (string.Equals(all[i].Id, id, StringComparison.Ordinal)) return all[i];
+            return null;
+        }
+
+        /// <summary>
+        /// **这一条成就在这个模式下计不计** —— 逐句照原版
+        /// `MissionChallenge__ValidateMatchConditions.c`：
+        /// <list type="number">
+        ///   <item>`IsReplayMatch` ⇒ **false**（**回放一律不计**）；</item>
+        ///   <item>matchType `== 1`（**决斗**）⇒ 返回 `allowOnDuels`（现读 102 条**全 false**）；</item>
+        ///   <item>`IsTutorialMatch` ⇒ 返回 `allowOnTutorials`（现读 **42 条 true / 60 条 false**）；</item>
+        ///   <item>否则走 `playModeAllowlist` / `playModeBlocklist`（102 条**两格全空** ⇒ 全放行）。</item>
+        /// </list>
+        /// <para>⚠️ 我们的 `GameMode.Replay` / `TutorialReplay` 也算「回放」（原版是 `IsReplayMatch` 一个布尔，
+        /// 本地那两种局都不该涨成就 —— 与「回放不记账」同一条口径）。</para>
+        /// </summary>
+        public static bool AchievementAllowed(Achievement a, GameMode mode, bool replay)
+        {
+            if (a == null) return false;
+            if (replay || mode == GameMode.Replay || mode == GameMode.TutorialReplay) return false;
+            if (mode == GameMode.Duel) return a.DuelOk;
+            if (mode == GameMode.Tutorial) return a.TutorialOk;
+            var f = FiltersOf(a);
+            if (f != null)
+            {
+                if (ContainsMode(f.playModeBlocklist, mode)) return false;
+                if (f.playModeAllowlist != null && f.playModeAllowlist.Length > 0
+                    && !ContainsMode(f.playModeAllowlist, mode)) return false;
+            }
+            return true;
+        }
+
+        static bool ContainsMode(int[] list, GameMode mode)
+        {
+            if (list == null) return false;
+            for (int i = 0; i < list.Length; i++) if (list[i] == (int)mode) return true;
+            return false;
+        }
+
+        /// <summary>**带闸**地按 `Ach_N` 累加一条成就。返回 `true` = 真写了。
+        /// <para>闸不过 / delta ≤ 0 / 找不到那条 id ⇒ 不写（找不到那条会**出声**，⛔ 不静默）。
+        /// 纪律同 <see cref="AddAchievementValue"/>（累加、不封顶）。</para></summary>
+        public static bool GainAchievement(string id, int delta, GameMode mode, bool replay)
+        {
+            if (delta <= 0) return false;
+            var a = AchievementById(id);
+            if (a == null)
+            {
+                Debug.LogWarning("[Profile] 成就进度写点：成就表里**没有** id「" + id + "」⇒ 这一项没写"
+                               + "（⛔ 不编 id / 不拿别的数顶上）");
+                return false;
+            }
+            if (!AchievementAllowed(a, mode, replay)) return false;
+            AddAchievementValue(id, delta);
+            return true;
+        }
+
+        /// <summary>**不带模式闸**地按 `Ach_N` 累加（**对局之外**的动作专用：升级卡 / 登录）。
+        /// <para>为什么不带闸：教程 / 决斗 / 回放闸是**对局条件**（原版 `ValidateMatchConditions`），
+        /// 升级卡、登录这些动作根本不在一局里 ⇒ 没有模式可判。102 条的 `playModeAllow/Blocklist`
+        /// 又全空 ⇒ 「对局外」这一档在原版也没有额外限制。</para></summary>
+        public static bool GainAchievementOutsideMatch(string id, int delta)
+        {
+            if (delta <= 0) return false;
+            if (AchievementById(id) == null)
+            {
+                Debug.LogWarning("[Profile] 成就进度写点（对局外）：成就表里**没有** id「" + id + "」⇒ 没写");
+                return false;
+            }
+            AddAchievementValue(id, delta);
+            return true;
+        }
+
+        /// <summary>🆕 **2026-10-25（`X2`）**：把进度**抬到至少** `value`（原版 `AchievementPersistence.highestValue`
+        /// 的语义 —— **进度只涨不落**）。
+        /// <para>用途 = `ConstantChallenge` 那两条（`Ach_17` 累计登录 / `Ach_18` 连登）：它们记的是
+        /// **当前状态**（连登断了会归 1），而原版存档带 `highestValue` ⇒ **连登断签不该让成就进度倒退**。</para></summary>
+        public static void SetAchievementValueAtLeast(string id, int value)
+        {
+            if (string.IsNullOrEmpty(id)) return;
+            EnsureSave();
+            int cur;
+            if (!_achProgress.TryGetValue(id, out cur)) cur = 0;
+            if (value <= cur) return;
+            _achProgress[id] = value;
+            SaveIfAuto();
+        }
+
+        /// <summary>🆕 **2026-10-25（执行代理 `X18`）**：`Ach_24`（`RewardCollected`：**收集不同的牌**）
+        /// —— 把进度**抬到至少「引擎卡池张数」**，只写一次（幂等）。
+        ///
+        /// <para>🔴 **口径 = 我们挑的「全解锁」，不是原版口径**（判据 §五最后一段）：
+        /// 原版这条在**领卡牌奖励**时按卡去重累加（`RewardCollected__OnTrigger.c` 的
+        /// `ignoreDuplicates=1` + `checkAlreadyCollected=1`）；本项目「卡池全解锁」⇒ **没有领取动作**
+        /// ⇒ 本地零信号。用户 2026-09-17 定的边界②（卡池全解锁）与 2026-10-25 的「补计数器」一起
+        /// 逼出这个折中：**首次加载档案时把卡池张数记一次**。</para>
+        /// <para>🔴 **取哪个数**：「**引擎卡池**」= `CardDatabase.Load()` 的张数（2026-10-25 现读 1127）
+        /// —— 与**收藏窗能看到的张数同一口径**；⛔ **不写死 1127**（卡池会变，写死 = 悄悄错），
+        /// ⛔ 也不取 `cards_truth.json` 的 1351（含 token / 未实装，收藏窗看不到）。
+        /// 原版五档阈值 60·120·180·270·348 ⇒ 这个数一开局就把 5 档全打满（如实标）。</para>
+        /// <para>**为什么用 `SetAchievementValueAtLeast` 而不是累加**：这条的语义是「**一共收集了多少种**」，
+        /// 是个**状态量**（原版档案的 `highestValue`）⇒ 同一个玩家每次启动不能越加越多。</para>
+        /// <returns>这次改变的差值（0 = 已经记过 / 卡池读不到）。</returns>
+        public static int RecordCardPoolCollectedOnce()
+        {
+            EnsureSave();
+            int n;
+            try { n = RuleEngine.CardDatabase.Load().Count; }
+            catch (Exception e)
+            {
+                Debug.LogWarning("[Profile] `Ach_24` 取卡池张数失败：" + e.Message + " ⇒ 这一项没写");
+                return 0;
+            }
+            if (n <= 0)
+            {
+                Debug.LogWarning("[Profile] `Ach_24` 取到的卡池张数是 0（`cards_engine` 没读进来？）⇒ 这一项没写");
+                return 0;
+            }
+            int cur;
+            if (!_achProgress.TryGetValue(IdAchCardPool, out cur)) cur = 0;
+            if (cur >= n) return 0;
+            // 走 `SetAchievementValueAtLeast` 的同一条语义（只涨不落）—— ⛔ 别在这里再写一份「取 max」。
+            SetAchievementValueAtLeast(IdAchCardPool, n);
+            return n - cur;
+        }
+
+        /// <summary>
+        /// **结算那一句**（唯一调用点 = `BattleDriver.AwardAchievements`）：把本局的
+        /// <see cref="AchievementTally"/> + 结算那一刻的几个量，按 102 条各自的 `Class` / 过滤位
+        /// 算出每条的增量，**带闸**写下去。
+        ///
+        /// <para>🔴 **口径三条**（判据 §二 / §B-4）：</para>
+        /// <list type="number">
+        ///   <item>**按 `Ach_N` 写**（⛔ 不走 challenge 原文，原文有重名）；</item>
+        ///   <item>**模式口径按原版**（`GamesPlayed__OnTrigger.c`：看的是**模式**，**不是「对手是不是真人」**）
+        ///         —— 2026-10-25 主对话裁断（判据 §F2）：`Classic` = 排位、`ClosedDeck` = 轮抽，
+        ///         E13 当初加的 `_net != null` 条件**已去掉**（单机排位 / 单机轮抽照样计）；</item>
+        ///   <item>**阵营**按我方督军的 `CardDef.Faction` 比 `Filters.army`（映射唯一一处 =
+        ///         `TargetCriteriaEval.FactionOfArmy`）。</item>
+        /// </list>
+        /// </summary>
+        /// <param name="tally">本局计数（`Ctx.Tally`；自检可以自己 new 一个喂数）。</param>
+        /// <param name="me">我方座位（0/1）—— tally 里按它取自己那一份。</param>
+        /// <param name="damageToEnemyWarlord">`Ach_1` 用：打敌方**督军**的实际伤害。</param>
+        /// <param name="skullsCollected">`Ach_19`。</param>
+        /// <param name="faithGained">`Ach_63`。</param>
+        /// <param name="faction">我方督军的阵营名（`CardDef.Faction`；不知道就传 `null` ⇒ 带阵营过滤的那几条**不写**）。</param>
+        /// <param name="won">我方赢（平局/输 = false）。</param>
+        /// <param name="replay">这一局是**回放**（一律不计）。</param>
+        public static void ApplyAchievementTally(AchievementTally tally, int me,
+                                                 int damageToEnemyWarlord, int skullsCollected,
+                                                 int faithGained, GameMode mode, string faction,
+                                                 bool won, bool replay)
+        {
+            if (tally == null) return;
+            var all = Achievements;
+            for (int i = 0; i < all.Count; i++)
+            {
+                var a = all[i];
+                int delta = TallyDeltaOf(a, tally, me, damageToEnemyWarlord, skullsCollected,
+                                         faithGained, mode, faction, won);
+                if (delta > 0) GainAchievement(a.Id, delta, mode, replay);
+            }
+        }
+
+        /// <summary>一条成就在这一局的增量（纯函数 —— 自检可以直接喂它，不必真打一局）。
+        /// 认不出 / 数不到 ⇒ **0**（⛔ 不猜）。每个 `case` 都注了判据出处。</summary>
+        public static int TallyDeltaOf(Achievement a, AchievementTally tally, int me,
+                                       int damageToEnemyWarlord, int skullsCollected,
+                                       int faithGained, GameMode mode, string faction, bool won)
+        {
+            if (a == null || tally == null || (me != 0 && me != 1)) return 0;
+            var f = FiltersOf(a);
+            switch (a.Class)
+            {
+                // ---- 伤害（`OnDamageDelt`）：按类别取本局实际伤害 ----
+                case "DamageDeltToEnemyUnit":
+                    // `Ach_1` = `enemyType=10`（**督军**）+ 不过滤类/型 ⇒ 用结算那一刻的督军伤害。
+                    if (string.Equals(a.Id, "Ach_1", StringComparison.Ordinal)) return damageToEnemyWarlord;
+                    if (f == null) return 0;
+                    return tally.DamageOf(me, DamageKindOf(f));
+
+                // ---- 能力触发（`TriggerAbility`）：按 `triggerAbility` 数值取次数 ----
+                case "TriggerAbility":
+                    if (f == null || f.triggerAbility <= 0) return 0;
+                    return tally.TriggerOf(me, f.triggerAbility);
+
+                // ---- 出牌（`CardPlayedCount`）：按过滤位挑一个标签 ----
+                case "CardPlayedCount":
+                    {
+                        int tag = CardPlayedTagOf(f);
+                        return tag < 0 ? 0 : tally.CardsPlayedOf(me, tag);
+                    }
+
+                // ---- 骷髅 / 信仰（E13 已有）----
+                case "SkullsCount":   return skullsCollected;
+                case "CollectFaith":  return faithGained;
+
+                // ---- 隐秘 / 破坏（判据 §B-3 #14）----
+                // 写点 = `EffectResolver` 里**三处造隐秘**（`DoCreate` 手牌支 · `DA44` 的 `todeck` 支 ·
+                // 任务点满阈值入牌库）与**一处造破坏**（`DoCreate` 的 `enemyhand` 支）——
+                // 都是原版 `BroadcastSecretCreated` / `BroadcastSabotageCreated` 的同一批落点。
+                // 归属 = 造牌的施放者（`Tally` 里就按那个座位记）。
+                case "CreateSecret":    return tally.SecretsOf(me);      // `Ach_78` `Create Secrets`
+                case "AddSabotageCard": return tally.SabotageOf(me);     // `Ach_65` `Add Sabotage cards to the enemy hand`
+
+                // ---- 授予 / 再造 / 暴群（判据 §B-3 #12 / #13 / #15）----
+                // 四条都按**施放者座位**记（`Tally` 里就是那个座位），读我方那一份。
+                // · `GiveHuntsMark`   = `ApplyOneGain` 的 huntmark 授予点（原版 `GiveHuntsMark__OnAddCardEffect.c`：每次 +1）
+                // · `GiveMarkOfChaos` = `GrantDarkPactCore` 的 `AddKeyword(DarkPact,1)`（原版 `GiveMarkOfChaos__OnAddCardEffect.c`）
+                // · `UnitReanimated`  = `DoReanimate` 的两条支（原版那格 `unit+0x40` 过滤语义没解出来 ⇒ **近似**）
+                // · `UnitSwarmCount`  = `RuleCore.SwarmMergeNow`（原版方法体撞名丢失 ⇒ 取「真合并了才算」，**近似**）
+                case "GiveHuntsMark":   return tally.HuntMarksOf(me);     // `Ach_96` `Give Hunt Marks`
+                case "GiveMarkOfChaos": return tally.MarksOfChaosOf(me);  // `Ach_6`  `Give a Dark Pact`
+                case "UnitReanimated":  return tally.ReanimatedOf(me);    // `Ach_14` `Reanimate Remnant`
+                case "UnitSwarmCount":  return tally.SwarmMergesOf(me);   // `Ach_10` `Trigger Swarm`
+
+                // ---- 对局（`GamesPlayed`，30 条）----
+                case "GamesPlayed":   return GamesPlayedDelta(f, mode, faction, won);
+
+                // ---- 战役全通（`CompleteCampaign`，`Ach_16`）**不在本方法里算** ----
+                // 它是**对局外**动作：唯一写点 = `Shell/CampaignData.Claim` →
+                // `NotifyCampaignCompletionIfAllClaimed`（`checkAlreadyCompleted=1` ⇒ `SetAtLeast(…,1)`）。
+                // 这里显式回 0（⛔ 别让它落进 `default` 里、看起来像「没接」）。
+                case "CompleteCampaign": return 0;
+
+                // 其余 12 类（升级卡 / 登录 / 开包 / 战役 / 轮抽战绩 / 再造 / 暴群 / 授予…）
+                // **不在本方法里算** —— 它们各有自己的写点（见 `ApplyAchievementUpgrade` /
+                // `DailyData.RecordLogin` / 判据 §B-3 #7~#15）。
+                default: return 0;
+            }
+        }
+
+        /// <summary>伤害类的过滤位 → <see cref="DamageKind"/>（判据 = 成就定义 SO 的 `data`，逐条现读）。
+        /// 认不出 ⇒ `Unknown`（= 不计）。</summary>
+        static DamageKind DamageKindOf(Filters f)
+        {
+            if (f.onlyDamageByShuriken == 1) return DamageKind.Shuriken;         // `Ach_7`
+            if (f.onlyDamageByMarkerlight == 1) return DamageKind.Markerlight;   // `Ach_53`
+            if (f.anyDamageType == 0 && f.damageType == 11) return DamageKind.Stomp;   // `Ach_86`（`DamageType.Stomp`）
+            if (f.anyAttackType == 0)
+            {
+                // `AttackTypes`：1 Melee / 2 Ranged / 3 Spell（`Ach_2/3/4`）
+                if (f.attackType == 1) return DamageKind.Melee;
+                if (f.attackType == 2) return DamageKind.Ranged;
+                if (f.attackType == 3) return DamageKind.Spell;
+            }
+            return DamageKind.Unknown;
+        }
+
+        /// <summary>出牌类的过滤位 → <see cref="CardPlayedTag"/> 槽位。认不出 ⇒ `-1`。
+        /// （五条各一格闸，判据见 `AchievementTally.CardPlayedTag` 每个常量的 doc。）</summary>
+        static int CardPlayedTagOf(Filters f)
+        {
+            if (f == null) return -1;
+            if (f.onlyCountCompanions == 1) return CardPlayedTag.Companion;      // `Ach_54`
+            if (f.anyTrait == 0 && TraitListed(f, 5)) return CardPlayedTag.Ephemeral;   // `Ach_12`（`DefinedTrait.ephemeral`）
+            if (f.anyKeyword == 0 && f.keyword == 35) return CardPlayedTag.Beast;       // `Ach_87`（`Keyword.Beast`）
+            if (f.anySpellType == 0 && f.spellType == 260)
+                return f.anyCardType == 0 ? CardPlayedTag.ElixirTactic : CardPlayedTag.Elixir;   // `Ach_89`
+            if (TraitListed(f, 610)) return CardPlayedTag.Pack;                  // `Ach_97`（`DefinedTrait.pack`）
+            return -1;
+        }
+
+        static bool TraitListed(Filters f, int trait)
+        {
+            if (f.withTrait == null) return false;
+            for (int i = 0; i < f.withTrait.Length; i++) if (f.withTrait[i] == trait) return true;
+            return false;
+        }
+
+        /// <summary>我方模式 → 原版那两种**事件类型**（`GamesPlayed` 只认它）。
+        /// <para>🔴 **`Classic` = 排位（`IRankedEvent`）· `ClosedDeck` = 轮抽（`IDraftEvent`）** ——
+        /// 主对话 2026-10-25 裁断（判据 §F2），⛔ 别再夹「对手是不是真人」那条。
+        /// 其余模式（`OfflinePractice` / `Skirmish` / `Campaign`…）**两种都不算**。</para></summary>
+        static string ModeClassOf(GameMode mode)
+        {
+            if (mode == GameMode.Classic) return "ranked";
+            if (mode == GameMode.ClosedDeck) return "draft";
+            return null;
+        }
+
+        /// <summary>那一条 `GamesPlayed` 要的是哪一种模式（判据 = `gameModes[0]._typeNameAndAssembly`，
+        /// 原版 `GamesPlayed__OnTrigger.c` 拿它做 `Type.IsAssignableFrom`）。认不出 ⇒ `null`。</summary>
+        static string ModeClassWanted(Filters f)
+        {
+            if (f == null) return null;
+            if (f.gameModes != null && f.gameModes.Length > 0)
+            {
+                string n = f.gameModes[0] != null ? (f.gameModes[0]._typeNameAndAssembly ?? "") : "";
+                if (n.IndexOf("IRankedEvent", StringComparison.Ordinal) >= 0) return "ranked";
+                if (n.IndexOf("IDraftEvent", StringComparison.Ordinal) >= 0) return "draft";
+            }
+            if (f.anyGameMode == 1) return null;           // 不筛模式（现读 0 条）
+            if (f.onlyRanked == 1) return "ranked";        // 退路：`onlyRanked`
+            return null;
+        }
+
+        /// <summary>`GamesPlayed` 那一条在这一局的增量（0 或 1）。</summary>
+        static int GamesPlayedDelta(Filters f, GameMode mode, string faction, bool won)
+        {
+            string want = ModeClassWanted(f);
+            if (want == null || want != ModeClassOf(mode)) return 0;
+            if (f.onlyAccountWins == 1 && !won) return 0;
+            if (f.anyArmy == 0 && f.army != 0)
+            {
+                string wantFaction = TargetCriteriaEval.FactionOfArmy(f.army);
+                if (wantFaction == null) return 0;                       // 认不出阵营 id ⇒ 不写（⛔ 不猜）
+                if (faction == null) return 0;                           // 不知道我方阵营 ⇒ 不写
+                if (!string.Equals(wantFaction, faction, StringComparison.OrdinalIgnoreCase)) return 0;
+            }
+            return 1;
+        }
+
+        /// <summary>
+        /// **升级卡**（`Ach_23` / `25-36` / `55,56,59,60,68,69,74,75,82,83,92,93,99,100` —— 27 条）。
+        /// 唯一调用点 = `Shell/CardDetailPopup.DoUpgrade` 的**成功点**（`CardProgress.SetLevel` 之后）。
+        /// <para>过滤位：`anyTier == 1` ⇒ 任意档（`Ach_23`）；否则原版 `tier` 是 **0 基**
+        /// （`CardTier.cs`：Tier1=0 … Tier4=3；`cards_engine` 的 `army` 表同一个 id 域）⇒
+        /// **`tier + 1 == levelAfter`**（我们 `CardProgress.Level` 是 **1 基**）。
+        /// 阵营同理比 `Filters.army`（映射唯一一处 = `TargetCriteriaEval.FactionOfArmy`）。</para>
+        /// <para>⚠️ **已知偏离（判据 §F7）**：原版 `checkAlreadyUpgraded=1` 的口径是「**同一张卡只算第一次**」，
+        /// 我们的 `Level` **单调** ⇒ 每次成功 +1（降级再升会重复）。如实记着，未修。</para>
+        /// </summary>
+        /// <param name="faction">升级的那张卡的 `CardDef.Faction`（空/null ⇒ 只记「不过滤阵营」的那几条）。</param>
+        /// <param name="levelAfter">升级之后的等级（`CardProgress.Level`，**1 基**）。</param>
+        /// <returns>这一跳写了几条成就（给自检用）。</returns>
+        public static int ApplyAchievementUpgrade(string faction, int levelAfter)
+        {
+            int wrote = 0;
+            var all = Achievements;
+            for (int i = 0; i < all.Count; i++)
+            {
+                var a = all[i];
+                if (!string.Equals(a.Class, "UpgradeCard", StringComparison.Ordinal)) continue;
+                var f = FiltersOf(a);
+                if (f == null) continue;
+                if (f.anyTier != 1 && f.tier + 1 != levelAfter) continue;
+                if (f.anyArmy == 1 || f.army == 0)
+                {
+                    if (GainAchievementOutsideMatch(a.Id, 1)) wrote++;
+                    continue;
+                }
+                string want = TargetCriteriaEval.FactionOfArmy(f.army);
+                if (want == null || faction == null) continue;
+                if (!string.Equals(want, faction, StringComparison.OrdinalIgnoreCase)) continue;
+                if (GainAchievementOutsideMatch(a.Id, 1)) wrote++;
+            }
+            return wrote;
+        }
+
         /// <summary>给自检用的：清单是不是真的读进来了（没读进来时会**出声一次**，不静默）。</summary>
         public static bool Loaded { get { EnsureLoad(); return _loaded; } }
-
         static void EnsureLoad()
         {
             if (_loaded || _failed) return;
@@ -402,10 +877,14 @@ namespace CardPresentation
                     string desc = Loc.BulkOr("Achievements/" + a.id, a.c);
                     if (!string.IsNullOrEmpty(desc) && desc.IndexOf("{0}", System.StringComparison.Ordinal) >= 0)
                         desc = a.c;
+                    // 🆕 2026-10-25（`X2`）：`Class` / `FiltersJson` / `TutorialOk` / `DuelOk` 是这一批新加的
+                    //   四格（判据 §B-0）—— 没有它们，27 条升级 / 30 条对局 / 17 条触发在运行时**分不开**。
                     _ach.Add(new Achievement { Id = a.id,
                                                Name = Loc.BulkOr("Achievements/Title/" + a.id, a.n),
                                                Challenge = desc, ChallengeId = a.c, Type = a.t,
-                                               Thresholds = a.v, Quantities = a.q });
+                                               Thresholds = a.v, Quantities = a.q,
+                                               Class = a.k, FiltersJson = a.f,
+                                               TutorialOk = a.tut != 0, DuelOk = a.duel != 0 });
                 }
             _loaded = true;
         }
@@ -540,6 +1019,11 @@ namespace CardPresentation
             _achProgress = new Dictionary<string, int>();
             if (Application.isBatchMode) return;      // 自检不碰真存档
             LoadFromDisk();
+            // 🆕 **2026-10-25（执行代理 `X18`）**：`Ach_24` 的**唯一写点** —— 真实档案加载完之后
+            //   把「卡池张数」记一次（幂等，见 `RecordCardPoolCollectedOnce`）。
+            //   ⚠️ **只在这一支（非批处理）调**：自检不碰真存档、也不该被这个「全解锁口径」污染
+            //   （要自检它请显式调 `RecordCardPoolCollectedOnce()`，见 `RuleEngineTest_EngineX18`）。
+            RecordCardPoolCollectedOnce();
         }
 
         static void LoadFromDisk()

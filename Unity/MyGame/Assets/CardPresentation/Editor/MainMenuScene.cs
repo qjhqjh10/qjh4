@@ -15369,6 +15369,13 @@ public static class MainMenuScene
         //    （`LayoutSpace.PxY = 540 − y×108`）⇒ **`y1` 是上边缘、`y2` 是下边缘**；
         //    而 `MainMenuRuntime` 里 `by1` 是**暗带顶**、`by2` 是**暗带底**。
         //    「拿 PxX 的式子去量 y」在 2026-09-23 就踩过一次（`LayoutSpace.PxY` 的注释）。
+        // 🔴🔴 **2026-10-25（`X4` · 真机 F1）就地改口径（铁律 5）**：模式卡**不再画倒计时那一行**
+        //   （本地没有 liveop 到期时刻；原版①有活动才印真时长、②到期把 `Timer Text` 关掉、
+        //    ③没有倒计时的模式用 `1x2 No Timer` 变体 —— 判据三条写在 `MainMenuRuntime.BuildModeCard` ③ 上方）。
+        //   ⇒ `TextDarkening` 里**只剩 `Event Title` 一个孩子** ⇒ VLG 的 25.08 那一档（不是 3.41）。
+        //   真值现读（`工具/menu_dump.py bundle_menus_assets_all "Draft Game Mode Container 1x2" --depth 4 --md`）：
+        //   暗带顶 **1396.00** · `Event Title` 顶 **1421.08** ⇒ **25.08**（= (105.866 − 55.708)/2）。
+        //   ⚠️ 旧期望 `3.41 / 59.12` 是「暗带里有两个孩子」那一档（`Base 1x1` + 两个倒计时变体）—— **已过期**。
         {
             var mcard = menu.Find("Base Game Mode Container 1x1 - Tutorial");
             float bx1, by1, bx2, by2, tx1, ty1, tx2, ty2;
@@ -15378,13 +15385,25 @@ public static class MainMenuScene
                 // ⚠️ 量的是**那块字自己的高**（`textBounds` 行盒，比 55.708 那个布局盒略小）⇒ 容差 1.5px
                 //    🆕 **2026-10-16（A832/A796′）换口**：这个数原来读 `Label.WorldH`（= **字段缓存** `_tmpH`），
                 //    现已走 `RenderedRect` → `LabelRenderedPx` 的 TMP `textBounds`（两法同源 ⇒ **当天逐位同值**）。
-                CheckNear(ty1 - by1, 3.41f, 1.5f,
-                          "★ 标题**上边缘距暗带顶 3.41px**（原版 VLG：`childForceExpandHeight=1` ⇒ 每个槽 +3.4095，"
-                        + "`Event Title` 顶 309.01 − 暗带顶 305.60；2026-10-17 现读，旧值 6.814 已订正）");
-                CheckNear(ty2 - by1, 59.12f, 1.5f,
-                          "★ 标题**下边缘距暗带顶 59.12px**（= 3.41 + 标题高 55.708；旧值 62.522 已订正）");
+                CheckNear(ty1 - by1, 25.08f, 1.5f,
+                          "★ 标题**上边缘距暗带顶 25.08px**（暗带里**只剩标题一个孩子**：`childForceExpandHeight=1` ⇒ "
+                        + "(105.866 − 55.708)/2；判据 = `Draft Game Mode Container 1x2` 现读 1421.08 − 1396.00。"
+                        + " 2026-10-25 `X4`：模式卡不再画「结束于：」那一行 ⇒ 从 3.41 档改到 25.08 档）");
+                CheckNear(ty2 - by1, 80.79f, 1.5f,
+                          "★ 标题**下边缘距暗带顶 80.79px**（= 25.08 + 标题高 55.708；旧值 59.12 是「两个孩子」那一档，已过期）");
             }
             else CheckTrue(false, "量不到模式卡的 `TextDarkening` / `Event Title` —— 上面两条断言的前提");
+
+            // 🧨 **灭自证**：上一条只要「只有标题」就绿 —— 若有人把倒计时那行**加回来**（哪怕是别的 y），
+            //   25.08 会跟着变（三个孩子 ⇒ 又是另一档），但为防「加回来却仍摆在 25.08」这种凑数写法，
+            //   这里**显式断「那三颗节点一个都不存在」**。判据 = 原版 `1x2 No Timer` 变体（`TextDarkening`
+            //   里只有 `Event Title`）+ `TimerDisplay.UpdateTimer` 到期把时间那颗关掉（原版从不印 `--`）。
+            //   🧨 改坏法：在 `BuildModeCard` 里把 `if (hasTimerRow)` 改回恒真 ⇒ 这条立刻红。
+            CheckTrue(FindChild(mcard, "Timer Description") == null,
+                      "★ 模式卡**没有** `Timer Description`（那行「结束于：」不建 —— 本地无 liveop 到期时刻，"
+                    + "原版走 `1x2 No Timer` 变体；⛔ 不印 `--`）");
+            CheckTrue(FindChild(mcard, "Clock Icon") == null && FindChild(mcard, "Timer Text") == null,
+                      "★ 模式卡**没有** `Clock Icon` / `Timer Text`（同上；🧨 把倒计时行加回来 ⇒ 红）");
         }
         MeasureText(FindChild(prof, "Player Name"), "Player Name", 32f);
         MeasureText(FindChild(chat, "Message Preview"), "Player Name: Message", 18f);

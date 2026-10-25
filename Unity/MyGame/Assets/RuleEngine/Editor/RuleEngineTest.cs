@@ -1123,6 +1123,16 @@ public static partial class RuleEngineTest
         //   而不是卡数据列）。测试体在 `RuleEngineTest_EngineE5.cs`（同一 partial 类）。
         Step(TestE5SmallEngineGaps);
 
+        // 🆕 2026-10-25（执行代理 `X13`）：`pray` 的**经典语义**补全 —— 「未受伤 ⇒ 自己下回合开始 +1 信仰」
+        //   （官方文案 `CardTraitDescription/pray`）。上一轮曾误判成「原版没有」；真值**在卡数据里**：
+        //   隐藏附魔 `Pray Enchantment`（23 张 pray 卡 `trigger=655` 挂 `buffType:15` 附魔；
+        //   该附魔 `trigger 60 UnitDamaged → removeThisEnchantment` · `trigger 31 TurnStartPlayer →
+        //   buffMana{faithMana:1} + removeThisEnchantment`）。本版按**引擎内等价状态**实现
+        //   （`UnitState.PrayEnchantment`）；卡数据那条链另立一笔（会动卡池 md5）。
+        //   判据全文 → `资料/待办判据_祈祷信仰与任务点_1025b.md` §二·④ / §四·3。
+        //   测试体在 `RuleEngineTest_EngineX13.cs`（同一 partial 类）。
+        Step(TestPrayEnchantmentX13);
+
         // 🆕 2026-10-25（执行代理 `E7`）：E5 留下的**四道「现池 0 张、判据已查全、但没建」的候选闸**
         //   ① `ward(140)` / `wardWb(145)` —— 原版 `isCurrentlyWarded`，**只在异侧**挡；
         //   ② `summonRift(730)` —— **不分侧**，一律不可点（原版是裸闸）；
@@ -1149,6 +1159,45 @@ public static partial class RuleEngineTest
         //   战术卡（`actor == null`）的两道 ability 级闸。
         //   测试体在 `RuleEngineTest_EngineE9.cs`（同一 partial 类）。
         Step(TestEngineE9);
+
+        // 🆕 2026-10-25（执行代理 `X3`）：跟随调度表 25 张全覆盖 · `ward` 管战术/效果目标（`AddSide` 敌方侧闸）·
+        //   `ta=100` 走常规格（尾巴那截未实现 ⇒ `null`+出声）· `rally → ThisCardPlayed` · 不可达 trait 5 条。
+        //   测试体在 `RuleEngineTest_EngineX1.cs`（同一 partial 类），
+        //   判据 → `资料/普查产出_1025/X3_引擎判据缺口_执行报告.md`。
+        Step(TestEngineX1);
+
+        // 🆕 2026-10-25（执行代理 `X2`）：**成就计数器**（97 条成就的触发源）。
+        //   数据管线四列（类名 / 过滤位 / `allowOnTutorials` / `allowOnDuels`）· 伤害分类（近战/远程/计谋/
+        //   星镖/标记光/践踏）· 能力触发单口计数 · 出牌 5 条 · 升级卡 27 条 · 对局 30 条 · 登录 2 条 ·
+        //   **教程/决斗/回放闸** · `GamesPlayed` 的 F2 裁断（判模式、不判对手是不是真人）。
+        //   测试体在 `CardPresentation/Editor/RuleEngineTest_EngineX2.cs`（同一 partial 类），
+        //   判据 → `资料/待办判据_成就计数器_1025b.md`。
+        Step(TestEngineX2);
+
+        // 🆕 2026-10-25（执行代理 `X18` · 界面线）：**成就计数源补完** —— 隐秘/破坏（`Ach_78` / `Ach_65`）·
+        //   开包（`Ach_15`，数据面）· 轮抽战绩（`Ach_20`，`highestValue` 语义）· `Ach_24`（全解锁口径）·
+        //   三组 challenge 原文重名（`Ach_27/29` · `94/101` · `95/102`）**按 Ach_N 各涨各的** ·
+        //   `Ach_89` / `Ach_97` 确认在跑（判据本身不闭合，已按意图实现并注释）。
+        //   测试体在 `RuleEngineTest_EngineX18.cs`（同一 partial 类），判据 → `资料/待办判据_成就计数器_1025b.md`。
+        Step(TestEngineX18);
+
+        // 🆕 2026-10-25（执行代理 `X6`）：**口径乙** —— 卡表 v29 的 `ca`（能力种类族名）
+        //   · 按族认行（`CardDef.AbilityLevelCriteriaForFamily`）· 逐 op 闸（`ResolveOps` 的 `abilityFamilyCard`）。
+        //   测试体在 `RuleEngineTest_EngineX6.cs`（同一 partial 类），
+        //   判据 → `资料/待办判据_引擎_1025b.md` §一。
+        Step(TestEngineX6);
+
+        // 🆕 2026-10-25（执行代理 `X6`，第二批）：口径乙的**单位 trigger 那一跳**
+        //   （`RuleCore.FireTriggerAt` → `AbilityFamilyGateOpsForTrigger`）。
+        //   测试体在 `RuleEngineTest_EngineX6b.cs`（同一 partial 类）。
+        Step(TestEngineX6b);
+
+        // 🆕 2026-10-25（执行代理 `X12`）：虫群合并的**右邻那一半判据** —— 原版
+        //   `CardScript__ResolveCardPlayed.c:70` 要求**右邻也带 `swarm`**，我们原来只查打出的那张。
+        //   落点 = `RuleCore.IsSwarmHost`（入队/出队共用一处）。现池可达 0 张 ⇒ 用合成夹具。
+        //   测试体在 `RuleEngineTest_EngineX12.cs`（同一 partial 类），
+        //   判据 → `资料/待办判据_三条文案与代码差异_1025b.md` §4。
+        Step(TestEngineX12);
 
         // 🆕 2026-10-24（执行代理 `E2`）：`GameplayVariables.For(ClosedDeck)` 显式档（复用了 Skirmish 那套
         //   = **我们挑的**，原版轮抽参数在服务端）+ `EvtKind` 三处 `default` 的「登记了却没 case」闸。
@@ -20578,7 +20627,7 @@ public static partial class RuleEngineTest
             Check(at2, at, "★ **③ 同一局面重放 ⇒ 插入位相同**（派生随机流可复现；没有拿 `ctx.Rng` / 时钟）");
         }
 
-        // ---- ④ 阈值读 `ScenarioVariables`：默认 3 / `alternativeTraitLogic ≠ 0` ⇒ Alt 档 4 ----
+        // ---- ④ 阈值读 `ScenarioVariables`：默认 3 / `alternativeTraitLogic = true` ⇒ Alt 档 4 ----
         {
             var ctx = QuestFixture(pool, "FixtureWarlord", "DarkAngels", 99,
                                    Tactic("T_FxQuest3", 0, "Gain 3 任务点"),
@@ -20589,9 +20638,9 @@ public static partial class RuleEngineTest
 
             Check(RuleCore.QuestPointStepFor(ctx), 3,
                   "★ **④ 默认阈值 = 3**（原版 `ScenarioVariables.questPointsForTrigger`，`DefaultScenario` 实读）");
-            ctx.Vars.alternativeTraitLogic = 1;
+            ctx.Vars.alternativeTraitLogic = true;
             Check(RuleCore.QuestPointStepFor(ctx), 4,
-                  "★ **④ `alternativeTraitLogic ≠ 0` ⇒ Alt 档 4**（`questPointsForTriggerAlt`）");
+                  "★ **④ `alternativeTraitLogic = true` ⇒ Alt 档 4**（`questPointsForTriggerAlt`）");
 
             int deckBefore = ps.Deck.Count;
             CheckCode(RuleCore.PlayTactic(ctx, 0, HandIdx(ctx, 0, "T_FxQuest3"), -1), RuleCodes.OK,
@@ -20603,6 +20652,65 @@ public static partial class RuleEngineTest
                       "再加 1 点到 4");
             Check(ps.QuestPoints, 0, "★ 到第 4 点 ⇒ 减 4、归 0");
             Check(ps.Deck.Count, deckBefore + 1, "★ 这时才造出隐秘");
+        }
+
+        // ---- ④·b `alternativeTraitLogic` 的**类型与两个消费点**（2026-10-25 · `X7` / `Y-Pray`）----
+        //   原版 `bool`（`dump.cs:130190` `+0x4B`；住在 LiveOps `PlayEventData.gameplayVariables` ⇒
+        //   服务端下发、本地无序列化真值）。🔴 **它就是「冲突档」开关**（`+0x4B` 全库 4 读 0 写），
+        //   两个消费点：① `CardScript__FinishActiveAbility.c:11,13,19,21` —— flag 真 ∧ 卡带 `pray(0x4a1)`
+        //   ⇒ 控制者 `AddFaithMana(+1)`；② 任务点阈值 —— `PlayerManager__AddQuestPoints.c:28,33,41`：
+        //   `false` ⇒ 3（`+0x2C`）/ `true` ⇒ 4（`+0x30`）。
+        //   ⚠️ **2026-10-25 订正（铁律 5）**：本段原来写「官方 base `CardTraitDescription/pray` 那句
+        //   『下回合开始 +1 信仰』**原版代码里没有**」—— **那是错的**：那条**不在 C# 里、在卡数据里**
+        //   （隐藏附魔 `Pray Enchantment`：23 张 pray 卡 `trigger=655(Pray)` 挂 `buffType:15` 附魔；
+        //    该附魔 ability[1] `trigger 31 TurnStartPlayer` → `buffMana{faithMana:1}`）。
+        //   判据全文 → `资料/待办判据_祈祷信仰与任务点_1025b.md` §二·④。
+        {
+            CheckTrue(!GameplayVariables.Classic.alternativeTraitLogic,
+                      "★★ **Classic 预设 `alternativeTraitLogic` = false**（= 经典基线，与官方 base 的"
+                    + "「任务点阈值 3」自洽）｜🧨 给 `Classic` 预设填 true ⇒ 红");
+            CheckTrue(GameplayVariables.Skirmish.alternativeTraitLogic,
+                      "★★ **Skirmish 预设 `alternativeTraitLogic` = true**（用户 2026-10-25 口径："
+                    + "冲突 = 任务点阈值 4 + 祈祷立刻 +1）｜🧨 把 `Skirmish` getter 里 "
+                    + "`v.alternativeTraitLogic = true;` 删掉 ⇒ 红");
+
+            // 消费点：**两条都走预设**（⛔ 不靠手改 flag —— 手改只能证明判据用了 flag，
+            //   证明不了「遭遇档真的把它打开了」）
+            var fctx = QuestFixture(pool, "FixtureWarlord", "DarkAngels", 99);
+            var fwl = fctx.Players[0].Warlord;
+            int faith0 = fctx.Players[0].Faith;
+
+            fctx.Vars = GameplayVariables.Classic.Clone();
+            Check(RuleCore.QuestPointStepFor(fctx), 3,
+                  "★★ **经典档（`Classic` 预设）的任务点阈值 = 3**"
+                + "｜🧨 把 `QuestPointStepFor` 写死 4 ⇒ 红");
+            RuleCore.FinishActiveAbility(fctx, 0, fwl, KeywordTable.Pray);
+            Check(fctx.Players[0].Faith, faith0,
+                  "★★ **经典档下祈祷能力结束【不】加信仰**（原版整段被 `+0x4B` 挡住）"
+                + "｜🧨 把 `!v.alternativeTraitLogic` 那道闸删掉 ⇒ 红");
+
+            var skctx = QuestFixture(pool, "FixtureWarlord", "DarkAngels", 99);
+            skctx.Vars = GameplayVariables.For(GameMode.Skirmish).Clone();
+            Check(RuleCore.QuestPointStepFor(skctx), 4,
+                  "★★ **冲突档（`For(Skirmish)` 预设）的任务点阈值 = 4**（`questPointsForTriggerAlt`）"
+                + "｜🧨 把 `Skirmish` 里那句删掉，或让 `QuestPointStepFor` 恒取 3 ⇒ 红");
+            var skwl = skctx.Players[0].Warlord;
+            int skFaith0 = skctx.Players[0].Faith;
+            RuleCore.FinishActiveAbility(skctx, 0, skwl, KeywordTable.Pray);
+            Check(skctx.Players[0].Faith, skFaith0 + 1,
+                  "★★ **冲突档下祈祷能力结束立刻 +1 信仰**（原版 `AddFaithMana(该卡控制者, 1)`）"
+                + "｜🧨 同上那句删掉 ⇒ 红");
+
+            // 合成档：手改 flag 也要生效 —— 钉住「判据是 flag 本身，不是预设对象」
+            var fctx2 = QuestFixture(pool, "FixtureWarlord", "DarkAngels", 99);
+            var fwl2 = fctx2.Players[0].Warlord;
+            int faith2 = fctx2.Players[0].Faith;
+            fctx2.Vars.alternativeTraitLogic = true;      // 合成 Alt 档，⛔ 不依赖真实下发的数据
+            Check(RuleCore.QuestPointStepFor(fctx2), 4, "★ 手改 flag ⇒ 阈值 4（判据 = flag 本身）");
+            RuleCore.FinishActiveAbility(fctx2, 0, fwl2, KeywordTable.Pray);
+            Check(fctx2.Players[0].Faith, faith2 + 1,
+                  "★★ **`alternativeTraitLogic = true` ⇒ 祈祷能力结束 +1 信仰**"
+                + "（原版 `AddFaithMana(该卡控制者, 1)`）｜🧨 让本方法恒 `return` ⇒ 红");
         }
 
         // ---- ⑤ 能力闸：非黑暗天使督军**不造隐秘**（任务点照原版仍累计/减阈值） ----

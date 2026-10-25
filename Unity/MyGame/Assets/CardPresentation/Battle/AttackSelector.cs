@@ -228,22 +228,30 @@ namespace CardPresentation
         ///     （`read_literal.py` 实读 = **0.2**）⇒ 它的单位是**屏幕 px 的平方**，即「**挪动超过 ≈0.45 px**」
         ///     —— 那是个**去抖死区**，不是手感阈值；
         ///   · 真正的「拖拽开始」门在 **uGUI 自己**：`IDragHandler`（也就是上面那句所在的方法）
-        ///     **要 `EventSystem.pixelDragThreshold` 之后才会被派**，Unity 默认 **10 px**。
-        ///     ⚠️ 原版 `EventSystem` 的序列化值本地没搜到（`level0` / `battlearena1` / `menus` 三个包
-        ///     搜 `m_DragThreshold` **0 命中**，它可能由运行时默认值给出）⇒ 按 Unity 默认 **10 px** 记，
-        ///     并在报告里标「未在实机上量过」。
-        ///   ⇒ 手感口径 = **10 px**，不是 **92 px**（8.5% 屏高）。见 <see cref="PopDragThresholdPx"/>。
+        ///     **要拖过 `EventSystem.m_DragThreshold` 之后才会被派**（`pixelDragThreshold` 只是它的属性包装）。
+        ///     🔴 **2026-10-25（`X8`）就地订正（铁律 5）：这个值【查到了】，不是 Unity 默认 10 px。**
+        ///     判据 = `d:/2/tools/assetripper_out/ExportedProject/Assets/Data/Scenes/Intro.unity:5429`
+        ///     → `m_DragThreshold: 5`。为什么这一份对战场有效：**全工程只有这一个 `EventSystem`**
+        ///     （13 个 battlearena 场景包里一份都没有 ⇒ 战斗沿用它；`level0` / `menus` 三个包搜
+        ///     `m_DragThreshold` 仍然 0 命中），而 `Intro` 是常驻的引导/管理器场景。
+        ///     反编译侧再核一遍：`pixelDragThreshold` / `m_DragThreshold` 在 `decomp_full` 里
+        ///     **0 处读写**（没有代码改过它）⇒ **原版奔跑值就是序列化的 5 px**。
+        ///     ⚠️ 原来这里写「序列化值没搜到 ⇒ 按 Unity 默认 10 px 记」—— 那是**只搜了 bundle、
+        ///     没搜 AssetRipper 导出的场景**（`Intro.unity` 在导出工程里，不在 `assets_full` 的
+        ///     bundle 目录树里）⇒ 结论偏了 1 倍，已改。
+        ///   ⇒ 手感口径 = **5 px**，不是 **92 px**（8.5% 屏高）。见 <see cref="PopDragThresholdPx"/>。
         /// </summary>
         public const float DragThreshold01 = 0.085f;
 
-        /// <summary>🆕 **2026-10-25**：**真正的手感门 = 拖出 10 px 才弹选择器**（判据 → `DragThreshold01` 的 doc：
-        /// 原版靠 uGUI 的 `EventSystem.pixelDragThreshold` 默认值把 `OnTouchDrag` 卡住）。
+        /// <summary>🆕 **2026-10-25（`X8` 订正为 5）**：**真正的手感门 = 拖出 5 px 才弹选择器**
+        /// （判据 → `DragThreshold01` 的 doc：原版 uGUI 的 `EventSystem.m_DragThreshold = 5`，
+        /// 出处 `Intro.unity:5429`；全工程唯一那份 EventSystem，战场沿用它）。
         /// <para>⛔ **别再拿 `DragThreshold01`（0.085 屏高 ≈ 92 px）当弹出阈值** —— 它只是**入场动画的进度分母**，
-        /// 两个量在原版里是两件事，混用会让我们「必须拖 9 倍的距离才弹出」（量级错，不是微调）。</para>
+        /// 两个量在原版里是两件事，混用会让我们「必须拖 18 倍的距离才弹出」（量级错，不是微调）。</para>
         /// <para>⚠️ 调用点在 `BattleDriver`（那边判 `dragged`），本文件只给**唯一的常量出处**。</para></summary>
-        public const float PopDragThresholdPx = 10f;
+        public const float PopDragThresholdPx = 5f;
 
-        /// <summary>`PopDragThresholdPx` 的世界单位版（= 10/108 ≈ 0.0926；同 `W()` 的口径）。</summary>
+        /// <summary>`PopDragThresholdPx` 的世界单位版（= 5/108 ≈ 0.0463；同 `W()` 的口径）。</summary>
         public static float PopDragThresholdWorld { get { return W(PopDragThresholdPx); } }
 
         // 🔴 **2026-10-13（A658）就地更正：入场动画的驱动量【不是】时间，是「累计的视口拖拽位移」。**
@@ -1625,23 +1633,57 @@ namespace CardPresentation
             //   ⇒ 世界档（= uGUI 宿主没建起来时的兜底）照同一条口径判**矩形包含**，圈只在 hot 那格参与。
             //   ⛔ 别再回到「以图标中心为圆心、直径 118.8」：那个圆比原版小一圈（方角上点不到），
             //     也判不出「已选那格因为圈变大 ⇒ 命中区跟着变大」这一档。
-            var hit = AttackKind.None;
+            // 🔴 **2026-10-25（`X8` · ③）：这段循环已提成 `KindAtPoint`** —— 与「槽外取消」
+            //   （`ContainsBar`）**共用同一个判定口**（⛔ 别在这儿再留一份矩形）。
+            var hit = KindAtPoint(world);
+
+            if (hit != Hovered) { Hovered = hit; RefreshPicked(); }
+            return Hovered;
+        }
+
+        /// <summary>指针落在**哪一颗钮的受体矩形**上（`None` = 不在任何一格）—— 悬停与「槽外取消」的**唯一判定口**。
+        /// <para>🔴 **2026-10-25（`X8` · ③）为什么要提出来**：原来 `ContainsBar` 另写了一个
+        /// `BarW × (BarH + BgH/2)` 的手搓大矩形（还带一段 `−hh*2` 的非对称下沿），与悬停的
+        /// 「钮矩形 ∪ 已选那格的圈」**不是同一个区域** ⇒ 底板边缘那一点会出现
+        /// 「悬停档说不在、取消档说在」（玩家看到的是：点一下底板边缘，指挥被取消了）。
+        /// ⛔ 别再给 `ContainsBar` 单写一份几何（两处写同一条规则 = 迟早不一致）。</para>
+        /// <para>⚠️ **两档的单位不同、在这里一次换好**：
+        /// · uGUI 档 ⇒ 指针先折进**帧局部 px**（`_frame.InverseTransformPoint`，与件自己的
+        ///   `localPosition` 同一空间；⛔ 别再乘/除画布缩放 —— `InverseTransformPoint` 已经算进去了）；
+        /// · 世界档 ⇒ 直接用世界点，`HitRect` 按 `W(px) × LayoutSpace.Scale` 折。</para>
+        /// <para>⚠️ **不可选的格子不算受体**（`Selectable`）—— 与 `OnHoverEnter` 同一个口；
+        /// 代价是「`pindown` 那颗钮 / 教程关掉的那颗」点上去会走「槽外取消」那一支（见 §五 记录）。</para></summary>
+        public AttackKind KindAtPoint(Vector3 world)
+        {
+            if (!Visible) return AttackKind.None;
+            Vector3 p = _frame != null ? _frame.InverseTransformPoint(world) : world;
             for (int i = 0; i < Order.Length; i++)
             {
                 var opt = Find(Order[i]);
                 if (!Selectable(opt)) continue;      // 与 `OnHoverEnter` 同一个口（含 `pindown` 那条）
                 if (_icons[i] == null || !_icons[i].gameObject.activeSelf) continue;
 
-                var d = _icons[i].transform.position - world;
-                d.z = 0f;
-                if (HitRect(d, ButtonW, ButtonH)) { hit = opt.Kind; break; }
+                if (HitPiece(_icons[i].transform, ButtonW, ButtonH, p)) return opt.Kind;
                 if (IsPickedSlot(opt) && _rings[i] != null && _rings[i].gameObject.activeSelf
-                    && HitRect(d, RingW, RingH)) { hit = opt.Kind; break; }
+                    && HitPiece(_rings[i].transform, RingW, RingH, p)) return opt.Kind;
             }
-
-            if (hit != Hovered) { Hovered = hit; RefreshPicked(); }
-            return Hovered;
+            return AttackKind.None;
         }
+
+        /// <summary>`KindAtPoint` 的单件判定（**两档共用**）。`p` = uGUI 档的**帧局部 px** / 世界档的**世界点**。</summary>
+        bool HitPiece(Transform t, float wPx, float hPx, Vector3 p)
+        {
+            if (_frame != null)
+            {
+                // 件都是 `_frame` 的直接子件（`BuildOnCanvas`）⇒ `localPosition` 就是帧局部 px。
+                Vector3 dl = p - t.localPosition;
+                return Mathf.Abs(dl.x) <= wPx * 0.5f && Mathf.Abs(dl.y) <= hPx * 0.5f;
+            }
+            var d = t.position - p;
+            d.z = 0f;
+            return HitRect(d, wPx, hPx);
+        }
+
 
         /// <summary>把「已选打法」那一格画出来：**黄圈 + 放大 1.3 倍 + 0.3 s 补间**（原版 `scaleMultiplierWhenSelected`）。
         /// 🔴 **2026-09-29 照原版改**：原来这个高亮挂在**指针悬停**上（`Hovered`），而原版挂的是
@@ -1764,13 +1806,19 @@ namespace CardPresentation
         /// `playerBoard.DropTargetWorld(slot)`）⇒ 「点槽外取消」的判定域**必须跟着条子走**，
         /// 否则单位不在屏心时判定域与画面脱节（画在左、点右边才取消）。
         /// ⇒ 现在把喂进来的点**先减掉 `_anchorAt`** 再比（盒子的形状/尺寸一个字没变）。</summary>
+        /// <summary>这个点算不算「在选择器里面」（**只给「点槽外取消」那一条用**）。
+        /// <para>🔴 **2026-10-25（`X8` · ③）：改成转发 `KindAtPoint`** —— 原来这里是一份**手搓的大矩形**
+        /// `BarW × (BarH + BgH/2)`，还带一段非对称的下沿（`rel.y >= −hh*2`）；它和悬停实际用的
+        /// 「钮矩形 ∪ 已选那格的圈」不是同一个区域 ⇒ **底板边缘那一点：悬停档说「不在」、取消档说「在」**
+        /// （玩家看到的是「点一下底板边，指挥被取消」，而原版那块 `Select Attack Background` 是
+        /// `m_RaycastTarget = 1` 的纯色射线靶、**点了什么也不发生**）。</para>
+        /// <para>⚠️ **行为变化（如实记）**：现在「点在选择器**底板**上但不在任何一颗钮上」会走取消
+        /// （旧实现不会）。这是「与悬停同源」的必然结果 —— 原版那一带本来就没有动作，
+        /// 我们这条取消本来就是**自造的**（`A462` §四·3）；判据只有一条：不要让两条路给出不同答案。</para></summary>
         public bool ContainsBar(Vector3 world)
         {
             if (!Visible) return false;
-            Vector3 rel = world - _anchorAt;                       // ← 🆕 判定域跟着条子的世界锚平移
-            float hw = W(BarW) * 0.5f * LayoutSpace.Scale;
-            float hh = W(BarH + BgH * 0.5f) * LayoutSpace.Scale;   // 连底板一起算进去
-            return Mathf.Abs(rel.x) <= hw && rel.y <= hh && rel.y >= -hh * 2f;
+            return KindAtPoint(world) != AttackKind.None;
         }
 
         /// <summary>诊断用：这一次给了哪些选项</summary>
@@ -1842,6 +1890,21 @@ namespace CardPresentation
             int i = SlotOf(k);
             if (i < 0 || _icons[i] == null) return new Vector2(-1f, -1f);
             return _icons[i].SizePx;
+        }
+
+        /// <summary>🆕 **2026-10-25（`X8` · ③）** 自检用：把「原版节点 rect 的 px」折成**世界单位**
+        /// （= 造点时加在世界坐标上的那个长度）。三种口径都对齐到世界：
+        /// · 世界档 = `W(px) × LayoutSpace.Scale`（与 `HitRect` 同一式）；
+        /// · uGUI 档 = `px × _frame.lossyScale.x`（画布把设计 px 折成世界的那一级）。
+        /// ⛔ 别拿它当命中判据（那只在 `KindAtPoint` 一处）。</summary>
+        public float WorldOfPxForTest(float px)
+        {
+            if (_frame != null)
+            {
+                float s = _frame.lossyScale.x;
+                return s > 1e-9f ? px * s : px;
+            }
+            return W(px) * LayoutSpace.Scale;
         }
 
         /// <summary>🆕 **2026-10-24（`A28`）** 自检用：某一格 `Highlight` 的节点 rect（**设计 px**）。

@@ -655,6 +655,62 @@ public static class BattleScene
                 + " ⇒ 面板一开就恒真（`A1972`）");
         }
 
+        /// <summary>
+        /// ★ **A1730 / A1905：一记「真攻击」的攻击 VFX 真的播了没有** —— **判据只此一处**
+        /// （落点①、落点②、UM/SAU 那一局**三处共用它**，⛔ 不复制第二份）。
+        ///
+        /// <para>**期望值现算**：`VfxMap.ResolveAll(事件, 阵营, 卡id)` 是**同一张表的另一个口**
+        /// （⛔ 不读 `_fired` 反推 —— 那是拿实现证明实现）。**判据 = 「解析出几件就播几件」**
+        /// （2026-10-22 `W63 §B` 改判：原版**没有**通用近战件，解析为空就是正确结果；
+        /// 真解析出逐卡件就必须播）。</para>
+        ///
+        /// <para>**阵营（2026-10-25 `X14` 现核 · 铁律 5 就地订正）**：生产 `PlaySignal` 的攻击支按
+        /// **攻方卡自己的阵营**取件 —— `BattleDriver.cs` 里 `string atkFaction = VfxFactionOf(e.Player,
+        /// e.CardId, e.InstanceId, e.Slot);`（判据 = `CardScript._ResolveAttackRangedAnim…:146-176`
+        /// 取的是**攻方** clan；那一档是 2026-10-25 `W1`/C5 改的）⇒ 调用方应传**攻方卡**自己的 `Faction`。
+        /// 🔴 本文件原有注释写「阵营取**目标**那一方（`FoeFaction`）」—— 那句在生产改成攻方之后**已过期**；
+        /// 既有两处仍传 `FoeFaction`（**与改动前逐字等价**，且它们只跑近战、两边都解析为空 ⇒ 读数不变），
+        /// 新加的 UM/SAU 那一局按生产传**攻方阵营**。</para>
+        ///
+        /// <para>⚠️ 调用方负责：① 发起这一记**之前** `_fired.Clear()`（防假绿）；② 让它真的打出去。
+        /// 本函数自己 `StepThrough`（候选带 `T &gt; VfxTimeEpsilon` 时走 `ScheduleVfxCue`，
+        /// 必须把时间线推完才读 `_fired`）。</para>
+        /// </summary>
+        void CheckAttackVfx(BattleDriver d, string faction, string atkCardId, string evt, string tag)
+        {
+            if (d == null)
+            {
+                Check(false, $"★ {tag}：driver 是 null ⇒ 这条判不了（⛔ 不静默跳过）");
+                return;
+            }
+            bool isRanged = evt == VfxMap.AttackRanged;
+            string kind = isRanged ? "远程" : "近战";
+            string otherKind = isRanged ? "近战" : "远程";
+            string[] want = VfxMap.ResolveAll(evt, faction, atkCardId);
+            string[] wantOther = VfxMap.ResolveAll(isRanged ? VfxMap.AttackMelee : VfxMap.AttackRanged,
+                                                   faction, atkCardId);
+            StepThrough(d);                     // 候选带 T 的走 `ScheduleVfxCue` ⇒ 必须推完才读 `_fired`
+            int n = 0;
+            foreach (var nm in want) n += FiredCount(nm);
+            Check(want.Length == 0 ? n == 0 : n > 0,
+                  want.Length == 0
+                      ? $"★ {tag}：{kind}**没有通用件** ⇒ 一件都不播（本卡解析 0 件、实播 {n} 次）"
+                      + " —— 原版只有命中帧那颗 `AttackHitSmall`（`W63 §B` 改判）"
+                      : $"★ {tag}：{kind}逐卡件播了 `{string.Join("/", want)}`（实播 {n} 次）"
+                      + " —— 判据 = 引擎 `EvtKind.Attack` → `GenericVfxFor` → `FireEventAll` → `CardEffects.Play`");
+            int nOther = 0;
+            foreach (var nm in wantOther) nOther += FiredCount(nm);
+            bool overlap = false;
+            foreach (var a in want)
+                foreach (var b in wantOther)
+                    if (a == b) overlap = true;
+            Check(overlap || nOther == 0,
+                  overlap
+                      ? $"★ {tag}（灭自证）：跳过 —— 本卡{kind}/{otherKind}解析到同一件"
+                      + $"（`{string.Join("/", want)}` vs `{string.Join("/", wantOther)}`）"
+                      : $"★ {tag}（灭自证）：{kind}这一格**没有**播{otherKind}那件（实播 {nOther} 次）");
+        }
+
         // ==================================================================
         //  🆕 2026-10-17（`A1212` 块 7 / 块 9）：**「实参 = 原版四格」**的断言。
         //
@@ -7178,6 +7234,273 @@ public static class BattleScene
                             + "｜🧨 任何一处改回只 `Debug.Log` / 只 `SetHint` ⇒ 这里掉数 ⇒ 红");
                     }
 
+                    // ---------- ②c 🆕 2026-10-25（`X19/P2`）：**非法出牌 · 四档拒因文案** ----------
+                    //  判据（一手）：原版 `BattleManager__CanPlayCard.c:82-152` 的**四支**，每一支都是
+                    //  `NotifyCantDoAction(GetTranslation(<那条字面量>))`（语音 + 文字**一次调用**）：
+                    //    · `0x428A5E8` = `Battle/Tips/NotEnoughMana`     （能量不够）
+                    //    · `0x428A6E0` = `Battle/Tips/NotEnoughRoom`     （棋盘满）
+                    //    · `0x428A4F8` = `Battle/Tips/NoTargetAvailable` （没合法目标）
+                    //    · `0x428A7D0` = `Battle/Tips/NotYourTurn`       （现在不是你回合）
+                    //  四条字面量**逐条现读**（`RVA = 地址 − 0x180000000` → `d2/tools/il2cpp_out/stringliteral.json`，
+                    //  4/4 命中）⇒ 引擎码 ↔ 键的 1:1 由 ②（`RuleCodes.TermKey`）钉住，本节钉**落点**：
+                    //  同一个出口（`BattleDriver.IllegalActionText`）**按因分档**、不明时**不静默**。
+                    //
+                    //  灭自证：把四档合并成一句（例如全塞 `DragToTarget`）⇒ 「四条互不相同」那条红；
+                    //    把兜底删掉（不明时返回空串）⇒ 兜底那条红；把 `tipTerm` 覆盖判反 ⇒ 覆盖那条红。
+                    {
+                        int[] fourCodes2c =
+                        {
+                            RuleCodes.ErrCost, RuleCodes.ErrNotEnoughRoom,
+                            RuleCodes.ErrNoTargetAvailable, RuleCodes.ErrNotTurn,
+                        };
+                        var fourTexts2c = new List<string>();
+                        var fourBad2c = new List<string>();
+                        for (int i = 0; i < fourCodes2c.Length; i++)
+                        {
+                            int rc = fourCodes2c[i];
+                            drv3c.SetLastPlayRejectCodeForTest(rc);
+                            string got = drv3c.IllegalActionTextForTest(null);
+                            string want = BattleDriver.HintForCode(rc);
+                            fourTexts2c.Add(got);
+                            if (string.IsNullOrEmpty(got) || got.StartsWith("Battle/") || got != want)
+                                fourBad2c.Add($"{RuleCodes.Describe(rc)}: 「{got}」≠「{want}」");
+                        }
+                        Check(fourBad2c.Count == 0,
+                              $"★ X19-P2①：**四档拒因各自给出原版那条文案**（不空、不是键名、与 `HintForCode` 同源）"
+                            + (fourBad2c.Count > 0 ? $"｜错 {fourBad2c.Count} 条：{string.Join(" · ", fourBad2c.ToArray())}" : "")
+                            + "｜🧨 四档合并成一句 / 直接印键名 ⇒ 红");
+
+                        var distinct2c = new HashSet<string>(fourTexts2c);
+                        Check(distinct2c.Count == 4,
+                              $"★ X19-P2②（灭自证）**四档是同四句不同的话**（实得 {distinct2c.Count} 种："
+                            + string.Join(" | ", fourTexts2c.ToArray()) + "）"
+                            + "｜🧨 全部回落成 `DragToTarget`（= 改之前的行为）⇒ 只剩 1 种 ⇒ 红");
+
+                        // 拒因不明（教程闸 / 演出未收尾 / 内部档）⇒ 退回旧文案，⛔ 不静默
+                        drv3c.SetLastPlayRejectCodeForTest(RuleCodes.OK);
+                        string fb2c = drv3c.IllegalActionTextForTest(null);
+                        Check(fb2c == Loc.T(BattleDriver.DragToTargetTerm) && !string.IsNullOrEmpty(fb2c),
+                              $"★ X19-P2③ 拒因不明时退回旧文案 `{BattleDriver.DragToTargetTerm}`（实测「{fb2c}」）"
+                            + "｜🧨 删掉兜底（返回空串）⇒ 提示条**全空** ⇒ 红");
+
+                        // `tipTerm` 覆盖优先（唯一一档：指针压错侧 ⇒ 原版 `DragToTarget`）
+                        drv3c.SetLastPlayRejectCodeForTest(RuleCodes.ErrCost);
+                        string ov2c = drv3c.IllegalActionTextForTest(BattleDriver.DragToTargetTerm);
+                        Check(ov2c == Loc.T(BattleDriver.DragToTargetTerm),
+                              $"★ X19-P2④ `tipTerm` 覆盖**优先于**引擎码（有 `ErrCost` 时仍给「{ov2c}」）"
+                            + "｜判据 = `CardInteraction.DropReject` 的 `hitOther` 支（= 原版 `IsValidSpellTarget` "
+                            + "失败 ⇒ `DragToTarget`，`BattleManager__Update.c:660-673`）"
+                            + "｜🧨 把覆盖判反 / 删掉那一支 ⇒ 玩家压错侧时听见「能量不足」⇒ 红");
+                        drv3c.SetLastPlayRejectCodeForTest(RuleCodes.OK);   // 复原（后面的段还要用这局）
+                    }
+
+                    // ---------- ②d 🆕 2026-10-25（`X19/P3`）：**选目标时点非法目标 ⇒ 出声 + 取消** ----------
+                    //  判据（一手）：`BattleManager__FinishedChoosingAbilityTargetByClick.c` —— 失败支
+                    //  （含 `target == null` = 点空处）= `GetTermTranslation(0x428A310)` →
+                    //  `NotifyCantDoAction(...)` → `CancelActiveAbility` → `FinishActing` → `StopShowingPotentialTargets`。
+                    //  `0x428A310` 现读 = `Battle/Tips/InvalidTarget`（原版**唯一**用这条键的地方）。
+                    //  我们原来在 `DrivePlayerTurn` ④ 的 `t < 0` 那一支是**静默** `ClearSelection()`。
+                    //
+                    //  灭自证：①「技能档出声」与 ②「攻击档**不**出声」是**结构互斥**的一对 ——
+                    //    出声写成无条件 ⇒ ② 红；整条删掉 ⇒ ① 红。两边都只靠同一句 `if (_command == Ability)`。
+                    {
+                        const int anySlot2d = 0;
+                        drv3c.SetCommandForTest(AttackKind.Ability, anySlot2d);
+                        int cInval2d = drv3c.CantDoCount;
+                        drv3c.SimulateInvalidTargetClick();
+                        Check(drv3c.CantDoCount == cInval2d + 1
+                              && drv3c.LastCantDoTerm == Loc.T(BattleDriver.InvalidTargetTerm),
+                              $"★ X19-P3①：**选技能目标时点到非法目标 ⇒ 出声**（期望「{Loc.T(BattleDriver.InvalidTargetTerm)}」，"
+                            + $"实测「{drv3c.LastCantDoTerm}」· 计数 {cInval2d} → {drv3c.CantDoCount}）"
+                            + "｜判据 `FinishedChoosingAbilityTargetByClick.c:20-30`（`0x428A310`）"
+                            + "｜🧨 改回静默 `ClearSelection()` ⇒ 本行红");
+                        Check(drv3c.SelectedSlot < 0,
+                              $"★ X19-P3①b …并且**这一手被取消了**（`SelectedSlot` 实得 {drv3c.SelectedSlot}）"
+                            + "｜原版接着 `CancelActiveAbility` / `FinishActing` / `StopShowingPotentialTargets`");
+
+                        // ② 攻击档：取消照旧，但**不出声**（原版那条键只服务技能；攻击那档没有对应词条）
+                        drv3c.SetCommandForTest(AttackKind.Melee, anySlot2d);
+                        int cAtk2d = drv3c.CantDoCount;
+                        drv3c.SimulateInvalidTargetClick();
+                        Check(drv3c.CantDoCount == cAtk2d && drv3c.SelectedSlot < 0,
+                              $"★ X19-P3②（灭自证·反向）：**攻击**选目标时点空处 ⇒ 取消、但**不出声**"
+                            + $"（计数 {cAtk2d} → {drv3c.CantDoCount} · SelectedSlot {drv3c.SelectedSlot}）"
+                            + "｜原版 `InvalidTarget` 只用于 `FinishedChoosingAbilityTargetByClick`（技能）——"
+                            + "攻击那条我们**没有**原版词条 ⇒ ⛔ 不许自拟一句"
+                            + "｜🧨 把那一句写成无条件的（不看 `_command`）⇒ 本行红");
+                        drv3c.SetCommandForTest(AttackKind.None, -1);   // 复原
+                    }
+
+                    // ---------- ②e 🆕 2026-10-25（`X19/P4`）：**「落位后还要点目标」的判定口** ----------
+                    //  判据（一手）：`BattleManager__NeedToChooseMinionTarget.c:7-19` =
+                    //    `card.isPlayer && cardType == 0（单位） && card.get_targeted() && matchType != 0xA0`。
+                    //  我们这一侧只把**卡属性那一半**收成 `BattleDriver.NeedsUnitTargetAfterDeploy`
+                    //  （`isPlayer` / 回放由调用点管；`IsThereValidUnitTarget` 归引擎 ⇒ 不在这里复制）。
+                    //  这一条钉的是**分档判据本身**（不改对局状态；本批不接选目标态，见 `DoPlay` 那一段注释）。
+                    //
+                    //  灭自证：删 `IsUnit` 那道闸 ⇒ 「战术卡不算」红；删 `Targeted` 那道闸 ⇒ 「普通单位不算」红。
+                    {
+                        var pool3e = RuleEngine.CardDatabase.Load();
+                        Check(pool3e != null && pool3e.Count > 0, "（前提）卡表读得到（P4 分档判据）");
+                        if (pool3e != null && pool3e.Count > 0)
+                        {
+                            RuleEngine.CardDef tgtUnit3e = null, tgtTactic3e = null, plainUnit3e = null;
+                            int nTgtUnit3e = 0;
+                            foreach (var c0e in pool3e)
+                            {
+                                if (c0e == null || c0e.Targeted != 1) continue;
+                                if (c0e.IsUnit) { nTgtUnit3e++; if (tgtUnit3e == null) tgtUnit3e = c0e; }
+                                else if (tgtTactic3e == null) tgtTactic3e = c0e;
+                            }
+                            foreach (var c0e in pool3e)
+                                if (c0e != null && c0e.IsUnit && c0e.Targeted != 1) { plainUnit3e = c0e; break; }
+
+                            Check(nTgtUnit3e > 0 && tgtUnit3e != null && plainUnit3e != null && tgtTactic3e != null,
+                                  $"（前提）三档样卡都找得到：targeted 单位 {nTgtUnit3e} 张 · "
+                                + $"普通单位 {(plainUnit3e != null ? plainUnit3e.Name : "<无>")} · "
+                                + $"targeted 战术 {(tgtTactic3e != null ? tgtTactic3e.Name : "<无>")}");
+                            if (tgtUnit3e != null && plainUnit3e != null && tgtTactic3e != null)
+                            {
+                                Check(BattleDriver.NeedsUnitTargetAfterDeploy(tgtUnit3e),
+                                      $"★ X19-P4①：`targeted == 1` 的**单位卡**判「落地后要选目标」"
+                                    + $"（样卡 `{tgtUnit3e.Name}` · 现读全池 {nTgtUnit3e} 张）"
+                                    + "｜判据 `NeedToChooseMinionTarget.c:7-19` 的 `cardType == 0 && targeted`"
+                                    + "｜🧨 删掉 `Targeted` 那道闸 ⇒ 本行红");
+                                Check(!BattleDriver.NeedsUnitTargetAfterDeploy(plainUnit3e),
+                                      $"★ X19-P4②（灭自证）：**普通单位**不算（样卡 `{plainUnit3e.Name}`）"
+                                    + "｜🧨 把 `targeted` 闸去掉（所有单位都算）⇒ 本行红");
+                                Check(!BattleDriver.NeedsUnitTargetAfterDeploy(tgtTactic3e),
+                                      $"★ X19-P4③（灭自证）：**战术卡**不算（样卡 `{tgtTactic3e.Name}`）"
+                                    + "｜原版那一档只服务 `cardType == 0`；战术卡的选目标走 `TargetedSpellPlayed` 另一条链"
+                                    + "｜🧨 删掉 `IsUnit` 那道闸 ⇒ 本行红");
+                            }
+                        }
+                    }
+
+                    // ---------- ②f 🆕 2026-10-25（`X19/P5`）：**录像里的 `TargetP` = 表现层那个决策口** ----------
+                    //  病根（改前）：`DoResolve` 把 `AiAction.TargetP` 写死成 `1 - _me`（注释「目标永远在对面」）。
+                    //   那句话**对攻击成立、对技能不成立** —— 替代行动（`Duty`/`Pray`/`Agenda`/`Ferocity`）
+                    //   的正文可以点**自己人**（引擎早就是按 `spec.Side` 取自己那侧：
+                    //   `AlternativeTargetSide` → `UseAlternativeCore` 的 `chosen = ctx.Players[p].Board[…]`），
+                    //   而表现层点亮的也是自己那侧 ⇒ **只有录进录像那一格是错的**：
+                    //   回放/联机时 `WantsTargetingAnim` + `ViewAt(act.TargetP, …)` 会指向**对面同号格**的卡。
+                    //  现在：`TargetP` 走 `CommandTargetSideFor`（与表现层同一个决策口）。
+                    //
+                    //  灭自证：把 `BuildAct` 的 `TargetP` 改回 `1 - _me` ⇒ ★P5①/P5③ 红；
+                    //    把「不用点目标时沿用 `1-_me`」删掉（一律用 `side`）⇒ ★P5② 红（无目标那档会变成 −1）。
+                    {
+                        var c5 = drv3c.Ctx;
+                        var pool5 = RuleEngine.CardDatabase.Load();
+
+                        // ---- ① 无夹具也成立的那一半：**攻击恒录敌方**（`1 - _me`）----
+                        //   ⛔ 这一条不依赖任何夹具（近战/远程那一支只看 `_me`）⇒ 它**必须**是绿的。
+                        var atkNoFix5 = drv3c.BuildActForTest(AttackKind.Melee, 0, 0);
+                        Check(atkNoFix5.TargetP == 1 - drv3c.MyIndex,
+                              $"★ X19-P5④（灭自证·反向 / 免夹具）**攻击仍录敌方**（`TargetP` 实得 {atkNoFix5.TargetP}，"
+                            + $"期望 {1 - drv3c.MyIndex}）｜近战/远程永远点对面"
+                            + "｜🧨 把那句写成 `CommandTargetSideFor(...)` 的原始值而不判 `-1`，"
+                            + "或把攻击那一支改成 `_me` ⇒ 本行红");
+
+                        // ---- ② 友方目标那一半（`Pray: Heal 3 to a friendly unit`）----
+                        //  ⚠️ 夹具条件（卡在池里 + `Pray:` 正文收得下来 + 目标侧真的是我方）不成立时
+                        //     **如实出声、不判红** —— 那说明的是数据侧变了，不是驱动层回归。
+                        var pray5 = CardByName(pool5, "Celestian Sacresant");
+                        bool fixtureOk5 = pool5 != null && pray5 != null
+                                       && pray5.Name == "Celestian Sacresant" && pray5.TriggerOps("pray") != null;
+                        if (!fixtureOk5)
+                        {
+                            Debug.LogWarning(P + "   ⚠️ ②f：卡池里没有 `Celestian Sacresant`（或 `Pray:` 收不下来）⇒ "
+                                               + "「友方目标的 TargetP」这一档**这次没验到**（夹具条件不成立，如实记）");
+                        }
+                        else
+                        {
+                            int sCast5 = FreeSlot(c5, drv3c.MyIndex);
+                            var bakCast5 = sCast5 >= 0 ? c5.Players[drv3c.MyIndex].Board[sCast5] : null;
+                            if (sCast5 >= 0)
+                            {
+                                c5.Players[drv3c.MyIndex].Board[sCast5] =
+                                    new UnitState(pray5, false) { Exhausted = false };
+                                drv3c.RefreshAll();
+                            }
+                            int sTgt5 = sCast5 >= 0 ? FreeSlot(c5, drv3c.MyIndex) : -1;
+                            var bakTgt5 = sTgt5 >= 0 ? c5.Players[drv3c.MyIndex].Board[sTgt5] : null;
+                            if (sTgt5 >= 0)
+                            {
+                                // 目标摆一个**带伤**的友军（`Heal 3` 才有合法目标）。
+                                // ⚠️ 样卡**按数据现挑**（⛔ 不写死卡名：`CardByName` 查不到会回 `pool[0]`，
+                                //    那会静默换成另一张卡）。
+                                RuleEngine.CardDef dummy5 = null;
+                                foreach (var cc5 in pool5)
+                                    if (cc5 != null && cc5.IsUnit && cc5.Health > 1) { dummy5 = cc5; break; }
+                                if (dummy5 == null)
+                                    Debug.LogWarning(P + "   ⚠️ ②f：卡池里挑不出 `Health > 1` 的单位当治疗目标 ⇒ 这一档没验到");
+                                else
+                                {
+                                    var uTgt5 = new UnitState(dummy5, false) { Exhausted = false };
+                                    uTgt5.Health = 1;                  // 带伤 ⇒ `Heal 3` 有合法目标
+                                    c5.Players[drv3c.MyIndex].Board[sTgt5] = uTgt5;
+                                    drv3c.RefreshAll();
+                                }
+                            }
+                            if (sCast5 < 0 || sTgt5 < 0)
+                            {
+                                Debug.LogWarning(P + "   ⚠️ ②f：我方棋盘摆不下两格 ⇒ 「录像 TargetP」这一档"
+                                                   + "**这次没验到**（夹具条件不成立，如实记）");
+                            }
+                            else
+                            {
+                                string altKw5 = RuleCore.AlternativeActionKeyword(c5.Players[drv3c.MyIndex].Board[sCast5]);
+                                int wantSide5 = altKw5 != null
+                                    ? RuleCore.AlternativeTargetSide(c5, drv3c.MyIndex, sCast5, altKw5) : -1;
+                                if (wantSide5 != drv3c.MyIndex)
+                                {
+                                    Debug.LogWarning(P + $"   ⚠️ ②f：`{pray5.Name}` 的替代行动目标侧实得 {wantSide5}"
+                                                       + $"（关键词 `{altKw5}`）—— 不是我方 ⇒ 「友方 TargetP」这一档"
+                                                       + "**这次没验到**（数据侧变了，不是驱动层回归）");
+                                }
+                                else
+                                {
+                                    drv3c.SimulateOpenCommand(sCast5);
+                                    drv3c.SimulateCommandFromUi(AttackKind.Ability);
+
+                                    var act5 = drv3c.BuildActForTest(AttackKind.Ability, sCast5, sTgt5);
+                                    Check(act5.TargetP == drv3c.MyIndex,
+                                          $"★ X19-P5① **录像里会写 `TargetP = {drv3c.MyIndex}`（我方）**（实得 {act5.TargetP}）"
+                                        + "｜改前是写死的 `1 - _me` ⇒ 回放/联机按**对面同号格**演出"
+                                        + "｜🧨 `BuildAct` 改回 `1 - _me` ⇒ 本行红");
+                                    Check(act5.TargetP == wantSide5,
+                                          $"★ X19-P5② …而且与**引擎同一个判据**一致（`AlternativeTargetSide` = {wantSide5}）"
+                                        + "｜⛔ 别在结算侧另写一份侧判（那正是这一批要消灭的第二份判据）");
+
+                                // 真的结算一次，读**录像里那一条**（`Recording.actions` 的最后一条）
+                                int recBefore5 = drv3c.Recording != null ? drv3c.Recording.actions.Count : 0;
+                                int code5 = drv3c.SimulateResolve(sTgt5);
+                                bool recAdded5 = drv3c.Recording != null
+                                              && drv3c.Recording.actions.Count > recBefore5;
+                                if (code5 != RuleCodes.OK || !recAdded5)
+                                {
+                                    Debug.LogWarning(P + $"   ⚠️ ②f：那一手没结算成功（`{RuleCodes.Describe(code5)}` · "
+                                                       + $"录像新增 {recAdded5}）⇒ 「录像里那一条」这一格**这次没验到**"
+                                                       + "（夹具条件不成立，如实记；上面三条构造断言仍成立）");
+                                }
+                                else
+                                {
+                                    var m5 = drv3c.Recording.actions[drv3c.Recording.actions.Count - 1];
+                                    Check(m5.targetP == wantSide5,
+                                          $"★ X19-P5⑤ **录像里那一条的 `targetP` = {wantSide5}**（实得 {m5.targetP}）"
+                                        + "｜🧨 写死 `1 - _me` 时这里会是对面那一侧 ⇒ 红");
+                                }
+
+                                drv3c.SimulateDeselect();
+                                }          // ← 关「wantSide5 = 我方 ⇒ 真验」那一档的 else
+                            }              // ← 关「两格都摆上了」的 else
+                            // 靶场还原（⛔ 别把夹具留在盘上 —— 后面还有别的段要用这一局）
+                            if (sTgt5 >= 0) c5.Players[drv3c.MyIndex].Board[sTgt5] = bakTgt5;
+                            if (sCast5 >= 0) c5.Players[drv3c.MyIndex].Board[sCast5] = bakCast5;
+                            drv3c.RefreshAll();
+                        }                  // ← 关「夹具成立」的 else
+                    }                      // ← 关整个 ②f 块
+
                     // ---------- ③ **ESC：普通对局 ⇒ 开设置窗** ----------
                     //  判据 = `BattleHud__Update.c:20-35`（`UIstate == normalBattle` ∧ 没有窗开着 ⇒
                     //  `WindowsManager.OpenWindow(设置窗)`）。
@@ -8885,45 +9208,13 @@ public static class BattleScene
             var after = ctx.Players[1].Board[tgtSlot];
             Check(after == null || after.Health < foeBefore,
                   $"目标掉血了（{foeBefore} → {(after == null ? "阵亡" : after.Health.ToString())}）");
-            // ★ A1730：近战/远程 VFX「**真的播了**」——
-            //   判据 = 引擎 `EvtKind.Attack` → `GenericVfxFor` → `FireEventAll` → `CardEffects.Play`
-            //   （钩子在本文件 `_fired` 那一处）。期望值**现算**：`VfxMap.ResolveAll` 是同一张表的
-            //   **另一个口**（⛔ 不用 `_fired` 反推）。
-            //   ⚠️ 阵营取**目标那一方**（`driver.FoeFaction`）—— 生产 `BattleDriver.cs:15731-15736`
-            //   对 Attack 正是把 `owner = e.TargetPlayer` 当归属方的（写成攻击者阵营是另一个值）。
+            // ★ A1730：这一记**近战攻击**的特效「真的播了」没有 —— 判据/期望值全部收在 `CheckAttackVfx` 一处
+            //   （⛔ 三处落点共用同一个函数，不复制第二份）。
+            //   ⚠️ 先清记录：上面 AI 那一段会攻击，不清会把旧记录算进来（⇒ 假绿；`_fired.Clear()` 在那之前）。
+            //   ⚠️ `a1730AwayBefore` **必须在** `CheckAttackVfx` 之前取 —— 它内部会 `StepThrough` 拨完整条时间线。
             string a1730AtkId = a1730AtkU != null && a1730AtkU.Card != null ? a1730AtkU.Card.Id : null;
-            string[] a1730Melee = VfxMap.ResolveAll(VfxMap.AttackMelee, driver.FoeFaction, a1730AtkId);
-            string[] a1730Ranged = VfxMap.ResolveAll(VfxMap.AttackRanged, driver.FoeFaction, a1730AtkId);
-            // 🆕 2026-10-23（W63 收口 ②）：记下「真正攻击」走过几次「从攻击者算方向」的后坐
-            int a1730AwayBefore = CardFeel.AwayFromAttackerCount;
-            StepThrough(driver);          // 事件时间线推到播完（Attack 那 0.1s 在时间线上）
-            int a1730NMelee = 0; foreach (var a1730Nm in a1730Melee) a1730NMelee += FiredCount(a1730Nm);
-            // 🔴 **2026-10-22（`W63` §B）就地改判（铁律 5）：原版【没有】通用近战件。**
-            //   `ByEvent[AttackMelee]` 已删（判据 = `CardScript.ResolveAttackAnimationEffects` 只在**命中帧**
-            //   播 `AttackHitSmall`，没有「通用近战粒子」这一档；逐卡 `attack_melee` 只有 13/1127 张卡有）
-            //   ⇒ 对**没有那一行**的卡，`ResolveAll` 回**空**，原来那条 `> 0` 断的正是原版没有的第二下
-            //   （被删掉的那件 `BulletImpactBurst_crowd`）。
-            //   ✅ 新判据 = **「解析出几件就播几件」**：解析为空 ⇒ 一件都不许播；真解析出逐卡件 ⇒ 必须播。
-            //   🧨 改坏法：给 `ByEvent[AttackMelee]` 挂回 `BulletImpactBurst_crowd` 而 `PlaySignal` 不播它 ⇒ 红；
-            //      把逐卡 `attack_melee` 那一档的读取删掉（本来有行的 13 张卡不再播）⇒ 走 else 支 ⇒ 红。
-            Check(a1730Melee.Length == 0 ? a1730NMelee == 0 : a1730NMelee > 0,
-                  a1730Melee.Length == 0
-                      ? $"★ A1730（2026-10-22 改判）：近战**没有通用件** ⇒ 一件都不播"
-                      + $"（本卡解析 0 件、实播 {a1730NMelee} 次）—— 原版只有命中帧那颗 `AttackHitSmall`"
-                      + "｜🧨 `ByEvent[AttackMelee]` 挂回替代品 ⇒ 本条红（那是原版没有的第二下）"
-                      : $"★ A1730：近战逐卡件播了 `{string.Join("/", a1730Melee)}`（实播 {a1730NMelee} 次）"
-                      + " —— 判据 = 引擎 `EvtKind.Attack` → `GenericVfxFor` → `FireEventAll` → `CardEffects.Play`");
-            // 灭自证：近战那一格**不该**播远程那件（两件在 `ByEvent` / 逐卡表里通常不同名）。
-            // ⚠️ 逐卡表可能把两个事件配到同一件 ⇒ 有交集时**跳过**（否则是假红）。
-            int a1730NRanged = 0; foreach (var a1730Nr in a1730Ranged) a1730NRanged += FiredCount(a1730Nr);
-            bool a1730Overlap = false;
-            foreach (var a1730Nm in a1730Melee)
-                foreach (var a1730Nr in a1730Ranged)
-                    if (a1730Nm == a1730Nr) a1730Overlap = true;
-            Check(a1730Overlap || a1730NRanged == 0,
-                  a1730Overlap
-                      ? $"★ A1730（灭自证）：跳过 —— 本卡近战/远程解析到同一件（`{string.Join("/", a1730Melee)}` vs `{string.Join("/", a1730Ranged)}`）"
-                      : $"★ A1730（灭自证）：近战这一格**没有**播远程那件（实播 {a1730NRanged} 次）");
+            int a1730AwayBefore = CardFeel.AwayFromAttackerCount;   // W63 收口 ②：「从攻击者算方向」的后坐计数
+            CheckAttackVfx(driver, driver.FoeFaction, a1730AtkId, VfxMap.AttackMelee, "A1730");
             // 🔴 2026-10-23（W63 收口 ②）：**生产那两条入口真的用了「从攻击者算方向」**。
             //   判据 = 原版 `CardScript__ReceiveAttackAnim.c` 的 `normalize(受击方 − 攻击方)`；
             //   ⚠：目标那一格**没死**才有后坐（🔴 **2026-10-25（审查代理 `AU3` · R12）**：`PlayHitFrameFeel`
@@ -8964,6 +9255,23 @@ public static class BattleScene
                 //   这一格原来按「我们挂在 hover 上」写，跟着实现一起改了。
                 var rp = driver.Selector.ButtonWorld(AttackKind.Ranged);
                 Check(rp.HasValue, "拿得到「远程」按钮的世界坐标");
+                // 🔴 **2026-10-25（`X8` · ③）：悬停档与「槽外取消」必须是同一个答案。**
+                //   判据 = 原版这两件事本来就是**同一块受体**：`Image.m_RaycastTarget = 1` 的钮矩形
+                //   ∪（已选那格的）`Highlight` 圈；而「点槽外取消」是我们自造的（`A462` §四·3），
+                //   自造的那一份**不许**另写一套几何（原来写的是 `BarW × (BarH + BgH/2)` 的手搓大矩形）。
+                if (rp.HasValue)
+                {
+                    var x8Sel = driver.Selector;
+                    Check(x8Sel.ContainsBar(rp.Value) && x8Sel.KindAtPoint(rp.Value) == AttackKind.Ranged,
+                          "★ X8-c：钮中心 —— 悬停档（`KindAtPoint` = 远程）与取消档（`ContainsBar` = true）同一个答案");
+                    // 钮外 60 px（越过了钮半宽 59.186 与圈半宽 88.1）：这一点**仍在旧手搓矩形的
+                    // `BarW/2 = 310.85 px` 之内** ⇒ 旧实现会答「在选择器里」（= 点它不取消），新实现答「不在」。
+                    float x8EdgePx = x8Sel.ButtonNodeSizePx(AttackKind.Ranged).x * 0.5f + 60f;
+                    var x8Edge = rp.Value + new Vector3(x8Sel.WorldOfPxForTest(x8EdgePx), 0f, 0f);
+                    Check(!x8Sel.ContainsBar(x8Edge) && x8Sel.KindAtPoint(x8Edge) == AttackKind.None,
+                          $"★ X8-c（灭自证）：钮外 {x8EdgePx:F0} px（**仍在旧手搓矩形内**）—— 取消档与悬停档都答「不在」"
+                        + "｜🧨 把 `ContainsBar` 改回 `BarW × (BarH + BgH/2)` 那份手搓矩形 ⇒ 这一点又变 true ⇒ 红");
+                }
                 if (rp.HasValue)
                 {
                     var before = driver.Selector.ButtonScale(AttackKind.Ranged);
@@ -9003,16 +9311,99 @@ public static class BattleScene
             // 🔴 **2026-10-25（审查代理 `AU3` · `R12` · 铁律 5）就地改判据** —— 原来这里断的是
             //   `DragThreshold01 == 0.085`（8.5% 屏高 ≈ **92 px**）。那个字段
             //   （`accumulatedDragForMinDistance`，`+0x30`）**只是入场动画的进度分母**；
-            //   真正的弹出阈值 = **uGUI `EventSystem.dragThreshold` 默认 10 px**
+            //   真正的弹出阈值 = **uGUI `EventSystem.m_DragThreshold`**
             //   （`AttackSelector.PopDragThresholdPx` / `PopDragThresholdWorld`，判据 → 那两条的 doc）。
             //   ⛔ 别再把 0.085 当弹出阈值断。
-            Check(Mathf.Abs(AttackSelector.PopDragThresholdPx - 10f) < 1e-4f,
-                  "★ 弹出选择器的拖拽阈值 = **10 px**（uGUI `EventSystem.dragThreshold` 默认值）"
-                + $"，世界单位 {AttackSelector.PopDragThresholdWorld:F4}（= 10/{EndPanel.PxPerUnit:F0}）"
-                + " —— 🧨 改回 0.085 屏高（≈92 px，那是入场动画的分母）⇒ 红");
+            // 🔴 **2026-10-25（`X8`）就地订正数值（铁律 5）**：AU3 当时按「Unity 默认 10 px」断 10 ——
+            //   **原版序列化值查到了**：`Intro.unity:5429` `m_DragThreshold: 5`
+            //   （全工程唯一那份 EventSystem，战场沿用它；`pixelDragThreshold` 反编译 0 处读写）。
+            Check(Mathf.Abs(AttackSelector.PopDragThresholdPx - 5f) < 1e-4f,
+                  "★ 弹出选择器的拖拽阈值 = **5 px**（原版 `Intro.unity:5429 m_DragThreshold: 5`）"
+                + $"，世界单位 {AttackSelector.PopDragThresholdWorld:F4}（= 5/{EndPanel.PxPerUnit:F0}）"
+                + " —— 🧨 改回 10 px（Unity 默认值／未查证那一版）或 0.085 屏高（≈92 px，入场动画的分母）⇒ 红");
             Debug.Log(P + $"   拖出 {AttackSelector.PopDragThresholdWorld:F4} 世界单位（1080p ≈ "
                         + $"{AttackSelector.PopDragThresholdPx:F0} px）才弹出选择器"
-                        + " —— 旧口径 0.085 屏高 ≈ 92 px 已订正为「入场动画分母」（AU3 2026-10-25）");
+                        + " —— 旧口径 0.085 屏高 ≈ 92 px = 入场动画分母、10 px = 未查证的 Unity 默认值，均已订正（X8 2026-10-25）");
+
+            // ---- 5c. 🔴 2026-10-25（`X8`）：**还没选打法**时准星就跟着指针走 ----
+            //   原版判据 = `BattleManager__Update.c:996-1017`（state 6 = `StartAttackFrom` 之后那段拖拽态）
+            //   **每帧** `TargetReticleController.MoveCrosshair`，那一刻 `card.attackType` 可以是 0。
+            //   改前两处让这条链断掉：`DrivePlayerTurn` ① 在选择器开着时直接 `return`（不推准星）、
+            //   ③ 的闸是 `_command != AttackKind.None`；另外 `ShowReticleNow` 读的 `_pointerWorld`
+            //   只在 `UpdateReticle` 里赋值 ⇒ 一局第一次起手时是 `(0,0,0)`。
+            Debug.Log(P + "--- 起手准星（拖拽态 · 还没定打法）---");
+            {
+                int x8Slot = FreeSlot(ctx, 0);
+                if (x8Slot < 0) Debug.Log(P + "   （自己场上满了，跳过 X8 准星用例）");
+                else
+                {
+                    ctx.Players[0].Board[x8Slot] =
+                        new UnitState(CardByName(StarterCards.Tide(), "Ballista"), false) { Exhausted = false };
+                    driver.RefreshAll();
+                    // 🔴 落场那几段补间**先跑完**：`TickTargetingLean` 见 `DOTween.IsTweening(卡)` 会让开
+                    //    （那是「别抢落场/回手」的既有闸）⇒ 不先收干净，下面那一步抬手会被静默跳过。
+                    Step(1.5f);
+                    var x8View = driver.BoardViewAt(x8Slot, true);   // ⚠️ 我方格（`mine = true`，别照抄对手那几处的 `false`）
+                    Vector3 x8Home = x8View != null ? x8View.transform.localPosition : Vector3.zero;
+                    Check(x8View != null, "（前提）X8：拿得到我方那一格的视图（抬手探针要量它的位移）");
+                    var x8PtrWas = BattleDriver.PointerWorldForTest;   // ⛔ 用完必须还原（后面各节靠「死指针」）
+                    try
+                    {
+                        // ① 起手那一刻就把指针钉在一个**非原点**（且远在选择器那一带之外）的世界点
+                        BattleDriver.PointerWorldForTest = new Vector3(-3.2f, 4.5f, -1.5f);
+                        Check(driver.SimulateOpenCommand(x8Slot) && driver.SelectorOpen,
+                              "（前提）X8：起手把三选一打开了");
+                        Check(driver.HasCommand(AttackKind.Ranged) && driver.HoveredCommand == AttackKind.None,
+                              $"（前提）X8：这一刻**还没定打法**（{driver.SelectorDescription}）");
+                        Check(driver.ReticleVisible,
+                              "（前提）X8：起手那一刻准星就亮着（原版 `StartAttackFrom` 里就 `ToggleCrosshair(true)`）");
+                        Vector3 x8First = driver.reticle.LastAim;
+                        // ② 指针挪到另一侧 ⇒ **生产那一帧**（`DrivePlayerTurn`）必须把准星推过去
+                        BattleDriver.PointerWorldForTest = new Vector3(3.2f, 4.5f, -1.5f);
+                        driver.DrivePlayerTurnForTest();
+                        Vector3 x8Follow = driver.reticle.LastAim;
+                        Check(Vector3.Distance(x8First, x8Follow) > 0.5f,
+                              $"★ X8-a：**还没定打法**时准星跟着指针走（{x8First} → {x8Follow}）"
+                            + " —— 🧨 删掉 `DrivePlayerTurn` 选择器那一支里的 `UpdateReticle(world)`、"
+                            + "或把 ③ 的闸改回 `_command != None` ⇒ 两点重合 ⇒ 红");
+                        // ③ 起手那一下瞄的是**指针**，不是世界原点
+                        //   ⚠️ `ResolveAim` 有副作用（会写 `LastAim`）⇒ **放最后**调
+                        Vector3 x8AimIfOrigin = driver.reticle.ResolveAim(Vector3.zero);
+                        Check(Vector3.Distance(x8First, x8AimIfOrigin) > 0.5f,
+                              $"★ X8-b：起手那一下瞄的是**指针**、不是世界原点（{x8First} vs 按原点算 {x8AimIfOrigin}）"
+                            + " —— 🧨 把 `ShowReticleNow` 改回读 `_pointerWorld`（那个字段只在 `UpdateReticle`"
+                            + " 里赋值 ⇒ 一局第一次起手时是 0）⇒ 红");
+                        // ④ 抬手（`OrientToTargetingDirection`）：原版 `cardState 0x11` 在
+                        //    **`TryDraggingFromBoard` 那一刻**就置上（`CardScript__TryDraggingFromBoard.c:56`）
+                        //    ⇒ 起手、**还没选打法**时就该抬手。改前要等 `CommitCommand`。
+                        Step(0.5f);                       // `CardFeel.ChargeTime` 0.35 s ⇒ 一步推到位
+                        Check(driver.LeanActiveForTest,
+                              "★ X8-d：**还没定打法**时瞄准抬手已经开着（`_leanActive`）"
+                            + "｜🧨 把 `TickTargetingLean` 的 `aiming` 改回 `_selectedSlot>=0 && _command!=None` ⇒ 红");
+                        float x8Lean = x8View != null
+                                     ? Vector3.Distance(x8View.transform.localPosition, x8Home) : 0f;
+                        Check(x8Lean > 0.01f,
+                              $"★ X8-d：…而且卡体真的离开了静止位（{x8Lean:F4} 世界单位）");
+                        // 幅度**只算一次**：目标是 `_leanHome + LeanOffset(true)` 这个**绝对点**（不是增量）
+                        //   ⇒ 选完打法再推几帧也不会叠成两倍。
+                        Check(Mathf.Abs(x8Lean - CardFeel.LeanOffset(true).magnitude) < 0.02f,
+                              $"★ X8-d：抬手幅度 = **一个** `LeanOffset`（应 {CardFeel.LeanOffset(true).magnitude:F4}，实测 {x8Lean:F4}）"
+                            + " —— 防「起手抬一次、选完打法又叠一次」");
+                        // 选完打法后幅度**必须还是同一个**（叠第二次的话这里会变成 ≈2× 或继续长大）
+                        driver.SimulateCommand(AttackKind.Ranged);
+                        Step(0.2f);
+                        float x8Lean2 = x8View != null
+                                      ? Vector3.Distance(x8View.transform.localPosition, x8Home) : 0f;
+                        Check(Mathf.Abs(x8Lean2 - x8Lean) < 0.02f,
+                              $"★ X8-d：选完打法再推 0.2 s，抬手幅度**不变**（{x8Lean:F4} → {x8Lean2:F4}）"
+                            + "｜🧨 把目标改成「每帧 += 增量」⇒ 这里会一路长大 ⇒ 红");
+                    }
+                    finally { BattleDriver.PointerWorldForTest = x8PtrWas; }
+                    driver.SimulateDeselect();
+                    ctx.Players[0].Board[x8Slot] = null;
+                    driver.RefreshAll();
+                }
+            }
 
             // 🆕 2026-09-29（Q7 第 4 条）：**三钮入场动画** —— 公式逐句照
             // `CardDisplayAttackTypeButton__MoveButton.c`：`pos = lerp(归位位 + 方向×外扩距, 归位位, t)`；
@@ -9545,6 +9936,27 @@ public static class BattleScene
                   $"…同时**上浮**到原版 clip 的终点（y {fv.WillDieLocalPos.y:F3} ← 起点 {CardView.WillDieFromForCheck.y:F3}）"
                   + " —— 那条 clip 是「淡入 + 上浮」，不是纯淡入");
             Shot(cam, "09b_选目标_会打死它");
+
+            // 🔴 **2026-10-25（`X8` · 顺手①）：晚建的「会死」层**必须**当场落在本卡队列段 + 原版排序号。
+            //   这层由 `SetWillDie` 第一次调用才**懒建**，而 `SetQueue` 是**建层之前**跑的
+            //   （`SetQueue` 虽扫整棵子树，但那时它还不存在）⇒ 不补「建层当场盖章」的话，
+            //   它会一直停在材质默认队列 3000；卡面那一整段一旦被布局抬到 ≥3000 的另一档
+            //   （场上号段 2962–2979 / 手牌 2980–3000 / 抬号后的悬停档），**它就被卡压住**（静默）。
+            {
+                var wdProbe = CardView.Create(driver.transform, fv.Data, "WillDieQueueProbe");
+                Check(wdProbe != null, "（前提）造得出「会死」层的队列探针卡");
+                wdProbe.SetQueue(3005);                   // 先落到某一段（模拟布局抬号）
+                Check(!wdProbe.WillDieVisible && wdProbe.WillDieRenderQueue == -1,
+                      "（前提）探针卡上那层**还没建**（`SetQueue` 已经先跑过了）");
+                wdProbe.SetWillDie(true);                 // 第一次建层 —— 建层当场必须自己补号
+                Check(wdProbe.WillDieRenderQueue == 3005,
+                      $"★ X8-e：晚建的「会死」层建出来就落在**本卡队列段**（实测 {wdProbe.WillDieRenderQueue}，应 3005）"
+                    + "｜🧨 删掉 `BuildWillDie` 里那句 `StampQueue(_willDieMr)` ⇒ 退回材质默认 3000 ⇒ 红");
+                Check(wdProbe.WillDieSortingOrder == 2,
+                      $"★ X8-e：排序号 = 原版 `SpriteRenderer.m_SortingOrder` **2**（实测 {wdProbe.WillDieSortingOrder}）"
+                    + "｜🧨 删掉 `_willDieMr.sortingOrder = 2` ⇒ 退回 0 ⇒ 红");
+                Object.DestroyImmediate(wdProbe.gameObject);
+            }
 
             // 另一半：打不死 → **不亮**（原版 `ToggleCombatPreviewHighlight` 的 else 支）
             foeUnit.Health = 99;
@@ -17678,6 +18090,42 @@ public static class BattleScene
 
                     var view = driver.HandViewAt(tacIdx);
                     var tgtPos = eBoard.DropTargetWorld(tgt);
+
+                    // ============================================================
+                    //  🔴 2026-10-25（`X9` · `AUD8` #4）：**战术卡目标侧**（真实卡 + 真实引擎）
+                    // ============================================================
+                    //  判据：引擎的目标侧由**卡面正文**定（`Core/EffectResolver.cs:1864`：
+                    //    `spec.Side == "enemy" ? 1-p : p`），`targetSlot` 只是**格号** ⇒
+                    //    「指针压在哪块棋盘」与「效果落到哪一侧」本来是两件无关的事。
+                    //  病根（改前）：`CardInteraction.DropReject` 先试敌方半场、再**回落**我方半场
+                    //    ⇒ 把**敌方目标**的卡丢在**我方同号格**上，只要敌方同号格有个合法单位就判「合法」
+                    //    ⇒ 打的是对面同号那一个（指针下的自己人毫无反应），而且**零提示**。
+                    //  现在：只认卡面要的那一侧，错侧 `EngineRefused` 且**不回落**。
+                    //  灭自证：把 `DropReject` 里 `if (want.Length > 0) { … }` 整段删掉（= 回到旧口径）
+                    //    ⇒ 下面 ★X9-B 会变 `Ok`（旧口径在**这一格**恰好能打出去）⇒ 红。
+                    //  ⚠️ 探针点在**同号格**（`tgt`）才抓得住这个 bug —— 随便挑一格旧口径也可能合法不了。
+                    {
+                        string sideReal = CardPresentation.CardInteraction.TacticTargetSideForTest(view);
+                        Check(sideReal == "enemy",
+                              $"★ X9-A（真实卡）：这张战术卡的目标侧判成 **enemy**（实得「{sideReal}」）"
+                            + "｜判据 = `EffectText.PickSide(Parse(desc))`，与 `CanPlayTactic` 同一个口"
+                            + "｜🧨 按 `CardData.id`（= 英文卡名）去查卡表 id 索引 ⇒ 恒查不到 ⇒ 红");
+
+                        var wrongPos = pBoard.DropTargetWorld(tgt);       // 我方**同号格**
+                        int kWrong = it.DropRejectKindForTest(wrongPos, view, out _, out _, out var whyWrong);
+                        Check(kWrong == (int)CardPresentation.CardInteraction.DropRejectKind.EngineRefused,
+                              $"★ X9-B（真实引擎）：敌方目标卡拖**我方同号格** ⇒ 必须**拒**（实得 {kWrong}；{whyWrong}）"
+                            + "｜原版这一档 = `IsValidSpellTarget` 失败 ⇒ `NotifyCantDoAction(DragToTarget)`"
+                            + "｜🧨 留着「回落到我方棋盘」那条老路 ⇒ 这里变 `Ok`（= 静默打敌方同号格）⇒ 红");
+
+                        int kOk = it.DropRejectKindForTest(tgtPos, view, out int landSlot,
+                                                           out var landBoard, out var whyOk);
+                        Check(kOk == (int)CardPresentation.CardInteraction.DropRejectKind.Ok && landBoard == eBoard,
+                              $"★ X9-C（真实引擎）：同一张卡拖**敌方那个目标** ⇒ 合法且 `which` = 敌方棋盘"
+                            + $"（实得 kind={kOk} · which={(landBoard == eBoard ? "eBoard" : "别的")} · 槽 {landSlot}；{whyOk}）"
+                            + "｜🧨 把 `wantEnemy` 取反 ⇒ 这条与 ★X9-B 同时红");
+                    }
+
                     it.SimulateHover(view.transform.position);
                     Step(0.05f);
                     it.SimulatePress(view.transform.position);
@@ -22466,35 +22914,10 @@ public static class BattleScene
                           $"……推完 {CardFeel.DeathTotal(false):F1}s（抖 + 站 {CardFeel.DeathHoldBeforeFx:F1}s + "
                         + $"{CardFeel.DeathFxHold:F1}s）→ 走完 `GoToCemetery`、视图销毁");
 
-                    // ★ A1730（落点②）：这一记**真攻击**的近战 VFX「真的播了」——
-                    //   同落点①的形状；期望值由 `VfxMap.ResolveAll` 现算（⛔ 不用 `_fired` 反推）。
-                    //   阵营取**目标那一方**（`drv.FoeFaction`）：生产对 Attack 把
-                    //   `owner = e.TargetPlayer` 当归属方（`BattleDriver.cs:15731-15736`）。
-                    StepThrough(drv);       // 把这一局剩余的事件时间线推完（Attack 那 0.1s 在里面）
+                    // ★ A1730（落点②）：同一套判据（`CheckAttackVfx` 一处）—— 这里仍传 `FoeFaction`
+                    //   （= 改动前逐字等价；见那个函数 doc 里「阵营」那一段的订正）。
                     string a1730AtkId2 = mine != null && mine.Card != null ? mine.Card.Id : null;
-                    string[] a1730Melee2 = VfxMap.ResolveAll(VfxMap.AttackMelee, drv.FoeFaction, a1730AtkId2);
-                    string[] a1730Ranged2 = VfxMap.ResolveAll(VfxMap.AttackRanged, drv.FoeFaction, a1730AtkId2);
-                    int a1730NMelee2 = 0; foreach (var a1730Nm2 in a1730Melee2) a1730NMelee2 += FiredCount(a1730Nm2);
-                    // 🔴 **2026-10-22（`W63` §B）：同落点①的改判 —— 原版没有通用近战件**
-                    //   （`ByEvent[AttackMelee]` 已删）⇒ 解析为空就是**正确结果**，一件都不该播；
-                    //   逐卡表真有那一行的 13 张卡仍要播。判据与改坏法 → 上面落点①那一条。
-                    Check(a1730Melee2.Length == 0 ? a1730NMelee2 == 0 : a1730NMelee2 > 0,
-                          a1730Melee2.Length == 0
-                              ? $"★ A1730（落点②·2026-10-22 改判）：近战**没有通用件** ⇒ 一件都不播"
-                              + $"（本卡解析 0 件、实播 {a1730NMelee2} 次）—— 原版只有命中帧那颗 `AttackHitSmall`"
-                              + "｜🧨 `ByEvent[AttackMelee]` 挂回替代品 ⇒ 本条红"
-                              : $"★ A1730（落点②）：近战逐卡件播了 `{string.Join("/", a1730Melee2)}`（实播 {a1730NMelee2} 次）"
-                              + " —— 判据 = 引擎 `EvtKind.Attack` → `GenericVfxFor` → `FireEventAll` → `CardEffects.Play`");
-                    // 灭自证（同落点①）：有交集就跳过，否则是假红。
-                    int a1730NRanged2 = 0; foreach (var a1730Nr2 in a1730Ranged2) a1730NRanged2 += FiredCount(a1730Nr2);
-                    bool a1730Overlap2 = false;
-                    foreach (var a1730Nm2 in a1730Melee2)
-                        foreach (var a1730Nr2 in a1730Ranged2)
-                            if (a1730Nm2 == a1730Nr2) a1730Overlap2 = true;
-                    Check(a1730Overlap2 || a1730NRanged2 == 0,
-                          a1730Overlap2
-                              ? $"★ A1730（落点②·灭自证）：跳过 —— 本卡近战/远程解析到同一件（`{string.Join("/", a1730Melee2)}` vs `{string.Join("/", a1730Ranged2)}`）"
-                              : $"★ A1730（落点②·灭自证）：近战这一格**没有**播远程那件（实播 {a1730NRanged2} 次）");
+                    CheckAttackVfx(drv, drv.FoeFaction, a1730AtkId2, VfxMap.AttackMelee, "A1730（落点②）");
                 }
 
                 // ---- ⑤c 🆕 2026-10-21（W61 第 1 批 · 第 3 条）：**远程攻击的 VFX 从【攻方锚点】发出、朝目标** ----
@@ -42442,6 +42865,144 @@ public static class BattleScene
             //     与它已登记的场上视图（`ViewAt` 认的是 driver 自己那份视图表）。
             CardRootAssert.Run();
             pass += CardRootAssert.Pass; fail += CardRootAssert.Fail;
+
+            // ============================================================ 🆕 2026-10-25（`X14` · 自检断言线 `T05` / `A1905` 后半）
+            //  **额外真跑一局 UM（我方）vs SAU（敌方）阵营局** —— 台账 `T05` 要的正是「一次 UM/SAU 阵营局真跑」。
+            //
+            //  为什么单开一局：`BattleScene.Run` 的主局是 **Ember vs Tide**（自建起始阵营），
+            //  而 `A1730` 那两处真攻击落点落在 **UM×Goff** 的夹具局上 ⇒ **SAU 这一档一次都没进过真局**。
+            //  本段用 `Begin("Ultramarines", "Sautekh", …)` 起一局**真的**阵营局（⛔ 不是合成事件），
+            //  摆两刀（一近一远）走**与 A1730 同一个函数** `CheckAttackVfx`，再补一次「同一批连抽 2 张」。
+            //  ⛔ 独立小局：两刀 + 一次两连抽就收，不跑完整对局（⛔ 不拖慢宿主）。
+            //  ⚠️ 必须排在 `DestroyImmediate(driver)` 之前（它要 `Begin` 一局新的）—— 判据同上面的 W64 那一段。
+            Debug.Log(P + "--- A1905：UM vs SAU 阵营局真跑（攻击 VFX / 抽卡）---");
+            {
+                Check(driver != null, "（前提）A1905：driver 还活着（本段必须排在 `DestroyImmediate` 之前）");
+                var drvS = driver;
+                if (drvS != null)
+                {
+                    drvS.SetMySeat(0);          // 单机恒座位 0（上一段可能是联机客机 ⇒ 阵营那两格 / 视图会反）
+                    drvS.animateFeel = true;    // 攻击演出要排时间线（`_fired` 才收得到）
+                    // 先手显式钉 0（= 我方）—— 走形参，⛔ 不碰那枚全局自检钉子
+                    drvS.Begin("Ultramarines", "Sautekh", 20261025, firstSeatOverride: 0);
+                    Step(BattleDriver.TurnHeadsUpHold + 0.3f);
+                    DrainQueue(drvS);
+                    var ctxS = drvS.Ctx;
+
+                    // ---- 前提①：这一局真的是 UM vs SAU ----
+                    Check(drvS.MyFaction == "Ultramarines" && drvS.FoeFaction == "Sautekh",
+                          $"★ A1905：这一局真是 **UM vs SAU**（实得 {drvS.MyFaction} vs {drvS.FoeFaction}）"
+                        + " —— 🧨 把 `foeFaction` 退回默认的 Goff ⇒ 红（那就不是 SAU 局了）");
+
+                    // ---- 前提②：SAU 那副牌**真的取得了**（取不到 ⇒ 如实红，⛔ 不拿别的阵营冒充）----
+                    int foeCards = ctxS.Players[1].Deck.Count + ctxS.Players[1].Hand.Count;
+                    int sauInDeck = 0, nonSau = 0;
+                    foreach (var ci in ctxS.Players[1].Deck)
+                    {
+                        if (ci != null && ci.Card != null && ci.Card.Faction == "Sautekh") sauInDeck++;
+                        else nonSau++;
+                    }
+                    bool sauInPool = false;
+                    foreach (var c in ctxS.CardPool)
+                        if (c != null && c.Faction == "Sautekh") { sauInPool = true; break; }
+                    bool sauDeckOk = foeCards > 0 && sauInDeck > 0 && nonSau == 0 && sauInPool;
+                    Check(sauDeckOk,
+                          "（前提）A1905：SAU 那副牌取得出来（对手手牌+牌库 "
+                        + $"{foeCards} 张 · 其中 SAU {sauInDeck} 张 / 别家 {nonSau} 张 · 卡池里有 SAU {sauInPool}）"
+                        + " —— 取不到时下面两刀等于打在空局上 ⇒ 这条不成立就**如实红**，⛔ 不静默跳过、也不拿别的阵营冒充");
+
+                    if (sauDeckOk)
+                    {
+                        // ---- 夹具：两张 **SAU 真卡**摆到我方盘上（跨阵营夹具；先例 = 本文件 5b 的 `Ballista`）----
+                        //   近战刀 = `Doomstalker`（`SAU31`：逐卡 `attack_melee` → `NecronGauss_Large`）
+                        //   远程刀 = `Deathmark`（`SAU15`：逐卡 `attack_ranged` → `NecronGauss_Deathmark`）
+                        //   ⇒ 两刀都解析得出**真件**（不是空解析），且两件不同名。
+                        //   ⚠️ 它们只当**攻方夹具**；这一局的两个座位仍然是 UM / SAU（上面两条前提已断）。
+                        var meleeAtk = FindPoolCard("Doomstalker");
+                        var rangedAtk = FindPoolCard("Deathmark");
+                        var dummyCard = FindPoolCard("Gauss Warrior");
+                        Check(meleeAtk != null && rangedAtk != null && dummyCard != null,
+                              "（前提）A1905：三张真卡都在卡池里（`Doomstalker` / `Deathmark` / `Gauss Warrior`）");
+                        if (meleeAtk != null && rangedAtk != null && dummyCard != null)
+                        {
+                            // ================= 第一刀：**近战** =================
+                            int a19AtkSlot = FreeSlot(ctxS, 0);
+                            int a19TgtSlot = FreeSlot(ctxS, 1);
+                            Check(a19AtkSlot >= 0 && a19TgtSlot >= 0, "（前提）A1905·近战：两边各有一个空格");
+                            if (a19AtkSlot >= 0 && a19TgtSlot >= 0)
+                            {
+                                ctxS.Players[0].Board[a19AtkSlot] = new UnitState(meleeAtk, false) { Exhausted = false };
+                                ctxS.Players[1].Board[a19TgtSlot] = new UnitState(dummyCard, false) { Health = 20 };
+                                drvS.RefreshAll();
+                                DrainQueue(drvS);
+                                Check(drvS.MyUnits.ContainsKey(a19AtkSlot) && drvS.FoeUnits.ContainsKey(a19TgtSlot),
+                                      "（前提）A1905·近战：攻方与靶子的视图都在场上");
+                                Check(drvS.SimulateOpenCommand(a19AtkSlot),
+                                      "★ A1905·近战：点自己的单位 ⇒ 攻击方式选择器弹出");
+                                Check(drvS.HasCommand(AttackKind.Melee), "★ …而且有「近战」这一项");
+                                _fired.Clear();                       // ⚠️ 防假绿：只统计这一刀
+                                drvS.SimulateCommand(AttackKind.Melee);
+                                int rcMelee = drvS.SimulateResolve(a19TgtSlot);
+                                Check(rcMelee == RuleCodes.OK,
+                                      $"★ A1905·近战：朝槽 {a19TgtSlot} **真打出去**（引擎码 {rcMelee}）");
+                                // 判据与 A1730 **同一个函数**；阵营 = 攻方卡自己的阵营（= 生产 `VfxFactionOf`）
+                                CheckAttackVfx(drvS, meleeAtk.Faction, meleeAtk.Id, VfxMap.AttackMelee,
+                                               "A1905·近战（UM vs SAU）");
+                            }
+
+                            // ================= 第二刀：**远程** =================
+                            int rSlot = FreeSlot(ctxS, 0);
+                            int rTgt = FreeSlot(ctxS, 1);
+                            Check(rSlot >= 0 && rTgt >= 0, "（前提）A1905·远程：两边各还有一个空格");
+                            if (rSlot >= 0 && rTgt >= 0)
+                            {
+                                ctxS.Players[0].Board[rSlot] = new UnitState(rangedAtk, false) { Exhausted = false };
+                                ctxS.Players[1].Board[rTgt] = new UnitState(dummyCard, false) { Health = 20 };
+                                drvS.RefreshAll();
+                                DrainQueue(drvS);
+                                Check(drvS.SimulateOpenCommand(rSlot),
+                                      "★ A1905·远程：点自己的单位 ⇒ 攻击方式选择器弹出");
+                                Check(drvS.HasCommand(AttackKind.Ranged),
+                                      "★ …而且有「远程」这一项（`Deathmark` 近战 "
+                                    + $"{rangedAtk.Attack} / 远程 {rangedAtk.RangedAttack}）");
+                                _fired.Clear();                       // ⚠️ 防假绿：只统计这一刀
+                                drvS.SimulateCommand(AttackKind.Ranged);
+                                int rcRanged = drvS.SimulateResolve(rTgt);
+                                Check(rcRanged == RuleCodes.OK,
+                                      $"★ A1905·远程：朝槽 {rTgt} **真打出去**（引擎码 {rcRanged}）");
+                                CheckAttackVfx(drvS, rangedAtk.Faction, rangedAtk.Id, VfxMap.AttackRanged,
+                                               "A1905·远程（UM vs SAU）");
+                            }
+                        }
+                    }
+
+                    // ---- A1905 后半（2026-10-25 现核）：真打一局「同一批连抽 2 张」----
+                    //  🔴 台账原文要的是「Draw 特效播 2 次、两落点 x 不等」—— **那个判据已于 2026-10-22
+                    //  被 `W64 §B5` 推翻**：原版抽卡链 **0 粒子**，`ByFaction[draw]` 的两行（`UM_CardDraw` /
+                    //  `SAU_CardDraw`）已删 ⇒ `VfxMap.Resolve(Draw, 任何阵营)` 恒 null（静态那半已在
+                    //  `A1816` 那一组断言里断过）。⇒ 真局里还能断的两件：
+                    //    ① 这一批**真的发了 ≥ 2 条 `EvtKind.Draw`**（否则「不播」是空断言）；
+                    //    ② UM/SAU 真局里**一件抽卡粒子都不播**（挡住「把映射挂回去」）。
+                    //  ⚠️ 落点数学（多点 x 不等）已在 1d·⑦ 用 `HudAnchor01` 纯函数断过，不在这里重复。
+                    {
+                        ctxS.Signals.Clear();                  // 只数这一批
+                        RuleCore.Draw(ctxS, 0);
+                        RuleCore.Draw(ctxS, 0);
+                        int nDrawEvt = 0;
+                        foreach (var ev in ctxS.Signals) if (ev.Kind == EvtKind.Draw) nDrawEvt++;
+                        Check(nDrawEvt >= 2,
+                              $"★ A1905：这一批**真的发了 {nDrawEvt} 条 `EvtKind.Draw`**（两张牌各一条，≥ 2）"
+                            + " —— 前提：没有它，「抽卡不播粒子」就是空断言");
+                        _fired.Clear();
+                        drvS.RefreshAll();                     // `PlaySignals` 的唯一入口（`AdvanceTimeline` 不翻译）
+                        StepThrough(drvS);
+                        Check(FiredCount("UM_CardDraw") == 0 && FiredCount("SAU_CardDraw") == 0,
+                              "★ A1905（现行判据）：UM/SAU 真局连抽 2 张 ⇒ **一件抽卡粒子都不播**"
+                            + $"（`UM_CardDraw` {FiredCount("UM_CardDraw")} 次 / `SAU_CardDraw` {FiredCount("SAU_CardDraw")} 次）"
+                            + " —— 原版抽卡链 0 处 `Instantiate`（`W64 §B5`）；🧨 把两行挂回 `ByFaction[draw]` ⇒ 红");
+                    }
+                }
+            }
 
             UnityEngine.Object.DestroyImmediate(driver);
 

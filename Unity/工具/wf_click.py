@@ -17,7 +17,7 @@
   python -I d:/4/Unity/工具/wf_click.py shot d:/4/_tmp_view/x.png [窗口子串]
   python -I d:/4/Unity/工具/wf_click.py move 960 540
   python -I d:/4/Unity/工具/wf_click.py click 960 540 [left|right] [次数]
-  python -I d:/4/Unity/工具/wf_click.py drag 100 200 800 600
+  python -I d:/4/Unity/工具/wf_click.py drag 100 200 800 600 [按住ms] [每步ms]   # 🆕 2026-10-25：加按住/步长，模拟真人拖拽
   python -I d:/4/Unity/工具/wf_click.py wheel 960 540 [格数]     # 🆕 正=向上滚、负=向下（一格 = 120）
   python -I d:/4/Unity/工具/wf_click.py key esc | key space | key f5 | key ctrl+s | key w:200  (w 按住 200ms)
   python -I d:/4/Unity/工具/wf_click.py cursor          # 只读当前光标位置
@@ -151,15 +151,39 @@ def click(x, y, button="left", times=1):
     return True
 
 
-def drag(x1, y1, x2, y2, steps=24):
+def drag(x1, y1, x2, y2, steps=24, hold_ms=0, step_ms=12):
+    """按下 → (可选)按住 hold_ms → 分 steps 步移动 → 停 80ms → 松开。
+
+    🔴 2026-10-25 补：原来没有 `hold_ms`/`step_ms` ⇒ 「按下就动」这一种节奏。
+    真机验「选目标态」时发现游戏**不认**这种节奏（`click_log` 里只剩一个释放点的空点），
+    加这两个参数后可以模拟「按住 — 缓慢拖 — 松手」。命令行用法：
+        drag x1 y1 x2 y2 [hold_ms] [step_ms]
+    """
     move_to(x1, y1)
+    time.sleep(0.05)
     mouse_event(MOUSEEVENTF_LEFTDOWN)
+    if hold_ms:
+        time.sleep(hold_ms / 1000.0)
     for i in range(1, steps + 1):
         move_to(x1 + (x2 - x1) * i / steps, y1 + (y2 - y1) * i / steps)
-        time.sleep(0.012)
+        time.sleep(step_ms / 1000.0)
     time.sleep(0.08)
     mouse_event(MOUSEEVENTF_LEFTUP)
     return True
+
+
+def button_down(button="left"):
+    """按下不松（配合 `up` 用）。🔴 2026-10-25 加：真机要「按住 → 移 → 截图 → 松开」，
+    而 `drag` 是一次性同步的，中间态看不到。"""
+    m = {"left": MOUSEEVENTF_LEFTDOWN, "right": MOUSEEVENTF_RIGHTDOWN,
+         "middle": MOUSEEVENTF_MIDDLEDOWN}[button]
+    mouse_event(m); time.sleep(0.05); return True
+
+
+def button_up(button="left"):
+    m = {"left": MOUSEEVENTF_LEFTUP, "right": MOUSEEVENTF_RIGHTUP,
+         "middle": MOUSEEVENTF_MIDDLEUP}[button]
+    mouse_event(m); time.sleep(0.05); return True
 
 
 def wheel(x, y, notches=1):
@@ -253,8 +277,15 @@ def main(argv):
             btn = argv[4] if len(argv) > 4 else "left"
             n = argv[5] if len(argv) > 5 else 1
             click(argv[2], argv[3], btn, int(n)); print("ok click", argv[2], argv[3], btn, n); return 0
+        if cmd == "down":
+            button_down(argv[2] if len(argv) > 2 else "left"); print("ok down"); return 0
+        if cmd == "up":
+            button_up(argv[2] if len(argv) > 2 else "left"); print("ok up"); return 0
         if cmd == "drag":
-            drag(int(argv[2]), int(argv[3]), int(argv[4]), int(argv[5])); print("ok drag"); return 0
+            hold = int(argv[6]) if len(argv) > 6 else 0
+            step = int(argv[7]) if len(argv) > 7 else 12
+            drag(int(argv[2]), int(argv[3]), int(argv[4]), int(argv[5]), hold_ms=hold, step_ms=step)
+            print(f"ok drag hold={hold}ms step={step}ms"); return 0
         if cmd == "wheel":
             n = argv[4] if len(argv) > 4 else 1
             if not wheel(int(argv[2]), int(argv[3]), int(n)):

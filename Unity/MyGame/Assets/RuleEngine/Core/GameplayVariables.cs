@@ -84,8 +84,10 @@ namespace RuleEngine
     /// 一局对战的全部参数。字段名**逐字照原版 `GameplayVariablesData`**（18 个），
     /// 末尾另加两个**原版不在这个类里、但我们同样要按模式变**的（注释里写明它原本住哪）。
     ///
-    /// ⚠️ **原版有、我们引擎不读**的字段也留着（`startingManaSecond` / `alternativeTraitLogic` …）——
+    /// ⚠️ **原版有、我们引擎不读**的字段也留着（`startingManaSecond` 等）——
     ///    留着是为了「对照原版那张表时不用猜」，**用不到不等于可以删**（删了就看不出来我们漏了什么）。
+    ///    🔴 **2026-10-25 订正**：本行原把 `alternativeTraitLogic` 也列在这句里 —— **它现在有两个读点**
+    ///    （`EffectResolver.FinishActiveAbility` / `QuestPointStepFor`），见字段自己的注释。
     /// </summary>
     [Serializable]
     public class GameplayVariables
@@ -320,8 +322,40 @@ namespace RuleEngine
         ///    受影响的是「玩家在编辑器里自建遭遇卡组」—— 而那条路**今天根本走不通**
         ///    （`DeckEditorState.Skirmish` 全仓没有任何地方赋值）。⇒ 记着，等那条路做起来再补。</summary>
         public bool assignDefensiveCardsInEditMode = false;
-        /// <summary>⛔ **未解**（原版别的机制）。两边都填 0 —— **不假装知道**。</summary>
-        public int alternativeTraitLogic = 0;
+        /// <summary>**冲突档（Alt trait logic）开关**（原版 `PlayEventData.gameplayVariables.alternativeTraitLogic`）。
+        ///
+        /// <para>🔴 **2026-10-25 就地订正（铁律 5）：本行原来是 `public int alternativeTraitLogic = 0;`
+        /// +「⛔ 未解（原版别的机制）。两边都填 0 —— 不假装知道」。两句都过期了：</para>
+        /// <list type="bullet">
+        /// <item>**类型**：原版是 **`bool`** —— `dump.cs:130190` `public bool alternativeTraitLogic; // 0x4B`
+        ///   （我们的 `int` 只是当年没有判据时的占位；`==0` 与 `==false` 行为等价，但类型应当照原版）。</item>
+        /// <item>**值从哪来**：LiveOps 事件载荷 `PlayEventData.gameplayVariables`（`+0x80`）**服务端下发**
+        ///   ⇒ 本地**没有**序列化真值（全量反编译里这个偏移 **0 个写点**）。</item>
+        /// <item>🔴 **它就是「冲突档」的开关，⛔ 不是 `PlayModes` / `MatchType`** —— `+0x4B` 全库
+        ///   **只有 4 个读点、0 个写点**：`CardScript__FinishActiveAbility.c:11`（祈祷结束立刻 +1 信仰）
+        ///   ＋ 任务点阈值三处（`PlayerManager__AddQuestPoints.c:28` · `PlayerManager__ResetMana.c:118` ·
+        ///   `PlayerManager._SetQuestPointsWithDelay_d__43__MoveNext.c:52`）。⇒ **客户端没有任何代码**
+        ///   把模式号映射到这两条行为，绑到本字段是**唯一**的绑法。</item>
+        /// <item>**两个消费点**（逐条现读反编译）：
+        ///   ① `CardScript__FinishActiveAbility.c:11,13,19,21` —— 能力结束、卡带 `pray(0x4a1)` ⇒ 控制者 `AddFaithMana(+1)`；
+        ///   ② `PlayerManager__AddQuestPoints.c:28,33,41` —— 任务点阈值 `false` ⇒ 3（`+0x2C`）/ `true` ⇒ 4（`+0x30`）。</item>
+        /// </list>
+        /// <para>⇒ **`Classic = false` / `Skirmish = true`**（用户 2026-10-25 口径「经典 3 / 冲突 4、冲突祈祷立刻 +1」；
+        /// 文案同向：`CardTraitDescription/questPoints` 写「每 **3** 点」、`questPointsAlt` 写「每 4 点」）。</para>
+        /// <para>🔴 **2026-10-25 再次就地订正（铁律 5）：本段原来还写「官方 base `CardTraitDescription/pray`
+        /// 那句『下回合开始 +1 信仰』**在原版代码里不存在**、⛔ 别照文案去补」—— 那句是【错的】。**
+        /// 经典那条**确实存在**，只是**不在 C# 里、在卡数据里**：隐藏附魔 **`Pray Enchantment`**
+        /// （`m_Name = Z-NC Sororitas-Pray_enchantment`，`cardType 20`，`path_id 1528516720421242597`）：
+        /// 23 张带 `pray` 特性的卡在 `cardAbilities[trigger=655 (Pray)].abilityLogic[0].buffEffect`
+        /// 挂 `{buffType:15 singleUseEnchantment, enchantment → Pray Enchantment}`；该附魔
+        /// ability[0] `trigger 60 UnitDamaged → removeThisEnchantment`（受伤即撤）、
+        /// ability[1] `trigger 31 TurnStartPlayer → buffMana{manaAmount:1, faithMana:1} + removeThisEnchantment`
+        /// （自己回合开始 +1、一次性），结算落 `BattleManager__ProcessManaBuff.c:28,79 AddFaithMana(+1)`。
+        /// ⇒ 判据全文 → `资料/待办判据_祈祷信仰与任务点_1025b.md` §二·④。
+        /// ⚠️ **别再引 `isPraying(+0x67)` 当信仰来源** —— 全库只有一个读点
+        /// `FilterMethods__MeetsConditionCriteria.c:294-296`，只服务「目标是正在祈祷的单位」这类筛选。</para>
+        /// </summary>
+        public bool alternativeTraitLogic = false;
 
         // ---- 另加：原版不在 `GameplayVariablesData` 里，但同样按模式变 ----------------
         /// <summary>起手张数：经典 3 · 遭遇 **4**。
@@ -372,6 +406,15 @@ namespace RuleEngine
                 v.handLimit = SkirmishHandLimit;                      // 【规则书:58，非官方】
                 v.startingHand = SkirmishStartingHand;                // 【规则书:58，非官方】
                 v.manaAccumulation = SkirmishManaAccumulation;        // 【规则书:60，非官方】
+                // 🔴 **2026-10-25（用户口径 + 全量反编译）：冲突档 = 本开关 `true`。**
+                //    判据：`PlayerManager__AddQuestPoints.c:28,33,41` —— 任务点阈值 `false` ⇒ 3（`+0x2C`）/
+                //    `true` ⇒ 4（`+0x30`）；＋ `CardScript__FinishActiveAbility.c:11,13,19,21` ——
+                //    `true` ∧ 卡带 `pray(0x4a1)` ⇒ **主动能力结束立刻 +1 信仰**。
+                //    ⇒ 用户 2026-10-25：「**经典 3、冲突 4**」「**冲突祈祷立刻 +1，不受伤再下回合 +1**」。
+                //    ⚠️ 原版这两条行为**只由这一个字段选**（`+0x4B` 全库 4 读 0 写），`PlayModes` / `MatchType` 不参与。
+                //    ⚠️ `ClosedDeck`（轮抽）是 `Skirmish.Clone()` ⇒ 会**跟着**拿到 `true`（原版真值查不到，如实标着）。
+                //    判据全文 → `资料/待办判据_祈祷信仰与任务点_1025b.md` §一 / §二·①。
+                v.alternativeTraitLogic = true;                       // 【用户口径 + 反编译】冲突档
                 // 🔴 **遭遇也有加时**（用户 2026-09-26 定案：先看错成「没有」，当天更正「是我搞错了」）。
                 //    ⚠️ **2026-10-20（`W58-TURN-A`）就地订正（铁律 5）**：上面那句「更早 —— 靠的就是同一个 10」
                 //    只在**按能量判**时成立（遭遇 `manaPerTurn = 2` + `manaAccumulation = 1` ⇒ 后手

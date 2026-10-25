@@ -215,6 +215,30 @@ namespace RuleEngine
         public bool Prayed;
 
         /// <summary>
+        /// **「祈祷附魔」还挂着** —— 与 <see cref="Prayed"/> **分开**的一份状态（2026-10-25 `X13`）。
+        ///
+        /// <para>**原版这条是【一张隐藏附魔卡】，不是代码**：`Pray Enchantment`
+        /// （`m_Name = Z-NC Sororitas-Pray_enchantment`，`cardType 20`，`path_id 1528516720421242597`）。
+        /// 23 张带 `pray` 特性的卡在 `cardAbilities[trigger = 655 (Pray)].abilityLogic[0].buffEffect`
+        /// 里挂 `{buffType: 15 singleUseEnchantment, enchantment → Pray Enchantment}` ⇒ **祈祷那一刻挂到自己身上**；
+        /// 该附魔自己两条能力：ability[0] `trigger 60 (UnitDamaged) → removeThisEnchantment`（**受伤即撤**）、
+        /// ability[1] `trigger 31 (TurnStartPlayer) → buffMana{manaAmount:1, faithMana:1} + removeThisEnchantment`
+        /// （**自己回合开始 +1 信仰、一次性**）。结算落 `BattleManager__ProcessManaBuff.c:28,79 AddFaithMana(+1)`。
+        /// 判据全文（含 `damage == 0` 不算打断）→ `资料/待办判据_祈祷信仰与任务点_1025b.md` §二·④。</para>
+        ///
+        /// <para>🔴 **我们这一版是【引擎内等价实现】**（原版那条链要吃卡数据 ⇒ 要把这张附魔卡补进卡池、
+        /// 会动卡池 md5 ⇒ **另立一笔**）：置真 = 祈祷那一刻（`RuleCore.UseAlternativeCore`）；
+        /// 结算 = `RuleCore.BeginTurn` 里**只扫当前行动方**、`Faith +1` 后清；中断 = `RuleCore.ApplyDamage`
+        /// 与疲劳那一处、跟 <see cref="Prayed"/> **同一个闸**（`!absorbed &amp;&amp; dmg != 0`
+        /// ⇒ **盾/甲挡掉的 0 伤不算**，判据 `CardScript__ResolveDamageDealt.c:25-28`）。
+        /// 一次性：结算或中断后即清。</para>
+        ///
+        /// <para>⛔ **别和 <see cref="Prayed"/> 合并**：`Prayed` 是**每次回合开始、双方全清**
+        /// （原版 `CardScript__OnTurnStart.c:100` 无条件、对全场逐张），而这一位要**活到它自己主人的下个回合**。</para>
+        /// </summary>
+        public bool PrayEnchantment;
+
+        /// <summary>
         /// **下一次用狂暴时不回牌库**（2026-09-14 A4 批 3）—— 卡面
         /// `The next time it uses Ferocity this turn, it stays in play`（`Bjorn's Shrine`，SpaceWolves）。
         ///

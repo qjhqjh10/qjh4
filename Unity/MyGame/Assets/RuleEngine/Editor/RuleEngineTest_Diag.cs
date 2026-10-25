@@ -92,7 +92,8 @@ public static partial class RuleEngineTest
         "TestG3AiTargetsTrim", "TestG5BareDealAndReferencedCards", "TestG6MultiCountRepeats", "TestE8PreviousAbilityDrawnCards", "TestG10HandCountScope", "TestG12ActiveAbilityLogic",
         "TestEngineE2", "TestEngineE6", "TestW12SummonedAndReanimate", "TestEngineP3", "TestEngineD4", "TestEngineC5",
         "TestReplayTrace", "TestA2EngineFive", "TestA3EngineAtTurnCriteria", "TestE2AbilityLevelCriteria", "TestE3AbilityActingCriteria", "TestE4TriggerTargetAndActivePick",
-        "TestE5SmallEngineGaps", "TestE7FourGates", "TestE6AbilityLevelGateFamilies", "TestE8AbilityOwnerAndListenerOrder", "TestEngineE9",
+        "TestE5SmallEngineGaps", "TestPrayEnchantmentX13", "TestE7FourGates", "TestE6AbilityLevelGateFamilies", "TestE8AbilityOwnerAndListenerOrder", "TestEngineE9",
+        "TestEngineX1", "TestEngineX2", "TestEngineX18", "TestEngineX6", "TestEngineX6b", "TestEngineX12",
     };
 
     // 本次诊断真正跑过的用例（顺序同 `RunCaseNames`）—— 只给对账用
@@ -574,10 +575,17 @@ public static partial class RuleEngineTest
         Safe("TestE3AbilityActingCriteria", () => TestE3AbilityActingCriteria());
         Safe("TestE4TriggerTargetAndActivePick", () => TestE4TriggerTargetAndActivePick());
         Safe("TestE5SmallEngineGaps", () => TestE5SmallEngineGaps());
+        Safe("TestPrayEnchantmentX13", () => TestPrayEnchantmentX13());
         Safe("TestE7FourGates", () => TestE7FourGates());
         Safe("TestE6AbilityLevelGateFamilies", () => TestE6AbilityLevelGateFamilies());
         Safe("TestE8AbilityOwnerAndListenerOrder", () => TestE8AbilityOwnerAndListenerOrder());
         Safe("TestEngineE9", () => TestEngineE9());
+        Safe("TestEngineX1", () => TestEngineX1());
+        Safe("TestEngineX2", () => TestEngineX2());
+        Safe("TestEngineX18", () => TestEngineX18());
+        Safe("TestEngineX6", () => TestEngineX6());
+        Safe("TestEngineX6b", () => TestEngineX6b());
+        Safe("TestEngineX12", () => TestEngineX12());
 
         VerifyDiagCoverage();
 

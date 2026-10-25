@@ -2204,6 +2204,17 @@ namespace CardPresentation
                 // 🔴 **2026-10-25：收尾一律 `Finished(20)`，⛔ 不再 `rewardsCollected ? 22 : 20`**
                 //   —— 本版没有领奖步（用户 2026-10-24「轮抽不做奖励」）。
                 SaveRunIfAuto();                                    // 收尾也要落盘（否则重开会回到「进行中」）
+                // 🆕 **2026-10-25（执行代理 `X18`）**：成就 `Ach_20`（`DraftWins`）——
+                //   判据 §B-3 #9：阈值 3/6/8/10/12 是**一次轮抽 run 内的胜场**，不是跨 run 累加
+                //   ⇒ 用 `SetAchievementValueAtLeast`（原版档案的 `highestValue` 语义：只涨不落），
+                //   ⛔ 不是 `AddAchievementValue`（那样每收一个 run 就把历史又加一遍）。
+                //   ⚠️ 挂在这里（**收尾分支**）而不是 `FinishRun()` 里：`FinishRun` 只是「显式收尾」
+                //   那一支，它会调 `UpdateState()` 落到本分支；而「打满 4 场 / 败满 3 场」的自然收尾
+                //   **只走本分支** ⇒ 挂在 `FinishRun` 会漏掉自然收尾（判据 §B-3 #9 指的是 `FinishRun`
+                //   与 `:2268` 战绩回灌这两条上游，两者最终都汇到这一句）。
+                //   ⚠️ 本版 `MatchesToFinish = 4` ⇒ 单 run 最多 4 胜 ⇒ 只够第 1 档（3 胜），
+                //   第 2 档（6 胜）本地不可达（原版 `data.matches.Length` 是服务端值，本地 0 命中）。
+                ProfileData.SetAchievementValueAtLeast(ProfileData.IdAchDraftWins, _run.matchesWon);
                 GoToState(DraftModeState.Finished);
                 return;
             }

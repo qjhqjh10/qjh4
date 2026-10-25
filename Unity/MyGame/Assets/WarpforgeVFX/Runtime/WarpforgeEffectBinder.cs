@@ -74,6 +74,9 @@ namespace WarpforgeVFX
         public static int ShaderResolveFailures { get; private set; }
         static readonly HashSet<string> PlaceholderReported = new HashSet<string>();
         static readonly HashSet<string> ShaderFailReported = new HashSet<string>();
+        /// <summary>🔴 2026-10-25（X15）：`Build` 里「关掉原版材质没有的本地关键字」那一支的**去重日志**表
+        /// （键 = `原版 shader 名|关键字名`）。⛔ 不许静默 —— 但要防 958 个效果各刷一遍。</summary>
+        static readonly HashSet<string> KeywordPrunedReported = new HashSet<string>();
 
         /// <summary>自检/探针用：把两个累计数打出来（⛔ 不做成「静默的静态字段」）。</summary>
         public static string DescribeFailures()
@@ -497,6 +500,57 @@ namespace WarpforgeVFX
             foreach (var k in d.keywords)
                 if (!string.IsNullOrEmpty(k)) m.EnableKeyword(k);
 
+            // 🔴 2026-10-25（X15）：**重建材质的本地关键字集合必须【恰好等于】原版材质的那一份**。
+            //
+            // 为什么：`new Material(shader)` **不是**一张白纸 —— 它会把 shader 属性默认值对应的
+            //   `[KeywordEnum]` / `[Toggle]` 关键字先打开。原版材质里那条关键字的取值若**不是默认档**，
+            //   就会变成「同一族两个关键字同时开着」（默认档 + 原版档）。一条 multi_compile 组只能选
+            //   一个变体 ⇒ **实际生效的是默认档那个**，原版档形同虚设。
+            //
+            // 实测（2026-10-25 · `EffectIso` 逐材质 A/B，3 个效果）：
+            //   `Environmental Condition Dark Angels Void Combat` 的 `Background space noise`（槽 #27）
+            //     原版关键字 = `_CHANNELSELECTOR_R,_NOISE1CHANNEL_B,_NOISE2CHANNEL_G,_SURFACE_TYPE_TRANSPARENT`
+            //     我们重建后   = 上面那 4 条 **+ `_NOISE1CHANNEL_R` + `_NOISE2CHANNEL_R`**（= 默认档）
+            //     材质里 `_NOISE1CHANNEL=2`(B) / `_NOISE2CHANNEL=1`(G) ⇒ 本该取 B、G 两层噪声，
+            //     实际取成了两层 R ⇒ alpha 掩码整体变大 ⇒ 该槽 contrib **1.222×**（|ln|=0.201，超门）。
+            //     判据：`Noise Combined` 的 R/G/B 三通道**互不相关**（corr −0.14…0.02），
+            //     两张图的高频结构相关度从 1.0 掉到 **0.597** —— 换的是图案不是亮度。
+            //   ⚠️ 同族还有第二条（判据不如上一条硬，未单独坐实）：`ShieldTraitEffect_Idle Necron Variant`
+            //     的 `Shield Capsule`（`Everguild/FX/ShieldVfx`，材质要 `_NOISECHANNEL_A`、
+            //     `_NOISECHANNEL=3`）在同一套机制下会多出 `_NOISECHANNEL_R`。
+            //
+            // 做法：以**原版材质的 `m_ValidKeywords`**（导出时逐字记进 `WFMatDef.keywords`）为唯一真值，
+            //   **只关「同族撞车」那一条** —— 即：本地开着、原版清单里没有，而原版清单里有它的**同族兄弟**
+            //   （前缀相同、最后一段不同，见 `SameFamilyPeer`）。这种形状只可能是「同一条 multi_compile 组
+            //   开了两条」，判据最硬。
+            //   ⛔ **不**顺带关掉其它「原版没有、材质自己默认开着」的关键字：那件事判据还没查清
+            //   （我们自建 shader 里就有故意默认开的，例如 `_APPLYAMBIENTCOLOR = 1`）。
+            //   ⚠️ **只碰本地关键字**：`Material.DisableKeyword(string)` 对**全局**关键字（`LIGHTMAP_ON` /
+            //     `FOG_EXP2` / `INSTANCING_ON` …）会写一条本地覆盖、把管线自己开的按死。`enabledKeywords`
+            //     返回的 `LocalKeyword` 才是材质本地那一份（`isValid=false` 的连名字都不在 shader 空间里，跳过）。
+            //   ⚠️ `_ALPHAPREMULTIPLY_ON` 是**上面 `InferBlend` 按判据开的**（原版材质里没有这一条），别一起关掉。
+            //   ⚠️ `_EMISSION` 不在这里管 —— 下面那段按 `emissionOn & hadEmissionKeyword` 显式开/关。
+            {
+                var keep = new HashSet<string>(d.keywords ?? new string[0]);
+                keep.Add("_ALPHAPREMULTIPLY_ON");
+                foreach (var lk in m.enabledKeywords)
+                {
+                    if (!lk.isValid || keep.Contains(lk.name)) continue;
+                    // ⚠️ **只处理「同族撞车」这一种**（`<前缀>_<档位>`：前缀相同、最后一段不同）——
+                    //    这就是「一条 multi_compile 组里开了两个」的可判形状。
+                    //    别的「原版材质没有、材质自己默认开着」的关键字**先不碰**：判据还没查清
+                    //    （例：我们自建 shader 里 `_APPLYAMBIENTCOLOR` 的默认值就是 1，是有意为之），
+                    //    ⛔ 不许为了把数字弄绿就一刀切。
+                    string peer = SameFamilyPeer(lk.name, keep);
+                    if (peer == null) continue;
+                    m.SetKeyword(lk, false);
+                    if (KeywordPrunedReported.Add((d.shader ?? "?") + "|" + lk.name))
+                        Debug.Log($"[WarpforgeVFX] 材质 `{d.name}`（shader `{d.shader}`）：关掉本地关键字 `{lk.name}` —— " +
+                                  $"它和原版材质要的 `{peer}` 是**同一族**（`new Material` 会先按属性默认值开一条，原版材质再开一条 ⇒ " +
+                                  "同一条 multi_compile 组里两条同时开着，只有一条能生效）。同类只报一次。");
+                }
+            }
+
             ApplyDerivedParticleDefaults(m, d.shader,
                 new HashSet<string>(d.floatNames ?? new string[0]),
                 new HashSet<string>(d.colorNames ?? new string[0]));
@@ -520,6 +574,28 @@ namespace WarpforgeVFX
 
             Cache[key] = m;
             return m;
+        }
+
+        /// <summary>🔴 2026-10-25（X15）：在一组关键字里找 `k` 的**同族兄弟** ——
+        /// 前缀（最后一个 `_` 之前）相同、最后一段不同（`_NOISE1CHANNEL_R` ↔ `_NOISE1CHANNEL_B`）。
+        /// 找不到返回 null。
+        /// ⚠️ 只用来判「**同一条 multi_compile 组里开了两条**」这一种形状，
+        ///    ⛔ 不用它去推断「这条关键字该不该开」（那是另一件事，判据未查清）。</summary>
+        static string SameFamilyPeer(string k, HashSet<string> set)
+        {
+            if (string.IsNullOrEmpty(k)) return null;
+            int cut = k.LastIndexOf('_');
+            if (cut <= 0) return null;                       // 没有前缀段 ⇒ 不是「族」的形状
+            string prefix = k.Substring(0, cut + 1);
+            foreach (var s in set)
+            {
+                if (string.IsNullOrEmpty(s) || s.Length <= cut) continue;
+                if (string.Equals(s, k, StringComparison.Ordinal)) continue;
+                if (!s.StartsWith(prefix, StringComparison.Ordinal)) continue;
+                if (s.IndexOf('_', cut + 1) >= 0) continue;  // 对方不止一段 ⇒ 不是同一层族
+                return s;
+            }
+            return null;
         }
 
         /// <summary>补上粒子 shader 的「派生属性」。

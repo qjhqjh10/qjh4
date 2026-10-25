@@ -2,7 +2,7 @@
 
 > **授权**：用户 2026-10-25「检查任务是否核销，确定任务清单里的任务都是未完成的。派子代理审查一下并给予其修正的编辑权限」。
 > **判据纪律**：每条「已完成」都必须有证据（代码 grep 到实现 / 今日实跑读数 / `普查产出_1025/` 报告段落）；**只凭台账自陈不算**。拿不准的一律**不动**，进本文 §四「待人工裁定」。
-> **判据（今日最新读数）**：`RuleEngineTest` **8823/8823** ✅ · `BattleScene` **5273/5280（7 红在修）** · `AnimFXCheck` **209/0** · `CardBaseDemo` **433/0**（`cardface-chk` **172/0**）· `CardFaceAssertE5` **50/0** · `MainMenuScene` **4969/0** · `ShellScene` **1920/0** · `CardFactionProbe` **rc=0** · `PinnedPoolMd5` `0397005d…`(v28) · `PinnedPlayMd5` `87209677…`。
+> **判据（当日最新读数）**：`RuleEngineTest` **8823/8823** ✅ · `BattleScene` **5273/5280（7 红在修）**〔🔴 **2026-10-25 就地订正：本文是当时快照；同日收尾已复跑 `BattleScene.Run` = 5292 / 0（合计 5345 / 0），判据 `_tmp_view/20261025/battlescene8.log`**〕 · `AnimFXCheck` **209/0** · `CardBaseDemo` **433/0**（`cardface-chk` **172/0**）· `CardFaceAssertE5` **50/0** · `MainMenuScene` **4969/0** · `ShellScene` **1920/0** · `CardFactionProbe` **rc=0** · `PinnedPoolMd5` `0397005d…`(v28) · `PinnedPlayMd5` `87209677…`。
 
 **总账：搬 §二 25 条 · 改状态 12 处 · 补报告指针/依据 25+ 行 · 新账 1 条（真缺陷）。**
 没有新造任务、没有删任务 —— 只按证据搬 / 改状态。

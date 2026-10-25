@@ -397,6 +397,15 @@ namespace CardPresentation
         public override void Open()
         {
             LastOpened = this;
+            // 🆕 **2026-10-25（执行代理 `X18`）**：成就 `Ach_15`（`ContainersOpen`）——
+            //   判据 §B-3 #7「开包窗 `Open()` +1」。**一扇窗 = 开了一个包**：
+            //   唯一生产入口 `ShopTabPage.OpenBoosterPack` 每次 `Create` 一扇新窗再 `OpenWindow`
+            //   （⇒ 每次购买各进一次这里）；`Show()` 只换内容、不再 `Open`（⛔ 别挪到 `Show`，
+            //   那样一包换页/重建会重复计数）。
+            //   ⚠️ 原版 `containerType = 1`（只数卡包）—— 本窗**只用来开卡包**（文件头），
+            //   所以「进了这扇窗」就等于「开了一个卡包」，不再多一道容器类型判据。
+            //   ⚠️ 对局外动作 ⇒ `GainAchievementOutsideMatch`（没有模式闸；`tut=1` 与它无关）。
+            ProfileData.GainAchievementOutsideMatch(ProfileData.IdAchContainersOpen, 1);
             Build();
         }
 

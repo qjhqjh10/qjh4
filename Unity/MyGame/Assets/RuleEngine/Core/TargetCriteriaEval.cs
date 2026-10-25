@@ -148,9 +148,21 @@ namespace RuleEngine
                 case 235:                                 // warlordsTalent
                     gap = "`ta=235 warlordsTalent` 本版未建模（要比督军天赋卡）";
                     return null;
-                case 100:                                 // adjacentToSelfIfMeetsCriteria：末尾还要查相邻
-                    gap = "`ta=100` 的「相邻里有满足者」本版未实现";
-                    return null;
+                case 100:                                 // adjacentToSelfIfMeetsCriteria
+                    // 🔴🆕 **2026-10-25（执行代理 `X3`）：本档的【口径订正 + 只做对了一半】。**
+                    //   ① 之前这里直接 `gap=未实现` 早返 ⇒ **常规 36 格一格都没跑**。原版
+                    //      `FilterMethods__CheckIfMeetsCriteria.c` 的**早返 switch（`:56-160`）里确实
+                    //      没有 100 这一档** ⇒ 常规格该判的都要判 ⇒ 这里改成 `break` 落进常规档。
+                    //   ② ⚠️ **但「原版没有 0x64 分支」这句话是错的**（判据文档 `待办判据_引擎_1025b`
+                    //      「顺手发现 2」的说法，⛔ 别照抄）：该函数**尾巴** `:407` 明写
+                    //      `if (*(int *)(param_4 + 0x10) != 100) return 1;` 然后
+                    //      `:411-425` 走 `BattleManager__GetAdjacentUnits(manager, thisCard)` +
+                    //      `List.Find(predicate)` ⇒ **`ta=100` 还额外要求「thisCard 的相邻里至少有
+                    //      一个满足同一份 criteria 的单位」**。它没被 grep 到只是因为反编译器把常量
+                    //      印成了**十进制 `100`**（`grep 0x64` 自然 0 命中）。⇒ 那一截**仍未实现**，
+                    //      由函数尾那条 `gap` 兜住（`null` = 判不了 ⇒ 保留候选 + 出声）。
+                    //   判据全文 → `资料/普查产出_1025/X3_引擎判据缺口_执行报告.md` §4。
+                    break;
 
                 // ==================================================================================
                 //  🆕 2026-10-24（执行代理 `W25` · `D1` 的 R1）：**原版这一档【根本不筛】**的短路
@@ -361,7 +373,17 @@ namespace RuleEngine
                 if (!v.Value) return false;
             }
 
-            return true;   // 原版 `:407-408`：`ta != 100` ⇒ return 1
+            // 🔴 原版 `:407-408`：`ta != 100` ⇒ `return 1`；`ta == 100` 还要过 `:411-425` 的
+            //    「thisCard 的相邻里有满足者」那一截（判据见上面 `case 100` 的注释）。
+            //    ⚠️ 那一截本版**未实现** ⇒ `null`（判不了 ⇒ 保留候选 + 出声）。⛔ 别写成
+            //    `return true` —— 那是「悄悄少筛一道」，正好是 `ta=100` 这一档最容易犯的错。
+            if (ta == 100)
+            {
+                gap = "`ta=100` 的「thisCard 的相邻里有满足者」那一截本版未实现"
+                    + "（原版 `CheckIfMeetsCriteria.c:411-425` 的 `GetAdjacentUnits + Find`）";
+                return null;
+            }
+            return true;
         }
 
         // ==================================================================
@@ -773,8 +795,12 @@ namespace RuleEngine
         /// <summary>原版 `CardArmy` 枚举 → 我们的 `CardDef.Faction` 字符串
         /// （数值表 = `d:/2/Warpforge_code/Scripts/Assembly-CSharp/CardArmy.cs`；
         ///  我们的 `faction` 列逐字用这些名字，2026-10-24 现读 13 种全对上）。
-        /// 认不出 ⇒ `null`。</summary>
-        static string FactionOfArmy(int army)
+        /// 认不出 ⇒ `null`。
+        /// <para>🆕 **2026-10-25（执行代理 `X2`）从 `static` 提到 `public static`** ——
+        /// 成就的 `GamesPlayed` / `UpgradeCard` 两条也要「阵营 id → 名」，判据 §B-3 #5 明写
+        /// 「阵营 id 到名的映射**只此一处** ⇒ 提成公共，**别抄第二份**」。
+        /// ⛔ 不许在 `ProfileData` 里再写一张 switch —— 这张表加阵营时两边脱节是静默的。</para></summary>
+        public static string FactionOfArmy(int army)
         {
             switch (army)
             {

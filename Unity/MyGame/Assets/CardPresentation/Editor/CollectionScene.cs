@@ -10561,6 +10561,33 @@ public static class CollectionScene
                           "第 4 行第 1 格（`TitleDrawer_9`：y 790.70..920.70，**压着视口底 855.46**）的名字有 TMP 网格");
                 if (ttTmp != null)
                 {
+                    // 🔴 **2026-10-25（`X5`）：读 `textInfo` 之前必须先补一次「重排」** —— 判据链（逐行可核）：
+                    //   ① 本页是**未激活**时建的：`Shell/PlayerProfileWindow.cs:497-499` 只把 `DefaultTabIndex`
+                    //      那一页 `SetActive(true)`，六页的 `Setup()` 在循环**之后**才跑 ⇒ 每颗 `Title`
+                    //      建的时候父链是关着的（`Shell/TitleTab.cs:384-386`）。
+                    //   ② ⇒ `Label.SetWrapWidth` 只把「生成」记成待办、不生成（`Battle/Label.cs:641-649`）。
+                    //   ③ 补做那一刀（`Battle/Label.cs:673-681`，激活时/`RefreshBounds` 尾句）走的是
+                    //      `TmpFont.GenerateLayout` = **单跑一遍** `GetTextInfo`（`Core/TmpFont.cs:572-576`）。
+                    //   ④ 本格是**自适应**（auto[15~90]/基准 36）⇒ 单跑一遍命中「超框 ⇒ 缩字号 ⇒ 在 Phase II
+                    //      之前 early-return」（`TextMeshPro.cs:4138-4155`）⇒ `m_textInfo.characterCount` 仍是 **0**
+                    //      （它是 Phase II 才赋值的；本工程那条已查清的判据 = `Battle/Label.cs:702-710` 的 P7 注释）。
+                    //   ⑤ **批处理没有帧循环**（`CLAUDE.md` §三）⇒ TMP 自己那条收敛路那一刻还没跑
+                    //      ⇒ 直接读 `textInfo` 读到的是空模型（今天这 3 红就是这么来的，`0` 顶点）。
+                    //   `Label.ForceRelayout()` 的**已激活**那一档 = `SetFontSize(现值) → ForceMeshUpdate()`
+                    //   （`Battle/Label.cs:924`，值相同 ⇒ setter 早退、只剩那次 `ForceMeshUpdate`）⇒ 走
+                    //   `OnPreRenderObject` 的 `while (m_IsAutoSizePointSizeSet == false) GenerateTextMesh();`
+                    //   （`TextMeshPro.cs:2171-2175`）= **完整自适应收敛**（和 ③ 的单跑一遍不是一回事）。
+                    //   ⛔ 别改成 `TmpFont.GenerateLayout`（= ③ 那一次单跑一遍、不收敛 ⇒ 在这里会**重现**
+                    //      同一个空模型）。`ForceRelayout()` 比裸 `ForceMeshUpdate()` 多的只有尾巴那句
+                    //      `RefreshBounds()`（把 `_tmpW/_tmpH` 落回字段、并把欠下的裁切补上）。
+                    //   ⚠️ 它**只**把「模型/网格」补成当前真值，**不改**渐隐带那套判据（期望值仍是原版剖面
+                    //      `255 × (855.46 − y) ÷ 50`）⇒ 不是自证。
+                    var ttLabel = ttLb != null ? ttLb.GetComponentInChildren<Label>(true) : null;
+                    CheckTrue(ttLabel != null,
+                              "（前提·不静默）`Title` 上挂着 `Label` —— 上面那次重排要走它的公开口"
+                            + "（拿不到 ⇒ 这一步没跑，下面那些红不是绿）");
+                    if (ttLabel != null) ttLabel.ForceRelayout();
+
                     var ti = ttTmp.textInfo;
                     int nV = 0, nBand = 0, nBad = 0, nBelow = 0, nBadBelow = 0;
                     float minA = 255f, worst = 0f;
@@ -10599,13 +10626,30 @@ public static class CollectionScene
                             }
                         }
                     }
-                    CheckTrue(nV > 0, $"量得到这一格的文字网格（{nV} 个顶点）");
+                    // 🔴 **2026-10-25（`X5`）：前提拆成三条各自独立**（原来那一条「有 TMP + 排得出字 + 有顶点」是
+                    //   **复合前提**：空集时它只红一条，而 `nBad==0` / `nBadBelow==0` 这两条**空集恒真 = 假绿**
+                    //   —— 今天 3 红那一跑里正是这两条假绿，log `:161624` / `:161638`）。现在：
+                    //   `characterCount` 红 = **版面没排出来**（模型层）；`nV` 红 = **排出来了但网格没上传**（另一档）；
+                    //   两条分开 ⇒ 出红即自证卡在哪一档，⛔ 不再靠猜。
+                    int nChars = ti != null ? ti.characterCount : -1;
+                    CheckTrue(nChars > 0, $"模型把这一格的文字**排出来了**（`characterCount = {nChars}`）"
+                                        + " —— **0 = 版面没排出来**（不是渐隐带/网格的问题；上面那段重排注释是判据）");
+                    CheckTrue(nV > 0, $"量得到这一格的文字网格（{nV} 个顶点）"
+                                    + $" —— `characterCount = {nChars}` 有字却 0 顶点 = **另一种**病（网格没上传）");
                     CheckTrue(nBand > 0, $"**有 {nBand} 个顶点落在渐隐带里**（y > 805.46）—— 0 个 = 软边没接上"
                                        + "（顶点还会被硬裁夹到 855.46，但 alpha 一个都不动）");
                     CheckTrue(minA < 250f, $"带内的字**确实被削了 alpha**（最小 {minA:F0} < 250）—— 只夹顶点不削 alpha 是硬边");
-                    Check(nBad, 0, $"带内每个顶点的 alpha = **255 × (855.46 − y) ÷ 50**（原版剖面；最差差 {worst:F2}）");
-                    CheckTrue(nBadBelow == 0, $"带外（y ≤ 805.46）的顶点 {nBelow} 个**一个都没被动**"
-                                            + "（软边只改带内；动的那些就是写错了带的位置）");
+                    if (nV > 0)
+                    {
+                        Check(nBad, 0, $"带内每个顶点的 alpha = **255 × (855.46 − y) ÷ 50**（原版剖面；最差差 {worst:F2}）");
+                        CheckTrue(nBadBelow == 0, $"带外（y ≤ 805.46）的顶点 {nBelow} 个**一个都没被动**"
+                                                + "（软边只改带内；动的那些就是写错了带的位置）");
+                    }
+                    else
+                    {   // ⛔ 空集时这两条**没有证据价值**（原来是恒真 = 假绿）⇒ 走「判不了」出声，⛔ 不静默算绿
+                        Check(true, false, "（判不了）带内 alpha 剖面：上面 `nV = 0` ⇒ 一条顶点都没量到，本条**不构成证据**（⛔ 不是绿）");
+                        Check(true, false, "（判不了）带外顶点一个都没被动：同上，`nV = 0` ⇒ 空集，本条**不构成证据**（⛔ 不是绿）");
+                    }
                 }
 
                 // ---------------- 🆕 2026-10-18（A840）：两页视口**各记过自己的设计矩形** ----------------

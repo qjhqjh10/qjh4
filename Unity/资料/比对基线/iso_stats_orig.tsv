@@ -15,7 +15,7 @@ EnvironmentalCondition Tau Solar Eclipse	2	EnvironmentalCondition Tau Solar Ecli
 EnvironmentalCondition Tau Solar Eclipse	3	EnvironmentalCondition Tau Solar Eclipse_03_Sun flash#3__orig	orig	0	0.000
 PinDownEffect	0	PinDownEffect_00_Sprite Mask#0__orig	orig	0	0.000
 PinDownEffect	1	PinDownEffect_01_Sprite Mask#1__orig	orig	0	0.000
-PinDownEffect	2	PinDownEffect_02_Trait Icon#2__orig	orig	2131	468.675
+PinDownEffect	2	PinDownEffect_02_Trait Icon#2__orig	orig	2134	468.671
 PinDownEffect	3	PinDownEffect_03_Trait Icon_Back Glow#3__orig	orig	1949	167.482
 PinDownEffect	4	PinDownEffect_04_Trait Icon_Chains#4__orig	orig	198	73.580
 PinDownEffect	5	PinDownEffect_05_Trait Icon_Ground Effect#5__orig	orig	0	0.000
@@ -36,12 +36,12 @@ UM_CardDraw	5	UM_CardDraw_05_Trait Icon_Glow#5__orig	orig	0	0.000
 UM_CardDraw	6	UM_CardDraw_06_Trait Icon_Ring#6__orig	orig	0	0.000
 SAU_CardDraw	0	SAU_CardDraw_00_Sprite Mask#0__orig	orig	0	0.000
 SAU_CardDraw	1	SAU_CardDraw_01_Sprite Mask#1__orig	orig	0	0.000
-SAU_CardDraw	2	SAU_CardDraw_02_Trait Icon#2__orig	orig	470	79.251
+SAU_CardDraw	2	SAU_CardDraw_02_Trait Icon#2__orig	orig	470	79.247
 SAU_CardDraw	3	SAU_CardDraw_03_Trait Icon_Stars#3__orig	orig	10	7.988
 SAU_CardDraw	4	SAU_CardDraw_04_Trait Icon_Shine Square#4__orig	orig	461	71.529
 SAU_CardDraw	5	SAU_CardDraw_05_Trait Icon_Glow#5__orig	orig	0	0.000
 SAU_CardDraw	6	SAU_CardDraw_06_Trait Icon_Ring#6__orig	orig	0	0.000
-Goff_ProperKilly	0	Goff_ProperKilly_00_(根)#0__orig	orig	18078	12341.090
+Goff_ProperKilly	0	Goff_ProperKilly_00_(根)#0__orig	orig	18078	12341.122
 Goff_ProperKilly	1	Goff_ProperKilly_01_Choppa Left#1__orig	orig	198	211.816
 Goff_ProperKilly	2	Goff_ProperKilly_02_Choppa Left_Embers (1)#2__orig	orig	0	0.000
 Goff_ProperKilly	3	Goff_ProperKilly_03_Choppa Left_TwirlingFire (3)#3__orig	orig	0	0.000
@@ -50,7 +50,7 @@ Goff_ProperKilly	5	Goff_ProperKilly_05_Choppa Right#5__orig	orig	190	81.612
 Goff_ProperKilly	6	Goff_ProperKilly_06_Choppa Right_Embers (2)#6__orig	orig	0	0.000
 Goff_ProperKilly	7	Goff_ProperKilly_07_Choppa Right_TwirlingFire (2)#7__orig	orig	0	0.000
 Goff_ProperKilly	8	Goff_ProperKilly_08_Choppa Right_Glow (1)#8__orig	orig	0	0.000
-Goff_ProperKilly	9	Goff_ProperKilly_09_Border Glow#9__orig	orig	18078	12317.525
+Goff_ProperKilly	9	Goff_ProperKilly_09_Border Glow#9__orig	orig	18078	12317.667
 Goff_ProperKilly	10	Goff_ProperKilly_10_Border Glow_MidRing#10__orig	orig	264	16.404
 Goff_ProperKilly	11	Goff_ProperKilly_11_Border Glow_MidRing_Grow#11__orig	orig	2354	2285.859
 Goff_ProperKilly	12	Goff_ProperKilly_12_Border Glow_RedGlow#12__orig	orig	13912	7932.188
@@ -118,4 +118,114 @@ Environmental Condition Dark Angels Asteroid Zone	35	Environmental Condition Dar
 Environmental Condition Dark Angels Asteroid Zone	36	Environmental Condition Dark Angels Asteroid Zone_36_Asteroids (4)#36__orig	orig	23	14.075
 Environmental Condition Dark Angels Asteroid Zone	37	Environmental Condition Dark Angels Asteroid Zone_37_Asteroids small#37__orig	orig	1	0.518
 Environmental Condition Dark Angels Asteroid Zone	38	Environmental Condition Dark Angels Asteroid Zone_38_Asteroids small fast#38__orig	orig	7	1.706
-Environmental Condition Dark Angels Asteroid Zone	39	Environmental Condition Dark Angels Asteroid Zone_39_Background space noise#39__orig	orig	44425	15451.345
+Environmental Condition Dark Angels Asteroid Zone	39	Environmental Condition Dark Angels Asteroid Zone_39_Background space noise#39__orig	orig	44424	15450.169
+Environmental Condition Dark Angels Void Combat	0	Environmental Condition Dark Angels Void Combat_00_Ship 1#0__orig	orig	6	2.443
+Environmental Condition Dark Angels Void Combat	1	Environmental Condition Dark Angels Void Combat_01_Ship 2#1__orig	orig	9	3.992
+Environmental Condition Dark Angels Void Combat	2	Environmental Condition Dark Angels Void Combat_02_Ship 3#2__orig	orig	5	2.702
+Environmental Condition Dark Angels Void Combat	3	Environmental Condition Dark Angels Void Combat_03_Ship 4#3__orig	orig	2	1.659
+Environmental Condition Dark Angels Void Combat	4	Environmental Condition Dark Angels Void Combat_04_Ship 6#4__orig	orig	3	2.039
+Environmental Condition Dark Angels Void Combat	5	Environmental Condition Dark Angels Void Combat_05_Ship 5#5__orig	orig	14	11.871
+Environmental Condition Dark Angels Void Combat	6	Environmental Condition Dark Angels Void Combat_06_Lance Fire (7)#6__orig	orig	0	0.000
+Environmental Condition Dark Angels Void Combat	7	Environmental Condition Dark Angels Void Combat_07_Lance Fire (7)_Charge#7__orig	orig	0	0.000
+Environmental Condition Dark Angels Void Combat	8	Environmental Condition Dark Angels Void Combat_08_Lance Fire (7)_Charge_Glow#8__orig	orig	0	0.000
+Environmental Condition Dark Angels Void Combat	9	Environmental Condition Dark Angels Void Combat_09_Lance Fire (7)_Charge_Glow (1)#9__orig	orig	0	0.000
+Environmental Condition Dark Angels Void Combat	10	Environmental Condition Dark Angels Void Combat_10_Lance Fire (7)_Charge_Lightning#10__orig	orig	0	0.000
+Environmental Condition Dark Angels Void Combat	11	Environmental Condition Dark Angels Void Combat_11_Bullets Controller#11__orig	orig	0	0.000
+Environmental Condition Dark Angels Void Combat	12	Environmental Condition Dark Angels Void Combat_12_Bullets Controller_Bullets Controller (1)#12__orig	orig	0	0.000
+Environmental Condition Dark Angels Void Combat	13	Environmental Condition Dark Angels Void Combat_13_Bullets Controller_Bullets Controller (1)_Bullets Burst 1#13__orig	orig	0	0.000
+Environmental Condition Dark Angels Void Combat	14	Environmental Condition Dark Angels Void Combat_14_Bullets Controller_Bullets Controller (2)#14__orig	orig	0	0.000
+Environmental Condition Dark Angels Void Combat	15	Environmental Condition Dark Angels Void Combat_15_Bullets Controller_Bullets Controller (2)_Bullets Burst 1#15__orig	orig	0	0.000
+Environmental Condition Dark Angels Void Combat	16	Environmental Condition Dark Angels Void Combat_16_Bullets Controller_Bullets Controller (3)#16__orig	orig	0	0.000
+Environmental Condition Dark Angels Void Combat	17	Environmental Condition Dark Angels Void Combat_17_Bullets Controller_Bullets Controller (3)_Bullets Burst 1#17__orig	orig	0	0.000
+Environmental Condition Dark Angels Void Combat	18	Environmental Condition Dark Angels Void Combat_18_Battle#18__orig	orig	2	0.588
+Environmental Condition Dark Angels Void Combat	19	Environmental Condition Dark Angels Void Combat_19_Battle_Ship Burst#19__orig	orig	0	0.000
+Environmental Condition Dark Angels Void Combat	20	Environmental Condition Dark Angels Void Combat_20_Battle_Ship Burst laser#20__orig	orig	0	0.000
+Environmental Condition Dark Angels Void Combat	21	Environmental Condition Dark Angels Void Combat_21_Battle_TinyExplosion_Close#21__orig	orig	0	0.000
+Environmental Condition Dark Angels Void Combat	22	Environmental Condition Dark Angels Void Combat_22_Battle_TinyExplosion_Close_Embers#22__orig	orig	0	0.000
+Environmental Condition Dark Angels Void Combat	23	Environmental Condition Dark Angels Void Combat_23_Battle_TinyExplosion_Close_Shockwave#23__orig	orig	0	0.000
+Environmental Condition Dark Angels Void Combat	24	Environmental Condition Dark Angels Void Combat_24_Battle_TinyExplosion_Far#24__orig	orig	0	0.000
+Environmental Condition Dark Angels Void Combat	25	Environmental Condition Dark Angels Void Combat_25_Battle_TinyExplosion_Far_Embers#25__orig	orig	0	0.000
+Environmental Condition Dark Angels Void Combat	26	Environmental Condition Dark Angels Void Combat_26_Battle_TinyExplosion_Far_Shockwave#26__orig	orig	0	0.000
+Environmental Condition Dark Angels Void Combat	27	Environmental Condition Dark Angels Void Combat_27_Background space noise#27__orig	orig	46555	11604.039
+Environmental Condition Dark Angels Void Combat	28	Environmental Condition Dark Angels Void Combat_28_Lance Fire#28__orig	orig	0	0.000
+Environmental Condition Dark Angels Void Combat	29	Environmental Condition Dark Angels Void Combat_29_Lance Fire_Charge#29__orig	orig	0	0.000
+Environmental Condition Dark Angels Void Combat	30	Environmental Condition Dark Angels Void Combat_30_Lance Fire_Charge_Glow#30__orig	orig	0	0.000
+Environmental Condition Dark Angels Void Combat	31	Environmental Condition Dark Angels Void Combat_31_Lance Fire_Charge_Lightning#31__orig	orig	0	0.000
+Environmental Condition Dark Angels Void Combat	32	Environmental Condition Dark Angels Void Combat_32_Lance Fire (1)#32__orig	orig	0	0.000
+Environmental Condition Dark Angels Void Combat	33	Environmental Condition Dark Angels Void Combat_33_Lance Fire (1)_Charge#33__orig	orig	0	0.000
+Environmental Condition Dark Angels Void Combat	34	Environmental Condition Dark Angels Void Combat_34_Lance Fire (1)_Charge_Glow#34__orig	orig	0	0.000
+Environmental Condition Dark Angels Void Combat	35	Environmental Condition Dark Angels Void Combat_35_Lance Fire (1)_Charge_Lightning#35__orig	orig	0	0.000
+Environmental Condition Dark Angels Void Combat	36	Environmental Condition Dark Angels Void Combat_36_Lance Fire (2)#36__orig	orig	0	0.000
+Environmental Condition Dark Angels Void Combat	37	Environmental Condition Dark Angels Void Combat_37_Lance Fire (2)_Charge#37__orig	orig	0	0.000
+Environmental Condition Dark Angels Void Combat	38	Environmental Condition Dark Angels Void Combat_38_Lance Fire (2)_Charge_Glow#38__orig	orig	0	0.000
+Environmental Condition Dark Angels Void Combat	39	Environmental Condition Dark Angels Void Combat_39_Lance Fire (2)_Charge_Lightning#39__orig	orig	0	0.000
+Environmental Condition Dark Angels Void Combat	40	Environmental Condition Dark Angels Void Combat_40_Lance Fire (3)#40__orig	orig	0	0.000
+Environmental Condition Dark Angels Void Combat	41	Environmental Condition Dark Angels Void Combat_41_Lance Fire (3)_Charge#41__orig	orig	0	0.000
+Environmental Condition Dark Angels Void Combat	42	Environmental Condition Dark Angels Void Combat_42_Lance Fire (3)_Charge_Glow#42__orig	orig	0	0.000
+Environmental Condition Dark Angels Void Combat	43	Environmental Condition Dark Angels Void Combat_43_Lance Fire (3)_Charge_Lightning#43__orig	orig	0	0.000
+Environmental Condition Dark Angels Void Combat	44	Environmental Condition Dark Angels Void Combat_44_Lance Fire (4)#44__orig	orig	0	0.000
+Environmental Condition Dark Angels Void Combat	45	Environmental Condition Dark Angels Void Combat_45_Lance Fire (4)_Charge#45__orig	orig	0	0.000
+Environmental Condition Dark Angels Void Combat	46	Environmental Condition Dark Angels Void Combat_46_Lance Fire (4)_Charge_Glow#46__orig	orig	0	0.000
+Environmental Condition Dark Angels Void Combat	47	Environmental Condition Dark Angels Void Combat_47_Lance Fire (4)_Charge_Lightning#47__orig	orig	0	0.000
+Environmental Condition Dark Angels Void Combat	48	Environmental Condition Dark Angels Void Combat_48_Lance Fire (5)#48__orig	orig	0	0.000
+Environmental Condition Dark Angels Void Combat	49	Environmental Condition Dark Angels Void Combat_49_Lance Fire (5)_Charge#49__orig	orig	0	0.000
+Environmental Condition Dark Angels Void Combat	50	Environmental Condition Dark Angels Void Combat_50_Lance Fire (5)_Charge_Glow#50__orig	orig	0	0.000
+Environmental Condition Dark Angels Void Combat	51	Environmental Condition Dark Angels Void Combat_51_Lance Fire (5)_Charge_Lightning#51__orig	orig	0	0.000
+Environmental Condition Dark Angels Void Combat	52	Environmental Condition Dark Angels Void Combat_52_Lance Fire (6)#52__orig	orig	0	0.000
+Environmental Condition Dark Angels Void Combat	53	Environmental Condition Dark Angels Void Combat_53_Lance Fire (6)_Charge#53__orig	orig	0	0.000
+Environmental Condition Dark Angels Void Combat	54	Environmental Condition Dark Angels Void Combat_54_Lance Fire (6)_Charge_Glow#54__orig	orig	0	0.000
+Environmental Condition Dark Angels Void Combat	55	Environmental Condition Dark Angels Void Combat_55_Lance Fire (6)_Charge_Lightning#55__orig	orig	0	0.000
+Environmental Condition Dark Angels Void Combat	56	Environmental Condition Dark Angels Void Combat_56_Lance battery_Lance Fire (5)#56__orig	orig	0	0.000
+Environmental Condition Dark Angels Void Combat	57	Environmental Condition Dark Angels Void Combat_57_Lance battery_Lance Fire (5)_Charge#57__orig	orig	0	0.000
+Environmental Condition Dark Angels Void Combat	58	Environmental Condition Dark Angels Void Combat_58_Lance battery_Lance Fire (5)_Charge_Glow#58__orig	orig	0	0.000
+Environmental Condition Dark Angels Void Combat	59	Environmental Condition Dark Angels Void Combat_59_Lance battery_Lance Fire (6)#59__orig	orig	0	0.000
+Environmental Condition Dark Angels Void Combat	60	Environmental Condition Dark Angels Void Combat_60_Lance battery_Lance Fire (6)_Charge#60__orig	orig	0	0.000
+Environmental Condition Dark Angels Void Combat	61	Environmental Condition Dark Angels Void Combat_61_Lance battery_Lance Fire (6)_Charge_Glow#61__orig	orig	0	0.000
+Environmental Condition Dark Angels Void Combat	62	Environmental Condition Dark Angels Void Combat_62_Lance battery_Lance Fire (7)#62__orig	orig	0	0.000
+Environmental Condition Dark Angels Void Combat	63	Environmental Condition Dark Angels Void Combat_63_Lance battery_Lance Fire (7)_Charge#63__orig	orig	0	0.000
+Environmental Condition Dark Angels Void Combat	64	Environmental Condition Dark Angels Void Combat_64_Lance battery_Lance Fire (7)_Charge_Glow#64__orig	orig	0	0.000
+Environmental Condition Dark Angels Void Combat	65	Environmental Condition Dark Angels Void Combat_65_Lance battery_Lance Fire (8)#65__orig	orig	0	0.000
+Environmental Condition Dark Angels Void Combat	66	Environmental Condition Dark Angels Void Combat_66_Lance battery_Lance Fire (8)_Charge#66__orig	orig	0	0.000
+Environmental Condition Dark Angels Void Combat	67	Environmental Condition Dark Angels Void Combat_67_Lance battery_Lance Fire (8)_Charge_Glow#67__orig	orig	0	0.000
+Environmental Condition Dark Angels Void Combat	68	Environmental Condition Dark Angels Void Combat_68_Lance battery 2_Gauss Effect#68__orig	orig	5	1.133
+Environmental Condition Dark Angels Void Combat	69	Environmental Condition Dark Angels Void Combat_69_Lance battery 2_Gauss Effect_Charge#69__orig	orig	1	0.055
+Environmental Condition Dark Angels Void Combat	70	Environmental Condition Dark Angels Void Combat_70_Lance battery 2_Gauss Effect_Charge_Glow#70__orig	orig	1	0.055
+Environmental Condition Dark Angels Void Combat	71	Environmental Condition Dark Angels Void Combat_71_Lance battery 2_Gauss Effect (1)#71__orig	orig	2	1.114
+Environmental Condition Dark Angels Void Combat	72	Environmental Condition Dark Angels Void Combat_72_Lance battery 2_Gauss Effect (1)_Charge#72__orig	orig	0	0.000
+Environmental Condition Dark Angels Void Combat	73	Environmental Condition Dark Angels Void Combat_73_Lance battery 2_Gauss Effect (1)_Charge_Glow#73__orig	orig	0	0.000
+Environmental Condition Dark Angels Void Combat	74	Environmental Condition Dark Angels Void Combat_74_Lance battery 2_Gauss Effect (2)#74__orig	orig	4	0.949
+Environmental Condition Dark Angels Void Combat	75	Environmental Condition Dark Angels Void Combat_75_Lance battery 2_Gauss Effect (2)_Charge#75__orig	orig	0	0.000
+Environmental Condition Dark Angels Void Combat	76	Environmental Condition Dark Angels Void Combat_76_Lance battery 2_Gauss Effect (2)_Charge_Glow#76__orig	orig	0	0.000
+Environmental Condition Dark Angels Void Combat	77	Environmental Condition Dark Angels Void Combat_77_Lance battery 2_Gauss Effect (3)#77__orig	orig	2	1.055
+Environmental Condition Dark Angels Void Combat	78	Environmental Condition Dark Angels Void Combat_78_Lance battery 2_Gauss Effect (3)_Charge#78__orig	orig	0	0.000
+Environmental Condition Dark Angels Void Combat	79	Environmental Condition Dark Angels Void Combat_79_Lance battery 2_Gauss Effect (3)_Charge_Glow#79__orig	orig	0	0.000
+EnvironmentalCondition Sororitas Raging Storm	0	EnvironmentalCondition Sororitas Raging Storm_00_Smoke Traily Background#0__orig	orig	468	54.188
+EnvironmentalCondition Sororitas Raging Storm	1	EnvironmentalCondition Sororitas Raging Storm_01_Smoke Traily Background (2)#1__orig	orig	673	153.212
+EnvironmentalCondition Sororitas Raging Storm	2	EnvironmentalCondition Sororitas Raging Storm_02_Smoke Traily Background (1)#2__orig	orig	456	40.847
+EnvironmentalCondition Sororitas Raging Storm	3	EnvironmentalCondition Sororitas Raging Storm_03_Smoke Traily Background (3)#3__orig	orig	160	18.761
+EnvironmentalCondition Sororitas Raging Storm	4	EnvironmentalCondition Sororitas Raging Storm_04_Psychic_Lightning_down_Lightning Main#4__orig	orig	0	0.000
+EnvironmentalCondition Sororitas Raging Storm	5	EnvironmentalCondition Sororitas Raging Storm_05_Psychic_Lightning_down_Lightning Main_WindowFlash#5__orig	orig	0	0.000
+EnvironmentalCondition Sororitas Raging Storm	6	EnvironmentalCondition Sororitas Raging Storm_06_Psychic_Lightning_down_Lightning Main_WindowFlash (1)#6__orig	orig	0	0.000
+EnvironmentalCondition Sororitas Raging Storm	7	EnvironmentalCondition Sororitas Raging Storm_07_Psychic_Lightning_down_Lightning Main_WindowFlash_floor#7__orig	orig	0	0.000
+EnvironmentalCondition Sororitas Raging Storm	8	EnvironmentalCondition Sororitas Raging Storm_08_Psychic_Lightning_down_Lightning Main_WindowFlash_floor (1)#8__orig	orig	0	0.000
+EnvironmentalCondition Sororitas Raging Storm	9	EnvironmentalCondition Sororitas Raging Storm_09_Psychic_Lightning_down_Lightning Main Start#9__orig	orig	0	0.000
+EnvironmentalCondition Sororitas Raging Storm	10	EnvironmentalCondition Sororitas Raging Storm_10_Psychic_Lightning_down_WindowFlash#10__orig	orig	0	0.000
+EnvironmentalCondition Sororitas Raging Storm	11	EnvironmentalCondition Sororitas Raging Storm_11_Psychic_Lightning_down_WindowTint TEMP#11__orig	orig	0	0.000
+EnvironmentalCondition Sororitas Raging Storm	12	EnvironmentalCondition Sororitas Raging Storm_12_Psychic_Lightning_down_WindowTint TEMP#12__orig	orig	0	0.000
+EnvironmentalCondition Sororitas Raging Storm	13	EnvironmentalCondition Sororitas Raging Storm_13_Psychic_Lightning_down_WindowFlash (1)#13__orig	orig	0	0.000
+EnvironmentalCondition Sororitas Raging Storm	14	EnvironmentalCondition Sororitas Raging Storm_14_Psychic_Lightning_down_WindowFlash_floor#14__orig	orig	0	0.000
+EnvironmentalCondition Sororitas Raging Storm	15	EnvironmentalCondition Sororitas Raging Storm_15_Psychic_Lightning_down_WindowFlash_floor (1)#15__orig	orig	0	0.000
+ShieldTraitEffect_Idle Necron Variant	0	ShieldTraitEffect_Idle Necron Variant_00_Shield Enter#0__orig	orig	1245	334.486
+ShieldTraitEffect_Idle Necron Variant	1	ShieldTraitEffect_Idle Necron Variant_01_Shield Enter_Ground Effect#1__orig	orig	0	0.000
+ShieldTraitEffect_Idle Necron Variant	2	ShieldTraitEffect_Idle Necron Variant_02_Shield Enter_Creation Effect#2__orig	orig	118	13.106
+ShieldTraitEffect_Idle Necron Variant	3	ShieldTraitEffect_Idle Necron Variant_03_Shield Enter_Creation Effect_Glow#3__orig	orig	27	5.090
+ShieldTraitEffect_Idle Necron Variant	4	ShieldTraitEffect_Idle Necron Variant_04_Shield Enter_Creation Effect_Creation Effect (1)#4__orig	orig	11	1.004
+ShieldTraitEffect_Idle Necron Variant	5	ShieldTraitEffect_Idle Necron Variant_05_Shield Enter_Creation Effect_Lightning Ring#5__orig	orig	91	7.220
+ShieldTraitEffect_Idle Necron Variant	6	ShieldTraitEffect_Idle Necron Variant_06_Shield Enter_Halo effect#6__orig	orig	1193	323.008
+ShieldTraitEffect_Idle Necron Variant	7	ShieldTraitEffect_Idle Necron Variant_07_Shield Capsule#7__orig	orig	556	223.827
+ShieldTraitEffect_Idle Necron Variant	8	ShieldTraitEffect_Idle Necron Variant_08_Shield Exit#8__orig	orig	4	0.831
+ShieldTraitEffect_Idle Necron Variant	9	ShieldTraitEffect_Idle Necron Variant_09_Shield Exit_Floor glow#9__orig	orig	0	0.000
+ShieldTraitEffect_Idle Necron Variant	10	ShieldTraitEffect_Idle Necron Variant_10_Shield Exit_Glow#10__orig	orig	0	0.000
+ShieldTraitEffect_Idle Necron Variant	11	ShieldTraitEffect_Idle Necron Variant_11_Shield Exit_Halo effect#11__orig	orig	0	0.000
+ShieldTraitEffect_Idle Necron Variant	12	ShieldTraitEffect_Idle Necron Variant_12_Shield Exit_Lightning Burst#12__orig	orig	0	0.000
+ShieldTraitEffect_Idle Necron Variant	13	ShieldTraitEffect_Idle Necron Variant_13_Shield Exit_Lightning Burst_Particle Burst#13__orig	orig	0	0.000

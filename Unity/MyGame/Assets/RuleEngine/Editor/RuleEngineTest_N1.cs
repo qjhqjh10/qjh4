@@ -27,6 +27,10 @@ public static partial class RuleEngineTest
     ///
     /// ⚠️ `Hurt` 是 `private` ⇒ 反射（先例 = `RuleEngineTest_EntryPump.cs` 的 `W62` 那一组）。
     /// ⛔ 别改成 `ApplyDamage` —— 那个**不含死亡链**（它自己 doc 写着），夹具会变成「血 ≤ 0 但还在场上」。
+    /// 🔴 **2026-10-25（`X16`）**：反射 `Invoke` **不走可选形参** ⇒ 实参个数必须 = `Hurt` 的形参个数。
+    ///   本轮 `X2` 加了第 9 个形参 `DamageKind kind`（成就计数器），这里原来只喂 8 个 ⇒
+    ///   `TargetParameterCountException`（`TestW64ShowCardsWindow` 那条红）。
+    ///   `Unknown` = `Hurt` 的缺省值 = **不计成就** —— 夹具弄死人只为摆局面，⛔ 别喂真的类别（那会污染 `Tally`）。
     /// </summary>
     static void N1Kill(BattleContext ctx, UnitState u)
     {
@@ -34,7 +38,12 @@ public static partial class RuleEngineTest
         CheckTrue(mi != null,
                   "前提：`RuleCore.Hurt` 还在（改名 ⇒ 本组夹具造不出阵亡，⛔ 别静默跳过）");
         if (mi == null || u == null) return;
-        mi.Invoke(null, new object[] { ctx, u, 99, "N1Kill", -1, false, null, UnitDeathType.Unknown });
+        var args = new object[] { ctx, u, 99, "N1Kill", -1, false, null,
+                                  UnitDeathType.Unknown, DamageKind.Unknown };
+        Check(args.Length, mi.GetParameters().Length,
+              "前提：`RuleCore.Hurt` 的形参个数 = 本夹具喂的个数（反射不走可选形参）"
+            + "｜🧨 `Hurt` 加减形参而这里没跟着改 ⇒ 本行红 + 下面那条变成「夹具抛异常」");
+        mi.Invoke(null, args);
     }
 
     /// <summary>这一个 `UnitState` 是不是还在**这一方**的棋盘上（按**对象身份**比，⛔ 不比名字）。</summary>

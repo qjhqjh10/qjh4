@@ -429,6 +429,20 @@ public static class EffectExporter
     ///     （并排图：原版一小段稀疏拖尾 vs 导出绕一整圈的闭环 —— **环是糊出来的，不是形状变了**）。
     ///   · 原版 >1 层 ⇒ 保持开。
     /// ⚠️ 顺带把 `maxTextureSize` 抬到「不小于原版尺寸」（Unity 默认 2048，超了会**静默缩一半**）。
+    ///
+    /// 🔴 **2026-10-25（X15）新加一格：`alphaIsTransparency` 一律关掉。**
+    ///   判据（实读 + 可复核）：原版这批贴图的 **mip 链 = 按 alpha 无权的普通盒式平均**；
+    ///   而 `alphaIsTransparency = 1` 会让 Unity 在**导入时**做 **alpha dilation**（把透明区的 RGB
+    ///   用邻近的不透明像素颜色填掉）⇒ mip 里透明区的颜色被换掉 ⇒ **小尺寸（采样到 mip）时轮廓/描边错色**。
+    ///   实证（`Environmental Condition Dark Angels Asteroid Zone` 槽 #0，`Asteroid_sheet_2`）：
+    ///     该 PNG 74.6% 像素 `alpha==0`、透明区 RGB≈(222,228,231) 亮灰，不透明区 (48,88,110) 暗蓝；
+    ///     原件 mip 指纹 297.26e6 ≈ 我离线模拟的「普通盒式平均」295.07e6（差 0.7%）⇒ 原版没 dilation；
+    ///     我们这一侧 147.13e6（= 透明区被换成暗蓝的量级）⇒ 我们做了 dilation；
+    ///     渲出来：内部像素逐点相同，**描边**原版是亮灰 `(79,72,68)`、我们是暗蓝 `(27,37,41)`，比值 0.392。
+    ///   同款先例（本仓早就踩过、当时只修了卡面插图）：`工具/import_original_art.py:1286 fix_art_meta()`
+    ///   ——「不关的话透明区会被 Unity 填成马赛克」。
+    ///   ⚠️ 这一格**不需要旁挂表**：原版一律是关的，所以对 `TexDir` 下**全部** `.png` 都写 `false`
+    ///   （下面第二遍扫目录就是补「表里没有的那 71 张 `*_sprite` 图集切片」）⇒ **一次跑覆盖 484/484 张**。
     /// 跑法：`-executeMethod EffectExporter.FixTextureImportSettings`
     /// （⚠️ 会**重新导入**改到的那些贴图 ⇒ 别在自检批处理跑着的时候跑）。
     ///
@@ -455,13 +469,19 @@ public static class EffectExporter
                            "`\"D:/2/Warpforge_tools/py312/python.exe\" d:/4/Unity/工具/gen_vfx_texture_mips.py`");
             return;
         }
-        int rows = 0, changed = 0, noMip = 0, noPng = 0, ok = 0;
+        int rows = 0, changed = 0, noMip = 0, noPng = 0, ok = 0, seen = 0;
+        // 🔴 2026-10-25（X15）：`EffectExporter.Run()` 收尾会调本方法（防 alpha dilation 回流），
+        //   所以汇总那行要能回答「这次扫了多少张 / 改了几张 / 花了多久」。
+        var tsw = System.Diagnostics.Stopwatch.StartNew();
         var changedNames = new System.Collections.Generic.List<string>();
+        // 🔴 2026-10-25（X15）：表里出现过的贴图名（`Sanitize` 后），供下面「补扫目录」排除已处理的
+        var covered = new System.Collections.Generic.HashSet<string>();
         foreach (var line in File.ReadLines(tsv).Skip(1))
         {
             var c = line.Split('\t');
             if (c.Length < 4) continue;
             rows++;
+            covered.Add(Sanitize(c[0]));
             int w, h, mips;
             if (!int.TryParse(c[1], out w) || !int.TryParse(c[2], out h) || !int.TryParse(c[3], out mips))
             { Debug.LogWarning($"[TEXFIX] 这行解析不了，跳过：{line}"); continue; }
@@ -469,6 +489,7 @@ public static class EffectExporter
             var png = $"{TexDir}/{Sanitize(c[0])}.png";
             var ti = AssetImporter.GetAtPath(png) as TextureImporter;
             if (ti == null) { noPng++; continue; }
+            seen++;
             bool wantMip = mips > 1;
             int wantMax = Mathf.Max(2048, Mathf.NextPowerOfTwo(Mathf.Max(w, h)));
             // 🆕 2026-10-19（T07）：wrap/filter/aniso 三格也照原版（列 5..8）。
@@ -497,6 +518,7 @@ public static class EffectExporter
                         && ti.wrapModeU == wantWrapU && ti.wrapModeV == wantWrapV
                         && ti.filterMode == wantFilter
                         && ti.anisoLevel == wantAniso
+                        && !ti.alphaIsTransparency                      // 🔴 2026-10-25（X15）：见方法头注释
                         && (np < 0 || (int)ti.npotScale == np);   // np=0 ⇒ None；-1 ⇒ 未知/不动
             if (same) { ok++; continue; }
             if (!wantMip) noMip++;
@@ -512,13 +534,38 @@ public static class EffectExporter
             ti.filterMode = wantFilter;
             ti.anisoLevel = wantAniso;
             if (np >= 0) ti.npotScale = (TextureImporterNPOTScale)np;   // 0 = None（原版真值）
+            // 🔴 2026-10-25（X15）：**原版一路都是关的** ⇒ 一律关（这一格不需要旁挂表，没有「未知」可言）。
+            //   开着它 = Unity 导入时做 alpha dilation ⇒ mip 里透明区的颜色被换成邻色 ⇒ 小尺寸时描边错色。
+            //   判据/实证 → 本方法头注释「新加一格」那段；同款先例 → `工具/import_original_art.py:1286`。
+            ti.alphaIsTransparency = false;
             ti.SaveAndReimport();
             changed++;
-            changedNames.Add($"{c[0]}({w}x{h},原版m{mips},wrap{wu}/{wv},f{fm},a{an},np{np})");
+            changedNames.Add($"{c[0]}({w}x{h},原版m{mips},wrap{wu}/{wv},f{fm},a{an},np{np},at0)");
+        }
+        // 🔴 2026-10-25（X15）：**旁挂表只覆盖 413/484 张** —— `TexDir` 里还有 **71 张不在表里**
+        //   （都是图集切片：`40K_melee_glow_sprite` / `Atlas_trait_icon_*_sprite` / `1_40k_cardframe_*_sprite` …，
+        //   表是按 bundle 里的 `Texture2D` 名生成的，切出来的 `<名>_sprite` 不在那份名单上）。
+        //   它们同样要「照原版关掉 alpha dilation」⇒ 这里补扫一遍目录，**只动这一格**
+        //   （mip/wrap/filter/npotScale 没有旁挂真值，⛔ 不许猜）。
+        int folderOnly = 0;
+        foreach (var png in Directory.GetFiles(TexDir, "*.png"))
+        {
+            var nm = Path.GetFileNameWithoutExtension(png);
+            if (!covered.Add(nm)) continue;                  // 表里有的上面已经处理过
+            var ti2 = AssetImporter.GetAtPath(png) as TextureImporter;
+            if (ti2 == null) continue;
+            seen++;
+            if (!ti2.alphaIsTransparency) { ok++; continue; }
+            ti2.alphaIsTransparency = false;
+            ti2.SaveAndReimport();
+            changed++; folderOnly++;
+            changedNames.Add($"{nm}(表里没有·只补 at0)");
         }
         AssetDatabase.Refresh();
-        Debug.Log($"[TEXFIX] 表里 {rows} 行 · **改了 {changed}** · 本来就对 {ok} · " +
-                  $"工程里没有对应 PNG {noPng} · 其中「原版无 mip 却被我们开了 mip」的 {noMip} 张");
+        tsw.Stop();
+        Debug.Log($"[TEXFIX] 看过 {seen} 张贴图（表 {rows} 行 + 目录补扫）· 用时 {tsw.Elapsed.TotalSeconds:F1}s · " +
+                  $"**改了 {changed}**（其中「表里没有、只扫目录补 at0」{folderOnly} 张）· " +
+                  $"本来就对 {ok} · 工程里没有对应 PNG {noPng} · 其中「原版无 mip 却被我们开了 mip」的 {noMip} 张");
         if (changedNames.Count > 0)
             Debug.Log("[TEXFIX] 改动清单：" + string.Join(" / ", changedNames.ToArray()));
     }
@@ -650,6 +697,17 @@ public static class EffectExporter
         Debug.Log($"=== 特效导出 结束：本片成功 {done} / 失败 {failed} / 跳过 {skipped}，" +
                   $"累计已收录 {Report.Count} / {total} ===");
         ReportVariantPaths();          // 🆕 A845(b)：撞名分文件**量产物**的收尾断言（判据见函数头部）
+
+        // 🔴 2026-10-25（X15）：**导出【收尾】必须再跑一遍贴图导入修正** —— 否则「alpha dilation 回流」是**静默**的：
+        //   `Export()` 会把 PNG 重新拷进 `Assets/WarpforgeVFX/Textures/`，新文件的 `.meta` 由 Unity 按默认值生成
+        //   （`alphaIsTransparency: 1`）⇒ 上一轮修好的 484 张会**全部**回到 dilation 状态；画面上只表现为「描边/边缘变暗」，
+        //   没有任何报错、没有断言会红（实测代价：`Environmental Condition Dark Angels Asteroid Zone` 槽 #0 = 0.392×）。
+        //   判据/实证/同款先例 → `FixTextureImportSettings()` 方法头那段「新加一格」。
+        //   ⚠️ 放**收尾**、⛔ 不放循环里：`Export()` 每个效果都会写贴图，循环里调 = 每出一个效果就把全量贴图重导一遍。
+        //   ⚠️ 幂等（不拖慢稳态）：`FixTextureImportSettings` 的 `same` 判据已含 `!ti.alphaIsTransparency`，
+        //      已经对的贴图走 `ok++`、**不触发 `SaveAndReimport`** ⇒ 稳态下这一段只是读一遍 `.meta`。
+        //   ⚠️ 手动入口仍是同一个方法（`-executeMethod EffectExporter.FixTextureImportSettings`）= 单跑一次修正 + 重导。
+        FixTextureImportSettings();
     }
 
     static void LoadReport()

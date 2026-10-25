@@ -149,13 +149,22 @@ def load(kind, prefix, g2n=None):
 
 
 def load_achievements():
-    """102 个 `ACH*.json` → `{id, n, t, c, v[], q[]}`。
+    """102 个 `ACH*.json` → `{id, n, t, c, v[], q[], k, f, tut, duel}`。
 
     · `n` 显示名 = `m_Name` 去掉 `ACH<n> ` 前缀（`ACH1 Slay the Warlord` → **`Slay the Warlord`**）
       —— **这是原版资产里的真字符串**，不是我们编的（与称号/头像那两批的处理不同，那两批只能反推）。
     · `t` = `achievementType`（位标志：1 Battle / 2 Collection / 4 Victories / 8 Account）。
     · `c` = `challenge.id`（例 `"Damage To Warlord"`）；`v` = 各档 `targetValue`（**真阈值**）；
       `q` = 各档奖励数量（`rewards[].rewards[0].quantity`，就是 `Achievements/Points` 那个数）。
+    · 🆕 **2026-10-25（`X2` · 判据 `资料/待办判据_成就计数器_1025b.md` §B-0）**：
+      `k` = `challenge` 的 **`type.class`**（原版触发源的类名，如 `DamageDeltToEnemyUnit`）；
+      `f` = `data` **去掉 `id` / `rewards` 之后的原样 JSON 字符串**（= 过滤位；
+          `JsonUtility` 吃不了 `Dictionary`，所以原样存字符串，消费侧按固定 DTO 解析）；
+      `tut` = `allowOnTutorials`（0/1）· `duel` = `allowOnDuels`（0/1，102 条全 0，**仍要落**）。
+      🔴 **为什么要这三格**：27 条升级卡（只有 army+tier 不同）、28 条对局（只有模式+阵营+胜负不同）、
+      17 条触发（只有 triggerAbility 不同）**在运行时无法区分** —— 没有它们就只能按 challenge 原文找，
+      而原文**有重名**（`Upgrade Sautekh Cards T2` = `Ach_27` / `Ach_29` 等三组，见文件 §F5）
+      ⇒ 一律按 `id`（`Ach_N`）写进度，`k`/`f` 只在结算时判「这一条该不该 +1」。
     """
     out = []
     if not os.path.isdir(ACH_SRC):
@@ -178,6 +187,9 @@ def load_achievements():
                 break
         data = (node or {}).get('data') or {}
         rw = data.get('rewards') or []
+        # 🆕 过滤位 = 去掉 id / rewards 的其余全部字段（原样，含 0 值 —— 缺省值也是判据的一部分：
+        #    `anyTrait=0` 与 `anyTrait=1` 是两个意思，⛔ 别把 0 当「没写」丢掉）
+        filt = dict((k, v) for k, v in data.items() if k not in ('id', 'rewards'))
         out.append({
             'id': d.get('eventId', ''),
             'n': ACH_NAME.sub('', base),
@@ -185,6 +197,10 @@ def load_achievements():
             'c': data.get('id', ''),
             'v': [r.get('targetValue', 0) for r in rw],
             'q': [((r.get('rewards') or [{}])[0]).get('quantity', 0) for r in rw],
+            'k': ((node or {}).get('type') or {}).get('class', ''),
+            'f': json.dumps(filt, ensure_ascii=False, sort_keys=True, separators=(',', ':')),
+            'tut': 1 if data.get('allowOnTutorials') else 0,
+            'duel': 1 if data.get('allowOnDuels') else 0,
         })
     # 排序：先类型（Battle→Collection→Victories→Account 与位标志同序），再 eventId 里的数字
     def key(e):
@@ -208,6 +224,12 @@ def main():
         print('  类型分布（1Battle/2Collection/4Victories/8Account）：',
               dict(sorted(collections.Counter(e['t'] for e in ac).items())))
         print('  档位数分布：', dict(sorted(collections.Counter(len(e['v']) for e in ac).items())))
+        # 🆕 2026-10-25（`X2`）：三格新列的分布（判据 §二①：教程局 42 计 / 60 不计；决斗全 0）
+        print('  触发源类名分布：', dict(sorted(collections.Counter(e['k'] for e in ac).items())))
+        print('  allowOnTutorials：计 %d / 不计 %d' % (sum(1 for e in ac if e['tut']),
+                                                   sum(1 for e in ac if not e['tut'])))
+        print('  allowOnDuels：计 %d / 不计 %d' % (sum(1 for e in ac if e['duel']),
+                                               sum(1 for e in ac if not e['duel'])))
         print('  例：', ' / '.join('%s[t%d, %d档 %s]' % (e['n'], e['t'], len(e['v']), e['v'][:2]) for e in ac[:2]))
     # 图名对不上 PNG 的（反查失败的）——**报出来**，别让它静默变成没立绘的格子
     pngs = set(f[:-4] for f in os.listdir('d:/4/Unity/素材/Warpforge原版/装饰品/头像/Texture2D')

@@ -43,7 +43,11 @@ namespace CardPresentation
         public float frontZ = 0.5f;
 
         public event Action<CardView, int> OnDeployed;     // 落位成功
-        public event Action<CardView> OnReturned;          // 回弹到手牌
+        /// <summary>回弹到手牌。🆕 **2026-10-25（`X19/P2`）加了第二个参数 `kind`** ——
+        /// 订阅方要能分开「正常取消（`MissedSlot`）」与「非法出牌（`EngineRefused`）」：
+        /// 后者**不该**再写 `Battle/Tips/DragToTarget`（它的文案已按拒因分四档，由
+        /// <see cref="OnIllegalAction"/> 出）。判据只走 <see cref="IsIllegalAction"/>，⛔ 别比枚举值。</summary>
+        public event Action<CardView, DropRejectKind> OnReturned;
         /// <summary>🔴🆕 2026-10-19（战斗线 B2 · 偏差 1/2 的残余①）：**出牌飞行开始的那一拍**。
         ///
         /// <para>实参 = (这张卡, 落向哪块棋盘, 真正落点格号, 这段飞行有多长)。</para>
@@ -78,8 +82,17 @@ namespace CardPresentation
         /// <summary>🔴 **落点落在格位上、但被拒了**（= 玩家做了一次非法操作）。
         /// 和 <see cref="OnReturned"/> 的区别：**拖回手牌/拖到空白处不算**（那是正常取消）。
         /// 原版在这个时机播 `cantdo`（"我不能这么做"）—— 见 `资料/语音线_原版规格与ASR管道.md` §1.3。
-        /// 判据由 <see cref="IsIllegalAction"/> 一处给出，**调用方别再比字符串**。</summary>
-        public event Action<CardView> OnIllegalAction;
+        /// 判据由 <see cref="IsIllegalAction"/> 一处给出，**调用方别再比字符串**。
+        ///
+        /// <para>🔴 **2026-10-25（`X19/P2`）签名加了第二个参数** —— 原版的拒因文案是**按因分档**的
+        /// （`BattleManager__CanPlayCard.c:82-152` 四支：费用不够 / 格子满 / 没目标 / 不是你回合），
+        /// 而「哪一因」有两处只有本层知道、驱动层拿不到：
+        /// ① **指针压在错的那一侧棋盘上**（`DropReject` 的 `hitOther` 支）；
+        /// ② 其余档（引擎拒）本层拿不到原因码。
+        /// ⇒ 本层只把**它自己判得出来的那一条词条键**交出去（`tipTerm`，null = 让驱动层按引擎码取）。
+        /// ⚠️ 词条键的**唯一出处**是 `BattleDriver.DragToTargetTerm`（那边管全部 `Battle/Tips/*` 常量），
+        /// 本层不另抄一份字符串。</para></summary>
+        public event Action<CardView, string> OnIllegalAction;
         /// <summary>**轻点**了一张手牌（按下→松开，几乎没移动）。
         /// 原版这个动作是 `BasicCardUI.ToggleOpenCardDisplayOnTouch` —— 开关卡牌展示窗。
         /// 和「拖出去又放回来」区分开：拖过就不算轻点。</summary>
@@ -198,6 +211,134 @@ namespace CardPresentation
         public void SetFrozenForTest(bool on) { _frozenForTest = on; }
         /// <summary>现在是不是「禁操作」那一档（自检用）。判据两半合一，⛔ 别在别处再拼一次。</summary>
         public bool FrozenNow { get { return _frozenForTest || (Frozen != null && Frozen()); } }
+
+        // ==================================================================
+        //  🔴 2026-10-25（`AUD8` #19）：**战斗状态闸** —— 原版起拖的另一半条件
+        // ==================================================================
+        //  判据（第一权威 = 全量反编译，现读）：`d:/2/tools/decomp_full/CardScript__OnTouchDrag.c:17-23`
+        //    ① `matchData.matchType != 0xA0`（**回放局不许拖** —— 但**轻点看牌照旧允许**，见 `ReplayDragBlocked`）；
+        //    ② `BattleManager.UIstate == 1`（`normalBattle`）—— 选目标(9/10/13)、打法选择器、
+        //       选牌/选效果面板、换牌 这些状态下 **UIstate 都不是 1** ⇒ 原版根本走不到
+        //       `TryDraggingFromHand`；
+        //    ③ 同一行还有 `!IsRightButtonOrTwoFingerTouch()`（本类已有，见 `IsRightButtonOrTwoFingerTouch`）。
+        //  另外原版那 8 扇模态窗靠**全屏压暗层的射线**挡住手牌（`Menu Dark Background` 一族）。
+        //
+        //  🔴 **为什么本类必须自己判**：手牌拖拽**不经过 EventSystem**（本类读裸指针 + 自己的
+        //    `CardView.HitByCollider`）⇒ 原版那两道理所当然的闸，在我们这里**一条都不成立**。
+        //    实测症状：选牌面板 / 设置 / 日志 / 多卡 / 联盟 / 聊天 / 展示窗 / 选目标 / 打法选择器 /
+        //    回放 开着时，手牌照样悬停、拖起、落下、轻点开窗 ⇒ 窗开着还能把牌打出去。
+        //
+        //  ⚠️ **只读**：状态全部从 `BattleDriver` 的**公开只读口**取，⛔ 本类不另存一份状态
+        //     （铁律「两处写同一条规则 = 迟早不一致」）。取的口就是显示层已经在用的那几个。
+        //  ⚠️ **拿不到驱动**（`CardBaseDemo` / `Editor/HandAssertE8` / 纯表现层自检）⇒ 闸恒放行，
+        //     行为与加它之前**逐位相同**。
+        //  ⚠️ 与 `FrozenNow` 是**两件事、两种处置**（⛔ 别合并）：
+        //     · `Frozen`（掉线 / 演出未收尾）—— 原版那道整帧闸也是直接 `return`，**拖拽态照旧留着**；
+        //     · 本闸（模态窗 / 选目标 / 打法选择器 / 终局）—— 必须**把正在拖的那张收回手牌**，
+        //       否则「窗打开前后松手」照样会走 `Release` 把牌打出去（见 `AbortDrag`）；
+        //     · 回放那一档（`ReplayDragBlocked`）**只禁拖**：轻点看牌是原版允许的，⛔ 别一刀切关死。
+
+        BattleDriver _driver;
+        bool _driverSearched;
+
+        /// <summary>场景里那个驱动（只读）。找到一次就缓存 —— `FindFirstObjectByType` 每帧调很贵。
+        /// <para>⚠️ `GetComponent` 每次都会重试（便宜、且能自愈「旧引用被销毁」那一档）；
+        /// 只有**全局查找**那一步用一次性闩（纯表现层自检里它恒找不到，别每帧扫场景）。
+        /// `OnEnable` 会把闩复位（换局 / 换场景后重找）。</para></summary>
+        BattleDriver Driver
+        {
+            get
+            {
+                if (_driver != null) return _driver;
+                _driver = GetComponent<BattleDriver>();
+                if (_driver != null) return _driver;
+                if (_driverSearched) return null;
+                _driverSearched = true;
+                _driver = FindFirstObjectByType<BattleDriver>();
+                return _driver;
+            }
+        }
+
+        void OnEnable() { _driverSearched = false; }
+
+        bool? _battleStateBlockedForTest;
+        bool? _replayDragBlockedForTest;
+        /// <summary>自检用：把**硬闸**直接拨过去（模态窗 / 选目标 / 打法选择器 / 终局）。
+        /// `null` = 读真机 ⇒ **生产恒为 null**。</summary>
+        public void SetBattleStateBlockedForTest(bool? on) { _battleStateBlockedForTest = on; }
+        /// <summary>自检用：把**回放档**（只禁拖、保留轻点看牌）直接拨过去。`null` = 读真机。</summary>
+        public void SetReplayDragBlockedForTest(bool? on) { _replayDragBlockedForTest = on; }
+        /// <summary>自检读口：这一帧被**硬闸**挡着吗（**生产判据本身**，⛔ 别在断言里另拼一份）。</summary>
+        public bool BattleStateBlockedNow { get { return BattleStateBlocked(); } }
+        /// <summary>自检读口：这一帧是「回放 ⇒ 只禁拖」吗。</summary>
+        public bool ReplayDragBlockedNow { get { return ReplayDragBlocked(); } }
+
+        /// <summary>**硬闸**：原版 `OnTouchDrag` 的 `UIstate == 1` ＋ 全屏压暗层吃射线。
+        /// 四个来源全部是 `BattleDriver` 的公开只读口（⛔ 本类不新增状态）。</summary>
+        bool BattleStateBlocked()
+        {
+            if (_battleStateBlockedForTest.HasValue) return _battleStateBlockedForTest.Value;
+            var d = Driver;
+            if (d == null) return false;                       // 没有驱动 ⇒ 纯表现层档
+            // ① 终局：原版 `matchFinishedAndWaitingToLeave(+0x510)` 那一支只认「点一下离开」，
+            //    手牌一律不再可拖（我们这里 `Ctx.IsOver` 就是那一刻）。
+            if (d.Ctx != null && d.Ctx.IsOver) return true;
+            // ② 8 扇模态窗（设置/聊天/换牌/选牌/多卡/放大/联盟/日志）——
+            //    判据与 `BattleDriver.HudButtonsBlocked` **同一份**（`PointerOverBlockingUi` 就是转发它），
+            //    ⛔ 本类不另抄一张窗口清单。
+            if (d.PointerOverBlockingUi()) return true;
+            // ③ 已选定打法、正在点目标（原版 UIstate 9/10/13）。
+            if (d.IsTargeting) return true;
+            // ④ 打法三选一开着（原版 UIstate != 1）。
+            if (d.SelectorOpen) return true;
+            return false;
+        }
+
+        /// <summary>**回放档**：原版 `OnTouchDrag.c:17-23` 的 `matchType != 0xA0`
+        /// —— 它**只禁「拖出去打」**，不禁「轻点看牌」：
+        /// `OnTouchDown` / `OnTouchUpAsButton` 全文没有 0xA0 闸，而 `CanDisplayHandCard` 也只要求
+        /// `cardState==1 && UIstate==1`（`dc/BattleManager__CanDisplayHandCard.c:7-11`，**不看 matchType**）。
+        /// ⇒ 回放里：轻点手牌**照样开卡面展示窗**，但**拖不起来**（也不出牌、不播 cantdo）。</summary>
+        bool ReplayDragBlocked()
+        {
+            if (_replayDragBlockedForTest.HasValue) return _replayDragBlockedForTest.Value;
+            var d = Driver;
+            return d != null && d.ReplaySession;
+        }
+
+        /// <summary>把「按下已记、还没起拖」那一档丢掉（**不动** `_dragging`，那是 `AbortDrag` 的事）。</summary>
+        void DiscardPress()
+        {
+            _pressPending = false;
+            _pressPendingCard = null;
+            _pressInside = false;
+        }
+
+        /// <summary>🔴 **把正在拖的那张收回手牌**（战斗状态闸触发时）。
+        ///
+        /// <para>与原版同一结局：`BattleManager__Update.c` case 4 的松手支 = `CardScript.MoveBackToHand`
+        /// + `PlayerHand.HandCardReleased` ⇒ 就是「回手 + 手牌重排」，**没有回弹专用补间**。</para>
+        /// <para>⛔ **不结算、不发 `OnReturned` / `OnIllegalAction`**：这一下不是「玩家拖空了」，
+        /// 而是「这一拖被打断」—— 播 `cantdo` 或写「拖到目标上再松手」都会误导玩家。
+        /// 不静默：打一行日志。</para>
+        /// <para>⚠️ `ClearDropIndicator()` 会顺手把驱动层的**让位预览**收回去
+        /// （`OnDropPreview(null,-1)` → `EndPreviewReturn` → 被推开的单位补回真格位）。</para></summary>
+        void AbortDrag(string why)
+        {
+            var card = _dragging;
+            _dragging = null;
+            _insertIndex = -1;
+            _hovered = -1;
+            DiscardPress();
+            ClearDropIndicator();
+            if (card != null)
+            {
+                card.SetHighlight(CardHighlightState.Normal);
+                Debug.Log("[CardPresentation] 拖拽被中止（" + why + "）⇒ " + card.name
+                        + " 收回手牌（原版 `MoveBackToHand` 同一结局，⛔ 不结算、不播 cantdo）");
+            }
+            Relayout(true);      // 回弹由手牌重排完成（原版同一个收口）
+        }
 
         // ==================================================================
         //  🆕 2026-10-24（`J3`）**手牌重排的「动画闸」**
@@ -379,19 +520,46 @@ namespace CardPresentation
         {
             if (cam == null || hand == null || board == null) return;
             if (_cards.Count == 0) return;
-            // 🔴🆕 2026-10-18（`A915`）：**掉线/等重连 ⇒ 这一帧什么都不做**（判据 → `Frozen` 的注释）。
-            //    ⚠️ 排在**取指针之前**（`PointerWorldSafe` 也读输入）⇒ 这一档连指针都不动。
-            //    ⚠️ **中途断线时拖拽状态照旧留着**（`_dragging` 不清）—— 原版那道闸也是直接 `return`，
-            //       没做「把拖着的牌收回去」；重连回来那一下松手会照常结算。
-            //    ⛔ 不静默：出声一次（同一条只吼一次）。
+            // 🔴 2026-10-25（`AUD8` #19）：**战斗状态闸 + 冻结闸**收成一处（`BlockedThisFrame`）——
+            //    `Update` 与自检口 `SimulateTickForTest` 走**同一个**判据，⛔ 别再抄第二份。
+            if (BlockedThisFrame()) return;
+
+            // ⚠️ 用**带野值防护**的那个（见 `PointerWorldSafe` 的注释）——
+            //    2026-10-15（`A2107`）起**落点判定与「推上线」守卫取的都是它** ⇒ 它野一帧，两处一起判错。
+            Vector3 world = PointerWorldSafe();
+
+            // 松手/按下在 Update 里轮询（批处理下没有输入事件，轮询才验得了）
+            TickInput(world, PressedThisFrame(), ReleasedThisFrame());
+        }
+
+        /// <summary>这一帧的两道闸（返回 true = `Update` 就该 return）。判据只此一处。
+        /// <para>① **硬闸**（模态窗 / 选目标 / 打法选择器 / 终局）—— 原版 `OnTouchDrag` 的 `UIstate==1`
+        /// ＋ 全屏压暗层。**必须把 `_dragging` 收回**（`AbortDrag`），否则这一档过去之后松手照样结算。</para>
+        /// <para>② **冻结闸**（掉线 / 演出未收尾）—— 原版那道整帧闸也是直接 `return`，**`_dragging` 照旧留着**
+        /// （重连回来那一下松手会照常结算，判据 → `Frozen` 的注释）。</para>
+        /// <para>⚠️ 回放那一档**不在这里**：它只拦 `PickUp`（见 `ReplayDragBlocked`），
+        /// 否则「回放里轻点手牌看牌」会被一起关死（原版允许，判据在那个方法的 doc）。</para></summary>
+        bool BlockedThisFrame()
+        {
+            // ① 硬闸。⚠️ 排在冻结之前：两者同时成立时，宁可收回也不要留着（模态窗不会自己消失）。
+            if (BattleStateBlocked())
+            {
+                if (_dragging != null) AbortDrag("战斗状态闸（模态窗 / 选目标 / 打法选择器 / 终局）");
+                DiscardPress();
+                return true;
+            }
+            // ①′ 回放档：**只**处理「已经拖在手里」那一种（回放开始时手里还攥着一张牌）。
+            //     平时到不了这儿 —— `PickUp` 在回放里根本不放行（见 `ReplayDragBlocked`）。
+            if (ReplayDragBlocked() && _dragging != null)
+                AbortDrag("回放局（原版 `CardScript__OnTouchDrag.c:17-23` 的 0xA0 闸）");
+
+            // ② 冻结闸（原样；只把「丢候选」抽成 `DiscardPress`，语义一字未改）
             if (FrozenNow)
             {
                 // 🔴 2026-10-19（`C3` #11）：候选态**直接丢弃** —— 它没有任何可见状态（卡还在原位），
                 //   留着只会在解冻后拿一个过期的按下点去判阈值（甚至跨一次松手）。
-                //   ⚠️ 与 `_dragging` 那档**不同**：拖拽中的牌照旧留着（原版那道整帧闸也是直接 return）。
-                _pressPending = false;
-                _pressPendingCard = null;
-                _pressInside = false;   // 🆕 T16：候选态被丢弃 ⇒ 这一按的锁存也一起清
+                // ⚠️ 与 `_dragging` 那档**不同**：拖拽中的牌照旧留着（原版那道整帧闸也是直接 return）。
+                DiscardPress();
                 if (!_frozenWarned)
                 {
                     _frozenWarned = true;
@@ -403,20 +571,19 @@ namespace CardPresentation
                         + "② 上一条动作的演出还没演完 / 自己打出的牌还在 0.65 s 飞行里"
                         + "（等价原版 `WaitingForBlockingAction`）。—— 这一档结束会自动恢复。");
                 }
-                return;
+                return true;
             }
             _frozenWarned = false;
+            return false;
+        }
 
-            // ⚠️ 用**带野值防护**的那个（见 `PointerWorldSafe` 的注释）——
-            //    2026-10-15（`A2107`）起**落点判定与「推上线」守卫取的都是它** ⇒ 它野一帧，两处一起判错。
-            Vector3 world = PointerWorldSafe();
-
+        /// <summary>按下 / 松手 / 候选态推进（`Update` 与自检共用的**唯一**一份）。
+        /// <para>⚠️ 边沿由调用方给：生产读设备（`PressedThisFrame` / `ReleasedThisFrame`），
+        /// 自检直接喂（批处理里 `Mouse.current == null` ⇒ 设备那两支恒 false）。</para></summary>
+        void TickInput(Vector3 world, bool pressedNow, bool releasedNow)
+        {
             if (_dragging == null) UpdateHover(world);
             else UpdateDrag(world, Time.deltaTime);
-
-            // 松手/按下在 Update 里轮询（批处理下没有输入事件，轮询才验得了）
-            bool pressedNow = PressedThisFrame();
-            bool releasedNow = ReleasedThisFrame();
 
             if (pressedNow)
             {
@@ -429,7 +596,11 @@ namespace CardPresentation
                     //    `if (touchInput) return;` 整段不成立）⇒ **玩家看到的行为与原来逐位相同**。
                     //  · **开** ⇒ 只记候选（原版 `CardCollider.OnDrag` 也是**拖拽事件**里才
                     //    `StartMovingFromHand`，不是按下那一刻）—— 过两道阈值见 `TickPressCandidate`。
-                    if (TouchInputOn) BeginPressCandidate(hc, world);
+                    // 🔴 2026-10-25（`AUD8` #19）：**回放档** —— 只允许「轻点看牌」，
+                    //    用候选态承接（松手没位移 = `EndPressCandidate` → `OnTapped` → 卡面展示窗）；
+                    //    真拖过阈值那一步由 `TickPressCandidate` / `PickUp` 拒掉（原版 0xA0 闸）。
+                    if (ReplayDragBlocked()) BeginPressCandidate(hc, world);
+                    else if (TouchInputOn) BeginPressCandidate(hc, world);
                     else PickUp(hc, world);
                 }
             }
@@ -515,6 +686,19 @@ namespace CardPresentation
             if (_pressInside && !card.HitByCollider(world)) _pressInside = false;
             if (!HandDragPastThreshold(_pressWorld, world)) return;
 
+            // 🔴 2026-10-25（`AUD8` #19）：**回放档** —— 过了阈值也**不许抓**（原版 `OnTouchDrag` 的 0xA0 闸）。
+            //   丢掉候选态：这一按到此为止（松手不会再变成轻点 —— 玩家确实已经拖过了）。
+            //   ⛔ 不静默：出声一次（每一下一行，不刷屏）。
+            if (ReplayDragBlocked())
+            {
+                _pressPending = false;
+                _pressPendingCard = null;
+                _pressInside = false;
+                Debug.Log("[CardPresentation] 回放局里 **拖不起来**（原版 `CardScript__OnTouchDrag.c:17-23` "
+                        + "的 `matchType != 0xA0` 闸）⇒ 这一按作废；轻点看牌照常允许。");
+                return;
+            }
+
             _pressPending = false;
             _pressPendingCard = null;
             Debug.Log($"[CardPresentation] 起拖过阈值（视口位移² > {HandDragMinDeltaSq} 且与竖直向上夹角 ≤ {HandDragMaxAngleDeg}°）"
@@ -559,6 +743,10 @@ namespace CardPresentation
             //   ⚠️ `OnTouchDown`（按下）**没有**闸，但它对手牌（cardState 8）那一支直接 `return`
             //   ⇒ 「右键按着时按下没有反应」两版落到同一个结果。
             if (IsRightButtonOrTwoFingerTouch()) return;
+            // 🔴 2026-10-25（`AUD8` #19）：**回放档只禁拖**（原版 `CardScript__OnTouchDrag.c:17-23` 的 0xA0 闸）。
+            //   这里是**兜底**那一道（`SimulatePress` / 自检也走这里）——
+            //   生产那条路已经在 `TickInput` 改走候选态、并在 `TickPressCandidate` 里拒掉了。
+            if (ReplayDragBlocked()) return;
             // 🆕 2026-10-24（`J3`）：重排动画闸 —— 原版这 0.2 s 里手牌碰撞体全关 ⇒ 按了也抓不起来。
             //   （`PlayerHand._MoveCardsInHandToPosition_d__76__MoveNext.c` 状态 0 的 `Toggle(false)`；
             //     判据/取舍见 `_animGate` 那段。⛔ 与 `FrozenNow` 是**两件事**，别合并。）
@@ -773,6 +961,84 @@ namespace CardPresentation
             return c != null && !c.Data.isUnit;
         }
 
+        // ==================================================================
+        //  🔴 2026-10-25（`AUD8` #4）：**战术卡的目标侧** —— 落点不许跨侧
+        // ==================================================================
+        //  病根（真机可复现、静默）：原来 `DropReject` 对战术卡是「**先试敌方半场、再落回我方半场**」，
+        //   而引擎侧的目标侧**由卡面正文定、与指针压在哪块棋盘无关**：
+        //     `Core/EffectResolver.cs:1864`：`spec.Side == "enemy" ? 1 - p : p`，`targetSlot` 只是**格号**。
+        //   ⇒ 友方目标卡（`Give Shuriken 2 to a friendly unit` 一族）拖到**敌方**单位上，
+        //     只要我方同号格有一个合法友军 ⇒ 落点判「合法」⇒ 效果加在**自己人**身上，
+        //     指针下的敌人毫无反应；反向（敌方目标卡拖到自己人身上）同理。
+        //  判据（**唯一一份**，⛔ 不另写一套）：`RuleEngine.EffectText.PickSide(Parse(desc))`
+        //    —— 与 `Core/EffectResolver.cs:1843`（`CanPlayTactic` 的 `PickTarget(ops).Side`）同一个口。
+        //    ⚠️ 卡面数据在 `CardData` 里**只有已本地化的显示字段、没有 desc**
+        //      （`Core/CardView.cs:29` 的字段表）⇒ 按 `CardData.id`（= 引擎卡 id）回查 `CardDatabase`。
+        //  ⚠️ `"any"` 按**引擎的**口径当 `"own"`：`CanPlayTactic` 那一行对 `side != "enemy"` 一律取 `p`，
+        //    所以「任意侧」的卡引擎只会解我方棋盘 ⇒ 落点也必须在**我方**，否则又变成跨侧错打。
+
+        static Dictionary<string, string> _sideByCardId;
+        static readonly HashSet<string> _sideUnknown = new HashSet<string>();
+        static List<RuleEngine.CardDef> _pool;
+        static Dictionary<string, RuleEngine.CardDef> _poolById;
+
+        /// <summary>卡表（**一次**载入并缓存）。⚠️ `CardDatabase.Load()` 每次返回一份 1127 元素浅拷贝，
+        /// 拖拽时逐帧调会很贵。载不到（`Count == 0`）时**不缓存**，下一帧还能重试。</summary>
+        static List<RuleEngine.CardDef> Pool()
+        {
+            if (_pool != null && _pool.Count > 0) return _pool;
+            _pool = RuleEngine.CardDatabase.Load();
+            if (_pool.Count == 0) { _pool = null; _poolById = null; return null; }
+            _poolById = RuleEngine.CardDatabase.IdIndex(_pool);
+            return _pool;
+        }
+
+        /// <summary>视图 → 引擎卡表项。
+        /// 🔴 **别拿 `CardData.id` 当引擎 id**：它是**英文卡名**（`BattleDriver.ToCardData` 的 `id = c.Name`，
+        /// 那一行的注释写着「它兼着显示名/配对的活」）。引擎 id 在 **`CardData.artId`**
+        /// （= `BattleDriver.ArtKey(c)` = `FromOriginalPool ? c.Id : c.Name`）。
+        /// ⇒ 两级：① 按 `artId` 直取（池内 1127 张全部命中）；② 退回按**英文卡名**（自造卡 / 夹具）。</summary>
+        static RuleEngine.CardDef DefOf(CardView c)
+        {
+            if (c == null) return null;
+            var pool = Pool();
+            if (pool == null) return null;
+            string id = c.Data.artId;
+            if (_poolById != null && !string.IsNullOrEmpty(id))
+            {
+                RuleEngine.CardDef hit;
+                if (_poolById.TryGetValue(id, out hit)) return hit;
+            }
+            var byName = RuleEngine.CardDatabase.Find(pool, c.Data.id, c.Data.faction);
+            return byName ?? RuleEngine.CardDatabase.Find(pool, c.Data.id);
+        }
+
+        /// <summary>这张战术卡**要打哪一侧**：`"enemy"` / `"own"`（含 `"any"`，见上）/ `""` = 不需要目标。
+        /// <para>⚠️ 判不出（卡表查不到 / 卡 id 空）⇒ 回 `""` = **旧口径**（两块棋盘都试）并出声一次。
+        /// ⛔ 不猜一个侧出来 —— 猜错就是静默打错目标。</para></summary>
+        static string TacticTargetSide(CardView c)
+        {
+            if (c == null || c.Data.isUnit) return "";
+            string key = (c.Data.artId ?? "") + "\u0001" + (c.Data.id ?? "") + "\u0001" + (c.Data.faction ?? "");
+            if (_sideByCardId == null) _sideByCardId = new Dictionary<string, string>(StringComparer.Ordinal);
+            string cached;
+            if (_sideByCardId.TryGetValue(key, out cached)) return cached;
+
+            var def = DefOf(c);
+            if (def == null)
+            {
+                if (_sideUnknown.Add(key))
+                    Debug.LogWarning("[CardPresentation] 卡表里查不到「" + (c.Data.id ?? "?") + "」（artId "
+                                   + (c.Data.artId ?? "?") + "）⇒ 目标侧判不出，落点退回旧口径"
+                                   + "（两块棋盘都试）。⚠️ 这一档仍然可能跨侧错打。");
+                return "";
+            }
+            string side = RuleEngine.EffectText.PickSide(
+                RuleEngine.EffectText.Parse(def.Desc, out _, out _, card: def)) ?? "";
+            _sideByCardId[key] = side;
+            return side;
+        }
+
         /// <summary>
         /// 指针现在指着的落点合不合法 —— **判据正本**，四道闸按顺序问，返回**被拒的原因**
         /// （`null` = 合法，`slot` / `which` 有效）。
@@ -817,21 +1083,66 @@ namespace CardPresentation
             return DropReject(pos, card, out slot, out which, out k);
         }
 
+        /// <summary>🆕 **2026-10-25（`X19/P2`）**：最近一次 `DropReject` 判出来的**词条键覆盖**
+        /// （null = 本层不知道原因，交给驱动层按引擎码取）。
+        /// <para>只有一档需要它：**指针压在错的那一侧棋盘上** —— 原版那一支是 `IsValidSpellTarget`
+        /// 失败 ⇒ `NotifyCantDoAction(Battle/Tips/DragToTarget)`（`BattleManager__Update.c:660-673`），
+        /// 这一档**不是**引擎那四个码能解释的。⛔ 别在这里加别的键（引擎拒一律由驱动层取）。</para></summary>
+        string _lastRejectTip;
+
         string DropReject(Vector3 pos, CardView card, out int slot, out BoardLayout which,
                           out DropRejectKind kind)
         {
             slot = -1;
             which = board;
             kind = DropRejectKind.Ok;
+            _lastRejectTip = null;          // 每问一次先清（拒因覆盖只对最新这一问有效）
             if (card == null) { kind = DropRejectKind.NoCard; return "没有正在拖的卡"; }
             bool tactic = IsTactic(card);
             int s;
 
-            // 战术卡先试**敌方半场**（打敌方目标的那一类）
-            if (tactic && foeBoard != null && foeBoard.TryResolveSlot(pos, out s)
-                && CanDropAtSlot(s, card))
+            // 🔴 2026-10-25（`AUD8` #4）：**战术卡只认它自己那一侧棋盘**（判据/病根见 `TacticTargetSide`）。
+            if (tactic)
             {
-                slot = s; which = foeBoard; return null;
+                string want = TacticTargetSide(card);
+                if (want.Length > 0)
+                {
+                    bool wantEnemy = want == "enemy";          // `"any"` 归我方（= 引擎 `CanPlayTactic` 的口径）
+                    BoardLayout wantBoard = wantEnemy ? foeBoard : board;
+                    BoardLayout otherBoard = wantEnemy ? board : foeBoard;
+                    int sWant = -1;
+                    bool hitWant = wantBoard != null && wantBoard.TryResolveSlot(pos, out sWant);
+                    // ⚠️ 另一块棋盘只用来**区分「拖到了错的一侧」与「拖到空白处」**（前者原版会出声），
+                    //    它的格号**不参与任何落点判定**。
+                    bool hitOther = otherBoard != null && otherBoard.TryResolveSlot(pos, out _);
+
+                    if (hitWant && CanDropAtSlot(sWant, card))
+                    { slot = sWant; which = wantBoard; return null; }
+
+                    // ⛔ **不再回落到另一块棋盘**——那正是「指针下的敌人没反应、效果加到自己人身上」的错源。
+                    if (hitWant)
+                    {
+                        kind = DropRejectKind.EngineRefused;
+                        return $"目标侧（{want}）这一格打不了（槽 {sWant}）";
+                    }
+                    if (hitOther)
+                    {
+                        // 原版这一档 = `IsValidSpellTarget` 失败 ⇒ `NotifyCantDoAction(DragToTarget)`
+                        // （语音+文字，`dc/BattleManager__Update.c:660-673`）⇒ 算**非法操作**，不是正常取消。
+                        kind = DropRejectKind.EngineRefused;
+                        // 🆕 `X19/P2`：这一档**引擎码解释不了**（引擎根本没被问到）⇒ 由本层把词条交出去。
+                        _lastRejectTip = BattleDriver.DragToTargetTerm;
+                        return $"指针压在**不是目标侧**（卡面要 {want}）的棋盘上 —— ⛔ 不回落";
+                    }
+                    kind = DropRejectKind.MissedSlot;
+                    return $"命中不了格位（卡在 {pos.x:F2},{pos.y:F2},{pos.z:F2}）";
+                }
+                // `want == ""` = 这张战术卡**不需要目标**（`Refill 2 Energy` 一族）⇒ 引擎不看格位，
+                // 两块棋盘任一处都能放（保持原样，先试敌方——历史上就是这一条）。
+                if (foeBoard != null && foeBoard.TryResolveSlot(pos, out s) && CanDropAtSlot(s, card))
+                {
+                    slot = s; which = foeBoard; return null;
+                }
             }
 
             if (board == null) { kind = DropRejectKind.NoBoard; return "没有棋盘"; }
@@ -1005,10 +1316,12 @@ namespace CardPresentation
                 //      判据就是上面这几条（原版没有回弹专用补间）；全仓已**没有**该常量的定义/调用
                 //      （剩下的只是本段这条留痕注释）。
                 card.SetHighlight(CardHighlightState.Normal);
-                if (OnReturned != null) OnReturned(card);
+                if (OnReturned != null) OnReturned(card, kind);
                 // 🔴 **「非法操作」与「正常取消」在这里分开** ——
                 //    拖回手牌/拖到空白处（`MissedSlot`）**不播** cantdo，只有落在格位上却被拒才播。
-                if (IsIllegalAction(kind) && OnIllegalAction != null) OnIllegalAction(card);
+                // 🆕 2026-10-25（`X19/P2`）：把**本层判得出来的那条词条**一并交出去
+                //   （`_lastRejectTip`；null = 引擎拒 ⇒ 由驱动层按引擎码取四档之一）。
+                if (IsIllegalAction(kind) && OnIllegalAction != null) OnIllegalAction(card, _lastRejectTip);
                 Debug.Log($"[CardPresentation] 落点不合法（{reject}）[{kind}]，{card.name} 回弹到手牌第 "
                         + $"{Mathf.Max(0, _cards.IndexOf(card))} 位（走**手牌重排**那条补间，见上面那段判据）");
             }
@@ -1250,6 +1563,35 @@ namespace CardPresentation
         public void SimulatePress(Vector3 world) { var h = HoveredCard; if (h != null && _dragging == null) PickUp(h, world); }
         public void SimulateDrag(Vector3 world, float dt) { if (_dragging != null) UpdateDrag(world, dt); }
         public void SimulateRelease(Vector3 world) { if (_dragging != null) Release(world); }
+
+        // ---- 🔴 2026-10-25（`AUD8` #19）：**走 `Update` 那两道闸**的自检口 ----
+        //  ⚠️ 上面那四个 `Simulate*` 是**老口**：它们直接调 `PickUp` / `UpdateDrag` / `Release`，
+        //     从不经过 `Update` 的「按下/松手边沿」与**闸**（批处理里没有输入设备，只能这样驱动）。
+        //     ⇒ 要验「模态窗开着能不能拖」，必须用下面这个口（判据与生产**同一份** `BlockedThisFrame`）。
+
+        /// <summary>自检：推一帧（**过 `Update` 那两道闸**，边沿由调用方喂）。
+        /// 返回 true = 这一帧被闸挡下（`Update` 里那一句 `return`）。
+        /// <para>⚠️ **不要求 `cam`**：本口直接喂**世界坐标**（`HitTest` / `DropReject` 都是世界空间的），
+        /// 而 `Update` 那边要 `cam` 只是为了从屏幕点取指针。自检夹具因此不必造相机。</para></summary>
+        public bool SimulateTickForTest(Vector3 world, bool pressedNow, bool releasedNow)
+        {
+            if (hand == null || board == null || _cards.Count == 0) return false;
+            if (BlockedThisFrame()) return true;
+            TickInput(world, pressedNow, releasedNow);
+            return false;
+        }
+
+        /// <summary>自检：这张战术卡要打哪一侧（`"enemy"` / `"own"` / `""`）—— 生产判据本体。</summary>
+        public static string TacticTargetSideForTest(CardView card) { return TacticTargetSide(card); }
+
+        /// <summary>自检：落点判定的**逐道闸**读数（生产判据本体 `DropReject`，⛔ 断言里别另算一遍）。
+        /// 返回 <see cref="DropRejectKind"/> 的枚举值；`why == null` = 合法。</summary>
+        public int DropRejectKindForTest(Vector3 pos, CardView card, out int slot, out BoardLayout which, out string why)
+        {
+            DropRejectKind k;
+            why = DropReject(pos, card, out slot, out which, out k);
+            return (int)k;
+        }
 
         // ---- 🆕 2026-10-19（`C3` #11）：`TouchInputOn` 那条**候选态**的自检口（走生产同一批方法）----
         //  ⛔ 不是另写一份状态机：下面三个都直接调 `Update` 里那三句（`Begin/Tick/EndPressCandidate`）。

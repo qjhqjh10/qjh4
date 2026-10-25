@@ -450,7 +450,12 @@ namespace RuleEngine
             /// <para>🔴 **每张卡都落**（没有行 = `[]`）；缺列（v25 及更早）= **未知**
             /// （⛔ 不是「原版说没有触发条件」）。
             /// ✅ 消费端 = <see cref="CardDef.AbilityLevelCriteriaForTrigger"/>（**唯一入口**）→
-            /// `ActionPump.EnqueueAbility` 的触发前闸。</para></summary>
+            /// `ActionPump.EnqueueAbility` 的触发前闸。
+            /// 🆕 **v29（2026-10-25 · 执行代理 `X6` · 口径乙）**：每行多带一格 **`ca`（能力种类族名）**
+            /// —— `ab` 定位不唯一（23 张卡 `trigger 0` 有两条 ability）时，消费端按家族把行认回来。
+            /// 三档取值 → <see cref="CardDatabase.TargetCriteriaRowDto.ca"/> 的 doc；
+            /// 消费端 = <see cref="CardDef.AbilityLevelCriteriaForFamily"/> →
+            /// `RuleCore.AbilityFamilyTargetAllows` → `EffectResolver` 出牌正文的逐 op 闸。</para></summary>
             public TargetCriteriaRowDto[] abilityLevelCriteria;
 
             /// <summary>🆕 v27（2026-10-25 · 执行代理 `E3` · `E2` 报告 §六）：**ability 级
@@ -689,6 +694,16 @@ namespace RuleEngine
             public int trigger = -1;
             /// <summary>`abilityLogic` 下标（`>= 0`）；`-1` = 缺键/坏行。</summary>
             public int lg = -1;
+            /// <summary>🆕 v29（2026-10-25 · 执行代理 `X6` · 口径乙）：该行所属 ability 的
+            /// **能力种类族名**（原版 `cardAbilities[ab].abilityLogic[*].chosenAbility` 的家族，
+            /// 表 = <see cref="CardDef.ActiveAbilityKindFamilyNames"/>）。
+            ///
+            /// <para>🔴 **三档，⛔ 别合并**（判据 → `<see cref="CardDef.TargetCriteriaRowSpec.Family"/>`）：
+            /// `null` = **JSON 里没有这个键**（坏行/旧生成器 ⇒ 出声）；`""` = **家族判不了**
+            /// （同一 ability 混了两种家族 / 一条 logic 都没有）；其余 = 族名（可判）。</para>
+            /// <para>⚠️ 目前**只有 `abilityLevelCriteria` 这一列**生成器会写它（那条闸需要按家族
+            /// 把行认回来 —— 23 张卡 `trigger 0` ability 定位不唯一）。别的列留 `null` = 没落。</para></summary>
+            public string ca;
             /// <summary>这一行的 36 格（原版 `TargetCriteria`，除 `conditionsFilter`/`excludeCondition`）。
             /// `null` = 缺键/坏行。逐字段语义 → <see cref="CardDef.CountSetSpec"/> 的 doc
             /// （⚠️ 那一份是**被数集合**用途；字段同源，语义解释按 `TargetCriteria` 走）。</summary>
@@ -1289,6 +1304,18 @@ namespace RuleEngine
                                + "（⛔ 不是「原版说没有这一格条件」）。消费端 `CardDef.ActiveAbilityPickCriteriaFor`"
                                + " 在未知时**出声并放行**（不筛 = 改前行为）。跑一下 gen_cards_engine.py 重生成。");
 
+            // 🆕 v29（2026-10-25 · 执行代理 `X6` · 口径乙）：**`abilityLevelCriteria` 每行的 `ca`**
+            //   （该 ability 的 `chosenAbility` 家族）—— 23 张卡 `trigger 0` ability 定位不唯一时，
+            //   消费端按家族把行认回来。
+            //   缺列（v28 及更早）⇒ 每行的 `ca` 是 `null` = **未知** ⇒ 消费端**出声 + 放行**。
+            //   ⛔ 旧表**不许**被读成「这张卡没有这一格条件」（那是另一种静默放行）。
+            if (dto.version < 29)
+                Debug.LogWarning($"[RuleEngine] 卡表 version={dto.version} < 29 —— `abilityLevelCriteria` 各行"
+                               + "**没有 `ca`（能力种类族名）** ⇒ 按家族认行的那道闸**判不了**。"
+                               + "消费端 `CardDef.AbilityLevelCriteriaForFamily` / `RuleCore.AbilityFamilyTargetAllows`"
+                               + " 会在未知时**出声 + 放行**（不筛 = 改前行为；⛔ 不是「原版说没有这一格条件」）。"
+                               + "跑一下 gen_cards_engine.py 重生成。");
+
             int noId = 0;
 
             // 🆕 2026-10-22（卡牌线 `T04`）：`useOverDraw` 一列的**缺列兜底** —— v9 才有这一列，
@@ -1459,6 +1486,9 @@ namespace RuleEngine
                     //    （旧表整列没有 ⇒ 上面的 `< 26` 守卫已经出过声）。
                     abilityLevelCriteria: MapAbilityLevelCriteria(c),
                     abilityLevelCriteriaVersioned: dto.version >= 26,
+                    // 🆕 v29（`X6` · 口径乙）：`abilityLevelCriteria` 各行带 `ca`（能力种类族名）。
+                    //   缺列（< 29）⇒ `CardDef.AbilityLevelCriteriaForFamily` 一律「判不了」⇒ 出声 + 放行。
+                    abilityLevelCriteriaFamilyVersioned: dto.version >= 29,
                     // 🆕 v27（2026-10-25 · 执行代理 `E3` · `E2` 报告 §六）：**ability 级**
                     //    `actingCardCriteria`（原版 `CardAbility.actingCardCriteria` `+0x28`）的其余 36 格
                     //    —— **第一道闸**（排在 `targetCriteria` 那道之前，原版短路次序）。
@@ -2601,11 +2631,25 @@ namespace RuleEngine
                 var cs = MapCountSetDto(c, r.criteria, $"`{col}` 行 (ab={r.ab}, lg=-1)",
                                         noPlayerTurn: true);
                 if (cs == null) continue;                    // 里面已经出过声
+                // 🆕 v29（`X6` · 口径乙）：`ca` 的**缺键**要出声、但**不能丢行**
+                //   （丢行 = 这一格回到「没有条件」= 静默放行 + 少一条闸；留着并标 `""` 才是
+                //    「判不了 ⇒ 出声 + 放行」，两者方向相同但后者**留得住痕迹**）。
+                //   `""` 是**合法值**（家族判不了），所以缺键哨兵只能用 `null`（DTO 字段初值）。
+                string fam = r.ca;
+                if (fam == null)
+                {
+                    Debug.LogError($"[RuleEngine] 卡「{c.name}」（{c.id}）的 `{col}` 有一行 "
+                                 + $"(ab={r.ab}) **缺 `ca` 键** —— 按「家族判不了」处置（空串）："
+                                 + "消费端会**出声 + 放行**，⛔ 不会静默当成「没有条件」。"
+                                 + "重跑 工具/gen_cards_engine.py（卡表 v29 起每行都带 `ca`）。");
+                    fam = "";
+                }
                 list.Add(new CardDef.TargetCriteriaRowSpec
                 {
                     Ability = r.ab,
                     Trigger = r.trigger,
                     Logic = -1,
+                    Family = fam,
                     Criteria = cs,
                 });
             }
@@ -2753,6 +2797,8 @@ namespace RuleEngine
         {
             int aatCards = 0, aatRows = 0, atcCards = 0, atcRows = 0;
             int alcCards = 0, alcRows = 0;   // 🆕 v26：ability 级那一列（`CardAbility.targetCriteria`）
+            // 🆕 v29（`X6` · 口径乙）：`abilityLevelCriteria` 每行 `ca`（能力种类族名）的三档读数。
+            int alcCaKnown = 0, alcCaUnknown = 0, alcCaMissing = 0;
             int aacCards = 0, aacRows = 0;   // 🆕 v27：第一道闸那一列（`CardAbility.actingCardCriteria`）
             int aapCards = 0, aapRows = 0;   // 🆕 v28：主动能力目标闸（`ActiveAbility.targetCriteria`）
             int badAb = 0, badLg = 0, nullCriteria = 0, unbound = 0;
@@ -2804,6 +2850,11 @@ namespace RuleEngine
                         else if (r.criteria.targetsAffected == UnitConditionDto.MissingIndex
                               || r.criteria.playerTurn == UnitConditionDto.MissingIndex)
                         { unbound++; if (firstBad == null) firstBad = $"{c.id} criteria 未绑定"; }
+                        // 🆕 v29（`X6`）：`ca` 的三档读数。`null` = 缺键（`MapAbilityLevelCriteria`
+                        //   已出声并按 `""` 处置）· `""` = 家族判不了（合法值，出声 + 放行那条路）。
+                        if (r.ca == null) alcCaMissing++;
+                        else if (r.ca.Length == 0) alcCaUnknown++;
+                        else alcCaKnown++;
                     }
                 }
                 // 🆕 v27（执行代理 `E3`）：第一道闸那一列 —— `lg` 必须恒 `-1`。
@@ -2850,6 +2901,12 @@ namespace RuleEngine
                         ? $" ｜ ability 级 `targetCriteria`（`CardAbility.targetCriteria` `+0x30`）："
                         + $"`abilityLevelCriteria` {alcCards} 张 / {alcRows} 行（消费端 = "
                         + "`CardDef.AbilityLevelCriteriaForTrigger` → `ActionPump.EnqueueAbility` 的触发前闸）"
+                        + (dto.version >= 29
+                            ? $" ｜ 其中 `ca`（能力种类族名）：可判 {alcCaKnown} 行 · "
+                            + $"判不了（空串）{alcCaUnknown} 行 · 缺键 {alcCaMissing} 行"
+                            + "（消费端 = `CardDef.AbilityLevelCriteriaForFamily` → "
+                            + "`RuleCore.AbilityFamilyTargetAllows` → 出牌正文逐 op 闸）"
+                            : " ｜ `ca` 那一格：**这份表还没有**（v&lt;29 ⇒ 按家族认行一律判不了）")
                         : " ｜ ability 级那一列：**这份表还没有**（v&lt;26）")
                     + (dto.version >= 27
                         ? $" ｜ ability 级 `actingCardCriteria`（`CardAbility.actingCardCriteria` `+0x28`）："

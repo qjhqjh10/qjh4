@@ -2267,6 +2267,15 @@ namespace CardPresentation
             }
             CardProgress.SetLevel(Card.Id, before + 1);
             int after = CardProgress.Level(Card.Id);
+            // 🆕 **2026-10-25（执行代理 `X2`）**：**升级卡成就计数**（27 条：`Ach_23` 任意档 +
+            //   各阵营的 Tier2 / Tier3 那 26 条）。判据与施工单 =
+            //   `资料/待办判据_成就计数器_1025b.md` §B-3 #4。
+            //   · 挂点 = **成功点**（`SetLevel` 之后）—— 「副本不够 / 已满级」那两条早退**不记**；
+            //   · 判定（`tier + 1 == levelAfter` / 阵营分流 / 按 `Ach_N` 写）**全在
+            //     `ProfileData.ApplyAchievementUpgrade`** 一处，⛔ 别在这里另写一份；
+            //   · 原版 `checkAlreadyUpgraded=1` 的真实口径是「同一张卡只算第一次」，
+            //     我们的 `Level` 单调 ⇒ 每次成功 +1（**已知偏离，判据 §F7**，如实标着）。
+            ProfileData.ApplyAchievementUpgrade(Card.Faction, after);
             // 🆕 2026-10-18（用户要求「升级要有可见反馈」）：这一行是落点 —— 重画之后卡框会换成新档。
             //   日志格式按用户 2026-10-18 指定：`[CardDetail] <卡名> 等级 → Lv{N}（卡框档 = tierK）`。
             Debug.Log("[CardDetail] " + (Card != null ? Card.Name : "?") + " 等级 → Lv" + after

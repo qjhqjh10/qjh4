@@ -84,11 +84,15 @@ public static partial class RuleEngineTest
         // 🔴 2026-10-25（执行代理 `E4` · 铁律 5 就地订正）：同会话的 `E4` 又加了第五列
         //   **`activeAbilityPickCriteria`（v28，`ActiveAbility.targetCriteria` `+0x38`）** ⇒ 表已 bump 到
         //   **28**。归因 → `资料/普查产出_1025/E4_trigger目标与activeAbility目标池.md`。
-        Check(dto.version, 28,
-              "★ A1 卡表 `version` = **28**（v28 = `activeAbilityPickCriteria` 一列：`ActiveAbility` "
-            + "对象级 `targetCriteria` 36 格；v27 `abilityActingCriteria` / v26 / v25 各列照旧；"
+        // 🔴 2026-10-25（执行代理 `X6` · 铁律 5 就地订正）：同会话的 `X6` 又给
+        //   **`abilityLevelCriteria` 每行加了 `ca`（能力种类族名）** ⇒ 表已 bump 到 **29**。
+        //   归因 → `资料/普查产出_1025/X6_口径乙ca列_执行报告.md`。
+        Check(dto.version, 29,
+              "★ A1 卡表 `version` = **29**（v29 = `abilityLevelCriteria` 各行的 `ca` 一格：该 ability 的 "
+            + "`chosenAbility` 家族；v28 `activeAbilityPickCriteria` / v27 `abilityActingCriteria` / "
+            + "v26 / v25 各列照旧；"
             + "⛔ 不 bump 的话新列会被旧守卫静默读成 `null`）"
-            + "｜🧨 生成器 return 里改回 27（或忘了 bump）⇒ 红");
+            + "｜🧨 生成器 return 里改回 28（或忘了 bump）⇒ 红");
 
         // ---- A2 · 两列「每张卡都落」：`null` 与空数组必须分得开 ----
         int aatNull = 0, atcNull = 0;

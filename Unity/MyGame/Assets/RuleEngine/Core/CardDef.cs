@@ -877,7 +877,13 @@ namespace RuleEngine
                        //   `ActiveAbility.targetCriteria`（**对象级**、只有 `ab = -1/-2`，⛔ 没有 `lg`）。
                        //   ⚠️ **追加在参数表末尾**（同前几条：全仓有位置传参的老调用点）。
                        IEnumerable<TargetCriteriaRowSpec> activeAbilityPickCriteria = null,
-                       bool activeAbilityPickCriteriaVersioned = false)
+                       bool activeAbilityPickCriteriaVersioned = false,
+                       // 🆕 v29（2026-10-25 · 执行代理 `X6` · 口径乙）：`abilityLevelCriteria` 每行的
+                       //   **`ca`（能力种类族名）** 这一格**来自 v29 卡表**的正面信号。
+                       //   ⚠️ 与 `abilityLevelCriteriaVersioned` **不是一个版本位**：那一列 v26 就有、
+                       //   这一格 v29 才有 ⇒ 两张表都可能「有行但没 `ca`」，⛔ 别合并
+                       //   （合并会让旧表被读成「家族判不了」而其实连行都没有）。
+                       bool abilityLevelCriteriaFamilyVersioned = false)
         {
             Id = id; Name = name; Type = type ?? ""; Desc = desc ?? ""; Rarity = rarity; Faction = faction;
             NameZh = nameZh ?? ""; DescZh = descZh ?? "";
@@ -1103,6 +1109,7 @@ namespace RuleEngine
             //   那会把 `ab` 与 `(ab, lg=-1)` 混进同一个 `long` 键空间，与 `unitConditions` 的
             //   `lg = -1` 行也共用一个键 —— 两层对象虽然同名字段，是**不同对象**）。
             AbilityLevelCriteriaVersioned = abilityLevelCriteriaVersioned;
+            AbilityLevelCriteriaFamilyVersioned = abilityLevelCriteriaFamilyVersioned;
             if (abilityLevelCriteria != null)
                 foreach (var _tc in abilityLevelCriteria)
                 {
@@ -1117,6 +1124,10 @@ namespace RuleEngine
                         continue;
                     }
                     _abilityLevelCriteria[_tc.Ability] = _tc.Criteria;
+                    // 🆕 v29（`X6`）：`ca` 与 `trigger` 另开两张小表（⛔ 别塞进 `_abilityLevelCriteria`
+                    //   的值类型 —— 那会让 8 处既有读点全部改签名）。
+                    _abilityLevelRowFamily[_tc.Ability] = _tc.Family;      // null = 这一格没落
+                    _abilityLevelRowTrigger[_tc.Ability] = _tc.Trigger;
                 }
             // 🆕 v27（2026-10-25 · 执行代理 `E3` · `E2` 报告 §六）：**ability 级 `actingCardCriteria`
             //   的 36 格** —— 原样收下（行级形状校验在 `CardDatabase.MapAbilityActingCriteria` 那一层
@@ -2398,6 +2409,16 @@ namespace RuleEngine
             public int Trigger = -1;
             /// <summary>`abilityLogic` 下标（`>= 0`；`-1` = 坏行）。</summary>
             public int Logic = -1;
+            /// <summary>🆕 v29（2026-10-25 · 执行代理 `X6` · 口径乙）：该行所属 ability 的
+            /// **能力种类族名**（`cardAbilities[Ability].abilityLogic[*].chosenAbility` 的家族；
+            /// 表 = <see cref="ActiveAbilityKindFamilyNames"/>）。
+            ///
+            /// <para>🔴 三档，⛔ 别合并：`null` = **这一格没落**（旧表 &lt; v29 / 别的列）·
+            /// `""` = **家族判不了**（同一 ability 里混了两种家族 / 一条 logic 都没有；这是
+            /// **合法值**）· 其余 = 族名（可判）。</para>
+            /// <para>⚠️ 目前只有 `abilityLevelCriteria`（`CardDatabase.MapAbilityLevelCriteria`）会写它。
+            /// 消费端 = <see cref="AbilityLevelCriteriaForFamily"/>。</para></summary>
+            public string Family;
             /// <summary>这一行的 36 格（原版 `TargetCriteria`，除 `cond`/`ex`）。`null` = 坏行。</summary>
             public CountSetSpec Criteria;
         }
@@ -2506,6 +2527,15 @@ namespace RuleEngine
         //    语义 = **主动能力的目标池闸**，不是 `CanTriggerAbility` 那道闸 ⇒ 另账。
 
         readonly Dictionary<int, CountSetSpec> _abilityLevelCriteria = new Dictionary<int, CountSetSpec>();
+        // 🆕 v29（`X6` · 口径乙）：同一批行的 `ca`（能力种类族名）与 `trigger` —— 只服务
+        //   `AbilityLevelCriteriaForFamily`（按家族认行），⛔ 别在别处读它们（别的读点要的是 36 格本体）。
+        readonly Dictionary<int, string> _abilityLevelRowFamily = new Dictionary<int, string>();
+        readonly Dictionary<int, int> _abilityLevelRowTrigger = new Dictionary<int, int>();
+
+        /// <summary>🆕 v29：`abilityLevelCriteria` 各行的 **`ca`（能力种类族名）** 这一格**来自 v29 卡表**
+        /// 的正面信号。`false` = 旧表 / 没接这一格 ⇒ <see cref="AbilityLevelCriteriaForFamily"/> 一律
+        /// 「判不了」（出声 + 放行，⛔ 不是「没有条件」）。</summary>
+        public bool AbilityLevelCriteriaFamilyVersioned { get; private set; }
 
         /// <summary>🆕 v26：`abilityLevelCriteria` 列**来自 v26 卡表**的正面信号。
         /// `false` = 旧表（&lt; 26）/ 解析路径没接这一列 ⇒ 访问器一律返回 `null`（未知）。</summary>
@@ -2623,6 +2653,148 @@ namespace RuleEngine
             }
             why = null;
             return set;
+        }
+
+        // =====================================================================================
+        //  🆕 v29（2026-10-25 · 执行代理 `X6` · **口径乙**）：
+        //  **按能力种类族名认 `abilityLevelCriteria` 的行**（`UniqueAbilityIndexForTrigger` 认不出来时）
+        // =====================================================================================
+        //  为什么需要它（判据 → `资料/待办判据_引擎_1025b.md` §一 / `J5` §二 F4）：
+        //    23 张卡的 `trigger 0` 有**两条** ability（实测 `abilityTargets = [{trigger:0}, {trigger:0}]`）
+        //    ⇒ `UniqueAbilityIndexForTrigger` 只能回「不唯一」⇒ 那 **32 行 criteria 一格都没被消费**。
+        //    原版**不选**：它逐条 ability 各判各结算（`RawCardScript__TriggerAbilities.c:207/231`，
+        //    循环体两支都 `iVar7++` 继续）⇒ 我们的近似只能二选一：
+        //      · **甲** = 多 ability 取 OR ⇒ 对这 19 张**恒真空转**（它们的 criteria 行全在 `ab>=1`、
+        //        `ab0` 无行 ⇒ OR 恒真）—— **被主对话否掉**；
+        //      · **乙** = 按 `chosenAbility` 的**家族**把行认回来（本函数）—— 更接近，且真会筛。
+        //  三档（与 <see cref="AbilityLevelCriteriaForTrigger(string, out string, out bool)"/> **同一套契约**，
+        //    ⛔ 别合并实现）：
+        //    · `set != null` ⇒ 要筛；
+        //    · `set == null` 且 `why == null` ⇒ **明确没有这一族的条件**（放行，不出声）；
+        //    · `set == null` 且 `why != null` ⇒ **判不了**（旧表 / 这一族 ≥2 行 / 有行家族为空 /
+        //      调用点没给族名）⇒ 调用点**出声 + 放行**（⛔ 不许当「不满足」）。
+        //  ⚠️ 「同一族 ≥2 行」与「某行家族为空」都归**判不了**：实测正好是
+        //    `ASH30`（两行都 damage）· `DA33`（`ab1` 混 damage+resource）· `GSC46`（两行都 damage）·
+        //    `SOR31`（两行都 resource）这 4 张 —— 与判据文档的「19 可判 / 4 判不了」逐张一致。
+
+        /// <summary>🆕 v29：**本类唯一的「按能力种类族名认 ability 级 criteria 行」读取口**。
+        /// 三态语义 → 上面那一段注释。与 <see cref="AbilityLevelCriteriaForTrigger(string, out string, out bool)"/>
+        /// 同一套契约，⛔ 调用点别再自己判一次。
+        /// <para><paramref name="ability"/> = 认出来的那条 `cardAbilities` 下标（`set != null` 时 `>= 0`；
+        /// 否则 `-1`）—— 调用点用它可以再取同一 `ab` 的 `role="target"` 条件行（那 8 格）。</para>
+        /// <para>⚠️ 行只按 **trigger 名**（`triggerName`）+ **族名** 认；`trigger == -1`（真值里 trigger
+        /// 是坏值）的行**也参与**（⛔ 不因为可读性那一格坏了就少一道闸）。</para></summary>
+        public CountSetSpec AbilityLevelCriteriaForFamily(string triggerName, string family,
+                                                          out string why, out bool ambiguous,
+                                                          out int ability)
+        {
+            why = null;
+            ambiguous = false;
+            ability = -1;
+            if (!AbilityLevelCriteriaVersioned)
+            {
+                why = "`abilityLevelCriteria` 列没落（旧表 < v26）⇒ **未知**（⛔ 不是「没有条件」）";
+                return null;
+            }
+            if (!AbilityLevelCriteriaFamilyVersioned)
+            {
+                why = "`abilityLevelCriteria` 的 `ca`（能力种类族名）**没落**（旧表 < v29）"
+                    + " ⇒ 按家族认行**判不了**（⛔ 不是「没有条件」）";
+                return null;
+            }
+            if (string.IsNullOrEmpty(family))
+            {
+                why = "调用点没给能力种类族名（这一条 op 的动词对不上任何一族）⇒ 按家族认行**判不了**";
+                return null;
+            }
+            int n = AbilityTriggerNumber(triggerName);
+            if (n < 0)
+            {
+                why = $"认不出 trigger 名「{triggerName}」（不在 AbilityTrigger 枚举表里）";
+                return null;
+            }
+            var abs = new List<int>(_abilityLevelCriteria.Keys);
+            abs.Sort();                                       // 输出确定（自检/日志可复现）
+            int hit = -1, count = 0, unknown = 0;
+            for (int i = 0; i < abs.Count; i++)
+            {
+                int ab = abs[i];
+                int tg;
+                if (_abilityLevelRowTrigger.TryGetValue(ab, out tg) && tg != -1 && tg != n) continue;
+                string fam;
+                if (!_abilityLevelRowFamily.TryGetValue(ab, out fam) || string.IsNullOrEmpty(fam))
+                {
+                    // `null` / `""` 都是「这一行的家族判不了」⇒ 整张卡按家族认行**都不安全**
+                    // （那一行可能正是这次要找的那条 ability 的行）。实测 = 4 张的成因之一。
+                    unknown++;
+                    continue;
+                }
+                if (!string.Equals(fam, family, System.StringComparison.Ordinal)) continue;
+                count++;
+                if (hit < 0) hit = ab;
+            }
+            if (unknown > 0)
+            {
+                ambiguous = true;
+                why = $"这张卡有 **{unknown} 行** `abilityLevelCriteria` 的家族判不了（`ca` 为空）"
+                    + " ⇒ 按家族认行**不唯一**（⛔ 不猜）";
+                return null;
+            }
+            if (count == 0)
+            {
+                why = null;                                   // 明确「这一族没有触发条件」
+                return null;
+            }
+            if (count > 1)
+            {
+                ambiguous = true;
+                why = $"同一族（`{family}`）有 **{count} 行** `abilityLevelCriteria` ⇒ 按家族认行**不唯一**（⛔ 不猜）";
+                return null;
+            }
+            ability = hit;
+            CountSetSpec s;
+            return _abilityLevelCriteria.TryGetValue(hit, out s) ? s : null;
+        }
+
+        /// <summary>🆕 v29：第 <paramref name="ability"/> 行 `abilityLevelCriteria` 的 **`ca`（能力种类族名）**。
+        /// `null` = 这一格没落（旧表 &lt; v29）· `""` = 家族判不了 · 其余 = 族名。
+        /// <para>⚠️ 只给自检/诊断用（生产消费走 <see cref="AbilityLevelCriteriaForFamily"/>，
+        /// ⛔ 别在调用点自己按 `ab` 取族名再判一次）。</para></summary>
+        public string AbilityLevelCriteriaFamilyAt(int ability)
+        {
+            if (ability < 0) return null;
+            string fam;
+            return _abilityLevelRowFamily.TryGetValue(ability, out fam) ? fam : null;
+        }
+
+        /// <summary>这张卡有没有落这一格（区分「没有条件」与「列没落」）。只给自检/诊断用。</summary>
+        public int AbilityLevelCriteriaFamilyKnownRowCount
+        {
+            get
+            {
+                int n = 0;
+                foreach (var v in _abilityLevelRowFamily.Values)
+                    if (!string.IsNullOrEmpty(v)) n++;
+                return n;
+            }
+        }
+
+        /// <summary>🆕 v29：**动词 → 能力种类族名**（0 个 / 1 个 / ≥2 个）。
+        /// 判据 = <see cref="ActiveAbilityFamilyHasVerb"/>（**唯一一份** 族↔动词表），⛔ 别在调用点
+        /// 另写一张 —— 那正是「两处写同一条规则 = 迟早不一致」。
+        /// <para>返回空数组 = 这个动词不属于任何能力种类 ⇒ **不判**。
+        /// 返回 ≥2 个 = 同一动词被两族同时认（实测只有 `choosecard`：`create` 与 `handmove`）
+        /// ⇒ 调用点必须按**判不了**处置（出声 + 放行，⛔ 不猜）。</para></summary>
+        public static string[] FamiliesOfVerb(string verb)
+        {
+            if (string.IsNullOrEmpty(verb)) return new string[0];
+            var hits = new List<string>(2);
+            for (int i = 0; i < ActiveAbilityKindFamilyNames.Length; i++)
+            {
+                string fam = ActiveAbilityKindFamilyNames[i];
+                if (ActiveAbilityFamilyHasVerb(fam, verb)) hits.Add(fam);
+            }
+            return hits.ToArray();
         }
 
         // ==================================================================
@@ -7531,7 +7703,12 @@ namespace RuleEngine
             //    ⚠️ **不进 `Implemented`**（如实）：今天真正读到它们的只有**主动能力候选闸**这一处；
             //    原版 `ward` 还管**战术卡 / 通用目标**（`BattleManager__IsValidSpellTarget.c:51-53` ·
             //    `RawCardScript__IsValidTarget.c:23-28`），那一半还没接 ⇒ 登记成「已实现」= 说谎
-            //    （带 ward 的卡会被 `UnimplementedKeywords` 少报一条）。等那一半接上再进。
+            //    （带 ward 的卡会被 `UnimplementedKeywords` 少报一条）。
+            //    🔴 **2026-10-25 就地订正（铁律 5 · 执行代理 `X3`）**：「那一半还没接」**已经接了** ——
+            //    落点 = `EffectResolver.AddSide` 的敌方侧目标池闸（`stealthGate`），判据与可达性
+            //    （池内 **0 张**）写在那个方法的 doc 里。⚠️ 但它**仍不进 `Implemented`**：理由变了 ——
+            //    现在是「`ward` 还有别的入口没逐条核过（主动能力 / 战术 / 效果目标三处已接，
+            //    其余动词若绕过 `AddSide` 就挡不住）」，⛔ 别把它当成「已完整实现」。
             new[] { "wardwb", ConditionEval.WardWb },
             new[] { "ward", ConditionEval.Ward },
             new[] { "tainted", ConditionEval.Tainted },
@@ -7701,5 +7878,101 @@ namespace RuleEngine
             foreach (char c in HeadOf(item)) if (char.IsDigit(c)) return true;
             return false;
         }
+    }
+
+    /// <summary>
+    /// 🔴🆕 **2026-10-25（执行代理 `X3` · 台账 `C5·Q1 ③`）：「这个 trait 在原版里【永远演不出触发动画】」的名单。**
+    ///
+    /// <para>**判据三支**（任一成立即**可达**；判据全文 → `资料/待办判据_引擎_1025b.md` §六）：
+    /// **(a)** 有一条**会被真发射**的 `AbilityTrigger` ↔ `DefinedTrait` 映射
+    /// （`CardTraitCollection__GetTraitFromAbilityTrigger.c` 的 32 条）；
+    /// **(b)** `traitEffect.triggerType ∈ {0, 2}`（`BattleCardUI__DisplayStatusAnim` **只处理这两档**）；
+    /// **(c)** 有专属的 `DisplayTriggerAnim(traitId)` 调用点。</para>
+    ///
+    /// <para>🔴 **本表 = 三支全 ✗ 的那 5 条。`resolution` ⛔ 不许回来** —— 旧名单把它算成不可达，
+    /// 2026-10-25 现核**推翻**：`AbilityTrigger.Resolution = 45`（`dump.cs:20249`）→
+    /// `resolution = 840`，而且它**真的会被发射**：`CardScript__OnTurnEnd.c:81`
+    /// `OnTrigger(0x2d = 45, …, thisCard, thisCard, …)`（**卡主自己的回合末**）。
+    /// ⛔ 同理**不属于**本表的还有：`bloodThirst`（(c) `CardScript__HighlightBloodThirst.c:8` 直接传 220）·
+    /// `huntMark`（(b) TriggerType 0/2 ⇒ `ActivateTraitsOnSummonOrEnchantment.c:67` 走 `DisplayStatusAnim`；
+    /// 旧名单把它算成不可达 = 错）· `stomp`（(c) `BattleManager__ShouldTriggerStompDamage` `0x4d8`）。</para>
+    ///
+    /// <para>⚠️ **「不可达」≠「我们没做」**：这是**原版本身没有那个触发事件**（铁律 11 例外①）⇒
+    /// 我们 `TraitFrames` 里没有它们的帧是**忠实**的，⛔ 别为它们造触发、也别拿它当「欠账」。
+    /// 钉住它的断言 → `Editor/RuleEngineTest_EngineX1.cs`（`X1T2TraitReachabilityTable`；
+    /// 灭自证 = 把 `resolution` 加回本表 ⇒ 立刻红）。</para>
+    /// </summary>
+    public static class TraitReachability
+    {
+        /// <summary>一条不可达 trait：引擎规范化名 · 原版 `DefinedTrait` 数值 · 三支各为什么 ✗。</summary>
+        public sealed class Entry
+        {
+            /// <summary>引擎侧的规范化名（小写；与 `KeywordTable.Normalize` 那一套同形）。</summary>
+            public string Trait;
+            /// <summary>原版 `DefinedTrait` 的数值（判据 `d:/2/Warpforge_code/Scripts/Assembly-CSharp/DefinedTrait.cs`）。</summary>
+            public int TraitValue;
+            /// <summary>为什么不可达（三支逐条，必须带出处）。</summary>
+            public string Why;
+        }
+
+        /// <summary>三支全 ✗ 的 **5 条**（逐条判据 → 类头 doc）。⛔ 顺序固定，断言逐字比。</summary>
+        public static readonly Entry[] UnreachableForTriggerDisplay =
+        {
+            new Entry
+            {
+                Trait = "regeneration", TraitValue = 1030,
+                Why = "(a) `AbilityTrigger` 枚举里没有 `Regeneration`（`GetTraitFromAbilityTrigger` 永远解不出 1030）·"
+                    + " (b) `traitEffect.triggerType` 只有 `Trigger(3)`、不是 0/2 ·"
+                    + " (c) `DisplayTriggerAnim` 全 build 9 个调用点**没有一处**传 1030。"
+                    + " ★ 原版那条路是**直接回血**：`CardScript__OnTurnEnd.c:96-118` 调 `HealOneCharacter`、"
+                    + "全程没有 `OnTrigger`。",
+            },
+            new Entry
+            {
+                Trait = "concussive", TraitValue = 930,
+                Why = "(a) 无 `AbilityTrigger` 枚举项 · (b) `triggerType` 只有 `Trigger(3)`（不是 0/2）·"
+                    + " (c) 无专属 `DisplayTriggerAnim(930)` 调用点 ⇒ 原版没有任何发射点。",
+            },
+            new Entry
+            {
+                Trait = "frenzied", TraitValue = 680,
+                Why = "(a) 无 `AbilityTrigger` 枚举项 · (b) `triggerType` 只有 `Trigger(3)` ·"
+                    + " (c) 无专属 `DisplayTriggerAnim(680)` 调用点。"
+                    + " ⚠️ 卡面解析层把 `frenzied` 归成 `Destroyer`（`CardDef` 的 `Prefixes`）—— 那是**我们的**"
+                    + " 规范化，与「原版有没有这条触发事件」无关。",
+            },
+            new Entry
+            {
+                Trait = "large", TraitValue = 940,
+                Why = "(a) 无 `AbilityTrigger` 枚举项 · (b) `traitEffect.effectAnim` **本身就是 null**"
+                    + "（连 `Trigger(3)` 都没有）· (c) 无 `DisplayTriggerAnim(940)` 调用点。",
+            },
+            new Entry
+            {
+                Trait = "mekaniak", TraitValue = 950,
+                Why = "(a) 无 `AbilityTrigger` 枚举项 · (b) `traitEffect.effectAnim` 为 null ·"
+                    + " (c) 无 `DisplayTriggerAnim(950)` 调用点。",
+            },
+        };
+
+        /// <summary>这个名字在不在「原版永远演不出触发动画」那张表里（⛔ 大小写按引擎规范化名精确比）。</summary>
+        public static bool IsUnreachableForTriggerDisplay(string trait)
+        {
+            if (string.IsNullOrEmpty(trait)) return false;
+            for (int i = 0; i < UnreachableForTriggerDisplay.Length; i++)
+                if (string.Equals(UnreachableForTriggerDisplay[i].Trait, trait, System.StringComparison.Ordinal))
+                    return true;
+            return false;
+        }
+
+        /// <summary>「原版**有**发射点 ⇒ 必须有动画」的那 4 条反例（判据见类头 doc）。
+        /// 断言用它挡「把 `resolution` 之类又塞回不可达名单」那笔已知的错。</summary>
+        public static readonly string[] ReachableCounterExamples =
+        {
+            "resolution",     // (a) `AbilityTrigger.Resolution = 45` → 840；`CardScript__OnTurnEnd.c:81` 真发
+            "bloodThirst",    // (c) `CardScript__HighlightBloodThirst.c:8` → 220
+            "huntMark",       // (b) triggerType ∈ {0,2} ⇒ `ActivateTraitsOnSummonOrEnchantment.c:67`
+            "stomp",          // (c) `BattleManager__ShouldTriggerStompDamage`（`0x4d8`）
+        };
     }
 }

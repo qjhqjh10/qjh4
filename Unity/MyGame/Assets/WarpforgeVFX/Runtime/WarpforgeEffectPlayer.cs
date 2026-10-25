@@ -214,7 +214,9 @@ namespace WarpforgeVFX
         }
 
         /// <param name="layer">`-1` = 跟父节点层（`parent == null` 时保持 prefab 自带层）；
-        /// `>= 0` = **显式**设成这一层。语义与判据见上面那个按名字的 `Play` 的 doc。</param>
+        /// `>= 0` = **显式**设成这一层。语义与判据见上面那个按名字的 `Play` 的 doc。
+        /// 🆕 2026-10-25（`B14`）：`WF_GRAB501=1` 时**抓屏扭曲那一族**会被 `GrabScreen501.FinalLayer`
+        /// 覆盖成 501 那一层（显式 `layer` 也一样 —— 否则它会被默认透明 pass 和 501 各画一遍）。</param>
         public static WarpforgeEffectPlayer Play(
             WFEffectEntry entry,
             Transform parent = null,
@@ -275,6 +277,11 @@ namespace WarpforgeVFX
             //    ⇒ 把规则**下沉到这里**：一处覆盖所有调用点（含以后新增的）。
             //   ⚠️ 显式 `layer`（>= 0）**压过**「跟父节点」—— 根特效（`parent == null`）只有这一条路能搬层。
             int wantLayer = layer >= 0 ? layer : (parent != null ? parent.gameObject.layer : -1);
+            // 🆕 2026-10-25（`B14` · `X10`）：501 启用时，**抓屏扭曲那一族**要搬到 501 那一层
+            //   （否则它会被 URP 默认透明 pass 画一遍、501 再画一遍 = 扭曲叠两遍）。
+            //   判据 / 开关 / 「为什么默认档逐位等价」→ `GrabPassTransparentFeature.cs` 里的 `GrabScreen501`。
+            //   ⛔ 关着时它**原样返回 `wantLayer`**（连分支行为都与改前同值）。
+            wantLayer = GrabScreen501.FinalLayer(go, wantLayer);
             if (wantLayer >= 0) SetLayerRec(go, wantLayer);
 
             return p;

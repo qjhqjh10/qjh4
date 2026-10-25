@@ -149,18 +149,115 @@ public static class CardFaceProbe
     /// <para>`origFontSize` = 原版 prefab 上那个 TMP 的 `m_fontSize`，`m_LocalScale` **恒 0.01**（逐份实读）
     /// ⇒ 原版 em = `origFontSize × 0.01` 卡单位；`emPerFontSize` = TMP 的 `0.1 × face.scale`；
     /// `ourFontSize` = 我们这一档的**名义**字号（⛔ 不含 `FitToWidth`/`FitToBox` 的回缩 —— 那两处
-    /// 对应原版的 `m_enableAutoSizing`）。</para></summary>
+    /// 对应原版的 `m_enableAutoSizing`）。</para>
+    ///
+    /// <para>🔴🔴 **2026-10-25（`X17`）把这一条从「算术自证」改成「量渲出来的字形」** ——
+    /// 原实现是 `gotEm = ourFontSize × emPerFontSize`，而 `ourFontSize` 本身就是
+    /// `FontSizeForEm(face, wantEm) = wantEm / emPerFontSize` ⇒ 两边一乘一除，
+    /// **恒等**，什么都没验到（`X1` 报告 §五 顺手发现① 记的就是它）。现在分三条：</para>
+    /// <list type="bullet">
+    /// <item>**① 口径（算术）**：`ourFontSize × emPerFontSize == wantEm`。这是**定义**，不是测量 ——
+    ///   留着只为「谁把标定改了」能立刻看出来，⛔ 别再把它当「字号验过了」。</item>
+    /// <item>**② 测量（真渲）**：把 **一个汉字** 用**这一层的字体面**在 `ourFontSize` 下渲出来，
+    ///   量 `characterInfo[0].xAdvance ÷ ourFontSize` —— 汉字是全角，前进宽 = 1 em，
+    ///   所以这个比值 **就是**该面渲染汉字的 **em/fs**。它**不是** `emPerFontSize`：
+    ///   汉字走 **CJK 兜底面**（`NotoSerifCJK`：`pointSize 50` · `m_Scale 0.9`）
+    ///   ⇒ 实测 **≈ 0.09**；而 `TrueEmPerFontSize` 是**拉丁面**的 **0.1**。
+    ///   ⇒ **同一个 `fontSize` 下，汉字比拉丁 em 窄 10%**（`0.09 ÷ 0.1`）—— 这是**已知口径**、
+    ///   不是 bug：`FontSizeForEm` 保证的是**拉丁** em 等于原版那一个数，汉字跟着兜底面走。</item>
+    /// <item>**③ 后果（写进断言，别让它悄悄漂）**：中文卡面实际吃到的 em = `0.09 × ourFontSize`，
+    ///   相对原版 em 的比值断言在 **0.90 ± 2%**。要改这个 10%，得先改
+    ///   `Resources/Fonts/NotoSerifCJK-Regular SDF.asset` 的 `pointSize/scale`
+    ///   —— 那时 ② 会先红，指向真因。</item>
+    /// </list>
+    /// <para>🧨 改坏法（三条都能单独红）：把 `ourFontSize` 换回 `FontSizeForGlyphHeight`（汉字墨高）⇒ ① 红；
+    /// 换掉某层的字体面（`Face.LatinUi` ↔ `LatinCardBody`）而 `emPerFontSize` 没跟着换 ⇒ ① 红；
+    /// 改 CJK 字体资产的 `pointSize` / `m_Scale` ⇒ ② 红（③ 跟着红）。
+    /// 把「汉字走兜底面」这件事改成「汉字也按 0.1 算」（例如硬塞 `fontSize × 0.1`）⇒ ②③ 红。</para></summary>
     static void CheckFaceSize(string what, string origNode, float origFontSize,
-                              float emPerFontSize, float ourFontSize, float cardH)
+                              float emPerFontSize, float ourFontSize, float cardH,
+                              TmpFont.Face face)
     {
         float wantEm = origFontSize * 0.01f;
+
+        // ---- ① 口径（**定义**，不是测量）----
         float gotEm = ourFontSize * emPerFontSize;
         Check(Mathf.Abs(gotEm - wantEm) <= wantEm * 0.01f,
-              $"W62/T2 {what}字号 = 原版 `{origNode}` 的 em：期望 **{wantEm:F4}** 卡单位"
-            + $"（fs {origFontSize:F2} × scale 0.01），实测 **{gotEm:F4}**"
-            + $"（我们 fontSize {ourFontSize:F3} × {emPerFontSize:F3} em/fs）"
+              $"W62/T2 {what}① 口径：`ourFontSize × emPerFontSize` == 原版 em **{wantEm:F4}** 卡单位"
+            + $"（我们 fontSize {ourFontSize:F3} × {emPerFontSize:F3}；原版 fs {origFontSize:F2} × scale 0.01）"
             + $" ⇒ 卡高 {gotEm / cardH * 100f:F2}%（原版 {wantEm / cardH * 100f:F2}%）"
-            + "｜🧨 改回**汉字墨高**标定（`FontSizeForGlyphHeight`）⇒ 实测 ×1.172 ⇒ 红");
+            + "｜⚠️ **这一条是算术自证**（`ourFontSize` 本来就 = `wantEm ÷ emPerFontSize`）—— "
+            + "它的作用只是「谁改了标定」一眼可见；**字号真有多大由 ②③ 量**"
+            + "｜🧨 改回**汉字墨高**标定（`FontSizeForGlyphHeight`）⇒ 红");
+
+        // ---- ② 测量：把一个汉字真渲出来，量它的前进宽 ÷ fontSize ----
+        bool ok;
+        float cjkPerFs = MeasureCjkAdvancePerFontSize(face, ourFontSize, out ok);
+        Check(ok, $"W62/T2 {what}② 前提：在 `{face}` 面 / fontSize {ourFontSize:F3} 下渲出了「国」、"
+                + "且拿得到 `xAdvance`（拿不到 ⇒ ②③ 没验到，不许读成通过）");
+        if (!ok) return;
+        Check(Mathf.Abs(cjkPerFs - 0.09f) <= 0.09f * 0.02f,
+              $"W62/T2 {what}② **实测**：汉字前进宽 ÷ fontSize = **{cjkPerFs:F4}**（应 **0.09**，容差 2%）"
+            + $"（= CJK 兜底面的 em/fs：`NotoSerifCJK` pointSize 50 · m_Scale 0.9；fontSize {ourFontSize:F3}）"
+            + "｜🧨 改 CJK 字体资产的 pointSize / m_Scale ⇒ 红；"
+            + "把汉字按拉丁的 0.1 算 ⇒ 红");
+
+        // ---- ③ 后果：中文 em 相对原版 em 的比值（0.09 ÷ 0.1 = 0.90）----
+        float cjkEm = cjkPerFs * ourFontSize;
+        float ratio = cjkEm / wantEm;
+        Check(Mathf.Abs(ratio - 0.90f) <= 0.02f,
+              $"W62/T2 {what}③ 中文实际 em = **{cjkEm:F4}** 卡单位 = 原版 em {wantEm:F4} 的 **{ratio:P1}**"
+            + $"（卡高 {cjkEm / cardH * 100f:F2}% vs 原版 {wantEm / cardH * 100f:F2}%）"
+            + "—— **口径已知：汉字比拉丁 em 窄 10%（0.09 ÷ 0.1）**，不是 bug"
+            + "｜🧨 把它「修」成 1.00（硬乘 10/9）会让中文卡面比原版大 11% ⇒ 红");
+    }
+
+    /// <summary>把**两个汉字**用指定字体面 / 字号**真的渲出来**，返回 `(xAdvance[1] − xAdvance[0]) ÷ fontSize`
+    /// （= 一个全角汉字的前进宽 ÷ fontSize，也就是该面渲染汉字的 **em/fs**）。
+    ///
+    /// <para>🔴🔴 **2026-10-25（`X17` 复核，铁律 5 留痕）—— 为什么必须是【两字之差】，
+    /// 而不是「单字直接读 `xAdvance`」**：`TMP_CharacterInfo.xAdvance` 是**累计位置**（不是本字的前进宽）——
+    /// `TMP_Text.cs:7866` 在 `m_xAdvance += <advance>` **之后**才写 `characterInfo[last].xAdvance = m_xAdvance`；
+    /// 而行的起始 x 由**对齐**决定（`Center` 时 ≈ `−lineWidth/2`）。⇒ 单字串读到的
+    /// `xAdvance = 起始x + advance`，`Center` 对齐下起始 x = `−advance/2` ⇒ **读数只有真值的一半**。
+    /// **本轮就是这么错的**：单字读到 `0.0450`，把它当成 em/fs 写进断言，于是「汉字只有原版 em 的 45%」
+    /// 这个**假结论**成立 —— 真值是 `0.0900`（`0.045 × 2`）。
+    /// 两字之差把起始偏移**抵消掉**（两个字共享同一个起始 x）⇒ 与对齐方式无关，得到真正的单字前进宽。</para>
+    ///
+    /// <para>**算式（为什么期望值恰好是 0.09）**：`advance_local = glyph.metrics.horizontalAdvance × m_fontScale`，
+    /// `m_fontScale = fontSize ÷ faceInfo.pointSize × faceInfo.scale × (isOrthographic ? 1 : 0.1)`
+    /// （`TMP_Text.cs:7183`）。汉字走 **CJK 兜底面** `NotoSerifCJK`：`pointSize = 50` · `m_Scale = 0.9`
+    /// · 全角字形的 `horizontalAdvance = 50`（= pointSize，即 1 em）
+    /// ⇒ `advance = 50 × fontSize ÷ 50 × 0.9 × 0.1 = **0.09 × fontSize**`。
+    /// 而拉丁面（Asar / Pragati，`m_Scale = 1`）的 **em** 是 `0.1 × fontSize` ⇒ **汉字比拉丁 em 窄 10%（0.09 ÷ 0.1）**。</para>
+    ///
+    /// <para>⚠️ 为什么不用 `textBounds` / 字墨高：`textBounds` 是**行盒**（含行距与降部，`NotoSerifCJK`
+    /// 的 `lineHeight/pointSize = 1.437` ⇒ 会把 em 虚高 43.7%）；字墨高是**字形墨迹**（「国」≈0.948 em ⇒ 偏低）。
+    /// 三条都量过，⛔ 别再换（`WorldGlyphPerFontSize` 的 doc 记的就是这个坑）。</para>
+    /// <para>⚠️ 用完立刻 `DestroyImmediate` —— `Run()` 的渲图在 `CheckLayers()` 之后，
+    /// 留在原点的临时 TMP 会出现在每一张截图里（同 `新账-67` 那段 `finally` 的理由）。</para></summary>
+    static float MeasureCjkAdvancePerFontSize(TmpFont.Face face, float fontSize, out bool ok)
+    {
+        ok = false;
+        if (fontSize <= 0f) return 0f;
+        var root = new GameObject("chk_facesize_probe");
+        try
+        {
+            // 三个字：取 **1 号 − 0 号**（两个都**不是行末那个字**）——
+            // 行末字的 `xAdvance` 会被 TMP 按 `maxAdvanceOffset` 再修一次（`TMP_Text.cs:5049`），
+            // 避开它就与字距/加粗/材质那些偏移完全无关。
+            var t = TmpFont.NewText(root.transform, "size_probe", "国国国", fontSize, Color.white, face);
+            if (t == null) return 0f;
+            t.textWrappingMode = TextWrappingModes.NoWrap;
+            t.ForceMeshUpdate();
+            var ti = t.textInfo;
+            if (ti == null || ti.characterCount < 3) return 0f;
+            float adv = ti.characterInfo[1].xAdvance - ti.characterInfo[0].xAdvance;
+            if (!(adv > 0f)) return 0f;
+            ok = true;
+            return adv / fontSize;
+        }
+        finally { Object.DestroyImmediate(root); }
     }
 
     static int MinOf(int[] a)
@@ -763,10 +860,14 @@ public static class CardFaceProbe
                 float kUi = 0.1f * faUi.faceInfo.scale;
                 float kBody = 0.1f * faBody.faceInfo.scale;
                 float cardH = CardView.Height;                  // 3.3313 = 原版 `2DCard.m_SizeDelta.y`
-                CheckFaceSize("卡名", "NameTextUnit", 19f, kUi, CardView.TitleFontSize, cardH);
-                CheckFaceSize("效果文字", "DescTextUnit", 23.55f, kBody, CardView.KeywordFontSize, cardH);
-                CheckFaceSize("阵营行", "ArmyTextUnit", 15f, kBody, CardView.ArmyFontSize, cardH);
-                CheckFaceSize("兵种行", "RaceText", 18f, kBody, CardView.RaceFontSize, cardH);
+                CheckFaceSize("卡名", "NameTextUnit", 19f, kUi, CardView.TitleFontSize, cardH,
+                              TmpFont.Face.LatinUi);
+                CheckFaceSize("效果文字", "DescTextUnit", 23.55f, kBody, CardView.KeywordFontSize, cardH,
+                              TmpFont.Face.LatinCardBody);
+                CheckFaceSize("阵营行", "ArmyTextUnit", 15f, kBody, CardView.ArmyFontSize, cardH,
+                              TmpFont.Face.LatinCardBody);
+                CheckFaceSize("兵种行", "RaceText", 18f, kBody, CardView.RaceFontSize, cardH,
+                              TmpFont.Face.LatinCardBody);
             }
         }
 

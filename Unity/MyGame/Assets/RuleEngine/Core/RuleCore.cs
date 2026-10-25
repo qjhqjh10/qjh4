@@ -1553,6 +1553,35 @@ namespace RuleEngine
         ///    先手第 2 回合 3 能，全对局能量曲线偏高」。
         ///    结果就是：先手第 1 回合 2 能、后手第 1 回合也是 2 能。
         /// </summary>
+        /// <summary>
+        /// 🆕 **2026-10-25（`X13`）：祈祷附魔的【结算】—— 自己回合开始 ⇒ 该玩家 `Faith +1`，然后摘掉（一次性）。**
+        ///
+        /// <para>**原版** = 隐藏附魔卡 `Pray Enchantment` 的 ability[1]：`trigger 31 (TurnStartPlayer)`
+        /// → `chosenAbility 60 buffMana{manaAmount:1, friendlyPlayer:1, createMana:1, faithMana:1}`
+        /// → 再 `chosenAbility 340 removeThisEnchantment`；结算链 `BattleManager__ProcessManaBuff.c:28,79`。
+        /// `TurnStartPlayer` 那道闸 = `CardScript__OnTurnStart.c:145` 的 `card.owner == IsPlayerTurn()`
+        /// ⇒ **只有它主人自己的回合才发**（= 调用方为什么只扫当前行动方）。
+        /// 我们这一版是**引擎内等价实现**（卡数据那条链另立一笔）—— 见 `UnitState.PrayEnchantment` 的 doc。</para>
+        /// </summary>
+        static void GrantPrayEnchantmentFaith(BattleContext ctx, int p, UnitState u)
+        {
+            if (ctx == null || u == null || !u.PrayEnchantment) return;
+            u.PrayEnchantment = false;                       // 一次性：先摘再给（绝不重复发）
+            var ps = ctx.Players[p];
+            ps.Faith += 1;
+            ctx.Log($"{u.Name} 的祈祷附魔到期 ⇒ {ps.Name} 信仰 +1（现 {ps.Faith}；"
+                  + "原版 `Pray Enchantment` 的 `TurnStartPlayer` + `buffMana{faithMana:1}`）");
+            // 原版 `BroadcastCollectedFaith(该卡)` —— subject = **这张祈祷卡本身**（与 `FinishActiveAbility` 同形）
+            if (u.Card != null)
+                BroadcastWhen(ctx, WhenEventKind.GainFaith, p, u.Card, u);
+            // 表现层一条（与 `DoFactionResource` 的信仰支 / `FinishActiveAbility` 同形：同一个 `EvtKind`、`Slot = -1`）
+            ctx.Signals.Add(new BattleEvent
+            {
+                Kind = EvtKind.GainFaith, Player = p, Slot = -1, Amount = 1,
+                Effect = "祈祷附魔：本回合开始 +1 信仰", Turn = ctx.Turn,
+            });
+        }
+
         public static void BeginTurn(BattleContext ctx)
         {
             using (BeginAction(ctx)) { BeginTurnCore(ctx); return; }
@@ -2128,6 +2157,22 @@ namespace RuleEngine
             FlushPendingDeathsBeforeTurnStart(ctx);
             if (ctx.IsOver) return;      // 清掉待死单位时可能触发死亡效果/判胜负
 
+            // ---- 🔴 **2026-10-25（`X13`）：「祈祷附魔」到【主人自己的】回合 ⇒ 信仰 +1（一次性） ----
+            //  位置 = 上面那一圈「清 `Prayed`（不分敌我）」**之后**、`ResolveAtTurn("turn_start")` **之前**：
+            //  原版这一跳是**附魔卡自己的 `TurnStartPlayer`(31)**，与卡片 `OnTurnStart` 的触发段同一趟
+            //  （`CardScript__OnTurnStart.c:145`；`RawCardScript__TriggerAbilities.c:50-88` 会把
+            //   `activeEnchantments(+0x110)` 里每个附魔的 `cardAbilities` 一起算进来）⇒ 我们排在触发段之前 = 同序。
+            //  ⚠️ **只扫当前行动方** —— 原版那道闸是 `card.owner == IsPlayerTurn()`
+            //  （`CardScript__OnTurnStart.c:145`）⇒ **敌方回合开始不给我们加**（判别式：改成扫双方 ⇒ 红）。
+            //  ⚠️ 它**与 `Prayed` 的清除是两件事**：上面那一圈每次回合开始双方全清，这一位活到主人下个回合。
+            //  ⚠️ 排在 `FlushPendingDeathsBeforeTurnStart` **之后**：原版对「累计致死伤」的卡是
+            //    **整卡 `return`**（`CardScript__OnTurnStart.c:130-137`）⇒ 它的附魔这一趟也不该发。
+            for (int s = 0; s < BoardSpec.Size; s++)
+                GrantPrayEnchantmentFaith(ctx, ctx.Active, ctx.Players[ctx.Active].Board[s]);
+            // 督军不在 `Board` 里 ⇒ 单独扫一次（`pray` 督军 `SOR1`/`SOR2` 同样吃这条；
+            //   疲劳那一支也是这么单独处理督军的，见 `MoveDeckTopToHand`）。
+            GrantPrayEnchantmentFaith(ctx, ctx.Active, ctx.Players[ctx.Active].Warlord);
+
             ResolveAtTurn(ctx, "turn_start");
             if (ctx.IsOver) return;      // 触发段能打死督军（`your troops take 1 damage` 那类）
 
@@ -2666,22 +2711,33 @@ namespace RuleEngine
         }
 
         /// <summary>
-        /// **临时卡清扫段**（规则书 `:183` + `:229`）—— 回合结束时，**手牌里的临时卡从游戏中移除**。
+        /// **临时卡清扫段** —— 回合结束时，**手牌里的临时卡移出游戏**（**不进弃牌堆**）。
         ///
-        /// 规则书原文（`:229`）：
-        /// 「天赋、伴生生成的部队、带潮涌的复制（在手牌时）均临时，回合结束未打出即消失
-        ///  —— **从游戏中移除（非弃置）**。督军天赋每回合循环，故可反复使用。」
+        /// 🔴 **2026-10-25（`X12`）：原版这一段查到了（第一权威，逐跳），不再引用粉丝规则书。**
+        ///   · **动作槽 = `disappearFromHand`(56)，不是 `discardFromHand`(28)**：
+        ///     `decomp_full/CardScript__OnTurnEnd.c:141-147` —— 门 = `HasCurrentTrait(5 /*ephemeral*/)`
+        ///     **且** `param_2 == card.isPlayer`（**本家**回合）**且** `card+0x228` ∈
+        ///     {1 `inHand` · 4 `waitingToBePlayed` · 8/9/10 `inHandShowing/Moving/Playing` ·
+        ///     12 `inHandJustCreated`}（枚举 `CardStateOptions.cs`）⇒ `BattleManager.AddDisappearFromHand`；
+        ///     动作号出处 = `BattleManager__AddDisappearFromHand.c:23` 的 `0x38`(=56)，对照
+        ///     `BattleManager__AddDiscardFromHand.c:23` 是 `0x1c`(=28)。
+        ///   · **执行体** = `BattleManager._ResolveDisappearFromHand_d__545__MoveNext.c:134`
+        ///     `CardScript.DestroyCard(...)` + `:153 PlayerHand.RemoveCardFromHand(...)`
+        ///     （配 `DissolveCardInHand` 音效 `:127`）。
+        ///   · **去向** = `CardScript._DestroyCard_d__269__MoveNext.c:51` → `CardScript.GoToCemetery`；
+        ///     而 `CardScript__GoToCemetery.c:14-21` 是「**有 trait 5 ⇒ `SetActive(false)` 后直接 return**」
+        ///     ⇒ **跳过 `AddToCemetery`** ⇒ **移出游戏、弃牌堆里没有这张**。
+        ///     ⚠️ 官方词条写的是 `Discard this card from your hand at the end of your turn`
+        ///     （`官方本地化` `CardTraitDescription/ephemeral`）——**文案说 Discard、动作槽却是「消失」**，
+        ///     两者不是同一件事；**以动作槽为准**。
         ///
         /// 三条判据，每条都有出处：
         ///   ① **扫谁的手牌** = **当前行动方**（这个方法在 `EndTurn` 里、`ctx.Active` 换边**之前**调）——
-        ///      临时卡是**持有者自己的**回合结束才消失，对方手里的要等他自己回合结束。
-        ///      这条和 `:91`「督军天赋每回合开始加入手牌、回合结束移除」对得上（那就是循环）。
-        ///   ② **只扫手牌** —— 场上/牌库/弃牌堆里的不管（`未打出` 这个限定词只对手牌有意义）。
-        ///   ③ **去向是 `ctx.Removed`（「移出游戏」），不是 `Discard`** —— 规则书明写「非弃置」。
-        ///
-        /// ⚠️ **原版的这一段没查到**（`BattleManager.cs` 与 1800 个反编译 `.c` 里搜 `ephemeral`
-        ///    只有三处**表现层**的命中，见 `资料/临时卡Ephemeral_设计与实现计划.md` §2.3）
-        ///    ⇒ **按规则书做**，不是照抄原版。
+        ///      临时卡是**持有者自己的**回合结束才消失（= 原版 `param_2 == card.isPlayer`）。
+        ///   ② **只扫手牌** —— 原版门里那六个状态**全是手牌态**；场上/牌库/弃牌堆不扫。
+        ///      （这也是「临时卡**打出去之后**就不再受它管」的原因 —— 打出时另一跳会把
+        ///       trait 5 摘掉：`CardScript__ResolveCardPlayed.c:42` `RemoveTraitSilently(card, 5)`。）
+        ///   ③ **去向是 `ctx.Removed`（「移出游戏」），不是 `Discard`** —— 判据见上第三条。
         ///
         /// ⚠️ **先快照再改**：移除会改 `Hand` 列表，边遍历边改是未定义行为
         ///    （和 `ResolveDeploy` / `BroadcastWhen` 同一条教训）。
@@ -2721,8 +2777,9 @@ namespace RuleEngine
                 {
                     // 🔴 2026-10-14（账 `A1666`）：句里原来带「（**规则书 :229**）」—— 那份是**粉丝实体版**
                     //    （`Not official. Fan project.`，见 `CLAUDE.md` §一·2）⇒ ⛔ 不当出处，已删。
-                    //    「**非弃置**」这个**语义保留**（判据与出处见本方法上方那份 `<summary>`：
-                    //    原版这一段**没查到** ⇒ 按规则书做的，⚠️ 强度如实标在那边，别在这儿重复）。
+                    // 🆕 **2026-10-25（`X12`）判据补齐**：「**非弃置**」不再是「按规则书做的」——
+                    //    第一权威已找到，见本方法上方 `<summary>`：动作槽 = `disappearFromHand`(56)、
+                    //    去向 = `CardScript__GoToCemetery.c:14-21`（trait 5 ⇒ **跳过 `AddToCemetery`**）。
                     ctx.Log($"—— 回合 {ctx.Turn} 结束：{ps.Name} 手牌里的临时卡从游戏中移除（**非弃置**）——");
                     first = false;
                 }
@@ -2880,6 +2937,10 @@ namespace RuleEngine
                 //   ⛔ 别改成「调 `ApplyDamage`」：那会连带把护盾/护甲/堡垒/伏击都拉进来 ——
                 //     那不是本笔要改的东西（下面那句注释「它不吃护盾/护甲」是既有口径）。
                 ps.Warlord.Prayed = false;
+                // 🆕 2026-10-25（`X13`）：疲劳这一支**绕开了 `ApplyDamage`** ⇒ 祈祷附魔也要在这里照同一条判据撤
+                //   （原版疲劳同样走 `DealMultiDamage` → `BroadcastUnitDamaged` → `ResolveDamageDealt:161`
+                //    的 `UnitDamaged(60)`，附魔 ability[0] 照响）。疲劳值恒 ≥ 1 ⇒ 不需要 `dmg != 0` 那道闸。
+                ps.Warlord.PrayEnchantment = false;
                 // 🔴 **2026-10-19（`A1649` 同一条判据 · 疲劳这个第二落点）**：
                 //   `_ResolveMultiDamage_d__456__MoveNext.c:141` 的 `BroadcastUnitDamaged`
                 //   **排在 `:154/:168 ReceiveDamage` 之前** ⇒ 广播那一刻督军的血**还没掉**。
@@ -3462,6 +3523,49 @@ namespace RuleEngine
             return PlayCard(ctx, p, handIdx, slot, out landed);
         }
 
+        // ==================================================================
+        //  🆕 2026-10-25（执行代理 `X2`）：成就出牌计数的**唯一分类口**
+        //
+        //  判据 = `资料/待办判据_成就计数器_1025b.md` §B-3 #3「CardPlayedCount」那一行 +
+        //         成就定义 SO 的 `challenge.data`（逐条现读，见每行注）。
+        //  ⚠️ 返回的是**位集合**（一张卡可以同时落多个标签，例如一张 `Ephemeral` 的战术卡），
+        //     `AchievementTally.AddCardPlayed` 按位逐个 +1。
+        //  ⚠️ **两条出牌路（单位 `PlayCard` / 战术 `PlayTactic`）共用本方法** ——
+        //     ⛔ 别在 `EffectResolver` 那一侧再写一份（两处写同一条规则 = 迟早不一致）。
+        // ==================================================================
+        /// <param name="card">打出的那张卡的**定义**（关键词 / 子类型 / 法术类型都在它上面）。</param>
+        /// <param name="inst">打出的**那一份实例**（`Ach_54` 要读 `IsCompanion`，那是「份」上的标记不是卡上的）。</param>
+        internal static int CardPlayedTagMask(CardDef card, CardInstance inst)
+        {
+            if (card == null) return 0;
+            int m = 0;
+            // `Ach_12` `Play Card With Ephemeral` —— `withTrait=[5]` = `DefinedTrait.ephemeral`；
+            //   判据 = **卡面事实**（`Has("ephemeral")`，104 张现读），⛔ 不用 `ctx.IsEphemeral`
+            //   （它还把「这一份被 MarkEphemeral 标过」算进来 —— 原版那格是**卡的 trait**）。
+            if (card.Has("ephemeral")) m |= 1 << CardPlayedTag.Ephemeral;
+            // `Ach_54` `Play Companions` —— `onlyCountCompanions=1`；伴生造出来的那一份带
+            //   `CardInstance.IsCompanion`（`PlayCompanions` 里 `made.IsCompanion = true`，
+            //   = 原版 `newCard + 0x64 = 1`）⇒ 只有**它被打出**才算，⛔ 不是「谁造了它」。
+            if (inst != null && inst.IsCompanion) m |= 1 << CardPlayedTag.Companion;
+            // `Ach_87` `Deploy Beasts` —— `keyword=35` = `Keyword.Beast`（`d:/2/Warpforge_code/…/Keyword.cs:10`）。
+            //   我们数据里它就是 `subtype == "Beast"`（现读 7 张 + `Beast Snagga Boy` 的卡名里那个词不算）。
+            if (string.Equals(card.Subtype, "Beast", StringComparison.Ordinal))
+                m |= 1 << CardPlayedTag.Beast;
+            // `Ach_89` `Play Combat Elixirs` —— `spellType=260`（`CombatElixir`，现读 6 张）+ `anyCardType=0`（卡型 = **计谋**）。
+            //   ⚠️ 两格闸**都要** ⇒ 另落一个合取标签（只取 `Elixir` 或只取 `Tactic` 都会**多算**：
+            //      战术卡 448 张、Elixir 只有 6 张，取 `Tactic` 会把全池计谋都算进去）。
+            bool elixir = card.SpellType == 260;
+            bool tactic = string.Equals(card.Type, "tactic", StringComparison.Ordinal);
+            if (elixir) m |= 1 << CardPlayedTag.Elixir;
+            if (tactic) m |= 1 << CardPlayedTag.Tactic;
+            if (elixir && tactic) m |= 1 << CardPlayedTag.ElixirTactic;
+            // `Ach_97` `Deploy troops with Pack` —— `withTrait=[610]` = `DefinedTrait.pack`。
+            //   ⚠️ **数据自相矛盾**（判据 §F4）：同一条的 `anyTrait=1` ⇒ 原版那道闸等于**不过滤 trait**；
+            //   我们按 `withTrait` 的**意图**（pack）做，如实标为「按意图、不是按原版那道闸」。
+            if (card.Has("pack")) m |= 1 << CardPlayedTag.Pack;
+            return m;
+        }
+
         /// <summary>
         /// 同上，但把**回填后的落点**报出来（`A1597`）。
         /// <paramref name="landedSlot"/> = 单位**真正落下**的格号；**没落场时恒为 `-1`**
@@ -3536,6 +3640,11 @@ namespace RuleEngine
             //    位置也在「这张牌已经确定打出去（校验过 / 费用付掉 / 手牌已拿走）」之后。
             //    ⚠️ 战术卡走 `PlayTactic`，那边**各写各的一笔**（两条路互斥，不会重记）。
             ctx.CardsPlayedInTurn++;
+            // 🆕 **2026-10-25（执行代理 `X2`）**：**成就出牌计数**（`Ach_12/54/87/89/97`）。
+            //   挂点与本句**同一个点**（「已经确定打出去」）：校验过 / 费用付掉 / 手牌已拿走之后
+            //   ⇒ **打不出去的牌一张都不记**（原版 `CardPlayedCount` 也是过了那道闸才涨）。
+            //   ⚠️ 战术卡走 `PlayTactic`（`EffectResolver.PlayTacticCore`）**各写各的一笔**，不会重记。
+            ctx.Tally.AddCardPlayed(p, CardPlayedTagMask(card, inst));
             ctx.Emit(new BattleEvent
             {
                 Kind = EvtKind.Play,
@@ -4070,10 +4179,33 @@ namespace RuleEngine
         }
 
         /// <summary>
+        /// **虫群合并的「右邻认不认」判据 —— 只此一处**（入队时与出队时各调一次，别各写一份）。
+        ///
+        /// 🔴 **2026-10-25 补上原版那第二个条件（`X12`）**：我们原来只查「打出的那张带 `swarm`」，
+        ///    **漏了「右邻也带 `swarm`」**。原版逐跳（`decomp_full/CardScript__ResolveCardPlayed.c`）：
+        ///     · `:60-68` 自己 `HasCurrentTrait(0x28a /*swarm*/)` → `BattleManager.GetAdjacentUnitRight` →
+        ///       `op_Inequality(right, 0)`（右邻非空）；
+        ///     · `:70` **`HasCurrentTrait(right, 0x28a)`** —— **右邻自己也要带 `swarm`**（← 我们缺的这一条）；
+        ///     · `:74-76` `System_String__Equals(right.raw+0x38, self.raw+0x38)` —— **卡名全等**。
+        ///   我们用的是 `HasCurrentTrait` 的等价物 `UnitState.Has`（**当前**关键词，含加成/光环）。
+        ///
+        /// ⚠️ **现池可达 0 张**（同名 + 都带 `swarm` 的卡在现池里必然同词条 ⇒ 今天**零可观测差异**），
+        ///    这条是**语义对齐 + 防将来**（数据侧一旦出现「同名但只有一张带 `swarm`」就会分叉）。
+        ///    自检用**合成夹具**（`RuleEngineTest_Engine*.cs` 的 `X12` 两条），不靠现池。
+        /// </summary>
+        static bool IsSwarmHost(UnitState host, UnitState just)
+        {
+            if (host == null || host.IsAlive == false || host.Card == null) return false;
+            if (just == null || just.Card == null) return false;
+            if (!host.Has(KeywordTable.Swarm)) return false;      // 原版 `ResolveCardPlayed.c:70`
+            return host.Card.Name == just.Card.Name;             // 卡名**全等**（`:74-76` `String.Equals`）
+        }
+
+        /// <summary>
         /// **虫群合并**（`Swarm`，2026-09-13 A2）。语义全部照原版反编译
-        /// （`decomp_out/CardScript__ResolveCardPlayed.c`）：
+        /// （`decomp_full/CardScript__ResolveCardPlayed.c`，2026-10-25 逐跳复核）：
         ///   · 只看**右边的紧邻格**（`BattleManager.GetAdjacentUnitRight`）—— 不是全盘找同名；
-        ///   · 判据是**卡名全等**（`System_String__op_Equality`）；
+        ///   · 判据两条：**两边都带 `swarm`** + **卡名全等**（`System_String__Equals`）—— 见 `IsSwarmHost`；
         ///   · 合并 = 数值相加、新来的**压在下面**（`UnitState.SwarmUnder`）。
         ///
         /// ✅ **2026-10-23（`W64 B-11`）**：原版 `AddExecuteSwarm(self, right, 3, 1)` 的两个参数
@@ -4089,8 +4221,7 @@ namespace RuleEngine
             int right = slot + 1;
             if (!BoardSpec.IsValid(right)) return;
             var host = ctx.Players[p].Board[right];
-            if (host == null || host.IsAlive == false || host.Card == null) return;
-            if (host.Card.Name != just.Card.Name) return;         // 卡名**全等**
+            if (!IsSwarmHost(host, just)) return;                  // 右邻那一半判据见 `IsSwarmHost`
 
             // 🔴 **2026-10-23（`W64 B-11`）：合并改成【进 DelayedInstant 道】的队列动作。**
             //   判据 = `BattleManager__AddExecuteSwarm.c` 逐句（现读）：
@@ -4123,8 +4254,7 @@ namespace RuleEngine
             int right = slot + 1;
             if (!BoardSpec.IsValid(right)) return;
             var host = ctx.Players[p].Board[right];
-            if (host == null || host.IsAlive == false || host.Card == null) return;
-            if (host.Card.Name != just.Card.Name) return;         // 卡名**全等**
+            if (!IsSwarmHost(host, just)) return;                 // 右邻那一半判据见 `IsSwarmHost`
 
             host.Attack += just.Attack;
             host.RangedAttack += just.RangedAttack;
@@ -4213,6 +4343,13 @@ namespace RuleEngine
                 int hp, hs;
                 if (FindSlot(ctx, host, out hp, out hs)) hostSlot = hs;
             }
+            // 🆕 **2026-10-25（执行代理 `X18` · 第二批）**：成就 `Ach_10`（`UnitSwarmCount`）计数。
+            //   🔴 **放在这里而不是 `TrySwarmMerge`（入队那一跳）**：入队到出队之间棋盘可能变
+            //     （载体死了 / 右邻没了 ⇒ 上面那两道闸会早返）⇒ **出队执行体才等于「合并真的发生了」**。
+            //   ⚠️ 判据为什么不闭合：原版 `UnitSwarmCount__OnUnitSwarm.c` 的方法体在反编译产物里**撞名丢失**
+            //     （那个文件里装的是 `UnitReanimated__OnUnitReanimated`）⇒ 「按广播算 / 按合并算」查不到。
+            //     按调度台 2026-10-25 的口径取**「真合并了才算」**，⛔ 别在广播那一侧再写一次（会双计）。
+            ctx.Tally.AddSwarmMerge(p);
             FireTriggerAlways(ctx, host, KeywordTable.Swarm, p, hostSlot, just);
         }
 
@@ -6036,7 +6173,10 @@ namespace RuleEngine
                                   // 🔴 2026-10-24（`C1` §3）：哨戒那一下原版就是 `ability(20)`
                                   //   （`_ResolveAttack_d__438__MoveNext.c:1421` 的 `0x14`）
                                   //   ⇒ 被打死的攻击者会收到 `UnitDeathByAbility`。
-                                  deathType: UnitDeathType.Ability);
+                                  deathType: UnitDeathType.Ability,
+                                  // 🆕 2026-10-25（`X2`）：伤害分类 = 哨戒（今天没有成就用它，照样打标 ——
+                                  //   判据 §B-3 #1「8 个调用点逐个打标」）。
+                                  kind: DamageKind.Sentry);
                     ctx.Log($"Sentry {se}：{target.Name} 反击了正在攻击它的 {attacker.Name} {sd} 伤"
                           + $"（剩 {attacker.Health}）");
                 }
@@ -6049,7 +6189,9 @@ namespace RuleEngine
                     int extra = Hurt(ctx, target, sh, attacker.Name + " 的 Shuriken", actingCard: attacker,
                                      // 🔴 2026-10-24（`C1` §3）：星镖原版死因是 `ability(20)`
                                      //   （`Slay` 那条 doc 里早已写明「星镖原版是 ability(20)」）。
-                                     deathType: UnitDeathType.Ability);
+                                     deathType: UnitDeathType.Ability,
+                                     // 🆕 2026-10-25（`X2`）：星镖那一下单列一类（成就 `Ach_7` = `Shuriken Damage`）。
+                                     kind: DamageKind.Shuriken);
                     ctx.Log($"Shuriken {sh}：{attacker.Name} 先对 {target.Name} 追加 {extra} 伤"
                           + $"（剩 {target.Health}）");
                     // ⚠️ 判据是「**血量**见底了」而不是「已经不在场上了」——
@@ -6310,7 +6452,10 @@ namespace RuleEngine
                     //    **不是结算次序**。结算次序见 `_ResolveAttack_d__438__MoveNext.c`：
                     //    **星镖 `:618` → 主伤害 `:1116` → 标记光 `:1251`**（用户原话：
                     //    「星镖—主攻击—标记光/易伤」）。
-                    dealt = Hurt(ctx, target, atk, attacker.Name, p, actingCard: attacker);
+                    // 🆕 2026-10-25（`X2`）：主攻击**按本次打法**分类（成就 `Ach_2` 近战 / `Ach_3` 远程）——
+                    //   `ranged` 就在本函数作用域里（同 `RangedAttacksDeclared` 那一格用的同一个 `ranged`，⛔ 别另算）。
+                    dealt = Hurt(ctx, target, atk, attacker.Name, p, actingCard: attacker,
+                                 kind: ranged ? DamageKind.Ranged : DamageKind.Melee);
                 }
                 ctx.Log($"{attacker.Name} {(ranged ? "远程" : "近战")}攻击 {target.Name}："
                       + $"{atk} 攻 → 实际 {dealt} 伤（{target.Name} 剩 {target.Health}）");
@@ -6359,7 +6504,9 @@ namespace RuleEngine
                     {
                         var au = ctx.Players[tgtP].Board[adj];
                         if (au == null) continue;             // 只跳过空槽（原版那张表里本来就没有空格）
-                        int bd = Hurt(ctx, au, blast, attacker.Name + " 的 Blast", p, actingCard: attacker);
+                        int bd = Hurt(ctx, au, blast, attacker.Name + " 的 Blast", p, actingCard: attacker,
+                                      // 🆕 2026-10-25（`X2`）：爆裂单列一类（今天没有成就用它，照样打标）。
+                                      kind: DamageKind.Blast);
                         // 🔴 `W58-SLAYFIX`（D2 记账）：`actingCard` 就是**这一下是攻方的单位打的**。
                         //   原版 `ResolveTraitAdjacentDamage` 造的 `DamageInfo.actingCard = 攻击者`、
                         //   deathType = `combatDefender(15)` ⇒ 落在 `TryCreditKill` 放行的两档之一。
@@ -6394,7 +6541,10 @@ namespace RuleEngine
                     if (au != null)
                     {
                         int excess = dealt - hpBefore;
-                        int sd = Hurt(ctx, au, excess, attacker.Name + " 的 Stomp", p, actingCard: attacker);
+                        int sd = Hurt(ctx, au, excess, attacker.Name + " 的 Stomp", p, actingCard: attacker,
+                                      // 🆕 2026-10-25（`X2`）：践踏单列一类（成就 `Ach_86` = `Deal stopm damage`，
+                                      //   原版 `DamageType.Stomp = 11`）。
+                                      kind: DamageKind.Stomp);
                         // 🔴 `W58-SLAYFIX`（D3 记账）：同 Blast —— 原版
                         //   `ResolveTraitStompDamage` 的 `DamageInfo.actingCard = 攻击者`、deathType = 15。
                         //   `W58-INTERLEAVE`：`actingCard` 随死亡进 `PendingDeath`，由 flush 逐个记账。
@@ -6487,7 +6637,9 @@ namespace RuleEngine
                 if (!targetDied && ranged && target.Has("markerlight"))
                 {
                     int ml = target.KwValue("markerlight");
-                    int mld = Hurt(ctx, target, ml, attacker.Name + " 的 Markerlight", actingCard: attacker);
+                    int mld = Hurt(ctx, target, ml, attacker.Name + " 的 Markerlight", actingCard: attacker,
+                                   // 🆕 2026-10-25（`X2`）：标记光单列一类（成就 `Ach_53` = `Deal damage with Markerlight`）。
+                                   kind: DamageKind.Markerlight);
                     // ⚠️ 规则书 :192 是「移除**全部**标记光」—— 用 `RemoveKeyword` 只会减一层
                     target.RemoveAll("markerlight");
                     ctx.Log($"Markerlight {ml}：{target.Name} 的标记光在**主攻击（与反击）之后**再算 → "
@@ -7696,14 +7848,18 @@ namespace RuleEngine
         /// （同 <see cref="TryCreditKill"/> 那份约定）⇒ 全仓**只有反击那一处**
         /// （`Hurt(ctx, attacker, counterAtk, …)`）传 `true`。⛔ 别顺手往别的伤害点加。</param>
         public static int ApplyDamage(BattleContext ctx, UnitState u, int dmg, string source,
-                                      bool ignoreBastion = false)
+                                      bool ignoreBastion = false,
+                                      // 🆕 2026-10-25（执行代理 `X2`）：「这一下算哪一类伤害」
+                                      //   （成就 `Ach_2/3/4/7/53/86` 的计数源）。**缺省 `Unknown` = 不计**，
+                                      //   判据与 8 个打标点 → `资料/待办判据_成就计数器_1025b.md` §B-3 #1。
+                                      DamageKind kind = DamageKind.Unknown)
         {
-            using (BeginAction(ctx)) return ApplyDamageCore(ctx, u, dmg, source, ignoreBastion);
+            using (BeginAction(ctx)) return ApplyDamageCore(ctx, u, dmg, source, ignoreBastion, kind);
         }
 
         /// <summary><see cref="RuleCore.BeginAction"/> 包住的原文（2026-10-21 `T03·c` 批 B 接线）。</summary>
         static int ApplyDamageCore(BattleContext ctx, UnitState u, int dmg, string source,
-                                      bool ignoreBastion = false)
+                                      bool ignoreBastion = false, DamageKind kind = DamageKind.Unknown)
         {
             // ⚠️ 数值**一律走 `DamageAfterReduction`**（全仓唯一一份公式）——
             //    这一支只负责**副作用**：日志 / 事件 / 消费盾与闪避 / 翻伏击 / 扣血。
@@ -8115,7 +8271,16 @@ namespace RuleEngine
             //    `BattleManager._ResolveFatigue_d__587__MoveNext.c:125-137 DealMultiDamage` →
             //    `_ResolveMultiDamage_d__456__MoveNext.c:141 BroadcastUnitDamaged` ⇒ 同样落进这一口；
             //    我们那边是**直扣血 + 手发 `EvtKind.Hit`**（绕开了 `ApplyDamage`）⇒ 在那一处也补一句。
-            if (!absorbed && dmg != 0) u.Prayed = false;
+            if (!absorbed && dmg != 0)
+            {
+                u.Prayed = false;
+                // 🆕 2026-10-25（`X13`）：**祈祷附魔也会被「真挨到伤害」撤掉** —— 原版是附魔卡 `Pray Enchantment`
+                //   的 ability[0]：`trigger 60 (UnitDamaged) → chosenAbility 340 removeThisEnchantment`。
+                //   ⚠️ **它与 `Prayed` 共用同一个闸**（`!absorbed && dmg != 0`），这正是判据要的那条：
+                //     `CardScript__ResolveDamageDealt.c:25-28` 对 `damage == 0` 直接 `return`
+                //     ⇒ **护甲/盾挡掉的 0 伤不算打断**（判别式：把这句删掉 ⇒ 测试②红）。
+                u.PrayEnchantment = false;
+            }
 
             // 🔴 **2026-10-19（`A1649`）：`damaged` 广播排在【扣血之前】—— 原版就是这个次序。**
             //   判据 = `decomp_full/BattleManager._ResolveMultiDamage_d__456__MoveNext.c`：
@@ -8166,6 +8331,13 @@ namespace RuleEngine
             //    **不要再写第二份** —— `EffectResolver.cs` 那段的注释点名过「各写各的迟早不一致」。
             int _own = OwnerOf(ctx, u);
             if (_own == 0 || _own == 1) ctx.DamageToEnemy[1 - _own] += actual;
+            // 🆕 **2026-10-25（执行代理 `X2`）**：**按伤害类别**再记一笔（成就 `Ach_2/3/4/7/53/86` 的唯一数据源）。
+            //   位置与 `DamageToEnemy` **逐字并列**（同一条「打自己人不记对敌伤害」的判据，⛔ 别另写一份归属规则）；
+            //   `actual` = 扣盾 / 减伤 / **易伤拆分**之后的实际伤害 ⇒ 天生不会把「被盾挡下 / 无敌 / 闪避」算进去。
+            //   ⚠️ **不要在 `EmitHit` 上数**：它会给 0 伤（盾碎 / 闪过）发事件，而且易伤被拆成两条 `EvtKind.Hit`
+            //     （2026-10-25 `E4-3` 那批）⇒ 在那里数会**多算一遍**。判据 §六 问题 2。
+            if (kind != DamageKind.Unknown && (_own == 0 || _own == 1))
+                ctx.Tally.AddDamage(1 - _own, kind, actual);
             // 🆕 **2026-10-17（`N32`）**：任务卡 `Deal 45 damage to enemy warlords` 只算**督军**挨的那一份。
             if ((_own == 0 || _own == 1) && u.IsWarlord) ctx.DamageToEnemyWarlord[1 - _own] += actual;
             return actual;
@@ -8195,7 +8367,11 @@ namespace RuleEngine
         /// 这一维才分得出「能发哪条死因触发」。</param>
         static int Hurt(BattleContext ctx, UnitState u, int amount, string source, int killer = -1,
                         bool ignoreBastion = false, UnitState actingCard = null,
-                        int deathType = UnitDeathType.Unknown)
+                        int deathType = UnitDeathType.Unknown,
+                        // 🆕 2026-10-25（执行代理 `X2`）：「这一下算哪一类伤害」（成就计数用）。
+                        //   缺省 `Unknown` = **不计** ⇒ 所有老调用点行为逐字不变；8 个打标点
+                        //   在攻击结算那一段各传一个（判据 → `资料/待办判据_成就计数器_1025b.md` §B-3 #1）。
+                        DamageKind kind = DamageKind.Unknown)
         {
             // 🔴 **2026-10-22（`W62` · R1）：`Hurt` 也是「拥有死亡/广播路径的入口」⇒ 必须自带 `ActionScope`。**
             //   触发改「只入队」之后，本函数里那几拍（Penitence / Ecstasy / Cruelty → `FireTriggerAt`，
@@ -8207,12 +8383,13 @@ namespace RuleEngine
             //   ⚠️ 嵌套安全：已经在一条动作里 ⇒ 内层空转（`ActionPump.cs` 的设计口径 ②）。
             //   ⚠️ **别删 `ApplyDamage` 的那个作用域**（它自己也可能被单独调用，嵌套无害）。
             using (BeginAction(ctx))
-                return HurtCore(ctx, u, amount, source, killer, ignoreBastion, actingCard, deathType);
+                return HurtCore(ctx, u, amount, source, killer, ignoreBastion, actingCard, deathType, kind);
         }
 
         /// <summary><see cref="Hurt"/> 的原文（2026-10-22 `W62` · R1 抽出，逐字搬下来）。</summary>
         static int HurtCore(BattleContext ctx, UnitState u, int amount, string source, int killer,
-                            bool ignoreBastion, UnitState actingCard, int deathType)
+                            bool ignoreBastion, UnitState actingCard, int deathType,
+                            DamageKind kind = DamageKind.Unknown)
         {
             // 已经死了的不再挨第二遍。
             // 什么时候会走到这：攻击者先被对方的**忏悔**打死了，回来还要结算反击 ——
@@ -8226,7 +8403,7 @@ namespace RuleEngine
             if (u == null || EnoughPendingDamageToDie(u)) return 0;
 
             int hpBefore = u.Health;          // 狂喜判「**降至**」要用「打之前」那一格，见下
-            int dealt = ApplyDamage(ctx, u, amount, source, ignoreBastion);
+            int dealt = ApplyDamage(ctx, u, amount, source, ignoreBastion, kind);
 
             // Penitence（忏悔）：「受到伤害但未死亡时触发效果」—— 规则书 :196。
             // ⚠️ 只有**真掉血**才算受伤（Shield 全挡 = 没受伤，Armour 也只可能减到最低 1，不会变 0）
@@ -8343,9 +8520,13 @@ namespace RuleEngine
         /// 4 参调用会同时匹配两个重载 ⇒ 编译期二义性。</summary>
         public static int HurtWithSourceForTest(BattleContext ctx, UnitState u, int amount, string source,
                                                 int killer = -1, UnitState actingCard = null,
-                                                int deathType = UnitDeathType.Unknown)
+                                                int deathType = UnitDeathType.Unknown,
+                                                // 🆕 2026-10-25（`X2`）：自检要能**喂「近战 / 远程」那一路**的伤害
+                                                //   （成就 `Ach_2/3` 的计数源）⇒ 这个口也带类别（缺省 = 不计）。
+                                                DamageKind kind = DamageKind.Unknown)
         {
-            return Hurt(ctx, u, amount, source, killer: killer, actingCard: actingCard, deathType: deathType);
+            return Hurt(ctx, u, amount, source, killer: killer, actingCard: actingCard,
+                        deathType: deathType, kind: kind);
         }
 
         /// <summary>死了就从棋盘上拿掉（督军除外 —— 它留在槽 4，胜负交给 <see cref="CheckWinner"/>）</summary>
@@ -11120,7 +11301,16 @@ namespace RuleEngine
             // ⚠️ 和下面那条 `BroadcastWhen(Prays)` 是**两件事** ——
             //    那个是「祈祷发生了」的**事件**（监听者当场响应），这个是**状态**（`Devout Serenity` 那种
             //    「每个正在祈祷的单位」要读的）。两者都要，缺一个就有一类卡不响。
-            if (keyword == KeywordTable.Pray) u.Prayed = true;
+            if (keyword == KeywordTable.Pray)
+            {
+                u.Prayed = true;
+                // 🆕 2026-10-25（`X13`）：**祈祷附魔挂上** —— 经典/冲突**都**有，与上面那面 flag 无关。
+                //   原版 = 卡数据里那张隐藏附魔 `Pray Enchantment`（23 张 pray 卡的
+                //   `cardAbilities[trigger=655].abilityLogic[0].buffEffect{buffType:15, enchantment}`）；
+                //   本版按**引擎内等价状态**实现，判据/差异全写在 `UnitState.PrayEnchantment` 的 doc 里。
+                //   ⚠️ 它**不**受 `alternativeTraitLogic` 影响（那是「再立刻 +1」，见 `EffectResolver.FinishActiveAbility`）。
+                u.PrayEnchantment = true;
+            }
 
             // 走**所有触发唯一的那个出口** —— 事件、递归保护、`When … triggers <关键词>` 广播
             // 全都免费拿到（`When a friendly unit uses Ferocity` 那几条就是要它）
@@ -11130,7 +11320,7 @@ namespace RuleEngine
             // ⚠️ 只有真·祈祷发这条；`Duty` / `Ferocity` / `Agenda` 不发
             //    （原来收成一条时它们也发 —— 那是「打得比卡面宽」，2026-09-13 A2 拆开时改掉）。
             if (keyword == KeywordTable.Pray) BroadcastWhen(ctx, WhenEventKind.Prays, p, u.Card, u);
-            ctx.Log($"{ctx.Players[p].Name} 的 {u.Name} 执行了{AlternativeActionName(keyword)}");
+            ctx.Log($"{ctx.Players[p].Name} 的 {u.Name} 执行了{AlternativeActionNameForLog(ctx, keyword)}");
 
             // 狂暴：**然后洗回牌库**（离场要在触发**之后** —— 正文里可能用到它自己的格位）
             //
@@ -11208,14 +11398,106 @@ namespace RuleEngine
             return RuleCodes.OK;
         }
 
-        /// <summary>替代行动的显示名（日志与界面用）</summary>
-        public static string AlternativeActionName(string keyword)
+        /// <summary>
+        /// 替代行动的**官方词条键**（`Card_Trait/*`）。四个词逐条在
+        /// `Unity/数据/游戏数据/官方本地化_en+zh-CN.json` 里现读，值 =
+        /// `duty`→`["Duty","职责"]` · `pray`→`["Pray","祈祷"]` ·
+        /// `ferocity`→`["Ferocity","凶残"]` · `agenda`→`["Agenda","议程"]`。`null` = 这个词没有官方键。
+        /// <para>⚠️ **引擎只出键、不出文案** —— 文案一律由表现层 `CardPresentation.Loc.T` 解析
+        /// （与本文件第 16 行「`Core/` 不允许依赖 UnityEngine」同一条纪律，也与
+        /// `RuleCodes.TermKey` 的既有分工一致：引擎给键，表现层给字）。</para>
+        /// </summary>
+        public static string AlternativeActionTermKey(string keyword)
+        {
+            if (keyword == KeywordTable.Duty)     return "Card_Trait/duty";
+            if (keyword == KeywordTable.Pray)     return "Card_Trait/pray";
+            if (keyword == KeywordTable.Ferocity) return "Card_Trait/ferocity";
+            if (keyword == KeywordTable.Agenda)   return "Card_Trait/agenda";
+            return null;
+        }
+
+        /// <summary>
+        /// **词条键 → 显示名** 的解析器。表现层启动时挂一次：
+        /// <c>RuleCore.TermResolver = CardPresentation.Loc.T;</c>
+        /// <para>`null` = 没挂（批处理自检、纯 `dotnet` 的 `工具/ruleprobe` 都是这一档）⇒ 显示名回
+        /// <see cref="AlternativeActionNameFallback"/> 的中文兜底，并把键记进
+        /// <see cref="UnresolvedActionNameKeys"/>（⛔ 不静默，⛔ 不自造英文）。</para>
+        /// <para>返回**键名本身**也算「没取到」—— `Loc.T` 的契约就是缺键回键名
+        /// （见 `Core/Loc.cs` 的 `T()` doc），所以这里按「回来的是不是键」判缺键。</para>
+        /// </summary>
+        public static Func<string, string> TermResolver;
+
+        static readonly List<string> _unresolvedActionNameKeys = new List<string>();
+        static readonly List<string> _reportedActionNameKeys = new List<string>();
+
+        /// <summary>取不到本地化的替代行动词条键（去重、只累加）。用法同 `KeywordTable.Dropped`：
+        /// 引擎只记、报由调用方做（`AlternativeActionNameForLog` 每键往战斗日志报一次；
+        /// 自检可以读本表断言「一个都没有」）。</summary>
+        public static IReadOnlyList<string> UnresolvedActionNameKeys { get { return _unresolvedActionNameKeys; } }
+
+        static void NoteUnresolvedActionName(string key)
+        {
+            if (!string.IsNullOrEmpty(key) && !_unresolvedActionNameKeys.Contains(key))
+                _unresolvedActionNameKeys.Add(key);
+        }
+
+        /// <summary>替代行动的**中文兜底名**（只在本轮取不到词条时用；⛔ 别拿它当正名）。
+        /// 四个值与 2026-10-25 之前 `AlternativeActionName` 的硬编码**逐字相同** ⇒ 兜底档行为零变化。</summary>
+        public static string AlternativeActionNameFallback(string keyword)
         {
             if (keyword == KeywordTable.Duty) return "职责";
             if (keyword == KeywordTable.Pray) return "祈祷";
             if (keyword == KeywordTable.Ferocity) return "狂暴";
             if (keyword == KeywordTable.Agenda) return "议程";
             return keyword;
+        }
+
+        /// <summary>
+        /// 替代行动的显示名（日志与界面用）。
+        /// <para>🔴 **2026-10-25 修**：原来这里是四个硬编码中文字面量 ⇒ **英语档那个按钮仍然是中文**
+        /// （`Battle/BattleDriver.cs:14059` 的 `ActiveActionText` 直接拿它当按钮文字）。
+        /// 现在先问 <see cref="AlternativeActionTermKey"/> + <see cref="TermResolver"/>；
+        /// 取不到才回 <see cref="AlternativeActionNameFallback"/>，并记进
+        /// <see cref="UnresolvedActionNameKeys"/>（⛔ 不静默、也⛔ 不自造英文）。</para>
+        /// <para>⚠️ 官方中文列 `ferocity` = **凶残**（我们卡面/规则书口径是「狂暴」）—— 走本地化后
+        /// 英语档显示 `Ferocity`、中文档显示 `凶残`；要保「狂暴」得改 `Core/Loc.cs` 那条，
+        /// ⛔ 别在引擎里另写一份。</para>
+        /// </summary>
+        public static string AlternativeActionName(string keyword)
+        {
+            string key = AlternativeActionTermKey(keyword);
+            if (key != null)
+            {
+                string t = TermResolver != null ? TermResolver(key) : null;
+                if (!string.IsNullOrEmpty(t) && t != key) return t;
+                NoteUnresolvedActionName(key);
+            }
+            return AlternativeActionNameFallback(keyword);
+        }
+
+        /// <summary>
+        /// 同 <see cref="AlternativeActionName"/>，但**每个键只往战斗日志里出声一次**
+        /// （「解析器没挂」与「表里没有这条键」两种原因分开说）。日志那一行用它；界面文案仍走单参版。
+        /// </summary>
+        public static string AlternativeActionNameForLog(BattleContext ctx, string keyword)
+        {
+            string key = AlternativeActionTermKey(keyword);
+            string name = AlternativeActionName(keyword);
+            if (key != null && !_reportedActionNameKeys.Contains(key))
+            {
+                _reportedActionNameKeys.Add(key);
+                if (ctx != null)
+                {
+                    if (TermResolver == null)
+                        ctx.Log($"[词条] 「{key}」取不到显示名 —— `RuleCore.TermResolver` 还没挂"
+                              + "（表现层启动时应 `RuleCore.TermResolver = CardPresentation.Loc.T;`）"
+                              + $" ⇒ 先用中文兜底「{name}」。本进程每个键只报这一次。");
+                    else
+                        ctx.Log($"[词条] 「{key}」在 `Loc` 表里查不到（`Loc.T` 回的是键名本身）"
+                              + $" ⇒ 先用中文兜底「{name}」，⛔ 不自造英文。本进程每个键只报这一次。");
+                }
+            }
+            return name;
         }
 
         /// <summary>
@@ -11552,6 +11834,18 @@ namespace RuleEngine
             List<BoardListener> listenerSnap = (only == null && u != null && u.Card != null)
                                          ? SnapshotBoardListeners(ctx, null, null)
                                          : null;
+            // 🆕 v29b（2026-10-25 · 执行代理 `X6` · 口径乙 · **单位 trigger 那一跳**）：
+            //   **ability 级 `targetCriteria`（`CardAbility.targetCriteria` `+0x30`）的族闸**。
+            //   为什么在这里：原版 `RawCardScript__TriggerAbilities.c:207` 是在**派发那一刻同步**
+            //   调 `CanTriggerAbility`（判完才 `PlayAbility` 入队）⇒ 闸必须在**入队前**判，
+            //   ⛔ 不能等到泵点出队再判（那时局面可能已经变了）。
+            //   ⚠️ 只对「按 trigger 定位不唯一」的卡生效（那 23 张 + `SW9` 那一对）⇒ 其余卡
+            //   `opsGated` **就是 `ops` 本身**，行为逐字不变。
+            //   判据 / 三态 / 为什么是近似 → `AbilityFamilyGateOpsForTrigger` 的 doc。
+            var _carrierCard = only != null ? only.Card : (u != null ? u.Card : null);
+            string _kwTriggerName = TriggerNameOfKeyword(keyword);
+            var opsGated = AbilityFamilyGateOpsForTrigger(ctx, u, _carrierCard, _kwTriggerName,
+                                                          ops, chosen, owner, only);
             // 🔴🆕 2026-10-21（审查 `W61b` 第 3 条）：**带上施放者**，并声明「他必须在场」——
             //   原版这条 ability 的 `abilityContext` 是 `Play(0)`（`CardAbility__IsRightContext.c:20-30`：
             //   结算那一刻要 `IsInPlay`）⇒ 出队时若 `u` 已经离场（死亡 / 回手 / 变残骸），这条作废。
@@ -11559,7 +11853,7 @@ namespace RuleEngine
             //   `InPlayOrDying(40)` / `InCemetery||InPlay(50)` 的一律不判）—— 逐族分布与判据
             //   全写在 `ActorMustBeInPlayForTrigger` 的 doc 里（⛔ 别在这儿另写一份名单）。
             System.Action body = () => FireTriggerDeferred(ctx, u, keyword, owner, slot, chosen, subject,
-                                                           only, ops, spec, ench, listenerSnap);
+                                                           only, opsGated, spec, ench, listenerSnap);
             if (deferSignal)
             {
                 // 🆕 2026-10-22（`W63` #3）：信号**与队列体同层**（先发信号、再结算）——
@@ -11586,8 +11880,8 @@ namespace RuleEngine
             //     （strike 40 / regiment 40·50 / ambush 40 / ecstasy 40 / spiritstone 50 / codex 50）：
             //     前五族**不在旧表**（旧表也判 `false`）、`codex` 在 skip 表（同样 `false`）⇒ 零行为变化。
             //   载体卡 = 附魔那几条能力时是**附魔卡**、否则是单位自己（与上面 `TriggerLaneOfCard` 同口径）。
-            //   判据 → `W63_abilityContext_施工简报.md` §4·C5 · §1·2（skip 表）。
-            var _carrierCard = only != null ? only.Card : (u != null ? u.Card : null);
+            //   ⚠️ 这两个局部量**已上提到 `body` 闭包之前**（v29b `X6`）—— 族闸要在**入队前**判，
+            //      而它需要同一对（载体卡 / trigger 名）。判据不变，只是位置提前。
             // 🔴🆕 **2026-10-23（引擎线 `W63` 收口）：`abilityContext` 走【入队那一刻】的闸**
             //   （判据 → `EnqueueAbility` 的 `abilityContext` 形参 doc：原版
             //    `RawCardScript__TriggerAbilities.c:108,207` 在广播那一刻同步调
@@ -11600,7 +11894,6 @@ namespace RuleEngine
             //     （v14 只落非 0 ⇒ 缺行 = `Play(0)`）。
             //   ⚠️ 仍**同时**传 `requireActorInPlay` —— 那只在 context 取到 `-1`（旧卡表 /
             //     第二解析路没接列）时生效，是**回退口径**，⛔ 不是第二份判据。
-            string _kwTriggerName = TriggerNameOfKeyword(keyword);
             int _abilityCtx = (only != null
                                || TriggerSkipsAbilityContext(_kwTriggerName, keyword))
                             ? CardDef.AbilityContextUnknown
@@ -11805,6 +12098,104 @@ namespace RuleEngine
         }
 
         /// <summary>单位还在场上时触发（自己找格位）</summary>
+        // ==========================================================================================
+        //  🆕 v29b（2026-10-25 · 执行代理 `X6` · **口径乙 · 单位 trigger 那一跳**）
+        // ==========================================================================================
+        /// <summary>
+        /// **`FireTriggerAt` 的族闸**：按 `op` 的动词 → 能力种类族名 → 认那条
+        /// `abilityLevelCriteria` 行（`CardDef.AbilityLevelCriteriaForFamily`）→ 拿**这条 ability 的
+        /// `targetCard`（我们的 `chosen`）** 过 `TargetCriteriaEval.Matches` ⇒ **明确不满足**的 op
+        /// **从这一批里剔掉**（= 那条 ability 的 logic 不结算）。
+        ///
+        /// <para>**判据**（第一权威 = 全量反编译；与出牌那条同一套，⛔ 不是第二套判据）：
+        /// 原版 `RawCardScript__TriggerAbilities.c:207/231` 逐条 ability 各判各结算 ——
+        /// 我们的正文是**一整块 op** ⇒ 只能按 `chosenAbility` 家族逐 op 近似（**已知并接受**）。</para>
+        ///
+        /// <para>🔴 **窄闸（任一不过 ⇒ 原样返回 <paramref name="ops"/>，行为逐字不变）**：</para>
+        /// <list type="number">
+        /// <item>`only == null`（附魔卡那几条能力不属于本卡 `cardAbilities`）；
+        /// `carrierCard` / `triggerName` 拿得到；`ops` 非空；</item>
+        /// <item>**按 trigger 定位不唯一**（`card.UniqueAbilityIndexForTrigger` 回 `-1` 且 `ambiguous`）
+        ///   —— 唯一定位得到的卡走既有的 `EnqueueAbility` 那条闸（⛔ 两处都判 = 双重闸）；</item>
+        /// <item>**要剔的 op 里没有任何一条参与 `instead` 配对**（`EffectOp.FindInsteadBaseIndex`）——
+        ///   剔掉配对的一半会让「谁替换谁」配不上（症状 = 两条都跑 / 两条都不跑）⇒ 这一档
+        ///   **整条不剔**并出声。</item>
+        /// </list>
+        ///
+        /// <para>**三档处置**（同 `RuleCore.AbilityFamilyTargetAllows`）：`true`/「这一族没有条件」⇒ 留；
+        /// `false` ⇒ 剔 + `ctx.Log` 说清；`null`（判不了，含**本路径没有 `targetCard`**）⇒ 留 + 那个
+        /// 函数自己出声一次。</para>
+        ///
+        /// <para>⚠️ **今天的行为面（如实标着）**：`Rally` 那一族是 `FireTriggerOnBoard` 调的，
+        /// **不传 `chosen`** ⇒ 这 5 张（`BL33`/`DA38` 可判 · `ASH30`/`DA33`/`SOR31` 判不了）
+        /// 在 Rally 上**一律「判不了 ⇒ 出声 + 放行」**（= 改前行为，只是不再静默）。
+        /// 会传 `chosen` 的那几族（`AboutToAttack`、替代行动…）才真的会筛 —— 见 `X6T6` 的断言。</para>
+        /// </summary>
+        static IReadOnlyList<EffectOp> AbilityFamilyGateOpsForTrigger(
+            BattleContext ctx, UnitState u, CardDef carrierCard, string triggerName,
+            IReadOnlyList<EffectOp> ops, UnitState chosen, int owner, ActiveEnchantment only)
+        {
+            if (ctx == null || only != null || carrierCard == null || string.IsNullOrEmpty(triggerName)
+                || ops == null || ops.Count == 0) return ops;
+            string uwhy;
+            bool uamb;
+            if (carrierCard.UniqueAbilityIndexForTrigger(triggerName, out uwhy, out uamb) >= 0 || !uamb)
+                return ops;                                   // 唯一定位 / 没有这条 ability ⇒ 不启用
+
+            // 先算「要剔哪些」+ 有没有撞上 `instead` 配对（撞了就不动）。
+            var drop = new bool[ops.Count];
+            var pairTouch = new bool[ops.Count];
+            for (int i = 0; i < ops.Count; i++)
+            {
+                if (!ops[i].Instead) continue;
+                int segEnd;
+                int baseIdx = EffectOp.FindInsteadBaseIndex(ops, i, out segEnd);
+                if (baseIdx >= 0 && baseIdx < pairTouch.Length) pairTouch[baseIdx] = true;
+                pairTouch[i] = true;
+                for (int k = i; k <= segEnd && k < pairTouch.Length; k++) pairTouch[k] = true;
+            }
+            bool any = false, collide = false;
+            for (int i = 0; i < ops.Count; i++)
+            {
+                var op = ops[i];
+                if (op == null || string.IsNullOrEmpty(op.Verb)) continue;
+                string[] fams = CardDef.FamiliesOfVerb(op.Verb);
+                if (fams.Length == 0) continue;                // 这个动词不属于任何能力种类 ⇒ 不判
+                string fam = fams.Length == 1 ? fams[0] : "";   // ≥2 族 ⇒ 判不了（⛔ 不挑第一族）
+                string why;
+                bool amb;
+                bool? ok = AbilityFamilyTargetAllows(ctx, owner, u, carrierCard, triggerName, fam,
+                                                     chosen, out why, out amb);
+                if (ok != false) continue;
+                if (pairTouch[i]) { collide = true; continue; }
+                drop[i] = true;
+                any = true;
+                ctx.Log($"{(u != null ? u.Name : "?")} 触发的 {triggerName}：「{op.Source}」这一条按能力种类族"
+                      + $"（`{fam}`）的 ability 级 `targetCriteria` **不满足** ⇒ **不结算这一条**"
+                      + "（原版逐条 ability 各判各结算；钱照收）");
+            }
+            if (collide)
+            {
+                EmitAbilityFamilyGateNotice(carrierCard, triggerName, "(instead-pair)",
+                    "要剔的那条 op 参与了 `instead` 配对 ⇒ 剔了会让「谁替换谁」配不上 ⇒ **整条不剔**（放行）");
+            }
+            if (!any) return ops;
+            var keep = new List<EffectOp>(ops.Count);
+            for (int i = 0; i < ops.Count; i++) if (!drop[i]) keep.Add(ops[i]);
+            NoteAbilityFamilyGateSkipForTest();
+            return keep;
+        }
+
+        /// <summary>🆕 v29b：**只为自检开门** —— 转发 <see cref="FireTriggerAt"/>（纪律同
+        /// `ActiveAbilityPickCriteriaWarningsForTest` 那几处：**不改任何行为**，只让编辑器测试
+        /// 调得到这个 private 口）。⛔ 生产侧别调。</summary>
+        public static bool FireTriggerAtForTest(BattleContext ctx, UnitState u, string keyword,
+                                                int owner, int slot, UnitState chosen = null,
+                                                UnitState subject = null)
+        {
+            return FireTriggerAt(ctx, u, keyword, owner, slot, chosen, subject);
+        }
+
         static bool FireTriggerOnBoard(BattleContext ctx, UnitState u, string keyword)
         {
             int owner, slot;
@@ -12405,7 +12796,11 @@ namespace RuleEngine
                                      // 🔴 2026-10-24（`C1` §3）：效果伤害的死因按**来源卡种**定 ——
                                      //   单位能力 ⇒ `ability(20)`；战术卡 / 防御卡 / 密令卡 ⇒ `tactic(30)`
                                      //   （判据 → `DeathTypeOfSource`）。
-                                     deathType: DeathTypeOfSource(ctx));
+                                     deathType: DeathTypeOfSource(ctx),
+                                     // 🆕 2026-10-25（`X2`）：效果伤害算**计谋**那一类
+                                     //   （原版 `AttackTypes.Spell = 3`，成就 `Ach_4` = `Stratagem Damage`）。
+                                     //   判据 §六 问题 2 第三个打标点（`ResolveOps` 的 `damage` 支）。
+                                     kind: DamageKind.Spell);
                     if (!ctx.DeathsDeferred) TryCreditKill(ctx, source, vOwner, t);
                     ctx.Log($"{by} 的效果「{spec.Source}」对 {t.Name} 造成 {dealt} 伤（剩 {t.Health}）");
                     break;
