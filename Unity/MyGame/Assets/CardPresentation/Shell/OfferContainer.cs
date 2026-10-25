@@ -202,6 +202,8 @@
 //    而「呼吸」这一层本身**也不成立**：19 份逐份实读 `UIBorderGlow` 的三个字段 = `animDelay 0` ·
 //    `animTime 1` · **`playOnEnable 0`** ⇒ **它根本不会自己动**，出厂就是静帧。
 //    ⇒ 静态画在出厂色（α0.8）**就是原版的静止态**，这里没有偏离。
+using System;
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace CardPresentation
@@ -903,6 +905,67 @@ namespace CardPresentation
             p.Why = how + "；但这个变体的池（" + n + " 个槽）里**一个同类槽都没有** ⇒ "
                     + "照原版「池里找不到 ⇒ 什么都不画」。池的类逐格：" + kinds;
             return p;
+        }
+
+        // ============================================================ 🆕 2026-10-25（`C` 商店域 · P2）
+        /// <summary>**轮播（Carousel）奖励的布局数学** —— 原版 `CarouselOfferPopupDrawer` + `UI_InfiniteScroll`
+        /// 的**可测那一半**。
+        ///
+        /// <para>**判据（已读）**：`CarouselOfferPopupDrawer.Initialize` = `base.Initialize(offer)` +
+        /// **`scroll.ManualInit()`**（无限循环滚动初始化）；`DrawItemReward` = `ItemDrawer.Draw(contentAnchor, item, qty)`
+        /// → 收进 `currentItemDrawers` → `ToggleShowInfoOnClick(false)`；`DoReset` = `ReleaseAssets()` + 销毁全部 drawer。
+        /// ⇒ 原版就是「**一列抽屉 + 无限循环滚动**」：滚到末尾从头上接回来。</para>
+        ///
+        /// <para>🔴 **判据不可及（如实标，⛔ 不编一个"看起来合理"的过滤）**：`DrawRewards` 里那个 `Where` 谓词
+        /// 是 `ObtainableItem` 上的**一次虚调用**（ilspy 只解出 `+0x1C8` / `+0x1D0` 两个槽，没有方法名），
+        /// **过滤什么没解出来** ⇒ 过滤口做成**可注入**（<see cref="Filter"/>），默认 **`null` = 不过滤**。
+        /// 真要做轮播 UI 的人可以先把它设成一个已知谓词再对拍。</para>
+        ///
+        /// <para>⚠️ **今天还接不到 UI**：① 我们的报价弹窗是**固定槽池**（`PickSlot` 按「同类第 n 个」取槽），
+        /// 而**本店每份报价只有 1 条奖励**（`ShopData` 的 `Grants` 全长度 1）⇒ 轮播路径**今天不可达**；
+        /// ② 无限滚动的**输入**要过 `Shell/PointerLayer.cs`（不属本代理）。⇒ 本轮只落**布局数学 + 可注入过滤口**，
+        /// UI/输入接线待后续（账里 `CarouselOfferPopupDrawer` 仍记 **C（P2）**，不改成 A）。</para></summary>
+        public static class Carousel
+        {
+            /// <summary>奖励过滤口（原版 `DrawRewards` 那个 `Where`）。`null` = **不过滤**
+            /// —— ⚠️ 默认 null 是**判据不可及**的结果，⛔ 别填一个猜的进去。
+            /// 形参 = `(奖励序号, 奖励)`：序号让调用方能做「第 n 个之后才保留」这类规则。</summary>
+            public static Func<int, CampaignData.RewardSpec, bool> Filter { get; set; }
+
+            /// <summary>把偏移归一到一个周期里（负数也归正）。`n &lt;= 0` ⇒ 0。</summary>
+            public static int WrapOffset(int offset, int n)
+            {
+                if (n <= 0) return 0;
+                int r = offset % n;
+                return r < 0 ? r + n : r;
+            }
+
+            /// <summary>第 <paramref name="slot"/> 个可见槽该显示第几条奖励（循环取模；`n &lt;= 0` ⇒ −1）。</summary>
+            public static int IndexAt(int slot, int offset, int n)
+            {
+                if (n <= 0 || slot < 0) return -1;
+                return WrapOffset(offset + slot, n);
+            }
+
+            /// <summary>按 <see cref="Filter"/> 过一遍（`null` = 原样返回，**不过滤**）。</summary>
+            public static List<CampaignData.RewardSpec> Apply(List<CampaignData.RewardSpec> rewards)
+            {
+                if (rewards == null) return null;
+                var f = Filter;
+                if (f == null) return rewards;      // 判据不可及 ⇒ 不过滤
+                var outp = new List<CampaignData.RewardSpec>();
+                for (int i = 0; i < rewards.Count; i++)
+                    if (f(i, rewards[i])) outp.Add(rewards[i]);
+                return outp;
+            }
+
+            /// <summary>一共几「页」（= 需要几次滚动才能把 n 条看完；<paramref name="visible"/> = 一屏几槽）。
+            /// ⚠️ 原版是**无限**滚动（循环），「页数」只是我们给自检/输入用的离散化口径。</summary>
+            public static int Pages(int n, int visible)
+            {
+                if (n <= 0 || visible <= 0) return 0;
+                return (n + visible - 1) / visible;
+            }
         }
 
         /// <summary>`ItemKind` → **原版类型名**（只有一档**有判据**）：

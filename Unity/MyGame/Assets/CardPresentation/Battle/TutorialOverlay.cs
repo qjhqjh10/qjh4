@@ -956,7 +956,10 @@ namespace CardPresentation
                 if (UguiMode) CvPlace(_tipGo, _cvTip, p);
                 else _tipGo.transform.position = p;
             }
-            else if (_tipGo.activeSelf) _tipGo.SetActive(false);
+            // 🔴 **2026-10-25（代理 G B→A 补）：淡出** —— 原来这一支是 `SetActive(false)` **立即隐藏**，
+            //   而原版 `TutorialTipScript.FadeElements(targetAlpha)` 是 **`DOFade(fadeDuration = 0.2)`** 的淡出。
+            //   现在只清 `_wantVisible`，由 `Tick` 把 alpha 推到 0 之后再 `SetActive(false)`（见 `Tick` 末尾）。
+            //   ⚠️ 淡入早就有了（`Tick` 的 `MoveTowards`）；缺的只是这一半。
             // 🆕 2026-10-19（T11 `G-5`）：**左右箭头**（原版 `TutorialTipScript.SetupArrows(showLeft, showRight)`）。
             //   原版判据（`decomp_full/TutorialTipScript__SetupArrows.c`）：`SetSpriteAlpha(0)` →
             //   `SetActive(param)` → `DOFade(fadeDuration)` —— 即**只有「亮/不亮」两态**、位置**不动**
@@ -1154,6 +1157,9 @@ namespace CardPresentation
 
         void ApplyFade()
         {
+            // 🔴（淡出收尾）到 0 之后才真正 `SetActive(false)`（原版 `FadeElements` 的语义）
+            if (!_wantVisible && _fade <= 0.001f && _tipGo != null && _tipGo.activeSelf)
+                _tipGo.SetActive(false);
             if (_tipBg != null) _tipBg.SetTint(new Color(1f, 1f, 1f, 0.92f * _fade));
             if (_tipText != null) _tipText.SetColor(new Color(1f, 1f, 1f, _fade));
             if (_tipContinue != null) _tipContinue.SetColor(new Color(1f, 0.85f, 0.35f, _fade));

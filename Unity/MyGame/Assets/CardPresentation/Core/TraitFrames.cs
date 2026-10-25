@@ -35,7 +35,17 @@
 //     ⇒ **只有含 `TriggerOnPlay(6)` 的 trait 会被去重**，其余（纯 `Trigger(3)`）每触发一次演一次。
 //     ⚠️ 去重表的键是 **trait id**（不是某条 effect），所以一个 trait 只要有 6 那条 effect，
 //     它后续的**所有**触发（含 3 那条）都会被守卫挡住 —— 见下面 `DedupesTrigger`。
-//     ⚠️ 原版这个写表发生在**回调**（动画播完之后）；我们仍是**同步**写（既有简化，见报告「没查清」）。
+//     ✅ **2026-10-25（`E`）亲核订正（铁律 5）——「动画播完的回调」这句是错的**：
+//       原版那个回调是 **实例化回调**，不是「播完」回调。逐句（一手）：
+//         · `BattleManager__ResolveTraitAnim`（协程）：等 `CardAnim` 的 tween `delay` → `DelayedVFXPlay(...)`；
+//         · `BattleManager__DelayedVFXPlay`（协程）：等 `CardAnim+0x24` 的 delay → `CreateAnim(..., param_8=那个回调)`；
+//         · `BattleManager__CreateAnim.c:62-79`：**先 `Instantiate`、紧接着就 `invoke(param_8, GameObject)`**
+//           （**在** `CardAnimController.Initialize` **之前**）⇒ **写表 = 实例化那一拍**，动画还在第 0 帧。
+//       ⇒ **我们「同步写」与它等价**（`Play()` 同步实例化、随后写表）—— 唯一差别 = 原版会先等
+//         `CardAnim` 的 delay（当前 6 档里能核到的 `Pray_Idle` 三个时间字段全 0；其余几条本地没有
+//         该 CardAnim 的时间表 ⇒ **未逐条核**，但都不影响「写表时机 = 实例化」这条结论）。
+//       ⚠️ F 的 `判据/CardTrait对账.md` 第 1/8/17/18/26… 行仍写着「播完的回调」—— 已报给调度台改判；
+//          ⛔ 别照那句把写表挪到「动画结束」（我们没有、也不该造一个「结束」事件来当判据）。
 //     🆕 **2026-10-23（新账-70）三条补完**：
 //       ① **逐条播**：原版 `:47-111` 是 `for` 遍历 `_traitEffects`，3 和 6 **各播各的**
 //          （去重表在 6 的回调才写 ⇒ 首次调用两条都能过守卫）⇒ 本类现在一个 trait 可绑多行；
@@ -88,10 +98,11 @@
 //    `rawCardData.cardArmy`（`ObtainableItem.cardArmy`，偏移 `+0x2C`）。
 //    ⇒ 本文件现在有 **`PrefabFor(trait, trigger, army)` / `PrefabOf(row, army)` 两个阵营维度**，
 //    `DisplayStatus` / `DisplayTrigger` 各自把阵营传进去（10 条覆盖：`shield` 4 · `invulnerable` 6）。
-//    ⚠️ **已知偏差（如实记）**：原版读的是**卡自己的** army，我们只能从 `CardView.Data.faction` 反推
-//    （`ToCardData(UnitState, faction)` 填的是**拥有者的**阵营）⇒ 同阵营卡组逐字一致；
-//    跨阵营的盟军/中立卡可能与原版不同。要根治得让 `BattleDriver` 把 `CardDef.Faction` 传下来
-//    （`Battle/**` 不属本次白名单）—— 已记进报告。
+//    ✅ **2026-10-25 已解决（铁律 5 就地订正；原来这句写的是「已知偏差」）**：A 已改
+//    `BattleDriver.ToCardData(UnitState, faction, isPlayer)` —— **优先取 `u.Card.Faction`、没有才回落拥有者阵营**
+//    （`BattleDriver.cs:26519-26530` 的 `cardFaction`），而 `CardData.faction` 就是 `TraitFrames.ArmyId` 读的那一格
+//    ⇒ **我们拿到的已经是卡自己的阵营**（跨阵营盟军/中立卡也对上）。
+//    ⛔ **别再在这里加 `overrideArmy` / setter** —— 那会和 `CardData.faction` 变成两份口径。
 using System.Collections.Generic;
 using RuleEngine;
 using UnityEngine;
@@ -645,9 +656,9 @@ namespace CardPresentation
         /// **每次现算**（`CardView` 会被复用、`Data` 会换），取不到 ⇒ `-1`（不套覆盖）。
         /// 原版读的是**卡自己的** `rawCardData.cardArmy`（`ObtainableItem.cardArmy`，偏移 `+0x2C`；
         /// `CardScript__ActivateTraitParticlesFromCode.c:62` / `BattleCardUI__DisplayStatusAnim.c:105` 同一条）。
-        /// ⚠️ **已知偏差**：`CardData.faction` 是**拥有者**的阵营（`ToCardData(UnitState, faction)`），
-        /// 不是卡自己的 `CardDef.Faction` —— 同阵营卡组逐字一致，跨阵营盟军/中立卡可能不同。
-        /// 根治要 `BattleDriver` 传 `CardDef.Faction`（`Battle/**` 不属本批白名单，见报告）。</summary>
+        /// ✅ **2026-10-25 已解决**：`CardData.faction` 现在 = **卡自己的**阵营（A 改的
+        /// `BattleDriver.ToCardData` 优先 `u.Card.Faction`，`BattleDriver.cs:26519-26530`）
+        /// ⇒ 本属性拿到的就是原版 `rawCardData.cardArmy` 那一格。⛔ 不再需要任何 override setter。</summary>
         public int ArmyId
         {
             get
@@ -805,7 +816,7 @@ namespace CardPresentation
                                    + " —— 如实出声，不静默（判据 → `资料/待办判据_战场与战斗视图.md` Q8 第 3 条）");
                 return false;
             }
-            var p = Play(name);
+            var p = Play(name, held: true);     // 🆕 N5：`_play` 那一档由本类持有（状态消失 `Exit()` 收）
             if (p == null) return false;
             _play[key] = p;
             return true;
@@ -857,9 +868,12 @@ namespace CardPresentation
         ///   ③ 逐条遍历 `TriggerType ∈ {3,6}` 的 effect，**各播各的**（`bloodthirst` 的 3 + 6 首次两条都播）；
         ///      🆕 **2026-10-23**：每一条先过 `PrefabOf(row, ArmyId)`（= 原版 `TraitEffect.GetEffect(army)`）
         ///      —— `shield` / `invulnerable` 的 10 条 `overrideByArmies` 就是在这里按阵营换件的；
-        ///   ④ 只有 `TriggerType == 6` 那条**写进**去重表（原版回调 `…b__0.c:19-21`）。⚠️ 原版写表在**回调**
-        ///      （动画播完），我们是**同步**写 —— 所以判据在**入口检查一次**（否则第 ③ 步里 3 之后的 6
-        ///      会被自己刚写的表挡住，与「首次两条都播」相反）。
+        ///   ④ 只有 `TriggerType == 6` 那条**写进**去重表（原版回调 `…b__0.c:19-21`）。
+        ///      ✅ 2026-10-25 亲核：那个回调是**实例化回调**（`BattleManager__CreateAnim.c:62-79`：
+        ///      `Instantiate` 之后**立刻** `invoke(param_8)`，在 `CardAnimController.Initialize` 之前）
+        ///      —— **不是「动画播完」**。我们同步写与它等价（见文件头那段订正）。
+        ///      判据仍在**入口检查一次**（否则第 ③ 步里 3 之后的 6 会被自己刚写的表挡住，
+        ///      与「首次两条都播」相反）。
         /// 纯 `Trigger(3)` 的 trait（`oath` / `codex` …）**每次触发都演一次、永远不写表**。
         /// ⚠️ 去重表里存的是 **6 那条的播放器**（原版字典里也只有一个 GameObject 值）；3 那条的框
         /// 由 prefab 自己的 `destroyTime` 收尾（`Oath_Effect` 3.0 s / `BloodThirstEffect_Gain` 6.0 s）。
@@ -887,7 +901,9 @@ namespace CardPresentation
             int army = ArmyId;                                       // 🆕 原版 `TraitEffect.GetEffect(army)`
             for (int i = 0; i < rows.Length; i++)                    // ③ 逐条都播（原版遍历）
             {
-                var p = Play(PrefabOf(rows[i], army));
+                // 🆕 N5：**只有 `TriggerOnPlay(6)` 那条进表（= 由本类持有）**，纯 `Trigger(3)` 每触发一次演一次、
+                //   不入表 ⇒ 它不是持有框，仍按库里 `natural` 收尾（`held` 只给 6 那一支）。
+                var p = Play(PrefabOf(rows[i], army), held: rows[i].TriggerType == 6);
                 if (p == null) continue;                             // 取不到 ⇒ 出声（`Play` 里已警告）并跳过
                 playedAny = true;
                 _triggerPlays++;
@@ -946,14 +962,33 @@ namespace CardPresentation
         }
 
         /// <summary>建一张框（原版 = `Instantiate(prefab, effectsAnchor.position, prefab.localRotation, effectsAnchor)`
-        /// + **缩放随 prefab**）。</summary>
-        WarpforgeEffectPlayer Play(string prefabName)
+        /// + **缩放随 prefab**）。
+        /// <para>🆕 **2026-10-25（`N5` · F1）：`held` = 「这张框由本类**持有**，状态消失时由 `RemoveStatusAnim`
+        /// 侧 `Exit()` 收」**（两本字典 `_play` / `_trigger` 的那两档）。判据与为什么要单开这一档：</para>
+        /// <para>· 原版 `AnimFXController.OnEnable`：`if (0.0 &lt; destroyTime &amp;&amp; !preventDestroy) Destroy(go, destroyTime);`
+        ///   ⇒ **原版只在 `destroyTime > 0` 时排自毁**；**没有 AnimFXController 的 prefab 根本不会自毁**
+        ///   （`d:/2/tools/decomp_full/AnimFXController__OnEnable.c`）。
+        /// · 我们库里把「原版没有这个组件」编码成 `WFEffectEntry.destroyTime &lt; 0`（见那个字段的 Tooltip），
+        ///   而 `AutoLifetime()` 对 `< 0` 有一条**我们自拟的 `natural` 兜底**（给一次性特效收尾用）
+        ///   ⇒ 持有框会被它提前收掉：实测 `HuntMark_IdleEffect`（`natural 4.3`）/ `MarkerlightIdle`（`natural 4`）。</para>
+        /// <para>🔴 **收窄**：只有 `held == true` **且**该条目 `destroyTime &lt; 0` 时才显式给 **∞**；
+        /// `destroyTime &gt; 0` 的持有框照旧按原版计时自毁（原版确实会），**一次性档**（`Start(0)` / 纯 `Trigger(3)`）
+        /// 一个字不动（它们仍靠 `natural` 收尾 —— 那条兜底只该给它们用）。</para></summary>
+        WarpforgeEffectPlayer Play(string prefabName, bool held = false)
         {
             if (_anchor == null) return null;
             // ⚠️ 空名 = 原版那条 `effectAnim` 是空引用（`overrideByArmies` 命中一格空引用也走这里）⇒ 不演、不出声
             if (string.IsNullOrEmpty(prefabName)) return null;
             // `scale: 1` = 不额外缩放（`Play` 里那个 scale 是**乘数**，乘在 prefab 作者的缩放之上）
-            var p = WarpforgeEffectPlayer.Play(prefabName, _anchor, Vector3.zero, 1f);
+            float life = -1f;                       // -1 = 沿用库里那条口径（`preventDestroy` / `AutoLifetime()`）
+            if (held)
+            {
+                var lib = WarpforgeEffectLibrary.Instance;
+                WFEffectEntry e;
+                if (lib != null && lib.TryGet(prefabName, out e) && e != null && e.destroyTime < 0f)
+                    life = float.PositiveInfinity;  // `Play` 的约定：`autoDestroySeconds >= 0` ⇒ 调用方说了算
+            }
+            var p = WarpforgeEffectPlayer.Play(prefabName, _anchor, Vector3.zero, 1f, life);
             if (p == null)
                 Debug.LogWarning($"[TraitFrames] 效果库里没有 `{prefabName}` ⇒ 这张状态框挂不上"
                                + "（是不是重导过 prefab 没重建效果库？Tools > Warpforge > 生成效果库）");

@@ -1,0 +1,162 @@
+域	原版类	方法	判据出处	判据要点	状态	我们的落点	差异	等级	轮次	备注
+卡牌面/渲染	BoardTraitIcon	Awake()	BoardTraitIcon.cs:37		E					
+卡牌面/渲染	BoardTraitIcon	DOFade(float targetAlpha, float time)	BoardTraitIcon.cs:143		E					
+卡牌面/渲染	BoardTraitIcon	HighlightIcon()	BoardTraitIcon.cs:158		E					
+卡牌面/渲染	BoardTraitIcon	Initialize(Sprite traitIcon, int counter, bool traitEnabled)	BoardTraitIcon.cs:51		E					
+卡牌面/渲染	BoardTraitIcon	Toggle(bool option)	BoardTraitIcon.cs:45		E					
+卡牌面/渲染	BoardTraitIcon	ToggleCounter(bool option)	BoardTraitIcon.cs:129		E					
+卡牌面/渲染	BoardTraitIcon	UpdateCounter(int counter)	BoardTraitIcon.cs:112		E					
+卡牌面/渲染	BoardTraitIcon	_003CDOFade_003Eb__18_0()	BoardTraitIcon.cs:175		E					
+卡牌面/渲染	BoardTraitIcon	_003CDOFade_003Eb__18_1(float x)	BoardTraitIcon.cs:181		E					
+卡牌面/渲染	Card2DController	Awake()	Card2DController.cs:47		E					
+卡牌面/渲染	Card2DController	ChangeHighlightColor(Color color, bool isCardback, bool instant)	Card2DController.cs:98		E					
+卡牌面/渲染	Card2DController	ChangeShadowColor(Color color, bool isCardback, bool instant)	Card2DController.cs:107		E					
+卡牌面/渲染	Card2DController	SetCardBack(Sprite cardBackSprite, Sprite cardBackShadow)	Card2DController.cs:138		E					
+卡牌面/渲染	Card2DController	SetCardVisibility(CardVisibility cardVisibility)	Card2DController.cs:62		E					
+卡牌面/渲染	Card2DController	SetFrame(Sprite frameSprite, Sprite highlightSprite)	Card2DController.cs:126		E					
+卡牌面/渲染	Card2DController	Toggle(bool option)	Card2DController.cs:56		E					
+卡牌面/渲染	Card2DController	ToggleCardShadow(bool option, bool instant)	Card2DController.cs:116		E					
+卡牌面/渲染	Card2DController	ToggleGlitch(bool option)	Card2DController.cs:132		E					
+卡牌面/渲染	Card2DController	ToggleHighlight(bool option, bool isCardback, bool instant)	Card2DController.cs:77		E					
+卡牌面/渲染	Card2DController	ToggleTooltips(bool option)	Card2DController.cs:147		E					
+卡牌面/渲染	CardCollider	Awake()	CardCollider.cs:22		E					
+卡牌面/渲染	CardCollider	Toggle(bool option)	CardCollider.cs:20		E					
+卡牌面/渲染	CardCollider2D	Initialize()	CardCollider2D.cs:80		E					
+卡牌面/渲染	CardCollider2D	ResetCollider()	CardCollider2D.cs:179		E					
+卡牌面/渲染	CardCollider2D	SetColliderInHand()	CardCollider2D.cs:105		E					
+卡牌面/渲染	CardCollider2D	SetColliderNotInHand(CardStateOptions cardState)	CardCollider2D.cs:89		E					
+卡牌面/渲染	CardCollider2D	SetCollidersShowBig(bool option, int indexInHand)	CardCollider2D.cs:133		E					
+卡牌面/渲染	CardCollider2D	Toggle(bool option)	CardCollider2D.cs:170		E					
+卡牌面/渲染	CardCollider2D	ToggleShowInBigCollider(bool option, int indexInHand)	CardCollider2D.cs:186		E					
+卡牌面/渲染	CardFramesSO	CacheDictionary()	CardFramesSO.cs:251		E					
+卡牌面/渲染	CardFramesSO	ClearCache()	CardFramesSO.cs:302		E					
+卡牌面/渲染	CardFramesSO	GetReferences(CardTypeOptions cardTypeOptions, out AssetReferenceTyped<Sprite> frameReferenceToLoad, out AssetReferenceTyped<Sprite> highlightReferenceToLoad)	CardFramesSO.cs:156		E					
+卡牌面/渲染	CardFramesSO	GetTierReferencesCache()	CardFramesSO.cs:19		E					
+卡牌面/渲染	CardFramesSO	OnValidate()	CardFramesSO.cs:307		E					
+卡牌面/渲染	CardFramesSO	Release(CardTypeOptions cardTypeOptions)	CardFramesSO.cs:133		E					
+卡牌面/渲染	CardFramesSO	ReleaseCardFrame(CardArmy army, CardTier cardTier, CardTypeOptions cardTypeOptions)	CardFramesSO.cs:231		E					
+卡牌面/渲染	CardHighlight	ChangeFrameColor(Color targetColor, float seconds)	CardHighlight.cs:267		E					
+卡牌面/渲染	CardHighlight	ChangeState(HighlightStates newState)	CardHighlight.cs:72		E					
+卡牌面/渲染	CardHighlight	ChangeTargetScale(Vector3 targetScale, float time)	CardHighlight.cs:245		E					
+卡牌面/渲染	CardHighlight	HighlightAttackTypes(AttackTypes attackType)	CardHighlight.cs:228		E					
+卡牌面/渲染	CardHighlight	SetCombatHighlights()	CardHighlight.cs:90		E					
+卡牌面/渲染	CardHighlight	SetRemnantHighlight(SpriteRenderer remnantHighlight)	CardHighlight.cs:219		E					
+卡牌面/渲染	CardHighlight	Start()	CardHighlight.cs:58		E					
+卡牌面/渲染	CardHighlight	ToggleCombatPreviewHighlight(CardScript otherCard, bool isAttacker, bool changeAttackType, bool formUnityAbility)	CardHighlight.cs:95		E					
+卡牌面/渲染	CardHighlight	ToggleFrames(bool state)	CardHighlight.cs:321		E					
+卡牌面/渲染	CardHighlight	_003CChangeFrameColor_003Eb__28_0()	CardHighlight.cs:332		E					
+卡牌面/渲染	CardImageController	Awake()	CardImageController.cs:52		E					
+卡牌面/渲染	CardImageController	ChangeSize(ImageInFrameSize size, bool instant)	CardImageController.cs:246		E					
+卡牌面/渲染	CardImageController	ChangeState(ImageInFrameSize stateToChange, bool instant)	CardImageController.cs:267		E					
+卡牌面/渲染	CardImageController	DoChange(Vector3 targetScale, Vector4 targetClamp, bool instant, bool disableMaskOnFinish, float maskStrength)	CardImageController.cs:312		E					
+卡牌面/渲染	CardImageController	OnDrawGizmosSelected()	CardImageController.cs:374		E					
+卡牌面/渲染	CardImageController	SetImage(Sprite sprite, CardTypeOptions cardTypeOptions)	CardImageController.cs:61		E					
+卡牌面/渲染	CardImageController	SetOriginalMaterial()	CardImageController.cs:369		E					
+卡牌面/渲染	CardImageController	ToggleMask(bool option)	CardImageController.cs:251		E					
+卡牌面/渲染	CardImageController	_003CDoChange_003Eb__23_0()	CardImageController.cs:411		E					
+卡牌面/渲染	CardServices	CheckForCardCrafting(RawCardScript card, out Wildcard wildcard)	CardServices.cs:548		E					
+卡牌面/渲染	CardServices	CheckForCardUpgrade(RawCardScript card, out CardTierConfig.CardTierInfo nextTier)	CardServices.cs:471		E					
+卡牌面/渲染	CardServices	CleanTierCollection()	CardServices.cs:409		E					
+卡牌面/渲染	CardServices	CraftAlternateArt(AlternateArtCard alternateArt, Action onSuccess, Action<CustomError> onError)	CardServices.cs:816		E					
+卡牌面/渲染	CardServices	CraftCard(RawCardScript card, Action onSuccess, Action<CustomError> onError)	CardServices.cs:650		E					
+卡牌面/渲染	CardServices	GetAllUpgradedCards()	CardServices.cs:371		E					
+卡牌面/渲染	CardServices	GetCardTier(RawCardScript card)	CardServices.cs:376		E					
+卡牌面/渲染	CardServices	RegisterCardTier(RawCardScript card, CardTier tier)	CardServices.cs:401		E					
+卡牌面/渲染	CardServices	UpgradeCard(RawCardScript targetCard, Action onSuccess, Action<string> onError)	CardServices.cs:414		E					
+卡牌面/渲染	CardTextCountersController	Awake()	CardTextCountersController.cs:129		E					
+卡牌面/渲染	CardTextCountersController	CacheData()	CardTextCountersController.cs:1006		E					
+卡牌面/渲染	CardTextCountersController	ChangeFontsColor(Color targetColor, bool useOriginalColor)	CardTextCountersController.cs:966		E					
+卡牌面/渲染	CardTextCountersController	DoColorChange(int currentValue, int baseValue)	CardTextCountersController.cs:887		E					
+卡牌面/渲染	CardTextCountersController	HideStat()	CardTextCountersController.cs:698		E					
+卡牌面/渲染	CardTextCountersController	OnValidate()	CardTextCountersController.cs:1056		E					
+卡牌面/渲染	CardTextCountersController	ResetHide()	CardTextCountersController.cs:726		E					
+卡牌面/渲染	CardTextCountersController	SetText(int newAmount)	CardTextCountersController.cs:687		E					
+卡牌面/渲染	CardTextCountersController	SetText(int newAmount, int currentValue, int baseValue, bool doColorChange, bool doAnimation, bool hideIfZero, bool removeContainerIfBelowZero)	CardTextCountersController.cs:143		E					
+卡牌面/渲染	CardTextCountersController	Toggle(bool option, bool cardSimplifiedView)	CardTextCountersController.cs:25		E					
+卡牌面/渲染	CardTextCountersController	Toggle(bool value, bool simplifiedView)	CardTextCountersController.cs:731		E					
+卡牌面/渲染	CardTextCountersController	ToggleSimplifiedView(bool option)	CardTextCountersController.cs:810		E					
+卡牌面/渲染	CardTextsController	ChangeState(CardNameAndDescriptionTypes stateToChange)	CardTextsController.cs:455		E					
+卡牌面/渲染	CardTextsController	ChangeToInitialState()	CardTextsController.cs:483		E					
+卡牌面/渲染	CardTextsController	SetArmy(string army)	CardTextsController.cs:530		E					
+卡牌面/渲染	CardTextsController	SetCardTextLayout(string cardDescription)	CardTextsController.cs:511		E					
+卡牌面/渲染	CardTextsController	SetDescription(string cardDescription)	CardTextsController.cs:334		E					
+卡牌面/渲染	CardTextsController	SetRace(string race)	CardTextsController.cs:438		E					
+卡牌面/渲染	CardTextsController	SetStartingState(string cardDescription, string race, CardTypeOptions cardType, SpellType spellType)	CardTextsController.cs:281		E					
+卡牌面/渲染	CardTextsController	SetTexts(string cardName, string cardDescription, CardTypeOptions cardType, SpellType spellType)	CardTextsController.cs:104		E					
+卡牌面/渲染	CardTextsController	SetTexts(string cardName, string cardDescription, string race, string army, CardTypeOptions cardType, SpellType spellType)	CardTextsController.cs:117		E					
+卡牌面/渲染	CardTextsController	ToggleSimplifiedView(bool option, CardTextsInHandOptions cardTextsInHandOptions)	CardTextsController.cs:212		E					
+卡牌面/渲染	CardTextsController	ToggleState()	CardTextsController.cs:34		E					
+卡牌面/渲染	CardTrait	GetNewTrait(DefinedTrait trait, bool hideTrait, int defaultValue)	CardTrait.cs:81		E					
+卡牌面/渲染	CardTrait	IsActive(CardScript card)	CardTrait.cs:76		E					
+卡牌面/渲染	CardTrait	ShowingTrait(CardScript card, DefinedTrait trait)	CardTrait.cs:91		E					
+卡牌面/渲染	CardTraitData	GetValueString()	CardTraitData.cs:44		E					
+卡牌面/渲染	ScenarioEnvironmentConditionSO	ApplyAmbientColor(bool instant)	ScenarioEnvironmentConditionSO.cs:373		E					
+卡牌面/渲染	ScenarioEnvironmentConditionSO	ApplyFog(bool instant)	ScenarioEnvironmentConditionSO.cs:429		E					
+卡牌面/渲染	ScenarioEnvironmentConditionSO	BackToDefault()	ScenarioEnvironmentConditionSO.cs:268		E					
+卡牌面/渲染	ScenarioEnvironmentConditionSO	DisableEnvironment(UnityEngine.Object caller, bool instant)	ScenarioEnvironmentConditionSO.cs:285		E					
+卡牌面/渲染	ScenarioEnvironmentConditionSO	EnableEnvironment(bool instant)	ScenarioEnvironmentConditionSO.cs:149		E					
+卡牌面/渲染	ScenarioEnvironmentConditionSO	ObjectFinishedDisableBlend()	ScenarioEnvironmentConditionSO.cs:362		E					
+卡牌面/渲染	ScenarioEnvironmentConditionSO	TestShaderOff()	ScenarioEnvironmentConditionSO.cs:280		E					
+卡牌面/渲染	ScenarioEnvironmentConditionSO	TestToggleOn()	ScenarioEnvironmentConditionSO.cs:262		E					
+卡牌面/渲染	ScenarioEnvironmentConditionSO	ToggleFog()	ScenarioEnvironmentConditionSO.cs:496		E					
+卡牌面/渲染	ScenarioEnvironmentConditionSO	ToggleShaderOn()	ScenarioEnvironmentConditionSO.cs:275		E					
+卡牌面/渲染	ScenarioEnvironmentConditionSO	TryGetClip(string filterCodeToCheck, out AnimationClip clipToReturn)	ScenarioEnvironmentConditionSO.cs:18		E					
+卡牌面/渲染	ScenarioEnvironmentConditionSO	_003CApplyFog_003Eb__20_4()	ScenarioEnvironmentConditionSO.cs:517		E					
+卡牌面/渲染	TextTooltipController	Awake()	TextTooltipController.cs:95		E					
+卡牌面/渲染	TextTooltipController	CheckForLinkCollision()	TextTooltipController.cs:191		E					
+卡牌面/渲染	TextTooltipController	CheckLinkID(string linkID)	TextTooltipController.cs:254		E					
+卡牌面/渲染	TextTooltipController	GetFaithTooltip(string linkid)	TextTooltipController.cs:407		E					
+卡牌面/渲染	TextTooltipController	GetMeleeTooltip(string linkid)	TextTooltipController.cs:547		E					
+卡牌面/渲染	TextTooltipController	GetQPTooltip(string linkid)	TextTooltipController.cs:447		E					
+卡牌面/渲染	TextTooltipController	GetRangedTooltip(string linkid)	TextTooltipController.cs:517		E					
+卡牌面/渲染	TextTooltipController	GetSabotageTooltip(string linkid)	TextTooltipController.cs:487		E					
+卡牌面/渲染	TextTooltipController	GetSpiritStoneTooltip(string linkId)	TextTooltipController.cs:377		E					
+卡牌面/渲染	TextTooltipController	GetTooltipPosition(float zDesiredPosition)	TextTooltipController.cs:323		E					
+卡牌面/渲染	TextTooltipController	GetTraitTooltip(string linkId)	TextTooltipController.cs:345		E					
+卡牌面/渲染	TextTooltipController	Hide()	TextTooltipController.cs:177		E					
+卡牌面/渲染	TextTooltipController	InitializeTooltips()	TextTooltipController.cs:221		E					
+卡牌面/渲染	TextTooltipController	OnDeselect(BaseEventData eventData)	TextTooltipController.cs:146		E					
+卡牌面/渲染	TextTooltipController	OnDestroy()	TextTooltipController.cs:164		E					
+卡牌面/渲染	TextTooltipController	OnDisable()	TextTooltipController.cs:155		E					
+卡牌面/渲染	TextTooltipController	OnEnable()	TextTooltipController.cs:100		E					
+卡牌面/渲染	TextTooltipController	OnPointerDown(PointerEventData eventData)	TextTooltipController.cs:133		E					
+卡牌面/渲染	TextTooltipController	OnPointerEnter(PointerEventData eventData)	TextTooltipController.cs:124		E					
+卡牌面/渲染	TextTooltipController	OnPointerExit(PointerEventData eventData)	TextTooltipController.cs:168		E					
+卡牌面/渲染	TextTooltipController	OnSelect(BaseEventData eventData)	TextTooltipController.cs:137		E					
+卡牌面/渲染	TextTooltipController	OnValidate()	TextTooltipController.cs:577		E					
+卡牌面/渲染	TextTooltipController	Show(ToolTipData toolTipData)	TextTooltipController.cs:299		E					
+卡牌面/渲染	TextTooltipController	Toggle(bool option)	TextTooltipController.cs:113		E					
+卡牌面/渲染	TextTooltipController	Update()	TextTooltipController.cs:105		E					
+卡牌面/渲染	TraitDefinitionDisplay	DisplayCardAbilities(CardScript cardToDisplay, Vector2 startPos, bool isAlt)	TraitDefinitionDisplay.cs:81		E					
+卡牌面/渲染	TraitDefinitionDisplay	DisplayRawCardAbilities(RawCardScript cardToDisplay, Vector2 startPos, float newDelay, bool isAlt)	TraitDefinitionDisplay.cs:91		E					
+卡牌面/渲染	TraitDefinitionDisplay	DisplayTraitList(List<DefinedTrait> traitList, Vector2 startPos, float newSize, float timeToShow, float delay, RawCardScript rawcCard, bool isAlt)	TraitDefinitionDisplay.cs:101		E					
+卡牌面/渲染	TraitDefinitionDisplay	GetAbilityList(CardScript cardToDisplay)	TraitDefinitionDisplay.cs:205		E					
+卡牌面/渲染	TraitDefinitionDisplay	GetAbilityList(RawCardScript cardToDisplay)	TraitDefinitionDisplay.cs:378		E					
+卡牌面/渲染	TraitDefinitionDisplay	SetFirstBoxBg(DefinedTrait firstTrait)	TraitDefinitionDisplay.cs:175		E					
+卡牌面/渲染	TraitDefinitionDisplay	SetSortingLayer(string layerName)	TraitDefinitionDisplay.cs:617		E					
+卡牌面/渲染	TraitDescItem	LoadTrait(DefinedTrait ability, Sprite traitIcon, bool isAlt)	TraitDescItem.cs:25		E					
+卡牌面/渲染	TraitDescItem	LoadTraitWithCustomTitle(DefinedTrait ability, string titleKey, bool isAlt)	TraitDescItem.cs:34		E					
+卡牌面/渲染	TraitDescItem	ShowItem(float timeToDisplay, float delay, Vector2 startPos, Vector2 targetPos, Vector3 openBoxSize)	TraitDescItem.cs:56		E					
+卡牌面/渲染	TraitDescItem	ShowItem(float timeToDisplay, float delay, Vector2 startPos, Vector3 openBoxSize)	TraitDescItem.cs:47		E					
+卡牌面/渲染	TraitDescItem	ShowItemAnim(float timeToDisplay, float delay, Vector2 startPos, Vector2 targetPos, Vector3 openBoxSize)	TraitDescItem.cs:71		E					
+卡牌面/渲染	TraitDescItem	StopItemAnim()	TraitDescItem.cs:141		E					
+卡牌面/渲染	TraitDescItem	Toggle(bool option)	TraitDescItem.cs:65		E					
+卡牌面/渲染	TraitDescriptionUI	IsActive()	TraitDescriptionUI.cs:102		E					
+卡牌面/渲染	TraitDescriptionUI	LoadSpiritStone()	TraitDescriptionUI.cs:41		E					
+卡牌面/渲染	TraitDescriptionUI	LoadTrait(DefinedTrait ability, Sprite traitIcon, bool isAlt)	TraitDescriptionUI.cs:31		E					
+卡牌面/渲染	TraitDescriptionUI	LoadTraitWithCustomTitle(DefinedTrait ability, string titleKey, bool isAlt)	TraitDescriptionUI.cs:54		E					
+卡牌面/渲染	TraitDescriptionUI	ShowItem(float timeToDisplay, float delay, Vector2 startPos, Vector2 targetPos, Vector3 openBoxSize)	TraitDescriptionUI.cs:76		E					
+卡牌面/渲染	TraitDescriptionUI	ShowItem(float timeToDisplay, float delay, Vector2 startPos, Vector3 openBoxSize)	TraitDescriptionUI.cs:67		E					
+卡牌面/渲染	TraitDescriptionUI	ShowItemAnim(float timeToDisplay, float delay, Vector2 startPos, Vector2 targetPos, Vector3 openBoxSize)	TraitDescriptionUI.cs:114		E					
+卡牌面/渲染	TraitDescriptionUI	StopItemAnim()	TraitDescriptionUI.cs:184		E					
+卡牌面/渲染	TraitDescriptionUI	Toggle(bool option)	TraitDescriptionUI.cs:85		E					
+卡牌面/渲染	TraitDescriptionUI	ToggleContentOffset(bool option)	TraitDescriptionUI.cs:91		E					
+卡牌面/渲染	UICardInfoItem	Awake()	UICardInfoItem.cs:68		E					
+卡牌面/渲染	UICardInfoItem	ButtonOnClick()	UICardInfoItem.cs:277		E					
+卡牌面/渲染	UICardInfoItem	Initialize(RawCardScript card, PlayModes deckMode, int count, bool checkOwnership, Action<RawCardScript> overrideClick)	UICardInfoItem.cs:83		E					
+卡牌面/渲染	UICardInfoItem	OnDestroy()	UICardInfoItem.cs:76		E					
+卡牌面/渲染	UICardInfoItem	Reset()	UICardInfoItem.cs:271		E					
+卡牌面/渲染	UICardInfoItem	SetCost()	UICardInfoItem.cs:206		E					
+卡牌面/渲染	UICardInfoItem	SetCount(int amount)	UICardInfoItem.cs:223		E					
+卡牌面/渲染	UICardInfoItem	ToggleDataState()	UICardInfoItem.cs:294		E					
+卡牌面/渲染	UICardInfoItem	ToggleInvalid(bool state)	UICardInfoItem.cs:265		E					

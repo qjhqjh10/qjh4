@@ -2340,15 +2340,34 @@ namespace CardPresentation
                 if (OverrideDeck != null) { Debug.LogWarning("[DeckInfo] `Delete`：这一副是外面送进来的（没有库下标）⇒ **不删**"); return; }
                 // 🆕 A65④③：原版 `deleteButton.interactable = (卡组数 > 1)` ⇒ 只剩一套时点了不生效
                 if (Blocked("Delete", DeleteInteractable)) return;
-                if (CollectionData.DeleteDeck(DeckIndex)) { Debug.Log("[DeckInfo] 已删除该卡组"); Close(); }
-                // 🔴 **2026-10-13（A548）**：原来是「删不了（`DeckLibrary.Delete` 的规矩：只剩一套时不许删 / 下标越界）」——
-                //   ① 那句里的「只剩一套」规矩**根本不在数据层**（拦它的是上面那颗钮的 `interactable`，见
-                //      `DeleteInteractable` 的注释），② 而且它把**两种**失败混成同一句话。
-                //   ⇒ 直接打 `CollectionData` 那条**唯一出口**：它自己会分开说「**没删**（下标越界）」与
-                //   「**删了，但没写进存档**」，⛔ 别在这里再判一遍（两处写同一条规则 = 迟早不一致）。
-                //   🆕 **2026-10-13（A610）**：这一句原来是 `Debug.Log` —— 失败**本来就是警告级**
-                //   （`CollectionData` 自己的失败一律 `LogWarning`、`Blocked()` 也是）⇒ 统一成 `LogWarning`。
-                else Debug.LogWarning("[DeckInfo] 删卡组失败：" + CollectionData.LastDeleteError);
+                // 🔴 **2026-10-25（K3）就地补齐（铁律 5 / 11）**：原版**先弹确认窗再删**，我们原来是**点了就删**。
+                //   判据（第一权威 = 反编译方法体）`d:/2/tools/decomp_full/DeckInfoPopup__DeleteDeck.c`：
+                //     `WindowsManager.ShowPopUp(this, <正文键>, localizeTexts:1, closeOnEsc:0,
+                //                              primaryButton=<Delete 那颗>, secondButton=<Cancel 那颗>, 0)`
+                //   三个 `DAT_` 逐个按「ImageBase 0x180000000」回 RVA、再查 `stringliteral.json`：
+                //     · `DAT_1842cffe8` → `0x42CFFE8` = **`MenuDeck/HUD/DeleteDeckCheck`**
+                //       （官方值 = `Do you want to delete this deck?` / `您想删除这个卡组吗？`）
+                //     · `DAT_184276d78` → `0x4276D78` = **`Demo/FriendsMenu/DeleteFriendButton`**
+                //       ← ⚠️ **原版自己复用了「删好友」那颗键**（官方值 `Delete` / `删除`），⛔ 别「纠正」成别的键
+                //     · `DAT_1842be120` → **`MainMenu/General/Cancel`**（`Cancel` / `取消`）
+                //   左钮 = **Delete**（action = `<DeleteDeck>g__Delete|27_0`：关本窗 + `InventoryManager.Remove` +
+                //   `PlayerDataManager.DeleteDeck`）· 右钮 = **Cancel**（只关确认窗）。
+                //   ⇒ 我们照同一次序：`ShowPopUp(正文, 左钮字, 删, 右钮字, 不删)`。
+                if (Manager != null)
+                {
+                    // 左钮 = **Delete**（删 + 关本窗）· 右钮 = **Cancel**（只关确认窗）——
+                    // 两条回调都**必须**关确认窗（我们的 `WindowButton.onClick` 不会自动关；
+                    // 原版那颗钮的 `OnPress` 与关窗是两个监听，见 `CardDetailPopup.HideCraftConfirm` 的 doc）。
+                    DeleteConfirmPopup = Manager.ShowMessagePopUp(KeyDeleteConfirmText,
+                                                                  KeyDeleteConfirmOk, DeleteDeckNow,
+                                                                  KeyDeleteConfirmCancel, HideDeleteConfirm);
+                    Debug.Log("[DeckInfo] `Delete` ⇒ 照原版**先弹确认窗**（正文 `" + KeyDeleteConfirmText + "`；"
+                              + "左钮 `" + KeyDeleteConfirmOk + "` / 右钮 `" + KeyDeleteConfirmCancel + "`）");
+                    return;
+                }
+                // 没有 `WindowsManager`（纯逻辑自检那一档）⇒ 无法弹窗：**直接删 + 出声**（⛔ 不静默假装弹过）
+                Debug.LogWarning("[DeckInfo] 没有 `WindowsManager` ⇒ **弹不出确认窗**，本条走「直接删」（自检档）");
+                DeleteDeckNow();
                 return;
             }
             if (key == "Duplicate")
@@ -2375,6 +2394,52 @@ namespace CardPresentation
             if (key == "Switch Deck Info") { SwitchDrawer(); return; }
             if (key == "Share" || key == "Share On Chat") { ShareDeck(key); return; }
             NotBuilt("`" + key + "` —— 见 `Shell/DeckInfoPopup.cs` 文件头「没建的」");
+        }
+
+        // ============================================================ 删除确认窗（原版 `DeckInfoPopup.DeleteDeck`）
+        //
+        // 三个键全部是**反编译里的 `DAT_` 地址表实读**（办法：`stringliteral.json` 的 `address` 就是 RVA，
+        // `DAT_0x184XXXXXX = 0x180000000 + address`）—— 出处 = `d:/2/tools/decomp_full/DeckInfoPopup__DeleteDeck.c`：
+        //   · 正文  `DAT_1842cffe8` → `0x42CFFE8` = `MenuDeck/HUD/DeleteDeckCheck`
+        //   · 左钮  `DAT_184276d78` → `0x4276D78` = `Demo/FriendsMenu/DeleteFriendButton`
+        //     ← ⚠️ **原版复用了「删好友」那颗键**（官方值就是 `Delete` / `删除`），⛔ 别「纠正」成 `MenuDeck/...`
+        //   · 右钮  `DAT_1842be120` → `0x42BE120` = `MainMenu/General/Cancel`
+        // 官方 13 语言表三条都有（`Resources/official_loc_13lang.json`）⇒ `Loc.T` 取得到，⛔ 不必在
+        // `Core/Loc.cs` 里再存一份（两份迟早不一致）。
+        public const string KeyDeleteConfirmText = "MenuDeck/HUD/DeleteDeckCheck";
+        public const string KeyDeleteConfirmOk = "Demo/FriendsMenu/DeleteFriendButton";
+        public const string KeyDeleteConfirmCancel = "MainMenu/General/Cancel";
+
+        /// <summary>最近一次那扇**删除确认窗**（自检读它；关掉之后是 `null`）。
+        /// 类型 = <see cref="PopUpGameWindow"/>（原版 `popupWindowTwoButtons` 的宿主类）。</summary>
+        public PopUpGameWindow DeleteConfirmPopup { get; private set; }
+
+        /// <summary>关掉删除确认窗（= 原版那一拍 `PopUpGameWindow` 的「关窗」监听 → `WindowsManager.HidePopUp`）。
+        /// <para>⛔ 别省这一步：我们的 `WindowButton.onClick` **不会**自动关窗（原版那颗钮的 `OnPress` 与关窗
+        /// 是**两个监听**）⇒ 不关就永远挂在最上层。关不掉**出声**（红线：不许静默）。</para></summary>
+        public void HideDeleteConfirm()
+        {
+            var win = DeleteConfirmPopup;
+            DeleteConfirmPopup = null;
+            if (win == null) return;                           // 幂等（没开过 / 已关）
+            var mgr = win.Manager != null ? win.Manager : WindowsManager.Instance;
+            if (mgr != null) mgr.HidePopUp();                  // 判据只留 `WindowsManager.HidePopUp` 一处
+            else win.Close();                                  // 没有管理器（自检边角）⇒ 走最底那一层
+            if (win.gameObject != null && win.gameObject.activeSelf)
+                Debug.LogWarning("[DeckInfo] 删除确认窗**没关掉**（`WindowsManager.HidePopUp` 没命中 ——"
+                               + "多半是它上面又开了一扇窗）⇒ 窗仍开着，⛔ 不是已关。");
+        }
+
+        /// <summary>= 原版 `<DeleteDeck>g__Delete|27_0`：**先关本窗**（`Close()`）→ 再真删。
+        /// <para>失败两支的判据与文案一字不动（A548/A610 的口径）：`CollectionData.DeleteDeck` 自己分
+        /// 「**没删**（下标越界）」与「**删了，但没写进存档**」，⛔ 别在这里再判一遍。</para></summary>
+        public void DeleteDeckNow()
+        {
+            HideDeleteConfirm();
+            if (OverrideDeck != null) { Debug.LogWarning("[DeckInfo] `Delete`：这一副是外面送进来的（没有库下标）⇒ **不删**"); return; }
+            if (Blocked("Delete", DeleteInteractable)) return;
+            if (CollectionData.DeleteDeck(DeckIndex)) { Debug.Log("[DeckInfo] 已删除该卡组"); Close(); }
+            else Debug.LogWarning("[DeckInfo] 删卡组失败：" + CollectionData.LastDeleteError);
         }
 
         /// <summary>🆕 A10：点督军立绘 ⇒ 开**卡片详情窗**（原版 `Warlord Image` 上那个 `EverguildButton`）。</summary>

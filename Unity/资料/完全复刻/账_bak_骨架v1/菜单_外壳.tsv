@@ -1,0 +1,832 @@
+域	原版类	方法	判据出处	判据要点	状态	我们的落点	差异	等级	轮次	备注
+菜单/外壳	AdaptFlexibleGridLayoutByAspectRatio	ModifyFlexibleLayout()	AdaptFlexibleGridLayoutByAspectRatio.cs:88		E					
+菜单/外壳	AdaptFlexibleGridLayoutByAspectRatio	OnDisable()	AdaptFlexibleGridLayoutByAspectRatio.cs:113		E					
+菜单/外壳	AdaptFlexibleGridLayoutByAspectRatio	OnEnable()	AdaptFlexibleGridLayoutByAspectRatio.cs:14		E					
+菜单/外壳	AdaptFlexibleGridLayoutByAspectRatio	ResolutionHasChanged()	AdaptFlexibleGridLayoutByAspectRatio.cs:63		E					
+菜单/外壳	AlternateArtPanel	BuyOriginalCard()	AlternateArtPanel.cs:634		E					
+菜单/外壳	AlternateArtPanel	ForceSetNonAlternateArtCard(RawCardScript card)	AlternateArtPanel.cs:410		E					
+菜单/外壳	AlternateArtPanel	GetCurrentSelectedCard()	AlternateArtPanel.cs:593		E					
+菜单/外壳	AlternateArtPanel	Initialize(BasicCardUI cardUI, CardDisplayOptions options, Action<RawCardScript> onChangeArt)	AlternateArtPanel.cs:294		E					
+菜单/外壳	AlternateArtPanel	NavigationButtonClick(bool isLeft)	AlternateArtPanel.cs:418		E					
+菜单/外壳	AlternateArtPanel	Refresh()	AlternateArtPanel.cs:393		E					
+菜单/外壳	AlternateArtPanel	SetStyle(AlternateArtSyle style, Sprite image)	AlternateArtPanel.cs:501		E					
+菜单/外壳	AlternateArtPanel	Start()	AlternateArtPanel.cs:275		E					
+菜单/外壳	AlternateArtPanel	SwapStyle(bool isLeft)	AlternateArtPanel.cs:427		E					
+菜单/外壳	AlternateArtPanel	ToggleButtons(bool toggle)	AlternateArtPanel.cs:863		E					
+菜单/外壳	AlternateArtPanel	TogglePurchaseBasicCard(bool option)	AlternateArtPanel.cs:607		E					
+菜单/外壳	AlternateArtPanel	_003CBuyOriginalCard_003Eb__24_0(BuyOriginalCardResult result)	AlternateArtPanel.cs:879		E					
+菜单/外壳	AlternateArtPanel	_003CStart_003Eb__15_0()	AlternateArtPanel.cs:869		E					
+菜单/外壳	AlternateArtPanel	_003CStart_003Eb__15_1()	AlternateArtPanel.cs:874		E					
+菜单/外壳	AttackTypesButtonsController	DragOutOfButton(CardDisplayAttackTypeButton buttonExited)	AttackTypesButtonsController.cs:379		E					
+菜单/外壳	AttackTypesButtonsController	HighlightSelectedAttackTypeButtons(AttackTypes attackType)	AttackTypesButtonsController.cs:88		E					
+菜单/外壳	AttackTypesButtonsController	Initialize(Action<AttackTypes> onPointerEnter)	AttackTypesButtonsController.cs:43		E					
+菜单/外壳	AttackTypesButtonsController	MoveButtons()	AttackTypesButtonsController.cs:399		E					
+菜单/外壳	AttackTypesButtonsController	OnEnable()	AttackTypesButtonsController.cs:27		E					
+菜单/外壳	AttackTypesButtonsController	ToggleAttackTypesSelector(bool option, RawCardScript cardWithActiveAbility, Sprite customIcon, int customIconValue)	AttackTypesButtonsController.cs:195		E					
+菜单/外壳	AttackTypesButtonsController	ToggleAttackTypesSelectorJustOne(bool option, AttackTypes attackType)	AttackTypesButtonsController.cs:347		E					
+菜单/外壳	AttackTypesButtonsController	Update()	AttackTypesButtonsController.cs:38		E					
+菜单/外壳	AutoGridLayout	CalculateLayoutInputHorizontal()	AutoGridLayout.cs:13		E					
+菜单/外壳	AutoLayoutSpacingByItemSize	OnEnable()	AutoLayoutSpacingByItemSize.cs:14		E					
+菜单/外壳	BasicLoginWithEmailWindow	CheckLoginButtonState()	BasicLoginWithEmailWindow.cs:185		E					
+菜单/外壳	BasicLoginWithEmailWindow	Close()	BasicLoginWithEmailWindow.cs:65		E					
+菜单/外壳	BasicLoginWithEmailWindow	EmailInputChanged(string emailText)	BasicLoginWithEmailWindow.cs:139		E					
+菜单/外壳	BasicLoginWithEmailWindow	ForgotPasswordClick()	BasicLoginWithEmailWindow.cs:125		E					
+菜单/外壳	BasicLoginWithEmailWindow	LoginButtonClick()	BasicLoginWithEmailWindow.cs:84		E					
+菜单/外壳	BasicLoginWithEmailWindow	Open()	BasicLoginWithEmailWindow.cs:31		E					
+菜单/外壳	BasicLoginWithEmailWindow	PasswordInputChanged(string passwordText)	BasicLoginWithEmailWindow.cs:161		E					
+菜单/外壳	BasicLoginWithEmailWindow	_003CForgotPasswordClick_003Eb__13_0(string error)	BasicLoginWithEmailWindow.cs:214		E					
+菜单/外壳	BasicLoginWithEmailWindow	_003CLoginButtonClick_003Eb__12_0(string error)	BasicLoginWithEmailWindow.cs:193		E					
+菜单/外壳	BasicLoginWithEmailWindow	_003CLoginButtonClick_003Eb__12_1()	BasicLoginWithEmailWindow.cs:207		E					
+菜单/外壳	BlobShadowController	OnValidate()	BlobShadowController.cs:165		E					
+菜单/外壳	BlobShadowController	Start()	BlobShadowController.cs:28		E					
+菜单/外壳	BlobShadowController	Update()	BlobShadowController.cs:48		E					
+菜单/外壳	BoostMenu	HideAllBoosters()	BoostMenu.cs:301		E					
+菜单/外壳	BoostMenu	ShowAllBoosters()	BoostMenu.cs:42		E					
+菜单/外壳	BoostMenu	UpdateAllPanelsTimers()	BoostMenu.cs:247		E					
+菜单/外壳	ButtonSpritePicker	SetSpriteOn(bool chooseOn)	ButtonSpritePicker.cs:11		E					
+菜单/外壳	CanvasGroupEnabler	OnEnable()	CanvasGroupEnabler.cs:102		E					
+菜单/外壳	CanvasGroupEnabler	OnValidate()	CanvasGroupEnabler.cs:124		E					
+菜单/外壳	CanvasGroupEnabler	StartFade()	CanvasGroupEnabler.cs:113		E					
+菜单/外壳	CardAlternateArtDrawer	Draw(AlternateArtCard item, int quantity)	CardAlternateArtDrawer.cs:13		E					
+菜单/外壳	CardAlternateArtDrawer	GetItemName(AlternateArtCard item)	CardAlternateArtDrawer.cs:22		E					
+菜单/外壳	CardAlternateArtDrawer	HandlePointerClick()	CardAlternateArtDrawer.cs:32		E					
+菜单/外壳	CardAlternateArtDrawer	ToggleGreyScale(bool option)	CardAlternateArtDrawer.cs:56		E					
+菜单/外壳	CardAlternateArtDrawer	ToggleNewCardBadge(bool isNewCard, bool withAnimation)	CardAlternateArtDrawer.cs:62		E					
+菜单/外壳	CardDrawer	Draw(RawCardScript item, int quantity)	CardDrawer.cs:15		E					
+菜单/外壳	CardDrawer	GetItemName(RawCardScript item)	CardDrawer.cs:23		E					
+菜单/外壳	CardDrawer	HandlePointerClick()	CardDrawer.cs:33		E					
+菜单/外壳	CardDrawer	ToggleBanned(PlayModes mode)	CardDrawer.cs:72		E					
+菜单/外壳	CardDrawer	ToggleGreyScale(bool option)	CardDrawer.cs:61		E					
+菜单/外壳	CardDrawer	ToggleNewCardBadge(bool isNewCard, bool withAnimation)	CardDrawer.cs:67		E					
+菜单/外壳	CardbackDrawer	Draw(CosmeticItemCardback item, int quantity)	CardbackDrawer.cs:27		E					
+菜单/外壳	CardbackDrawer	GetItemName(CosmeticItemCardback item)	CardbackDrawer.cs:10		E					
+菜单/外壳	CardsHorizontalLayout	GetCardsInHandNumberWhereDistanceBetweenThemMustBeReduced(float adjustedDistanceBetweenCards)	CardsHorizontalLayout.cs:669		E					
+菜单/外壳	CardsHorizontalLayout	GetClosestInHandSlot(Vector2 position, int cardsInHand)	CardsHorizontalLayout.cs:625		E					
+菜单/外壳	CardsHorizontalLayout	GetParentScaleModifier()	CardsHorizontalLayout.cs:664		E					
+菜单/外壳	CardsHorizontalLayout	GetPosition(int cardIndex, int totalCards, int selectedCardIndex)	CardsHorizontalLayout.cs:53		E					
+菜单/外壳	CardsHorizontalLayout	GetRotation(Vector3 cardPosition, int totalCards)	CardsHorizontalLayout.cs:404		E					
+菜单/外壳	ChangeNameWindow	Awake()	ChangeNameWindow.cs:47		E					
+菜单/外壳	ChangeNameWindow	ChangeNameButtonClick()	ChangeNameWindow.cs:155		E					
+菜单/外壳	ChangeNameWindow	Close()	ChangeNameWindow.cs:180		E					
+菜单/外壳	ChangeNameWindow	OnDestroy()	ChangeNameWindow.cs:93		E					
+菜单/外壳	ChangeNameWindow	Open()	ChangeNameWindow.cs:112		E					
+菜单/外壳	ChangeNameWindow	ToggleChangeFree(bool option)	ChangeNameWindow.cs:147		E					
+菜单/外壳	ChangeNameWindow	ValidateInput(TMP_InputField inputField)	ChangeNameWindow.cs:191		E					
+菜单/外壳	ChangeNameWindow	_003CAwake_003Eb__8_0(string _003Cp0_003E)	ChangeNameWindow.cs:216		E					
+菜单/外壳	ChangeNameWindow	_003CChangeNameButtonClick_003Eb__12_0()	ChangeNameWindow.cs:242		E					
+菜单/外壳	ChooseNamePopup	ClickChooseName()	ChooseNamePopup.cs:286		E					
+菜单/外壳	ChooseNamePopup	DelaySizeFix()	ChooseNamePopup.cs:247		E					
+菜单/外壳	ChooseNamePopup	Initialize()	ChooseNamePopup.cs:217		E					
+菜单/外壳	ChooseNamePopup	LoginButtonClick()	ChooseNamePopup.cs:258		E					
+菜单/外壳	ChooseNamePopup	OnDestroy()	ChooseNamePopup.cs:408		E					
+菜单/外壳	ChooseNamePopup	ResetCanClick()	ChooseNamePopup.cs:403		E					
+菜单/外壳	ChooseNamePopup	Setup(Action<string> doneAction, Action closeAction)	ChooseNamePopup.cs:165		E					
+菜单/外壳	ChooseNamePopup	ToBackground()	ChooseNamePopup.cs:204		E					
+菜单/外壳	ChooseNamePopup	ToFocus()	ChooseNamePopup.cs:210		E					
+菜单/外壳	ChooseNamePopup	ValidateInput(TMP_InputField inputField)	ChooseNamePopup.cs:264		E					
+菜单/外壳	ChooseNamePopup	_003CClickChooseName_003Eb__19_0(bool result, PlayFabError error)	ChooseNamePopup.cs:438		E					
+菜单/外壳	ChooseNamePopup	_003CSetup_003Eb__12_0(string _003Cp0_003E)	ChooseNamePopup.cs:415		E					
+菜单/外壳	ContainerDrawer	Draw(ShopContainerBase item, int quantity)	ContainerDrawer.cs:15		E					
+菜单/外壳	ContainerDrawer	GetItemName(ShopContainerBase item)	ContainerDrawer.cs:36		E					
+菜单/外壳	CosmeticDrawer	Draw(CosmeticItem item, int quantity)	CosmeticDrawer.cs:9		E					
+菜单/外壳	CosmeticDrawer	GetItemName(CosmeticItem item)	CosmeticDrawer.cs:16		E					
+菜单/外壳	CustomDropTableDefinition	GetID()	CustomDropTableDefinition.cs:71		E					
+菜单/外壳	DebugPlayWindow	OnDisable()	DebugPlayWindow.cs:41		E					
+菜单/外壳	DebugPlayWindow	OnEnable()	DebugPlayWindow.cs:31		E					
+菜单/外壳	DebugPlayWindow	Play()	DebugPlayWindow.cs:47		E					
+菜单/外壳	DebugPlayWindow	Setup(IPlayEvent liveOp, bool rankedMode)	DebugPlayWindow.cs:67		E					
+菜单/外壳	DebugPlayWindow	Start()	DebugPlayWindow.cs:24		E					
+菜单/外壳	DebugToggleObjects	ToggleObject()	DebugToggleObjects.cs:7		E					
+菜单/外壳	DragAndDropItem	Awake()	DragAndDropItem.cs:32		E					
+菜单/外壳	DragAndDropItem	CheckScrollDrag()	DragAndDropItem.cs:361		E					
+菜单/外壳	DragAndDropItem	CreateEmptyObject()	DragAndDropItem.cs:425		E					
+菜单/外壳	DragAndDropItem	GetMousePositionInWoldSpace(Vector3 mousePosition)	DragAndDropItem.cs:332		E					
+菜单/外壳	DragAndDropItem	GetScreenPositionWithZValue(Vector3 screenPosition)	DragAndDropItem.cs:308		E					
+菜单/外壳	DragAndDropItem	Initialize(ScrollRect scrollRect)	DragAndDropItem.cs:79		E					
+菜单/外壳	DragAndDropItem	OnBeginDrag(PointerEventData eventData)	DragAndDropItem.cs:110		E					
+菜单/外壳	DragAndDropItem	OnDestroy()	DragAndDropItem.cs:74		E					
+菜单/外壳	DragAndDropItem	OnDrag(PointerEventData eventData)	DragAndDropItem.cs:204		E					
+菜单/外壳	DragAndDropItem	OnEndDrag(PointerEventData eventData)	DragAndDropItem.cs:221		E					
+菜单/外壳	DragAndDropItem	Toggle(bool option)	DragAndDropItem.cs:105		E					
+菜单/外壳	DragAndDropItem	Update()	DragAndDropItem.cs:66		E					
+菜单/外壳	DragButtonInfoInt	ActivateButton()	DragButtonInfoInt.cs:131		E					
+菜单/外壳	DragButtonInfoInt	OnDragEnter(Vector2 originalTouchPosition)	DragButtonInfoInt.cs:87		E					
+菜单/外壳	DragButtonInfoInt	OnTouchDown(Vector2 originalTouchPosition)	DragButtonInfoInt.cs:26		E					
+菜单/外壳	DragButtonInfoInt	OnTouchUp(Vector2 originalTouchPosition)	DragButtonInfoInt.cs:67		E					
+菜单/外壳	DragButtonInfoInt	ReleaseButton()	DragButtonInfoInt.cs:151		E					
+菜单/外壳	DragButtonInfoInt	Start()	DragButtonInfoInt.cs:18		E					
+菜单/外壳	Draggable	Initialize(T item)	Draggable.cs:31		E					
+菜单/外壳	Draggable	OnBeginDrag(PointerEventData eventData)	Draggable.cs:49		E					
+菜单/外壳	Draggable	OnDrag()	Draggable.cs:33		E					
+菜单/外壳	Draggable	OnDrag(PointerEventData eventData)	Draggable.cs:55		E					
+菜单/外壳	Draggable	OnEndDrag(PointerEventData eventData)	Draggable.cs:61		E					
+菜单/外壳	Draggable	OnRelease()	Draggable.cs:39		E					
+菜单/外壳	DraggableController	OnBeginDrag(PointerEventData eventData)	DraggableController.cs:153		E					
+菜单/外壳	DraggableController	OnDrag(PointerEventData eventData)	DraggableController.cs:179		E					
+菜单/外壳	DraggableController	OnEndDrag(PointerEventData eventData)	DraggableController.cs:211		E					
+菜单/外壳	DraggableController	SetDraggable(T content)	DraggableController.cs:143		E					
+菜单/外壳	DraggableController	_003COnEndDrag_003Eb__6_2(IDropHandler<T> droppable)	DraggableController.cs:494		E					
+菜单/外壳	DrawerTester	Clear()	DrawerTester.cs:55		E					
+菜单/外壳	DrawerTester	Draw()	DrawerTester.cs:14		E					
+菜单/外壳	DropTableContainer	GetID()	DropTableContainer.cs:125		E					
+菜单/外壳	DropTableContainer	OnAfterPurchase(IShopOffer offer, IReadOnlyList<RewardInfo> rewards, Action<IReadOnlyList<RewardInfo>> onComplete, Action onError, bool showAnimation)	DropTableContainer.cs:130		E					
+菜单/外壳	DropTableContainer	Open(string instanceId, Action<IReadOnlyList<RewardInfo>> onComplete, Action<string> onError)	DropTableContainer.cs:157		E					
+菜单/外壳	DuelPopupWindow	CanPlay(IPlayEvent playEvent)	DuelPopupWindow.cs:187		E					
+菜单/外壳	DuelPopupWindow	ConfigureButtonEvent(EverguildButton buttonToConfigure, IPlayEvent playEvent)	DuelPopupWindow.cs:135		E					
+菜单/外壳	DuelPopupWindow	OnClassicButtonPressed()	DuelPopupWindow.cs:159		E					
+菜单/外壳	DuelPopupWindow	OnCloseButtonPressed()	DuelPopupWindow.cs:154		E					
+菜单/外壳	DuelPopupWindow	OnDisable()	DuelPopupWindow.cs:88		E					
+菜单/外壳	DuelPopupWindow	OnEnable()	DuelPopupWindow.cs:60		E					
+菜单/外壳	DuelPopupWindow	OnSkirmishButtonPressed()	DuelPopupWindow.cs:173		E					
+菜单/外壳	DuelPopupWindow	Open()	DuelPopupWindow.cs:116		E					
+菜单/外壳	DynamicList	Add(T element)	DynamicList.cs:555		E					
+菜单/外壳	DynamicList	Clear()	DynamicList.cs:593		E					
+菜单/外壳	DynamicList	Get<T1>(T element)	DynamicList.cs:228		E					
+菜单/外壳	DynamicList	Get<T1>(int index)	DynamicList.cs:269		E					
+菜单/外壳	DynamicList	GetAll<T1>()	DynamicList.cs:321		E					
+菜单/外壳	DynamicList	GetIndexType(int index)	DynamicList.cs:211		E					
+菜单/外壳	DynamicList	GetIndexType(int index)	DynamicList.cs:646		E					
+菜单/外壳	DynamicList	GetList()	DynamicList.cs:198		E					
+菜单/外壳	DynamicList	IndexOf(T element)	DynamicList.cs:582		E					
+菜单/外壳	DynamicList	Inser(T element, int index)	DynamicList.cs:577		E					
+菜单/外壳	DynamicList	ListType()	DynamicList.cs:203		E					
+菜单/外壳	DynamicList	ListType()	DynamicList.cs:644		E					
+菜单/外壳	DynamicList	Remove(T element)	DynamicList.cs:605		E					
+菜单/外壳	DynamicList	RemoveAt(int index)	DynamicList.cs:610		E					
+菜单/外壳	DynamicList	get_Item(int index)	DynamicList.cs:171		E					
+菜单/外壳	ErrorPopupWindowController	ShowErrorMessage(CustomError customError, Action actionAfterError, string cloudscriptTrace)	ErrorPopupWindowController.cs:31		E					
+菜单/外壳	ErrorPopupWindowController	ShowErrorMessage(string text, bool localize, Action actionAfterError)	ErrorPopupWindowController.cs:85		E					
+菜单/外壳	ErrorPopupWindowController	ShowErrorMessage(string text, string buttonText, Action actionAfterError)	ErrorPopupWindowController.cs:106		E					
+菜单/外壳	ErrorPopupWindowController	ShowPlayfabError(PlayFabError error, Action actionAfterError)	ErrorPopupWindowController.cs:61		E					
+菜单/外壳	EverguildButton	Awake()	EverguildButton.cs:1056		E					
+菜单/外壳	EverguildButton	DoStateTransition(SelectionState state, bool instant)	EverguildButton.cs:1111		E					
+菜单/外壳	EverguildButton	DragDelegate(GameObject source, Vector2 delta)	EverguildButton.cs:16		E					
+菜单/外壳	EverguildButton	GetStateColor(SelectionState state)	EverguildButton.cs:1238		E					
+菜单/外壳	EverguildButton	OnCancel(BaseEventData eData)	EverguildButton.cs:1339		E					
+菜单/外壳	EverguildButton	OnDestroy()	EverguildButton.cs:1096		E					
+菜单/外壳	EverguildButton	OnEnable()	EverguildButton.cs:1081		E					
+菜单/外壳	EverguildButton	OnPointerClick(PointerEventData eventData)	EverguildButton.cs:1413		E					
+菜单/外壳	EverguildButton	OnPointerDown(PointerEventData eventData)	EverguildButton.cs:1355		E					
+菜单/外壳	EverguildButton	OnPointerEnter(PointerEventData eventData)	EverguildButton.cs:1304		E					
+菜单/外壳	EverguildButton	OnPointerExit(PointerEventData eventData)	EverguildButton.cs:1326		E					
+菜单/外壳	EverguildButton	OnPointerUp(PointerEventData eventData)	EverguildButton.cs:1384		E					
+菜单/外壳	EverguildButton	OnTransformChildrenChanged()	EverguildButton.cs:1571		E					
+菜单/外壳	EverguildButton	OverDelegate(GameObject source)	EverguildButton.cs:18		E					
+菜单/外壳	EverguildButton	PlayButtonSound()	EverguildButton.cs:1452		E					
+菜单/外壳	EverguildButton	PressDelegate(GameObject source, bool press)	EverguildButton.cs:14		E					
+菜单/外壳	EverguildButton	RemoveClickListeners()	EverguildButton.cs:1101		E					
+菜单/外壳	EverguildButton	SetToStateActiveOrDisabled(bool active)	EverguildButton.cs:1478		E					
+菜单/外壳	EverguildButton	SetUpButtonColors()	EverguildButton.cs:1071		E					
+菜单/外壳	EverguildButton	SoftDisable(bool disable)	EverguildButton.cs:1519		E					
+菜单/外壳	EverguildButton	SourceDelegate(GameObject source)	EverguildButton.cs:12		E					
+菜单/外壳	EverguildButton	StateDelegate(GameObject source, ButtonState state)	EverguildButton.cs:20		E					
+菜单/外壳	EverguildButton	SwitchMaterial(bool interactable)	EverguildButton.cs:1544		E					
+菜单/外壳	EverguildButton	UpdateChildrenComponentsInteractable(bool active)	EverguildButton.cs:1499		E					
+菜单/外壳	EverguildButtonHelper	DoMaterialRefresh(List<EverguildButtonMaterialModifier> graphicsToChangeMaterial, bool interactable)	EverguildButtonHelper.cs:100		E					
+菜单/外壳	EverguildButtonHelper	GetGraphicsInChildren(GameObject target, ref List<EverguildButtonMaterialModifier> graphicsToChangeMaterial, Graphic[] graphicsToAvoidSetMaterials)	EverguildButtonHelper.cs:28		E					
+菜单/外壳	EverguildButtonMaterialModifier	ChangeCanvasColor(Color colorToUse)	EverguildButtonMaterialModifier.cs:130		E					
+菜单/外壳	EverguildButtonMaterialModifier	GetModifiedMaterial(Material baseMaterial)	EverguildButtonMaterialModifier.cs:42		E					
+菜单/外壳	EverguildButtonMaterialModifier	SetMaterialDirty()	EverguildButtonMaterialModifier.cs:124		E					
+菜单/外壳	EverguildButtonStateFollower	AddButtonListeners()	EverguildButtonStateFollower.cs:33		E					
+菜单/外壳	EverguildButtonStateFollower	Awake()	EverguildButtonStateFollower.cs:14		E					
+菜单/外壳	EverguildButtonStateFollower	Disabled()	EverguildButtonStateFollower.cs:741		E					
+菜单/外壳	EverguildButtonStateFollower	Enabled()	EverguildButtonStateFollower.cs:725		E					
+菜单/外壳	EverguildButtonStateFollower	Highlight()	EverguildButtonStateFollower.cs:715		E					
+菜单/外壳	EverguildButtonStateFollower	Normal()	EverguildButtonStateFollower.cs:720		E					
+菜单/外壳	EverguildButtonStateFollower	OnDestroy()	EverguildButtonStateFollower.cs:27		E					
+菜单/外壳	EverguildButtonStateFollower	Pressed()	EverguildButtonStateFollower.cs:731		E					
+菜单/外壳	EverguildButtonStateFollower	RemoveButtonListeners()	EverguildButtonStateFollower.cs:374		E					
+菜单/外壳	EverguildButtonStateFollower	Selected()	EverguildButtonStateFollower.cs:736		E					
+菜单/外壳	EverguildButtonStateFollower	StateTransition(SelectionState state)	EverguildButtonStateFollower.cs:747		E					
+菜单/外壳	EverguildGridLayoutGroup	ApplyMobileScaleIfNeeded(Action method)	EverguildGridLayoutGroup.cs:33		E					
+菜单/外壳	EverguildGridLayoutGroup	CalculateLayoutInputHorizontal()	EverguildGridLayoutGroup.cs:9		E					
+菜单/外壳	EverguildGridLayoutGroup	CalculateLayoutInputVertical()	EverguildGridLayoutGroup.cs:15		E					
+菜单/外壳	EverguildGridLayoutGroup	SetLayoutHorizontal()	EverguildGridLayoutGroup.cs:21		E					
+菜单/外壳	EverguildGridLayoutGroup	SetLayoutVertical()	EverguildGridLayoutGroup.cs:27		E					
+菜单/外壳	EverguildInput	GetKey(KeyCode key, bool ignoreInputField)	EverguildInput.cs:46		E					
+菜单/外壳	EverguildInput	GetKeyDown(KeyCode key, bool ignoreInputField)	EverguildInput.cs:55		E					
+菜单/外壳	EverguildInput	GetKeyUp(KeyCode key, bool ignoreInputField)	EverguildInput.cs:64		E					
+菜单/外壳	EverguildInput	GetPointerEventData()	EverguildInput.cs:73		E					
+菜单/外壳	EverguildInput	GetUIRaycastResults(int pointerId)	EverguildInput.cs:84		E					
+菜单/外壳	EverguildInput	IsPointerOverUIObject(int pointerId)	EverguildInput.cs:99		E					
+菜单/外壳	EverguildInput	Process()	EverguildInput.cs:126		E					
+菜单/外壳	EverguildLayoutGroup	CalculateLayoutInputHorizontal()	EverguildLayoutGroup.cs:142		E					
+菜单/外壳	EverguildLayoutGroup	CalculateLayoutInputVertical()	EverguildLayoutGroup.cs:159		E					
+菜单/外壳	EverguildLayoutGroup	CalculateSpacing()	EverguildLayoutGroup.cs:49		E					
+菜单/外壳	EverguildLayoutGroup	SetLayoutHorizontal()	EverguildLayoutGroup.cs:168		E					
+菜单/外壳	EverguildLayoutGroup	SetLayoutVertical()	EverguildLayoutGroup.cs:177		E					
+菜单/外壳	EverguildTextMeshPro	Awake()	EverguildTextMeshPro.cs:32		E					
+菜单/外壳	EverguildTextMeshPro	CheckFOntInPreset()	EverguildTextMeshPro.cs:445		E					
+菜单/外壳	EverguildTextMeshPro	GetPaddingForMaterial()	EverguildTextMeshPro.cs:71		E					
+菜单/外壳	EverguildTextMeshPro	Refresh()	EverguildTextMeshPro.cs:415		E					
+菜单/外壳	EverguildTextMeshPro	SaveGlyphVertexInfo(float padding, float style_padding, Color32 vertexColor)	EverguildTextMeshPro.cs:104		E					
+菜单/外壳	EverguildTextMeshPro	UpdateTextSizeSmallScreen()	EverguildTextMeshPro.cs:420		E					
+菜单/外壳	EverguildToggle	Awake()	EverguildToggle.cs:147		E					
+菜单/外壳	EverguildToggle	DoStateTransition(SelectionState state, bool instant)	EverguildToggle.cs:197		E					
+菜单/外壳	EverguildToggle	OnPointerClick(PointerEventData eventData)	EverguildToggle.cs:381		E					
+菜单/外壳	EverguildToggle	OnPointerDown(PointerEventData eventData)	EverguildToggle.cs:373		E					
+菜单/外壳	EverguildToggle	OnPointerEnter(PointerEventData eventData)	EverguildToggle.cs:365		E					
+菜单/外壳	EverguildToggle	PlayButtonSound()	EverguildToggle.cs:322		E					
+菜单/外壳	EverguildToggle	RefreshVisuals()	EverguildToggle.cs:348		E					
+菜单/外壳	EverguildToggle	SetUpButtonColors()	EverguildToggle.cs:175		E					
+菜单/外壳	EverguildToggle	SetUpGraphicsIncludingChildren(bool option)	EverguildToggle.cs:185		E					
+菜单/外壳	EverguildToggle	ToggleGreyscale(bool enabled)	EverguildToggle.cs:246		E					
+菜单/外壳	EverguildToggle	ToggleSprite(bool isOn)	EverguildToggle.cs:316		E					
+菜单/外壳	EverguildToggle	ToggleTint(bool isOn)	EverguildToggle.cs:259		E					
+菜单/外壳	EverguildTooltipCollectorLevel	Show(EverguildTooltipData data, Action onComplete)	EverguildTooltipCollectorLevel.cs:16		E					
+菜单/外壳	EverguildTooltipItem	Awake()	EverguildTooltipItem.cs:37		E					
+菜单/外壳	EverguildTooltipItem	GetPivotPosition(AnchorPositions anchorPosition)	EverguildTooltipItem.cs:176		E					
+菜单/外壳	EverguildTooltipItem	Hide(Action onComplete)	EverguildTooltipItem.cs:151		E					
+菜单/外壳	EverguildTooltipItem	HideAnimation()	EverguildTooltipItem.cs:160		E					
+菜单/外壳	EverguildTooltipItem	Show(EverguildTooltipData data, Action onComplete)	EverguildTooltipItem.cs:41		E					
+菜单/外壳	EverguildTooltipItem	ShowAnimation()	EverguildTooltipItem.cs:168		E					
+菜单/外壳	EverguildTooltipTrigger	Hide()	EverguildTooltipTrigger.cs:158		E					
+菜单/外壳	EverguildTooltipTrigger	OnDeselect(BaseEventData eventData)	EverguildTooltipTrigger.cs:107		E					
+菜单/外壳	EverguildTooltipTrigger	OnPointerClick(PointerEventData eventData)	EverguildTooltipTrigger.cs:90		E					
+菜单/外壳	EverguildTooltipTrigger	OnPointerDown(PointerEventData eventData)	EverguildTooltipTrigger.cs:86		E					
+菜单/外壳	EverguildTooltipTrigger	OnPointerEnter(PointerEventData eventData)	EverguildTooltipTrigger.cs:70		E					
+菜单/外壳	EverguildTooltipTrigger	OnPointerExit(PointerEventData eventData)	EverguildTooltipTrigger.cs:99		E					
+菜单/外壳	EverguildTooltipTrigger	OnSelect(BaseEventData eventData)	EverguildTooltipTrigger.cs:78		E					
+菜单/外壳	EverguildTooltipTrigger	Setup(string text, bool localize, string title)	EverguildTooltipTrigger.cs:57		E					
+菜单/外壳	EverguildTooltipTrigger	Show()	EverguildTooltipTrigger.cs:115		E					
+菜单/外壳	EverguildTooltipTrigger	Toggle(bool option)	EverguildTooltipTrigger.cs:48		E					
+菜单/外壳	EverguildTraitTooltipItem	Show(EverguildTooltipData data, Action onComplete)	EverguildTraitTooltipItem.cs:13		E					
+菜单/外壳	ExpansionPassPointDrawer	Draw(ExpansionPassPoints item, int quantity)	ExpansionPassPointDrawer.cs:38		E					
+菜单/外壳	ExpansionPassPointDrawer	DrawForArmy(CardArmy army)	ExpansionPassPointDrawer.cs:14		E					
+菜单/外壳	ExpansionPassPointDrawer	GetItemName(ExpansionPassPoints item)	ExpansionPassPointDrawer.cs:31		E					
+菜单/外壳	FeedbackButton	Initialize()	FeedbackButton.cs:31		E					
+菜单/外壳	FeedbackButton	OnEnable()	FeedbackButton.cs:26		E					
+菜单/外壳	FeedbackButton	OpenFeedbackMenu()	FeedbackButton.cs:67		E					
+菜单/外壳	FeedbackButton	Refresh()	FeedbackButton.cs:36		E					
+菜单/外壳	FeedbackButton	Start()	FeedbackButton.cs:19		E					
+菜单/外壳	FlareScenarioToggler	DoScenarioBlend(ScenarioBlendOptions scenarioBlendOptions)	FlareScenarioToggler.cs:11		E					
+菜单/外壳	FlareScenarioToggler	Initialize()	FlareScenarioToggler.cs:27		E					
+菜单/外壳	FlareScenarioToggler	OnValidate()	FlareScenarioToggler.cs:33		E					
+菜单/外壳	FlareScenarioToggler	_003CDoScenarioBlend_003Eb__1_0()	FlareScenarioToggler.cs:42		E					
+菜单/外壳	FlareScenarioToggler	_003CDoScenarioBlend_003Eb__1_1(float x)	FlareScenarioToggler.cs:48		E					
+菜单/外壳	FlexibleGridLayout	Awake()	FlexibleGridLayout.cs:45		E					
+菜单/外壳	FlexibleGridLayout	CalculateLayoutInputHorizontal()	FlexibleGridLayout.cs:70		E					
+菜单/外壳	FlexibleGridLayout	CalculateLayoutInputVertical()	FlexibleGridLayout.cs:66		E					
+菜单/外壳	FlexibleGridLayout	DoesItemFit(int x, int y, FlexibleLayoutSizeOption layoutSizeOption)	FlexibleGridLayout.cs:434		E					
+菜单/外壳	FlexibleGridLayout	FreeGrid()	FlexibleGridLayout.cs:258		E					
+菜单/外壳	FlexibleGridLayout	GenerateGrid()	FlexibleGridLayout.cs:56		E					
+菜单/外壳	FlexibleGridLayout	GetMaxWidth()	FlexibleGridLayout.cs:506		E					
+菜单/外壳	FlexibleGridLayout	MarkCells(bool option, int x, int y, FlexibleLayoutSizeOption layoutSizeOption)	FlexibleGridLayout.cs:389		E					
+菜单/外壳	FlexibleGridLayout	SetLayoutHorizontal()	FlexibleGridLayout.cs:250		E					
+菜单/外壳	FlexibleGridLayout	SetLayoutVertical()	FlexibleGridLayout.cs:254		E					
+菜单/外壳	GameModeButtonDemoVersion	Fade(bool opaque, bool instant)	GameModeButtonDemoVersion.cs:182		E					
+菜单/外壳	GameModeButtonDemoVersion	Highlight(bool option, bool playSound)	GameModeButtonDemoVersion.cs:130		E					
+菜单/外壳	GameModeButtonDemoVersion	Initialize(MainMenuDemoVersion mainMenuDemoVersion, bool highlight)	GameModeButtonDemoVersion.cs:85		E					
+菜单/外壳	GameModeButtonDemoVersion	OnDestroy()	GameModeButtonDemoVersion.cs:201		E					
+菜单/外壳	GameModeButtonDemoVersion	OnPointerClick(PointerEventData eventData)	GameModeButtonDemoVersion.cs:66		E					
+菜单/外壳	GameModeButtonDemoVersion	OnPointerEnter(PointerEventData eventData)	GameModeButtonDemoVersion.cs:46		E					
+菜单/外壳	GameModeButtonDemoVersion	OnPointerExit(PointerEventData eventData)	GameModeButtonDemoVersion.cs:56		E					
+菜单/外壳	GameModeButtonDemoVersion	PrepareVideo()	GameModeButtonDemoVersion.cs:161		E					
+菜单/外壳	GameModeButtonDemoVersion	_003CPrepareVideo_003Eb__20_0(VideoPlayer source)	GameModeButtonDemoVersion.cs:207		E					
+菜单/外壳	GameModeDirectButton	PlayEvent()	GameModeDirectButton.cs:8		E					
+菜单/外壳	GameSunsetPopup	ChangeState(LegionsGoldState stateToChange)	GameSunsetPopup.cs:172		E					
+菜单/外壳	GameSunsetPopup	Close()	GameSunsetPopup.cs:141		E					
+菜单/外壳	GameSunsetPopup	OnCloseButtonClicked()	GameSunsetPopup.cs:87		E					
+菜单/外壳	GameSunsetPopup	OnConvertSpentButtonClicked()	GameSunsetPopup.cs:97		E					
+菜单/外壳	GameSunsetPopup	OnDisable()	GameSunsetPopup.cs:71		E					
+菜单/外壳	GameSunsetPopup	OnDownloadLegionsButtonClicked()	GameSunsetPopup.cs:92		E					
+菜单/外壳	GameSunsetPopup	OnEnable()	GameSunsetPopup.cs:55		E					
+菜单/外壳	GameSunsetPopup	Open()	GameSunsetPopup.cs:116		E					
+菜单/外壳	GameSunsetPopup	RefreshContent()	GameSunsetPopup.cs:147		E					
+菜单/外壳	GameSunsetPopup	SetupGoldText()	GameSunsetPopup.cs:209		E					
+菜单/外壳	GameSunsetPopup	UpdateSunsetData()	GameSunsetPopup.cs:102		E					
+菜单/外壳	GameSunsetPopup	_003CUpdateSunsetData_003Eg__OnError_007C23_1(string error)	GameSunsetPopup.cs:250		E					
+菜单/外壳	GameSunsetPopup	_003CUpdateSunsetData_003Eg__OnSuccess_007C23_0()	GameSunsetPopup.cs:245		E					
+菜单/外壳	GameWindow	Close()	GameWindow.cs:245		E					
+菜单/外壳	GameWindow	ESCPressed()	GameWindow.cs:318		E					
+菜单/外壳	GameWindow	Hide()	GameWindow.cs:277		E					
+菜单/外壳	GameWindow	IsOpen()	GameWindow.cs:332		E					
+菜单/外壳	GameWindow	Open()	GameWindow.cs:84		E					
+菜单/外壳	GameWindow	SetupData(object data, GameWindowOptions options)	GameWindow.cs:122		E					
+菜单/外壳	GameWindow	ToBackground()	GameWindow.cs:313		E					
+菜单/外壳	GameWindow	ToFocus()	GameWindow.cs:241		E					
+菜单/外壳	GameWindow	ToggleESC(bool option)	GameWindow.cs:339		E					
+菜单/外壳	GameWindow	TryOpen()	GameWindow.cs:201		E					
+菜单/外壳	GameWindow	TryOpen(object data, GameWindowOptions options)	GameWindow.cs:153		E					
+菜单/外壳	GameWindow	UnHide()	GameWindow.cs:306		E					
+菜单/外壳	GameWindowWithTabs	ChangeTab(WindowTabBase tab)	GameWindowWithTabs.cs:308		E					
+菜单/外壳	GameWindowWithTabs	ChangeTab<TTab>()	GameWindowWithTabs.cs:276		E					
+菜单/外壳	GameWindowWithTabs	ChangeTabCO(WindowTabBase from, WindowTabBase to)	GameWindowWithTabs.cs:363		E					
+菜单/外壳	GameWindowWithTabs	Close()	GameWindowWithTabs.cs:394		E					
+菜单/外壳	GameWindowWithTabs	CreateTabButton(WindowTabBase tabInstance, string tabName, Sprite icon)	GameWindowWithTabs.cs:443		E					
+菜单/外壳	GameWindowWithTabs	DestroyTab(WindowTabBase tab)	GameWindowWithTabs.cs:553		E					
+菜单/外壳	GameWindowWithTabs	ForceCloseTabs()	GameWindowWithTabs.cs:403		E					
+菜单/外壳	GameWindowWithTabs	GetStartingTab()	GameWindowWithTabs.cs:207		E					
+菜单/外壳	GameWindowWithTabs	GetTab(Type type)	GameWindowWithTabs.cs:337		E					
+菜单/外壳	GameWindowWithTabs	GetTab<TTab>()	GameWindowWithTabs.cs:313		E					
+菜单/外壳	GameWindowWithTabs	OnTabChange()	GameWindowWithTabs.cs:390		E					
+菜单/外壳	GameWindowWithTabs	Open()	GameWindowWithTabs.cs:161		E					
+菜单/外壳	GameWindowWithTabs	OpenTabs()	GameWindowWithTabs.cs:187		E					
+菜单/外壳	GameWindowWithTabs	SetupTabs()	GameWindowWithTabs.cs:85		E					
+菜单/外壳	GameWindowWithTabs	ToFocus()	GameWindowWithTabs.cs:430		E					
+菜单/外壳	GeneralMenuController	ActivateLoadingFade(bool activate)	GeneralMenuController.cs:523		E					
+菜单/外壳	GeneralMenuController	Awake()	GeneralMenuController.cs:182		E					
+菜单/外壳	GeneralMenuController	Initialize()	GeneralMenuController.cs:195		E					
+菜单/外壳	GeneralMenuController	OnDestroy()	GeneralMenuController.cs:509		E					
+菜单/外壳	GeneralMenuController	RemoveHighlights()	GeneralMenuController.cs:552		E					
+菜单/外壳	GeneralMenuController	ShowHighlight(Vector3 position)	GeneralMenuController.cs:529		E					
+菜单/外壳	GeneralMenuController	ShowHighlightDelay(RectTransform objRectTransform, float delay)	GeneralMenuController.cs:536		E					
+菜单/外壳	GeneralMenuController	ShowLoading(bool show, Action callback)	GeneralMenuController.cs:518		E					
+菜单/外壳	GeneralMenuController	TestPopUp()	GeneralMenuController.cs:136		E					
+菜单/外壳	GeneralTab	OnSetup()	GeneralTab.cs:85		E					
+菜单/外壳	GeneralTab	RedeemCode()	GeneralTab.cs:147		E					
+菜单/外壳	GeneralTab	ToggleDisableBots(bool value)	GeneralTab.cs:122		E					
+菜单/外壳	GeneralTab	ToggleDisableNotifications(bool value)	GeneralTab.cs:127		E					
+菜单/外壳	GeneralTab	TouchInputToggle(bool value)	GeneralTab.cs:136		E					
+菜单/外壳	GeneralTab	TryRedeemCode(PromptContext.PromptResult result)	GeneralTab.cs:224		E					
+菜单/外壳	GenericArmyItemDrawer	Draw(GenericArmyItem item, int quantity)	GenericArmyItemDrawer.cs:11		E					
+菜单/外壳	GenericArmyItemDrawer	HandlePointerClick()	GenericArmyItemDrawer.cs:39		E					
+菜单/外壳	GenericOptionsPanel	Open()	GenericOptionsPanel.cs:559		E					
+菜单/外壳	GenericOptionsPanel	SetButtons(IEnumerable<Button> buttons, bool localizeText)	GenericOptionsPanel.cs:647		E					
+菜单/外壳	GenericOptionsPanel	SetPosition(Transform targetPosition)	GenericOptionsPanel.cs:838		E					
+菜单/外壳	GenericOptionsPanel	SetTitle(string text, bool localizeText)	GenericOptionsPanel.cs:822		E					
+菜单/外壳	GenericOptionsPanel	Start()	GenericOptionsPanel.cs:553		E					
+菜单/外壳	GiveFeedbackMenuDemo	Awake()	GiveFeedbackMenuDemo.cs:146		E					
+菜单/外壳	GiveFeedbackMenuDemo	Close()	GiveFeedbackMenuDemo.cs:325		E					
+菜单/外壳	GiveFeedbackMenuDemo	OnAnswer(FeedbackQuestionItem item)	GiveFeedbackMenuDemo.cs:401		E					
+菜单/外壳	GiveFeedbackMenuDemo	Open()	GiveFeedbackMenuDemo.cs:169		E					
+菜单/外壳	GiveFeedbackMenuDemo	Start()	GiveFeedbackMenuDemo.cs:155		E					
+菜单/外壳	GiveFeedbackMenuDemo	Submit()	GiveFeedbackMenuDemo.cs:442		E					
+菜单/外壳	GiveFeedbackMenuDemo	_003CClose_003Eb__9_1(GameObject _)	GiveFeedbackMenuDemo.cs:559		E					
+菜单/外壳	GrabScreenFeature	AddRenderPasses(ScriptableRenderer renderer, ref RenderingData renderingData)	GrabScreenFeature.cs:364		E					
+菜单/外壳	GrabScreenFeature	Create()	GrabScreenFeature.cs:344		E					
+菜单/外壳	GrabScreenFeature	Execute(ScriptableRenderContext context, ref RenderingData renderingData)	GrabScreenFeature.cs:284		E					
+菜单/外壳	GrabScreenFeature	Execute(ScriptableRenderContext context, ref RenderingData renderingData)	GrabScreenFeature.cs:88		E					
+菜单/外壳	GrabScreenFeature	OnCameraCleanup(CommandBuffer cmd)	GrabScreenFeature.cs:99		E					
+菜单/外壳	GrabScreenFeature	OnCameraSetup(CommandBuffer cmd, ref RenderingData renderingData)	GrabScreenFeature.cs:62		E					
+菜单/外壳	GrabScreenFeature	Setup(RTHandle cameraTarget)	GrabScreenFeature.cs:54		E					
+菜单/外壳	GrabScreenFeature	SetupRenderPasses(ScriptableRenderer renderer, [In] ref RenderingData renderingData)	GrabScreenFeature.cs:334		E					
+菜单/外壳	GrabScreenFeatureRenderGraphAPI	AddRenderPasses(ScriptableRenderer renderer, ref RenderingData renderingData)	GrabScreenFeatureRenderGraphAPI.cs:868		E					
+菜单/外壳	GrabScreenFeatureRenderGraphAPI	Create()	GrabScreenFeatureRenderGraphAPI.cs:845		E					
+菜单/外壳	GrabScreenFeatureRenderGraphAPI	RecordRenderGraph(RenderGraph renderGraph, ContextContainer frameData)	GrabScreenFeatureRenderGraphAPI.cs:540		E					
+菜单/外壳	GrabScreenFeatureRenderGraphAPI	RecordRenderGraph(RenderGraph renderGraph, ContextContainer frameData)	GrabScreenFeatureRenderGraphAPI.cs:90		E					
+菜单/外壳	GrabScreenFeatureU6	AddRenderPasses(ScriptableRenderer renderer, ref RenderingData renderingData)	GrabScreenFeatureU6.cs:352		E					
+菜单/外壳	GrabScreenFeatureU6	Configure(CommandBuffer cmd, RenderTextureDescriptor cameraTextureDescriptor)	GrabScreenFeatureU6.cs:65		E					
+菜单/外壳	GrabScreenFeatureU6	Create()	GrabScreenFeatureU6.cs:325		E					
+菜单/外壳	GrabScreenFeatureU6	Execute(ScriptableRenderContext context, ref RenderingData renderingData)	GrabScreenFeatureU6.cs:275		E					
+菜单/外壳	GrabScreenFeatureU6	Execute(ScriptableRenderContext context, ref RenderingData renderingData)	GrabScreenFeatureU6.cs:77		E					
+菜单/外壳	GrabScreenFeatureU6	FrameCleanup(CommandBuffer cmd)	GrabScreenFeatureU6.cs:92		E					
+菜单/外壳	GrabScreenFeatureU6	Setup(RenderTargetIdentifier cameraTarget)	GrabScreenFeatureU6.cs:57		E					
+菜单/外壳	GrantItemsDebugButton	Start()	GrantItemsDebugButton.cs:9		E					
+菜单/外壳	GraphicsTab	AutoZoomClick(bool option)	GraphicsTab.cs:113		E					
+菜单/外壳	GraphicsTab	CardsTextInHandDropdownChange(int chosenCardTextsInHand)	GraphicsTab.cs:209		E					
+菜单/外壳	GraphicsTab	ConfigureSuperSamplingVisibility()	GraphicsTab.cs:84		E					
+菜单/外壳	GraphicsTab	ExtendedCompatibilityClick(bool option)	GraphicsTab.cs:125		E					
+菜单/外壳	GraphicsTab	FPSLimitValueChanged(float fpsValue)	GraphicsTab.cs:139		E					
+菜单/外壳	GraphicsTab	GraphicsQualityDropdownChange(int chosenQuality)	GraphicsTab.cs:150		E					
+菜单/外壳	GraphicsTab	HighFpsToggleClick(bool option)	GraphicsTab.cs:96		E					
+菜单/外壳	GraphicsTab	OnDisable()	GraphicsTab.cs:62		E					
+菜单/外壳	GraphicsTab	OnEnable()	GraphicsTab.cs:31		E					
+菜单/外壳	GraphicsTab	OnSetup()	GraphicsTab.cs:253		E					
+菜单/外壳	GraphicsTab	SmallScreenToggleClick(bool option)	GraphicsTab.cs:119		E					
+菜单/外壳	GraphicsTab	SuperSamplingToggleClick(bool option)	GraphicsTab.cs:101		E					
+菜单/外壳	GraphicsTab	VSyncToggleClick(bool option)	GraphicsTab.cs:130		E					
+菜单/外壳	Group	GetEventScore(string eventId)	Group.cs:214		E					
+菜单/外壳	Group	HasJoinedEvent(string eventId)	Group.cs:219		E					
+菜单/外壳	GroupMember	GetEventScore(string eventId)	GroupMember.cs:208		E					
+菜单/外壳	GroupMember	OnAfterRead(JToken rawJson)	GroupMember.cs:173		E					
+菜单/外壳	GroupRoleExtensions	LocalizationString(GroupRole role)	GroupRoleExtensions.cs:20		E					
+菜单/外壳	GroupRoleExtensions	LocalizedName(GroupRole role)	GroupRoleExtensions.cs:7		E					
+菜单/外壳	ItemDisplayWindow	OnDisable()	ItemDisplayWindow.cs:68		E					
+菜单/外壳	ItemDisplayWindow	OnEnable()	ItemDisplayWindow.cs:58		E					
+菜单/外壳	ItemDisplayWindow	Open()	ItemDisplayWindow.cs:113		E					
+菜单/外壳	ItemDrawerConfig	GetDrawingOptions(Type type)	ItemDrawerConfig.cs:261		E					
+菜单/外壳	ItemInformationPanel	Initialize(ObtainableItem Item, ItemDrawerOptions Options)	ItemInformationPanel.cs:15		E					
+菜单/外壳	ItemInformationPanel	SetText(TextMeshProUGUI text, string key, bool localize)	ItemInformationPanel.cs:57		E					
+菜单/外壳	LaunchWishlistPopup	Initialize()	LaunchWishlistPopup.cs:10		E					
+菜单/外壳	LayoutGroupContentFixer	FixLayout()	LayoutGroupContentFixer.cs:18		E					
+菜单/外壳	LayoutGroupContentFixer	OnEnable()	LayoutGroupContentFixer.cs:10		E					
+菜单/外壳	LiveOpsContentPanel	Initialize()	LiveOpsContentPanel.cs:21		E					
+菜单/外壳	LiveopHelpWindow	Close()	LiveopHelpWindow.cs:82		E					
+菜单/外壳	LiveopHelpWindow	Open()	LiveopHelpWindow.cs:53		E					
+菜单/外壳	LiveopMenuContainer	Awake()	LiveopMenuContainer.cs:21		E					
+菜单/外壳	LiveopMenuContainer	OnClick()	LiveopMenuContainer.cs:149		E					
+菜单/外壳	LiveopMenuContainer	OnDestroy()	LiveopMenuContainer.cs:114		E					
+菜单/外壳	LiveopMenuContainer	OnInitialize(LiveOpsEvent playEvent)	LiveopMenuContainer.cs:45		E					
+菜单/外壳	LiveopMenuContainer	OnLocalize()	LiveopMenuContainer.cs:27		E					
+菜单/外壳	LiveopMenuContainer	Release(EventAssetReferenceType eventAssetReferenceType)	LiveopMenuContainer.cs:129		E					
+菜单/外壳	LiveopMenuContainer	ReleaseLoadedContent()	LiveopMenuContainer.cs:123		E					
+菜单/外壳	LiveopMenuContainer	SetText(LiveOpsEvent liveOpsEvent)	LiveopMenuContainer.cs:35		E					
+菜单/外壳	LiveopUIDrawer_GameModeIcon	Initialize(ILiveOps liveopEvent)	LiveopUIDrawer_GameModeIcon.cs:13		E					
+菜单/外壳	LiveopUIDrawer_GameModeIcon	OnDestroy()	LiveopUIDrawer_GameModeIcon.cs:84		E					
+菜单/外壳	LoadingMenu	Awake()	LoadingMenu.cs:39		E					
+菜单/外壳	LoadingMenu	LoadingFade(bool show, Action callback)	LoadingMenu.cs:52		E					
+菜单/外壳	MainMenuDemoVersion	Initialize()	MainMenuDemoVersion.cs:40		E					
+菜单/外壳	MainMenuDemoVersion	OnDestroy()	MainMenuDemoVersion.cs:44		E					
+菜单/外壳	MainMenuMatchResultData	HasDoneRankUpAnim()	MainMenuMatchResultData.cs:222		E					
+菜单/外壳	MainMenuMatchResultData	HasDoneSealAnim()	MainMenuMatchResultData.cs:217		E					
+菜单/外壳	MainMenuMatchResultData	HasToDoAnim(ref bool hasDoneAnimFlag, Func<EndMatchResult, bool> condition)	MainMenuMatchResultData.cs:72		E					
+菜单/外壳	MainMenuMatchResultData	HasToDoRankUpAnim()	MainMenuMatchResultData.cs:159		E					
+菜单/外壳	MainMenuMatchResultData	HasToDoSealsAnim()	MainMenuMatchResultData.cs:101		E					
+菜单/外壳	MainMenuWindow	CleanupContainers(List<LiveopMenuContainer> containersStillBeingUsed, List<LiveopMenuContainer> currentLiveOpContainers)	MainMenuWindow.cs:663		E					
+菜单/外壳	MainMenuWindow	ClickChooseName(string newName)	MainMenuWindow.cs:837		E					
+菜单/外壳	MainMenuWindow	Close()	MainMenuWindow.cs:376		E					
+菜单/外壳	MainMenuWindow	DelayedDisable()	MainMenuWindow.cs:365		E					
+菜单/外壳	MainMenuWindow	ESCPressed()	MainMenuWindow.cs:393		E					
+菜单/外壳	MainMenuWindow	Hide()	MainMenuWindow.cs:382		E					
+菜单/外壳	MainMenuWindow	Initialize()	MainMenuWindow.cs:159		E					
+菜单/外壳	MainMenuWindow	InstantiateLiveOp(LiveopsMainMenuData data)	MainMenuWindow.cs:694		E					
+菜单/外壳	MainMenuWindow	MenuFocusChangeActions(bool inFocus)	MainMenuWindow.cs:950		E					
+菜单/外壳	MainMenuWindow	OnDestroy()	MainMenuWindow.cs:337		E					
+菜单/外壳	MainMenuWindow	OpenChooseNameMenu()	MainMenuWindow.cs:842		E					
+菜单/外壳	MainMenuWindow	RefreshLiveOpContainers(bool forceClean)	MainMenuWindow.cs:405		E					
+菜单/外壳	MainMenuWindow	RefreshSignal()	MainMenuWindow.cs:399		E					
+菜单/外壳	MainMenuWindow	SetupChat()	MainMenuWindow.cs:722		E					
+菜单/外壳	MainMenuWindow	ShouldShowAskForNotificationByTime()	MainMenuWindow.cs:807		E					
+菜单/外壳	MainMenuWindow	ShowAllowNotificationsPopup()	MainMenuWindow.cs:753		E					
+菜单/外壳	MainMenuWindow	ToBackground()	MainMenuWindow.cs:354		E					
+菜单/外壳	MainMenuWindow	ToFocus()	MainMenuWindow.cs:343		E					
+菜单/外壳	MainMenuWindow	ToggleScroll(bool option)	MainMenuWindow.cs:388		E					
+菜单/外壳	MainMenuWindow	TrySetupPlayerName()	MainMenuWindow.cs:727		E					
+菜单/外壳	MediaTab	MusicValueChange(float newValue)	MediaTab.cs:137		E					
+菜单/外壳	MediaTab	OnDestroy()	MediaTab.cs:47		E					
+菜单/外壳	MediaTab	OnOpen()	MediaTab.cs:41		E					
+菜单/外壳	MediaTab	OnSetup()	MediaTab.cs:20		E					
+菜单/外壳	MediaTab	OnWindowModeChanged(int option)	MediaTab.cs:63		E					
+菜单/外壳	MediaTab	SetupVideoSettings()	MediaTab.cs:70		E					
+菜单/外壳	MediaTab	SoundFXValueChange(float newValue)	MediaTab.cs:143		E					
+菜单/外壳	MediaTab	VoiceOversValueChange(float newValue)	MediaTab.cs:131		E					
+菜单/外壳	MenuActions	BlockGroups(string[] groups)	MenuActions.cs:962		E					
+菜单/外壳	MenuActions	CanTrigger(Action action)	MenuActions.cs:1348		E					
+菜单/外壳	MenuActions	CheckActiveMenus(bool isTapChange, GameWindow gameWindow, WindowTabBase tab)	MenuActions.cs:941		E					
+菜单/外壳	MenuActions	OnDestroy()	MenuActions.cs:812		E					
+菜单/外壳	MenuActions	QueueAction(System.Action action, [Optional][DefaultParameterValue(0)	MenuActions.cs:967		E					
+菜单/外壳	MenuActions	QueueActionWithCallback(Action<System.Action> action, [Optional][DefaultParameterValue(0)	MenuActions.cs:1097		E					
+菜单/外壳	MenuActions	ReleaseAction(Action action)	MenuActions.cs:1236		E					
+菜单/外壳	MenuActions	ResumeMenuActions(string scene)	MenuActions.cs:873		E					
+菜单/外壳	MenuActions	Routine()	MenuActions.cs:951		E					
+菜单/外壳	MenuActions	Start()	MenuActions.cs:804		E					
+菜单/外壳	MenuActions	StopMenuActions(string sceneTarget)	MenuActions.cs:821		E					
+菜单/外壳	MenuActions	TryTriggerAction(Action action, GameWindow currentWindow, Action<bool> onComplete)	MenuActions.cs:1241		E					
+菜单/外壳	MenuLoadingController	Awake()	MenuLoadingController.cs:7		E					
+菜单/外壳	MenuLoadingController	HideLoading()	MenuLoadingController.cs:24		E					
+菜单/外壳	MenuLoadingController	ShowLoading()	MenuLoadingController.cs:13		E					
+菜单/外壳	MenuSprites	GetCrateItemsCounterSprite(int crateTier)	MenuSprites.cs:52		E					
+菜单/外壳	MenuSprites	GetFriendlyWorldSprite()	MenuSprites.cs:92		E					
+菜单/外壳	MenuSprites	GetWorldSprite(int playerTier)	MenuSprites.cs:63		E					
+菜单/外壳	NavigationPanelController	Awake()	NavigationPanelController.cs:105		E					
+菜单/外壳	NavigationPanelController	BuildEventButtons(ParentEventHandler handler)	NavigationPanelController.cs:160		E					
+菜单/外壳	NavigationPanelController	GetToggle(NavigationPanelToggleType type)	NavigationPanelController.cs:122		E					
+菜单/外壳	NavigationPanelController	OnDestroy()	NavigationPanelController.cs:148		E					
+菜单/外壳	NavigationPanelController	OnEventsRefreshed()	NavigationPanelController.cs:336		E					
+菜单/外壳	NavigationPanelController	OnInitializationComplete()	NavigationPanelController.cs:96		E					
+菜单/外壳	NavigationPanelController	SetMainToggle(GameWindow gameWindow)	NavigationPanelController.cs:521		E					
+菜单/外壳	NavigationPanelController	SetToggle(NavigationPanelToggleType type)	NavigationPanelController.cs:550		E					
+菜单/外壳	NavigationPanelController	Toggle(bool option, bool withAnimation)	NavigationPanelController.cs:472		E					
+菜单/外壳	NavigationPanelController	_003CToggle_003Eb__15_0()	NavigationPanelController.cs:563		E					
+菜单/外壳	ObjectTogglerByQuality	OnEnable()	ObjectTogglerByQuality.cs:11		E					
+菜单/外壳	OpenWindowButton	Awake()	OpenWindowButton.cs:24		E					
+菜单/外壳	OpenWindowButton	ButtonClick()	OpenWindowButton.cs:186		E					
+菜单/外壳	OpenWindowButton	CloseWindow()	OpenWindowButton.cs:210		E					
+菜单/外壳	OpenWindowButton	OnDestroy()	OpenWindowButton.cs:218		E					
+菜单/外壳	OpenWindowButton	OpenWindow()	OpenWindowButton.cs:191		E					
+菜单/外壳	OpenWindowButton	ToggleValueChange(bool option)	OpenWindowButton.cs:171		E					
+菜单/外壳	ParentConstraint	Awake()	ParentConstraint.cs:42		E					
+菜单/外壳	ParentConstraint	Init(Transform target)	ParentConstraint.cs:75		E					
+菜单/外壳	ParentConstraint	LateUpdate()	ParentConstraint.cs:62		E					
+菜单/外壳	ParentConstraint	Sync()	ParentConstraint.cs:175		E					
+菜单/外壳	ParentConstraint	ToggleParentingOptions(bool position, bool rotation, bool scale)	ParentConstraint.cs:168		E					
+菜单/外壳	ParentConstraint	Update()	ParentConstraint.cs:50		E					
+菜单/外壳	PopUpGameWindow	CheckLinkText()	PopUpGameWindow.cs:203		E					
+菜单/外壳	PopUpGameWindow	ConfigurePopUp(string text, bool localizeTexts, GameWindowButton[] buttons, bool closeOnEsc)	PopUpGameWindow.cs:69		E					
+菜单/外壳	PopUpGameWindow	ConfigurePopUp(string text, bool localizeTexts, bool closeOnEsc)	PopUpGameWindow.cs:43		E					
+菜单/外壳	PopUpGameWindow	GetUICamera()	PopUpGameWindow.cs:176		E					
+菜单/外壳	PopUpGameWindow	PopUpWindowButtonPressed()	PopUpGameWindow.cs:218		E					
+菜单/外壳	PopUpGameWindow	SetText(string text, bool localizeTexts)	PopUpGameWindow.cs:227		E					
+菜单/外壳	PracticeArmySelectionButton	Awake()	PracticeArmySelectionButton.cs:21		E					
+菜单/外壳	PracticeArmySelectionButton	Highlight(bool state)	PracticeArmySelectionButton.cs:47		E					
+菜单/外壳	PracticeArmySelectionButton	Initialize(CardArmy army, PracticeModePopup selectionMenu)	PracticeArmySelectionButton.cs:30		E					
+菜单/外壳	PracticeArmySelectionButton	OnArmySelected()	PracticeArmySelectionButton.cs:42		E					
+菜单/外壳	PracticeArmySelectionButton	ToggleHighlightPlayerDeck(bool state)	PracticeArmySelectionButton.cs:52		E					
+菜单/外壳	PromptPopup	InstantiateDropdown(PromptContext.DropdownData data)	PromptPopup.cs:453		E					
+菜单/外壳	PromptPopup	InstantiateInput(PromptContext.InputData data)	PromptPopup.cs:318		E					
+菜单/外壳	PromptPopup	OnCancel()	PromptPopup.cs:630		E					
+菜单/外壳	PromptPopup	OnSubmit()	PromptPopup.cs:519		E					
+菜单/外壳	PromptPopup	Open()	PromptPopup.cs:133		E					
+菜单/外壳	PromptPopup	SetError(string error, bool localize)	PromptPopup.cs:481		E					
+菜单/外壳	PromptPopup	SetMessage(string error, bool localize)	PromptPopup.cs:500		E					
+菜单/外壳	RandomCardDrawer	Draw(DropTableItem item, int quantity)	RandomCardDrawer.cs:21		E					
+菜单/外壳	RandomCardDrawer	GetItemName(DropTableItem item)	RandomCardDrawer.cs:61		E					
+菜单/外壳	RandomCardIconDrawer	Draw(DropTableItem item, int quantity)	RandomCardIconDrawer.cs:5		E					
+菜单/外壳	RandomCardIconDrawer	GetItemName(DropTableItem item)	RandomCardIconDrawer.cs:9		E					
+菜单/外壳	RatePopup	ClickHighStars()	RatePopup.cs:208		E					
+菜单/外壳	RatePopup	ClickLowStars()	RatePopup.cs:161		E					
+菜单/外壳	RatePopup	Close()	RatePopup.cs:144		E					
+菜单/外壳	RatePopup	ConfirmGameRated()	RatePopup.cs:224		E					
+菜单/外壳	RatePopup	Open()	RatePopup.cs:139		E					
+菜单/外壳	RatePopup	RequireRateAndroid()	RatePopup.cs:213		E					
+菜单/外壳	RatePopup	RequireRateIOS()	RatePopup.cs:220		E					
+菜单/外壳	RecyclableScrollerDemo	Awake()	RecyclableScrollerDemo.cs:15		E					
+菜单/外壳	RecyclableScrollerDemo	GetItemCount()	RecyclableScrollerDemo.cs:107		E					
+菜单/外壳	RecyclableScrollerDemo	InitData()	RecyclableScrollerDemo.cs:24		E					
+菜单/外壳	RecyclableScrollerDemo	RefreshCell(ICell cell)	RecyclableScrollerDemo.cs:190		E					
+菜单/外壳	RecyclableScrollerDemo	SetCell(ICell cell, int index)	RecyclableScrollerDemo.cs:120		E					
+菜单/外壳	ReferralPopupWindow	OnSetReferrer()	ReferralPopupWindow.cs:159		E					
+菜单/外壳	ReferralPopupWindow	Open()	ReferralPopupWindow.cs:76		E					
+菜单/外壳	ReferralPopupWindow	Refresh()	ReferralPopupWindow.cs:82		E					
+菜单/外壳	ReferralPopupWindow	Start()	ReferralPopupWindow.cs:58		E					
+菜单/外壳	ReferralPopupWindow	_003COnSetReferrer_003Eb__13_0(string err)	ReferralPopupWindow.cs:189		E					
+菜单/外壳	ReferralPopupWindow	_003CStart_003Eb__10_0(string _)	ReferralPopupWindow.cs:179		E					
+菜单/外壳	ResourcesBarController	GetCounter(GameCurrency currency)	ResourcesBarController.cs:133		E					
+菜单/外壳	ResourcesBarController	Initialize(GameCurrency[] currenciesToShow)	ResourcesBarController.cs:23		E					
+菜单/外壳	ResourcesBarController	OnCampaignPointChange(CampaignPointAmountUpdateSignal signal)	ResourcesBarController.cs:235		E					
+菜单/外壳	ResourcesBarController	OnCurrencyChange(ICurrency currency, int amountChanged)	ResourcesBarController.cs:222		E					
+菜单/外壳	ResourcesBarController	Toggle(bool option)	ResourcesBarController.cs:127		E					
+菜单/外壳	ResourcesBarController	ToggleOverlay(bool toggle)	ResourcesBarController.cs:264		E					
+菜单/外壳	ScenarioGenericObjectToggler	DoScenarioBlend(ScenarioBlendOptions blendOptions)	ScenarioGenericObjectToggler.cs:69		E					
+菜单/外壳	ScenarioGenericObjectToggler	SetTargetFade(float targetValue, float blendTime)	ScenarioGenericObjectToggler.cs:77		E					
+菜单/外壳	ScenarioGenericObjectToggler	Start()	ScenarioGenericObjectToggler.cs:17		E					
+菜单/外壳	ScenarioGenericObjectToggler	Update()	ScenarioGenericObjectToggler.cs:26		E					
+菜单/外壳	SceneChanger	DoChange()	SceneChanger.cs:117		E					
+菜单/外壳	SceneChanger	Transition()	SceneChanger.cs:128		E					
+菜单/外壳	ScreenAspectRatioController	AdjustCameraViewport()	ScreenAspectRatioController.cs:46		E					
+菜单/外壳	ScreenAspectRatioController	RenderPipelineManagerOnbeginCameraRendering(ScriptableRenderContext arg1, Camera arg2)	ScreenAspectRatioController.cs:35		E					
+菜单/外壳	ScreenAspectRatioController	SetCamerasRect(Rect viewport)	ScreenAspectRatioController.cs:74		E					
+菜单/外壳	ScreenAspectRatioController	Start()	ScreenAspectRatioController.cs:16		E					
+菜单/外壳	ScreenHighlightPosition	Awake()	ScreenHighlightPosition.cs:44		E					
+菜单/外壳	ScreenHighlightPosition	Fade(bool option)	ScreenHighlightPosition.cs:224		E					
+菜单/外壳	ScreenHighlightPosition	FadeToggle(bool option)	ScreenHighlightPosition.cs:171		E					
+菜单/外壳	ScreenHighlightPosition	HighlightPosition(Vector3 worldPosition, Camera cameraToUse)	ScreenHighlightPosition.cs:99		E					
+菜单/外壳	ScreenHighlightPosition	Initialize()	ScreenHighlightPosition.cs:128		E					
+菜单/外壳	ScreenHighlightPosition	InstantToggle(bool option)	ScreenHighlightPosition.cs:159		E					
+菜单/外壳	ScreenHighlightPosition	OnValidate()	ScreenHighlightPosition.cs:253		E					
+菜单/外壳	ScreenHighlightPosition	SetCamera(Camera uiCamera)	ScreenHighlightPosition.cs:120		E					
+菜单/外壳	ScreenHighlightPosition	SetFadedColor()	ScreenHighlightPosition.cs:217		E					
+菜单/外壳	ScreenHighlightPosition	SetOriginalColor()	ScreenHighlightPosition.cs:210		E					
+菜单/外壳	ScreenHighlightPosition	TestHighligh()	ScreenHighlightPosition.cs:262		E					
+菜单/外壳	ScreenHighlightPosition	Toggle(bool option, bool instant)	ScreenHighlightPosition.cs:48		E					
+菜单/外壳	ScreenHighlightPosition	ToggleOffDebug()	ScreenHighlightPosition.cs:284		E					
+菜单/外壳	ScreenUtilities	GetDiagonalSizeReferenceValue()	ScreenUtilities.cs:39		E					
+菜单/外壳	ScreenUtilities	GetScreenDPI()	ScreenUtilities.cs:73		E					
+菜单/外壳	ScreenUtilities	GetScreenPhysicalSize()	ScreenUtilities.cs:6		E					
+菜单/外壳	ScrollViewFocusFunctions	CalculateFocusedScrollPosition(ScrollRect scrollView, RectTransform item)	ScrollViewFocusFunctions.cs:377		E					
+菜单/外壳	ScrollViewFocusFunctions	CalculateFocusedScrollPosition(ScrollRect scrollView, Vector2 focusPoint)	ScrollViewFocusFunctions.cs:263		E					
+菜单/外壳	ScrollViewFocusFunctions	FocusAtPoint(ScrollRect scrollView, Vector2 focusPoint)	ScrollViewFocusFunctions.cs:409		E					
+菜单/外壳	ScrollViewFocusFunctions	FocusAtPointCoroutine(ScrollRect scrollView, Vector2 focusPoint, float speed, Action onFinish)	ScrollViewFocusFunctions.cs:441		E					
+菜单/外壳	ScrollViewFocusFunctions	FocusOnItem(ScrollRect scrollView, RectTransform item)	ScrollViewFocusFunctions.cs:415		E					
+菜单/外壳	ScrollViewFocusFunctions	FocusOnItemCoroutine(ScrollRect scrollView, RectTransform item, float speed, Action onFinish)	ScrollViewFocusFunctions.cs:458		E					
+菜单/外壳	ScrollViewFocusFunctions	LerpToScrollPositionCoroutine(ScrollRect scrollView, Vector2 targetNormalizedPos, float speed, Action onFinish)	ScrollViewFocusFunctions.cs:424		E					
+菜单/外壳	SearchingMatchWindowDemo	Awake()	SearchingMatchWindowDemo.cs:231		E					
+菜单/外壳	SearchingMatchWindowDemo	CancelSearch()	SearchingMatchWindowDemo.cs:308		E					
+菜单/外壳	SearchingMatchWindowDemo	CancelSearchButtonOnClick()	SearchingMatchWindowDemo.cs:303		E					
+菜单/外壳	SearchingMatchWindowDemo	ESCPressed()	SearchingMatchWindowDemo.cs:288		E					
+菜单/外壳	SearchingMatchWindowDemo	OnDisable()	SearchingMatchWindowDemo.cs:277		E					
+菜单/外壳	SearchingMatchWindowDemo	OnEnable()	SearchingMatchWindowDemo.cs:245		E					
+菜单/外壳	SearchingMatchWindowDemo	ShowPlayersMessage(float time)	SearchingMatchWindowDemo.cs:330		E					
+菜单/外壳	SearchingMatchWindowDemo	TypeWriteEffect(TextMeshProUGUI text, float timeBetweenLetters)	SearchingMatchWindowDemo.cs:318		E					
+菜单/外壳	SearchingOpponentWindow	CancelButtonClick()	SearchingOpponentWindow.cs:49		E					
+菜单/外壳	SearchingOpponentWindow	CancelMatchMatchmaking()	SearchingOpponentWindow.cs:54		E					
+菜单/外壳	SearchingOpponentWindow	Close()	SearchingOpponentWindow.cs:38		E					
+菜单/外壳	SearchingOpponentWindow	OnDisable()	SearchingOpponentWindow.cs:20		E					
+菜单/外壳	SearchingOpponentWindow	OnEnable()	SearchingOpponentWindow.cs:13		E					
+菜单/外壳	SearchingOpponentWindow	Open()	SearchingOpponentWindow.cs:27		E					
+菜单/外壳	SearchingOpponentWindow	OpponentFound(DeckAndWarlordData opponentData, string opponentName)	SearchingOpponentWindow.cs:44		E					
+菜单/外壳	SelectCardButtonFrame	Awake()	SelectCardButtonFrame.cs:15		E					
+菜单/外壳	SelectCardButtonFrame	CardClicked()	SelectCardButtonFrame.cs:63		E					
+菜单/外壳	SelectCardButtonFrame	Initialize(BasicCardUI cardUI, ChooseCardMenu chooseCardMenu)	SelectCardButtonFrame.cs:36		E					
+菜单/外壳	SelectCardButtonFrame	OnDestroy()	SelectCardButtonFrame.cs:22		E					
+菜单/外壳	SelectCardButtonFrame	SelectButtonOnClick()	SelectCardButtonFrame.cs:75		E					
+菜单/外壳	SelectCardButtonFrame	ToggleSelected(bool option)	SelectCardButtonFrame.cs:67		E					
+菜单/外壳	SettingsDebugButtons	Initialize(SettingsMenu window)	SettingsDebugButtons.cs:41		E					
+菜单/外壳	SettingsMenu	Awake()	SettingsMenu.cs:39		E					
+菜单/外壳	SettingsMenu	Close()	SettingsMenu.cs:173		E					
+菜单/外壳	SettingsMenu	ExitGamePopup()	SettingsMenu.cs:185		E					
+菜单/外壳	SettingsMenu	OnDestroy()	SettingsMenu.cs:163		E					
+菜单/外壳	Shade	SwitchBlack()	Shade.cs:45		E					
+菜单/外壳	Shade	SwitchBlackAnim(bool switchOn)	Shade.cs:51		E					
+菜单/外壳	Shade	SwitchShade(bool switchOn, bool useAnim)	Shade.cs:21		E					
+菜单/外壳	Shade	SwitchShade(bool switchOn, bool useAnim, float timeToSwitch)	Shade.cs:36		E					
+菜单/外壳	Shade	SwitchShade(bool switchOn, bool useAnim, float timeToSwitch, float targetAlpha)	Shade.cs:57		E					
+菜单/外壳	Shade	SwitchShadeToAlpha(bool switchOn, bool useAnim, float targetAlpha)	Shade.cs:30		E					
+菜单/外壳	Shade	finish()	Shade.cs:87		E					
+菜单/外壳	ShaderProperySetter	AddFloatProperty()	ShaderProperySetter.cs:66		E					
+菜单/外壳	ShaderProperySetter	ApplyParameter(Renderer renderer)	ShaderProperySetter.cs:15		E					
+菜单/外壳	ShaderProperySetter	ApplyParameter(Renderer renderer)	ShaderProperySetter.cs:30		E					
+菜单/外壳	ShaderProperySetter	ApplyProperties()	ShaderProperySetter.cs:75		E					
+菜单/外壳	ShaderProperySetter	Start()	ShaderProperySetter.cs:50		E					
+菜单/外壳	ShaderProperySetter	Update()	ShaderProperySetter.cs:58		E					
+菜单/外壳	SupportTab	OnClickSupport()	SupportTab.cs:42		E					
+菜单/外壳	SupportTab	OnDestroy()	SupportTab.cs:35		E					
+菜单/外壳	SupportTab	OnSetup()	SupportTab.cs:17		E					
+菜单/外壳	TMProFontSizeMatchLayout	OnRectTransformDimensionsChange()	TMProFontSizeMatchLayout.cs:10		E					
+菜单/外壳	TMProFontSizeMatchLayout	OnValidate()	TMProFontSizeMatchLayout.cs:22		E					
+菜单/外壳	TMProWarpText	Awake()	TMProWarpText.cs:56		E					
+菜单/外壳	TMProWarpText	OnDisable()	TMProWarpText.cs:73		E					
+菜单/外壳	TMProWarpText	OnEnable()	TMProWarpText.cs:66		E					
+菜单/外壳	TMProWarpText	ReactToTextChanged(UnityEngine.Object obj)	TMProWarpText.cs:80		E					
+菜单/外壳	TMProWarpText	Reset()	TMProWarpText.cs:25		E					
+菜单/外壳	TMProWarpText	WarpText()	TMProWarpText.cs:130		E					
+菜单/外壳	TabButtons	AddTabButton(string tabName, Sprite tabIcon)	TabButtons.cs:314		E					
+菜单/外壳	TabButtons	AssignTabButton(WindowTabBase tab, EverguildToggle toggle)	TabButtons.cs:409		E					
+菜单/外壳	TabButtons	Initialize(GameWindowWithTabs window)	TabButtons.cs:83		E					
+菜单/外壳	TabButtons	RemoveTabButton(WindowTabBase tab)	TabButtons.cs:440		E					
+菜单/外壳	TabButtons	Toggle(bool state, WindowTabBase tab)	TabButtons.cs:269		E					
+菜单/外壳	TabButtons	ToggleInteractable(WindowTabBase tab, bool state)	TabButtons.cs:468		E					
+菜单/外壳	TabButtons	UpdateTab(WindowTabBase tab)	TabButtons.cs:284		E					
+菜单/外壳	TemporaryMenu	OpenCollection()	TemporaryMenu.cs:7		E					
+菜单/外壳	TestButtonConnectionChecker	Start()	TestButtonConnectionChecker.cs:11		E					
+菜单/外壳	TestButtonConnectionChecker	Update()	TestButtonConnectionChecker.cs:25		E					
+菜单/外壳	TestWindow	Close()	TestWindow.cs:8		E					
+菜单/外壳	TestWindow	Open()	TestWindow.cs:3		E					
+菜单/外壳	TitleDrawer	Draw(CosmeticItemTitle item, int quantity)	TitleDrawer.cs:23		E					
+菜单/外壳	TitleDrawer	GetItemName(CosmeticItemTitle item)	TitleDrawer.cs:16		E					
+菜单/外壳	TitleDrawerHorizontal	Awake()	TitleDrawerHorizontal.cs:119		E					
+菜单/外壳	TitleDrawerHorizontal	HandleClick()	TitleDrawerHorizontal.cs:133		E					
+菜单/外壳	TitleDrawerHorizontal	OnDestroy()	TitleDrawerHorizontal.cs:126		E					
+菜单/外壳	TitleDrawerHorizontal	ReDraw(CosmeticItemTitle item, int qty)	TitleDrawerHorizontal.cs:114		E					
+菜单/外壳	TitleDrawerHorizontal	ToggleHighlight(bool toggle)	TitleDrawerHorizontal.cs:145		E					
+菜单/外壳	TitleDrawerHorizontal	ToggleLock(bool toggle)	TitleDrawerHorizontal.cs:139		E					
+菜单/外壳	TitleIconDrawer	Draw(CosmeticItemTitle item, int quantity)	TitleIconDrawer.cs:5		E					
+菜单/外壳	TitleIconDrawer	GetItemName(CosmeticItemTitle item)	TitleIconDrawer.cs:9		E					
+菜单/外壳	TitleTab	Awake()	TitleTab.cs:93		E					
+菜单/外壳	TitleTab	Initialize()	TitleTab.cs:111		E					
+菜单/外壳	TitleTab	OnDestroy()	TitleTab.cs:100		E					
+菜单/外壳	TitleTab	OnItemClick(TitleDrawerHorizontal drawer)	TitleTab.cs:695		E					
+菜单/外壳	TitleTab	OnOpen()	TitleTab.cs:106		E					
+菜单/外壳	TitleTab	OnSelect()	TitleTab.cs:725		E					
+菜单/外壳	TitleTab	SetTitle(CosmeticItemTitle item)	TitleTab.cs:713		E					
+菜单/外壳	ToastNotification	ForceUpdateLayout()	ToastNotification.cs:87		E					
+菜单/外壳	ToastNotification	Initialize(object obj)	ToastNotification.cs:25		E					
+菜单/外壳	ToastNotification	_003CInitialize_003Eb__9_0()	ToastNotification.cs:100		E					
+菜单/外壳	ToastNotificationController	GetToastNotificationPrefab(ToastNotificationType toastType)	ToastNotificationController.cs:370		E					
+菜单/外壳	ToastNotificationController	RegisterNotificationHandler(ToastNotificationHandler handler, string id)	ToastNotificationController.cs:219		E					
+菜单/外壳	ToastNotificationController	ScheduleNotification(ToastNotificationContext context)	ToastNotificationController.cs:171		E					
+菜单/外壳	ToastNotificationController	ShowNotification(ToastNotificationContext context)	ToastNotificationController.cs:213		E					
+菜单/外壳	ToastNotificationController	ShowNotificationInternal(ToastNotificationContext context)	ToastNotificationController.cs:278		E					
+菜单/外壳	ToastNotificationController	Test()	ToastNotificationController.cs:409		E					
+菜单/外壳	ToastNotificationController	TestShowCollection()	ToastNotificationController.cs:525		E					
+菜单/外壳	ToastNotificationController	TestShowMission()	ToastNotificationController.cs:557		E					
+菜单/外壳	ToastNotificationController	TestXP()	ToastNotificationController.cs:441		E					
+菜单/外壳	ToastNotificationController	TryShowNotification(ToastNotificationContext context)	ToastNotificationController.cs:224		E					
+菜单/外壳	ToggleDisplay	Setup(bool toggled, string textTerm, Sprite sprite)	ToggleDisplay.cs:17		E					
+菜单/外壳	ToggleShaderProperties	RefreshMaterial(Material mat)	ToggleShaderProperties.cs:128		E					
+菜单/外壳	ToggleShaderProperties	SetMaterialOpaque(Material mat)	ToggleShaderProperties.cs:107		E					
+菜单/外壳	ToggleShaderProperties	SetMaterialTransaparent(Material mat)	ToggleShaderProperties.cs:86		E					
+菜单/外壳	ToggleShaderProperties	ToggleAlpha(bool option)	ToggleShaderProperties.cs:38		E					
+菜单/外壳	ToggleShaderProperties	ToggleShaderFeature(bool option)	ToggleShaderProperties.cs:10		E					
+菜单/外壳	ToggleShaderProperties	ToggleShaderFeature(bool option, string shaderFeature)	ToggleShaderProperties.cs:24		E					
+菜单/外壳	TogglerByBuildType	OnEnable()	TogglerByBuildType.cs:13		E					
+菜单/外壳	TransformScalerBySmallScreenUI	Initialize()	TransformScalerBySmallScreenUI.cs:53		E					
+菜单/外壳	TransformScalerBySmallScreenUI	LateUpdate()	TransformScalerBySmallScreenUI.cs:17		E					
+菜单/外壳	TransformScalerBySmallScreenUI	OnEnable()	TransformScalerBySmallScreenUI.cs:12		E					
+菜单/外壳	TransformScalerBySmallScreenUI	SetScale(float scaleToUse)	TransformScalerBySmallScreenUI.cs:47		E					
+菜单/外壳	TransitionUIAnchor	DisableAnchor()	TransitionUIAnchor.cs:14		E					
+菜单/外壳	TransitionUIAnchor	EnableAnchor()	TransitionUIAnchor.cs:8		E					
+菜单/外壳	TwoSidesTeamDrawer	Initialize(TwoSidesEventData.TeamInfo teamInfo)	TwoSidesTeamDrawer.cs:16		E					
+菜单/外壳	TwoSidesTeamDrawer	OnDisable()	TwoSidesTeamDrawer.cs:60		E					
+菜单/外壳	UIAnchorAvoidSafeArea	CheckAdaptToParent(float anchorMin, float anchorMax)	UIAnchorAvoidSafeArea.cs:214		E					
+菜单/外壳	UIAnchorAvoidSafeArea	CheckForSafeAreaOptions()	UIAnchorAvoidSafeArea.cs:124		E					
+菜单/外壳	UIAnchorAvoidSafeArea	FindCanvas()	UIAnchorAvoidSafeArea.cs:62		E					
+菜单/外壳	UIAnchorAvoidSafeArea	GetPivotAnchorModifier(float pivot)	UIAnchorAvoidSafeArea.cs:236		E					
+菜单/外壳	UIAnchorAvoidSafeArea	Initialize()	UIAnchorAvoidSafeArea.cs:50		E					
+菜单/外壳	UIAnchorAvoidSafeArea	OnDestroy()	UIAnchorAvoidSafeArea.cs:44		E					
+菜单/外壳	UIAnchorAvoidSafeArea	OnValidate()	UIAnchorAvoidSafeArea.cs:245		E					
+菜单/外壳	UIAnchorAvoidSafeArea	ResetSafeAreaSize()	UIAnchorAvoidSafeArea.cs:153		E					
+菜单/外壳	UIAnchorAvoidSafeArea	Start()	UIAnchorAvoidSafeArea.cs:29		E					
+菜单/外壳	UIAnchorAvoidSafeArea	TempSetDeltaAnPivot()	UIAnchorAvoidSafeArea.cs:226		E					
+菜单/外壳	UIBakeScreen	CreateRT()	UIBakeScreen.cs:64		E					
+菜单/外壳	UIBakeScreen	OnDestroy()	UIBakeScreen.cs:35		E					
+菜单/外壳	UIBakeScreen	ResolutionChanged()	UIBakeScreen.cs:27		E					
+菜单/外壳	UIBakeScreen	Start()	UIBakeScreen.cs:20		E					
+菜单/外壳	UIBakeScreen	Toggle(bool option)	UIBakeScreen.cs:40		E					
+菜单/外壳	UICameraSetRenderScale	Awake()	UICameraSetRenderScale.cs:88		E					
+菜单/外壳	UICameraSetRenderScale	FixBlackScreen()	UICameraSetRenderScale.cs:160		E					
+菜单/外壳	UICameraSetRenderScale	Initialize()	UICameraSetRenderScale.cs:96		E					
+菜单/外壳	UICameraSetRenderScale	OnBeginCameraRendering(ScriptableRenderContext context, Camera cameraBeingRenderer)	UICameraSetRenderScale.cs:171		E					
+菜单/外壳	UICameraSetRenderScale	OnEndCameraRendering(ScriptableRenderContext context, Camera cameraBeingRenderer)	UICameraSetRenderScale.cs:182		E					
+菜单/外壳	UICameraSetRenderScale	ToggleCameraUICameraRT(bool option)	UICameraSetRenderScale.cs:116		E					
+菜单/外壳	UICulling	CalculateVisibility()	UICulling.cs:311		E					
+菜单/外壳	UICulling	GetWorldRect(RectTransform rectTransform)	UICulling.cs:352		E					
+菜单/外壳	UICulling	LateUpdate()	UICulling.cs:168		E					
+菜单/外壳	UICulling	OnEnable()	UICulling.cs:162		E					
+菜单/外壳	UICulling	RaiseEvents()	UICulling.cs:264		E					
+菜单/外壳	UICulling	UpdateIsVisible()	UICulling.cs:173		E					
+菜单/外壳	UIErrorMessageItem	LayoutRefresh()	UIErrorMessageItem.cs:94		E					
+菜单/外壳	UIErrorMessageItem	OnDestroy()	UIErrorMessageItem.cs:105		E					
+菜单/外壳	UIErrorMessageItem	Show(string textToShow, Color color, bool localize)	UIErrorMessageItem.cs:31		E					
+菜单/外壳	UIErrorMessageItem	Toggle(bool option)	UIErrorMessageItem.cs:99		E					
+菜单/外壳	UIErrorMessageItem	_003CShow_003Eb__10_0()	UIErrorMessageItem.cs:114		E					
+菜单/外壳	UIErrorMessageItem	_003CShow_003Eb__10_1()	UIErrorMessageItem.cs:120		E					
+菜单/外壳	UIGradientUtils	Bilerp(Color a1, Color a2, Color b1, Color b2, Vector2 t)	UIGradientUtils.cs:140		E					
+菜单/外壳	UIGradientUtils	CompensateAspectRatio(Rect rect, Vector2 dir)	UIGradientUtils.cs:97		E					
+菜单/外壳	UIGradientUtils	InverseLerp(float a, float b, float v)	UIGradientUtils.cs:127		E					
+菜单/外壳	UIGradientUtils	Lerp(UIVertex a, UIVertex b, float t, ref UIVertex c)	UIGradientUtils.cs:149		E					
+菜单/外壳	UIGradientUtils	LocalPositionMatrix(Rect rect, Vector2 dir)	UIGradientUtils.cs:45		E					
+菜单/外壳	UIGradientUtils	RotationDir(float angle)	UIGradientUtils.cs:88		E					
+菜单/外壳	UIGroupTint	DoColorChange()	UIGroupTint.cs:84		E					
+菜单/外壳	UIGroupTint	OnDestroy()	UIGroupTint.cs:37		E					
+菜单/外壳	UIGroupTint	OnEnable()	UIGroupTint.cs:32		E					
+菜单/外壳	UIGroupTint	Refresh()	UIGroupTint.cs:41		E					
+菜单/外壳	UIGroupTint	SetColor(Color color, float time)	UIGroupTint.cs:148		E					
+菜单/外壳	UIGroupTint	Toggle(bool option)	UIGroupTint.cs:143		E					
+菜单/外壳	UIGroupTint	Update()	UIGroupTint.cs:116		E					
+菜单/外壳	UIGroupTint	_003CSetColor_003Eb__12_0()	UIGroupTint.cs:191		E					
+菜单/外壳	UIGroupTint	_003CSetColor_003Eb__12_1(Color x)	UIGroupTint.cs:200		E					
+菜单/外壳	UIImageMaterialColorChanger	Awake()	UIImageMaterialColorChanger.cs:21		E					
+菜单/外壳	UIImageMaterialColorChanger	DoColorChange(Color targetColor, int shaderPropertyId, float time, bool instant)	UIImageMaterialColorChanger.cs:53		E					
+菜单/外壳	UIImageMaterialColorChanger	Initialize()	UIImageMaterialColorChanger.cs:95		E					
+菜单/外壳	UIImageMaterialColorChanger	OnDestroy()	UIImageMaterialColorChanger.cs:26		E					
+菜单/外壳	UIImageMaterialColorChanger	OnValidate()	UIImageMaterialColorChanger.cs:103		E					
+菜单/外壳	UIImageMaterialColorChanger	SetColor(Color targetColor, int shaderPropertyId)	UIImageMaterialColorChanger.cs:83		E					
+菜单/外壳	UIImageMaterialColorChanger	Stop()	UIImageMaterialColorChanger.cs:90		E					
+菜单/外壳	UIImageMaterialColorChanger	Update()	UIImageMaterialColorChanger.cs:31		E					
+菜单/外壳	UIScaleToFit	Awake()	UIScaleToFit.cs:28		E					
+菜单/外壳	UIScaleToFit	Fit()	UIScaleToFit.cs:108		E					
+菜单/外壳	UIScaleToFit	InitializeComponents()	UIScaleToFit.cs:84		E					
+菜单/外壳	UIScaleToFit	OnDisable()	UIScaleToFit.cs:65		E					
+菜单/外壳	UIScaleToFit	OnEnable()	UIScaleToFit.cs:60		E					
+菜单/外壳	UIScaleToFit	OnRectTransformDimensionsChange()	UIScaleToFit.cs:184		E					
+菜单/外壳	UIScaleToFit	SetLayoutHorizontal()	UIScaleToFit.cs:190		E					
+菜单/外壳	UIScaleToFit	SetLayoutVertical()	UIScaleToFit.cs:195		E					
+菜单/外壳	UIScaleToFit	Start()	UIScaleToFit.cs:55		E					
+菜单/外壳	UIScaleToFit	Update()	UIScaleToFit.cs:73		E					
+菜单/外壳	UnityRemoteConfigObjectToggler	GetSelectedBoolValue()	UnityRemoteConfigObjectToggler.cs:30		E					
+菜单/外壳	UnityRemoteConfigObjectToggler	Initialize()	UnityRemoteConfigObjectToggler.cs:23		E					
+菜单/外壳	UnityRemoteConfigObjectToggler	OnEnable()	UnityRemoteConfigObjectToggler.cs:11		E					
+菜单/外壳	UpgradePanel	AnimationFinished()	UpgradePanel.cs:327		E					
+菜单/外壳	UpgradePanel	BackToOriginalFrame()	UpgradePanel.cs:349		E					
+菜单/外壳	UpgradePanel	ChangeFrameOnLevelUp()	UpgradePanel.cs:322		E					
+菜单/外壳	UpgradePanel	CheckFinish()	UpgradePanel.cs:338		E					
+菜单/外壳	UpgradePanel	CheckUpgradeRequirements()	UpgradePanel.cs:105		E					
+菜单/外壳	UpgradePanel	Initialize(BasicCardUI card, CardDisplayOptions options)	UpgradePanel.cs:76		E					
+菜单/外壳	UpgradePanel	OnDisable()	UpgradePanel.cs:98		E					
+菜单/外壳	UpgradePanel	OnEnable()	UpgradePanel.cs:91		E					
+菜单/外壳	UpgradePanel	PlayAnim()	UpgradePanel.cs:356		E					
+菜单/外壳	UpgradePanel	SetContentGroups(bool canUpgrade)	UpgradePanel.cs:205		E					
+菜单/外壳	UpgradePanel	TryUpgrade()	UpgradePanel.cs:212		E					
+菜单/外壳	UpgradePanel	_003CTryUpgrade_003Eg__OnFail_007C24_1(string error)	UpgradePanel.cs:390		E					
+菜单/外壳	UpgradePanel	_003CTryUpgrade_003Eg__OnSuccess_007C24_0()	UpgradePanel.cs:377		E					
+菜单/外壳	UrlButton	Initialize(string url)	UrlButton.cs:28		E					
+菜单/外壳	UrlButton	OnClick()	UrlButton.cs:46		E					
+菜单/外壳	UrlButton	OnDestroy()	UrlButton.cs:39		E					
+菜单/外壳	WelcomePopup	Close()	WelcomePopup.cs:146		E					
+菜单/外壳	WelcomePopup	OnClose()	WelcomePopup.cs:154		E					
+菜单/外壳	WelcomePopup	Open()	WelcomePopup.cs:35		E					
+菜单/外壳	WhereToGetCardsWindow	Awake()	WhereToGetCardsWindow.cs:60		E					
+菜单/外壳	WhereToGetCardsWindow	Close()	WhereToGetCardsWindow.cs:178		E					
+菜单/外壳	WhereToGetCardsWindow	Open()	WhereToGetCardsWindow.cs:76		E					
+菜单/外壳	WhereToGetCardsWindow	RefreshLayout()	WhereToGetCardsWindow.cs:133		E					
+菜单/外壳	WhereToGetCardsWindow	Reset()	WhereToGetCardsWindow.cs:138		E					
+菜单/外壳	WildcardDrawer	Draw(Wildcard item, int quantity)	WildcardDrawer.cs:18		E					
+菜单/外壳	WildcardDrawer	GetItemName(Wildcard item)	WildcardDrawer.cs:32		E					
+菜单/外壳	WildcardIconDrawer	Draw(Wildcard item, int quantity)	WildcardIconDrawer.cs:12		E					
+菜单/外壳	WildcardIconDrawer	GetItemName(Wildcard item)	WildcardIconDrawer.cs:27		E					
+菜单/外壳	WindowHeaderWithBackButton	BackButtonPressed()	WindowHeaderWithBackButton.cs:32		E					
+菜单/外壳	WindowHeaderWithBackButton	Initialize(ILiveOps liveopEvent, Action OnBackButtonPressed)	WindowHeaderWithBackButton.cs:47		E					
+菜单/外壳	WindowHeaderWithBackButton	Initialize(string title, Action OnBackButtonPressed)	WindowHeaderWithBackButton.cs:41		E					
+菜单/外壳	WindowHeaderWithBackButton	OnDisable()	WindowHeaderWithBackButton.cs:25		E					
+菜单/外壳	WindowHeaderWithBackButton	OnEnable()	WindowHeaderWithBackButton.cs:18		E					
+菜单/外壳	WindowHolder	OnDisable()	WindowHolder.cs:15		E					
+菜单/外壳	WindowHolder	OnEnable()	WindowHolder.cs:9		E					
+菜单/外壳	WindowTabBase	Awake()	WindowTabBase.cs:60		E					
+菜单/外壳	WindowTabBase	CloseTab()	WindowTabBase.cs:90		E					
+菜单/外壳	WindowTabBase	OnClose()	WindowTabBase.cs:97		E					
+菜单/外壳	WindowTabBase	OnOpen()	WindowTabBase.cs:86		E					
+菜单/外壳	WindowTabBase	OnSetup()	WindowTabBase.cs:70		E					
+菜单/外壳	WindowTabBase	Setup(GameWindow window)	WindowTabBase.cs:26		E					
+菜单/外壳	WindowTabBase	Setup(GameWindow window)	WindowTabBase.cs:64		E					
+菜单/外壳	WindowTabBase	ToFocus()	WindowTabBase.cs:107		E					
+菜单/外壳	WindowTabBase	Toggle(bool option)	WindowTabBase.cs:101		E					
+菜单/外壳	WindowTabBase	TryOpenTab()	WindowTabBase.cs:74		E					
+菜单/外壳	WindowsManager	CloseAllWindows()	WindowsManager.cs:1698		E					
+菜单/外壳	WindowsManager	CloseWindow(GameWindow windowToClose)	WindowsManager.cs:1521		E					
+菜单/外壳	WindowsManager	CloseWindow<T>()	WindowsManager.cs:1529		E					
+菜单/外壳	WindowsManager	CloseWindowCO(GameWindow window)	WindowsManager.cs:1616		E					
+菜单/外壳	WindowsManager	GetLastOpenMainWindow()	WindowsManager.cs:1227		E					
+菜单/外壳	WindowsManager	GetOpenWindow<T>()	WindowsManager.cs:1104		E					
+菜单/外壳	WindowsManager	GetWindowAnchor(WindowsPlacement placement)	WindowsManager.cs:1083		E					
+菜单/外壳	WindowsManager	HideAllWindows()	WindowsManager.cs:1650		E					
+菜单/外壳	WindowsManager	HideMainMenu()	WindowsManager.cs:1823		E					
+菜单/外壳	WindowsManager	HidePopUp()	WindowsManager.cs:2098		E					
+菜单/外壳	WindowsManager	HidePopUp(bool forceHide)	WindowsManager.cs:2106		E					
+菜单/外壳	WindowsManager	Init()	WindowsManager.cs:1542		E					
+菜单/外壳	WindowsManager	LoadPopUpAndShow(string text, bool localizeTexts, GameWindowButton[] gameWindowButton, bool closeOnESC)	WindowsManager.cs:2076		E					
+菜单/外壳	WindowsManager	LoadPopup(bool twoButtons)	WindowsManager.cs:1831		E					
+菜单/外壳	WindowsManager	OpenWindow(AssetReference gameWindowToOpen, object data, bool closeAll, GameWindowOptions options)	WindowsManager.cs:1355		E					
+菜单/外壳	WindowsManager	OpenWindow(ComponentReference<GameWindow> gameWindowToOpen, bool closeAll)	WindowsManager.cs:1280		E					
+菜单/外壳	WindowsManager	OpenWindow(ComponentReference<GameWindow> gameWindowToOpen, object data, bool closeAll, GameWindowOptions options)	WindowsManager.cs:1286		E					
+菜单/外壳	WindowsManager	OpenWindow(GameWindow window, bool closeAll, GameWindowOptions options)	WindowsManager.cs:1246		E					
+菜单/外壳	WindowsManager	OpenWindow(GameWindow window, object data, bool closeAll, GameWindowOptions options)	WindowsManager.cs:1259		E					
+菜单/外壳	WindowsManager	OpenWindow<T>(bool closeAll)	WindowsManager.cs:1514		E					
+菜单/外壳	WindowsManager	OpenWindow<T>(object data, bool closeAll)	WindowsManager.cs:1366		E					
+菜单/外壳	WindowsManager	OpenWindowCO(GameWindow window, object data, bool closeAll, GameWindowOptions options)	WindowsManager.cs:1551		E					
+菜单/外壳	WindowsManager	RefreshCurrentWindow()	WindowsManager.cs:1008		E					
+菜单/外壳	WindowsManager	RefreshWindow<T>()	WindowsManager.cs:1014		E					
+菜单/外壳	WindowsManager	RegisterAnchor(WindowsPlacement placement, Transform anchor)	WindowsManager.cs:1039		E					
+菜单/外壳	WindowsManager	RegisterAnchorOverride(Transform anchor)	WindowsManager.cs:1044		E					
+菜单/外壳	WindowsManager	SceneUnloadOperations()	WindowsManager.cs:1049		E					
+菜单/外壳	WindowsManager	SetBaseMenu(GameWindow menu)	WindowsManager.cs:1790		E					
+菜单/外壳	WindowsManager	ShowMainMenu()	WindowsManager.cs:1815		E					
+菜单/外壳	WindowsManager	ShowPopUp(string text, bool localizeTexts, bool closeOnEsc, GameWindowButton primaryButton, GameWindowButton secondButton)	WindowsManager.cs:1996		E					
+菜单/外壳	WindowsManager	ShowPopUp(string text, bool localizeTexts, bool closeOnEsc, string buttonText1, string buttonText2, Action onButton1, Action onButton2)	WindowsManager.cs:1931		E					
+菜单/外壳	WindowsManager	ShowPopUp(string text, bool localizeTexts, bool closeOnEsc, string submitButtonText, Action onSubmit)	WindowsManager.cs:1843		E					
+菜单/外壳	WindowsManager	ShowPreviousWindow()	WindowsManager.cs:1743		E					
+菜单/外壳	WindowsManager	TabChanged(WindowTabBase tab)	WindowsManager.cs:991		E					
+菜单/外壳	WindowsManager	UnregisterAnchor(WindowsPlacement placement, Transform anchor)	WindowsManager.cs:1075		E					
+菜单/外壳	WindowsManager	UnregisterAnchorOverride()	WindowsManager.cs:1070		E					
+菜单/外壳	WindowsManager	Update()	WindowsManager.cs:1000		E					

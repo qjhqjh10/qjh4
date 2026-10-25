@@ -39281,5 +39281,501 @@
       "uvCycles": 1.0,
       "uvRowIndex": 0
     }
+  ],
+  "tapHits": [
+    {
+      "go": "Battleground Left",
+      "path": "Scenario/Battle Arena Aeldari Baked/Battleground Left",
+      "layer": 0,
+      "inMask": true,
+      "hasMesh": true,
+      "pos": [
+        92.425232,
+        0.417681,
+        2.504842
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        94.757019,
+        188.364848,
+        188.364848
+      ],
+      "collider": {
+        "type": "Mesh",
+        "convex": false,
+        "isTrigger": false,
+        "mesh": "Battleground Left1"
+      },
+      "particles": "Tap Rock",
+      "particlesGuid": "06946a9ab456c474f9b4f86e00fecf9c",
+      "audio": "Tap Hit Rock",
+      "audioGuid": "30c981ef52e181a41a09adf6818a9104",
+      "delay": 0.0,
+      "useTargetAnchor": 0,
+      "anchor": null
+    },
+    {
+      "go": "Battleground Left 2",
+      "path": "Scenario/Battle Arena Aeldari Baked/Battleground Left 2",
+      "layer": 0,
+      "inMask": true,
+      "hasMesh": true,
+      "pos": [
+        91.483192,
+        6.264278,
+        3.625367
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        94.757019,
+        188.364848,
+        188.364848
+      ],
+      "collider": {
+        "type": "Mesh",
+        "convex": false,
+        "isTrigger": false,
+        "mesh": "Battleground Left 21"
+      },
+      "particles": "Tap Rock",
+      "particlesGuid": "06946a9ab456c474f9b4f86e00fecf9c",
+      "audio": "Tap Hit Rock",
+      "audioGuid": "30c981ef52e181a41a09adf6818a9104",
+      "delay": 0.0,
+      "useTargetAnchor": 0,
+      "anchor": null
+    },
+    {
+      "go": "Battleground Left 3",
+      "path": "Scenario/Battle Arena Aeldari Baked/Battleground Left 3",
+      "layer": 0,
+      "inMask": true,
+      "hasMesh": true,
+      "pos": [
+        89.543159,
+        6.582819,
+        0.821363
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        94.757019,
+        188.364848,
+        188.364848
+      ],
+      "collider": {
+        "type": "Mesh",
+        "convex": false,
+        "isTrigger": false,
+        "mesh": "Battleground Left 31"
+      },
+      "particles": "Tap Rock",
+      "particlesGuid": "06946a9ab456c474f9b4f86e00fecf9c",
+      "audio": "Tap Hit Rock",
+      "audioGuid": "30c981ef52e181a41a09adf6818a9104",
+      "delay": 0.0,
+      "useTargetAnchor": 0,
+      "anchor": null
+    },
+    {
+      "go": "Battleground Right",
+      "path": "Scenario/Battle Arena Aeldari Baked/Battleground Right",
+      "layer": 0,
+      "inMask": true,
+      "hasMesh": true,
+      "pos": [
+        108.792603,
+        2.674751,
+        2.497085
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        94.757019,
+        188.364848,
+        188.364848
+      ],
+      "collider": {
+        "type": "Mesh",
+        "convex": false,
+        "isTrigger": false,
+        "mesh": "Battleground Right1"
+      },
+      "particles": "Tap Rock",
+      "particlesGuid": "06946a9ab456c474f9b4f86e00fecf9c",
+      "audio": "Tap Hit Rock",
+      "audioGuid": "30c981ef52e181a41a09adf6818a9104",
+      "delay": 0.0,
+      "useTargetAnchor": 0,
+      "anchor": null
+    },
+    {
+      "go": "Bridge 1",
+      "path": "Scenario/Battle Arena Aeldari Baked/Bridge 1",
+      "layer": 0,
+      "inMask": true,
+      "hasMesh": true,
+      "pos": [
+        100.678276,
+        0.800265,
+        8.140697
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        188.364822,
+        188.364848,
+        188.364848
+      ],
+      "collider": {
+        "type": "Mesh",
+        "convex": true,
+        "isTrigger": false,
+        "mesh": "Bridge 11"
+      },
+      "particles": "Tap Rock",
+      "particlesGuid": "06946a9ab456c474f9b4f86e00fecf9c",
+      "audio": "Tap Hit General",
+      "audioGuid": "52da505920d514f77ab579f113afbca6",
+      "delay": 0.0,
+      "useTargetAnchor": 0,
+      "anchor": null
+    },
+    {
+      "go": "Bridge 2",
+      "path": "Scenario/Battle Arena Aeldari Baked/Bridge 2",
+      "layer": 0,
+      "inMask": true,
+      "hasMesh": true,
+      "pos": [
+        105.118217,
+        2.9931,
+        16.518181
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        188.364822,
+        188.364848,
+        188.364848
+      ],
+      "collider": {
+        "type": "Mesh",
+        "convex": true,
+        "isTrigger": false,
+        "mesh": "Bridge 21"
+      },
+      "particles": "Tap Rock",
+      "particlesGuid": "06946a9ab456c474f9b4f86e00fecf9c",
+      "audio": "Tap Hit General",
+      "audioGuid": "52da505920d514f77ab579f113afbca6",
+      "delay": 0.0,
+      "useTargetAnchor": 0,
+      "anchor": null
+    },
+    {
+      "go": "Capsule",
+      "path": "Scenario/Battle Arena Aeldari Baked/Capsule",
+      "layer": 0,
+      "inMask": true,
+      "hasMesh": false,
+      "pos": [
+        108.449997,
+        7.74,
+        23.49
+      ],
+      "rot": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        3.0064,
+        3.0064,
+        3.0064
+      ],
+      "collider": {
+        "type": "Capsule",
+        "center": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "radius": 0.5,
+        "height": 2.0,
+        "direction": 1,
+        "isTrigger": false
+      },
+      "particles": "Tap Webway Portal",
+      "particlesGuid": "57bb22a818bb17c47ad199d9e55ae981",
+      "audio": "Tap Hit Spark",
+      "audioGuid": "0d7103afe263bf94e881bc74ab1b6ca8",
+      "delay": 0.0,
+      "useTargetAnchor": 0,
+      "anchor": null
+    },
+    {
+      "go": "CardLowBoardLimit",
+      "path": "BattlePrefab/BattleBoardElements/Colliders/CardBoardLimits/CardLowBoardLimit",
+      "layer": 11,
+      "inMask": false,
+      "hasMesh": false,
+      "pos": [
+        100.0,
+        -0.59,
+        3.66
+      ],
+      "rot": [
+        0.002767,
+        0.0,
+        0.0,
+        0.999996
+      ],
+      "scale": [
+        81.161079,
+        0.82915,
+        41.907936
+      ],
+      "collider": {
+        "type": "Box",
+        "center": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "size": [
+          1.0,
+          1.0,
+          1.0
+        ],
+        "isTrigger": false
+      },
+      "particles": "Default Tap Floor",
+      "particlesGuid": "629741951c40548a49e35451a449d9d7",
+      "audio": "Tap Hit General",
+      "audioGuid": "52da505920d514f77ab579f113afbca6",
+      "delay": 0.0,
+      "useTargetAnchor": 0,
+      "anchor": null
+    },
+    {
+      "go": "Cube",
+      "path": "Scenario/Battle Arena Aeldari Baked/Cube",
+      "layer": 0,
+      "inMask": true,
+      "hasMesh": false,
+      "pos": [
+        101.222,
+        2.205,
+        10.919
+      ],
+      "rot": [
+        -0.137671,
+        0.0,
+        0.0,
+        0.990478
+      ],
+      "scale": [
+        5.738202,
+        0.049812,
+        1.5673
+      ],
+      "collider": {
+        "type": "Box",
+        "center": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "size": [
+          1.0,
+          1.0,
+          1.0
+        ],
+        "isTrigger": false
+      },
+      "particles": "Tap Rock",
+      "particlesGuid": "06946a9ab456c474f9b4f86e00fecf9c",
+      "audio": "Tap Hit General",
+      "audioGuid": "52da505920d514f77ab579f113afbca6",
+      "delay": 0.0,
+      "useTargetAnchor": 0,
+      "anchor": null
+    },
+    {
+      "go": "Fire collider",
+      "path": "Scenario/Battle Arena Aeldari Baked/Fire collider",
+      "layer": 0,
+      "inMask": true,
+      "hasMesh": false,
+      "pos": [
+        90.615997,
+        0.789,
+        2.344
+      ],
+      "rot": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.495,
+        1.495,
+        1.495
+      ],
+      "collider": {
+        "type": "Sphere",
+        "center": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "radius": 0.5,
+        "isTrigger": false
+      },
+      "particles": "Tap Fire Eldar",
+      "particlesGuid": "826956f78544a7742a7c6f8aa5b978e1",
+      "audio": "Tap Hit Fire",
+      "audioGuid": "39bf7d588ce12bf43972c12497aab29a",
+      "delay": 0.1,
+      "useTargetAnchor": 0,
+      "anchor": null
+    },
+    {
+      "go": "Props 2",
+      "path": "Scenario/Battle Arena Aeldari Baked/Props 2",
+      "layer": 0,
+      "inMask": true,
+      "hasMesh": true,
+      "pos": [
+        95.362389,
+        0.13717,
+        -6.790691
+      ],
+      "rot": [
+        -0.667846,
+        -0.23234,
+        -0.23234,
+        0.667846
+      ],
+      "scale": [
+        94.757018,
+        188.364814,
+        188.364814
+      ],
+      "collider": {
+        "type": "Mesh",
+        "convex": true,
+        "isTrigger": false,
+        "mesh": "Props 21"
+      },
+      "particles": "Tap Rock",
+      "particlesGuid": "06946a9ab456c474f9b4f86e00fecf9c",
+      "audio": "Tap Hit Rock",
+      "audioGuid": "30c981ef52e181a41a09adf6818a9104",
+      "delay": 0.0,
+      "useTargetAnchor": 0,
+      "anchor": null
+    },
+    {
+      "go": "Props 4",
+      "path": "Scenario/Battle Arena Aeldari Baked/Props 4",
+      "layer": 0,
+      "inMask": true,
+      "hasMesh": true,
+      "pos": [
+        105.425888,
+        0.337116,
+        3.715665
+      ],
+      "rot": [
+        -0.667846,
+        -0.23234,
+        -0.23234,
+        0.667846
+      ],
+      "scale": [
+        94.757018,
+        188.364814,
+        188.364814
+      ],
+      "collider": {
+        "type": "Mesh",
+        "convex": true,
+        "isTrigger": false,
+        "mesh": "Props 41"
+      },
+      "particles": "Tap Rock",
+      "particlesGuid": "06946a9ab456c474f9b4f86e00fecf9c",
+      "audio": "Tap Hit Rock",
+      "audioGuid": "30c981ef52e181a41a09adf6818a9104",
+      "delay": 0.0,
+      "useTargetAnchor": 0,
+      "anchor": null
+    },
+    {
+      "go": "Tower 4",
+      "path": "Scenario/Battle Arena Aeldari Baked/Tower 4",
+      "layer": 0,
+      "inMask": true,
+      "hasMesh": true,
+      "pos": [
+        94.755173,
+        4.689261,
+        8.085417
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        188.364822,
+        188.364848,
+        188.364848
+      ],
+      "collider": {
+        "type": "Mesh",
+        "convex": true,
+        "isTrigger": false,
+        "mesh": "Tower 41"
+      },
+      "particles": "Tap Rock",
+      "particlesGuid": "06946a9ab456c474f9b4f86e00fecf9c",
+      "audio": "Tap Hit Rock",
+      "audioGuid": "30c981ef52e181a41a09adf6818a9104",
+      "delay": 0.0,
+      "useTargetAnchor": 0,
+      "anchor": null
+    }
   ]
 }

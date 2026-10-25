@@ -173,7 +173,7 @@
           "forceBlend": false,
           "blendAuthoritative": true,
           "shader": "Everguild/UnlitAmbient",
-          "queue": -1,
+          "queue": 2000,
           "props": [
             {
               "k": "_APPLYAMBIENTCOLOR",
@@ -881,7 +881,7 @@
           "forceBlend": false,
           "blendAuthoritative": true,
           "shader": "Everguild/UnlitAmbient",
-          "queue": -1,
+          "queue": 3000,
           "props": [
             {
               "k": "_APPLYAMBIENTCOLOR",
@@ -2825,7 +2825,7 @@
           "forceBlend": false,
           "blendAuthoritative": true,
           "shader": "Everguild/UnlitAmbient Emissive Flickker",
-          "queue": -1,
+          "queue": 3000,
           "props": [
             {
               "k": "_APPLYAMBIENTCOLOR",
@@ -3453,7 +3453,7 @@
           "forceBlend": false,
           "blendAuthoritative": true,
           "shader": "Everguild/UnlitAmbient",
-          "queue": -1,
+          "queue": 3000,
           "props": [
             {
               "k": "_APPLYAMBIENTCOLOR",
@@ -4172,7 +4172,7 @@
           "forceBlend": false,
           "blendAuthoritative": true,
           "shader": "Everguild/UnlitAmbient",
-          "queue": -1,
+          "queue": 3000,
           "props": [
             {
               "k": "_APPLYAMBIENTCOLOR",
@@ -4840,7 +4840,7 @@
           "forceBlend": false,
           "blendAuthoritative": true,
           "shader": "Everguild/UnlitAmbient",
-          "queue": -1,
+          "queue": 3000,
           "props": [
             {
               "k": "_APPLYAMBIENTCOLOR",
@@ -5508,7 +5508,7 @@
           "forceBlend": false,
           "blendAuthoritative": true,
           "shader": "Everguild/UnlitAmbient",
-          "queue": -1,
+          "queue": 3000,
           "props": [
             {
               "k": "_APPLYAMBIENTCOLOR",
@@ -6227,7 +6227,7 @@
           "forceBlend": false,
           "blendAuthoritative": true,
           "shader": "Everguild/UnlitAmbient",
-          "queue": -1,
+          "queue": 3000,
           "props": [
             {
               "k": "_APPLYAMBIENTCOLOR",
@@ -7208,7 +7208,7 @@
           "forceBlend": false,
           "blendAuthoritative": true,
           "shader": "Everguild/UnlitAmbient",
-          "queue": -1,
+          "queue": 2000,
           "props": [
             {
               "k": "_APPLYAMBIENTCOLOR",
@@ -7886,7 +7886,7 @@
           "forceBlend": false,
           "blendAuthoritative": true,
           "shader": "Everguild/UnlitAmbient",
-          "queue": -1,
+          "queue": 3000,
           "props": [
             {
               "k": "_APPLYAMBIENTCOLOR",
@@ -8554,7 +8554,7 @@
           "forceBlend": false,
           "blendAuthoritative": true,
           "shader": "Everguild/UnlitAmbient",
-          "queue": -1,
+          "queue": 3000,
           "props": [
             {
               "k": "_APPLYAMBIENTCOLOR",
@@ -10458,7 +10458,7 @@
           "forceBlend": false,
           "blendAuthoritative": true,
           "shader": "Everguild/UnlitAmbient",
-          "queue": -1,
+          "queue": 3000,
           "props": [
             {
               "k": "_APPLYAMBIENTCOLOR",
@@ -12382,7 +12382,7 @@
           "forceBlend": false,
           "blendAuthoritative": true,
           "shader": "Everguild/UnlitAmbient Emissive Flickker",
-          "queue": -1,
+          "queue": 3000,
           "props": [
             {
               "k": "_APPLYAMBIENTCOLOR",
@@ -13111,7 +13111,7 @@
           "forceBlend": false,
           "blendAuthoritative": true,
           "shader": "Everguild/UnlitAmbient",
-          "queue": -1,
+          "queue": 3000,
           "props": [
             {
               "k": "_APPLYAMBIENTCOLOR",
@@ -13779,7 +13779,7 @@
           "forceBlend": false,
           "blendAuthoritative": true,
           "shader": "Everguild/UnlitAmbient",
-          "queue": -1,
+          "queue": 3000,
           "props": [
             {
               "k": "_APPLYAMBIENTCOLOR",
@@ -15075,7 +15075,7 @@
           "forceBlend": false,
           "blendAuthoritative": true,
           "shader": "Everguild/UnlitAmbient Emissive Flickker",
-          "queue": -1,
+          "queue": 3000,
           "props": [
             {
               "k": "_APPLYAMBIENTCOLOR",
@@ -15703,7 +15703,7 @@
           "forceBlend": false,
           "blendAuthoritative": true,
           "shader": "Everguild/UnlitAmbient Emissive Flickker",
-          "queue": -1,
+          "queue": 3000,
           "props": [
             {
               "k": "_APPLYAMBIENTCOLOR",
@@ -16939,7 +16939,7 @@
           "forceBlend": false,
           "blendAuthoritative": true,
           "shader": "Everguild/UnlitAmbient",
-          "queue": -1,
+          "queue": 3000,
           "props": [
             {
               "k": "_APPLYAMBIENTCOLOR",
@@ -18235,7 +18235,7 @@
           "forceBlend": false,
           "blendAuthoritative": true,
           "shader": "Everguild/UnlitAmbient",
-          "queue": -1,
+          "queue": 3000,
           "props": [
             {
               "k": "_APPLYAMBIENTCOLOR",
@@ -19591,7 +19591,7 @@
           "forceBlend": false,
           "blendAuthoritative": true,
           "shader": "Everguild/UnlitAmbient Emissive Flickker",
-          "queue": -1,
+          "queue": 3000,
           "props": [
             {
               "k": "_APPLYAMBIENTCOLOR",
@@ -20847,7 +20847,7 @@
           "forceBlend": false,
           "blendAuthoritative": true,
           "shader": "Everguild/UnlitAmbient",
-          "queue": -1,
+          "queue": 3000,
           "props": [
             {
               "k": "_APPLYAMBIENTCOLOR",
@@ -21515,7 +21515,7 @@
           "forceBlend": false,
           "blendAuthoritative": true,
           "shader": "Everguild/UnlitAmbient",
-          "queue": -1,
+          "queue": 3000,
           "props": [
             {
               "k": "_APPLYAMBIENTCOLOR",
@@ -22183,7 +22183,7 @@
           "forceBlend": false,
           "blendAuthoritative": true,
           "shader": "Everguild/UnlitAmbient",
-          "queue": -1,
+          "queue": 3000,
           "props": [
             {
               "k": "_APPLYAMBIENTCOLOR",
@@ -22851,7 +22851,7 @@
           "forceBlend": false,
           "blendAuthoritative": true,
           "shader": "Everguild/UnlitAmbient",
-          "queue": -1,
+          "queue": 3000,
           "props": [
             {
               "k": "_APPLYAMBIENTCOLOR",
@@ -24127,7 +24127,7 @@
           "forceBlend": false,
           "blendAuthoritative": true,
           "shader": "Everguild/UnlitAmbient",
-          "queue": -1,
+          "queue": 3000,
           "props": [
             {
               "k": "_APPLYAMBIENTCOLOR",
@@ -24795,7 +24795,7 @@
           "forceBlend": false,
           "blendAuthoritative": true,
           "shader": "Everguild/UnlitAmbient",
-          "queue": -1,
+          "queue": 3000,
           "props": [
             {
               "k": "_APPLYAMBIENTCOLOR",
@@ -25463,7 +25463,7 @@
           "forceBlend": false,
           "blendAuthoritative": true,
           "shader": "Everguild/UnlitAmbient",
-          "queue": -1,
+          "queue": 3000,
           "props": [
             {
               "k": "_APPLYAMBIENTCOLOR",
@@ -26131,7 +26131,7 @@
           "forceBlend": false,
           "blendAuthoritative": true,
           "shader": "Everguild/UnlitAmbient",
-          "queue": -1,
+          "queue": 3000,
           "props": [
             {
               "k": "_APPLYAMBIENTCOLOR",
@@ -26799,7 +26799,7 @@
           "forceBlend": false,
           "blendAuthoritative": true,
           "shader": "Everguild/UnlitAmbient",
-          "queue": -1,
+          "queue": 3000,
           "props": [
             {
               "k": "_APPLYAMBIENTCOLOR",
@@ -27467,7 +27467,7 @@
           "forceBlend": false,
           "blendAuthoritative": true,
           "shader": "Everguild/UnlitAmbient Emissive Flickker",
-          "queue": -1,
+          "queue": 3000,
           "props": [
             {
               "k": "_APPLYAMBIENTCOLOR",
@@ -28095,7 +28095,7 @@
           "forceBlend": false,
           "blendAuthoritative": true,
           "shader": "Everguild/UnlitAmbient",
-          "queue": -1,
+          "queue": 3000,
           "props": [
             {
               "k": "_APPLYAMBIENTCOLOR",
@@ -29391,7 +29391,7 @@
           "forceBlend": false,
           "blendAuthoritative": true,
           "shader": "Everguild/UnlitAmbient",
-          "queue": -1,
+          "queue": 3000,
           "props": [
             {
               "k": "_APPLYAMBIENTCOLOR",
@@ -30059,7 +30059,7 @@
           "forceBlend": false,
           "blendAuthoritative": true,
           "shader": "Everguild/UnlitAmbient",
-          "queue": -1,
+          "queue": 3000,
           "props": [
             {
               "k": "_APPLYAMBIENTCOLOR",
@@ -30727,7 +30727,7 @@
           "forceBlend": false,
           "blendAuthoritative": true,
           "shader": "Everguild/UnlitAmbient",
-          "queue": -1,
+          "queue": 3000,
           "props": [
             {
               "k": "_APPLYAMBIENTCOLOR",
@@ -31395,7 +31395,7 @@
           "forceBlend": false,
           "blendAuthoritative": true,
           "shader": "Everguild/UnlitAmbient Emissive Flickker",
-          "queue": -1,
+          "queue": 3000,
           "props": [
             {
               "k": "_APPLYAMBIENTCOLOR",
@@ -32651,7 +32651,7 @@
           "forceBlend": false,
           "blendAuthoritative": true,
           "shader": "Everguild/UnlitAmbient",
-          "queue": -1,
+          "queue": 3000,
           "props": [
             {
               "k": "_APPLYAMBIENTCOLOR",
@@ -33319,7 +33319,7 @@
           "forceBlend": false,
           "blendAuthoritative": true,
           "shader": "Everguild/UnlitAmbient",
-          "queue": -1,
+          "queue": 3000,
           "props": [
             {
               "k": "_APPLYAMBIENTCOLOR",
@@ -33987,7 +33987,7 @@
           "forceBlend": false,
           "blendAuthoritative": true,
           "shader": "Everguild/UnlitAmbient",
-          "queue": -1,
+          "queue": 3000,
           "props": [
             {
               "k": "_APPLYAMBIENTCOLOR",
@@ -35951,7 +35951,7 @@
           "forceBlend": false,
           "blendAuthoritative": true,
           "shader": "Everguild/UnlitAmbient",
-          "queue": -1,
+          "queue": 3000,
           "props": [
             {
               "k": "_APPLYAMBIENTCOLOR",
@@ -36619,7 +36619,7 @@
           "forceBlend": false,
           "blendAuthoritative": true,
           "shader": "Everguild/UnlitAmbient Emissive Flickker",
-          "queue": -1,
+          "queue": 3000,
           "props": [
             {
               "k": "_APPLYAMBIENTCOLOR",
@@ -38503,7 +38503,7 @@
           "forceBlend": false,
           "blendAuthoritative": true,
           "shader": "Everguild/UnlitAmbient",
-          "queue": -1,
+          "queue": 3000,
           "props": [
             {
               "k": "_APPLYAMBIENTCOLOR",
@@ -39171,7 +39171,7 @@
           "forceBlend": false,
           "blendAuthoritative": true,
           "shader": "Everguild/UnlitAmbient",
-          "queue": -1,
+          "queue": 3000,
           "props": [
             {
               "k": "_APPLYAMBIENTCOLOR",
@@ -39839,7 +39839,7 @@
           "forceBlend": false,
           "blendAuthoritative": true,
           "shader": "Everguild/UnlitAmbient",
-          "queue": -1,
+          "queue": 3000,
           "props": [
             {
               "k": "_APPLYAMBIENTCOLOR",
@@ -40507,7 +40507,7 @@
           "forceBlend": false,
           "blendAuthoritative": true,
           "shader": "Everguild/UnlitAmbient",
-          "queue": -1,
+          "queue": 3000,
           "props": [
             {
               "k": "_APPLYAMBIENTCOLOR",
@@ -41175,7 +41175,7 @@
           "forceBlend": false,
           "blendAuthoritative": true,
           "shader": "Everguild/UnlitAmbient",
-          "queue": -1,
+          "queue": 3000,
           "props": [
             {
               "k": "_APPLYAMBIENTCOLOR",
@@ -41843,7 +41843,7 @@
           "forceBlend": false,
           "blendAuthoritative": true,
           "shader": "Everguild/UnlitAmbient",
-          "queue": -1,
+          "queue": 3000,
           "props": [
             {
               "k": "_APPLYAMBIENTCOLOR",
@@ -42511,7 +42511,7 @@
           "forceBlend": false,
           "blendAuthoritative": true,
           "shader": "Everguild/UnlitAmbient",
-          "queue": -1,
+          "queue": 3000,
           "props": [
             {
               "k": "_APPLYAMBIENTCOLOR",
@@ -43179,7 +43179,7 @@
           "forceBlend": false,
           "blendAuthoritative": true,
           "shader": "Everguild/UnlitAmbient Emissive Flickker",
-          "queue": -1,
+          "queue": 3000,
           "props": [
             {
               "k": "_APPLYAMBIENTCOLOR",
@@ -43807,7 +43807,7 @@
           "forceBlend": false,
           "blendAuthoritative": true,
           "shader": "Everguild/UnlitAmbient",
-          "queue": -1,
+          "queue": 3000,
           "props": [
             {
               "k": "_APPLYAMBIENTCOLOR",
@@ -45103,7 +45103,7 @@
           "forceBlend": false,
           "blendAuthoritative": true,
           "shader": "Everguild/UnlitAmbient",
-          "queue": -1,
+          "queue": 3000,
           "props": [
             {
               "k": "_APPLYAMBIENTCOLOR",
@@ -46399,7 +46399,7 @@
           "forceBlend": false,
           "blendAuthoritative": true,
           "shader": "Everguild/UnlitAmbient",
-          "queue": -1,
+          "queue": 3000,
           "props": [
             {
               "k": "_APPLYAMBIENTCOLOR",
@@ -47067,7 +47067,7 @@
           "forceBlend": false,
           "blendAuthoritative": true,
           "shader": "Everguild/UnlitAmbient",
-          "queue": -1,
+          "queue": 3000,
           "props": [
             {
               "k": "_APPLYAMBIENTCOLOR",
@@ -47735,7 +47735,7 @@
           "forceBlend": false,
           "blendAuthoritative": true,
           "shader": "Everguild/UnlitAmbient Emissive Flickker",
-          "queue": -1,
+          "queue": 3000,
           "props": [
             {
               "k": "_APPLYAMBIENTCOLOR",
@@ -48363,7 +48363,7 @@
           "forceBlend": false,
           "blendAuthoritative": true,
           "shader": "Everguild/UnlitAmbient",
-          "queue": -1,
+          "queue": 3000,
           "props": [
             {
               "k": "_APPLYAMBIENTCOLOR",
@@ -49659,7 +49659,7 @@
           "forceBlend": false,
           "blendAuthoritative": true,
           "shader": "Everguild/UnlitAmbient",
-          "queue": -1,
+          "queue": 3000,
           "props": [
             {
               "k": "_APPLYAMBIENTCOLOR",
@@ -50327,7 +50327,7 @@
           "forceBlend": false,
           "blendAuthoritative": true,
           "shader": "Everguild/UnlitAmbient",
-          "queue": -1,
+          "queue": 3000,
           "props": [
             {
               "k": "_APPLYAMBIENTCOLOR",
@@ -50995,7 +50995,7 @@
           "forceBlend": false,
           "blendAuthoritative": true,
           "shader": "Everguild/UnlitAmbient",
-          "queue": -1,
+          "queue": 3000,
           "props": [
             {
               "k": "_APPLYAMBIENTCOLOR",
@@ -51663,7 +51663,7 @@
           "forceBlend": false,
           "blendAuthoritative": true,
           "shader": "Everguild/UnlitAmbient",
-          "queue": -1,
+          "queue": 3000,
           "props": [
             {
               "k": "_APPLYAMBIENTCOLOR",
@@ -52331,7 +52331,7 @@
           "forceBlend": false,
           "blendAuthoritative": true,
           "shader": "Everguild/UnlitAmbient",
-          "queue": -1,
+          "queue": 2000,
           "props": [
             {
               "k": "_APPLYAMBIENTCOLOR",
@@ -53014,9 +53014,18 @@
       ],
       "tex": "Glow",
       "texFile": "Glow.png",
-      "pivot": [0.0, 0.0, 0.0],
+      "pivot": [
+        0.0,
+        0.0,
+        0.0
+      ],
       "useCustomVertexStreams": false,
-      "vertexStreams": [0, 1, 3, 4],
+      "vertexStreams": [
+        0,
+        1,
+        3,
+        4
+      ],
       "applyActiveColorSpace": true,
       "duration": 5.0,
       "looping": true,
@@ -53537,7 +53546,7 @@
           "f": 0.0
         }
       ],
-      "matQueue": -1,
+      "matQueue": 3000,
       "simulationSpace": 0,
       "bursts": [
         {
@@ -53578,9 +53587,19 @@
       ],
       "tex": "Sand Wind 1",
       "texFile": "Sand Wind 1.png",
-      "pivot": [-0.5, 0.0, 0.0],
+      "pivot": [
+        -0.5,
+        0.0,
+        0.0
+      ],
       "useCustomVertexStreams": true,
-      "vertexStreams": [0, 1, 3, 4, 23],
+      "vertexStreams": [
+        0,
+        1,
+        3,
+        4,
+        23
+      ],
       "applyActiveColorSpace": true,
       "duration": 5.0,
       "looping": true,
@@ -54072,7 +54091,7 @@
           "f": 0.0
         }
       ],
-      "matQueue": -1,
+      "matQueue": 3000,
       "simulationSpace": 0,
       "bursts": [
         {
@@ -54113,9 +54132,18 @@
       ],
       "tex": "LargeFlame01",
       "texFile": "LargeFlame01.png",
-      "pivot": [0.0, 0.39, 0.0],
+      "pivot": [
+        0.0,
+        0.39,
+        0.0
+      ],
       "useCustomVertexStreams": false,
-      "vertexStreams": [0, 1, 3, 4],
+      "vertexStreams": [
+        0,
+        1,
+        3,
+        4
+      ],
       "applyActiveColorSpace": true,
       "duration": 5.0,
       "looping": true,
@@ -54577,7 +54605,7 @@
           "f": 0.0
         }
       ],
-      "matQueue": -1,
+      "matQueue": 3000,
       "simulationSpace": 0,
       "bursts": [
         {
@@ -54618,9 +54646,18 @@
       ],
       "tex": "LargeFlame01",
       "texFile": "LargeFlame01.png",
-      "pivot": [0.0, 0.39, 0.0],
+      "pivot": [
+        0.0,
+        0.39,
+        0.0
+      ],
       "useCustomVertexStreams": false,
-      "vertexStreams": [0, 1, 3, 4],
+      "vertexStreams": [
+        0,
+        1,
+        3,
+        4
+      ],
       "applyActiveColorSpace": true,
       "duration": 5.0,
       "looping": true,
@@ -55084,7 +55121,7 @@
           "f": 0.0
         }
       ],
-      "matQueue": -1,
+      "matQueue": 3000,
       "simulationSpace": 0,
       "bursts": [
         {
@@ -55125,9 +55162,18 @@
       ],
       "tex": "LargeFlame01",
       "texFile": "LargeFlame01.png",
-      "pivot": [0.0, 0.39, 0.0],
+      "pivot": [
+        0.0,
+        0.39,
+        0.0
+      ],
       "useCustomVertexStreams": false,
-      "vertexStreams": [0, 1, 3, 4],
+      "vertexStreams": [
+        0,
+        1,
+        3,
+        4
+      ],
       "applyActiveColorSpace": true,
       "duration": 5.0,
       "looping": true,
@@ -55591,7 +55637,7 @@
           "f": 0.0
         }
       ],
-      "matQueue": -1,
+      "matQueue": 3000,
       "simulationSpace": 0,
       "bursts": [
         {
@@ -55632,9 +55678,18 @@
       ],
       "tex": "FireBallEmission",
       "texFile": "FireBallEmission.png",
-      "pivot": [0.0, 0.0, 0.0],
+      "pivot": [
+        0.0,
+        0.0,
+        0.0
+      ],
       "useCustomVertexStreams": false,
-      "vertexStreams": [0, 1, 3, 4],
+      "vertexStreams": [
+        0,
+        1,
+        3,
+        4
+      ],
       "applyActiveColorSpace": true,
       "duration": 5.0,
       "looping": true,
@@ -56113,7 +56168,7 @@
           "f": 0.0
         }
       ],
-      "matQueue": -1,
+      "matQueue": 3000,
       "simulationSpace": 0,
       "bursts": [],
       "uvEnabled": true,
@@ -56146,9 +56201,18 @@
       ],
       "tex": "Glow",
       "texFile": "Glow.png",
-      "pivot": [0.0, 0.0, 0.0],
+      "pivot": [
+        0.0,
+        0.0,
+        0.0
+      ],
       "useCustomVertexStreams": false,
-      "vertexStreams": [0, 1, 3, 4],
+      "vertexStreams": [
+        0,
+        1,
+        3,
+        4
+      ],
       "applyActiveColorSpace": true,
       "duration": 5.0,
       "looping": true,
@@ -56667,7 +56731,7 @@
           "f": 0.0
         }
       ],
-      "matQueue": -1,
+      "matQueue": 3000,
       "simulationSpace": 0,
       "bursts": [],
       "uvEnabled": false,
@@ -56700,9 +56764,18 @@
       ],
       "tex": "Glow",
       "texFile": "Glow.png",
-      "pivot": [0.0, 0.0, 0.0],
+      "pivot": [
+        0.0,
+        0.0,
+        0.0
+      ],
       "useCustomVertexStreams": false,
-      "vertexStreams": [0, 1, 3, 4],
+      "vertexStreams": [
+        0,
+        1,
+        3,
+        4
+      ],
       "applyActiveColorSpace": true,
       "duration": 5.0,
       "looping": true,
@@ -57221,7 +57294,7 @@
           "f": 0.0
         }
       ],
-      "matQueue": -1,
+      "matQueue": 3000,
       "simulationSpace": 0,
       "bursts": [],
       "uvEnabled": false,
@@ -57254,9 +57327,18 @@
       ],
       "tex": "LargeFlame01",
       "texFile": "LargeFlame01.png",
-      "pivot": [0.0, 0.39, 0.0],
+      "pivot": [
+        0.0,
+        0.39,
+        0.0
+      ],
       "useCustomVertexStreams": false,
-      "vertexStreams": [0, 1, 3, 4],
+      "vertexStreams": [
+        0,
+        1,
+        3,
+        4
+      ],
       "applyActiveColorSpace": true,
       "duration": 5.0,
       "looping": true,
@@ -57718,7 +57800,7 @@
           "f": 0.0
         }
       ],
-      "matQueue": -1,
+      "matQueue": 3000,
       "simulationSpace": 0,
       "bursts": [],
       "uvEnabled": true,
@@ -57751,9 +57833,18 @@
       ],
       "tex": "FireBallEmission",
       "texFile": "FireBallEmission.png",
-      "pivot": [0.0, 0.0, 0.0],
+      "pivot": [
+        0.0,
+        0.0,
+        0.0
+      ],
       "useCustomVertexStreams": false,
-      "vertexStreams": [0, 1, 3, 4],
+      "vertexStreams": [
+        0,
+        1,
+        3,
+        4
+      ],
       "applyActiveColorSpace": true,
       "duration": 5.0,
       "looping": true,
@@ -58232,7 +58323,7 @@
           "f": 0.0
         }
       ],
-      "matQueue": -1,
+      "matQueue": 3000,
       "simulationSpace": 0,
       "bursts": [],
       "uvEnabled": true,
@@ -58265,9 +58356,18 @@
       ],
       "tex": "Smoke Sprite Sheet",
       "texFile": "Smoke Sprite Sheet.png",
-      "pivot": [0.0, 0.0, 0.0],
+      "pivot": [
+        0.0,
+        0.0,
+        0.0
+      ],
       "useCustomVertexStreams": false,
-      "vertexStreams": [0, 1, 3, 4],
+      "vertexStreams": [
+        0,
+        1,
+        3,
+        4
+      ],
       "applyActiveColorSpace": true,
       "duration": 5.0,
       "looping": true,
@@ -58825,7 +58925,7 @@
           "f": 0.0
         }
       ],
-      "matQueue": -1,
+      "matQueue": 3000,
       "simulationSpace": 0,
       "bursts": [],
       "uvEnabled": true,
@@ -58858,9 +58958,18 @@
       ],
       "tex": "Smoke Sprite Sheet",
       "texFile": "Smoke Sprite Sheet.png",
-      "pivot": [0.0, 0.0, 0.0],
+      "pivot": [
+        0.0,
+        0.0,
+        0.0
+      ],
       "useCustomVertexStreams": false,
-      "vertexStreams": [0, 1, 3, 4],
+      "vertexStreams": [
+        0,
+        1,
+        3,
+        4
+      ],
       "applyActiveColorSpace": true,
       "duration": 5.0,
       "looping": true,
@@ -59418,7 +59527,7 @@
           "f": 0.0
         }
       ],
-      "matQueue": -1,
+      "matQueue": 3000,
       "simulationSpace": 0,
       "bursts": [],
       "uvEnabled": true,
@@ -59451,9 +59560,18 @@
       ],
       "tex": "FireBallEmission",
       "texFile": "FireBallEmission.png",
-      "pivot": [0.0, 0.0, 0.0],
+      "pivot": [
+        0.0,
+        0.0,
+        0.0
+      ],
       "useCustomVertexStreams": false,
-      "vertexStreams": [0, 1, 3, 4],
+      "vertexStreams": [
+        0,
+        1,
+        3,
+        4
+      ],
       "applyActiveColorSpace": true,
       "duration": 5.0,
       "looping": true,
@@ -59932,7 +60050,7 @@
           "f": 0.0
         }
       ],
-      "matQueue": -1,
+      "matQueue": 3000,
       "simulationSpace": 0,
       "bursts": [],
       "uvEnabled": true,
@@ -59965,9 +60083,18 @@
       ],
       "tex": "Smoke Sprite Sheet",
       "texFile": "Smoke Sprite Sheet.png",
-      "pivot": [0.0, 0.0, 0.0],
+      "pivot": [
+        0.0,
+        0.0,
+        0.0
+      ],
       "useCustomVertexStreams": false,
-      "vertexStreams": [0, 1, 3, 4],
+      "vertexStreams": [
+        0,
+        1,
+        3,
+        4
+      ],
       "applyActiveColorSpace": true,
       "duration": 5.0,
       "looping": true,
@@ -60525,7 +60652,7 @@
           "f": 0.0
         }
       ],
-      "matQueue": -1,
+      "matQueue": 3000,
       "simulationSpace": 0,
       "bursts": [],
       "uvEnabled": true,
@@ -60558,9 +60685,18 @@
       ],
       "tex": "LargeFlame01",
       "texFile": "LargeFlame01.png",
-      "pivot": [0.0, 0.39, 0.0],
+      "pivot": [
+        0.0,
+        0.39,
+        0.0
+      ],
       "useCustomVertexStreams": false,
-      "vertexStreams": [0, 1, 3, 4],
+      "vertexStreams": [
+        0,
+        1,
+        3,
+        4
+      ],
       "applyActiveColorSpace": true,
       "duration": 5.0,
       "looping": true,
@@ -61024,7 +61160,7 @@
           "f": 0.0
         }
       ],
-      "matQueue": -1,
+      "matQueue": 3000,
       "simulationSpace": 0,
       "bursts": [
         {
@@ -61065,9 +61201,18 @@
       ],
       "tex": "LargeFlame01",
       "texFile": "LargeFlame01.png",
-      "pivot": [0.0, 0.39, 0.0],
+      "pivot": [
+        0.0,
+        0.39,
+        0.0
+      ],
       "useCustomVertexStreams": false,
-      "vertexStreams": [0, 1, 3, 4],
+      "vertexStreams": [
+        0,
+        1,
+        3,
+        4
+      ],
       "applyActiveColorSpace": true,
       "duration": 5.0,
       "looping": true,
@@ -61529,7 +61674,7 @@
           "f": 0.0
         }
       ],
-      "matQueue": -1,
+      "matQueue": 3000,
       "simulationSpace": 0,
       "bursts": [],
       "uvEnabled": true,
@@ -61562,9 +61707,18 @@
       ],
       "tex": "Smoke Sprite Sheet",
       "texFile": "Smoke Sprite Sheet.png",
-      "pivot": [0.0, 0.0, 0.0],
+      "pivot": [
+        0.0,
+        0.0,
+        0.0
+      ],
       "useCustomVertexStreams": false,
-      "vertexStreams": [0, 1, 3, 4],
+      "vertexStreams": [
+        0,
+        1,
+        3,
+        4
+      ],
       "applyActiveColorSpace": true,
       "duration": 5.0,
       "looping": true,
@@ -62122,7 +62276,7 @@
           "f": 0.0
         }
       ],
-      "matQueue": -1,
+      "matQueue": 3000,
       "simulationSpace": 0,
       "bursts": [],
       "uvEnabled": true,
@@ -62155,9 +62309,18 @@
       ],
       "tex": "FireBallEmission",
       "texFile": "FireBallEmission.png",
-      "pivot": [0.0, 0.0, 0.0],
+      "pivot": [
+        0.0,
+        0.0,
+        0.0
+      ],
       "useCustomVertexStreams": false,
-      "vertexStreams": [0, 1, 3, 4],
+      "vertexStreams": [
+        0,
+        1,
+        3,
+        4
+      ],
       "applyActiveColorSpace": true,
       "duration": 5.0,
       "looping": true,
@@ -62636,7 +62799,7 @@
           "f": 0.0
         }
       ],
-      "matQueue": -1,
+      "matQueue": 3000,
       "simulationSpace": 0,
       "bursts": [],
       "uvEnabled": true,
@@ -62669,9 +62832,18 @@
       ],
       "tex": "Smoke Sprite Sheet",
       "texFile": "Smoke Sprite Sheet.png",
-      "pivot": [0.0, 0.0, 0.0],
+      "pivot": [
+        0.0,
+        0.0,
+        0.0
+      ],
       "useCustomVertexStreams": false,
-      "vertexStreams": [0, 1, 3, 4],
+      "vertexStreams": [
+        0,
+        1,
+        3,
+        4
+      ],
       "applyActiveColorSpace": true,
       "duration": 5.0,
       "looping": true,
@@ -63229,7 +63401,7 @@
           "f": 0.0
         }
       ],
-      "matQueue": -1,
+      "matQueue": 3000,
       "simulationSpace": 0,
       "bursts": [],
       "uvEnabled": true,
@@ -63262,9 +63434,18 @@
       ],
       "tex": "FireBallEmission",
       "texFile": "FireBallEmission.png",
-      "pivot": [0.0, 0.0, 0.0],
+      "pivot": [
+        0.0,
+        0.0,
+        0.0
+      ],
       "useCustomVertexStreams": false,
-      "vertexStreams": [0, 1, 3, 4],
+      "vertexStreams": [
+        0,
+        1,
+        3,
+        4
+      ],
       "applyActiveColorSpace": true,
       "duration": 5.0,
       "looping": true,
@@ -63743,7 +63924,7 @@
           "f": 0.0
         }
       ],
-      "matQueue": -1,
+      "matQueue": 3000,
       "simulationSpace": 0,
       "bursts": [],
       "uvEnabled": true,
@@ -63776,9 +63957,18 @@
       ],
       "tex": "Spark UI",
       "texFile": "Spark UI.png",
-      "pivot": [0.0, 0.72, 0.0],
+      "pivot": [
+        0.0,
+        0.72,
+        0.0
+      ],
       "useCustomVertexStreams": false,
-      "vertexStreams": [0, 1, 3, 4],
+      "vertexStreams": [
+        0,
+        1,
+        3,
+        4
+      ],
       "applyActiveColorSpace": true,
       "duration": 5.0,
       "looping": true,
@@ -64411,9 +64601,18 @@
       ],
       "tex": "Smoke Sprite Sheet",
       "texFile": "Smoke Sprite Sheet.png",
-      "pivot": [0.0, 0.0, 0.0],
+      "pivot": [
+        0.0,
+        0.0,
+        0.0
+      ],
       "useCustomVertexStreams": false,
-      "vertexStreams": [0, 1, 3, 4],
+      "vertexStreams": [
+        0,
+        1,
+        3,
+        4
+      ],
       "applyActiveColorSpace": true,
       "duration": 5.0,
       "looping": true,
@@ -64971,7 +65170,7 @@
           "f": 0.0
         }
       ],
-      "matQueue": -1,
+      "matQueue": 3000,
       "simulationSpace": 0,
       "bursts": [],
       "uvEnabled": true,
@@ -65004,9 +65203,18 @@
       ],
       "tex": "FireBallEmission",
       "texFile": "FireBallEmission.png",
-      "pivot": [0.0, 0.0, 0.0],
+      "pivot": [
+        0.0,
+        0.0,
+        0.0
+      ],
       "useCustomVertexStreams": false,
-      "vertexStreams": [0, 1, 3, 4],
+      "vertexStreams": [
+        0,
+        1,
+        3,
+        4
+      ],
       "applyActiveColorSpace": true,
       "duration": 5.0,
       "looping": true,
@@ -65485,7 +65693,7 @@
           "f": 0.0
         }
       ],
-      "matQueue": -1,
+      "matQueue": 3000,
       "simulationSpace": 0,
       "bursts": [],
       "uvEnabled": true,
@@ -65518,9 +65726,18 @@
       ],
       "tex": "Smoke Sprite Sheet",
       "texFile": "Smoke Sprite Sheet.png",
-      "pivot": [0.0, 0.0, 0.0],
+      "pivot": [
+        0.0,
+        0.0,
+        0.0
+      ],
       "useCustomVertexStreams": false,
-      "vertexStreams": [0, 1, 3, 4],
+      "vertexStreams": [
+        0,
+        1,
+        3,
+        4
+      ],
       "applyActiveColorSpace": true,
       "duration": 5.0,
       "looping": true,
@@ -66078,7 +66295,7 @@
           "f": 0.0
         }
       ],
-      "matQueue": -1,
+      "matQueue": 3000,
       "simulationSpace": 0,
       "bursts": [],
       "uvEnabled": true,
@@ -66111,9 +66328,18 @@
       ],
       "tex": "FireBallEmission",
       "texFile": "FireBallEmission.png",
-      "pivot": [0.0, 0.0, 0.0],
+      "pivot": [
+        0.0,
+        0.0,
+        0.0
+      ],
       "useCustomVertexStreams": false,
-      "vertexStreams": [0, 1, 3, 4],
+      "vertexStreams": [
+        0,
+        1,
+        3,
+        4
+      ],
       "applyActiveColorSpace": true,
       "duration": 5.0,
       "looping": true,
@@ -66592,7 +66818,7 @@
           "f": 0.0
         }
       ],
-      "matQueue": -1,
+      "matQueue": 3000,
       "simulationSpace": 0,
       "bursts": [],
       "uvEnabled": true,
@@ -66625,9 +66851,18 @@
       ],
       "tex": "FireBallEmission",
       "texFile": "FireBallEmission.png",
-      "pivot": [0.0, 0.0, 0.0],
+      "pivot": [
+        0.0,
+        0.0,
+        0.0
+      ],
       "useCustomVertexStreams": false,
-      "vertexStreams": [0, 1, 3, 4],
+      "vertexStreams": [
+        0,
+        1,
+        3,
+        4
+      ],
       "applyActiveColorSpace": true,
       "duration": 5.0,
       "looping": true,
@@ -67106,7 +67341,7 @@
           "f": 0.0
         }
       ],
-      "matQueue": -1,
+      "matQueue": 3000,
       "simulationSpace": 0,
       "bursts": [],
       "uvEnabled": true,
@@ -67139,9 +67374,18 @@
       ],
       "tex": "FireBallEmission",
       "texFile": "FireBallEmission.png",
-      "pivot": [0.0, 0.0, 0.0],
+      "pivot": [
+        0.0,
+        0.0,
+        0.0
+      ],
       "useCustomVertexStreams": false,
-      "vertexStreams": [0, 1, 3, 4],
+      "vertexStreams": [
+        0,
+        1,
+        3,
+        4
+      ],
       "applyActiveColorSpace": true,
       "duration": 5.0,
       "looping": true,
@@ -67620,7 +67864,7 @@
           "f": 0.0
         }
       ],
-      "matQueue": -1,
+      "matQueue": 3000,
       "simulationSpace": 0,
       "bursts": [],
       "uvEnabled": true,
@@ -67653,9 +67897,18 @@
       ],
       "tex": "Glow",
       "texFile": "Glow.png",
-      "pivot": [0.0, 0.0, 0.0],
+      "pivot": [
+        0.0,
+        0.0,
+        0.0
+      ],
       "useCustomVertexStreams": false,
-      "vertexStreams": [0, 1, 3, 4],
+      "vertexStreams": [
+        0,
+        1,
+        3,
+        4
+      ],
       "applyActiveColorSpace": true,
       "duration": 5.0,
       "looping": true,
@@ -68176,7 +68429,7 @@
           "f": 0.0
         }
       ],
-      "matQueue": -1,
+      "matQueue": 3000,
       "simulationSpace": 0,
       "bursts": [
         {
@@ -68217,9 +68470,19 @@
       ],
       "tex": "Sand Wind 1",
       "texFile": "Sand Wind 1.png",
-      "pivot": [-0.5, 0.0, 0.0],
+      "pivot": [
+        -0.5,
+        0.0,
+        0.0
+      ],
       "useCustomVertexStreams": true,
-      "vertexStreams": [0, 1, 3, 4, 23],
+      "vertexStreams": [
+        0,
+        1,
+        3,
+        4,
+        23
+      ],
       "applyActiveColorSpace": true,
       "duration": 5.0,
       "looping": true,
@@ -68711,7 +68974,7 @@
           "f": 0.0
         }
       ],
-      "matQueue": -1,
+      "matQueue": 3000,
       "simulationSpace": 0,
       "bursts": [
         {
@@ -68752,9 +69015,18 @@
       ],
       "tex": "Lens_Flare_1",
       "texFile": "Lens_Flare_1.png",
-      "pivot": [0.0, 0.0, 0.0],
+      "pivot": [
+        0.0,
+        0.0,
+        0.0
+      ],
       "useCustomVertexStreams": false,
-      "vertexStreams": [0, 1, 3, 4],
+      "vertexStreams": [
+        0,
+        1,
+        3,
+        4
+      ],
       "applyActiveColorSpace": true,
       "duration": 5.0,
       "looping": true,
@@ -69310,9 +69582,18 @@
       ],
       "tex": "FireBallEmission",
       "texFile": "FireBallEmission.png",
-      "pivot": [0.0, 0.0, 0.0],
+      "pivot": [
+        0.0,
+        0.0,
+        0.0
+      ],
       "useCustomVertexStreams": false,
-      "vertexStreams": [0, 1, 3, 4],
+      "vertexStreams": [
+        0,
+        1,
+        3,
+        4
+      ],
       "applyActiveColorSpace": true,
       "duration": 5.0,
       "looping": true,
@@ -69791,7 +70072,7 @@
           "f": 0.0
         }
       ],
-      "matQueue": -1,
+      "matQueue": 3000,
       "simulationSpace": 0,
       "bursts": [],
       "uvEnabled": true,
@@ -69824,9 +70105,18 @@
       ],
       "tex": "LargeFlame01",
       "texFile": "LargeFlame01.png",
-      "pivot": [0.0, 0.39, 0.0],
+      "pivot": [
+        0.0,
+        0.39,
+        0.0
+      ],
       "useCustomVertexStreams": false,
-      "vertexStreams": [0, 1, 3, 4],
+      "vertexStreams": [
+        0,
+        1,
+        3,
+        4
+      ],
       "applyActiveColorSpace": true,
       "duration": 5.0,
       "looping": true,
@@ -70288,7 +70578,7 @@
           "f": 0.0
         }
       ],
-      "matQueue": -1,
+      "matQueue": 3000,
       "simulationSpace": 0,
       "bursts": [
         {
@@ -70329,9 +70619,18 @@
       ],
       "tex": "LargeFlame01",
       "texFile": "LargeFlame01.png",
-      "pivot": [0.0, 0.39, 0.0],
+      "pivot": [
+        0.0,
+        0.39,
+        0.0
+      ],
       "useCustomVertexStreams": false,
-      "vertexStreams": [0, 1, 3, 4],
+      "vertexStreams": [
+        0,
+        1,
+        3,
+        4
+      ],
       "applyActiveColorSpace": true,
       "duration": 5.0,
       "looping": true,
@@ -70793,7 +71092,7 @@
           "f": 0.0
         }
       ],
-      "matQueue": -1,
+      "matQueue": 3000,
       "simulationSpace": 0,
       "bursts": [
         {
@@ -70834,9 +71133,18 @@
       ],
       "tex": "Smoke Sprite Sheet",
       "texFile": "Smoke Sprite Sheet.png",
-      "pivot": [0.0, 0.0, 0.0],
+      "pivot": [
+        0.0,
+        0.0,
+        0.0
+      ],
       "useCustomVertexStreams": false,
-      "vertexStreams": [0, 1, 3, 4],
+      "vertexStreams": [
+        0,
+        1,
+        3,
+        4
+      ],
       "applyActiveColorSpace": true,
       "duration": 5.0,
       "looping": true,
@@ -71394,7 +71702,7 @@
           "f": 0.0
         }
       ],
-      "matQueue": -1,
+      "matQueue": 3000,
       "simulationSpace": 0,
       "bursts": [],
       "uvEnabled": true,
@@ -71427,9 +71735,18 @@
       ],
       "tex": "Spark UI",
       "texFile": "Spark UI.png",
-      "pivot": [0.0, 0.72, 0.0],
+      "pivot": [
+        0.0,
+        0.72,
+        0.0
+      ],
       "useCustomVertexStreams": false,
-      "vertexStreams": [0, 1, 3, 4],
+      "vertexStreams": [
+        0,
+        1,
+        3,
+        4
+      ],
       "applyActiveColorSpace": true,
       "duration": 5.0,
       "looping": true,
@@ -72062,9 +72379,18 @@
       ],
       "tex": "Smoke Sprite Sheet",
       "texFile": "Smoke Sprite Sheet.png",
-      "pivot": [0.0, 0.0, 0.0],
+      "pivot": [
+        0.0,
+        0.0,
+        0.0
+      ],
       "useCustomVertexStreams": false,
-      "vertexStreams": [0, 1, 3, 4],
+      "vertexStreams": [
+        0,
+        1,
+        3,
+        4
+      ],
       "applyActiveColorSpace": true,
       "duration": 5.0,
       "looping": true,
@@ -72622,7 +72948,7 @@
           "f": 0.0
         }
       ],
-      "matQueue": -1,
+      "matQueue": 3000,
       "simulationSpace": 0,
       "bursts": [],
       "uvEnabled": true,
@@ -72655,9 +72981,18 @@
       ],
       "tex": "LargeFlame01",
       "texFile": "LargeFlame01.png",
-      "pivot": [0.0, 0.39, 0.0],
+      "pivot": [
+        0.0,
+        0.39,
+        0.0
+      ],
       "useCustomVertexStreams": false,
-      "vertexStreams": [0, 1, 3, 4],
+      "vertexStreams": [
+        0,
+        1,
+        3,
+        4
+      ],
       "applyActiveColorSpace": true,
       "duration": 5.0,
       "looping": true,
@@ -73119,7 +73454,7 @@
           "f": 0.0
         }
       ],
-      "matQueue": -1,
+      "matQueue": 3000,
       "simulationSpace": 0,
       "bursts": [
         {
@@ -73160,9 +73495,18 @@
       ],
       "tex": "FireBallEmission",
       "texFile": "FireBallEmission.png",
-      "pivot": [0.0, 0.0, 0.0],
+      "pivot": [
+        0.0,
+        0.0,
+        0.0
+      ],
       "useCustomVertexStreams": false,
-      "vertexStreams": [0, 1, 3, 4],
+      "vertexStreams": [
+        0,
+        1,
+        3,
+        4
+      ],
       "applyActiveColorSpace": true,
       "duration": 5.0,
       "looping": true,
@@ -73641,7 +73985,7 @@
           "f": 0.0
         }
       ],
-      "matQueue": -1,
+      "matQueue": 3000,
       "simulationSpace": 0,
       "bursts": [],
       "uvEnabled": true,
@@ -73674,9 +74018,18 @@
       ],
       "tex": "Smoke Sprite Sheet",
       "texFile": "Smoke Sprite Sheet.png",
-      "pivot": [0.0, 0.0, 0.0],
+      "pivot": [
+        0.0,
+        0.0,
+        0.0
+      ],
       "useCustomVertexStreams": false,
-      "vertexStreams": [0, 1, 3, 4],
+      "vertexStreams": [
+        0,
+        1,
+        3,
+        4
+      ],
       "applyActiveColorSpace": true,
       "duration": 5.0,
       "looping": true,
@@ -74234,7 +74587,7 @@
           "f": 0.0
         }
       ],
-      "matQueue": -1,
+      "matQueue": 3000,
       "simulationSpace": 0,
       "bursts": [],
       "uvEnabled": true,
@@ -74267,9 +74620,18 @@
       ],
       "tex": "FireBallEmission",
       "texFile": "FireBallEmission.png",
-      "pivot": [0.0, 0.0, 0.0],
+      "pivot": [
+        0.0,
+        0.0,
+        0.0
+      ],
       "useCustomVertexStreams": false,
-      "vertexStreams": [0, 1, 3, 4],
+      "vertexStreams": [
+        0,
+        1,
+        3,
+        4
+      ],
       "applyActiveColorSpace": true,
       "duration": 5.0,
       "looping": true,
@@ -74748,7 +75110,7 @@
           "f": 0.0
         }
       ],
-      "matQueue": -1,
+      "matQueue": 3000,
       "simulationSpace": 0,
       "bursts": [],
       "uvEnabled": true,
@@ -74781,9 +75143,18 @@
       ],
       "tex": "Smoke Sprite Sheet",
       "texFile": "Smoke Sprite Sheet.png",
-      "pivot": [0.0, 0.0, 0.0],
+      "pivot": [
+        0.0,
+        0.0,
+        0.0
+      ],
       "useCustomVertexStreams": false,
-      "vertexStreams": [0, 1, 3, 4],
+      "vertexStreams": [
+        0,
+        1,
+        3,
+        4
+      ],
       "applyActiveColorSpace": true,
       "duration": 5.0,
       "looping": true,
@@ -75341,7 +75712,7 @@
           "f": 0.0
         }
       ],
-      "matQueue": -1,
+      "matQueue": 3000,
       "simulationSpace": 0,
       "bursts": [],
       "uvEnabled": true,
@@ -75374,9 +75745,18 @@
       ],
       "tex": "LargeFlame01",
       "texFile": "LargeFlame01.png",
-      "pivot": [0.0, 0.39, 0.0],
+      "pivot": [
+        0.0,
+        0.39,
+        0.0
+      ],
       "useCustomVertexStreams": false,
-      "vertexStreams": [0, 1, 3, 4],
+      "vertexStreams": [
+        0,
+        1,
+        3,
+        4
+      ],
       "applyActiveColorSpace": true,
       "duration": 5.0,
       "looping": true,
@@ -75838,7 +76218,7 @@
           "f": 0.0
         }
       ],
-      "matQueue": -1,
+      "matQueue": 3000,
       "simulationSpace": 0,
       "bursts": [
         {
@@ -75879,9 +76259,18 @@
       ],
       "tex": "Smoke Sprite Sheet",
       "texFile": "Smoke Sprite Sheet.png",
-      "pivot": [0.0, 0.0, 0.0],
+      "pivot": [
+        0.0,
+        0.0,
+        0.0
+      ],
       "useCustomVertexStreams": false,
-      "vertexStreams": [0, 1, 3, 4],
+      "vertexStreams": [
+        0,
+        1,
+        3,
+        4
+      ],
       "applyActiveColorSpace": true,
       "duration": 5.0,
       "looping": true,
@@ -76439,7 +76828,7 @@
           "f": 0.0
         }
       ],
-      "matQueue": -1,
+      "matQueue": 3000,
       "simulationSpace": 0,
       "bursts": [],
       "uvEnabled": true,
@@ -76472,9 +76861,18 @@
       ],
       "tex": "LargeFlame01",
       "texFile": "LargeFlame01.png",
-      "pivot": [0.0, 0.39, 0.0],
+      "pivot": [
+        0.0,
+        0.39,
+        0.0
+      ],
       "useCustomVertexStreams": false,
-      "vertexStreams": [0, 1, 3, 4],
+      "vertexStreams": [
+        0,
+        1,
+        3,
+        4
+      ],
       "applyActiveColorSpace": true,
       "duration": 5.0,
       "looping": true,
@@ -76936,7 +77334,7 @@
           "f": 0.0
         }
       ],
-      "matQueue": -1,
+      "matQueue": 3000,
       "simulationSpace": 0,
       "bursts": [
         {
@@ -76977,9 +77375,18 @@
       ],
       "tex": "Lens_Flare_1",
       "texFile": "Lens_Flare_1.png",
-      "pivot": [0.0, 0.0, 0.0],
+      "pivot": [
+        0.0,
+        0.0,
+        0.0
+      ],
       "useCustomVertexStreams": false,
-      "vertexStreams": [0, 1, 3, 4],
+      "vertexStreams": [
+        0,
+        1,
+        3,
+        4
+      ],
       "applyActiveColorSpace": true,
       "duration": 5.0,
       "looping": true,
@@ -77535,9 +77942,18 @@
       ],
       "tex": "LargeFlame01",
       "texFile": "LargeFlame01.png",
-      "pivot": [0.0, 0.39, 0.0],
+      "pivot": [
+        0.0,
+        0.39,
+        0.0
+      ],
       "useCustomVertexStreams": false,
-      "vertexStreams": [0, 1, 3, 4],
+      "vertexStreams": [
+        0,
+        1,
+        3,
+        4
+      ],
       "applyActiveColorSpace": true,
       "duration": 5.0,
       "looping": true,
@@ -78001,7 +78417,7 @@
           "f": 0.0
         }
       ],
-      "matQueue": -1,
+      "matQueue": 3000,
       "simulationSpace": 0,
       "bursts": [
         {
@@ -78042,9 +78458,18 @@
       ],
       "tex": "CandleFlame",
       "texFile": "CandleFlame.png",
-      "pivot": [0.0, 0.2, 0.0],
+      "pivot": [
+        0.0,
+        0.2,
+        0.0
+      ],
       "useCustomVertexStreams": false,
-      "vertexStreams": [0, 1, 3, 4],
+      "vertexStreams": [
+        0,
+        1,
+        3,
+        4
+      ],
       "applyActiveColorSpace": true,
       "duration": 2.0,
       "looping": true,
@@ -78468,7 +78893,7 @@
           "f": 0.0
         }
       ],
-      "matQueue": -1,
+      "matQueue": 3000,
       "simulationSpace": 0,
       "bursts": [
         {
@@ -78509,9 +78934,18 @@
       ],
       "tex": "CandleFlame",
       "texFile": "CandleFlame.png",
-      "pivot": [0.0, 0.2, 0.0],
+      "pivot": [
+        0.0,
+        0.2,
+        0.0
+      ],
       "useCustomVertexStreams": false,
-      "vertexStreams": [0, 1, 3, 4],
+      "vertexStreams": [
+        0,
+        1,
+        3,
+        4
+      ],
       "applyActiveColorSpace": true,
       "duration": 2.0,
       "looping": true,
@@ -78935,7 +79369,7 @@
           "f": 0.0
         }
       ],
-      "matQueue": -1,
+      "matQueue": 3000,
       "simulationSpace": 0,
       "bursts": [
         {
@@ -78976,9 +79410,18 @@
       ],
       "tex": "CandleFlame",
       "texFile": "CandleFlame.png",
-      "pivot": [0.0, 0.2, 0.0],
+      "pivot": [
+        0.0,
+        0.2,
+        0.0
+      ],
       "useCustomVertexStreams": false,
-      "vertexStreams": [0, 1, 3, 4],
+      "vertexStreams": [
+        0,
+        1,
+        3,
+        4
+      ],
       "applyActiveColorSpace": true,
       "duration": 2.0,
       "looping": true,
@@ -79402,7 +79845,7 @@
           "f": 0.0
         }
       ],
-      "matQueue": -1,
+      "matQueue": 3000,
       "simulationSpace": 0,
       "bursts": [
         {
@@ -79421,6 +79864,450 @@
       "uvFps": 30.0,
       "uvCycles": 1.0,
       "uvRowIndex": 0
+    }
+  ],
+  "tapHits": [
+    {
+      "go": "CardLowBoardLimit",
+      "path": "BattlePrefab/BattleBoardElements/Colliders/CardBoardLimits/CardLowBoardLimit",
+      "layer": 11,
+      "inMask": false,
+      "hasMesh": false,
+      "pos": [
+        100.0,
+        -0.59,
+        3.66
+      ],
+      "rot": [
+        0.002767,
+        0.0,
+        0.0,
+        0.999996
+      ],
+      "scale": [
+        81.161079,
+        0.82915,
+        41.907936
+      ],
+      "collider": {
+        "type": "Box",
+        "center": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "size": [
+          1.0,
+          1.0,
+          1.0
+        ],
+        "isTrigger": false
+      },
+      "particles": "Default Tap Floor",
+      "particlesGuid": "629741951c40548a49e35451a449d9d7",
+      "audio": "Tap Hit General",
+      "audioGuid": "52da505920d514f77ab579f113afbca6",
+      "delay": 0.0,
+      "useTargetAnchor": 0,
+      "anchor": null
+    },
+    {
+      "go": "Cauldron L",
+      "path": "Scenario/Battle Arena Adepta Sororitas Baked/Cauldron L",
+      "layer": 0,
+      "inMask": true,
+      "hasMesh": true,
+      "pos": [
+        94.008194,
+        0.473533,
+        -4.421542
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        226.855347,
+        195.878475,
+        195.878475
+      ],
+      "collider": {
+        "type": "Mesh",
+        "convex": true,
+        "isTrigger": false,
+        "mesh": "Cauldron L2"
+      },
+      "particles": "Tap Firepit 2",
+      "particlesGuid": "789c60ff3d845ba428714cb0bc17e969",
+      "audio": "Tap Hit Fire",
+      "audioGuid": "39bf7d588ce12bf43972c12497aab29a",
+      "delay": 0.0,
+      "useTargetAnchor": 1,
+      "anchor": {
+        "go": "GameObject",
+        "pos": [
+          94.008034,
+          0.476523,
+          -4.421112
+        ],
+        "rot": [
+          -0.707107,
+          -0.0,
+          -0.0,
+          0.707107
+        ],
+        "scale": [
+          226.855347,
+          195.878475,
+          195.878475
+        ],
+        "path": "Scenario/Battle Arena Adepta Sororitas Baked/Cauldron L/GameObject"
+      }
+    },
+    {
+      "go": "Cauldron R",
+      "path": "Scenario/Battle Arena Adepta Sororitas Baked/Cauldron R",
+      "layer": 0,
+      "inMask": true,
+      "hasMesh": true,
+      "pos": [
+        106.223946,
+        0.458352,
+        -4.452153
+      ],
+      "rot": [
+        0.707107,
+        0.0,
+        0.0,
+        0.707107
+      ],
+      "scale": [
+        218.153503,
+        188.364848,
+        188.364848
+      ],
+      "collider": {
+        "type": "Mesh",
+        "convex": true,
+        "isTrigger": false,
+        "mesh": "Cauldron R2"
+      },
+      "particles": "Tap Firepit 2",
+      "particlesGuid": "789c60ff3d845ba428714cb0bc17e969",
+      "audio": "Tap Hit Fire",
+      "audioGuid": "39bf7d588ce12bf43972c12497aab29a",
+      "delay": 0.0,
+      "useTargetAnchor": 1,
+      "anchor": {
+        "go": "GameObject",
+        "pos": [
+          106.223666,
+          0.455322,
+          -4.452643
+        ],
+        "rot": [
+          0.707107,
+          0.0,
+          0.0,
+          0.707107
+        ],
+        "scale": [
+          218.153503,
+          188.364848,
+          188.364848
+        ],
+        "path": "Scenario/Battle Arena Adepta Sororitas Baked/Cauldron R/GameObject"
+      }
+    },
+    {
+      "go": "Hanging Cauldron L",
+      "path": "Scenario/Battle Arena Adepta Sororitas Baked/Hanging Cauldron L",
+      "layer": 0,
+      "inMask": true,
+      "hasMesh": true,
+      "pos": [
+        89.442291,
+        11.076291,
+        17.07226
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        188.364822,
+        188.364848,
+        188.364848
+      ],
+      "collider": {
+        "type": "Mesh",
+        "convex": true,
+        "isTrigger": false,
+        "mesh": "Hanging Cauldron L2"
+      },
+      "particles": "Tap Hit Metal Small",
+      "particlesGuid": "3dc5682da4a044a43a4f12f252b9a58a",
+      "audio": "Tap Hit Metal Light",
+      "audioGuid": "d8fcd9e26668940a4a2091b89009892c",
+      "delay": 0.0,
+      "useTargetAnchor": 0,
+      "anchor": null
+    },
+    {
+      "go": "Hanging Cauldron R",
+      "path": "Scenario/Battle Arena Adepta Sororitas Baked/Hanging Cauldron R",
+      "layer": 0,
+      "inMask": true,
+      "hasMesh": true,
+      "pos": [
+        104.523689,
+        12.46117,
+        18.809664
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        188.364822,
+        188.364848,
+        188.364848
+      ],
+      "collider": {
+        "type": "Mesh",
+        "convex": true,
+        "isTrigger": false,
+        "mesh": "Hanging Cauldron R2"
+      },
+      "particles": "Tap Hit Metal Small",
+      "particlesGuid": "3dc5682da4a044a43a4f12f252b9a58a",
+      "audio": "Tap Hit Metal Light",
+      "audioGuid": "d8fcd9e26668940a4a2091b89009892c",
+      "delay": 0.0,
+      "useTargetAnchor": 0,
+      "anchor": null
+    },
+    {
+      "go": "Pillar 1 Base L",
+      "path": "Scenario/Battle Arena Adepta Sororitas Baked/Pillar 1 Base L",
+      "layer": 0,
+      "inMask": true,
+      "hasMesh": true,
+      "pos": [
+        89.031364,
+        2.033238,
+        1.290098
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        188.364822,
+        188.364848,
+        188.364848
+      ],
+      "collider": {
+        "type": "Mesh",
+        "convex": false,
+        "isTrigger": false,
+        "mesh": "Pillar 1 Base L2"
+      },
+      "particles": "Tap Rock",
+      "particlesGuid": "06946a9ab456c474f9b4f86e00fecf9c",
+      "audio": "Tap Hit Rock",
+      "audioGuid": "30c981ef52e181a41a09adf6818a9104",
+      "delay": 0.0,
+      "useTargetAnchor": 0,
+      "anchor": null
+    },
+    {
+      "go": "Pillar 1 Base R",
+      "path": "Scenario/Battle Arena Adepta Sororitas Baked/Pillar 1 Base R",
+      "layer": 0,
+      "inMask": true,
+      "hasMesh": true,
+      "pos": [
+        109.413063,
+        2.077409,
+        0.786209
+      ],
+      "rot": [
+        0.707107,
+        0.0,
+        0.0,
+        0.707107
+      ],
+      "scale": [
+        188.364822,
+        188.364848,
+        188.364848
+      ],
+      "collider": {
+        "type": "Mesh",
+        "convex": false,
+        "isTrigger": false,
+        "mesh": "Pillar 1 Base R2"
+      },
+      "particles": "Tap Rock",
+      "particlesGuid": "06946a9ab456c474f9b4f86e00fecf9c",
+      "audio": "Tap Hit Rock",
+      "audioGuid": "30c981ef52e181a41a09adf6818a9104",
+      "delay": 0.0,
+      "useTargetAnchor": 0,
+      "anchor": null
+    },
+    {
+      "go": "Pillar 1 Base Wall L",
+      "path": "Scenario/Battle Arena Adepta Sororitas Baked/Pillar 1 Base Wall L",
+      "layer": 0,
+      "inMask": true,
+      "hasMesh": true,
+      "pos": [
+        89.823357,
+        0.748234,
+        2.94559
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        188.364822,
+        188.364848,
+        188.364848
+      ],
+      "collider": {
+        "type": "Mesh",
+        "convex": true,
+        "isTrigger": false,
+        "mesh": "Pillar 1 Base Wall L2"
+      },
+      "particles": "Tap Hit Metal Small",
+      "particlesGuid": "3dc5682da4a044a43a4f12f252b9a58a",
+      "audio": "Tap Hit Metal Light",
+      "audioGuid": "d8fcd9e26668940a4a2091b89009892c",
+      "delay": 0.0,
+      "useTargetAnchor": 0,
+      "anchor": null
+    },
+    {
+      "go": "Pillar 1 Base Wall R",
+      "path": "Scenario/Battle Arena Adepta Sororitas Baked/Pillar 1 Base Wall R",
+      "layer": 0,
+      "inMask": true,
+      "hasMesh": true,
+      "pos": [
+        107.778152,
+        0.748234,
+        2.94559
+      ],
+      "rot": [
+        0.707107,
+        0.0,
+        0.0,
+        0.707107
+      ],
+      "scale": [
+        188.364822,
+        188.364848,
+        188.364848
+      ],
+      "collider": {
+        "type": "Mesh",
+        "convex": true,
+        "isTrigger": false,
+        "mesh": "Pillar 1 Base Wall R2"
+      },
+      "particles": "Tap Hit Metal Small",
+      "particlesGuid": "3dc5682da4a044a43a4f12f252b9a58a",
+      "audio": "Tap Hit Metal Light",
+      "audioGuid": "d8fcd9e26668940a4a2091b89009892c",
+      "delay": 0.0,
+      "useTargetAnchor": 0,
+      "anchor": null
+    },
+    {
+      "go": "Statue L",
+      "path": "Scenario/Battle Arena Adepta Sororitas Baked/Statue L",
+      "layer": 0,
+      "inMask": true,
+      "hasMesh": true,
+      "pos": [
+        81.324387,
+        10.075253,
+        20.681435
+      ],
+      "rot": [
+        0.707107,
+        0.0,
+        0.0,
+        0.707107
+      ],
+      "scale": [
+        207.89917,
+        207.899198,
+        207.899198
+      ],
+      "collider": {
+        "type": "Mesh",
+        "convex": false,
+        "isTrigger": false,
+        "mesh": "Statue L2"
+      },
+      "particles": "Tap Hit Metal",
+      "particlesGuid": "375d142f27197404884be8e317eca8dc",
+      "audio": "Tap Hit Metal Heavy",
+      "audioGuid": "0a651ec9f71764e41ba0d305510865ba",
+      "delay": 0.0,
+      "useTargetAnchor": 0,
+      "anchor": null
+    },
+    {
+      "go": "Statue R",
+      "path": "Scenario/Battle Arena Adepta Sororitas Baked/Statue R",
+      "layer": 0,
+      "inMask": true,
+      "hasMesh": true,
+      "pos": [
+        111.871353,
+        8.898091,
+        18.4058
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        207.89917,
+        207.899198,
+        207.899198
+      ],
+      "collider": {
+        "type": "Mesh",
+        "convex": false,
+        "isTrigger": false,
+        "mesh": "Statue R2"
+      },
+      "particles": "Tap Hit Metal",
+      "particlesGuid": "375d142f27197404884be8e317eca8dc",
+      "audio": "Tap Hit Metal Heavy",
+      "audioGuid": "0a651ec9f71764e41ba0d305510865ba",
+      "delay": 0.0,
+      "useTargetAnchor": 0,
+      "anchor": null
     }
   ]
 }

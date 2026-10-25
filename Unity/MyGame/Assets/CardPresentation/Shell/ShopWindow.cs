@@ -143,6 +143,8 @@ namespace CardPresentation
         {
             Build();
             BuildPages();
+            // 🆕 2026-10-25：页对象已建出来 ⇒ 原版 lazy `SetupTabs` 那一跳（只跑一次）
+            EnsureTabsSetup();
             // 新实例默认落在第 1 个可见键（`__GetStartingTab` 的回落分支）。
             // 🔴 **2026-10-19（`N117` 顺手 · 与 `CollectionWindow` 同一条判据）**：这里原来**恒 `Click(0)`**
             //   ⇒ 每次 `Open()` 都回第 0 页（`Hide` 之后被 `ShowPreviousWindow` 带回来也一样）。

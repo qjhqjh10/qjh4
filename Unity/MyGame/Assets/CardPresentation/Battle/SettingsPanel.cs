@@ -879,7 +879,13 @@ namespace CardPresentation
         /// <param name="onResign">点「投降」时回调。
         /// 🔴 **2026-10-22**：原来还有 `onCycleDifficulty` 一路 —— 随「对手难度」那一行一起删了
         /// （原版没有那个入口；`aiDifficulty` 仍留在驱动层，见 `BattleDriver.aiDifficulty`）。</param>
-        public static SettingsPanel Create(Transform parent, Action onResign)
+        /// <summary>建设置面板。
+        /// <param name="matchType">🆕 2026-10-25（`E`）：**原版 `BattleSettingsWindow.Open` 读的那个 `matchType`**
+        /// （它决定 ①「跳过教程」钮显不显示 ②回放局投降钮文案换 `Battle/Settings/Exit`）。
+        /// 传 `null` = 未知 ⇒ 保持旧行为（Skip 随面板开）+ 首次开窗时**出声一次**；
+        /// ⛔ 生产调用点应当传（`BattleDriver` 建本面板那一行 = A 域，见 `资料/完全复刻/报告/E_HUD_B升A_第1轮.md` §④）。</param>
+        public static SettingsPanel Create(Transform parent, Action onResign,
+                                          RuleEngine.MatchType? matchType = null)
         {
             // 🔴 **2026-10-11（A218）**：根节点是 `RectTransform` + 写 `sizeDelta`。
             //    判据 = 原版 `BattleSettingsPanel` 实读（`bundle_scenes_scenes_battlearena1`，2026-10-11 现读）：
@@ -898,6 +904,7 @@ namespace CardPresentation
             MenuDraw.SetPxSize(go.transform, PanelW, PanelH);
             var p = go.AddComponent<SettingsPanel>();
             p.OnResign = onResign;
+            if (matchType.HasValue) p.SetMatchType(matchType.Value);
 
             // ---- 子画布：`PopUps` / order 0（判据 → `T09c` §一 `SettingsPanel` 那一行）----------------
             // 🔴 **子 Canvas 一个 `CanvasScaler` 都不许加**（原版全场景只有一个、在根上 ⇒ 加了会二次缩放）。
@@ -1601,10 +1608,8 @@ namespace CardPresentation
             //    ⛔ 别把它做成静态事件广播（同 `Shell/SettingsWindow.RefreshTexts`、`Loc` 不发事件那条）。
             if (_resignText != null)
             {
-                string r = Loc.T(ResignTerm);
-                _resignText.SetText(r);
-                ApplyLangFont(_resignText, r, ResignFontPx);
-                ApplyAutoFit(_resignText, BtnTextWPx, BtnTextHPx, BtnAutoMin, ResignFontPx, BtnAutoBase, 0);
+                // 🆕 2026-10-25（`E`）：词条判据收到 `ResignTermNow`（回放局 = `Battle/Settings/Exit`）
+                SetResignText(ResignTermNow);
             }
             // 🆕 2026-10-18（A991）：跳过钮那颗字**也跟语言走**（词条在 `Core/Loc.cs` 那张表里）。
             if (_skipText != null)
@@ -2430,7 +2435,70 @@ namespace CardPresentation
         //     · 「按下行、抬到别处 ⇒ 不选」= `EventSystem` 的 `pointerPress`（click 只发给按下的那一件）。
         //   ⛔ 别把这条边沿再加回来：两套并存 = 一次点击选两次 / 开两次列表（§四 R1）。
 
-        public void Show() { Visible = true; SetActive(true); }
+        // ==================================================================
+        //  🆕 2026-10-25（`E`）：**matchType 的两条判据**（原版 `BattleSettingsWindow__Open.c:41-121`）
+        // ==================================================================
+        //  ① **「跳过教程」钮只在教程局显示**：原版 `Open` **第一句**就是
+        //     `skipTutorialButton.SetActive(matchType == Tutorial(100))`。
+        //     🔴 本文件原来在 `SetActive` 那里把它写成「随面板开关走」，并有一句注释说
+        //     「原版那颗是 prefab 里常驻的 ⇒ 不加闸」——**那句是错的**（2026-10-25 亲核，铁律 5 已改）。
+        //  ② **回放局（`MatchType.Replay = 160`）投降钮文案换** `Battle/Settings/Exit`（键已在 `Core/Loc.cs:1302`）。
+        //  ⚠️ 驱动没传 `matchType` 时（`_matchTypeKnown == false`）**保持旧行为**（Skip 随面板开）并出声一次
+        //     —— 不静默假装「原版就这样」；传了之后两条都照原版。
+        RuleEngine.MatchType _matchType = RuleEngine.MatchType.Undefined;
+        bool _matchTypeKnown;
+        static bool _matchTypeWarned;
+        /// <summary>原版 `Open` 读到的那个 `matchType`（自检用）。</summary>
+        public RuleEngine.MatchType MatchTypeForTest { get { return _matchType; } }
+        /// <summary>驱动有没有把 `matchType` 交下来（`false` ⇒ ①② 两条按旧行为，并出声一次）。</summary>
+        public bool MatchTypeKnownForTest { get { return _matchTypeKnown; } }
+        /// <summary>作废「跳过教程」钮该不该显示 = `matchType == Tutorial(100)`；未知 ⇒ 旧行为（显示）。</summary>
+        bool SkipWanted { get { return !_matchTypeKnown || _matchType == RuleEngine.MatchType.Tutorial; } }
+        /// <summary>投降钮当前该用哪条词条：回放 ⇒ `Battle/Settings/Exit`，其余 ⇒ `Battle/Settings/ResignButton`。
+        /// **判据只此一处**（`Create` 的初值 / `RefreshTexts` / `ApplyMatchTypeUI` 都读它）。</summary>
+        string ResignTermNow
+        {
+            get
+            {
+                return (_matchTypeKnown && _matchType == RuleEngine.MatchType.Replay)
+                     ? "Battle/Settings/Exit" : ResignTerm;
+            }
+        }
+        /// <summary>把 `matchType` 交给本面板（原版 `Open` 读它）。会立刻按新值刷 Skip 显隐 + 投降钮文案。</summary>
+        public void SetMatchType(RuleEngine.MatchType m)
+        {
+            _matchType = m;
+            _matchTypeKnown = true;
+            ApplyMatchTypeUI();
+        }
+        /// <summary>按 `matchType` 刷那两处（Skip 显隐 / 投降文案）。**判据只此一处**。</summary>
+        void ApplyMatchTypeUI()
+        {
+            bool on = Visible && SkipWanted;
+            if (_skipBtn != null) _skipBtn.gameObject.SetActive(on);
+            if (_skipText != null) _skipText.gameObject.SetActive(on);
+            if (_resignText != null) SetResignText(ResignTermNow);
+        }
+        void SetResignText(string term)
+        {
+            if (_resignText == null || string.IsNullOrEmpty(term)) return;
+            string r = Loc.T(term);
+            _resignText.SetText(r);
+            ApplyLangFont(_resignText, r, ResignFontPx);
+            ApplyAutoFit(_resignText, BtnTextWPx, BtnTextHPx, BtnAutoMin, ResignFontPx, BtnAutoBase, 0);
+        }
+
+        public void Show()
+        {
+            Visible = true; SetActive(true);
+            ApplyMatchTypeUI();
+            if (!_matchTypeKnown && !_matchTypeWarned)
+            {
+                _matchTypeWarned = true;
+                Debug.LogWarning("[Settings] 本面板不知道 `matchType`（驱动没传）⇒ 「跳过教程」钮按**旧行为**随面板显示；"
+                               + "原版只教程局显示、回放局投降钮文案也要换 —— 判据见 `Create(..., matchType)`。");
+            }
+        }
         public void Hide()
         {
             Visible = false; SetActive(false);
@@ -2445,8 +2513,11 @@ namespace CardPresentation
             foreach (var go in new[] { _shade, _bg, _close, _closeIcon })
                 if (go != null) go.gameObject.SetActive(on);
             if (_resignBtn != null) _resignBtn.gameObject.SetActive(on);   // 一张 `Image (Sliced)`（不是 `ImageQuad`）
-            if (_skipBtn != null) _skipBtn.gameObject.SetActive(on);       // 🆕 A991：同上（那颗也是九宫格 ⇒ uGUI 一张）
-            foreach (var l in new[] { _resignText, _skipText,
+            // 🔴 2026-10-25（`E` 铁律 5 订正）：原版 `BattleSettingsWindow__Open.c` 第一句
+            //   `skipTutorialButton.SetActive(matchType == Tutorial(100))` ⇒ **它的闸是 matchType、不是面板开关**。
+            //   未知 matchType 时退回「随面板开」（旧行为，`Show()` 会出声一次）。
+            if (_skipBtn != null) _skipBtn.gameObject.SetActive(on && SkipWanted);
+            foreach (var l in new[] { _resignText, /* Skip 那颗字单独按 SkipWanted 设，见下 */
                                       _musicLabel, _fxLabel, _voiceLabel, _azLabel,
                                       // 🆕 2026-10-17：语言那一行的两颗字（框里的语言名 + 左边的标签）
                                       _langCap, _langSelText,
@@ -2455,6 +2526,7 @@ namespace CardPresentation
                                       // 先随面板开关走 —— ON 那半的**额外**闸在 `RefreshMuteChat()`（本方法末尾调）。
                                       _muteLabel, _muteOffText, _muteOnText })
                 if (l != null) l.gameObject.SetActive(on);
+            if (_skipText != null) _skipText.gameObject.SetActive(on && SkipWanted);
             if (_azBox != null) _azBox.gameObject.SetActive(on);
             // 🆕 2026-10-20（`T09` A3-b）：那两块透明命中片（原版 TMP 的射线面）跟面板开关走
             if (_azLabelHit != null) _azLabelHit.gameObject.SetActive(on);

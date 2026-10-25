@@ -53382,5 +53382,587 @@
       "uvCycles": 1.0,
       "uvRowIndex": 0
     }
+  ],
+  "tapHits": [
+    {
+      "go": "Battle Arena 3 Baked",
+      "path": "Scenario/Battle Arena 3 Baked",
+      "layer": 0,
+      "inMask": true,
+      "hasMesh": false,
+      "pos": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "rot": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "collider": null,
+      "particles": "Tap Rock",
+      "particlesGuid": "06946a9ab456c474f9b4f86e00fecf9c",
+      "audio": "Buff Mana 1",
+      "audioGuid": "29d618013d2c5d24c91cb06d745ce1c4",
+      "delay": 0.0,
+      "useTargetAnchor": 0,
+      "anchor": {
+        "go": "Tap Particles Anchor",
+        "pos": [
+          97.391004,
+          0.903604,
+          -9.439482
+        ],
+        "rot": [
+          -0.0,
+          0.122708,
+          -0.0,
+          -0.992443
+        ],
+        "scale": [
+          44.079632,
+          44.079641,
+          44.079641
+        ],
+        "path": "Scenario/Battle Arena 3 Baked/Monolith Front Left/Tap Particles Anchor"
+      }
+    },
+    {
+      "go": "Big Monolith",
+      "path": "Scenario/Battle Arena 3 Baked/Big Monolith",
+      "layer": 0,
+      "inMask": true,
+      "hasMesh": true,
+      "pos": [
+        88.486275,
+        5.751727,
+        12.168925
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        44.079632,
+        44.079638,
+        44.079638
+      ],
+      "collider": {
+        "type": "Mesh",
+        "convex": true,
+        "isTrigger": false,
+        "mesh": "Big Monolith1"
+      },
+      "particles": "Tap Rock",
+      "particlesGuid": "06946a9ab456c474f9b4f86e00fecf9c",
+      "audio": "Tap Hit Rock",
+      "audioGuid": "30c981ef52e181a41a09adf6818a9104",
+      "delay": 0.0,
+      "useTargetAnchor": 0,
+      "anchor": null
+    },
+    {
+      "go": "Big Monolith.004",
+      "path": "Scenario/Battle Arena 3 Baked/Big Monolith.004",
+      "layer": 0,
+      "inMask": true,
+      "hasMesh": true,
+      "pos": [
+        87.286949,
+        9.019752,
+        11.98851
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        44.079632,
+        44.079638,
+        44.079638
+      ],
+      "collider": {
+        "type": "Mesh",
+        "convex": true,
+        "isTrigger": false,
+        "mesh": "Big Monolith.0041"
+      },
+      "particles": "Tap Rock",
+      "particlesGuid": "06946a9ab456c474f9b4f86e00fecf9c",
+      "audio": "Tap Hit Rock",
+      "audioGuid": "30c981ef52e181a41a09adf6818a9104",
+      "delay": 0.0,
+      "useTargetAnchor": 0,
+      "anchor": null
+    },
+    {
+      "go": "Big Monolith.005",
+      "path": "Scenario/Battle Arena 3 Baked/Big Monolith.005",
+      "layer": 0,
+      "inMask": true,
+      "hasMesh": true,
+      "pos": [
+        90.411171,
+        9.679493,
+        12.801568
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        44.079632,
+        44.079638,
+        44.079638
+      ],
+      "collider": {
+        "type": "Mesh",
+        "convex": true,
+        "isTrigger": false,
+        "mesh": "Big Monolith.0051"
+      },
+      "particles": "Tap Rock",
+      "particlesGuid": "06946a9ab456c474f9b4f86e00fecf9c",
+      "audio": "Tap Hit Rock",
+      "audioGuid": "30c981ef52e181a41a09adf6818a9104",
+      "delay": 0.0,
+      "useTargetAnchor": 0,
+      "anchor": null
+    },
+    {
+      "go": "Broken Monolith 1",
+      "path": "Scenario/Battle Arena 3 Baked/Broken Monolith 1",
+      "layer": 0,
+      "inMask": true,
+      "hasMesh": true,
+      "pos": [
+        108.478882,
+        1.967278,
+        4.50405
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        44.079632,
+        44.079638,
+        44.079638
+      ],
+      "collider": {
+        "type": "Mesh",
+        "convex": true,
+        "isTrigger": false,
+        "mesh": "Broken Monolith 11"
+      },
+      "particles": "Tap Rock",
+      "particlesGuid": "06946a9ab456c474f9b4f86e00fecf9c",
+      "audio": "Tap Hit Rock",
+      "audioGuid": "30c981ef52e181a41a09adf6818a9104",
+      "delay": 0.0,
+      "useTargetAnchor": 0,
+      "anchor": null
+    },
+    {
+      "go": "Broken Monolith 2",
+      "path": "Scenario/Battle Arena 3 Baked/Broken Monolith 2",
+      "layer": 0,
+      "inMask": true,
+      "hasMesh": true,
+      "pos": [
+        101.992233,
+        1.03103,
+        5.829383
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        44.079632,
+        44.079638,
+        44.079638
+      ],
+      "collider": {
+        "type": "Mesh",
+        "convex": true,
+        "isTrigger": false,
+        "mesh": "Broken Monolith 21"
+      },
+      "particles": "Tap Rock",
+      "particlesGuid": "06946a9ab456c474f9b4f86e00fecf9c",
+      "audio": "Tap Hit Rock",
+      "audioGuid": "30c981ef52e181a41a09adf6818a9104",
+      "delay": 0.0,
+      "useTargetAnchor": 0,
+      "anchor": null
+    },
+    {
+      "go": "CardLowBoardLimit",
+      "path": "BattlePrefab/BattleBoardElements/Colliders/CardBoardLimits/CardLowBoardLimit",
+      "layer": 11,
+      "inMask": false,
+      "hasMesh": false,
+      "pos": [
+        100.0,
+        -0.59,
+        3.66
+      ],
+      "rot": [
+        0.002767,
+        0.0,
+        0.0,
+        0.999996
+      ],
+      "scale": [
+        81.161079,
+        0.82915,
+        41.907936
+      ],
+      "collider": {
+        "type": "Box",
+        "center": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "size": [
+          1.0,
+          1.0,
+          1.0
+        ],
+        "isTrigger": false
+      },
+      "particles": "Default Tap Floor",
+      "particlesGuid": "629741951c40548a49e35451a449d9d7",
+      "audio": "Tap Hit General",
+      "audioGuid": "52da505920d514f77ab579f113afbca6",
+      "delay": 0.0,
+      "useTargetAnchor": 0,
+      "anchor": null
+    },
+    {
+      "go": "Cube",
+      "path": "Scenario/Battle Arena 3 Baked/Props 1.003/Cube",
+      "layer": 0,
+      "inMask": true,
+      "hasMesh": false,
+      "pos": [
+        91.615291,
+        1.207789,
+        7.361717
+      ],
+      "rot": [
+        -0.837329,
+        -0.045412,
+        -0.067828,
+        0.540571
+      ],
+      "scale": [
+        12.64956,
+        3.979834,
+        1.060547
+      ],
+      "collider": {
+        "type": "Box",
+        "center": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "size": [
+          1.0,
+          1.0,
+          1.0
+        ],
+        "isTrigger": false
+      },
+      "particles": "Tap Rock",
+      "particlesGuid": "06946a9ab456c474f9b4f86e00fecf9c",
+      "audio": "Tap Hit Rock",
+      "audioGuid": "30c981ef52e181a41a09adf6818a9104",
+      "delay": 0.0,
+      "useTargetAnchor": 0,
+      "anchor": null
+    },
+    {
+      "go": "Cube (1)",
+      "path": "Scenario/Battle Arena 3 Baked/Props 1.003/Cube (1)",
+      "layer": 0,
+      "inMask": true,
+      "hasMesh": false,
+      "pos": [
+        91.737191,
+        1.242689,
+        7.408117
+      ],
+      "rot": [
+        -0.677521,
+        0.202399,
+        0.202399,
+        0.677521
+      ],
+      "scale": [
+        2.081697,
+        1.003826,
+        4.407964
+      ],
+      "collider": {
+        "type": "Box",
+        "center": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "size": [
+          1.0,
+          1.0,
+          1.0
+        ],
+        "isTrigger": false
+      },
+      "particles": "Tap Rock",
+      "particlesGuid": "06946a9ab456c474f9b4f86e00fecf9c",
+      "audio": "Tap Hit Rock",
+      "audioGuid": "30c981ef52e181a41a09adf6818a9104",
+      "delay": 0.0,
+      "useTargetAnchor": 0,
+      "anchor": null
+    },
+    {
+      "go": "Dynamic Monolith 1",
+      "path": "Scenario/Battle Arena 3 Baked/Dynamic Monolith 1",
+      "layer": 0,
+      "inMask": true,
+      "hasMesh": true,
+      "pos": [
+        85.303917,
+        3.625954,
+        8.896563
+      ],
+      "rot": [
+        -0.706197,
+        0.035861,
+        0.035861,
+        0.706197
+      ],
+      "scale": [
+        44.079632,
+        44.079638,
+        44.079638
+      ],
+      "collider": {
+        "type": "Mesh",
+        "convex": true,
+        "isTrigger": false,
+        "mesh": "Dynamic Monolith 11"
+      },
+      "particles": "Tap Rock",
+      "particlesGuid": "06946a9ab456c474f9b4f86e00fecf9c",
+      "audio": "Tap Hit Rock",
+      "audioGuid": "30c981ef52e181a41a09adf6818a9104",
+      "delay": 0.0,
+      "useTargetAnchor": 0,
+      "anchor": null
+    },
+    {
+      "go": "Dynamic Monolith 4",
+      "path": "Scenario/Battle Arena 3 Baked/Dynamic Monolith 4",
+      "layer": 0,
+      "inMask": true,
+      "hasMesh": true,
+      "pos": [
+        95.608658,
+        5.66026,
+        8.921497
+      ],
+      "rot": [
+        -0.707063,
+        -0.007843,
+        -0.007843,
+        0.707063
+      ],
+      "scale": [
+        44.079632,
+        44.079635,
+        44.079635
+      ],
+      "collider": {
+        "type": "Mesh",
+        "convex": true,
+        "isTrigger": false,
+        "mesh": "Dynamic Monolith 41"
+      },
+      "particles": "Tap Rock",
+      "particlesGuid": "06946a9ab456c474f9b4f86e00fecf9c",
+      "audio": "Tap Hit Rock",
+      "audioGuid": "30c981ef52e181a41a09adf6818a9104",
+      "delay": 0.0,
+      "useTargetAnchor": 0,
+      "anchor": null
+    },
+    {
+      "go": "Monolith Front Left",
+      "path": "Scenario/Battle Arena 3 Baked/Monolith Front Left",
+      "layer": 0,
+      "inMask": true,
+      "hasMesh": true,
+      "pos": [
+        97.392792,
+        0.903711,
+        -9.438449
+      ],
+      "rot": [
+        -0.707107,
+        0.0,
+        0.0,
+        0.707107
+      ],
+      "scale": [
+        44.079632,
+        44.079638,
+        44.079638
+      ],
+      "collider": {
+        "type": "Mesh",
+        "convex": true,
+        "isTrigger": false,
+        "mesh": "Monolith Front Left1"
+      },
+      "particles": "Tap Monolith Left Glow",
+      "particlesGuid": "357719dc185544cd8a4f7431a998e996",
+      "audio": "Tap Monolith",
+      "audioGuid": "6a843b276fc04ba489bef11abb8ac80e",
+      "delay": 0.5,
+      "useTargetAnchor": 1,
+      "anchor": {
+        "go": "Tap Particles Anchor",
+        "pos": [
+          97.391004,
+          0.903604,
+          -9.439482
+        ],
+        "rot": [
+          -0.0,
+          0.122708,
+          -0.0,
+          -0.992443
+        ],
+        "scale": [
+          44.079632,
+          44.079641,
+          44.079641
+        ],
+        "path": "Scenario/Battle Arena 3 Baked/Monolith Front Left/Tap Particles Anchor"
+      }
+    },
+    {
+      "go": "Monolith Front Right",
+      "path": "Scenario/Battle Arena 3 Baked/Monolith Front Right",
+      "layer": 0,
+      "inMask": true,
+      "hasMesh": true,
+      "pos": [
+        102.637573,
+        1.025185,
+        -9.438449
+      ],
+      "rot": [
+        0.707107,
+        0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        44.079632,
+        44.079638,
+        44.079638
+      ],
+      "collider": {
+        "type": "Mesh",
+        "convex": true,
+        "isTrigger": false,
+        "mesh": "Monolith Front Right1"
+      },
+      "particles": "Tap Monolith Right Glow",
+      "particlesGuid": "2ea103e0f96284b14a67205aa460773e",
+      "audio": "Tap Monolith",
+      "audioGuid": "6a843b276fc04ba489bef11abb8ac80e",
+      "delay": 0.5,
+      "useTargetAnchor": 1,
+      "anchor": {
+        "go": "Tap Particles Anchor",
+        "pos": [
+          102.637681,
+          1.025839,
+          -9.438595
+        ],
+        "rot": [
+          -0.0,
+          0.0,
+          -0.0,
+          -1.0
+        ],
+        "scale": [
+          1.1326,
+          1.1326,
+          1.1326
+        ],
+        "path": "Scenario/Battle Arena 3 Baked/Monolith Front Right/Tap Particles Anchor"
+      }
+    },
+    {
+      "go": "Props 1.002",
+      "path": "Scenario/Battle Arena 3 Baked/Props 1.002",
+      "layer": 0,
+      "inMask": true,
+      "hasMesh": true,
+      "pos": [
+        108.966469,
+        0.332897,
+        -0.205102
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        44.079632,
+        44.079638,
+        44.079638
+      ],
+      "collider": {
+        "type": "Mesh",
+        "convex": true,
+        "isTrigger": false,
+        "mesh": "Props 1.0021"
+      },
+      "particles": "Tap Rock",
+      "particlesGuid": "06946a9ab456c474f9b4f86e00fecf9c",
+      "audio": "Tap Hit Rock",
+      "audioGuid": "30c981ef52e181a41a09adf6818a9104",
+      "delay": 1.0,
+      "useTargetAnchor": 0,
+      "anchor": null
+    }
   ]
 }

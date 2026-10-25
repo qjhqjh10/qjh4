@@ -1,0 +1,104 @@
+域	原版类	方法	判据出处	判据要点	状态	我们的落点	差异	等级	轮次	备注
+锻造	BoosterInfoPopup	Close()	BoosterInfoPopup.cs:373		E					
+锻造	BoosterInfoPopup	Open()	BoosterInfoPopup.cs:115		E					
+锻造	BoosterInfoPopup	ProcessPurchase()	BoosterInfoPopup.cs:331		E					
+锻造	BoosterInfoPopup	SetRefreshCallback(Action callback)	BoosterInfoPopup.cs:323		E					
+锻造	BoosterInfoPopup	ToFocus()	BoosterInfoPopup.cs:154		E					
+锻造	BoosterInfoPopup	_003CProcessPurchase_003Eb__17_1()	BoosterInfoPopup.cs:405		E					
+锻造	BoosterInfoPopup	_003CProcessPurchase_003Eg__Callback_007C17_0()	BoosterInfoPopup.cs:390		E					
+锻造	BoosterPackBackground	Initialize(bool isLegendary)	BoosterPackBackground.cs:17		E					
+锻造	BoosterPackOpenWindow	AnimationEndEvent()	BoosterPackOpenWindow.cs:271		E					
+锻造	BoosterPackOpenWindow	BoosterPackOpen()	BoosterPackOpenWindow.cs:260		E					
+锻造	BoosterPackOpenWindow	CalculateReOpenProtectionDelay()	BoosterPackOpenWindow.cs:393		E					
+锻造	BoosterPackOpenWindow	CardOpened(CardInBoosterPack cardOpened)	BoosterPackOpenWindow.cs:288		E					
+锻造	BoosterPackOpenWindow	CloseAnimaFinishEvent()	BoosterPackOpenWindow.cs:315		E					
+锻造	BoosterPackOpenWindow	CloseButtonClick()	BoosterPackOpenWindow.cs:320		E					
+锻造	BoosterPackOpenWindow	Initialize(List<RawCardScript> cardsToOpen, BoosterPackVisualItem prefab)	BoosterPackOpenWindow.cs:170		E					
+锻造	BoosterPackOpenWindow	OnDisable()	BoosterPackOpenWindow.cs:146		E					
+锻造	BoosterPackOpenWindow	OnEnable()	BoosterPackOpenWindow.cs:131		E					
+锻造	BoosterPackOpenWindow	ToggleCardOpening(bool option)	BoosterPackOpenWindow.cs:354		E					
+锻造	BoosterPackOpenWindow	ToggleTextHelper(bool option, bool instant)	BoosterPackOpenWindow.cs:371		E					
+锻造	BoosterPackOpenWindow	Update()	BoosterPackOpenWindow.cs:153		E					
+锻造	BoosterPackOpenWindow	WaitAnimationForClose(float timeToWait)	BoosterPackOpenWindow.cs:342		E					
+锻造	BoosterPackVisualItem	Initialize(string localizedArmyText, BoosterPackOpenWindow boosterPackOpenWindow)	BoosterPackVisualItem.cs:20		E					
+锻造	BoosterPackVisualItem	StartCardAnimationEvent()	BoosterPackVisualItem.cs:73		E					
+锻造	BoosterShopTab	OnOpen()	BoosterShopTab.cs:8		E					
+锻造	BoosterShopTab	TryOpenContainerArmy(ShopWindow.OpenData context)	BoosterShopTab.cs:89		E					
+锻造	CardInBoosterPack	CardClicked()	CardInBoosterPack.cs:738		E					
+锻造	CardInBoosterPack	CardDisplayWindowOnCloseWindow()	CardInBoosterPack.cs:818		E					
+锻造	CardInBoosterPack	ChangeState(States stateToChange)	CardInBoosterPack.cs:325		E					
+锻造	CardInBoosterPack	EnableCardBackAnimEvent()	CardInBoosterPack.cs:320		E					
+锻造	CardInBoosterPack	FinishedOpeningAnimEvent()	CardInBoosterPack.cs:316		E					
+锻造	CardInBoosterPack	GetContentByRarity()	CardInBoosterPack.cs:680		E					
+锻造	CardInBoosterPack	Initialize(RawCardScript rawCardScript, BoosterPackOpenWindow boosterPackOpenWindow, float animDelay)	CardInBoosterPack.cs:270		E					
+锻造	CardInBoosterPack	OnDisable()	CardInBoosterPack.cs:248		E					
+锻造	CardInBoosterPack	OnEnable()	CardInBoosterPack.cs:222		E					
+锻造	CardInBoosterPack	RelaseCardback()	CardInBoosterPack.cs:304		E					
+锻造	CardInBoosterPack	ResetContentAnimation()	CardInBoosterPack.cs:714		E					
+锻造	CardInBoosterPack	ToggleInteractions(bool option)	CardInBoosterPack.cs:311		E					
+锻造	CardInBoosterPack	TryGetContentByRarity(CardRarity cardRarity, out ContentByRarity contentByRarity)	CardInBoosterPack.cs:44		E					
+锻造	CardInBoosterPack	TryHighlightCardback(bool option)	CardInBoosterPack.cs:938		E					
+锻造	CardInBoosterPack	UiColliderOnClick()	CardInBoosterPack.cs:918		E					
+锻造	CardInBoosterPack	UiColliderOnEnter()	CardInBoosterPack.cs:913		E					
+锻造	CardInBoosterPack	UiColliderOnExit()	CardInBoosterPack.cs:908		E					
+锻造	CardInBoosterPack	WaitForSpinAnimationEnd(string clipName)	CardInBoosterPack.cs:723		E					
+锻造	CardInBoosterPack	_003CChangeState_003Eb__23_0()	CardInBoosterPack.cs:957		E					
+锻造	CraftingPanel	ArtStyleChanged(AlternateArtCard alternateArtCard)	CraftingPanel.cs:562		E					
+锻造	CraftingPanel	CheckButtons()	CraftingPanel.cs:544		E					
+锻造	CraftingPanel	DoVFX()	CraftingPanel.cs:698		E					
+锻造	CraftingPanel	Initialize(RawCardScript card, CardDisplayOptions options)	CraftingPanel.cs:91		E					
+锻造	CraftingPanel	OnDisable()	CraftingPanel.cs:438		E					
+锻造	CraftingPanel	OnEnable()	CraftingPanel.cs:284		E					
+锻造	CraftingPanel	TryCrafting()	CraftingPanel.cs:625		E					
+锻造	CraftingPanel	TryCraftingInternal()	CraftingPanel.cs:653		E					
+锻造	CraftingPanel	TryGetVFX(CardRarity cardRarity)	CraftingPanel.cs:51		E					
+锻造	CraftingPanel	_003CTryCraftingInternal_003Eg__OnFail_007C22_1(CustomError error)	CraftingPanel.cs:761		E					
+锻造	CraftingPanel	_003CTryCraftingInternal_003Eg__OnSuccess_007C22_0()	CraftingPanel.cs:753		E					
+锻造	CraftingPanel	_003CTryCrafting_003Eb__21_0(GameObject _)	CraftingPanel.cs:748		E					
+锻造	ForgePlayerContainer	OnInitialize(PlayerInfo context)	ForgePlayerContainer.cs:9		E					
+锻造	ForgePointDrawer	Draw(ForgePoints item, int quantity)	ForgePointDrawer.cs:13		E					
+锻造	ForgePointDrawer	DrawForArmy(CardArmy army)	ForgePointDrawer.cs:26		E					
+锻造	ForgePointDrawer	GetItemName(ForgePoints item)	ForgePointDrawer.cs:19		E					
+锻造	ForgePointIconDrawer	Draw(ForgePoints item, int quantity)	ForgePointIconDrawer.cs:7		E					
+锻造	ForgePointIconDrawer	DrawForArmy(CardArmy army)	ForgePointIconDrawer.cs:21		E					
+锻造	ForgePointIconDrawer	GetItemName(ForgePoints item)	ForgePointIconDrawer.cs:16		E					
+锻造	ForgeRewardCurrentLevelPoints	Awake()	ForgeRewardCurrentLevelPoints.cs:10		E					
+锻造	ForgeRewardCurrentLevelPoints	Initialize(string points, CardArmy cardArmy)	ForgeRewardCurrentLevelPoints.cs:16		E					
+锻造	ForgeRewardItemContainer	ActiveButton()	ForgeRewardItemContainer.cs:343		E					
+锻造	ForgeRewardItemContainer	ClickClaim()	ForgeRewardItemContainer.cs:312		E					
+锻造	ForgeRewardItemContainer	ConfigurePoints(int currentPoints, int previousNeededPoints, int pointToNextLevel)	ForgeRewardItemContainer.cs:261		E					
+锻造	ForgeRewardItemContainer	GetLevelState(int previousNeededPoints, int currentPoints, int currentLevelPointsToLevelUp, int numberOfCollectedRewards, int currentRewardIndex)	ForgeRewardItemContainer.cs:236		E					
+锻造	ForgeRewardItemContainer	Initialize(ForgeRewardSelector rewardSelector, RewardData rewardData, int index, RewardData previousRewardData, int rewardObtained, int currentPoints)	ForgeRewardItemContainer.cs:44		E					
+锻造	ForgeRewardItemContainer	SetBarFill(float percentage)	ForgeRewardItemContainer.cs:304		E					
+锻造	ForgeRewardSelector	ChangeLayoutPadding(bool increaseSize)	ForgeRewardSelector.cs:448		E					
+锻造	ForgeRewardSelector	ClearData()	ForgeRewardSelector.cs:225		E					
+锻造	ForgeRewardSelector	CollectRewardClicked(ForgeRewardItemContainer rewardItem)	ForgeRewardSelector.cs:167		E					
+锻造	ForgeRewardSelector	CreateRewards()	ForgeRewardSelector.cs:265		E					
+锻造	ForgeRewardSelector	FinishedSnapping(RectTransform target)	ForgeRewardSelector.cs:443		E					
+锻造	ForgeRewardSelector	GetForgeItemContainer(int index)	ForgeRewardSelector.cs:192		E					
+锻造	ForgeRewardSelector	Initialize(Forge forgeEvent)	ForgeRewardSelector.cs:125		E					
+锻造	ForgeRewardSelector	InitializePaddings()	ForgeRewardSelector.cs:454		E					
+锻造	ForgeRewardSelector	Refresh()	ForgeRewardSelector.cs:197		E					
+锻造	ForgeRewardSelector	RewardCollected(RewardInfo[] rewards)	ForgeRewardSelector.cs:372		E					
+锻造	ForgeRewardSelector	SnapTo(RectTransform target)	ForgeRewardSelector.cs:421		E					
+锻造	ForgeRewardSelector	SnapToItem(ForgeRewardItemContainer snapItem)	ForgeRewardSelector.cs:393		E					
+锻造	ForgeRewardSelector	SnapToLastItem()	ForgeRewardSelector.cs:378		E					
+锻造	ForgeRewardSelector	ToggleCollectReward(bool option, RectTransform target)	ForgeRewardSelector.cs:342		E					
+锻造	ForgeRewardSelector	ToggleScrollLock(bool option)	ForgeRewardSelector.cs:363		E					
+锻造	ForgeSelectedArmyInfo	Initialize(CardArmy army, int currentLevel, int maxLevel, int currentPoints)	ForgeSelectedArmyInfo.cs:19		E					
+锻造	ForgeSelectedArmyInfo	RefreshLevel(int currentLevel, int maxLevel)	ForgeSelectedArmyInfo.cs:46		E					
+锻造	ForgeWindowTab	Awake()	ForgeWindowTab.cs:92		E					
+锻造	ForgeWindowTab	GetAllForgeEvents()	ForgeWindowTab.cs:431		E					
+锻造	ForgeWindowTab	GetForgeEventByArmy(CardArmy typeFilter)	ForgeWindowTab.cs:376		E					
+锻造	ForgeWindowTab	GetForgeItem(int index)	ForgeWindowTab.cs:185		E					
+锻造	ForgeWindowTab	GiveForgePointsButtonOnClick()	ForgeWindowTab.cs:473		E					
+锻造	ForgeWindowTab	HandleSetForgeLevel()	ForgeWindowTab.cs:483		E					
+锻造	ForgeWindowTab	OnClose()	ForgeWindowTab.cs:305		E					
+锻造	ForgeWindowTab	OnOpen()	ForgeWindowTab.cs:195		E					
+锻造	ForgeWindowTab	Refresh()	ForgeWindowTab.cs:442		E					
+锻造	ForgeWindowTab	RefreshLevel()	ForgeWindowTab.cs:169		E					
+锻造	ForgeWindowTab	SelectArmy(CardArmy selectedArmy)	ForgeWindowTab.cs:104		E					
+锻造	UpgradeForgeLevel	OnInitialize()	UpgradeForgeLevel.cs:53		E					
+锻造	UpgradeForgeLevel	OnReset()	UpgradeForgeLevel.cs:141		E					
+锻造	UpgradeForgeLevel	OnTrigger(UpgradeForgeSignal obj)	UpgradeForgeLevel.cs:147		E					
+锻造	UpgradeForgeLevel	_003COnInitialize_003Eb__5_0(Forge x)	UpgradeForgeLevel.cs:166		E					

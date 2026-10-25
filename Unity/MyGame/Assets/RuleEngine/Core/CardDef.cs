@@ -135,6 +135,80 @@ namespace RuleEngine
         /// （原版 `EntityScript__HasSecretOrders.c:31` 读的就是附魔卡这一格 = 60）。</para></summary>
         public int SpellType { get; private set; } = -1;
 
+        /// <summary>
+        /// 原版 `PlayerItem.expansionPack`（`CardExpansionType` 枚举，`PlayerItem.cs:8/77`）。
+        /// 🆕 **2026-10-25（完全复刻 · 执行代理 A · 收藏域代理 `C` 的改动请求 ②）** 新加。
+        ///
+        /// <para>**判据（第一权威，现读）**：原版**唯一的运行期读取点** =
+        /// `CardNameFilter.CheckInputTextSearch`（`CardNameFilter.cs:132-142`）：
+        /// <code>
+        ///   if (((PlayerItem)card).expansionPack != CardExpansionType.Default) {
+        ///       string s = ((Enum)expansionPack).ToString().ToLower();   // ← 枚举**成员名**
+        ///       … 文本包含匹配 …
+        ///   }
+        /// </code>
+        /// ⇒ **收藏页的「名字」搜索框**除了卡名 / 卡牌描述，还会拿**资料片的枚举成员名**
+        /// （小写，例如 `leviathandrop1` / `noexpansion`）去做包含匹配；`Default(0)` **不参与**。</para>
+        ///
+        /// <para>`CardExpansionType` 全表（`CardExpansionType.cs` 现读）：
+        /// `Default=0 · NoExpansion=5 · LeviathanDrop1=10 · GoffDrop1=15 · BlackLegionDrop1=20 ·
+        /// TauDrop1=25 · UltramarinesDrop1=30 · SautekhDrop1=35 · SaimHannDrop1=40 ·
+        /// GenestalerCultsDrop1=45 · SororitasDrop1=50 · UltraMarinesDrop2=55 · AstraMilitarumDrop1=60 ·
+        /// OrksExpansion1=65 · SaimHannDrop2=70 · UltramarinesExpansion1=75 · DarkAngelsDrop1=80`。</para>
+        ///
+        /// <para>`-1` = **未知**（旧表 / 调用方没给）—— ⛔ 别当成 `Default(0)`：
+        /// 两者的搜索行为**恰好相同**（都不参与匹配），但「未知」不该被当成「原版说了没有」。
+        /// ⚠️ 现读卡池 1128 张的分布：`0`×897 · `75`×38 · `65`×37 · 其余 12~13 张各一档 · `5`×1。</para></summary>
+        public int Expansion { get; private set; } = -1;
+
+        /// <summary>
+        /// 原版 `RawCardScript.cantBeRandomlyCreated`（`RawCardScript.cs` 的公开 bool 字段）——
+        /// 「这张卡不能被随机生成」。🆕 **2026-10-25（完全复刻 · 执行代理 A · 账 2b）** 新加。
+        ///
+        /// <para>**判据（第一权威，现读）**：原版**唯一**的运行期读取点 =
+        /// `AbilityLogic.GetTargets`（`AbilityLogic.cs:723-…`）的 `targetsAffected == choiceResolution`
+        /// 分支 —— `filterSpecificCards` 为空时**回落全卡池**，逐张：
+        /// `CheckIfRawCardMeetsCriteria(...) ∧ !rawCard.cantBeRandomlyCreated ∧ !rawCard.IsHidden()`
+        /// ⇒ 三条闸缺一不可（`grep -rln cantBeRandomlyCreated` 全量反编译只命中 `AbilityLogic` + 定义）。</para>
+        ///
+        /// <para>📊 **可达性**：现读卡池 **1128 张里 167 张 = 1** ⇒ 这个闸一旦挂上就真的会筛人。</para>
+        /// </summary>
+        public bool CantBeRandomlyCreated { get; private set; }
+
+        /// <summary>
+        /// 资料片的**枚举成员名**（小写），给「名字搜索」用 —— 与 `CardNameFilter.cs:140` 那句
+        /// `((Enum)expansionPack).ToString().ToLower()` 逐字同义。
+        /// `Expansion &lt;= 0`（未知 / Default）⇒ 返回 `null`（原版那一支不参与匹配）。
+        /// ⚠️ 认不出的值 ⇒ 返回 `null` 且由调用方**出声**（别静默当默认）—— 原版那是一个真枚举，
+        /// 认不出只可能是我们的表比原版新（`CardExpansionType` 加了成员而我们没跟）。
+        /// </summary>
+        public string ExpansionSearchName
+        {
+            get
+            {
+                switch (Expansion)
+                {
+                    case 5:  return "noexpansion";
+                    case 10: return "leviathandrop1";
+                    case 15: return "goffdrop1";
+                    case 20: return "blacklegiondrop1";
+                    case 25: return "taudrop1";
+                    case 30: return "ultramarinesdrop1";
+                    case 35: return "sautekhdrop1";
+                    case 40: return "saimhanndrop1";
+                    case 45: return "genestalercultsdrop1";
+                    case 50: return "sororitasdrop1";
+                    case 55: return "ultramarinesdrop2";
+                    case 60: return "astramilitarumdrop1";
+                    case 65: return "orksexpansion1";
+                    case 70: return "saimhanndrop2";
+                    case 75: return "ultramarinesexpansion1";
+                    case 80: return "darkangelsdrop1";
+                    default: return null;      // `0` = Default（原版不参与）/ `-1` = 未知
+                }
+            }
+        }
+
         // ==================================================================
         //  🆕 v21（2026-10-24 · 引擎线 `A20` · 第三批 ①/②）：
         //  主动能力的**分支闸 / 装填位 / 任务位**
@@ -248,6 +322,20 @@ namespace RuleEngine
         /// 把卡级 `role="cardtarget"` 那一条条件行落成 op 的 `TargetCondition`
         /// （= 原版 `IsValidTarget` 的 `cardTargetCriteria` 那一道）。</para></summary>
         public int Targeted { get; private set; } = -1;
+
+        /// <summary>🆕 2026-10-25（P3 · 账里 3 条 C）：原版 `RawCardScript.specialAttackScoringCriteria`
+        /// （**bool**，`+0x2F8`，`dump.cs:23358`）。
+        ///
+        /// <para>**语义**：这张卡的攻击**走自己的 `ScoringCriteria` 打分**（而不是通用的
+        /// 「伤害/价值」那套）。原版唯一判据口 = `CardScript.HasSpecialAttackScoring()`
+        /// （= 这一位 **∧ 当前不带 `jam`**，`decomp_full/CardScript__HasSpecialAttackScoring.c`）；
+        /// 消费点两处（都在 AI）：`AI.SelectBestAction` 的「`endTurn` 平手例外」里作为**排除项**
+        /// （`AI.cs:702`）、`AI.IsBetterAction` 同一形状（`AI.cs:822`）。</para>
+        ///
+        /// <para>🔴 **真值现读 1,351 张全 `0`**（`cards_raw.json` 的 `full_raw` 逐个读；
+        /// 与 `资料/普查产出_1018/AUD_T06_AI评分口径.md` §二 同结论）⇒ 本列今天**无可观测差异**，
+        /// 只是把「原版有这一维」带进卡表，将来数据出现时自动生效。</para></summary>
+        public bool SpecialAttackScoring { get; private set; }
 
         /// <summary>这张卡是不是来自**原版卡池**（`cards_engine.json`，由
         /// <see cref="CardDatabase.Parse"/> 置 true）。我们自己设计的那 26 张是 false。
@@ -898,11 +986,32 @@ namespace RuleEngine
                        //   ⚠️ 与 `abilityLevelCriteriaVersioned` **不是一个版本位**：那一列 v26 就有、
                        //   这一格 v29 才有 ⇒ 两张表都可能「有行但没 `ca`」，⛔ 别合并
                        //   （合并会让旧表被读成「家族判不了」而其实连行都没有）。
-                       bool abilityLevelCriteriaFamilyVersioned = false)
+                       bool abilityLevelCriteriaFamilyVersioned = false,
+                       // 🆕 2026-10-25（完全复刻 · 执行代理 A · 收藏域代理 `C` 的改动请求 ②）：
+                       //   原版 `PlayerItem.expansionPack`（`CardExpansionType` 枚举）。语义 / 判据 /
+                       //   消费点 → <see cref="Expansion"/> 属性的 doc（⛔ 别在这里抄第二份）。
+                       //   `-1` = 未知（旧表没这一列 / 调用方没给）—— ⛔ 别当成 `Default(0)`。
+                       //   ⚠️ **追加在参数表末尾**（同前几条：全仓有位置传参的老调用点）。
+                       int expansion = -1,
+                       // 🆕 2026-10-25（账 2b）：原版 `RawCardScript.cantBeRandomlyCreated`。
+                       //   语义 / 判据 / 消费点 → <see cref="CantBeRandomlyCreated"/> 的 doc。
+                       bool cantBeRandomlyCreated = false,
+                       // 🆕 2026-10-25（P3 · 账里 3 条 C）：原版 `RawCardScript.specialAttackScoringCriteria`
+                       //   （**bool**，`+0x2F8`，`dump.cs:23358`）。语义 / 消费点 → <see cref="SpecialAttackScoring"/>。
+                       //   真值现读 1,351 张**全 0**（`cards_raw.json` 的 `full_raw` 逐个读；与 `AUD_T06` §二 同结论）
+                       //   ⇒ 本列今天**不改变任何行为**，只把这一维带进卡表。`0` 是合法取值（「不带」），
+                       //   ⛔ 不设 `-1` 未知档（它是 bool，没有第三种状态）。
+                       //   ⚠️ **追加在参数表末尾**（同前几条：全仓有位置传参的老调用点）。
+                       int specialAttackScoring = 0)
         {
             Id = id; Name = name; Type = type ?? ""; Desc = desc ?? ""; Rarity = rarity; Faction = faction;
             NameZh = nameZh ?? ""; DescZh = descZh ?? "";
             Subtype = subtype ?? "";
+            // 🆕 2026-10-25（同 ②）：原版 `expansionPack` 原样收下（`-1` = 未知）。
+            Expansion = expansion;
+            CantBeRandomlyCreated = cantBeRandomlyCreated;
+            // 🆕 2026-10-25（P3）：原版 `specialAttackScoringCriteria`（bool）—— 原样收下。
+            SpecialAttackScoring = specialAttackScoring != 0;
             // 🆕 v19（2026-10-23 · `新账-97`）：原版 `spellType` 原样收下（`-1` = 未知，⛔ 不是 Normal）。
             SpellType = spellType;
             // 🆕 v21（2026-10-24 · 引擎线 `A20`）：主动能力闸六列 —— **原样收下**
@@ -6508,6 +6617,29 @@ namespace RuleEngine
         /// <summary>黑暗契约：可带变体（`of blood` / `of excess` / `of fate` / `of resilience`），
         /// 四种效果不同 —— 变体记在载荷里，见 <see cref="GivePayload"/> 的 `Variant`</summary>
         public const string DarkPact = "darkpact";
+
+        /// <summary>
+        /// 🆕 **2026-10-25（完全复刻 · `K7` · 执行代理 N11）：混沌印记** ——
+        /// 原版 `DefinedTrait.markOfChaos = **330**`（`d:/2/Warpforge_code/Scripts/Assembly-CSharp/DefinedTrait.cs:30`）。
+        ///
+        /// <para>**一份印记一层**：原版 `CardScript__AddEffect.c:776-792`（case 8）经
+        /// `Enchantments.GetMarkOfChaos(markOfChaosType)` 取到那张附魔卡、`TriggerEnchantment` 它，
+        /// 而四张 `Mark of X (enchantment)` 的 **500 能力第一条全是 `addTrait(330)`**
+        /// （`cards_truth.json`：Khorne/Nurgle/Slaanesh/Tzeentch 各一条）。
+        /// ⇒ 每落一份印记 +1；`BL48 Skeins of Fate` 的 `for each Dark Pact on it`、
+        /// `Data/AiTargets.cs:1029`（`case 330 → "markofchaos"`）都读它。</para>
+        ///
+        /// <para>🔴 **⛔ 千万别放进下面的 `Implemented`**：330 **没有「每关键词一条机制」** ——
+        /// 它只是个**计数/标记**（`HasCurrentTrait(330)` 的世界里，它既不免伤也不触发任何东西）。
+        /// 放进 `Implemented` 会让「本版会不会结算它」那张表撒谎，而且
+        /// `CardPresentation/Battle/BattleDriver.cs:27102/27111` 正是**按 `Implemented` 过滤关键词外观**的
+        /// ⇒ 战斗界面会给每张带印记的卡渲染一个**假徽章**（330 在原版是隐藏 trait，不印在卡面）。</para>
+        ///
+        /// <para>⚠️ 与 <see cref="DarkPact"/> 的关系：`darkpact` 是**我们的层数代理**（`CountFor` 的
+        /// `darkpact` 分支读 `KwValue`）；`markofchaos` 是**原版的真表示**。两者**每份印记同时 +1**
+        /// （写点只一处：`EffectResolver.ApplyMarkBody`）。</para>
+        /// </summary>
+        public const string MarkOfChaos = "markofchaos";
 
         // ---- 2026-09-12 新增：触发类 + 主动技能（都靠 `EffectSpec` 那个封闭文法结算）----
         //

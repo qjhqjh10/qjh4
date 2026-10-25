@@ -1038,6 +1038,209 @@ public static class MainMenuScene
                          + "（⛔ 不是零颗、也不是六颗一起亮 —— 全亮是原版的【出厂】态，不是运行期该有的样子）");
         }
 
+        // ============================================================ ★ 红点计数行 `OneText` 的结构（🆕 2026-10-25 · 代理 H）
+        //
+        // 判据：原版 `OneText` 是 `Badge Highlight` 的**子件**（`arena2` 同族 35×35 · ap (0,−0.94) ·
+        //       fs34 / auto[18,34] / base36 / 白 / 居中），而我们建在**导航钮下、与红点平级**（同一矩形
+        //       ⇒ 画面等价；理由与「⛔ 别照着原版改回子件而不改坐标」写在 `Shell/BadgeNotifications.cs`
+        //       的 `BadgeWiring.Attach` doc 里）。
+        // 🔴 **本条断的是「字的世界中心 == 红点的世界中心」**（±0.01 世界单位 ≈ ±1px）——它同时挡住两种改坏法：
+        //   ① 有人照原版层级把 `OneText` 挂到 `Badge Highlight` 下、却仍按页面坐标写 `localPosition`
+        //      ⇒ 字整体再偏一个红点中心 ⇒ 红；
+        //   ② 有人把矩形改成别的（比如按 35×35 里再内缩）⇒ 中心挪 ⇒ 红。
+        // ⚠️ 期望值**不读我们的常量**：两个中心都是当场从**节点世界坐标**量的（红点是被测件、字也是被测件，
+        //    但两者**必须重合**是原版的结构关系，不是我们从源码抄来的数）。
+        Section("★ 红点计数行 `OneText`（与红点**同心**；我们按平级建，原版是子件 —— 见 Attach 的 doc）");
+        {
+            var badgeNav = new[] { "Main Menu Navigation Button - Home", "Main Menu Navigation Button - Collection",
+                                   "Main Menu Navigation Button - Shop", "Main Menu Navigation Button - Rewards",
+                                   "Main Menu Navigation Button - Social" };
+            int okBadges = 0, seenBadges = 0;
+            for (int i = 0; i < badgeNav.Length; i++)
+            {
+                var navI = menu.Find(badgeNav[i]);
+                var badgeI = FindChild(navI, "Badge Highlight");
+                var oneI = FindChild(navI, "OneText");
+                if (badgeI == null) { CheckTrue(false, $"（前提）`{badgeNav[i]}` 上 `Badge Highlight` 建着"); continue; }
+                seenBadges++;
+                CheckTrue(oneI != null,
+                          $"★ `{badgeNav[i]}` 上有计数行 **`OneText`**（原版那一件；我们建在导航钮下、与红点平级）");
+                if (oneI == null) continue;
+                // 结构：父级必须仍是导航钮（⛔ 不是 Badge Highlight —— 见上面两条改坏法）
+                CheckTrue(oneI.parent == navI,
+                          $"★ `{badgeNav[i]}/OneText` 的父级 = **导航钮**（我们的结构；⛔ 别照原版改成红点的子件"
+                        + " 而不同步坐标 —— 那会让字再偏一个红点中心）");
+                float d = Vector3.Distance(oneI.position, badgeI.position);
+                CheckTrue(d <= 0.01f,
+                          $"★ `{badgeNav[i]}` 的 `OneText` 与 `Badge Highlight` **同心**（世界坐标差 {d:F4} 单位"
+                        + $" = {d * 108f:F2}px；原版字是红点的子件、ap(0,−0.94) ⇒ 两者本就同心）");
+                if (d <= 0.01f && oneI.parent == navI) okBadges++;
+            }
+            Check(seenBadges, badgeNav.Length, "（前提）五颗导航的红点节点都建出来了（含隐藏的那三颗）");
+            Check(okBadges, badgeNav.Length, "★ 五颗导航的计数行**全部**满足「父级=导航钮 + 与红点同心」"
+                                           + "（改回子件不改坐标 / 改矩形 ⇒ 这里必红）");
+        }
+
+        // ============================================================ ★ 顶栏资源数字要跟着 `Wallet` 刷（🆕 2026-10-25 · 代理 H · P1）
+        //
+        // 缺陷（本轮修）：顶栏那几格资源数字原来只在 `Build` 时写一次，而全工程**唯一发奖口**是
+        //   `Wallet.Grant`（`Shell/DailyData.cs:2200`）⇒ 领奖/购买之后**数字停在旧值**直到整壳重建。
+        // 修法：`TopBar.RefreshCountersIfChanged`（只重写文字、变了才写）+ `MainMenuRuntime.Update` 每帧调。
+        // 判据：原版 `ResourcesBarController.OnCurrencyChange` / `OnCampaignPointChange` 是事件驱动刷新
+        //   （`ResourcesBarController.cs:222/235`）。
+        // 🔴 **本条走生产唯一发奖口 `Wallet.Grant`**（⛔ 不直接改字典 —— 那会把「发奖口只有一处」这条也一起绕掉）。
+        //   自检改的账**当场还回去**（同一进程后面的用例共用 Wallet）。
+        // 灭自证：把 `RefreshCountersIfChanged` 改成空方法 ⇒「领 +7 后变了」必红；只改 `Shown` 不写 Label ⇒ 同上；
+        //        不还账 ⇒ 最后一条「复原」必红。
+        Section("★ 顶栏资源数字跟着 Wallet 刷（H · P1：原来领奖/购买后停在旧值）");
+        {
+            var parts = TopBar.LastBuilt;
+            CheckTrue(parts != null && parts.Counters != null && parts.Counters.Count > 0,
+                      "（前提）顶栏资源计数**至少一格**（`TopBar.LastBuilt.Counters`）");
+            TopBar.Parts.CounterRef cr = null;
+            if (parts != null && parts.Counters != null)
+                for (int i = 0; i < parts.Counters.Count; i++)
+                {
+                    var c0 = parts.Counters[i];
+                    if (c0 != null && c0.Spec != null && !string.IsNullOrEmpty(c0.Spec.WalletKey) && c0.Label != null)
+                    { cr = c0; break; }
+                }
+            CheckTrue(cr != null, "（前提）至少一格带 `WalletKey`（有记账键才验得了刷新）");
+            if (cr != null)
+            {
+                string key = cr.Spec.WalletKey;
+                string before = cr.Label.Text;
+                int old = Wallet.Of(key);
+                Wallet.Grant(key, 7);                                  // ← 生产唯一发奖口
+                menu.RefreshTopBarCountersIfChanged();                 // ← 生产每一次 Update 都会调的那个口
+                string after = cr.Label.Text;
+                CheckTrue(after != before,
+                          $"★ 领 +7 之后顶栏那一格**变了**（前「{before}」→ 后「{after}」）");
+                CheckTrue(after == MainMenuRuntime.CounterText(Wallet.Of(key), MainMenuRuntime.MaxOf(cr.Spec.Currency)),
+                          "★ 印出来的串 = `CounterText(Of(key), MaxOf(currency))`（不是随手拼的）");
+                Wallet.Gold[key] = old;                                // 还账（自检不留脏）
+                menu.RefreshTopBarCountersIfChanged();
+                CheckTrue(cr.Label.Text == before, "★ 复原之后顶栏回到原串（自检没有留脏账）");
+
+                // 🆕 2026-10-25（菜单 C 第一条）：**数字滚动**的算式（原版 `SetQuantity(..., animated=1)`：
+                //   0.5 s 内从当前值推到目标值、每次 `ceil` 写文本 —— `UIResourceCounter__SetQuantity.c` + b__0/b__1）。
+                // ⚠️ 批处理 `Application.isPlaying == false` ⇒ 生产刷新走「直落」；这里**直接驱动 StepCounters**
+                //   验补间算式（与 `UiBadgeNotification.Step` 同口径）。
+                cr.From = 10; cr.Target = 30; cr.Value = 10; cr.T = 0f; cr.Animating = true;
+                TopBar.StepCounters(parts, 0.25f);                     // t = 0.25s / 0.5s ⇒ 半程
+                int mid = Mathf.CeilToInt(Mathf.Lerp(10f, 30f, 0.5f));
+                Check(cr.Label.Text,
+                      MainMenuRuntime.CounterText(mid, MainMenuRuntime.MaxOf(cr.Spec.Currency)),
+                      $"★ 滚到半程 = `ceil(10 + (30−10)×0.5)` = {mid}（🧨 不滚动/直接跳终值 ⇒ 红）");
+                TopBar.StepCounters(parts, 0.25f);                     // 第二段 ⇒ 到点
+                Check(cr.Label.Text,
+                      MainMenuRuntime.CounterText(30, MainMenuRuntime.MaxOf(cr.Spec.Currency)),
+                      "★ 0.5 s 到点 ⇒ 终值");
+                CheckTrue(!cr.Animating, "★ 到点**自己停**（下一帧不再滚）");
+                // 还原这一格（后面截图/其他断言看的是真账）
+                cr.Value = old; cr.Target = old; cr.From = old; cr.T = 0f; cr.Animating = false;
+                cr.Shown = before; cr.Label.SetText(before);
+            }
+        }
+
+        // ============================================================ 🆕 2026-10-25（菜单 C）：`ToggleScroll`
+        // 判据：`MainMenuWindow__ToggleScroll.c` = `scrollList.enabled = option`（教程 `TutorialStagePlayRanked`
+        //   在 ShowCursor/CheckForCompletion 两处调它）。我们的等价物 = `MenuScroll.Enabled`，
+        //   由 `PointerLayer.HitScroll` / `TickAt` 读（关掉后不吃指针、不推进惯性）。
+        Section("★ 主菜单滚动开关（原版 `MainMenuWindow.ToggleScroll`）");
+        {
+            var ms = menu.ModeScroll;
+            CheckTrue(ms != null, "（前提）主菜单横向滚动区在（`menu.ModeScroll`）");
+            if (ms != null)
+            {
+                CheckTrue(ms.Enabled, "（前提）默认**可滚**");
+                var pl = PointerLayer.Instance;
+                float cx = (ms.Viewport.x1 + ms.Viewport.x2) * 0.5f;
+                float cy = (ms.Viewport.y1 + ms.Viewport.y2) * 0.5f;
+                menu.ToggleScroll(false);
+                CheckTrue(!menu.ScrollEnabledForTest, "★ `ToggleScroll(false)` ⇒ `MenuScroll.Enabled = false`");
+                CheckTrue(pl == null || pl.ScrollUnder(cx, cy) != ms,
+                          "★ 关掉后**命中判定跳过它**（🧨 只看登记表、不看 Enabled ⇒ 这里仍是它 ⇒ 红）");
+                menu.ToggleScroll(true);
+                CheckTrue(menu.ScrollEnabledForTest, "★ 开回来 ⇒ 恢复可滚");
+                CheckTrue(pl == null || pl.ScrollUnder(cx, cy) == ms,
+                          "★ 开回来**立刻又能命中**（登记没被注销）");
+            }
+        }
+
+        // ============================================================ ★ 页签红点：Campaign 那颗（🆕 2026-10-25 · 代理 H · 第 2 轮）
+        //
+        // 判据（逐份现读 `bundle_menus_assets_all`，父链 `…/Content Area/Tab Buttons/<键>`）：
+        //   · `CampaignRewardsButton` 的 `Badge Highlight`（`MonoBehaviour_-287428095701543169.json`）挂
+        //     **`CampaignBadge`（useFilter=0）+ `MissionsBadge`（useFilter=1 · filter.parentId = "CampaignMission"）**
+        //     （同 MB 的 `references.RefIds` 里就是这两个预设：`{parentId:"",army:0}` / `{parentId:"CampaignMission"}`）；
+        //   · `MissionsRewardsButton` → `MissionsBadge` · `Forge Button` → `ForgeBadge` ·
+        //     `Friends Tab Button` → `FriendsBadge` · `Alliances Tab Button` → `AlliancesNotificationBadge`。
+        // 缺陷（本轮修）：我们四扇窗的左栏键**一颗红点都没挂**（`res.badge[idx]` 建出来 alpha 恒 0、
+        //   全仓零处刷新）⇒ Campaign 那颗**永远不亮**。现在接 `BadgeWiring.Attach` + `DefinitionsForTab`。
+        // 灭自证：把 `DefinitionsForTab("RewardsMenu_CampaignButton")` 改成空表 ⇒ 第一条红；
+        //        把 filter.parentId 改掉 ⇒ 第二条红；把 Campaign 的 provider 注销 ⇒ 第三条红。
+        Section("★ 页签红点定义（Campaign 那颗：`CampaignBadge` + `MissionsBadge{parentId=CampaignMission}`）");
+        {
+            var campDefs = BadgeWiring.DefinitionsForTab("RewardsMenu_CampaignButton");
+            Check(campDefs != null ? campDefs.Count : -1, 2,
+                  "★ `CampaignRewardsButton` 的红点定义 = **2 条**（CampaignBadge + MissionsBadge）");
+            if (campDefs != null && campDefs.Count == 2)
+            {
+                CheckTrue(campDefs[0] != null && campDefs[0].Type == typeof(CampaignBadge)
+                       && !campDefs[0].useFilter,
+                          "★ 第 1 条 = `CampaignBadge`、**无过滤**（= 原版 `useFilter 0`）");
+                CheckTrue(campDefs[1] != null && campDefs[1].Type == typeof(MissionsBadge)
+                       && campDefs[1].useFilter
+                       && campDefs[1].filterCriteria is MissionsBadge
+                       && ((MissionsBadge)campDefs[1].filterCriteria).parentId == "CampaignMission",
+                          "★ 第 2 条 = `MissionsBadge`、**useFilter=1**、`parentId = \"CampaignMission\"`"
+                        + "（原版 `references.RefIds` 里的预设就是它）");
+            }
+            // 其余四类：定义在、但本地无源（⛔ 不登记假 provider）
+            Check(BadgeWiring.DefinitionsForTab("RewardsMenu_MissionsButton").Count, 1,
+                  "★ `MissionsRewardsButton` = 1 条（`MissionsBadge`）");
+            Check(BadgeWiring.DefinitionsForTab("RewardsMenu_ForgeButton").Count, 1,
+                  "★ `Forge Button` = 1 条（`ForgeBadge`）");
+            // Campaign 的 provider 必须**已登记**（否则那颗红点永远不会亮）
+            bool hasCampaignProvider = false;
+            foreach (var pv in UiBadgeNotificationManager.Notifications)
+                if (pv.Key == typeof(CampaignBadge)) { hasCampaignProvider = true; break; }
+            CheckTrue(hasCampaignProvider,
+                      "★ `UiBadgeNotificationManager` 里有 **`CampaignBadge` 那一栏**"
+                    + "（= Campaign provider 已登记；注销它 ⇒ 这颗红点永远不亮）");
+            // 数量口径：原版 `CampaignHandler.CheckNotification` 一个战役**只发一条**（不是每可领节点一条）
+            bool anyClaimable = false;
+            if (CampaignData.HasContent(CampaignData.Selected))
+                for (int i = 0; i < CampaignData.NodeCount; i++)
+                    if (CampaignData.Claimable(i)) { anyClaimable = true; break; }
+            int campCount = UiBadgeNotificationManager.GetCount(campDefs);
+            Check(campCount, anyClaimable ? 1 : 0,
+                  "★ Campaign 红点计数 = " + (anyClaimable ? "1（当前有可领节点；原版一战役只发一条）" : "0（当前没有可领节点）"));
+        }
+
+        // ============================================================ ★ 锻造红点（🆕 2026-10-25 · 代理 H · 锻造账）
+        //
+        // 判据：原版 `ForgeHandler.CheckNotification`（`Everguild.LiveOps/ForgeHandler.cs:486` +
+        //   `b__9_0`）= `allForge.SelectMany(f => Repeat(new ForgeBadge(f.GetArmy()), f.GetRewardsToCollect().Count()))`
+        //   ⇒ **一个可领奖励 = 一条 ForgeBadge**（计数 = 全部阵营可领奖励总数）。
+        // 缺陷（本轮修）：`ForgeBadge` 类早就有、**0 个消费者**（`Forge Button` 的 Badge Highlight 没挂定义）⇒ 永不亮。
+        // 灭自证：注销 `ForgeNotificationProvider` ⇒ 第一条红；把 provider 改成「每阵营一条」⇒ 第二条红（计数不等）。
+        Section("★ 锻造红点（ForgeBadge：计数 = 全部阵营可领奖励总数）");
+        {
+            var forgeDefs = BadgeWiring.DefinitionsForTab("RewardsMenu_ForgeButton");
+            Check(forgeDefs != null ? forgeDefs.Count : -1, 1,
+                  "★ `Forge Button` 的红点定义 = 1 条（`ForgeBadge`；判据 `MonoBehaviour_8050322982303438591.json`）");
+            int expect = 0;
+            for (int a = 0; a < ForgeData.Armies.Length; a++)
+                for (int lv = 0; lv < ForgeData.MaxLevel; lv++)
+                    if (ForgeData.StateAt(ForgeData.Armies[a], lv) == ForgeData.ToCollect) expect++;
+            int got = UiBadgeNotificationManager.GetCount(forgeDefs);
+            Check(got, expect,
+                  "★ 锻造红点计数 = **全部阵营可领奖励总数**（当场按 `ForgeData.StateAt == ToCollect` 独立数一遍 = "
+                + expect + "；原版 `Repeat(…, GetRewardsToCollect().Count())` 同一口径）");
+        }
+
         // ============================================================ 🆕 **2026-10-12：用户真机点名的三件**
         // （`A1638` 左竖导航「点亮第 i 颗」的共用口 · `A1637` 等级徽章的图 · `A1639` 聊天预览出厂关）
         // 🔴 **三条都断【状态】**（`activeSelf` / 贴图名 / 那个布尔口）——
@@ -15494,11 +15697,18 @@ public static class MainMenuScene
             DailyData.ForceDailyProgressForTest(0, 45);                      // 第 0 条到顶（45/45 ⇒ 可领取）
             DailyData.ForceSkullsCountForTest(9);                            // 每日骷髅计数 9
             DailyData.ForceLoginStateForTest(DailyData.State.Claimed);       // 登录卡**今天已领过**
+            // 🔴 **2026-10-25（N17）：红点口径已改成【四张卡】—— 本条文案同步，条件不变。**
+            //   期望值依据 = ①原版 `Missions.CheckNotification()` 遍历**全部** mission、逐条 `CanCollect()`
+            //   （`Missions.cs` 的 `OfType<IMission>() → SelectMany(...) → Repeat(badge, n)`）；
+            //   ②本地四张卡的谓词 = `DailyData.CanCollectDaily/Weekly/Skulls/Login`，统一收在
+            //   `DailyData.CollectableMissionCount()`（`RewardsHasBadge` 与红点 provider **共用这一份**）。
+            //   本条只负责「造出可分辨的态」：三条每日里恰有一条可领 ⇒ 新旧口径下都成立。
             CheckTrue(DailyData.DailyProgressValue(0) == 45
                       && DailyData.DailyState(0) == DailyData.State.Collectable
                       && DailyData.SkullsCountValue() == 9
                       && !DailyData.CanCollectLogin() && DailyData.RewardsHasBadge,
-                      "…造态：三条每日任务里有可领取的（顶栏红点亮的那个判据）· 骷髅计数 9 · 登录卡「今天已领过」"
+                      "…造态：三条每日任务里有可领取的（顶栏红点的判据 = `CollectableMissionCount() > 0`，"
+                      + "**四张卡都算**）· 骷髅计数 9 · 登录卡「今天已领过」"
                       + "（**造不出来 ⇒ 下面那几条等于没验**）");
 
             DailyData.ForceNextResetForTest(System.DateTime.Now.AddMinutes(-1));   // 过去 ⇒ 跨天了
@@ -15508,7 +15718,16 @@ public static class MainMenuScene
                   "…而且回到**未领取**那一态（原版的「换一份新的 mission persistence」）");
             Check(DailyData.SkullsCountValue(), 0, "★ …每日骷髅计数清空（9 → 0）—— 原版**唯一**登记了那个信号的那个");
             CheckTrue(DailyData.CanCollectLogin(), "★ …登录卡的**当天领取态**清掉（「今天已领过」→ 又能领了）");
-            Check(DailyData.RewardsHasBadge, false, "…顶栏红点跟着灭（它读的就是那三条的「可领取」态）");
+            // 🔴 **2026-10-25（N17）：这条从「期望 false」改成「期望 true」—— 旧期望是【错的口径】，不是新实现错了。**
+            //   为什么旧期望错：上一行刚断过「重置后 `CanCollectLogin()` 为真」；而原版 `Missions.CheckNotification()`
+            //   是**遍历全部 mission 逐条发 badge** ⇒ 「今天还没领」的 `DailyLoginChallenge` **本来就该让红点亮**。
+            //   旧断言只数三条每日（`CanCollectDaily(i)` 一个循环），才得出「重置后红点应当灭」。
+            //   期望值依据 = ①`Missions.cs` 的 `OfType<IMission>() → SelectMany(...) → Repeat(badge, n)`；
+            //   ②本地唯一计数口 `DailyData.CollectableMissionCount()`（`DailyData.cs` 里
+            //   `RewardsHasBadge = CollectableMissionCount() > 0` 与 `BadgeNotifications.RewardsNotificationProvider` 共用）。
+            Check(DailyData.RewardsHasBadge, true,
+                  "…顶栏红点**仍然亮**：登录卡可领（`CanCollectLogin()` 上一行刚断过 = true；原版那条登录挑战"
+                  + "在「今天还没领」时就是可领的）· 周常/骷髅若别处已推到可领也一并算");
             Check(DailyData.DailyResetCount, a384n0 + 1, "★ …计数器 +1（差分：基线 → 基线+1）");
             CheckTrue(!string.IsNullOrEmpty(DailyData.LastResetMessage),
                       "★ …而且**出声了**（`LastResetMessage` 非空 —— 跨天却不打日志 = 静默失败，本工程红线）");
@@ -15522,6 +15741,39 @@ public static class MainMenuScene
             DailyData.ForceSkullsStateForTest(DailyData.State.InProgress);
             DailyData.ForceLoginStateForTest(DailyData.State.InProgress);
             DailyData.ForceNextResetForTest(System.DateTime.Now.Date.AddDays(1));   // 「今天已经重置过」
+
+            // ============================================================ 🆕 2026-10-25（N17）四卡红点口径 · **灭自证**
+            //
+            // 🔴 **为什么要有这一段**：上面 ③ 的断言在「新旧口径」下都成立（每日恰有一条可领）⇒ 它**分不出**
+            //   「只数三条每日」和「四卡都数」。这一段把每日全部摆成**不可领**、只让周常/骷髅/登录可领：
+            //   `CollectableMissionCount()` 必须**恰好 3**。
+            //   期望值依据 = 原版 `Missions.CheckNotification()`（`Missions.cs`：`OfType<IMission>() →
+            //   SelectMany(...) → Repeat(badge, n)` —— **每条可领 mission 都算一条 badge**）。
+            //   🧨 改坏法：把 `DailyData.CollectableMissionCount()` 里 `Weekly/Skulls/Login` 任意一条删掉 ⇒ 得 2 ⇒ 红；
+            //     把 `RewardsHasBadge` 改回「只数每日」⇒ 得 0 ⇒ 红。
+            {
+                // 先记原态（本段必须**原样还原** —— 后面的节不许吃到这里摆的态）
+                int skc0 = DailyData.SkullsCountValue();
+                bool sk0 = DailyData.CanCollectSkulls(), skClaim0 = DailyData.SkullsClaimed();
+                bool wk0 = DailyData.CanCollectWeekly(), wkClaim0 = DailyData.WeeklyClaimed();
+                bool lg0 = DailyData.CanCollectLogin();
+
+                DailyData.ForceSkullsCountForTest(3);                            // 第 1 档阈值 = 3（`_skullsSteps[0]`）
+                DailyData.ForceSkullsStateForTest(DailyData.State.Collectable);
+                DailyData.ForceWeeklyStateForTest(DailyData.State.Collectable);
+                DailyData.ForceLoginStateForTest(DailyData.State.InProgress);    // 单机口径：没领过 = 可领
+                Check(DailyData.CollectableMissionCount(), 3,
+                      "★ 四卡口径：每日 0 + 周常 1 + 骷髅 1 + 登录 1 = **3**（判据 = 原版 `Missions.CheckNotification`）");
+                Check(DailyData.RewardsHasBadge, true, "…红点 = `CollectableMissionCount() > 0`（同一份布尔）");
+
+                // 还原（逐条回到本段起点）
+                DailyData.ForceSkullsCountForTest(skc0);
+                DailyData.ForceSkullsStateForTest(skClaim0 ? DailyData.State.Claimed
+                                                 : sk0 ? DailyData.State.Collectable : DailyData.State.InProgress);
+                DailyData.ForceWeeklyStateForTest(wkClaim0 ? DailyData.State.Claimed
+                                                 : wk0 ? DailyData.State.Collectable : DailyData.State.InProgress);
+                DailyData.ForceLoginStateForTest(lg0 ? DailyData.State.InProgress : DailyData.State.Claimed);
+            }
         }
 
         // ============================================================ 🆕 2026-10-13（A429）每日状态**落盘**（跨重启保持）

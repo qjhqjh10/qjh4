@@ -787,7 +787,7 @@ namespace CardPresentation
             string want = ModeClassWanted(f);
             if (want == null || want != ModeClassOf(mode)) return 0;
             if (f.onlyAccountWins == 1 && !won) return 0;
-            if (f.anyArmy == 0 && f.army != 0)
+            if (f.anyArmy == 0 && !ArmyIcons.IsNeutral(f.army))
             {
                 string wantFaction = TargetCriteriaEval.FactionOfArmy(f.army);
                 if (wantFaction == null) return 0;                       // 认不出阵营 id ⇒ 不写（⛔ 不猜）
@@ -821,7 +821,7 @@ namespace CardPresentation
                 var f = FiltersOf(a);
                 if (f == null) continue;
                 if (f.anyTier != 1 && f.tier + 1 != levelAfter) continue;
-                if (f.anyArmy == 1 || f.army == 0)
+                if (f.anyArmy == 1 || ArmyIcons.IsNeutral(f.army))
                 {
                     if (GainAchievementOutsideMatch(a.Id, 1)) wrote++;
                     continue;
@@ -940,7 +940,7 @@ namespace CardPresentation
             if (army <= 0) return src;
             var r = new List<Item>();
             for (int i = 0; i < src.Count; i++)
-                if (src[i].Army == army || src[i].Army == 0) r.Add(src[i]);
+                if (src[i].Army == army || ArmyIcons.IsNeutral(src[i].Army)) r.Add(src[i]);
             return r;
         }
 

@@ -175,9 +175,10 @@ namespace CardPresentation
         /// `CardTier + 1` 同值 —— 与卡框那一路 `CardArt.Frame(..., tier)` 是**同一个口径**）。
         /// `0`（缺省）= 原版 Tier1 ⇒ **老调用点行为一字不变**。</param>
         /// <para>⚠️ 这里只覆盖**死亡爆散体**那个调用点（`CardFeel.SpawnDeathBody`）；**场上那张 3D 体**
-        /// 的 `_MatCap` 还在 `CardView.BuildBody3D` 里写死 tier1 —— 原版 `SetCardImageTo3DBase`
-        /// 走的是同一个 `GetCardMatCapByCardTier`（`BattleCardUI__SetCardImageTo3DBase.c:58`）
-        /// ⇒ 那一处要改得动 `CardView`（本批白名单外），已如实记进报告。</para>
+        /// 的 `_MatCap` **已按档位取**（2026-10-25 `E`）：`CardView.BuildBody3D` 改成
+        /// `CardArt.Card3DMatcap(CardView.CardTierFor(Data))`，档位与卡框**同一处口径**。
+        /// 判据 = 原版 `SetCardImageTo3DBase` 走同一个 `GetCardMatCapByCardTier`
+        /// （`BattleCardUI__SetCardImageTo3DBase.c:58`）。</para>
         /// </summary>
         public static Texture2D Card3DMatcap(int level = 0)
         {
@@ -760,19 +761,30 @@ namespace CardPresentation
         ///  + `资料/主菜单_原版规格.md` §三① 第 4 条）。
         /// ⇒ **不是一张图、也不是 3D**，是**纯代码渐变** —— 所以这里按同样方式生成，不引入新资产。
         ///
-        /// `angleDeg` 是**屏幕空间角度**（0 = 从左到右，90 = 从下到上）。
+        /// `angleDeg` = **调用点给的角度**（本仓约定：原版 `m_angle` 经 `90 − θ + 180` 换算后的值，
+        /// 例：原版 82 ⇒ 传 188。判据 → `Shell/MainMenuSubmenuWindow` 那段注释）。
         /// ⚠️ 分辨率取 128×128 够用（渐变是线性的，插值不会失真）；生成一次就缓存。
-        /// </summary>
-        public static Texture2D Gradient(Color c1, Color c2, float angleDeg)
+        ///
+        /// 🔴 **2026-10-25（第 3 轮 · 补 `CompensateAspectRatio`）**：原版投影前会按矩形宽高比补偿方向
+        /// （`UIGradientUtils.CompensateAspectRatio.c` = `normalize(dir.y, dir.x·h/w)`）⇒ 非方框里的
+        /// **有效轴是 `(sinθ, cosθ·h/w)`**。我们原来没有这一档：16:9、θ=82 家族（调用点传 188）的实际轴向
+        /// 是 `atan2(|sin188|,|cos188|)` = **8.02°**，按原版应为 `atan2(cos82·9/16, sin82)` = **4.52°**。
+        /// 现在把补偿加在**生成轴上**：`dy *= aspectHoverW`（`aspectHoverW = 目标矩形 高/宽`）。
+        /// ⚠️ **只在生成时用**（贴图仍是正方 128×128、由 quad 拉伸）—— ⛔ 不在运行期读 `RectTransform`
+        /// （批处理/自检里拿不到可靠值），所以宽高比**由调用点传**。
+        /// <param name="aspectHoverW">目标矩形的 **高/宽**（`h/w`）。**1 = 不补偿**（正方形；缺省值 = 老行为）。</param>
+        public static Texture2D Gradient(Color c1, Color c2, float angleDeg, float aspectHoverW = 1f)
         {
-            string key = $"grad_{ColorUtility.ToHtmlStringRGBA(c1)}_{ColorUtility.ToHtmlStringRGBA(c2)}_{angleDeg:F1}";
+            if (!(aspectHoverW > 0.0001f)) aspectHoverW = 1f;
+            string key = $"grad_{ColorUtility.ToHtmlStringRGBA(c1)}_{ColorUtility.ToHtmlStringRGBA(c2)}_{angleDeg:F1}_{aspectHoverW:F3}";
             if (_gradients.TryGetValue(key, out var cached) && cached != null) return cached;
 
             const int N = 128;
             var tex = new Texture2D(N, N, TextureFormat.RGBA32, false);
             tex.name = key;
             float rad = angleDeg * Mathf.Deg2Rad;
-            float dx = Mathf.Cos(rad), dy = Mathf.Sin(rad);
+            // 🔴 `dy` 乘 `h/w` = 原版 `CompensateAspectRatio` 的等价物（判据见上面那段 doc）。
+            float dx = Mathf.Cos(rad), dy = Mathf.Sin(rad) * aspectHoverW;
             var px = new Color[N * N];
             for (int y = 0; y < N; y++)
                 for (int x = 0; x < N; x++)
@@ -802,11 +814,19 @@ namespace CardPresentation
         /// </summary>
         /// <param name="at">alpha 键位（0..1，升序，至少 2 个）。</param>
         /// <param name="aa">对应的 alpha 值。区间外**夹到首尾键**（Unity `Gradient` 就是这么做的）。</param>
-        public static Texture2D GradientKeys(Color c1, Color c2, float angleDeg, float[] at, float[] aa)
+        /// <param name="aspectHoverW">目标矩形的 **高/宽**（`h/w`），与 <see cref="Gradient"/> 的第 4 参**同一档**
+        /// 宽高比补偿（原版 `UIGradientUtils.CompensateAspectRatio`）；**1 = 不补偿**。
+        /// ⚠️ 现有三个调用点（`MissionsTab.HeaderGradient` ×2 · `ExpansionPassEventWindow.MissionHeaderGradient` ×2）
+        /// 的角度都是 **0°（Horizontal）** ⇒ `dy = sin0 = 0`，乘任何比值都是 0 ⇒ **补偿是恒等变换**；
+        /// 参数仍然接上，免得将来把某条改成非 0 角度时静默漏掉这一档（同族不一致比没做更难查）。</param>
+        public static Texture2D GradientKeys(Color c1, Color c2, float angleDeg, float[] at, float[] aa,
+                                             float aspectHoverW = 1f)
         {
+            if (!(aspectHoverW > 0.0001f)) aspectHoverW = 1f;
             var key = new System.Text.StringBuilder("gradk_");
             key.Append(ColorUtility.ToHtmlStringRGBA(c1)).Append('_').Append(ColorUtility.ToHtmlStringRGBA(c2))
-               .Append('_').Append(angleDeg.ToString("F1"));
+               .Append('_').Append(angleDeg.ToString("F1"))
+               .Append("_a").Append(aspectHoverW.ToString("F3"));
             for (int i = 0; i < at.Length; i++) key.Append('_').Append(at[i].ToString("F4")).Append(':').Append(aa[i].ToString("F4"));
             string k = key.ToString();
             if (_gradients.TryGetValue(k, out var cached) && cached != null) return cached;
@@ -815,7 +835,8 @@ namespace CardPresentation
             var tex = new Texture2D(N, N, TextureFormat.RGBA32, false);
             tex.name = k;
             float rad = angleDeg * Mathf.Deg2Rad;
-            float dx = Mathf.Cos(rad), dy = Mathf.Sin(rad);
+            // 🔴 `dy` 乘 `h/w` = 原版 `CompensateAspectRatio` 的等价物（判据见 <see cref="Gradient"/> 的 doc）
+            float dx = Mathf.Cos(rad), dy = Mathf.Sin(rad) * aspectHoverW;
             var px = new Color[N * N];
             for (int y = 0; y < N; y++)
                 for (int x = 0; x < N; x++)

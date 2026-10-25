@@ -626,7 +626,13 @@ public static class AnimFXCheck
             Check(e != null, "R23：库里找得到 `Pray_Idle`（唯一的 DoDestroyAnimation 实例）");
             if (e != null)
             {
-                var p = WarpforgeEffectPlayer.Play(e.name, null, Vector3.zero, 1f);
+                // ⚠️ **不给 `autoDestroySeconds`**（2026-10-25 改）：`Pray_Idle` 原版
+                //    `preventDestroy = 1`（`animfx_components.json` 现读）⇒ 原版**从不**给它排计时销毁，
+                //    唯一的销毁入口就是 `DoDestroy` → `AnimFXModuleDoDestroyAnimation`（`timeToDestroy` 1.0）。
+                //    以前这里传 `1f` 是因为「到寿命会先调 Exit」那套老语义；现在到寿命是**直接销毁**
+                //    （见 `WarpforgeEffectPlayer.DestroyAtLifetime`）⇒ 传 1f 会让**控制器**先把它删掉，
+                //    这条断言就测不到「模块接管」了（会假绿）。
+                var p = WarpforgeEffectPlayer.Play(e.name);
                 Check(p != null, "R23：`Pray_Idle` 起了");
                 if (p != null)
                 {
@@ -660,7 +666,12 @@ public static class AnimFXCheck
                     var mod = p.GetComponentInChildren<WFModuleAnimation>(true);
                     var modGo = mod != null ? mod.gameObject : null;
                     Check(mod != null && modGo != null, "R24：找得到 `WFModuleAnimation` 模块（挂在某个节点上）");
-                    p.Tick(e.AutoLifetime() + 0.01f);        // 进 Exit ⇒ 播 Exit clip
+                    // ⚠️ **2026-10-25 改成显式 `Exit()`**：到寿命那条路现在是**直接销毁**
+                    //    （原版 `AnimFXController.OnEnable` 的 `Object.Destroy(gameObject, destroyTime)`），
+                    //    不再顺路调 `Exit()`。而原版这条 `Exit` clip 的入口本来就是**外部**调 Exit
+                    //    （`BattleCardUI__CleanStatusAnims.c` / `__RemoveStatusAnim.c` 那两处，
+                    //     状态动画收场）⇒ 这里照原版那条路走。
+                    p.Exit();
                     p.Tick(exitClip.length + 0.05f);         // 数到片段结束
                     Check(mod == null || modGo == null,
                           $"R24：Exit 片段（{exitClip.length:F2}s）播完 ⇒ `AnimationExitEnd` 把宿主节点收掉了");
@@ -1921,6 +1932,229 @@ public static class AnimFXCheck
         //    跑完关掉；相机**不是**自己造的（造一对 = 拿我们的常量证明我们的常量）。
         //  🧨 灭自证：同一段生产代码在 2D 档（卡在层 0）下必须落到 HUD 那台 ⇒ 把层写死成 0 或 8 都红。
         CardPresentation.RootVfxLayerAssert.Run(Check);
+
+        // ================================================================
+        //  🆕 2026-10-25（特效动画域 · 完全复刻第 1 轮 · K5 `P1-5`）
+        //  R26：`WFEffectEntry.AutoLifetime` 的三档语义必须与原版 `AnimFXController.OnEnable` 一致
+        // ================================================================
+        //  判据：`d:/2/tools/decomp_full/AnimFXController__OnEnable.c`
+        //        `if (0.0 < destroyTime && !preventDestroy) Object.Destroy(gameObject, destroyTime);`
+        //        ⇒ **`destroyTime == 0` 是「不排销毁」**，不是「落到兜底时长」。
+        //  2026-10-25 之前 0 会落到 `natural`（2–7s）⇒ **状态还在、框自己没了**
+        //  （`trait_onplay` 桶 142 行最明显）。已改；这条断言把它钉住。
+        //  🧨 灭自证：四档各断一次 —— 只断「0 现在很大」而不断「>0 仍取原值 / <0 仍走兜底」，
+        //     把实现改成「一律 ∞」也会绿。
+        {
+            var probe = new WFEffectEntry { name = "__lifetime_probe__" };
+
+            probe.destroyTime = 4f; probe.natural = 2f;
+            Check(Mathf.Approximately(probe.AutoLifetime(), 4f),
+                  "R26：destroyTime>0 ⇒ 取原版那个值（不受 natural 影响）");
+
+            probe.destroyTime = 0f; probe.natural = 2f;
+            Check(float.IsPositiveInfinity(probe.AutoLifetime()),
+                  "R26：destroyTime==0 ⇒ **∞**（原版不排销毁；持续型状态框不该自己消失）");
+
+            probe.destroyTime = -1f; probe.natural = 2f;
+            Check(Mathf.Approximately(probe.AutoLifetime(), 2f),
+                  "R26：destroyTime<0（原版没有 AnimFXController）⇒ 才落到 natural 兜底");
+
+            probe.destroyTime = -1f; probe.natural = -1f;
+            Check(Mathf.Approximately(probe.AutoLifetime(), WarpforgeEffectPlayer.SafeDestroyTime),
+                  "R26：连 natural 都没有 ⇒ SAFE_DESTROY_TIME(3s) 兜底");
+
+            // 反向抽样：库里真有一批 `destroyTime==0` 的实例，且它们现在都报 ∞。
+            int zero = 0, inf = 0;
+            foreach (var x in entries)
+            {
+                if (x == null || x.prefab == null || x.destroyTime != 0f || x.preventDestroy) continue;
+                zero++;
+                if (float.IsPositiveInfinity(x.AutoLifetime())) inf++;
+            }
+            Check(zero > 20, $"R26：库里 `destroyTime==0 且非 preventDestroy` 的实例数 > 20（实测 {zero}）");
+            Check(zero == inf, $"R26：它们**全部**报 ∞（{inf}/{zero}）");
+        }
+
+        // ================================================================
+        //  🆕 2026-10-25（特效动画域 · 完全复刻第 1 轮 · K5 `P1-4` / `AnimFXModuleBase.Initialize`）
+        //  R27：`preventDestroy` 件的两条「原版语义」—— ① 持有者离场就被收 ② `isRetaliation` 算得出
+        // ================================================================
+        //  判据：`CardScript.cs:17167`（原版实例化在 `battleCardUI.effectsAnchor` 下 ⇒ 卡离场整棵子树一起没）
+        //        `decomp_full/AnimFXModuleBase__Initialize.c:26-50`（`isRetaliation = actingCard.isPlayer != IsPlayerTurn()`）
+        //  🧨 灭自证：① 断「还活着时不收」+「离场后真收」两半；② 两个方向各断一次（只断一边，
+        //     把 `IsRetaliation` 写成常量 false / 常量 true 都会绿）。
+        {
+            WFEffectEntry pd = null;
+            for (int i = 0; i < entries.Length; i++)
+            {
+                var x = entries[i];
+                if (x != null && x.prefab != null && x.preventDestroy) { pd = x; break; }
+            }
+            Check(pd != null, "R27：库里找得到一件 `preventDestroy=1` 的效果（找不到这条断言没意义）");
+
+            if (pd != null)
+            {
+                // ---- ① 持有者离场 ⇒ 收掉 ----
+                var owner = new GameObject("__wf_owner_probe__");
+                int before = WarpforgeEffectPlayer.OwnerReleased;
+                var p = WarpforgeEffectPlayer.Play(pd.name, owner.transform, Vector3.zero, 1f);
+                Check(p != null, "R27：`preventDestroy` 件起得来");
+                if (p != null)
+                {
+                    p.Tick(0.05f);
+                    Check(p != null && p.IsPlaying, "R27：持有者还活着 ⇒ 实例**不**被收（∞ 寿命 + 有持有者）");
+                    owner.SetActive(false);                    // = 那张卡离场 / 视图收起
+                    p.Tick(0.05f);
+                    Check(WarpforgeEffectPlayer.OwnerReleased > before,
+                          "R27：持有者 `activeInHierarchy=false` ⇒ 实例**被收掉**（原版：父节点连子件一起没）");
+                    if (p != null) p.Kill();                   // 兜底（play 模式下 Destroy 会延迟到帧末）
+                }
+                UnityEngine.Object.DestroyImmediate(owner);
+
+                // ---- ② `isRetaliation` 两个方向 ----
+                var savedResolver = WFEffectCards.Resolver;
+                var savedTurn = WFEffectCards.IsLocalPlayersTurn;
+                try
+                {
+                    WFEffectCards.IsLocalPlayersTurn = () => true;      // 本地玩家回合
+                    WFEffectCards.Resolver = _ => new WFEffectCardContext
+                    { actingIsPlayer = true, valid = true };           // 出手的是我方卡
+                    var same = WarpforgeEffectPlayer.Play(pd.name);
+                    Check(same != null && !same.IsRetaliation,
+                          "R27：我方卡 + 我方回合 ⇒ `IsRetaliation=false`（不是反击）");
+
+                    WFEffectCards.Resolver = _ => new WFEffectCardContext
+                    { actingIsPlayer = false, valid = true };          // 出手的是对方卡
+                    var counter = WarpforgeEffectPlayer.Play(pd.name);
+                    Check(counter != null && counter.IsRetaliation,
+                          "R27：对方卡 + 我方回合 ⇒ `IsRetaliation=true`（反击）");
+                    if (same != null) same.Kill();
+                    if (counter != null) counter.Kill();
+                }
+                finally
+                {
+                    WFEffectCards.Resolver = savedResolver;
+                    WFEffectCards.IsLocalPlayersTurn = savedTurn;
+                }
+            }
+        }
+
+        // ================================================================
+        //  🆕 2026-10-25（D 域 · 特效重建链丢模块）
+        //  R28：**特效 prefab 上那些「非 AnimFX 模块」的组件**现在会被补挂（原来一个都不携带）
+        // ================================================================
+        //  判据：普查表 `Resources/WarpforgeVFX/effect_extras.json`（88 件特效 / 164 处挂载）+ 原版方法体
+        //        （`SyncParticleSeeds.cs:8-40` · `DestroyByTime.cs:11-30` · `SubEmitterManualTrigger.cs:17-50` …）。
+        //  这三件是本轮点名的「已知会丢」：`SyncParticleSeeds`（36 prefab）· `DestroyByTime`（7 prefab）·
+        //  `SubEmitterManualTrigger`（3 prefab）。
+        //  🧨 灭自证：三件**各断一次**；只断一件时，把另外两件的 attach 删掉也照样绿。
+        {
+            Check(WFEffectExtras.EffectCount > 60,
+                  $"R28：普查表读得到（88 件，实测 {WFEffectExtras.EffectCount}）");
+
+            // ① `SyncParticleSeeds`
+            var p1 = WarpforgeEffectPlayer.Play("Arco-Flagellant Strike");
+            Check(p1 != null, "R28：`Arco-Flagellant Strike` 起得来（它带 `SyncParticleSeeds`）");
+            if (p1 != null)
+            {
+                var seed = p1.GetComponentInChildren<WFExtraSyncParticleSeeds>(true);
+                Check(seed != null, "R28：`SyncParticleSeeds` 被补上了（原来整类丢失）");
+                // 真正的行为：被它管到的粒子必须 `useAutoRandomSeed=false` 且**共用同一个种子**
+                var pss = p1.GetComponentsInChildren<ParticleSystem>(true);
+                int fixedSeed = 0, seeded = 0, total = 0;
+                foreach (var q in pss)
+                {
+                    if (q == null) continue;
+                    total++;
+                    if (q.useAutoRandomSeed) continue;
+                    seeded++;
+                    int s = unchecked((int)q.randomSeed);
+                    if (fixedSeed == 0) fixedSeed = s;
+                    else if (fixedSeed != s) fixedSeed = -1;
+                }
+                Check(total > 1 && seeded >= 1 && fixedSeed > 0,
+                      $"R28：被 `SyncParticleSeeds` 管到的粒子**共用同一个随机种子**"
+                    + $"（{seeded}/{total} 个被播种，种子 {fixedSeed}）");
+                p1.Kill();
+            }
+
+            // ② `DestroyByTime`
+            var p2 = WarpforgeEffectPlayer.Play("Blast_Big_Ork_Missiles");
+            Check(p2 != null, "R28：`Blast_Big_Ork_Missiles` 起得来（它带 `DestroyByTime lifeTime=1.5`）");
+            if (p2 != null)
+            {
+                var d = p2.GetComponentInChildren<WFExtraDestroyByTime>(true);
+                Check(d != null && Mathf.Approximately(d.lifeTime, 1.5f),
+                      "R28：`DestroyByTime` 被补上且 `lifeTime` 读到 1.5（我们以前走兜底时长）");
+                p2.Tick(1.6f);          // 超过 1.5 ⇒ 应当被销毁
+                Check(p2 == null || !p2.IsPlaying, "R28：……而且到 1.5s 真的被销毁（不是只挂了个空组件）");
+                if (p2 != null) p2.Kill();
+            }
+
+            // ③ `SubEmitterManualTrigger`
+            var ei = System.Array.FindIndex(entries, x => x != null && x.name == "Sau_ParticleWhip");
+            if (ei >= 0)
+            {
+                var p3 = WarpforgeEffectPlayer.Play("Sau_ParticleWhip");
+                Check(p3 != null, "R28：`Sau_ParticleWhip` 起得来（它带 `SubEmitterManualTrigger`）");
+                if (p3 != null)
+                {
+                    var t = p3.GetComponentInChildren<WFExtraSubEmitterManualTrigger>(true);
+                    Check(t != null, "R28：`SubEmitterManualTrigger` 被补上了（子发射器不再永不触发）");
+                    p3.Kill();
+                }
+            }
+            else Check(true, "R28：本库没有 `Sau_ParticleWhip`（跳过第 ③ 项的一半）");
+
+            // ④ 🆕 2026-10-25 下半场：`ShakeAndSoundObject` / `MaterialFlickerEffect` / `SpriteFlickerEffect`
+            //    也补上了 ⇒ 表里**每一种 kind 都有等价组件**，`Unimplemented` 必须停在 0。
+            //    （将来新增 kind 但忘了在 `WFEffectExtras.Attach` 里加 case ⇒ 这条会红。）
+            int beforeUnimpl = WFEffectExtras.Unimplemented;
+
+            // ㋐ 屏震 + 定时音效（7 件带 `presetSO` 的其中之一）
+            var p5 = WarpforgeEffectPlayer.Play("Environmental Condition Dark Angels Asteroid Zone");
+            Check(p5 != null, "R28：`… Dark Angels Asteroid Zone` 起得来（带 `ShakeAndSoundObject`）");
+            if (p5 != null)
+            {
+                var ss = p5.GetComponentInChildren<WFExtraShakeAndSound>(true);
+                Check(ss != null, "R28：`ShakeAndSoundObject` 被补上了（原来环境卡开卡既没屏震也没声音）");
+                if (ss != null)
+                {
+                    Check(ss.presets != null && ss.presets.Length > 0 && !string.IsNullOrEmpty(ss.presets[0]),
+                          $"R28：……而且屏震 preset 读到了（`{(ss.presets != null && ss.presets.Length > 0 ? ss.presets[0] : "<空>")}`）");
+                    Check(ss.sounds != null && ss.sounds.Length > 0 && !string.IsNullOrEmpty(ss.sounds[0].cue),
+                          "R28：……而且音效 cue 读到了");
+                }
+                p5.Kill();
+            }
+
+            // ㋑ 材质闪烁（复用 `WFMaterialFlicker`，参数必须从数据灌进来）
+            var p6 = WarpforgeEffectPlayer.Play("Environmental Condition Astra Militarum Dawn Attack");
+            Check(p6 != null, "R28：`… Astra Militarum Dawn Attack` 起得来（带 `MaterialFlickerEffect`）");
+            if (p6 != null)
+            {
+                var fl = p6.GetComponentInChildren<WFMaterialFlicker>(true);
+                Check(fl != null, "R28：`MaterialFlickerEffect` 补成了 `WFMaterialFlicker`");
+                if (fl != null)
+                    Check(Mathf.Abs(fl.amplitude - 0.4f) < 1e-4f && Mathf.Abs(fl.frequency - 1f) < 1e-4f,
+                          $"R28：……而且参数从数据灌进来了（amplitude={fl.amplitude} frequency={fl.frequency}，原版 0.4 / 1）");
+                p6.Kill();
+            }
+
+            // ㋒ Sprite 闪烁（写 `SpriteRenderer.color`，不是材质）
+            var p7 = WarpforgeEffectPlayer.Play("Orks Environmental Condition Night");
+            Check(p7 != null, "R28：`Orks Environmental Condition Night` 起得来（带 `SpriteFlickerEffect`）");
+            if (p7 != null)
+            {
+                var sf = p7.GetComponentInChildren<WFExtraSpriteFlicker>(true);
+                Check(sf != null, "R28：`SpriteFlickerEffect` 被补上了");
+                p7.Kill();
+            }
+
+            Check(WFEffectExtras.Unimplemented == beforeUnimpl,
+                  $"R28：表里每一种 kind 都有等价组件 ⇒ 未实现计数**不增加**"
+                + $"（{beforeUnimpl} → {WFEffectExtras.Unimplemented}；若变红 = 有人加了 kind 却没加 case）");
+        }
 
         Done();
     }

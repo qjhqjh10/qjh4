@@ -1,0 +1,278 @@
+域	原版类	方法	判据出处	判据要点	状态	我们的落点	差异	等级	轮次	备注
+个人资料/成就/排行	AccountTab	DisplayDeleteAccountMessage(string confirmationText, string confirmationPopupButtonString, string cancelPopupButtonString, Action<bool> OnConfirm)	AccountTab.cs:608		E					
+个人资料/成就/排行	AccountTab	InactivateAccount()	AccountTab.cs:541		E					
+个人资料/成就/排行	AccountTab	InitializeLinkTwitchButton()	AccountTab.cs:309		E					
+个人资料/成就/排行	AccountTab	LogOut()	AccountTab.cs:530		E					
+个人资料/成就/排行	AccountTab	LogOutAndSetNewUser(string email, string password, bool loginWithGoogle)	AccountTab.cs:523		E					
+个人资料/成就/排行	AccountTab	Login()	AccountTab.cs:511		E					
+个人资料/成就/排行	AccountTab	Logout()	AccountTab.cs:396		E					
+个人资料/成就/排行	AccountTab	OnOpen()	AccountTab.cs:337		E					
+个人资料/成就/排行	AccountTab	OnSetup()	AccountTab.cs:246		E					
+个人资料/成就/排行	AccountTab	OnSuscribe(GameObject source)	AccountTab.cs:688		E					
+个人资料/成就/排行	AccountTab	Refresh()	AccountTab.cs:342		E					
+个人资料/成就/排行	AccountTab	Register()	AccountTab.cs:408		E					
+个人资料/成就/排行	AccountTab	ResetPassword()	AccountTab.cs:385		E					
+个人资料/成就/排行	AccountTab	SwitchAccount()	AccountTab.cs:505		E					
+个人资料/成就/排行	AccountTab	TrySubscribeNewsletter()	AccountTab.cs:664		E					
+个人资料/成就/排行	AccountTab	_003CInactivateAccount_003Eb__26_0(bool ok)	AccountTab.cs:762		E					
+个人资料/成就/排行	AccountTab	_003CInactivateAccount_003Eb__26_1()	AccountTab.cs:818		E					
+个人资料/成就/排行	AccountTab	_003CLogin_003Eb__23_0(string error)	AccountTab.cs:757		E					
+个人资料/成就/排行	AccountTab	_003CRegister_003Eb__21_0(bool status, PlayFabError error)	AccountTab.cs:705		E					
+个人资料/成就/排行	AccountTab	_003CResetPassword_003Eb__19_0(string error)	AccountTab.cs:700		E					
+个人资料/成就/排行	AchievementContainer	OnInitialize(Achievement achievement)	AchievementContainer.cs:23		E					
+个人资料/成就/排行	AchievementsManager	BlockAutoUpload()	AchievementsManager.cs:241		E					
+个人资料/成就/排行	AchievementsManager	GetAchievement(string id)	AchievementsManager.cs:651		E					
+个人资料/成就/排行	AchievementsManager	GetHighestValue(Achievement ach)	AchievementsManager.cs:637		E					
+个人资料/成就/排行	AchievementsManager	GetIconByTier(int tier)	AchievementsManager.cs:229		E					
+个人资料/成就/排行	AchievementsManager	GetSave(Achievement ach)	AchievementsManager.cs:606		E					
+个人资料/成就/排行	AchievementsManager	GetValue(Achievement ach)	AchievementsManager.cs:588		E					
+个人资料/成就/排行	AchievementsManager	GrantSteamAchievements()	AchievementsManager.cs:429		E					
+个人资料/成就/排行	AchievementsManager	Initialize()	AchievementsManager.cs:246		E					
+个人资料/成就/排行	AchievementsManager	OnDestroy()	AchievementsManager.cs:558		E					
+个人资料/成就/排行	AchievementsManager	TryUpdateSave(Achievement ach)	AchievementsManager.cs:738		E					
+个人资料/成就/排行	AchievementsManager	UpdateSave(Achievement ach, AchievementPersistence newSave)	AchievementsManager.cs:718		E					
+个人资料/成就/排行	AchievementsManager	UpdateSave(string achievementId, AchievementPersistence persistence)	AchievementsManager.cs:680		E					
+个人资料/成就/排行	AchievementsManager	UploadPooledProgress()	AchievementsManager.cs:776		E					
+个人资料/成就/排行	AchievementsManager	_003CUploadPooledProgress_003Eb__32_2(AchievementPersistence[] persistences)	AchievementsManager.cs:902		E					
+个人资料/成就/排行	AchievementsMenu	Awake()	AchievementsMenu.cs:44		E					
+个人资料/成就/排行	AchievementsMenu	OnOpen()	AchievementsMenu.cs:298		E					
+个人资料/成就/排行	AchievementsMenu	Refresh()	AchievementsMenu.cs:303		E					
+个人资料/成就/排行	AchievementsMenu	Setup(GameWindow window)	AchievementsMenu.cs:280		E					
+个人资料/成就/排行	ArmySelectorRanked	FocusOnArmy(RankedArmySelectorContainer armyItemContainer)	ArmySelectorRanked.cs:710		E					
+个人资料/成就/排行	ArmySelectorRanked	Initialize(IOwnDeckPlayEvent liveOp)	ArmySelectorRanked.cs:258		E					
+个人资料/成就/排行	ArmySelectorRanked	OnDestroy()	ArmySelectorRanked.cs:740		E					
+个人资料/成就/排行	ArmySelectorRanked	Refresh()	ArmySelectorRanked.cs:755		E					
+个人资料/成就/排行	ArmySelectorRanked	SelectArmy(CardArmy army)	ArmySelectorRanked.cs:728		E					
+个人资料/成就/排行	AvatarBorderController	Initialize()	AvatarBorderController.cs:22		E					
+个人资料/成就/排行	AvatarBorderController	Initialize(PlayerInfo playerInfo)	AvatarBorderController.cs:32		E					
+个人资料/成就/排行	AvatarBorderController	OnEnable()	AvatarBorderController.cs:12		E					
+个人资料/成就/排行	AvatarBorderDrawer	Draw(CosmeticItemAvatarBorder item, int quantity)	AvatarBorderDrawer.cs:9		E					
+个人资料/成就/排行	AvatarBorderDrawer	GetItemName(CosmeticItemAvatarBorder item)	AvatarBorderDrawer.cs:16		E					
+个人资料/成就/排行	AvatarDisplay	Awake()	AvatarDisplay.cs:149		E					
+个人资料/成就/排行	AvatarDisplay	ChangeAvatar(PlayerAvatar avatar)	AvatarDisplay.cs:232		E					
+个人资料/成就/排行	AvatarDisplay	ChangeBorder(CosmeticItemAvatarBorder border)	AvatarDisplay.cs:262		E					
+个人资料/成就/排行	AvatarDisplay	DoShine(float time)	AvatarDisplay.cs:197		E					
+个人资料/成就/排行	AvatarDisplay	Draw(PlayerAvatar avatar, int quantity)	AvatarDisplay.cs:225		E					
+个人资料/成就/排行	AvatarDisplay	HandleOnClick()	AvatarDisplay.cs:191		E					
+个人资料/成就/排行	AvatarDisplay	Initialize(PlayerAvatar avatar, CosmeticItemAvatarBorder border, bool highlight, bool isLocked)	AvatarDisplay.cs:168		E					
+个人资料/成就/排行	AvatarDisplay	OnDestroy()	AvatarDisplay.cs:162		E					
+个人资料/成就/排行	AvatarDisplay	OnDisable()	AvatarDisplay.cs:284		E					
+个人资料/成就/排行	AvatarDisplay	ToggleHighlight(bool value)	AvatarDisplay.cs:177		E					
+个人资料/成就/排行	AvatarDisplay	ToggleLock(bool value)	AvatarDisplay.cs:186		E					
+个人资料/成就/排行	AvatarDrawer	Draw(PlayerAvatar item, int quantity)	AvatarDrawer.cs:12		E					
+个人资料/成就/排行	AvatarDrawer	GetItemName(PlayerAvatar item)	AvatarDrawer.cs:24		E					
+个人资料/成就/排行	AvatarTab	Awake()	AvatarTab.cs:192		E					
+个人资料/成就/排行	AvatarTab	CheckEnableAvatarBorder()	AvatarTab.cs:552		E					
+个人资料/成就/排行	AvatarTab	DoBorderRefresh()	AvatarTab.cs:665		E					
+个人资料/成就/排行	AvatarTab	FindActiveAvatarBorder()	AvatarTab.cs:560		E					
+个人资料/成就/排行	AvatarTab	Initialize()	AvatarTab.cs:220		E					
+个人资料/成就/排行	AvatarTab	InitializeGameObjects()	AvatarTab.cs:226		E					
+个人资料/成就/排行	AvatarTab	IsAvatarLocked(PlayerAvatar avatar)	AvatarTab.cs:169		E					
+个人资料/成就/排行	AvatarTab	OnAvatarClick(AvatarDisplay avatar)	AvatarTab.cs:460		E					
+个人资料/成就/排行	AvatarTab	OnChoseAvatar()	AvatarTab.cs:528		E					
+个人资料/成就/排行	AvatarTab	OnDestroy()	AvatarTab.cs:206		E					
+个人资料/成就/排行	AvatarTab	OnOpen()	AvatarTab.cs:214		E					
+个人资料/成就/排行	AvatarTab	RefreshDisplays()	AvatarTab.cs:404		E					
+个人资料/成就/排行	AvatarTab	SetAvatar(PlayerAvatar avatar)	AvatarTab.cs:476		E					
+个人资料/成就/排行	AvatarTab	ToggleAvatarBorder()	AvatarTab.cs:634		E					
+个人资料/成就/排行	AvatarTab	ToggleSelectButton(PlayerAvatar avatar)	AvatarTab.cs:493		E					
+个人资料/成就/排行	AvatarTab	_003CToggleAvatarBorder_003Eb__20_0()	AvatarTab.cs:687		E					
+个人资料/成就/排行	CampaignProfileContainer	OnDestroy()	CampaignProfileContainer.cs:87		E					
+个人资料/成就/排行	CampaignProfileContainer	OnInitialize(PlayerInfo context)	CampaignProfileContainer.cs:11		E					
+个人资料/成就/排行	ChangeRankedModeToggle	Clicked()	ChangeRankedModeToggle.cs:47		E					
+个人资料/成就/排行	ChangeRankedModeToggle	Initialize(IRankedEvent rankedEvent)	ChangeRankedModeToggle.cs:33		E					
+个人资料/成就/排行	ChangeRankedModeToggle	OnDisable()	ChangeRankedModeToggle.cs:26		E					
+个人资料/成就/排行	ChangeRankedModeToggle	OnEnable()	ChangeRankedModeToggle.cs:19		E					
+个人资料/成就/排行	ChangeRankedModeToggle	SetState(bool state)	ChangeRankedModeToggle.cs:64		E					
+个人资料/成就/排行	CosmeticItemAvatarBorder	HandleOnCollect(int rewardQuantity)	CosmeticItemAvatarBorder.cs:26		E					
+个人资料/成就/排行	CosmeticItemAvatarBorder	IsParentEventActive()	CosmeticItemAvatarBorder.cs:36		E					
+个人资料/成就/排行	CosmeticItemAvatarBorder	Release(AddressableCacheGroup cacheGroup)	CosmeticItemAvatarBorder.cs:21		E					
+个人资料/成就/排行	DeckGeneralInfoRanked	Awake()	DeckGeneralInfoRanked.cs:38		E					
+个人资料/成就/排行	DeckGeneralInfoRanked	CardInDeckInfoButtonOnClick()	DeckGeneralInfoRanked.cs:143		E					
+个人资料/成就/排行	DeckGeneralInfoRanked	CloseDeckView()	DeckGeneralInfoRanked.cs:167		E					
+个人资料/成就/排行	DeckGeneralInfoRanked	DeckGeneralInfoButtonOnClick()	DeckGeneralInfoRanked.cs:150		E					
+个人资料/成就/排行	DeckGeneralInfoRanked	OnDestroy()	DeckGeneralInfoRanked.cs:51		E					
+个人资料/成就/排行	DeckGeneralInfoRanked	SetContent(CardDeck deckInfo)	DeckGeneralInfoRanked.cs:63		E					
+个人资料/成就/排行	DeckGeneralInfoRanked	Toggle(bool option)	DeckGeneralInfoRanked.cs:135		E					
+个人资料/成就/排行	DeckGeneralInfoRanked	WarlordInfoButtonClick()	DeckGeneralInfoRanked.cs:157		E					
+个人资料/成就/排行	DivisionImageDisplay	CleanUp()	DivisionImageDisplay.cs:83		E					
+个人资料/成就/排行	DivisionImageDisplay	Initialize(RankedDivision divisionData)	DivisionImageDisplay.cs:17		E					
+个人资料/成就/排行	FactionRankingDataProvider	FetchHighlighted(RankingType type, Action<RankingRowData> onSuccess, Action onError)	FactionRankingDataProvider.cs:552		E					
+个人资料/成就/排行	FactionRankingDataProvider	FetchRanking(int maximum, RankingType type, Action<List<RankingRowData>> onSuccess, Action onError)	FactionRankingDataProvider.cs:375		E					
+个人资料/成就/排行	FactionRankingDataProvider	Initialize(UIRankingListController controller)	FactionRankingDataProvider.cs:649		E					
+个人资料/成就/排行	LeaderboardEntry	GetHighestScoreByArmy(CardArmy army, int defaultValue)	LeaderboardEntry.cs:56		E					
+个人资料/成就/排行	LeaderboardEntry	GetScoreByArmy(CardArmy army, int defaultValue)	LeaderboardEntry.cs:43		E					
+个人资料/成就/排行	LeaderboardEntry	GetScoreByTeam(string team, int defaultValue)	LeaderboardEntry.cs:51		E					
+个人资料/成就/排行	LeaderboardEntry	MakePlayerEntry(long value, int position)	LeaderboardEntry.cs:64		E					
+个人资料/成就/排行	LeaderboardResult	GetTotalByArmy(CardArmy army, int defaultValue)	LeaderboardResult.cs:22		E					
+个人资料/成就/排行	LeaderboardResult	GetTotalByTeam(string team, int defaultValue)	LeaderboardResult.cs:30		E					
+个人资料/成就/排行	LeaderboardScoringModeUtils	ApplyScoringMode(LeaderboardScoringMode scoringMode, long score, long newScore)	LeaderboardScoringModeUtils.cs:5		E					
+个人资料/成就/排行	LegendaryRankAllTrophiesDisplay	Initialize(int gold, int silver, int bronze, int legendaryScore)	LegendaryRankAllTrophiesDisplay.cs:13		E					
+个人资料/成就/排行	PlayerAvatar	Release(AddressableCacheGroup cacheGroup)	PlayerAvatar.cs:38		E					
+个人资料/成就/排行	PlayerAvatarDataManager	GetAllItems<T>()	PlayerAvatarDataManager.cs:1129		E					
+个人资料/成就/排行	PlayerAvatarDataManager	GetItemImageWithId<T>(string avatarId)	PlayerAvatarDataManager.cs:731		E					
+个人资料/成就/排行	PlayerAvatarDataManager	GetItemWithId<T>(string cosmeticId)	PlayerAvatarDataManager.cs:751		E					
+个人资料/成就/排行	PlayerAvatarDataManager	IsDefaultBorderEquipped()	PlayerAvatarDataManager.cs:1800		E					
+个人资料/成就/排行	PlayerAvatarDataManager	PackPlayfabAvatarAndBorderData(string avatarID, string borderID)	PlayerAvatarDataManager.cs:1655		E					
+个人资料/成就/排行	PlayerAvatarDataManager	RefreshExpiredBorders()	PlayerAvatarDataManager.cs:1767		E					
+个人资料/成就/排行	PlayerAvatarDataManager	SaveAvatarBorder(CosmeticItemAvatarBorder border, Action onSuccess, Action onError)	PlayerAvatarDataManager.cs:1724		E					
+个人资料/成就/排行	PlayerAvatarDataManager	SavePlayerAvatar(PlayerAvatar avatar, Action callback, Action onError)	PlayerAvatarDataManager.cs:1681		E					
+个人资料/成就/排行	PlayerAvatarDataManager	SetCurrentItem(CosmeticItem cosmeticItem, Action callback, Action onError)	PlayerAvatarDataManager.cs:1224		E					
+个人资料/成就/排行	PlayerAvatarDataManager	SetCurrentItem<T>(string cosmeticItemId, Action callback, Action onError)	PlayerAvatarDataManager.cs:1561		E					
+个人资料/成就/排行	PlayerAvatarDataManager	SetCurrentItemNoSave(CosmeticItem cosmeticItem)	PlayerAvatarDataManager.cs:1154		E					
+个人资料/成就/排行	PlayerAvatarDataManager	SetCurrentItemNoSave<T>(string id)	PlayerAvatarDataManager.cs:1144		E					
+个人资料/成就/排行	PlayerAvatarDataManager	_003CRefreshExpiredBorders_003Eb__33_0(CosmeticItemAvatarBorder a)	PlayerAvatarDataManager.cs:1830		E					
+个人资料/成就/排行	PlayerAvatarDataManager	static(string, string)	PlayerAvatarDataManager.cs:1607		E					
+个人资料/成就/排行	PlayerProfileMenu	Awake()	PlayerProfileMenu.cs:115		E					
+个人资料/成就/排行	PlayerProfileMenu	ClearCache()	PlayerProfileMenu.cs:102		E					
+个人资料/成就/排行	PlayerProfileMenu	ClearCache(string playerId)	PlayerProfileMenu.cs:107		E					
+个人资料/成就/排行	PlayerProfileMenu	OnComplete(PlayerInfo info)	PlayerProfileMenu.cs:226		E					
+个人资料/成就/排行	PlayerProfileMenu	OnDestroy()	PlayerProfileMenu.cs:131		E					
+个人资料/成就/排行	PlayerProfileMenu	OnError(string obj)	PlayerProfileMenu.cs:281		E					
+个人资料/成就/排行	PlayerProfileMenu	Open()	PlayerProfileMenu.cs:154		E					
+个人资料/成就/排行	PlayerProfileMenu	ToFocus()	PlayerProfileMenu.cs:141		E					
+个人资料/成就/排行	PlayerProfileMenu	_003COpen_003Eb__15_0(string randomPlayerId)	PlayerProfileMenu.cs:298		E					
+个人资料/成就/排行	PlayerProfileTrophiesDisplay	Initialize(int trophyCount)	PlayerProfileTrophiesDisplay.cs:7		E					
+个人资料/成就/排行	PlayerProfileUIController	Awake()	PlayerProfileUIController.cs:25		E					
+个人资料/成就/排行	PlayerProfileUIController	Initialize()	PlayerProfileUIController.cs:33		E					
+个人资料/成就/排行	PlayerProfileUIController	OnCollectorLevelUpdate(CollectorLevelChangeSignal sig)	PlayerProfileUIController.cs:106		E					
+个人资料/成就/排行	PlayerProfileUIController	OnDestroy()	PlayerProfileUIController.cs:111		E					
+个人资料/成就/排行	PlayerProfileUIController	SetPlayerLevel(int playerLevel)	PlayerProfileUIController.cs:178		E					
+个人资料/成就/排行	PlayerProfileUIController	SetProfileAvatar(PlayerAvatar newAvatar)	PlayerProfileUIController.cs:146		E					
+个人资料/成就/排行	PlayerProfileUIController	SetProfileAvatarBorder(CosmeticItemAvatarBorder newBorder)	PlayerProfileUIController.cs:170		E					
+个人资料/成就/排行	PlayerProfileUIController	SetProfileName(string playerName)	PlayerProfileUIController.cs:129		E					
+个人资料/成就/排行	PlayerProfileUIController	SetProfileTitle(string title)	PlayerProfileUIController.cs:121		E					
+个人资料/成就/排行	PlayerUIRankingRow	CheckProfile()	PlayerUIRankingRow.cs:133		E					
+个人资料/成就/排行	PlayerUIRankingRow	Config(RankingRowData rowData)	PlayerUIRankingRow.cs:21		E					
+个人资料/成就/排行	PlayerUIRankingRow	OnDisable()	PlayerUIRankingRow.cs:126		E					
+个人资料/成就/排行	PlayerUIRankingRow	OnEnable()	PlayerUIRankingRow.cs:119		E					
+个人资料/成就/排行	PlayerUIRankingRow	ToggleComponents(bool value)	PlayerUIRankingRow.cs:141		E					
+个人资料/成就/排行	ProfileContainer	Awake()	ProfileContainer.cs:5		E					
+个人资料/成就/排行	ProfileEventSection	Initialize(PlayerInfo context)	ProfileEventSection.cs:11		E					
+个人资料/成就/排行	ProfileItemDisplay	GetItem<T>()	ProfileItemDisplay.cs:84		E					
+个人资料/成就/排行	ProfileItemDisplay	Initialize(CosmeticItemTitle item)	ProfileItemDisplay.cs:50		E					
+个人资料/成就/排行	ProfileItemDisplay	ToggleButton(CosmeticItemTitle item)	ProfileItemDisplay.cs:105		E					
+个人资料/成就/排行	ProfileNameTitleSection	Awake()	ProfileNameTitleSection.cs:37		E					
+个人资料/成就/排行	ProfileNameTitleSection	Initialize(PlayerInfo context)	ProfileNameTitleSection.cs:51		E					
+个人资料/成就/排行	ProfileNameTitleSection	OnDestroy()	ProfileNameTitleSection.cs:166		E					
+个人资料/成就/排行	ProfileNameTitleSection	_003CAwake_003Eb__9_0()	ProfileNameTitleSection.cs:172		E					
+个人资料/成就/排行	ProfileRankingSection	HasPlayerReachedLegendaryDivision(int highestElo, int highestEloSeason)	ProfileRankingSection.cs:365		E					
+个人资料/成就/排行	ProfileRankingSection	Initialize(PlayerInfo context)	ProfileRankingSection.cs:50		E					
+个人资料/成就/排行	ProfileTab	HandleInviteToAlliance()	ProfileTab.cs:190		E					
+个人资料/成就/排行	ProfileTab	Initialize()	ProfileTab.cs:100		E					
+个人资料/成就/排行	ProfileTab	OnChangePlayerNameButtonClick()	ProfileTab.cs:184		E					
+个人资料/成就/排行	ProfileTab	OnOpen()	ProfileTab.cs:56		E					
+个人资料/成就/排行	ProfileTab	Start()	ProfileTab.cs:62		E					
+个人资料/成就/排行	ProfileTab	ToFocus()	ProfileTab.cs:88		E					
+个人资料/成就/排行	ProfileTab	_003CHandleInviteToAlliance_003Eb__13_0()	ProfileTab.cs:327		E					
+个人资料/成就/排行	ProfileTab	_003CHandleInviteToAlliance_003Eb__13_1()	ProfileTab.cs:347		E					
+个人资料/成就/排行	ProfileTab	_003CStart_003Eb__9_0()	ProfileTab.cs:312		E					
+个人资料/成就/排行	RankedArmyBonusContainer	Clean()	RankedArmyBonusContainer.cs:166		E					
+个人资料/成就/排行	RankedArmyBonusContainer	OnInitialize(LiveOpsEvent evt)	RankedArmyBonusContainer.cs:21		E					
+个人资料/成就/排行	RankedArmySelectorContainer	Click(bool isOn)	RankedArmySelectorContainer.cs:257		E					
+个人资料/成就/排行	RankedArmySelectorContainer	Initialize(RuntimeArmyStats stats, int currentVictories, int maxNumberOfVictoriesWithBonus, bool isLegendary, ToggleGroup toggleGroup)	RankedArmySelectorContainer.cs:204		E					
+个人资料/成就/排行	RankedArmySelectorContainer	OnDestroy()	RankedArmySelectorContainer.cs:293		E					
+个人资料/成就/排行	RankedArmySelectorContainer	Refresh()	RankedArmySelectorContainer.cs:279		E					
+个人资料/成就/排行	RankedArmySelectorContainer	SetManualToggle(bool option)	RankedArmySelectorContainer.cs:274		E					
+个人资料/成就/排行	RankedArmySelectorContainer	ToggleInteractable(bool option)	RankedArmySelectorContainer.cs:288		E					
+个人资料/成就/排行	RankedBaseData	GetBoostedFactionCount(CardArmy faction)	RankedBaseData.cs:52		E					
+个人资料/成就/排行	RankedBaseData	IsFactionFeatured(CardArmy faction)	RankedBaseData.cs:47		E					
+个人资料/成就/排行	RankedDivisionData	ReleaseAssets()	RankedDivisionData.cs:16		E					
+个人资料/成就/排行	RankedDivisions	GetDivisionData(int number)	RankedDivisions.cs:48		E					
+个人资料/成就/排行	RankedDivisions	GetRankData(int number)	RankedDivisions.cs:81		E					
+个人资料/成就/排行	RankedEventDivisionChangeWindow	AnimationFinished()	RankedEventDivisionChangeWindow.cs:193		E					
+个人资料/成就/排行	RankedEventDivisionChangeWindow	CloseButton()	RankedEventDivisionChangeWindow.cs:232		E					
+个人资料/成就/排行	RankedEventDivisionChangeWindow	OnDisable()	RankedEventDivisionChangeWindow.cs:210		E					
+个人资料/成就/排行	RankedEventDivisionChangeWindow	OnEnable()	RankedEventDivisionChangeWindow.cs:199		E					
+个人资料/成就/排行	RankedEventDivisionChangeWindow	Open()	RankedEventDivisionChangeWindow.cs:101		E					
+个人资料/成就/排行	RankedEventDivisionChangeWindow	SafetyInputEnabler()	RankedEventDivisionChangeWindow.cs:225		E					
+个人资料/成就/排行	RankedEventDivisionChangeWindowNewSystem	AnimationFinished()	RankedEventDivisionChangeWindowNewSystem.cs:532		E					
+个人资料/成就/排行	RankedEventDivisionChangeWindowNewSystem	ChangeParticleEffectAndSpriteRank(Image targetImage, ParticleSystem targetParticleSystem, Sprite rankSprite)	RankedEventDivisionChangeWindowNewSystem.cs:516		E					
+个人资料/成就/排行	RankedEventDivisionChangeWindowNewSystem	CloseButton()	RankedEventDivisionChangeWindowNewSystem.cs:570		E					
+个人资料/成就/排行	RankedEventDivisionChangeWindowNewSystem	DoDivisionChangeAnimations(int playerDivision)	RankedEventDivisionChangeWindowNewSystem.cs:466		E					
+个人资料/成就/排行	RankedEventDivisionChangeWindowNewSystem	DoPromoteAnimations(float delay, bool isDivisionChange, RankedRank previousDivision)	RankedEventDivisionChangeWindowNewSystem.cs:449		E					
+个人资料/成就/排行	RankedEventDivisionChangeWindowNewSystem	DoRankChangeAnimations(int playerRank)	RankedEventDivisionChangeWindowNewSystem.cs:491		E					
+个人资料/成就/排行	RankedEventDivisionChangeWindowNewSystem	OnDisable()	RankedEventDivisionChangeWindowNewSystem.cs:545		E					
+个人资料/成就/排行	RankedEventDivisionChangeWindowNewSystem	OnEnable()	RankedEventDivisionChangeWindowNewSystem.cs:538		E					
+个人资料/成就/排行	RankedEventDivisionChangeWindowNewSystem	Open()	RankedEventDivisionChangeWindowNewSystem.cs:305		E					
+个人资料/成就/排行	RankedEventDivisionChangeWindowNewSystem	SafetyInputEnabler(float additionalDelay)	RankedEventDivisionChangeWindowNewSystem.cs:562		E					
+个人资料/成就/排行	RankedEventSeasonEndedWindow	CloseButton()	RankedEventSeasonEndedWindow.cs:402		E					
+个人资料/成就/排行	RankedEventSeasonEndedWindow	GetEndSeasonPlayerPercentage(int playerTier)	RankedEventSeasonEndedWindow.cs:349		E					
+个人资料/成就/排行	RankedEventSeasonEndedWindow	OnDisable()	RankedEventSeasonEndedWindow.cs:387		E					
+个人资料/成就/排行	RankedEventSeasonEndedWindow	OnEnable()	RankedEventSeasonEndedWindow.cs:380		E					
+个人资料/成就/排行	RankedEventSeasonEndedWindow	Open()	RankedEventSeasonEndedWindow.cs:51		E					
+个人资料/成就/排行	RankedEventSeasonEndedWindowOld	CloseButton()	RankedEventSeasonEndedWindowOld.cs:219		E					
+个人资料/成就/排行	RankedEventSeasonEndedWindowOld	Draw(LeaderboardResult result)	RankedEventSeasonEndedWindowOld.cs:114		E					
+个人资料/成就/排行	RankedEventSeasonEndedWindowOld	GetEndSeasonPlayerPercentage(int playerTier)	RankedEventSeasonEndedWindowOld.cs:170		E					
+个人资料/成就/排行	RankedEventSeasonEndedWindowOld	OnDisable()	RankedEventSeasonEndedWindowOld.cs:208		E					
+个人资料/成就/排行	RankedEventSeasonEndedWindowOld	OnEnable()	RankedEventSeasonEndedWindowOld.cs:201		E					
+个人资料/成就/排行	RankedEventSeasonEndedWindowOld	Open()	RankedEventSeasonEndedWindowOld.cs:40		E					
+个人资料/成就/排行	RankedEventStartSeasonWindow	CloseButton()	RankedEventStartSeasonWindow.cs:42		E					
+个人资料/成就/排行	RankedEventStartSeasonWindow	Initialize(DateTime endTime)	RankedEventStartSeasonWindow.cs:14		E					
+个人资料/成就/排行	RankedEventStartSeasonWindow	OnDisable()	RankedEventStartSeasonWindow.cs:35		E					
+个人资料/成就/排行	RankedEventStartSeasonWindow	OnEnable()	RankedEventStartSeasonWindow.cs:28		E					
+个人资料/成就/排行	RankedEventWindowV2	ArmySelectedOnSelectArmy(CardArmy selectedArmy)	RankedEventWindowV2.cs:151		E					
+个人资料/成就/排行	RankedEventWindowV2	BattleButtonClick()	RankedEventWindowV2.cs:255		E					
+个人资料/成就/排行	RankedEventWindowV2	CloseButtonClick()	RankedEventWindowV2.cs:263		E					
+个人资料/成就/排行	RankedEventWindowV2	HelpButtonClick()	RankedEventWindowV2.cs:280		E					
+个人资料/成就/排行	RankedEventWindowV2	LeaderboardButtonClick()	RankedEventWindowV2.cs:268		E					
+个人资料/成就/排行	RankedEventWindowV2	OnDisable()	RankedEventWindowV2.cs:67		E					
+个人资料/成就/排行	RankedEventWindowV2	OnEnable()	RankedEventWindowV2.cs:48		E					
+个人资料/成就/排行	RankedEventWindowV2	Open()	RankedEventWindowV2.cs:99		E					
+个人资料/成就/排行	RankedEventWindowV2	PlayButtonDebugClicked()	RankedEventWindowV2.cs:379		E					
+个人资料/成就/排行	RankedEventWindowV2	SetDivision()	RankedEventWindowV2.cs:308		E					
+个人资料/成就/排行	RankedEventWindowV2	StartBattle()	RankedEventWindowV2.cs:300		E					
+个人资料/成就/排行	RankedEventWindowV2	TryOpen(object data, GameWindowOptions options)	RankedEventWindowV2.cs:86		E					
+个人资料/成就/排行	RankedFastMode	GetArmyState(CardArmy army, IReadOnlyList<RankedScoreBoostEvent> extraBoosts)	RankedFastMode.cs:656		E					
+个人资料/成就/排行	RankedFastMode	GetBaseData()	RankedFastMode.cs:288		E					
+个人资料/成就/排行	RankedFastMode	GetCurrentRankedDivision()	RankedFastMode.cs:311		E					
+个人资料/成就/排行	RankedFastMode	GetDivisionByPoints(long points)	RankedFastMode.cs:319		E					
+个人资料/成就/排行	RankedFastMode	OnMatchProcessSuccess(OnlineMatchResult result)	RankedFastMode.cs:405		E					
+个人资料/成就/排行	RankedFastMode	ToggleRankedMode(bool isRanked)	RankedFastMode.cs:303		E					
+个人资料/成就/排行	RankedFastModeData	GetBoostedFactionCount(CardArmy faction)	RankedFastModeData.cs:39		E					
+个人资料/成就/排行	RankedFastModeData	IsFactionFeatured(CardArmy faction)	RankedFastModeData.cs:34		E					
+个人资料/成就/排行	RankedMatchResult	GetWinner()	RankedMatchResult.cs:88		E					
+个人资料/成就/排行	RankedMatchResult	SetBattleResult(BattleResult battleResult, BattleWinner battleWinner)	RankedMatchResult.cs:82		E					
+个人资料/成就/排行	RankedMenuContainer	OnInitialize(LiveOpsEvent playEvent)	RankedMenuContainer.cs:27		E					
+个人资料/成就/排行	RankedMenuContainer	Refresh()	RankedMenuContainer.cs:33		E					
+个人资料/成就/排行	RankedMenuContainer	RefreshContentDisplay(ILiveOps playEvent)	RankedMenuContainer.cs:92		E					
+个人资料/成就/排行	RankedMenuContainer	ToggleLegendaryRankInfo(bool option)	RankedMenuContainer.cs:206		E					
+个人资料/成就/排行	RankedMenuContainer	TogglePositionDisplay(bool option)	RankedMenuContainer.cs:225		E					
+个人资料/成就/排行	RankedRankingWindow	CloseButtonClick()	RankedRankingWindow.cs:278		E					
+个人资料/成就/排行	RankedRankingWindow	Open()	RankedRankingWindow.cs:88		E					
+个人资料/成就/排行	RankedRankingWindow	Start()	RankedRankingWindow.cs:53		E					
+个人资料/成就/排行	RankedRankingWindow	ToggleTab(LeaderboardTab tab, bool state)	RankedRankingWindow.cs:95		E					
+个人资料/成就/排行	RankedRewardEventWindow	Awake()	RankedRewardEventWindow.cs:65		E					
+个人资料/成就/排行	RankedRewardEventWindow	CloseButtonClick()	RankedRewardEventWindow.cs:85		E					
+个人资料/成就/排行	RankedRewardEventWindow	OnDestroy()	RankedRewardEventWindow.cs:75		E					
+个人资料/成就/排行	RankedRewardEventWindow	Open()	RankedRewardEventWindow.cs:90		E					
+个人资料/成就/排行	RankedTab	Initialize()	RankedTab.cs:164		E					
+个人资料/成就/排行	RankedTab	InitializeFactionScores(LeaderboardResult result)	RankedTab.cs:195		E					
+个人资料/成就/排行	RankedTab	OnOpen()	RankedTab.cs:132		E					
+个人资料/成就/排行	RankedTab	Setup(GameWindow window)	RankedTab.cs:118		E					
+个人资料/成就/排行	RankedTab	_003CInitialize_003Eb__10_0()	RankedTab.cs:368		E					
+个人资料/成就/排行	RankingDisplay	Initialize(int points, int seasonNumber, DateTime? endDate, int? position, bool isPlayer, PlayModes playMode)	RankingDisplay.cs:30		E					
+个人资料/成就/排行	RankingListDataProvider	FetchHighlighted(RankingType type, Action<RankingRowData> onSuccess, Action onError)	RankingListDataProvider.cs:17		E					
+个人资料/成就/排行	RankingListDataProvider	FetchRanking(int maximum, RankingType stat, Action<List<RankingRowData>> onSuccess, Action onError)	RankingListDataProvider.cs:15		E					
+个人资料/成就/排行	RankingListDataProvider	Initialize(UIRankingListController controller)	RankingListDataProvider.cs:19		E					
+个人资料/成就/排行	TrophyInfoPopup	HandleFeatureTrophy(bool value)	TrophyInfoPopup.cs:144		E					
+个人资料/成就/排行	TrophyInfoPopup	Open()	TrophyInfoPopup.cs:71		E					
+个人资料/成就/排行	TrophyInfoPopup	Start()	TrophyInfoPopup.cs:58		E					
+个人资料/成就/排行	TrophyInfoPopup	_003CHandleFeatureTrophy_003Eb__11_0()	TrophyInfoPopup.cs:195		E					
+个人资料/成就/排行	UIRankingListController	AllowChangeSeason(bool val)	UIRankingListController.cs:232		E					
+个人资料/成就/排行	UIRankingListController	ChangeSeasonButtonClick()	UIRankingListController.cs:227		E					
+个人资料/成就/排行	UIRankingListController	ChangeSeasonRankingView(bool optionShowCurrent)	UIRankingListController.cs:238		E					
+个人资料/成就/排行	UIRankingListController	Initialize(RankingListDataProvider dataProvider)	UIRankingListController.cs:80		E					
+个人资料/成就/排行	UIRankingListController	OnDestroy()	UIRankingListController.cs:73		E					
+个人资料/成就/排行	UIRankingListController	Refresh(RankingListDataProvider.RankingType type)	UIRankingListController.cs:146		E					
+个人资料/成就/排行	UIRankingListController	SetHighlightedRow(RankingRowData rowData)	UIRankingListController.cs:174		E					
+个人资料/成就/排行	UIRankingListController	SetRanking(List<RankingRowData> rankingRowData)	UIRankingListController.cs:184		E					
+个人资料/成就/排行	UIRankingListController	SetSubMenu(bool state, IReadOnlyList<CardArmy> armies, Action<CardArmy> onClick)	UIRankingListController.cs:102		E					
+个人资料/成就/排行	UIRankingListController	SetTimer(DateTime? time)	UIRankingListController.cs:112		E					
+个人资料/成就/排行	UIRankingListController	SetTitle(LocalizedString text)	UIRankingListController.cs:138		E					
+个人资料/成就/排行	UIRankingListController	ShowHighlightedRow(bool state)	UIRankingListController.cs:168		E					
+个人资料/成就/排行	UIRankingListController	Start()	UIRankingListController.cs:66		E					
+个人资料/成就/排行	UIRankingListController	_003CSetTimer_003Eb__19_0()	UIRankingListController.cs:276		E					
+个人资料/成就/排行	UIRankingRow	Config(RankingRowData data)	UIRankingRow.cs:22		E					
+个人资料/成就/排行	UIRankingRow	Hide()	UIRankingRow.cs:52		E					
+个人资料/成就/排行	UIRankingRow	ToggleComponents(bool value)	UIRankingRow.cs:59		E					

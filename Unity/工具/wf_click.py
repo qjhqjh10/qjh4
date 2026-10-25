@@ -122,6 +122,11 @@ MOUSEEVENTF_WHEEL = 0x0800
 WHEEL_DELTA = 120                      # Windows 一格滚轮 = 120（正数 = 向远离用户方向 = 向上滚）
 KEYEVENTF_KEYUP = 0x0002
 KEYEVENTF_UNICODE = 0x0004
+# 🔴 2026-10-25 真机实测：Warpforge 用**新输入系统**（`activeInputHandler = 1`），
+#   只打 `wVk` 的 SendInput **送不进去**（ESC/方向键全无反应、日志一条都没有）。
+#   补上 `KEYEVENTF_SCANCODE`（同时给 `wScan`）之后**实测能收到**（ESC 关窗成功）。
+#   判据 → `资料/普查产出_1025/真机批量验收_第七十七会话.md`。
+KEYEVENTF_SCANCODE = 0x0008
 
 
 def _send(inp):
@@ -228,10 +233,12 @@ def key(spec):
         else:
             return False
     for vk in vks:
-        inp = INPUT(type=1); inp.u.ki = KEYBDINPUT(vk, 0, 0, 0, None); _send(inp)
+        scan = user32.MapVirtualKeyW(vk, 0)   # MAPVK_VK_TO_VSC
+        inp = INPUT(type=1); inp.u.ki = KEYBDINPUT(vk, scan, KEYEVENTF_SCANCODE, 0, None); _send(inp)
     time.sleep(hold)
     for vk in reversed(vks):
-        inp = INPUT(type=1); inp.u.ki = KEYBDINPUT(vk, 0, KEYEVENTF_KEYUP, 0, None); _send(inp)
+        scan = user32.MapVirtualKeyW(vk, 0)
+        inp = INPUT(type=1); inp.u.ki = KEYBDINPUT(vk, scan, KEYEVENTF_SCANCODE | KEYEVENTF_KEYUP, 0, None); _send(inp)
     return True
 
 

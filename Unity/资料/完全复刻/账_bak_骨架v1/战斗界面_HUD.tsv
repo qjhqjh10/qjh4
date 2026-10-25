@@ -1,0 +1,665 @@
+域	原版类	方法	判据出处	判据要点	状态	我们的落点	差异	等级	轮次	备注
+战斗界面/HUD	ActiveSkillDisplay	ClickDown()	ActiveSkillDisplay.cs:519		E					
+战斗界面/HUD	ActiveSkillDisplay	ClickUp()	ActiveSkillDisplay.cs:548		E					
+战斗界面/HUD	ActiveSkillDisplay	DisableUsableLight()	ActiveSkillDisplay.cs:415		E					
+战斗界面/HUD	ActiveSkillDisplay	Drag()	ActiveSkillDisplay.cs:542		E					
+战斗界面/HUD	ActiveSkillDisplay	FadeIn()	ActiveSkillDisplay.cs:209		E					
+战斗界面/HUD	ActiveSkillDisplay	FadeOut()	ActiveSkillDisplay.cs:288		E					
+战斗界面/HUD	ActiveSkillDisplay	FadePower(float targetAlpha, float fadeTime)	ActiveSkillDisplay.cs:339		E					
+战斗界面/HUD	ActiveSkillDisplay	FinishActing()	ActiveSkillDisplay.cs:326		E					
+战斗界面/HUD	ActiveSkillDisplay	GetOffScreenPos()	ActiveSkillDisplay.cs:271		E					
+战斗界面/HUD	ActiveSkillDisplay	GetOpenPos()	ActiveSkillDisplay.cs:258		E					
+战斗界面/HUD	ActiveSkillDisplay	HideActingLight()	ActiveSkillDisplay.cs:623		E					
+战斗界面/HUD	ActiveSkillDisplay	InitialSetup()	ActiveSkillDisplay.cs:106		E					
+战斗界面/HUD	ActiveSkillDisplay	OnTouchDown(Vector2 originalTouchPosition)	ActiveSkillDisplay.cs:420		E					
+战斗界面/HUD	ActiveSkillDisplay	OnTouchDrag(Vector2 originalTouchPosition)	ActiveSkillDisplay.cs:456		E					
+战斗界面/HUD	ActiveSkillDisplay	OnTouchExit(Vector2 originalTouchPosition)	ActiveSkillDisplay.cs:443		E					
+战斗界面/HUD	ActiveSkillDisplay	OnTouchUpAsButton(Vector2 originalTouchPosition)	ActiveSkillDisplay.cs:575		E					
+战斗界面/HUD	ActiveSkillDisplay	PointerExit()	ActiveSkillDisplay.cs:554		E					
+战斗界面/HUD	ActiveSkillDisplay	SetAlpha(float targetAlpha)	ActiveSkillDisplay.cs:380		E					
+战斗界面/HUD	ActiveSkillDisplay	SetupActiveSkill(CardScript parentCard)	ActiveSkillDisplay.cs:115		E					
+战斗界面/HUD	ActiveSkillDisplay	ShowActingLight()	ActiveSkillDisplay.cs:608		E					
+战斗界面/HUD	ActiveSkillDisplay	SimulateTouch()	ActiveSkillDisplay.cs:567		E					
+战斗界面/HUD	ActiveSkillDisplay	StopDisplayingSkillFromManager()	ActiveSkillDisplay.cs:320		E					
+战斗界面/HUD	AttributionManager	Initialize(string userId)	AttributionManager.cs:14		E					
+战斗界面/HUD	AttributionManager	Start()	AttributionManager.cs:22		E					
+战斗界面/HUD	AttributionManager	onAppOpenAttribution(string attributionData)	AttributionManager.cs:41		E					
+战斗界面/HUD	AttributionManager	onAppOpenAttributionFailure(string error)	AttributionManager.cs:47		E					
+战斗界面/HUD	AttributionManager	onConversionDataFail(string error)	AttributionManager.cs:36		E					
+战斗界面/HUD	AttributionManager	onConversionDataSuccess(string conversionData)	AttributionManager.cs:29		E					
+战斗界面/HUD	BasicCardUI	AttackTypeChanged(AttackTypes attackType)	BasicCardUI.cs:677		E					
+战斗界面/HUD	BasicCardUI	CanUpgrade()	BasicCardUI.cs:567		E					
+战斗界面/HUD	BasicCardUI	CardClicked()	BasicCardUI.cs:268		E					
+战斗界面/HUD	BasicCardUI	ChangedLanguage()	BasicCardUI.cs:465		E					
+战斗界面/HUD	BasicCardUI	ColliderBigSize(bool value)	BasicCardUI.cs:614		E					
+战斗界面/HUD	BasicCardUI	DisableCollider()	BasicCardUI.cs:633		E					
+战斗界面/HUD	BasicCardUI	FadeCard(float newAlpha, float timeToFade, float delay)	BasicCardUI.cs:761		E					
+战斗界面/HUD	BasicCardUI	GetCurrencyAmount()	BasicCardUI.cs:549		E					
+战斗界面/HUD	BasicCardUI	GetCurrencyType()	BasicCardUI.cs:554		E					
+战斗界面/HUD	BasicCardUI	GetRarity()	BasicCardUI.cs:787		E					
+战斗界面/HUD	BasicCardUI	HideDescription()	BasicCardUI.cs:739		E					
+战斗界面/HUD	BasicCardUI	OnDescriptionShow()	BasicCardUI.cs:578		E					
+战斗界面/HUD	BasicCardUI	OnDisable()	BasicCardUI.cs:278		E					
+战斗界面/HUD	BasicCardUI	OnEnable()	BasicCardUI.cs:254		E					
+战斗界面/HUD	BasicCardUI	OnTouchDown(Vector2 originalTouchPosition)	BasicCardUI.cs:659		E					
+战斗界面/HUD	BasicCardUI	OnTouchExit(Vector2 originalTouchPosition)	BasicCardUI.cs:673		E					
+战斗界面/HUD	BasicCardUI	OnTouchUpAsButton(Vector2 originalTouchPosition)	BasicCardUI.cs:640		E					
+战斗界面/HUD	BasicCardUI	RefreshCardVisualEffects(CardTier cardTier)	BasicCardUI.cs:490		E					
+战斗界面/HUD	BasicCardUI	RemoveHealthAndAttack()	BasicCardUI.cs:495		E					
+战斗界面/HUD	BasicCardUI	SetAltHealth(int newHealth)	BasicCardUI.cs:519		E					
+战斗界面/HUD	BasicCardUI	SetCardAlpha(float newAlpha)	BasicCardUI.cs:743		E					
+战斗界面/HUD	BasicCardUI	SetCardImage()	BasicCardUI.cs:434		E					
+战斗界面/HUD	BasicCardUI	SetCardImage(Sprite sprite)	BasicCardUI.cs:448		E					
+战斗界面/HUD	BasicCardUI	SetCardRarityStars()	BasicCardUI.cs:508		E					
+战斗界面/HUD	BasicCardUI	SetCardTextInHand(bool option)	BasicCardUI.cs:529		E					
+战斗界面/HUD	BasicCardUI	SetCardTextsExcludingStats(RawCardScript card)	BasicCardUI.cs:478		E					
+战斗界面/HUD	BasicCardUI	SetChangedAmountTextUp()	BasicCardUI.cs:782		E					
+战斗界面/HUD	BasicCardUI	SetDescription(string description)	BasicCardUI.cs:524		E					
+战斗界面/HUD	BasicCardUI	SetEmptyRarityStars()	BasicCardUI.cs:514		E					
+战斗界面/HUD	BasicCardUI	SetGemsChange(int coins, bool origPosition)	BasicCardUI.cs:773		E					
+战斗界面/HUD	BasicCardUI	SetImageOverDraw(CardImageController.ImageInFrameSize imageInFrameSize, bool instant)	BasicCardUI.cs:694		E					
+战斗界面/HUD	BasicCardUI	SetImageSprite(Sprite sprite, CardTypeOptions cardType)	BasicCardUI.cs:503		E					
+战斗界面/HUD	BasicCardUI	SetLayer(int layerNumber)	BasicCardUI.cs:729		E					
+战斗界面/HUD	BasicCardUI	SetRarityLight()	BasicCardUI.cs:799		E					
+战斗界面/HUD	BasicCardUI	SetRawCardData(RawCardScript card, CardTier? tier, bool showLore, int newMaxHealth, int warlordHealthModifier)	BasicCardUI.cs:285		E					
+战斗界面/HUD	BasicCardUI	SetupCollider(Action<GameObject> callback, bool mouseDownCallback, int triggerShowDescription)	BasicCardUI.cs:592		E					
+战斗界面/HUD	BasicCardUI	SetupCreatedByText(string newText)	BasicCardUI.cs:559		E					
+战斗界面/HUD	BasicCardUI	ShowDescription(bool leftMove, bool skipDelay, Action done)	BasicCardUI.cs:735		E					
+战斗界面/HUD	BasicCardUI	SimplifiedOff()	BasicCardUI.cs:544		E					
+战斗界面/HUD	BasicCardUI	SimplifiedOn()	BasicCardUI.cs:539		E					
+战斗界面/HUD	BasicCardUI	TintCard(Color newColor, float time)	BasicCardUI.cs:751		E					
+战斗界面/HUD	BasicCardUI	ToggleBanned(bool state)	BasicCardUI.cs:457		E					
+战斗界面/HUD	BasicCardUI	ToggleCarUpgradeIfNeeded()	BasicCardUI.cs:803		E					
+战斗界面/HUD	BasicCardUI	ToggleCardBack(bool option)	BasicCardUI.cs:573		E					
+战斗界面/HUD	BasicCardUI	ToggleNewCardBadge(bool option, bool withAnimation)	BasicCardUI.cs:713		E					
+战斗界面/HUD	BasicCardUI	ToggleOpenCardDisplayOnTouch(bool option)	BasicCardUI.cs:699		E					
+战斗界面/HUD	BasicCardUI	ToggleSimplifiedCardView(bool option, CardTextsInHandOptions cardsTextInHandFormat)	BasicCardUI.cs:534		E					
+战斗界面/HUD	BasicCardUI	ToggleStats(bool activate)	BasicCardUI.cs:383		E					
+战斗界面/HUD	BasicCardUI	ToggleUpgradeHighlight(bool toggle)	BasicCardUI.cs:809		E					
+战斗界面/HUD	BasicCardUI	_003CFadeCard_003Eb__115_0()	BasicCardUI.cs:814		E					
+战斗界面/HUD	BasicCardUI	_003CFadeCard_003Eb__115_1(float x)	BasicCardUI.cs:819		E					
+战斗界面/HUD	BattleCacheInitializer	DelayedOperations()	BattleCacheInitializer.cs:342		E					
+战斗界面/HUD	BattleCacheInitializer	Initialize()	BattleCacheInitializer.cs:331		E					
+战斗界面/HUD	BattleCameraSreenSize	DoLensShift(float desiredLensShiftY, bool instant)	BattleCameraSreenSize.cs:112		E					
+战斗界面/HUD	BattleCameraSreenSize	Initialize(bool instant)	BattleCameraSreenSize.cs:41		E					
+战斗界面/HUD	BattleCameraSreenSize	ResolutionHasChanged()	BattleCameraSreenSize.cs:36		E					
+战斗界面/HUD	BattleCameraSreenSize	Start()	BattleCameraSreenSize.cs:30		E					
+战斗界面/HUD	BattleCameraSreenSize	_003CDoLensShift_003Eb__12_0()	BattleCameraSreenSize.cs:162		E					
+战斗界面/HUD	BattleCameraSreenSize	_003CDoLensShift_003Eb__12_1(Vector2 x)	BattleCameraSreenSize.cs:174		E					
+战斗界面/HUD	BattleCameraSreenSize	_003CInitialize_003Eb__11_0()	BattleCameraSreenSize.cs:146		E					
+战斗界面/HUD	BattleCameraSreenSize	_003CInitialize_003Eb__11_1(Vector2 x)	BattleCameraSreenSize.cs:157		E					
+战斗界面/HUD	BattleCardManager	AddCardToDeck(CardScript card, List<CardScript> deck, int posInDeck)	BattleCardManager.cs:303		E					
+战斗界面/HUD	BattleCardManager	CheckToBeAlternate(RawCardScript rawCardData, bool isPlayer)	BattleCardManager.cs:132		E					
+战斗界面/HUD	BattleCardManager	CreateCard(RawCardScript rawCardData, Transform parent, bool isPlayerY, CardArmy mainArmy, bool armedTrap)	BattleCardManager.cs:19		E					
+战斗界面/HUD	BattleCardManager	CreateDeck(List<RawCardScript> cardList, Transform parent, bool isPlayerY, CardArmy army)	BattleCardManager.cs:246		E					
+战斗界面/HUD	BattleCardManager	GetAllCardsInGame()	BattleCardManager.cs:472		E					
+战斗界面/HUD	BattleCardManager	GetCardFromUniqueId(int uniqueId)	BattleCardManager.cs:371		E					
+战斗界面/HUD	BattleCardManager	PreloadCard(RawCardScript rawCardData, bool isPlayer)	BattleCardManager.cs:207		E					
+战斗界面/HUD	BattleCardManager	PrintCardIds()	BattleCardManager.cs:417		E					
+战斗界面/HUD	BattleCardManager	RegisterCardInPlay(CardScript card)	BattleCardManager.cs:337		E					
+战斗界面/HUD	BattleCardUI	ActivateAbilityAnim(bool activateY)	BattleCardUI.cs:1997		E					
+战斗界面/HUD	BattleCardUI	BattleCardSetup(CardArmy mainArmy, bool isPlayer)	BattleCardUI.cs:970		E					
+战斗界面/HUD	BattleCardUI	CardHandToBoardAnimationFinished()	BattleCardUI.cs:2850		E					
+战斗界面/HUD	BattleCardUI	ChangeCardToMinion(bool doAnim)	BattleCardUI.cs:1435		E					
+战斗界面/HUD	BattleCardUI	ChangeCardToRemnant(bool toRemnant, Action onComplete)	BattleCardUI.cs:1445		E					
+战斗界面/HUD	BattleCardUI	ChangeHighlightToSelectColor()	BattleCardUI.cs:2971		E					
+战斗界面/HUD	BattleCardUI	ChangeToHighlightColor()	BattleCardUI.cs:2959		E					
+战斗界面/HUD	BattleCardUI	ChangedLanguage()	BattleCardUI.cs:992		E					
+战斗界面/HUD	BattleCardUI	ChooseDissolveMaterial()	BattleCardUI.cs:2899		E					
+战斗界面/HUD	BattleCardUI	CleanStatusAnims(bool clearAll)	BattleCardUI.cs:2192		E					
+战斗界面/HUD	BattleCardUI	CreateRemnantBody()	BattleCardUI.cs:804		E					
+战斗界面/HUD	BattleCardUI	DamageReceived(int damageValue)	BattleCardUI.cs:2912		E					
+战斗界面/HUD	BattleCardUI	DelayedResetMaterial(float time)	BattleCardUI.cs:2854		E					
+战斗界面/HUD	BattleCardUI	DestroyActivateAbilityAnim()	BattleCardUI.cs:1991		E					
+战斗界面/HUD	BattleCardUI	DestroyCard()	BattleCardUI.cs:1480		E					
+战斗界面/HUD	BattleCardUI	DestroyRemnantBody()	BattleCardUI.cs:850		E					
+战斗界面/HUD	BattleCardUI	DisplayCreatedByText(CardStateOptions newState)	BattleCardUI.cs:1346		E					
+战斗界面/HUD	BattleCardUI	DisplayStatusAnim(DefinedTrait trait, bool playSound)	BattleCardUI.cs:1652		E					
+战斗界面/HUD	BattleCardUI	DisplayTriggerAnim(DefinedTrait trait, bool playSound)	BattleCardUI.cs:1496		E					
+战斗界面/HUD	BattleCardUI	FadeAllTraitsIcons(float alphaTarget, float time)	BattleCardUI.cs:2770		E					
+战斗界面/HUD	BattleCardUI	FadeCardItems(float newAlpha, float timeToDissolve)	BattleCardUI.cs:1491		E					
+战斗界面/HUD	BattleCardUI	FinishMulligan()	BattleCardUI.cs:2837		E					
+战斗界面/HUD	BattleCardUI	GetAbilityListInPlayForIcons()	BattleCardUI.cs:3020		E					
+战斗界面/HUD	BattleCardUI	GetSortingOrder()	BattleCardUI.cs:1010		E					
+战斗界面/HUD	BattleCardUI	GetTraitListForCardIcons(RawCardScript cardToDisplay)	BattleCardUI.cs:857		E					
+战斗界面/HUD	BattleCardUI	HideExtraEffects()	BattleCardUI.cs:1244		E					
+战斗界面/HUD	BattleCardUI	HighlightBloodThirst()	BattleCardUI.cs:2787		E					
+战斗界面/HUD	BattleCardUI	HighlightTraitIcon(DefinedTrait trait)	BattleCardUI.cs:2742		E					
+战斗界面/HUD	BattleCardUI	IsEnemySecret(CardScript cardScript)	BattleCardUI.cs:869		E					
+战斗界面/HUD	BattleCardUI	PlayBackToHandAnimation()	BattleCardUI.cs:2882		E					
+战斗界面/HUD	BattleCardUI	PlayInvokeAnimation()	BattleCardUI.cs:2866		E					
+战斗界面/HUD	BattleCardUI	RemoveStatusAnim(DefinedTrait trait, int param)	BattleCardUI.cs:2014		E					
+战斗界面/HUD	BattleCardUI	RemoveSummonSickness()	BattleCardUI.cs:1979		E					
+战斗界面/HUD	BattleCardUI	ResetTeleportCardOutOfBattle()	BattleCardUI.cs:2473		E					
+战斗界面/HUD	BattleCardUI	RestoreOriginalMaterial()	BattleCardUI.cs:2945		E					
+战斗界面/HUD	BattleCardUI	SetAmbushTexts()	BattleCardUI.cs:950		E					
+战斗界面/HUD	BattleCardUI	SetAsMulliganSelected(bool isSelected)	BattleCardUI.cs:2802		E					
+战斗界面/HUD	BattleCardUI	SetCardImageTo3DBase()	BattleCardUI.cs:1382		E					
+战斗界面/HUD	BattleCardUI	SetCardMaterial(Material material, bool alsoSetCardImage)	BattleCardUI.cs:2917		E					
+战斗界面/HUD	BattleCardUI	SetCardMaterialByCardTier()	BattleCardUI.cs:1427		E					
+战斗界面/HUD	BattleCardUI	SetEnemySecret(CardScript cardScript)	BattleCardUI.cs:912		E					
+战斗界面/HUD	BattleCardUI	SetObjectVisibility(CardStateOptions newState)	BattleCardUI.cs:1086		E					
+战斗界面/HUD	BattleCardUI	SetRawCardData(CardScript cardScript)	BattleCardUI.cs:684		E					
+战斗界面/HUD	BattleCardUI	SetSortingLayer(string layerName)	BattleCardUI.cs:1033		E					
+战斗界面/HUD	BattleCardUI	SetSortingOrder(int newOrder)	BattleCardUI.cs:1021		E					
+战斗界面/HUD	BattleCardUI	SetVanguardStealth(bool activeStealth, bool waitForFlicker)	BattleCardUI.cs:2001		E					
+战斗界面/HUD	BattleCardUI	SetupStatusFrame(GameObject newFrame)	BattleCardUI.cs:3032		E					
+战斗界面/HUD	BattleCardUI	ShouldShowCardback(CardStateOptions newState)	BattleCardUI.cs:1039		E					
+战斗界面/HUD	BattleCardUI	ShowAvailableTargets()	BattleCardUI.cs:1272		E					
+战斗界面/HUD	BattleCardUI	ShowBoardObjects(bool show)	BattleCardUI.cs:1370		E					
+战斗界面/HUD	BattleCardUI	ShowCodex()	BattleCardUI.cs:2501		E					
+战斗界面/HUD	BattleCardUI	ShowEphemeral()	BattleCardUI.cs:2577		E					
+战斗界面/HUD	BattleCardUI	ShowOath()	BattleCardUI.cs:2531		E					
+战斗界面/HUD	BattleCardUI	ShowOriginalRemnantCard(bool show)	BattleCardUI.cs:3046		E					
+战斗界面/HUD	BattleCardUI	ShowPlaceholderSprite()	BattleCardUI.cs:963		E					
+战斗界面/HUD	BattleCardUI	ShowStealth()	BattleCardUI.cs:2610		E					
+战斗界面/HUD	BattleCardUI	StartSummonSicknessAnim()	BattleCardUI.cs:2439		E					
+战斗界面/HUD	BattleCardUI	StopAnimsInPlay()	BattleCardUI.cs:2983		E					
+战斗界面/HUD	BattleCardUI	StopReflected()	BattleCardUI.cs:2602		E					
+战斗界面/HUD	BattleCardUI	StopShowingCodex()	BattleCardUI.cs:2561		E					
+战斗界面/HUD	BattleCardUI	StopShowingOath()	BattleCardUI.cs:2569		E					
+战斗界面/HUD	BattleCardUI	StopShowingStealth()	BattleCardUI.cs:2637		E					
+战斗界面/HUD	BattleCardUI	StopSummonSicknessAnim()	BattleCardUI.cs:2465		E					
+战斗界面/HUD	BattleCardUI	ToggleBody3D(bool optionBody, bool? optionEffectAnchor)	BattleCardUI.cs:1460		E					
+战斗界面/HUD	BattleCardUI	ToggleFlying(bool option)	BattleCardUI.cs:1948		E					
+战斗界面/HUD	BattleCardUI	ToggleOverrideSorting(bool option)	BattleCardUI.cs:1028		E					
+战斗界面/HUD	BattleCardUI	ToggleStats(bool activate, bool activateArmour)	BattleCardUI.cs:3065		E					
+战斗界面/HUD	BattleCardUI	ToggleTraitIcons(bool option)	BattleCardUI.cs:1255		E					
+战斗界面/HUD	BattleCardUI	UpdateBastionr()	BattleCardUI.cs:1958		E					
+战斗界面/HUD	BattleCardUI	UpdateCardSize()	BattleCardUI.cs:2647		E					
+战斗界面/HUD	BattleCardUI	UpdateCardback(bool isPlayer)	BattleCardUI.cs:3053		E					
+战斗界面/HUD	BattleCardUI	UpdateRaceWithEffects(List<CardEffect> activeEffects)	BattleCardUI.cs:982		E					
+战斗界面/HUD	BattleCardUI	UpdateTraitIcons()	BattleCardUI.cs:2651		E					
+战斗界面/HUD	BattleDeviceCompatibilityController	Initialize()	BattleDeviceCompatibilityController.cs:28		E					
+战斗界面/HUD	BattleDeviceCompatibilityController	ToggleMobileSize(bool option)	BattleDeviceCompatibilityController.cs:92		E					
+战斗界面/HUD	BattleEndPlayerData	SetRank(float newValue)	BattleEndPlayerData.cs:85		E					
+战斗界面/HUD	BattleEndPlayerData	Setup(bool isOwnPlayer, MatchResultData matchResultData)	BattleEndPlayerData.cs:31		E					
+战斗界面/HUD	BattleEndPlayerData	SetupSubRank(bool isOwnPlayer, int startRank, int endRank, MatchResultData matchResultData)	BattleEndPlayerData.cs:144		E					
+战斗界面/HUD	BattleHud	AlliancePanelOpenButton()	BattleHud.cs:564		E					
+战斗界面/HUD	BattleHud	Awake()	BattleHud.cs:111		E					
+战斗界面/HUD	BattleHud	BroadcastChangedLanguage()	BattleHud.cs:399		E					
+战斗界面/HUD	BattleHud	CloseAction()	BattleHud.cs:594		E					
+战斗界面/HUD	BattleHud	DisplayMultiCardView(List<RawCardScript> cardsToDisplay, string windowHeader)	BattleHud.cs:409		E					
+战斗界面/HUD	BattleHud	DisplayOffensiveCards()	BattleHud.cs:394		E					
+战斗界面/HUD	BattleHud	DisplayOvertime()	BattleHud.cs:389		E					
+战斗界面/HUD	BattleHud	DoResetCameraZoom()	BattleHud.cs:600		E					
+战斗界面/HUD	BattleHud	GetCardDrawPosition(bool isPlayer)	BattleHud.cs:202		E					
+战斗界面/HUD	BattleHud	GetUIAnchor(PositionOption desiredPosition, bool isPlayer)	BattleHud.cs:416		E					
+战斗界面/HUD	BattleHud	Initialize()	BattleHud.cs:168		E					
+战斗界面/HUD	BattleHud	InitializeProfile()	BattleHud.cs:235		E					
+战斗界面/HUD	BattleHud	IsSettingsPopupOpen()	BattleHud.cs:525		E					
+战斗界面/HUD	BattleHud	OffensiveButtonClicked()	BattleHud.cs:559		E					
+战斗界面/HUD	BattleHud	OffensiveButtonTransform()	BattleHud.cs:309		E					
+战斗界面/HUD	BattleHud	OnDestroy()	BattleHud.cs:135		E					
+战斗界面/HUD	BattleHud	OpenSettingsPopup()	BattleHud.cs:383		E					
+战斗界面/HUD	BattleHud	PauseButtonClicked()	BattleHud.cs:549		E					
+战斗界面/HUD	BattleHud	PlayButtonClicked()	BattleHud.cs:544		E					
+战斗界面/HUD	BattleHud	ReplayButtonClicked()	BattleHud.cs:539		E					
+战斗界面/HUD	BattleHud	SetOffensiveButtonVisible(EnviromentalEffectCardsSO enviromentalEffectCards, CardArmy cardArmy, string offensiveCardId, RawCardScript offensiveCard)	BattleHud.cs:243		E					
+战斗界面/HUD	BattleHud	SetProfileInfo(DeckAndWarlordData rawData, PlayerProfileUIController profileUI, bool isPlayer)	BattleHud.cs:494		E					
+战斗界面/HUD	BattleHud	SetTurnPlayedCards(int cards)	BattleHud.cs:267		E					
+战斗界面/HUD	BattleHud	SettingsButtonOnClick()	BattleHud.cs:488		E					
+战斗界面/HUD	BattleHud	Setup()	BattleHud.cs:197		E					
+战斗界面/HUD	BattleHud	StepButtonClicked()	BattleHud.cs:554		E					
+战斗界面/HUD	BattleHud	ToggleResetAutoCameraZoom(bool option)	BattleHud.cs:472		E					
+战斗界面/HUD	BattleHud	ToggleWithAnimation(bool option, bool useAnimation, bool animHand)	BattleHud.cs:333		E					
+战斗界面/HUD	BattleHud	TryGetAnchor(PositionOption desiredPosition, bool isPlayer)	BattleHud.cs:22		E					
+战斗界面/HUD	BattleHud	TryOpenSettings()	BattleHud.cs:519		E					
+战斗界面/HUD	BattleHud	Update()	BattleHud.cs:154		E					
+战斗界面/HUD	BattleHud	isEmptyOffensiveCard(EnviromentalEffectCardsSO enviromentalEffectCards, CardArmy cardArmy, string offensiveCardId)	BattleHud.cs:318		E					
+战斗界面/HUD	BattleLogItem	ClickPinButton()	BattleLogItem.cs:375		E					
+战斗界面/HUD	BattleLogItem	ClickReplayButton()	BattleLogItem.cs:346		E					
+战斗界面/HUD	BattleLogItem	Initialize(BattleLogMatch match)	BattleLogItem.cs:70		E					
+战斗界面/HUD	BattleLogItem	OnDestroy()	BattleLogItem.cs:404		E					
+战斗界面/HUD	BattleLogItem	SetPinState(bool pinState)	BattleLogItem.cs:335		E					
+战斗界面/HUD	BattleLogItem	_003CClickPinButton_003Eb__16_0()	BattleLogItem.cs:410		E					
+战斗界面/HUD	BattleLogItem	_003CClickPinButton_003Eb__16_1(string error)	BattleLogItem.cs:426		E					
+战斗界面/HUD	BattleLogPlayerDisplay	Initialize(BattleLogPlayerData data)	BattleLogPlayerDisplay.cs:38		E					
+战斗界面/HUD	BattleLogPlayerDisplay	OnDestroy()	BattleLogPlayerDisplay.cs:435		E					
+战斗界面/HUD	BattleLogPlayerDisplay	OnPlayerClicked()	BattleLogPlayerDisplay.cs:445		E					
+战斗界面/HUD	BattleLogPlayerDisplay	_003COnPlayerClicked_003Eb__15_0(string altId)	BattleLogPlayerDisplay.cs:483		E					
+战斗界面/HUD	BattleLogPopup	OnDisable()	BattleLogPopup.cs:26		E					
+战斗界面/HUD	BattleLogPopup	OnEnable()	BattleLogPopup.cs:16		E					
+战斗界面/HUD	BattleLogPopup	Open()	BattleLogPopup.cs:36		E					
+战斗界面/HUD	BattleLogTab	OnOpen()	BattleLogTab.cs:47		E					
+战斗界面/HUD	BattleScoreIcon	Check(bool state)	BattleScoreIcon.cs:24		E					
+战斗界面/HUD	BattleScoreIcon	Config(HealthThresholdData data)	BattleScoreIcon.cs:15		E					
+战斗界面/HUD	BattleScoreManager	CheckThresholds(EnemyHealthChangeSignal signal)	BattleScoreManager.cs:107		E					
+战斗界面/HUD	BattleScoreManager	GetEnemySkullCount(int ownLife)	BattleScoreManager.cs:75		E					
+战斗界面/HUD	BattleScoreManager	GetSkullCount()	BattleScoreManager.cs:56		E					
+战斗界面/HUD	BattleScoreManager	GrantSkull(int skullCount)	BattleScoreManager.cs:128		E					
+战斗界面/HUD	BattleScoreManager	Initialize()	BattleScoreManager.cs:36		E					
+战斗界面/HUD	BattleScoreUiManager	Initialize(HealthThresholdData[] milestones)	BattleScoreUiManager.cs:41		E					
+战斗界面/HUD	BattleScoreUiManager	OnReachMilestone(int milestone)	BattleScoreUiManager.cs:195		E					
+战斗界面/HUD	BattleScoreUiManager	ScoreUpAnimation(Action onComplete)	BattleScoreUiManager.cs:200		E					
+战斗界面/HUD	BattleScoreUiManager	SetMilestones(IEnumerable<HealthThresholdData> milestones)	BattleScoreUiManager.cs:54		E					
+战斗界面/HUD	BattleScoreUiManager	UpdateMilestonesCount(int milestoneIndex)	BattleScoreUiManager.cs:182		E					
+战斗界面/HUD	BattleScorer	Initialize()	BattleScorer.cs:8		E					
+战斗界面/HUD	BattleSettingsWindow	Awake()	BattleSettingsWindow.cs:46		E					
+战斗界面/HUD	BattleSettingsWindow	ClickSkipTutorial()	BattleSettingsWindow.cs:196		E					
+战斗界面/HUD	BattleSettingsWindow	CloseBackgroundButton()	BattleSettingsWindow.cs:126		E					
+战斗界面/HUD	BattleSettingsWindow	CloseButtonOnClick()	BattleSettingsWindow.cs:121		E					
+战斗界面/HUD	BattleSettingsWindow	CloseWindow()	BattleSettingsWindow.cs:131		E					
+战斗界面/HUD	BattleSettingsWindow	ConsoleButtonOnClick()	BattleSettingsWindow.cs:153		E					
+战斗界面/HUD	BattleSettingsWindow	DrawButtonOnClick()	BattleSettingsWindow.cs:168		E					
+战斗界面/HUD	BattleSettingsWindow	ESCPressed()	BattleSettingsWindow.cs:139		E					
+战斗界面/HUD	BattleSettingsWindow	OnAutoZoomChanged(bool toggleValue)	BattleSettingsWindow.cs:216		E					
+战斗界面/HUD	BattleSettingsWindow	OnDestroy()	BattleSettingsWindow.cs:87		E					
+战斗界面/HUD	BattleSettingsWindow	OnMuteChatChanged(bool toggleValue)	BattleSettingsWindow.cs:208		E					
+战斗界面/HUD	BattleSettingsWindow	Open()	BattleSettingsWindow.cs:223		E					
+战斗界面/HUD	BattleSettingsWindow	RegisterToClose(Action closeAction)	BattleSettingsWindow.cs:253		E					
+战斗界面/HUD	BattleSettingsWindow	ResignButtonOnClick()	BattleSettingsWindow.cs:182		E					
+战斗界面/HUD	BattleSettingsWindow	SkipTutorialButtonOnClick()	BattleSettingsWindow.cs:189		E					
+战斗界面/HUD	BattleSettingsWindow	WinButtonOnClick()	BattleSettingsWindow.cs:175		E					
+战斗界面/HUD	BattleTipController	AreTipsOnQueue()	BattleTipController.cs:388		E					
+战斗界面/HUD	BattleTipController	AreTooMuchTips()	BattleTipController.cs:355		E					
+战斗界面/HUD	BattleTipController	Awake()	BattleTipController.cs:262		E					
+战斗界面/HUD	BattleTipController	DisplayTip(bool opaqueBackground, bool bgColorRed)	BattleTipController.cs:411		E					
+战斗界面/HUD	BattleTipController	NotifyCantDoAction(string tipText, bool bgColorRed)	BattleTipController.cs:271		E					
+战斗界面/HUD	BattleTipController	SetBGColor()	BattleTipController.cs:407		E					
+战斗界面/HUD	BattleTipController	ShowHeadsUpMessage(string tipText, bool opaqueBackground, bool bgColorRed)	BattleTipController.cs:280		E					
+战斗界面/HUD	BattleTipController	TipSpamming(string tipText)	BattleTipController.cs:337		E					
+战斗界面/HUD	CardDisplayAttackTypeButton	DisableTemporary()	CardDisplayAttackTypeButton.cs:334		E					
+战斗界面/HUD	CardDisplayAttackTypeButton	DoPointerOverButtonActions()	CardDisplayAttackTypeButton.cs:350		E					
+战斗界面/HUD	CardDisplayAttackTypeButton	HighlightIfNeeded(AttackTypes selectedAttackType)	CardDisplayAttackTypeButton.cs:189		E					
+战斗界面/HUD	CardDisplayAttackTypeButton	Initialize(AttackTypesButtonsController registerController)	CardDisplayAttackTypeButton.cs:163		E					
+战斗界面/HUD	CardDisplayAttackTypeButton	MoveButton(float normalizedDistance)	CardDisplayAttackTypeButton.cs:410		E					
+战斗界面/HUD	CardDisplayAttackTypeButton	OnDisable()	CardDisplayAttackTypeButton.cs:134		E					
+战斗界面/HUD	CardDisplayAttackTypeButton	RegisterOnPointerEnter(Action<AttackTypes> register)	CardDisplayAttackTypeButton.cs:181		E					
+战斗界面/HUD	CardDisplayAttackTypeButton	SetButtonIcon(Sprite iconSprite)	CardDisplayAttackTypeButton.cs:312		E					
+战斗界面/HUD	CardDisplayAttackTypeButton	SetButtonValue(int customValue)	CardDisplayAttackTypeButton.cs:322		E					
+战斗界面/HUD	CardDisplayAttackTypeButton	SetOriginalPosition()	CardDisplayAttackTypeButton.cs:303		E					
+战斗界面/HUD	CardDisplayAttackTypeButton	SetupActiveAbilityTooltip(RawCardScript cardWithActiveAbility)	CardDisplayAttackTypeButton.cs:269		E					
+战斗界面/HUD	CardDisplayAttackTypeButton	StartSafeTouch()	CardDisplayAttackTypeButton.cs:399		E					
+战斗界面/HUD	CardDisplayAttackTypeButton	Toggle(bool option)	CardDisplayAttackTypeButton.cs:283		E					
+战斗界面/HUD	CardDisplayAttackTypeButton	Update()	CardDisplayAttackTypeButton.cs:142		E					
+战斗界面/HUD	CardDisplayWindow	AddCardsListeners()	CardDisplayWindow.cs:224		E					
+战斗界面/HUD	CardDisplayWindow	CardOverdrawHandle(RawCardScript card, int cardUIIndex)	CardDisplayWindow.cs:641		E					
+战斗界面/HUD	CardDisplayWindow	CardSwapFinished(BasicCardUI newCardInFront)	CardDisplayWindow.cs:1292		E					
+战斗界面/HUD	CardDisplayWindow	CardUIClicked()	CardDisplayWindow.cs:916		E					
+战斗界面/HUD	CardDisplayWindow	ChangeCardPosition(BasicCardUI cardToFront)	CardDisplayWindow.cs:1144		E					
+战斗界面/HUD	CardDisplayWindow	Close()	CardDisplayWindow.cs:387		E					
+战斗界面/HUD	CardDisplayWindow	DisableAllCards()	CardDisplayWindow.cs:547		E					
+战斗界面/HUD	CardDisplayWindow	DisplayCardEffects(CardScript thisCard)	CardDisplayWindow.cs:711		E					
+战斗界面/HUD	CardDisplayWindow	GetCurrentCard()	CardDisplayWindow.cs:585		E					
+战斗界面/HUD	CardDisplayWindow	GetEffectsToDisplay(CardScript thisCard)	CardDisplayWindow.cs:840		E					
+战斗界面/HUD	CardDisplayWindow	InitializeCardForDisplay(RawCardScript cardData, int index, CardTier tier, int warlordHealthModifier)	CardDisplayWindow.cs:932		E					
+战斗界面/HUD	CardDisplayWindow	InitializeCards(RawCardScript card, CardTier tier, int warlordHealthModifier)	CardDisplayWindow.cs:573		E					
+战斗界面/HUD	CardDisplayWindow	InitializeRelatedCards(RawCardScript card)	CardDisplayWindow.cs:590		E					
+战斗界面/HUD	CardDisplayWindow	OnBackgroundClick()	CardDisplayWindow.cs:927		E					
+战斗界面/HUD	CardDisplayWindow	OnDestroy()	CardDisplayWindow.cs:269		E					
+战斗界面/HUD	CardDisplayWindow	Open()	CardDisplayWindow.cs:319		E					
+战斗界面/HUD	CardDisplayWindow	RelatedCardUIClicked(BasicCardUI cardClicked)	CardDisplayWindow.cs:922		E					
+战斗界面/HUD	CardDisplayWindow	RemoveCardsListeners()	CardDisplayWindow.cs:287		E					
+战斗界面/HUD	CardDisplayWindow	ResetOrder()	CardDisplayWindow.cs:568		E					
+战斗界面/HUD	CardDisplayWindow	SetCardLore(BasicCardUI card)	CardDisplayWindow.cs:1011		E					
+战斗界面/HUD	CardDisplayWindow	SetCardVoiceOver(BasicCardUI card)	CardDisplayWindow.cs:1026		E					
+战斗界面/HUD	CardDisplayWindow	SetupTutorialObj(RawCardScript rawCardData, bool forceHide)	CardDisplayWindow.cs:1097		E					
+战斗界面/HUD	CardDisplayWindow	ShowBattleCard(CardScript card, int warlordHealthModifier)	CardDisplayWindow.cs:657		E					
+战斗界面/HUD	CardDisplayWindow	ShowCard(RawCardScript card, CardTier? tier, bool showOptions, Action<RawCardScript> onChangeCard, int warlordHealthModifier)	CardDisplayWindow.cs:406		E					
+战斗界面/HUD	CardDisplayWindow	ToBackground()	CardDisplayWindow.cs:376		E					
+战斗界面/HUD	CardDisplayWindow	ToFocus()	CardDisplayWindow.cs:366		E					
+战斗界面/HUD	CardDisplayWindow	ToggleCardState()	CardDisplayWindow.cs:975		E					
+战斗界面/HUD	CardDisplayWindow	TryInitializeCard(RawCardScript relatedCard, int index)	CardDisplayWindow.cs:623		E					
+战斗界面/HUD	CardDisplayWindow	_003CAddCardsListeners_003Eb__38_0()	CardDisplayWindow.cs:1341		E					
+战斗界面/HUD	CardDisplayWindow	_003CAddCardsListeners_003Eb__38_1()	CardDisplayWindow.cs:1347		E					
+战斗界面/HUD	CardDisplayWindow	_003CAddCardsListeners_003Eb__38_2()	CardDisplayWindow.cs:1353		E					
+战斗界面/HUD	CardDisplayWindow	_003CAddCardsListeners_003Eb__38_3()	CardDisplayWindow.cs:1359		E					
+战斗界面/HUD	CemeteryLogCard	SetupCemeteryCard(int damage, Color lightColor)	CemeteryLogCard.cs:8		E					
+战斗界面/HUD	CemeteryLogGroup	ClearActions()	CemeteryLogGroup.cs:162		E					
+战斗界面/HUD	CemeteryLogGroup	CreateCemeteryCard(RawCardScript cardData, bool isPlayer, int activeAbilityIndex, int damageValue)	CemeteryLogGroup.cs:128		E					
+战斗界面/HUD	CemeteryLogGroup	CreateMainCard(RawCardScript cardData, bool isPlayer, int activeAbilityIndex, int damageValue)	CemeteryLogGroup.cs:117		E					
+战斗界面/HUD	CemeteryLogGroup	CreateTargetCard(int index, RawCardScript cardData, bool isPlayer, int activeAbilityIndex, int damageValue)	CemeteryLogGroup.cs:98		E					
+战斗界面/HUD	CemeteryLogGroup	DisplayAction(CemeteryAction cemeteryAction)	CemeteryLogGroup.cs:20		E					
+战斗界面/HUD	CemeteryLogGroup	GetCemeteryCardLocalPos(int index)	CemeteryLogGroup.cs:156		E					
+战斗界面/HUD	CemeteryLogGroup	SetActionImage(CemeteryActionType actionType)	CemeteryLogGroup.cs:94		E					
+战斗界面/HUD	CemeteryLogManager	AddCardToCemetery(CardScript card)	CemeteryLogManager.cs:254		E					
+战斗界面/HUD	CemeteryLogManager	ClearActions()	CemeteryLogManager.cs:247		E					
+战斗界面/HUD	CemeteryLogManager	ClickCemeterySlider(int sliderIndex)	CemeteryLogManager.cs:107		E					
+战斗界面/HUD	CemeteryLogManager	GetCemeterySize()	CemeteryLogManager.cs:297		E					
+战斗界面/HUD	CemeteryLogManager	ReleaseCemeterySlider(int sliderIndex)	CemeteryLogManager.cs:227		E					
+战斗界面/HUD	CemeteryLogManager	RemoveFromCemeteryList(CardScript card)	CemeteryLogManager.cs:283		E					
+战斗界面/HUD	CemeteryLogManager	Start()	CemeteryLogManager.cs:56		E					
+战斗界面/HUD	CemeteryLogSlider	GetIndex()	CemeteryLogSlider.cs:22		E					
+战斗界面/HUD	CemeteryLogSlider	Setup(CemeteryManager manager)	CemeteryLogSlider.cs:14		E					
+战斗界面/HUD	CemeteryManager	AddAbilityActionToCemetery(BattleAction battleAction)	CemeteryManager.cs:461		E					
+战斗界面/HUD	CemeteryManager	AddActionToCemetery(CemeteryAction newAction)	CemeteryManager.cs:153		E					
+战斗界面/HUD	CemeteryManager	AddAttackActionToCemetery(BattleAction battleAction, DamageInfo attackerDamage)	CemeteryManager.cs:375		E					
+战斗界面/HUD	CemeteryManager	AddCardToCemetery(CardScript card)	CemeteryManager.cs:96		E					
+战斗界面/HUD	CemeteryManager	AddDisplayedCardActionToCemetery(BattleAction battleAction)	CemeteryManager.cs:296		E					
+战斗界面/HUD	CemeteryManager	AddDrawTrapAction(CardScript card)	CemeteryManager.cs:802		E					
+战斗界面/HUD	CemeteryManager	AddExecuteSecretOrderAction(CardScript actingCard, CardScript enchantment)	CemeteryManager.cs:868		E					
+战斗界面/HUD	CemeteryManager	AddExitAmbushActionToCemetery(CardScript ambushCard)	CemeteryManager.cs:344		E					
+战斗界面/HUD	CemeteryManager	AddPlayCardAction(BattleAction battleAction)	CemeteryManager.cs:634		E					
+战斗界面/HUD	CemeteryManager	AddPlayDropSupplyAction(RawCardScript dropSupply, bool isPlayer)	CemeteryManager.cs:839		E					
+战斗界面/HUD	CemeteryManager	AddWaystoneActionToCemetery(BattleAction battleAction)	CemeteryManager.cs:586		E					
+战斗界面/HUD	CemeteryManager	ChangedLanguage()	CemeteryManager.cs:261		E					
+战斗界面/HUD	CemeteryManager	CheckCardLink()	CemeteryManager.cs:1958		E					
+战斗界面/HUD	CemeteryManager	ClickCardLink()	CemeteryManager.cs:2040		E					
+战斗界面/HUD	CemeteryManager	DisplayCard(RawCardScript rawCard, string createdByText)	CemeteryManager.cs:2124		E					
+战斗界面/HUD	CemeteryManager	DisplayCardTraits(RawCardScript card)	CemeteryManager.cs:2154		E					
+战斗界面/HUD	CemeteryManager	DisplayCemeteryActions()	CemeteryManager.cs:1377		E					
+战斗界面/HUD	CemeteryManager	GetActionText(CemeteryAction cemeteryAction, int actionIndex)	CemeteryManager.cs:1426		E					
+战斗界面/HUD	CemeteryManager	GetActionWithParams(string term, CemeteryAction cemeteryAction, int actionIndex)	CemeteryManager.cs:1618		E					
+战斗界面/HUD	CemeteryManager	GetCardsPlayed(CardScript thisCard, CardScript actingCard, CardScript targetCard, TargetCriteria criteria)	CemeteryManager.cs:2158		E					
+战斗界面/HUD	CemeteryManager	GetCemeterySize()	CemeteryManager.cs:141		E					
+战斗界面/HUD	CemeteryManager	GetFirstParamText(CemeteryAction cemeteryAction, int actionIndex)	CemeteryManager.cs:1736		E					
+战斗界面/HUD	CemeteryManager	HideCemeteryLogBtn()	CemeteryManager.cs:2271		E					
+战斗界面/HUD	CemeteryManager	RemoveFromCemeteryList(CardScript card)	CemeteryManager.cs:127		E					
+战斗界面/HUD	CemeteryManager	SetEmptyText()	CemeteryManager.cs:84		E					
+战斗界面/HUD	CemeteryManager	Setup()	CemeteryManager.cs:53		E					
+战斗界面/HUD	CemeteryManager	SetupCommonElements(BattleAction battleAction, ref CemeteryAction newCemeteryAction)	CemeteryManager.cs:906		E					
+战斗界面/HUD	CemeteryManager	ShowCemeteryLogBtn()	CemeteryManager.cs:2235		E					
+战斗界面/HUD	CemeteryManager	StopDisplayingCemetery()	CemeteryManager.cs:1941		E					
+战斗界面/HUD	CemeteryManager	Update()	CemeteryManager.cs:2289		E					
+战斗界面/HUD	ChooseCardMenu	AutoProcessDone()	ChooseCardMenu.cs:699		E					
+战斗界面/HUD	ChooseCardMenu	Awake()	ChooseCardMenu.cs:530		E					
+战斗界面/HUD	ChooseCardMenu	ClickChooseDone()	ChooseCardMenu.cs:861		E					
+战斗界面/HUD	ChooseCardMenu	CountdownTrigger(int counter)	ChooseCardMenu.cs:797		E					
+战斗界面/HUD	ChooseCardMenu	CreateCardUI(RawCardScript card, int index, int totalCards, bool isEnviromental)	ChooseCardMenu.cs:748		E					
+战斗界面/HUD	ChooseCardMenu	CreateDisplayCard(RawCardScript card, int index, int totalCards, bool isEnviromental)	ChooseCardMenu.cs:726		E					
+战斗界面/HUD	ChooseCardMenu	EndSelectionWithDelay(int timerCounter)	ChooseCardMenu.cs:651		E					
+战斗界面/HUD	ChooseCardMenu	GetTittleText(string uniqueId)	ChooseCardMenu.cs:682		E					
+战斗界面/HUD	ChooseCardMenu	OnDisable()	ChooseCardMenu.cs:549		E					
+战斗界面/HUD	ChooseCardMenu	OnEnable()	ChooseCardMenu.cs:539		E					
+战斗界面/HUD	ChooseCardMenu	ProcessChooseDone()	ChooseCardMenu.cs:876		E					
+战斗界面/HUD	ChooseCardMenu	SelectCard(BasicCardUI card)	ChooseCardMenu.cs:827		E					
+战斗界面/HUD	ChooseCardMenu	SetTimer(int secondsLeftCounter)	ChooseCardMenu.cs:1224		E					
+战斗界面/HUD	ChooseCardMenu	SetUpTitleText(string uniqueId)	ChooseCardMenu.cs:663		E					
+战斗界面/HUD	ChooseCardMenu	Setup(List<RawCardScript> chooseCards, string actingCardId, int timerCounter, int target)	ChooseCardMenu.cs:559		E					
+战斗界面/HUD	ChooseCardMenu	SetupChooseCardsUi(List<RawCardScript> chooseCards, bool isEnviromental)	ChooseCardMenu.cs:710		E					
+战斗界面/HUD	ChooseCardMenu	ShowChooseCardElements(bool showY)	ChooseCardMenu.cs:1245		E					
+战斗界面/HUD	ChooseCardMenu	ShowChooseCards(bool showY)	ChooseCardMenu.cs:1258		E					
+战斗界面/HUD	ChooseCardMenu	ToogleChooseMenuVisibility()	ChooseCardMenu.cs:1237		E					
+战斗界面/HUD	ChooseCardMenu	Update()	ChooseCardMenu.cs:1283		E					
+战斗界面/HUD	ChooseCardMenu	_003COnDisable_003Eb__16_0()	ChooseCardMenu.cs:1310		E					
+战斗界面/HUD	ChooseCardMenu	_003COnEnable_003Eb__15_0()	ChooseCardMenu.cs:1305		E					
+战斗界面/HUD	ClockManager	ChangeMaterialHurryUp(bool option)	ClockManager.cs:521		E					
+战斗界面/HUD	ClockManager	ChangedLanguage()	ClockManager.cs:197		E					
+战斗界面/HUD	ClockManager	ClockRunning()	ClockManager.cs:406		E					
+战斗界面/HUD	ClockManager	ClockRunningAnim()	ClockManager.cs:415		E					
+战斗界面/HUD	ClockManager	CreateCountdownAnim()	ClockManager.cs:441		E					
+战斗界面/HUD	ClockManager	CreateInOutAnim(GameObject prefab)	ClockManager.cs:474		E					
+战斗界面/HUD	ClockManager	CreateNoActionsAnim()	ClockManager.cs:457		E					
+战斗界面/HUD	ClockManager	EndCountdown()	ClockManager.cs:782		E					
+战斗界面/HUD	ClockManager	EndTurn(bool timeOutFlag)	ClockManager.cs:264		E					
+战斗界面/HUD	ClockManager	EndTurnClick()	ClockManager.cs:251		E					
+战斗界面/HUD	ClockManager	GetTotalTime()	ClockManager.cs:494		E					
+战斗界面/HUD	ClockManager	Initialize()	ClockManager.cs:167		E					
+战斗界面/HUD	ClockManager	LogPlayerAction(BattleAction battleAction)	ClockManager.cs:203		E					
+战斗界面/HUD	ClockManager	OnApplicationPause(bool pause)	ClockManager.cs:532		E					
+战斗界面/HUD	ClockManager	OnDestroy()	ClockManager.cs:804		E					
+战斗界面/HUD	ClockManager	PauseClock()	ClockManager.cs:300		E					
+战斗界面/HUD	ClockManager	PauseForAnim()	ClockManager.cs:340		E					
+战斗界面/HUD	ClockManager	SetEndTurnText(bool isPlayer)	ClockManager.cs:137		E					
+战斗界面/HUD	ClockManager	SetEnemyTurnUI()	ClockManager.cs:245		E					
+战斗界面/HUD	ClockManager	SetFillPercentage(float clockPercentage)	ClockManager.cs:490		E					
+战斗界面/HUD	ClockManager	SetNoActionsUi()	ClockManager.cs:365		E					
+战斗界面/HUD	ClockManager	SetStartUi()	ClockManager.cs:350		E					
+战斗界面/HUD	ClockManager	ShouldUpdateSecondsPassed(float secondsPassed, float secondsPassedRealtime)	ClockManager.cs:622		E					
+战斗界面/HUD	ClockManager	Start()	ClockManager.cs:94		E					
+战斗界面/HUD	ClockManager	StartCountdown()	ClockManager.cs:764		E					
+战斗界面/HUD	ClockManager	StartTimer()	ClockManager.cs:174		E					
+战斗界面/HUD	ClockManager	StopClock()	ClockManager.cs:276		E					
+战斗界面/HUD	ClockManager	StopClockUi()	ClockManager.cs:424		E					
+战斗界面/HUD	ClockManager	UnpauseClock()	ClockManager.cs:320		E					
+战斗界面/HUD	ClockManager	UnpauseForAnim()	ClockManager.cs:345		E					
+战斗界面/HUD	ClockManager	Update()	ClockManager.cs:642		E					
+战斗界面/HUD	CombatAutoZoom	ForceRefresh()	CombatAutoZoom.cs:214		E					
+战斗界面/HUD	CombatAutoZoom	Initialize()	CombatAutoZoom.cs:19		E					
+战斗界面/HUD	CombatAutoZoom	OnDisable()	CombatAutoZoom.cs:125		E					
+战斗界面/HUD	CombatAutoZoom	OnEnable()	CombatAutoZoom.cs:92		E					
+战斗界面/HUD	CombatAutoZoom	OnMinionNumberChanged(int numberOfMinionsInSide, bool isPLayer)	CombatAutoZoom.cs:158		E					
+战斗界面/HUD	CombatAutoZoom	ResetCameraZoomUIAction()	CombatAutoZoom.cs:82		E					
+战斗界面/HUD	CombatAutoZoom	SetZoomLevel(int numberOfMinionsInSide, bool force)	CombatAutoZoom.cs:174		E					
+战斗界面/HUD	CombatCameraZoom	ApplyZoom(Vector2 drag)	CombatCameraZoom.cs:708		E					
+战斗界面/HUD	CombatCameraZoom	Awake()	CombatCameraZoom.cs:92		E					
+战斗界面/HUD	CombatCameraZoom	ClampShiftLimits(Vector2 desiredLensShift)	CombatCameraZoom.cs:886		E					
+战斗界面/HUD	CombatCameraZoom	CorrectLensShift(Vector2 desiredLensShift, Vector2 correction)	CombatCameraZoom.cs:987		E					
+战斗界面/HUD	CombatCameraZoom	DetectPlayerInput()	CombatCameraZoom.cs:481		E					
+战斗界面/HUD	CombatCameraZoom	GetCameraFrustumWorldBoundsWithShift(Vector2 desiredShift)	CombatCameraZoom.cs:1016		E					
+战斗界面/HUD	CombatCameraZoom	GetMaxZoomLevel(float desiredZoomLevel)	CombatCameraZoom.cs:453		E					
+战斗界面/HUD	CombatCameraZoom	GetWorldPositionUnderMouse()	CombatCameraZoom.cs:651		E					
+战斗界面/HUD	CombatCameraZoom	GetWorldPositionViewportSpace(Vector2 viewportPoint)	CombatCameraZoom.cs:683		E					
+战斗界面/HUD	CombatCameraZoom	HandleAutomaticControl()	CombatCameraZoom.cs:613		E					
+战斗界面/HUD	CombatCameraZoom	HandleDrag()	CombatCameraZoom.cs:641		E					
+战斗界面/HUD	CombatCameraZoom	HandleManualControl()	CombatCameraZoom.cs:520		E					
+战斗界面/HUD	CombatCameraZoom	Initialize(bool allowManualCameraControl)	CombatCameraZoom.cs:354		E					
+战斗界面/HUD	CombatCameraZoom	LateUpdate()	CombatCameraZoom.cs:323		E					
+战斗界面/HUD	CombatCameraZoom	OnCameraSensorSizeChanged(Vector2 newSensorSize)	CombatCameraZoom.cs:1156		E					
+战斗界面/HUD	CombatCameraZoom	OnCameraShiftChanged(Vector2 newLensShift)	CombatCameraZoom.cs:1151		E					
+战斗界面/HUD	CombatCameraZoom	OnDestroy()	CombatCameraZoom.cs:209		E					
+战斗界面/HUD	CombatCameraZoom	OnDrawGizmos()	CombatCameraZoom.cs:1160		E					
+战斗界面/HUD	CombatCameraZoom	SetZoomLevel(float zoomLevel, bool instant, bool force)	CombatCameraZoom.cs:399		E					
+战斗界面/HUD	CombatCameraZoom	ToggleAllowManualControl(bool option)	CombatCameraZoom.cs:349		E					
+战斗界面/HUD	CombatCameraZoom	ToggleManualCameraControl(bool option)	CombatCameraZoom.cs:497		E					
+战斗界面/HUD	CombatCameraZoom	ZoomChange(float delta)	CombatCameraZoom.cs:619		E					
+战斗界面/HUD	CursorManager	OnGUI()	CursorManager.cs:69		E					
+战斗界面/HUD	CursorManager	Start()	CursorManager.cs:24		E					
+战斗界面/HUD	CursorManager	Update()	CursorManager.cs:56		E					
+战斗界面/HUD	EndBattleDoors	Awake()	EndBattleDoors.cs:60		E					
+战斗界面/HUD	EndBattleDoors	HideRewardsObjects()	EndBattleDoors.cs:500		E					
+战斗界面/HUD	EndBattleDoors	OnDestroy()	EndBattleDoors.cs:73		E					
+战斗界面/HUD	EndBattleDoors	OnDisable()	EndBattleDoors.cs:66		E					
+战斗界面/HUD	EndBattleDoors	SetupDoor(IPlayEvent gameMode, BattleWinner battleWinnerParam, MatchType matchType, EndMatchResult grantedResult, int skullsObtained, RawCardScript playerWarlord)	EndBattleDoors.cs:78		E					
+战斗界面/HUD	EndBattleDoors	ShowRewards(IPlayEvent gameMode, EndMatchResult grantedResult, int skullsObtained, RawCardScript playerWarlord)	EndBattleDoors.cs:296		E					
+战斗界面/HUD	EntityObjectsManager	GetObject<T>(string key)	EntityObjectsManager.cs:295		E					
+战斗界面/HUD	EntityObjectsManager	HasObject(string key)	EntityObjectsManager.cs:367		E					
+战斗界面/HUD	EntityObjectsManager	Unpack()	EntityObjectsManager.cs:286		E					
+战斗界面/HUD	EverguildSceneManager	ClearLoadedScenes()	EverguildSceneManager.cs:1085		E					
+战斗界面/HUD	EverguildSceneManager	FirstSceneLoad(AssetReference assetReference)	EverguildSceneManager.cs:1068		E					
+战斗界面/HUD	EverguildSceneManager	IsAddressableScene(string sceneToCheck)	EverguildSceneManager.cs:1238		E					
+战斗界面/HUD	EverguildSceneManager	LoadScene(string from, string to)	EverguildSceneManager.cs:1090		E					
+战斗界面/HUD	EverguildSceneManager	LoadScene(string scene)	EverguildSceneManager.cs:1033		E					
+战斗界面/HUD	EverguildSceneManager	LoadTransition(string transitionScene, string fromScene, string toScene)	EverguildSceneManager.cs:1121		E					
+战斗界面/HUD	EverguildSceneManager	RegisterTransition(SceneTransition transition)	EverguildSceneManager.cs:1080		E					
+战斗界面/HUD	EverguildSceneManager	ReleaseAssets()	EverguildSceneManager.cs:1182		E					
+战斗界面/HUD	EverguildSceneManager	UnloadScene(string scene, bool releaseAssets)	EverguildSceneManager.cs:1144		E					
+战斗界面/HUD	EverguildSceneManager	UnloadSceneAddressables(string scene)	EverguildSceneManager.cs:1160		E					
+战斗界面/HUD	EverguildSceneManager	UnloadSceneInBuild(string scene)	EverguildSceneManager.cs:1171		E					
+战斗界面/HUD	EverguildSceneManager	WaitSceneLoad(string sceneName, Func<bool> readyPredicate)	EverguildSceneManager.cs:1189		E					
+战斗界面/HUD	EverguildSceneManager	WaitSceneLoadAddressables(string sceneName, Func<bool> readyPredicate)	EverguildSceneManager.cs:1208		E					
+战斗界面/HUD	EverguildSceneManager	WaitSceneLoadInBuild(string sceneName, Func<bool> readyPredicate)	EverguildSceneManager.cs:1223		E					
+战斗界面/HUD	EverguildTooltipManager	Awake()	EverguildTooltipManager.cs:38		E					
+战斗界面/HUD	EverguildTooltipManager	DisposeTooltip()	EverguildTooltipManager.cs:252		E					
+战斗界面/HUD	EverguildTooltipManager	EverguildTooltipItem(string title, string content, Vector3 position, bool localize)	EverguildTooltipManager.cs:103		E					
+战斗界面/HUD	EverguildTooltipManager	Hide()	EverguildTooltipManager.cs:220		E					
+战斗界面/HUD	EverguildTooltipManager	Show(ComponentReference<EverguildTooltipItem> tooltipReference, string title, string content, Vector3 position, bool localize)	EverguildTooltipManager.cs:196		E					
+战斗界面/HUD	EverguildTooltipManager	Show(EverguildTooltipData data, EverguildTooltipItem prefab, GameObject toolTipTriggerObject)	EverguildTooltipManager.cs:44		E					
+战斗界面/HUD	EverguildTooltipManager	Show(EverguildTooltipItem tooltip, string title, string content, Vector3 position, bool localize)	EverguildTooltipManager.cs:132		E					
+战斗界面/HUD	EverguildTooltipManager	ShowTraitTooltip(EverguildTraitTooltipData data, GameObject toolTipTriggerObject)	EverguildTooltipManager.cs:215		E					
+战斗界面/HUD	EverguildTooltipManager	Update()	EverguildTooltipManager.cs:272		E					
+战斗界面/HUD	FlyingCardController	Awake()	FlyingCardController.cs:38		E					
+战斗界面/HUD	FlyingCardController	ChangeState(States stateToChange)	FlyingCardController.cs:224		E					
+战斗界面/HUD	FlyingCardController	FlyingState()	FlyingCardController.cs:341		E					
+战斗界面/HUD	FlyingCardController	GetFlyPosition(float time)	FlyingCardController.cs:354		E					
+战斗界面/HUD	FlyingCardController	GoToTargetPosition()	FlyingCardController.cs:418		E					
+战斗界面/HUD	FlyingCardController	InTransitionToFlyState()	FlyingCardController.cs:384		E					
+战斗界面/HUD	FlyingCardController	InTransitionToLandState()	FlyingCardController.cs:399		E					
+战斗界面/HUD	FlyingCardController	IsFlying()	FlyingCardController.cs:208		E					
+战斗界面/HUD	FlyingCardController	OnDisable()	FlyingCardController.cs:63		E					
+战斗界面/HUD	FlyingCardController	Toggle(bool option, float time)	FlyingCardController.cs:171		E					
+战斗界面/HUD	FlyingCardController	Update()	FlyingCardController.cs:74		E					
+战斗界面/HUD	HelpshiftManager	Awake()	HelpshiftManager.cs:55		E					
+战斗界面/HUD	HelpshiftManager	CheckNotification()	HelpshiftManager.cs:201		E					
+战斗界面/HUD	HelpshiftManager	EpochTime(DateTime time)	HelpshiftManager.cs:77		E					
+战斗界面/HUD	HelpshiftManager	InstantiateHelpshift()	HelpshiftManager.cs:67		E					
+战斗界面/HUD	HelpshiftManager	IsHelpshiftDisabled()	HelpshiftManager.cs:174		E					
+战斗界面/HUD	HelpshiftManager	QuitApplication()	HelpshiftManager.cs:212		E					
+战斗界面/HUD	HelpshiftManager	RegisterPush(string pushToken)	HelpshiftManager.cs:193		E					
+战斗界面/HUD	HelpshiftManager	SetNotificationCallback(Action onNotificationChanged)	HelpshiftManager.cs:216		E					
+战斗界面/HUD	HelpshiftManager	Setup()	HelpshiftManager.cs:63		E					
+战斗界面/HUD	HelpshiftManager	SetupLogin()	HelpshiftManager.cs:59		E					
+战斗界面/HUD	HelpshiftManager	ShowContactUs()	HelpshiftManager.cs:95		E					
+战斗界面/HUD	HelpshiftManager	ShowFAQ()	HelpshiftManager.cs:71		E					
+战斗界面/HUD	HelpshiftManager	Update()	HelpshiftManager.cs:197		E					
+战斗界面/HUD	HoverManager	ActivateMiniTip(bool activate)	HoverManager.cs:65		E					
+战斗界面/HUD	HoverManager	Awake()	HoverManager.cs:55		E					
+战斗界面/HUD	HoverManager	CreateMiniTip()	HoverManager.cs:99		E					
+战斗界面/HUD	HoverManager	DisplayTip()	HoverManager.cs:123		E					
+战斗界面/HUD	HoverManager	OnMouseEnter()	HoverManager.cs:74		E					
+战斗界面/HUD	HoverManager	OnMouseExit()	HoverManager.cs:163		E					
+战斗界面/HUD	HoverManager	OnMouseOver()	HoverManager.cs:152		E					
+战斗界面/HUD	LoginScreenManager	Awake()	LoginScreenManager.cs:48		E					
+战斗界面/HUD	LoginScreenManager	Initialize(LoginManager loginManager)	LoginScreenManager.cs:53		E					
+战斗界面/HUD	LoginScreenManager	OnCustomErrorFallback(string customError)	LoginScreenManager.cs:1063		E					
+战斗界面/HUD	LoginScreenManager	OnDestroy()	LoginScreenManager.cs:472		E					
+战斗界面/HUD	LoginScreenManager	OnLoginComplete()	LoginScreenManager.cs:1051		E					
+战斗界面/HUD	LoginScreenManager	OnLoginError(LoginManager.LoginFailure error)	LoginScreenManager.cs:974		E					
+战斗界面/HUD	LoginScreenManager	OnPlayfabErrorFallback(PlayFabError playFabError)	LoginScreenManager.cs:1055		E					
+战斗界面/HUD	LoginScreenManager	SetMessage(string message)	LoginScreenManager.cs:879		E					
+战斗界面/HUD	LoginScreenManager	SetPercentage(int percentage)	LoginScreenManager.cs:920		E					
+战斗界面/HUD	LoginScreenManager	SetProgress(LoginManager.LoginState loginState)	LoginScreenManager.cs:933		E					
+战斗界面/HUD	LoginScreenManager	SetupScene()	LoginScreenManager.cs:902		E					
+战斗界面/HUD	LoginScreenManager	Start()	LoginScreenManager.cs:884		E					
+战斗界面/HUD	LoginScreenManager	ToggleUI(bool option, bool instant)	LoginScreenManager.cs:458		E					
+战斗界面/HUD	LoginScreenManager	_003COnLoginError_003Eb__13_2(GameObject _)	LoginScreenManager.cs:1071		E					
+战斗界面/HUD	ManaBuff	DeepCopy()	ManaBuff.cs:48		E					
+战斗界面/HUD	ManaBuff	GetNewInstanceOfThisEffect()	ManaBuff.cs:29		E					
+战斗界面/HUD	ManaManager	SetAccumulationMana(bool active)	ManaManager.cs:135		E					
+战斗界面/HUD	ManaManager	SetFaithMana(int faithValue)	ManaManager.cs:148		E					
+战斗界面/HUD	ManaManager	SetMana(int totalMana, int availableMana)	ManaManager.cs:85		E					
+战斗界面/HUD	ManaManager	SetManaSaved(int savedMana, int unUsedMana, int totalMana, bool useNumberChange)	ManaManager.cs:130		E					
+战斗界面/HUD	ManaManager	SetQuestPoints(int questPointsValue, int totalQuestPoints, bool silently)	ManaManager.cs:153		E					
+战斗界面/HUD	ManaManager	SetSpiritStoneMana(int spiritStoneMana)	ManaManager.cs:158		E					
+战斗界面/HUD	ManaManager	ToggleCurrentMana(bool activate, int availableMana, int totalMana)	ManaManager.cs:163		E					
+战斗界面/HUD	ManaManager	ToggleFaithMana(bool showY, int initialValue)	ManaManager.cs:101		E					
+战斗界面/HUD	ManaManager	ToggleQuestPoints(bool showY, int totalPoints, int initialValue, bool shouldUseAlt)	ManaManager.cs:112		E					
+战斗界面/HUD	ManaManager	ToggleSpiritStoneMana(bool showY, int initialValue)	ManaManager.cs:90		E					
+战斗界面/HUD	ManaTypeHolder	DoTextAnim()	ManaTypeHolder.cs:84		E					
+战斗界面/HUD	ManaTypeHolder	SetAccumulationMana(bool active)	ManaTypeHolder.cs:316		E					
+战斗界面/HUD	ManaTypeHolder	SetMana(int value, bool silently)	ManaTypeHolder.cs:69		E					
+战斗界面/HUD	ManaTypeHolder	SetMana(int value, int value2, bool silently)	ManaTypeHolder.cs:106		E					
+战斗界面/HUD	ManaTypeHolder	SetSavedMana(int savedMana, int unUsedMana, int totalMana, bool useNumberChange)	ManaTypeHolder.cs:186		E					
+战斗界面/HUD	ManaTypeHolder	Test()	ManaTypeHolder.cs:353		E					
+战斗界面/HUD	ManaTypeHolder	Toggle(bool option, string altTipString)	ManaTypeHolder.cs:129		E					
+战斗界面/HUD	ManaTypeHolder	ToggleCurrentMana(bool activate, int currentMana, int totalMana)	ManaTypeHolder.cs:328		E					
+战斗界面/HUD	ManaTypeHolder	ToggleManaAccumulation(bool option, Action OnComplete)	ManaTypeHolder.cs:248		E					
+战斗界面/HUD	ManaTypeHolder	TryDOVfx(int targetValue)	ManaTypeHolder.cs:144		E					
+战斗界面/HUD	ManaTypeQPHolder	SetMana(int value, bool silently)	ManaTypeQPHolder.cs:10		E					
+战斗界面/HUD	ManaTypeQPHolder	ToggleCounter(bool option, GameObject counter, bool silently)	ManaTypeQPHolder.cs:67		E					
+战斗界面/HUD	MulliganManager	ActivateMulligan(bool goFirst)	MulliganManager.cs:42		E					
+战斗界面/HUD	MulliganManager	ClickMulliganDone()	MulliganManager.cs:80		E					
+战斗界面/HUD	MulliganManager	ClickReleaseHideMulligan()	MulliganManager.cs:196		E					
+战斗界面/HUD	MulliganManager	MulliganElementsAreVisible()	MulliganManager.cs:211		E					
+战斗界面/HUD	MulliganManager	ProcessMulliganDone()	MulliganManager.cs:95		E					
+战斗界面/HUD	MulliganManager	SetMulliganTimer(int secondsLeftCounter)	MulliganManager.cs:170		E					
+战斗界面/HUD	MulliganManager	SetWaitingForEnemy()	MulliganManager.cs:68		E					
+战斗界面/HUD	MulliganManager	Setup()	MulliganManager.cs:35		E					
+战斗界面/HUD	MulliganManager	SetupMulliganButton(CardScript cardScript)	MulliganManager.cs:222		E					
+战斗界面/HUD	MulliganManager	ShowMulliganCards(bool showY)	MulliganManager.cs:287		E					
+战斗界面/HUD	MulliganManager	ShowMulliganElements(bool showY)	MulliganManager.cs:201		E					
+战斗界面/HUD	MulliganManager	StopMulligan()	MulliganManager.cs:161		E					
+战斗界面/HUD	MulliganManager	ToggleMulliganVisibility()	MulliganManager.cs:183		E					
+战斗界面/HUD	MulliganManager	Update()	MulliganManager.cs:396		E					
+战斗界面/HUD	PracticeModePopup	Awake()	PracticeModePopup.cs:82		E					
+战斗界面/HUD	PracticeModePopup	BattleButtonOnClick()	PracticeModePopup.cs:979		E					
+战斗界面/HUD	PracticeModePopup	ChangePlayText()	PracticeModePopup.cs:1150		E					
+战斗界面/HUD	PracticeModePopup	ChangeSelectedArmy(CardArmy army)	PracticeModePopup.cs:745		E					
+战斗界面/HUD	PracticeModePopup	Close()	PracticeModePopup.cs:1096		E					
+战斗界面/HUD	PracticeModePopup	ConfigureArmyFilterButtons()	PracticeModePopup.cs:352		E					
+战斗界面/HUD	PracticeModePopup	DeckSelected(DemoDeckInfoSO selectedDeck, DeckSelectorMenuItemDemo buttonSelected)	PracticeModePopup.cs:694		E					
+战斗界面/HUD	PracticeModePopup	GameModeValueChange(bool option)	PracticeModePopup.cs:1084		E					
+战斗界面/HUD	PracticeModePopup	IsSavedDeck(DemoDeckInfoSO deck)	PracticeModePopup.cs:645		E					
+战斗界面/HUD	PracticeModePopup	LoadSavedDeck(string savedDeck)	PracticeModePopup.cs:610		E					
+战斗界面/HUD	PracticeModePopup	OnDestroy()	PracticeModePopup.cs:110		E					
+战斗界面/HUD	PracticeModePopup	Open()	PracticeModePopup.cs:123		E					
+战斗界面/HUD	PracticeModePopup	PlayerDeckChanged(CardDeck newDeck)	PracticeModePopup.cs:722		E					
+战斗界面/HUD	PracticeModePopup	ResetContent()	PracticeModePopup.cs:1103		E					
+战斗界面/HUD	PracticeModePopup	SaveSelectedDeck()	PracticeModePopup.cs:733		E					
+战斗界面/HUD	PracticeModePopup	SetArmyButtons(CardArmy cardArmy)	PracticeModePopup.cs:854		E					
+战斗界面/HUD	QualitySettingsManager	ApplyGraphicsQuality()	QualitySettingsManager.cs:267		E					
+战斗界面/HUD	QualitySettingsManager	ApplyResolutionScale(float resolutionScale)	QualitySettingsManager.cs:133		E					
+战斗界面/HUD	QualitySettingsManager	ChangeResolution()	QualitySettingsManager.cs:108		E					
+战斗界面/HUD	QualitySettingsManager	GetQualityDefinition(EverguildQualitySetting qualitySetting)	QualitySettingsManager.cs:326		E					
+战斗界面/HUD	QualitySettingsManager	GetRenderScaleBasedOnClampedResolution(float clampResolutionTarget)	QualitySettingsManager.cs:139		E					
+战斗界面/HUD	QualitySettingsManager	Initialize()	QualitySettingsManager.cs:247		E					
+战斗界面/HUD	QualitySettingsManager	Reset()	QualitySettingsManager.cs:160		E					
+战斗界面/HUD	QualitySettingsManager	SceneChange()	QualitySettingsManager.cs:103		E					
+战斗界面/HUD	QualitySettingsManager	SceneChanged(string scene)	QualitySettingsManager.cs:259		E					
+战斗界面/HUD	RadioMessageScript	AnimateText()	RadioMessageScript.cs:365		E					
+战斗界面/HUD	RadioMessageScript	DisplayTipText(string tipLocalizedText)	RadioMessageScript.cs:349		E					
+战斗界面/HUD	RadioMessageScript	FadeElements(float targetAlpha)	RadioMessageScript.cs:303		E					
+战斗界面/HUD	RadioMessageScript	SetupCardImage(Sprite speakerSprite)	RadioMessageScript.cs:294		E					
+战斗界面/HUD	RadioMessageScript	ShowRadioMessage(SmallTipData smallTipData, Sprite speakerSprite)	RadioMessageScript.cs:275		E					
+战斗界面/HUD	RadioMessageScript	StopAnims()	RadioMessageScript.cs:337		E					
+战斗界面/HUD	ReferralManager	ClaimReward(ReferralEntry entry, Action onSuccess)	ReferralManager.cs:198		E					
+战斗界面/HUD	ReferralManager	GetReferrals()	ReferralManager.cs:113		E					
+战斗界面/HUD	ReferralManager	GetReferrer()	ReferralManager.cs:127		E					
+战斗界面/HUD	ReferralManager	Initialize()	ReferralManager.cs:91		E					
+战斗界面/HUD	ReferralManager	SetReferrer(string text, Action onComplete, Action<string> onError)	ReferralManager.cs:141		E					
+战斗界面/HUD	ReplayHud	Initialize()	ReplayHud.cs:17		E					
+战斗界面/HUD	ReplayHud	OnDestroy()	ReplayHud.cs:78		E					
+战斗界面/HUD	ReplayHud	PauseButtonClicked()	ReplayHud.cs:64		E					
+战斗界面/HUD	ReplayHud	PlayButtonClicked()	ReplayHud.cs:55		E					
+战斗界面/HUD	ReplayHud	ReplayButtonClicked()	ReplayHud.cs:50		E					
+战斗界面/HUD	ReplayHud	Setup()	ReplayHud.cs:37		E					
+战斗界面/HUD	ReplayHud	StepButtonClicked()	ReplayHud.cs:73		E					
+战斗界面/HUD	ResolutionManager	Awake()	ResolutionManager.cs:15		E					
+战斗界面/HUD	ResolutionManager	CheckResolutionChange()	ResolutionManager.cs:53		E					
+战斗界面/HUD	ResolutionManager	SetFullScreen(bool fullScreen)	ResolutionManager.cs:25		E					
+战斗界面/HUD	ResolutionManager	Update()	ResolutionManager.cs:41		E					
+战斗界面/HUD	ScenarioEnvironmentConditionsManager	ApplyDefaultEnvironment(bool instant)	ScenarioEnvironmentConditionsManager.cs:56		E					
+战斗界面/HUD	ScenarioEnvironmentConditionsManager	ApplyEnvironment(ScenarioEnvironmentConditionSO environmentConditions, bool instant)	ScenarioEnvironmentConditionsManager.cs:34		E					
+战斗界面/HUD	ScenarioEnvironmentConditionsManager	Awake()	ScenarioEnvironmentConditionsManager.cs:29		E					
+战斗界面/HUD	ScenarioEnvironmentConditionsManager	DisableCurrenEnvironment(bool instant)	ScenarioEnvironmentConditionsManager.cs:61		E					
+战斗界面/HUD	ScenarioEnvironmentConditionsManager	Register(IScenarioEnvironmentBlendeable blendeableToRegister)	ScenarioEnvironmentConditionsManager.cs:69		E					
+战斗界面/HUD	ScenarioEnvironmentConditionsManager	SetRegisteredBlendeablesState(ScenarioBlendOptions options)	ScenarioEnvironmentConditionsManager.cs:96		E					
+战斗界面/HUD	SceneCameraManager	GetUICamera()	SceneCameraManager.cs:10		E					
+战斗界面/HUD	SceneCameraManager	TryFindCameraWithTag(string cameratag, out Camera foundCamera)	SceneCameraManager.cs:94		E					
+战斗界面/HUD	SessionManager	Initialize()	SessionManager.cs:47		E					
+战斗界面/HUD	SessionManager	OnApplicationFocus(bool focus)	SessionManager.cs:51		E					
+战斗界面/HUD	SessionManager	RestartSession(bool skipIntroVideo)	SessionManager.cs:116		E					
+战斗界面/HUD	SessionManager	RestartSessionWithoutTutorial()	SessionManager.cs:152		E					
+战斗界面/HUD	TargetReticleController	AutoMovingCrosshair()	TargetReticleController.cs:593		E					
+战斗界面/HUD	TargetReticleController	Awake()	TargetReticleController.cs:66		E					
+战斗界面/HUD	TargetReticleController	ChangeAlpha(Color colorToChange, bool toggle, bool instant)	TargetReticleController.cs:603		E					
+战斗界面/HUD	TargetReticleController	DoCrosshairMove(Vector3 targetPositionUISpace, float time)	TargetReticleController.cs:262		E					
+战斗界面/HUD	TargetReticleController	Initialize()	TargetReticleController.cs:119		E					
+战斗界面/HUD	TargetReticleController	MoveCrosshair(Vector3 originPositionBoardSpace, Vector3 targetPositionUISpace)	TargetReticleController.cs:197		E					
+战斗界面/HUD	TargetReticleController	OnValidate()	TargetReticleController.cs:630		E					
+战斗界面/HUD	TargetReticleController	PrepareMovement(Vector3 startingPositionBoardSpace, AttackTypes attackType)	TargetReticleController.cs:273		E					
+战斗界面/HUD	TargetReticleController	RaycastToWorld(Vector3 positionInCanvas, bool isPlayer)	TargetReticleController.cs:453		E					
+战斗界面/HUD	TargetReticleController	SetAttackType(AttackTypes currentAttackType)	TargetReticleController.cs:295		E					
+战斗界面/HUD	TargetReticleController	ToggleCrosshair(bool option, bool instant)	TargetReticleController.cs:209		E					
+战斗界面/HUD	TargetReticleController	ToggleCrosshairOff()	TargetReticleController.cs:337		E					
+战斗界面/HUD	TargetReticleController	TrySetColor(AttackTypes attackType, SpriteRenderer crosshair, Material lineMaterial)	TargetReticleController.cs:21		E					
+战斗界面/HUD	TargetReticleController	Update()	TargetReticleController.cs:75		E					
+战斗界面/HUD	TargetReticleController	UpdateTrail(Vector3 originPosition, Vector3 targetPosition, bool targetPositionInWorldSpace)	TargetReticleController.cs:342		E					
+战斗界面/HUD	TestLoginManager	CheckDataLoaded()	TestLoginManager.cs:245		E					
+战斗界面/HUD	TestLoginManager	ForceStart(PrebuiltDeck newEnemyDeck)	TestLoginManager.cs:480		E					
+战斗界面/HUD	TestLoginManager	MoveToNextScene()	TestLoginManager.cs:256		E					
+战斗界面/HUD	TestLoginManager	SetReplayMatch(string targetPlayerId, string targetMatchName)	TestLoginManager.cs:343		E					
+战斗界面/HUD	TestLoginManager	SetScenarioMatch(TutorialStage scenario)	TestLoginManager.cs:444		E					
+战斗界面/HUD	TestLoginManager	SetTestMatch()	TestLoginManager.cs:392		E					
+战斗界面/HUD	TestLoginManager	Start()	TestLoginManager.cs:209		E					
+战斗界面/HUD	TestLoginManager	StartBattle()	TestLoginManager.cs:330		E					
+战斗界面/HUD	TestLoginManager	StartMatch()	TestLoginManager.cs:269		E					
+战斗界面/HUD	TestLoginManager	StartTest()	TestLoginManager.cs:488		E					
+战斗界面/HUD	TipPrebattle	CloseTip()	TipPrebattle.cs:552		E					
+战斗界面/HUD	TipPrebattle	DeactivateTip()	TipPrebattle.cs:574		E					
+战斗界面/HUD	TipPrebattle	DisplayTip(string newTip)	TipPrebattle.cs:437		E					
+战斗界面/HUD	TipPrebattle	DisplayTips(PlayerDataManager playerData)	TipPrebattle.cs:460		E					
+战斗界面/HUD	TipPrebattle	GetNextTip()	TipPrebattle.cs:467		E					
+战斗界面/HUD	TipPrebattle	HideTips()	TipPrebattle.cs:511		E					
+战斗界面/HUD	TipPrebattle	OnTouchUpAsButton(Vector2 originalTouchPosition)	TipPrebattle.cs:502		E					
+战斗界面/HUD	TipPrebattle	OpenTip()	TipPrebattle.cs:541		E					
+战斗界面/HUD	TipPrebattle	RenewTip()	TipPrebattle.cs:563		E					
+战斗界面/HUD	TipPrebattle	SetupClosed()	TipPrebattle.cs:426		E					
+战斗界面/HUD	TouchInputManager	Awake()	TouchInputManager.cs:143		E					
+战斗界面/HUD	TouchInputManager	Toggle(bool option)	TouchInputManager.cs:516		E					
+战斗界面/HUD	TouchInputManager	Update()	TouchInputManager.cs:156		E					
+战斗界面/HUD	TouchInputManager	UpdateDrag(Vector2 currentPos)	TouchInputManager.cs:454		E					
+战斗界面/HUD	UIPCSkinManager	Awake()	UIPCSkinManager.cs:19		E					
+战斗界面/HUD	UISafeAreaManager	ApplySafeZone(Vector2 anchorMin, Vector2 anchorMax)	UISafeAreaManager.cs:18		E					
+战斗界面/HUD	UISafeAreaManager	Awake()	UISafeAreaManager.cs:215		E					
+战斗界面/HUD	UISafeAreaManager	CheckForUpdate()	UISafeAreaManager.cs:315		E					
+战斗界面/HUD	UISafeAreaManager	UpdateSafeArea()	UISafeAreaManager.cs:326		E					
+战斗界面/HUD	UISizeManager	Awake()	UISizeManager.cs:7		E					
+战斗界面/HUD	UISizeManager	ReScale()	UISizeManager.cs:21		E					
+战斗界面/HUD	UnityServicesManager	InitializeUnityServices()	UnityServicesManager.cs:387		E					
+战斗界面/HUD	UnityServicesManager	SignInWithPlayfabId()	UnityServicesManager.cs:396		E					
+战斗界面/HUD	WindowManagerTester	CloseAll()	WindowManagerTester.cs:28		E					
+战斗界面/HUD	WindowManagerTester	OpenNewFullScreenClosing()	WindowManagerTester.cs:43		E					
+战斗界面/HUD	WindowManagerTester	OpenNewFullscreenWindow()	WindowManagerTester.cs:12		E					
+战斗界面/HUD	WindowManagerTester	OpenNewPopupWindow()	WindowManagerTester.cs:20		E					

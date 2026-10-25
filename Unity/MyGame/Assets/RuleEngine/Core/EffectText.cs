@@ -8125,10 +8125,17 @@ namespace RuleEngine
         };
 
         /// <summary>
-        /// `Lower its Health to N` —— **把当前生命设成 N**（2026-09-13 A4）。
-        /// 出处：`Eternal Servitude`（Sautekh）。原版那一支是 `ResolveChangeMaxHealth`，
-        /// 但卡面写的是 `Lower **its Health** to 1`（不是「生命上限」）⇒ 我们改**当前生命**。
-        /// ⚠️ 只**降**不升（动词是 `lower`）：已经 ≤ N 的**不动**，并如实打日志。
+        /// `Lower its Health to N` —— **把当前生命设成 N**（`setCurrentHealth`）。
+        ///
+        /// 🔴 **2026-10-25（`K8` · 执行代理 N11）判据换成正本**：这条卡面正文在 SO 里是
+        /// **`buffType == 100` = `setCurrentHealth`**（`cards_truth.json` 现读：`EC39 Eternal Servitude`
+        /// 的 buff = `{buffType: 100, healthChange: 1}`），而原版那一支
+        /// （`decomp_full/CardScript__AddEffect.c:229-247`）是 **`currentHealth = healthChange`** ——
+        /// **无条件写、不夹上限、不查 Invulnerable**（卡面上的 `Lower` 只是**措辞**，不是「只降不升」的判据）。
+        /// ⇒ 本函数现在产出动词 **`setcurrenthealth`**（`EffectResolver.DoSetCurrentHealth`）。
+        /// ⚠️ 旧的 `sethealth` 仍然注册着，它对应 **`buffType == 9 setHealth`**
+        /// （原版 = `currentHealth = currentMaxHealthProcessed`，`.c:794-820`，**池内 0 张**）——
+        /// ⛔ 两者别混（语义不同，见 `EffectResolver.DoSetHealth` 的 doc）。
         /// </summary>
         static EffectOp TrySetHealth(string low, string src)
         {
@@ -8136,7 +8143,7 @@ namespace RuleEngine
             if (!m.Success) return null;
             return new EffectOp
             {
-                Verb = "sethealth", Source = src, Amount = int.Parse(m.Groups[1].Value),
+                Verb = "setcurrenthealth", Source = src, Amount = int.Parse(m.Groups[1].Value),
                 // 指代**上一条效果打中的那个**（和 `Lower its cost by N` 同一套引用位）
                 Target = new EffectTargetSpec { Raw = "(指代上一张)", Side = "prev", Kind = "prev", Count = 1 },
             };
@@ -9319,6 +9326,68 @@ namespace RuleEngine
             if (tgtB != null)
                 op.Tail = MergeTail(op.Tail,
                                     "give " + payload + " to " + tgtB + DurationPhrase(op.Duration));
+
+            // 🔴 **2026-10-25（完全复刻 · `K7` · 执行代理 N11）：`Give <N> <可重复的授予> to <目标>`
+            //   —— N 是【授予次数】，⛔ 不是目标个数、也不是载荷里的数值。**
+            //
+            //   **判据**：`BL46 Gifts of Chaos` 卡面 `Give **2** random Dark Pact to a friendly troop`，
+            //   而 SO 真值（`cards_truth.json`）是**两条独立 logic**（各 `buffType 8 / markOfChaosType 50`）
+            //   ⇒ **同一个目标叠两份**、两次随机各摇各的（不是「给两个目标各一份」）。
+            //   实测缺口（改前）：`ruleprobe` 探针 `BL46` 全场契约层数 = **1**。
+            //
+            //   ⚠️ **窄规则，⛔ 别放宽成「载荷开头的裸数字都算次数」**：只有当「裸正整数 + 后面那段
+            //     `GivePayload` 解得**全是关键词**（`all IsKeyword`）」才当重复次数。理由：
+            //     数值型载荷在本工程一律**带符号或名词在前**（`+2 Attack` / `Armour 1` / `Health 2`），
+            //     卡面写 `Give 3 Health` 这种「裸数字当数值」的写法**现读全池 0 张**；
+            //     放宽会把将来真出现的 `Give 3 Armour`（= +3 甲）静默变成「三次 1 甲」。
+            //   ⚠️ **数量作用在授予动作上** ⇒ 目标只挑一次，用 `Tail` **重放同一条 `give … to …`**
+            //     （和上面 `SplitTargetList` 处理「第二个目标」用的是同一个机制，尾句会被递归解析成独立的 op）。
+            //   ⚠️ 只在**写了目标**时才套（没目标那一路 = `Subjectless`，重复没有意义）。
+            if (targetText.Length > 0)
+            {
+                var mN = Regex.Match(payload, @"^(\d+)\s+(.+)$");
+                if (mN.Success)
+                {
+                    string rest = mN.Groups[2].Value.Trim();
+                    var restOps = GivePayload.Parse(rest);
+                    bool keywordOnly = restOps != null && restOps.Count > 0;
+                    if (keywordOnly)
+                        foreach (var po in restOps) if (!po.IsKeyword) { keywordOnly = false; break; }
+                    int times = 0;
+                    // 🔴 **判据：那个数字是【次数】还是【数值】—— 靠「带数字那版解析」区分**（⛔ 别只看
+                    //   「去掉数字那段解得成关键词」就套：`Give 3 Armour` 的 `Armour` 本身就是关键词
+                    //   ⇒ 只看一半会把「+3 甲」静默变成「三次 1 甲」，本笔实测踩到过）。
+                    //   两档都算「次数」：
+                    //     · 带数字那版**整段解不出来**（`2 random dark pact` 这种，数字让它失效）；
+                    //     · 带数字那版与去掉数字那版**逐项等值**（说明数字被丢掉了，没被当数值吃进去）。
+                    //   反过来 `3 Armour` ⇒ 带数字那版是 `armour = 3`、去掉那版是 `armour = 1` ⇒ **不套**。
+                    bool isRepeat = false;
+                    if (keywordOnly && int.TryParse(mN.Groups[1].Value, out times)
+                        && times >= 2 && times <= 10)
+                    {
+                        var fullOps = GivePayload.Parse(payload);
+                        if (fullOps == null) isRepeat = true;
+                        else if (fullOps.Count == restOps.Count)
+                        {
+                            isRepeat = true;
+                            for (int i = 0; i < fullOps.Count; i++)
+                            {
+                                var a = fullOps[i]; var b2 = restOps[i];
+                                if (a.IsKeyword != b2.IsKeyword || a.Keyword != b2.Keyword || a.Value != b2.Value)
+                                { isRepeat = false; break; }
+                            }
+                        }
+                    }
+                    if (isRepeat)
+                    {
+                        payload = rest;                      // 载荷本身**不含**那个 N
+                        for (int r = 1; r < times; r++)
+                            op.Tail = MergeTail(op.Tail,
+                                "give " + payload + " to " + targetText + DurationPhrase(op.Duration));
+                    }
+                }
+            }
+
             // ⚠️ `, plus <附加句>`（`Grizzled Skarboy`）**不在这里切** —— 由 `ParseSegment`
             //    在 `Dispatch` **之前**统一拆（那样 `for each damaged enemy` 才归后半句）。
             op.Payload = payload;

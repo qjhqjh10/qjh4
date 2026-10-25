@@ -114,6 +114,31 @@ namespace CardPresentation
         /// 阈值只改「轻点」那一支，**没有**变成出牌的前置条件。要完全对齐得另加闸，那是行为改动。</summary>
         public const float TapThreshold = 0.3f;
 
+        /// <summary>🔴 **2026-10-25（执行代理 `K2` · 战斗鼠标操作对照）—— 原版「长按 ⇒ 松手**不开**卡面展示窗」的时长门（秒）。**
+        ///
+        /// <para>判据（`d:/2/tools/decomp_full/CardScript__OnTouchUpAsButton.c:19-45`，亲读）：
+        /// 手牌那一支（`cardState ∈ {inHand(1), inHandShowing(8)}`）先算
+        /// `elapsed = Time.timeSinceLevelLoad − card.pressTime(+0x800)`（`+0x800` 由
+        /// `CardScript__OnTouchDown.c:26-27` 在按下那一刻写入），然后：
+        /// <code>
+        /// if (0.2 &lt;= elapsed) goto 收尾;                 // ← 长按：**跳过 DisplayCard**
+        /// if (bm != null) { DisplayCard(bm, card, 1, 0, 0); } // ← 短按：开窗
+        /// 收尾: if (cardState != 8) return; StopShowingCardInHand(card, 1, 0);
+        /// </code>
+        /// 常量 = `DAT_1834b2bb0`，`工具/read_literal.py` 现读 = **`0.2f`**（4 字节 float，
+        /// 同一地址按 8 字节读是 `3.05e-05` = 错的那一档）。</para>
+        ///
+        /// <para>⚠️ **只管「轻点开窗」这一支**：同一个字面量在 `CardScript__TryDraggingFromBoard.c:33-36`
+        /// 被当成**屏幕像素²**的死区（≈0.45 px，被 uGUI 的 5 px 拖拽阈值完全盖住）—— 两处是**不同语义共用
+        /// 一个字面量**，⛔ 别把这里的 0.2 **秒**搬去当拖拽阈值。
+        /// ⚠️ **棋盘单位的轻点没有这道门**（`OnTouchUpAsButton` 的棋盘支 = 状态 2/3/0x11，直接
+        /// `DisplayCard`，没有时间判据）⇒ 这一条只落在手牌层。</para>
+        ///
+        /// <para>🔴 **改前我们**：`Release` / `EndPressCandidate` 只看 `_travel &lt; TapThreshold` 与
+        /// `_pressInside`（= 原版 `CardCollider.allowClick` 的等价物），**完全不看按了多久**
+        /// ⇒ 「按住手牌 2 秒再松手」我们开窗、原版不开。</para></summary>
+        public const float LongPressNoDisplaySeconds = 0.2f;
+
         // ==================================================================
         //  🔴 2026-10-19（战斗线 T10 · `C3` 结构差异 #11）：**原版两道起拖阈值**
         //     （只在一个平台档里拦 —— 见 `TouchInputOn`）
@@ -263,36 +288,65 @@ namespace CardPresentation
 
         bool? _battleStateBlockedForTest;
         bool? _replayDragBlockedForTest;
-        /// <summary>自检用：把**硬闸**直接拨过去（模态窗 / 选目标 / 打法选择器 / 终局）。
-        /// `null` = 读真机 ⇒ **生产恒为 null**。</summary>
+        bool? _dragOnlyBlockedForTest;
+        /// <summary>自检用：把**整帧硬闸**直接拨过去（模态窗 / 终局）。`null` = 读真机 ⇒ **生产恒为 null**。</summary>
         public void SetBattleStateBlockedForTest(bool? on) { _battleStateBlockedForTest = on; }
         /// <summary>自检用：把**回放档**（只禁拖、保留轻点看牌）直接拨过去。`null` = 读真机。</summary>
         public void SetReplayDragBlockedForTest(bool? on) { _replayDragBlockedForTest = on; }
-        /// <summary>自检读口：这一帧被**硬闸**挡着吗（**生产判据本身**，⛔ 别在断言里另拼一份）。</summary>
-        public bool BattleStateBlockedNow { get { return BattleStateBlocked(); } }
+        /// <summary>🆕 自检用（`K2`）：把「**只禁拖、保留轻点**」那一档（选目标 / 打法选择器）直接拨过去。</summary>
+        public void SetDragOnlyBlockedForTest(bool? on) { _dragOnlyBlockedForTest = on; }
+        /// <summary>自检读口：这一帧被**任何**一道闸挡着吗（= 整帧闸 ∨ 只禁拖那一档 ∨ 回放；**生产判据本身**）。</summary>
+        public bool BattleStateBlockedNow { get { return FullBlocked() || DragOnlyBlocked() || ReplayDragBlocked(); } }
         /// <summary>自检读口：这一帧是「回放 ⇒ 只禁拖」吗。</summary>
         public bool ReplayDragBlockedNow { get { return ReplayDragBlocked(); } }
+        /// <summary>自检读口：这一帧是「选目标 / 打法选择器 ⇒ 只禁拖」吗（`K2`）。</summary>
+        public bool DragOnlyBlockedNow { get { return DragOnlyBlocked(); } }
 
-        /// <summary>**硬闸**：原版 `OnTouchDrag` 的 `UIstate == 1` ＋ 全屏压暗层吃射线。
-        /// 四个来源全部是 `BattleDriver` 的公开只读口（⛔ 本类不新增状态）。</summary>
-        bool BattleStateBlocked()
+        /// <summary>**整帧硬闸**：这一帧连「轻点看牌」都不许（原版那 8 扇模态窗的**全屏压暗层吃射线**
+        /// ＋ 终局 `matchFinishedAndWaitingToLeave` 那一支）。两个来源都是 `BattleDriver` 的公开只读口。</summary>
+        bool FullBlocked()
         {
             if (_battleStateBlockedForTest.HasValue) return _battleStateBlockedForTest.Value;
             var d = Driver;
             if (d == null) return false;                       // 没有驱动 ⇒ 纯表现层档
-            // ① 终局：原版 `matchFinishedAndWaitingToLeave(+0x510)` 那一支只认「点一下离开」，
-            //    手牌一律不再可拖（我们这里 `Ctx.IsOver` 就是那一刻）。
+            // ① 终局：原版 `matchFinishedAndWaitingToLeave(+0x510)` 那一支只认「点一下离开」。
             if (d.Ctx != null && d.Ctx.IsOver) return true;
             // ② 8 扇模态窗（设置/聊天/换牌/选牌/多卡/放大/联盟/日志）——
             //    判据与 `BattleDriver.HudButtonsBlocked` **同一份**（`PointerOverBlockingUi` 就是转发它），
             //    ⛔ 本类不另抄一张窗口清单。
             if (d.PointerOverBlockingUi()) return true;
-            // ③ 已选定打法、正在点目标（原版 UIstate 9/10/13）。
-            if (d.IsTargeting) return true;
-            // ④ 打法三选一开着（原版 UIstate != 1）。
-            if (d.SelectorOpen) return true;
             return false;
         }
+
+        /// <summary>🔴🆕 **2026-10-25（`K2` · 就地订正 `AUD8` #12 的一处误判）**：**只禁拖、保留轻点**那一档
+        /// = 选目标（打法已定，原版 UIstate 9/10/13）＋ 打法三选一开着（原版 UIstate 6）。
+        ///
+        /// <para>为什么**不能**把它并进整帧闸（判据 = 全量反编译现读）：
+        /// ① **拖**：`dc/CardScript__OnTouchDrag.c:17-23` 要求 `UIstate == 1` ⇒ 这两档**拖不起来**（我们照办）。
+        /// ② **轻点看牌**：`dc/CardScript__OnTouchUpAsButton.c:14-17` 只挡 `UIstate == 0xe`（= `choosingResolutionCard`），
+        /// 真正的开窗闸在 `dc/BattleManager__DisplayCard.c:14-18`：
+        /// <c>UIstate != 0 &amp;&amp; UIstate−7 &gt; 1 &amp;&amp; UIstate−11 &gt; 1</c> ⇒ **只挡 {0,7,8,11,12}**
+        /// （inactive / finishBattleSequence / postBattle / mulligan / mulliganFinished）。
+        /// ⇒ 选目标(9/10/13) 与 打法选择器(6) 那一档，原版**照样能轻点手牌开窗**。
+        /// ③ 悬停预览（`ShowCardInHand`）另有一道 `CanDisplayHandCard` = `isPlayer &amp;&amp; cardState==1 &amp;&amp; UIstate==1`
+        /// （`dc/BattleManager__CanDisplayHandCard.c:7-11`）⇒ 这两档里**不抬牌、不重排**（见 `UpdateHover`）。
+        ///
+        /// <para>🔴 **改前（`X19` 那一版）**：这两档跟模态窗混在一个「硬闸」里 ⇒ `Update` 整帧 return
+        /// ⇒ **选目标时点手牌一点反应都没有**（原版会开窗）。</para></summary>
+        bool DragOnlyBlocked()
+        {
+            if (_dragOnlyBlockedForTest.HasValue) return _dragOnlyBlockedForTest.Value;
+            var d = Driver;
+            if (d == null) return false;
+            if (d.IsTargeting) return true;       // 原版 UIstate 9/10/13
+            if (d.SelectorOpen) return true;      // 原版 UIstate 6（打法三选一）
+            return false;
+        }
+
+        /// <summary>**这一帧「不许拖出去打」吗** —— 三条闸合一，判据只此一处：
+        /// 回放（`matchType == 0xA0`）· 选目标 / 打法选择器（`UIstate != 1`）。
+        /// <para>⚠️ **不包含**整帧闸（那个连轻点都不许，见 <see cref="FullBlocked"/>）。</para></summary>
+        bool DragBlocked() { return ReplayDragBlocked() || DragOnlyBlocked(); }
 
         /// <summary>**回放档**：原版 `OnTouchDrag.c:17-23` 的 `matchType != 0xA0`
         /// —— 它**只禁「拖出去打」**，不禁「轻点看牌」：
@@ -434,6 +488,29 @@ namespace CardPresentation
         readonly Dictionary<int, CardView> _placed = new Dictionary<int, CardView>();
         Vector3 _pressWorld;      // 按下时指针在哪（判「轻点」用）
         float _travel;            // 这一拖走了多远
+        /// <summary>这一按**按下的时刻**（`Time.timeSinceLevelLoad`）= 原版 `CardScript +0x800`
+        /// （写 = `CardScript__OnTouchDown.c:26-27`，读 = `CardScript__OnTouchUpAsButton.c:37`）。
+        /// 唯一用途：长按 ≥ <see cref="LongPressNoDisplaySeconds"/> ⇒ 松手**不开**卡面展示窗。</summary>
+        float _pressTime;
+        /// <summary>🆕 **自检口**（`K2`）：把「这一按已经按了多久」直接钉成秒数。
+        /// <para>为什么必须有它：批处理里 `Time.timeSinceLevelLoad` **不前进**（没有帧循环）⇒
+        /// 真读的话 elapsed 恒 ≈0 ⇒ 长按那一档**永远验不到**（会退化成假绿）。
+        /// `null`（生产恒为 null）= 读真时间。</para></summary>
+        float? _pressElapsedForTest;
+        /// <summary>最近一次 `Release` 打出去的那一行日志（自检读它，见 `LastReleaseLogForTest`）。</summary>
+        string _lastReleaseLog;
+
+        /// <summary>这一按已经按了多久（秒）。判据只此一处：`Time.timeSinceLevelLoad − _pressTime`
+        /// （= 原版 `OnTouchUpAsButton.c:37` 那一句），自检可钉。</summary>
+        float PressElapsedSeconds
+        {
+            get { return _pressElapsedForTest ?? Mathf.Max(0f, Time.timeSinceLevelLoad - _pressTime); }
+        }
+
+        /// <summary>**松手这一刻该不该当成「轻点」**（原版 `OnTouchUpAsButton` 的时长门）：
+        /// `elapsed &lt; 0.2` ⇒ 开窗；`&gt;= 0.2`（长按）⇒ **不开**，只 `StopShowingCardInHand`。
+        /// 判据 → <see cref="LongPressNoDisplaySeconds"/>。⛔ 别在别处再写一个时长阈值。</summary>
+        bool PressShortEnough { get { return PressElapsedSeconds < LongPressNoDisplaySeconds; } }
         // 🆕 **2026-10-19（战斗线 `T16` · 命中区普查）**：这一按**是否还按在卡的命中区里**
         //   —— 原版 `CardCollider.allowClick`（`+0x44`）的等价物。
         //   判据 = `d:/2/tools/decomp_full/CardCollider__OnPointerDown.c`（置 1）与
@@ -467,6 +544,22 @@ namespace CardPresentation
         CardView HoveredCard
         {
             get { return (_hovered >= 0 && _hovered < _cards.Count) ? _cards[_hovered] : null; }
+        }
+
+        /// <summary>🆕 2026-10-25（`E` · 账 `战斗界面_HUD` R42）：**抬牌态不许点开卡面展示窗** ——
+        /// 原版 `BasicCardUI.allowOpenCardDisplayOnTouch` 的等价判据。
+        /// <para>判据（🥇 ILSpy）：`CardScript.OnTouchEnter:10038`（悬停入口）→ `ShowCardInHand:10484` →
+        /// **`ToggleOpenCardDisplayOnTouch(false):10597`** ⇒ 把 uGUI `OnClick` 的监听器**摘掉**
+        /// （`BasicCardUI.ToggleOpenCardDisplayOnTouch:700-710` 是 `RemoveListener` + `if (option) AddListener`）；
+        /// `StopShowingCardInHand:11001` → `:11034` `(true)` 才挂回。⇒ **抬牌期间点这张卡不开展示窗**。</para>
+        /// <para>⚠️ 我们这边「抬牌」= `UpdateHover` 里的 `_hovered` 且**没被 `DragOnlyBlocked()` 挡**
+        /// （那条闸与 `CanDisplayHandCard` 同源：选目标(9/10/13)/打法三选一(6) 那些态原版**根本不抬牌**
+        /// ⇒ 那里点手牌照旧开窗，与原版一致；见 `UpdateHover` 里那段 `K2` 注释）。</para>
+        /// <para>⛔ 别把它写成「只要是手牌就抑制」：`StopShowingCardInHand` 之后（含那些不抬牌的态）
+        /// 原版**是允许开窗的**。</para></summary>
+        public bool CardDisplaySuppressedFor(CardView card)
+        {
+            return card != null && card == HoveredCard && !DragOnlyBlocked();
         }
         public CardView Dragging { get { return _dragging; } }
         public bool IsDragging { get { return _dragging != null; } }
@@ -533,25 +626,30 @@ namespace CardPresentation
         }
 
         /// <summary>这一帧的两道闸（返回 true = `Update` 就该 return）。判据只此一处。
-        /// <para>① **硬闸**（模态窗 / 选目标 / 打法选择器 / 终局）—— 原版 `OnTouchDrag` 的 `UIstate==1`
-        /// ＋ 全屏压暗层。**必须把 `_dragging` 收回**（`AbortDrag`），否则这一档过去之后松手照样结算。</para>
+        /// <para>① **整帧闸**（模态窗 / 终局）—— 原版那 8 扇窗的**全屏压暗层吃射线** ＋
+        /// `matchFinishedAndWaitingToLeave` 那一支。**必须把 `_dragging` 收回**（`AbortDrag`），
+        /// 否则这一档过去之后松手照样结算。</para>
+        /// <para>①′ **「只禁拖」那一档**（回放 / 选目标 / 打法选择器）—— 原版 `OnTouchDrag` 的
+        /// `matchType != 0xA0` ∧ `UIstate == 1`。**不整帧 return**：那几档里原版**照样能轻点手牌开窗**
+        /// （判据 → `DisplayCard.c:14-18`，见 `DragOnlyBlocked` 的 doc）⇒ 只把手里那张收回，
+        /// 之后的按下走「候选态」，过阈值那一步由 `TickPressCandidate` / `PickUp` 拒掉。</para>
         /// <para>② **冻结闸**（掉线 / 演出未收尾）—— 原版那道整帧闸也是直接 `return`，**`_dragging` 照旧留着**
-        /// （重连回来那一下松手会照常结算，判据 → `Frozen` 的注释）。</para>
-        /// <para>⚠️ 回放那一档**不在这里**：它只拦 `PickUp`（见 `ReplayDragBlocked`），
-        /// 否则「回放里轻点手牌看牌」会被一起关死（原版允许，判据在那个方法的 doc）。</para></summary>
+        /// （重连回来那一下松手会照常结算，判据 → `Frozen` 的注释）。</para></summary>
         bool BlockedThisFrame()
         {
-            // ① 硬闸。⚠️ 排在冻结之前：两者同时成立时，宁可收回也不要留着（模态窗不会自己消失）。
-            if (BattleStateBlocked())
+            // ① 整帧闸。⚠️ 排在冻结之前：两者同时成立时，宁可收回也不要留着（模态窗不会自己消失）。
+            if (FullBlocked())
             {
-                if (_dragging != null) AbortDrag("战斗状态闸（模态窗 / 选目标 / 打法选择器 / 终局）");
+                if (_dragging != null) AbortDrag("整帧闸（模态窗 / 终局）");
                 DiscardPress();
                 return true;
             }
-            // ①′ 回放档：**只**处理「已经拖在手里」那一种（回放开始时手里还攥着一张牌）。
-            //     平时到不了这儿 —— `PickUp` 在回放里根本不放行（见 `ReplayDragBlocked`）。
-            if (ReplayDragBlocked() && _dragging != null)
-                AbortDrag("回放局（原版 `CardScript__OnTouchDrag.c:17-23` 的 0xA0 闸）");
+            // ①′ 「只禁拖」那一档：**只**处理「已经拖在手里」那一种（闸是在拖到一半时落下的）。
+            //     平时到不了这儿 —— `PickUp` 在这一档根本不放行（见 `DragBlocked`）。
+            if (DragBlocked() && _dragging != null)
+                AbortDrag(ReplayDragBlocked()
+                          ? "回放局（原版 `CardScript__OnTouchDrag.c:17-23` 的 0xA0 闸）"
+                          : "选目标 / 打法选择器（原版 `UIstate != 1` ⇒ `OnTouchDrag` 早退）");
 
             // ② 冻结闸（原样；只把「丢候选」抽成 `DiscardPress`，语义一字未改）
             if (FrozenNow)
@@ -599,7 +697,10 @@ namespace CardPresentation
                     // 🔴 2026-10-25（`AUD8` #19）：**回放档** —— 只允许「轻点看牌」，
                     //    用候选态承接（松手没位移 = `EndPressCandidate` → `OnTapped` → 卡面展示窗）；
                     //    真拖过阈值那一步由 `TickPressCandidate` / `PickUp` 拒掉（原版 0xA0 闸）。
-                    if (ReplayDragBlocked()) BeginPressCandidate(hc, world);
+                    // 🔴🆕 2026-10-25（`K2`）：**`DragBlocked()` 而不只是回放** —— 选目标 / 打法选择器
+                    //    那两档原版也是「拖不动、但轻点看牌照旧」（判据 → `DragOnlyBlocked` 的 doc）⇒
+                    //    同样走候选态。⛔ 别把它们并回整帧闸（那会让「选目标时点手牌」毫无反应）。
+                    if (DragBlocked()) BeginPressCandidate(hc, world);
                     else if (TouchInputOn) BeginPressCandidate(hc, world);
                     else PickUp(hc, world);
                 }
@@ -632,6 +733,15 @@ namespace CardPresentation
             if (hit != _hovered && hit >= 0 && IsRightButtonOrTwoFingerTouch()) return;
             if (hit == _hovered) return;
             _hovered = hit;
+            // 🔴🆕 2026-10-25（`K2`）：**选目标 / 打法选择器那一档不抬牌、不重排**。
+            //   判据 = 原版手牌悬停预览走 `ShowCardInHand`，而它的闸 `BattleManager.CanDisplayHandCard`
+            //   要求 `isPlayer && cardState==1 && UIstate==1`（`dc/BattleManager__CanDisplayHandCard.c:7-11`）
+            //   ⇒ UIstate 9/10/13（选目标）/ 6（打法三选一）时**根本不进 `ShowCardInHand`**。
+            //   ⚠️ 但 `_hovered` **必须照常更新**：原版那颗 `CardCollider` 一直开着，
+            //   `OnPointerClick` 照样落到卡上（开窗那道闸只挡 {0,7,8,11,12}，见 `DragOnlyBlocked`）
+            //   ⇒ 「选目标时点手牌看牌」在原版是**允许的**，我们靠 `_hovered` 才接得到那一下。
+            //   ⛔ 别把这句写成 `return`（那会把轻点一起断掉，`HoveredCard` 恒 null）。
+            if (DragOnlyBlocked()) return;
             Relayout(false);      // 悬停档 = 原版 `ShowCardInHand`（不置 isDoingAnim）⇒ 不开闸（见 `_animGate` 那段）
         }
 
@@ -653,6 +763,10 @@ namespace CardPresentation
             _pressPendingCard = card;
             _pressWorld = world;
             _travel = 0f;
+            // 🆕 2026-10-25（`K2`）：按下时刻 —— 原版 `CardScript +0x800`（`OnTouchDown.c:26-27`）。
+            //   候选态也是「按下」，所以这里就要记（`OnTouchUpAsButton` 量的是**按下→松手**的总时长，
+            //   与中间有没有起拖无关）。
+            _pressTime = Time.timeSinceLevelLoad;
             // 🆕 2026-10-19（T16）：按下那一刻 = 原版 `CardCollider.OnPointerDown` ⇒ `allowClick = 1`
             //   （`HitTest` 刚判过这张卡，所以这里恒 true；写成 `HitByCollider` 是为了**同一判据**、不另立口径）。
             //   🔴 **2026-10-19（`T09` 步骤 B · `W57` · B2a）就地换口（铁律 5）**：原来这里走
@@ -686,16 +800,18 @@ namespace CardPresentation
             if (_pressInside && !card.HitByCollider(world)) _pressInside = false;
             if (!HandDragPastThreshold(_pressWorld, world)) return;
 
-            // 🔴 2026-10-25（`AUD8` #19）：**回放档** —— 过了阈值也**不许抓**（原版 `OnTouchDrag` 的 0xA0 闸）。
+            // 🔴 2026-10-25（`AUD8` #19 · `K2` 扩档）：**「只禁拖」那一档** —— 过了阈值也**不许抓**
+            //   （原版 `OnTouchDrag` 的 `matchType != 0xA0` ∧ `UIstate == 1` 两道闸）。
             //   丢掉候选态：这一按到此为止（松手不会再变成轻点 —— 玩家确实已经拖过了）。
             //   ⛔ 不静默：出声一次（每一下一行，不刷屏）。
-            if (ReplayDragBlocked())
+            if (DragBlocked())
             {
                 _pressPending = false;
                 _pressPendingCard = null;
                 _pressInside = false;
-                Debug.Log("[CardPresentation] 回放局里 **拖不起来**（原版 `CardScript__OnTouchDrag.c:17-23` "
-                        + "的 `matchType != 0xA0` 闸）⇒ 这一按作废；轻点看牌照常允许。");
+                Debug.Log("[CardPresentation] 这一档 **拖不起来**（原版 `CardScript__OnTouchDrag.c:17-23`："
+                        + (ReplayDragBlocked() ? "`matchType != 0xA0`（回放）" : "`UIstate == 1`（选目标 / 打法选择器）")
+                        + "）⇒ 这一按作废；轻点看牌照常允许。");
                 return;
             }
 
@@ -727,7 +843,13 @@ namespace CardPresentation
             // 🆕 2026-10-19（T16）：原版 `OnPointerClick` 只在 `allowClick` 仍为 1 时转发
             //   `OnTouchUpAsButton` ⇒ 「按在卡缘、指针挪出卡外（哪怕只挪 0.1）再松手」**不产生点击**。
             //   ⚠️ 与 `_travel < TapThreshold` 是**两条独立判据、都要满足**：位移近 ≠ 还在卡上。
-            if (card != null && _pressInside && _travel < TapThreshold && OnTapped != null) OnTapped(card);
+            // 🔴🆕 2026-10-25（`K2`）：第三条 —— **长按不开窗**（`PressShortEnough`，判据见
+            //   `LongPressNoDisplaySeconds`）。原版 `OnTouchUpAsButton` 那一支先量按下→松手的时长。
+            if (card != null && _pressInside && _travel < TapThreshold && PressShortEnough
+                && OnTapped != null) OnTapped(card);
+            else if (card != null && _pressInside && _travel < TapThreshold && !PressShortEnough)
+                Debug.Log($"[CardPresentation] 长按 {PressElapsedSeconds:F2}s ≥ {LongPressNoDisplaySeconds}s ⇒ "
+                        + $"**不开卡面展示窗**（原版 `CardScript__OnTouchUpAsButton.c:37-44`）—— 卡「{card.name}」");
             _pressInside = false;
             _hovered = -1;
             // 🆕 2026-10-24（`J3`）：轻点结束 ⇒ 原版 `CardScript.StopShowingCardInHand(restart: true)` ⇒
@@ -743,10 +865,11 @@ namespace CardPresentation
             //   ⚠️ `OnTouchDown`（按下）**没有**闸，但它对手牌（cardState 8）那一支直接 `return`
             //   ⇒ 「右键按着时按下没有反应」两版落到同一个结果。
             if (IsRightButtonOrTwoFingerTouch()) return;
-            // 🔴 2026-10-25（`AUD8` #19）：**回放档只禁拖**（原版 `CardScript__OnTouchDrag.c:17-23` 的 0xA0 闸）。
+            // 🔴 2026-10-25（`AUD8` #19 · `K2` 扩档）：**「只禁拖」那一档**（回放 0xA0 / 选目标 / 打法选择器，
+            //   原版 `CardScript__OnTouchDrag.c:17-23`）。
             //   这里是**兜底**那一道（`SimulatePress` / 自检也走这里）——
             //   生产那条路已经在 `TickInput` 改走候选态、并在 `TickPressCandidate` 里拒掉了。
-            if (ReplayDragBlocked()) return;
+            if (DragBlocked()) return;
             // 🆕 2026-10-24（`J3`）：重排动画闸 —— 原版这 0.2 s 里手牌碰撞体全关 ⇒ 按了也抓不起来。
             //   （`PlayerHand._MoveCardsInHandToPosition_d__76__MoveNext.c` 状态 0 的 `Toggle(false)`；
             //     判据/取舍见 `_animGate` 那段。⛔ 与 `FrozenNow` 是**两件事**，别合并。）
@@ -755,6 +878,10 @@ namespace CardPresentation
             _grabOffset = card.transform.position - world;
             _pressWorld = world;
             _travel = 0f;
+            // 🆕 2026-10-25（`K2`）：`freshPress`（PC 档按下即抓）时这一帧就是「按下」⇒ 记时刻；
+            //   从候选态转过来时**不要重设** —— 原版 `pressTime` 也只在 `OnTouchDown` 写一次
+            //   （`CardScript__OnTouchDown.c:26-27`），起拖不重写。
+            if (freshPress) _pressTime = Time.timeSinceLevelLoad;
             // 🆕 2026-10-19（T16）：PC 档「按下即抓」= 原版 `OnPointerDown` ⇒ `allowClick = 1`。
             //   从候选态转过来时（`freshPress = false`）**不许重设** —— 候选期已经锁存过
             //   `OnPointerExit` 的清零（原版只有新的 `OnPointerDown` 才会把它置回 1）。
@@ -1195,7 +1322,9 @@ namespace CardPresentation
             var card = _dragging;
             _dragging = null;
             ClearDropIndicator();
-            bool tapped = _travel < TapThreshold && _pressInside;   // 几乎没动 **且** 这一按没出过卡（T16）
+            // 🔴🆕 2026-10-25（`K2`）：第三条 = **长按不开窗**（原版 `OnTouchUpAsButton.c:37` 那个 0.2 s 门）。
+            bool tapped = _travel < TapThreshold && _pressInside && PressShortEnough;
+            bool suppressByLongPress = _travel < TapThreshold && _pressInside && !PressShortEnough;
             _pressInside = false;
 
             int slot;
@@ -1212,10 +1341,23 @@ namespace CardPresentation
             //      没治**结构性滞后**；两个量本来就不该混用。
             string reject = DropReject(world, card, out slot, out which, out kind);
             bool ok = reject == null;
-            Debug.Log($"[CardPresentation] Release：指针世界 ({world.x:F2},{world.y:F2})"
-                      + $" · 卡在 ({cp.x:F2},{cp.y:F2},{cp.z:F2})"
-                      + $" · 抓取偏移 ({_grabOffset.x:F2},{_grabOffset.y:F2})"
-                      + $" · 拖动中={_dragging != null}");
+            // 🔴🆕 2026-10-25（`K2`）**就地订正（铁律 5 · 真机日志抓到的一处假象）**：
+            //   这一行原来写 `拖动中={_dragging != null}` —— 而**上一句刚把 `_dragging` 置 null**
+            //   ⇒ 恒打 `拖动中=False`。2026-10-25 第七十七会话的真机验收据此记了一条
+            //   「一次合成拖拽未进拖拽态，日志却出现 `落位：Hand_Light Cover → 战术卡打向 3`
+            //   （疑似把场上按压错认成手牌）」。
+            //   🔑 **真相**：拖拽态一直是好的 —— `Release` 只有两个调用点（`TickInput` / `SimulateRelease`），
+            //     两者都带 `_dragging != null` 前置；能进到这里就**必然**在拖拽态。
+            //     那一下吃的也**确实是手牌**（`card.name` = `Hand_…`，视图由 `SyncHand` 建在手牌层；
+            //     棋盘单位在 `_myUnits`/`_foeUnits` 里，**从不进 `_cards`** ⇒ 手牌命中不可能吃到场上按压）。
+            //   ⇒ 现在打**松手那一刻的真实状态**，并把「这一下是哪一层吃的」写出来。
+            string line = $"[CardPresentation] Release：指针世界 ({world.x:F2},{world.y:F2})"
+                        + $" · 卡「{card.name}」在 ({cp.x:F2},{cp.y:F2},{cp.z:F2})"
+                        + $" · 抓取偏移 ({_grabOffset.x:F2},{_grabOffset.y:F2})"
+                        + $" · 拖动中={(card != null ? "True" : "False")} · 来源=手牌层(Release)"
+                        + $" · 落点判定={kind}";
+            _lastReleaseLog = line;
+            Debug.Log(line);
 
             if (ok)
             {
@@ -1289,6 +1431,11 @@ namespace CardPresentation
                     {
                         _cards.RemoveAt(from);
                         _cards.Insert(Mathf.Clamp(_insertIndex, 0, _cards.Count), card);
+                        // 🔴 **2026-10-25（N9 · 账 27）**：原版 `PlayerHand.HandCardMovedToNewIndex(card, slot)`
+                        //   改完列表序之后会调 `SendCardReorder(uniqueInGameID, newIndex)`（判据
+                        //   `PlayerHand__HandCardMovedToNewIndex.c`）。我们原来只把
+                        //   `NetBattle.SendCardReorder` 建出来、**全仓零调用点** ⇒ 对面永远收不到。
+                        NotifyHandReordered(card);
                     }
                     _insertIndex = -1;
                 }
@@ -1328,13 +1475,33 @@ namespace CardPresentation
 
             // 轻点（按下→松开几乎没动）：**没落位**才算 —— 顺手拍了张牌上场不该弹展示窗。
             // 原版这个动作是 `BasicCardUI.ToggleOpenCardDisplayOnTouch`。
+            // 🔴🆕 2026-10-25（`K2`）：**长按那一档不出声也不开窗**（原版那一支只 `StopShowingCardInHand`）。
+            //   但不静默 —— 打一行日志（不然「按住不放再松手，窗口没开」看起来像没接上）。
             if (tapped && !ok && OnTapped != null) OnTapped(card);
+            else if (suppressByLongPress && !ok)
+                Debug.Log($"[CardPresentation] 长按 {PressElapsedSeconds:F2}s ≥ {LongPressNoDisplaySeconds}s ⇒ "
+                        + $"**不开卡面展示窗**（原版 `CardScript__OnTouchUpAsButton.c:37-44`：`0.2 <= elapsed` "
+                        + $"那一支只 `StopShowingCardInHand`，跳过 `DisplayCard`）—— 卡「{card.name}」");
 
             _hovered = -1;
             // 🆕 2026-10-24（`J3`）：松手后这一趟重排 = 原版 `HandCardMovedToNewIndex` +
             //   `HandCardReleased` 那两条 `MoveCardsInHandToPosition(-1, null)`（**传 -1**）⇒ 带闸。
             //   回弹本身也由这一趟补间完成（见上面 else 支那段判据）。
             Relayout(true);
+        }
+
+        /// <summary>把手牌换位告诉对面（**原版 `PlayerHand.HandCardMovedToNewIndex` 里那条 `SendCardReorder`**）。
+        /// <para>⚠️ 单机 / 不在对局中 ⇒ **不发**（原版也只在联网时发）；这条消息**不进权威动作流、不改指纹**
+        /// （`Net/NetBattle.cs` 的 `CanSendPresentation` 段注释已写明），丢了只少一次对面手牌表现。</para>
+        /// <para>⚠️ `newIndex` 取的是**我们视图列表 `_cards` 的下标**（= 原版 `PlayerHand` 那个列表的语义）；
+        /// 本机收侧 `NetRemoteCardReorder` 目前只出声、不改视图（对面手牌是一排卡背、没有逐张顺序）——
+        /// 这是账 12/27 里已如实记下的 P2 残余。</para></summary>
+        void NotifyHandReordered(CardView card)
+        {
+            var d = Driver;
+            var net = d != null ? d.Net : null;
+            if (net == null || !net.InBattle || card == null || card.Inst == null) return;
+            net.SendCardReorder(card.Inst.Id, _cards.IndexOf(card));
         }
 
         /// <summary>手牌里当前**看得见**的那几张（拖拽中的那张不参与重排）</summary>
@@ -1563,6 +1730,24 @@ namespace CardPresentation
         public void SimulatePress(Vector3 world) { var h = HoveredCard; if (h != null && _dragging == null) PickUp(h, world); }
         public void SimulateDrag(Vector3 world, float dt) { if (_dragging != null) UpdateDrag(world, dt); }
         public void SimulateRelease(Vector3 world) { if (_dragging != null) Release(world); }
+
+        /// <summary>🆕 **自检口**（`K2`）：最近一次 `Release` 打出去的那一行日志原文
+        /// （`null` = 还没松过手）。
+        /// <para>为什么需要它：那一行里「拖动中=」这一格 2026-10-25 之前**恒为 False**
+        /// （先清 `_dragging` 再读它）⇒ 真机验收据此误判成「拖拽根本没起来」。断言直接读这一行，
+        /// ⛔ 不去抓 Unity 的 Console（批处理里拿不到）。</para></summary>
+        public string LastReleaseLogForTest { get { return _lastReleaseLog; } }
+
+        /// <summary>🆕 **自检口**（`K2`）：把「这一按已经按了多久」钉成给定秒数（`null` = 读真时间）。
+        /// 见 <see cref="PressElapsedSeconds"/> 的注释（批处理里 `Time.timeSinceLevelLoad` 不前进）。</summary>
+        public void SetPressElapsedForTest(float? seconds) { _pressElapsedForTest = seconds; }
+
+        /// <summary>🆕 **自检口**（`K2`）：这一按已经按了多久（秒）—— 生产判据本体。</summary>
+        public float PressElapsedForTest { get { return PressElapsedSeconds; } }
+
+        /// <summary>🆕 **自检口**（`K2`）：`elapsed < 0.2` ⇒ 这一下算「轻点」（= 原版
+        /// `OnTouchUpAsButton` 那道时长门的**判据本体**，⛔ 断言里别另算一份）。</summary>
+        public bool PressShortEnoughForTest { get { return PressShortEnough; } }
 
         // ---- 🔴 2026-10-25（`AUD8` #19）：**走 `Update` 那两道闸**的自检口 ----
         //  ⚠️ 上面那四个 `Simulate*` 是**老口**：它们直接调 `PickUp` / `UpdateDrag` / `Release`，

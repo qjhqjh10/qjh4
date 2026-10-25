@@ -67,7 +67,14 @@ namespace RuleEngine
         //    两列文案（`Core/Loc.cs` 那条中文「这张是效果生成的卡（药剂/破坏/秘仪），不能放进卡组」）
         //    **还没跟着改** —— 那是**白名单之外**的文件，已如实记进
         //    `资料/普查产出_第二十八会话/W9_卡组分流按原版.md` 的「没做」一节，⛔ 别当成已收口。
-        EffectOnlyCard,
+        EffectOnlyCard,
+        // 🆕 **2026-10-25（完全复刻 · 执行代理 A · 第 4 轮）：补上原版的 catch-all 那一档。**
+        //   判据 = 官方本地化 `MenuDeck/Error/InvalidDeck`（15 条具名族里的一条，EN/ZH 齐全），
+        //   且它是**唯一带 `/Short` 的两条之一**（`MenuDeck/Error/InvalidDeck/Short`）。
+        //   原版 `DeckUtility.ToRawLocalizationString` 对**认不出的错码**就落这一档 ⇒ 语义 = 「这副卡组无效，请编辑或换一副」。
+        //   ⚠️ **追加在枚举末尾**（⛔ 别插在中间：历史断言/存档按**名字**引用，但枚举序号一旦位移，
+        //      `DeckRuntime` 那一族按号取值的地方会静默错位）。
+        InvalidDeck,
     }
 
     public static class DeckRules
@@ -572,6 +579,39 @@ namespace RuleEngine
             //   与 `DeckRuntime` 数字族退兜底的口径一致。
             if (e == DeckError.EffectOnlyCard) return TermPrefix + "InvalidDeck";
             return TermPrefix + e;
+        }
+
+        /// <summary>
+        /// **短档文案**（原版 `MenuDeck/Error/*` 里**只有两条**有 `/Short`）——
+        /// 🆕 2026-10-25（完全复刻 · 执行代理 A · 收藏域代理 `C` 的判据）。
+        ///
+        /// <para>**判据（第一权威，现读官方本地化表）**：`MenuDeck/Error/*` 共 **15 条**，其中
+        /// **只有 2 条**带 `/Short`：`MenuDeck/Error/InvalidDeck/Short` ·
+        /// `MenuDeck/Error/InvalidDeckBannedCards/Short`（`数据/游戏数据/官方本地化_en+zh-CN.json`
+        /// 现读，EN/ZH 两列齐全）。**其余 13 条都没有短档。**</para>
+        ///
+        /// <para>**唯一外部调用点** = 遭遇事件窗左列「这副卡组为什么不可用」那一行
+        /// （`Shell/SkirmishEventWindow.cs:505`，原版用的是短档）⇒ 调用方改走本方法。</para>
+        ///
+        /// <para>⛔ **别按「每条都加 Short」补文案** —— 只有那两条是特例；本方法对其它档
+        /// **一律回长档**（<see cref="Describe"/>），这正是原版的行为。</para>
+        ///
+        /// <para>⚠️ **接线依赖**：`MenuDeck/Error/InvalidDeck/Short` 这两条**词条要进 `Core/Loc.cs`**
+        /// （那是 `CardPresentation` 的文件、不在本代理白名单）—— 缺条时 `Loc.T` 会把键名印到屏幕上。
+        /// 本批只落**引擎侧判据**，词条那条已作为改动请求交出去。</para>
+        /// </summary>
+        public static string DescribeShort(DeckError e)
+        {
+            string key = Describe(e);
+            if (e == DeckError.None || string.IsNullOrEmpty(key)) return key;
+            // 原版**只有**这两档有 `/Short`（现读官方表）。
+            // ⚠️ 我们这一侧目前能产出的是 `InvalidDeck`（`EffectOnlyCard` 的 catch-all）；
+            //    `InvalidDeckBannedCards` 我们还没有对应枚举 —— 留着这一条是**照原版补全**，
+            //    将来加那张卡池禁令档时不用再回来改这里。
+            string name = key.StartsWith(TermPrefix, System.StringComparison.Ordinal)
+                        ? key.Substring(TermPrefix.Length) : key;
+            if (name == "InvalidDeck" || name == "InvalidDeckBannedCards") return key + "/Short";
+            return key;      // 其余 13 条**没有**短档 ⇒ 回长档（⛔ 别自己造）
         }
     }
 

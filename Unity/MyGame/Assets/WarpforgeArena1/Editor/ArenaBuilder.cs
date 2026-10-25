@@ -499,6 +499,50 @@ public static class ArenaBuilder
         public EnvData defaultEnv;
         public PostFxData postFx;
         public MeshEntry[] meshes; public ParticleEntry[] particles;
+        // 🆕 2026-10-25（Tap 族）：点地面反馈（原版 `TapHitMaterialDefinition` 逐个实例）。
+        //    判据正本 = `资料/完全复刻/判据/Tap族_地面点击反馈.md` §2/§4/§5.1；
+        //    产出方 = `工具/scripts快照/gen_unity_arena_manifest.py` 的 `read_tap_hits()`。
+        public TapHitEntry[] tapHits;
+    }
+
+    // ---------- Tap 族（点地面反馈）----------
+    /// <summary>原版一个 `TapHitMaterialDefinition` 实例（= 一颗有 3D 碰撞体的宿主 GameObject）。
+    /// ⚠️ 字段名与生成器产物**逐字一致** —— `JsonUtility` 对不上的字段**静默丢弃**。</summary>
+    [System.Serializable] public class TapHitEntry
+    {
+        public string go;              // 叶子名（与 `meshes[].go` 同一套）
+        public string path;            // 原版那棵树的完整路径（审计/定位用）
+        public int layer;              // 原版 GameObject 的 layer（**照抄**，别改）
+        public bool inMask;            // layer 在射线掩码（0 / 30）里吗 —— 只作审计
+        public bool hasMesh;           // 这颗宿主是不是已被 `meshes[]` 建过（决定「挂上去」还是「新建」）
+        public float[] pos, rot, scale;// 世界 TRS（与 `meshes[]` 同口径）
+        public TapColliderEntry collider;   // null = 原版这条**永远不触发**（宿主没碰撞体，arena3 场根）
+        public string particles;       // 粒子 prefab 名（`WarpforgeVFX/Prefabs/<它>.prefab`）
+        public string particlesGuid;   // 原版 AssetGUID（审计用）
+        public string audio;           // 音效 cue 名（`Resources/animfx_sounds.json` 的 `name`）
+        public string audioGuid;
+        public float delay;            // 原版 `delayTimeToPlayAgain`（0 = 不限）
+        public int useTargetAnchor;    // 🔴 死字段（本 build 运行时从不读）；照抄只为逐字段对齐
+        public TapAnchorEntry anchor;  // null = 世界点 + 法线
+    }
+
+    [System.Serializable] public class TapColliderEntry
+    {
+        public string type;            // "Box" / "Mesh" / "Sphere" / "Capsule"
+        public bool isTrigger;
+        public float[] center;         // Box / Sphere / Capsule
+        public float[] size;           // Box
+        public float radius;           // Sphere / Capsule
+        public float height;           // Capsule
+        public int direction;          // Capsule（0=X 1=Y 2=Z）
+        public bool convex;            // Mesh
+        public string mesh;            // Mesh：原版 MeshCollider 引用的网格名（缺省 = 用第一个 MeshFilter）
+    }
+
+    [System.Serializable] public class TapAnchorEntry
+    {
+        public string go; public string path;
+        public float[] pos, rot, scale;
     }
 
     // ---------- 入口 ----------
@@ -561,6 +605,8 @@ public static class ArenaBuilder
                 + $" → `{PrefabDir}/`");
         VerifyPrefabVertexStreams();
         VerifyPrefabColorSpace();
+        // 🆕 2026-10-25（Tap 族）：逐场核 `TapHitMaterialDefinition` / `TapParticleController` 进没进 prefab。
+        foreach (var s in AllArenas) if (File.Exists(ArenaPrefabPath(s))) VerifyPrefabTapHits(s);
     }
 
     /// <summary>🆕 2026-10-11（第二十会话）：**只建 `WF_ARENA` 那一场的 prefab**。
@@ -583,6 +629,7 @@ public static class ArenaBuilder
         AssetDatabase.SaveAssets();
         AssetDatabase.Refresh();
         Debug.Log($"[Arena] §27 **单场** prefab：{s} {(ok ? "✅ 建好" : "❌ 失败")} → `{ArenaPrefabPath(s)}`");
+        VerifyPrefabTapHits(s);
     }
 
     /// <summary>🆕 2026-10-11（A1557）：**产物自检** —— 自定义顶点流到底进没进 `.prefab`。
@@ -2956,6 +3003,10 @@ public static class ArenaBuilder
         // 🆕 2026-10-11（A191）：**原版的【分组节点】+ 子树归属** —— 必须在「网格 / 粒子 / 灯」都建完之后，
         //    因为它要按「名字 + 最近位置」把**已经建出来的对象**改挂回去（见那个方法的头注）。
         ApplyGroupNodes(mf, root);
+        // 🆕 2026-10-25（Tap 族）：点地面反馈 —— 碰撞体 + `TapHitMaterialDefinition` + 控制器。
+        //    ⚠️ **必须排在 `ApplyGroupNodes` 之后**：那一步会按原版父链**改挂**已建对象（世界位姿不变），
+        //    所以这里按「名字 + 世界坐标」在**整棵树**里找宿主，而不是记旧引用。
+        BuildTapHits(mf, root.transform);
         ApplyPostFx(root.transform, mf);
         SetupSkybox();
         return root;
@@ -4177,6 +4228,394 @@ public static class ArenaBuilder
         t.localPosition = ToVec3(pos, Vector3.zero);
         t.localRotation = ToQuat(rot);
         t.localScale    = ToVec3(scale, Vector3.one);
+    }
+
+    // ==================================================================
+    //  🆕 2026-10-25（Tap 族）：点战场地面的反馈 —— 建场侧
+    //
+    //  判据正本 = `资料/完全复刻/判据/Tap族_地面点击反馈.md`（§2 类结构 / §4 八道闸 / §5.1 施工表）。
+    //  数据来源 = 清单 `tapHits[]`（生成器 `read_tap_hits()` 从 `07_场景` 的
+    //    `TapHitMaterialDefinition` + 四种 3D 碰撞体读出来；判据 §2.2 的 213 条逐场分布是核对尺子）。
+    //
+    //  这一段做三件事（**逐件照原版，⛔ 不自己发明**）：
+    //    ① 碰撞体：宿主 GameObject 上建**同类型、同参数、同 layer** 的碰撞体；
+    //       Box/Sphere/Capsule 用序列化 `m_Center/m_Size/m_Radius`；Mesh 用同一颗 `MeshFilter.sharedMesh`。
+    //    ② `TapHitMaterialDefinition`：`particles` 直连 `WarpforgeVFX/Prefabs/<名>.prefab`、`audio` 存 cue 名、
+    //       `delay` / `targetAnchor` 照抄；`useTargetAnchor` 照抄但**是死字段**（运行时没人读）。
+    //    ③ `TapParticleController`：一颗空物体（原版 `BattlePrefab/BattleBoardElements/TapParticleController`，
+    //       localPos `(-100,0,0)`、只挂脚本）。
+    //
+    //  ⚠️ **两条「照原版的不完美」都别改**：
+    //    · `CardLowBoardLimit`（每场那颗棋盘）在原版是 **layer 11（`BoardCardLimit`）** ——
+    //      **不在射线掩码 `0x40000001`（layer 0 + 30）里** ⇒ 原版点棋盘空地**本来就不触发**它。
+    //      ⛔ 别为了「点棋盘有反馈」把它改成 layer 0（那是自己发明）。
+    //    · arena3 的场根上挂了一条定义、但**宿主没有碰撞体** ⇒ 原版**永远不触发**；
+    //      清单里 `collider == null` 就是这一条，本方法**跳过**（⛔ 别顺手补一个碰撞体）。
+    // ==================================================================
+
+    const string TapPrefabDir = "Assets/WarpforgeVFX/Prefabs";
+    static readonly Dictionary<string, GameObject> _tapPrefabCache = new Dictionary<string, GameObject>();
+
+    static int BuildTapHits(Manifest mf, Transform root)
+    {
+        if (mf.tapHits == null || mf.tapHits.Length == 0)
+        {
+            Debug.LogWarning($"[Arena] {mf.scene}：清单**没有 `tapHits[]`** ⇒ 这一场点地面不会有任何反应。"
+                           + " 重跑 `python 工具/scripts快照/gen_unity_arena_manifest.py --arena " + mf.scene + "`");
+            return 0;
+        }
+
+        // 整棵树扫一次（`ApplyGroupNodes` 之后层级已按原版改挂过，所以按「名字 + 世界坐标」认）
+        var all = root.GetComponentsInChildren<Transform>(true);
+        int nBuilt = 0, nNoCollider = 0, nHostNew = 0, nDef = 0, nControl = 0;
+        int nOutMask = 0, nAnchorOk = 0, nAnchorFail = 0;
+
+        foreach (var e in mf.tapHits)
+        {
+            if (e.collider == null)
+            {
+                // 原版永远不触发（宿主没碰撞体）—— 建出来只会凭空多一颗能挡射线的碰撞体 ⇒ **不建**
+                nNoCollider++;
+                Debug.Log($"[Arena] {mf.scene}：`{e.go}` 在原版**没有碰撞体**（判据 §6 第 4 条）"
+                        + " ⇒ 照原版**不建碰撞体、不挂定义**（这条永远不触发）");
+                continue;
+            }
+            nBuilt++;
+
+            Transform host = FindBuiltByGo(all, e.go, e.pos, out bool ambiguous, e.hasMesh, e.scale);
+            GameObject go;
+            if (host != null)
+            {
+                go = host.gameObject;
+            }
+            else
+            {
+                go = new GameObject(e.go);
+                go.transform.SetParent(root, false);
+                ApplyTransform(go.transform, e.pos, e.rot, e.scale);
+                nHostNew++;
+                if (ambiguous)
+                    Debug.LogWarning($"[Arena] {mf.scene}：`{e.go}` 有同名对象但**世界坐标都对不上**"
+                                   + " ⇒ 另建一颗只带碰撞体的空物体（射线体积一致，画面上看不见）");
+            }
+
+            // ① 碰撞体（照原版的类型与参数）
+            if (!AddTapCollider(go, e.collider))
+            {
+                nBuilt--;                     // 建不出碰撞体 ⇒ 这条没有意义，别硬挂定义
+                continue;
+            }
+            go.layer = e.layer;               // 🔴 照原版设层（掩码 = layer 0 + 30，见判据 §1.1）
+            if (!e.inMask) nOutMask++;
+
+            // ② 定义
+            var def = go.GetComponent<CardPresentation.TapHitMaterialDefinition>();
+            if (def == null) def = go.AddComponent<CardPresentation.TapHitMaterialDefinition>();
+            def.particleDefinition.particles = LoadTapPrefab(e.particles, mf.scene, e.go);
+            def.particleDefinition.audio = e.audio ?? "";
+            def.delayTimeToPlayAgain = e.delay;
+            def.useTargetAnchor = e.useTargetAnchor != 0;      // 死字段：照抄，运行时没人读
+            def.remainingNotPlayTime = 0f;
+            if (e.anchor != null)
+            {
+                def.targetAnchor = FindBuiltByGo(all, e.anchor.go, e.anchor.pos, out _, null, e.anchor.scale);
+                if (def.targetAnchor == null)
+                {
+                    nAnchorFail++;
+                    Debug.LogWarning($"[Arena] {mf.scene}：`{e.go}` 的锚点 `{e.anchor.go}` 找不到"
+                                   + $"（path `{e.anchor.path}`）⇒ 退回「世界点 + 法线 × 0.1」"
+                                   + "（**这是偏差**：原版会把粒子挂在锚点本地零位）");
+                }
+                else nAnchorOk++;
+            }
+            else def.targetAnchor = null;
+            nDef++;
+        }
+
+        // ③ 控制器（每场恰好一颗；原版 `BattlePrefab/BattleBoardElements/TapParticleController`）
+        var existingCtrl = root.GetComponentInChildren<CardPresentation.TapParticleController>(true);
+        if (existingCtrl == null)
+        {
+            var ctrl = new GameObject("TapParticleController");
+            ctrl.transform.SetParent(root, false);
+            ctrl.transform.localPosition = new Vector3(-100f, 0f, 0f);   // 原版 localPos
+            ctrl.AddComponent<CardPresentation.TapParticleController>();
+            nControl = 1;
+        }
+
+        // 不许静默：条数、掩码外的、锚点失败、无碰撞体的都要看得见
+        _tapDefsBuiltByScene[mf.scene] = nDef;
+        _tapCtrlBuiltByScene[mf.scene] = (existingCtrl != null || nControl == 1) ? 1 : 0;
+        Debug.Log($"[Arena] Tap（点地面反馈）：{mf.scene} 清单 {mf.tapHits.Length} 条"
+                + $" ⇒ 建碰撞体 {nBuilt} 颗（其中另建空宿主 {nHostNew}）· 挂定义 {nDef} 个"
+                + $" · 控制器 {nControl} 颗"
+                + $" · **掩码外（layer 0/30 之外，原版射线打不到）{nOutMask} 条**"
+                + $" · 无碰撞体跳过 {nNoCollider} 条 · 锚点 {nAnchorOk} 条接上/失败 {nAnchorFail}");
+        if (nOutMask > 0)
+            Debug.Log($"[Arena] Tap：那 {nOutMask} 条是**照原版**设在别的 layer 上的（每场 1 条 `CardLowBoardLimit`，"
+                    + "原版 layer 11 `BoardCardLimit`）—— 原版点棋盘空地**本来就不触发**，⛔ 别改成 layer 0");
+        return nBuilt;
+    }
+
+    // ---- Tap 产物自检（与顶点流 / 色彩空间那两条同一手法：读**产物文本**，不信「调过了」）----
+    static readonly Dictionary<string, int> _tapDefsBuiltByScene = new Dictionary<string, int>();
+    static readonly Dictionary<string, int> _tapCtrlBuiltByScene = new Dictionary<string, int>();
+    const string TapDefScriptPath = "Assets/CardPresentation/Battle/TapHitMaterialDefinition.cs";
+    const string TapCtrlScriptPath = "Assets/CardPresentation/Battle/TapParticleController.cs";
+
+    /// <summary>读 prefab 产物文本，核「`TapHitMaterialDefinition` / `TapParticleController` 真的进盘了没有」。
+    /// <para>判据：脚本组件的序列化是 `m_Script: {… guid: &lt;脚本 .meta 的 guid&gt; …}` ⇒ 数那个 guid。
+    /// ⚠️ **不能按类名数**（prefab 文本里没有类名）。</para>
+    /// <para>期望值 = 建场时**真的建出来**的个数（`_tapDefsBuiltByScene`）；等差 ⇒ 出声（别静默）。</para></summary>
+    static void VerifyPrefabTapHits(string scene)
+    {
+        string path = ArenaPrefabPath(scene);
+        if (!File.Exists(path))
+        {
+            Debug.LogWarning($"[Arena] Tap 自检：`{path}` 不在 ⇒ 这一场没得验");
+            return;
+        }
+        string txt;
+        try { txt = File.ReadAllText(path); }
+        catch (System.Exception e)
+        {
+            Debug.LogWarning($"[Arena] Tap 自检：读不了 `{path}`（{e.GetType().Name}）⇒ 这一场没验成");
+            return;
+        }
+        string defGuid = AssetDatabase.AssetPathToGUID(TapDefScriptPath);
+        string ctrlGuid = AssetDatabase.AssetPathToGUID(TapCtrlScriptPath);
+        int gotDef = string.IsNullOrEmpty(defGuid) ? 0 : CountSub(txt, "guid: " + defGuid);
+        int gotCtrl = string.IsNullOrEmpty(ctrlGuid) ? 0 : CountSub(txt, "guid: " + ctrlGuid);
+        int wantDef, wantCtrl;
+        _tapDefsBuiltByScene.TryGetValue(scene, out wantDef);
+        _tapCtrlBuiltByScene.TryGetValue(scene, out wantCtrl);
+        Debug.Log($"[Arena] Tap 自检：{scene} 建场时挂定义 **{wantDef}** 个 / 控制器 **{wantCtrl}** 颗 vs "
+                + $"prefab 产物里 `TapHitMaterialDefinition` **{gotDef}** 处 / `TapParticleController` **{gotCtrl}** 处 —— "
+                + ((gotDef == wantDef && gotCtrl == wantCtrl) ? "**相等 ✅**"
+                                                             : "**不等 🔴**：挂了但没落进 prefab，这一条没做完"));
+    }
+
+    /// <summary>在整棵树里按「名字 + 世界坐标」找已建出来的宿主/锚点。
+    /// 阈值：位置 0.05（清单坐标是 6 位小数四舍五入后的值）。
+    /// <para>`requireMesh`：`true` ⇒ 只认**带 MeshFilter**的（清单 `hasMesh`）；`false` ⇒ 只认**不带**的
+    /// （原版那颗宿主本来就没有渲染器）；`null` ⇒ 不筛（锚点用）。
+    /// ⚠️ 这一层筛是为了**别把 `ApplyGroupNodes` 建出来的同名分组节点**当成宿主 ——
+    /// 分组节点的缩放与宿主常常不同，挂上去碰撞体积就错了。</para></summary>
+    static Transform FindBuiltByGo(Transform[] all, string goName, float[] pos, out bool ambiguous,
+                                   bool? requireMesh = null, float[] scale = null)
+    {
+        ambiguous = false;
+        if (string.IsNullOrEmpty(goName) || pos == null) return null;
+        var want = new Vector3(pos[0], pos[1], pos[2]);
+        bool checkScale = scale != null && scale.Length >= 3;
+        var wantScale = checkScale ? new Vector3(scale[0], scale[1], scale[2]) : Vector3.one;
+        Transform nameOnly = null;
+        int nameHits = 0;
+        for (int i = 0; i < all.Length; i++)
+        {
+            var t = all[i];
+            if (t == null || t.name != goName) continue;
+            if (requireMesh.HasValue)
+            {
+                bool hasMf = t.GetComponentInChildren<MeshFilter>(true) != null;
+                if (hasMf != requireMesh.Value) continue;
+            }
+            nameHits++;
+            if (nameOnly == null) nameOnly = t;
+            if (Vector3.Distance(t.position, want) <= 0.05f
+                && (!checkScale || ScaleClose(t.lossyScale, wantScale))) return t;
+        }
+        ambiguous = nameHits > 1;
+        // 名字唯一、但坐标/缩放对不上的**只对网格宿主**才认（`worldBaked` 的那 31 个：holder 是 identity、
+        // 顶点已经烘在世界坐标里 ⇒ MeshCollider 用那颗网格的**世界形**仍然是对的）。
+        // ⚠️ Box/Sphere/Capsule 宿主**不能**走这条：碰撞体的世界体积 = 本地尺寸 × 缩放，
+        //    挂在缩放不对的件上体积就错了 ⇒ 宁可另建一颗（世界位姿照清单）。
+        if (requireMesh == true && nameHits == 1) return nameOnly;
+        return null;
+    }
+
+    static bool ScaleClose(Vector3 a, Vector3 b)
+    {
+        return Mathf.Abs(a.x - b.x) <= 0.01f * Mathf.Max(1f, Mathf.Abs(b.x))
+            && Mathf.Abs(a.y - b.y) <= 0.01f * Mathf.Max(1f, Mathf.Abs(b.y))
+            && Mathf.Abs(a.z - b.z) <= 0.01f * Mathf.Max(1f, Mathf.Abs(b.z));
+    }
+
+    static GameObject LoadTapPrefab(string name, string scene, string hostGo)
+    {
+        if (string.IsNullOrEmpty(name)) return null;
+        GameObject go;
+        if (_tapPrefabCache.TryGetValue(name, out go) && go != null) return go;
+        go = AssetDatabase.LoadAssetAtPath<GameObject>(TapPrefabDir + "/" + name + ".prefab");
+        if (go == null)
+        {
+            Debug.LogWarning($"[Arena] {scene}：`{hostGo}` 要的粒子 prefab `{TapPrefabDir}/{name}.prefab` **找不到**"
+                           + " ⇒ 这个定义播不出粒子（原版那件资产名见判据 §2.2/§2.5）");
+            return null;
+        }
+        _tapPrefabCache[name] = go;
+        return go;
+    }
+
+    /// <summary>按清单建同类型碰撞体。返回 false = 建不出（已经出声）。</summary>
+    static bool AddTapCollider(GameObject go, TapColliderEntry c)
+    {
+        switch (c.type)
+        {
+            case "Box":
+            {
+                var b = go.AddComponent<BoxCollider>();
+                b.center = TapVec(c.center, Vector3.zero);
+                b.size = TapVec(c.size, Vector3.one);
+                b.isTrigger = c.isTrigger;
+                return true;
+            }
+            case "Sphere":
+            {
+                var s = go.AddComponent<SphereCollider>();
+                s.center = TapVec(c.center, Vector3.zero);
+                s.radius = c.radius > 0f ? c.radius : 0.5f;
+                s.isTrigger = c.isTrigger;
+                return true;
+            }
+            case "Capsule":
+            {
+                var s = go.AddComponent<CapsuleCollider>();
+                s.center = TapVec(c.center, Vector3.zero);
+                s.radius = c.radius > 0f ? c.radius : 0.5f;
+                s.height = c.height > 0f ? c.height : 2f;
+                s.direction = c.direction;
+                s.isTrigger = c.isTrigger;
+                return true;
+            }
+            case "Mesh":
+            {
+                // 原版 MeshCollider 引用的**可能是另一颗网格**（多子网格物件）。
+                // 清单有 `collider.mesh`（名字）就按名字找；没有就退回「第一个 MeshFilter」。
+                // ⚠️ 实测 103 条里只有 **2 条**与原版渲染网格不同（都在 battlearena2：`Barrels` / `Rubble`）。
+                MeshFilter mf = null;
+                if (!string.IsNullOrEmpty(c.mesh))
+                {
+                    var allMf = go.GetComponentsInChildren<MeshFilter>(true);
+                    for (int i = 0; i < allMf.Length; i++)
+                        if (allMf[i].sharedMesh != null && allMf[i].sharedMesh.name == c.mesh) { mf = allMf[i]; break; }
+                    // ② 归一化匹配（2026-10-25 补）：原版清单写 `Barrel Left1`，而我们从 OBJ 建出来的
+                    //    MeshFilter 实际叫 `Barrel_Left1_0`（**空格→下划线 + 末尾 `_<子资产序号>`**）。
+                    //    ⇒ 两边都归一化（空格→下划线、转小写、去掉末尾 `_数字`）再比；⛔ 别只比原字符串。
+                    if (mf == null)
+                    {
+                        System.Func<string, string> Norm = s =>
+                        {
+                            if (string.IsNullOrEmpty(s)) return "";
+                            s = s.Replace(' ', '_').ToLowerInvariant();
+                            int k = s.LastIndexOf('_');
+                            if (k > 0 && k < s.Length - 1)
+                            {
+                                bool digits = true;
+                                for (int j = k + 1; j < s.Length; j++) if (!char.IsDigit(s[j])) { digits = false; break; }
+                                if (digits) s = s.Substring(0, k);
+                            }
+                            return s;
+                        };
+                        string want = Norm(c.mesh);
+                        int bestLen = -1;
+                        for (int i = 0; i < allMf.Length; i++)
+                        {
+                            if (allMf[i].sharedMesh == null) continue;
+                            string n = allMf[i].sharedMesh.name;
+                            if (string.IsNullOrEmpty(n)) continue;
+                            string got = Norm(n);
+                            if (got != want && !want.StartsWith(got) && !got.StartsWith(want)) continue;
+                            if (got.Length > bestLen) { bestLen = got.Length; mf = allMf[i]; }
+                        }
+                        if (mf != null)
+                            Debug.Log($"[Arena] Tap：`{go.name}` 网格归一化匹配到 `{mf.sharedMesh.name}`（清单写 `{c.mesh}`）");
+                    }
+                    if (mf == null)
+                    {
+                        var names = new System.Text.StringBuilder();
+                        for (int i = 0; i < allMf.Length; i++)
+                            names.Append(allMf[i].sharedMesh == null ? "<null>" : allMf[i].sharedMesh.name).Append(" | ");
+                        Debug.LogWarning($"[Arena] Tap：`{go.name}` 的清单要网格 `{c.mesh}`，"
+                                       + "我们建出来的 MeshFilter 里没有这颗 ⇒ 退回第一个"
+                                       + "（实际有：[" + names + "]）");
+                    }
+                }
+                if (mf == null) mf = go.GetComponentInChildren<MeshFilter>(true);
+                if (mf == null || mf.sharedMesh == null)
+                {
+                    Debug.LogWarning($"[Arena] Tap：`{go.name}` 原版是 MeshCollider，但**我们没建出网格**"
+                                   + "（`MeshFilter.sharedMesh` 取不到）⇒ 这棵宿主没有碰撞体、这条不触发。"
+                                   + " ⛔ 别拿 Box 顶上去（体积不同 = 射线结果不同）");
+                    return false;
+                }
+                // 🔴 **convex 的 MeshCollider 要求网格 Read/Write**（Unity 的硬约束；我们的 `.obj.meta`
+                //    一律 `isReadable: 0`）。实测原版 Tap 宿主的 MeshCollider **去重后 77/103 条是 convex**
+                //    （按 dump 文件数 154/206，含 `X.json` + `X_X.json` 重复）⇒ 不处理的话一大半点不动。
+                //    这里**只**把这一类网格开成 readable 并重导（与 `ApplyTextureImportSettings` 同一手法）。
+                Mesh useMesh = mf.sharedMesh;
+                if (c.convex && !useMesh.isReadable)
+                {
+                    var fixedMesh = EnsureMeshReadable(useMesh, go.name);
+                    if (fixedMesh == null)
+                    {
+                        Debug.LogWarning($"[Arena] Tap：`{go.name}` 原版是 **convex** MeshCollider，"
+                                       + "而我们的网格不是 Read/Write 且重导失败 ⇒ 这条不触发。");
+                        return false;
+                    }
+                    useMesh = fixedMesh;
+                }
+                var m = go.AddComponent<MeshCollider>();
+                m.sharedMesh = useMesh;
+                m.convex = c.convex;
+                m.isTrigger = c.isTrigger;
+                return true;
+            }
+        }
+        Debug.LogWarning($"[Arena] Tap：认不出的碰撞体类型 `{c.type}`（`{go.name}`）⇒ 跳过");
+        return false;
+    }
+
+    static Vector3 TapVec(float[] a, Vector3 d)
+    {
+        return (a != null && a.Length >= 3) ? new Vector3(a[0], a[1], a[2]) : d;
+    }
+
+    /// <summary>把一份网格的导入设置改成 **Read/Write Enabled** 并重导（`convex` MeshCollider 的硬要求）。
+    /// <para>只对「真的要用 convex 碰撞体」的网格调，别扫全目录 —— 那会让所有网格都多占一份内存。</para>
+    /// <para>与 `ApplyTextureImportSettings` 同一手法（`AssetImporter.GetAtPath` → 改 → `SaveAndReimport`）。</para>
+    /// <para>🔴 **重导之后手里那个 `Mesh` 引用会失效/换对象** ⇒ 这里**重新从资产里取一颗**还回去，
+    /// 调用方拿返回值用（⛔ 别再用传进来的那个）。返回 null = 改不了（内置资源 / 不是模型）。</para></summary>
+    static readonly HashSet<string> _meshReadableDone = new HashSet<string>();
+    static Mesh EnsureMeshReadable(Mesh mesh, string who)
+    {
+        if (mesh == null) return null;
+        string path = AssetDatabase.GetAssetPath(mesh);
+        if (string.IsNullOrEmpty(path)) return null;                  // Unity 内置资源（`Quad` 等）改不了
+        var mi = AssetImporter.GetAtPath(path) as ModelImporter;
+        if (mi == null) return null;                                  // 不是模型文件 ⇒ 不改
+        if (!_meshReadableDone.Contains(path))
+        {
+            if (!mi.isReadable)
+            {
+                mi.isReadable = true;
+                mi.SaveAndReimport();
+                Debug.Log($"[Arena] Tap：把 `{path}` 的导入设置开成 **Read/Write Enabled**"
+                        + $"（`{who}` 要用 convex MeshCollider —— 不改的话 Unity 运行时会拒用这颗网格）");
+            }
+            _meshReadableDone.Add(path);
+        }
+        // 按名字从资产里重新取（重导把旧对象换掉了）
+        var subs = AssetDatabase.LoadAllAssetsAtPath(path);
+        Mesh first = null;
+        for (int i = 0; i < subs.Length; i++)
+        {
+            var m2 = subs[i] as Mesh;
+            if (m2 == null) continue;
+            if (m2.name == mesh.name) return m2;
+            if (first == null) first = m2;
+        }
+        return first;
     }
 
     /// <summary>🆕 2026-09-28：**网格的阴影标志**（原来两处都硬写死 `Off / false`）。

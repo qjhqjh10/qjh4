@@ -1,0 +1,8 @@
+原卡 id	原卡名	异画 PathID（cards_raw 里的 PPtr）	异画 id	异画名	style	我们的美术文件	美术在 Art/altarts/	有 cardImage	有 fullWarlordImage	异画的 originalCard 指回	双向 PPtr 对得上
+UM76	Ultramarines_war_Lieutenant Titus	-1108248882572368702	#HB_UM76	AA_HB_UM_war_Lieutenant Titus	5	alt_um76	有	True	True	-7794883782581149082	是
+SW1	SpaceWolves_war_Logan Grimnar	1601360255442447163	#HB_SW1	AA_HB_SpaceWolves_war_Logan Grimnar	5	alt_sw1	有	True	True	-6940192076428786387	是
+BL34	BlackLegion_war_Abaddon the Despoiler	8855357007838542433	#HB_BL34	AA_HB_BlackLegion_war_Abaddon the Despoiler	5	alt_bl34	有	True	True	-4665191629627599348	是
+SAU35	Sautekh_war_Imotekh the Stormlord	-4923711743991047089	#HB_SAU35	AA_HB_Sautekh_war_Imotekh the Stormlord	5	alt_sau35	有	True	True	-3263782721479807040	是
+DA1	DarkAngels_war_Azrael	4061869332668035251	#HB_DA1	AA_HB_DarkAngels_war_Azrael	5	alt_da_azrael	有	True	True	-2392752158821996327	是
+GOF28	Goff_war_GhazghkullThraka	2832319048434330770	#HB_GOF28	AA_HB_Goff_war_Ghazghkull Thraka	5	alt_gof28	有	True	True	673211204552525425	是
+AM2	AstraMilitarum_war_Ursula Creed	2140166119203096786	#HB_AM2	AA_HB_AM_war_Ursula Creed	5	alt_am2	有	True	True	4937526399331381514	是

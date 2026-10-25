@@ -351,14 +351,21 @@ namespace WarpforgeVFX
 
                     if (guaranteeFinalPosition)
                     {
-                        // 🔴 推断分支（见文件头）：按剩余寿命从 originalPosition 插到 targetPosition
+                        // ✅ **2026-10-25 已从「推断」升格为「读到」并逐字对齐**（判据 = ilspy 真方法体
+                        //    `AnimFxModuleMoveParticlesToTarget.cs:83-215`）：
+                        //    `pos = lerp(originalPosition, targetPosition, clamp01(1 - remaining/start))`
                         p.position = Vector3.Lerp(originalPosition, targetPosition, Mathf.Clamp01(progress));
                     }
                     else
                     {
-                        // 🔴 推断算式（见文件头）：朝 targetPosition 以 attractSpeed × 曲线值 × dt 靠近
+                        // ✅ **2026-10-25 已改齐**：原版是**比例式**靠近 ——
+                        //    `k = attractSpeedByLifetime.Evaluate(1 - remaining/start)`；
+                        //    `frac = clamp01(dt * attractSpeed * k)`；`pos += (target - pos) * frac`。
+                        //    ⚠️ 原来写的是 `MoveTowards(pos, target, attractSpeed*k*dt)`（**定距离**前进）——
+                        //    两者在「离得远」时相近、在「快到了」时差很多（原版越近越慢，是渐近；MoveTowards 是匀速）。
                         float k = attractSpeedByLifetime != null ? attractSpeedByLifetime.Evaluate(progress) : 1f;
-                        p.position = Vector3.MoveTowards(p.position, targetPosition, attractSpeed * k * dt);
+                        float frac = Mathf.Clamp01(dt * attractSpeed * k);
+                        p.position = p.position + (targetPosition - p.position) * frac;
                     }
                     buf[i] = p;
                 }

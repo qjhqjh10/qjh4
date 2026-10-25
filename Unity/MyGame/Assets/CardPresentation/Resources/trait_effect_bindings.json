@@ -1,7 +1,7 @@
 {
  "schema": "wf.trait_effect_bindings/1",
  "generatedBy": "工具/gen_trait_effect_bindings.py",
- "generatedAt": "2026-10-24 22:17:25",
+ "generatedAt": "2026-10-25 17:13:28",
  "sources": {
   "traitCollection": "数据/游戏数据/trait_collection.json",
   "traitCollectionGenerated": "2026-10-22",

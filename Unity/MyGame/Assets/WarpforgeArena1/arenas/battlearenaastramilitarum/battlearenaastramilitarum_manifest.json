@@ -65455,5 +65455,987 @@
       "uvCycles": 1.0,
       "uvRowIndex": 0
     }
+  ],
+  "tapHits": [
+    {
+      "go": "Barricade 1",
+      "path": "Battle Arena Astra Militarum Baked/Barricade 1",
+      "layer": 0,
+      "inMask": true,
+      "hasMesh": true,
+      "pos": [
+        95.679314,
+        1.256076,
+        38.30217
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        174.862976,
+        174.863,
+        174.863
+      ],
+      "collider": {
+        "type": "Mesh",
+        "convex": true,
+        "isTrigger": false,
+        "mesh": "Barricade 11"
+      },
+      "particles": "Tap Rock",
+      "particlesGuid": "06946a9ab456c474f9b4f86e00fecf9c",
+      "audio": "Tap Hit Rock",
+      "audioGuid": "30c981ef52e181a41a09adf6818a9104",
+      "delay": 0.0,
+      "useTargetAnchor": 0,
+      "anchor": null
+    },
+    {
+      "go": "Barricade 2",
+      "path": "Battle Arena Astra Militarum Baked/Barricade 2",
+      "layer": 0,
+      "inMask": true,
+      "hasMesh": true,
+      "pos": [
+        101.50119,
+        1.125927,
+        38.347427
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        174.862976,
+        174.863,
+        174.863
+      ],
+      "collider": {
+        "type": "Mesh",
+        "convex": true,
+        "isTrigger": false,
+        "mesh": "Barricade 21"
+      },
+      "particles": "Tap Rock",
+      "particlesGuid": "06946a9ab456c474f9b4f86e00fecf9c",
+      "audio": "Tap Hit Rock",
+      "audioGuid": "30c981ef52e181a41a09adf6818a9104",
+      "delay": 0.0,
+      "useTargetAnchor": 0,
+      "anchor": null
+    },
+    {
+      "go": "Barricade 3",
+      "path": "Battle Arena Astra Militarum Baked/Barricade 3",
+      "layer": 0,
+      "inMask": true,
+      "hasMesh": true,
+      "pos": [
+        107.712563,
+        1.242013,
+        43.258656
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        174.862976,
+        174.863,
+        174.863
+      ],
+      "collider": {
+        "type": "Mesh",
+        "convex": true,
+        "isTrigger": false,
+        "mesh": "Barricade 31"
+      },
+      "particles": "Tap Rock",
+      "particlesGuid": "06946a9ab456c474f9b4f86e00fecf9c",
+      "audio": "Tap Hit Rock",
+      "audioGuid": "30c981ef52e181a41a09adf6818a9104",
+      "delay": 0.0,
+      "useTargetAnchor": 0,
+      "anchor": null
+    },
+    {
+      "go": "Barricade 4",
+      "path": "Battle Arena Astra Militarum Baked/Barricade 4",
+      "layer": 0,
+      "inMask": true,
+      "hasMesh": true,
+      "pos": [
+        115.722252,
+        1.351213,
+        56.480076
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        174.862976,
+        174.863,
+        174.863
+      ],
+      "collider": {
+        "type": "Mesh",
+        "convex": true,
+        "isTrigger": false,
+        "mesh": "Barricade 41"
+      },
+      "particles": "Tap Rock",
+      "particlesGuid": "06946a9ab456c474f9b4f86e00fecf9c",
+      "audio": "Tap Hit Rock",
+      "audioGuid": "30c981ef52e181a41a09adf6818a9104",
+      "delay": 0.0,
+      "useTargetAnchor": 0,
+      "anchor": null
+    },
+    {
+      "go": "Barricade 5",
+      "path": "Battle Arena Astra Militarum Baked/Barricade 5",
+      "layer": 0,
+      "inMask": true,
+      "hasMesh": true,
+      "pos": [
+        114.913376,
+        1.423848,
+        71.894638
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        174.862976,
+        174.863,
+        174.863
+      ],
+      "collider": {
+        "type": "Mesh",
+        "convex": true,
+        "isTrigger": false,
+        "mesh": "Barricade 51"
+      },
+      "particles": "Tap Rock",
+      "particlesGuid": "06946a9ab456c474f9b4f86e00fecf9c",
+      "audio": "Tap Hit Rock",
+      "audioGuid": "30c981ef52e181a41a09adf6818a9104",
+      "delay": 0.0,
+      "useTargetAnchor": 0,
+      "anchor": null
+    },
+    {
+      "go": "Bunker 1",
+      "path": "Battle Arena Astra Militarum Baked/Bunker 1",
+      "layer": 0,
+      "inMask": true,
+      "hasMesh": true,
+      "pos": [
+        66.599518,
+        5.780256,
+        50.643051
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        174.862976,
+        174.863,
+        174.863
+      ],
+      "collider": {
+        "type": "Mesh",
+        "convex": true,
+        "isTrigger": false,
+        "mesh": "Bunker 11"
+      },
+      "particles": "Tap Rock",
+      "particlesGuid": "06946a9ab456c474f9b4f86e00fecf9c",
+      "audio": "Tap Hit Rock",
+      "audioGuid": "30c981ef52e181a41a09adf6818a9104",
+      "delay": 0.0,
+      "useTargetAnchor": 0,
+      "anchor": null
+    },
+    {
+      "go": "Bunker 1 Tower",
+      "path": "Battle Arena Astra Militarum Baked/Bunker 1 Tower",
+      "layer": 0,
+      "inMask": true,
+      "hasMesh": true,
+      "pos": [
+        71.634018,
+        16.976511,
+        69.489235
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        174.862976,
+        174.863,
+        174.863
+      ],
+      "collider": {
+        "type": "Mesh",
+        "convex": true,
+        "isTrigger": false,
+        "mesh": "Bunker 1 Tower1"
+      },
+      "particles": "Tap Rock",
+      "particlesGuid": "06946a9ab456c474f9b4f86e00fecf9c",
+      "audio": "Tap Hit Rock",
+      "audioGuid": "30c981ef52e181a41a09adf6818a9104",
+      "delay": 0.0,
+      "useTargetAnchor": 0,
+      "anchor": null
+    },
+    {
+      "go": "Bunker 4",
+      "path": "Battle Arena Astra Militarum Baked/Bunker 4",
+      "layer": 0,
+      "inMask": true,
+      "hasMesh": true,
+      "pos": [
+        96.744919,
+        2.92774,
+        56.863544
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        188.364822,
+        188.364848,
+        188.364848
+      ],
+      "collider": {
+        "type": "Mesh",
+        "convex": true,
+        "isTrigger": false,
+        "mesh": "Bunker 41"
+      },
+      "particles": "Tap Rock",
+      "particlesGuid": "06946a9ab456c474f9b4f86e00fecf9c",
+      "audio": "Tap Hit Rock",
+      "audioGuid": "30c981ef52e181a41a09adf6818a9104",
+      "delay": 0.0,
+      "useTargetAnchor": 0,
+      "anchor": null
+    },
+    {
+      "go": "Bunker Foreground",
+      "path": "Battle Arena Astra Militarum Baked/Bunker Foreground",
+      "layer": 0,
+      "inMask": true,
+      "hasMesh": true,
+      "pos": [
+        102.206261,
+        0.27391,
+        -9.995344
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        188.364822,
+        188.364848,
+        188.364848
+      ],
+      "collider": {
+        "type": "Mesh",
+        "convex": true,
+        "isTrigger": false,
+        "mesh": "Bunker Foreground1"
+      },
+      "particles": "Tap Rock",
+      "particlesGuid": "06946a9ab456c474f9b4f86e00fecf9c",
+      "audio": "Tap Hit Rock",
+      "audioGuid": "30c981ef52e181a41a09adf6818a9104",
+      "delay": 0.0,
+      "useTargetAnchor": 0,
+      "anchor": null
+    },
+    {
+      "go": "Bunker Gun Huge",
+      "path": "Battle Arena Astra Militarum Baked/Bunker Gun Huge",
+      "layer": 0,
+      "inMask": true,
+      "hasMesh": true,
+      "pos": [
+        96.346519,
+        9.72691,
+        56.417431
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        174.862976,
+        174.863,
+        174.863
+      ],
+      "collider": {
+        "type": "Mesh",
+        "convex": false,
+        "isTrigger": false,
+        "mesh": "Bunker Gun Huge1"
+      },
+      "particles": "Tap Hit Metal",
+      "particlesGuid": "375d142f27197404884be8e317eca8dc",
+      "audio": "Tap Hit Metal Heavy",
+      "audioGuid": "0a651ec9f71764e41ba0d305510865ba",
+      "delay": 0.0,
+      "useTargetAnchor": 0,
+      "anchor": null
+    },
+    {
+      "go": "CardLowBoardLimit",
+      "path": "BattlePrefab/BattleBoardElements/Colliders/CardBoardLimits/CardLowBoardLimit",
+      "layer": 11,
+      "inMask": false,
+      "hasMesh": false,
+      "pos": [
+        100.0,
+        -0.59,
+        3.66
+      ],
+      "rot": [
+        0.002767,
+        0.0,
+        0.0,
+        0.999996
+      ],
+      "scale": [
+        81.161079,
+        0.82915,
+        41.907936
+      ],
+      "collider": {
+        "type": "Box",
+        "center": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "size": [
+          1.0,
+          1.0,
+          1.0
+        ],
+        "isTrigger": false
+      },
+      "particles": "Default Tap Floor",
+      "particlesGuid": "629741951c40548a49e35451a449d9d7",
+      "audio": "Tap Hit General",
+      "audioGuid": "52da505920d514f77ab579f113afbca6",
+      "delay": 0.0,
+      "useTargetAnchor": 0,
+      "anchor": null
+    },
+    {
+      "go": "Crates 1",
+      "path": "Battle Arena Astra Militarum Baked/Crates 1",
+      "layer": 0,
+      "inMask": true,
+      "hasMesh": true,
+      "pos": [
+        101.462433,
+        0.343453,
+        -10.124657
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        174.862976,
+        174.863,
+        174.863
+      ],
+      "collider": {
+        "type": "Mesh",
+        "convex": true,
+        "isTrigger": false,
+        "mesh": "Crates 110"
+      },
+      "particles": "Tap Hit Metal Small",
+      "particlesGuid": "3dc5682da4a044a43a4f12f252b9a58a",
+      "audio": "Tap Hit Metal Light",
+      "audioGuid": "d8fcd9e26668940a4a2091b89009892c",
+      "delay": 0.0,
+      "useTargetAnchor": 0,
+      "anchor": null
+    },
+    {
+      "go": "Crates 17",
+      "path": "Battle Arena Astra Militarum Baked/Crates 17",
+      "layer": 0,
+      "inMask": true,
+      "hasMesh": true,
+      "pos": [
+        101.317009,
+        0.460131,
+        -10.019877
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        188.364822,
+        188.364848,
+        188.364848
+      ],
+      "collider": {
+        "type": "Mesh",
+        "convex": true,
+        "isTrigger": false,
+        "mesh": "Crates 171"
+      },
+      "particles": "Tap Hit Metal Small",
+      "particlesGuid": "3dc5682da4a044a43a4f12f252b9a58a",
+      "audio": "Tap Hit Metal Light",
+      "audioGuid": "d8fcd9e26668940a4a2091b89009892c",
+      "delay": 0.0,
+      "useTargetAnchor": 0,
+      "anchor": null
+    },
+    {
+      "go": "Crates 18",
+      "path": "Battle Arena Astra Militarum Baked/Crates 18",
+      "layer": 0,
+      "inMask": true,
+      "hasMesh": true,
+      "pos": [
+        87.763641,
+        0.648349,
+        2.972713
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        188.364822,
+        188.364848,
+        188.364848
+      ],
+      "collider": {
+        "type": "Mesh",
+        "convex": true,
+        "isTrigger": false,
+        "mesh": "Crates 181"
+      },
+      "particles": "Tap Hit Metal Small",
+      "particlesGuid": "3dc5682da4a044a43a4f12f252b9a58a",
+      "audio": "Tap Hit Metal Light",
+      "audioGuid": "d8fcd9e26668940a4a2091b89009892c",
+      "delay": 0.0,
+      "useTargetAnchor": 0,
+      "anchor": null
+    },
+    {
+      "go": "Crates 2",
+      "path": "Battle Arena Astra Militarum Baked/Crates 2",
+      "layer": 0,
+      "inMask": true,
+      "hasMesh": true,
+      "pos": [
+        101.281265,
+        0.191385,
+        -10.117621
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        174.862976,
+        174.863,
+        174.863
+      ],
+      "collider": {
+        "type": "Mesh",
+        "convex": true,
+        "isTrigger": false,
+        "mesh": "Crates 21"
+      },
+      "particles": "Tap Hit Metal Small",
+      "particlesGuid": "3dc5682da4a044a43a4f12f252b9a58a",
+      "audio": "Tap Hit Metal Light",
+      "audioGuid": "d8fcd9e26668940a4a2091b89009892c",
+      "delay": 0.0,
+      "useTargetAnchor": 0,
+      "anchor": null
+    },
+    {
+      "go": "Crates 3",
+      "path": "Battle Arena Astra Militarum Baked/Crates 3",
+      "layer": 0,
+      "inMask": true,
+      "hasMesh": true,
+      "pos": [
+        101.987495,
+        0.152643,
+        -10.298158
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        174.862976,
+        174.863,
+        174.863
+      ],
+      "collider": {
+        "type": "Mesh",
+        "convex": true,
+        "isTrigger": false,
+        "mesh": "Crates 31"
+      },
+      "particles": "Tap Hit Metal Small",
+      "particlesGuid": "3dc5682da4a044a43a4f12f252b9a58a",
+      "audio": "Tap Hit Metal Light",
+      "audioGuid": "d8fcd9e26668940a4a2091b89009892c",
+      "delay": 0.0,
+      "useTargetAnchor": 0,
+      "anchor": null
+    },
+    {
+      "go": "Crates 4",
+      "path": "Battle Arena Astra Militarum Baked/Crates 4",
+      "layer": 0,
+      "inMask": true,
+      "hasMesh": true,
+      "pos": [
+        87.700645,
+        0.85332,
+        5.543467
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        174.862976,
+        174.863,
+        174.863
+      ],
+      "collider": {
+        "type": "Mesh",
+        "convex": true,
+        "isTrigger": false,
+        "mesh": "Crates 41"
+      },
+      "particles": "Tap Hit Metal Small",
+      "particlesGuid": "3dc5682da4a044a43a4f12f252b9a58a",
+      "audio": "Tap Hit Metal Light",
+      "audioGuid": "d8fcd9e26668940a4a2091b89009892c",
+      "delay": 0.0,
+      "useTargetAnchor": 0,
+      "anchor": null
+    },
+    {
+      "go": "Crates 5",
+      "path": "Battle Arena Astra Militarum Baked/Crates 5",
+      "layer": 0,
+      "inMask": true,
+      "hasMesh": true,
+      "pos": [
+        91.861221,
+        0.376106,
+        -1.900758
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        174.862976,
+        174.863,
+        174.863
+      ],
+      "collider": {
+        "type": "Mesh",
+        "convex": true,
+        "isTrigger": false,
+        "mesh": "Crates 51"
+      },
+      "particles": "Tap Hit Metal Small",
+      "particlesGuid": "3dc5682da4a044a43a4f12f252b9a58a",
+      "audio": "Tap Hit Metal Light",
+      "audioGuid": "d8fcd9e26668940a4a2091b89009892c",
+      "delay": 0.0,
+      "useTargetAnchor": 0,
+      "anchor": null
+    },
+    {
+      "go": "Crates 6",
+      "path": "Battle Arena Astra Militarum Baked/Crates 6",
+      "layer": 0,
+      "inMask": true,
+      "hasMesh": true,
+      "pos": [
+        89.334755,
+        0.279344,
+        4.712147
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        174.862976,
+        174.863,
+        174.863
+      ],
+      "collider": {
+        "type": "Mesh",
+        "convex": true,
+        "isTrigger": false,
+        "mesh": "Crates 61"
+      },
+      "particles": "Tap Hit Metal Small",
+      "particlesGuid": "3dc5682da4a044a43a4f12f252b9a58a",
+      "audio": "Tap Hit General",
+      "audioGuid": "52da505920d514f77ab579f113afbca6",
+      "delay": 0.0,
+      "useTargetAnchor": 0,
+      "anchor": null
+    },
+    {
+      "go": "Crates 7",
+      "path": "Battle Arena Astra Militarum Baked/Crates 7",
+      "layer": 0,
+      "inMask": true,
+      "hasMesh": true,
+      "pos": [
+        88.991066,
+        0.696544,
+        3.714902
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        174.862976,
+        174.863,
+        174.863
+      ],
+      "collider": {
+        "type": "Mesh",
+        "convex": true,
+        "isTrigger": false,
+        "mesh": "Crates 71"
+      },
+      "particles": "Tap Hit Metal Small",
+      "particlesGuid": "3dc5682da4a044a43a4f12f252b9a58a",
+      "audio": "Tap Hit Metal Light",
+      "audioGuid": "d8fcd9e26668940a4a2091b89009892c",
+      "delay": 0.0,
+      "useTargetAnchor": 0,
+      "anchor": null
+    },
+    {
+      "go": "Generator ",
+      "path": "Battle Arena Astra Militarum Baked/Generator ",
+      "layer": 0,
+      "inMask": true,
+      "hasMesh": true,
+      "pos": [
+        102.580299,
+        0.677755,
+        -9.894377
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        174.862976,
+        174.863,
+        174.863
+      ],
+      "collider": {
+        "type": "Mesh",
+        "convex": true,
+        "isTrigger": false,
+        "mesh": "Generator 1"
+      },
+      "particles": "Tap Hit Metal Small",
+      "particlesGuid": "3dc5682da4a044a43a4f12f252b9a58a",
+      "audio": "Tap Hit Metal Heavy",
+      "audioGuid": "0a651ec9f71764e41ba0d305510865ba",
+      "delay": 0.0,
+      "useTargetAnchor": 0,
+      "anchor": null
+    },
+    {
+      "go": "Tank 1",
+      "path": "Battle Arena Astra Militarum Baked/Tank 1",
+      "layer": 0,
+      "inMask": true,
+      "hasMesh": true,
+      "pos": [
+        125.928894,
+        2.914966,
+        35.380222
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        188.364822,
+        188.364848,
+        188.364848
+      ],
+      "collider": {
+        "type": "Mesh",
+        "convex": true,
+        "isTrigger": false,
+        "mesh": "Tank 11"
+      },
+      "particles": "Tap Hit Metal Small",
+      "particlesGuid": "3dc5682da4a044a43a4f12f252b9a58a",
+      "audio": "Tap Hit General",
+      "audioGuid": "52da505920d514f77ab579f113afbca6",
+      "delay": 0.0,
+      "useTargetAnchor": 0,
+      "anchor": null
+    },
+    {
+      "go": "Tank 2",
+      "path": "Battle Arena Astra Militarum Baked/Tank 2",
+      "layer": 0,
+      "inMask": true,
+      "hasMesh": true,
+      "pos": [
+        125.237778,
+        2.835061,
+        25.757807
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        171.007919,
+        171.007942,
+        171.007942
+      ],
+      "collider": {
+        "type": "Mesh",
+        "convex": true,
+        "isTrigger": false,
+        "mesh": "Tank 21"
+      },
+      "particles": "Tap Hit Metal Small",
+      "particlesGuid": "3dc5682da4a044a43a4f12f252b9a58a",
+      "audio": "Tap Hit General",
+      "audioGuid": "52da505920d514f77ab579f113afbca6",
+      "delay": 0.0,
+      "useTargetAnchor": 0,
+      "anchor": null
+    },
+    {
+      "go": "Tarantula 1 turret",
+      "path": "Battle Arena Astra Militarum Baked/Tarantula 1 turret",
+      "layer": 0,
+      "inMask": true,
+      "hasMesh": true,
+      "pos": [
+        76.399193,
+        2.333311,
+        20.936188
+      ],
+      "rot": [
+        -0.701666,
+        -0.087551,
+        -0.087551,
+        0.701666
+      ],
+      "scale": [
+        133.762589,
+        133.762605,
+        133.762605
+      ],
+      "collider": {
+        "type": "Mesh",
+        "convex": true,
+        "isTrigger": false,
+        "mesh": "Tarantula 1 turret1"
+      },
+      "particles": "Tap Hit Metal",
+      "particlesGuid": "375d142f27197404884be8e317eca8dc",
+      "audio": "Tap Hit Metal Heavy",
+      "audioGuid": "0a651ec9f71764e41ba0d305510865ba",
+      "delay": 0.0,
+      "useTargetAnchor": 0,
+      "anchor": null
+    },
+    {
+      "go": "Tarantula 2 turret",
+      "path": "Battle Arena Astra Militarum Baked/Tarantula 2 turret",
+      "layer": 0,
+      "inMask": true,
+      "hasMesh": true,
+      "pos": [
+        80.695732,
+        2.827867,
+        37.970291
+      ],
+      "rot": [
+        -0.707106,
+        0.001116,
+        0.001116,
+        0.707106
+      ],
+      "scale": [
+        174.862976,
+        174.862993,
+        174.862993
+      ],
+      "collider": {
+        "type": "Mesh",
+        "convex": true,
+        "isTrigger": false,
+        "mesh": "Tarantula 2 turret1"
+      },
+      "particles": "Tap Hit Metal",
+      "particlesGuid": "375d142f27197404884be8e317eca8dc",
+      "audio": "Tap Hit Metal Heavy",
+      "audioGuid": "0a651ec9f71764e41ba0d305510865ba",
+      "delay": 0.0,
+      "useTargetAnchor": 0,
+      "anchor": null
+    },
+    {
+      "go": "Tarantula Base 1",
+      "path": "Battle Arena Astra Militarum Baked/Tarantula Base 1",
+      "layer": 0,
+      "inMask": true,
+      "hasMesh": true,
+      "pos": [
+        76.544243,
+        0.538541,
+        20.593597
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        174.862976,
+        174.863,
+        174.863
+      ],
+      "collider": {
+        "type": "Mesh",
+        "convex": true,
+        "isTrigger": false,
+        "mesh": "Tarantula Base 11"
+      },
+      "particles": "Tap Rock",
+      "particlesGuid": "06946a9ab456c474f9b4f86e00fecf9c",
+      "audio": "Tap Hit Rock",
+      "audioGuid": "30c981ef52e181a41a09adf6818a9104",
+      "delay": 0.0,
+      "useTargetAnchor": 0,
+      "anchor": null
+    },
+    {
+      "go": "Tarantula Base 2",
+      "path": "Battle Arena Astra Militarum Baked/Tarantula Base 2",
+      "layer": 0,
+      "inMask": true,
+      "hasMesh": true,
+      "pos": [
+        80.752411,
+        0.721003,
+        38.162643
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        174.862976,
+        174.863,
+        174.863
+      ],
+      "collider": {
+        "type": "Mesh",
+        "convex": false,
+        "isTrigger": false,
+        "mesh": "Tarantula Base 21"
+      },
+      "particles": "Tap Rock",
+      "particlesGuid": "06946a9ab456c474f9b4f86e00fecf9c",
+      "audio": "Tap Hit Rock",
+      "audioGuid": "30c981ef52e181a41a09adf6818a9104",
+      "delay": 0.0,
+      "useTargetAnchor": 0,
+      "anchor": null
+    }
   ]
 }

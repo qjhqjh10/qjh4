@@ -216,9 +216,17 @@ namespace CardPresentation
         /// 要么按 id 反查 `CardDef`）—— **不在 A894 白名单里，已记进
         /// `资料/普查产出_1017/W_B31_徽记与上限.md`**。⚠️ 但**印在卡面/卡片详情窗上的那个数
         /// （`min(拥有, 卡组上限)`）是对的** —— 它的**上限**那一项已经走 `DeckCap(rarity, type)`。</para></summary>
+        /// <summary>卡牌背包的存档名（`WarpforgeInventory/cards.json`）。</summary>
+        public const string InventoryName = "cards";
+
         public static int Owned(string id, string rarity)
         {
             EnsureLoaded();
+            // 🔴 **2026-10-25（迁移第二步）：拥有数的正本 = 背包 `Inventories.Cards`**（框架层 `Shell/Inventory.cs`）。
+            //   ⚠️ **过渡期兜底**：卡不在背包里（不在卡池 / 还没播种）时，仍走旧的「给足」口径并记进 `_owned`
+            //   —— 这样「卡池外的 id」也答得出数；等 `LoadableRef` 那一层齐了再把 `_owned` 删掉。
+            var info = Inventories.Cards.Get(id);
+            if (info != null) return info.Amount;
             int v;
             if (_owned.TryGetValue(id, out v)) return v;
             v = DeckCap(rarity) + (NeedCopies[MaxLevel] - NeedCopies[1]);
@@ -227,7 +235,19 @@ namespace CardPresentation
         }
         public static void AddOwned(string id, string rarity, int n)
         {
-            _owned[id] = Owned(id, rarity) + n;
+            // 🔴 **2026-10-25（迁移第二步）**：写口也走背包（正本）。
+            //   ⚠️ **前提（⛔ 别改）**：收藏的**播种口径必须仍是 `CardProgress.Owned`**
+            //   （`CollectionWindow.CardsState` 里那句 `SeedCardsAllUnlocked(pool, c => CardProgress.Owned(...))`）——
+            //   只有那样，「背包里的拥有数」才与旧的 `CardProgress` **逐值相等**，
+            //   下面这三处按**具体数值**比较的地方才不会变语义：
+            //     · `CardDetailPopup.cs` 的 `Owned(...) == 1`（传奇重复购买确认）
+            //     · `Owned(...) <= 0` / `Owned(...) > 0`（拥有 / 未拥有两分叉）
+            //   谁把播种口径改掉，就必须回来重核这三处。
+            var info = Inventories.Cards.Get(id);
+            if (info != null) info.SetAmount(System.Math.Max(0, info.Amount + n));
+            else _owned[id] = Owned(id, rarity) + n;          // 兜底：卡不在背包里
+            // 背包也落一次（`InventoryStore` 自带「批处理不碰玩家存档」那道门 ⇒ 自检里是空操作）
+            InventoryStore.Save(InventoryName, Inventories.Cards);
             Save();                                   // 🆕 2026-10-18：落盘（见「存档」那一段）
         }
         /// <summary>这张卡的等级 —— **等价于原版 `RawCardScript.get_CardTier()` 的 1 基写法**（1..`MaxLevel`）。
@@ -666,12 +686,16 @@ namespace CardPresentation
                 Manager.OpenWindow(this);       // 还开着就复用同一扇（原版 `WindowsManager.OpenWindow(this)`）
                 Build();                        // ⟵ 🔴 换卡靠这一句，⛔ 不是靠「再开一次会重建」
                 LastOpened = this;
+                // 🆕 2026-10-25（菜单 C）：原版 `CardDisplayWindow.ShowCard` → `ResourcesBarController.ToggleOverlay(true)`
+                //   （`CardDisplayWindow__ShowCard.c:109`）：卡片详情窗打开时把资源条抬到它上面。
+                TopBar.ToggleOverlay(TopBar.LastBuilt, true);
                 return;
             }
             // 没有 `WindowsManager`（自检里可能）⇒ 照旧自给自足（`Build()` 前先激活，理由同 ②）
             gameObject.SetActive(true);
             Build();
             LastOpened = this;
+            TopBar.ToggleOverlay(TopBar.LastBuilt, true);
         }
 
         public override void Open()
@@ -683,6 +707,9 @@ namespace CardPresentation
             // ⚠️ 我们的 `openSound` 是 `AudioClip`、cue 带 pitch 区间与节流 ⇒ 走 `WindowSounds`。
             WindowSounds.PlayFx(WindowSounds.CardExpandCue, "[CardDetail] `Card Displayer Menu For Menu` 开窗音");
             Build();
+            // 🆕 2026-10-25：重开路径（`Closed ⇒ TryOpen ⇒ Open`）**不经过 `ShowCard`** ⇒ 这里也要抬资源条
+            //   （原版 `ShowCard` 与 `ToFocus` 各有一处 `ToggleOverlay(true)`；`Open` 这一跳是等价补齐）。
+            TopBar.ToggleOverlay(TopBar.LastBuilt, true);
         }
 
         // ============================================================ 关窗（🆕 2026-10-18 · 账 `N115` · 写手 W19）
@@ -712,6 +739,21 @@ namespace CardPresentation
         //    玩家若在那一刻已经重开（`Build()` 把整棵子树销毁重建），那些引用就是**已销毁对象**
         //    ⇒ `MissingReferenceException` + 前台指针错乱。⇒ 关窗/藏窗那一拍**显式**杀掉 + 复位 `_swapping`
         //    （否则关了窗之后 `IsSwapping` 还报 `true`，自检与上层读到的都是一个假状态）。
+        /// <summary>🆕 2026-10-25（菜单 C）：原版 `CardDisplayWindow.ToFocus` → `ToggleOverlay(true)`；
+        /// `ToBackground` → `ToggleOverlay(false)`（判据 `CardDisplayWindow__ToFocus.c:23` / `__ToBackground.c:25`）。
+        /// 我们的 `GameWindow.TryOpen` 的 `Background` 支现在会调 `ToFocus()`（原版虚表 `+0x1a8`）。</summary>
+        public override void ToFocus()
+        {
+            base.ToFocus();
+            TopBar.ToggleOverlay(TopBar.LastBuilt, true);
+        }
+
+        public override void ToBackground()
+        {
+            TopBar.ToggleOverlay(TopBar.LastBuilt, false);
+            base.ToBackground();
+        }
+
         public override void Close()
         {
             ResetFanState("Close");
@@ -722,12 +764,14 @@ namespace CardPresentation
             // ⚠️ 基类那一侧 `useDefaultCloseSoundIfNull` 已在 `Create()` 里置 false（防叠默认音）。
             if (gameObject.activeSelf)
                 WindowSounds.PlayFx(WindowSounds.CloseCardDisplayCue, "[CardDetail] `Card Displayer Menu For Menu` 关窗音");
+            TopBar.ToggleOverlay(TopBar.LastBuilt, false);   // 原版 `CardDisplayWindow__Close.c:24`
             base.Close();
         }
 
         public override void Hide()
         {
             ResetFanState("Hide");
+            TopBar.ToggleOverlay(TopBar.LastBuilt, false);
             base.Hide();
         }
 

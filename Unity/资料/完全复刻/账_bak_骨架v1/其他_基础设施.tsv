@@ -1,0 +1,755 @@
+域	原版类	方法	判据出处	判据要点	状态	我们的落点	差异	等级	轮次	备注
+其他/基础设施	AddressablesManager	Awake()	AddressablesManager.cs:2095		E					
+其他/基础设施	AddressablesManager	CheckCacheSize()	AddressablesManager.cs:2298		E					
+其他/基础设施	AddressablesManager	CheckForCatalogUpdate(bool forceUpdate)	AddressablesManager.cs:2202		E					
+其他/基础设施	AddressablesManager	CheckForContentUpdate(IEnumerable<string> contentLabels)	AddressablesManager.cs:2220		E					
+其他/基础设施	AddressablesManager	CheckPendingUpdates()	AddressablesManager.cs:2110		E					
+其他/基础设施	AddressablesManager	CheckRetry(bool withCleanUpOption)	AddressablesManager.cs:2280		E					
+其他/基础设施	AddressablesManager	ClearCachedCatalog()	AddressablesManager.cs:2269		E					
+其他/基础设施	AddressablesManager	DownloadContentUpdate(bool cleanCache, IEnumerable<string> contentLabels, Action<LoginManager.LoginState, float> progressCallback)	AddressablesManager.cs:2238		E					
+其他/基础设施	AddressablesManager	ForceRelease(AddressableCacheGroup cacheGroup)	AddressablesManager.cs:2768		E					
+其他/基础设施	AddressablesManager	ForceReleaseAll(bool includedPersistent)	AddressablesManager.cs:2752		E					
+其他/基础设施	AddressablesManager	GetAllAsyncOperationHandles()	AddressablesManager.cs:2320		E					
+其他/基础设施	AddressablesManager	GetReferenceCacheGroup(AddressableCacheGroup cacheGroupToFind)	AddressablesManager.cs:2811		E					
+其他/基础设施	AddressablesManager	GetReferenceCounter(AssetReference reference, AddressableCacheGroup cacheGroup)	AddressablesManager.cs:2673		E					
+其他/基础设施	AddressablesManager	Init(AddressablesConfig config, bool canFullUpdate, Action<LoginManager.LoginState, float> progressCallback)	AddressablesManager.cs:2101		E					
+其他/基础设施	AddressablesManager	Load<T>()	AddressablesManager.cs:271		E					
+其他/基础设施	AddressablesManager	Load<T>(AssetReference assetReference, AddressableCacheGroup cacheGroup)	AddressablesManager.cs:2627		E					
+其他/基础设施	AddressablesManager	Load<T>(AssetReferenceTyped<T> assetReferenceTyped)	AddressablesManager.cs:41		E					
+其他/基础设施	AddressablesManager	Load<T>(AssetReferenceTyped<T> assetReferenceTyped, AddressableCacheGroup cacheGroup)	AddressablesManager.cs:2650		E					
+其他/基础设施	AddressablesManager	Load<T>(ComponentReference<T> componentReference)	AddressablesManager.cs:163		E					
+其他/基础设施	AddressablesManager	Load<T>(ComponentReference<T> componentReference, AddressableCacheGroup cacheGroup)	AddressablesManager.cs:2604		E					
+其他/基础设施	AddressablesManager	LoadLibraries(bool canUpdate)	AddressablesManager.cs:2289		E					
+其他/基础设施	AddressablesManager	Release(AssetReference assetReference, AddressableCacheGroup cacheGroup, bool forceRelease)	AddressablesManager.cs:2699		E					
+其他/基础设施	AddressablesManager	Release(bool forceRelease)	AddressablesManager.cs:511		E					
+其他/基础设施	AddressablesManager	ReleaseAll()	AddressablesManager.cs:2585		E					
+其他/基础设施	AddressablesManager	ReleaseAndClearReferences(Dictionary<object, AddressableReferenceCounter> referencesToClear)	AddressablesManager.cs:2774		E					
+其他/基础设施	AddressablesManager	ReleaseAsyncOperationHandles(List<AsyncOperationHandle> handles)	AddressablesManager.cs:2546		E					
+其他/基础设施	AddressablesManager	SetupCCDManager(AddressablesConfig.Environment environment, string badge)	AddressablesManager.cs:2195		E					
+其他/基础设施	AddressablesManager	SetupCaches()	AddressablesManager.cs:2119		E					
+其他/基础设施	AddressablesManager	UpdateCatalogs(List<string> catalogsToUpdate)	AddressablesManager.cs:2211		E					
+其他/基础设施	AddressablesManager	WaitForDownloadConsent(long downloadSize, bool showConsent)	AddressablesManager.cs:2229		E					
+其他/基础设施	ArmyUtilities	GetActiveAbilityIconForArmy(CardArmy army)	ArmyUtilities.cs:71		E					
+其他/基础设施	ArmyUtilities	GetArmyByCode(string code)	ArmyUtilities.cs:126		E					
+其他/基础设施	ArmyUtilities	GetArmyIcon(CardArmy army)	ArmyUtilities.cs:53		E					
+其他/基础设施	ArmyUtilities	GetArmyMediumBackGround(CardArmy army)	ArmyUtilities.cs:85		E					
+其他/基础设施	ArmyUtilities	GetCursorForArmy(CardArmy cardArmy, out Sprite cursor, out Sprite highlight)	ArmyUtilities.cs:222		E					
+其他/基础设施	ArmyUtilities	GetDefaultCardback(CardArmy army)	ArmyUtilities.cs:20		E					
+其他/基础设施	ArmyUtilities	GetForgeIconForArmy(CardArmy army)	ArmyUtilities.cs:62		E					
+其他/基础设施	ArmyUtilities	GetLocalizedArmyName(CardArmy army, bool useShortName)	ArmyUtilities.cs:99		E					
+其他/基础设施	ArmyUtilities	ReleaseAbilityIconForArmy(CardArmy army)	ArmyUtilities.cs:80		E					
+其他/基础设施	ArmyUtilities	ReleaseCardbackSprites(CardArmy army)	ArmyUtilities.cs:48		E					
+其他/基础设施	ArmyUtilities	ReleaseCursorForArmy(CardArmy cardArmy)	ArmyUtilities.cs:233		E					
+其他/基础设施	ArmyUtilities	ReleaseMediumBackGround(CardArmy army)	ArmyUtilities.cs:94		E					
+其他/基础设施	AssetBundleManager	CheckAssetLoadedInResources(string bundleName)	AssetBundleManager.cs:881		E					
+其他/基础设施	AssetBundleManager	CheckIfThereAreNewBundles(AssetBundleDataPlayfab bundlesFromPlayfab, bool checkIfProcessed)	AssetBundleManager.cs:2712		E					
+其他/基础设施	AssetBundleManager	CheckIfThereArePendingAssetsToProcess()	AssetBundleManager.cs:2656		E					
+其他/基础设施	AssetBundleManager	CheckSizeOfNewBundles(AssetBundleDataPlayfab bundlesFromPlayfab)	AssetBundleManager.cs:2836		E					
+其他/基础设施	AssetBundleManager	ClearBundleFromCache(AssetBundlesDownloadData bundleDownloadData)	AssetBundleManager.cs:1693		E					
+其他/基础设施	AssetBundleManager	CreateNewDownloadedBundle(AssetBundleData assetBundleData)	AssetBundleManager.cs:1112		E					
+其他/基础设施	AssetBundleManager	DisplayErrorDownloadingBundles(DownloadInfo downloadInfo)	AssetBundleManager.cs:1321		E					
+其他/基础设施	AssetBundleManager	ExtractAssetsDataFromBundle(AssetBundleData bundleData)	AssetBundleManager.cs:1788		E					
+其他/基础设施	AssetBundleManager	GetAssetBundlePath(AssetBundleData bundleLoadData)	AssetBundleManager.cs:1771		E					
+其他/基础设施	AssetBundleManager	GetCurrentBundlesVersion()	AssetBundleManager.cs:916		E					
+其他/基础设施	AssetBundleManager	GetDownloadUrlFromPlayfab(AssetBundlesDownloadData bundleDownloadData, int index, Action<DownloadInfo> processCallback)	AssetBundleManager.cs:1462		E					
+其他/基础设施	AssetBundleManager	GetLoadedBundle(string bundleName)	AssetBundleManager.cs:858		E					
+其他/基础设施	AssetBundleManager	IsAssetBundleAlreadyLoadedAndSet(string bundlePath)	AssetBundleManager.cs:2485		E					
+其他/基础设施	AssetBundleManager	IsThereSpaceAvailable(long spaceRequired)	AssetBundleManager.cs:2634		E					
+其他/基础设施	AssetBundleManager	LoadAssetBundleFromUrl(bool shouldShowProgressBar, AssetBundlesDownloadData bundleDownloadData, Action<DownloadInfo> callback)	AssetBundleManager.cs:2516		E					
+其他/基础设施	AssetBundleManager	LoadAssetBundlesList()	AssetBundleManager.cs:1156		E					
+其他/基础设施	AssetBundleManager	LoadLocalAssetBundle()	AssetBundleManager.cs:834		E					
+其他/基础设施	AssetBundleManager	ProcessAndInit()	AssetBundleManager.cs:1600		E					
+其他/基础设施	AssetBundleManager	ProcessBundleBackground(AssetBundle bundle, string assetName, string bundlePath)	AssetBundleManager.cs:1947		E					
+其他/基础设施	AssetBundleManager	ProcessBundleCardlist(AssetBundle bundle, string assetName, string bundlePath)	AssetBundleManager.cs:2269		E					
+其他/基础设施	AssetBundleManager	ProcessBundleCosmeticlist(AssetBundle bundle, string assetName)	AssetBundleManager.cs:2167		E					
+其他/基础设施	AssetBundleManager	ProcessBundleDecksShop(AssetBundle bundle, string assetName)	AssetBundleManager.cs:1975		E					
+其他/基础设施	AssetBundleManager	ProcessBundleEventDecks(AssetBundle bundle, string assetName)	AssetBundleManager.cs:2044		E					
+其他/基础设施	AssetBundleManager	ProcessBundleHerolist(AssetBundle bundle, string assetName, string bundlePath)	AssetBundleManager.cs:2225		E					
+其他/基础设施	AssetBundleManager	ProcessBundleLanguage(AssetBundle bundle, string assetName)	AssetBundleManager.cs:2313		E					
+其他/基础设施	AssetBundleManager	ProcessBundlePackList(AssetBundle bundle, string assetName)	AssetBundleManager.cs:2104		E					
+其他/基础设施	AssetBundleManager	ProcessDownloadedAssetBundles()	AssetBundleManager.cs:1618		E					
+其他/基础设施	AssetBundleManager	ReadAssetBundlesListFromFile()	AssetBundleManager.cs:1185		E					
+其他/基础设施	AssetBundleManager	RecursivePrepareAssetBundles(DownloadInfo downloadInfo)	AssetBundleManager.cs:1342		E					
+其他/基础设施	AssetBundleManager	RemoveLastOccurrence(string sourceString, string stringToRemove)	AssetBundleManager.cs:1754		E					
+其他/基础设施	AssetBundleManager	SaveAssetBundlesList(int version)	AssetBundleManager.cs:1127		E					
+其他/基础设施	AssetBundleManager	SetFailedBundle(AssetBundlesDownloadData bundleDownloadData)	AssetBundleManager.cs:1668		E					
+其他/基础设施	AssetBundleManager	Setup(PlayerDataManager manager, Action<float> progressUpdateCallback, Action<DownloadInfo> finishCallback)	AssetBundleManager.cs:695		E					
+其他/基础设施	AssetBundleManager	SetupDownloadProgressBar()	AssetBundleManager.cs:1294		E					
+其他/基础设施	AssetBundleManager	StartDownloadingAssetBundles()	AssetBundleManager.cs:1237		E					
+其他/基础设施	AssetBundleManager	StartSilentAssetBundlesDownload()	AssetBundleManager.cs:1278		E					
+其他/基础设施	AssetBundleManager	UnloadLoadedAssetBundle(AssetBundlesDownloadData bundleDownloadData)	AssetBundleManager.cs:2536		E					
+其他/基础设施	AssetBundleManager	UpdateAssetBundlesListItem(ref AssetBundlesDownloadData bundleDownloadData, AssetBundleData bundleDataInPlayfabTitleData, bool fromUserRefresh)	AssetBundleManager.cs:1052		E					
+其他/基础设施	AssetBundleManager	UpdateBundleCollectionData(AssetBundleDataPlayfab bundlesFromPlayfab, bool fromUserRefresh)	AssetBundleManager.cs:921		E					
+其他/基础设施	AssetLocator	GetAsset<T>(string id)	AssetLocator.cs:774		E					
+其他/基础设施	AssetLocator	GetAssets<T>()	AssetLocator.cs:841		E					
+其他/基础设施	AssetLocator	GetAssetsInternal<T>()	AssetLocator.cs:856		E					
+其他/基础设施	AssetLocator	GetUniqueAsset<T>()	AssetLocator.cs:638		E					
+其他/基础设施	AssetLocator	RegisterProvider<T>(IAssetProvider<T> provider)	AssetLocator.cs:624		E					
+其他/基础设施	AssetLocator	TryGetAssetAbstract<T>()	AssetLocator.cs:963		E					
+其他/基础设施	AssetLocator	TryGetProvider<T>(out IAssetProvider<T> provider)	AssetLocator.cs:992		E					
+其他/基础设施	CloudscriptHandler	AddCallCount()	CloudscriptHandler.cs:1563		E					
+其他/基础设施	CloudscriptHandler	AzureToCloudscriptResult(ExecuteFunctionResult azureResult)	CloudscriptHandler.cs:2381		E					
+其他/基础设施	CloudscriptHandler	CheckApiError(PlayFab.ClientModels.ExecuteCloudScriptResult result, out PlayFabError err)	CloudscriptHandler.cs:2581		E					
+其他/基础设施	CloudscriptHandler	CheckCustomError(PlayFab.ClientModels.ExecuteCloudScriptResult result, out CustomCloudscriptError err)	CloudscriptHandler.cs:2440		E					
+其他/基础设施	CloudscriptHandler	CreateRequest(string functionName, object payload)	CloudscriptHandler.cs:2286		E					
+其他/基础设施	CloudscriptHandler	DefaultCustomErrorAction(string customError, Action<string> callback)	CloudscriptHandler.cs:2249		E					
+其他/基础设施	CloudscriptHandler	DefaultPlayfabErrorAction(PlayFabError playFabError, Action<string> callback)	CloudscriptHandler.cs:3232		E					
+其他/基础设施	CloudscriptHandler	DelayedLoginIosAccount(string loginName, Action<bool, LoginResult, PlayFabError> callback, bool debugMode)	CloudscriptHandler.cs:3721		E					
+其他/基础设施	CloudscriptHandler	ExecuteCloudscriptCO(CustomExecuteCloudScriptRequest request, Action<PlayFab.ClientModels.ExecuteCloudScriptResult> onSuccess, Action<string> onError)	CloudscriptHandler.cs:1608		E					
+其他/基础设施	CloudscriptHandler	ExecuteCustomCloudscript(CloudHandle handle, object payload, Action<PlayFab.ClientModels.ExecuteCloudScriptResult> onSuccess, Action<string> onError)	CloudscriptHandler.cs:1586		E					
+其他/基础设施	CloudscriptHandler	ExecuteCustomCloudscript(string functionName, object callParams, Action<PlayFab.ClientModels.ExecuteCloudScriptResult> onSuccess, Action<string> onError, bool surpressError)	CloudscriptHandler.cs:1598		E					
+其他/基础设施	CloudscriptHandler	ExecuteServerCall(CustomExecuteCloudScriptRequest request, Action<PlayFab.ClientModels.ExecuteCloudScriptResult> onSuccess, Action<string> onError)	CloudscriptHandler.cs:1631		E					
+其他/基础设施	CloudscriptHandler	GetAzureBundleURL(string devicePlatform, string bundleName, Action<ExecuteFunctionResult> callback, Action<PlayFabError> actionAfterError)	CloudscriptHandler.cs:4002		E					
+其他/基础设施	CloudscriptHandler	GetInfoRequestParams(bool includeData)	CloudscriptHandler.cs:3881		E					
+其他/基础设施	CloudscriptHandler	HandleCloudscriptResult(PlayFab.ClientModels.ExecuteCloudScriptResult result, CloudHandle handle, Action<PlayFab.ClientModels.ExecuteCloudScriptResult> onSuccess)	CloudscriptHandler.cs:2965		E					
+其他/基础设施	CloudscriptHandler	HandleCustomError(CustomCloudscriptError customError, CustomExecuteCloudScriptRequest request, CloudHandle handle, Action<string> onError)	CloudscriptHandler.cs:2127		E					
+其他/基础设施	CloudscriptHandler	HandlePlayfabError(PlayFabError playfabError, CustomExecuteCloudScriptRequest request, Action<PlayFab.ClientModels.ExecuteCloudScriptResult> onSuccess, Action<string> onError)	CloudscriptHandler.cs:2973		E					
+其他/基础设施	CloudscriptHandler	IsAzureCall(CloudHandle handle)	CloudscriptHandler.cs:2344		E					
+其他/基础设施	CloudscriptHandler	IsCorrectCount()	CloudscriptHandler.cs:1569		E					
+其他/基础设施	CloudscriptHandler	LinkSteamAccount(string steamTicket, Action callback)	CloudscriptHandler.cs:3845		E					
+其他/基础设施	CloudscriptHandler	LogActionToPlaystream(object message)	CloudscriptHandler.cs:3964		E					
+其他/基础设施	CloudscriptHandler	LogErrorToPlaystream(string errorMessage)	CloudscriptHandler.cs:3917		E					
+其他/基础设施	CloudscriptHandler	LoginWithAndroidAccount(string loginName, Action<bool, LoginResult, PlayFabError> callback, bool debugMode)	CloudscriptHandler.cs:3511		E					
+其他/基础设施	CloudscriptHandler	LoginWithEmail(string loginName, string loginPassword, Action<LoginResult> callback, Action<PlayFabError> callbackError)	CloudscriptHandler.cs:3796		E					
+其他/基础设施	CloudscriptHandler	LoginWithGoogle(string googleToken, Action<LoginResult> callback, Action<PlayFabError> callbackError)	CloudscriptHandler.cs:3819		E					
+其他/基础设施	CloudscriptHandler	LoginWithIosAccount(string loginName, Action<bool, LoginResult, PlayFabError> callback, bool debugMode)	CloudscriptHandler.cs:3636		E					
+其他/基础设施	CloudscriptHandler	LoginWithSteamAccount(string steamTicket, Action<bool, LoginResult, PlayFabError> callback)	CloudscriptHandler.cs:3741		E					
+其他/基础设施	CloudscriptHandler	LoginWithWindowsAccount(string loginName, Action<bool, LoginResult, PlayFabError> callback, bool debugMode)	CloudscriptHandler.cs:3570		E					
+其他/基础设施	CloudscriptHandler	ParseHandle(string functionName)	CloudscriptHandler.cs:1532		E					
+其他/基础设施	CloudscriptHandler	PlayfabErrorFromErrorInfo(PlayFab.ClientModels.ExecuteCloudScriptResult result)	CloudscriptHandler.cs:2709		E					
+其他/基础设施	CloudscriptHandler	PlayfabErrorFromLog(CloudscriptErrorData errorData)	CloudscriptHandler.cs:2681		E					
+其他/基础设施	CloudscriptHandler	ProcessResultData(PlayFab.ClientModels.ExecuteCloudScriptResult resultData)	CloudscriptHandler.cs:2929		E					
+其他/基础设施	CloudscriptHandler	ShouldRepeatCall(CloudHandle handle)	CloudscriptHandler.cs:3449		E					
+其他/基础设施	CloudscriptHandler	ShowInPlaystream(CloudHandle handle)	CloudscriptHandler.cs:3279		E					
+其他/基础设施	CloudscriptHandler	SkipStandardErrorAction(CloudHandle handle)	CloudscriptHandler.cs:3458		E					
+其他/基础设施	CustomTypes	DeserializePhotonPlayer(StreamBuffer inStream, short length)	CustomTypes.cs:315		E					
+其他/基础设施	CustomTypes	DeserializeQuaternion(StreamBuffer inStream, short length)	CustomTypes.cs:233		E					
+其他/基础设施	CustomTypes	DeserializeVector2(StreamBuffer inStream, short length)	CustomTypes.cs:161		E					
+其他/基础设施	CustomTypes	DeserializeVector3(StreamBuffer inStream, short length)	CustomTypes.cs:91		E					
+其他/基础设施	CustomTypes	Register()	CustomTypes.cs:18		E					
+其他/基础设施	CustomTypes	SerializePhotonPlayer(StreamBuffer outStream, object customobject)	CustomTypes.cs:257		E					
+其他/基础设施	CustomTypes	SerializeQuaternion(StreamBuffer outStream, object customobject)	CustomTypes.cs:183		E					
+其他/基础设施	CustomTypes	SerializeVector2(StreamBuffer outStream, object customobject)	CustomTypes.cs:114		E					
+其他/基础设施	CustomTypes	SerializeVector3(StreamBuffer outStream, object customobject)	CustomTypes.cs:42		E					
+其他/基础设施	DebugCardPickerGrid	AddDropdownOption(string option, int id)	DebugCardPickerGrid.cs:382		E					
+其他/基础设施	DebugCardPickerGrid	ChangeSelectedArmy(int index)	DebugCardPickerGrid.cs:395		E					
+其他/基础设施	DebugCardPickerGrid	CheckCardName(RawCardScript card)	DebugCardPickerGrid.cs:573		E					
+其他/基础设施	DebugCardPickerGrid	CreateViewsHolder(int itemIndex)	DebugCardPickerGrid.cs:589		E					
+其他/基础设施	DebugCardPickerGrid	PickCard()	DebugCardPickerGrid.cs:475		E					
+其他/基础设施	DebugCardPickerGrid	RebuildFilter()	DebugCardPickerGrid.cs:510		E					
+其他/基础设施	DebugCardPickerGrid	SelectCard(RawCardScript card)	DebugCardPickerGrid.cs:495		E					
+其他/基础设施	DebugCardPickerGrid	SetupDropdown()	DebugCardPickerGrid.cs:204		E					
+其他/基础设施	DebugCardPickerGrid	Show(Action<RawCardScript> onCardPickedCallback, Action<RawCardScript> onCardSummonedCallback, List<CardScript> deck)	DebugCardPickerGrid.cs:433		E					
+其他/基础设施	DebugCardPickerGrid	ShowEnvEffects(Action<RawCardScript> onCardPickedCallback, Action<RawCardScript> onCardSummonedCallback)	DebugCardPickerGrid.cs:455		E					
+其他/基础设施	DebugCardPickerGrid	Start()	DebugCardPickerGrid.cs:156		E					
+其他/基础设施	DebugCardPickerGrid	SummonCard()	DebugCardPickerGrid.cs:485		E					
+其他/基础设施	DebugCardPickerGrid	UpdateCellViewsHolder(CardOptionViewHolder view)	DebugCardPickerGrid.cs:416		E					
+其他/基础设施	DebugCardPickerGrid	_003CRebuildFilter_003Eb__26_1(RawCardScript card)	DebugCardPickerGrid.cs:653		E					
+其他/基础设施	DebugCardPickerGrid	_003CRebuildFilter_003Eb__26_2(RawCardScript card)	DebugCardPickerGrid.cs:697		E					
+其他/基础设施	DebugCardPickerGrid	_003CRebuildFilter_003Eb__26_3(RawCardScript card)	DebugCardPickerGrid.cs:713		E					
+其他/基础设施	DebugCardPickerGrid	_003CStart_003Eb__16_2(string s)	DebugCardPickerGrid.cs:648		E					
+其他/基础设施	DebugGiveCustomCard	AddCardToInventory(int quantity)	DebugGiveCustomCard.cs:70		E					
+其他/基础设施	DebugGiveCustomCard	Initialize(RawCardScript card)	DebugGiveCustomCard.cs:52		E					
+其他/基础设施	DebugGiveCustomCard	OnCollect(IReadOnlyList<RewardInfo> obj)	DebugGiveCustomCard.cs:74		E					
+其他/基础设施	DebugGiveCustomCard	OnDisable()	DebugGiveCustomCard.cs:42		E					
+其他/基础设施	DebugGiveCustomCard	OnEnable()	DebugGiveCustomCard.cs:21		E					
+其他/基础设施	DebugGiveCustomCard	ToggleGivingCards(bool option)	DebugGiveCustomCard.cs:84		E					
+其他/基础设施	DebugGiveCustomCard	_003COnEnable_003Eb__6_0()	DebugGiveCustomCard.cs:91		E					
+其他/基础设施	DebugGiveCustomCard	_003COnEnable_003Eb__6_1()	DebugGiveCustomCard.cs:95		E					
+其他/基础设施	DebugGiveCustomCard	_003COnEnable_003Eb__6_2()	DebugGiveCustomCard.cs:99		E					
+其他/基础设施	Extensions	AlmostEquals(Quaternion target, Quaternion second, float maxAngle)	Extensions.cs:96		E					
+其他/基础设施	Extensions	AlmostEquals(Vector2 target, Vector2 second, float sqrMagnitudePrecision)	Extensions.cs:76		E					
+其他/基础设施	Extensions	AlmostEquals(Vector3 target, Vector3 second, float sqrMagnitudePrecision)	Extensions.cs:56		E					
+其他/基础设施	Extensions	AlmostEquals(float target, float second, float floatDiff)	Extensions.cs:136		E					
+其他/基础设施	Extensions	Contains(int[] target, int nr)	Extensions.cs:875		E					
+其他/基础设施	Extensions	GetCachedParemeters(MethodInfo mo)	Extensions.cs:14		E					
+其他/基础设施	Extensions	GetPhotonView(GameObject go)	Extensions.cs:47		E					
+其他/基础设施	Extensions	GetPhotonViewsInChildren(GameObject go)	Extensions.cs:38		E					
+其他/基础设施	Extensions	Merge(IDictionary target, IDictionary addHash)	Extensions.cs:153		E					
+其他/基础设施	Extensions	MergeStringKeys(IDictionary target, IDictionary addHash)	Extensions.cs:337		E					
+其他/基础设施	Extensions	StripKeysWithNullValues(IDictionary original)	Extensions.cs:631		E					
+其他/基础设施	Extensions	StripToStringKeys(IDictionary original)	Extensions.cs:503		E					
+其他/基础设施	Extensions	ToStringFull(IDictionary origin)	Extensions.cs:458		E					
+其他/基础设施	Extensions	ToStringFull(object[] data)	Extensions.cs:463		E					
+其他/基础设施	FeatureConfig	BeforeConfigUpload()	FeatureConfig.cs:932		E					
+其他/基础设施	FeatureConfig	CanCraftItem(PlayerItem card)	FeatureConfig.cs:492		E					
+其他/基础设施	FeatureConfig	Check(string key)	FeatureConfig.cs:895		E					
+其他/基础设施	FeatureConfig	CheckCountry(string countryCodeToCheck, out bool webShopEnable)	FeatureConfig.cs:109		E					
+其他/基础设施	FeatureConfig	CheckFeature(string key, out ValidationStrategy strategy)	FeatureConfig.cs:329		E					
+其他/基础设施	FeatureConfig	GetFeature(string key)	FeatureConfig.cs:908		E					
+其他/基础设施	FeatureConfig	GetMatchmakingWaitingTime(int gamesLost, MatchData matchData)	FeatureConfig.cs:936		E					
+其他/基础设施	FeatureConfig	GetTimeForAskingNotification()	FeatureConfig.cs:487		E					
+其他/基础设施	FeatureConfig	GetUnityRemoteConfigData()	FeatureConfig.cs:877		E					
+其他/基础设施	FeatureConfig	GetValidArmies()	FeatureConfig.cs:683		E					
+其他/基础设施	FeatureConfig	GetWebShopURL()	FeatureConfig.cs:863		E					
+其他/基础设施	FeatureConfig	IsArmyHidden(CardArmy army)	FeatureConfig.cs:400		E					
+其他/基础设施	FeatureConfig	IsDisabledPlaystream(bool isErrorPlaystream)	FeatureConfig.cs:744		E					
+其他/基础设施	FeatureConfig	IsExpansionHidden(CardExpansionType expansion)	FeatureConfig.cs:429		E					
+其他/基础设施	FeatureConfig	IsExpansionNotCraft(CardExpansionType expansion)	FeatureConfig.cs:458		E					
+其他/基础设施	FeatureConfig	IsItemHidden(PlayerItem item)	FeatureConfig.cs:526		E					
+其他/基础设施	FeatureConfig	IsWebShopDirectAccess()	FeatureConfig.cs:770		E					
+其他/基础设施	FeatureConfig	ShouldDisableNewMatchMaking()	FeatureConfig.cs:851		E					
+其他/基础设施	FeatureConfig	ShouldMatchBotWithoutSearch(int gamesLost, MatchData matchData)	FeatureConfig.cs:986		E					
+其他/基础设施	FeatureConfig	ToggleFeature(bool status)	FeatureConfig.cs:56		E					
+其他/基础设施	FeatureConfig	ToggleFeature(string key, bool status)	FeatureConfig.cs:739		E					
+其他/基础设施	FeatureConfig	isDeckHidden(PrebuiltDeck deck)	FeatureConfig.cs:723		E					
+其他/基础设施	FirebaseDataManager	CancelOperation()	FirebaseDataManager.cs:680		E					
+其他/基础设施	FirebaseDataManager	CancelledAttempt()	FirebaseDataManager.cs:211		E					
+其他/基础设施	FirebaseDataManager	DisplayException(Exception exception)	FirebaseDataManager.cs:696		E					
+其他/基础设施	FirebaseDataManager	GetChatHistory(string channel, Action<bool> callback)	FirebaseDataManager.cs:229		E					
+其他/基础设施	FirebaseDataManager	GetChatLines(string channel)	FirebaseDataManager.cs:654		E					
+其他/基础设施	FirebaseDataManager	GetFailHandler(SimpleFirebaseUnity.Firebase sender, FirebaseError err)	FirebaseDataManager.cs:197		E					
+其他/基础设施	FirebaseDataManager	GetMessageData(Dictionary<string, object> childSnapshot, string key)	FirebaseDataManager.cs:553		E					
+其他/基础设施	FirebaseDataManager	GetOkHandler(SimpleFirebaseUnity.Firebase sender, DataSnapshot snapshot)	FirebaseDataManager.cs:170		E					
+其他/基础设施	FirebaseDataManager	LogFirebaseAppId()	FirebaseDataManager.cs:160		E					
+其他/基础设施	FirebaseDataManager	RecordMessage(string channel, ChatMessageData message)	FirebaseDataManager.cs:663		E					
+其他/基础设施	FirebaseDataManager	Start()	FirebaseDataManager.cs:41		E					
+其他/基础设施	FirebaseDataManager	UpdateChatHistory(DataSnapshot snapshot, string channel, Action<bool> callback)	FirebaseDataManager.cs:312		E					
+其他/基础设施	GameBootController	DelayedEnable()	GameBootController.cs:368		E					
+其他/基础设施	GameBootController	OnDestroy()	GameBootController.cs:276		E					
+其他/基础设施	GameBootController	SkipToVideoToEnd()	GameBootController.cs:342		E					
+其他/基础设施	GameBootController	Start()	GameBootController.cs:265		E					
+其他/基础设施	GameBootController	StartGame()	GameBootController.cs:287		E					
+其他/基础设施	GameBootController	Update()	GameBootController.cs:330		E					
+其他/基础设施	GameBootController	VideoFinished()	GameBootController.cs:351		E					
+其他/基础设施	GameModes	CombatFinished(RankedMatchResult result, Action<OnlineMatchResult> callback)	GameModes.cs:526		E					
+其他/基础设施	GameModes	DeserializeSharedData(JObject sharedData)	GameModes.cs:458		E					
+其他/基础设施	GameModes	GetActiveEvent(PlayModes playMode)	GameModes.cs:596		E					
+其他/基础设施	GameModes	GetActiveEvent(Type gameModeType)	GameModes.cs:661		E					
+其他/基础设施	GameModes	GetActiveEvent<T>()	GameModes.cs:562		E					
+其他/基础设施	GameModes	InitializeHandler()	GameModes.cs:409		E					
+其他/基础设施	GameModes	SetAsCurrentlyPlayingEvent(IPlayEvent playEvent)	GameModes.cs:554		E					
+其他/基础设施	GameModes	SetIsHuman()	GameModes.cs:418		E					
+其他/基础设施	GameModes	SetLossStreak(int lossStreak)	GameModes.cs:424		E					
+其他/基础设施	GameModes	SetResultCount(string mode, BattleWinner winner)	GameModes.cs:430		E					
+其他/基础设施	GameModes	_003CInitializeHandler_003Eb__30_0(RankedSharedData result)	GameModes.cs:756		E					
+其他/基础设施	GameModes	_003C_003En__0()	GameModes.cs:764		E					
+其他/基础设施	GameStaticData	ArmyToLocalizedString(CardArmy army)	GameStaticData.cs:1372		E					
+其他/基础设施	GameStaticData	CardArmyEventToTextSprite(EventArmy army)	GameStaticData.cs:762		E					
+其他/基础设施	GameStaticData	CardArmyToString(CardArmy army)	GameStaticData.cs:621		E					
+其他/基础设施	GameStaticData	CardExpansionToString(CardExpansionType expansion)	GameStaticData.cs:731		E					
+其他/基础设施	GameStaticData	CardRaceToString(RawCardScript card)	GameStaticData.cs:2135		E					
+其他/基础设施	GameStaticData	CardRarityToString(int rarity)	GameStaticData.cs:634		E					
+其他/基础设施	GameStaticData	CheckHiddenCardsInDeck(CardDeck playerDeck)	GameStaticData.cs:2098		E					
+其他/基础设施	GameStaticData	CheckIfNewCards(string uniqueId, List<string> newCards)	GameStaticData.cs:2047		E					
+其他/基础设施	GameStaticData	ClearLoginDetails()	GameStaticData.cs:599		E					
+其他/基础设施	GameStaticData	FillClanTagsData(List<TagModel> tags, out string clanName, out string clanId, out int badgeId, out int region, out string description)	GameStaticData.cs:1857		E					
+其他/基础设施	GameStaticData	FoundNewCard(string uniqueId, string text, List<string> newCards)	GameStaticData.cs:2014		E					
+其他/基础设施	GameStaticData	GetArmyOrder(CardArmy army)	GameStaticData.cs:896		E					
+其他/基础设施	GameStaticData	GetCardArmyTerm(CardArmy army)	GameStaticData.cs:723		E					
+其他/基础设施	GameStaticData	GetCardRarityTerm(int rarity)	GameStaticData.cs:681		E					
+其他/基础设施	GameStaticData	GetCurrencyKey(GameCurrency currency)	GameStaticData.cs:820		E					
+其他/基础设施	GameStaticData	GetEffectDesc(CardEffect effect)	GameStaticData.cs:1639		E					
+其他/基础设施	GameStaticData	GetEffectName(CardEffect effect)	GameStaticData.cs:1532		E					
+其他/基础设施	GameStaticData	GetEventFactionName(EventArmy army)	GameStaticData.cs:744		E					
+其他/基础设施	GameStaticData	GetLanguageCode(AvailableLanguages lang)	GameStaticData.cs:521		E					
+其他/基础设施	GameStaticData	GetLayerId(string layerName)	GameStaticData.cs:910		E					
+其他/基础设施	GameStaticData	GetLocalizedPlayfabError(PlayFabErrorCode error)	GameStaticData.cs:846		E					
+其他/基础设施	GameStaticData	GetStatParam(int statChange)	GameStaticData.cs:1622		E					
+其他/基础设施	GameStaticData	GetTagTerm(int tagNumber)	GameStaticData.cs:609		E					
+其他/基础设施	GameStaticData	GetTraitDesc(DefinedTrait trait, bool isAlt)	GameStaticData.cs:1502		E					
+其他/基础设施	GameStaticData	IsBotId(string enemyId)	GameStaticData.cs:806		E					
+其他/基础设施	GameStaticData	IsLegionary(int playerGuildRank)	GameStaticData.cs:1850		E					
+其他/基础设施	GameStaticData	IsNeutralArmy(CardArmy army)	GameStaticData.cs:981		E					
+其他/基础设施	GameStaticData	IsOneTurnEffect(CardEffect effect)	GameStaticData.cs:1835		E					
+其他/基础设施	GameStaticData	IsSessionTimeExceeded(DateTime loginTime, double minutesPaused)	GameStaticData.cs:770		E					
+其他/基础设施	GameStaticData	IsValidDeck(DeckAndWarlordData playerRawBattleData)	GameStaticData.cs:2060		E					
+其他/基础设施	GameStaticData	IsVulnerableDamage(DamageType dmg)	GameStaticData.cs:871		E					
+其他/基础设施	GameStaticData	IsWarlordEquivalent(RawCardScript card)	GameStaticData.cs:883		E					
+其他/基础设施	GameStaticData	MinionRaceToString(RawCardScript card, Keyword race)	GameStaticData.cs:1304		E					
+其他/基础设施	GameStaticData	SetLayerRecursively(GameObject obj, int newLayer)	GameStaticData.cs:986		E					
+其他/基础设施	GameStaticData	SetSortingLayer(GameObject obj, string layerName)	GameStaticData.cs:1276		E					
+其他/基础设施	GameStaticData	SetSortingLayerRecursively(GameObject obj, string layerName)	GameStaticData.cs:1131		E					
+其他/基础设施	GameStaticData	StratagemTypeToString(RawCardScript card)	GameStaticData.cs:1333		E					
+其他/基础设施	GameStaticData	TraitNameToString(DefinedTrait ability, bool boldFont)	GameStaticData.cs:1385		E					
+其他/基础设施	GameStaticData	TraitNameToStringNoImage(DefinedTrait ability, bool boldFont)	GameStaticData.cs:1479		E					
+其他/基础设施	GameStaticData	XSollaToI2LanguageCode(string xsollaCode)	GameStaticData.cs:578		E					
+其他/基础设施	GooglePlayManager	GetGoogleToken(Action<string> callback)	GooglePlayManager.cs:1432		E					
+其他/基础设施	GooglePlayManager	GetToken(string callBackMethod)	GooglePlayManager.cs:1452		E					
+其他/基础设施	GooglePlayManager	Initialize()	GooglePlayManager.cs:623		E					
+其他/基础设施	GooglePlayManager	InitializeGPGS()	GooglePlayManager.cs:631		E					
+其他/基础设施	GooglePlayManager	IsCurrentlySignedInToGPGS()	GooglePlayManager.cs:1107		E					
+其他/基础设施	GooglePlayManager	LinkGPGS(Action<bool, string, bool> callback)	GooglePlayManager.cs:1121		E					
+其他/基础设施	GooglePlayManager	LoginToPlayfabWithGoogle(Action<bool, LoginResult, PlayFabError, string> callback)	GooglePlayManager.cs:981		E					
+其他/基础设施	GooglePlayManager	LoginWithGoogle(Action<bool, LoginResult, PlayFabError, string> callback)	GooglePlayManager.cs:1049		E					
+其他/基础设施	GooglePlayManager	ProcessGPGSAccount(Action<bool, string, bool> callback)	GooglePlayManager.cs:735		E					
+其他/基础设施	GooglePlayManager	SignInGPGS(Action<bool, string, bool> callback)	GooglePlayManager.cs:635		E					
+其他/基础设施	GooglePlayManager	SignInGPGS(Action<bool, string> callback)	GooglePlayManager.cs:1345		E					
+其他/基础设施	GooglePlayManager	SignOutGPGS()	GooglePlayManager.cs:1328		E					
+其他/基础设施	LoadableReference	Equals(LoadableReference<T> other)	LoadableReference.cs:622		E					
+其他/基础设施	LoadableReference	Equals(object obj)	LoadableReference.cs:653		E					
+其他/基础设施	LoadableReference	GetHashCode()	LoadableReference.cs:741		E					
+其他/基础设施	LoadableReference	GetReference()	LoadableReference.cs:161		E					
+其他/基础设施	LoadableReference	GetReferenceObjEditor()	LoadableReference.cs:808		E					
+其他/基础设施	LoadableReference	GetTargetId()	LoadableReference.cs:184		E					
+其他/基础设施	LoadableReference	OnBeforeRead(JToken rawJson)	LoadableReference.cs:795		E					
+其他/基础设施	LoadableReference	OnBeforeWrite()	LoadableReference.cs:776		E					
+其他/基础设施	LoadableReference	SetReferenceById(string id)	LoadableReference.cs:125		E					
+其他/基础设施	LoadableReference	SetReferenceByObject(T reference)	LoadableReference.cs:137		E					
+其他/基础设施	LoadableReference	SetReferenceObjEditor(UnityEngine.Object obj)	LoadableReference.cs:842		E					
+其他/基础设施	LoadableReference	T(LoadableReference<T> instanceRef)	LoadableReference.cs:203		E					
+其他/基础设施	LoadableReference	ValidateReferences()	LoadableReference.cs:199		E					
+其他/基础设施	LoadableReference	WriteJson()	LoadableReference.cs:780		E					
+其他/基础设施	LoadableReference	string(LoadableReference<T> instanceRef)	LoadableReference.cs:321		E					
+其他/基础设施	LoginManager	CheckDataLoaded()	LoginManager.cs:1413		E					
+其他/基础设施	LoginManager	CheckInternetConnection()	LoginManager.cs:1503		E					
+其他/基础设施	LoginManager	CheckNewVersion()	LoginManager.cs:1433		E					
+其他/基础设施	LoginManager	CheckNewVersionSucceed()	LoginManager.cs:1485		E					
+其他/基础设施	LoginManager	CheckPlayerDeck()	LoginManager.cs:1923		E					
+其他/基础设施	LoginManager	DoNewVersionOperations(System.Version oldVersion)	LoginManager.cs:1442		E					
+其他/基础设施	LoginManager	DownloadFinishCallback(AssetBundleManager.DownloadInfo downloadInfo)	LoginManager.cs:1829		E					
+其他/基础设施	LoginManager	DownloadInAppProducts()	LoginManager.cs:1900		E					
+其他/基础设施	LoginManager	DuplicateConnection()	LoginManager.cs:1978		E					
+其他/基础设施	LoginManager	Initialize()	LoginManager.cs:1181		E					
+其他/基础设施	LoginManager	IsAccountLoginError(PlayFabErrorCode errorCode)	LoginManager.cs:1708		E					
+其他/基础设施	LoginManager	IsActivatedLanguage(string currentLanguage)	LoginManager.cs:1213		E					
+其他/基础设施	LoginManager	LoadPlugins()	LoginManager.cs:1528		E					
+其他/基础设施	LoginManager	OnDestroy()	LoginManager.cs:1328		E					
+其他/基础设施	LoginManager	ProceedSuccessfulLogin(LoginResult loginResult)	LoginManager.cs:1724		E					
+其他/基础设施	LoginManager	ProcessData()	LoginManager.cs:1769		E					
+其他/基础设施	LoginManager	ProcessLoginResult(bool success, LoginResult loginResult, PlayFabError error, string gpgsError)	LoginManager.cs:1574		E					
+其他/基础设施	LoginManager	ProcessNormalLoginResult(bool success, LoginResult loginResult, PlayFabError error)	LoginManager.cs:1557		E					
+其他/基础设施	LoginManager	ProgressUpdateCallback(LoginState state, float progress)	LoginManager.cs:1778		E					
+其他/基础设施	LoginManager	RegisterPushNotifications()	LoginManager.cs:1424		E					
+其他/基础设施	LoginManager	ReloadGame()	LoginManager.cs:1758		E					
+其他/基础设施	LoginManager	RetryLogin()	LoginManager.cs:1746		E					
+其他/基础设施	LoginManager	SetBackupLogin()	LoginManager.cs:1694		E					
+其他/基础设施	LoginManager	SetInitialLanguage()	LoginManager.cs:1189		E					
+其他/基础设施	LoginManager	SetProgress(LoginState loginState)	LoginManager.cs:1733		E					
+其他/基础设施	LoginManager	SetupErrorHandlers()	LoginManager.cs:1243		E					
+其他/基础设施	LoginManager	ThrowCustomError(CustomError customError, Action<string> actionAfterError, string cloudscriptTrace)	LoginManager.cs:1983		E					
+其他/基础设施	LoginManager	TryCompleteLogin()	LoginManager.cs:1937		E					
+其他/基础设施	LoginManager	TryLoginToPlayfab()	LoginManager.cs:1540		E					
+其他/基础设施	LoginManager	UnpackPlayerData()	LoginManager.cs:1494		E					
+其他/基础设施	LoginManager	_003CCheckInternetConnection_003Eb__25_0()	LoginManager.cs:2050		E					
+其他/基础设施	LoginManager	_003CProcessLoginResult_003Eb__29_0()	LoginManager.cs:2058		E					
+其他/基础设施	LoginManager	_003CProcessLoginResult_003Eb__29_1()	LoginManager.cs:2066		E					
+其他/基础设施	LoginManager	_003CProcessLoginResult_003Eb__29_2()	LoginManager.cs:2074		E					
+其他/基础设施	LoginManager	_003CThrowCustomError_003Eb__43_0()	LoginManager.cs:2082		E					
+其他/基础设施	PlayerDataManager	AddCollectorXp(int grantedXp, bool showToast)	PlayerDataManager.cs:15335		E					
+其他/基础设施	PlayerDataManager	AddFriendToList(string id, Action<List<Friend>> onComplete, Action<string> onError)	PlayerDataManager.cs:12094		E					
+其他/基础设施	PlayerDataManager	AddMoreDuplicatesToSell(Dictionary<string, int> cardsToSell)	PlayerDataManager.cs:13797		E					
+其他/基础设施	PlayerDataManager	AddNewsAfterLevelUp(int levelToAdd)	PlayerDataManager.cs:14454		E					
+其他/基础设施	PlayerDataManager	AddPracticeMatch(ChatMessageData chatEvent)	PlayerDataManager.cs:14102		E					
+其他/基础设施	PlayerDataManager	AddTapTranslation()	PlayerDataManager.cs:14180		E					
+其他/基础设施	PlayerDataManager	AllExpansionCards(CardExpansionType expansion)	PlayerDataManager.cs:7623		E					
+其他/基础设施	PlayerDataManager	AllLegionCards(CardArmy army)	PlayerDataManager.cs:7560		E					
+其他/基础设施	PlayerDataManager	AllTutorialsCompleted()	PlayerDataManager.cs:7331		E					
+其他/基础设施	PlayerDataManager	ApplyGraphicsQuality()	PlayerDataManager.cs:10443		E					
+其他/基础设施	PlayerDataManager	ApplySettingsOptions()	PlayerDataManager.cs:10408		E					
+其他/基础设施	PlayerDataManager	AreDecksEqual(List<string> cardLibraryIds, List<RawCardScript> cards)	PlayerDataManager.cs:12521		E					
+其他/基础设施	PlayerDataManager	AsyncInitialization()	PlayerDataManager.cs:11023		E					
+其他/基础设施	PlayerDataManager	Awake()	PlayerDataManager.cs:7768		E					
+其他/基础设施	PlayerDataManager	BlockGame()	PlayerDataManager.cs:14129		E					
+其他/基础设施	PlayerDataManager	CancelMatch(string opponentId, bool matchStarted, string uiState)	PlayerDataManager.cs:9656		E					
+其他/基础设施	PlayerDataManager	ChangePlayerName(string newName, Action onSuccess, Action<string> onFail)	PlayerDataManager.cs:15270		E					
+其他/基础设施	PlayerDataManager	CheckAccountUserInNewerVersion()	PlayerDataManager.cs:8070		E					
+其他/基础设施	PlayerDataManager	CheckForTutoriaDoneAndDataFix()	PlayerDataManager.cs:11227		E					
+其他/基础设施	PlayerDataManager	CheckLastOpponentInfo()	PlayerDataManager.cs:8263		E					
+其他/基础设施	PlayerDataManager	CheckShowRateGame()	PlayerDataManager.cs:14155		E					
+其他/基础设施	PlayerDataManager	CheckUpdateNeeded()	PlayerDataManager.cs:15262		E					
+其他/基础设施	PlayerDataManager	CheckUpdateRequired()	PlayerDataManager.cs:8046		E					
+其他/基础设施	PlayerDataManager	ClaimSeasonPrize(Action<List<ObtainableItemReward>> callbackOnSuccess, Action<string> customActionAfterError)	PlayerDataManager.cs:13436		E					
+其他/基础设施	PlayerDataManager	ClearLocalPlayerData()	PlayerDataManager.cs:10146		E					
+其他/基础设施	PlayerDataManager	CreatePlayerBattleData(CardDeck usedDeck, PrebuiltDeck prebuiltDeck)	PlayerDataManager.cs:14998		E					
+其他/基础设施	PlayerDataManager	CreateTutorialResult(float matchWon)	PlayerDataManager.cs:9452		E					
+其他/基础设施	PlayerDataManager	CurrentMillis()	PlayerDataManager.cs:7747		E					
+其他/基础设施	PlayerDataManager	CurrentServerDateTime()	PlayerDataManager.cs:7759		E					
+其他/基础设施	PlayerDataManager	DeactivateAccountProcess(Action onComplete)	PlayerDataManager.cs:14223		E					
+其他/基础设施	PlayerDataManager	DeleteDeck(CardDeck deckData, Action<bool> successCallback, Action<string> errorCallback)	PlayerDataManager.cs:12717		E					
+其他/基础设施	PlayerDataManager	DeleteFriendFromList(Friend friendToDelete)	PlayerDataManager.cs:12127		E					
+其他/基础设施	PlayerDataManager	DownloadInAppPurchases()	PlayerDataManager.cs:12940		E					
+其他/基础设施	PlayerDataManager	ExpansionCardsObtained(CardExpansionType expansion)	PlayerDataManager.cs:7618		E					
+其他/基础设施	PlayerDataManager	ExtractDeckInfo(CardDeck deck)	PlayerDataManager.cs:10466		E					
+其他/基础设施	PlayerDataManager	FinishLogin(LoginResult loginResult, bool isGuestAccountFlag)	PlayerDataManager.cs:10979		E					
+其他/基础设施	PlayerDataManager	FinishSellingBulk()	PlayerDataManager.cs:13953		E					
+其他/基础设施	PlayerDataManager	FinishShareScreenPicture(string message, ShareLocation shareLocation)	PlayerDataManager.cs:13547		E					
+其他/基础设施	PlayerDataManager	FinishShareURL(string message, ShareLocation shareLocation)	PlayerDataManager.cs:13562		E					
+其他/基础设施	PlayerDataManager	FirstTwoTutorialCompleted()	PlayerDataManager.cs:7321		E					
+其他/基础设施	PlayerDataManager	FixNewVersionConflicts(LocalPlayerData playerData)	PlayerDataManager.cs:10579		E					
+其他/基础设施	PlayerDataManager	FixSkirmishDeck(DeckInventory deckInventory)	PlayerDataManager.cs:8944		E					
+其他/基础设施	PlayerDataManager	ForceCompleteFirstTutorials()	PlayerDataManager.cs:7367		E					
+其他/基础设施	PlayerDataManager	FullyQuitApplication()	PlayerDataManager.cs:8101		E					
+其他/基础设施	PlayerDataManager	GetAllPublisherPlayerData()	PlayerDataManager.cs:11032		E					
+其他/基础设施	PlayerDataManager	GetClosedDeckByCards(RawCardScript warlord, List<RawCardScript> cards)	PlayerDataManager.cs:12441		E					
+其他/基础设施	PlayerDataManager	GetClosedDeckById(string deckId)	PlayerDataManager.cs:12242		E					
+其他/基础设施	PlayerDataManager	GetClosedDeckByPackIds(string warlordId, List<string> packIds)	PlayerDataManager.cs:12272		E					
+其他/基础设施	PlayerDataManager	GetCosmeticItem(string cosmeticId)	PlayerDataManager.cs:10040		E					
+其他/基础设施	PlayerDataManager	GetDeckIdWithPacks(List<string> prebuiltPacks)	PlayerDataManager.cs:12382		E					
+其他/基础设施	PlayerDataManager	GetEnviromentString()	PlayerDataManager.cs:7458		E					
+其他/基础设施	PlayerDataManager	GetFactionEventsRatingPlayfabID(int faction, Action<PlayFabErrorCode, int> callback)	PlayerDataManager.cs:12945		E					
+其他/基础设施	PlayerDataManager	GetFilteredSpareCardsToSell(int numberOfCardsToInclude, ref Dictionary<string, int> wholeList)	PlayerDataManager.cs:13957		E					
+其他/基础设施	PlayerDataManager	GetGuildSearch(Action<List<PlayerLeaderboardEntry>> callback, string stat)	PlayerDataManager.cs:13385		E					
+其他/基础设施	PlayerDataManager	GetHeroCard(string heroID)	PlayerDataManager.cs:11848		E					
+其他/基础设施	PlayerDataManager	GetLastUserLocation()	PlayerDataManager.cs:10088		E					
+其他/基础设施	PlayerDataManager	GetLeadeboardClans(Action<List<PlayerLeaderboardEntry>> callback)	PlayerDataManager.cs:13375		E					
+其他/基础设施	PlayerDataManager	GetLeaderboard(string statName, Action<List<PlayerLeaderboardEntry>> callback)	PlayerDataManager.cs:13279		E					
+其他/基础设施	PlayerDataManager	GetLeaderboardPlayfabIDGuild(string playfabId, Action<PlayerLeaderboardEntry> callback)	PlayerDataManager.cs:13149		E					
+其他/基础设施	PlayerDataManager	GetLeaderboardPlayfabIDGuildSpots(string playfabId, Action<PlayerLeaderboardEntry> callback)	PlayerDataManager.cs:13214		E					
+其他/基础设施	PlayerDataManager	GetLegionRankedMatchesWon(CardArmy army)	PlayerDataManager.cs:7468		E					
+其他/基础设施	PlayerDataManager	GetMD5Hash(string TextToHash)	PlayerDataManager.cs:10778		E					
+其他/基础设施	PlayerDataManager	GetMatchInfo(MatchData matchData)	PlayerDataManager.cs:8272		E					
+其他/基础设施	PlayerDataManager	GetOnlineData(PlayerDataKey key, bool checkPublicData)	PlayerDataManager.cs:11883		E					
+其他/基础设施	PlayerDataManager	GetOnlineData<T>(PlayerDataKey key, bool checkPublicData)	PlayerDataManager.cs:11877		E					
+其他/基础设施	PlayerDataManager	GetPackById(string packId)	PlayerDataManager.cs:12407		E					
+其他/基础设施	PlayerDataManager	GetPlayerCampaignHero()	PlayerDataManager.cs:14678		E					
+其他/基础设施	PlayerDataManager	GetPreviousVersion()	PlayerDataManager.cs:11888		E					
+其他/基础设施	PlayerDataManager	GetRandomPlayerLeaderboardAroundPlayfabID(string playfabId, Action<string> callback)	PlayerDataManager.cs:13083		E					
+其他/基础设施	PlayerDataManager	GetRandomTip()	PlayerDataManager.cs:13566		E					
+其他/基础设施	PlayerDataManager	GetSteamAuthTicket()	PlayerDataManager.cs:10913		E					
+其他/基础设施	PlayerDataManager	GetSuspiciousIds()	PlayerDataManager.cs:7681		E					
+其他/基础设施	PlayerDataManager	GetTopLeaderboard(string statName, Action<List<PlayerLeaderboardEntry>> callback, int resultCount)	PlayerDataManager.cs:13324		E					
+其他/基础设施	PlayerDataManager	GetXPFromMatch(MatchType playMode, float matchWon)	PlayerDataManager.cs:9765		E					
+其他/基础设施	PlayerDataManager	GrantItemsCrate(List<string> itemsGranted)	PlayerDataManager.cs:10000		E					
+其他/基础设施	PlayerDataManager	InitializeLiveOpsAndConfig()	PlayerDataManager.cs:11348		E					
+其他/基础设施	PlayerDataManager	InitializeNotifications()	PlayerDataManager.cs:7834		E					
+其他/基础设施	PlayerDataManager	InitializeSteam()	PlayerDataManager.cs:7838		E					
+其他/基础设施	PlayerDataManager	InitializeTitleData()	PlayerDataManager.cs:7843		E					
+其他/基础设施	PlayerDataManager	InitializeVariables()	PlayerDataManager.cs:7864		E					
+其他/基础设施	PlayerDataManager	IsBannedFromChat(ChatRoom room)	PlayerDataManager.cs:7423		E					
+其他/基础设施	PlayerDataManager	IsBattleLogCreated(List<BattleLogMatch> battleLogData, MatchType matchType)	PlayerDataManager.cs:9604		E					
+其他/基础设施	PlayerDataManager	IsEventDeckFromWarlord(string warlordId, string deckId)	PlayerDataManager.cs:8209		E					
+其他/基础设施	PlayerDataManager	IsTherePendingMatch()	PlayerDataManager.cs:11155		E					
+其他/基础设施	PlayerDataManager	IsTutorialIndexCompleted(int tutorialIndex)	PlayerDataManager.cs:7271		E					
+其他/基础设施	PlayerDataManager	LegionCardsObtained(CardArmy army)	PlayerDataManager.cs:7555		E					
+其他/基础设施	PlayerDataManager	LoadAllCards()	PlayerDataManager.cs:14712		E					
+其他/基础设施	PlayerDataManager	LoadPlayerData()	PlayerDataManager.cs:10268		E					
+其他/基础设施	PlayerDataManager	LoadSharedDefaultValues()	PlayerDataManager.cs:10618		E					
+其他/基础设施	PlayerDataManager	LoadStarterData()	PlayerDataManager.cs:10587		E					
+其他/基础设施	PlayerDataManager	LoginToPlayFab(string loginName, string loginPassword, Action<bool, LoginResult, PlayFabError> callback)	PlayerDataManager.cs:10831		E					
+其他/基础设施	PlayerDataManager	Logout()	PlayerDataManager.cs:7961		E					
+其他/基础设施	PlayerDataManager	LogoutPlayfab()	PlayerDataManager.cs:10106		E					
+其他/基础设施	PlayerDataManager	ModifyBattleLogBotAltId(string botName, string altId)	PlayerDataManager.cs:13012		E					
+其他/基础设施	PlayerDataManager	NotLinkedSteamAccount(LoginResult loginResult)	PlayerDataManager.cs:10889		E					
+其他/基础设施	PlayerDataManager	OnChangeCosmetics(string badge, string cardback, string warcry, Action callbackOnSuccess, Action<string> customActionAfterError)	PlayerDataManager.cs:13712		E					
+其他/基础设施	PlayerDataManager	OnCheckDisplayNameInvite(string displayname, Action<PlayFabErrorCode, string> callback)	PlayerDataManager.cs:13650		E					
+其他/基础设施	PlayerDataManager	OnPfAndroidReg(AndroidDevicePushNotificationRegistrationResult result)	PlayerDataManager.cs:7935		E					
+其他/基础设施	PlayerDataManager	OnPfFail(PlayFabError error)	PlayerDataManager.cs:7939		E					
+其他/基础设施	PlayerDataManager	OnPfIosReg(RegisterForIOSPushNotificationResult result)	PlayerDataManager.cs:7951		E					
+其他/基础设施	PlayerDataManager	OnReportPlayer(string playerId, Action callbackOnSuccess, Action<string> customActionAfterError)	PlayerDataManager.cs:13623		E					
+其他/基础设施	PlayerDataManager	OrderDecks(PlayModes playMode, Action<bool> successCallback, Action<string> errorCallback)	PlayerDataManager.cs:12763		E					
+其他/基础设施	PlayerDataManager	PinMatchRecording(string recordIndex, bool pinned, Action callback, Action<string> errorCallback)	PlayerDataManager.cs:8656		E					
+其他/基础设施	PlayerDataManager	PreloadLeaderboards()	PlayerDataManager.cs:11641		E					
+其他/基础设施	PlayerDataManager	ProcessBattleLog(ExecuteCloudScriptResult result)	PlayerDataManager.cs:9241		E					
+其他/基础设施	PlayerDataManager	ProcessCampaignDataObject(object result)	PlayerDataManager.cs:14705		E					
+其他/基础设施	PlayerDataManager	ProcessCardsSold(ExecuteCloudScriptResult result)	PlayerDataManager.cs:13903		E					
+其他/基础设施	PlayerDataManager	ProcessChangedCosmetics(ExecuteCloudScriptResult result)	PlayerDataManager.cs:13740		E					
+其他/基础设施	PlayerDataManager	ProcessClaimedSeasonPrize(ExecuteCloudScriptResult result)	PlayerDataManager.cs:13481		E					
+其他/基础设施	PlayerDataManager	ProcessLastOpponentInfo(ExecuteCloudScriptResult result)	PlayerDataManager.cs:8426		E					
+其他/基础设施	PlayerDataManager	ProcessMatchEndResult(RankedMatchResult result, MatchData matchData, Action<OnlineMatchResult> callbackOnSuccess, Action callbackAfterError)	PlayerDataManager.cs:8475		E					
+其他/基础设施	PlayerDataManager	ProcessMatchRecording(ExecuteCloudScriptResult result)	PlayerDataManager.cs:8682		E					
+其他/基础设施	PlayerDataManager	ProcessMatchResult(IPlayEvent evt, MatchType matchType, OnlineMatchResult matchResult, float matchWon, bool cancelledMatch)	PlayerDataManager.cs:9470		E					
+其他/基础设施	PlayerDataManager	ProcessNewLogin()	PlayerDataManager.cs:11729		E					
+其他/基础设施	PlayerDataManager	ProcessNewLoginResult(OnUserConnectResult result)	PlayerDataManager.cs:11744		E					
+其他/基础设施	PlayerDataManager	ProcessPublisherPlayerData(Dictionary<string, string> data)	PlayerDataManager.cs:11040		E					
+其他/基础设施	PlayerDataManager	ProcessReferralData(ExecuteCloudScriptResult result)	PlayerDataManager.cs:9849		E					
+其他/基础设施	PlayerDataManager	ProcessReturnedItemsData(ExecuteCloudScriptResult result)	PlayerDataManager.cs:9891		E					
+其他/基础设施	PlayerDataManager	ProcessTitleDataAssetBundleList(ExecuteCloudScriptResult result)	PlayerDataManager.cs:11670		E					
+其他/基础设施	PlayerDataManager	ProcessUpdateUserLevelNews(ExecuteCloudScriptResult result)	PlayerDataManager.cs:14623		E					
+其他/基础设施	PlayerDataManager	QuitApplication()	PlayerDataManager.cs:8087		E					
+其他/基础设施	PlayerDataManager	ReadDataFromFile()	PlayerDataManager.cs:10504		E					
+其他/基础设施	PlayerDataManager	RecordBossFactionPoints()	PlayerDataManager.cs:9389		E					
+其他/基础设施	PlayerDataManager	RecordEventMatchFinished(IPlayEvent gameMode, float matchWon, DraftEventSaveGame saveGame, int targetMilestone, int enemyMilestone, MatchData matchData, Action<OnlineMatchResult> callbackOnSuccess)	PlayerDataManager.cs:8962		E					
+其他/基础设施	PlayerDataManager	RecordFactionPoints()	PlayerDataManager.cs:9440		E					
+其他/基础设施	PlayerDataManager	RecordMatchWonByCancel(string opponentId, string errorLog, string gameState)	PlayerDataManager.cs:9691		E					
+其他/基础设施	PlayerDataManager	RecordMatchWonByCancelEnemy(string opponentId, string gameState)	PlayerDataManager.cs:9728		E					
+其他/基础设施	PlayerDataManager	RecordPracticeMatchFinished(IPlayEvent gameMode, float matchWon, int targetMilestone, int enemyMilestone, MatchData matchData, Action<OnlineMatchResult> callbackOnSuccess)	PlayerDataManager.cs:9136		E					
+其他/基础设施	PlayerDataManager	RecordRankedMatchFinished(IPlayEvent gameMode, int matchWon, int targetMilestone, int enemyMilestone, bool isRanked, LastOpponentInfo opponentInfo, Action<OnlineMatchResult> callbackOnSuccess)	PlayerDataManager.cs:9290		E					
+其他/基础设施	PlayerDataManager	RecordTutorialFinished(IPlayEvent gameMode, float matchWon, MatchData matchData, bool fromFinishTutorial)	PlayerDataManager.cs:8734		E					
+其他/基础设施	PlayerDataManager	RecordTutorialPassed(IPlayEvent gameMode)	PlayerDataManager.cs:8910		E					
+其他/基础设施	PlayerDataManager	RecoverMatchRecording(string recordId, Action<BattleRecordData> callback, Action<string> errorCallback, string targetPlayerId, string enemy)	PlayerDataManager.cs:8620		E					
+其他/基础设施	PlayerDataManager	RegisterForPush()	PlayerDataManager.cs:7915		E					
+其他/基础设施	PlayerDataManager	RegisterToPlayFab(string username, string password, string email, Action<bool, PlayFabError> callback)	PlayerDataManager.cs:10721		E					
+其他/基础设施	PlayerDataManager	RemovePracticeMatch(string playerId)	PlayerDataManager.cs:14080		E					
+其他/基础设施	PlayerDataManager	ResetFactionPoints()	PlayerDataManager.cs:14124		E					
+其他/基础设施	PlayerDataManager	ResetPassword(string email, Action<bool, PlayFabError> callback)	PlayerDataManager.cs:11816		E					
+其他/基础设施	PlayerDataManager	ResetStats(Action callbackOnSuccess)	PlayerDataManager.cs:14218		E					
+其他/基础设施	PlayerDataManager	SaveMatchRecording(BattleRecordData battleRecord, string recordName, bool cancelledMatch)	PlayerDataManager.cs:8563		E					
+其他/基础设施	PlayerDataManager	SaveMatchRecording(List<BattleLogMatch> battleLogData, MatchType matchType, bool cancelledMatch)	PlayerDataManager.cs:9500		E					
+其他/基础设施	PlayerDataManager	SaveMatchWinnerInServer(float matchWon, MatchData matchData, BattleResult battleResult, Action callbackOnSuccess, Action<string> callbackAfterError)	PlayerDataManager.cs:8389		E					
+其他/基础设施	PlayerDataManager	SavePlayerData()	PlayerDataManager.cs:10170		E					
+其他/基础设施	PlayerDataManager	SellBulkCard(Dictionary<string, int> cardsToSell, Action callback)	PlayerDataManager.cs:13815		E					
+其他/基础设施	PlayerDataManager	SellSpareCards(Dictionary<string, int> cardsToSell, bool fromInit)	PlayerDataManager.cs:13776		E					
+其他/基础设施	PlayerDataManager	SellSpareCardsRecursive()	PlayerDataManager.cs:13801		E					
+其他/基础设施	PlayerDataManager	SendAccountConfirmationEmail(Action callback)	PlayerDataManager.cs:10813		E					
+其他/基础设施	PlayerDataManager	SetAltPorts(bool altPorts)	PlayerDataManager.cs:14206		E					
+其他/基础设施	PlayerDataManager	SetCosmeticTitle(CosmeticItemTitle title)	PlayerDataManager.cs:15252		E					
+其他/基础设施	PlayerDataManager	SetDemoDeck(string deckID)	PlayerDataManager.cs:10701		E					
+其他/基础设施	PlayerDataManager	SetLastLoginNow()	PlayerDataManager.cs:14450		E					
+其他/基础设施	PlayerDataManager	SetLocalStartTime()	PlayerDataManager.cs:11738		E					
+其他/基础设施	PlayerDataManager	SetLoginData(string loginName, string loginPassword, bool loginWithGoogle)	PlayerDataManager.cs:10079		E					
+其他/基础设施	PlayerDataManager	SetMusicAndFxVolumes()	PlayerDataManager.cs:10432		E					
+其他/基础设施	PlayerDataManager	SetPlayfabDisplayName(string newPlayerName, Action<bool, PlayFabError> callback)	PlayerDataManager.cs:10655		E					
+其他/基础设施	PlayerDataManager	SetPromotion(string promotionId)	PlayerDataManager.cs:14033		E					
+其他/基础设施	PlayerDataManager	SetTargetFramerate(int frameRate)	PlayerDataManager.cs:7825		E					
+其他/基础设施	PlayerDataManager	SetTestData(PrebuiltDeck ownDeck, Action callback)	PlayerDataManager.cs:8083		E					
+其他/基础设施	PlayerDataManager	SetTutorialState()	PlayerDataManager.cs:8953		E					
+其他/基础设施	PlayerDataManager	SetupAllFcm()	PlayerDataManager.cs:7905		E					
+其他/基础设施	PlayerDataManager	SetupFcm()	PlayerDataManager.cs:7888		E					
+其他/基础设施	PlayerDataManager	SetupHelpshift()	PlayerDataManager.cs:7855		E					
+其他/基础设施	PlayerDataManager	SetupLogs()	PlayerDataManager.cs:7847		E					
+其他/基础设施	PlayerDataManager	SetupOverrides()	PlayerDataManager.cs:11188		E					
+其他/基础设施	PlayerDataManager	SetupPlayfabPublisherVariables()	PlayerDataManager.cs:11111		E					
+其他/基础设施	PlayerDataManager	ShareScreenPicture(string message, ShareLocation shareLocation)	PlayerDataManager.cs:13536		E					
+其他/基础设施	PlayerDataManager	ShareURL(string message, ShareLocation shareLocation)	PlayerDataManager.cs:13551		E					
+其他/基础设施	PlayerDataManager	ShouldSellCardsFromCrate()	PlayerDataManager.cs:9982		E					
+其他/基础设施	PlayerDataManager	ShouldShowRatePopup()	PlayerDataManager.cs:14159		E					
+其他/基础设施	PlayerDataManager	ShowEarlyCampaignMode()	PlayerDataManager.cs:7742		E					
+其他/基础设施	PlayerDataManager	ShowGrantedXpToast(int grantedXp)	PlayerDataManager.cs:15376		E					
+其他/基础设施	PlayerDataManager	ShowNewLevelToast(int level)	PlayerDataManager.cs:15392		E					
+其他/基础设施	PlayerDataManager	TestResetTutorial()	PlayerDataManager.cs:8728		E					
+其他/基础设施	PlayerDataManager	UnlinkDeviceAccount(Action<bool> callback)	PlayerDataManager.cs:11120		E					
+其他/基础设施	PlayerDataManager	UnlockAll()	PlayerDataManager.cs:8106		E					
+其他/基础设施	PlayerDataManager	UnpackAddressables(Action<LoginManager.LoginState, float> progressCallback)	PlayerDataManager.cs:11218		E					
+其他/基础设施	PlayerDataManager	UnpackConnectionSettings()	PlayerDataManager.cs:11169		E					
+其他/基础设施	PlayerDataManager	UnpackInventory()	PlayerDataManager.cs:11652		E					
+其他/基础设施	PlayerDataManager	UnpackOnlineVersionData()	PlayerDataManager.cs:8006		E					
+其他/基础设施	PlayerDataManager	UnpackRawUserData()	PlayerDataManager.cs:11428		E					
+其他/基础设施	PlayerDataManager	UnpackUserInfo(Action<LoginManager.LoginState, float> progressCallback)	PlayerDataManager.cs:11160		E					
+其他/基础设施	PlayerDataManager	UnpackUserProfile()	PlayerDataManager.cs:11357		E					
+其他/基础设施	PlayerDataManager	UpdateCardCollection()	PlayerDataManager.cs:10643		E					
+其他/基础设施	PlayerDataManager	UpdateLevelNews()	PlayerDataManager.cs:14665		E					
+其他/基础设施	PlayerDataManager	UpdateOnlinePublisherUserData(Dictionary<string, string> values, List<string> keysToRemove)	PlayerDataManager.cs:11932		E					
+其他/基础设施	PlayerDataManager	UpdateOnlinePublisherUserDataQueue(Dictionary<string, string> values, List<string> keysToRemove)	PlayerDataManager.cs:11993		E					
+其他/基础设施	PlayerDataManager	UpdateOnlineUserData(Dictionary<string, string> values, List<string> keysToRemove, Action onSuccess, Action onFail)	PlayerDataManager.cs:11893		E					
+其他/基础设施	PlayerDataManager	UpdateOnlineUserDataQueue(Dictionary<string, string> values, List<string> keysToRemove, Action onSuccess, Action onFail)	PlayerDataManager.cs:11962		E					
+其他/基础设施	PlayerDataManager	UpdateSunsetData(Action OnSuccess, Action<string> OnError)	PlayerDataManager.cs:11056		E					
+其他/基础设施	PlayerDataManager	UpdateUserLevelNews(List<string> levelNewList)	PlayerDataManager.cs:14551		E					
+其他/基础设施	PlayerDataManager	UploadOnlineDemoData(Action onSuccess, Action onFail)	PlayerDataManager.cs:12066		E					
+其他/基础设施	PlayerDataManager	UploadOnlineFriendsData()	PlayerDataManager.cs:12144		E					
+其他/基础设施	PlayerDataManager	UploadOnlineTipsStatus()	PlayerDataManager.cs:12052		E					
+其他/基础设施	PlayerDataManager	UploadOnlineWarpforgePlayed()	PlayerDataManager.cs:12015		E					
+其他/基础设施	PlayerDataManager	UploadTutorialV2SaveData()	PlayerDataManager.cs:12080		E					
+其他/基础设施	PlayerDataManager	UploadUnsyncedDeck(CardDeck deckData, Action<bool, string> callback)	PlayerDataManager.cs:12555		E					
+其他/基础设施	PlayerDataManager	ValidatePlayerDeck(string playerPlayfabId, object deck, Action<bool> callback)	PlayerDataManager.cs:12158		E					
+其他/基础设施	PlayerDataManager	_003CCancelMatch_003Eb__478_1(PlayFabError error)	PlayerDataManager.cs:15732		E					
+其他/基础设施	PlayerDataManager	_003CCheckUpdateNeeded_003Eb__635_1(GetTitleDataResult result)	PlayerDataManager.cs:15914		E					
+其他/基础设施	PlayerDataManager	_003CGetAllPublisherPlayerData_003Eg__OnFailure_007C515_1(string error)	PlayerDataManager.cs:15775		E					
+其他/基础设施	PlayerDataManager	_003CGetAllPublisherPlayerData_003Eg__OnSucess_007C515_0(Dictionary<string, string> data)	PlayerDataManager.cs:15759		E					
+其他/基础设施	PlayerDataManager	_003CGetPlayerCampaignHero_003Eb__624_0(RawCardScript x)	PlayerDataManager.cs:15899		E					
+其他/基础设施	PlayerDataManager	_003CRecordBossFactionPoints_003Eb__472_0(ExecuteCloudScriptResult result)	PlayerDataManager.cs:15685		E					
+其他/基础设施	PlayerDataManager	_003CRecordMatchWonByCancelEnemy_003Eb__480_1(PlayFabError error)	PlayerDataManager.cs:15750		E					
+其他/基础设施	PlayerDataManager	_003CRecordMatchWonByCancel_003Eb__479_1(PlayFabError error)	PlayerDataManager.cs:15741		E					
+其他/基础设施	PlayerDataManager	_003CRecordTutorialFinished_003Eg__HandleSuccess_007C464_0(OnlineMatchResult result)	PlayerDataManager.cs:15665		E					
+其他/基础设施	PlayerDataManager	_003CRecordTutorialPassed_003Eg__HandleSuccess_007C465_0()	PlayerDataManager.cs:15675		E					
+其他/基础设施	PlayerDataManager	_003CSellSpareCardsRecursive_003Eb__602_0()	PlayerDataManager.cs:15789		E					
+其他/基础设施	PlayerDataManager	_003CSetPromotion_003Eb__607_0(ExecuteCloudScriptResult result)	PlayerDataManager.cs:15805		E					
+其他/基础设施	PlayerDataManager	_003CUnlockAll_003Eb__451_0()	PlayerDataManager.cs:15497		E					
+其他/基础设施	PlayerDataManager	_003CUnlockAll_003Eb__451_1()	PlayerDataManager.cs:15535		E					
+其他/基础设施	PlayerDataManager	_003CUnlockAll_003Eb__451_2()	PlayerDataManager.cs:15569		E					
+其他/基础设施	PlayerDataManager	_003CUnlockAll_003Eb__451_3()	PlayerDataManager.cs:15599		E					
+其他/基础设施	PlayerDataManager	_003CUnlockAll_003Eb__451_4()	PlayerDataManager.cs:15625		E					
+其他/基础设施	PlayerDataManager	_003CUnlockAll_003Eb__451_5()	PlayerDataManager.cs:15647		E					
+其他/基础设施	PlayerDataManager	_003CUpdateUserLevelNews_003Eb__621_0(ExecuteCloudScriptResult result)	PlayerDataManager.cs:15847		E					
+其他/基础设施	PlayerDataManager	showDevTools()	PlayerDataManager.cs:7416		E					
+其他/基础设施	PlayerDataManager	unlockAllCards(CardArmy selectedArmy, Action onFinished)	PlayerDataManager.cs:8149		E					
+其他/基础设施	PlayerManager	ActivateHero(bool isPlayerTurn)	PlayerManager.cs:240		E					
+其他/基础设施	PlayerManager	AddFaithMana(int newMana)	PlayerManager.cs:773		E					
+其他/基础设施	PlayerManager	AddNewMana(bool filledMana, bool untilEndOfTurn)	PlayerManager.cs:305		E					
+其他/基础设施	PlayerManager	AddQuestPoints(int newMana, Action finishCallback)	PlayerManager.cs:799		E					
+其他/基础设施	PlayerManager	AddSecretPlayed()	PlayerManager.cs:788		E					
+其他/基础设施	PlayerManager	AddSpiritStoneMana(int newMana)	PlayerManager.cs:758		E					
+其他/基础设施	PlayerManager	DestroyManaSlot()	PlayerManager.cs:1001		E					
+其他/基础设施	PlayerManager	GetCurrentFaith()	PlayerManager.cs:439		E					
+其他/基础设施	PlayerManager	GetCurrentMaintenance()	PlayerManager.cs:872		E					
+其他/基础设施	PlayerManager	GetCurrentQuestPoints()	PlayerManager.cs:453		E					
+其他/基础设施	PlayerManager	GetCurrentSpiritStone()	PlayerManager.cs:432		E					
+其他/基础设施	PlayerManager	GetHeroFullPosition(CardScript card)	PlayerManager.cs:222		E					
+其他/基础设施	PlayerManager	GetNextToManaTransform()	PlayerManager.cs:548		E					
+其他/基础设施	PlayerManager	GetNextToPlasmaManaTransform()	PlayerManager.cs:538		E					
+其他/基础设施	PlayerManager	GetNextToPsychicManaTransform()	PlayerManager.cs:518		E					
+其他/基础设施	PlayerManager	GetPlasmaManaTransform()	PlayerManager.cs:528		E					
+其他/基础设施	PlayerManager	GetPsychicManaTransform()	PlayerManager.cs:498		E					
+其他/基础设施	PlayerManager	GetSavedMana()	PlayerManager.cs:215		E					
+其他/基础设施	PlayerManager	GetSecretsPlayed()	PlayerManager.cs:446		E					
+其他/基础设施	PlayerManager	GetSpiritStoneManaTransform()	PlayerManager.cs:508		E					
+其他/基础设施	PlayerManager	GetTotalMana()	PlayerManager.cs:425		E					
+其他/基础设施	PlayerManager	GetUnusedMana()	PlayerManager.cs:418		E					
+其他/基础设施	PlayerManager	HasEnoughMana(int manaRequired, bool psychic, bool plasma, bool spiritStone)	PlayerManager.cs:395		E					
+其他/基础设施	PlayerManager	OnTurnEnd(bool playerTurn)	PlayerManager.cs:1100		E					
+其他/基础设施	PlayerManager	RefillCustomMana(int manaToRefill, bool silently)	PlayerManager.cs:934		E					
+其他/基础设施	PlayerManager	RefillMana()	PlayerManager.cs:912		E					
+其他/基础设施	PlayerManager	RefillOneMana()	PlayerManager.cs:963		E					
+其他/基础设施	PlayerManager	ResetMana(int initialMana, int initialPlasma, int initialPsychic, int initialSpiritStone)	PlayerManager.cs:245		E					
+其他/基础设施	PlayerManager	SetAccumulationMana(bool active)	PlayerManager.cs:1206		E					
+其他/基础设施	PlayerManager	SetQuestPointsWithDelay(float delay, Action finishCallback)	PlayerManager.cs:856		E					
+其他/基础设施	PlayerManager	SetSavedMana(int value, bool useNumberChange)	PlayerManager.cs:200		E					
+其他/基础设施	PlayerManager	SetupFullHero(CardScript card)	PlayerManager.cs:180		E					
+其他/基础设施	PlayerManager	ToggleCurrentMana(bool activate)	PlayerManager.cs:1196		E					
+其他/基础设施	PlayerManager	TurnStart(bool thisPlayer)	PlayerManager.cs:700		E					
+其他/基础设施	PlayerManager	UseMana(int manaUsed, ManaType manaType, bool fromAmbushTroop)	PlayerManager.cs:460		E					
+其他/基础设施	PlayerManager	UseNormalEnergy(int manaUsed, bool fromAmbushTroop)	PlayerManager.cs:558		E					
+其他/基础设施	PlayerManager	UseSpiritStoneEnergy(int manaUsed)	PlayerManager.cs:668		E					
+其他/基础设施	PlayfabTester	DebugLogErrorRequest(PlayFabError error)	PlayfabTester.cs:451		E					
+其他/基础设施	PlayfabTester	DeserializeFromPlayfab(Dictionary<string, string> serializedDate)	PlayfabTester.cs:86		E					
+其他/基础设施	PlayfabTester	GetClanData()	PlayfabTester.cs:397		E					
+其他/基础设施	PlayfabTester	GetEntityToken()	PlayfabTester.cs:490		E					
+其他/基础设施	PlayfabTester	GetPlayerData()	PlayfabTester.cs:354		E					
+其他/基础设施	PlayfabTester	LoggedSuccessful()	PlayfabTester.cs:425		E					
+其他/基础设施	PlayfabTester	SerializeToPlayFab()	PlayfabTester.cs:48		E					
+其他/基础设施	PlayfabTester	SetClanData()	PlayfabTester.cs:385		E					
+其他/基础设施	PlayfabTester	SetEntityData(string entityID, string entityType, string objectName, string jsonData)	PlayfabTester.cs:516		E					
+其他/基础设施	PlayfabTester	SetPlayerData()	PlayfabTester.cs:341		E					
+其他/基础设施	PlayfabTester	TestCreatePlayFabAccount()	PlayfabTester.cs:576		E					
+其他/基础设施	PlayfabTester	TestPlayfabLogin()	PlayfabTester.cs:268		E					
+其他/基础设施	PlayfabTester	_003CGetEntityToken_003Eb__21_0(GetEntityTokenResponse result)	PlayfabTester.cs:717		E					
+其他/基础设施	PlayfabTester	_003CGetEntityToken_003Eb__21_1(PlayFabError error)	PlayfabTester.cs:732		E					
+其他/基础设施	PlayfabTester	_003CGetPlayerData_003Eb__16_0(GetObjectsResponse result)	PlayfabTester.cs:699		E					
+其他/基础设施	PlayfabTester	_003CTestCreatePlayFabAccount_003Eb__23_0(RegisterPlayFabUserResult result)	PlayfabTester.cs:737		E					
+其他/基础设施	PlayfabTester	_003CTestCreatePlayFabAccount_003Eb__23_1(PlayFabError error)	PlayfabTester.cs:764		E					
+其他/基础设施	PlayfabTester	_003CTestPlayfabLogin_003Eb__14_0(LoginResult result)	PlayfabTester.cs:655		E					
+其他/基础设施	PlayfabTester	_003CTestPlayfabLogin_003Eb__14_1(PlayFabError error)	PlayfabTester.cs:690		E					
+其他/基础设施	PlayfabWrapper	CollectFirstNodeFix(Campaign campaign, Action<GrantStarterDeckResult> onSuccess, Action<string> onError)	PlayfabWrapper.cs:2607		E					
+其他/基础设施	PlayfabWrapper	DeserializePlayfabResult<TOut>(object result, Action<TOut> onComplete, Action<string> onError)	PlayfabWrapper.cs:2455		E					
+其他/基础设施	PlayfabWrapper	GenericCloudScriptHandler(CloudHandle handle, object payload, Action onComplete, Action<string> onError)	PlayfabWrapper.cs:2283		E					
+其他/基础设施	PlayfabWrapper	GenericCloudScriptHandler<TOut>(CloudHandle handle, object payload, Action<TOut> onComplete, Action<string> onError)	PlayfabWrapper.cs:2301		E					
+其他/基础设施	PlayfabWrapper	GenericCloudScriptHandler<TOut>(string functionName, object payload, Action<TOut> onComplete, Action<string> onError)	PlayfabWrapper.cs:2374		E					
+其他/基础设施	PlayfabWrapper	GenericCloudScriptHandlerAsync<T>(CloudHandle handle, object payload)	PlayfabWrapper.cs:2263		E					
+其他/基础设施	PlayfabWrapper	GetNews(int count, Action<List<GameMessageData>> callback)	PlayfabWrapper.cs:1959		E					
+其他/基础设施	PlayfabWrapper	GetPlayerIdByName(string playerName, Action<string> onComplete, Action<string> onError)	PlayfabWrapper.cs:2157		E					
+其他/基础设施	PlayfabWrapper	GetStoreItems(Action<List<ShopStoreData>> callback)	PlayfabWrapper.cs:1953		E					
+其他/基础设施	PlayfabWrapper	GetStoreItems(FixedStoreData store, Action<bool, GetStoreItemsResult, PlayFabError> callback)	PlayfabWrapper.cs:1915		E					
+其他/基础设施	PlayfabWrapper	GrantOfferV2Items(string instanceId, Action<GrantOfferItemsResult> onSuccess, Action<string> onError)	PlayfabWrapper.cs:2592		E					
+其他/基础设施	PlayfabWrapper	GrantStarterDeck(string deckId, Campaign campaign, Action<GrantStarterDeckResult> onSuccess, Action<string> onError)	PlayfabWrapper.cs:2598		E					
+其他/基础设施	PlayfabWrapper	ProcessCloudscriptResult<TOut>(ExecuteCloudScriptResult result, Action<TOut> onComplete, Action<string> onError)	PlayfabWrapper.cs:2429		E					
+其他/基础设施	PlayfabWrapper	RedeemCode(string code, Action<RewardInfo[]> onComplete, Action<string> onError)	PlayfabWrapper.cs:2219		E					
+其他/基础设施	PlayfabWrapper	RedeemSteamDLC(string dlcId, Action<RewardInfo[]> onComplete, Action<string> onError)	PlayfabWrapper.cs:2225		E					
+其他/基础设施	PlayfabWrapper	RegisterPurchase(string itemId, string storeId, bool shouldExpire, Action onComplete, Action<string> onError)	PlayfabWrapper.cs:2244		E					
+其他/基础设施	PlayfabWrapper	SetSurpressDefaultError(bool value)	PlayfabWrapper.cs:1698		E					
+其他/基础设施	PlayfabWrapper	TOut>(Action<TIn, Action<TOut>, Action<PlayFabError>, object, Dictionary<string, string>> playfabAction, TIn payload, object customData, Dictionary<string, string> extraHeaders)	PlayfabWrapper.cs:1703		E					
+其他/基础设施	PlayfabWrapper	UnlockContainer(string containerInstanceId, Action<UnlockContainerResult> onComplete, Action<string> onError)	PlayfabWrapper.cs:2191		E					
+其他/基础设施	PlayfabWrapper	UnlockContainerV2(string instanceId, Action<UnlockContainerResult> onSuccess, Action<string> onError)	PlayfabWrapper.cs:2586		E					
+其他/基础设施	ReferenceCache	CacheItem(IdentifiableSO reference)	ReferenceCache.cs:126		E					
+其他/基础设施	ReferenceCache	CheckForReference(string id, IdentifiableSO reference)	ReferenceCache.cs:202		E					
+其他/基础设施	ReferenceCache	FillCache()	ReferenceCache.cs:122		E					
+其他/基础设施	ReferenceCache	GetReference(string id)	ReferenceCache.cs:183		E					
+其他/基础设施	ReferenceCache	OnAfterDeserialize()	ReferenceCache.cs:233		E					
+其他/基础设施	ReferenceCache	OnBeforeSerialize()	ReferenceCache.cs:258		E					
+其他/基础设施	ReflectionHelper	AsList(Type t)	ReflectionHelper.cs:2352		E					
+其他/基础设施	ReflectionHelper	Clone<T>(T obj)	ReflectionHelper.cs:1989		E					
+其他/基础设施	ReflectionHelper	CopyFields(object source, object destination)	ReflectionHelper.cs:1756		E					
+其他/基础设施	ReflectionHelper	CreateGetter(MemberInfo member)	ReflectionHelper.cs:840		E					
+其他/基础设施	ReflectionHelper	CreateSetter(MemberInfo member)	ReflectionHelper.cs:1472		E					
+其他/基础设施	ReflectionHelper	GetAllDerivedTypes(Type baseType, bool includesSource, bool includeAbstract)	ReflectionHelper.cs:544		E					
+其他/基础设施	ReflectionHelper	GetAllDerivedTypes<T>(bool includesSource, bool includeAbstract)	ReflectionHelper.cs:533		E					
+其他/基础设施	ReflectionHelper	GetAllMembers(Type type)	ReflectionHelper.cs:1275		E					
+其他/基础设施	ReflectionHelper	GetAllMembers(Type type, string name)	ReflectionHelper.cs:1290		E					
+其他/基础设施	ReflectionHelper	GetCache(Type type)	ReflectionHelper.cs:473		E					
+其他/基础设施	ReflectionHelper	GetField(Type type, string name)	ReflectionHelper.cs:1208		E					
+其他/基础设施	ReflectionHelper	GetFields(Type type)	ReflectionHelper.cs:1184		E					
+其他/基础设施	ReflectionHelper	GetFieldsAndProperties(Type objectType)	ReflectionHelper.cs:1978		E					
+其他/基础设施	ReflectionHelper	GetInitialBaseType(Type current, Type baseLine)	ReflectionHelper.cs:1668		E					
+其他/基础设施	ReflectionHelper	GetMemberInHierarchy(Type type, string name)	ReflectionHelper.cs:1325		E					
+其他/基础设施	ReflectionHelper	GetMembers(Type type)	ReflectionHelper.cs:1251		E					
+其他/基础设施	ReflectionHelper	GetType(MemberInfo memberInfo)	ReflectionHelper.cs:726		E					
+其他/基础设施	ReflectionHelper	GetTypeFromString(string typeName)	ReflectionHelper.cs:511		E					
+其他/基础设施	ReflectionHelper	GetValue(MemberInfo member, object obj)	ReflectionHelper.cs:810		E					
+其他/基础设施	ReflectionHelper	HasAttributeDefined<T>(MemberInfo member, bool inherited)	ReflectionHelper.cs:694		E					
+其他/基础设施	ReflectionHelper	HasDefaultConstructor(Type t)	ReflectionHelper.cs:1361		E					
+其他/基础设施	ReflectionHelper	IntoGeneric(Type t, Type generic)	ReflectionHelper.cs:2417		E					
+其他/基础设施	ReflectionHelper	Is(Type o, Type t)	ReflectionHelper.cs:2507		E					
+其他/基础设施	ReflectionHelper	Is(object o, Type t)	ReflectionHelper.cs:2481		E					
+其他/基础设施	ReflectionHelper	Is<T>(Type o)	ReflectionHelper.cs:2552		E					
+其他/基础设施	ReflectionHelper	Is<T>(object o)	ReflectionHelper.cs:2565		E					
+其他/基础设施	ReflectionHelper	IsAnonymousType(Type t)	ReflectionHelper.cs:786		E					
+其他/基础设施	ReflectionHelper	IsAutoProperty(PropertyInfo prop)	ReflectionHelper.cs:2044		E					
+其他/基础设施	ReflectionHelper	IsDefaultType(object obj)	ReflectionHelper.cs:454		E					
+其他/基础设施	ReflectionHelper	IsFieldOrProperty(MemberInfo memberInfo)	ReflectionHelper.cs:640		E					
+其他/基础设施	ReflectionHelper	IsNumeric(object value)	ReflectionHelper.cs:2590		E					
+其他/基础设施	ReflectionHelper	IsRelated(Type o, Type t)	ReflectionHelper.cs:2526		E					
+其他/基础设施	ReflectionHelper	IsWrittable(MemberInfo member)	ReflectionHelper.cs:1397		E					
+其他/基础设施	ReflectionHelper	New(Type baseType, Type genericType)	ReflectionHelper.cs:2219		E					
+其他/基础设施	ReflectionHelper	New(Type t)	ReflectionHelper.cs:2320		E					
+其他/基础设施	ReflectionHelper	New<T>()	ReflectionHelper.cs:2145		E					
+其他/基础设施	ReflectionHelper	New<T>(Type t)	ReflectionHelper.cs:2183		E					
+其他/基础设施	ReflectionHelper	ReadableName(Type t)	ReflectionHelper.cs:2012		E					
+其他/基础设施	ReflectionHelper	ReadableName<T>()	ReflectionHelper.cs:2001		E					
+其他/基础设施	ReflectionHelper	TryGetDefinedAttribute<T>(MemberInfo member, bool inherited, out T attr)	ReflectionHelper.cs:715		E					
+其他/基础设施	ReflectionHelper	TrySetValue(MemberInfo member, object obj, object value)	ReflectionHelper.cs:1452		E					
+其他/基础设施	ReflectionHelper	_003CNew_003Eg__Creator_007C38_0(Type t)	ReflectionHelper.cs:2728		E					
+其他/基础设施	SceneInitializer	AsyncInitialization(IInitializableAsync initializable)	SceneInitializer.cs:1221		E					
+其他/基础设施	SceneInitializer	Awake()	SceneInitializer.cs:540		E					
+其他/基础设施	SceneInitializer	FetchAllInitializables()	SceneInitializer.cs:629		E					
+其他/基础设施	SceneInitializer	GetInitializablesWithPriority(InitializationPriority priority)	SceneInitializer.cs:668		E					
+其他/基础设施	SceneInitializer	GetUnityFormatStacktrace(Exception pException)	SceneInitializer.cs:785		E					
+其他/基础设施	SceneInitializer	InitializeAsyncBehaviours(IEnumerable<IInitializableAsync> group)	SceneInitializer.cs:757		E					
+其他/基础设施	SceneInitializer	InitializeBehaviours()	SceneInitializer.cs:702		E					
+其他/基础设施	SceneInitializer	InitializeDefaultBehaviours(IEnumerable<IInitializable> group)	SceneInitializer.cs:713		E					
+其他/基础设施	SceneInitializer	OnDestroy()	SceneInitializer.cs:623		E					
+其他/基础设施	SceneInitializer	OnInitializableError(IBaseInitializable initializable, Exception e)	SceneInitializer.cs:1137		E					
+其他/基础设施	SceneInitializer	OnInitializationComplete(Action callback)	SceneInitializer.cs:1488		E					
+其他/基础设施	SceneInitializer	QueueForInitialization(IBaseInitializable initializable)	SceneInitializer.cs:498		E					
+其他/基础设施	SceneInitializer	QueueInitializable(IBaseInitializable initializable)	SceneInitializer.cs:1356		E					
+其他/基础设施	SceneInitializer	RegisterCompletionCallback(Action callback)	SceneInitializer.cs:527		E					
+其他/基础设施	SceneInitializer	Restartinitialization()	SceneInitializer.cs:1344		E					
+其他/基础设施	SceneInitializer	TriggerCompletionCallbacks()	SceneInitializer.cs:1232		E					
+其他/基础设施	SerializationHelper	GetValidMembers(Type type)	SerializationHelper.cs:155		E					
+其他/基础设施	SerializationHelper	GetValidMembersToRead(Type type)	SerializationHelper.cs:179		E					
+其他/基础设施	SerializationHelper	IsEmptyValue(object value, object customEmptyValue)	SerializationHelper.cs:754		E					
+其他/基础设施	SerializationHelper	IsMemberValid(MemberInfo member)	SerializationHelper.cs:50		E					
+其他/基础设施	SerializationHelper	IsUnityOnlyValue(Type t)	SerializationHelper.cs:216		E					
+其他/基础设施	SerializationHelper	IsValidField(FieldInfo f)	SerializationHelper.cs:240		E					
+其他/基础设施	SerializationHelper	IsValidProperty(PropertyInfo p)	SerializationHelper.cs:259		E					
+其他/基础设施	SerializationHelper	OnAfterRead<T>(JToken rawJson, T obj)	SerializationHelper.cs:1109		E					
+其他/基础设施	SerializationHelper	ReadJson(JToken rawValue, Type type)	SerializationHelper.cs:975		E					
+其他/基础设施	SerializationHelper	WriteJson(object value, JsonSerializer serializer)	SerializationHelper.cs:275		E					
+其他/基础设施	SpreadsheetData	FillColumns()	SpreadsheetData.cs:157		E					
+其他/基础设施	SpreadsheetData	FillRows()	SpreadsheetData.cs:221		E					
+其他/基础设施	SpreadsheetData	GetValue(int row, int column)	SpreadsheetData.cs:262		E					
+其他/基础设施	SpreadsheetData	GetValue(string header, int column)	SpreadsheetData.cs:333		E					
+其他/基础设施	SpreadsheetData	GetValueAs<T>(int row, int column)	SpreadsheetData.cs:288		E					
+其他/基础设施	SpreadsheetData	GetValueAs<T>(string header, int column)	SpreadsheetData.cs:346		E					
+其他/基础设施	SteamManager	Awake()	SteamManager.cs:284		E					
+其他/基础设施	SteamManager	CanRedeemDlc(string dlcId)	SteamManager.cs:240		E					
+其他/基础设施	SteamManager	CheckIfIsOverlayOn()	SteamManager.cs:268		E					
+其他/基础设施	SteamManager	GetAvailableDlcs()	SteamManager.cs:171		E					
+其他/基础设施	SteamManager	GetDLCCount()	SteamManager.cs:82		E					
+其他/基础设施	SteamManager	GetSteamIDInt()	SteamManager.cs:87		E					
+其他/基础设施	SteamManager	GetSteamStat(string stat)	SteamManager.cs:144		E					
+其他/基础设施	SteamManager	GetSteamUserID()	SteamManager.cs:107		E					
+其他/基础设施	SteamManager	InitOnPlayMode()	SteamManager.cs:278		E					
+其他/基础设施	SteamManager	IsDlcRedeemed(SteamDlcEntry dlc)	SteamManager.cs:211		E					
+其他/基础设施	SteamManager	OnDestroy()	SteamManager.cs:360		E					
+其他/基础设施	SteamManager	OnEnable()	SteamManager.cs:340		E					
+其他/基础设施	SteamManager	OnUserStatsReceived(UserStatsReceived_t param)	SteamManager.cs:134		E					
+其他/基础设施	SteamManager	OnUserStatsStored(UserStatsStored_t param)	SteamManager.cs:124		E					
+其他/基础设施	SteamManager	OpenFloatingTextInput(EFloatingGamepadTextInputMode modeType)	SteamManager.cs:162		E					
+其他/基础设施	SteamManager	RequestUserStats()	SteamManager.cs:114		E					
+其他/基础设施	SteamManager	SetSteamStat(string stat, int data)	SteamManager.cs:156		E					
+其他/基础设施	SteamManager	SteamAPIDebugTextHook(int nSeverity, StringBuilder pchDebugText)	SteamManager.cs:273		E					
+其他/基础设施	SteamManager	Update()	SteamManager.cs:372		E					
+其他/基础设施	SupportLogging	LogBasics()	SupportLogging.cs:49		E					
+其他/基础设施	SupportLogging	LogStats()	SupportLogging.cs:39		E					
+其他/基础设施	SupportLogging	OnApplicationPause(bool pause)	SupportLogging.cs:23		E					
+其他/基础设施	SupportLogging	OnApplicationQuit()	SupportLogging.cs:34		E					
+其他/基础设施	SupportLogging	OnConnectedToPhoton()	SupportLogging.cs:72		E					
+其他/基础设施	SupportLogging	OnCreatedRoom()	SupportLogging.cs:144		E					
+其他/基础设施	SupportLogging	OnDisconnectedFromPhoton()	SupportLogging.cs:190		E					
+其他/基础设施	SupportLogging	OnFailedToConnectToPhoton(DisconnectCause cause)	SupportLogging.cs:82		E					
+其他/基础设施	SupportLogging	OnJoinedLobby()	SupportLogging.cs:92		E					
+其他/基础设施	SupportLogging	OnJoinedRoom()	SupportLogging.cs:103		E					
+其他/基础设施	SupportLogging	OnLeftRoom()	SupportLogging.cs:185		E					
+其他/基础设施	SupportLogging	Start()	SupportLogging.cs:10		E					
+其他/基础设施	TimeHelper	FormatTimeSpan(TimeSpan timespan, bool showDays, bool hide0Values)	TimeHelper.cs:138		E					
+其他/基础设施	TimeHelper	GetUtcOriginDate()	TimeHelper.cs:122		E					
+其他/基础设施	TimeHelper	HoursToMillis(int hours)	TimeHelper.cs:46		E					
+其他/基础设施	TimeHelper	IsPast(DateTime time)	TimeHelper.cs:34		E					
+其他/基础设施	TimeHelper	MillisSinceEpoch(DateTime time)	TimeHelper.cs:133		E					
+其他/基础设施	TimeHelper	MillisToDateTime(long millis)	TimeHelper.cs:110		E					
+其他/基础设施	UnityContext	EnsureActive()	UnityContext.cs:531		E					
+其他/基础设施	UnityContext	Execute(WorkHandle<TIn, TOut> workData)	UnityContext.cs:162		E					
+其他/基础设施	UnityContext	Execute(object handle)	UnityContext.cs:94		E					
+其他/基础设施	UnityContext	ExecuteAsync(Action action)	UnityContext.cs:556		E					
+其他/基础设施	UnityContext	ExecuteAsync<T>(Action<T> action, T input)	UnityContext.cs:601		E					
+其他/基础设施	UnityContext	ExecuteAsync<T>(Func<T> func)	UnityContext.cs:741		E					
+其他/基础设施	UnityContext	Initialize()	UnityContext.cs:516		E					
+其他/基础设施	UnityContext	TOut>(Func<TIn, TOut> func, TIn input)	UnityContext.cs:860		E					
+其他/基础设施	VarsGlobal	CheckIfPlayerChangedDivision(long oldRating, long newRating)	VarsGlobal.cs:153		E					
+其他/基础设施	VarsGlobal	ConvertTierToCheckPrize(int tier)	VarsGlobal.cs:230		E					
+其他/基础设施	VarsGlobal	GetHeroLevel(int expPoints)	VarsGlobal.cs:246		E					
+其他/基础设施	VarsGlobal	GetNextLevelXP(int currentLevel)	VarsGlobal.cs:300		E					
+其他/基础设施	VarsGlobal	GetPlayerDivision(long rating)	VarsGlobal.cs:117		E					
+其他/基础设施	VarsGlobal	GetProgressInLevel(int expPoints)	VarsGlobal.cs:378		E					
+其他/基础设施	VarsGlobal	GetXPInLevel(int expPoints)	VarsGlobal.cs:269		E					
+其他/基础设施	VarsGlobal	GetXPMissingToNextLevel(int expPoints)	VarsGlobal.cs:305		E					
+其他/基础设施	VarsGlobal	TimeToDrawCard(bool isPlayer)	VarsGlobal.cs:494		E					

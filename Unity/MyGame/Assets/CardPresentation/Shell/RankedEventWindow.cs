@@ -54,9 +54,14 @@ namespace CardPresentation
         const float TmrIcL = 172.83f, TmrIcT = 796.75f, TmrIcR = 216.73f, TmrIcB = 840.65f;
         const float TmrTxL = 216.73f, TmrTxT = 790.75f, TmrTxR = 465.17f, TmrTxB = 846.65f;
 
-        /// <summary>现在是「排位」还是「非排位」。**本地恒为 false（非排位）** —— 没有服务器、也没有排位赛数据；
-        /// 点了**如实说明**，不静默切。</summary>
-        public bool RankedMode { get; private set; }
+        /// <summary>现在是「排位」还是「非排位」。
+        /// <para>🔴 **2026-10-25（代理 G 执行）：真值搬到 `RankedData.IsRanked`**（= 原版 `RankedEventBase.IsRanked`，
+        /// 带本地存档）—— 原来这里是个恒 false 的自动属性。⚠️ **MMR 与每局增减仍在服务器**
+        /// （见 `RankedData.WhyNoPointDelta`）⇒ 切模式只切旗标，不产生分。</para></summary>
+        public bool RankedMode { get { return RankedData.IsRanked; } }
+
+        // 两行文字（`UnrankedText` / `RankedText`）—— 切模式后要重刷颜色，见 `RefreshToggleState`
+        Label _unrankedLbl, _rankedLbl;
 
         public static RankedEventWindow Create(WindowsManager mgr)
         {
@@ -174,6 +179,7 @@ namespace CardPresentation
                                    Color.white, "RankedText", 45f, QText, face: TmpFont.Face.LatinCardBody);
             if (rk != null) rk.SetCharSpacing(-4f);
             MenuDraw.AlignLeft(rk, new PxRect(TgRankedL, TgRankedT, TgRankedR, TgRankedB));
+            _unrankedLbl = un; _rankedLbl = rk;      // 🆕 切模式后要重刷（见 RefreshToggleState）
             MenuDraw.Rect(tg, Tex("40_main_bt_toggle_on"),
                           new PxRect(TgKnobL, TgKnobT, TgKnobR, TgKnobB), "Image", QArt1, null, true);
             // 🆕 **2026-10-19（战斗线 `T16` · 命中区全仓普查）**：命中区 = **底图 ∪ 两颗 TMP 文字**。
@@ -271,20 +277,29 @@ namespace CardPresentation
 
         void ToggleRankedMode()
         {
-            // 原版 `ChangeRankedModeToggle` 切的是「打排位还是非排位」。本地**没有排位赛**（没有服务器、
-            // 也没有分段数据）⇒ **不假装切了**，如实说明（用户 2026-09-24 的裁决：点了要如实说明）。
-            Debug.LogWarning("[Event] `ChangeRankedToggle` 点了 —— 本地**没有排位赛**（没有服务器与分段数据），"
-                             + "**如实说明、不假装切换**");
+            // 原版 `ChangeRankedModeToggle` 切的是「打排位还是非排位」（`RankedEventBase.ToggleRankedMode`：
+            // `IsRanked = isRanked;` + `GameStaticData.unrankedMultiplayer = !isRanked`）。
+            // 🔴 **2026-10-25（代理 G 执行）：真的切**（旗标 + 本地存档，`RankedData.ToggleRankedMode`）；
+            // **但如实说明「分不会变」** —— MMR 与每局增减在服务器 CloudScript（`RankedData.WhyNoPointDelta`），
+            // 本地这张表只记我们自己算得出的东西（段位换算/连败/赛季）。用户 2026-09-24 的裁决：
+            // 「点了要如实说明」⇒ 不假装有排行分，也不假装没切。
+            RankedData.ToggleRankedMode(!RankedData.IsRanked);
+            RefreshToggleState();
+            Debug.Log("[Event] `ChangeRankedToggle` ⇒ RankedMode = " + RankedMode
+                      + "（`RankedData.IsRanked`，本地存档）；⚠️ **排位分不会因此变化** —— "
+                      + "MMR 与每局增减在服务器 CloudScript（`RankedData.WhyNoPointDelta`）");
             if (Manager != null)
                 // 🆕 2026-10-18（双语③ P2）：钮文案改走语言表；键 = 原版 mTerm `MainMenu/General/OK`
                 //   （`Core/Loc.cs` 的表，大写 `OK`）。
                 // 🆕 2026-10-18（波 1b · P2b）：正文也改走语言表 —— 键 `MainMenu/Ranked/OfflineNote`
                 //   是波 0b 补进表的那 111 条之一。
-                // ⚠️ **该键的两列值里那句「（将来做 P2P）」已过期**（P2P 2026-09-26 就做完了）——
-                //   值在 `Core/Loc.cs`，**不在本波白名单** ⇒ 本波只接线、**没改文案**，已写进交件报告。
                 Manager.ShowPopUp(Loc.T("MainMenu/Ranked/OfflineNote"),
                                   Loc.T("MainMenu/General/OK"), null);
         }
+
+        /// <summary>按 `RankedData.IsRanked` 重刷两行文字的明暗（= 原版「亮的那一个就是当前模式」）。
+        /// 与 `BuildLeftColumn` 末尾那次调用**同一份实现**（⛔ 别各写一份颜色规则）。</summary>
+        void RefreshToggleState() { ApplyToggleState(_unrankedLbl, _rankedLbl); }
 
         void ApplyToggleState(Label unranked, Label ranked)
         {

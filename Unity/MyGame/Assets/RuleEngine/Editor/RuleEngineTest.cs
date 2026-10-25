@@ -308,6 +308,8 @@ public static partial class RuleEngineTest
         Step(TestVanguardRestriction);
         Step(TestStealthUntargetable);
         Step(TestFlyingMeleeBlocked);
+        // 🆕 2026-10-25（完全复刻 · 执行代理 A · 第 2 轮【1】）：先锋闸的两个过滤器 + 两段式选目标的引擎半。
+        Step(TestA2AttackGateAndPlayTarget);
 
         Section("技能与触发");
         Step(TestEffectSpecParsing);
@@ -325,6 +327,10 @@ public static partial class RuleEngineTest
         Step(TestA1279SlaySelfChain);
         Step(TestBacklash);
         Step(TestDeathAccountsAfterBacklash);
+        // 🆕 2026-10-25（完全复刻 · 执行代理 A · 第 3 轮）：`ephemeral` 的牌**不进墓地**。判据 `CardScript.GoToCemetery`。
+        Step(TestA3EphemeralSkipsCemetery);
+        // 🆕 2026-10-25（执行代理 A · 第 9 段）：摘掉 `flank`/`fast` 要重算「能动/能攻击」（判据 `CardScript.RemoveTrait`）。
+        Step(TestA6RemoveFlankRecomputesAct);
         Step(TestW58DeathOrderD5);
         Step(TestW58DeathOrderD4);
         Step(TestW58DamagedBroadcastOrderD8);
@@ -601,6 +607,10 @@ public static partial class RuleEngineTest
         //  `ferocity` / `oath`：部署当回合「**能动但不能攻击**」（原版第二个位 `canAttack` `+0x23C`）。
         Section("🆕 引擎族批 3：部署当回合「能动但不能攻击」（`A992` 遗留甲 · `canAttack` 那一位）");
         Step(TestA992CannotAttackThisTurn);
+        // 🆕 2026-10-25（引擎线 · 真机报告）：**词条被赋予之后要即时生效** ——
+        //   `fast`/`flank` 的两位重算（原版 `AddEffect.c:570-572` → `UpdateSummonSicknessAnims`
+        //   → `ActivateMinion`；摘掉那一半见 `RemoveTrait.c:66-68`）。
+        Step(TestK1GrantedTraitRecomputesAttack);
         Step(TestA985TermKey);
 
         // ============================================================
@@ -6642,7 +6652,13 @@ public static partial class RuleEngineTest
             Check(RuleCore.FieldAttack(ctx2, 1, victim, true), 4, "远程攻击力回到 4");
         }
 
-        // ⑧ 黑暗契约：四种契约各自的增益**真的加上去了**（规则书 :179；原版 `DARK_PACT_FX:1655`）
+        // ⑧ 黑暗契约：四种契约各自的增益**真的加上去了**。
+        //   判据（第一权威，2026-10-25 现读）= `decomp_full/CardScript__AddEffect.c:776-792`（case 8）：
+        //   `Enchantments.GetMarkOfChaos(markOfChaosType)` 取到**那张附魔卡** → `TriggerEnchantment` 它 →
+        //   它的 500 能力就是这份印记的效果（`addTrait(330 markOfChaos)` + `addStats` + 关键词；
+        //   四张卡的数据见 `cards_truth.json` 的 `Mark of Khorne/Nurgle/Slaanesh/Tzeentch (enchantment)`）。
+        //   ⚠️ 本段原来写「规则书 :179；原版 `DARK_PACT_FX:1655`」—— 那两份**都不是**权威
+        //   （前者是粉丝实体版，后者是我们自己的 Godot 复刻）⇒ 已换成本条反编译判据（铁律 5）。
         {
             var ctx = Battle(new[] { Unit("A", 1, 1, 1) }, new[] { Unit("X", 1, 1, 1) });
             ToP1Turn(ctx, 1);
@@ -6660,12 +6676,25 @@ public static partial class RuleEngineTest
             Check(v.MaxHealth, 7, "命运：+2 生命上限（5 → 7）");
             Check(v.Has("camouflage"), true, "命运：还给伪装");
 
-            // 再给一份 → **替换**（原版是赋值不是累加），前一份的增益要跟着走
+            // 再给一份 ⇒ **两份印记同时存在**。
+            // 🔴 **2026-10-25（完全复刻 · `K7` · 执行代理 N11）就地把这条期望改正（铁律 5）**：
+            //   这里原来断的是「**替换**」（`Check(v.Has("camouflage"), false, "命运给的伪装跟着旧契约一起没了")`，
+            //   上一行注释还写着「原版是赋值不是累加」）—— **那句是错的**。
+            //   **期望值依据** = `decomp_full/CardScript__AddEffect.c:776-792`（case **8**：`TriggerEnchantment`
+            //   取到的那张附魔卡的 500 能力，**没有任何「先摘掉旧印记」的步骤**）+ 同文件 `:385-402`
+            //   （`meleeAttackChange / rangeAttackChange / healthChange` 逐项 **`+=`** 累加）
+            //   + `.c:933-940`（case 17 也只 `TriggerEnchantment(lastMark)`，不撤旧的）。
+            //   ⇒ 原版换一份印记那一下**只写 `bm.lastMarkOfChaos`**（= 「最后一份是哪份」），
+            //     前一份的 trait 与属性**一个都不摘**。旧期望错在把「`kws.darkpact` 是赋值」当成了
+            //     「整份印记被替换」（`kws.darkpact` 根本不存在于原版 —— 那是我们上一版 Godot 复刻的写法）。
             RuleCore.GrantDarkPact(ctx, 0, v, "resilience", "测试");
-            Check(RuleCore.PactOf(v), "resilience", "契约被替换成「韧性」");
-            Check(v.Has("camouflage"), false, "命运给的伪装跟着旧契约一起没了");
-            Check(v.Attack, 2, "纵欲/命运本来就没动近战，2 保持不变");
+            Check(RuleCore.PactOf(v), "resilience", "`PactOf` 回答「最后一份」=「韧性」（原版 `lastMarkOfChaos` 槽）");
+            Check(v.Has("camouflage"), true, "命运给的伪装**还在**（case 8 不撤旧印记）");
+            Check(v.MaxHealth, 8, "生命上限**累加**：5 →（命运+2）7 →（韧性+1）8");
+            Check(v.Attack, 2, "两份印记都没动近战，2 保持不变");
             Check(v.Has("regeneration"), true, "韧性：给了再生");
+            Check(v.KwValue(KeywordTable.DarkPact), 2, "黑暗契约层数 = 2（每份 +1 —— `for each Dark Pact on it` 读它）");
+            Check(v.KwValue(KeywordTable.MarkOfChaos), 2, "`markOfChaos`(330) 层数 = 2（原版每份印记一条 `addTrait(330)`）");
 
             // `random` 走种子化随机 —— 同一局面必须永远选到同一个
             var w = Place(ctx, 0, 1, Unit("Chosen3", 1, 2, 5));
@@ -16975,8 +17004,8 @@ public static partial class RuleEngineTest
                           "★ 而它带 `fast` ⇒ **召唤病不成立 ⇒ 还回去之后仍能动**"
                         + "（原版 `displaySummonSickness` 要 `+0x58 && !fast(40) && !flank(460)` ——"
                         + " 正好对上卡面 `and give it Fast`）"
-                        + "｜🧨 把 `RuleCore.ResetSummonSickness` 里那句 `u.Exhausted = !HasDeployExemption(u)`"
-                        + " 改回 `= true` ⇒ 本行红");
+                        + "｜🧨 把 `RuleCore.ResetSummonSickness` 里那句 `RecomputeActAndAttack(u)`"
+                        + "（2026-10-25 之前是 `u.Exhausted = !HasDeployExemption(u)`）改回 `u.Exhausted = true;` ⇒ 本行红");
             }
         }
 
@@ -17153,8 +17182,8 @@ public static partial class RuleEngineTest
                       "★ 带 `fast` ⇒ 还回去之后**仍能动**"
                     + "（⚠️ 原文写「还回去之后置已行动」，那是「无条件置」那一版的错记录 ——"
                     + " **改前这里实得 `True`**）"
-                    + "｜🧨 把 `ResetSummonSickness` 里那句 `u.Exhausted = !HasDeployExemption(u)`"
-                    + " 改回 `= true` ⇒ 本行红");
+                    + "｜🧨 把 `ResetSummonSickness` 里那句 `RecomputeActAndAttack(u)`"
+                    + "（2026-10-25 之前是 `u.Exhausted = !HasDeployExemption(u)`）改回 `u.Exhausted = true;` ⇒ 本行红");
             CheckTrue(bare.Exhausted,
                       "★ 不带 `fast` ⇒ 还回去之后**不能动**（同上，本行与上一行不可能同时被一个常量满足）"
                     + "｜🧨 同上把那句改成 `= false` ⇒ 本行红");
@@ -24986,6 +25015,177 @@ public static partial class RuleEngineTest
                   "Vanguard 没了之后就能打普通单位");
     }
 
+    /// <summary>🆕 **2026-10-25（完全复刻 · 执行代理 A · 第 2 轮【1】）**：本轮修掉的两件事各配断言。
+    ///
+    /// <para>**① 先锋闸的两个过滤器** —— 判据（第一权威，现读）：
+    /// `BattleManager__IsValidAttackTarget.c:133-200` + `CardScript.IsDefender`（方法体）+
+    /// `MinionManager__IsThereDefender.c:19-…`：
+    /// `IsDefender = inPlay ∧ !stealth(0x46) ∧ !precognition(0x280) ∧ HasVanguardTrait`，
+    /// 且 `IsThereDefender` 还要求 `!u.EnoughPendingDamageToDie()`。
+    /// ⇒ **隐身先锋不算先锋、将死先锋不算先锋**。改前这两档都会**错误地禁止**攻击非先锋目标
+    /// （玩家打不出去 = 主链可见）。</para>
+    ///
+    /// <para>**② 两段式选目标的【引擎半】** —— 判据：`AbilityLogic.GetTargets` 的 `has_pick_target` 支
+    /// （玩家点定的目标优先）+ `_ResolvePlayCardFromHand_d__447__MoveNext.c:905-940`
+    /// （点中后写进 `action+0x20`，结算按它走）。断言两件事：
+    /// `RuleCore.PlayTargetPool` 建得出池、`PlayCard(..., chosen)` 真的用上那个目标。</para>
+    ///
+    /// ⚠️ 两段式手势的**表现半**（进不进选目标态 / 取消回手 / 回放局不进）在 `CardPresentation`，
+    /// 不在本宿主 —— 那四条写在 `报告/A_战斗逻辑驱动_第1轮.md` §④，等 BattleScene 宿主的写手接。</summary>
+    /// <summary>🆕 **2026-10-25（完全复刻 · 执行代理 A · 第 3 轮）**：**带 `ephemeral` 的牌死掉不进墓地**。
+    ///
+    /// <para>**判据（第一权威，现读）** = `CardScript.GoToCemetery`（`CardScript.cs:16401-16415`）：
+    /// <code>
+    ///   cardState = inCemetery;
+    ///   if (IsUnit()) ResetToValuesInHand();
+    ///   if (!HasCurrentTrait(ephemeral)) { BattleManager.AddToCemetery(this); return; }
+    ///   gameObject.SetActive(false);          // ← 带 ephemeral：**只把卡面关掉**
+    /// </code>
+    /// ⇒ 它**不进墓地、也不进「死过的牌」那张表**（`ctx.DeadUnits` 是
+    /// `Choose a unit that died …` 的候选来源）。现读卡池 **105 张**带 `ephemeral` ⇒ 主链可达。</para>
+    ///
+    /// <para>对照支（尺子）：同一局面里那张**不带** ephemeral 的单位死掉必须**进墓地** ——
+    /// 否则这条断言只是「什么都没做」的同义反复。</para>
+    /// </summary>
+    /// <summary>🆕 **2026-10-25（完全复刻 · 执行代理 A · 第 9 段）**：**摘掉 `flank` / `fast` ⇒ 立刻重算「能动 / 能攻击」两位**。
+    ///
+    /// <para>**判据（第一权威，现读）** = `CardScript.RemoveTrait`（`CardScript.cs:19361-…`，方法体）：
+    /// <code>
+    ///   …移除 trait 之后：
+    ///   if (cardTraitData._trait == blind)                      UpdateFigures();
+    ///   if (cardTraitData._trait == flank || == fast)           UpdateSummonSicknessAnims();   // → ActivateMinion
+    /// </code>
+    /// 而 `ActivateMinion.c:39-42` 把 `canAttack(+0x23C)` 与 `canAct(+0x230)` **一起**写成
+    /// `!displaySummonSickness`，`displaySummonSickness = +0x58 &amp;&amp; !fast &amp;&amp; !flank`
+    /// ⇒ **摘掉这两个词必须立刻把两位写回去**。</para>
+    ///
+    /// <para>⚠️ **加的那一半早就有**（`AddKeyword` / `AddAuraKeyword` 里同一跳）；本轮补的是**摘的那一半**
+    /// （`RemoveAll` + `ClearAuraGrants`）。改前：「本回合给的侧翼到期 / 被效果摘掉」之后，
+    /// 单位仍按**带 flank** 算 —— `CanAct/CanAttack` 停在上一次的值，**静默**。</para>
+    /// </summary>
+    static void TestA6RemoveFlankRecomputesAct()
+    {
+        var ctx = ProbeBattle(new CardDef[0], new CardDef[0]);
+        ToP1Turn(ctx, 3);
+        var u = Place(ctx, 0, 2, Unit("A6Flank", 1, 1, 5), exhausted: false);
+        u.SummonSickness = true;                 // 夹具：这一只带召唤病
+        RuleCore.RecomputeActAndAttack(u);
+        CheckTrue(u.CannotAttackThisTurn && u.Exhausted,
+                  "夹具：带召唤病 ⇒ 不能攻击、不能行动");
+
+        u.AddKeyword("flank", 1);                // add 侧（早就有这一跳）
+        CheckTrue(!u.CannotAttackThisTurn && !u.Exhausted,
+                  "★ 加 `flank` ⇒ 两位**一起**解除（`AddEffect.c:570-572` → `UpdateSummonSicknessAnims`）");
+
+        u.RemoveAll("flank");                    // 本轮补的那一半
+        CheckTrue(u.CannotAttackThisTurn && u.Exhausted,
+                  "★ **摘掉 `flank` ⇒ 两位立刻回到「不能攻击 / 不能行动」**"
+                + "（判据 `CardScript.RemoveTrait` 的 `flank || fast ⇒ UpdateSummonSicknessAnims`）"
+                + "｜🧨 删掉 `UnitState.RemoveAll` 里那句 `RecomputeActAndAttack` ⇒ 本行红");
+    }
+
+    static void TestA3EphemeralSkipsCemetery()
+    {
+        var ctx = ProbeBattle(new CardDef[0], new CardDef[0]);
+        ToP1Turn(ctx, 3);
+        var plain = Place(ctx, 1, 2, Unit("A3Plain", 1, 1, 1), exhausted: true);
+        var eph = Place(ctx, 1, 3, Unit("A3Eph", 1, 1, 1, "ephemeral"), exhausted: true);
+
+        // 尺子先立：普通单位死掉 ⇒ 进墓地 + 进「死过的牌」表
+        RuleCore.HurtWithSourceForTest(ctx, plain, 5, "自检");
+        CheckTrue(!plain.IsAlive, "夹具：普通单位被打死了");
+        CheckTrue(ctx.Players[1].Discard.Contains(plain.Instance),
+                  "尺子：**不带** ephemeral 的单位死掉 ⇒ 进弃牌堆（墓地）");
+        CheckTrue(ctx.DeadUnits.Exists(d => d != null && ReferenceEquals(d.Instance, plain.Instance)),
+                  "尺子：……同时进「死过的牌」那张表（`Choose a unit that died …` 的候选来源）");
+
+        // 正题：ephemeral 单位死掉 ⇒ **两处都不进**
+        RuleCore.HurtWithSourceForTest(ctx, eph, 5, "自检");
+        CheckTrue(!eph.IsAlive, "夹具：ephemeral 单位被打死了");
+        CheckTrue(!ctx.Players[1].Discard.Contains(eph.Instance),
+                  "★ **带 ephemeral 的牌死掉【不进墓地】**（判据 `CardScript.GoToCemetery` 的 "
+                  + "`if (!HasCurrentTrait(ephemeral)) AddToCemetery`）" + LogTail(ctx));
+        CheckTrue(!ctx.DeadUnits.Exists(d => d != null && ReferenceEquals(d.Instance, eph.Instance)),
+                  "★ ……**也不进「死过的牌」表**（原版那一支连 `AddToCemetery` 都不调 ⇒ 墓地表里没有它）");
+    }
+
+    static void TestA2AttackGateAndPlayTarget()
+    {
+        // ---- ①-a 隐身先锋不算先锋（含灭自证）----
+        {
+            var ctx = ProbeBattle(new CardDef[0], new CardDef[0]);
+            ToP1Turn(ctx, 3);
+            Place(ctx, 0, 2, Unit("A2PlainA", 1, 1, 9), exhausted: false);
+            var sv = Place(ctx, 1, 2, Unit("A2StealthVan", 1, 1, 9, KeywordTable.Vanguard, KeywordTable.Stealth),
+                           exhausted: true);
+            Place(ctx, 1, 3, Unit("A2OtherA", 1, 1, 9), exhausted: true);
+            CheckCode(RuleCore.IsValidTarget(ctx, 0, 2, 1, 3, false), RuleCodes.OK,
+                      "★【P1】敌方唯一的先锋**带 stealth** ⇒ 它不算先锋 ⇒ 可以打别的单位"
+                      + "（判据 `CardScript.IsDefender` 体内的 `!stealth`；改前这里返回 ErrAttackBlock）");
+            // 灭自证：把 stealth 摘掉 ⇒ **必须**恢复成「挡住」。
+            //   ⛔ 别把这条删掉：没有它，「放行」有可能来自别处的连带改动而不是这条过滤器。
+            sv.RemoveAll(KeywordTable.Stealth);
+            CheckCode(RuleCore.IsValidTarget(ctx, 0, 2, 1, 3, false), RuleCodes.ErrAttackBlock,
+                      "★ **灭自证**：同一个单位摘掉 stealth 之后必须**变回挡住** —— 证明上面那次放行"
+                      + "确实是这条过滤器在起作用" + LogTail(ctx));
+        }
+
+        // ---- ①-b 将死的先锋不算先锋（含灭自证）----
+        {
+            var ctx = ProbeBattle(new CardDef[0], new CardDef[0]);
+            ToP1Turn(ctx, 3);
+            Place(ctx, 0, 2, Unit("A2PlainB", 1, 1, 9), exhausted: false);
+            var v = Place(ctx, 1, 2, Unit("A2DyingVan", 1, 1, 9, KeywordTable.Vanguard), exhausted: true);
+            Place(ctx, 1, 3, Unit("A2OtherB", 1, 1, 9), exhausted: true);
+            // 尺子先立：**打那个先锋本人**始终合法（它是合法目标，只是「算不算拦路的先锋」另说）
+            CheckCode(RuleCore.IsValidTarget(ctx, 0, 2, 1, 2, false), RuleCodes.OK,
+                      "尺子先立：打先锋本人合法（与本条无关，只证判据在跑）");
+            // 夹具直写 `Health = 0` = 原版 `EnoughPendingDamageToDie` 为真（`RuleCore.EnoughPendingDamageToDie`
+            //   = `Health <= 0 && Survivor <= 0`，见那个方法的 doc）。此时它已经拦不住人了。
+            v.Health = 0;
+            CheckTrue(RuleCore.EnoughPendingDamageToDie(v), "夹具：这个先锋此刻是「将死」");
+            CheckCode(RuleCore.IsValidTarget(ctx, 0, 2, 1, 3, false), RuleCodes.OK,
+                      "★【P1】将死的先锋不算先锋 ⇒ 可以打别的单位（判据 `IsThereDefender` 里的 "
+                      + "`!EnoughPendingDamageToDie`）");
+            v.Health = 9;      // 灭自证：救回来 ⇒ 必须重新挡住
+            CheckCode(RuleCore.IsValidTarget(ctx, 0, 2, 1, 3, false), RuleCodes.ErrAttackBlock,
+                      "★ **灭自证**：把它救回来之后必须**变回挡住**" + LogTail(ctx));
+        }
+
+        // ---- ② 两段式选目标：池 + `chosen` 真的被用上 ----
+        {
+            var targeted = new CardDef("A2TargetedStrike", "A2TargetedStrike", "unit",
+                                       "Rally: Deal 2 damage to an enemy troop",
+                                       "common", "Test", 1, 1, 5, 0, null, targeted: 1);
+            CheckTrue(targeted.Targeted == 1, "夹具：这张卡是 `targeted == 1`（原版 `RawCardScript.targeted`）");
+            var ctx = ProbeBattle(new[] { targeted }, new CardDef[0]);
+            ToP1Turn(ctx, 3);
+            var a = Place(ctx, 1, 2, Unit("A2FoeA", 1, 1, 9), exhausted: true);
+            var b = Place(ctx, 1, 3, Unit("A2FoeB", 1, 1, 9), exhausted: true);
+
+            int hi = HandIdx(ctx, 0, "A2TargetedStrike");
+            CheckTrue(hi >= 0, "夹具：targeted 那张在手里");
+            var handCard = ctx.Players[0].Hand[hi].Card;
+
+            var pool = RuleCore.PlayTargetPool(ctx, 0, handCard);
+            CheckTrue(pool.Count == 2 && pool.Contains(a) && pool.Contains(b),
+                      $"★ 选目标池 = 敌方那两个部队（实得 {pool.Count}）—— 两段式手势的【引擎半】");
+            CheckTrue(!RuleCore.IsLegalPlayTarget(ctx, 0, handCard, ctx.Players[0].Warlord),
+                      "★ 自己人不在池里（卡面写的是 `an enemy troop`）");
+            CheckTrue(!RuleCore.IsLegalPlayTarget(ctx, 0, handCard, ctx.Players[1].Warlord),
+                      "★ 敌方**督军**也不在池里（`troop` 类不含督军）");
+
+            int aHp = a.Health, bHp = b.Health;
+            CheckCode(RuleCore.PlayCard(ctx, 0, hi, 2, b), RuleCodes.OK,
+                      "★ 带着「玩家点定的目标」打出这张牌");
+            Check(bHp - b.Health, 2,
+                  "★ **点定的那个挨了 2 点** —— `chosen` 真的被 `Rally` 结算用上了"
+                  + "（判据 `AbilityLogic.GetTargets` 的 `has_pick_target` 支）" + LogTail(ctx));
+            Check(a.Health, aHp,
+                  "★ **另一个一滴没掉** —— 说明不是「池头那个」被自动挑走（不带 `chosen` 的那一版在这里必红）");
+        }
+    }
+
     static void TestStealthUntargetable()
     {
         var ctx = Battle(new[] { Unit("A", 1, 5, 5), Unit("F1", 1, 1, 1), Unit("F2", 1, 1, 1) },
@@ -30017,7 +30217,7 @@ public static partial class RuleEngineTest
                           "①b （前提）但**不能攻击** —— 同一支把 `canAttack` 压假"
                           + "（`A992` 遗留甲补的那一位，`UnitState.CannotAttackThisTurn`）；"
                           + "下面那条 `= 4` 的闸读的就是它"
-                          + "｜🧨 把 `ApplyDeployTurnState` 里那句 `CannotAttackThisTurn = ...` 删掉 ⇒ 本行红");
+                          + "｜🧨 把 `RuleCore.RecomputeActAndAttack` 里那句 `CannotAttackThisTurn = ...` 删掉 ⇒ 本行红");
                 Check(Board(ctx, 0, sOath).CurrentAttackType, UnitState.AttackTypeActive,
                       "★ 召唤病 + `oath` ⇒ 当前攻击型 = **4 主动技能**"
                       + "（原版 `CardScript__ActivateMinion.c:43-47,70-72`）"
@@ -31562,7 +31762,7 @@ public static partial class RuleEngineTest
             CheckTrue(!fu.Exhausted && !fu.CannotAttackThisTurn,
                       "★ **反例（豁免没收窄）**：带 `fast` 的两**位**都是假 ——"
                       + "照原版 `get_displaySummonSickness` 它**免掉召唤病**（`+0x58 && !fast …`）"
-                      + "｜🧨 把 `HasAttackDeployExemption` 里那句 `|| u.Has(\"fast\")` 删掉 ⇒ 本行红");
+                      + "｜🧨 把 `RuleCore.SummonSicknessExempt` 里那句 `u.Has(\"fast\")` 删掉（2026-10-25 之前这句在 `HasAttackDeployExemption`）⇒ 本行红");
             CheckCode(RuleCore.CanAttackNow(ctx, 0, sF, false), RuleCodes.OK,
                       "★ 所以 `fast` 单位**部署当回合就能攻击**（规则书 :98 点名了它）");
         }
@@ -31603,7 +31803,7 @@ public static partial class RuleEngineTest
                 CheckTrue(t.CannotAttackThisTurn,
                           "★ " + nm + " 部署当回合**不能攻击** —— 原版 `+0x23C` 被压假"
                           + "（`ActivateTraitsOnSummonOrEnchantment.c:86-99`）"
-                          + "｜🧨 删掉 `ApplyDeployTurnState` 里那句 `u.CannotAttackThisTurn = …` ⇒ 本行红");
+                          + "｜🧨 删掉 `RuleCore.RecomputeActAndAttack`（2026-10-25 之前那句在 `ApplyDeployTurnState`）里那句 `u.CannotAttackThisTurn = …` ⇒ 本行红");
                 CheckTrue(t.Exhausted != t.CannotAttackThisTurn,
                           "★ **灭自证（结构判别式）**：" + nm + " 的两位**取值相反** ——"
                           + "`Exhausted`（`canAct`）为假、`CannotAttackThisTurn`（`canAttack`）为真。"
@@ -31631,6 +31831,130 @@ public static partial class RuleEngineTest
                       + LogTail(ctx, 4));
             CheckCode(RuleCore.CanAttackNow(ctx, 0, sO, false), RuleCodes.OK,
                       "★ 所以下一个回合它**能攻击了**（`oath` 单位）");
+        }
+    }
+
+    /// <summary>
+    /// 🔴 🆕 **2026-10-25（引擎线 · 真机报告：「给部队加上侧翼（Flank），当回合仍然不能进攻」）：
+    /// 「词条被**赋予之后**要即时生效」—— `fast` / `flank` 那两位的重算。**
+    ///
+    /// **原版判据（逐句读过，`d:/2/tools/decomp_full/`）**：
+    ///   · `CardScript__AddEffect.c` 的 `case 3`（= 加 trait）：`:499 AddTraitSilently` → `:570-572`
+    ///     `if (trait == 0x28 /*fast*/ || trait == 0x1cc /*flank*/) UpdateSummonSicknessAnims(card);`
+    ///   · `CardScript__UpdateSummonSicknessAnims.c:20` →
+    ///     `ActivateMinion(card, IsPlayerTurn(mgr) == card.isPlayer)`
+    ///   · `CardScript__ActivateMinion.c:39-42`：`canAct(+0x230) = canAttack(+0x23C) = !displaySummonSickness`，
+    ///     而 `EntityScript__get_displaySummonSickness.c:7-11` = `+0x58 && !fast && !flank`
+    ///     （**动态**读当前 trait，不是快照）
+    ///   ⇒ **同一回合内**给一个「已经有召唤病」的单位 `flank`，`CanAttackNow` **立刻变真**。
+    ///   · 摘掉那一半：`CardScript__RemoveTrait.c:66-68` 走**同一个** `UpdateSummonSicknessAnims`
+    ///     ⇒ 摘掉侧翼之后召唤病**回来**。
+    ///   · 「已经用掉这一回合行动」那一档由 `CardScript__ActivateMinion.c:19-22` 的 `+0x48` 闸挡住
+    ///     （只有 `bloodThirst(0xdc)` 且在 `+0x48 == 1` 时才再放行一次）。
+    ///
+    /// 我们的落点（判据只一处）= `UnitState.AddKeyword` / `UnitState.RemoveAll` 里那句
+    /// `RuleCore.RecomputeActAndAttack(this)`。
+    /// </summary>
+    static void TestK1GrantedTraitRecomputesAttack()
+    {
+        // ---- 甲：**用户报的那一条**（真机复现：部署当回合的部队，这一回合内被 give 侧翼）----
+        {
+            var grant = Tactic("K1GiveFlank", 1, "Give Flank to a friendly troop");
+            var troop = new CardDef("K1Troop", "K1Troop", "unit", "", "common", "Test",
+                                    2, 3, 9, 0, null, subtype: "Infantry");
+            var ctx = Battle(new[] { grant, troop }, new[] { Unit("K1FoeA", 1, 0, 9) });
+            ToP1Turn(ctx, 1);
+            ctx.Players[0].Energy = 20;
+            CheckCode(RuleCore.PlayCard(ctx, 0, HandIdx(ctx, 0, "K1Troop"), 1), RuleCodes.OK,
+                      "甲 打出普通部队（**真部署入口**，不是 `Place` 夹具）");
+            int s = SlotOf(ctx, 0, "K1Troop");
+            CheckTrue(s >= 0, "甲 （前提）它在场上");
+            if (s < 0) return;
+            var u = Board(ctx, 0, s);
+            CheckTrue(u.SummonSickness && u.Exhausted && u.CannotAttackThisTurn,
+                      "甲 （前提）召唤病三件套都在（`+0x58` / `canAct` / `canAttack`）");
+            CheckCode(RuleCore.CanAttackNow(ctx, 0, s, false), RuleCodes.ErrExhausted,
+                      "甲 （前提）部署当回合不能进攻");
+
+            CheckCode(RuleCore.PlayTactic(ctx, 0, HandIdx(ctx, 0, "K1GiveFlank"), s), RuleCodes.OK,
+                      "甲 打出 `Give Flank to a friendly troop`"
+                      + "（真结算路：`DoGive` → `EffectResolver.ApplyOneGain` → `AddKeyword`）");
+            CheckTrue(u.Has("flank"), "甲 （前提）关键词真的挂上了（夹具没退化成空放）");
+            CheckTrue(!u.Exhausted,
+                      "★ **当回合立刻能动**（原版 `ActivateMinion` 把 `canAct` 重写成"
+                      + " `!displaySummonSickness`）"
+                      + "｜🧨 删掉 `UnitState.AddKeyword` 里那句 `RuleCore.RecomputeActAndAttack(this)`"
+                      + " ⇒ 本行红");
+            CheckTrue(!u.CannotAttackThisTurn,
+                      "★ **`canAttack` 那一位也一起翻真** —— **用户 2026-10-25 报的就是这一行**："
+                      + "改前 `Has(\"flank\")` 已为真、可这一位还是 `true` ⇒ 加了侧翼仍然不能进攻"
+                      + "｜🧨 同上");
+            CheckCode(RuleCore.CanAttackNow(ctx, 0, s, false), RuleCodes.OK,
+                      "★ 所以它**现在就能进攻**（用户要的那条行为）");
+        }
+
+        // ---- 乙：灭自证 —— **已经用掉这一回合行动**的单位，被 give 侧翼**不许白送一次行动** ----
+        //   原版 `ActivateMinion.c:19-22`：`+0x48 != 0` ⇒ 除嗜血那一次外 `canAct` 一律假。
+        {
+            var grant = Tactic("K1GiveFlankB", 1, "Give Flank to a friendly troop");
+            var fast = new CardDef("K1FastB", "K1FastB", "unit", "", "common", "Test",
+                                   2, 3, 9, 0, new[] { "Fast" }, subtype: "Infantry");
+            var ctx = Battle(new[] { grant, fast }, new[] { Unit("K1FoeB", 1, 1, 9) });
+            ToP1Turn(ctx, 1);
+            ctx.Players[0].Energy = 20;
+            // ⚠️ 目标要**在场**才有得打 —— 对面手牌里的那张不会自己上场，用 `Place` 夹具摆一格
+            //    （同 `TestA992*` 那一族：夹具绕过部署入口，但**只有被验的那个单位**必须走真入口）。
+            Place(ctx, 1, 1, Unit("K1FoeB", 1, 1, 9));
+            CheckCode(RuleCore.PlayCard(ctx, 0, HandIdx(ctx, 0, "K1FastB"), 1), RuleCodes.OK,
+                      "乙 打出带 `fast` 的部队（部署当回合就能打）");
+            int s = SlotOf(ctx, 0, "K1FastB"), t = SlotOf(ctx, 1, "K1FoeB");
+            CheckTrue(s >= 0 && t >= 0, "乙 （前提）两格都在");
+            if (s < 0 || t < 0) return;
+            var u = Board(ctx, 0, s);
+            CheckCode(RuleCore.DeclareAttack(ctx, 0, s, 1, t), RuleCodes.OK,
+                      "乙 （前提）它这一回合先打了一记");
+            CheckTrue(u.Exhausted && u.AttacksThisTurn == 1,
+                      "乙 （前提）这一回合的行动已经用掉（`AttacksThisTurn` = 1、已疲劳）");
+
+            CheckCode(RuleCore.PlayTactic(ctx, 0, HandIdx(ctx, 0, "K1GiveFlankB"), s), RuleCodes.OK,
+                      "乙 再给它一个侧翼");
+            CheckTrue(u.Has("flank"), "乙 （前提）侧翼挂上了");
+            CheckTrue(u.Exhausted,
+                      "★ **灭自证（不白送一次行动）**：已经行动过的那个，再被 give 侧翼**仍然疲劳** ——"
+                      + " 原版 `ActivateMinion.c:19-22` 的 `+0x48` 闸"
+                      + "｜🧨 把 `RuleCore.RecomputeActAndAttack` 里 `u.Exhausted = displaySummonSickness"
+                      + " || actedOut;` 的 `|| actedOut` 删掉（= 一律按召唤病重算）⇒ 本行红");
+            CheckCode(RuleCore.CanAttackNow(ctx, 0, s, false), RuleCodes.ErrExhausted,
+                      "★ 所以它**打不了第二下**（配额那句 `AttacksThisTurn >= ActionQuota` 也还在）");
+        }
+
+        // ---- 丙：**摘掉**侧翼 ⇒ 召唤病回来（原版 `RemoveTrait.c:66-68` 那一半）----
+        {
+            var grant = Tactic("K1GiveFlankC", 1, "Give Flank to a friendly troop");
+            var troop = new CardDef("K1TroopC", "K1TroopC", "unit", "", "common", "Test",
+                                    2, 3, 9, 0, null, subtype: "Infantry");
+            var ctx = Battle(new[] { grant, troop }, new[] { Unit("K1FoeC", 1, 0, 9) });
+            ToP1Turn(ctx, 1);
+            ctx.Players[0].Energy = 20;
+            CheckCode(RuleCore.PlayCard(ctx, 0, HandIdx(ctx, 0, "K1TroopC"), 1), RuleCodes.OK,
+                      "丙 打出普通部队");
+            int s = SlotOf(ctx, 0, "K1TroopC");
+            CheckTrue(s >= 0, "丙 （前提）它在场上");
+            if (s < 0) return;
+            var u = Board(ctx, 0, s);
+            CheckCode(RuleCore.PlayTactic(ctx, 0, HandIdx(ctx, 0, "K1GiveFlankC"), s), RuleCodes.OK,
+                      "丙 先给它侧翼（这一份此时应当能打）");
+            CheckCode(RuleCore.CanAttackNow(ctx, 0, s, false), RuleCodes.OK,
+                      "丙 （前提）拿到侧翼之后能进攻");
+            // 摘除口 = `lose X` / 限时增益到期 / `RemoveKeyword` 减到 0 —— 全走 `RemoveAll`。
+            u.RemoveAll("flank");
+            CheckTrue(!u.Has("flank"), "丙 （前提）侧翼摘掉了");
+            CheckTrue(u.Exhausted && u.CannotAttackThisTurn,
+                      "★ **召唤病回来了**（原版 `RemoveTrait.c:66-68` 走同一个"
+                      + " `UpdateSummonSicknessAnims` → `ActivateMinion`；`+0x58` 还在）"
+                      + "｜🧨 删掉 `UnitState.RemoveAll` 里那句 `RuleCore.RecomputeActAndAttack` ⇒ 本行红");
+            CheckCode(RuleCore.CanAttackNow(ctx, 0, s, false), RuleCodes.ErrExhausted,
+                      "★ 所以它**又打不了了**");
         }
     }
 

@@ -54475,5 +54475,419 @@
       "uvCycles": 1.0,
       "uvRowIndex": 0
     }
+  ],
+  "tapHits": [
+    {
+      "go": "Bunker",
+      "path": "Battle Arena Leviathan Baked/Bunker",
+      "layer": 0,
+      "inMask": true,
+      "hasMesh": true,
+      "pos": [
+        91.389618,
+        2.460236,
+        7.190249
+      ],
+      "rot": [
+        0.0,
+        0.707107,
+        -0.707107,
+        0.0
+      ],
+      "scale": [
+        15.769004,
+        15.769004,
+        15.769004
+      ],
+      "collider": {
+        "type": "Mesh",
+        "convex": false,
+        "isTrigger": false,
+        "mesh": "Bunker1"
+      },
+      "particles": "Tap Rock",
+      "particlesGuid": "06946a9ab456c474f9b4f86e00fecf9c",
+      "audio": "Tap Hit Rock",
+      "audioGuid": "30c981ef52e181a41a09adf6818a9104",
+      "delay": 0.0,
+      "useTargetAnchor": 0,
+      "anchor": null
+    },
+    {
+      "go": "Bunker_wall",
+      "path": "Battle Arena Leviathan Baked/Bunker_wall",
+      "layer": 0,
+      "inMask": true,
+      "hasMesh": true,
+      "pos": [
+        99.467079,
+        -0.000753,
+        9.880896
+      ],
+      "rot": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        2.730473,
+        2.730473,
+        2.730473
+      ],
+      "collider": {
+        "type": "Mesh",
+        "convex": false,
+        "isTrigger": false,
+        "mesh": "Bunker_wall1"
+      },
+      "particles": "Tap squishy",
+      "particlesGuid": "a507cda0ff6760943a08cfb2cb7d4a91",
+      "audio": "Tap Hit Squishy",
+      "audioGuid": "86bc7197d2e299c479cd621910524076",
+      "delay": 0.0,
+      "useTargetAnchor": 0,
+      "anchor": null
+    },
+    {
+      "go": "CardLowBoardLimit",
+      "path": "BattlePrefab/BattleBoardElements/Colliders/CardBoardLimits/CardLowBoardLimit",
+      "layer": 11,
+      "inMask": false,
+      "hasMesh": false,
+      "pos": [
+        100.0,
+        -0.59,
+        3.66
+      ],
+      "rot": [
+        0.002767,
+        0.0,
+        0.0,
+        0.999996
+      ],
+      "scale": [
+        81.161079,
+        0.82915,
+        41.907936
+      ],
+      "collider": {
+        "type": "Box",
+        "center": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "size": [
+          1.0,
+          1.0,
+          1.0
+        ],
+        "isTrigger": false
+      },
+      "particles": "Default Tap Floor",
+      "particlesGuid": "629741951c40548a49e35451a449d9d7",
+      "audio": "Tap Hit General",
+      "audioGuid": "52da505920d514f77ab579f113afbca6",
+      "delay": 0.0,
+      "useTargetAnchor": 0,
+      "anchor": null
+    },
+    {
+      "go": "Cube",
+      "path": "Battle Arena Leviathan Baked/Bunker Door Parent/Bunker_door/Cube",
+      "layer": 0,
+      "inMask": true,
+      "hasMesh": false,
+      "pos": [
+        92.905005,
+        0.662827,
+        8.080439
+      ],
+      "rot": [
+        0.112064,
+        0.700897,
+        -0.695544,
+        0.111375
+      ],
+      "scale": [
+        2.855743,
+        0.323277,
+        1.481425
+      ],
+      "collider": {
+        "type": "Box",
+        "center": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "size": [
+          1.0,
+          1.0,
+          1.0
+        ],
+        "isTrigger": false
+      },
+      "particles": "Tap Hit Metal",
+      "particlesGuid": "375d142f27197404884be8e317eca8dc",
+      "audio": "Tap Hit Metal Heavy",
+      "audioGuid": "0a651ec9f71764e41ba0d305510865ba",
+      "delay": 0.0,
+      "useTargetAnchor": 0,
+      "anchor": null
+    },
+    {
+      "go": "Prop_front_1",
+      "path": "Battle Arena Leviathan Baked/Prop_front_1",
+      "layer": 0,
+      "inMask": true,
+      "hasMesh": true,
+      "pos": [
+        0.0,
+        0.001,
+        0.0
+      ],
+      "rot": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "collider": {
+        "type": "Mesh",
+        "convex": true,
+        "isTrigger": false,
+        "mesh": "Prop_front_11"
+      },
+      "particles": "Tap squishy",
+      "particlesGuid": "a507cda0ff6760943a08cfb2cb7d4a91",
+      "audio": "Tap Hit Squishy",
+      "audioGuid": "86bc7197d2e299c479cd621910524076",
+      "delay": 0.0,
+      "useTargetAnchor": 0,
+      "anchor": null
+    },
+    {
+      "go": "Prop_front_2",
+      "path": "Battle Arena Leviathan Baked/Prop_front_2",
+      "layer": 0,
+      "inMask": true,
+      "hasMesh": true,
+      "pos": [
+        95.452744,
+        -0.002695,
+        -6.267153
+      ],
+      "rot": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "collider": {
+        "type": "Mesh",
+        "convex": false,
+        "isTrigger": false,
+        "mesh": "Prop_front_21"
+      },
+      "particles": "Tap squishy",
+      "particlesGuid": "a507cda0ff6760943a08cfb2cb7d4a91",
+      "audio": "Tap Hit Squishy",
+      "audioGuid": "86bc7197d2e299c479cd621910524076",
+      "delay": 0.0,
+      "useTargetAnchor": 0,
+      "anchor": null
+    },
+    {
+      "go": "Prop_front_3",
+      "path": "Battle Arena Leviathan Baked/Prop_front_3",
+      "layer": 0,
+      "inMask": true,
+      "hasMesh": true,
+      "pos": [
+        104.758522,
+        0.028111,
+        -6.258446
+      ],
+      "rot": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "collider": {
+        "type": "Mesh",
+        "convex": false,
+        "isTrigger": false,
+        "mesh": "Prop_front_31"
+      },
+      "particles": "Tap squishy",
+      "particlesGuid": "a507cda0ff6760943a08cfb2cb7d4a91",
+      "audio": "Tap Hit Squishy",
+      "audioGuid": "86bc7197d2e299c479cd621910524076",
+      "delay": 0.0,
+      "useTargetAnchor": 0,
+      "anchor": null
+    },
+    {
+      "go": "Prop_vehicle_1",
+      "path": "Battle Arena Leviathan Baked/Prop_vehicle_1",
+      "layer": 0,
+      "inMask": true,
+      "hasMesh": true,
+      "pos": [
+        90.379501,
+        0.369523,
+        3.332861
+      ],
+      "rot": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.883648,
+        1.883648,
+        1.883648
+      ],
+      "collider": {
+        "type": "Mesh",
+        "convex": true,
+        "isTrigger": false,
+        "mesh": "Prop_vehicle_11"
+      },
+      "particles": "Tap Hit Metal",
+      "particlesGuid": "375d142f27197404884be8e317eca8dc",
+      "audio": "Tap Hit Metal Heavy",
+      "audioGuid": "0a651ec9f71764e41ba0d305510865ba",
+      "delay": 0.0,
+      "useTargetAnchor": 0,
+      "anchor": null
+    },
+    {
+      "go": "Prop_vehicle_2",
+      "path": "Battle Arena Leviathan Baked/Prop_vehicle_2",
+      "layer": 0,
+      "inMask": true,
+      "hasMesh": true,
+      "pos": [
+        108.440926,
+        0.013871,
+        -0.920838
+      ],
+      "rot": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        2.554814,
+        2.554814,
+        2.554814
+      ],
+      "collider": {
+        "type": "Mesh",
+        "convex": true,
+        "isTrigger": false,
+        "mesh": "Prop_vehicle_21"
+      },
+      "particles": "Tap Hit Metal",
+      "particlesGuid": "375d142f27197404884be8e317eca8dc",
+      "audio": "Tap Hit Metal Heavy",
+      "audioGuid": "0a651ec9f71764e41ba0d305510865ba",
+      "delay": 0.0,
+      "useTargetAnchor": 0,
+      "anchor": null
+    },
+    {
+      "go": "Toxic_pool",
+      "path": "Battle Arena Leviathan Baked/Toxic_pool",
+      "layer": 0,
+      "inMask": true,
+      "hasMesh": true,
+      "pos": [
+        109.825142,
+        0.240057,
+        8.105747
+      ],
+      "rot": [
+        0.0,
+        0.707107,
+        -0.707107,
+        0.0
+      ],
+      "scale": [
+        1.603877,
+        1.603877,
+        1.603877
+      ],
+      "collider": {
+        "type": "Mesh",
+        "convex": true,
+        "isTrigger": false,
+        "mesh": "Toxic_pool1"
+      },
+      "particles": "Tap Toxic Sludge green",
+      "particlesGuid": "57edbbcd0b4e67a438872c8029eb05c4",
+      "audio": "Tap Hit Water",
+      "audioGuid": "4fa845adbccd7784989d2b8af33c3021",
+      "delay": 0.0,
+      "useTargetAnchor": 0,
+      "anchor": null
+    },
+    {
+      "go": "Toxic_pool_wall",
+      "path": "Battle Arena Leviathan Baked/Toxic_pool_wall",
+      "layer": 0,
+      "inMask": true,
+      "hasMesh": true,
+      "pos": [
+        0.0,
+        -0.029,
+        0.0
+      ],
+      "rot": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "collider": {
+        "type": "Mesh",
+        "convex": false,
+        "isTrigger": false,
+        "mesh": "Toxic_pool_wall1"
+      },
+      "particles": "Tap squishy",
+      "particlesGuid": "a507cda0ff6760943a08cfb2cb7d4a91",
+      "audio": "Tap Hit Squishy",
+      "audioGuid": "86bc7197d2e299c479cd621910524076",
+      "delay": 0.0,
+      "useTargetAnchor": 0,
+      "anchor": null
+    }
   ]
 }

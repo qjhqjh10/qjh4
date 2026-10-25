@@ -51295,5 +51295,728 @@
       "uvCycles": 1.0,
       "uvRowIndex": 0
     }
+  ],
+  "tapHits": [
+    {
+      "go": "Arcs_Large_L",
+      "path": "Battle Arena Black Legion Baked 2/Arcs_Large_L",
+      "layer": 0,
+      "inMask": true,
+      "hasMesh": true,
+      "pos": [
+        90.0606,
+        1.804683,
+        7.20104
+      ],
+      "rot": [
+        0.0,
+        1.0,
+        -0.0,
+        0.0
+      ],
+      "scale": [
+        376.009552,
+        376.009552,
+        376.009552
+      ],
+      "collider": {
+        "type": "Mesh",
+        "convex": false,
+        "isTrigger": false,
+        "mesh": "Arcs_Large_L2"
+      },
+      "particles": "Tap Rock",
+      "particlesGuid": "06946a9ab456c474f9b4f86e00fecf9c",
+      "audio": "Tap Hit Rock",
+      "audioGuid": "30c981ef52e181a41a09adf6818a9104",
+      "delay": 0.0,
+      "useTargetAnchor": 0,
+      "anchor": null
+    },
+    {
+      "go": "Arcs_Large_R",
+      "path": "Battle Arena Black Legion Baked 2/Arcs_Large_R",
+      "layer": 0,
+      "inMask": true,
+      "hasMesh": true,
+      "pos": [
+        109.030388,
+        1.360561,
+        7.228726
+      ],
+      "rot": [
+        0.0,
+        1.0,
+        -0.0,
+        0.0
+      ],
+      "scale": [
+        376.009552,
+        376.009552,
+        376.009552
+      ],
+      "collider": {
+        "type": "Mesh",
+        "convex": false,
+        "isTrigger": false,
+        "mesh": "Arcs_Large_R2"
+      },
+      "particles": "Tap Rock",
+      "particlesGuid": "06946a9ab456c474f9b4f86e00fecf9c",
+      "audio": "Tap Hit Rock",
+      "audioGuid": "30c981ef52e181a41a09adf6818a9104",
+      "delay": 0.0,
+      "useTargetAnchor": 0,
+      "anchor": null
+    },
+    {
+      "go": "Arcs_Small_L",
+      "path": "Battle Arena Black Legion Baked 2/Arcs_Small_L",
+      "layer": 0,
+      "inMask": true,
+      "hasMesh": true,
+      "pos": [
+        95.12233,
+        1.172756,
+        6.737811
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        172.501831,
+        174.863,
+        174.863
+      ],
+      "collider": {
+        "type": "Mesh",
+        "convex": false,
+        "isTrigger": false,
+        "mesh": "Arcs_Small_L2"
+      },
+      "particles": "Tap Rock",
+      "particlesGuid": "06946a9ab456c474f9b4f86e00fecf9c",
+      "audio": "Tap Hit Rock",
+      "audioGuid": "30c981ef52e181a41a09adf6818a9104",
+      "delay": 0.0,
+      "useTargetAnchor": 0,
+      "anchor": null
+    },
+    {
+      "go": "Arcs_Small_R",
+      "path": "Battle Arena Black Legion Baked 2/Arcs_Small_R",
+      "layer": 0,
+      "inMask": true,
+      "hasMesh": true,
+      "pos": [
+        103.048424,
+        0.774608,
+        6.753993
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        172.501831,
+        174.863,
+        174.863
+      ],
+      "collider": {
+        "type": "Mesh",
+        "convex": false,
+        "isTrigger": false,
+        "mesh": "Arcs_Small_R2"
+      },
+      "particles": "Tap Rock",
+      "particlesGuid": "06946a9ab456c474f9b4f86e00fecf9c",
+      "audio": "Tap Hit Rock",
+      "audioGuid": "30c981ef52e181a41a09adf6818a9104",
+      "delay": 0.0,
+      "useTargetAnchor": 0,
+      "anchor": null
+    },
+    {
+      "go": "CardLowBoardLimit",
+      "path": "BattlePrefab/BattleBoardElements/Colliders/CardBoardLimits/CardLowBoardLimit",
+      "layer": 11,
+      "inMask": false,
+      "hasMesh": false,
+      "pos": [
+        100.0,
+        -0.59,
+        3.66
+      ],
+      "rot": [
+        0.002767,
+        0.0,
+        0.0,
+        0.999996
+      ],
+      "scale": [
+        81.161079,
+        0.82915,
+        41.907936
+      ],
+      "collider": {
+        "type": "Box",
+        "center": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "size": [
+          1.0,
+          1.0,
+          1.0
+        ],
+        "isTrigger": false
+      },
+      "particles": "Default Tap Floor",
+      "particlesGuid": "629741951c40548a49e35451a449d9d7",
+      "audio": "Tap Hit General",
+      "audioGuid": "52da505920d514f77ab579f113afbca6",
+      "delay": 0.0,
+      "useTargetAnchor": 0,
+      "anchor": null
+    },
+    {
+      "go": "Firepits",
+      "path": "Battle Arena Black Legion Baked 2/Firepits",
+      "layer": 0,
+      "inMask": true,
+      "hasMesh": true,
+      "pos": [
+        91.612633,
+        4.401687,
+        7.817688
+      ],
+      "rot": [
+        0.0,
+        1.0,
+        -0.0,
+        0.0
+      ],
+      "scale": [
+        376.009552,
+        376.009552,
+        376.009552
+      ],
+      "collider": {
+        "type": "Mesh",
+        "convex": true,
+        "isTrigger": false,
+        "mesh": "Firepits2"
+      },
+      "particles": "Tap Firepit",
+      "particlesGuid": "596e21402ed35c1498cf9009d23d939d",
+      "audio": "Tap Hit Fire",
+      "audioGuid": "39bf7d588ce12bf43972c12497aab29a",
+      "delay": 0.0,
+      "useTargetAnchor": 1,
+      "anchor": {
+        "go": "Firepit Anchor",
+        "pos": [
+          91.613123,
+          4.405507,
+          7.81854
+        ],
+        "rot": [
+          -0.707107,
+          -0.0,
+          -0.0,
+          0.707107
+        ],
+        "scale": [
+          376.009653,
+          376.009603,
+          376.009603
+        ],
+        "path": "Battle Arena Black Legion Baked 2/Firepits/FirePit/Firepit Anchor"
+      }
+    },
+    {
+      "go": "Firepits.001",
+      "path": "Battle Arena Black Legion Baked 2/Firepits.001",
+      "layer": 0,
+      "inMask": true,
+      "hasMesh": true,
+      "pos": [
+        106.500298,
+        5.300927,
+        8.983667
+      ],
+      "rot": [
+        0.0,
+        1.0,
+        -0.0,
+        0.0
+      ],
+      "scale": [
+        376.009552,
+        376.009552,
+        376.009552
+      ],
+      "collider": {
+        "type": "Mesh",
+        "convex": true,
+        "isTrigger": false,
+        "mesh": "Firepits.0012"
+      },
+      "particles": "Tap Firepit",
+      "particlesGuid": "596e21402ed35c1498cf9009d23d939d",
+      "audio": "Tap Hit Fire",
+      "audioGuid": "39bf7d588ce12bf43972c12497aab29a",
+      "delay": 0.0,
+      "useTargetAnchor": 1,
+      "anchor": {
+        "go": "Firepit Anchor (1)",
+        "pos": [
+          106.498568,
+          5.304797,
+          8.984357
+        ],
+        "rot": [
+          -0.707107,
+          -0.0,
+          -0.0,
+          0.707107
+        ],
+        "scale": [
+          376.009653,
+          376.009603,
+          376.009603
+        ],
+        "path": "Battle Arena Black Legion Baked 2/Firepits.001/FirePit (1)/Firepit Anchor (1)"
+      }
+    },
+    {
+      "go": "Grill collision",
+      "path": "Battle Arena Black Legion Baked 2/Grill collision",
+      "layer": 0,
+      "inMask": true,
+      "hasMesh": false,
+      "pos": [
+        92.334999,
+        -0.057,
+        -0.959
+      ],
+      "rot": [
+        0.0,
+        0.06826,
+        0.0,
+        0.997668
+      ],
+      "scale": [
+        1.0,
+        0.27014,
+        1.675916
+      ],
+      "collider": {
+        "type": "Box",
+        "center": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "size": [
+          1.0,
+          1.0,
+          1.0
+        ],
+        "isTrigger": false
+      },
+      "particles": "Tap Floor Grille",
+      "particlesGuid": "f396d83003f4bab498e464ed29033274",
+      "audio": "Tap Hit Fire",
+      "audioGuid": "39bf7d588ce12bf43972c12497aab29a",
+      "delay": 0.0,
+      "useTargetAnchor": 1,
+      "anchor": {
+        "go": "Grill Anchor",
+        "pos": [
+          92.334999,
+          -0.057,
+          -0.959
+        ],
+        "rot": [
+          -0.576004,
+          0.055734,
+          0.03941,
+          0.814592
+        ],
+        "scale": [
+          1.0,
+          1.582633,
+          0.613958
+        ],
+        "path": "Battle Arena Black Legion Baked 2/Grill collision/Grill Anchor"
+      }
+    },
+    {
+      "go": "Grill collision (1)",
+      "path": "Battle Arena Black Legion Baked 2/Grill collision (1)",
+      "layer": 0,
+      "inMask": true,
+      "hasMesh": false,
+      "pos": [
+        94.503998,
+        -0.057,
+        2.732
+      ],
+      "rot": [
+        0.0,
+        0.439244,
+        0.0,
+        0.898368
+      ],
+      "scale": [
+        1.0,
+        0.27014,
+        1.566496
+      ],
+      "collider": {
+        "type": "Box",
+        "center": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "size": [
+          1.0,
+          1.0,
+          1.0
+        ],
+        "isTrigger": false
+      },
+      "particles": "Tap Floor Grille",
+      "particlesGuid": "f396d83003f4bab498e464ed29033274",
+      "audio": "Tap Hit Fire",
+      "audioGuid": "39bf7d588ce12bf43972c12497aab29a",
+      "delay": 0.0,
+      "useTargetAnchor": 1,
+      "anchor": {
+        "go": "Grill anchor",
+        "pos": [
+          94.503998,
+          -0.057,
+          2.732
+        ],
+        "rot": [
+          -0.635242,
+          0.310593,
+          0.310593,
+          0.635242
+        ],
+        "scale": [
+          1.0,
+          1.566496,
+          0.27014
+        ],
+        "path": "Battle Arena Black Legion Baked 2/Grill collision (1)/Grill anchor"
+      }
+    },
+    {
+      "go": "Grill collision (2)",
+      "path": "Battle Arena Black Legion Baked 2/Grill collision (2)",
+      "layer": 0,
+      "inMask": true,
+      "hasMesh": false,
+      "pos": [
+        105.155998,
+        -0.057,
+        2.953
+      ],
+      "rot": [
+        0.0,
+        0.886698,
+        0.0,
+        0.462349
+      ],
+      "scale": [
+        1.0,
+        0.27014,
+        1.367676
+      ],
+      "collider": {
+        "type": "Box",
+        "center": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "size": [
+          1.0,
+          1.0,
+          1.0
+        ],
+        "isTrigger": false
+      },
+      "particles": "Tap Floor Grille",
+      "particlesGuid": "f396d83003f4bab498e464ed29033274",
+      "audio": "Tap Hit Fire",
+      "audioGuid": "39bf7d588ce12bf43972c12497aab29a",
+      "delay": 0.0,
+      "useTargetAnchor": 1,
+      "anchor": {
+        "go": "GameObject",
+        "pos": [
+          105.155998,
+          -0.057,
+          2.953
+        ],
+        "rot": [
+          -0.32693,
+          0.62699,
+          0.62699,
+          0.32693
+        ],
+        "scale": [
+          1.0,
+          1.367676,
+          0.27014
+        ],
+        "path": "Battle Arena Black Legion Baked 2/Grill collision (2)/GameObject"
+      }
+    },
+    {
+      "go": "Grill collision (3)",
+      "path": "Battle Arena Black Legion Baked 2/Grill collision (3)",
+      "layer": 0,
+      "inMask": true,
+      "hasMesh": false,
+      "pos": [
+        106.899002,
+        -0.057,
+        -0.897
+      ],
+      "rot": [
+        0.0,
+        0.999016,
+        0.0,
+        0.044352
+      ],
+      "scale": [
+        1.0,
+        0.27014,
+        1.525233
+      ],
+      "collider": {
+        "type": "Box",
+        "center": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "size": [
+          1.0,
+          1.0,
+          1.0
+        ],
+        "isTrigger": false
+      },
+      "particles": "Tap Floor Grille",
+      "particlesGuid": "f396d83003f4bab498e464ed29033274",
+      "audio": "Tap Hit Fire",
+      "audioGuid": "39bf7d588ce12bf43972c12497aab29a",
+      "delay": 0.0,
+      "useTargetAnchor": 1,
+      "anchor": {
+        "go": "GameObject",
+        "pos": [
+          106.899002,
+          -0.057,
+          -0.897
+        ],
+        "rot": [
+          -0.031362,
+          0.706411,
+          0.706411,
+          0.031362
+        ],
+        "scale": [
+          1.0,
+          1.525233,
+          0.27014
+        ],
+        "path": "Battle Arena Black Legion Baked 2/Grill collision (3)/GameObject"
+      }
+    },
+    {
+      "go": "Spikes",
+      "path": "Battle Arena Black Legion Baked 2/Spikes",
+      "layer": 0,
+      "inMask": true,
+      "hasMesh": true,
+      "pos": [
+        98.285889,
+        0.208976,
+        -9.001225
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        174.862976,
+        174.863,
+        174.863
+      ],
+      "collider": {
+        "type": "Mesh",
+        "convex": false,
+        "isTrigger": false,
+        "mesh": "Spikes2"
+      },
+      "particles": "Tap Hit Metal Small",
+      "particlesGuid": "3dc5682da4a044a43a4f12f252b9a58a",
+      "audio": "Tap Hit Metal Heavy",
+      "audioGuid": "0a651ec9f71764e41ba0d305510865ba",
+      "delay": 0.0,
+      "useTargetAnchor": 0,
+      "anchor": null
+    },
+    {
+      "go": "Spikes.003",
+      "path": "Battle Arena Black Legion Baked 2/Spikes.003",
+      "layer": 0,
+      "inMask": true,
+      "hasMesh": true,
+      "pos": [
+        101.034676,
+        0.077923,
+        -8.631041
+      ],
+      "rot": [
+        -0.382624,
+        -0.0,
+        -0.0,
+        0.923904
+      ],
+      "scale": [
+        178.358292,
+        178.358292,
+        178.358292
+      ],
+      "collider": {
+        "type": "Mesh",
+        "convex": true,
+        "isTrigger": false,
+        "mesh": "Spikes.0032"
+      },
+      "particles": "Tap Hit Metal Small",
+      "particlesGuid": "3dc5682da4a044a43a4f12f252b9a58a",
+      "audio": "Tap Hit Metal Heavy",
+      "audioGuid": "0a651ec9f71764e41ba0d305510865ba",
+      "delay": 0.0,
+      "useTargetAnchor": 0,
+      "anchor": null
+    },
+    {
+      "go": "Throne",
+      "path": "Battle Arena Black Legion Baked 2/Throne",
+      "layer": 0,
+      "inMask": true,
+      "hasMesh": true,
+      "pos": [
+        98.853149,
+        1.054942,
+        6.821226
+      ],
+      "rot": [
+        0.0,
+        1.0,
+        -0.0,
+        0.0
+      ],
+      "scale": [
+        376.009552,
+        376.009552,
+        376.009552
+      ],
+      "collider": {
+        "type": "Mesh",
+        "convex": true,
+        "isTrigger": false,
+        "mesh": "Throne2"
+      },
+      "particles": "Tap Rock",
+      "particlesGuid": "06946a9ab456c474f9b4f86e00fecf9c",
+      "audio": "Tap Hit Rock",
+      "audioGuid": "30c981ef52e181a41a09adf6818a9104",
+      "delay": 0.0,
+      "useTargetAnchor": 0,
+      "anchor": null
+    },
+    {
+      "go": "Top_Ornament",
+      "path": "Battle Arena Black Legion Baked 2/Top_Ornament",
+      "layer": 0,
+      "inMask": true,
+      "hasMesh": true,
+      "pos": [
+        98.830063,
+        9.642042,
+        8.459919
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        174.862976,
+        174.863,
+        174.863
+      ],
+      "collider": {
+        "type": "Box",
+        "center": [
+          0.001,
+          0.0,
+          0.002
+        ],
+        "size": [
+          0.01,
+          0.004,
+          0.03
+        ],
+        "isTrigger": false
+      },
+      "particles": "Tap Red Glow Eye",
+      "particlesGuid": "075362c876138754a808eb48f2991d44",
+      "audio": "Tap Monolith",
+      "audioGuid": "6a843b276fc04ba489bef11abb8ac80e",
+      "delay": 0.0,
+      "useTargetAnchor": 1,
+      "anchor": {
+        "go": "Ornament Anchor",
+        "pos": [
+          98.831263,
+          9.634382,
+          8.458689
+        ],
+        "rot": [
+          -0.707107,
+          -0.0,
+          -0.0,
+          0.707107
+        ],
+        "scale": [
+          174.862976,
+          174.863,
+          174.863
+        ],
+        "path": "Battle Arena Black Legion Baked 2/Top_Ornament/Ornament Anchor"
+      }
+    }
   ]
 }

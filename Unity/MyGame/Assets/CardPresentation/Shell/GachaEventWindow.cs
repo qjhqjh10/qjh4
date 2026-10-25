@@ -441,7 +441,8 @@ namespace CardPresentation
             //        `ParentEventWindow.BgGrad*` 那一份）----
             _background = MenuDraw.Node(_contentArea, "Background", ParentEventWindow.ContentAreaR);
             var bgTex = CardArt.Gradient(ParentEventWindow.BgGradC1, ParentEventWindow.BgGradC2,
-                                         ParentEventWindow.BgGradAngle);
+                                         ParentEventWindow.BgGradAngle,
+                                         ParentEventWindow.ContentAreaR.H / ParentEventWindow.ContentAreaR.W);   // 原版 CompensateAspectRatio 的 h/w
             MenuDraw.Rect(_background, bgTex, ParentEventWindow.ContentAreaR, "Image", QContentBg, Color.white);
         }
 

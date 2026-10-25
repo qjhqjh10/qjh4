@@ -154,6 +154,34 @@ public static class CollectionScene
             if (wb != null) wb.ClickForTest();
         }
 
+        /// <summary>🆕 **2026-10-25（K3）**：点 `DeckInfoPopup` 的 `Delete`，并在弹出来的**确认窗**上点**左钮**。
+        /// <para>原版 `DeckInfoPopup__DeleteDeck.c` 逐句：`ShowPopUp(正文 = <c>MenuDeck/HUD/DeleteDeckCheck</c>,
+        /// 左钮 <c>Demo/FriendsMenu/DeleteFriendButton</c> = **真删**（<c>g__Delete|27_0</c>）,
+        /// 右钮 <c>MainMenu/General/Cancel</c> = 只关窗) </para>
+        /// <para>三个键都是地址表实读（`DAT_1842cffe8` / `DAT_184276d78` / `DAT_1842be120`）。
+        /// ⛔ 别把这一下写成「点完就当删了」—— 那就等于把本批补上的确认窗又验成不存在。</para></summary>
+        static void ClickDeleteAndConfirm(DeckInfoPopup pop, System.Action<Transform> click)
+        {
+            CheckTrue(pop != null, "（前提）`DeckInfoPopup` 拿得到 —— 拿不到 ⇒ 这一下无可点（不静默）");
+            if (pop == null) return;
+            click(pop.Opt("Delete"));
+            var conf = pop.DeleteConfirmPopup;
+            CheckTrue(conf != null && conf.gameObject.activeSelf,
+                      "★ 点 `Delete` ⇒ **先弹确认窗、还没删**（原版 `DeckInfoPopup__DeleteDeck.c` 的 `ShowPopUp`）"
+                    + " —— 改坏法：退回「点了就删」⇒ 本条红");
+            if (conf == null) return;
+            Check(conf.MessageKey, DeckInfoPopup.KeyDeleteConfirmText,
+                  "★ 确认窗正文键 = `MenuDeck/HUD/DeleteDeckCheck`（`DAT_1842cffe8` → `0x42CFFE8` 地址表实读）");
+            Check(conf.PrimaryKey, DeckInfoPopup.KeyDeleteConfirmOk,
+                  "★ 左钮键 = `Demo/FriendsMenu/DeleteFriendButton`（`DAT_184276d78`；⚠️ 原版**自己复用了删好友那颗键**）");
+            Check(conf.SecondaryKey, DeckInfoPopup.KeyDeleteConfirmCancel,
+                  "★ 右钮键 = `MainMenu/General/Cancel`（`DAT_1842be120`）");
+            // 用调用点那一份 `click` 点（= 本文件那段局部 `ClickHit`：**同时抓住这一下的日志**）
+            var node = FindChild(conf.transform, "ButtonLeft");
+            CheckTrue(node != null, "（前提）确认窗左钮节点 `ButtonLeft` 拿得到（拿不到 ⇒ 点不动、等于没删）");
+            if (node != null) click(node);
+        }
+
         /// <summary>🆕 **2026-10-09（`A1125`）**：一颗**关窗钮**的「命中区 + 换图层」四连断。
         /// <para>四个闸落在**四个不同对象**上（前提 / 命中区尺寸 / 命中区位置 / 换图层绑定）⇒ 改坏任一处只红其中一条：
         /// ① 按钮 / 命中 / 可见面三件都取得到（取不到就不许往下断 = 不静默变绿）；
@@ -5571,6 +5599,122 @@ public static class CollectionScene
                 if (win.CardsScroll != null) win.CardsScroll.SetOffset(savedOff);   // 还原滚动量
             }
 
+            // ============================================================ 🆕 2026-10-25（`C` 域 · 迁移第二步）
+            //   卡牌拥有数的**正本 = `Inventories.Cards`**，落盘 = `InventoryStore`（`WarpforgeInventory/cards.json`）。
+            //   🧨 改坏法：把 `AddOwned` 里那句 `InventoryStore.Save` 删掉 ⇒ 下面「重读之后还在」当场红。
+            //   ✅ 灭自证：重读前**先清背包** ⇒ 想读到 +1 之后的值，唯一的路就是盘上那份。
+            Section("卡牌拥有数落盘（`WarpforgeInventory/cards.json`）：写 → 清背包 → 重读 → 还在");
+            {
+                string prevDir2 = InventoryStore.OverrideDir;
+                InventoryStore.OverrideDir = "d:/4/_tmp_view/cards_inv_selftest";
+                InventoryStore.Delete(CardProgress.InventoryName);
+                CardDef probe = null;
+                foreach (var c in CollectionWindow.CardsState.Pool) { if (c != null && !string.IsNullOrEmpty(c.Id)) { probe = c; break; } }
+                CheckTrue(probe != null, "（前提）卡池里至少有一张卡可以当探针");
+                if (probe != null)
+                {
+                    int before2 = CardProgress.Owned(probe.Id, probe.Rarity);
+                    CardProgress.AddOwned(probe.Id, probe.Rarity, 1);
+                    Check(CardProgress.Owned(probe.Id, probe.Rarity), before2 + 1, "（前提）`AddOwned(+1)` ⇒ 拥有数 +1");
+                    CheckTrue(InventoryStore.LastStorePath != null
+                              && System.IO.File.Exists(InventoryStore.StorePath(CardProgress.InventoryName)),
+                              "★ `AddOwned` **真的写盘**了（`InventoryStore.LastStorePath` 非 null + 文件在）");
+                    Inventories.Cards.ClearForTest();          // 灭自证：先清内存
+                    InventoryStore.Load(CardProgress.InventoryName, Inventories.Cards);
+                    Inventories.SeedCardsAllUnlocked(CollectionWindow.CardsState.Pool,
+                        c => CardProgress.Owned(c.Id, c.Rarity));
+                    var back = Inventories.Cards.Get(probe);
+                    CheckTrue(back != null && back.Amount == before2 + 1,
+                              $"★ **重读之后拥有数还在**（{before2 + 1}）—— = 重启不清零");
+                    // 收尾：回滚 + 删档 + 关闸
+                    CardProgress.AddOwned(probe.Id, probe.Rarity, -1);
+                    InventoryStore.Delete(CardProgress.InventoryName);
+                    InventoryStore.OverrideDir = prevDir2;
+                    Inventories.Cards.ClearForTest();
+                    Inventories.SeedCardsAllUnlocked(CollectionWindow.CardsState.Pool,
+                        c => CardProgress.Owned(c.Id, c.Rarity));
+                    Check(CardProgress.Owned(probe.Id, probe.Rarity), before2, "（收尾：拥有数推回原值）");
+                }
+            }
+
+            // ============================================================ 🆕 2026-10-25（`C` 域 · 迁移第一步）
+            //   收藏的拥有数现在**两套并存**：旧的 `CardProgress.Owned`（`Shell/CardDetailPopup.cs`，自带存档）
+            //   与新的背包 `Inventories.Cards`（框架层）。**这一步先让两套读口逐值相等**，
+            //   全绿之后才删旧写口（见 `报告/C_CardProgress归并_第1轮.md`）。
+            //   🧨 改坏法：把播种口径从 `CardProgress.Owned` 改回默认的 `CopyLimit` ⇒ 下面第一条当场红。
+            Section("拥有数：`CardProgress.Owned` 与背包 `Inventories.Cards` **逐值相等**（迁移第一步）");
+            {
+                var poolAll = CollectionWindow.CardsState.Pool;
+                int nCard = 0, nBad = 0; string firstBad = null;
+                foreach (var d in poolAll)
+                {
+                    if (d == null || string.IsNullOrEmpty(d.Id)) continue;
+                    var info = Inventories.Cards.Get(d);
+                    if (info == null) continue;      // 播种在 `CardsState` 的 getter 里，这里不该缺
+                    nCard++;
+                    int oldV = CardProgress.Owned(d.Id, d.Rarity);
+                    if (info.Amount != oldV)
+                    {
+                        nBad++;
+                        if (firstBad == null) firstBad = d.Id + "：背包 " + info.Amount + " ≠ CardProgress " + oldV;
+                    }
+                }
+                CheckTrue(nCard > 0, "（前提）背包里至少播种了一张卡（播种点 = `CollectionWindow.CardsState` 的 getter）");
+                Check(nBad, 0, $"★ 两套拥有数**逐值相等**（核了 {nCard} 张）"
+                             + (nBad == 0 ? "" : "｜第一位不一致：" + firstBad));
+            }
+
+            // ============================================================ 🆕 2026-10-25（`C` 域 · 调度台裁定）
+            //   卡体缩放 = **原版公式**（`CollectionCard__OnRectTransformDimensionsChange`：
+            //   `cardUI.localScale = sizeDelta.y × initialCardScale(150) / initialHeight(512)`）
+            //   ⇒ 384 × 150 / 512 ÷ 108 = **1.0417**；prefab 实测 `CardUI/2DCard` = 313.91×**499.70**（350×512 原型）
+            //   ⇒ 高 **97.6%**、宽 **89.7%**（与公式逐位吻合）。
+            //   ⚠️ **重叠是原版长相**：卡体 `y 6.2→505.8`、张数条 `y 461→511`（同一 512 帧）⇒ 叠 44.8px（折 384 = 33.6px）。
+            //   🧨 改坏法：退回 `(格高−张数条高)/…` ⇒ ① 变 90% ⇒ 红；把缩放的分子换成 `(384−37.5)` ⇒ 同上。
+            Section("Cards 页：卡体缩放 = 原版公式 + 张数条与 prefab 逐值（`W11` 裁定后）");
+            {
+                CardView cv0 = null;
+                for (int ci = 0; ci < win.CardsCells.Count && cv0 == null; ci++)
+                    if (win.CardsCells[ci] != null) cv0 = win.CardsCells[ci].GetComponent<CardView>();
+                CheckTrue(cv0 != null, "（前提）卡池里至少建出一张 `CardView`");
+                if (cv0 != null)
+                {
+                    float wantScale = CollectionWindow.CardsCellH * 150f / 512f / 108f;
+                    CheckNear(cv0.BaseScale, wantScale, 1e-3f,
+                              $"★ 卡体缩放 = **原版公式** `384×150/512 ÷ 108` = **{wantScale:F4}**"
+                            + "（⛔ 不是 `(格高−张数条高)/…` 那一版 = 0.9609）");
+                    float cardH = CardView.Height * cv0.BaseScale * 108f;
+                    CheckNear(cardH / CollectionWindow.CardsCellH, 499.70f / 512f, 5e-3f,
+                              $"★ 卡体高 ÷ 格高 = **97.6%**（prefab `2DCard` 499.70 / 512；实测 {cardH:F1}px）"
+                            + " —— **断言的是「等于公式值」，⛔ 不是「不重叠」**（重叠 33.6px 是原版长相）");
+                }
+                // 张数条：prefab `Content/Counter` 的 `Image.m_Color = (1,1,1,1)`、画在卡**之上**
+                {
+                    var bandNode = FindChild(win.PageRoot(1), "Counter 0");
+                    var bandQuad = bandNode != null ? bandNode.GetComponentInChildren<ImageQuad>(true) : null;
+                    CheckTrue(bandQuad != null, "（前提）`Counter 0` 那颗 quad 找得到");
+                    if (bandQuad != null)
+                    {
+                        var t = bandQuad.Tint;
+                        CheckTrue(Mathf.Abs(t.r - 1f) < 0.01f && Mathf.Abs(t.g - 1f) < 0.01f
+                                  && Mathf.Abs(t.b - 1f) < 0.01f && Mathf.Abs(t.a - 1f) < 0.01f,
+                                  $"★ 张数条 tint = **白 (1,1,1,1)**（prefab `Image.m_Color` 逐值；实测 ({t.r},{t.g},{t.b},{t.a})）");
+                        CheckTrue(bandQuad.RenderQueue >= CollectionWindow.QPageRow,
+                                  $"★ 张数条渲染队列 {bandQuad.RenderQueue} ≥ `QPageRow`({CollectionWindow.QPageRow}) ⇒ **画在卡之上**"
+                                + "｜🔴 **判据（2026-10-25 补查）**：原版卡体**不是** SpriteRenderer —— `Card2DController` 的字段全是 "
+                                + "**`UnityEngine.UI.Image`**（`frame` / `frameHighlightAndShadow` / `cardBackImage` / `cardBackShadow`）"
+                                + "⇒ 与 `Counter` 同一张 uGUI canvas ⇒ 先后由**兄弟序 + 材质队列**定；prefab 兄弟序 = "
+                                + "`Counter`(0) → `CardUI`(1) ⇒ **原版是卡体盖在条上**。"
+                                + "✅ **2026-10-25 已验证：我们这条 = 视觉等价，不是偏离** —— "
+                                + "采样卡框贴图（`Resources/Art/cards/frame_*.png`，1024²）在**底部 10%**（512 帧的 y 461..511）的 alpha："
+                                + "**不透明率 26~35%（平均 α 0.27~0.35）= 卡框下边框本身是实心的**（对照：卡面中部只有 5~9%）"
+                                + "⇒ **若原版真是「卡体盖在条上」，`xN` 会被那条实心边框盖掉、根本看不见**；"
+                                + "而实拍里 `xN` 是看得见的 ⇒ **原版的有效先后必然是「条在卡之上」**（真实机制可能是卡体那些 Image 的**材质队列更高**，"
+                                + "不是兄弟序）⇒ **我们这条队列与原版的可见结果一致**");
+                    }
+                }
+            }
+
             // 万能卡计数条的 `Army Icon`（原版 `WIldcard Display` 的第三个孩子，A3 §5·3）
             {
                 var ai = FindChild(win.PageRoot(1), "Army Icon");
@@ -5578,9 +5722,72 @@ public static class CollectionScene
                 if (ai != null)
                 {
                     CheckAt(ai, 1470f, 1550f, 70.94f, 155.94f, "`Army Icon` 落在 **1470,70.94 → 1550,155.94**（80×85）");
-                    CheckArt(ai, "40k_DeckSelection_icon_FactionBlackLegion",
-                             "…喂的是**预置出厂那一张**阵营徽记（原版 `armyIcon` 运行期由 `WildcardDisplay.Initialize(army)` 换）"
-                             + " —— **判别式**：改喂 `DeckRuntime.FactionIcon(null)`（= `40k_collection_bt_decks`）⇒ 本条红");
+                    CheckArt(ai, "40k_DeckSelection_icon_FactionUM",
+                             "…喂的是 **Ultramarines** 那一面旗 —— 判据 = `CardCollectionTab__Setup.c:44-48` 在"
+                             + " `Setup()` 里就 `WildcardDisplay.Initialize(wildcards, 10)`（`10` = `CardArmy.Ultramarines`；"
+                             + "`WildcardDisplay__Initialize.c:9-10` 只见 `currentArmy` 0 ≠ 10 ⇒ 一定跑下去换图）"
+                             + " ⇒ **不是 prefab 那个 `…FactionBlackLegion` 死值**（2026-10-25 K3 订正）");
+                }
+            }
+
+            // ============================================================ 🆕 2026-10-25（`C` 收藏域 · K3 P2-⑦ 落地后的断言）
+            //   原版：`CardCollectionDisplay.OnListDrag`（列表滚动）→ `CheckFocusedArmy()` →
+            //     `RectExtensions.OverlapsAny(Reference Card Pointer 矩形, 在屏的格们, out 命中格)` →
+            //     `WildcardDisplay.Initialize(命中格的阵营)`；命中序 = **按枚举序第一个交叉**（两份反编译一致）。
+            //   参考矩形（prefab 实读，`menu_dump.py … "CardsTab" --depth 8`）= **402.3,236.4 → 596.1,281.4**。
+            //   ⚠️ 本段**自己按几何算期望值**（格矩形 + 滚动量 + 参考矩形常量），**不调** `CheckFocusedArmy`
+            //     —— 那是自证；这里算出来再和窗口状态比。
+            //   🧨 改坏法 ① 把徽记换回「指针悬停触发」⇒ 本段两处读数都会停在初值 Ultramarines（滚到底那格若也是
+            //      Ultramarines 才可能假绿 ⇒ 第二处特意滚到**末尾**，末格阵营与首格不同）；② 命中序改成「取最后一格」⇒ 边界那一格对不上。
+            Section("Cards 页：万能卡徽记 = 列表**滚动**后按固定参考矩形命中（原版 CheckFocusedArmy）");
+            {
+                int HitIdx(CollectionWindow w)
+                {
+                    if (w == null || w.CardsScroll == null) return -1;
+                    var lc = CollectionWindow.CardsState.VisibleCards();
+                    for (int i = 0; i < lc.Count; i++)
+                    {
+                        var r = w.CardsScroll.Shift(CollectionWindow.CardsCellRect(i));
+                        // 原版 `RectExtensions.Overlaps` 是**严格不等**的 AABB（贴边不算相交）
+                        if (!(r.x1 < CollectionWindow.WcRefR) || !(CollectionWindow.WcRefL < r.x2)) continue;
+                        if (!(r.y1 < CollectionWindow.WcRefB) || !(CollectionWindow.WcRefT < r.y2)) continue;
+                        return i;
+                    }
+                    return -1;
+                }
+
+                float csOff0 = win.CardsScroll != null ? win.CardsScroll.Offset : -1f;
+                int h0 = HitIdx(win);
+                CheckTrue(h0 >= 0, "（前提）滚动到顶时，参考矩形至少压住一格（402.3,236.4→596.1,281.4 落在第一行）");
+                if (h0 >= 0)
+                {
+                    var lc0 = CollectionWindow.CardsState.VisibleCards();
+                    Check(win.WildcardArmyForTest, ArmyIcons.Id(lc0[h0].Faction),
+                          $"★ 一开页徽记 = **参考矩形命中的那一格**的阵营（命中第 {h0} 格「{lc0[h0].Name}」⇒ "
+                        + $"army={ArmyIcons.Id(lc0[h0].Faction)}）；判据 = `CardCollectionDisplay__OnListDrag.c` → "
+                        + "`CheckFocusedArmy`（**不是指针悬停**）");
+                    CheckTrue(win.WildcardArmyForTest != 0,
+                              "★ 徽记**不是 0/未设**（0 = 从来没算过 ⇒ 上面那条会比 `ArmyIcons.Id(null)` = 0 而假绿）");
+                }
+
+                // 滚到底再算一次：末行的阵营与首行不同 ⇒ 这条能抓住「徽记不跟滚动」
+                if (win.CardsScroll != null
+                    && CollectionWindow.CardsState.VisibleCards().Count > CollectionWindow.CardsCols)
+                {
+                    win.CardsScroll.SetOffset(win.CardsScroll.MaxOffset);
+                    int h1 = HitIdx(win);
+                    CheckTrue(h1 >= 0, "（前提）滚到底之后参考矩形仍压住一格");
+                    if (h1 >= 0)
+                    {
+                        var lc1 = CollectionWindow.CardsState.VisibleCards();
+                        Check(win.WildcardArmyForTest, ArmyIcons.Id(lc1[h1].Faction),
+                              $"★ 滚到底后徽记 = **滚完之后**参考矩形命中的那一格（命中第 {h1} 格「{lc1[h1].Name}」）"
+                            + "｜🧨 徽记若停在悬停/初值 ⇒ 红");
+                        var lc0 = CollectionWindow.CardsState.VisibleCards();
+                        CheckTrue(h0 < 0 || lc0[h0].Faction != lc1[h1].Faction,
+                                  "★ 这一滚的两格阵营**确实不同**（否则上一条分不清「跟滚动」与「一直没变」）");
+                    }
+                    win.CardsScroll.SetOffset(csOff0);       // 还原
                 }
             }
 
@@ -7751,6 +7958,31 @@ public static class CollectionScene
                               $"卡背格重画了（{win.CosmoCells.Count} 格 ≤ {wantFac} 张）");
                     clickCell("$fac:" + cf[0]);        // 再点一次 = 取消（`FilterPanelModel.Click` 的语义）
                     Check(CollectionWindow.FilteredCosmoNames().Length, allN, "再点一次 ⇒ 取消阵营筛选，回到全部");
+
+                // 🆕 **2026-10-25（多选筛选 · 点击路径）**：连点两个阵营 ⇒ **两个都选中、结果 = 并集**
+                //   判据 = `判据/共用件_过滤模型_B升A.md` 第 10/11 条（`OnFilterChange` 收集 `IsOn` 成集合、`Filter` 取并集）。
+                //   🧨 改坏法：把 `FilterPanelModel.Click` 的阵营支改回「单击覆盖」⇒ 集合只剩 1 ⇒ 第一条红。
+                if (cf.Count >= 2)
+                {
+                    var wantSet = new HashSet<string>();
+                    foreach (var nm in CardbackTable.NamesFor(cf[0], CardArt.CosmeticNames())) wantSet.Add(nm);
+                    foreach (var nm in CardbackTable.NamesFor(cf[1], CardArt.CosmeticNames())) wantSet.Add(nm);
+                    clickCell("$fac:" + cf[0]);
+                    clickCell("$fac:" + cf[1]);
+                    Check(CollectionWindow.CosmoState.Filter.Factions != null
+                              ? CollectionWindow.CosmoState.Filter.Factions.Count : -1, 2,
+                          "★ 连点两个阵营 ⇒ **集合里两个都在**（同类多选）");
+                    Check(CollectionWindow.FilteredCosmoNames().Length, wantSet.Count,
+                          $"★ 多选的结果 = **并集**（{cf[0]} ∪ {cf[1]} = {wantSet.Count} 张）");
+                    CheckTrue(wantSet.Count > CardbackTable.NamesFor(cf[0], CardArt.CosmeticNames()).Length,
+                              "…而且比只选第一个**多**（挡「并集写成了交集/只剩后一个」）");
+                    clickCell("$fac:" + cf[0]);
+                    clickCell("$fac:" + cf[1]);       // 各自再点一次 ⇒ 集合清空
+                    CheckTrue(CollectionWindow.CosmoState.Filter.Factions == null
+                              || CollectionWindow.CosmoState.Filter.Factions.Count == 0,
+                              "★ 再各点一次 ⇒ **集合清空**");
+                    Check(CollectionWindow.FilteredCosmoNames().Length, allN, "…结果回到全部");
+                }
                 }
                 // `Owned only`：单机全解锁 ⇒ **切得动但不改变结果**（如实标的差异，不是静默失效）
                 bool ownedBefore = CollectionWindow.CosmoState.Filter.Owned;
@@ -11410,7 +11642,7 @@ public static class CollectionScene
                     var pDel = DeckInfoPopup.Create(win.Manager, di);
                     win.Manager.OpenWindow(pDel);
                     int beforeDel = CollectionData.DeckCount();
-                    ClickHit(pDel.Opt("Delete"));
+                    ClickDeleteAndConfirm(pDel, ClickHit);      // 🆕 K3：先弹确认窗、再点左钮（原版就是两拍）
                     CheckTrue(HitCount("[DeckInfo] 已删除该卡组") == 1 && HitCount("[DeckInfo] 删卡组失败：") == 0,
                               "（控制组）好路径点 `Delete` ⇒ 「已删除该卡组」**且没有**「删卡组失败」"
                             + "（改坏法：把那一支写成恒报失败 ⇒ 这条红）");
@@ -11433,7 +11665,7 @@ public static class CollectionScene
                 var d1 = DeckInfoPopup.Create(win.Manager, 0);     // ⚠️ 先用**有效下标**开窗（建窗/接线要读到一套真的）
                 win.Manager.OpenWindow(d1);
                 if (d1 != null) d1.DeckIndex = n0 + 7;              // 开完再改成越界 —— 模拟「下标已失效」那一态
-                ClickHit(d1 != null ? d1.Opt("Delete") : null);
+                ClickDeleteAndConfirm(d1, ClickHit);                          // 🆕 K3：确认窗 → 左钮（越界 ⇒ 失败支）
                 string del1 = FirstHit("[DeckInfo] 删卡组失败：");
                 CheckTrue(del1 != null, "★ A601：删失败时**出声**（`[DeckInfo] 删卡组失败：…`）");
                 CheckTrue(del1 != null && del1.Contains("没删") && !del1.Contains("没写进存档"),
@@ -11444,7 +11676,7 @@ public static class CollectionScene
                 // ②-b-2 删除 · 「**删了，但没写进存档**」那一支
                 var d2 = DeckInfoPopup.Create(win.Manager, 0);
                 win.Manager.OpenWindow(d2);
-                ClickHit(d2 != null ? d2.Opt("Delete") : null);
+                ClickDeleteAndConfirm(d2, ClickHit);                          // 🆕 K3：确认窗 → 左钮（没落盘支）
                 string del2 = FirstHit("[DeckInfo] 删卡组失败：");
                 CheckTrue(del2 != null && del2.Contains("没写进存档") && !del2.Contains("越界"),
                           "★ A601（删除 · 没落盘支）：文案点明是「**没写进存档**」、且**不许**说「越界」"
@@ -11586,7 +11818,7 @@ public static class CollectionScene
                 if (pDel != null) pDel.DeckIndex = CollectionData.DeckCount() + 7;   // 开完再改 = 模拟「下标已失效」
                 int c2 = CollectionData.DeckCount();
                 int m2 = lvMsg.Count;
-                ClickHit(pDel != null ? pDel.Opt("Delete") : null);
+                ClickDeleteAndConfirm(pDel, ClickHit);                        // 🆕 K3：确认窗 → 左钮（量「删失败」那一句的级别）
                 CheckTrue(LvCount(m2, "[DeckInfo] 删卡组失败：", LogType.Warning) == 1,
                           "★ A610：删失败那一句**是警告级**（`Debug.LogWarning`）—— "
                         + "改坏法：退回 `Debug.Log`（A548 当时的写法）⇒ 这条红");

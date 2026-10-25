@@ -428,6 +428,44 @@ namespace CardPresentation
             get { var a = new string[InPlayIconKeys.Count]; InPlayIconKeys.CopyTo(a); System.Array.Sort(a); return a; }
         }
 
+        // ── 🆕 2026-10-25（第 4 轮 · G 语义复核判定的真缺口）：**较松的那一族** ──────────────────
+        //  判据 = `CardTraitCollection__GetTraitListForCardIcons.c`（100 行）—— 它**只要求**
+        //  `_hasIcon(0x21) + _traitIcon != null(0x18)`，**不要求** `_isInPlayIcon(0x22)`；
+        //  与 `GetTraitInPlayListForIcons`（= 上面那 47 条）**差 12 个键**：
+        //  `armour` · `companion` · `ephemeral` · `fast` · `flank` · `pack` · `rally` · `talent` ·
+        //  `teleport` · `tide` · `uprising` · `vanguard`（有图标、但原版**不算场上图标**）。
+        //  ⚠️ 两个筛选器**用途不同、都要留着**：场上那 7 枚徽标走 `PlaysInPlayIcon`（47 条），
+        //     卡面/收藏/详情窗那种「这卡有哪些图标」走 `PlaysCardIcon`（59 条）。
+        //  ⚠️ 表由 `数据/游戏数据/trait_collection.json`（77 条，`hasIcon && traitIcon`）**现算**抄来，
+        //     数据变了重跑同一段脚本；⛔ 别凭印象加减。
+        static readonly HashSet<string> CardIconKeys = new HashSet<string>
+        {
+            "agenda", "armour", "artifice", "backlash", "blast", "blind", "bloodthirst", "camouflage",
+            "cantattack", "codex", "companion", "concussive", "cruelty", "duty", "ecstasy", "ephemeral",
+            "fast", "ferocity", "flank", "frenzied", "invulnerable", "longrange", "markofchaos",
+            "markofkhorne", "markofnurgle", "markofslaanesh", "markoftzeentch", "mob", "oath", "pack",
+            "pindown", "pray", "rage", "rally", "regeneration", "regiment", "relentless", "remnant",
+            "resolution", "sentry", "shield", "shuriken", "slay", "sniper", "stealth", "stimulation", "stomp",
+            "strike", "stun", "swarm", "synapse", "talent", "teleport", "tide", "unstable", "uprising",
+            "vanguard", "vulnerable", "waystone",
+        };
+
+        /// <summary>那 59 个键（自检读口，已排序）。</summary>
+        public static string[] CardIconKeysForTest
+        {
+            get { var a = new string[CardIconKeys.Count]; CardIconKeys.CopyTo(a); System.Array.Sort(a); return a; }
+        }
+
+        /// <summary>这个**图名**能不能进「卡面图标」那一族 —— 原版 `GetTraitListForCardIcons` 的等价物：
+        /// **只要求 `hasIcon && traitIcon != null`**（59 条），**不要求 `isInPlayIcon`**。
+        /// <para>⚠️ 与 <see cref="PlaysInPlayIcon"/> 的区别就是那 12 个键（见 `CardIconKeys` 的注释）——
+        /// 场上那 7 枚徽标**仍走严的那个**，⛔ 别把这里换过去。</para></summary>
+        public static bool PlaysCardIcon(string sprite)
+        {
+            if (string.IsNullOrEmpty(sprite)) return false;
+            return CardIconKeys.Contains(Key(sprite));
+        }
+
         // ── 「去重告警」与「本轮观测」是**两个集合** ──────────────────────────────────
         //  ⚠️ **2026-10-25 更正（执行代理 `S` · 任务线 `T07` · 铁律 5 留痕）**：原来**只有一个**
         //  `HashSet`（当时叫 `_notInDataWarned`），它同时是 ①「每个图名只告警一次」的**去重集**
@@ -532,7 +570,7 @@ namespace CardPresentation
         public static List<Badge> For(IEnumerable<KeyValuePair<string, int>> keywords, string orderHint = null,
                                       IReadOnlyCollection<string> numericKeys = null,
                                       System.Func<string, bool> isActive = null,
-                                      bool isPlayer = true)
+                                      bool isPlayer = true, bool cardIcons = false)
         {
             var list = new List<Badge>();
             if (keywords == null) return list;
@@ -578,7 +616,10 @@ namespace CardPresentation
                 //    在这里天然归一到同一条 trait 上，⛔ 不用再维护第二张表。
                 //    ⚠️ 放在 `SpriteOf` 之后：这位仍然算「认得出图」⇒ **不会**被当成
                 //    「认不出图标」计进那条诊断（两者是不同的缺口）。
-                if (!PlaysInPlayIcon(spr)) continue;
+                if (!(cardIcons ? PlaysCardIcon(spr) : PlaysInPlayIcon(spr))) continue;
+                // ↑ 🔴 两个筛选器**用途不同**（见 `CardIconKeys` 的注释）：`cardIcons:false`（缺省）= 场上那 7 枚徽标，
+                //   走严的 47 条（要求 `isInPlayIcon`）；`cardIcons:true` = 「这张卡有哪些图标」那一族，
+                //   走松的 59 条（只要求 `hasIcon + traitIcon`）。⛔ 别把缺省值改成松的。
                 // 角标（2026-09-29 改口径，见 `CarriesValue`）；
                 // 激活态（原版 `BoardTraitIcon.Initialize` 的第 4 个参数）由调用方给 ——
                 // 原版只有 `Duty` / `Oath` 两个子类覆写了 `IsActive`，其余恒 true。

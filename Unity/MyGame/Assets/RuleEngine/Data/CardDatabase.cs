@@ -56,6 +56,12 @@ namespace RuleEngine
             /// 🔴 **缺省 `-1` = 未知**（旧表 &lt; v19 整列没有）—— ⛔ 不是 `Normal(0)`；
             /// 旧表由上面那条 `version &lt; 19` 守卫出声。语义 → `CardDef.SpellType` 的 doc。</summary>
             public int spellType = -1;
+            /// <summary>🆕 2026-10-25（P3 · 账里 3 条 C）：原版 `RawCardScript.specialAttackScoringCriteria`
+            /// （**bool**，`+0x2F8`，`dump.cs:23358`）。语义 → `CardDef.SpecialAttackScoring` 的 doc。
+            /// ⚠️ 它是 **bool** ⇒ **没有「未知」档**：缺键即 `0`（不带）。
+            /// 与 `spellType` 的 `-1` 口径**不同**，⛔ 别照抄那一条。
+            /// 真值现读 1,351 张**全 0**（`cards_raw.json` 的 `full_raw`；与 `AUD_T06` §二 同结论）。</summary>
+            public int specialAttackScoring;
             /// <summary>中文名（可选 —— 没翻译的卡没有这两个字段）。来自 `数据/卡牌翻译/zh_cards.json`</summary>
             public string nameZh;
             public string descZh;
@@ -212,15 +218,27 @@ namespace RuleEngine
             /// → `CardView.UseOverDraw` → `ArtFrontVisible` 的最内层门控。</summary>
             public int useOverDraw;
 
-            /// <summary>「不能被随机生成」（0/1）。⚠️ **读取点没找到**（`allcards_未挖字段盘点.md` §四）
-            /// ⇒ 它是不是 `CreatePool` 该用的闸门**未证** ⇒ 本列只落值、⛔ 不接。</summary>
-            [System.Obsolete("死列（新账-95）：cantBeRandomlyCreated 没有运行期消费者 —— 原版读取点未找到（判据不足），"
-                           + "⛔ 别自己编语义（比如拿它当 CreatePool 的闸）。")]
+            /// <summary>「不能被随机生成」（0/1）。
+            /// 🔴 **2026-10-25 就地订正（铁律 5 · 完全复刻 · 执行代理 A）**：原写「读取点没找到（判据不足）」——
+            /// **读点找到了**：原版**唯一**的运行期读取点 = `AbilityLogic.GetTargets`
+            /// （`AbilityLogic.cs:723-…` 的 `targetsAffected == choiceResolution` 分支，
+            /// `:132` 那句 `if (!rawCardScript.cantBeRandomlyCreated)`），与 `IsHidden()` 一起过滤
+            /// 「回落全卡池」的候选。`grep -rln cantBeRandomlyCreated` 全量反编译只命中 `AbilityLogic` +
+            /// `RawCardScript`（定义），所以读点只有这一处。
+            /// ⚠️ **仍然不接线**，理由换了：我们**还没有**「`filterSpecificCards` 为空 ⇒ 回落全卡池」
+            ///    那一段（`CardDef.HasSpecificCardChoice` 要求 `filterSpecificCards` 非空）⇒
+            ///    没有消费方可以挂它。现读卡池 1128 张里 **167 张 =1** ⇒ 那一档一旦建起来，
+            ///    这个闸就必须一起建（否则随机池会混进「不该被随机生成」的卡）。</summary>
             public int cantBeRandomlyCreated;
 
             /// <summary>`CardExpansionType`（10 LevaithanDrop1 … 80 DarkAngelsDrop1）；`0` = 基础。
-            /// 用途（商店 / 卡包 / 收藏筛选）另接。</summary>
-            [System.Obsolete("死列（新账-95）：expansionPack 没有运行期消费者（商店/卡包/收藏筛选还没接这一列）。")]
+            /// 🔴 **2026-10-25（完全复刻 · 执行代理 A）：这一列【不是死列】—— `[Obsolete]` 已摘掉。**
+            /// 原版读点 = `CardNameFilter.CheckInputTextSearch`（`CardNameFilter.cs:132-142`）：
+            /// 收藏页「名字」搜索框会拿 `((Enum)expansionPack).ToString().ToLower()`（**枚举成员名**）
+            /// 跟输入做包含匹配，`Default(0)` 不参与。
+            /// ⇒ 消费点 = <see cref="RuleEngine.CardDef.ExpansionSearchName"/>（卡池搜索侧读它）。
+            /// ⚠️ 原来这里写「没有运行期消费者（商店/卡包/收藏筛选还没接这一列）」—— 那句的**前提**
+            ///    （找不到读点）已被推翻；商店/卡包那两处**仍然**没接（那是另一笔账）。</summary>
             public int expansionPack;
 
             /// <summary>卡名的 **I2 键后缀**（`Card_Name/<值>`）⇒ 这 70 张的**显示名 ≠ `cardName`**。
@@ -1390,6 +1408,16 @@ namespace RuleEngine
                     //   见上面 `useOverDrawKnown` 那一段。
                     //   消费点 = `CardPresentation/Core/CardView.cs` 的 `UseOverDraw` → `ArtFrontVisible`。
                     useOverDraw: useOverDrawKnown ? c.useOverDraw : -1,
+                    // 🆕 2026-10-25（完全复刻 · 执行代理 A · 收藏域 `C` 请求 ②）：资料片档位 ——
+                    //   原版 `PlayerItem.expansionPack`。消费点 = `CardDef.ExpansionSearchName`
+                    //   （收藏页「名字」搜索会匹配它的枚举成员名，判据 `CardNameFilter.cs:132-142`）。
+                    //   ⚠️ 缺列/缺值一律按 `-1`（未知），⛔ 别当成 `Default(0)` —— 见 `CardDef.Expansion` 的 doc。
+                    expansion: c.expansionPack,
+                    // 🆕 2026-10-25（账 2b）：原版 `RawCardScript.cantBeRandomlyCreated`（0/1）。
+                    //   消费点 = `EffectResolver.ChooseCardCandidates` 的「回落全卡池」那一段
+                    //   （判据 `AbilityLogic.GetTargets` 的 `choiceResolution` 分支）。
+                    //   ⚠️ 缺值按 `false`（= 可以被随机生成）—— 与原版 bool 的默认值同义。
+                    cantBeRandomlyCreated: c.cantBeRandomlyCreated != 0,
                     initiative: c.initiative,
                     armour: c.armour,
                     // 🆕 v10（2026-10-19 · `A1959`/`A1960`）：原版 `choicesDefinition` 三列 ——
@@ -1435,6 +1463,10 @@ namespace RuleEngine
                     //   缺列（< v19）时 `CardDto.spellType` 的字段初值就是 `-1`（未知），
                     //   ⛔ 不要在这里补 0（0 是合法的 `Normal`）。
                     spellType: c.spellType,
+                    // 🆕 2026-10-25（P3 · 账 3 条 C）：原版 `specialAttackScoringCriteria`（bool）——
+                    //   原样透传（缺键 = 0 = 不带；bool 没有未知档）。消费点 = `SimpleAI.KillerOverride`
+                    //   与 `SimpleAI.HasSpecialAttackScoring`。
+                    specialAttackScoring: c.specialAttackScoring,
                     // 🔴🆕 2026-10-23（引擎线 `新账-95` #2）：原版 `targeted` 原样透传（`-1` = 未知）。
                     //   消费点 = `EffectText.AssignCardTargetFallback`（`cardtarget` 那一条 role 的闸）。
                     targeted: c.targeted,

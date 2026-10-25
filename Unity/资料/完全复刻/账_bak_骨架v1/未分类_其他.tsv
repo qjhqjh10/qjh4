@@ -1,0 +1,1207 @@
+域	原版类	方法	判据出处	判据要点	状态	我们的落点	差异	等级	轮次	备注
+未分类/其他	ActionScheduler	Release(ScheduledAction action)	ActionScheduler.cs:214		E					
+未分类/其他	ActionScheduler	Schedule(DateTime dateTime, Action action, string actionId)	ActionScheduler.cs:76		E					
+未分类/其他	ActionScheduler	Schedule(long dateTime, Action action, string actionId)	ActionScheduler.cs:92		E					
+未分类/其他	ActionScheduler	ScheduleRelative(TimeSpan relativeTime, Action action, string actionId)	ActionScheduler.cs:61		E					
+未分类/其他	ActionScheduler	Update()	ActionScheduler.cs:46		E					
+未分类/其他	AddSabotageCard	OnAddCard(AddSabotageCardSignal obj)	AddSabotageCard.cs:21		E					
+未分类/其他	AddSabotageCard	OnInitialize()	AddSabotageCard.cs:15		E					
+未分类/其他	AddSabotageCard	OnReset()	AddSabotageCard.cs:9		E					
+未分类/其他	AddressableAlternateArtCardLibrary	AssetCompletedLoading(AsyncOperationHandle obj, string assetKey)	AddressableAlternateArtCardLibrary.cs:48		E					
+未分类/其他	AddressableAlternateArtCardLibrary	GetLocalHandle(IResourceLocation element)	AddressableAlternateArtCardLibrary.cs:32		E					
+未分类/其他	AddressableCardLibrary	AssetCompletedLoading(AsyncOperationHandle obj, string assetKey)	AddressableCardLibrary.cs:47		E					
+未分类/其他	AddressableCardLibrary	GetLocalHandle(IResourceLocation element)	AddressableCardLibrary.cs:31		E					
+未分类/其他	AddressableCosmeticsLibrary	AssetCompletedLoading(AsyncOperationHandle obj, string assetKey)	AddressableCosmeticsLibrary.cs:47		E					
+未分类/其他	AddressableCosmeticsLibrary	GetLocalHandle(IResourceLocation element)	AddressableCosmeticsLibrary.cs:31		E					
+未分类/其他	AddressableVersioningLibrary	AssetCompletedLoading(AsyncOperationHandle obj, string assetKey)	AddressableVersioningLibrary.cs:47		E					
+未分类/其他	AddressableVersioningLibrary	GetLocalHandle(IResourceLocation element)	AddressableVersioningLibrary.cs:31		E					
+未分类/其他	AddressablesConfig	GetBadge()	AddressablesConfig.cs:217		E					
+未分类/其他	AddressablesResetController	Clean(string scene)	AddressablesResetController.cs:114		E					
+未分类/其他	AddressablesResetController	Start()	AddressablesResetController.cs:97		E					
+未分类/其他	AlternateArtAssetProvider	GetAssets()	AlternateArtAssetProvider.cs:6		E					
+未分类/其他	AlternateArtCard	GetIdForClonedCard()	AlternateArtCard.cs:80		E					
+未分类/其他	AlternateArtStyleIconsSO	GetAlternateArtStyleOnly()	AlternateArtStyleIconsSO.cs:93		E					
+未分类/其他	AlternateArtStyleIconsSO	GetStyleIcon(AlternateArtSyle style)	AlternateArtStyleIconsSO.cs:40		E					
+未分类/其他	AlternateArtStyleIconsSO	Release(AlternateArtSyle style)	AlternateArtStyleIconsSO.cs:71		E					
+未分类/其他	AlternateArtStyleItem	Release(AddressableCacheGroup cacheGroup)	AlternateArtStyleItem.cs:26		E					
+未分类/其他	AlternateArtStyleItem	TryGetItem(AlternateArtSyle alternateArtSyle, out T returnItem)	AlternateArtStyleItem.cs:13		E					
+未分类/其他	AlternateArtStyleItem	TryRelease(AlternateArtSyle alternateArtSyle)	AlternateArtStyleItem.cs:58		E					
+未分类/其他	AlternateArtStylesUtilities	GetAlternateStylesOnly()	AlternateArtStylesUtilities.cs:24		E					
+未分类/其他	AlternateArtStylesUtilities	GetStyleIcon(AlternateArtSyle style)	AlternateArtStylesUtilities.cs:10		E					
+未分类/其他	AlternateArtStylesUtilities	ReleaseStyle(AlternateArtSyle style)	AlternateArtStylesUtilities.cs:19		E					
+未分类/其他	ArmyBackgroundsSO	GetMediumBackground(CardArmy cardArmy)	ArmyBackgroundsSO.cs:8		E					
+未分类/其他	ArmyBackgroundsSO	ReleaseMediumBackground(CardArmy cardArmy)	ArmyBackgroundsSO.cs:38		E					
+未分类/其他	ArmyHeader	Initialize(CardArmy army)	ArmyHeader.cs:12		E					
+未分类/其他	ArmyIconsSO	GetArmyIcon(CardArmy cardArmy)	ArmyIconsSO.cs:10		E					
+未分类/其他	ArmyIconsSO	Release(CardArmy army)	ArmyIconsSO.cs:36		E					
+未分类/其他	ArmyItem	Release(AddressableCacheGroup cacheGroup)	ArmyItem.cs:24		E					
+未分类/其他	ArmyItem	TryGetItem(CardArmy cardArmy, out T returnItem)	ArmyItem.cs:11		E					
+未分类/其他	ArmyItem	TryRelease(CardArmy armyToRelease)	ArmyItem.cs:56		E					
+未分类/其他	ArmyProgressBar	SetArmies(CardArmy leftArmy, CardArmy rightArmy)	ArmyProgressBar.cs:10		E					
+未分类/其他	AssetProvider	Awake()	AssetProvider.cs:7		E					
+未分类/其他	AssetProvider	GetAssets()	AssetProvider.cs:13		E					
+未分类/其他	AsyncInitializableBehaviour	Initialize()	AsyncInitializableBehaviour.cs:29		E					
+未分类/其他	AsyncInitializableBehaviour	OnInitializationComplete()	AsyncInitializableBehaviour.cs:31		E					
+未分类/其他	AsyncInitializableBehaviour	Start()	AsyncInitializableBehaviour.cs:24		E					
+未分类/其他	AttackEnemyUnit	OnAttack(AttackSignal obj)	AttackEnemyUnit.cs:40		E					
+未分类/其他	AttackEnemyUnit	OnInitialize()	AttackEnemyUnit.cs:34		E					
+未分类/其他	AttackEnemyUnit	OnReset()	AttackEnemyUnit.cs:28		E					
+未分类/其他	AutoCardRotation	GetRotation(float translation, float maxAngle, Vector3 rotationAxis)	AutoCardRotation.cs:100		E					
+未分类/其他	AutoCardRotation	OnEnable()	AutoCardRotation.cs:23		E					
+未分类/其他	AutoCardRotation	Update()	AutoCardRotation.cs:33		E					
+未分类/其他	AvailableAction	SetParameters(PlayerActions actionType, CardScript actingCard, CardScript targetCard, int manaCost)	AvailableAction.cs:29		E					
+未分类/其他	AvailableActionsPool	GetAction()	AvailableActionsPool.cs:62		E					
+未分类/其他	AvailableActionsPool	Reset()	AvailableActionsPool.cs:57		E					
+未分类/其他	AzureFunctionsTest	ExecuteTestAzureFunction()	AzureFunctionsTest.cs:23		E					
+未分类/其他	AzureFunctionsTest	OnAzureError(PlayFabError error)	AzureFunctionsTest.cs:74		E					
+未分类/其他	AzureFunctionsTest	OnAzureSuccess(ExecuteFunctionResult result)	AzureFunctionsTest.cs:55		E					
+未分类/其他	AzureFunctionsTest	Update()	AzureFunctionsTest.cs:14		E					
+未分类/其他	BackgroundOverDrawController	OnDisable()	BackgroundOverDrawController.cs:41		E					
+未分类/其他	BackgroundOverDrawController	OnEnable()	BackgroundOverDrawController.cs:11		E					
+未分类/其他	BackgroundOverDrawController	OnValidate()	BackgroundOverDrawController.cs:65		E					
+未分类/其他	BackgroundReposition	Start()	BackgroundReposition.cs:9		E					
+未分类/其他	BaseAddressableLibrary	AssetCompletedLoading(AsyncOperationHandle obj, string assetKey)	BaseAddressableLibrary.cs:416		E					
+未分类/其他	BaseAddressableLibrary	GetLocalHandle(IResourceLocation element)	BaseAddressableLibrary.cs:398		E					
+未分类/其他	BaseAddressableLibrary	LoadLibrary(bool canUpdate)	BaseAddressableLibrary.cs:407		E					
+未分类/其他	BaseAddressableLibrary	Release()	BaseAddressableLibrary.cs:430		E					
+未分类/其他	BaseAddressableLibrary	ValidateLibraryLoad(bool canUpdate)	BaseAddressableLibrary.cs:425		E					
+未分类/其他	BaseProgressBarScaleAndPositionController	Initialize(TState currentState, TState previousState, int level)	BaseProgressBarScaleAndPositionController.cs:20		E					
+未分类/其他	BaseProgressBarScaleAndPositionController	SetPositionAndScale(Vector2 positionToModify, Vector2 scaleToModify, TState stateToApply, Vector2 positionOffset, Vector2 scaleOffset)	BaseProgressBarScaleAndPositionController.cs:50		E					
+未分类/其他	BiDirectionalDictionary	Add(KeyValuePair<TKey, TValue> item)	BiDirectionalDictionary.cs:412		E					
+未分类/其他	BiDirectionalDictionary	Add(TKey key, TValue value)	BiDirectionalDictionary.cs:366		E					
+未分类/其他	BiDirectionalDictionary	Clear()	BiDirectionalDictionary.cs:460		E					
+未分类/其他	BiDirectionalDictionary	Contains(KeyValuePair<TKey, TValue> item)	BiDirectionalDictionary.cs:480		E					
+未分类/其他	BiDirectionalDictionary	ContainsKey(TKey key)	BiDirectionalDictionary.cs:503		E					
+未分类/其他	BiDirectionalDictionary	ContainsValue(TValue value)	BiDirectionalDictionary.cs:515		E					
+未分类/其他	BiDirectionalDictionary	CopyTo(KeyValuePair<TKey, TValue>[] array, int arrayIndex)	BiDirectionalDictionary.cs:527		E					
+未分类/其他	BiDirectionalDictionary	GetEnumerator()	BiDirectionalDictionary.cs:562		E					
+未分类/其他	BiDirectionalDictionary	GetKey(TValue value)	BiDirectionalDictionary.cs:308		E					
+未分类/其他	BiDirectionalDictionary	GetValue(TKey key)	BiDirectionalDictionary.cs:337		E					
+未分类/其他	BiDirectionalDictionary	Remove(KeyValuePair<TKey, TValue> item)	BiDirectionalDictionary.cs:620		E					
+未分类/其他	BiDirectionalDictionary	Remove(TKey key)	BiDirectionalDictionary.cs:595		E					
+未分类/其他	BiDirectionalDictionary	TryGetKey(TValue value, out TKey key)	BiDirectionalDictionary.cs:283		E					
+未分类/其他	BiDirectionalDictionary	TryGetValue(TKey key, out TValue value)	BiDirectionalDictionary.cs:663		E					
+未分类/其他	BiDirectionalDictionary	get_Item(TKey key)	BiDirectionalDictionary.cs:148		E					
+未分类/其他	BiDirectionalDictionary	set_Item(TKey key, TValue value)	BiDirectionalDictionary.cs:177		E					
+未分类/其他	BillBoard	Start()	BillBoard.cs:16		E					
+未分类/其他	BillBoard	Update()	BillBoard.cs:31		E					
+未分类/其他	BlockingOverlay	AutoStopSpinner()	BlockingOverlay.cs:307		E					
+未分类/其他	BlockingOverlay	Awake()	BlockingOverlay.cs:205		E					
+未分类/其他	BlockingOverlay	Start()	BlockingOverlay.cs:228		E					
+未分类/其他	BlockingOverlay	StartSpinning(bool blockScreen, bool showShade, bool autoStopTimer, Action onTimeout)	BlockingOverlay.cs:248		E					
+未分类/其他	BlockingOverlay	StopSpinning()	BlockingOverlay.cs:284		E					
+未分类/其他	BoardCriteria	DeepCopy()	BoardCriteria.cs:17		E					
+未分类/其他	BuildNumber	Awake()	BuildNumber.cs:7		E					
+未分类/其他	BuildNumber	OnGUI()	BuildNumber.cs:13		E					
+未分类/其他	BuildNumber	Update()	BuildNumber.cs:48		E					
+未分类/其他	CardAssetProvider	GetAssets()	CardAssetProvider.cs:6		E					
+未分类/其他	CardBoardElementsController	Start()	CardBoardElementsController.cs:5		E					
+未分类/其他	CardBoardElementsController	Update()	CardBoardElementsController.cs:9		E					
+未分类/其他	CardCollider3D	Toggle(bool option)	CardCollider3D.cs:7		E					
+未分类/其他	CardCounterDisplay	Initialize(RawCardScript card)	CardCounterDisplay.cs:18		E					
+未分类/其他	CardCounterDisplay	SetDuplicateCounter(int counter, int spares)	CardCounterDisplay.cs:91		E					
+未分类/其他	CardCounterDisplay	SetSingleCounter(int counter)	CardCounterDisplay.cs:76		E					
+未分类/其他	CardDisplayOptions	Initialize(BasicCardUI card, CardDisplayWindow display, Action<RawCardScript> onChangeArt)	CardDisplayOptions.cs:24		E					
+未分类/其他	CardDisplayOptions	Refresh()	CardDisplayOptions.cs:46		E					
+未分类/其他	CardDisplayOptions	ResetDisplayOrder()	CardDisplayOptions.cs:41		E					
+未分类/其他	CardImageControllerTester	Start()	CardImageControllerTester.cs:9		E					
+未分类/其他	CardImageControllerTester	Update()	CardImageControllerTester.cs:13		E					
+未分类/其他	CardImageScalebyCardTypeSO	CacheData()	CardImageScalebyCardTypeSO.cs:65		E					
+未分类/其他	CardImageScalebyCardTypeSO	GetScale()	CardImageScalebyCardTypeSO.cs:17		E					
+未分类/其他	CardImageScalebyCardTypeSO	OnValidate()	CardImageScalebyCardTypeSO.cs:100		E					
+未分类/其他	CardMaterialHelper	ConfigureMaterial(Material materialInstance, CardScript card)	CardMaterialHelper.cs:8		E					
+未分类/其他	CardMaterialHelper	GetCardMatCapByCardTier(CardScript card)	CardMaterialHelper.cs:59		E					
+未分类/其他	CardMaterialHelper	GetCardMatCapByCardTier(RawCardScript rawCardScript)	CardMaterialHelper.cs:35		E					
+未分类/其他	CardOptionViewHolder	CollectViews()	CardOptionViewHolder.cs:21		E					
+未分类/其他	CardOptionViewHolder	_003CCollectViews_003Eb__5_0()	CardOptionViewHolder.cs:44		E					
+未分类/其他	CardPlayedCount	OnCardPlayed(CardPlayedSignal obj)	CardPlayedCount.cs:67		E					
+未分类/其他	CardPlayedCount	OnInitialize()	CardPlayedCount.cs:55		E					
+未分类/其他	CardPlayedCount	OnReset()	CardPlayedCount.cs:61		E					
+未分类/其他	CardRarityColorsSO	GetColor(CardRarity cardRarity)	CardRarityColorsSO.cs:38		E					
+未分类/其他	CardRarityColorsSO	TryGetColor(CardRarity rarityToCheck, out Color color)	CardRarityColorsSO.cs:14		E					
+未分类/其他	CardRarityHolderController	SetCardRarity(int rarity, int maxRarity)	CardRarityHolderController.cs:13		E					
+未分类/其他	CardSlotPreview	Initialize(RawCardScript card)	CardSlotPreview.cs:12		E					
+未分类/其他	CardTierUIController	SetFrame(RawCardScript card, CardTier tier)	CardTierUIController.cs:22		E					
+未分类/其他	CardTierUIController	SetTier(RawCardScript card, CardTier tier)	CardTierUIController.cs:9		E					
+未分类/其他	CardTraitDuty	IsActive(CardScript card)	CardTraitDuty.cs:6		E					
+未分类/其他	CardTraitFerocity	IsActive(CardScript card)	CardTraitFerocity.cs:5		E					
+未分类/其他	CardTraitOath	IsActive(CardScript card)	CardTraitOath.cs:6		E					
+未分类/其他	CardbackTesterForSdf	AssignCardback()	CardbackTesterForSdf.cs:13		E					
+未分类/其他	CardbackTesterForSdf	LoadSpriteFromAssetReference(AssetReferenceTyped<Sprite> assetReference, bool isSDF)	CardbackTesterForSdf.cs:19		E					
+未分类/其他	CardsSpecialConfig	BeforeConfigUpload()	CardsSpecialConfig.cs:254		E					
+未分类/其他	CardsSpecialConfig	CanCraftCard(RawCardScript card)	CardsSpecialConfig.cs:213		E					
+未分类/其他	CardsSpecialConfig	CanShowAACard(AlternateArtCard card)	CardsSpecialConfig.cs:177		E					
+未分类/其他	CardsSpecialConfig	CanShowCard(RawCardScript card)	CardsSpecialConfig.cs:109		E					
+未分类/其他	CardsSpecialConfig	WhereToGetCardsData()	CardsSpecialConfig.cs:249		E					
+未分类/其他	CatalogConfig	CheckType<T>()	CatalogConfig.cs:397		E					
+未分类/其他	CatalogConfig	GetCloudscriptPlayerId()	CatalogConfig.cs:349		E					
+未分类/其他	CatalogConfig	MarkUpload()	CatalogConfig.cs:55		E					
+未分类/其他	CatalogConfig	MarkUpload<T>()	CatalogConfig.cs:526		E					
+未分类/其他	CatalogConfig	SetCloudscriptPlayerId(string value)	CatalogConfig.cs:369		E					
+未分类/其他	CatalogItemContainer	OnInitialize(IShopOffer evt)	CatalogItemContainer.cs:45		E					
+未分类/其他	CatalogItemContainer	Refresh()	CatalogItemContainer.cs:148		E					
+未分类/其他	CatalogItemContainer	TryPurchase()	CatalogItemContainer.cs:99		E					
+未分类/其他	CatalogItemContainer	_003CTryPurchase_003Eb__8_0(GameObject _)	CatalogItemContainer.cs:350		E					
+未分类/其他	ChooseCardUI	Initialize(ChooseCardMenu chooseCardMenu)	ChooseCardUI.cs:25		E					
+未分类/其他	ChooseCardUI	ToggleCardUI(bool option)	ChooseCardUI.cs:32		E					
+未分类/其他	ChooseCardUI	ToggleSelected(bool option)	ChooseCardUI.cs:38		E					
+未分类/其他	CloudscriptHelper	DisplayLogs(List<LogItem> logs, out List<LogItem> errors)	CloudscriptHelper.cs:14		E					
+未分类/其他	CloudscriptHelper	DisplayLogs(List<LogItem> result)	CloudscriptHelper.cs:9		E					
+未分类/其他	CloudscriptRestrictedVersionConfig	GetVersionList()	CloudscriptRestrictedVersionConfig.cs:91		E					
+未分类/其他	CloudscriptRestrictedVersionConfig	TryGetRevision(string version, out int revision)	CloudscriptRestrictedVersionConfig.cs:52		E					
+未分类/其他	CollectFaith	OnCollectFaith(CollectFaithSignal obj)	CollectFaith.cs:21		E					
+未分类/其他	CollectFaith	OnInitialize()	CollectFaith.cs:15		E					
+未分类/其他	CollectFaith	OnReset()	CollectFaith.cs:9		E					
+未分类/其他	CollectSpiritStone	OnCollectSpiritStone(CollectSpiritStoneSignal obj)	CollectSpiritStone.cs:21		E					
+未分类/其他	CollectSpiritStone	OnInitialize()	CollectSpiritStone.cs:15		E					
+未分类/其他	CollectSpiritStone	OnReset()	CollectSpiritStone.cs:9		E					
+未分类/其他	ConnectAndJoinRandom	OnConnectedToMaster()	ConnectAndJoinRandom.cs:40		E					
+未分类/其他	ConnectAndJoinRandom	OnFailedToConnectToPhoton(DisconnectCause cause)	ConnectAndJoinRandom.cs:64		E					
+未分类/其他	ConnectAndJoinRandom	OnJoinedLobby()	ConnectAndJoinRandom.cs:48		E					
+未分类/其他	ConnectAndJoinRandom	OnJoinedRoom()	ConnectAndJoinRandom.cs:73		E					
+未分类/其他	ConnectAndJoinRandom	OnPhotonRandomJoinFailed()	ConnectAndJoinRandom.cs:56		E					
+未分类/其他	ConnectAndJoinRandom	Start()	ConnectAndJoinRandom.cs:14		E					
+未分类/其他	ConnectAndJoinRandom	Update()	ConnectAndJoinRandom.cs:20		E					
+未分类/其他	ContainerBuilder	MakeContainer(IContainerProvider evt, EventComponentReferenceType componentReferenceType, Transform parent)	ContainerBuilder.cs:76		E					
+未分类/其他	ContainerBuilder	MakeContainer(IContainerProvider evt, Transform parent)	ContainerBuilder.cs:8		E					
+未分类/其他	ContainerBuilder	MakeContainer(IContainerProvider evt, UiContainer container, Transform parent)	ContainerBuilder.cs:106		E					
+未分类/其他	ContainerHolder	Clear()	ContainerHolder.cs:69		E					
+未分类/其他	ContainerHolder	GetContainers()	ContainerHolder.cs:64		E					
+未分类/其他	ContainerHolder	TryAdd(IContainerProvider provider)	ContainerHolder.cs:58		E					
+未分类/其他	ContainerHolder	TryAdd<T>(IContainerProvider provider, out T container)	ContainerHolder.cs:12		E					
+未分类/其他	ContainerService	DisplayUnlockScreen(BoosterPackVisualItem prefab, IEnumerable<PlayerItem> items, Action onComplete)	ContainerService.cs:952		E					
+未分类/其他	ContainerService	Open(string containerID, Action<IReadOnlyList<RewardInfo>> onComplete, Action<string> onError)	ContainerService.cs:934		E					
+未分类/其他	ContainerService	OpenContainer(TransactionEventLocation location, IItemInfo<ShopContainerBase> container, Action<IReadOnlyList<RewardInfo>> onComplete, Action<string> onError, bool automaticCollect, bool showAnimation)	ContainerService.cs:620		E					
+未分类/其他	ContainerService	OpenContainer(string containerInstanceId, ShopOfferBase offer, Action<IReadOnlyList<RewardInfo>> onComplete, Action<string> onError, bool autoCollect)	ContainerService.cs:572		E					
+未分类/其他	ContainerService	OpenOfferContainer(TransactionEventLocation location, string offerId, string containerInstanceId, ShopOfferBase offer, Action<IReadOnlyList<RewardInfo>> onComplete, Action<string> onError, bool autoCollect)	ContainerService.cs:479		E					
+未分类/其他	ContainersOpen	OnInitialize()	ContainersOpen.cs:15		E					
+未分类/其他	ContainersOpen	OnReset()	ContainersOpen.cs:21		E					
+未分类/其他	ContainersOpen	OnTrigger(OpenContainerSignal obj)	ContainersOpen.cs:27		E					
+未分类/其他	ContentSizeFitterMinMax	ClampSize()	ContentSizeFitterMinMax.cs:48		E					
+未分类/其他	ContentSizeFitterMinMax	SetLayoutHorizontal()	ContentSizeFitterMinMax.cs:36		E					
+未分类/其他	ContentSizeFitterMinMax	SetLayoutVertical()	ContentSizeFitterMinMax.cs:42		E					
+未分类/其他	CosmeticAssetProvider	GetAssets()	CosmeticAssetProvider.cs:6		E					
+未分类/其他	CosmeticItem	GetCustomData()	CosmeticItem.cs:168		E					
+未分类/其他	CosmeticItem	GetLocalizedDescription()	CosmeticItem.cs:187		E					
+未分类/其他	CosmeticItem	UnloadReferences()	CosmeticItem.cs:244		E					
+未分类/其他	CosmeticItemCardback	Release(AddressableCacheGroup cacheGroup)	CosmeticItemCardback.cs:63		E					
+未分类/其他	CosmeticPreview	Initialize(CosmeticItem item)	CosmeticPreview.cs:8		E					
+未分类/其他	Countdown	Activate(float speed, int secondsDuration)	Countdown.cs:23		E					
+未分类/其他	Countdown	ChangeSpeed(float newSpeed)	Countdown.cs:56		E					
+未分类/其他	Countdown	GetSecondsLeft()	Countdown.cs:70		E					
+未分类/其他	Countdown	Stop()	Countdown.cs:65		E					
+未分类/其他	Countdown	Update()	Countdown.cs:81		E					
+未分类/其他	CrappyDate	GetNormalDate()	CrappyDate.cs:14		E					
+未分类/其他	CrappyDate	IsvalidDate()	CrappyDate.cs:22		E					
+未分类/其他	CreateSecret	OnAddCard(CreateSecretSignal obj)	CreateSecret.cs:21		E					
+未分类/其他	CreateSecret	OnInitialize()	CreateSecret.cs:15		E					
+未分类/其他	CreateSecret	OnReset()	CreateSecret.cs:9		E					
+未分类/其他	CryptoString	DecryptRijndael(string textToDecrypt, int dataVersion)	CryptoString.cs:129		E					
+未分类/其他	CryptoString	EncryptRijndael(string text)	CryptoString.cs:15		E					
+未分类/其他	CryptoString	GetPWD(int dataVersion)	CryptoString.cs:56		E					
+未分类/其他	CryptoString	IsBase64String(string base64String)	CryptoString.cs:97		E					
+未分类/其他	CryptoString	NewRijndaelManaged(string salt)	CryptoString.cs:196		E					
+未分类/其他	CullArea	Awake()	CullArea.cs:83		E					
+未分类/其他	CullArea	CreateCellHierarchy()	CullArea.cs:108		E					
+未分类/其他	CullArea	CreateChildCells(CellTreeNode parent, int cellLevelInHierarchy)	CullArea.cs:272		E					
+未分类/其他	CullArea	DrawCells()	CullArea.cs:396		E					
+未分类/其他	CullArea	GetActiveCells(Vector3 position)	CullArea.cs:464		E					
+未分类/其他	CullArea	IsCellCountAllowed()	CullArea.cs:409		E					
+未分类/其他	CullArea	OnDrawGizmos()	CullArea.cs:89		E					
+未分类/其他	CursorByArmySO	GetCursor(CardArmy cardArmy, out Sprite cursor, out Sprite highlight)	CursorByArmySO.cs:52		E					
+未分类/其他	CursorByArmySO	ReleaseArmyCursor(CardArmy cardArmy)	CursorByArmySO.cs:95		E					
+未分类/其他	CursorByArmySO	TryGetItem(CardArmy cardArmy, out Sprite cursor, out Sprite highlight)	CursorByArmySO.cs:16		E					
+未分类/其他	CursorByArmySO	TryReleaseArmy(CardArmy army, AddressableCacheGroup cacheGroup)	CursorByArmySO.cs:40		E					
+未分类/其他	CustomDebug	Log(string logString)	CustomDebug.cs:16		E					
+未分类/其他	CustomDebug	LogError(string logString)	CustomDebug.cs:36		E					
+未分类/其他	CustomDebug	LogWarning(string logString)	CustomDebug.cs:26		E					
+未分类/其他	CustomExecuteCloudScriptRequest	GetFullClientVersion()	CustomExecuteCloudScriptRequest.cs:75		E					
+未分类/其他	CustomExecuteCloudScriptRequest	SetParams(object param)	CustomExecuteCloudScriptRequest.cs:56		E					
+未分类/其他	CustomRaycaster	Raycast(PointerEventData eventData, List<RaycastResult> resultAppendList)	CustomRaycaster.cs:7		E					
+未分类/其他	CustomRaycaster2D	Raycast(PointerEventData eventData, List<RaycastResult> resultAppendList)	CustomRaycaster2D.cs:6		E					
+未分类/其他	DLCMessageAssetProvider	GetAssets()	DLCMessageAssetProvider.cs:9		E					
+未分类/其他	Date	CompareTo(Date other)	Date.cs:76		E					
+未分类/其他	Date	DateTime(Date date)	Date.cs:91		E					
+未分类/其他	Date	ToDate()	Date.cs:47		E					
+未分类/其他	Date	ToString()	Date.cs:60		E					
+未分类/其他	DebugAutoDisabler	OnEnable()	DebugAutoDisabler.cs:5		E					
+未分类/其他	Decorator	Awake()	Decorator.cs:9		E					
+未分类/其他	Decorator	OnDecorableUpdated(object sender, EventArgs e)	Decorator.cs:20		E					
+未分类/其他	Decorator	OnDisable()	Decorator.cs:70		E					
+未分类/其他	Decorator	OnEnable()	Decorator.cs:58		E					
+未分类/其他	Decorator	OnObjectUpdated(T decorable)	Decorator.cs:82		E					
+未分类/其他	DefaultCarbackByArmySO	GetCardbackCosmeticItem(CardArmy cardArmy)	DefaultCarbackByArmySO.cs:11		E					
+未分类/其他	DefaultCarbackByArmySO	ReleaseCardbackSprites(CardArmy cardArmy)	DefaultCarbackByArmySO.cs:67		E					
+未分类/其他	DemoCell	ButtonListener()	DemoCell.cs:39		E					
+未分类/其他	DemoCell	ConfigureCell(ContactInfo contactInfo, int cellIndex)	DemoCell.cs:26		E					
+未分类/其他	DemoCell	Start()	DemoCell.cs:19		E					
+未分类/其他	DemoData	IsTutorialCompleted(int tutorialIndex)	DemoData.cs:41		E					
+未分类/其他	DemoData	ResetTutorial()	DemoData.cs:68		E					
+未分类/其他	DemoData	ToggleCanEnterDraftMode(bool option)	DemoData.cs:36		E					
+未分类/其他	DestroyByTime	Start()	DestroyByTime.cs:8		E					
+未分类/其他	DisableFogUICamera	OnBeginCameraRendering(ScriptableRenderContext context, Camera cameraBeingRenderer)	DisableFogUICamera.cs:33		E					
+未分类/其他	DisableFogUICamera	OnDestroy()	DisableFogUICamera.cs:25		E					
+未分类/其他	DisableFogUICamera	OnEndCameraRendering(ScriptableRenderContext context, Camera cameraBeingRenderer)	DisableFogUICamera.cs:43		E					
+未分类/其他	DisableFogUICamera	Start()	DisableFogUICamera.cs:11		E					
+未分类/其他	DisableSystemUI	DisableNavUI()	DisableSystemUI.cs:5		E					
+未分类/其他	DisableSystemUI	GetAndroidSDKVersion()	DisableSystemUI.cs:10		E					
+未分类/其他	DontDestroy	Awake()	DontDestroy.cs:5		E					
+未分类/其他	DrawCardCount	OnDrawCard(DrawCardSignal obj)	DrawCardCount.cs:19		E					
+未分类/其他	DrawCardCount	OnInitialize()	DrawCardCount.cs:13		E					
+未分类/其他	DrawCardCount	OnReset()	DrawCardCount.cs:7		E					
+未分类/其他	DropdownList	OnEnable()	DropdownList.cs:10		E					
+未分类/其他	EditorDrawVertexNormals	OnDrawGizmosSelected()	EditorDrawVertexNormals.cs:13		E					
+未分类/其他	EmptyGraphic	OnPopulateMesh(VertexHelper vh)	EmptyGraphic.cs:5		E					
+未分类/其他	Enchantments	GetMarkOfChaos(MarkOfChaosType markOfChaosType)	Enchantments.cs:71		E					
+未分类/其他	Enchantments	TryGetCard(T cardEffect, out RawCardScript cardToReturn)	Enchantments.cs:29		E					
+未分类/其他	EnemyInfoTouch	OnTouchDown(Vector2 originalTouchPosition)	EnemyInfoTouch.cs:14		E					
+未分类/其他	EnemyInfoTouch	Start()	EnemyInfoTouch.cs:9		E					
+未分类/其他	EnemyInfoTouch	Update()	EnemyInfoTouch.cs:27		E					
+未分类/其他	EnergySpent	OnEnergySpent(EnergySpentSignal obj)	EnergySpent.cs:24		E					
+未分类/其他	EnergySpent	OnInitialize()	EnergySpent.cs:12		E					
+未分类/其他	EnergySpent	OnReset()	EnergySpent.cs:18		E					
+未分类/其他	EphemeralState	AddDuration(long duration)	EphemeralState.cs:115		E					
+未分类/其他	EphemeralState	FormatTime()	EphemeralState.cs:121		E					
+未分类/其他	Evaluation	Check(object x, object y, Operation operation)	Evaluation.cs:18		E					
+未分类/其他	EverguildAnalyticsTransaction	Add(string key, object value)	EverguildAnalyticsTransaction.cs:342		E					
+未分类/其他	EverguildAnalyticsTransaction	Validate()	EverguildAnalyticsTransaction.cs:528		E					
+未分类/其他	EverguildDropfield	DropDelegate(PointerEventData source)	EverguildDropfield.cs:8		E					
+未分类/其他	EverguildDropfield	OnDrop(PointerEventData eventData)	EverguildDropfield.cs:86		E					
+未分类/其他	EverguildDropfield	OnPointerEnter(PointerEventData eventData)	EverguildDropfield.cs:99		E					
+未分类/其他	EverguildDropfield	OnPointerExit(PointerEventData eventData)	EverguildDropfield.cs:95		E					
+未分类/其他	EverguildInputField	OnPointerDown(PointerEventData eventData)	EverguildInputField.cs:17		E					
+未分类/其他	EverguildInputField	OnScroll(PointerEventData eventData)	EverguildInputField.cs:9		E					
+未分类/其他	EverguildTextController	Awake()	EverguildTextController.cs:10		E					
+未分类/其他	ExpansionPassProgressBarScaleAndPositionController	SetPositionAndScale(Vector2 positionToModify, Vector2 scaleToModify, ScoringMilestone.State stateToApply, Vector2 positionOffset, Vector2 scaleOffset)	ExpansionPassProgressBarScaleAndPositionController.cs:7		E					
+未分类/其他	FactionScore	Initialize(CardArmy faction, int currentScore, int highestScore)	FactionScore.cs:12		E					
+未分类/其他	Fake3DSpriteMovement	Start()	Fake3DSpriteMovement.cs:20		E					
+未分类/其他	Fake3DSpriteMovement	Update()	Fake3DSpriteMovement.cs:28		E					
+未分类/其他	FatigueCard	DrawFatigue(Vector2 deckPos, Vector2 cardDrawnPos, int damageValue, Sprite cardbackSprite)	FatigueCard.cs:298		E					
+未分类/其他	FatigueCard	FinishCardDrawRotation()	FatigueCard.cs:330		E					
+未分类/其他	FatigueCard	SetVisibility(bool frontSide)	FatigueCard.cs:317		E					
+未分类/其他	FeatureChecker	OnEnable()	FeatureChecker.cs:11		E					
+未分类/其他	Fireball	Trigger()	Fireball.cs:11		E					
+未分类/其他	FlavourTextSO	GetClanFlavorBackground(CardArmy army)	FlavourTextSO.cs:96		E					
+未分类/其他	FlavourTextSO	ReleaseFlavorBackground(CardArmy army)	FlavourTextSO.cs:141		E					
+未分类/其他	FlavourTextSO	TryRelease(CardArmy armyToFind)	FlavourTextSO.cs:66		E					
+未分类/其他	GameAnalytics	AskForConsent(Action onSuccess)	GameAnalytics.cs:600		E					
+未分类/其他	GameAnalytics	CreateDeltaEvent(string eventName, Dictionary<string, object> eventData)	GameAnalytics.cs:3376		E					
+未分类/其他	GameAnalytics	CreateDeltaEvent(string eventName, Dictionary<string, string> eventStringData, Dictionary<string, int> eventIntData, Dictionary<string, bool> eventBoolData, Dictionary<string, float> eventFloatData)	GameAnalytics.cs:3276		E					
+未分类/其他	GameAnalytics	CreateEventData(Dictionary<string, string> eventStringData, Dictionary<string, int> eventIntData, Dictionary<string, bool> eventBoolData, Dictionary<string, float> eventFloatData)	GameAnalytics.cs:3461		E					
+未分类/其他	GameAnalytics	CreateProduct(IItemInfo<IdentifiableSO>[] items)	GameAnalytics.cs:2675		E					
+未分类/其他	GameAnalytics	FillDeltaGenericEventData(CustomEvent gameEvent)	GameAnalytics.cs:3438		E					
+未分类/其他	GameAnalytics	GetAfStringKey(IReadOnlyDictionary<string, object> attribution, string afKey, string valueIfEmpty)	GameAnalytics.cs:3698		E					
+未分类/其他	GameAnalytics	LogAnalyticsEvent(string eventName, Dictionary<string, object> eventData)	GameAnalytics.cs:3264		E					
+未分类/其他	GameAnalytics	LogAnalyticsEvent(string eventName, Dictionary<string, string> eventStringData, Dictionary<string, int> eventIntData, Dictionary<string, bool> eventBoolData, Dictionary<string, float> eventFloatData)	GameAnalytics.cs:3248		E					
+未分类/其他	GameAnalytics	LogCustomEvent(string eventName, Dictionary<string, object> eventData)	GameAnalytics.cs:3213		E					
+未分类/其他	GameAnalytics	LogDeltaEvent(string eventName, Dictionary<string, string> eventStringData, Dictionary<string, int> eventIntData, Dictionary<string, bool> eventBoolData, Dictionary<string, float> eventFloatData)	GameAnalytics.cs:3235		E					
+未分类/其他	GameAnalytics	LogFirebaseEvent(string eventName, Dictionary<string, object> eventData)	GameAnalytics.cs:3231		E					
+未分类/其他	GameAnalytics	Logout()	GameAnalytics.cs:608		E					
+未分类/其他	GameAnalytics	ProductTypeToString(IdentifiableSO item)	GameAnalytics.cs:2526		E					
+未分类/其他	GameAnalytics	RecordCampaignProgressAppsFlyer(string nodeId, CardArmy army)	GameAnalytics.cs:3849		E					
+未分类/其他	GameAnalytics	RecordDivisionChange(RankedDivisionV2 oldDivision, RankedDivisionV2 currentDivision, IRankedEvent rankedEvent)	GameAnalytics.cs:3834		E					
+未分类/其他	GameAnalytics	RecordEvent(Unity.Services.Analytics.Event gameEvent)	GameAnalytics.cs:3689		E					
+未分类/其他	GameAnalytics	RecordIapAppsFlyer(double realPrice, string currency)	GameAnalytics.cs:1913		E					
+未分类/其他	GameAnalytics	RecordIapCustom(string purchasedItem, string itemType, string currency, int intPrice, float moneyPrice)	GameAnalytics.cs:3066		E					
+未分类/其他	GameAnalytics	RecordIapFirebase(double realPrice, string currency, string transactionIdentifier)	GameAnalytics.cs:3095		E					
+未分类/其他	GameAnalytics	RecordIapUnity(string transactionId, TransactionEventLocation location, string itemId, string itemSku, string itemType, string currency, int intPrice)	GameAnalytics.cs:2750		E					
+未分类/其他	GameAnalytics	RecordMatchResult(float matchWon, OnlineMatchResult matchResult, RewardInfo[] rewards, MatchType matchType)	GameAnalytics.cs:3813		E					
+未分类/其他	GameAnalytics	RecordTransaction(TransactionEventLocation location, TransactionType transactionType, IReadOnlyList<RewardInfo> reward, IItemInfo<IdentifiableSO>[] cost, string offerId)	GameAnalytics.cs:1925		E					
+未分类/其他	GameAnalytics	RecordTransaction(TransactionEventLocation location, TransactionType transactionType, string rewardId, string rewardType, Price cost)	GameAnalytics.cs:2412		E					
+未分类/其他	GameAnalytics	RecordVirtualPurchaseDelta(TransactionEventLocation location, string purchasedItem, string itemType, string currency, int intPrice)	GameAnalytics.cs:2885		E					
+未分类/其他	GameAnalytics	SaveMatchStartInAnalytics(MatchData matchData)	GameAnalytics.cs:980		E					
+未分类/其他	GameAnalytics	SendAccountDeleted()	GameAnalytics.cs:3564		E					
+未分类/其他	GameAnalytics	SendAddReferral(string refId, bool fromLinks)	GameAnalytics.cs:916		E					
+未分类/其他	GameAnalytics	SendAppsFlyerConversionData(Dictionary<string, object> attribution)	GameAnalytics.cs:3598		E					
+未分类/其他	GameAnalytics	SendBattleLogOpened()	GameAnalytics.cs:1444		E					
+未分类/其他	GameAnalytics	SendBlockUser(string playfabIdBlocked)	GameAnalytics.cs:958		E					
+未分类/其他	GameAnalytics	SendCampaignFinished()	GameAnalytics.cs:647		E					
+未分类/其他	GameAnalytics	SendCampaignProgress(string nodeId, CardArmy army, bool isPremium, RewardInfo[] rewards, int nodeCost)	GameAnalytics.cs:1476		E					
+未分类/其他	GameAnalytics	SendCampaignStageFinished(int campaignStage)	GameAnalytics.cs:686		E					
+未分类/其他	GameAnalytics	SendCampaignStageStarted(int campaignStage, MatchData matchData)	GameAnalytics.cs:664		E					
+未分类/其他	GameAnalytics	SendChooseNameAttempt(string playerName)	GameAnalytics.cs:3126		E					
+未分类/其他	GameAnalytics	SendChosenName(string playerName)	GameAnalytics.cs:3114		E					
+未分类/其他	GameAnalytics	SendClaimChallenge(string challengeId, int score, int levelReached)	GameAnalytics.cs:904		E					
+未分类/其他	GameAnalytics	SendClaimDLCSteam(string refId, string userId, int userIntId)	GameAnalytics.cs:880		E					
+未分类/其他	GameAnalytics	SendClaimLevelUp(int newLevel)	GameAnalytics.cs:848		E					
+未分类/其他	GameAnalytics	SendClaimLoginBonus()	GameAnalytics.cs:804		E					
+未分类/其他	GameAnalytics	SendClaimQuest()	GameAnalytics.cs:816		E					
+未分类/其他	GameAnalytics	SendClaimReferral(string refId)	GameAnalytics.cs:871		E					
+未分类/其他	GameAnalytics	SendClaimSuscribePrize()	GameAnalytics.cs:859		E					
+未分类/其他	GameAnalytics	SendClickedUrl(string clickedUrl)	GameAnalytics.cs:3167		E					
+未分类/其他	GameAnalytics	SendCoinsPurchase(int coinsCost, string purchasedItem)	GameAnalytics.cs:1594		E					
+未分类/其他	GameAnalytics	SendDraftEnd(string draftResult, int victories, int defeats, string warlordId, string eventId, RewardInfo[] rewards)	GameAnalytics.cs:1531		E					
+未分类/其他	GameAnalytics	SendDraftStart(int cost, string eventId)	GameAnalytics.cs:1552		E					
+未分类/其他	GameAnalytics	SendEnterStore(ShopTabType shopType)	GameAnalytics.cs:1562		E					
+未分类/其他	GameAnalytics	SendEventCompleted(string timedEventId, string sealedDeckId, string sealedDeckDraftId, string sealedDeckWarlordName, int winsCount, int gemsSpent)	GameAnalytics.cs:1419		E					
+未分类/其他	GameAnalytics	SendEventStarted(string timedEventId, int ticketsPaid)	GameAnalytics.cs:1402		E					
+未分类/其他	GameAnalytics	SendFeedbackEvent(Dictionary<string, object> eventData)	GameAnalytics.cs:3189		E					
+未分类/其他	GameAnalytics	SendForgeUpgrade(int level, CardArmy army, RewardInfo[] rewards)	GameAnalytics.cs:1454		E					
+未分类/其他	GameAnalytics	SendGemsTransaction(int gemsAmount, int gemsLeft, bool bulkTransaction, string transactedItem)	GameAnalytics.cs:1629		E					
+未分类/其他	GameAnalytics	SendInitiateCheckout(ShopItemInstance shopItem)	GameAnalytics.cs:1670		E					
+未分类/其他	GameAnalytics	SendInitiateCheckout(string id, CurrencyValue price)	GameAnalytics.cs:1692		E					
+未分类/其他	GameAnalytics	SendJoinAlliance(string allianceId)	GameAnalytics.cs:927		E					
+未分类/其他	GameAnalytics	SendLeaveAlliance(string allianceId)	GameAnalytics.cs:937		E					
+未分类/其他	GameAnalytics	SendMatchCancelled(string opponentID, bool matchStarted, string uiState)	GameAnalytics.cs:3185		E					
+未分类/其他	GameAnalytics	SendMatchResultGA(MatchType matchType, BattleWinner battleWinner, bool pvpMatch, BattleResult battleResult, float duration, DeckAndWarlordData playerRawBattleData, DeckAndWarlordData enemyRawBattleData, string opponentPlayfabID, bool playerGoesFirst, string enemyDeckId, string playerDeckId, string sealedDeckDraftId)	GameAnalytics.cs:1279		E					
+未分类/其他	GameAnalytics	SendMatchResultGAAfterReconnection(MatchType matchType, bool pvpMatch, string opponentPlayfabID, int enemyRating, string playerWarlordId, string enemyWarlordId)	GameAnalytics.cs:1089		E					
+未分类/其他	GameAnalytics	SendMatchResultGADemo(MatchType matchType, BattleWinner battleWinner, bool pvpMatch, BattleResult battleResult, float duration, DeckAndWarlordData playerRawBattleData, DeckAndWarlordData enemyRawBattleData, string opponentPlayfabID, bool playerGoesFirst, string enemyDeckId, string playerDeckId, int playerHealth, int enemyHealth, int turnCounter)	GameAnalytics.cs:1149		E					
+未分类/其他	GameAnalytics	SendMemberRoleChange(string allianceId, string targetPlayerId, string type)	GameAnalytics.cs:947		E					
+未分类/其他	GameAnalytics	SendOnboardingFinished()	GameAnalytics.cs:657		E					
+未分类/其他	GameAnalytics	SendOpenCrate(List<ObtainableItemReward> rewards)	GameAnalytics.cs:764		E					
+未分类/其他	GameAnalytics	SendPurchasedInitialOffer(bool isTenDollarOffer)	GameAnalytics.cs:828		E					
+未分类/其他	GameAnalytics	SendPurchasedLimitedOffer(string offerId, bool isTenDollarOffer)	GameAnalytics.cs:837		E					
+未分类/其他	GameAnalytics	SendRatedGame(bool rated)	GameAnalytics.cs:3176		E					
+未分类/其他	GameAnalytics	SendRealPurchase(TransactionEventLocation location, string itemSku, string itemType, CurrencyValue price, IapPurchase inAppData, [Optional] decimal multiplier)	GameAnalytics.cs:1736		E					
+未分类/其他	GameAnalytics	SendReceivedTwitchDrop(string dropId, string twitchItemId, string twitchAccountId)	GameAnalytics.cs:893		E					
+未分类/其他	GameAnalytics	SendRedeemCoupon(string couponCode, bool successful)	GameAnalytics.cs:3099		E					
+未分类/其他	GameAnalytics	SendRegistrationAttempt(string playerName, int attemptsCount)	GameAnalytics.cs:3138		E					
+未分类/其他	GameAnalytics	SendRegistrationSuccessful(string playerName, int attemptsCount)	GameAnalytics.cs:3149		E					
+未分类/其他	GameAnalytics	SendReportMessage(string playfabIdReported, string messageReported)	GameAnalytics.cs:967		E					
+未分类/其他	GameAnalytics	SendStartBattle(MatchData matchData)	GameAnalytics.cs:1381		E					
+未分类/其他	GameAnalytics	SendSubscriptionPurchase(bool manualPurchase, bool autoRenewable, long subscriptionEndTime)	GameAnalytics.cs:1616		E					
+未分类/其他	GameAnalytics	SendTutorialFinished(int tutorialIndex, bool fromFinishTutorial)	GameAnalytics.cs:627		E					
+未分类/其他	GameAnalytics	SendTutorialStarted(int tutorialIndex)	GameAnalytics.cs:618		E					
+未分类/其他	GameAnalytics	SendVirtualPurchase(TransactionEventLocation location, string itemId, string itemType, CurrencyValue price)	GameAnalytics.cs:1713		E					
+未分类/其他	GameAnalytics	SendWindowOpen(GameWindow previousWindow, GameWindow window, object data)	GameAnalytics.cs:690		E					
+未分类/其他	GameAnalytics	SetupAnalytics(string gameVersion, string userId, bool newlyCreated)	GameAnalytics.cs:540		E					
+未分类/其他	GameAnalytics	SetupFirebaseAnalytics(string userId)	GameAnalytics.cs:574		E					
+未分类/其他	GameAnalytics	SetupUnityAnalytics()	GameAnalytics.cs:578		E					
+未分类/其他	GameBootstrap	Awake()	GameBootstrap.cs:209		E					
+未分类/其他	GameModesConfig	GetRankData(int division, int rank)	GameModesConfig.cs:80		E					
+未分类/其他	GameModesConfig	GetRankDataByPoints(int mmr)	GameModesConfig.cs:111		E					
+未分类/其他	GameObjectExtensions	GetActive(GameObject target)	GameObjectExtensions.cs:6		E					
+未分类/其他	GameObjectUniqueIdentifier	Awake()	GameObjectUniqueIdentifier.cs:11		E					
+未分类/其他	GameObjectUniqueIdentifier	Find(string id)	GameObjectUniqueIdentifier.cs:99		E					
+未分类/其他	GameObjectUniqueIdentifier	FindComponent(string id)	GameObjectUniqueIdentifier.cs:115		E					
+未分类/其他	GameObjectUniqueIdentifier	OnDestroy()	GameObjectUniqueIdentifier.cs:75		E					
+未分类/其他	GameObjectUniqueIdentifier	SetID(string newID)	GameObjectUniqueIdentifier.cs:83		E					
+未分类/其他	GamesPlayed	OnInitialize()	GamesPlayed.cs:54		E					
+未分类/其他	GamesPlayed	OnReset()	GamesPlayed.cs:60		E					
+未分类/其他	GamesPlayed	OnTrigger(BattleEndSignal obj)	GamesPlayed.cs:66		E					
+未分类/其他	GenericArmyItem	GetID()	GenericArmyItem.cs:288		E					
+未分类/其他	GenericArmyItem	GetItem()	GenericArmyItem.cs:278		E					
+未分类/其他	GenericArmyItem	GetItem(CardArmy army)	GenericArmyItem.cs:221		E					
+未分类/其他	GenericArmyItem	OnAfterRead(JToken rawJson)	GenericArmyItem.cs:293		E					
+未分类/其他	GenericArmyItem	OnAfterWrite(JToken rawJson)	GenericArmyItem.cs:316		E					
+未分类/其他	GenericArmyItemAssetProvider	GetAssets()	GenericArmyItemAssetProvider.cs:7		E					
+未分类/其他	GenericScoreBarLine	Initialize(GenericScoringMilestone milestone, Sprite resourceIcon)	GenericScoreBarLine.cs:33		E					
+未分类/其他	GenericSpriteByArmySO	GetSprite(CardArmy cardArmy)	GenericSpriteByArmySO.cs:11		E					
+未分类/其他	GenericSpriteByArmySO	Release(CardArmy cardArmy)	GenericSpriteByArmySO.cs:42		E					
+未分类/其他	GetAtlasUVForMaterial	OnValidate()	GetAtlasUVForMaterial.cs:87		E					
+未分类/其他	GetAtlasUVForMaterial	Update()	GetAtlasUVForMaterial.cs:9		E					
+未分类/其他	GiveHuntsMark	OnAddCardEffect(AddCardEffectSignal obj)	GiveHuntsMark.cs:21		E					
+未分类/其他	GiveHuntsMark	OnInitialize()	GiveHuntsMark.cs:9		E					
+未分类/其他	GiveHuntsMark	OnReset()	GiveHuntsMark.cs:15		E					
+未分类/其他	GiveMarkOfChaos	OnAddCardEffect(AddCardEffectSignal obj)	GiveMarkOfChaos.cs:23		E					
+未分类/其他	GiveMarkOfChaos	OnInitialize()	GiveMarkOfChaos.cs:11		E					
+未分类/其他	GiveMarkOfChaos	OnReset()	GiveMarkOfChaos.cs:17		E					
+未分类/其他	GoogleSheet	ClearURL(string input)	GoogleSheet.cs:470		E					
+未分类/其他	GoogleSheet	Fetch(string sheetId, string sheetName)	GoogleSheet.cs:453		E					
+未分类/其他	GoogleSheet	GetSheetInfo()	GoogleSheet.cs:498		E					
+未分类/其他	GoogleSheet	Write(string sheetId, string sheetName, IList<IList<object>> data, Action onFinish)	GoogleSheet.cs:462		E					
+未分类/其他	HUDFPS	Awake()	HUDFPS.cs:24		E					
+未分类/其他	HUDFPS	GetTimeOffset()	HUDFPS.cs:96		E					
+未分类/其他	HUDFPS	OnGUI()	HUDFPS.cs:30		E					
+未分类/其他	HUDFPS	Update()	HUDFPS.cs:58		E					
+未分类/其他	HealAmount	OnHeal(HealUnitSignal obj)	HealAmount.cs:97		E					
+未分类/其他	HealAmount	OnInitialize()	HealAmount.cs:91		E					
+未分类/其他	HealAmount	OnReset()	HealAmount.cs:85		E					
+未分类/其他	HealCriteria	DeepCopy()	HealCriteria.cs:20		E					
+未分类/其他	HealCriteria	GetAverageValue(CardScript thisCard, CardScript targetCard, int multiplierFactor)	HealCriteria.cs:13		E					
+未分类/其他	HealthThresholdData	CheckThreshold(int lifeToCheck)	HealthThresholdData.cs:33		E					
+未分类/其他	HeightmapBaker	FixToCamera()	HeightmapBaker.cs:30		E					
+未分类/其他	HeightmapBaker	Start()	HeightmapBaker.cs:15		E					
+未分类/其他	HighlightAttackType	HighlightIfNeeded(AttackTypes selectedAttackType)	HighlightAttackType.cs:79		E					
+未分类/其他	HuntMarkController	AimingAttack(bool option)	HuntMarkController.cs:31		E					
+未分类/其他	HuntMarkController	Start()	HuntMarkController.cs:11		E					
+未分类/其他	HuntMarkController	Toggle(bool option)	HuntMarkController.cs:15		E					
+未分类/其他	HuntMarkController	UpdateValue(int newValue)	HuntMarkController.cs:19		E					
+未分类/其他	IceWall	Trigger()	IceWall.cs:7		E					
+未分类/其他	IconRotation	Start()	IconRotation.cs:15		E					
+未分类/其他	IconRotation	Update()	IconRotation.cs:20		E					
+未分类/其他	IdentifiableSO	GetID()	IdentifiableSO.cs:5		E					
+未分类/其他	IdentifiableWrapper	GetID()	IdentifiableWrapper.cs:149		E					
+未分类/其他	IdentifiableWrapper	T(IdentifiableWrapper<T> instanceRef)	IdentifiableWrapper.cs:220		E					
+未分类/其他	IdentifiableWrapper	WrapperTypeOf(Type t)	IdentifiableWrapper.cs:71		E					
+未分类/其他	IdentifiableWrapper	WrapperTypeOf<T>()	IdentifiableWrapper.cs:8		E					
+未分类/其他	InitiMaterialWithRandomValue	OnValidate()	InitiMaterialWithRandomValue.cs:24		E					
+未分类/其他	InitiMaterialWithRandomValue	Start()	InitiMaterialWithRandomValue.cs:12		E					
+未分类/其他	InitializableBehaviour	Initialize()	InitializableBehaviour.cs:23		E					
+未分类/其他	InitializableBehaviour	OnBeforeInitialization()	InitializableBehaviour.cs:34		E					
+未分类/其他	InitializableBehaviour	OnInitializationComplete()	InitializableBehaviour.cs:30		E					
+未分类/其他	InitializableBehaviour	Start()	InitializableBehaviour.cs:25		E					
+未分类/其他	InputGestureAnalyzer	CheckGesture(float[] buffer)	InputGestureAnalyzer.cs:5		E					
+未分类/其他	ItemInfo	Add(int amount, string instanceId)	ItemInfo.cs:226		E					
+未分类/其他	ItemInfo	AssignEphemeralState(EphemeralState rewardEphemeralState)	ItemInfo.cs:252		E					
+未分类/其他	ItemInfo	Convert<TOut>()	ItemInfo.cs:144		E					
+未分类/其他	ItemInfo	SetAmount(int amount)	ItemInfo.cs:243		E					
+未分类/其他	ItemInfo	SetInfo(LoadableReference<T> setItem, int setQty, string instanceId)	ItemInfo.cs:213		E					
+未分类/其他	ItemsConfig	GetOriginalArtPrice(CardRarity rarity)	ItemsConfig.cs:92		E					
+未分类/其他	ItemsConfig	TryGetItemOrActionPrice(string name, out Price price)	ItemsConfig.cs:57		E					
+未分类/其他	LastOpponentInfo	OnBeforeRead(JToken rawJson)	LastOpponentInfo.cs:32		E					
+未分类/其他	LegionsSelectUI	SetLayer(int layerNumber)	LegionsSelectUI.cs:22		E					
+未分类/其他	LegionsSelectUI	SetLegion(CardArmy otherArmy)	LegionsSelectUI.cs:12		E					
+未分类/其他	LegionsSelectUI	SetSortingLayer(string layerName)	LegionsSelectUI.cs:16		E					
+未分类/其他	ListExtensions	ChunkBy(string source, int chunkSize)	ListExtensions.cs:2972		E					
+未分类/其他	ListExtensions	ChunkBy<T>(List<T> source, int chunkSize)	ListExtensions.cs:2716		E					
+未分类/其他	ListExtensions	Flatten<T>(IEnumerable<T> collection, Func<T, IEnumerable<T>> func)	ListExtensions.cs:2476		E					
+未分类/其他	ListExtensions	GetIndexOf<T>(IReadOnlyCollection<T> collection, T elementToFind)	ListExtensions.cs:2001		E					
+未分类/其他	ListExtensions	RandomElement<T>(ICollection<T> coll)	ListExtensions.cs:2679		E					
+未分类/其他	ListExtensions	RemoveWhere<T>(List<T> list, Func<T, bool> predicate, int count)	ListExtensions.cs:2467		E					
+未分类/其他	ListExtensions	Shuffle<T>(IList<T> list)	ListExtensions.cs:2081		E					
+未分类/其他	ListExtensions	SpliceWhere<T>(IList<T> list, Func<T, bool> predicate, int count)	ListExtensions.cs:2362		E					
+未分类/其他	ListExtensions	TKey>(IEnumerable<TSource> source, Func<TSource, TKey> keySelector)	ListExtensions.cs:3019		E					
+未分类/其他	ListExtensions	TU>(IEnumerable<T> data, Func<T, TU> f)	ListExtensions.cs:2527		E					
+未分类/其他	ListExtensions	TU>(IEnumerable<T> data, Func<T, TU> f)	ListExtensions.cs:2603		E					
+未分类/其他	LiveOpsFinalPopUp	Start()	LiveOpsFinalPopUp.cs:7		E					
+未分类/其他	LiveOpsFinalPopUp	Update()	LiveOpsFinalPopUp.cs:17		E					
+未分类/其他	LiveOpsFinalPopUp	_003CStart_003Eb__1_0(GameObject o)	LiveOpsFinalPopUp.cs:21		E					
+未分类/其他	LiveOpsPopUp	Initialize(LiveOpsEventData data, EverguildButton.SourceDelegate OnSubmit, EverguildButton.SourceDelegate OnCancel)	LiveOpsPopUp.cs:20		E					
+未分类/其他	LiveOpsPopUp	Start()	LiveOpsPopUp.cs:12		E					
+未分类/其他	LiveOpsPopUp	Update()	LiveOpsPopUp.cs:16		E					
+未分类/其他	LiveOpsTriggerController	Run(List<ILiveOps> allEvents, List<ILiveOps> activeEvents, List<EventGroup> groups)	LiveOpsTriggerController.cs:6		E					
+未分类/其他	LiveOpsUtility	GetDateForEventStage(ILiveOps liveOps, int stageIndex)	LiveOpsUtility.cs:187		E					
+未分类/其他	LiveOpsUtility	GetDateForNextEventStage(ILiveOps liveOps)	LiveOpsUtility.cs:237		E					
+未分类/其他	LiveOpsUtility	IsTimedEvent(ILiveOps liveOps, out long endDate)	LiveOpsUtility.cs:87		E					
+未分类/其他	LiveOpsUtility	IsTriggeredEvent(ILiveOps liveOps)	LiveOpsUtility.cs:50		E					
+未分类/其他	LiveopsHelper	GetEventFromData(Type dataType)	LiveopsHelper.cs:196		E					
+未分类/其他	LiveopsHelper	PopulateDictionary()	LiveopsHelper.cs:12		E					
+未分类/其他	LiveopsHelper	TryGetEventFromData(Type dataType, out Type eventType)	LiveopsHelper.cs:153		E					
+未分类/其他	LiveopsReference	_003Cget_EventReference_003Eb__1_0(ILiveOps e)	LiveopsReference.cs:41		E					
+未分类/其他	LoadBalancingPeer	OpAuthenticate(string appId, string appVersion, AuthenticationValues authValues, string regionCode, bool getLobbyStatistics)	LoadBalancingPeer.cs:722		E					
+未分类/其他	LoadBalancingPeer	OpAuthenticateOnce(string appId, string appVersion, AuthenticationValues authValues, string regionCode, EncryptionMode encryptionMode, ConnectionProtocol expectedProtocol)	LoadBalancingPeer.cs:831		E					
+未分类/其他	LoadBalancingPeer	OpChangeGroups(byte[] groupsToRemove, byte[] groupsToAdd)	LoadBalancingPeer.cs:944		E					
+未分类/其他	LoadBalancingPeer	OpCreateRoom(EnterRoomParams opParams)	LoadBalancingPeer.cs:247		E					
+未分类/其他	LoadBalancingPeer	OpFindFriends(string[] friendsToFind, FindFriendsOptions options)	LoadBalancingPeer.cs:552		E					
+未分类/其他	LoadBalancingPeer	OpGetGameList(TypedLobby lobby, string queryData)	LoadBalancingPeer.cs:504		E					
+未分类/其他	LoadBalancingPeer	OpGetRegions(string appId)	LoadBalancingPeer.cs:51		E					
+未分类/其他	LoadBalancingPeer	OpJoinLobby(TypedLobby lobby)	LoadBalancingPeer.cs:66		E					
+未分类/其他	LoadBalancingPeer	OpJoinRandomRoom(OpJoinRandomRoomParams opJoinRandomRoomParams)	LoadBalancingPeer.cs:401		E					
+未分类/其他	LoadBalancingPeer	OpJoinRoom(EnterRoomParams opParams)	LoadBalancingPeer.cs:302		E					
+未分类/其他	LoadBalancingPeer	OpLeaveLobby()	LoadBalancingPeer.cs:103		E					
+未分类/其他	LoadBalancingPeer	OpLeaveRoom(bool becomeInactive)	LoadBalancingPeer.cs:483		E					
+未分类/其他	LoadBalancingPeer	OpRaiseEvent(byte eventCode, object customEventContent, bool sendReliable, RaiseEventOptions raiseEventOptions)	LoadBalancingPeer.cs:978		E					
+未分类/其他	LoadBalancingPeer	OpSetCustomPropertiesOfActor(int actorNr, Hashtable actorProperties)	LoadBalancingPeer.cs:595		E					
+未分类/其他	LoadBalancingPeer	OpSetCustomPropertiesOfRoom(Hashtable gameProperties, Hashtable expectedProperties, bool webForward)	LoadBalancingPeer.cs:671		E					
+未分类/其他	LoadBalancingPeer	OpSetCustomPropertiesOfRoom(Hashtable gameProperties, bool broadcast, byte channelId)	LoadBalancingPeer.cs:665		E					
+未分类/其他	LoadBalancingPeer	OpSetPropertiesOfActor(int actorNr, Hashtable actorProperties, Hashtable expectedProperties, bool webForward)	LoadBalancingPeer.cs:602		E					
+未分类/其他	LoadBalancingPeer	OpSetPropertiesOfRoom(Hashtable gameProperties, Hashtable expectedProperties, bool webForward)	LoadBalancingPeer.cs:678		E					
+未分类/其他	LoadBalancingPeer	OpSetPropertyOfRoom(byte propCode, object value)	LoadBalancingPeer.cs:658		E					
+未分类/其他	LoadBalancingPeer	OpSettings(bool receiveLobbyStats)	LoadBalancingPeer.cs:1072		E					
+未分类/其他	LoadBalancingPeer	RoomOptionsToOpParameters(Dictionary<byte, object> op, RoomOptions roomOptions)	LoadBalancingPeer.cs:118		E					
+未分类/其他	LoginWithEmailHelper	Login(string email, string password, Action<string> onError, Action onSuccessNewPLayer)	LoginWithEmailHelper.cs:92		E					
+未分类/其他	LoginWithEmailHelper	ResetPassword(string email, Action<string> onError)	LoginWithEmailHelper.cs:170		E					
+未分类/其他	LoginWithEmailHelper	RetrieveBackupLogin()	LoginWithEmailHelper.cs:221		E					
+未分类/其他	LoginWithEmailHelper	SaveCurrentLoginAsBackup()	LoginWithEmailHelper.cs:212		E					
+未分类/其他	LoginWithEmailHelper	SetNewUser(string email, string password)	LoginWithEmailHelper.cs:228		E					
+未分类/其他	LookAtConstrainWIP	Update()	LookAtConstrainWIP.cs:19		E					
+未分类/其他	ManualPhotonViewAllocator	AllocateManualPhotonView()	ManualPhotonViewAllocator.cs:8		E					
+未分类/其他	ManualPhotonViewAllocator	InstantiateRpc(int viewID)	ManualPhotonViewAllocator.cs:43		E					
+未分类/其他	MaterialChangerByQuality	Initialize()	MaterialChangerByQuality.cs:65		E					
+未分类/其他	MaterialChangerByQuality	TryApply(EverguildQualitySetting qualityTest, MeshRenderer meshRenderer)	MaterialChangerByQuality.cs:16		E					
+未分类/其他	MeshBoundsGizmo	OnDrawGizmos()	MeshBoundsGizmo.cs:6		E					
+未分类/其他	MilestoneScoreBar	GetScoringThresholds(GenericScoringMilestone[] milestones)	MilestoneScoreBar.cs:160		E					
+未分类/其他	MilestoneScoreBar	Initialize(int currentScore, GenericScoringMilestone[] scoringMilestones, Sprite resourceIcon)	MilestoneScoreBar.cs:39		E					
+未分类/其他	MilestoneScoreBar	SetProgressBar(GenericScoringMilestone[] milestones, int currentScore)	MilestoneScoreBar.cs:100		E					
+未分类/其他	MilestoneScoreBar	SetScoringMilestones(GenericScoringMilestone[] scoringMilestones, int currentScore, Sprite resourceIcon)	MilestoneScoreBar.cs:70		E					
+未分类/其他	MilestoneStep	GetAnimationTime()	MilestoneStep.cs:115		E					
+未分类/其他	MilestoneStep	Toggle(bool option, int index, bool playSound, bool playAnim)	MilestoneStep.cs:53		E					
+未分类/其他	MilestoneStep	UpdateImageAlpha(Image image, float alpha)	MilestoneStep.cs:121		E					
+未分类/其他	MilestonesStepDisplay	GetTotalAnimationTime()	MilestonesStepDisplay.cs:62		E					
+未分类/其他	MilestonesStepDisplay	Initialize(int currentPoints, int totalPoints, Action<MilestoneStep, int> setupAction, bool playSounds, bool playAnim)	MilestonesStepDisplay.cs:15		E					
+未分类/其他	MiniTipHover	HideTip()	MiniTipHover.cs:40		E					
+未分类/其他	MiniTipHover	SetLastTimeHover(float timeHover)	MiniTipHover.cs:48		E					
+未分类/其他	MiniTipHover	SetTipInitialPosition(Vector2 initialPosition)	MiniTipHover.cs:16		E					
+未分类/其他	MiniTipHover	ShowTip(string text, Vector2 position, string titleText)	MiniTipHover.cs:25		E					
+未分类/其他	MiniTipHover	Update()	MiniTipHover.cs:53		E					
+未分类/其他	MiscExtensions	EqualsIgnoreCase(string str1, string str2)	MiscExtensions.cs:5		E					
+未分类/其他	MoveByKeys	FixedUpdate()	MoveByKeys.cs:39		E					
+未分类/其他	MoveByKeys	Start()	MoveByKeys.cs:22		E					
+未分类/其他	MulliganFrame	ChangeCardButtonOnClick()	MulliganFrame.cs:64		E					
+未分类/其他	MulliganFrame	OnDestroy()	MulliganFrame.cs:57		E					
+未分类/其他	MulliganFrame	SetupMulligan(CardScript targetCard)	MulliganFrame.cs:35		E					
+未分类/其他	MulliganFrame	UpdateButtonText()	MulliganFrame.cs:82		E					
+未分类/其他	MultiKeyDictionary	ContainsKey(T1 key1, T2 key2)	MultiKeyDictionary.cs:47		E					
+未分类/其他	MultiKeyDictionary	get_Item(T1 key)	MultiKeyDictionary.cs:8		E					
+未分类/其他	NameGenerator	BuildMarkovChain()	NameGenerator.cs:32		E					
+未分类/其他	NameGenerator	GenerateName(int minLength, int maxLength)	NameGenerator.cs:235		E					
+未分类/其他	NameGenerator	GenerateNameOnce()	NameGenerator.cs:97		E					
+未分类/其他	NameGenerator	Initialize()	NameGenerator.cs:21		E					
+未分类/其他	NetworkCullingHandler	HaveActiveCellsChanged()	NetworkCullingHandler.cs:193		E					
+未分类/其他	NetworkCullingHandler	OnEnable()	NetworkCullingHandler.cs:22		E					
+未分类/其他	NetworkCullingHandler	OnGUI()	NetworkCullingHandler.cs:127		E					
+未分类/其他	NetworkCullingHandler	OnPhotonSerializeView(PhotonStream stream, PhotonMessageInfo info)	NetworkCullingHandler.cs:311		E					
+未分类/其他	NetworkCullingHandler	Start()	NetworkCullingHandler.cs:58		E					
+未分类/其他	NetworkCullingHandler	Update()	NetworkCullingHandler.cs:96		E					
+未分类/其他	NetworkCullingHandler	UpdateInterestGroups()	NetworkCullingHandler.cs:272		E					
+未分类/其他	NetworkingPeer	AddNewPlayer(int ID, PhotonPlayer player)	NetworkingPeer.cs:2806		E					
+未分类/其他	NetworkingPeer	AlmostEquals(object one, object two)	NetworkingPeer.cs:9251		E					
+未分类/其他	NetworkingPeer	AlmostEquals(object[] lastData, object[] currentContent)	NetworkingPeer.cs:9211		E					
+未分类/其他	NetworkingPeer	CallAuthenticate()	NetworkingPeer.cs:1231		E					
+未分类/其他	NetworkingPeer	ChangeLocalID(int newID)	NetworkingPeer.cs:1998		E					
+未分类/其他	NetworkingPeer	CheckMasterClient(int leavingPlayerId)	NetworkingPeer.cs:3175		E					
+未分类/其他	NetworkingPeer	CheckTypeMatch(ParameterInfo[] methodParameters, Type[] callParameterTypes)	NetworkingPeer.cs:5471		E					
+未分类/其他	NetworkingPeer	CleanRpcBufferIfMine(PhotonView view)	NetworkingPeer.cs:7522		E					
+未分类/其他	NetworkingPeer	Connect(string serverAddress, ServerConnection type)	NetworkingPeer.cs:864		E					
+未分类/其他	NetworkingPeer	Connect(string serverAddress, string appId, object photonToken, object customInitData)	NetworkingPeer.cs:796		E					
+未分类/其他	NetworkingPeer	Connect(string serverAddress, string proxyServerAddress, string appId, object photonToken, object customInitData)	NetworkingPeer.cs:802		E					
+未分类/其他	NetworkingPeer	ConnectToNameServer()	NetworkingPeer.cs:989		E					
+未分类/其他	NetworkingPeer	ConnectToRegionMaster(CloudRegionCode region, string specificCluster)	NetworkingPeer.cs:1046		E					
+未分类/其他	NetworkingPeer	DebugReturn(DebugLevel level, string message)	NetworkingPeer.cs:3494		E					
+未分类/其他	NetworkingPeer	DeltaCompressionRead(object[] lastOnSerializeDataReceived, object[] incomingData)	NetworkingPeer.cs:9086		E					
+未分类/其他	NetworkingPeer	DeltaCompressionWrite(object[] previousContent, object[] currentContent)	NetworkingPeer.cs:8835		E					
+未分类/其他	NetworkingPeer	DestroyAll(bool localOnly)	NetworkingPeer.cs:7030		E					
+未分类/其他	NetworkingPeer	DestroyPlayerObjects(int playerId, bool localOnly)	NetworkingPeer.cs:6909		E					
+未分类/其他	NetworkingPeer	Disconnect()	NetworkingPeer.cs:1214		E					
+未分类/其他	NetworkingPeer	DisconnectToReconnect()	NetworkingPeer.cs:1291		E					
+未分类/其他	NetworkingPeer	DoInstantiate(ExitGames.Client.Photon.Hashtable evData, PhotonPlayer photonPlayer, GameObject resourceGameObject)	NetworkingPeer.cs:5670		E					
+未分类/其他	NetworkingPeer	ExecuteRpc(ExitGames.Client.Photon.Hashtable rpcData, int senderID)	NetworkingPeer.cs:4119		E					
+未分类/其他	NetworkingPeer	FetchInstantiationData(int instantiationId)	NetworkingPeer.cs:6890		E					
+未分类/其他	NetworkingPeer	GameEnteredOnGameServer(OperationResponse operationResponse)	NetworkingPeer.cs:2178		E					
+未分类/其他	NetworkingPeer	GetLocalActorProperties()	NetworkingPeer.cs:3471		E					
+未分类/其他	NetworkingPeer	GetMethod(MonoBehaviour monob, string methodType, out MethodInfo mi)	NetworkingPeer.cs:9591		E					
+未分类/其他	NetworkingPeer	GetNameServerAddress()	NetworkingPeer.cs:763		E					
+未分类/其他	NetworkingPeer	GetPhotonView(int viewID)	NetworkingPeer.cs:7357		E					
+未分类/其他	NetworkingPeer	GetPlayerWithId(int number)	NetworkingPeer.cs:3437		E					
+未分类/其他	NetworkingPeer	GetRegions()	NetworkingPeer.cs:1319		E					
+未分类/其他	NetworkingPeer	HandleEventLeave(int actorID, EventData evLeave)	NetworkingPeer.cs:2904		E					
+未分类/其他	NetworkingPeer	LeftLobbyCleanup()	NetworkingPeer.cs:2023		E					
+未分类/其他	NetworkingPeer	LeftRoomCleanup()	NetworkingPeer.cs:2042		E					
+未分类/其他	NetworkingPeer	LoadLevelIfSynced()	NetworkingPeer.cs:9640		E					
+未分类/其他	NetworkingPeer	LocalCleanPhotonView(PhotonView view)	NetworkingPeer.cs:7342		E					
+未分类/其他	NetworkingPeer	LocalCleanupAnythingInstantiated(bool destroyInstantiatedGameObjects)	NetworkingPeer.cs:2109		E					
+未分类/其他	NetworkingPeer	NewSceneLoaded()	NetworkingPeer.cs:7989		E					
+未分类/其他	NetworkingPeer	OnEvent(EventData photonEvent)	NetworkingPeer.cs:3846		E					
+未分类/其他	NetworkingPeer	OnMessage(object messages)	NetworkingPeer.cs:3860		E					
+未分类/其他	NetworkingPeer	OnOperationResponse(OperationResponse operationResponse)	NetworkingPeer.cs:3524		E					
+未分类/其他	NetworkingPeer	OnSerializeRead(object[] data, PhotonPlayer sender, int networkTime, short correctPrefix)	NetworkingPeer.cs:8628		E					
+未分类/其他	NetworkingPeer	OnSerializeWrite(PhotonView view)	NetworkingPeer.cs:8418		E					
+未分类/其他	NetworkingPeer	OnStatusChanged(StatusCode statusCode)	NetworkingPeer.cs:3826		E					
+未分类/其他	NetworkingPeer	OpCleanRpcBuffer(PhotonView view)	NetworkingPeer.cs:7550		E					
+未分类/其他	NetworkingPeer	OpCleanRpcBuffer(int actorNumber)	NetworkingPeer.cs:7476		E					
+未分类/其他	NetworkingPeer	OpCreateGame(EnterRoomParams enterRoomParams)	NetworkingPeer.cs:1394		E					
+未分类/其他	NetworkingPeer	OpFindFriends(string[] friendsToFind, FindFriendsOptions findFriendsOptions)	NetworkingPeer.cs:1338		E					
+未分类/其他	NetworkingPeer	OpJoinRandomRoom(OpJoinRandomRoomParams opJoinRandomRoomParams)	NetworkingPeer.cs:1447		E					
+未分类/其他	NetworkingPeer	OpJoinRoom(EnterRoomParams opParams)	NetworkingPeer.cs:1422		E					
+未分类/其他	NetworkingPeer	OpRaiseEvent(byte eventCode, object customEventContent, bool sendReliable, RaiseEventOptions raiseEventOptions)	NetworkingPeer.cs:1473		E					
+未分类/其他	NetworkingPeer	OpRemoveCompleteCache()	NetworkingPeer.cs:7502		E					
+未分类/其他	NetworkingPeer	OpRemoveCompleteCacheOfPlayer(int actorNumber)	NetworkingPeer.cs:7489		E					
+未分类/其他	NetworkingPeer	OpRemoveFromServerInstantiationsOfPlayer(int actorNr)	NetworkingPeer.cs:7245		E					
+未分类/其他	NetworkingPeer	RPC(PhotonView view, string methodName, PhotonTargets target, PhotonPlayer player, bool encrypt, object[] parameters)	NetworkingPeer.cs:7592		E					
+未分类/其他	NetworkingPeer	ReadoutProperties(ExitGames.Client.Photon.Hashtable gameProperties, ExitGames.Client.Photon.Hashtable pActorProperties, int targetActorNr)	NetworkingPeer.cs:1483		E					
+未分类/其他	NetworkingPeer	ReadoutPropertiesForActorNr(ExitGames.Client.Photon.Hashtable actorProperties, int actorNr)	NetworkingPeer.cs:1951		E					
+未分类/其他	NetworkingPeer	RebuildPlayerListCopies()	NetworkingPeer.cs:2832		E					
+未分类/其他	NetworkingPeer	Reconnect()	NetworkingPeer.cs:939		E					
+未分类/其他	NetworkingPeer	ReconnectAndRejoin()	NetworkingPeer.cs:831		E					
+未分类/其他	NetworkingPeer	ReconnectToMaster()	NetworkingPeer.cs:808		E					
+未分类/其他	NetworkingPeer	RegisterPhotonView(PhotonView netView)	NetworkingPeer.cs:7408		E					
+未分类/其他	NetworkingPeer	RemoveCacheOfLeftPlayers()	NetworkingPeer.cs:7510		E					
+未分类/其他	NetworkingPeer	RemoveInstantiatedGO(GameObject go, bool localOnly)	NetworkingPeer.cs:7047		E					
+未分类/其他	NetworkingPeer	RemoveInstantiationData(int instantiationId)	NetworkingPeer.cs:6904		E					
+未分类/其他	NetworkingPeer	RemovePhotonView(PhotonView netView)	NetworkingPeer.cs:7465		E					
+未分类/其他	NetworkingPeer	RemovePlayer(int ID, PhotonPlayer player)	NetworkingPeer.cs:2823		E					
+未分类/其他	NetworkingPeer	RemoveRPCsInGroup(int group)	NetworkingPeer.cs:7561		E					
+未分类/其他	NetworkingPeer	RequestOwnership(int viewID, int fromOwner)	NetworkingPeer.cs:7258		E					
+未分类/其他	NetworkingPeer	ResetPhotonViewsOnSerialize()	NetworkingPeer.cs:2877		E					
+未分类/其他	NetworkingPeer	ReturnLowestPlayerId(PhotonPlayer[] players, int playerIdToIgnore)	NetworkingPeer.cs:3317		E					
+未分类/其他	NetworkingPeer	RunViewUpdate()	NetworkingPeer.cs:8052		E					
+未分类/其他	NetworkingPeer	SendDestroyOfAll()	NetworkingPeer.cs:7236		E					
+未分类/其他	NetworkingPeer	SendDestroyOfPlayer(int actorNr)	NetworkingPeer.cs:7227		E					
+未分类/其他	NetworkingPeer	SendInstantiate(string prefabName, Vector3 position, Quaternion rotation, byte group, int[] viewIDs, object[] data, bool isGlobalObject)	NetworkingPeer.cs:5556		E					
+未分类/其他	NetworkingPeer	SendLevelReloadEvent()	NetworkingPeer.cs:10287		E					
+未分类/其他	NetworkingPeer	SendMonoMessage(PhotonNetworkingMessage methodString, object[] parameters)	NetworkingPeer.cs:4071		E					
+未分类/其他	NetworkingPeer	SendPlayerName()	NetworkingPeer.cs:3447		E					
+未分类/其他	NetworkingPeer	SendVacantViewIds()	NetworkingPeer.cs:4024		E					
+未分类/其他	NetworkingPeer	ServerCleanInstantiateAndDestroy(int instantiateId, int creatorId, bool isRuntimeInstantiated)	NetworkingPeer.cs:7196		E					
+未分类/其他	NetworkingPeer	SetApp(string appId, string gameVersion)	NetworkingPeer.cs:10298		E					
+未分类/其他	NetworkingPeer	SetInterestGroups(byte[] disableGroups, byte[] enableGroups)	NetworkingPeer.cs:7856		E					
+未分类/其他	NetworkingPeer	SetLevelInPropsIfSynced(object levelId, bool initiatingCall, bool asyncLoading)	NetworkingPeer.cs:9884		E					
+未分类/其他	NetworkingPeer	SetLevelPrefix(short prefix)	NetworkingPeer.cs:7587		E					
+未分类/其他	NetworkingPeer	SetMasterClient(int nextMasterId)	NetworkingPeer.cs:3414		E					
+未分类/其他	NetworkingPeer	SetMasterClient(int playerId, bool sync)	NetworkingPeer.cs:3352		E					
+未分类/其他	NetworkingPeer	SetSendingEnabled(byte group, bool enabled)	NetworkingPeer.cs:7941		E					
+未分类/其他	NetworkingPeer	SetSendingEnabled(byte[] disableGroups, byte[] enableGroups)	NetworkingPeer.cs:7953		E					
+未分类/其他	NetworkingPeer	SetupEncryption(Dictionary<byte, object> encryptionData)	NetworkingPeer.cs:3864		E					
+未分类/其他	NetworkingPeer	SetupProtocol(ServerConnection serverType)	NetworkingPeer.cs:1100		E					
+未分类/其他	NetworkingPeer	StoreInstantiationData(int instantiationId, object[] instantiationData)	NetworkingPeer.cs:6885		E					
+未分类/其他	NetworkingPeer	TransferOwnership(int viewID, int playerID)	NetworkingPeer.cs:7300		E					
+未分类/其他	NetworkingPeer	UpdateMasterClient()	NetworkingPeer.cs:3293		E					
+未分类/其他	NetworkingPeer	UpdatedActorList(int[] actorsInRoom)	NetworkingPeer.cs:3997		E					
+未分类/其他	NetworkingPeer	WebRpc(string uriPath, object parameters)	NetworkingPeer.cs:10312		E					
+未分类/其他	ObtainableItem	HandleOnCollect(int rewardQuantity)	ObtainableItem.cs:32		E					
+未分类/其他	OffsetMovementCurvesByAxis	GetRandomOffsetValues()	OffsetMovementCurvesByAxis.cs:57		E					
+未分类/其他	OnClickDestroy	DestroyRpc()	OnClickDestroy.cs:97		E					
+未分类/其他	OnClickDestroy	OnClick()	OnClickDestroy.cs:82		E					
+未分类/其他	OnClickInstantiate	OnClick()	OnClickInstantiate.cs:15		E					
+未分类/其他	OnClickInstantiate	OnGUI()	OnClickInstantiate.cs:79		E					
+未分类/其他	OnJoinedInstantiate	OnJoinedRoom()	OnJoinedInstantiate.cs:13		E					
+未分类/其他	OnStartDelete	Start()	OnStartDelete.cs:5		E					
+未分类/其他	OverrideConfig	TryGetOverride(string version, out string label)	OverrideConfig.cs:75		E					
+未分类/其他	OvertimeUi	Awake()	OvertimeUi.cs:17		E					
+未分类/其他	OvertimeUi	DisplayOvertime()	OvertimeUi.cs:30		E					
+未分类/其他	OvertimeUi	_003CDisplayOvertime_003Eb__5_0()	OvertimeUi.cs:56		E					
+未分类/其他	PackAssetProvider	GetAssets()	PackAssetProvider.cs:6		E					
+未分类/其他	PhotonAnimatorView	Awake()	PhotonAnimatorView.cs:165		E					
+未分类/其他	PhotonAnimatorView	CacheDiscreteTriggers()	PhotonAnimatorView.cs:243		E					
+未分类/其他	PhotonAnimatorView	DeserializeDataContinuously()	PhotonAnimatorView.cs:638		E					
+未分类/其他	PhotonAnimatorView	DeserializeDataDiscretly(PhotonStream stream)	PhotonAnimatorView.cs:1179		E					
+未分类/其他	PhotonAnimatorView	DeserializeSynchronizationTypeState(PhotonStream stream)	PhotonAnimatorView.cs:1772		E					
+未分类/其他	PhotonAnimatorView	DoesLayerSynchronizeTypeExist(int layerIndex)	PhotonAnimatorView.cs:265		E					
+未分类/其他	PhotonAnimatorView	DoesParameterSynchronizeTypeExist(string name)	PhotonAnimatorView.cs:297		E					
+未分类/其他	PhotonAnimatorView	GetLayerSynchronizeType(int layerIndex)	PhotonAnimatorView.cs:340		E					
+未分类/其他	PhotonAnimatorView	GetParameterSynchronizeType(string name)	PhotonAnimatorView.cs:380		E					
+未分类/其他	PhotonAnimatorView	GetSynchronizedLayers()	PhotonAnimatorView.cs:330		E					
+未分类/其他	PhotonAnimatorView	GetSynchronizedParameters()	PhotonAnimatorView.cs:335		E					
+未分类/其他	PhotonAnimatorView	OnPhotonSerializeView(PhotonStream stream, PhotonMessageInfo info)	PhotonAnimatorView.cs:1975		E					
+未分类/其他	PhotonAnimatorView	SerializeDataContinuously()	PhotonAnimatorView.cs:526		E					
+未分类/其他	PhotonAnimatorView	SerializeDataDiscretly(PhotonStream stream)	PhotonAnimatorView.cs:1069		E					
+未分类/其他	PhotonAnimatorView	SerializeSynchronizationTypeState(PhotonStream stream)	PhotonAnimatorView.cs:1720		E					
+未分类/其他	PhotonAnimatorView	SetLayerSynchronized(int layerIndex, SynchronizeType synchronizeType)	PhotonAnimatorView.cs:421		E					
+未分类/其他	PhotonAnimatorView	SetParameterSynchronized(string name, ParameterType type, SynchronizeType synchronizeType)	PhotonAnimatorView.cs:471		E					
+未分类/其他	PhotonAnimatorView	Update()	PhotonAnimatorView.cs:196		E					
+未分类/其他	PhotonHandler	Awake()	PhotonHandler.cs:511		E					
+未分类/其他	PhotonHandler	FallbackSendAckThread()	PhotonHandler.cs:691		E					
+未分类/其他	PhotonHandler	OnApplicationPause(bool pause)	PhotonHandler.cs:560		E					
+未分类/其他	PhotonHandler	OnApplicationQuit()	PhotonHandler.cs:553		E					
+未分类/其他	PhotonHandler	OnCreatedRoom()	PhotonHandler.cs:668		E					
+未分类/其他	PhotonHandler	OnDestroy()	PhotonHandler.cs:581		E					
+未分类/其他	PhotonHandler	OnJoinedRoom()	PhotonHandler.cs:663		E					
+未分类/其他	PhotonHandler	PingAvailableRegionsAndConnectToBest()	PhotonHandler.cs:775		E					
+未分类/其他	PhotonHandler	PingAvailableRegionsCoroutine(bool connectToBest)	PhotonHandler.cs:783		E					
+未分类/其他	PhotonHandler	Start()	PhotonHandler.cs:534		E					
+未分类/其他	PhotonHandler	StartFallbackSendAckThread()	PhotonHandler.cs:676		E					
+未分类/其他	PhotonHandler	StopFallbackSendAckThread()	PhotonHandler.cs:686		E					
+未分类/其他	PhotonHandler	Update()	PhotonHandler.cs:586		E					
+未分类/其他	PhotonLagSimulationGui	NetSimHasNoPeerWindow(int windowId)	PhotonLagSimulationGui.cs:65		E					
+未分类/其他	PhotonLagSimulationGui	NetSimWindow(int windowId)	PhotonLagSimulationGui.cs:71		E					
+未分类/其他	PhotonLagSimulationGui	OnGUI()	PhotonLagSimulationGui.cs:39		E					
+未分类/其他	PhotonLagSimulationGui	Start()	PhotonLagSimulationGui.cs:31		E					
+未分类/其他	PhotonMessageInfo	ToString()	PhotonMessageInfo.cs:32		E					
+未分类/其他	PhotonNetwork	AllocateSceneViewID()	PhotonNetwork.cs:2583		E					
+未分类/其他	PhotonNetwork	AllocateSceneViewIDs(int countOfNewViews)	PhotonNetwork.cs:2748		E					
+未分类/其他	PhotonNetwork	AllocateViewID()	PhotonNetwork.cs:2550		E					
+未分类/其他	PhotonNetwork	AllocateViewID(int ownerId)	PhotonNetwork.cs:2622		E					
+未分类/其他	PhotonNetwork	CacheSendMonoMessageTargets(Type type)	PhotonNetwork.cs:3654		E					
+未分类/其他	PhotonNetwork	CallEvent(byte eventCode, object content, int senderId)	PhotonNetwork.cs:4031		E					
+未分类/其他	PhotonNetwork	CloseConnection(PhotonPlayer kickPlayer)	PhotonNetwork.cs:3355		E					
+未分类/其他	PhotonNetwork	ConnectToBestCloudServer(string gameVersion)	PhotonNetwork.cs:1598		E					
+未分类/其他	PhotonNetwork	ConnectToMaster(string masterServerAddress, int port, string appID, string gameVersion)	PhotonNetwork.cs:1446		E					
+未分类/其他	PhotonNetwork	ConnectToRegion(CloudRegionCode region, string gameVersion, string cluster)	PhotonNetwork.cs:1633		E					
+未分类/其他	PhotonNetwork	ConnectUsingSettings(string gameVersion)	PhotonNetwork.cs:1346		E					
+未分类/其他	PhotonNetwork	CreateRoom(string roomName)	PhotonNetwork.cs:1757		E					
+未分类/其他	PhotonNetwork	CreateRoom(string roomName, RoomOptions roomOptions, TypedLobby typedLobby)	PhotonNetwork.cs:1762		E					
+未分类/其他	PhotonNetwork	CreateRoom(string roomName, RoomOptions roomOptions, TypedLobby typedLobby, string[] expectedUsers)	PhotonNetwork.cs:1767		E					
+未分类/其他	PhotonNetwork	Destroy(GameObject targetGo)	PhotonNetwork.cs:3456		E					
+未分类/其他	PhotonNetwork	Destroy(PhotonView targetView)	PhotonNetwork.cs:3440		E					
+未分类/其他	PhotonNetwork	DestroyAll()	PhotonNetwork.cs:3517		E					
+未分类/其他	PhotonNetwork	DestroyPlayerObjects(PhotonPlayer targetPlayer)	PhotonNetwork.cs:3466		E					
+未分类/其他	PhotonNetwork	DestroyPlayerObjects(int targetPlayerId)	PhotonNetwork.cs:3494		E					
+未分类/其他	PhotonNetwork	Disconnect()	PhotonNetwork.cs:1723		E					
+未分类/其他	PhotonNetwork	EnterOfflineRoom(string roomName, RoomOptions roomOptions, bool createdRoom)	PhotonNetwork.cs:2151		E					
+未分类/其他	PhotonNetwork	EventCallback(byte eventCode, object content, int senderId)	PhotonNetwork.cs:11		E					
+未分类/其他	PhotonNetwork	FetchServerTimestamp()	PhotonNetwork.cs:3338		E					
+未分类/其他	PhotonNetwork	FindFriends(string[] friendsToFind, FindFriendsOptions options)	PhotonNetwork.cs:1739		E					
+未分类/其他	PhotonNetwork	FindGameObjectsWithComponent(Type type)	PhotonNetwork.cs:3740		E					
+未分类/其他	PhotonNetwork	GetCustomRoomList(TypedLobby typedLobby, string sqlLobbyFilter)	PhotonNetwork.cs:2339		E					
+未分类/其他	PhotonNetwork	GetPing()	PhotonNetwork.cs:3327		E					
+未分类/其他	PhotonNetwork	GetRoomList()	PhotonNetwork.cs:2353		E					
+未分类/其他	PhotonNetwork	InitializeSecurity()	PhotonNetwork.cs:1709		E					
+未分类/其他	PhotonNetwork	Instantiate(string prefabName, Vector3 position, Quaternion rotation, byte group)	PhotonNetwork.cs:2840		E					
+未分类/其他	PhotonNetwork	Instantiate(string prefabName, Vector3 position, Quaternion rotation, byte group, object[] data)	PhotonNetwork.cs:2850		E					
+未分类/其他	PhotonNetwork	InstantiateSceneObject(string prefabName, Vector3 position, Quaternion rotation, byte group, object[] data)	PhotonNetwork.cs:3141		E					
+未分类/其他	PhotonNetwork	JoinLobby()	PhotonNetwork.cs:2200		E					
+未分类/其他	PhotonNetwork	JoinLobby(TypedLobby typedLobby)	PhotonNetwork.cs:2229		E					
+未分类/其他	PhotonNetwork	JoinOrCreateRoom(string roomName, RoomOptions roomOptions, TypedLobby typedLobby)	PhotonNetwork.cs:1906		E					
+未分类/其他	PhotonNetwork	JoinOrCreateRoom(string roomName, RoomOptions roomOptions, TypedLobby typedLobby, string[] expectedUsers)	PhotonNetwork.cs:1911		E					
+未分类/其他	PhotonNetwork	JoinRandomRoom()	PhotonNetwork.cs:2005		E					
+未分类/其他	PhotonNetwork	JoinRandomRoom(Hashtable expectedCustomRoomProperties, byte expectedMaxPlayers)	PhotonNetwork.cs:2012		E					
+未分类/其他	PhotonNetwork	JoinRandomRoom(Hashtable expectedCustomRoomProperties, byte expectedMaxPlayers, MatchmakingMode matchingType, TypedLobby typedLobby, string sqlLobbyFilter, string[] expectedUsers)	PhotonNetwork.cs:2019		E					
+未分类/其他	PhotonNetwork	JoinRoom(string roomName)	PhotonNetwork.cs:1842		E					
+未分类/其他	PhotonNetwork	JoinRoom(string roomName, string[] expectedUsers)	PhotonNetwork.cs:1849		E					
+未分类/其他	PhotonNetwork	LeaveLobby()	PhotonNetwork.cs:2262		E					
+未分类/其他	PhotonNetwork	LeaveRoom(bool becomeInactive)	PhotonNetwork.cs:2280		E					
+未分类/其他	PhotonNetwork	LoadLevel(int levelNumber)	PhotonNetwork.cs:3943		E					
+未分类/其他	PhotonNetwork	LoadLevel(string levelName)	PhotonNetwork.cs:3979		E					
+未分类/其他	PhotonNetwork	LoadLevelAsync(int levelNumber)	PhotonNetwork.cs:3959		E					
+未分类/其他	PhotonNetwork	LoadLevelAsync(string levelName)	PhotonNetwork.cs:3993		E					
+未分类/其他	PhotonNetwork	NetworkStatisticsReset()	PhotonNetwork.cs:1691		E					
+未分类/其他	PhotonNetwork	NetworkStatisticsToString()	PhotonNetwork.cs:1696		E					
+未分类/其他	PhotonNetwork	OverrideBestCloudServer(CloudRegionCode region)	PhotonNetwork.cs:1678		E					
+未分类/其他	PhotonNetwork	RPC(PhotonView view, string methodName, PhotonPlayer targetPlayer, bool encrpyt, object[] parameters)	PhotonNetwork.cs:3617		E					
+未分类/其他	PhotonNetwork	RPC(PhotonView view, string methodName, PhotonTargets target, bool encrypt, object[] parameters)	PhotonNetwork.cs:3560		E					
+未分类/其他	PhotonNetwork	RaiseEvent(byte eventCode, object eventContent, bool sendReliable, RaiseEventOptions options)	PhotonNetwork.cs:2533		E					
+未分类/其他	PhotonNetwork	ReJoinRoom(string roomName)	PhotonNetwork.cs:2098		E					
+未分类/其他	PhotonNetwork	Reconnect()	PhotonNetwork.cs:1497		E					
+未分类/其他	PhotonNetwork	ReconnectAndRejoin()	PhotonNetwork.cs:1548		E					
+未分类/其他	PhotonNetwork	RefreshCloudServerRating()	PhotonNetwork.cs:1683		E					
+未分类/其他	PhotonNetwork	RemovePlayerCustomProperties(string[] customPropertiesToDelete)	PhotonNetwork.cs:2500		E					
+未分类/其他	PhotonNetwork	RemoveRPCs(PhotonPlayer targetPlayer)	PhotonNetwork.cs:3529		E					
+未分类/其他	PhotonNetwork	RemoveRPCs(PhotonView targetPhotonView)	PhotonNetwork.cs:3544		E					
+未分类/其他	PhotonNetwork	RemoveRPCsInGroup(int targetGroup)	PhotonNetwork.cs:3552		E					
+未分类/其他	PhotonNetwork	SendOutgoingCommands()	PhotonNetwork.cs:3346		E					
+未分类/其他	PhotonNetwork	SetInterestGroups(byte group, bool enabled)	PhotonNetwork.cs:3836		E					
+未分类/其他	PhotonNetwork	SetInterestGroups(byte[] disableGroups, byte[] enableGroups)	PhotonNetwork.cs:3878		E					
+未分类/其他	PhotonNetwork	SetLevelPrefix(short prefix)	PhotonNetwork.cs:3934		E					
+未分类/其他	PhotonNetwork	SetMasterClient(PhotonPlayer masterClientPlayer)	PhotonNetwork.cs:3397		E					
+未分类/其他	PhotonNetwork	SetPlayerCustomProperties(Hashtable customProperties)	PhotonNetwork.cs:2367		E					
+未分类/其他	PhotonNetwork	SetReceivingEnabled(int group, bool enabled)	PhotonNetwork.cs:3818		E					
+未分类/其他	PhotonNetwork	SetReceivingEnabled(int[] enableGroups, int[] disableGroups)	PhotonNetwork.cs:3854		E					
+未分类/其他	PhotonNetwork	SetSendingEnabled(byte group, bool enabled)	PhotonNetwork.cs:3894		E					
+未分类/其他	PhotonNetwork	SetSendingEnabled(byte[] disableGroups, byte[] enableGroups)	PhotonNetwork.cs:3926		E					
+未分类/其他	PhotonNetwork	SetSendingEnabled(int group, bool enabled)	PhotonNetwork.cs:3886		E					
+未分类/其他	PhotonNetwork	SetSendingEnabled(int[] enableGroups, int[] disableGroups)	PhotonNetwork.cs:3902		E					
+未分类/其他	PhotonNetwork	SwitchToProtocol(ConnectionProtocol cp)	PhotonNetwork.cs:1340		E					
+未分类/其他	PhotonNetwork	UnAllocateViewID(int viewID)	PhotonNetwork.cs:2825		E					
+未分类/其他	PhotonNetwork	VerifyCanUseNetwork()	PhotonNetwork.cs:1713		E					
+未分类/其他	PhotonNetwork	WebRpc(string name, object parameters)	PhotonNetwork.cs:4020		E					
+未分类/其他	PhotonPingManager	PingSocket(Region region)	PhotonPingManager.cs:465		E					
+未分类/其他	PhotonPingManager	ResolveHost(string hostName)	PhotonPingManager.cs:480		E					
+未分类/其他	PhotonPlayer	CompareTo(PhotonPlayer other)	PhotonPlayer.cs:666		E					
+未分类/其他	PhotonPlayer	CompareTo(int other)	PhotonPlayer.cs:678		E					
+未分类/其他	PhotonPlayer	Equals(PhotonPlayer other)	PhotonPlayer.cs:685		E					
+未分类/其他	PhotonPlayer	Equals(int other)	PhotonPlayer.cs:698		E					
+未分类/其他	PhotonPlayer	Equals(object p)	PhotonPlayer.cs:258		E					
+未分类/其他	PhotonPlayer	Find(int ID)	PhotonPlayer.cs:571		E					
+未分类/其他	PhotonPlayer	Get(int id)	PhotonPlayer.cs:584		E					
+未分类/其他	PhotonPlayer	GetHashCode()	PhotonPlayer.cs:291		E					
+未分类/其他	PhotonPlayer	GetNext()	PhotonPlayer.cs:589		E					
+未分类/其他	PhotonPlayer	GetNextFor(PhotonPlayer currentPlayer)	PhotonPlayer.cs:594		E					
+未分类/其他	PhotonPlayer	GetNextFor(int currentPlayerId)	PhotonPlayer.cs:603		E					
+未分类/其他	PhotonPlayer	InternalCacheProperties(Hashtable properties)	PhotonPlayer.cs:308		E					
+未分类/其他	PhotonPlayer	InternalChangeLocalID(int newID)	PhotonPlayer.cs:296		E					
+未分类/其他	PhotonPlayer	SetCustomProperties(Hashtable propertiesToSet, Hashtable expectedValues, bool webForward)	PhotonPlayer.cs:454		E					
+未分类/其他	PhotonPlayer	ToString()	PhotonPlayer.cs:706		E					
+未分类/其他	PhotonPlayer	ToStringFull()	PhotonPlayer.cs:747		E					
+未分类/其他	PhotonRigidbody2DView	Awake()	PhotonRigidbody2DView.cs:13		E					
+未分类/其他	PhotonRigidbody2DView	OnPhotonSerializeView(PhotonStream stream, PhotonMessageInfo info)	PhotonRigidbody2DView.cs:22		E					
+未分类/其他	PhotonRigidbodyView	Awake()	PhotonRigidbodyView.cs:13		E					
+未分类/其他	PhotonRigidbodyView	OnPhotonSerializeView(PhotonStream stream, PhotonMessageInfo info)	PhotonRigidbodyView.cs:22		E					
+未分类/其他	PhotonStatsGui	OnGUI()	PhotonStatsGui.cs:46		E					
+未分类/其他	PhotonStatsGui	Start()	PhotonStatsGui.cs:23		E					
+未分类/其他	PhotonStatsGui	TrafficStatsWindow(int windowID)	PhotonStatsGui.cs:66		E					
+未分类/其他	PhotonStatsGui	Update()	PhotonStatsGui.cs:36		E					
+未分类/其他	PhotonStream	PeekNext()	PhotonStream.cs:89		E					
+未分类/其他	PhotonStream	ReceiveNext()	PhotonStream.cs:71		E					
+未分类/其他	PhotonStream	ResetWriteStream()	PhotonStream.cs:66		E					
+未分类/其他	PhotonStream	SendNext(object obj)	PhotonStream.cs:105		E					
+未分类/其他	PhotonStream	Serialize(ref PhotonPlayer obj)	PhotonStream.cs:411		E					
+未分类/其他	PhotonStream	Serialize(ref Quaternion obj)	PhotonStream.cs:610		E					
+未分类/其他	PhotonStream	Serialize(ref Vector2 obj)	PhotonStream.cs:560		E					
+未分类/其他	PhotonStream	Serialize(ref Vector3 obj)	PhotonStream.cs:508		E					
+未分类/其他	PhotonStream	Serialize(ref bool myBool)	PhotonStream.cs:130		E					
+未分类/其他	PhotonStream	Serialize(ref char value)	PhotonStream.cs:291		E					
+未分类/其他	PhotonStream	Serialize(ref float obj)	PhotonStream.cs:371		E					
+未分类/其他	PhotonStream	Serialize(ref int myInt)	PhotonStream.cs:170		E					
+未分类/其他	PhotonStream	Serialize(ref short value)	PhotonStream.cs:331		E					
+未分类/其他	PhotonStream	Serialize(ref string value)	PhotonStream.cs:210		E					
+未分类/其他	PhotonStream	SetReadStream(object[] incomingData, byte pos)	PhotonStream.cs:59		E					
+未分类/其他	PhotonStream	ToArray()	PhotonStream.cs:117		E					
+未分类/其他	PhotonStreamQueue	BeginWritePackage()	PhotonStreamQueue.cs:38		E					
+未分类/其他	PhotonStreamQueue	Deserialize(PhotonStream stream)	PhotonStreamQueue.cs:254		E					
+未分类/其他	PhotonStreamQueue	HasQueuedObjects()	PhotonStreamQueue.cs:185		E					
+未分类/其他	PhotonStreamQueue	ReceiveNext()	PhotonStreamQueue.cs:193		E					
+未分类/其他	PhotonStreamQueue	Reset()	PhotonStreamQueue.cs:136		E					
+未分类/其他	PhotonStreamQueue	SendNext(object obj)	PhotonStreamQueue.cs:152		E					
+未分类/其他	PhotonStreamQueue	Serialize(PhotonStream stream)	PhotonStreamQueue.cs:214		E					
+未分类/其他	PhotonTransformView	Awake()	PhotonTransformView.cs:27		E					
+未分类/其他	PhotonTransformView	DoDrawEstimatedPositionError()	PhotonTransformView.cs:654		E					
+未分类/其他	PhotonTransformView	OnEnable()	PhotonTransformView.cs:84		E					
+未分类/其他	PhotonTransformView	OnPhotonSerializeView(PhotonStream stream, PhotonMessageInfo info)	PhotonTransformView.cs:254		E					
+未分类/其他	PhotonTransformView	SetSynchronizedValues(Vector3 speed, float turnSpeed)	PhotonTransformView.cs:245		E					
+未分类/其他	PhotonTransformView	Update()	PhotonTransformView.cs:89		E					
+未分类/其他	PhotonTransformView	UpdatePosition()	PhotonTransformView.cs:110		E					
+未分类/其他	PhotonTransformView	UpdateRotation()	PhotonTransformView.cs:126		E					
+未分类/其他	PhotonTransformView	UpdateScale()	PhotonTransformView.cs:204		E					
+未分类/其他	PhotonTransformViewPositionControl	DeserializeData(PhotonStream stream, PhotonMessageInfo info)	PhotonTransformViewPositionControl.cs:716		E					
+未分类/其他	PhotonTransformViewPositionControl	GetExtrapolatedPositionOffset()	PhotonTransformViewPositionControl.cs:433		E					
+未分类/其他	PhotonTransformViewPositionControl	GetNetworkPosition()	PhotonTransformViewPositionControl.cs:420		E					
+未分类/其他	PhotonTransformViewPositionControl	GetOldestStoredNetworkPosition()	PhotonTransformViewPositionControl.cs:47		E					
+未分类/其他	PhotonTransformViewPositionControl	OnPhotonSerializeView(Vector3 currentPosition, PhotonStream stream, PhotonMessageInfo info)	PhotonTransformViewPositionControl.cs:658		E					
+未分类/其他	PhotonTransformViewPositionControl	SerializeData(Vector3 currentPosition, PhotonStream stream, PhotonMessageInfo info)	PhotonTransformViewPositionControl.cs:695		E					
+未分类/其他	PhotonTransformViewPositionControl	SetSynchronizedValues(Vector3 speed, float turnSpeed)	PhotonTransformViewPositionControl.cs:78		E					
+未分类/其他	PhotonTransformViewPositionControl	UpdatePosition(Vector3 currentPosition)	PhotonTransformViewPositionControl.cs:86		E					
+未分类/其他	PhotonTransformViewRotationControl	GetNetworkRotation()	PhotonTransformViewRotationControl.cs:19		E					
+未分类/其他	PhotonTransformViewRotationControl	GetRotation(Quaternion currentRotation)	PhotonTransformViewRotationControl.cs:28		E					
+未分类/其他	PhotonTransformViewRotationControl	OnPhotonSerializeView(Quaternion currentRotation, PhotonStream stream, PhotonMessageInfo info)	PhotonTransformViewRotationControl.cs:117		E					
+未分类/其他	PhotonTransformViewScaleControl	GetNetworkScale()	PhotonTransformViewScaleControl.cs:27		E					
+未分类/其他	PhotonTransformViewScaleControl	GetScale(Vector3 currentScale)	PhotonTransformViewScaleControl.cs:40		E					
+未分类/其他	PhotonTransformViewScaleControl	OnPhotonSerializeView(Vector3 currentScale, PhotonStream stream, PhotonMessageInfo info)	PhotonTransformViewScaleControl.cs:116		E					
+未分类/其他	PhotonView	Awake()	PhotonView.cs:199		E					
+未分类/其他	PhotonView	DeserializeComponent(Component component, PhotonStream stream, PhotonMessageInfo info)	PhotonView.cs:289		E					
+未分类/其他	PhotonView	DeserializeView(PhotonStream stream, PhotonMessageInfo info)	PhotonView.cs:270		E					
+未分类/其他	PhotonView	ExecuteComponentOnSerialize(Component component, PhotonStream stream, PhotonMessageInfo info)	PhotonView.cs:1618		E					
+未分类/其他	PhotonView	Find(int viewID)	PhotonView.cs:1851		E					
+未分类/其他	PhotonView	Get(Component component)	PhotonView.cs:1833		E					
+未分类/其他	PhotonView	Get(GameObject gameObj)	PhotonView.cs:1842		E					
+未分类/其他	PhotonView	OnDestroy()	PhotonView.cs:240		E					
+未分类/其他	PhotonView	OnMasterClientSwitched(PhotonPlayer newMasterClient)	PhotonView.cs:230		E					
+未分类/其他	PhotonView	RPC(string methodName, PhotonPlayer targetPlayer, object[] parameters)	PhotonView.cs:1822		E					
+未分类/其他	PhotonView	RPC(string methodName, PhotonTargets target, object[] parameters)	PhotonView.cs:1811		E					
+未分类/其他	PhotonView	RefreshRpcMonoBehaviourCache()	PhotonView.cs:1802		E					
+未分类/其他	PhotonView	RequestOwnership()	PhotonView.cs:213		E					
+未分类/其他	PhotonView	RpcSecure(string methodName, PhotonPlayer targetPlayer, bool encrypt, object[] parameters)	PhotonView.cs:1828		E					
+未分类/其他	PhotonView	RpcSecure(string methodName, PhotonTargets target, bool encrypt, object[] parameters)	PhotonView.cs:1817		E					
+未分类/其他	PhotonView	SerializeComponent(Component component, PhotonStream stream, PhotonMessageInfo info)	PhotonView.cs:1149		E					
+未分类/其他	PhotonView	SerializeView(PhotonStream stream, PhotonMessageInfo info)	PhotonView.cs:251		E					
+未分类/其他	PhotonView	ToString()	PhotonView.cs:1860		E					
+未分类/其他	PhotonView	TransferOwnership(PhotonPlayer newOwner)	PhotonView.cs:218		E					
+未分类/其他	PhotonView	TransferOwnership(int newOwnerId)	PhotonView.cs:224		E					
+未分类/其他	PickupItem	Drop()	PickupItem.cs:154		E					
+未分类/其他	PickupItem	Drop(Vector3 newPosition)	PickupItem.cs:164		E					
+未分类/其他	PickupItem	OnPhotonSerializeView(PhotonStream stream, PhotonMessageInfo info)	PickupItem.cs:50		E					
+未分类/其他	PickupItem	OnTriggerEnter(Collider other)	PickupItem.cs:38		E					
+未分类/其他	PickupItem	PickedUp(float timeUntilRespawn)	PickupItem.cs:317		E					
+未分类/其他	PickupItem	Pickup()	PickupItem.cs:143		E					
+未分类/其他	PickupItem	PunPickup(PhotonMessageInfo msgInfo)	PickupItem.cs:214		E					
+未分类/其他	PickupItem	PunRespawn()	PickupItem.cs:353		E					
+未分类/其他	PickupItem	PunRespawn(Vector3 pos)	PickupItem.cs:334		E					
+未分类/其他	PickupItemSimple	OnTriggerEnter(Collider other)	PickupItemSimple.cs:14		E					
+未分类/其他	PickupItemSimple	Pickup()	PickupItemSimple.cs:26		E					
+未分类/其他	PickupItemSimple	PunPickupSimple(PhotonMessageInfo msgInfo)	PickupItemSimple.cs:37		E					
+未分类/其他	PickupItemSimple	RespawnAfter()	PickupItemSimple.cs:79		E					
+未分类/其他	PickupItemSyncer	AskForPickupItemSpawnTimes()	PickupItemSyncer.cs:41		E					
+未分类/其他	PickupItemSyncer	OnJoinedRoom()	PickupItemSyncer.cs:21		E					
+未分类/其他	PickupItemSyncer	OnPhotonPlayerConnected(PhotonPlayer newPlayer)	PickupItemSyncer.cs:13		E					
+未分类/其他	PickupItemSyncer	PickupItemInit(double timeBase, float[] inactivePickupsAndTimes)	PickupItemSyncer.cs:358		E					
+未分类/其他	PickupItemSyncer	RequestForPickupItems(PhotonMessageInfo msgInfo)	PickupItemSyncer.cs:106		E					
+未分类/其他	PickupItemSyncer	RequestForPickupTimes(PhotonMessageInfo msgInfo)	PickupItemSyncer.cs:95		E					
+未分类/其他	PickupItemSyncer	SendPickedUpItems(PhotonPlayer targetPlayer)	PickupItemSyncer.cs:117		E					
+未分类/其他	PingMonoEditor	Dispose()	PingMonoEditor.cs:111		E					
+未分类/其他	PingMonoEditor	Done()	PingMonoEditor.cs:58		E					
+未分类/其他	PingMonoEditor	StartPing(string ip)	PingMonoEditor.cs:11		E					
+未分类/其他	PlatformBasedComponents	DisplayPlatform(PlatformDisplay platform)	PlatformBasedComponents.cs:98		E					
+未分类/其他	PlatformBasedComponents	DoToggle()	PlatformBasedComponents.cs:54		E					
+未分类/其他	PlatformBasedComponents	Initialize(PlatformDisplay platform)	PlatformBasedComponents.cs:20		E					
+未分类/其他	PlatformBasedComponents	Start()	PlatformBasedComponents.cs:65		E					
+未分类/其他	PlayerAction	ToString()	PlayerAction.cs:42		E					
+未分类/其他	PlayerAction	ToString(BattleCardManager manager)	PlayerAction.cs:149		E					
+未分类/其他	PlayerDataValidator	Initialize()	PlayerDataValidator.cs:251		E					
+未分类/其他	PlayerDataValidator	TryFetchPlayerDataManager()	PlayerDataValidator.cs:262		E					
+未分类/其他	PlayerDataValidator	WaitForPlayerData()	PlayerDataValidator.cs:272		E					
+未分类/其他	PlayerInfo	GetVictoryCounters()	PlayerInfo.cs:419		E					
+未分类/其他	PlayerInfo	SetBotInfo(string botName, int botElo)	PlayerInfo.cs:401		E					
+未分类/其他	PlayerInfoDisplay	Awake()	PlayerInfoDisplay.cs:193		E					
+未分类/其他	PlayerInfoDisplay	Initialize(PlayerInfo context)	PlayerInfoDisplay.cs:198		E					
+未分类/其他	PlayerInfoDisplay	_003CInitialize_003Eb__11_0()	PlayerInfoDisplay.cs:460		E					
+未分类/其他	PlayerItem	GetCustomData()	PlayerItem.cs:96		E					
+未分类/其他	PlayerItem	GetID()	PlayerItem.cs:79		E					
+未分类/其他	PlayerItem	IsHidden()	PlayerItem.cs:84		E					
+未分类/其他	PlayfabHelper	ToDataModel(PlayFab.ClientModels.EntityKey key)	PlayfabHelper.cs:7		E					
+未分类/其他	PointAssetProvider	GetAssets()	PointAssetProvider.cs:7		E					
+未分类/其他	PointedAtGameObjectInfo	OnGUI()	PointedAtGameObjectInfo.cs:6		E					
+未分类/其他	Points	Collect(int amount)	Points.cs:146		E					
+未分类/其他	Points	Collect(int amount)	Points.cs:66		E					
+未分类/其他	Points	GetID()	Points.cs:117		E					
+未分类/其他	PowerToDisplay	SetupActiveAbility(RawCardScript warlord)	PowerToDisplay.cs:47		E					
+未分类/其他	PowerToDisplay	SetupPassiveSkill(RawCardScript skillCard)	PowerToDisplay.cs:31		E					
+未分类/其他	ProgressBar	SetProgress(ScoringDataInfo scoringDataInfo)	ProgressBar.cs:58		E					
+未分类/其他	ProgressBar	SetProgress(int value, int maxValue, string format, bool useWholeNumbers)	ProgressBar.cs:25		E					
+未分类/其他	PunTeams	OnDisable()	PunTeams.cs:139		E					
+未分类/其他	PunTeams	OnJoinedRoom()	PunTeams.cs:145		E					
+未分类/其他	PunTeams	OnLeftRoom()	PunTeams.cs:150		E					
+未分类/其他	PunTeams	OnPhotonPlayerConnected(PhotonPlayer newPlayer)	PunTeams.cs:165		E					
+未分类/其他	PunTeams	OnPhotonPlayerDisconnected(PhotonPlayer otherPlayer)	PunTeams.cs:160		E					
+未分类/其他	PunTeams	OnPhotonPlayerPropertiesChanged(object[] playerAndUpdatedProps)	PunTeams.cs:155		E					
+未分类/其他	PunTeams	Start()	PunTeams.cs:20		E					
+未分类/其他	PunTeams	UpdateTeams()	PunTeams.cs:170		E					
+未分类/其他	PunTurnManager	BeginTurn()	PunTurnManager.cs:267		E					
+未分类/其他	PunTurnManager	GetPlayerFinishedTurn(PhotonPlayer player)	PunTurnManager.cs:327		E					
+未分类/其他	PunTurnManager	OnEvent(byte eventCode, object content, int senderId)	PunTurnManager.cs:336		E					
+未分类/其他	PunTurnManager	OnPhotonCustomRoomPropertiesChanged(Hashtable propertiesThatChanged)	PunTurnManager.cs:538		E					
+未分类/其他	PunTurnManager	SendMove(object move, bool finished)	PunTurnManager.cs:286		E					
+未分类/其他	PunTurnManager	Start()	PunTurnManager.cs:245		E					
+未分类/其他	PunTurnManager	Update()	PunTurnManager.cs:251		E					
+未分类/其他	PunchTween	GetTween()	PunchTween.cs:16		E					
+未分类/其他	QuantityBoundItemInfo	Add(int amount, string instanceId)	QuantityBoundItemInfo.cs:38		E					
+未分类/其他	QuitOnEscapeOrBack	Update()	QuitOnEscapeOrBack.cs:5		E					
+未分类/其他	RebalancedCardDisplay	DisplayChanges(List<BalanceChangeType> statsChanged)	RebalancedCardDisplay.cs:24		E					
+未分类/其他	RebalancedSkillSlot	DisplayChanges(List<BalanceChangeType> statsChanged)	RebalancedSkillSlot.cs:21		E					
+未分类/其他	RebalancedSkillSlot	SetupUnlockLevel(int unlockLevel)	RebalancedSkillSlot.cs:136		E					
+未分类/其他	RectExtensions	GetWorldRect(RectTransform rect)	RectExtensions.cs:246		E					
+未分类/其他	RectExtensions	Overlaps(RectTransform rect, RectTransform otherRect)	RectExtensions.cs:9		E					
+未分类/其他	RectExtensions	OverlapsAny(RectTransform rect, IEnumerable<RectTransform> rects, out RectTransform overlap)	RectExtensions.cs:69		E					
+未分类/其他	RectSizeLimiter	OnDisable()	RectSizeLimiter.cs:83		E					
+未分类/其他	RectSizeLimiter	OnEnable()	RectSizeLimiter.cs:74		E					
+未分类/其他	RectSizeLimiter	SetDirty()	RectSizeLimiter.cs:93		E					
+未分类/其他	RectSizeLimiter	SetLayoutHorizontal()	RectSizeLimiter.cs:101		E					
+未分类/其他	RectSizeLimiter	SetLayoutVertical()	RectSizeLimiter.cs:135		E					
+未分类/其他	ReferralContainer	OnClick()	ReferralContainer.cs:14		E					
+未分类/其他	ReferralContainer	OpenPopup()	ReferralContainer.cs:19		E					
+未分类/其他	ReferralContainer	Refresh()	ReferralContainer.cs:31		E					
+未分类/其他	ReferralContainer	TryPurchase()	ReferralContainer.cs:9		E					
+未分类/其他	ReferralMessagesProvider	GetEvents()	ReferralMessagesProvider.cs:297		E					
+未分类/其他	ReferralMessagesProvider	RedeemReferral(IInboxEvent msg, ReferralEntry entry)	ReferralMessagesProvider.cs:536		E					
+未分类/其他	Region	Parse(string codeAsString)	Region.cs:40		E					
+未分类/其他	Region	ParseFlag(CloudRegionCode region)	Region.cs:94		E					
+未分类/其他	Region	ParseFlag(string codeAsString)	Region.cs:130		E					
+未分类/其他	Region	ToString()	Region.cs:185		E					
+未分类/其他	RemnantAeldari	CollectWaystoneEffect()	RemnantAeldari.cs:30		E					
+未分类/其他	RemnantAeldari	DoDestroy(UnitDeathType deathType)	RemnantAeldari.cs:18		E					
+未分类/其他	RemnantAeldari	GetDeathParticlePosition()	RemnantAeldari.cs:54		E					
+未分类/其他	RemnantAeldari	Toggle(bool option)	RemnantAeldari.cs:71		E					
+未分类/其他	RemnantAeldari	Toggle(bool option, bool withAnimation, Action onComplete)	RemnantAeldari.cs:13		E					
+未分类/其他	RemnantNecrons	AnimationResurrectionEnd()	RemnantNecrons.cs:104		E					
+未分类/其他	RemnantNecrons	DoDestroy(UnitDeathType deathType)	RemnantNecrons.cs:81		E					
+未分类/其他	RemnantNecrons	GetDeathParticlePosition()	RemnantNecrons.cs:86		E					
+未分类/其他	RemnantNecrons	Initialize(CardScript card)	RemnantNecrons.cs:20		E					
+未分类/其他	RemnantNecrons	Toggle(bool option, bool withAnimation, Action onComplete)	RemnantNecrons.cs:34		E					
+未分类/其他	RendererExtensions	CountCornersVisibleFrom(RectTransform rectTransform, Camera camera)	RendererExtensions.cs:7		E					
+未分类/其他	RendererExtensions	IsFullyVisibleFrom(RectTransform rectTransform, Camera camera)	RendererExtensions.cs:83		E					
+未分类/其他	RendererExtensions	IsVisibleFrom(RectTransform rectTransform, Camera camera)	RendererExtensions.cs:91		E					
+未分类/其他	Reporter	AddLog(string condition, string stacktrace, LogType type)	Reporter.cs:4825		E					
+未分类/其他	Reporter	Awake()	Reporter.cs:573		E					
+未分类/其他	Reporter	CaptureLog(string condition, string stacktrace, LogType type)	Reporter.cs:4820		E					
+未分类/其他	Reporter	CaptureLogThread(string condition, string stacktrace, LogType type)	Reporter.cs:5069		E					
+未分类/其他	Reporter	CreateCopy()	Reporter.cs:70		E					
+未分类/其他	Reporter	DrawInfo()	Reporter.cs:1367		E					
+未分类/其他	Reporter	DrawLogs()	Reporter.cs:2890		E					
+未分类/其他	Reporter	DrawReport()	Reporter.cs:2242		E					
+未分类/其他	Reporter	GetMemoryUsage()	Reporter.cs:103		E					
+未分类/其他	Reporter	GetSceneName()	Reporter.cs:42		E					
+未分类/其他	Reporter	Initialize()	Reporter.cs:645		E					
+未分类/其他	Reporter	MemSize()	Reporter.cs:37		E					
+未分类/其他	Reporter	OnApplicationQuit()	Reporter.cs:5134		E					
+未分类/其他	Reporter	OnDestroy()	Reporter.cs:583		E					
+未分类/其他	Reporter	OnDisable()	Reporter.cs:598		E					
+未分类/其他	Reporter	OnEnable()	Reporter.cs:589		E					
+未分类/其他	Reporter	OnGUIDraw()	Reporter.cs:4073		E					
+未分类/其他	Reporter	SaveLogsToDevice()	Reporter.cs:5213		E					
+未分类/其他	Reporter	Start()	Reporter.cs:1213		E					
+未分类/其他	Reporter	Update()	Reporter.cs:4674		E					
+未分类/其他	Reporter	_OnLevelWasLoaded(Scene _null1, LoadSceneMode _null2)	Reporter.cs:5115		E					
+未分类/其他	Reporter	addSample()	Reporter.cs:602		E					
+未分类/其他	Reporter	calculateCurrentLog()	Reporter.cs:1269		E					
+未分类/其他	Reporter	calculateStartIndex()	Reporter.cs:4648		E					
+未分类/其他	Reporter	clear()	Reporter.cs:1225		E					
+未分类/其他	Reporter	doShow()	Reporter.cs:4664		E					
+未分类/其他	Reporter	drawGraph()	Reporter.cs:3492		E					
+未分类/其他	Reporter	drawInfo_enableDisableToolBarButtons()	Reporter.cs:2011		E					
+未分类/其他	Reporter	drawStack()	Reporter.cs:3884		E					
+未分类/其他	Reporter	drawToolBar()	Reporter.cs:2308		E					
+未分类/其他	Reporter	getDownPos()	Reporter.cs:4555		E					
+未分类/其他	Reporter	getDrag()	Reporter.cs:4610		E					
+未分类/其他	Reporter	initializeStyle()	Reporter.cs:955		E					
+未分类/其他	Reporter	isDoubleClickDone()	Reporter.cs:4482		E					
+未分类/其他	Reporter	isGestureDone()	Reporter.cs:4179		E					
+未分类/其他	Reporter	readInfo()	Reporter.cs:5199		E					
+未分类/其他	ReporterGUI	Awake()	ReporterGUI.cs:7		E					
+未分类/其他	ReporterGUI	OnGUI()	ReporterGUI.cs:17		E					
+未分类/其他	ReporterMessageReceiver	OnHideReporter()	ReporterMessageReceiver.cs:36		E					
+未分类/其他	ReporterMessageReceiver	OnLog(Reporter.Log log)	ReporterMessageReceiver.cs:44		E					
+未分类/其他	ReporterMessageReceiver	OnPreStart()	ReporterMessageReceiver.cs:17		E					
+未分类/其他	ReporterMessageReceiver	OnShowReporter()	ReporterMessageReceiver.cs:40		E					
+未分类/其他	ReporterMessageReceiver	Start()	ReporterMessageReceiver.cs:7		E					
+未分类/其他	RestartGameUtils	RestartGame()	RestartGameUtils.cs:8		E					
+未分类/其他	ResultCounterSharedData	GetValuesForMode(string playMode)	ResultCounterSharedData.cs:9		E					
+未分类/其他	Rotate	Start()	Rotate.cs:8		E					
+未分类/其他	Rotate	Update()	Rotate.cs:17		E					
+未分类/其他	ScheduledAction	CompareTo(ScheduledAction other)	ScheduledAction.cs:93		E					
+未分类/其他	ScoreExtensions	AddScore(PhotonPlayer player, int scoreToAddToCurrent)	ScoreExtensions.cs:17		E					
+未分类/其他	ScoreExtensions	GetScore(PhotonPlayer player)	ScoreExtensions.cs:76		E					
+未分类/其他	ScoreExtensions	SetScore(PhotonPlayer player, int newScore)	ScoreExtensions.cs:8		E					
+未分类/其他	ScoringIconsSO	GetScoringIcon(ScoringItemType scoringItemType)	ScoringIconsSO.cs:64		E					
+未分类/其他	ScoringIconsSO	IsGivenType(ScoringItemType scoringItemType)	ScoringIconsSO.cs:36		E					
+未分类/其他	ScoringPoint	Collect(int amount)	ScoringPoint.cs:48		E					
+未分类/其他	ScoringPoint	GetID()	ScoringPoint.cs:43		E					
+未分类/其他	ScoringPoint	OnAfterWrite(JToken rawJson)	ScoringPoint.cs:55		E					
+未分类/其他	ScriptedAction	GetLocalizedText()	ScriptedAction.cs:30		E					
+未分类/其他	ScriptedAction	GetTextReference()	ScriptedAction.cs:52		E					
+未分类/其他	ScriptedAction	IsActivateHandCards()	ScriptedAction.cs:210		E					
+未分类/其他	ScriptedAction	UpdateName()	ScriptedAction.cs:66		E					
+未分类/其他	ScriptedActionData	CheckIfMatchesActionData(BattleActionType battleActionType, CardScript actingCard, CardScript targetCard, int targetPosition)	ScriptedActionData.cs:17		E					
+未分类/其他	SelectAttackBackgroundController	Awake()	SelectAttackBackgroundController.cs:14		E					
+未分类/其他	SelectAttackBackgroundController	ChangeSizeByElements(int elements)	SelectAttackBackgroundController.cs:35		E					
+未分类/其他	SelectAttackBackgroundController	ChangeSizeByInput(float normalizedValue)	SelectAttackBackgroundController.cs:23		E					
+未分类/其他	ServerConfigProvider	UnpackInternal(Dictionary<string, string> titleData)	ServerConfigProvider.cs:10		E					
+未分类/其他	ServerSettings	IsAppId(string val)	ServerSettings.cs:108		E					
+未分类/其他	ServerSettings	ResetBestRegionCodeInPreferences()	ServerSettings.cs:114		E					
+未分类/其他	ServerSettings	ToString()	ServerSettings.cs:119		E					
+未分类/其他	ServerSettings	UseCloud(string cloudAppid)	ServerSettings.cs:64		E					
+未分类/其他	ServerSettings	UseCloud(string cloudAppid, CloudRegionCode code)	ServerSettings.cs:73		E					
+未分类/其他	ServerSettings	UseCloudBestRegion(string cloudAppid)	ServerSettings.cs:55		E					
+未分类/其他	ServerSettings	UseMyServer(string serverAddress, int serverPort, string application)	ServerSettings.cs:83		E					
+未分类/其他	ServerVersion	GetRequiredVersion()	ServerVersion.cs:27		E					
+未分类/其他	ServerVersionConfig	FindVersionOverride()	ServerVersionConfig.cs:89		E					
+未分类/其他	ServerVersionConfig	GetRequiredVersion()	ServerVersionConfig.cs:80		E					
+未分类/其他	ServerVersionConfig	GetRequiredVersionString()	ServerVersionConfig.cs:75		E					
+未分类/其他	SetDirty	Reset()	SetDirty.cs:8		E					
+未分类/其他	SetDirty	Update()	SetDirty.cs:17		E					
+未分类/其他	SharedDataContext	UnpackData(SharedEventData sharedEventData)	SharedDataContext.cs:5		E					
+未分类/其他	SheetReader	GetSheet(string sheetId, string sheetName)	SheetReader.cs:471		E					
+未分类/其他	SheetReader	GetSheetInfo(string sheetId)	SheetReader.cs:480		E					
+未分类/其他	SheetReader	GetWorkbook(string sheetId)	SheetReader.cs:489		E					
+未分类/其他	SheetWriter	CreateSheet(SpreadsheetInfo sheetInfo, string sheetName)	SheetWriter.cs:379		E					
+未分类/其他	SheetWriter	WriteToSheet(string sheetId, string sheetName, IList<IList<object>> data)	SheetWriter.cs:388		E					
+未分类/其他	ShowCurrentEnergyRegenText	OnEnable()	ShowCurrentEnergyRegenText.cs:13		E					
+未分类/其他	SimpleArmyImage	Initialize(CardArmy army)	SimpleArmyImage.cs:11		E					
+未分类/其他	SimpleRotation	Update()	SimpleRotation.cs:7		E					
+未分类/其他	SingletonBehaviour	Awake()	SingletonBehaviour.cs:214		E					
+未分类/其他	SingletonBehaviour	OnDestroy()	SingletonBehaviour.cs:345		E					
+未分类/其他	SingletonInitializableBehaviour	Awake()	SingletonInitializableBehaviour.cs:291		E					
+未分类/其他	SingletonInitializableBehaviour	OnDestroy()	SingletonInitializableBehaviour.cs:342		E					
+未分类/其他	SingletonInitializableBehaviour	OnInitializationComplete()	SingletonInitializableBehaviour.cs:214		E					
+未分类/其他	SkewedImage	OnPopulateMesh(VertexHelper vh)	SkewedImage.cs:10		E					
+未分类/其他	SkullsCount	OnBattleEnd(BattleEndSignal obj)	SkullsCount.cs:42		E					
+未分类/其他	SkullsCount	OnInitialize()	SkullsCount.cs:30		E					
+未分类/其他	SkullsCount	OnReset()	SkullsCount.cs:36		E					
+未分类/其他	SmoothSyncMovement	Awake()	SmoothSyncMovement.cs:15		E					
+未分类/其他	SmoothSyncMovement	OnPhotonSerializeView(PhotonStream stream, PhotonMessageInfo info)	SmoothSyncMovement.cs:41		E					
+未分类/其他	SmoothSyncMovement	Update()	SmoothSyncMovement.cs:130		E					
+未分类/其他	SpoilOfWarUI	SetLayer(int layerNumber)	SpoilOfWarUI.cs:85		E					
+未分类/其他	SpoilOfWarUI	SetRawCardData(RawCardScript card, bool albumcard, bool showLore, int newMaxHealth)	SpoilOfWarUI.cs:47		E					
+未分类/其他	SpoilOfWarUI	SetSortingLayer(string layerName)	SpoilOfWarUI.cs:79		E					
+未分类/其他	SpriteAtlasReference	ValidateAsset(UnityEngine.Object obj)	SpriteAtlasReference.cs:15		E					
+未分类/其他	SpriteAtlasReference	ValidateAsset(string path)	SpriteAtlasReference.cs:59		E					
+未分类/其他	SpriteRenderererHDR	Awake()	SpriteRenderererHDR.cs:32		E					
+未分类/其他	SpriteRenderererHDR	InitializePropertyBlock()	SpriteRenderererHDR.cs:37		E					
+未分类/其他	SpriteRenderererHDR	OnValidate()	SpriteRenderererHDR.cs:60		E					
+未分类/其他	SpriteRenderererHDR	UpdatePropertyBlock(Color color)	SpriteRenderererHDR.cs:51		E					
+未分类/其他	SubEmitterManualTrigger	OnEnable()	SubEmitterManualTrigger.cs:46		E					
+未分类/其他	SubEmitterManualTrigger	OnValidate()	SubEmitterManualTrigger.cs:52		E					
+未分类/其他	SubEmitterManualTrigger	Update()	SubEmitterManualTrigger.cs:15		E					
+未分类/其他	SupportLogger	Start()	SupportLogger.cs:7		E					
+未分类/其他	SwapSubmeshesMaterial	SwapSubMeshes()	SwapSubmeshesMaterial.cs:7		E					
+未分类/其他	SwarmIconController	Initialize()	SwarmIconController.cs:74		E					
+未分类/其他	SwarmIconController	SetActivationState(bool option)	SwarmIconController.cs:84		E					
+未分类/其他	SwarmIconController	Toggle(bool option)	SwarmIconController.cs:22		E					
+未分类/其他	SwarmIconController	_003CToggle_003Eb__7_0()	SwarmIconController.cs:90		E					
+未分类/其他	SwipeMove	Start()	SwipeMove.cs:14		E					
+未分类/其他	TMProLinkedWrappingSizeController	AdaptTextSize()	TMProLinkedWrappingSizeController.cs:37		E					
+未分类/其他	TMProLinkedWrappingSizeController	Awake()	TMProLinkedWrappingSizeController.cs:22		E					
+未分类/其他	TMProLinkedWrappingSizeController	OnEnable()	TMProLinkedWrappingSizeController.cs:28		E					
+未分类/其他	TMProLinkedWrappingSizeController	SetTextSize(float newSize)	TMProLinkedWrappingSizeController.cs:114		E					
+未分类/其他	TagComponent	Awake()	TagComponent.cs:12		E					
+未分类/其他	TagComponent	GetObject(TagAsset tagAsset)	TagComponent.cs:53		E					
+未分类/其他	TagComponent	GetObject(string tagName)	TagComponent.cs:62		E					
+未分类/其他	TapHitMaterialDefinition	Awake()	TapHitMaterialDefinition.cs:164		E					
+未分类/其他	TapHitMaterialDefinition	IsValid()	TapHitMaterialDefinition.cs:20		E					
+未分类/其他	TapHitMaterialDefinition	OnDestroy()	TapHitMaterialDefinition.cs:201		E					
+未分类/其他	TapHitMaterialDefinition	PlayParticle(Vector3 position, Vector3 normal, Transform parent)	TapHitMaterialDefinition.cs:42		E					
+未分类/其他	TapHitMaterialDefinition	TryPlayParticles(Vector3 position, Vector3 normal)	TapHitMaterialDefinition.cs:169		E					
+未分类/其他	TapHitMaterialDefinition	Update()	TapHitMaterialDefinition.cs:191		E					
+未分类/其他	TeamExtensions	GetTeam(PhotonPlayer player)	TeamExtensions.cs:9		E					
+未分类/其他	TeamExtensions	SetTeam(PhotonPlayer player, PunTeams.Team team)	TeamExtensions.cs:56		E					
+未分类/其他	Teleport	Trigger()	Teleport.cs:7		E					
+未分类/其他	TemplateAssetProvider	GetAssets()	TemplateAssetProvider.cs:8		E					
+未分类/其他	TestAddressablesLoader	Load()	TestAddressablesLoader.cs:341		E					
+未分类/其他	TestAddressablesLoader	LoadAddressableWindow()	TestAddressablesLoader.cs:402		E					
+未分类/其他	TestAddressablesLoader	LoadImageFromRemoteBundle()	TestAddressablesLoader.cs:581		E					
+未分类/其他	TestAddressablesLoader	ReleaseAddressableWindow()	TestAddressablesLoader.cs:550		E					
+未分类/其他	TestAddressablesLoader	UpdateCatalog()	TestAddressablesLoader.cs:418		E					
+未分类/其他	TestCardList	Start()	TestCardList.cs:9		E					
+未分类/其他	TestCardList	TestEmptyArrays()	TestCardList.cs:14		E					
+未分类/其他	TextClickInteraction	Awake()	TextClickInteraction.cs:9		E					
+未分类/其他	TextClickInteraction	OnPointerClick(PointerEventData eventData)	TextClickInteraction.cs:18		E					
+未分类/其他	TextLinkProcessing	ProcessText(TextMeshProUGUI text, LinkType type, List<string> dataArray)	TextLinkProcessing.cs:48		E					
+未分类/其他	TextLinkProcessing	ProcessURL(TextMeshProUGUI text, string url)	TextLinkProcessing.cs:52		E					
+未分类/其他	TextLinkProcessing	TryProcessText(TextMeshProUGUI text, PointerEventData eventData)	TextLinkProcessing.cs:15		E					
+未分类/其他	TextMessageValidationTools	RemoveRichTextTags(string target)	TextMessageValidationTools.cs:11		E					
+未分类/其他	TraitsTextMeshProTester	GetTraitTextSprite(DefinedTrait traitName)	TraitsTextMeshProTester.cs:287		E					
+未分类/其他	TraitsTextMeshProTester	Start()	TraitsTextMeshProTester.cs:276		E					
+未分类/其他	TreeFloorPositioning	OnValidate()	TreeFloorPositioning.cs:143		E					
+未分类/其他	TreeFloorPositioning	Reposition()	TreeFloorPositioning.cs:13		E					
+未分类/其他	TriggerShatterContrainer	OnEnable()	TriggerShatterContrainer.cs:21		E					
+未分类/其他	TriggerShatterContrainer	OnTriggerStay(Collider other)	TriggerShatterContrainer.cs:57		E					
+未分类/其他	TwitchDropsProvider	GetEvents()	TwitchDropsProvider.cs:178		E					
+未分类/其他	TypedDictionarySerializer	CanConvert(Type objectType)	TypedDictionarySerializer.cs:14		E					
+未分类/其他	TypedDictionarySerializer	ReadJson(JsonReader reader, Type objectType, object existingValue, JsonSerializer serializer)	TypedDictionarySerializer.cs:31		E					
+未分类/其他	TypedDictionarySerializer	WriteJson(JsonWriter writer, object value, JsonSerializer serializer)	TypedDictionarySerializer.cs:23		E					
+未分类/其他	TypedSerializer	CanConvert(Type objectType)	TypedSerializer.cs:12		E					
+未分类/其他	TypedSerializer	ReadJson(JsonReader reader, Type objectType, object existingValue, JsonSerializer serializer)	TypedSerializer.cs:56		E					
+未分类/其他	TypedSerializer	WriteJson(JsonWriter writer, object value, JsonSerializer serializer)	TypedSerializer.cs:36		E					
+未分类/其他	UICardSelector	AnimateCardsIn()	UICardSelector.cs:107		E					
+未分类/其他	UICardSelector	AnimateCardsOut(Action onComplete)	UICardSelector.cs:140		E					
+未分类/其他	UICardSelector	CardSelected(GenericSelectCardContainer cardSelected)	UICardSelector.cs:177		E					
+未分类/其他	UICardSelector	Initialize(List<RawCardScript> cards, Action<RawCardScript> onSelect)	UICardSelector.cs:37		E					
+未分类/其他	UICardSelector	Reset()	UICardSelector.cs:202		E					
+未分类/其他	UICollider	Awake()	UICollider.cs:9		E					
+未分类/其他	UICollider	OnEnable()	UICollider.cs:23		E					
+未分类/其他	UICornersGradient	ModifyMesh(VertexHelper vh)	UICornersGradient.cs:16		E					
+未分类/其他	UIExtension	GetCorners(RectTransform rectTransform)	UIExtension.cs:7		E					
+未分类/其他	UIExtension	MaxX(RectTransform rectTransform)	UIExtension.cs:36		E					
+未分类/其他	UIExtension	MaxY(RectTransform rectTransform)	UIExtension.cs:18		E					
+未分类/其他	UIExtension	MinX(RectTransform rectTransform)	UIExtension.cs:45		E					
+未分类/其他	UIExtension	MinY(RectTransform rectTransform)	UIExtension.cs:27		E					
+未分类/其他	UIFlippableAndRotable	FlipVertex(RectTransform rt, int i, ref VertexHelper verts)	UIFlippableAndRotable.cs:139		E					
+未分类/其他	UIFlippableAndRotable	ModifyMesh(VertexHelper verts)	UIFlippableAndRotable.cs:41		E					
+未分类/其他	UIFlippableAndRotable	Rotate(ref UIVertex vertex, RectTransform rt)	UIFlippableAndRotable.cs:193		E					
+未分类/其他	UIFlippableAndRotable	RotatePointAroundPivot(Vector3 point, Vector3 pivot, float angle)	UIFlippableAndRotable.cs:208		E					
+未分类/其他	UIGradient	ModifyMesh(VertexHelper vh)	UIGradient.cs:17		E					
+未分类/其他	UIImageGreyscaleController	Awake()	UIImageGreyscaleController.cs:78		E					
+未分类/其他	UIImageGreyscaleController	Clean()	UIImageGreyscaleController.cs:58		E					
+未分类/其他	UIImageGreyscaleController	Initialize()	UIImageGreyscaleController.cs:24		E					
+未分类/其他	UIImageGreyscaleController	OnDestroy()	UIImageGreyscaleController.cs:412		E					
+未分类/其他	UIImageGreyscaleController	SetGreyScaleNonInstanceMaterial()	UIImageGreyscaleController.cs:53		E					
+未分类/其他	UIImageGreyscaleController	SetNonInstancedMaterials(bool option)	UIImageGreyscaleController.cs:354		E					
+未分类/其他	UIImageGreyscaleController	SetOriginalMaterial()	UIImageGreyscaleController.cs:48		E					
+未分类/其他	UIImageGreyscaleController	ToggleGreyScale(bool option, float time)	UIImageGreyscaleController.cs:83		E					
+未分类/其他	UIImageGreyscaleController	Update()	UIImageGreyscaleController.cs:258		E					
+未分类/其他	UIImageGreyscaleController	Update(float greyScaleValue)	UIImageGreyscaleController.cs:42		E					
+未分类/其他	UIMessageController	Awake()	UIMessageController.cs:35		E					
+未分类/其他	UIMessageController	OnDestroy()	UIMessageController.cs:82		E					
+未分类/其他	UIMessageController	ShowError(string messageToShow, bool localize)	UIMessageController.cs:91		E					
+未分类/其他	UIMessageController	ShowMessage(string messageToShow, bool localize)	UIMessageController.cs:98		E					
+未分类/其他	UIMessageController	ShowMessage(string messageToShow, bool localize, Color color)	UIMessageController.cs:105		E					
+未分类/其他	UIMultiCardDisplay	Awake()	UIMultiCardDisplay.cs:27		E					
+未分类/其他	UIMultiCardDisplay	Close()	UIMultiCardDisplay.cs:190		E					
+未分类/其他	UIMultiCardDisplay	CloseButtonOnClick()	UIMultiCardDisplay.cs:204		E					
+未分类/其他	UIMultiCardDisplay	Initialize(List<RawCardScript> cards, string headerTitle)	UIMultiCardDisplay.cs:33		E					
+未分类/其他	UIMultiCardDisplay	Open()	UIMultiCardDisplay.cs:179		E					
+未分类/其他	UIMultiCardDisplay	ToggleMask(bool option)	UIMultiCardDisplay.cs:199		E					
+未分类/其他	UIParallaxImage	OnEnable()	UIParallaxImage.cs:15		E					
+未分类/其他	UIParallaxImage	Update()	UIParallaxImage.cs:28		E					
+未分类/其他	UIParallaxImage	UpdateParallax()	UIParallaxImage.cs:40		E					
+未分类/其他	UIPreferedSizeFixer	ApplyConfig()	UIPreferedSizeFixer.cs:142		E					
+未分类/其他	UIPreferedSizeFixer	CalculateLayoutInputHorizontal()	UIPreferedSizeFixer.cs:156		E					
+未分类/其他	UIPreferedSizeFixer	CalculateLayoutInputVertical()	UIPreferedSizeFixer.cs:170		E					
+未分类/其他	UIPreferedSizeFixer	OnValidate()	UIPreferedSizeFixer.cs:174		E					
+未分类/其他	UIResourceCounter	AddQuantity(int amount, bool animated)	UIResourceCounter.cs:77		E					
+未分类/其他	UIResourceCounter	Initialize(ICurrency currency, int quantity)	UIResourceCounter.cs:72		E					
+未分类/其他	UIResourceCounter	SetQuantity(int newQuantity, bool animated)	UIResourceCounter.cs:86		E					
+未分类/其他	UIResourceCounter	Toggle(bool option)	UIResourceCounter.cs:194		E					
+未分类/其他	UISearchingOpponentPlayerInfo	Initialize(DeckAndWarlordData deckWarlordAndData, string playerName)	UISearchingOpponentPlayerInfo.cs:17		E					
+未分类/其他	UISearchingOpponentPlayerInfo	OnDestroy()	UISearchingOpponentPlayerInfo.cs:37		E					
+未分类/其他	UITextCornersGradient	ModifyMesh(VertexHelper vh)	UITextCornersGradient.cs:16		E					
+未分类/其他	UITextGradient	ModifyMesh(VertexHelper vh)	UITextGradient.cs:15		E					
+未分类/其他	UiContainer	HandleClick()	UiContainer.cs:381		E					
+未分类/其他	UiContainer	Initialize(T e)	UiContainer.cs:362		E					
+未分类/其他	UiContainer	Initialize(object data)	UiContainer.cs:12		E					
+未分类/其他	UiContainer	Initialize(object payload)	UiContainer.cs:270		E					
+未分类/其他	UiContainer	OnClick()	UiContainer.cs:394		E					
+未分类/其他	UiContainer	OnDestroy()	UiContainer.cs:369		E					
+未分类/其他	UiContainer	OnInitialize(T liveOps)	UiContainer.cs:379		E					
+未分类/其他	UiContainer	Refresh()	UiContainer.cs:14		E					
+未分类/其他	UnitOnBoardAttackTypeSelector	AttackButtonClick(AttackTypes attackType)	UnitOnBoardAttackTypeSelector.cs:163		E					
+未分类/其他	UnitOnBoardAttackTypeSelector	Awake()	UnitOnBoardAttackTypeSelector.cs:16		E					
+未分类/其他	UnitOnBoardAttackTypeSelector	Toggle(bool option, CardScript card)	UnitOnBoardAttackTypeSelector.cs:24		E					
+未分类/其他	UnitOnBoardAttackTypeSelector	ToggleJustOne(bool option, AttackTypes attackType, CardScript card)	UnitOnBoardAttackTypeSelector.cs:101		E					
+未分类/其他	UnitReanimated	OnInitialize()	UnitReanimated.cs:15		E					
+未分类/其他	UnitReanimated	OnReset()	UnitReanimated.cs:9		E					
+未分类/其他	UnitReanimated	OnUnitReanimated(UnitReanimatedSignal obj)	UnitReanimated.cs:21		E					
+未分类/其他	UnitSwarmCount	OnInitialize()	UnitSwarmCount.cs:15		E					
+未分类/其他	UnitSwarmCount	OnReset()	UnitSwarmCount.cs:9		E					
+未分类/其他	UnitSwarmCount	OnUnitSwarm(UnitSwarmSignal obj)	UnitSwarmCount.cs:21		E					
+未分类/其他	UnityRemoteConfigManager	ApplyRemoteSettings(ConfigResponse configResponse)	UnityRemoteConfigManager.cs:56		E					
+未分类/其他	UnityRemoteConfigManager	GetDefaultRemoteConfig()	UnityRemoteConfigManager.cs:51		E					
+未分类/其他	UnityRemoteConfigManager	GetRemoteConfigData()	UnityRemoteConfigManager.cs:41		E					
+未分类/其他	UnityRemoteConfigManager	Initialize()	UnityRemoteConfigManager.cs:21		E					
+未分类/其他	UnitySourceGeneratedAssemblyMonoScriptTypes_v1	Get()	UnitySourceGeneratedAssemblyMonoScriptTypes_v1.cs:19		E					
+未分类/其他	UpgradeCard	OnInitialize()	UpgradeCard.cs:67		E					
+未分类/其他	UpgradeCard	OnReset()	UpgradeCard.cs:150		E					
+未分类/其他	UpgradeCard	OnTrigger(UpgradeCardSignal obj)	UpgradeCard.cs:156		E					
+未分类/其他	UpgradeCard	_003COnInitialize_003Eb__7_1(KeyValuePair<RawCardScript, CardTier> c)	UpgradeCard.cs:186		E					
+未分类/其他	UpgradeCard	_003COnInitialize_003Eb__7_2(KeyValuePair<RawCardScript, CardTier> c)	UpgradeCard.cs:208		E					
+未分类/其他	VATMeshOptimizer	OptimizeMesh()	VATMeshOptimizer.cs:8		E					
+未分类/其他	VarInt	GetBytes(ulong value)	VarInt.cs:7		E					
+未分类/其他	VarInt	ReadNext(byte[] bytes, out int length)	VarInt.cs:40		E					
+未分类/其他	VarsDevice	GetCardInHandYOffsetTouchInput()	VarsDevice.cs:23		E					
+未分类/其他	WebRpcResponse	ToStringFull()	WebRpcResponse.cs:242		E					
+未分类/其他	WhereToGetCardsTester	OpenWindow()	WhereToGetCardsTester.cs:10		E					
+未分类/其他	Wildcard	GetCustomData()	Wildcard.cs:62		E					
+未分类/其他	Wildcard	GetID()	Wildcard.cs:52		E					
+未分类/其他	WildcardAssetProvider	GetAssets()	WildcardAssetProvider.cs:7		E					
+未分类/其他	XSollaMessage	GetMessage()	XSollaMessage.cs:7		E					
+未分类/其他	XSollaMessage	GetRewards()	XSollaMessage.cs:63		E					
+未分类/其他	XSollaMessage	GetTitle()	XSollaMessage.cs:35		E					
+未分类/其他	XSollaMessage	RedeemableAt()	XSollaMessage.cs:86		E					

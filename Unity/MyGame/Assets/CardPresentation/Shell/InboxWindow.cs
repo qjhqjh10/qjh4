@@ -74,9 +74,38 @@ namespace CardPresentation
         public static readonly PxRect ResetBtn  = new PxRect(399f, 126f, 541f, 197f);
         public static readonly PxRect ResetTx   = new PxRect(407f, 133f, 532f, 190f);
         public static readonly PxRect MdContent = new PxRect(786f, 215f, 1776f, 991f);
-        public static readonly PxRect ClaimBox  = new PxRect(306f, 883f, 1265f, 1099f);
-        public static readonly PxRect ClaimBtn  = new PxRect(663f, 910f, 908f, 978f);
-        public static readonly PxRect ClaimTx   = new PxRect(675f, 917f, 896f, 971f);
+        // 🔴 **2026-10-25（N17）就地订正（铁律 5）**：这三格原来写 `ClaimBox=(306,883,1265,1099)` /
+        //   `ClaimBtn=(663,910,908,978)` / `ClaimTx=(675,917,896,971)` —— **整块落在 `Message Display`
+        //   的下沿之外**（display 是 93.91..990.78），也就是说「建出来也画在面板外面」。
+        //   错因：照抄了 `menu_dump` 里那几格 y（1246/1273.6）**减去父容器 `Content` 的 y**，
+        //   而那颗 `Content` 自身是 **`0×0` 视口下的模板位**（y 从 990.78 往下排）⇒ 减出来的不是真位置。
+        //   现在按**原版 VLG 的排布规则**重算：`Claim Button`(容器) 958.86×216.21 **贴 `Content` 底**，
+        //   钮在容器里**水平居中、距顶 27.58**，`Button Text` 距容器 (369.63, 32.63)-(590.4, 90.13)，
+        //   `Claim reward warning` 在钮**下方** 103.1 处（判据 = 同一棵树里那四格的**相对偏移**）。
+        //   ⚠️ 这是「按布局规则算」，不是抄 rect（原版 rect 是布局跑之前的模板位）。
+        public static readonly PxRect ClaimBox  = new PxRect(306f, 774.8f, 1265f, 991f);
+        public static readonly PxRect ClaimBtn  = new PxRect(662.9f, 802.4f, 907.9f, 870.0f);
+        public static readonly PxRect ClaimTx   = new PxRect(675.6f, 807.4f, 896.4f, 864.9f);
+        /// <summary>🆕 **2026-10-25（N17）**：正文那三件（原版 `MessageDisplay` 的 `headerImage` /
+        /// `body` / `footerImage`）。
+        /// <para>判据（**本件亲跑** `工具/menu_dump.py bundle_menus_assets_all "Inbox Menu" --depth 9 --md --no-sprite`）：
+        /// `Message` = 字号 **45.0** · 基准 **45.0** · **对齐 `Left/Top`** · **折行 1** · 色 `(1,1,1,1)` · **字距 1** ·
+        /// 宽 **974.31**；`Header` / `Footer` = `Image` **`preserveAspect`**、各 **972.80×243.20**。
+        /// ⚠️ 那三格的 y 是**模板位**（`Content` 的 VLG 跑之前），实高由 `ContentSizeFitter(PreferredSize)` 撑
+        /// ⇒ 我们按 `Content` 的**可见框**(786,215→1776,991) 自己排：正文从顶往下、`Claim Button` 贴底。
+        /// ⚠️ 本地两条出厂消息的 `Header/Footer` **都没有图**（`LiveOpsLocalAsset` 那两张没导入）⇒
+        /// 两件**建着但关**（= 原版 `HasAsset` 假那一支 `SetActive(false)`），⛔ 不是省略。</para></summary>
+        public static readonly PxRect MdHeader = new PxRect(794.6f, 220f, 1767.4f, 463.2f);
+        public static readonly PxRect MdBody   = new PxRect(794.4f, 220f, 1768.7f, 768.8f);
+        public static readonly PxRect MdFooter = new PxRect(794.6f, 747.8f, 1767.4f, 991f);
+        /// <summary>`Claim reward warning`：宽 958.86、启 `Center/Top`、**折行 1**、字号 **37**、**字距 1**、
+        /// 位置 = 钮**下方** 103.1（同一棵树里的相对偏移）。原版文案照 prefab 原文：
+        /// 'You will be able to claim your purchase once the content is released.\nStay tuned!'</summary>
+        public static readonly PxRect MdWarn = new PxRect(306f, 877.9f, 1265f, 967.9f);
+        public const float MdBodyFont = 45f, MdBodyAutoBase = 45f, MdBodyCharSpacing = 1f;
+        public const float MdWarnFont = 37f, MdWarnCharSpacing = 1f;
+        public const string TxtRewardWarning =
+            "You will be able to claim your purchase once the content is released.\nStay tuned!";
 
         public const string ArtRedBg = "UI_Deck_Information_Back";
         public const string ArtDisplayBg = "UI_Deck_Information_submenu_Back";
@@ -128,6 +157,14 @@ namespace CardPresentation
         /// <summary>条目底图（原版那件 `Image` 是 `trans=2(SpriteSwap)`：常态 `40K_settings_button`
         /// → 悬停 `40K_settings_button_hover`；色 `(1,0.572,0,1)`）。</summary>
         public const string ArtRowBg = "40K_settings_button";
+        /// <summary>🆕 **2026-10-25（N17）**：条目底图的**选中图**。判据 = 原版 `MessageContainer` 的两个字段
+        /// `normalMessageSprite` / `selectedMessageSprite`，在 `Refresh()` / `ToggleSelection(bool)` 里二选一
+        /// （`MessageContainer.cs:112-128`：`background.sprite = selected ? selectedMessageSprite : normalMessageSprite`）；
+        /// 两张图的真身 = `40K_settings_button` / **`40K_settings_button_selected`**（账 `社交_聊天.tsv` 那一轮的实读；
+        /// 本地 `Resources/Art/ui_menu/` 两张都在）。
+        /// ⚠️ `WindowButton.HoverNames` 里也有一条 `40K_settings_button → …_selected`（`ChatPanel` 页签那处），
+        /// ⛔ 别靠表推 —— 这里是**选中态**、与「悬停图」无关。</summary>
+        public const string ArtRowSelected = "40K_settings_button_selected";
         /// <summary>🆕 **2026-10-09（A273）**：条目底图的**悬停图**。判据 = 原版那颗
         /// `Message Container/Content` 上的 `Selectable` 原文
         /// （`python 工具/menu_dump.py bundle_menus_assets_all "Message Container" --depth 4` 实读：
@@ -221,13 +258,23 @@ namespace CardPresentation
         public readonly System.Collections.Generic.List<string> MissingArt =
             new System.Collections.Generic.List<string>();
 
-        /// <summary>一条消息（**原版由服务端 handler 下发** —— `InboxWindow__Open.c` 取 `handler.Messages`
-        /// 再 `MessageList.Initialize(messages)`；本窗只建了列表条目要显示的那三项，
-        /// 正文/领取那几件（`Message Display/Content` 树下）**不建**，见文件头「我们挑的 / 不建的」）。</summary>
+        /// <summary>一条消息的**视图形态**（原版 `IGameNews` 在列表/正文那两处的投影）。
+        /// <para>🔴 **2026-10-25（N17）**：数据源接上了 —— `Build()` 走 <see cref="LoadFromStore"/> 从
+        /// `InboxData` 灌（`InboxData` 的字段对位 = 原版 `BaseInboxEvent` 的
+        /// `GetTitle` / `GetMessage` / `GetRewards` / `IsRead` / `StartDate` / `RedeemableAt`）。
+        /// 三参构造**保留**：`Editor/RewardsScene.cs` 用它灌假消息验裁切（那是自检的夹具，⛔ 别删）。</para>
+        /// <para>`Id` / `Body` / … 这几格是**新增**的（三参构造不填 ⇒ `Id` 为 null）：
+        /// 有 `Id` 的行走真数据（可选中、可领、可标已读）；没有 `Id` 的（自检假消息）只铺行、点行出声。</para></summary>
         public class Message
         {
             public string Title, Date;
             public bool Unread;
+            // ---- 🆕 2026-10-25：真数据源那几个字段（判据见 `InboxData.Msg` 的注释）----
+            public string Id;                 // 原版 eventId（`InboxData.Msg.Id`）
+            public string Body;               // `GetMessage()`
+            public string HeaderArt, FooterArt;
+            public long RedeemableAtMs;       // `RedeemableAt()`
+            public bool Claimable;            // `MessageDisplay.CheckMessageCollectable()` 当前这一拍的结果
             public Message(string title, string date, bool unread) { Title = title; Date = date; Unread = unread; }
         }
 
@@ -246,8 +293,53 @@ namespace CardPresentation
         Transform _display; Label _warn;
         public MenuScroll ListScroll { get { return _listScroll; } }
 
-        /// <summary>有没有消息。原版由 handler 给；**单机恒 false** ⇒ 走空态那条分支。</summary>
-        public bool HasMessages { get { return _messages.Count > 0 || DailyData.InboxCount > 0; } }
+        // ---- 🆕 **2026-10-25（N17）：正文那半 + 选中态 + 条目动画** ----
+        /// <summary>`Message Display/Title` 那颗（原版 `MessageDisplay.title`，`Initialize` 里写
+        /// `message.GetTitle()`）—— 建的时候存一份引用，选中消息时改写它。</summary>
+        Label _mdTitleLb;
+        /// <summary>`Message Display/Content/…/Message`（原版 `MessageDisplay.body`）。</summary>
+        Label _mdBody;
+        /// <summary>原版 `MessageDisplay.headerImage` / `footerImage`（`HasAsset` 为假 ⇒ 整件关）。</summary>
+        Transform _mdHeader, _mdFooter;
+        /// <summary>原版 `MessageDisplay.rewardWarningText`（`CheckMessageCollectable` 里
+        /// 「隐藏阵营/扩展 ⇒ 开它并返回 false」那两条支；我们全解锁 ⇒ 恒关，但**建着**、
+        /// 将来接 FeatureConfig 时只改判据）。</summary>
+        Label _mdWarn;
+        /// <summary>每条行的底图 quad / 行节点 / `New!` 文字，**按消息的数据下标（`idx`）索引**
+        /// （⚠️ 行是倒序建的，用 `List.Add` 会与 `_messages[i]` 错位 —— 这里按 idx 直接下标写）。
+        /// 底图换图那一位 = `MessageContainer.ToggleSelection` 的 `background.sprite = selected ? … : …`。</summary>
+        ImageQuad[] _rowBgs = new ImageQuad[0];
+        Transform[] _rowNodes = new Transform[0];
+        Label[] _rowNew = new Label[0];
+        /// <summary>当前选中的消息下标（`-1` = 没选）。原版 `MessageContainer.selected` 的那一位。</summary>
+        int _current = -1;
+        /// <summary>`Message List` 的滚动偏移变了 ⇒ 重建行；重建后**按 id 复原选中**（原版选中态长在
+        /// 条目实例上，我们每次重建 ⇒ 必须自己记）。</summary>
+        string _selectedId;
+
+        // ---- 条目入场动画（原版 `MessageContainer.AnimateIn`）----
+        // 参数逐字照原版 prefab（`Message Container` 的 MB）：
+        //   `animationDelay = 0.1` · `animationTime = 0.15` · `curve` = 原版那条 AnimationCurve。
+        //   ⚠️ 曲线**没解出数值**（`m_Curve` 在 MB 里、本件没读）⇒ 我们用 `EaseOutQuad` 等价，
+        //   如实标「曲线是我们挑的」（铁律 3）。原版还有 `DOScale(底图, localScale).From(localScale×0.5)`。
+        public const float AnimDelay = 0.1f, AnimTime = 0.15f, AnimScaleFrom = 0.5f;
+        float _animT = -1f;                      // <0 = 没在播
+        int _animRows;                           // 这一轮有几行要入场
+        bool _animPlayed;                        // 「入场播过没有」—— 行重建/滚动/选中都**不重播**（见 StartAnimateIn）
+
+        // ---- 未读行「闪一下」（原版 `MessageContainer.Update` 的 `shinyEffect.Play`）----
+        // 判据：`Update` 里 `timeSinceLastShine += dt; if (>= shineTime) { reset; shineTime =
+        // **3.0 × (1 + Random(-0.2, 0.2))**; shinyEffect.Play(resetTime: true); }`（`MessageContainer.cs:172-189`）。
+        // ⚠️ 原版那件是 Coffee.UIEffects 的 `UIEffectTweener`（扫光）；本工程**没有那一层**
+        //   ⇒ 等价实现 = 让 `New!` 那颗字的**亮度**在这 0.25s 内闪一档（⛔ 不冒充「扫光」）。
+        public const float ShineBase = 3.0f, ShineJitter = 0.2f, ShinePulse = 0.25f;
+        float _shineTimer, _shineNext = ShineBase, _shinePulse;
+        readonly System.Random _rng = new System.Random(20261025);   // 定种子（不碰 UnityEngine.Random）
+
+        /// <summary>有没有消息。🔴 **2026-10-25 起 = 真数据源的条数**（原版 `InboxWindow__Open` 的
+        /// 「`messages.Count == 0` ⇒ 空态」那一支）；`DailyData.InboxCount` 不再参与
+        /// （它现在反过来转发 `InboxData.UnreadCount()`，是**红点**的口，不是本窗的口）。</summary>
+        public bool HasMessages { get { return _messages.Count > 0; } }
 
         /// <summary>🆕 **2026-10-05（A81）**：压暗层的**命中区**节点（「点窗外关窗」）—— 自检用
         /// （`MenuDraw.ShadeRuleOk(darkHit, qShade, qContentMin, out why)` 的 `darkHit`）。</summary>
@@ -316,7 +408,13 @@ namespace CardPresentation
             //   而原版这三层是齐全的）。我们**单机没有消息**（`DailyData.InboxCount` 恒 0）⇒ 名单照旧是**空的**
             //   （这一点与原版 prefab 出厂一致：`Content` 出厂 0 子件、`ContentSizeFitter` 给的高 = 0），
             //   但**结构、裁切、滚动三件都按原版建出来**：`Initialize(messages)` 一有数据就照原版铺。
-            _messages.Clear();                 // 单机数据源（原版这里是 handler.Messages）
+            // 🔴 **2026-10-25（N17）：这里原来写 `_messages.Clear()`（单机恒空）** —— 现在改成
+            //   **从本地消息源灌**（`InboxData`；等价物，判据见那个文件的头注释）。
+            //   原版 `InboxWindow__Open.c`：`messages = LiveOpsManager.GetHandler<Inbox>().Messages`；
+            //   空 ⇒ `noNewsWarning` 开 + `display` 关；非空 ⇒ `display.Initialize(当前)` +
+            //   `list.Initialize(messages, 当前)` + `list.OnMessageSelected += OpenMessage`（`:49-113`）。
+            //   我们这三步在 `LoadFromStore()` / `ApplyEmptyState()` / `BuildRow` 的命中回调里各有一份。
+            LoadFromStore();
             var msgList = MenuDraw.Node(c, "Message List", MsgList);
             // 🔴🔴 **2026-10-13（A435 甲 · A198② 阶段 2）**：这一颗是**视口节点**，裁切状态就挂在它身上
             //   （= 原版 `RectMask2D` 挂 `Inbox Menu/Content/Message List/Viewport`；契约 → `Shell/ViewportClip.cs`）。
@@ -332,13 +430,16 @@ namespace CardPresentation
             _display = MenuDraw.Node(c, "Message Display", MsgDisplay);
             MenuDraw.Rect(_display, Art(ArtDisplayBg), MsgDisplay, "Background", QDisplayBg);
             // 🆕 **2026-10-12（A468）**：原版 `auto[10.0~58.0]` · `基准=36.0` · `折行=0`（判据 → `TitleAutoMin`）
-            var mdTitleLb = MenuDraw.Text(_display, MdTitle, DailyData.InboxMessageDisplayTitle(),
-                                          Color.white, "Title", 58f, QText,
-                                          MdTitle.W, MdTitleAutoMin, autoBasePx: WindowLabelAutoBase, face: TmpFont.Face.LatinCardBody);
-            if (mdTitleLb != null) mdTitleLb.SetWrapping(false);
+            // 🔴 **2026-10-25（N17）**：这颗现在**就是消息标题的载体** —— 原版 `MessageDisplay.Initialize`
+            //   里 `title.text = message.GetTitle()`（`MessageDisplay.cs:102-105`），所以建完要**存引用**，
+            //   选中消息时改写它（占位串照原版 prefab 的 'WELCOME TO WARPFORGE CLOSED ALPHA!'）。
+            _mdTitleLb = MenuDraw.Text(_display, MdTitle, DailyData.InboxMessageDisplayTitle(),
+                                       Color.white, "Title", 58f, QText,
+                                       MdTitle.W, MdTitleAutoMin, autoBasePx: WindowLabelAutoBase, face: TmpFont.Face.LatinCardBody);
+            if (_mdTitleLb != null) _mdTitleLb.SetWrapping(false);
             // 🆕 **2026-10-12（A470）**：同上一颗 —— 原版 `对齐=Left/Middle`（判据 → `TitleLeft` 的注释）。
             //   ⚠️ 必须排在**上面那句 `SetWrapping(false)` 之后**（理由同 `TitleLeft`）。
-            TitleLeft(mdTitleLb, MdTitle);
+            TitleLeft(_mdTitleLb, MdTitle);
             MenuDraw.Rect(_display, Art(ArtScrollbar), MdScrollbar, "Scrollbar Vertical", QContent);
             // 🔴 **2026-10-18（音效线转来的界面缺口）：`Claim Button` 建壳。**
             //   原版层级（树实读）：`Message Display ▸ Content ▸ Scroll View ▸ Viewport ▸ Content ▸ Claim Button`（容器）
@@ -355,6 +456,36 @@ namespace CardPresentation
             var mdVp = MenuDraw.Node(mdScroll, "Viewport", MdContent);
             var mdVpContent = MenuDraw.Node(mdVp, "Content",
                                             new PxRect(MdContent.x1, MdContent.y1, MdContent.x2, MdContent.y1));
+            // ============================================================ 🆕 **2026-10-25（N17）：正文那三件**
+            // 原版层级（`menu_dump … "Inbox Menu" --depth 9` 实读）：
+            //   `Message Display ▸ Content ▸ Scroll View ▸ Viewport ▸ Content` 底下依次
+            //   `Header`(Image 972.80×243.20) → `Message`(TMP 974.31 宽 · 字号 45 · 基准 45 ·
+            //   **Left/Top** · **折行 1** · 字距 1) → `Claim Button`(容器 958.86×216.21) → `Footer`(972.80×243.20)。
+            // 判据 → 本文件 `MdHeader` / `MdBody` / `MdFooter` / `MdWarn` 那几行的注释。
+            // ⚠️ `MessageDisplay.Initialize` 对 Header/Footer 的判据是 `LiveOpsAssetUtility.HasAsset(...)`：
+            //   **没有图 ⇒ 整件 `SetActive(false)`**（`MessageDisplay.cs:109-134`）—— 我们本地两条消息都没有
+            //   头/尾图 ⇒ 建着、关着（⛔ 不是省略；将来导入了图只填 `Message.HeaderArt`）。
+            _mdHeader = MenuDraw.Node(mdVpContent, "Header", MdHeader);
+            MenuDraw.Rect(_mdHeader, null, MdHeader, "Image", QContent, null, true);
+            if (_mdHeader != null) _mdHeader.gameObject.SetActive(false);
+            // `Message`：正文。**折行开着**（原版 1）、**不做自适应**（dump 里没有 `auto[…]` ⇒
+            //   `m_enableAutoSizing = 0`）⇒ `autoMinPx` 传 0（`MenuDraw.Text` 只有 >0 时才装自适应）。
+            _mdBody = MenuDraw.Text(mdVpContent, MdBody, "", Color.white, "Message", MdBodyFont, QText,
+                                    MdBody.W, 0f, 0f, 0f, face: TmpFont.Face.LatinCardBody);
+            if (_mdBody != null)
+            {
+                // 原版 `字距=1`（`m_characterSpacing`）。同 `_warn` 那条：`SetCharSpacing` 不刷缓存的宽高
+                // ⇒ 接着一句 `ForceRelayout()`（幂等）。
+                _mdBody.SetCharSpacing(MdBodyCharSpacing);
+                _mdBody.ForceRelayout();
+                // 原版 `对齐=Left/Top`：水平那半走现成的口（`MenuDraw.AlignLeft`），
+                // 垂直那半 = `Label.VAlign.Top`（`MenuDraw.SetVAlign`）。
+                MenuDraw.AlignLeft(_mdBody, MdBody);
+                MenuDraw.SetVAlign(_mdBody, Label.VAlign.Top, MdBody);
+            }
+            _mdFooter = MenuDraw.Node(mdVpContent, "Footer", MdFooter);
+            MenuDraw.Rect(_mdFooter, null, MdFooter, "Image", QContent, null, true);
+            if (_mdFooter != null) _mdFooter.gameObject.SetActive(false);
             var claimBox = MenuDraw.Node(mdVpContent, "Claim Button", ClaimBox);
             var claimBtn = MenuDraw.Node(claimBox, "Claim Button", ClaimBtn);
             var claimBg = MenuDraw.Nine(claimBtn, Art("UI_Button_Mulligan"), ClaimBtn,
@@ -368,6 +499,21 @@ namespace CardPresentation
             MenuDraw.Hit(claimBtn, "Hit", ClaimBtn, QOverlay, OnClaimClick,
                          claimBg != null ? claimBg.GetComponentInChildren<ImageQuad>() : null,
                          "UI_Button_Mulligan", clickCue: WindowSounds.PositiveCue);
+            // 🆕 **2026-10-25（N17）**：`Claim reward warning`（原版在 `Claim Button` 容器里、钮的下方）。
+            //   判据 = `MessageDisplay.CheckMessageCollectable` 的两条支：`FeatureConfig.IsArmyHidden` /
+            //   `IsExpansionHidden` ⇒ **开这颗** + 返回 false（`MessageDisplay.cs:278-288`）。
+            //   ⚠️ 我们**全解锁**（用户 2026-09-17 边界②）⇒ 这两支恒不命中 ⇒ 出厂**关着**；
+            //   建它是为了「将来接 FeatureConfig 时只改判据」，也是原版那棵树的一部分。
+            _mdWarn = MenuDraw.Text(mdVpContent, MdWarn, TxtRewardWarning, Color.white, "Claim reward warning",
+                                    MdWarnFont, QText, MdWarn.W, 0f, MdWarnFont, MdWarnFont,
+                                    face: TmpFont.Face.LatinCardBody);
+            if (_mdWarn != null)
+            {
+                _mdWarn.SetCharSpacing(MdWarnCharSpacing);
+                _mdWarn.ForceRelayout();
+                MenuDraw.SetVAlign(_mdWarn, Label.VAlign.Top, MdWarn);
+                _mdWarn.gameObject.SetActive(false);
+            }
 
             // `No News Warning`（空态文案）
             // 🆕 **2026-10-12（A468）**：原版 `auto[12.0~50.0]` · `基准=36.0` · `折行=0`（判据 → `TitleAutoMin`）
@@ -386,6 +532,9 @@ namespace CardPresentation
                 _warn.ForceRelayout();
             }
             ApplyEmptyState();        // 🆕 A182：这条分支原来写在 `Build()` 里，现在收成一份（`Initialize` 也要用）
+            // 🆕 **2026-10-25（N17）**：原版 `InboxWindow__Open` 非空那一支的 `display.Initialize(当前)`
+            //   （`GetCurrentMessage()` = 最后一条已读 / 否则第一条）。空表时 `ShowDetail(null)` 只把正文关掉。
+            ShowDetail(_current >= 0 && _current < _messages.Count ? _messages[_current] : null);
 
             // ---- 🔴 **2026-10-18（音效线转来的界面缺口）：`Reset Button` 建壳** ----
             //   原版：`Inbox Menu/Content/Reset Button`（[399,126] 142×71 · 图 `UI_Button_Mulligan` 九宫 333,96,333,96 ·
@@ -537,9 +686,131 @@ namespace CardPresentation
                 Debug.Log("[Inbox] 没有消息 ⇒ **空态**：关 `Message Display`、开 `No News Warning`"
                           + "（原版 `InboxWindow__Open.c:49` 就是这条分支）；"
                           + "`Message List` 的**结构/裁切/滚动照原版建全**（`Viewport` + `RectMask2D` 等效物 "
-                          + "(0,25) + `MenuScroll`），只是**没有条目**（单机没有服务端数据源 ⇒ "
-                          + "`Content` 与原版 prefab 出厂一样是空的；一旦 `Initialize(messages)` 有数据就照原版铺）");
+                          + "(0,25) + `MenuScroll`），只是**没有条目**。"
+                          + "⚠️ 2026-10-25 起消息来自 `InboxData`（本地消息源，两条出厂消息）⇒ 正常情况下这条分支**不该再走到**；"
+                          + "走到这里说明消息表空了（自检可以灌空表造这一态）。");
         }
+
+        // ============================================================ 🆕 2026-10-25：数据源 → 列表 / 正文
+
+        /// <summary>从 `InboxData` 灌消息（原版 `InboxWindow__Open` 取 `handler.Messages` 那一跳的等价物）。
+        /// <para>字段对位：`Title`=`GetTitle()`（`InboxData.Msg.TitleText` 优先、词条键在 `TitleTerm` 时已解析）、
+        /// `Date`=`FormatDate(StartDate())`、`Unread`=`!IsRead()`、`Body`=`GetMessage()`、
+        /// `Claimable`=`CheckMessageCollectable()`、`Id`=`eventId`。</para>
+        /// <para>选中项：原版 `GetCurrentMessage()` =「最后一条**已读**，否则第一条」
+        /// （`InboxWindow.cs:293-317`）⇒ 我们照它；若 `_selectedId` 还在（滚动重建）就保持玩家选的那条。</para></summary>
+        void LoadFromStore()
+        {
+            _animPlayed = false;                     // 换了一批消息 ⇒ 重新入场（见 StartAnimateIn）
+            _messages.Clear();
+            var src = InboxData.Messages;
+            for (int i = 0; i < src.Count; i++)
+            {
+                var m = src[i];
+                _messages.Add(new Message(InboxData.Title(m), InboxData.FormatDate(m.StartMs), !m.Read)
+                {
+                    Id = m.Id,
+                    Body = InboxData.Body(m),
+                    HeaderArt = m.HeaderArt,
+                    FooterArt = m.FooterArt,
+                    RedeemableAtMs = m.RedeemableAtMs,
+                    Claimable = InboxData.CanCollect(m),
+                });
+            }
+            _current = IndexOfCurrent();
+        }
+
+        /// <summary>原版 `GetCurrentMessage()` 的等价：先找 `_selectedId`（重建时的粘性），
+        /// 再落到 `InboxData.CurrentMessage`（=「最后一条已读，否则第一条」，判据见那个属性）。
+        /// 🔴 **派生规则只留一处**：⛔ 别在这里再写一遍 `for (i = Count-1; …)`。</summary>
+        int IndexOfCurrent()
+        {
+            if (!string.IsNullOrEmpty(_selectedId))
+                for (int i = 0; i < _messages.Count; i++)
+                    if (_messages[i].Id == _selectedId) return i;
+            var cur = InboxData.CurrentMessage;
+            if (cur != null)
+                for (int i = 0; i < _messages.Count; i++)
+                    if (_messages[i].Id == cur.Id) return i;
+            return _messages.Count > 0 ? 0 : -1;
+        }
+
+        /// <summary>点一行 = 原版 `MessageContainer.Select()` → `UiContainer.HandleClick()` →
+        /// `OnEventClick` → `MessageList.OnContainerClicked`：取消上一条选中 + 本条 `ToggleSelection(true)` +
+        /// `OnMessageSelected(message)` → `InboxWindow.OpenMessage` → `display.Initialize(message)`
+        /// （`MessageContainer.cs:106-121` · `InboxWindow.cs:319-322`）。
+        /// <para>另外把「已读」记上：原版那一下走云脚本 `CloudHandle.OpenInbox` 再由
+        /// `UiBadgeNotificationManager.Refresh&lt;InboxBadge&gt;()` 刷红点（`GameNewsEvent.SelectEvent`）。
+        /// 本地等价 = `InboxData.MarkRead`，红点由 `InboxCount` 现算（见 `DailyData.InboxCount`）。</para></summary>
+        void SelectMessage(int index)
+        {
+            if (index < 0 || index >= _messages.Count) return;
+            _current = index;
+            var m = _messages[index];
+            _selectedId = m.Id;
+            if (!string.IsNullOrEmpty(m.Id))
+            {
+                var src = InboxData.Find(m.Id);
+                if (src != null && !src.Read) { InboxData.MarkRead(src); m.Unread = false; }
+            }
+            RefreshSelection();
+            ShowDetail(m);
+            // 未读标记会变 ⇒ 行上的 `New!` 要跟着重建（原版 `MessageContainer.Refresh()`）
+            BuildMessageRows();
+        }
+
+        /// <summary>换底图（原版 `MessageContainer.ToggleSelection(bool selected)` =
+        /// `background.sprite = selected ? selectedMessageSprite : normalMessageSprite`）。
+        /// 两张图 = `40K_settings_button`（常态）与 `40K_settings_button_selected`（选中）；
+        /// ⚠️ 后者在 `WindowButton.HoverNames` 里**只被 `ChatPanel` 的页签用**，⛔ 别让表去推。</summary>
+        void RefreshSelection()
+        {
+            for (int i = 0; i < _rowBgs.Length && i < _rowNodes.Length; i++)
+            {
+                var q = _rowBgs[i];
+                if (q == null) continue;
+                bool sel = i == _current;
+                var tex = Art(sel ? ArtRowSelected : ArtRowBg);
+                if (tex != null) q.SetTexture(tex);
+                q.SetTint(sel ? Color.white : RowBgTint);
+            }
+        }
+
+        /// <summary>原版 `InboxWindow.OpenMessage(message)` = `display.Initialize(message)`。
+        /// `MessageDisplay.Initialize` 的六步（`MessageDisplay.cs:80-198`）逐条对位：
+        /// ① 标题 = `GetTitle()`；② 正文 = `GetMessage()`；③ 头/尾图按 `HasAsset` 开关；
+        /// ④ `rewardWarningText.SetActive(false)`；⑤ `hasReward` → `claimButtonHolder.SetActive` +
+        /// `collectButton.interactable = hasReward &amp; CheckMessageCollectable()`；⑥ `layoutFixer.FixLayout()`。
+        /// ⚠️ 第 ⑥ 步（uGUI 布局组重排）在我们的手算布局里**没有对应物**（每次都用固定框建）⇒ 如实不写。</summary>
+        void ShowDetail(Message m)
+        {
+            if (m == null) { if (_display != null) _display.gameObject.SetActive(false); return; }
+            if (_display != null) _display.gameObject.SetActive(true);
+            if (_warn != null) _warn.gameObject.SetActive(false);
+            if (_mdTitleLb != null) _mdTitleLb.SetText(m.Title ?? "");
+            if (_mdBody != null) _mdBody.SetText(m.Body ?? "");
+            bool hh = !string.IsNullOrEmpty(m.HeaderArt);
+            bool hf = !string.IsNullOrEmpty(m.FooterArt);
+            if (_mdHeader != null)
+            {
+                _mdHeader.gameObject.SetActive(hh);
+                if (hh) MenuDraw.Rect(_mdHeader, Art(m.HeaderArt), MdHeader, "Image", QContent, null, true);
+            }
+            if (_mdFooter != null)
+            {
+                _mdFooter.gameObject.SetActive(hf);
+                if (hf) MenuDraw.Rect(_mdFooter, Art(m.FooterArt), MdFooter, "Image", QContent, null, true);
+            }
+            // Claim 那半：原版 `claimButtonHolder.SetActive(hasReward)`（容器整块），
+            // 且 `interactable = hasReward & CheckMessageCollectable()`（钮的灰/亮）。
+            // ⚠️ 我们的 `Claim Button`（容器）与钮都建在 `Build()` 里 ⇒ 这里只切 **容器**的显隐 + 钮的交互态。
+            var box = _display != null ? _display.transform.Find("Content/Scroll View/Viewport/Content/Claim Button") : null;
+            if (box != null) box.gameObject.SetActive(m.Claimable || InboxData.HasReward(m.Id));
+            var btn = box != null ? box.Find("Claim Button") : null;
+            var wb = btn != null ? btn.GetComponentInChildren<WindowButton>() : null;
+            if (wb != null) wb.Interactable = m.Claimable;
+        }
+
 
         // ============================================================ 🆕 2026-10-18：两颗「原版有、我们刚建」的钮
 
@@ -553,14 +824,32 @@ namespace CardPresentation
                     + "运行时根本不该看得见它；本地也没有 `LiveOpsManager` 的事件可重置）");
         }
 
-        /// <summary>`Claim Button` 的点击 —— 原版走 `MessageDisplay` 对**当前消息**的领奖
-        /// （`Everguild.LiveOps.MessageDisplay` / `InboxMessage.HasRewards`）。
-        /// 单机**没有任何消息**（`_messages` 恒空、`DailyData.InboxCount` 恒 0）⇒ 没有可领的东西；
-        /// 不静默，如实出声。</summary>
+        /// <summary>`Claim Button` 的点击 —— 原版 `MessageDisplay.OnEnable` 把 `TryCollect` 挂在这颗钮上
+        /// （`MessageDisplay.cs:291-296`），`TryCollect` = 先 `interactable = false` 再走
+        /// `message.ClaimRewards()`（云脚本 → `RewardService.Collect`）。
+        /// <para>本地等价：`InboxData.TryClaim(当前消息)` —— 发 `Wallet.Grant` + 开领奖窗 + 置已领 + 落盘，
+        /// 完成后重建行/正文（原版 `&lt;ClaimRewards&gt;g__OnComplete|7_0` 之后界面那半由事件刷新）。
+        /// ⚠️ **不静的失败**：不可领时把 `why` 原样说出来（原版是服务端回错）。</para></summary>
         void OnClaimClick()
         {
-            Debug.Log("[Inbox] `Claim Button` 点了 ⇒ **无可领奖励**（原版这一路要 `MessageDisplay` 持有一条"
-                    + "带 `HasRewards` 的消息 + 服务端发奖；单机没有消息源、也没有服务器 —— 照边界③如实说）");
+            var m = (_current >= 0 && _current < _messages.Count) ? _messages[_current] : null;
+            var src = m != null ? InboxData.Find(m.Id) : null;
+            if (src == null)
+            {
+                Debug.LogWarning("[Inbox] `Claim Button` 点了 ⇒ **当前没有可领的消息**（选中的那条没有数据源 id；"
+                               + "自检灌的假消息就会走到这里）。");
+                return;
+            }
+            string why;
+            if (!InboxData.TryClaim(src, out why))
+            {
+                Debug.LogWarning("[Inbox] `Claim Button` 点了 ⇒ **领不到**：" + why);
+                return;
+            }
+            // 领完这一拍：这条从「可领」变成「已领」⇒ 正文里的 Claim 容器要收起、行要重铺（原版刷新那半）。
+            m.Claimable = false;
+            ShowDetail(m);
+            BuildMessageRows();
         }
 
         // ============================================================ 消息列表（`Message List`）
@@ -571,11 +860,16 @@ namespace CardPresentation
         /// —— 原版就是这个形状）。`null`/空 = 回到空态。</summary>
         public void Initialize(System.Collections.Generic.IList<Message> messages)
         {
+            _animPlayed = false;                     // 同上：生产 API 灌一批新消息 ⇒ 重新入场
             _messages.Clear();
             if (messages != null)
                 for (int i = 0; i < messages.Count; i++) if (messages[i] != null) _messages.Add(messages[i]);
+            _current = IndexOfCurrent();
+            _selectedId = _current >= 0 ? _messages[_current].Id : null;
             BuildMessageList();
             ApplyEmptyState();          // 照原版：有消息 ⇒ 右侧 `Message Display` 跟着开
+            // 原版 `InboxWindow__Open`：非空那一支是 `display.Initialize(当前) + list.Initialize(messages, 当前)`。
+            ShowDetail(_current >= 0 ? _messages[_current] : null);
         }
 
         /// <summary>建（或重建）列表的**滚动区**+ 内容容器的高度。
@@ -608,6 +902,10 @@ namespace CardPresentation
             for (int i = _listContent.childCount - 1; i >= 0; i--)
                 RewardsWindow.DestroySafe(_listContent.GetChild(i).gameObject);
             Rows.Clear();
+            // 🆕 2026-10-25：选中态/动画那三张登记表**每次重建都重填**（按数据下标索引，见字段注释）
+            _rowBgs = new ImageQuad[_messages.Count];
+            _rowNodes = new Transform[_messages.Count];
+            _rowNew = new Label[_messages.Count];
 
             // 🔴🔴 **2026-10-13（A435 甲 · A198② 阶段 2）：那六行没了。** 旧写法 = 「存 `Clip`/`ClipSoftness`/
             //   `ClipPad` 三件 → 设 `MsgList` / `ListSoft(0,25)` / `ListPad(0,0,0,0)` → 建完成对还原」。
@@ -624,7 +922,112 @@ namespace CardPresentation
                 if (_listScroll != null) r = _listScroll.Shift(r);
                 Rows.Add(BuildRow(_listContent, r, i, _messages[i]));
             }
+            // 🆕 **2026-10-25（N17）**：重建之后两件事 ——
+            //   ① 复原选中态（原版选中态长在条目实例上；我们每次重建 ⇒ 自己按 `_current` 重画）；
+            //   ② 播入场（原版 `MessageList.Initialize` 里逐个 `AnimateIn(index)`）。
+            RefreshSelection();
+            StartAnimateIn();
         }
+
+        // ============================================================ 🆕 2026-10-25：入场动画 + 未读行闪一下
+
+        /// <summary>原版 `MessageContainer.AnimateIn(int index)`（`MessageContainer.cs:130-170`）：
+        /// `canvasGroup.alpha = 0` → `AppendInterval((index + 1) × animationDelay)` → 播 slotting 音 →
+        /// `DOFade(1, animationTime)` + `DOScale(底图, localScale).From(localScale × 0.5)`（带 curve 缓动）。
+        /// <para>参数：`animationDelay = 0.1` · `animationTime = 0.15` · 缩放起点 = 原值 × **0.5**
+        /// （见 `AnimDelay` / `AnimTime` / `AnimScaleFrom` 的注释；曲线数值没解出 ⇒ 用 EaseOutQuad 等价）。</para>
+        /// <para>⚠️ 批处理下没有帧循环 ⇒ 与 `RewardWindow` 同一个做法：**本窗自带 `Tick(dt)`**，
+        /// `Update()` 只是把 `Time.deltaTime` 转进去（自检可以直调 `Tick`）。</para></summary>
+        void StartAnimateIn()
+        {
+            // 🔴 只播**一次**：行是每次滚动/选中都重建的（`BuildMessageRows` 的幂等设计），
+            //   原版只在 `MessageList.Initialize` 那一刻 `AnimateIn` 一遍 ⇒ 这里用一个「播过没有」的位挡住重播
+            //   （`LoadFromStore` / `Initialize` 会把它清掉 = 换了一批消息才重新入场）。
+            if (_animPlayed) { for (int i = 0; i < _rowNodes.Length; i++) ApplyRowAnim(i, 1f); return; }
+            _animPlayed = true;
+            _animRows = _messages.Count;
+            _animT = _animRows > 0 ? 0f : -1f;
+            // 起点：全透明 + 半尺寸（原版先写 alpha 0、再在 interval 之后才动；我们这里先把**初值**摆好，
+            // `Tick` 里按「每行自己的 0.15s 窗口」推进 —— 等价于原版那条 Sequence）。
+            for (int i = 0; i < _rowNodes.Length; i++) ApplyRowAnim(i, 0f);
+        }
+
+        void ApplyRowAnim(int i, float p)
+        {
+            if (i < 0 || i >= _rowNodes.Length) return;
+            var node = _rowNodes[i];
+            if (node != null)
+            {
+                float s = Mathf.Lerp(AnimScaleFrom, 1f, p);
+                node.localScale = new Vector3(s, s, 1f);
+            }
+            float a = Mathf.Clamp01(p);
+            var q = i < _rowBgs.Length ? _rowBgs[i] : null;
+            if (q != null)
+            {
+                var c = q.Tint; c.a = (i == _current ? 1f : RowBgTint.a) * a; q.SetTint(c);
+            }
+        }
+
+        void AnimTick(float dt)
+        {
+            if (_animT < 0f) return;
+            _animT += dt;
+            for (int i = 0; i < _rowNodes.Length; i++)
+            {
+                // 第 i 行：延迟 (i + 1) × AnimDelay 之后开始，AnimTime 内线性推到 1（EaseOutQuad）。
+                float t = (_animT - (i + 1) * AnimDelay) / AnimTime;
+                float p = t <= 0f ? 0f : (t >= 1f ? 1f : 1f - (1f - t) * (1f - t));
+                ApplyRowAnim(i, p);
+            }
+            if (_animT > (AnimRows + 1f) * AnimDelay + AnimTime)
+            {
+                for (int i = 0; i < _rowNodes.Length; i++) ApplyRowAnim(i, 1f);
+                RefreshSelection();          // 动画把 tint 写过 ⇒ 收尾按选中态再刷一次（含底图）
+                _animT = -1f;
+            }
+        }
+
+        int AnimRows { get { return _animRows; } }
+
+        /// <summary>原版 `MessageContainer.Update` 的「未读行闪一下」：`timeSinceLastShine` 累加到
+        /// `shineTime` 就重置并把 `shineTime` 摇成 **3.0 × (1 + Random(-0.2, 0.2))**、播 `shinyEffect`。
+        /// ⚠️ 本工程没有 Coffee.UIEffects 的 `UIEffectTweener`（扫光）⇒ 等价实现 = 把 `New!` 那颗字的
+        /// **亮度**在这 0.25s 内抬一档（⛔ 不冒充扫光；参数/替代口径见 `ShineBase` 那几行）。</summary>
+        void ShineTick(float dt)
+        {
+            _shineTimer += dt;
+            if (_shinePulse > 0f) _shinePulse = Mathf.Max(0f, _shinePulse - dt);
+            if (_shineTimer >= _shineNext)
+            {
+                _shineTimer = 0f;
+                _shineNext = ShineBase * (1f + ((float)_rng.NextDouble() * 2f - 1f) * ShineJitter);
+                _shinePulse = ShinePulse;
+            }
+            var c = RowNewColor;
+            if (_shinePulse > 0f)
+            {
+                float k = _shinePulse / ShinePulse;
+                c = Color.Lerp(RowNewColor, Color.white, k);
+            }
+            for (int i = 0; i < _rowNew.Length; i++)
+            {
+                var lb = _rowNew[i];
+                if (lb == null) continue;
+                // ⚠️ 只对**未读行**闪（原版那条 Update 也在未读分支里）
+                if (i < _messages.Count && !_messages[i].Unread) continue;
+                lb.SetColor(c);
+            }
+        }
+
+        /// <summary>本窗的动画时钟（入场 + 未读闪共用；由 `Update` 推）。</summary>
+        public void Tick(float dt)
+        {
+            AnimTick(dt);
+            ShineTick(dt);
+        }
+
+        void Update() { Tick(Time.deltaTime); }
 
         /// <summary>一个条目（原版 `Message Container`）：底图 + `Title` + `Date` + [`New!`]。
         /// 三件几何/字号/颜色/对齐**逐条照 dump**（`Row*` 常量）。
@@ -662,14 +1065,23 @@ namespace CardPresentation
             //   · 🔴 **悬停图必须显式传 `ArtRowHover`**（⛔ 不能靠 `WindowButton.HoverNames` 那张表推）——
             //     判据 → `ArtRowHover` 的注释（同一张常态图在别处配的是 `_selected`）。
             //   · `onClick` **如实出声**（正文那几件没建，见上面 BuildRow 的注释）。
+            //   · `onClick` —— 🔴 **2026-10-25（N17）起是真动作**：原版 `MessageContainer.Select()` →
+            //     `HandleClick` → `MessageList.OnContainerClicked` → `InboxWindow.OpenMessage` →
+            //     `display.Initialize(message)`。我们走 `SelectMessage(idx)`（选中 + 标已读 + 刷红点 + 填正文）。
             if (bg != null)
             {
+                int captured = idx;                      // ⚠️ 闭包捕获：`idx` 是每行自己的数据下标
                 AddHit(e, "RowHit", OR(RowBg), QRowHit,
-                       () => Debug.LogWarning(
-                           "[Inbox] 点了消息条目 `" + (m.Title ?? "") + "` —— 原版这一下 = **选中它**、"
-                           + "右侧 `Message Display` **显示正文**；而正文的 `Header`/`Message` 由服务端消息驱动、"
-                           + "本机没建（`Claim Button` 已建壳、空态下整块关着）⇒ **没有画面变化**（如实出声，不静默）。"),
+                       () => SelectMessage(captured),
                        bg, ArtRowBg, ArtRowHover, ArtRowPressed);
+            }
+            // 🆕 选中态要用的三样（原版 `MessageContainer.background` 那张 `Image` / 条目节点 / `unreadMark`）：
+            //   行是**每次重建**的（滚动一偏就重铺）⇒ 登记表也每次重填（`BuildMessageRows` 首句按消息数重分配）。
+            //   ⚠️ **按 `idx` 下标写**（⛔ 不能 `Add` —— 行是倒序建的，`Add` 会与 `_messages[i]` 错位）。
+            if (idx >= 0 && idx < _rowNodes.Length)
+            {
+                _rowBgs[idx] = bg;
+                _rowNodes[idx] = e;
             }
             // `bg == null` 有**两种**来路，只有一种要出声：
             //   · 整条落在视口外 ⇒ `MenuDraw.Rect` 的 `ClipRect` **本来就不建**（正确裁切，不是失效）；
@@ -687,8 +1099,11 @@ namespace CardPresentation
             RowText(e, OR(RowDate), m.Date ?? "", RowDateColor, "Date", RowDateFont,
                     RowDateAutoMin, RowDateAutoBase, 1);
             if (m.Unread)
-                RowText(e, OR(RowNew), TxtUnread, RowNewColor, "New", RowNewFont,
-                        RowNewAutoMin, RowNewAutoBase, 2);
+            {
+                var nl = RowText(e, OR(RowNew), TxtUnread, RowNewColor, "New", RowNewFont,
+                                 RowNewAutoMin, RowNewAutoBase, 2);
+                if (idx >= 0 && idx < _rowNew.Length) _rowNew[idx] = nl;   // 🆕 未读那一下闪它（原版 shinyEffect）
+            }
             return e;
         }
 

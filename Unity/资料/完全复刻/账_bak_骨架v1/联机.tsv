@@ -1,0 +1,161 @@
+域	原版类	方法	判据出处	判据要点	状态	我们的落点	差异	等级	轮次	备注
+联机	AuthenticationValues	AddAuthParameter(string key, string value)	AuthenticationValues.cs:132		E					
+联机	AuthenticationValues	SetAuthPostData(Dictionary<string, object> dictData)	AuthenticationValues.cs:124		E					
+联机	AuthenticationValues	SetAuthPostData(byte[] byteData)	AuthenticationValues.cs:116		E					
+联机	AuthenticationValues	SetAuthPostData(string stringData)	AuthenticationValues.cs:101		E					
+联机	AuthenticationValues	ToString()	AuthenticationValues.cs:234		E					
+联机	BattleCommsManager	ConfirmMulliganReceived(int[] mulliganCardsToDiscardId, string envCard)	BattleCommsManager.cs:269		E					
+联机	BattleCommsManager	PUNReceiveCardReorder(int uniqueInGameID, int newIndex, PhotonMessageInfo mi)	BattleCommsManager.cs:1372		E					
+联机	BattleCommsManager	PUNReceiveCardSeen(int uniqueInGameID, PhotonMessageInfo mi)	BattleCommsManager.cs:1359		E					
+联机	BattleCommsManager	PUNReceiveChatMessage(int messageIndex, PhotonMessageInfo mi)	BattleCommsManager.cs:1347		E					
+联机	BattleCommsManager	PUNReceiveEnemyDesync(PhotonMessageInfo mi)	BattleCommsManager.cs:1293		E					
+联机	BattleCommsManager	PUNReceiveEnemyForfeit(PhotonMessageInfo mi)	BattleCommsManager.cs:1264		E					
+联机	BattleCommsManager	PUNReceiveEnemyMulligan(int[] mulliganCardsToDiscardId, string envCard, PhotonMessageInfo mi)	BattleCommsManager.cs:779		E					
+联机	BattleCommsManager	PUNReceiveMatchFinished(PhotonMessageInfo mi)	BattleCommsManager.cs:1320		E					
+联机	BattleCommsManager	PUNReceiveMulliganAck(int[] mulliganCardsToDiscardId, string envCard, PhotonMessageInfo mi)	BattleCommsManager.cs:866		E					
+联机	BattleCommsManager	PUNReceivePlayerAction(int actionType, int actingCardID, int targetCardID, bool targeted, int cardPlayedPos, int actionCounter, int attackTpye, PhotonMessageInfo mi)	BattleCommsManager.cs:939		E					
+联机	BattleCommsManager	PUNReceiveRequestMulliganResend(int attemptCounter, PhotonMessageInfo mi)	BattleCommsManager.cs:810		E					
+联机	BattleCommsManager	PUNReceiveResendLostActions(int lastActionReceived, PhotonMessageInfo mi)	BattleCommsManager.cs:1212		E					
+联机	BattleCommsManager	PUNReceiveWrongRoom(PhotonMessageInfo mi)	BattleCommsManager.cs:897		E					
+联机	BattleCommsManager	RemoteSendPlayerAction(PlayerAction actionToSend)	BattleCommsManager.cs:341		E					
+联机	BattleCommsManager	RequestMulliganResend(int attemptsCount)	BattleCommsManager.cs:222		E					
+联机	BattleCommsManager	ResendLostActions()	BattleCommsManager.cs:541		E					
+联机	BattleCommsManager	SendCardReorder(int uniqueInGameID, int newIndex)	BattleCommsManager.cs:708		E					
+联机	BattleCommsManager	SendCardSeen(int uniqueInGameID)	BattleCommsManager.cs:654		E					
+联机	BattleCommsManager	SendChatMessage(ChatMessage messageIndex)	BattleCommsManager.cs:607		E					
+联机	BattleCommsManager	SendDesync()	BattleCommsManager.cs:601		E					
+联机	BattleCommsManager	SendForfeit()	BattleCommsManager.cs:595		E					
+联机	BattleCommsManager	SendMatchFinished()	BattleCommsManager.cs:701		E					
+联机	BattleCommsManager	SendMulliganCards(int[] mulliganCardsToDiscardId, string envCard)	BattleCommsManager.cs:143		E					
+联机	BattleCommsManager	SendWrongRoomMessage()	BattleCommsManager.cs:335		E					
+联机	BattleCommsManager	SyncLastPlayerActions(int lastActionReceived)	BattleCommsManager.cs:1252		E					
+联机	BattleNetworkManager	CancelBattleSearch()	BattleNetworkManager.cs:311		E					
+联机	BattleNetworkManager	ConnectToBattleRoom(MatchType matchType)	BattleNetworkManager.cs:361		E					
+联机	BattleNetworkManager	EventConnectedToMaster()	BattleNetworkManager.cs:739		E					
+联机	BattleNetworkManager	EventCreatedRoom()	BattleNetworkManager.cs:1283		E					
+联机	BattleNetworkManager	EventDisconnected()	BattleNetworkManager.cs:994		E					
+联机	BattleNetworkManager	EventFailedToConnectToServer()	BattleNetworkManager.cs:934		E					
+联机	BattleNetworkManager	EventFailedToJoinRoom(bool roomDoesNotExist)	BattleNetworkManager.cs:960		E					
+联机	BattleNetworkManager	EventJoinedRoom(List<string> playersInRoom, string roomName, int numberOfRooms)	BattleNetworkManager.cs:575		E					
+联机	BattleNetworkManager	EventOtherPlayerJoinedRoom(string playerName)	BattleNetworkManager.cs:801		E					
+联机	BattleNetworkManager	EventPlayerDisconnected(string playerName)	BattleNetworkManager.cs:1287		E					
+联机	BattleNetworkManager	EventRandomJoinFailed()	BattleNetworkManager.cs:1090		E					
+联机	BattleNetworkManager	FoundOpponent()	BattleNetworkManager.cs:320		E					
+联机	BattleNetworkManager	GetPracticeRoomName(string firstPlayerId)	BattleNetworkManager.cs:351		E					
+联机	BattleNetworkManager	GetRoomParam(string paramString)	BattleNetworkManager.cs:516		E					
+联机	BattleNetworkManager	HideCurrentRoom()	BattleNetworkManager.cs:564		E					
+联机	BattleNetworkManager	LeaveBattle()	BattleNetworkManager.cs:275		E					
+联机	BattleNetworkManager	LeaveBattleRoom(bool keepRoomAliveAfterLeaving)	BattleNetworkManager.cs:250		E					
+联机	BattleNetworkManager	MoveToBattleRoom(MatchData currentMatch, Action<string> OnError, SearchOpponentManager searchManager)	BattleNetworkManager.cs:105		E					
+联机	BattleNetworkManager	SetOpponentDisconnected()	BattleNetworkManager.cs:1338		E					
+联机	BattleNetworkManager	SetRoomParam(string paramString, int paramValue)	BattleNetworkManager.cs:485		E					
+联机	BattleNetworkManager	SetupBattleManager(BattleManager manager)	BattleNetworkManager.cs:89		E					
+联机	BattleNetworkManager	SetupSearchOpponentManager(SearchOpponentManager manager)	BattleNetworkManager.cs:97		E					
+联机	BattleNetworkManager	ShouldCreateARoom(int currentMatchmakingAttempts, int currentGamesLost)	BattleNetworkManager.cs:1243		E					
+联机	BattleNetworkManager	Start()	BattleNetworkManager.cs:72		E					
+联机	BattleNetworkManager	TryReconnecting(bool skipReconnectAttempt)	BattleNetworkManager.cs:325		E					
+联机	CellTreeNode	AddChild(CellTreeNode child)	CellTreeNode.cs:50		E					
+联机	CellTreeNode	Draw()	CellTreeNode.cs:77		E					
+联机	CellTreeNode	GetActiveCells(List<byte> activeCells, bool yIsUpAxis, Vector3 position)	CellTreeNode.cs:81		E					
+联机	CellTreeNode	IsPointInsideCell(bool yIsUpAxis, Vector3 point)	CellTreeNode.cs:193		E					
+联机	CellTreeNode	IsPointNearCell(bool yIsUpAxis, Vector3 point)	CellTreeNode.cs:240		E					
+联机	NetworkCustomManager	AttemptReconnect()	NetworkCustomManager.cs:593		E					
+联机	NetworkCustomManager	Awake()	NetworkCustomManager.cs:237		E					
+联机	NetworkCustomManager	ConnectToPhoton()	NetworkCustomManager.cs:341		E					
+联机	NetworkCustomManager	DoCreateEventRoom(IPlayEvent matchEvent, string userId, string guildId, int currentELO, long currentServerTime)	NetworkCustomManager.cs:817		E					
+联机	NetworkCustomManager	DoJoinCasualGameRoom(string roomName)	NetworkCustomManager.cs:795		E					
+联机	NetworkCustomManager	DoJoinRandomEventRoom(IPlayEvent matchEvent, int currentElo, int attemptCount)	NetworkCustomManager.cs:743		E					
+联机	NetworkCustomManager	DoJoinRandomRankedRoom(int maxRating, int minRating, string notMatchUser, string guildId, List<string> suspiciousIds)	NetworkCustomManager.cs:739		E					
+联机	NetworkCustomManager	DoRejoinSavedRoom()	NetworkCustomManager.cs:734		E					
+联机	NetworkCustomManager	GetConnectionStatus()	NetworkCustomManager.cs:507		E					
+联机	NetworkCustomManager	GetCurrentPlayerList()	NetworkCustomManager.cs:363		E					
+联机	NetworkCustomManager	GetLostMatchesToSearch(IPlayEvent matchEvent, int matchMakingAttempts)	NetworkCustomManager.cs:834		E					
+联机	NetworkCustomManager	GetPvpRoomOptions(int ratingFilter, string userToExclude, string guildId)	NetworkCustomManager.cs:877		E					
+联机	NetworkCustomManager	GetSqlFilter(int maxRating, int minRating, string notMatchUser, string guildId)	NetworkCustomManager.cs:764		E					
+联机	NetworkCustomManager	HideCurrentRoom()	NetworkCustomManager.cs:952		E					
+联机	NetworkCustomManager	LeaveBattle(Action onLeft)	NetworkCustomManager.cs:459		E					
+联机	NetworkCustomManager	LeaveCurrentRoom()	NetworkCustomManager.cs:356		E					
+联机	NetworkCustomManager	LeaveRoom()	NetworkCustomManager.cs:966		E					
+联机	NetworkCustomManager	OnApplicationPause(bool paused)	NetworkCustomManager.cs:333		E					
+联机	NetworkCustomManager	OnConnectedToMaster()	NetworkCustomManager.cs:528		E					
+联机	NetworkCustomManager	OnConnectionFail(DisconnectCause cause)	NetworkCustomManager.cs:572		E					
+联机	NetworkCustomManager	OnCreatedRoom()	NetworkCustomManager.cs:616		E					
+联机	NetworkCustomManager	OnDestroy()	NetworkCustomManager.cs:564		E					
+联机	NetworkCustomManager	OnDisconnectedFromPhoton()	NetworkCustomManager.cs:584		E					
+联机	NetworkCustomManager	OnFailedToConnectToPhoton()	NetworkCustomManager.cs:545		E					
+联机	NetworkCustomManager	OnJoinedRoom()	NetworkCustomManager.cs:624		E					
+联机	NetworkCustomManager	OnPhotonJoinRoomFailed(object[] codeAndMsg)	NetworkCustomManager.cs:704		E					
+联机	NetworkCustomManager	OnPhotonPlayerConnected(PhotonPlayer newPlayer)	NetworkCustomManager.cs:681		E					
+联机	NetworkCustomManager	OnPhotonPlayerDisconnected(PhotonPlayer newPlayer)	NetworkCustomManager.cs:695		E					
+联机	NetworkCustomManager	OnPhotonRandomJoinFailed()	NetworkCustomManager.cs:604		E					
+联机	NetworkCustomManager	PrepareToConnectToBattleRoom()	NetworkCustomManager.cs:402		E					
+联机	NetworkCustomManager	ReconnectToBattleRoom()	NetworkCustomManager.cs:470		E					
+联机	NetworkCustomManager	RemoveRoomAfterLeaving()	NetworkCustomManager.cs:979		E					
+联机	NetworkCustomManager	SetBattleNetworkManager(BattleNetworkManager manager)	NetworkCustomManager.cs:325		E					
+联机	NetworkCustomManager	SetPlayerDataManager(PlayerDataManager manager)	NetworkCustomManager.cs:317		E					
+联机	NetworkCustomManager	StartConnection(string userId, ConnectionSettingsData connectionSettings, Action onComplete)	NetworkCustomManager.cs:249		E					
+联机	NetworkCustomManager	UseNewbieClosedDeck(int currentELO, int playerWins)	NetworkCustomManager.cs:859		E					
+联机	OnlineData	DoesPlayerDataAcceptInvites(GetPlayerCombinedInfoResultPayload userInfo)	OnlineData.cs:390		E					
+联机	OnlineData	GetCurrency(GetPlayerCombinedInfoResultPayload userInfo, Currency currency)	OnlineData.cs:766		E					
+联机	OnlineData	GetGuildBadge(GetPlayerCombinedInfoResultPayload userInfo)	OnlineData.cs:453		E					
+联机	OnlineData	GetGuildName(GetPlayerCombinedInfoResultPayload userInfo)	OnlineData.cs:615		E					
+联机	OnlineData	GetGuildRegion(GetPlayerCombinedInfoResultPayload userInfo)	OnlineData.cs:534		E					
+联机	OnlineData	GetOnlineStat(GetPlayerCombinedInfoResultPayload userInfo, OnlineStat stat)	OnlineData.cs:691		E					
+联机	OnlineData	GetOnlineStat(GetPlayerCombinedInfoResultPayload userInfo, string stat)	OnlineData.cs:730		E					
+联机	OnlineData	GetPlayerGameVersion(GetPlayerCombinedInfoResultPayload userInfo)	OnlineData.cs:70		E					
+联机	OnlineData	GetPlayerOnlineData<T>(GetPlayerCombinedInfoResultPayload userInfo, PlayerDataKey key, bool checkPublicData)	OnlineData.cs:145		E					
+联机	OnlineData	GetPlayerOnlineData<T>(GetPlayerCombinedInfoResultPayload userInfo, string key, bool checkPublicData)	OnlineData.cs:194		E					
+联机	OnlineData	GetPlayerOnlineDataString(GetPlayerCombinedInfoResultPayload userInfo, PlayerDataKey key, bool checkPublicData)	OnlineData.cs:235		E					
+联机	OnlineData	GetPlayerOnlineDataString(GetPlayerCombinedInfoResultPayload userInfo, string key, bool checkPublicData)	OnlineData.cs:280		E					
+联机	OnlineData	GetServerFlags(GetPlayerCombinedInfoResultPayload userInfo)	OnlineData.cs:784		E					
+联机	OnlineData	GetServerVersion(GetPlayerCombinedInfoResultPayload userInfo)	OnlineData.cs:26		E					
+联机	OnlineData	GetTitleData<T>(GetPlayerCombinedInfoResultPayload userInfo, TitleDataKey key)	OnlineData.cs:96		E					
+联机	OnlineData	GetTitleDataString(GetPlayerCombinedInfoResultPayload userInfo, TitleDataKey key)	OnlineData.cs:125		E					
+联机	OnlineData	HasKey(Dictionary<string, UserDataRecord> userData, PlayerDataKey key)	OnlineData.cs:322		E					
+联机	OnlineData	HasKey(Dictionary<string, UserDataRecord> userData, string key)	OnlineData.cs:346		E					
+联机	OnlineData	HasKey(Dictionary<string, string> userData, TitleDataKey key)	OnlineData.cs:367		E					
+联机	OnlineData	IsTherePendingMatch(GetPlayerCombinedInfoResultPayload userInfo)	OnlineData.cs:801		E					
+联机	Room	ClearExpectedUsers()	Room.cs:453		E					
+联机	Room	SetCustomProperties(Hashtable propertiesToSet, Hashtable expectedValues, bool webForward)	Room.cs:373		E					
+联机	Room	SetExpectedUsers(string[] expectedUsers)	Room.cs:463		E					
+联机	Room	SetPropertiesListedInLobby(string[] propsListedInLobby)	Room.cs:442		E					
+联机	Room	ToString()	Room.cs:472		E					
+联机	Room	ToStringFull()	Room.cs:607		E					
+联机	RoomInfo	Equals(object other)	RoomInfo.cs:144		E					
+联机	RoomInfo	GetHashCode()	RoomInfo.cs:182		E					
+联机	RoomInfo	InternalCacheProperties(Hashtable propertiesToCache)	RoomInfo.cs:487		E					
+联机	RoomInfo	ToString()	RoomInfo.cs:196		E					
+联机	RoomInfo	ToStringFull()	RoomInfo.cs:330		E					
+联机	SearchOpponentManager	Awake()	SearchOpponentManager.cs:502		E					
+联机	SearchOpponentManager	CancelBattleSearch()	SearchOpponentManager.cs:2178		E					
+联机	SearchOpponentManager	CancelSearchForDisconnect()	SearchOpponentManager.cs:2186		E					
+联机	SearchOpponentManager	CheckStartProp()	SearchOpponentManager.cs:1237		E					
+联机	SearchOpponentManager	ErrorValidatingEnemyDeck()	SearchOpponentManager.cs:1494		E					
+联机	SearchOpponentManager	FinishedLeavingBattleSearchRoom()	SearchOpponentManager.cs:1582		E					
+联机	SearchOpponentManager	FinishedLeavingSearch()	SearchOpponentManager.cs:1507		E					
+联机	SearchOpponentManager	GetCheckString(bool enemyString)	SearchOpponentManager.cs:1408		E					
+联机	SearchOpponentManager	GetTimeToWaitForOpponent(int gamesLost)	SearchOpponentManager.cs:1518		E					
+联机	SearchOpponentManager	IsNetworkedGame()	SearchOpponentManager.cs:507		E					
+联机	SearchOpponentManager	PUNReceiveAckStartGame(string opponentDesired, PhotonMessageInfo mi)	SearchOpponentManager.cs:1775		E					
+联机	SearchOpponentManager	PUNReceiveDeckData(string deckDataBlob, PhotonMessageInfo mi)	SearchOpponentManager.cs:2096		E					
+联机	SearchOpponentManager	PUNReceiveRandomNumbers(int arrayIndex, int[] receivedRandomNumbers, PhotonMessageInfo mi)	SearchOpponentManager.cs:1987		E					
+联机	SearchOpponentManager	PUNReceiveStartGame(string opponentDesired, string playMode, PhotonMessageInfo mi)	SearchOpponentManager.cs:1597		E					
+联机	SearchOpponentManager	PUNReceiveWrongPlayMode(string opponentDesired, string playMode, PhotonMessageInfo mi)	SearchOpponentManager.cs:1915		E					
+联机	SearchOpponentManager	PUNReceivedRandomNumbers(PhotonMessageInfo mi)	SearchOpponentManager.cs:2047		E					
+联机	SearchOpponentManager	ProcessEnemyDeck(string deckDataBlob)	SearchOpponentManager.cs:1200		E					
+联机	SearchOpponentManager	RandomNumbersReceived()	SearchOpponentManager.cs:763		E					
+联机	SearchOpponentManager	RemoteStartBattle(string opponentName, bool firstPlayerInRoom)	SearchOpponentManager.cs:1013		E					
+联机	SearchOpponentManager	SearchOpponent(MatchMakerManager manager, MatchData match, Action<string> onError, Action<string> onPlayerConnected, IPlayEvent currentEvent)	SearchOpponentManager.cs:846		E					
+联机	SearchOpponentManager	SendPlayerData()	SearchOpponentManager.cs:772		E					
+联机	SearchOpponentManager	SendRandomNumbers()	SearchOpponentManager.cs:658		E					
+联机	SearchOpponentManager	SetMatchDataForPractice(MatchData matchData)	SearchOpponentManager.cs:1005		E					
+联机	SearchOpponentManager	ShouldUseSecondPlayerScenario(MatchType matchType)	SearchOpponentManager.cs:1352		E					
+联机	SearchOpponentManager	StartBattle()	SearchOpponentManager.cs:1292		E					
+联机	SearchOpponentManager	StartSyncingMatchData(string opponentName)	SearchOpponentManager.cs:532		E					
+联机	SearchOpponentManager	StartSyncingReceived(string opponentName)	SearchOpponentManager.cs:611		E					
+联机	SearchOpponentManager	ValidateDeck(string playerId, DeckAndWarlordData deckData, Action<bool> callback)	SearchOpponentManager.cs:1442		E					
+联机	SearchOpponentManager	ValidateDeckLocally(DeckAndWarlordData deckData, Action<bool> callback)	SearchOpponentManager.cs:1490		E					
+联机	SearchOpponentManager	WaitAndStartMatchWithBot(float waitTime)	SearchOpponentManager.cs:993		E					
+联机	SearchOpponentManager	WaitForHumanOpponent(int gamesLost)	SearchOpponentManager.cs:1570		E					
+联机	TypedLobby	ToString()	TypedLobby.cs:47		E					
+联机	TypedLobbyInfo	ToString()	TypedLobbyInfo.cs:10		E					

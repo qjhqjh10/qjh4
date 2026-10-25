@@ -105,6 +105,12 @@
 //   `BATTLE FOR WARPFORGE` / `Choose your side. Fight for glory!` …），并**出声一次**；
 //   **页签文字**用两个 tab 的**节点名**（`Select Team Tab` / `Event On Going Tab`，本地判据）兜底；
 //   **页签图标**留空（`AddTabButton` 的 sprite 实参本地没有）—— ⛔ 不拿 `40K_shop_bt_boosters` 冒充。
+//   🔴 **2026-10-25（N17）就地订正（铁律 5）**：上面那句「本地没有」**不准确**。现核（只读）：
+//     `3a8a1016497754066b40d88caeee722b` 在 `bundle_liveopsicons_assets_all/AssetBundle/AssetBundle_1.json`
+//     的 `m_Container` 里 → PathID `947306652608088988` → `Sprite/40k_campaign_Expansion Pass.json`（真名可解）。
+//     ⇒ 缺口**不是「本地没有」**，而是 ①那批 liveops 图标**还没导入工程**、②`EventImageSelectorController` /
+//     `LiveopUIDrawer_EventAssetSprites` 那一层没接（账里 `EventImageSelectorController.*` 仍是 C）。
+//     ⛔ 别把这条更正读成「已经做好了」—— 今天画面仍然是留空的。
 // 另有两张图**源图在本地、尚未导入工程**：`VS icon` / `40k_battle_Win Skull SDF`（源名带空格；落盘换下划线）
 //   ⇒ 已在 `工具/sync_battle_ui_art.py` 的 `NAMES_MENU` 登记，跑一次同步即到位（到位前对应件不画 + 记账）。
 //
@@ -212,8 +218,8 @@ namespace CardPresentation
         //   m_color1 = (0.2235294, 0.0117647, 0.0196078, 1) · m_color2 = (0.0470588, 0, 0.0156863, 1)
         //   m_angle = 82 · m_ignoreRatio = 1
         // 🔴 与卡组编辑 `Content Area/Background` **逐位相同**；角度换算沿用那条已订正的结论（传 188，⛔ 不是 82）：
-        //    原版 `UIGradient` 方向是 (sin,cos)、我们助手是 (cos,sin) ⇒ 差 90°；再翻 180°（亮色在右上）⇒ 188。
-        //    判据全文 → `Deck/DeckRuntime.cs` 的 `BuildAreaBackground`。
+        //    🔴 **2026-10-25 就地订正（铁律 5 · 代理 D 现核）**：原来这里写「原版方向是 (sin,cos)、我们助手是 (cos,sin) ⇒ 差 90°」——**「差 90°」这个说法不准确**。实际：① `RotationDir(θ)` 返回的是 **`(cosθ, sinθ)`**（`UIGradientUtils__RotationDir.c:9-11`）；② **有效渐变轴**才是 **`(sinθ, cosθ)`**（`UIGradient__ModifyMesh.c:148-149` + `LocalPositionMatrix.c:20-27` 用它做投影）；③ 我们 `CardArt.Gradient` 的最大变暗方向是 `(cos φ, sin φ)` ⇒ 要还原同一张图，换算是 **φ = 90° − θ + 180°（镜像 + 反色序；180° 来自 `c1` 所在端与原版亮端相反）**。⚠️ **数值 188 是对的**（90 − 82 + 180 = 188）—— 这次**只订正理由、不动数值**。
+        //    判据全文 → `Deck/DeckRuntime.cs` 的 `BuildAreaBackground`（那边同样已就地订正）。
         public static readonly Color BgGradC1 = new Color(0.2235294f, 0.0117647f, 0.0196078f, 1f);
         public static readonly Color BgGradC2 = new Color(0.0470588f, 0f, 0.0156863f, 1f);
         public const float BgGradAngle = 188f;
@@ -610,7 +616,8 @@ namespace CardPresentation
             // ---- 2) `Background`：`Image`(sprite=0) + `UIGradient`（纯代码渐变，不是图）----
             //   `Image.m_Type = 1`(Sliced) / ppuMul 0.01 在**没有 sprite** 时不影响观感；颜色全来自渐变。
             _background = MenuDraw.Node(_contentArea, "Background", ContentAreaR);
-            var bgTex = CardArt.Gradient(BgGradC1, BgGradC2, BgGradAngle);
+            var bgTex = CardArt.Gradient(BgGradC1, BgGradC2, BgGradAngle,
+                                         ContentAreaR.H / ContentAreaR.W);   // 原版 CompensateAspectRatio 的 h/w
             MenuDraw.Rect(_background, bgTex, ContentAreaR, "Image", QContentBg, Color.white);
 
             // ---- 3) `Tab Buttons`（165×1009.06 · 40k_main_tab_background · VLG spacing0 align1 pad(0,0,120,0)）----

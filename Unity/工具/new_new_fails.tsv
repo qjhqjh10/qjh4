@@ -1,0 +1,4 @@
+泛型与启动链_补读.tsv	LiveOpsEventWindow<T>.Close()	Shell/LiveOpsEventWindow.cs:565 Close	注释行：`//    ⇒ 推进交给常驻 `SearchOpponentManager`（判据 = 原版 `SearchingOpp`
+泛型与启动链_补读.tsv	DraftEventBase<TS,.PickPack(PrebuiltPack pack, Action onSuccess, Action onFail)	Shell/DraftModeWindow.cs:3087 PickPack	既无 `(` 也无 `=>`/`{`（不像声明）：`+ "（原版那一刻 `deck.warlordCard` 是空 ⇒ 它自己也是空引用）。");`
+泛型与启动链_补读.tsv	DraftEventBase<TS,.ReRollPack(Action onSuccess, Action onFail)	Shell/DraftModeWindow.cs:2971（等价实现 = ReRollPacks：只在选包页、reRolls+1、同轮重抽；无扣费/回调（reRollCosts 表空 ⇒ 恒免费））	只有括号/分隔符（不是声明）：`}`
+轮抽.tsv	DraftModeMenuOngoingState.PlayButtonOnClick()	CardPresentation/Shell/DraftModeWindow.cs:3144（`LaunchBattle`：Play 钮）（等价实现 = LaunchBattle：原版 `PlayButtonOnClick()` 开这一场轮抽对局；我们的 `LaunchBattle()`（:3144）同一件：只在 `OngoingRun` 页有效 → 校验有战将与至少一包（否则 `ShowPopUp` 出声）→ `DraftPacks.BuildClosedDeck(WarlordArmyId(), _pickedKeys)` → 经 `PrebuiltDecks` + `BattleDriver.SetPendingPlayMode(ClosedDeck)` 通道起对局）	只有括号/分隔符（不是声明）：`{`

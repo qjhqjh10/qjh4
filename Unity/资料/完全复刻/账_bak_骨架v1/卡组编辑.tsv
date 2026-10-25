@@ -1,0 +1,321 @@
+域	原版类	方法	判据出处	判据要点	状态	我们的落点	差异	等级	轮次	备注
+卡组编辑	AddressableDeckLibrary	AssetCompletedLoading(AsyncOperationHandle obj, string assetKey)	AddressableDeckLibrary.cs:47		E					
+卡组编辑	AddressableDeckLibrary	GetLocalHandle(IResourceLocation element)	AddressableDeckLibrary.cs:31		E					
+卡组编辑	CardDeck	AddCard(RawCardScript card)	CardDeck.cs:647		E					
+卡组编辑	CardDeck	AddDefensiveCard(RawCardScript card)	CardDeck.cs:914		E					
+卡组编辑	CardDeck	AddHero(RawCardScript card)	CardDeck.cs:922		E					
+卡组编辑	CardDeck	AreThereInvalidArmyCards()	CardDeck.cs:1348		E					
+卡组编辑	CardDeck	CanAddCard(RawCardScript card, out string error)	CardDeck.cs:745		E					
+卡组编辑	CardDeck	CanAddDefensive(RawCardScript card, out string error)	CardDeck.cs:1049		E					
+卡组编辑	CardDeck	CanAddHero(RawCardScript card, out string error)	CardDeck.cs:960		E					
+卡组编辑	CardDeck	CardCopiesInDeck(RawCardScript card)	CardDeck.cs:1138		E					
+卡组编辑	CardDeck	CardCount(bool countHero)	CardDeck.cs:1220		E					
+卡组编辑	CardDeck	CopyDeck(CardDeck deckToCopy)	CardDeck.cs:1543		E					
+卡组编辑	CardDeck	CosmeticsSetup(string pCardbackId, string pWarcryId)	CardDeck.cs:311		E					
+卡组编辑	CardDeck	DeckBasicSetup(string pDeckName, RawCardScript pDeckHero, string pDeckId, RawCardScript defensiveCard)	CardDeck.cs:270		E					
+卡组编辑	CardDeck	DeserializeDeckString(string deckString)	CardDeck.cs:1703		E					
+卡组编辑	CardDeck	EmptySlotsCount()	CardDeck.cs:1243		E					
+卡组编辑	CardDeck	Equals(object obj)	CardDeck.cs:1597		E					
+卡组编辑	CardDeck	GetDeckCardback()	CardDeck.cs:1317		E					
+卡组编辑	CardDeck	GetEmptyDeck()	CardDeck.cs:582		E					
+卡组编辑	CardDeck	GetHashCode()	CardDeck.cs:232		E					
+卡组编辑	CardDeck	GetID()	CardDeck.cs:1797		E					
+卡组编辑	CardDeck	GetLibraryInFull()	CardDeck.cs:246		E					
+卡组编辑	CardDeck	Has(RawCardScript card)	CardDeck.cs:1802		E					
+卡组编辑	CardDeck	LegendaryCardsInDeck()	CardDeck.cs:1194		E					
+卡组编辑	CardDeck	PlayerHasAllCards(out List<RawCardScript> missingCards)	CardDeck.cs:1412		E					
+卡组编辑	CardDeck	RemoveCard(RawCardScript card)	CardDeck.cs:614		E					
+卡组编辑	CardDeck	RemoveDefensiveCard()	CardDeck.cs:905		E					
+卡组编辑	CardDeck	RemoveNoValidArmyCards()	CardDeck.cs:1497		E					
+卡组编辑	CardDeck	Serialize(CardDeck deck)	CardDeck.cs:1643		E					
+卡组编辑	CardDeck	TryAddCard(RawCardScript card)	CardDeck.cs:674		E					
+卡组编辑	CardDeck	TryAddCard(RawCardScript card, out string error)	CardDeck.cs:680		E					
+卡组编辑	CardDeck	TryAddDefensive(RawCardScript card, out string error)	CardDeck.cs:947		E					
+卡组编辑	CardDeck	TryAddHero(RawCardScript card, out string error)	CardDeck.cs:929		E					
+卡组编辑	CardDeck	_003CGetDeckCardback_003Eb__56_0(CosmeticItem x)	CardDeck.cs:1846		E					
+卡组编辑	CardsInDeckPanelDemo	Awake()	CardsInDeckPanelDemo.cs:59		E					
+卡组编辑	CardsInDeckPanelDemo	CloseButtonOnClick()	CardsInDeckPanelDemo.cs:325		E					
+卡组编辑	CardsInDeckPanelDemo	Initialize(PrebuiltDeck deck, Action onClose)	CardsInDeckPanelDemo.cs:66		E					
+卡组编辑	CardsInDeckPanelDemo	Toggle(bool option)	CardsInDeckPanelDemo.cs:319		E					
+卡组编辑	CollectionDeck	Awake()	CollectionDeck.cs:61		E					
+卡组编辑	CollectionDeck	Config(CardDeck item, GameplayVariablesData gameplayVariablesData)	CollectionDeck.cs:67		E					
+卡组编辑	CollectionDeck	HoverHighlight(bool state)	CollectionDeck.cs:438		E					
+卡组编辑	CollectionDeck	OnDestroy()	CollectionDeck.cs:422		E					
+卡组编辑	CollectionDeck	SelectedHighlight(bool state)	CollectionDeck.cs:451		E					
+卡组编辑	CollectionDeck	SetSortMode(bool state)	CollectionDeck.cs:459		E					
+卡组编辑	CollectionDeck	ToggleReorder(bool option)	CollectionDeck.cs:474		E					
+卡组编辑	DeckAndCardbackDrawer	Draw(PrebuiltDeck item, int quantity)	DeckAndCardbackDrawer.cs:7		E					
+卡组编辑	DeckAndWarlordData	GetCardTier(RawCardScript card)	DeckAndWarlordData.cs:763		E					
+卡组编辑	DeckAndWarlordData	GetSerializedData()	DeckAndWarlordData.cs:780		E					
+卡组编辑	DeckAndWarlordData	GetSerializedDeckData()	DeckAndWarlordData.cs:786		E					
+卡组编辑	DeckAndWarlordData	OutputLogContents()	DeckAndWarlordData.cs:131		E					
+卡组编辑	DeckAndWarlordData	SetPlayerData(PlayerBattleData playerBattleData)	DeckAndWarlordData.cs:680		E					
+卡组编辑	DeckAndWarlordData	SetWarlord(RawCardScript warlord)	DeckAndWarlordData.cs:749		E					
+卡组编辑	DeckAndWarlordData	SetupSerializedData(SerializedPlayerDeckData serializedData, PlayerDataManager playerData)	DeckAndWarlordData.cs:235		E					
+卡组编辑	DeckAndWarlordData	ShuffleCardLibrary(MatchData matchData)	DeckAndWarlordData.cs:757		E					
+卡组编辑	DeckArmyFilter	FilterItem(CardDeck deck)	DeckArmyFilter.cs:77		E					
+卡组编辑	DeckAssetProvider	GetAssets()	DeckAssetProvider.cs:7		E					
+卡组编辑	DeckCollectionDisplay	OnDisable()	DeckCollectionDisplay.cs:46		E					
+卡组编辑	DeckCollectionDisplay	SaveDeckOrder()	DeckCollectionDisplay.cs:52		E					
+卡组编辑	DeckCollectionFilter	Start()	DeckCollectionFilter.cs:5		E					
+卡组编辑	DeckCollectionFilter	Update()	DeckCollectionFilter.cs:9		E					
+卡组编辑	DeckCollectionTab	GetCollection()	DeckCollectionTab.cs:41		E					
+卡组编辑	DeckCollectionTab	OnItemSelected(CollectionItem<CardDeck> item, PointerEventData.InputButton button)	DeckCollectionTab.cs:109		E					
+卡组编辑	DeckCollectionTab	OnOpen()	DeckCollectionTab.cs:16		E					
+卡组编辑	DeckCollectionTab	RefreshCollection()	DeckCollectionTab.cs:33		E					
+卡组编辑	DeckCollectionTab	SetEventType(IOwnDeckPlayEvent eventToAssign)	DeckCollectionTab.cs:25		E					
+卡组编辑	DeckCollectionTab	ToFocus()	DeckCollectionTab.cs:158		E					
+卡组编辑	DeckCollectionTab	_003CGetCollection_003Eb__7_0(CardDeck deck)	DeckCollectionTab.cs:167		E					
+卡组编辑	DeckCosmeticDrawer	Initialize(CardDeck deck)	DeckCosmeticDrawer.cs:34		E					
+卡组编辑	DeckCostQuantityRowDrawer	Awake()	DeckCostQuantityRowDrawer.cs:29		E					
+卡组编辑	DeckCostQuantityRowDrawer	Initialize(int cardsInDeck, int cardCost, float normalizedQuantity, bool instant)	DeckCostQuantityRowDrawer.cs:37		E					
+卡组编辑	DeckCostQuantityRowDrawer	OnDestroy()	DeckCostQuantityRowDrawer.cs:109		E					
+卡组编辑	DeckDrawer	Draw(PrebuiltDeck item, int quantity)	DeckDrawer.cs:35		E					
+卡组编辑	DeckDrawer	GetItemName(PrebuiltDeck item)	DeckDrawer.cs:57		E					
+卡组编辑	DeckDrawer	HandlePointerClick()	DeckDrawer.cs:17		E					
+卡组编辑	DeckDrawer	SetShowOwnership(bool showOwnership)	DeckDrawer.cs:30		E					
+卡组编辑	DeckEditingHeader	SetInstructions(string text)	DeckEditingHeader.cs:10		E					
+卡组编辑	DeckEditingPanel	AddCard(RawCardScript card, bool withAnim)	DeckEditingPanel.cs:305		E					
+卡组编辑	DeckEditingPanel	ChangeName(string name)	DeckEditingPanel.cs:383		E					
+卡组编辑	DeckEditingPanel	CheckCardSlotDrag(PointerEventData eventData, GameObject source)	DeckEditingPanel.cs:393		E					
+卡组编辑	DeckEditingPanel	Drop(CosmeticItem content)	DeckEditingPanel.cs:290		E					
+卡组编辑	DeckEditingPanel	Drop(RawCardScript card)	DeckEditingPanel.cs:270		E					
+卡组编辑	DeckEditingPanel	Drop(RawCardScript card, bool withAnim)	DeckEditingPanel.cs:280		E					
+卡组编辑	DeckEditingPanel	Initialize(CardDeck deck)	DeckEditingPanel.cs:221		E					
+卡组编辑	DeckEditingPanel	RemoveCard(RawCardScript card)	DeckEditingPanel.cs:358		E					
+卡组编辑	DeckEditingPanel	Start()	DeckEditingPanel.cs:126		E					
+卡组编辑	DeckEditingPanel	ToggleCosmetics()	DeckEditingPanel.cs:471		E					
+卡组编辑	DeckEditingPanel	ToggleDeckInfo()	DeckEditingPanel.cs:459		E					
+卡组编辑	DeckEditingPanel	ToggleDeckList()	DeckEditingPanel.cs:447		E					
+卡组编辑	DeckEditingPanel	UpdateDrawers()	DeckEditingPanel.cs:420		E					
+卡组编辑	DeckEditingStateController	Initialize(DeckEditingWindow editingWindow)	DeckEditingStateController.cs:16		E					
+卡组编辑	DeckEditingStateController	ToggleDeckCosmetic(bool state)	DeckEditingStateController.cs:51		E					
+卡组编辑	DeckEditingStateController	ToggleDeckInfo(bool state)	DeckEditingStateController.cs:42		E					
+卡组编辑	DeckEditingStateController	ToggleDeckList(bool state)	DeckEditingStateController.cs:33		E					
+卡组编辑	DeckEditingWindow	CheckCardDrag(PointerEventData eventData, GameObject source)	DeckEditingWindow.cs:1403		E					
+卡组编辑	DeckEditingWindow	CheckCosmeticDrag(PointerEventData eventData, GameObject source)	DeckEditingWindow.cs:1438		E					
+卡组编辑	DeckEditingWindow	Close()	DeckEditingWindow.cs:1003		E					
+卡组编辑	DeckEditingWindow	ConfirmDiscard()	DeckEditingWindow.cs:1815		E					
+卡组编辑	DeckEditingWindow	ESCPressed()	DeckEditingWindow.cs:998		E					
+卡组编辑	DeckEditingWindow	FilterToDeck()	DeckEditingWindow.cs:1523		E					
+卡组编辑	DeckEditingWindow	GetCardCollection()	DeckEditingWindow.cs:1077		E					
+卡组编辑	DeckEditingWindow	GetCosmeticCollection()	DeckEditingWindow.cs:1324		E					
+卡组编辑	DeckEditingWindow	OnCardClick(CollectionItem<RawCardScript> card, PointerEventData.InputButton button)	DeckEditingWindow.cs:794		E					
+卡组编辑	DeckEditingWindow	OnCosmeticClick(CollectionItem<CosmeticItemCardback> cosmetic, PointerEventData.InputButton button)	DeckEditingWindow.cs:775		E					
+卡组编辑	DeckEditingWindow	OpenCardInformation(RawCardScript card)	DeckEditingWindow.cs:815		E					
+卡组编辑	DeckEditingWindow	Refresh()	DeckEditingWindow.cs:768		E					
+卡组编辑	DeckEditingWindow	RefreshCards()	DeckEditingWindow.cs:1463		E					
+卡组编辑	DeckEditingWindow	Start()	DeckEditingWindow.cs:334		E					
+卡组编辑	DeckEditingWindow	ToggleDisplay(bool showCards)	DeckEditingWindow.cs:1804		E					
+卡组编辑	DeckEditingWindow	ToggleShowOwnedCards(bool show)	DeckEditingWindow.cs:1304		E					
+卡组编辑	DeckEditingWindow	ToggleShowOwnedCosmetics(bool show)	DeckEditingWindow.cs:1314		E					
+卡组编辑	DeckEditingWindow	TryClose()	DeckEditingWindow.cs:1573		E					
+卡组编辑	DeckEditingWindow	TryOpen(object data, GameWindowOptions options)	DeckEditingWindow.cs:651		E					
+卡组编辑	DeckEditingWindow	TrySaveDeck()	DeckEditingWindow.cs:1586		E					
+卡组编辑	DeckEditingWindow	UpdateDoneButton(bool firstTime)	DeckEditingWindow.cs:1470		E					
+卡组编辑	DeckEditingWindow	UploadDeck()	DeckEditingWindow.cs:1692		E					
+卡组编辑	DeckEditingWindow	_003CConfirmDiscard_003Eb__45_1(GameObject GameObject)	DeckEditingWindow.cs:1959		E					
+卡组编辑	DeckEditingWindow	_003CGetCardCollection_003Eb__32_1(RawCardScript c)	DeckEditingWindow.cs:1866		E					
+卡组编辑	DeckEditingWindow	_003CGetCardCollection_003Eb__32_4(RawCardScript c)	DeckEditingWindow.cs:1905		E					
+卡组编辑	DeckEditingWindow	_003CTrySaveDeck_003Eb__42_1(GameObject _)	DeckEditingWindow.cs:1952		E					
+卡组编辑	DeckEditorCollectionDisplay	CheckFocusedArmy()	DeckEditorCollectionDisplay.cs:399		E					
+卡组编辑	DeckEditorCollectionDisplay	DrawCell(CollectionCard card)	DeckEditorCollectionDisplay.cs:245		E					
+卡组编辑	DeckEditorCollectionDisplay	OnDisable()	DeckEditorCollectionDisplay.cs:119		E					
+卡组编辑	DeckEditorCollectionDisplay	OnEnable()	DeckEditorCollectionDisplay.cs:108		E					
+卡组编辑	DeckEditorCollectionDisplay	OnListDrag(Vector2 listPos)	DeckEditorCollectionDisplay.cs:312		E					
+卡组编辑	DeckEditorCollectionDisplay	RefreshCells()	DeckEditorCollectionDisplay.cs:190		E					
+卡组编辑	DeckEditorCollectionDisplay	RefreshCollection()	DeckEditorCollectionDisplay.cs:387		E					
+卡组编辑	DeckEditorCollectionDisplay	SetCell(ICell cell, int index)	DeckEditorCollectionDisplay.cs:142		E					
+卡组编辑	DeckEditorCollectionDisplay	SetEditingDeck(CardDeck deck)	DeckEditorCollectionDisplay.cs:130		E					
+卡组编辑	DeckEnergyCostDrawer	Initialize(CardDeck deck, bool resetRows)	DeckEnergyCostDrawer.cs:60		E					
+卡组编辑	DeckEnergyCostDrawer	Initialize(IEnumerable<RawCardScript> cards)	DeckEnergyCostDrawer.cs:99		E					
+卡组编辑	DeckEnergyCostDrawer	Initialize(PrebuiltDeck deck)	DeckEnergyCostDrawer.cs:47		E					
+卡组编辑	DeckEnergyCostDrawer	ResetRows()	DeckEnergyCostDrawer.cs:310		E					
+卡组编辑	DeckGeneralInfoDemo	Awake()	DeckGeneralInfoDemo.cs:51		E					
+卡组编辑	DeckGeneralInfoDemo	CardInDeckInfoButtonOnClick()	DeckGeneralInfoDemo.cs:321		E					
+卡组编辑	DeckGeneralInfoDemo	ChangePlayerDeckButton()	DeckGeneralInfoDemo.cs:361		E					
+卡组编辑	DeckGeneralInfoDemo	CloseDeckView()	DeckGeneralInfoDemo.cs:429		E					
+卡组编辑	DeckGeneralInfoDemo	ConfigPanel(string deckName, string warlordName, Sprite armyIcon, string lore, Sprite warlordImage, CosmeticItem cardBack)	DeckGeneralInfoDemo.cs:280		E					
+卡组编辑	DeckGeneralInfoDemo	DeckChanged(CardDeck newSelectedDeck)	DeckGeneralInfoDemo.cs:398		E					
+卡组编辑	DeckGeneralInfoDemo	DeckGeneralInfoButtonOnClick()	DeckGeneralInfoDemo.cs:410		E					
+卡组编辑	DeckGeneralInfoDemo	OnDestroy()	DeckGeneralInfoDemo.cs:80		E					
+卡组编辑	DeckGeneralInfoDemo	OnDisable()	DeckGeneralInfoDemo.cs:67		E					
+卡组编辑	DeckGeneralInfoDemo	SetContent(DemoDeckInfoSO deckInfo, Action<CardDeck> onDeckSelected, PlayModes currentPlayMode)	DeckGeneralInfoDemo.cs:95		E					
+卡组编辑	DeckGeneralInfoDemo	SetUnlockState(bool isUnlocked)	DeckGeneralInfoDemo.cs:201		E					
+卡组编辑	DeckGeneralInfoDemo	ShowDemoDeckInfo(DemoDeckInfoSO deckInfo)	DeckGeneralInfoDemo.cs:241		E					
+卡组编辑	DeckGeneralInfoDemo	ShowPayerDeckInfo(PlayerDeckDemoDeckInfoWrapper playerDeckInfo)	DeckGeneralInfoDemo.cs:217		E					
+卡组编辑	DeckGeneralInfoDemo	Toggle(bool option)	DeckGeneralInfoDemo.cs:193		E					
+卡组编辑	DeckGeneralInfoDemo	WarlordInfoButtonClick()	DeckGeneralInfoDemo.cs:417		E					
+卡组编辑	DeckInfoControls	Initialize(DeckInfoPopup popup, DeckInfoContext context, bool isPlayerDeck)	DeckInfoControls.cs:45		E					
+卡组编辑	DeckInfoControls	OnDisable()	DeckInfoControls.cs:223		E					
+卡组编辑	DeckInfoControls	OnSelect()	DeckInfoControls.cs:209		E					
+卡组编辑	DeckInfoDrawer	Initialize(CardDeck deck)	DeckInfoDrawer.cs:17		E					
+卡组编辑	DeckInfoPopup	CanImportDeck(CardDeck cardDeck)	DeckInfoPopup.cs:368		E					
+卡组编辑	DeckInfoPopup	CardSelected(RawCardScript card)	DeckInfoPopup.cs:521		E					
+卡组编辑	DeckInfoPopup	Close()	DeckInfoPopup.cs:282		E					
+卡组编辑	DeckInfoPopup	DeleteDeck()	DeckInfoPopup.cs:630		E					
+卡组编辑	DeckInfoPopup	DuplicateDeck()	DeckInfoPopup.cs:1073		E					
+卡组编辑	DeckInfoPopup	EditDeck()	DeckInfoPopup.cs:539		E					
+卡组编辑	DeckInfoPopup	MakeDeckString()	DeckInfoPopup.cs:684		E					
+卡组编辑	DeckInfoPopup	OnDisable()	DeckInfoPopup.cs:483		E					
+卡组编辑	DeckInfoPopup	OnEnable()	DeckInfoPopup.cs:473		E					
+卡组编辑	DeckInfoPopup	OnWarlordClick()	DeckInfoPopup.cs:505		E					
+卡组编辑	DeckInfoPopup	Open()	DeckInfoPopup.cs:120		E					
+卡组编辑	DeckInfoPopup	SelectPracticeOpponentDeck()	DeckInfoPopup.cs:568		E					
+卡组编辑	DeckInfoPopup	ShareDeck()	DeckInfoPopup.cs:918		E					
+卡组编辑	DeckInfoPopup	ShareDeckOnChat(Transform optionsMountPoint)	DeckInfoPopup.cs:925		E					
+卡组编辑	DeckInfoPopup	StartPracticeMatch(CardDeck deck)	DeckInfoPopup.cs:599		E					
+卡组编辑	DeckInfoPopup	ToggleDrawers(bool showList)	DeckInfoPopup.cs:530		E					
+卡组编辑	DeckInfoPopup	_003CDeleteDeck_003Eb__27_2(GameObject _)	DeckInfoPopup.cs:1097		E					
+卡组编辑	DeckInfoPopup	_003CDeleteDeck_003Eb__27_3(string _)	DeckInfoPopup.cs:1137		E					
+卡组编辑	DeckInfoPopup	_003CDeleteDeck_003Eg__Delete_007C27_0()	DeckInfoPopup.cs:1117		E					
+卡组编辑	DeckInfoPopup	_003CShareDeckOnChat_003Eb__30_1()	DeckInfoPopup.cs:1148		E					
+卡组编辑	DeckInfoPopup	_003CShareDeckOnChat_003Eb__30_2()	DeckInfoPopup.cs:1156		E					
+卡组编辑	DeckInfoPopup	_003CShareDeckOnChat_003Eg__HandleShare_007C30_0(string channelId, ChatRoom channelType)	DeckInfoPopup.cs:1166		E					
+卡组编辑	DeckInventory	GetItems()	DeckInventory.cs:416		E					
+卡组编辑	DeckInventory	HasSkirmishDecks()	DeckInventory.cs:664		E					
+卡组编辑	DeckInventory	OnFinishUnpack()	DeckInventory.cs:186		E					
+卡组编辑	DeckInventory	OnItemCountModify(CardDeck deck, int amount)	DeckInventory.cs:442		E					
+卡组编辑	DeckInventory	ProcessSkirmishDecksToUpload()	DeckInventory.cs:724		E					
+卡组编辑	DeckInventory	UpdateOrder(List<CardDeck> newOrder)	DeckInventory.cs:489		E					
+卡组编辑	DeckListDrawer	AddCardToList(RawCardScript card, bool reorder, bool withAnim)	DeckListDrawer.cs:809		E					
+卡组编辑	DeckListDrawer	CleanPrevious()	DeckListDrawer.cs:565		E					
+卡组编辑	DeckListDrawer	ConfigPrefab(UICardInfoItem cardInfo)	DeckListDrawer.cs:550		E					
+卡组编辑	DeckListDrawer	Initialize(CardDeck cardDeck, DeckListOptions options)	DeckListDrawer.cs:269		E					
+卡组编辑	DeckListDrawer	Initialize(List<RawCardScript> cardList, DeckListOptions options)	DeckListDrawer.cs:310		E					
+卡组编辑	DeckListDrawer	Initialize(PrebuiltDeck cardDeck, DeckListOptions options)	DeckListDrawer.cs:278		E					
+卡组编辑	DeckListDrawer	RemoveCardFromList(RawCardScript card)	DeckListDrawer.cs:1003		E					
+卡组编辑	DeckListDrawer	Reorder()	DeckListDrawer.cs:908		E					
+卡组编辑	DeckListDrawer	SetCount()	DeckListDrawer.cs:1049		E					
+卡组编辑	DeckListDrawer	SetOptions(DeckListOptions options)	DeckListDrawer.cs:525		E					
+卡组编辑	DeckListDrawer	ShowEmptySlotsIfNeeded()	DeckListDrawer.cs:1061		E					
+卡组编辑	DeckListDrawer	SpawnCardInfo(RawCardScript card, bool withAnim)	DeckListDrawer.cs:854		E					
+卡组编辑	DeckListDrawer	_003CSpawnCardInfo_003Eb__21_0(RawCardScript c)	DeckListDrawer.cs:1101		E					
+卡组编辑	DeckManager	AddCardNotDrawnToDeck(CardScript card)	DeckManager.cs:220		E					
+卡组编辑	DeckManager	DisplayDeckSize(bool showY, int cardsLeft)	DeckManager.cs:176		E					
+卡组编辑	DeckManager	GetReferencePosition()	DeckManager.cs:159		E					
+卡组编辑	DeckManager	HideCardbackPreview()	DeckManager.cs:216		E					
+卡组编辑	DeckManager	SetYourTurn(bool isPlayerTurn)	DeckManager.cs:132		E					
+卡组编辑	DeckManager	SetupDeck()	DeckManager.cs:115		E					
+卡组编辑	DeckManager	ToggleCardbackPreview(bool state)	DeckManager.cs:210		E					
+卡组编辑	DeckNameFilter	FillToggleList(List<CollectionFilterToggle> currentList, int maxElements)	DeckNameFilter.cs:78		E					
+卡组编辑	DeckNameFilter	Filter(List<CardDeck> collection)	DeckNameFilter.cs:46		E					
+卡组编辑	DeckNameFilter	SetupFilter(CollectionFilterController<CardDeck> controller)	DeckNameFilter.cs:32		E					
+卡组编辑	DeckNameFilter	_003CSetupFilter_003Eb__1_0(string s)	DeckNameFilter.cs:82		E					
+卡组编辑	DeckSelectionPopup	Initialize(IEnumerable<CardDeck> decks, CardDeck selectedDeck, DeckInfoContext.DeckInfoStates overrideDeckInfoMode)	DeckSelectionPopup.cs:183		E					
+卡组编辑	DeckSelectionPopup	OnDestroy()	DeckSelectionPopup.cs:46		E					
+卡组编辑	DeckSelectionPopup	Open()	DeckSelectionPopup.cs:191		E					
+卡组编辑	DeckSelectionPopup	Select(CardDeck deck)	DeckSelectionPopup.cs:245		E					
+卡组编辑	DeckSelectionPopup	ToggleDecksDifficultyLabels(bool option)	DeckSelectionPopup.cs:253		E					
+卡组编辑	DeckSelectionPopup	TryOpen(object data, GameWindowOptions options)	DeckSelectionPopup.cs:62		E					
+卡组编辑	DeckSelectionPopup	UpdateInfo(CollectionItem<CardDeck> deck, PointerEventData.InputButton button)	DeckSelectionPopup.cs:198		E					
+卡组编辑	DeckSelectionPopup	_003CTryOpen_003Eb__10_0(CardDeck d)	DeckSelectionPopup.cs:259		E					
+卡组编辑	DeckSelectionTabController	Awake()	DeckSelectionTabController.cs:108		E					
+卡组编辑	DeckSelectionTabController	Filter(IEnumerable<CardDeck> decks)	DeckSelectionTabController.cs:436		E					
+卡组编辑	DeckSelectionTabController	RandomizeDeck()	DeckSelectionTabController.cs:255		E					
+卡组编辑	DeckSelectionTabController	Refresh()	DeckSelectionTabController.cs:307		E					
+卡组编辑	DeckSelectionTabController	ShowOwnDecks(bool state)	DeckSelectionTabController.cs:349		E					
+卡组编辑	DeckSelectionTabController	ShowPrebuiltDecks(bool state)	DeckSelectionTabController.cs:392		E					
+卡组编辑	DeckSelectionTabController	Start()	DeckSelectionTabController.cs:302		E					
+卡组编辑	DeckSelectionTabController	_003CAwake_003Eb__6_5(string _)	DeckSelectionTabController.cs:488		E					
+卡组编辑	DeckSelectionTabController	_003CFilter_003Eb__12_0(CardDeck d)	DeckSelectionTabController.cs:600		E					
+卡组编辑	DeckSelectionTabController	_003CRandomizeDeck_003Eb__7_0(CardDeck d)	DeckSelectionTabController.cs:530		E					
+卡组编辑	DeckSelectionTabController	_003CShowOwnDecks_003Eb__10_0(CardDeck d)	DeckSelectionTabController.cs:552		E					
+卡组编辑	DeckSelectionTabController	_003CShowPrebuiltDecks_003Eb__11_0(CardDeck d)	DeckSelectionTabController.cs:574		E					
+卡组编辑	DeckSelectorMenuItemDemo	Awake()	DeckSelectorMenuItemDemo.cs:34		E					
+卡组编辑	DeckSelectorMenuItemDemo	ButtonOnClick()	DeckSelectorMenuItemDemo.cs:182		E					
+卡组编辑	DeckSelectorMenuItemDemo	Initialize(PracticeModePopup deckSelectionMenu, Sprite buttonImage, string deckName, Color textBackgroundColor, bool isDeckSelected)	DeckSelectorMenuItemDemo.cs:153		E					
+卡组编辑	DeckSelectorMenuItemDemo	InitializeWithPlayerDeck(PracticeModePopup deckSelectionMenu, CardDeck playerDeck, bool isDeckSelected)	DeckSelectorMenuItemDemo.cs:129		E					
+卡组编辑	DeckSelectorMenuItemDemo	InitializeWithPracticeDeck(PracticeModePopup deckSelectionMenu, DemoDeckInfoSO deck, bool isDeckSelected, PlayModes playMode)	DeckSelectorMenuItemDemo.cs:48		E					
+卡组编辑	DeckSelectorMenuItemDemo	OnDestroy()	DeckSelectorMenuItemDemo.cs:41		E					
+卡组编辑	DeckSelectorMenuItemDemo	SelectItem()	DeckSelectorMenuItemDemo.cs:165		E					
+卡组编辑	DeckSelectorMenuItemDemo	Toggle(bool option)	DeckSelectorMenuItemDemo.cs:176		E					
+卡组编辑	DeckSelectorMenuItemDemo	ToggleHighlight(bool option)	DeckSelectorMenuItemDemo.cs:171		E					
+卡组编辑	DeckTypeCounterDrawer	Initialize(CardDeck deck)	DeckTypeCounterDrawer.cs:54		E					
+卡组编辑	DeckUtility	GetDeckLibrary(CardDeck deck)	DeckUtility.cs:584		E					
+卡组编辑	DeckUtility	HasBannedCards(CardDeck deck)	DeckUtility.cs:285		E					
+卡组编辑	DeckUtility	HasDefensiveCards(CardDeck deck)	DeckUtility.cs:323		E					
+卡组编辑	DeckUtility	RemoveCardFromDeck(RawCardScript card, CardDeck deck, [In] ref List<RawCardScript> removedCards, [In] ref Dictionary<RawCardScript, int> cardList)	DeckUtility.cs:937		E					
+卡组编辑	DeckUtility	RemoveInvalidCards(CardDeck deck)	DeckUtility.cs:628		E					
+卡组编辑	DeckUtility	ToLocalizedString(DeckError error)	DeckUtility.cs:46		E					
+卡组编辑	DeckUtility	ToRawLocalizationString(DeckError error)	DeckUtility.cs:149		E					
+卡组编辑	DeckUtility	ToShortLocalizedString(DeckError error)	DeckUtility.cs:86		E					
+卡组编辑	DeckUtility	ToShortRawLocalizationString(DeckError error)	DeckUtility.cs:126		E					
+卡组编辑	DeckUtility	TryRemoveCardsNotOwned(CardDeck deck, List<RawCardScript> cardsToRemove, Dictionary<RawCardScript, int> cardList)	DeckUtility.cs:712		E					
+卡组编辑	DeckUtility	TryRemoveInvalidCards(CardDeck deck, List<RawCardScript> removedCards, Dictionary<RawCardScript, int> cardList)	DeckUtility.cs:798		E					
+卡组编辑	DeckUtility	TryRemoveInvalidHero(CardDeck deck, List<RawCardScript> removedCards, Dictionary<RawCardScript, int> cardList)	DeckUtility.cs:770		E					
+卡组编辑	DeckUtility	ValidateDeck(CardDeck deck, out DeckError error, bool validateOwnership)	DeckUtility.cs:172		E					
+卡组编辑	DeckUtility	ValidateDeckCards(CardDeck deck, Dictionary<RawCardScript, int> deckLibrary, out DeckError error)	DeckUtility.cs:424		E					
+卡组编辑	DeckUtility	ValidateDeckOwnership(CardDeck deck, Dictionary<RawCardScript, int> deckLibrary)	DeckUtility.cs:553		E					
+卡组编辑	DeckUtility	ValidateDeckWarlord(CardDeck deck, out DeckError error)	DeckUtility.cs:376		E					
+卡组编辑	DemoDeckInfoSO	GetDeck(PlayModes gameMode)	DemoDeckInfoSO.cs:109		E					
+卡组编辑	DemoDeckInfoSO	GetName(PlayModes gameMode)	DemoDeckInfoSO.cs:118		E					
+卡组编辑	DemoDeckInfoSO	GetWarlordName(PlayModes gameMode)	DemoDeckInfoSO.cs:133		E					
+卡组编辑	DemoDeckInfoSO	ReleaseButtonImage()	DemoDeckInfoSO.cs:99		E					
+卡组编辑	DemoDeckInfoSO	SetTutorialIndex(int index)	DemoDeckInfoSO.cs:104		E					
+卡组编辑	DemoDeckInfoSO	UnloadCharacterImage()	DemoDeckInfoSO.cs:93		E					
+卡组编辑	DrafModeDeckInfoCardListPanel	DeckListOnOnCardSelected(RawCardScript card)	DrafModeDeckInfoCardListPanel.cs:66		E					
+卡组编辑	DrafModeDeckInfoCardListPanel	Initialize(CardDeck cardDeck)	DrafModeDeckInfoCardListPanel.cs:35		E					
+卡组编辑	DrafModeDeckInfoCardListPanel	OnDestroy()	DrafModeDeckInfoCardListPanel.cs:75		E					
+卡组编辑	DrafModeDeckInfoCardListPanel	OnDisable()	DrafModeDeckInfoCardListPanel.cs:28		E					
+卡组编辑	DrafModeDeckInfoCardListPanel	OnEnable()	DrafModeDeckInfoCardListPanel.cs:21		E					
+卡组编辑	DrafModeDeckInfoCardListPanel	WarlordTextButtonOnClick()	DrafModeDeckInfoCardListPanel.cs:81		E					
+卡组编辑	ImportDeckPopup	OnDisable()	ImportDeckPopup.cs:81		E					
+卡组编辑	ImportDeckPopup	OnEnable()	ImportDeckPopup.cs:49		E					
+卡组编辑	ImportDeckPopup	OnError(string error)	ImportDeckPopup.cs:216		E					
+卡组编辑	ImportDeckPopup	TryImport()	ImportDeckPopup.cs:112		E					
+卡组编辑	ImportDeckPopup	TryImportDeck(CardDeck deck, Action onImport)	ImportDeckPopup.cs:155		E					
+卡组编辑	ImportDeckPopup	ValidateField(string value)	ImportDeckPopup.cs:103		E					
+卡组编辑	PlayerDeckDemoDeckInfoWrapper	ReleaseButtonImage()	PlayerDeckDemoDeckInfoWrapper.cs:11		E					
+卡组编辑	PlayerDeckDemoDeckInfoWrapper	UnloadCharacterImage()	PlayerDeckDemoDeckInfoWrapper.cs:5		E					
+卡组编辑	PrebuiltDeck	DeckHasBannedCards(IPlayEvent currentEvent)	PrebuiltDeck.cs:314		E					
+卡组编辑	PrebuiltDeck	GetCardLibrary()	PrebuiltDeck.cs:351		E					
+卡组编辑	PrebuiltDeck	GetCardLibrary(List<RawCardScript> fullCardCollection)	PrebuiltDeck.cs:129		E					
+卡组编辑	PrebuiltDeck	GetDeckCardback()	PrebuiltDeck.cs:366		E					
+卡组编辑	PrebuiltDeck	GetID()	PrebuiltDeck.cs:443		E					
+卡组编辑	PrebuiltDeck	HasHiddenCards()	PrebuiltDeck.cs:256		E					
+卡组编辑	PrebuiltDeck	IsIncompleteLibrary()	PrebuiltDeck.cs:403		E					
+卡组编辑	PrebuiltDeck	RefreshList()	PrebuiltDeck.cs:394		E					
+卡组编辑	PrebuiltDeck	SetHero(RawCardScript card)	PrebuiltDeck.cs:448		E					
+卡组编辑	PrebuiltDeck	_003CGetDeckCardback_003Eb__26_0(CosmeticItem x)	PrebuiltDeck.cs:462		E					
+卡组编辑	PrebuiltDeckCollection	AddDeck(PrebuiltDeck deck)	PrebuiltDeckCollection.cs:234		E					
+卡组编辑	PrebuiltDeckCollection	GetDeckByDifficulty(DeckDifficultyLevel difficultyLevel, PlayModes playMode)	PrebuiltDeckCollection.cs:200		E					
+卡组编辑	PrebuiltDeckCollection	GetRandomDeck(List<LoadableReference<PrebuiltDeck>> selectableBotDecks, IReadOnlyCollection<CardArmy> possibleArmies, IPlayEvent currentEvent)	PrebuiltDeckCollection.cs:67		E					
+卡组编辑	PrebuiltPack	GetCardLibrary(List<RawCardScript> fullCardCollection)	PrebuiltPack.cs:48		E					
+卡组编辑	PrebuiltPack	GetID()	PrebuiltPack.cs:190		E					
+卡组编辑	PrebuiltPack	GetLocalizedName()	PrebuiltPack.cs:179		E					
+卡组编辑	PrebuiltPack	IsValid()	PrebuiltPack.cs:195		E					
+卡组编辑	PrebuiltPack	RefreshList()	PrebuiltPack.cs:175		E					
+卡组编辑	PrebuiltPack	SetCardLibrary(List<RawCardScript> cardList)	PrebuiltPack.cs:123		E					
+卡组编辑	PrebuiltPackUI	CloseAnim()	PrebuiltPackUI.cs:303		E					
+卡组编辑	PrebuiltPackUI	EnablePackButton()	PrebuiltPackUI.cs:298		E					
+卡组编辑	PrebuiltPackUI	Initialize(PrebuiltPack prebuiltPack, Action<PrebuiltPackUI> onPackSelected, Action<PrebuiltPack> onPackPreview)	PrebuiltPackUI.cs:135		E					
+卡组编辑	PrebuiltPackUI	InitializePacks(List<RawCardScript> cards)	PrebuiltPackUI.cs:201		E					
+卡组编辑	PrebuiltPackUI	OnDisable()	PrebuiltPackUI.cs:96		E					
+卡组编辑	PrebuiltPackUI	OnEnable()	PrebuiltPackUI.cs:85		E					
+卡组编辑	PrebuiltPackUI	OpenAnim(int packIndex)	PrebuiltPackUI.cs:253		E					
+卡组编辑	PrebuiltPackUI	PreviewButtonOnClick()	PrebuiltPackUI.cs:114		E					
+卡组编辑	PrebuiltPackUI	Reset()	PrebuiltPackUI.cs:215		E					
+卡组编辑	PrebuiltPackUI	SelectAnim(Vector3 targetPosition, Transform anchor)	PrebuiltPackUI.cs:321		E					
+卡组编辑	PrebuiltPackUI	SelectAnimDummy(Vector3 targetPosition)	PrebuiltPackUI.cs:355		E					
+卡组编辑	PrebuiltPackUI	SelectButtonOnClick()	PrebuiltPackUI.cs:105		E					
+卡组编辑	PrebuiltPackUI	Setup()	PrebuiltPackUI.cs:127		E					
+卡组编辑	SelectDeckGameModeMenuContainer	OnClick()	SelectDeckGameModeMenuContainer.cs:3		E					
+卡组编辑	SelectDecksTab	BackButtonClicked()	SelectDecksTab.cs:186		E					
+卡组编辑	SelectDecksTab	ChooseTabToOpen()	SelectDecksTab.cs:234		E					
+卡组编辑	SelectDecksTab	CreateDeck()	SelectDecksTab.cs:355		E					
+卡组编辑	SelectDecksTab	DEBUGQAUnlock()	SelectDecksTab.cs:350		E					
+卡组编辑	SelectDecksTab	ImportDeck()	SelectDecksTab.cs:344		E					
+卡组编辑	SelectDecksTab	OnClickDeckCollection(IOwnDeckPlayEvent deckPlayEvent)	SelectDecksTab.cs:339		E					
+卡组编辑	SelectDecksTab	ReturnFromImport(PlayModes? gameMode)	SelectDecksTab.cs:328		E					
+卡组编辑	SelectDecksTab	Setup(GameWindow window)	SelectDecksTab.cs:27		E					
+卡组编辑	SelectDecksTab	ToFocus()	SelectDecksTab.cs:181		E					
+卡组编辑	SelectDecksTab	ToggleSelectDeck(IOwnDeckPlayEvent deckPlayEvent)	SelectDecksTab.cs:290		E					
+卡组编辑	SelectDecksTab	ToggleSelectGameModeDeck(IEnumerable<IOwnDeckPlayEvent> gameModeDecks)	SelectDecksTab.cs:258		E					
+卡组编辑	SelectGameModeDeckTab	DeckContainerClicked(UiContainer<LiveOpsEvent> UIcontainer)	SelectGameModeDeckTab.cs:141		E					
+卡组编辑	SelectGameModeDeckTab	Initialize(IEnumerable<IOwnDeckPlayEvent> gameModeEventsThatNeedsDeckSelection, Action<IOwnDeckPlayEvent> onClickDeckCollection)	SelectGameModeDeckTab.cs:17		E					
+卡组编辑	SelectGameModeDeckTab	Reset()	SelectGameModeDeckTab.cs:160		E					
+卡组编辑	ViewDeckInfoPopup	Close()	ViewDeckInfoPopup.cs:69		E					
+卡组编辑	ViewDeckInfoPopup	CloseButtonOnClick()	ViewDeckInfoPopup.cs:319		E					
+卡组编辑	ViewDeckInfoPopup	Initialize(CardDeck deck)	ViewDeckInfoPopup.cs:77		E					
+卡组编辑	ViewDeckInfoPopup	Open()	ViewDeckInfoPopup.cs:61		E					

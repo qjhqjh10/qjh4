@@ -486,6 +486,55 @@ def build_guid_map(aa_dir):
     return guid_map, bundles
 
 
+# ==========================================================================================
+#  🆕 2026-10-25（资源审查 F）：`customObject` 的**全 bundle 回落表**
+# ==========================================================================================
+#  为什么需要：`build_guid_map()` 只扫 **14 个 `*cardanims*` 包**（它对 `effectAnim` 是对的），
+#  但 `CardTrait.customObject` 是「多用途对象」（`CardTrait.cs` 里那句 Tooltip），实测指向
+#  **Sprite / GameObject / CardAnim 都有** ⇒ 落在非 cardanims 包里的那几条**结构性换不到名字**，
+#  于是被写进 `collection.unresolvedCustomObjectGuids`（`pick` 那一段）。
+#  实测那 4 条（2026-10-25）：`ambush`(Sprite, genestealercultscardassets) ·
+#  `bloodThirst` / `cruelty` / `swarm`(GameObject, battleprefabs_vfxandmisc)。
+#  ⇒ 回落表 = `资料/普查产出_1018/cardanim_guid_map/guid_map_bundles.tsv`（**全 bundle 的 container 索引**，
+#  6,264 行，列：`uniqueId/cardName/field/assetGuid/bundle/containerKey/type/className/name/internalId/exact/source`）。
+#  ⚠️ 只做**回落**：cardanims 表命中就还用那张（那是 CardAnim 口径，与 `effectAnim` 同源、更可信）。
+GUID_FALLBACK_TSV = r"d:/4/Unity/资料/普查产出_1018/cardanim_guid_map/guid_map_bundles.tsv"
+
+
+def load_guid_fallback(path=GUID_FALLBACK_TSV):
+    """`guid_map_bundles.tsv` → `{assetGuid: 名字}`（只收 `source == bundle-container` 且有名字的行）。
+
+    取不到/为空 ⇒ 返回 `{}` 并**出声**（绝不静默：那 4 条 `customObject` 会再次进 unresolved）。
+    同一 GUID 多行时**优先** `exact == True` 的那行。
+    """
+    if not os.path.exists(path):
+        print("⚠️ 找不到回落表 %s —— customObject 里非 cardanims 包的 GUID 仍会进 unresolved" % path)
+        return {}
+    best = {}
+    n = 0
+    with io.open(path, encoding="utf-8") as f:
+        head = f.readline().rstrip("\n").split("\t")
+        try:
+            gi, ni, ei, si = (head.index("assetGuid"), head.index("name"),
+                              head.index("exact"), head.index("source"))
+        except ValueError:
+            print("⚠️ 回落表列名不认识：%s —— 不启用回落" % head)
+            return {}
+        for line in f:
+            p = line.rstrip("\n").split("\t")
+            if len(p) <= max(gi, ni, ei, si):
+                continue
+            guid, name, exact, src = p[gi], p[ni], p[ei], p[si]
+            if not guid or not name or src != "bundle-container":
+                continue
+            n += 1
+            cur = best.get(guid)
+            if cur is None or (exact == "True" and not cur[1]):
+                best[guid] = (name, exact == "True")
+    print("[guid ] 回落表 %d 行 → %d 个 GUID（源 %s）" % (n, len(best), path))
+    return {g: v[0] for g, v in best.items()}
+
+
 # ---------------------------------------------------------------- 组装
 
 def md5_of(path):
@@ -547,6 +596,9 @@ def build_payload():
 
     # --- 2. GUID → CardAnim 名（现场扫包） + 与报告 §4.3 对账 ------------------------
     guid_map, bundles = build_guid_map(AA_DIR)
+    # 🆕 2026-10-25（资源审查 F）：`customObject` 的回落表（全 bundle 的 container 索引）——
+    #    `build_guid_map` 只扫 cardanims 包，`customObject` 可以指向任意资产，见 `load_guid_fallback` 的说明。
+    guid_fallback = load_guid_fallback()
     used_guids = set()
     for t in traits.values():
         for eff in t["traitEffects"]:
@@ -617,7 +669,13 @@ def build_payload():
                 if hit and hit[1]:
                     co["name"] = hit[1]
                 else:
-                    unresolved_custom.add("%s:%s" % (t["m_Name"], co["guid"]))
+                    # 🆕 2026-10-25：cardanims 表换不到 ⇒ 回落全 bundle 的 container 索引
+                    #   （`Sprite` / `GameObject` 这类目标本来就落在别的包里，见 `load_guid_fallback`）。
+                    fb = guid_fallback.get(co["guid"])
+                    if fb:
+                        co["name"] = fb
+                    else:
+                        unresolved_custom.add("%s:%s" % (t["m_Name"], co["guid"]))
             entry.update({
                 "m_Name": t["m_Name"],
                 "traitIcon": sprite_names.get(icon_pid, (None, None))[1] if icon_pid else None,

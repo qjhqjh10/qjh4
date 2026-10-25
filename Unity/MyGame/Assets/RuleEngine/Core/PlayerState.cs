@@ -178,6 +178,50 @@ namespace RuleEngine
             }
         }
 
+        /// <summary>
+        /// 场上活着的单位（不含督军），**按进场序**（`UnitState.PlayOrder`）—— 原版
+        /// `MinionManager.GetMinionList` 的等价物（🆕 2026-10-25 · 完全复刻 · 执行代理 A · 账 2a）。
+        ///
+        /// <para>**判据（第一权威，现读）**：`MinionManager__GetMinionList.c` 先把
+        /// **左侧列表 ++ 右侧列表**（各自 `IsInPlay()` 过滤）收进来，末尾
+        /// `Enumerable.OrderBy(card =&gt; card.orderInPlay)` 再 `ToList()` ——
+        /// 即**按入场序号升序**（不是格号序）。</para>
+        ///
+        /// <para>⚠️ **我们没有 `orderInPlay` 这个名字，但有同一件事**：`UnitState.PlayOrder`
+        /// （`ctx.TakePlayOrder()` 在部署那一刻发号，判据 → `UnitState.PlayOrder` 的 doc）。
+        /// 没取号的（`-1`：自检夹具 / 合成单位）**排在末尾**（`StableSortByPlayOrder` 的口径）。</para>
+        ///
+        /// <para>🔴 **原版 `GetMinionList` 只有 3 个调用点**（全量反编译逐条核过），
+        /// 这就是本方法存在的全部理由 —— ⛔ 别在别处「顺手」改枚举顺序：
+        /// ① `BasicBattleEndSequence` / ② `DestroyUnitsAfterBattleEnd`（**收局摧场的演出顺序**，表现层）；
+        /// ③ `_ResolveForceAttackFriendly_d__506__MoveCount.c:39-59` —— 取「这一方所有在场小兵」
+        ///     **减掉施放者自己**，然后 `GetRandomInt(0, count)` **随机挑一个** ⇒ **顺序无关**
+        ///     （真正决定结果的是**种群**，不是次序）。</para>
+        ///
+        /// <para>⚠️ 另一族 `MinionManager.GetUnitList()`（**不排序**、左列表++右列表）的调用点只有
+        /// `CardScript.UpdateWhileInPlay`（数 `pack` 的兵力）与 `CheckAndApplyCurrentPack` ——
+        /// 那两处都**只看 `.Count`**（顺序同样无关）。⇒ 全仓今天**没有任何一处**依赖
+        /// 「格号序 vs 进场序」的差别；本方法只为把判据收成一处、并在将来真需要时不再各写一份。</para>
+        /// </summary>
+        public List<UnitState> UnitsByPlayOrder()
+        {
+            var list = new List<UnitState>();
+            for (int i = 0; i < Board.Length; i++)
+            {
+                var u = Board[i];
+                if (u != null && !u.IsWarlord) list.Add(u);
+            }
+            // 稳定排序：`PlayOrder < 0` 的一律当作「最后」（`StableSortByPlayOrder` 同口径）
+            list.Sort((a, b) =>
+            {
+                int oa = a.PlayOrder < 0 ? int.MaxValue : a.PlayOrder;
+                int ob = b.PlayOrder < 0 ? int.MaxValue : b.PlayOrder;
+                if (oa != ob) return oa.CompareTo(ob);
+                return a.InstanceId.CompareTo(b.InstanceId);   // 同号（不该发生）⇒ 定序，保证可复现
+            });
+            return list;
+        }
+
         /// <summary>可部署的空格数</summary>
         public int FreeSlots()
         {

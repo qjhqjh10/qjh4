@@ -60902,5 +60902,1190 @@
       "uvCycles": 1.0,
       "uvRowIndex": 0
     }
+  ],
+  "tapHits": [
+    {
+      "go": "Barrel_fire",
+      "path": "Scenario/Scenario Battle Arena 2 Baked/Battle Arena 2/Barrel_fire",
+      "layer": 0,
+      "inMask": true,
+      "hasMesh": true,
+      "pos": [
+        93.42057,
+        0.623214,
+        -2.705158
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        100.0,
+        100.000013,
+        100.000013
+      ],
+      "collider": {
+        "type": "Box",
+        "center": [
+          -0.000365,
+          -0.000309,
+          -0.001688
+        ],
+        "size": [
+          0.006532,
+          0.006578,
+          0.009059
+        ],
+        "isTrigger": false
+      },
+      "particles": "Tap Hit Metal Red",
+      "particlesGuid": "623c272d0c1f7e54e9522d6306a79f19",
+      "audio": "Tap Hit Metal Heavy",
+      "audioGuid": "0a651ec9f71764e41ba0d305510865ba",
+      "delay": 0.0,
+      "useTargetAnchor": 0,
+      "anchor": null
+    },
+    {
+      "go": "Barrels",
+      "path": "Scenario/Scenario Battle Arena 2 Baked/Battle Arena 2/Barrels",
+      "layer": 0,
+      "inMask": true,
+      "hasMesh": true,
+      "pos": [
+        95.330719,
+        0.283912,
+        -4.462279
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        174.862976,
+        174.863,
+        174.863
+      ],
+      "collider": {
+        "type": "Mesh",
+        "convex": true,
+        "isTrigger": false,
+        "mesh": "Barrels1"
+      },
+      "particles": "Tap Hit Metal Red",
+      "particlesGuid": "623c272d0c1f7e54e9522d6306a79f19",
+      "audio": "Tap Hit Metal Heavy",
+      "audioGuid": "0a651ec9f71764e41ba0d305510865ba",
+      "delay": 0.0,
+      "useTargetAnchor": 0,
+      "anchor": null
+    },
+    {
+      "go": "CardLowBoardLimit",
+      "path": "BattlePrefab/BattleBoardElements/Colliders/CardBoardLimits/CardLowBoardLimit",
+      "layer": 11,
+      "inMask": false,
+      "hasMesh": false,
+      "pos": [
+        100.0,
+        -0.59,
+        3.66
+      ],
+      "rot": [
+        0.002767,
+        0.0,
+        0.0,
+        0.999996
+      ],
+      "scale": [
+        81.161079,
+        0.82915,
+        41.907936
+      ],
+      "collider": {
+        "type": "Box",
+        "center": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "size": [
+          1.0,
+          1.0,
+          1.0
+        ],
+        "isTrigger": false
+      },
+      "particles": "Default Tap Floor",
+      "particlesGuid": "629741951c40548a49e35451a449d9d7",
+      "audio": "Tap Hit General",
+      "audioGuid": "52da505920d514f77ab579f113afbca6",
+      "delay": 0.0,
+      "useTargetAnchor": 0,
+      "anchor": null
+    },
+    {
+      "go": "Collision",
+      "path": "Scenario/Scenario Battle Arena 2 Baked/Battle Arena 2/Collision",
+      "layer": 0,
+      "inMask": true,
+      "hasMesh": false,
+      "pos": [
+        90.585999,
+        1.585,
+        2.626
+      ],
+      "rot": [
+        0.0,
+        0.189188,
+        0.0,
+        0.981941
+      ],
+      "scale": [
+        1.449847,
+        3.21893,
+        0.39874
+      ],
+      "collider": {
+        "type": "Box",
+        "center": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "size": [
+          1.0,
+          1.0,
+          1.0
+        ],
+        "isTrigger": false
+      },
+      "particles": "Tap Hit Metal Red",
+      "particlesGuid": "623c272d0c1f7e54e9522d6306a79f19",
+      "audio": "Tap Hit Metal Heavy",
+      "audioGuid": "0a651ec9f71764e41ba0d305510865ba",
+      "delay": 0.0,
+      "useTargetAnchor": 0,
+      "anchor": null
+    },
+    {
+      "go": "Collision",
+      "path": "Scenario/Scenario Battle Arena 2 Baked/Battle Arena 2/Collision",
+      "layer": 0,
+      "inMask": true,
+      "hasMesh": false,
+      "pos": [
+        90.619003,
+        4.183,
+        2.164
+      ],
+      "rot": [
+        0.0,
+        0.162536,
+        0.0,
+        0.986703
+      ],
+      "scale": [
+        1.85102,
+        1.993125,
+        0.39874
+      ],
+      "collider": {
+        "type": "Box",
+        "center": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "size": [
+          1.0,
+          1.0,
+          1.0
+        ],
+        "isTrigger": false
+      },
+      "particles": "Tap Hit Metal Red",
+      "particlesGuid": "623c272d0c1f7e54e9522d6306a79f19",
+      "audio": "Tap Hit Metal Heavy",
+      "audioGuid": "0a651ec9f71764e41ba0d305510865ba",
+      "delay": 0.0,
+      "useTargetAnchor": 0,
+      "anchor": null
+    },
+    {
+      "go": "Collision",
+      "path": "Scenario/Scenario Battle Arena 2 Baked/Battle Arena 2/Collision",
+      "layer": 0,
+      "inMask": true,
+      "hasMesh": false,
+      "pos": [
+        91.797997,
+        1.585,
+        2.571
+      ],
+      "rot": [
+        0.0,
+        -0.1726,
+        0.0,
+        0.984992
+      ],
+      "scale": [
+        1.449847,
+        3.21893,
+        0.39874
+      ],
+      "collider": {
+        "type": "Box",
+        "center": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "size": [
+          1.0,
+          1.0,
+          1.0
+        ],
+        "isTrigger": false
+      },
+      "particles": "Tap Hit Metal Red",
+      "particlesGuid": "623c272d0c1f7e54e9522d6306a79f19",
+      "audio": "Tap Hit Metal Heavy",
+      "audioGuid": "0a651ec9f71764e41ba0d305510865ba",
+      "delay": 0.0,
+      "useTargetAnchor": 0,
+      "anchor": null
+    },
+    {
+      "go": "Collision",
+      "path": "Scenario/Scenario Battle Arena 2 Baked/Battle Arena 2/Collision",
+      "layer": 0,
+      "inMask": true,
+      "hasMesh": false,
+      "pos": [
+        92.102997,
+        4.158,
+        2.249
+      ],
+      "rot": [
+        0.0,
+        -0.252767,
+        0.0,
+        0.967527
+      ],
+      "scale": [
+        1.70821,
+        2.036069,
+        0.28848
+      ],
+      "collider": {
+        "type": "Box",
+        "center": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "size": [
+          1.0,
+          1.0,
+          1.0
+        ],
+        "isTrigger": false
+      },
+      "particles": "Tap Hit Metal Red",
+      "particlesGuid": "623c272d0c1f7e54e9522d6306a79f19",
+      "audio": "Tap Hit Metal Heavy",
+      "audioGuid": "0a651ec9f71764e41ba0d305510865ba",
+      "delay": 0.0,
+      "useTargetAnchor": 0,
+      "anchor": null
+    },
+    {
+      "go": "Collision",
+      "path": "Scenario/Scenario Battle Arena 2 Baked/Battle Arena 2/Collision",
+      "layer": 0,
+      "inMask": true,
+      "hasMesh": false,
+      "pos": [
+        98.529999,
+        6.58,
+        38.349998
+      ],
+      "rot": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        7.460041,
+        13.093401,
+        0.87959
+      ],
+      "collider": {
+        "type": "Box",
+        "center": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "size": [
+          1.0,
+          1.0,
+          1.0
+        ],
+        "isTrigger": false
+      },
+      "particles": "Tap Hit Metal Red",
+      "particlesGuid": "623c272d0c1f7e54e9522d6306a79f19",
+      "audio": "Tap Hit Metal Heavy",
+      "audioGuid": "0a651ec9f71764e41ba0d305510865ba",
+      "delay": 0.0,
+      "useTargetAnchor": 0,
+      "anchor": null
+    },
+    {
+      "go": "Collision",
+      "path": "Scenario/Scenario Battle Arena 2 Baked/Battle Arena 2/Collision",
+      "layer": 0,
+      "inMask": true,
+      "hasMesh": false,
+      "pos": [
+        106.290001,
+        0.141,
+        -0.882
+      ],
+      "rot": [
+        0.0,
+        0.431397,
+        0.0,
+        0.902162
+      ],
+      "scale": [
+        0.698125,
+        0.698125,
+        0.698125
+      ],
+      "collider": {
+        "type": "Box",
+        "center": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "size": [
+          1.0,
+          1.0,
+          1.0
+        ],
+        "isTrigger": false
+      },
+      "particles": "Tap Hit Metal Red",
+      "particlesGuid": "623c272d0c1f7e54e9522d6306a79f19",
+      "audio": "Tap Hit Metal Heavy",
+      "audioGuid": "0a651ec9f71764e41ba0d305510865ba",
+      "delay": 0.0,
+      "useTargetAnchor": 0,
+      "anchor": null
+    },
+    {
+      "go": "Collision",
+      "path": "Scenario/Scenario Battle Arena 2 Baked/Battle Arena 2/Collision",
+      "layer": 0,
+      "inMask": true,
+      "hasMesh": false,
+      "pos": [
+        106.897003,
+        0.897,
+        -2.177
+      ],
+      "rot": [
+        0.0,
+        0.733024,
+        0.0,
+        0.680203
+      ],
+      "scale": [
+        1.008891,
+        0.574539,
+        0.574539
+      ],
+      "collider": {
+        "type": "Box",
+        "center": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "size": [
+          1.0,
+          1.0,
+          1.0
+        ],
+        "isTrigger": false
+      },
+      "particles": "Tap Hit Metal Red",
+      "particlesGuid": "623c272d0c1f7e54e9522d6306a79f19",
+      "audio": "Tap Hit Metal Heavy",
+      "audioGuid": "0a651ec9f71764e41ba0d305510865ba",
+      "delay": 0.0,
+      "useTargetAnchor": 0,
+      "anchor": null
+    },
+    {
+      "go": "Collision",
+      "path": "Scenario/Scenario Battle Arena 2 Baked/Battle Arena 2/Collision",
+      "layer": 0,
+      "inMask": true,
+      "hasMesh": false,
+      "pos": [
+        106.950005,
+        0.286,
+        -2.107
+      ],
+      "rot": [
+        0.0,
+        0.733024,
+        0.0,
+        0.680203
+      ],
+      "scale": [
+        1.225908,
+        0.698125,
+        0.698125
+      ],
+      "collider": {
+        "type": "Box",
+        "center": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "size": [
+          1.0,
+          1.0,
+          1.0
+        ],
+        "isTrigger": false
+      },
+      "particles": "Tap Hit Metal Red",
+      "particlesGuid": "623c272d0c1f7e54e9522d6306a79f19",
+      "audio": "Tap Hit Metal Heavy",
+      "audioGuid": "0a651ec9f71764e41ba0d305510865ba",
+      "delay": 0.0,
+      "useTargetAnchor": 0,
+      "anchor": null
+    },
+    {
+      "go": "Cube",
+      "path": "Scenario/Scenario Battle Arena 2 Baked/Tap collisions/Cube",
+      "layer": 0,
+      "inMask": true,
+      "hasMesh": false,
+      "pos": [
+        88.342003,
+        0.584,
+        16.892
+      ],
+      "rot": [
+        0.286104,
+        -0.271766,
+        0.097138,
+        0.913702
+      ],
+      "scale": [
+        2.706839,
+        1.5777,
+        1.0
+      ],
+      "collider": {
+        "type": "Box",
+        "center": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "size": [
+          1.0,
+          1.0,
+          1.0
+        ],
+        "isTrigger": false
+      },
+      "particles": "Tap Hit Metal Red",
+      "particlesGuid": "623c272d0c1f7e54e9522d6306a79f19",
+      "audio": "Tap Hit Metal Heavy",
+      "audioGuid": "0a651ec9f71764e41ba0d305510865ba",
+      "delay": 0.0,
+      "useTargetAnchor": 0,
+      "anchor": null
+    },
+    {
+      "go": "Cube",
+      "path": "Scenario/Scenario Battle Arena 2 Baked/Tap collisions/Cube",
+      "layer": 0,
+      "inMask": true,
+      "hasMesh": false,
+      "pos": [
+        89.860001,
+        1.653,
+        1.216
+      ],
+      "rot": [
+        0.231339,
+        -0.014195,
+        -0.005642,
+        0.972753
+      ],
+      "scale": [
+        0.874156,
+        0.754325,
+        0.34298
+      ],
+      "collider": {
+        "type": "Box",
+        "center": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "size": [
+          1.0,
+          1.0,
+          1.0
+        ],
+        "isTrigger": false
+      },
+      "particles": "Tap Squig",
+      "particlesGuid": "ebd0344b0e868e6428c4fd5ab1e3c17d",
+      "audio": "Tap Squig",
+      "audioGuid": "b724e6d1863e7b34c86628f7c6755d02",
+      "delay": 60.0,
+      "useTargetAnchor": 1,
+      "anchor": {
+        "go": "Squig Anchor",
+        "pos": [
+          91.044791,
+          0.643666,
+          1.08148
+        ],
+        "rot": [
+          -0.707107,
+          -0.0,
+          -0.0,
+          0.707107
+        ],
+        "scale": [
+          174.862976,
+          174.863,
+          174.863
+        ],
+        "path": "Scenario/Scenario Battle Arena 2 Baked/Battle Arena 2/Rubble/Squig Anchor"
+      }
+    },
+    {
+      "go": "Cube",
+      "path": "Scenario/Scenario Battle Arena 2 Baked/Battle Arena 2/Cube",
+      "layer": 0,
+      "inMask": true,
+      "hasMesh": false,
+      "pos": [
+        97.824997,
+        -0.122,
+        -10.041
+      ],
+      "rot": [
+        0.0,
+        0.228999,
+        0.0,
+        0.973427
+      ],
+      "scale": [
+        3.941647,
+        0.18554,
+        1.9197
+      ],
+      "collider": {
+        "type": "Box",
+        "center": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "size": [
+          1.0,
+          1.0,
+          1.0
+        ],
+        "isTrigger": false
+      },
+      "particles": "Tap Toxic Sludge",
+      "particlesGuid": "56ee4a1b9bfdd964aaf8648448e8e849",
+      "audio": "Tap Hit Water",
+      "audioGuid": "4fa845adbccd7784989d2b8af33c3021",
+      "delay": 0.0,
+      "useTargetAnchor": 0,
+      "anchor": null
+    },
+    {
+      "go": "Cube (1)",
+      "path": "Scenario/Scenario Battle Arena 2 Baked/Tap collisions/Cube (1)",
+      "layer": 0,
+      "inMask": true,
+      "hasMesh": false,
+      "pos": [
+        87.634003,
+        0.891,
+        17.947001
+      ],
+      "rot": [
+        0.672792,
+        -0.197103,
+        0.210816,
+        0.681218
+      ],
+      "scale": [
+        2.706838,
+        2.453797,
+        1.3401
+      ],
+      "collider": {
+        "type": "Box",
+        "center": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "size": [
+          1.0,
+          1.0,
+          1.0
+        ],
+        "isTrigger": false
+      },
+      "particles": "Tap Hit Metal Red",
+      "particlesGuid": "623c272d0c1f7e54e9522d6306a79f19",
+      "audio": "Tap Hit Metal Heavy",
+      "audioGuid": "0a651ec9f71764e41ba0d305510865ba",
+      "delay": 0.0,
+      "useTargetAnchor": 0,
+      "anchor": null
+    },
+    {
+      "go": "Cube (2)",
+      "path": "Scenario/Scenario Battle Arena 2 Baked/Tap collisions/Cube (2)",
+      "layer": 0,
+      "inMask": true,
+      "hasMesh": false,
+      "pos": [
+        87.691002,
+        2.047,
+        17.813
+      ],
+      "rot": [
+        0.672792,
+        -0.197103,
+        0.210816,
+        0.681218
+      ],
+      "scale": [
+        1.665432,
+        1.079854,
+        0.890926
+      ],
+      "collider": {
+        "type": "Box",
+        "center": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "size": [
+          1.0,
+          1.0,
+          1.0
+        ],
+        "isTrigger": false
+      },
+      "particles": "Tap Hit Metal Red",
+      "particlesGuid": "623c272d0c1f7e54e9522d6306a79f19",
+      "audio": "Tap Hit Metal Heavy",
+      "audioGuid": "0a651ec9f71764e41ba0d305510865ba",
+      "delay": 0.0,
+      "useTargetAnchor": 0,
+      "anchor": null
+    },
+    {
+      "go": "Cube (3)",
+      "path": "Scenario/Scenario Battle Arena 2 Baked/Tap collisions/Cube (3)",
+      "layer": 0,
+      "inMask": true,
+      "hasMesh": false,
+      "pos": [
+        88.813004,
+        2.255,
+        17.857
+      ],
+      "rot": [
+        0.6944,
+        0.070421,
+        0.098111,
+        0.709382
+      ],
+      "scale": [
+        1.637792,
+        0.373565,
+        0.405785
+      ],
+      "collider": {
+        "type": "Box",
+        "center": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "size": [
+          1.0,
+          1.0,
+          1.0
+        ],
+        "isTrigger": false
+      },
+      "particles": "Tap Hit Metal Red",
+      "particlesGuid": "623c272d0c1f7e54e9522d6306a79f19",
+      "audio": "Tap Hit Metal Heavy",
+      "audioGuid": "0a651ec9f71764e41ba0d305510865ba",
+      "delay": 0.0,
+      "useTargetAnchor": 0,
+      "anchor": null
+    },
+    {
+      "go": "Cube (4)",
+      "path": "Scenario/Scenario Battle Arena 2 Baked/Tap collisions/Cube (4)",
+      "layer": 0,
+      "inMask": true,
+      "hasMesh": false,
+      "pos": [
+        92.290001,
+        5.09,
+        20.65
+      ],
+      "rot": [
+        0.0,
+        -0.265509,
+        0.0,
+        0.964109
+      ],
+      "scale": [
+        4.538423,
+        9.698983,
+        4.464525
+      ],
+      "collider": {
+        "type": "Box",
+        "center": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "size": [
+          1.0,
+          1.0,
+          1.0
+        ],
+        "isTrigger": false
+      },
+      "particles": "Tap Hit Metal Red",
+      "particlesGuid": "623c272d0c1f7e54e9522d6306a79f19",
+      "audio": "Tap Hit Metal Heavy",
+      "audioGuid": "0a651ec9f71764e41ba0d305510865ba",
+      "delay": 0.0,
+      "useTargetAnchor": 0,
+      "anchor": null
+    },
+    {
+      "go": "Cube (5)",
+      "path": "Scenario/Scenario Battle Arena 2 Baked/Tap collisions/Cube (5)",
+      "layer": 0,
+      "inMask": true,
+      "hasMesh": false,
+      "pos": [
+        108.440002,
+        5.99,
+        30.25
+      ],
+      "rot": [
+        0.0,
+        -0.307849,
+        0.0,
+        0.951435
+      ],
+      "scale": [
+        3.455328,
+        13.976012,
+        3.399066
+      ],
+      "collider": {
+        "type": "Box",
+        "center": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "size": [
+          1.0,
+          1.0,
+          1.0
+        ],
+        "isTrigger": false
+      },
+      "particles": "Tap Hit Metal Red",
+      "particlesGuid": "623c272d0c1f7e54e9522d6306a79f19",
+      "audio": "Tap Hit Metal Heavy",
+      "audioGuid": "0a651ec9f71764e41ba0d305510865ba",
+      "delay": 0.0,
+      "useTargetAnchor": 0,
+      "anchor": null
+    },
+    {
+      "go": "Cube (6)",
+      "path": "Scenario/Scenario Battle Arena 2 Baked/Tap collisions/Cube (6)",
+      "layer": 0,
+      "inMask": true,
+      "hasMesh": false,
+      "pos": [
+        102.384003,
+        -0.124,
+        -9.124
+      ],
+      "rot": [
+        -0.383929,
+        -0.062816,
+        0.053899,
+        0.919645
+      ],
+      "scale": [
+        2.1372,
+        1.0,
+        1.0
+      ],
+      "collider": {
+        "type": "Box",
+        "center": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "size": [
+          1.0,
+          1.0,
+          1.0
+        ],
+        "isTrigger": false
+      },
+      "particles": "Tap Hit Metal Small",
+      "particlesGuid": "3dc5682da4a044a43a4f12f252b9a58a",
+      "audio": "Tap Hit Metal Heavy",
+      "audioGuid": "0a651ec9f71764e41ba0d305510865ba",
+      "delay": 0.0,
+      "useTargetAnchor": 0,
+      "anchor": null
+    },
+    {
+      "go": "Cube (7)",
+      "path": "Scenario/Scenario Battle Arena 2 Baked/Tap collisions/Cube (7)",
+      "layer": 0,
+      "inMask": true,
+      "hasMesh": false,
+      "pos": [
+        100.824997,
+        -0.28,
+        -9.124
+      ],
+      "rot": [
+        -0.379876,
+        -0.047493,
+        0.111799,
+        0.917028
+      ],
+      "scale": [
+        1.220376,
+        0.65529,
+        0.65529
+      ],
+      "collider": {
+        "type": "Box",
+        "center": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "size": [
+          1.0,
+          1.0,
+          1.0
+        ],
+        "isTrigger": false
+      },
+      "particles": "Tap Hit Metal Small",
+      "particlesGuid": "3dc5682da4a044a43a4f12f252b9a58a",
+      "audio": "Tap Hit Metal Heavy",
+      "audioGuid": "0a651ec9f71764e41ba0d305510865ba",
+      "delay": 0.0,
+      "useTargetAnchor": 0,
+      "anchor": null
+    },
+    {
+      "go": "Fort Wall",
+      "path": "Scenario/Scenario Battle Arena 2 Baked/Battle Arena 2/Fort Wall",
+      "layer": 0,
+      "inMask": true,
+      "hasMesh": true,
+      "pos": [
+        98.063629,
+        5.521142,
+        37.687916
+      ],
+      "rot": [
+        1.0,
+        -0.0,
+        0.0,
+        0.0
+      ],
+      "scale": [
+        10611.754883,
+        672.734375,
+        672.734375
+      ],
+      "collider": {
+        "type": "Box",
+        "center": [
+          0.000191,
+          0.002,
+          0.0
+        ],
+        "size": [
+          0.007858,
+          0.012,
+          0.001
+        ],
+        "isTrigger": false
+      },
+      "particles": "Tap Hit Metal Red",
+      "particlesGuid": "623c272d0c1f7e54e9522d6306a79f19",
+      "audio": "Tap Hit Metal Heavy",
+      "audioGuid": "0a651ec9f71764e41ba0d305510865ba",
+      "delay": 0.0,
+      "useTargetAnchor": 0,
+      "anchor": null
+    },
+    {
+      "go": "Rubble",
+      "path": "Scenario/Scenario Battle Arena 2 Baked/Battle Arena 2/Rubble",
+      "layer": 0,
+      "inMask": true,
+      "hasMesh": true,
+      "pos": [
+        91.053001,
+        0.641006,
+        1.078
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        174.862976,
+        174.863,
+        174.863
+      ],
+      "collider": {
+        "type": "Mesh",
+        "convex": true,
+        "isTrigger": false,
+        "mesh": "Rubble1"
+      },
+      "particles": "Tap Hit Metal Red",
+      "particlesGuid": "623c272d0c1f7e54e9522d6306a79f19",
+      "audio": "Tap Hit Metal Heavy",
+      "audioGuid": "0a651ec9f71764e41ba0d305510865ba",
+      "delay": 0.0,
+      "useTargetAnchor": 0,
+      "anchor": null
+    },
+    {
+      "go": "Skull_Left.001",
+      "path": "Scenario/Scenario Battle Arena 2 Baked/Battle Arena 2 Skulls/Skull_Left/Skull_Left.001",
+      "layer": 0,
+      "inMask": true,
+      "hasMesh": true,
+      "pos": [
+        89.001374,
+        5.521822,
+        2.551486
+      ],
+      "rot": [
+        -0.689456,
+        0.157004,
+        -0.157004,
+        0.689456
+      ],
+      "scale": [
+        174.86297,
+        174.862953,
+        174.862969
+      ],
+      "collider": {
+        "type": "Box",
+        "center": [
+          0.000163,
+          -0.0,
+          -0.001749
+        ],
+        "size": [
+          0.004523,
+          0.0,
+          0.003499
+        ],
+        "isTrigger": false
+      },
+      "particles": "Tap Hit Metal Red",
+      "particlesGuid": "623c272d0c1f7e54e9522d6306a79f19",
+      "audio": "Tap Hit Metal Heavy",
+      "audioGuid": "0a651ec9f71764e41ba0d305510865ba",
+      "delay": 0.0,
+      "useTargetAnchor": 0,
+      "anchor": null
+    },
+    {
+      "go": "Skull_Right.001",
+      "path": "Scenario/Scenario Battle Arena 2 Baked/Battle Arena 2 Skulls/Skull_Right/Skull_Right.001",
+      "layer": 0,
+      "inMask": true,
+      "hasMesh": true,
+      "pos": [
+        93.570067,
+        5.243302,
+        2.976946
+      ],
+      "rot": [
+        -0.343242,
+        -0.181911,
+        -0.067946,
+        0.918954
+      ],
+      "scale": [
+        174.862966,
+        174.862971,
+        174.862974
+      ],
+      "collider": {
+        "type": "Box",
+        "center": [
+          6.2e-05,
+          -0.0,
+          -0.003161
+        ],
+        "size": [
+          0.00475,
+          0.0,
+          0.006322
+        ],
+        "isTrigger": false
+      },
+      "particles": "Tap Hit Metal Red",
+      "particlesGuid": "623c272d0c1f7e54e9522d6306a79f19",
+      "audio": "Tap Hit Metal Heavy",
+      "audioGuid": "0a651ec9f71764e41ba0d305510865ba",
+      "delay": 0.0,
+      "useTargetAnchor": 0,
+      "anchor": null
+    },
+    {
+      "go": "Sphere",
+      "path": "Scenario/Scenario Battle Arena 2 Baked/Tap collisions/Sphere",
+      "layer": 0,
+      "inMask": true,
+      "hasMesh": false,
+      "pos": [
+        102.370003,
+        1.077,
+        -9.195
+      ],
+      "rot": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        0.119342,
+        0.119342,
+        0.024139
+      ],
+      "collider": {
+        "type": "Sphere",
+        "center": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "radius": 0.5,
+        "isTrigger": false
+      },
+      "particles": "Tap Hit Metal Small",
+      "particlesGuid": "3dc5682da4a044a43a4f12f252b9a58a",
+      "audio": "Tap Hit Metal Heavy",
+      "audioGuid": "0a651ec9f71764e41ba0d305510865ba",
+      "delay": 0.0,
+      "useTargetAnchor": 0,
+      "anchor": null
+    },
+    {
+      "go": "Sphere (1)",
+      "path": "Scenario/Scenario Battle Arena 2 Baked/Tap collisions/Sphere (1)",
+      "layer": 0,
+      "inMask": true,
+      "hasMesh": false,
+      "pos": [
+        102.163002,
+        0.905,
+        -9.195
+      ],
+      "rot": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        0.119342,
+        0.119342,
+        0.024139
+      ],
+      "collider": {
+        "type": "Sphere",
+        "center": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "radius": 0.5,
+        "isTrigger": false
+      },
+      "particles": "Tap Hit Metal Small",
+      "particlesGuid": "3dc5682da4a044a43a4f12f252b9a58a",
+      "audio": "Tap Hit Metal Heavy",
+      "audioGuid": "0a651ec9f71764e41ba0d305510865ba",
+      "delay": 0.0,
+      "useTargetAnchor": 0,
+      "anchor": null
+    }
   ]
 }

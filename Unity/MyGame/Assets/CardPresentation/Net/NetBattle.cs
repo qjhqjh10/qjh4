@@ -148,6 +148,27 @@ namespace CardPresentation.Net
     /// 抽这一层是为了让「动作中转 / 座位翻译 / 指纹 / 重放」**能被自检直接验**
     /// —— 不然要往一个场景里塞两个完整对局驱动才验得了。
     /// </summary>
+    /// <summary>🆕 **2026-10-25（联机域审查 · D 域）**：**纯表现**类的对手事件（原版三条 RPC）。
+    ///
+    /// <para>三条都**不参与局面**、**不改指纹**、**不判胜负** —— 局面正确性由「主机定序动作流 + 每回合指纹」
+    /// 保证（见 `NetProtocol.Fingerprint`）。⇒ 宿主不实现这个接口**不影响对局**，只会少三处表现
+    /// （`Dispatch` 里会**出声**，⛔ 不静默）。</para>
+    ///
+    /// <para>判据：`BattleCommsManager.cs` 的 `SendCardSeen:654 / PUNReceiveCardSeen:1359` →
+    /// `BattleManager.ShowEnemyCardSeen`（`:30` → `CardScript.ShowEnemyCardInHand`）·
+    /// `SendCardReorder:708 / PUNReceiveCardReorder:1372` → `BattleManager.ShowEnemyHandReorder`
+    /// （`:31` → `PlayerHand.HandCardMovedToNewIndex`）· `SendMatchFinished:701 /
+    /// PUNReceiveMatchFinished:1320` → `BattleManager.ReceiveMatchFinished`。</para></summary>
+    public interface INetFoePresentationHost
+    {
+        /// <summary>对面在手里查看了某张牌（`uniqueInGameID` = **局内唯一 id**，⛔ 不是卡 id）。</summary>
+        void NetRemoteCardSeen(int uniqueInGameId);
+        /// <summary>对面手牌换位（`uniqueInGameID` → 新下标 `newIndex`）。</summary>
+        void NetRemoteCardReorder(int uniqueInGameId, int newIndex);
+        /// <summary>对面说「我这局打完了」。⚠️ **不判胜负** —— 只用来开「等对手最后几条动作」那个窗口。</summary>
+        void NetRemoteMatchFinished();
+    }
+
     public interface INetBattleHost
     {
         BattleContext Ctx { get; }
@@ -1065,6 +1086,116 @@ namespace CardPresentation.Net
             Debug.Log($"[Net] 本机督军说了第 {chatId} 句，已告诉对面（座位 {MySeat}）");
         }
 
+        // ==================================================================
+        //  🆕 2026-10-25（联机域审查 · D 域）：原版三条**纯表现** RPC
+        //  —— `CardSeen` / `CardReorder` / `MatchFinished`（判据见 `INetFoePresentationHost` 的注释）
+        // ==================================================================
+        //
+        //  🔴 **兼容性（照 `NetKind.Chat` 那条既定口径）**：三条都是**新增 kind、不改任何既有消息格式**
+        //     ⇒ **不 +`NetProtocol.Version`**。旧端收到会走 `Dispatch` 末尾「不认识的联机消息」**出声**并丢掉
+        //     （不崩、不影响对局）。⚠️ **只有给已有消息加字段才是「改格式」**，那时才必须 +版本。
+        //  ⚠️ 三条都**不进权威流、不改指纹** ⇒ 丢一条不会让两端局面分叉（代价只是少一次表现）。
+
+        /// <summary>告诉对面「我在手里看了这张牌」（原版 `SendCardSeen(uniqueInGameID)`）。
+        /// ⚠️ 只在对局中发；没有会话时**出声**（不静默）。</summary>
+        public void SendCardSeen(int uniqueInGameId)
+        {
+            if (!CanSendPresentation("CardSeen", uniqueInGameId >= 0)) return;
+            Send(NetKind.CardSeen, new MsgCardSeen { cardId = uniqueInGameId });
+        }
+
+        /// <summary>告诉对面「我把手牌挪到了新位置」（原版 `SendCardReorder(uniqueInGameID, newIndex)`）。</summary>
+        public void SendCardReorder(int uniqueInGameId, int newIndex)
+        {
+            if (!CanSendPresentation("CardReorder", uniqueInGameId >= 0 && newIndex >= 0)) return;
+            Send(NetKind.CardReorder, new MsgCardReorder { cardId = uniqueInGameId, index = newIndex });
+        }
+
+        /// <summary>告诉对面「我这局打完了」（原版 `SendMatchFinished()`，**无载荷**）。
+        /// <para>🔴 **它不判胜负**：只用来开收尾窗口（对端 `PeerMatchFinished` ⇒ `TickFinishWait` 那个条件）。
+        /// 发完本机可以 `BeginFinishWait()` 开始等对手最后几条动作（见那个方法的注释）。</para></summary>
+        public void SendMatchFinished()
+        {
+            if (!CanSendPresentation("MatchFinished", true)) return;
+            Send(NetKind.MatchFinished, new MsgMatchFinished());
+            Debug.Log("[Net] 已告诉对面「本机打完了」（`match.finished`，原版 `SendMatchFinished`）");
+        }
+
+        bool CanSendPresentation(string what, bool argsOk)
+        {
+            if (_aborted) return false;
+            if (!argsOk) { Debug.LogWarning($"[Net] `{what}` 的参数非法 ⇒ 这一条不发（⛔ 不猜一个值发出去）"); return false; }
+            if (_s == null || _s.State != NetState.InBattle)
+            {
+                // ⚠️ 大厅/已关闭阶段发「战斗内表现消息」= 调用点搞错了 ⇒ 出声（不静默）
+                Debug.LogWarning($"[Net] `{what}` 只在对局中发；当前会话状态 = {(_s == null ? "<无会话>" : _s.State.ToString())}"
+                               + " ⇒ 这一条丢掉");
+                return false;
+            }
+            return true;
+        }
+
+        // ---- 收尾「等对手最后几条动作」的窗口（原版 `BattleManager.WaitOpponentLastActions`）----
+        //
+        //  判据（**逐句读过**，`d:/2/tools/decomp_full/`）：
+        //   · `BattleManager__ShouldWaitForOpponentLastActions.c`：
+        //        `return matchFinished || ActionsLeftInQueue() > 0;`   ← 就是这两个条件
+        //   · `BattleManager._WaitOpponentLastActions_d__316__MoveNext.c`：
+        //        `remaining = 0x41480000 (=12.5f)`；
+        //        `while (ShouldWait && remaining > 0) { LogWarning(prefix+remaining); remaining -= 2.0f; yield return <1 秒>; }`
+        //        常量 `DAT_1834b2bbc` 已从 `GameAssembly.dll` **直读 = 2.0f**（0x1834b2bbc → `00000040`）
+        //   · `BattleManager__ReceiveMatchFinished.c`：对面那条 RPC 就是把 `matchFinished` 置 1。
+        //  ⚠️ **没读清**：`ActionsLeftInQueue()` 的口径（本机待播 / 待应用 / 两者）—— 这里用
+        //     `Session.Inbox.Count`（**本机还没消费的入站帧**）当代理，并在下面标出来。
+        //     ⇒ 注释里写死「这一格是代理量，不是原版那个函数」。
+
+        /// <summary>原版那个常量 `0x41480000` = **12.5f**（秒）。</summary>
+        public const float FinishWaitCap = 12.5f;
+
+        /// <summary>🆕 2026-10-25：**自检口** —— 直接置那个标志，不走真 socket。
+        /// 与同族的 `SetClockForTest` 一个口径（本仓已有先例）；⛔ 生产代码别调。</summary>
+        public void SetPeerMatchFinishedForTest(bool v) { PeerMatchFinished = v; }
+        /// <summary>原版 `DAT_1834b2bbc` = **2.0f**（每轮从剩余里扣掉的量；已从 DLL 直读）。</summary>
+        public const float FinishWaitStep = 2.0f;
+
+        float _finishWaitLeft = -1f;      // <0 = 没有在等
+        float _finishWaitAcc;             // 攒到 1 秒扣一次（原版每轮 `yield return` 约 1 秒）
+        /// <summary>对面说过「打完了」没有（原版 `BattleManager.matchFinished`，`+0x2cc`）。</summary>
+        public bool PeerMatchFinished { get; private set; }
+        /// <summary>现在是不是还在等对手最后几条动作（宿主据此延后结算界面）。</summary>
+        public bool WaitsForPeerLastActions { get { return _finishWaitLeft >= 0f; } }
+
+        /// <summary>开一个「等对手最后几条动作」的窗口（原版在收尾前调 `WaitOpponentLastActions`）。</summary>
+        public void BeginFinishWait()
+        {
+            _finishWaitLeft = FinishWaitCap;
+            _finishWaitAcc = 0f;
+        }
+
+        /// <summary>宿主每帧推一次；**返回 true = 还要等**（此时不要显示结算）。到条件失效或超时自动结束。
+        /// <para>🧨 **反向断言点**（待自检恢复时跑）：把本方法改成恒 `false` ⇒ 对手最后几条动作会被截断。</para></summary>
+        public bool TickFinishWait(float dt)
+        {
+            if (_finishWaitLeft < 0f) return false;
+            // ⚠️ 代理量：原版是 `ActionsLeftInQueue()`（没读到它的口径）；我们用「本机还没消费的入站帧数」
+            int pendingIn = (_s != null && _s.Inbox != null) ? _s.Inbox.Count : 0;
+            bool keepGoing = PeerMatchFinished || pendingIn > 0;
+            if (!keepGoing || _finishWaitLeft <= 0f)
+            {
+                _finishWaitLeft = -1f;
+                return false;
+            }
+            _finishWaitAcc += dt;
+            if (_finishWaitAcc >= 1f)
+            {
+                _finishWaitAcc -= 1f;
+                _finishWaitLeft -= FinishWaitStep;
+                Debug.Log($"[Net] 还在等对手最后几条动作（剩 {_finishWaitLeft:F1}；"
+                        + $"peerFinished={PeerMatchFinished} pending={pendingIn}）");
+            }
+            return true;
+        }
+
         /// <summary>每回合末对一次指纹（**两端算的是同一个状态点**：`EndTurn` + `BeginTurn` 之后）。</summary>
         public void SendFingerprint()
         {
@@ -1332,6 +1463,48 @@ namespace CardPresentation.Net
                                        + " —— 这一句不会出现在任何气泡上");
                     return;
                 }
+                // ---- 🆕 2026-10-25（D 域）：原版三条**纯表现** RPC 的接收侧 ----
+                //   ⚠️ 三条都**不进权威流、不改指纹**；宿主没实现 `INetFoePresentationHost` ⇒ **出声**
+                //      （⛔ 不静默），但**不影响对局**。
+                case NetKind.CardSeen:
+                {
+                    var m = NetProtocol.Unpack<MsgCardSeen>(f.payload);
+                    if (m == null || m.cardId < 0)
+                    {
+                        Debug.LogWarning($"[Net] 对面发来的 `card.seen` 解不出来或 id 非法（`{m?.cardId}`）—— 丢掉");
+                        return;
+                    }
+                    if (_d is INetFoePresentationHost h1) h1.NetRemoteCardSeen(m.cardId);
+                    else Debug.LogWarning($"[Net] 对面查看了牌 {m.cardId}，但宿主 `{_d?.GetType().Name ?? "<null>"}`"
+                                        + " 没实现 `INetFoePresentationHost` ⇒ 这一次揭示不会出现（不影响对局）");
+                    return;
+                }
+                case NetKind.CardReorder:
+                {
+                    var m = NetProtocol.Unpack<MsgCardReorder>(f.payload);
+                    if (m == null || m.cardId < 0 || m.index < 0)
+                    {
+                        Debug.LogWarning($"[Net] 对面发来的 `card.reorder` 解不出来或参数非法"
+                                       + $"（`{m?.cardId}` → `{m?.index}`）—— 丢掉");
+                        return;
+                    }
+                    if (_d is INetFoePresentationHost h2) h2.NetRemoteCardReorder(m.cardId, m.index);
+                    else Debug.LogWarning($"[Net] 对面把牌 {m.cardId} 挪到 {m.index}，但宿主没实现 "
+                                        + "`INetFoePresentationHost` ⇒ 对手手牌不会重排（不影响对局）");
+                    return;
+                }
+                case NetKind.MatchFinished:
+                {
+                    // 原版 `PUNReceiveMatchFinished` → `BattleManager.ReceiveMatchFinished`：**只置标志**
+                    // （`+0x2cc`），那个标志正是 `ShouldWaitForOpponentLastActions` 的第一个条件。
+                    if (PeerMatchFinished) return;                        // 幂等（原版重复收也只是再置一次 1）
+                    PeerMatchFinished = true;
+                    Debug.Log("[Net] 对面说「他打完了」（`match.finished`）⇒ 收尾窗口的等待条件已成立");
+                    if (_d is INetFoePresentationHost h3) h3.NetRemoteMatchFinished();
+                    else Debug.Log($"[Net] 宿主没实现 `INetFoePresentationHost` ⇒ 不额外做什么"
+                                 + "（标志已置，`TickFinishWait` 那一跳照常生效）");
+                    return;
+                }
             }
             Debug.LogWarning("[Net] 不认识的联机消息：" + f.kind);
         }
@@ -1393,5 +1566,14 @@ namespace CardPresentation.Net
 
         /// <summary>开场时把 `MsgStart` 记下来（重连要用）。</summary>
         public void RememberStart(MsgStart start) { _start = start; }
+
+        /// <summary>对局是不是**正在进行中**（会话在且状态 = `InBattle`）。
+        /// 🆕 **2026-10-25（N9）**：给「战斗内表现消息」的**调用点**当发前闸 ——
+        /// `SendCardSeen` / `SendCardReorder` 自己也会挡（`CanSendPresentation`）并出声，
+        /// 但那会**每次**都打一条 warning；调用点先用它挡掉「换牌/大厅阶段顺手触发」的那些噪声。
+        /// ⚠️ 判据仍然只此一处（`NetState.InBattle`），⛔ 别在调用点另写一遍状态比较。
+        /// 📌 **故意放在类尾**（2026-10-25）：本类被别的账/报告按行号引用得多，插在中间会把
+        /// 下游行号整体推移 —— 新增成员一律追加到末尾，别插进已有成员之间。</summary>
+        public bool InBattle { get { return _s != null && _s.State == NetState.InBattle; } }
     }
 }

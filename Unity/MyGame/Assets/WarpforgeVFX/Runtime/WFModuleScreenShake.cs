@@ -167,12 +167,27 @@ namespace WarpforgeVFX
         void Play(ShakeEntry e, string from)
         {
             if (e == null || string.IsNullOrEmpty(e.preset)) return;   // 原版：preset 空就跳过
-            var req = Resolve(e);
+            Fire(Resolve(e), from);
+        }
+
+        /// <summary>🆕 2026-10-25（D 域 · 特效重建链）：按 **preset 名**播一次屏震 ——
+        /// 给那些**不是 AnimFX 模块**的组件用（原版 `ShakeAndSoundObject.OnEnable` →
+        /// `OverwriteCameraShakePreset.Play()` → `CameraShakerManager.DoShake`）。
+        /// 落点/调用方 = `WarpforgeVFX/Runtime/WFEffectExtras.cs` 的 `WFExtraShakeAndSound`。</summary>
+        public static void PlayPresetByName(string presetName, string from = "extras")
+        {
+            if (string.IsNullOrEmpty(presetName)) return;
+            Fire(Resolve(new ShakeEntry { preset = presetName }), from);
+        }
+
+        /// <summary>把一份解析好的请求送到下游（`OnShake`）。**唯一收口**：模块档与「按名字」档共用。</summary>
+        static void Fire(Request req, string from)
+        {
             if (OnShake == null)
             {
                 DroppedRequests++;
                 if (DroppedRequests <= 5)
-                    Debug.LogWarning($"[WarpforgeVFX] 屏震 preset `{e.preset}`（{from}）**没有下游接** —— " +
+                    Debug.LogWarning($"[WarpforgeVFX] 屏震 preset `{req.preset}`（{from}）**没有下游接** —— " +
                                      "表现层要挂 `WFModuleScreenShake.OnShake`（我们这边接 CardFeel.ShakeCamera）。" +
                                      "这条警告只报前 5 次。");
                 return;
@@ -325,7 +340,13 @@ namespace WarpforgeVFX
             if (e.overwriteAmplitude   != 0) r.amplitude   = e.amplitude;
             if (e.overwriteFrequency   != 0) r.frequency   = e.frequency;
             if (e.overwriteDirection   != 0) r.direction   = e.direction;
-            if (e.delay > 0f) r.delay = e.delay;    // `delay` 没有 overwrite 开关，原版直接用它
+            // 🔴 **2026-10-25 订正（铁律 5 + 审计代理 A 现核）**：`delay` 原版是**无条件覆盖** ——
+            //    `OverwriteCameraShakePreset.GetModifiedPreset`（`OverwriteCameraShakePreset.cs:191`）
+            //    第一句就是 `preset.delay = delay;`，**在** 6 个 `overwriteXxx` 分支**之前**、
+            //    且 `delay` 自己**没有** overwrite 开关 ⇒ 永远取 `OverwriteCameraShakePreset` 上那个值。
+            //    原来写成 `if (e.delay > 0f)` ⇒ presetSO 自己的 `delay` 会漏过来（今天 17 个 preset 的
+            //    delay 全是 0，无可观测差；语义仍要对齐）。
+            r.delay = e.delay;
             return r;
         }
 

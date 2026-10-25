@@ -133,12 +133,57 @@ namespace CardPresentation
         }
 
         /// <summary>`CardArmy` 值 → **本地化阵营名**（原版 `ArmyUtilities.GetLocalizedArmyName`）。
-        /// 认不出 ⇒ `null`（`Neutral` 也 `null` —— 原版 `Armies/` 里没有 Neutral 那条）。</summary>
-        public static string LocalizedName(int army)
+        /// 认不出 ⇒ `null`（`Neutral` 也 `null` —— 原版 `Armies/` 里没有 Neutral 那条）。
+        /// <para>🔴 **2026-10-25（`P6`）补齐短名支** —— 原版方法体（`cpp2il/ArmyUtilities.cs:99-124`）：
+        /// `useShortName` 为真时**先**取 `Armies/&lt;枚举名&gt;_short`，**取不到（空）才回落** `Armies/&lt;枚举名&gt;`。
+        /// 我们这一侧的键尾 = `CardDef.Faction`（= `CardArmy` 枚举名，见 <see cref="Entry.Faction"/>），
+        /// ⇒ 短名键 = `Armies/&lt;Faction&gt;_short`。
+        /// <para>⚠️ 官方全表里**只有 6 条 `_short`**（`Goff` / `Leviathan` / `Sautekh` / `Sororitas` /
+        /// `Genestealers` / `AstraMilitarum`；现读 `Resources/official_loc_13lang.json` 的 `Armies/` 20 条里）
+        /// ⇒ 其余 7 个阵营走「回落全名」那一支，与原版同（原版也是空则回落）。</para>
+        /// <para>🔴 **可达性**（原版调用点逐个现读，2026-10-25）：全库 **5 个**调用点，
+        /// **1 个真传 `true`** —— `RankedDeckSelector.ChangeDeck`（`cpp2il/RankedDeckSelector.cs:645`，
+        /// 排位窗空态那句 `MainMenu/Ranked/NoDeckMessage` 的 `{1}`）；另 4 个不传
+        /// （`AvatarDrawer.cs:19` · `CampaignHeaderDisplay.cs:124` · `DeckSelectionTabController.cs:449/605`）
+        /// ⇒ **不是死代码**。</para></summary>
+        public static string LocalizedName(int army, bool useShortName = false)
         {
             var f = Faction(army);
-            return f == null ? null : CardText.Faction(f);
+            return LocalizedName(f, useShortName);
         }
+
+        /// <summary>阵营名（`CardDef.Faction` / `CardArmy` 枚举名）→ 本地化阵营名。**同一套短名判据**，
+        /// 只是入参换成我们代码里更常见的字符串形状（<see cref="LocalizedName(int, bool)"/> 的那个入参口径）。
+        /// 认不出（`null` / 空）⇒ `null`。</summary>
+        public static string LocalizedName(string faction, bool useShortName = false)
+        {
+            if (string.IsNullOrEmpty(faction)) return null;
+            string full = CardText.Faction(faction);
+            if (!useShortName) return full;
+            // 先 `_short`、取不到回落全名：`CardText.TermOr` 的语义正是「表里有⇒取它；没有⇒出声+回 fallback」，
+            // 而且它内部已按 13 语档 + 官方全表 + 中文字体闸取值（⛔ 别在这里另开一条取值路）。
+            return CardText.TermOr(CardText.ArmyTermPrefix + faction + "_short", full);
+        }
+
+        /// <summary>🔴 **中立阵营** —— 原版 `GameStaticData.IsNeutralArmy(CardArmy)` 的等价实现。
+        /// <para>原版判据（`cpp2il/GameStaticData.cs:981-984`）= `Enumerable.Contains(neutralArmies, army)`；
+        /// 那个静态数组在 cctor 里建成长度 **1**、元素取默认值 0
+        /// （`GameStaticData.cs:2444-2445`：`CardArmy[] array2 = new CardArmy[1]; neutralArmies = array2;`
+        /// ⇒ 集合内容 = `{Neutral(0)}`）—— **⛔ 不是「army == 0」这个内联比较**：
+        /// 原版留的是一个**集合**，以后加成员只改数据。</para>
+        /// <para>我们照那个形状留成一张表（今天只有一项 = <see cref="Neutral"/>），
+        /// 语义与内联 `army == 0` **逐值等价**（`neutralArmies` 长度 1、元素 0）。
+        /// 调用点（我们这一侧的等价物）：`Shell/ProfileData.cs` 的成就 / 头衔按阵营筛、
+        /// `Shell/DraftPacks.cs` 的卡包数据校验。</para></summary>
+        public static bool IsNeutral(int army)
+        {
+            for (int i = 0; i < NeutralArmies.Length; i++)
+                if (NeutralArmies[i] == army) return true;
+            return false;
+        }
+
+        /// <summary>原版 `neutralArmies` 那个数组（**当前只有 `Neutral(0)`**，见 <see cref="IsNeutral"/>）。</summary>
+        static readonly int[] NeutralArmies = { Neutral };
 
         /// <summary>`CardArmy` 值 → 贴图（`CardArt.MenuUi` 三级兜底）；取不到 ⇒ `null`
         /// （取不到**不要静默**：调用方自己出声，同 `PurchasePremiumWindow.Tex` 那条纪律）。</summary>

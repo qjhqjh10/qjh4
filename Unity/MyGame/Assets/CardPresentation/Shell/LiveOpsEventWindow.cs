@@ -435,8 +435,17 @@ namespace CardPresentation
             int n = ArmyDeckCount();
             if (n < 1) return Loc.T("MainMenu/Ranked/NoWarlordMessage");
             // ⚠️ `{1}`（阵营名）先填、`{0}`（数字）后填：数字里不会有花括号，阵营名更不会有。
+            // 🔴 **2026-10-25（`P6` · 铁律 5）：`{1}` 用【短名】** —— 原版 `RankedDeckSelector.ChangeDeck`
+            //   这一句是 `ArmyUtilities.GetLocalizedArmyName(currentArmy, useShortName: **true**)`
+            //   （`cpp2il/RankedDeckSelector.cs:645`；实参逐个核过，原版 5 个调用点里只有这一处传 `true`）。
+            //   改前这里写的是 `CardText.Faction(...)` = **全名** ⇒ 与原文不符。词条键 = `Armies/<Faction>_short`，
+            //   官方表里只有 6 条（Goff / Leviathan / Sautekh / Sororitas / Genestealers / AstraMilitarum），
+            //   其余阵营回落全名（`ArmyIcons.LocalizedName` 的短名支；与原版「取不到就回落」同）。
+            //   ⚠️ 中文档下 **6 条里 4 条真的更短**（利维坦虫巢舰队→利维坦虫 · 索泰克王朝→索泰克 ·
+            //   修女会→修女 · 基因窃取者教团→基因窃取者）；`Goff`（欧克蛮人）与 `AstraMilitarum`（星界军）
+            //   两条的 `_short` 与全名**逐字相同** ⇒ 这两个阵营在本句里**无视觉差异**（英文列同理）。
             return Loc.T("MainMenu/Ranked/NoDeckMessage")
-                      .Replace("{1}", CardText.Faction(SelectedArmyFaction))
+                      .Replace("{1}", ArmyIcons.LocalizedName(SelectedArmyFaction, true) ?? SelectedArmyFaction)
                       .Replace("{0}", n.ToString());
         }
 

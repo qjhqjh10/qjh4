@@ -28,6 +28,18 @@ namespace CardPresentation.Net
         // 对面交上来的（主机收）
         static PlayerDeck _foeDeck; static string _foeMode, _foeFaction;
 
+        /// <summary>🆕 **2026-10-25（联机域审查 · D 域）**：因「两端模式不一致」而**关台告诉对面**的次数（累计）。
+        ///
+        /// <para>为什么要有这一格：原来主机发现模式不一致时**只本机 `Notice` 就 return**，客机在
+        /// `BeginNetWait` 里**无超时地等**（心跳一直有包 ⇒ 会话级 10 秒静默超时永不触发）
+        /// ⇒ **客机永久静默等待**（红线）。现在补上「关台 + `bye`」，原版对应
+        /// `PUNReceiveWrongPlayMode`（`SearchOpponentManager.cs:1915-1985`：两边都离开并取消搜索）。</para>
+        ///
+        /// <para>🔴 **自检反向断言的抓手**（待自检恢复时跑）：两端模式不一致 ⇒
+        /// ① `ModeMismatchCloses` 增量 == 1；② **客机** `State == Closed` 且 `LastError` 非空。
+        /// **把 `Close` 那两句删掉 ⇒ 客机会永远停在 `BeginNetWait`**（那两条断言会红）。</para></summary>
+        public static int ModeMismatchCloses { get; private set; }
+
         // 🔴 **A1323（2026-10-19）**：原来只有**一个** `_started`，它同时当【我发过开局包】与
         //    【我收到过开局包】两种意思（`GoToBattle` 那处**两端都置**）⇒ 「谁先发的」这类问题问不出来，
         //    迟早出错。现在拆成两格，**对外只有一句判据** `Started`（两格取或）——
@@ -773,6 +785,19 @@ namespace CardPresentation.Net
                 // 🔴 **红线**：原来只有这行日志 ⇒ 两边都卡在「正在搜索」上、**谁也不明白为什么开不了**。
                 //    判据 → `项目任务.md` §三 第 14 条 表里的第 4 条。
                 NetRuntime.Notice(string.Format(Loc.T("Settings/Online/Lobby/ModeMismatch"), mode, _foeMode));
+                // 🔴 **2026-10-25（联机域审查 · D 域）补最后一跳**：**还要告诉对面**。
+                //    原来只有上面那句 `Notice`（= **只有主机自己看得见**），客机在 `BeginNetWait` 里
+                //    **无超时地等**，而心跳一直在发包（`NetSession` 只在 WaitingReconnect/Connecting 跳心跳）
+                //    ⇒ 会话级 10 秒静默超时**永远不触发** ⇒ **客机永远等、一个字都不说**（红线：不许静默失败）。
+                //    原版对应的是 `PUNReceiveWrongPlayMode`（`SearchOpponentManager.cs:1915-1985`）：
+                //    `LeaveBattle` + `CancelBattleSearch` —— **两边都离开并取消搜索**。
+                //    我们的等价动作 = 关台（`Close(say:true)` 会给对面捎 `bye`，客机那边走 `OnClosed`
+                //    → `NetMatchmaking` 的「对面取消」提示 + 撤回搜索）。
+                //    ⚠️ reason 用**不带占位符**的 `PeerCancelled`：这是个词条键，对面按**它自己的语言**取句子；
+                //       `ModeMismatch` 那条带 `{0}/{1}`，当 bye reason 传过去会原样显示成 `{0}`。
+                var sess = NetRuntime.Instance != null ? NetRuntime.Instance.Session : null;
+                if (sess != null) sess.Close(true, "Settings/Online/Lobby/PeerCancelled");
+                ModeMismatchCloses++;      // 🆕 计一次：给自检做反向断言用（见字段注释）
                 return;
             }
 

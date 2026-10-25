@@ -263,10 +263,12 @@ namespace CardPresentation
             //    （MB `5183763081869680591` 的组件实读：c1 **(0.22352943, 0.01176471, 0.01960784)** ·
             //     c2 **(0.04705883, 0, 0.01568628)** · angle **82** · ignoreRatio 1 · rect → `TrackBg` 242.37,159.34→1918.78,558.89）。
             //    🔴 这组数字与 `Content Area/Background` **逐位相同** ⇒ 直接复用 `MainMenuSubmenuWindow.GradC1/GradC2`；
-            //       角度照 §0·2 的换算传 **188**（原版 `(sin,cos)` vs 本仓 `(cos,sin)`，差 90° —— ⛔ 不是 82）。
+            //       角度照 §0·2 的换算传 **188**（⛔ 不是 82）。
+            //       🔴 **2026-10-25 就地订正（铁律 5 · 代理 D 现核）**：原来这里写「原版方向是 (sin,cos)、我们助手是 (cos,sin) ⇒ 差 90°」——**「差 90°」这个说法不准确**。实际：① `RotationDir(θ)` 返回的是 **`(cosθ, sinθ)`**（`UIGradientUtils__RotationDir.c:9-11`）；② **有效渐变轴**才是 **`(sinθ, cosθ)`**（`UIGradient__ModifyMesh.c:148-149` + `LocalPositionMatrix.c:20-27` 用它做投影）；③ 我们 `CardArt.Gradient` 的最大变暗方向是 `(cos φ, sin φ)` ⇒ 要还原同一张图，换算是 **φ = 90° − θ + 180°（镜像 + 反色序；180° 来自 `c1` 所在端与原版亮端相反）**。⚠️ **数值 188 是对的**（90 − 82 + 180 = 188）—— 这次**只订正理由、不动数值**。
             //    队列 `QPanel − 1`：原版 `Tracks` 子件序 = `bg` → 两条分隔线 → `Rewards Scroll View`
             //    ⇒ bg 必须在分隔线(QPanel)/页内容(QContent)之下，又高于压暗层(QShade)。
-            MenuDraw.Rect(tracks, CardArt.Gradient(MainMenuSubmenuWindow.GradC1, MainMenuSubmenuWindow.GradC2, 188f),
+            MenuDraw.Rect(tracks, CardArt.Gradient(MainMenuSubmenuWindow.GradC1, MainMenuSubmenuWindow.GradC2, 188f,
+                                                  TrackBg.H / TrackBg.W),   // 原版 CompensateAspectRatio 的 h/w
                           TrackBg, "bg", QPanel - 1);
             // 🔴 **2026-10-19（第五十七会话 · `N81`）**：给 `Tracks/bg` 补**吸收层**
             //   （原版那颗 `Image` 是射线靶、父链上没有点击处理器 ⇒ **点它什么都不发生**：不关窗、不播音、不改状态）。

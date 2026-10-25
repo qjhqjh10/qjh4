@@ -175,6 +175,9 @@ namespace CardPresentation
             // 原版 `MainMenuRewardsWindow.Open` 会回点导航钮：`GetToggle(3).SetIsOnWithoutNotify(true)`
             //（`DF:MainMenuRewardsWindow__Open.c:14-16`）。我们让主菜单侧自己处理，这里只报一句。
             BuildTabContents();
+            // 🆕 2026-10-25：页对象已建出来 ⇒ 走原版 `GameWindowWithTabs.Open` 的 lazy `SetupTabs` 那一跳
+            //   （缓存 tabs + `ForceCloseTabs`；只跑一次，见基类 `EnsureTabsSetup` 的注释）。
+            EnsureTabsSetup();
             // 新实例默认落在 **Missions**（= 左栏第 1 键）。走 `Click` 这条路而不是直接改字段 ——
             // 那三个属性是只读的，而且「点一下」才是唯一的状态入口（两处写同一件事 = 迟早不一致）。
             // 🔴 **2026-10-19（`N117` 顺手 · 与 `CollectionWindow` 同一条判据）**：这里原来**恒 `Click(0)`**

@@ -2790,33 +2790,26 @@ public static class BattleScene
             Check(!BattleDriver.IsHudAnchoredEvent(EvtKind.AmbushExit),
                   "★ **灭自证**：伏击翻面**不是** HUD 锚点事件（它的落点就是那个单位那一格）—— "
                 + "把两条新事件一起塞进 HUD 那一族 ⇒ 本条红");
-            // 落点落在**手牌区那一行**（我方 / 敌方各一条）。
-            // 🔴 **2026-10-20（W58 · P2-O）就地修（铁律 5）**：原来期望的是**行基线**
-            //   `HandLayout.DefaultBaselineY` / `EnemyBaselineY`，而 `HudAnchor01(Draw)` → `HandRow01`
-            //   （`BattleDriver.cs:16329-16345`）在**手牌非空**时返回的是
-            //   `LayoutSpace.ToNormalized(hl.SlotPosition(count-1, count))` = **基线 + 末尾那张的弧高**
-            //   （日志 `2403/2416`：实得 0.1037 / 1.0043，与基线差 0.0063 / 0.0046）；
-            //   「基线」只在 `count == 0`（那一行正中的兜底）时成立 —— 开局 `Begin` 已经发了起手牌。
-            //   ⇒ 期望改成**同一个算式**（问 `HandLayout` 自己的排布，⛔ 不另算一份坐标）。
+            // ==================================================================
+            //  🔴 2026-10-25（P3 第 2 轮 · 调度台裁定）：抽卡落点 = **抽牌终点锚**
+            // ==================================================================
+            //  **期望值依据 = `资料/完全复刻/判据/HUD光标与抽牌锚.md` §二·订正**：
+            //    公式 `x = rectMin.x` · `y = 540 − (rectMin.y + size.y)`，13 个战场实算同值 ⇒
+            //    `CardDrawPositions = (0,490,100,100)` · `PlayerDrawnPos = EnemyDrawnPos = (1350,490,100,100)`
+            //    （原版 `BattleHud.GetCardDrawPosition` 读的就是这两个 Anchor，**两者同值**）。
+            //  本块原来钉的是「手牌末尾那一格」（`SlotPosition(count-1,count)`）—— **旧值，已被上引判据推翻**；
+            //  断言必须盯**原版参数**，⛔ 不许盯我们自己的手牌布局常量（否则就是拿实现证明实现）。
             Vector2 dMe = driver.HudAnchor01(EvtKind.Draw, true);
             Vector2 dFoe = driver.HudAnchor01(EvtKind.Draw, false);
-            int mySeatO = driver.MyIndex, foeSeatO = 1 - driver.MyIndex;
-            int nMeO = driver.Ctx.Players[mySeatO].Hand.Count;
-            int nFoeO = driver.Ctx.Players[foeSeatO].Hand.Count;
-            Vector2 expMeO = driver.hand != null && nMeO >= 1
-                ? LayoutSpace.ToNormalized(driver.hand.SlotPosition(nMeO - 1, nMeO))
-                : new Vector2(0.5f, HandLayout.DefaultBaselineY);
-            Vector2 expFoeO = driver.foeHand != null && nFoeO >= 1
-                ? LayoutSpace.ToNormalized(driver.foeHand.SlotPosition(nFoeO - 1, nFoeO))
-                : new Vector2(0.5f, HandLayout.EnemyBaselineY);
-            Check(Mathf.Abs(dMe.y - expMeO.y) < 1e-3f,
-                  $"★ 我方抽卡的落点在手牌区**末尾那一格**（y {dMe.y:F4} == `SlotPosition(count-1,count)` "
-                + $"{expMeO.y:F4}，手牌 {nMeO} 张）—— ⛔ **不是棋盘**，也**不是行基线**（那只是 count==0 的兜底）");
-            Check(Mathf.Abs(dFoe.y - expFoeO.y) < 1e-3f,
-                  $"★ 敌方抽卡的落点在他**自己**那一行末尾那一格（y {dFoe.y:F4} == {expFoeO.y:F4}，"
-                + $"手牌 {nFoeO} 张）—— 敌我两行不是一个落点");
-            Check(dMe.x > 0.05f && dMe.x < 0.95f && dFoe.x > 0.05f && dFoe.x < 0.95f,
-                  $"★ 两个落点都在**屏幕内**（我 x={dMe.x:F3} / 敌 x={dFoe.x:F3}）");
+            Vector2 expAnchorO = BattleDriver.CardDrawAnchor01(true);
+            Check(Mathf.Abs(dMe.x - expAnchorO.x) < 1e-4f && Mathf.Abs(dMe.y - expAnchorO.y) < 1e-4f,
+                  $"★ 我方抽卡落点 = 抽牌终点锚（({dMe.x:F4},{dMe.y:F4}) == ({expAnchorO.x:F4},{expAnchorO.y:F4})；"
+                + "期望值依据 = `判据/HUD光标与抽牌锚.md` §二·订正）");
+            Check(Mathf.Abs(dFoe.x - expAnchorO.x) < 1e-4f && Mathf.Abs(dFoe.y - expAnchorO.y) < 1e-4f,
+                  $"★ **敌方与己方同一个锚**（({dFoe.x:F4},{dFoe.y:F4}) == ({expAnchorO.x:F4},{expAnchorO.y:F4})）—— "
+                + "判据 §二·订正：`PlayerDrawnPos` 与 `EnemyDrawnPos` **同值**，⛔ 别给对手挪一格");
+            Check(dMe.x > 0.05f && dMe.x < 0.95f && dMe.y > 0.05f && dMe.y < 0.95f,
+                  $"★ 落点在**屏幕内**（x={dMe.x:F3} y={dMe.y:F3}）");
 
             // 两条新事件的**时长**（`EventTiming`）—— 两条**不是同一档**，别互相抄：
             //   · 抽卡 **占** 0.3（原版 `_AddDrawnCardToHand:78-80` 真会 `WaitForSeconds` 等它）
@@ -2954,17 +2947,27 @@ public static class BattleScene
             CardEffects.Play = oPlay;                     // ⚠️ 必须还原 —— 后面每一格的 `_fired` 靠它
             Vector2 p1 = driver.HudAnchor01(EvtKind.Draw, true, 2);   // 批里第 1 张
             Vector2 p2 = driver.HudAnchor01(EvtKind.Draw, true, 1);   // 批里第 2 张
-            // ⚠️ **别断「y 相等」**（2026-10-14 收口自检 α 修正）：弧只在中段抬起、两端为 0
-            //   ⇒ **只有 count == 2 时**两条的 y 才相等；那一刻手牌 4 张 ⇒ `t` = 2/3 与 1
-            //   ⇒ Δy ≈ 0.006（是容差 1e-4 的 ~57 倍）⇒ 老写法**恒红**。这里改成断 x 不等、y 近似同高。
-            Check(Mathf.Abs(p1.x - p2.x) > 1e-3f && Mathf.Abs(p1.y - p2.y) < 0.05f,
-                  $"★ 同批 2 张的落点 **x 不等、y 近似相等**（x {p1.x:F4} vs {p2.x:F4}；Δy {Mathf.Abs(p1.y - p2.y):F4}）");
-            // 🔴 **2026-10-14 就地改比较对象 p2 → p1（铁律 5 · 收口自检 α）**：`HudAnchor01(…, -1)` 与
-            //   `…, 1` **都**回 `count-1`（`BattleDriver` 那句 `if (drawFromEnd >= 1) idx = count - drawFromEnd;`
-            //   对 -1 不成立 ⇒ 保持 `count-1`；对 1 ⇒ 也是 `count-1`）⇒ 拿 `p2` 比**恒等 ⇒ 恒红**。
-            //   要表达「`drawFromEnd` 真的一路带下来了」，该拿**批里更前面那张**（`p1` = fromEnd 2 ⇒ `count-2`）比。
-            Check(Mathf.Abs(p1.x - driver.HudAnchor01(EvtKind.Draw, true, -1).x) > 1e-3f,
-                  "★ **灭自证**：`drawFromEnd` 一路带下来 —— 改回 `count - 1` ⇒ 本条与上一条**同时**红");
+            Vector2 p0 = driver.HudAnchor01(EvtKind.Draw, true, -1);  // 不带 drawFromEnd
+            // 🔴 **2026-10-25（P3 第 2 轮 · 调度台裁定）**：**期望值依据 = `判据/HUD光标与抽牌锚.md` §二·订正** ——
+            //   原版 `PlayerDrawnPos` / `EnemyDrawnPos` **是同一个点**（抽到牌先落这里、再进手牌布局）
+            //   ⇒ 同一批里的 N 张**都落同一个锚**，`drawFromEnd` **不参与**抽卡落点的坐标。
+            //   ⚠️ 本块原来那两条（「同批 x 不等」「`drawFromEnd` 一路带下来 ⇒ 与 count-1 不同」）
+            //     钉的是**已被上引判据推翻的手牌格位旧值** ⇒ 改成同一性断言 + 一条灭自证。
+            Vector2 expAnchorD = BattleDriver.CardDrawAnchor01(true);
+            Check(Mathf.Abs(p1.x - expAnchorD.x) < 1e-4f && Mathf.Abs(p1.y - expAnchorD.y) < 1e-4f,
+                  $"★ 批内第 1 张落 = 抽牌锚（({p1.x:F4},{p1.y:F4}) == ({expAnchorD.x:F4},{expAnchorD.y:F4})）");
+            Check(Mathf.Abs(p2.x - expAnchorD.x) < 1e-4f && Mathf.Abs(p2.y - expAnchorD.y) < 1e-4f
+                  && Mathf.Abs(p0.x - expAnchorD.x) < 1e-4f && Mathf.Abs(p0.y - expAnchorD.y) < 1e-4f,
+                  "★ 同批第 2 张、以及不带 `drawFromEnd` 的那一条**都落在同一个锚** —— "
+                + "原版两个 Anchor 同值，`drawFromEnd` 不参与抽卡落点（判据 §二·订正）");
+            // ★ **灭自证**：抽牌锚**不等于**手牌末尾那一格 —— 把落点改回 `HandRow01`（旧口径）⇒
+            //   本条与上面两条**不可能同时绿**（结构上互斥：一个固定锚、一个随张数变的格位）。
+            int nHandD = driver.Ctx.Players[driver.MyIndex].Hand.Count;
+            Vector2 handSlotD = driver.hand != null && nHandD >= 1
+                ? LayoutSpace.ToNormalized(driver.hand.SlotPosition(nHandD - 1, nHandD))
+                : new Vector2(0.5f, HandLayout.DefaultBaselineY);
+            Check(Mathf.Abs(p1.x - handSlotD.x) > 1e-3f || Mathf.Abs(p1.y - handSlotD.y) > 1e-3f,
+                  $"★ **灭自证**：抽牌锚 ≠ 手牌末尾那一格（锚 ({p1.x:F4},{p1.y:F4}) vs 手牌格 ({handSlotD.x:F4},{handSlotD.y:F4})）");
         }
 
         // ---- 1e. 「临时卡（Ephemeral）」角标 ----
@@ -7314,9 +7317,16 @@ public static class BattleScene
                             + $"实测「{drv3c.LastCantDoTerm}」· 计数 {cInval2d} → {drv3c.CantDoCount}）"
                             + "｜判据 `FinishedChoosingAbilityTargetByClick.c:20-30`（`0x428A310`）"
                             + "｜🧨 改回静默 `ClearSelection()` ⇒ 本行红");
-                        Check(drv3c.SelectedSlot < 0,
-                              $"★ X19-P3①b …并且**这一手被取消了**（`SelectedSlot` 实得 {drv3c.SelectedSlot}）"
-                            + "｜原版接着 `CancelActiveAbility` / `FinishActing` / `StopShowingPotentialTargets`");
+                        // 🔴 **2026-10-25（N4）就地改断言**：原来钉的是 `SelectedSlot < 0`（= 我们旧行为「点空即把整手清掉」）。
+                        //   原版失败支**不重置** `cardSelected` / `UIstate`（只 `CancelActiveAbility` + `FinishActing` +
+                        //   `StopShowingPotentialTargets`，见 `BattleManager__FinishedChoosingAbilityTargetByClick.c:20-34`）
+                        //   ⇒ 这条**不是通用不变量**，而是这一支的**旧期望值**，已被判据推翻 ⇒ 改成「仍在选目标」。
+                        //   ⚠️ 这不是放宽：面板还在、但目标高亮与准星已收 —— 由下面 **X19-P3①c/①c2/①d**（真面板那一组）钉住。
+                        Check(drv3c.SelectedSlot == anySlot2d && drv3c.Command == AttackKind.Ability && drv3c.IsTargeting,
+                              $"★ X19-P3①b …而且**这一手没被整手清掉**（仍在选目标：槽 {drv3c.SelectedSlot} · 打法 {drv3c.Command} · IsTargeting {drv3c.IsTargeting}）"
+                            + "｜期望值依据 = `BattleManager__FinishedChoosingAbilityTargetByClick.c:32` 的调用顺序"
+                            + "（`NotifyCantDoAction → CancelActiveAbility → FinishActing → StopShowingPotentialTargets`；这一支不 FadeOut 面板、不重置 cardSelected）"
+                            + "｜🧨 改回 `ClearSelection()`（Hide 面板 + 槽归 −1）⇒ 本条红");
 
                         // ② 攻击档：取消照旧，但**不出声**（原版那条键只服务技能；攻击那档没有对应词条）
                         drv3c.SetCommandForTest(AttackKind.Melee, anySlot2d);
@@ -11116,6 +11126,28 @@ public static class BattleScene
                     Vector3 g15p, g15u; driver.ParticleColliderAt(15, out g15p, out g15u);
                     Check(Mathf.Abs(g15p.z - (pp.z + (ep.z - pp.z) * (1.463f / 1.621f))) < 0.02f,
                           "★ `GenericTarget` 落在那条比值线上（1.463 / 1.621 —— 与 `EnemyWarlord` 同一档）");
+                    // 🆕 **2026-10-25（特效代理 `D` 的需求）：地面 tag `FloorPositionReference`。**
+                    //  原版 `ParticleFindFloorCollider.Start`（`ParticleFindFloorCollider__Start.c:20-45`）：
+                    //  `if (floorCollider == null) floorCollider = GameObject.FindGameObjectWithTag(<tag>)?.transform;`
+                    //  缓存是**静态**的（全场上只有一块地面），随后 9 处挂载各自 `collisionModule.SetPlane(它)`。
+                    //  ⇒ 两条断言：① **只有 1 个**物体带这个 tag（⛔ 7 块全打会让 `FindGameObjectWithTag`
+                    //  随机返回某块竖直的墙）；② 带 tag 的那一块**就是 `Floor` 平面**（位置与 `ParticleColliderAt(0)` 一致）。
+                    //  ⚠️ 「不该出现『找不到地面』的出声」这一半：那条 `Debug.LogError` 只在
+                    //  `WFEffectExtras.ParticleFindFloorCollider`（**已废弃**、我们产品路径不调用）里；
+                    //  它在原版的等价物就是上面那句 `FindGameObjectWithTag` —— 只要这两条断言成立，
+                    //  任何调用方都找得到地面。⇒ 用「tag 存在且唯一且位置对」当那一条的可验形式。
+                    if (driver.ParticleCollidersBuilt)
+                    {
+                        var tagHits = GameObject.FindGameObjectsWithTag("FloorPositionReference");
+                        Check(tagHits.Length == 1,
+                              $"★ **只有 1 个**物体带 tag `FloorPositionReference`（实测 {tagHits.Length} 个）"
+                            + " —— 原版靠 `FindGameObjectWithTag` 找**唯一那块地面**"
+                            + "（`Floor Position Reference` 的 `m_Tag: 20001`，另 6 块都是 0 = Untagged）");
+                        if (tagHits.Length == 1)
+                            Check(Vector3.Distance(tagHits[0].transform.position, fp) < 1e-3f,
+                                  "★ 带 tag 的那一块**就是 `Floor` 平面**（位姿与 `ParticleColliderAt(0)` 一致）"
+                                + " —— 粒子碰撞面钉在地面、不是钉在某块竖直的墙上");
+                    }
 
                     // 🔴 **2026-10-12（A368）**：**同一个「兵线」还有第二个消费方** —— 锥角修正那一跳
                     //   （`WFModuleScaleByTarget.MinionLines`）。它原来**写死 2D**（`playerBoard.SlotPosition`），
@@ -12083,6 +12115,57 @@ public static class BattleScene
                                && sp.Visible,
                                   "★ T09-WIRE②：面板 `Drag` ⇒ 重进「选目标」**幂等**（选中槽/打法不变、面板不关）"
                                 + "（⚠️ 计数由面板自己发；本条同时钉「订阅者没把它做成结算 / 取消」）");
+                            // ---------- ②' 🆕 2026-10-25（N4）：**点到非法目标后：面板留着 + 能重进选目标** ----------
+                            //  判据（一手）= `BattleManager__FinishedChoosingAbilityTargetByClick.c:20-34` 的失败支：
+                            //   `NotifyCantDoAction(InvalidTarget)` → `CancelActiveAbility` → **`FinishActing`**（白层 0.3 s 淡出）
+                            //   → `StopShowingPotentialTargets` → 准星/攻击选择器关。**这一支不 FadeOut 面板**
+                            //   （FadeOut 的调用点全在成功/关闭路径）⇒ 原版面板留在屏上，再点面板走
+                            //   `TryUsingActiveAbility` → `StartChoosingAbilityTargetByClick` = 重新点亮合法目标 + 准星。
+                            //  灭自证：把 `CancelTargetChoosingByInvalidClick` 改回 `ClearSelection()` ⇒ 面板被收 / 槽归 −1 ⇒ ①②红。
+                            {
+                                // 观测量用「全场 ValidTarget 计数」而不是单张卡：`wantT >= 1` 上面已断过
+                                // （`RuleCore.CanUseAbility` 逐槽数），但**哪个槽**是合法目标由卡数据决定，⛔ 不硬猜。
+                                System.Func<int> validCntN4 = () =>
+                                {
+                                    int nn = 0;
+                                    foreach (var kv in driver.MyUnits)
+                                        if (kv.Value != null && kv.Value.State == CardHighlightState.ValidTarget) nn++;
+                                    foreach (var kv in driver.FoeUnits)
+                                        if (kv.Value != null && kv.Value.State == CardHighlightState.ValidTarget) nn++;
+                                    return nn;
+                                };
+                                int valid0N4 = validCntN4();
+                                bool ret0N4 = driver.ReticleVisible;
+                                Check(valid0N4 >= 1,
+                                      $"★ X19-P3①c（前提）：**取消之前确实点亮着合法目标**（全场 ValidTarget = {valid0N4}）"
+                                    + "｜上面已断 `wantT >= 1`（`RuleCore.CanUseAbility` 逐槽数）");
+                                int cantN4 = driver.CantDoCount;
+                                driver.SimulateInvalidTargetClick();
+                                Check(driver.CantDoCount == cantN4 + 1
+                                   && sp.Visible && driver.IsTargeting
+                                   && driver.SelectedSlot == casterSlot && driver.Command == AttackKind.Ability,
+                                      "★ X19-P3①c（N4）：技能档点到非法目标 ⇒ **出声 + 面板留着 + 仍在选目标**"
+                                    + $"（计数 {cantN4}→{driver.CantDoCount} · 面板 {sp.Visible} · 槽 {driver.SelectedSlot} · 打法 {driver.Command}）"
+                                    + "｜期望值依据 = `BattleManager__FinishedChoosingAbilityTargetByClick.c:32` 的调用顺序"
+                                    + "（这一支不 FadeOut 面板、不重置 cardSelected）"
+                                    + "｜🧨 改回 `ClearSelection()` ⇒ 面板收 / 槽 −1 ⇒ 红");
+                                Check(!driver.ReticleVisible && validCntN4() == 0,
+                                      "★ X19-P3①c2（N4）：那一下**收掉准星与目标高亮**"
+                                    + $"（原版 `StopShowingPotentialTargets` + `ToggleCrosshair(false, instant)`；"
+                                    + $"准星 {driver.ReticleVisible} · 全场 ValidTarget {validCntN4()}）"
+                                    + "｜🧨 只出声、不清高亮 ⇒ 红");
+                                int upN4 = sp.SkillPointerUpCountForTest;
+                                sp.AbilityTriggerForTest.OnPointerUp(pedW);
+                                Check(sp.SkillPointerUpCountForTest == upN4 + 1
+                                   && sp.CurrentLight == SkillPanel.Light.Acting
+                                   && validCntN4() == valid0N4
+                                   && driver.ReticleVisible == ret0N4,
+                                      "★ X19-P3①d（N4）：面板留着后再点「释放」⇒ **重进选目标**"
+                                    + $"（合法目标 {valid0N4} ← 取消后 0 → 现在 {validCntN4()}；准星 {ret0N4} → {driver.ReticleVisible}；灯 {sp.CurrentLight}）"
+                                    + "｜判据 = 原版 `TryUsingActiveAbility`（目标型）→ `StartChoosingAbilityTargetByClick`"
+                                    + "（`BattleManager.cs:44314-44340`：重新点亮 `potentialTargetInBoard` + `ToggleCrosshair(true)`）"
+                                    + "｜🧨 面板留着但点不动（不重进选目标）⇒ 红");
+                            }
                             // ③ 关闭捕获区 = 原版 `StopDisplayingSkillFromManager`
                             //   🔴 **2026-10-20（`T09-FIX5` P0-1）配对面**：这一下点在**空棋盘格**上
                             //     （不放行 ⇒ 捕获区照旧「按下即关」）。⛔ 原来用的是**自己人**那张卡 ——
@@ -14047,6 +14130,118 @@ public static class BattleScene
                 var cdw = driver.CardDisplay;
                 Check(cdw != null, "卡牌展示窗建出来了");
                 var view = driver.HandViewAt(0);
+
+                // ═══════════════════════════════════════════════════════════════════════════
+                //  🆕 2026-10-25（执行代理 `K2` · 「战斗鼠标操作」对原版）：**手牌层的两条鼠标判据**
+                //  ① **长按 ⇒ 松手不开卡面展示窗**；② **`Release` 那行日志的「拖动中」**。
+                //
+                //  判据（全量反编译现读）：
+                //   · `dc/CardScript__OnTouchDown.c:26-27` —— 按下那一刻写 `card.pressTime(+0x800)`；
+                //   · `dc/CardScript__OnTouchUpAsButton.c:19-45` —— 手牌支先算
+                //     `elapsed = Time.timeSinceLevelLoad − +0x800`，然后
+                //     `if (0.2 <= elapsed) goto 收尾;`（**跳过 `DisplayCard`**）、
+                //     `else DisplayCard(bm, card, 1, 0, 0);`，收尾只有
+                //     `if (cardState != 8) return; StopShowingCardInHand(card, 1, 0);`
+                //     ⇒ **按住 ≥0.2 s 再松手 = 不开窗**。常量 `DAT_1834b2bb0`，
+                //     `工具/read_literal.py` 现读 = **0.2f**（同地址 8 字节读是 3.05e-05 = 错的那一档）。
+                //   · 日志那条：`Release` 里原来先 `_dragging = null` 再读它 ⇒ **恒打 `拖动中=False`**，
+                //     2026-10-25 第七十七会话的真机验收据此记了一条「拖拽没起来、却落了位」的待诊断项。
+                //
+                //  ⚠️ 批处理里 `Time.timeSinceLevelLoad` **不前进**（没有帧循环）⇒ 时长必须用探针钉
+                //     （`SetPressElapsedForTest`），否则这一档永远验不到（= 假绿）。
+                //  ⛔ 本段**不改展示窗状态**（长按那一下按原版什么都不做；不发短按，免得把窗 toggle 掉
+                //     影响下面那几条按「窗开着」摆的几何断言）。
+                // ═══════════════════════════════════════════════════════════════════════════
+                {
+                    Check(view != null, "（前提）手牌第一张拿得到（下面两条要拿它当受体）");
+                    bool wasOpenK2 = cdw.Visible;
+                    int tapsK2 = 0;
+                    System.Action<CardView> onTapK2 = _ => tapsK2++;
+                    it.OnTapped += onTapK2;
+                    int handN0 = it.HandCardCountForTest;
+                    try
+                    {
+                        // ⚠️ 夹具前提：`CardInteraction.UpdateHover` / `PickUp` 在**重排动画闸**
+                        //    （`IsDoingAnim`，0.2 s，`CardTween.RelayoutDuration`）里一律早退
+                        //    ⇒ 上一把重排还没推完就按下，`HoveredCard` 恒 null、攻击/轻点都收不到
+                        //    （会变成**假红**，与 `HandAssertE8` 记的是同一个坑）。
+                        //    用 `CardTween.Advance`（只泵补间、不推对局时钟）把它推完。
+                        CardTween.Advance(0.30f);
+
+                        // ---- ① 长按（0.50 s）⇒ 不算轻点、不开窗 ----
+                        it.SetPressElapsedForTest(0.50f);
+                        Check(Mathf.Abs(it.PressElapsedForTest - 0.50f) < 1e-4f,
+                              $"（前提）探针把「这一按按了多久」钉成 0.50 s（实得 {it.PressElapsedForTest:F2}s）");
+                        Check(!it.PressShortEnoughForTest,
+                              $"（前提）0.50 s ≥ 门限 {CardInteraction.LongPressNoDisplaySeconds:F2}s ⇒ "
+                            + "判定为「长按」");
+                        int t0 = tapsK2;
+                        it.SimulateHover(view.transform.position);
+                        it.SimulatePress(view.transform.position);
+                        it.SetPressElapsedForTest(0.50f);      // 按下之后（`PickUp` 会写 `_pressTime`）
+                        it.SimulateRelease(view.transform.position);
+                        CardTween.Advance(0.30f);              // 收干净那一把重排（闸 0.2 s）
+                        Check(tapsK2 == t0,
+                              "★ K2-a：**按住 0.50 s 再松手 ⇒ 不算轻点、不开卡面展示窗**"
+                            + $"（原版 `CardScript__OnTouchUpAsButton.c:37-44` 的 `0.2 <= elapsed` 支；"
+                            + $"时长门 = `CardInteraction.LongPressNoDisplaySeconds` = "
+                            + $"{CardInteraction.LongPressNoDisplaySeconds:F2}s = `DAT_1834b2bb0`）"
+                            + $"；实得轻点次数 {t0} → {tapsK2}"
+                            + "｜🧨 把 `PressShortEnough` 从 `Release` / `EndPressCandidate` 里删掉 "
+                            + "⇒ 这一下会被当成轻点 ⇒ 红");
+                        Check(cdw.Visible == wasOpenK2,
+                              "★ K2-a″：长按那一下**不改**展示窗状态（原版那一支只 `StopShowingCardInHand`，"
+                            + "不碰 `DisplayCard`）");
+                        Check(it.HandCardCountForTest == handN0,
+                              $"★ K2-a‴：长按松手**不出牌**（手牌张数 {handN0} 不变）");
+
+                        // ---- ①′ 判别式：同一道门在 0.05 s 下必须是「短按」 ----
+                        //   ⚠️ 不发那一下（会 toggle 掉窗口、影响下面那几条几何断言）—— 只读判据本体。
+                        //   正例（短按真的开窗）由**上面那段 `void Tap()` 的既有断言**承担，不重复。
+                        it.SetPressElapsedForTest(0.05f);
+                        Check(it.PressShortEnoughForTest,
+                              $"★ K2-a′（判别式）：0.05 s < {CardInteraction.LongPressNoDisplaySeconds:F2}s ⇒ "
+                            + "判成「短按」（同一道门）"
+                            + " —— 与 K2-a 不同源：门写成恒真只有 K2-a 红、写成恒假只有本条红");
+
+                        // ---- ② `Release` 日志里的「拖动中」不再是恒 False ----
+                        //   判别式：**松手前** `Dragging != null`（拖拽态真的在），**日志里**也必须写 True。
+                        //   落点故意选在手牌带（棋盘格位之上才算格位）⇒ `MissedSlot` 正常取消，不会出牌。
+                        it.SetPressElapsedForTest(null);
+                        var homeK2 = view.transform.position;
+                        var awayK2 = homeK2 + new Vector3(0.90f, 0.05f, 0f);
+                        it.SimulateHover(homeK2);
+                        it.SimulatePress(homeK2);
+                        Check(it.Dragging != null,
+                              "（前提）按下之后**真的进了拖拽态**（`CardInteraction.Dragging != null`）");
+                        it.SimulateDrag(awayK2, 0.05f);
+                        it.SimulateDrag(awayK2, 0.05f);
+                        it.SimulateRelease(awayK2);
+                        string logK2 = it.LastReleaseLogForTest ?? "";
+                        Check(logK2.Contains("拖动中=True"),
+                              "★ K2-b：`Release` 那行日志写的是**松手那一刻的真实状态**（`拖动中=True`）"
+                            + $"｜实得：`{Short(logK2, 90)}`"
+                            + "｜🧨 把实现改回「先 `_dragging = null` 再读它」⇒ 恒打 `拖动中=False` ⇒ 红"
+                            + "（2026-10-25 真机就是被这一格骗出了一条「拖拽根本没起来」的待诊断项）");
+                        Check(logK2.Contains("来源=手牌层"),
+                              "★ K2-b′：同一行还写明**是哪一层吃下的这一下**（`来源=手牌层(Release)`）"
+                            + " —— 判别式：场上单位的按压走 `BattleDriver.BoardPress`、"
+                            + "它们的视图在 `_myUnits`/`_foeUnits`，**从不进 `_cards`** ⇒ 手牌命中不可能吃到");
+                        Check(it.HandCardCountForTest == handN0,
+                              $"（前提）上面那一下落在手牌带里 ⇒ **正常取消**、牌回手（张数仍 {handN0}）");
+                    }
+                    finally
+                    {
+                        it.OnTapped -= onTapK2;
+                        it.SetPressElapsedForTest(null);
+                        // ⚠️ 这一段结尾**必须**把这把重排推完 + 把 hover 清干净：
+                        //    紧接其后的 `void Tap()` 会先 `SimulateHover`，而重排闸（0.2 s）还在的话
+                        //    `UpdateHover` 直接早退 ⇒ `_hovered` 恒 -1 ⇒ 那一段「轻点开窗」会**假红**。
+                        CardTween.Advance(0.30f);
+                        it.SimulateHover(new Vector3(0f, -999f, 0f));   // 指针挪到界外 ⇒ 清 hover
+                        CardTween.Advance(0.30f);
+                    }
+                }
 
                 void Tap()
                 {
@@ -28129,6 +28324,84 @@ public static class BattleScene
         }
 
 
+        // ---- 19-z. 🆕 2026-10-25（完全复刻 · 执行代理 A · 第 3 轮）：**目标型单位卡的两段式手势**（表现半）----
+        //   引擎半在 `RuleEngineTest.TestA2AttackGateAndPlayTarget`（池 + `chosen` 真的生效）；
+        //   这一节验的是**驱动那一半**：落位后进不进「等点目标」态 / 点中 ⇒ 打出去 / 点空白 ⇒ 牌留手里 /
+        //   **回放局不进**（原版 `NeedToChooseMinionTarget` 的 `matchType != 0xA0` 那条闸）。
+        //   判据链（逐段现读）：`BattleManager__NeedToChooseMinionTarget.c:7-19` →
+        //   `_ResolvePlayCardFromHand_d__447__MoveNext.c:849-860` → `_ChooseUnitTarget_d__780__MoveNext.c:24-75`
+        //   （`ShowPotentialTargets(mode=1)` + 等 `UIstate 9`）→ `Update.c:1103-1163`（点目标校验）→
+        //   `:903-970`（取消 ⇒ 整张回手）。
+        Debug.Log(P + "--- 两段式选目标（targeted 单位卡）---");
+        {
+            // 一张**夹具** targeted 单位卡：`Rally: Deal 2 damage to an enemy`（不含 `troop` ⇒ 敌方督军也是合法目标，
+            //   这样不用往对面板上塞单位就能验「点中了谁」）。
+            var tdef = new RuleEngine.CardDef("SelfTestTargeted", "SelfTestTargeted", "unit",
+                                              "Rally: Deal 2 damage to an enemy",
+                                              "common", "Test", 0, 1, 5, 0, null, targeted: 1);
+            Check(BattleDriver.NeedsUnitTargetAfterDeploy(tdef),
+                  "夹具自检：`NeedsUnitTargetAfterDeploy` 认这张卡（原版 `NeedToChooseMinionTarget` 的卡属性那一半）");
+
+            driver.SetReplaySessionForTest(false);
+            driver.Begin(BattleDriver.DefaultFactionA, BattleDriver.DefaultFactionB, 20261025);
+            Step(BattleDriver.TurnHeadsUpHold + 0.05f);
+            ctx = driver.Ctx;                                  // 重建过对局 ⇒ 重新取
+            Check(ctx != null && !ctx.IsOver, "夹具前提：重建之后对局还在进行");
+
+            // ① 落位 ⇒ 进「等点目标」态
+            ctx.Players[0].Hand.Add(ctx.NewInstance(tdef));
+            ctx.Players[0].Energy = 9;
+            driver.RefreshAll();
+            Step(BattleDriver.TurnHeadsUpHold + 0.05f);
+            int hi = -1;
+            for (int i = 0; i < ctx.Players[0].Hand.Count; i++)
+                if (ReferenceEquals(ctx.Players[0].Hand[i].Card, tdef)) { hi = i; break; }
+            Check(hi >= 0, "夹具：注入的 targeted 卡在手牌里");
+            int foeHp0 = ctx.Players[1].Warlord.Health;
+            int hand0 = ctx.Players[0].Hand.Count;
+
+            bool dropped = driver.SimulateCardDroppedForTest(hi, 2);
+            Check(dropped && driver.AwaitingPlayTarget,
+                  "★ **落位后进「等点目标」态**（原版 `UIstate == 9` 那一段；改前是一路自动挑目标）");
+            Check(ctx.Players[0].Hand.Count == hand0,
+                  "★ 等目标期间**牌还没离开手牌**（我们的形状：点定目标后才一次 `PlayCard`；"
+                  + "原版是「先落位、取消再撤回」—— 净效果相同，差别已在报告里如实标）");
+
+            // ② 点敌方督军（合法目标）⇒ 打出去 + 2 点落到它身上
+            bool picked = driver.SimulatePlayTargetPickForTest(1, BoardSpec.WarlordSlot);
+            Check(picked && !driver.AwaitingPlayTarget,
+                  "★ 点中合法目标 ⇒ **退出**等目标态");
+            Check(ctx.Players[0].Hand.Count == hand0 - 1,
+                  "★ ……而且牌真的打出去了（手牌 −1）");
+            Check(foeHp0 - ctx.Players[1].Warlord.Health == 2,
+                  $"★ **点定的那个挨了 2 点**（敌方督军 {foeHp0} → {ctx.Players[1].Warlord.Health}）"
+                  + " —— 玩家点的目标真的进了结算，不是池头那个");
+
+            // ③ 取消：再注入一张，落位后**点空白** ⇒ 牌留在手里、退出等目标态
+            ctx.Players[0].Hand.Add(ctx.NewInstance(tdef));
+            ctx.Players[0].Energy = 9;
+            driver.RefreshAll();
+            Step(BattleDriver.TurnHeadsUpHold + 0.05f);
+            hi = -1;
+            for (int i = 0; i < ctx.Players[0].Hand.Count; i++)
+                if (ReferenceEquals(ctx.Players[0].Hand[i].Card, tdef)) { hi = i; break; }
+            int hand1 = ctx.Players[0].Hand.Count;
+            Check(driver.SimulateCardDroppedForTest(hi, 2) && driver.AwaitingPlayTarget,
+                  "夹具：第二张同样进「等点目标」态");
+            bool cancelled = driver.SimulatePlayTargetPickForTest(-1, -1);      // -1 = 点空白
+            Check(cancelled && !driver.AwaitingPlayTarget, "★ 点空白 ⇒ **取消**（退出等目标态）");
+            Check(ctx.Players[0].Hand.Count == hand1,
+                  "★ ……**牌留在手里**（原版 `:903-970` 是「落位后撤回手牌」，终点一致：牌回到手里）");
+
+            // ④ 回放局**不进**两段式（原版 `matchType != 0xA0`）
+            driver.SetReplaySessionForTest(true);
+            bool dropped2 = driver.SimulateCardDroppedForTest(hi, 2);
+            Check(!driver.AwaitingPlayTarget,
+                  "★ **回放局不进两段式**（原版 `NeedToChooseMinionTarget` 的 `matchType != 0xA0`）");
+            driver.SetReplaySessionForTest(false);
+            Debug.Log(P + "   （回放那一手仍走了正常的落位入口 dropped=" + dropped2+ "；被只读闸挡下 —— 只记录，不断言结果）");
+        }
+
         // ---- 20. 选牌面板（原版 `ChooseCardMenu`）：引擎不再替玩家挑 ----
         //   引擎那半在 `RuleEngineTest.TestPlayerChoice`（含「不同下标 → 不同卡」那条硬判据）；
         //   这一节验的是**表现层那半**：面板真的弹出来、点得动、选完关得掉。
@@ -29136,6 +29409,24 @@ public static class BattleScene
             //   ⛔ 期望值跟**画布矩形**走（`Expand` 档下屏比画布高时它不是 1080）。
             box(a218Choose.PanelRect, "选牌面板**本体**（画布上）", a218CvW, a218CvH,
                 "原版 `ChooseCardMenu`（stretch ⇒ **铺满父画布**）");
+            // 🆕 2026-10-25（`E` · 账 366/369/375）：**选牌面板倒计时**的文案格式 + 空选守卫。
+            //   判据（🥇 ILSpy `ChooseCardMenu.cs`）：`SetTimer`/`CountdownTrigger` 的确认钮文案是
+            //   **`$"0:{counter:00}"`**；`CountdownTrigger` 里 `counter < 3` 才 `ProcessChooseDone`。
+            //   ⚠️ 这里**不测随机选**（要真卡视图；而那一步的判据是 `Random.Range(0, size)`，无可断言的形态）。
+            a218Choose.Open(new List<CardView>(), "countdown-probe");
+            a218Choose.SetTimer(7);
+            Check(a218Choose.TimerTextForTest == "0:07",
+                  "选牌倒计时文案 = 原版 `$\"0:{ss:00}\"`"
+                + $"（实得 `{a218Choose.TimerTextForTest}`）");
+            Check(!a218Choose.ConfirmNow(),
+                  "一张都没选 ⇒ `ConfirmNow` 不提交（⛔ 不静默造一个空选择）");
+            Check(!a218Choose.CountdownTrigger(5),
+                  "`counter >= 3` ⇒ 只更新文案、不自动确认（原版 `counter < 3` 才 `ProcessChooseDone`）");
+            Check(a218Choose.TimerTextForTest == "0:05",
+                  $"倒计时每喂一次都要刷新文案（实得 `{a218Choose.TimerTextForTest}`）");
+            a218Choose.Close();
+            Check(a218Choose.TimerTextForTest != "0:05",
+                  "关面板后确认钮要还原成真文案（⛔ 别把 `0:05` 留到下一次开面板）");
             var a218Log = BattleLogPanel.Create(a218root.transform);
             // 🔴🔴 **2026-10-16（`T09` 批 2）：这一扇已迁到子画布** ⇒
             //   ① 两个节点都换**画布矩形**口径（上面那个 `a218CvW/H`）；
@@ -34809,6 +35100,27 @@ public static class BattleScene
                           && driver.Settings.SkipTutorialText == Loc.T(SettingsPanel.SkipTutorialTerm),
                           "★ 而且那颗钮**真建出来了**、字 = 词条 `Battle/Settings/SkipTutorial`"
                         + $"（实测「{driver.Settings.SkipTutorialText}」；原版 TMP 原文 `Skip tutorial`、fs38、同 `Resign`）");
+                    // 🆕 **2026-10-25（`E`）**：**matchType 的两条判据**（原版 `BattleSettingsWindow__Open.c:41-121`）
+                    //   ① `skipTutorialButton.SetActive(matchType == Tutorial(100))` —— **它的闸是 matchType、不是面板开关**
+                    //      （本文件上一段那句「跟着面板开关走」只对**不知道 matchType** 的旧行为成立）；
+                    //   ② 回放局（`MatchType.Replay = 160`）投降钮文案换 `Battle/Settings/Exit`。
+                    //   🧨 改坏法：`SetActive` 里那句 `on && SkipWanted` 改回 `on`、或 `ResignTermNow` 恒回 ResignTerm ⇒ 下面三条红。
+                    driver.Settings.SetMatchType(RuleEngine.MatchType.Tutorial);
+                    Check(driver.Settings.SkipTutorialShown,
+                          "★ ① matchType = **Tutorial(100)** ⇒ 「跳过教程」钮**显示**（此时面板是开着的）");
+                    driver.Settings.SetMatchType(RuleEngine.MatchType.Replay);
+                    Check(!driver.Settings.SkipTutorialShown,
+                          "★ ① matchType = **Replay(160)** ⇒ 那颗钮**隐藏**（原版首句 `SetActive(matchType==Tutorial)`）"
+                        + "｜🧨 闸只看面板开关 ⇒ 本条红");
+                    Check(driver.Settings.ResignText == Loc.T("Battle/Settings/Exit"),
+                          $"★ ② 回放局投降钮文案 = `Battle/Settings/Exit`（实测「{driver.Settings.ResignText}」"
+                        + $"、应「{Loc.T("Battle/Settings/Exit")}」）");
+                    driver.Settings.SetMatchType(RuleEngine.MatchType.Practice);
+                    Check(!driver.Settings.SkipTutorialShown
+                          && driver.Settings.ResignText == Loc.T(SettingsPanel.ResignTerm),
+                          "★ ① ② 非教程/非回放（Practice）⇒ 无 Skip 钮、投降钮文案回 `Battle/Settings/ResignButton`");
+                    // 收尾复位成 Tutorial：让下文「关掉面板 ⇒ 那颗钮收回去」仍在同一前提下验（SkipWanted = true）。
+                    driver.Settings.SetMatchType(RuleEngine.MatchType.Tutorial);
                     // 🔴 **灭自证（结构）**：那颗钮**必须长在设置面板那棵树下**。
                     //    ⛔ 只断「`SkipTutorialShown` 跟着面板开关走」**不够** —— 把钮建回 `TutorialOverlay`
                     //    的 HUD 子树、再把 `SkipTutorialShown` 改成读 HUD 那一颗，**两边一起改照样全绿**。

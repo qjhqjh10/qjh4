@@ -747,9 +747,9 @@ namespace CardPresentation
         // ---- §五 A：整屏背景 = `Image(sprite=0)` + **双色渐变**（不是图、也不是 3D）----
         // 🔴 **2026-09-27 修：角度要传 188°，不是原版字段里的 82**（我们把方向画反过 —— 修前是「近乎垂直、上暗下亮」，
         //   原版是「近乎水平、左暗右亮」）。换算与实测表 → `资料/主菜单_原版规格.md` §A 那条「背景渐变的角度约定」：
-        //   原版那个组件是 Asset Store 的 `UIGradient`，方向 = **`(sin θ, cos θ)`**；
-        //   我们 `CardArt.Gradient` 用 `(cos θ, sin θ)` ⇒ 同一个 82 传进去差 90°；
-        //   再翻 180°（我们助手的 `c1` 在 `t=0` 端，而原版亮色在**右侧**）⇒ **188**。
+        //   原版那个组件是 Asset Store 的 `UIGradient`。🔴 **2026-10-25 就地订正（铁律 5 · 代理 D 现核）**：原来这里写「原版方向是 (sin,cos)、我们助手是 (cos,sin) ⇒ 差 90°」——**「差 90°」这个说法不准确**。实际：① `RotationDir(θ)` 返回的是 **`(cosθ, sinθ)`**（`UIGradientUtils__RotationDir.c:9-11`）；② **有效渐变轴**才是 **`(sinθ, cosθ)`**（`UIGradient__ModifyMesh.c:148-149` + `LocalPositionMatrix.c:20-27` 用它做投影）；③ 我们 `CardArt.Gradient` 的最大变暗方向是 `(cos φ, sin φ)` ⇒ 要还原同一张图，换算是 **φ = 90° − θ + 180°（镜像 + 反色序；180° 来自 `c1` 所在端与原版亮端相反）**。⚠️ **数值 188 是对的**（90 − 82 + 180 = 188）—— 这次**只订正理由、不动数值**。
+        //   ⚠️ 旧措辞（留痕，⛔ 别照抄）：曾写「原版方向 `(sinθ,cosθ)`、我们 `(cosθ,sinθ)` ⇒ 差 90°，再翻 180°」——
+        //   那两步**分开看都不对**（`RotationDir` 本身就是 `(cos,sin)`，有效轴才是 `(sin,cos)`）。
         //   ⚠️ **别把它记成「原版写的就是 188」** —— 原版字段就是 82，188 是换算到我们约定之后的值。
         void BuildBackground(Transform root)
         {
@@ -763,7 +763,8 @@ namespace CardPresentation
             //      两处是**世界单位**的正确用法（那两条口要的就是世界单位），**没动、别顺手改**。
             var go = New(root, "Background", 1920f, 1080f);
             var quad = ImageQuad.Create(go, CardArt.Gradient(new Color(0.224f, 0.012f, 0.020f),
-                                                             new Color(0.047f, 0f, 0.016f), 188f),
+                                                             new Color(0.047f, 0f, 0.016f), 188f,
+                                                             1080f / 1920f),   // 整屏 1920×1080 ⇒ h/w（原版 CompensateAspectRatio）
                                         Vector3.zero, LayoutSpace.DesignHeight,
                                         new Vector2(0.5f, 0.5f), "Gradient");
             if (quad == null) return;
@@ -1265,8 +1266,17 @@ namespace CardPresentation
             // 🔴 **只有 REWARDS（第 4 个导航钮）有真实的通知源** —— 原版它由 `Missions.CheckNotification` 驱动；
             //    其余四个我们**没有通知源** ⇒ 按 `Hide()` 的样子 **alpha = 0**（不是画一个假的灰点）。
             var badgeR = new PxRect(117.8f, y1 + 91.7f, 152.8f, y1 + 126.7f);
-            Rect(b, "40K_notification_number", badgeR.x1, badgeR.x2, badgeR.y1, badgeR.y2, "Badge Highlight", QContent,
-                 BadgeAlpha(idx == 3 && DailyData.RewardsHasBadge));
+            var badgeQuad = Rect(b, "40K_notification_number", badgeR.x1, badgeR.x2, badgeR.y1, badgeR.y2, "Badge Highlight", QContent,
+                 BadgeAlpha(false));   // 底色出厂 alpha 0（原版 `Awake` 第一句）；真正的显隐/计数交给下面那一层
+            // 🆕 **2026-10-25（复刻第 1 轮 · 代理 H）**：红点接上原版那套「通知 → 聚合器 → 徽记」。
+            //   判据（逐份现读 `bundle_scenes_scenes_mainmenuwarpforge` 的 `notificationDefinitions`）：
+            //     Home **空**（永不亮）· Collection `CollectionBadge` · Shop `ShopBadge`+`InventoryBadge` ·
+            //     Rewards `RewardsBadge`（useFilter=1 / parentId=""）· Social `SocialBadge`。
+            //   ⚠️ 原来这里是一句 `BadgeAlpha(idx == 3 && DailyData.RewardsHasBadge)`（静态 bool + 瞬切 alpha）
+            //      ⇒ 没有**计数**、没有**补间**、没有**类型继承**（`MissionsBadge : RewardsBadge` 那条）。
+            //   详细判据/差异 → `Shell/BadgeNotifications.cs` 文件头。
+            BadgeWiring.Attach(badgeQuad, badgeR, b, QText, BadgeTint,
+                               BadgeWiring.DefinitionsFor(NavBadgeKey(idx)), "Nav[" + idx + "]");
 
             // 点击区（**原版口径 = 可射线件的并集**，⛔ 不是整颗钮高）。
             // 原版每个导航钮上挂的是 `OpenWindowButton{windowToOpenPrefab, windowPayload}`：
@@ -1974,6 +1984,21 @@ namespace CardPresentation
         /// <summary>红点默认 **alpha 0**（= 原版 `Hide()` 之后的样子）。</summary>
         public static Color BadgeAlpha(bool on) { return new Color(BadgeTint.r, BadgeTint.g, BadgeTint.b, on ? 1f : 0f); }
 
+        /// <summary>导航钮序号 → 原版那条接线表里的键（`BadgeWiring.DefinitionsFor` 用）。
+        /// 0 PLAY/Home · 1 COLLECTION · 2 SHOP · 3 REWARDS · 4 SOCIAL · 5 EVENT（原版 EVENT 那颗**没有**红点）。</summary>
+        static string NavBadgeKey(int idx)
+        {
+            switch (idx)
+            {
+                case 0: return "Home";
+                case 1: return "Collection";
+                case 2: return "Shop";
+                case 3: return "Rewards";
+                case 4: return "Social";
+                default: return "None";
+            }
+        }
+
         // ---- §五 B：顶栏 —— 🔴 **2026-10-17（B25）整段已删，实现在 `Shell/TopBar.cs`** ----
         //
         // 这里原来是 `BuildUpperBar` / `BuildPlayerProfile`（以及下面 A374 那一带的 `BuildResourcesBar`、
@@ -2208,7 +2233,20 @@ namespace CardPresentation
         /// **同一个函数**（`DeckRuntime.UiRefreshTopAvatar`）；这里只转调，签名与语义不变。</summary>
         public void RefreshTopAvatarIfChanged() { TopBar.RefreshTopAvatarIfChanged(_topBar, NoteMissingArt); }
 
-        void Update() { RefreshTopAvatarIfChanged(); TickNavPanelTween(); RefreshDraftModeCard(); }
+        /// <summary>🔴 **2026-10-25（H · 复刻第 2 轮 · P1）**：顶栏资源数字跟着 `Wallet` 刷（变了才写）。
+        /// 判据与「为什么只刷字不重算药丸宽」→ `Shell/TopBar.RefreshCountersIfChanged` 的 doc。
+        /// ⚠️ 批处理下 `Update` 不跑 ⇒ **自检直接调这个方法**（所以它是 public 的，与头像那条同口径）。</summary>
+        public void RefreshTopBarCountersIfChanged() { TopBar.RefreshCountersIfChanged(_topBar); }
+
+        void Update()
+        {
+            RefreshTopAvatarIfChanged();
+            RefreshTopBarCountersIfChanged();
+            // 🆕 2026-10-25：资源数字滚动（原版 `UIResourceCounter.SetQuantity(..., animated=1)` 的 0.5 s 递增）
+            TopBar.StepCounters(_topBar, Time.deltaTime);
+            TickNavPanelTween();
+            RefreshDraftModeCard();
+        }
 
         /// <summary>自检用：顶栏那块立绘（**一张头像图都加载不到时会是 null** —— 那种情况按出厂态处理：只剩盾）。</summary>
         public ImageQuad TopAvatar { get { return _topBar != null ? _topBar.TopAvatar : null; } }
@@ -2587,6 +2625,17 @@ namespace CardPresentation
         /// <summary>自检用：模式卡滚动区（批处理没有滚轮事件 ⇒ 直调 `Wheel/ScrollBy`，与真滚同一条）。
         /// ⚠️ 滚动会**重建**卡节点 ⇒ 取 `CardTransformAt` 之类引用之前要用最新的。</summary>
         public MenuScroll ModeScroll { get { return _modeScroll; } }
+
+        /// <summary>🆕 **2026-10-25（菜单 C）**：原版 `MainMenuWindow.ToggleScroll(bool)`（`:388`）——
+        /// 直接 `scrollList.enabled = option`（`MainMenuWindow__ToggleScroll.c`）。
+        /// 我们的等价物 = `MenuScroll.Enabled`（`PointerLayer` 的命中/滚轮/惯性都看它）。</summary>
+        public void ToggleScroll(bool option)
+        {
+            if (_modeScroll != null) _modeScroll.Enabled = option;
+        }
+
+        /// <summary>自检读口：主菜单横向滚动区当前是否可滚。</summary>
+        public bool ScrollEnabledForTest { get { return _modeScroll != null && _modeScroll.Enabled; } }
 
         /// <summary>模式卡点下去 = **进对应模式的界面**（用户 2026-09-24 拍板的那条路）。
         /// ⚠️ 映射是**我们定的**（见 `BuildGameModes` 上方那段）；窗还没建的那两个**出声**，不静默。</summary>

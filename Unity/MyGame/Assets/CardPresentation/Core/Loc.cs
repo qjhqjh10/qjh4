@@ -962,19 +962,27 @@ namespace CardPresentation
             { "Card_Race/Infantry",            new Entry("步兵",       "Infantry") },           // ★实拍；zh_CN.csv:6363
             { "Card_Race/Vehicle",             new Entry("载具",       "Vehicle") },            // ★实拍；zh_CN.csv:6365
             { "Card_Race/Warlord",             new Entry("战将",       "Warlord") },            // ★实拍；⚠️ zh_CN.csv:15 那条通用词 2026-10-18 起也是「战将」（A877，原来写「督军」）
-            { "Card_Race/Defence",             new Entry("防御",       "Defence") },            // zh_CN.csv:6367
+            // 🔴 **2026-10-25（`E` 卡牌面/渲染域 · `K4` §②·D9 值那一半）**：下面这 6 条的**键**改成原版
+            //    `SpellType` 枚举名、**值**改成官方 zh-CN 表（`数据/游戏数据/官方本地化_en+zh-CN.json`）——
+            //    判据（一手）：`GameStaticData__CardRaceToString.c` = `GetTranslation("Card_Race/" + Enum.ToString(spellType))`；
+            //    官方值现读：`PsychicPower = 心灵力量` · `CombatElixir = 战斗灵药` · `Genomic = 基因增强` ·
+            //    `OverlordPower = 霸主力量` · `DefensiveCard = 防守` · `MarkOfChaos = 黑暗契约`。
+            //    ⛔ 原来的带空格键（`Card_Race/Psychic Power` …）**已删** —— 同一件事留两份写法 = 迟早不一致；
+            //    卡表写法 → 枚举名的那一步只在 `CardView.RaceKeyBySubtype`（唯一一处）里做。
+            //    （这批共 **57 张卡**的卡面底部那行字因此与官方对齐；英文档的值与官方原本相同。）
+            { "Card_Race/DefensiveCard",       new Entry("防守",       "Defence") },            // 2026-10-25 D9：官方 zh（原「防御」）
             { "Card_Race/Monster",             new Entry("怪物",       "Monster") },            // zh_CN.csv:6369
             { "Card_Race/Beast",               new Entry("野兽",       "Beast") },              // zh_CN.csv:6372
-            { "Card_Race/Battlesuit",          new Entry("战斗服",     "Battlesuit") },         // zh_CN.csv:6374// zh_CN.csv:6374
+            { "Card_Race/Battlesuit",          new Entry("战斗服",     "Battlesuit") },         // zh_CN.csv:6374
             { "Card_Race/Drone",               new Entry("无人机",     "Drone") },              // zh_CN.csv:6377
-            { "Card_Race/Psychic Power",       new Entry("灵能",       "Psychic Power") },      // zh_CN.csv:6375
-            { "Card_Race/Combat Elixir",       new Entry("战斗药剂",   "Combat Elixir") },      // zh_CN.csv:6391
+            { "Card_Race/PsychicPower",        new Entry("心灵力量",   "Psychic Power") },      // 2026-10-25 D9：官方 zh（原「灵能」）
+            { "Card_Race/CombatElixir",        new Entry("战斗灵药",   "Combat Elixir") },      // 2026-10-25 D9：官方 zh（原「战斗药剂」）
             { "Card_Race/Daemon",              new Entry("恶魔",       "Daemon") },             // zh_CN.csv:6381
             { "Card_Race/Secret",              new Entry("秘密",       "Secret") },             // 🔴 2026-10-23：ZH = 官方值（原「隐秘」取自 zh_CN.csv:404）
-            { "Card_Race/Dark Pact",           new Entry("黑暗契约",   "Dark Pact") },          // zh_CN.csv:378（`CardText.KeywordZhNames` 的 darkpact 同值）
+            { "Card_Race/MarkOfChaos",         new Entry("黑暗契约",   "Dark Pact") },          // 2026-10-25 D9：键 = 枚举名（值同官方）
             { "Card_Race/Sabotage",            new Entry("破坏",       "Sabotage") },           // zh_CN.csv:403（…的 sabotage 同值）
             { "Card_Race/Codicil",             new Entry("附则",       "Codicil") },            // 🔴 2026-10-23：ZH = 官方值（原「法典」取自 zh_CN.csv:6408）
-            { "Card_Race/Genomic Enhancement", new Entry("基因强化",   "Genomic Enhancement") },// zh_CN.csv:387
+            { "Card_Race/Genomic",             new Entry("基因增强",   "Genomic Enhancement") },// 2026-10-25 D9：官方 zh（原「基因强化」）
             // 🔴 **2026-10-18（A879）就地改值：中文列 `计策` → **`祈唤`**** —— 三条判据（主对话已亲核）：
             //   ① **原值 `计策` 与「卡类别」撞名**：`type='tactic'` 那类卡在 PnP 目录里就叫 `4计策/`
             //      （`d:/2/Warpforge部队卡片/Tau/4计策/Warpforge_52_Sense-of-Stone.png` 那一族），
@@ -993,7 +1001,7 @@ namespace CardPresentation
             //         「我们直接使用解包资料，不要被 Godot 时代的账这些干扰」。
             //      ⇒ 引用它时按「**人工参考表**」看；要换官方值走 `A1762`/`A1763` 那批迁移。
             { "Card_Race/Invocation",          new Entry("祈祷",       "Invocation") },         // zh_CN.csv:6386（A879：原值「计策」与卡类别 `4计策/` 撞名）
-            { "Card_Race/Overlord Power",      new Entry("霸主之力",   "Overlord Power") },     // zh_CN.csv:6384
+            { "Card_Race/OverlordPower",       new Entry("霸主力量",   "Overlord Power") },     // 2026-10-25 D9：官方 zh（原「霸主之力」）
             { "Card_Race/Rune",                new Entry("符文",       "Rune") },               // zh_CN.csv:6385
             // ------------- 现在**不印**的 24 个（列全，白名单哪天长了不用回头补）-------------
             { "Card_Race/Ability",             new Entry("能力",       "Ability") },            // zh_CN.csv:6368
@@ -1638,6 +1646,32 @@ namespace CardPresentation
             //   （`Shell/**` 不在 `G8` 的白名单里）⇒ 两半在**英文档**下会分叉，已记进交件报告。
             { "MenuDeck/Error/SaveFailed",              new Entry("写不进存档文件", "Could not write the save file") },
 
+            // ============================================================ 🆕 **2026-10-25（`E`）：官方 `InvalidDeck` 两族（含两条 `/Short`）**
+            //
+            // 🔴 **判据（一手）**：官方本地化表 `数据/游戏数据/官方本地化_en+zh-CN.json` 现读
+            //   （`MenuDeck/Error/*` 共 **15** 条；其中**只有 2 条**带 `/Short`）：
+            //     · `InvalidDeck`                = en `The deck selected is not valid, please edit it or choose another deck.`
+            //                                      / zh `所选卡组无效，请编辑或选择其他卡组。`
+            //     · `InvalidDeck/Short`          = en `Invalid Deck` / zh `无效卡组`
+            //     · `InvalidDeckBannedCards`     = en `The deck has banned cards` / zh `卡组有禁用的张牌`
+            //     · `InvalidDeckBannedCards/Short` = **与上一条同值**（官方两列都是同一句）
+            // ⚠️ **这两条长键原来不在本表里** ⇒ `RuleEngine.DeckRules.Describe(InvalidDeck)` /
+            //   `EffectOnlyCard`（`A1872` 起归 `InvalidDeck`）走到显示层时 `Loc.T` 会把**键名**印出来
+            //   （`DeckInfoPopup` 的校验提示就是这条链）。⇒ 这次一并补齐（不是只为 `/Short`）。
+            // 🔴 **短档的消费点 = 遭遇事件窗左列那一行**（原版 `SkirmishEventWindow.OnDeckSelected.c:499-505`：
+            //   `bannedCardInDeckText.text = DeckUtility.ToShortLocalizedString(deckError)`；
+            //   `DeckUtility.ToShortLocalizedString` = `MenuDeck/Error/<枚举名>/Short`、缺键回
+            //   `MenuDeck/Error/InvalidDeck/Short`）。引擎侧 = `DeckRules.DescribeShort`（A 2026-10-25 加）。
+            // ⛔ **不要给其它 13 条补 `/Short`** —— 官方没有，原版对它们一律回长档。
+            // 断言 → `Editor/CardBaseDemo.cs` 的 `AssertDeckErrorShortKeys`（键解析结果 ≠ 键名；删词条即红）。
+            // 🔴 **长键 `MenuDeck/Error/InvalidDeck` 不在本段定义** —— 它已在本表 §⑥「卡组不合法那条兜底键」里（见下方
+            //   `MenuShop/ExtraLegendaryWarning` 之后那节）。同一张表**不许出现两次同一个键**：这里是字典初始化器，
+            //   重复键会抛 `ArgumentException` ⇒ **`Loc` 静态构造失败 ⇒ 任何走本地化的路径全部崩**，而**编译期查不出来**。
+            //   （2026-10-25 踩过一次：`CardFaceProbe.Run` 当场 `TypeInitializationException`。）
+            { "MenuDeck/Error/InvalidDeck/Short",            new Entry("无效卡组", "Invalid Deck") },
+            { "MenuDeck/Error/InvalidDeckBannedCards",       new Entry("卡组有禁用的张牌", "The deck has banned cards") },
+            { "MenuDeck/Error/InvalidDeckBannedCards/Short", new Entry("卡组有禁用的张牌", "The deck has banned cards") },
+
             // ============================================================ 🆕 **2026-10-18（`G9`）：`DeckRules.Describe` 那一族**
             //
             // 🔴 **为什么有这一段**：`RuleEngine/Core/DeckRules.cs` 的 `Describe(DeckError)` 原来直接
@@ -1676,10 +1710,10 @@ namespace CardPresentation
             //      🔴 2026-10-19 现核订正（铁律 5）），
             //      见 `数据/游戏数据/官方本地化_en+zh-CN.json` 现读）。按 `A1872` 的对位表它归**原版 catch-all
             //      `InvalidDeck`** ⇒ 原版显示的是「所选卡组无效，请编辑或选择其他卡组。」（⛔ 不是「这是效果卡」）。
-            //      ⚠️ **消费侧还差一半**：`RuleEngine/Core/DeckRules.cs` 的 `Describe` 仍拼
-            //      `"MenuDeck/Error/" + 枚举名` ⇒ 删掉本条之后，`EffectOnlyCard` 那一档会**印出键名**
-            //      （`DeckRuntime.DeckErrorText` = `Loc.T(Describe(e))`）。那一半在引擎线、不在本批白名单 ——
-            //      须把 `Describe(EffectOnlyCard)` 改成返回 `MenuDeck/Error/InvalidDeck`（见交件报告）。
+            //      ✅ **2026-10-25 已收口**（铁律 5 就地订正，原来这句写的是「消费侧还差一半」）：
+            //      ① `DeckRules.Describe` 已把 `EffectOnlyCard` 归到 catch-all `MenuDeck/Error/InvalidDeck`；
+            //      ② `MenuDeck/Error/InvalidDeck` 键**已进本表**（§⑥ 那条「卡组不合法那条兜底键」，`Loc.cs:1869` 一带）
+            //      ⇒ `DeckRuntime.DeckErrorText` / `DeckInfoPopup` 那条链不再印键名。
             //   ② **数字族三条** `MenuDeck/Error/{2,4,5}`（`A1133` 那一批）—— 判据被推翻：
             //      `DeckUtility.ToRawLocalizationString(this DeckError error)` 的 `{0}` 装的是**枚举**，
             //      `ToString()` 印**名字**；且官方 I2 表**一条数字键都没有**。判据全文 = `A1872` 那一格

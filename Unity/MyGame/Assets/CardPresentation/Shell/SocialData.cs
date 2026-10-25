@@ -85,6 +85,11 @@ namespace CardPresentation
             /// <summary>是不是「我」自己 —— 原版 `isPlayerEntryColor` 会给这一行的几件**换色**
             /// （`graphicsToChangeColorIfIsPlayer`）。我们照建这个字段，颜色值**本地读不到**（§C）⇒ 不换色、如实标着。</summary>
             public bool IsPlayer;
+            /// <summary>🆕 **2026-10-25（N9 · 账 31）**：数值评分（原版 `GroupMember.Rating`，**int**）。
+            /// 原版 `AllianceMemberList.Initialize` 用 `OrderByDescending(m =&gt; m.Rating)` 排序、
+            /// 行号取**排序后序号**（判据 → `AllianceMemberList.cs` 的两个排序 lambda `b__6_0` / `b__6_1`）。
+            /// ⚠️ 与 `DraftRating` / `RankedRating`（**显示串**）不是一回事：那两个只是行里印出来的字。</summary>
+            public int Rating;
         }
 
         static readonly List<Member> _members = new List<Member>();
@@ -125,5 +130,12 @@ namespace CardPresentation
             AllianceName = null;
             AllianceTrophies = 0;
         }
+
+        /// <summary>联盟人数上限（原版 `AlliancesConfig.maxMemberCount`，`Members: {n}/{cap}` 的那个 `cap`）。
+        /// 🔴 **2026-10-25（N9 · 账 31）**：原版读的是 `ConfigManager.GetConfig&lt;AlliancesConfig&gt;()`，
+        /// **本仓没有那份配置资产** ⇒ 取 **20**：它就是 prefab 出厂样例串 `Members: --/20`
+        /// （`MonoBehaviour_5317387791711264931.json` / `…_6451041557333008547.json` 的 `m_text` 实读）
+        /// 里印的那个数。⚠️ **这是「prefab 样例值」，不是从配置读到的真值**（本地无该配置）。</summary>
+        public static int MemberCap = 20;
     }
 }

@@ -88,12 +88,27 @@ namespace CardPresentation
         /// <summary>指针 tier（= prefab 名后缀；**本链只用 `Menu`**，其余留给别的线）。</summary>
         public enum Tier { Base, Combat, Menu, Wildcards }
 
+        /// <summary>原版 `TutorialPointerActions`（值照 dump：`clickInPosition = 0` / `clickAndHold = 1` / `clickAndDrag = 2`）。
+        /// <para>判据（伪码可读 + 常量实读）：
+        /// · Hold：`ShowStartingPointer` → 等 `waitBeforeClick`(0.5) → `ShowClickedPointer` → 等 `waitAfterClick`(0.5) → 循环；
+        ///   与 ClickInPosition **可见行为相同**（差别只在 `clickAnim`，而本 prefab 的 `clickAnim = null` ⇒ 不实例化）。
+        /// · Drag：起始指针 → 0.5s → **点击态停在起点** → `waitAfterClick × 0.5`（=0.25s，常量 `DAT_1834b2bb4 = 0.5`）
+        ///   → `DOMove(endPos, moveDuration)`（Menu/Wildcards 的 `moveDuration = 0` ⇒ **瞬移**）
+        ///   → 等 `moveDuration + 0.1`（`DAT_1834b2dc4 = 0.1`）→ 回到起点、循环。</para></summary>
+        public enum PointerAction { ClickInPosition = 0, ClickAndHold = 1, ClickAndDrag = 2 }
+
         /// <summary>缺图（自检读口 —— 非空就是「有件根本没画」）。</summary>
         public readonly List<string> MissingArt = new List<string>();
 
         Tier _tier = Tier.Menu;
         Transform _anchor, _pointer, _bubble;
         ImageQuad _pointerImg, _lightImg, _glowImg;
+        ImageQuad _bubbleBg, _bubbleFill;      // 🆕 淡出用（见 SetFade）
+        float _fade = 1f;                      // 🆕 整组不透明度（战役页滚动淡出，= 原版 TutorialHidePointerInCampaign）
+        PointerAction _action = PointerAction.ClickInPosition;
+        Vector2 _startPx, _endPx;
+        string _bubbleText;
+        float _dragWait;       // Drag 的第三段等待（0.1s）
         float _phase;          // 0 = 起手（scale 1 / light 0），1 = 点击态（scale 0.7 / light 1）
         float _phaseT;
         bool _visible;
@@ -122,13 +137,21 @@ namespace CardPresentation
         /// <summary>在**设计像素坐标**（左上原点）处显示：`posPx` = 手指尖要落的那一点（= 目标控件 pivot）。
         /// <para>`text` 非空 ⇒ 同时显示文字气泡（原版 `SetTutorialText`）。`showPointer = false` ⇒ 只留文字
         /// （原版 `SetTutorialText` 的 `showPointer` 形参就是这一档）。</para></summary>
-        public void Show(Vector2 posPx, string text, bool showPointer = true)
+        public void Show(Vector2 posPx, string text, bool showPointer = true,
+                         PointerAction action = PointerAction.ClickInPosition, Vector2? endPx = null)
         {
             LastPointPx = posPx;
             _showPointer = showPointer;
+            _action = action;
+            _startPx = posPx;
+            _endPx = endPx ?? posPx;
+            _bubbleText = text;
+            _dragWait = 0f;
             Rebuild(posPx, text);
             _visible = true;
             _phase = 0f; _phaseT = 0f;
+            _fade = 1f;
+            ApplyFade();
             ApplyPhase();
         }
 
@@ -157,6 +180,12 @@ namespace CardPresentation
         {
             if (!_visible || _pointer == null) return;
             _phaseT += dt;
+            if (_action == PointerAction.ClickAndDrag)
+            {
+                TickDrag();
+                return;
+            }
+            // ClickInPosition / ClickAndHold：同一套两拍（见 PointerAction 的 doc：Hold 的差别只在 clickAnim=null）
             if (_phase <= 0.5f)
             {
                 if (_phaseT >= WaitBeforeClick) { _phase = 1f; _phaseT = 0f; ApplyPhase(); }
@@ -167,13 +196,57 @@ namespace CardPresentation
             }
         }
 
+        /// <summary>Drag 的四段：起手(0.5) → 点击态停起点(0.25) → 瞬移到终点(`moveDuration`=0) → 等 0.1 → 回起点。</summary>
+        void TickDrag()
+        {
+            switch ((int)_phase)
+            {
+                case 0:   // 起手（起点）
+                    if (_phaseT >= WaitBeforeClick) { _phase = 1f; _phaseT = 0f; ApplyPhase(); }
+                    break;
+                case 1:   // 点击态（仍停起点）
+                    if (_phaseT >= WaitAfterClick * 0.5f)
+                    {
+                        _phase = 2f; _phaseT = 0f;
+                        MoveTo(_endPx);          // moveDuration = 0 ⇒ 瞬移（prefab 实读）
+                        _phase = 3f; _dragWait = 0.1f;   // DAT_1834b2dc4 = 0.1
+                    }
+                    break;
+                case 3:   // 终点停 0.1s → 回起点、循环
+                    if (_phaseT >= _dragWait)
+                    {
+                        _phase = 0f; _phaseT = 0f;
+                        MoveTo(_startPx);
+                        ApplyPhase();
+                    }
+                    break;
+                default:
+                    _phase = 0f; _phaseT = 0f;
+                    break;
+            }
+        }
+
+        /// <summary>把整组指针搬到新位置（重建子件；气泡文案保留）。</summary>
+        void MoveTo(Vector2 px)
+        {
+            LastPointPx = px;
+            Rebuild(px, _bubbleText);
+            ApplyFade();
+            ApplyPhase();
+        }
+
+        /// <summary>自检读口：当前动作 / 当前点（拖拽两段各一个点）。</summary>
+        public PointerAction Action { get { return _action; } }
+        public Vector2 StartPointPx { get { return _startPx; } }
+        public Vector2 EndPointPx { get { return _endPx; } }
+
         void ApplyPhase()
         {
             if (_pointer == null) return;
             bool clicked = _phase >= 0.5f;
             _pointer.localScale = Vector3.one * (clicked ? ClickScale : 1f);
             if (_lightImg != null)
-                _lightImg.SetTint(new Color(LightTint.r, LightTint.g, LightTint.b, clicked ? 1f : 0f));
+                _lightImg.SetTint(new Color(LightTint.r, LightTint.g, LightTint.b, (clicked ? 1f : 0f) * _fade));
         }
 
         // ============================================================ 建树
@@ -218,6 +291,36 @@ namespace CardPresentation
             if (!string.IsNullOrEmpty(text)) BuildBubble(pos, text);
         }
 
+        /// <summary>🆕 **2026-10-25（代理 G 执行）**：整组不透明度（0..1）。
+        /// **判据 = 原版 `TutorialHidePointerInCampaign.Update`**（伪码可读 + 常量实读）：
+        /// <code>
+        /// float t = Clamp01(scrollRect.normalizedPosition * alphaMultiplier);   // alphaMultiplier = 12.5f（.ctor 0x41480000）
+        /// canvasGroup.alpha = Clamp01(t * -1f + 1f);                            // DAT_1834b2bc8 = -1, DAT_1834b2bb8 = 1
+        /// </code>
+        /// 即 **alpha = 1 − clamp01(normalized × 12.5)**（滚过 8% 就全隐）。
+        /// ⚠️ 我们只有 `ImageQuad`、没有 `CanvasGroup` ⇒ 逐图设 tint alpha（文字气泡的 Label 不在其中，见 `ApplyFade`）。</summary>
+        public void SetFade(float alpha01)
+        {
+            float a = Mathf.Clamp01(alpha01);
+            if (Mathf.Abs(a - _fade) < 1e-4f) return;
+            _fade = a;
+            ApplyFade();
+            ApplyPhase();          // light 的 alpha 是「相位 × fade」，要一起重算
+        }
+
+        public float Fade { get { return _fade; } }
+
+        void ApplyFade()
+        {
+            if (_pointerImg != null) _pointerImg.SetTint(new Color(1f, 1f, 1f, _fade));
+            if (_bubbleBg != null) _bubbleBg.SetTint(new Color(1f, 1f, 1f, _fade));
+            if (_bubbleFill != null) _bubbleFill.SetTint(new Color(1f, 1f, 1f, _fade));
+            // `Glow (1)` 原图本来就半亮，这里只乘 fade
+            if (_glowImg != null) _glowImg.SetTint(new Color(1f, 1f, 1f, _fade));
+            // ⚠️ 气泡里的 `TutorialText` 是 TMP（`Label`）—— 本工程 `Label` 只有 `SetColor`，没有独立 alpha 口；
+            //    指针淡出时**气泡文字不淡**（如实记：原版 CanvasGroup 是整组一起淡）。
+        }
+
         void BuildBubble(Vector2 pos, string text)
         {
             float cx = pos.x + BubbleOffset.x, cy = pos.y + BubbleOffset.y;
@@ -230,13 +333,15 @@ namespace CardPresentation
             var br = new PxRect(x1, y1, x1 + BubbleW, y1 + BubbleH);
 
             _bubble = MenuDraw.Node(_anchor, "Generic Popup Background", br);
-            MenuDraw.Nine(_bubble, Art(ArtBubble, "`Generic Popup Background` 的九宫底"), br, BubbleBorder,
-                          BubbleTexW, BubbleTexH, QBubble, null, true, "Image", null, MenuDraw.NoClip);
+            var bgGo = MenuDraw.Nine(_bubble, Art(ArtBubble, "`Generic Popup Background` 的九宫底"), br, BubbleBorder,
+                                     BubbleTexW, BubbleTexH, QBubble, null, true, "Image", null, MenuDraw.NoClip);
+            _bubbleBg = bgGo != null ? bgGo.GetComponent<ImageQuad>() : null;
             // `Mask` / `Background fill`：相对气泡内缩（prefab 实读：10.4 / 9.44 / 10.4 / 9.8）
             var fillR = new PxRect(br.x1 + 10.4f, br.y1 + 9.44f, br.x2 - 10.4f, br.y2 - 9.8f);
             // 平铺尺寸：prefab 是 `40k_popup_texture` 128² + `m_PixelsPerUnitMultiplier = 2` ⇒ 实铺 64 px
-            MenuDraw.Tiled(_bubble, Art(ArtBubbleFill, "`Background fill` 的平铺底"), fillR, 64f, QBubbleFill,
-                           "Background fill", null, MenuDraw.NoClip);
+            var fillGo = MenuDraw.Tiled(_bubble, Art(ArtBubbleFill, "`Background fill` 的平铺底"), fillR, 64f, QBubbleFill,
+                                        "Background fill", null, MenuDraw.NoClip);
+            _bubbleFill = fillGo != null ? fillGo.GetComponent<ImageQuad>() : null;
             // `TutorialText`：相对气泡 23 / 21 → 479.5 / 179（prefab 实读 (1052.75,691.05)-(1509.25,848.95)）
             var tr = new PxRect(br.x1 + 23f, br.y1 + 21f, br.x1 + 479.5f, br.y1 + 179f);
             MenuDraw.TextBox(_bubble, tr, text, Color.white, "TutorialText", TextFont, TextAutoMin, QBubbleText,

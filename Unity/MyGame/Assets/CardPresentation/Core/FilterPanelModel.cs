@@ -31,6 +31,7 @@
 //        Cost/Type `(0.349,0.341,0.341,1)`；两个窗口各读一遍、逐值相同。见 `OffTintFaction/Rarity/CostType`。
 //   ③ **开关行与四行小标题的 `Label` / `Title` 对齐**：实读都是 **Left/Middle**（全包 8/8 + 12/12），
 //      ⚠️ 小标题我们**仍按 Center 画**（还开着的偏离，见 `TitleFontPx` 那段）。
+using System;
 using System.Collections.Generic;
 
 namespace CardPresentation
@@ -656,7 +657,14 @@ namespace CardPresentation
             //   **节点照建**，只是不画 ⇒ 自检按 key 仍找得到这一格、能断它的 `activeSelf`）。
             bool costHidden = !CostRowVisible(state, costRowNeedsWarlord);
             // 🔴 **行顶随阵营数变**（Army 行高 = 它自己的内容高）—— 为什么这么算，见 `ArmyRowH` 那段。
-            var L = ComputeLayout(facs.Count);
+            // 🆕 **2026-10-25（`C` 域 · chip 行）**：**Army 那一行有 `ContentSizeFitter(MinSize)`** ⇒
+            //   多选时 chip 也是「同一批 cell」，把行**撑高**（几行 chip 就多几行格）。
+            //   判据 = `bundle_menus_assets_all` 的 `CardsTab ▸ … ▸ Army Filter/Content`（`GridLayoutGroup + ContentSizeFitter`；
+            //   而 Rarity / Cost / Type 三行的 `Content` **没有 CSF** ⇒ 那三行的 chip **溢出**、压到下一行标题上，
+            //   **这是原版长相**，⛔ 别「顺手」把它修好）。chip 数与选择数一致（一个已选项一个 chip）。
+            int armySel = 0;
+            for (int q = 0; q < facs.Count; q++) if (DeckFilter.FactionSelected(f, facs[q])) armySel++;
+            var L = ComputeLayout(facs.Count + armySel);
 
             // ---- ②③ Owned only / Upgradable only（原版两个 `EverguildToggle`，50 高）----
             for (int k = 0; k < 2; k++)
@@ -692,6 +700,7 @@ namespace CardPresentation
             }
 
             // ---- ④ Army：13 档 · 格 100×100 · sp7/0 · pad L14 ⇒ **3 格/行**（行高由它撑出来）----
+            int armyFirst = cells.Count;
             for (int i = 0; i < facs.Count; i++)
             {
                 float x = ArmyPadL + (i % 3) * (ArmyCell + ArmySpX);
@@ -700,12 +709,18 @@ namespace CardPresentation
                 cells.Add(new Cell
                 {
                     R = rr, Bg = rr, Icon = DeckRuntime.FactionIcon(facs[i]), Label = null,
-                    Key = "$fac:" + facs[i], On = f.Faction == facs[i],
+                    Key = "$fac:" + facs[i], On = DeckFilter.FactionSelected(f, facs[i]),
                     OffTint = OffTintFaction,
                 });
             }
 
+            // ④b Army 的 chip（原版 `FillToggleList`：只对 `IsOn==true` 的、在**同一个父节点**下再 Instantiate 一份）
+            AppendChips(cells, armyFirst, facs.Count, ArmyPerRow, ArmyPadL, L.ArmyTop + ArmyContentTop,
+                        ArmyCell, ArmySpX, 0f,
+                        i => DeckFilter.FactionSelected(f, facs[i]), i => "$chip:$fac:" + facs[i]);
+
             // ---- ⑤ Rarity：5 档 · 格 100×100、图 50×50 居中、标签在格底 100×22 ----
+            int rarFirst = cells.Count;
             for (int i = 0; i < RarityKeys.Length; i++)
             {
                 float x = ArmyPadL + (i % 3) * (ArmyCell + raritySpX);   // pad L14 **两窗同值**；列距按窗分（5/7）
@@ -727,16 +742,22 @@ namespace CardPresentation
                     LabelAutoMax = RarityFontAutoMax, LabelBase = RarityFontBase,
                     LabelWrap = 0,                       // 🔴 dump：`'Legendary' 折行=0`（A62 #5；⛔ 别按 LabelRight 反推）
                     Key = "$rar:" + RarityKeys[i],
-                    On = string.Equals(f.Rarity, RarityKeys[i], System.StringComparison.OrdinalIgnoreCase),
+                    On = DeckFilter.RaritySelected(f, RarityKeys[i]),
                     OffTint = OffTintRarity,            // 🔴 这一行是 `(0.5,0.5,0.5,0.749)`，**不是** Cost/Type 那个 0.349
                 });
             }
+
+            // ⑤b Rarity 的 chip（该行**无 CSF** ⇒ 溢出照算，见 `L` 那一段的判据）
+            AppendChips(cells, rarFirst, RarityKeys.Length, ArmyPerRow, ArmyPadL, L.RarityTop + RarityContentTop,
+                        RarityCell, raritySpX, 0f,
+                        i => DeckFilter.RaritySelected(f, RarityKeys[i]), i => "$chip:$rar:" + RarityKeys[i]);
 
             // ---- ⑥ Cost：**8 档（`1-`/2…7/`8+`）** · 格 65×65 · sp15/20 · pad L15 ⇒ 4 格/行 ----
             //   🔴 **2026-10-14（账 `N14`）**：这一族的 8 格**照建**，但卡组没有督军时整个
             //   `Cost Filter` 节点在原版是 `SetActive(false)` ⇒ 这里只**标记** `Hidden`（见 `costHidden`
             //   那段与「费用那一行的显隐」整节）。⚠️ **别改成「不 Add 进 cells」** ——
             //   格数与 key 都要照旧（`Editor/DeckScene.cs` 的「31 个格子」与 `$cost:` 探针按 key 找）。
+            int costFirst = cells.Count;
             for (int i = 0; i < CostBuckets.Length; i++)
             {
                 float x = CostPadL + (i % 4) * (CostCell + costSpX);
@@ -750,13 +771,20 @@ namespace CardPresentation
                     LabelAutoMax = CostFontAutoMax, LabelBase = CostFontBase,
                     LabelWrap = 1,                       // 🔴 dump：费用桶 `'0' 折行=1`（四族里**唯一**折行的那一族，A62 #5）
                     Key = "$cost:" + CostBuckets[i].Lo,
-                    On = f.Cost == CostBuckets[i].Lo,
+                    On = f.CostSelected(CostBuckets[i].Lo),
                     OffTint = OffTintCostType,
                     Hidden = costHidden,                 // 🆕 N14（卡组编辑：没督军 ⇒ 原版整节点关掉）
                 });
             }
 
+            // ⑥b Cost 的 chip（无 CSF ⇒ **溢出照算**：8 档已占 2 行，chip 从第 2 行起 ⇒ 直接压到 Type 标题上）
+            AppendChips(cells, costFirst, CostBuckets.Length, 4, CostPadL, L.CostTop + CostContentTop,
+                        CostCell, costSpX, CostSpY,
+                        i => f.CostSelected(CostBuckets[i].Lo), i => "$chip:$cost:" + CostBuckets[i].Lo,
+                        costHidden);
+
             // ---- ⑦ Type：**3 档** · 格 80×100 · HLG pad15 / align 6(LowerLeft) ----
+            int typeFirst = cells.Count;
             for (int i = 0; i < TypeKeys.Length; i++)
             {
                 float x = typePadL + i * TypeCellW;
@@ -780,10 +808,54 @@ namespace CardPresentation
                     LabelAutoMax = RarityFontAutoMax, LabelBase = RarityFontBase,
                     LabelWrap = 0,                       // 🔴 dump：类型族 `折行=0`（A62 #5；⛔ 别按 LabelRight 反推）
                     Key = "$type:" + TypeKeys[i],
-                    On = f.Type == TypeKeys[i],
+                    On = DeckFilter.TypeSelected(f, TypeKeys[i]),
                     OffTint = OffTintCostType,
                 });
             }
+            // ⑦b Type 的 chip（HLG：spacing 0 ⇒ x = pad + slot*80；无 CSF ⇒ 溢出照算）
+            AppendChips(cells, typeFirst, TypeKeys.Length, TypeKeys.Length, typePadL, L.TypeTop + TypeContentTop,
+                        TypeCellW, 0f, 0f,
+                        i => DeckFilter.TypeSelected(f, TypeKeys[i]), i => "$chip:$type:" + TypeKeys[i]);
+        }
+
+        /// <summary>🆕 **2026-10-25（`C` 域 · chip 行）**：把一行里**已选**的那几格**再复制一份**当 chip，
+        /// 排在同一网格的下一个格位（原版 `FillToggleList` 派生的就是**同一个** `CollectionFilterToggle` prefab
+        /// ⇒ 长得跟选项格一模一样、只是点它 = `ForceOff`）。
+        ///
+        /// <para>⚠️ **溢出是照抄的**：`Army` 那行的 `Content` 有 `ContentSizeFitter(MinSize)`（行会撑高），
+        /// 而 `Rarity` / `Cost` / `Type` 三行**没有** ⇒ 多出来的 chip 落在行框之外、**压到下一行标题上**
+        /// —— 判据 = `bundle_menus_assets_all ▸ CardsTab ▸ Card Filters ▸ Filters ▸ {Army,Rarity,Cost,Type} FIlter/Content`
+        /// 的组件表（2026-10-25 `menu_dump.py … --depth 9 --no-layout` 现读）。⛔ 别把它「修好」。</para></summary>
+        static void AppendChips(List<Cell> cells, int firstIdx, int n, int perRow,
+                                float padL, float top, float cell, float spX, float spY,
+                                Func<int, bool> selected, Func<int, string> chipKey, bool hidden = false)
+        {
+            if (cells == null || selected == null) return;
+            int slot = n;
+            for (int i = 0; i < n; i++)
+            {
+                if (!selected(i)) continue;
+                var src = cells[firstIdx + i];
+                var dst = src;                                   // `Cell` 是 **struct** ⇒ 值拷贝
+                int col = slot % perRow, row = slot / perRow;
+                float x = padL + col * (cell + spX);
+                float y = top + row * (cell + spY);
+                var rr = new PxRect(x, y, x + cell, y + cell);
+                float dx = rr.x1 - src.R.x1, dy = rr.y1 - src.R.y1;
+                dst.R = rr;
+                if (src.Bg.W > 0f && src.Bg.H > 0f) dst.Bg = Shift(src.Bg, dx, dy);
+                if (src.Lab.W > 0f && src.Lab.H > 0f) dst.Lab = Shift(src.Lab, dx, dy);
+                dst.Key = chipKey(i);
+                dst.On = true;
+                dst.Hidden = hidden;
+                cells.Add(dst);
+                slot++;
+            }
+        }
+
+        static PxRect Shift(PxRect r, float dx, float dy)
+        {
+            return new PxRect(r.x1 + dx, r.y1 + dy, r.x2 + dx, r.y2 + dy);
         }
 
         /// <summary>点了一格之后**改哪一个筛选条件 —— 全工程只有这一份实现**（卡组编辑与收藏窗共用）。
@@ -794,21 +866,56 @@ namespace CardPresentation
         {
             if (state == null || string.IsNullOrEmpty(key)) return false;
             var f = state.Filter;
+            // 🆕 **2026-10-25（chip 行）**：点 chip = **取消**这一项（原版 `ForceOff()`）——
+            //   做法 = 把 `$chip:` 前缀剥掉、走**同一条** toggle 路径（那一项当前是选中的 ⇒ toggle 会把它删掉）。
+            if (key.StartsWith("$chip:")) key = key.Substring(6);
+            // 🔴 **2026-10-25（`C` 域 · 多选筛选）**：阵营/稀有度/卡类改成 **toggle 集合成员**（同类**并集**，
+            //   判据 = `判据/共用件_过滤模型_B升A.md` 第 10/11 条：原版 `OnFilterChange` 逐项收集 `IsOn` 写进
+            //   `typeFilters` **集合**）。同时把**旧的单值字段清空** —— 否则「集合 + 单值」会叠成 **AND**（比原版严）。
             if (key == "$owned") f.Owned = !f.Owned;
             else if (key == "$upgradable") f.Upgradable = !f.Upgradable;
-            else if (key.StartsWith("$fac:")) { var v = key.Substring(5); f.Faction = f.Faction == v ? "" : v; }
-            else if (key.StartsWith("$rar:")) { var v = key.Substring(5); f.Rarity = f.Rarity == v ? "" : v; }
+            else if (key.StartsWith("$fac:"))
+            {
+                if (f.Factions == null) f.Factions = new HashSet<string>();
+                ToggleMember(f.Factions, key.Substring(5), (a, b) => RuleEngine.DeckRules.SameFaction(a, b));
+                f.Faction = "";
+            }
+            else if (key.StartsWith("$rar:"))
+            {
+                if (f.Rarities == null) f.Rarities = new HashSet<string>();
+                ToggleMember(f.Rarities, key.Substring(5), (a, b) => string.Equals(a ?? "", b ?? "", System.StringComparison.OrdinalIgnoreCase));
+                f.Rarity = "";
+            }
             else if (key.StartsWith("$cost:"))
             {
+                // 🔴 **2026-10-25（多选筛选 · 费用）**：原版 `CardCostFilter` 也是**集合**（八档可多选）
+                //   ⇒ 改成 toggle `Costs` 成员，并把旧的**区间**编码清掉（否则区间+集合叠成 AND）。
                 int v = int.Parse(key.Substring(6));
-                bool wasOn = f.Cost == v;                     // ⚠️ 先判「原来是不是这一档」再改，别改完再比
-                f.Cost = wasOn ? DeckEditorState.AnyCost : v;
-                f.CostMax = wasOn ? 0 : CostBucketHi(v);
+                if (f.Costs == null) f.Costs = new HashSet<int>();
+                if (f.Costs.Contains(v)) f.Costs.Remove(v); else f.Costs.Add(v);
+                f.Cost = DeckEditorState.AnyCost;
+                f.CostMax = 0;
             }
-            else if (key.StartsWith("$type:")) { var v = key.Substring(6); f.Type = f.Type == v ? "" : v; }
+            else if (key.StartsWith("$type:"))
+            {
+                if (f.Types == null) f.Types = new HashSet<string>();
+                ToggleMember(f.Types, key.Substring(6), (a, b) => string.Equals(a ?? "", b ?? "", System.StringComparison.Ordinal));
+                f.Type = "";
+            }
             else return false;
             state.SetFilter(f);
             return true;
+        }
+
+        /// <summary>集合里**切换**一个成员（在就删、不在就加）。`same` = 判等（阵营要过 `SameFaction`，
+        /// 稀有度要不敏感、卡类要序数 —— 三种语义各不同，所以传进来，⛔ 别在这里统一成 `==`）。</summary>
+        static void ToggleMember(HashSet<string> set, string v, Func<string, string, bool> same)
+        {
+            if (set == null || string.IsNullOrEmpty(v)) return;
+            string hit = null;
+            foreach (var x in set) if (same(x, v)) { hit = x; break; }
+            if (hit != null) set.Remove(hit);
+            else set.Add(v);
         }
 
         /// <summary>八档费用的**上界**：`1-` ⇒ 1 · `2`…`7` ⇒ 同值 · `8+` ⇒ 无上界。

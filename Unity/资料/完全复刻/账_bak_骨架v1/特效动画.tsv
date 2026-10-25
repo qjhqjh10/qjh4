@@ -1,0 +1,453 @@
+域	原版类	方法	判据出处	判据要点	状态	我们的落点	差异	等级	轮次	备注
+特效动画	AnimEffectData	UpdateName()	AnimEffectData.cs:34		E					
+特效动画	AnimFXController	DoDestroy()	AnimFXController.cs:74		E					
+特效动画	AnimFXController	Exit()	AnimFXController.cs:37		E					
+特效动画	AnimFXController	OnEnable()	AnimFXController.cs:152		E					
+特效动画	AnimFXController	PlaySound(AudioCue audioCue)	AnimFXController.cs:141		E					
+特效动画	AnimFXController	SetData(CardScript actingCard, CardScript targetCard)	AnimFXController.cs:107		E					
+特效动画	AnimFXController	Update()	AnimFXController.cs:163		E					
+特效动画	AnimFXInstanceParticleAdjacent	DelayActivation()	AnimFXInstanceParticleAdjacent.cs:117		E					
+特效动画	AnimFXInstanceParticleAdjacent	ExecuteEffect()	AnimFXInstanceParticleAdjacent.cs:128		E					
+特效动画	AnimFXInstanceParticleAdjacent	Initialize(AnimFXController animFXController)	AnimFXInstanceParticleAdjacent.cs:89		E					
+特效动画	AnimFXModuleAnimation	AnimationExitEnd()	AnimFXModuleAnimation.cs:20		E					
+特效动画	AnimFXModuleAnimation	Exit()	AnimFXModuleAnimation.cs:10		E					
+特效动画	AnimFXModuleBase	DoDestroy()	AnimFXModuleBase.cs:51		E					
+特效动画	AnimFXModuleBase	Exit()	AnimFXModuleBase.cs:47		E					
+特效动画	AnimFXModuleBase	Initialize(AnimFXController animFXController)	AnimFXModuleBase.cs:21		E					
+特效动画	AnimFXModuleCardback	Initialize(AnimFXController animFXController)	AnimFXModuleCardback.cs:8		E					
+特效动画	AnimFXModuleCardback	SetParticleMaterial(Sprite cardBack)	AnimFXModuleCardback.cs:56		E					
+特效动画	AnimFXModuleChangeMaterial	Exit()	AnimFXModuleChangeMaterial.cs:460		E					
+特效动画	AnimFXModuleChangeMaterial	Initialize(AnimFXController animFXController)	AnimFXModuleChangeMaterial.cs:114		E					
+特效动画	AnimFXModuleChangeMaterial	OnDestroy()	AnimFXModuleChangeMaterial.cs:475		E					
+特效动画	AnimFXModuleChangeMaterial	ToggleMaterial(bool option)	AnimFXModuleChangeMaterial.cs:123		E					
+特效动画	AnimFXModuleChangeMaterial	WaitForFinishMaterialChange(float timeToWait)	AnimFXModuleChangeMaterial.cs:489		E					
+特效动画	AnimFXModuleChangeVelocity	CalculateMaxHeight(float v0, float angle)	AnimFXModuleChangeVelocity.cs:130		E					
+特效动画	AnimFXModuleChangeVelocity	CalculateSecondProjectile(float H, float t, float d2, out float targetVelocity, out float targetAngle)	AnimFXModuleChangeVelocity.cs:155		E					
+特效动画	AnimFXModuleChangeVelocity	Initialize(AnimFXController animFXController)	AnimFXModuleChangeVelocity.cs:202		E					
+特效动画	AnimFXModuleChangeVelocity	ModifyVelocity(Transform transform, float distanceBetweenWarlords, float distanceToTarget)	AnimFXModuleChangeVelocity.cs:44		E					
+特效动画	AnimFXModuleChangeVelocity	ModifyVelocity(float multiplier, Transform transform)	AnimFXModuleChangeVelocity.cs:15		E					
+特效动画	AnimFXModuleCollisions	Initialize(AnimFXController animFXController)	AnimFXModuleCollisions.cs:505		E					
+特效动画	AnimFXModuleCollisions	Initialize(CardScript actingCard, CardScript targetCard)	AnimFXModuleCollisions.cs:96		E					
+特效动画	AnimFXModuleCollisions	Initialize(Transform referenceCollisionPlane)	AnimFXModuleCollisions.cs:33		E					
+特效动画	AnimFXModuleCollisions	OnParticleCollision()	AnimFXModuleCollisions.cs:83		E					
+特效动画	AnimFXModuleCollisions	UpdateTargetCollisionPlanePosition(Transform targetPlane, Transform actingCardT, Transform targetCardT)	AnimFXModuleCollisions.cs:488		E					
+特效动画	AnimFXModuleDestroyInTime	Exit()	AnimFXModuleDestroyInTime.cs:17		E					
+特效动画	AnimFXModuleDestroyInTime	Initialize(AnimFXController animFXController)	AnimFXModuleDestroyInTime.cs:7		E					
+特效动画	AnimFXModuleDoDestroyAnimation	DoDestroy()	AnimFXModuleDoDestroyAnimation.cs:13		E					
+特效动画	AnimFXModuleEvent	Exit()	AnimFXModuleEvent.cs:48		E					
+特效动画	AnimFXModuleEvent	Initialize(AnimFXController animFXController)	AnimFXModuleEvent.cs:24		E					
+特效动画	AnimFXModuleEvent	TryFireEvent(ActionStart actionStart)	AnimFXModuleEvent.cs:13		E					
+特效动画	AnimFXModulePostProcess	AnimEventSetOriginalLUTNoTransition()	AnimFXModulePostProcess.cs:183		E					
+特效动画	AnimFXModulePostProcess	BlendLutTextures()	AnimFXModulePostProcess.cs:260		E					
+特效动画	AnimFXModulePostProcess	CancelAnimation()	AnimFXModulePostProcess.cs:173		E					
+特效动画	AnimFXModulePostProcess	DoBloomAim()	AnimFXModulePostProcess.cs:195		E					
+特效动画	AnimFXModulePostProcess	DoLUTAnim()	AnimFXModulePostProcess.cs:220		E					
+特效动画	AnimFXModulePostProcess	OnDestroy()	AnimFXModulePostProcess.cs:266		E					
+特效动画	AnimFXModulePostProcess	OnDisable()	AnimFXModulePostProcess.cs:243		E					
+特效动画	AnimFXModulePostProcess	OnEnable()	AnimFXModulePostProcess.cs:59		E					
+特效动画	AnimFXModulePostProcess	OnValidate()	AnimFXModulePostProcess.cs:275		E					
+特效动画	AnimFXModulePostProcess	ResetCurrentPlayingEffect()	AnimFXModulePostProcess.cs:249		E					
+特效动画	AnimFXModulePostProcess	ResetPostFX(bool instant)	AnimFXModulePostProcess.cs:167		E					
+特效动画	AnimFXModulePostProcess	Update()	AnimFXModulePostProcess.cs:135		E					
+特效动画	AnimFXModulePostProcess	_003COnEnable_003Eb__24_0()	AnimFXModulePostProcess.cs:303		E					
+特效动画	AnimFXModulePostProcess	_003COnEnable_003Eb__24_1(float x)	AnimFXModulePostProcess.cs:308		E					
+特效动画	AnimFXModulePostProcess	_003COnEnable_003Eb__24_2()	AnimFXModulePostProcess.cs:313		E					
+特效动画	AnimFXModulePostProcess	_003COnEnable_003Eb__24_3(float x)	AnimFXModulePostProcess.cs:318		E					
+特效动画	AnimFXModulePostProcess	_003COnEnable_003Eb__24_4()	AnimFXModulePostProcess.cs:323		E					
+特效动画	AnimFXModuleScaleByTarget	ChangeShapeAngle()	AnimFXModuleScaleByTarget.cs:81		E					
+特效动画	AnimFXModuleScaleByTarget	Initialize(AnimFXController animFXController)	AnimFXModuleScaleByTarget.cs:13		E					
+特效动画	AnimFXModuleScreenShake	AnimEventDoShake(int index)	AnimFXModuleScreenShake.cs:31		E					
+特效动画	AnimFXModuleScreenShake	OnEnable()	AnimFXModuleScreenShake.cs:10		E					
+特效动画	AnimFXModuleScreenShake	TriggerCameraShake(int index)	AnimFXModuleScreenShake.cs:53		E					
+特效动画	AnimFXModuleTransformModifier	ApplyModification(Transform currentTransform)	AnimFXModuleTransformModifier.cs:26		E					
+特效动画	AnimFXModuleTransformModifier	ApplyTransforms()	AnimFXModuleTransformModifier.cs:191		E					
+特效动画	AnimFXModuleTransformModifier	Exit()	AnimFXModuleTransformModifier.cs:404		E					
+特效动画	AnimFXModuleTransformModifier	Initialize(AnimFXController animFXController)	AnimFXModuleTransformModifier.cs:114		E					
+特效动画	AnimFXModuleTransformModifier	Update()	AnimFXModuleTransformModifier.cs:287		E					
+特效动画	AnimFXModuleTween	Initialize(AnimFXController animFXController)	AnimFXModuleTween.cs:120		E					
+特效动画	AnimFXModuleTween	OnDisable()	AnimFXModuleTween.cs:135		E					
+特效动画	AnimFXModuleTween	PlayAnim()	AnimFXModuleTween.cs:140		E					
+特效动画	AnimFXModuleTween	PlayAnimCoroutine()	AnimFXModuleTween.cs:151		E					
+特效动画	AnimFXParticleCollisionNotifier	OnParticleCollision(GameObject other)	AnimFXParticleCollisionNotifier.cs:33		E					
+特效动画	AnimFXParticleCollisionNotifier	Register(AnimFXModuleCollisions.CollisionAndParticles.ParticleCollisionDefinition collisionsModule)	AnimFXParticleCollisionNotifier.cs:11		E					
+特效动画	AnimFxModuleMoveParticlesToTarget	GetTarget(CardScript actingCard)	AnimFxModuleMoveParticlesToTarget.cs:217		E					
+特效动画	AnimFxModuleMoveParticlesToTarget	Initialize(AnimFXController animFXController)	AnimFxModuleMoveParticlesToTarget.cs:29		E					
+特效动画	AnimFxModuleMoveParticlesToTarget	LateUpdate()	AnimFxModuleMoveParticlesToTarget.cs:83		E					
+特效动画	AnimFxModuleMoveParticlesToTarget	SetTarget(Transform target, Vector3 originalPosition)	AnimFxModuleMoveParticlesToTarget.cs:250		E					
+特效动画	AnimFxModuleMoveParticlesToTarget	UpdateTargetPosition()	AnimFxModuleMoveParticlesToTarget.cs:271		E					
+特效动画	AnimInfo	GetAnimDuration()	AnimInfo.cs:50		E					
+特效动画	AnimInfo	PreloadAssets()	AnimInfo.cs:57		E					
+特效动画	AnimatablePostFXControllerForVideos	Update()	AnimatablePostFXControllerForVideos.cs:13		E					
+特效动画	AnimateUIMaterialProperty	CreateInstanceMaterial()	AnimateUIMaterialProperty.cs:145		E					
+特效动画	AnimateUIMaterialProperty	OnDestroy()	AnimateUIMaterialProperty.cs:121		E					
+特效动画	AnimateUIMaterialProperty	OnDisable()	AnimateUIMaterialProperty.cs:126		E					
+特效动画	AnimateUIMaterialProperty	OnEnable()	AnimateUIMaterialProperty.cs:48		E					
+特效动画	AnimateUIMaterialProperty	ResetToOriginalMaterial()	AnimateUIMaterialProperty.cs:131		E					
+特效动画	AnimateUIMaterialProperty	SetMaterial(Material material)	AnimateUIMaterialProperty.cs:136		E					
+特效动画	AnimateUIMaterialProperty	Update()	AnimateUIMaterialProperty.cs:60		E					
+特效动画	AnimateUIMaterialProperty	Update(Material material)	AnimateUIMaterialProperty.cs:19		E					
+特效动画	BattleParticleColliderManager	Awake()	BattleParticleColliderManager.cs:45		E					
+特效动画	BattleParticleColliderManager	GetColliderTransform(BattleCollider colliderType)	BattleParticleColliderManager.cs:66		E					
+特效动画	BattleParticleColliderManager	OnDestroy()	BattleParticleColliderManager.cs:58		E					
+特效动画	BlinkGraphic	OnValidate()	BlinkGraphic.cs:45		E					
+特效动画	BlinkGraphic	Start()	BlinkGraphic.cs:19		E					
+特效动画	BlinkGraphic	Update()	BlinkGraphic.cs:25		E					
+特效动画	BouyancyEffect	Awake()	BouyancyEffect.cs:35		E					
+特效动画	BouyancyEffect	OnBecameInvisible()	BouyancyEffect.cs:115		E					
+特效动画	BouyancyEffect	OnBecameVisible()	BouyancyEffect.cs:110		E					
+特效动画	BouyancyEffect	Start()	BouyancyEffect.cs:45		E					
+特效动画	BouyancyEffect	Update()	BouyancyEffect.cs:57		E					
+特效动画	BouyancyEffect	_003CUpdate_003Eb__15_0()	BouyancyEffect.cs:134		E					
+特效动画	BouyancyEffect	_003CUpdate_003Eb__15_1(Vector3 x)	BouyancyEffect.cs:147		E					
+特效动画	CameraLensFlareIntenistyAnimation	Awake()	CameraLensFlareIntenistyAnimation.cs:11		E					
+特效动画	CameraLensFlareIntenistyAnimation	LateUpdate()	CameraLensFlareIntenistyAnimation.cs:17		E					
+特效动画	CameraShake	AttackShake(CardScript card)	CameraShake.cs:434		E					
+特效动画	CameraShake	Awake()	CameraShake.cs:254		E					
+特效动画	CameraShake	CancelTweens()	CameraShake.cs:315		E					
+特效动画	CameraShake	DoCameraShake(ShakeOptions shakeOption)	CameraShake.cs:270		E					
+特效动画	CameraShake	DoDirectCameraShake(float shakeTime, Vector3 shakeStrength, int vibrato, float randomness, bool fadeOut)	CameraShake.cs:311		E					
+特效动画	CameraShake	DoScreenShake(ScreenShakeInfo shakeInfo)	CameraShake.cs:384		E					
+特效动画	CameraShake	DoScreenShake(int shakeSize, float shakeTime)	CameraShake.cs:394		E					
+特效动画	CameraShake	DoTimedCameraShake(ShakeOptions shakeOption, float shakeTime, bool decreasingShake)	CameraShake.cs:275		E					
+特效动画	CameraShake	DoTimedCameraShake(int shakeSize, float shakeTime, bool decreasingShake)	CameraShake.cs:280		E					
+特效动画	CameraShake	FinishShake()	CameraShake.cs:338		E					
+特效动画	CameraShake	GetCardShakeForCard(CardScript card)	CameraShake.cs:482		E					
+特效动画	CameraShake	RepeatScreenShake()	CameraShake.cs:422		E					
+特效动画	CameraShake	Reposition()	CameraShake.cs:349		E					
+特效动画	CameraShake	ResolveScreenShake(ScreenShakeInfo shakeInfo)	CameraShake.cs:407		E					
+特效动画	CameraShake	SetStartPosition()	CameraShake.cs:360		E					
+特效动画	CameraShakePreset	GetDuration()	CameraShakePreset.cs:39		E					
+特效动画	CameraShakePreset	GetDurationIncludingDelay()	CameraShakePreset.cs:45		E					
+特效动画	CameraShakePreset	Play()	CameraShakePreset.cs:27		E					
+特效动画	CameraShakePreset	UpdateTime(float deltaTime)	CameraShakePreset.cs:52		E					
+特效动画	CameraShakePresetSO	Play()	CameraShakePresetSO.cs:9		E					
+特效动画	CameraShakerManager	Awake()	CameraShakerManager.cs:384		E					
+特效动画	CameraShakerManager	ClearAllShakes()	CameraShakerManager.cs:972		E					
+特效动画	CameraShakerManager	DoImpulse(CinemachineImpulseSource impulseSource, Vector3 direction)	CameraShakerManager.cs:1116		E					
+特效动画	CameraShakerManager	DoLegacyShake(float shakeTime, Vector3 shakeStrength, int vibrato, bool fadeOut)	CameraShakerManager.cs:810		E					
+特效动画	CameraShakerManager	DoShake(float sustainTime, float attackTime, float decayTime, float amplitude, float frequency, Vector3 direction, ShakeAxis shakeAxis, float delay)	CameraShakerManager.cs:854		E					
+特效动画	CameraShakerManager	DoShake(float sustainTime, float attackTime, float decayTime, float amplitude, float frequency, Vector3 direction, float delay, SignalSourceAsset rawSignalToUse)	CameraShakerManager.cs:1085		E					
+特效动画	CameraShakerManager	DoSimpleShake(float strength)	CameraShakerManager.cs:839		E					
+特效动画	CameraShakerManager	GetCameraShakePresetFromPool()	CameraShakerManager.cs:992		E					
+特效动画	CameraShakerManager	GetImpulseSourceFromPool()	CameraShakerManager.cs:1128		E					
+特效动画	CameraShakerManager	GetPreset()	CameraShakerManager.cs:41		E					
+特效动画	CameraShakerManager	GetSignal(ShakeAxis axis)	CameraShakerManager.cs:1198		E					
+特效动画	CameraShakerManager	GetSignal(ShakeAxis axis)	CameraShakerManager.cs:76		E					
+特效动画	CameraShakerManager	IncreaseCameraShakePresetPoolSize(int quantity)	CameraShakerManager.cs:1145		E					
+特效动画	CameraShakerManager	OnDestroy()	CameraShakerManager.cs:764		E					
+特效动画	CameraShakerManager	PlayPreset(CameraShakePreset preset)	CameraShakerManager.cs:896		E					
+特效动画	CameraShakerManager	Release()	CameraShakerManager.cs:63		E					
+特效动画	CameraShakerManager	ReleaseAllPresetsFromPool()	CameraShakerManager.cs:1068		E					
+特效动画	CameraShakerManager	SetPreset(CameraShakePreset preset)	CameraShakerManager.cs:47		E					
+特效动画	CameraShakerManager	ToggleAllShakesSources(bool option)	CameraShakerManager.cs:907		E					
+特效动画	CameraShakerManager	ToggleListener(bool option, float time)	CameraShakerManager.cs:925		E					
+特效动画	CameraShakerManager	TryFreeItem(CameraShakePreset presetToCheck)	CameraShakerManager.cs:53		E					
+特效动画	CameraShakerManager	Update()	CameraShakerManager.cs:769		E					
+特效动画	CameraShakerManager	_003CToggleListener_003Eb__29_0()	CameraShakerManager.cs:1240		E					
+特效动画	CameraShakerManager	_003CToggleListener_003Eb__29_1(float x)	CameraShakerManager.cs:1246		E					
+特效动画	CameraShakerManager	_003CToggleListener_003Eb__29_2()	CameraShakerManager.cs:1252		E					
+特效动画	CameraShakerManager	_003CToggleListener_003Eb__29_3(float x)	CameraShakerManager.cs:1258		E					
+特效动画	CameraVerticalFramer	CalculateFraming(float zoomLevel, out Vector2 newSensorSize, out Vector2 desiredLensShift)	CameraVerticalFramer.cs:72		E					
+特效动画	CameraVerticalFramer	GetZoomLevelForCurrentSensorSize()	CameraVerticalFramer.cs:284		E					
+特效动画	CameraVerticalFramer	OnDrawGizmos()	CameraVerticalFramer.cs:331		E					
+特效动画	CameraVerticalFramer	ResetInitValues()	CameraVerticalFramer.cs:66		E					
+特效动画	CameraVerticalFramer	ResolutionHasChanged()	CameraVerticalFramer.cs:60		E					
+特效动画	CameraVerticalFramer	Start()	CameraVerticalFramer.cs:52		E					
+特效动画	CamerasConversionHelper	ConvertPositionBetweenCameras(Camera cameraOrigin, Camera cameraDestination, float desiredZDistance, Vector3 objectCurrentWorldPosition)	CamerasConversionHelper.cs:149		E					
+特效动画	CamerasConversionHelper	ConvertPositionBoardToUI(Vector3 boardPosition)	CamerasConversionHelper.cs:174		E					
+特效动画	CamerasConversionHelper	ConvertPositionUIToBoard(Vector3 uiPosition, float desiredZ)	CamerasConversionHelper.cs:218		E					
+特效动画	CamerasConversionHelper	GetFovFromCamera(Camera targetCamera)	CamerasConversionHelper.cs:270		E					
+特效动画	CamerasConversionHelper	GetUIZPosition()	CamerasConversionHelper.cs:278		E					
+特效动画	CamerasConversionHelper	static(Vector3, float)	CamerasConversionHelper.cs:107		E					
+特效动画	CamerasConversionHelper	static(Vector3, float)	CamerasConversionHelper.cs:7		E					
+特效动画	CamerasConversionHelper	static(Vector3, float)	CamerasConversionHelper.cs:75		E					
+特效动画	Card3DAnimationController	AddClipIfNecessary(AnimationClip animationClip)	Card3DAnimationController.cs:507		E					
+特效动画	Card3DAnimationController	AnimFinished()	Card3DAnimationController.cs:322		E					
+特效动画	Card3DAnimationController	ClearClips()	Card3DAnimationController.cs:464		E					
+特效动画	Card3DAnimationController	DoAnim(AnimationClip animationClip, bool disableFlying, Action onAnimationEnd, bool safeResetOnEnd)	Card3DAnimationController.cs:116		E					
+特效动画	Card3DAnimationController	OnDestroy()	Card3DAnimationController.cs:53		E					
+特效动画	Card3DAnimationController	OnFlyingToggleFinish(bool option)	Card3DAnimationController.cs:538		E					
+特效动画	Card3DAnimationController	Start()	Card3DAnimationController.cs:36		E					
+特效动画	Card3DAnimationController	StartAnim()	Card3DAnimationController.cs:312		E					
+特效动画	Card3DAnimationController	Toggle(bool option)	Card3DAnimationController.cs:532		E					
+特效动画	Card3DAnimationController	Update()	Card3DAnimationController.cs:95		E					
+特效动画	CardAnimController	Initialize(AnimInfo animInfo, Transform startParent, Transform endParent, Transform rotateTowards, CardScript actingCard, CardScript targetCard)	CardAnimController.cs:22		E					
+特效动画	CardAnimController	RotateAnim(AnimInfo animInfo, Transform towardsTransform, bool actingCardIsPlayer)	CardAnimController.cs:74		E					
+特效动画	CardAnimController	Update()	CardAnimController.cs:192		E					
+特效动画	CardDisplayLevelUpAnimationController	AnimationFinished()	CardDisplayLevelUpAnimationController.cs:90		E					
+特效动画	CardDisplayLevelUpAnimationController	ChangeFrame()	CardDisplayLevelUpAnimationController.cs:77		E					
+特效动画	CardDisplayLevelUpAnimationController	DoAnim()	CardDisplayLevelUpAnimationController.cs:40		E					
+特效动画	CardDisplayLevelUpAnimationController	FadeOutImage(Image image)	CardDisplayLevelUpAnimationController.cs:69		E					
+特效动画	CardDisplayLevelUpAnimationController	FadeOutImages()	CardDisplayLevelUpAnimationController.cs:55		E					
+特效动画	CardDisplayLevelUpAnimationController	OnEnable()	CardDisplayLevelUpAnimationController.cs:26		E					
+特效动画	CardDisplayLevelUpAnimationController	_003CChangeFrame_003Eb__12_0()	CardDisplayLevelUpAnimationController.cs:95		E					
+特效动画	CardDisplayLevelUpAnimationNotifier	AnimationFinished()	CardDisplayLevelUpAnimationNotifier.cs:24		E					
+特效动画	CardDisplayLevelUpAnimationNotifier	ChangeFrame()	CardDisplayLevelUpAnimationNotifier.cs:10		E					
+特效动画	CardEffect	GetNewInstanceOfThisEffect()	CardEffect.cs:91		E					
+特效动画	CardEffect	IsEnchantment()	CardEffect.cs:246		E					
+特效动画	CardEffect	IsSameEffect(CardEffect otherEffect, bool heroCheck)	CardEffect.cs:200		E					
+特效动画	CardEffect	SameIsPlayerEffect(CardEffect otherEffect)	CardEffect.cs:169		E					
+特效动画	CardEffect	SameTimingAsEffect(CardEffect otherEffect)	CardEffect.cs:142		E					
+特效动画	CardEffectItem	Disable()	CardEffectItem.cs:188		E					
+特效动画	CardEffectItem	Enable()	CardEffectItem.cs:182		E					
+特效动画	CardEffectItem	IsActive()	CardEffectItem.cs:158		E					
+特效动画	CardEffectItem	IsTextEmpty()	CardEffectItem.cs:170		E					
+特效动画	CardEffectItem	LoadEffect(CardEffect effect, bool isPlayer)	CardEffectItem.cs:12		E					
+特效动画	CardEffectsService	DisableLeftoverSlots()	CardEffectsService.cs:134		E					
+特效动画	CardEffectsService	EnableCardEffectSlots(bool isPlayer, List<CardEffect> effectsToDisplay)	CardEffectsService.cs:91		E					
+特效动画	CardEffectsService	EnableEffects(List<CardEffect> effectsToDisplay, bool isPlayer)	CardEffectsService.cs:18		E					
+特效动画	CrosshairLineEffect	Awake()	CrosshairLineEffect.cs:25		E					
+特效动画	CrosshairLineEffect	GenerateGradient(Color color)	CrosshairLineEffect.cs:205		E					
+特效动画	CrosshairLineEffect	SetAttackType(AttackTypes selectedAttackType)	CrosshairLineEffect.cs:170		E					
+特效动画	CrosshairLineEffect	SetPoints(Vector3 starPosition, Vector3 endPosition)	CrosshairLineEffect.cs:39		E					
+特效动画	DelayTween	GetTween()	DelayTween.cs:5		E					
+特效动画	Effect	Trigger()	Effect.cs:6		E					
+特效动画	EffectListing	TriggerEffects()	EffectListing.cs:10		E					
+特效动画	EnviromentalEffectCardsSO	GetEmptyOffensiveCard(CardArmy useArmy)	EnviromentalEffectCardsSO.cs:191		E					
+特效动画	EnviromentalEffectCardsSO	GetEnvCardList(CardArmy useArmy, bool shouldUseOffensive, bool justOwnedCards, int currentForgeLevelObtained)	EnviromentalEffectCardsSO.cs:223		E					
+特效动画	EnviromentalEffectCardsSO	GetEnvCardListDraft(CardArmy useArmy, bool shouldUseOffensive, int currentDraftVictories)	EnviromentalEffectCardsSO.cs:411		E					
+特效动画	EnviromentalEffectCardsSO	GetEnviromentalEffect(RawCardScript card)	EnviromentalEffectCardsSO.cs:63		E					
+特效动画	FadeableElement	SetElementAlpha(float targetAlpha, float fadeTime)	FadeableElement.cs:18		E					
+特效动画	HandEffect	DeepCopy()	HandEffect.cs:42		E					
+特效动画	HandEffect	GetNewInstanceOfThisEffect()	HandEffect.cs:17		E					
+特效动画	LUTBlender	Awake()	LUTBlender.cs:32		E					
+特效动画	LUTBlender	DoBlend(float blendValue)	LUTBlender.cs:117		E					
+特效动画	LUTBlender	OnDestroy()	LUTBlender.cs:86		E					
+特效动画	LUTBlender	ResetToDefaultLUT(float time)	LUTBlender.cs:93		E					
+特效动画	LUTBlender	SetDefaultLUT(Texture texture)	LUTBlender.cs:149		E					
+特效动画	LUTBlender	SetOriginalLUTOnBlendPos0()	LUTBlender.cs:139		E					
+特效动画	LUTBlender	SetTargetLUT(Texture targetTexture)	LUTBlender.cs:111		E					
+特效动画	LUTBlender	TransitionTo(Texture targetTexture, float time)	LUTBlender.cs:102		E					
+特效动画	LUTBlender	Update()	LUTBlender.cs:71		E					
+特效动画	LampsWindEffect	Start()	LampsWindEffect.cs:22		E					
+特效动画	LampsWindEffect	Update()	LampsWindEffect.cs:37		E					
+特效动画	LightFlickerEffect	Awake()	LightFlickerEffect.cs:32		E					
+特效动画	LightFlickerEffect	OnValidate()	LightFlickerEffect.cs:166		E					
+特效动画	LightFlickerEffect	Play()	LightFlickerEffect.cs:142		E					
+特效动画	LightFlickerEffect	Prewarm()	LightFlickerEffect.cs:151		E					
+特效动画	LightFlickerEffect	Stop()	LightFlickerEffect.cs:161		E					
+特效动画	LightFlickerEffect	Update()	LightFlickerEffect.cs:56		E					
+特效动画	MarkerlightController	AimingAttack(bool option)	MarkerlightController.cs:81		E					
+特效动画	MarkerlightController	ChangeState(bool alreadyAttacked)	MarkerlightController.cs:95		E					
+特效动画	MarkerlightController	FadeFixedElements(bool option, MaterialFader whoToFade)	MarkerlightController.cs:103		E					
+特效动画	MarkerlightController	MarkerLightUsed()	MarkerlightController.cs:88		E					
+特效动画	MarkerlightController	Start()	MarkerlightController.cs:25		E					
+特效动画	MarkerlightController	Toggle(bool option)	MarkerlightController.cs:50		E					
+特效动画	MarkerlightController	UpdateValue(int newValue)	MarkerlightController.cs:54		E					
+特效动画	MaterialFader	CacheOriginalMaterials()	MaterialFader.cs:324		E					
+特效动画	MaterialFader	FadeIn()	MaterialFader.cs:148		E					
+特效动画	MaterialFader	FadeOut()	MaterialFader.cs:143		E					
+特效动画	MaterialFader	RestoreOriginalMaterials()	MaterialFader.cs:422		E					
+特效动画	MaterialFader	SetTargetFade(float targetValue, float blendTime)	MaterialFader.cs:317		E					
+特效动画	MaterialFader	Toggle(bool option, float time)	MaterialFader.cs:153		E					
+特效动画	MaterialFader	ToggleRenderers(bool option)	MaterialFader.cs:459		E					
+特效动画	MaterialFader	Update()	MaterialFader.cs:26		E					
+特效动画	MaterialFlickerEffect	Awake()	MaterialFlickerEffect.cs:32		E					
+特效动画	MaterialFlickerEffect	OnValidate()	MaterialFlickerEffect.cs:176		E					
+特效动画	MaterialFlickerEffect	Play()	MaterialFlickerEffect.cs:152		E					
+特效动画	MaterialFlickerEffect	Prewarm()	MaterialFlickerEffect.cs:161		E					
+特效动画	MaterialFlickerEffect	Stop()	MaterialFlickerEffect.cs:171		E					
+特效动画	MaterialFlickerEffect	Update()	MaterialFlickerEffect.cs:72		E					
+特效动画	MaterialTweenBase	DoTween(Material material, bool reverse)	MaterialTweenBase.cs:24		E					
+特效动画	MaterialTweenBase	DoTween(Renderer renderer, bool reverse)	MaterialTweenBase.cs:17		E					
+特效动画	MaterialTweenColor	DoTween(Material material, bool reverse)	MaterialTweenColor.cs:14		E					
+特效动画	MaterialTweenFloat	DoTween(Material material, bool reverse)	MaterialTweenFloat.cs:14		E					
+特效动画	MaterialTweenVector	DoTween(Material material, bool reverse)	MaterialTweenVector.cs:14		E					
+特效动画	MoveAnimator	CompleteMove()	MoveAnimator.cs:155		E					
+特效动画	MoveAnimator	Start()	MoveAnimator.cs:119		E					
+特效动画	MoveAnimator	WaitToCompleteMove()	MoveAnimator.cs:144		E					
+特效动画	MoveTween	GetTween()	MoveTween.cs:16		E					
+特效动画	ObjAnimEffects	PlayDelayedEffect(AnimEffectData effectData)	ObjAnimEffects.cs:222		E					
+特效动画	ObjAnimEffects	PlayEffect(AnimEffectData effectData)	ObjAnimEffects.cs:175		E					
+特效动画	ObjAnimEffects	PlayEffects()	ObjAnimEffects.cs:137		E					
+特效动画	ObjAnimEffects	ResolveAnimPrefab(AnimEffectData effectData)	ObjAnimEffects.cs:289		E					
+特效动画	ObjAnimEffects	ResolveFade(AnimEffectData effectData)	ObjAnimEffects.cs:237		E					
+特效动画	ObjAnimEffects	ResolvePlaySound(AnimEffectData effectData)	ObjAnimEffects.cs:313		E					
+特效动画	ObjAnimEffects	ResolveScreenShake(AnimEffectData effectData)	ObjAnimEffects.cs:338		E					
+特效动画	ObjAnimEffects	Start()	ObjAnimEffects.cs:94		E					
+特效动画	OverwriteCameraShakePreset	CanPlay()	OverwriteCameraShakePreset.cs:93		E					
+特效动画	OverwriteCameraShakePreset	GetModifiedPreset()	OverwriteCameraShakePreset.cs:98		E					
+特效动画	OverwriteCameraShakePreset	Play()	OverwriteCameraShakePreset.cs:37		E					
+特效动画	OverwriteCameraShakePreset	SetAmplitude(float newAmplitude)	OverwriteCameraShakePreset.cs:55		E					
+特效动画	OverwriteCameraShakePreset	SetAttackTime(float newAttackTime)	OverwriteCameraShakePreset.cs:81		E					
+特效动画	OverwriteCameraShakePreset	SetDecayTime(float newDecayTime)	OverwriteCameraShakePreset.cs:87		E					
+特效动画	OverwriteCameraShakePreset	SetDirection(Vector3 newDirection)	OverwriteCameraShakePreset.cs:73		E					
+特效动画	OverwriteCameraShakePreset	SetFrequency(float newFrequency)	OverwriteCameraShakePreset.cs:67		E					
+特效动画	OverwriteCameraShakePreset	SetSustainTime(float newSustainTime)	OverwriteCameraShakePreset.cs:61		E					
+特效动画	ParticleEmitOnEnable	OnEnable()	ParticleEmitOnEnable.cs:7		E					
+特效动画	ParticleEmitOnEnable	OnValidate()	ParticleEmitOnEnable.cs:15		E					
+特效动画	ParticleFindFloorCollider	OnValidate()	ParticleFindFloorCollider.cs:37		E					
+特效动画	ParticleFindFloorCollider	Start()	ParticleFindFloorCollider.cs:10		E					
+特效动画	ParticleForceForceFieldController	Update()	ParticleForceForceFieldController.cs:12		E					
+特效动画	ParticleGameObjectActivator	Start()	ParticleGameObjectActivator.cs:5		E					
+特效动画	ParticleGameObjectActivator	Update()	ParticleGameObjectActivator.cs:9		E					
+特效动画	ParticleSystemAreaSpawner	CreatePooledItem()	ParticleSystemAreaSpawner.cs:330		E					
+特效动画	ParticleSystemAreaSpawner	GetPoolObject(ParticleSystem system)	ParticleSystemAreaSpawner.cs:387		E					
+特效动画	ParticleSystemAreaSpawner	GetRandomPositionInsideBox()	ParticleSystemAreaSpawner.cs:284		E					
+特效动画	ParticleSystemAreaSpawner	IsAnyPoolItemActive()	ParticleSystemAreaSpawner.cs:153		E					
+特效动画	ParticleSystemAreaSpawner	OnDestroyPoolObject(ParticleSystem system)	ParticleSystemAreaSpawner.cs:402		E					
+特效动画	ParticleSystemAreaSpawner	OnDrawGizmosSelected()	ParticleSystemAreaSpawner.cs:408		E					
+特效动画	ParticleSystemAreaSpawner	OnEnable()	ParticleSystemAreaSpawner.cs:121		E					
+特效动画	ParticleSystemAreaSpawner	OnReturnedToPool(ParticleSystem system)	ParticleSystemAreaSpawner.cs:381		E					
+特效动画	ParticleSystemAreaSpawner	SpawnParticle()	ParticleSystemAreaSpawner.cs:225		E					
+特效动画	ParticleSystemAreaSpawner	SpawnParticles()	ParticleSystemAreaSpawner.cs:214		E					
+特效动画	ParticleSystemAreaSpawner	Toggle(bool option)	ParticleSystemAreaSpawner.cs:138		E					
+特效动画	ParticleSystemAreaSpawnerController	FetchAllParticleSpawners()	ParticleSystemAreaSpawnerController.cs:474		E					
+特效动画	ParticleSystemAreaSpawnerController	IsAnyParticlePoolActive()	ParticleSystemAreaSpawnerController.cs:277		E					
+特效动画	ParticleSystemAreaSpawnerController	IsAnyPoolItemActive()	ParticleSystemAreaSpawnerController.cs:30		E					
+特效动画	ParticleSystemAreaSpawnerController	OnEnable()	ParticleSystemAreaSpawnerController.cs:245		E					
+特效动画	ParticleSystemAreaSpawnerController	SelectRandomWeightedItem()	ParticleSystemAreaSpawnerController.cs:404		E					
+特效动画	ParticleSystemAreaSpawnerController	SpawnParticle()	ParticleSystemAreaSpawnerController.cs:345		E					
+特效动画	ParticleSystemAreaSpawnerController	SpawnParticles()	ParticleSystemAreaSpawnerController.cs:334		E					
+特效动画	ParticleSystemAreaSpawnerController	Toggle(bool option)	ParticleSystemAreaSpawnerController.cs:260		E					
+特效动画	ParticleSystemAreaSpawnerController	TrySpawnParticles()	ParticleSystemAreaSpawnerController.cs:21		E					
+特效动画	ParticleSystemPoolable	AssignParticleSystemReference(ParticleSystem particleSystemToCache)	ParticleSystemPoolable.cs:26		E					
+特效动画	ParticleSystemPoolable	OnParticleSystemStopped()	ParticleSystemPoolable.cs:18		E					
+特效动画	ParticleSystemPoolable	OnValidate()	ParticleSystemPoolable.cs:34		E					
+特效动画	ParticleSystemPoolable	SetCallbackOnStop()	ParticleSystemPoolable.cs:51		E					
+特效动画	ParticleSystemPoolable	Start()	ParticleSystemPoolable.cs:11		E					
+特效动画	PostFXController	ResetAll(bool instant)	PostFXController.cs:160		E					
+特效动画	PostFXController	ResetBloom(bool instant)	PostFXController.cs:87		E					
+特效动画	PostFXController	ResetLUT(bool instant)	PostFXController.cs:148		E					
+特效动画	PostFXController	Start()	PostFXController.cs:54		E					
+特效动画	PostFXController	_003CResetBloom_003Eb__16_0()	PostFXController.cs:166		E					
+特效动画	PostFXController	_003CResetBloom_003Eb__16_1(float x)	PostFXController.cs:182		E					
+特效动画	PostFXController	_003CResetBloom_003Eb__16_2()	PostFXController.cs:188		E					
+特效动画	PostFXController	_003CResetBloom_003Eb__16_3(float x)	PostFXController.cs:204		E					
+特效动画	ResetBodyTween	GetTween()	ResetBodyTween.cs:21		E					
+特效动画	RotateTween	GetTween()	RotateTween.cs:18		E					
+特效动画	ScaleTween	GetTween()	ScaleTween.cs:13		E					
+特效动画	ScenarioAnimationBlend	AddAnimation(AnimationClip clipToAdd, bool alsoPlay)	ScenarioAnimationBlend.cs:70		E					
+特效动画	ScenarioAnimationBlend	DoScenarioBlend(ScenarioBlendOptions scenarioBlendOptions)	ScenarioAnimationBlend.cs:19		E					
+特效动画	ScenarioAnimationBlend	Initialize()	ScenarioAnimationBlend.cs:13		E					
+特效动画	ScenarioGenericMaterialBlend	DoBlend(float target, float blendSpeed, bool instant)	ScenarioGenericMaterialBlend.cs:18		E					
+特效动画	ScenarioGenericMaterialBlend	DoScenarioBlend(ScenarioBlendOptions blendOptions)	ScenarioGenericMaterialBlend.cs:182		E					
+特效动画	ScenarioGenericMaterialBlend	Init(float startValue)	ScenarioGenericMaterialBlend.cs:57		E					
+特效动画	ScenarioGenericMaterialBlend	SetTargetFade(float targetValue, float blendTime)	ScenarioGenericMaterialBlend.cs:270		E					
+特效动画	ScenarioGenericMaterialBlend	Start()	ScenarioGenericMaterialBlend.cs:103		E					
+特效动画	ScenarioGenericMaterialBlend	ToggleRenderer(bool option)	ScenarioGenericMaterialBlend.cs:79		E					
+特效动画	ScenarioGenericMaterialBlend	ToggleRenderers(bool option)	ScenarioGenericMaterialBlend.cs:277		E					
+特效动画	ScenarioGenericMaterialBlend	Update()	ScenarioGenericMaterialBlend.cs:112		E					
+特效动画	ScenarioMaterialFader	CacheOriginalMaterials()	ScenarioMaterialFader.cs:410		E					
+特效动画	ScenarioMaterialFader	DoScenarioBlend(ScenarioBlendOptions blendOptions)	ScenarioMaterialFader.cs:157		E					
+特效动画	ScenarioMaterialFader	RestoreOriginalMaterials()	ScenarioMaterialFader.cs:508		E					
+特效动画	ScenarioMaterialFader	SetTargetFade(float targetValue, float blendTime)	ScenarioMaterialFader.cs:403		E					
+特效动画	ScenarioMaterialFader	Start()	ScenarioMaterialFader.cs:32		E					
+特效动画	ScenarioMaterialFader	ToggleRenderers(bool option)	ScenarioMaterialFader.cs:545		E					
+特效动画	ScenarioMaterialFader	Update()	ScenarioMaterialFader.cs:41		E					
+特效动画	ScenarioParticleSpawnerBlender	DoScenarioBlend(ScenarioBlendOptions scenarioBlendOptions)	ScenarioParticleSpawnerBlender.cs:13		E					
+特效动画	ScenarioParticleSpawnerBlender	IsAnyParticleSystemActiveInAreas()	ScenarioParticleSpawnerBlender.cs:156		E					
+特效动画	ScenarioParticleSpawnerBlender	IsAnyParticleSystemActiveInControllers()	ScenarioParticleSpawnerBlender.cs:128		E					
+特效动画	ScenarioParticleSpawnerBlender	Update()	ScenarioParticleSpawnerBlender.cs:54		E					
+特效动画	ScenarioParticleSystemBlender	DoScenarioBlend(ScenarioBlendOptions scenarioBlendOptions)	ScenarioParticleSystemBlender.cs:147		E					
+特效动画	ScenarioParticleSystemBlender	Update()	ScenarioParticleSystemBlender.cs:105		E					
+特效动画	ScenarioParticleSystemBlender	WaitForBlendTime()	ScenarioParticleSystemBlender.cs:194		E					
+特效动画	ScenarioParticleSystemToggler	DoScenarioBlend(ScenarioBlendOptions scenarioBlendOptions)	ScenarioParticleSystemToggler.cs:8		E					
+特效动画	ScenarioParticleSystemToggler	Initialize()	ScenarioParticleSystemToggler.cs:33		E					
+特效动画	SegmentationController	AddLocalAttributes(GetPlayerCombinedInfoResultPayload userInfo)	SegmentationController.cs:103		E					
+特效动画	SegmentationController	AddTag(PlayerTag tag, bool upload)	SegmentationController.cs:289		E					
+特效动画	SegmentationController	CheckTag(PlayerTag tag)	SegmentationController.cs:277		E					
+特效动画	SegmentationController	DeserializeFromUserData(GetPlayerCombinedInfoResultPayload userInfo)	SegmentationController.cs:47		E					
+特效动画	SegmentationController	GetAttribute<T>(PlayerTag tag)	SegmentationController.cs:374		E					
+特效动画	SegmentationController	GetRawAttribute(PlayerTag tag)	SegmentationController.cs:477		E					
+特效动画	SegmentationController	IncreaseAttribute(PlayerTag key, int value, bool upload)	SegmentationController.cs:366		E					
+特效动画	SegmentationController	RemoveTag(PlayerTag tag)	SegmentationController.cs:332		E					
+特效动画	SegmentationController	SetAttribute(PlayerTag key, object value, bool upload)	SegmentationController.cs:345		E					
+特效动画	SegmentationController	Unpack(GetPlayerCombinedInfoResultPayload userInfo)	SegmentationController.cs:41		E					
+特效动画	SegmentationController	_003CDeserializeFromUserData_003Eg__ParseTags_007C2_0(JToken token)	SegmentationController.cs:526		E					
+特效动画	ShakeTween	GetTween()	ShakeTween.cs:18		E					
+特效动画	ShatterBakeToAnimationController	StartRecording()	ShatterBakeToAnimationController.cs:10		E					
+特效动画	SpawnEffect	Start()	SpawnEffect.cs:20		E					
+特效动画	SpawnEffect	Update()	SpawnEffect.cs:37		E					
+特效动画	SpriteFaderController	Awake()	SpriteFaderController.cs:21		E					
+特效动画	SpriteFaderController	IsEnabled()	SpriteFaderController.cs:106		E					
+特效动画	SpriteFaderController	OnValidate()	SpriteFaderController.cs:111		E					
+特效动画	SpriteFaderController	Toggle(bool option, float timeToFade)	SpriteFaderController.cs:89		E					
+特效动画	SpriteFaderController	Update()	SpriteFaderController.cs:43		E					
+特效动画	SpriteFlickerEffect	Awake()	SpriteFlickerEffect.cs:28		E					
+特效动画	SpriteFlickerEffect	OnValidate()	SpriteFlickerEffect.cs:164		E					
+特效动画	SpriteFlickerEffect	Play()	SpriteFlickerEffect.cs:140		E					
+特效动画	SpriteFlickerEffect	Prewarm()	SpriteFlickerEffect.cs:149		E					
+特效动画	SpriteFlickerEffect	Stop()	SpriteFlickerEffect.cs:159		E					
+特效动画	SpriteFlickerEffect	Update()	SpriteFlickerEffect.cs:60		E					
+特效动画	SwarmVFXController	Initialize(CardScript card, Action onFinish)	SwarmVFXController.cs:93		E					
+特效动画	SwarmVFXController	OnAnimationEndEvent()	SwarmVFXController.cs:121		E					
+特效动画	SwarmVFXController	SafeExit()	SwarmVFXController.cs:133		E					
+特效动画	SyncParticleSeeds	Awake()	SyncParticleSeeds.cs:8		E					
+特效动画	TapParticleController	Awake()	TapParticleController.cs:17		E					
+特效动画	TapParticleController	CheckCollision(RaycastHit raycastHit)	TapParticleController.cs:475		E					
+特效动画	TapParticleController	Initialize()	TapParticleController.cs:22		E					
+特效动画	TapParticleController	Update()	TapParticleController.cs:33		E					
+特效动画	TauCannonAnimationStopper	DoScenarioBlend(ScenarioBlendOptions scenarioBlendOptions)	TauCannonAnimationStopper.cs:79		E					
+特效动画	TauCannonAnimationStopper	Initialize()	TauCannonAnimationStopper.cs:20		E					
+特效动画	TauCannonAnimationStopper	Toggle(bool option)	TauCannonAnimationStopper.cs:26		E					
+特效动画	TraitEffect	GetEffect(CardArmy cardArmy)	TraitEffect.cs:57		E					
+特效动画	TraitEffectController	AimingAttack(bool option)	TraitEffectController.cs:15		E					
+特效动画	TraitEffectController	Start()	TraitEffectController.cs:7		E					
+特效动画	TraitEffectController	Toggle(bool option)	TraitEffectController.cs:11		E					
+特效动画	TraitEffectController	UpdateValue(int newValue)	TraitEffectController.cs:13		E					
+特效动画	TweenInfoAnimationBase	GetTween(CardScript source, CardScript target)	TweenInfoAnimationBase.cs:135		E					
+特效动画	TweenInfoBase	GetCard(TargetUnit unit)	TweenInfoBase.cs:39		E					
+特效动画	TweenInfoBase	GetTween()	TweenInfoBase.cs:37		E					
+特效动画	TweenInfoBase	GetTween(CardScript source, CardScript target)	TweenInfoBase.cs:18		E					
+特效动画	UIBorderGlow	Awake()	UIBorderGlow.cs:117		E					
+特效动画	UIBorderGlow	CacheMaterial()	UIBorderGlow.cs:164		E					
+特效动画	UIBorderGlow	CalculateViewPosition()	UIBorderGlow.cs:227		E					
+特效动画	UIBorderGlow	ChangeGraphicAlpha(float target)	UIBorderGlow.cs:262		E					
+特效动画	UIBorderGlow	DealyedAnim()	UIBorderGlow.cs:208		E					
+特效动画	UIBorderGlow	DoAnimation()	UIBorderGlow.cs:192		E					
+特效动画	UIBorderGlow	ModifyMesh(Mesh mesh)	UIBorderGlow.cs:284		E					
+特效动画	UIBorderGlow	ModifyMesh(VertexHelper verts)	UIBorderGlow.cs:288		E					
+特效动画	UIBorderGlow	OnEnable()	UIBorderGlow.cs:130		E					
+特效动画	UIBorderGlow	OnRectTransformDimensionsChange()	UIBorderGlow.cs:272		E					
+特效动画	UIBorderGlow	OnTransformParentChanged()	UIBorderGlow.cs:278		E					
+特效动画	UIBorderGlow	Play()	UIBorderGlow.cs:155		E					
+特效动画	UIBorderGlow	RemapValue(float input, float oldLow, float oldHigh, float newLow, float newHigh)	UIBorderGlow.cs:410		E					
+特效动画	UIBorderGlow	RemapVector(Vector2 In, Vector2 InMinMix, Vector2 OutMinMax)	UIBorderGlow.cs:328		E					
+特效动画	UIBorderGlow	Stop()	UIBorderGlow.cs:219		E					
+特效动画	UIBorderGlow	Update()	UIBorderGlow.cs:143		E					
+特效动画	UIEffectBorderGlowToggler	AnimationFinished()	UIEffectBorderGlowToggler.cs:60		E					
+特效动画	UIEffectBorderGlowToggler	DoUpdate(float currentTime, float normalizedTime)	UIEffectBorderGlowToggler.cs:35		E					
+特效动画	UIEffectBorderGlowToggler	Initialize()	UIEffectBorderGlowToggler.cs:68		E					
+特效动画	UIEffectBorderGlowToggler	OnValidate()	UIEffectBorderGlowToggler.cs:79		E					
+特效动画	UIEffectBorderGlowToggler	Toggle(bool option, float duration)	UIEffectBorderGlowToggler.cs:18		E					
+特效动画	UIEffectCanvasGroupToggler	AnimationFinished()	UIEffectCanvasGroupToggler.cs:57		E					
+特效动画	UIEffectCanvasGroupToggler	DoUpdate(float currentTime, float normalizedTime)	UIEffectCanvasGroupToggler.cs:20		E					
+特效动画	UIEffectCanvasGroupToggler	Toggle(bool option, float duration)	UIEffectCanvasGroupToggler.cs:7		E					
+特效动画	UIEffectCanvasGroupToggler	ToggleGameObjects(bool option)	UIEffectCanvasGroupToggler.cs:65		E					
+特效动画	UIEffectPump	AnimationFinished()	UIEffectPump.cs:7		E					
+特效动画	UIEffectPump	DoUpdate(float currentTime, float normalizedTime)	UIEffectPump.cs:15		E					
+特效动画	UIEffectTogglerBase	AnimationFinished()	UIEffectTogglerBase.cs:18		E					
+特效动画	UIEffectTogglerBase	DoUpdate(float currentTime, float normalizedTime)	UIEffectTogglerBase.cs:16		E					
+特效动画	UIEffectTogglerBase	Toggle(bool option, float duration)	UIEffectTogglerBase.cs:11		E					
+特效动画	UIEffectTogglerCoffeeEffects	AnimationFinished()	UIEffectTogglerCoffeeEffects.cs:41		E					
+特效动画	UIEffectTogglerCoffeeEffects	DoUpdate(float currentTime, float normalizedTime)	UIEffectTogglerCoffeeEffects.cs:37		E					
+特效动画	UIEffectTogglerCoffeeEffects	Toggle(bool option, float duration)	UIEffectTogglerCoffeeEffects.cs:8		E					
+特效动画	UIEffectTogglerController	FindEffectTogglersInChildren()	UIEffectTogglerController.cs:82		E					
+特效动画	UIEffectTogglerController	Toggle(bool option, float duration, bool forceChange)	UIEffectTogglerController.cs:19		E					
+特效动画	UIEffectTogglerController	Update()	UIEffectTogglerController.cs:92		E					
+特效动画	UIEffectTogglerGameObject	AnimationFinished()	UIEffectTogglerGameObject.cs:29		E					
+特效动画	UIEffectTogglerGameObject	DoUpdate(float currentTime, float normalizedTime)	UIEffectTogglerGameObject.cs:25		E					
+特效动画	UIEffectTogglerGameObject	Toggle(bool option, float duration)	UIEffectTogglerGameObject.cs:7		E					
+特效动画	UIEffectTogglerImage	AnimationFinished()	UIEffectTogglerImage.cs:45		E					
+特效动画	UIEffectTogglerImage	DoUpdate(float currentTime, float normalizedTime)	UIEffectTogglerImage.cs:21		E					
+特效动画	UIEffectTogglerImage	Toggle(bool option, float duration)	UIEffectTogglerImage.cs:8		E					
+特效动画	UIEffectTogglerImage	ToggleGameObjects(bool option)	UIEffectTogglerImage.cs:53		E					
+特效动画	UIFlippableAndRotableUVs	FlipVertex(RectTransform rt, int i, ref VertexHelper verts)	UIFlippableAndRotableUVs.cs:156		E					
+特效动画	UIFlippableAndRotableUVs	ModifyMesh(VertexHelper verts)	UIFlippableAndRotableUVs.cs:41		E					
+特效动画	UIFlippableAndRotableUVs	Rotate(ref UIVertex vertex, RectTransform rt)	UIFlippableAndRotableUVs.cs:210		E					
+特效动画	UIFlippableAndRotableUVs	RotatePointAroundPivot(Vector3 point, Vector3 pivot, float angle)	UIFlippableAndRotableUVs.cs:231		E					
+特效动画	UIFlippableAndRotableUVs	RotatePointAroundPivotUVs(Vector2 point, Vector2 pivot, float angle)	UIFlippableAndRotableUVs.cs:147		E					
+特效动画	UIFlippableAndRotableUVs	RotateUVs(ref UIVertex vertex)	UIFlippableAndRotableUVs.cs:134		E					
+特效动画	UITransformTweenController	Awake()	UITransformTweenController.cs:35		E					
+特效动画	UITransformTweenController	BackToDefault()	UITransformTweenController.cs:111		E					
+特效动画	UITransformTweenController	BackToDefault(float animTime)	UITransformTweenController.cs:129		E					
+特效动画	UITransformTweenController	DoAnim(Vector2 desiredPosition, Vector3 desiredScale, float animTime)	UITransformTweenController.cs:147		E					
+特效动画	UITransformTweenController	DoAnimPosition(Vector2 desiredPosition, float animTime)	UITransformTweenController.cs:155		E					
+特效动画	UITransformTweenController	DoAnimScale(Vector3 desiredScale, float animTime)	UITransformTweenController.cs:181		E					
+特效动画	UITransformTweenController	DoDefaultAnim()	UITransformTweenController.cs:88		E					
+特效动画	UITransformTweenController	Initialize()	UITransformTweenController.cs:78		E					
+特效动画	UITransformTweenController	OnEnable()	UITransformTweenController.cs:48		E					
+特效动画	UITransformTweenController	OnValidate()	UITransformTweenController.cs:210		E					
+特效动画	UnitTweenSO	BuildSequence(CardScript source, CardScript target, Action onSequenceSignal)	UnitTweenSO.cs:145		E					
+特效动画	UnitTweenSO	CheckMuted()	UnitTweenSO.cs:88		E					

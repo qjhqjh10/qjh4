@@ -27,12 +27,7 @@
       "berzerk",
       "dodge"
     ],
-    "unresolvedCustomObjectGuids": [
-      "Ambush:2415b100e3152f045abcf4c815c93e91",
-      "BloodThirst:fb07f52246771d5489569abf9c95df92",
-      "Cruelty:564290f63a8850048864c34c05945934",
-      "Swarm:6fdb2cebf898a4d36bce5ab60cef8589"
-    ],
+    "unresolvedCustomObjectGuids": [],
     "bytesRead": 2416,
     "byteSize": 2416
   },
@@ -94,7 +89,7 @@
         "guid": "2415b100e3152f045abcf4c815c93e91",
         "subObjectName": "GenestealerCults_special_Ambush",
         "subObjectType": "UnityEngine.Sprite, UnityEngine.CoreModule, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null",
-        "name": null
+        "name": "GenestealerCults_special_Ambush"
       },
       "traitEffects": [
         {
@@ -317,7 +312,7 @@
         "guid": "fb07f52246771d5489569abf9c95df92",
         "subObjectName": "",
         "subObjectType": "",
-        "name": null
+        "name": "BloodThirstEffect_Gain"
       },
       "traitEffects": [
         {
@@ -587,7 +582,7 @@
         "guid": "564290f63a8850048864c34c05945934",
         "subObjectName": "",
         "subObjectType": "",
-        "name": null
+        "name": "CrueltyEffect"
       },
       "traitEffects": [
         {
@@ -2465,7 +2460,7 @@
         "guid": "6fdb2cebf898a4d36bce5ab60cef8589",
         "subObjectName": "",
         "subObjectType": "",
-        "name": null
+        "name": "Swarm Card Merge VFX"
       },
       "traitEffects": [
         {

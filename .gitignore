@@ -245,3 +245,6 @@ desktop.ini
 /Unity/资料/普查产出_1018/allcards_1350/localization_2026_decoded.json
 /Unity/资料/普查产出_1018/allcards_1350/reconcile_added_vs_2025snapshot.json
 /Unity/资料/普查产出_1018/allcards_1350/reconcile_new_ids.json
+
+# 88MB 的「资源覆盖账」（24.7 万对象 dump）—— 留在盘上，不进 git（仓库已有 174MB）
+Unity/资料/完全复刻/资源/R0_资源覆盖账.tsv

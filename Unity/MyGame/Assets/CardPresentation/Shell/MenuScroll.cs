@@ -171,6 +171,12 @@ namespace CardPresentation
         public bool Vertical;
         /// <summary>当前偏移（画布像素；正 = 内容左移，能看到右边的东西）。</summary>
         public float Offset;
+
+        /// <summary>🆕 **2026-10-25（菜单 C）**：原版 `ScrollRect.enabled` 的等价物
+        /// （`MainMenuWindow.ToggleScroll` 直接 `SetEnabled(scrollList, option)`，判据 `MainMenuWindow__ToggleScroll.c`）。
+        /// <para>`false` ⇒ `PointerLayer` 的**命中 / 滚轮 / 惯性**都跳过本区；**不注销登记**（回来立刻可用）。
+        /// ⚠️ 拖拽中置 false：本帧不推进，抬起照常 `EndDrag`（不会卡在 dragging）。</para></summary>
+        public bool Enabled = true;
         /// <summary>偏移变化时回调（宿主在里头重建内容）。</summary>
         public System.Action OnChanged;
         /// <summary>这个区属于哪个节点（窗口 / 页）。`PointerLayer` 命中时跳过**已经关掉 / 切走的**那些
@@ -199,8 +205,50 @@ namespace CardPresentation
         /// （**不出声**；所以重建型宿主必须**每次重建都重设一次**，见各宿主那两行注释）。</para></summary>
         public ViewportClip ClipNode;
 
+        // ============================================================ 滚动锁 + 让位 padding
+        // 判据 = 原版 `ForgeRewardSelector`（`D:/2/tools/cpp2il/out_cpp2il_dev_ilspy/ForgeRewardSelector.cs`）：
+        //   · `ToggleScrollLock(bool option)`（:363）= `horizontalLayoutGroup.padding = option ? 改过的那套 : 原套`
+        //     **且** `rewardsScrollRect.m_Horizontal = !option`；
+        //   · `ChangeLayoutPadding(bool increaseSize)`（:441）= 只切 padding；
+        //   · `InitializePaddings()`（:454）= 记下原 padding、再造一套
+        //     `left/right 各 + HORIZONTAL_LAYOUT_GROUP_EXTRA_PADDING`（= **895**，字段 `:76`）；
+        //   · `ToggleCollectReward` / `Refresh` 里同一条式子：`hasToCollectReward ? 改过的那套 : 原套`
+        //     + `m_Horizontal = !hasToCollectReward`。
+        //
+        // 🔴 **我们这边的等价物是【内容两端】而不是 `LayoutGroup.padding`** —— 本壳没有
+        //   `HorizontalLayoutGroup`（子件位置由宿主按 `UguiLayout.HorizontalChild(…, padL, spacing)` 摆）。
+        //   `padding.left/right` 对 `ScrollRect` 的**唯一可观测作用**是「把内容两端各自外推 pad」，
+        //   于是可滚范围变大（**这正是它存在的理由**：内容两端再外推 895 之后，
+        //   第一格/最后一格才能被滚到视口正中 —— 见 `FocusOn` 的夹取）。
+        //   ⇒ 这里把那一半直接做在极值上（`ExtraPadLo/Hi`）；`padding` 的**另一半**
+        //   （子件整体右移 pad）是宿主的排版参数（锻造那处 = `ForgeTab.TrackPadL`，现值 122），
+        //   宿主切档时要**同时**改那一个常量、否则两半会打架（⛔ 静默错位，不报错）。
+
+        /// <summary>原版 `ForgeRewardSelector.HORIZONTAL_LAYOUT_GROUP_EXTRA_PADDING`（`ForgeRewardSelector.cs:76`
+        /// 实读 = **895**）—— 领奖让位那一档在每个方向上多出来的布局 padding。</summary>
+        public const float RewardClaimExtraPadding = 895f;
+
+        /// <summary>🆕 **2026-10-25（N1）**：滚动锁 = 原版 `ScrollRect.m_Horizontal = false`
+        /// （`ForgeRewardSelector.ToggleScrollLock(true)` / `Refresh` 的 `!hasToCollectReward`）。
+        /// <para>`true` ⇒ **滚轮 / 起拖 / 惯性 / 回弹**全部跳过（UGUI 那边这一格一关，横向位移整段不跑）；
+        /// **补间吸附照常推进** —— 原版那条路是直接写 `scrollView.normalizedPosition`，不受 `m_Horizontal` 影响。
+        /// ⚠️ **不注销登记**（解锁立刻可用），与 `Enabled` 同一条处置。</para></summary>
+        public bool Locked;
+        /// <summary>内容**起点**再外推多少（原版 `padding.left`；正 = 内容起点右移）。
+        /// 参与 `MinOffset` 的夹取 ⇒ 值必须与宿主排版用的左 pad **同一份**（见上面那段 🔴）。</summary>
+        public float ExtraPadLo;
+        /// <summary>内容**末端**再外推多少（原版 `padding.right`；正 = 内容末端外推）。参与 `MaxOffset`。</summary>
+        public float ExtraPadHi;
+
         // ---- 惯性 / 回弹 / 拖拽 的运行时状态（照 UGUI `ScrollRect` 的对应字段）----
         float _vel;                 // m_Velocity（只取滚动轴那一个分量）
+        // ---- 补间吸附（原版 `ScrollViewFocusFunctions.LerpToScrollPositionCoroutine`）----
+        bool _focusActive;          // 正在吸
+        float _focusT;              // 原版 `_t`（0 → 1，按 dt × speed 累加）
+        float _focusFrom;           // 原版 `_initialNormalizedPos`（我们是偏移量）
+        float _focusTo;             // 原版 `targetNormalizedPos`
+        float _focusSpeed = FocusDefaultSpeed;
+        System.Action _focusOnFinish;   // 原版 `onFinish`（= `ForgeRewardSelector.FinishedSnapping` 那一跳）
         bool _dragging;             // m_Dragging
         float _dragStartAxis;       // 按下时的指针坐标（滚动轴）
         float _dragStartOffset;     // m_ContentStartPosition
@@ -246,13 +294,13 @@ namespace CardPresentation
         /// 判据来源 = **本地真 uGUI 源码** `MyGame/Library/PackageCache/com.unity.ugui@…/Runtime/UGUI/UI/Core/ScrollRect.cs:1332-1352`
         /// （`AdjustBounds`）与 `:1281-1294`（`UpdateBounds` 每帧调它再存回 `m_ContentBounds`）。
         /// ⚠️ 夹在**这一处**（而不是留给调用点各夹一遍）。</summary>
-        public float MinOffset { get { return Mathf.Min(0f, ContentX1 - ViewLo); } }
+        public float MinOffset { get { return Mathf.Min(0f, ContentX1 + ExtraPadLo - ViewLo); } }
         /// <summary>可滚到的右/下极值（**恒 ≥ 0**；正 = 内容还能往左/上推）。
         /// 🔴 **2026-10-09（A269）**：同上那条 `AdjustBounds` 语义 —— **空内容 / 内容比视口小 ⇒ 恒 0**。
         /// 原来这里是**没调整过的裸值** `ContentX2 - ViewHi`，空列表时会给出 **−778.79**（= −视口高）——
         /// 🔑 **行为一直是对的**（`ClampLo/ClampHi` 与 `SetOffset` 本来就夹），**错的是这个读数**：
         /// `Editor/RewardsScene.cs` 的 A182 那条「空列表 ⇒ 可滚极值 = 0」就是被它读红的。</summary>
-        public float MaxOffset { get { return Mathf.Max(0f, ContentX2 - ViewHi); } }
+        public float MaxOffset { get { return Mathf.Max(0f, ContentX2 + ExtraPadHi - ViewHi); } }
 
         /// <summary>夹取下界。⚠️ **A269 起 `MinOffset` 自带这层夹**，这里留名字给调用点用（两者恒等）。</summary>
         public float ClampLo { get { return MinOffset; } }
@@ -277,6 +325,9 @@ namespace CardPresentation
         ///    自检当场报出「偏移 2124.82，期望 708」（自检抓 bug 的又一次实例）。</summary>
         public void SetOffset(float o)
         {
+            // 🆕 2026-10-25（N1）：**任何绝对写入口都取消补间吸附** —— 否则两个写手会抢同一个 `Offset`
+            //   （原版协程没有这一档，那是它的问题；本仓铁律「两处写同一条规则 ⇒ 迟早不一致」）。
+            CancelFocusAnimation();
             // 🔴 2026-10-09（A269）：改成读 `ClampLo/ClampHi` —— 原来这里自己又写了一遍 `Mathf.Min(0f,…)/Mathf.Max(0f,…)`，
             //    与那两个属性是**第二份夹法**（迟早会分叉）。两条式子今天恒等，行为零变化。
             float v = Mathf.Clamp(o, ClampLo, ClampHi);
@@ -301,6 +352,10 @@ namespace CardPresentation
             //   而 `IsScrolling()` = `scrollDelta != Vector2.zero`）⇒ 这里 `dy == 0` 就 return，**语义相同**。
             //   判据全文 → `资料/普查产出_1023e/C1_战斗线判据_布置与层级.md` 的 `C1-B08`。
             if (dy == 0f) return;
+            // 🆕 2026-10-25（N1）：滚动锁 = 原版 `m_Horizontal = false` ⇒ 滚轮整段不产生位移
+            //   （UGUI `OnScroll` 里 `m_Horizontal` 关着时不累加横向 position）。用户接管也取消吸附。
+            if (Locked) return;
+            CancelFocusAnimation();
             _scrolling = true;                       // 回弹那一帧 smoothTime ×3（UGUI :853-854）
             Apply(Offset - dy * NotchK, !Elastic);   // Clamped ⇒ 夹；Elastic ⇒ 允许越界
         }
@@ -315,6 +370,99 @@ namespace CardPresentation
         public void FocusOn(float contentCenter)
         {
             SetOffset(contentCenter - ViewMid);
+        }
+
+        // ============================================================ 补间吸附（原版 `SnapTo` / `SnapToItem` / `FinishedSnapping`）
+
+        /// <summary>原版 `ForgeRewardSelector.SnapTo` / `SnapToItem` 传给
+        /// `ScrollViewFocusFunctions.FocusOnItemCoroutine(scrollView, target, **1.5f**, onFinish)` 的速度
+        /// （`ForgeRewardSelector.cs:416` 与 `:438` 两处实读，**同一个值**）。
+        /// <para>语义：`t += dt × speed` ⇒ 全程约 `1 ÷ 1.5 = 0.667 s`。</para></summary>
+        public const float FocusDefaultSpeed = 1.5f;
+
+        /// <summary>正在吸（自检读口 —— `Tick(dt)` 推完返回 false 之后再读它，等于原版的协程结束）。</summary>
+        public bool FocusAnimating { get { return _focusActive; } }
+
+        /// <summary>**补间**吸到某个内容坐标（原版 `SnapTo` / `SnapToItem` 的那一路）。
+        ///
+        /// <para>判据 = `ScrollViewFocusFunctions.LerpToScrollPositionCoroutine`（`ScrollViewFocusFunctions.cs:176-247`
+        /// 的 `MoveNext` 逐句）：
+        /// ① `_initialNormalizedPos = scrollView.normalizedPosition`；`_t = 0`；
+        /// ② 每帧 `_t += Time.unscaledDeltaTime × speed`；
+        /// ③ `_t &lt; 1` ⇒ `normalizedPosition = Lerp(init, target, **1 − (1 − t)²**)`（**ease-out 二次**，不是 Linear）；
+        /// ④ `_t ≥ 1` ⇒ **精确写 target**、**先调 `onFinish()` 再结束**（`MoveNext` 里 `onFinish` 在写 target 之前调，
+        ///   两者同一帧，顺序上无差）。
+        /// 我们这侧偏移量与归一化位置在**单轴**上是线性同构（同一段内容、同一个视口）⇒ 直接对 `Offset` 做同一个缓动。</para>
+        ///
+        /// <para>⚠️ **两处「我们不照抄」的地方**（都在下面的实现注释里再写一遍，别当成原版行为）：
+        /// ① 原版用 **`unscaledDeltaTime`**，我们吃调用方给的 `dt`（`PointerLayer` 传的是帧步长；
+        ///   批处理自检直调 `Tick(dt)` —— 那时 `Time.*` 无意义）；
+        /// ② 原版协程**没有取消机制**（真拖拽会与它抢写同一个 `normalizedPosition`）——
+        ///   我们按「**用户接管即取消**」处置（`BeginDrag` / `Wheel` / `SetOffset` / `Stop` 都取消），
+        ///   理由 = 本仓铁律「两处写同一条规则 ⇒ 迟早不一致」。</para>
+        ///
+        /// <param name="onFinish">等价原版 `FinishedSnapping(RectTransform target)` ——
+        /// `ForgeRewardSelector.cs:443` 的实现就是一句 `ToggleCollectReward(hasToCollectReward, target)`，
+        /// 即「吸附结束那一刻才把领奖特效摆到目标格上」。我们这一侧把它做成一个回调。</param></summary>
+        public void FocusOnAnimated(float contentCenter, float speed = FocusDefaultSpeed,
+                                    System.Action onFinish = null)
+        {
+            _focusTo = Mathf.Clamp(contentCenter - ViewMid, ClampLo, ClampHi);
+            _focusFrom = Offset;
+            _focusT = 0f;
+            _focusSpeed = speed > 0f ? speed : FocusDefaultSpeed;
+            _focusOnFinish = onFinish;
+            _focusActive = true;
+            _dragging = false;
+            _vel = 0f;
+        }
+
+        /// <summary>取消进行中的补间吸附。**不**调 `onFinish`（原版没有这一档；取消 = 这一跳不发生）。
+        /// ⚠️ 与 `Stop()` 的分工：`Stop` 是「切页/重建时把这一区停下来」，它**也**会取消吸附。</summary>
+        public void CancelFocusAnimation()
+        {
+            _focusActive = false;
+            _focusOnFinish = null;
+        }
+
+        // ============================================================ 滚动锁 / 两套 padding（原版那三条）
+
+        /// <summary>切「两套 padding」= 原版 `ForgeRewardSelector.ChangeLayoutPadding(bool increaseSize)`（`:441`）：
+        /// `padding = increaseSize ? modifiedLayoutPadding : originalHorizonTalLayoutPadding`。
+        ///
+        /// <para>原版的 `modifiedLayoutPadding` = 原套的 `left/right` **各 + 895**（`InitializePaddings` `:454`
+        /// + 常量 `:76`），上下两档不变 ⇒ 这里给 `SetExtraPadding(895, 895)` / `SetExtraPadding(0, 0)`。
+        /// ⚠️ 原版的「原套」在 `InitializePaddings` 里由**运行时读回**；我们这一侧它就是构造时给的
+        /// `ContentX1/ContentX2`（宿主排版参数的折算值）⇒ `SetExtraPadding(0,0)` 逐位等于原行为。</para>
+        ///
+        /// <para>🔴 宿主切档时必须**同时**把排版用的左 pad 一起切（原版那是同一个 `padding` 对象，
+        /// 我们被拆成「内容两端」（这里）+「子件起点」（`UguiLayout.HorizontalChild` 的 `padL`）两半）——
+        /// 只改这一半 = 可滚范围变大而子件不动（画面差 895px，**不报错**）。</para></summary>
+        public void SetExtraPadding(float lo, float hi)
+        {
+            if (Mathf.Abs(ExtraPadLo - lo) < 0.001f && Mathf.Abs(ExtraPadHi - hi) < 0.001f) return;
+            ExtraPadLo = lo;
+            ExtraPadHi = hi;
+            // 夹取范围可能变小 ⇒ 把当前偏移夹回来（原版 `padding` 一改，ScrollRect 下一帧 `SetContentAnchoredPosition` 也会夹）
+            Apply(Offset, true);
+        }
+
+        /// <summary>锁 / 解锁这一区的滚动 = 原版 `ForgeRewardSelector.ToggleScrollLock(bool option)`（`:363`）
+        /// 的那两句：`padding = option ? modified : original` **且** `m_Horizontal = !option`。
+        ///
+        /// <para>⚠️ 原版**没有**单独的「只锁不换 padding」入口；`ToggleCollectReward` / `Refresh` 里同样是
+        /// 「锁 ⇔ 大 padding」成对出现 ⇒ 本方法把两件事绑在一起（⛔ 别在调用点各写一半）。</para>
+        /// <para>⚠️ `option == false` 时**恢复**的是「原套 padding」= `SetExtraPadding(0,0)`；
+        /// 传 `RewardClaimExtraPadding` 而不是 `0` 的那一档由需要别的让位值的宿主自己调 `SetExtraPadding`。</para></summary>
+        /// <param name="extraPad">padding 那一半**多加多少**。默认 = 原版那一档 895；**宿主若把 padding
+        /// 折进自己的排版参数**（例：锻造轨道 `ForgeTab.ApplyCollectLayout` 换的是 `TrackPadL/TrackPadR`
+        /// + 内容两端），必须传 **0** —— 否则滚动侧会**再算一遍**（范围大 895，画面差 895px、不报错）。
+        /// </param>
+        public void ToggleScrollLock(bool option, float extraPad = RewardClaimExtraPadding)
+        {
+            Locked = option;
+            SetExtraPadding(option ? extraPad : 0f, option ? extraPad : 0f);
+            if (option) { _dragging = false; _vel = 0f; _scrolling = false; }
         }
 
         // ============================================================ 拖拽 / 惯性 / 回弹（照 UGUI）
@@ -333,6 +481,8 @@ namespace CardPresentation
         /// （横向给 x、纵向给 y）—— 由 `PointerLayer` 从命中点换算好传进来。</summary>
         public void BeginDrag(float axisPos)
         {
+            if (Locked) return;                 // 锁档 = 原版 `m_Horizontal = false`（UGUI 起拖也跳过）
+            CancelFocusAnimation();             // 用户接管 ⇒ 停吸附（见 `FocusOnAnimated` 的 ⚠️②）
             _dragging = true;
             _dragStartAxis = axisPos;
             _dragStartOffset = Offset;
@@ -363,6 +513,7 @@ namespace CardPresentation
         public void Stop()
         {
             _dragging = false; _vel = 0f; _prevOffset = Offset; _scrolling = false;
+            CancelFocusAnimation();
         }
 
         /// <summary>回弹的橡皮筋阻尼（**逐位照抄** UGUI `ScrollRect.RubberDelta` :1084-1087）。</summary>
@@ -381,7 +532,33 @@ namespace CardPresentation
             if (dt <= 0f) return false;
             float before = Offset;
 
-            if (_dragging)
+            if (_focusActive)
+            {
+                // ---- 补间吸附（原版 `LerpToScrollPositionCoroutine`）----
+                // ① 原版吃 `Time.unscaledDeltaTime`；我们吃调用方给的 `dt`（见 `FocusOnAnimated` 的 ⚠️①）。
+                // ② 缓动 = `1 − (1 − t)²`（`ScrollViewFocusFunctions.cs:214-223` 实读：`num3 = 1−t`、
+                //    `num4 = num3*num3`、`num5 = 1−num4`、`pos = (target−init)×num5 + init`）。
+                // ③ 到点写**精确** target，再回调（原版 `MoveNext` 的两句）。
+                _focusT += dt * _focusSpeed;
+                if (_focusT < 1f)
+                {
+                    float k = 1f - (1f - _focusT) * (1f - _focusT);
+                    Offset = Mathf.Lerp(_focusFrom, _focusTo, k);
+                }
+                else
+                {
+                    Offset = _focusTo;
+                    _focusActive = false;
+                    var cb = _focusOnFinish;
+                    _focusOnFinish = null;
+                    if (cb != null) cb();
+                }
+                _vel = 0f;
+                // 与下面那条 else 同一档夹法（Clamped 才夹；Elastic 允许越界、松手才回弹）——
+                // 补间跑的过程中若内容两端变了（宿主重建），起点/终点可能已出界。
+                if (!Elastic) Offset = Mathf.Clamp(Offset, ClampLo, ClampHi);
+            }
+            else if (_dragging)
             {
                 // 照 UGUI :884-888 —— 拖动中把「这一帧走了多远 / dt」混进速度（`Lerp(v,newV,dt*10)`）
                 if (Inertia)
@@ -389,6 +566,12 @@ namespace CardPresentation
                     float newV = (Offset - _prevOffset) / dt;
                     _vel = Mathf.Lerp(_vel, newV, Mathf.Clamp01(dt * 10f));
                 }
+            }
+            else if (Locked)
+            {
+                // 🆕 2026-10-25（N1）：锁档 ⇒ 惯性/回弹**整段不跑**（原版 `m_Horizontal = false`
+                //   时 UGUI 的 `SetContentAnchoredPosition` 那一步整段跳过）⇒ 偏移原地不动。
+                _vel = 0f;
             }
             else
             {

@@ -1,0 +1,56 @@
+{
+ "_note": "原版 allcards 包（CAB-fb8f0144…）里 7 个 AlternateArtCard 的真值；key = 该包内的 path_id（= RawCardScript.alternateArts[].m_PathID）",
+ "_source": "D:/2/关服前存档/新建文件夹/Everguild_Warpforge/54bdb7b1114a2de41519cac560a4bce4/ea8bca4f5c6909d3124fd4975dc96173/__data",
+ "count": 7,
+ "alts": {
+  "-4923711743991047089": {
+   "uniqueId": "#HB_SAU35",
+   "style": 5,
+   "name": "AA_HB_Sautekh_war_Imotekh the Stormlord",
+   "cardImage": true,
+   "fullWarlordImage": true
+  },
+  "-1108248882572368702": {
+   "uniqueId": "#HB_UM76",
+   "style": 5,
+   "name": "AA_HB_UM_war_Lieutenant Titus",
+   "cardImage": true,
+   "fullWarlordImage": true
+  },
+  "1601360255442447163": {
+   "uniqueId": "#HB_SW1",
+   "style": 5,
+   "name": "AA_HB_SpaceWolves_war_Logan Grimnar",
+   "cardImage": true,
+   "fullWarlordImage": true
+  },
+  "2140166119203096786": {
+   "uniqueId": "#HB_AM2",
+   "style": 5,
+   "name": "AA_HB_AM_war_Ursula Creed",
+   "cardImage": true,
+   "fullWarlordImage": true
+  },
+  "2832319048434330770": {
+   "uniqueId": "#HB_GOF28",
+   "style": 5,
+   "name": "AA_HB_Goff_war_Ghazghkull Thraka",
+   "cardImage": true,
+   "fullWarlordImage": true
+  },
+  "4061869332668035251": {
+   "uniqueId": "#HB_DA1",
+   "style": 5,
+   "name": "AA_HB_DarkAngels_war_Azrael",
+   "cardImage": true,
+   "fullWarlordImage": true
+  },
+  "8855357007838542433": {
+   "uniqueId": "#HB_BL34",
+   "style": 5,
+   "name": "AA_HB_BlackLegion_war_Abaddon the Despoiler",
+   "cardImage": true,
+   "fullWarlordImage": true
+  }
+ }
+}

@@ -56628,5 +56628,231 @@
       "uvCycles": 1.0,
       "uvRowIndex": 0
     }
+  ],
+  "tapHits": [
+    {
+      "go": "CardLowBoardLimit",
+      "path": "BattlePrefab/BattleBoardElements/Colliders/CardBoardLimits/CardLowBoardLimit",
+      "layer": 11,
+      "inMask": false,
+      "hasMesh": false,
+      "pos": [
+        100.0,
+        -0.59,
+        3.66
+      ],
+      "rot": [
+        0.002767,
+        0.0,
+        0.0,
+        0.999996
+      ],
+      "scale": [
+        81.161079,
+        0.82915,
+        41.907936
+      ],
+      "collider": {
+        "type": "Box",
+        "center": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "size": [
+          1.0,
+          1.0,
+          1.0
+        ],
+        "isTrigger": false
+      },
+      "particles": "Default Tap Floor",
+      "particlesGuid": "629741951c40548a49e35451a449d9d7",
+      "audio": "Tap Hit General",
+      "audioGuid": "52da505920d514f77ab579f113afbca6",
+      "delay": 0.0,
+      "useTargetAnchor": 0,
+      "anchor": null
+    },
+    {
+      "go": "Foreground 1",
+      "path": "Scenario/Battle Arena Dark Angels baked/Foreground 1",
+      "layer": 0,
+      "inMask": true,
+      "hasMesh": true,
+      "pos": [
+        97.011688,
+        0.301292,
+        -9.080214
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        188.364822,
+        188.364848,
+        188.364848
+      ],
+      "collider": {
+        "type": "Mesh",
+        "convex": true,
+        "isTrigger": false,
+        "mesh": "Foreground 11"
+      },
+      "particles": "Tap Hit Metal Small",
+      "particlesGuid": "3dc5682da4a044a43a4f12f252b9a58a",
+      "audio": "Tap Hit Metal Light",
+      "audioGuid": "d8fcd9e26668940a4a2091b89009892c",
+      "delay": 0.0,
+      "useTargetAnchor": 0,
+      "anchor": null
+    },
+    {
+      "go": "Foreground Statue",
+      "path": "Scenario/Battle Arena Dark Angels baked/Foreground Statue",
+      "layer": 0,
+      "inMask": true,
+      "hasMesh": true,
+      "pos": [
+        108.306221,
+        2.334186,
+        0.225973
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        188.364822,
+        188.364848,
+        188.364848
+      ],
+      "collider": {
+        "type": "Mesh",
+        "convex": false,
+        "isTrigger": false,
+        "mesh": "Foreground Statue1"
+      },
+      "particles": "Tap Hit Metal",
+      "particlesGuid": "375d142f27197404884be8e317eca8dc",
+      "audio": "Tap Hit Metal Heavy",
+      "audioGuid": "0a651ec9f71764e41ba0d305510865ba",
+      "delay": 0.0,
+      "useTargetAnchor": 0,
+      "anchor": null
+    },
+    {
+      "go": "Generator",
+      "path": "Scenario/Battle Arena Dark Angels baked/Generator",
+      "layer": 0,
+      "inMask": true,
+      "hasMesh": true,
+      "pos": [
+        85.311134,
+        3.260118,
+        7.181775
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        188.364822,
+        188.364848,
+        188.364848
+      ],
+      "collider": {
+        "type": "Mesh",
+        "convex": false,
+        "isTrigger": false,
+        "mesh": "Generator1"
+      },
+      "particles": "Tap Hit Metal",
+      "particlesGuid": "375d142f27197404884be8e317eca8dc",
+      "audio": "Tap Hit Metal Heavy",
+      "audioGuid": "0a651ec9f71764e41ba0d305510865ba",
+      "delay": 0.0,
+      "useTargetAnchor": 0,
+      "anchor": null
+    },
+    {
+      "go": "Generator.001",
+      "path": "Scenario/Battle Arena Dark Angels baked/Generator.001",
+      "layer": 0,
+      "inMask": true,
+      "hasMesh": true,
+      "pos": [
+        85.76368,
+        3.303768,
+        7.271756
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        100.0,
+        100.000013,
+        100.000013
+      ],
+      "collider": {
+        "type": "Mesh",
+        "convex": true,
+        "isTrigger": false,
+        "mesh": "Generator.0011"
+      },
+      "particles": "Tap Plasma generator",
+      "particlesGuid": "7ea880f8c0010434cb7c11fcdae93d48",
+      "audio": "Tap Hit Spark",
+      "audioGuid": "0d7103afe263bf94e881bc74ab1b6ca8",
+      "delay": 0.0,
+      "useTargetAnchor": 0,
+      "anchor": null
+    },
+    {
+      "go": "Tower 1",
+      "path": "Scenario/Battle Arena Dark Angels baked/Tower 1",
+      "layer": 0,
+      "inMask": true,
+      "hasMesh": true,
+      "pos": [
+        107.578659,
+        6.721388,
+        32.045647
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        188.364822,
+        188.364848,
+        188.364848
+      ],
+      "collider": {
+        "type": "Mesh",
+        "convex": true,
+        "isTrigger": false,
+        "mesh": "Tower 11"
+      },
+      "particles": "Tap Hit Metal",
+      "particlesGuid": "375d142f27197404884be8e317eca8dc",
+      "audio": "Tap Hit Metal Heavy",
+      "audioGuid": "0a651ec9f71764e41ba0d305510865ba",
+      "delay": 0.0,
+      "useTargetAnchor": 0,
+      "anchor": null
+    }
   ]
 }

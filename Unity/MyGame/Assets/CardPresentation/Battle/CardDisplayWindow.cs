@@ -1440,6 +1440,10 @@ namespace CardPresentation
                     continue;
                 }
                 v.gameObject.SetActive(true);
+                // 🆕 2026-10-25（`E`）：原版 `CardDisplayWindow.cs:965` 摆这张卡时
+                //   `card2DController.ToggleTooltips(index == 0)` ⇒ **只有前台（槽 0）那张开 tooltip**、
+                //   相关卡全关。落到我们的逐卡开关（`CardView.TooltipsEnabled`；消费侧 = BattleDriver 的悬停口）。
+                v.TooltipsEnabled = (i == 0);
                 // 🔴 **在这里摆的是 `Card Display Open` 那条 clip 的 t=0**（5 个槽一律 `(0,60)` / 0° / scale 210），
                 //    **不是终态** —— 终态由下面的 `PlayOpenAnimation` 在 `CardFan.OpenTime`(0.3167s) 里补过去
                 //    （原版那颗 `Animation.m_PlayAutomatically = true`：窗口一亮就播）。
@@ -1603,6 +1607,11 @@ namespace CardPresentation
             //       （逐卡为 0 的卡即使换到前台也照旧不放大、不压框 —— 由 `CardView.ArtFrontVisible` 判）。
             b.ArtOverdraw = true;     // 被点那张 → 即将成为前台（原版 `SetImageOverDraw(card, useOverDraw)`）
             a.ArtOverdraw = false;    // 让位那张 → `CardImageController` 状态 0（原版 `SetImageOverDraw(cardInFront, false)`）
+            // 🆕 2026-10-25（`E`）：原版 `ChangeCardPosition` 里**旧前台关、新前台开** tooltip
+            //   （`CardDisplayWindow.cs:1181 ToggleTooltips(false)` / `:1184 ToggleTooltips(true)`）——
+            //   位置同样在两条补间**之前**。落到逐卡开关（`CardView.TooltipsEnabled`）。
+            a.TooltipsEnabled = false;
+            b.TooltipsEnabled = true;
 
             // 🔴 **2026-10-19（`T04`）：补间一律走 `CardView.TweenPose`，⛔ 别退回 `CardTween.ToPose`。**
             //    `CardTween.ToPose` 直接写 `transform.localScale`，而我们的缩放是「基础 × 高亮系数」

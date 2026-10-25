@@ -472,16 +472,62 @@ namespace CardPresentation
                         + "**词条表在远端 CCD、本地一个 value 都没有** ⇒ 字面仍是 prefab 出厂原文 `Promote`。");
         }
 
-        /// <summary>点了某一颗。原版八条各是一个服务器调用（`PlayFabWrapper…`）＋ 两条 `ShowConfirmation`。
-        /// 🔴 我们**没有服务器** ⇒ **只出声、不改任何状态**（红线：不许静默失败 / 不许假装成功）。
-        /// ⚠️ 与 `AllianceMemberTab.cs` 那条记账同源（「8 个钮全要服务器」）。</summary>
+        /// <summary>点了某一颗。原版八条各是一个服务器调用（`PlayFabWrapper…`）＋ 三条 `ShowConfirmation`。
+        /// 🔴 我们**没有服务器** ⇒ 动作本身**只出声、不改任何状态**（红线：不许静默失败 / 不许假装成功）。
+        /// ⚠️ 与 `AllianceMemberTab.cs` 那条记账同源（「8 个钮全要服务器」）。
+        /// <para>🔴 **2026-10-25（N9 · 账 43）**：`Quit` / `Kick` / `Demote` 三条原来**连确认框都没有**。
+        /// 原版这三条是「先弹一句确认 → 点 OK 才走云脚本」（判据 `AllianceMemberOptionsPopup.cs:463-515`）；
+        /// 「弹确认」这一步**纯客户端、不碰服务器** ⇒ 本地可复刻 ⇒ 现在真的会弹，OK 之后才落到下面那条。</para></summary>
         void OnClicked(int i)
+        {
+            if (i == IKick || i == IDemote || i == IQuit)
+            {
+                ShowConfirmation(ConfirmTextOf(i), () => LogServerOnly(i));
+                return;
+            }
+            LogServerOnly(i);
+        }
+
+        /// <summary>确认之后那一步（**原版 = PlayFab 的 GenericCloudScriptHandler**）—— 本地只出声，不改状态。</summary>
+        void LogServerOnly(int i)
         {
             var bt = Buttons[i];
             Debug.Log("[MemberOptions] 点了 `" + bt.Node + "`（原版字段 `" + bt.Field + "`）—— "
                     + "**本地没有服务器** ⇒ 只出声、状态没有变。"
-                    + "原版那一路是 PlayFab 的 GenericCloudScriptHandler；`Quit` / `Kick` / `Demote` 三条"
-                    + "还会先走 `ShowConfirmation(...)` 弹一句确认（字符串也是服务器词条）。");
+                    + "原版那一路是 PlayFab 的 GenericCloudScriptHandler。");
+        }
+
+        /// <summary>三条危险动作的确认文案。⚠️ **这几句是我们自拟的** —— 原版那三句来自 I2 词条
+        /// （`资料/普查产出_1013/WL2_四扇小窗.md:297` 现核：`…PopupButtonString` 这几个**不是序列化字段**、
+        /// 运行时从 I2 填）⇒ 本地一个 value 都没有，⛔ 不硬套官方键。</summary>
+        static string ConfirmTextOf(int i)
+        {
+            switch (i)
+            {
+                case IKick: return "Kick this member from the alliance?";
+                case IDemote: return "Demote this member?";
+                case IQuit: return "Leave this alliance?";
+                default: return "Are you sure?";
+            }
+        }
+
+        /// <summary>确认弹窗（等价实现 = ShowConfirmation，原版判据 `AllianceMemberOptionsPopup.cs:463-515`）：
+        /// OK ⇒ **先跑回调再关窗**；Cancel ⇒ 只关窗；`localizeTexts:false` + `closeOnEsc:false`。
+        /// <para>⚠️ 原版两颗钮的词条（`confirmationPopupButtonString` / `cancelPopupButtonString`）
+        /// 是**运行时从 I2 填**的（`资料/普查产出_1013/WL2_四扇小窗.md:297`）⇒ 本机读不到；这里取本仓通用那一对
+        /// `MainMenu/General/OK` / `MainMenu/General/Cancel`（`Shell/CardDetailPopup.cs:2102-2103` 逐字段实读过同一对）
+        /// —— **这是我们的选择，不是原版判据**。</para></summary>
+        public void ShowConfirmation(string confirmationText, System.Action onConfirm)
+        {
+            var wm = Manager != null ? Manager : WindowsManager.Instance;
+            if (wm == null)
+            {
+                Debug.LogWarning("[MemberOptions] 没有 `WindowsManager` ⇒ 确认弹窗开不了（原版 `ShowConfirmation` 这一跳）");
+                return;
+            }
+            wm.ShowPopUp(confirmationText, Loc.T("MainMenu/General/OK"),
+                         onConfirm != null ? onConfirm : (System.Action)(() => { }),
+                         Loc.T("MainMenu/General/Cancel"), null);
         }
 
         // ============================================================ 取图（取不到必须出声）

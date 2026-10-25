@@ -21,6 +21,7 @@ gen_unity_arena_manifest.py — 原版战场 → Unity Editor 清单 JSON（**13
   D:/2/Warpforge_tools/py312/python.exe gen_unity_arena_manifest.py --all-particles
 """
 import argparse
+import glob
 import json
 import math
 import os
@@ -1232,6 +1233,301 @@ def read_default_environment(scene, warn):
     return None
 
 
+# ------------------------------------------------------------------ Tap 族（点地面反馈）
+#
+# 判据正本 = `资料/完全复刻/判据/Tap族_地面点击反馈.md`（§2 数据 / §4 八道闸 / §5 施工表）。
+#
+# 原版怎么工作（一句话）：`TapParticleController.Update` 每帧 `Physics.RaycastNonAlloc`
+# （掩码 `0x40000001` = layer 0 + 30、hits 上限 3）取**最近**那条碰撞体，读它身上的
+# `TapHitMaterialDefinition`（粒子 prefab + 音效 cue + 冷却 + 可选锚点）→ 播一次。
+# ⇒ **我们缺的只有两样**：碰撞体（战场里 0 个）与那个组件。这一段生成 `tapHits[]`。
+#
+# 数据源与口径：
+#   · **计数权威 = `assets_full`（当前 build，213 条）**；本函数读 `07_场景/<场>/` 只因为
+#     它带**世界变换 + 碰撞体 + 宿主 GameObject**（`assets_full` 那边没有逐对象的 Transform 链）。
+#     `07_场景` 的 dump **有重复文件**（`X.json` + `X_X.json`）⇒ `load_pid_dir()` 按 pid 去重，
+#     这里再按**宿主 GameObject** 去重一次（同一件东西两份文件）。
+#   · **3D 碰撞体四种全收**（Box / Mesh / Sphere / Capsule）。⛔ `BoxCollider2D` 不参与
+#     `Physics.Raycast`（2D 物理另一套）⇒ 不收。
+#   · `assets_full` 与 `07_场景` 逐场条数**逐场相等**（20/27/14/13/27/15/6/1/9/11/11/1/11）——
+#     这条是 2026-10-25 实测，脚本每跑一场都会再核一次（不等就出声）。
+TAP_SCRIPT_PID = 5926791653216923474
+TAP_COLLIDER_DIRS = ('BoxCollider', 'MeshCollider', 'SphereCollider', 'CapsuleCollider')
+
+# GUID → (类型, 名字)。**30 个**（19 个粒子 GameObject + 11 个 AudioCue）全部由
+#   `python -I -X utf8 工具/_guid_resolve_probe.py g <guid>` 在 2026-10-25 逐个解出
+#   （数据源 = 安装版 `aa/catalog.bin`，与本地束同 build）。
+# ⚠️ 名字里的空格/大小写**照资产原样**（`Tap squishy` 是小写 s、`Default Tap Floor` 是前缀不是后缀）。
+TAP_ASSET_NAMES = {
+    # ---- 粒子（battleprefabs_vfxandmisc_assets_all，19 个）----
+    '06946a9ab456c474f9b4f86e00fecf9c': ('GameObject', 'Tap Rock'),
+    '075362c876138754a808eb48f2991d44': ('GameObject', 'Tap Red Glow Eye'),
+    '2ea103e0f96284b14a67205aa460773e': ('GameObject', 'Tap Monolith Right Glow'),
+    '357719dc185544cd8a4f7431a998e996': ('GameObject', 'Tap Monolith Left Glow'),
+    '375d142f27197404884be8e317eca8dc': ('GameObject', 'Tap Hit Metal'),
+    '3dc5682da4a044a43a4f12f252b9a58a': ('GameObject', 'Tap Hit Metal Small'),
+    '56ee4a1b9bfdd964aaf8648448e8e849': ('GameObject', 'Tap Toxic Sludge'),
+    '57bb22a818bb17c47ad199d9e55ae981': ('GameObject', 'Tap Webway Portal'),
+    '57edbbcd0b4e67a438872c8029eb05c4': ('GameObject', 'Tap Toxic Sludge green'),
+    '596e21402ed35c1498cf9009d23d939d': ('GameObject', 'Tap Firepit'),
+    '623c272d0c1f7e54e9522d6306a79f19': ('GameObject', 'Tap Hit Metal Red'),
+    '629741951c40548a49e35451a449d9d7': ('GameObject', 'Default Tap Floor'),
+    '789c60ff3d845ba428714cb0bc17e969': ('GameObject', 'Tap Firepit 2'),
+    '7ea880f8c0010434cb7c11fcdae93d48': ('GameObject', 'Tap Plasma generator'),
+    '826956f78544a7742a7c6f8aa5b978e1': ('GameObject', 'Tap Fire Eldar'),
+    'a507cda0ff6760943a08cfb2cb7d4a91': ('GameObject', 'Tap squishy'),
+    'b3313154572eb4026b10e10a5157f238': ('GameObject', 'Generic Tap Material'),
+    'ebd0344b0e868e6428c4fd5ab1e3c17d': ('GameObject', 'Tap Squig'),
+    'f396d83003f4bab498e464ed29033274': ('GameObject', 'Tap Floor Grille'),
+    # ---- 音效 cue（soundcollection_assets_all，11 个）----
+    '0a651ec9f71764e41ba0d305510865ba': ('MonoBehaviour', 'Tap Hit Metal Heavy'),
+    '0d7103afe263bf94e881bc74ab1b6ca8': ('MonoBehaviour', 'Tap Hit Spark'),
+    '29d618013d2c5d24c91cb06d745ce1c4': ('MonoBehaviour', 'Buff Mana 1'),
+    '30c981ef52e181a41a09adf6818a9104': ('MonoBehaviour', 'Tap Hit Rock'),
+    '39bf7d588ce12bf43972c12497aab29a': ('MonoBehaviour', 'Tap Hit Fire'),
+    '4fa845adbccd7784989d2b8af33c3021': ('MonoBehaviour', 'Tap Hit Water'),
+    '52da505920d514f77ab579f113afbca6': ('MonoBehaviour', 'Tap Hit General'),
+    '6a843b276fc04ba489bef11abb8ac80e': ('MonoBehaviour', 'Tap Monolith'),
+    '86bc7197d2e299c479cd621910524076': ('MonoBehaviour', 'Tap Hit Squishy'),
+    'b724e6d1863e7b34c86628f7c6755d02': ('MonoBehaviour', 'Tap Squig'),
+    'd8fcd9e26668940a4a2091b89009892c': ('MonoBehaviour', 'Tap Hit Metal Light'),
+}
+
+# 每场应有的条数（= `assets_full` 当前 build 逐场实测值，2026-10-25）。
+# ⚠️ 这是**核对尺子**，不是数据源；`battlesharedresources` 里那 45 条与
+#    `battleprefabs_vfxandmisc` 的 2 条 prefab 资产**不在场景里**（§2.2 那张表分得很清楚）。
+TAP_HITS_EXPECT = {
+    'battlearena1': 20, 'battlearena2': 27, 'battlearena3': 14,
+    'battlearenaaeldari': 13, 'battlearenaastramilitarum': 27,
+    'battlearenablacklegion': 15, 'battlearenadarkangels': 6,
+    'battlearenaemperorschildren': 1, 'battlearenagenestealers': 9,
+    'battlearenaleviathan': 11, 'battlearenasororitas': 11,
+    'battlearenaspacewolves': 1, 'battlearenatauviorla': 11,
+}
+
+
+def _go_path_of(a, tpid, guard=64):
+    """Transform → `A/B/C/叶子名`（原版那棵树的路径；只作审计/定位用）。"""
+    names = []
+    cur = tpid
+    while cur is not None and cur in a.TF and guard > 0:
+        guard -= 1
+        names.append(go_name_of(a, cur))
+        fa = a.TF[cur].get('m_Father', {}).get('m_PathID')
+        cur = fa if fa in a.TF else None
+    return '/'.join(reversed(names))
+
+
+def _transform_of_go(a, gopid):
+    for c in a.go_comps.get(gopid, []):
+        if c in a.TF:
+            return c
+    return None
+
+
+def _collider_entry(ctype, cj):
+    """碰撞体序列化字段 → 清单条目（**参数照抄**，一个都不自己挑）。"""
+    if ctype == 'BoxCollider':
+        c = cj.get('m_Center') or {}
+        s = cj.get('m_Size') or {}
+        return {'type': 'Box',
+                'center': [r6(c.get('x', 0.0)), r6(c.get('y', 0.0)), r6(c.get('z', 0.0))],
+                'size': [r6(s.get('x', 1.0)), r6(s.get('y', 1.0)), r6(s.get('z', 1.0))],
+                'isTrigger': bool(cj.get('m_IsTrigger', False))}
+    if ctype == 'MeshCollider':
+        return {'type': 'Mesh', 'convex': bool(cj.get('m_Convex', False)),
+                'isTrigger': bool(cj.get('m_IsTrigger', False))}
+    if ctype == 'SphereCollider':
+        c = cj.get('m_Center') or {}
+        return {'type': 'Sphere',
+                'center': [r6(c.get('x', 0.0)), r6(c.get('y', 0.0)), r6(c.get('z', 0.0))],
+                'radius': r6(cj.get('m_Radius', 0.5)),
+                'isTrigger': bool(cj.get('m_IsTrigger', False))}
+    # CapsuleCollider
+    c = cj.get('m_Center') or {}
+    return {'type': 'Capsule',
+            'center': [r6(c.get('x', 0.0)), r6(c.get('y', 0.0)), r6(c.get('z', 0.0))],
+            'radius': r6(cj.get('m_Radius', 0.5)),
+            'height': r6(cj.get('m_Height', 2.0)),
+            'direction': int(cj.get('m_Direction', 1)),
+            'isTrigger': bool(cj.get('m_IsTrigger', False))}
+
+
+def read_tap_hits(a, mesh_names, warn):
+    """→ `tapHits[]`（每项 = 原版一个 `TapHitMaterialDefinition` 实例，挂在一颗有碰撞体的宿主上）。
+
+    ⚠️ **没有碰撞体的那 1 条（arena3 的场根）照样进清单，但 `collider = null`** ——
+    原版那条**永远不会触发**（`GetComponent` 只在命中的碰撞体身上找，场根上没有碰撞体）⇒
+    构建侧照清单**不建碰撞体、也不挂定义**（⛔ 别「顺手补一个」）。见判据 §6 第 4 条。
+    """
+    root = a.root_dir
+    mb = load_pid_dir(os.path.join(root, 'MonoBehaviour'))
+    cols = {}
+    for d in TAP_COLLIDER_DIRS:
+        for pid, cj in load_pid_dir(os.path.join(root, d)).items():
+            gopid = (cj.get('m_GameObject') or {}).get('m_PathID')
+            if gopid:
+                cols.setdefault(gopid, []).append((d, cj))
+
+    out, seen = [], set()
+    for pid in sorted(mb):
+        j = mb[pid]
+        if not isinstance(j, dict):
+            continue
+        if (j.get('m_Script') or {}).get('m_PathID') != TAP_SCRIPT_PID:
+            continue
+        gopid = (j.get('m_GameObject') or {}).get('m_PathID')
+        if gopid in seen:          # dump 重复文件（`X.json` + `X_X.json`）同一个宿主
+            continue
+        seen.add(gopid)
+
+        go = a.go(gopid)
+        gname = go.get('m_Name') or '?'
+        layer = int(go.get('m_Layer') or 0)
+        tpid = _transform_of_go(a, gopid)
+        if tpid is None:
+            warn['tap_hits'].append({'go': gname, 'why': '宿主 GameObject 不在 Transform 表里（世界变换取不到）'})
+            pos, rot, scale = [0.0, 0.0, 0.0], [0.0, 0.0, 0.0, 1.0], [1.0, 1.0, 1.0]
+        else:
+            pos, rot, scale = world_trs(a, tpid)
+
+        host_cols = cols.get(gopid, [])
+        if len(host_cols) > 1:
+            # ⚠️ 实测 13 场**一条都没有**（每颗宿主恰好 1 个 3D 碰撞体）；真出现了要人工核组件序。
+            warn['tap_hits'].append({'go': gname,
+                                     'why': '宿主上有 %d 个碰撞体（%s）—— 原版 `GetComponent` 取哪一个'
+                                            '取决于组件序，本清单只取第一个'
+                                            % (len(host_cols), ','.join(t for t, _ in host_cols))})
+        collider = _collider_entry(*host_cols[0]) if host_cols else None
+        if collider is not None and collider['type'] == 'Mesh':
+            # 原版 MeshCollider 引用的是**哪一颗**网格（多子网格物件上可能不是渲染用的第 0 颗）。
+            # 解不出就留 null —— 构建侧退回「用第一个 MeshFilter」并**出声**。
+            mref = host_cols[0][1].get('m_Mesh') or {}
+            try:
+                mobj = a.b.read_obj(mref, 'Mesh')
+            except Exception:
+                mobj = None
+            collider['mesh'] = (a.b.obj_name(mobj) if mobj is not None else None)
+        if collider is None:
+            warn['tap_hits'].append({'go': gname,
+                                     'why': '宿主没有 3D 碰撞体 ⇒ 原版这条永远不触发（照原版：不建碰撞体、不挂定义）'})
+
+        pd = j.get('particleDefinition') or {}
+        names = {}
+        for kind in ('particles', 'audio'):
+            guid = ((pd.get(kind) or {}).get('m_AssetGUID') or '').strip().lower()
+            if not guid:
+                names[kind] = None
+                warn['tap_hits'].append({'go': gname, 'why': '`%s` 的 m_AssetGUID 是空的' % kind})
+                continue
+            hit = TAP_ASSET_NAMES.get(guid)
+            if hit is None:
+                names[kind] = None
+                warn['tap_hits'].append({'go': gname, 'why': '`%s` GUID %s 不在 TAP_ASSET_NAMES 里'
+                                                             '（要补就再跑一次 `_guid_resolve_probe.py g`）'
+                                                             % (kind, guid)})
+            else:
+                names[kind] = hit[1]
+
+        anchor = None
+        aref = j.get('targetAnchor') or {}
+        apid = aref.get('m_PathID', 0)
+        if apid:
+            afid = aref.get('m_FileID', 0)
+            if afid != 0 or apid not in a.TF:
+                warn['tap_hits'].append({'go': gname,
+                                         'why': '锚点 Transform 解不出（m_FileID=%s pid=%s）⇒ 按「无锚点」处理'
+                                                % (afid, apid)})
+            else:
+                ago = a.go(a.TF[apid].get('m_GameObject', {}).get('m_PathID')).get('m_Name', '?')
+                apos, arot, ascale = world_trs(a, apid)
+                anchor = {'go': ago, 'pos': apos, 'rot': arot, 'scale': ascale,
+                          'path': _go_path_of(a, apid)}
+
+        out.append({
+            'go': gname,
+            'path': _go_path_of(a, tpid) if tpid is not None else gname,
+            'layer': layer,
+            # layer 0(Default) + 30(GroundCollider) 才在原版射线掩码里。**照建、照设层**，
+            # 让「最近那条没挂定义 ⇒ 白点一下」这类行为也一致（别为了让棋盘也可点去改层）。
+            'inMask': layer in (0, 30),
+            'hasMesh': gname in mesh_names,
+            'pos': pos, 'rot': rot, 'scale': scale,
+            'collider': collider,
+            'particles': names['particles'],
+            'particlesGuid': ((pd.get('particles') or {}).get('m_AssetGUID') or ''),
+            'audio': names['audio'],
+            'audioGuid': ((pd.get('audio') or {}).get('m_AssetGUID') or ''),
+            'delay': r6(_f(j.get('delayTimeToPlayAgain'), 0.0)),
+            # ⚠️ 死字段（本 build 运行时从不读）；照抄只为「清单 == 资产」可逐字段复核。
+            'useTargetAnchor': int(_f(j.get('useTargetAnchor'), 0)),
+            'anchor': anchor,
+        })
+
+    out.sort(key=lambda e: (e['go'], e['pos'][0], e['pos'][1], e['pos'][2]))
+    return out
+
+
+# ------------------------------------------------------------------ 粒子材质的 shader 名（兜底那一路）
+#
+# 🔴 **2026-10-25（`N16` · 顺手修的既有缺口，不是 Tap 的一部分）**：
+#   `shader_info()` 靠 `BundleResolver.read_obj(shader_ref, …)` 从**场景包自己的 CAB**里解 shader。
+#   但有一批 shader 在 **`bundle_Warpforge_unitybuiltinassets`** 里（例 emperorschildren 的
+#   `bubble_light` → `Shader_2855819893914472268.json` = `Mobile/Particles/Additive`）⇒ 解不出来 ⇒
+#   `matShader = null` ⇒ 构建侧 `AttachOriginalMaterial` 拿不到原版 shader（**静默降级**）。
+#   实测触发面：`battlearenaemperorschildren` 的 3 个 `Bubbles`（`matName = bubble_light`）——
+#   这三个的旧清单里本来**有正确的 shader 名**（说明更早的生成器能解），重跑会把它变 null ⇒ **是退化**。
+#   ⇒ 这里补一条**只填空值**的兜底：先按材质名在 `<场>/Material/*.json` 里找到那份材质、读它的
+#   `m_Shader.m_PathID`，再到 `assets_full/*/Shader/Shader_<pid>.json` 里取 `m_ParsedForm.m_Name`。
+#   ⛔ **不覆盖已有值**；找不到就照旧 null（并计数进 `warn['mat_shader_fallback']`，不许静默）。
+ASSETS_FULL_DIR = 'd:/2/新解包资源/assets_full'
+_SHADER_JSON_BY_PID = None
+_MAT_SHADER_BY_NAME = {}      # (scene, matName) -> shader 名（含 None，带缓存）
+
+
+def _shader_json_by_pid():
+    global _SHADER_JSON_BY_PID
+    if _SHADER_JSON_BY_PID is None:
+        _SHADER_JSON_BY_PID = {}
+        for f in glob.glob(os.path.join(ASSETS_FULL_DIR, 'bundle_*', 'Shader', 'Shader_*.json')):
+            stem = os.path.basename(f)[len('Shader_'):-len('.json')]
+            try:
+                _SHADER_JSON_BY_PID.setdefault(int(stem), f)
+            except ValueError:
+                continue
+    return _SHADER_JSON_BY_PID
+
+
+def _particle_shader_name(mats, scene, warn):
+    """粒子的 `matShader`：先走 `shader_info()`（原路），**空**才走上面那条兜底。"""
+    name = (mats[0].shader_info or {}).get('name') if (mats and getattr(mats[0], 'shader_info', None)) else None
+    if name: return name
+    if not mats: return None
+    mat_name = mats[0].name
+    ck = (scene, mat_name)
+    if ck in _MAT_SHADER_BY_NAME: return _MAT_SHADER_BY_NAME[ck]
+    fixed = None
+    try:
+        for f in glob.glob(os.path.join(SCENE_ROOT, scene, 'Material', '*.json')):
+            d = json.load(open(f, encoding='utf-8'))
+            if (d.get('m_Name') or '') != mat_name:
+                continue
+            pid = (d.get('m_Shader') or {}).get('m_PathID')
+            sp = _shader_json_by_pid().get(pid) if pid else None
+            if sp:
+                sd = json.load(open(sp, encoding='utf-8'))
+                fixed = (sd.get('m_ParsedForm') or {}).get('m_Name') or sd.get('m_Name')
+            break
+    except Exception:
+        fixed = None
+    _MAT_SHADER_BY_NAME[ck] = fixed
+    if fixed:
+        warn['mat_shader_fallback'].append({'scene': scene, 'mat': mat_name, 'shader': fixed})
+    else:
+        warn['mat_shader_fallback'].append({'scene': scene, 'mat': mat_name, 'shader': None})
+    return fixed
+
+
 # ------------------------------------------------------------------ 清单构建
 def build_manifest(a, include_all_particles=False):
     warn = {'obj_missing': [], 'tex_missing': [], 'tex_fallback': [], 'ps_defaults': {},
@@ -1245,7 +1541,11 @@ def build_manifest(a, include_all_particles=False):
             #    + **原版关着、我们照原版关着建出来的网格**（`inactive_mesh`，见 `meshes` 循环里
             #    `entry['active']` 那一段）—— 两条都必须在控制台出声，
             #    别让「清单里少了/多了什么」只活在文档里（铁律 5·b）。
-            'builtin_mesh': [], 'inactive_mesh': []}
+            'builtin_mesh': [], 'inactive_mesh': [],
+            # 🆕 2026-10-25（Tap 族）：`tapHits[]` 那一段的「解不出 / 与权威计数不等」都在这里出声。
+            'tap_hits': [],
+            # 🆕 2026-10-25（`N16`）：粒子 `matShader` 走了 `assets_full` 兜底（只填空值）的那些。
+            'mat_shader_fallback': []}
 
     def note_default(field):
         warn['ps_defaults'][field] = warn['ps_defaults'].get(field, 0) + 1
@@ -1833,8 +2133,7 @@ def build_manifest(a, include_all_particles=False):
             #   只是粒子这条路没取。⚠️ `mats[0].name` = `mat_<PathID>` —— **原版材质的精确身份**；
             #   同一场里「同贴图同颜色但不同材质」的粒子（如 `SmokeEffect` vs `Steam`）靠它区分。
             'matName': (mats[0].name if mats else None),
-            'matShader': ((mats[0].shader_info or {}).get('name')
-                          if (mats and getattr(mats[0], 'shader_info', None)) else None),
+            'matShader': _particle_shader_name(mats, SCENE, warn),
             'matKeywords': (sorted(mats[0].keywords or []) if mats else []),
             'matProps': (list(getattr(mats[0], 'raw_props', None) or []) if mats else []),
             'matQueue': (int(mats[0].custom_queue) if (mats and getattr(mats[0], 'custom_queue', None) is not None) else -1),
@@ -1842,6 +2141,16 @@ def build_manifest(a, include_all_particles=False):
             'bursts': burst_list(em, warn, gname),
         })
         particles[-1].update(uv_fields(ps))
+
+    # ---------------- Tap 族（点地面反馈）----------------
+    # 判据正本 = `资料/完全复刻/判据/Tap族_地面点击反馈.md`。构建侧读 `tapHits[]` 建碰撞体 + 挂定义。
+    tap_hits = read_tap_hits(a, {e['go'] for e in meshes}, warn)
+    _expect = TAP_HITS_EXPECT.get(SCENE)
+    if _expect is not None and len(tap_hits) != _expect:
+        warn['tap_hits'].append({'go': '(<本场合计>)',
+                                 'why': '条数 %d ≠ `assets_full` 当前 build 的 %d'
+                                        '（判据 §2.2）—— 是 dump 变了还是解析漏了，必须先查清'
+                                        % (len(tap_hits), _expect)})
 
     manifest = {
         'scene': SCENE,
@@ -1852,6 +2161,7 @@ def build_manifest(a, include_all_particles=False):
         'postFx': postfx,
         'meshes': meshes,
         'particles': particles,
+        'tapHits': tap_hits,
     }
     return manifest, warn, skipped_ui, tex
 
@@ -2036,6 +2346,31 @@ def run_one(arena, args):
     li.append('  meshes    : %d' % len(manifest['meshes']))
     li.append('  particles : %d%s' % (len(manifest['particles']),
                                       ' (另有 %d 条 2D UI 粒子已排除)' % skipped_ui if skipped_ui else ''))
+    # 🆕 2026-10-25（Tap 族）：`tapHits[]` 的读数 —— 判据 §2.2 的每场条数就是这里的期望值。
+    _tap = manifest.get('tapHits') or []
+    if _tap or TAP_HITS_EXPECT.get(SCENE) is not None:
+        _layers = {}
+        for e in _tap:
+            _layers[e['layer']] = _layers.get(e['layer'], 0) + 1
+        li.append('  tapHits   : %d 条（期望 %s）· 掩码内 %d 条 · 无碰撞体 %d 条 · layer 分布 %s'
+                  % (len(_tap), TAP_HITS_EXPECT.get(SCENE, '?'),
+                     sum(1 for e in _tap if e['inMask']),
+                     sum(1 for e in _tap if e['collider'] is None),
+                     json.dumps(_layers, sort_keys=True)))
+    if warn.get('tap_hits'):
+        li.append('  🔴 [tapHits 解不出 / 计数不等] %d 条:' % len(warn['tap_hits']))
+        for m in warn['tap_hits']:
+            li.append('      %s —— %s' % (m['go'], m['why']))
+    if warn.get('mat_shader_fallback'):
+        _ok = [m for m in warn['mat_shader_fallback'] if m['shader']]
+        _bad = [m for m in warn['mat_shader_fallback'] if not m['shader']]
+        li.append('  [粒子 matShader 走了 `assets_full` 兜底] %d 条（补上 %d · 仍解不出 %d）:'
+                  % (len(warn['mat_shader_fallback']), len(_ok), len(_bad)))
+        for m in _ok:
+            li.append('      %s -> %s（`shader_info()` 解不出，按材质 `m_Shader` 的 PathID 在 '
+                      '`bundle_Warpforge_unitybuiltinassets/Shader/` 里取到）' % (m['mat'], m['shader']))
+        for m in _bad:
+            li.append('      🔴 %s -> 仍然解不出（这条会 `matShader=null`）' % m['mat'])
     if manifest['camera']:
         li.append('  camera    : %s fov=%.3f' % (manifest['camera']['name'], manifest['camera']['fov']))
     if manifest['light']:

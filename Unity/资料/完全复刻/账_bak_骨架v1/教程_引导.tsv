@@ -1,0 +1,153 @@
+域	原版类	方法	判据出处	判据要点	状态	我们的落点	差异	等级	轮次	备注
+教程/引导	BattleTutorialManager	DetectClickToSkip()	BattleTutorialManager.cs:43		E					
+教程/引导	BattleTutorialManager	Initialize()	BattleTutorialManager.cs:18		E					
+教程/引导	BattleTutorialManager	ToggleCanSkipAction(bool status)	BattleTutorialManager.cs:30		E					
+教程/引导	BattleTutorialManager	Update()	BattleTutorialManager.cs:35		E					
+教程/引导	FTUESelectDeckContainer	Initialize(FTUESelectDeckWindow.StarterDeckFTUEInfo deckFTUEInfo, Action<FTUESelectDeckContainer> onDeckSelected)	FTUESelectDeckContainer.cs:59		E					
+教程/引导	FTUESelectDeckContainer	OnDisable()	FTUESelectDeckContainer.cs:170		E					
+教程/引导	FTUESelectDeckContainer	ToggleSelected(bool option)	FTUESelectDeckContainer.cs:113		E					
+教程/引导	FTUESelectDeckWindow	OnContinueButtonClicked()	FTUESelectDeckWindow.cs:373		E					
+教程/引导	FTUESelectDeckWindow	OnDeckSelected(FTUESelectDeckContainer selectDeckContainer)	FTUESelectDeckWindow.cs:637		E					
+教程/引导	FTUESelectDeckWindow	Open()	FTUESelectDeckWindow.cs:337		E					
+教程/引导	FTUESelectDeckWindow	RefreshContinueButton()	FTUESelectDeckWindow.cs:669		E					
+教程/引导	FTUETester	OpenWindow()	FTUETester.cs:7		E					
+教程/引导	FlowTutorialStage	CheckForCompletion()	FlowTutorialStage.cs:185		E					
+教程/引导	FlowTutorialStage	Complete()	FlowTutorialStage.cs:169		E					
+教程/引导	FlowTutorialStage	DoUpdate()	FlowTutorialStage.cs:165		E					
+教程/引导	FlowTutorialStage	Execute()	FlowTutorialStage.cs:79		E					
+教程/引导	FlowTutorialStage	Reset()	FlowTutorialStage.cs:204		E					
+教程/引导	FlowTutorialStage	ResetTutorialMessageData()	FlowTutorialStage.cs:210		E					
+教程/引导	FlowTutorialStage	TryExecute()	FlowTutorialStage.cs:58		E					
+教程/引导	FlowTutorialStage	TryForceComplete()	FlowTutorialStage.cs:187		E					
+教程/引导	FlowTutorialStage	WindowsChange(bool isTab, GameWindow gameWindow, WindowTabBase tab)	FlowTutorialStage.cs:195		E					
+教程/引导	MainTutorialManager	AddPointer(MainTutorialButtons objButton)	MainTutorialManager.cs:451		E					
+教程/引导	MainTutorialManager	AddPointerWithDelay(MainTutorialButtons objButton)	MainTutorialManager.cs:463		E					
+教程/引导	MainTutorialManager	ChangedWindowState()	MainTutorialManager.cs:672		E					
+教程/引导	MainTutorialManager	EnterLevelUpCard()	MainTutorialManager.cs:1097		E					
+教程/引导	MainTutorialManager	GetCampaignRedeemNodeId()	MainTutorialManager.cs:482		E					
+教程/引导	MainTutorialManager	GetPointerOffset(MainTutorialButtons objButton)	MainTutorialManager.cs:475		E					
+教程/引导	MainTutorialManager	GetState()	MainTutorialManager.cs:241		E					
+教程/引导	MainTutorialManager	HasZeroCampaignPoints()	MainTutorialManager.cs:1125		E					
+教程/引导	MainTutorialManager	OnDisable()	MainTutorialManager.cs:404		E					
+教程/引导	MainTutorialManager	SetSelectedArmy(CardArmy chooseArmy)	MainTutorialManager.cs:231		E					
+教程/引导	MainTutorialManager	SetSelectedArmyFromMenu(CardArmy chooseArmy)	MainTutorialManager.cs:220		E					
+教程/引导	MainTutorialManager	ShouldGetInitialDeck()	MainTutorialManager.cs:1112		E					
+教程/引导	TutorialArmySelectionButton	Awake()	TutorialArmySelectionButton.cs:33		E					
+教程/引导	TutorialArmySelectionButton	Highlight(bool state)	TutorialArmySelectionButton.cs:100		E					
+教程/引导	TutorialArmySelectionButton	Initialize(CardArmy army, int indexNumber, DemoDeckInfoSO deck, TutorialModePopup selectionMenu, TutorialEvent tutEvent)	TutorialArmySelectionButton.cs:42		E					
+教程/引导	TutorialArmySelectionButton	OnArmySelected()	TutorialArmySelectionButton.cs:95		E					
+教程/引导	TutorialHidePointerInCampaign	OnDestroy()	TutorialHidePointerInCampaign.cs:61		E					
+教程/引导	TutorialHidePointerInCampaign	Start()	TutorialHidePointerInCampaign.cs:12		E					
+教程/引导	TutorialHidePointerInCampaign	Update()	TutorialHidePointerInCampaign.cs:26		E					
+教程/引导	TutorialManager	AddPointer(GameObject target, Vector2 offset, bool filterRaycast)	TutorialManager.cs:1269		E					
+教程/引导	TutorialManager	AddPointer(TutorialPointerData pointerData)	TutorialManager.cs:1242		E					
+教程/引导	TutorialManager	AddPointerAction(GameObject target, Vector2 offset, bool filterRaycast)	TutorialManager.cs:1371		E					
+教程/引导	TutorialManager	AddPointerHideInCampaign()	TutorialManager.cs:1318		E					
+教程/引导	TutorialManager	AddPointerWithDelay(GameObject target, Vector2 offset, bool filterRaycast)	TutorialManager.cs:1339		E					
+教程/引导	TutorialManager	AddPointerWithDelay(TutorialPointerData pointerData)	TutorialManager.cs:1356		E					
+教程/引导	TutorialManager	AddStageToUpdate(FlowTutorialStage stage)	TutorialManager.cs:1074		E					
+教程/引导	TutorialManager	AreAllTutorialsCompleted()	TutorialManager.cs:1209		E					
+教程/引导	TutorialManager	DelayedAddPointerHideInCampaign()	TutorialManager.cs:1438		E					
+教程/引导	TutorialManager	DelayedPLayTutorial()	TutorialManager.cs:890		E					
+教程/引导	TutorialManager	DestroyPointer()	TutorialManager.cs:1308		E					
+教程/引导	TutorialManager	DisablePointer()	TutorialManager.cs:1329		E					
+教程/引导	TutorialManager	ForceCompleteAll()	TutorialManager.cs:1107		E					
+教程/引导	TutorialManager	Initialize()	TutorialManager.cs:380		E					
+教程/引导	TutorialManager	OnDestroy()	TutorialManager.cs:1449		E					
+教程/引导	TutorialManager	PlayTutorial()	TutorialManager.cs:878		E					
+教程/引导	TutorialManager	RemoveStageToUpdate(FlowTutorialStage stage)	TutorialManager.cs:1099		E					
+教程/引导	TutorialManager	SaveAllStages()	TutorialManager.cs:1203		E					
+教程/引导	TutorialManager	SaveStage(FlowTutorialStage stageToSave)	TutorialManager.cs:1197		E					
+教程/引导	TutorialManager	SceneHasChanged(string sceneName)	TutorialManager.cs:1140		E					
+教程/引导	TutorialManager	SetActiveStage(FlowTutorialStage activeStage)	TutorialManager.cs:1052		E					
+教程/引导	TutorialManager	ShowTutorialMessageWindow(TutorialMessageData data)	TutorialManager.cs:1293		E					
+教程/引导	TutorialManager	StageCompleted(FlowTutorialStage stageCompleted)	TutorialManager.cs:1060		E					
+教程/引导	TutorialManager	ToggleTutorial(bool option)	TutorialManager.cs:1152		E					
+教程/引导	TutorialManager	Update()	TutorialManager.cs:1158		E					
+教程/引导	TutorialManager	WindowChange(bool isTab, GameWindow gameWindow, WindowTabBase tab)	TutorialManager.cs:1185		E					
+教程/引导	TutorialMessageData	Reset()	TutorialMessageData.cs:16		E					
+教程/引导	TutorialMessageWindowPopUp	Close()	TutorialMessageWindowPopUp.cs:144		E					
+教程/引导	TutorialMessageWindowPopUp	OnClose()	TutorialMessageWindowPopUp.cs:156		E					
+教程/引导	TutorialMessageWindowPopUp	Open()	TutorialMessageWindowPopUp.cs:25		E					
+教程/引导	TutorialMessageWindowPopUp	ShowCampaignPointsDrawer(CardArmy cardArmy)	TutorialMessageWindowPopUp.cs:136		E					
+教程/引导	TutorialModePopup	Awake()	TutorialModePopup.cs:47		E					
+教程/引导	TutorialModePopup	BattleButtonOnClick()	TutorialModePopup.cs:294		E					
+教程/引导	TutorialModePopup	ChangeSelectedArmy(CardArmy army)	TutorialModePopup.cs:209		E					
+教程/引导	TutorialModePopup	Close()	TutorialModePopup.cs:400		E					
+教程/引导	TutorialModePopup	ConfigureArmyFilterButtons()	TutorialModePopup.cs:114		E					
+教程/引导	TutorialModePopup	OnDestroy()	TutorialModePopup.cs:54		E					
+教程/引导	TutorialModePopup	Open()	TutorialModePopup.cs:61		E					
+教程/引导	TutorialModePopup	ResetContent()	TutorialModePopup.cs:406		E					
+教程/引导	TutorialModePopup	SetArmyButtons(CardArmy cardArmy)	TutorialModePopup.cs:251		E					
+教程/引导	TutorialPointer	ClickAndDrag(Vector3 clickPos, Vector2 endPos, PointerRelativePos pointerOrientation)	TutorialPointer.cs:676		E					
+教程/引导	TutorialPointer	ClickAndHold(Vector3 clickPos, PointerRelativePos pointerOrientation)	TutorialPointer.cs:661		E					
+教程/引导	TutorialPointer	ClickInPosition(Vector3 clickPos, PointerRelativePos pointerOrientation)	TutorialPointer.cs:646		E					
+教程/引导	TutorialPointer	GetAdjustedPos(Vector2 pos, PointerRelativePos pointerOrientation)	TutorialPointer.cs:836		E					
+教程/引导	TutorialPointer	OnDisable()	TutorialPointer.cs:516		E					
+教程/引导	TutorialPointer	SetTutorialText(string text, bool showPointer)	TutorialPointer.cs:530		E					
+教程/引导	TutorialPointer	SetupCursor(CardArmy cursorArmy)	TutorialPointer.cs:554		E					
+教程/引导	TutorialPointer	ShowClickedPointer(Vector3 clickPos, PointerRelativePos pointerOrientation)	TutorialPointer.cs:768		E					
+教程/引导	TutorialPointer	ShowStartingPointer(Vector3 clickPos, PointerRelativePos pointerOrientation)	TutorialPointer.cs:692		E					
+教程/引导	TutorialPointer	StartPointer(TutorialPointerActions pointerAction, Vector3 startPos, Vector2 endPos, PointerRelativePos pointerOrientation)	TutorialPointer.cs:575		E					
+教程/引导	TutorialPointer	StopAnim()	TutorialPointer.cs:632		E					
+教程/引导	TutorialSpecificInfo	Setup(int tutorialNumber, DemoDeckInfoSO deckInfo)	TutorialSpecificInfo.cs:15		E					
+教程/引导	TutorialStageClaimForgeFirstLevel	CheckForCompletion()	TutorialStageClaimForgeFirstLevel.cs:308		E					
+教程/引导	TutorialStageClaimForgeFirstLevel	DoMenuActions()	TutorialStageClaimForgeFirstLevel.cs:104		E					
+教程/引导	TutorialStageClaimForgeFirstLevel	Execute()	TutorialStageClaimForgeFirstLevel.cs:58		E					
+教程/引导	TutorialStageClaimForgeFirstLevel	HasNoForgeableRewards()	TutorialStageClaimForgeFirstLevel.cs:388		E					
+教程/引导	TutorialStageClaimForgeFirstLevel	HasUsedForge()	TutorialStageClaimForgeFirstLevel.cs:420		E					
+教程/引导	TutorialStageClaimForgeFirstLevel	WindowsChange(bool isTab, GameWindow gameWindow, WindowTabBase tab)	TutorialStageClaimForgeFirstLevel.cs:64		E					
+教程/引导	TutorialStageGetCampaignNode	CheckForCompletion()	TutorialStageGetCampaignNode.cs:626		E					
+教程/引导	TutorialStageGetCampaignNode	DoMenuActions()	TutorialStageGetCampaignNode.cs:148		E					
+教程/引导	TutorialStageGetCampaignNode	Execute()	TutorialStageGetCampaignNode.cs:77		E					
+教程/引导	TutorialStageGetCampaignNode	HasTwoNodesCompleted()	TutorialStageGetCampaignNode.cs:745		E					
+教程/引导	TutorialStageGetCampaignNode	WindowsChange(bool isTab, GameWindow gameWindow, WindowTabBase tab)	TutorialStageGetCampaignNode.cs:83		E					
+教程/引导	TutorialStageGetMission	CheckForCompletion()	TutorialStageGetMission.cs:301		E					
+教程/引导	TutorialStageGetMission	DoMenuActions()	TutorialStageGetMission.cs:101		E					
+教程/引导	TutorialStageGetMission	Execute()	TutorialStageGetMission.cs:55		E					
+教程/引导	TutorialStageGetMission	HasCampaignPoints()	TutorialStageGetMission.cs:397		E					
+教程/引导	TutorialStageGetMission	WindowsChange(bool isTab, GameWindow gameWindow, WindowTabBase tab)	TutorialStageGetMission.cs:61		E					
+教程/引导	TutorialStageLevelUpCard	CheckForCompletion()	TutorialStageLevelUpCard.cs:642		E					
+教程/引导	TutorialStageLevelUpCard	DoMenuActions()	TutorialStageLevelUpCard.cs:122		E					
+教程/引导	TutorialStageLevelUpCard	DoingUpgrade()	TutorialStageLevelUpCard.cs:558		E					
+教程/引导	TutorialStageLevelUpCard	Execute()	TutorialStageLevelUpCard.cs:76		E					
+教程/引导	TutorialStageLevelUpCard	HasAlreadyUpgradedCard()	TutorialStageLevelUpCard.cs:727		E					
+教程/引导	TutorialStageLevelUpCard	HasNoCardToUpgrade()	TutorialStageLevelUpCard.cs:774		E					
+教程/引导	TutorialStageLevelUpCard	WindowsChange(bool isTab, GameWindow gameWindow, WindowTabBase tab)	TutorialStageLevelUpCard.cs:82		E					
+教程/引导	TutorialStagePlayRanked	CheckForCompletion()	TutorialStagePlayRanked.cs:170		E					
+教程/引导	TutorialStagePlayRanked	Execute()	TutorialStagePlayRanked.cs:40		E					
+教程/引导	TutorialStagePlayRanked	ShowCursor()	TutorialStagePlayRanked.cs:59		E					
+教程/引导	TutorialStagePlayRanked	WindowsChange(bool isTab, GameWindow gameWindow, WindowTabBase tab)	TutorialStagePlayRanked.cs:46		E					
+教程/引导	TutorialStageSelectArmy	CheckForCompletion()	TutorialStageSelectArmy.cs:89		E					
+教程/引导	TutorialStageSelectArmy	Complete()	TutorialStageSelectArmy.cs:110		E					
+教程/引导	TutorialStageSelectArmy	Execute()	TutorialStageSelectArmy.cs:12		E					
+教程/引导	TutorialStageSelectArmy	_003CExecute_003Eb__2_0()	TutorialStageSelectArmy.cs:182		E					
+教程/引导	TutorialStageTutorialFinished	CheckForCompletion()	TutorialStageTutorialFinished.cs:85		E					
+教程/引导	TutorialStageTutorialFinished	Complete()	TutorialStageTutorialFinished.cs:78		E					
+教程/引导	TutorialStageTutorialFinished	DoActions()	TutorialStageTutorialFinished.cs:66		E					
+教程/引导	TutorialStageTutorialFinished	Execute()	TutorialStageTutorialFinished.cs:11		E					
+教程/引导	TutorialTip	GetLocalizedText()	TutorialTip.cs:20		E					
+教程/引导	TutorialTipScript	ClickContinue()	TutorialTipScript.cs:299		E					
+教程/引导	TutorialTipScript	FadeElements(float targetAlpha)	TutorialTipScript.cs:365		E					
+教程/引导	TutorialTipScript	FinishTutorialTip()	TutorialTipScript.cs:354		E					
+教程/引导	TutorialTipScript	SetupArrows(bool showLeftArrow, bool showRightArrow)	TutorialTipScript.cs:399		E					
+教程/引导	TutorialTipScript	SetupTip(SmallTipData smallTipData)	TutorialTipScript.cs:308		E					
+教程/引导	TutorialTipScript	SetupTipData(SmallTipData smallTipData)	TutorialTipScript.cs:326		E					
+教程/引导	TutorialTipScript	ShowTip(SmallTipData smallTipData)	TutorialTipScript.cs:267		E					
+教程/引导	TutorialTipScript	ShowTipPermanent(SmallTipData smallTipData)	TutorialTipScript.cs:282		E					
+教程/引导	TutorialTipScript	StopAnims()	TutorialTipScript.cs:391		E					
+教程/引导	TutorialTipScript	StopTip(float timeToWait)	TutorialTipScript.cs:417		E					
+教程/引导	TutorialTipScript	StopTipPermanent()	TutorialTipScript.cs:294		E					
+教程/引导	TutorialTipScript	Update()	TutorialTipScript.cs:432		E					
+教程/引导	TutorialV2SaveData	LoadAllStages(FlowTutorialStage[] stagesToLoad)	TutorialV2SaveData.cs:107		E					
+教程/引导	TutorialV2SaveData	LoadStage(FlowTutorialStage stage)	TutorialV2SaveData.cs:59		E					
+教程/引导	TutorialV2SaveData	SaveAllStages(FlowTutorialStage[] stagesToSave)	TutorialV2SaveData.cs:341		E					
+教程/引导	TutorialV2SaveData	SaveStage(FlowTutorialStage stageToSave, bool isPartOfBatchSave)	TutorialV2SaveData.cs:149		E					
+教程/引导	WildcardTutorialManager	AddPointer(WildcardTutorialButtons objButton, string tutorialText, bool showPointer)	WildcardTutorialManager.cs:533		E					
+教程/引导	WildcardTutorialManager	AddPointerWithDelay(WildcardTutorialButtons objButton, string tutorialText, bool showPointer)	WildcardTutorialManager.cs:550		E					
+教程/引导	WildcardTutorialManager	CardDisplayOpened()	WildcardTutorialManager.cs:523		E					
+教程/引导	WildcardTutorialManager	GetPointerOffset(WildcardTutorialButtons objButton)	WildcardTutorialManager.cs:567		E					
+教程/引导	WildcardTutorialManager	Initialize()	WildcardTutorialManager.cs:285		E					
+教程/引导	WildcardTutorialManager	StartWildcardTutorial(EverguildToggle filterToggle, EverguildToggle ownedToggle)	WildcardTutorialManager.cs:289		E					
+教程/引导	WildcardTutorialManager	ToggleFilters(bool filterValue)	WildcardTutorialManager.cs:331		E					
+教程/引导	WildcardTutorialManager	ToggleOwned(bool ownedValue)	WildcardTutorialManager.cs:351		E					

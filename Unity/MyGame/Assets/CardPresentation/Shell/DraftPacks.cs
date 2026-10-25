@@ -245,7 +245,7 @@ namespace CardPresentation
                 if (p == null) continue;
                 if (string.IsNullOrEmpty(p.key)) badKey++;
                 if (p.cardIds == null || p.cardIds.Length != CardsPerPack) badLen++;
-                if (p.army == 0) badArmy++;
+                if (ArmyIcons.IsNeutral(p.army)) badArmy++;
                 list.Add(p);
             }
             if (badKey > 0)

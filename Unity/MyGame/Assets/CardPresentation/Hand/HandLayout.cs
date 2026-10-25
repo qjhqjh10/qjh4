@@ -882,10 +882,35 @@ namespace CardPresentation
             c.TweenPose(local, angle, scale, CardTween.RelayoutDuration, Ease.OutQuad);
         }
 
+        /// <summary>抽牌**第二跳**：从抽牌终点锚补间进这张牌在手牌里的格位。
+        /// <para>判据（🆕 2026-10-25 · `N4` · 待A接线清单 #3）：原版 `CardScript.DrawCard` 的 `DOMove`
+        /// 终点是 `BattleHud.GetCardDrawPosition(isPlayer)`（= `CardDrawPositions/{PlayerDrawnPos,EnemyDrawnPos}`，
+        /// 判据 → `资料/完全复刻/判据/HUD光标与抽牌锚.md` §二·订正；`PlayerDrawnPos` 与 `EnemyDrawnPos` **同值**
+        /// `(1350, 490, 100, 100)`、13 场实算一致）—— **落到锚点之后**才由 `SetupCardInHand` /
+        /// `CardsHorizontalLayout` 把它排进格位。我们第一段航程（`BattleDriver.PlayDealAnimation` →
+        /// `CardFeel.DealInPose`）已经改成落在锚点，**第二段**原来是一次 `SetPose`（硬切），这里给它补上补间：
+        /// 时长/缓动与重排**同一条判据**（`CardTween.RelayoutDuration` = `VarsGlobal.timeToPositionCard`
+        /// 0.2 s · `Ease.OutQuad`，见 `Place` 里那整段出处；⛔ 别另写一份）。</para>
+        /// <para>位姿取**最近一趟 `Refresh` 算出来的那一格**（`_lastPose`）—— 与 `TryLastPose` 同一个源，
+        /// ⇒ 不会和布局算法各算一份坐标。返回 `false` = 这张没排过（调用方自己决定兜底，⛔ 别静默）。</para>
+        /// <para>⚠️ **调用点待接**：`BattleDriver.PlayDealAnimation` 里 `deal.OnComplete(...)` 那一行现在写的是
+        /// `v.SetPose(handLocal, handAng, handSc)`（硬切），换成 `hl.TweenIntoSlot(v)` 即可 ——
+        /// 该文件不在本代理白名单，改动请求见 `资料/完全复刻/报告/N4_HUD_C_第1轮.md` §①。</para></summary>
+        public bool TweenIntoSlot(CardView c, float delay = 0f)
+        {
+            if (c == null) return false;
+            HandPose p;
+            if (!_lastPose.TryGetValue(c, out p)) return false;
+            var parent = c.transform.parent;
+            Vector3 local = parent != null ? parent.InverseTransformPoint(p.pos) : p.pos;
+            var t = c.TweenPose(local, p.angle, p.scale, CardTween.RelayoutDuration, Ease.OutQuad);
+            if (t != null && delay > 0f) t.SetDelay(delay);
+            return true;
+        }
+
         // ==================================================================
         //  自检/诊断
         // ==================================================================
-
         /// <summary>整把手牌的水平跨度（世界单位）—— 自检用</summary>
         public float SpanWorld(int count)
         {

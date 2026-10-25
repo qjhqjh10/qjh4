@@ -81,6 +81,22 @@ namespace CardPresentation
             gameObject.SetActive(false);                           // 原版末句：整棵关掉
         }
 
+        /// <summary>🆕 **2026-10-25（菜单 C）**：原版 `MainMenuWindow.ToFocus()`（`MainMenuWindow__ToFocus.c`）：
+        /// <list type="number">
+        /// <item>`gameObject.SetActive(true)`；</item>
+        /// <item>`NavigationPanelController.Instance.Toggle(true, true)`（左栏放回来）⇒ 等价物 = `MainMenuRuntime.SetNavPanelVisible(true, true)`；</item>
+        /// <item>档案组件 `Initialize`（虚表 `+0x1d8`）—— 我们的头像/名字由 `MainMenuRuntime.Update` 的
+        ///   `RefreshTopAvatarIfChanged` / 顶栏刷新驱动，**没有单独的 Initialize 口**，如实记；</item>
+        /// <item>`UIBakeScreen.Toggle(false)` —— 基类 `TryOpen` 的 `Background` 支已在调 `ToFocus` **之前** `SetBake(false)`；</item>
+        /// <item>`RefreshLiveOpContainers` —— **活动线暂停**，本轮不做（⛔ 不写成已做）。</item>
+        /// </list></summary>
+        public override void ToFocus()
+        {
+            base.ToFocus();
+            gameObject.SetActive(true);
+            MainMenuRuntime.SetNavPanelVisible(true, true);
+        }
+
         /// <summary>原版 `MainMenuWindow.ESCPressed()` = `base.ESCPressed(); SettingsMenu.ExitGamePopup();`
         /// （`d:/2/tools/decomp_full/MainMenuWindow__ESCPressed.c`，**全 body 就两句**）。
         /// 而 `base` 那一跳在**这一扇上什么都不做** —— 它 `closeOnESC = 0`（见文件头 ②）⇒ 门槛不过。

@@ -384,8 +384,13 @@ namespace CardPresentation
                 //       我们**保留引号**：图名走的是我们自己的图集（`Art/traits/` 的文件名，不是
                 //       `Atlas_trait_icon_*`），而且卡面另一条路 `CardIcons.Rewrite` 也是带引号的写法
                 //       —— 两条路写法要一致，别只改一处。
+                // 🆕 2026-10-25（`K4`）：**没有图的那一项也要包 `<nobr>`** —— 原版两条分支
+                // （`GameStaticData__TraitNameToString.c` 的粗体 / 非粗体）**都**是
+                // `Concat("<nobr>…", …, "</nobr>")`，包的是「图标 + 词」整项；我们原来只在有图那支包，
+                // 于是「认不出图」的词（`Badges.SpriteOf` 返回 null）可能被 TMP 拆到两行、
+                // 和同段里其它的词**不在同一行**（可见的排版不一致）。
                 string item = string.IsNullOrEmpty(sprite)
-                            ? "<link=" + key + ">" + word + "</link>"
+                            ? "<link=" + key + "><nobr>" + word + "</nobr></link>"
                             : "<link=" + key + "><nobr><sprite name=\"" + sprite + "\">" + word + "</nobr></link>";
                 // 🔴 **2026-10-21（`A1375`）：收尾符按「这个词带不带正文」分** ——
                 //    带正文的印 `X:`（中文档 `X：`），其余仍印 `X.`（中文档 `X。`）。

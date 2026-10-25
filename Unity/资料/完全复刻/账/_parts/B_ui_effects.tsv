@@ -1,0 +1,105 @@
+UIBorderGlow|Awake()|C|base.Awake 后取 CanvasRenderer(+0x50)、并把 MyGraphic.color 四个分量存进 graphicOriginalColor(+0x5C..0x6B)，供 DoAnimation 末还原 alpha：UIBorderGlow__Awake.c:20-32|无|组件整只不存在；静态画法见 Shell/BoosterInfoPopup.cs:621 与 Shell/OfferContainer.cs:1330|P2|我们这套无 Canvas/无 CanvasRenderer，落点只能是等价自绘
+UIBorderGlow|CacheMaterial()|C|canvasRenderer.GetMaterial(0) 非空就 new Material(原) 存 instancedMaterial 返回 true；空则 StartCoroutine(DealyedAnim()) 下一帧重试并返回 false：UIBorderGlow__CacheMaterial.c:22-43|无|无|P2|取不到材质就下一帧再试这一支我们没有对应机制
+UIBorderGlow|CalculateViewPosition()|C|懒取 Camera.main（无相机返回 0.5,0.5 哨兵，常量 0x3f000000 实读），把 transform.position 过 WorldToViewportPoint：UIBorderGlow__CalculateViewPosition.c:19-56|无|无|P2|无相机时的 0.5,0.5 回落值我们一个都没有
+UIBorderGlow|ChangeGraphicAlpha(float)|C|只改 graphic.color 的 alpha 一位，r/g/b 原样带回（Color 低 8 字节整体 copy 后只覆高 4 字节）：UIBorderGlow__ChangeGraphicAlpha.c:24-34|无|无|P2|同族
+UIBorderGlow|DealyedAnim()|C|协程：yield WaitForEndOfFrame 之后 if (CacheMaterial()) DoAnimation()：UIBorderGlow.cs:208-217（协程体 :37-67）|无|无|P2|
+UIBorderGlow|DoAnimation()|C|DOTween.Kill(instancedMaterial) → SetMaterial(instanced,0) → SetFloat(_Reveal,-0.5) → DOFloat(_Reveal,1,animTime)+SetDelay(animDelay)+Ease.Linear → 末了把 graphic alpha 还原成原值：UIBorderGlow__DoAnimation.c:25-43（-0.5 常量实读 0xBF000000）|无|无描边显影扫过，也没有 0.5→1 的 _Reveal 补间|P1|唯一真正动起来的那条曲线
+UIBorderGlow|ModifyMesh(Mesh)|D|方法体为空（IMeshModifier 的 Mesh 重载什么都不做）：UIBorderGlow.cs:284-286|无|无||原版空实现，无可复刻内容
+UIBorderGlow|ModifyMesh(VertexHelper)|C|逐顶点 PopulateUIVertex → 把 CalculateViewPosition 的 (x,y) 写进 uv0.z / uv0.w（UIVertex 112 字节，uv0 在 +0x2C，两处 CONCAT44 实读），其余字段原样回写 → SetUIVertex：UIBorderGlow__ModifyMesh.c:46,70-91|无|我们连相机视口坐标这个动画输入都没有；shader 侧消费点未反汇编（见备注）|P1|整只组件的核心写入
+UIBorderGlow|OnEnable()|C|base.OnEnable；if(playOnEnable) { ChangeGraphicAlpha(0); if(instancedMaterial 或 CacheMaterial()) DoAnimation(); }：UIBorderGlow__OnEnable.c:11-36|无|无|P2|89 个实例里只有 3 个 playOnEnable=1
+UIBorderGlow|OnRectTransformDimensionsChange()|C|ModifyMesh(null)(空) + 刷新 CalculateViewPosition 缓存：UIBorderGlow.cs:272-276|无|无|P2|
+UIBorderGlow|OnTransformParentChanged()|C|同上：UIBorderGlow.cs:278-282|无|无|P2|
+UIBorderGlow|Play()|C|ChangeGraphicAlpha(0)；if(instancedMaterial 或 CacheMaterial()) DoAnimation()：UIBorderGlow__Play.c:11-31|无|无|P1|外部脚本催播的入口，我们没有
+UIBorderGlow|RemapValue(float,float,float,float,float)|D|标准 remap+Clamp01 私有工具；全量反编译零调用点（只有自己的定义文件）：UIBorderGlow__RemapValue.c:5-22|无|无||死代码
+UIBorderGlow|RemapVector(Vector2,Vector2,Vector2)|D|逐分量同上；同样零调用点：UIBorderGlow__RemapVector.c:5-62|无|无||死代码
+UIBorderGlow|Stop()|C|if(instancedMaterial) DOTween.Kill(instancedMaterial)：UIBorderGlow__Stop.c:11-31|无|无|P2|
+UIBorderGlow|Update()|C|if(transform.hasChanged){ MyGraphic.SetVerticesDirty(); transform.hasChanged=false; }：UIBorderGlow__Update.c:13-30|无|无|P2|变换后重建网格这一跳
+UIEffectTogglerBase|Toggle(bool,float)|C|虚方法只写 targetStateEnabled = option：UIEffectTogglerBase.cs:11-14|无|整族缺失，无基类|P2|
+UIEffectTogglerBase|DoUpdate(float,float)|D|abstract 声明，无方法体：UIEffectTogglerBase.cs:16|无|无||抽象声明，无可复刻内容
+UIEffectTogglerBase|AnimationFinished()|D|abstract 声明，无方法体：UIEffectTogglerBase.cs:18|无|无||同上
+UIEffectTogglerController|Toggle(bool,float,bool)|C|状态未变且 !forceChange 直接 return；否则 doAnim=true、记 option/duration、逐个 toggler.Toggle(option,duration)；duration>0 时若正在播则 currentTime=(1-currentTime/currentDuration)*duration（反向接力保相位）再 enabled=true；duration<=0 时 enabled=false、currentTime=float.MaxValue、立刻 Update() 收尾：UIEffectTogglerController__Toggle.c:30-79|无|整族缺失|P2|原版 300 个实例里 296 个的 toggler 列表是空的
+UIEffectTogglerController|FindEffectTogglersInChildren()|D|currentEffectTogglers = GetComponentsInChildren<UIEffectTogglerBase>().ToList()；该方法带 [Button(null,EButtonEnableMode.Always)]（NaughtyAttributes 编辑器按钮）、全量反编译零调用点 ⇒ 列表是编辑器里点按钮后序列化下来的：UIEffectTogglerController.cs:82-90 与 d:/2/Warpforge_code/Scripts/Assembly-CSharp/UIEffectTogglerController.cs:23-27|无|无||编辑器专用；该字段是 [SerializeField]
+UIEffectTogglerController|Update()|C|if(!doAnim){enabled=false;return;} currentTime+=dt；n=Clamp01(currentTime/currentDuration)；逐个 DoUpdate(currentTime,n)；currentTime 严格超过 currentDuration 时 enabled=false、doAnim=false 再逐个 AnimationFinished()：UIEffectTogglerController__Update.c:22-80|无|无|P2|
+UIEffectTogglerGameObject|Toggle(bool,float)|D|foreach(go in gameObjects) go.SetActive(option)：UIEffectTogglerGameObject.cs:7-23|无|无||原版出货 0 实例（无 deactivateOnDisable+gameObjects 形状的组件）
+UIEffectTogglerGameObject|DoUpdate(float,float)|D|空方法体：UIEffectTogglerGameObject.cs:25-27|无|无||空体 + 0 实例
+UIEffectTogglerGameObject|AnimationFinished()|D|空方法体：UIEffectTogglerGameObject.cs:29-31|无|无||空体 + 0 实例
+UIEffectTogglerImage|Toggle(bool,float)|C|targetStateEnabled=option；duration>0 时先 ToggleGameObjects(true)（点亮），否则 ToggleGameObjects(option)：UIEffectTogglerImage.cs:8-19|无|无|P2|原版 2 个实例（都在 menus 包）
+UIEffectTogglerImage|DoUpdate(float,float)|C|逐 Image 把 color 的 alpha 按 normalizedTime 从起点补到目标（写 color 整份）：UIEffectTogglerImage.cs:21-43|无|无|P2|
+UIEffectTogglerImage|AnimationFinished()|C|if(deactivateOnDisable && !targetStateEnabled) ToggleGameObjects(false)：UIEffectTogglerImage.cs:45-51|无|无|P2|淡出完再关节点这一跳
+UIEffectTogglerImage|ToggleGameObjects(bool)|C|逐个 images[i].gameObject.SetActive(option)：UIEffectTogglerImage.cs:53-69|无|无|P2|
+UIEffectTogglerCoffeeEffects|Toggle(bool,float)|C|逐个 UIEffect：enabled=option；打开时若挂了 UIEffectTweener 就 Play(resetTime:true)：UIEffectTogglerCoffeeEffects.cs:8-35|无|无|P2|依赖第三方 Coffee.UIEffects，本地无该包；7 个实例里只有 1 个被 controller 接上
+UIEffectTogglerCoffeeEffects|DoUpdate(float,float)|D|空方法体：UIEffectTogglerCoffeeEffects.cs:37-39|无|无||空体，无可复刻内容
+UIEffectTogglerCoffeeEffects|AnimationFinished()|D|空方法体：UIEffectTogglerCoffeeEffects.cs:41-43|无|无||空体
+UIEffectCanvasGroupToggler|Toggle(bool,float)|C|targetStateEnabled=option；duration>0 时先 ToggleGameObjects(true)，否则 ToggleGameObjects(option)：UIEffectCanvasGroupToggler.cs:7-18|无|无|P1|整族里唯一能确认的玩家可见点（Forge Tab 的 Ready for level up）
+UIEffectCanvasGroupToggler|DoUpdate(float,float)|C|alpha=(target-start)*Clamp01(normalized)+start，start=target?0:1，写 canvasGroups[i].alpha：UIEffectCanvasGroupToggler.cs:20-55|CardPresentation/Shell/ForgeTab.cs:771|原版是 0.3s CanvasGroup 淡入淡出，我们是 SetActive 硬切；没有 alpha 曲线|P1|
+UIEffectCanvasGroupToggler|AnimationFinished()|C|if(deactivateOnDisable && !targetStateEnabled) ToggleGameObjects(false)：UIEffectCanvasGroupToggler.cs:57-63|无|无|P2|
+UIEffectCanvasGroupToggler|ToggleGameObjects(bool)|C|逐个 canvasGroups[i].gameObject.SetActive(option)：UIEffectCanvasGroupToggler.cs:65-81|无|无|P1|硬切这一半我们有，缺的是淡入那半
+UIEffectBorderGlowToggler|Toggle(bool,float)|D|canvasRenderer.GetMaterial() 存 original、new Material 存 instanced 并 SetMaterial(instanced,0)；targetValues 由 option 三元取（反编译丢了这个三元）：UIEffectBorderGlowToggler.cs:18-33|无|无||原版出货 0 实例（returnToOriginalMaterial 全库 0 命中）
+UIEffectBorderGlowToggler|DoUpdate(float,float)|D|instancedMaterial.SetFloat(Shader.PropertyToID(_Reveal), Lerp(起点,target,Clamp01(n)))：UIEffectBorderGlowToggler.cs:35-58|无|无||0 实例
+UIEffectBorderGlowToggler|AnimationFinished()|D|if(returnToOriginalMaterial) canvasRenderer.SetMaterial(originalMaterial,0)：UIEffectBorderGlowToggler.cs:60-66|无|无||0 实例
+UIEffectBorderGlowToggler|Initialize()|D|存原材质 + new Material；全量反编译零调用点（Toggle 里已内联同样的三句）：UIEffectBorderGlowToggler.cs:68-77|无|无||0 实例 + 无调用点
+UIEffectBorderGlowToggler|OnValidate()|D|if(!canvasRenderer) canvasRenderer=GetComponent<CanvasRenderer>()：UIEffectBorderGlowToggler.cs:79-86|无|无||0 实例 + 编辑器专用
+UIEffectPump|AnimationFinished()|D|出货 0 实例；方法体还读不到（Method not found @1803F4510，反编译给的是 throw NotImplementedException 占位）：UIEffectPump.cs:7-13|无|无||0 实例为主判据，方法体缺失
+UIEffectPump|DoUpdate(float,float)|D|同上：UIEffectPump.cs:15-21|无|无||同上
+UIFlippableAndRotableUVs|FlipVertex(RectTransform,int,ref VertexHelper)|D|逐顶点 Populate 后：horizontal 时 x'=2*rect.center.x-x，vertical 时 y'=2*rect.center.y-y，返回顶点：UIFlippableAndRotableUVs__FlipVertex.c:22-45|无|无||原版出货 0 实例（rotationAngle 全库 0 命中）
+UIFlippableAndRotableUVs|ModifyMesh(VertexHelper)|D|逐顶点：Populate → 水平/垂直镜像 position（绕 rect 中心）→ uv0.xy 绕 (0.5,0.5) 旋转 rotationAngle → uv0.zw 置 0 → SetUIVertex：UIFlippableAndRotableUVs__ModifyMesh.c:66-130|无|无||0 实例
+UIFlippableAndRotableUVs|Rotate(ref UIVertex,RectTransform)|D|绕 rt.pivot 旋转 position，再整体乘 sizeDelta.x/sizeDelta.y 比例：UIFlippableAndRotableUVs__Rotate.c:35-100|无|无||0 实例；ModifyMesh 里也没调它
+UIFlippableAndRotableUVs|RotatePointAroundPivot(Vector3,Vector3,float)|D|绕 pivot 的标准逆时针旋转（Quaternion.FromEulerRad + 乘法）：UIFlippableAndRotableUVs__RotatePointAroundPivot.c:25-60|无|无||0 实例
+UIFlippableAndRotableUVs|RotatePointAroundPivotUVs(Vector2,Vector2,float)|D|x'=ox+(px-ox)cos-(py-oy)sin；y'=oy+(py-oy)cos+(px-ox)sin：UIFlippableAndRotableUVs__RotatePointAroundPivotUVs.c:18-25|CardPresentation/Shell/RewardWindow.cs:645|我们只在注释里引它当三角恒等式判据，没有实现||0 实例；顺带坐实 FUN_180488130=cos、FUN_1804886e0=sin
+UIFlippableAndRotableUVs|RotateUVs(ref UIVertex)|D|uv0.xy 绕 (0.5,0.5) 旋转 rotationAngle，uv0.zw 写 0：UIFlippableAndRotableUVs__RotateUVs.c:18-40|无|无||0 实例
+AnimateUIMaterialProperty|Update(Material)|C|嵌套 struct：useVector4 ? SetVector(materialProperty,vector4Value) : SetFloat(materialProperty,value)：AnimateUIMaterialProperty.cs:19-31|无|我们只有硬编码的 _DissolveAmount 一处，没有通用属性表|P2|
+AnimateUIMaterialProperty|Update()|C|if(!instancedMaterial) return；floatProperty1.Update(mat) 与 floatProperty2.Update(mat)：AnimateUIMaterialProperty.cs:60-119|CardPresentation/Core/CardView.cs:6578|覆盖 1/3 用例：卡框溶解做了；Booster 开包背景抖动（Shell/BoosterPackOpenWindow.cs:94-95）与 RankedDivision 段位图（Shell/RankedDivisionChangeWindow.cs:938-947）出声未做|P1|
+AnimateUIMaterialProperty|OnEnable()|C|if(!initializeOnEnable) return；CreateInstanceMaterial() 后 image.material=instancedMaterial：AnimateUIMaterialProperty.cs:48-58|CardPresentation/Core/CardView.cs:6564|我们不是组件：换材质由调用方显式 BeginFrameDissolve，只覆盖卡框一处|P1|
+AnimateUIMaterialProperty|OnDestroy()|B|Object.Destroy(instancedMaterial)：AnimateUIMaterialProperty.cs:121-124|CardPresentation/Core/CardView.cs:6588|一致（我们用 Destroy/DestroyImmediate 分支）；非组件形态||
+AnimateUIMaterialProperty|OnDisable()|B|image.material = originalMaterial：AnimateUIMaterialProperty.cs:126-129|CardPresentation/Core/CardView.cs:6588|一致；只还原自己换上去的那一份||
+AnimateUIMaterialProperty|ResetToOriginalMaterial()|B|image.material = originalMaterial：AnimateUIMaterialProperty.cs:131-134|CardPresentation/Core/CardView.cs:6588|同一条还原路，没有独立 API||
+AnimateUIMaterialProperty|SetMaterial(Material)|C|CreateInstanceMaterial() 后把 changeMaterialOnAnimation 存到 +0x78（反编译只写了这一句）：AnimateUIMaterialProperty.cs:136-143|无|无|P2|
+AnimateUIMaterialProperty|CreateInstanceMaterial()|B|if(!instancedMaterial){ originalMaterial=image.material; new Material(changeMaterialOnAnimation 或 originalMaterial); name+=(Instanced); image.material=it; }：AnimateUIMaterialProperty.cs:145-159|CardPresentation/Core/CardView.cs:6530|机制一致（实例材质 + 以 changeMaterialOnAnimation 为底），但我们只对卡框一层、不通用||
+UITransformTweenController|Awake()|C|if(initializeOnAwake) 缓存 anchoredPosition/localScale 到 originalPosition/originalScale：UITransformTweenController__Awake.c:10-30|无|整只组件缺失（RaidEventWindow 的 RewardTransform 只建了空容器，Shell/RaidEventWindow.cs:824-826）|P2|原版 15 个实例
+UITransformTweenController|OnEnable()|C|if(!playOnEnable) return；缓存原件后按 animPosition/animScale 组合调 DoAnimPosition/DoAnimScale(...,animTime)：UITransformTweenController__OnEnable.c:23-55|无|无|P1|开窗/开格时的入场位移动画
+UITransformTweenController|Initialize()|C|只缓存 anchoredPosition/localScale（不置 initialized 标志）：UITransformTweenController__Initialize.c:10-30|无|无|P2|initialized(0x60) 全类无写入点
+UITransformTweenController|DoDefaultAnim()|C|animPosition && animScale 两个都调；只 animPosition 只调位置；否则一律调 DoAnimScale（两个都关也照调）：UITransformTweenController__DoDefaultAnim.c:14-35|无|无|P2|原版漏判，照抄别修好
+UITransformTweenController|BackToDefault()|C|if(!initialized) 缓存原件；DoAnimPosition(originalPosition,animTime)+DoAnimScale(originalScale,animTime)：UITransformTweenController__BackToDefault.c:18-33|无|无|P2|缓存那一支恒假
+UITransformTweenController|BackToDefault(float)|C|同上但用时长的参数：UITransformTweenController__BackToDefault.c:18-33|无|无|P2|
+UITransformTweenController|DoAnim(Vector2,Vector3,float)|C|DoAnimPosition + DoAnimScale：UITransformTweenController.cs:147-153|无|无|P2|
+UITransformTweenController|DoAnimPosition(Vector2,float)|C|目标与当前 anchoredPosition 的平方距离 >= eps(DAT_1834b3370) 才 Kill 旧 tween 并 DOAnchorPos(rt,desired,animTime)；已到位则不动：UITransformTweenController__DoAnimPosition.c:15-30|无|无|P1|已到位跳过这条别漏
+UITransformTweenController|DoAnimScale(Vector3,float)|C|同上，判定用 localScale、动作用 DOScale：UITransformTweenController__DoAnimScale.c:17-38|无|无|P1|
+UITransformTweenController|OnValidate()|D|if(!rectTransform) rectTransform=GetComponent<RectTransform>()：UITransformTweenController__OnValidate.c:18-25|无|无||编辑器专用；出货 prefab 里引用已序列化
+NestedFadeGroupBase|OnEnable()|C|previousAlpha=null；if(!enabled) return；UnsubscribeFromParent → ParentGroup=GetParentRecursively(transform) → SubscribeToParent → RefreshAlpha：NestedFadeGroupBase.cs:90-106|无|我们只有 CardPresentation/Core/CardView.cs:7812 的扁平 _badgeAlpha|P2|原版 9 个实例全在 CardPrefab 的徽标上
+NestedFadeGroupBase|OnDisable()|C|UnsubscribeFromParent()：NestedFadeGroupBase.cs:108-111|无|无|P2|
+NestedFadeGroupBase|LateUpdate()|C|轮询序列化字段：alpha 与上次不同 或 exclude 与上次不同 就 RefreshAlpha（Nullable 缓存）：NestedFadeGroup_NestedFadeGroupBase__LateUpdate.c:19-43|无|无|P2|直接改字段也能生效这条我们没有
+NestedFadeGroupBase|OnTransformParentChanged()|C|重新挂父 + RefreshAlpha：NestedFadeGroupBase.cs:177-191|无|无|P2|
+NestedFadeGroupBase|UpdateParent()|C|与 OnTransformParentChanged 同一段（公开版）：NestedFadeGroupBase.cs:193-207|无|无|P2|
+NestedFadeGroupBase|GetParentRecursively(Transform)|C|沿父链找第一个 enabled 且 != this 的 NestedFadeGroup，找不到返回 null：NestedFadeGroup_NestedFadeGroupBase__GetParentRecursively.c:17-50|无|无|P2|
+NestedFadeGroupBase|SetParent(NestedFadeGroup)|C|UnsubscribeFromParent → ParentGroup=p → SubscribeToParent → RefreshAlpha：NestedFadeGroupBase.cs:246-255|无|无|P2|
+NestedFadeGroupBase|SubscribeToParent()|C|ParentGroup.AlphaChanged += UpdateAlpha；ParentGroup.Reparent += SetParent：NestedFadeGroupBase.cs:257-374|无|无|P2|我们没有任何事件/订阅机制
+NestedFadeGroupBase|UnsubscribeFromParent()|C|对应的 -=：NestedFadeGroupBase.cs:376-493|无|无|P2|
+NestedFadeGroupBase|RefreshAlpha()|C|p = ParentGroup ? ParentGroup.AlphaTotal : 1；GetMissingReferences()；(QueuedOnComponentAdded 时 OnComponentAdded())；a = exclude ? alpha : alpha*p；AlphaTotal=a；AlphaTotal=ExtraAlpha*a；OnAlphaChanged(AlphaTotal)：NestedFadeGroup_NestedFadeGroupBase__RefreshAlpha.c:30-58|CardPresentation/Core/CardView.cs:7812|我们只有乘 alpha 这一层，没有 parent 链、exclude、ExtraAlpha 三个因子|P2|9/9 实例 exclude=0，缺的那两项目前无可见后果
+NestedFadeGroupBase|UpdateAlpha(float)|C|同 RefreshAlpha 但父 alpha 由参数传入（事件回调体）：NestedFadeGroupBase.cs:527-547|无|无|P2|
+NestedFadeGroupBase|GetMissingReferences()|D|protected virtual 空方法体（供桥子类覆写）：NestedFadeGroupBase.cs:549-551|无|无||空体
+NestedFadeGroupBase|OnComponentAdded()|D|protected virtual 空方法体：NestedFadeGroupBase.cs:553-555|无|无||空体
+NestedFadeGroupBase|OnAlphaChanged(float)|D|protected abstract 声明，无方法体：NestedFadeGroupBase.cs:557|无|无||抽象声明
+NestedFadeGroup|OnAlphaChanged(float)|C|AlphaChanged?.Invoke(alpha)：NestedFadeGroup/NestedFadeGroup.cs:25-32|无|无|P2|
+NestedFadeGroup|OnEnable()|C|AddMissingBridgeComponents()；再走基类那套挂父+RefreshAlpha；最后对 GetChildrenUntilNextFadeGroup(transform) 里每个 enabled 子组重挂父+RefreshAlpha：NestedFadeGroup.cs:34-82|无|无|P2|
+NestedFadeGroup|OnDisable()|C|UnsubscribeFromParent()；Reparent?.Invoke(this)：NestedFadeGroup.cs:283-291|无|无|P2|
+NestedFadeGroup|GetChildrenUntilNextFadeGroup(Transform)|C|递归收集到下一个 NestedFadeGroup 为止的 NestedFadeGroupBase 子件：NestedFadeGroup.cs:84-281|无|无|P2|
+NestedFadeGroup|OnTransformChildrenChanged()|C|AddMissingBridgeComponents()：NestedFadeGroup.cs:293-296|无|无|P2|
+NestedFadeGroup|AddMissingBridgeComponents()|C|反射扫全 assembly 取 [NestedFadeGroupBridge] 的类型建 bridges 表，再对每对 (source,dest) 给所有子件补 dest 组件：NestedFadeGroup.cs:298-455|无|无|P2|我们按徽标那一组枚举图层直接写色，替代了桥机制；CardPrefab 里 38 个 SpriteRenderer 桥 + 10 个 TMP 桥
+NestedFadeGroup|AddMissingBridgeComponents(Type,Type)|C|就地给缺的补 AddComponent(destinationType)：NestedFadeGroup.cs:457-479|无|无|P2|
+BlinkGraphic|OnValidate()|D|if(!graphic) graphic=GetComponent<Graphic>()；运行期不跑，出货 prefab 里引用已序列化：BlinkGraphic.cs:45-52|CardPresentation/Shell/BlinkGraphic.cs:155|等价的运行期接线是 Bind(target,read,write)||编辑器专用；补引用的语义我们由 Bind 显式做
+BlinkGraphic|Start()|A|originalColor = graphic.color（vtable 0x298）；一帧都不写色：BlinkGraphic__Start.c:11-20|CardPresentation/Shell/BlinkGraphic.cs:166|一致；我们 Restart() 同时把时钟归零（原版 currentTime 出厂即 0，语义相同）||36 个实例全是 (1.0, 0.5)
+BlinkGraphic|Update()|A|t=Clamp01(abs(cos(blinkSpeed*currentTime)))（FUN_180488130=Mathf.Cos，由 Easing.g__inOutSine_0_30 的 (1-cos(pi*t))*0.5 独立坐实；掩码常量 0x1834b2e60 直读=0x7FFFFFFF 即取绝对值）→ 只改 alpha 一位 a=Lerp(a,a*colorVariation,t) → 算完才 currentTime+=Time.deltaTime(scaled)：BlinkGraphic__Update.c:17-32|CardPresentation/Shell/BlinkGraphic.cs:184|一致（T:124 / AlphaOf:131 / Tinted:137 / Tick:184）；三处有意差异已在文件头标注（null 不抛 NRE、挂窗口根、隐藏时照推时钟）||常量 0x1834b2bb8=1.0f、0x1834b2bb4=0.5f 已直读 DLL 坐实
+SpriteFaderController|Awake()|D|存 originalColor / originalDisabledColor（alpha 置 0）；desiredToggleState 为假时 SetActive(true) 并初始化补间状态：SpriteFaderController__Awake.c:20-70|无|无||原版出货 0 实例（desiredToggleState 全库 0 命中）
+SpriteFaderController|Update()|D|n=Clamp01((currentTime+=dt)/desiredTimeChange)；spriteRenderer.color=Lerp(colorWhenChangeStarted,targetColor,n)；新 alpha<=0 时 gameObject.SetActive(false)：SpriteFaderController__Update.c:22-55|无|无||0 实例
+SpriteFaderController|Toggle(bool,float)|D|状态不同才动：SetActive(true)、记起点、targetColor=option?originalColor:originalDisabledColor(alpha 0)：SpriteFaderController__Toggle.c:22-70|无|无||0 实例
+SpriteFaderController|IsEnabled()|D|返回 desiredToggleState：SpriteFaderController.cs:106-109|无|无||0 实例
+SpriteFaderController|OnValidate()|D|if(!spriteRenderer) spriteRenderer=GetComponent<SpriteRenderer>()：SpriteFaderController.cs:111-118|无|无||0 实例 + 编辑器专用
+NestedFadeGroupRetarget|OnAlphaChanged(float alpha)|D|把本组的 alpha 转发给另一个 NestedFadeGroupBase：if(target){ target.alpha=alpha; target.RefreshAlpha(); }（不是写渲染器）：NestedFadeGroupRetarget.cs:22-30|无|无||原版出货 0 实例（bundle 里 alpha+exclude 形状组件共 57 个 = 9 组 + 38 SpriteRenderer 桥 + 10 TMP 桥，正好用尽 ⇒ Retarget 0 个）
+NestedFadeGroupSpriteRenderer|GetMissingReferences()|B|if(!spriteRenderer) spriteRenderer=GetComponent<SpriteRenderer>()；该字段不是 [SerializeField] ⇒ prefab 里 38 个桥只序列化 alpha/exclude：NestedFadeGroup.NestedFadeGroupSpriteRenderer__GetMissingReferences.c:17-24|CardPresentation/Core/CardView.cs:7812|等价机制：我们建视图时直接持有图层引用，不做懒取||38 个实例（CardPrefab）
+NestedFadeGroupSpriteRenderer|LateUpdate()|B|base.LateUpdate() 之后复核：sr.color.a != AlphaTotal 就把 alpha 改成 AlphaTotal 写回（rgb 保留）：NestedFadeGroup.NestedFadeGroupSpriteRenderer__LateUpdate.c:12-26|CardPresentation/Core/CardView.cs:7820|我们的写法是每次 ApplyTint 时重乘；没有每帧复核（别人改了渲染器 alpha 我们不会纠正），可见后果相同、机制不同||
+NestedFadeGroupSpriteRenderer|OnAlphaChanged(float alpha)|B|读 sr.color → 只把 .a 换成传入的 alpha → 写回（rgb 原样）：NestedFadeGroup.NestedFadeGroupSpriteRenderer__OnAlphaChanged.c:10-25|CardPresentation/Core/CardView.cs:7820|等价：我们的 c.a *= _badgeAlpha 与它「绝对赋值 = 子件原 alpha × 组 alpha」在本工程成立的条件下同结果（9/9 组 alpha 起始 1、图表层 alpha 为常量）||
+NestedFadeGroupSpriteRenderer|OnComponentAdded()|B|base.alpha = sr.color.a; RefreshAlpha()（运行时补挂桥时把渲染器原本的 alpha 收编成本组 alpha，避免补挂瞬间跳变）：NestedFadeGroup.NestedFadeGroupSpriteRenderer__OnComponentAdded.c:24-29|CardPresentation/Core/CardView.cs:7820|等价机制：我们不走运行时补挂，各层原 alpha 直接写进常量（如 BadgePlateInk.a=1）||
+NestedFadeGroupTextMeshPro|GetMissingReferences()|B|if(!textMesh) textMesh=GetComponent<TextMeshPro>()；同样不序列化引用：NestedFadeGroup.NestedFadeGroupTextMeshPro__GetMissingReferences.c:17-24|CardPresentation/Core/CardView.cs:7835|等价机制：我们建视图时直接持有 Label 引用||10 个实例（CardPrefab）
+NestedFadeGroupTextMeshPro|LateUpdate()|B|base.LateUpdate() 后复核 textMesh.color.a != AlphaTotal 就改回 AlphaTotal：NestedFadeGroup.NestedFadeGroupTextMeshPro__LateUpdate.c:13-30|CardPresentation/Core/CardView.cs:7835|我们每次 ApplyTint 重算，没有每帧复核||
+NestedFadeGroupTextMeshPro|OnAlphaChanged(float alpha)|B|经 Graphic vtable 读 textMesh.color → 只把 .a 换成传入的 alpha → 写回（走 TMP 顶点色，rgb 原样）：NestedFadeGroup.NestedFadeGroupTextMeshPro__OnAlphaChanged.c:10-28|CardPresentation/Core/CardView.cs:7835|等价但写法不同：我们赋绝对值 (BadgeCounterInk.a/255)*_alpha*_badgeAlpha 并重置 rgb 为常量墨色；原版保留当时 rgb||
+NestedFadeGroupTextMeshPro|OnComponentAdded()|B|base.alpha = textMesh.color.a; RefreshAlpha()（补挂时收编原有 alpha）：NestedFadeGroup.NestedFadeGroupTextMeshPro__OnComponentAdded.c:26-31|CardPresentation/Core/CardView.cs:7835|等价机制：我们不走补挂，alpha 常量直接写死||

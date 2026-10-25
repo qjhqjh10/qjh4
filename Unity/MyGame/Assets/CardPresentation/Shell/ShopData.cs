@@ -12,6 +12,7 @@
 // ⚠️ **价格与「拥有数」都是我们挑的**：原版价格是本地化词条 + 服务端数字（`1800` / `300,00` 那种），
 //    拥有数走 `CatalogItemContainer.ownedCount`。这里给的是**能让人把界面点通**的一组值。
 using System.Collections.Generic;
+using UnityEngine;      // 🆕 2026-10-25：拥有数落盘要用 `JsonUtility` / `Debug` / `Application.persistentDataPath`
 
 namespace CardPresentation
 {
@@ -63,7 +64,21 @@ namespace CardPresentation
             Name = name; Type = type; Art = art; Price = price; Owned = owned;
             Available = avail; AvailableMax = availMax; Timed = timed; NewDiscount = newDiscount;
             Rarity = rarity; Grants = null;      // struct 的 ctor 必须把**每个**字段都赋上
+            StrikeThrough = false; Free = false;
         }
+
+        /// <summary>🆕 **2026-10-25（`C` 商店域）**：价格文本要不要打**删除线**
+        /// （原版 `PriceDisplay.useStrikeThrough` 那个**序列化 bool**：为真时 `Setup(string)` 会
+        /// `text.Insert(0, "<s>")` —— 判据 `PriceDisplay.cs:20-50,88-100`，TMP 的 `<s>` 是**开关式**、
+        /// 原版**只插开头那一个标签**、没有闭合标签 ⇒ 我们照抄）。
+        /// <para>⚠️ **今天的商品表里没有一件设它**（我们没有「原价 + 折扣价」两行那种展示）——
+        /// 这一档是**组件补齐**（铁律 11：差异都要做，只有先后），数据侧谁能用上就打开它。</para></summary>
+        public bool StrikeThrough;
+
+        /// <summary>🆕 同上：这一件是**免费** ⇒ 价格文本走 `Loc.T("MainMenu/Free")`
+        /// （原版 `PriceDisplay.SetupFree`，`PRICE_FREE = "MainMenu/Free"`，判据 `PriceDisplay.cs:70-78`）。
+        /// ⚠️ 今天同样没有一件设它（我们店里的商品都有价）。</summary>
+        public bool Free;
     }
 
     /// <summary>商店的**本地**状态。纯内存 + 可复现。</summary>
@@ -258,23 +273,130 @@ namespace CardPresentation
         }
 
         // ============================================================ 拥有 / 购买
+        //
+        // 🔴 **2026-10-25：拥有数已迁进背包框架层**（`Shell/Inventory.cs` 的 `Inventory<T>` / `ItemInfo<T>`；
+        //    判据 = `资料/完全复刻/判据/泛型与启动链.md` §三 #3）。**这里不再自己存一份字典** ——
+        //    拥有数的**正本 = `Inventories.Shop`**，落盘 = `InventoryStore`（`WarpforgeInventory/shop.json`）。
+        //
+        //    原版对位：拥有数在 `PlayerDataManager` 的**每活动一份 `TSave`** 里，读走
+        //    `InventoryManager.GetOwnedCount(Item)`（`ILiveOpsHandler.cs:71` 的
+        //    `SetupEvents(events, blockedEvents, sharedData)` + `LiveOpsEvent<TSave,TData>` 的每事件存档；
+        //    见 `判据/泛型与启动链.md` §二）。
+        //    ⚠️ **`InventoryStore` 是「`PlayerDataManager` 落地之前的临时本地等价物」** —— 与
+        //    `DailyData` / `DraftRunSave` / `CardProgress` 那几份**同一套路**；将来一起并进 `PlayerDataManager`，
+        //    迁移路径写在 `InventoryStore` 的类注释里。⛔ 别把它当成原版做法。
+        //
+        //    ⚠️ **限购 `Available` 不在背包里**（原版它在 store 的 `TSave`、不在 `ItemInfo`）——
+        //    我们暂时**寄存在同一份文件**的 `extra` 那一格（`InventoryStore.Save(..., extras)`），
+        //    等 store 的存档落地时搬回去。⛔ 别把 `Available` 塞进 `ItemInfo`（那会污染框架层）。
 
-        static readonly Dictionary<string, int> _owned = new Dictionary<string, int>();
+        /// <summary>每个商品一个**稳定实例**（背包按 id 认条目 ⇒ 同一个 key 必须恒给同一个 `ShopItem`）。</summary>
+        static readonly Dictionary<string, ShopItem> _shopItems = new Dictionary<string, ShopItem>();
 
-        /// <summary>这一件现在拥有几张。初值取表里的 `Owned`（= 那件出厂是不是已经攥着几张）。
+        static string KeyOf(int pageIndex, string name) { return pageIndex + "/" + name; }
+
+        static ShopItem ItemFor(int pageIndex, int i)
+        {
+            var o = Offers(pageIndex);
+            if (i < 0 || i >= o.Length) return null;
+            string k = KeyOf(pageIndex, o[i].Name);
+            ShopItem it;
+            if (_shopItems.TryGetValue(k, out it) && it != null) return it;
+            it = new ShopItem(k, o[i].Name);
+            _shopItems[k] = it;
+            return it;
+        }
+
+        /// <summary>背包存档名（`WarpforgeInventory/shop.json`）。</summary>
+        public const string InventoryName = "shop";
+
+        static bool _seeded;
+
+        /// <summary>建条目 + 用出厂值播种 + 读盘覆盖。**读口/写口都会先走它**（幂等）。</summary>
+        static void EnsureSeeded()
+        {
+            if (_seeded) return;
+            _seeded = true;
+            var inv = Inventories.Shop;
+            for (int p = 0; p < Pages.Length; p++)
+            {
+                var arr = Offers(p);
+                for (int j = 0; j < arr.Length; j++)
+                {
+                    var it = ItemFor(p, j);
+                    if (it == null) continue;
+                    // 出厂值 = 表里的 `Owned`（那件出厂是不是已经攥着几张）
+                    if (inv.Get(it) == null) inv.Add(it, arr[j].Owned);
+                }
+            }
+            var extras = InventoryStore.Load(InventoryName, inv);
+            // 限购：盘上有就盖回静态表（`Available` 是结构体数组里的字段 ⇒ 改的就是那一格）
+            if (extras != null && extras.Count > 0)
+            {
+                for (int p = 0; p < Pages.Length; p++)
+                {
+                    var arr = Offers(p);
+                    for (int j = 0; j < arr.Length; j++)
+                    {
+                        int av;
+                        if (extras.TryGetValue(KeyOf(p, arr[j].Name), out av)) arr[j].Available = av;
+                    }
+                }
+            }
+        }
+
+        /// <summary>把「拥有数（背包）+ 限购（extra）」一起落盘。</summary>
+        static void PersistShop()
+        {
+            var extras = new Dictionary<string, int>();
+            for (int p = 0; p < Pages.Length; p++)
+            {
+                var arr = Offers(p);
+                for (int j = 0; j < arr.Length; j++) extras[KeyOf(p, arr[j].Name)] = arr[j].Available;
+            }
+            InventoryStore.Save(InventoryName, Inventories.Shop, extras);
+        }
+
+        /// <summary>自检用的目录改写口（转给 <see cref="InventoryStore.OverrideDir"/>）。</summary>
+        public static string OverrideDir
+        {
+            get { return InventoryStore.OverrideDir; }
+            set { InventoryStore.OverrideDir = value; }
+        }
+        /// <summary>最近一次落盘去的文件（自检读它做「真写下去了」的判据）。</summary>
+        public static string LastStorePath { get { return InventoryStore.LastStorePath; } }
+        /// <summary>最近一次落盘失败的原因（成功时 `null`）。</summary>
+        public static string LastStoreError { get { return InventoryStore.LastStoreError; } }
+        /// <summary>存档完整路径（日志/自检用）。</summary>
+        public static string StorePath { get { return InventoryStore.StorePath(InventoryName); } }
+
+        /// <summary>自检用：删掉存档文件（**自检必须调它**，否则会读到上一趟的残留）。</summary>
+        public static void DeleteStoreForTest() { InventoryStore.Delete(InventoryName); }
+
+        /// <summary>自检用：重读盘（先清背包 → 重新播种 → 读盘）。</summary>
+        public static void ReloadForTest()
+        {
+            Inventories.Shop.ClearForTest();
+            _seeded = false;
+            EnsureSeeded();
+        }
+
+        /// <summary>这一件现在拥有几张。**正本 = 背包**（`Inventories.Shop`）；条目还没有时回表里的出厂值。
         /// ⚠️ **「全解锁」边界**：这里只管**显示**，不参与任何解锁判定（卡池本来就全解锁）。</summary>
         public static int OwnedOf(int pageIndex, int i)
         {
+            EnsureSeeded();
             var o = Offers(pageIndex);
             if (i < 0 || i >= o.Length) return 0;
-            string k = pageIndex + "/" + o[i].Name;
-            int v;
-            return _owned.TryGetValue(k, out v) ? v : o[i].Owned;
+            var it = ItemFor(pageIndex, i);
+            var info = it != null ? Inventories.Shop.Get(it) : null;
+            return info != null ? info.Amount : o[i].Owned;
         }
 
         /// <summary>限购还剩几次（`Available Counter` 的 `1/5`）。0/0 = 这一件没有限购信息 ⇒ **不画那个件**。</summary>
         public static int AvailableOf(int pageIndex, int i)
         {
+            EnsureSeeded();
             var o = Offers(pageIndex);
             if (i < 0 || i >= o.Length) return 0;
             return o[i].Available;
@@ -342,16 +464,23 @@ namespace CardPresentation
             var o = Offers(pageIndex);
             if (i < 0 || i >= o.Length) return "越界";
             string k = pageIndex + "/" + o[i].Name;
-            _owned[k] = OwnedOf(pageIndex, i) + 1;
+            // 🆕 2026-10-25：**拥有数的正本 = 背包**（`Inventories.Shop`）—— 不再自己记字典
+            var it = ItemFor(pageIndex, i);
+            if (it != null) Inventories.Shop.Add(it, 1);
             if (o[i].Available > 0) o[i].Available--;      // struct 存在数组里 ⇒ 改的是数组那一格（`Offers` 返回的就是它）
-            return o[i].Name + " ×" + _owned[k];
+            PersistShop();                                  // 写点必须落盘（否则重启清零）
+            return o[i].Name + " ×" + OwnedOf(pageIndex, i);
         }
 
-        /// <summary>自检用：把拥有数与限购推回初值。</summary>
+        /// <summary>自检用：把拥有数（背包）与限购推回初值，**并把存档文件一起删掉**
+        /// （不删的话下次播种会读到上一趟的值 ⇒ 自检之间互相污染）。</summary>
         public static void ResetForTest()
         {
-            _owned.Clear();
+            Inventories.Shop.ClearForTest();
+            _shopItems.Clear();
+            _seeded = false;                                 // 下次读口重新播种（出厂值）
             _cards[0].Available = 1; _cards[1].Available = 2;
+            DeleteStoreForTest();
         }
 
         // ============================================================ 诊断

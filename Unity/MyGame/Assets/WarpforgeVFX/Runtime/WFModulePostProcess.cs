@@ -106,8 +106,12 @@
 //     `TransitionTo(tex, time)` · `SetTargetLUT(tex)` · `DoBlend(v)` · `SetOriginalLUTOnBlendPos0()` ·
 //     `SetDefaultLUT(tex)`。⚠️ **只有字段名与签名**：那份 full_decomp 的**方法体是空的**
 //     （`d:/2/Warpforge_tools/tmp/full_decomp/LUTBlender.cs`）—— 别把它的空方法体当行为依据。
-//   · **「原 LUT」是哪张贴图**：`AnimEventSetOriginalLUTNoTransition` 读的是 `LUTBlender.originalLUTTexture`，
-//     **具体赋值查不到**（它在场景 / 预制体里被塞进去）⇒ 由下游决定，别猜。
+//   · **「原 LUT」是哪张贴图**：`AnimEventSetOriginalLUTNoTransition` 读的是 `LUTBlender.originalLUTTexture`。
+//     🔴 **2026-10-25 订正（铁律 5）：原来这里写「具体赋值查不到（场景/预制体塞进去）」—— 错**。
+//     实读 `LUTBlender.cs:32-46`（`Awake`）：`originalLUTTexture = colorLUT.texture.value`，
+//     而且**在**把 `colorLUT.texture.value` 换成 `combinedLUT` **之前** ⇒ 它就是「进场那一刻 Volume 上
+//     那张 LUT」。我们的 `BattlePostFx.Attach` 里 `_original = _cl.texture.value`（`:175`）与原版**逐句一致**。
+//     （`LUTBlender.SetDefaultLUT` 只是另一条 0 调用点的旁路。）
 //   · **`controlledByAnimation = 1` 的 23/52 个实例**：原版由**动画驱动 `lutBlend` 这个序列化字段**，
 //     模块只负责每帧把它推下去。我们**没有「动画驱动 MonoBehaviour 字段」那层** ⇒ 那些实例的
 //     `lutBlend` 会是常量（好在数据里 46/52 本来就是 0.0）。
@@ -297,9 +301,11 @@ namespace WarpforgeVFX
             currentAnimPriority = effectPriority;
             currentEffectInPlay = this;
 
-            // 🔴 未还原：`instanceMaterial = new Material(Shader.Find("Hidden/LUTBlender"))`（那个 shader 不在工程里）
-            // 🔴 未还原：`lutToApplyRT = new RenderTexture(256, 16){ useMipMap = false, name = "Particle FX controller LUT" }`
-            //    —— 两条都见文件头「未还原」段；下游要建的话规格是 LutMergeWidth / LutMergeHeight。
+            // ✅ **2026-10-25 订正（铁律 5）**：这两行原来写着「未还原」—— 与文件头 2026-10-23 那条订正**打架**，已改。
+            //    `instanceMaterial`（`WarpforgeVFX/LUTBlender`）与 `lutToApplyRT`（256×16）现在**由下游建**：
+            //    `CardPresentation/Battle/BattlePostFx.cs`（`_mat` / `_targetLutRt` / `_combined`），
+            //    本模块只把请求 `Dispatch(PostFxOp…)` 出去。
+            //    ⛔ 别在这里 `new Material(...)` —— 会建第二份，和下游抢 `ColorLookup.texture`。
 
             if (!controlledByAnimation)
             {
@@ -318,17 +324,43 @@ namespace WarpforgeVFX
             TickBlendRamp(dt);                // 原版这一步在 DOTween 自己的 Update 里 —— 见文件头
             DoBloomAim();
             DoLUTAnim();
-            // 🔴 未还原：原版最后一句是 `Universal.CameraExtensions.UpdateVolumeStack(BattleManager.<0xa8>)`
-            //    —— 那是相机后处理栈的刷新。
-            //    ⚠️ **2026-10-23 订正（铁律 5）**：原文写的「也没有后期链」**已过期** ——
-            //    后期链现在是 `BattlePostFx`（URP `Volume` + `ColorLookup` + Bloom，`BattleDriver.cs:2193` 挂的）。
-            //    但 `UpdateVolumeStack` 这个**显式刷新**我们仍然没有调用点（URP 每帧自己刷）
-            //    ⇒ 这一条的现状 = **未还原、且不知道有没有可见差别**。
-            //    判据实读（2026-10-23）：调用点 `AnimFXModulePostProcess__Update.c:65`
-            //    `UnityEngine_Rendering_Universal_CameraExtensions__UpdateVolumeStack(*(lVar1 + 0xa8), 0)`
-            //    —— 只有调用点；**方法体本身不在 `d:/2/tools/decomp_full/`**（全目录 grep 只有 2 个调用点）。
-            //    ⛔ 别当成「已经等价」，也别凭猜去加一次刷新。
+
+            // 原版最后一句：`camera.UpdateVolumeStack()`（游戏相机 = `BattleManager.<0xa8>`）。
+            //
+            // 🔴 **2026-10-25 订正（铁律 5 + 审计代理 A 的现核）：原来这里写「URP 每帧自己刷」——
+            //    那个前提【不成立】**。URP 只在 `requiresVolumeFrameworkUpdate == true` 时才每帧刷栈，
+            //    而它在 `m_VolumeFrameworkUpdateModeOption == ViaScripting(2)` 时为 **false**
+            //    （`UniversalAdditionalCameraData.cs:723-734`；管线侧 `UniversalRenderPipeline.cs:1258-1292`
+            //    此时只建一次本地栈并缓存）。我们 `CardPresentation/Scenes/Battle.unity` 的**两台相机都是
+            //    `m_VolumeFrameworkUpdateModeOption: 2`**（`:1043` / `:2761`）⇒ 写进 `VolumeProfile`
+            //    的 Bloom / LUT 值**可能永远上不了屏**；而编辑器/批处理（`isPlaying == false`）URI 会强制
+            //    每帧刷 ⇒ 自检截图看着正常、真 player 才是坏的。
+            //
+            // 我们这一层不知道相机（跨线），所以照本仓既定的「下游钩子」形状：
+            //   `BattlePostFx` / `BattleDriver` 挂 `OnFlushVolumeStack = () => boardCamera.UpdateVolumeStack()`。
+            //   （URP 那个是 `Camera` 的**公开扩展方法**：`UniversalAdditionalCameraData.cs:241`。
+            //    ⛔ 别改相机上的 `VolumeFrameworkUpdateModeOption` —— 那是原版序列化值。）
+            // ⚠️ 没挂 ⇒ **计数 + 只报一次**（不静默失败）；每帧不重复报，避免刷屏。
+            if (OnFlushVolumeStack != null) OnFlushVolumeStack();
+            else if (_volumeStackUnwired++ == 0)
+                Debug.LogWarning("[WarpforgeVFX] `AnimFXModulePostProcess` 需要每帧刷一次 Volume 栈" +
+                                 "（原版 `Update` 最后一句 `camera.UpdateVolumeStack()`），但下游没挂 " +
+                                 "`WFModulePostProcess.OnFlushVolumeStack` ⇒ **后期值可能上不了屏**" +
+                                 "（Battle.unity 两台相机都是 ViaScripting 模式，URP 不会自己刷）。" +
+                                 "挂法见本方法注释。这条警告只报一次。");
         }
+
+        /// <summary>🔴 原版 `AnimFXModulePostProcess.Update` 最后一句的落点：刷一次相机后处理栈。
+        ///
+        /// <para>**为什么必须由下游挂**：原版那台相机是 `BattleManager.boardCamera`，本层（`WarpforgeVFX`）
+        /// 不认识牌局/相机。挂法（`CardPresentation/Battle/**`，不属本批白名单）：
+        /// <code>WFModulePostProcess.OnFlushVolumeStack =
+        ///     () => boardCamera.UpdateVolumeStack();     // URP 的公开扩展，见 UniversalAdditionalCameraData.cs:241</code>
+        /// 卸的时候置 `null`。</para>
+        ///
+        /// <para>⚠️ 判据链与「为什么 URP 不会自己刷」→ 本类 `ModuleTick` 里那段注释。</para></summary>
+        public static Action OnFlushVolumeStack;
+        int _volumeStackUnwired;
 
         /// <summary>原版 `DoBloomAim()`：只在开关打开时写 Bloom 的 intensity / threshold。
         /// （原版外面还套了 `PostFXController.Instance` 与 Bloom 对象的判空 —— 那两条由下游负责。）</summary>
@@ -361,9 +393,11 @@ namespace WarpforgeVFX
                 setTextures = first,
                 lut1 = customLUT1,
                 lut2 = customLUT2,
-                // 原版：`if (lutToApplyRT)` 才走「先合并两张 LUT」那一支；而 RT 是在 OnEnable 建的
-                // （条件 `doLUTAnim && lutToApplyRT == null && customLUT1 != null`）⇒ 等价于「有第一张 LUT」。
-                mergeLuts = !string.IsNullOrEmpty(customLUT1),
+                // 原版：`if (lutToApplyRT)` 才走「先合并两张 LUT」那一支；而 RT 是在 OnEnable 建的，
+                // 判据是 **`customLUT2`**（`AnimFXModulePostProcess.cs:59` 的 OnEnable：
+                // `if (doLUTAnim && !lutToApplyRT && (bool)customLUT2)` → `new RenderTexture(256,16,0)`）。
+                // 🔴 **2026-10-25 订正（铁律 5）**：这里原来写 `customLUT1` —— 与反编译不符，已改。
+                mergeLuts = !string.IsNullOrEmpty(customLUT2),
                 betweenLutBlend = betweenLUTsBlend,
                 lutBlend = lutBlend,
             });

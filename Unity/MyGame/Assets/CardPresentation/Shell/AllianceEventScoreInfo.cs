@@ -174,10 +174,10 @@ namespace CardPresentation
         /// <summary>喂分数 + 阈值（原版 `AllianceScoreBar.Initialize(currentScore, scoringThresholds)`）：
         /// ① 五行的 `Score` = `thresholds[i].ToString()`（`AllianceScoreBarLine.Initialize(int)` 逐句可读）；
         /// ② **已达阈值的那些档换开箱图**（`ShowChestOpen()` = `Image.sprite = chestOpen`）；
-        /// ③ 进度 = `currentScore / 末档`（原版 `Slider.maxValue = 末档 · normalizedValue = InterpolateMilestones`，
-        ///    那个函数要在档位之间做**插值**——本地没有它的字面量，这里用**线性归一**并如实标）。
-        /// <para>⚠️ **两处如实标**：开箱图本仓没有 ⇒ 换图会记账 + 出声；插值算法是**我们用的线性归一**，
-        /// 不是原版 `SupportMethods.InterpolateMilestones`（后者的方法体只读到「在相邻两档之间取值」）。</para></summary>
+        /// ③ 进度 = `InterpolateMilestones(currentScore, [0, 阈值…])`（原版 `Slider.maxValue = 末档` ·
+        ///    `normalizedValue = InterpolateMilestones`，**按档位等分插值** —— 本类尾那个静态方法，判据写在它头上）。
+        /// <para>⚠️ **一处如实标**：开箱图本仓没有 ⇒ 换图会记账 + 出声。
+        /// （进度**已按原版重写** = `InterpolateMilestones`，不再是线性归一 —— 见本类尾那个静态方法。）</para></summary>
         public void SetMilestones(int currentScore, int[] thresholds)
         {
             if (thresholds == null || thresholds.Length < 5)
@@ -198,7 +198,7 @@ namespace CardPresentation
                 }
                 if (currentScore >= thresholds[i]) SwapChestOpen(i);
             }
-            SetProgress(thresholds[4] > 0 ? (float)currentScore / thresholds[4] : 0f);
+            SetProgress(InterpolateMilestones(currentScore, thresholds));
         }
 
         void SwapChestOpen(int i)
@@ -231,6 +231,65 @@ namespace CardPresentation
             var t = CardArt.MenuUi(name);
             if (t == null && !_missArt.Contains(name)) _missArt.Add(name);
             return t;
+        }
+
+        // ============================================================ 原版插值（2026-10-25 · N9 · 账 61/62/128）
+        // 🔴 **新增成员一律追加在类尾**（2026-10-25 纪律）：本文件被账按行号引用（153 / 181）。
+
+        /// <summary>原版 `SupportMethods.InterpolateMilestones(float score, List&lt;int&gt; milestones)`
+        /// 的等价实现 —— **不是线性归一**，是**按档位等分 + 段内按分值线性**。
+        ///
+        /// <para>判据（三段，全部现读）：</para>
+        /// <list type="number">
+        /// <item>调用点 = `AllianceScoreBar__Initialize.c` 逐句：
+        ///   `slider.wholeNumbers = false` → `slider.maxValue = thresholds.Last()` →
+        ///   `normalizedValue = InterpolateMilestones(score, thresholds.Prepend(0).ToList())` →
+        ///   `SetScoringMilestones(...)`。
+        ///   ⚠️ **注意那个 `Prepend(0)`** —— 传进去的表是 `[0, t0, t1, …, t4]`（比阈值多一个 0）。</item>
+        /// <item>局部函数 `Percentage`（`SupportMethods___InterpolateMilestones_g__Percentage_59_0.c`）=
+        ///   `IndexOf(list, x) / (list.Count - DAT_1834b2bb8)`；**该常量现读 = `1.0f`**
+        ///   （`GameAssembly.dll` VA `0x1834b2bb8` → RVA `0x34b07b8` 的 4 字节 = `0x3F800000`）
+        ///   ⇒ `Percentage(x) = 下标 / (Count - 1)`。</item>
+        /// <item>分支（`SupportMethods__InterpolateMilestones.c`）：
+        ///   `Count == 1` ⇒ `Percentage(list[0])` ·
+        ///   `score &lt;= list[0]` ⇒ `Percentage(list[0])`（= 0）·
+        ///   `score &gt;= list[last]` ⇒ `Percentage(list[last])`（= 1）·
+        ///   其余 ⇒ 找第一个 `score &lt; list[i]` 的 i，先后调 `Percentage(list[i-1])` 与 `Percentage(list[i])`。</item>
+        /// </list>
+        ///
+        /// <para>⚠️ **一处是重构，不是直读**：最后那一支的两个 `Percentage` 在 `.c` 里**返回值被丢了**
+        /// （函数签名 `void`、`return;` 之前没有 `Lerp` 调用 —— Cpp2IL 抹掉了返回表达式）。
+        /// 按「两端各算一次归一位置」这个形状，唯一自洽的组合就是
+        /// `Lerp(Percentage(prev), Percentage(cur), (score - prev) / (cur - prev))`
+        /// —— **段内按分值线性、跨段按档位等分**。若将来拿到 `0x1807DB0xx` 的完整 IL 请复核这一段。</para></summary>
+        public static float InterpolateMilestones(float score, int[] thresholds)
+        {
+            if (thresholds == null || thresholds.Length == 0) return 0f;
+            int n = thresholds.Length + 1;                 // 原版 `thresholds.Prepend(0).ToList()`
+            var list = new int[n];
+            list[0] = 0;
+            for (int i = 0; i < thresholds.Length; i++) list[i + 1] = thresholds[i];
+
+            // 原版 `Percentage` 用的是 `List.IndexOf` ⇒ 重复阈值时落在**第一个**下标上（照抄这个行为）
+            float Percentage(int v)
+            {
+                int idx = System.Array.IndexOf(list, v);
+                return n > 1 ? (float)idx / (n - 1) : 0f;
+            }
+
+            if (score <= list[0]) return Percentage(list[0]);
+            if (score >= list[n - 1]) return Percentage(list[n - 1]);
+            for (int i = 1; i < n; i++)
+            {
+                if (score < list[i])
+                {
+                    int prev = list[i - 1], cur = list[i];
+                    float span = cur - prev;
+                    float t = span > 0f ? (score - prev) / span : 0f;
+                    return Mathf.Lerp(Percentage(prev), Percentage(cur), t);
+                }
+            }
+            return Percentage(list[n - 1]);
         }
     }
 }

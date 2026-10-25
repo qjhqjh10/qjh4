@@ -120963,5 +120963,415 @@
       "uvCycles": 1.0,
       "uvRowIndex": 0
     }
+  ],
+  "tapHits": [
+    {
+      "go": "Bunker 1",
+      "path": "Scenario/Battle Arena Tau Viorla Baked/Bunker 1",
+      "layer": 0,
+      "inMask": true,
+      "hasMesh": true,
+      "pos": [
+        110.873238,
+        2.72068,
+        24.93627
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        188.364822,
+        188.364848,
+        188.364848
+      ],
+      "collider": {
+        "type": "Mesh",
+        "convex": true,
+        "isTrigger": false,
+        "mesh": "Bunker 11"
+      },
+      "particles": "Tap Hit Metal Small",
+      "particlesGuid": "3dc5682da4a044a43a4f12f252b9a58a",
+      "audio": "Tap Hit Metal Light",
+      "audioGuid": "d8fcd9e26668940a4a2091b89009892c",
+      "delay": 0.0,
+      "useTargetAnchor": 0,
+      "anchor": null
+    },
+    {
+      "go": "CardLowBoardLimit",
+      "path": "BattlePrefab/BattleBoardElements/Colliders/CardBoardLimits/CardLowBoardLimit",
+      "layer": 11,
+      "inMask": false,
+      "hasMesh": false,
+      "pos": [
+        100.0,
+        -0.59,
+        3.66
+      ],
+      "rot": [
+        0.002767,
+        0.0,
+        0.0,
+        0.999996
+      ],
+      "scale": [
+        81.161079,
+        0.82915,
+        41.907936
+      ],
+      "collider": {
+        "type": "Box",
+        "center": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "size": [
+          1.0,
+          1.0,
+          1.0
+        ],
+        "isTrigger": false
+      },
+      "particles": "Default Tap Floor",
+      "particlesGuid": "629741951c40548a49e35451a449d9d7",
+      "audio": "Tap Hit General",
+      "audioGuid": "52da505920d514f77ab579f113afbca6",
+      "delay": 0.0,
+      "useTargetAnchor": 0,
+      "anchor": null
+    },
+    {
+      "go": "Console Front Left",
+      "path": "Scenario/Battle Arena Tau Viorla Baked/Console Front Left",
+      "layer": 0,
+      "inMask": true,
+      "hasMesh": true,
+      "pos": [
+        98.130341,
+        0.9114,
+        -10.957486
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        188.364822,
+        188.364848,
+        188.364848
+      ],
+      "collider": {
+        "type": "Mesh",
+        "convex": true,
+        "isTrigger": false,
+        "mesh": "Console Front Left1"
+      },
+      "particles": "Tap Hit Metal Small",
+      "particlesGuid": "3dc5682da4a044a43a4f12f252b9a58a",
+      "audio": "Tap Hit Metal Light",
+      "audioGuid": "d8fcd9e26668940a4a2091b89009892c",
+      "delay": 0.0,
+      "useTargetAnchor": 0,
+      "anchor": null
+    },
+    {
+      "go": "Console Front Right",
+      "path": "Scenario/Battle Arena Tau Viorla Baked/Console Front Right",
+      "layer": 0,
+      "inMask": true,
+      "hasMesh": true,
+      "pos": [
+        106.724197,
+        0.714054,
+        -3.000303
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        174.862976,
+        174.863,
+        174.863
+      ],
+      "collider": {
+        "type": "Mesh",
+        "convex": true,
+        "isTrigger": false,
+        "mesh": "Console Front Right1"
+      },
+      "particles": "Tap Hit Metal",
+      "particlesGuid": "375d142f27197404884be8e317eca8dc",
+      "audio": "Tap Hit Metal Light",
+      "audioGuid": "d8fcd9e26668940a4a2091b89009892c",
+      "delay": 0.0,
+      "useTargetAnchor": 0,
+      "anchor": null
+    },
+    {
+      "go": "Console Front Right 2",
+      "path": "Scenario/Battle Arena Tau Viorla Baked/Console Front Right 2",
+      "layer": 0,
+      "inMask": true,
+      "hasMesh": true,
+      "pos": [
+        107.694038,
+        1.080218,
+        -2.551461
+      ],
+      "rot": [
+        -0.688989,
+        0.159041,
+        0.159041,
+        0.688989
+      ],
+      "scale": [
+        188.364824,
+        188.364842,
+        188.364842
+      ],
+      "collider": {
+        "type": "Mesh",
+        "convex": true,
+        "isTrigger": false,
+        "mesh": "Console Front Right 21"
+      },
+      "particles": "Tap Rock",
+      "particlesGuid": "06946a9ab456c474f9b4f86e00fecf9c",
+      "audio": "Tap Hit Metal Light",
+      "audioGuid": "d8fcd9e26668940a4a2091b89009892c",
+      "delay": 0.0,
+      "useTargetAnchor": 0,
+      "anchor": null
+    },
+    {
+      "go": "Crashed tank",
+      "path": "Scenario/Battle Arena Tau Viorla Baked/Crashed tank",
+      "layer": 0,
+      "inMask": true,
+      "hasMesh": true,
+      "pos": [
+        114.449097,
+        1.586807,
+        13.371887
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        188.364822,
+        188.364848,
+        188.364848
+      ],
+      "collider": {
+        "type": "Mesh",
+        "convex": false,
+        "isTrigger": false,
+        "mesh": "Crashed tank1"
+      },
+      "particles": "Tap Hit Metal",
+      "particlesGuid": "375d142f27197404884be8e317eca8dc",
+      "audio": "Tap Hit Metal Heavy",
+      "audioGuid": "0a651ec9f71764e41ba0d305510865ba",
+      "delay": 0.0,
+      "useTargetAnchor": 0,
+      "anchor": null
+    },
+    {
+      "go": "Sphere",
+      "path": "Scenario/Battle Arena Tau Viorla Baked/Plasma Generator/Sphere",
+      "layer": 0,
+      "inMask": true,
+      "hasMesh": false,
+      "pos": [
+        83.468796,
+        4.27802,
+        15.108653
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        10.018653,
+        10.018654,
+        10.018654
+      ],
+      "collider": {
+        "type": "Sphere",
+        "center": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "radius": 0.5,
+        "isTrigger": false
+      },
+      "particles": "Tap Hit Metal Small",
+      "particlesGuid": "3dc5682da4a044a43a4f12f252b9a58a",
+      "audio": "Tap Hit Metal Light",
+      "audioGuid": "d8fcd9e26668940a4a2091b89009892c",
+      "delay": 0.0,
+      "useTargetAnchor": 0,
+      "anchor": null
+    },
+    {
+      "go": "Tau Viorla Energy Bar",
+      "path": "Scenario/Battle Arena Tau Viorla Baked/Energy Bars/Tau Viorla Energy Bar",
+      "layer": 0,
+      "inMask": true,
+      "hasMesh": true,
+      "pos": [
+        82.712997,
+        3.833,
+        13.657
+      ],
+      "rot": [
+        0.0,
+        -0.980915,
+        0.0,
+        0.194437
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "collider": {
+        "type": "Mesh",
+        "convex": true,
+        "isTrigger": false,
+        "mesh": "Energy Bar"
+      },
+      "particles": "Tap Plasma generator",
+      "particlesGuid": "7ea880f8c0010434cb7c11fcdae93d48",
+      "audio": "Tap Hit Spark",
+      "audioGuid": "0d7103afe263bf94e881bc74ab1b6ca8",
+      "delay": 0.0,
+      "useTargetAnchor": 0,
+      "anchor": null
+    },
+    {
+      "go": "Tau Viorla Energy Bar (1)",
+      "path": "Scenario/Battle Arena Tau Viorla Baked/Energy Bars/Tau Viorla Energy Bar (1)",
+      "layer": 0,
+      "inMask": true,
+      "hasMesh": true,
+      "pos": [
+        83.380997,
+        3.833,
+        13.922
+      ],
+      "rot": [
+        0.0,
+        -0.999775,
+        0.0,
+        0.021217
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "collider": {
+        "type": "Mesh",
+        "convex": true,
+        "isTrigger": false,
+        "mesh": "Energy Bar"
+      },
+      "particles": "Tap Plasma generator",
+      "particlesGuid": "7ea880f8c0010434cb7c11fcdae93d48",
+      "audio": "Tap Hit Spark",
+      "audioGuid": "0d7103afe263bf94e881bc74ab1b6ca8",
+      "delay": 0.0,
+      "useTargetAnchor": 0,
+      "anchor": null
+    },
+    {
+      "go": "Tau Viorla Energy Bar (2)",
+      "path": "Scenario/Battle Arena Tau Viorla Baked/Energy Bars/Tau Viorla Energy Bar (2)",
+      "layer": 0,
+      "inMask": true,
+      "hasMesh": true,
+      "pos": [
+        84.028999,
+        3.833,
+        14.181
+      ],
+      "rot": [
+        0.0,
+        -0.999946,
+        0.0,
+        -0.010403
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "collider": {
+        "type": "Mesh",
+        "convex": true,
+        "isTrigger": false,
+        "mesh": "Energy Bar"
+      },
+      "particles": "Tap Plasma generator",
+      "particlesGuid": "7ea880f8c0010434cb7c11fcdae93d48",
+      "audio": "Tap Hit Spark",
+      "audioGuid": "0d7103afe263bf94e881bc74ab1b6ca8",
+      "delay": 0.0,
+      "useTargetAnchor": 0,
+      "anchor": null
+    },
+    {
+      "go": "Tau Viorla Energy Bar (4)",
+      "path": "Scenario/Battle Arena Tau Viorla Baked/Energy Bars/Tau Viorla Energy Bar (4)",
+      "layer": 0,
+      "inMask": true,
+      "hasMesh": true,
+      "pos": [
+        84.581001,
+        3.833,
+        14.534
+      ],
+      "rot": [
+        0.0,
+        -0.999893,
+        0.0,
+        -0.014614
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "collider": {
+        "type": "Mesh",
+        "convex": true,
+        "isTrigger": false,
+        "mesh": "Energy Bar"
+      },
+      "particles": "Tap Plasma generator",
+      "particlesGuid": "7ea880f8c0010434cb7c11fcdae93d48",
+      "audio": "Tap Hit Spark",
+      "audioGuid": "0d7103afe263bf94e881bc74ab1b6ca8",
+      "delay": 0.0,
+      "useTargetAnchor": 0,
+      "anchor": null
+    }
   ]
 }

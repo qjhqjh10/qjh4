@@ -1,0 +1,285 @@
+域	原版类	方法	判据出处	判据要点	状态	我们的落点	差异	等级	轮次	备注
+商店	AdsHandler	AdsEnabledByPlayer(int adsAvailability)	AdsHandler.cs:35		E					
+商店	AdsHandler	AdsReady()	AdsHandler.cs:68		E					
+商店	AdsHandler	InitializeAds()	AdsHandler.cs:31		E					
+商店	AdsHandler	IsAdReady(int adsAvailability)	AdsHandler.cs:11		E					
+商店	AdsHandler	SetupAds(int adsAvailability)	AdsHandler.cs:7		E					
+商店	AdsHandler	ShowRewardedAd(Action<bool> completedAd)	AdsHandler.cs:27		E					
+商店	AssetBundleDataPlayfabAll	GetAssetBundleDataPlayfab()	AssetBundleDataPlayfabAll.cs:17		E					
+商店	AssetBundlesEditorObject	GetBundleData(BundlesPlatform bundlesPlatform)	AssetBundlesEditorObject.cs:38		E					
+商店	AssetBundlesEditorObject	GetVersion(BundlesPlatform bundlesPlatform)	AssetBundlesEditorObject.cs:26		E					
+商店	BaseOfferPopup	Close()	BaseOfferPopup.cs:472		E					
+商店	BaseOfferPopup	OnDisable()	BaseOfferPopup.cs:519		E					
+商店	BaseOfferPopup	OnEnable()	BaseOfferPopup.cs:504		E					
+商店	BaseOfferPopup	OnOfferTimerEnded()	BaseOfferPopup.cs:499		E					
+商店	BaseOfferPopup	Open()	BaseOfferPopup.cs:54		E					
+商店	BaseOfferPopup	OverrideVisualRewards(List<RewardInfo> rewards)	BaseOfferPopup.cs:230		E					
+商店	BaseOfferPopup	ProcessPurchase()	BaseOfferPopup.cs:530		E					
+商店	BaseOfferPopup	Refresh()	BaseOfferPopup.cs:317		E					
+商店	BaseOfferPopup	SetAvailableText(bool hasLimit, int purchasedCount)	BaseOfferPopup.cs:442		E					
+商店	BaseOfferPopup	SetBadgeText()	BaseOfferPopup.cs:424		E					
+商店	BaseOfferPopup	SetEventData(IShopOffer liveOps)	BaseOfferPopup.cs:248		E					
+商店	BaseOfferPopup	SetTimer()	BaseOfferPopup.cs:406		E					
+商店	BaseOfferPopup	ToFocus()	BaseOfferPopup.cs:240		E					
+商店	BaseOfferPopup	_003CProcessPurchase_003Eg__Callback_007C29_0()	BaseOfferPopup.cs:551		E					
+商店	BoostManager	AddBooster(BoostItem newBooster)	BoostManager.cs:135		E					
+商店	BoostManager	CheckBoosterExpirations()	BoostManager.cs:139		E					
+商店	BoostManager	GetAllBoosters()	BoostManager.cs:264		E					
+商店	BoostManager	GetBoostItemFromId(string id)	BoostManager.cs:269		E					
+商店	BoostManager	GetBoosterAmount(BoostItem.BoostType boostType)	BoostManager.cs:154		E					
+商店	BoostManager	GetEndingBoosterTimespan()	BoostManager.cs:159		E					
+商店	BoostManager	InitalizeBoosterCollection()	BoostManager.cs:126		E					
+商店	BoostManager	IsAnyBoosterActive()	BoostManager.cs:144		E					
+商店	BoostManager	IsBoosterOfTypeActive(BoostItem.BoostType boostType)	BoostManager.cs:149		E					
+商店	BoostManager	SetupDefaultTimer(TextMeshPro timerText, PlayerDataManager playerDataManager)	BoostManager.cs:165		E					
+商店	BoostManager	UpdateTimer()	BoostManager.cs:179		E					
+商店	CampaignPremiumPointsPanel	ChangeState(State stateToChange)	CampaignPremiumPointsPanel.cs:118		E					
+商店	CampaignPremiumPointsPanel	CollectButtonClicked()	CampaignPremiumPointsPanel.cs:166		E					
+商店	CampaignPremiumPointsPanel	Initialize(Campaign campaign, int pointReward, bool collected, long timeToNextCollect, Action onCollect)	CampaignPremiumPointsPanel.cs:81		E					
+商店	CampaignPremiumPointsPanel	OnDisable()	CampaignPremiumPointsPanel.cs:72		E					
+商店	CampaignPremiumPointsPanel	OnEnable()	CampaignPremiumPointsPanel.cs:65		E					
+商店	CardShopTab	CheckTimer(out DateTime timer)	CardShopTab.cs:6		E					
+商店	CarouselOfferPopupDrawer	DoReset()	CarouselOfferPopupDrawer.cs:309		E					
+商店	CarouselOfferPopupDrawer	DrawItemReward(ObtainableItem itemToDraw, int quantity)	CarouselOfferPopupDrawer.cs:280		E					
+商店	CarouselOfferPopupDrawer	DrawRewards(IEnumerable<RewardInfo> rewards)	CarouselOfferPopupDrawer.cs:115		E					
+商店	CarouselOfferPopupDrawer	Initialize(ShopOfferBase shopOfferData)	CarouselOfferPopupDrawer.cs:109		E					
+商店	CosmeticsShopTab	CheckTimer(out DateTime timer)	CosmeticsShopTab.cs:6		E					
+商店	Currency	GetID()	Currency.cs:128		E					
+商店	Currency	GetIcon(IconSize size)	Currency.cs:133		E					
+商店	CurrencyAssetProvider	GetAssets()	CurrencyAssetProvider.cs:7		E					
+商店	CurrencyCondition	Validate(ILiveOps liveOps)	CurrencyCondition.cs:11		E					
+商店	CurrencyConfig	GetCurrencyByType(GameCurrency currencyType)	CurrencyConfig.cs:54		E					
+商店	CurrencyConfig	GetWarpforgeUSDToLegionsGold(uint? currentWarpforgeUSD)	CurrencyConfig.cs:77		E					
+商店	CurrencyDrawer	Draw(Currency item, int quantity)	CurrencyDrawer.cs:9		E					
+商店	CurrencyDrawer	GetItemName(Currency item)	CurrencyDrawer.cs:21		E					
+商店	CurrencyExtensions	AddCurrency(InventoryManager manager, ICurrency currency, int amount)	CurrencyExtensions.cs:201		E					
+商店	CurrencyExtensions	CanGetMore(ICurrency currency)	CurrencyExtensions.cs:97		E					
+商店	CurrencyExtensions	GetOwnedCount(InventoryManager manager, GameCurrency currencyType)	CurrencyExtensions.cs:164		E					
+商店	CurrencyExtensions	ToCurrency(GameCurrency currencyType)	CurrencyExtensions.cs:36		E					
+商店	CurrencyUI	ColliderBigSize(bool value)	CurrencyUI.cs:144		E					
+商店	CurrencyUI	DisableCollider()	CurrencyUI.cs:118		E					
+商店	CurrencyUI	FadeCard(float newAlpha, float timeToFade, float delay)	CurrencyUI.cs:66		E					
+商店	CurrencyUI	GetCurrencyAmount()	CurrencyUI.cs:35		E					
+商店	CurrencyUI	GetCurrencyType()	CurrencyUI.cs:47		E					
+商店	CurrencyUI	GetRarity()	CurrencyUI.cs:89		E					
+商店	CurrencyUI	HideDescription()	CurrencyUI.cs:201		E					
+商店	CurrencyUI	OnTouchUpAsButton(Vector2 originalTouchPosition)	CurrencyUI.cs:125		E					
+商店	CurrencyUI	SetCardAlpha(float newAlpha)	CurrencyUI.cs:59		E					
+商店	CurrencyUI	SetGemsChange(int coins, bool origPosition)	CurrencyUI.cs:85		E					
+商店	CurrencyUI	SetLayer(int layerNumber)	CurrencyUI.cs:73		E					
+商店	CurrencyUI	SetRarityLight()	CurrencyUI.cs:163		E					
+商店	CurrencyUI	SetSortingLayer(string layerName)	CurrencyUI.cs:112		E					
+商店	CurrencyUI	Setup(CurrencyItem item, bool showCurrencyDesc)	CurrencyUI.cs:31		E					
+商店	CurrencyUI	SetupCollider(Action<GameObject> callback)	CurrencyUI.cs:94		E					
+商店	CurrencyUI	ShowDescription(bool leftMove, bool skipDelay, Action done)	CurrencyUI.cs:169		E					
+商店	CurrencyValue	GetCurrencyIcon(IconSize iconSize)	CurrencyValue.cs:35		E					
+商店	CurrencyValue	HasEnoughCurrency()	CurrencyValue.cs:45		E					
+商店	CurrencyValue	ToString()	CurrencyValue.cs:22		E					
+商店	DlcBundleAssetProvider	GetAssets()	DlcBundleAssetProvider.cs:7		E					
+商店	ExpansionPassPremiumDrawer	Draw(ExpansionPremiumItem item, int quantity)	ExpansionPassPremiumDrawer.cs:30		E					
+商店	ExpansionPassPremiumDrawer	GetItemName(ExpansionPremiumItem item)	ExpansionPassPremiumDrawer.cs:13		E					
+商店	ExpansionPassPurchasePremiumPanel	Initialize(ExpansionPassEvent currentEvent, Action onClosePurchasePopup)	ExpansionPassPurchasePremiumPanel.cs:92		E					
+商店	ExpansionPassPurchasePremiumPanel	PurchasePremiumClick()	ExpansionPassPurchasePremiumPanel.cs:216		E					
+商店	ExpansionPassPurchasePremiumPanel	Start()	ExpansionPassPurchasePremiumPanel.cs:85		E					
+商店	ExpansionPassPurchasePremiumPanel	_003CPurchasePremiumClick_003Eb__12_0()	ExpansionPassPurchasePremiumPanel.cs:436		E					
+商店	ExpansionPassPurchasePremiumPanel	_003CPurchasePremiumClick_003Eb__12_1()	ExpansionPassPurchasePremiumPanel.cs:441		E					
+商店	FixedDateDailyStoreItem	OnAfterWrite(JToken rawJson)	FixedDateDailyStoreItem.cs:12		E					
+商店	GachaCratePanel	Awake()	GachaCratePanel.cs:154		E					
+商店	GachaCratePanel	CrateAnimationFinished()	GachaCratePanel.cs:255		E					
+商店	GachaCratePanel	Initialize(GachaEvent gachaEvent)	GachaCratePanel.cs:173		E					
+商店	GachaCratePanel	OpenCrateButtonClick()	GachaCratePanel.cs:226		E					
+商店	GachaCratePanel	RefreshVisuals()	GachaCratePanel.cs:189		E					
+商店	GachaCratePanel	RewardWindowClosed()	GachaCratePanel.cs:266		E					
+商店	GachaCratePanel	_003CAwake_003Eb__9_0(VideoPlayer source)	GachaCratePanel.cs:274		E					
+商店	GachaCratePanel	_003COpenCrateButtonClick_003Eb__14_0(IReadOnlyList<RewardInfo> rewards)	GachaCratePanel.cs:282		E					
+商店	GachaEventTab	GetCardsClick()	GachaEventTab.cs:181		E					
+商店	GachaEventTab	Initialize()	GachaEventTab.cs:144		E					
+商店	GachaEventTab	OnClose()	GachaEventTab.cs:201		E					
+商店	GachaEventTab	OnOpen()	GachaEventTab.cs:189		E					
+商店	GachaEventTab	Reset()	GachaEventTab.cs:216		E					
+商店	GachaEventTab	SetEventTab(ILiveOps liveOps)	GachaEventTab.cs:43		E					
+商店	GachaEventTab	ToFocus()	GachaEventTab.cs:195		E					
+商店	GachaRewardContainer	Awake()	GachaRewardContainer.cs:24		E					
+商店	GachaRewardContainer	Initialize(ObtainableItem reward, int currentNumberOfItems, int maxNumberOfItems)	GachaRewardContainer.cs:30		E					
+商店	GachaRewardContainer	OnClick(Action action)	GachaRewardContainer.cs:84		E					
+商店	GachaRewardContainer	Reset()	GachaRewardContainer.cs:79		E					
+商店	GachaRewardsPanel	Initialize(GachaEvent gachaEvent)	GachaRewardsPanel.cs:95		E					
+商店	GachaRewardsPanel	RefreshContainers()	GachaRewardsPanel.cs:137		E					
+商店	GachaRewardsPanel	RefreshFooter()	GachaRewardsPanel.cs:365		E					
+商店	GeneralOfferPopupDrawer	DoReset()	GeneralOfferPopupDrawer.cs:636		E					
+商店	GeneralOfferPopupDrawer	DrawItemReward(ItemDrawer itemDrawer, ObtainableItem itemToDraw, ref List<ItemDrawer> drawers)	GeneralOfferPopupDrawer.cs:628		E					
+商店	GeneralOfferPopupDrawer	DrawRewards(IEnumerable<RewardInfo> rewards)	GeneralOfferPopupDrawer.cs:199		E					
+商店	GeneralOfferPopupDrawerBase	DoReset()	GeneralOfferPopupDrawerBase.cs:47		E					
+商店	GeneralOfferPopupDrawerBase	DrawRewards(IEnumerable<RewardInfo> rewards)	GeneralOfferPopupDrawerBase.cs:45		E					
+商店	GeneralOfferPopupDrawerBase	Initialize(ShopOfferBase shopOfferData)	GeneralOfferPopupDrawerBase.cs:11		E					
+商店	GeneralOfferPopupDrawerBase	ReleaseAssets()	GeneralOfferPopupDrawerBase.cs:49		E					
+商店	InAppOfferContainer	OnClick()	InAppOfferContainer.cs:128		E					
+商店	InAppOfferContainer	OnDestroy()	InAppOfferContainer.cs:71		E					
+商店	InAppOfferContainer	OnInitialize(IShopOffer offer)	InAppOfferContainer.cs:29		E					
+商店	InAppOfferContainer	Refresh()	InAppOfferContainer.cs:82		E					
+商店	InAppPurchaseFake	GetUnvalidatedTransactions()	InAppPurchaseFake.cs:89		E					
+商店	InAppPurchaseFake	Init()	InAppPurchaseFake.cs:113		E					
+商店	InAppPurchaseFake	OnPurchase(string itemSku, string itemId, string storeId, Action<string> onSuccess, Action<BillingResult> onError)	InAppPurchaseFake.cs:274		E					
+商店	InAppPurchaseFake	OnValidatePurchase(string itemSku, string receipt, Action<string> onSuccess, Action<PlayFabError> onError)	InAppPurchaseFake.cs:284		E					
+商店	InAppPurchaseFake	SetupProducts(IEnumerable<ShopElement> shopItems)	InAppPurchaseFake.cs:130		E					
+商店	InAppPurchaseProxy	GetInAppPurchaseItem(string sku)	InAppPurchaseProxy.cs:387		E					
+商店	InAppPurchaseProxy	GetUnvalidatedTransactions()	InAppPurchaseProxy.cs:313		E					
+商店	InAppPurchaseProxy	HandleExternalPurchaseReceived(UnvalidatedPurchaseData purchaseData)	InAppPurchaseProxy.cs:315		E					
+商店	InAppPurchaseProxy	Init()	InAppPurchaseProxy.cs:321		E					
+商店	InAppPurchaseProxy	OnPurchase(string itemSku, string itemId, string storeId, Action<string> onSuccess, Action<BillingResult> onError)	InAppPurchaseProxy.cs:352		E					
+商店	InAppPurchaseProxy	OnPurchaseFailed(BillingResult result, string message)	InAppPurchaseProxy.cs:413		E					
+商店	InAppPurchaseProxy	OnValidatePurchase(string itemSku, string receipt, Action<string> onSuccess, Action<PlayFabError> onError)	InAppPurchaseProxy.cs:385		E					
+商店	InAppPurchaseProxy	OnValidatePurchaseFail(PlayFabError error)	InAppPurchaseProxy.cs:446		E					
+商店	InAppPurchaseProxy	OnValidatePurchaseSuccessful(PurchaseValidationResult validationResult)	InAppPurchaseProxy.cs:428		E					
+商店	InAppPurchaseProxy	Purchase(string itemSku, string itemId, string storeId, Action<string> onSuccess, Action<BillingResult> onError)	InAppPurchaseProxy.cs:325		E					
+商店	InAppPurchaseProxy	SetBillingNotSupported()	InAppPurchaseProxy.cs:453		E					
+商店	InAppPurchaseProxy	SetBillingSupported()	InAppPurchaseProxy.cs:465		E					
+商店	InAppPurchaseProxy	SetupProducts(IEnumerable<ShopElement> products)	InAppPurchaseProxy.cs:323		E					
+商店	InAppPurchaseProxy	ValidatePurchase(string itemSku, string transactionId, Action<string> onSuccess, Action<PlayFabError> onError)	InAppPurchaseProxy.cs:354		E					
+商店	InAppPurchaseSteam	GetUnvalidatedTransactions()	InAppPurchaseSteam.cs:167		E					
+商店	InAppPurchaseSteam	Init()	InAppPurchaseSteam.cs:172		E					
+商店	InAppPurchaseSteam	InitializePurchasing()	InAppPurchaseSteam.cs:302		E					
+商店	InAppPurchaseSteam	MakePurchaseRequest(string itemId, string storeId)	InAppPurchaseSteam.cs:525		E					
+商店	InAppPurchaseSteam	OnInAppAuthorizationResponse(MicroTxnAuthorizationResponse_t pCallback)	InAppPurchaseSteam.cs:438		E					
+商店	InAppPurchaseSteam	OnPurchase(string itemSku, string itemId, string storeId, Action<string> _1, Action<BillingResult> onError)	InAppPurchaseSteam.cs:309		E					
+商店	InAppPurchaseSteam	OnValidatePurchase(string _, string receiptId, Action<string> onSuccess, Action<PlayFabError> onError)	InAppPurchaseSteam.cs:465		E					
+商店	InAppPurchaseSteam	OpenSteamPurchaseOverlay(string orderId, Action<BillingResult> onError)	InAppPurchaseSteam.cs:389		E					
+商店	InAppPurchaseSteam	SetupProducts(IEnumerable<ShopElement> shopItems)	InAppPurchaseSteam.cs:188		E					
+商店	ItemShopTab	CheckTimer(out DateTime timer)	ItemShopTab.cs:81		E					
+商店	ItemShopTab	DoOfferReordering(ref IReadOnlyList<IShopOffer> offers)	ItemShopTab.cs:98		E					
+商店	MainMenuOfferContainer	OnInitialize(LiveOpsEvent playEvent)	MainMenuOfferContainer.cs:6		E					
+商店	PremiumDrawer	Draw(PremiumItem item, int quantity)	PremiumDrawer.cs:13		E					
+商店	PremiumDrawer	GetItemName(PremiumItem item)	PremiumDrawer.cs:32		E					
+商店	PremiumIconDrawer	Draw(PremiumItem item, int quantity)	PremiumIconDrawer.cs:6		E					
+商店	PremiumItem	GetCustomData()	PremiumItem.cs:78		E					
+商店	PremiumItem	GetID()	PremiumItem.cs:73		E					
+商店	PremiumItem	Release(AddressableCacheGroup cacheGroup)	PremiumItem.cs:83		E					
+商店	PremiumItemAssetprovider	GetAssets()	PremiumItemAssetprovider.cs:7		E					
+商店	PreviewOfferButton	Initialize(IShopOffer offer)	PreviewOfferButton.cs:131		E					
+商店	Price	ToCurrencyAmount()	Price.cs:35		E					
+商店	PriceDisplay	FixLayout()	PriceDisplay.cs:80		E					
+商店	PriceDisplay	Setup(CurrencyValue value)	PriceDisplay.cs:65		E					
+商店	PriceDisplay	Setup(Price value)	PriceDisplay.cs:56		E					
+商店	PriceDisplay	Setup(string buttonText, Sprite iconSprite)	PriceDisplay.cs:20		E					
+商店	PriceDisplay	SetupFree()	PriceDisplay.cs:70		E					
+商店	PriceDisplay	TryInsertStrikeThrough()	PriceDisplay.cs:88		E					
+商店	PriceDisplayButton	Setup(CurrencyValue value, bool disableIfNotEnoughCurrency)	PriceDisplayButton.cs:166		E					
+商店	PriceDisplayButton	Setup(IShopOffer shopEvent)	PriceDisplayButton.cs:52		E					
+商店	PriceDisplayButton	Setup(Price value, bool disableIfNotEnoughCurrency)	PriceDisplayButton.cs:152		E					
+商店	PriceDisplayButton	Setup(string buttonText)	PriceDisplayButton.cs:147		E					
+商店	PuchasePremiumArmyContainer	Click(bool enabledOption)	PuchasePremiumArmyContainer.cs:95		E					
+商店	PuchasePremiumArmyContainer	Initialize(PurchasePremiumWindow.PremiumArmyPurchaseData data, PurchasePremiumWindow window)	PuchasePremiumArmyContainer.cs:43		E					
+商店	PuchasePremiumArmyContainer	OnDisable()	PuchasePremiumArmyContainer.cs:29		E					
+商店	PuchasePremiumArmyContainer	OnEnable()	PuchasePremiumArmyContainer.cs:22		E					
+商店	PuchasePremiumArmyContainer	TryHighlight(CardArmy cardArmy)	PuchasePremiumArmyContainer.cs:71		E					
+商店	PuchasePremiumArmyInfo	Initialize(PurchasePremiumWindow.PremiumArmyPurchaseData armyData, PurchasePremiumWindow window)	PuchasePremiumArmyInfo.cs:39		E					
+商店	PuchasePremiumArmyInfo	OnDisable()	PuchasePremiumArmyInfo.cs:32		E					
+商店	PuchasePremiumArmyInfo	OnEnable()	PuchasePremiumArmyInfo.cs:25		E					
+商店	PuchasePremiumArmyInfo	PurchaseButtonClick()	PuchasePremiumArmyInfo.cs:111		E					
+商店	PurchasePremiumWindow	ClearCurrentArmyContainers()	PurchasePremiumWindow.cs:879		E					
+商店	PurchasePremiumWindow	CloseButtonClick()	PurchasePremiumWindow.cs:309		E					
+商店	PurchasePremiumWindow	FetchData()	PurchasePremiumWindow.cs:620		E					
+商店	PurchasePremiumWindow	FocusOnArmy(CardArmy cardArmy)	PurchasePremiumWindow.cs:427		E					
+商店	PurchasePremiumWindow	Initialize()	PurchasePremiumWindow.cs:550		E					
+商店	PurchasePremiumWindow	OnDisable()	PurchasePremiumWindow.cs:302		E					
+商店	PurchasePremiumWindow	OnEnable()	PurchasePremiumWindow.cs:280		E					
+商店	PurchasePremiumWindow	OnPurChaseCompleted(string _)	PurchasePremiumWindow.cs:929		E					
+商店	PurchasePremiumWindow	OnPurchasedFailed(string purchaseID)	PurchasePremiumWindow.cs:917		E					
+商店	PurchasePremiumWindow	SelectArmy(PremiumArmyPurchaseData armyData)	PurchasePremiumWindow.cs:483		E					
+商店	PurchasePremiumWindow	TryOpen(object data, GameWindowOptions options)	PurchasePremiumWindow.cs:314		E					
+商店	PurchasePremiumWindow	TryPurchase(Action<string> onPurchase, Action<string> onFailPurchase)	PurchasePremiumWindow.cs:231		E					
+商店	PurchasePremiumWindow	TryPurchase(PremiumArmyPurchaseData purchaseArmyData)	PurchasePremiumWindow.cs:488		E					
+商店	PurchasePremiumWindow	_003COnEnable_003Eb__11_0()	PurchasePremiumWindow.cs:958		E					
+商店	PurchaseableOfferContainer	OnClick()	PurchaseableOfferContainer.cs:93		E					
+商店	PurchaseableOfferContainer	OnDestroy()	PurchaseableOfferContainer.cs:74		E					
+商店	PurchaseableOfferContainer	OnInitialize(IShopOffer offer)	PurchaseableOfferContainer.cs:22		E					
+商店	PurchaseableOfferContainer	Refresh()	PurchaseableOfferContainer.cs:85		E					
+商店	PurchasesManager	BuyWithGameCurrency(TransactionEventLocation location, string itemId, string itemType, CurrencyValue price, string storeId, Action<string> resultCallback, Action<string> errorCallback)	PurchasesManager.cs:1962		E					
+商店	PurchasesManager	BuyWithRealMoney(TransactionEventLocation location, string itemSku, string itemId, string itemType, CurrencyValue price, string storeId, Action<string> resultCallback, Action<string> errorCallback)	PurchasesManager.cs:2084		E					
+商店	PurchasesManager	ExchangeSku(IapPurchase purchaseData, Action<string> onComplete, Action<string> onError)	PurchasesManager.cs:2338		E					
+商店	PurchasesManager	GetIapProductData(string sku)	PurchasesManager.cs:1656		E					
+商店	PurchasesManager	GetInAppProxy()	PurchasesManager.cs:2683		E					
+商店	PurchasesManager	Init()	PurchasesManager.cs:1665		E					
+商店	PurchasesManager	MakeRewardFromPurchase(IapPurchase purchase)	PurchasesManager.cs:2522		E					
+商店	PurchasesManager	MatchPendingPurchaseToLocalData(UnvalidatedPurchaseData purchase)	PurchasesManager.cs:2435		E					
+商店	PurchasesManager	Purchase(IShopOffer offer, Action<string> onComplete, Action<string> onError)	PurchasesManager.cs:1825		E					
+商店	PurchasesManager	Purchase(string itemId, CurrencyValue price, TransactionEventLocation location, string itemSku, string storeId, string itemType, Action<string> onComplete, Action<string> onError)	PurchasesManager.cs:1897		E					
+商店	PurchasesManager	PurchaseItem(IShopOffer offer, Action<RewardInfo[]> onComplete, Action<string> onError, bool showRewardWindow)	PurchasesManager.cs:1707		E					
+商店	PurchasesManager	ReadLocallySavedPurchases()	PurchasesManager.cs:2658		E					
+商店	PurchasesManager	RecoverPendingPurchases()	PurchasesManager.cs:1679		E					
+商店	PurchasesManager	RegisterPurchase(string itemId, string storeId, Action onComplete, Action<string> onError)	PurchasesManager.cs:2332		E					
+商店	PurchasesManager	RemoveIapLocalPurchase(IapPurchase purchase)	PurchasesManager.cs:2585		E					
+商店	PurchasesManager	SaveIapLocalPurchase(IapPurchase purchase)	PurchasesManager.cs:2591		E					
+商店	PurchasesManager	SaveUnvalidatedPurchasesOnDevice()	PurchasesManager.cs:2636		E					
+商店	PurchasesManager	SetupProducts(IEnumerable<ShopElement> skus)	PurchasesManager.cs:1696		E					
+商店	PurchasesManager	TryRecoverFromPendingPurchases()	PurchasesManager.cs:2511		E					
+商店	PurchasesManager	UpdateIapLocalPurchase(IapPurchase purchase, PurchaseState? newState, string receipt, string instanceId)	PurchasesManager.cs:2532		E					
+商店	PurchasesManager	ValidatePurchase(IapPurchase purchaseData, Action<string> onComplete, Action<string> errorCallback)	PurchasesManager.cs:2216		E					
+商店	ShopContainerBase	GetCustomData()	ShopContainerBase.cs:38		E					
+商店	ShopContainerBase	Open(string instanceId, Action<IReadOnlyList<RewardInfo>> onComplete, Action<string> onError)	ShopContainerBase.cs:36		E					
+商店	ShopContainerInventory	CheckNotification()	ShopContainerInventory.cs:120		E					
+商店	ShopContainerInventory	OnFinishUnpack()	ShopContainerInventory.cs:106		E					
+商店	ShopContainerInventory	OnItemCountModify(ShopContainerBase item, int amountChanged)	ShopContainerInventory.cs:111		E					
+商店	ShopContainerV2	GetID()	ShopContainerV2.cs:93		E					
+商店	ShopContainerV2	OnAfterPurchase(IShopOffer offer, IReadOnlyList<RewardInfo> rewards, Action<IReadOnlyList<RewardInfo>> onComplete, Action onError, bool showAnimation)	ShopContainerV2.cs:98		E					
+商店	ShopContainerV2	Open(string instanceId, Action<IReadOnlyList<RewardInfo>> onComplete, Action<string> onError)	ShopContainerV2.cs:179		E					
+商店	ShopItemContainer	Initialize(object payload)	ShopItemContainer.cs:11		E					
+商店	ShopItemContainer	OnDisable()	ShopItemContainer.cs:48		E					
+商店	ShopItemContainer	OnEnable()	ShopItemContainer.cs:52		E					
+商店	ShopItemContainer	OnPurchase(bool success)	ShopItemContainer.cs:44		E					
+商店	ShopItemContainer	SetRefreshCallback(Action callback)	ShopItemContainer.cs:56		E					
+商店	ShopItemContainer	TryPurchase()	ShopItemContainer.cs:30		E					
+商店	ShopItemContainer	_003CTryPurchase_003Eb__2_0()	ShopItemContainer.cs:60		E					
+商店	ShopItemContainer	_003CTryPurchase_003Eb__2_1()	ShopItemContainer.cs:65		E					
+商店	ShopItemInstance	SetPriceValue(StoreItem storeItem)	ShopItemInstance.cs:400		E					
+商店	ShopOfferContainer	CallRefreshCallback()	ShopOfferContainer.cs:295		E					
+商店	ShopOfferContainer	OnClick()	ShopOfferContainer.cs:97		E					
+商店	ShopOfferContainer	OnDestroy()	ShopOfferContainer.cs:65		E					
+商店	ShopOfferContainer	OnInitialize(IShopOffer shopItem)	ShopOfferContainer.cs:22		E					
+商店	ShopOfferContainer	OnOfferTimerEnded()	ShopOfferContainer.cs:87		E					
+商店	ShopOfferContainer	OnPurchase(bool success)	ShopOfferContainer.cs:264		E					
+商店	ShopOfferContainer	OpenContainer()	ShopOfferContainer.cs:103		E					
+商店	ShopOfferContainer	Refresh()	ShopOfferContainer.cs:150		E					
+商店	ShopOfferContainer	RefreshExpire()	ShopOfferContainer.cs:282		E					
+商店	ShopOfferContainer	SetAvailableText(bool hasLimit, int purchasedCount)	ShopOfferContainer.cs:211		E					
+商店	ShopOfferContainer	SetBadgeText()	ShopOfferContainer.cs:239		E					
+商店	ShopOfferContainer	SetRefreshCallback(Action callback)	ShopOfferContainer.cs:57		E					
+商店	ShopOfferContainer	_003CRefreshExpire_003Eb__15_0()	ShopOfferContainer.cs:304		E					
+商店	ShopOfferInventory	OnFinishUnpack()	ShopOfferInventory.cs:385		E					
+商店	ShopOfferInventory	UnpackPendingOffers()	ShopOfferInventory.cs:393		E					
+商店	ShopOfferListLocator	GetAssets()	ShopOfferListLocator.cs:8		E					
+商店	ShopTab	CheckTimer(out DateTime timer)	ShopTab.cs:277		E					
+商店	ShopTab	CreateOffers()	ShopTab.cs:285		E					
+商店	ShopTab	DoOfferReordering(ref IReadOnlyList<IShopOffer> offers)	ShopTab.cs:531		E					
+商店	ShopTab	OnOpen()	ShopTab.cs:265		E					
+商店	ShopTab	RefreshAfterExpire()	ShopTab.cs:491		E					
+商店	ShopTab	RefreshOffers()	ShopTab.cs:498		E					
+商店	ShopTab	SetEventTab(ILiveOps liveOps)	ShopTab.cs:238		E					
+商店	ShopTab	SetStore()	ShopTab.cs:246		E					
+商店	ShopTab	Setup(GameWindow window)	ShopTab.cs:152		E					
+商店	ShopTab	ToFocus()	ShopTab.cs:271		E					
+商店	ShopWindow	Close()	ShopWindow.cs:1055		E					
+商店	ShopWindow	CreateStoreTab(IStore store)	ShopWindow.cs:681		E					
+商店	ShopWindow	GetStartingTab()	ShopWindow.cs:835		E					
+商店	ShopWindow	OnShopRefresh()	ShopWindow.cs:1145		E					
+商店	ShopWindow	Open()	ShopWindow.cs:992		E					
+商店	ShopWindow	SetupTabs()	ShopWindow.cs:596		E					
+商店	VIPCardShopTab	CheckVIPState()	VIPCardShopTab.cs:260		E					
+商店	VIPCardShopTab	OnClose()	VIPCardShopTab.cs:241		E					
+商店	VIPCardShopTab	OnOpen()	VIPCardShopTab.cs:213		E					
+商店	VIPCardShopTab	ToFocus()	VIPCardShopTab.cs:253		E					
+商店	VIPCardShopTab	VipTimerOnOnRunOutOfTime()	VIPCardShopTab.cs:248		E					
+商店	VIPCardShopTab	_DebugGrantVIP()	VIPCardShopTab.cs:87		E					
+商店	WebShopOpenButton	ButtonClick()	WebShopOpenButton.cs:139		E					
+商店	WebShopOpenButton	OfferAllowsShow(bool option)	WebShopOpenButton.cs:57		E					
+商店	WebShopOpenButton	OnDisable()	WebShopOpenButton.cs:132		E					
+商店	WebShopOpenButton	OnEnable()	WebShopOpenButton.cs:45		E					
+商店	WebShopOpenButton	ShouldEnable()	WebShopOpenButton.cs:67		E					
+商店	XSollaBundleAssetProvider	GetAssets()	XSollaBundleAssetProvider.cs:7		E					
+商店	XSollaBundleItem	GetID()	XSollaBundleItem.cs:94		E					
+商店	XSollaBundleItem	OnBeforeWrite()	XSollaBundleItem.cs:147		E					
+商店	XSollaBundleItem	SetValues(ShopOfferBase offer)	XSollaBundleItem.cs:99		E					
+商店	XSollaOfferDrawer	Draw(XSollaBundleItem item, int quantity)	XSollaOfferDrawer.cs:25		E					
+商店	XSollaOfferDrawer	GetItemName(XSollaBundleItem item)	XSollaOfferDrawer.cs:8		E					
+商店	XSollaOfferDrawer	SetConvertedItem(RewardInfo convertedTo)	XSollaOfferDrawer.cs:41		E					
+商店	XsollaBundleProvider	GetEvents()	XsollaBundleProvider.cs:146		E					

@@ -193,7 +193,24 @@ EXTRA_CUES = ["Reward open item by item", "CardStartDrag",
               #     ③ `battle_sounds.json` 里的 `moveCardIntoBattle` / `createCardInHand` 是**战斗字段名**表，
               #        它们的 `clips` 里出现 `CardMove` / `CardMove_1..3` 也是 **clip 名** ⇒ 与 cue 名不冲突
               #        （两张表装同一个字典时 `WFSoundBank` 按 `name` 撞名，这里撞不上）。
-              "CardMove"]
+              "CardMove",
+              # —— 战斗线 · Tap 族（2026-10-25 · 执行代理 `N16`）——
+              #   点战场地面的反馈那 **10 条 cue**（原版组件 `TapHitMaterialDefinition.particleDefinition.audio`
+              #   是 `AssetReferenceTyped<AudioCue>` ⇒ `animfx_modules.json` 里**一条都推不出来**）。
+              #   判据 → `资料/完全复刻/判据/Tap族_地面点击反馈.md` §2.2（25 种组合）/ §2.4（cue 参数表）。
+              #   **本轮亲核**（不是抄文档）：
+              #     · 全库 30 个 `TapHitMaterialDefinition` 的 `m_AssetGUID` 去重 = **19 粒子 + 11 cue**；
+              #       逐个 `python -I -X utf8 工具/_guid_resolve_probe.py g <guid>` ⇒ 11 条 cue 名如下
+              #       （**11 条里 1 条 `Buff Mana 1` 早就在表里**，其余 10 条就是这一批）。
+              #     · clip：`bundle_soundcollection_assets_all/AudioClip/` 里那 21 个 `.wav` **全在**
+              #       （`Hit Rock 1..3` / `Hit Fire 1..3` / `Hit Floor Generic 1..2` / `Hit Metal Light 1..2` /
+              #        `Hit Heavy Metal 1..2` / `Hit Spark 1..3` / `Hit Squishy 1..2` / `Hit Water 1..2` /
+              #        `Hit Monolith` / `Squig Growl 1`）。
+              #     ⚠️ **cue 名 ≠ clip 名**：`Tap Monolith` → `Hit Monolith`、`Tap Squig` → `Squig Growl 1` ⇒
+              #       ⛔ 别拿 cue 名去 `Resources/` 找文件。
+              "Tap Hit Rock", "Tap Hit Metal Heavy", "Tap Hit Metal Light", "Tap Hit General",
+              "Tap Hit Fire", "Tap Hit Spark", "Tap Hit Squishy", "Tap Hit Water",
+              "Tap Monolith", "Tap Squig"]
 
 # 🔴 **2026-10-16（A828）第三来源 —— `collisionEvent` 上的 `PlaySound`。**
 #   `AnimFXModuleCollisions` 的 `collisionAndParticles[i].particleSystemsDefinition[j].collisionEvent`

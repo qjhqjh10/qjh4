@@ -424,16 +424,37 @@ namespace CardPresentation
         const string TabArtHover = "40K_settings_button_selected";   // m_HighlightedSprite（悬停）
         const string TabArtPressed = "40K_settings_button_pressed";  // m_PressedSprite（按下）
 
+        /// <summary>🔴 **2026-10-25（N9 · 账 313）**：频道页签的**图标**（原版按频道给，不是同一张）。
+        /// <para>判据（三条一起）：① `ChatPanel.SetupTabs` 给每个频道传
+        /// `icon = ChannelType == 0 ? globalIcon : allianceIcon`；② 那两颗字段在组件
+        /// `bundle_menus_assets_all/MonoBehaviour/MonoBehaviour_1773913423464410674.json` 上
+        /// （`globalIcon` pid `1694953385498620726` → `40K_Chat_icon_Global`；
+        /// `allianceIcon` pid `-4762003504173451848` → `40K_Chat_icon_Alliance v2`）；
+        /// ③ 贴图动作 = `TabButtons.AddTabButton` 里的 `Image.set_sprite(icon)`。</para>
+        /// <remarks>`Channels[0] = "Global"` · `Channels[1] = "Alliance"`（本文件 :115）⇒ 下标就是 `ChannelType`。
+        /// ⚠️ 导出资产名里那个空格是 `_`（`40K_Chat_icon_Alliance_v2`）—— 与 `LeaderboardWindow` 那两页签
+        /// 用的是**同一批图**（自检 `MainMenuScene.cs:10420/11472` 已断言过贴图名）。</remarks></summary>
+        static string TabChannelIcon(int idx)
+        {
+            return (idx == 0) ? "40K_Chat_icon_Global" : "40K_Chat_icon_Alliance_v2";
+        }
+
         /// <summary>`button_bg` 的色。🔴 **两份 prefab 的值不同**：act T 那份是 `(1, 0.5723677, 0, 1)`，
         /// **act F 那份（= 本窗 `tabButtonPrefab` 实际克隆的那份）是 `(1, 0.4274509847, 0, 1)`** —— 取后者
         /// （我们原来的 0.427 一直是对的，可反证）。⚠️ 两颗 Image 都带 `m_PixelsPerUnitMultiplier = 0.92`，
         /// 本工程 `ImageQuad` 没有这个属性（Simple 图上影响很小，如实记着）。</summary>
         static readonly Color TabBgTint = new Color(1f, 0.427f, 0f, 1f);
 
-        /// <summary>一个频道键（底 `button_bg` + 图标 `40K_icon_menu_chat` + 文案）。
-        /// ⚠️ 原版那个模板上挂的 `Label` **自己就是 inactive 的**（§A·1 第 67 行），
+        /// <summary>一个频道键（底 `button_bg` + **按频道分的图标** + 文案）。
+        /// <para>🔴 **2026-10-25（N9 · 账 313）**：原来两个频道键**都**画母版那张 `40K_icon_menu_chat`。
+        /// 原版 `ChatPanel.SetupTabs` 是给每个频道传 `icon = ChannelType == 0 ? globalIcon : allianceIcon`，
+        /// 由 `TabButtons.AddTabButton` 里 `Image.set_sprite(icon)` 贴上去
+        /// （组件 `MonoBehaviour_1773913423464410674.json`：`globalIcon` pid `1694953385498620726` →
+        /// **`40K_Chat_icon_Global`**；`allianceIcon` pid `-4762003504173451848` → **`40K_Chat_icon_Alliance v2`**；
+        /// 两条判据的落点见 `TabChannelIcon` 的注释）。⇒ 现在按频道取图，与 `LeaderboardWindow` 那两页签同一批图。</para>
+        /// <remarks>⚠️ 原版那个模板上挂的 `Label` **自己就是 inactive 的**（§A·1 第 67 行），
         /// 所以它的文案 `General` 是**设置窗的 term 残留**（`Settings/General/Title`）—— 我们**不用它**，
-        /// 用频道的名字（`Global` / `Alliance`），并在这里说明这是我们的选择。</summary>
+        /// 用频道的名字（`Global` / `Alliance`），并在这里说明这是我们的选择。</remarks></summary>
         Transform TabButton(Transform parent, int idx, string label, float y1, float y2)
         {
             var r = new PxRect(TabBtnColR.x2 - TabBtnSz.x, y1, TabBtnColR.x2, y2);
@@ -442,7 +463,7 @@ namespace CardPresentation
             // 选中那一档由 `RefreshHighlights` 换图（原版 `EverguildToggle.ToggleSprite` 就是那一刻跑的）。
             _tabBg[idx] = Rect(b, TabArtOff, r, "button_bg", QBg, TabBgTint);
             var iconR = new PxRect(r.x1, r.y1 + 17.34f, r.x2 - 5f, r.y2 - 15.01f);
-            Rect(b, "40K_icon_menu_chat", iconR, "Icon", QContent, null, true);
+            Rect(b, TabChannelIcon(idx), iconR, "Icon", QContent, null, true);
             // 🔴 **A406**：`Orange Tab Toggle/Label/Tab Toggle Title` 原版
             //   `auto[10.0~**35.0**] 基准=**35.0**` ⇒ 上限 35（= 标称）· base **35.0**。
             //   ⚠️ **两份实例逐字段读过、同值**（act T 那份 RT `-8278251871369237089` 与
@@ -522,7 +543,55 @@ namespace CardPresentation
                 else Debug.LogWarning("[Chat] 没有 `WindowsManager`，挑战弹窗开不了");
                 return;
             }
+            // 🔴 **2026-10-25（N9 · 账 329）**：原版 `Block player` / `Report message` / `Add as a friend`
+            //   三条**先弹一次二次确认**（`ChatPlayerOptionsPanel.ShowConfirmation(text, onConfirm)`，
+            //   判据 `ChatPlayerOptionsPanel.cs:168-221`：`WindowsManager.ShowPopUp(text, localizeTexts:false,
+            //   closeOnEsc:false, OK/Cancel)`）。**这一步纯客户端、不碰服务器** ⇒ 本地可复刻
+            //   ⇒ 现在真的会弹；点 OK 之后才落到下面那句「要服务器」（原来三条一概直接出声、确认框整个没有）。
+            if (act == "Block player" || act == "Report message" || act == "Add as a friend")
+            {
+                ShowConfirmation(ConfirmTextOf(act), () => LogServerOnly(act));
+                return;
+            }
+            LogServerOnly(act);
+        }
+
+        /// <summary>确认之后那一步 —— 原版是服务器调用（`BlockPlayer` / `SendReportMessage` / `AddFriendToList`）。</summary>
+        void LogServerOnly(string act)
+        {
             Debug.Log("[Chat] `" + act + "`：要**服务器**（原版 `ChatPlayerOptionsPanel." + act.Replace(" ", "") + "`）。");
+        }
+
+        /// <summary>三条危险动作的确认文案。⚠️ **这几句是我们自拟的**：原版那三句是 I2 词条
+        /// （`资料/普查产出_1013/WL2_四扇小窗.md:297` 现核：`…PopupButtonString` 那几个**不是序列化字段**、
+        /// 运行时从 I2 填）⇒ 本地一个 value 都没有，⛔ 不硬套官方键。</summary>
+        static string ConfirmTextOf(string act)
+        {
+            switch (act)
+            {
+                case "Block player": return "Block this player?";
+                case "Report message": return "Report this message?";
+                case "Add as a friend": return "Send a friend request?";
+                default: return "Are you sure?";
+            }
+        }
+
+        /// <summary>确认弹窗（等价实现 = ShowConfirmation，原版判据 `ChatPlayerOptionsPanel.cs:168-221`）：
+        /// OK ⇒ **先跑回调再关窗**；Cancel ⇒ 只关窗；`localizeTexts:false` + `closeOnEsc:false`。
+        /// <para>⚠️ 原版两颗钮的词条是**运行时从 I2 填**的（同 `AllianceMemberOptionsPopup` 那一族）⇒ 本机读不到；
+        /// 这里取本仓通用那一对 `MainMenu/General/OK` / `MainMenu/General/Cancel`
+        /// （`Shell/CardDetailPopup.cs:2102-2103` 逐字段实读过同一对）—— **这是我们的选择，不是原版判据**。</para></summary>
+        public void ShowConfirmation(string confirmationText, System.Action onConfirm)
+        {
+            var wm = Manager;
+            if (wm == null)
+            {
+                Debug.LogWarning("[Chat] 没有 `WindowsManager` ⇒ 确认弹窗开不了（原版 `ShowConfirmation` 这一跳）");
+                return;
+            }
+            wm.ShowPopUp(confirmationText, Loc.T("MainMenu/General/OK"),
+                         onConfirm != null ? onConfirm : (System.Action)(() => { }),
+                         Loc.T("MainMenu/General/Cancel"), null);
         }
 
         /// <summary>消息行数变化时重画当前页（自检用；原版是 `ChatTab.CheckMessages`）。</summary>
@@ -615,15 +684,27 @@ namespace CardPresentation
             var row = MenuDraw.Node(content, "ChatMessageRow", r);
             float w = r.W;
 
-            // `RowBackground`：`a=(0,0)-(1,1)` 全拉伸 · `WF_9Sliced` 九宫 (62,62,62,62) · 色 (0.00392,0.0143,0.106,0.706)
+            // `RowBackground`：`a=(0,0)-(1,1)` 全拉伸 · `WF_9Sliced` 九宫 (62,62,62,62)
+            // 🔴 **2026-10-25（N9 · 账 300）**：**底色分两侧**。原来两侧都吃预制体模板色
+            //   `(0.00392,0.0143,0.106,0.706)` —— 原版运行期在 `ChatMessageUI.Set` 里按 `isPlayer` 换掉：
+            //   `background.color = isPlayer ? (0.0431,0.0941,0.1333,0.808) : (0.1059,0.0039,0.0039,0.706)`
+            //   （判据 = prefab `bundle_mainmenualwaysloaded_assets_all/MonoBehaviour/
+            //    MonoBehaviour_-7156338170297815041.json` 实读）。⇒ 见 `RowBgColor`。
             var bgTex = win.Art("WF_9Sliced");
             if (bgTex != null)
                 MenuDraw.Nine(row, bgTex, r, new Vector4(62f, 62f, 62f, 62f), bgTex.width, bgTex.height,
-                              ChatPanel.QContent, new Color(0.00392f, 0.0143f, 0.106f, 0.706f), true, "RowBackground",
+                              ChatPanel.QContent, RowBgColor(m.Mine), true, "RowBackground",
                               clip: clip, clipSoftness: clipSoft);
 
+            // 🔴 **2026-10-25（N9 · 账 301）**：**左右内边距按发信侧交换**。原版 `ChatMessageUI.SetLayout`
+            //   把两个 padding 对调（prefab 的 VLG 基准是 `L25 / R60 / T10 / B10`）：
+            //   **自己发 = L25 / R60**（名字在左、头像在右）、**别人发 = L60 / R25**。
+            //   我们原来两侧恒 25 ⇒ 内容在「头像那一侧」多出 **35px**，头像自己（`PBdx` 是相对头内边距沿算的）
+            //   也跟着偏 35。⇒ 见 `RowPadLeft` / `RowPadRight`（⛔ 别在别处再写一份 25/60）。
+            float padL = RowPadLeft(m.Mine), padR = RowPadRight(m.Mine);
+
             // 头部：自己发的那套（`Player Header`）或别人的那套（`Friend Header`）
-            var headR = new PxRect(r.x1 + PadX, r.y1 + HeadTop, r.x2 - PadX, r.y1 + HeadTop + HeadH);
+            var headR = new PxRect(r.x1 + padL, r.y1 + HeadTop, r.x2 - padR, r.y1 + HeadTop + HeadH);
             var head = MenuDraw.Node(row, m.Mine ? "Player Header" : "Friend Header", headR);
 
             // `Sender`（绿）与 `Time`（灰）铺在同一个矩形上：**一份左对齐、一份右对齐**
@@ -636,7 +717,7 @@ namespace CardPresentation
 
             // 头像框（`Profile border` + 里面的立绘）：自己发贴**右沿**（+45）、别人发贴**左沿**（−45），
             // 顶边都从头部顶边往上 15（`p=(0.5,1) pos.y=15`）。
-            float pcx = m.Mine ? (r.x2 - PadX + PBdx) : (r.x1 + PadX - PBdx);
+            float pcx = m.Mine ? (r.x2 - padR + PBdx) : (r.x1 + padL - PBdx);
             var pbr = new PxRect(pcx - PBW * 0.5f, headR.y1 - PBdy, pcx + PBW * 0.5f, headR.y1 - PBdy + PBH);
             var pb = MenuDraw.Node(head, "Profile border", pbr);
             // ⚠️ 框与立绘的**先后照原版**：框（`Profile border` 自己身上的 Image）先、立绘（它唯一的子节点）后
@@ -655,7 +736,7 @@ namespace CardPresentation
             //   判据 = 原版 `menu_dump … bundle_mainmenualwaysloaded_assets_all "ChatMessageRow" --depth 8 --md`：
             //     `| ·1 | Message | … | 'This is the message' 字号=22.0 基准=22.0 对齐=Left/Top 折行=1 色=(1,1,1,1) |`
             //   ⇒ 改法一行 = 补 `alignLeft: true`（⛔ 别改成右对齐 —— 原版是 `Left/Top`）。
-            Text(row, new PxRect(r.x1 + PadX, r.y1 + MsgTop, r.x2 - PadX, r.y1 + MsgTop + 30f),
+            Text(row, new PxRect(r.x1 + padL, r.y1 + MsgTop, r.x2 - padR, r.y1 + MsgTop + 30f),
                  m.Text ?? "", Color.white, "Message", 22f, ChatPanel.QText, clip, clipSoft, alignLeft: true,
                  face: TmpFont.Face.LatinCardBody);
 
@@ -669,5 +750,30 @@ namespace CardPresentation
                 if (panel != null) panel.gameObject.SetActive(!panel.gameObject.activeSelf);
             }, clip: clip);
         }
+
+        // ============================================================ 分侧参数（2026-10-25 · 账 300/301）
+        // 🔴 **新增成员一律追加在类尾**（2026-10-25 纪律）：本文件被别的账/报告按行号引用得多，
+        //    插进已有成员之间会把下游行号整体推移（同一天在 `Net/NetBattle.cs` 上踩过一次）。
+
+        /// <summary>行底色分两侧（原版 `ChatMessageUI.Set` 里那句 `background.color = isPlayer ? A : B`）。
+        /// <para>判据 = prefab `bundle_mainmenualwaysloaded_assets_all/MonoBehaviour/
+        /// MonoBehaviour_-7156338170297815041.json` 实读：自己发 `(0.0431, 0.0941, 0.1333, 0.808)` ·
+        /// 别人发 `(0.1059, 0.0039, 0.0039, 0.706)`。</para>
+        /// <para>⚠️ 我们原来两侧都吃**预制体模板色** `(0.00392, 0.0143, 0.106, 0.706)` ——
+        /// 那不是任何一侧的运行期色（账 300 的 P1）。</para></summary>
+        public static Color RowBgColor(bool mine)
+        {
+            return mine ? new Color(0.0431f, 0.0941f, 0.1333f, 0.808f)
+                        : new Color(0.1059f, 0.0039f, 0.0039f, 0.706f);
+        }
+
+        /// <summary>行左内边距（原版 `ChatMessageUI.SetLayout` 的两个 padding **按发信侧对调**：
+        /// 自己发 = L25 / R60（名字在左、头像在右）；别人发 = L60 / R25）。
+        /// ⚠️ 判据只此一处，⛔ 别在别处再写一份 25/60。</summary>
+        public static float RowPadLeft(bool mine) { return mine ? PadX : PadX + PadSwap; }
+        /// <summary>行右内边距（同上）。</summary>
+        public static float RowPadRight(bool mine) { return mine ? PadX + PadSwap : PadX; }
+        /// <summary>两个 padding 的差（60 − 25）。原版 `namePadding = 60` · `timePadding = 25`。</summary>
+        public const float PadSwap = 35f;
     }
 }

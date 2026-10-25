@@ -93,7 +93,13 @@ Shader "WarpforgeVFX/FX/EclipseTau"
                 float4 _EclipseColorBorder;
                 float  _EclipseRange;
                 float4 _Scale;
-                float  _APPLYAMBIENTCOLOR;
+                // ⚠️ **这里【不能】声明 `float _APPLYAMBIENTCOLOR;`** —— 它是 `[Toggle(_APPLYAMBIENTCOLOR)]`
+                //    的关键字名，又出现在 `#pragma multi_compile_local _ _APPLYAMBIENTCOLOR` 里；材质一开
+                //    Unity 就 `#define _APPLYAMBIENTCOLOR 1` ⇒ 与同名变量**重定义**、整份编不过。
+                //    实测：`Shader error in 'WarpforgeVFX/FX/EclipseTau': redefinition of '_APPLYAMBIENTCOLOR'`
+                //    （`_tmp_view/20261024_playerbuild.log:5661`）。
+                //    本文件只走 `#ifdef`、不读它的值 ⇒ 按 `WFUnlitUVScroll.shader:120` 的同族做法
+                //    **只留 Properties 里那一条**（材质默认值 1 ⇒ 原版材质的关键字本来就开着，行为不变）。
                 float4 _ExtraAmbientColor;
                 float  _FogContribution;
                 float4 _RendererColor;

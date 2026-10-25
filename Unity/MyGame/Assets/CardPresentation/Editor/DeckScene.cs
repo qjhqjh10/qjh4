@@ -1597,7 +1597,7 @@ public static class DeckScene
             var s = new DeckEditorState(CardDatabase.Load());
             s.WarlordGatedPool = true;
 
-            int facN = 0, badFirst = 0, badCost = 0, heroAfter = 0, badShow = 0;
+            int facN = 0, badFirst = 0, badCostPost = 0, heroAfter = 0, badShow = 0;
             string firstBadFirst = null, firstBadCost = null;
             var defShown = new System.Collections.Generic.HashSet<string>();
             foreach (var fac in DeckEditorState.ArmyOrder)
@@ -1631,7 +1631,7 @@ public static class DeckScene
                     seenNonHero = true;
                     if (c.Cost < lastNonHeroCost)
                     {
-                        badCost++;
+                        badCostPost++;
                         if (firstBadCost == null) firstBadCost = fac + "/" + c.Name + "(" + c.Cost + ")";
                     }
                     lastNonHeroCost = c.Cost;
@@ -1656,7 +1656,7 @@ public static class DeckScene
             Check(badFirst, 0, "★ ① 每个阵营卡池的**第一张都是战将**（原版 `cardType != Hero` 排序键）"
                              + (firstBadFirst == null ? "" : $"｜第一个反例：{firstBadFirst}"));
             Check(heroAfter, 0, "★ ①b 战将段**连续**（战将之后不许再冒出战将 —— 说明排序键没生效）");
-            Check(badCost, 0, "★ ② 战将段之后 `manaCost` **非减**"
+            Check(badCostPost, 0, "★ ② 战将段之后 `manaCost` **非减**"
                             + (firstBadCost == null ? "" : $"｜第一个反例：{firstBadCost}"));
             Check(badShow, 0, "★ ③ 卡组编辑卡池里 `showInCollectionOptions == 0` 的卡数 = **0**"
                             + "（原版 `DeckEditingWindow.__c___GetCardCollection_b__32_2.c:8`）");
@@ -1946,6 +1946,163 @@ public static class DeckScene
             f = DeckFilter.None; f.Name = "autarch";
             s.SetFilter(f);
             CheckTrue(s.VisibleCards().Count >= 1, "按卡名子串筛（大小写不敏感）能命中 Autarch");
+
+            // 🆕 **2026-10-25（`C` 补 C 轮）：搜索的 ④兵种本地化名 / ⑤资料片 —— 防回归**
+            //   判据：`CardNameFilter.cs:54-170` 的六项里，④ = `GameStaticData.CardRaceToString`（`Loc("Card_Race/"+串)`）、
+            //   ⑤ = `expansionPack.ToString()`（`!= Default` 才比）。
+            //   走势：④ 走 `CardView.RaceDisplayName`（E 暴露的**同一份** 3 步口径）、⑤ 走 `CardDef.ExpansionSearchName`（A 加的）。
+            //   ⚠️ 断言写成**超集**（「所有属于该档的卡都必须在结果里」），⛔ 不写成「结果集恰好等于该档」——
+            //   描述/卡名里出现同样的词也会命中（那是原版行为：六项任一命中即保留）。
+            {
+                s.SetFilter(DeckFilter.None);
+                var allVis0 = s.VisibleCards();
+
+                f = DeckFilter.None; f.Name = "leviathandrop1";
+                s.SetFilter(f);
+                var expHits = s.VisibleCards();
+                int expWant = 0; bool expMiss = false;
+                foreach (var c2 in allVis0)
+                {
+                    if (c2.Expansion != 10) continue;          // 10 = `LeviathanDrop1`
+                    expWant++;
+                    if (!expHits.Contains(c2)) expMiss = true;
+                }
+                CheckTrue(expWant > 0 && !expMiss,
+                          $"★ 按**资料片枚举名**搜：{expWant} 张 `LeviathanDrop1(10)` **全部**都在结果里"
+                        + "（原版 `expansionPack.ToString()`；落点 `CardDef.ExpansionSearchName`）"
+                        + (expMiss ? "｜🧨 有该档的卡没被搜到 ⇒ ⑤ 那条断了" : ""));
+
+                f = DeckFilter.None; f.Name = "psychic power";
+                s.SetFilter(f);
+                var raceHits = s.VisibleCards();
+                int raceWant = 0; bool raceMiss = false;
+                foreach (var c3 in allVis0)
+                {
+                    if (!string.Equals(c3.Subtype, "Psychic Power", System.StringComparison.OrdinalIgnoreCase)) continue;
+                    raceWant++;
+                    if (!raceHits.Contains(c3)) raceMiss = true;
+                }
+                CheckTrue(raceWant > 0 && !raceMiss,
+                          $"★ 按**兵种显示名**搜（`Psychic Power`，大小写不敏感）：{raceWant} 张**全部**都在结果里"
+                        + "（原版 `CardRaceToString`；落点 `CardView.RaceDisplayName`）"
+                        + (raceMiss ? "｜🧨 有该兵种的卡没被搜到 ⇒ ④ 那条断了" : ""));
+                s.SetFilter(DeckFilter.None);
+            }
+
+            // ============================================================ 🆕 2026-10-25（`C` 域 · chip 行）
+            //   判据 = `bundle_menus_assets_all ▸ CardsTab ▸ Card Filters ▸ Filters ▸ {Army,Rarity,Cost,Type} FIlter/Content`
+            //   的组件表（`menu_dump.py … --depth 9 --no-layout` 现读）：
+            //     · **Army/Content 有 `ContentSizeFitter(MinSize)`** ⇒ chip 会把行**撑高**；
+            //     · **Rarity / Cost / Type 三行没有 CSF** ⇒ chip **落在行框之外**、压到下一行标题上 ——
+            //       **这是原版长相，⛔ 别「顺手」修好**（本轮就是照抄它）。
+            //   🧨 改坏法：把 Rarity/Cost/Type 也按 CSF 撑高 ⇒ 第二条红；把 `armySel` 从 `ComputeLayout` 的实参里去掉 ⇒ 第一条红。
+            Section("chip 行：Army 行长高（有 CSF）· Rarity/Cost/Type 溢出照算（无 CSF）");
+            {
+                var facsAll = s.Factions();
+                int nFac = facsAll.Count;
+                var L0 = FilterPanelModel.ComputeLayout(nFac);
+                var fSel = DeckFilter.None;
+                fSel.Factions = new HashSet<string>();
+                for (int i = 0; i < facsAll.Count && i < 4; i++) fSel.Factions.Add(facsAll[i]);
+                // 4 个 chip ⇒ 槽位 13+4 = 17 ⇒ ceil(17/3) = 6 行 vs ceil(13/3) = 5 行 ⇒ **多一行**
+                var L1 = FilterPanelModel.ComputeLayout(nFac + 4);
+                CheckNear(L1.RarityTop - L0.RarityTop, FilterPanelModel.ArmyCell, 0.5f,
+                          $"★ **Army 行长高**：多选 4 个 ⇒ 行数 5→6 ⇒ 下面三行整体下移 **{FilterPanelModel.ArmyCell}px**"
+                        + "（判据 = `Army Filter/Content` 挂着 `ContentSizeFitter(MinSize)`）");
+                CheckTrue(L1.RarityTop > L0.RarityTop, "…而且方向是**往下**（挡「算反了/没变」）");
+
+                // 费用两档 ⇒ 8 格已占 2 行（4/行）⇒ chip 落到第 **3** 行 ⇒ **超出**该行内容高（165）
+                var fCost = DeckFilter.None;
+                fCost.Costs = new HashSet<int> { 1, 8 };
+                s.SetFilter(fCost);
+                var cellsC = new List<FilterPanelModel.Cell>();
+                FilterPanelModel.Build(s, CollectionWindow.FltW, cellsC);
+                // ⚠️ `Cell` 是 **struct** ⇒ 用「找到了没有」这个标志位，别拿 null 判
+                FilterPanelModel.Cell chipC = default(FilterPanelModel.Cell);
+                bool hasChipC = false;
+                for (int i = 0; i < cellsC.Count; i++)
+                    if (cellsC[i].Key != null && cellsC[i].Key.StartsWith("$chip:$cost:")) { chipC = cellsC[i]; hasChipC = true; break; }
+                CheckTrue(hasChipC, "（前提）费用行**真的生出 chip 格**（原版 `FillToggleList` 的等价物）");
+                if (hasChipC)
+                {
+                    var LC = FilterPanelModel.ComputeLayout(nFac);
+                    float costTop = LC.CostTop + FilterPanelModel.CostContentTop;
+                    CheckTrue(chipC.R.y1 >= costTop + 165f - 0.5f,
+                              $"★ 费用 chip 落在**行框之外**（y={chipC.R.y1:F1} ≥ 行内容底 {costTop + 165f:F1}）"
+                            + " —— 该行**无 CSF** ⇒ **溢出照抄**，⛔ 不许「修好」");
+                    CheckTrue(chipC.R.y1 < LC.TypeTop + FilterPanelModel.TypeContentTop + FilterPanelModel.TypeCellH,
+                              "…而且它压在 Type 那一行上（同一个屏幕区域）—— 原版就这样");
+                }
+                s.SetFilter(DeckFilter.None);
+                CheckTrue(true, "（收尾：清空筛选）");
+            }
+
+            // 🆕 **2026-10-25（`C` 域 · 多选筛选）**：同一类**多选 = 并集**（原版 `typeFilters` 是集合）
+            //   ⚠️ 兼容路径：集合为空时逐字走旧单值字段 —— 上面那几条就是在给这条兜底
+            //   🧨 改坏法：把 `FactionOk/RarityOk/TypeOk` 改回「只看单值」⇒ 下面两条红。
+            {
+                var allP = s.Pool;
+                var setF = new HashSet<string> { "Ultramarines", "Goff" };
+                f = DeckFilter.None; f.Factions = setF;
+                s.SetFilter(f);
+                var hitsF = new List<CardDef>(s.VisibleCards());
+                int wantF = 0; bool missF = false, extraF = false;
+                foreach (var c0 in allP)
+                {
+                    if (c0 == null) continue;
+                    bool inSet = setF.Contains(c0.Faction);
+                    bool inHits = false;
+                    for (int k = 0; k < hitsF.Count; k++) if (ReferenceEquals(hitsF[k], c0)) { inHits = true; break; }
+                    if (inSet) { wantF++; if (!inHits) missF = true; }
+                    else if (inHits) extraF = true;
+                }
+                CheckTrue(wantF > 0 && !missF, $"★ 阵营**多选**：集合里的 {wantF} 张**全在**结果里（并集那半边）"
+                    + (missF ? "｜🧨 有该阵营的卡没被选进来" : ""));
+                CheckTrue(!extraF, "★ ……而且**集合外**的阵营一张都不许混进来（`FactionOk` 的集合支）"
+                    + (extraF ? "｜🧨 混进了集合外的阵营 ⇒ 集合支没生效/写成了「全通过」" : ""));
+
+                f = DeckFilter.None; f.Rarities = new HashSet<string> { "legendary" };
+                s.SetFilter(f);
+                var hitsR = new List<CardDef>(s.VisibleCards());
+                bool badR = false; int wantR = 0;
+                foreach (var c1 in hitsR)
+                    if (c1 == null || !string.Equals(c1.Rarity ?? "", "legendary", System.StringComparison.OrdinalIgnoreCase)) { badR = true; break; }
+                foreach (var c2 in allP)
+                    if (c2 != null && string.Equals(c2.Rarity ?? "", "legendary", System.StringComparison.OrdinalIgnoreCase)) wantR++;
+                CheckTrue(wantR > 0 && !badR && hitsR.Count >= wantR,
+                          $"★ 稀有度**多选**：只留下 legendary（{wantR} 张），没有别的稀有度混进来"
+                        + (badR ? "｜🧨 混进了别的稀有度" : ""));
+
+                f = DeckFilter.None; f.Factions = setF;
+                CheckTrue(!f.IsEmpty, "★ 只设集合、单值全空 ⇒ `IsEmpty` **必须为假**（挡「集合被漏算进 IsEmpty」）");
+
+                // 🆕 2026-10-25（多选筛选 · 费用）：八档**可多选**（原版 `CardCostFilter` 也是集合）
+                //   ⚠️ 比的仍是**夹过**的费用（`ClampPoolCost`，与原版 `CardCostFilter__FilterItem` 同一条）
+                f = DeckFilter.None; f.Costs = new HashSet<int> { 1, 8 };
+                s.SetFilter(f);
+                var hitsCostSel = new List<CardDef>(s.VisibleCards());
+                int wantCostSel = 0; bool badCostSel = false, missCostSel = false;
+                foreach (var c4 in allP)
+                {
+                    if (c4 == null) continue;
+                    int cl = DeckEditorState.ClampPoolCost(c4.Cost);
+                    bool inSet = cl == 1 || cl == 8;
+                    bool inHits = false;
+                    for (int k = 0; k < hitsCostSel.Count; k++) if (ReferenceEquals(hitsCostSel[k], c4)) { inHits = true; break; }
+                    if (inSet) { wantCostSel++; if (!inHits) missCostSel = true; }
+                    else if (inHits) badCostSel = true;
+                }
+                CheckTrue(wantCostSel > 0 && !missCostSel, $"★ 费用**多选**（1 与 8+ 两档）：{wantCostSel} 张**全在**结果里"
+                    + (missCostSel ? "｜🧨 有该档的卡没进来" : ""));
+                CheckTrue(!badCostSel, "★ …而且**两档之外**的一张都不许混进来（`CostOk` 的集合支）"
+                    + (badCostSel ? "｜🧨 集合支没生效/写成了全通过" : ""));
+                f = DeckFilter.None; f.Costs = new HashSet<int> { 1, 8 };
+                CheckTrue(!f.IsEmpty, "★ 只设 `Costs` 集合 ⇒ `IsEmpty` 必须为假");
+                s.SetFilter(DeckFilter.None);
+
+                s.SetFilter(DeckFilter.None);
+                CheckTrue(s.VisibleCards().Count == s.PoolCount, "（收尾）清空筛选回到全池");
+            }
 
             f = DeckFilter.None; f.Type = "hero";
             s.SetFilter(f);
@@ -2873,6 +3030,32 @@ public static class DeckScene
             //      （`deckArmy == 0` ⇒ 原版那个字面量 **10 = Ultramarines**）；
             //   ③ ⇒ 「照原版」= **按卡组阵营换**，不是保留出厂那张。
             {
+                // 🔴 **2026-10-25（`C` 卡组编辑域）**：期望值的独立算法 —— 页头徽记现在有**两条**来源
+                //   （原版就是两条，判据见 `DeckRuntime.CheckFocusedArmy` 的 doc）：
+                //   ① 稳定态 = 这副卡组的阵营（`DeckArmyIcon`）；
+                //   ② **卡池列表滚动/刷新之后** = 固定参考矩形 `Reference Card Pointer`
+                //      （417.7,261.0→611.5,306.0）命中的**第一个**格子的阵营 —— ②**覆盖**①。
+                //   ⇒ 本函数用**几何 + 卡池状态**独立算 ②，⛔ 不从 `hdr_army` 读回来（自证）。
+                //   ⚠️ 卡片侧参考矩形**比收藏窗那颗宽**：它横向压过第 0/1 列分界（592.7）约 19px
+                //   ⇒ 同屏**可能有两格同时相交**；按原版 `OverlapsAny`（按枚举序取第一个）+ 我们
+                //   `_poolViews[0]` 恒为**最上一行**的约定 ⇒ 取可见序第一个（左上那格）。
+                static string HitPoolRefFaction(DeckRuntime rt)
+                {
+                    var lc = rt.State.VisibleCards();
+                    for (int vi = 0; vi < lc.Count; vi++)
+                    {
+                        if (!rt.UiPoolCellRect(vi, out float cx, out float cy, out float cw, out float ch)) continue;
+                        float x1 = cx - cw * 0.5f, x2 = cx + cw * 0.5f;
+                        float y1 = cy - ch * 0.5f, y2 = cy + ch * 0.5f;
+                        if (!(x1 < DeckRuntime.PoolRefR) || !(DeckRuntime.PoolRefL < x2)) continue;
+                        if (!(y1 < DeckRuntime.PoolRefB) || !(DeckRuntime.PoolRefT < y2)) continue;
+                        int ci = rt.UiPoolSlotCardIndex(vi);
+                        if (ci < 0 || ci >= lc.Count) return null;
+                        return lc[ci].Faction;
+                    }
+                    return null;     // 没有命中 ⇒ 稳定态（卡组阵营）
+                }
+
                 string wlId0 = _rt.State.Deck.WarlordId;
                 var wlDef0 = string.IsNullOrEmpty(wlId0) ? null : _rt.State.Find(wlId0);
                 // ⚠️ 期望值从**卡组状态**独立算：阵营走**现有那道** `_rt.FactionOf`（id→阵营，全工程唯一一份），
@@ -2880,12 +3063,17 @@ public static class DeckScene
                 //   ⛔ 不从 `hdr_army` 自己读回来（那就是自证）。
                 string fac0 = _rt.FactionOf(wlId0);
                 if (string.IsNullOrEmpty(fac0)) fac0 = DeckRuntime.NoArmyFaction;   // 「还没有阵营」= 原版 `deckArmy == 0` 那一档
-                string want = DeckRuntime.FactionIcon(fac0);
+                string hitFac0 = HitPoolRefFaction(_rt);                             // ② 的那一半（命中格阵营）
+                string want = DeckRuntime.FactionIcon(hitFac0 ?? fac0);
                 string wlLabel = wlDef0 != null ? (wlDef0.Name + " / " + fac0)
                                                 : (string.IsNullOrEmpty(wlId0) ? "还没选 ⇒ Ultramarines（原版 `FilterToDeck` 那个字面量 10）"
                                                                                : "查不到 `" + wlId0 + "` ⇒ 按原版那一档走");
                 Check(_rt.UiTextureName("hdr_army"), want,
-                      $"★ 页头 `hdr_army` 贴的是**卡组阵营的徽记** `{want}`（督军 = " + wlLabel + "）");
+                      $"★ 页头 `hdr_army` 贴的是 `{want}`（督军 = " + wlLabel + "；"
+                    + (hitFac0 == null
+                        ? "卡池里没有格子压在参考矩形上 ⇒ 走**稳定态** = 卡组阵营"
+                        : "卡池有格子压在参考矩形上（阵营 `" + hitFac0 + "`）⇒ 按 `CheckFocusedArmy` 取**那一格**")
+                    + "）");
                 // 🔴 **判别式（硬判据，不靠上面那条重算）**：这一格**不是**卡组图标 ——
                 //   改回 `FactionIcon(null)`（= `40k_collection_bt_decks`）⇒ 本条必红。
                 CheckTrue(_rt.UiTextureName("hdr_army") != "40k_collection_bt_decks",
@@ -2905,16 +3093,49 @@ public static class DeckScene
                 }
                 if (otherId != null)
                 {
+                    // 🔴 **2026-10-25（`C` 卡组编辑域）**：先把卡池筛空 —— 否则原版那条「跟着列表走」的
+                    //   `CheckFocusedArmy` 会把页头徽记**覆盖成命中格那一格的阵营**，换督军就看不出变化
+                    //   （那是**原版行为**，不是缺陷；判据见 `DeckRuntime.CheckFocusedArmy` 的 doc）。
+                    //   筛空之后池子一格都不显示 ⇒ `UiPoolCellRect` 全 false ⇒ 只剩稳定态那条链。
+                    var savedFilter = _rt.State.Filter;
+                    var noneFilter = DeckFilter.None;
+                    noneFilter.Name = "zzz_no_such_card_zzz";
+                    _rt.State.SetFilter(noneFilter);
+                    _rt.RefreshAll();
                     _rt.State.Deck.WarlordId = otherId;
                     _rt.RefreshAll();
                     Check(_rt.UiTextureName("hdr_army"), DeckRuntime.FactionIcon(otherFac),
                           $"★ 换成 `{otherFac}` 的督军 ⇒ `hdr_army` 跟着换成 **`{DeckRuntime.FactionIcon(otherFac)}`**"
-                        + "（原版 `FilterToDeck` 就是拿 `EditingDeck.deckArmy` 喂 `WildcardDisplay.Initialize`）");
+                        + "（原版 `FilterToDeck` 就是拿 `EditingDeck.deckArmy` 喂 `WildcardDisplay.Initialize`；"
+                        + "本条已把卡池筛空，免得被「跟着列表走」那条按原版覆盖掉）");
                     _rt.State.Deck.WarlordId = string.IsNullOrEmpty(wlId0) ? null : wlId0;
+                    _rt.State.SetFilter(savedFilter);
                     _rt.RefreshAll();
                     Check(_rt.State.Deck.WarlordId, wlId0, "（把督军原样放回 —— 后面的断言仍按原状态跑）");
                 }
                 else CheckTrue(true, "（本池子里只有一个阵营的督军 ⇒ 跳过「换阵营跟着换图」那一条）");
+
+                // ---- 🆕 2026-10-25（`C` 卡组编辑域）：**卡池滚动 ⇒ 页头徽记跟着换**
+                //   原版 `DeckEditorCollectionDisplay.OnListDrag → CheckFocusedArmy`（判据 → `DeckRuntime.CheckFocusedArmy`）。
+                //   🧨 改坏法 ①：把这个调用删掉（只剩 `DeckArmyIcon` 稳定态）⇒ 本条「滚到底」的期望对不上；
+                //   ② 命中序改成「取最后一格」⇒ 边界那一格对不上。
+                {
+                    float savedScroll = _rt.PoolScrollPx;
+                    _rt.UiScrollPool(1e9f);                     // 滚到底（RefreshPool 内部夹到 maxScroll）
+                    string hitEnd = HitPoolRefFaction(_rt);
+                    CheckTrue(hitEnd != null, "（前提）滚到底之后参考矩形仍压住一格（视口首行 156→540 与 261→306 相交）");
+                    if (hitEnd != null)
+                    {
+                        Check(_rt.UiTextureName("hdr_army"), DeckRuntime.FactionIcon(hitEnd),
+                              $"★ **滚到底**之后页头徽记 = 参考矩形命中的那一格（阵营 `{hitEnd}`）"
+                            + "｜🧨 徽记若停在卡组阵营/上一格 ⇒ 红（原版 `CheckFocusedArmy` 就是按列表位置换的）");
+                        CheckTrue(hitFac0 == null || hitFac0 != hitEnd,
+                                  "★ 这一滚的两格阵营**确实不同**（否则上一条分不清「跟着列表」与「一直没变」；"
+                                + "实测 池子按阵营升序 ⇒ 顶端是 Ultramarines、末端是 SpaceWolves）");
+                    }
+                    _rt.UiScrollPool(-1e9f);                    // 还原到顶
+                    CheckTrue(Mathf.Abs(_rt.PoolScrollPx) < 0.5f, "（把卡池滚动量放回 0）");
+                }
 
                 // ---- 🔴 2026-10-21（`A1145`）：给那 13 条映射补一条【独立腿】----
                 // 上面三条的期望值都取自 `DeckRuntime.FactionIcon` **自己** ⇒ 它们只证明
@@ -4772,7 +4993,7 @@ public static class DeckScene
                 }
 
                 int rows = 0, showN = 0, hideN = 0;
-                string badCost = null, badX = null, badHide = null;
+                string badCostPost = null, badX = null, badHide = null;
                 string badCntVis = null;               // 🆕 2026-10-21：`row_cnt*` 的**可见性**反例（原来整片空白）
                 for (int i = 0; i < 11; i++)            // 只查前 11 行（一屏现在是 12 行 —— 第 12 槽单独在
                                                         // `A1727` 那一节里断；⛔ 别把这里也写成 12：
@@ -4785,8 +5006,8 @@ public static class DeckScene
                     int n = (d.Type == "hero" || d.Type == "defence") ? 1 : state.Deck.CountOf(d.Id);
                     // ---- ① 费用圆里那个数 ----
                     string costTxt = _rt.UiLabelText("row_cnt" + i);
-                    if (costTxt != d.Cost.ToString() && badCost == null)
-                        badCost = "第 " + i + " 行「" + CardText.Name(d.Name, d.NameZh) + "」左圆印的是「"
+                    if (costTxt != d.Cost.ToString() && badCostPost == null)
+                        badCostPost = "第 " + i + " 行「" + CardText.Name(d.Name, d.NameZh) + "」左圆印的是「"
                                 + costTxt + "」，而它的 `Cost` = **" + d.Cost + "**（份数 = " + n + "）";
                     // ⚠️ **2026-10-21 补（铁律 5·b）**：上一条**只验文案** ——
                     //   `Deck/DeckRuntime.cs` 的 `UiLabelText` **不看 `activeSelf`**
@@ -4821,9 +5042,9 @@ public static class DeckScene
                     }
                 }
                 CheckTrue(rows >= 3, "（前提）一屏里量到了 " + rows + " 行（至少要 3 行才有鉴别力）");
-                CheckTrue(badCost == null,
+                CheckTrue(badCostPost == null,
                           "★ ① 卡组行左圆里那个数 = 该卡的 `Cost`（**每一行**都对）"
-                        + (badCost == null ? "；⛔ 不是份数" : "；反例：**" + badCost + "**"));
+                        + (badCostPost == null ? "；⛔ 不是份数" : "；反例：**" + badCostPost + "**"));
                 CheckTrue(badCntVis == null,
                           "★ ①b 每一行 `row_cnt*` 的**可见性** = 「这一行不是督军行」"
                         + "（督军行不印费用圆、也不印圆里那个数）"

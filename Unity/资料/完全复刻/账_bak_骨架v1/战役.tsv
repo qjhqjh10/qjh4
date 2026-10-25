@@ -1,0 +1,106 @@
+域	原版类	方法	判据出处	判据要点	状态	我们的落点	差异	等级	轮次	备注
+战役	ArmySelector	ClearListeners()	ArmySelector.cs:200		E					
+战役	ArmySelector	FocusOnArmy(ArmyItemContainer armyItemContainer)	ArmySelector.cs:519		E					
+战役	ArmySelector	Initialize(IEnumerable<CardArmy> armies, CardArmy selectedArmy, ArmySelectorType parent)	ArmySelector.cs:215		E					
+战役	ArmySelector	OnDestroy()	ArmySelector.cs:577		E					
+战役	ArmySelector	Refresh()	ArmySelector.cs:592		E					
+战役	ArmySelector	SelectArmy(CardArmy army)	ArmySelector.cs:565		E					
+战役	ArmySelector	ToggleAllowClickWhenAlreadySelected(bool option)	ArmySelector.cs:534		E					
+战役	ArmySelector	ToggleArmyInteractable(CardArmy army, bool interactable, bool allArmies)	ArmySelector.cs:464		E					
+战役	BattleArenaByArmySO	GetBattleArena(CardArmy army)	BattleArenaByArmySO.cs:26		E					
+战役	BattleArenaByArmySO	TryGetBattleArenaName(CardArmy targetCardArmy, out string arenaName)	BattleArenaByArmySO.cs:13		E					
+战役	CampaignArmyUIDecorator	CheckFillColor()	CampaignArmyUIDecorator.cs:87		E					
+战役	CampaignArmyUIDecorator	OnObjectUpdated(ArmyItemContainer armyContainer)	CampaignArmyUIDecorator.cs:61		E					
+战役	CampaignArmyUIDecorator	Start()	CampaignArmyUIDecorator.cs:23		E					
+战役	CampaignHeaderDisplay	ClickPremiumButton()	CampaignHeaderDisplay.cs:60		E					
+战役	CampaignHeaderDisplay	Initialize(Campaign campaign)	CampaignHeaderDisplay.cs:78		E					
+战役	CampaignHeaderDisplay	OnDisable()	CampaignHeaderDisplay.cs:38		E					
+战役	CampaignHeaderDisplay	OnEnable()	CampaignHeaderDisplay.cs:31		E					
+战役	CampaignNode	Collect(RewardTier tier)	CampaignNode.cs:354		E					
+战役	CampaignNode	Connect(CampaignNode[] nodes)	CampaignNode.cs:240		E					
+战役	CampaignNode	OnClick()	CampaignNode.cs:345		E					
+战役	CampaignNode	SetLineColors(Color lineColor)	CampaignNode.cs:520		E					
+战役	CampaignNode	SetNodeStyle()	CampaignNode.cs:402		E					
+战役	CampaignNode	Setup(CampaignNodeInfo node, NodeState state, Campaign campaign)	CampaignNode.cs:177		E					
+战役	CampaignNode	Unlock()	CampaignNode.cs:393		E					
+战役	CampaignNodeData	GetValue(NodePort port)	CampaignNodeData.cs:33		E					
+战役	CampaignNodeData	Init()	CampaignNodeData.cs:21		E					
+战役	CampaignNodeData	OnCreateConnection(NodePort from, NodePort to)	CampaignNodeData.cs:38		E					
+战役	CampaignNodeData	OnRemoveConnection(NodePort port)	CampaignNodeData.cs:117		E					
+战役	CampaignNodeData	RefreshConnections()	CampaignNodeData.cs:123		E					
+战役	CampaignNodeData	SetNextNode(CampaignNodeData nextNode)	CampaignNodeData.cs:105		E					
+战役	CampaignPointDrawer	Draw(CampaignPoints item, int quantity)	CampaignPointDrawer.cs:13		E					
+战役	CampaignPointDrawer	DrawForArmy(CardArmy army)	CampaignPointDrawer.cs:26		E					
+战役	CampaignPointDrawer	GetItemName(CampaignPoints item)	CampaignPointDrawer.cs:19		E					
+战役	CampaignPoints	GetIcon(IconSize size)	CampaignPoints.cs:46		E					
+战役	CampaignRewardsWindow	CenterHolder(RectTransform holder)	CampaignRewardsWindow.cs:291		E					
+战役	CampaignRewardsWindow	ConfigureIsPreviewState(bool isPreview)	CampaignRewardsWindow.cs:277		E					
+战役	CampaignRewardsWindow	ESCPressed()	CampaignRewardsWindow.cs:286		E					
+战役	CampaignRewardsWindow	OnDisable()	CampaignRewardsWindow.cs:123		E					
+战役	CampaignRewardsWindow	OnEnable()	CampaignRewardsWindow.cs:113		E					
+战役	CampaignRewardsWindow	Open()	CampaignRewardsWindow.cs:133		E					
+战役	CampaignRewardsWindow	SetBaseButton()	CampaignRewardsWindow.cs:312		E					
+战役	CampaignRewardsWindow	SetPremiumButton()	CampaignRewardsWindow.cs:550		E					
+战役	CampaignRewardsWindow	UnlockClicked(RewardTier tier)	CampaignRewardsWindow.cs:774		E					
+战役	CampaignRewardsWindow	_003CSetBaseButton_003Eb__21_0()	CampaignRewardsWindow.cs:784		E					
+战役	CampaignRewardsWindow	_003CSetBaseButton_003Eb__21_1()	CampaignRewardsWindow.cs:794		E					
+战役	CampaignRewardsWindow	_003CSetPremiumButton_003Eb__22_0()	CampaignRewardsWindow.cs:804		E					
+战役	CampaignTrack	CalculateRatio(List<CampaignNodeInfo> nodes, Vector2 offset)	CampaignTrack.cs:921		E					
+战役	CampaignTrack	ClearTrack()	CampaignTrack.cs:796		E					
+战役	CampaignTrack	ConnectNodes()	CampaignTrack.cs:731		E					
+战役	CampaignTrack	GetNode(int index)	CampaignTrack.cs:865		E					
+战役	CampaignTrack	GetNode(string nodeId)	CampaignTrack.cs:834		E					
+战役	CampaignTrack	GetNodePosition(CampaignNodeInfo data, Vector2 offset, float ratio)	CampaignTrack.cs:978		E					
+战役	CampaignTrack	GetNodeState(CampaignNodeInfo nodeData, List<CampaignNodeInfo> collectedNodes, List<CampaignNodeInfo> premiumCollectedNodes)	CampaignTrack.cs:634		E					
+战役	CampaignTrack	GetNodesOffset(List<CampaignNodeInfo> nodes)	CampaignTrack.cs:874		E					
+战役	CampaignTrack	Initialize(Campaign campaign)	CampaignTrack.cs:268		E					
+战役	CampaignTrack	SetTrackSize()	CampaignTrack.cs:990		E					
+战役	CampaignUIBackground	Close()	CampaignUIBackground.cs:68		E					
+战役	CampaignUIBackground	Initialize(Campaign campaign)	CampaignUIBackground.cs:23		E					
+战役	CampaignUIBackground	LoadImage(Campaign campaign)	CampaignUIBackground.cs:42		E					
+战役	CampaignUIBackground	Update()	CampaignUIBackground.cs:86		E					
+战役	CampaignUnlockButton	OnClick()	CampaignUnlockButton.cs:62		E					
+战役	CampaignUnlockButton	OnDisable()	CampaignUnlockButton.cs:55		E					
+战役	CampaignUnlockButton	OnEnable()	CampaignUnlockButton.cs:48		E					
+战役	CampaignUnlockButton	SetAsClaimed()	CampaignUnlockButton.cs:92		E					
+战役	CampaignUnlockButton	SetAsFreeClaim(bool canUnlock)	CampaignUnlockButton.cs:82		E					
+战役	CampaignUnlockButton	SetUnlockCost(int pointCost, CardArmy army, bool canUnlock)	CampaignUnlockButton.cs:72		E					
+战役	CampaignUnlockButton	ToggleTexts(bool state)	CampaignUnlockButton.cs:102		E					
+战役	CampaignWindowTab	ChangeArmy(CardArmy army)	CampaignWindowTab.cs:600		E					
+战役	CampaignWindowTab	ClickChangeArmy(CardArmy army)	CampaignWindowTab.cs:583		E					
+战役	CampaignWindowTab	GetTutorialTrackArmyNode(int index)	CampaignWindowTab.cs:413		E					
+战役	CampaignWindowTab	LockArmySelectorByArmy(CardArmy selectedArmy)	CampaignWindowTab.cs:395		E					
+战役	CampaignWindowTab	OnClose()	CampaignWindowTab.cs:493		E					
+战役	CampaignWindowTab	OnNodeClicked(CampaignNode node)	CampaignWindowTab.cs:676		E					
+战役	CampaignWindowTab	OnOpen()	CampaignWindowTab.cs:189		E					
+战役	CampaignWindowTab	OnSetup()	CampaignWindowTab.cs:175		E					
+战役	CampaignWindowTab	SetActiveCampaign(Campaign campaign)	CampaignWindowTab.cs:634		E					
+战役	CampaignWindowTab	SetFirstTutorialTrackArmyNodeDone()	CampaignWindowTab.cs:454		E					
+战役	CampaignWindowTab	ToFocus()	CampaignWindowTab.cs:400		E					
+战役	CampaignWindowTab	ToggleChooseArmyText(bool state)	CampaignWindowTab.cs:389		E					
+战役	CampaignWindowTab	TryCollect(CampaignNode node, RewardTier tier)	CampaignWindowTab.cs:765		E					
+战役	CompleteCampaign	OnInitialize()	CompleteCampaign.cs:42		E					
+战役	CompleteCampaign	OnReset()	CompleteCampaign.cs:110		E					
+战役	CompleteCampaign	OnTrigger(CompleteCampaignSignal obj)	CompleteCampaign.cs:116		E					
+战役	CompleteCampaign	_003COnInitialize_003Eb__3_0(Campaign x)	CompleteCampaign.cs:135		E					
+战役	PlayerTimedCampaignData	CopyDataFromTempCampaign(PlayerTimedCampaignData tempData)	PlayerTimedCampaignData.cs:213		E					
+战役	RankedDeckSelector	ChangeArmy(CardArmy newSelectedArmy)	RankedDeckSelector.cs:269		E					
+战役	RankedDeckSelector	ChangeDeck(CardDeck cardDeck, CardArmy? army)	RankedDeckSelector.cs:543		E					
+战役	RankedDeckSelector	Initialize(IPlayEvent rankedEvent)	RankedDeckSelector.cs:260		E					
+战役	RankedDeckSelector	OnCreateDeckButtonClick()	RankedDeckSelector.cs:506		E					
+战役	RankedDeckSelector	OnDisable()	RankedDeckSelector.cs:238		E					
+战役	RankedDeckSelector	OnEnable()	RankedDeckSelector.cs:222		E					
+战役	RankedDeckSelector	OnGoToStoreButtonClick()	RankedDeckSelector.cs:526		E					
+战役	RankedDeckSelector	OnNextDeckButtonClick()	RankedDeckSelector.cs:445		E					
+战役	RankedDeckSelector	OnPreviousDeckButtonClick()	RankedDeckSelector.cs:429		E					
+战役	RankedDeckSelector	OnSelectDeckButtonClick()	RankedDeckSelector.cs:464		E					
+战役	RankedDeckSelector	OnViewDeckButtonClick()	RankedDeckSelector.cs:494		E					
+战役	RankedDeckSelector	_003CChangeDeck_003Eb__36_0(IItemInfo<RawCardScript> c)	RankedDeckSelector.cs:725		E					
+战役	RankedDeckSelector	_003COnSelectDeckButtonClick_003Eb__32_0(CardDeck d)	RankedDeckSelector.cs:705		E					
+战役	RankedDeckSelector	_003COnSelectDeckButtonClick_003Eb__32_1(CardDeck d)	RankedDeckSelector.cs:711		E					
+战役	ScriptedActionCampaignData	GetBundledSound(string soundName, AssetBundleManager bundlesManager)	ScriptedActionCampaignData.cs:59		E					
+战役	ScriptedActionCampaignData	GetLocalizedText()	ScriptedActionCampaignData.cs:24		E					
+战役	ScriptedActionCampaignData	GetSoundAsset(AssetBundleManager bundlesManager)	ScriptedActionCampaignData.cs:39		E					
+战役	ScriptedActionCampaignData	GetTextReference()	ScriptedActionCampaignData.cs:34		E					
+战役	TimedCampaignMainData	GetMenuBGImage(AssetBundleManager bundlesManager)	TimedCampaignMainData.cs:367		E					
+战役	TimedCampaignMainData	GetWarlordPathWithId(string heroId)	TimedCampaignMainData.cs:412		E					

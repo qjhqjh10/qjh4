@@ -69,6 +69,18 @@ public static class CardFaceProbe
         //    并排比出来的问题：我们把「文字底板」做成了下半截一块**不透明白/黑板**，而 PnP 是
         //    **立绘铺满整张卡、文字直接压在立绘上**。见 `资料/PnP卡图_逐张对账_0915.md` 与本次的更正。
         "Howling Banshee Exarch",// `ASH69`
+        // ── 🆕 2026-10-25（`E` 卡牌面/渲染域 · 完全复刻 R1 的「3 张并排比」清单）──
+        //    这三张一组覆盖三种卡型 + 三个阵营 + 三种稀有度宝石 + 「护甲 0 不印」那一档：
+        //      · `ASH69`（上面那张）= 单位 · epic 紫宝石 · 攻6/远3/甲0(不印)/血6 · 关键词段 3 枚图标
+        //      · `DA17`  = 单位 · common 浅蓝宝石 · 攻3/远3/甲1(印盾)/血4 · `Armour 1.`+`Teleport:` 两枚图标
+        //      · `TAU46` = **战术卡**（大文字区 + 卡框变体）· rare 绿宝石 · 底部「兵种行」= `Invocation`
+        //    PnP 成品图：`d:/2/Warpforge部队卡片/{Aeldari/3部队/Warpforge_06_Howling-Banshee-Exarch.png,
+        //   Dark Angels/3部队/Warpforge_20_Deathwing-Terminator.png, Tau/4计策/Warpforge_52_Sense-of-Stone.png}`
+        //    ⚠️ 只当**内容**的尺子（卡名/费用/攻血甲/效果文字/图标/兵种行）；版式与显隐按代码/预制体判。
+        //    ⛔ 别拿 PnP 上那行**阵营/子阵营**（`Saim-Hann` / `Dark Angels` / `T'au Empire`）当差异 ——
+        //       数字版**不印**那一行（`CardTextsController.SetTexts` 的 army 实参恒为空串）。
+        "Deathwing Terminator",  // `DA17`
+        "Sense of Stone",        // `TAU46`
         // ── 2026-09-21 加：**卡面「关键词段」带图标**的验收尺子（铁律 10 第 6 条）。
         //    这张卡的 `desc` 是 `Rally: Stun an enemy` —— **`Waystone` / `Flank` 两个字在正文里
         //    一个字都没有**，它们只能从「关键词段」那一条路印出来。PnP 成品卡面印的是
@@ -936,6 +948,12 @@ public static class CardFaceProbe
         //  `CardPrefab/2DCard/Front/Card Info/{Melee,Range} Attack Container/*Attack Text` 等四件
         CheckFaceStatTexts(pool);
 
+        // ---------------------------------------------------------------- K4 · 数值颜色 = 原版 DoColorChange
+        //  判据（一手）→ `CardView.StatColorVsBase` 的 doc：9 参 `SetText` 的指令流（VA 0x18060C180）把
+        //  `currentValue` / `baseValue` 传给 `DoColorChange` ⇒ **当前 vs 基准**的**持续色**；
+        //  且每个数值 counter 的 `textsToSet` 有 2D + 3D 两件（两套载体一起涂 / 一起 bump）。
+        CheckStatColorsVsBase(pool);
+
         // ---------------------------------------------------------------- CF-6 · 手牌文字档（原版 9 态里的 5–8）
         //  判据（一手）→ `BasicCardUI__SetCardTextInHand.c` + `CardTextsController__ToggleSimplifiedView.c`
         //  + prefab `Name and description` 子树（四个 Big 变体）
@@ -1263,9 +1281,13 @@ public static class CardFaceProbe
 
             // ---- ⑥ 负例：这四件**不挂**攻击类型高亮（原版只有场上有那一档）------------------
             {
+                // 🔴 2026-10-25（`K4`）：先把**数值 bump**（`BumpStat` 的 `DOPunchScale`，0.45 s）跑完 ——
+                //    上面 ④ 改过值 ⇒ 那条补间可能还在飞，量到的 `localScale` 会是中途值（假红）。
+                //    DOPunchScale 走完会回到基准（1），所以「跑完再量」不影响本条的判别力。
+                CardTween.Advance(1f);
                 float before = hv.FaceStatRect(CardView.StatMelee).localScale.x;
                 hv.SetOwnAttackType(AttackTypes.Melee);
-                CardTween.Advance(0.2f);                 // 若真有人把它接上高亮，这里会把它推到 ×1.35
+                CardTween.Advance(1f);                   // 若真有人把它接上高亮，这里会把它推到 ×1.35
                 float after = hv.FaceStatRect(CardView.StatMelee).localScale.x;
                 Check(Mathf.Abs(before - 1f) < 1e-4f && Mathf.Abs(after - 1f) < 1e-4f,
                       "CF-3 负例：`SetOwnAttackType(Melee)` **不动**手牌这四个 TMP（`localScale` 仍是 1）"
@@ -1315,6 +1337,165 @@ public static class CardFaceProbe
         catch (System.Exception e)
         {
             Check(false, $"CF-3 2D 数值 TMP 这一段抛异常 ⇒ **没跑完，别读成通过**：{e.GetType().Name}: {e.Message}");
+        }
+        finally
+        {
+            Object.DestroyImmediate(rootHand);
+            Object.DestroyImmediate(rootBoard);
+        }
+    }
+
+    // ==================================================================
+    //  K4（2026-10-25）：数值颜色 = 原版 `CardTextCountersController.DoColorChange(currentValue, baseValue)`
+    //
+    //  判据（一手，逐句读过）：
+    //   · `d:/2/tools/decomp_full/CardTextCountersController__DoColorChange.c`：
+    //       `param_2 == param_3` ⇒ 刷回 `originalColors[i]`（白）；
+    //       否则按 `statIncreaseIsPositiveToThePlayer` 取 `CardTextCountersColorsSO`
+    //       （`+0x18 statIncreaseColor` = **(0,1,0)** · `+0x28 statDecrease` = **(0.9725,0.306,0.353)**）。
+    //   · 9 参 `SetText` 的**指令流**（VA `0x18060C180`，2026-10-25 用 `工具/disasm_va.py` 现读）：
+    //       `mov ebx,r9d`(= baseValue) · `mov edi,r8d`(= currentValue) ·
+    //       `call DoColorChange(this, edx=currentValue, r8d=baseValue)`
+    //       ⇒ **比的是「当前 vs 基准」**（持续态），不是「新 vs 旧」。
+    //   · 同一个 `SetText` 对**每个** `textsToSet` 都 `set_text` + 复位 `localScale` + `DOPunchScale`
+    //       ⇒ 2D 卡面那件（`m_fontSize 0.34`）与 3D 卡体那件（`m_fontSize 7/8`，带 `highlightAttackType`）
+    //         **一起涂色、一起 bump**（`bundle_battleprefabs_vfxandmisc_assets_all` 的五份 counter JSON：
+    //         四个数值各 `textsToSet.Length == 2`、**费用只有 1 件**）。
+    //   · 极性：四个数值 counter `statIncreaseIsPositiveToThePlayer = 1`；**费用 = 0**（越低越好）。
+    //
+    //  🧨 改坏法（每条都能红）：
+    //   · 把 `StatColorVsBase` 的费用极性去掉（`s != StatCost` 改成恒真）⇒ ①·d / ①·e 红；
+    //   · 把「当前 vs 基准」退回「新 vs 旧」⇒ ③ 红（同值再刷一次会变白，原版仍是落色）；
+    //   · 去掉 `CaptureStatChanges` 的 `sameCard` 门 ⇒ ⑥ 红（换卡也 bump）；
+    //   · 删掉 `BumpStat` 里 2D 那一支（只留 `_stats`）⇒ ⑤ 红；
+    //   · 把 `FaceStatInk` 里的 `_statFlash[s]` 去掉 ⇒ ② 红（TMP 颜色永远是白）。
+    // ==================================================================
+    static void CheckStatColorsVsBase(List<CardDef> pool)
+    {
+        // ---- ① 极性表（纯函数；不依赖字体/贴图，任何机器都跑得到）-------------------
+        var up = CardFeel.StatUpColor;
+        var down = CardFeel.StatDownColor;
+        int H = CardView.StatHealth, M = CardView.StatMelee, C = CardView.StatCost;
+        Check(CardView.StatColorVsBase(H, 3, 5) == down,
+              "K4 ①·a 生命 **当前 3 / 基准 5** ⇒ 落色（原版 `DoColorChange(3,5)`，`statIncreaseIsPositiveToThePlayer = 1`）");
+        Check(CardView.StatColorVsBase(H, 6, 5) == up,
+              "K4 ①·b 生命 **当前 6 / 基准 5** ⇒ 涨色（被 buff 到基准之上）");
+        Check(CardView.StatColorVsBase(H, 5, 5) == Color.white,
+              "K4 ①·c 回到基准 ⇒ **白**（`DoColorChange` 的 `param_2 == param_3` 那一支取 `originalColors`）");
+        Check(CardView.StatColorVsBase(M, 4, 3) == up && CardView.StatColorVsBase(M, 2, 3) == down,
+              "K4 ①·d 近战同极性：4/3 ⇒ 涨色、2/3 ⇒ 落色");
+        Check(CardView.StatColorVsBase(C, 2, 3) == up,
+              "K4 ①·e **费用极性相反**：当前 2 / 基准 3（变便宜）⇒ **涨色**"
+            + "（费用那个 counter 的 `statIncreaseIsPositiveToThePlayer = 0`，"
+            + "实测 `MonoBehaviour_6320885271709195200.json`）｜🧨 去掉 `s != StatCost` 那一条 ⇒ 红");
+        Check(CardView.StatColorVsBase(C, 4, 3) == down,
+              "K4 ①·f 费用 4/3（变贵）⇒ 落色（与 ①·e 是同一判据的两侧）");
+
+        var def = FindByName(pool, "Heavy Intercessor");
+        if (def == null)
+        {
+            Debug.LogError("[cardface-chk] 卡池里没有 `Heavy Intercessor` ⇒ K4 的载体那几条"
+                         + "**没验到**（别读成通过）");
+            return;
+        }
+        var data = BattleDriver.ToCardData(def, def.Faction);
+        data.statBasesKnown = true;                       // 基准已知 ⇒ 走原版那条持续色
+        data.baseMelee = data.melee;
+        data.baseRanged = data.ranged;
+        data.baseArmour = data.armor;
+        data.baseHealth = data.health;
+        data.baseCost = data.cost;
+
+        var rootHand = new GameObject("chk_k4_hand");
+        var rootBoard = new GameObject("chk_k4_board");
+        try
+        {
+            var hv = CardView.Create(rootHand.transform, data, "chk_k4_hand_card", CardFace.Hand);
+            if (hv.FaceStatText(CardView.StatMelee) == null)
+            {
+                Debug.LogError("[cardface-chk] K4 前提：手牌档的数值 TMP 没建出来（字体资产取不到）"
+                             + " ⇒ 载体那几条**没验到**（别读成通过）");
+                return;
+            }
+
+            // ---- ② 持续色落在**2D 载体**上（顶点色），且颜色就是那两色 --------------
+            var dmg = data;
+            dmg.health = Mathf.Max(1, data.baseHealth - 2);        // 当前 < 基准
+            hv.SetData(dmg);
+            var tH = hv.FaceStatText(CardView.StatHealth);
+            Check(hv.StatFlash(H) == down,
+                  "K4 ②·a 受伤后 `StatFlash(生命)` = 落色（原版 `DoColorChange(current, base)`）");
+            Check(Mathf.Abs(tH.color.r - down.r) < 0.01f && Mathf.Abs(tH.color.g - down.g) < 0.01f
+                  && Mathf.Abs(tH.color.b - down.b) < 0.01f,
+                  $"K4 ②·b 那个数**真的被涂成落色**（TMP 顶点色 = ({tH.color.r:F3},{tH.color.g:F3},{tH.color.b:F3})，"
+                + $"期望 ({down.r:F3},{down.g:F3},{down.b:F3})）"
+                + "｜🧨 把 `FaceStatInk` 里的 `_statFlash[s]` 去掉 ⇒ 永远是白 ⇒ 红");
+
+            // ---- ③ **持续**态：同值再刷一次**仍是落色**（旧的「新 vs 旧」近似会刷回白）----
+            hv.SetData(dmg);
+            Check(hv.StatFlash(H) == down && hv.FaceStatText(CardView.StatHealth).color.r > 0.9f
+                  && hv.FaceStatText(CardView.StatHealth).color.g < 0.5f,
+                  "K4 ③ ★同值再刷一次**仍然是落色**（原版比「当前 vs 基准」⇒ 伤着就一直红；"
+                + "2026-09-29 那套「新 vs 旧」会把它刷回白）｜🧨 退回「新 vs 旧」⇒ 红");
+
+            // ---- ④ 回到基准 ⇒ 白；攻击被 buff ⇒ 涨色 --------------------------------
+            var healed = dmg;
+            healed.health = healed.baseHealth;
+            hv.SetData(healed);
+            Check(hv.StatFlash(H) == Color.white
+                  && hv.FaceStatText(CardView.StatHealth).color.r > 0.99f,
+                  "K4 ④·a 治满（当前 == 基准）⇒ **回白**（`DoColorChange` 的第一支）");
+            var buff = healed;
+            buff.melee = buff.baseMelee + 2;
+            hv.SetData(buff);
+            Check(hv.StatFlash(M) == up && hv.FaceStatText(CardView.StatMelee).color.g > 0.99f
+                  && hv.FaceStatText(CardView.StatMelee).color.r < 0.05f,
+                  "K4 ④·b 近战被 buff 到基准之上 ⇒ 那一格**变涨色**（绿），其余格不变");
+
+            // ---- ⑤ 两套载体都 bump：**2D 那件也播一次** -----------------------------
+            int b0 = hv.StatBumps;
+            var hurt = buff;
+            hurt.health = Mathf.Max(1, buff.baseHealth - 1);
+            hv.SetData(hurt);
+            Check(hv.StatBumps == b0 + 1,
+                  $"K4 ⑤ 手牌档（2D TMP 载体）的数值变化**也 bump 一次**（实测 {b0} → {hv.StatBumps}；"
+                + "原版 `SetText` 对每个 `textsToSet` 都 `DOPunchScale`，手牌那张 2D 卡上就有那四件）"
+                + "｜🧨 删掉 `BumpStat` 里 2D 那一支 ⇒ 红");
+            CardTween.Advance(1f);                                  // 让那条 punch 跑完（回到基准 scale）
+
+            // ---- ⑥ 灭自证：**换卡（id 变了）不算「值变了」** ⇒ 不 bump --------------
+            int b1 = hv.StatBumps;
+            var other = hurt;
+            other.id = hurt.id + "_another_card";
+            other.health = Mathf.Max(1, hurt.health - 1);
+            hv.SetData(other);
+            Check(hv.StatBumps == b1,
+                  "K4 ⑥ ★灭自证：同一个视图**换一张卡**（`id` 变了，数值也不同）⇒ **不 bump**"
+                + "（卡池/卡组列表复用视图时，否则每换一格都弹一下）"
+                + $"（实测 {b1} → {hv.StatBumps}）｜🧨 去掉 `sameCard` 门 ⇒ 红");
+
+            // ---- ⑦ 场上那套网格层同样按「当前 vs 基准」涂（建出来就已经是红的）------
+            var bv = CardView.Create(rootBoard.transform, dmg, "chk_k4_board_card", CardFace.Board);
+            Check(bv.StatFlash(H) == down,
+                  "K4 ⑦·a 场上那张**建出来就已经是落色**（原版 `CardScript.UpdateHealthText` 建完就带 "
+                + "`doColorChange = 1` 刷一遍；我们 `Build` 也调 `CaptureStatChanges`）");
+            if (bv.StatShown(CardView.StatHealth) < 0)
+            {
+                Debug.LogWarning("[cardface-chk] K4 ⑦·b **没验到**：场上数值层没建出来"
+                               + "（`PragatiDigits` 字形表不可用）—— 别读成通过");
+            }
+            else
+            {
+                var c = bv.StatLayerColor(CardView.StatHealth);
+                Check(Mathf.Abs(c.r - down.r) < 0.02f && Mathf.Abs(c.g - down.g) < 0.02f
+                      && Mathf.Abs(c.b - down.b) < 0.02f,
+                      $"K4 ⑦·b 场上生命那一层材质色 = 落色（实测 ({c.r:F3},{c.g:F3},{c.b:F3})；"
+                    + $"期望 ({down.r:F3},{down.g:F3},{down.b:F3})）—— 2D/3D 两套载体同一判据");
+            }
+        }
+        catch (System.Exception e)
+        {
+            Check(false, $"K4 数值颜色这一段抛异常 ⇒ **没跑完，别读成通过**：{e.GetType().Name}: {e.Message}");
         }
         finally
         {

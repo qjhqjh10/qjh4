@@ -105,6 +105,9 @@ namespace CardPresentation
         /// <summary>建过几串 / 跳过了几串（诊断用；自检盯它）。</summary>
         public static int BuiltCount { get; private set; }
         public static int SkippedCount { get; private set; }
+        /// <summary>🆕 2026-10-25（`P6`）：`useCallback` 那条 `InsertCallback` 插过几次（诊断用）。
+        /// ⚠️ 当前数据下应为 **0**（74 份 SO 的 `useCallBack` 全是 0）—— 变正数说明换了一批数据。</summary>
+        public static int CallbackInserted { get; private set; }
         public static string LastSkip { get; private set; }
 
         /// <summary>🆕 **「取督军」解析口**（原版 `GetTargetUnit` 的 40/50 两档要「取某方的督军」，
@@ -168,8 +171,20 @@ namespace CardPresentation
         // ==================================================================
 
         /// <summary>把一串补间建成 DOTween `Sequence`。**判据 = `UnitTweenSO.BuildSequence`**（见文件头）。
-        /// 返回 null = 这一串**一条都没建出来**（调用方出声）。</summary>
-        public static Sequence Build(UnitTweenEntry e, Transform source, Transform target, string why = null)
+        /// 返回 null = 这一串**一条都没建出来**（调用方出声）。
+        /// <para>🆕 **2026-10-25（`P6`）：补上 `useCallBack` 那一支** —— 原版方法体末尾
+        /// （`cpp2il/UnitTweenSO.cs:287-298`）逐句：
+        /// <c>if (useCallBack) { TweenCallback cb = () =&gt; onSequenceSignal?.Invoke();
+        /// sequence.InsertCallback(callBackTime, cb); }</c>。
+        /// ⇒ 这里同序：**整串建完之后**（`built == 0` 那一档已经提前返回 null，不建无意义的时间轴），
+        /// `e.useCallback != 0` 就把 <paramref name="onSequenceSignal"/> 插到 `e.callbackTime` 那一拍上。
+        /// ⚠️ <paramref name="onSequenceSignal"/> 为 null 时照原版是**空操作**（`?.Invoke()`），
+        /// 回调照样插（原版也插）。</para>
+        /// <para>🔴 **当前数据下不会触发**（不是没做）：74 份 `UnitTweenSO` 里 `useCallBack` **全 0**
+        /// （`数据/游戏数据/tween/*.json` 现读：53 份显式 `"useCallBack": 0`、其余 21 份连字段都没有
+        /// = Unity 默认 false）—— 见账 `特效动画` 那条的备注（调用点清单也在那里）。</para></summary>
+        public static Sequence Build(UnitTweenEntry e, Transform source, Transform target, string why = null,
+                                    Action onSequenceSignal = null)
         {
             if (e == null) return null;
             var seq = DOTween.Sequence();
@@ -209,6 +224,16 @@ namespace CardPresentation
                          + (string.IsNullOrEmpty(why) ? "" : $" · 场景：{why}");
                 return null;
             }
+
+            // 原版 `UnitTweenSO.BuildSequence` 末尾那一支（`cpp2il/UnitTweenSO.cs:287-298`）：
+            //   `if (useCallBack) sequence.InsertCallback(callBackTime, () => onSequenceSignal?.Invoke());`
+            // ⚠️ 插入点 = 秒（DOTween `InsertCallback(float atPosition, TweenCallback)`），值 = 数据里的 `callBackTime`。
+            if (e.useCallback != 0)
+            {
+                seq.InsertCallback(e.callbackTime, () => { if (onSequenceSignal != null) onSequenceSignal(); });
+                CallbackInserted++;
+            }
+
             BuiltCount++;
             return seq;
         }
@@ -339,20 +364,50 @@ namespace CardPresentation
         }
 
         /// <summary>`TweenInfoAnimationBase.get_TargetDirection`（`awayFromUnit` 那条支要它）。
-        /// 原版：取 `awayFromUnit` 那个单位，方向 = normalize(目标位 − 它的位置)；
-        /// **取不到时**退回「目标卡 `body3D` 节点的 forward」（✅ `B10` 已坐实，见文件头 ① 与
-        /// <see cref="DefaultForward"/>）。</summary>
+        /// <para>🔴 **2026-10-25（`E` 现读并订正，判据 = `cpp2il/.../TweenInfoAnimationBase.cs:44-130`，
+        /// `decomp_full/TweenInfoAnimationBase__get_TargetDirection.c` 逐句同）**——</para>
+        /// <list type="number">
+        ///   <item>**方向 = `away 单位的位置 − target 单位的位置`**（反编译里先取 `awayFromUnit` 的 position、
+        ///     再取 `targetUnit` 的 position，然后 `num = position.x − position2.x` / `num2 = position.z − position2.z`）。
+        ///     ⇒ 它是 **`away − target`**（向量从目标指向「远离它」那一侧）。
+        ///     ⚠️ 我们原来写成 `target − away`（**反了**）——`Move/Rotate` 里
+        ///     `Quaternion.LookRotation(TargetDirection) * v` 会把位移转到**朝向目标**，与 `awayFromUnit` 语义相反。</item>
+        ///   <item>**y 恒为 0**（两支都只写 x/z；`Vector3 vector = default` 的 y 从没被赋过）⇒ 是**水平方向**。
+        ///     ⚠️ 我们原来把 y 也带上了。</item>
+        ///   <item>退化：距离 `≤ 9.9999997e-06` ⇒ **`Vector3.zero`**（不是退回 forward）。
+        ///     ⚠️ 我们原来退回 `ForwardOf(...)`。</item>
+        ///   <item>`away` 取不到（`!cardScript`）⇒ 取 **`target` 的 `CardUI.body3D.forward`**，**并且同样只有 x/z**。</item>
+        /// </list>
+        /// <para>⚠️ 原版在「`away` 有、`target` 没有」那一支会抛 `NullReferenceException`（反编译 artifact 之外的真实路径：
+        /// 后续解引用没有 null 检查）。我们**不抛**：出声一次并返回 `zero` —— 那是原版数据里到不了的路径，
+        /// 如实标成我们的偏离（⛔ 不静默）。</para></summary>
         static Vector3 TargetDirection(UnitTweenStep s, Transform source, Transform target)
         {
-            var tgt = Target(s.targetUnit, source, target);
             var away = Target(s.awayFromUnit, source, target);
-            if (away != null && tgt != null)
+            if (away == null)
             {
-                var d = tgt.position - away.position;
-                if (d.sqrMagnitude > 1e-8f) return d.normalized;
+                // 原版这一支：`target.CardUI.body3D.forward`，**只取 x/z**（y = 0）
+                var tgt = Target(s.targetUnit, source, target);
+                var f = ForwardOf(tgt != null ? tgt : target);
+                return new Vector3(f.x, 0f, f.z);
             }
-            return ForwardOf(tgt != null ? tgt : target);
+            var t = Target(s.targetUnit, source, target);
+            if (t == null)
+            {
+                if (!_targetDirWarned)
+                {
+                    _targetDirWarned = true;
+                    Debug.LogWarning("[UnitTween] `awayFromUnit` 有、`targetUnit` 取不到 ⇒ 原版这一支会抛 "
+                                   + "NullReferenceException；我们回 Vector3.zero（零方向 = 不做朝向变换）");
+                }
+                return Vector3.zero;
+            }
+            var d = new Vector3(away.position.x - t.position.x, 0f, away.position.z - t.position.z);
+            float len = d.magnitude;
+            if (len > 9.9999997e-06f) return d / len;
+            return Vector3.zero;
         }
+        static bool _targetDirWarned;
 
         // `ScaleTween.GetTween`：scale（relative 时 × 目标的 localScale.x —— 逐分量）
         static Tween MakeScale(UnitTweenStep s, Transform t, Transform source, Transform target)

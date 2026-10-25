@@ -182,6 +182,16 @@ namespace CardPresentation.Net
         /// <summary>台词枚举号（原版 `ChatMessage`：5…10 = 6 颗钮那一档，见 `NetChat.FirstButtonChatId`）。</summary>
         public int chatId = -1;
     }
+
+    /// <summary>🆕 2026-10-25：对局结束（无载荷）。原版 `PUNReceiveMatchFinished` 只带 `PhotonMessageInfo`。</summary>
+    [Serializable] public class MsgMatchFinished { }
+
+    /// <summary>🆕 2026-10-25：对面查看了某张牌。原版参数 = `uniqueInGameID`（**卡在局内的唯一 id**，
+    /// 不是卡 id；与 `NetKind.Action` 里那套 id 同源）。</summary>
+    [Serializable] public class MsgCardSeen { public int cardId = -1; }
+
+    /// <summary>🆕 2026-10-25：对面手牌换位。原版参数 = `(uniqueInGameID, newIndex)`。</summary>
+    [Serializable] public class MsgCardReorder { public int cardId = -1; public int index = -1; }
     [Serializable] public class MsgHash { public int turn; public int hash; }
     [Serializable] public class MsgPing { public long t; }
     [Serializable] public class MsgBye { public string reason; }
@@ -221,6 +231,19 @@ namespace CardPresentation.Net
         /// 为了一条**表现层**旁路把整条握手判死（版本不等时主机会直接拒绝）**代价不对等**。
         /// ⚠️ 若以后要给 `MsgChat` 加字段（改形状），那就**必须** +版本（那才是「改消息格式」）。</para></summary>
         public const string Chat      = "chat";
+        /// <summary>🆕 **2026-10-25（执行代理 D）**：**对局结束**（原版 `BattleCommsManager.SendMatchFinished`
+        /// → `PUNReceiveMatchFinished` → `BattleManager.ReceiveMatchFinished`）。**无载荷**。
+        /// <para>语义：收尾方发它；**收方**据此把「等对手最后几条动作」的窗口打开（见
+        /// `NetBattle.TickFinishWait` 的判据）。⚠️ 它**不参与局面**、**不改指纹**、**不判胜负**。</para>
+        /// ⚠️ 与 `Chat` 同一条兼容口径：**新增 kind、不改任何既有消息格式 ⇒ 不 +`NetProtocol.Version`**；
+        /// 旧端收到会走 `NetBattle.Dispatch` 末尾「不认识的联机消息」**出声**并丢掉（不崩、不影响对局）。</summary>
+        public const string MatchFinished = "match.finished";
+        /// <summary>🆕 2026-10-25：**对面在手里查看了某张牌**（原版 `SendCardSeen(uniqueInGameID)` →
+        /// `BattleManager.ShowEnemyCardSeen`）。**纯表现**，不参与局面。</summary>
+        public const string CardSeen   = "card.seen";
+        /// <summary>🆕 2026-10-25：**对面手牌换位**（原版 `SendCardReorder(uniqueInGameID, newIndex)` →
+        /// `BattleManager.ShowEnemyHandReorder`）。**纯表现**，不参与局面。</summary>
+        public const string CardReorder = "card.reorder";
         public const string Hash      = "hash";
         public const string Ping      = "ping";
         public const string Pong      = "pong";

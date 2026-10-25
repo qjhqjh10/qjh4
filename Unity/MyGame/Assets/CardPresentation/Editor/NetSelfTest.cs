@@ -51,6 +51,7 @@ public static class NetSelfTest
             TestHandshakeOk(FreePort());
             TestWrongPassword(FreePort());
             TestVersionMismatch(FreePort());
+            TestGameVersionMismatch(FreePort());   // 🆕 2026-10-25（D 域）：构建号不一致也要拒（协议号相同那一档）
             TestBulkOrder(FreePort());
             TestDropAndReconnect(FreePort());
             TestPasswordFrozen(FreePort());
@@ -456,6 +457,38 @@ public static class NetSelfTest
                                        NetProtocol.Version + 1, NetProtocol.Version);
         Ok(host.LastError != null && host.LastError.Contains(wantVer),
            $"E④ 理由里点明是版本问题（键 `Settings/Online/St/VersionMismatch`；「{host.LastError}」）");
+        raw.Close(); host.Close(false);
+    }
+
+    /// <summary>🆕 **2026-10-25（联机域审查 · D 域）**：**构建版本**（`gameVer`）不一致必须被拒。
+    ///
+    /// <para>判据：原版按 `gameVersionWithEnviromentAndBundles` **隔离大厅**
+    /// （`NetworkCustomManager.cs:341-354`）+ `OnlineData.GetPlayerGameVersion`（`OnlineData.cs:70-94`）
+    /// ⇒ 卡表/规则不同的两个构建**根本配不上**。我们原来只比 `protoVer`。
+    /// ⚠️ 与 `TestVersionMismatch` **不是同一条**：那条发的是 `protoVer + 1`，会在**协议**分支就返回；
+    /// 这条发的是**协议号相同、构建号不同**，专打新加的那一格。</para></summary>
+    static void TestGameVersionMismatch(int port)
+    {
+        var host = NetSession.NewTcp();
+        Ok(host.StartHost(Cfg(port, "")), "E'① 主机起来了");
+
+        var raw = new TcpTransport();
+        Ok(raw.Connect("127.0.0.1", port, 3000), "E'② 裸传输连得上");
+        PumpOnce(host, 60);                                   // 先让主机把 challenge 发出来
+        raw.Send(NetKind.Proof, NetProtocol.Pack(new MsgProof
+        {
+            protoVer = NetProtocol.Version,                   // ✅ 协议号**对**
+            gameVer = "别的构建-0.0.0",                        // ❌ 构建号不对
+            name = "冒充的",
+            proof = "",
+        }));
+
+        bool rejected = PumpUntil(host, null, () => host.State == NetState.Closed, 4000);
+        Ok(rejected, "E'③ 构建号不符 ⇒ 主机把连接**关掉**（不再等回合末指纹炸）");
+        string wantVer = string.Format(Loc.T("Settings/Online/St/VersionMismatch"),
+                                       "别的构建-0.0.0", Application.version);
+        Ok(host.LastError != null && host.LastError.Contains(wantVer),
+           $"E'④ 理由里点明是两个**构建号**不同（「{host.LastError}」）");
         raw.Close(); host.Close(false);
     }
 

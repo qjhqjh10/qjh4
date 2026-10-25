@@ -214,6 +214,24 @@ namespace RuleEngine
         public string Key;
         /// <summary>负数 = 降价</summary>
         public int Delta;
+
+        /// <summary>
+        /// 🆕 **2026-10-25（`K8` · 执行代理 N11）：这条修正是不是「**设为** N 费」**
+        /// （原版 `CardEffect.buffType == 95 setCost`）。
+        ///
+        /// · `-1`（默认）= 普通增减 —— 加在 <see cref="Delta"/> 上（`buffType == 2 changeCost` 那一族）；
+        /// · `>= 0` = **目标绝对费用**，此时 <see cref="Delta"/> **无意义**（恒 0）。
+        ///
+        /// **判据**：有 `setCost` 记录时
+        /// `CurrentCost = clamp0(setCost.costChange + Σ 全部 changeCost)` —— 🔴 **不含 base**：
+        /// `EntityScript__get_CurrentCost.c:52-79` 那条支在 `:73` 就 `clamp0` **直接 `return`**，
+        /// `+ rawCardData.manaCost` 在 `:84-91` 的**正常出口**（只在**没有** `setCost` 时才走）。
+        /// `setCost.costChange` 存的是**目标绝对值 N**（数据现证：`cards_truth.json` 里 `buffType==95`
+        /// 3 条、全是 1，而三张卡 `manaCost` = 2/3/6，卡面写 `reduce its cost to 1`）。
+        /// ⚠️ 旧口径把「设为 N 费」落成一条**快照 delta**（`d = N − 当时现价`）——
+        /// 那会把「排在 `setCost` **之前**的 `changeCost`」吃掉（判据 §3·3·4/§3·3·5 记的就是这条）。
+        /// </summary>
+        public int SetTo = -1;
         /// <summary>到哪一回合为止；`-1` = 永久</summary>
         public int ExpireTurn = -1;
 

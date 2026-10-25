@@ -1300,7 +1300,7 @@ namespace CardPresentation
             // 🔴 **2026-09-23 补**：`header` 自带 **`Gradient2`（灰蓝那套，5 个 alpha 键）** —— 见 `HeaderGradient`
             var head = UguiRect.Child(card, new Vector2(0f, 1f), new Vector2(0.25f, 1f), new Vector2(0.5f, 1f),
                                       Vector2.zero, new Vector2(0f, 55f));
-            DrawTex(parent, HeaderGradient(true), head, "header bg", RewardsWindow.QPanel);
+            DrawTex(parent, HeaderGradient(true, head.H / head.W), head, "header bg", RewardsWindow.QPanel);
             // 🔴 **A493#9（2026-10-13）**：原版这颗 `name` 的 `m_HorizontalAlignment` = **`Left`**
             //   （判据 = `资料/普查产出_1012/H37` §四·1 那张逐颗 dump：周常 `name`（`'Weekly Challenge'`）
             //    与同族另 3 颗 `name` **全是 `Left`/`Capline`**）。`Txt` → `MenuDraw.TextBox` 出来的是 TMP 出厂
@@ -1466,7 +1466,7 @@ namespace CardPresentation
                                    new Vector2(1.34f, -2.2287f), new Vector2(-2.6799f, 52.7713f));
             // 🔴 **2026-09-23 补**：这条的底是 `Image(sprite=null, type=Sliced)` + **`Gradient2`**（紫→棕那套），
             //    见 `HeaderGradient` 的注释（`Image` 没 sprite 也会渲染成一块纯色矩形）。
-            DrawTex(parent, HeaderGradient(false), h, "Mission Header bg", RewardsWindow.QPanel);
+            DrawTex(parent, HeaderGradient(false, h.H / h.W), h, "Mission Header bg", RewardsWindow.QPanel);
             // `name`  N(3, 0.03,0.5, 0.84,0.5, .5,.5, 0,0, ~0,50)   'Daily Missions' fs36
             var nm = UguiRect.Child(h, new Vector2(0.03f, 0.5f), new Vector2(0.84f, 0.5f), UguiRect.P50c,
                                     Vector2.zero, new Vector2(3.8147e-06f, 50f));
@@ -1524,15 +1524,15 @@ namespace CardPresentation
         /// 🔴 **`Image` 没有 sprite 也会渲染** —— UGUI 在 `activeSprite == null` 时回落到
         /// `Graphic.OnPopulateMesh`、画一块**纯色矩形**，再被 `Gradient2`（`_modifyVertices=1`）改顶点色
         /// ⇒ 原版每张卡的头都**有一条看得见的渐变条**；我们**一条都没画**（2026-09-23 取证）。</summary>
-        static Texture2D HeaderGradient(bool greyBlue)
+        static Texture2D HeaderGradient(bool greyBlue, float aspectHoverW)
         {
             if (greyBlue)
                 return CardArt.GradientKeys(new Color(0.227f, 0.286f, 0.325f), new Color(0.227f, 0.286f, 0.325f),
                                             0f, new float[] { 0f, 0.3706f, 0.5941f, 0.7176f, 0.8588f, 1f },
-                                            new float[] { 1f, 0.773f, 0.498f, 0.463f, 0.098f, 0.098f });
+                                            new float[] { 1f, 0.773f, 0.498f, 0.463f, 0.098f, 0.098f }, aspectHoverW);
             return CardArt.GradientKeys(new Color(0.247f, 0.188f, 0.380f), new Color(0.475f, 0.306f, 0.153f),
                                         0f, new float[] { 0f, 0.2706f, 0.9059f, 1f },
-                                        new float[] { 1f, 1f, 0.098f, 0.098f });
+                                        new float[] { 1f, 1f, 0.098f, 0.098f }, aspectHoverW);
         }
 
         /// <summary>画一块**运行时生成的**贴图（渐变走这条）。`r` 是**设计空间**矩形。</summary>
@@ -1559,7 +1559,7 @@ namespace CardPresentation
             // N(2, 0,1, 1,1, .5,1, 1.34,-2.2287, -2.6799,52.7713)
             var h = UguiRect.Child(card, new Vector2(0f, 1f), UguiRect.A11, new Vector2(0.5f, 1f),
                                    new Vector2(1.34f, -2.2287f), new Vector2(-2.6799f, 52.7713f));
-            DrawTex(parent, HeaderGradient(greyBlue), h, what + " header bg", RewardsWindow.QPanel);
+            DrawTex(parent, HeaderGradient(greyBlue, h.H / h.W), h, what + " header bg", RewardsWindow.QPanel);
             var nm = UguiRect.Child(h, new Vector2(0.03f, 0.5f), new Vector2(0.84f, 0.5f), UguiRect.P50c,
                                     Vector2.zero, new Vector2(3.8147e-06f, 50f));
             // ⚠️ 原版这条 TMP 实测 **`H=Left`**（`m_HorizontalAlignment=1`）⇒ 标题贴左边起，**不是居中**

@@ -400,6 +400,22 @@ namespace CardPresentation
         static readonly Color LightAvailable = new Color(0.925f, 1.000f, 0.000f, 0.392f);
         static readonly Color LightPressed = new Color(0.006f, 0.000f, 1.000f, 0.392f);
 
+        /// <summary>acting 白层**淡入**用时 = **0.4 s**。
+        /// <para>判据（🆕 2026-10-25 · `N4`，账 `ActiveSkillDisplay.Drag` / `.OnTouchDrag`）：
+        /// `ActiveSkillDisplay__ShowActingLight.c`（以及 `__OnTouchDrag.c` 里内联的那一段）——
+        /// `actingLight.gameObject.SetActive(true)` 之后 `DOFade(actingLight, 1f, DAT_1834b3158)` +
+        /// `SetEase(6)`（= DOTween `Ease.OutQuad`，取值见本工程 `DOTweenSettings.asset` 的 `defaultEaseType: 6`）。
+        /// `DAT_1834b3158` 用 `工具/read_literal.py` 现读 = **0.4**（4 字节 float）。
+        /// ⚠️ 起点 α = 序列化值 **0.392**（= `LightActing.a`）—— `DOFade` 从**当前** color.a 出发，不是从 0。</para></summary>
+        public const float ActingFadeIn = 0.4f;
+
+        /// <summary>acting 白层**淡出**用时 = **0.3 s**。
+        /// <para>判据：`ActiveSkillDisplay__FinishActing.c:15-24` —— `DOFade(actingLight, 0f, DAT_1834b2dc8)` +
+        /// `SetEase(6)`（`Ease.OutQuad`）。`DAT_1834b2dc8` 现读 = **0.3**（4 字节 float）。</para>
+        /// ⚠️ 我们三盏灯收在**同一颗** `_light` 上（见 `Light` 枚举），所以 acting 用「α 倍率」表达：
+        /// 淡入 = `_actingA` 0.392 → 1，淡出 = `_actingA` → 0（颜色本身仍是 `LightActing` 的白）。</summary>
+        public const float ActingFadeOut = 0.3f;
+
         /// <summary>
         /// 面板上铺哪一层色片。三态的触发条件是**从 IL2CPP dump 里查出来的**：
         ///   · **蓝 `LightPressed`** —— 指针按在面板上（`ClickDown` 点亮、`PointerExit`/`Up` 熄灭）**确定**
@@ -608,7 +624,9 @@ namespace CardPresentation
             _abilityTrigger = _hideBtnTrigger = null;   // 它们是挂在上面那些 GO 上的，随 GO 一起销毁
             _inputEnabled = false;
             if (_fade != null) { _fade.Kill(); _fade = null; }
+            if (_actingFade != null) { _actingFade.Kill(); _actingFade = null; }
             _pressed = _acting = false;
+            _actingA = 0f;
             ShownName = null;
             ShownTargets = 0;
             CurrentLight = Light.None;
@@ -675,6 +693,15 @@ namespace CardPresentation
         public static Vector2 PanelPxForTest { get { return new Vector2(PanelPxW, PanelPxH); } }
 
         bool _pressed, _acting;
+        /// <summary>acting 白层的**当前不透明度**（0~1）。原版那是 `actingLight` 这颗 `Image` 的 `color.a`：
+        /// 序列化值 **0.392**（= `LightActing.a`），`ShowActingLight` 把它 `DOFade(1, 0.4)`、
+        /// `FinishActing` 再 `DOFade(0, 0.3)`（判据 → `ActingFadeIn` / `ActingFadeOut` 那两个常量）。
+        /// <para>🔴 **2026-10-25（`N4`）**：我们三盏灯收在**同一颗** `_light` 上（`Light` 枚举），
+        /// ⇒ acting 这一档不能直接写 color.a，只能写成「α 倍率」：`_actingA &gt; 0` ⇒ 铺白层、α = `_actingA`。</para></summary>
+        float _actingA;
+        /// <summary>acting 白层那一条淡入/淡出补间（原版存在组件字段 `+0xc0` 里的那一条）。
+        /// ⚠️ 必须经 `CardTween.Mode` + `SetLink`（同本文件 `_fade` 的理由：批处理 Manual 档 / 防销毁后还在跑）。</summary>
+        Tween _actingFade;
         Tween _fade;
 
         void Awake() { Build(); }
@@ -934,12 +961,23 @@ namespace CardPresentation
             ApplyColors();
         }
 
-        /// <summary>原版 `Drag` → `OnTouchDrag`（拖到合法目标也走释放）。同 `AbilityClicked`：只发事件。</summary>
+        /// <summary>原版 `Drag` → `OnTouchDrag`（拖到合法目标也走释放）。同 `AbilityClicked`：只发事件。
+        /// <para>🔴 **2026-10-25（`N4` · 账 `ActiveSkillDisplay.Drag` / `.OnTouchDrag`）逐句对判据**：
+        /// `ActiveSkillDisplay__OnTouchDrag.c`（ILSpy 同体 = `cpp2il/out_cpp2il_dev_ilspy/ActiveSkillDisplay.cs:456-505`）
+        /// 在按下层还亮着时**直接 `return`**（`if (pressingLight.gameObject.activeSelf) return;`）——
+        /// ⛔ **不是「先熄灯再继续」**（我们原来那句 `ExtinguishPressed()` 是多做的，已删）。
+        /// 能继续之后做三件：`StartTargetedActiveAbility` · `SetupActiveAbility` · `waitingToResolve = true`，
+        /// 再 `actingLight.SetActive(true)` + `DOFade(1, ActingFadeIn=0.4, OutQuad)`（`.c:496-504`）。
+        /// 我们这边的等价：前两件由驱动承担（`AbilityDragged → SkillPanelDragToTarget` 幂等重进），
+        /// 第三件 = <see cref="SetActing"/>；可用性闸取 <see cref="ShownTargets"/>（&gt;0 = 至少一个合法目标，
+        /// 是我们这套里 `CanUseActiveAbility` 唯一可观测的那一面）。</para></summary>
         void OnSkillDrag(BaseEventData _)
         {
             _dragCount++;
             if (!Visible) return;
-            ExtinguishPressed();
+            if (_pressed) return;            // 原版 `pressingLight.activeSelf` ⇒ 直接 return（⛔ 别熄灯）
+            if (ShownTargets <= 0) return;   // 原版 `CanUseActiveAbility(...) == false` ⇒ 直接 return
+            SetActing();
             if (AbilityDragged != null) AbilityDragged();
         }
 
@@ -1499,7 +1537,11 @@ namespace CardPresentation
             Build();
             ShownName = cardName;
             ShownTargets = targets;
+            // 🔴 2026-10-25（`N4`）：开面板 ⇒ acting 白层**归零并掐掉在飞的补间**（原版每次 `ShowActingLight`
+            //   都是「SetActive(true) 后从当前 α 淡到 1」，而面板新开时那颗件是 0.392 的静态态）。
             _acting = false;
+            _actingA = 0f;
+            if (_actingFade != null) { _actingFade.Kill(); _actingFade = null; }
 
             if (_name != null) _name.SetText(cardName);
             if (_desc != null) _desc.SetText(CardText.EffectSentence(ability));
@@ -1543,11 +1585,49 @@ namespace CardPresentation
             ApplyColors();
         }
 
-        /// <summary>技能开始结算 → 铺白那层（原版 `ShowActingLight()`）</summary>
+        /// <summary>技能开始结算 → 铺白那层（原版 `ShowActingLight()`）。
+        /// <para>🔴 **2026-10-25（`N4`）**：原来是「瞬间铺满」，而原版是
+        /// `actingLight.SetActive(true)` + `DOFade(1, 0.4, OutQuad)`（判据 → <see cref="ActingFadeIn"/>）。
+        /// ⇒ 现在 α 从**序列化值 0.392** 补间到 **1**（`DOFade` 从当前 color.a 出发，⛔ 不是从 0）。
+        /// ⚠️ 起始值**必须同步写进去**（补间第一次推进前不写 setter）—— 否则批处理 Manual 档下
+        /// 同一帧读到的 `CurrentLight` 会退回 `Available`。</para></summary>
         public void SetActing()
         {
             _acting = true;
+            // 🔴 起点取 `max(当前 α, 0.392)`：原版 `DOFade` 是「从当前 color.a 出发」⇒
+            //   重复点亮（例如确认释放后又走执行那一跳）**不会先掉回 0.392 再涨回去**（那是可见的闪一下）。
+            _actingA = Mathf.Max(_actingA, LightActing.a);
             ApplyColors();
+            FadeActingTo(1f, ActingFadeIn, false);
+        }
+
+        /// <summary>技能结算完 / 取消 → 白层淡回 0（原版 `ActiveSkillDisplay.FinishActing`：
+        /// `actingLight.DOFade(0, 0.3, OutQuad)`，判据 → <see cref="ActingFadeOut"/>）。
+        /// <para>⚠️ **今天没有调用点**（2026-10-25 `N4` 如实记）：原版它挂在 `BattleManager.CancelActiveAbility`
+        /// 那条链上，而我们那条链是 `BattleDriver.ClearSelection()`（它同时 `skillPanel.Hide()` 把整个面板
+        /// 0.1 s 淡掉）⇒ 白层的 0.3 s 淡出会被面板的整体淡出**先盖掉**，可见性要先把「哪条链该调它」定下来
+        /// （改动请求写在 `资料/完全复刻/报告/N4_HUD_C_第1轮.md` §③）。⛔ 别为了让它「有人调」去随便挂一处。</para></summary>
+        public void FinishActing()
+        {
+            if (!_acting) return;               // 没在 acting（白层本来就 0）⇒ 别起一条 0→0 的空补间
+            _acting = false;
+            FadeActingTo(0f, ActingFadeOut, true);
+        }
+
+        /// <summary>acting 白层的 α 补间（淡入 / 淡出两档共用一条口，⛔ 别在调用处各写一份 DOTween）。</summary>
+        void FadeActingTo(float target, float duration, bool clearWhenDone)
+        {
+            if (_actingFade != null) { _actingFade.Kill(); _actingFade = null; }
+            _actingFade = DOTween.To(() => _actingA, v => { _actingA = v; ApplyColors(); }, target, duration)
+                                 .SetEase(Ease.OutQuad)          // 原版 `SetEase(6)` = Ease.OutQuad
+                                 .SetUpdate(CardTween.Mode)
+                                 .SetLink(gameObject)
+                                 .OnComplete(() =>
+                                 {
+                                     _actingFade = null;
+                                     if (clearWhenDone) { _acting = false; _actingA = 0f; }
+                                     ApplyColors();
+                                 });
         }
 
         /// <summary>
@@ -1556,7 +1636,9 @@ namespace CardPresentation
         /// </summary>
         void ApplyColors()
         {
-            CurrentLight = _acting ? Light.Acting
+            // 🔴 2026-10-25（`N4`）：acting 那一档按**补间的当前 α**（`_actingA`）判，⛔ 不只看 `_acting` ——
+            //   原版白层在 `FinishActing` 里是「0.3 s 淡到 0」，那 0.3 s 里灯**仍然是白的**（只是越来越淡）。
+            CurrentLight = _actingA > 1e-4f ? Light.Acting
                          : _pressed ? Light.Pressed
                          : (ShownTargets > 0 ? Light.Available : Light.None);
 
@@ -1565,7 +1647,10 @@ namespace CardPresentation
                 Color c;
                 switch (CurrentLight)
                 {
-                    case Light.Acting: c = LightActing; break;
+                    case Light.Acting:
+                        c = LightActing;
+                        c.a = _actingA;              // 白层的 α 由补间说了算（0.392 → 1 淡入 / → 0 淡出）
+                        break;
                     case Light.Pressed: c = LightPressed; break;
                     case Light.Available: c = LightAvailable; break;
                     default: c = new Color(0, 0, 0, 0); break;
@@ -1615,7 +1700,9 @@ namespace CardPresentation
             ShownName = null;
             ShownTargets = 0;
             _pressed = _acting = false;
+            _actingA = 0f;
             CurrentLight = Light.None;
+            if (_actingFade != null) { _actingFade.Kill(); _actingFade = null; }
             if (_fade != null) { _fade.Kill(); _fade = null; }
             Alpha = 0f;
             ApplyColors();

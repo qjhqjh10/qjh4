@@ -615,7 +615,8 @@ namespace CardPresentation
             //        `ParentEventWindow.BgGrad*` 那一份）----
             _background = MenuDraw.Node(_contentArea, "Background", ParentEventWindow.ContentAreaR);
             var bgTex = CardArt.Gradient(ParentEventWindow.BgGradC1, ParentEventWindow.BgGradC2,
-                                         ParentEventWindow.BgGradAngle);
+                                         ParentEventWindow.BgGradAngle,
+                                         ParentEventWindow.ContentAreaR.H / ParentEventWindow.ContentAreaR.W);   // 原版 CompensateAspectRatio 的 h/w
             MenuDraw.Rect(_background, bgTex, ParentEventWindow.ContentAreaR, "Image", QContentBg, Color.white);
         }
 
@@ -1280,7 +1281,7 @@ namespace CardPresentation
 
             // `Mission Header`（本地只是标题条 + INACT 的 ⓘ；渐变按 `Gradient2` 实读色键）
             var mh = MenuDraw.Node(dm, "Mission Header", R(58.5f, 451.0f, 887.1f, 503.8f));
-            MenuDraw.Rect(mh, MissionHeaderGradient(), R(58.5f, 451.0f, 887.1f, 503.8f), "Image",
+            MenuDraw.Rect(mh, MissionHeaderGradient((503.8f - 451.0f) / (887.1f - 58.5f)), R(58.5f, 451.0f, 887.1f, 503.8f), "Image",
                           QCardArt, Color.white);
             var nameR = R(83.4f, 452.4f, 754.5f, 502.4f);
             _mtWeeklyName = MenuDraw.TextBox(mh, nameR, Loc.T(TermWeeklyChallenges), Color.white, "name",
@@ -1409,7 +1410,7 @@ namespace CardPresentation
             // `header`（`Gradient2` 渐变条）+ `name` + `info`（tooltip = `Missions/Info/DailySkulls`）
             var hdR = R(58.5f, 152.4f, 887.1f, 205.2f);
             var hd = MenuDraw.Node(bg, "header", hdR);
-            MenuDraw.Rect(hd, MissionHeaderGradient(), hdR, "Image", QCardArt, Color.white);
+            MenuDraw.Rect(hd, MissionHeaderGradient(hdR.H / hdR.W), hdR, "Image", QCardArt, Color.white);
             var nameR = R(83.4f, 153.8f, 754.5f, 203.8f);
             _mtSkullName = MenuDraw.TextBox(hd, nameR, Loc.T(TermDailySkulls), Color.white, "name",
                                             30f, 20f, QCardText, 30f, 46f, face: TmpFont.Face.LatinCardBody);
@@ -1507,11 +1508,11 @@ namespace CardPresentation
         /// <summary>`Gradient2`（`_gradientType=0` Horizontal · `_blendMode=2`）的等效贴图 ——
         /// 色键 / alpha 键是 **MB 实读**（ctime 0→1；atime 17733/65535=0.2706、59367/65535=0.9059）。
         /// 与 `Shell/MissionsTab.HeaderGradient()` 同源同值（那一份是 private，本件按同一组常量重建）。</summary>
-        static Texture2D MissionHeaderGradient()
+        static Texture2D MissionHeaderGradient(float aspectHoverW)
         {
             return CardArt.GradientKeys(new Color(0.247f, 0.188f, 0.380f), new Color(0.475f, 0.306f, 0.153f),
                                         0f, new float[] { 0f, 0.2706f, 0.9059f, 1f },
-                                        new float[] { 1f, 1f, 0.098f, 0.098f });
+                                        new float[] { 1f, 1f, 0.098f, 0.098f }, aspectHoverW);
         }
 
         /// <summary>Missions 页的 ⓘ（`EverguildTooltipTrigger`）：悬停出 tooltip、点击不发音（与 Raid 那三颗同形）。

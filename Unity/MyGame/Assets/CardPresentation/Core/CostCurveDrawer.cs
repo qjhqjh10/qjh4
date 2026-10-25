@@ -30,6 +30,26 @@ namespace CardPresentation
     {
         /// <summary>行数 = **9**（费用 0..8；原版 `DeckEnergyCostDrawer` 序列化了 9 行）。</summary>
         public const int Rows = 9;
+
+        /// <summary>🔴 **2026-10-25（`E` 现核，C 域改动请求）**：原版 `DeckEnergyCostDrawer` 的
+        /// `private const int NUMBER_OF_CARDS_FOR_NORMALIZATION = 10`（`DeckEnergyCostDrawer.cs:43`）——
+        /// **归一化的分母是【常数 10】，不是「本卡组最大值」**。
+        /// <para>判据（一手，两条一起读）：</para>
+        /// · 方法体 `d:/2/tools/decomp_full/DeckEnergyCostDrawer__Initialize.c:170-176`：
+        ///   `fVar17 = (float)count / fVar5;` 然后 `if (fVar17 &lt; 0) 0; else if (fVar6 &lt; fVar17) fVar6;`
+        ///   —— 即 **`count / 10` 再夹到 `[0, 1]`**；
+        /// · 两个常量的**真值**（`GameAssembly.dll` 按 PE 节表现读，ImageBase `0x180000000`）：
+        ///   `DAT_1834b2da8`（= `fVar5`）= **10.0f**、`DAT_1834b2bb8`（= `fVar6`）= **1.0f**
+        ///   （脚本见 `工具/disasm_va.py` 那一族的读法；本行 2026-10-25 现读）。</summary>
+        public const int NumberOfCardsForNormalization = 10;
+
+        /// <summary>🔴 **2026-10-25（`E` 现核）**：原版 `DeckCostQuantityRowDrawer.maxCostToDraw` = **8**
+        /// （ctor `:119` 的默认值，且 `assets_full` 全库 **64 个实例逐个实读都是 8**，0 例外）——
+        /// 行内那个费用数字**在这一行要印 `8+`**。
+        /// 判据：`DeckCostQuantityRowDrawer__Initialize` 末尾
+        /// `text = cost.ToString(); if (cost == maxCostToDraw) text += "+";`
+        /// （`d:/2/tools/cpp2il/out_cpp2il_dev_ilspy/DeckCostQuantityRowDrawer.cs:99-106`）。</summary>
+        public const int MaxCostToDraw = 8;
         public const float RowW = 223.59f, RowH = 18.91f, RowStep = 22.295f;
         /// <summary>第 0 行**行心**相对抽屉中心的 y（未乘 scale）。</summary>
         public const float Row0Dy = -90.045f;
@@ -64,6 +84,19 @@ namespace CardPresentation
         // 我们自己那两扇窗（`DeckRuntime.BuildCurve` / 本文件 `Build`）画的都是**静态图**（`ImageQuad`），
         // 没有 `Selectable` / `WindowButton` —— 与原版一致，⛔ 别「补交互」。
 
+        /// <summary>自检用/宿主用：第 `count` 张卡那一行的填充比例 —— **判据只有上面那一条**
+        /// （`count / NumberOfCardsForNormalization` 再夹 `[0,1]`）。⛔ 别在调用点另算一份。</summary>
+        public static float NormalizedForTest(int count)
+        {
+            return Mathf.Clamp01(count / (float)NumberOfCardsForNormalization);
+        }
+
+        /// <summary>自检用：第 `row` 行费用数字的文本（第 `MaxCostToDraw` 行 = **`8+`**）。</summary>
+        public static string CostLabelForTest(int row)
+        {
+            return (row == MaxCostToDraw) ? (row + "+") : row.ToString();
+        }
+
         /// <summary>按费用数一遍（费用 0..8，越界夹到两端）。`find` = id → 卡（两边都传 `CollectionData.Card`）。</summary>
         public static int[] Counts(PlayerDeck deck, Func<string, CardDef> find)
         {
@@ -92,8 +125,6 @@ namespace CardPresentation
                                  int qRow, int qText, string rowName = "Deck CostQuanityt Row Drawer")
         {
             if (parent == null || counts == null) return;
-            int max = 1;
-            for (int i = 0; i < counts.Length && i < Rows; i++) if (counts[i] > max) max = counts[i];
 
             float rowW = RowW * scale, rowH = RowH * scale;
             for (int i = 0; i < Rows; i++)
@@ -104,11 +135,12 @@ namespace CardPresentation
                 var node = MenuDraw.Node(parent, rowName + (i == 0 ? "" : " (" + i + ")"),
                                          new PxRect(x1, y1, x2, y2));
 
-                // 费用数字（绿）
+                // 费用数字（绿）—— 🔴 最后一行（= `maxCostToDraw` 8）印 **`8+`**，见 `MaxCostToDraw`。
                 float ncx = cx + CostDx * scale;
+                string costLabel = CostLabelForTest(i);
                 // 🆕 **2026-10-17（`A1024③`）**：原版 `…/Card Cost` = **Pragati**（`R_A1024_字体按用途普查.md` §Core/CostCurveDrawer）
                 MenuDraw.Text(node, new PxRect(ncx - 23f * scale, y1, ncx + 23f * scale, y2),
-                              i.ToString(), CostColor, "Card Cost", RowFontPx * scale, qText,
+                              costLabel, CostColor, "Card Cost", RowFontPx * scale, qText,
                               face: TmpFont.Face.LatinCardBody);
 
                 // 滑块：底 + 填充（九宫格）
@@ -119,7 +151,9 @@ namespace CardPresentation
                     MenuDraw.Nine(node, bgTex, new PxRect(sx1, sy1, sx2, sy2), new Vector4(3f, 0f, 15f, 0f),
                                   bgTex.width, bgTex.height, qRow, null, true, "Background");
                 int n = i < counts.Length ? counts[i] : 0;
-                float frac = n / (float)max;
+                // 🔴 **2026-10-25（`E` 现核）**：分母是常数 10、再夹 `[0,1]`（判据见 `NumberOfCardsForNormalization`）。
+                // ⛔ 别改回「本卡组最大值」—— 那是我们 2026-10-03 自己挑的口径，原版没有。
+                float frac = NormalizedForTest(n);
                 if (frac > 0f)
                 {
                     var fillTex = CardArt.MenuUi(ArtBarFill);

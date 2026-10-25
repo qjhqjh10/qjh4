@@ -109,11 +109,21 @@ namespace CardPresentation
         /// <summary>此刻这一颗处在哪一态 —— **优先级照 UGUI `Selectable.currentSelectionState`**
         /// （Pressed ＞ Selected ＞ Highlighted ＞ Normal；`Disabled` 那一档见 `BtnState` 的注释）。
         /// 🔴 它是**当下算出来的合态**，不是「最后发生的那个事件」—— 例：鼠标压着一颗**且**它被选中 ⇒ `Pressed`；
-        /// 松开之后**只要还选中着就回到 `Selected`（不是 `Normal`）**。</summary>
+        /// 松开之后**只要还选中着就回到 `Selected`（不是 `Normal`）**。
+        /// <para>🆕 **2026-10-25（`N5`）：`interactable == false` ⇒ 恒 `Normal`（= 原版 `Disabled` 那一档的
+        /// 投影：不改色偏、不换图）。判据 = 原版 `EverguildButton` 把 `OnPointerEnter` **整个包在
+        /// `if (m_Interactable)` 里**（`d:/2/tools/cpp2il/out_il2csharp/Assembly-CSharp/EverguildButton.cs`
+        /// 的 `OnPointerEnter` / `OnPointerExit` / `OnPointerDown` 三处同一个闸）⇒ 非可交互时**连
+        /// `base.OnPointerEnter` 都不调** ⇒ `Highlighted`/`Pressed` 根本不会产生。
+        /// 而 UGUI `Selectable.interactable` 的 setter 会走 `DoStateTransition(Disabled)` ⇒ 状态落到
+        /// `Disabled`（`m_DisabledSprite` 全 null ⇒ `OverrideSprite = null` = **常态图**；
+        /// `m_DisabledColor` 对本工程实测那批 `m_Transition = 2(SpriteSwap)` 的钮是死值，见 `BtnState` 的 doc）。
+        /// ⇒ 投影回来就是这里这一句：**禁用态 = Normal 的图 + 我们的灰材质**（灰由 `RefreshGray` 负责）。</para></summary>
         public BtnState State
         {
             get
             {
+                if (!_interactable) return BtnState.Normal;   // = 原版 `Disabled` 档（图/色都回常态，灰另走材质）
                 if (Pressed) return BtnState.Pressed;
                 if (_selected) return BtnState.Selected;
                 if (Hovered) return BtnState.Highlighted;
@@ -124,10 +134,14 @@ namespace CardPresentation
         /// <summary>🆕 A77⑮①：**把「选中」画出来** —— 唯一调用点 = `PointerLayer.Select`
         /// （= 原版 `EventSystem.SetSelectedGameObject` ⇒ 选中那一颗收 `OnSelect`、上一个收 `OnDeselect`）。
         /// 吸收层恒不选（`absorbOnly`：原版面板不是 `Selectable`，`PointerLayer.Select` 也把它按 `null` 处理）。
-        /// ⚠️ 原版 `DoStateTransition` 用的是 `m_Colors.m_FadeDuration` 那 0.1s 补间 ⇒ 这里同样走 `SetTarget`。</summary>
+        /// ⚠️ 原版 `DoStateTransition` 用的是 `m_Colors.m_FadeDuration` 那 0.1s 补间 ⇒ 这里同样走 `SetTarget`。
+        /// <para>🆕 **2026-10-25（`N5`）**：这里同时是原版 `EverguildTooltipTrigger.OnSelect/OnDeselect` 的落点
+        /// （**显示/收起 tooltip**）—— 见下面 `tipText` 那一段。⚠️ 它排在 `_selected == on` 早退**之前**：
+        /// 原版那两个是**事件回调**（每次事件都跑），不是「状态变了才跑」。</para></summary>
         public void SetSelected(bool on)
         {
             if (absorbOnly) return;
+            if (on) ShowTip(); else HideTip();      // = 原版 `OnSelect` / `OnDeselect`
             if (_selected == on) return;
             _selected = on;
             ApplyState();
@@ -481,30 +495,51 @@ namespace CardPresentation
         /// 🔴 2026-10-10（A222）从 `float _k/_kTarget` 改成 `Color` —— 理由见 `KeyOf`。</summary>
         Color _k = Color.white, _kTarget = Color.white;
 
-        /// <summary>指针进来（`PointerLayer` 唯一派发口）。</summary>
+        /// <summary>指针进来（`PointerLayer` 唯一派发口）。
+        /// 🔴 **2026-10-25（`N5`）：不可交互时整段不执行** —— = 原版 `EverguildButton.OnPointerEnter` 的
+        /// `if (this.m_Interactable) { … }` 闸（`out_il2csharp/Assembly-CSharp/EverguildButton.cs`，
+        /// 三处指针事件同一个闸）。原版连 `base.OnPointerEnter`（→ `DoStateTransition(Highlighted)`）
+        /// 与 `PointerOverEvent` 委托都在这道闸**里面** ⇒ 我们这里连 `onEnter` 一起挡（行为对齐、不是偷懒）。</summary>
         public void Enter()
         {
             if (absorbOnly) return;         // 吸收层：原版面板没有任何悬停变化（见 `absorbOnly`）
+            // 🆕 2026-10-25（`N5`）：禁用钮**视觉不亮、但 tooltip 照弹** —— 原版 `EverguildTooltipTrigger`
+            //   是**另一个 MonoBehaviour**（与 `EverguildButton` 并列挂在同一个/子节点上），
+            //   `Selectable.interactable` 挡不住它的 `OnPointerEnter`。所以这里先 `ShowTip()` 再早退。
+            if (!_interactable) { ShowTip(); return; }     // = 原版 `OnPointerEnter` 的 `if (m_Interactable)`
             if (Hovered) return;
             Hovered = true;
             if (onEnter != null) onEnter();
             ApplyState();                   // 🆕 A77⑮①：走那个唯一的状态出口（选中在悬停之上，`ApplyState` 里判）
+            ShowTip();                      // = 原版 `EverguildTooltipTrigger.OnPointerEnter`
         }
 
-        /// <summary>指针离开。</summary>
+        /// <summary>指针离开。
+        /// 🔴 **2026-10-25（`N5`）：不可交互时整段不执行** —— 与 `Enter` 同一个闸（原版 `OnPointerExit`
+        /// 也是 `if (m_Interactable) { this.OnPointerExit(eventData); OnPointerExitTriggered?… }`）。
+        /// ⚠️ 因此「悬停中被禁用」这一支**不会**靠 `Exit` 清 `Hovered` —— 那一步由 `Interactable` 的 setter
+        /// 显式清（原版没有这一步，见那边的注释）。
+        /// <para>🆕 `HideTip()` 排在闸**之前**：原版触发器是独立组件，禁用钮的 `OnPointerExit` 照样调
+        /// `manager.Hide()`（而且那个 Hide 是**全局**的）。</para></summary>
         public void Exit()
         {
             if (absorbOnly) return;         // 吸收层（与 `Enter` 配对）
+            HideTip();                      // = 原版 `EverguildTooltipTrigger.OnPointerExit`（全局 Hide）
+            if (!_interactable) return;     // = 原版 `OnPointerExit` 的 `if (m_Interactable)`
             if (!Hovered) return;
             Hovered = false;
             if (onExit != null) onExit();
             ApplyState();                   // 🆕 还选中着 ⇒ 回 `Selected`（⛔ 不是无条件回 Normal）
         }
 
-        /// <summary>左键按下（**不派发 `onClick`** —— 那只在「按下与抬起同一件」时才发生）。</summary>
+        /// <summary>左键按下（**不派发 `onClick`** —— 那只在「按下与抬起同一件」时才发生）。
+        /// 🔴 **2026-10-25（`N5`）：不可交互时整段不执行** —— = 原版 `EverguildButton.OnPointerDown` 的
+        /// `if (this.m_Interactable)` 闸（`base.OnPointerDown` + `PointerDownEvent` + `PointerPressEvent`
+        /// 三样都在闸内）。⚠️ `Release()` **不**加这个闸：原版 `OnPointerUp` 没有它（抬指永远收尾）。</summary>
         public void Press()
         {
             if (absorbOnly) return;         // 吸收层：进 `Pressed` 态会让整块面板变暗（原版没有这一档）
+            if (!_interactable) return;     // = 原版 `OnPointerDown` 的 `if (m_Interactable)`（见 doc）
             Pressed = true;
             // 🆕 2026-10-05（A50②）：**按下连一张图都换不动**时出声一次 —— `SwapTo(null)` 是**静默早退**，
             //   原来这一档一点痕迹都不留（`MissingSwapArt` 只记 hover 那一路）。红线：不许静默失败。
@@ -536,6 +571,82 @@ namespace CardPresentation
         }
 
         public System.Action onDown, onUp;
+
+        // ============================================================ tooltip 触发器
+        //  = 原版 `EverguildTooltipTrigger`（`out_il2csharp/Assembly-CSharp/EverguildTooltipTrigger.cs`，方法体全在）。
+        //  原版它是**与按钮并列的另一个 MonoBehaviour**，实现 `IPointerEnter/Exit/Down/Click` + `ISelect/Deselect`：
+        //    · `OnPointerEnter` / `OnSelect`  ⇒ `Show()`（`registerEvents == false` 时直接 return）
+        //    · `OnPointerExit`  / `OnDeselect`⇒ `Hide()`（同样受 `registerEvents` 闸）
+        //    · **`OnPointerDown` 的方法体是空的**（⛔ 不是「按下收起」—— 账里原来那条判据写错了，2026-10-25 已订正）
+        //    · `OnPointerClick` **不收起 tooltip**：只在 `preventPassingClickEventToParent` 时
+        //      `EventSystem.SetSelectedGameObject(null)`（那 241 颗实例里只有 **1 颗** 开了这个 flag）
+        //    · `Toggle(option)` = `registerEvents = option`；关掉时若正悬停 ⇒ `Hide()`
+        //  面板位 = **触发器自己的 `transform.position`** + `offset`；文案 = `text`（`localize` 时过 I2 表）。
+        //
+        //  我们这棵树里没有 EventSystem ⇒ 触发口落在本类的 `Enter`/`Exit`/`SetSelected` 上
+        //  （那三个正是 `PointerLayer` 派发悬停/选中的**唯一**出口）。
+        //  ⚠️ **今天的实际接线数 = 0**：没有任何站点设过 `tipText` ⇒ 行为零变化（默认 `tipText == null` ⇒ 全空做）。
+        //     接线方式（将来）：`wb.tipText = TipText.Xxx; wb.tipAnchor = 10; wb.tipOffset = new Vector3(...)`。
+        /// <summary>原版 `EverguildTooltipTrigger.text` 的**成品文案**（调用点给 `Loc.T(...)` 之后的值）。
+        /// `null`/空 = 这颗钮没有 tooltip（⛔ 不是「弹一个空面板」）。
+        /// <para>⚠️ 静态字段 ⇒ 值在赋值那一刻定死。**文案要随语言切换变**的站点用 <see cref="tipTextFunc"/>。</para></summary>
+        public string tipText;
+        /// <summary>🆕 **2026-10-25（`N5`）**：**动态文案**（每次弹的时候现取）—— 给 `Loc.T(...)` 那类
+        /// 「随 `Loc.Current` 变」的站点。判据：原版触发器 `Show()` 里是**现取** `text` 再过一个
+        /// `LocalizationManager.GetTranslation` ⇒ 切语言后**下一次悬停必须是新语档**；用静态 `tipText`
+        /// 会把建窗那一刻的旧语档冻住（静默错）。`null` = 用 `tipText`。</summary>
+        public System.Func<string> tipTextFunc;
+        /// <summary>原版 `tooltipAnchor`（`AnchorPositions` 枚举值，直接透传给 `Tooltip.Show` 的 `anchor`）。
+        /// 实读 241 颗实例里出现的是 **10 / 15** 两档（`MonoBehaviour_-1037983193114972447.json` 等）。</summary>
+        public int tipAnchor;
+        /// <summary>原版 `offset`（**世界单位**，与 `Tooltip.Show` 的 `offset` 同量纲）。</summary>
+        public Vector3 tipOffset;
+        /// <summary>原版 `registerEvents`：false ⇒ enter/exit/select/deselect **全都不弹不收**
+        /// （= 原版 ctor 缺省 true；但那 241 颗 prefab 实例里 **205 颗序列化成 0**）。</summary>
+        public bool tipRegisterEvents = true;
+
+        /// <summary>= 原版 `EverguildTooltipTrigger.Toggle(bool option)`：
+        /// 记 `registerEvents`；**关掉时若正悬停 ⇒ 立刻收**（原文 `if (!option) { if (isHovering != option) Hide(); }`）。</summary>
+        public void ToggleTips(bool option)
+        {
+            tipRegisterEvents = option;
+            if (!option && Hovered) HideTip();
+        }
+
+        /// <summary>= 原版 `EverguildTooltipTrigger.Show()`：按本颗的 `tipText`/`tipAnchor`/`tipOffset` 弹。
+        /// 位 = **本颗可见图形件的位置**（原版取的是触发器节点的 `transform.position`；我们那颗命中区节点
+        /// 常常摆在父原点 —— 见 `MenuDraw.Hit` 的注释 —— 所以优先取 `target` / 子树第一颗 quad）。</summary>
+        void ShowTip()
+        {
+            if (absorbOnly || !tipRegisterEvents) return;
+            string body = tipTextFunc != null ? tipTextFunc() : tipText;
+            if (string.IsNullOrEmpty(body)) return;
+            Tooltip.Show(body, TipWorldPos(), tipAnchor, tipOffset);
+        }
+
+        /// <summary>= 原版 `EverguildTooltipTrigger.Hide()`（它调的是 **`manager.Hide()`（全局）**）。
+        /// <para>🔴 **一处如实标注的偏离**：原版**没有 tooltip 的触发器**在 `OnPointerExit` 时也会全局 `Hide()`
+        /// （`registerEvents` ctor 缺省 true、且原文不判 `text` 是否为空）。我们**只在 `tipText` 非空时才收** ——
+        /// 因为本壳里有一批 tooltip 是**别的件按 `onEnter/onExit` 驱动**的（5 处，见报告），
+        /// 若这里无条件全局收，「把鼠标从旁边一颗无 tip 的钮上移开」就会把它们收掉。
+        /// ⇒ 收窄到「本颗确实配了 tooltip」这一档：今天 `tipText` 全空 ⇒ **行为逐字不变**；
+        /// 将来接了线的站点，语义与原版逐句一致。</para></summary>
+        void HideTip()
+        {
+            if (absorbOnly || !tipRegisterEvents) return;
+            if (string.IsNullOrEmpty(tipText) && tipTextFunc == null) return;
+            Tooltip.Hide();
+        }
+
+        /// <summary>本颗的**锚点世界坐标**（= 原版触发器节点的 `transform.position` 的等价物）。</summary>
+        Vector3 TipWorldPos()
+        {
+            if (target != null) return target.transform.position;
+            var kids = GetComponentsInChildren<ImageQuad>(true);
+            for (int i = 0; i < kids.Length; i++) if (kids[i] != null) return kids[i].transform.position;
+            return transform.position;
+        }
+
 
         /// <summary>🆕 **2026-10-19（`N70`）**：把**当前状态色立刻**写上去（不走 0.1 s 补间）。
         /// <para>为什么要这个口：构建期没人调 `Enter/Exit/Press/Release` ⇒ 色偏停在「基准色」上；
@@ -584,6 +695,34 @@ namespace CardPresentation
             for (int i = 0; i < ex; i++) _tq[own.Length + i] = _tqExtra[i];
             _tqBase = new Color[_tq.Length];
             for (int i = 0; i < _tq.Length; i++) _tqBase[i] = _tq[i] != null ? _tq[i].Tint : Color.white;
+        }
+
+        /// <summary>🆕 **2026-10-25（菜单 C）**：原版 `EverguildButton.OnTransformChildrenChanged`（`:1571`）——
+        /// 子树变了就**立即重收**图形件（`EverguildButtonHelper.GetGraphicsInChildren`）。
+        /// <para>⚠️ 我们的 `Collect()` 有「只收一次」的缓存（`if (_tq != null) return`）⇒ 不加这一条时，
+        /// **运行期新增的子件不会被染色/灰度**（静默）。这里重收时**保留已有件的基色**（新件以「当前色」为基色），
+        /// 否则会把正在悬停/按下的色当成基色，下一次色偏就乘错。</para></summary>
+        void OnTransformChildrenChanged()
+        {
+            if (_tq == null) return;                  // 还没收集过 ⇒ 下次 `Collect()` 自然拿新的
+            var own = GetComponentsInChildren<ImageQuad>(true);
+            int ex = _tqExtra != null ? _tqExtra.Length : 0;
+            var fresh = new ImageQuad[own.Length + ex];
+            for (int i = 0; i < own.Length; i++) fresh[i] = own[i];
+            for (int i = 0; i < ex; i++) fresh[own.Length + i] = _tqExtra[i];
+
+            var freshBase = new Color[fresh.Length];
+            for (int i = 0; i < fresh.Length; i++)
+            {
+                var q = fresh[i];
+                Color b = q != null ? q.Tint : Color.white;
+                if (q != null)
+                    for (int j = 0; j < _tq.Length; j++)
+                        if (_tq[j] == q) { b = _tqBase[j]; break; }   // 已有件：**保留旧基色**
+                freshBase[i] = b;
+            }
+            _tq = fresh;
+            _tqBase = freshBase;
         }
 
         void ApplyTint()
@@ -685,12 +824,36 @@ namespace CardPresentation
         /// <summary>原版 `Selectable.interactable` 的最小等价物。置假 ⇒ ① 变灰（同 `EverguildButton`
         /// 在 `DoStateTransition(Disabled)` 里做的那一下）② **`Click()` 直接返回**（原版
         /// `Selectable.OnPointerClick` 头一句 `if (!IsActive() || !IsInteractable()) return;`）。
-        /// ⚠️ **悬停那半边本地没有判据**（`Selectable.OnPointerEnter` 在 UGUI 包里，不在 `d:/2/tools/decomp_full/`）
-        /// ⇒ 我们**保持现状**（不可交互的钮**照旧**吃悬停换图），**如实标注、不编**。</summary>
+        /// <para>🔴 **2026-10-25（`N5`）就地订正（铁律 5）**：这里原来写「**悬停那半边本地没有判据**
+        /// （`Selectable.OnPointerEnter` 在 UGUI 包里，不在 `d:/2/tools/decomp_full/`）⇒ 我们保持现状
+        /// （不可交互的钮照旧吃悬停换图）」—— **判据有了，那一档已按判据改掉**：
+        /// 原版 `EverguildButton` **自己覆写了** `OnPointerEnter` / `OnPointerExit` / `OnPointerDown`，
+        /// 三处第一句都是 `if (this.m_Interactable) { … }`（`out_il2csharp/Assembly-CSharp/EverguildButton.cs`）
+        /// ⇒ **不可交互时连 `base.OnPointerEnter` 都不调** ⇒ 不产生 `Highlighted`、不换图、不弹悬停事件。
+        /// 落地 = `Enter`/`Exit`/`Press` 三处同一个早退 + `State` 的 `!_interactable ⇒ Normal`（见各自 doc）。
+        /// ⚠️ 因此**不需要**去 UGUI 包里找 `Selectable.EvaluateAndTransitionToSelectionState` 那条更底层的闸 ——
+        ///    原版这一层覆写已经把行为定死了（两层结论一致，但判据只认原版这一处）。</para>
+        /// <para>🆕 **禁用那一刻的收尾（原版没有、我们补的兜底，如实标）**：原版把指针事件挡在门外后，
+        /// `m_Highlighted` 会**停在禁用前的值**（因为 `OnPointerExit` 也不跑了）⇒ 再启用时靠
+        /// `interactable` setter 的 `DoStateTransition` 重算，可能把一次旧悬停又亮回来。
+        /// 我们在这里**显式清 `Hovered` / `Pressed`**，并重跑一次 `ApplyState()`：画面立即回常态图，
+        /// 再启用时不会「指针早就不在、钮却亮着」。这条是**行为补全**，不是原版原文。</para></summary>
         public bool Interactable
         {
             get { return _interactable; }
-            set { _interactable = value; RefreshGray(); }
+            set
+            {
+                if (_interactable == value) return;
+                _interactable = value;
+                if (!value) { Hovered = false; Pressed = false; }   // 见上面「禁用那一刻的收尾」
+                RefreshGray();
+                // 🔴 **只在这一颗「已经绑过图形件」时才重跑状态出口**：`ApplyState → ApplyTint → Collect()`
+                //   会把当前子树里的 `ImageQuad` **一次性缓存**（`_tq`，之后不再重收）。
+                //    若在 `Bind` 之前就调（本仓的红线是「`Interactable` 必须排在 `Bind` 之后」，见 A466），
+                //    `Collect` 会缓存一个**空表** ⇒ 这颗钮以后永远不变色（静默）。
+                //    ⇒ 未绑定时跳过：那一刻本来也没有任何视觉要改（`Bind` 之后第一次 Enter/Click 就会重算）。
+                if (target != null || _nine != null || _tq != null) ApplyState();
+            }
         }
 
         /// <summary>原版 `EverguildButton.SoftDisable(bool)`。</summary>
@@ -876,7 +1039,7 @@ namespace CardPresentation
             {
                 Debug.LogWarning("[Button] `" + name + "` **点了不生效** —— 原版这颗钮 `interactable = false`"
                                  + "（`Selectable.OnPointerClick` 头一句就返回）⇒ 连派发都没有。"
-                                 + "⚠️ 悬停那半边我们**没有判据**（见 `Interactable` 的注释）⇒ 照旧吃悬停。");
+                                 + "悬停/按下那半边同样被 `if (m_Interactable)` 挡住（见 `Interactable` 的 doc）。");
                 return;
             }
             // 🆕 2026-10-18（`AUD` §三 C9）：原版 `EverguildToggle.OnPointerClick` **第一段** ——

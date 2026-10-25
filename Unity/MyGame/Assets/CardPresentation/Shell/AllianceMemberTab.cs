@@ -449,7 +449,7 @@ namespace CardPresentation
                  Color.white, "Text", 50f, L_Text, 12f, wrap: false, alignLeft: true);   // A319 #2（原版 `Left`(1)）· 原版 `折行=0`（判据见 `Toggle` 那段）
             var cnt = Node(root, "CurrentActiveBadge Count",
                            new PxRect(597.94f, 267.62f, 1504.44f, 318.73f));
-            Text(cnt, new PxRect(597.94f, 267.62f, 1504.44f, 318.73f), "45 Trophies Achieved!",
+            Text(cnt, new PxRect(597.94f, 267.62f, 1504.44f, 318.73f), TrophyCountText(),
                  Color.white, "Text", 40f, L_Text, 12f, wrap: false, alignLeft: true);   // A319 #3（原版 `Left`(1)）· 原版 `折行=0`（同上）
             // `CurrentActiveBadge`：那一枚大徽标（`AllianceBadgeDrawer`）—— 徽标图在**服务器**上（盟自己没有存档）
             var badge = Node(root, "CurrentActiveBadge", new PxRect(414.00f, 204.89f, 579.95f, 360.62f));
@@ -498,7 +498,12 @@ namespace CardPresentation
         void BuildTrophyRows(Transform drawer)
         {
             for (int i = drawer.childCount - 1; i >= 0; i--) SocialWindow.DestroySafe(drawer.GetChild(i).gameObject);
-            int n = SocialData.AllianceTrophies;
+            // 🆕 **2026-10-25（代理 G 执行）**：格数优先取 `AllianceTrophyModel`（有定义表时 = 可见定义数；
+            //   没有 ⇒ `-1` ⇒ 退回原来的 `SocialData.AllianceTrophies` 计数，**行为不变**）。
+            //   判据 = 原版 `AllianceTrophiesView.Draw` 按 `trophies` 列表逐条 Instantiate；
+            //   定义表本地没有（见 `AllianceTrophyModel.WhyNoDefs`）。
+            int nModel = AllianceTrophyModel.VisibleCountOrMinusOne;
+            int n = nModel >= 0 ? nModel : SocialData.AllianceTrophies;
             var sc = TrophyScroll;
             // 🔴 **裁切/摆位只有一个来源 = 滚动区的 `Viewport`**（同 `FriendsTab.BuildRows` 那条收口：
             //    没有滚动区时才退回常量 —— 两处取不同矩形 = 迟早不一致）。
@@ -526,6 +531,8 @@ namespace CardPresentation
             // 🔴 **2026-10-04（A74②）**：`built` = **建出来的第几格**（⛔ 不是 `n` 里的下标 `i`）——
             //   它是格子队列带的编号来源（见本类顶部那段），因为**视口外的格不建**、下标会跳号。
             int built = 0;
+            // 🔴 **2026-10-25（N9 · 账 76/89）**：重建之前清选中态表（旧格的描边会被销毁 ⇒ 不清就会点亮死节点）。
+            ResetTrophyHighlights();
             for (int i = 0; i < n; i++)
             {
                 int col = i % cols, row = i / cols;
@@ -604,6 +611,15 @@ namespace CardPresentation
             //    `3205 + (CellQueue(i, L) − 3205) == CellQueue(i, L)`。
             int CellQ(int layer) { return CellQueue(builtIndex, layer) - (Page.Q + QOff); }
 
+            // 🔴 **2026-10-25（N9 · 账 73/76/88/89）**：**一格奖杯的数据源**提前到这里算一次
+            //   （原来只在画徽记时才取 ⇒ 标题/进度/选中态拿不到）。
+            //   · 有定义表时 = 该格的 `AllianceTrophyDef` + 它的进度态（档位 = `CurrentTier`）；
+            //   · 没有定义表（**本地默认**，见 `AllianceTrophyModel.WhyNoDefs`）⇒ `null`，
+            //     下面三件一律按「无数据」处理（⛔ 不编一个名字/进度出来）。
+            var trophyDef = AllianceTrophyModel.VisibleAt(builtIndex);
+            var trophyState = AllianceTrophyModel.StateOf(trophyDef);
+            int trophyTier = AllianceTrophyModel.CurrentTier(trophyDef, trophyState);
+
             // `Collectable Highlight`（八角描边 · 九宫 52 · `fillCenter=0` · 染色 `(1,0.545,0,1)` · ppuMul 0.94）
             //   —— **出厂 act F**：原版 `AllianceTrophyEntry.Initialize` 第一句就是
             //   `highlight.SetActive(false)`（反编译 `AllianceTrophyEntry__Initialize.c:19`，字段 0x48）。
@@ -626,6 +642,11 @@ namespace CardPresentation
                               new Color(1f, 0.545f, 0f, 1f), false,
                               new Vector4(52f / 0.94f, 52f / 0.94f, 52f / 0.94f, 52f / 0.94f));
             if (hl != null) hl.SetActive(false);
+            // 🔴 **2026-10-25（N9 · 账 76/86/89）**：**选中态**接上 —— 原版 `Select` / `Deselect` 就是
+            //   `highlight.SetActive(true/false)`，`AllianceTrophiesView.ToggleSelected` = **先关上一枚、再点亮新那枚**。
+            //   我们原来只有「出厂就关」这一档、没有任何状态 ⇒ `IsFeatured` 那一枚永远点不亮。
+            RegisterTrophyHighlight(builtIndex, hl);
+            if (trophyDef != null && trophyDef.IsFeatured) ToggleSelected(builtIndex);
 
             // `bg`（格子底板）：`UI_Deck_Selection_Back_simple` 440×656 · 九宫 (197,0,199,0) · Sliced
             //   ⚠️ 无 `ppuMul`（=1）；⚠️ 九宫左右角块 **197+199 = 396 > 格宽 298** ⇒ 按轴等比压扁
@@ -639,8 +660,32 @@ namespace CardPresentation
             // `BadgeDrawer`（那一枚徽标：Frame + Badge）—— 徽标图的来源在服务器（盟自己的存档）
             var bdr = new PxRect(r.x1 + 33.98f, r.y1 + 6.98f, r.x1 + 264.03f, r.y1 + 237.03f);
             var bd = Node(cell, "BadgeDrawer", bdr);
-            Node(bd, "Frame", bdr);
-            Node(bd, "Badge", bdr);
+            // 🆕 **2026-10-25（代理 G · 补 `AlliancesTrophyController.GetTierFrame`）**：
+            //   档位框 = `Alliance_Trophies_TIER1..4`（原版 `tierFrames[Math.Max(0, tier-1)]`，
+            //   伪码见 `AllianceTrophyArt` 文件头）。有定义表时按**该格奖杯的当前档**取框；
+            //   没有定义表（本地默认）⇒ 节点照建、**不画**（= 服务器档位未知，⛔ 不猜一档）。
+            //   队列 = `CellQ(LC_Slot)`(2)：在 `bg`(1) 之上、与进度槽同档 —— 两者几何不重叠（徽记 y 6.98..237，
+            //   进度槽在格底），同档不冲突（严格兄弟序要 7 号/格，见 `LC_*` 那段说明）。
+            // 🔴 **2026-10-25（N9 · 账 10①）**：原版下标是 `Math.Max(0, tier - 1)` ⇒ **tier == 0 也取 TIER1**；
+            //   我们原来 `trophyTier > 0` 才画 ⇒ tier 0 一档框都没有（和原版差一档）。
+            var frameTex = trophyDef != null ? AllianceTrophyArt.GetTierFrame(Mathf.Max(1, trophyTier)) : null;
+            if (frameTex != null)
+                MenuDraw.Rect(bd, frameTex, bdr, "Frame", CellQ(LC_Slot), null, true);
+            else
+                Node(bd, "Frame", bdr);
+            // 🔴 **2026-10-25（N9 · 账 88③ / 8）**：徽记 = 原版 `badgeDrawer.Draw(GetCurrentStatus())`，
+            //   `GroupBadge` 那两个字段就是 `CurrentStatus` 吐的 `(trophyId, tierLevel)`。
+            //   ⚠️ **图仍取不到**：原版那一枚来自 `AllianceTrophyData.reward`（`LoadableReference<AllianceBadge>`），
+            //   本地没有那张 SO、也没有 id→图 的映射（判据空）⇒ 按 `RewardBadgeId` 当图名试一次，
+            //   取不到就**保持空节点 + 出声一次**（⛔ 不拿别的图顶上）。
+            var badgeTex = trophyDef != null ? CardArt.MenuUi(trophyDef.RewardBadgeId) : null;
+            if (badgeTex != null)
+                MenuDraw.Rect(bd, badgeTex, bdr, "Badge", CellQ(LC_Slot), null, true);
+            else
+            {
+                Node(bd, "Badge", bdr);
+                if (trophyDef != null) WarnNoBadgeArtOnce(trophyDef.RewardBadgeId);
+            }
 
             // `title`（奖杯名）—— 原版 `Center/Middle` · 字号 38 auto[12,38] · 折行 1（普查 `:364`）
             //   🔴 队列 = `CellQ(LC_Text)` —— **这一处是「近似」，如实记着**：原版 `title` 是 `TrophyDisplay`
@@ -652,13 +697,17 @@ namespace CardPresentation
             //   ⛔ 真要做严格版：先给这一带扩容到 7 号/格（`QCellStride` 与 `QCellMax` 一起改），
             //    **别**借用旁边的号（FX-1 那条告诫原样成立）。
             TextSoft(cell, new PxRect(r.x1 + 23.94f, r.y1 + 237.03f, r.x1 + 273.00f, r.y1 + 277.83f),
-                     "", Color.white, "title", 38f, CellQ(LC_Text), 12f, false);
+                     TrophyTitleOf(trophyDef), Color.white, "title", 38f, CellQ(LC_Text), 12f, false);
 
             // `Progress` > `ProgressBar`（原版是 `Slider` + `ProgressBar` 组件；出厂 `value` = 0）
             var prog = Node(cell, "Progress",
                             new PxRect(r.x1 + 25.00f, r.y1 + 299.07f, r.x1 + 273.00f, r.y1 + 324.54f));
             var bar = Node(prog, "ProgressBar",
                            new PxRect(r.x1 + 23.75f, r.y1 + 282.90f, r.x1 + 273.00f, r.y1 + 330.46f));
+            // 🔴 **2026-10-25（N9 · 账 88②）**：`dontShowProgress` 为真、或**已满档** ⇒ **整条进度条关掉**
+            //   （原版 `AllianceTrophiesView.Draw` 里那是两支早退、节点根本不建；我们建好后 `SetActive(false)`
+            //   —— 可观测等价：一整棵不渲染，也不会残留命中区）。
+            if (!ShowTrophyProgress(trophyDef, trophyState, trophyTier)) prog.gameObject.SetActive(false);
 
             // `Background`（槽底）：`40k_campaign_bar_bg` 42×18 · 九宫 (20,0,20,0) · ppuMul 0.9
             //   🔴 队列 = `CellQ(LC_Slot)`：`ProgressBar` 的**第一颗**子件 ⇒ 压 `bg`、被 `Outline`/`counter` 压。
@@ -707,7 +756,7 @@ namespace CardPresentation
             //   原版 `Center/Middle` · 字号 26.95 auto[12,35] · 折行 1。
             //   🔴 队列 = `CellQ(LC_Text)`：`ProgressBar` 的**第三颗**子件 ⇒ 连 `Outline` 也压在它下面。
             TextSoft(bar, new PxRect(r.x1 + 37.59f, r.y1 + 294.87f, r.x1 + 261.61f, r.y1 + 320.43f),
-                     "0/0", Color.white, "counter", 26.95f, CellQ(LC_Text), 12f, false);
+                     TrophyCounterOf(trophyDef, trophyState, trophyTier), Color.white, "counter", 26.95f, CellQ(LC_Text), 12f, false);
 
             // 「点格子开 `trophyInfoPopup`」那条命中路（原版 `AllianceTrophyEntry.backgroundButton` →
             //   `HandleClick` 发 `OnClick` → `AllianceTrophiesView.HandleTrophyClick` →
@@ -874,6 +923,109 @@ namespace CardPresentation
             // 原版两条预览的文案是富文本（`<color=#00FF20>Player Name:</color> Message`），字号 23
             Text(row, r, "<color=#00FF20>Player Name:</color> Message", Color.white, "text", 23f, L_Text, 0f,
                  wrap: false, alignLeft: true);                                 // A319 #4（原版 `Left`(1)）· 原版 `折行=0`（判据见 `Toggle` 那段）
+        }
+
+        // ============================================================ 奖杯格的选中态（2026-10-25 · N9 · 账 76/86/89）
+        // 🔴 新增成员**追加在类尾**（2026-10-25 纪律）：本文件被账按行号引用得多，别插进已有成员之间。
+
+        readonly System.Collections.Generic.List<GameObject> _trophyHl = new System.Collections.Generic.List<GameObject>();
+        int _trophySel = -1;
+
+        /// <summary>重建奖杯格之前清一次（否则旧格的描边残留在表里 ⇒ `Select` 会去点亮一个已销毁的节点）。</summary>
+        void ResetTrophyHighlights() { _trophyHl.Clear(); _trophySel = -1; }
+
+        /// <summary>登记某一格的描边（`builtIndex` = 建出来的第几格，与 `BuildTrophyCell` 同一个号）。</summary>
+        void RegisterTrophyHighlight(int builtIndex, GameObject hl)
+        {
+            while (_trophyHl.Count <= builtIndex) _trophyHl.Add(null);
+            _trophyHl[builtIndex] = hl;
+        }
+
+        /// <summary>= 原版 `AllianceTrophyEntry.Select`：`highlight.SetActive(true)`。</summary>
+        public void Select(int index)
+        {
+            if (index < 0 || index >= _trophyHl.Count) return;
+            var hl = _trophyHl[index];
+            if (hl == null) return;
+            hl.SetActive(true);
+            _trophySel = index;
+        }
+
+        /// <summary>= 原版 `AllianceTrophyEntry.Desselect`：`highlight.SetActive(false)`。</summary>
+        public void Desselect()
+        {
+            if (_trophySel >= 0 && _trophySel < _trophyHl.Count && _trophyHl[_trophySel] != null)
+                _trophyHl[_trophySel].SetActive(false);
+            _trophySel = -1;
+        }
+
+        /// <summary>= 原版 `AllianceTrophiesView.ToggleSelected(entry)`：**先关上一枚、再点亮这一枚**
+        /// （判据 `AllianceTrophiesView__ToggleSelected.c`）。</summary>
+        public void ToggleSelected(int index)
+        {
+            Desselect();
+            Select(index);
+        }
+
+        /// <summary>当前点亮的是第几格（-1 = 一枚都没亮；自检读口）。</summary>
+        public int SelectedTrophy { get { return _trophySel; } }
+
+        /// <summary>`CurrentActiveBadge Count` 那一行（「N Trophies Achieved!」）。
+        /// 🔴 **2026-10-25（N9 · 账 73④）**：原来写死 prefab 出厂样例串 `45 Trophies Achieved!` ⇒
+        /// 现在按**达成数**拼：有定义表 = `AllianceTrophyModel.VisibleCountOrMinusOne`（= 可见的达成档数），
+        /// 没有定义表 = `SocialData.AllianceTrophies`（同 `BuildTrophyRows` 的退路口径）。
+        /// <para>⚠️ 原版那两句是 I2 **复数词条**（`Trophies/Count` 与 `…/Count/Singular`），本地没有 value
+        /// ⇒ 用 prefab 出厂串的字面形状拼（`{n} Trophies Achieved!` / 单数 `{n} Trophy Achieved!`）——
+        /// **这是我们的口径，不是原版词条**。</para></summary>
+        static string TrophyCountText()
+        {
+            int n = AllianceTrophyModel.VisibleCountOrMinusOne;
+            if (n < 0) n = SocialData.AllianceTrophies;
+            return n + (n == 1 ? " Trophy Achieved!" : " Trophies Achieved!");
+        }
+
+        // ---- 一格奖杯的三件数据（账 8 / 88）----
+        /// <summary>奖杯名：原版 `AllianceTrophyData.title` 是 **LocalizedLabel ⇒ 词条 key**
+        /// （`AllianceTrophyEntry.Initialize` 里 `trophyTitle.text = Data.LocalizedName`）。
+        /// 无定义表 / 空 key ⇒ **空串**（原版出厂也是空，⛔ 不编一个名字）。</summary>
+        static string TrophyTitleOf(AllianceTrophyDef def)
+        {
+            if (def == null || string.IsNullOrEmpty(def.TitleTerm)) return "";
+            return Loc.T(def.TitleTerm);
+        }
+
+        /// <summary>进度条那一格该不该显示：原版 `AllianceTrophiesView.Draw` 的两条早退 ——
+        /// `dontShowProgress` 为真、或**已满档**（`CurrentTier >= 里程碑数`）⇒ 整条进度条关掉。
+        /// 无定义表 ⇒ **显示**（出厂 `0/0` 就是原版的出厂态）。</summary>
+        static bool ShowTrophyProgress(AllianceTrophyDef def, AllianceTrophyState st, int tier)
+        {
+            if (def == null) return true;
+            if (def.DontShowProgress) return false;
+            int len = def.MilestoneTargets != null ? def.MilestoneTargets.Length : 0;
+            return !(len > 0 && tier >= len);
+        }
+
+        /// <summary>`counter` 那串 `{groupScore}/{target}`（原版 `AllianceTrophyEntry.Initialize` 里
+        /// `progress.SetProgress(groupScore, target, "{0}/{1}")` 的文字那一半）。
+        /// 没有目标里程碑（`int.MinValue`）⇒ 空串。</summary>
+        static string TrophyCounterOf(AllianceTrophyDef def, AllianceTrophyState st, int tier)
+        {
+            if (def == null) return "0/0";
+            int target = AllianceTrophyModel.TargetMilestone(def, st);
+            if (target == int.MinValue) return "";
+            return st.GroupScore + "/" + target;
+        }
+
+        static readonly System.Collections.Generic.HashSet<string> _noBadgeWarned =
+            new System.Collections.Generic.HashSet<string>();
+        /// <summary>徽记图取不到就**出声一次**（每个 id 只报一次，免得一屏 15 格刷 15 行）。</summary>
+        static void WarnNoBadgeArtOnce(string id)
+        {
+            string key = id ?? "";
+            if (!_noBadgeWarned.Add(key)) return;
+            Debug.Log("[Alliance] 奖杯徽记图取不到：`" + key + "` ⇒ 这一格**不画徽记**"
+                    + "（原版那一枚来自 `AllianceTrophyData.reward` 的 `LoadableReference<AllianceBadge>`，"
+                    + "本地没有那张 SO、也没有 id→图 的映射 ⇒ 判据空）");
         }
     }
 
@@ -1179,7 +1331,13 @@ namespace CardPresentation
             //   「可能被缩、也可能不缩」的不确定态）。⚠️ **本件没跑 Unity** ⇒ **画面差没实测**，
             //   不写成「无可见差」；能断的是**状态**（`Label.AutoSizing`）。
             // 🔴 **A319 #8**：原版 `Left`(1) ⇒ `alignLeft: true`（显式化，原缺省同值）。
-            var lbMembers = v.Text(lbl, g.ListLabel, "Members: --/20", Color.white, "Text", 38.35f, 3, 0f, wrap: true,
+            // 🔴 **2026-10-25（N9 · 账 31）**：原版这里是**运行期刷**的 `Members {n}/{cap}`（`n` = 成员数、
+            //   `cap` = `AlliancesConfig.maxMemberCount`）。本仓没有那份配置 ⇒ `cap` 取 prefab 出厂样例里印的
+            //   **20**（`SocialData.MemberCap`，理由写在那个字段头上）；`n` = 当前成员表条数。
+            //   ⚠️ 成员表没有运行时数据源 ⇒ **在建树这一刻算一次就够**（列表不会变）。
+            var lbMembers = v.Text(lbl, g.ListLabel,
+                   Loc.T("SocialMenu/Alliances/Members") + " " + SocialData.Members.Count + "/" + SocialData.MemberCap,
+                   Color.white, "Text", 38.35f, 3, 0f, wrap: true,
                    alignLeft: true);   // A258：原版 `折行=1`
             // 🆕 **2026-10-16（A712 阶段 2）**：原版 `members label` = `对齐=Left/**Midline**`
             //  （同一份 dump；`594.83×41.42 · 字号=40.0`）。
@@ -1354,7 +1512,7 @@ namespace CardPresentation
         public static void BuildAll(SocialView v, Transform content, MenuScroll sc)
         {
             for (int i = content.childCount - 1; i >= 0; i--) SocialWindow.DestroySafe(content.GetChild(i).gameObject);
-            var all = SocialData.Members;
+            var all = SortedMembers();   // 🔴 2026-10-25（N9 · 账 31）：原版按 `Rating` 降序 + 行号取排序后序号 —— 见类尾 `SortedMembers`
             int n = all.Count;
 
             // 🔴 列数：原版那个 `GridLayoutGroup` 的 `m_Constraint = 0`（Flexible）⇒ 列数由**宽度式**算
@@ -1416,7 +1574,7 @@ namespace CardPresentation
                     //    节点下，解析到的是各自那一颗 —— 这正是不再自持的好处。
                     if (!MenuDraw.VisibleAbove(content, r, null)) continue;
                 }
-                Build(v, content, all[i], r);
+                Build(v, content, all[i], r, i + 1);   // 🔴 行号 = 排序后序号（1 起），见 `SortedMembers`
             }
         }
 
@@ -1441,7 +1599,7 @@ namespace CardPresentation
         }
 
         /// <summary>一行（坐标都是**行内相对**，逐值照 §A·2·3 的表 —— 那份表用的根尺寸正好是 750×100）。</summary>
-        public static void Build(SocialView v, Transform content, SocialData.Member m, PxRect r)
+        public static void Build(SocialView v, Transform content, SocialData.Member m, PxRect r, int rowNumber = -1)
         {
             var row = MenuDraw.Node(content, "Alliance Member Entry", r);
             v.Nine(row, "40K_dropdown_bg", r, new Vector4(23f, 20f, 23f, 20f), "background", 0,
@@ -1452,7 +1610,7 @@ namespace CardPresentation
             var idxR = new PxRect(r.x1 + 2.52f, r.y1 + 2.56f, r.x1 + 47.04f, r.y1 + 97.34f);
             // 🆕 **2026-10-17（`A1024③`）**：原版 `member index` = **Asar**（`R_A1024_字体按用途普查.md` §2·5·1）
             var lbIdx = v.Text(row, idxR,
-                   m.Index.ToString(), Color.white, "member index", 40f, 3, 18f, wrap: false,
+                   (rowNumber >= 0 ? rowNumber : m.Index).ToString(), Color.white, "member index", 40f, 3, 18f, wrap: false,
                    alignLeft: false, face: TmpFont.Face.LatinUi);   // A319 #10（原版 `Center`(2)）· 原版 `折行=0`
             // 🆕 **2026-10-16（A712 阶段 2）**：原版 `member index` = `对齐=Center/**Midline**`
             //   （同一份 dump；`Alliance Member Entry` 那一族 ⇒ **同名不同档**，与 `Individual rating value`
@@ -1488,9 +1646,40 @@ namespace CardPresentation
             //    （判据与理由 → `Rating` 的头注释，⛔ 别在这儿抄第二份）。
             Rating(v, row, r, 3.36f, "Draft Rating", "40k_battle_Win_Skull", m.DraftRating, rightPivot: false, wrap: true);
             Rating(v, row, r, 49.86f, "Ranked Rating", "40k_UI_icon_ranked_Skirmish", m.RankedRating, rightPivot: true, wrap: false);
-            v.Hit(row, "Hit", r, 3, () =>
-                SocialPage.Say("点成员那一行：原版是 `AllianceMemberEntry` 的 `button`（开成员选项弹窗 "
-                             + "`AllianceMemberOptionsPopup`，8 个钮全要服务器 —— 判据 → `多人界面_入口与调用.md` §③）。"));
+            v.Hit(row, "Hit", r, 3, () => OpenMemberOptions(m));
+        }
+
+        /// <summary>点成员那一行 ⇒ **开成员选项弹窗**。
+        /// <para>原版链路：`AllianceMemberList.HandleMemberClick(member, memberTransform)` 只是转发
+        /// `OnMemberClicked` → 订阅方 `AllianceView.OnMemberClicked`（`AllianceView.cs:595-612`）=
+        /// `WindowsManager.OpenWindow(memberOptionsPopup, member)` + 把窗摆到那一行。</para>
+        /// <para>🔴 **2026-10-25（N9 · 账 30/99）**：那扇窗（22 节点）与入口
+        /// `WindowsManager.OpenAllianceMemberOptions` **早就建好了**，但**游戏内一直没有调用点**
+        /// —— 成员行点击只 `Say` ⇒ 那扇窗永远打不开。本轮接上。</para>
+        /// <para>⚠️ 三处**本地拿不到**（如实记，⛔ 不编）：
+        /// ① `MemberView.Role` 是 int（`Member=0 / Moderator=1 / Admin=2 / Leader=3`），
+        ///    我们的 `SocialData.Member.Role` 只有**显示串**（原版样例 `Alliance Master`）⇒ 传 `0`；
+        /// ② `IsFriend` 没有数据源（见账 373）⇒ 传 `false`；
+        /// ③ 原版还会把窗**摆到那一行旁边**（`memberTransform.position` + 一次 `anchoredPosition` 重算）——
+        ///    我们的窗只有 `RootRect(anchor)` 那条算式、**没有「已建好后按锚点重排」的口** ⇒ 本轮仍居中。</para>
+        /// <para>⇒ 因此 `Promote / Demote / Kick` 三颗（要 `outrank = SameGroup &amp;&amp; Role &lt; MyRole`）
+        /// **恒不出**；`Quit` 只在「点的是自己」时出。这是「只知道这些」时的诚实子集。</para></summary>
+        static void OpenMemberOptions(SocialData.Member m)
+        {
+            var mv = new AllianceMemberOptionsPopup.MemberView
+            {
+                Name = m != null ? (m.Name ?? "") : "",
+                Role = 0,                       // ⚠️ 本地没有数值 role（见上面 ①）
+                IsSelf = m != null && m.IsPlayer,
+                IsFriend = false,               // ⚠️ 没有好友态数据源（见上面 ②）
+                SameGroup = true,
+                MyRole = 0,
+            };
+            var win = WindowsManager.OpenAllianceMemberOptions(mv);
+            Debug.Log("[Alliance] 点成员行 ⇒ 开 `AllianceMemberOptionsPopup`（原版 `AllianceView.OnMemberClicked`）；"
+                    + "`Role`/`IsFriend` 本地无数据 ⇒ 权限那三颗（Promote/Demote/Kick）不会出现，"
+                    + "窗也没有「摆到那一行」的定位（见 `OpenMemberOptions` 的注释）。"
+                    + (win == null ? "⚠️ 窗没开出来" : ""));
         }
 
         /// <summary>一处评级：`Main Icon` + `Individual rating value`（**右对齐**）。
@@ -1544,6 +1733,31 @@ namespace CardPresentation
             //   ⚠️ 与**上面页内**那两颗同名的 `{Alliance,Draft} Rating Display/Individual rating value`
             //   （`Left/Midline`）是**同名不同档**，见本文件头那张表：横向取 `Right`、纵向**两颗都是 `Midline`**）。
             MenuDraw.SetVAlign(lb, Label.VAlign.Midline, tr);
+        }
+
+        /// <summary>成员列表的**排序视图**（原版 `AllianceMemberList.Initialize`）：
+        /// `OrderByDescending(m =&gt; m.Rating)` —— **评分高的在前**，行号取**排序后的序号（1 起）**。
+        /// <para>🔴 **2026-10-25（N9 · 账 31）**：我们原来直接吃 `SocialData.Members` 的**存储序**、
+        /// 行号印的是 `Member.Index` ⇒ 两条都不对。</para>
+        /// <para>⚠️ 原版用的是 LINQ `OrderByDescending` ⇒ **稳定**（同分保持原相对次序）。
+        /// `List.Sort` 是**不稳定**的 ⇒ 这里显式用「同分比原下标」的比较器，
+        /// ⛔ 别图省事改成 `src.Sort(...)`（会让同分成员的行序在两次重建之间跳）。</para>
+        /// <para>⚠️ `Member.Rating` 是**数值评分**（原版 `GroupMember.Rating`，int）；行里印的
+        /// `DraftRating` / `RankedRating` 只是**显示串**，不能拿来排序。</para></summary>
+        public static System.Collections.Generic.List<SocialData.Member> SortedMembers()
+        {
+            var src = SocialData.Members;
+            int n = src.Count;
+            var order = new int[n];
+            for (int i = 0; i < n; i++) order[i] = i;
+            System.Array.Sort(order, (x, y) =>
+            {
+                int c = src[y].Rating.CompareTo(src[x].Rating);
+                return c != 0 ? c : x.CompareTo(y);
+            });
+            var list = new System.Collections.Generic.List<SocialData.Member>(n);
+            for (int i = 0; i < n; i++) list.Add(src[order[i]]);
+            return list;
         }
     }
 

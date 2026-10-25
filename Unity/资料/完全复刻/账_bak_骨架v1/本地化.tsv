@@ -1,0 +1,10 @@
+域	原版类	方法	判据出处	判据要点	状态	我们的落点	差异	等级	轮次	备注
+本地化	AddressableLocalizationLibrary	AssetCompletedLoading(AsyncOperationHandle obj, string assetKey)	AddressableLocalizationLibrary.cs:50		E					
+本地化	AddressableLocalizationLibrary	GetLocalHandle(IResourceLocation element)	AddressableLocalizationLibrary.cs:34		E					
+本地化	EverguildLocalization	GetTranslationWithParameters(string localizationKey, string param1, string param2, string param3)	EverguildLocalization.cs:6		E					
+本地化	LanguageSelector	Initialize()	LanguageSelector.cs:13		E					
+本地化	LanguageSelector	OnDestroy()	LanguageSelector.cs:21		E					
+本地化	LanguageSelector	OnLanguageChanged(int option)	LanguageSelector.cs:28		E					
+本地化	LanguageSelector	ResetLanguagesDropdown()	LanguageSelector.cs:52		E					
+本地化	LocalizationKeyChangerByPlatform	Awake()	LocalizationKeyChangerByPlatform.cs:8		E					
+本地化	TranslationService	Translate(string text, Action<string> onSuccess, Action onError)	TranslationService.cs:46		E					

@@ -1,0 +1,351 @@
+域	原版类	方法	判据出处	判据要点	状态	我们的落点	差异	等级	轮次	备注
+收藏	AlternateArtCardCollectionTab	Awake()	AlternateArtCardCollectionTab.cs:105		E					
+收藏	AlternateArtCardCollectionTab	ChangeStyleButton(bool isLeft)	AlternateArtCardCollectionTab.cs:148		E					
+收藏	AlternateArtCardCollectionTab	ConfigureStyle(int indexStyleToUse, bool updateCollectionDisplay)	AlternateArtCardCollectionTab.cs:202		E					
+收藏	AlternateArtCardCollectionTab	GetCollection()	AlternateArtCardCollectionTab.cs:226		E					
+收藏	AlternateArtCardCollectionTab	OnItemSelected(CollectionItem<RawCardScript> item, PointerEventData.InputButton button)	AlternateArtCardCollectionTab.cs:378		E					
+收藏	AlternateArtCardCollectionTab	Setup(GameWindow window)	AlternateArtCardCollectionTab.cs:174		E					
+收藏	AlternateArtCardCollectionTab	ToggleShowOwned(bool show)	AlternateArtCardCollectionTab.cs:366		E					
+收藏	AlternateArtCardCollectionTab	_003CAwake_003Eb__7_0()	AlternateArtCardCollectionTab.cs:478		E					
+收藏	AlternateArtCardCollectionTab	_003CAwake_003Eb__7_1()	AlternateArtCardCollectionTab.cs:496		E					
+收藏	AlternateArtCardCollectionTab	_003CGetCollection_003Eb__11_0(RawCardScript c)	AlternateArtCardCollectionTab.cs:514		E					
+收藏	AlternateArtInventory	OnFinishUnpack()	AlternateArtInventory.cs:7		E					
+收藏	AlternateArtInventory	OnItemCountModify(AlternateArtCard item, int amount)	AlternateArtInventory.cs:157		E					
+收藏	ArmyItemContainer	Click(bool isOn)	ArmyItemContainer.cs:368		E					
+收藏	ArmyItemContainer	Initialize(CardArmy army, ToggleGroup toggleGroup, ArmySelectorType parentType)	ArmyItemContainer.cs:202		E					
+收藏	ArmyItemContainer	OnDestroy()	ArmyItemContainer.cs:403		E					
+收藏	ArmyItemContainer	Refresh()	ArmyItemContainer.cs:389		E					
+收藏	ArmyItemContainer	SetManualToggle(bool option)	ArmyItemContainer.cs:384		E					
+收藏	ArmyItemContainer	ToggleInteractable(bool option)	ArmyItemContainer.cs:398		E					
+收藏	AutoRemoveCanvasSorting	Start()	AutoRemoveCanvasSorting.cs:5		E					
+收藏	BadgeNotificationDefinition	Validate(Notification n)	BadgeNotificationDefinition.cs:83		E					
+收藏	BoostCollection	GetBoostFromId(string id)	BoostCollection.cs:25		E					
+收藏	CardArmyFilter	ClearArmyFilter()	CardArmyFilter.cs:179		E					
+收藏	CardArmyFilter	ClearFilters()	CardArmyFilter.cs:187		E					
+收藏	CardArmyFilter	FillToggleList(List<CollectionFilterToggle> currentList, int listLimit)	CardArmyFilter.cs:218		E					
+收藏	CardArmyFilter	FilterItem(RawCardScript card)	CardArmyFilter.cs:195		E					
+收藏	CardArmyFilter	FilterToArmy(CardArmy army)	CardArmyFilter.cs:103		E					
+收藏	CardArmyFilter	SetFilterToDeck(CardDeck deck)	CardArmyFilter.cs:81		E					
+收藏	CardBackCosmeticArmyFilter	FilterItem(CosmeticItemCardback cosmetic)	CardBackCosmeticArmyFilter.cs:77		E					
+收藏	CardBackCosmeticRarityFilter	FilterItem(CosmeticItemCardback cosmetic)	CardBackCosmeticRarityFilter.cs:7		E					
+收藏	CardCollectionDisplay	CheckFocusedArmy()	CardCollectionDisplay.cs:385		E					
+收藏	CardCollectionDisplay	OnCollectionUpdate(CardCollectionUpdatedSignal signal)	CardCollectionDisplay.cs:96		E					
+收藏	CardCollectionDisplay	OnDisable()	CardCollectionDisplay.cs:90		E					
+收藏	CardCollectionDisplay	OnEnable()	CardCollectionDisplay.cs:84		E					
+收藏	CardCollectionDisplay	OnListDrag(Vector2 listPos)	CardCollectionDisplay.cs:379		E					
+收藏	CardCollectionDisplay	RefreshCells()	CardCollectionDisplay.cs:475		E					
+收藏	CardCollectionDisplay	RefreshCollection()	CardCollectionDisplay.cs:463		E					
+收藏	CardCollectionDisplay	SetCell(ICell cell, int index)	CardCollectionDisplay.cs:184		E					
+收藏	CardCollectionDisplay	UpdateCardVisuals(CollectionCard card)	CardCollectionDisplay.cs:303		E					
+收藏	CardCollectionFilterController	SetFiltersToDeck(CardDeck deck)	CardCollectionFilterController.cs:7		E					
+收藏	CardCollectionTab	GetCards()	CardCollectionTab.cs:137		E					
+收藏	CardCollectionTab	GetCollection()	CardCollectionTab.cs:196		E					
+收藏	CardCollectionTab	OnItemSelected(CollectionItem<RawCardScript> item, PointerEventData.InputButton button)	CardCollectionTab.cs:341		E					
+收藏	CardCollectionTab	OnOpen()	CardCollectionTab.cs:159		E					
+收藏	CardCollectionTab	Setup(GameWindow window)	CardCollectionTab.cs:127		E					
+收藏	CardCollectionTab	Test()	CardCollectionTab.cs:144		E					
+收藏	CardCollectionTab	ToFocus()	CardCollectionTab.cs:186		E					
+收藏	CardCollectionTab	ToggleShowOwned(bool show)	CardCollectionTab.cs:329		E					
+收藏	CardCostFilter	FilterItem(RawCardScript card)	CardCostFilter.cs:8		E					
+收藏	CardCostFilter	SetFilterToDeck(CardDeck deck)	CardCostFilter.cs:40		E					
+收藏	CardInventory	Add(IIdentifiable item, int amount, string instanceId, Dictionary<string, string> customData, bool overrideAmount)	CardInventory.cs:89		E					
+收藏	CardInventory	Create(IIdentifiable item, string instanceId, Dictionary<string, string> customData)	CardInventory.cs:19		E					
+收藏	CardInventory	CreateAlternateArtInfo(RawCardScript item, string instanceId, Dictionary<string, string> customData)	CardInventory.cs:158		E					
+收藏	CardInventory	UpdateCardTier(RawCardScript card, Dictionary<string, string> customData)	CardInventory.cs:148		E					
+收藏	CardInventory	UpdateItemCollection()	CardInventory.cs:13		E					
+收藏	CardListItemScript	BeingDeleted(Color newColor)	CardListItemScript.cs:199		E					
+收藏	CardListItemScript	ConfigureCardForRenderInsideScroll()	CardListItemScript.cs:125		E					
+收藏	CardListItemScript	OnMouseDown()	CardListItemScript.cs:346		E					
+收藏	CardListItemScript	OnMouseDrag()	CardListItemScript.cs:325		E					
+收藏	CardListItemScript	OnMouseEnter()	CardListItemScript.cs:290		E					
+收藏	CardListItemScript	OnMouseExit()	CardListItemScript.cs:317		E					
+收藏	CardListItemScript	OnMouseOver()	CardListItemScript.cs:302		E					
+收藏	CardListItemScript	OnMouseUpAsButton()	CardListItemScript.cs:271		E					
+收藏	CardListItemScript	OnRemoveCard()	CardListItemScript.cs:406		E					
+收藏	CardListItemScript	SetDraftView()	CardListItemScript.cs:179		E					
+收藏	CardListItemScript	SetItemAlpha(float newAlpha, Color newColor)	CardListItemScript.cs:421		E					
+收藏	CardListItemScript	SetSortingLayer(string layerName)	CardListItemScript.cs:193		E					
+收藏	CardListItemScript	SetupCard(RawCardScript card, int copies, bool _ishero)	CardListItemScript.cs:121		E					
+收藏	CardListItemScript	ShowBeingRemoved(float timeToFade)	CardListItemScript.cs:208		E					
+收藏	CardListItemScript	Update()	CardListItemScript.cs:430		E					
+收藏	CardListItemScript	UpdateDisplayData(RawCardScript card, int copies)	CardListItemScript.cs:220		E					
+收藏	CardNameFilter	CheckInputTextSearch(List<RawCardScript> collection, string text)	CardNameFilter.cs:54		E					
+收藏	CardNameFilter	ClearFilters()	CardNameFilter.cs:42		E					
+收藏	CardNameFilter	FillToggleList(List<CollectionFilterToggle> currentList, int maxElements)	CardNameFilter.cs:191		E					
+收藏	CardNameFilter	Filter(List<RawCardScript> collection)	CardNameFilter.cs:28		E					
+收藏	CardNameFilter	RemoveBetween(string sourceString, string startTag, string endTag)	CardNameFilter.cs:206		E					
+收藏	CardNameFilter	SetupFilter(CollectionFilterController<RawCardScript> controller)	CardNameFilter.cs:14		E					
+收藏	CardNameFilter	TryMatchName(string query, string comparison)	CardNameFilter.cs:195		E					
+收藏	CardNameFilter	_003CSetupFilter_003Eb__1_0(string s)	CardNameFilter.cs:220		E					
+收藏	CardRarityFilter	FillToggleList(List<CollectionFilterToggle> currentList, int listLimit)	CardRarityFilter.cs:25		E					
+收藏	CardRarityFilter	FilterItem(RawCardScript card)	CardRarityFilter.cs:8		E					
+收藏	CardStatsFilter	Start()	CardStatsFilter.cs:5		E					
+收藏	CardStatsFilter	Update()	CardStatsFilter.cs:9		E					
+收藏	CardTypeFilter	ClearFilters()	CardTypeFilter.cs:174		E					
+收藏	CardTypeFilter	FillToggleList(List<CollectionFilterToggle> currentList, int listLimit)	CardTypeFilter.cs:182		E					
+收藏	CardTypeFilter	FilterItem(RawCardScript card)	CardTypeFilter.cs:13		E					
+收藏	CardTypeFilter	SetFilterToDeck(CardDeck deck)	CardTypeFilter.cs:30		E					
+收藏	CardTypeFilter	ShowAll()	CardTypeFilter.cs:115		E					
+收藏	CardTypeFilter	ShowOnlyHero()	CardTypeFilter.cs:52		E					
+收藏	CardbackCollectionDisplay	SetCell(ICell cell, int index)	CardbackCollectionDisplay.cs:5		E					
+收藏	CardbackCollectionTab	GetCollection()	CardbackCollectionTab.cs:79		E					
+收藏	CardbackCollectionTab	OnItemSelected(CollectionItem<CosmeticItemCardback> item, PointerEventData.InputButton button)	CardbackCollectionTab.cs:170		E					
+收藏	CardbackCollectionTab	Setup(GameWindow window)	CardbackCollectionTab.cs:70		E					
+收藏	CardbackCollectionTab	ToggleShowOwned(bool show)	CardbackCollectionTab.cs:158		E					
+收藏	CardsCollection	CountCopiesOfCard(RawCardScript card)	CardsCollection.cs:278		E					
+收藏	CardsCollection	GetCard(string id)	CardsCollection.cs:338		E					
+收藏	CardsCollection	GetCardsInArmy(CardArmy army)	CardsCollection.cs:228		E					
+收藏	CardsCollection	GetIndexOf(RawCardScript card)	CardsCollection.cs:298		E					
+收藏	CardsCollection	OnEnable()	CardsCollection.cs:89		E					
+收藏	CardsCollection	OnValidate()	CardsCollection.cs:120		E					
+收藏	CollectionCard	AnimateIn()	CollectionCard.cs:75		E					
+收藏	CollectionCard	CheckUpgradeHighlight()	CollectionCard.cs:156		E					
+收藏	CollectionCard	Config(RawCardScript item, GameplayVariablesData gameplayVariablesData)	CollectionCard.cs:39		E					
+收藏	CollectionCard	HoverHighlight(bool state)	CollectionCard.cs:135		E					
+收藏	CollectionCard	OnDestroy()	CollectionCard.cs:164		E					
+收藏	CollectionCard	OnRectTransformDimensionsChange()	CollectionCard.cs:172		E					
+收藏	CollectionCard	SelectedHighlight(bool state)	CollectionCard.cs:144		E					
+收藏	CollectionCard	Start()	CollectionCard.cs:29		E					
+收藏	CollectionCard	ToggleBanned(bool state)	CollectionCard.cs:127		E					
+收藏	CollectionCard	UpdateCardVisuals(bool isValid, bool isOwned, string counterText)	CollectionCard.cs:96		E					
+收藏	CollectionCardCounter	Set(string counterText, bool setGreyscale)	CollectionCardCounter.cs:10		E					
+收藏	CollectionCosmetic	Config(CosmeticItemCardback item, GameplayVariablesData gameplayVariablesData)	CollectionCosmetic.cs:22		E					
+收藏	CollectionCosmetic	HoverHighlight(bool state)	CollectionCosmetic.cs:38		E					
+收藏	CollectionDisplay	GetItemCount()	CollectionDisplay.cs:727		E					
+收藏	CollectionDisplay	GetItemObject(T item)	CollectionDisplay.cs:1149		E					
+收藏	CollectionDisplay	GetItems()	CollectionDisplay.cs:530		E					
+收藏	CollectionDisplay	Initialize(List<T> collection, GameplayVariablesData gameplayVariablesData)	CollectionDisplay.cs:216		E					
+收藏	CollectionDisplay	OnDisable()	CollectionDisplay.cs:582		E					
+收藏	CollectionDisplay	OnEnable()	CollectionDisplay.cs:542		E					
+收藏	CollectionDisplay	OnEndDragEvent(Transform target)	CollectionDisplay.cs:622		E					
+收藏	CollectionDisplay	OnListDrag(Vector2 listPos)	CollectionDisplay.cs:1218		E					
+收藏	CollectionDisplay	RefreshCells()	CollectionDisplay.cs:1050		E					
+收藏	CollectionDisplay	RefreshCollection()	CollectionDisplay.cs:664		E					
+收藏	CollectionDisplay	ReorderCollectionByHierarchy(Transform transformToChangeIndex)	CollectionDisplay.cs:969		E					
+收藏	CollectionDisplay	ResetRelayTarget()	CollectionDisplay.cs:635		E					
+收藏	CollectionDisplay	Select(CollectionItem<T> collectable, PointerEventData.InputButton button)	CollectionDisplay.cs:1054		E					
+收藏	CollectionDisplay	Select(T item)	CollectionDisplay.cs:1120		E					
+收藏	CollectionDisplay	SetCell(ICell cell, int index)	CollectionDisplay.cs:743		E					
+收藏	CollectionDisplay	ToggleFilters(bool state)	CollectionDisplay.cs:655		E					
+收藏	CollectionDisplay	UpdateCollection(List<T> collection)	CollectionDisplay.cs:650		E					
+收藏	CollectionFilter	ClearFilters()	CollectionFilter.cs:40		E					
+收藏	CollectionFilter	FillToggleList(List<CollectionFilterToggle> currentList, int maxElements)	CollectionFilter.cs:44		E					
+收藏	CollectionFilter	Filter(List<T> collection)	CollectionFilter.cs:38		E					
+收藏	CollectionFilter	NotifyChange()	CollectionFilter.cs:32		E					
+收藏	CollectionFilter	OnFilterChange()	CollectionFilter.cs:17		E					
+收藏	CollectionFilter	SetupFilter(CollectionFilterController<T> controller)	CollectionFilter.cs:9		E					
+收藏	CollectionFilterController	ClearFilters()	CollectionFilterController.cs:641		E					
+收藏	CollectionFilterController	Filter(List<T> collection)	CollectionFilterController.cs:575		E					
+收藏	CollectionFilterController	NotifyFilterChange()	CollectionFilterController.cs:314		E					
+收藏	CollectionFilterController	SetupFilters()	CollectionFilterController.cs:205		E					
+收藏	CollectionFilterController	Toggle(bool option, bool withAnimation)	CollectionFilterController.cs:154		E					
+收藏	CollectionFilterController	_003CToggle_003Eb__9_0()	CollectionFilterController.cs:819		E					
+收藏	CollectionFilterToggle	ForceOff()	CollectionFilterToggle.cs:102		E					
+收藏	CollectionFilterToggle	HideLabel()	CollectionFilterToggle.cs:109		E					
+收藏	CollectionFilterToggle	Initialize(FilterOptions option)	CollectionFilterToggle.cs:49		E					
+收藏	CollectionFilterToggle	SetValue(bool value, bool notify)	CollectionFilterToggle.cs:89		E					
+收藏	CollectionItem	AnimateIn()	CollectionItem.cs:299		E					
+收藏	CollectionItem	Config(T item, CollectionDisplay<T> display, bool animate, bool isSelected)	CollectionItem.cs:40		E					
+收藏	CollectionItem	Config(T item, GameplayVariablesData gameplayVariablesData)	CollectionItem.cs:295		E					
+收藏	CollectionItem	HoverHighlight(bool state)	CollectionItem.cs:414		E					
+收藏	CollectionItem	OnBeginDrag(PointerEventData eventData)	CollectionItem.cs:323		E					
+收藏	CollectionItem	OnDeselect()	CollectionItem.cs:401		E					
+收藏	CollectionItem	OnDisable()	CollectionItem.cs:193		E					
+收藏	CollectionItem	OnDrag(PointerEventData eventData)	CollectionItem.cs:346		E					
+收藏	CollectionItem	OnEnable()	CollectionItem.cs:70		E					
+收藏	CollectionItem	OnEndDrag(PointerEventData eventData)	CollectionItem.cs:369		E					
+收藏	CollectionItem	OnEndDragEvent(Transform obj)	CollectionItem.cs:188		E					
+收藏	CollectionItem	OnPointerClick(PointerEventData eventData)	CollectionItem.cs:303		E					
+收藏	CollectionItem	OnPointerEnter(PointerEventData eventData)	CollectionItem.cs:431		E					
+收藏	CollectionItem	OnPointerExit(PointerEventData eventData)	CollectionItem.cs:422		E					
+收藏	CollectionItem	OnSelect()	CollectionItem.cs:392		E					
+收藏	CollectionItem	OnStartDragEvent(Transform obj)	CollectionItem.cs:183		E					
+收藏	CollectionItem	SelectedHighlight(bool state)	CollectionItem.cs:410		E					
+收藏	CollectionItem	SetSortMode(bool state)	CollectionItem.cs:418		E					
+收藏	CollectionItem	T(CollectionItem<T> collectable)	CollectionItem.cs:444		E					
+收藏	CollectionItem	ToggleDrag(bool state)	CollectionItem.cs:168		E					
+收藏	CollectionItem	ToggleListenToPointerEvents(bool option)	CollectionItem.cs:291		E					
+收藏	CollectionManager	AddAllianceItem(AllianceItem item)	CollectionManager.cs:120		E					
+收藏	CollectionManager	AddAlternateArt(AlternateArtCard cardData)	CollectionManager.cs:217		E					
+收藏	CollectionManager	AddCard(RawCardScript card)	CollectionManager.cs:49		E					
+收藏	CollectionManager	AddCosmetic(CosmeticItem cosmetic)	CollectionManager.cs:98		E					
+收藏	CollectionManager	AddPack(PrebuiltPack pack)	CollectionManager.cs:142		E					
+收藏	CollectionManager	GetRawCardFromId(string uniqueId)	CollectionManager.cs:164		E					
+收藏	CollectionScreen	BackButtonClick()	CollectionScreen.cs:72		E					
+收藏	CollectionScreen	OnDisable()	CollectionScreen.cs:65		E					
+收藏	CollectionScreen	OnEnable()	CollectionScreen.cs:58		E					
+收藏	CollectionScreen	Open()	CollectionScreen.cs:51		E					
+收藏	CollectionScreen	ReturnFromImportDeck(PlayModes? gameMode)	CollectionScreen.cs:121		E					
+收藏	CollectionTab	GetCollection()	CollectionTab.cs:162		E					
+收藏	CollectionTab	GetItems()	CollectionTab.cs:11		E					
+收藏	CollectionTab	OnItemSelected(CollectionItem<T> item, PointerEventData.InputButton button)	CollectionTab.cs:158		E					
+收藏	CollectionTab	OnOpen()	CollectionTab.cs:153		E					
+收藏	CollectionTab	Setup(GameWindow window)	CollectionTab.cs:30		E					
+收藏	DepthSorting	ResizeParticles(float resizeFactor)	DepthSorting.cs:169		E					
+收藏	DepthSorting	SetSortingLayer(string layerName)	DepthSorting.cs:95		E					
+收藏	DepthSorting	SetSortingOrder(int newOrder)	DepthSorting.cs:18		E					
+收藏	DepthSorting	StartParticles()	DepthSorting.cs:222		E					
+收藏	FilterMethods	CheckIfMeetsCriteria(CardScript thisCard, CardScript evaluatedCard, CardScript targetCard, TargetCriteria targetCriteria)	FilterMethods.cs:102		E					
+收藏	FilterMethods	CheckIfRawCardMeetsCriteria(RawCardScript evaluatedCard, TargetCriteria targetCriteria, BattleManager manager, bool isPlayer)	FilterMethods.cs:612		E					
+收藏	FilterMethods	MeetsArmyCriteria(CardArmy cardArmy, CardArmy filterArmy, ArmyFilterOptions criteria)	FilterMethods.cs:1588		E					
+收藏	FilterMethods	MeetsCardTypeCriteria(RawCardScript evaluatedCard, TargetCriteria criteria)	FilterMethods.cs:1374		E					
+收藏	FilterMethods	MeetsConditionCriteria(CardScript card, UnitConditions conditionsFilter, bool excludeTrait, CardScript thisCard)	FilterMethods.cs:776		E					
+收藏	FilterMethods	MeetsExcludeEnchantmentCriteria(CardScript card, TargetCriteria criteria)	FilterMethods.cs:1500		E					
+收藏	FilterMethods	MeetsKeywordCriteria(CardScript card, Keyword keywordFilter, bool excludeKeyword, CardScript thisCard)	FilterMethods.cs:756		E					
+收藏	FilterMethods	MeetsKeywordCriteria(RawCardScript card, Keyword keywordFilter, bool excludeKeyword)	FilterMethods.cs:717		E					
+收藏	FilterMethods	MeetsSpecificCardCriteria(RawCardScript card, TargetCriteria criteria)	FilterMethods.cs:1433		E					
+收藏	FilterMethods	MeetsSpellTypeCriteria(SpellType spellType, TargetCriteria criteria)	FilterMethods.cs:1573		E					
+收藏	FilterMethods	MeetsStatCriteria(int cardStat, int thisCardStat, int statFilter, StatFilterOptions statFilterOptions, int altValue)	FilterMethods.cs:737		E					
+收藏	FilterMethods	MeetsTraitCriteria(CardScript card, DefinedTrait traitsFilter, bool excludeTrait, CardScript thisCard)	FilterMethods.cs:1204		E					
+收藏	FilterMethods	MeetsTraitCriteriaFromList(CardScript card, List<DefinedTrait> traitsFilter, bool excludeTrait, CardScript thisCard)	FilterMethods.cs:1261		E					
+收藏	FilterMethods	RawCardMeetsTraitCriteria(RawCardScript card, TargetCriteria criteria, BattleManager manager, bool isPlayer)	FilterMethods.cs:1282		E					
+收藏	GameModesIconCollection	GetIcon(PlayModes? playMode)	GameModesIconCollection.cs:50		E					
+收藏	GameModesIconCollection	Release()	GameModesIconCollection.cs:40		E					
+收藏	GameModesIconCollection	Release(PlayModes? playMode)	GameModesIconCollection.cs:110		E					
+收藏	GameModesIconCollection	ReleaseAll()	GameModesIconCollection.cs:91		E					
+收藏	GameModesIconCollection	TryGetIcon(PlayModes playModeToCheck, out Sprite iconToReturn)	GameModesIconCollection.cs:14		E					
+收藏	GameModesIconCollection	TryRelease(PlayModes playModeToCheck)	GameModesIconCollection.cs:32		E					
+收藏	GenericSelectCardContainer	AnimIn(int index)	GenericSelectCardContainer.cs:100		E					
+收藏	GenericSelectCardContainer	AnimOut(int index, Action onComplete)	GenericSelectCardContainer.cs:121		E					
+收藏	GenericSelectCardContainer	ChangeState(SelectionStates stateToChange)	GenericSelectCardContainer.cs:176		E					
+收藏	GenericSelectCardContainer	Deselect()	GenericSelectCardContainer.cs:153		E					
+收藏	GenericSelectCardContainer	Initialize(RawCardScript rawCarData, bool animateIn, int index, Action<GenericSelectCardContainer> onSelection, bool enableTooltips)	GenericSelectCardContainer.cs:77		E					
+收藏	GenericSelectCardContainer	OnDestroy()	GenericSelectCardContainer.cs:68		E					
+收藏	GenericSelectCardContainer	OnDisable()	GenericSelectCardContainer.cs:61		E					
+收藏	GenericSelectCardContainer	OnEnable()	GenericSelectCardContainer.cs:54		E					
+收藏	GenericSelectCardContainer	SelectButtonOnClick()	GenericSelectCardContainer.cs:162		E					
+收藏	GenericSelectCardContainer	ToggleSelected(bool option)	GenericSelectCardContainer.cs:203		E					
+收藏	GenericSelectCardContainer	_003CAnimIn_003Eb__17_0()	GenericSelectCardContainer.cs:215		E					
+收藏	Inventory	Add(IIdentifiable item, int amount, string instanceId, Dictionary<string, string> customData, bool overrideAmount)	Inventory.cs:1260		E					
+收藏	Inventory	Create(IIdentifiable item, string instanceId, Dictionary<string, string> customData)	Inventory.cs:1136		E					
+收藏	Inventory	Get(Func<T, bool> predicate)	Inventory.cs:1689		E					
+收藏	Inventory	Get(IIdentifiable item, bool autoCreate)	Inventory.cs:1619		E					
+收藏	Inventory	Get(string id)	Inventory.cs:1684		E					
+收藏	Inventory	GetItemInstances(bool useQuantity)	Inventory.cs:1566		E					
+收藏	Inventory	GetItems()	Inventory.cs:1554		E					
+收藏	Inventory	GetWhere(Func<T, bool> predicate)	Inventory.cs:1748		E					
+收藏	Inventory	OnFinishUnpack()	Inventory.cs:1256		E					
+收藏	Inventory	OnItemCountModify(T item, int amount)	Inventory.cs:1122		E					
+收藏	Inventory	OnItemCountModifyInternal(IIdentifiable itemChanged, int amountChanged)	Inventory.cs:1055		E					
+收藏	Inventory	RegisterSubset(Type type, InventorySubset set)	Inventory.cs:1126		E					
+收藏	Inventory	TryGetItem(Func<T, bool> predicate, out IItemInfo<T> item)	Inventory.cs:1458		E					
+收藏	Inventory	TryGetItem(string id, out IItemInfo<T> item)	Inventory.cs:1447		E					
+收藏	Inventory	UpdateItemCollection()	Inventory.cs:685		E					
+收藏	InventoryManager	Add(ItemInstance itemInstance)	InventoryManager.cs:1334		E					
+收藏	InventoryManager	Add<T>(T item, int amount, string instanceId, Dictionary<string, string> customData, bool overrideAmount)	InventoryManager.cs:1372		E					
+收藏	InventoryManager	AssignEphemeralState<T>(T rewardItem, EphemeralState rewardEphemeralState)	InventoryManager.cs:1518		E					
+收藏	InventoryManager	CreateInventory(Type type)	InventoryManager.cs:626		E					
+收藏	InventoryManager	DeserializeInventory(IReadOnlyList<ItemInstance> items, Dictionary<string, int> virtualCurrencies)	InventoryManager.cs:286		E					
+收藏	InventoryManager	GetExpirationDate<T>(T itemRef)	InventoryManager.cs:1599		E					
+收藏	InventoryManager	GetInventory(Type type)	InventoryManager.cs:1294		E					
+收藏	InventoryManager	GetInventory<T>()	InventoryManager.cs:1238		E					
+收藏	InventoryManager	GetOwnedCount<T>()	InventoryManager.cs:1001		E					
+收藏	InventoryManager	GetOwnedCount<T>(LoadableReference<T> item)	InventoryManager.cs:878		E					
+收藏	InventoryManager	GetOwnedCount<T>(T item)	InventoryManager.cs:894		E					
+收藏	InventoryManager	GetOwnedCount<T>(string itemId)	InventoryManager.cs:914		E					
+收藏	InventoryManager	HasEnough<T>(LoadableReference<T> item, int amount)	InventoryManager.cs:1481		E					
+收藏	InventoryManager	HasEnough<T>(T item, int amount)	InventoryManager.cs:1453		E					
+收藏	InventoryManager	HasEnough<T>(string itemId, int amount)	InventoryManager.cs:1503		E					
+收藏	InventoryManager	HasItem<T>(T item)	InventoryManager.cs:862		E					
+收藏	InventoryManager	HasItemByID<T>(string id)	InventoryManager.cs:767		E					
+收藏	InventoryManager	Remove(string instanceId, int amount)	InventoryManager.cs:1402		E					
+收藏	InventoryManager	Remove<T>(T item, int amount)	InventoryManager.cs:1422		E					
+收藏	InventoryManager	RemoveAll<T>(T itemRef)	InventoryManager.cs:1435		E					
+收藏	InventoryManager	SetRawInventory(IReadOnlyList<ItemInstance> items)	InventoryManager.cs:278		E					
+收藏	InventoryManager	SubscribeInventories(Type inventoryType, IInventory<IIdentifiable> inventory)	InventoryManager.cs:738		E					
+收藏	InventoryManager	TryGetItem<T>(Func<T, bool> predicate, out IItemInfo<T> item)	InventoryManager.cs:1321		E					
+收藏	InventoryManager	TryGetItem<T>(string id, out IItemInfo<T> item)	InventoryManager.cs:1303		E					
+收藏	InventorySubset	Add(IItemInfo<IIdentifiable> value)	InventorySubset.cs:117		E					
+收藏	InventorySubset	AddRange(IEnumerable<IItemInfo<IIdentifiable>> items)	InventorySubset.cs:126		E					
+收藏	InventorySubset	Get(string id)	InventorySubset.cs:112		E					
+收藏	InventorySubset	TryGetValue(string id, out IItemInfo<IIdentifiable> item)	InventorySubset.cs:281		E					
+收藏	ItemDrawer	Awake()	ItemDrawer.cs:143		E					
+收藏	ItemDrawer	Awake()	ItemDrawer.cs:338		E					
+收藏	ItemDrawer	Draw(ObtainableItem item, int amount, ItemDrawerOptions options)	ItemDrawer.cs:356		E					
+收藏	ItemDrawer	Draw(ObtainableItem item, int quantity, ItemDrawerOptions options)	ItemDrawer.cs:114		E					
+收藏	ItemDrawer	Draw(T item, int quantity)	ItemDrawer.cs:905		E					
+收藏	ItemDrawer	Draw(Transform parent, ObtainableItem item, int quantity, DrawerOverride drawerOverride)	ItemDrawer.cs:38		E					
+收藏	ItemDrawer	GetItemName(T item)	ItemDrawer.cs:888		E					
+收藏	ItemDrawer	HandlePointerClick()	ItemDrawer.cs:151		E					
+收藏	ItemDrawer	HandlePointerClick()	ItemDrawer.cs:955		E					
+收藏	ItemDrawer	OnDestroy()	ItemDrawer.cs:134		E					
+收藏	ItemDrawer	OnPointerClick(PointerEventData eventData)	ItemDrawer.cs:917		E					
+收藏	ItemDrawer	OnRelease()	ItemDrawer.cs:145		E					
+收藏	ItemDrawer	OverrideOnClickAction(Action onClick)	ItemDrawer.cs:132		E					
+收藏	ItemDrawer	OverrideOnClickAction(Action onClick)	ItemDrawer.cs:880		E					
+收藏	ItemDrawer	OverridePremiumBadge(Sprite sprite)	ItemDrawer.cs:149		E					
+收藏	ItemDrawer	OverridePremiumBadge(Sprite sprite)	ItemDrawer.cs:808		E					
+收藏	ItemDrawer	Refresh()	ItemDrawer.cs:116		E					
+收藏	ItemDrawer	Refresh()	ItemDrawer.cs:344		E					
+收藏	ItemDrawer	Release()	ItemDrawer.cs:106		E					
+收藏	ItemDrawer	Release(ItemDrawer drawer)	ItemDrawer.cs:98		E					
+收藏	ItemDrawer	SetConvertedItem(RewardInfo convertedTo)	ItemDrawer.cs:124		E					
+收藏	ItemDrawer	SetConvertedItem(RewardInfo convertedTo)	ItemDrawer.cs:648		E					
+收藏	ItemDrawer	SetEphemeralDisplay(EphemeralState state)	ItemDrawer.cs:126		E					
+收藏	ItemDrawer	SetEphemeralDisplay(EphemeralState state)	ItemDrawer.cs:752		E					
+收藏	ItemDrawer	SetItemName(string newName)	ItemDrawer.cs:628		E					
+收藏	ItemDrawer	ToggleClaimedWarning(bool toggle)	ItemDrawer.cs:118		E					
+收藏	ItemDrawer	ToggleClaimedWarning(bool toggle)	ItemDrawer.cs:790		E					
+收藏	ItemDrawer	ToggleHighlight(bool toggle)	ItemDrawer.cs:122		E					
+收藏	ItemDrawer	ToggleHighlight(bool toggle)	ItemDrawer.cs:907		E					
+收藏	ItemDrawer	ToggleLock(bool toggle)	ItemDrawer.cs:130		E					
+收藏	ItemDrawer	ToggleLock(bool toggle)	ItemDrawer.cs:912		E					
+收藏	ItemDrawer	TogglePremiumHighlight(bool toggle)	ItemDrawer.cs:120		E					
+收藏	ItemDrawer	TogglePremiumHighlight(bool toggle)	ItemDrawer.cs:842		E					
+收藏	ItemDrawer	ToggleShowInfoOnClick(bool option)	ItemDrawer.cs:876		E					
+收藏	ItemDrawer	ToggleShowInfoOnClick(bool toggle)	ItemDrawer.cs:128		E					
+收藏	ItemDrawer	static(ItemDrawer, ComponentReference<ItemDrawer>, ItemDrawerOptions)	ItemDrawer.cs:69		E					
+收藏	RaycastFilter	ClearRaycastFilters()	RaycastFilter.cs:102		E					
+收藏	RaycastFilter	FilterRaycastResults(List<RaycastResult> resultAppendList)	RaycastFilter.cs:115		E					
+收藏	RaycastFilter	Register(GameObject obj)	RaycastFilter.cs:75		E					
+收藏	RaycastFilter	RegisterObjectAndChildrenGraphics(GameObject obj)	RaycastFilter.cs:163		E					
+收藏	RaycastFilter	SetRaycastFilter<T>()	RaycastFilter.cs:64		E					
+收藏	RaycastFilter	UnRegister(GameObject obj)	RaycastFilter.cs:97		E					
+收藏	RaycastFilter	UnRegisterObjectAndChildrenGraphics(GameObject obj)	RaycastFilter.cs:222		E					
+收藏	ScriptableObjectsCollectionsUtilities	GetGameModeIcon(PlayModes? playMode)	ScriptableObjectsCollectionsUtilities.cs:10		E					
+收藏	ScriptableObjectsCollectionsUtilities	GetScoringIcon(ScoringItemType scoringItemType)	ScriptableObjectsCollectionsUtilities.cs:24		E					
+收藏	ScriptableObjectsCollectionsUtilities	ReleaseGameModeIcon(PlayModes? playmode)	ScriptableObjectsCollectionsUtilities.cs:19		E					
+收藏	SortingGroupAutoOffset	OnValidate()	SortingGroupAutoOffset.cs:37		E					
+收藏	SortingGroupAutoOffset	Update()	SortingGroupAutoOffset.cs:12		E					
+收藏	ToggleCollectionFilter	ClearFilters()	ToggleCollectionFilter.cs:611		E					
+收藏	ToggleCollectionFilter	FillToggleList(List<CollectionFilterToggle> currentList, int listLimit)	ToggleCollectionFilter.cs:671		E					
+收藏	ToggleCollectionFilter	Filter(List<T> collection)	ToggleCollectionFilter.cs:330		E					
+收藏	ToggleCollectionFilter	FilterItem(T card)	ToggleCollectionFilter.cs:609		E					
+收藏	ToggleCollectionFilter	OnFilterChange()	ToggleCollectionFilter.cs:260		E					
+收藏	ToggleCollectionFilter	SetupFilter(CollectionFilterController<T> controller)	ToggleCollectionFilter.cs:147		E					
+收藏	ToggleCollectionFilter	_003CFilter_003Eb__7_2(T rc)	ToggleCollectionFilter.cs:808		E					
+收藏	ToggleCollectionFilter	_003CSetupFilter_003Eb__5_0(bool b)	ToggleCollectionFilter.cs:803		E					
+收藏	UiBadgeNotification	AddNotificationType(IEnumerable<BadgeNotificationDefinition> notifications)	UiBadgeNotification.cs:155		E					
+收藏	UiBadgeNotification	AddNotificationType(Notification[] notifications)	UiBadgeNotification.cs:122		E					
+收藏	UiBadgeNotification	Awake()	UiBadgeNotification.cs:83		E					
+收藏	UiBadgeNotification	Hide()	UiBadgeNotification.cs:385		E					
+收藏	UiBadgeNotification	Initialize()	UiBadgeNotification.cs:195		E					
+收藏	UiBadgeNotification	OnDestroy()	UiBadgeNotification.cs:233		E					
+收藏	UiBadgeNotification	OnSignalRaise(Type signal)	UiBadgeNotification.cs:270		E					
+收藏	UiBadgeNotification	SetTargetFade(float desiredFade)	UiBadgeNotification.cs:413		E					
+收藏	UiBadgeNotification	Show()	UiBadgeNotification.cs:397		E					
+收藏	UiBadgeNotification	Update()	UiBadgeNotification.cs:161		E					
+收藏	UiBadgeNotification	UpdateCount()	UiBadgeNotification.cs:296		E					
+收藏	UiBadgeNotificationManager	CleanUp()	UiBadgeNotificationManager.cs:251		E					
+收藏	UiBadgeNotificationManager	GetCount(List<BadgeNotificationDefinition> definitions)	UiBadgeNotificationManager.cs:669		E					
+收藏	UiBadgeNotificationManager	Initialize()	UiBadgeNotificationManager.cs:256		E					
+收藏	UiBadgeNotificationManager	Refresh()	UiBadgeNotificationManager.cs:295		E					
+收藏	UiBadgeNotificationManager	Refresh(Type type)	UiBadgeNotificationManager.cs:461		E					
+收藏	UiBadgeNotificationManager	Refresh<T>()	UiBadgeNotificationManager.cs:450		E					
+收藏	UpgradableCardFilter	FillToggleList(List<CollectionFilterToggle> currentList, int maxElements)	UpgradableCardFilter.cs:67		E					
+收藏	UpgradableCardFilter	Filter(List<RawCardScript> collection)	UpgradableCardFilter.cs:47		E					
+收藏	UpgradableCardFilter	SetupFilter(CollectionFilterController<RawCardScript> controller)	UpgradableCardFilter.cs:32		E					
+收藏	UpgradableCardFilter	_003CSetupFilter_003Eb__1_0(bool b)	UpgradableCardFilter.cs:71		E					
+收藏	WhereToGetCardsSection	Awake()	WhereToGetCardsSection.cs:24		E					
+收藏	WhereToGetCardsSection	Initialize(WhereToGetExpansionCardsData.ExpansionCardsData data, Action refreshLayout)	WhereToGetCardsSection.cs:31		E					
+收藏	WhereToGetCardsSection	OnDestroy()	WhereToGetCardsSection.cs:214		E					
+收藏	WhereToGetCardsSection	Release()	WhereToGetCardsSection.cs:192		E					
+收藏	WhereToGetCardsSection	Reset()	WhereToGetCardsSection.cs:108		E					
+收藏	WhereToGetCardsSection	SetVisibility(bool option)	WhereToGetCardsSection.cs:152		E					
+收藏	WildcardDisplay	Initialize(CardArmy army)	WildcardDisplay.cs:75		E					
+收藏	WildcardDisplay	OnDisable()	WildcardDisplay.cs:69		E					
+收藏	WildcardDisplay	OnEnable()	WildcardDisplay.cs:58		E					
+收藏	WildcardDisplay	SetCountersText()	WildcardDisplay.cs:93		E					
+收藏	WildcardDisplay	UpdateCounters()	WildcardDisplay.cs:87		E					
+收藏	WildcardDisplay	_003CSetCountersText_003Eb__11_0(IItemInfo<Wildcard> wc)	WildcardDisplay.cs:178		E					
+收藏	WildcardInventory	UpdateItemCollection()	WildcardInventory.cs:7		E					

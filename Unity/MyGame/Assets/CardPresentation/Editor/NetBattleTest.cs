@@ -34,7 +34,7 @@ public static class NetBattleTest
     // ==================================================================
     //  一个「裸 context」的联机宿主（真对局走的是 `BattleDriver`，接口同一套）
     // ==================================================================
-    class BareHost : INetBattleHost, INetChatHost
+    class BareHost : INetBattleHost, INetChatHost, INetFoePresentationHost
     {
         public BattleContext Ctx { get; set; }
         public bool Replayed; public string LastSay;
@@ -73,6 +73,15 @@ public static class NetBattleTest
         /// 断言只数它（= 显示了几次），⛔ 不去猜气泡长什么样（那是 `BattleScene.Run` 那一侧的事）。</summary>
         public readonly List<int> Chats = new List<int>();
         public void NetRemoteChat(int chatId) { Chats.Add(chatId); }
+
+        /// <summary>🆕 **2026-10-25（联机域审查 · D 域）**：对面那三条**纯表现**事件收到的原始参数。
+        /// 分开存三份 —— 一条一条钉（⛔ 别合成一个「收到过 N 次」的计数，那样传错参数也会绿）。</summary>
+        public readonly List<int> FoeCardSeen = new List<int>();
+        public readonly List<(int id, int idx)> FoeCardReorder = new List<(int, int)>();
+        public int FoeMatchFinishedCalls;
+        public void NetRemoteCardSeen(int uniqueInGameId) { FoeCardSeen.Add(uniqueInGameId); }
+        public void NetRemoteCardReorder(int uniqueInGameId, int newIndex) { FoeCardReorder.Add((uniqueInGameId, newIndex)); }
+        public void NetRemoteMatchFinished() { FoeMatchFinishedCalls++; }
         /// <summary>对面投降 ⇒ 判**对面**负。
         /// 🔴 **2026-10-18 订正**：原来这里把座位写死成 `1`（「1 号位 = 对面」）—— 那只对 `MySeat == 0` 成立。
         ///    改成 `1 - MySeat`（与真宿主 `BattleDriver.NetRemoteResign` 的 `1 - _me` **同口径**）。
@@ -1668,12 +1677,14 @@ public static class NetBattleTest
                     }
                 }
             }
+
+            // ---- 99) 🆕 2026-10-25（联机域审查 · D 域）：三条**纯表现**消息 + 收尾等待窗口 ----
+            TestFoePresentation();
         }
         catch (Exception e)
         {
             Fail("自检本身炸了：" + e);
-        }
-        finally
+        }        finally
         {
             NetBattle.SetClockForTest(null);      // 🔴 把钟还回去（别把静态状态留给下一条自检）
             NetSession.SetClockForTest(null);     // 🔴 同上：`NetSession` 那个钟也是**进程级**的
@@ -1687,6 +1698,59 @@ public static class NetBattleTest
         if (_warn > 0)
             Debug.LogWarning($"{P} ===== 跳过/警告 {_warn}（**验不了的格子，不算失败** —— 逐条理由见上面那几条 ⚠️）=====");
         if (Application.isBatchMode) EditorApplication.Exit(_fail == 0 ? 0 : 1);
+    }
+
+    // ==================================================================
+    //  99) 三条「纯表现」消息 + 收尾等待窗口（2026-10-25 · D 域）
+    // ==================================================================
+    //
+    //  判据（逐句读过）：
+    //   · 三条原版 RPC：`BattleCommsManager.SendCardSeen:654 / PUNReceiveCardSeen:1359` ·
+    //     `SendCardReorder:708 / PUNReceiveCardReorder:1372` · `SendMatchFinished:701 / PUNReceiveMatchFinished:1320`。
+    //   · 收尾等待：`BattleManager__ShouldWaitForOpponentLastActions.c`（`matchFinished || ActionsLeftInQueue()>0`）
+    //     + `BattleManager._WaitOpponentLastActions_d__316__MoveNext.c`（`remaining = 0x41480000 = 12.5f`；
+    //     每轮 `remaining -= DAT_1834b2bbc`，该常量已从 `GameAssembly.dll` **直读 = 2.0f**）。
+    //
+    //  🔴 **兼容性口径（写死在这儿，别事后猜）**：
+    //    · 三条都是**新增 `NetKind`、不改任何既有消息格式** ⇒ **不 +`NetProtocol.Version`**；
+    //      旧端收到会走 `NetBattle.Dispatch` 末尾「不认识的联机消息」**出声并丢掉**（不崩、不影响对局）。
+    //    · **给已有消息加字段**才是「改格式」——`JsonUtility` 会**静默忽略**多出来的字段，
+    //      所以那种改动**不会当场报错，只会让语义悄悄偏掉** ⇒ **必须 +版本**。
+    //    · 本测试第 ② 条就把「多发一个字段」这件事钉成可观测：解析**成功**且旧字段仍对。
+    static void TestFoePresentation()
+    {
+        // ① 三条消息各走一次**真** Pack → Unpack（⛔ 不是「函数被调用过」）
+        var seen = NetProtocol.Unpack<MsgCardSeen>(NetProtocol.Pack(new MsgCardSeen { cardId = 7 }));
+        Ok(seen != null && seen.cardId == 7, "R(N1) `card.seen` 走线一圈：cardId 原样回来（7）");
+
+        var reo = NetProtocol.Unpack<MsgCardReorder>(NetProtocol.Pack(new MsgCardReorder { cardId = 7, index = 3 }));
+        Ok(reo != null && reo.cardId == 7 && reo.index == 3,
+           "R(N2) `card.reorder` 走线一圈：cardId/index 都原样（7 → 3）");
+
+        var fin = NetProtocol.Unpack<MsgMatchFinished>(NetProtocol.Pack(new MsgMatchFinished()));
+        Ok(fin != null, "R(N3) `match.finished` 无载荷也解得出（旧端收到只会「不认识」并出声）");
+
+        // ② 兼容性：给新消息**多发一个字段** ⇒ 解析仍成功、旧字段仍对（JsonUtility 忽略未知字段）
+        var extra = NetProtocol.Unpack<MsgCardSeen>("{\"cardId\":7,\"futureField\":123}");
+        Ok(extra != null && extra.cardId == 7,
+           "R(N4) 多发一个字段仍能解析且旧字段不变 —— 但**给已有消息加字段必须 +版本**（本来会静默偏掉语义）");
+
+        // ③ 收尾窗口：**条件不成立 ⇒ 立刻结束**（⛔ 不是硬等 12.5 秒）
+        var nb = new NetBattle();
+        nb.BeginFinishWait();
+        Ok(!nb.TickFinishWait(0.5f),
+           "R(N5) 收尾窗口：`peerFinished=false` 且本机没有待处理入站帧 ⇒ **立刻结束**（不硬等）");
+
+        // ④ 条件成立（对面说打完了）⇒ 会等；按每步 1 s、每步从 12.5 里扣 2.0 ⇒ 约 7 步后自动结束
+        nb.SetPeerMatchFinishedForTest(true);
+        nb.BeginFinishWait();
+        int steps = 0;
+        while (nb.TickFinishWait(1.0f) && steps < 50) steps++;
+        Ok(steps >= 2 && steps <= 13,
+           $"R(N6) 收尾窗口：对面说打完后会等（{steps} 步；12.5f / 2.0f ≈ 7 步 —— 上限 12.5 s 由那个常量保证）");
+        Ok(!nb.TickFinishWait(1.0f), "R(N7) …超时后**自动结束**（不会永远等下去）");
+        // 🧨 反向：把 `TickFinishWait` 改成恒 false ⇒ R(N6) 的 steps 变 0 ⇒ 红；
+        //    改成「永远 true」⇒ R(N5)/R(N7) 红。
     }
 
     // ==================================================================

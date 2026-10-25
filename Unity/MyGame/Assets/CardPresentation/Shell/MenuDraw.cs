@@ -3107,6 +3107,14 @@ namespace CardPresentation
         /// 常数 `DAT_1834b3254 = 1.05`，**直接 set、无补间**；`+0xb8` 为真时整段跳过）。
         /// ⚠️ 与本函数里的 `K = 0.9` 不是一回事：`K` 已经烘进每一层的几何，这里换的是**整格节点**的 `localScale`。</summary>
         public const float DeckCellHoverK = 1.05f;
+
+        /// <summary>🆕 **2026-10-25（拖拽排序前置件 · 代理 H）：排序列模式下整格的缩放**。
+        /// <para>判据 = 原版 `CollectionDeck.SetSortMode` 的常量 `DAT_1834b2fa0` **实读 = 0.8**
+        /// （转引 → `d:/4/Unity/资料/完全复刻/报告/C_收藏_第1轮.md` §③ 请求 1 ③；⛔ 记的是**转引**，
+        /// 不是本代理亲读二进制 —— 下一轮若要做拖拽实例，先自己复核一遍那个常量）。</para>
+        /// <para>同一条判据还要求：排序列模式下**压制 hover 放大 1.05 与选中高亮** ——
+        /// 落地在 `DeckCell` 的 `sortMode` 分支（`wb.onEnter/onExit` 的闸 + `if (selected &amp;&amp; !sortMode)`）。</para></summary>
+        public const float DeckCellSortK = 0.8f;
         /// <summary>原版 `Frame 40K_bt_deck` 在作者系里的矩形（246×368 @ (2,17)）。</summary>
         public const float DcFrameX = 2f, DcFrameY = 17f, DcFrameW = 246f, DcFrameH = 368f;
         /// <summary>🔴 **2026-10-11（`A1530①`）就地订正**：这一格**不是** `Deck Image` 自己，而是
@@ -3217,7 +3225,8 @@ namespace CardPresentation
         public static Transform DeckCell(GameWindow win, Transform parent, string name, PxRect r,
                                          CollectionData.DeckInfo info, bool selected,
                                          int q, int qBelow, int qText, int qOverlay, int qHit, System.Action onClick,
-                                         int? gameMode = null, int? difficulty = null, bool showDifficulty = false)
+                                         int? gameMode = null, int? difficulty = null, bool showDifficulty = false,
+                                         bool sortMode = false)
         {
             if (win == null)
             {
@@ -3228,10 +3237,10 @@ namespace CardPresentation
                                    + "**只有裸重载的 `clip: null` 这一个写法**（⚠️ 它**不等于**「显式不裁」，"
                                    + "见 `DeckCell(win, …)` 的注释里那条订正）。");
                 return DeckCell(parent, name, r, info, selected, q, qBelow, qText, qOverlay, qHit, onClick,
-                                null, gameMode, difficulty, showDifficulty, Vector4.zero);
+                                null, gameMode, difficulty, showDifficulty, Vector4.zero, sortMode);
             }
             return DeckCell(parent, name, r, info, selected, q, qBelow, qText, qOverlay, qHit, onClick,
-                            win.Clip, gameMode, difficulty, showDifficulty, win.ClipPad);
+                            win.Clip, gameMode, difficulty, showDifficulty, win.ClipPad, sortMode);
         }
 
         /// <summary>`DeckCell(win, …)` 收到 null 窗口的次数（只用来**限流那条警告**，不是缺陷计数）。</summary>
@@ -3281,7 +3290,7 @@ namespace CardPresentation
                                          bool selected, int q, int qBelow, int qText, int qOverlay, int qHit,
                                          System.Action onClick, PxRect? clip = null,
                                          int? gameMode = null, int? difficulty = null, bool showDifficulty = false,
-                                         Vector4 maskPad = default(Vector4))
+                                         Vector4 maskPad = default(Vector4), bool sortMode = false)
         {
             const float K = DeckCellK;
             // 🔴 **2026-10-12（A198② 阶段 1）：取裁切状态走【一处】共用解析**（`ViewportClip.Resolve`）——
@@ -3299,6 +3308,12 @@ namespace CardPresentation
             clip = _st.Clip;                 // 命中那一份（裸框 —— 见上面第二条；本地名沿用，末尾那句不动）
             maskPad = _st.Pad;
             var cell = Node(parent, name, r);
+            // 🆕 **2026-10-25（拖拽排序前置件 · 代理 H）**：原版 `CollectionDeck.SetSortMode` 把内容缩到
+            //   **0.8**（常量 `DAT_1834b2fa0` 实读 = 0.8；判据 → `资料/完全复刻/报告/C_收藏_第1轮.md`
+            //   §③ 请求 1 ③）。我们把 `cell` 当作那一层「内容根」—— 它本来就是 `Deck` 的整块内容
+            //   （`Highlight`/卡背/卡框/名字/图标全挂在它下面，`Hit` 是它的子件）。
+            //   ⚠️ 这是**结构性对应**（原版那层叫 `Content`、我们这一层是 `DeckCell` 的根），不是逐节点复刻。
+            if (sortMode) cell.localScale = Vector3.one * DeckCellSortK;
 
             // 🔴🔴 **2026-10-11（A1503 ③）：卡背改到 `Frame`【之前】画。**
             //   判据（只读代理 2026-10-11 现读 `bundle_menus_assets_all` 的卡组格 prefab，
@@ -3477,7 +3492,7 @@ namespace CardPresentation
                                 r.x1 + (DcDiffX + DcDiffW) * K, r.y1 + (DcDiffY + DcDiffH) * K),
                      "DificultyLevel", qOverlay, null, true, clipR);
 
-            if (selected)
+            if (selected && !sortMode)
             {
                 // 🔴 **N12（2026-10-17 收口）**：原版这颗是 **`Image.Type = Sliced` + 九宫 `(73,75,73,75)`**
                 //   （sprite `Highlight Rounded Square` 原生 **150×155**，`m_Border = x73 / y75 / z73 / w75`
@@ -3540,8 +3555,8 @@ namespace CardPresentation
                     // 🆕 **2026-10-19（`N70` P0-5）**：原版 `CollectionDeck.HoverHighlight` = 整格
                     // `localScale` 1.0 ↔ **1.05**（瞬切、无补间）⇒ 悬停时缩放进、离开还原。
                     // 判据与量纲 → `DeckCellHoverK` 的 doc。⛔ 不是色偏/换图（原版这一族没有 Selectable）。
-                    wb.onEnter = () => { if (cell != null) cell.localScale = Vector3.one * DeckCellHoverK; };
-                    wb.onExit  = () => { if (cell != null) cell.localScale = Vector3.one; };
+                    wb.onEnter = () => { if (cell != null && !sortMode) cell.localScale = Vector3.one * DeckCellHoverK; };
+                    wb.onExit  = () => { if (cell != null && !sortMode) cell.localScale = Vector3.one; };
                 }
             }
             return cell;

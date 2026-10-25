@@ -568,8 +568,20 @@ namespace CardPresentation
             if (hit == null) return;
             var wb = hit.GetComponent<WindowButton>();
             if (wb == null) return;
+            // 🆕 **2026-10-25（`N5`）：收回到「触发器等价物」**（原版 `EverguildTooltipTrigger` 挂在节点上、
+            //   数据在 prefab 序列化字段；`tipText/tipAnchor/tipOffset` 就是那三格）。
+            //   🔴 **位置等价已核**：命中区 = `TooltipR ± 15`（外扩那 15 是 `m_RaycastPadding` 口径）⇒ 它的**中心 ==
+            //   `(TooltipR.CX, TooltipR.CY)`**，与原 `ShowTip()` 里那个显式世界坐标**同一个点** ⇒ `tipOffset = 0` 即等价。
+            //   ⚠️ `onEnter` **保留**（只留「悬停计数 + 首次数一行日志」—— `TipHovers` 是自检读数，见
+            //   `Editor/ShopScene.cs`）；**`Tooltip.Show` 那一句已从 `ShowTip()` 删掉**，收起也不再挂 `onExit`
+            //   （`tipText` 非空 ⇒ `WindowButton.Exit()` 里的 `HideTip()` 会走同一条全局 `Tooltip.Hide()`）
+            //   ⇒ ⛔ 不会两套同挂「进两次、退两次」。
             wb.onEnter = ShowTip;
-            wb.onExit = Tooltip.Hide;
+            // ⚠️ 用 **`tipTextFunc`**（不是 `tipText`）：`TipBody` 是 `Loc.T(...)` 的**属性**，每次取才是当前语档；
+            //   静态字段会把建窗那一刻的语言冻住（切语言后下一次悬停仍是旧文）。
+            wb.tipTextFunc = () => TipBody;
+            wb.tipAnchor = 0;                 // 原版 `tooltipAnchor = 0`（居中）
+            wb.tipOffset = Vector3.zero;      // 原版 `offset = (0,0,0)`
             TipHit = wb;
         }
 
@@ -578,8 +590,9 @@ namespace CardPresentation
             TipHovers++;
             if (TipHovers == 1)
                 Debug.Log("[BoosterInfo] `Tooltip` 悬停：正文 = 官方词条 `MenuShop/BoosterInfo/LegendaryTooltip`（`Loc.T` 现取）。");
-            // 原版 `tooltipAnchor = 0`（居中）· `offset = (0,0,0)` —— 原样传
-            Tooltip.Show(TipBody, LayoutSpace.FromPixel(TooltipR.CX, TooltipR.CY), 0, Vector3.zero);
+            // 🔴 **2026-10-25（`N5`）**：这里原来调 `Tooltip.Show(TipBody, …TooltipR 中心…, 0, zero)` ——
+            //   **已删**：弹/收现在由 `WindowButton.tipText` 那条触发链负责（`BuildTooltipHit` 里那三行），
+            //   ⛔ 别在这里再调一次（两套同挂 = 进两次退两次）。本方法只剩**悬停计数与首次日志**（自检读数）。
         }
 
         /// <summary>底部两个钮（原版 `Purchase buttons` 是 `HorizontalLayoutGroup` spacing 15 ⇒

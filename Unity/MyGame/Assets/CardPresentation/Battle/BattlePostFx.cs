@@ -109,9 +109,26 @@ namespace CardPresentation
         Texture _original;
         float _bloomIntensity0 = -1f, _bloomThreshold0 = -1f;
 
+        // ---- 🔴 2026-10-25（D 域 · 完全复刻第 1 轮 · 原版 `AnimFXModulePostProcess.Update` 末句）----
+        //   原版每帧最后一句：`camera.UpdateVolumeStack()`（游戏相机 = `BattleManager.boardCamera`）。
+        //   **为什么必须有这一句**：URP 只在 `requiresVolumeFrameworkUpdate == true` 时每帧刷 Volume 栈，
+        //   而它在 `m_VolumeFrameworkUpdateModeOption == ViaScripting(2)` 时为 **false**
+        //   （`UniversalAdditionalCameraData.cs:723-734`）⇒ 管线只建一次本地栈并缓存
+        //   （`UniversalRenderPipeline.cs:1258-1292`）。我们 `Scenes/Battle.unity` 的**两台相机都是 2**
+        //   （`:1043` / `:2761`）⇒ 写进 `VolumeProfile` 的 Bloom / LUT 值**上不了屏**；
+        //   而编辑器/批处理（`isPlaying == false`）URI 会强制每帧刷 ⇒ **自检截图看着正常、真 player 才是坏的**。
+        //   ⛔ **不要改相机上的 `VolumeFrameworkUpdateModeOption`** —— 那是原版序列化值。
+        Camera _boardCam;
+        System.Action _flushVolumeStack;      // 本实例挂上去的那一个（`Detach` 只摘自己的）
+        /// <summary>没找到可用相机而**没接上**刷新的次数（按局计）。>0 = 后期动画这一局上不了屏。</summary>
+        public static int MissingBoardCamera { get; private set; }
+
         /// <summary>接到战场的全局 `Volume` 上（原版 `PostFXController.Start` 那一段）。
-        /// 返回 false = 这一局没有后期链（**会计数**）。</summary>
-        public bool Attach(Volume vol)
+        /// 返回 false = 这一局没有后期链（**会计数**）。
+        /// <param name="boardCamera">原版那句 `UpdateVolumeStack` 的目标相机（= `BattleManager.boardCamera`）。
+        /// 传 null ⇒ 自己找：优先 `CameraRenderType.Base` 那台（URP 里唯一一台 base，就是战场相机），
+        /// 退 `Camera.main`。**找不到会出声 + 计数**，不会静默少这一跳。</param></summary>
+        public bool Attach(Volume vol, Camera boardCamera = null)
         {
             if (vol == null) { MissingVolume++; return false; }
 
@@ -184,7 +201,56 @@ namespace CardPresentation
             int w = WFModulePostProcess.LutMergeWidth, h = WFModulePostProcess.LutMergeHeight;
             _combined = NewRt(w, h, "Particle FX controller LUT");     // 原版那个名字，照抄
             _targetLutRt = NewRt(w, h, "LUT Blend helper");
+
+            WireVolumeStackFlush(boardCamera);                          // 原版 `Update` 末句那一跳
             return _mat != null;
+        }
+
+        /// <summary>把「每帧刷一次 Volume 栈」接到模块那侧（见上面 `_boardCam` 那段判据）。</summary>
+        void WireVolumeStackFlush(Camera boardCamera)
+        {
+            UnwireVolumeStackFlush();                                   // 重入（同一局重开）先摘旧的
+            _boardCam = boardCamera != null ? boardCamera : ResolveBoardCamera();
+            if (_boardCam == null)
+            {
+                MissingBoardCamera++;
+                Debug.LogWarning("[BattlePostFx] 🔴 没找到可刷 Volume 栈的相机 ⇒ 原版 "
+                               + "`AnimFXModulePostProcess.Update` 末句 `camera.UpdateVolumeStack()` **这一局没接上**。"
+                               + "我们两台相机都是 `ViaScripting` ⇒ URP 不会自己刷 ⇒ "
+                               + "**特效里的 Bloom / LUT 动画可能上不了屏**。");
+                return;
+            }
+            var cam = _boardCam;
+            // `VolumeManager.instance` 没初始化时 URP 会 `LogError` 并 return（`UniversalAdditionalCameraData.cs:262`）
+            // ⇒ 先挡一下，免得每帧刷一条红字。
+            _flushVolumeStack = () =>
+            {
+                if (VolumeManager.instance != null && VolumeManager.instance.isInitialized) cam.UpdateVolumeStack();
+            };
+            WFModulePostProcess.OnFlushVolumeStack = _flushVolumeStack;
+        }
+
+        void UnwireVolumeStackFlush()
+        {
+            if (_flushVolumeStack != null && WFModulePostProcess.OnFlushVolumeStack == _flushVolumeStack)
+                WFModulePostProcess.OnFlushVolumeStack = null;
+            _flushVolumeStack = null;
+            _boardCam = null;
+        }
+
+        /// <summary>找战场那台相机：URP 里 `CameraRenderType.Base` **只有一台**，就是它；
+        /// 取不到再退 `Camera.main`。两样都没有 ⇒ null（调用方出声 + 计数）。</summary>
+        static Camera ResolveBoardCamera()
+        {
+            var cams = Camera.allCameras;
+            for (int i = 0; i < cams.Length; i++)
+            {
+                var c = cams[i];
+                if (c == null) continue;
+                var uad = c.GetComponent<UniversalAdditionalCameraData>();
+                if (uad != null && uad.renderType == CameraRenderType.Base) return c;
+            }
+            return Camera.main;
         }
 
         static RenderTexture NewRt(int w, int h, string name)
@@ -313,6 +379,7 @@ namespace CardPresentation
         /// （**不复位** —— 复位在 `OnDisable`，那是 `Reset` 那条路的事）。</summary>
         public void Detach()
         {
+            UnwireVolumeStackFlush();      // 原版 `Update` 末句那一跳的接线（见 `_boardCam` 那段）
             // 交还静态 LUT 再销毁 RT —— 否则 `ColorLookup.texture` 会指着一张已销毁的 RT（粉/黑屏）
             if (_cl != null)
             {

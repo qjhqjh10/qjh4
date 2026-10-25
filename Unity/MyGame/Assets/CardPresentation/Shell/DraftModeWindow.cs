@@ -2518,19 +2518,24 @@ namespace CardPresentation
                 DG.Tweening.Ease.Linear, node);
         }
 
-        /// <summary>右栏 `DOPunchScale(punch = 0.05 × 当前缩放, 0.4 s, vibrato 5, elasticity 1)`。</summary>
+        /// <summary>右栏 `DOPunchScale(punch = 0.05 × 当前缩放, 0.4 s, vibrato 5, elasticity 1)`。
+        /// 🔴 **2026-10-25（N1）按判据订正三处**（判据 = `out_il2csharp/Assembly-CSharp/DraftModeSelectPacksStateDemo.cs:374-375`
+        /// 逐句：`DOPunchScale(transform, Vector3.one * 0.05f, 0.4f, 5, 1.0f)` → `.From()` → `.SetEase(OutBack)`）：
+        /// ① punch 是 `Vector3.one × 0.05`（**绝对值**，⛔ 不是 × 当前缩放 —— 原来写成 `Scale(baseScale, one*0.05)`，
+        ///    只在 `baseScale == 1` 时同值）；② 补 `.From()`；③ 缓动是 **`OutBack`**（原来给的 `Linear`）。</summary>
         public static DG.Tweening.Tween BuildPanelPunchTween(Transform panel)
         {
             if (panel == null) return null;
             Vector3 baseScale = panel.localScale;
-            var punch = Vector3.Scale(baseScale, Vector3.one * PanelPunchAmount);
-            var tw = DG.Tweening.ShortcutExtensions.DOPunchScale(
+            Vector3 punch = Vector3.one * PanelPunchAmount;
+            DG.Tweening.Tweener tw = DG.Tweening.ShortcutExtensions.DOPunchScale(
                 panel, punch, PanelPunchDuration, PanelPunchVibrato, PanelPunchElasticity);
+            tw = DG.Tweening.TweenSettingsExtensions.From(tw);        // 原版 `.From()`
             // 与 `CollectionWindow.PunchCardCell` 同一条纪律：走完 / 被打断都把缩放显式复位
             //（批处理下 `OnComplete` 不一定跑得到；面板的缩放本来恒 1，绝不能被补间留在半路）。
             tw.OnComplete(() => { if (panel != null) panel.localScale = baseScale; });
             tw.OnKill(() => { if (panel != null) panel.localScale = baseScale; });
-            return CardTween.Use(tw, DG.Tweening.Ease.Linear, panel);
+            return CardTween.Use(tw, DG.Tweening.Ease.OutBack, panel);
         }
 
         static void PlayPackOpenAnim(Transform node, int index)
@@ -2556,6 +2561,92 @@ namespace CardPresentation
             }
             if (BuildPanelPunchTween(_deckPanelRoot) != null) any = true;
             return any;
+        }
+
+        // ------------------------------------------------------------ 胜/败徽章（原版 `PerformBadgeAnimations` + `DoToggleAnim`）
+        // 判据 = `D:/2/tools/cpp2il/out_cpp2il_dev_ilspy/DraftRunDisplay.cs:288-341`（`PerformBadgeAnimations`）
+        //      + `DraftModeOngoingStageVisualization.cs:15-25`（`DoToggleAnim`）；
+        //      交叉验证用 `out_il2csharp/Assembly-CSharp/DraftRunDisplay.cs:140-178`（第二条路，逐句同形）。
+        /// <summary>两处 `DOScale(…, 0.5f)` 的时长（`DoToggleAnim` 与胜场计数**同一个值**，别拆成两个常量）。</summary>
+        public const float BadgeScaleDuration = 0.5f;
+
+        /// <summary>`DraftModeOngoingStageVisualization.DoToggleAnim()` —— 一格亮/暗指示**从 0 弹到 1**。
+        /// <para>原版：`transform.DOScale(Vector3.one, 0.5f).From(Vector3.zero).SetEase(Ease.OutBack)`
+        /// （`DOScale` 的终值 = `Vector3.one`；`.From(zero)` ⇒ 起点 0）。</para>
+        /// <para>⚠️ 原版打的是 `imageObject`（格子里的**子节点**那张图）；我们「亮格」本身就是一颗 quad 节点
+        /// （`RebuildStageMarks` 里的 `"Mark"`，`MenuDraw.Rect` 建出来的叶节点、`ImageQuad` 不用
+        /// `localScale` 定尺寸 ⇒ 缩它不会把几何毁掉）。</para></summary>
+        public static DG.Tweening.Tween BuildStageMarkToggleTween(Transform node)
+        {
+            if (node == null) return null;
+            node.localScale = Vector3.zero;      // = 原版 `.From(Vector3.zero)` 的起点
+            var tw = DG.Tweening.ShortcutExtensions.DOScale(node, Vector3.one, BadgeScaleDuration);
+            // 与 `BuildPanelPunchTween` 同一条纪律：走完 / 被打断都显式复位（批处理下 `OnComplete` 不一定跑得到）。
+            tw.OnComplete(() => { if (node != null) node.localScale = Vector3.one; });
+            tw.OnKill(() => { if (node != null) node.localScale = Vector3.one; });
+            return CardTween.Use(tw, DG.Tweening.Ease.OutBack, node);
+        }
+
+        /// <summary>胜场计数那一串数字的弹入（原版 `victoryCounterText.transform.DOScale(Vector3.one, 0.5f)
+        /// .From(Vector3.zero).SetEase(**Ease.OutBounce**)` —— 与格子那条的缓动**不同**，别合并）。
+        /// ⚠️ 我们缩的是 `Label` 节点的 `localScale`（原版缩 TMP 的 `RectTransform`）；
+        /// 两者都绕**节点原点**转，而原版 pivot 没核过 ⇒ 若将来发现起始点偏左/偏上，要改的是这里。</summary>
+        public static DG.Tweening.Tween BuildBadgeCountTween(Component target)
+        {
+            if (target == null) return null;
+            var tr = target.transform;
+            tr.localScale = Vector3.zero;
+            var tw = DG.Tweening.ShortcutExtensions.DOScale(tr, Vector3.one, BadgeScaleDuration);
+            tw.OnComplete(() => { if (tr != null) tr.localScale = Vector3.one; });
+            tw.OnKill(() => { if (tr != null) tr.localScale = Vector3.one; });
+            return CardTween.Use(tw, DG.Tweening.Ease.OutBounce, target);
+        }
+
+        /// <summary>上一次播过动画的胜/败数（原版 `DraftRunDisplay._lastAnimatedWin/_lastAnimatedDefeat`，
+        /// **`static`**、静态构造器置 **−1**，`out_il2csharp …DraftRunDisplay.cs:21-22 / 218-223`）。
+        /// <para>🔴 保持 `static` 是照原版：窗口重建（关掉再开）**不会**把已经播过的那一格再弹一次；
+        /// 只有「胜/败数变了」才播。⛔ 别改成实例字段（那样每次开窗都会重播一遍）。</para></summary>
+        static int _lastAnimatedWin = -1, _lastAnimatedDefeat = -1;
+
+        /// <summary>原版 `DraftRunDisplay.PerformBadgeAnimations()`（`:288`）：胜/败各只看**新增的那一格**。
+        /// <para>原版口径（逐句）：
+        /// ① `wins = min(numberOfMatchesWon, matches.Length)`、`losses = min(numberOfMatchesLost, maxTries)`；</para>
+        /// <para>② `_lastAnimatedWin != wins` 且 `wins &gt; 0` ⇒ 计数数字 `DOScale(0→1, 0.5s, OutBounce)`
+        ///    + 第 `wins-1` 格 `DoToggleAnim()` + 播 `progressSound`；</para>
+        /// <para>③ `losses &gt; _lastAnimatedDefeat` 且 `losses &gt; 0` ⇒ 只弹第 `losses-1` 格 + 播 `lossesSound`
+        ///    （**没有**数字那一跳）；</para>
+        /// <para>④ 两条都只有**一格**会动（不是把所有亮格重播一遍）。</para>
+        /// <para>🔴 两处**我们不照抄**：`matches.Length` 本地没有（见文件头 (C) 那段）⇒ 我们的 `Victories`
+        /// 不设上限、`wins` 就是它；音效两条原版走 `MixerType.**FX**`
+        /// （`out_il2csharp …:159 / :172` 逐句 `Play2D(…, MixerType.FX)`）⇒ 走 `WindowSounds.PlayFx`。</para>
+        /// <para>⚠️ 音效 cue 名：`DraftRunDisplay.progressSound` = 「Draft Mode Progress Jingle」·
+        /// `lossesSound` = 「Draft Mode Loss Jingle」（prefab 字段 `PPtr(fileID 6, pid −1332049501696130703 /
+        /// 3362592311917736029)`，`m_FileID=6` 经 externals 解到 `soundcollection_assets_all` 的两个 MB 名）。</para></summary>
+        void PerformBadgeAnimations()
+        {
+            int wins = Victories;
+            if (_lastAnimatedWin != wins && wins > 0)
+            {
+                // 见 `PlayPackOpenAnim` 那道闸：批处理/编辑器没有帧循环 ⇒ 起了补间会永久停在 0
+                //（这里会把胜场数字与亮格缩成 0 = 画面直接丢件）。自检仍可直调两个 `Build*Tween` + `CardTween.Advance`。
+                if (Application.isPlaying)
+                {
+                    BuildBadgeCountTween(_victoriesNum);
+                    if (wins <= _winMarks.Count) BuildStageMarkToggleTween(_winMarks[wins - 1]);
+                    WindowSounds.PlayFx("Draft Mode Progress Jingle", "轮抽：胜场 +1（原版 progressSound）");
+                }
+            }
+            int losses = Defeats;
+            if (losses > _lastAnimatedDefeat && losses > 0)
+            {
+                if (Application.isPlaying)
+                {
+                    if (losses <= _lossMarks.Count) BuildStageMarkToggleTween(_lossMarks[losses - 1]);
+                    WindowSounds.PlayFx("Draft Mode Loss Jingle", "轮抽：败场 +1（原版 lossesSound）");
+                }
+            }
+            _lastAnimatedWin = wins;
+            _lastAnimatedDefeat = losses;
         }
 
         /// <summary>包名。原版 `PrebuiltPack.GetLocalizedName` 走
@@ -2592,6 +2683,7 @@ namespace CardPresentation
             if (_victoriesNum != null) _victoriesNum.SetText(Victories.ToString());
             RebuildStageMarks();
             RebuildDefeatMarks();
+            PerformBadgeAnimations();     // 原版 `DraftRunDisplay.Setup` 末尾那一句（`:172`）
             if (_ongoingWarlordNode != null)
             {
                 for (int i = _ongoingWarlordNode.childCount - 1; i >= 0; i--)

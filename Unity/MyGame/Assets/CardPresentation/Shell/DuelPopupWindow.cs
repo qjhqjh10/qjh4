@@ -185,6 +185,29 @@ namespace CardPresentation
                        WindowSounds.PositiveCue);
             ClassicHit = btns.Find("Button Classic/Hit");
 
+            // ---- 🆕 2026-10-25（`N5`）：**模式钮的可用性闸** = 原版 `ConfigureButtonEvent` ----
+            //   判据（逐句）：`EverguildButton buttonToConfigure, IPlayEvent playEvent` ⇒
+            //     `go.SetActive(playEvent.IsActive());` + `button.SoftDisable(playEvent.GetEventDeck() == null);`
+            //   （`out_il2csharp/Assembly-CSharp/DuelPopupWindow.cs:108-116`；调用点 = 同文件 `Open():104-105`）
+            //   ⇒ **不在活动期的模式钮整颗藏起来**（连图标带文字），活动期但**没有活动卡组**的钮**变灰但仍可点**
+            //   （`SoftDisable` 的语义 —— 我们 `WindowButton.SetSoftDisabled` 同款）。
+            //   ⚠️ 原版这里**没有 null 判据**（`playEvent.IsActive()` 直接调）⇒ 取不到活动时原版会 NPE；
+            //   我们按「取不到 ⇒ 藏」兜底（不崩，且与原版「不在期就藏」的观感一致），并出声。
+            //   数据源 = 我们的本地活动目录（`SkirmishEventWindow.HasActiveSkirmishEvent` 是**真判据**：
+            //   扫 `LiveOpsLocalCatalog` 的 FastMode 表 + `IsInPeriod`）—— 现读本机 **FastMode 表 = 0 条、
+            //   13 份活动 SO 只有 Parent/Scoring/Premium 三类** ⇒ 判据为 false ⇒ **两颗都藏**。
+            //   `Classic` 那一侧：原版取的是 `gameModes.GetActiveEvent()`（排位事件）；本地**没有排位事件表**
+            //   ⇒ 恒 false（⛔ 不是写死：数据侧一旦有排位事件，把这里换成同一条 `HasActive…` 判据即可）。
+            bool skirmishActive = SkirmishEventWindow.HasActiveSkirmishEvent;
+            const bool classicActive = false;      // 见上：本地无排位事件表
+            ConfigureModeButton(btns.Find("Button Skirmish"), skirmishActive);
+            ConfigureModeButton(btns.Find("Button Classic"), classicActive);
+            Debug.Log("[Duel] 模式钮可用性闸（原版 `ConfigureButtonEvent`）：Skirmish = " + skirmishActive
+                    + "（`SkirmishEventWindow.HasActiveSkirmishEvent`）· Classic = " + classicActive
+                    + "（本地无排位事件表）⇒ **不在活动期的钮整颗藏起来**；"
+                    + "两钮另按「没有活动卡组」走 `SoftDisabled`（原版 `GetEventDeck() == null`）——"
+                    + "**离线两颗都藏是原版口径，不是 bug**。");
+
             // 右上那颗绿圆钮 = **关闭钮**（节点名没写 Close，图标是关闭 ⇒ 普查 §B 判为 closeButton）
             // 🔴🔴 **2026-10-18（A1149 第一半）圆底盘【挂点】归真**（本件 = 第九会话 P7）：
             //   改前圆底盘画在一颗**自造子件 `Image`** 上、而 `Generic Rounded Button Green` 是颗**裸节点**；
@@ -228,6 +251,27 @@ namespace CardPresentation
         }
 
         /// <summary>一个模式钮：底 `40K_button`（绿）+ 文案 + **溢出的**模式图标（判据 ⑤）。</summary>
+        /// <summary>= 原版 `DuelPopupWindow.ConfigureButtonEvent(EverguildButton buttonToConfigure, IPlayEvent playEvent)`：
+        /// `go.SetActive(playEvent.IsActive())` + `button.SoftDisable(playEvent.GetEventDeck() == null)`
+        /// （`out_il2csharp/Assembly-CSharp/DuelPopupWindow.cs:108-116`；调用点 = 同文件 `Open():104-105`）。
+        /// <para>⚠️ 我们的数据侧**没有「活动卡组」**这一层（原版 `GetEventDeck()` 返回 `CardDeck`）⇒ 恒按 null 处理
+        /// ⇒ 两钮都 `SoftDisabled`（变灰但仍可点 —— 与原版「活动在期、但活动卡组还没配好」那一档同观感）。</para>
+        /// <para>⚠️ 原版 `ConfigureButtonEvent` **没有 null 判据**（`playEvent.IsActive()` 直接调）⇒ 取不到活动时原版会 NPE；
+        /// 我们由调用方先把「取不到」折成 `active = false`（= 藏），⛔ 不崩也不静默（`Build()` 里有出声）。</para></summary>
+        void ConfigureModeButton(Transform node, bool active)
+        {
+            if (node == null)
+            {
+                Debug.LogWarning("[Duel] 取不到模式钮节点 ⇒ 可用性闸作用不到它身上（如实出声）。");
+                return;
+            }
+            node.gameObject.SetActive(active);              // = 原版 `go.SetActive(playEvent.IsActive())`
+            // `WindowButton` 挂在**命中区那颗子件**上（`Button X/Hit`，见 `DuelButton` 的命中区注释）⇒ 子树里找。
+            var wb = node.GetComponentInChildren<WindowButton>(true);
+            if (wb != null) wb.SetSoftDisabled(true);      // = 原版 `GetEventDeck() == null`
+            else Debug.LogWarning("[Duel] 模式钮上没挂 `WindowButton` ⇒ `SoftDisable` 那一步落空（如实出声）。");
+        }
+
         void DuelButton(Transform parent, string name, string iconName, string icon, PxRect r, PxRect txR,
                         PxRect icR, string text, System.Action onClick, string clickCue)
         {

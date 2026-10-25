@@ -25,7 +25,7 @@ namespace WarpforgeVFX
         [Tooltip("导出的 prefab")]
         public GameObject prefab;
 
-        [Tooltip("原版 AnimFXController.destroyTime：多久后自动销毁。<0 = 原版没有这个组件")]
+        [Tooltip("原版 AnimFXController.destroyTime：多久后自动销毁。⚠️ 0 = 原版不排销毁（持续型特效，⇒ AutoLifetime 返回 ∞）；<0 = 原版没有这个组件（才落到 natural 兜底）")]
         public float destroyTime = -1f;
 
         [Tooltip("原版 AnimFXController.exitDestroyTime：调 Exit() 之后再活多久才销毁")]
@@ -34,7 +34,7 @@ namespace WarpforgeVFX
         [Tooltip("原版 AnimFXController.preventDestroy：原版不让它自己销毁（循环类/由牌局管理的）")]
         public bool preventDestroy;
 
-        [Tooltip("粒子系统自然播完的时长（循环的发射器算不出来，记 -1）。destroyTime 缺失时的兜底")]
+        [Tooltip("粒子系统自然播完的时长（循环的发射器算不出来，记 -1）。**只**在原版没有 AnimFXController（destroyTime<0）时当兜底")]
         public float natural = -1f;
 
         [Tooltip("含循环发射器 —— 它自己不会停，靠 destroyTime / 调用方收")]
@@ -49,19 +49,41 @@ namespace WarpforgeVFX
         [Tooltip("台账亮度比（导出亮度/原版亮度），1.0 = 完全一致")]
         public float ratio = -1f;
 
-        /// <summary>自动销毁时长。显式传参 &gt; 原版 destroyTime &gt; 粒子自然时长 &gt; 安全兜底。</summary>
+        /// <summary>自动销毁时长 —— 三档，与原版逐句对齐（**2026-10-25 已改齐**）。
+        ///
+        /// <para>**原版**（`d:/2/tools/decomp_full/AnimFXController__OnEnable.c` /
+        /// `AnimFXController.cs:152-161`）：
+        /// `if (0.0 &lt; destroyTime &amp;&amp; !preventDestroy) Object.Destroy(gameObject, destroyTime);`
+        /// ⇒ **`destroyTime == 0` 是一个有意义的真值：原版不排销毁**。现读 990 个实例里有 **38** 个是 0
+        /// （`InvulnerableEffect*` / `CamouflageEffect` / `FlyingEffect` / `BloodThirst*` /
+        /// `Aura_WhileInPlay_*` / `ShieldTraitEffect_Idle*` / `Blind_continuous_effect` …），
+        /// 由 `BattleCardUI.CleanStatusAnims` / `RemoveStatusAnim` 在**状态消失**时 `Exit`。</para>
+        ///
+        /// <para>🔴 **2026-10-25 改了什么**：原来 `destroyTime == 0` 落到 `natural`（粒子自然时长
+        /// 2–7 s）⇒ **状态还在、框已经自己没了**（`TraitFrames` 那条 `trait_onplay` 桶 142 行最明显）。
+        /// 现在按原版返回 **∞**。两半一起改的另一半 = 调用点：
+        /// · `Core/TraitFrames.cs`（按卡持有，状态消失 `Exit()`）⇒ 需要 ∞，✅ 这条现在对了；
+        /// · 一次性播那条（`VfxMap` 的 `play`/`trigger` 桶 → `CardEffects.Fire`）⇒ **没有清理点**，
+        ///   现读命中 **1 条 (卡,事件)**：`Blind_continuous_effect` @ `EC54/play`。
+        ///   它的正解是原版那一跳「按格位登记 + 单位离场走 `DoDestroy`」
+        ///   （`BattleManager.RemoveDestroyableAnims`），落在 `CardPresentation/Battle/**` ⇒ 已写改动请求。
+        ///   ⚠️ 在那条接线落地前，这 1 条会**留到本局结束**（`Blind_continuous_effect` 只有 1.5 s 的
+        ///   循环发射器 ⇒ 可见残留）。与此前「状态还在框却没了」相比，这是**更接近原版**的那一侧错误。</para>
+        ///
+        /// <para>⚠️ 另：`RemnantBody3D Necrons`（`destroyTime == 0`）走 `death` 桶 42 张卡 ⇒ 现在也会
+        /// 留到本局结束。**这正是原版行为**（残骸体本来就该一直在），清理由残骸体自己的生命周期管。</para></summary>
+        public float AutoLifetime(float safety = WarpforgeEffectPlayer.SafeDestroyTime)
+        {
+            if (destroyTime > 0f) return destroyTime;              // 原版：> 0 才排计时销毁
+            if (destroyTime == 0f) return float.PositiveInfinity;  // 原版：== 0 ⇒ **不排销毁**（持续型）
+            if (natural > 0f) return natural;                      // 只有 < 0（原版没有这个组件）才兜底
+            return safety;
+        }
         /// <summary>原版 `AnimFXController` 的模块清单（`AnimFXModule*` 那 18 个类）。
         /// 数据来自 `数据/游戏数据/animfx_modules.json`（由 `工具/gen_animfx_modules.py` 拍平）。
         /// **原版那 958 个走这里装配**；自制特效不走（在编辑器里手挂模块组件）。
         /// ⚠️ 空数组 = 这个效果没有模块，是正常情况。</summary>
         public WFModuleDef[] modules = new WFModuleDef[0];
-
-        public float AutoLifetime(float safety = WarpforgeEffectPlayer.SafeDestroyTime)
-        {
-            if (destroyTime > 0f) return destroyTime;
-            if (natural > 0f) return natural;
-            return safety;
-        }
     }
 
     public class WarpforgeEffectLibrary : ScriptableObject

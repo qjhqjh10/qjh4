@@ -50887,5 +50887,339 @@
       "uvCycles": 1.0,
       "uvRowIndex": 0
     }
+  ],
+  "tapHits": [
+    {
+      "go": "Barrels",
+      "path": "Scenario/Battle Arena Genestealers Baked/Barrels",
+      "layer": 0,
+      "inMask": true,
+      "hasMesh": true,
+      "pos": [
+        83.848473,
+        0.923826,
+        12.239775
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        0.0,
+        0.707107
+      ],
+      "scale": [
+        174.862976,
+        174.86297,
+        174.86297
+      ],
+      "collider": {
+        "type": "Mesh",
+        "convex": true,
+        "isTrigger": false,
+        "mesh": "Barrels1"
+      },
+      "particles": "Tap Hit Metal Small",
+      "particlesGuid": "3dc5682da4a044a43a4f12f252b9a58a",
+      "audio": "Tap Hit Metal Light",
+      "audioGuid": "d8fcd9e26668940a4a2091b89009892c",
+      "delay": 0.0,
+      "useTargetAnchor": 0,
+      "anchor": null
+    },
+    {
+      "go": "CardLowBoardLimit",
+      "path": "BattlePrefab/BattleBoardElements/Colliders/CardBoardLimits/CardLowBoardLimit",
+      "layer": 11,
+      "inMask": false,
+      "hasMesh": false,
+      "pos": [
+        100.0,
+        -0.59,
+        3.66
+      ],
+      "rot": [
+        0.002767,
+        0.0,
+        0.0,
+        0.999996
+      ],
+      "scale": [
+        81.161079,
+        0.82915,
+        41.907936
+      ],
+      "collider": {
+        "type": "Box",
+        "center": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "size": [
+          1.0,
+          1.0,
+          1.0
+        ],
+        "isTrigger": false
+      },
+      "particles": "Default Tap Floor",
+      "particlesGuid": "629741951c40548a49e35451a449d9d7",
+      "audio": "Tap Hit General",
+      "audioGuid": "52da505920d514f77ab579f113afbca6",
+      "delay": 0.0,
+      "useTargetAnchor": 0,
+      "anchor": null
+    },
+    {
+      "go": "Crate Right 1",
+      "path": "Scenario/Battle Arena Genestealers Baked/Crate Right 1",
+      "layer": 0,
+      "inMask": true,
+      "hasMesh": true,
+      "pos": [
+        109.60157,
+        0.852769,
+        8.774376
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        0.0,
+        0.707107
+      ],
+      "scale": [
+        174.862976,
+        174.86297,
+        174.86297
+      ],
+      "collider": {
+        "type": "Mesh",
+        "convex": true,
+        "isTrigger": false,
+        "mesh": "Crate Right 11"
+      },
+      "particles": "Tap Hit Metal Small",
+      "particlesGuid": "3dc5682da4a044a43a4f12f252b9a58a",
+      "audio": "Tap Hit Metal Light",
+      "audioGuid": "d8fcd9e26668940a4a2091b89009892c",
+      "delay": 0.0,
+      "useTargetAnchor": 0,
+      "anchor": null
+    },
+    {
+      "go": "Crate Right 2",
+      "path": "Scenario/Battle Arena Genestealers Baked/Crate Right 2",
+      "layer": 0,
+      "inMask": true,
+      "hasMesh": true,
+      "pos": [
+        110.12355,
+        0.522683,
+        7.760104
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        0.0,
+        0.707107
+      ],
+      "scale": [
+        174.862976,
+        174.86297,
+        174.86297
+      ],
+      "collider": {
+        "type": "Mesh",
+        "convex": true,
+        "isTrigger": false,
+        "mesh": "Crate Right 21"
+      },
+      "particles": "Tap Hit Metal Small",
+      "particlesGuid": "3dc5682da4a044a43a4f12f252b9a58a",
+      "audio": "Tap Hit Metal Light",
+      "audioGuid": "d8fcd9e26668940a4a2091b89009892c",
+      "delay": 0.0,
+      "useTargetAnchor": 0,
+      "anchor": null
+    },
+    {
+      "go": "Crate Right 3",
+      "path": "Scenario/Battle Arena Genestealers Baked/Crate Right 3",
+      "layer": 0,
+      "inMask": true,
+      "hasMesh": true,
+      "pos": [
+        106.165016,
+        0.462561,
+        -4.887152
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        0.0,
+        0.707107
+      ],
+      "scale": [
+        174.862976,
+        174.86297,
+        174.86297
+      ],
+      "collider": {
+        "type": "Mesh",
+        "convex": true,
+        "isTrigger": false,
+        "mesh": "Crate Right 31"
+      },
+      "particles": "Tap Hit Metal Small",
+      "particlesGuid": "3dc5682da4a044a43a4f12f252b9a58a",
+      "audio": "Tap Hit General",
+      "audioGuid": "52da505920d514f77ab579f113afbca6",
+      "delay": 0.0,
+      "useTargetAnchor": 0,
+      "anchor": null
+    },
+    {
+      "go": "Crates Left 1",
+      "path": "Scenario/Battle Arena Genestealers Baked/Crates Left 1",
+      "layer": 0,
+      "inMask": true,
+      "hasMesh": true,
+      "pos": [
+        82.126221,
+        3.151699,
+        15.215783
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        0.0,
+        0.707107
+      ],
+      "scale": [
+        174.862976,
+        174.86297,
+        174.86297
+      ],
+      "collider": {
+        "type": "Mesh",
+        "convex": true,
+        "isTrigger": false,
+        "mesh": "Crates Left 11"
+      },
+      "particles": "Tap Hit Metal Small",
+      "particlesGuid": "3dc5682da4a044a43a4f12f252b9a58a",
+      "audio": "Tap Hit General",
+      "audioGuid": "52da505920d514f77ab579f113afbca6",
+      "delay": 0.0,
+      "useTargetAnchor": 0,
+      "anchor": null
+    },
+    {
+      "go": "Generator Right 1",
+      "path": "Scenario/Battle Arena Genestealers Baked/Generator Right 1",
+      "layer": 0,
+      "inMask": true,
+      "hasMesh": true,
+      "pos": [
+        112.621742,
+        3.441097,
+        4.695076
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        0.0,
+        0.707107
+      ],
+      "scale": [
+        174.862976,
+        174.86297,
+        174.86297
+      ],
+      "collider": {
+        "type": "Mesh",
+        "convex": false,
+        "isTrigger": false,
+        "mesh": "Generator Right 11"
+      },
+      "particles": "Tap Hit Metal",
+      "particlesGuid": "375d142f27197404884be8e317eca8dc",
+      "audio": "Tap Hit Metal Heavy",
+      "audioGuid": "0a651ec9f71764e41ba0d305510865ba",
+      "delay": 0.0,
+      "useTargetAnchor": 0,
+      "anchor": null
+    },
+    {
+      "go": "Generator Right 2",
+      "path": "Scenario/Battle Arena Genestealers Baked/Generator Right 2",
+      "layer": 0,
+      "inMask": true,
+      "hasMesh": true,
+      "pos": [
+        113.066978,
+        2.232074,
+        6.407301
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        0.0,
+        0.707107
+      ],
+      "scale": [
+        174.862976,
+        174.86297,
+        174.86297
+      ],
+      "collider": {
+        "type": "Mesh",
+        "convex": true,
+        "isTrigger": false,
+        "mesh": "Generator Right 21"
+      },
+      "particles": "Tap Hit Metal",
+      "particlesGuid": "375d142f27197404884be8e317eca8dc",
+      "audio": "Tap Hit Metal Heavy",
+      "audioGuid": "0a651ec9f71764e41ba0d305510865ba",
+      "delay": 0.0,
+      "useTargetAnchor": 0,
+      "anchor": null
+    },
+    {
+      "go": "Statue Sculpt",
+      "path": "Scenario/Battle Arena Genestealers Baked/Statue Sculpt",
+      "layer": 0,
+      "inMask": true,
+      "hasMesh": true,
+      "pos": [
+        96.303101,
+        7.335342,
+        19.117239
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        0.0,
+        0.707107
+      ],
+      "scale": [
+        50.329884,
+        50.329882,
+        50.329882
+      ],
+      "collider": {
+        "type": "Mesh",
+        "convex": false,
+        "isTrigger": false,
+        "mesh": "Statue Sculpt1"
+      },
+      "particles": "Tap Rock",
+      "particlesGuid": "06946a9ab456c474f9b4f86e00fecf9c",
+      "audio": "Tap Hit General",
+      "audioGuid": "52da505920d514f77ab579f113afbca6",
+      "delay": 0.0,
+      "useTargetAnchor": 0,
+      "anchor": null
+    }
   ]
 }

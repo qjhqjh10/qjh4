@@ -16,6 +16,7 @@
 //
 // 🔴 **原版 level0 里 73 个组件的参数导出失败**（正本 §〇 第 1 条）⇒ 标「查不到」的地方**不许用猜测填空**。
 using System.Collections;
+using System;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.Video;
@@ -739,7 +740,52 @@ namespace CardPresentation
 
             // ---- 菜单音乐（照 `MainMenuMusicController.Initialize`：先 main theme，再排队 idle）----
             PlayMenuMusic();
+
+            // ---- 场景初始化机（原版 `SceneInitializer`；判据/差异 → `Shell/SceneInitializer.cs` 文件头）----
+            // 🔴 **2026-10-25（复刻第 1 轮 · 代理 H）**：这一层原来**完全没有** —— 壳是「Build 里同步一把
+            //    建完」、顺序靠书写次序。现在补上原版那一层：场景里任何实现 `IBaseInitializable` 的件
+            //    都会按 `InitializationPriority`（Data→Manager→UI→AfterUI）分组、组内跑完再进下一组；
+            //    需要「等全部就绪」的件用 `WhenInitialized(cb)`（= 原版 `RegisterCompletionCallback`）。
+            //    ⚠️ 今天壳里的件**一个都没实现这套接口** ⇒ 这一句在行为上是空转（零回归）；
+            //    它的价值是「以后新增件可以声明先后，不再靠 Build 里的行号」+ 出错出声/不中断。
+            EnsureSceneInitializer(root);
+
+            // ---- 红点/通知（原版 `UiBadgeNotificationManager`；判据 → `Shell/BadgeNotifications.cs` 文件头）----
+            // 登记本工程有真实数据源的 provider（收件箱 / 奖励）。**幂等**：壳重建不会重复登记。
+            BadgeWiring.RegisterDefaults();
         }
+
+        /// <summary>让红点按**当前数据**重算一遍（原版 `UiBadgeNotificationManager.Refresh()`）。
+        /// <para>调用点建议：窗口回前台 / 领取奖励之后。今天我们的 `UiBadgeNotification.Recount()` 已经是
+        /// 「读时刷新」⇒ 这个口是留给「将来日常线恢复、能加推送点时」用的。</para></summary>
+        public void RefreshBadges() { UiBadgeNotificationManager.Refresh(); }
+
+        // ---------------------------------------------------------- 场景初始化机（`SceneInitializer`）
+
+        SceneInitializer _sceneInit;
+        /// <summary>本壳的初始化机（没建起来 = null，调用方自行判）。</summary>
+        public SceneInitializer Initializer { get { return _sceneInit; } }
+
+        void EnsureSceneInitializer(Transform root)
+        {
+            var t = root.Find("SceneInitializer");
+            if (t == null) t = NewRoot(root, "SceneInitializer");
+            _sceneInit = t.GetComponent<SceneInitializer>();
+            if (_sceneInit == null) _sceneInit = t.gameObject.AddComponent<SceneInitializer>();
+            // 编辑器/批处理里 `AddComponent` **不派 `Awake`**（本工程已记过的坑）⇒ 显式起；
+            // Play 里 `Awake` 已经跑过（`_begun = true`）⇒ 本句是空操作，不会初始化两遍。
+            _sceneInit.BeginIfNeeded();
+
+            // 「壳已就绪」的完成回调（示例 + 出声）：将来要「等所有件就绪再开首窗」的调用方照这一行写。
+            SceneInitializer.RegisterCompletionCallback(() =>
+                Debug.Log("[Shell] SceneInitializer 完成：分组初始化全部走完（status=" + (_sceneInit != null ? _sceneInit.Status.ToString() : "?") + "）"));
+        }
+
+        /// <summary>把一件登记进本场景的初始化链（= 原版 `SceneInitializer.QueueForInitialization`）。</summary>
+        public void QueueInitializable(IBaseInitializable initializable) { SceneInitializer.QueueForInitialization(initializable); }
+
+        /// <summary>注册「初始化全部完成」回调（= 原版 `RegisterCompletionCallback`）。</summary>
+        public void WhenInitialized(Action callback) { SceneInitializer.RegisterCompletionCallback(callback); }
 
         // ---------------------------------------------------------- 小件
 

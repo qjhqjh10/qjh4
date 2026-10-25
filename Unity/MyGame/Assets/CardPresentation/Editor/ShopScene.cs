@@ -1820,6 +1820,93 @@ public static class ShopScene
         }
         ClosePackAndReopenShop(win);   // A7：买卡包会弹全屏的开包窗 ⇒ 还原成「商店开着」再往下做
 
+        // ---------------- 🆕 2026-10-25（`C` 商店域 · P2）：轮播奖励的**布局数学** ----------------
+        //   判据 = `CarouselOfferPopupDrawer`（`UI_InfiniteScroll` 无限循环）+ 那三句能被测试的算术。
+        //   ⚠️ UI 与输入还没接（判据里 `DrawRewards` 的过滤谓词**不可及** ⇒ 过滤口做成可注入、默认不过滤）。
+        //   🧨 改坏法：把 `WrapOffset` 的负数归正去掉 ⇒ 第一条红；`IndexAt` 不取模 ⇒ 第二条红。
+        Section("轮播奖励的布局数学（`Carousel`：环绕偏移 / 槽→条目 / 页数 / 可注入过滤）");
+        {
+            Check(OfferContainer.Carousel.WrapOffset(-1, 5), 4, "偏移 −1 归一成 4（负数往正里归）");
+            Check(OfferContainer.Carousel.IndexAt(0, 4, 5), 4, "第 0 槽 + 偏移 4（n=5）⇒ 第 4 条");
+            Check(OfferContainer.Carousel.IndexAt(1, 4, 5), 0, "第 1 槽 ⇒ **绕回头上**（循环）");
+            Check(OfferContainer.Carousel.IndexAt(3, 0, 0), -1, "n = 0 ⇒ −1（没有奖励）");
+            Check(OfferContainer.Carousel.Pages(7, 3), 3, "7 条、一屏 3 槽 ⇒ 3 页");
+            CheckTrue(OfferContainer.Carousel.Filter == null,
+                      "★ 奖励过滤口默认 **null = 不过滤**（原版那个 `Where` 谓词**判据不可及**，⛔ 不填猜的）");
+            var rsT = new List<CampaignData.RewardSpec>
+            {
+                new CampaignData.RewardSpec("a", 1, CampaignData.TierBasic),
+                new CampaignData.RewardSpec("b", 2, CampaignData.TierBasic),
+            };
+            Check(OfferContainer.Carousel.Apply(rsT).Count, 2, "默认过滤 ⇒ 原样 2 条（不过滤）");
+        }
+
+        // ---------------- 🆕 2026-10-25（`C` 背包框架层）：`Inventory<T>` / `ItemInfo<T>` 的语义 ----------------
+        //   判据 = `判据/泛型与启动链.md` §三 #3 + 逐方法表（原版 `Inventory.cs:685-1748` / `ItemInfo.cs:213-252`）。
+        //   🧨 改坏法：把 `ItemInfo.Add` 的「扣到 0 为止」改成可负 / 把 `GetItemInstances(useQuantity:true)` 的展开去掉
+        //      / 把 `Get` 从「按 id 认条目」改成「按实例认」⇒ 对应那条当场红。
+        Section("背包框架层 `Inventory<T>` / `ItemInfo<T>`（判据 G §三 #3）");
+        {
+            var inv = new Inventory<ShopItem>(it => it != null ? it.Id : null);
+            var a = new ShopItem("t/a", "A");
+            var aSame = new ShopItem("t/a", "A2");     // 同 id、**不同实例** ⇒ 必须认成同一条
+            inv.Add(a, 3);
+            Check(inv.Get(a).Amount, 3, "`Add(item,3)` ⇒ 数量 3");
+            int ev = 0;
+            inv.OnItemCountChange += (it, dn) => { ev += dn; };
+            inv.Add(a, 2);
+            Check(inv.Get(a).Amount, 5, "再加 2 ⇒ 5");
+            Check(ev, 2, "`OnItemCountChange` 抛的是**变化量** +2（⛔ 不是新总量）");
+            CheckTrue(inv.Get(aSame) != null && inv.Get(aSame).Amount == 5,
+                      "★ 同 id 的**另一个实例**取到的是**同一条**（背包按 id 认条目）");
+            inv.OnItemCountModify(a, -1);
+            Check(inv.Get(a).Amount, 4, "`OnItemCountModify(-1)` ⇒ 4");
+            int nInst = 0;
+            foreach (var _ in inv.GetItemInstances(true)) nInst++;
+            Check(nInst, 4, "`GetItemInstances(useQuantity:true)` 把数量 4 **展开成 4 个**");
+            nInst = 0;
+            foreach (var _ in inv.GetItemInstances(false)) nInst++;
+            Check(nInst, 1, "…`useQuantity:false` 只出 1 个（条目数）");
+            inv.Add(a, -100);
+            Check(inv.Get(a).Amount, 0, "扣到 0 为止（⛔ 不出负库存）");
+        }
+
+        // ---------------- 🆕 2026-10-25（`C` 商店域）：拥有数 / 限购**真的落盘了** ----------------
+        //   判据面：原版的拥有数**不在商店这一层** —— 在 `PlayerDataManager` 的**每个活动一份 `TSave`** 里，
+        //   读走 `InventoryManager.GetOwnedCount(Item)`（`ILiveOpsHandler.cs:71` 的 `SetupEvents(events,
+        //   blockedEvents, sharedData)` + `LiveOpsEvent<TSave,TData>` 的每事件存档；见 `判据/泛型与启动链.md` §二）。
+        //   我们这一层：**拥有数已迁进背包框架层**（`Shell/Inventory.cs` 的 `Inventory<T>` / `ItemInfo<T>`），
+        //   落盘 = `InventoryStore`（`WarpforgeInventory/shop.json`）—— 它是「`PlayerDataManager` 落地前的临时本地等价物」。
+        //   🧨 改坏法：把 `Buy` 里那句 `PersistShop()` 删掉 / 把 `InventoryStore.Load` 的读口断开 ⇒ 下面「重读之后还在」当场红。
+        //   ✅ 灭自证：`ReloadForTest()` 会**先清背包、再按出厂值重新播种** ⇒ 想读到买过之后的值，**唯一的路**就是盘上那份。
+        //   ⚠️ **自检一律走临时目录**（`OverrideDir`），⛔ 不动玩家的真存档（同 `DailyData.OverrideDir` 那条纪律）。
+        Section("拥有数 / 限购**落盘**：写 → 重读 → 值还在（`WarpforgeInventory/shop.json`）");
+        {
+            string prevDir = ShopData.OverrideDir;
+            ShopData.OverrideDir = "d:/4/_tmp_view/shop_selftest_owned";
+            ShopData.ResetForTest();                  // 连盘一起清（ResetForTest 现在会 DeleteStoreForTest）
+            int o0 = ShopData.OwnedOf(0, 0);
+            int a0 = ShopData.AvailableOf(0, 0);
+            ShopData.Buy(0, 0);
+            int o1 = ShopData.OwnedOf(0, 0);
+            int a1 = ShopData.AvailableOf(0, 0);
+            Check(o1, o0 + 1, "（前提）买一件 ⇒ 内存里拥有数 +1");
+            CheckTrue(ShopData.LastStorePath != null && System.IO.File.Exists(ShopData.StorePath),
+                      "★ 买一件**真的写盘**了（`LastStorePath` 非 null 且文件在）—— 判据 = 重启不清零那条缺陷");
+            CheckTrue(ShopData.LastStoreError == null,
+                      "★ 落盘**没有失败**（失败会写在 `LastStoreError` 并出声）"
+                    + (ShopData.LastStoreError == null ? "" : "｜🧨 " + ShopData.LastStoreError));
+            ShopData.ReloadForTest();                 // 丢掉内存、从盘上重读
+            Check(ShopData.OwnedOf(0, 0), o1, "★ **重读之后拥有数还在**（= 重启不清零）");
+            if (a0 > 0)
+                Check(ShopData.AvailableOf(0, 0), a1, "★ **限购剩余次数也在**（它原来只是静态表里的结构体字段，重启就回初值）");
+            else CheckTrue(true, "（这一件没有限购信息 ⇒ 跳过限购那一条）");
+            ShopData.DeleteStoreForTest();            // 收尾：删档
+            ShopData.OverrideDir = prevDir;           // ⚠️ 关掉门（后面的节不再碰盘，行为与今天完全一致）
+            ShopData.ResetForTest();
+            Check(ShopData.OwnedOf(0, 0), o0, "（收尾：拥有数推回初值）");
+        }
+
         // ---------------- 🆕 2026-10-03：传奇重复购买确认（§三 第 29 条 A16）----------------
         //   判据 = `d:/2/tools/decomp_full/CatalogItemContainer__TryPurchase.c`：
         //   `Item.Rarity == 4 && GetOwnedCount(Item) == 1` ⇒ 先弹 `MenuShop/ExtraLegendaryWarning`，

@@ -521,11 +521,11 @@ namespace CardPresentation
             //   都**不与它重叠**（原版兄弟序 `DivisionText → DivisionImage → footer`，画序在这里无关）。
             var divImgR = new PxRect(CsL, DimgT, CsR, DimgB);
             var di = Node(c, "DivisionImage", divImgR);
-            DivisionArtUsed = RankedDivisionInfo.DivisionArtName(RankedDivisionInfo.DemoDivisionNumber);
+            DivisionArtUsed = RankedDivisionInfo.DivisionArtName(RankedData.DisplayDivisionNumber);
             if (string.IsNullOrEmpty(DivisionArtUsed))
             {
                 Debug.LogWarning("[Ranked] 排名页的段位大图**没画** —— `RankedDivisionInfo.DivisionArt` 里没有段位 "
-                                 + RankedDivisionInfo.DemoDivisionNumber + " 对应的图；⛔ 不拿别的段位顶替");
+                                 + RankedData.DisplayDivisionNumber + " 对应的图；⛔ 不拿别的段位顶替");
             }
             else if (Rect(di, DivisionArtUsed, divImgR, "Image", L_Art, null, true) == null)
             {

@@ -43,6 +43,12 @@
 //        运行期被 `ConfigurePopUp` 按调用方给的 `GameWindowButton.Text` 覆盖。
 //        真正的字面量来自 `stringliteral.json` 的地址表：`0x42BE418 → MainMenu/General/Discard`、
 //        `0x42BE120 → MainMenu/General/Cancel`，与 `TrySaveDeck.c` 里那两个 `DAT_1842be…` 逐个地址对上。）
+//    · 🆕 **正文里的链接**（2026-10-25 `N5`）= `PopUpGameWindow__CheckLinkText`：`FindIntersectingLink(Message,
+//      Input.mousePosition, uiCamera)` 命中就 `Application.OpenURL(GetLinkID())`；触发口 = prefab 在
+//      **`MessageText` 节点**上挂的 `EventTrigger(eventID = 2 / PointerDown)`
+//      （`bundle_menus_assets_all/MonoBehaviour/MonoBehaviour_-7951107052992891773.json` +
+//       宿主的 `GameObject/MessageText_-8854682269485468541.json`）。我们按同一矩形另建一颗透明命中区
+//      ⇒ 见 `Build()` 第 6b 步与 `CheckLinkText()`。
 // ③ **文案 = I2 术语【键】，不是明文**（这条对**正文与两颗钮**都成立）：
 //    `DeckUtility__ToRawLocalizationString.c` 的键 = `MenuDeck/Error/{0}`（`{0}` = 原版 `DeckError` 的号），
 //    **查不到词条时兜底仍是另一个键** `MenuDeck/Error/InvalidDeck`（地址表实读，见
@@ -228,6 +234,14 @@ namespace CardPresentation
         System.Action _onPrimary, _onSecondary;
         Label _msgLb, _primaryLb, _secondaryLb;
         Transform _shadeHit;
+        /// <summary>`MessageText` 上那颗**指针命中区**（`WindowButton` + `onDown = CheckLinkText`）。
+        /// 判据 = 原版那扇 prefab 在 `MessageText` 节点上挂了一颗 `EventTrigger`
+        /// （`bundle_menus_assets_all/MonoBehaviour/MonoBehaviour_-7951107052992891773.json`：
+        /// `m_Delegates[0].eventID = 2`（= `PointerDown`）· `m_MethodName = "CheckLinkText"`；
+        /// 宿主 GameObject = `GameObject/MessageText_-8854682269485468541.json` ⇒ **就是 `MessageText` 那颗**）。
+        /// ⚠️ 原版那颗触发器靠 TMP 自己的 `Graphic.raycastTarget` 吃射线；我们是 `ImageQuad` 那套
+        /// ⇒ 按同一矩形另建一颗**透明命中区**（同族做法 = `MenuDraw.Absorb`，那也建一颗透明的）。</summary>
+        Transform _msgHit;
         /// <summary>两颗钮的**点击接收件**（`WindowButton`，挂在按钮底图那块 quad 上）。
         /// 🔴 **2026-10-12（A454）起由 `RefreshLiveContent` 复用** —— 复用一扇还开着的窗时改它的 `onClick`
         /// （那个字段是**点击那一刻**才读的，见 `WindowButton`）。1 按钮版 / 取图失败 ⇒ 对应那个是 null。</summary>
@@ -267,6 +281,9 @@ namespace CardPresentation
         public string SecondaryShown { get { return _secondaryLb != null ? _secondaryLb.Text : null; } }
         /// <summary>压暗层那颗**吸收**命中区（`MenuDraw.Absorb` 建的；自检拿 `MenuDraw.WasAbsorb` 核它）。</summary>
         public Transform ShadeHitNode { get { return _shadeHit; } }
+        /// <summary>`MessageText` 上那颗**指针命中区**（原版那颗 `EventTrigger(PointerDown) → CheckLinkText` 的等价物；
+        /// 判据见 `_msgHit` 的 doc）。自检拿它核「建出来了 + `onDown` 接的是 `CheckLinkText`」。</summary>
+        public Transform MessageHitNode { get { return _msgHit; } }
 
         // ============================================================ 建 / 开
 
@@ -406,6 +423,7 @@ namespace CardPresentation
         {
             var root = transform;
             MenuDraw.ClearChildren(root);
+            _msgHit = null;                 // 上一辈子的命中区已随子件销毁（下面重建，失败也不留悬空引用）
 
             var winR = TwoButtons ? Win2R : Win1R;
             var maskR = TwoButtons ? Mask2R : Mask1R;
@@ -446,6 +464,27 @@ namespace CardPresentation
                                    MsgFontPx, QText, msgR.W, MsgAutoMinPx, MsgFontPx, MsgAutoBasePx, face: TmpFont.Face.LatinCardBody);
             if (_msgLb == null) Debug.LogWarning("[PopUp] `MessageText` 没建出来（标签建失败）");
 
+            // ---- 6b) `MessageText` 上的**指针命中区**（🆕 2026-10-25 `N5`）----
+            //   原版：`MessageText` 节点挂 `EventTrigger(eventID = 2 / PointerDown)` → `PopUpGameWindow.CheckLinkText`
+            //   （判据 = `MonoBehaviour_-7951107052992891773.json` 的 `m_Delegates[0]`，宿主
+            //     `MessageText_-8854682269485468541.json`；见 `_msgHit` 的 doc）。
+            //   ⚠️ **档位 = `QText + 1`**：它必须**吃得到射线**（`PointerLayer` 按渲染队列取最上面那颗），
+            //     而 `MessageText` 自己就在 `QText`；+1 仍**低于** Tooltip 那段 4077 起、也仍在本窗 3560–3565
+            //     这一带之上的一格（本窗是模态、下面没有别的活窗）⇒ 不会抢走任何别的命中。
+            //   ⚠️ `tintOnHover = false` + 没有图 ⇒ 悬停/按下**零视觉**（= 原版那颗 `EventTrigger` 不是 `Selectable`）；
+            //     `playClickSound = false` ⇒ 点正文**不响**（原版这条路没有按钮音，见 `WindowButton.playClickSound`）。
+            _msgHit = MenuDraw.Hit(winNode, "MessageText Hit", msgR, QText + 1, null);
+            if (_msgHit == null)
+                Debug.LogWarning("[PopUp] `MessageText` 的命中区没建出来（`MenuDraw.Hit` 返回 null —— "
+                               + "通常 = 整块落在视口外）⇒ **正文里的链接点不动**。");
+            else
+            {
+                var mwb = _msgHit.GetComponent<WindowButton>();
+                if (mwb != null) { mwb.tintOnHover = false; mwb.playClickSound = false; mwb.onDown = CheckLinkText; }
+                else
+                    Debug.LogWarning("[PopUp] `MessageText Hit` 上没挂到 `WindowButton` ⇒ 正文链接点不动。");
+            }
+
             // ---- 7) `Buttons` 行（它是**布局组容器**，子件位置由下面的成品矩形定死）----
             var btnsNode = MenuDraw.Node(winNode, "Buttons", btnsR);
 
@@ -483,6 +522,32 @@ namespace CardPresentation
                 // 会去动上一辈子的对象 —— 那是本类唯一会「静默改到别人身上」的地方）
                 _secondaryLb = null; _secondaryHit = null; _secondaryNode = null;
             }
+        }
+
+        // ============================================================ 正文里的链接（原版 `CheckLinkText`）
+        /// <summary>= 原版 `PopUpGameWindow.CheckLinkText()`（`out_il2csharp/Assembly-CSharp/PopUpGameWindow.cs:147`）：
+        /// `<para>原版逐句 —— <c>int i = TMP_TextUtilities.FindIntersectingLink(Message, Input.mousePosition, uiCamera);
+        /// if (i != -1) Application.OpenURL(Message.textInfo.linkInfo[i].GetLinkID());</c>
+        /// ⇒ **指针压在哪个 `<link=…>` 上就打开那个 URL；没压中就什么都不做**。</para>
+        /// <para>本工程：命中那一步**不再写第二份** —— 走 <c>Label.LinkAt(world, cam)</c>
+        /// （`Battle/Label.cs:443` → `TmpFont.LinkAt`，内部就是同一个 `TMP_TextUtilities.FindIntersectingLink`）。
+        /// 它吃**世界点**，所以这里把鼠标屏幕点按「文字那一个平面」换回世界点再交给它
+        /// （`ScreenToWorldPoint` → `WorldToScreenPoint` 是同一台相机的往返，透视/正交都恒等）。
+        /// 相机取 `Camera.main`（与本壳其它处的取法一致，见 `Shell/ShellRuntime.cs`）、
+        /// 取不到就**不做**（= 原版 `GetUICamera()` 找不到 `UICamera`/`MainCamera` 时返回 0 那一支）。</para>
+        /// <para>⚠️ 触发口 = `MessageText Hit` 那颗命中区的 `onDown`（原版 prefab 那颗
+        /// `EventTrigger.PointerDown`，判据见 `_msgHit` 的 doc）。
+        /// ⚠️ 批处理/自检里 `Input.mousePosition` 恒为 `(0,0)` ⇒ 这条链**只能在真机上点**，
+        /// 自检改用「命中区是否建出来 + `onDown` 接的是本方法」来核（不伪造鼠标）。</para></summary>
+        public void CheckLinkText()
+        {
+            if (_msgLb == null) return;
+            var cam = Camera.main;
+            if (cam == null) return;
+            Vector3 m = Input.mousePosition;
+            float z = cam.WorldToScreenPoint(_msgLb.transform.position).z;
+            string url = _msgLb.LinkAt(cam.ScreenToWorldPoint(new Vector3(m.x, m.y, z)), cam);
+            if (!string.IsNullOrEmpty(url)) Application.OpenURL(url);
         }
 
         /// <summary>一颗钮：底图（`40K_button`）+ `Button Text`（stretch + `sizeDelta.x = −26` + ARF 宽控高）。

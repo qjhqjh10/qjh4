@@ -4272,6 +4272,127 @@
    "timeToPlayAgain": 0.0
   },
   {
+   "name": "Tap Hit Fire",
+   "clips": [
+    "Hit Fire 1",
+    "Hit Fire 2",
+    "Hit Fire 3"
+   ],
+   "minPitch": 0.9,
+   "maxPitch": 1.1,
+   "minVolume": 0.2,
+   "maxVolume": 0.2,
+   "timeToPlayAgain": 0.1
+  },
+  {
+   "name": "Tap Hit General",
+   "clips": [
+    "Hit Floor Generic 1",
+    "Hit Floor Generic 2"
+   ],
+   "minPitch": 0.9,
+   "maxPitch": 1.1,
+   "minVolume": 0.2,
+   "maxVolume": 0.2,
+   "timeToPlayAgain": 0.1
+  },
+  {
+   "name": "Tap Hit Metal Heavy",
+   "clips": [
+    "Hit Heavy Metal 1",
+    "Hit Heavy Metal 2"
+   ],
+   "minPitch": 0.95,
+   "maxPitch": 1.05,
+   "minVolume": 0.2,
+   "maxVolume": 0.3,
+   "timeToPlayAgain": 0.1
+  },
+  {
+   "name": "Tap Hit Metal Light",
+   "clips": [
+    "Hit Metal Light 1",
+    "Hit Metal Light 2"
+   ],
+   "minPitch": 0.95,
+   "maxPitch": 1.05,
+   "minVolume": 0.5,
+   "maxVolume": 0.7,
+   "timeToPlayAgain": 0.1
+  },
+  {
+   "name": "Tap Hit Rock",
+   "clips": [
+    "Hit Rock 1",
+    "Hit Rock 2",
+    "Hit Rock 3"
+   ],
+   "minPitch": 0.9,
+   "maxPitch": 1.1,
+   "minVolume": 0.2,
+   "maxVolume": 0.2,
+   "timeToPlayAgain": 0.1
+  },
+  {
+   "name": "Tap Hit Spark",
+   "clips": [
+    "Hit Spark 1",
+    "Hit Spark 2",
+    "Hit Spark 3"
+   ],
+   "minPitch": 0.9,
+   "maxPitch": 1.1,
+   "minVolume": 0.2,
+   "maxVolume": 0.2,
+   "timeToPlayAgain": 0.1
+  },
+  {
+   "name": "Tap Hit Squishy",
+   "clips": [
+    "Hit Squishy 1",
+    "Hit Squishy 2"
+   ],
+   "minPitch": 0.9,
+   "maxPitch": 1.1,
+   "minVolume": 0.2,
+   "maxVolume": 0.2,
+   "timeToPlayAgain": 0.1
+  },
+  {
+   "name": "Tap Hit Water",
+   "clips": [
+    "Hit Water 1",
+    "Hit Water 2"
+   ],
+   "minPitch": 0.9,
+   "maxPitch": 1.1,
+   "minVolume": 0.2,
+   "maxVolume": 0.2,
+   "timeToPlayAgain": 0.1
+  },
+  {
+   "name": "Tap Monolith",
+   "clips": [
+    "Hit Monolith"
+   ],
+   "minPitch": 0.95,
+   "maxPitch": 1.05,
+   "minVolume": 0.1,
+   "maxVolume": 0.1,
+   "timeToPlayAgain": 0.1
+  },
+  {
+   "name": "Tap Squig",
+   "clips": [
+    "Squig Growl 1"
+   ],
+   "minPitch": 0.9,
+   "maxPitch": 1.1,
+   "minVolume": 0.3,
+   "maxVolume": 0.3,
+   "timeToPlayAgain": 0.1
+  },
+  {
    "name": "Tau Buff 1",
    "clips": [
     "Tau Buff 1"

@@ -1,0 +1,134 @@
+域	原版类	方法	判据出处	判据要点	状态	我们的落点	差异	等级	轮次	备注
+轮抽	AddressableDraftPacksLibrary	AssetCompletedLoading(AsyncOperationHandle obj, string assetKey)	AddressableDraftPacksLibrary.cs:47		E					
+轮抽	AddressableDraftPacksLibrary	GetLocalHandle(IResourceLocation element)	AddressableDraftPacksLibrary.cs:31		E					
+轮抽	DraftEndQuote	TryGetQuote(float normalizedStageProgress)	DraftEndQuote.cs:11		E					
+轮抽	DraftExpiringContent	GetCrateIndex(int currentStage)	DraftExpiringContent.cs:515		E					
+轮抽	DraftExpiringContent	GoToState()	DraftExpiringContent.cs:188		E					
+轮抽	DraftExpiringContent	Initialize(GameWindow window, IDraftEvent draft)	DraftExpiringContent.cs:146		E					
+轮抽	DraftExpiringContent	OnDestroy()	DraftExpiringContent.cs:123		E					
+轮抽	DraftExpiringContent	OpenLeaderboard()	DraftExpiringContent.cs:138		E					
+轮抽	DraftExpiringContent	Start()	DraftExpiringContent.cs:131		E					
+轮抽	DraftExpiringContent	_003CGoToState_003Eb__26_0()	DraftExpiringContent.cs:589		E					
+轮抽	DraftExpiringContent	_003CGoToState_003Eb__26_1(RewardInfo[] _)	DraftExpiringContent.cs:608		E					
+轮抽	DraftExpiringContent	_003CGoToState_003Eb__26_4(RewardInfo[] _)	DraftExpiringContent.cs:603		E					
+轮抽	DraftExpiringContent	_003CGoToState_003Eb__26_5(RewardInfo[] _)	DraftExpiringContent.cs:613		E					
+轮抽	DraftMenuContainer	DoOperationsOnDraftState(DraftModeState newDraftState)	DraftMenuContainer.cs:185		E					
+轮抽	DraftMenuContainer	OnDestroy()	DraftMenuContainer.cs:222		E					
+轮抽	DraftMenuContainer	OnDraftStateChange(DraftModeState newDraftState)	DraftMenuContainer.cs:180		E					
+轮抽	DraftMenuContainer	OnInitialize(LiveOpsEvent playEvent)	DraftMenuContainer.cs:15		E					
+轮抽	DraftMenuContainer	SetVictoryCounters()	DraftMenuContainer.cs:211		E					
+轮抽	DraftModeDeckInfoEnergyBalancePanel	Initialize(CardDeck cardDeck)	DraftModeDeckInfoEnergyBalancePanel.cs:23		E					
+轮抽	DraftModeDeckInfoEnergyBalancePanel	ToggleCardCounter(bool option)	DraftModeDeckInfoEnergyBalancePanel.cs:121		E					
+轮抽	DraftModeDeckInfoPanel	Initialize(IDraftEvent draft, bool showCardCounter)	DraftModeDeckInfoPanel.cs:53		E					
+轮抽	DraftModeDeckInfoPanel	Start()	DraftModeDeckInfoPanel.cs:40		E					
+轮抽	DraftModeDeckInfoPanel	ToggleAllianceInfo(bool value)	DraftModeDeckInfoPanel.cs:188		E					
+轮抽	DraftModeDeckInfoPanel	ToggleCardList(bool value)	DraftModeDeckInfoPanel.cs:194		E					
+轮抽	DraftModeDeckInfoPanel	ToggleEnergyInfo(bool value)	DraftModeDeckInfoPanel.cs:182		E					
+轮抽	DraftModeDeckInfoPanel	UpdateData()	DraftModeDeckInfoPanel.cs:125		E					
+轮抽	DraftModeExpirePopup	HandleCollect()	DraftModeExpirePopup.cs:17		E					
+轮抽	DraftModeExpirePopup	Initialize()	DraftModeExpirePopup.cs:9		E					
+轮抽	DraftModeExpirePopup	_003CHandleCollect_003Eb__2_0(RewardInfo[] _)	DraftModeExpirePopup.cs:26		E					
+轮抽	DraftModeMenuDemo	Awake()	DraftModeMenuDemo.cs:21		E					
+轮抽	DraftModeMenuDemo	CloseButtonOnClick()	DraftModeMenuDemo.cs:343		E					
+轮抽	DraftModeMenuDemo	GetAvailableWarlords()	DraftModeMenuDemo.cs:281		E					
+轮抽	DraftModeMenuDemo	GetMenuWarlordImage()	DraftModeMenuDemo.cs:216		E					
+轮抽	DraftModeMenuDemo	GetStartingTab()	DraftModeMenuDemo.cs:167		E					
+轮抽	DraftModeMenuDemo	GetTabFromState(DraftModeState state)	DraftModeMenuDemo.cs:178		E					
+轮抽	DraftModeMenuDemo	GoToCurrentState()	DraftModeMenuDemo.cs:149		E					
+轮抽	DraftModeMenuDemo	GoToState(DraftModeState state)	DraftModeMenuDemo.cs:159		E					
+轮抽	DraftModeMenuDemo	OnDestroy()	DraftModeMenuDemo.cs:31		E					
+轮抽	DraftModeMenuDemo	Open()	DraftModeMenuDemo.cs:39		E					
+轮抽	DraftModeMenuDemo	ReleaseMenuWarlordImage()	DraftModeMenuDemo.cs:269		E					
+轮抽	DraftModeMenuDemo	ResetEventProgress()	DraftModeMenuDemo.cs:293		E					
+轮抽	DraftModeMenuDemo	TempGetCardBack()	DraftModeMenuDemo.cs:298		E					
+轮抽	DraftModeMenuDemo	ToggleDeckInfo(bool state)	DraftModeMenuDemo.cs:136		E					
+轮抽	DraftModeMenuDemo	Unlock_EditorOnly()	DraftModeMenuDemo.cs:348		E					
+轮抽	DraftModeMenuIntroStateDemo	ChangeState(States stateToChange)	DraftModeMenuIntroStateDemo.cs:30		E					
+轮抽	DraftModeMenuIntroStateDemo	OnDisable()	DraftModeMenuIntroStateDemo.cs:63		E					
+轮抽	DraftModeMenuIntroStateDemo	OnEnable()	DraftModeMenuIntroStateDemo.cs:56		E					
+轮抽	DraftModeMenuIntroStateDemo	OnOpen()	DraftModeMenuIntroStateDemo.cs:22		E					
+轮抽	DraftModeMenuIntroStateDemo	PlayButtonOnClick()	DraftModeMenuIntroStateDemo.cs:70		E					
+轮抽	DraftModeMenuOngoingState	OnDisable()	DraftModeMenuOngoingState.cs:53		E					
+轮抽	DraftModeMenuOngoingState	OnEnable()	DraftModeMenuOngoingState.cs:37		E					
+轮抽	DraftModeMenuOngoingState	OnOpen()	DraftModeMenuOngoingState.cs:65		E					
+轮抽	DraftModeMenuOngoingState	OnRewardCollected(RewardInfo[] receivedRewards)	DraftModeMenuOngoingState.cs:176		E					
+轮抽	DraftModeMenuOngoingState	PlayButtonOnClick()	DraftModeMenuOngoingState.cs:246		E					
+轮抽	DraftModeMenuOngoingState	PlayDebugButtonOnClick()	DraftModeMenuOngoingState.cs:255		E					
+轮抽	DraftModeMenuOngoingState	Resign()	DraftModeMenuOngoingState.cs:230		E					
+轮抽	DraftModeMenuOngoingState	ResignButtonClick()	DraftModeMenuOngoingState.cs:185		E					
+轮抽	DraftModeMenuOngoingState	_003CResignButtonClick_003Eb__16_0(GameObject _)	DraftModeMenuOngoingState.cs:259		E					
+轮抽	DraftModeMenuOngoingState	_003CResign_003Eb__17_0()	DraftModeMenuOngoingState.cs:275		E					
+轮抽	DraftModeMenuPayStateDemo	ChangeState(States stateToChange)	DraftModeMenuPayStateDemo.cs:170		E					
+轮抽	DraftModeMenuPayStateDemo	ConfigurePremiumButton(bool interactable, EverguildButton button, TextMeshProUGUI text, int quantity)	DraftModeMenuPayStateDemo.cs:192		E					
+轮抽	DraftModeMenuPayStateDemo	FreeButtonOnClick()	DraftModeMenuPayStateDemo.cs:320		E					
+轮抽	DraftModeMenuPayStateDemo	GetFreeButtonInteractable()	DraftModeMenuPayStateDemo.cs:219		E					
+轮抽	DraftModeMenuPayStateDemo	OnClose()	DraftModeMenuPayStateDemo.cs:146		E					
+轮抽	DraftModeMenuPayStateDemo	OnDisable()	DraftModeMenuPayStateDemo.cs:290		E					
+轮抽	DraftModeMenuPayStateDemo	OnEnable()	DraftModeMenuPayStateDemo.cs:274		E					
+轮抽	DraftModeMenuPayStateDemo	OnOpen()	DraftModeMenuPayStateDemo.cs:47		E					
+轮抽	DraftModeMenuPayStateDemo	PremiumButtonOnClick()	DraftModeMenuPayStateDemo.cs:346		E					
+轮抽	DraftModeMenuPayStateDemo	PremiumTenButtonOnClick()	DraftModeMenuPayStateDemo.cs:372		E					
+轮抽	DraftModeMenuPayStateDemo	SetAllButtonsInteractable(bool interactable)	DraftModeMenuPayStateDemo.cs:303		E					
+轮抽	DraftModeMenuPayStateDemo	ToFocus()	DraftModeMenuPayStateDemo.cs:139		E					
+轮抽	DraftModeMenuPayStateDemo	Update()	DraftModeMenuPayStateDemo.cs:398		E					
+轮抽	DraftModeMenuPayStateDemo	_003CFreeButtonOnClick_003Eb__24_0()	DraftModeMenuPayStateDemo.cs:441		E					
+轮抽	DraftModeMenuPayStateDemo	_003CFreeButtonOnClick_003Eb__24_1()	DraftModeMenuPayStateDemo.cs:455		E					
+轮抽	DraftModeMenuPayStateDemo	_003CPremiumButtonOnClick_003Eb__25_0()	DraftModeMenuPayStateDemo.cs:460		E					
+轮抽	DraftModeMenuPayStateDemo	_003CPremiumButtonOnClick_003Eb__25_1()	DraftModeMenuPayStateDemo.cs:474		E					
+轮抽	DraftModeMenuPayStateDemo	_003CPremiumTenButtonOnClick_003Eb__26_0()	DraftModeMenuPayStateDemo.cs:479		E					
+轮抽	DraftModeMenuPayStateDemo	_003CPremiumTenButtonOnClick_003Eb__26_1()	DraftModeMenuPayStateDemo.cs:493		E					
+轮抽	DraftModeMenuPayStateTimed	OnOpen()	DraftModeMenuPayStateTimed.cs:14		E					
+轮抽	DraftModeOngoingStageVisualization	DoToggleAnim()	DraftModeOngoingStageVisualization.cs:15		E					
+轮抽	DraftModeOngoingStageVisualization	ToggleContent(bool option)	DraftModeOngoingStageVisualization.cs:10		E					
+轮抽	DraftModeSelectPacksStateDemo	InitWithSaveGameData()	DraftModeSelectPacksStateDemo.cs:290		E					
+轮抽	DraftModeSelectPacksStateDemo	OnDestroy()	DraftModeSelectPacksStateDemo.cs:710		E					
+轮抽	DraftModeSelectPacksStateDemo	OnOpen()	DraftModeSelectPacksStateDemo.cs:102		E					
+轮抽	DraftModeSelectPacksStateDemo	OnPackConfirmed()	DraftModeSelectPacksStateDemo.cs:636		E					
+轮抽	DraftModeSelectPacksStateDemo	OnPackFailed()	DraftModeSelectPacksStateDemo.cs:642		E					
+轮抽	DraftModeSelectPacksStateDemo	OnReRollFailed()	DraftModeSelectPacksStateDemo.cs:270		E					
+轮抽	DraftModeSelectPacksStateDemo	OnReRollSuccess()	DraftModeSelectPacksStateDemo.cs:264		E					
+轮抽	DraftModeSelectPacksStateDemo	PackPreview(PrebuiltPack selectedPack)	DraftModeSelectPacksStateDemo.cs:671		E					
+轮抽	DraftModeSelectPacksStateDemo	PackSelected(PrebuiltPackUI selectedPack)	DraftModeSelectPacksStateDemo.cs:460		E					
+轮抽	DraftModeSelectPacksStateDemo	ReRollClicked()	DraftModeSelectPacksStateDemo.cs:254		E					
+轮抽	DraftModeSelectPacksStateDemo	RefreshReRollPrice()	DraftModeSelectPacksStateDemo.cs:274		E					
+轮抽	DraftModeSelectPacksStateDemo	ResetPacksContainer()	DraftModeSelectPacksStateDemo.cs:684		E					
+轮抽	DraftModeSelectPacksStateDemo	ShowPacks()	DraftModeSelectPacksStateDemo.cs:301		E					
+轮抽	DraftModeSelectPacksStateDemo	UpdateDeckInfoPanel()	DraftModeSelectPacksStateDemo.cs:679		E					
+轮抽	DraftModeSelectPacksStateDemo	UpdateDeckInfoPanelAnimSync()	DraftModeSelectPacksStateDemo.cs:577		E					
+轮抽	DraftModeSelectPacksStateDemo	_003CPackSelected_003Eb__27_0()	DraftModeSelectPacksStateDemo.cs:754		E					
+轮抽	DraftModeSelectPacksStateDemo	_003CShowPacks_003Eb__26_0()	DraftModeSelectPacksStateDemo.cs:727		E					
+轮抽	DraftModeWarlordSelectionStateDemo	Awake()	DraftModeWarlordSelectionStateDemo.cs:48		E					
+轮抽	DraftModeWarlordSelectionStateDemo	CheckWarlordSelectionFinished()	DraftModeWarlordSelectionStateDemo.cs:187		E					
+轮抽	DraftModeWarlordSelectionStateDemo	ContinueButtonOnClick()	DraftModeWarlordSelectionStateDemo.cs:167		E					
+轮抽	DraftModeWarlordSelectionStateDemo	DEBUG_RerollWarlordButtonOnClick()	DraftModeWarlordSelectionStateDemo.cs:77		E					
+轮抽	DraftModeWarlordSelectionStateDemo	OnDestroy()	DraftModeWarlordSelectionStateDemo.cs:65		E					
+轮抽	DraftModeWarlordSelectionStateDemo	OnOpen()	DraftModeWarlordSelectionStateDemo.cs:148		E					
+轮抽	DraftModeWarlordSelectionStateDemo	OnWarlordFailed()	DraftModeWarlordSelectionStateDemo.cs:211		E					
+轮抽	DraftModeWarlordSelectionStateDemo	OnWarlordPicked()	DraftModeWarlordSelectionStateDemo.cs:205		E					
+轮抽	DraftModeWarlordSelectionStateDemo	SelectWarlord(RawCardScript card)	DraftModeWarlordSelectionStateDemo.cs:226		E					
+轮抽	DraftModeWarlordSelectionStateDemo	Setup(GameWindow window)	DraftModeWarlordSelectionStateDemo.cs:57		E					
+轮抽	DraftModeWarlordSelectionStateDemo	ToggleContinueButton(bool option)	DraftModeWarlordSelectionStateDemo.cs:235		E					
+轮抽	DraftModeWarlordSelectionStateDemo	_003CContinueButtonOnClick_003Eb__13_0()	DraftModeWarlordSelectionStateDemo.cs:249		E					
+轮抽	DraftModeWarlordSelectionStateDemo	_003CDEBUG_RerollWarlordButtonOnClick_003Eb__11_1(object _)	DraftModeWarlordSelectionStateDemo.cs:240		E					
+轮抽	DraftModeWarlordSelectionStateTimed	OnOpen()	DraftModeWarlordSelectionStateTimed.cs:41		E					
+轮抽	DraftRankingDataProvider	FetchHighlighted(RankingType type, Action<RankingRowData> onSuccess, Action onError)	DraftRankingDataProvider.cs:304		E					
+轮抽	DraftRankingDataProvider	FetchRanking(int maximum, RankingType type, Action<List<RankingRowData>> onSuccess, Action onError)	DraftRankingDataProvider.cs:228		E					
+轮抽	DraftRankingDataProvider	Initialize(UIRankingListController controller)	DraftRankingDataProvider.cs:373		E					
+轮抽	DraftRewardPanel	Collect()	DraftRewardPanel.cs:271		E					
+轮抽	DraftRewardPanel	Initialize(IDraftEvent draft)	DraftRewardPanel.cs:107		E					
+轮抽	DraftRewardPanel	OnDisable()	DraftRewardPanel.cs:196		E					
+轮抽	DraftRewardPanel	OnEnable()	DraftRewardPanel.cs:189		E					
+轮抽	DraftRewardPanel	SetCrateImage(int currentStage)	DraftRewardPanel.cs:203		E					
+轮抽	DraftRewardPanel	_003CCollect_003Eb__11_0()	DraftRewardPanel.cs:297		E					
+轮抽	DraftRunDisplay	Awake()	DraftRunDisplay.cs:105		E					
+轮抽	DraftRunDisplay	ChooseQuote()	DraftRunDisplay.cs:223		E					
+轮抽	DraftRunDisplay	Initialize(IDraftEvent draft)	DraftRunDisplay.cs:115		E					
+轮抽	DraftRunDisplay	OnDestroy()	DraftRunDisplay.cs:199		E					
+轮抽	DraftRunDisplay	PerformBadgeAnimations()	DraftRunDisplay.cs:288		E					
+轮抽	DraftRunDisplay	SetupStageMarks(List<DraftModeOngoingStageVisualization> listToInit, int currentState, int maxItemCount, Transform holder, DraftModeOngoingStageVisualization itemUI)	DraftRunDisplay.cs:347		E					
+轮抽	DraftWins	OnInitialize()	DraftWins.cs:8		E					
+轮抽	DraftWins	OnReset()	DraftWins.cs:14		E					
+轮抽	DraftWins	OnTrigger(DraftRunFinished obj)	DraftWins.cs:20		E					
+轮抽	TimedDraftEvent	CollectAllianceRewards(Action<RewardInfo[]> onSuccess, Action onError)	TimedDraftEvent.cs:332		E					
+轮抽	TimedDraftEvent	HasAllianceRewardsToCollect()	TimedDraftEvent.cs:185		E					
+轮抽	TimedDraftEvent	OnMatchProcessSuccess(OnlineMatchResult result)	TimedDraftEvent.cs:260		E					

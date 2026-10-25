@@ -307,6 +307,9 @@ namespace CardPresentation
         public static void Show(string body, Vector3 worldPos, int anchor = 0, Vector3 offset = default(Vector3))
         {
             if (string.IsNullOrEmpty(body)) { Hide(); return; }
+            // 🔴 2026-10-25（`E` · 原版 `Card2DController.ToggleTooltips` 的等价物）：抑制期**不弹**
+            //   （并把已经弹着的藏掉）。见下面 `SuppressTooltips` 那一段的判据。
+            if (TooltipsSuppressed) { Hide(); return; }
             var t = Ensure();
             t._pos = worldPos + offset;
             ShownBody = body;
@@ -332,6 +335,59 @@ namespace CardPresentation
             t.Pivot(anchor);
             t._target = 1f;
         }
+
+        // ==================================================================
+        //  🆕 2026-10-25（`E`）：**tooltip 的抑制计数** = 原版 `Card2DController.ToggleTooltips` 的等价物
+        // ==================================================================
+        //  原版是**逐卡开关**：卡上那批 `EverguildTooltipTrigger` / `TextTooltipController` 一起 `Toggle(option)`，
+        //  调用点（一手，cpp2il 全量）：
+        //    · `BattleCardManager:128`（招募/换牌期间关）
+        //    · `CardDisplayWindow:965 / 1181`（放大窗开/关各一次）
+        //    · `CardInBoosterPack:284 / 299`（开包翻面期间关、结束开）
+        //    · `CardScript:10595 / 11033`（某个动画期间关/开）
+        //  我们的 tooltip 是**全局悬停驱动**（`BattleDriver.TickTooltipAt` 每帧决定弹谁）⇒ 卡级开关没有
+        //  天然落点 ⇒ 等价物 = **按 owner 的抑制计数**：任何 owner 在册 ⇒ `Show` 直接不弹。
+        //  ⚠️ **本轮只落 Core 这一侧**；那 6 个调用点在 `Battle/**` / `Shell/**`（不在本代理白名单），
+        //     接上之后账 `卡牌面_渲染.tsv` 第 21 行才能从 C 收口。
+        //  ⚠️ owner 用 `HashSet<object>` 记 ⇒ **重复 Release 安全**、多个 owner 可叠加（开包 + 放大窗能同时关）。
+        static readonly HashSet<object> _suppressors = new HashSet<object>();
+        /// <summary>现在有没有任何 owner 在抑制 tooltip（自检/诊断用）。</summary>
+        public static bool TooltipsSuppressed { get { return _suppressors.Count > 0; } }
+        /// <summary>自检用：在册的 owner 数。</summary>
+        public static int SuppressorCountForTest { get { return _suppressors.Count; } }
+        /// <summary>关掉 tooltip（原版 `Card2DController.ToggleTooltips(false)` 的等价物）。
+        /// 正在显示的那一条会**立刻淡出**。`owner` 为 null ⇒ 忽略并出声（⛔ 不静默失败）。</summary>
+        public static void SuppressTooltips(object owner)
+        {
+            if (owner == null) { Debug.LogWarning("[Tooltip] `SuppressTooltips(null)` 被忽略（owner 不能为空）"); return; }
+            if (_suppressors.Add(owner) && Visible) Hide();
+        }
+        /// <summary>放开（原版 `ToggleTooltips(true)`）。重复开放 / 从没抑制过 ⇒ **空操作**（安全）。</summary>
+        public static void ReleaseTooltips(object owner)
+        {
+            if (owner == null) return;
+            _suppressors.Remove(owner);
+        }
+        /// <summary>自检用：清空全部抑制（⛔ 产品路径别调）。</summary>
+        public static void ResetSuppressionsForTest() { _suppressors.Clear(); }
+
+        /// <summary>🆕 **2026-10-25（`E`）**：**在鼠标处弹**（原版 `TextTooltipController.Show` / `GetTooltipPosition` 的等价物）。
+        /// <para>判据（一手 `decomp_full/TextTooltipController__Show.c`）：
+        /// `uiCamera.ScreenToWorldPoint(new Vector3(mouse.x, mouse.y + **10**, text.transform.position.z))`
+        /// —— 面板在**鼠标上方 10 屏幕像素**（`DAT_1834b2da8 = 10.0f`），**z 取 TMP 的世界 z**。</para>
+        /// <param name="mouseWorld">鼠标点的**世界坐标** —— ⚠️ 必须由调用方用带守卫的口取
+        /// （`BattleDriver.MouseWorld`：指针在屏幕外 ⇒ 归零、不外推）。
+        /// ⛔ 本方法**不自己调 `ScreenToWorldPoint`**（会在下游漏掉那道守卫）。</param>
+        /// <param name="textWorldZ">那张 TMP 的世界 z（原版取 `text.transform.position.z`）。</param>
+        /// <param name="pxToWorld">1 屏幕像素 = 多少世界单位（调用方给；10px 的换算用）。</param>
+        public static void ShowAtMouse(string body, Vector3 mouseWorld, float textWorldZ, float pxToWorld,
+                                       int anchor = 0)
+        {
+            Show(body, new Vector3(mouseWorld.x, mouseWorld.y + MouseTipDyPx * pxToWorld, textWorldZ), anchor);
+        }
+        /// <summary>原版鼠标上方那 10 屏幕像素（`DAT_1834b2da8 = 10.0f`，按 RVA 实读）。
+        /// ⛔ 别改：`GetTooltipPosition` 与 `Show` 用的是**同一个常量**。</summary>
+        public const float MouseTipDyPx = 10f;
 
         public static void Hide()
         {

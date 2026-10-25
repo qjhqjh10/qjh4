@@ -247,6 +247,39 @@ namespace CardPresentation
                     + "存储位置是**本地等价物**（行为一样：按 stageId 记住哪些做完了）。");
         }
 
+        /// <summary>= 原版 `TutorialManager.ToggleTutorial(bool)`：`tutorialEnabled = option; enabled = option;`
+        /// —— 即**运行期总开关**（关 ⇒ 不再推阶段、收掉指针/聚光灯；开 ⇒ 从第一个可玩 stage 重新开始）。
+        /// <para>⚠️ 原版只改两个 bool、**不写存档**（下次启动仍按存档里的完成位走）；我们照做（不落 `PlayerPrefs`）。</para>
+        /// <para>⚠️ 我们的 `_active` 同时承担「整链跳过」的守卫（`StartFlow` 里 `PrefSkip` 那一支）——
+        /// 所以**关掉之后再开**不会绕过跳过标记：`ToggleTutorial(true)` 只看 `FirstPlayableStage()`，
+        /// 而它不看 `PrefSkip`。需要「永久跳过」请用 `SkipAll()`（那是原版 `ForceCompleteAll` 的等价物）。</para></summary>
+        public void ToggleTutorial(bool option)
+        {
+            if (_active == option)
+            {
+                Debug.Log("[MenuTutorial] `ToggleTutorial(" + option + ")`：已经是这个状态 ⇒ 不变");
+                return;
+            }
+            _active = option;
+            if (!option)
+            {
+                if (_pointer != null) _pointer.Hide();
+                if (_highlight != null) _highlight.HideImmediate();
+                _lastPoint = new Vector2(-1f, -1f);
+                Debug.Log("[MenuTutorial] 教程已**关闭**（= 原版 `TutorialManager.ToggleTutorial(false)`：`tutorialEnabled=false; enabled=false`）");
+                return;
+            }
+            int first = FirstPlayableStage();
+            if (first < 0)
+            {
+                FinishAll();
+                Debug.Log("[MenuTutorial] 教程已开启，但没有可玩 stage（全完成/条件满足）⇒ 直接收尾");
+                return;
+            }
+            Enter(first);
+            Debug.Log("[MenuTutorial] 教程已**开启**（= 原版 `ToggleTutorial(true)`）⇒ 进阶段 " + (first + 1));
+        }
+
         /// <summary>= 原版 `_DelayedPLayTutorial` 的「找第一个 `completed == false` 且 `CheckForCompletion() == false`」。
         /// <para>⚠️ `TutorialFinished` 例外：它的本地等价判据（「当前在主菜单」）在开局那一刻恒真，
         /// 拿它跳过会把通关那段悄悄吞掉 ⇒ 这一阶段只要没完成就**一定**选中（判据见 `CheckCompletion`）。</para></summary>
@@ -705,7 +738,47 @@ namespace CardPresentation
             //   别让玩家面对一个只有聚光灯的空屏（如实标注为偏离）。
             string bubble = CardArt.MenuUi(TutorialPointerUi.ArtPointer) == null ? Official(def.BodyKey) : null;
             _pointer.Show(p, bubble, true);
+            ApplyCampaignPointerFade(top);
             if (_highlight != null) _highlight.ShowAt(p.x, p.y);
+        }
+
+        // ============================================================ 战役页指针淡出（= 原版 `TutorialHidePointerInCampaign`）
+        /// <summary>`alphaMultiplier` 的**实读值**：`TutorialHidePointerInCampaign` 的 `.ctor` 把 `+0x28` 写成
+        /// `0x41480000` = **12.5f**（`decomp_full/TutorialHidePointerInCampaign___ctor.c` 现读）。</summary>
+        public const float CampaignPointerFadeMultiplier = 12.5f;
+
+        /// <summary>战役页里指针随**横向轨道滚动**淡出。公式**逐句**照原版 `Update`：
+        /// `t = Clamp01(normalizedPosition * 12.5f)` → `alpha = Clamp01(t * -1f + 1f)`（两个浮点常量
+        /// `DAT_1834b2bc8 = -1.0` / `DAT_1834b2bb8 = 1.0` 已从 `GameAssembly.dll` 按 RVA 读出）。
+        /// <para>⚠️ 我们的滚动不是 uGUI `ScrollRect`（是 `MenuScroll`）⇒ `normalizedPosition` 的等价物 =
+        /// `(Offset − ClampLo) / (ClampHi − ClampLo)`（夹 0..1）。原版那份 ScrollRect 在
+        /// `TutorialHidePointerInCampaign` 的序列化字段里，而**该组件只在 Intro 场景**里挂着
+        /// （`assetripper_out/…/Scenes/Intro.unity` 现读，三个 offset 也在那里：Filter(0,−10) · Owned(−20,0) · Fixed(−270,690)）
+        /// ⇒ 它对应的是**战役页那条横向轨道**，不是竖向阵营条。</para>
+        /// <para>不是战役页 / 没有滚动 ⇒ `alpha = 1`（原版组件不在场上时指针不淡）。</para></summary>
+        void ApplyCampaignPointerFade(GameWindow top)
+        {
+            if (_pointer == null) return;
+            bool have = false;
+            float norm = 0f;
+            if (top != null)
+            {
+                var ct = TabOfType<CampaignTab>(top);
+                if (ct != null)
+                {
+                    var sc = ct.TrackScroll != null ? ct.TrackScroll : ct.ArmyScroll;
+                    if (sc != null)
+                    {
+                        float lo = sc.ClampLo, hi = sc.ClampHi;
+                        norm = hi > lo ? Mathf.Clamp01((sc.Offset - lo) / (hi - lo)) : 0f;
+                        have = true;
+                    }
+                }
+            }
+            float alpha = have
+                ? Mathf.Clamp01(1f - Mathf.Clamp01(norm * CampaignPointerFadeMultiplier))
+                : 1f;
+            _pointer.SetFade(alpha);
         }
 
         /// <summary>弹一扇整屏简报（= 原版 `TutorialManager.ShowTutorialMessageWindow`）。
@@ -772,6 +845,10 @@ namespace CardPresentation
                     var w = top as GameWindowWithTabs;
                     if (w == null || w.CurrentTab != WindowTabType.Campaign) return null;
                     var tab = TabOfType<CampaignTab>(w);
+                    // 🆕 2026-10-25：原版 `TutorialStageGetCampaignNode.DoMenuActions` 在解析这颗节点时
+                    //   还会调 `CampaignWindowTab.SetFirstTutorialTrackArmyNodeDone()`（首节点已解锁 ⇒ 直接领）。
+                    //   幂等：领过之后状态变 20，不再满足 `unlocked`。
+                    if (tab != null) tab.SetFirstTutorialTrackArmyNodeDone();
                     return tab != null ? tab.TutorialTrackNode : null;
                 }
                 case MenuTutorialTargetKind.RewardsTabMissions: return TabButton(top, WindowTabType.Missions);

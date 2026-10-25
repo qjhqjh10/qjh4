@@ -194,9 +194,8 @@ namespace CardPresentation
         /// 错因 = 旧注释照 `#390503` 抄，而那个 hex 本身把 G/B 写反了 ——
         /// `资料/普查产出_1018/R_T29_全界面底纹背景对账.md` §0·4 的**数字三元组**与实拍公式 `(12+45t, 3t, 4+t)` 都是 (57,3,5)。
         /// `GradC2` 本来就对（12,0,4 = `#0C0004`）。</para>
-        /// <para>⚠️ 角度：原版 `UIGradient` 的有效轴是 `(sin,cos)`、本仓 `CardArt.Gradient` 是 `(cos,sin)`
-        /// ⇒ 要还原同一张图须传 **188**（同 `DeckRuntime.BuildAreaBackground` / `ParentEventWindow.BgGradAngle`），
-        /// ⛔ 不是 82。</para></summary>
+        /// <para>⚠️ 角度：须传 **188**（同 `DeckRuntime.BuildAreaBackground` / `ParentEventWindow.BgGradAngle`），⛔ 不是 82。
+        /// 🔴 **2026-10-25 就地订正（铁律 5 · 代理 D 现核）**：原来这里写「原版方向是 (sin,cos)、我们助手是 (cos,sin) ⇒ 差 90°」——**「差 90°」这个说法不准确**。实际：① `RotationDir(θ)` 返回的是 **`(cosθ, sinθ)`**（`UIGradientUtils__RotationDir.c:9-11`）；② **有效渐变轴**才是 **`(sinθ, cosθ)`**（`UIGradient__ModifyMesh.c:148-149` + `LocalPositionMatrix.c:20-27` 用它做投影）；③ 我们 `CardArt.Gradient` 的最大变暗方向是 `(cos φ, sin φ)` ⇒ 要还原同一张图，换算是 **φ = 90° − θ + 180°（镜像 + 反色序；180° 来自 `c1` 所在端与原版亮端相反）**。⚠️ **数值 188 是对的**（90 − 82 + 180 = 188）—— 这次**只订正理由、不动数值**。</para></summary>
         public static readonly Color GradC1 = new Color(0.2235294f, 0.0117647f, 0.0196078f, 1f);
         public static readonly Color GradC2 = new Color(0.0470588f, 0f, 0.0156863f, 1f);
 
@@ -564,7 +563,8 @@ namespace CardPresentation
             //    宽高比（128×128 = 1.0），把 `Rect` 刚设好的 1752.83/1009.06 冲掉。
             {
                 float w = areaRect.W, h = areaRect.H;
-                var q = ImageQuad.Create(area, CardArt.Gradient(GradC1, GradC2, 188f),
+                var q = ImageQuad.Create(area, CardArt.Gradient(GradC1, GradC2, 188f,
+                                                                 h / w),   // 原版 CompensateAspectRatio 的 h/w（= 本块下面 SetAspect 用的那个比值）
                                          Local(area, areaRect.x1, areaRect.y1, areaRect.x2, areaRect.y2),
                                          LayoutSpace.Px(h), new Vector2(0.5f, 0.5f), "Background");
                 if (q != null) { q.SetAspect(w / h); q.SetRenderQueue(QBackground); }   // 🆕 见 `QBackground`
@@ -841,6 +841,24 @@ namespace CardPresentation
             res.badge[idx] = Rect(b, "40K_notification_number", cx + 51.7f - 17.5f, cx + 51.7f + 17.5f,
                                   cy - spec.BadgeDy - 17.5f, cy - spec.BadgeDy + 17.5f, "Badge Highlight", QContent,
                                   new Color(0.7373f, 0.7373f, 0.7373f, 0f));   // 初值 alpha 0，由子类的刷新函数定
+            // 🆕 **2026-10-25（复刻第 2 轮 · 代理 H）：页签红点接原版那套「通知 → 聚合器 → 徽记」。**
+            //   判据（逐份现读 `bundle_menus_assets_all`）：`CampaignRewardsButton` 的 `Badge Highlight` 挂
+            //   `CampaignBadge`（无过滤）+ `MissionsBadge`（useFilter=1 · `parentId="CampaignMission"`）；
+            //   `MissionsRewardsButton` → `MissionsBadge`；`Forge Button` → `ForgeBadge`；
+            //   `Friends Tab Button` → `FriendsBadge`；`Alliances Tab Button` → `AlliancesNotificationBadge`。
+            //   ⇒ 定义表一处（`BadgeWiring.DefinitionsForTab`），⛔ 别在这儿按标签字符串再写一份。
+            //   ⚠️ 今天**只有 Campaign 有数据源**（可领战役节点）；其余四类无源 ⇒ 计数恒 0 ⇒ 恒隐藏
+            //     （= 原来 alpha 0 的样子，零可见变化）。原来这里连挂都没挂 ⇒ **Campaign 也永远不亮**。
+            {
+                var badgeDefs = BadgeWiring.DefinitionsForTab(spec.InstId);
+                if (badgeDefs.Count > 0)
+                {
+                    var badgeRect = new PxRect(cx + 51.7f - 17.5f, cy - spec.BadgeDy - 17.5f,
+                                               cx + 51.7f + 17.5f, cy - spec.BadgeDy + 17.5f);
+                    BadgeWiring.Attach(res.badge[idx], badgeRect, b, QText,
+                                       new Color(0.7373f, 0.7373f, 0.7373f, 1f), badgeDefs, spec.InstId);
+                }
+            }
 
             // 点击区：整键（原版是 `EverguildToggle`，我们只用它的点击语义）
             // 🔴 **2026-10-11（A219②）：收口到 `MenuDraw.Hit`** —— 这里原来自己又写了一遍

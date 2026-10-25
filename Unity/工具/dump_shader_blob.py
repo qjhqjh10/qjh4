@@ -44,6 +44,19 @@ BUNDLES = [
     r"D:\4\Unity\MyGame\Assets\StreamingAssets\WarpforgeVFX\wf_shaders_extra.bundle",
 ]
 
+# 2026-10-25 (C): 本工具原来只扫上面 3 个 bundle，而【内置 shader】(含 `Hidden/UI/Default (UIEffect)`)
+#   在 `Warpforge_Data` 的**序列化文件**里 => 按名字找它们恒 0 命中。
+#   名字**不是**从 `Shader.m_Name` 取的（那个字段对内置 shader 恒空），真名在 **`m_ParsedForm.m_Name`**
+#   （本工具一开始就是这么读的，那一半本来对）。=> 补上这四个内置文件即可。
+# ⚠️ AA 在 `<Warpforge_Data>/StreamingAssets/aa/StandaloneWindows64` ⇒ 上溯 **3** 层才是 Warpforge_Data
+_DATA_DIR = os.path.dirname(os.path.dirname(os.path.dirname(AA)))
+BUILTIN_FILES = [
+    os.path.join(_DATA_DIR, "globalgamemanagers"),
+    os.path.join(_DATA_DIR, "globalgamemanagers.assets"),
+    os.path.join(_DATA_DIR, "resources.assets"),
+    os.path.join(_DATA_DIR, "sharedassets0.assets"),
+]
+
 
 def blob_of(shader):
     """把 Shader 的 compressedBlob 按平台/阶段切开逐块 LZ4 解压，拼成完整字节流。
@@ -108,9 +121,10 @@ def main():
     if "--grep" in sys.argv:
         grep = sys.argv[sys.argv.index("--grep") + 1]
     want_passes = "--passes" in sys.argv
+    want_list = "--list" in sys.argv
 
     found = 0
-    for path in BUNDLES:
+    for path in list(BUNDLES) + list(BUILTIN_FILES):
         if not os.path.exists(path):
             continue
         env = UnityPy.load(path)
@@ -122,10 +136,15 @@ def main():
             except Exception:
                 continue
             pf = sh.m_ParsedForm
+            raw_name = getattr(sh, "m_Name", "") or ""
             name = (pf.m_Name if pf else "") or ""
-            if needle.lower() not in name.lower():
+            # 名字取 m_ParsedForm.m_Name（内置 shader 的 m_Name 恒空），m_Name 只当兜底；匹配时两个都比
+            if needle and needle.lower() not in name.lower() and needle.lower() not in raw_name.lower():
                 continue
             found += 1
+            if want_list:
+                print((name or "<空>") + "\t| m_Name=" + (raw_name or "<空>") + "\t| " + os.path.basename(path))
+                continue
             data = blob_of(sh)
             print(f"\n=== {name}   （{os.path.basename(path)}）")
             if want_passes:

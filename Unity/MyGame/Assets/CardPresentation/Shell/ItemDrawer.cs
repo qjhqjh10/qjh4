@@ -77,6 +77,7 @@
 //     **与抽屉根同矩形**（286.60×293.27，`scl 1.1`、`preserveAspect`）⇒「主图层铺满抽屉框」这一条有依据，
 //     **其余（图标占框的比例、文字的条位）没有** —— 那几项要按 ② 的 dump 一件一件定。
 using UnityEngine;
+using System;
 
 namespace CardPresentation
 {
@@ -1447,5 +1448,184 @@ namespace CardPresentation
         {
             return string.IsNullOrEmpty(name) ? null : CardArt.MenuUi(name);
         }
+
+        // ============================================================ ⑦ 抽屉【作为可点格子】的生命周期（🆕 2026-10-25 · 代理 H）
+        //
+        //  判据（第一权威 = 反编译 `ItemDrawer.cs` / `ItemDrawer<T>`）：
+        //    · `ToggleClaimedWarning(bool)`（:790）＝ `claimedWarning`（**+0x50**）那颗件的**显示态**
+        //    · `TogglePremiumHighlight(bool)`（:846）＝ `premiumHighlight`（+0x40）`SetActive(toggle)`
+        //    · `ToggleHighlight(bool)`（:907）＝ **转调 `TogglePremiumHighlight`**（同一个落点，不是第二套高亮）
+        //    · `ToggleLock(bool)`（:912）＝ **转调 `ToggleClaimedWarning`**（同一个落点）
+        //    · `OverridePremiumBadge(Sprite)`（:808）＝ `premiumBadge.sprite = sprite`（**非空才改**）
+        //    · `ToggleShowInfoOnClick(bool)`（:876）＝ **空方法体**（原版就是空的 ⇒ 我们也是空的，⛔ 别自造一个）
+        //    · `OverrideOnClickAction(Action)`（:880）＝ 存进 `+0x50` 那一格，点击时优先于默认
+        //    · `OnPointerClick(eventData)`（:917）＝
+        //        item 为空 ⇒ `LogError("[ERROR] We are trying to open a item display window without an item.
+        //                            Mat check this out, Probably we are abusing the use of ItemDrawer")`
+        //        否则 **有 `onClick` 就跑它、没有就 `HandlePointerClick()`**；末尾放一次 `inspectSound`
+        //    · `HandlePointerClick()`（:955）＝ 开 `ItemDisplayWindow`（`ItemDisplayWindowContext(item, 0)`）
+        //
+        //  🔴 **`claimedWarning` 那件在原版 prefab 里是【空节点】**：亲扫 `bundle_menus_assets_all` 的
+        //     **80 份 `GameObject/Collected Badge*.json` = 80/80 只有 `RectTransform + CanvasRenderer`**
+        //     （没有 Image、没有 TMP、没有子件）⇒ 它的「警告」视觉**不在这个节点上**。
+        //     ⇒ 我们照这个事实：节点**照判据几何建**（`aMin(0.1,0)` / `aMax(0.9,0.1)` / `ap(0,20)` /
+        //     `pivot(0.5,0)`，出厂隐藏），**不贴任何图**（⛔ 别自己画一条「已领取」缎带冒充原版）。
+        //     可观测的那一半（显示态）照样有，自检读 `ClaimedVisible`。
+
+        /// <summary>取一张装饰图给 `ItemDrawerView.OverridePremiumBadge` 用（原版那个口收 `Sprite`，我们按图名收）。</summary>
+        public static Texture2D ArtTexture(string artName) { return Tex(artName); }
+
+        /// <summary>`Draw` 的**句柄版**：返回 <see cref="ItemDrawerView"/>（画不出来时 `null`）。
+        /// <para>⚠️ 与 <see cref="Draw"/> 同一条实现（它内部就是调 `Draw`）⇒ ⛔ 别在别处再画一份。</para></summary>
+        public static ItemDrawerView DrawView(Transform parent, PxRect box, ItemSpec item, int quantity,
+                                              DrawerOverride drawerOverride, ItemDrawerStyle style)
+        {
+            var r = Draw(parent, box, item, quantity, drawerOverride, style);
+            if (r.Node == null) return null;
+            var v = new ItemDrawerView(r, box, style);
+            v.RememberFace(item.Label, item.Art);      // 句柄自己留一份（`ItemSpec` 出了这句就没了）
+            return v;
+        }
+    }
+
+    /// <summary>
+    /// 一个画出来的抽屉的**可变句柄**（原版 `ItemDrawer&lt;T&gt;` 上那些「画完之后再调」的方法的等价物）。
+    /// 判据与「哪些是空方法」见 `ItemDrawer` 文件里 §⑦ 那一段。
+    /// </summary>
+    public sealed class ItemDrawerView
+    {
+        public Transform Node { get; private set; }
+        public string Id { get; private set; }
+        public ItemKind Kind { get; private set; }
+        public string Drawer { get; private set; }
+
+        readonly PxRect _box;
+        readonly ItemDrawerStyle _style;
+        Action _onClick;
+
+        /// <summary>原版 `claimedWarning` 那件（我们的「Collected Badge」节点）。见 `ItemDrawer` §⑦。
+        /// ⚠️ **懒建**（原版 prefab 里出厂就有；我们第一次 `ToggleClaimedWarning(true)` 才建）——
+        /// 观测行为相同（出厂 = 隐藏 = 不存在），但**少给每一格加一个空节点**。</summary>
+        Transform _claimed;
+
+        internal ItemDrawerView(ItemDrawResult r, PxRect box, ItemDrawerStyle style)
+        {
+            Node = r.Node; Id = r.Id; Kind = r.Kind; Drawer = r.Drawer;
+            _box = box; _style = style;
+        }
+
+        /// <summary>「已领取」警示件现在显示着吗（原版 `claimedWarning.activeSelf`）。</summary>
+        public bool ClaimedVisible { get { return _claimed != null && _claimed.gameObject.activeSelf; } }
+        /// <summary>premium 高亮组现在显示着吗（原版 `premiumHighlight.activeSelf`）。</summary>
+        public bool PremiumHighlightVisible
+        {
+            get
+            {
+                var t = Node != null ? Node.Find(ItemDrawer.NodePremiumHighlight) : null;
+                return t != null && t.gameObject.activeSelf;
+            }
+        }
+
+        /// <summary>原版 `ToggleClaimedWarning(bool)`（+0x50）。</summary>
+        public void ToggleClaimedWarning(bool toggle)
+        {
+            if (Node == null) return;
+            if (_claimed == null && toggle)
+            {
+                // 几何逐字段照原版 `GameObject/Collected Badge.json` 的 RectTransform：
+                //   aMin (0.1, 0) · aMax (0.9, 0.1) · ap (0, 20) · pivot (0.5, 0) · sd (0,0)
+                // ⇒ 抽屉**下沿内侧**一条 80% 宽、10% 高的带子，底边离抽屉底 20px。
+                // ⚠️ 本壳**没有 uGUI 运行时**（`MenuDraw.Node` 的注释：锚点一律写死成重合、矩形只由
+                //    `sizeDelta` + 中心位置决定）⇒ 这里把上面那四个字段**换算成矩形**记下来，⛔ 不写 anchor
+                //    （写了也不生效，反而会让「矩形 = 这四个数」这条判据变含糊）。
+                float w = _box.W, h = _box.H;
+                float x1 = _box.x1 + 0.1f * w, x2 = _box.x1 + 0.9f * w;
+                float yBottom = _box.y2 - 20f;            // y 向下：底边 = y2 − ap.y
+                float yTop = yBottom - 0.1f * h;          // 高 = 10% × 抽屉高
+                _claimed = MenuDraw.Node(Node, "Collected Badge", new PxRect(x1, yTop, x2, yBottom));
+            }
+            if (_claimed != null) _claimed.gameObject.SetActive(toggle);
+        }
+
+        /// <summary>原版 `TogglePremiumHighlight(bool)`（+0x40，`SetActive`）。</summary>
+        public void TogglePremiumHighlight(bool toggle)
+        {
+            var t = Node != null ? Node.Find(ItemDrawer.NodePremiumHighlight) : null;
+            if (t != null) t.gameObject.SetActive(toggle);
+            else if (toggle)
+                Debug.LogWarning("[ItemDrawer] 这一格没有 `" + ItemDrawer.NodePremiumHighlight + "` 节点"
+                               + "（画的时候 `style.Premium == false`）⇒ `TogglePremiumHighlight(true)` 落空（出声，不静默）");
+        }
+
+        /// <summary>原版 `ToggleHighlight(bool)` = **转调** `TogglePremiumHighlight`（同落点）。</summary>
+        public void ToggleHighlight(bool toggle) { TogglePremiumHighlight(toggle); }
+
+        /// <summary>原版 `ToggleLock(bool)` = **转调** `ToggleClaimedWarning`（同落点）。</summary>
+        public void ToggleLock(bool toggle) { ToggleClaimedWarning(toggle); }
+
+        /// <summary>原版 `OverridePremiumBadge(Sprite)`：只换角标那张图（**空的图不换**，
+        /// 原版 `if ((bool)sprite)` 闸）。我们按图名收（`ItemDrawer.ArtTexture`）。</summary>
+        public void OverridePremiumBadge(string artName)
+        {
+            var tex = ItemDrawer.ArtTexture(artName);
+            if (tex == null) return;                       // 原版空 sprite ⇒ 不改
+            var root = Node != null ? Node.Find(ItemDrawer.NodePremiumHighlight) : null;
+            var badge = root != null ? root.Find(ItemDrawer.NodePremiumBadge) : null;
+            if (badge == null)
+            {
+                Debug.LogWarning("[ItemDrawer] `OverridePremiumBadge(\"" + artName + "\")` 落空：这一格没有 `"
+                               + ItemDrawer.NodePremiumBadge + "` 角标节点（出声，不静默）");
+                return;
+            }
+            var q = badge.GetComponent<ImageQuad>();
+            if (q != null) q.SetTexture(tex);
+        }
+
+        /// <summary>原版 `ToggleShowInfoOnClick(bool)` —— **原版方法体为空**，我们同样什么都不做。</summary>
+        public void ToggleShowInfoOnClick(bool option) { }
+
+        /// <summary>原版 `OverrideOnClickAction(Action)`：覆写点击回调（优先于默认的「开物品详情窗」）。</summary>
+        public void OverrideOnClickAction(Action onClick) { _onClick = onClick; }
+
+        /// <summary>原版 `OnPointerClick(PointerEventData)`：item 为空 ⇒ LogError；否则
+        /// **有 `onClick` 就跑它、没有就 `HandlePointerClick()`**。</summary>
+        public void OnPointerClick()
+        {
+            if (string.IsNullOrEmpty(Id))
+            {
+                Debug.LogError("[ERROR] We are trying to open a item display window without an item. "
+                             + "Mat check this out, Probably we are abusing the use of ItemDrawer");
+                return;
+            }
+            if (_onClick != null) { try { _onClick(); } catch (Exception e) { Debug.LogError("[ItemDrawer] onClick 抛异常：" + e); } return; }
+            HandlePointerClick();
+        }
+
+        /// <summary>原版 `HandlePointerClick()`：开物品详情窗（`ItemDisplayWindowContext(item, 0)`）。</summary>
+        public void HandlePointerClick()
+        {
+            if (string.IsNullOrEmpty(Id))
+            {
+                Debug.LogError("[ERROR] We are trying to open a item display window without an item. "
+                             + "Mat check this out, Probably we are abusing the use of ItemDrawer");
+                return;
+            }
+            var mgr = WindowsManager.Get();
+            var ctx = new ItemDisplayWindow.Context
+            {
+                Title = !string.IsNullOrEmpty(_styleLabel) ? _styleLabel : Id,
+                Description = null,
+                Type = null,
+                Army = null,
+                Lore = null,
+                Art = ItemDrawer.ArtTexture(_styleArt),
+                ArtName = _styleArt,
+            };
+            ItemDisplayWindow.Create(mgr, ctx);
+        }
+
+        // 画的时候用的「名字 / 图名」——`ItemSpec` 在 `Draw` 之后就没了，句柄要自己留一份。
+        string _styleLabel, _styleArt;
+        internal void RememberFace(string label, string art) { _styleLabel = label; _styleArt = art; }
     }
 }

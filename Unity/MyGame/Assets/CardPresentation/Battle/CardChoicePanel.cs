@@ -121,6 +121,7 @@
 using System;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.InputSystem;
 
 namespace CardPresentation
 {
@@ -629,6 +630,27 @@ namespace CardPresentation
             if (DoneClicked != null) DoneClicked();
         }
 
+        /// <summary>键盘确认：**空格 / 回车 = 点「继续」**。
+        /// <para>**判据（第一权威）**：`ChooseCardMenu__Update.c` ——
+        /// <c>if (Input.GetKeyDown(0x20 /*Space*/) || Input.GetKeyDown(0xd /*Return*/)) {
+        ///      if (buttonsGroup.activeSelf) ClickChooseDone(); }</c>
+        /// 而 `ClickChooseDone` 自己**只在一张都没选时什么都不做**（`ChooseCardMenu__ClickChooseDone.c:3-6`：
+        /// `if (selectedCard != null) … ProcessChooseDone()`）⇒ 等价于我们这里先过
+        /// `_confirmInteractable`（= 原版 `Selectable.interactable`，只在选中后才为真）。</para>
+        /// <para>🔴 **2026-10-25（执行代理 `B` · 完全复刻第 1 轮）**：原来这台机器上**没有**键盘确认
+        /// （`grep KeyCode` 全类 0 命中）⇒ 原版这条输入路径缺失。落在本类 `Update` 里是照原版
+        /// （原版也写在 `ChooseCardMenu.Update`），⛔ 不要在 `BattleDriver` 再写第二份。</para>
+        /// <para>⚠️ 换牌那扇**不走本类**（它自己实现，键盘在 `BattleDriver.HandleMulligan` 里）——
+        /// 那边判据同为「空格/回车 = 完成」，但门控看面板可见性，见那段注释。</para></summary>
+        void Update()
+        {
+            if (!Visible) return;
+            var kb = Keyboard.current;
+            if (kb == null) return;
+            if (!kb.spaceKey.wasPressedThisFrame && !kb.enterKey.wasPressedThisFrame) return;
+            OnUguiDone();     // 内含 Visible / interactable 闸；未选牌时**什么都不做**（同原版）
+        }
+
         /// <summary>uGUI 那条路上「眼睛」被点了。⛔ **不调 `ToggleEye`**（同上）。</summary>
         void OnUguiEye()
         {
@@ -656,12 +678,88 @@ namespace CardPresentation
         }
 
         // ==================================================================
+        //  🆕 2026-10-25（`E` · 账 `战斗界面_HUD` 366/369/375）：**选牌面板的倒计时**
+        // ==================================================================
+        //  判据（🥇 ILSpy `ChooseCardMenu.cs`，逐句）：
+        //   · `Setup(cards, actingCardId, timerCounter, target)`（`:559`）：`timerCounter` = **ClockManager 的
+        //     倒计时剩余秒** —— 调用点 `BattleManager.cs:25350` 传的是 `clockManager.counter`（环境卡那一支
+        //     `BattleManager.cs:12811` 传 **0** = 无倒计时）。`timerCounter <= 1` ⇒ 起 `EndSelectionWithDelay`
+        //     （`:651`；协程体 `:108-155`）：**先等 0.5 s** → 没选就随机选一张 → 写 `0:{ss:00}` →
+        //     `timerCounter < 3` ⇒ `ProcessChooseDone()`。
+        //   · `CountdownTrigger(counter)`（`:797`）：倒计时每走一秒由 `BattleManager.CountdownTrigger` 转发 ——
+        //     **没选就随机选一张**（`UnityEngine.Random.Range(0, size)`）→ 确认钮文案 `$"0:{counter:00}"` →
+        //     `counter < 3` ⇒ `ProcessChooseDone()`。
+        //   · `SetTimer(secondsLeftCounter)`（`:1224`）：**只**写那句文案（同一个格式串）。
+        //  ⚠️ 我们没有协程（批处理无帧循环）⇒ 0.5 s 那一档改成「驱动每帧喂 `TickOpenDelay`」，
+        //     语义不变（**只在 `secondsLeft <= 1` 时才起作用**，同原版那道 `timerCounter <= 1` 闸）。
+        //  ⚠️ **随机选是 UI 侧的 `UnityEngine.Random`**（原版就是）—— ⛔ 别改成引擎那套 `System.Random(seed)`：
+        //     那不是同一条链（引擎那套管的是对局可复现，这条是「玩家超时、UI 替他挑」）。
+        //  ⚠️ 这三个方法**不含驱动接线**：谁在什么时候喂秒数由驱动定（`BattleDriver.TickClock` 那一段，
+        //     A 域）；本件只保证「喂进来的秒数怎么表现」与原版逐句一致。
+        int _timerLeft = -1;
+        bool _openDelayDone;
+        float _openedAt;
+
+        /// <summary>自检用：最近一次喂进来的倒计时秒数（`-1` = 还没喂过）。</summary>
+        public int TimerLeftForTest { get { return _timerLeft; } }
+
+        /// <summary>自检用：确认钮**这一刻**显示的字（`SetTimer(7)` 之后应形如 `0:07`；关面板后还原成真文案）。</summary>
+        public string TimerTextForTest { get { return _confirm != null ? _confirm.Text : null; } }
+
+        /// <summary>原版 `ChooseCardMenu.SetTimer(secondsLeftCounter)`：确认钮文案 `0:{ss:00}`。</summary>
+        public void SetTimer(int secondsLeft)
+        {
+            _timerLeft = secondsLeft;
+            if (_confirm != null) _confirm.SetText("0:" + Mathf.Max(0, secondsLeft).ToString("00"));
+        }
+
+        /// <summary>原版 `ChooseCardMenu.CountdownTrigger(counter)`：没选就随机选一张 → 更新文案 →
+        /// `counter &lt; 3` ⇒ 直接确认。**每倒计时一秒调一次**（驱动侧）。
+        /// <para>返回 true = 这一下**触发了自动确认**（`OnDone` 已被调）。</para></summary>
+        public bool CountdownTrigger(int secondsLeft)
+        {
+            if (!Visible) return false;
+            if (_picked.Count == 0 && _cards.Count > 0)
+                TogglePick(UnityEngine.Random.Range(0, _cards.Count));   // 原版：Random.Range(0, _chooseCardUis._size)
+            SetTimer(secondsLeft);
+            if (secondsLeft < 3) return ConfirmNow();
+            return false;
+        }
+
+        /// <summary>原版 `EndSelectionWithDelay(timerCounter)` 的 0.5 s 延迟那一档
+        /// （只在**开面板时** `timerCounter <= 1` 才起）。驱动每帧喂一次即可；`secondsLeft > 1` ⇒ 什么都不做。
+        /// <para>返回 true = 这一下**触发了自动确认**。</para></summary>
+        public bool TickOpenDelay(int secondsLeft)
+        {
+            if (!Visible || _openDelayDone || secondsLeft > 1) return false;
+            if (Time.timeSinceLevelLoad - _openedAt < 0.5f) return false;
+            _openDelayDone = true;
+            return CountdownTrigger(secondsLeft);
+        }
+
+        /// <summary>等价于**玩家按了确认**（原版 `ProcessChooseDone` 的出口）：走同一个 `OnDone` 回调。
+        /// ⛔ 不绕开 `OnDone` 去直接改引擎 —— 那条链（`BattleDriver.OnChooseDone`）才是唯一的提交口。
+        /// 返回 false = 没有可提交的东西（面板没开 / 一张都没选 / 没人订阅）。</summary>
+        public bool ConfirmNow()
+        {
+            if (!Visible || _picked.Count == 0) return false;
+            var cb = OnDone;
+            if (cb == null) return false;
+            cb(Picked);
+            return true;
+        }
+
+        // ==================================================================
         //  开 / 关
         // ==================================================================
 
         public void Open(IReadOnlyList<CardView> cards, string title)
         {
             _picked.Clear();
+            // 🆕 2026-10-25（`E`）：倒计时那几个状态每开一次都复位（原版 `Setup` 是每次重新算）
+            _openedAt = Time.timeSinceLevelLoad;   // 0.5 s 延迟那一档从**这一刻**起算
+            _openDelayDone = false;
+            _timerLeft = -1;
             if (!string.IsNullOrEmpty(title)) SetTexts(title, _confirmText);
             LayOutCards(cards);
             // 🔴 **2026-10-20（W57 · `T09`）**：原版**每次** `Setup` 都把确认钮置
@@ -699,6 +797,9 @@ namespace CardPresentation
         void SetVisible(bool v)
         {
             Visible = v;
+            // 🆕 2026-10-25（`E`）：关面板时把确认钮文案**还原**成真文案（否则下次开面板会先露出
+            //   上一次的 `0:02`，直到下一次 `SetTimer`）—— 原版每次 `Setup` 都重写那颗字，等价。
+            if (!v && _confirm != null) _confirm.SetText(_confirmText);
             // ⚠️ `_shade` 是 `ImageQuad`（世界档那一种）、其余是 `HudPiece` —— 两种的 `gameObject` 口同形，
             //    所以这一句**一个字没改**（⛔ 不必因为迁了半批就把它们分成两行）。
             if (_shade != null) _shade.gameObject.SetActive(v);

@@ -297,7 +297,12 @@ namespace CardPresentation
             for (int i = _content.childCount - 1; i >= 0; i--) SocialWindow.DestroySafe(_content.GetChild(i).gameObject);
             BuiltRows = 0;
 
-            var all = SocialData.Friends;
+            // 🔴 **2026-10-25（代理 G · 补 FriendsTab 两条排序）**：原版 `FillInFriendsContainer` 在 CreateEntry
+            //   之前做了**两次 `List.Sort`**（`FriendsTab.cs:320/328`）：先 `SortByName`、再 `SortByConnected`。
+            //   · `SortByName` = `string.Compare(b.name, a.name, OrdinalIgnoreCase)` ⇒ **Z→A**（注意是 b 在前）；
+            //   · `SortByConnected` = 在线优先（`ChatPlayerStatus.Connected` 排前，其余保持 0）。
+            //   ⚠️ `List.Sort` 是**不稳定排序**；原版两趟都这么排，我们照做（组内次序不做额外承诺）。
+            var all = SortedFriendsForTest();
             int n = all.Count;
             int cols = ColumnsFor(ContainerR.W);
             int rows = Mathf.CeilToInt(n / (float)cols);
@@ -363,14 +368,14 @@ namespace CardPresentation
                     //    原文写「= `MenuDraw.ClipRect`（**全工程唯一一份**）」—— 收口后那两句是**同一份**。
                     if (!MenuDraw.VisibleAbove(_content, r, null)) continue;
                 }
-                BuildFriendRow(all[i], r);
+                CreateEntryAt(all[i], r);
                 BuiltRows++;                     // = **真建出来几格**（滚出视口的不算；断言用）
             }
         }
 
         /// <summary>好友行 = 原版 `Friend Info Item` 那棵树（§A·2·4，9 个节点）。
         /// 行内是**半透明底板 + 状态点 + 名字 + 三颗图标钮**；三颗钮全要服务器 ⇒ 一律出声。</summary>
-        void BuildFriendRow(SocialData.Friend f, PxRect r)
+        Transform BuildFriendRow(SocialData.Friend f, PxRect r)
         {
             var row = Node(_content, "Friend Info Item", r);
             // `background`：`a=(0,0)-(1,1)` 全拉伸 · `40K_dropdown_bg` 九宫 (23,20,23,20) · 染色 (0.981,0.469,0.356,1)
@@ -408,7 +413,60 @@ namespace CardPresentation
                         + "入口本身已经建好了，但**得有对手**才有意义（本地好友表恒空）。"));
             Btn(row, r, -42.829f, "Delete friend button", "40K_bt_deleteFriend",
                 () => Say("`Delete friend button`：删好友要**服务器**（原版 `RemoveFriend`）。"));
+            return row;
         }
+
+        /// <summary>= 原版 `FillInFriendsContainer` 里那两趟排序（先名字 Z→A、再在线优先）。</summary>
+        public static System.Collections.Generic.List<SocialData.Friend> SortedFriendsForTest()
+        {
+            var list = new System.Collections.Generic.List<SocialData.Friend>(SocialData.Friends);
+            list.Sort(SortByName);
+            list.Sort(SortByConnected);
+            return list;
+        }
+
+        /// <summary>= 原版 `SortByName`：`string.Compare(b.name, a.name, OrdinalIgnoreCase)`（**b 在前 = Z→A**）。</summary>
+        public static int SortByName(SocialData.Friend a, SocialData.Friend b)
+        {
+            if (a == null || b == null) return 0;
+            return string.Compare(b.Name, a.Name, System.StringComparison.OrdinalIgnoreCase);
+        }
+
+        /// <summary>= 原版 `SortByConnected`：在线（`Connected`）排前；其余返回 0（组内不动）。
+        /// 原版读 `ChatGlobalManager.GetPlayerStatus(id)`（服务器在线状态）；本地等价物 = `Friend.Online`。</summary>
+        public static int SortByConnected(SocialData.Friend a, SocialData.Friend b)
+        {
+            if (a == null || b == null) return 0;
+            if (a.Online && !b.Online) return -1;
+            if (!a.Online && b.Online) return 1;
+            return 0;
+        }
+
+        /// <summary>= 原版 `CreateEntry`（按层里的下标建一行；这里由 `BuildRows` 先算好矩形再建）。</summary>
+        Transform CreateEntryAt(SocialData.Friend f, PxRect r) { return BuildFriendRow(f, r); }
+
+        /// <summary>= 原版 `ClearList`：清空好友行（不碰滚动区几何）。</summary>
+        public void ClearList()
+        {
+            if (_content == null) return;
+            for (int i = _content.childCount - 1; i >= 0; i--) SocialWindow.DestroySafe(_content.GetChild(i).gameObject);
+            BuiltRows = 0;
+        }
+
+        /// <summary>= 原版 `FillInFriendsContainer`：整表重建（排序 + 逐行建）。</summary>
+        public void FillInFriendsContainer() { BuildRows(); }
+
+        /// <summary>= 原版 `Reset`：清行并复位（我们无按钮监听可摘 ⇒ 只有清行 + 重建两步）。</summary>
+        public void Reset()
+        {
+            ClearList();
+            BuildRows();
+        }
+
+        /// <summary>= 原版 `OnClose`：离页清行（下次 `OnOpen` 重建）。
+        /// 🆕 2026-10-25：基类 `WindowTabBase` 补齐了原版 `OnClose` 虚方法 ⇒ 这里必须是 `override`
+        /// （否则基类 `CloseTab()` 调不到它 —— **静默不执行**，正是今天最容易漏的一处）。</summary>
+        public override void OnClose() { ClearList(); }
 
         /// <summary>好友行里的一颗图标钮（原版三颗几何完全一样，只有 x 与图不同）：
         /// `a=(1,.5) p=(.5,.5) pos=(dx,0)` ⇒ **从行的右边沿往里数** `|dx|`，竖直居中。</summary>

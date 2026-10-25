@@ -1052,6 +1052,9 @@ namespace RuleEngine
             // `This costs N less if you control a unit with <关键词>` 的**标记 op**（见 `EffectText.TryCostIfControl`）
             { "costifcontrol", (c, o, b, op, ch, un) => DoCostIfControlStub(c, o, b, op) },
             { "sethealth",  (c, o, b, op, ch, un) => DoSetHealth(c, o, b, op, ch, un) },
+            // 🔴 **`setCurrentHealth(100)`**（原版 `CardScript__AddEffect.c:229-247`；卡面 `Lower its Health to N`）
+            //   —— **无条件写、不夹上限、不查 Invulnerable、不发伤害事件**。⛔ 别和 `sethealth`（buffType 9）混。
+            { "setcurrenthealth", (c, o, b, op, ch, un) => DoSetCurrentHealth(c, o, b, op, ch, un) },
             // `Double the Melee Attack and Health of a friendly troop`（`Possession`，Black Legion）
             { "double",     (c, o, b, op, ch, un) => DoDouble(c, o, b, op, ch, un) },
             // `The next time it uses Ferocity this turn, it stays in play`（`Bjorn's Shrine`）
@@ -1968,6 +1971,50 @@ namespace RuleEngine
             //    现在两边都调 `ApplyTargetFilters`，**只此一处**。
             ApplyTargetFilters(ctx, pool, spec, quiet: true, structuredCondition: structuredCondition);
             return pool.Contains(u);
+        }
+
+        /// <summary>
+        /// **一张「打出去还要点一个目标」的卡，现在能点谁** —— 给表现层的**两段式手势**用
+        /// （🆕 2026-10-25 · 完全复刻 · 执行代理 A · `R1` P0）。
+        ///
+        /// <para>**判据**：原版 `_ChooseUnitTarget_d__780__MoveNext.c:24-75` 在玩家出牌后
+        /// `ShowPotentialTargets(card, mode=1)` —— 点亮的就是「这张卡这一下的合法目标」；
+        /// 点中之后 `_ResolvePlayCardFromHand…:905-940` 把它写进 `action+0x20`，结算按它走。
+        /// ⇒ 表现层要点亮/校验的必须是**结算时那一份判据**（本仓红线：高亮与结算不许分叉）。</para>
+        ///
+        /// <para>⚠️ 与 <see cref="CanPlayTactic"/> 用的是**同一条链**
+        /// （`EffectText.PickTarget` → `AddSide` → `ApplyTargetFilters`），
+        /// 只是把「问一张卡」包装出来给表现层用（`IsLegalPick` 是私有的，别在表现层另写一份）。</para>
+        /// </summary>
+        /// <returns>空表 = 这张卡**不需要**选目标（或没有合法候选）⇒ 调用方按「直接打出去」处理。</returns>
+        public static List<UnitState> PlayTargetPool(BattleContext ctx, int owner, CardDef card)
+        {
+            var empty = new List<UnitState>();
+            if (ctx == null || card == null) return empty;
+            IReadOnlyList<EffectOp> ops = card.TriggerOps(KeywordTable.Rally);
+            if (ops == null || ops.Count == 0)
+                ops = EffectText.Parse(card.Desc, out _, out _, card: card);
+            var spec = ops != null ? EffectText.PickTarget(ops) : null;
+            if (spec == null) return empty;
+
+            var pool = new List<UnitState>();
+            bool troopOnly = spec.Kind == "troop";
+            if (spec.Side == "own" || spec.Side == "any")
+                AddSide(pool, ctx.Players[owner], false, troopOnly, -1, stealthGate: true);
+            if (spec.Side == "enemy" || spec.Side == "any")
+                AddSide(pool, ctx.Players[1 - owner], true, troopOnly, owner, stealthGate: true);
+            CardDef.ConditionSpec pickCond = null;
+            for (int i = 0; i < ops.Count; i++)
+                if (ops[i] != null && ReferenceEquals(ops[i].Target, spec)) { pickCond = ops[i].TargetCondition; break; }
+            ApplyTargetFilters(ctx, pool, spec, quiet: true, structuredCondition: pickCond);
+            return pool;
+        }
+
+        /// <summary>这一格是不是这张卡**现在**的合法目标 —— 判据 = <see cref="PlayTargetPool"/> 的成员判定。</summary>
+        public static bool IsLegalPlayTarget(BattleContext ctx, int owner, CardDef card, UnitState u)
+        {
+            if (u == null) return false;
+            return PlayTargetPool(ctx, owner, card).Contains(u);
         }
 
         /// <summary>
@@ -3997,9 +4044,16 @@ namespace RuleEngine
                 }
             }
 
+            // 🔴 `AddEffect` 闸②（jam）/ 闸④（施放者不在场）—— 判据 `.c:85-98 / 171-195`。
+            if (!AddEffectCasterGates(ctx, ctx.ActingUnit, chosen, false, by)) return true;
+
             foreach (var t in targets)
             {
                 if (t == null || !t.IsAlive) continue;
+                // 🔴 `AddEffect` 闸①（卡状态）+ 闸③（残骸门）—— `Stun` 在原版是 `addTrait(3)`，
+                //    ⇒ 残骸**一律不收**（只有 `addStats` 的生命项与 `addTraitRemnant(90)` 放行）。
+                if (!AddEffectCardStateAllows(ctx, t, by)) continue;
+                if (!AddEffectRemnantAllowsOp(ctx, t, op, by)) continue;
                 // 🆕 **2026-10-09（`A1166`）**：上面这一句 `!IsAlive` 对应原版 `CardScript__Stun.c:44-45`
                 //    那道 `cardState ∈ {2, 0xf, 3, 0x11}`（= `CardScript.IsInPlay()`）闸。
                 //    🔴 **2026-10-11（`A1224`）就地订正：这一段原来写着「已判等价、⛔ 不另加判据」——
@@ -4077,10 +4131,16 @@ namespace RuleEngine
             };
             var targets = ResolveTargets(ctx, owner, spec, null, chosen, null, op);
 
+            // 🔴 `AddEffect` 闸②（jam）/ 闸④（施放者不在场）—— 判据 `.c:85-98 / 171-195`。
+            if (!AddEffectCasterGates(ctx, ctx.ActingUnit, chosen, false, by)) return true;
+
             int n = 0;
             foreach (var t in targets)
             {
                 if (t == null || !t.IsAlive) continue;
+                // 🔴 `AddEffect` 闸①（卡状态）+ 闸③（残骸门）—— `Blind` 在原版是 `addTrait(3)` ⇒ 残骸一律不收。
+                if (!AddEffectCardStateAllows(ctx, t, by)) continue;
+                if (!AddEffectRemnantAllowsOp(ctx, t, op, by)) continue;
                 // 🔴 **2026-10-09（`A1116`）**：这里原来是一句 `t.IsBlind = true;`
                 //     ⇒ **删掉** —— `IsBlind` 现在是关键词的**派生只读属性**（原版只有 trait
                 //     `0x3cf = 975` 一份表示，`CardScript__AddEffect.c:475-487` 施加、
@@ -4268,6 +4328,24 @@ namespace RuleEngine
         /// 免得「面板列出来的候选」和「引擎真会选的候选」两处各写一份（迟早不一致）。
         /// `why != null` = 候选是空的 —— 在这一族里是**正常结局**（规则书 `:233` 允许空候选）。
         /// </summary>
+        /// <summary>
+        /// 原版 `RawCardScript.IsHidden()` 的**代理**判据 —— 「这张卡该不该出现在随机/选择池里」。
+        ///
+        /// <para>🆕 **2026-10-25（完全复刻 · 执行代理 A · 账 2b）** 新加。⚠️ **判据不全，如实标**：
+        /// `RawCardScript__IsHidden.c` **不在**反编译集里（`d:/2/tools/decomp_full/` 与 ilspy 全树都没有），
+        /// 只能拿一条**可见的**代理：卡名带 `(tutorial)`。
+        /// 现读卡池里这一类就是**教程装订的督军副本**（`Marneus Calgar (tutorial)` /
+        /// `Uriel Ventris (tutorial)`），正是原版最该藏起来的那批。</para>
+        /// <para>⛔ 别把它当「原版就是按卡名判」—— 真判据拿到之后**就地替换**这一处（判据只此一处）。</para>
+        /// </summary>
+        static bool IsHiddenCard(CardDef c)
+        {
+            if (c == null) return true;
+            string n = c.Name;
+            return !string.IsNullOrEmpty(n)
+                && n.IndexOf("(tutorial)", System.StringComparison.OrdinalIgnoreCase) >= 0;
+        }
+
         public static List<CardDef> ChooseCardCandidates(BattleContext ctx, int owner, EffectOp op,
                                                          out string srcName, out string detail, out string why)
         {
@@ -4293,10 +4371,48 @@ namespace RuleEngine
                 var ids = op.ChooseSpecificIds;
                 if (ids == null || ids.Count == 0)
                 {
-                    detail = null;
-                    why = "`choicesDefinition.filterSpecificCards` 是空的"
-                        + "（原版回落 `BattleManager+0x308`，我们**没有**那一格）";
-                    return new List<CardDef>();
+                    // 🔴🆕 **2026-10-25（完全复刻 · 执行代理 A · 账 2b）：按原版补上「回落全卡池」那一段。**
+                    //   判据（第一权威，现读）= `AbilityLogic.GetTargets`（`AbilityLogic.cs:723-…`）的
+                    //   `targetsAffected == choiceResolution` 分支：`filterSpecificCards` 为空时
+                    //   **遍历全卡池**，逐张三道闸：
+                    //     ① `FilterMethods.CheckIfRawCardMeetsCriteria(rawCard, criteria, manager, owner)`
+                    //     ② `!rawCard.cantBeRandomlyCreated`       ← 卡表 1128 张里 **167 张 = 1**
+                    //     ③ `!rawCard.IsHidden()`
+                    //   ⇒ 这是 `cantBeRandomlyCreated` 在**原版里唯一的运行期读取点**。
+                    //   ⚠️ **① 我们只做得到「卡模板级」的那一子集**：`CardCriteria.FromTarget(op.Target)`
+                    //      （兵种 / 关键词 / 卡名 / spellType / 督军），原版 `CheckIfRawCardMeetsCriteria`
+                    //      还有 rarity / cost / expansion 等格 —— 判据不全 ⇒ **这里如实出声**
+                    //      （`ctx.Log` 一行），⛔ 不假装筛齐了。
+                    //   ⚠️ **② 的 `IsHidden()`**：原版那个谓词的方法体我们**没读到**
+                    //      （`RawCardScript__IsHidden.c` 不在反编译集里）⇒ 按「卡名 `(tutorial)` 结尾」
+                    //      这一条**可见的**代理做（现池该类卡都是教程装订的督军副本），并在日志里标明是代理。
+                    //   ⚠️ **这一段今天【还不可达】**：注入 `specific` 的闸在
+                    //      `CardDef.HasSpecificCardChoice`（要求 `filterSpecificCards` 非空）——
+                    //      放开它要先逐张核「这张卡的效果真的会消费选中那张」，否则就是
+                    //      「开一个选了不生效的面板」（本仓红线）。⇒ 本笔只把**池**建对、把闸留着。
+                    var crit = CardCriteria.FromTarget(op.Target);
+                    var pool = new List<CardDef>();
+                    int skippedRandom = 0, skippedHidden = 0, skippedCrit = 0;
+                    foreach (var c in ctx.CardPool)
+                    {
+                        if (c == null) continue;
+                        if (c.CantBeRandomlyCreated) { skippedRandom++; continue; }        // ②
+                        if (IsHiddenCard(c)) { skippedHidden++; continue; }               // ③（代理判据）
+                        if (crit != null && !crit.Matches(c)) { skippedCrit++; continue; } // ①（子集）
+                        pool.Add(c);
+                    }
+                    srcName = "原版 `choiceResolution` 的**全卡池回落**";
+                    detail = "全池 " + ctx.CardPool.Count + " 张 → " + pool.Count + " 张"
+                           + "（剔：`cantBeRandomlyCreated` " + skippedRandom
+                           + " · 隐藏 " + skippedHidden
+                           + (crit != null ? " · 准则 " + skippedCrit : " · 准则（本卡没写）")
+                           + "）";
+                    why = "① 准则只做到卡模板级子集（兵种/关键词/卡名/spellType/督军），"
+                        + "原版还有 rarity/cost/expansion 等格未覆盖；③ `IsHidden` 用的是"
+                        + "「卡名以 `(tutorial)` 结尾」这条**代理**判据（原版方法体未读到）";
+                    ctx.Log($"[choose] 「{op.Source}」按原版 `AbilityLogic.GetTargets` 的 choiceResolution 分支"
+                          + $"回落全卡池：{detail}；{why}");
+                    return pool;
                 }
                 var byId = new Dictionary<string, CardDef>(System.StringComparer.Ordinal);
                 foreach (var c in ctx.CardPool)
@@ -5194,6 +5310,12 @@ namespace RuleEngine
             // ⚠️ 顺序：**先判空、再取号**（原来先取号 —— `ctx == null` 时会在
             //    `ctx.NextHandEffectRecord()` 上 NRE，那句 `ctx == null` 白写了）。
             if (ctx == null || string.IsNullOrEmpty(payload)) return false;
+            // 🔴 **`AddEffect` 闸②（jam ∧ extrinsic）/ 闸④（施放者不在场）** —— 判据
+            //   `CardScript__AddEffect.c:85-98 / 171-195`。**手牌效果这一层是本仓唯一带 `extrinsic`
+            //   载体的通路**（`CardInstance.HandEffect.Extrinsic`；见「AddEffect 的四道前置闸」那节头注）。
+            //   施放者 = `ctx.ActingUnit`（= 原版 `CardEffect.enchantingCard`，本函数下面就是拿它填
+            //   `entry.ActingUnit`）。⚠️ 闸拒绝 = 合法的「不挂」⇒ 返回 `false`（同「去重挡掉」那一档）。
+            if (!AddEffectCasterGates(ctx, ctx.ActingUnit, null, extrinsic, $"手牌效果（{source}）")) return false;
             if (recordId == 0) recordId = ctx.NextHandEffectRecord();
             // 🔴 **`inst == null` 是【合法输入】**（2026-10-18 `G3` 真差异 ①）—— 它的意思是
             //    「**只登记记录、不贴任何牌**」= 原版 `PlayerHand.AddHandEffect` 的**第一步**
@@ -5347,6 +5469,59 @@ namespace RuleEngine
         }
 
         /// <summary>
+        /// **原版 `CardEffect.IsSameEffect`（`CardEffect.cs:200-240`）的等价判据** ——
+        /// 「这两条手牌效果是不是**同一条**」（🆕 2026-10-25 · 完全复刻 · 执行代理 A · `E` 的判据）。
+        ///
+        /// <para>**逐字段对照表**（原版字段 → 我们的那一格）：</para>
+        /// <list type="table">
+        ///   <item><term>buffType</term><description>`Op.Verb`（我们这一层 verb 就是 buff 的种类）</description></item>
+        ///   <item><term>enchantingCard（+heroCheck）</term><description>`ActingUnit`（同一施放者**实例**）</description></item>
+        ///   <item><term>enchantmentCardId</term><description>**我们没有这一格**（两侧恒 -1 ⇒ 恒等）；如实标着</description></item>
+        ///   <item><term>extrinsic / extrinsicVariable</term><description>`Extrinsic`（`extrinsicVariable` 这一维我们没建 ⇒ 恒等）</description></item>
+        ///   <item><term>until* 五档</term><description>`Expire`（枚举就是这五档）+ `ExpireTurn`（`Never` 时那一格无意义 ⇒ 不比）</description></item>
+        ///   <item><term>*Change / *ValueOptions（近战/远程/血/费/随机）</term><description>`Op.Amount` + `Op.AmountMax` + `Op.CostSetTo` + `Op.Payload` / `Payload2`</description></item>
+        ///   <item><term>targetCriteria（谁吃得上）</term><description>`Target` 的**值**（下面那六个决定「谁吃」的格）</description></item>
+        /// </list>
+        /// <para>⛔ **不比**：`Source`（来源字符串 —— 那正是 `W4` 判死的错口径）、`RecordId`（记录号只回答
+        /// 「是不是同一次挂载」，不影响「是不是同一条效果」）。</para>
+        /// </summary>
+        static bool IsSameHandEffect(CardInstance.HandEffect a, CardInstance.HandEffect b)
+        {
+            if (ReferenceEquals(a, b)) return true;
+            if (a == null || b == null || a.Op == null || b.Op == null) return false;
+
+            // ① buffType
+            if (!string.Equals(a.Op.Verb, b.Op.Verb, System.StringComparison.Ordinal)) return false;
+            // ② enchantingCard（施放者实例；+`heroCheck` 那一维原版只在「督军」上多说一句，我们按实例比已经更严）
+            if (!ReferenceEquals(a.ActingUnit, b.ActingUnit)) return false;
+            // ③ extrinsic（`extrinsicVariable` 我们没建 ⇒ 恒等，见 doc）
+            if (a.Extrinsic != b.Extrinsic) return false;
+            // ④ until* 五档
+            if (a.Expire != b.Expire) return false;
+            if (a.Expire != CardInstance.HandBuffExpiry.Never && a.ExpireTurn != b.ExpireTurn) return false;
+            // ⑤ 数值那五组
+            if (a.Op.Amount != b.Op.Amount || a.Op.AmountMax != b.Op.AmountMax) return false;
+            if (a.Op.CostSetTo != b.Op.CostSetTo) return false;
+            if (!string.Equals(a.Op.Payload, b.Op.Payload, System.StringComparison.Ordinal)) return false;
+            if (!string.Equals(a.Op.Payload2, b.Op.Payload2, System.StringComparison.Ordinal)) return false;
+            // ⑥ targetCriteria 的**值**（原版那条 `targetCriteria` 是 HandEffect 上的字段）
+            var ta = a.Target; var tb = b.Target;
+            if ((ta == null) != (tb == null)) return false;
+            if (ta != null)
+            {
+                if (!string.Equals(ta.Side, tb.Side, System.StringComparison.Ordinal)) return false;
+                if (!string.Equals(ta.Kind, tb.Kind, System.StringComparison.Ordinal)) return false;
+                if (ta.Count != tb.Count || ta.Random != tb.Random) return false;
+                if (!string.Equals(ta.SubtypeFilter, tb.SubtypeFilter, System.StringComparison.Ordinal)) return false;
+                if (!string.Equals(ta.KeywordFilter, tb.KeywordFilter, System.StringComparison.Ordinal)) return false;
+                if (!string.Equals(ta.NotKeyword, tb.NotKeyword, System.StringComparison.Ordinal)) return false;
+            }
+            // ⑦ 我们自己的「只补这一份」那一格（实现位；`0` = 不限）
+            if (a.OnlyInstanceId != b.OnlyInstanceId) return false;
+            return true;
+        }
+
+        /// <summary>
         /// 🆕 2026-10-18（`A885` ②）**把「登记表上已有的那一条」原样补挂到另一份牌上** ——
         /// 原版 `PlayerHand__SetupCardInHand.c:71` 的 `CardScript.AddEffect(card, effect)`。
         ///
@@ -5362,13 +5537,28 @@ namespace RuleEngine
                                                 CardInstance.HandEffect src)
         {
             if (ctx == null || inst == null || src == null || src.Op == null) return false;
-            // 🔴 **2026-10-18（`W4` 整改 · 审查问题 6）**：这里原来按「来源 + 载荷」字符串去重，
-            //    ⇒ **同一个来源连挂 N 次**（`Beast Snagga Nob` 撑三个回合 = **三条独立记录**）
-            //    会被压成一条，后进手牌的牌就**只吃 +1**。
-            //    原版 `CardScript.AlreadyContainsEffect` → `CardEffect__IsSameEffect` 比的是
-            //    **那条记录本身** ⇒ 改用 `RecordId`（= 「同一次挂载」）。
+            // 🔴 **2026-10-18（`W4` 整改 · 审查问题 6）**：这里原来按「来源 + 载荷」字符串去重 ——
+            //    **那条路是错的、别再回去**（`W4` 的同一条账）。
+            // 🔴🆕 **2026-10-25（完全复刻 · 执行代理 A · 卡牌面代理 `E` 的判据）：改成【逐字段比】。**
+            //   判据（第一权威，现读）= `CardEffect__IsSameEffect.c` / `CardEffect.cs:200-240`：
+            //   原版 `CardScript.AlreadyContainsEffect` 拿目标身上**每一条** `activeEffects`
+            //   跟这条比**一整串字段**：`buffType` · `enchantingCard`（+`heroCheck`）· `enchantmentCardId` ·
+            //   `extrinsic` · `extrinsicVariable` · `untilEndOfTurn` / `untilPlayerTurnStart` /
+            //   `untilEnemyTurnStart` / `untilFollowingPlayerTurnStart` / `untilNextAttack` ·
+            //   `meleeAttackChange`+`meleeAttackValueOptions` · `rangeAttackChange`+`…ValueOptions` ·
+            //   `healthChange`+`…ValueOptions` · `costChange`+`costValueOptions` · `randomValueChange`。
+            //   ⇒ **两条字段完全相同的记录只算一条**（不看记录号）。
+            //   ⚠️ 而 `RecordId` 只回答「是不是**同一次挂载**」—— 那是**另一件事**（登记表
+            //      `RuleCore.HandEffectRegistry` 按记录去重，那里改不得，见 `W4`）。
+            //   ⛔ **别退回「来源 + 载荷」字符串**：那会把不同施放者/不同到期档的两条压成一条。
+            // 🔴 **`AddEffect` 闸②/闸④** —— 补挂等同于一次 `CardScript.AddEffect`（判据
+            //   `CardScript__AddEffect.c:85-98 / 171-195`）。施放者取**这条记录自己的** `ActingUnit`
+            //   （= 原版 `cardEffect.enchantingCard`），⛔ 不是 `ctx.ActingUnit`（补挂可能发生在别的动作里）。
+            if (!AddEffectCasterGates(ctx, src.ActingUnit, null, src.Extrinsic, $"手牌效果（补挂：{src.Source}）"))
+                return false;
+
             foreach (var e0 in inst.HandEffects)
-                if (e0 != null && e0.RecordId == src.RecordId) return false;
+                if (IsSameHandEffect(e0, src)) return false;
 
             inst.HandEffects.Add(new CardInstance.HandEffect
             {
@@ -6609,7 +6799,13 @@ namespace RuleEngine
         /// </summary>
         public static bool ResolveOps(BattleContext ctx, int owner, UnitState source,
                                       IReadOnlyList<EffectOp> ops, string by = "效果",
-                                      UnitState seed = null, List<EffectOp> activatedGroups = null)
+                                      UnitState seed = null, List<EffectOp> activatedGroups = null,
+                                      // 🆕 2026-10-25（完全复刻 · 执行代理 A · B 域 `R1` P0）：**玩家点定的那个目标**。
+                                      //   原版 `_ResolvePlayCardFromHand…MoveNext.c:905-940` 把玩家点的目标写进
+                                      //   `action+0x20`，ability 结算时 `AbilityLogic.GetTargets` 优先用它
+                                      //   （`GetTargets` 里 `has_pick_target` 那一支 ⇒ 我们的 `chosen`）。
+                                      //   ⚠️ 只有「出牌两段式」那条路会传；其余调用点保持 `null`（行为不变）。
+                                      UnitState chosen = null)
         {
             if (ctx == null || ops == null || ops.Count == 0) return false;
 
@@ -6817,7 +7013,7 @@ namespace RuleEngine
                 // 🆕 2026-10-22（`W64` · `B-16`）：触发路的卡 = `source.Card`（`source` = 触发的那张）。
                 for (int k = 0; k < opRepeats; k++)
                 {
-                    ResolveOne(ctx, owner, source, by, Prepaid(runOp), null, unresolved,
+                    ResolveOne(ctx, owner, source, by, Prepaid(runOp), chosen, unresolved,
                                card: source != null ? source.Card : null);
                     NotePreviousAbilityTargets(ctx);   // 🆕 `E2`：触发路同一个口径（逐 op 同步）
                 }
@@ -7037,6 +7233,27 @@ namespace RuleEngine
                     //   其中**只有 `TL18` 有这条动画行**；另外两张会走 `HasTriggerSource` 的
                     //   「有 ability、没动画行」那支（照发 + 出声，表现层无件）—— 与既有 A/E/F 族同口径。
                     case KeywordTable.Synapse:  return TN_TriggeredSynapse;
+                    // 🆕 **2026-10-25（完全复刻 · 执行代理 A · 第 2 轮 · 账 2c）：补 Mob / Codex / Regiment / Requiem 四条。**
+                    //   判据（第一权威，逐条现读 —— 注意原版这一族**命名不统一**，「别的卡」用的 id 有两族）：
+                    //     · `CardScript__TriggerOtherCardMob.c:14` → `OnTrigger(0x285 = **645** = `AbilityTrigger.OtherCardMob`)`；
+                    //     · `CardScript__TriggerOtherCardCodex.c` → `OnTrigger(0x28a = **650** = `TriggeredCodex`)`
+                    //       （Codex 这一族「别的卡」用的仍是 `Triggered<X>` 那个 id）；
+                    //     · `CardScript__TriggerOtherCardRegiment.c:14` → `OnTrigger(**646** = `OtherCardRegiment`)`；
+                    //     · `CardScript__TriggerOtherCardRequiem.c:14` → `OnTrigger(**435** = `OtherCardRequiem`)`
+                    //       （`Requiem` 自己那一档是 **430**）。
+                    //   触发 id 全表 → `CardDef.cs:1889-1902`（`{"OtherCardMob", 645}` / `{"OtherCardRegiment", 646}` /
+                    //   `{"TriggeredCodex", 650}` / `{"Requiem", 430}` / `{"OtherCardRequiem", 435}`，现读）。
+                    //   ⚠️ **机制那一半早就在**（`FireTriggerAlways` → `BroadcastWhen(Triggers(kw))` 覆盖双方棋盘 + 双方手牌，
+                    //   见 `RuleCore.cs:9110-9180` 那一整段）；这里缺的只是**表现/ability 闸要的那个 trigger 名字** ——
+                    //   缺它 ⇒ `EmitListenerTrigger` 在 `tn == null` 时直接 return ⇒ `EvtKind.Trigger` 从不发。
+                    //   📊 **可达性（现读卡池）**：「When a friendly unit triggers **Mob**, it triggers an additional time」
+                    //   = `GOF68`（**1 张**，真可达）；Codex / Regiment / Requiem 的「triggers …」句 **0 张**
+                    //   ⇒ 这三条是「照原版补全、今天不响」（铁律 11：休眠机制也做）。
+                    case KeywordTable.Mob:      return "OtherCardMob";        // 645
+                    case KeywordTable.Codex:    return "TriggeredCodex";      // 650
+                    case KeywordTable.Regiment: return "OtherCardRegiment";   // 646
+                    case "requiem":             return "OtherCardRequiem";    // 435（我们**没有**该关键词常量：池内 0 张）
+
                 }
             }
             return null;
@@ -10788,6 +11005,153 @@ namespace RuleEngine
             return CreatePool.IsKnownKind(kind) ? (bool?)CreatePool.MatchesKind(c, kind) : null;
         }
 
+        // ==================================================================
+        //  🔴 `AddEffect` 的四道【前置闸】（完全复刻 · 第一批；第五道 extrinsic 去重**不在本批**）
+        // ==================================================================
+        //
+        //  **判据（第一权威，现读）= `d:/2/tools/decomp_full/CardScript__AddEffect.c`**：
+        //    · 闸① 卡状态      `.c:67-78`   `cardState - 5U < 2 || == 0xb` ⇒ LogWarning + `return 0`
+        //    · 闸② jam         `.c:85-98`   施放者带 `jam(0x82)` ∧ `extrinsic` ⇒ `return 0`（**静默**）
+        //    · 闸③ 残骸门      `.c:159-170` `isRemnant(+0x65)` ⇒ 只放行
+        //                                    `addStats(1)` 且 `healthChange(+0x60) != 0`、或 `addTraitRemnant(90)`
+        //    · 闸④ 施放者不在场 `.c:171-195` 施放者是 `Minion(cardType==0)` ∧
+        //                                    `cardState ∉ {2 inPlay, 3 inPlayAttacking, 15 inPlayTransforming,
+        //                                    17 inPlayAminingAttack}` ⇒ LogWarning + `return 0`
+        //  **旁证（i2c，字段名更好读）**：`out_cpp2il_dev_ilspy/CardScript.cs:17407+`
+        //    （⚠️ 它把 `+0x228` 那几次读折叠成了 `(nint)0`/`-17` ⇒ **状态值一律只认 `.c`**）。
+        //
+        //  ## 闸装在哪、⛔ 别往哪儿装
+        //  原版四道闸都在 `CardScript.AddEffect(card, effect)` 里 = **每 (目标, 效果) 一次**。
+        //  我们的等价物 = `DoGive`（`give/gain/lose` = `addStats`/`addTrait` 那一族，落点 `ApplyOneGain`）
+        //  与几个「一个动词一条 buff」的 handler（`stun` / `blind` / `sethealth` / `double`）。
+        //  ⛔ **不装在 `ResolveOneCore` 入口** —— 原版 `deal` / `destroy` / `heal` 那些**不走 AddEffect**，
+        //  在入口统一加闸会顺手改掉伤害/摧毁/治疗的语义（那是真回归，不是复刻）。
+        //
+        //  ## 两处**模型映射**（如实标注：这是落法，不是原版定论）
+        //  1. 闸① 按 `cardState ∈ {5 waitingToDie, 6 inCemetery, 11 removedFromGame}` 拒。我们没有
+        //     cardState 状态机 ⇒ 落成 **`!IsUnitInPlayOrDying`**（既不在棋盘、也不在本条动作的死亡窗口里）。
+        //     理由：**我们的待死标记落得比原版的状态迁移早** —— `Sacrifice:` 触发时原版 `cardState` 仍是
+        //     `2 inPlay`（`A1426`），`W62` 也证明同批内 dying 的单位原版仍按在场算
+        //     ⇒ 拿 `IsPendingDeath` 当 state 5 会**反向误杀**那两族（它们本来就该收到 buff）。
+        //  2. 闸④ 的「在场」= `cardState ∈ {2,3,15,17}` ⇒ 落成 **在棋盘 ∨ `ctx.DyingThisAction`**（同一理由）。
+        //
+        //  ## 闸② 只有**手牌效果**那一层可判（如实标注）
+        //  `extrinsic`（`CardEffect +0x30`）在本仓**只有** `CardInstance.HandEffect.Extrinsic` 一个载体
+        //  （写点 `AbilityLogic.PlayAbility.c:1197/:1354` = `whileInPlay || whileInPlayVariable`，
+        //  我们的解析层不产出它 —— 见 `AttachHandEffect` 的 `extrinsic` 参数 doc）。
+        //  ⇒ 板上 buff 的 extrinsic 这一位**判不了**，一律按 `false` 放行；⛔ 别拿「此刻有单位」近似
+        //  （`W4` 已经因为那个近似误摘过一次）。
+
+        /// <summary>
+        /// **闸① 卡状态**（`CardScript__AddEffect.c:67-78`）—— 返回 `false` = 原版 `return 0`。
+        /// 映射与理由见上面那段「两处模型映射」第 1 条（⛔ 别改成 `IsPendingDeath`）。
+        /// </summary>
+        static bool AddEffectCardStateAllows(BattleContext ctx, UnitState target, string by)
+        {
+            if (ctx == null || target == null) return false;
+            if (IsUnitInPlayOrDying(ctx, target)) return true;
+            ctx.Log($"{by}：`AddEffect` **闸① 卡状态** —— 「{target.Name}」已经离场"
+                  + "（原版 `cardState ∈ {5 waitingToDie, 6 inCemetery, 11 removedFromGame}` 不受 buff，"
+                  + "`CardScript__AddEffect.c:67-78`）⇒ **这条效果不收**");
+            return false;
+        }
+
+        /// <summary>
+        /// **闸③ 残骸门的核心判据 —— 只此一处**（`CardScript__AddEffect.c:159-170`）。
+        ///
+        /// 原版那句原文：`if (isRemnant) { if (buffType == addStats) { if (healthChange != 0) 放行 }
+        /// else if (buffType == addTraitRemnant) 放行; Log(…remnant and the effect is not health buff);
+        /// return 0 }`。三个入参就是那句 if 的三个条件 —— ⛔ **别在调用点各写一份**：
+        ///   · <paramref name="addStats"/> = 这是 `addStats(1)` 那一族（我们的 `give/gain/lose` 的**数值**载荷）
+        ///   · <paramref name="healthChange"/> = 这一项的**生命**增量（原版 `+0x60`；非生命项传 0）
+        ///   · <paramref name="addTraitRemnant"/> = 这是 `addTraitRemnant(90)`
+        ///     （我们这边 = 授予 `remnant` 关键词，`KeywordTable.Remnant`）
+        ///
+        /// 🔴 **为什么必须逐【载荷项】判而不是逐 op**：`give +1 melee and +1 health` 这种一条 op 带两项的写法，
+        /// 原版判的是**每一项的 `healthChange`** ⇒ 近战那半不收、生命那半照收。按 op 一刀切会**静默少给**。
+        /// </summary>
+        static bool AddEffectRemnantAllows(BattleContext ctx, UnitState target, bool addStats,
+                                           int healthChange, bool addTraitRemnant, string by, string what)
+        {
+            if (ctx == null || target == null || !target.IsRemnant) return true;
+            if ((addStats && healthChange != 0) || addTraitRemnant) return true;
+            ctx.Log($"{by}：`AddEffect` **闸③ 残骸门** —— 「{target.Name}」是一具**残骸**，"
+                  + "只收「生命增减」与 `addTraitRemnant`；这一项「" + (what ?? "?") + "」**不收**"
+                  + "（原版 `Trying to AddEffect to … which is remnant and the effect is not health buff`，"
+                  + "`CardScript__AddEffect.c:159-170`）");
+            return false;
+        }
+
+        /// <summary>把**一项载荷**（`PayloadOp` + 已带符号的值）翻译成闸③的三个条件。</summary>
+        static bool AddEffectRemnantAllowsPayload(BattleContext ctx, UnitState u, PayloadOp p,
+                                                  int val, string by)
+        {
+            if (u == null || !u.IsRemnant) return true;
+            bool addStats = !p.IsKeyword && !string.IsNullOrEmpty(p.Attr);
+            int healthChange = 0;
+            if (addStats && NormalizeAttr(p.Attr) == "health") healthChange = val;
+            bool addTraitRemnant = p.IsKeyword && p.Keyword == KeywordTable.Remnant;
+            return AddEffectRemnantAllows(ctx, u, addStats, healthChange, addTraitRemnant, by, p.Source);
+        }
+
+        /// <summary>非载荷型 buff（`stun` / `blind` / `sethealth` / `double` / 手牌效果）——
+        /// 原版它们是 `buffType` ≠ 1 且 ≠ 90 ⇒ 对残骸**一律不收**。</summary>
+        static bool AddEffectRemnantAllowsOp(BattleContext ctx, UnitState t, EffectOp op, string by)
+            => AddEffectRemnantAllows(ctx, t, false, 0, false, by, op != null ? op.Source : null);
+
+        /// <summary>
+        /// **闸② jam**（`CardScript__AddEffect.c:85-98`）：施放者带 `jam(DefinedTrait.jam = 130)` ∧
+        /// 这条效果是 **extrinsic** ⇒ 不生效（原版这一支**不写日志**，我们出声 —— 本仓红线「不许静默」）。
+        /// `extrinsic` 的载体与「为什么只有手牌那一层可判」→ 本段头注。
+        /// </summary>
+        static bool AddEffectCasterNotJammed(BattleContext ctx, UnitState caster, bool extrinsic, string by)
+        {
+            if (ctx == null || caster == null || !extrinsic) return true;
+            if (!caster.Has(KeywordTable.Jam)) return true;
+            ctx.Log($"{by}：`AddEffect` **闸② jam** —— 施放者「{caster.Name}」身上带 **jam**"
+                  + "（`DefinedTrait.jam = 130`），这条 **extrinsic** 效果不收"
+                  + "（原版 `CardScript__AddEffect.c:85-98`）");
+            return false;
+        }
+
+        /// <summary>那个 <see cref="UnitState"/> 的那份牌**在不在手牌里**（给闸④的那条例外用）。
+        /// 按**引用**比，不按卡名（同名两张是两份）。</summary>
+        static bool AddEffectCasterInHand(BattleContext ctx, UnitState u)
+        {
+            if (ctx == null || u == null || u.Instance == null) return false;
+            for (int p = 0; p < 2; p++)
+                foreach (var inst in ctx.Players[p].Hand)
+                    if (ReferenceEquals(inst, u.Instance)) return true;
+            return false;
+        }
+
+        /// <summary>
+        /// **闸④ 施放者不在场**（`CardScript__AddEffect.c:171-195`）。
+        /// 原版只对 **Minion**（`cardType == 0`）判；**督军 / 战术卡 / 附魔**那一档整段跳过。
+        /// 例外（原版唯一一条）= `enchantingCard == 目标` ∧ 目标 `cardState ∈ {inHand(1), inHandShowing(8),
+        /// inHandMoving(9), inHandPlaying(10), waitingToBePlayed(4), inHandJustCreated(12)}`
+        /// ⇒ 落成「施放者就是目标 ∧ 那份牌在手上」（= 手牌里自己给自己挂效果）。
+        /// </summary>
+        static bool AddEffectCasterInPlayGate(BattleContext ctx, UnitState caster, UnitState target, string by)
+        {
+            if (ctx == null || caster == null) return true;              // `enchantingCard == null` ⇒ 原版整段跳过
+            var card = caster.Card;
+            if (card == null || !card.IsUnit || caster.IsWarlord) return true;   // 只判 Minion
+            if (IsUnitInPlay(ctx, caster) || ctx.DyingThisAction.Contains(caster)) return true;
+            if (ReferenceEquals(caster, target) && AddEffectCasterInHand(ctx, caster)) return true;
+            ctx.Log($"{by}：`AddEffect` **闸④ 施放者不在场** —— 施放者「{caster.Name}」是一张**部队**"
+                  + "（`cardType == Minion`）且已经不在场，这条效果不收"
+                  + "（原版 `Trying to AddEffect to … from card no longer in play`，"
+                  + "`CardScript__AddEffect.c:171-195`）");
+            return false;
+        }
+
+        /// <summary>闸② + 闸④ —— 两道都**只看施放者**（与目标无关），每条 op 判一次就够。</summary>
+        static bool AddEffectCasterGates(BattleContext ctx, UnitState caster, UnitState target,
+                                         bool extrinsic, string by)
+            => AddEffectCasterNotJammed(ctx, caster, extrinsic, by)
+               && AddEffectCasterInPlayGate(ctx, caster, target, by);
+
         /// <summary>
         /// `give` / `gain`（<paramref name="sign"/> = +1）与 `lose`（-1）。
         /// 载荷解释交给 <see cref="GivePayload"/>，施加照 `rule_core._apply_gain:3266`。
@@ -10806,6 +11170,14 @@ namespace RuleEngine
             //    Destroyer`，`Disruption Blades`）。**逐目标判** —— 卡面「若**其**为毁灭者」说的是
             //    被加的那批单位自己（混合编队时各自拿各自的那份）。
             var payloadAlt = string.IsNullOrEmpty(op.AltPayload) ? null : GivePayload.Parse(op.AltPayload);
+
+            // 🔴 **`AddEffect` 闸②（jam）/ 闸④（施放者不在场）** —— 判据 `.c:85-98 / 171-195`，
+            //   落点与映射见本文件「AddEffect 的四道前置闸」那一节。两道都**只看施放者** ⇒ 每条 op 判一次。
+            //   ⚠️ 施放者 = `ResolveOne` 在结算前设好的 `ctx.ActingUnit`（战术卡那条路是 `null` ⇒ 闸④ 跳过，
+            //      与原版 `enchantingCard == null` 整段跳过同形）。
+            //   ⚠️ 闸拒绝 = **合法的「什么都不做」**（同「条件不成立」那一支）⇒ 返回 `true`、不进 `unresolved`；
+            //      日志已经出声，⛔ 别让它悄悄过去。
+            if (!AddEffectCasterGates(ctx, ctx.ActingUnit, chosen, false, by)) return true;
 
             // 无目标 = 我们自己的 `rule_core.gd:3137`（旁证、非权威）那一版落到己方全体（它自己标为近似）
             var spec = op.Target ?? new EffectTargetSpec
@@ -10943,7 +11315,10 @@ namespace RuleEngine
                 //     · 血 ≤ 0 且已经离场（`{5,6,11}`）⇒ 拿不到（不复活尸体）。
                 //   ⚠️ **只有 `DoGive` 这一处已核**（其余 10 处 `!IsAlive` 的原版入口闸**未查**）
                 //   ⇒ ⛔ 别顺手把同族的 `DoDeal` / `DoDestroy` / `DoStun` … 一起改。
-                if (t == null || !IsUnitInPlayOrDying(ctx, t)) continue;
+                // 🔴 **`AddEffect` 闸① 卡状态**（原版 `CardScript__AddEffect.c:67-78`）——
+                //   判据收在 `AddEffectCardStateAllows` **一处**（映射与「为什么不拿 `IsPendingDeath` 判」
+                //   写在那一节的头注里）。⛔ 别在这里再写一份 `!IsUnitInPlayOrDying`。
+                if (t == null || !AddEffectCardStateAllows(ctx, t, by)) continue;
                 // 🔴 **2026-10-22（`W62` · R2）就地订正（铁律 5）：判据扩成原版 `IsInPlayOrDying`。**
                 //   上一版是 `t.IsAlive || IsUnitInPlay(ctx, t)`（`A1426`）—— 少了**「本条顶层动作里刚被判死、
                 //   已从棋盘摘下来」**那一档，而原版 `waitingToDie(5)`（`CardScript__IsInPlayOrDying.c:10-13`）
@@ -11017,11 +11392,17 @@ namespace RuleEngine
                     //   再广播**（`BroadcastWhen(GetsDarkPact, …, u)`）⇒ 监听器结算时读得到。
                     var evPact = ctx.LastTarget;
                     // 🔴 **自递归护栏（必须有）**：Helbrute **自己**收到契约时，监听器会「再给自己一份」
-                    //   ⇒ `GrantDarkPact` 替换旧契约并**再广播一次** ⟳，一路撞到
-                    //   `BattleContext.MaxEffectChain = 8` 才被截断。
+                    //   ⇒ 再走一遍 case 17 ⟳，一路撞到 `BattleContext.MaxEffectChain = 8` 才被截断。
                     //   事件主语**已经拿到了** ⇒ 跳过它，环就断在这里。
+                    //
+                    // 🔴 **2026-10-25（K7 · 铁律 5 就地订正）：这一支走的是原版 `case 17`
+                    //   （`lastMarkOfChaos`），⛔ 不是「再走一次 case 8」。** 上一版写的是
+                    //   `GrantDarkPact(…, PactOf(evPact), …)` —— 那条会**再广播一次 510 + 重写槽 + 重新 Roll**
+                    //   （`case 8` 的全套副作用），而原版 case 17 只有一句
+                    //   `TriggerEnchantment(bm.lastMarkOfChaos, …)`（`.c:933-940`）。
+                    //   ⇒ 现在读**全局槽**（原版 `bm.lastMarkOfChaos`），只重放效果那一半。
                     if (p.CopyEventPact && evPact != null && !ReferenceEquals(t, evPact))
-                        GrantDarkPact(ctx, owner, t, PactOf(evPact), by);
+                        ApplyLastMarkOfChaos(ctx, owner, t, by);
                     if (p.CopyEventPact) continue;
                     if (p.IsKeyword && p.Keyword == KeywordTable.DarkPact)
                     {
@@ -11081,6 +11462,11 @@ namespace RuleEngine
                                  List<string> unresolved = null)
         {
             int val = p.Value * sign;
+
+            // 🔴 **`AddEffect` 闸③ 残骸门**（原版 `CardScript__AddEffect.c:159-170`）——
+            //   **逐项**判（原版判的是每一项的 `healthChange`）：残骸只收「生命增减」与 `addTraitRemnant`。
+            //   判据只此一处 = `AddEffectRemnantAllows`；这里是「`addStats` 这一族」的那个调用点。
+            if (!AddEffectRemnantAllowsPayload(ctx, u, p, val, by)) return;
 
             if (p.IsKeyword)
             {
@@ -11275,13 +11661,23 @@ namespace RuleEngine
         // ==================================================================
 
         /// <summary>
-        /// 黑暗契约的四种。**逐条照抄我们上一版 Godot 复刻 `rule_core.gd:1655` 的 `DARK_PACT_FX`**
-        /// （⚠️ **旁证、非权威** —— 🔴 `D26` 2026-10-19：**回反编译查过，判据查不到**：
-        /// `grep -rln -i "darkpact" d:/2/tools/decomp_full/` ⇒ **0 命中**、
-        /// `grep -a -i "dark pact" d:/2/tools/all_strings.txt` ⇒ **0 命中**（那四条是**效果文本**，
-        /// 原版把它们编码进 ability 数据，逐卡没解出）⇒ 今天可核的只有**卡面原文**）。
-        /// 规则书 :179 的中文译名也对得上（鲜血 / 纵欲 / 命运 / 韧性）。
+        /// 黑暗契约的四种**效果文本**（`give` 载荷的写法）。
+        ///
+        /// 🔴 **2026-10-25（K7 · 铁律 5 就地订正）：这一段原来写「回反编译查过，判据查不到」——
+        /// 那是【没查对地方】，判据现已找到（两重）：**
+        ///   ① 原版 `CardScript__AddEffect.c:776-792`（case 8）把 `newEffect.markOfChaosType(+0x78)`
+        ///      交给 `Enchantments.GetMarkOfChaos`，取到的是一张**附魔卡**，然后 `TriggerEnchantment`
+        ///      它（= 触发它的 `TriggerAbilities(卡, 500)`）；
+        ///   ② 那 4 张附魔卡就在 `cards_truth.json` 里（`cardType 20 / spellType 190`），**它们的 500 能力
+        ///      就是这四份效果**（逐条见 `ApplyMarkBody` 的头注）。`Enchantments.json`
+        ///      （`bundle_duplicateassetisolationso_assets_all/MonoBehaviour/`）把
+        ///      `MarkOfChaosType 10/20/30/40` 各映射一张、`50 Random` **映射 4 张**（⇒ 均匀四选一）。
+        ///   ⇒ 本表与那四张卡的**卡面正文逐字一致**，不是「旁证凑出来的」。
+        ///   （上一版把来源写成 `rule_core.gd:1655` 的 `DARK_PACT_FX`（我们自己的 Godot 复刻）——
+        ///    结论碰巧相同，但**判据换成上面这两重**。）
         /// ⚠️ 顺序照抄原版字典的字面顺序 —— `random` 掷骰按这个序，改顺序会改对局结果。
+        /// ⚠️ 四种在我们的卡池里叫 `Dark Pact of Fate/Blood/Excess/Resilience`；SO 真值里**同一个 id**
+        ///    叫 `Mark of Tzeentch/Khorne/Slaanesh/Nurgle (enchantment)`。
         /// </summary>
         static readonly string[][] DarkPactFx =
         {
@@ -11338,27 +11734,22 @@ namespace RuleEngine
                 }
             }
 
-            // 同一单位同时只能有一份契约（原版 `u["kws"]["darkpact"] = k` 是**赋值**不是累加）。
-            // ⚠️ 但原版那一下**只改了自己那个键**，前一份契约给的增益（伪装 / 再生 / 先锋…）
-            //    会**永远留在身上** —— 换成「韧性」之后还带着「命运」的伪装。
-            //    我们按卡面语义撤干净：把上一份契约带的增益一起收走（见 `PactGrantedKeywords`）。
-            string old = null;
-            _keywordsPact.TryGetValue(u, out old);
-            if (!string.IsNullOrEmpty(old))
-            {
-                foreach (string kw in PactGrantedKeywords(old)) u.RemoveAll(kw);
-                u.RevertGrantsFrom(old);                 // 属性加成（+2 生命 / +2 近战…）也一并收回
-                ctx.Log($"{u.Name} 的旧契约「{PactNameZh(old)}」被替换，它给的增益一并收回");
-            }
-            u.RemoveAll(KeywordTable.DarkPact);
-            u.AddKeyword(KeywordTable.DarkPact, 1);
-            // 🆕 **2026-10-25（执行代理 `X18` · 第二批）**：成就 `Ach_6`（`GiveMarkOfChaos`）计数 ——
-            //   判据 = 原版 `GiveMarkOfChaos__OnAddCardEffect.c`（`isKeyword && buffType == 0x14a`
-            //   ⇒ **每加一份契约 +1**）。落点就是上面那句 `AddKeyword`（授予真的发生了）。
-            //   归属 = **施放者 `owner`**（本方法的第一个形参；判据 §八 N3 的「拿不到施放者」**不成立**）。
-            ctx.Tally.AddMarkOfChaos(owner);
-            _keywordsPact[u] = k;                        // 种类记在旁表（UnitState 只有 <string,int>）
-            ctx.Log($"{by}：{u.Name} 获得「{PactNameZh(k)}」黑暗契约");
+            // 🔴 **2026-10-25（K7 · 铁律 5 就地订正）：上一版这里写「同一单位只能有一份契约、换一份就把
+            //   旧的增益收回」—— 判据不成立，已改。**
+            //
+            //   原版 `CardScript__AddEffect.c:776-792`（case 8）**没有**「摘掉旧印记」这一步：
+            //   它只做 `TriggerEnchantment(新的那张附魔卡)`（⇒ 那条能力的 `addTrait(330) + addStats + 关键词`
+            //   照常累加）→ 写 `bm.lastMarkOfChaos` → 广播。`addStats` 本来就是**累加**语义
+            //   （`.c:385-402`：`meleeAttackChange/rangeAttackChange/healthChange` 逐项 +=），
+            //   `bm.lastMarkOfChaos` 也只是「**最后一次**是哪一份」，**不撤前一份**。
+            //   ⇒ 一个单位身上可以有**多份**印记（`BL46 Gifts of Chaos` 就是连给 2 份，见 §K7 判据）。
+            //   ⚠️ 「层数」在我们这边的代理 = `KeywordTable.DarkPact` 的**计数**（`CountFor` 的
+            //      `darkpact` 分支读 `KwValue`，`EffectText` 也写明「契约可叠加、不是布尔」）
+            //      ⇒ 每落一份 **+1**（⛔ 别再 `RemoveAll` 归 1 —— 那会让 `BL48` 每份契约只抽到 1 张）。
+            _keywordsPact[u] = k;                        // 旁表只记**最后一份**的种类（原版 `lastMarkOfChaos` 的逐单位镜像）
+            SetLastMarkOfChaos(ctx, k);                  // 原版 `bm.lastMarkOfChaos(+0x2f0) = raw`（**全局**一格，case 17 读它）
+            ctx.Log($"{by}：{u.Name} 获得「{PactNameZh(k)}」黑暗契约"
+                  + $"（层数 {(u.KwValue(KeywordTable.DarkPact) + 1)}）");
 
             // 🆕 2026-10-19（战斗线 `T21` 缺口 B）：**附魔卡自己那一拍** —— 原版
             //   `CardScript__AddEffect.c:776-792`（case 8）→ `Enchantments.GetMarkOfChaos(...)`
@@ -11431,7 +11822,88 @@ namespace RuleEngine
                 break;
             }
 
-            // ④ 契约自身效果 —— 永久（不带时长）
+            // ④ 契约自身效果 —— 永久（不带时长）。**与 case 17 共用同一份**（`ApplyMarkBody`）。
+            ApplyMarkBody(ctx, owner, u, k, by);
+        }
+
+        // ==================================================================
+        //  🔴 K7：`markOfChaos(8)` / `lastMarkOfChaos(17)` 的共用落点
+        // ==================================================================
+        //
+        //  **判据（第一权威，现读）**：
+        //   · `CardScript__AddEffect.c:776-792`（case 8）：Log → `Enchantments.GetMarkOfChaos(bm.enchantments,
+        //     newEffect.markOfChaosType(+0x78))` → 取不到就**整条跳过** → `RawCardScript.TriggerEnchantment(
+        //     附魔卡, bm, this, this, false, 0)` → `bm.lastMarkOfChaos(+0x2f0) = 附魔卡` →
+        //     `BattleManager.BroadcastMarkResolved(this)`。
+        //   · `CardScript__AddEffect.c:933-940`（case 0x11 = **17**）：`bm.lastMarkOfChaos` 为空就跳过；
+        //     否则 `TriggerEnchantment(bm.lastMarkOfChaos, …)` —— **不写槽、不广播、不取新的**。
+        //   · `RawCardScript__TriggerEnchantment.c:7-13` = `TriggerAbilities(附魔卡, 0)` + `(附魔卡, 500)`；
+        //     附魔卡 = 4 张 `Mark of X (enchantment)`（`cards_truth.json` 的 id 见下），它们的 **500 能力**
+        //     就是这份印记的真实效果（`decomp_full` + SO 真值，逐条：
+        //       10 Khorne   `9a2cadc64c80a6b42912441105bb1cee` = addTrait(330) + melee +2 + addTrait(980 vanguard)
+        //       20 Nurgle   `1dfc9bc738bfc4f4d93d48f165aee510` = addTrait(330) + addTrait(1030 regen,1) + health +1
+        //       30 Slaanesh `b8e81b2fe85cda747a68c4d6326b669c` = addTrait(330) + melee +2 + range +2
+        //       40 Tzeentch `4a48457c24877f345be2e96f867c1e94` = addTrait(330) + addTrait(985 camouflage) + health +2
+        //         ⚠️ Tzeentch 那条 `addTrait(330)` 上还挂着 `costChange: 1` —— **死值**：`case 3` 的
+        //         addTrait 分支**不读** `+0x68`（只有 `case 1/2/10` 的 addStats 读，`.c:385-402`）⇒ 不入效果。
+        //       50 Random = `Enchantments.json` 的 `cardEffect: 50` 那一格**挂了 4 张**卡 ⇒ 四选一（均匀）。
+        //     ⚠️ 这 4 张卡在**我们卡池里**叫 `Dark Pact of Blood/Excess/Fate/Resilience`（id 完全相同），
+        //        所以 `DarkPactFx` 的四句和它们的**卡面正文**逐字一致 —— 那张表不是「旁的来源」，
+        //        它正是这四条数据的人读版（`EntityScript` 的 tsa/keyword 值也在这里对上：
+        //        980 = vanguard · 985 = camouflage · 1030 = regeneration，`DefinedTrait.cs:94-101`）。
+        //
+        //  **本仓两处模型差异（如实标注）**：
+        //   ① 原版调 `GetMarkOfChaos` 取不到附魔卡 ⇒ **整条 case 8 不发生**（不落任何效果）。
+        //      我们的效果**不来自那张卡的数据**（是 `DarkPactFx` 硬表）⇒ 不把「卡池里有没有那张卡」
+        //      当成前置闸（否则夹具的小卡池会让印记凭空消失）。缺卡时只有 `EmitEnchantmentTrigger` 出声。
+        //   ② 原版「印记层数」= trait `330 markOfChaos` 的数值；我们另外还维护 `KeywordTable.DarkPact`
+        //      的计数（`for each Dark Pact on it` 读它）。**两种表示一起加**（本方法一处写）。
+
+        // 🔴 trait **330 = `markOfChaos`** 的常量已并进 `KeywordTable.MarkOfChaos`（`CardDef.cs`，
+        //   2026-10-25 调度台授权后搬走）—— ⛔ 别在这里再定义一份（铁律 6）。
+        //   ⚠️ 它**不在** `KeywordTable.Implemented` 里，那是**故意的**：330 没有「每关键词一条机制」，
+        //   它只是计数/标记；放进 `Implemented` 会让战斗界面渲染一个原版没有的徽章（理由写在那个常量上）。
+
+        /// <summary>`BattleManager.lastMarkOfChaos`（`+0x2f0`）—— **本局最后一次落地的印记**。
+        /// 存成「ctx + 种类」而不是 `Dictionary&lt;BattleContext,…&gt;`：不随对局数增长，换局由
+        /// <see cref="ResetTransientForNewBattle"/> 清。</summary>
+        static BattleContext _lastMarkCtx;
+        static string _lastMarkKind;
+
+        static void SetLastMarkOfChaos(BattleContext ctx, string kind)
+        {
+            _lastMarkCtx = ctx;
+            _lastMarkKind = kind;
+        }
+
+        /// <summary>本局最后一份印记的种类；没有（或换了局）⇒ `null`（原版「槽是空的」。</summary>
+        public static string LastMarkOfChaos(BattleContext ctx)
+            => (ctx != null && ReferenceEquals(_lastMarkCtx, ctx)) ? _lastMarkKind : null;
+
+        /// <summary>
+        /// **把一份印记落到单位身上** —— 原版 case 8 与 case 17 **共用的那一半**
+        /// （= `TriggerEnchantment` 触发的附魔卡 500 能力：`addTrait(330)` + `addStats` + 关键词）。
+        /// ⛔ 别在 case 8 / case 17 各写一套（两处写同一条规则 = 迟早不一致）。
+        ///
+        /// 落三样：① trait `markOfChaos`(330) +1（原版每个印记第一条 logic 就是它）
+        /// ② `darkpact` 计数 +1（我们的层数代理，`CountFor` / `EffectText` 都读它）
+        /// ③ `DarkPactFx` 那一句的载荷（= 那张附魔卡 500 能力的 `addStats` + 关键词）。
+        /// </summary>
+        static void ApplyMarkBody(BattleContext ctx, int owner, UnitState u, string k, string by)
+        {
+            if (ctx == null || u == null) return;
+
+            // ① + ②（同一次写入，两个表示都要）
+            u.AddKeyword(KeywordTable.MarkOfChaos, 1);
+            u.AddKeyword(KeywordTable.DarkPact, 1);
+            // 🆕 **2026-10-25（执行代理 `X18` · 第二批）**：成就 `Ach_6`（`GiveMarkOfChaos`）计数 ——
+            //   判据 = 原版 `GiveMarkOfChaos__OnAddCardEffect.c`：`isKeyword && buffType == 0x14a`
+            //   （**0x14a = 330 = `markOfChaos`**）⇒ **每加一份印记 +1**。
+            //   ⇒ 落点跟着**这一跳**走（case 8 与 case 17 都算 —— 原版两条都经 `TriggerEnchantment`
+            //   的 `addTrait(330)`，所以都该计）。归属 = **施放者 `owner`**。
+            ctx.Tally.AddMarkOfChaos(owner);
+
+            // ③ 契约自身的属性/关键词
             string payloadText = null;
             foreach (var pair in DarkPactFx) if (pair[0] == k) payloadText = pair[1];
             var ops = GivePayload.Parse(payloadText);
@@ -11447,8 +11919,30 @@ namespace RuleEngine
                     ctx.Log($"{by}：契约「{k}」要给 {u.Name} 加「{p.Keyword}」，但本版没这个机制 —— 跳过");
                     continue;
                 }
+                // ⚠️ `grantSource` 照旧传种类名：属性那一半会进 `UnitState` 的 grant 账
+                //    （`RecordGrant`），日后若要按来源追溯还能查到是谁给的。
                 ApplyOneGain(ctx, owner, u, p, +1, "", by + "（黑暗契约）", k);
             }
+        }
+
+        /// <summary>
+        /// **`lastMarkOfChaos(17)` 的落点** —— 原版 case 17：把**本局最后那一份**印记重放到 `u` 身上。
+        /// 与 case 8 的三点不同（⛔ 别照着 case 8 抄）：**不取新的种类、不写槽、不广播 510**。
+        /// 效果那一半与 case 8 共用 <see cref="ApplyMarkBody"/>。
+        /// </summary>
+        static void ApplyLastMarkOfChaos(BattleContext ctx, int owner, UnitState u, string by)
+        {
+            string last = LastMarkOfChaos(ctx);
+            if (string.IsNullOrEmpty(last))
+            {
+                // 原版 `if (bm.lastMarkOfChaos == null) goto tail`（**静默跳过**）—— 我们出声。
+                ctx.Log($"{by}：「{u.Name}」要重放**最后一份**黑暗契约，但本局还没有任何印记落地 ⇒ 什么都不发生"
+                      + "（原版 `CardScript__AddEffect.c:933-940` 那一支是空的）");
+                return;
+            }
+            ctx.Log($"{by}：「{u.Name}」重放**最后一份**印记「{PactNameZh(last)}」"
+                  + "（原版 `lastMarkOfChaos(17)` —— 不取新的、不广播）");
+            ApplyMarkBody(ctx, owner, u, last, by);
         }
 
         /// <summary>
@@ -11460,7 +11954,14 @@ namespace RuleEngine
         /// <summary>🆕 2026-10-23（引擎线 `新账-89` ③）：清掉**跨局静态旁表**。
         /// 唯一调用点 = `RuleCore.NewBattle`（每局开头）；本表只记「这个单位拿到的是哪一种黑暗契约」，
         /// 键是 `UnitState`（每局新对象）⇒ 跨局没有意义，留着只会让长会话里的旧单位引用泄漏。</summary>
-        public static void ResetTransientForNewBattle() { _keywordsPact.Clear(); }
+        public static void ResetTransientForNewBattle()
+        {
+            _keywordsPact.Clear();
+            // 🆕 K7：`lastMarkOfChaos`（原版 `BattleManager +0x2f0`）也是**逐局**的 ——
+            //   不清的话上一局的最后一枚印记会被下一局的 case 17 读到（静默错）。
+            _lastMarkCtx = null;
+            _lastMarkKind = null;
+        }
 
         /// <summary>
         /// 🆕 2026-10-21（审查 `W61b` 第 2 条）：**黑暗契约的「自触发 / 同伴触发」两条队列体**
@@ -11486,6 +11987,20 @@ namespace RuleEngine
             ctx.EffectChain++;
             try { ResolveEffect(ctx, owner, u, fx, null); }
             finally { ctx.EffectChain--; }
+        }
+
+        /// <summary>种类 → **卡池里那张契约卡**（4 张 `Dark Pact of X`；同一批 id 在 SO 真值里叫
+        /// `Mark of X (enchantment)`）。找不到 ⇒ `null`（调用方各自决定「出声+跳过」还是「退回随机」）。
+        /// ⚠️ 判据只此一处（`PactKindOfChosenCard` 那一套），⛔ 别在调用点另写一份。</summary>
+        static CardDef FindPactCard(BattleContext ctx, string kind)
+        {
+            if (ctx == null || ctx.CardPool == null || string.IsNullOrEmpty(kind)) return null;
+            for (int i = 0; i < ctx.CardPool.Count; i++)
+            {
+                var c = ctx.CardPool[i];
+                if (c != null && PactKindOfChosenCard(c) == kind) return c;
+            }
+            return null;
         }
 
         /// <summary>🆕 2026-10-19（战斗线 `T21` 缺口 B）：**附魔卡被触发**那一拍的引擎事件
@@ -11514,16 +12029,8 @@ namespace RuleEngine
             // ① 原版那条路：附魔卡 = **刚挑中的那一张**（`A1960`：选择面板写进 `ctx.LastChosenCard`）
             var chosen = ctx.LastChosenCard != null ? ctx.LastChosenCard.Card : null;
             if (chosen != null && PactKindOfChosenCard(chosen) == kind) pactCard = chosen;
-            // ② 随机 / 「同样获得一份」那两档：种类 → 卡池里同名后缀的那张
-            //    （现读 4 张，`subtype = "Dark Pact"`；判据 = `PactKindOfChosenCard` 那一套，不另写一份）
-            if (pactCard == null && ctx.CardPool != null && !string.IsNullOrEmpty(kind))
-            {
-                for (int i = 0; i < ctx.CardPool.Count; i++)
-                {
-                    var c = ctx.CardPool[i];
-                    if (c != null && PactKindOfChosenCard(c) == kind) { pactCard = c; break; }
-                }
-            }
+            // ② 其余各档：种类 → 卡池里同名后缀的那张（判据 = `FindPactCard` 一处，⛔ 别在这儿另写一份）
+            if (pactCard == null) pactCard = FindPactCard(ctx, kind);
             if (pactCard == null)
             {
                 ctx.Log($"黑暗契约（{kind}）：**卡池里找不到对应的附魔卡** ⇒ `TriggerEnchantment` 那一拍不播"
@@ -11542,9 +12049,13 @@ namespace RuleEngine
 
 
         /// <summary>
-        /// 每种契约**会授予哪些关键词**（用来在契约被替换时收回去）。
-        /// ⚠️ 必须和 <see cref="DarkPactFx"/> 的文本**对得上** —— 那是同一件事的两种写法。
-        /// 属性增减益（+2 生命…）走 `UnitState.RecordGrant` 那条路，不用在这里列。
+        /// 每种契约**会授予哪些关键词** —— **四个印记各给哪些关键词的唯一清单**。
+        /// ⚠️ 必须和 <see cref="DarkPactFx"/> 的文本**对得上**（同一件事的两种写法）；属性增减益
+        /// （+2 生命…）走 `UnitState.RecordGrant` 那条路，不在这里列。
+        /// 🔴 **2026-10-25（K7）：本表今天【没有调用点】，这是故意的** —— 上一版用它做
+        /// 「换一份契约就把旧的关键词收回去」，而原版 `AddEffect.c:776-792`（case 8）**从不撤旧印记**
+        /// （`addStats` 累加、`lastMarkOfChaos` 只是「最后一份是哪份」）⇒ 那条已按判据删掉。
+        /// 保留本表 = 保留「哪份印记给哪个关键词」这一格知识（`DarkPactFx` 只写数字/名字，不太直观）。
         /// </summary>
         static string[] PactGrantedKeywords(string kind)
         {
@@ -11558,7 +12069,9 @@ namespace RuleEngine
             }
         }
 
-        /// <summary>这个单位身上的契约种类；没有契约返回 null</summary>
+        /// <summary>这个单位身上**最后一份**契约的种类；没有契约返回 null。
+        /// ⚠️ 一个单位可以有**多份**印记（原版不撤旧的）⇒ 本方法只回答「最后一份是哪种」，
+        /// 「有几份」读 `KwValue(KeywordTable.DarkPact)`（我们）／trait `330` 的数值（原版）。</summary>
         public static string PactOf(UnitState u)
         {
             string k;
@@ -13529,13 +14042,68 @@ namespace RuleEngine
             new System.Collections.Generic.HashSet<string>(EffectDispatch.Keys);
 
         /// <summary>
-        /// `Lower its Health to N` —— **把当前生命设成 N**（2026-09-13 A4）。
-        /// 出处：`Eternal Servitude`（Sautekh）；原版那一支是 `ResolveChangeMaxHealth`，
-        /// 但卡面写的是「its Health」（当前生命），照卡面做。
-        /// ⚠️ **只降不升**（动词是 `lower`）：已经 ≤ N 的不动，并**如实打一行日志** ——
-        ///    「没生效」和「本来就低于 N 所以不用改」是两件事，别让它们长得一样。
-        /// ⚠️ 走 `EmitHit` 发伤害事件（表现层靠它掉血飘字/血条动画）——
-        ///    直接改 `Health` 而不发事件，画面上会**看不到变化**（第三十四轮 Hunt Mark 那条踩过）。
+        /// **`setCurrentHealth(100)`** —— 原版 `CardScript__AddEffect.c:229-247`（卡面
+        /// `Lower its Health to 1`，SO 里是 `buffType 100 / healthChange N`）。
+        ///
+        /// 原版逐句：① **先** `ShouldTriggerEcastasy(this, this, healthChange)`（`:232-243`）——
+        /// 目标自己带**印刷的** `Ecstasy X` 且 `X < 当前生命 ≤ …` ⇒ `OnTrigger(0x2cb = 715)`；
+        /// ② 然后 `currentHealth(+0x68) = healthChange(+0x60)` —— **无条件写、不夹上限、不查 Invulnerable**。
+        /// ⚠️ 原版这一支**不发伤害**（不经过 `ReceiveDamage`）⇒ 我们**别调 `EmitHit`**（那会多出一条伤害事件、
+        /// 还会把 `Ecstasy`/`Cruelty`/`Penitence` 那一族按「受伤」的极性多触发一次）。
+        /// ⛔ **不是 `DoSetHealth`**：那个对应 `buffType 9 setHealth`（= `currentHealth = currentMaxHealthProcessed`，
+        /// `.c:794-820`，**池内 0 张**），语义不同（`DoSetHealth` 还是「只降 + 查 Invulnerable」的老近似）。
+        /// </summary>
+        static bool DoSetCurrentHealth(BattleContext ctx, int owner, string by, EffectOp op,
+                                       UnitState chosen, List<string> unresolved)
+        {
+            var spec = op.Target ?? new EffectTargetSpec
+            {
+                Raw = "(未写目标：默认一个敌方单位)", Side = "enemy", Kind = "any", Count = 1, Auto = true,
+            };
+            var targets = ResolveTargets(ctx, owner, spec, null, chosen, null, op);
+            if (targets.Count == 0)
+            {
+                ctx.Log($"{by}：「{op.Source}」要把生命设成 {op.Amount}，但没有指到任何单位 —— **这条没生效**");
+                unresolved.Add(op.Source + "（setcurrenthealth 没有目标）");
+                return false;
+            }
+
+            int n = 0;
+            foreach (var t in targets)
+            {
+                if (t == null) continue;
+                // 🔴 `AddEffect` 闸①/③ 照过（原版这两道闸在所有 buff 之前，见「AddEffect 的四道前置闸」）
+                if (!AddEffectCardStateAllows(ctx, t, by)) continue;
+                if (!AddEffectRemnantAllowsOp(ctx, t, op, by)) continue;
+
+                int before = t.Health;
+                t.Health = op.Amount;                  // 无条件（原版 `:245`）
+                CheckEcstasyCrossing(ctx, t, before);  // 判据只此一处（RuleCore.CheckEcstasyCrossing）
+                n++;
+                ctx.Log($"{t.Name} 的生命被**设为** {op.Amount}（{before} → {t.Health}）—— 「{op.Source}」"
+                      + "（原版 `setCurrentHealth`：无条件写、不夹上限、不查 Invulnerable）");
+            }
+            if (n == 0) { unresolved.Add(op.Source + "（setcurrenthealth 一个都没设）"); return false; }
+            return true;
+        }
+
+        /// <summary>
+        /// **`sethealth` —— 只对应原版 `buffType == 9 setHealth`**（`CardScript__AddEffect.c:794-820`：
+        /// `currentHealth = currentMaxHealthProcessed`）。
+        ///
+        /// 🔴 **2026-10-25（`K8` · 铁律 5 就地订正）：这个动词现在【没有数据生产者】，而且不再是
+        /// 「`Lower its Health to N` 那一条」。**
+        ///   · 卡面 `Lower its Health to N`（`EC39 Eternal Servitude`）在 SO 里是 **`buffType == 100
+        ///     setCurrentHealth`**（`cards_truth.json` 现读：`{buffType: 100, healthChange: 1}`）——
+        ///     解析层已改判给**新动词 `setcurrenthealth`**（<see cref="DoSetCurrentHealth"/>）。
+        ///   · `buffType == 9` 现读**池内 0 张** ⇒ 本方法今天**跑不到**。
+        ///   ⇒ 它的实现仍是**老近似**（只降不升 + 比当前小才改 + 查 `Invulnerable`），**与 9 的真语义不同**
+        ///     （原版 9 = 回满到 `currentMaxHealthProcessed`，而那一格我们**还没有**：`MaxHealth` 两格并一格）。
+        ///     ⛔ 别拿它当 100 的落点，也别把 100 的语义（无条件）搬回来 —— 两者是**两条规则**。
+        ///   · 补齐 9 要等**属性模型**那一刀（`currentMaxHealthProcessed` 现算），见账行 771 的 K8 段。
+        /// ⚠️ 保留的两条行为（若将来真有 9 的卡）：**只降不升**时如实打日志；
+        /// 走 `EmitHit` 发伤害事件（表现层靠它掉血飘字/血条动画；⛔ 但那是 9 的表现口径，
+        /// **100 那一支原版不发伤害** —— 两条别混）。
         /// </summary>
         static bool DoSetHealth(BattleContext ctx, int owner, string by, EffectOp op,
                                 UnitState chosen, List<string> unresolved)
@@ -13552,10 +14120,17 @@ namespace RuleEngine
                 return false;
             }
 
+            // 🔴 `AddEffect` 闸②（jam）/ 闸④（施放者不在场）—— 判据 `.c:85-98 / 171-195`。
+            if (!AddEffectCasterGates(ctx, ctx.ActingUnit, chosen, false, by)) return true;
+
             int n = 0;
             foreach (var t in targets)
             {
                 if (t == null || !t.IsAlive) continue;
+                // 🔴 `AddEffect` 闸①（卡状态）+ 闸③（残骸门）——
+                //   `setHealth(9)` / `setCurrentHealth(100)` 都不是 `addStats` 的生命项 ⇒ 残骸一律不收。
+                if (!AddEffectCardStateAllows(ctx, t, by)) continue;
+                if (!AddEffectRemnantAllowsOp(ctx, t, op, by)) continue;
                 if (t.Has("invulnerable"))
                 {
                     // 无敌 = 「无法被伤害或摧毁」（规则书 :190）—— 直接改生命等于绕过它，不行
@@ -13618,10 +14193,18 @@ namespace RuleEngine
 
             // 🆕 2026-10-22（`W64`·`B-16`）：按**这条 op** 的结构化目标条件行筛（`null` = 没有/读不到 ⇒ 不筛）。
             var targets = ResolveTargets(ctx, owner, op.Target, null, chosen, op.TargetCondition, op);
+            // 🔴 `AddEffect` 闸②（jam）/ 闸④（施放者不在场）—— 判据 `.c:85-98 / 171-195`。
+            if (!AddEffectCasterGates(ctx, ctx.ActingUnit, chosen, false, by)) return true;
+
             int n = 0;
             foreach (var t in targets)
             {
                 if (t == null || !t.IsAlive) continue;
+                // 🔴 `AddEffect` 闸①（卡状态）+ 闸③（残骸门）——
+                //   原版 `doubleAttack(20)` 在分派**之前**被改写成 `addStats` 且只带
+                //   `meleeAttackChange`（`healthChange == 0`，`.c:198-207`）⇒ 残骸一律不收。
+                if (!AddEffectCardStateAllows(ctx, t, by)) continue;
+                if (!AddEffectRemnantAllowsOp(ctx, t, op, by)) continue;
                 int a0 = t.Attack, h0 = t.Health, m0 = t.MaxHealth, r0 = t.RangedAttack;
                 if (dMelee) t.Attack *= 2;
                 if (dHealth) { t.MaxHealth *= 2; t.Health *= 2; }
@@ -14094,15 +14677,14 @@ namespace RuleEngine
             {
                 int d = delta;
                 var pin = i < pins.Count ? pins[i] : null;
-                // ---- 「**设为** N 费」（`reduce its cost to 1`，2026-09-13 A4）----
-                // 🔴 差值只能**在这儿**算：同一张卡在不同局面下真费用不同（别的降费也叠在上面），
-                //    解析期算不了。`Amount` 那条记的是「降多少」，这条记的是「变成多少」。
-                //    ⚠️ `>= 0`（不是 `> 0`）—— `Your next Stratagem this turn costs **0**`
-                //       那一支就是「变成 0 费」。哨兵是 `-1`，见 `EffectOp.CostSetTo` 的注释。
-                //    ⚠️ 能定位到份时**按那一份**算现价（第 7 行第 3 步）。
-                if (op.CostSetTo >= 0 && i < cardRefs.Count)
-                    d = op.CostSetTo - (pin != null ? RuleCore.CostOf(ctx, owner, pin)
-                                                    : RuleCore.CostOf(ctx, owner, cardRefs[i]));
+                // ---- 「**设为** N 费」（`reduce its cost to 1`）----
+                // 🔴 **2026-10-25（`K8` · 铁律 5 就地订正）：不再折成【快照 delta】**。
+                //    旧口径在这儿算 `d = N − 当时现价` 再加一条 delta —— 那会把「**排在 `setCost` 之前**的
+                //    `changeCost`」吃掉（原版 `get_CurrentCost.c:52-79` 是 `clamp0(N + Σ 全部 changeCost)`，
+                //    见 `CostMod.SetTo` 的 doc）。⇒ 现在落一条 **`SetTo = N`** 的记录，`CostOf` 每次现算。
+                //    ⚠️ `>= 0`（不是 `> 0`）—— `Your next Stratagem this turn costs **0**` 那一支就是
+                //       「变成 0 费」；哨兵是 `-1`，见 `EffectOp.CostSetTo` 的注释。
+                bool isSet = op.CostSetTo >= 0 && i < cardRefs.Count;
                 ctx.CostMods.Add(new CostMod
                 {
                     Player = owner,
@@ -14110,7 +14692,9 @@ namespace RuleEngine
                     //    这样「只降这一张复制品」才成立；钉不住才退回按卡 id 匹配全部副本。
                     Key = pin != null ? "*" : keys[i],
                     HandInstanceId = pin != null ? pin.Id : 0,
-                    Delta = d, ExpireTurn = expire,
+                    Delta = isSet ? 0 : d,
+                    SetTo = isSet ? op.CostSetTo : -1,
+                    ExpireTurn = expire,
                     Once = op.NextOnly,
                 });
             }

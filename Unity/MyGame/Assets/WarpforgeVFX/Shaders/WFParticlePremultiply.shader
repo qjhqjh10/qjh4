@@ -78,7 +78,16 @@ Shader "WarpforgeVFX/FX/ParticlePremultiply"
             CBUFFER_START(UnityPerMaterial)
                 float4 _Color;
                 float  _ENABLEVERTEXSTREAMS;
-                float  _SOFTPARTICLES;
+                // ⚠️ **这里【不能】声明 `float _SOFTPARTICLES;`** —— `_SOFTPARTICLES` 同时是**关键字**
+                //    （`[Toggle(_SOFTPARTICLES)]` ＋ 上面那条 `#pragma multi_compile_local`）。
+                //    只要有材质把它打开，Unity 就 `#define _SOFTPARTICLES 1` ⇒ 与同名变量**重定义**、整份编不过。
+                //    实测：2026-10-24 的 player 构建日志
+                //    `Shader error in 'WarpforgeVFX/FX/ParticlePremultiply': redefinition of '_SOFTPARTICLES'`
+                //    （`_tmp_view/20261024_playerbuild.log:4967`）。
+                //    本文件**也没用到它的值**（片元只走 `#ifdef`）⇒ 按 `WFParticlePremultiplyGreyscale.shader:109`
+                //    与 `WFUnlitUVScroll.shader:120` 的同族做法：**只留 Properties 里那一条**。
+                //    ⚠️ `_ENABLEVERTEXSTREAMS` 不算这一类：原版没给它编任何变体、本文件也没有它的 pragma
+                //    ⇒ 永远不会被 `#define`，留着无害（只是让原版材质的值灌得进来）。
                 float4 _Depth_And_Offset;
                 float  _QueueOffset;
                 float  _QueueControl;

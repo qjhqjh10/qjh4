@@ -1006,6 +1006,19 @@ public static class ShellScene
 
     // ============================================================ 自检
 
+    /// <summary>🆕 2026-10-25（复刻第 3 轮）：页签生命周期的**自检探针页**。
+    /// 只记账、不建内容 ⇒ 可以在批处理里安全地 `AddComponent`（不碰美术/数据）。</summary>
+    sealed class ProbeTab : WindowTabBase
+    {
+        public WindowTabType type;
+        public int setups, opened, closed, focused;
+        public override WindowTabType Type { get { return type; } }
+        public override void Setup(GameWindow window) { setups++; base.Setup(window); }
+        public override void OnOpen() { opened++; }
+        public override void OnClose() { closed++; }
+        public override void ToFocus() { focused++; }
+    }
+
     public static void Run()
     {
         // 🔴 **2026-10-19（`A1534` 尾巴 · 铁律 11）**：批处理自检**不出声** —— `WFSoundPlayer.Enabled = false`
@@ -10073,6 +10086,402 @@ public static class ShellScene
                     ToastNotifications.DisposeForSceneChange();
                 }
             }
+        }
+
+        // ============================================================ 通用件 + 页签生命周期
+        // 🆕 **2026-10-25（复刻第 3 轮 · 代理 H）**：原版三个「无通用件」+ `GameWindowWithTabs` 页签生命周期。
+        //    判据 = 反编译方法体（`out_cpp2il_dev_ilspy/{UIImageMaterialColorChanger,UIGroupTint,UIScaleToFit,
+        //    GameWindowWithTabs,WindowTabBase,TabButtons}.cs` + `decomp_full/UIScaleToFit__Fit.c`），
+        //    每一条断言的「期望值」都写着它对着哪一句。
+        //    🔴 本轮**只建通用件 + 断行为，不接 666/306/183 处实例**（用户明确分两轮）。
+        Section("🆕 复刻第 3 轮：三个原版通用件 + 页签生命周期 —— 对着方法体断行为（未接实例）");
+        var probeRoot = new GameObject("_replica_generic_probe");
+        try
+        {
+            void Ck(Color got, Color want, string what)
+            {
+                CheckNear(got.r, want.r, 2e-4f, what + " · r");
+                CheckNear(got.g, want.g, 2e-4f, what + " · g");
+                CheckNear(got.b, want.b, 2e-4f, what + " · b");
+                CheckNear(got.a, want.a, 2e-4f, what + " · a");
+            }
+
+            // ---------------- ① UIImageMaterialColorChanger（原版 666 处）
+            // 判据：`UIImageMaterialColorChanger.cs:53-81`（DoColorChange）、`:31-51`（Update 顺序）、
+            //       `:83-88`（SetColor）、`:21-24`（Awake 出厂不跑）、`:26-29`（销毁实例材质）。
+            {
+                var go = new GameObject("MatProbe", typeof(MeshRenderer));
+                go.transform.SetParent(probeRoot.transform, false);
+                var mr = go.GetComponent<MeshRenderer>();
+                var mat0 = new Material(Shader.Find("Sprites/Default"));
+                mat0.color = Color.white;
+                mr.sharedMaterial = mat0;
+
+                var ch = UIImageMaterialColorChanger.Attach(mr);
+                CheckTrue(ch != null, "① `UIImageMaterialColorChanger` 建出来了");
+                CheckTrue(!ch.Running && !ch.enabled, "① 出厂不跑（原版 `Awake`: `enabled = false`）");
+
+                ch.DoColorChange(Color.red, "_Color", 1f, instant: true);
+                Ck(mr.sharedMaterial.color, Color.red, "① `instant = true` ⇒ **直接写**目标色（原版 :76-80）");
+                CheckTrue(ch.InstancedMaterial != null && !ReferenceEquals(mr.sharedMaterial, mat0),
+                          "① 先 `new Material(image.material)` 再换上去（原版 :58-64；🧨 直接改原材质 ⇒ 红）");
+                Ck(mat0.color, Color.white, "① **原材质一个字节没动**（这才是实例化的意义；🧨 没实例化 ⇒ 红）");
+
+                // 补间：起始色 = 当前（红）→ 目标（蓝），1 秒
+                ch.DoColorChange(Color.blue, "_Color", 1f, instant: false);
+                CheckTrue(ch.Running, "① `instant = false` ⇒ 起补间（原版 :67-75 置 enabled = true）");
+                Ck(ch.OriginalColor, Color.red, "① 起始色 = 起补间那一刻的材质色（原版 `GetColor`）");
+                ch.Step(0.5f);
+                Ck(mr.sharedMaterial.color, Color.red,
+                   "① **`t` 先用、时间后加**：第一次 Step(0.5) 时 `currentTime` 还是 0 ⇒ 写起始色"
+                 + "（原版 :35-50；🧨 先累加再算 t ⇒ 这里会是中间色 ⇒ 红）");
+                ch.Step(0.5f);
+                Ck(mr.sharedMaterial.color, Color.Lerp(Color.red, Color.blue, 0.5f),
+                   "① 中间值 = `Lerp(起始, 目标, 0.5)`（🧨 写成固定终值 ⇒ 红）");
+                ch.Step(0.001f);
+                Ck(mr.sharedMaterial.color, Color.blue, "① 到点写终值（原版 t 夹到 1）");
+                CheckTrue(!ch.Running && !ch.enabled, "① 到点**自己停**（原版 `Update`: `enabled = false`）");
+                ch.SetColor(Color.green, "_Color");
+                Ck(mr.sharedMaterial.color, Color.green, "① `SetColor` = 直接写（原版 :83-88）");
+
+                // 同一 Renderer 上第二颗（不同属性/不同节奏）⇒ **共用同一份实例材质**（接实例前置；否则后建的会把先建的写入弄丢）
+                var ch2 = go.AddComponent<UIImageMaterialColorChanger>();
+                ch2.Bind(mr);
+                ch2.DoColorChange(Color.yellow, "_Color", 1f, instant: true);
+                CheckTrue(ReferenceEquals(ch.InstancedMaterial, ch2.InstancedMaterial),
+                          "① 同一 Renderer 上两颗组件**共用一份实例材质**（🧨 各建一份 ⇒ 第一颗写入静默丢失 ⇒ 红）");
+                CheckTrue(ReferenceEquals(mr.sharedMaterial, ch.InstancedMaterial),
+                          "① `renderer.sharedMaterial` 就是那一份共享实例材质");
+                Ck(mr.sharedMaterial.color, Color.yellow, "① 第二颗写入生效（共享材质上最后一次写赢）");
+            }
+
+            // ---------------- ② UIGroupTint（原版 306 处）
+            // 判据：`UIGroupTint.cs:41-82`（Refresh 收整棵含未激活）、`:84-114`（DoColorChange）、
+            //       `:116-141`（Update 阈值 9.9999994e-11 + 自停）、`:148-176`（SetColor 补间）、`:143-146`（Toggle）。
+            {
+                var grp = new GameObject("GroupProbe");
+                grp.transform.SetParent(probeRoot.transform, false);
+                var q1 = ImageQuad.Create(grp.transform, Texture2D.whiteTexture, new Vector3(-1f, 0f, 0f),
+                                          1f, new Vector2(0.5f, 0.5f), "q1");
+                var q2 = ImageQuad.Create(grp.transform, Texture2D.whiteTexture, new Vector3(1f, 0f, 0f),
+                                          1f, new Vector2(0.5f, 0.5f), "q2");
+                CheckTrue(q1 != null && q2 != null, "② （前提）两颗 `ImageQuad` 建出来了");
+                var base1 = new Color(0.8f, 0.6f, 0.4f, 0.5f);
+                var base2 = new Color(0.2f, 0.4f, 0.8f, 1f);
+                q1.SetTint(base1);
+                q2.SetTint(base2);
+                q2.gameObject.SetActive(false);          // 原版 `GetComponentsInChildren(true)` ⇒ **未激活也收**
+
+                var tint = grp.AddComponent<UIGroupTint>();
+                // 🔴 **2026-10-25（用户纠正）**：原版 `Refresh()` 全库零调用点 ⇒ 组件**空转**；我们同为空转。
+                //    先钉住这一条，再**显式** `Refresh()` 单独验算法（测试专用入口，原版从不会走到）。
+                Check(tint.RendererCount, 0,
+                      "② 没调 `Refresh` 时列表是**空的**（原版 `Refresh` 零调用点 + 306 实例 persistentCalls 全空 ⇒ 空转）");
+                tint.Toggle(true);
+                Check(tint.RendererCount, 0, "② `Toggle` **不自动收**（原版也不收；🧨 加自动 Refresh ⇒ 红）");
+                tint.SetColor(new Color(0.5f, 0.5f, 0.5f, 0.5f), 0f);
+                tint.Step(0f);
+                Ck(q1.Tint, base1,
+                   "② 空转：`SetColor` **一件都不改**（原版同；🧨 在 SetColor 里自动 Refresh ⇒ 这里会变 ⇒ 红）");
+                tint.Refresh();                          // ← 显式（算法单元测试；生产永远不调）
+                Check(tint.RendererCount, 2, "② 显式 `Refresh` 收到 **2** 颗（含未激活那颗；原版 :55 `includeInactive: true`）");
+                tint.SetColor(Color.white, 0f);          // 把上面那步「空转试验」留在 tint 里的 0.5 复位
+                Check(tint.TintColor, Color.white, "② 序列化默认 `tintColor` = 白（三份 prefab 实例现读）");
+
+                tint.SetColor(new Color(0.5f, 0.5f, 0.5f, 0.5f), 0f);
+                tint.Step(0f);
+                Ck(q1.Tint, UIGroupTint.Multiply(base1, new Color(0.5f, 0.5f, 0.5f, 0.5f)),
+                   "② 写下去的是 **基色 × tint**（0.8×0.5 = 0.4；🧨 只写 tint 本身 ⇒ 红）");
+                CheckNear(q1.Tint.r, 0.4f, 2e-4f, "② 灭自证：`q1.Tint.r` 必须**小于** tint.r（0.4 < 0.5）");
+                Ck(q2.Tint, UIGroupTint.Multiply(base2, new Color(0.5f, 0.5f, 0.5f, 0.5f)),
+                   "② **未激活的那颗也刷到了**（原版同一条 `DoColorChange` 循环）");
+                CheckTrue(!tint.Step(0f) && !tint.enabled,
+                          "② 刷完**下一帧自停**（原版 `Update`: `|last−tint|² < 9.9999994e-11` ⇒ `enabled = false`；"
+                        + "🧨 永远停在 enabled ⇒ 红）");
+
+                // 补间：0.5 灰 → 白，0.2 秒
+                tint.SetColor(Color.white, 0.2f);
+                tint.Step(0.1f);
+                Ck(q1.Tint, UIGroupTint.Multiply(base1, new Color(0.75f, 0.75f, 0.75f, 0.75f)),
+                   "② 补间中点 = `Lerp(0.5, 1, 0.5) = 0.75` × 基色（原版 DOTween 改的就是 `tintColor`）");
+                tint.Step(0.1f);
+                Ck(q1.Tint, base1, "② 补间终点 = 基色（tint = 白 ⇒ 不改变基色）");
+                CheckTrue(!tint.Step(0f) && !tint.enabled, "② 补间结束后同样自停");
+
+                tint.Toggle(false);
+                CheckTrue(!tint.enabled, "② `Toggle(false)` ⇒ `enabled = false`（原版 :143-146）");
+                tint.Toggle(true);
+                CheckTrue(tint.enabled, "② `Toggle(true)` ⇒ 重新启用");
+            }
+
+            // ---------------- ③ UIScaleToFit（原版 183 处）
+            // 判据：`UIScaleToFit.cs:108-182` + `decomp_full/UIScaleToFit__Fit.c:30-67`（算式与两道保护）。
+            {
+                var pgo = new GameObject("ScaleParent", typeof(RectTransform));
+                pgo.transform.SetParent(probeRoot.transform, false);
+                var prt = (RectTransform)pgo.transform;
+                prt.sizeDelta = new Vector2(400f, 200f);
+
+                var cgo = new GameObject("ScaleChild", typeof(RectTransform));
+                cgo.transform.SetParent(prt, false);
+                var crt = (RectTransform)cgo.transform;
+                crt.sizeDelta = new Vector2(100f, 100f);
+
+                var fit = UIScaleToFit.Attach(crt);
+                CheckTrue(fit.targetRect == prt, "③ `fitInParent = true` ⇒ 目标 = 父节点（原版 `Awake`:39-46）");
+                CheckTrue(fit.Fit(), "③ `Fit()` 真的写了 `localScale`");
+                CheckNear(crt.localScale.x, 2f, 2e-4f, "③ 400×200 装 100×100 ⇒ **min(4,2) = 2**（🧨 用 max ⇒ 4 ⇒ 红）");
+                CheckNear(crt.localScale.y, 2f, 2e-4f, "③ 等比：y 也是 2");
+                CheckNear(crt.localScale.z, 2f, 2e-4f, "③ z 同比例（原版写 `Vector3(s,s,s)`；uGUI 下 z 不参与布局）");
+
+                prt.sizeDelta = new Vector2(300f, 150f);
+                fit.Fit();
+                CheckNear(crt.localScale.x, 1.5f, 2e-4f,
+                          "③ 父框变成 300×150 ⇒ **值跟着源变**成 1.5（min(3,1.5)；🧨 只算一次/缓存不刷新 ⇒ 红）");
+
+                fit.padding = new Vector2(-100f, -50f);
+                fit.paddingType = UIScaleToFit.PaddingType.Flat;
+                fit.Fit();
+                CheckNear(crt.localScale.x, 1f, 2e-4f,
+                          "③ `Flat`：目标 = 300−100 = 200 × 150−50 = 100 ⇒ min(2,1) = 1（原版是**加** padding）");
+
+                prt.sizeDelta = new Vector2(400f, 200f);
+                fit.padding = new Vector2(0.25f, 0.25f);
+                fit.paddingType = UIScaleToFit.PaddingType.Multiplier;
+                fit.Fit();
+                CheckNear(crt.localScale.x, 0.5f, 2e-4f,
+                          "③ `Multiplier`：目标 = 400×0.25 = 100 × 200×0.25 = 50 ⇒ min(1,0.5) = 0.5（原版是**乘** padding）");
+
+                var orphan = new GameObject("ScaleOrphan", typeof(RectTransform));
+                orphan.transform.SetParent(probeRoot.transform, false);   // 父节点没有 RectTransform
+                var fit2 = UIScaleToFit.Attach((RectTransform)orphan.transform);
+                CheckTrue(!fit2.Fit() && float.IsNaN(fit2.LastScale),
+                          "③ 没有目标框 ⇒ **不写**并出声（原版 :180 `Trying to scale ui without target`；🧨 静默写 1 ⇒ 红）");
+            }
+
+            // ---------------- ④ 页签生命周期（GameWindowWithTabs / WindowTabBase / TabButtons）
+            // 判据：`WindowTabBase.cs:54-110` · `GameWindowWithTabs.cs:85-470` · `TabButtons.cs:83-492`。
+            {
+                var wgo = new GameObject("TabsWin");
+                wgo.transform.SetParent(probeRoot.transform, false);
+                var tabWin = wgo.AddComponent<GameWindowWithTabs>();
+
+                var a = new GameObject("TabA").AddComponent<ProbeTab>();
+                a.type = WindowTabType.Missions;
+                a.transform.SetParent(wgo.transform, false);
+                a.gameObject.SetActive(false);
+                var b = new GameObject("TabB").AddComponent<ProbeTab>();
+                b.type = WindowTabType.Forge;
+                b.transform.SetParent(wgo.transform, false);
+                b.gameObject.SetActive(false);
+                tabWin.tabs.Add(a);
+                tabWin.tabs.Add(b);
+                CheckTrue(tabWin.CurrentTabView == null, "④ 初始没有当前页（原版字段 `0x12` = 空）");
+
+                var tbgo = new GameObject("Tab Buttons");
+                tbgo.transform.SetParent(wgo.transform, false);
+                var tb = tbgo.AddComponent<TabButtons>();
+                tabWin.tabButtons = tb;
+                tb.Initialize(tabWin);
+                CheckTrue(!tb.FirstTimeGateForTest,
+                          "④ `Initialize` 之后 `firstTime` 已消费（原版靠 group 初始 toggle 事件；我们没有事件 ⇒ 见 TabButtons 注释）");
+
+                int ev = 0; WindowTabBase lastEv = null;
+                tabWin.OnTabChanged += t => { ev++; lastEv = t; };
+
+                tabWin.ChangeTab(WindowTabType.Missions);
+                CheckTrue(a != null && a.gameObject.activeSelf && !b.gameObject.activeSelf,
+                          "④ 切到 Missions ⇒ 只有 A 活（`TryOpenTab` 的 `SetActive(true)`）");
+                Check(a.opened, 1, "④ A 的 `OnOpen` 被调了 1 次（原版 `TryOpenTab` 第二句）");
+                CheckTrue(tabWin.CurrentTabView == a && tabWin.CurrentTab == WindowTabType.Missions,
+                          "④ 对象版 / 枚举版 `CurrentTab` 同步 = A / Missions");
+                Check(tb.CurrentType, WindowTabType.Missions, "④ `OnTabChanged` → `TabButtons.UpdateTab` 同步了 CurrentType");
+                Check(tb.CurrentVisualIndex, 0, "④ 视觉下标 = 0（`visualTypes` 第 1 位）");
+                Check(ev, 1, "④ `OnTabChanged` 触发 1 次");
+                CheckTrue(lastEv == a, "④ 事件参数 = 新页对象");
+
+                tabWin.ChangeTab(a);                 // **同一页**
+                Check(a.opened, 2, "④ 同一页再切 ⇒ **只重开**（原版 `ChangeTabCO` 的 `from == to` 分支）");
+                Check(a.closed, 0, "④ 同一页再切 ⇒ **不关**（🧨 走换页分支 ⇒ closed 会变 1）");
+                Check(ev, 2, "④ 同一页再切 ⇒ `OnTabChanged` **也触发**（原版 :383-387 在分支外）");
+
+                tabWin.ChangeTab(WindowTabType.Forge);
+                CheckTrue(!a.gameObject.activeSelf && b.gameObject.activeSelf, "④ 换页 ⇒ 旧页关、新页开");
+                Check(a.closed, 1, "④ 旧页 `CloseTab()` ⇒ `OnClose` 1 次（原版 :372-375）");
+                Check(b.opened, 1, "④ 新页 `OnOpen` 1 次");
+                Check(tabWin.CurrentTab, WindowTabType.Forge, "④ 枚举版 CurrentTab = Forge");
+                Check(tb.CurrentVisualIndex, 2, "④ 视觉下标同步成 2（Forge 在 `visualTypes` 第 3 位）");
+
+                CheckTrue(tabWin.GetTab(typeof(ProbeTab)) == a, "④ `GetTab(Type)` 命中（两条都是 ProbeTab ⇒ 取第一条）");
+                CheckTrue(tabWin.GetTab<ProbeTab>() == a, "④ `GetTab<T>()` 同一条");
+                var back = tabWin.ChangeTab<ProbeTab>();
+                CheckTrue(back == a && tabWin.CurrentTabView == a,
+                          "④ `ChangeTab<T>()` 返回并切到该页（原版 :276-306）");
+
+                tb.ToggleForTest(true, b);
+                CheckTrue(tabWin.CurrentTabView == b && b.opened == 2 && a.closed == 2,
+                          "④ 按键这条路 `Toggle(true, tab)` ⇒ `window.ChangeTab(tab)`（原版 `TabButtons.Toggle` :269-282）");
+                tb.ToggleForTest(false, b);
+                CheckTrue(tabWin.CurrentTabView == b, "④ `state = false` ⇒ **不切页**（原版 `if (state && tab)`）");
+
+                tabWin.ForceCloseTabs();
+                CheckTrue(!a.gameObject.activeSelf && !b.gameObject.activeSelf,
+                          "④ `ForceCloseTabs()` ⇒ **所有页**都不活（原版 :409-422）");
+                Check(b.closed, 2, "④ 当前页被 `CloseTab()` 过一次（原版第一句）");
+                CheckTrue(tabWin.CurrentTabView == b, "④ `ForceCloseTabs` **不清** `CurrentTab`（原版也不清 ⇒ 开回来还是这页）");
+
+                tabWin.ChangeTab(WindowTabType.None);
+                CheckTrue(tabWin.CurrentTabView == null && tabWin.CurrentTab == WindowTabType.None,
+                          "④ `None` ⇒ 没有当前页（**我们历史入口的分支**，原版没有这个入口）");
+                CheckTrue(!a.gameObject.activeSelf && !b.gameObject.activeSelf, "④ `None` ⇒ 全部不活（历史保证）");
+                Check(tb.CurrentVisualIndex, -1, "④ `OnTabChanged(null)` ⇒ 按键容器清成 -1/None");
+
+                // `AssignTabButton` / `ToggleInteractable` / `RemoveTabButton`
+                var kgo = new GameObject("KeyProbe", typeof(RectTransform));
+                kgo.transform.SetParent(tbgo.transform, false);
+                ImageQuad.Create(kgo.transform, Texture2D.whiteTexture, Vector3.zero, 0.1f,
+                                 new Vector2(0.5f, 0.5f), "keyArt");
+                var wb = kgo.AddComponent<WindowButton>();
+                tb.AssignTabButton(a, wb);
+                CheckTrue(tb.ButtonFor(a) == wb, "④ `AssignTabButton` 登记进 `options` 并可反查（原版 :409-438）");
+                tb.ToggleInteractable(a, false);
+                CheckTrue(!wb.Interactable, "④ `ToggleInteractable(a,false)` ⇒ 键 **不可交互**（原版 :468-492）");
+                tb.ToggleInteractable(a, true);
+                CheckTrue(wb.Interactable, "④ `ToggleInteractable(a,true)` ⇒ 恢复");
+                tb.RemoveTabButton(a);
+                CheckTrue(wb == null, "④ `RemoveTabButton` 把键 **销毁**（原版 :440-466 的 `Destroy(button.gameObject)`）");
+                CheckTrue(tb.ButtonFor(a) == null, "④ 且从 `options` 里摘掉");
+            }
+
+            // ---------------- ⑤ 按件拖拽（PointerLayer 的 move / up —— 🆕 2026-10-25 纯加法）
+            // 判据（用户 2026-10-25 派单 + `报告/C_收藏_第1轮.md` §③ 请求 1 ②）：
+            //   「按下落在某个 `WindowButton` 上且该件带可拖标记 ⇒ 之后每次 move 发 `onDrag(pagePx)`，
+            //     抬起发 `onDrop`；**与滚动区互斥、可拖件优先**」。
+            {
+                var pl = PointerLayer.Instance != null ? PointerLayer.Instance : PointerLayer.Ensure();
+                CheckTrue(pl != null, "⑤ （前提）`PointerLayer` 在（不在 ⇒ 拖动这条路根本没人派发）");
+                if (pl != null)
+                {
+                    var dgo = new GameObject("DragProbe");
+                    dgo.transform.SetParent(probeRoot.transform, false);
+                    var dq = ImageQuad.Create(dgo.transform, Texture2D.whiteTexture, Vector3.zero, 1f,
+                                              new Vector2(0.5f, 0.5f), "dragImg");
+                    dq.SetRenderQueue(3900);                    // 压过壳里其余件（命中取队列最高的那块）
+                    var db = dgo.AddComponent<WindowButton>();
+                    int clicks = 0, drags = 0, drops = 0;
+                    Vector2 lastDrag = Vector2.zero, lastDrop = Vector2.zero;
+                    db.onClick = () => clicks++;
+                    PointerLayer.RegisterDrag(db,
+                        p => { drags++; lastDrag = p; },
+                        p => { drops++; lastDrop = p; });
+                    Check(PointerLayer.DragCountForTest, 1, "⑤ `RegisterDrag` 登记成功（登记表 1 条）");
+
+                    CheckTrue(pl.PressAt(960f, 540f) == db, "⑤ 按下命中那颗可拖件（`PressAt` 返回它）");
+                    CheckTrue(pl.ItemPressActive, "⑤ 按下后可拖件进入「按住」态（与滚动区互斥）");
+                    CheckTrue(pl.DraggingScroll == null, "⑤ 可拖件优先：同时落在滚动区上时也**不**接管滚动（`DraggingScroll == null`）");
+                    CheckTrue(!pl.MoveTo(960f, 545f), "⑤ 位移 ≤ `DragThreshold`(10) ⇒ 还不算拖动");
+                    Check(drags, 0, "⑤ 阈值内不发 `onDrag`（否则轻轻一碰就变拖拽）");
+                    CheckTrue(pl.MoveTo(960f, 560f), "⑤ 越过 10px ⇒ 进入拖动（🧨 没加 move 分发 ⇒ 这里恒 false）");
+                    Check(drags, 1, "⑤ 越阈值那一下**也发**一次 `onDrag`");
+                    CheckTrue(pl.ItemDragging && pl.DraggingItemButton == db, "⑤ `ItemDragging` / `DraggingItemButton` 读口对");
+                    pl.MoveTo(960f, 580f);
+                    Check(drags, 2, "⑤ 之后**每次移动**都发 `onDrag`");
+                    CheckNear(lastDrag.y, 580f, 1e-3f, "⑤ `onDrag` 收到的是**指针当前设计 px**（y = 580）");
+                    CheckTrue(!pl.ReleaseAt(960f, 580f), "⑤ 拖动抬起 ⇒ **不算点击**（返回 false）");
+                    Check(drops, 1, "⑤ 抬起发 **一次** `onDrop`（🧨 没加 up 分发 ⇒ 这里 0）");
+                    CheckNear(lastDrop.y, 580f, 1e-3f, "⑤ `onDrop` 收到的也是设计 px");
+                    Check(clicks, 0, "⑤ 拖动这一下**没有派发** `onClick`（同 UGUI：拖拽吃掉了点击）");
+
+                    // 阴性对照：不越过阈值 ⇒ 还是普通点击
+                    pl.PressAt(960f, 540f);
+                    CheckTrue(pl.ReleaseAt(960f, 540f), "⑤ （阴性对照）按下→抬起同一点 ⇒ 仍算点击");
+                    Check(clicks, 1, "⑤ 阴性对照：`onClick` 派发了 1 次");
+                    Check(drops, 1, "⑤ 阴性对照：**没有** `onDrop`（没拖起来过）");
+
+                    PointerLayer.UnregisterDrag(db);
+                    Check(PointerLayer.DragCountForTest, 0, "⑤ `UnregisterDrag` 摘掉登记");
+                }
+            }
+
+            // ---------------- ⑥ MenuDraw.DeckCell 的 sortMode（拖拽排序前置件）
+            // 判据（`报告/C_收藏_第1轮.md` §③ 请求 1 ③）：`CollectionDeck.SetSortMode` ⇒ content `localScale = 0.8`
+            //   （常量 `DAT_1834b2fa0` 实读），并**压制 hover 1.05 与选中高亮**（后者另有
+            //   `CollectionDeck__SelectedHighlight.c` 的 `if (!sortMode)` 闸）。
+            {
+                var dparent = new GameObject("DeckCellProbe");
+                dparent.transform.SetParent(probeRoot.transform, false);
+                var info = new CollectionData.DeckInfo { Name = "probe", Faction = "", WarlordId = "", CardbackId = "", Count = 0 };
+                var rN = new PxRect(0f, 0f, 225f, 364.5f);
+                var normal = MenuDraw.DeckCell(dparent.transform, "CellNormal", rN, info, true,
+                                               3000, 2999, 3001, 3002, 3003, null);
+                CheckTrue(normal != null, "⑥ （前提）非排序列建出来了");
+                CheckNear(normal.localScale.x, 1f, 1e-4f, "⑥ 非排序列：不缩放");
+                CheckTrue(FindChildIn(normal, "Highlight Rounded Square") != null,
+                          "⑥ （前提）非排序列 + `selected` ⇒ 画了高亮");
+                var wbN = normal != null ? normal.GetComponentInChildren<WindowButton>(true) : null;
+                CheckTrue(wbN != null, "⑥ （前提）格子里有命中钮");
+                if (wbN != null)
+                {
+                    wbN.onEnter();
+                    CheckNear(normal.localScale.x, MenuDraw.DeckCellHoverK, 1e-4f,
+                              "⑥ 非排序列 hover ⇒ **1.05**（原版 `CollectionDeck.HoverHighlight`）");
+                    wbN.onExit();
+                    CheckNear(normal.localScale.x, 1f, 1e-4f, "⑥ 非排序列离开 ⇒ 还原 1.0");
+                }
+
+                var sorted = MenuDraw.DeckCell(dparent.transform, "CellSorted",
+                                               new PxRect(300f, 0f, 525f, 364.5f), info, true,
+                                               3000, 2999, 3001, 3002, 3003, null,
+                                               maskPad: Vector4.zero, sortMode: true);
+                CheckTrue(sorted != null, "⑥ （前提）排序列建出来了");
+                CheckNear(sorted.localScale.x, MenuDraw.DeckCellSortK, 1e-4f,
+                          "⑥ 排序列 ⇒ content `localScale = 0.8`（🧨 没接 `sortMode` ⇒ 1.0 ⇒ 红）");
+                CheckNear(sorted.localScale.y, MenuDraw.DeckCellSortK, 1e-4f, "⑥ 等比：y 也是 0.8");
+                CheckTrue(FindChildIn(sorted, "Highlight Rounded Square") == null,
+                          "⑥ 排序列**压制选中高亮**（原版 `SelectedHighlight` 的 `if (!sortMode)`；"
+                        + "🧨 只改缩放不改这条 ⇒ 红）");
+                var wbS = sorted != null ? sorted.GetComponentInChildren<WindowButton>(true) : null;
+                CheckTrue(wbS != null, "⑥ （前提）排序列里也有命中钮");
+                if (wbS != null)
+                {
+                    wbS.onEnter();
+                    CheckNear(sorted.localScale.x, MenuDraw.DeckCellSortK, 1e-4f,
+                              "⑥ 排序列 hover **不放大**（必须仍是 0.8；🧨 照旧 1.05 ⇒ 红）");
+                    wbS.onExit();
+                    CheckNear(sorted.localScale.x, MenuDraw.DeckCellSortK, 1e-4f,
+                              "⑥ 排序列离开后仍是 0.8（🧨 被 onExit 还原成 1.0 ⇒ 红）");
+                }
+            }
+
+            // ---------------- ⑦ 资源条 overlay（原版 `ResourcesBarController.ToggleOverlay`）
+            // 判据：`ResourcesBarController__ToggleOverlay.c` —— 卡片详情窗打开时把资源条抬到那扇窗**之上**，
+            //   关掉时还原（调用点 = `CardDisplayWindow.ShowCard/Close/ToBackground/ToFocus`）。
+            //   我们没有 uGUI Canvas ⇒ 等价物 = 把资源条子树的渲染队列整体 **+134**（2986 → 3120，高于详情窗最高的 3118）。
+            {
+                var bar = TopBar.LastBuilt;
+                CheckTrue(bar != null && bar.Root != null, "⑦ （前提）顶栏建出来了（`TopBar.LastBuilt.Root`）");
+                if (bar != null && bar.Root != null)
+                {
+                    var q0 = bar.Root.GetComponentInChildren<ImageQuad>(true);
+                    CheckTrue(q0 != null, "⑦ （前提）顶栏里至少有一颗 `ImageQuad`");
+                    if (q0 != null)
+                    {
+                        int before = q0.RenderQueue;
+                        TopBar.ToggleOverlay(bar, true);
+                        CheckTrue(bar.OverlayOn && TopBar.OverlayTargetCountForTest(bar) > 0,
+                                  "⑦ overlay 打开 ⇒ 有一批件被抬高（🧨 方法空转 ⇒ 这里红）");
+                        Check(q0.RenderQueue, before + (TopBar.QBarOverlayBase - TopBar.QBarPanel),
+                              "⑦ 队列抬到 `+134`（2986 → 3120，高于卡片详情窗最高 3118）");
+                        TopBar.ToggleOverlay(bar, false);
+                        CheckTrue(!bar.OverlayOn, "⑦ 关掉 ⇒ overlay 态清掉");
+                        Check(q0.RenderQueue, before, "⑦ 队列**逐件还原**（🧨 不还原 ⇒ 资源条永远压在窗上 ⇒ 红）");
+                    }
+                }
+            }
+        }
+        finally
+        {
+            Object.DestroyImmediate(probeRoot);
         }
 
         Debug.Log(P + $"=== 合计：{_sink.Pass} 通过 / {_sink.Fail} 失败 ===");

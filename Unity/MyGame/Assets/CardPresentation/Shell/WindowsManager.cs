@@ -200,6 +200,28 @@ namespace CardPresentation
             if (_anchors.TryGetValue(p, out var cur) && cur == t) _anchors.Remove(p);
         }
 
+        /// <summary>🆕 **2026-10-25（`N5`）**：原版那个**静态锚点覆盖**字段
+        /// （`WindowsManager.anchorOverride`，静态 `@0x8`；`out_il2csharp/Assembly-CSharp/WindowsManager.cs:19`）。
+        /// <para>语义（逐句照原版 `GetWindowAnchor`）：**`placement == None` 先返回 null，然后只要 override 非空就用它、
+        /// 最后才查 `anchors` 字典** ⇒ override 是「临时把所有窗都挂到一个节点上」（原版唯一使用者 =
+        /// `TransitionUIAnchor.EnableAnchor/DisableAnchor`，服务于场景过渡 `SimpleSceneTransition`）。</para>
+        /// <para>⚠️ **本工程今天没有任何写点**（我们还没有场景过渡那一层）⇒ 恒 null ⇒ 行为零变化，
+        /// 记在账里的是「方法已对齐、调用方未建」而不是「不可达」。</para></summary>
+        static Transform _anchorOverride;
+
+        /// <summary>= 原版 `WindowsManager.RegisterAnchorOverride(Transform anchor)`（方法体 = `anchorOverride = anchor`）。
+        /// <para>🔴 **账里这条判 D**（原版那个包装**全程序集 0 引用** —— 真实写点是 `TransitionUIAnchor.EnableAnchor`
+        /// **直接写字段**）。这里仍然给一行实现，只是为了让 `_anchorOverride` 有一个**具名写入口**
+        /// （否则将来谁要用就得直接摸私有字段）—— **不影响那条 D 的判断**。</para></summary>
+        public static void RegisterAnchorOverride(Transform anchor) { _anchorOverride = anchor; }
+
+        /// <summary>= 原版 `WindowsManager.UnregisterAnchorOverride()`（方法体 = `anchorOverride = null`）。
+        /// 原版唯一调用点 = `TransitionUIAnchor.DisableAnchor`（`out_il2csharp/.../TransitionUIAnchor.cs:23`）。</summary>
+        public static void UnregisterAnchorOverride() { _anchorOverride = null; }
+
+        /// <summary>自检/诊断用：现在有没有临时锚点覆盖（= 原版 `anchorOverride != null`）。</summary>
+        public static bool HasAnchorOverride { get { return _anchorOverride != null; } }
+
         /// <summary>取锚点。**取不到要报出来**（照原版 `CustomDebug.LogError`）—— 静默返回 null 会让窗口建到场景根上。
         /// <para>🔴 **2026-10-12（`A1629`）就地订正（铁律 5）：`None` 不是「缺锚点」，是原版一个【合法档位】。**
         /// 本行原来没有 `None` 那一支 ⇒ 走到下面那句 `找不到 None 的锚点 —— 场景里缺对应的 WindowHolder`
@@ -208,7 +230,10 @@ namespace CardPresentation
         /// `bundle_scenes_scenes_mainmenuwarpforge/MonoBehaviour/MonoBehaviour_1927.json` 的
         /// `windowsPlacement = 0`（= `None`）—— 它**本身就是**那一棵树的父级、不归三个锚点管。
         /// ⇒ `None` **早退返回 null、不出声**；调用点 `AttachToAnchor` 据此**不换父**（窗口留在自己原来的位置）。
-        /// ⚠️ **别把它和哨兵 `-1` 混成一档**：哨兵是「忘了赋值」（必须出声），`None` 是「显式写了不挂」（合法）。</para></summary>
+        /// ⚠️ **别把它和哨兵 `-1` 混成一档**：哨兵是「忘了赋值」（必须出声），`None` 是「显式写了不挂」（合法）。</para>
+        /// <para>🆕 **2026-10-25（`N5`）**：补上原版那一道 **`anchorOverride` 覆盖**（判据见 `_anchorOverride` 的 doc）。
+        /// ⚠️ 顺序上我们把**哨兵**那道（我们自己的防御，原版没有）留在 override **之前** ——
+        /// 哨兵 = `placement` 忘了赋值，那是 bug，不该被一次临时覆盖悄悄掩盖。</para></summary>
         public static Transform GetWindowAnchor(WindowsPlacement p)
         {
             if (p == WindowsPlacement.None) return null;      // 原版合法值 = 不挂 Holder（主力就是 MainMenuWindow）
@@ -219,6 +244,7 @@ namespace CardPresentation
                                "不是任何一档锚点。原版这个字段必填（141/141 都有值）。");
                 return null;
             }
+            if (_anchorOverride != null) return _anchorOverride;   // = 原版 `if (WindowsManager.anchorOverride != null) return it;`
             if (_anchors.TryGetValue(p, out var t) && t != null) return t;
             Debug.LogError($"[Win] 找不到 {p} 的锚点 —— 场景里缺对应的 `WindowHolder`。" +
                            "主菜单那一层需要 10 / 5 / 15 三个都齐（正本 §三 第 7 条）");
@@ -319,6 +345,43 @@ namespace CardPresentation
             //   左栏命中区按「模态 / 非模态」升降（判据 = `GameWindow.BlocksLeftNav`）。
             //   ⚠️ 必须在 `TryOpen` **之后**：`TryOpen` 才会写 `CurrentState`，而 `TopWindow` 读的是它。
             MainMenuRuntime.RefreshNavHitForTopWindow();
+        }
+
+        // ============================================================ 🆕 2026-10-25（菜单 C）：按类型取/关/刷新窗
+        //
+        // 判据（全量反编译）：
+        //   · `WindowsManager__GetOpenWindow_object_.c` = `openWindows`（字段 0x50）上 `Linq.FirstOrDefault(x => x is T)` 再转型；
+        //   · `WindowsManager__CloseWindow_object_.c` = 先 `GetOpenWindow<T>()`，非空才 `CloseWindow(win)`；
+        //   · `WindowsManager__RefreshWindow_object_.c` = 只对 **`currentWindow`（字段 0x58）**：是 T 就调它的
+        //     「回前台」虚方法（+0x1a8）并把它写回 `currentWindow`。
+        // ⚠️ 我们的等价物：`TryOpen()` 在 `Background` 态那一支正是「SetActive + 回 Open + 不重建」，与 +0x1a8 同净效果。
+
+        /// <summary>原版 `GetOpenWindow&lt;T&gt;`：已开窗里第一扇 `is T`（没有 ⇒ null）。</summary>
+        public T GetOpenWindow<T>() where T : GameWindow
+        {
+            if (openWindows == null) return null;
+            for (int i = 0; i < openWindows.Count; i++)
+            {
+                var w = openWindows[i];
+                if (w == null) continue;
+                var t = w as T;
+                if (t != null) return t;
+            }
+            return null;
+        }
+
+        /// <summary>原版 `CloseWindow&lt;T&gt;`：找到就关（没有 ⇒ 什么都不做）。</summary>
+        public void CloseWindow<T>() where T : GameWindow
+        {
+            var w = GetOpenWindow<T>();
+            if (w != null) w.Close();
+        }
+
+        /// <summary>原版 `RefreshWindow&lt;T&gt;`：**只认当前顶窗**（`currentWindow`）——是 T 才回前台。</summary>
+        public void RefreshWindow<T>() where T : GameWindow
+        {
+            if (currentWindow == null || !(currentWindow is T)) return;
+            currentWindow.TryOpen();          // Background 支 = 回前台、不重建（见上面判据）
         }
 
         /// <summary>🆕 A49：**最上面那一扇窗**。

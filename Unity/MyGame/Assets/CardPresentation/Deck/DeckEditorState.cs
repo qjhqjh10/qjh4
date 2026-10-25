@@ -13,6 +13,7 @@
 //    出厂态是「Owned **开** / Upgradable **关**」（三路实读，见 `DeckFilter.None` 的注释）。
 using System;
 using System.Collections.Generic;
+using System.Text;
 using RuleEngine;
 
 namespace CardPresentation
@@ -57,6 +58,111 @@ namespace CardPresentation
             get { return new DeckFilter { Name = "", Faction = "", Rarity = "", Type = "", Cost = -1, CostMax = 0, Owned = true, Upgradable = false }; }
         }
 
+        /// <summary>多选：阵营 / 稀有度 / 类型的**已选集合**（**并集**语义）。
+        ///
+        /// <para>🔴 **2026-10-25（`C` 域 · 多选筛选）**：原版 `ToggleCollectionFilter.typeFilters` /
+        /// `CardArmyFilter` 那一族存的是**集合**（判据 → `资料/完全复刻/判据/共用件_过滤模型_B升A.md`），
+        /// 我们原来是**单值** ⇒ 这条补「同一类可以多选、结果取**并集**」。</para>
+        /// <para>⚠️ **兼容路径（本轮的关键）**：集合为 `null` / 空 ⇒ **仍然看上面的单值字段**
+        /// （`Faction` / `Rarity` / `Type`）⇒ 今天没有调用点填集合 ⇒ **行为零变化、既有断言全绿**；
+        /// UI 接上集合之后单值字段自然让位（下一步，见 `报告/C_多选筛选_第1轮.md`）。</para></summary>
+        public HashSet<string> Factions, Rarities, Types;
+
+        /// <summary>🆕 **2026-10-25（多选筛选 · 费用）**：已选**费用档位**集合（原版 `CardCostFilter` 也是集合，
+        /// `ToggleCollectionFilter<RawCardScript,int>` 的 `typeFilters`）。
+        /// <para>⚠️ **兼容路径**：集合 `null`/空 ⇒ 仍走 `Cost`/`CostMax` 那对**区间**字段（老口径）；
+        /// 集合非空 ⇒ 用 <see cref="CostOk"/> 的集合支（**夹过的费用 ∈ 集合**）。</para></summary>
+        public HashSet<int> Costs;
+
+        /// <summary>费用是否通过：集合非空 ⇒ **`ClampPoolCost(cost)` ∈ 集合**（与原版一样**夹完再比**）；
+        /// 否则走 `Cost`/`CostMax` 区间（`CostMax <= 0` ⇒ 只看 `Cost` 一个值）。</summary>
+        public bool CostOk(int cost)
+        {
+            if (Costs != null && Costs.Count > 0) return Costs.Contains(DeckEditorState.ClampPoolCost(cost));
+            if (Cost < 0) return true;
+            int hi = CostMax > 0 ? CostMax : Cost;
+            int c = DeckEditorState.ClampPoolCost(cost);
+            return c >= Cost && c <= hi;
+        }
+
+        /// <summary>UI 用：费用那一档亮不亮（集合优先、区间兜底）。</summary>
+        public bool CostSelected(int lo)
+        {
+            if (Costs != null && Costs.Count > 0) return Costs.Contains(lo);
+            return Cost == lo;
+        }
+
+        /// <summary>阵营是否通过：**集合非空 ⇒ 属于集合**（逐项 `DeckRules.SameFaction`，与单值同一把尺）；
+        /// 否则走单值（空串 = 不限）。</summary>
+        public static bool FactionOk(DeckFilter f, string faction)
+        {
+            if (f.Factions != null && f.Factions.Count > 0)
+            {
+                foreach (var x in f.Factions) if (DeckRules.SameFaction(faction, x)) return true;
+                return false;
+            }
+            return string.IsNullOrEmpty(f.Faction) || DeckRules.SameFaction(faction, f.Faction);
+        }
+
+        /// <summary>稀有度是否通过（集合非空 ⇒ 属于集合；比较一律**不敏感**，与单值那一支同口径）。</summary>
+        public static bool RarityOk(DeckFilter f, string rarity)
+        {
+            if (f.Rarities != null && f.Rarities.Count > 0)
+            {
+                foreach (var x in f.Rarities)
+                    if (string.Equals(rarity ?? "", x ?? "", StringComparison.OrdinalIgnoreCase)) return true;
+                return false;
+            }
+            return string.IsNullOrEmpty(f.Rarity) || string.Equals(rarity ?? "", f.Rarity, StringComparison.OrdinalIgnoreCase);
+        }
+
+        /// <summary>卡类是否通过（集合非空 ⇒ 属于集合；否则单值）。</summary>
+        public static bool TypeOk(DeckFilter f, string type)
+        {
+            if (f.Types != null && f.Types.Count > 0)
+            {
+                foreach (var x in f.Types) if (string.Equals(type ?? "", x ?? "", StringComparison.Ordinal)) return true;
+                return false;
+            }
+            return string.IsNullOrEmpty(f.Type) || type == f.Type;
+        }
+
+        /// <summary>UI 用：**这一格现在是不是「选中」状态**（与 <see cref="FactionOk"/> 的区别：
+        /// `*Ok` 回答「这张卡过不过」，空筛选时返回 **true**；`*Selected` 回答「这一格亮不亮」，空筛选时返回 **false**）。
+        /// 🔴 两者**语义不同、别互相替代**（2026-10-25 多选筛选）。</summary>
+        public static bool FactionSelected(DeckFilter f, string v)
+        {
+            if (f.Factions != null && f.Factions.Count > 0)
+            {
+                foreach (var x in f.Factions) if (DeckRules.SameFaction(v, x)) return true;
+                return false;
+            }
+            return DeckRules.SameFaction(v, f.Faction ?? "");
+        }
+
+        /// <summary>UI 用：稀有度那一格亮不亮（集合优先、单值兜底）。</summary>
+        public static bool RaritySelected(DeckFilter f, string v)
+        {
+            if (f.Rarities != null && f.Rarities.Count > 0)
+            {
+                foreach (var x in f.Rarities)
+                    if (string.Equals(x ?? "", v ?? "", StringComparison.OrdinalIgnoreCase)) return true;
+                return false;
+            }
+            return string.Equals(f.Rarity ?? "", v ?? "", StringComparison.OrdinalIgnoreCase);
+        }
+
+        /// <summary>UI 用：卡类那一格亮不亮（集合优先、单值兜底）。</summary>
+        public static bool TypeSelected(DeckFilter f, string v)
+        {
+            if (f.Types != null && f.Types.Count > 0)
+            {
+                foreach (var x in f.Types) if (string.Equals(x ?? "", v ?? "", StringComparison.Ordinal)) return true;
+                return false;
+            }
+            return string.Equals(f.Type ?? "", v ?? "", StringComparison.Ordinal);
+        }
+
         /// <summary>「5 个筛选字段都没设」。⚠️ **不含 `Owned` / `Upgradable`** —— 那两个是独立开关
         /// （原版 `Clear filters` 清的是 `filters[]` 那几件，**不动** `showOnlyOwnedCards`），
         /// 而且 `Owned` 出厂就是开、在单机全解锁下也不改变结果 ⇒ 它不是「有没有筛选」的判据。</summary>
@@ -65,7 +171,10 @@ namespace CardPresentation
             get
             {
                 return string.IsNullOrEmpty(Name) && string.IsNullOrEmpty(Faction)
-                    && string.IsNullOrEmpty(Rarity) && string.IsNullOrEmpty(Type) && Cost < 0;
+                    && string.IsNullOrEmpty(Rarity) && string.IsNullOrEmpty(Type) && Cost < 0
+                    && (Factions == null || Factions.Count == 0)
+                    && (Rarities == null || Rarities.Count == 0)
+                    && (Types == null || Types.Count == 0);
             }
         }
     }
@@ -455,9 +564,11 @@ namespace CardPresentation
                 }
                 if (needle != null && !NameSearchMatch(c, needle))
                     continue;
-                if (!string.IsNullOrEmpty(f.Faction) && !DeckRules.SameFaction(c.Faction, f.Faction)) continue;
-                if (!string.IsNullOrEmpty(f.Rarity) && !string.Equals(c.Rarity ?? "", f.Rarity, StringComparison.OrdinalIgnoreCase)) continue;
-                if (!string.IsNullOrEmpty(f.Type) && c.Type != f.Type) continue;
+                // 🆕 2026-10-25（多选筛选）：三条判定收进 `DeckFilter.*Ok` —— **集合优先、单值兜底**
+                //   （集合为空时逐字等价于原来那三行 ⇒ 今天行为零变化）
+                if (!DeckFilter.FactionOk(f, c.Faction)) continue;
+                if (!DeckFilter.RarityOk(f, c.Rarity)) continue;
+                if (!DeckFilter.TypeOk(f, c.Type)) continue;
                 // 🆕 2026-09-28（原版两个开关，卡组编辑与收藏窗同一套）：
                 //   · `Owned`（原版**出厂就是开** —— 三路实读见 `DeckFilter.None`）：单机**全解锁**
                 //     ⇒ 打开它**筛不掉任何一张** ——
@@ -465,38 +576,8 @@ namespace CardPresentation
                 //   · `Upgradable`：我们**没有升级系统** ⇒ 打开它**必然一张不剩** ——
                 //     `项目任务.md` §〇 已拍板「恒空是预期的」（界面那边会出声说明）。
                 if (f.Upgradable) continue;
-                if (f.Cost >= 0)
-                {
-                    // `CostMax <= 0` ⇒ 只看 `Cost` 这一个值（卡组编辑那条老路）
-                    int hi = f.CostMax > 0 ? f.CostMax : f.Cost;
-                    // 🔴🆕 **2026-10-14（账 `N10`）：比的是**夹过**的卡费（`[1,8]`），不是裸 `c.Cost`。**
-                    //   判据 = 原版 `d:/2/tools/decomp_full/CardCostFilter__FilterItem.c:15-20`（现读）：
-                    //     `iVar2 = *(int *)(card + 0x78);`（= 这张卡的 `manaCost`）
-                    //     `if (iVar2 < 2) iVar2 = 1; else if (7 < iVar2) iVar2 = 8;`
-                    //   —— 夹完**才**交给那条筛选谓词（`:22` `FUN_1817002f0(filter + 0x38, iVar2, …)`）。
-                    //   🔑 **谓词是什么，现读清了**：`CardCostFilter` 的桩是
-                    //     `class CardCostFilter : ToggleCollectionFilter&lt;RawCardScript, int&gt;`
-                    //     （`d:/2/Warpforge_code/Scripts/Assembly-CSharp/CardCostFilter.cs`）
-                    //     ⇒ `+0x38` = 那一族**已选中的 int 档位集**，那句就是
-                    //     **「夹过的费用 ∈ 已选档位」**。八档的 `alternativeText` 是
-                    //     `1-` / `2`…`7` / `8+`（本工程 `FilterPanelModel.CostBuckets` 实读）
-                    //     ⇒ **夹取正是为了把「≤1」折进第 1 档、「≥8」折进第 8 档** ——
-                    //     不夹的话那两档的边界卡永远匹配不上。**夹的是【卡】那一侧**，
-                    //     档位（`Cost` / `CostMax`）原版不动 ⇒ 我们这边夹的也只有 `c.Cost`。
-                    //   📐 **与我们的区间写法等价**：我们 `CostBucketHi` 给的是
-                    //     `1-` ⇒ `[1,1]` · `2`…`7` ⇒ `[n,n]` · `8+` ⇒ `[8, int.MaxValue]`
-                    //     ⇒ 夹过之后 `[1,1]` ⇔ 原值 ≤ 1、`[8,∞)` ⇔ 原值 ≥ 8（逐档都对得上）。
-                    //   📌 **可达性（我们池子实测，`RuleEngine/Resources/cards_engine.json` 1126 张）**：
-                    //     · `cost == 0` **111 张**（56 个督军 + 55 张其它：`ASH_Flickerjump` /
-                    //       `ASH56 Inspiring Legacy` 这类）⇒ 夹成 1 ⇒ 在 `1-` 档里
-                    //       **改前被筛掉（`0 < 1`）、改后列得出来**；
-                    //     · `cost >= 8` **83 张**（8…14）⇒ 夹成 8；我们 `8+` 档的上界是
-                    //       `int.MaxValue` ⇒ **这一半今天看不出差别**，公式照原版补全（铁律 11）。
-                    //   ⚠️ **本笔只改筛选口径、不改卡表**：督军 `cost = 0` 是**真值偏差**
-                    //     （真值 `2`，另一笔 `A1773` 去改）—— ⛔ 别在这里顺手改数据。
-                    int ccost = ClampPoolCost(c.Cost);
-                    if (ccost < f.Cost || ccost > hi) continue;
-                }
+                // 🆕 2026-10-25（多选筛选 · 费用）：整段收进 `DeckFilter.CostOk`（**集合优先、区间兜底**）
+                if (!f.CostOk(c.Cost)) continue;
                 outList.Add(c);
             }
 
@@ -506,43 +587,103 @@ namespace CardPresentation
             //   而原版真值是**按 `cardArmy` 枚举值整表排**（10→130），比「首次出现序」更确定，也顺带解决了掉队那位。
             //   判据见 `SortForDisplay` 的 doc。
             SortForDisplay(outList);
+            // 🔴🔴 **2026-10-25（调度台裁定 · 口径 1）：搜索生效时整表【反序】—— 照抄原版。**
+            //   判据（双证）：`CardNameFilter.cs:54-170` 的 `CheckInputTextSearch` 是
+            //   `int num = collection._size - 1;` 起、每轮 `num--`、命中就 `list.Add(...)`；
+            //   `decomp_full/CardNameFilter__CheckInputTextSearch.c:44-46` 同一句（`iVar1 += -1` → `get_Item(param_2,iVar1)`）
+            //   ⇒ **结果表 = 传进来那一列的池序反序**（不是排序、不是 bug 修正的对象 —— 原版就这样）。
+            //   ⚠️ **前提**：我们的池序 == 原版 `collection` 序。原版进 `CardNameFilter.Filter` 之前，
+            //   `collection` 就是 `CardCollectionTab.GetCollection()` 那 5 个 `OrderBy` 排完的那一列
+            //   ⇒ 与我们的 `SortForDisplay(outList)` **同一条**（`SortForDisplay` 的 doc 已逐条对上）。
+            //   ⛔ **只有卡名搜索这一支翻序**：原版其余筛选器（`ToggleCollectionFilter` 一族 / `CardCostFilter` …）
+            //   都是原地 `Where`，**不翻**。所以这里判的是 `needle != null`（= `Filter.Name` 非空）。
+            if (needle != null) outList.Reverse();
             return outList;
         }
 
-        /// <summary>卡名搜索**一格**的匹配。判据 = 原版 `CardNameFilter.CheckInputTextSearch`（实读，
-        /// `d:/2/tools/decomp_full/CardNameFilter__CheckInputTextSearch.c`）：
+        /// <summary>卡名搜索**一格**的匹配。判据 = 原版 `CardNameFilter.CheckInputTextSearch`
+        /// （🥇 `d:/2/tools/cpp2il/out_cpp2il_dev_ilspy/CardNameFilter.cs:54-170`，`decomp_full/` 那份逐句一致）：
         /// · **子串包含**（`String.Contains`），**不是前缀**；**大小写不敏感**（两边都 `ToLower()`）；
-        /// · 🔴 **不只看卡名** —— 原版依次比 ① 本地化卡名 ② 本地化效果文字（先剥富文本标签）
-        ///   ③ 阵营名 ④ 兵种名 ⑤ 卡类型名 ⑥ 费用（`cost.ToString()`）；**任一中就算命中**。
+        /// · 原版依次比 **六项**，任一中就算命中：
+        ///   ① 本地化**卡名**（`GetLocalizedCardName`）
+        ///   ② 本地化**效果文字**（`GetLocalizedCardDescWithLineBreak`，**先 `RemoveBetween(desc,"&lt;","&gt;")`**）
+        ///   ③ **阵营名**（`GameStaticData.CardArmyToString` = `Loc("Armies/" + 枚举名)`）
+        ///   ④ **兵种/种族名**（`GameStaticData.CardRaceToString` = `Loc("Card_Race/" + 种族串)`）
+        ///   ⑤ **资料片枚举名**（`PlayerItem.expansionPack` 的 `Enum.ToString()`，`!= Default` 才比）
+        ///   ⑥ **稀有度**（`Loc("MainMenu/General/Rarity" + (int)cardRarity)`）
+        /// 🔴 **2026-10-25（`C` 收藏域 · K3 P2-⑤）就地订正（铁律 5）** —— 本 doc 原来那张表写着
+        ///   「③ 阵营名 ④ 兵种名 ⑤ **卡类型名** ⑥ **费用**」，**⑤⑥ 记错了**：原版**不比卡类型名、也不比费用**，
+        ///   那两项是我们的自加。本轮：**删掉「按费用数字搜」**、**补上稀有度**（⑥）；
+        ///   ⑤（资料片）见下面「未落地」两行，④ 的本地化名同理。
         /// ⚠️ 我们是双语工程 ⇒ 中英两套（`Name`/`NameZh`、`Desc`/`DescZh`）**都查**（比原版宽一点点，
         ///    原版一次只查当前语言那一套）—— 如实标。
         /// ⚠️ 原版空串 / 全空白 ⇒ **直接返回全集**（`Filter.c` 的 `IsNullOrWhiteSpace` 分支）。</summary>
         static bool NameSearchMatch(CardDef c, string needle)
         {
-            if (Hit(c.Name, needle) || Hit(c.NameZh, needle) || Hit(c.Desc, needle) || Hit(c.DescZh, needle))
-                return true;
-            // 🔴 2026-09-28（审核抓出来的真缺陷）：原来拿**内部 id** 比（`unit` / `Ultramarines`）
-            //    ⇒ **照着抽屉里印的字搜不到**（打 `Troops` / 中文阵营名全落空）。
-            //    改成 id 与**显示名**都比（原版比的就是本地化后的阵营名/类型名）。
+            // ① 本地化卡名（中英两套）
+            if (Hit(c.Name, needle) || Hit(c.NameZh, needle)) return true;
+            // ② 本地化效果文字 —— 原版先剥 `<…>` 之间的富文本/图标标记再比
+            //    （`CardNameFilter.RemoveBetween(source, "<", ">")`：正则 `<(.*?)>`、**右到左**、替换成 `<>`）
+            if (Hit(StripTags(c.Desc), needle) || Hit(StripTags(c.DescZh), needle)) return true;
+            // ③ 阵营名：原版 `Loc("Armies/" + 枚举名)`；`CardText.Faction` 就是那一份（唯一映射）
+            //    ⚠️ **如实标：比原版多查一条裸 id**（`Hit(c.Faction)`）—— 留作「本地化缺键」时的兜底，
+            //    是**我们自加**的（原版只比本地化名）。它只会多命中、不会少命中。
             if (Hit(c.Faction, needle) || Hit(CardText.Faction(c.Faction), needle)) return true;
-            if (Hit(c.Subtype, needle) || Hit(c.Type, needle)) return true;
-            // 🔴 **2026-10-18（双语线 · 波 1 · P1）**：类型名那两串**都查** —— ① 抽屉 Type 那一行
-            //   **现在印的那一份**（随语档，`FilterPanelModel.TypeLabelAt`）② 原版的英文串
-            //   （`TypeLabels`）。
-            //   ⚠️ **2026-10-18 之后·第六会话订正（铁律 5）**：这里原写「（`TypeLabels`，**闸门未开时两者相同**）」
-            //     —— 那个**取词闸门已删除**（`WCoreDeck` / `A1025` 最终形态：键全在表 ⇒ 一律裸 `Loc.T`，
-            //     闸门是静默兜底）⇒ 措辞不成立。**事实仍成立**：`TypeLabels` 现在**只作「原版英文串」用**
-            //     （不再参与显示，`FilterPanelModel.RarityNames` / `TypeLabels` 的 doc 已写明）。
-            //   少 ① = **照着屏上印的字搜不到** ——
-            //   那正是本节上面那条真缺陷（拿内部 id 当显示名比）的同一种病。
-            //   ⚠️ 未认识的 `c.Type` 不在这里（`Hit(c.Type, needle)` 上面已经比过）。
-            for (int i = 0; i < FilterPanelModel.TypeKeys.Length; i++)
+            // ④ 兵种/种族名 —— 原版 `CardRaceToString`（空 refId 时：兵种走 `MinionRaceToString`、
+            //    战将走 `Card_Race/Warlord`、战术走 spellType 枚举名），最终都是 `Loc("Card_Race/" + 串)`。
+            //    ✅ **2026-10-25 已接通**：代理 E 按请求把卡面那一条**同款**显示名暴露成
+            //    `CardView.RaceDisplayName(subtype)`（bulk → 手写表 → 老键，**3 步口径只此一处**）⇒ 这里直接转它，
+            //    不再自己抄第二份。（同时保留裸 subtype：本地化缺键时 `RaceDisplayName` 原样返回英文，两路同值。）
+            if (Hit(c.Subtype, needle) || Hit(CardView.RaceDisplayName(c.Subtype), needle)) return true;
+            // ⑤ 资料片枚举名（原版 `expansionPack.ToString()`；`Default` 不参与）——
+            //    ✅ **2026-10-25 已接通**：代理 A 给 `CardDef` 加了 `Expansion` + `ExpansionSearchName`
+            //    （后者就是原版枚举成员名的小写；`<= 0` 返回 null ⇒ 正好是原版「`!= Default` 才比」那一档）。
+            if (Hit(c.ExpansionSearchName, needle)) return true;
+            //    ⚠️ 顺带：**卡类型名我们不查** —— 原版就没有这一项（`Troops` / `Spells` 在原版搜不到）。
+            // ⑥ 稀有度：原版 `Loc(GetTermTranslation("MainMenu/General/Rarity" + (int)cardRarity))`
+            //    （`CardNameFilter.cs:140-150`；`CardRarity` 枚举 = None0/Common1/Rare2/Epic3/Legendary4/Special5）。
+            //    🔴🔴 **2026-10-25（调度台裁定 · 口径 2）：照原版的调用路径走 —— 无条件取词条翻译再比。**
+            //    原版**没有**「键不在表里就跳过比较」这条分支，所以我们也不加。
+            //    现况（如实记）：官方词条表 10,854 条 + `d:/2` 全盘 json/txt/csv 里 `MainMenu/General/Rarity*`
+            //    **0 命中** ⇒ 我们 `Loc.T` 走缺键档 = **返回键名本身**（`Core/Loc.cs` 的缺键档，
+            //    且**按 key 去重**只出声一次 ⇒ 最多 5 条告警，不会按卡刷屏）
+            //    ⇒ `Hit("MainMenu/General/Rarity3", …)` ⇒ **搜 `rarity3` 会把所有卡都匹配上**。
+            //    ✅ **这就是原版行为**（I2 缺键回键名）。⛔ 别改成比 `Card_Rarity/*`（那是让功能「变好用」，
+            //    偏离原版；用户口径 = 一切按原版、不做多余的自我设计）。
             {
-                if (FilterPanelModel.TypeKeys[i] != c.Type) continue;
-                if (Hit(FilterPanelModel.TypeLabelAt(i), needle)) return true;
-                if (Hit(FilterPanelModel.TypeLabels[i], needle)) return true;
+                int ri = RarityEnumIndex(c.Rarity);
+                if (ri >= 0 && Hit(Loc.T("MainMenu/General/Rarity" + ri), needle)) return true;
             }
-            return Hit(c.Cost.ToString(), needle);
+            return false;
+        }
+
+        /// <summary>稀有度串 → 原版 `CardRarity` 枚举值（`None0/Common1/Rare2/Epic3/Legendary4/Special5`）。
+        /// 认不出给 −1。表只有一份（`FilterPanelModel.RarityKeys` 的顺序 = Common…Special）⇒ 用它推 +1。</summary>
+        static int RarityEnumIndex(string rarity)
+        {
+            if (string.IsNullOrEmpty(rarity)) return -1;
+            for (int i = 0; i < FilterPanelModel.RarityKeys.Length; i++)
+                if (string.Equals(FilterPanelModel.RarityKeys[i], rarity, StringComparison.OrdinalIgnoreCase))
+                    return i + 1;
+            return -1;
+        }
+
+        /// <summary>把 `<…>` 之间的内容**整段吃掉**（保留尖括号）—— 原版 `CardNameFilter.RemoveBetween(desc,"&lt;","&gt;")`
+        /// 的等价物（正则 `&lt;(.*?)&gt;` + `RightToLeft` + 替换成 `&lt;&gt;`）。不贪心 ⇒ 逐个配对。
+        /// ⚠️ 只用于**搜索比较**，不改任何显示串（卡面印的还是原文）。</summary>
+        static string StripTags(string s)
+        {
+            if (string.IsNullOrEmpty(s) || s.IndexOf('<') < 0) return s;
+            var sb = new StringBuilder(s.Length);
+            bool inside = false;
+            for (int i = 0; i < s.Length; i++)
+            {
+                char ch = s[i];
+                if (ch == '<' && !inside) { inside = true; sb.Append('<'); continue; }
+                if (ch == '>' && inside) { inside = false; sb.Append('>'); continue; }
+                if (!inside) sb.Append(ch);
+            }
+            return sb.ToString();
         }
 
         static bool Hit(string hay, string needle)

@@ -16,28 +16,38 @@
 //     exitDestroyTime  956/990 是 3.0 —— 基本是个常量默认值
 //     preventDestroy   97 个实例是 1
 //
-//   两条时间线**是并行的两条路，不是串起来的**，依据是上面那组分布：
-//     · 自己管销毁的（preventDestroy=false）：到 destroyTime 就走一次 Exit()，再留 exitDestroyTime 收尾
+//   两条时间线**是并行的两条路，不是串起来的**（下面这组分布当时是唯一的线索）：
+//     · 自己管销毁的（preventDestroy=false）：到 destroyTime 就销毁
 //     · 交给外部的（preventDestroy=true）：原版不管，由牌局/技能代码在合适时机调 Exit()
 //   因为 exitDestroyTime 几乎是个常量，而 destroyTime 是逐个调过的 —— 若两者是串联的
 //   「先活 destroyTime 再活 exitDestroyTime」，你不会看到这种分布。
+//   ⚠️ **2026-09-18 反编译更正**：上面第 1 条当时写成「到 destroyTime 就走一次 Exit()」—— **错**，
+//      原版那条路上**不调 Exit**（见下）。2026-10-25 代码已按反编译改齐。
 //
-// 🔴 **2026-09-18 全量反编译复核 —— 上面那条反推已被证伪一半，下面是我们现在的实际行为，两者不同：**
-//   实据：原版 `AnimFXController__OnEnable.c:20-27` 是
-//         `if (!preventDestroy) Object.Destroy(gameObject, destroyTime);` —— **到点直接销毁，不调 `Exit`**。
-//   全量 grep `AnimFXController__Exit` 的外部调用点**只有两处**：
-//         `BattleCardUI__CleanStatusAnims.c` / `RemoveStatusAnim.c`
-//   ⇒ **原版在 `destroyTime` 那条路上，`AnimFXModuleAnimation.Exit`（退场动画）/ `DestroyInTime.Exit` /
-//      `ChangeMaterial.Exit` 根本不会跑**；`Exit` 只在「外部主动收」那条路（`preventDestroy=true`）上被调。
-//   ⇒ ⚠️ **我们不一样**：`Tick` 到寿命时**会先调 `Exit()`**（见下 `Tick:284`），所以我们的自毁效果
-//      **会播原版不播的退场动画**。
-//   🔴 **没改的原因（留作待办，别当成已完成）**：这是一处**宽影响面**的行为改动
-//      （所有自毁效果的表现都变），而且 `Exit()` 在我们这边可能还兼着**池回收 / 收尾**的职责。
-//      要用新证据改它，**必须先量**（`EffectCompare` + 台账的 `|ln(亮度比)|`）。
-//      **出处**：`资料/AnimFX_实现与接线.md` §十一 的「建议改 ⓑ」。
-//   （原文——当时只能反推——保留在下面，作对照：）
-//     ⚠️ 这一条是**反推的，不是反编译来的**（Ghidra 工具链没重建）。判错的话实拍一比就露馅：
-//        拿原版游戏（`d:/2/unity_run_ref/`，带 SceneJumpShot mod）拍同一个效果，比存活时长即可。
+// 🔴 **2026-10-25：两条时间线按反编译方法体逐句对齐了（原来是「到寿命先 Exit」的偏离，已撤）。**
+//
+//   原版判据（`d:/2/tools/decomp_full/`，第一权威）：
+//     · `AnimFXController__OnEnable.c`：
+//         `currentTime = 0;`
+//         `if (destroyTime > 0 && !preventDestroy) Object.Destroy(gameObject, destroyTime);`
+//       ⇒ **到点直接销毁 GameObject —— 不调 `Exit()`、不广播模块、不停发射、不播 `exitSounds`。**
+//     · `AnimFXController__Exit.c`：`OnFinished?.Invoke()` → `foreach (m in modules) m.Exit()` →
+//         `exiting = true` → `if (!preventDestroy) Object.Destroy(gameObject, exitDestroyTime);`
+//       ⇒ Exit 这条路**也不停发射**（它只让模块收尾），再活 `exitDestroyTime`（默认 3s）才销毁。
+//     · 全量 grep 调用点：`AnimFXController__Exit` **只有 2 处**
+//       （`BattleCardUI__CleanStatusAnims.c` / `__RemoveStatusAnim.c`，都是**状态动画**那条）；
+//       `AnimFXController__DoDestroy` **只有 1 处**（`BattleManager__RemoveDestroyableAnims.c`）。
+//       ⇒ 绝大多数效果**从头到尾没人调 Exit**，「退场动画 / exitSounds」在它们身上原版根本不播。
+//
+//   我们现在的行为（= 上面两条，逐条对上）：
+//     · `Tick` 到 `_lifetime` ⇒ `DestroyAtLifetime()`：**直接销毁**（见该方法）。
+//     · `Exit()`（外部调：状态动画收场 / 我们自己要收某个效果时）⇒ 广播 OnFinished + 模块 Exit，
+//       再活 `exitDestroyTime` 后销毁。⚠️ 我们**不再** `ps.Stop(StopEmitting)` —— 原版不停
+//       （这一步是 2026-10-25 撤掉的；当时它是配着「到寿命先 Exit」那套写的）。
+//   ⚠️ **两处有意的偏离（都不是「原版就这样」）**：
+//     ① `Exit()` 有**重入保护**（原版没有：它每调一次就再 `OnFinished` 一次、再排一次销毁）；
+//     ② `Kill()` / `autoDestroySeconds` 是本工程自有 API，`Kill` 会先广播一次 `DoDestroy`
+//        （原版没有对应物）。`autoDestroySeconds` 走的是原版那条 `destroyTime` 语义。
 //
 // 用法：
 //    WarpforgeEffectPlayer.Play("Antimatter Explosion", parent: cardRoot);
@@ -60,6 +70,10 @@ namespace WarpforgeVFX
 
         /// <summary>当前活着的特效数。白板测试靠它证「播 → 消失」闭环，不靠肉眼。</summary>
         public static int ActiveCount { get { return Active.Count; } }
+
+        /// <summary>🆕 2026-10-25：因为**持有者离场**（父节点销毁 / 变成 `activeInHierarchy=false`）
+        /// 而被收掉的实例数（累计）。诊断/自检用 —— 它 &gt; 0 说明 `preventDestroy` 那批真的被收过。</summary>
+        public static int OwnerReleased { get; private set; }
 
         /// <summary>当前所有活着的实例（只读快照，调用方别改）。</summary>
         public static IReadOnlyList<WarpforgeEffectPlayer> ActivePlayers { get { return Active; } }
@@ -107,11 +121,41 @@ namespace WarpforgeVFX
         bool _warnedNoEntry;
 
         float _time;            // 从播放到现在
-        float _lifetime;        // 到点调 Exit()；float.PositiveInfinity = 不自动收
+        float _lifetime;        // 到点**直接销毁**（原版 destroyTime）；float.PositiveInfinity = 不自动收
         float _exitAt = -1f;    // 调 Exit() 的时刻
-        float _exitDelay;       // Exit() 之后再活多久
+        float _exitDelay;       // Exit() 之后再活多久（原版 exitDestroyTime）
         bool _exiting;
         bool _destroyed;
+        /// <summary>🆕 2026-10-25（完全复刻第 1 轮 · D 域 · K5 `P1-4` 的落地）：**持有者**。
+        ///
+        /// <para>**为什么需要**：原版这批特效 `preventDestroy = 1`（现读一次性桶里 **15 个效果 / 37 行**），
+        /// 原版**从不**给它们排计时销毁 —— 它们靠「实例化在卡的 `effectsAnchor` 下
+        /// （`CardScript.cs:17167`），卡离场 ⇒ 整棵子树一起没」收场。我们原来既没有计时销毁、
+        /// 也没有这一跳 ⇒ 它们**整局驻留**（其中 `MarkOfSlaanesh_enchantment` /
+        /// `Buff EC Stimulate passive` 是**循环发射器**，画面一直留在场上）。</para>
+        ///
+        /// <para>**这一跳做什么**：`Tick` 里盯这个 Transform —— 它被销毁、或所在 GameObject
+        /// 变成 `activeInHierarchy == false`（= 那张卡离场/视图收起来了）⇒ **直接销毁自己**
+        /// （= 原版「父节点被销毁、子件跟着没」；**不**广播模块 `Exit`、**不**发 `OnFinished`）。
+        /// 与 `Exit()` / `DoDestroy()` 都不同，见 `Tick` 里那段的注释。</para>
+        ///
+        /// <para>⚠️ **与「到寿命销毁」是两条路**（⛔ 别合并）：寿命那条按 `destroyTime`；
+        /// 这条按**持有者还在不在**。`preventDestroy` 的特效**只走这条**。</para>
+        /// <para>⚠️ **只有 `parent != null` 的实例才会被盯**（`Play` 里设）—— 根特效
+        /// （`parent == null`，例如 HUD 平面那几件）没有持有者，⛔ 不猜一个。</para></summary>
+        Transform _ownerWatch;
+        /// <summary>`_ownerWatch` 的开关。⚠️ **必须单独记一个 bool**：Unity 的 `==` 对**已销毁**的对象
+        /// 返回 null 语义（fake-null）⇒ `if (_ownerWatch != null)` 在「持有者被销毁」时是 **false**，
+        /// 那个分支永远进不去（本项目踩过同形的坑）。</summary>
+        bool _hasOwnerWatch;
+        /// <summary>见过持有者**活着**一次没有（见 `Tick` 里那段：没见过的「inactive」不算离场）。</summary>
+        bool _ownerWasActive;
+
+        // ---- 🆕 2026-10-25：原版 `DestroyByTime` 那一跳（`WFEffectExtras` 用）----
+        /// <summary>`-1` = 没排。否则 = 到 `_time` 超过它就销毁（**直接销毁**，同 `DestroyAtLifetime`）。</summary>
+        float _destroyAfterAt = -1f;
+        /// <summary>本实例上「非 AnimFX 模块」的逐帧组件（`IWFEffectExtraTick`；`Init` 里收一次）。</summary>
+        readonly List<IWFEffectExtraTick> _extraTicks = new List<IWFEffectExtraTick>();
         /// <summary>🆕 2026-10-23（A1 R23）：销毁权已交给某个模块（原版 `AnimFXController.DoDestroy`
         /// 「有模块就不销毁」）⇒ controller 不再自己 `Destroy`，但仍要继续 `Tick` 让模块的数秒倒计时跑完。</summary>
         bool _destroyHandedOff;
@@ -157,10 +201,13 @@ namespace WarpforgeVFX
         public bool IsExiting { get { return _exiting; } }
         public bool IsPlaying { get { return !_exiting && !_destroyed; } }
 
-        /// <summary>预计总存活时长（含 Exit 后的收尾）。不自动收的是 Infinity。</summary>
+        /// <summary>预计总存活时长。不自动收的是 Infinity。
+        /// ⚠️ **2026-10-25**：到寿命那条路现在是「**直接销毁**」（原版 `destroyTime`），
+        /// **不再加** `exitDestroyTime` 的尾巴 —— 尾巴只在**外部调了 `Exit()`** 时才有
+        /// （本属性算不出「谁会调 Exit」，所以只报自己管得着的那一段）。</summary>
         public float ExpectedLifetime
         {
-            get { return float.IsPositiveInfinity(_lifetime) ? float.PositiveInfinity : _lifetime + _exitDelay; }
+            get { return _lifetime; }
         }
 
         // ---- 播放入口 ----
@@ -268,6 +315,12 @@ namespace WarpforgeVFX
             if (p == null) p = go.AddComponent<WarpforgeEffectPlayer>();
             p.Init(entry, autoDestroySeconds);
 
+            // 🔴 2026-10-25（D 域 · 完全复刻第 1 轮 · K5 `P1-4`）：`preventDestroy` 的实例**没有计时销毁**
+            //    （原版语义），它靠「挂在卡的 `effectsAnchor` 下、卡离场整棵子树一起没」收场。
+            //    我们记下持有者，由 `Tick` 盯它（见 `_ownerWatch` 的注释）。
+            //    ⚠️ 只认 `parent != null`：根特效没有持有者，⛔ 不猜一个。
+            if (entry.preventDestroy && parent != null) { p._ownerWatch = parent; p._hasOwnerWatch = true; }
+
             // ---- 层：**在 `Init` 之后**刷，这样模块 `Initialize` 万一挂出新子件也一起搬到同一层 ----
             // 🔴 **2026-10-24（战斗线 `C6·Q1`）：这条规则原来只在 `WarpforgeEffectHook`（`CardEffects.Play`
             //    那条钩子）里做**，而**直接调本函数**的调用点一个都不走它（`CardView` 的残骸体、
@@ -312,6 +365,15 @@ namespace WarpforgeVFX
             else if (entry.preventDestroy) _lifetime = float.PositiveInfinity;       // 原版不让它自己死
             else _lifetime = entry.AutoLifetime();
 
+            // 🔴 **2026-10-25（完全复刻第 1 轮 · D 域）**：`isRetaliation` 必须在**模块 `Initialize` 之前**算好
+            //    —— 原版那两个东西是同一跳：`AnimFXController.SetData(actingCard,targetCard)`
+            //    → `foreach (modules) module.Initialize(this)` → 基类 `Initialize` 里算
+            //    `isRetaliation = actingCard.isPlayer != BattleManager.IsPlayerTurn()`
+            //    （`decomp_full/AnimFXController__SetData.c:31-46` + `AnimFXModuleBase__Initialize.c:26-50`）。
+            //    原来我们**一个赋值点都没有** ⇒ 恒 false ⇒ `WFModuleInstanceParticleAdjacent` 那道
+            //    `playOnRetaliation` 闸**永远放行**（1 个实例会在反击拍误播）。
+            ResolveIsRetaliation();
+
             // ---- 模块：先按数据装配（原版那批），放粒子之前建好 ----
             BuildModules(entry);
 
@@ -321,7 +383,51 @@ namespace WarpforgeVFX
                 ps.Play(true);
             }
 
+            // 🔴 2026-10-25：**非 AnimFX 模块**的那些 MonoBehaviour（`SyncParticleSeeds` / `DestroyByTime` /
+            //    `SubEmitterManualTrigger` …）原来**一个都不会被携带** ⇒ 静默丢失。
+            //    现在按 `Resources/WarpforgeVFX/effect_extras.json` 补挂（表只含需要它的 88 件特效）。
+            //    ⚠️ **排在上面那次 `Play` 之后**：`SyncParticleSeeds` 要「先停再按同一种子起」，
+            //    顺序反了它设的种子会被我们这次 `Play` 盖掉。
+            WFEffectExtras.AttachAll(this);
+            _extraTicks.Clear();
+            foreach (var x in GetComponentsInChildren<IWFEffectExtraTick>(true)) _extraTicks.Add(x);
+
             Active.Add(this);
+        }
+
+        /// <summary>🆕 2026-10-25：排一次「到点直接销毁」（原版 `DestroyByTime.Start` 那一跳）。
+        /// 走的是 `DestroyAtLifetime` 同一条路（不广播模块、不发 `OnFinished`）。</summary>
+        public void DestroyAfter(float seconds)
+        {
+            if (seconds < 0f) return;
+            _destroyAfterAt = _time + seconds;
+        }
+
+        /// <summary>累计「算不出 `isRetaliation`」的次数（回合方钩子 `WFEffectCards.IsLocalPlayersTurn`
+        /// 没挂）。**不静默**：第一次会打一条警告。</summary>
+        public static int RetaliationUnknown { get; private set; }
+
+        /// <summary>🔴 2026-10-25：按原版那一拍算 `IsRetaliation`
+        /// （`actingCard.isPlayer != IsPlayerTurn()`；判据 → `WFEffectCards.IsLocalPlayersTurn` 的注释）。
+        /// **必须在模块 `Initialize` 广播之前**调 —— 原版两件事在同一跳里（`SetData` → 各模块 `Initialize`）。</summary>
+        void ResolveIsRetaliation()
+        {
+            IsRetaliation = false;
+            if (WFEffectCards.IsLocalPlayersTurn == null)
+            {
+                if (RetaliationUnknown++ == 0)
+                    Debug.LogWarning("[WarpforgeVFX] `WFEffectCards.IsLocalPlayersTurn` 没挂 ⇒ "
+                                   + "`IsRetaliation` 只能恒 false（原版 `AnimFXModuleBase.Initialize` 里那句 "
+                                   + "`actingCard.isPlayer != IsPlayerTurn()` 算不出来）⇒ "
+                                   + "`playOnRetaliation` 那道闸**永远放行**。挂法见 `WFEffectCards` 那格的注释。"
+                                   + "这条警告只报一次（之后只累加 `RetaliationUnknown`）。");
+                return;
+            }
+            WFEffectCardContext ctx;
+            // warn:false —— 这一格不是「模块要卡但没人供」那条链（那条有它自己的 `MissingCount`），
+            // 别把两者的计数混在一起。
+            if (!WFEffectCards.TryGet(this, out ctx, false)) return;
+            IsRetaliation = (ctx.actingIsPlayer != WFEffectCards.IsLocalPlayersTurn());
         }
 
         /// <summary>把 `entry.modules` 装配成本对象上的模块组件，并广播 `Initialize`。
@@ -379,18 +485,59 @@ namespace WarpforgeVFX
             if (_destroyed) return;
             _time += dt;
 
+            // 🔴 2026-10-25：持有者离场 ⇒ 收掉自己（见 `_ownerWatch` 的注释）。
+            //    判据顺序与「到寿命」无关：这条只看持有者还在不在。
+            //    ⚠️ 走的是**直接销毁**（`DestroyAtLifetime`，不广播模块、不发 `OnFinished`）——
+            //       因为原版这一跳的真相是「**父节点被销毁，子件跟着没**」：Unity 销毁父物体时
+            //       不会调任何模块的 `Exit()`。⛔ 别改成 `DoDestroy()`：那对有模块的实例**不销毁**
+            //       （`Teleport Recall` / `Tidewall Gunrig` / `CoordinatedEngagement` 都挂着模块），
+            //       换过去等于没修。
+            //    ⚠️ `_ownerWatch == null` 在「持有者已被销毁」时为真（Unity fake-null）——
+            //       所以**不能**写成 `_ownerWatch != null &&`（那样永远进不来）。
+            //    ⚠️ `_ownerWasActive`：**必须先在它活着的时候见过一次**，才把「inactive」当「离场」。
+            //       否则「在持有者还没激活时播的特效」（视图构建中 / 池里取出前）会被当场收掉。
+            if (_hasOwnerWatch)
+            {
+                bool ownerGone = _ownerWatch == null;
+                if (!ownerGone)
+                {
+                    if (_ownerWatch.gameObject.activeInHierarchy) _ownerWasActive = true;
+                    else ownerGone = _ownerWasActive;
+                }
+                if (ownerGone)
+                {
+                    _hasOwnerWatch = false;
+                    OwnerReleased++;
+                    DestroyAtLifetime();
+                    return;
+                }
+            }
+
             // 模块先行：原版各模块自己写 `Update()`，这里收口成统一广播 ——
             // `autoTick=false`（批处理 / 确定性测试）时能整体停，不会漏掉某个模块。
             for (int i = 0; i < _modules.Count; i++)
                 if (_modules[i] != null) _modules[i].ModuleTick(dt);
 
-            if (!_exiting)
+            // 🆕 2026-10-25：**非 AnimFX 模块**的逐帧组件（原版各自写 `Update`）。收口到这里广播，
+            //    这样批处理（没有帧循环）也走同一条路 —— ⛔ 别让那些组件自己写 `Update()`。
+            for (int i = 0; i < _extraTicks.Count; i++)
+                if (_extraTicks[i] != null) _extraTicks[i].ExtraTick(dt);
+
+            // 🆕 原版 `DestroyByTime`：到点**直接销毁**（与 `destroyTime` 那条同一个 `DestroyAtLifetime`）
+            if (!_exiting && _destroyAfterAt >= 0f && _time >= _destroyAfterAt) { DestroyAtLifetime(); return; }
+
+            if (!_exiting && _time >= _lifetime)
             {
-                if (_time >= _lifetime) Exit();
+                // 原版 `AnimFXController.OnEnable` 里那句 `Object.Destroy(gameObject, destroyTime)` 到点。
+                // ⚠️ **不走 `Exit()`** —— 原版那条路上不调 Exit、不广播模块、不停发射、不播 exitSounds
+                //    （判据见文件头）。`_destroyHandedOff` 也不挡：原版这句销毁在 OnEnable 就排好了。
+                DestroyAtLifetime();
+                return;
             }
 
             // 音效在**模块广播旁**（原版 `AnimFXController.Update` 里就是逐条 `sounds[i].Update(currentTime, …)`）。
-            // ⚠️ 排在 `Exit()` **之后**：这样 `exitSounds`（按「开始退出后第 T 秒」计时）能在 Exit 那一帧就起算。
+            // ⚠️ 排在 `Exit()` **之后**：`exitSounds` 只有在 `exiting` 之后才开始判
+            //    （但它的**时间基准仍是 Play**，见 `TickSounds` 里 2026-10-25 那条注）。
             TickSounds();
 
             if (_exiting && !_destroyHandedOff && _time - _exitAt >= _exitDelay)
@@ -399,8 +546,13 @@ namespace WarpforgeVFX
             }
         }
 
-        /// <summary>停止发射、进入收尾（对应原版 AnimFXController.Exit）。
-        /// 收尾时长 = 原版 exitDestroyTime（默认 3s：让已经飞出去的粒子自然死掉）。</summary>
+        /// <summary>进入收尾（对应原版 `AnimFXController.Exit`）。
+        /// 收尾时长 = 原版 `exitDestroyTime`（默认 3s）。
+        ///
+        /// <para>🔴 **2026-10-25：不再 `ps.Stop(StopEmitting)`。** 原版 `Exit` 方法体只有三件
+        /// （`OnFinished?.Invoke()` → 模块 `Exit` → 排 `Destroy(gameObject, exitDestroyTime)`），
+        /// **没有停发射** ⇒ 那 `exitDestroyTime` 里粒子照旧继续发。原来那句是我们自己加的，
+        /// 已经在真机上表现为「收尾比原版早停」。</para></summary>
         public void Exit()
         {
             if (_destroyed || _exiting) return;
@@ -417,10 +569,27 @@ namespace WarpforgeVFX
 
             for (int i = 0; i < _modules.Count; i++)
                 if (_modules[i] != null) _modules[i].Exit();
+        }
 
-            // StopEmitting（不是 StopEmittingAndClear）：现有粒子继续飘完，看起来才不像「啪一下没了」
-            foreach (var ps in GetComponentsInChildren<ParticleSystem>(true))
-                if (ps != null) ps.Stop(true, ParticleSystemStopBehavior.StopEmitting);
+        /// <summary>到寿命那一刻的销毁 —— 原版 `AnimFXController.OnEnable` 的
+        /// `Object.Destroy(gameObject, destroyTime)` 到点（2026-10-25 补齐）。
+        ///
+        /// <para>**它和 `Exit()` 是两条路**：这里**不调 Exit、不广播模块的 Exit/DoDestroy、
+        /// 不播 `exitSounds`、不停发射**，直接销毁 GameObject —— 判据逐句见文件头。</para>
+        /// <para>⚠️ **不发 `OnFinished`**：原版这条路上没有任何委托调用（`OnFinished` 只在 `Exit()` 里发）。
+        /// 本工程 `OnFinished` 的语义因此 = 「**`Exit()` 开始**」，不是「播完」。</para></summary>
+        void DestroyAtLifetime()
+        {
+            if (_destroyed) return;
+            // `IsExiting` 在这条路上也置真：对象已经走到头了，`IsPlaying` 必须为 false
+            // （外部探针，例如 `UserEffectTools` 的「过了寿命 ⇒ 不在播」那条，就是按这两个读口判的）。
+            _exiting = true;
+            _destroyed = true;
+            Active.Remove(this);
+
+            // ⚠️ 与 `DestroyNow` 的同一个理由：**不销毁材质**（binder 的材质走静态共享缓存）。
+            if (Application.isPlaying) Destroy(gameObject);
+            else DestroyImmediate(gameObject);
         }
 
         /// <summary>立刻销毁（**强制** —— 不理会「销毁权交给模块」那条）。</summary>
@@ -441,22 +610,23 @@ namespace WarpforgeVFX
         {
             if (_destroyed || _destroyHandedOff) return;
 
-            bool takeOver = false;
             for (int i = 0; i < _modules.Count; i++)
-            {
-                if (_modules[i] == null) continue;
-                _modules[i].DoDestroy();
-                if (_modules[i].TakesOverDestroy) takeOver = true;
-            }
+                if (_modules[i] != null) _modules[i].DoDestroy();
 
-            if (takeOver)
+            // 🔴 **2026-10-25 订正（完全复刻第 1 轮 · D 域）**：判据从「有没有模块**接管**」改回原版的
+            //    「**有没有模块**」—— `AnimFXController.cs:74-105`：循环里每命中一个模块就 `obj = 1`，
+            //    末尾 `if (obj == null) Destroy(gameObject)` ⇒ **只要挂了模块就只广播、controller 自己死不了**。
+            //    （原来按 `TakesOverDestroy` 判 ⇒ 有模块但没人接管时我们会销毁、原版不会。）
+            //    ⚠️ `TakesOverDestroy` 这个口还在（`WFEffectModule` 里），但**不再是这一跳的判据** ——
+            //       它现在只用于诊断/自检读「有没有模块声称会自己收」。
+            if (_modules.Count > 0)
             {
-                // 销毁权交给模块：**不置 `_destroyed`** —— `Tick` 要继续给模块 `ModuleTick` 跑倒计时。
+                // 销毁权在模块那边：**不置 `_destroyed`** —— `Tick` 要继续给模块 `ModuleTick` 跑倒计时。
                 _destroyHandedOff = true;
                 FireFinished();
                 return;
             }
-            DestroyNow(true, alreadyBroadcast: true);   // 没有模块（或没人接管）⇒ 立刻销毁（原版兜底）
+            DestroyNow(true, alreadyBroadcast: true);   // 一个模块都没有 ⇒ 原版兜底销毁
         }
 
         /// <summary>🆕 **2026-10-24（`A31`）：原版 `SwarmVFXController.OnAnimationEndEvent` 的接收口。**
@@ -542,7 +712,7 @@ namespace WarpforgeVFX
             public float interval;    // 重复间隔（秒）
             public int total;         // 总共播几次（`repeat ? loops : 1`）
             public bool is2d;
-            public bool onExit;       // 来自 `exitSounds[]`（从 Exit 起算）
+            public bool onExit;       // 来自 `exitSounds[]`（只在 `exiting` 之后才开始判，但**时间基准仍是 Play**）
             public int played;        // 已经播了几次（**用 `while` 追帧，不丢拍**）
         }
 
@@ -611,7 +781,13 @@ namespace WarpforgeVFX
                 var s = _sounds[i];
                 if (s.played >= s.total) continue;
 
-                float elapsed = s.onExit ? (_exiting ? _time - _exitAt : -1f) : _time;
+                // 🔴 **2026-10-25 订正时间基准**：原版 `AnimFXController.Update` 对 `sounds[]` 与
+                //    `exitSounds[]` 传的是**同一个** `currentTime`（`+0x60`，从 Play 起算、Exit 不复位），
+                //    `PlaySoundOnTime.Update` 里判据是 `elapsed < played * timeInterval + time` ⇒
+                //    **`exitSounds[i].time` 也是「从 Play 起算的第 T 秒」**，只是「要不要开始判」由 `exiting` 把门。
+                //    原来这里写的是 `_time - _exitAt`（从 Exit 起算）—— 与 `AnimFX_实现与接线.md` §11.4
+                //    那句「`exitSounds` 的 `time` 也是从 `Play` 起算」矛盾，**代码这一侧是错的**（7 条实例）。
+                float elapsed = s.onExit ? (_exiting ? _time : -1f) : _time;
                 if (elapsed < 0f) continue;
 
                 while (s.played < s.total && elapsed >= s.time + s.played * s.interval)

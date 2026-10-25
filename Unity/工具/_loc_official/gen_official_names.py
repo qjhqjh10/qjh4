@@ -77,6 +77,14 @@ FAMILIES = [
     #    ⇒ 手写表里那 26 条 `Card_Name/*` 是**我们自造卡**的键（`Ember Warlord` 那种），
     #    与本族的官方 id 键**键空间不相交**（见 `gen_cards_engine.py` 的 `ZH_NAME_ALIAS` 那一段）。
     "Modular_Description", "Card_Name",
+    # 🆕 **2026-10-25（`E` 卡牌面/渲染域 · `K4` §②·D9 值那一半）**：`Card_Race/*`（官方 **23** 条）——
+    #    **现在有消费点了**：卡面底部那行「兵种」= `CardView.RaceTerm`（`Card_Race/<SpellType 枚举名>`），
+    #    而 `RaceTerm` 的查找顺序是 ① 本产物（`Loc.HasBulk`）→ ② `Core/Loc.cs` 手写表 → ③ 老键。
+    #    ⛔ 那句「今天一个消费点都没有」**已过期**（写于卡面接 D5 之前）。
+    #    判据（一手）：`GameStaticData__CardRaceToString.c` = `GetTranslation("Card_Race/" + Enum.ToString(spellType))`；
+    #    值：官方表 `Card_Race/PsychicPower = 心灵力量` 等 —— 我们手写表那 5 条旧译（灵能/战斗药剂/基因强化/
+    #    霸主之力/防御）与官方不符，**影响 57 张卡**（K4 §②·D9 的逐值表）。
+    "Card_Race",
 ]
 # ⚠️ **只收「本批真用得着的那几族」**（`A1803` 点名的 6 族 + 上面 `A1763` 加的两族）。
 #   其余「数据面」族（`PackName` 771 · `Missions` 138 · `ShopOffers` 129 · `PlayfabErrors` 189 ·

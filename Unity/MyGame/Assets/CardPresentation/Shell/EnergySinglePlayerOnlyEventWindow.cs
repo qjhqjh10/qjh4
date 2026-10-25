@@ -32,16 +32,25 @@
 // | 5 行 `Score` | `'1256'` | `RefreshScore()` 按活动分数 | **照 prefab 出厂原文** + 出声 |
 // | 5 颗 `Chest` / `Highlight Crate` | 闭箱图 / 不透明金高亮（都开着） | 同上 | **照 prefab 出厂原文** + 出声 |
 // | `Timer` / `Timer Icon` | `'Termina en: 23d 5h'` | `TimerDisplay.Initialize(endTime)` | **接 `TimerDisplay`**（截止时刻本地没有 ⇒ **官方词条** `EndsInPlusOrangeTime` + `--` + 出声） |
-// | `Energy Instructions` | `'… every {0} minutes.'` | `ShowCurrentEnergyRegenText.OnEnable` 读 **LiveOps Config** | **照 prefab 出厂原文（含 `{0}`）** + 出声（判据见下） |
+// | `Energy Instructions` | `'… every {0} minutes.'` | `ShowCurrentEnergyRegenText.OnEnable` 读 **LiveOps Config** | **按原版填两个参数**（词条 `Event_Description/ScoringEvent/EnergyRules` + `EnergyConfig` 默认 1 / 300000ms，判据见下） |
 // | `Total Victories` | `'751'` | `RewardProgressBarPanel` 按活动数据 | **照 prefab 出厂原文** + 出声 |
-// | `Event Image` / `Scoring Icon` / `ArmyItemReference` | **`m_Sprite` = null** | 运行时由字段灌图 | 建节点、**不画**、出声 |
+// | `Event Image` / `Scoring Icon` / `ArmyItemReference` | **`m_Sprite` = null** | 运行时由字段灌图 | **`Scoring Icon` 画 Skulls 图**（原版 `GetScoringIconFromEvent` 写死 Skulls，映射 `Shell/ScoringIcons.cs`）；其余两颗建节点、**不画**、出声 |
 // | `Army Content` 下的阵营 | 出厂只有模板 `ArmyItemReference` | `ShowEventArmiesPanel` 逐阵营 `Instantiate` | **只建模板那一颗**（= 出厂同档） |
 // | `Progress Bar` 的 `Fill` | 现读 **0.00 × 5.74**（= 进度 0） | `Slider.normalizedValue`（`InterpolateMilestones`） | 出厂画 0 宽；`SetProgress(v)` 是**两态**那一半（自检用） |
 //
-// 🔴 `{0}` 的判据（`ShowCurrentEnergyRegenText__OnEnable.c` 逐句）：
-//    `LiveOps ConfigManager.GetConfig(...)`（**远端配置**）+0x20 = 那个整数，`String.Format(译文, 它, 时长)`。
-//    本地没有那份 Config ⇒ **替换值查不到**。按「照字段抄 + 不编数字」⇒ **原样保留**（含 `{0}`）并出声。
-//    ⛔ 别自己填一个「几分钟」（那就是编数字；本工程红线）。`--active-only` 那一档下这一行也照旧。
+// 🔴 `Energy Instructions` 的填充判据（`ShowCurrentEnergyRegenText__OnEnable.c` 逐句 + 2026-10-25 现读补齐）：
+//    `ConfigManager.GetConfig<EnergyConfig>()` → `+0x20` = `rechargeAmount` · `+0x18` = `rechargeCooldown`(ms)
+//    → `TimeSpan.FromMilliseconds(...)` → `TimeHelper.FormatTimeSpan(ts, showDays:1, hide0Values:1)`
+//    → `string.Format(LocalizationManager.GetTranslation(localizationKey), 上面两个)`。
+//    · `localizationKey` 现读 = **`Event_Description/ScoringEvent/EnergyRules`**（`assets_full` 的
+//      `bundle_menus_assets_all` 里 `localizationKey` 只有两种取值，另一种是 `MenuShop/PremiumCampaign`）；
+//      官方 13 语表全有这条，en 原文 = `… You recover <color=#32CD32>{0}</color> Energy every <color=#32CD32>{1}</color>.`
+//    · `EnergyConfig` 的**序列化默认**（本 build 出货值；服务端不可达 ⇒ 本地只有这一份）：`rechargeAmount = 1` ·
+//      `rechargeCooldown = 300000 ms`（`cpp2il/EnergyConfig.cs:8-9`）⇒ `{1}` = `5m` / `5分钟`
+//      （`TimerDisplay.FormatTimeString` = `SupportMethods.GetTimeString` 的逐句移植）。
+//    🔴 **2026-10-25 就地订正（铁律 5；旧结论已过期）**：原文写「本地没有那份 Config ⇒ 替换值查不到 ⇒ 原样保留 `{0}`」。
+//      **不成立** —— 值的来源有两条本地判据（词条在官方表、两个数在 `EnergyConfig` 的序列化默认里）⇒ 现在**按原版填**。
+//      ⛔ 仍然不许自己编一个别的分钟数；要改只能改 `EnergyRechargeAmount / EnergyRechargeCooldownMs` 两个带出处的常量。
 //
 // ============================ 🔴🔴 2026-10-13（A795）就地订正 —— 下面这一段原来是【错的】 ============================
 // 原文（已删，更正痕迹照铁律 5 保留）：「`BackgroundCloseButton.window` 在 prefab 里是 `null`、
@@ -293,9 +302,9 @@ namespace CardPresentation
                     + "5 档分数 / 箱子开关 / 倒计时截止时刻 / `Total Victories` 都是**运行时灌**的 "
                     + "⇒ 我们照 **prefab 出厂原文**画（`1256` / `751` / 闭箱图），⛔ 不编数字；"
                     + "`Timer` 那颗已接 `TimerDisplay`，截止时刻本地没有 ⇒ 显示官方词条 + `--`（出声一次）。");
-            Debug.Log("[Energy] `Energy Instructions` 里那个 **`{0}` 原样保留** —— 替换值来自 **LiveOps Config**"
-                    + "（远端）：`ShowCurrentEnergyRegenText__OnEnable.c` 逐句可读（`ConfigManager.GetConfig(...)` "
-                    + "+0x20 那个整数 + `String.Format(译文, 它, 时长)`）。本地没有那份 Config ⇒ 照字段抄。");
+            Debug.Log("[Energy] `Energy Instructions` **已按原版填参**（模板 = 官方词条 "
+                    + "`Event_Description/ScoringEvent/EnergyRules`；`{0}` = `EnergyConfig.rechargeAmount` 默认 **1**、"
+                    + "`{1}` = `rechargeCooldown` 默认 **300000 ms** 的时长串 ⇒ `5m` / `5分钟`）。");
             Debug.Log("[Energy] 关窗有**两条**路（照原版，2026-10-13 A795 订正）："
                     + "① 表头那颗返回钮 ② **点压暗层** —— 原版 `SinglePlayerOnlyEnergyEventWindow__OnEnable.c:13-18` "
                     + "给 `backgroundCloseButton.onClick` 挂了监听，挂的与表头那颗是**同一个 delegate** "
@@ -814,14 +823,21 @@ namespace CardPresentation
             var a = MenuDraw.TextBox(ins, InsScoreR, TxtScore, Color.white, "Scoring Instructions",
                                      41.1f, 18f, QText, 50f, 36f, face: TmpFont.Face.LatinCardBody);
             MenuDraw.AlignLeft(a, InsScoreR);
-            // `Energy Instructions`：`{0}` **照 prefab 原文**（判据见文件头那一段）
-            const string TxtEnergy = "Energy is consumed when you begin a match with one of the participating "
-                                   + "factions. You recover 1 Energy every {0} minutes.";
-            var b = MenuDraw.TextBox(ins, InsEnergyR, TxtEnergy, Color.white, "Energy Instructions",
+            // `Energy Instructions`：**按原版 `ShowCurrentEnergyRegenText.OnEnable` 填两个参数**（判据 → 文件头那一段）。
+            //   ⛔ 别再把 prefab 出厂那句英文抄成常量 —— 它把「1 Energy」写死、只有一个 `{0}`(minute)，
+            //      与官方模板 `… {0} Energy every {1}.` 的参数序**不对应**（照抄会印出 `every 5m minutes`）。
+            var b = MenuDraw.TextBox(ins, InsEnergyR, EnergyRulesText(), Color.white, "Energy Instructions",
                                      44.35f, 18f, QText, 72f, 50f, face: TmpFont.Face.LatinCardBody);
             MenuDraw.AlignLeft(b, InsEnergyR);
-            // `Scoring Icon`：原版 `m_Sprite` 出厂就是 **null**（运行时由 `scoringIcon` 字段灌）
-            MenuDraw.Node(ins, "Scoring Icon", InsIconScR);
+            // `Scoring Icon`：原版 `m_Sprite` 出厂是 **null**，运行时由 `GetScoringIconFromEvent()` 灌：
+            //   `SinglePlayerOnlyEnergyEventWindow.cs:407-455`（现读）—— 事件计分物是 `ScoringPoint` 时
+            //   **写死** `ScriptableObjectsCollectionsUtilities.GetScoringIcon(ScoringItemType.Skulls)`。
+            //   本窗 = 单机计分（能量）事件 ⇒ 这张就是 **Skulls** 图；映射与判据 → `Shell/ScoringIcons.cs`。
+            //   ⚠️ 本地没有事件数据，「计分物是不是 `ScoringPoint`」这一格判不了 ⇒ 按本窗类型**画 Skulls**
+            //      （原版这条在本窗类里也没有第二档）。缺图时照旧出声（`Art()` 会记账）。
+            var sci = ScoringIcons.Icon(ScoringIcons.ItemType.Skulls);
+            if (sci != null) MenuDraw.Rect(ins, sci, InsIconScR, "Scoring Icon", QArt);
+            else MenuDraw.Node(ins, "Scoring Icon", InsIconScR);
             // `Energy Icon`：`40k_topmarquee_currency_energy` 90×90 —— 🔴 **本仓 `Resources/` 里没有这张图**
             //   （源在 `bundle_boosterpacks_assets_all/Sprite/`，切好的 PNG 在
             //    `d:/2/Warpforge_tools/data/ui_extract/boosterpacks_assets_all/Sprite/`）
@@ -829,8 +845,54 @@ namespace CardPresentation
             var en = Art(ArtEnergy);
             if (en != null) MenuDraw.Rect(ins, en, InsIconEnR, "Energy Icon", QArt);
             else MenuDraw.Node(ins, "Energy Icon", InsIconEnR);
-            Debug.Log("[Energy] `Scoring Icon` **没画** —— 原版这颗 `m_Sprite` 出厂就是 null（同上）。");
+            if (sci == null)
+                Debug.LogWarning("[Energy] `Scoring Icon` **没画** —— `Resources/Art/` 取不到 `40k_battle_Win_Skull`"
+                               + "（原版 `GetScoringIcon(ScoringItemType.Skulls)` 的图；映射 → `Shell/ScoringIcons.cs`）");
+            else
+                Debug.Log("[Energy] `Scoring Icon` = **Skulls 图**（原版 `GetScoringIconFromEvent` 在本窗类里写死 Skulls）。");
         }
+
+        // ------------------------------------------------------------ `Energy Instructions` 的两个参数
+        /// <summary>`EnergyConfig.rechargeAmount` 的**本 build 序列化默认**（`cpp2il/EnergyConfig.cs:8`：
+        /// `private int rechargeAmount = 1;`）。服务端不可达 ⇒ 这就是能拿到的唯一真值，⛔ 别按手感改。</summary>
+        const int EnergyRechargeAmount = 1;
+
+        /// <summary>`EnergyConfig.rechargeCooldown` 的**本 build 序列化默认**（`cpp2il/EnergyConfig.cs:9`：
+        /// `private long rechargeCooldown = 300000L;` ⇒ 300 000 ms = 5 分钟）。</summary>
+        const long EnergyRechargeCooldownMs = 300000L;
+
+        /// <summary>原版词条键（`bundle_menus_assets_all` 的 `localizationKey` 现读；13 语全有）。</summary>
+        const string EnergyRulesKey = "Event_Description/ScoringEvent/EnergyRules";
+
+        /// <summary>`Energy Instructions` 那颗字的正文。
+        /// <para>原版 `ShowCurrentEnergyRegenText__OnEnable.c`：`string.Format(GetTranslation(key),
+        /// EnergyConfig.rechargeAmount, FormatTimeSpan(FromMilliseconds(rechargeCooldown), showDays:1, hide0Values:1))`。</para>
+        /// <para>⚠️ 词条缺键（`Loc.T` 会把键名原样回给我们）⇒ 退回 **prefab 出厂原文**并**出声一次**
+        /// （⛔ 不静默印出花括号；那条出厂原文的 `{0}` 是 minute，所以退回时**不格式化**）。</para>
+        /// <para>⚠️ **如实标注的残余**：`{1}` 走 `TimerDisplay.FormatTimeString`，而它那三条 `*_Only` 格式串
+        /// （`M_Only` 等）是**我们按单位机械拼的**（原版 `M_Only` 的格式串没解出，见 `TimerDisplay.cs` 的注释）
+        /// ⇒ **数值与档位对**，单位文案可能有细微差别（`5m` vs 原版某种写法）。</para></summary>
+        static string EnergyRulesText()
+        {
+            const string Fallback = "Energy is consumed when you begin a match with one of the participating "
+                                  + "factions. You recover 1 Energy every {0} minutes.";
+            string tpl = Loc.T(EnergyRulesKey);
+            if (string.IsNullOrEmpty(tpl) || tpl == EnergyRulesKey || !tpl.Contains("{0}"))
+            {
+                if (!_warnedEnergyRules)
+                {
+                    _warnedEnergyRules = true;
+                    Debug.LogWarning("[Energy] 官方词条 `" + EnergyRulesKey + "` 取不到 ⇒ `Energy Instructions` "
+                                   + "退回 prefab 出厂原文（含 `{0}`）");
+                }
+                return Fallback;
+            }
+            string every = TimerDisplay.FormatTimeString(
+                System.TimeSpan.FromMilliseconds(EnergyRechargeCooldownMs),
+                eventTimer: true, clampTo0: false, hide0Values: true);
+            return string.Format(tpl, EnergyRechargeAmount, every);
+        }
+        static bool _warnedEnergyRules;
 
         // ------------------------------------------------------------ 阵营选择
         void BuildArmySelector(Transform root)

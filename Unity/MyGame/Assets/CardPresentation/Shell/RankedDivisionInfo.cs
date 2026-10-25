@@ -192,7 +192,17 @@ namespace CardPresentation
             //    🔴 **2026-10-24（E19）**：改前**恒留空**；现在按**演示段位号**取官方词条
             //    （`Ranked/Division/<号>`，zh `传奇`）—— 号本身是**我们挑的演示值**（见 `DemoDivisionNumber`），
             //    真值在服务器。词条取不到时 `DivisionName` 出声并返回空串（⛔ 不编名字）。
-            var dtLbl = MenuDraw.Text(content, DivisionTextR, DivisionName(DemoDivisionNumber), DivisionInk,
+            // 🔴 **2026-10-25（代理 G 执行）**：段位号不再直接取演示值，改走 **`RankedData.DisplayDivisionNumber`**
+            //   （有阈值表 ⇒ `DivisionOf(Points)`；没有 ⇒ 退回 `DemoDivisionNumber`，理由在同名 doc）。
+            int divNo = RankedData.DisplayDivisionNumber;
+            var divState = RankedData.CurrentDivision;
+            if (divState.Known)
+                Debug.Log("[RankedDivisionInfo] 段位来自 `RankedData.DivisionOf`：" + divState
+                          + "（阈值表已注入；表本身是 TitleData 远程配置，见 `RankedData.WhyNoRankTable`）");
+            else
+                Debug.Log("[RankedDivisionInfo] 段位号用**演示值** " + divNo
+                          + " —— 阈值表 `GameModesConfig.rankedRanks` 本地不可得（`RankedData.WhyNoRankTable`）");
+            var dtLbl = MenuDraw.Text(content, DivisionTextR, DivisionName(divNo), DivisionInk,
                                       "DivisionText", 42f, qInk,
                                       DivisionTextR.W, 10f,
                                       // 🆕 **2026-10-12（A336③）**：上限 = 原版 `m_fontSizeMax` = **42**（= 标称，本来就对）·
@@ -215,7 +225,7 @@ namespace CardPresentation
             //   8 处同名 `DivisionImage` 逐颗现读都是这两个值（`bundle_menus_assets_all/MonoBehaviour/…`）。
             //   ⚠️ 下图 512²、框 539.79×572.62 ⇒ 按比例内接成 **539.79²** 居中（不是拉满 572.62）。
             var divImage = MenuDraw.Node(content, "DivisionImage", DivisionImageR);
-            string divArtName = DivisionArtName(DemoDivisionNumber);
+            string divArtName = DivisionArtName(divNo);
             // 🔴 **队列 = `qArt − 1`（不是 `qArt`）**：原版兄弟序是 `RankTitleBG` → **`DivisionImage`** → `footer`
             //   （`menu_dump` 那张表的行序 = uGUI 的画序），而 uGUI 是**后建的画在上面** ⇒ 徽记**压在 banner 与
             //   footer 之下**（参考图 `经典模式参考图.png` 里「1600」就压在徽记下缘上 ⇒ 与这条一致）。
@@ -228,7 +238,7 @@ namespace CardPresentation
                      : MenuDraw.Rect(divImage, art(divArtName), DivisionImageR, "Image", qArt - 1, null, true);
             if (divQ == null)
                 Debug.LogWarning("[RankedDivisionInfo] 段位大图**没画** —— `DivisionArt` 里没有段位 "
-                                 + DemoDivisionNumber + " 对应的图（表长 " + DivisionArt.Length + "）"
+                                 + divNo + " 对应的图（表长 " + DivisionArt.Length + "）"
                                  + "；⛔ 不拿别的段位顶替");
             // `RankImage`（罗马数字 I–VI，128²）：**不画**。判据两条都指向「本地判不了」：
             //   ① 名次号（`RankedDivisionData`/leaderboard 项里的 rank）也在服务器
@@ -282,8 +292,9 @@ namespace CardPresentation
 
             Debug.Log("[RankedDivisionInfo] 段位块 `Content` 建完 —— 两个评分 / 里程碑进度 / 名次图"
                       + "**留空**（都是服务器数据，用户 2026-09-26 口径：不编数字）；"
-                      + "段位名与段位大图**按演示段位号 " + DemoDivisionNumber + " 画**"
-                      + "（号是我们挑的演示值；号→图 **4/7 两档已实测钉死**、其余五档按图名序号 —— 见 `DivisionArt` 的 doc）。"
+                      + "段位名与段位大图**按段位号 " + divNo + " 画**"
+                      + "（号 = `RankedData.DisplayDivisionNumber`：有阈值表算、没有则演示值；"
+                      + "号→图是 `DivisionArt` 的实测表）。"
                       + "`Timer` 由宿主的 `BuildRankTimer` 另建；`counter` 出厂 inactive 不建；"
                       + "`Fill` 与两个 `Main Icon` 不画。");
         }

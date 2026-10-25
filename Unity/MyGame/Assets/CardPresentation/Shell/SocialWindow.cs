@@ -156,6 +156,8 @@ namespace CardPresentation
             LastOpened = this;
             Build();
             BuildTabContents();
+            // 🆕 2026-10-25：页对象已建出来 ⇒ 原版 lazy `SetupTabs` 那一跳（只跑一次）
+            EnsureTabsSetup();
             // 默认落在 **Alliances**（`Alliances Tab` act T / `Friends Tab` act **F**，实测 `m_IsActive`）——
             // 走 `Click(0)` 而不是直接改字段：「点一下」才是状态的唯一入口（同奖励窗那条注释）。
             if (tabButtons != null) tabButtons.Click(0);

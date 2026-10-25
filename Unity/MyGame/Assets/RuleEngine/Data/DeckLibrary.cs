@@ -230,13 +230,23 @@ namespace RuleEngine
             return Save();
         }
 
-        /// <summary>复制一套（原版 `duplicateButton` 那个）。返回新的那套。</summary>
+        /// <summary>复制一套（原版 `duplicateButton` 那个）。返回新的那套。
+        ///
+        /// <para>🔴 **2026-10-25（完全复刻 · 执行代理 A · 收藏域代理 C 的改动请求 ①）：名字后缀改成原版的 `+`。**
+        /// 判据 = `DeckInfoPopup.DuplicateDeck`（`DeckInfoPopup.cs:1084` 现读）：
+        /// `string text = copiedDeck2.deckName + &quot;+&quot;; copiedDeck2.deckName = text;`
+        /// —— **原文逐字就是 `名字 + "+"`，没有查重、没有序号**。
+        /// ⚠️ 原来我们写的是 `+ " 副本"`（自造）。
+        /// ⚠️ **为什么可以不做唯一化**：本库的卡组**全部按下标寻址**（`Rename(index)` / `Delete(index)` /
+        ///    `_current` 也是下标；落盘 `DeckStore` 存的是**有序列表**、不按名字反查）
+        ///    ⇒ 同名不会选错卡组。原版也只是把 `syncedToServer` 置假后上传，服务端允许重名。
+        ///    ⛔ 别为「好看」再加序号 —— 那会与卡面上看到的原版行为不符。</para></summary>
         public PlayerDeck Duplicate(int index)
         {
             if (index < 0 || index >= _decks.Count) return null;
             var src = _decks[index];
             var copy = src.Clone();
-            copy.Name = UniqueName(src.Name + " 副本");
+            copy.Name = src.Name + "+";      // 原版 `deckName + "+"`（见上面 doc）
             _decks.Add(copy);
             _current = _decks.Count - 1;
             SaveOrWarn("Duplicate");     // 🔴 A398：同上（返回值是对象）
@@ -255,6 +265,68 @@ namespace RuleEngine
             //    ⚠️ 同 `Rename`：`false` 现在有两种意思（越界没删 / 删了但没落盘），分清楚要看 `LastError`。
             //    ⚠️ **如实标注**：`Shell/CollectionData.DeleteDeck` 与 `DeckInfoPopup` 把两种意思混着用
             //    （失败时打印的是「删不了」），那是**另一笔账**（越了本件白名单，本件只在数据层把话说出来）。
+            return Save();
+        }
+
+        /// <summary>
+        /// **按给定顺序重排卡组库**（收藏页 Deck 页的「拖拽排序」落点）。
+        ///
+        /// <para>🆕 **2026-10-25（完全复刻 · 执行代理 A · 收藏域代理 `C` 的改动请求 ③ = `K3 P2-③`）** 新加。</para>
+        ///
+        /// <para>**判据（第一权威）**：原版 `DeckCollectionDisplay.SaveDeckOrder` →
+        /// `DeckInventory.UpdateOrder(List&lt;CardDeck&gt; newOrder)`（`DeckInventory.cs:489`）
+        /// → `PlayerDataManager.OrderDecks` 落盘；拖拽的**数据算法**来自
+        /// `CollectionDisplay.ReorderCollectionByHierarchy`（`CollectionDisplay.cs:969`，现读）
+        /// = **Remove + Insert**（不是交换、不是整体重建）+ 保持滚动位置（那一半是 UI）。</para>
+        ///
+        /// <para>🔴 **与原版的一处【不得不】不同**：原版按 **`deckId`** 认卡组
+        /// （`DeckInventory._003CUpdateOrder_003Eb__0` 比的就是 `d.deckId == deck.deckId`），
+        /// 而我们**没有 `deckId`**（`PlayerDeck` 只有 `Name`；见 `Shell/CollectionData.cs` 文件头那条老账）
+        /// ⇒ 这里**只能按 `Name` 认**。</para>
+        ///
+        /// <para>**语义**（逐条）：① 按 <paramref name="namesInOrder"/> 的顺序摆；同名取**第一套还没被用掉**的
+        /// （与 `CollectionData.IndexOf` 同口径）；② 名字查不到的**保留原位**（= 追加到末尾、彼此保持原相对顺序）
+        /// —— ⛔ **绝不丢卡组**，且**出声**（本仓红线：不许静默）；③ `_current`（当前选中）跟着**那一套**走
+        /// （不是跟着下标走）；④ 末尾 `return Save();`（照 <see cref="Delete"/> 的 A398 口径，
+        /// ⛔ 不再多调一次 `Save`）。</para>
+        ///
+        /// <para>⚠️ **同名卡组**：`UpdateOrder` 会按顺序各取一套，所以「A、A」这种会有歧义 —— 这是按名认的
+        /// 固有代价；原版有 `deckId` 所以没有这个问题。出声时会把这一类也报出来。</para>
+        /// </summary>
+        /// <returns>`false` = 参数非法 / 重排后落盘失败（`LastError` 说原因）。</returns>
+        public bool UpdateOrder(IList<string> namesInOrder)
+        {
+            if (namesInOrder == null || namesInOrder.Count == 0 || _decks.Count == 0) return false;
+
+            var selected = (_current >= 0 && _current < _decks.Count) ? _decks[_current] : null;
+
+            var used = new bool[_decks.Count];
+            var ordered = new List<PlayerDeck>(_decks.Count);
+            var missing = new List<string>();
+            foreach (var nm in namesInOrder)
+            {
+                int hit = -1;
+                for (int i = 0; i < _decks.Count; i++)
+                    if (!used[i] && string.Equals(_decks[i].Name, nm, StringComparison.Ordinal)) { hit = i; break; }
+                if (hit < 0) { missing.Add(nm ?? "<null>"); continue; }
+                used[hit] = true;
+                ordered.Add(_decks[hit]);
+            }
+            // 名字没给到的（或查不到的）**保留原位**：按原相对顺序接在末尾 —— ⛔ 不丢。
+            int kept = 0;
+            for (int i = 0; i < _decks.Count; i++)
+                if (!used[i]) { ordered.Add(_decks[i]); kept++; }
+
+            if (missing.Count > 0 || kept > 0)
+                UnityEngine.Debug.LogWarning("[DeckLibrary] `UpdateOrder`：按名重排时有 "
+                    + (missing.Count + kept) + " 套卡组**没有出现在新顺序里**（名字对不上的 "
+                    + missing.Count + " 条" + (missing.Count > 0 ? "：" + string.Join(" / ", missing) : "")
+                    + "）⇒ 它们**按原相对顺序接在末尾**（⛔ 没有丢）。");
+
+            _decks.Clear();
+            _decks.AddRange(ordered);
+
+            _current = selected != null ? _decks.IndexOf(selected) : -1;
             return Save();
         }
 

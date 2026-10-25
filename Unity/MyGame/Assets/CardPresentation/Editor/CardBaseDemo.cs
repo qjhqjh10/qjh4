@@ -306,12 +306,25 @@ public static class CardBaseDemo
         // ---- 4b. 卡面第四件：兵种行中文化（D5，2026-10-17）----
         Debug.Log(P + "--- 卡面：兵种行（原版 `RaceText`）按语言取词 ---");
         AssertSubtypeLine();
+        // 🆕 2026-10-25（`E`）：官方 `MenuDeck/Error/*` 里那**两条 `/Short`** 必须解析出**非键名**的字串
+        //   —— `Loc.T` 缺词条时会**把键名原样返回**，遭遇窗那一行就会印键名（红线）。
+        Debug.Log(P + "--- 词条：MenuDeck/Error 两条 /Short（遭遇窗「卡组不可用」那一行）---");
+        AssertDeckErrorShortKeys();
         AssertCardTextLanguageGate();     // 🔴 2026-10-18：`CardText.Zh` 改成语言闸（+ `Name` 补闸）
         AssertCardTextTablesInLoc();      // 🔴 2026-10-10（A1084）：那几族中文**已搬进 `Core/Loc.cs`**（键族 + 齐全 + 值 + 语料 + 别名 + 不复用近邻）
         AssertTitleMidline();             // 🔴 2026-10-18：`A848` —— 卡名那层 = 原版的 `Midline`
         // 🆕 2026-10-24（`E16`）：效果文字**装得进版面框、且不压数值格**（真机反复看到的溢出缺陷）
         Debug.Log(P + "--- 卡面：效果文字装得进版面框（框宽 / 纵向预算 / 与原版矩形中心的差 / 数值行）---");
         AssertFaceTextFit();
+        // 🆕 2026-10-25（`E` · K4 D3）：**费用数字 = 第五件真 TMP**（原版 `Cost Container/CostText`）
+        Debug.Log(P + "--- 卡面：费用数字走真 TMP（值/框/持续色/费用极性）---");
+        AssertCostTextTmp();
+        // 🆕 2026-10-25（`E` · 代理 D 查实）：场上 3D 卡体的 `_MatCap` 按**卡档位**取（四档贴图本地全在）
+        Debug.Log(P + "--- 卡面：3D 卡体 matcap 按档位（原版 `matcapTexturesByCardTier[CardTier]`）---");
+        AssertMatcapTier();
+        // 🆕 2026-10-25（`E` · 原版 `Card2DController.ToggleTooltips` 的等价物）：tooltip 抑制计数
+        Debug.Log(P + "--- 卡面：tooltip 抑制（原版逐卡 `ToggleTooltips` 的 Core 侧等价物）---");
+        AssertTooltipSuppression();
         AssertCreatedBy();                // 🔴 2026-10-18：`A985④` —— 卡面第五层「由谁造出来的」（原版 `CreatedByText`）
         AssertTextBg(cam);               // 🔵 2026-10-19（A1500② 的断言侧）：文字底板 —— 含**渲图像素**判据
         AssertRarityGem(cam);             // 🔴 2026-10-18（A1492）：稀有度宝石 —— 结构 + 渲图灭自证
@@ -2501,6 +2514,10 @@ public static class CardBaseDemo
                 //    原来那三张恰好都不是用户看到溢出的卡 ⇒ 自检全绿而真机溢出。⛔ 别再按「抽三张够用」砍。
                 new { name = "Marneus Calgar",      why = "真机报溢出的督军（1 行 + 行首图标）", needLines = 1 },
                 new { name = "Roboute Guilliman",   why = "真机报溢出的督军（2 行 + 两枚图标）", needLines = 2 },
+                // 🔴 **2026-10-25（`E` · P0）**：**战术卡 + 兵种行（文字态 4）** 这一档 ——
+                //    用户/调度台并排比抓到的「阵营行（钛帝国）与效果文字第一行压在同一 y」。
+                //    判据 = `CardView.ClampDescBelowArmy` 的那段注释；这里逐字钉两条几何关系（⑥⑦）。
+                new { name = "Sense of Stone",      why = "战术卡 + 兵种行（态 4）：阵营行/效果文字不许叠字", needLines = 2 },
             };
             var pool = RuleEngine.CardDatabase.Load();
             for (int ci = 0; ci < cases.Length; ci++)
@@ -2536,6 +2553,9 @@ public static class CardBaseDemo
 
                 bool isUnit = cd.isUnit;
                 bool hasRace = CardView.FaceShowsRace(cd);
+                // 文字态 4（战术卡 + 兵种行）走的是**另一个节点** `DescTacticSmall`（中心 y01 0.7595），
+                // 不是 `DescTactic`（0.7876）⇒ ②③ 的期望在这档不成立（见 ⑥⑦ 与 `ClampDescBelowArmy`）。
+                bool smallDesc = !isUnit && hasRace;
                 Vector2 box = CardView.DescBoxSize(isUnit);
                 Vector2 cen = CardView.DescCenter01(isUnit);
                 float bandCenter, bandBudget;
@@ -2572,11 +2592,15 @@ public static class CardBaseDemo
                       $"{tag} ① 字墨宽 {inkW:F4} ≤ 版面框宽 {box.x:F4} 卡单位（余量 {(box.x - inkW):F4}）"
                     + "｜🧨 让 TMP 不折行 / 删 `FitsBox` 的宽度判据 ⇒ 红");
                 // ---- ② 整块落在对称预算里 ----
+                if (!smallDesc)
                 Check(top01 >= bandCenter - half - 0.005f && bot01 <= bandCenter + half + 0.005f,
                       $"{tag} ② 字墨纵向 {top01:F4}..{bot01:F4} 落在区间 "
                     + $"{(bandCenter - half):F4}..{(bandCenter + half):F4}（预算 ±{half:F4}）内"
                     + "｜🧨 预算改回 `avail01`（更大）而中心不动 ⇒ 长文字那张越门 ⇒ 红");
                 // ---- ③ 块中心 = 原版矩形中心 ----
+                //   ⚠️ 态 4 例外：那一档原版中心是 **0.7595**（`DescTacticSmall`），而且中文折两行时
+                //   生产会**往下让**（`ClampDescBelowArmy`）⇒ 中心不再等于任何固定值 ⇒ 改由 ⑥⑦ 钉。
+                if (!smallDesc)
                 Check(Mathf.Abs(mid01 - cen.y) <= 0.02f,
                       $"{tag} ③ ★ 字墨块中心 y01 {mid01:F4} = 原版矩形中心 {cen.y:F4}"
                     + $"（差 {Mathf.Abs(mid01 - cen.y):F4} ≤ 0.02）"
@@ -2589,6 +2613,29 @@ public static class CardBaseDemo
                           $"{tag} ④ ★ 字墨下沿 {bot01:F4} ≤ 数值容器上沿 {CardView.StatBandTop01:F4}"
                         + "（原版 `Melee Attack Container` 0.4×0.4 @(−0.836,−1.190) 的上沿）"
                         + "｜🧨 下沿对齐那版的下沿在 0.834 ⇒ 红");
+                // ---- ⑥⑦ 🔴 2026-10-25（`E` · P0）：**态 4 的两条几何关系**（用户并排比抓到的叠字）----
+                //  ⑥ 阵营行**底边** ≤ 效果文字**顶边**（y01 都从卡顶算：底边的 y01 更大）
+                //  ⑦ 效果文字**底边** ≤ 兵种行那道门（`RaceDescBottom01` 0.834，留 0.005 容差）
+                //  ⚠️ 两条都量**字墨**（`InkBoxCardLocal`）；生产 `ClampDescBelowArmy` 夹的是**行盒**
+                //     （比字墨更保守）⇒ 这里过不了就一定是生产真的没夹住。
+                if (smallDesc)
+                {
+                    var ta = LayerTmp(v.transform, "army");
+                    Check(ta != null && v.ArmyShown,
+                          $"{tag} ★ 前提：态 4 的阵营行建出来且印着（否则 ⑥ 是空断言）");
+                    float ax0, ax1, ay0, ay1;
+                    if (ta != null && v.ArmyShown && InkBoxCardLocal(inkFrame, ta, out ax0, out ax1, out ay0, out ay1))
+                    {
+                        float armyBot01 = 0.5f - ay0 / CardView.Height;   // 行墨**下沿**（y01，更大）
+                        Check(armyBot01 <= top01 + 2e-3f,
+                              $"{tag} ⑥ ★ 阵营行底边 {armyBot01:F4} ≤ 效果文字顶边 {top01:F4}"
+                            + "（差 " + (top01 - armyBot01).ToString("F4") + "；负 = 叠字）"
+                            + "｜🧨 删掉 `ClampDescBelowArmy` 的「往下让」⇒ 中文两行那张立刻红（实测叠 ≈0.037）");
+                    }
+                    Check(bot01 <= 0.834f + 5e-3f,
+                          $"{tag} ⑦ ★ 效果文字底边 {bot01:F4} ≤ 兵种行门 0.8340"
+                        + "｜🧨 只往下让、不缩字号（两行中文装不下时）⇒ 底边越门 ⇒ 红");
+                }
 
                 Object.DestroyImmediate(v.gameObject);
             }
@@ -5066,23 +5113,333 @@ public static class CardBaseDemo
         return (a >= 0 && b > a) ? tip.Substring(a + 3, b - a - 3) : tip;
     }
 
+    /// <summary>🆕 **2026-10-25（`E`）**：官方 `MenuDeck/Error/*` 里**只有两条**有 `/Short`
+    /// （`InvalidDeck/Short`、`InvalidDeckBannedCards/Short`，官方本地化表现读 15 条）；
+    /// 遭遇事件窗左列那一行（原版 `SkirmishEventWindow.OnDeckSelected` → `DeckUtility.ToShortLocalizedString`）
+    /// **印的就是短档**。
+    /// <para>本断言钉三件：</para>
+    /// <list type="number">
+    ///   <item>两条短键**在表里**、且**解析结果 ≠ 键名**（🧨 删掉 `Core/Loc.cs` 那两条 ⇒ `Loc.T` 回键名 ⇒ 红）；</item>
+    ///   <item>两条**长键**同样能解析（`Describe(InvalidDeck)` 今天也走这条；缺了会把键名印到 `DeckInfoPopup`）；</item>
+    ///   <item>引擎侧口径：`DeckRules.DescribeShort(InvalidDeck)` 拼 `/Short`，而对**没有短档**的档
+    ///     （例 `TooFewCards`）**回长档**（🧨 改成「每条都加 /Short」⇒ 红）。</item>
+    /// </list>
+    /// <para>⚠️ 期望值**写死字面量键名**（不拿 `DeckRules.DescribeShort` 反算当期望 —— 那是自证）。</para></summary>
+    /// <summary>🆕 **2026-10-25（`E` · K4 §②·D3）**：**费用数字 = 第五件真 TMP**
+    /// （原版 `Cost Container/CostText`，prefab 实读：框 0.38×0.35 / 大号 0.456×0.42 · em 0.34(auto) / 0.475 ·
+    /// Thin Outline · Center/Middle · 不折行）。
+    /// <para>钉四件：① 建出来了且印着；② 值 = `cost`；③ 框 = 当前档（0.38×0.35 / 0.456×0.42）；
+    /// ④ **持续色 + 费用极性**（费用 `statIncreaseIsPositiveToThePlayer = 0` ⇒ **比基准低 = 好 = 涨色**）。</para>
+    /// <para>🧨 改坏法：把 `CostText` 那件删掉 / 把颜色退回「烘图」（`FaceCostText == null`）⇒ ①②④ 全红；
+    /// 把极性写反（`StatColorVsBase` 里 `s != StatCost` 去掉）⇒ ④ 红。</para></summary>
+    static void AssertCostTextTmp()
+    {
+        Check(TmpFont.Available, "★ 前提：字体资产取得到 —— 取不到时费用 TMP 根本不建，下面几条全假绿");
+        if (!TmpFont.Available) return;
+        var root = new GameObject("cost_tmp_probe");
+        try
+        {
+            var pool = RuleEngine.CardDatabase.Load();
+            // 单位 + 战术各一张（战术卡**也有费用格**；督军没有 —— `ShowsCost` 的判据）
+            var names = new[] { "Deathwing Terminator", "Sense of Stone" };
+            foreach (var name in names)
+            {
+                RuleEngine.CardDef def = null;
+                for (int i = 0; i < pool.Count; i++) if (pool[i].Name == name) { def = pool[i]; break; }
+                Check(def != null, $"★ 前提：卡池里有 `{name}`（费用 TMP 的真卡夹具）");
+                if (def == null) continue;
+                var cd = BattleDriver.ToCardData(def, def.Faction);
+                Check(CardView.ShowsCost(cd), $"★ 前提：`{name}` 该印费用（`ShowsCost`）");
+                var v = CardView.Create(root.transform, cd, "costtmp_" + name);
+                Check(v != null, $"★ 前提：`{name}` 的卡面建出来了");
+                if (v == null) continue;
+
+                var t = v.FaceCostText;
+                Check(t != null && v.FaceCostVisible,
+                      $"[{name}] ① 费用数字是**真 TMP** 且显示着（`FaceCostText != null && FaceCostVisible`）"
+                    + "｜🧨 删掉 `BuildFaceCostText` 的调用 / 退回烘图 ⇒ 红");
+                if (t != null)
+                {
+                    Check(t.text == cd.cost.ToString(),
+                          $"[{name}] ② TMP 文本 = cost（\"{t.text}\" 应 \"{cd.cost}\"）");
+                    var rt = v.FaceCostRect;
+                    float wantW = CardView.CostBig ? 0.456f : 0.380f;
+                    float wantH = CardView.CostBig ? 0.420f : 0.350f;
+                    Check(rt != null && Mathf.Abs(rt.sizeDelta.x - wantW) < 2e-3f
+                                    && Mathf.Abs(rt.sizeDelta.y - wantH) < 2e-3f,
+                          $"[{name}] ③ 费用框 = 原版当前档 {wantW:F3}×{wantH:F3}"
+                        + $"（实测 {rt?.sizeDelta.x:F4}×{rt?.sizeDelta.y:F4}）"
+                        + "｜🧨 把两档框写成同一个值 / 用容器尺寸 0.38×0.35 当大号档 ⇒ 红");
+                }
+
+                // ④ 持续色 + 极性。**先把「基准 = 当前」那一档量一次**，拿到整卡着色/淡出的**公共系数 k**
+                //   （= 顶点色还会乘 `_tint × _alpha × Greyed`；拿 k 去比就不怕这一层——否则断言在
+                //    某个淡出态下会假红）。然后再比「比基准低 / 高」两档的**色相**：
+                //   费用 `statIncreaseIsPositiveToThePlayer = 0` ⇒ **越低越好** ⇒ 低 = 绿(涨色)、高 = 红(落色)。
+                var cd2 = cd;
+                cd2.statBasesKnown = true;
+                cd2.baseCost = cd.cost;                    // 基准 = 当前 ⇒ 原色（白 × k）
+                v.SetData(cd2);
+                var white = v.FaceCostText != null ? v.FaceCostText.color : Color.clear;
+                float k = white.r;                         // 白(1,1,1) × k ⇒ 三分量应相等
+                Check(Mathf.Abs(white.r - white.g) < 2e-3f && Mathf.Abs(white.r - white.b) < 2e-3f && k > 1e-3f,
+                      $"[{name}] ④a 基准 = 当前 ⇒ **原色**（三分量相等、非 0；实测 ({white.r:F3},{white.g:F3},{white.b:F3})）");
+
+                cd2.baseCost = cd.cost + 1;                // 比基准**低**（费用越低越好 ⇒ 涨色）
+                v.SetData(cd2);
+                var up = CardFeel.StatUpColor;
+                var gotUp = v.FaceCostText != null ? v.FaceCostText.color : Color.clear;
+                Check(gotUp.g > gotUp.r + 0.05f * k,
+                      $"[{name}] ④b 费用比基准**低 ⇒ 涨色（绿分量 > 红分量）**"
+                    + $"（实测 ({gotUp.r:F3},{gotUp.g:F3},{gotUp.b:F3})，涨色 = ({up.r:F3},{up.g:F3},{up.b:F3})）"
+                    + "｜🧨 `StatColorVsBase` 去掉 `s != StatCost` 的极性翻转 ⇒ 红");
+
+                cd2.baseCost = cd.cost - 1;                // 比基准**高** ⇒ 落色（红）
+                v.SetData(cd2);
+                var gotDown = v.FaceCostText != null ? v.FaceCostText.color : Color.clear;
+                Check(gotDown.r > gotDown.g + 0.05f * k,
+                      $"[{name}] ④c 费用比基准**高 ⇒ 落色（红分量 > 绿分量）**"
+                    + $"（实测 ({gotDown.r:F3},{gotDown.g:F3},{gotDown.b:F3})，落色 = ({CardFeel.StatDownColor.r:F3},{CardFeel.StatDownColor.g:F3},{CardFeel.StatDownColor.b:F3})）");
+
+                Object.DestroyImmediate(v.gameObject);
+            }
+        }
+        finally { Object.DestroyImmediate(root); }
+    }
+
+    /// <summary>🆕 **2026-10-25（`E` · 代理 D 查实）**：场上 **3D 卡体的 `_MatCap` 按【卡档位】取** ——
+    /// 原版 `CardMaterialHelper.matcapTexturesByCardTier[CardTier]`（`CardMaterialHelper__GetCardMatCapByCardTier.c`），
+    /// 四档贴图本地全在（`MatCap Card Level 1` / `Matcap Bronze` / `Matcap Silver` / `Matcap Gold`）。
+    /// <para>钉三件：① 四档贴图都在且**互不相同**（前提 —— 缺一档会静默退回 tier1、断言就假绿）；
+    /// ② tier1 时 3D 体材质 `_MatCap` = 第 1 张；③ tier4（`DebugFrameTier` 探针口）时 = 第 4 张。</para>
+    /// <para>🧨 改坏法：把 `CardView.BuildBody3D` 的 `Card3DMatcap(CardTierFor(Data))` 改回无参（写死 tier1）⇒ ③ 红；
+    /// 四张贴图少一张 ⇒ ① 红（前提先挡）。</para></summary>
+    /// <summary>🆕 **2026-10-25（`E`）**：`Core/Tooltip` 的**抑制计数** —— 原版 `Card2DController.ToggleTooltips` 的等价物。
+    /// <para>原版是**逐卡开关**（`BattleCardManager:128` · `CardDisplayWindow:965/1181` · `CardInBoosterPack:284/299` ·
+    /// `CardScript:10595/11033` 六处成对开关）；我们是全局悬停驱动 ⇒ 用「按 owner 的抑制计数」表达。
+    /// 本轮只落 **Core 侧**，那 6 个调用点在 Battle/Shell（他人域）—— 接上后账第 21 行才收口。</para>
+    /// <para>钉四件：① Suppress 后 `Show` **不弹**（`Visible == false` 且 `ShownBody == null`）；
+    /// ② 同一 owner 重复 Suppress **不叠加**；③ 重复 Release 安全、全放后 `TooltipsSuppressed == false`；
+    /// ④ 放开后 `Show` 能正常弹（🧨 把 `Show` 里那句 `if (TooltipsSuppressed) return` 删掉 ⇒ ① 红）。</para></summary>
+    static void AssertTooltipSuppression()
+    {
+        var owner = new object();
+        var owner2 = new object();
+        Tooltip.ResetSuppressionsForTest();
+        try
+        {
+            Tooltip.SuppressTooltips(owner);
+            Check(Tooltip.TooltipsSuppressed && Tooltip.SuppressorCountForTest == 1,
+                  "① `SuppressTooltips(owner)` ⇒ 抑制生效（计数 1）");
+            Tooltip.SuppressTooltips(owner);          // 同一 owner 再来一次
+            Check(Tooltip.SuppressorCountForTest == 1, "② 同一 owner 重复 Suppress **不叠加**（计数仍 1）");
+            Tooltip.SuppressTooltips(owner2);
+            Check(Tooltip.SuppressorCountForTest == 2, "②b 另一个 owner ⇒ 计数 2（可叠加）");
+
+            Tooltip.Show("suppressed_probe", Vector3.zero, 0, Vector3.zero);
+            Check(!Tooltip.Visible && Tooltip.ShownBody == null,
+                  "① 抑制期间 `Show` ⇒ **不弹**（`Visible == false`、`ShownBody == null`）"
+                + "｜🧨 删掉 `Tooltip.Show` 里那句 `if (TooltipsSuppressed) return` ⇒ 红");
+
+            Tooltip.ReleaseTooltips(owner);
+            Tooltip.ReleaseTooltips(owner);           // 重复 Release
+            Tooltip.ReleaseTooltips(owner2);
+            Check(!Tooltip.TooltipsSuppressed && Tooltip.SuppressorCountForTest == 0,
+                  "③ 全部 Release（含重复）⇒ 抑制解除且计数回 0（幂等）");
+
+            Tooltip.Show("suppressed_probe", Vector3.zero, 0, Vector3.zero);
+            Check(Tooltip.Visible && Tooltip.ShownBody == "suppressed_probe",
+                  "④ 放开后 `Show` 能正常弹（🧨 抑制清不掉 ⇒ 红）");
+            Tooltip.Hide();
+            Tooltip.FinishFade();
+        }
+        finally
+        {
+            Tooltip.ResetSuppressionsForTest();
+            Tooltip.Hide();
+            Tooltip.FinishFade();
+        }
+    }
+
+    static void AssertMatcapTier()
+    {
+        var mats = new Texture2D[CardArt.MaxTier];
+        for (int i = 0; i < mats.Length; i++) mats[i] = CardArt.Card3DMatcap(i + 1);
+        int distinct = 0;
+        for (int i = 0; i < mats.Length; i++)
+        {
+            if (mats[i] == null) continue;
+            bool dup = false;
+            for (int j = 0; j < i; j++) if (mats[j] == mats[i]) { dup = true; break; }
+            if (!dup) distinct++;
+        }
+        Check(distinct == CardArt.MaxTier,
+              $"★ 前提：{CardArt.MaxTier} 档 matcap 贴图都在且互不相同（实测 {distinct} 个不同）"
+            + "｜缺档会静默退回 tier1（`CardArt.Card3DMatcap` 的 warning）⇒ 下面的断言会假绿");
+        if (distinct != CardArt.MaxTier) return;
+
+        var pool = RuleEngine.CardDatabase.Load();
+        RuleEngine.CardDef def = null;
+        for (int i = 0; i < pool.Count; i++) if (pool[i].Name == "Deathwing Terminator") { def = pool[i]; break; }
+        Check(def != null, "★ 前提：卡池里有 `Deathwing Terminator`（3D 卡体的真卡夹具）");
+        if (def == null) return;
+        var cd = BattleDriver.ToCardData(def, def.Faction);
+
+        var root = new GameObject("matcap_tier");
+        int back = CardView.DebugFrameTier;
+        try
+        {
+            for (int tier = 1; tier <= CardArt.MaxTier; tier += CardArt.MaxTier - 1)   // 1 与 4
+            {
+                CardView.DebugFrameTier = tier;          // 探针口径（`CardTierFor` 读它；⛔ 不写玩家存档）
+                var v = CardView.Create(root.transform, cd, "matcap_t" + tier, CardFace.Board);
+                Check(v != null, $"★ 前提：tier{tier} 的场上卡建出来了");
+                if (v != null)
+                {
+                    var got = v.BodyMatcap;
+                    Check(got == mats[tier - 1],
+                          $"[tier{tier}] 3D 卡体 `_MatCap` = 第 {tier} 档那张"
+                        + $"（实测 {(got != null ? got.name : "<null>")}，应 {(mats[tier - 1] != null ? mats[tier - 1].name : "<null>")}）"
+                        + "｜🧨 `BuildBody3D` 改成无参 `Card3DMatcap()`（写死 tier1）⇒ tier4 这条红");
+                    Object.DestroyImmediate(v.gameObject);
+                }
+            }
+        }
+        finally
+        {
+            CardView.DebugFrameTier = back;
+            Object.DestroyImmediate(root);
+        }
+    }
+
+    static void AssertDeckErrorShortKeys()
+    {
+        string[] shortKeys = { "MenuDeck/Error/InvalidDeck/Short", "MenuDeck/Error/InvalidDeckBannedCards/Short" };
+        string[] longKeys  = { "MenuDeck/Error/InvalidDeck",       "MenuDeck/Error/InvalidDeckBannedCards" };
+        string[] langs = { "zh", "en" };
+        var back = Loc.Current;
+        Loc.PersistOverride = true;
+        try
+        {
+            foreach (var lang in langs)
+            {
+                Loc.SetLanguage(lang == "zh" ? AvailableLanguages.Chinese : AvailableLanguages.English);
+                for (int i = 0; i < shortKeys.Length; i++)
+                {
+                    string s = Loc.T(shortKeys[i]);
+                    Check(!string.IsNullOrEmpty(s) && s != shortKeys[i],
+                          $"短档键 `{shortKeys[i]}`（{lang}）解析出非空且 ≠ 键名：\"{s}\""
+                        + "｜🧨 把 `Core/Loc.cs` 那两条删掉 ⇒ `Loc.T` 回键名 ⇒ 红");
+                    string l = Loc.T(longKeys[i]);
+                    Check(!string.IsNullOrEmpty(l) && l != longKeys[i],
+                          $"长档键 `{longKeys[i]}`（{lang}）解析出非空且 ≠ 键名：\"{l}\"");
+                }
+            }
+            // 引擎侧口径：有短档的拼 `/Short`；没短档的**回长档**
+            // （`DeckError.InvalidDeck` = A 2026-10-25 补在枚举**末尾**的那一档，⛔ 别插中间）
+            Check(RuleEngine.DeckRules.DescribeShort(RuleEngine.DeckError.InvalidDeck) == "MenuDeck/Error/InvalidDeck/Short",
+                  "`DeckRules.DescribeShort(InvalidDeck)` = `MenuDeck/Error/InvalidDeck/Short`"
+                + "｜🧨 改成回长档 ⇒ 红");
+            // 同一档走长档口：`Describe(InvalidDeck)` 必须是**长键**（短档不能污染长档）
+            Check(RuleEngine.DeckRules.Describe(RuleEngine.DeckError.InvalidDeck) == "MenuDeck/Error/InvalidDeck",
+                  "`DeckRules.Describe(InvalidDeck)` = `MenuDeck/Error/InvalidDeck`（长档不带 `/Short`）");
+            Check(RuleEngine.DeckRules.DescribeShort(RuleEngine.DeckError.TooFewCards) == "MenuDeck/Error/TooFewCards",
+                  "`DeckRules.DescribeShort(TooFewCards)` = **长档**（官方 15 条里只有两条有 `/Short`）"
+                + "｜🧨 给每条都加 `/Short` ⇒ 红");
+        }
+        finally { Loc.RestoreForTest(back); Loc.PersistOverride = false; }
+    }
+
     static void AssertSubtypeLine()
     {
+        // 原版 `.rdata` 那条字面量（`0x1842cdf40`）—— **断言用字面量**，⛔ 不引用被测实现的常量
+        // （两边都用它 = 同义反复：「把前缀连实现一起改掉」照样全绿；判别式另有一条）。
+        const string RaceKeyPrefix = "Card_Race/";
+        // ---- ④ 🆕 2026-10-25（`K4`）：**原版键里的名字是 `SpellType` 枚举成员名（无空格）** -------
+        //  判据（一手）→ `GameStaticData__CardRaceToString.c` 的 `cardType == 0x14` 那一支：
+        //    `name = Enum.ToString(spellType@0x90)` → `GetTranslation("Card_Race/" + name)`；
+        //    成员表见 `dump.cs` 的 `enum SpellType`（`PsychicPower 90` / `MarkOfChaos 190` /
+        //    `DefensiveCard 210` / `OverlordPower 180` / `Genomic 240` / `CombatElixir 260`）。
+        //  卡表 `subtype` 写的是**展示名**（带空格）⇒ `CardView.RaceKeyBySubtype` 那 6 对必须逐字对。
+        //  🧨 改坏法：删掉任一对（键退回带空格的展示名）⇒ ④ 红。
+        {
+            var want = new[]
+            {
+                new[] { "Combat Elixir",       "CombatElixir"  },
+                new[] { "Dark Pact",           "MarkOfChaos"   },
+                new[] { "Defence",             "DefensiveCard" },
+                new[] { "Genomic Enhancement", "Genomic"       },
+                new[] { "Overlord Power",      "OverlordPower" },
+                new[] { "Psychic Power",       "PsychicPower"  },
+            };
+            var got = CardView.RaceKeyForTest;
+            bool same = got != null && got.Length == want.Length;
+            for (int i = 0; same && i < want.Length; i++)
+                same = got[i] != null && got[i].Length == 2
+                    && got[i][0] == want[i][0] && got[i][1] == want[i][1];
+            Check(same,
+                  "卡面兵种行的**词条键** = 原版 `SpellType` 枚举名（6 对逐字相等："
+                + "PsychicPower / CombatElixir / Genomic / OverlordPower / MarkOfChaos / DefensiveCard）"
+                + "｜🧨 删掉任一映射（键退回带空格的展示名）⇒ 红");
+
+            // 🔴 **2026-10-25（`E`）值那一半已补**：`Card_Race/*` 那 23 条已进数据面
+            //    （`工具/_loc_official/gen_official_names.py` 的 `FAMILIES` 加了 `Card_Race`，产物重生成；
+            //      `Core/Loc.cs` 那 6 条手写值也同时换成官方 zh）。
+            //    判据（一手）= 官方 zh-CN 表；值**写死字面量**（⛔ 不拿被测量算期望，那会同义反复）。
+            {
+                var wantVal = new[]
+                {
+                    new[] { "CombatElixir",  "战斗灵药" },
+                    new[] { "MarkOfChaos",   "黑暗契约" },
+                    new[] { "DefensiveCard", "防守"     },
+                    new[] { "Genomic",       "基因增强" },
+                    new[] { "OverlordPower", "霸主力量" },
+                    new[] { "PsychicPower",  "心灵力量" },
+                };
+                int missingBulk = 0;
+                foreach (var kv in wantVal)
+                    if (!Loc.HasBulk(RaceKeyPrefix + kv[0])) missingBulk++;
+                Check(missingBulk == 0,
+                      "官方 `Card_Race/*` 的 6 个枚举名键**都在数据面**（缺 " + missingBulk + " 个）"
+                    + "｜🧨 把 `Card_Race` 从生成器族表里删掉 / 不重跑 ⇒ 红");
+
+                var langBack2 = Loc.Current;
+                Loc.PersistOverride = true;
+                try
+                {
+                    Loc.SetLanguage(AvailableLanguages.Chinese);
+                    int badVal = 0; string gotAll = "";
+                    foreach (var kv in wantVal)
+                    {
+                        string gotVal = Loc.T(RaceKeyPrefix + kv[0]);
+                        gotAll += kv[0] + "=\"" + gotVal + "\" ";
+                        if (gotVal != kv[1]) badVal++;
+                    }
+                    Check(badVal == 0,
+                          "★ 卡面兵种行那 6 条**等于官方 zh-CN**（灵药/防守/基因增强/霸主力量/黑暗契约/心灵力量）"
+                        + "—— 实测 " + gotAll + "｜🧨 改回手写旧译（灵能/战斗药剂/基因强化/霸主之力/防御）⇒ 红");
+                }
+                finally { Loc.RestoreForTest(langBack2); Loc.PersistOverride = false; }
+            }
+        }
+
         // ---- ① 键：会印到卡面上的 19 个（= 数据里出现过的 subtype ∩ `SubtypeLine` 会印）----
+        //  ⚠️ 下标写法是**词条键的后半段**：战术/防御那 6 个在原版键里是 `SpellType` **枚举名**
+        //     （`PsychicPower` / `CombatElixir` / `Genomic` / `OverlordPower` / `MarkOfChaos` / `DefensiveCard`），
+        //     不是卡表那个带空格的展示名 —— 判据同 ④。
         string[] printed =
         {
-            "Infantry", "Vehicle", "Warlord", "Defence", "Monster", "Beast", "Battlesuit", "Drone",
-            "Psychic Power", "Combat Elixir", "Daemon", "Secret", "Dark Pact", "Sabotage",
-            "Codicil", "Genomic Enhancement", "Invocation", "Overlord Power", "Rune",
+            "Infantry", "Vehicle", "Warlord", "DefensiveCard", "Monster", "Beast", "Battlesuit", "Drone",
+            "PsychicPower", "CombatElixir", "Daemon", "Secret", "MarkOfChaos", "Sabotage",
+            "Codicil", "Genomic", "Invocation", "OverlordPower", "Rune",
         };
         int missing = 0;
-        // ⚠️ **期望值写字面量，不写 `CardView.RaceTermPrefix`** —— 后者是**被测实现**的常量，
-        //    两边都用它 = 同义反复（「把前缀连实现一起改掉」照样全绿）。判别式单列一条在下面。
-        const string KeyPrefix = "Card_Race/";                 // 原版 `.rdata` 那条（`0x1842cdf40`）
-        Check(CardView.RaceTermPrefix == KeyPrefix,
+        // ⚠️ **期望值写字面量**（`RaceKeyPrefix`，在函数开头）—— ⛔ 不写 `CardView.RaceTermPrefix`，
+        //    后者是**被测实现**的常量，两边都用它 = 同义反复。
+        Check(CardView.RaceTermPrefix == RaceKeyPrefix,
               "实现的键前缀 = **原版那条字面量** `Card_Race/`（⛔ 不是自拟的 `Card/Subtype/…`）"
             + " —— 🧨 改成自拟前缀这条立刻红");
-        foreach (var s in printed) if (!Loc.HasEntry(KeyPrefix + s)) missing++;
+        foreach (var s in printed) if (!Loc.HasEntry(RaceKeyPrefix + s)) missing++;
         Check(missing == 0, $"会印在卡面上的 {printed.Length} 个字种**全都有词条**（缺 {missing} 个）");
 
         // ---- ② 词条值：中文档 / 英文档各断一次 ----

@@ -1,0 +1,402 @@
+域	原版类	方法	判据出处	判据要点	状态	我们的落点	差异	等级	轮次	备注
+社交/聊天	AddressableAllianceItemsLibrary	AssetCompletedLoading(AsyncOperationHandle obj, string assetKey)	AddressableAllianceItemsLibrary.cs:47		E					
+社交/聊天	AddressableAllianceItemsLibrary	GetLocalHandle(IResourceLocation element)	AddressableAllianceItemsLibrary.cs:31		E					
+社交/聊天	AllianceBadge	Release()	AllianceBadge.cs:36		E					
+社交/聊天	AllianceBadgeAssetProvider	GetAssets()	AllianceBadgeAssetProvider.cs:7		E					
+社交/聊天	AllianceBadgeDrawer	Draw(AllianceTrophyData item, int quantity)	AllianceBadgeDrawer.cs:35		E					
+社交/聊天	AllianceBadgeDrawer	Draw(GroupBadge badge)	AllianceBadgeDrawer.cs:53		E					
+社交/聊天	AllianceBadgeDrawer	GetItemName(AllianceTrophyData item)	AllianceBadgeDrawer.cs:18		E					
+社交/聊天	AllianceBadgeDrawer	OnRelease()	AllianceBadgeDrawer.cs:150		E					
+社交/聊天	AllianceBadgeDrawer	SetTierFrame(int tier)	AllianceBadgeDrawer.cs:108		E					
+社交/聊天	AllianceInvitationEntry	HandleDismiss()	AllianceInvitationEntry.cs:396		E					
+社交/聊天	AllianceInvitationEntry	HandleInfo()	AllianceInvitationEntry.cs:366		E					
+社交/聊天	AllianceInvitationEntry	HandleJoin()	AllianceInvitationEntry.cs:375		E					
+社交/聊天	AllianceInvitationEntry	Initialize(GroupInvitation alliance)	AllianceInvitationEntry.cs:302		E					
+社交/聊天	AllianceInvitationEntry	OnDestroy()	AllianceInvitationEntry.cs:417		E					
+社交/聊天	AllianceInvitationEntry	Start()	AllianceInvitationEntry.cs:289		E					
+社交/聊天	AllianceInvitationEntry	_003CHandleDismiss_003Eb__23_0()	AllianceInvitationEntry.cs:474		E					
+社交/聊天	AllianceInvitationEntry	_003CHandleJoin_003Eb__22_0()	AllianceInvitationEntry.cs:463		E					
+社交/聊天	AllianceItem	GetID()	AllianceItem.cs:5		E					
+社交/聊天	AllianceListEntry	HandleInfo()	AllianceListEntry.cs:216		E					
+社交/聊天	AllianceListEntry	Initialize(Group alliance)	AllianceListEntry.cs:225		E					
+社交/聊天	AllianceListEntry	OnDestroy()	AllianceListEntry.cs:312		E					
+社交/聊天	AllianceListEntry	Start()	AllianceListEntry.cs:206		E					
+社交/聊天	AllianceListEntry	TryJoin()	AllianceListEntry.cs:292		E					
+社交/聊天	AllianceListEntry	_003CTryJoin_003Eb__18_0(Group g)	AllianceListEntry.cs:345		E					
+社交/聊天	AllianceMemberEntry	Initialize(Group group, GroupMember member, int index)	AllianceMemberEntry.cs:159		E					
+社交/聊天	AllianceMemberEntry	OnDestroy()	AllianceMemberEntry.cs:323		E					
+社交/聊天	AllianceMemberEntry	RefreshStatus()	AllianceMemberEntry.cs:294		E					
+社交/聊天	AllianceMemberEntry	Start()	AllianceMemberEntry.cs:316		E					
+社交/聊天	AllianceMemberList	HandleMemberClick(GroupMember member, Transform memberTransform)	AllianceMemberList.cs:351		E					
+社交/聊天	AllianceMemberList	Initialize(Group group, IReadOnlyList<GroupMember> members)	AllianceMemberList.cs:135		E					
+社交/聊天	AllianceMemberOptionsPopup	Awake()	AllianceMemberOptionsPopup.cs:139		E					
+社交/聊天	AllianceMemberOptionsPopup	Close()	AllianceMemberOptionsPopup.cs:518		E					
+社交/聊天	AllianceMemberOptionsPopup	HandleDebugAddSkulls()	AllianceMemberOptionsPopup.cs:145		E					
+社交/聊天	AllianceMemberOptionsPopup	OnAddAsFriendClicked()	AllianceMemberOptionsPopup.cs:552		E					
+社交/聊天	AllianceMemberOptionsPopup	OnChallengeClicked()	AllianceMemberOptionsPopup.cs:452		E					
+社交/聊天	AllianceMemberOptionsPopup	OnDemoteClicked()	AllianceMemberOptionsPopup.cs:614		E					
+社交/聊天	AllianceMemberOptionsPopup	OnKickPlayerClicked()	AllianceMemberOptionsPopup.cs:634		E					
+社交/聊天	AllianceMemberOptionsPopup	OnPromoteClicked()	AllianceMemberOptionsPopup.cs:583		E					
+社交/聊天	AllianceMemberOptionsPopup	OnQuitButtonClicked()	AllianceMemberOptionsPopup.cs:535		E					
+社交/聊天	AllianceMemberOptionsPopup	OnViewProfileClicked()	AllianceMemberOptionsPopup.cs:572		E					
+社交/聊天	AllianceMemberOptionsPopup	Open()	AllianceMemberOptionsPopup.cs:308		E					
+社交/聊天	AllianceMemberOptionsPopup	ShowConfirmation(string confirmationText, Action onConfirm)	AllianceMemberOptionsPopup.cs:463		E					
+社交/聊天	AllianceMemberOptionsPopup	_003CHandleDebugAddSkulls_003Eb__15_0(PromptContext.PromptResult res)	AllianceMemberOptionsPopup.cs:674		E					
+社交/聊天	AllianceMemberOptionsPopup	_003COnAddAsFriendClicked_003Eg__OnComplete_007C21_0(List<Friend> _)	AllianceMemberOptionsPopup.cs:735		E					
+社交/聊天	AllianceMemberOptionsPopup	_003COnAddAsFriendClicked_003Eg__OnErr_007C21_1(string err)	AllianceMemberOptionsPopup.cs:742		E					
+社交/聊天	AllianceMemberOptionsPopup	_003COnDemoteClicked_003Eb__24_0()	AllianceMemberOptionsPopup.cs:782		E					
+社交/聊天	AllianceMemberOptionsPopup	_003COnKickPlayerClicked_003Eb__25_0()	AllianceMemberOptionsPopup.cs:789		E					
+社交/聊天	AllianceMemberOptionsPopup	_003COnPromoteClicked_003Eb__23_1(GameObject _)	AllianceMemberOptionsPopup.cs:750		E					
+社交/聊天	AllianceMemberOptionsPopup	_003COnPromoteClicked_003Eb__23_2()	AllianceMemberOptionsPopup.cs:775		E					
+社交/聊天	AllianceMemberOptionsPopup	_003COnPromoteClicked_003Eg__Promote_007C23_0()	AllianceMemberOptionsPopup.cs:755		E					
+社交/聊天	AllianceMemberOptionsPopup	_003COnQuitButtonClicked_003Eb__20_0()	AllianceMemberOptionsPopup.cs:728		E					
+社交/聊天	AllianceMemberTab	Initialize()	AllianceMemberTab.cs:28		E					
+社交/聊天	AllianceMemberTab	ShowGeneralView(bool state)	AllianceMemberTab.cs:77		E					
+社交/聊天	AllianceMemberTab	ShowTrophiesView(bool state)	AllianceMemberTab.cs:99		E					
+社交/聊天	AllianceMemberTab	Start()	AllianceMemberTab.cs:18		E					
+社交/聊天	AllianceRankingDataProvider	FetchHighlighted(RankingType type, Action<RankingRowData> onSuccess, Action onError)	AllianceRankingDataProvider.cs:290		E					
+社交/聊天	AllianceRankingDataProvider	FetchRanking(int maximum, RankingType type, Action<List<RankingRowData>> onSuccess, Action onError)	AllianceRankingDataProvider.cs:212		E					
+社交/聊天	AllianceRankingDataProvider	Initialize(UIRankingListController controller)	AllianceRankingDataProvider.cs:357		E					
+社交/聊天	AllianceRatingDisplay	Initialize(int value, Sprite overrideIcon, bool disableIfZero, bool useSealSystem, bool zeroBasedRank)	AllianceRatingDisplay.cs:15		E					
+社交/聊天	AllianceScoreBar	Initialize(int currentScore, int[] scoringThresholds)	AllianceScoreBar.cs:14		E					
+社交/聊天	AllianceScoreBar	SetProgressBar(int[] thresholds, int currentScore)	AllianceScoreBar.cs:78		E					
+社交/聊天	AllianceScoreBar	SetScoringMilestones(int[] thresholds, int currentScore)	AllianceScoreBar.cs:29		E					
+社交/聊天	AllianceScoreBarLine	Initialize(int thresholdValue)	AllianceScoreBarLine.cs:14		E					
+社交/聊天	AllianceScoreBarLine	ShowChestOpen()	AllianceScoreBarLine.cs:21		E					
+社交/聊天	AllianceSearchTab	HandleDisplayAlliance(Group alliance)	AllianceSearchTab.cs:224		E					
+社交/聊天	AllianceSearchTab	HandleRefresh()	AllianceSearchTab.cs:141		E					
+社交/聊天	AllianceSearchTab	Initialize()	AllianceSearchTab.cs:150		E					
+社交/聊天	AllianceSearchTab	OnDestroy()	AllianceSearchTab.cs:135		E					
+社交/聊天	AllianceSearchTab	ShowCreateAllianceMenu(bool state)	AllianceSearchTab.cs:186		E					
+社交/聊天	AllianceSearchTab	ShowJoinAllianceMenu(bool state)	AllianceSearchTab.cs:202		E					
+社交/聊天	AllianceSearchTab	Start()	AllianceSearchTab.cs:123		E					
+社交/聊天	AllianceTrophiesView	Draw(Group obj)	AllianceTrophiesView.cs:32		E					
+社交/聊天	AllianceTrophiesView	HandleTrophyClick(AllianceTrophyEntry trophy)	AllianceTrophiesView.cs:297		E					
+社交/聊天	AllianceTrophiesView	Initialize()	AllianceTrophiesView.cs:25		E					
+社交/聊天	AllianceTrophiesView	ToggleSelected(AllianceTrophyEntry entry)	AllianceTrophiesView.cs:285		E					
+社交/聊天	AllianceTrophy	CleanUp()	AllianceTrophy.cs:307		E					
+社交/聊天	AllianceTrophy	GetCurrentStatus()	AllianceTrophy.cs:270		E					
+社交/聊天	AllianceTrophy	GetID()	AllianceTrophy.cs:219		E					
+社交/聊天	AllianceTrophy	GetTargetMilestone()	AllianceTrophy.cs:231		E					
+社交/聊天	AllianceTrophy	Initialize(AlliancesTrophyController alliancesTrophyController)	AllianceTrophy.cs:284		E					
+社交/聊天	AllianceTrophy	OnChallengeUpdate(ChallengeUpdatePayload payload)	AllianceTrophy.cs:316		E					
+社交/聊天	AllianceTrophy	_003Cget_CurrentTier_003Eb__16_0(ChallengeMilestone r)	AllianceTrophy.cs:516		E					
+社交/聊天	AllianceTrophyAssetProvider	GetAssets()	AllianceTrophyAssetProvider.cs:7		E					
+社交/聊天	AllianceTrophyData	GetID()	AllianceTrophyData.cs:64		E					
+社交/聊天	AllianceTrophyEntry	Desselect()	AllianceTrophyEntry.cs:192		E					
+社交/聊天	AllianceTrophyEntry	HandleClick()	AllianceTrophyEntry.cs:181		E					
+社交/聊天	AllianceTrophyEntry	Initialize(AllianceTrophy data)	AllianceTrophyEntry.cs:127		E					
+社交/聊天	AllianceTrophyEntry	Select()	AllianceTrophyEntry.cs:187		E					
+社交/聊天	AllianceUIRankingRow	Config(RankingRowData rowData)	AllianceUIRankingRow.cs:9		E					
+社交/聊天	AllianceUIRankingRow	ToggleComponents(bool value)	AllianceUIRankingRow.cs:44		E					
+社交/聊天	AllianceView	Awake()	AllianceView.cs:98		E					
+社交/聊天	AllianceView	Draw(Group currentAlliance)	AllianceView.cs:301		E					
+社交/聊天	AllianceView	Initialize()	AllianceView.cs:274		E					
+社交/聊天	AllianceView	Initialize(string groupId)	AllianceView.cs:284		E					
+社交/聊天	AllianceView	OnDestroy()	AllianceView.cs:268		E					
+社交/聊天	AllianceView	OnEditCancel()	AllianceView.cs:521		E					
+社交/聊天	AllianceView	OnEditSave()	AllianceView.cs:540		E					
+社交/聊天	AllianceView	OnMemberClicked(GroupMember member, Transform memberTransform)	AllianceView.cs:595		E					
+社交/聊天	AllianceView	OnToggleEditClicked()	AllianceView.cs:483		E					
+社交/聊天	AllianceView	Start()	AllianceView.cs:104		E					
+社交/聊天	AllianceView	_003COnEditSave_003Eb__25_0(Group _)	AllianceView.cs:638		E					
+社交/聊天	AllianceView	_003CStart_003Eb__18_2(string _)	AllianceView.cs:630		E					
+社交/聊天	AlliancesController	AcceptInvitation(string groupId, Action<Group> callback)	AlliancesController.cs:2395		E					
+社交/聊天	AlliancesController	CancelInvitation(Group group, string playerId, Action action)	AlliancesController.cs:2519		E					
+社交/聊天	AlliancesController	CreateGroup(string name, string description, GroupPrivacy privacyType, string region, string badgeId, int minElo, Action<Group> callback)	AlliancesController.cs:2108		E					
+社交/聊天	AlliancesController	ExitCurrentGroup(Action callback)	AlliancesController.cs:2137		E					
+社交/聊天	AlliancesController	FetchCurrentGroup(Action<Group, bool> callback, bool forceRefresh)	AlliancesController.cs:1593		E					
+社交/聊天	AlliancesController	FetchGroupEventRanking(string eventId, Action<List<Group>> callback)	AlliancesController.cs:2680		E					
+社交/聊天	AlliancesController	FetchGroupInvitations(bool forceRefresh, Action<List<GroupInvitation>> callback)	AlliancesController.cs:2357		E					
+社交/聊天	AlliancesController	FetchGroupList(Action<List<Group>> callback)	AlliancesController.cs:1636		E					
+社交/聊天	AlliancesController	FetchGroupListFiltered(string name, Action<List<Group>> callback)	AlliancesController.cs:1869		E					
+社交/聊天	AlliancesController	FetchGroupListOrdered(string orderBy, Action<List<Group>> callback, object minimum)	AlliancesController.cs:2031		E					
+社交/聊天	AlliancesController	FetchGroupRanking(bool getPreviousRating, Action<List<Group>> callback)	AlliancesController.cs:2567		E					
+社交/聊天	AlliancesController	GetCachedGroupById(string id)	AlliancesController.cs:1349		E					
+社交/聊天	AlliancesController	GetGroupById(string id, Action<Group> callback)	AlliancesController.cs:1376		E					
+社交/聊天	AlliancesController	InvalidateLocalGroup()	AlliancesController.cs:2093		E					
+社交/聊天	AlliancesController	InvitePlayer(Group group, string playerId, Action action)	AlliancesController.cs:2490		E					
+社交/聊天	AlliancesController	JoinGroup(string groupId, Action<Group> callback)	AlliancesController.cs:2289		E					
+社交/聊天	AlliancesController	KickMember(GroupMember member, Action callback)	AlliancesController.cs:2037		E					
+社交/聊天	AlliancesController	RejectInvitation(string groupId, Action<List<GroupInvitation>> callback)	AlliancesController.cs:2421		E					
+社交/聊天	AlliancesController	SetCurrentBadge(GroupBadge groupBadge, Action onComplete)	AlliancesController.cs:2538		E					
+社交/聊天	AlliancesController	SetCurrentGroupCached(Group g)	AlliancesController.cs:1461		E					
+社交/聊天	AlliancesController	SetInvitationsCached(IEnumerable<GroupInvitation> g)	AlliancesController.cs:1529		E					
+社交/聊天	AlliancesController	SetMemberRole(GroupMember member, GroupRole newRole, Action callback)	AlliancesController.cs:2230		E					
+社交/聊天	AlliancesController	UpdateGroup(Group group, string description, GroupPrivacy? privacyType, string region, string badgeId, int? minElo, Action<Group> callback)	AlliancesController.cs:2461		E					
+社交/聊天	AlliancesEventScorePanel	Initialize(DraftEventData draftData)	AlliancesEventScorePanel.cs:56		E					
+社交/聊天	AlliancesEventScorePanel	Initialize(string allianceName, int currentScore, int[] scoringThresholds, string leaderBoardID)	AlliancesEventScorePanel.cs:110		E					
+社交/聊天	AlliancesEventScorePanel	JoinAllianceButtonClick()	AlliancesEventScorePanel.cs:179		E					
+社交/聊天	AlliancesEventScorePanel	LeaderboardButtonClick()	AlliancesEventScorePanel.cs:191		E					
+社交/聊天	AlliancesManager	AcceptInvitation(string groupId, Action callback)	AlliancesManager.cs:1033		E					
+社交/聊天	AlliancesManager	BuildCurrentMember()	AlliancesManager.cs:548		E					
+社交/聊天	AlliancesManager	CancelInvitation(string playerId, Action action)	AlliancesManager.cs:1682		E					
+社交/聊天	AlliancesManager	CheckNotification()	AlliancesManager.cs:1755		E					
+社交/聊天	AlliancesManager	CreateGroup(string name, string description, GroupPrivacy privacyType, string region, string badgeId, int minElo, Action<Group> callback)	AlliancesManager.cs:1330		E					
+社交/聊天	AlliancesManager	ExitCurrentGroup(Action callback)	AlliancesManager.cs:1405		E					
+社交/聊天	AlliancesManager	FetchGroupInvitations(Action<List<GroupInvitation>> action, bool forceRefresh)	AlliancesManager.cs:1572		E					
+社交/聊天	AlliancesManager	GetCurrentGroup(Action<Group> callback, bool forceRefresh)	AlliancesManager.cs:679		E					
+社交/聊天	AlliancesManager	GetCurrentPlayerAllianceName(out string allianceName)	AlliancesManager.cs:456		E					
+社交/聊天	AlliancesManager	GetCurrentTrophies()	AlliancesManager.cs:777		E					
+社交/聊天	AlliancesManager	GetEventScore(string eventID, out int eventScore)	AlliancesManager.cs:480		E					
+社交/聊天	AlliancesManager	GetGroupById(string id)	AlliancesManager.cs:752		E					
+社交/聊天	AlliancesManager	GetGroupById(string id, Action<Group> callback)	AlliancesManager.cs:765		E					
+社交/聊天	AlliancesManager	GetGroupList(string filter, Action<List<Group>> callback)	AlliancesManager.cs:787		E					
+社交/聊天	AlliancesManager	GetGroupRanking(bool getPreviousRating, Action<List<Group>> callback)	AlliancesManager.cs:799		E					
+社交/聊天	AlliancesManager	GetGroupRankingByEvent(string eventId, Action<List<Group>> callback)	AlliancesManager.cs:913		E					
+社交/聊天	AlliancesManager	HandleAvatarUpdate(PlayerAvatar obj)	AlliancesManager.cs:535		E					
+社交/聊天	AlliancesManager	HasJoinedEvent(string eventID)	AlliancesManager.cs:503		E					
+社交/聊天	AlliancesManager	Initialize(bool preloadGroupList)	AlliancesManager.cs:593		E					
+社交/聊天	AlliancesManager	InvalidateLocalGroup()	AlliancesManager.cs:1556		E					
+社交/聊天	AlliancesManager	InvitePlayer(string playerId, Action action)	AlliancesManager.cs:1625		E					
+社交/聊天	AlliancesManager	JoinGroup(Group group, Action<Group> callback)	AlliancesManager.cs:1258		E					
+社交/聊天	AlliancesManager	JoinGroup(string groupId, Action<Group> callback)	AlliancesManager.cs:1294		E					
+社交/聊天	AlliancesManager	KickMember(GroupMember member, Action onComplete)	AlliancesManager.cs:1145		E					
+社交/聊天	AlliancesManager	OnDestroy()	AlliancesManager.cs:529		E					
+社交/聊天	AlliancesManager	RejectInvitation(string groupId, Action callback)	AlliancesManager.cs:1083		E					
+社交/聊天	AlliancesManager	SetCurrentBadge(GroupBadge getCurrentStatus, Action onComplete)	AlliancesManager.cs:1726		E					
+社交/聊天	AlliancesManager	SetMemberRole(GroupMember member, GroupRole newRole, Action onComplete)	AlliancesManager.cs:918		E					
+社交/聊天	AlliancesManager	Start()	AlliancesManager.cs:523		E					
+社交/聊天	AlliancesManager	UpdateCurrentGroup(Action<Group> callback, string description, GroupPrivacy? privacyType, string region, string badgeId, int? minElo)	AlliancesManager.cs:1526		E					
+社交/聊天	AlliancesManager	_003CInitialize_003Eb__27_0()	AlliancesManager.cs:1789		E					
+社交/聊天	AlliancesTab	Refresh()	AlliancesTab.cs:81		E					
+社交/聊天	AlliancesTab	Start()	AlliancesTab.cs:29		E					
+社交/聊天	AlliancesTab	ToFocus()	AlliancesTab.cs:11		E					
+社交/聊天	AlliancesTrophyController	BlockAutoUpload()	AlliancesTrophyController.cs:842		E					
+社交/聊天	AlliancesTrophyController	CleanUp()	AlliancesTrophyController.cs:406		E					
+社交/聊天	AlliancesTrophyController	GetGroupTrophies()	AlliancesTrophyController.cs:548		E					
+社交/聊天	AlliancesTrophyController	GetTierFrame(int tier)	AlliancesTrophyController.cs:475		E					
+社交/聊天	AlliancesTrophyController	Initialize(Dictionary<string, GroupTrophy> groupPoints, Dictionary<string, int> playerPoints)	AlliancesTrophyController.cs:308		E					
+社交/聊天	AlliancesTrophyController	OnDestroy()	AlliancesTrophyController.cs:470		E					
+社交/聊天	AlliancesTrophyController	RemoveMemberPoints(GroupMember member)	AlliancesTrophyController.cs:495		E					
+社交/聊天	AlliancesTrophyController	UnloadTierFrame(int tier)	AlliancesTrophyController.cs:487		E					
+社交/聊天	AlliancesTrophyController	UpdateValue(AllianceTrophy trophy, int newPlayerScore)	AlliancesTrophyController.cs:651		E					
+社交/聊天	AlliancesTrophyController	UploadPooledProgress()	AlliancesTrophyController.cs:553		E					
+社交/聊天	AlliancesTrophyController	_003CUploadPooledProgress_003Eb__16_2(AllianceTrophySave[] newSaves)	AlliancesTrophyController.cs:857		E					
+社交/聊天	BattleAlliancePanel	Awake()	BattleAlliancePanel.cs:40		E					
+社交/聊天	BattleAlliancePanel	CloseButtonClick()	BattleAlliancePanel.cs:49		E					
+社交/聊天	BattleAlliancePanel	Open(string playerName, string playerTitle, int playerScore, PlayerAvatar avatar, CosmeticItemAvatarBorder avatarBorder, string allianceName, int allianceScore, GroupBadge allianceBadge)	BattleAlliancePanel.cs:55		E					
+社交/聊天	ChatContentView	AddMessage(ChatMessageData message, bool isPlayer, bool isCachedMessage)	ChatContentView.cs:409		E					
+社交/聊天	ChatContentView	ChangeItemsCount(ItemCountChangeMode changeMode, int itemsCount, int indexIfInsertingOrRemoving, bool contentPanelEndEdgeStationary, bool keepVelocity)	ChatContentView.cs:314		E					
+社交/聊天	ChatContentView	CheckForMessage(ChatMessageData message)	ChatContentView.cs:479		E					
+社交/聊天	ChatContentView	CreateViewsHolder(int itemIndex)	ChatContentView.cs:185		E					
+社交/聊天	ChatContentView	OnInitialized()	ChatContentView.cs:137		E					
+社交/聊天	ChatContentView	OnItemHeightChangedPreTwinPass(ChatEntryView vh)	ChatContentView.cs:288		E					
+社交/聊天	ChatContentView	RebuildLayoutDueToScrollViewSizeChange()	ChatContentView.cs:308		E					
+社交/聊天	ChatContentView	SetAllModelsHavePendingSizeChange()	ChatContentView.cs:323		E					
+社交/聊天	ChatContentView	Start()	ChatContentView.cs:59		E					
+社交/聊天	ChatContentView	Update()	ChatContentView.cs:71		E					
+社交/聊天	ChatContentView	UpdateSize()	ChatContentView.cs:282		E					
+社交/聊天	ChatContentView	UpdateTimers()	ChatContentView.cs:110		E					
+社交/聊天	ChatContentView	UpdateViewsHolder(ChatEntryView newOrRecycled)	ChatContentView.cs:296		E					
+社交/聊天	ChatEntryView	CollectViews()	ChatEntryView.cs:53		E					
+社交/聊天	ChatEntryView	MarkForRebuild()	ChatEntryView.cs:138		E					
+社交/聊天	ChatEntryView	NotifyUpdate()	ChatEntryView.cs:129		E					
+社交/聊天	ChatEntryView	UnmarkForRebuild()	ChatEntryView.cs:144		E					
+社交/聊天	ChatGlobalManager	AddChatListener(Action<string, List<ChatMessageData>> onChatUpdateCallback)	ChatGlobalManager.cs:1199		E					
+社交/聊天	ChatGlobalManager	AddNewPracticeMathPending(string playfabId, string playerName, bool otherPlayerFirst, bool isClassic)	ChatGlobalManager.cs:2562		E					
+社交/聊天	ChatGlobalManager	AttemptReconnect()	ChatGlobalManager.cs:1329		E					
+社交/聊天	ChatGlobalManager	BlockPlayer(string playerId)	ChatGlobalManager.cs:1672		E					
+社交/聊天	ChatGlobalManager	CheckBlockedList(string playerId)	ChatGlobalManager.cs:1661		E					
+社交/聊天	ChatGlobalManager	CheckForTimestamp(PrivateMessageData messageData)	ChatGlobalManager.cs:2460		E					
+社交/聊天	ChatGlobalManager	CheckIfDisconnected()	ChatGlobalManager.cs:1340		E					
+社交/聊天	ChatGlobalManager	CheckIfNewerLogin(PrivateMessageData messageData)	ChatGlobalManager.cs:2509		E					
+社交/聊天	ChatGlobalManager	CheckIfOlderLogin(PrivateMessageData messageData)	ChatGlobalManager.cs:2537		E					
+社交/聊天	ChatGlobalManager	CheckNotification()	ChatGlobalManager.cs:3101		E					
+社交/聊天	ChatGlobalManager	CheckUserOnline(string playfabId, Action<bool> callback)	ChatGlobalManager.cs:1407		E					
+社交/聊天	ChatGlobalManager	ConnectToChatServer()	ChatGlobalManager.cs:1063		E					
+社交/聊天	ChatGlobalManager	CreateChatEvent(ChatMessageType type, string data)	ChatGlobalManager.cs:3024		E					
+社交/聊天	ChatGlobalManager	CreateChatEventWithTarget(ChatMessageType type, string targetPlayerId, string targetPlayerName, string data)	ChatGlobalManager.cs:3057		E					
+社交/聊天	ChatGlobalManager	DebugReturn(DebugLevel level, string message)	ChatGlobalManager.cs:3090		E					
+社交/聊天	ChatGlobalManager	DownloadChatHistory(string channel)	ChatGlobalManager.cs:2734		E					
+社交/聊天	ChatGlobalManager	GetCachedChatMessages(string channelId)	ChatGlobalManager.cs:2800		E					
+社交/聊天	ChatGlobalManager	GetChatClient()	ChatGlobalManager.cs:982		E					
+社交/聊天	ChatGlobalManager	GetPlayerStatus(string playerId)	ChatGlobalManager.cs:1020		E					
+社交/聊天	ChatGlobalManager	GetSubscribedChannels()	ChatGlobalManager.cs:1296		E					
+社交/聊天	ChatGlobalManager	Initialize()	ChatGlobalManager.cs:1029		E					
+社交/聊天	ChatGlobalManager	IsMessageRepeated(string channelId, ChatMessageData message)	ChatGlobalManager.cs:1603		E					
+社交/聊天	ChatGlobalManager	OnApplicationPause(bool pause)	ChatGlobalManager.cs:937		E					
+社交/聊天	ChatGlobalManager	OnApplicationQuit()	ChatGlobalManager.cs:964		E					
+社交/聊天	ChatGlobalManager	OnChatStateChange(ChatState state)	ChatGlobalManager.cs:1301		E					
+社交/聊天	ChatGlobalManager	OnConnected()	ChatGlobalManager.cs:1151		E					
+社交/聊天	ChatGlobalManager	OnDisconnected()	ChatGlobalManager.cs:1187		E					
+社交/聊天	ChatGlobalManager	OnGetMessages(string channel, string[] senders, object[] messages)	ChatGlobalManager.cs:1716		E					
+社交/聊天	ChatGlobalManager	OnPrivateMessage(string sender, object message, string channelName)	ChatGlobalManager.cs:2199		E					
+社交/聊天	ChatGlobalManager	OnStatusUpdate(string user, int status, bool gotMessage, object message)	ChatGlobalManager.cs:2659		E					
+社交/聊天	ChatGlobalManager	OnSubscribed(string[] channels, bool[] results)	ChatGlobalManager.cs:2684		E					
+社交/聊天	ChatGlobalManager	OnUnsubscribed(string[] channels)	ChatGlobalManager.cs:2618		E					
+社交/聊天	ChatGlobalManager	OnUserSubscribed(string channel, string user)	ChatGlobalManager.cs:1305		E					
+社交/聊天	ChatGlobalManager	OnUserUnsubscribed(string channel, string user)	ChatGlobalManager.cs:1309		E					
+社交/聊天	ChatGlobalManager	ParseChatMessage(string message)	ChatGlobalManager.cs:1925		E					
+社交/聊天	ChatGlobalManager	ProcessActionMessage(ChatMessageData chatEvent)	ChatGlobalManager.cs:1963		E					
+社交/聊天	ChatGlobalManager	ProcessReceivedChatMessage(ChatMessageData chatMessage, string sender, string message, string channelId)	ChatGlobalManager.cs:1818		E					
+社交/聊天	ChatGlobalManager	ReceiveMessageWithSameId(PrivateMessageData messageData)	ChatGlobalManager.cs:2234		E					
+社交/聊天	ChatGlobalManager	RecordOwnMessageInDb(ChatMessageData chatEvent, string channel, string message)	ChatGlobalManager.cs:1800		E					
+社交/聊天	ChatGlobalManager	RefreshFriendsStatusList()	ChatGlobalManager.cs:2899		E					
+社交/聊天	ChatGlobalManager	RemoveChatListener(Action<string, List<ChatMessageData>> callback)	ChatGlobalManager.cs:1265		E					
+社交/聊天	ChatGlobalManager	RemovePracticeMatchPending(string playfabId)	ChatGlobalManager.cs:2596		E					
+社交/聊天	ChatGlobalManager	ReportMessage(ChatMessageData message)	ChatGlobalManager.cs:1709		E					
+社交/聊天	ChatGlobalManager	RetryDownloadChatHistory(string channel)	ChatGlobalManager.cs:2884		E					
+社交/聊天	ChatGlobalManager	SendChatMessage(ChatMessageData chatMessage, string channelId)	ChatGlobalManager.cs:1589		E					
+社交/聊天	ChatGlobalManager	SendChatMessage(string chatMessage, string channelId)	ChatGlobalManager.cs:1540		E					
+社交/聊天	ChatGlobalManager	SendGuildRankChange(string groupId, GroupMember member, GroupRole oldRole, GroupRole newRole)	ChatGlobalManager.cs:1523		E					
+社交/聊天	ChatGlobalManager	SendInviting(string invitedUserName, ChatChannel channel)	ChatGlobalManager.cs:1511		E					
+社交/聊天	ChatGlobalManager	SendJoinAlliance(string allianceId)	ChatGlobalManager.cs:1486		E					
+社交/聊天	ChatGlobalManager	SendKicked(string kickedPlayerPlayfabId, string kickedUserName, string channel)	ChatGlobalManager.cs:1649		E					
+社交/聊天	ChatGlobalManager	SendLeaveAlliance(string allianceId)	ChatGlobalManager.cs:1477		E					
+社交/聊天	ChatGlobalManager	SendMessageToSelf(PrivateMessages messageType)	ChatGlobalManager.cs:1376		E					
+社交/聊天	ChatGlobalManager	SendPracticeMatchEnd(string playerId, string playerName)	ChatGlobalManager.cs:3015		E					
+社交/聊天	ChatGlobalManager	SendPrivateMessage(string player, PrivateMessageData messageData)	ChatGlobalManager.cs:2995		E					
+社交/聊天	ChatGlobalManager	SetMeAsLeader()	ChatGlobalManager.cs:2987		E					
+社交/聊天	ChatGlobalManager	SetOnlineStatus(ChatPlayerStatus chatPlayerStatus)	ChatGlobalManager.cs:3002		E					
+社交/聊天	ChatGlobalManager	SetVisibleMode()	ChatGlobalManager.cs:1357		E					
+社交/聊天	ChatGlobalManager	ShareDeck(string deckString, string channelId)	ChatGlobalManager.cs:3112		E					
+社交/聊天	ChatGlobalManager	SubscribeNewChannel(ChatChannel channel)	ChatGlobalManager.cs:1430		E					
+社交/聊天	ChatGlobalManager	SubscribeToChannel(ChatChannel channel)	ChatGlobalManager.cs:1110		E					
+社交/聊天	ChatGlobalManager	TryCacheMessage(string channelId, ChatMessageData message)	ChatGlobalManager.cs:2820		E					
+社交/聊天	ChatGlobalManager	TryCacheMessages(string channelId, List<ChatMessageData> messages)	ChatGlobalManager.cs:2856		E					
+社交/聊天	ChatGlobalManager	TryReconnect()	ChatGlobalManager.cs:1313		E					
+社交/聊天	ChatGlobalManager	UnsubscribeNewChannel(string channelId)	ChatGlobalManager.cs:1443		E					
+社交/聊天	ChatGlobalManager	Update()	ChatGlobalManager.cs:928		E					
+社交/聊天	ChatGlobalManager	UpdateCacheMessages(ChatMessageData chatMessageData, string sender, string message, string channelId)	ChatGlobalManager.cs:1872		E					
+社交/聊天	ChatGlobalManager	_003CCheckUserOnline_003Eg__TimeoutOnlineCheck_007C54_0(string playfabId)	ChatGlobalManager.cs:3212		E					
+社交/聊天	ChatManager	AreSameWarlords()	ChatManager.cs:262		E					
+社交/聊天	ChatManager	GetActingWarlord()	ChatManager.cs:234		E					
+社交/聊天	ChatManager	GetChatMessage(ChatMessage chatMessageIndex, bool isPlayer)	ChatManager.cs:32		E					
+社交/聊天	ChatManager	GetChatSoundAsset(ChatMessage chatMsgIndex, bool isPlayer)	ChatManager.cs:170		E					
+社交/聊天	ChatManager	GetCustomIntro(RawCardScript playerWarlord, RawCardScript enemyWarlord)	ChatManager.cs:278		E					
+社交/聊天	ChatManager	GetCustomIntroByArmy(RawCardScript playerWarlord, CardArmy enemyWarlordArmy)	ChatManager.cs:333		E					
+社交/聊天	ChatManager	GetOpponentWarlord()	ChatManager.cs:248		E					
+社交/聊天	ChatManager	IsPlayerFirstIntro(bool playerGoesFirst)	ChatManager.cs:164		E					
+社交/聊天	ChatManager	UpdateCurrentWarlords(bool isPlayer)	ChatManager.cs:223		E					
+社交/聊天	ChatMessageData	CanTranslate()	ChatMessageData.cs:271		E					
+社交/聊天	ChatMessageData	GetChatText()	ChatMessageData.cs:323		E					
+社交/聊天	ChatMessageData	GetMessage()	ChatMessageData.cs:138		E					
+社交/聊天	ChatMessageData	ToString()	ChatMessageData.cs:328		E					
+社交/聊天	ChatMessageData	Translate(Action onSuccess, Action onFail)	ChatMessageData.cs:280		E					
+社交/聊天	ChatMessageHeader	Initialize(Sprite avatar, Sprite avatarBorder, string playerName)	ChatMessageHeader.cs:15		E					
+社交/聊天	ChatMessageHeader	UpdateTimer(string passedTime)	ChatMessageHeader.cs:25		E					
+社交/聊天	ChatMessageUI	Awake()	ChatMessageUI.cs:106		E					
+社交/聊天	ChatMessageUI	GetHeader(bool isPlayerMessage)	ChatMessageUI.cs:230		E					
+社交/聊天	ChatMessageUI	OnEnable()	ChatMessageUI.cs:98		E					
+社交/聊天	ChatMessageUI	OnMessageClicked()	ChatMessageUI.cs:280		E					
+社交/聊天	ChatMessageUI	Set(ChatMessageData chatMessageData, bool isPlayerMessage)	ChatMessageUI.cs:116		E					
+社交/聊天	ChatMessageUI	SetLayout(bool isPlayerMessage)	ChatMessageUI.cs:179		E					
+社交/聊天	ChatMessageUI	SetMessageText()	ChatMessageUI.cs:195		E					
+社交/聊天	ChatMessageUI	ShowOptions()	ChatMessageUI.cs:270		E					
+社交/聊天	ChatMessageUI	TranslateMessage()	ChatMessageUI.cs:314		E					
+社交/聊天	ChatMessageUI	UpdateTimer()	ChatMessageUI.cs:257		E					
+社交/聊天	ChatMessageUI	_003CTranslateMessage_003Eg__UpdateMessage_007C30_0()	ChatMessageUI.cs:402		E					
+社交/聊天	ChatPanel	CheckChatBan()	ChatPanel.cs:472		E					
+社交/聊天	ChatPanel	Close()	ChatPanel.cs:499		E					
+社交/聊天	ChatPanel	OnDestroy()	ChatPanel.cs:167		E					
+社交/聊天	ChatPanel	OnDisable()	ChatPanel.cs:217		E					
+社交/聊天	ChatPanel	OnTabChange()	ChatPanel.cs:464		E					
+社交/聊天	ChatPanel	Open()	ChatPanel.cs:224		E					
+社交/聊天	ChatPanel	SetupTabs()	ChatPanel.cs:566		E					
+社交/聊天	ChatPanel	ShowOptionsPanel(ChatMessageUI message)	ChatPanel.cs:561		E					
+社交/聊天	ChatPanel	Start()	ChatPanel.cs:140		E					
+社交/聊天	ChatPanel	SyncMessageHistory(string channel, List<ChatMessageData> messages)	ChatPanel.cs:657		E					
+社交/聊天	ChatPanel	TrySendMessage()	ChatPanel.cs:687		E					
+社交/聊天	ChatPanel	Update()	ChatPanel.cs:184		E					
+社交/聊天	ChatPanel	ValidateInput(TMP_InputField tmpInputField)	ChatPanel.cs:651		E					
+社交/聊天	ChatPanel	_003CStart_003Eb__14_0(string _)	ChatPanel.cs:716		E					
+社交/聊天	ChatPlayerOptionsPanel	AddAsFriend()	ChatPlayerOptionsPanel.cs:271		E					
+社交/聊天	ChatPlayerOptionsPanel	Block()	ChatPlayerOptionsPanel.cs:232		E					
+社交/聊天	ChatPlayerOptionsPanel	Challenge()	ChatPlayerOptionsPanel.cs:299		E					
+社交/聊天	ChatPlayerOptionsPanel	Close()	ChatPlayerOptionsPanel.cs:114		E					
+社交/聊天	ChatPlayerOptionsPanel	OnDisable()	ChatPlayerOptionsPanel.cs:139		E					
+社交/聊天	ChatPlayerOptionsPanel	OnEnable()	ChatPlayerOptionsPanel.cs:120		E					
+社交/聊天	ChatPlayerOptionsPanel	Report()	ChatPlayerOptionsPanel.cs:250		E					
+社交/聊天	ChatPlayerOptionsPanel	SetPositionInScreen(float y)	ChatPlayerOptionsPanel.cs:158		E					
+社交/聊天	ChatPlayerOptionsPanel	ShowConfirmation(string confirmationText, Action OnConfirm)	ChatPlayerOptionsPanel.cs:168		E					
+社交/聊天	ChatPlayerOptionsPanel	ShowOptionsFor(ChatMessageUI message)	ChatPlayerOptionsPanel.cs:74		E					
+社交/聊天	ChatPlayerOptionsPanel	ShowProfile()	ChatPlayerOptionsPanel.cs:223		E					
+社交/聊天	ChatPlayerOptionsPanel	_003CAddAsFriend_003Eb__22_0()	ChatPlayerOptionsPanel.cs:372		E					
+社交/聊天	ChatPlayerOptionsPanel	_003CAddAsFriend_003Eg__OnComplete_007C22_1(List<Friend> _)	ChatPlayerOptionsPanel.cs:389		E					
+社交/聊天	ChatPlayerOptionsPanel	_003CAddAsFriend_003Eg__OnErr_007C22_2(string err)	ChatPlayerOptionsPanel.cs:394		E					
+社交/聊天	ChatPlayerOptionsPanel	_003CBlock_003Eb__20_0()	ChatPlayerOptionsPanel.cs:356		E					
+社交/聊天	ChatPlayerOptionsPanel	_003CReport_003Eb__21_0()	ChatPlayerOptionsPanel.cs:363		E					
+社交/聊天	ChatPlayerOptionsPanel	_003CShowOptionsFor_003Eb__13_0(Friend x)	ChatPlayerOptionsPanel.cs:341		E					
+社交/聊天	ChatPopupButton	ClickButtonChat()	ChatPopupButton.cs:108		E					
+社交/聊天	ChatPopupButton	Initialize()	ChatPopupButton.cs:94		E					
+社交/聊天	ChatPopupButton	LateUpdate()	ChatPopupButton.cs:117		E					
+社交/聊天	ChatPopupButton	OnDestroy()	ChatPopupButton.cs:101		E					
+社交/聊天	ChatPreview	Initialize()	ChatPreview.cs:76		E					
+社交/聊天	ChatPreview	OnBeforeInitialization()	ChatPreview.cs:45		E					
+社交/聊天	ChatPreview	OnDestroy()	ChatPreview.cs:86		E					
+社交/聊天	ChatPreview	OnInitializationComplete()	ChatPreview.cs:276		E					
+社交/聊天	ChatPreview	OpenChat()	ChatPreview.cs:99		E					
+社交/聊天	ChatPreview	Show()	ChatPreview.cs:193		E					
+社交/聊天	ChatPreview	UpdatePreviews(string channel, List<ChatMessageData> messages)	ChatPreview.cs:209		E					
+社交/聊天	ChatPreview	WaitAndAnimate(string channel, List<ChatMessageData> messages)	ChatPreview.cs:290		E					
+社交/聊天	ChatPreview	_003COpenChat_003Eb__10_0()	ChatPreview.cs:314		E					
+社交/聊天	ChatPreviewMessage	Enable(bool option)	ChatPreviewMessage.cs:52		E					
+社交/聊天	ChatPreviewMessage	Set(string player, string message)	ChatPreviewMessage.cs:15		E					
+社交/聊天	ChatPreviewMessage	Start()	ChatPreviewMessage.cs:10		E					
+社交/聊天	ChatTab	AddMessage(ChatMessageData message, bool isPlayer, bool isCached)	ChatTab.cs:115		E					
+社交/聊天	ChatTab	CheckMessages(List<ChatMessageData> messages, string playerId, bool isCached)	ChatTab.cs:41		E					
+社交/聊天	ChatTab	Initialize(ChatChannel channel)	ChatTab.cs:145		E					
+社交/聊天	CreateAllianceMenu	Initialize()	CreateAllianceMenu.cs:149		E					
+社交/聊天	CreateAllianceMenu	OnDestroy()	CreateAllianceMenu.cs:224		E					
+社交/聊天	CreateAllianceMenu	TryCreateAlliance()	CreateAllianceMenu.cs:199		E					
+社交/聊天	CreateAllianceMenu	_003CTryCreateAlliance_003Eb__9_0(Group _)	CreateAllianceMenu.cs:246		E					
+社交/聊天	CustomIntroChatData	DeepCopy()	CustomIntroChatData.cs:15		E					
+社交/聊天	DeckInfoAllianceTab	Initialize(IDraftEvent rawDraft)	DeckInfoAllianceTab.cs:9		E					
+社交/聊天	FindFriendsOptions	ToIntFlags()	FindFriendsOptions.cs:9		E					
+社交/聊天	FriendInfo	ToString()	FriendInfo.cs:68		E					
+社交/聊天	FriendUIElementWarpforge	Awake()	FriendUIElementWarpforge.cs:28		E					
+社交/聊天	FriendUIElementWarpforge	ClickChallenge()	FriendUIElementWarpforge.cs:98		E					
+社交/聊天	FriendUIElementWarpforge	ClickDelete()	FriendUIElementWarpforge.cs:104		E					
+社交/聊天	FriendUIElementWarpforge	ClickProfile()	FriendUIElementWarpforge.cs:109		E					
+社交/聊天	FriendUIElementWarpforge	Initialize(FriendsTab manager, Friend friend, ChatPlayerStatus status)	FriendUIElementWarpforge.cs:54		E					
+社交/聊天	FriendUIElementWarpforge	OnDestroy()	FriendUIElementWarpforge.cs:41		E					
+社交/聊天	FriendUIElementWarpforge	ToggleConnectionSprites(bool option)	FriendUIElementWarpforge.cs:156		E					
+社交/聊天	FriendUIElementWarpforge	UpdateStatusColor(ChatPlayerStatus playerStatus)	FriendUIElementWarpforge.cs:118		E					
+社交/聊天	FriendsData	IsFriend(string playerId)	FriendsData.cs:40		E					
+社交/聊天	FriendsData	SetFriendList(List<Friend> friends)	FriendsData.cs:27		E					
+社交/聊天	FriendsTab	ClearList()	FriendsTab.cs:343		E					
+社交/聊天	FriendsTab	ClickAddFriend()	FriendsTab.cs:161		E					
+社交/聊天	FriendsTab	ClickDuelPractice()	FriendsTab.cs:212		E					
+社交/聊天	FriendsTab	CreateEntry(Friend entry, Transform container, int index)	FriendsTab.cs:365		E					
+社交/聊天	FriendsTab	DeleteFriendConfirmedButton(Friend friend)	FriendsTab.cs:493		E					
+社交/聊天	FriendsTab	DeleteFriendOpenPopup(Friend friend)	FriendsTab.cs:446		E					
+社交/聊天	FriendsTab	FillInFriendsContainer()	FriendsTab.cs:263		E					
+社交/聊天	FriendsTab	OnClose()	FriendsTab.cs:108		E					
+社交/聊天	FriendsTab	OnOpen()	FriendsTab.cs:87		E					
+社交/聊天	FriendsTab	Reset()	FriendsTab.cs:114		E					
+社交/聊天	FriendsTab	SortByConnected(Friend a, Friend b)	FriendsTab.cs:234		E					
+社交/聊天	FriendsTab	SortByName(Friend a, Friend b)	FriendsTab.cs:223		E					
+社交/聊天	FriendsTab	StartChallengeWithUser(string userName, string playfabId)	FriendsTab.cs:80		E					
+社交/聊天	FriendsTab	ToFocus()	FriendsTab.cs:102		E					
+社交/聊天	InRoomChat	AddLine(string newLine)	InRoomChat.cs:328		E					
+社交/聊天	InRoomChat	Chat(string newLine, PhotonMessageInfo mi)	InRoomChat.cs:279		E					
+社交/聊天	InRoomChat	OnGUI()	InRoomChat.cs:34		E					
+社交/聊天	InRoomChat	Start()	InRoomChat.cs:23		E					
+社交/聊天	JoinAllianceMenu	Awake()	JoinAllianceMenu.cs:459		E					
+社交/聊天	JoinAllianceMenu	CreateAllianceInvitation(GroupInvitation invitation, Transform parent)	JoinAllianceMenu.cs:1267		E					
+社交/聊天	JoinAllianceMenu	FillGroupInvitations()	JoinAllianceMenu.cs:871		E					
+社交/聊天	JoinAllianceMenu	FillOpenAlliances()	JoinAllianceMenu.cs:1182		E					
+社交/聊天	JoinAllianceMenu	GetItemCount()	JoinAllianceMenu.cs:1278		E					
+社交/聊天	JoinAllianceMenu	Initialize()	JoinAllianceMenu.cs:480		E					
+社交/聊天	JoinAllianceMenu	OnDisable()	JoinAllianceMenu.cs:473		E					
+社交/聊天	JoinAllianceMenu	OnEnable()	JoinAllianceMenu.cs:466		E					
+社交/聊天	JoinAllianceMenu	SetCell(ICell cell, int index)	JoinAllianceMenu.cs:1291		E					
+社交/聊天	JoinAllianceMenu	_003CFillGroupInvitations_003Eb__22_0(List<GroupInvitation> invitations)	JoinAllianceMenu.cs:1547		E					
+社交/聊天	JoinAllianceMenu	_003CFillGroupInvitations_003Eb__22_2()	JoinAllianceMenu.cs:1848		E					
+社交/聊天	JoinAllianceMenu	_003CFillGroupInvitations_003Eb__22_3()	JoinAllianceMenu.cs:1854		E					
+社交/聊天	LocalInboxMessage	ClaimRewards()	LocalInboxMessage.cs:6		E					
+社交/聊天	PrivateMessageData	DeviceIdExists()	PrivateMessageData.cs:115		E					
+社交/聊天	PrivateMessageData	GetCurrentTime()	PrivateMessageData.cs:103		E					
+社交/聊天	PrivateMessageData	GetIsClassic()	PrivateMessageData.cs:150		E					
+社交/聊天	PrivateMessageData	GetPlayerFirst()	PrivateMessageData.cs:134		E					
+社交/聊天	PrivateMessageData	GetPlayerName()	PrivateMessageData.cs:129		E					
+社交/聊天	PrivateMessageData	GetServerTime()	PrivateMessageData.cs:96		E					
+社交/聊天	ProfileAllianceDisplay	Initialize(ProfileAllianceInfo info)	ProfileAllianceDisplay.cs:9		E					
+社交/聊天	RangedAttackParticlesByClanSO	GetRangedClanParticles(CardArmy army)	RangedAttackParticlesByClanSO.cs:20		E					
+社交/聊天	SocialMediaLinks	Initialize()	SocialMediaLinks.cs:16		E					
+社交/聊天	TestReporter	OnDestroy()	TestReporter.cs:196		E					
+社交/聊天	TestReporter	OnGUI()	TestReporter.cs:266		E					
+社交/聊天	TestReporter	Start()	TestReporter.cs:37		E					
+社交/聊天	TestReporter	Update()	TestReporter.cs:221		E					
+社交/聊天	TestReporter	threadLogTest()	TestReporter.cs:201		E					

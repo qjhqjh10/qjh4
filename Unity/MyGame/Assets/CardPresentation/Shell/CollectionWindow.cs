@@ -275,24 +275,21 @@ namespace CardPresentation
         /// 卡只许占**它上面那一段**：`CardsCellH − 这个` = **345.728**。</summary>
         public static float CardsCounterH { get { return CardsCntMaxY * CardsCellH; } }
 
-        /// <summary>🆕 **2026-10-18（`W11`）**：一格里**卡本身**那块矩形（相对格左上角；输入 = 这一格**滚动之后**的画布矩形）。
+        /// <summary>卡体在格里的位置框 = **整格**（卡体按原版公式缩放后**在整格里居中**）。
         ///
-        /// <para>🔴 **为什么要有它（真缺陷，用户 2026-10-18 报「张数与卡牌重叠」）**：本页原来按**整格 384**
-        /// 反解卡的缩放（`scale = CardsCellH ÷ (CardView.Height × 108)`）并让卡在**整格**里居中 ⇒
-        /// **卡底 = 格底**，而张数条压在格底往上 38.272 那一条上（`CardsCounterRect`）⇒
-        /// **卡的下沿整条被张数条盖住**。真机实测（`_tmp_view/shots/2026-10-18_卡组选择弹窗_第四轮/02_cards_tab.png`，
-        /// 2560×1440 → 设计 px ÷ 1.3333）：卡框底边 ≈ **527**、张数条从 **504** 起 ⇒ **重叠 ≈ 23px**；
-        /// 而张数条的矩形与我们算的 **414…522.8 / 504…537** 逐位吻合 ⇒ 错的是卡那一侧。
-        /// 判据与全过程 → `资料/普查产出_1018/W11_卡组编辑计数重叠.md`。</para>
+        /// <para>🔴 **2026-10-25（`C` 域 · 调度台裁定）改正：原来这里返回「格高 − 张数条」。**
+        /// 判据（prefab 现读，`menu_dump.py bundle_menus_assets_all "Collection Card" --depth 4`）：
+        /// 卡体 `CardUI/2DCard` 在 **350×512** 原型里是 **y 6.2 → 505.8**（上下各 6.2 边距 ⇒ **居中**）
+        /// ⇒ 折成 384 格 = 上下各 **4.65**、高 **374.8** ⇒ **它压住张数条（从 461/512 = 345.7/384 起）约 33.6px**，
+        /// 而**那是原版长相**（张数条画在卡下缘之上）。</para>
         ///
-        /// <para>🔴 **卡组编辑窗的卡池早就按「格高 − 张数条」反解**（`DeckRuntime.Pool.CardH`，
-        /// 2026-09-28 那一修），本页当时**漏改** ⇒ 同一个家族两个口径。现在收口成同一条式子：
-        /// 卡高 = `CardsCellH − CardsCounterH` = 345.728（与卡池的 `Pool.CardH` 逐位相同）。
-        /// ⚠️ 原版两边用的是**同一件** `Collection Card` 原型（`A3_Cards页.md:102`：卡组编辑的 `Card Display`
-        /// 与收藏的 `CardsTab` 都是它）⇒ 同一个口径不是巧合，是同一条规格。</para></summary>
+        /// <para>⚠️ `W11`（用户 2026-10-18 报「张数与卡牌重叠」）当时量到的重叠，**根因是缩放口径**
+        /// （按整格反解、没有公式给的居中），**不是「卡不该压条」**。真正修法见
+        /// `RebuildCardsCells` 里 `scale` 那一段（改成原版公式），⛔ 不是把卡缩到条上面。</para>
+        /// <para>判据全文 → `资料/普查产出_1018/W11_卡组编辑计数重叠.md`（旧结论）+ 本段（2026-10-25 裁定后的口径）。</para></summary>
         public static PxRect CardsCardRect(PxRect cell)
         {
-            return new PxRect(cell.x1, cell.y1, cell.x2, cell.y2 - CardsCounterH);
+            return cell;
         }
 
         /// <summary>`/Counter/Text (TMP)` 的矩形（相对**画布**；输入 = 上面那条的矩形）。</summary>
@@ -322,9 +319,28 @@ namespace CardPresentation
         /// （**在 `Shell/CardDetailPopup.cs` 的 `CardProgress.DeckCap` 那两个重载上** —— `DeckCap(string rarity)` / `DeckCap(string rarity, string type)`，⛔ 不是本文件）；⛔ **别退回不带卡型那一档**。</para></summary>
         public static string CardsCounterText(CardDef def)
         {
+            if (def == null) return "x0";
             int cap = CardProgress.DeckCap(def.Rarity, def.Type);
-            return "x" + Mathf.Min(CardProgress.Owned(def.Id, def.Rarity), cap);
+            // 🔴 **2026-10-25（`C` 域 · 背包框架层接通）**：**拥有数的正本 = `Inventories.Cards`**
+            //   （原版这一格读 `InventoryManager.GetOwnedCount(card)` —— 判据
+            //   `CardCollectionDisplay__SetCell.c`；背包层见 `Shell/Inventory.cs`）。
+            //   ⚠️ 条目还没有时（极少数：卡不在 `CardsState.Pool` 里）回退到旧的 `CardProgress.Owned`，
+            //      并**出声** —— ⛔ 别静默给 0（那会让某一格凭空显示 `x0`）。
+            var info = Inventories.Cards.Get(def);
+            int owned;
+            if (info != null) owned = info.Amount;
+            else
+            {
+                owned = CardProgress.Owned(def.Id, def.Rarity);
+                if (_counterNoInvWarned.Add(def.Id))
+                    Debug.LogWarning("[Collection] 卡 `" + def.Id + "` 不在背包 `Inventories.Cards` 里 ⇒ 拥有数回退到 "
+                                   + "`CardProgress.Owned`（" + owned + "）。卡池播种见 `CardsState` 的 getter。");
+            }
+            return "x" + Mathf.Min(owned, cap);
         }
+
+        /// <summary>「这一张卡不在背包里」的出声去重表（每次会话每张卡只喊一次）。</summary>
+        static readonly HashSet<string> _counterNoInvWarned = new HashSet<string>();
 
         /// <summary>一格底下那条「张数」（底图 + 那行字）。**每次重建都重建** —— 滚动时格的矩形一直在变，
         /// 而「重建整页格子」本来就是这个函数的语义（`RebuildCardsCells` 先把 `Viewport` 的子件全销毁）。
@@ -876,6 +892,17 @@ namespace CardPresentation
                     _cardsState = new DeckEditorState(CardDatabase.Load());
                     _cardsState.ShowInCollectionOnly = true;
                     _cardsState.SortByInventoryOptions = true;
+                    // 🆕 **2026-10-25（`C` 域）**：把卡按「全解锁」口径**播种**进背包框架层
+                    //   （每张卡数量 = 能带几张 = `DeckRules.CopyLimit`）—— 卡池一建就播，之后
+                    //   `CardsCounterText` 的「已拥有」读数就走 `Inventories.Cards`（幂等，重复调无害）。
+                    // 🔴 **2026-10-25（迁移第一步）**：播种口径 = **`CardProgress.Owned`**（「给足」口径），
+                    //   不是默认的 `CopyLimit` —— 为的是让背包里的拥有数与旧的 `CardProgress` **逐值相等**，
+                    //   先把「两套并存」的读口对齐（断言在 `Editor/CollectionScene.cs`），下一步再删旧写口。
+                    // 🔴 **顺序不能反**：**先读盘**（盘上有值就以它为准），**再播种**（只补还没有条目的卡）。
+                    //   反过来的话，播种会把盘上的值盖成出厂值（静默丢数据）。
+                    InventoryStore.Load(CardProgress.InventoryName, Inventories.Cards);
+                    Inventories.SeedCardsAllUnlocked(_cardsState.Pool,
+                        c => CardProgress.Owned(c.Id, c.Rarity));
                 }
                 return _cardsState;
             }
@@ -1058,16 +1085,33 @@ namespace CardPresentation
             }
             // 🆕 2026-10-17（B10）：`WIldcard Display` 三个孩子里那颗 `Army Icon`（1470,70.94 → 1550,155.94 · 80×85 ·
             //   prefab `m_Sprite` = `40k_DeckSelection_icon_FactionBlackLegion` · **preserveAspect**）。
-            //   🔴 **2026-10-19（界面线尾巴 · 铁律 11 就地落地）**：原文写「我们这一页没有悬停 ⇒ 保持预置出厂那张」
-            //   —— **已过期**：本页每格都有 `WindowButton.onEnter/onExit`（`AttachCardHover`），
-            //   而原版那条路径 `CardCollectionDisplay.CheckFocusedArmy`（`d:/2/tools/decomp_full/
-            //   CardCollectionDisplay__CheckFocusedArmy.c`：指针/拖动压在卡池某格 ⇒ 拿那格的 `card.army` 喂
-            //   `WildcardDisplay.Initialize`）**就是「指针压在卡上就换徽记」** ⇒ 本页接法 = 把卡格悬停接到
-            //   `SetWildcardArmy(card.faction)`（Cards 页 `AttachCardHover(..., wildcardArmy: true)`）。
-            //   开卡片详情（`OpenCardDetail`）另有一条同族路径（原版 `DeckEditingWindow.OpenCardInformation`：
-            //   开详情前把徽记换成**那张卡**的阵营）—— 也在 `SetWildcardArmy` 这一口接。
-            //   ⚠️ 原版**没有「移开指针就还原」**：`CheckFocusedArmy` 只在命中卡格时换、未命中直接 return
-            //   ⇒ 我们的 `onExit` **不还原**（保留最后压过的那张，逐字同原版）。
+            //   🔴 **2026-10-25（K3）就地订正两处（铁律 5）**：
+            //   ① **起点不是 prefab 那张黑军团** —— `CardCollectionTab__Setup.c:44-48` 在 `Setup()` 里就
+            //      `WildcardDisplay.Initialize(wildcards, 10)` ⇒ 一开页 sprite 已换成 **Ultramarines**（10）。
+            //      见 `WcArmyDefault` 那条 doc（它现在也是 10）。
+            //   ② **原版的触发不是「指针悬停」** —— `CardCollectionDisplay__OnListDrag.c` 是
+            //      `OnListDrag(Vector2 listPos)`（**列表被拖动/滚动**那一拍）⇒ `CheckFocusedArmy()`；后者拿
+            //      **一个固定矩形** `referenceCardPoint` 去
+            //      `RectExtensions.OverlapsAny(那个矩形, 当前格们, out 命中格)`，命中就
+            //      `WildcardDisplay.Initialize(那张卡的 army)`。**指针 hover 不是它的输入**。
+            //   ✅ **2026-10-25（`C` 收藏域）已按原版改写** —— K3 当时留的两个「判据未定」现在都查清了：
+            //      ① **`Reference Card Pointer` 的矩形**：`工具/menu_dump.py bundle_menus_assets_all "CardsTab"
+            //         --depth 8` 现读 = **402.3,236.4 → 596.1,281.4**（193.84×45.09，父件 = `Collection Display`
+            //         的直接孩子、与 `Scroll View` 同级；`m_IsActive = 0` 只是不画、矩形照用）。
+            //         ⚠️ K3 记的 `417.69,260.95 → 611.53,306.05` **不是本窗这一颗** —— 那是
+            //         **卡组编辑窗**（`Deck Editing Menu ▸ Card Display ▸ Scroll View`）里那颗同名节点的矩形
+            //         （`Deck/DeckRuntime.PoolRefL/T/R/B`），两个 prefab 各有一颗、**不是同一颗的两种 dump 口径**。
+            //         本行这组与 `CardsViewport` 同一帧（`Scroll View` 330.2,155.9 与我们的视口逐位相同）⇒ **以本组为准**。
+            //      ② **`OverlapsAny` 命中多格时返回哪一格**：`RectExtensions.cs:69-244`（🥇 `out_cpp2il_dev_ilspy`）
+            //         ＋ `decomp_full/RectExtensions__OverlapsAny.c` 两份逐句一致 = **按传入 `rects` 的枚举顺序，
+            //         返回【第一个】相交的**（`if (bVar1) { *param_3 = uVar7; … return 1; }`）——
+            //         没有「离中心最近」、没有排序。而传入的顺序 = `Enumerable.Select(cells, …)` 的
+            //         `RecyclableScrollRect.Cells` 池序。
+            //         📌 **而且这里实际上不会有多格歧义**：参考矩形 193.84 宽 < 一格 262.5、45.09 高 < 一格 384
+            //         ⇒ **同列只可能压到 1 格**；横向 x 402.3…596.1 只落在第 0 列（第 1 列从 600.05 起）⇒
+            //         **任何滚动位置上最多命中 1 格**（正好压在行边界时才是 2 格，那时按可见序取上面那格）。
+            //   ⇒ 实现 = `CheckFocusedArmy()`（本文件），输入是**滚动位置变化**（`CardsScroll.OnChanged`），
+            //      不是悬停。⚠️ 原版**没有「移开就还原」**：未命中直接 return ⇒ 保留最后那张。
             //   ⚠️ 图走 `Core/ArmyIcons.cs`（13 阵营，唯一一份；`IconsByArmySO` 逐字节解出）—— ⛔ 别在这写第二份映射。
             var wcArmyR = new PxRect(1470f, 70.94f, 1550f, 155.94f);
             _wcArmyArt = ArmyIcons.IconName(_wcArmy) ?? WcArmyDefaultArt;
@@ -1091,6 +1135,12 @@ namespace CardPresentation
             // 🔴 **A465**：构建循环那一路「整块在视口外就不建」也要吃这颗节点
             //   （⛔ 别改成让 `Intersects` 沿 `Owner` 找 —— `Owner` 是窗根、节点在它下面，找不到）。
             CardsScroll.ClipNode = cardsVp;
+            // 🔴 **2026-10-25（`C` 收藏域 · `K3` P2-⑦ 的口径已查清）**：原版这一拍的入口是
+            //   `CollectionDisplay.Initialize` 里 `listView.onValueChanged.AddListener(OnListDrag)`
+            //   （`CollectionDisplay.cs:512-523`）⇒ **列表一滚动**就 `OnListDrag` → `CheckFocusedArmy()`。
+            //   我们的 `OnChanged` 与它逐字同义（滚动位置变了）；**`CheckFocusedArmy` 挂在
+            //   `RebuildCardsCells` 的尾巴**（那里同时也接住了原版 `RefreshCollection` 的延迟那一拍）
+            //   ⇒ 这里**不用**再调一次（调了就是每滚一格算两遍）。
             CardsScroll.OnChanged = () => RebuildCardsCells(holder);
             PointerLayer.RegisterScroll(CardsScroll);
             // 🆕 2026-10-12（`A1628` 第二轮）：这一页的**逐格相位**（只在真 Play 出声；批处理零影响）。
@@ -1134,6 +1184,52 @@ namespace CardPresentation
                 _cardsEmpty = ew;
             }
             RefreshCardsEmpty();
+            // 🆕 **2026-10-25（接线 · G 的 `WildcardTutorial`）**：卡池建完就起一次万能牌教程
+            //   （原版 `CardCollectionTab.OnOpen`：`FeatureConfig.Check("WildcardTutorial")` + 有万能牌 + 没看过 ⇒
+            //    `StartWildcardTutorial(ownedToggle, …)`）。**已做过 ⇒ `TryStart` 自己返回 null**（= 原版 `state == End`）。
+            //   ⚠️ 我们**没有** `FeatureConfig`（服务端开关）⇒ 这一层恒真、不带闸；`Inventory<Wildcard>` 那一层我们也还没有
+            //   ⇒ 「有没有万能牌」这一条按「教程没做过就起」处理（如实记，见 `资料/完全复刻/报告/C_W11缩放与轮播_第1轮.md`）。
+            //   🔴 **只在真跑里起**（`Application.isPlaying`）：教程会建一个指针节点 + 写 `PlayerPrefs`，
+            //      而 11 条自检**全在 `-batchmode`**（`isPlaying == false`）⇒ 不加这道闸的话，
+            //      自检里会凭空多一个节点、并把「已做过」写进注册表（污染下一次真跑）。**如实标：原版没有这道闸**
+            //      （它永远在真跑里）—— 这道闸只为「批处理不许碰玩家状态」，与 `DailyData.StoreOn` 同一条纪律。
+            if (Application.isPlaying)
+            {
+                try
+                {
+                    WildcardTutorial.TryStart(transform, new WildcardTutorialBindings(this));
+                }
+                catch (System.Exception e)
+                {
+                    // 红线：不许静默失败 —— 教程起不来要让日志说得出来（但它**不能**影响卡池）
+                    Debug.LogWarning("[Collection] 万能牌教程没起来（不影响卡池）：" + e.Message);
+                }
+            }
+        }
+
+        /// <summary>把本窗的三个节点 + 两个开关状态交给 `WildcardTutorial`。
+        /// <para>⚠️ **节点名的如实差异**：原版 `.ctor` 的字典名是 `Filter Toggle` / `Owned Toggle` / `CardsTab`
+        /// （`WildcardTutorial.NodeFilterToggle/…`）；我们的**筛选开关**恰好同名，但 **`Owned` 那一格**
+        /// 我们叫 **`Cell_owned`**（`FilterPanelModel` 那一族的节点命名）⇒ 这里转一次，⛔ 不为它改节点名
+        /// （改了就撞上 Alloy 自检里按名找的那一族）。</para></summary>
+        sealed class WildcardTutorialBindings : IWildcardTutorialBindings
+        {
+            readonly CollectionWindow _w;
+            public WildcardTutorialBindings(CollectionWindow w) { _w = w; }
+
+            Transform Page { get { return _w.PageRoot(1); } }   // 1 = Cards 页
+
+            public Transform FilterToggleNode { get { return FindDeep(Page, "Filter Toggle"); } }
+            public Transform OwnedToggleNode { get { return FindDeep(Page, "Cell_owned"); } }
+            public Transform CardsTabNode { get { return Page; } }
+            public bool FilterOn { get { return _w.FiltersOpen; } }
+            public bool OwnedOn { get { return CollectionWindow.CardsState.Filter.Owned; } }   // ⚠️ `CardsState` 是 **static**
+            /// <summary>= 原版 `filterToggle.isOn = false`（第三步之前把筛选关掉）。我们这颗是自绘的
+            /// 「开/关抽屉」⇒ 关了就走 `ToggleFilters()`（幂等：已经关着就什么都不做）。</summary>
+            public void SetFilterOn(bool on)
+            {
+                if (!on && _w.FiltersOpen) _w.ToggleFilters();
+            }
         }
 
         Transform _deckEmpty;      // Deck 页的「一套卡组都没有」
@@ -1145,13 +1241,22 @@ namespace CardPresentation
         /// `WildcardDisplay.Initialize(card.army)` ⇒ 徽记换成**那张卡的阵营**（`Core/ArmyIcons.cs` = 唯一映射）。
         /// 本窗由 `SetWildcardArmy` 换图（`ImageQuad.SetTexture`、PA=1 —— prefab 实读 `m_PreserveAspect = 1`）。</summary>
         ImageQuad _wcArmyQuad;
-        /// <summary>当前徽记的阵营（`CardArmy` 数值）。出厂 = prefab 那张 **BlackLegion**（`50`）；
-        /// 原版 `WildcardDisplay.currentArmy` 是非序列化字段、出厂 0，而 sprite 停在 prefab 的 BlackLegion
-        /// ⇒ 我们这一格也照出厂图起步（⛔ 别改成 Ultramarines —— 那是**卡组编辑窗** `FilterToDeck` 的默认档）。</summary>
-        static readonly int WcArmyDefault = ArmyIcons.Id("BlackLegion");
+        /// <summary>当前徽记的阵营（`CardArmy` 数值）。
+        /// <para>🔴 **2026-10-25（K3）就地订正（铁律 5）**：原来这里写「出厂 = prefab 那张 **BlackLegion**（`50`）…
+        /// ⇒ 我们这一格也照出厂图起步（⛔ 别改成 Ultramarines —— 那是**卡组编辑窗** `FilterToDeck` 的默认档）」
+        /// —— **后半句错了**：`CardCollectionTab__Setup.c:44-48` 在 `Setup()` 里就调
+        /// **`WildcardDisplay.Initialize(wildcards, 10)`**（`0x40` = `CardCollectionTab.wildcards`，
+        /// 见 `dump.cs:70349-70359`），而 `WildcardDisplay__Initialize.c:9-10` 只有一句早退
+        /// `if (param_2 == currentArmy) return;` —— 非序列化字段 `currentArmy` 出厂 0，`10 != 0`
+        /// ⇒ **它一定跑下去**、把 sprite 换成 `ArmyUtilities.GetArmyIcon(10)`。
+        /// `10` = `CardArmy.Ultramarines`（`DeckArmyFilter.options` 13 档的第一档）⇒
+        /// **收藏窗 Cards 页一开，徽记就是 Ultramarines**，不是 prefab 那个 BlackLegion 死值。
+        /// （「卡组编辑窗的默认档」这句也不成立 —— 那条是 `DeckEditingWindow.FilterToDeck`，
+        ///  与本页无关；它同族但**各自初始化**。）</para></summary>
+        static readonly int WcArmyDefault = ArmyIcons.Id("Ultramarines");
         int _wcArmy = WcArmyDefault;
-        /// <summary>出厂那张图（prefab `m_Sprite` 实读；`ArmyIcons` 表里 `BlackLegion` 同值）。</summary>
-        const string WcArmyDefaultArt = "40k_DeckSelection_icon_FactionBlackLegion";
+        /// <summary>出厂那张图 = `ArmyIcons` 表里 Ultramarines 那一面旗（判据见上一条：`Initialize(10)`）。</summary>
+        const string WcArmyDefaultArt = "40k_DeckSelection_icon_FactionUM";
         /// <summary>`_wcArmyQuad` 现在贴的是哪一张（自检/去重用）。</summary>
         string _wcArmyArt = WcArmyDefaultArt;
         static readonly HashSet<string> _wcArmyWarned = new HashSet<string>();
@@ -1457,13 +1562,24 @@ namespace CardPresentation
             //   指令流是 `mov [rsp+0x70], rax`（Vector2 8 字节：x 在 +0x70 / y 在 +0x74）后
             //   `movss xmm6,[rsp+0x74]`，即取 y。据此刻度 = 384 × 150/512 = **112.5 px/卡单位**
             //   ⇒ 折成我们的世界缩放 = 112.5 ÷ 108 = **1.0417**（比本式大 8.4%）。
-            //   **为什么不用它**：按 1.0417 画，卡块高 374.83 > 格高 − 张数条 345.728 ⇒ **卡底压住张数条 29.1px**，
-            //   正是用户 2026-10-18 报的那条缺陷（`W11` 修的就是它）；而且原版实拍（用户
-            //   `Desktop/warpforge参考图/收藏—张牌的界面参考图（打开过滤器按钮后）.png`）量出来
-            //   卡宽 ≈ 格的 **81.7%**、卡高 ≈ **82.8%**，与本式（82.7% / 90%）同档，与 1.0417（89.7% / 97.6%）不符
-            //   ⇒ **实况 > 静态字段，保持本式**；差异与两种读法全记在
-            //   `资料/普查产出_1024c/E6_收藏卡池格子几何.md`（⛔ 别只按公式直译改回去）。
-            float scale = (CardsCellH - CardsCounterH) / (CardView.Height * 108f);
+            //   ✅ **2026-10-25（`C` 域 · 调度台裁定）：改成按原版公式算，判据升级成 prefab 实测。**
+            //   `menu_dump.py bundle_menus_assets_all "Collection Card" --depth 4` 现读（2026-10-25）：
+            //     · 原型 `Collection Card` = **350×512**；
+            //     · 卡体 `CardUI/2DCard` = **18, 6.2 → 332, 505.8**（313.91 × **499.70**）⇒ 高 **499.70/512 = 97.6%**、
+            //       宽 **313.91/350 = 89.7%** —— 与公式推出的 **1.0417** 逐位吻合 ⇒ 公式就是原版卡体的真实大小；
+            //     · 张数条 `Content/Counter` = **100, 461 → 250, 511**（150 × 50.01，`Image` `Simple (1,1,1,1)`
+            //       + `preserveAspect`）⇒ 与我们的 `CardsCounterRect`（锚 `0.2857..0.7143 / 0.002..0.09967`）**逐位一致**；
+            //     · ⇒ **卡体（到 505.8）与张数条（从 461 起）在 512 帧里本来就重叠 44.8px**（折成 384 格 = **33.6px**）
+            //       —— **这是原版长相，不是缺陷**。张数条是**画在卡下缘之上**的一条。
+            //   ⚠️ **实拍不能当尺子**（调度台 2026-10-25 明确）：用户参考图量的 81.7% / 82.8% 量的是**立绘/边框内沿**、
+            //     不是 `CardUI` 外框；2DCard 外框是 **89.7% × 97.6%**。
+            //   ⚠️ **`W11` 的真凶**是「按整格反解 + 没有公式给的居中口径」，不是「卡不该压条」；
+            //     所以修法是**改缩放**，⛔ 不是把卡缩到条上面。全过程 → `资料/普查产出_1018/W11_卡组编辑计数重叠.md`。
+            // 🔴 **原版 `CollectionCard.OnRectTransformDimensionsChange` 的直译**：
+            //    `cardUI.localScale = sizeDelta.y * initialCardScale / initialHeight`
+            //    = `384 × 150 / 512 = 112.5` px/卡单位 ⇒ 世界缩放 `112.5 / 108 = 1.0417`。
+            //    ⛔ **不要再退回 `(格高 − 张数条高) / …` 那一版**（那是 W11 的过度修正，判据见上面那一段）。
+            float scale = CardsCellH * 150f / 512f / 108f;
             for (int i = 0; i < list.Count; i++)
             {
                 var content = CardsCellRect(i);
@@ -1563,7 +1679,7 @@ namespace CardPresentation
                 //   幅度/时长/vibrato/elasticity 全在原版 `.rdata`（见 `PunchCardCell` 那段判据）。
                 var cHit = AddHit(parent, "CardHit_" + i, r, QPageRow,
                                   () => { PunchCardCell(cellT); OpenCardDetail(def); });
-                AttachCardHover(cHit, v, wildcardArmy: true);      // 🆕 N70 P0-5 悬停描边 + 🆕 2026-10-19 徽记跟着卡阵营换（`CheckFocusedArmy`）
+                AttachCardHover(cHit, v);                     // 悬停描边（原版 `CollectionCard.HoverHighlight`；徽记**不**走这条，见 `CheckFocusedArmy`）
                 BuildWatch.CellPhase("⑤ 张数条（`Rect`+`Text`）+ 命中区（`AddHit`）");
                 // 🆕 **2026-10-24（A18）**：入场动画（原版 `CollectionCard.AnimateIn`，四个参数见本节头部）。
                 //   位置必须在**卡 + 张数条都建完之后**：`MakeCellFade` 按当时的颜色记基线。
@@ -1601,6 +1717,12 @@ namespace CardPresentation
                 _cellKeyOrder.RemoveAt(k);
                 if (v != null) DestroySafe(v.gameObject);
             }
+            // 🔴 **2026-10-25（`C` 收藏域）**：原版 `CollectionDisplay.RefreshCollection` 的尾巴是
+            //   **延迟 0.1s 再调一次 `CheckFocusedArmy`**（`CardCollectionDisplay.RefreshCollection`，
+            //   `DOVirtual.DelayedCall(0.1f, callback)`）——那 0.1s 是等布局稳下来，批处理里没有帧循环。
+            //   我们每次重建（= 滚动 / 筛选 / 换语档 / 首次建页）末尾直接算一次，**语义等价**；
+            //   `CardsScroll.OnChanged` 那条（= 原版 `OnListDrag`）另有一处，两处都指向同一个纯函数。
+            CheckFocusedArmy();
         }
 
         /// <summary>卡池当前可见卡数（自检用；筛选之后会变）。</summary>
@@ -1945,7 +2067,21 @@ namespace CardPresentation
         /// （与卡组编辑那扇窗走同一个函数；阵营来自 SO 的 `cardArmy`）。</summary>
         public static string[] FilteredCosmoNames()
         {
-            return CardbackTable.NamesFor(CosmoState.Filter.Faction, CardArt.CosmeticNames());
+            var f = CosmoState.Filter;
+            // 🔴 **2026-10-25（多选筛选）**：阵营**集合非空 ⇒ 并集**（原来只读单值 `Faction`，
+            //   多选接上之后单值字段是空的 ⇒ 这里不跟着改就会「点了筛不动」）。
+            //   顺序仍按 `CardArt.CosmeticNames()` 的原始序（与 `NamesFor` 一致）。
+            if (f.Factions != null && f.Factions.Count > 0)
+            {
+                var all = CardArt.CosmeticNames();
+                var keep = new HashSet<string>();
+                foreach (var fac in f.Factions)
+                    foreach (var n in CardbackTable.NamesFor(fac, all)) keep.Add(n);
+                var outp = new List<string>();
+                foreach (var n in all) if (keep.Contains(n)) outp.Add(n);
+                return outp.ToArray();
+            }
+            return CardbackTable.NamesFor(f.Faction, CardArt.CosmeticNames());
         }
 
         /// <summary>🆕 A11：卡背页改完筛选 ⇒ 回到顶部 + 重设滚动区高 + 重画卡背格 + 重算空态。
@@ -3255,6 +3391,8 @@ namespace CardPresentation
             BuildWatch.Begin();
             Build();
             BuildWatch.Mark("① `Build()`（建壳 + 四页 + 收尾刷）");
+            // 🆕 2026-10-25：页对象已建出来 ⇒ 原版 lazy `SetupTabs` 那一跳（只跑一次）
+            EnsureTabsSetup();
             // 🔴 **2026-10-19（`N117` · 用户拍板「重开收藏窗保留当前页」）：原来这里恒 `Click(0)`
             //   ⇒ **每次 `Open()` 都回第 0 页**（`Hide` 之后被 `ShowPreviousWindow` 带回来也一样）。
             //   判据（原版 `GameWindowWithTabs__Open.c:9-21`）：**当前页签**（字段 **0x12**）非空就只重开那一页；
@@ -4865,28 +5003,38 @@ namespace CardPresentation
         //     `Shader.PropertyToID(<字面量>)` 算出来的（偏移 `+0x70`），字面量在 metadata 里、静态读不到
         //     ⇒ 「就是 `_Outline`」是**按材质属性集合推的**，不是读出来的字段（与 `Card2DController` 那颗同族）。
         /// <summary>把卡格的悬停接到 `CardView` 的描边层上（判据 → 本段注释）。
-        /// 🆕 **2026-10-19（界面线尾巴）**：`wildcardArmy = true` 时**同时**把 `WIldcard Display ▸ Army Icon`
-        /// 换成**这张卡所属阵营**的徽记 —— 这就是原版 `CardCollectionDisplay.CheckFocusedArmy` 那条路径
-        /// （见 `BuildCardsPage` 里 `Army Icon` 那一段的判据）。⚠️ 只有 **Cards 页**传 `true`：
-        /// Styles 页的格子是**卡背/装饰**（没有 `faction`），拿它换徽记会换成一张无关的旗。
-        /// ⚠️ `onExit` **不还原**（原版 `CheckFocusedArmy` 未命中卡格时直接 return ⇒ 保留最后压过的那张）。</summary>
-        void AttachCardHover(Transform hit, CardView v, bool wildcardArmy = false)
+        /// 🔴 **2026-10-25（`C` 收藏域 · 铁律 5 就地订正）**：`wildcardArmy` 那个形参**已删** ——
+        /// 原来传 `true` 时把「指针压在这张卡上」当徽记输入，**那不是原版的输入**（原版 = 列表滚动，
+        /// 见 `CheckFocusedArmy`）。今天徽记**只**由 `CheckFocusedArmy`（滚动/刷新）与
+        /// `OpenCardDetail`（开卡片详情）两处驱动，与 `CardCollectionDisplay` / `CardCollectionTab` 逐条对齐。
+        /// ⚠️ 悬停描边本身**保留** —— 它是原版 `CollectionCard.HoverHighlight`（`ToggleHighlight`，0.2s）。</summary>
+        /// <summary>🆕 **2026-10-25（代理 G · 补 `CollectionItem.OnPointerEnter` 那道闸）**：
+        /// 原版**拖拽中不悬停** —— `CollectionItem.OnPointerEnter` 的第一句是
+        /// `if (eventData.pointerDrag != null) return;`（有拖拽正在发生就不亮悬停）。
+        /// <para>我们的等价物：**鼠标主键按住 = 可能正在拖**（任何拖拽期间必然按住；点击当帧也会命中，
+        /// 代价 = 按下瞬间移入卡格不亮描边，松手后下一次 enter 恢复）。</para>
+        /// <para>⚠️ 为什么不用「真拖拽标志」：本工程拖拽状态在 `Core/DraggableController` 的**实例**上
+        /// （`Dragging`），没有全局口；而收藏卡格本身不参与拖拽 ⇒ 用按键按下做等价闸，并在自检里可强开。</para></summary>
+        static bool _hoverSuppressedForTest;
+        public static bool HoverSuppressed
+        {
+            get { return _hoverSuppressedForTest || Input.GetMouseButton(0); }
+        }
+        public static void SetHoverSuppressedForTest(bool on) { _hoverSuppressedForTest = on; }
+
+        void AttachCardHover(Transform hit, CardView v)
         {
             if (hit == null || v == null) return;
             var wb = hit.GetComponent<WindowButton>();
             if (wb == null) return;
-            wb.onEnter = () =>
-            {
-                if (v != null) v.SetHoverHighlight(true);
-                if (wildcardArmy) SetWildcardArmy(ArmyIcons.Id(v.Data.faction), "指针压在卡池格上");
-            };
+            wb.onEnter = () => { if (v != null && !HoverSuppressed) v.SetHoverHighlight(true); };
             wb.onExit = () => { if (v != null) v.SetHoverHighlight(false); };
         }
 
         /// <summary>🆕 **2026-10-19（界面线尾巴 · `WildcardDisplay` 徽记）**：把 `WIldcard Display ▸ Army Icon`
         /// 换成 <paramref name="army"/> 那一面旗。**两口共用**（原版同一句 `WildcardDisplay.Initialize(army)`）：
-        /// ① `CheckFocusedArmy` = 指针压在卡池格（本文件 `AttachCardHover(..., wildcardArmy: true)`）；
-        /// ② `OpenCardInformation` = 开卡片详情（本文件 `OpenCardDetail`）。
+        /// ① `CheckFocusedArmy` = **卡池列表滚动 / 刷新之后**（固定参考矩形命中哪一格 ⇒ 那一格的阵营）；
+        /// ② `OpenCardInformation` = 开卡片详情（本文件 `OpenCardDetail`，原版 `CardCollectionTab.OnItemSelected`）。
         /// <para>认不出（`ArmyIcons.Texture` 返回 null —— `0`/`-1`/表外值）⇒ **保留当前图 + 出声一次**，
         /// ⛔ 不拿别的阵营顶（那会把「不知道」画成一张具体的旗）。</para>
         /// <para>⚠️ 原版 `WildcardDisplay.Initialize` 还会刷那 4 个库存数字；用户 2026-09-28 已拍板
@@ -4916,6 +5064,49 @@ namespace CardPresentation
             // 还没建那棵树（或页已重建）⇒ 只记状态，建页时 `BuildCardsPage` 会按 `_wcArmy` 取图。
             // 同名图**不再重设**（悬停每帧级触发；`SetTexture` 会重建网格）。
             if (_wcArmyQuad != null && changed) _wcArmyQuad.SetTexture(tex, true);   // PA=1（原版 `m_PreserveAspect = 1`）
+        }
+
+        // ============================================================ 🆕 **2026-10-25（`C` 收藏域 · K3 P2-⑦ 落地）**
+        /// <summary>原版 `CardCollectionDisplay.CheckFocusedArmy`（`CardCollectionDisplay.cs:385-461`）的等价物：
+        /// 拿**一个固定矩形** `Reference Card Pointer` 去和**当前在屏上的卡格**求交，**第一个**相交的那一格的
+        /// 阵营交给 `WildcardDisplay.Initialize`。
+        ///
+        /// <para>判据（三条，全部一手）：
+        /// <list type="number">
+        /// <item>**矩形**：`工具/menu_dump.py bundle_menus_assets_all "CardsTab" --depth 8` 现读（2026-10-25）——
+        ///   节点 `Reference Card Pointer` = **402.3,236.4 → 596.1,281.4**（193.84×45.09），父件 = `Collection Display`
+        ///   的直接孩子、与 `Scroll View` **同级**；`m_IsActive = 0` ⇒ **不画、但矩形照用**。
+        ///   本组数与 `CardsViewport`（330.2,155.9→1919.9,1079.9）**同一帧**（同一份 dump 里 `Scroll View`
+        ///   就是 330.2,155.9）⇒ 与 `CardsCellRect` 可直接比，⛔ 不要再加父链偏移。</item>
+        /// <item>**命中序**：`RectExtensions.OverlapsAny`（🥇 `out_cpp2il_dev_ilspy/RectExtensions.cs:69-244`
+        ///   ＋ `decomp_full/RectExtensions__OverlapsAny.c`，两份一致）= **按传入序返回第一个相交的**
+        ///   （`if (bVar1) { *param_3 = uVar7; return 1; }`）—— 不相交就继续，**没有排序 / 没有取最近**。
+        ///   原版传入序 = `Enumerable.Select(Cells, c => c.transform as RectTransform)` 的
+        ///   `RecyclableScrollRect.Cells` **池序**；我们按**可见卡序**（= 屏上从上到下、从左到右）枚举，
+        ///   理由：参考矩形 193.84×45.09 **比一格（262.5×384）小**、横向只压第 0 列
+        ///   （`402.3…596.1` vs 第 1 列起点 `600.05`）⇒ **最多命中一格**，两种枚举序的**结果恒相同**
+        ///   （只有正好压在行边界时才是 2 格，那时两种序都取**上面那格**）。</item>
+        /// <item>**不相交时什么都不做**（原版 `if (!referenceCardPoint) return;` ＋ 循环走完直接返回）
+        ///   ⇒ **没有「移开就还原」**，保留最后那张。我们照此。</item>
+        /// </list></para>
+        ///
+        /// <para>⚠️ 与 `OverlapsMany` 的取舍：原版 `OverlapsAny` 的相交判据是**严格不等**的 AABB
+        ///   （`a.xMin < b.xMax && …`，四条全真；贴边不算相交）—— 本方法同式。</para>
+        public const float WcRefL = 402.3f, WcRefT = 236.4f, WcRefR = 596.1f, WcRefB = 281.4f;
+
+        /// <summary>卡池当前**屏上**的格序 → 第一个与参考矩形相交的那格的阵营。**没有命中就不动**。</summary>
+        void CheckFocusedArmy()
+        {
+            if (CardsScroll == null) return;            // 页还没建（或已销毁）⇒ 原版那颗 `referenceCardPoint` 也为空
+            var list = CardsState.VisibleCards();
+            for (int i = 0; i < list.Count; i++)
+            {
+                var r = CardsScroll.Shift(CardsCellRect(i));
+                if (!(r.x1 < WcRefR) || !(WcRefL < r.x2)) continue;     // 严格不等（同原版 AABB）
+                if (!(r.y1 < WcRefB) || !(WcRefT < r.y2)) continue;
+                SetWildcardArmy(ArmyIcons.Id(list[i].Faction), "列表滚动后参考矩形命中第 " + i + " 格");
+                return;                                                  // ★ 第一个命中的
+            }
         }
 
         // ============================================================ 🆕 **2026-10-23（`C3`）**
@@ -5105,6 +5296,9 @@ namespace CardPresentation
         /// → `CardDisplayWindow.Instance.ShowCard(card,…)`）与 Styles 页点一张异画（`AlternateArtCardCollectionTab` 同一条）。</summary>
         public CardDetailPopup OpenCardDetail(CardDef card)
         {
+            // 🆕 **2026-10-25（接线）**：原版 `CardDisplayOpened` —— 只**收指针**、不改状态机
+            //   （判据 `WildcardTutorialManager` 那一支；我们的等价口在 `WildcardTutorial.NotifyCardDisplayOpened`）。
+            WildcardTutorial.NotifyCardDisplayOpened();
             if (card == null) { Debug.LogWarning("[Collection] 没有卡可展示"); return null; }
             // 🆕 **2026-10-19（界面线尾巴 · 铁律 11）**：原版「开卡片详情 ⇒ 徽记换成**那张卡**的阵营」
             //   （`DeckEditingWindow__OpenCardInformation.c:35`：`WildcardDisplay.Initialize(window.wildcardDisplay,

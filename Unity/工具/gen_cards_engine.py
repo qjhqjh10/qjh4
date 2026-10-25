@@ -1150,6 +1150,55 @@ def load_truth_cards():
 
 
 # ==========================================================================================
+#  🆕 2026-10-25（资源审查 F · 数据侧落地）：**异画（AlternateArt）绑定**
+# ==========================================================================================
+#  原版真值链（逐条核过，判据 → `资料/完全复刻/资源/R6_补核.md` §3 + `R6_AlternateArt映射.tsv`）：
+#    `RawCardScript.alternateArts[]` 是 **PPtr 数组**（`{m_FileID, m_PathID}`，**不含 id 字符串**）；
+#    它指向同包（allcards，CAB-`fb8f0144…`）里的 `AlternateArtCard`，
+#    那个对象才有 `uniqueId = "#HB_<卡id>"` / `style` / `originalCard`（指回卡）。
+#  ⇒ 要落进卡表，必须先把 `m_PathID → uniqueId` 这一步在**索引里**做掉（本脚本只读索引，不重解包）。
+#  索引由 `d:/4/_tmp_view/wfres/r8_altart.py` 生成，7 条；源文件 = 关服前存档里的 allcards 包。
+#  ⚠️ 原版这 7 张的 `currentAlternateArt` **全是 null**（没有「默认选哪张」的偏好）⇒ 本表**不生成**该列。
+ALTART_INDEX_SRC = r"d:/4/Unity/数据/索引/altart_index.json"
+
+_ALT_INDEX = None          # {path_id(str): uniqueId}；取不到时是 {} 并**已出声**
+
+
+def load_altart_index():
+    """`数据/索引/altart_index.json` → `{path_id(str): uniqueId}`。
+
+    取不到/为空 ⇒ 返回 `{}` 并**出声**（那 7 张卡的 `alternateArts` 会落成 `[]` —— 与「本来没有异画」同形，
+    所以必须出声，⛔ 不许静默；要修就跑 `r8_altart.py` 重生成索引）。
+    """
+    global _ALT_INDEX
+    if _ALT_INDEX is not None:
+        return _ALT_INDEX
+    if not os.path.exists(ALTART_INDEX_SRC):
+        print(f"⚠️ 找不到异画索引 {ALTART_INDEX_SRC} —— 卡表的 `alternateArts` 将**全空**"
+              f"（原版有 7 张）；要修 → 跑 `d:/4/_tmp_view/wfres/r8_altart.py`")
+        _ALT_INDEX = {}
+        return _ALT_INDEX
+    with open(ALTART_INDEX_SRC, encoding="utf-8") as f:
+        raw = json.load(f)
+    _ALT_INDEX = {str(k): v.get("uniqueId") or "" for k, v in (raw.get("alts") or {}).items()}
+    print(f"异画索引     {len(_ALT_INDEX)} 条（源 {ALTART_INDEX_SRC}）")
+    return _ALT_INDEX
+
+
+def alt_ids_of(trow):
+    """真值行 → 异画 id 列表（`["#HB_GOF28"]`）。缺值落 **`[]`**（契约：`null` = 整列缺席，见 `:3854`）。"""
+    if trow is None:
+        return []
+    idx = load_altart_index()
+    out = []
+    for p in (trow.get("alternateArts") or []):
+        uid = idx.get(str(p.get("m_PathID")))
+        if uid:
+            out.append(uid)
+    return out
+
+
+# ==========================================================================================
 #  🆕 2026-10-19（`E12`）：逐候选动画时间 —— 常量与判据见 `ANIM_GUID_MAP_TSV` 上面那一段
 # ==========================================================================================
 def load_ability_trigger_names():
@@ -3978,6 +4027,11 @@ def build_enchantment_entries(truth_cards, raw, cards, truth_by_path=None,
             "armour": norm_int(r.get("armour")),
             "cardTraits": norm_list(r.get("CardTraits")),
             "spellType": truth_int(r, "spellType", -1),
+            # 🆕 2026-10-25（P3 · 账 3 条 C）：原版 `RawCardScript.specialAttackScoringCriteria`（bool）。
+            #   语义 / 判据 / 消费点 → `CardDef.SpecialAttackScoring` 的 doc（⛔ 别在这里抄第二份）。
+            #   真值 1,351 张**全 0** ⇒ 本列今天不改变任何行为，只把「原版有这一维」带进卡表。
+            #   ⚠️ bool ⇒ 缺键即 0（没有「未知」档），⛔ 不设 -1。
+            "specialAttackScoring": truth_int(r, "specialAttackScoringCriteria", 0),
             "inventoryOptions": inv,
             "showInCollectionOptions": show,
             "initiative": truth_int(r, "initiative", -1),
@@ -3993,6 +4047,8 @@ def build_enchantment_entries(truth_cards, raw, cards, truth_by_path=None,
         # ---- `A1799` 那 10 个 SO 字段列（缺值 `-1` / `""`，与主循环同一循环）----
         for _col, _tf, _dflt, _doc in A1799_FIELDS:
             entry[_col] = truth_ref_name(r, _tf) if _dflt == "" else truth_int(r, _tf, _dflt)
+        # ---- 🆕 2026-10-25：`alternateArts`（与主循环同一 helper；本卡没有异画 ⇒ `[]`，⛔ 不是 `null`）----
+        entry["alternateArts"] = alt_ids_of(r)
         # ---- `choicesDefinition` 三列（本卡没有 ⇒ `-1 / -1 / []`，与主循环同一段）----
         _cd = (r.get("choicesDefinition") or {})
         _cd_ta, _cd_mt = _cd.get("targetsAffected"), _cd.get("maxTargets")
@@ -4551,6 +4607,21 @@ def build():
             #      那两类附魔卡不在 `cards_raw.json` 里 ⇒ 这两条条件**仍然判不了**（`ConditionEval`
             #      返回 `null`），本列只是把「附魔卡是什么类型」这一层补上，⛔ 不是凭空造 60/120。
             "spellType": (truth_int(trow, "spellType", -1) if trow is not None else -1),
+            # 🆕 2026-10-25（P3 · 账 3 条 C）：原版 `RawCardScript.specialAttackScoringCriteria`（bool）。
+            #   语义 / 判据 / 消费点 → `CardDef.SpecialAttackScoring` 的 doc（⛔ 别在这里抄第二份）。
+            #   真值 1,351 张**全 0**（`cards_raw.json` 的 `full_raw` 现读；与 `AUD_T06` §二 同结论）
+            #   ⇒ 本列今天不改变任何行为，只把「原版有这一维」带进卡表。
+            #   ⚠️ bool ⇒ 缺键即 0（没有「未知」档），⛔ 不设 -1。
+            "specialAttackScoring": (truth_int(trow, "specialAttackScoringCriteria", 0)
+                                     if trow is not None else 0),
+            # ---- 🆕 2026-10-25（资源审查 F · 数据侧落地）：`alternateArts` ----------------------------
+            # 原版 `RawCardScript.alternateArts`（PPtr 数组）→ 异画 id 列表（`#HB_<卡id>`）。
+            # 真值链与判据 → `资料/完全复刻/资源/R6_补核.md` §3；索引 → `数据/索引/altart_index.json`（7 条）。
+            # 🔴 **缺值落 `[]`、不落 `null`**：`CardDatabase` 的契约要求「`null` = 整列缺席 / 没有行 = `[]`」
+            #    分得开（见 `:3854` 那段）。本 build 只有 7 张有异画。
+            # ⚠️ 目前**没有消费者**（`.cs` 里 `alternateArts` 只出现在 `Shell/DeckInfoPopup.cs:2044`
+            #    的**原版字段偏移注释**里）⇒ 本列只落数据、不改任何行为。
+            "alternateArts": alt_ids_of(trow),
         }
         # ---- 卡能不能进卡组（原版 `inventoryOptions` / `showInCollectionOptions`，`A1798` 2026-10-14）----
         # 🔴 **原版真值直搬**（`工具/gen_card_inventory_options.py` 四级定位出来的），本处**一个字不推**。

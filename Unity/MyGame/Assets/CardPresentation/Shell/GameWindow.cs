@@ -1,6 +1,7 @@
 // GameWindow.cs —— 从 `Shell/WindowsManager.cs` 里拆出来的（A1506：MonoBehaviour 的类名【必须】与文件名相同，
 // 否则 Unity 建不出 MonoScript ⇒ 存场景时被烘成内联 `!u!115` 存根 ⇒ player 加载即崩）。零行为改动。
 // 🔴 本类是**所有窗口的基类**（全仓 39 处 `AddComponent`）—— 命名空间顶层、全名不变 ⇒ 引用处**一行都不用改**。
+using System;
 using System.Collections.Generic;
 using UnityEngine;
 using WarpforgeVFX;      // `WFSoundPlayer`（特效/音效那条路唯一的播放器，`Assets/WarpforgeVFX/Runtime/`）
@@ -536,6 +537,7 @@ namespace CardPresentation
                 gameObject.SetActive(true);          // ← 我们的「前台动作」那半边（原版那一刻那句的等价物）
                 CurrentState = WindowState.Open;
                 SetBake(false);                      // 🆕 T16：回前台 ⇒ 关模糊底（原版 `ToFocus()`）
+                ToFocus();                           // 🆕 2026-10-25：原版这一支末句 `call [rax+0x1a8]`（虚表 ToFocus）
                 return true;
             }
 
@@ -652,6 +654,14 @@ namespace CardPresentation
             CurrentState = WindowState.Background;
         }
 
+        /// <summary>🆕 **2026-10-25（菜单 C）**：原版 `GameWindow.ToFocus()` —— **虚表 Slot `+0x1a8`**。
+        /// <para>判据：`GameWindow__TryOpen` 的 `Background` 支 = `state = Open` + `call [rax+0x1a8]`（= 本方法）；
+        /// 各窗覆写它做「回前台」的副作用（`MainMenuWindow.ToFocus` 是导航条动画 + 档案初始化 + 关烘焙；
+        /// `CardDisplayWindow.ToFocus` 是 `ResourcesBarController.ToggleOverlay(true)`）。</para>
+        /// <para>⚠️ 基线实现空；`GameWindow` 原来没有这个口 ⇒ 我们把 `TryOpen` 的 Background 支补上调用
+        /// （见 `OpenByState` 第 ③ 支）。`GameWindowWithTabs.ToFocus` 因此改成 `override`。</para></summary>
+        public virtual void ToFocus() { }
+
         /// <summary>🆕 **A217③**：原版 `GameWindow.Hide()` —— **虚表 Slot 9 = `0x1c8`**
         /// （`d:/2/tools/il2cpp_out/dump.cs` 的 `GameWindow` 一节：`Slot: 9`、VA `0x180835B60`，与该 .c 文件对得上），
         /// 逐句 = `GameWindow__Hide.c`：
@@ -676,6 +686,16 @@ namespace CardPresentation
         /// 零命中）⇒ 不实现；② 与我们的 `Close()` 是**两条路**（原版 `Close` → `manager.CloseWindow` →
         /// `CloseWindowCO` → **先调 Slot 9 `Hide()`** 再摘表/销毁；我们 `Close()` 自己做了 state/物体那两步、
         /// `NotifyClosed` 做记账）—— 两条路在「state=Closed + 物体 inactive」上等价，差别只在**记不记账**。</para></summary>
+        /// <summary>原版 `GameWindow.OnCloseWindow`（字段 `+0x60`，`GameWindow.cs:62`）：**藏起来那一刻**调一次。
+        /// <para>判据（`GameWindow__Hide.c`）：`state = Closed` → `SetActive(false)` → **`OnCloseWindow.Invoke()`**。
+        /// ⚠️ **只在 `Hide()` 里调，`Close()` 自己【不】调**（原版 `GameWindow__Close.c` 全文没有它 ——
+        /// 关窗那条路是 `Close → manager.CloseWindow → CloseWindowCO → Slot 9 Hide()` ⇒ 由 `Hide()` 那一跳统一调）。
+        /// 🔴 **2026-10-25（复刻第 1 轮 · 代理 H）**：本口原来**没有**（全仓零命中）。全量反编译里它的唯一消费者 =
+        /// `CardInBoosterPack.CardDisplayWindowOnCloseWindow`（开包翻牌时等卡展示窗关掉再继续）；
+        /// 我们那条链由 `Shell/CardDetailPopup` 自己的「升级/新卡」逻辑承担（→ `BoosterPackOpenWindow.cs:767`）
+        /// ⇒ 今天**零个订阅者**，但事件口本身是原版行为，补上（将来谁要「等窗关」直接 += 即可）。</para></summary>
+        public Action OnCloseWindow;
+
         public virtual void Hide()
         {
             if (gameObject == null) return;
@@ -683,6 +703,12 @@ namespace CardPresentation
             SetBake(true);              // 🆕 T16：原版 `MainMenuWindow.Hide` 的第一句（先烘、再 `base.Hide`）
             CurrentState = WindowState.Closed;
             gameObject.SetActive(false);
+            var cb = OnCloseWindow;     // 原版 `GameWindow__Hide.c` 末句：字段非空就 Invoke
+            if (cb != null)
+            {
+                try { cb(); }
+                catch (Exception e) { Debug.LogError("[Win] `" + name + "` 的 `OnCloseWindow` 抛异常：" + e); }
+            }
         }
 
         public virtual void Close()

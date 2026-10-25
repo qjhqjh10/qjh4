@@ -1,0 +1,155 @@
+域	原版类	方法	判据出处	判据要点	状态	我们的落点	差异	等级	轮次	备注
+音频/语音	AudioCue	CanPlay()	AudioCue.cs:174		E					
+音频/语音	AudioCue	ConfigAudioSource(ref AudioSource audioSource)	AudioCue.cs:22		E					
+音频/语音	AudioCue	GetRandomClip()	AudioCue.cs:128		E					
+音频/语音	AudioCue	HasAudios()	AudioCue.cs:146		E					
+音频/语音	AudioCue	OnEnable()	AudioCue.cs:192		E					
+音频/语音	AudioCue	PreviewClip(AudioClip clip)	AudioCue.cs:197		E					
+音频/语音	AudioCue	StartClip(AudioClip clip)	AudioCue.cs:205		E					
+音频/语音	AudioCue	StopClips()	AudioCue.cs:201		E					
+音频/语音	AudioMixerAddresableReferences	Awake()	AudioMixerAddresableReferences.cs:53		E					
+音频/语音	AudioMixerAddresableReferences	GetMixerGroup(MixerType mixerType)	AudioMixerAddresableReferences.cs:60		E					
+音频/语音	AudioMixerAddresableReferences	GetSnapshot(SnapshotsType snapshotType)	AudioMixerAddresableReferences.cs:90		E					
+音频/语音	AudioMixerAddresableReferences	TryGetGroup(TR typeToCheck, out T audioObject)	AudioMixerAddresableReferences.cs:15		E					
+音频/语音	AudioSourceMixerGroupFixer	OnValidate()	AudioSourceMixerGroupFixer.cs:24		E					
+音频/语音	AudioSourceMixerGroupFixer	Start()	AudioSourceMixerGroupFixer.cs:10		E					
+音频/语音	AudioSourceTogglerByVolume	GetActiveBrotherTimeSample()	AudioSourceTogglerByVolume.cs:56		E					
+音频/语音	AudioSourceTogglerByVolume	OnValidate()	AudioSourceTogglerByVolume.cs:88		E					
+音频/语音	AudioSourceTogglerByVolume	Update()	AudioSourceTogglerByVolume.cs:14		E					
+音频/语音	AudioSourcesController	Blend(AudioClip audioClip)	AudioSourcesController.cs:367		E					
+音频/语音	AudioSourcesController	DecrementVolume(AudioSource audioSource)	AudioSourcesController.cs:408		E					
+音频/语音	AudioSourcesController	FadeIn(AudioClip audioClip)	AudioSourcesController.cs:333		E					
+音频/语音	AudioSourcesController	FadeOut()	AudioSourcesController.cs:359		E					
+音频/语音	AudioSourcesController	IncrementVolume(AudioSource audioSource)	AudioSourcesController.cs:395		E					
+音频/语音	AudioSourcesController	Init()	AudioSourcesController.cs:302		E					
+音频/语音	AudioSourcesController	PlayClip(AudioClip audioClip)	AudioSourcesController.cs:388		E					
+音频/语音	AudioSourcesController	PlayInstant(AudioClip audioClip)	AudioSourcesController.cs:311		E					
+音频/语音	AudioSourcesController	SetMaxVolume(AudioSource audioSource)	AudioSourcesController.cs:403		E					
+音频/语音	AudioSourcesController	SetMinVolume(AudioSource audioSource)	AudioSourcesController.cs:416		E					
+音频/语音	AudioSourcesController	Stop()	AudioSourcesController.cs:382		E					
+音频/语音	AudioSourcesController	SwitchMainAudioSource()	AudioSourcesController.cs:376		E					
+音频/语音	AudioSourcesController	VolumeLerp(AudioSource audioSource, float startValue, float endValue)	AudioSourcesController.cs:421		E					
+音频/语音	AudioWaveEqualizer	Initialize(AudioSource audioSource)	AudioWaveEqualizer.cs:20		E					
+音频/语音	AudioWaveEqualizer	Toggle(bool option)	AudioWaveEqualizer.cs:33		E					
+音频/语音	AudioWaveEqualizer	Update()	AudioWaveEqualizer.cs:38		E					
+音频/语音	BattleCardSounds	GetInvokeCue(int cardRarity)	BattleCardSounds.cs:38		E					
+音频/语音	BattleMusicManager	ChangeState(BattleMusicState stateToChange)	BattleMusicManager.cs:336		E					
+音频/语音	BattleMusicManager	CheckMusicState()	BattleMusicManager.cs:311		E					
+音频/语音	BattleMusicManager	FadeOut()	BattleMusicManager.cs:288		E					
+音频/语音	BattleMusicManager	FinishMatch()	BattleMusicManager.cs:369		E					
+音频/语音	BattleMusicManager	FixAddressablesMixerReferences()	BattleMusicManager.cs:249		E					
+音频/语音	BattleMusicManager	Init()	BattleMusicManager.cs:277		E					
+音频/语音	BattleMusicManager	Initialize()	BattleMusicManager.cs:233		E					
+音频/语音	BattleMusicManager	Start()	BattleMusicManager.cs:238		E					
+音频/语音	BattleMusicManager	Update()	BattleMusicManager.cs:293		E					
+音频/语音	FadingAudioSource	Awake()	FadingAudioSource.cs:133		E					
+音频/语音	FadingAudioSource	Fade(AudioClip clip, float volume, bool loop)	FadingAudioSource.cs:84		E					
+音频/语音	FadingAudioSource	FadeOut(float timeToFade)	FadingAudioSource.cs:105		E					
+音频/语音	FadingAudioSource	FadeToNextClip()	FadingAudioSource.cs:140		E					
+音频/语音	FadingAudioSource	OnDisable()	FadingAudioSource.cs:151		E					
+音频/语音	FadingAudioSource	Play(float maxVolume)	FadingAudioSource.cs:120		E					
+音频/语音	FadingAudioSource	Stop()	FadingAudioSource.cs:127		E					
+音频/语音	FadingAudioSource	Update()	FadingAudioSource.cs:161		E					
+音频/语音	MainMenuMusicController	Initialize()	MainMenuMusicController.cs:10		E					
+音频/语音	MusicBlendTest	ChangeMusicIntensity(MusicIntensity intensity)	MusicBlendTest.cs:98		E					
+音频/语音	MusicBlendTest	ChangeToHigh()	MusicBlendTest.cs:86		E					
+音频/语音	MusicBlendTest	ChangeToLow()	MusicBlendTest.cs:68		E					
+音频/语音	MusicBlendTest	ChangeToMedium()	MusicBlendTest.cs:73		E					
+音频/语音	MusicBlendTest	SetTimeToText(float time, TextMeshProUGUI text)	MusicBlendTest.cs:257		E					
+音频/语音	MusicBlendTest	Start()	MusicBlendTest.cs:47		E					
+音频/语音	MusicBlendTest	Update()	MusicBlendTest.cs:55		E					
+音频/语音	MusicManager	Awake()	MusicManager.cs:104		E					
+音频/语音	MusicManager	CheckQueue(string sceneTarget)	MusicManager.cs:132		E					
+音频/语音	MusicManager	DelayedQueuedPlay(AudioClip musicClip, float scheduledTime)	MusicManager.cs:324		E					
+音频/语音	MusicManager	Initialize()	MusicManager.cs:125		E					
+音频/语音	MusicManager	OnDestroy()	MusicManager.cs:140		E					
+音频/语音	MusicManager	PlayMusic(AudioClip musicClip, MusicTransitionType type)	MusicManager.cs:146		E					
+音频/语音	MusicManager	PlayMusicQueued(AudioClip musicClip)	MusicManager.cs:277		E					
+音频/语音	MusicManager	StopMusic(bool instant)	MusicManager.cs:340		E					
+音频/语音	MusicVolumePlayerPrefsSetting	Start()	MusicVolumePlayerPrefsSetting.cs:5		E					
+音频/语音	PlaySoundOnTime	Reset()	PlaySoundOnTime.cs:73		E					
+音频/语音	PlaySoundOnTime	Update(float currentTime, Transform transform)	PlaySoundOnTime.cs:23		E					
+音频/语音	ShakeAndSoundObject	OnEnable()	ShakeAndSoundObject.cs:9		E					
+音频/语音	ShakeAndSoundObject	Update()	ShakeAndSoundObject.cs:26		E					
+音频/语音	SoundAsset_OLD	GetDuration()	SoundAsset_OLD.cs:11		E					
+音频/语音	SoundManager	Awake()	SoundManager.cs:54		E					
+音频/语音	SoundManager	FixAddressableReferences()	SoundManager.cs:117		E					
+音频/语音	SoundManager	GetAudioSource()	SoundManager.cs:392		E					
+音频/语音	SoundManager	Initialize()	SoundManager.cs:72		E					
+音频/语音	SoundManager	SetMixerVolume(MixerType mixerType, float volume)	SoundManager.cs:569		E					
+音频/语音	SoundManager	ToggleSFX(bool option, bool instant)	SoundManager.cs:597		E					
+音频/语音	SoundManager	Update()	SoundManager.cs:606		E					
+音频/语音	UIEffectTogglerPlaySound	AnimationFinished()	UIEffectTogglerPlaySound.cs:14		E					
+音频/语音	UIEffectTogglerPlaySound	DoUpdate(float currentTime, float normalizedTime)	UIEffectTogglerPlaySound.cs:9		E					
+音频/语音	UnitsVoiceLinesPanel	GetChatBox(VoiceLinesOnSceneType type)	UnitsVoiceLinesPanel.cs:111		E					
+音频/语音	UnitsVoiceLinesPanel	HideChatBox(VoiceLinesOnSceneType type)	UnitsVoiceLinesPanel.cs:152		E					
+音频/语音	UnitsVoiceLinesPanel	Initialize()	UnitsVoiceLinesPanel.cs:14		E					
+音频/语音	UnitsVoiceLinesPanel	IsAnyVoiceLinePlaying()	UnitsVoiceLinesPanel.cs:137		E					
+音频/语音	UnitsVoiceLinesPanel	SetUpChatBox(VoiceLineBox voiceLineBox)	UnitsVoiceLinesPanel.cs:79		E					
+音频/语音	UnitsVoiceLinesPanel	ShowChatBox(VoiceLinesOnSceneType type, VoiceLineData data)	UnitsVoiceLinesPanel.cs:95		E					
+音频/语音	VoiceLineBox	AnimateText()	VoiceLineBox.cs:569		E					
+音频/语音	VoiceLineBox	Disable()	VoiceLineBox.cs:586		E					
+音频/语音	VoiceLineBox	Enable()	VoiceLineBox.cs:580		E					
+音频/语音	VoiceLineBox	FinishChat(float duration)	VoiceLineBox.cs:557		E					
+音频/语音	VoiceLineBox	HideChat()	VoiceLineBox.cs:600		E					
+音频/语音	VoiceLineBox	Initialize()	VoiceLineBox.cs:513		E					
+音频/语音	VoiceLineBox	SetUpAudio()	VoiceLineBox.cs:545		E					
+音频/语音	VoiceLineBox	ShowChat()	VoiceLineBox.cs:534		E					
+音频/语音	VoiceLineBox	ShowChat(VoiceLineData data)	VoiceLineBox.cs:519		E					
+音频/语音	VoiceLinesController	AIResponse(ChatMessage chatMsgIndex, float chatDuration, bool isResponse)	VoiceLinesController.cs:1435		E					
+音频/语音	VoiceLinesController	AddChatToReplayLog(ChatMessage chatMsgIndex, bool isPlayer, CardScript opponentCardScript)	VoiceLinesController.cs:1529		E					
+音频/语音	VoiceLinesController	AddPopUpListeners()	VoiceLinesController.cs:834		E					
+音频/语音	VoiceLinesController	CanChat(bool isPlayer)	VoiceLinesController.cs:1344		E					
+音频/语音	VoiceLinesController	CanUseVOs(CardTypeOptions cardType)	VoiceLinesController.cs:1238		E					
+音频/语音	VoiceLinesController	ChatAIResponse(float chatDuration, ChatMessage playerChatMsgIndex)	VoiceLinesController.cs:1491		E					
+音频/语音	VoiceLinesController	CheckIfEnemyChatReceivedForTip(bool isPlayer, ChatMessage chatMsgIndex)	VoiceLinesController.cs:1518		E					
+音频/语音	VoiceLinesController	CheckNetworkGame(ChatMessage chatMsgIndex)	VoiceLinesController.cs:1407		E					
+音频/语音	VoiceLinesController	ClickChat()	VoiceLinesController.cs:788		E					
+音频/语音	VoiceLinesController	CloseChatBox(bool isPlayer)	VoiceLinesController.cs:1227		E					
+音频/语音	VoiceLinesController	CloseRadio()	VoiceLinesController.cs:1233		E					
+音频/语音	VoiceLinesController	DisplayBox(bool isPlayer, VoiceLineData data)	VoiceLinesController.cs:1218		E					
+音频/语音	VoiceLinesController	DisplayChatBox(string chatMsgText, CardScript talkingUnit, AudioClip audioClip)	VoiceLinesController.cs:682		E					
+音频/语音	VoiceLinesController	DisplayLocalChatMessage(ChatMessage chatMsgIndex, bool ignoreUiState)	VoiceLinesController.cs:567		E					
+音频/语音	VoiceLinesController	DisplaySummonMessage(CardScript cardScript)	VoiceLinesController.cs:720		E					
+音频/语音	VoiceLinesController	DisplayWarlordChatMessage(ChatMessage chatMsgIndex, bool isPlayer, bool ignoreUiState)	VoiceLinesController.cs:575		E					
+音频/语音	VoiceLinesController	DisplayWarlordRegularChatMessage(ChatMessage chatMsgIndex, bool isPlayer)	VoiceLinesController.cs:1185		E					
+音频/语音	VoiceLinesController	ForcePopUpClose()	VoiceLinesController.cs:805		E					
+音频/语音	VoiceLinesController	GenerateVoiceLineData(AudioClip audioClip, string message, Sprite talkingUnitSprite, CardTypeOptions cardType)	VoiceLinesController.cs:1320		E					
+音频/语音	VoiceLinesController	GenerateVoiceLineData(ChatMessage chatMessage, bool isPlayer)	VoiceLinesController.cs:1281		E					
+音频/语音	VoiceLinesController	GetAudioLength(AudioClip chatSound)	VoiceLinesController.cs:1401		E					
+音频/语音	VoiceLinesController	GetAudioToPlay(ChatMessage chatMessage, bool isPlayer)	VoiceLinesController.cs:1379		E					
+音频/语音	VoiceLinesController	GetCurrentClipLength()	VoiceLinesController.cs:1384		E					
+音频/语音	VoiceLinesController	GetRandomMessage()	VoiceLinesController.cs:1503		E					
+音频/语音	VoiceLinesController	Initialize()	VoiceLinesController.cs:538		E					
+音频/语音	VoiceLinesController	IsAnyVoiceLinePlaying()	VoiceLinesController.cs:818		E					
+音频/语音	VoiceLinesController	OnDestroy()	VoiceLinesController.cs:533		E					
+音频/语音	VoiceLinesController	PopUpHid()	VoiceLinesController.cs:1169		E					
+音频/语音	VoiceLinesController	PopUpShowed()	VoiceLinesController.cs:1158		E					
+音频/语音	VoiceLinesController	RemovePopUpListeners()	VoiceLinesController.cs:996		E					
+音频/语音	VoiceLinesController	ResetChatsReceived()	VoiceLinesController.cs:562		E					
+音频/语音	VoiceLinesController	SetChatButtonOnCooldown()	VoiceLinesController.cs:1424		E					
+音频/语音	VoiceLinesController	SetPopUpDisabled()	VoiceLinesController.cs:778		E					
+音频/语音	VoiceLinesController	SetPopUpEnabled()	VoiceLinesController.cs:783		E					
+音频/语音	VoiceLinesController	SetTransformedWarlordNewChats(RawCardScript selectedWarlord, MatchData matchData, bool updateAvailable)	VoiceLinesController.cs:813		E					
+音频/语音	VoiceLinesController	SetUpChatOptions(MatchData matchData)	VoiceLinesController.cs:557		E					
+音频/语音	VoiceLinesController	ShowHeroIntroMessage(bool isPlayer)	VoiceLinesController.cs:1571		E					
+音频/语音	VoiceLinesController	ShowHeroesIntroMessage()	VoiceLinesController.cs:767		E					
+音频/语音	VoiceLinesController	ShowRadioMessage(SmallTipData tipData, Sprite speakerSprite, AudioClip audioClip, CardTypeOptions cardType)	VoiceLinesController.cs:704		E					
+音频/语音	VoiceLinesController	ToggleMute(bool option)	VoiceLinesController.cs:552		E					
+音频/语音	VoiceLinesController	VoiceLineButtonPressed(ChatMessage message)	VoiceLinesController.cs:1180		E					
+音频/语音	VoiceLinesPopupSelector	Awake()	VoiceLinesPopupSelector.cs:295		E					
+音频/语音	VoiceLinesPopupSelector	ClickChat(ChatMessage chatType)	VoiceLinesPopupSelector.cs:560		E					
+音频/语音	VoiceLinesPopupSelector	Clicked()	VoiceLinesPopupSelector.cs:576		E					
+音频/语音	VoiceLinesPopupSelector	ClosePopupHorizontal()	VoiceLinesPopupSelector.cs:636		E					
+音频/语音	VoiceLinesPopupSelector	Hide()	VoiceLinesPopupSelector.cs:608		E					
+音频/语音	VoiceLinesPopupSelector	IsAvailable(MatchData matchData, string warlordId, int chatMessageIndex, MatchType[] possibleTypes)	VoiceLinesPopupSelector.cs:518		E					
+音频/语音	VoiceLinesPopupSelector	IsIndexOutOfEnumBounds(int chatMessageIndex)	VoiceLinesPopupSelector.cs:494		E					
+音频/语音	VoiceLinesPopupSelector	IsMatchOneOfCollection(MatchType matchType, MatchType[] possibleTypes)	VoiceLinesPopupSelector.cs:541		E					
+音频/语音	VoiceLinesPopupSelector	OnDestroy()	VoiceLinesPopupSelector.cs:277		E					
+音频/语音	VoiceLinesPopupSelector	OpenPopupHorizontal()	VoiceLinesPopupSelector.cs:683		E					
+音频/语音	VoiceLinesPopupSelector	RefreshChatLines()	VoiceLinesPopupSelector.cs:401		E					
+音频/语音	VoiceLinesPopupSelector	SetTransformedWarlordNewChats(RawCardScript selectedWarlord, MatchData matchData, bool updateAvailable)	VoiceLinesPopupSelector.cs:445		E					
+音频/语音	VoiceLinesPopupSelector	SetupChatOptions(MatchData matchData)	VoiceLinesPopupSelector.cs:310		E					
+音频/语音	VoiceLinesPopupSelector	Show()	VoiceLinesPopupSelector.cs:658		E					
+音频/语音	VoiceLinesPopupSelector	Toggle(bool option)	VoiceLinesPopupSelector.cs:570		E					
+音频/语音	VoiceLinesPopupSelector	_003CClosePopupHorizontal_003Eb__33_0()	VoiceLinesPopupSelector.cs:699		E					

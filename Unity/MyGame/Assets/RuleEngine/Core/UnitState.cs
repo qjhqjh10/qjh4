@@ -56,6 +56,139 @@ namespace RuleEngine
         public int Health;
         public int MaxHealth;
 
+        // ============================================================================================
+        // 🆕 2026-10-25（`N7` · 属性模型重构 **Stage 1：只加投影、无人调用**）
+        //
+        // 【为什么有这一段】原版是「**一半存档、一半现算**」：
+        //   存档的只有 `currentHealth`(+0x68) / `currentMaxHealth`(+0xa4) / `currentArmourValue`(+0xb8) /
+        //   `currentBaseMeleeAttack`(+0x7c) / `currentBaseRangedAttack`(+0x90)；
+        //   而 `CurrentMeleeAttack` / `CurrentRangeAttack` / `CurrentCost` / `currentMaxHealthProcessed` /
+        //   全部 `Current<关键词>` 都是**每次读时从 `activeEffects`(+0x108) 现算**的。
+        //   我们上面那三格（`Attack` / `RangedAttack` / `MaxHealth`）是**把这一族物化成了字段**
+        //   ⇒ 模型差一层。可观察的后果（例）：原版 `setMeleeAttack(70)` 命中即 `return`，
+        //   之后再叠 `addStats(+1 melee)` **不涨**；我们会涨。
+        //
+        // 【四步走】（判据 → `Unity/资料/完全复刻/判据/战斗逻辑驱动_前置门与现算口径.md` §六，方案 A）
+        //   · **Stage 1（本段）= 只加只读投影，旧字段原样保留，谁都不调**；
+        //   · Stage 2a/2b = 换写者（`Attack` → `AttackBase` + 转发属性）；
+        //   · Stage 2c = **换读者**（`Attack => CurrentMeleeAttack` 等）—— 🔴 **行为在 2c 才变**。
+        //
+        // 🔴 **Stage 1 的恒等纪律**（判据 §6·1 / §6·3）：本段每一条**必须**与旧字段逐单位恒等 ——
+        //   `CurrentMeleeAttack == Attack` ∧ `CurrentRangeAttack == RangedAttack` ∧
+        //   `CurrentMaxHealthProcessed == MaxHealth` ∧ `CurrentIntrinsicHealth == Health` ∧
+        //   `CurrentIntrinsicMeleeAttack == Attack`。所以这里**只转发旧字段、不查任何效果表**：
+        //   修饰表要到 2a/2b 才建，Stage 1 时它「还不存在/还空」⇒ Σ = 0 ⇒ 恒等。
+        //
+        // ⚠️ 两条**给 Stage 2 的写手**的硬提醒（踩了就是栈溢出 / 静默差）：
+        //   ① `IsBlind ⇒ CurrentRangeAttack = 0`（`get_CurrentRangeAttack.c:24-28`）**故意没有写进来** ——
+        //      写了就不恒等（真 Play 里给单位上 blind 就会差）。它落在 **2c**，届时「读攻值的每一处
+        //      同时看到 0」才是判据 §7·2 要的**一次性全对**；⛔ 别在 Stage 1/2a/2b 提前加。
+        //   ② **2c 换投影时，本段这几条必须同时改写成「读 base + 查修饰表」** —— 因为 2c 会把
+        //      `Attack` / `RangedAttack` / `MaxHealth` 换成**转发到本段的属性**，
+        //      本段若还读 `Attack` 就是**无限递归**（`Attack` → `CurrentMeleeAttack` → `Attack` …）。
+        //      改写点逐条写在各自的注释里。
+        //
+        // 判据来源一律是**第一权威** `d:/2/tools/decomp_full/EntityScript__get_*.c`（本轮逐方法复读过）。
+        // ============================================================================================
+
+        /// <summary>
+        /// **当前近战攻击力** —— 原版 `EntityScript.get_CurrentMeleeAttack`
+        /// （`d:/2/tools/decomp_full/EntityScript__get_CurrentMeleeAttack.c:29-67`）。
+        ///
+        /// 原版算法（逐句读的，别再按印象改）：
+        ///   · **正序**遍历 `activeEffects`(+0x108)：`i = 0 … n-1`（`:29-51`）；
+        ///   · `buffType(+0x38) == 1`（`addStats`）⇒ 累加 `meleeAttackChange(+0x48)`（`:39-41`）；
+        ///   · `buffType == 70`（`setMeleeAttack`，反编译写成 `0x46`）⇒ 🔴 **立刻 `return` 它的
+        ///     `meleeAttackChange`**（`:44-47`）—— **连 `currentBaseMeleeAttack`、连已经累加的那部分都不算**。
+        ///     因为是正序遍历 ⇒ 多条时**列表里第一条**胜出（后面的根本读不到）；
+        ///   · 扫完 ⇒ `clamp0(currentBaseMeleeAttack(+0x7c) + Σ)`（`:52-66`：
+        ///     `if (-1 < iVar2 + iVar7) return …; return 0;`）。
+        ///
+        /// 🔴 **这一条最容易被写错的口径 = 「`setMeleeAttack` 是覆盖、且命中即返回」**。
+        ///   它的可观察后果：**一旦被 set 过，之后再叠 `addStats(+1 melee)` 不涨**（判据 §6·4① 的验收用例）。
+        ///   ⇒ Stage 3 把写点改成「落修饰」时，**不能**把 set 当成一条普通加数。
+        ///
+        /// **Stage 1**：恒等（`== Attack`）—— ① 修饰表还没有（永久增益仍直接写字段）
+        ///   ② 没有 `setMeleeAttack` 记录。**Stage 2c 才切换，届时行为才变。**
+        /// ⚠️ **2c 改写点**：`return Attack;` 换成「扫记录 → **命中 set 立即返回它的值** /
+        ///   否则 `clamp0(AttackBase + Σ addStats.meleeAttackChange)`」，⛔ **不能留着读 `Attack`**（见上 ②）。
+        /// </summary>
+        public int CurrentMeleeAttack { get { return Attack; } }
+
+        /// <summary>
+        /// **当前远程攻击力** —— 原版 `EntityScript.get_CurrentRangeAttack`
+        /// （`d:/2/tools/decomp_full/EntityScript__get_CurrentRangeAttack.c:24-70`）。
+        ///
+        /// 原版算法 = <see cref="CurrentMeleeAttack"/> 的同形，两处换字段：
+        ///   · **第一句**先判 `HasCurrentTrait(0x3cf /*blind*/) ⇒ return 0`（`:24-28`）；
+        ///   · `buffType==1` 累加 `rangeAttackChange(+0x50)`；`buffType==85`（`setRangeAttack`，
+        ///     反编译写成 `0x55`）⇒ **命中即 `return`** 它的 `rangeAttackChange`（`:41-49`）；
+        ///   · 扫完 ⇒ `clamp0(currentBaseRangedAttack(+0x90) + Σ)`（`:50-64`）。
+        ///
+        /// **Stage 1**：恒等（`== RangedAttack`）—— 🔴 **`IsBlind ⇒ 0` 那一支故意没写**
+        ///   （见本段顶部 ⚠️①；判据 §6·5 的「Stage 1 退化成恒等」说的就是这条）。
+        ///   今天「blind ⇒ 远程算 0」只发生在 `RuleCore.FieldAttack`（算伤害那一跳）；
+        ///   其它读点（AI / 条件 / 卡面）看到的仍不是 0 —— 那是 §7·2 那 11 组差异，**归 2c 一次性修**。
+        /// ⚠️ **2c 改写点**：先 `if (IsBlind) return 0;`，再「扫记录 → 命中 set 即返回 /
+        ///   否则 `clamp0(RangedAttackBase + Σ)`」，⛔ 不能读 `RangedAttack`（递归）。
+        /// </summary>
+        public int CurrentRangeAttack { get { return RangedAttack; } }
+
+        /// <summary>
+        /// **当前最大生命（已处理）** —— 原版 `EntityScript.get_currentMaxHealthProcessed`
+        /// （`d:/2/tools/decomp_full/EntityScript__get_currentMaxHealthProcessed.c:22-108`）。
+        ///
+        /// 原版算法（**倒序遍历两趟**，`:33-59` 与 `:60-107`，⭐ 顺序有语义、别改用正序）：
+        ///   1) 起手 `base = currentMaxHealth(+0xa4)`（`:22-32`）；
+        ///   2) **第一趟（倒序）**：`extrinsic(+0x30) == 0` ∧ `buffType==1` ∧ `healthChange(+0x60) != 0`
+        ///      ⇒ `base += healthChange`（`:40-58`）；
+        ///   3) **第二趟（倒序）**：`extrinsic != 0` ∧ `buffType==1` ∧ `healthChange != 0`
+        ///      ⇒ `ext += healthChange`（`:71-89`）；
+        ///      同一趟里再判 `buffType == 9`（`setHealth`）∧ `healthChange != 0` ⇒ **`base` 整项被覆盖成
+        ///      它**（`:94-105`）—— 注意这是**覆盖前两趟已经算好的 base**，不是加；
+        ///      ⚠️ 倒序遍历 ⇒ 多条 `setHealth` 时**列表里第一条（下标 0）最后写入、因而生效**；
+        ///   4) `return base + ext`（`:65` / `:107`）—— 🔴 **全程无 clamp**（与 CurrentMeleeAttack 不同）。
+        ///
+        /// 为什么我们非得加这一层：我们把原版的**两格并成了一格** —— 我们的 `MaxHealth` 扮演的是
+        /// **processed**（`EffectResolver.ApplyOneGain` 的 health 支直接 `MaxHealth += val`），
+        /// **拿不到「原始上限」**。Stage 2a 会把字段改名 `MaxHealthBase` + 加转发属性；
+        /// 本投影就是「processed」那一格。
+        ///
+        /// **Stage 1**：恒等（`== MaxHealth`）—— 修饰表还不存在 ⇒ ① Σ 两项 = 0 ② 无 `setHealth` 记录。
+        ///   **Stage 2c 才切换，届时行为才变。**
+        /// ⚠️ **2c 改写点**：`return MaxHealth;` 换成上面 4 步，**base 取 `MaxHealthBase`**
+        ///   （⛔ 不能取 `MaxHealth` —— 2c 时它是转发到本属性的，会无限递归）。
+        /// </summary>
+        public int CurrentMaxHealthProcessed { get { return MaxHealth; } }
+
+        /// <summary>
+        /// **固有生命**（不含 extrinsic 加成）—— 原版 `EntityScript.get_CurrentIntrinsicHealth`
+        /// （`d:/2/tools/decomp_full/EntityScript__get_CurrentIntrinsicHealth.c:26-50`）。
+        ///
+        /// 原版 = `currentHealth(+0x68)` − Σ(`extrinsic(+0x30) != 0` ∧ `buffType==1` 的
+        /// `healthChange(+0x60)`)（**正序**遍历，`:53-55`；返回 `:49-50`，**无 clamp**）。
+        ///
+        /// **Stage 1**：恒等（`== Health`；Σ = 0）。**Stage 2c 才切换**。⚠️ 2c 改写点见上一条同型
+        /// （`Health` 本身**不做投影** —— 原版 `currentHealth` 就是存档，判据 §6·2·C）。
+        /// </summary>
+        public int CurrentIntrinsicHealth { get { return Health; } }
+
+        /// <summary>
+        /// **固有近战**（不含 extrinsic 加成）—— 原版 `EntityScript.get_CurrentIntrinsicMeleeAttack`
+        /// （`d:/2/tools/decomp_full/EntityScript__get_CurrentIntrinsicMeleeAttack.c:22-46`）。
+        ///
+        /// 原版 = `CurrentMeleeAttack` − Σ(`extrinsic != 0` ∧ `buffType==1` 的 `meleeAttackChange(+0x48)`)
+        /// （`**正序**` 遍历 `:29-39`；`:44` 调一次 getter；`:45` 返回差的**无 clamp**）。
+        /// ⚠️ 它减的是**投影出来的值**，所以 `setMeleeAttack` 命中时也是「覆盖值 − extrinsic 加成」
+        ///   （判据 §6·5 那一条注解，别自己改成「减 base」）。
+        ///
+        /// **Stage 1**：恒等（`== Attack`；Σ = 0）。**Stage 2c 才切换**。
+        /// ⚠️ 2c 改写点：`return CurrentMeleeAttack;`（⛔ 那时**不要**改成读 `Attack` —— 它转发回本族属性）。
+        /// ⚠️ 同族的 `CurrentIntrinsicRangeAttack` **没有加** —— 原版那个方法体本轮**没读**
+        ///   （判据 §3·5 ② 已如实记「未证」）⇒ 不凭对称猜着写。
+        /// </summary>
+        public int CurrentIntrinsicMeleeAttack { get { return Attack; } }
+
         public bool Exhausted;        // 本回合是否已行动（部署当回合 = true）
 
         /// <summary>
@@ -964,6 +1097,18 @@ namespace RuleEngine
             //      会变假。照抄；别改成「只清同名 trait」。
             if (_removedTraits.Count > 0) _removedTraits.Clear();
             SyncKeywordState(keyword, value);
+            // 🔴 🆕 **2026-10-25（引擎线 · 真机报告「给部队加上侧翼，当回合仍不能进攻」）：
+            //    `fast` / `flank` 一落地，就要重算「能动 / 能攻击」两位。**
+            //    判据 = 原版 `CardScript__AddEffect.c` 的 `case 3`（= 加 trait）`:570-572`：
+            //      `if (*(int *)(param_2 + 0x3c) == 0x28 /*fast*/ || … == 0x1cc /*flank*/)
+            //           CardScript__UpdateSummonSicknessAnims(param_1);`
+            //    而 `UpdateSummonSicknessAnims.c:20` 转调 `ActivateMinion` —— 两个位一起按
+            //    `displaySummonSickness = +0x58 && !fast && !flank` 重写（见
+            //    `RuleCore.RecomputeActAndAttack` 的 doc，整条链在那儿）。
+            //    ⚠️ **只对这两个词做**：原版别的 trait 加进来**不走这一跳**（它们不参与那个 getter）。
+            //    ⛔ 别顺手把 `ferocity`/`oath` 也接上 —— 它们抬 `canAct` 的那一次是
+            //       `ActivateMinion` 里的**第二写点**（部署那一刻求值），不是「加词就抬」。
+            if (keyword == "fast" || keyword == "flank") RuleCore.RecomputeActAndAttack(this);
         }
 
         /// <summary>
@@ -1042,6 +1187,15 @@ namespace RuleEngine
             if (string.IsNullOrEmpty(keyword)) return;
             _keywords.Remove(keyword);
             if (keyword == KeywordTable.Armour) Armor = 0;
+            // 🔴🆕 **2026-10-25（完全复刻 · 执行代理 A · 第 9 段）：摘掉 `fast`/`flank` 也要重算「能动 / 能攻击」。**
+            //   判据 = `CardScript.RemoveTrait`（`CardScript.cs:19361-…` 方法体，现读）：
+            //     `if (trait == flank || trait == fast) UpdateSummonSicknessAnims();`
+            //     而 `UpdateSummonSicknessAnims.c:20` 转调 `ActivateMinion` ⇒ 就是
+            //     `displaySummonSickness = +0x58 && !fast && !flank` 那两位的重写。
+            //   ⚠️ **加的那一半早就有**（`AddKeyword` 里同一条判据，`AddEffect.c:570-572`，见上面那段注释），
+            //     **摘的这一半原来没有** ⇒ 「本回合给的侧翼/迅捷到期、或被效果摘掉」之后
+            //     单位仍按「带 flank」算（`CanAct/CanAttack` 停在上一次的值 —— **静默**）。
+            if (keyword == "fast" || keyword == "flank") RuleCore.RecomputeActAndAttack(this);
             // 🔴 **2026-10-09（`A1116`）**：这里原来写的是
             //   `if (keyword == "blind") IsBlind = false;`（「`AddKeyword` 那边补了置位，这是它的对偶」）
             //   —— 那是**两个表示的第二次同步**，删掉：`IsBlind` 现在派生自关键词，摘掉键它自己就为假。
@@ -1065,6 +1219,17 @@ namespace RuleEngine
             _grantedOps.Remove(keyword);
             _grantedText.Remove(keyword);
             RevertGrantsOf(keyword);
+            // 🔴 🆕 **2026-10-25（同 `AddKeyword` 那一笔的另一半）：摘掉 `fast` / `flank`
+            //    ⇒ 召唤病**可能回来**，两位要重算。**
+            //    判据 = 原版 `CardScript__RemoveTrait.c:66-68`：
+            //      `if (trait == 0x1cc /*flank*/ || trait == 0x28 /*fast*/)
+            //           CardScript__UpdateSummonSicknessAnims(param_1);`
+            //    （→ `ActivateMinion` 按新的 `displaySummonSickness` 重写 `canAct`/`canAttack`：
+            //      摘掉侧翼之后 `displaySummonSickness` 又为真 ⇒ 两位重新变假。）
+            //    ⚠️ **光环那份收回不走这里**（`ClearAuraGrants` 是直接写 `_keywords` 的）——
+            //      原版「光环给/收关键词」走哪条路**还没查清**，如实留着（见
+            //      `RuleCore.RecomputeActAndAttack` 的 doc 末段）。
+            if (keyword == "fast" || keyword == "flank") RuleCore.RecomputeActAndAttack(this);
         }
 
         // ---- 关键词「带出来的」属性增益 ----------------------------------
@@ -1241,6 +1406,7 @@ namespace RuleEngine
         {
             if (_auraKw.Count > 0)
             {
+                bool needActRecompute = false;   // 🆕 光环把 fast/flank 收回去时也要重算那两位
                 foreach (var kv in _auraKw)
                 {
                     string kw = kv.Key;
@@ -1249,8 +1415,15 @@ namespace RuleEngine
                     if (now > 0) _keywords[kw] = now;
                     else _keywords.Remove(kw);
                     if (kw == KeywordTable.Armour) Armor = System.Math.Max(0, Armor - n);
+                    // 🔴🆕 2026-10-25（第 9 段）：**光环这一本账是直接改字典的**（不走 `RemoveAll`），
+                    //   所以 `fast`/`flank` 被光环收回时**也要**重算「能动 / 能攻击」——
+                    //   判据同 `CardScript.RemoveTrait`（`flank||fast ⇒ UpdateSummonSicknessAnims`），
+                    //   与 `AddAuraKeyword` 里那一跳（`AddEffect.c:570-572`）成对。
+                    //   ⚠️ 一次性在循环外重算（一次光环收回可能同时摘好几个关键词）。
+                    if (kw == "fast" || kw == "flank") needActRecompute = true;
                 }
                 _auraKw.Clear();
+                if (needActRecompute) RuleCore.RecomputeActAndAttack(this);
             }
             // 光环挂的**触发效果**也一并摘（`Beastboss on Squigosaur` 给友方野兽挂的 `Slay`）——
             // ⚠️ 只摘光环挂的那几个，`Give "💀 Backlash: …"` 那种效果挂的不动

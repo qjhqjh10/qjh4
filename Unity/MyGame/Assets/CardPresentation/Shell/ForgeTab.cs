@@ -87,6 +87,11 @@ namespace CardPresentation
         /// 没有空档 ⇒ 另取 **3028/3029**（在 `QTabHelp 3027` 之上；它们只出现在奖励格内部，
         /// 与格内任何件、与页内任何件都**不重叠**）。</summary>
         public const int QCellRewardArt = 3028, QCellRewardText = 3029;
+        /// <summary>🆕 **2026-10-25（F 组件接线）**：格内 `Collect Highlight Effect` 的队列。
+        /// 原版它是 `Forge Menu Reward Button/Collect Highlight Effect`（`UIBorderGlow` + 紫边材质），
+        /// 只在**领到那一格之后** `SetActive(true)`（`ForgeRewardItemContainer__ClickClaim.c:35-37`）。
+        /// 取 3030：在奖励抽屉的 3028/3029 之上、页内最高 `QTabHelp 3027` 之外，不与任何既有层同队列。</summary>
+        public const int QCellGlow = 3030;
         /// <summary>阵营条自己的**纯黑底**（原版 `Forge Army Selector` 根上的 `Image`：`sprite=0` +
         /// `col=(0,0,0,1)` ⇒ **不透明纯黑**；正本 §二「两块纯黑，照画」）。
         /// 🔴 2026-09-23 找茬查出**这一块原来整个漏画**（第 15 条第 18 行那一轮）—— 战役页那份我们是画了的，
@@ -277,10 +282,35 @@ namespace CardPresentation
         public override void OnOpen() { Refresh(); FocusSelectedArmy(); FocusClaimable(); }
 
         Transform _armyContent, _trackContent, _readyRoot;
+        /// <summary>`Ready for level up` 那扇光效的**驱动者**（原版 `ForgeRewardSelector.canLevelUpEffect`，
+        /// `UIEffectTogglerController`）。2026-10-25（`P6`）接线：原来这里是硬 `SetActive`。
+        /// 判据 → 本文件 `Build()` 的「② `Ready for level up`」那一段与 `Refresh()` 末句。</summary>
+        UIEffectTogglerController _readyToggler;
         /// <summary>两条滚动区（**全壳唯一一份滚动实现** = `MenuScroll`）：奖励轨道 + 阵营条。
         /// 🔴 2026-09-23 之前**一处滚动都没有** ⇒ 第 5 格（level 5）以后全在屏幕外（**领完第 4 格就领不动**）、
         ///    阵营条两端各 2 个够不着。见 `项目任务.md` §三 第 15 条 **第 21 条**。</summary>
         MenuScroll _trackScroll, _armyScroll;
+
+        /// <summary>🆕 **2026-10-25（N1）**：`Rewards Content` 的**第 2 套 padding**（原版
+        /// `ForgeRewardSelector.modifiedLayoutPadding` = 原套的 left/right **各 + 895**；
+        /// 判据 = `ForgeRewardSelector.cs:454-478`（`InitializePaddings`）+ 常量 `:76`
+        /// `HORIZONTAL_LAYOUT_GROUP_EXTRA_PADDING`）。
+        /// <para>`0` = 原套（原版那个 `originalHorizonTalLayoutPadding`）。**我们的"原套"是排版常量**
+        /// （`TrackPadL` = 122 · 右 0，见 `:131` 那条注释）—— 原版是运行时把 `LayoutGroup.m_Padding` 读回来，
+        /// 我们是同一件事的编译期形式。</para>
+        /// <para>⚠️ 唯一写它的是 `ApplyCollectLayout()`；**别在别处直接改**（改完必须同步内容两端 + 重建格）。</para></summary>
+        float _trackPadExtra;
+        /// <summary>`Rewards Content` **当前**的左/右 padding（= 原套 + 第 2 套那一档）。
+        /// 排版（`BuildCell` 的 `UguiLayout.HorizontalChild`）、内容端（`MenuScroll.ContentX1/2`）、
+        /// 吸附中心（`FocusClaimable`）**三处必须读同一份** —— ⛔ 别有一处还读裸 `TrackPadL`。</summary>
+        float TrackPadLNow { get { return TrackPadL + _trackPadExtra; } }
+        float TrackPadRNow { get { return _trackPadExtra; } }
+
+        /// <summary>🆕 2026-10-25（F 组件接线）：**刚领掉的那一格**——`Collect Highlight Effect` 在
+        /// `BuildCell` 重建后仍保持亮着（原版的容器不是每次 Refresh 都销毁；我们的 `BuildCell` 每次重建，
+        /// 不加这一格「重建后也亮」⇒ 领奖回调里的那次 `Refresh` 会立刻把紫边呼吸节点又关回去）。
+        /// 换阵营时清空。</summary>
+        int _claimedGlowLevel = -1;
         /// <summary>自检用：批处理里没有滚轮事件 ⇒ 直调 `MenuScroll.Wheel/ScrollBy`（**和真滚同一条**）。</summary>
         public MenuScroll TrackScroll { get { return _trackScroll; } }
         public MenuScroll ArmyScroll { get { return _armyScroll; } }
@@ -358,6 +388,11 @@ namespace CardPresentation
             _selR = UguiRect.Child(_tabR, SelA0, SelA1, SelP, SelPos, SelSz);
             _infoR = UguiRect.Child(_tabR, InfoA0, InfoA1, InfoP, InfoPos, InfoSz);
 
+            // 🆕 2026-10-25（N1）：**第 2 套 padding 在建之前先定档** —— 原版那两句在 `Refresh()` 末尾
+            //   （`padding = hasToCollect ? modified : original`），而本页「建」比「刷」早 ⇒ 这里先按当前
+            //   可领状态定一次，`ApplyCollectLayout()` 之后只在**档位变化**时才动（幂等）。
+            _trackPadExtra = ForgeData.HasToCollect(ForgeData.Selected) ? MenuScroll.RewardClaimExtraPadding : 0f;
+
             // ---- ① `Background`：原版 `Image(sprite = 空)` + 色 **#000000** ⇒ 一块**纯黑**满铺（照画，别省）----
             var bg = RewardsWindow.Node(root, "Background", _tabR);
             _win.Rect(bg, null, _tabR, "Black", QTabBg, new Color(0f, 0f, 0f, 1f));
@@ -379,7 +414,16 @@ namespace CardPresentation
             // 🆕 A426：这颗 `Glow` 在原版**是会呼吸的**（挂 `BlinkGraphic`）—— 此前我们一直画成静止的。
             //   接线放在这里（建完节点 / 关根之前），重开一页 = 时钟归零。
             BindBlink(_glowQuad);
-            _readyRoot.gameObject.SetActive(false);
+            // 🔴 **2026-10-25（`P6`）：出厂关这一句改成「组件 + 瞬间关」** —— 原版
+            //   `ForgeRewardSelector.Initialize`（`ForgeRewardSelector.cs:160`）第一件事就是
+            //   `canLevelUpEffect.Toggle(option: false, 0f)`（`canLevelUpEffect` = `:86` 那个
+            //   `UIEffectTogglerController`，现核：menus 包 **2 个** `UIEffectCanvasGroupToggler`
+            //   实例都挂在名为 `Ready for level up` 的节点上）；`duration = 0` ⇒ **瞬间档**（不淡）。
+            //   ⚠️ `deactivateOnDisable` 默认 true ⇒ 这一下同时把节点 `SetActive(false)`，与改前等价。
+            var readyToggler = _readyRoot.gameObject.AddComponent<UIEffectCanvasGroupToggler>();
+            readyToggler.deactivateOnDisable = true;
+            _readyToggler = _readyRoot.gameObject.AddComponent<UIEffectTogglerController>();
+            _readyToggler.Toggle(false, 0f);
 
             // ---- ③ `Rewards Scroll View`：奖励轨道（**横向可滚** —— 原版这一件是个 `ScrollRect(横, Elastic)`）
             var track = RewardsWindow.Node(root, "Rewards Scroll View", _trackR);
@@ -393,11 +437,14 @@ namespace CardPresentation
             var trackVc = ViewportClip.Hang(track, "Viewport", _trackR, TrackPad, TrackSoft);
             var trackVp = trackVc.transform;
             _trackContent = RewardsWindow.Node(trackVp, "Rewards Content",
-                new PxRect(_trackR.x1, _trackR.y1, _trackR.x1 + TrackPadL, _trackR.y2));
-            // 内容总宽 = `ContentSizeFitter` 跑完的宽（padLeft + 50 格 + 49 个 −130 的间距）
+                new PxRect(_trackR.x1, _trackR.y1, _trackR.x1 + TrackPadLNow, _trackR.y2));
+            // 内容总宽 = `ContentSizeFitter` 跑完的宽（padLeft + 50 格 + 49 个 −130 的间距 + padRight）
             // 🔴 没有它 ⇒ 第 5 格中心在 2209px（屏幕外）⇒ **领完第 4 格就再也领不动**（第 21 条）
+            // 🆕 2026-10-25（N1）：两端都吃 `TrackPad*Now`（原版那套 `LayoutGroup.padding` 的等价物）——
+            //   左 pad 把首格推到能居中的位置、右 pad 把内容末端再外推，两者合起来才让
+            //   「第 0 格 / 最后一格也能对到视口中心」（`FocusClaimable` 的夹取）。
             _trackScroll = MenuScroll.LeftAligned(_trackR,
-                UguiLayout.HorizontalContentW(FixedWs(ForgeData.MaxLevel, CellW), TrackPadL, 0f, TrackSpacing),
+                UguiLayout.HorizontalContentW(FixedWs(ForgeData.MaxLevel, CellW), TrackPadLNow, TrackPadRNow, TrackSpacing),
                 120f);   // 滚轮 120px/格（2026-10-18 主对话定；原版 `Forge Tab/Rewards Scroll View` 的
                          //   `m_ScrollSensitivity = 1.0`（D_N29）实测一格 1px=纹丝不动；
                          //   同 `MainMenuRuntime._modeScroll` 的 N66 口径 —— ⛔ 不是原版值，是我们挑的）
@@ -741,6 +788,7 @@ namespace CardPresentation
         public void SelectArmy(string army)
         {
             ForgeData.Select(army);
+            _claimedGlowLevel = -1;       // 换阵营 ⇒ 上一阵营的领奖紫边不带过来
             // 选中层是**逐格判断**建的（照原版「选中 = 多显一层」）⇒ 换阵营要重建整条
             //（`BuildArmyItems` 自己会先清 —— 别在这里再清一遍、也别指望调用方清）
             BuildArmyItems();
@@ -766,9 +814,16 @@ namespace CardPresentation
                 var t = _win.Art(DeckRuntime.FactionIcon(a));
                 if (t != null) { _armyIcon.SetTexture(t); _armyIcon.SetAspect((float)t.width / t.height); }
             }
+            // 🆕 **2026-10-25（N1）**：原版 `Refresh()` 末尾那两句（两套 padding + `m_Horizontal`）。
+            //   必须排在 `BuildRewardCells()` **之前** —— 格是按 `TrackPadLNow` 摆的，先换档再建格。
+            ApplyCollectLayout();
             BuildRewardCells();
             // 纪律④：**可领光效的判据 = `hasToCollectReward`**（原版在 `CreateRewards` 里对每格取或）
-            if (_readyRoot != null) _readyRoot.gameObject.SetActive(ForgeData.HasToCollect(a));
+            // 🔴 **2026-10-25（`P6`）：硬 `SetActive` 改成 `Toggle`（0.3 s 淡入/淡出）** ——
+            //   原版 `ForgeRewardSelector.ToggleCollectReward`（`:354`）就是 `canLevelUpEffect.Toggle(option)`，
+            //   默认 `duration = 0.3f`（`UIEffectTogglerController.Toggle` 的形参默认值）。
+            if (_readyToggler != null) _readyToggler.Toggle(ForgeData.HasToCollect(a));
+            else if (_readyRoot != null) _readyRoot.gameObject.SetActive(ForgeData.HasToCollect(a));   // 兜底：组件没建成时退回硬切
         }
 
         // ============================================================ 奖励轨道（一格 = 一个等级）
@@ -825,14 +880,89 @@ namespace CardPresentation
             }
         }
 
-        /// <summary>把**该领的那一格**对到视口中心（照原版 `ForgeRewardSelector` 的吸附语义 ——
-        /// 它有一路 `FinishedSnapping` 回调，说明原版确实会「吸到某一格」上）。
-        /// ⚠️ **只在开页 / 换阵营时调**，别放进 `Refresh`：那样用户滚到别处、一领奖就会被拽回来。</summary>
+        /// <summary>把**该领的那一格**对到视口中心 —— 原版 `ForgeRewardSelector.SnapTo` / `SnapToItem`
+        /// （`ForgeRewardSelector.cs:393-439`：两段方法体**逐句相同**，都是
+        /// `ForceRebuildLayoutImmediate(…)` + `ScrollViewFocusFunctions.FocusOnItemCoroutine(scrollRect, target, **1.5f**, onFinish)`）。
+        /// <para>🆕 **2026-10-25（N1）**：从「瞬跳」改成**补间吸附**（`MenuScroll.FocusOnAnimated`，缓动 `1−(1−t)²`、
+        /// 总时长 ≈ `1÷1.5` 秒），到位那一刻回调 <see cref="OnSnappedToCell"/>（= 原版 `FinishedSnapping`）。</para>
+        /// <para>⚠️ **只在开页 / 换阵营时调**，别放进 `Refresh`：那样用户滚到别处、一领奖就会被拽回来。</para>
+        /// <para>⚠️ 批处理/编辑器没有帧循环 ⇒ 补间永远推不动（偏倚停在起点）⇒ **退回瞬跳**并当场把光效摆好
+        /// （同 `PlayPackOpenAnim` 那道 `Application.isPlaying` 闸；自检因此仍能量到「格在中心 + 光效在该格上」）。</para></summary>
         public void FocusClaimable()
         {
             if (_trackScroll == null) return;
             int lv = Mathf.Clamp(ForgeData.LevelOf(ForgeData.Selected), 0, ForgeData.MaxLevel - 1);
-            _trackScroll.FocusOn(_trackR.x1 + TrackPadL + lv * (CellW + TrackSpacing) + CellW * 0.5f);
+            float center = _trackR.x1 + TrackPadLNow + lv * (CellW + TrackSpacing) + CellW * 0.5f;
+            if (!Application.isPlaying)
+            {
+                _trackScroll.FocusOn(center);      // 绝对设值（⛔ 别改成相对加，见 `MenuScroll.SetOffset` 的注释）
+                OnSnappedToCell(lv);
+                return;
+            }
+            _trackScroll.FocusOnAnimated(center, MenuScroll.FocusDefaultSpeed, () => OnSnappedToCell(lv));
+        }
+
+        /// <summary>原版 `ForgeRewardSelector.FinishedSnapping(RectTransform target)`（`ForgeRewardSelector.cs:443-446`）
+        /// —— 它的方法体**只有一句** `ToggleCollectReward(hasToCollectReward, target)`，而
+        /// `ToggleCollectReward(bool, RectTransform)`（`:354-372`）做三件：
+        /// ① `canLevelUpEffect.transform.position = target.position`（**把可领光效摆到该格**）；
+        /// ② `canLevelUpEffect.Toggle(option)`；③ `!option` 时 `padding = original` + `m_Horizontal = true`。
+        /// <para>我们：① = <see cref="PlaceReadyGlowAt"/> · ② = `_readyToggler.Toggle(…)`（与 `Refresh()` 同一条口）·
+        /// ③ = `ApplyCollectLayout()`（`Refresh()` 里已经按 `HasToCollect` 切过档，这里不重复）。</para></summary>
+        void OnSnappedToCell(int lv)
+        {
+            bool hasToCollect = ForgeData.HasToCollect(ForgeData.Selected);
+            PlaceReadyGlowAt(lv);
+            if (_readyToggler != null) _readyToggler.Toggle(hasToCollect);
+            else if (_readyRoot != null) _readyRoot.gameObject.SetActive(hasToCollect);
+        }
+
+        /// <summary>把 `Ready for level up` 那颗（= 原版 `canLevelUpEffect`）摆到第 <paramref name="lv"/> 格的**中心**。
+        /// <para>判据 = `ForgeRewardSelector.ToggleCollectReward`（`:352-356`）：`transform.position = target.position`
+        /// —— 即**中心对中心**，尺寸不变。我们用 `MenuDraw.ApplyPxRect`（位置 + `sizeDelta` 同一份换算，
+        /// 与建节点时**同一个函数**）把 `ReadySz` 的框重新摆到格心。</para>
+        /// <para>⚠️ 格是**内容坐标**算出来的（`HorizontalChild` + `MenuScroll.Shift`）—— 所以吸附未完成时
+        /// 它跟着当前偏移走；本函数只在「吸附到位」那一刻被调（见 `FocusClaimable`）。</para></summary>
+        void PlaceReadyGlowAt(int lv)
+        {
+            if (_readyRoot == null || _trackScroll == null || lv < 0) return;
+            var content = UguiLayout.HorizontalChild(_trackR, CellW, CellH, lv, TrackPadLNow, TrackSpacing);
+            var cellR = _trackScroll.Shift(content);
+            MenuDraw.ApplyPxRect(_readyRoot, _readyRoot.parent, new PxRect(
+                cellR.CX - ReadySz.x * 0.5f, cellR.CY - ReadySz.y * 0.5f,
+                cellR.CX + ReadySz.x * 0.5f, cellR.CY + ReadySz.y * 0.5f));
+        }
+
+        /// <summary>🆕 **2026-10-25（N1）**：原版 `ForgeRewardSelector.Refresh()` 末尾那两句的等价物
+        /// （`ForgeRewardSelector.cs:350-360`）：
+        /// <code>
+        /// padding = hasToCollectReward ? modifiedLayoutPadding : originalHorizonTalLayoutPadding; horizontalLayoutGroup.padding = padding;
+        /// m_Horizontal = !hasToCollectReward;
+        /// </code>
+        /// <para>① **padding 那一半**：本壳没有 `LayoutGroup` ⇒「原套 / 改过的那套」落在**排版参数**
+        /// （`TrackPadLNow / TrackPadRNow`）+ **内容两端**（`MenuScroll.ContentX1/2`）上；两者必须**同时**换，
+        /// 换完重建格（`Refresh()` 紧接着就调 `BuildRewardCells()`）。✅ 好处：`ExtraPadLo/Hi` 留 0，
+        /// 所以传给 `ToggleScrollLock` 的 `extraPad` 必须是 **0**（⛔ 传 895 会双算，范围大 895、画面差 895px）。</para>
+        /// <para>② **锁档那一半** = `MenuScroll.ToggleScrollLock`（`Locked` ⇒ 滚轮/起拖/惯性/回弹整段不跑，
+        /// 与 `m_Horizontal = false` 同义）。</para>
+        /// <para>⚠️ **幂等**：档位没变就什么都不做（`Refresh()` 每帧式地反复调它，见 `Tick` 那条注释的反面）。</para></summary>
+        void ApplyCollectLayout()
+        {
+            bool hasToCollect = ForgeData.HasToCollect(ForgeData.Selected);
+            float pad = hasToCollect ? MenuScroll.RewardClaimExtraPadding : 0f;
+            if (!Mathf.Approximately(pad, _trackPadExtra))
+            {
+                _trackPadExtra = pad;
+                if (_trackScroll != null)
+                {
+                    // 内容两端必须跟着排版走（否则夹取范围与子件位置对不上 —— 静默错位）
+                    _trackScroll.ContentX1 = _trackR.x1;
+                    _trackScroll.ContentX2 = _trackR.x1 + UguiLayout.HorizontalContentW(
+                        FixedWs(ForgeData.MaxLevel, CellW), TrackPadLNow, TrackPadRNow, TrackSpacing);
+                    _trackScroll.SetOffset(_trackScroll.Offset);      // 夹回新范围（变了会经 `OnChanged` 重建格）
+                }
+            }
+            if (_trackScroll != null) _trackScroll.ToggleScrollLock(hasToCollect, 0f);
         }
 
         /// <summary>把**选中的阵营**对到视口中心（照原版 `ArmySelector.FocusOnArmy` →
@@ -857,7 +987,7 @@ namespace CardPresentation
         /// <summary>一格。子件版面出处 正本 §五；锚点照 `menu_rect.py -2025252949017502972 --cs` 原文。</summary>
         void BuildCell(int i)
         {
-            var content = UguiLayout.HorizontalChild(_trackR, CellW, CellH, i, TrackPadL, TrackSpacing);
+            var content = UguiLayout.HorizontalChild(_trackR, CellW, CellH, i, TrackPadLNow, TrackSpacing);
             var r = _trackScroll != null ? _trackScroll.Shift(content) : content;
             if (_trackScroll != null && !_trackScroll.Intersects(r)) return;      // 整格在视口外 ⇒ 不建
             var cell = RewardsWindow.Node(_trackContent, "ForgeCell_" + i, r);
@@ -870,7 +1000,50 @@ namespace CardPresentation
             // N(1, .5,.5, .5,.5, .5,.7, 0,207, 297.655,384.66)
             var rw = UguiRect.Child(r, UguiRect.P50c, UguiRect.P50c, new Vector2(0.5f, 0.7f),
                                     new Vector2(0f, 207f), new Vector2(297.655f, 384.66f));
-            BuildRewardIcon(RewardsWindow.Node(cell, "RewardTransform", rw), rw, i);
+            var rwNode = RewardsWindow.Node(cell, "RewardTransform", rw);
+            BuildRewardIcon(rwNode, rw, i);
+            // 🆕 2026-10-25（F 组件接线）：原版 `ForgeRewardItemContainer` 的 `UITransformTweenController`（+0x58）
+            //   实例值 = `animTime 1.5 · animPosition 1 · animScale 1 · targetScale (1.12³) · targetPosition (0,217.5)`。
+            //   触发（`ForgeRewardItemContainer__Initialize.c:133 / :233`）：**ToCollect ⇒ DoDefaultAnim**、
+            //   **Collected ⇒ BackToDefault**；其余态只 `Initialize()` 记原值。
+            var tw = rwNode.gameObject.AddComponent<UITransformTweenController>();
+            tw.animTime = 1.5f; tw.animPosition = true; tw.animScale = true;
+            tw.targetScale = new Vector3(1.12f, 1.12f, 1.12f);
+            tw.initializeOnAwake = false; tw.playOnEnable = false;
+            tw.ease = UITransformTweenController.Ease.OutQuad;
+            tw.Initialize();
+            {
+                // ⚠️ 原版 `targetPosition` 是 uGUI 的 `anchoredPosition`（设计 px、从 cell 中心量）=
+                //   (0, 217.5)，而它的初始 `anchoredPosition` = (0, 207) ⇒ **正解 = 起点 + 10.5 px**。
+                //   我们的 `localPosition`/`anchoredPosition` 是**世界单位**（1 单位 = 108 px）⇒ 这次差要 `/108`。
+                var rt = (RectTransform)rwNode;
+                tw.targetPosition = rt.anchoredPosition + new Vector2(0f, LayoutSpace.Px(217.5f - 207f));
+            }
+            if (st == ForgeData.ToCollect) tw.DoDefaultAnim();
+            else if (claimed) tw.BackToDefault();
+
+            // 🆕 2026-10-25（F 组件接线）：`Collect Highlight Effect`（原版 `UIBorderGlow`，Forge 那 3 个会呼吸的之一）。
+            //   几何 = 原版 RT：stretch 0..1 · pivot .5 · anchoredPos (-1.65004, 131.7) · sizeDelta (-82.8999, -146.2)
+            //   ⇒ 实绘 423.0 × 573.26、中心 = cell 中心 + (-1.65, 131.7)。
+            //   组件值：`animTime 1 · animDelay 0 · playOnEnable 1`；材质 `Border Highlight Appear Purple`
+            //   （shader `Everguild/UI/UI Border Highlight Appear`，`_Reveal` 0.723 → -0.5→1 补间）。
+            //   出厂 **关**（原版 `ForgeRewardItemContainer__Initialize.c:77` 无条件 `SetActive(false)`）；
+            //   **领到之后**由 `ClaimCell` 打开（= 原版 `ClickClaim` 尾句）。
+            var glowR = UguiRect.Child(r, UguiRect.A00, UguiRect.A11, UguiRect.P50c,
+                                       new Vector2(-1.65004f, 131.7f), new Vector2(-82.8999f, -146.2f));
+            var glowNode = RewardsWindow.Node(cell, "Collect Highlight Effect", glowR);
+            var glowQuad = ImageQuad.Create(glowNode, CardArt.Solid(), Vector3.zero,
+                                            LayoutSpace.Px(glowR.H), new Vector2(0.5f, 0.5f), "Glow");
+            if (glowQuad != null)
+            {
+                glowQuad.SetAspect(glowR.W / Mathf.Max(1f, glowR.H));
+                glowQuad.SetRenderQueue(QCellGlow);
+                var gm = ForgeGlowMaterial();
+                if (gm != null) glowQuad.SetMaterial(gm);
+                var glow = glowNode.gameObject.AddComponent<UIBorderGlow>();
+                glow.animTime = 1f; glow.animDelay = 0f; glow.playOnEnable = true;
+            }
+            glowNode.gameObject.SetActive(i == _claimedGlowLevel && claimed);
 
             // ---- `LevelBg`（等级圆牌）+ `LevelLabel` ----
             // N(1, .5,.5, .5,.5, .5,.5, −0.59652,−267.2, 85,88) · `LevelLabel` N(2, 0,0, 1,1, .5,.5, 0,0, −0,0)
@@ -933,6 +1106,50 @@ namespace CardPresentation
                 AddHit(cell, "ClaimHit", btn, QCellBtnIcon, () => ClaimCell(i), btnQ, "40K_button",
                        clickCue: WindowSounds.PositiveCue);
             }
+        }
+
+        /// <summary>🆕 2026-10-25：`Collect Highlight Effect` 的材质（原版 Material `Border Highlight Appear Purple`）。
+        /// 判据 = `bundle_menus_assets_all/Material/Material_794468876670077408.json` 的 `m_SavedProperties` 实读：
+        /// shader `Everguild/UI/UI Border Highlight Appear`（`Shader_6773909295900798026`），
+        /// `_Reveal 0.723` · `_Noise_R` = `UI Dirt And Noise skratches` · 颜色/浮点逐值见下。
+        /// ⚠️ 原版那颗 `Image` 的 sprite PPtr（`1754528483989757341`）本地解不出独立文件 ⇒ 用白图 + 原 shader；
+        /// **这是等价近似**（该 shader 的可见内容来自 `_ColorMain/_ColorSecondary/_Noise_R`，不是 sprite 像素）。</summary>
+        static Material _glowMat;
+        static Material ForgeGlowMaterial()
+        {
+            if (_glowMat != null) return _glowMat;
+            UnityEngine.Shader sh;
+            string src;
+            if (!WarpforgeVFX.WarpforgeShaderMap.TryResolve("Everguild/UI/UI Border Highlight Appear", out sh, out src)
+                || sh == null)
+            {
+                Debug.LogWarning("[Forge] 取不到原版 shader `Everguild/UI/UI Border Highlight Appear` ⇒ "
+                               + "`Collect Highlight Effect` 只用白图、不呼吸（出声，不静默）");
+                return null;
+            }
+            var m = new Material(sh);
+            void C(string n, Color c) { if (m.HasProperty(n)) m.SetColor(n, c); }
+            void F(string n, float v) { if (m.HasProperty(n)) m.SetFloat(n, v); }
+            C("_ColorMain",      new Color(1f, 0f, 0.8814936f, 1f));
+            C("_ColorSecondary", new Color(0.1539540f, 0f, 1f, 1f));
+            C("_Color_offsets",  new Color(0.8f, 1f, 0f, 0f));
+            C("_Length",         new Color(0.43f, 0.9f, 0f, 0f));
+            C("_MaskScale",      new Color(1f, 1f, 0f, 0f));
+            C("_ScaleFromCenter",new Color(1f, 1f, 0f, 0f));
+            C("_Scale_X_Speed_Y",new Color(0.9f, 3f, 0f, 0f));
+            C("_Noise_Strength_X_Speed_Y_Scale_Z", new Color(0.02f, -0.1f, 8.17f, 0f));
+            F("_Reveal", 0.723f);
+            F("_Add", 0.09f);
+            F("_NoiseStrength", 0.04f);
+            F("_Range", 89f);
+            F("_RangeStartOffset", 196f);
+            F("_Smoothness", 0.032f);
+            F("_SMOOTHGRADIENT", 1f);
+            F("_AutoRotationSpeed", -180f);
+            var noise = CardArt.MenuUi("UI_Dirt_And_Noise_skratches");
+            if (noise != null && m.HasProperty("_Noise_R")) m.SetTexture("_Noise_R", noise);
+            _glowMat = m;
+            return m;
         }
 
         /// <summary>格里的奖励图标（原版是 `ItemDrawer.Draw(rewardTransform, …)` 把物品 prefab 实例化进去）。
@@ -1016,7 +1233,17 @@ namespace CardPresentation
                 Debug.Log("[Forge] 第 " + (i + 1) + " 格领不了：" + why);
                 return;
             }
+            _claimedGlowLevel = i;          // 重建后也保持亮（见字段注释）
             Refresh();
+            // 🆕 2026-10-25（F 组件接线）：原版 `ForgeRewardItemContainer.ClickClaim` 尾句 = 把
+            //   `Collect Highlight Effect` **SetActive(true)**（`ForgeRewardItemContainer__ClickClaim.c:35-37`）；
+            //   它的 `UIBorderGlow.playOnEnable = 1` ⇒ 激活即播「紫边呼吸」。
+            //   ⚠️ 我们的 `Refresh()` 会**重建整条轨道** ⇒ 必须在 Refresh **之后**找新格子的那颗节点。
+            var claimedCell = _trackContent != null ? _trackContent.Find("ForgeCell_" + i) : null;
+            var glowNode = claimedCell != null ? claimedCell.Find("Collect Highlight Effect") : null;
+            if (glowNode != null) glowNode.gameObject.SetActive(true);
+            else Debug.LogWarning("[Forge] 领到第 " + (i + 1) + " 格后找不到 `Collect Highlight Effect` 节点 ⇒ "
+                                + "紫边呼吸没播（出声，不静默）");
             var rw = ForgeData.RewardAt(i);
             RewardWindow.ShowCollected(
                 new[] { new CampaignData.RewardSpec(rw.Art, rw.Qty, CampaignData.TierBasic) },

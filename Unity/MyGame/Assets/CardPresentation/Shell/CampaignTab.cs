@@ -270,6 +270,7 @@ namespace CardPresentation
             var bgImg = UguiRect.Child(_tabR, UguiRect.A00, UguiRect.A11, new Vector2(0f, 0.8f),
                                        Vector2.zero, new Vector2(0f, 580.595f));
             _bgQuad = _win.Rect(cbg, CampaignData.Background(CampaignData.Selected), bgImg, "Background Image", QTabBgImage);
+            InitBackground(CampaignData.Selected);      // = 原版 `CampaignUIBackground.Initialize`：alpha 从 0 淡入
             RestoreClip(noClip1);
 
             // ---- ② `Campaign Army Selector`（阵营选择条）----
@@ -787,6 +788,75 @@ namespace CardPresentation
 
         // ============================================================ 阵营选择条
 
+        /// <summary>上一次建滑条时用的「阵营点数」（原版 `CampaignArmyUIDecorator.currentAmount` 的等价物，
+        /// 判据 `D:/2/tools/cpp2il/out_cpp2il_dev_ilspy/CampaignArmyUIDecorator.cs:61-90`）。
+        /// `-1` = 还没建过（`BuildArmyItems` 建完才写）。</summary>
+        int _armyAmountShown = -1;
+
+        /// <summary>「流光缺件」那条告警只报一次（每次领奖刷屏会把别的告警淹掉）。</summary>
+        bool _armyShineSaid;
+
+        /// <summary>此刻「阵营点数」该是多少 —— 与 <see cref="BuildArmySlider"/> 喂滑条的是**同一份算式**
+        /// （只给「本地有内容」的阵营填；⛔ 别在别处再写一遍）。</summary>
+        static int ArmyAmountNow()
+        {
+            return CampaignData.HasContent(CampaignData.Selected) && CampaignData.NodeCount > 0
+                ? CampaignData.ClaimedCount : 0;
+        }
+
+        /// <summary>🆕 **2026-10-25（N1）**：原版 `CampaignArmyUIDecorator.OnObjectUpdated(ArmyItemContainer)`
+        /// （`CampaignArmyUIDecorator.cs:61`）的等价物 —— **数量变了才动**：
+        /// <code>
+        /// int amount = campaign.&lt;当前点数&gt;;
+        /// if (currentAmount != amount) { currentAmount = amount; shinyEffect.Play(resetTime: true); CheckFillColor(); }
+        /// </code>
+        /// <para>① `CheckFillColor()` = 重算滑条填充比例与**满档换绿**（`当前 == 最大 ∧ 最大 ≥ 1`）——
+        /// 我们这一半就是 <see cref="BuildArmyItems"/>（它逐格调 <see cref="BuildArmySlider"/>，
+        /// 而后者本来就按当前值算比例与颜色）⇒ **重建即等价**，不另写一份算色。</para>
+        /// <para>② `shinyEffect.Play(true)` = 见 <see cref="PlayArmyIconShine"/>（那一层**还没有**，如实出声）。</para>
+        /// <para>⚠️ **为什么要它**：我们的阵营滑条原来只在 `Build()` / `SelectArmy()` 里建，
+        /// 领完一个节点滑条**不会动**（要关窗重开才对）—— 原版靠这条回调就地重刷。
+        /// 现在由 `ClaimForTest` / `Refresh()` 各喊一次；**幂等**（点数没变 ⇒ 立刻返回，不重建）。</para></summary>
+        public void OnArmyAmountChanged()
+        {
+            if (_armyContent == null) return;                  // 还没建（`Build()` 之前）
+            int amount = ArmyAmountNow();
+            if (amount == _armyAmountShown) return;             // 原版 `currentAmount != amount` 这一道闸
+            _armyAmountShown = amount;
+            BuildArmyItems();                                  // = 原版 `CheckFillColor()`（重算比例 + 满档色）
+            PlayArmyIconShine();                               // = 原版 `shinyEffect.Play(resetTime: true)`
+        }
+
+        /// <summary>原版 `CampaignArmyUIDecorator.shinyEffect`（`UIEffectTweener`）的 `Play(resetTime: true)`。
+        ///
+        /// <para>🔴 **判据已读全（2026-10-25 现读，两个 PPtr 都解到实例）**：
+        /// · `shinyEffect` = `UIEffectTweener`，挂 **`Campaign Army Item Button/Icon`**
+        ///   （`_probe_deckinfo.py bundle_menus_assets_all "Campaign Army Item Button" --class CampaignArmyUIDecorator`
+        ///   → `shinyEffect = →组件 on GO「Icon」(组件 pid 669576846626199242)`）；
+        ///   参数 `m_Duration 1.0` · `m_Delay 0` · 曲线**线性** 0→1 · `m_WrapMode 0` · `m_ResetTimeOnEnable 1` · `m_PlayOnEnable 0`。
+        /// · 同 GO 的 `UIEffect`（`MonoBehaviour_-915853924510394678.json`）：`m_TransitionFilter **4**`（Shiny）·
+        ///   `m_TransitionRotation **120**` · `m_TransitionWidth **0.25**` · `m_TransitionSoftness **0.5**` ·
+        ///   `m_TransitionRange 0…1` · `m_TransitionColorFilter 6` · `m_TransitionColor (1,1,1,1)` ·
+        ///   `m_BlendType 1 / m_SrcBlendMode 1 / m_DstBlendMode 10` · `m_TransitionKeepAspectRatio 1` ·
+        ///   `m_TransitionTex = PPtr(fileID **14**, pid **-6023190078349834598**)。</para>
+        ///
+        /// <para>⛔ **为什么这里是空的**：Coffee `UIEffect` 的 `Hidden/UI/Default (UIEffect)` 着色器**不在我们工程里**
+        /// （`MyGame/Assets` 全树 0 命中）；调度台 2026-10-25 已裁定「**忠实移植 Shader、⛔ 不做加法 quad 近似**」、
+        /// 排在 P2（正本 → `资料/完全复刻/调度台日志.md` 里代理 C 那两节 + `C_dump_shader_blob修复_第1轮.md`）。
+        /// 前置已通一半：**DXBC 已能 dump**（`工具/dump_shader_blob.py "UIEffect"`）；**差**那张 transition 贴图
+        /// （在 `externals[14]`）。
+        /// ⇒ 着色器一到位，本方法体就三行：建/取那颗 Icon 上的 Shiny 层 → `rate = 0` → 按 `m_Duration 1.0` 线性推到 1。
+        /// **⛔ 现在别塞一个「看着像」的替代品**（那是发明观感，与裁定冲突）。</para></summary>
+        void PlayArmyIconShine()
+        {
+            if (_armyShineSaid) return;
+            _armyShineSaid = true;
+            Debug.LogWarning("[Campaign] 阵营图标流光**未实现**：原版 `CampaignArmyUIDecorator.shinyEffect.Play(resetTime:true)`"
+                           + "（Coffee `UIEffect` Transition(Shiny)，参数已读全 → `账/战役.tsv` `OnObjectUpdated` 那行的备注）。"
+                           + "缺的是那个着色器 + transition 贴图（调度台已裁定「忠实移植、不做近似」，P2）。"
+                           + "本条每次运行只报一次；届时补的是 `CampaignTab.PlayArmyIconShine()` 的函数体。");
+        }
+
         void BuildArmyItems()
         {
             // 🔴 **幂等（必须先清）**：滚动回调 `OnChanged` 会重入这里（同锻造页那条）
@@ -847,6 +917,8 @@ namespace CardPresentation
                     armyWb.isOn = () => CampaignData.Selected == army;
                 }
             }
+            // 记下「这一版滑条用的是什么点数」—— `OnArmyAmountChanged` 拿它当原版 `currentAmount` 用。
+            _armyAmountShown = ArmyAmountNow();
         }
 
         /// <summary>阵营格底下那条**战役进度条**（原版 `Campaign Army Item Button/Slider`）。
@@ -944,12 +1016,107 @@ namespace CardPresentation
                 var t = _win.Art(DeckRuntime.FactionIcon(a));
                 if (t != null) { _armyIcon.SetTexture(t); _armyIcon.SetAspect((float)t.width / t.height); }
             }
-            if (_bgQuad != null)
+            if (_bgQuad != null && !string.IsNullOrEmpty(a) && a != _bgArmy)
             {
-                var bt = _win.Art(CampaignData.Background(a));
-                if (bt != null) { _bgQuad.SetTexture(bt); _bgQuad.SetAspect((float)bt.width / bt.height); }
+                // = 原版 `CampaignUIBackground`：**先淡出**（目标 alpha = 0），归零后由 `Tick` 换上
+                //   新图再淡入（不是就地换图 —— 那一版没有过渡）。
+                _bgPending = a;
+                _bgTarget = 0f;
             }
             RefreshNodes();
+            // 原版 `OnObjectUpdated` 那一路：任何一次「刷到画面上」都顺带对齐阵营滑条（幂等 —— 点数没变就返回）。
+            // ⚠️ 与 `ClaimForTest` 里那一次**不是重复**：领取成功那一刻窗会关，`Refresh` 由**关窗回调**给；
+            //    窗开不出来（例如没有 `WindowsManager`）时就没有那次回调，`ClaimForTest` 那一次兜住。
+            OnArmyAmountChanged();
+        }
+
+        // ============================================================ 背景淡入淡出（原版 `CampaignUIBackground`）
+        //
+        // 判据 = 原版 `CampaignUIBackground`（账 `战役.tsv` L79-L82 的要点）：
+        //   · `Initialize(campaign)`：目标 alpha = 0（首个）／换战役 ⇒ 目标 alpha = 0
+        //   · `LoadImage(campaign)`：释放旧引用 → 载新 sprite → 目标 alpha = 1
+        //   · `Update()`：`alpha += dt × changeSpeed` 逼近目标；到 0 且目标战役不同 ⇒ `LoadImage`
+        //   · `Close()`：`Release()` 旧引用 + 目标 alpha = 0
+        // `changeSpeed` 原版字段 = **2f**。⚠️ 原版 `Release()` 是 Addressables 引用释放，我们走
+        // `Resources` 直接取贴图 ⇒ **没有引用计数可释放**（如实记，不是省略）。
+        const float BgChangeSpeed = 2f;
+        float _bgAlpha = 1f, _bgTarget = 1f;
+        string _bgArmy, _bgPending;
+
+        /// <summary>原版 `CampaignUIBackground.Initialize(campaign)`：记下当前阵营、从 alpha 0 淡入。</summary>
+        public void InitBackground(string army)
+        {
+            _bgArmy = army; _bgPending = null;
+            _bgAlpha = 0f; _bgTarget = 1f;
+            ApplyBgAlpha();
+        }
+
+        /// <summary>原版 `CampaignUIBackground.LoadImage(campaign)`：换 sprite（+等比），目标 alpha = 1。</summary>
+        public void LoadBackgroundImage(string army)
+        {
+            _bgArmy = army; _bgPending = null; _bgTarget = 1f;
+            if (_bgQuad != null)
+            {
+                var t = _win.Art(CampaignData.Background(army));
+                if (t != null) { _bgQuad.SetTexture(t); _bgQuad.SetAspect((float)t.width / t.height); }
+                else
+                    Debug.LogWarning("[Campaign] 阵营背景图取不到（`" + CampaignData.Background(army)
+                                   + "`）⇒ 保留上一张、只做淡入（⛔ 不拿别的图顶）。");
+            }
+            ApplyBgAlpha();
+        }
+
+        /// <summary>原版 `CampaignUIBackground.Close()`：目标 alpha = 0（旧引用释放见上面那条如实记）。</summary>
+        public void CloseBackground()
+        {
+            _bgPending = null; _bgTarget = 0f;
+        }
+
+        void ApplyBgAlpha()
+        {
+            if (_bgQuad != null) _bgQuad.SetTint(new Color(1f, 1f, 1f, _bgAlpha));
+        }
+
+        /// <summary>原版 `CampaignUIBackground.Update()`：alpha 逼近目标；归零且有待换阵营 ⇒ `LoadImage`。
+        /// ⚠️ 批处理里没有帧循环 ⇒ 自检**直调本方法**（同 `ForgeTab.Tick` 那条口径）。</summary>
+        public void Tick(float dt)
+        {
+            if (_bgQuad == null || dt <= 0f) return;
+            if (!Mathf.Approximately(_bgAlpha, _bgTarget))
+            {
+                _bgAlpha = Mathf.MoveTowards(_bgAlpha, _bgTarget, BgChangeSpeed * dt);
+                ApplyBgAlpha();
+            }
+            if (_bgAlpha <= 0.001f && _bgTarget <= 0.001f
+                && !string.IsNullOrEmpty(_bgPending) && _bgPending != _bgArmy)
+            {
+                LoadBackgroundImage(_bgPending);
+            }
+        }
+
+        void Update() { Tick(Time.deltaTime); }
+
+        /// <summary>关页 ⇒ 原版 `CampaignWindowTab.OnClose` 里那句 `background.Close()`
+        /// （`GameWindowWithTabs.Close` → `CurrentTab.CloseTab()` → 本方法）。</summary>
+        public override void OnClose() { CloseBackground(); }
+
+        /// <summary>原版 `CampaignWindowTab.SetFirstTutorialTrackArmyNodeDone()`（`CampaignWindowTab.cs:454`，
+        /// 调用点 = `TutorialStageGetCampaignNode.DoMenuActions`）：**首节点若已解锁 ⇒ 直接领基础档**，
+        /// 让教程的 `GetCampaignNode` 阶段能往下走。幂等（领过之后状态是 20，不再满足 `unlocked`）。
+        /// ⚠️ 原版末尾还会调 `PlayfabWrapper.CollectFirstNodeFix`（服务端修复）—— 我们没有后端，不假装。</summary>
+        public bool SetFirstTutorialTrackArmyNodeDone()
+        {
+            if (CampaignData.StateOf(0) != CampaignData.Unlocked) return false;
+            string why;
+            if (!CampaignData.Claim(0, CampaignData.TierBasic, out why))
+            {
+                Debug.LogWarning("[Campaign] 教程首节点自动领取失败：" + why);
+                return false;
+            }
+            RefreshNodes();
+            Debug.Log("[Campaign] 教程：首节点 `" + CampaignData.NodeName(0) + "` 已自动领取（基础档）"
+                    + "（= 原版 `SetFirstTutorialTrackArmyNodeDone`；云修复那一步我们没有后端）");
+            return true;
         }
 
         /// <summary>重刷 47 个节点的状态色/高亮（领取之后要调）。
@@ -1062,6 +1229,7 @@ namespace CardPresentation
             if (CampaignData.Claim(i, tier, out why))
             {
                 RefreshNodes();
+                OnArmyAmountChanged();     // 原版这一刻 = 每个 `CampaignArmyUIDecorator` 收到 `OnObjectUpdated`
                 // 🆕 2026-10-12（A438）：**领到那一拍弹领奖窗**（判据见方法头；`showAnimation = 1` 那一支）。
                 RewardWindow.ShowCollected(CampaignData.RewardsOf(i, tier), collected => Refresh());
                 // 🔴 **2026-10-12（A466 顺手订正 · 铁律 5）**：这两句原来是「领完就把窗刷新成 `Get` 态

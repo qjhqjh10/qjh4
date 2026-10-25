@@ -1,0 +1,27 @@
+AuthenticationValues|AddAuthParameter(string key, string value)|D|Photon 自定义鉴权的键值参数（AuthenticationValues.cs:132）：StartConnection 填 CustomAuthenticationType.Custom 后交给 PhotonNetwork.ConnectUsingSettings|Net/NetSession.cs:596（CheckProofKey）+ :643（hello 带 name/protoVer/gameVer）|原版断在 PhotonNetwork.AuthValues 到 ConnectUsingSettings（NetworkCustomManager.cs:308-312）；我们的替代 = 自建握手 hello{name,protoVer,gameVer} + 主机侧口令证明校验。覆盖「证明你是谁」，不覆盖 Photon 的第三方鉴权服务|D④|第三方 Photon SDK（Photon.Realtime）。同一方法在 Photon.Chat/AuthenticationValues.cs:125 另有一份（聊天版同名类型），我们聊天走 Net/NetChat.cs、无鉴权参数
+AuthenticationValues|AddAuthParameter(string key, string value)|D|同上，Photon.Chat 那一份（Photon.Chat/AuthenticationValues.cs:125）：聊天客户端鉴权参数|Net/NetChat.cs（Chat 消息走同一条 TCP 会话）|原版断在 Photon.Chat.ChatClient.AuthValues；我们的替代 = 复用已鉴权的同一会话发 Chat 消息。覆盖「聊天身份」，不需要单独鉴权|D④|第三方 Photon Chat SDK；我们没有独立聊天连接（这是简化的正确方向，不是缺漏）
+AuthenticationValues|SetAuthPostData(Dictionary<string, object> dictData)|D|把鉴权数据包成字典（AuthenticationValues.cs:124）|无|原版断在 PhotonNetwork.AuthValues.AuthPostData；我们无「鉴权后置数据」这一格（口令证明在 hello 里一次到位）|D④|第三方 Photon SDK
+AuthenticationValues|SetAuthPostData(byte[] byteData)|D|二进制鉴权数据（AuthenticationValues.cs:116）|无|同上一格（无后置鉴权数据）|D④|第三方 Photon SDK
+AuthenticationValues|SetAuthPostData(byte[] byteData)|D|Photon.Chat 那一份（Photon.Chat/AuthenticationValues.cs:117）|无|同上一格|D④|第三方 Photon Chat SDK
+AuthenticationValues|SetAuthPostData(string stringData)|D|字符串鉴权数据（AuthenticationValues.cs:101）|无|同上一格|D④|第三方 Photon SDK
+AuthenticationValues|SetAuthPostData(string stringData)|D|Photon.Chat 那一份（Photon.Chat/AuthenticationValues.cs:102）|无|同上一格|D④|第三方 Photon Chat SDK
+AuthenticationValues|ToString()|D|鉴权值转调试串（AuthenticationValues.cs:234）|无|原版断在 Photon 的日志/调试输出；我们对应 NetSession 的状态串与 NetRuntime.Notice|D④|第三方 Photon SDK 调试口；同一份在 Photon.Chat/AuthenticationValues.cs:235
+AuthenticationValues|ToString()|D|Photon.Chat 那一份（Photon.Chat/AuthenticationValues.cs:235）|无|同上（调试口）|D④|第三方 Photon Chat SDK
+CellTreeNode|AddChild(CellTreeNode child)|D|Photon 兴趣组 AOI 区域的树节点挂子件（CellTreeNode.cs:50）|无|原版断在 PhotonNetwork 的 interest-group 分区（服务端按 cell 只把看得见的事件推给客户端）；我们是 2 人 P2P 全量同步（Net/NetProtocol.cs 无分区概念），不需要这一层|D④|第三方 Photon SDK；2 人局无 AOI 需求
+CellTreeNode|Draw()|D|编辑器里画 cell 边界（CellTreeNode.cs:77）|无|同上；且是 Gizmo 绘制|D④|第三方 SDK + 编辑器专用
+CellTreeNode|GetActiveCells(List<byte> activeCells, bool yIsUpAxis, Vector3 position)|D|按位置求「我所在的活跃 cell」（CellTreeNode.cs:81）|无|同上（无 AOI）|D④|第三方 Photon SDK
+CellTreeNode|IsPointInsideCell(bool yIsUpAxis, Vector3 point)|D|点是否在 cell 内（CellTreeNode.cs:193）|无|同上|D④|第三方 Photon SDK
+CellTreeNode|IsPointNearCell(bool yIsUpAxis, Vector3 point)|D|点是否靠近 cell（CellTreeNode.cs:240）|无|同上|D④|第三方 Photon SDK
+Room|ClearExpectedUsers()|D|清「预期进房玩家」（Room.cs:453）：PhotonNetwork.CurrentRoom.ExpectedUsers|无|原版断在 Room.ExpectedUsers（服务端预留位）；我们是 2 人直连，第二个人之后由 Net/NetSession.cs:398-414 的 RejectPendingReplacement 直接拒。覆盖「第三人不许进」|D④|第三方 Photon SDK
+Room|SetCustomProperties(Hashtable propertiesToSet, Hashtable expectedValues, bool webForward)|D|房自定义属性（CAS 语义 + 可选转发 webhook）（Room.cs:373）|无|原版断在 PhotonNetwork.CurrentRoom.SetCustomProperties；我们没有房间对象，等价语义散在 NetSession 的会话状态与 NetMatchmaking 的模式/卡组校验里（Net/NetMatchmaking.cs:769）|D④|第三方 Photon SDK
+Room|SetExpectedUsers(string[] expectedUsers)|D|预留位（Room.cs:463）|无|同 ClearExpectedUsers 那一格|D④|第三方 Photon SDK
+Room|SetPropertiesListedInLobby(string[] propsListedInLobby)|D|房列表中展示哪些属性（Room.cs:442）|无|原版断在 Room.PropertiesListedInLobby（房间大厅列表）；我们没有大厅列表（房间码直连），无对应物也不需要|D④|第三方 Photon SDK
+Room|ToString()|D|房调试串（Room.cs:472）|无|原版断在日志输出；我们对应 NetSession 的状态串|D④|第三方 Photon SDK 调试口
+Room|ToStringFull()|D|全量房信息串（Room.cs:607）|无|同上（调试口）|D④|第三方 Photon SDK 调试口
+RoomInfo|Equals(object other)|D|房间列表项的相等判据（RoomInfo.cs:144）|无|原版断在 PhotonNetwork.GetRoomList() 的列表比较；我们没有「房间列表」（房间码直连），无对应物|D④|第三方 Photon SDK
+RoomInfo|GetHashCode()|D|同上（RoomInfo.cs:182）|无|同上|D④|第三方 Photon SDK
+RoomInfo|InternalCacheProperties(Hashtable propertiesToCache)|D|缓存服务端推来的房属性（RoomInfo.cs:487）|无|同上（无房间列表/无服务端房属性）|D④|第三方 Photon SDK
+RoomInfo|ToString()|D|房信息调试串（RoomInfo.cs:196）|无|同上（调试口）|D④|第三方 Photon SDK 调试口
+RoomInfo|ToStringFull()|D|全量房信息串（RoomInfo.cs:330）|无|同上（调试口）|D④|第三方 Photon SDK 调试口
+TypedLobby|ToString()|D|大厅类型（普通/异步/默认）的调试串（TypedLobby.cs:47）|无|原版断在 PhotonNetwork.JoinLobby(TypedLobby) 的大厅类型；我们没有大厅层（Net/NetMatchmaking.cs 的 12 秒链等价于「进池等 12 秒」）|D④|第三方 Photon SDK
+TypedLobbyInfo|ToString()|D|大厅统计信息串（TypedLobbyInfo.cs:10）|无|同上（无大厅层）|D④|第三方 Photon SDK 调试口

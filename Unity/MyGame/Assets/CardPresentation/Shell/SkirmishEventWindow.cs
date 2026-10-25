@@ -714,7 +714,15 @@ namespace CardPresentation
             return wWorld * (LayoutSpace.DesignPxH / LayoutSpace.DesignHeight);
         }
 
-        /// <summary>`Banned card in deck`：**建出来但关着** —— 「这副牌里有禁用卡」要一份禁用表，本地没有。</summary>
+        /// <summary>`Banned card in deck`：原版**出厂 act=1**、运行时由 `OnDeckSelected` 开关并**改写文案**。
+        /// <para>🔴 **2026-10-25（`E` · 完全复刻）**：这一行原来只按 prefab 词条静态建出来、**恒关**（「没有禁用表」）。
+        /// 原版判据（一手，`cpp2il/SkirmishEventWindow.cs:488-524` 的 `OnDeckSelected`）：
+        /// `(valid, err) = rankedDeckSelector.HasValidDeckWithValidationMessage()` →
+        /// `battleButton.interactable = valid` · **`bannedCardInDeckText.text = DeckUtility.ToShortLocalizedString(err)`**
+        /// （`DeckUtility.cs:92-118` = `MenuDeck/Error/&lt;枚举名&gt;/Short`、缺键回 `MenuDeck/Error/InvalidDeck/Short`）
+        /// ⇒ **这一格印的是【短档】校验原因**，**不是** prefab 那条固定词条。
+        /// 我们照它：`RefreshBannedLine()`（见下）。⚠️ 我们没有「禁用卡表」这一档枚举
+        /// （原版 `InvalidDeckBannedCards`）⇒ 今天能产出的只有 `InvalidDeck` 等通用档。</para></summary>
         void BuildBanned(Transform root)
         {
             var b = MenuDraw.Node(root, "Banned card in deck", new PxRect(BannedL, BannedT, BannedR, BannedB));
@@ -729,14 +737,76 @@ namespace CardPresentation
             // 🔴 **2026-10-19（界面线 P05）**：文案改走官方词条 —— 这颗 TMP 挂 `Localize`，
             //   `mTerm = MenuDeck/Error/InvalidDeckBannedCards`（`MonoBehaviour_1490397487827668338.json` 现读）；
             //   官方值 en `The deck has banned cards` / zh `卡组有禁用的张牌`（英文档逐字同改前）。
-            MenuDraw.Text(b, new PxRect(BannedL, BannedT, BannedR, BannedB),
+            // ⚠️ 那只是**prefab 出厂串**；运行时原版会把它改成短档校验原因（见上面那段）。
+            _bannedLine = MenuDraw.Text(b, new PxRect(BannedL, BannedT, BannedR, BannedB),
                           Loc.T("MenuDeck/Error/InvalidDeckBannedCards"),
                           Color.white, "Text", 50f, QText, BannedR - BannedL, 18f, 50f, 36f, face: TmpFont.Face.LatinCardBody);
             b.gameObject.SetActive(false);
-            // 🔴 **原版出厂 act=1**，是**运行时**按「这副牌里有没有禁用卡」关掉的；我们**没有禁用卡表**
-            //    ⇒ 只能主动关掉，**出声**（别让它静默消失）
-            Debug.Log("[Event] `Banned card in deck` 建了但**我们主动关着** —— 原版出厂 act=1、"
-                      + "运行时按「这副牌有没有禁用卡」开关；本地没有那份禁用表");
+            RefreshBannedLine();       // 建完就按当前卡组刷一次（原版这一行也是随 `OnDeckSelected` 刷的）
+        }
+
+        Label _bannedLine;
+
+        /// <summary>刷「这副卡组为什么不可用」那一行（原版 `SkirmishEventWindow.OnDeckSelected` 的后半段）。
+        /// <para>**文案 = 短档**：`DeckRules.DescribeShort(err)`（A 的 `DeckRules`；只有 `InvalidDeck` /
+        /// `InvalidDeckBannedCards` 两档有 `/Short`，其余回长档 —— 与官方 15 条表一致）。</para>
+        /// <para>🔴 **兜底（本工程红线：不许把键名印到屏幕上）**：`Loc.T(键)` 在**缺词条时返回键名本身**
+        /// ⇒ 若取到的串 == 键名，就**回退长档**；长档也缺 ⇒ **出声并整行关掉**（⛔ 不印键名、不静默）。
+        /// ⛔ 别为此去改 `Loc.T` 的全局行为（会影响别人）。</para>
+        /// <para>⚠️ **刷新时机**：原版是「换卡组那一刻」；我们窗内换卡组的箭头/弹窗在**基类**里
+        /// （`RefreshDeckColumn` 不是虚方法、本批不能改基类）⇒ 我们在 <see cref="Open"/> 与
+        /// <see cref="StartMatch"/> 两个点刷（**点 Battle 前一定是最新的**）；窗内换卡组后**不立即**变，
+        /// 如实记在报告里。</para></summary>
+        public void RefreshBannedLine()
+        {
+            if (_bannedLine == null) return;
+            RuleEngine.PlayerDeck deck = null;
+            if (PickedPrebuilt != null) deck = PrebuiltDecks.ToPlayerDeck(PickedPrebuilt);
+            else if (HasEffectiveDeck) deck = CollectionData.Raw(DeckIndex);
+            if (deck == null) { _bannedLine.gameObject.SetActive(false); return; }
+
+            // 🔴 **按【这副牌自己的模式】校验** —— 原版 `RankedDeckSelector.HasValidDeckWithValidationMessage`
+            //   调的是 `DeckUtility.ValidateDeck(currentDeck, out error)`（**不带 isSkirmish 实参**）：
+            //   张数规则从 `CardDeck.gameMode` 读（我们的等价字段 = `PlayerDeck.GameMode`）。
+            //   ⛔ 别写死 `skirmish: true`：遭遇窗里也可能选中一副**经典预组**，那会误报「张数不对」。
+            bool deckIsSkirmish = deck.GameMode == (int)RuleEngine.GameMode.Skirmish;
+            RuleEngine.DeckError err = RuleEngine.DeckRules.Validate(deck, CollectionData.Card, deckIsSkirmish);
+            if (err == RuleEngine.DeckError.None) { _bannedLine.gameObject.SetActive(false); return; }
+
+            string key = RuleEngine.DeckRules.DescribeShort(err);
+            string text = string.IsNullOrEmpty(key) ? null : Loc.T(key);
+            if (!string.IsNullOrEmpty(text) && text == key) text = null;      // 缺词条 ⇒ 回退长档
+            if (text == null)
+            {
+                string longKey = RuleEngine.DeckRules.Describe(err);
+                string longText = string.IsNullOrEmpty(longKey) ? null : Loc.T(longKey);
+                if (!string.IsNullOrEmpty(longText) && longText != longKey) text = longText;
+                if (text == null)
+                {
+                    Debug.LogWarning("[Event] 「卡组不可用」那一行：短档 `" + key + "` 与长档 `" + longKey
+                                   + "` 都取不到词条 ⇒ **整行关掉**（⛔ 不把键名印到屏幕上）");
+                    _bannedLine.gameObject.SetActive(false);
+                    return;
+                }
+            }
+            _bannedLine.SetText(text);
+            _bannedLine.gameObject.SetActive(true);
+            _bannedLine.transform.parent.gameObject.SetActive(true);
+            Debug.Log("[Event] 「卡组不可用」提示 = " + text + "（短档 " + err + "）");
+        }
+
+        /// <summary>开窗时刷一次「卡组不可用」提示（见 <see cref="RefreshBannedLine"/> 的刷新时机）。</summary>
+        public override void Open()
+        {
+            base.Open();
+            RefreshBannedLine();
+        }
+
+        /// <summary>点 `Battle!` 之前再刷一次（这一行必须是「当前这副」的原因；原版在换卡组时就刷）。</summary>
+        public override void StartMatch()
+        {
+            RefreshBannedLine();
+            base.StartMatch();
         }
 
         protected override string TrophyIconArt { get { return "WF_UI_Trophy_Gold"; } }

@@ -602,6 +602,22 @@ namespace CardPresentation.Net
                 args = new object[] { m.protoVer, NetProtocol.Version };
                 return "Settings/Online/St/VersionMismatch";
             }
+            // 🔴 **2026-10-25（联机域审查 · D 域）**：**构建版本也要比**。
+            //    原版用 `PhotonNetwork.ConnectToRegion(region, gameVersionWithEnviromentAndBundles)`
+            //    按 gameVersion **隔离大厅**（`NetworkCustomManager.cs:341-354`），并在
+            //    `OnlineData.GetPlayerGameVersion` 读 `ProfileVersion`（`OnlineData.cs:70-94`）
+            //    ⇒ 卡表/规则不同的两个构建**根本配不上**。
+            //    我们原来只比 `protoVer`（协议号），`gameVer` 发是发了（见 `case NetKind.Challenge` 里那句）
+            //    但**没人读** ⇒ 两个 protoVer 相同、卡表不同的构建能连上，只在回合末状态指纹
+            //    （`NetProtocol.Fingerprint`）炸掉 —— 那时已经打了几个回合。
+            //    ⚠️ 任一为空就跳过（自检夹具 / 自定义客户端不带这格），保持向后兼容。
+            if (!string.IsNullOrEmpty(m.gameVer) &&
+                !string.IsNullOrEmpty(Application.version) &&
+                m.gameVer != Application.version)
+            {
+                args = new object[] { m.gameVer, Application.version };
+                return "Settings/Online/St/VersionMismatch";
+            }
             var want = Proof(_hostPassword, nonce);       // ⚠️ 用**开台那一刻**的密码
             if (!string.IsNullOrEmpty(_hostPassword) && m.proof != want)
                 return "Settings/Online/St/WrongPassword";

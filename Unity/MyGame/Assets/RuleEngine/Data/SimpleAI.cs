@@ -1336,6 +1336,19 @@ namespace RuleEngine
             return best;
         }
 
+        /// <summary>原版 `CardScript.HasSpecialAttackScoring()` =
+        /// `rawCardData.specialAttackScoringCriteria`（`+0x2F8`）**∧ 当前不带 `jam`**
+        /// （`decomp_full/CardScript__HasSpecialAttackScoring.c`，逐句：先读那个 bool、为假直接 false，
+        /// 再 `HasCurrentTrait(jam)` ⇒ `!jam`）。
+        /// <para>**消费点**：<see cref="KillerOverride"/> 的排除项 —— 原版 `AI.SelectBestAction:702` 与
+        /// `AI.IsBetterAction:822` 都是「这类卡**不参与**『宁可出手也不结束回合』那个例外」。
+        /// ⚠️ 真值现读 1,351 张**全 0** ⇒ 今天恒 `false`、无可观测差异（数据出现即自动生效）。</para></summary>
+        public static bool HasSpecialAttackScoring(UnitState u)
+        {
+            if (u == null || u.Card == null) return false;
+            return u.Card.SpecialAttackScoring && !u.Has(KeywordTable.Jam);
+        }
+
         /// <summary>原版 `SelectBestAction` 里那个例外：这一刀哪怕分不高也该打出去。</summary>
         static bool KillerOverride(BattleContext ctx, AiAction a)
         {
@@ -1344,6 +1357,9 @@ namespace RuleEngine
             if (u.Has("berzerk")) return true;                        // 原版：狂暴一定出手
             if (u.IsWarlord) return false;                            // 督军不参与这个例外
             if (u.Has(KeywordTable.Stealth) || u.Has(KeywordTable.Vanguard)) return false;
+            // 🆕 2026-10-25（账 3 条 C · 判据 `CardScript__HasSpecialAttackScoring.c`）：
+            //   带「特殊攻击打分」的卡**不参与**这个例外（原版 `AI.cs:702` / `:822` 同一形状）。
+            if (HasSpecialAttackScoring(u)) return false;
             return true;
         }
 

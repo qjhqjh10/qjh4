@@ -898,15 +898,22 @@ namespace CardPresentation
 
         // ============================================================ 收件箱（`Inbox Menu`）
         //
-        // ⚠️ **单机没有服务器** ⇒ 没有消息可列。原版 `InboxWindow__Open` 在「一条消息都没有」时走的正是
-        // **空态**（开 `noNewsWarning`、关 `MessageDisplay`）⇒ 我们做的就是这个状态，**不是省略**。
-        // ❌ **我们挑的**：`Message Display` 的标题文案。
+        // ⚠️ **单机没有服务器** ⇒ 原版由 LiveOps handler 下发的消息表由**本地等价物** `Shell/InboxData.cs` 提供
+        //    （2026-10-25 N17 开线后新增；判据与边界写在那份文件的头注释里）。本类只留**读口**。
+        // 🔴 **2026-10-25（铁律 5 就地订正）**：下面这一行原来写 `InboxCount { get { return 0; } }`、
+        //    注释说「单机恒 0」—— **已过期**。现在它是**未读条数**（原版 `Inbox.CheckNotification` =
+        //    `Count(x => !x.IsRead())`，`Inbox.cs:745-778`）⇒ 转发 `InboxData.UnreadCount()`；
+        //    `InboxNotificationProvider`（`BadgeNotifications.cs:366`）读它 ⇒「选中消息 → 标已读 → 红点灭」自动通。
 
-        /// <summary>消息条数。**单机恒 0**（原版从 LiveOps handler 取；条目 prefab 由服务端事件数据决定）。</summary>
-        public static int InboxCount { get { return 0; } }
+        /// <summary>**未读**消息条数（原版 `Inbox.CheckNotification()` 的计数）。</summary>
+        public static int InboxCount { get { return InboxData.UnreadCount(); } }
         public static string InboxTitle() { return "Inbox"; }                       // 原版 prefab 占位串
         public static string InboxNoNewsText() { return "Game announcements will be displayed here"; }  // 原版 prefab 占位串
-        public static string InboxMessageDisplayTitle() { return "Message"; }       // ⚠️ 我们挑的
+        /// <summary>`Message Display/Title` 的**出厂占位串**。🔴 2026-10-25 订正：原来写的是 `"Message"`
+        /// （标注「我们挑的」）—— 原版 prefab 那颗 TMP 的原文是 **'WELCOME TO WARPFORGE CLOSED ALPHA!'**
+        /// （判据 = `menu_dump … "Inbox Menu" --depth 9 --md --no-sprite` 里那一行的 `'…'`）。
+        /// 运行时它会被 `MessageDisplay.Initialize` 写成本条消息的 `GetTitle()`（`InboxWindow.ShowDetail`）。</summary>
+        public static string InboxMessageDisplayTitle() { return "WELCOME TO WARPFORGE CLOSED ALPHA!"; }
         /// <summary>收件箱红点该不该亮 —— 原版 `Inbox.CheckNotification` = **未读条数 > 0**。</summary>
         public static bool InboxHasBadge { get { return InboxCount > 0; } }
 
@@ -919,10 +926,28 @@ namespace CardPresentation
         /// <summary>有没有「可领取」的每日任务 —— **奖励窗左栏 Missions 键上的红点判据**。
         /// 原版是 `Missions.CheckNotification`（`INotificationProvider&lt;MissionsBadge>`），
         /// 显隐走 `UiBadgeNotification` 的 **alpha 补间**（`Show()`→1.0 / `Hide()`→0），**不是 `SetActive`**。</summary>
-        public static bool RewardsHasBadge
+        public static bool RewardsHasBadge { get { return CollectableMissionCount() > 0; } }
+
+        /// <summary>🆕 **2026-10-25（N17）**：**当前可领的任务条数** —— 红点的唯一计数口。
+        /// <para>判据 = 原版 `Missions.CheckNotification()`：`OfType&lt;IMission&gt;()` → 逐条
+        /// `MissionChallengeProgress.CanCollect()` → `Repeat(badge, 可领条数)`（`Missions.cs` 的
+        /// `SelectMany` + `Enumerable.Repeat`）。⇒ **四张卡都算**：三条每日 + 周常 + 骷髅 + 登录。</para>
+        /// <para>⚠️ 登录卡那一条是**单机口径**（`CanCollectLogin` = `_loginState != Claimed`）：原版那条
+        /// `DailyLoginChallenge` 在服务端完成登录时就算「可领」，没领之前一直可领 ⇒ 语义相同。</para>
+        /// <para>🔴 **红点 provider 与 `RewardsHasBadge` 共用这一份**（⛔ 别在 `BadgeNotifications` 里再写一遍
+        /// `for + CanCollectDaily` —— 两处写同一条规则 = 迟早不一致）。</para></summary>
+        public static int CollectableMissionCount()
         {
-            get { for (int i = 0; i < _daily.Length; i++) if (_daily[i].St == State.Collectable) return true; return false; }
+            int n = 0;
+            for (int i = 0; i < _daily.Length; i++) if (CanCollectDaily(i)) n++;
+            if (CanCollectWeekly()) n++;
+            if (CanCollectSkulls()) n++;
+            if (CanCollectLogin()) n++;
+            return n;
         }
+
+        /// <summary>三条每日任务的条数（自检/红点 provider 用；⛔ 别在别处再写死 `3`）。</summary>
+        public static int DailyTaskCount { get { return _daily.Length; } }
 
         /// <summary>⚠️ 我们挑的：单机默认**不断签**（这样默认看到的是 `Streak Successful`）。</summary>
         static bool _streakFailed = false;
@@ -1453,8 +1478,49 @@ namespace CardPresentation
         {
             if (skulls <= 0) return 0;
             if (!ModeGivesSkulls(playMode)) return 0;
+            int before = _skullsCount;
             _skullsCount += skulls;
+            // 🆕 **2026-10-25（N17）：到这里那颗 `Collect` 才可能亮。**
+            //   判据 = 原版 `MissionChallengeProgress.CanCollect()`（= 「这条挑战真的可以领了」）——
+            //   骷髅卡可领的前件就是**里程碑至少过一档**（`SkullsStepDone(0)`，阈值 3）。
+            //   🔴 **改之前这里什么都不写** ⇒ `_skullsState` 在全仓**只有出厂 / 读档 / 领取**三处，
+            //     `CanCollectSkulls()` 恒 false ⇒ 那颗钮**永久灰色、永远领不到**（N17 分诊挑出的 P0）。
+            //   ⚠️ **单态简化（如实标）**：原版是**逐档**可领（`AvailableRewards()` 每档一条），
+            //     我们只有一态 ⇒ 第一次跨过任意阈值就变 `Collectable`，领完即 `Claimed`（终态）；
+            //     方框亮不亮仍由 `SkullsStepDone(i)` 逐档算（那半不受影响）。
+            if (_skullsState == State.InProgress && CrossedStep(before, _skullsCount, _skullsSteps))
+                _skullsState = State.Collectable;
             return skulls;
+        }
+
+        /// <summary>`before → after` 之间**有没有跨过**这张阈值表里的任意一档
+        /// （`before &lt; t &lt;= after`）。判据 = 原版「`challenge.CurrentValue` 涨到某档 ⇒ 那档的
+        /// `AvailableRewards()` 非空」那一条（`MissionChallengeProgress.CanCollect.c`）。
+        /// ⛔ 别改成「`after &gt;= 第一档`」—— 那会让**已经过了几档的老进度**每局都重新变可领。</summary>
+        static bool CrossedStep(int before, int after, int[] steps)
+        {
+            if (steps == null || after <= before) return false;
+            for (int i = 0; i < steps.Length; i++)
+                if (before < steps[i] && steps[i] <= after) return true;
+            return false;
+        }
+
+        /// <summary>🆕 **2026-10-25（N17）**：周常进度往前推（**每局 +1**）。
+        /// 🔴 **改之前周常进度根本没有推进点**（`_weeklyProgress` 恒 13、只在自检里被改）⇒ 周常既不长、也永不
+        /// 可领（N17 分诊 P0 的另一半）。
+        /// <para>⚠️ **「每局 +1」是我们挑的**（原版周常任务的变量类型由服务端下发，本地拿不到 ——
+        /// 与 `_weeklySteps` 那六个阈值同一条口径）。闸门用 `ModeGivesSkulls`（同一份「这一局算不算数」），
+        /// 免得回放 / 教程把周常刷上去。</para>
+        /// <para>**可领判据** = 这一局**跨过了一个新阈值**（`CrossedStep`）—— ⛔ 不是「进度 ≥ 第一档」
+        /// （出厂 13 已经过了 5/10，那样一开局就会变可领，与「开局不可领」的既有断言打架、也不合原版语义）。</para></summary>
+        static void AdvanceWeekly(int n)
+        {
+            if (n <= 0) return;
+            if (_weeklyState == State.Claimed) return;
+            int before = _weeklyProgress;
+            _weeklyProgress = Mathf.Min(WeeklyTarget, _weeklyProgress + n);
+            if (_weeklyState == State.InProgress && CrossedStep(before, _weeklyProgress, _weeklySteps))
+                _weeklyState = State.Collectable;
         }
 
         /// <summary>一局结束 —— 把**这一局的战果**推进日常进度（原版那一条 `BattleEndSignal` 的我们这一侧）。
@@ -1495,6 +1561,8 @@ namespace CardPresentation
                 if (win) Advance(2, 1);
             }
             int got = AddSkulls(skulls, playMode);          // 🆕 A375：本局 0~3 个（累加，不是覆盖）
+            // 🆕 **2026-10-25（N17）**：周常 +1（同一道「这局算不算」的闸；判据见 `AdvanceWeekly`）
+            if (ModeGivesSkulls(playMode)) AdvanceWeekly(1);
             Say($"本局战果进了任务进度：对督军伤害 +{Mathf.Max(0, damageToEnemyWarlord)} · 攻击 +{Mathf.Max(0, attacksDeclared)}"
                 + $" · 远程攻击 +{Mathf.Max(0, rangedAttacksDeclared)}（旧口径兜底时这三格为 −1）"
                 + $" · **骷髅 +{got}**（当日累计 {_skullsCount}）");
@@ -1778,6 +1846,14 @@ namespace CardPresentation
             /// （与 <see cref="streakDays"/> 同一个日界口径），**如实标为「我们挑的」**。</para>
             /// <para>同 `streakDays`：`version` **不 +1**（`0` 有确定含义 = 本机从没记过）。</para></summary>
             public int totalLoginDays;
+            /// <summary>🆕 **2026-10-25（N17）**：**周常**那一格（进度 / 三态）。之前**根本没进存档**
+            /// ⇒ 周常既不涨、重启也不保持（N17 分诊挑出的 P0 缺陷之一，判据 = `MissionEvent.GetBaseSave` /
+            /// `UpdateSaveGame`：原版每一份任务进度都在事件存档里）。
+            /// <para>`weeklySet` = 「这一份存过没有」—— 同 `nextSet` 的形状：`0` 是**合法进度**，
+            /// 不能拿它当「没存过」⇒ 必须另有一个标志位（⛔ 别学「用 0 当哨兵」那种写法）。</para></summary>
+            public bool weeklySet;
+            public int weeklyProgress;
+            public int weeklyState;
         }
 
         static bool _loaded;          // 本进程读过盘了没有（**读失败也算读过** —— 不然每次进壳都重试、刷屏）
@@ -1890,6 +1966,12 @@ namespace CardPresentation
             }
             // 🆕 2026-10-25（`X2`）：累计登录天数（与连登那一格**互不依赖** —— 它不是「两半都要有效」那一族）
             _totalLoginDays = Mathf.Max(0, dto.totalLoginDays);
+            // 🆕 **2026-10-25（N17）**：周常进度/态（`weeklySet` 才吃 —— 见 `StoreDto` 那条注释）
+            if (dto.weeklySet)
+            {
+                _weeklyProgress = Mathf.Clamp(dto.weeklyProgress, 0, WeeklyTarget);
+                _weeklyState = (State)Mathf.Clamp(dto.weeklyState, (int)State.InProgress, (int)State.Claimed);
+            }
         }
 
         /// <summary>把内存里那一份整理成要写下去的形状。</summary>
@@ -1917,6 +1999,10 @@ namespace CardPresentation
             dto.streakDays = _streakDays;                // 🆕 A815
             dto.streakDayTicks = _streakDayTicks;        // 🆕 A815
             dto.totalLoginDays = _totalLoginDays;        // 🆕 2026-10-25（`X2`）
+            // 🆕 **2026-10-25（N17）**：周常那一格（判据同 `StoreDto.weeklySet`）
+            dto.weeklySet = true;
+            dto.weeklyProgress = _weeklyProgress;
+            dto.weeklyState = (int)_weeklyState;
             return dto;
         }
 
@@ -1978,6 +2064,9 @@ namespace CardPresentation
             _skullsCount = 0;
             _skullsState = State.InProgress;
             _loginState = State.InProgress;
+            // 🆕 **2026-10-25（N17）**：周常也属于「打回出厂值」那一族（它落盘了 ⇒ 模拟重启时必须一起清）
+            _weeklyProgress = 13;                 // = 文件顶部那个「我们挑的」出厂值（⛔ 别在这里写第二个数）
+            _weeklyState = State.InProgress;
             _nextReset = default(System.DateTime);
             _nextResetSet = false;
             _streakDays = 0;                      // 🆕 A815（它落盘 ⇒ 属于「打回出厂值」那一族）

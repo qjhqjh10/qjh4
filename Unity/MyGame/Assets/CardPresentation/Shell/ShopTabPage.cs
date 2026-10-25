@@ -671,7 +671,16 @@ namespace CardPresentation
                 //   —— 切块表点名「**别抄它**」；本处只填这一颗自己的四格，**节点名一个字不动**
                 //   （`Editor/ShopScene.cs` 按名找）。
                 //   ⚠️ 折行 = **0** ⇒ 显式还原（同 `RefreshText`）。
-                var lt = _win.Text(cell, o.Price, textR.x1, textR.x2, textR.y1, textR.y2, 5, PriceInk,
+                // 🔴 **2026-10-25（`C` 商店域）**：价格文本的三档照原版 `PriceDisplay`（判据 `PriceDisplay.cs:20-100`）：
+                //   · **免费** ⇒ `Loc.T("MainMenu/Free")`（`SetupFree` 的 `PRICE_FREE`）；
+                //   · **空** ⇒ **`--`**（`Setup(string)` 里 `buttonText == null ⇒ "--"`）；
+                //   · **`useStrikeThrough`** ⇒ 文本**前插 `<s>`**（TMP 删除线；原版**只插开头那一个、不闭合**，
+                //     `TryInsertStrikeThrough` 逐字如此）。⚠️ 今天商品表里没有一件打开后两档（组件补齐、数据可开）。
+                string ptxt = o.Free ? Loc.T("MainMenu/Free")
+                            : string.IsNullOrEmpty(o.Price) ? "--"
+                            : o.Price;
+                if (o.StrikeThrough) ptxt = "<s>" + ptxt;
+                var lt = _win.Text(cell, ptxt, textR.x1, textR.x2, textR.y1, textR.y2, 5, PriceInk,
                                    "Button Text", 30f, textR.W, 13.46f, 40f, 39f,
                                    face: TmpFont.Face.LatinCardBody);
                 if (lt != null) { lt.SetWrapping(false); lt.SetRenderQueue(QCellPriceText); }

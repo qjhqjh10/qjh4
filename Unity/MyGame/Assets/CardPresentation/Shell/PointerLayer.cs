@@ -101,6 +101,27 @@ namespace CardPresentation
         MenuScroll _dragScroll;
         Vector2 _pressPx, _lastPx;
         bool _pressed, _dragging, _haveLastPx;
+
+        // ---- 🆕 2026-10-25（拖拽排序前置件）：**按件拖拽** ----
+        // 判据 = 原版 `DragAndDropItem` + `RecyclableScrollRect` 那一族（转引 →
+        //   `资料/完全复刻/报告/C_收藏_第1轮.md` §③ 请求 1 ②）；本轮只补**输入层**（move / up 的分发），
+        //   数据重排（`ReorderCollectionByHierarchy`）与格子接线归收藏线。
+        // 🔴 **与滚动区互斥，且可拖件优先**（用户给的规格原话：「先判可拖件，再判滚动区」）。
+        struct DragSource
+        {
+            public WindowButton Button;
+            public System.Action<Vector2> OnDrag;    // 每次移动发（设计 px）
+            public System.Action<Vector2> OnDrop;    // 抬起发（设计 px；**只有真的拖起来过才发**）
+        }
+        readonly List<DragSource> _drags = new List<DragSource>();
+        DragSource _dragItem;
+        bool _itemDragging;
+
+        /// <summary>正在被拖的那颗按钮（没在拖件 ⇒ null）。</summary>
+        public WindowButton DraggingItemButton { get { return _itemDragging && _dragItem.Button != null ? _dragItem.Button : null; } }
+        /// <summary>拖件状态（自检读口）：按下了可拖件吗 / 已经在拖了吗。</summary>
+        public bool ItemPressActive { get { return _dragItem.Button != null; } }
+        public bool ItemDragging { get { return _itemDragging; } }
         /// <summary>🆕 2026-10-18（`N67`）：「键盘设备不可见」那条警告只报一次（别每帧刷屏）。</summary>
         bool _warnedNoKeyboard;
 
@@ -251,6 +272,8 @@ namespace CardPresentation
                 var s = Instance._scrolls[i];
                 if (s == null || s.Owner == owner) Instance._scrolls.RemoveAt(i);
             }
+            // 🆕 2026-10-25：同一时刻把**该宿主名下的可拖件**一起撤掉（纯加法；不碰滚动区既有语义）
+            UnregisterDragsOwnedBy(owner);
         }
 
         /// <summary>清掉全部滚动区登记（**换场景/壳重建**时调）。</summary>
@@ -274,6 +297,88 @@ namespace CardPresentation
                 //    全工程 18 处登记**每一处都设了 `Owner`**（2026-09-27 逐处核过）⇒ 这里当成「死的」是安全的。
                 if (s == null || s.Owner == null) _scrolls.RemoveAt(i);
             }
+        }
+
+        // ============================================================ 按件拖拽登记（🆕 2026-10-25）
+        //
+        // 纯加法：**不改** `enter/exit/click` 任何一条语义；只在「按下 → 移动 → 抬起」那条路上多认一种件。
+        // 与滚动区**互斥且可拖件优先**（用户规格：先判可拖件，再判滚动区）——
+        // 所以「可拖件同时落在一个滚动区里」时，**拖动那颗件不会滚列表**；要滚就拖空白处。
+
+        /// <summary>把一颗 `WindowButton` 登记成**可拖件**。
+        /// <para>`onDrag(pagePx)` 在**越过 `DragThreshold` 后每帧移动**都发（第一次越阈值那一下也发）；
+        /// `onDrop(pagePx)` 在抬起时发 —— **只有真的拖起来过才发**（没越过阈值 = 普通点击，照旧派发 `onClick`）。</para>
+        /// <para>⚠️ 坐标是**指针那一帧的设计 px**（与 `MoveTo` / `ClickAt` 同一帧），不是屏幕像素。
+        /// 同一颗按钮重复登记 ⇒ **覆盖**（不叠加）。</para></summary>
+        public static void RegisterDrag(WindowButton b, System.Action<Vector2> onDrag, System.Action<Vector2> onDrop)
+        {
+            if (b == null)
+            {
+                Debug.LogWarning("[Ptr] `RegisterDrag` 收到 null 按钮 ⇒ 这一条没登记上（出声，不静默）");
+                return;
+            }
+            if (Instance == null)
+            {
+                Debug.LogWarning("[Ptr] `RegisterDrag` 时 `PointerLayer` 还没建出来 ⇒ **拖动这条不会发生**"
+                               + "（先 `PointerLayer.Ensure()`；出声，不静默）");
+                return;
+            }
+            Instance.PruneDrags();
+            for (int i = Instance._drags.Count - 1; i >= 0; i--)
+                if (Instance._drags[i].Button == b) Instance._drags.RemoveAt(i);
+            Instance._drags.Add(new DragSource { Button = b, OnDrag = onDrag, OnDrop = onDrop });
+        }
+
+        /// <summary>撤掉一颗可拖件（没登记过 ⇒ 什么都不做）。</summary>
+        public static void UnregisterDrag(WindowButton b)
+        {
+            if (Instance == null || b == null) return;
+            for (int i = Instance._drags.Count - 1; i >= 0; i--)
+                if (Instance._drags[i].Button == null || Instance._drags[i].Button == b) Instance._drags.RemoveAt(i);
+        }
+
+        /// <summary>🆕 **把某个宿主名下的可拖件全撤掉**（窗口/页面重建时调；与 `UnregisterOwnedBy` 同族）。
+        /// `owner` 为 null ⇒ 只清死条目。</summary>
+        public static void UnregisterDragsOwnedBy(GameObject owner)
+        {
+            if (Instance == null) return;
+            for (int i = Instance._drags.Count - 1; i >= 0; i--)
+            {
+                var d = Instance._drags[i];
+                if (d.Button == null) { Instance._drags.RemoveAt(i); continue; }
+                if (owner == null) continue;
+                if (d.Button.gameObject == owner || d.Button.transform.IsChildOf(owner.transform))
+                    Instance._drags.RemoveAt(i);
+            }
+        }
+
+        /// <summary>清掉全部可拖件登记（**换场景/壳重建**时调；与 `ClearScrolls` 配对）。</summary>
+        public static void ClearDrags()
+        {
+            if (Instance != null) Instance._drags.Clear();
+        }
+
+        /// <summary>登记表里还剩几条（自检用）。</summary>
+        public static int DragCountForTest { get { return Instance != null ? Instance._drags.Count : 0; } }
+
+        /// <summary>查一颗按钮是不是可拖件（顺带清死条目）。</summary>
+        bool TryGetDrag(WindowButton b, out DragSource src)
+        {
+            src = default(DragSource);
+            if (b == null) return false;
+            for (int i = _drags.Count - 1; i >= 0; i--)
+            {
+                var d = _drags[i];
+                if (d.Button == null) { _drags.RemoveAt(i); continue; }
+                if (d.Button == b) { src = d; return true; }
+            }
+            return false;
+        }
+
+        void PruneDrags()
+        {
+            for (int i = _drags.Count - 1; i >= 0; i--)
+                if (_drags[i].Button == null) _drags.RemoveAt(i);
         }
 
         void Update()
@@ -347,7 +452,12 @@ namespace CardPresentation
                 _pressed = true; _dragging = false;
                 _pressPx = px;
                 _down = HitButton(px.x, px.y);
-                _dragScroll = HitScroll(px.x, px.y);
+                // 🆕 2026-10-25：**先判可拖件，再判滚动区**（可拖件优先 ⇒ 同时落在滚动区里也不会滚列表）
+                _dragItem = default(DragSource);
+                _itemDragging = false;
+                DragSource ds0;
+                if (TryGetDrag(_down, out ds0)) { _dragItem = ds0; _dragScroll = null; }
+                else _dragScroll = HitScroll(px.x, px.y);
                 // 🆕 A49：原版鼠标**按下**也会改「选中」（`StandaloneInputModule.ProcessMousePress` →
                 //    `DeselectIfSelectionChanged`）—— 点在空白处 ⇒ 选中变 null（原版就是清掉）。
                 //    键盘与鼠标**共用这一份选中**，所以它必须挂在这条唯一输入路上。
@@ -356,17 +466,39 @@ namespace CardPresentation
             }
             else if (_pressed && mouse.leftButton.isPressed)
             {
-                if (!_dragging && _dragScroll != null
-                    && (px - _pressPx).magnitude > DragThreshold)
+                if (_dragItem.Button != null)
                 {
-                    _dragging = true;
-                    _dragScroll.BeginDrag(AxisOf(_dragScroll, _pressPx));
+                    // 🆕 2026-10-25：可拖件那条路（越过阈值那一下也发一次 onDrag）
+                    if (!_itemDragging && (px - _pressPx).magnitude > DragThreshold)
+                    {
+                        _itemDragging = true;
+                        _dragging = true;
+                        if (_dragItem.OnDrag != null) _dragItem.OnDrag(px);
+                    }
+                    else if (_itemDragging && _dragItem.OnDrag != null)
+                    {
+                        _dragItem.OnDrag(px);
+                    }
                 }
-                if (_dragging) _dragScroll.DragTo(AxisOf(_dragScroll, px));
+                else
+                {
+                    if (!_dragging && _dragScroll != null
+                        && (px - _pressPx).magnitude > DragThreshold)
+                    {
+                        _dragging = true;
+                        _dragScroll.BeginDrag(AxisOf(_dragScroll, _pressPx));
+                    }
+                    if (_dragging) _dragScroll.DragTo(AxisOf(_dragScroll, px));
+                }
             }
             else if (_pressed && mouse.leftButton.wasReleasedThisFrame)
             {
-                if (_dragging)
+                if (_itemDragging)
+                {
+                    // 🆕 2026-10-25：**拖起来过 ⇒ 抬起发 onDrop，不派发点击**（同 UGUI：拖拽吃掉了这一下）
+                    if (_dragItem.OnDrop != null) _dragItem.OnDrop(px);
+                }
+                else if (_dragging)
                 {
                     if (_dragScroll != null) _dragScroll.EndDrag();   // 速度留着 ⇒ 下一帧带惯性
                 }
@@ -387,6 +519,7 @@ namespace CardPresentation
                 }
                 if (_down != null) _down.Release();
                 _pressed = false; _down = null; _dragScroll = null;
+                _dragItem = default(DragSource); _itemDragging = false;
             }
 
             // ③ 滚轮（拖拽中不吃 —— 同 UGUI：拖的时候不响应滚轮）
@@ -1298,7 +1431,11 @@ namespace CardPresentation
             _pressed = true; _dragging = false;
             _pressPx = new Vector2(px, py);
             _down = HitButton(px, py);
-            _dragScroll = HitScroll(px, py);
+            _dragItem = default(DragSource);
+            _itemDragging = false;
+            DragSource dsAt;
+            if (TryGetDrag(_down, out dsAt)) { _dragItem = dsAt; _dragScroll = null; }   // 可拖件优先
+            else _dragScroll = HitScroll(px, py);
             Select(_down);          // 🆕 A49：与 `Update` 里那一路同一件事（原版鼠标按下即改选中），别少这一句
             if (_down != null) _down.Press();
             return _down;
@@ -1310,6 +1447,20 @@ namespace CardPresentation
         {
             if (!_pressed) return false;
             var p = new Vector2(px, py);
+            if (_dragItem.Button != null)
+            {
+                if (!_itemDragging && (p - _pressPx).magnitude > DragThreshold)
+                {
+                    _itemDragging = true;
+                    _dragging = true;
+                    if (_dragItem.OnDrag != null) _dragItem.OnDrag(p);
+                }
+                else if (_itemDragging && _dragItem.OnDrag != null)
+                {
+                    _dragItem.OnDrag(p);
+                }
+                return _itemDragging;
+            }
             if (!_dragging && _dragScroll != null && (p - _pressPx).magnitude > DragThreshold)
             {
                 _dragging = true;
@@ -1325,7 +1476,12 @@ namespace CardPresentation
         public bool ReleaseAt(float px, float py)
         {
             bool fired = false;
-            if (_dragging)
+            if (_itemDragging)
+            {
+                // 🆕 2026-10-25：拖起来过 ⇒ 发 `onDrop`、**不派发点击**
+                if (_dragItem.OnDrop != null) _dragItem.OnDrop(new Vector2(px, py));
+            }
+            else if (_dragging)
             {
                 if (_dragScroll != null) _dragScroll.EndDrag();
             }
@@ -1337,6 +1493,7 @@ namespace CardPresentation
             }
             if (_down != null) _down.Release();
             _pressed = false; _down = null; _dragScroll = null;
+            _dragItem = default(DragSource); _itemDragging = false;
             return fired;
         }
 
@@ -1350,6 +1507,7 @@ namespace CardPresentation
             {
                 var s = _scrolls[i];
                 if (s == null || s.Owner == null) { _scrolls.RemoveAt(i); continue; }
+                if (!s.Enabled) continue;                     // 🆕 原版 `ScrollRect.enabled = false` ⇒ 不推进惯性/回弹
                 if (s.Tick(dt)) moved = true;
             }
             return moved;
@@ -1541,6 +1699,7 @@ namespace CardPresentation
                 var s = _scrolls[i];
                 if (s == null || s.Owner == null) { _scrolls.RemoveAt(i); continue; }   // 死的 ⇒ 删
                 if (!s.Owner.activeInHierarchy) continue;                                // 关着的 ⇒ 跳过（还会回来）
+                if (!s.Enabled) continue;                                                // 🆕 原版 `ScrollRect.enabled = false` ⇒ 不吃指针
                 var v = DesignToPtrPx(s.Viewport, ScrollScale(s));
                 if (px >= v.x1 && px <= v.x2
                     && py >= v.y1 && py <= v.y2) return s;

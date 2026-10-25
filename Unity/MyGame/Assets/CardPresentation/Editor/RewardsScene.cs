@@ -1001,6 +1001,20 @@ public static class RewardsScene
         var win = Build(out var root);
         var wm2 = win.Manager;   // 下面几个窗（每日奖励/连登/收件箱）都挂在同一台 `WindowsManager` 上
 
+        // 🆕 **2026-10-25（用户纠正 ②）**：页签生命周期**必须在生产 `Open()` 里真的走到**，否则整条是死代码。
+        //   判据 = 原版 `GameWindowWithTabs.Open`（`decomp_full/GameWindowWithTabs__Open.c:9-21`）：
+        //   首次 `SetupTabs()`（建页签缓存 + `ForceCloseTabs`）→ 只开当前/起始页。
+        CheckTrue(win.TabsInitializedForTest,
+                  "★ `Open()` 走到了 `EnsureTabsSetup`（= 原版 lazy `SetupTabs`：页签缓存 + `ForceCloseTabs`）"
+                + "｜🧨 四扇窗漏调 ⇒ 这条红（页签生命周期成死代码）");
+        {
+            int activeTabs = 0;
+            foreach (var t in win.tabs) if (t != null && t.gameObject.activeSelf) activeTabs++;
+            Check(activeTabs, 1,
+                  "★ `Open()` 之后**只有一页**活着（`ForceCloseTabs` 全关 + `Click(start)` 开一页；"
+                + "🧨 `ForceCloseTabs` 没跑 ⇒ 建页时全是 active ⇒ 这里 > 1）");
+        }
+
         // ---------------- §一 窗口根 ----------------
         Section("窗口根（§一：`MainMenuRewardsWindow` 的 GameWindow 参数）");
         Check(win.type, WindowType.Fullscreen, "`type` = 0 Fullscreen（MB 1349677669050291967 实证）");
@@ -3510,6 +3524,54 @@ public static class RewardsScene
                 CheckTrue(rdy != null && !rdy.gameObject.activeSelf,
                           "SaimHann 差 40 点 ⇒ **可领光效灭**（`hasToCollectReward = false`）");
                 ft.SelectArmy("Goff");        // 换回可领态 —— 后面两张截图要用
+
+                // ---- 🆕 **2026-10-25（复刻第 3 轮 · 代理 H）**：领掉一格之后 —— 数据 / 格 / 红点三件事一起变 ----
+                // 判据：
+                //  · 状态公式 = 原版 `ForgeRewardItemContainer.GetLevelState`（`ForgeData.StateAt` 的注释里有出处）；
+                //  · **只有 `ToCollect` 才开 Claim 钮** = `ForgeRewardItemContainer__Initialize.c`（本文件上面那条
+                //    「可领格才有 `Generic UI Button`」同一条判据的正向）；领掉之后 `rewardsCollected += 1`
+                //    ⇒ 该格变 `Collected`、Claim 钮必须消失；
+                //  · 红点 = `Forge Button` 的 `ForgeBadge`（`BadgeWiring.DefinitionsForTab`），计数 =
+                //    **全阵营** `ToCollect` 格数（`ForgeNotificationProvider`）。
+                // 🔴 走**生产数据入口** `ForgeData.Claim`（原版 `ForgeHandler` 那条路的等价物），不是手改字段；
+                //    用完**必须还原**（`ForgeData` 是全局静态，后面两张截图还要拍「可领态」）。
+                {
+                    BadgeWiring.RegisterDefaults();
+                    var forgeBadgeDefs = BadgeWiring.DefinitionsForTab("RewardsMenu_ForgeButton");
+                    Check(forgeBadgeDefs.Count, 1, "（前提）`Forge Button` 有 1 条红点定义（`ForgeBadge`）");
+                    int badgeBefore = UiBadgeNotificationManager.GetCount(forgeBadgeDefs);
+                    string claimArmy = ForgeData.Selected;                  // = 上一句刚切的 Goff
+                    int claimLevel = ForgeData.LevelOf(claimArmy);
+                    Check(ForgeData.StateAt(claimArmy, claimLevel), ForgeData.ToCollect,
+                          "（前提）`" + claimArmy + "` 当前格是 `ToCollect`（可领）");
+                    var beforeCell = FindChild(fcontent, "ForgeCell_" + claimLevel);
+                    CheckTrue(FindChild(beforeCell, "Generic UI Button") != null,
+                              "（前提）领之前那一格有 `Generic UI Button`（Claim）");
+                    string claimWhy;
+                    bool didClaim = ForgeData.Claim(claimArmy, claimLevel, out claimWhy);
+                    CheckTrue(didClaim, "★ 领掉一格（走 `ForgeData.Claim`；原版语义 = `rewardsCollected += 1`、不扣经验）"
+                              + (didClaim ? "" : " —— 失败原因：" + claimWhy));
+                    ft.Refresh();                                  // 生产刷新入口（重建轨道）
+                    UiBadgeNotificationManager.Refresh(true);      // 红点按新数据重算
+                    Check(ForgeData.StateAt(claimArmy, claimLevel), ForgeData.Collected,
+                          "★ 领掉后该格状态 = `Collected`");
+                    var afterCell = FindChild(fcontent, "ForgeCell_" + claimLevel);
+                    CheckTrue(afterCell != null, "★ 领掉后该格仍然建出来（`Refresh` 重建了轨道）");
+                    CheckTrue(FindChild(afterCell, "Generic UI Button") == null,
+                              "★ 领掉后**该格没有 Claim 钮**了（原版「只有 ToCollect 才开 claimButton」；"
+                            + "🧨 让 `BuildCell` 无条件建 Claim 钮 ⇒ 本条红）");
+                    int badgeAfter = UiBadgeNotificationManager.GetCount(forgeBadgeDefs);
+                    Check(badgeAfter, badgeBefore - 1,
+                          $"★ 锻造红点 −1（领之前 {badgeBefore} → 领之后 {badgeAfter}；计数 = 全阵营 ToCollect 格数）");
+                    // ---- 还原（后面两张截图要拍「可领态」）----
+                    ForgeData.SetLevelForTest(claimArmy, claimLevel);
+                    ft.Refresh();
+                    UiBadgeNotificationManager.Refresh(true);
+                    Check(ForgeData.StateAt(claimArmy, claimLevel), ForgeData.ToCollect,
+                          "（还原）`" + claimArmy + "` 回到 `ToCollect`");
+                    Check(UiBadgeNotificationManager.GetCount(forgeBadgeDefs), badgeBefore,
+                          "（还原）锻造红点回到领之前的数");
+                }
             }
 
             // ============================================================ §三·b2 锻造厂页「找茬」
@@ -4356,6 +4418,35 @@ public static class RewardsScene
                 var claimW = claimN != null ? claimN.GetComponent<WindowButton>() : null;
                 CheckTrue(claimW != null, "该领那一格的 `ClaimHit` 在（下面点它）");
 
+                // 🆕 **2026-10-25（F 组件接线）**：`RewardTransform` 的 `UITransformTweenController` +
+                //   `Collect Highlight Effect` 的 `UIBorderGlow`（原版实例值/触发条件见 `Shell/ForgeTab.cs` 那两段）。
+                {
+                    var rtNode = FindChild(cellR, "RewardTransform");
+                    var tw = rtNode != null ? rtNode.GetComponent<UITransformTweenController>() : null;
+                    CheckTrue(tw != null, "★ `RewardTransform` 上挂着 `UITransformTweenController`（F 组件）");
+                    if (tw != null)
+                    {
+                        CheckNear(tw.animTime, 1.5f, 1e-4f, "★ 补间时长 = **1.5 s**（Forge 实例值）");
+                        CheckTrue(tw.animPosition && tw.animScale, "★ 位置 + 缩放两条都开（`animPosition/animScale = 1`）");
+                        CheckNear(tw.targetScale.x, 1.12f, 1e-4f, "★ `targetScale = 1.12`");
+                        CheckNear(tw.targetScale.y, 1.12f, 1e-4f, "★ …y 也是 1.12");
+                        CheckTrue(tw.PositionTweenCount > 0 && tw.ScaleTweenCount > 0,
+                                  "★ `ToCollect` ⇒ 调过 `DoDefaultAnim`（两条补间各起过 ≥1 次；"
+                                + "🧨 不按状态分派 ⇒ 计数 0 ⇒ 红）");
+                    }
+                    var glowNode = FindChild(cellR, "Collect Highlight Effect");
+                    var glow = glowNode != null ? glowNode.GetComponent<UIBorderGlow>() : null;
+                    CheckTrue(glow != null, "★ `Collect Highlight Effect` 上挂着 `UIBorderGlow`（F 组件）");
+                    CheckTrue(glowNode != null && !glowNode.gameObject.activeSelf,
+                              "★ 出厂**关**（原版 `Initialize` 无条件 `SetActive(false)`）");
+                    if (glow != null)
+                    {
+                        CheckNear(glow.animTime, 1f, 1e-4f, "★ `animTime = 1`（Forge 实例值）");
+                        CheckNear(glow.animDelay, 0f, 1e-4f, "★ `animDelay = 0`");
+                        CheckTrue(glow.playOnEnable, "★ `playOnEnable = 1`（Forge 那 3 个会呼吸的之一）");
+                    }
+                }
+
                 // ================================================================
                 // 🆕 **2026-10-12（A441）③ 负例：领不到 ⇒ 一扇窗都不许弹**
                 //  🔴 **为什么不直接点「`InProgress` / `Locked` 那一格」**：`ForgeTab.BuildCell` **只在
@@ -4407,6 +4498,14 @@ public static class RewardsScene
                           + "这个改坏法在下面两条里**看不出来**（两条都会绿；`lvR % 4 == 0` 时同图 ⇒ 本条自动放行）"
                           + "（写成 `artCell == null ||` 是**不叠红**：取不到图那条上一句已经报过了）");
                 var rwForge = ClickCollectAndDismiss(claimN, claimW, "锻造轨道的 `ClaimHit`");
+                // 🆕 2026-10-25：领到之后那颗 `Collect Highlight Effect` 必须被打开（原版 `ClickClaim` 尾句）
+                {
+                    var cellAfter = FindChild(fcontent, "ForgeCell_" + lvR);
+                    var glowAfter = FindChild(cellAfter, "Collect Highlight Effect");
+                    CheckTrue(glowAfter != null && glowAfter.gameObject.activeSelf,
+                              "★ 领到之后 `Collect Highlight Effect` **被 SetActive(true)**（紫边呼吸；"
+                            + "🧨 `ClaimCell` 漏了这一跳 ⇒ 这条红）");
+                }
                 Check(ForgeData.LevelOf(ForgeData.Selected), lvR + 1,
                       "点了 Claim ⇒ 已领格数 +1（原版语义：只把 `rewardsCollected` 加一，不扣经验）");
                 CheckTrue(rwForge != null, "★ A441 ①：锻造领到 ⇒ **弹出 `Reward Window`**"
@@ -10343,8 +10442,27 @@ public static class RewardsScene
             CheckTrue(shQ != null, "（前提）收件箱压暗层有 quad");
             if (shQ != null) CheckNear(shQ.Tint.a, 0.773f, 1e-4f, "★ 收件箱压暗 alpha = 原版 **0.773**");
         }
-        Check(inbox.HasMessages, false, "单机没有消息 ⇒ 走**空态**（原版 `InboxWindow__Open.c:49` 也是这条分支）");
+        // 🔴 **2026-10-25（N17）：这条从「期望 false」改成「期望 true」—— 旧期望的依据【已经不成立】。**
+        //   旧期望写的是「单机没有消息 ⇒ 走空态」，那句在 2026-10-25 之前是对的（收件箱没有数据源）；
+        //   本轮用户开线后加了**本地消息源**（`Shell/InboxData.cs`），出厂表 =
+        //   `local_welcome`（本地欢迎信，带 300 活动点）+ `announce_<eventId>`（最近一次 enabled 活动的公告）
+        //   ⇒ 判据 = `InboxData.cs` 的 `BuildSeed()`（末尾按 `StartDate` 升序，同原版 `Inbox.InitializeHandler`）。
+        //   期望值依据 = ①原版 `InboxWindow__Open.c:49` 的**非空那一支**（`noNewsWarning.SetActive(false)` +
+        //   `display.Initialize(当前)` + `list.Initialize(messages, 当前)`）；
+        //   ②`InboxData.BuildSeed()` 出厂 **2** 条。
+        //   🧨 改坏法：删掉 `InboxWindow.Build()` 里那句 `LoadFromStore()` ⇒ 条数 0、三个 Check 一起红。
+        Check(inbox.HasMessages, true,
+              "★ 收件箱有出厂消息（判据 = `InboxData.BuildSeed` 的两条 + 原版 `InboxWindow__Open.c:49` 非空支）");
+        Check(inbox.Rows.Count, 2, "…列表条目数 = 消息数（原版 `MessageList.Initialize(messages)`；出厂两条）");
         var mdNode = FindChild(inbox.transform, "Message Display");
+        // 原版 `:49` 的 else 支：非空 ⇒ `Message Display` 开、`No News Warning` 关（⛔ 与上面那条同一支，别分开改）
+        CheckTrue(mdNode != null && mdNode.gameObject.activeSelf,
+                  "…非空 ⇒ `Message Display` **开着**（原版 `InboxWindow__Open.c:49` else 支）");
+        {
+            var noNewsN = FindChild(inbox.transform, "No News Warning");
+            CheckTrue(noNewsN == null || !noNewsN.gameObject.activeSelf,
+                      "…而且 `No News Warning` **关着**（同一支：非空就不显示空态文案）");
+        }
         // 🆕 **2026-10-19（`T29` 剩余五屏 · 收件箱底纹层序）**：原版 `Content` 的子件序是
         //   红底 `Generic Window Red Background Big` → … → `Message Display` ⇒ **半透明显示板必须压在红底之上**。
         //   改前两者同为 3006 且 z 都是 0（同队列同 z ⇒ 谁盖谁不确定，`CLAUDE.md` §三 那条）。

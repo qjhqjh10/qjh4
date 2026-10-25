@@ -182,6 +182,32 @@ namespace CardPresentation
             public WindowButton ChallengeHit;
             /// <summary>`SettingsBtn`（齿轮）。</summary>
             public WindowButton SettingsHit;
+
+            // ---- 🔴 2026-10-25（H · 复刻第 2 轮 · P1）：**资源数字要跟着 `Wallet` 变** ----
+            /// <summary>一格资源计数：币种 + 那颗字 + 上次印的串（变了才重写）。</summary>
+            public sealed class CounterRef
+            {
+                public MainMenuRuntime.CounterSpec Spec;
+                public Label Label;
+                /// <summary>**当前屏幕上那个串**（滚动动画中会逐帧变；动画结束 = 目标串）。</summary>
+                public string Shown;
+                /// <summary>当前显示的数值（原版 `UIResourceCounter` 的 `+0x3c` / `+0x40`）。</summary>
+                public int Value;
+                /// <summary>要滚到的数值（原版 `SetQuantity` 的目标）。</summary>
+                public int Target;
+                public int From;
+                public float T;
+                public bool Animating;
+            }
+            /// <summary>顶栏那几格资源计数（建表序 = `MainMenuRuntime.CounterSpecs` 的顺序）。</summary>
+            public readonly List<CounterRef> Counters = new List<CounterRef>();
+
+            /// <summary>🆕 2026-10-25：资源条 overlay 档在不在（`ResourcesBarController.ToggleOverlay`）。</summary>
+            public bool OverlayOn;
+            /// <summary>overlay 前的队列（与 `OverlayTargets` 一一对应，按加入顺序还原）。</summary>
+            public readonly List<int> OverlaySavedQ = new List<int>();
+            /// <summary>被抬高队列的件（`ImageQuad` / `Label`）。</summary>
+            public readonly List<UnityEngine.Object> OverlayTargets = new List<UnityEngine.Object>();
         }
 
         /// <summary>最近一次 `Build` 出来的那一份（🆕 2026-10-24 E12：**只给自检用** ——
@@ -206,19 +232,28 @@ namespace CardPresentation
             // 🔴 **画出来那块（61.73²）≠ 原版那件自己的矩形（`GearBox` = 87.78×61.73）** ——
             //    命中区取**后者** + `GearPad`（`A1814`：两个数分开表达，判据见文件头那一整段）。
             var gear = Rect(settings, "UI_Settings_Icon", GearBox, "Image", QBarContent, null, true, onMissing);
-            // ⚙️ 设置钮的红点：**没有通知源** ⇒ 画出来但 alpha = 0（原版由 `UiBadgeNotification` 按通知亮）
-            Rect(settings, "40K_notification_number", 1865.9f, 1890.9f, 4.4f, 29.4f, "Badge Highlight",
+            // ⚙️ 设置钮的红点：原版这条 `notificationDefinitions` **是空的**（`MonoBehaviour_506.json`
+            //    —— 父链 `SettingsBtn/Upper bar/...`）⇒ **永不亮**。我们照这个事实挂一条「空定义」：
+            //    显隐/计数交给 `UiBadgeNotification`（alpha 补间 + 计数文本），而不是写死 alpha。
+            //    判据/接线表 → `Shell/BadgeNotifications.cs` 文件头。
+            var gearBadge = Rect(settings, "40K_notification_number", 1865.9f, 1890.9f, 4.4f, 29.4f, "Badge Highlight",
                  QBarBadge, MainMenuRuntime.BadgeAlpha(false), false, onMissing);
+            BadgeWiring.Attach(gearBadge, new PxRect(1865.9f, 4.4f, 1890.9f, 29.4f), settings, QBarText,
+                               MainMenuRuntime.BadgeTint, BadgeWiring.DefinitionsFor("Settings"), "TopBar.Settings");
 
             // ---- 信封 + 挑战（那两个顶栏钮）----
             var btns = New(bar, "TopBarButtons", 311.4f, 71.33f);
             var inbox = New(btns, "InboxBtn", 55f, 40f);
             var inboxImg = Rect(inbox, "40K_notification", InboxBox, "Image", QBarContent, null, true, onMissing);
             // 红点：原版 `Inbox.CheckNotification` = **未读条数**，走 `UiBadgeNotification` 的 **alpha 补间**
-            // （`Show()` 把 alpha 置 1、`Hide()` 置 0 —— **不是 `SetActive`**）。⚠️ **照主菜单那一份**：
-            // 原来本件写死 `BadgeAlpha(false)`（恒 0）⇒ 有未读也永远不亮（见文件头 ②）。
-            Rect(inbox, "40K_notification_number", 454.3f, 489.3f, 2.0f, 37.0f, "Badge Highlight",
-                 QBarBadge, MainMenuRuntime.BadgeAlpha(DailyData.InboxHasBadge), false, onMissing);
+            // （`Show()` 把 alpha 置 1、`Hide()` 置 0 —— **不是 `SetActive`**）。
+            // 🆕 2026-10-25（代理 H）：接线照原版 `notificationDefinitions = [InboxBadge]`（`MonoBehaviour_2211.json`），
+            //    计数行 = `OneText`（fs34 / auto[18,34] / base36 / 白 / 居中，判据见 `BadgeNotifications.cs` 文件头）。
+            //    ⚠️ 单机 `DailyData.InboxCount` 恒 0 ⇒ 今天恒隐藏（= 原版空收件箱的空态，**不是省略**）。
+            var inboxBadge = Rect(inbox, "40K_notification_number", 454.3f, 489.3f, 2.0f, 37.0f, "Badge Highlight",
+                 QBarBadge, MainMenuRuntime.BadgeAlpha(false), false, onMissing);
+            BadgeWiring.Attach(inboxBadge, new PxRect(454.3f, 2.0f, 489.3f, 37.0f), inbox, QBarText,
+                               MainMenuRuntime.BadgeTint, BadgeWiring.DefinitionsFor("Inbox"), "TopBar.Inbox");
             // 🆕 **2026-10-17（`A1840`）**：原版这两颗 **`m_PreserveAspect = 1`**（判据 →
             //   `资料/普查产出_第二十八会话/W5_顶栏命中区.md`；我们原来写 `keepAspect = false` ⇒ 画面差
             //   0.1 px / 1.84 px）。⚠️ 它只改**画面**（`FitAspect` 内缩），命中区仍按各自 `m_RaycastPadding` 算。
@@ -256,7 +291,7 @@ namespace CardPresentation
             if (feedback != null) feedback.gameObject.SetActive(false);
 
             BuildPlayerProfile(bar, parts, onMissing);
-            BuildResourcesBar(bar, onMissing);
+            BuildResourcesBar(bar, parts, onMissing);
 
             // ---- 🆕 B25：接线（那 4 颗钮）。⛔ 别把 `WindowsManager` 那套搬进本件 ----
             // 🔴 **为什么接线在【本件】而不是各宿主各接一份**：宿主有两个（主菜单 / 卡组编辑），
@@ -473,6 +508,165 @@ namespace CardPresentation
 
         /// <summary>玩家在档案窗改了头像 ⇒ 顶栏这一层跟着换（**每帧比一个 int** 就够，别另造事件机制）。
         /// ⚠️ 批处理下 `Update` 不跑 ⇒ **自检直接调这个方法**。</summary>
+        /// <summary>🔴 **2026-10-25（H · 复刻第 2 轮 · P1）：把顶栏那几格资源数字按 `Wallet` 现值重刷（变了才写）。**
+        /// <para>**为什么要它**：原版 `ResourcesBarController.OnCurrencyChange` / `OnCampaignPointChange`
+        /// 是**事件驱动**的刷新（`ResourcesBarController.cs:222/235`）；我们这一侧只有 `Wallet.Grant`
+        /// **一个发奖口**（`Shell/DailyData.cs:2200`，全工程唯一），而顶栏的 `Label` 是 `Build` 时写死的
+        /// ⇒ **领奖/购买之后顶栏数字停在旧值**（直到整壳重建）。这条把它补上。
+        /// <para>⚠️ **只重写文字、不重算药丸宽**：药丸宽是 `Build` 时按文字的 preferred 宽量的
+        /// （`QtyWMin..QtyWMax` 夹取）。位数变多时（例：`2000 → 12000`）走 `SetAutoFitBox` 的缩字兜底而不是加宽药丸
+        /// —— 这是**我们挑的**（原版那条 `ContentSizeFitter` 会加宽），已如实记在报告「没查清」。
+        /// 位数不变（本项目绝大多数情况：起始 2000、每次 +100..+300）时**逐位等价**。</para></summary>
+        /// <summary>🆕 **2026-10-25（复刻第 3 轮 · 菜单 C 第一条）**：资源数字**滚动到新值**（原版 `UIResourceCounter.SetQuantity(quantity, animated=1)`）。
+        /// <para>判据：`decomp_full/UIResourceCounter__SetQuantity.c` 的 animated 支 —— `DOTween.Kill` → 用补间把
+        /// 一个浮点从**当前值**推到**目标值** → `OnUpdate` 里 **`ceil(value)`** 写进文本（`…b__0.c:16` / `b__1.c`）→
+        /// `OnComplete` 把 current/target 都定到终值（`…b__2.c:8-10`）；时长 **0.5 s**（`报告/D_未分类_第1轮.md:105`）。
+        /// 非 animated（`SetQuantity(...,0)`）与「对象不在屏上」都是**直接写**（原版 `activeInHierarchy` 闸）。</para>
+        /// <para>⚠️ **没解析出来的那一半**：原版 animated 支**还会先给文本 transform 设一个 localScale 预设**
+        /// （`SetQuantity.c` 读 `DAT_1842da2a8 → +0xb8 → +0xc/+0x14` 的静态 Vector3）；那个静态值本轮没解析出来
+        /// （`DAT` 是类静态字段指针，不是字面量）⇒ **只做数字滚动、没做那一下缩放**。如实记，别当成原版没有。</para>
+        /// <para>⚠️ 批处理（`Application.isPlaying == false`）或计数件不在屏上 ⇒ **直接落终值**（截图/断言看到的是终态）。</para></summary>
+        public static void RefreshCountersIfChanged(Parts parts)
+        {
+            if (parts == null || parts.Counters == null) return;
+            for (int i = 0; i < parts.Counters.Count; i++)
+            {
+                var c = parts.Counters[i];
+                if (c == null || c.Label == null || c.Spec == null) continue;
+                int owned = MainMenuRuntime.OwnedOf(c.Spec.Currency);
+                int max = MainMenuRuntime.MaxOf(c.Spec.Currency);
+                string finalText = MainMenuRuntime.CounterText(owned, max);
+                if (owned == c.Target && (c.Animating || string.Equals(finalText, c.Shown, System.StringComparison.Ordinal)))
+                    continue;
+
+                bool canAnimate = Application.isPlaying && c.Label.gameObject != null
+                                  && c.Label.gameObject.activeInHierarchy;
+                if (!canAnimate)
+                {
+                    c.Value = owned; c.Target = owned; c.Animating = false; c.T = 0f;
+                    c.Label.SetText(finalText);
+                    c.Shown = finalText;
+                    continue;
+                }
+                // 与上一段动画**同目标** ⇒ 不重启（否则每帧 Refresh 都会把 t 归零、数字永远滚不到）
+                if (c.Animating && c.Target == owned) continue;
+                c.From = c.Value;
+                c.Target = owned;
+                c.T = 0f;
+                c.Animating = true;
+                StepCounter(c, 0f);                 // t=0 那一帧：写起始值（照原版 setter 的首帧）
+            }
+        }
+
+        /// <summary>推进资源数字滚动（原版 `DOTween` 的 Update；`MainMenuRuntime.Update` 每帧调）。
+        /// 返回有没有计数件动过。批处理没有帧循环 ⇒ 自检用 `RefreshCountersIfChanged` 的直落分支（不看这里）。</summary>
+        public static bool StepCounters(Parts parts, float dt)
+        {
+            if (parts == null || parts.Counters == null || dt < 0f) return false;
+            bool moved = false;
+            for (int i = 0; i < parts.Counters.Count; i++)
+            {
+                var c = parts.Counters[i];
+                if (c == null || !c.Animating) continue;
+                StepCounter(c, dt);
+                moved = true;
+            }
+            return moved;
+        }
+
+        /// <summary>原版动画时长（`报告/D_未分类_第1轮.md:105`：0.5 s）。</summary>
+        public const float CounterAnimTime = 0.5f;
+
+        /// <summary>🆕 **2026-10-25（菜单 C）**：原版 `ResourcesBarController.ToggleOverlay(bool)`（`ResourcesBarController.cs:264`）——
+        /// **卡片详情窗打开时**把资源条抬到那扇窗**之上**；关掉时还原。
+        /// <para>原版做法（`ResourcesBarController__ToggleOverlay.c` 现读）：拿 `CardDisplayWindow`（单例 `+0x58`）的
+        /// 父 `Canvas`，把资源条自己的 Canvas 设为 `overrideSorting = 1` + **同 sortingLayer** + **order + 1**。
+        /// 我们**没有 uGUI Canvas** ⇒ 等价物 = **把资源条子树的渲染队列整体抬高到卡片详情窗之上**：
+        /// 卡片详情窗最高 `CardDetailPopup.QCdHit = 3118` ⇒ 我们把资源条从 `QBarPanel(2986)` 平移到
+        /// **`QBarOverlayBase = 3120`**（同一条带内相对次序不变）。关掉时**逐件还原**原队列。</para>
+        /// <para>判据（调用点，`decomp_full` 现读）：`CardDisplayWindow.ShowCard → true` ·
+        /// `Close / ToBackground → false` · `ToFocus → true`。接线在 `Shell/CardDetailPopup.cs`。</para></summary>
+        public const int QBarOverlayBase = 3120;
+
+        /// <summary>资源条 overlay 档（见 <see cref="QBarOverlayBase"/>）。`on == 当前态` ⇒ 早退（可重复调）。</summary>
+        public static void ToggleOverlay(Parts parts, bool on)
+        {
+            if (parts == null || parts.Root == null) return;
+            if (parts.OverlayOn == on) return;
+            if (on)
+            {
+                parts.OverlayTargets.Clear();
+                parts.OverlaySavedQ.Clear();
+                int shift = QBarOverlayBase - QBarPanel;          // 2986 → 3120
+                var quads = parts.Root.GetComponentsInChildren<ImageQuad>(true);
+                for (int i = 0; i < quads.Length; i++)
+                {
+                    var q = quads[i];
+                    if (q == null) continue;
+                    int old = q.RenderQueue;
+                    parts.OverlayTargets.Add(q);
+                    parts.OverlaySavedQ.Add(old);
+                    q.SetRenderQueue(old + shift);
+                }
+                var labels = parts.Root.GetComponentsInChildren<Label>(true);
+                for (int i = 0; i < labels.Length; i++)
+                {
+                    var lb = labels[i];
+                    if (lb == null) continue;
+                    int old = lb.RenderQueue;
+                    parts.OverlayTargets.Add(lb);
+                    parts.OverlaySavedQ.Add(old);
+                    lb.SetRenderQueue(old + shift);
+                }
+                parts.OverlayOn = true;
+                return;
+            }
+            for (int i = parts.OverlayTargets.Count - 1; i >= 0; i--)
+            {
+                var o = parts.OverlayTargets[i];
+                int q = parts.OverlaySavedQ[i];
+                var quad = o as ImageQuad;
+                if (quad != null) { quad.SetRenderQueue(q); continue; }
+                var label = o as Label;
+                if (label != null) { label.SetRenderQueue(q); continue; }
+            }
+            parts.OverlayTargets.Clear();
+            parts.OverlaySavedQ.Clear();
+            parts.OverlayOn = false;
+        }
+
+        /// <summary>自检读口：overlay 档在不在 + 被抬高的件数。</summary>
+        public static int OverlayTargetCountForTest(Parts parts)
+        {
+            return parts != null ? parts.OverlayTargets.Count : -1;
+        }
+
+        static void StepCounter(Parts.CounterRef c, float dt)
+        {
+            if (c == null || c.Label == null) return;
+            if (dt > 0f) c.T += dt;
+            float k = CounterAnimTime > 0f ? Mathf.Clamp01(c.T / CounterAnimTime) : 1f;
+            int v = Mathf.CeilToInt(Mathf.Lerp(c.From, c.Target, k));     // 原版是 `ceil`（`…b__0.c:16`）
+            string text = MainMenuRuntime.CounterText(v, MainMenuRuntime.MaxOf(c.Spec.Currency));
+            if (!string.Equals(text, c.Shown, System.StringComparison.Ordinal))
+            {
+                c.Label.SetText(text);
+                c.Shown = text;
+            }
+            c.Value = v;
+            if (k >= 1f)
+            {
+                c.Animating = false;
+                c.Value = c.Target;
+                string finalText = MainMenuRuntime.CounterText(c.Target, MainMenuRuntime.MaxOf(c.Spec.Currency));
+                if (!string.Equals(finalText, c.Shown, System.StringComparison.Ordinal))
+                {
+                    c.Label.SetText(finalText);
+                    c.Shown = finalText;
+                }
+            }
+        }
+
         public static void RefreshTopAvatarIfChanged(Parts parts, Action<string> onMissing)
         {
             if (parts == null) return;
@@ -551,7 +745,7 @@ namespace CardPresentation
         /// ⚠️ 本件 D13/D14 那一版就是错在这里（按 `DefaultCurrencies` 建 ⇒ 次序整个反过来）——
         /// 见文件头 ①。改坏法：把 `CounterSpecs` 换回 `DefaultCurrencies` ⇒ 画出来变
         /// `gold·crystals·blackStones`（`Editor/DeckScene.cs` 顶栏那一段的次序断言会红）。</summary>
-        static void BuildResourcesBar(Transform parent, Action<string> onMissing)
+        static void BuildResourcesBar(Transform parent, Parts parts, Action<string> onMissing)
         {
             var resBar = New(parent, "Resources Bar", ResBarW, ResBarH);
             var shown = new List<MainMenuRuntime.CounterSpec>();
@@ -576,8 +770,11 @@ namespace CardPresentation
             {
                 var spec = shown[i];
                 var item = New(container, "Resource Counter Item", 0f, ItemH);
-                var lb = Text(item, MainMenuRuntime.CounterText(MainMenuRuntime.OwnedOf(spec.Currency),
-                                                                MainMenuRuntime.MaxOf(spec.Currency)),
+                // 🔴 2026-10-25（H）：先把串算出来 —— 既喂给 `Text`，也存进 `CounterRef.Shown`
+                //   （刷新时拿它比「变了没有」，见 `RefreshCountersIfChanged`）。
+                int qty = MainMenuRuntime.OwnedOf(spec.Currency);
+                string qtyTxt = MainMenuRuntime.CounterText(qty, MainMenuRuntime.MaxOf(spec.Currency));
+                var lb = Text(item, qtyTxt,
                               0f, 1f, 0f, PillH, 8, Color.white, "Resource QuantityText", QtyFontPx, QBarText,
                               TmpFont.Face.LatinCardBody);   // R3：原版 `Resource QuantityText` = Pragati（下面按 `WorldW` 量药丸宽）
                 if (lb != null) { lb.SetCharSpacing(QtyCharSpacing); lb.ForceRelayout(); }   // 字距要在量宽之前
@@ -586,6 +783,11 @@ namespace CardPresentation
                 float textW = Mathf.Clamp(nat, QtyWMin, QtyWMax);
                 float pw = PillPadL + textW + PillPadR;
                 labels.Add(lb); items.Add(item); textWl.Add(textW); pillWl.Add(pw);
+                if (parts != null && lb != null)
+                    parts.Counters.Add(new Parts.CounterRef
+                    {
+                        Spec = spec, Label = lb, Shown = qtyTxt, Value = qty, Target = qty,
+                    });
                 // 🔴 格宽 = **原版布局组算出来的** = `pad.L(20) + 药丸宽 + pad.R(1)` —— **不含图标那 60px**
                 //    （原版 `Icon` 带 `LayoutElement.m_IgnoreLayout = 1` ⇒ uGUI 不长它；格的宽由
                 //     `ContentSizeFitter.m_HorizontalFit = 2 (PreferredSize)` 驱动。判据与出处 →

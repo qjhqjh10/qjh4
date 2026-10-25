@@ -228,37 +228,53 @@ namespace CardPresentation
         }
 
         // ============================================================ 两颗钮点什么
-        // 原版：`JoinAllianceButtonClick()` 打开「找联盟」那一页；`LeaderboardButtonClick()` 按
-        // `leaderboardToOpen` 打开 `leaderboardPopup`（一个 `GameWindow` 引用）。
-        // 🔴 **两条都要服务器**（联盟与联盟榜全在远端的 group service）⇒ 照本工程边界③：
-        //   **入口照做、点了如实说「暂无服务器」**，⛔ 不静默、也不造假数据。
+        // 原版（`AlliancesEventScorePanel__JoinAllianceButtonClick.c` / `…__LeaderboardButtonClick.c`，
+        //   逐条现读）：
+        //   · `JoinAllianceButtonClick()` = `WindowsManager.CloseAllWindows()` +
+        //     `NavigationPanelController.GetToggle(NavigationPanelToggleType.Social).toggle.isOn = true`
+        //     ⇒ **切到 Social 页（找联盟那一页）**，不是「什么都做不了」。
+        //   · `LeaderboardButtonClick()` = `ResourcesBarController.ToggleOverlay(false)` +
+        //     `WindowsManager.OpenWindow(leaderboardPopup)`（窗 id = `leaderboardToOpen`）。
+        //
+        // 🔴 **2026-10-25（N9 · 账 129/130）**：这两条原来**只弹一句自拟的「暂无服务器」**。
+        //   查证结论：这两跳**都是纯客户端导航**（关窗 + 点导航钮 / 开一扇本地窗），
+        //   数据才需要服务器 ⇒ 原版这条链**本地可复刻**，没有理由停在「点了没反应」。
+        //   · 129 的等价件本仓全在：`WindowsManager.CloseAllWindows()` · `MainMenuRuntime.OpenSocial()` ·
+        //     `MainMenuRuntime.SetNavToggle(NavigationPanelToggleType.Social)`。
+        //   · 130 的等价件 = `MainMenuRuntime.OpenLeaderboard(LeaderboardKind.Draft)` ——
+        //     ⚠️ **选 Draft 这一档是照原版入口链推的**：我们这一族面板的父件是轮抽/联盟活动那一支
+        //     （`Alliance Detail View`），原版那颗 `leaderboardPopup` 就是**轮抽榜**；
+        //     `ResourcesBarController.ToggleOverlay(false)` 在我们这边**没有对应物**（本仓没有资源栏的
+        //     展开遮罩这一层）⇒ 如实记着，**不假装关过**。
         void OnJoinAllianceClick()
         {
-            Debug.Log("[Alliance] `Join Alliances Button` 点了 ⇒ **如实提示「暂无服务器」**"
-                    + "（原版 `JoinAllianceButtonClick()` 打开找联盟那一页；本地没有 group service）。");
-            // ⚠️ **这句是【我们自拟】的**（2026-10-17 `N37②` 现读官方 13 语言表：`Alliances are not
-            //   available offline.` **0 命中**）。原版**没有离线分支**（联盟/联盟榜全在远端 group service、
-            //   服务器一直在线）⇒ 没有对应词条可接，⛔ 别硬套官方键。
-            Offline("Alliances are not available offline.");
+            Debug.Log("[Alliance] `Join Alliances Button` ⇒ 关掉所有窗 + 切到 Social 页"
+                    + "（原版 `JoinAllianceButtonClick()` = `CloseAllWindows()` + 点亮 Social 那颗导航钮）。");
+            var wm = WindowsManager.Instance;
+            if (wm != null) wm.CloseAllWindows();
+            var rt = MainMenuRuntime.InstanceOrFind();
+            if (rt != null) rt.OpenSocial();
+            else Debug.LogWarning("[Alliance] 没有 `MainMenuRuntime` ⇒ Social 页开不了（不在主菜单场景）");
+            // 原版那一句是 `GetToggle(Social).toggle.isOn = true`；本仓 = 点亮左竖导航第 4 颗。
+            // ⚠️ 用户 2026-10-24 的口径下 Social 那颗**是隐藏的**（节点照建、`SetActive(false)`）——
+            //   这里点不亮它，但**社交窗本身照开**（`OpenSocial()` 与导航钮可见性无关）。
+            MainMenuRuntime.SetNavToggle(MainMenuRuntime.NavigationPanelToggleType.Social);
         }
 
         void OnLeaderboardClick()
         {
-            Debug.Log("[Alliance] `Leaderboard Button` 点了 ⇒ **如实提示「暂无服务器」**"
-                    + "（原版 `LeaderboardButtonClick()` 按 `leaderboardToOpen` 开 `leaderboardPopup`；"
-                    + "本地没有联盟榜数据）。");
-            // ⚠️ **这句是【我们自拟】的**（2026-10-17 `N37②` 现读官方 13 语言表：
-            //   `The alliance leaderboard is not available offline.` **0 命中**）；原版无离线分支
-            //   ⇒ 无对应词条可接，⛔ 别硬套官方键（与上面 `Join Alliances` 那条同族）。
-            Offline("The alliance leaderboard is not available offline.");
-        }
-
-        /// <summary>那条离线提示 —— ⚠️ 文案是**我们自拟**的（原版服务器一直在线、没有离线分支；
-        /// 官方 13 语言表对这两句 0 命中）⇒ 无对应词条可接（2026-10-17 `N37②`）。</summary>
-        static void Offline(string msg)
-        {
-            if (WindowsManager.Instance != null)
-                WindowsManager.Instance.ShowPopUp(msg, "OK", null);
+            Debug.Log("[Alliance] `Leaderboard Button` ⇒ 开**轮抽榜**"
+                    + "（原版 `LeaderboardButtonClick()` = `OpenWindow(leaderboardPopup)`，"
+                    + "窗 id = `leaderboardToOpen`）。");
+            var rt = MainMenuRuntime.InstanceOrFind();
+            if (rt == null)
+            {
+                Debug.LogWarning("[Alliance] 没有 `MainMenuRuntime` ⇒ 排行榜开不了（不在主菜单场景）");
+                return;
+            }
+            // ⚠️ 原版这一步之前还有 `ResourcesBarController.ToggleOverlay(false)`；
+            //   本仓没有「资源栏展开遮罩」这一层 ⇒ 没有可关的东西（如实记，⛔ 不假装关过）。
+            rt.OpenLeaderboard(LeaderboardKind.Draft);
         }
 
         // ============================================================ 助手

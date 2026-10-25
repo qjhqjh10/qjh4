@@ -141,6 +141,22 @@ namespace WarpforgeVFX
         /// <summary>表现层挂这里：给定一个正在播的特效实例，返回它是为哪两张卡播的。</summary>
         public static Func<WarpforgeEffectPlayer, WFEffectCardContext> Resolver;
 
+        /// <summary>🔴 **2026-10-25（完全复刻第 1 轮 · D 域）**：**现在是不是本地玩家的回合**。
+        ///
+        /// <para>**为什么需要这一格**：原版 `AnimFXModuleBase.Initialize` 里算
+        /// `isRetaliation = actingCard.isPlayer != BattleManager.IsPlayerTurn()`
+        /// （`decomp_full/AnimFXModuleBase__Initialize.c:26-50`：`+0x30` 置位三支）。
+        /// `Resolver` 只给「为哪两张卡播的」，**不含回合方** ⇒ 这一格必须单独供。</para>
+        ///
+        /// <para>挂法（`CardPresentation/Battle/**`，一行）：
+        /// <code>WarpforgeVFX.WFEffectCards.IsLocalPlayersTurn = () =&gt; 本回合方 == 本地座位;</code>
+        /// （`BattleDriver` 的座位字段是 `_me`；⛔ 别用「出手那张卡是不是我方」代替 ——
+        ///  反击/触发本来就会在对方回合由我方卡出手，那正是 `isRetaliation == true` 的场合。）</para>
+        ///
+        /// <para>不挂 ⇒ `WarpforgeEffectPlayer.IsRetaliation` **保持 false**（= 那道闸永远放行），
+        /// 并**出声一次 + 计数**（`WarpforgeEffectPlayer.RetaliationUnknown`）。</para></summary>
+        public static Func<bool> IsLocalPlayersTurn;
+
         /// <summary>拿不到卡上下文的次数（自检用；**不静默**）。</summary>
         public static int MissingCount;
 

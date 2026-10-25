@@ -1,0 +1,603 @@
+域	原版类	方法	判据出处	判据要点	状态	我们的落点	差异	等级	轮次	备注
+日常/奖励	BaseEventPopup	Close()	BaseEventPopup.cs:100		E					
+日常/奖励	BaseEventPopup	Open()	BaseEventPopup.cs:35		E					
+日常/奖励	BaseEventProgressClaimButtonController	ApplyState()	BaseEventProgressClaimButtonController.cs:202		E					
+日常/奖励	BaseEventProgressClaimButtonController	ApplyState(TState stateToChange)	BaseEventProgressClaimButtonController.cs:23		E					
+日常/奖励	BaseEventProgressClaimButtonController	CollectionClick()	BaseEventProgressClaimButtonController.cs:247		E					
+日常/奖励	BaseEventProgressClaimButtonController	Initialize(TState currentState, CurrencyValue normalPrice, Action onCollect)	BaseEventProgressClaimButtonController.cs:215		E					
+日常/奖励	BaseEventProgressRewardDrawerController	ChangeState(TState currentState)	BaseEventProgressRewardDrawerController.cs:52		E					
+日常/奖励	BaseEventProgressRewardDrawerController	Initialize(IReadOnlyList<RewardInfo> rewards, bool isPremium, TState currentState)	BaseEventProgressRewardDrawerController.cs:13		E					
+日常/奖励	BaseEventProgressRewardDrawerController	OverridePremiumBadge(Sprite sprite)	BaseEventProgressRewardDrawerController.cs:40		E					
+日常/奖励	BaseParentEventWindow	CreateEventTab(ILiveOps liveOps)	BaseParentEventWindow.cs:376		E					
+日常/奖励	BaseParentEventWindow	Open()	BaseParentEventWindow.cs:102		E					
+日常/奖励	BaseParentEventWindow	SetupData(object data, GameWindowOptions options)	BaseParentEventWindow.cs:115		E					
+日常/奖励	BaseParentEventWindow	SetupTabs()	BaseParentEventWindow.cs:155		E					
+日常/奖励	BattleEventsController	CheckHealth()	BattleEventsController.cs:48		E					
+日常/奖励	BattleEventsController	Initialize()	BattleEventsController.cs:18		E					
+日常/奖励	BattleEventsController	Update()	BattleEventsController.cs:43		E					
+日常/奖励	BoostTimerPanel	Init(BoostItem boostItem)	BoostTimerPanel.cs:24		E					
+日常/奖励	BoostTimerPanel	SetDescription(string text)	BoostTimerPanel.cs:14		E					
+日常/奖励	BoostTimerPanel	SetTimer(string text)	BoostTimerPanel.cs:19		E					
+日常/奖励	BoostTimerPanel	UpdateTimer()	BoostTimerPanel.cs:42		E					
+日常/奖励	ChallengeButton	Awake()	ChallengeButton.cs:16		E					
+日常/奖励	ChallengeButton	Initialize()	ChallengeButton.cs:33		E					
+日常/奖励	ChallengeButton	OnButtonClick()	ChallengeButton.cs:87		E					
+日常/奖励	ChallengeButton	OnDestroy()	ChallengeButton.cs:79		E					
+日常/奖励	ChallengeButton	OnSignalRaise(Type signal)	ChallengeButton.cs:50		E					
+日常/奖励	ChallengeButton	Toggle(bool option)	ChallengeButton.cs:73		E					
+日常/奖励	ChallengeComparisonExtensions	Compare(ChallengeComparison challengeComparison, int a, int b)	ChallengeComparisonExtensions.cs:3		E					
+日常/奖励	ChallengeList	GetID()	ChallengeList.cs:11		E					
+日常/奖励	ChallengeListLocator	GetAssets()	ChallengeListLocator.cs:7		E					
+日常/奖励	ChallengeLogMgr	DamageStat(bool isPlayer, int damageValue)	ChallengeLogMgr.cs:1203		E					
+日常/奖励	ChallengeLogMgr	LogAddEffect(CardEffect battleActionCardEffect)	ChallengeLogMgr.cs:1248		E					
+日常/奖励	ChallengeLogMgr	LogAttack(CardScript actingCard, CardScript damagedUnit)	ChallengeLogMgr.cs:1223		E					
+日常/奖励	ChallengeLogMgr	LogDamage(DamageInfo damageInfo, CardScript damagedUnit, bool dealtByAttacker)	ChallengeLogMgr.cs:1210		E					
+日常/奖励	ChallengeLogMgr	LogHeal(BattleAction battleAction)	ChallengeLogMgr.cs:866		E					
+日常/奖励	ChallengeLogMgr	LogMatchEnd(bool playerWinner, int currentPlayerHealth)	ChallengeLogMgr.cs:1236		E					
+日常/奖励	ChallengeLogMgr	LogPlayTactic(BattleAction battleAction)	ChallengeLogMgr.cs:587		E					
+日常/奖励	ChallengeLogMgr	LogPlayTroop(BattleAction battleAction)	ChallengeLogMgr.cs:47		E					
+日常/奖励	ChallengeLogMgr	LogTriggerAbility(bool isPlayer, AbilityTrigger trigger)	ChallengeLogMgr.cs:578		E					
+日常/奖励	ChallengeLogMgr	TroopKilled(BattleAction battleAction)	ChallengeLogMgr.cs:1054		E					
+日常/奖励	ChallengeManager	AcceptPracticeChallenge(GameObject source)	ChallengeManager.cs:160		E					
+日常/奖励	ChallengeManager	AcceptedFriendDuelNotification(string senderId)	ChallengeManager.cs:241		E					
+日常/奖励	ChallengeManager	CancelDueling(bool fromClick)	ChallengeManager.cs:275		E					
+日常/奖励	ChallengeManager	CancelPracticeInvitation()	ChallengeManager.cs:371		E					
+日常/奖励	ChallengeManager	CancelPracticeMatchAndRefresh(GameObject source)	ChallengeManager.cs:249		E					
+日常/奖励	ChallengeManager	CancelSearch()	ChallengeManager.cs:500		E					
+日常/奖励	ChallengeManager	CheckIfPlayerOnline()	ChallengeManager.cs:349		E					
+日常/奖励	ChallengeManager	OnRemoveFriendDuel(string senderId)	ChallengeManager.cs:268		E					
+日常/奖励	ChallengeManager	OpenStartChallengeWindow(PlayerDuelPopUpData playerDuelPopUpData)	ChallengeManager.cs:62		E					
+日常/奖励	ChallengeManager	SendPracticeInvitation()	ChallengeManager.cs:378		E					
+日常/奖励	ChallengeManager	Start()	ChallengeManager.cs:46		E					
+日常/奖励	ChallengeManager	StartChallengeWithUser(string userName, string playfabId, bool playFirst, IPlayEvent playEvent)	ChallengeManager.cs:69		E					
+日常/奖励	ChallengeManager	TryChallengeMatchStart(IPlayEvent playEvent, bool playerFirst)	ChallengeManager.cs:387		E					
+日常/奖励	ChallengeManager	_003CCheckIfPlayerOnline_003Eb__14_0(bool isOnline)	ChallengeManager.cs:527		E					
+日常/奖励	ChallengeManager	_003CStartChallengeWithUser_003Eb__8_0()	ChallengeManager.cs:508		E					
+日常/奖励	ChallengeManager	_003CStartChallengeWithUser_003Eb__8_1(PlayFabErrorCode result, string resultPlayfabId)	ChallengeManager.cs:513		E					
+日常/奖励	ChallengeMilestone	Clone(int? overrideValue, ChallengeDifficulty? overrideDifficulty)	ChallengeMilestone.cs:14		E					
+日常/奖励	ChallengeResults	AreResultsEqual(Dictionary<string, ChallengeVarResult> compareResults)	ChallengeResults.cs:130		E					
+日常/奖励	ChallengeResults	ResetValues()	ChallengeResults.cs:125		E					
+日常/奖励	ChallengeResults	SetChallengeResults(ChallengeVariable challengeVar, int newValue)	ChallengeResults.cs:11		E					
+日常/奖励	ChallengeResults	SetOnlineChallengeData(ChallengeVariable challengeVar, int newValue)	ChallengeResults.cs:38		E					
+日常/奖励	ChallengeResults	UpdateChallengeResults(ChallengeVariable challengeVar, int newValue, int newValueCumulative)	ChallengeResults.cs:85		E					
+日常/奖励	ChallengeSerialData	ChallengeCurrentValue(Dictionary<string, ChallengeVarResult> challengeResults)	ChallengeSerialData.cs:173		E					
+日常/奖励	ChallengeSerialData	ChallengeLevelReached(Dictionary<string, ChallengeVarResult> challengeResults)	ChallengeSerialData.cs:18		E					
+日常/奖励	ChallengeSerialData	ChallengeLevelReached(Dictionary<string, ChallengeVarResult> challengeResults, int serverValue)	ChallengeSerialData.cs:92		E					
+日常/奖励	ChallengeVarResult	GetCurrentValue(ChallengeValueUsed challengeValueUsed)	ChallengeVarResult.cs:68		E					
+日常/奖励	ChallengeVarResult	UpdateValue(int newValue, int newValueCumulative)	ChallengeVarResult.cs:34		E					
+日常/奖励	ChallengeVarResult	UpdateValueAbsolute(int newValue)	ChallengeVarResult.cs:52		E					
+日常/奖励	ChallengesEditorObject	GetChallengesSerialData()	ChallengesEditorObject.cs:9		E					
+日常/奖励	ConstantChallenge	OnInitialize()	ConstantChallenge.cs:10		E					
+日常/奖励	ConstantChallenge	OnReset()	ConstantChallenge.cs:6		E					
+日常/奖励	ConstantChallenge	UpdateProgress(int newValue)	ConstantChallenge.cs:14		E					
+日常/奖励	CustomUnityEventExample	TriggerEvent(bool boolValue, string stringValue)	CustomUnityEventExample.cs:7		E					
+日常/奖励	DailyLoginChallenge	Execute()	DailyLoginChallenge.cs:157		E					
+日常/奖励	DailyLoginChallenge	GetNextUpdate(ChallengeProgress progress)	DailyLoginChallenge.cs:299		E					
+日常/奖励	DailyLoginChallenge	OnInitialize()	DailyLoginChallenge.cs:15		E					
+日常/奖励	DailyLoginChallenge	OnReset()	DailyLoginChallenge.cs:11		E					
+日常/奖励	DailyLoginChallenge	_003CExecute_003Eb__3_0(ChallengeProgress progress)	DailyLoginChallenge.cs:346		E					
+日常/奖励	DailyRewardDrawerController	Awake()	DailyRewardDrawerController.cs:88		E					
+日常/奖励	DailyRewardDrawerController	Initialize(IReadOnlyList<RewardInfo> rewards, State state, Action onCollect)	DailyRewardDrawerController.cs:108		E					
+日常/奖励	DailyRewardDrawerController	Refresh(State newState)	DailyRewardDrawerController.cs:330		E					
+日常/奖励	DailyRewardDrawerController	SetState(State state)	DailyRewardDrawerController.cs:339		E					
+日常/奖励	DailyRewardDrawerController	Start()	DailyRewardDrawerController.cs:93		E					
+日常/奖励	DailyRewardDrawerController	_003CStart_003Eb__15_0()	DailyRewardDrawerController.cs:386		E					
+日常/奖励	DailyRewardItemContainer	Initialize(MainMenuMission scoringEvent, MissionChallenge challenge, int index, ChallengeProgress progress, Action<ChallengeMilestone> onCollect)	DailyRewardItemContainer.cs:83		E					
+日常/奖励	DailyRewardItemContainer	OnCollect()	DailyRewardItemContainer.cs:234		E					
+日常/奖励	DailyRewardItemContainer	Refresh()	DailyRewardItemContainer.cs:243		E					
+日常/奖励	DailyRewardPopup	Close()	DailyRewardPopup.cs:249		E					
+日常/奖励	DailyRewardPopup	Open()	DailyRewardPopup.cs:123		E					
+日常/奖励	DailyRewardPopup	RefreshOnArmyChange(CardArmy army)	DailyRewardPopup.cs:220		E					
+日常/奖励	DailyRewardPopup	SetArmy(CardArmy army)	DailyRewardPopup.cs:242		E					
+日常/奖励	DailyRewardPopup	Start()	DailyRewardPopup.cs:25		E					
+日常/奖励	DailyRewardPopup	ToFocus()	DailyRewardPopup.cs:159		E					
+日常/奖励	DailyRewardPopup	_003CClose_003Eb__11_0()	DailyRewardPopup.cs:267		E					
+日常/奖励	DailyRewardPopup	_003CStart_003Eb__6_0(ChallengeMilestone milestone)	DailyRewardPopup.cs:260		E					
+日常/奖励	DailyRewardSelector	AdjustView()	DailyRewardSelector.cs:138		E					
+日常/奖励	DailyRewardSelector	CollectRewardClicked(ChallengeMilestone milestone)	DailyRewardSelector.cs:215		E					
+日常/奖励	DailyRewardSelector	CreateRewards(bool refreshAllRewards)	DailyRewardSelector.cs:224		E					
+日常/奖励	DailyRewardSelector	Initialize(MainMenuMission evt)	DailyRewardSelector.cs:90		E					
+日常/奖励	DailyRewardSelector	RefreshData(MainMenuMission evt, bool refreshAllRewards)	DailyRewardSelector.cs:183		E					
+日常/奖励	DailyRewardSelector	Reset()	DailyRewardSelector.cs:290		E					
+日常/奖励	DailyRewardTrackPanel	HandlePurchase()	DailyRewardTrackPanel.cs:63		E					
+日常/奖励	DailyRewardTrackPanel	Initialize(MainMenuMission mission)	DailyRewardTrackPanel.cs:27		E					
+日常/奖励	DailyRewardTrackPanel	Start()	DailyRewardTrackPanel.cs:20		E					
+日常/奖励	DailyRewardTrackPanel	_003CHandlePurchase_003Eb__6_0(IReadOnlyList<RewardInfo> _)	DailyRewardTrackPanel.cs:87		E					
+日常/奖励	DailyStreakItemContainer	Awake()	DailyStreakItemContainer.cs:82		E					
+日常/奖励	DailyStreakItemContainer	Initialize(IReadOnlyList<RewardInfo> rewards, State state, Action onCollect)	DailyStreakItemContainer.cs:102		E					
+日常/奖励	DailyStreakItemContainer	Refresh(State newState)	DailyStreakItemContainer.cs:350		E					
+日常/奖励	DailyStreakItemContainer	SetState(State state)	DailyStreakItemContainer.cs:359		E					
+日常/奖励	DailyStreakItemContainer	Start()	DailyStreakItemContainer.cs:87		E					
+日常/奖励	DailyStreakItemContainer	_003CStart_003Eb__13_0()	DailyStreakItemContainer.cs:388		E					
+日常/奖励	DailyStreakWindow	Awake()	DailyStreakWindow.cs:43		E					
+日常/奖励	DailyStreakWindow	Close()	DailyStreakWindow.cs:295		E					
+日常/奖励	DailyStreakWindow	CloseButtonClicked()	DailyStreakWindow.cs:80		E					
+日常/奖励	DailyStreakWindow	CollectRewardClicked()	DailyStreakWindow.cs:230		E					
+日常/奖励	DailyStreakWindow	OnDestroy()	DailyStreakWindow.cs:70		E					
+日常/奖励	DailyStreakWindow	Open()	DailyStreakWindow.cs:85		E					
+日常/奖励	DailyStreakWindow	RefreshRewards()	DailyStreakWindow.cs:139		E					
+日常/奖励	DailyStreakWindow	Reset()	DailyStreakWindow.cs:238		E					
+日常/奖励	DailyStreakWindow	ResetStreakAfterFail()	DailyStreakWindow.cs:63		E					
+日常/奖励	DailyStreakWindow	Start()	DailyStreakWindow.cs:48		E					
+日常/奖励	DailyStreakWindow	ToFocus()	DailyStreakWindow.cs:251		E					
+日常/奖励	DailyStreakWindow	_003CClose_003Eb__23_0()	DailyStreakWindow.cs:316		E					
+日常/奖励	DebugEventTogglerEntry	Initialize(ILiveOps evt)	DebugEventTogglerEntry.cs:152		E					
+日常/奖励	DebugEventTogglerEntry	OnActivateButtonClicked()	DebugEventTogglerEntry.cs:279		E					
+日常/奖励	DebugEventTogglerEntry	OnDestroy()	DebugEventTogglerEntry.cs:311		E					
+日常/奖励	DebugEventTogglerEntry	RefreshVisual()	DebugEventTogglerEntry.cs:301		E					
+日常/奖励	DebugEventTogglerWindow	CallCloudscript(Dictionary<string, string[]> ids, bool reset, bool clearSharedData)	DebugEventTogglerWindow.cs:622		E					
+日常/奖励	DebugEventTogglerWindow	GetSelectedEventIds()	DebugEventTogglerWindow.cs:549		E					
+日常/奖励	DebugEventTogglerWindow	OnClearAll()	DebugEventTogglerWindow.cs:238		E					
+日常/奖励	DebugEventTogglerWindow	OnClearSharedData()	DebugEventTogglerWindow.cs:244		E					
+日常/奖励	DebugEventTogglerWindow	OnReset()	DebugEventTogglerWindow.cs:537		E					
+日常/奖励	DebugEventTogglerWindow	OnSubmit()	DebugEventTogglerWindow.cs:543		E					
+日常/奖励	DebugEventTogglerWindow	Open()	DebugEventTogglerWindow.cs:199		E					
+日常/奖励	DebugEventTogglerWindow	RefreshEvents(State state)	DebugEventTogglerWindow.cs:255		E					
+日常/奖励	DebugEventTogglerWindow	RefreshSearch(string val)	DebugEventTogglerWindow.cs:250		E					
+日常/奖励	DebugEventTogglerWindow	_003COpen_003Eb__12_0(bool state)	DebugEventTogglerWindow.cs:654		E					
+日常/奖励	DebugEventTogglerWindow	_003COpen_003Eb__12_1(bool state)	DebugEventTogglerWindow.cs:662		E					
+日常/奖励	DebugReward	Delete()	DebugReward.cs:87		E					
+日常/奖励	DebugReward	GetReward()	DebugReward.cs:70		E					
+日常/奖励	DebugReward	OnDisable()	DebugReward.cs:63		E					
+日常/奖励	DebugReward	OnEnable()	DebugReward.cs:54		E					
+日常/奖励	DebugReward	Setup(ObtainableItem item)	DebugReward.cs:36		E					
+日常/奖励	DebugRewardWindow	AddReward()	DebugRewardWindow.cs:323		E					
+日常/奖励	DebugRewardWindow	Collect()	DebugRewardWindow.cs:443		E					
+日常/奖励	DebugRewardWindow	DeleteReward(DebugReward reward)	DebugRewardWindow.cs:376		E					
+日常/奖励	DebugRewardWindow	GetRewards()	DebugRewardWindow.cs:383		E					
+日常/奖励	DebugRewardWindow	OnDisable()	DebugRewardWindow.cs:307		E					
+日常/奖励	DebugRewardWindow	OnEnable()	DebugRewardWindow.cs:297		E					
+日常/奖励	DebugRewardWindow	Preview()	DebugRewardWindow.cs:412		E					
+日常/奖励	DebugRewardWindow	SelectOption(string optionValue, bool selected)	DebugRewardWindow.cs:313		E					
+日常/奖励	DebugRewardWindow	Start()	DebugRewardWindow.cs:94		E					
+日常/奖励	EndBattleRewardHolder	SetReward(RewardInfo reward)	EndBattleRewardHolder.cs:10		E					
+日常/奖励	EventBadge	Awake()	EventBadge.cs:40		E					
+日常/奖励	EventBadge	Initialize(ILiveOps liveOps)	EventBadge.cs:45		E					
+日常/奖励	EventBadge	SetNotificationData(ToastNotificationContext context)	EventBadge.cs:96		E					
+日常/奖励	EventBadge	ShowNotification(ToastNotificationContext context)	EventBadge.cs:65		E					
+日常/奖励	EventBadgeController	Awake()	EventBadgeController.cs:33		E					
+日常/奖励	EventDataAssetProvider	GetAssets()	EventDataAssetProvider.cs:34		E					
+日常/奖励	EventFunctionBase	Preview(ILiveOps evt, IEnumerable<RewardInfo> rewardInfos)	EventFunctionBase.cs:12		E					
+日常/奖励	EventGroup	AddEvent(ILiveOps eventToAdd)	EventGroup.cs:49		E					
+日常/奖励	EventGroup	CanAddToGroup(ILiveOps liveOps)	EventGroup.cs:22		E					
+日常/奖励	EventGroup	GetID()	EventGroup.cs:17		E					
+日常/奖励	EventGroup	RemoveEvent(ILiveOps eventToRemove)	EventGroup.cs:78		E					
+日常/奖励	EventGroupAssetProvider	GetAssets()	EventGroupAssetProvider.cs:7		E					
+日常/奖励	EventGroupConfig	GetAssets()	EventGroupConfig.cs:24		E					
+日常/奖励	EventImageSelectorController	Initialize(List<EventAsset> eventAssets)	EventImageSelectorController.cs:88		E					
+日常/奖励	EventImageSelectorController	OnDestroy()	EventImageSelectorController.cs:105		E					
+日常/奖励	EventImageSelectorController	Release()	EventImageSelectorController.cs:76		E					
+日常/奖励	EventImageSelectorController	TryDraw(List<EventAsset> eventAssets)	EventImageSelectorController.cs:20		E					
+日常/奖励	EventLocation	Match(EventLocationType type, string id)	EventLocation.cs:11		E					
+日常/奖励	EventProgressBarController	Initialize(ScoringDataInfo scoringInfo, ObtainableItem scoreItem, bool isLastMilestone)	EventProgressBarController.cs:81		E					
+日常/奖励	EventProgressBarController	Initialize(ScoringDataInfo scoringInfo, ObtainableItem spriteIcon, bool isLastMilestone)	EventProgressBarController.cs:19		E					
+日常/奖励	EventProgressBarController	PercentageToNextLevel(ScoringDataInfo scoringInfo)	EventProgressBarController.cs:130		E					
+日常/奖励	EventProgressBarController	SetBarFill(Slider progressBar, float percentage)	EventProgressBarController.cs:144		E					
+日常/奖励	EventProgressBarController	Toggle(bool option)	EventProgressBarController.cs:63		E					
+日常/奖励	EventProgressBarController	ToggleRectMask(bool option)	EventProgressBarController.cs:125		E					
+日常/奖励	EventRelay	Awake()	EventRelay.cs:88		E					
+日常/奖励	EventRelay	CreateEvent<T>()	EventRelay.cs:352		E					
+日常/奖励	EventRelay	GetHandlerEvent<T>()	EventRelay.cs:269		E					
+日常/奖励	EventRelay	GetHandlers()	EventRelay.cs:104		E					
+日常/奖励	EventRelay	Raise<T>(PointerEventData eventData, GameObject source)	EventRelay.cs:300		E					
+日常/奖励	EventRelay	RegisterHandlers<T>(UnityAction<PointerEventData, T> callback)	EventRelay.cs:135		E					
+日常/奖励	EventRelay	RegisterListener<T>(UnityAction<PointerEventData, GameObject> callback)	EventRelay.cs:318		E					
+日常/奖励	EventRelay	RemoveListener<T>(UnityAction<PointerEventData, GameObject> callback)	EventRelay.cs:369		E					
+日常/奖励	EventRelay	SetTarget(GameObject eventTarget)	EventRelay.cs:98		E					
+日常/奖励	EventSystemController	Awake()	EventSystemController.cs:16		E					
+日常/奖励	EventSystemController	EverguildSceneManagerOnSceneTransitionEnded(string sceneName)	EventSystemController.cs:23		E					
+日常/奖励	EventSystemController	GetPointerEventData()	EventSystemController.cs:39		E					
+日常/奖励	EventSystemController	IsPointerOverUIObject(int pointerId)	EventSystemController.cs:48		E					
+日常/奖励	EventSystemController	Toggle(bool option)	EventSystemController.cs:34		E					
+日常/奖励	ExpansionPassEventTab	GetCardsClick()	ExpansionPassEventTab.cs:161		E					
+日常/奖励	ExpansionPassEventTab	Initialize()	ExpansionPassEventTab.cs:133		E					
+日常/奖励	ExpansionPassEventTab	OnClose()	ExpansionPassEventTab.cs:175		E					
+日常/奖励	ExpansionPassEventTab	OnOpen()	ExpansionPassEventTab.cs:169		E					
+日常/奖励	ExpansionPassEventTab	RefreshRewards()	ExpansionPassEventTab.cs:128		E					
+日常/奖励	ExpansionPassEventTab	RefreshTestEditorOnly()	ExpansionPassEventTab.cs:192		E					
+日常/奖励	ExpansionPassEventTab	Reset()	ExpansionPassEventTab.cs:181		E					
+日常/奖励	ExpansionPassEventTab	SetEventTab(ILiveOps liveOps)	ExpansionPassEventTab.cs:43		E					
+日常/奖励	ExpansionPassMissionsTab	Initialize()	ExpansionPassMissionsTab.cs:179		E					
+日常/奖励	ExpansionPassMissionsTab	OnClose()	ExpansionPassMissionsTab.cs:532		E					
+日常/奖励	ExpansionPassMissionsTab	OnOpen()	ExpansionPassMissionsTab.cs:520		E					
+日常/奖励	ExpansionPassMissionsTab	RefreshMissions()	ExpansionPassMissionsTab.cs:186		E					
+日常/奖励	ExpansionPassMissionsTab	Reset()	ExpansionPassMissionsTab.cs:538		E					
+日常/奖励	ExpansionPassMissionsTab	SetEventTab(ILiveOps liveOps)	ExpansionPassMissionsTab.cs:163		E					
+日常/奖励	ExpansionPassMissionsTab	ToFocus()	ExpansionPassMissionsTab.cs:526		E					
+日常/奖励	ExpansionPassMissionsTab	_003CRefreshMissions_003Eb__13_0(IMission x)	ExpansionPassMissionsTab.cs:553		E					
+日常/奖励	ExpansionPassProgressClaimButtonController	BuyPremiumClick()	ExpansionPassProgressClaimButtonController.cs:29		E					
+日常/奖励	ExpansionPassProgressClaimButtonController	CollectionClick()	ExpansionPassProgressClaimButtonController.cs:44		E					
+日常/奖励	ExpansionPassProgressClaimButtonController	Initialize(ScoringMilestone.State currentState, CurrencyValue normalPrice, Action onCollect)	ExpansionPassProgressClaimButtonController.cs:15		E					
+日常/奖励	ExpansionPassProgressClaimButtonController	ToggleCollectButtonInteractable(bool option)	ExpansionPassProgressClaimButtonController.cs:39		E					
+日常/奖励	ExpansionPassRewardDrawerController	ChangeState(ScoringMilestone.State currentState)	ExpansionPassRewardDrawerController.cs:61		E					
+日常/奖励	ExpansionPassRewardDrawerController	Initialize(IReadOnlyList<RewardInfo> rewards, bool isPremium, ScoringMilestone.State currentState)	ExpansionPassRewardDrawerController.cs:15		E					
+日常/奖励	ExpansionPassRewardDrawerController	ShowAllRewards()	ExpansionPassRewardDrawerController.cs:52		E					
+日常/奖励	ExpansionPassRewardItemContainer	DelayedInit()	ExpansionPassRewardItemContainer.cs:281		E					
+日常/奖励	ExpansionPassRewardItemContainer	Initialize(ExpansionPassEvent liveOps, int milestoneIndex, Action<int> onCollect, Action<int> onLevelUp, int? overrideCurrentScore)	ExpansionPassRewardItemContainer.cs:74		E					
+日常/奖励	ExpansionPassRewardItemContainer	OnCollect()	ExpansionPassRewardItemContainer.cs:291		E					
+日常/奖励	ExpansionPassRewardItemContainer	PrepareForLateInitialization(RectTransform viewport, ExpansionPassEvent liveOps, int milestoneIndex, Action<int> onCollect, Action<int> onLevelUp, int? overrideCurrentScore)	ExpansionPassRewardItemContainer.cs:255		E					
+日常/奖励	ExpansionPassRewardItemContainer	TestHighlighOn()	ExpansionPassRewardItemContainer.cs:301		E					
+日常/奖励	ExpansionPassRewardItemContainer	ToggleHighlightEffect(bool option)	ExpansionPassRewardItemContainer.cs:306		E					
+日常/奖励	ExpansionPassRewardSelector	CollectRewardClicked(int rewardToClaim)	ExpansionPassRewardSelector.cs:163		E					
+日常/奖励	ExpansionPassRewardSelector	CreateRewards(bool refreshAllRewards)	ExpansionPassRewardSelector.cs:205		E					
+日常/奖励	ExpansionPassRewardSelector	Initialize(IScoringEvent evt)	ExpansionPassRewardSelector.cs:21		E					
+日常/奖励	ExpansionPassRewardSelector	OnLevelUp(int level)	ExpansionPassRewardSelector.cs:186		E					
+日常/奖励	ExpansionPassRewardSelector	RefreshData(bool refreshAllRewards)	ExpansionPassRewardSelector.cs:158		E					
+日常/奖励	ExpansionPassRewardSelector	Reset()	ExpansionPassRewardSelector.cs:320		E					
+日常/奖励	ExpansionPassRewardSelector	_003CCollectRewardClicked_003Eb__8_0(RewardInfo[] _)	ExpansionPassRewardSelector.cs:371		E					
+日常/奖励	ExpansionPassRewardSelector	_003CCollectRewardClicked_003Eb__8_1(string _)	ExpansionPassRewardSelector.cs:382		E					
+日常/奖励	ExpansionPassRewardSelector	_003COnLevelUp_003Eb__9_0()	ExpansionPassRewardSelector.cs:389		E					
+日常/奖励	ExpansionPassRewardSelector	_003COnLevelUp_003Eb__9_1(string _)	ExpansionPassRewardSelector.cs:396		E					
+日常/奖励	FastModeBaseEvent	Expire(Action onComplete)	FastModeBaseEvent.cs:1743		E					
+日常/奖励	FastModeBaseEvent	GetArmyState(CardArmy army, IReadOnlyList<RankedScoreBoostEvent> extraBoosts)	FastModeBaseEvent.cs:482		E					
+日常/奖励	FastModeBaseEvent	GetArmyStats(CardArmy army)	FastModeBaseEvent.cs:463		E					
+日常/奖励	FastModeBaseEvent	GetBaseData()	FastModeBaseEvent.cs:718		E					
+日常/奖励	FastModeBaseEvent	GetBaseSave()	FastModeBaseEvent.cs:1987		E					
+日常/奖励	FastModeBaseEvent	GetEventDeck()	FastModeBaseEvent.cs:756		E					
+日常/奖励	FastModeBaseEvent	GetEventDeck(CardArmy army)	FastModeBaseEvent.cs:658		E					
+日常/奖励	FastModeBaseEvent	GetMatchmakingFilter(int currentElo, int tryCount, int gamesLost)	FastModeBaseEvent.cs:856		E					
+日常/奖励	FastModeBaseEvent	GetSqlFilter(int maxRating, int minRating, string guildId, bool isRanked, IEnumerable<string> blacklistedUsers, int gamesLost)	FastModeBaseEvent.cs:946		E					
+日常/奖励	FastModeBaseEvent	OnMatchDraw()	FastModeBaseEvent.cs:2169		E					
+日常/奖励	FastModeBaseEvent	OnMatchFinished(float matchWon, RankedMatchResult result, Action<OnlineMatchResult> callback)	FastModeBaseEvent.cs:1397		E					
+日常/奖励	FastModeBaseEvent	OnMatchFound(string otherPlayerName)	FastModeBaseEvent.cs:1352		E					
+日常/奖励	FastModeBaseEvent	OnMatchLost()	FastModeBaseEvent.cs:2156		E					
+日常/奖励	FastModeBaseEvent	OnMatchProcessSuccess(OnlineMatchResult result)	FastModeBaseEvent.cs:1553		E					
+日常/奖励	FastModeBaseEvent	OnMatchWon()	FastModeBaseEvent.cs:2143		E					
+日常/奖励	FastModeBaseEvent	RecordMatchFinished(int matchWon, int targetMilestone, int enemyMilestone, Action<OnlineMatchResult> callbackOnSuccess)	FastModeBaseEvent.cs:2025		E					
+日常/奖励	FastModeBaseEvent	SetCustomMatchOptions(RoomOptions options, int currentElo)	FastModeBaseEvent.cs:817		E					
+日常/奖励	FastModeBaseEvent	TryCollect(Action onComplete)	FastModeBaseEvent.cs:1794		E					
+日常/奖励	FastModeBaseEvent	_003CGetEventDeck_003Eb__12_0(CardDeck d)	FastModeBaseEvent.cs:2188		E					
+日常/奖励	FastModeBaseEvent	_003C_003En__0(Action onComplete)	FastModeBaseEvent.cs:2209		E					
+日常/奖励	FeedbackQuestionItem	Initialize()	FeedbackQuestionItem.cs:216		E					
+日常/奖励	FeedbackQuestionItem	SetAnswer(string value)	FeedbackQuestionItem.cs:218		E					
+日常/奖励	HSEventsListener	AuthenticationFailedForUser(HelpshiftAuthenticationFailureReason reason)	HSEventsListener.cs:32		E					
+日常/奖励	HSEventsListener	HandleHelpshiftEvent(string eventName, Dictionary<string, object> eventData)	HSEventsListener.cs:40		E					
+日常/奖励	InputToEvent	Press(Vector2 screenPos)	InputToEvent.cs:153		E					
+日常/奖励	InputToEvent	RaycastObject(Vector2 screenPos)	InputToEvent.cs:187		E					
+日常/奖励	InputToEvent	Release(Vector2 screenPos)	InputToEvent.cs:165		E					
+日常/奖励	InputToEvent	Start()	InputToEvent.cs:49		E					
+日常/奖励	InputToEvent	Update()	InputToEvent.cs:58		E					
+日常/奖励	LiveOpsEventWindow	Close()	LiveOpsEventWindow.cs:208		E					
+日常/奖励	LiveOpsEventWindow	InitializeWindow(ILiveOps liveOpsEvent)	LiveOpsEventWindow.cs:32		E					
+日常/奖励	LiveOpsEventWindow	InitializeWindow(ILiveOps liveopsEvent)	LiveOpsEventWindow.cs:7		E					
+日常/奖励	LiveOpsEventWindow	OnRefresh()	LiveOpsEventWindow.cs:71		E					
+日常/奖励	LiveOpsEventWindow	SetupData(object data, GameWindowOptions options)	LiveOpsEventWindow.cs:224		E					
+日常/奖励	LiveOpsEventWindowWithTabs	InitializeWindow(ILiveOps liveOpsEvent)	LiveOpsEventWindowWithTabs.cs:66		E					
+日常/奖励	LiveOpsEventWindowWithTabs	InitializeWindow(ILiveOps liveopsEvent)	LiveOpsEventWindowWithTabs.cs:6		E					
+日常/奖励	LiveOpsEventWindowWithTabs	SetupData(object data, GameWindowOptions options)	LiveOpsEventWindowWithTabs.cs:31		E					
+日常/奖励	LiveOpsHandler	BeforeRefresh()	LiveOpsHandler.cs:2689		E					
+日常/奖励	LiveOpsHandler	ClearEvents()	LiveOpsHandler.cs:2791		E					
+日常/奖励	LiveOpsHandler	DeserializeSharedData(JObject sharedData)	LiveOpsHandler.cs:2523		E					
+日常/奖励	LiveOpsHandler	ExpireEvent(ILiveOps newEvent, PopupOptions options, bool showExpirePopup, Action onComplete)	LiveOpsHandler.cs:2078		E					
+日常/奖励	LiveOpsHandler	GetBaseEvents(bool includeBlockedEvents)	LiveOpsHandler.cs:3135		E					
+日常/奖励	LiveOpsHandler	GetBlockedEvents()	LiveOpsHandler.cs:3149		E					
+日常/奖励	LiveOpsHandler	GetEvent(string id)	LiveOpsHandler.cs:3156		E					
+日常/奖励	LiveOpsHandler	GetEvent<T>(string id)	LiveOpsHandler.cs:3210		E					
+日常/奖励	LiveOpsHandler	GetEvents(bool includeBlockedEvents)	LiveOpsHandler.cs:3093		E					
+日常/奖励	LiveOpsHandler	GetEvents<T>(bool includeBlockedEvents)	LiveOpsHandler.cs:3113		E					
+日常/奖励	LiveOpsHandler	HandleBeforeRefresh()	LiveOpsHandler.cs:2665		E					
+日常/奖励	LiveOpsHandler	InitializeHandler()	LiveOpsHandler.cs:2698		E					
+日常/奖励	LiveOpsHandler	QueueEventPopup(ILiveOps newEvent, PopupOptions options, Action<Action> eventAction)	LiveOpsHandler.cs:2319		E					
+日常/奖励	LiveOpsHandler	RefreshHandler()	LiveOpsHandler.cs:2638		E					
+日常/奖励	LiveOpsHandler	RefreshHandler(LiveopsHandlerData data)	LiveOpsHandler.cs:2656		E					
+日常/奖励	LiveOpsHandler	RefreshHandlerLocally()	LiveOpsHandler.cs:2647		E					
+日常/奖励	LiveOpsHandler	RegisterManager(LiveOpsManager manager)	LiveOpsHandler.cs:1580		E					
+日常/奖励	LiveOpsHandler	ResetEvents()	LiveOpsHandler.cs:3005		E					
+日常/奖励	LiveOpsHandler	ScheduleEventPopups()	LiveOpsHandler.cs:1606		E					
+日常/奖励	LiveOpsHandler	ScheduleHandlerRefresh(DateTime refreshTime)	LiveOpsHandler.cs:2612		E					
+日常/奖励	LiveOpsHandler	SetupEvents(List<ILiveOps> ops, List<ILiveOps> blockedEvents, JObject sharedData)	LiveOpsHandler.cs:1597		E					
+日常/奖励	LiveOpsHandler	SetupEvents(List<TEvent> allEvents)	LiveOpsHandler.cs:2693		E					
+日常/奖励	LiveOpsHandler	ShowTriggerEventPopup(ILiveOps newEvent, PopupOptions options, Action onComplete)	LiveOpsHandler.cs:1873		E					
+日常/奖励	LiveOpsHandler	TryScheduleHandlerRefresh(long milis)	LiveOpsHandler.cs:2535		E					
+日常/奖励	LiveOpsHandler	UpdateCachedSave(LiveOpsEventPersistence saveGame)	LiveOpsHandler.cs:1538		E					
+日常/奖励	LiveOpsHandler	ValidateData(LiveopsHandlerData data)	LiveOpsHandler.cs:1588		E					
+日常/奖励	LiveOpsHandler	_003CScheduleHandlerRefresh_003Eb__25_0()	LiveOpsHandler.cs:3487		E					
+日常/奖励	LiveOpsManager	BuildHandler(ILiveOpsHandler handler, LiveopsHandlerData handlerData, FeatureConfig config)	LiveOpsManager.cs:2038		E					
+日常/奖励	LiveOpsManager	BuildHandlers(Dictionary<string, LiveopsHandlerData> dataByHandlerKey, FeatureConfig config)	LiveOpsManager.cs:2029		E					
+日常/奖励	LiveOpsManager	GetAllBlockedEvents()	LiveOpsManager.cs:1818		E					
+日常/奖励	LiveOpsManager	GetAllEvents(EventLocationType location, string parent)	LiveOpsManager.cs:1842		E					
+日常/奖励	LiveOpsManager	GetAllEvents(bool includeBlockedEvents)	LiveOpsManager.cs:1793		E					
+日常/奖励	LiveOpsManager	GetEvent(Type t, string id)	LiveOpsManager.cs:1918		E					
+日常/奖励	LiveOpsManager	GetEvent(string id)	LiveOpsManager.cs:1950		E					
+日常/奖励	LiveOpsManager	GetEvents(Type t, string[] ids)	LiveOpsManager.cs:1977		E					
+日常/奖励	LiveOpsManager	GetEventsForDisplayingInMenu()	LiveOpsManager.cs:2075		E					
+日常/奖励	LiveOpsManager	GetHandler(Type type)	LiveOpsManager.cs:1764		E					
+日常/奖励	LiveOpsManager	GetHandler<T>()	LiveOpsManager.cs:1726		E					
+日常/奖励	LiveOpsManager	Initialize()	LiveOpsManager.cs:2009		E					
+日常/奖励	LiveOpsManager	InitializeHandlers(FeatureConfig config)	LiveOpsManager.cs:2066		E					
+日常/奖励	LiveOpsManager	ResetHandlers()	LiveOpsManager.cs:1648		E					
+日常/奖励	LiveOpsManager	Unpack(Dictionary<string, LiveopsHandlerData> dataByHandlerKey)	LiveOpsManager.cs:2020		E					
+日常/奖励	LiveopEventUIDrawers	Initialize(ILiveOps liveopEvent)	LiveopEventUIDrawers.cs:6		E					
+日常/奖励	LiveopUIDrawer_EventAssetSprites	Initialize(ILiveOps liveopEvent)	LiveopUIDrawer_EventAssetSprites.cs:15		E					
+日常/奖励	LiveopUIDrawer_EventAssetSprites	Initialize(ILiveOps liveopEvent)	LiveopUIDrawer_EventAssetSprites.cs:32		E					
+日常/奖励	LiveopUIDrawer_EventAssetSprites	OnDisable()	LiveopUIDrawer_EventAssetSprites.cs:64		E					
+日常/奖励	LoginBonusRewardDisplay	OnDestroy()	LoginBonusRewardDisplay.cs:78		E					
+日常/奖励	LoginBonusRewardDisplay	Setup(IMission mission, MissionChallengeProgress progress)	LoginBonusRewardDisplay.cs:54		E					
+日常/奖励	MainMenuMission	Dispose()	MainMenuMission.cs:152		E					
+日常/奖励	MainMenuMission	Initialize()	MainMenuMission.cs:79		E					
+日常/奖励	MainMenuMission	TrySchedulePopup()	MainMenuMission.cs:91		E					
+日常/奖励	MainMenuMission	UpdateSaveGame(LiveOpsEventPersistence save)	MainMenuMission.cs:85		E					
+日常/奖励	MainMenuMission	_003CTrySchedulePopup_003Eb__11_1()	MainMenuMission.cs:158		E					
+日常/奖励	MainMenuRewardsWindow	Close()	MainMenuRewardsWindow.cs:17		E					
+日常/奖励	MainMenuRewardsWindow	GoToMainMenu()	MainMenuRewardsWindow.cs:11		E					
+日常/奖励	MainMenuRewardsWindow	Open()	MainMenuRewardsWindow.cs:3		E					
+日常/奖励	MissionBackgroundHighlighter	OnValidate()	MissionBackgroundHighlighter.cs:14		E					
+日常/奖励	MissionBackgroundHighlighter	Setup(IMission mission, MissionChallengeProgress progress)	MissionBackgroundHighlighter.cs:35		E					
+日常/奖励	MissionChallenge	DisableChallenge()	MissionChallenge.cs:251		E					
+日常/奖励	MissionChallenge	GetID()	MissionChallenge.cs:237		E					
+日常/奖励	MissionChallenge	GetLocalizedDescription()	MissionChallenge.cs:275		E					
+日常/奖励	MissionChallenge	GetMilestoneOrDefault(int i)	MissionChallenge.cs:507		E					
+日常/奖励	MissionChallenge	Initialize()	MissionChallenge.cs:242		E					
+日常/奖励	MissionChallenge	OnAfterWrite(JToken rawJson)	MissionChallenge.cs:500		E					
+日常/奖励	MissionChallenge	OnInitialize()	MissionChallenge.cs:273		E					
+日常/奖励	MissionChallenge	OnReset()	MissionChallenge.cs:271		E					
+日常/奖励	MissionChallenge	UpdateProgress(Action<ChallengeProgress> updateFunction)	MissionChallenge.cs:384		E					
+日常/奖励	MissionChallenge	UpdateProgress(Func<ChallengeProgress, bool> updateFunction)	MissionChallenge.cs:297		E					
+日常/奖励	MissionChallenge	UpdateProgress(int value, bool shouldOverride)	MissionChallenge.cs:337		E					
+日常/奖励	MissionChallenge	UpdateProgressIfHigher(int value)	MissionChallenge.cs:414		E					
+日常/奖励	MissionChallenge	ValidateMatchConditions()	MissionChallenge.cs:440		E					
+日常/奖励	MissionChallengeProgress	AvailableRewards()	MissionChallengeProgress.cs:849		E					
+日常/奖励	MissionChallengeProgress	CanCollect()	MissionChallengeProgress.cs:750		E					
+日常/奖励	MissionChallengeProgress	CurrentMilestone()	MissionChallengeProgress.cs:799		E					
+日常/奖励	MissionChallengeProgress	GetChallengeRefillTime(IMission mission)	MissionChallengeProgress.cs:622		E					
+日常/奖励	MissionChallengeProgress	GetLocalizedDescription()	MissionChallengeProgress.cs:697		E					
+日常/奖励	MissionChallengeProgress	IsComplete()	MissionChallengeProgress.cs:723		E					
+日常/奖励	MissionChallengeProgress	RewardsToCollect()	MissionChallengeProgress.cs:834		E					
+日常/奖励	MissionChallengeProgress	_003CAvailableRewards_003Eb__17_0(ChallengeMilestone reward)	MissionChallengeProgress.cs:906		E					
+日常/奖励	MissionChallengeProgress	_003CCurrentMilestone_003Eb__15_0(ChallengeMilestone t)	MissionChallengeProgress.cs:886		E					
+日常/奖励	MissionChallengeProvider	GetAssets()	MissionChallengeProvider.cs:7		E					
+日常/奖励	MissionComplete	OnInitialize()	MissionComplete.cs:14		E					
+日常/奖励	MissionComplete	OnMissionComplete(MissionCompleteSignal obj)	MissionComplete.cs:26		E					
+日常/奖励	MissionComplete	OnReset()	MissionComplete.cs:20		E					
+日常/奖励	MissionContainer	Awake()	MissionContainer.cs:51		E					
+日常/奖励	MissionContainer	FetchInfoDisplays()	MissionContainer.cs:42		E					
+日常/奖励	MissionContainer	OnCollect()	MissionContainer.cs:174		E					
+日常/奖励	MissionContainer	OnInitialize(IMission mission)	MissionContainer.cs:60		E					
+日常/奖励	MissionContainer	Refresh()	MissionContainer.cs:94		E					
+日常/奖励	MissionContainer	SetChallenge(MissionChallengeProgress progress)	MissionContainer.cs:99		E					
+日常/奖励	MissionCounterDisplay	Setup(IMission mission, MissionChallengeProgress progress)	MissionCounterDisplay.cs:21		E					
+日常/奖励	MissionDebugButtons	Setup(IMission mission, MissionChallengeProgress progress)	MissionDebugButtons.cs:37		E					
+日常/奖励	MissionDebugButtons	Update()	MissionDebugButtons.cs:24		E					
+日常/奖励	MissionEvent	Collect(Action onComplete)	MissionEvent.cs:1046		E					
+日常/奖励	MissionEvent	Collect(MissionChallenge challenge, Action onComplete)	MissionEvent.cs:1176		E					
+日常/奖励	MissionEvent	DisableChallenge(MissionChallenge challenge)	MissionEvent.cs:927		E					
+日常/奖励	MissionEvent	Expire(Action onComplete)	MissionEvent.cs:2315		E					
+日常/奖励	MissionEvent	GetBaseData()	MissionEvent.cs:1603		E					
+日常/奖励	MissionEvent	GetBaseSave()	MissionEvent.cs:1638		E					
+日常/奖励	MissionEvent	GetContainer()	MissionEvent.cs:2292		E					
+日常/奖励	MissionEvent	GetNextRefreshTime()	MissionEvent.cs:1009		E					
+日常/奖励	MissionEvent	GetProgressFor(MissionChallenge challenge)	MissionEvent.cs:722		E					
+日常/奖励	MissionEvent	Initialize()	MissionEvent.cs:820		E					
+日常/奖励	MissionEvent	InitializeChallenge(MissionChallenge challenge)	MissionEvent.cs:938		E					
+日常/奖励	MissionEvent	IsActive(MissionChallenge challenge)	MissionEvent.cs:770		E					
+日常/奖励	MissionEvent	LocalizedDescription(MissionChallenge challenge)	MissionEvent.cs:710		E					
+日常/奖励	MissionEvent	ReleaseContainer()	MissionEvent.cs:2302		E					
+日常/奖励	MissionEvent	RerollChallenge(MissionChallenge challenge, Action onComplete)	MissionEvent.cs:1183		E					
+日常/奖励	MissionEvent	TryCollect(Action onComplete)	MissionEvent.cs:1462		E					
+日常/奖励	MissionEvent	UpdateChallengeProgress(ChallengeUpdatePayload payload)	MissionEvent.cs:1225		E					
+日常/奖励	MissionEvent	UpdateSaveGame(LiveOpsEventPersistence save)	MissionEvent.cs:1673		E					
+日常/奖励	MissionHeaderDisplay	Setup(IMission mission, MissionChallengeProgress progress)	MissionHeaderDisplay.cs:18		E					
+日常/奖励	MissionInfoDisplay	Initialize(IMission mission, MissionChallengeProgress progress)	MissionInfoDisplay.cs:13		E					
+日常/奖励	MissionInfoDisplay	Setup(IMission mission, MissionChallengeProgress progress)	MissionInfoDisplay.cs:54		E					
+日常/奖励	MissionMenuContainer	OnClick()	MissionMenuContainer.cs:18		E					
+日常/奖励	MissionMilestoneStep	DisplayCheckmark(int value, int currentValue, RewardInfo[] rewardsToDisplay)	MissionMilestoneStep.cs:102		E					
+日常/奖励	MissionMilestoneStep	Setup(int value, int currentValue, int _, bool alreadyCollected, RewardInfo[] rewardsToDisplay)	MissionMilestoneStep.cs:51		E					
+日常/奖励	MissionMilestonesDisplay	Setup(IMission mission, MissionChallengeProgress progress)	MissionMilestonesDisplay.cs:44		E					
+日常/奖励	MissionPersistence	IsChallengeComplete(MissionChallenge challenge)	MissionPersistence.cs:97		E					
+日常/奖励	MissionPersistence	OnBeforeRead(JToken jo)	MissionPersistence.cs:134		E					
+日常/奖励	MissionProgressBarDisplay	Setup(IMission mission, MissionChallengeProgress progress)	MissionProgressBarDisplay.cs:36		E					
+日常/奖励	MissionReRollButton	OnValidate()	MissionReRollButton.cs:42		E					
+日常/奖励	MissionReRollButton	Setup(IMission mission, MissionChallengeProgress progress)	MissionReRollButton.cs:51		E					
+日常/奖励	MissionReRollPopup	Close()	MissionReRollPopup.cs:158		E					
+日常/奖励	MissionReRollPopup	Open()	MissionReRollPopup.cs:35		E					
+日常/奖励	MissionRewardItem	Setup(RewardInfo info)	MissionRewardItem.cs:10		E					
+日常/奖励	MissionRewardItem	ToggleAmount(bool state)	MissionRewardItem.cs:23		E					
+日常/奖励	MissionRewardsDisplay	Setup(IMission mission, MissionChallengeProgress progress)	MissionRewardsDisplay.cs:56		E					
+日常/奖励	MissionTimerDisplay	Setup(IMission mission, MissionChallengeProgress progress)	MissionTimerDisplay.cs:97		E					
+日常/奖励	MissionTimerDisplay	Update()	MissionTimerDisplay.cs:20		E					
+日常/奖励	Missions	BlockAutoUpdates()	Missions.cs:1370		E					
+日常/奖励	Missions	CheckNotification()	Missions.cs:2139		E					
+日常/奖励	Missions	CollectChallenge(IMission mission, MissionChallenge challenge, Action onComplete)	Missions.cs:1254		E					
+日常/奖励	Missions	EnableAutoUpdates()	Missions.cs:1365		E					
+日常/奖励	Missions	GetPointsPerArmyOnDailyLogin(CardArmy army)	Missions.cs:2067		E					
+日常/奖励	Missions	InitializeHandler()	Missions.cs:1125		E					
+日常/奖励	Missions	ScheduleMissionRefresh(IMission mission)	Missions.cs:1134		E					
+日常/奖励	Missions	ShowToastNotification(IReadOnlyList<IMission> missions, List<MissionChallengeProgress> missionChallengeProgress)	Missions.cs:1940		E					
+日常/奖励	Missions	TryShowToastNotification(IReadOnlyList<IMission> missions, List<MissionChallengeProgress> missionChallengeProgress)	Missions.cs:1910		E					
+日常/奖励	Missions	UpdateMissionProgress(Action onComplete)	Missions.cs:1375		E					
+日常/奖励	Missions	UpdateMultiplePersistences(IEnumerable<MissionPersistence> persistences)	Missions.cs:1171		E					
+日常/奖励	Missions	_003CInitializeHandler_003Eb__8_0()	Missions.cs:2324		E					
+日常/奖励	Missions	_003C_003En__0()	Missions.cs:2384		E					
+日常/奖励	MissionsConfig	CleanUp()	MissionsConfig.cs:75		E					
+日常/奖励	MissionsTab	CreateMissions()	MissionsTab.cs:265		E					
+日常/奖励	MissionsTab	InstantiateGridMissions(IEnumerable<IMission> missions)	MissionsTab.cs:784		E					
+日常/奖励	MissionsTab	InstantiateNormalMissions(IEnumerable<IMission> missions, MissionType missionType)	MissionsTab.cs:915		E					
+日常/奖励	MissionsTab	OnOpen()	MissionsTab.cs:254		E					
+日常/奖励	MissionsTab	OnSetup()	MissionsTab.cs:245		E					
+日常/奖励	MissionsTab	Refresh()	MissionsTab.cs:680		E					
+日常/奖励	MissionsTab	RefreshRefillCount()	MissionsTab.cs:500		E					
+日常/奖励	MissionsTab	ToFocus()	MissionsTab.cs:259		E					
+日常/奖励	MultiKeyLiveOpsHandler	ExtractKey(string key, string value)	MultiKeyLiveOpsHandler.cs:6		E					
+日常/奖励	MultipleChoiceQuestionItem	Awake()	MultipleChoiceQuestionItem.cs:175		E					
+日常/奖励	MultipleChoiceQuestionItem	Initialize()	MultipleChoiceQuestionItem.cs:180		E					
+日常/奖励	MultiplyRewardsFunction	Preview(ILiveOps _, IEnumerable<RewardInfo> rewardInfos)	MultiplyRewardsFunction.cs:24		E					
+日常/奖励	MultiplyRewardsFunction	_003CPreview_003Eb__3_0(RewardInfo r)	MultiplyRewardsFunction.cs:101		E					
+日常/奖励	NumericFeedbackQuestion	Initialize()	NumericFeedbackQuestion.cs:51		E					
+日常/奖励	OnQuestionAnswered	OnAnswered(FeedbackQuestionItem item)	OnQuestionAnswered.cs:116		E					
+日常/奖励	OnQuestionAnswered	OnDestroy()	OnQuestionAnswered.cs:79		E					
+日常/奖励	OnQuestionAnswered	Start()	OnQuestionAnswered.cs:15		E					
+日常/奖励	OpenEndedQuestionItem	Initialize()	OpenEndedQuestionItem.cs:15		E					
+日常/奖励	OpenEndedQuestionItem	Start()	OpenEndedQuestionItem.cs:8		E					
+日常/奖励	OpenEventButton	ButtonClick()	OpenEventButton.cs:213		E					
+日常/奖励	OpenEventButton	CloseWindow()	OpenEventButton.cs:230		E					
+日常/奖励	OpenEventButton	Initialize(ILiveOps liveOps)	OpenEventButton.cs:37		E					
+日常/奖励	OpenEventButton	OnDestroy()	OpenEventButton.cs:238		E					
+日常/奖励	OpenEventButton	OpenWindow()	OpenEventButton.cs:218		E					
+日常/奖励	OpenEventButton	SetButtonInfo()	OpenEventButton.cs:160		E					
+日常/奖励	OpenEventButton	ToggleValueChange(bool option)	OpenEventButton.cs:198		E					
+日常/奖励	ParentEventHandler	BeforeRefresh()	ParentEventHandler.cs:51		E					
+日常/奖励	PlayEventSaveGame	GetArmyStats(CardArmy army)	PlayEventSaveGame.cs:50		E					
+日常/奖励	PlayEventSaveGame	UpdateLocalJoinState(JoinStates state)	PlayEventSaveGame.cs:56		E					
+日常/奖励	ProgressRewardLevelObject	Initialize(int number)	ProgressRewardLevelObject.cs:15		E					
+日常/奖励	ProgressRewardLevelObject	ToggleHighlight(bool option)	ProgressRewardLevelObject.cs:22		E					
+日常/奖励	RaidEventRewardItemContainer	GetState(bool collected, ScoringDataInfo playerScoringInfo, ScoringDataInfo communityScoringInfo)	RaidEventRewardItemContainer.cs:288		E					
+日常/奖励	RaidEventRewardItemContainer	Initialize(ScoringEventData liveOps, RaidRewardSelector raidRewardSelector, RaidRewardSelector.RaidEventMilestoneInfo currentMilestoneInfo, RaidRewardSelector.RaidEventMilestoneInfo previousMilestoneInfo, bool isLastMilestone)	RaidEventRewardItemContainer.cs:41		E					
+日常/奖励	RaidEventRewardItemContainer	OnCollect()	RaidEventRewardItemContainer.cs:242		E					
+日常/奖励	RaidEventRewardItemContainer	TestHighlighOn()	RaidEventRewardItemContainer.cs:269		E					
+日常/奖励	RaidEventRewardItemContainer	ToggleHighlightEffect(bool option)	RaidEventRewardItemContainer.cs:274		E					
+日常/奖励	RaidEventTab	Initialize()	RaidEventTab.cs:118		E					
+日常/奖励	RaidEventTab	OnClose()	RaidEventTab.cs:141		E					
+日常/奖励	RaidEventTab	OnOpen()	RaidEventTab.cs:135		E					
+日常/奖励	RaidEventTab	RefreshTestEditorOnly()	RaidEventTab.cs:155		E					
+日常/奖励	RaidEventTab	Reset()	RaidEventTab.cs:147		E					
+日常/奖励	RaidEventTab	SetEventTab(ILiveOps liveOps)	RaidEventTab.cs:33		E					
+日常/奖励	RaidHeaderController	Awake()	RaidHeaderController.cs:119		E					
+日常/奖励	RaidHeaderController	ClickEventHelpButton()	RaidHeaderController.cs:129		E					
+日常/奖励	RaidHeaderController	Initialize(ILiveOps scoringEvent)	RaidHeaderController.cs:143		E					
+日常/奖励	RaidHeaderController	OnDestroy()	RaidHeaderController.cs:245		E					
+日常/奖励	RaidHeaderController	Reset()	RaidHeaderController.cs:161		E					
+日常/奖励	RaidHeaderController	UpdateText()	RaidHeaderController.cs:177		E					
+日常/奖励	RaidHeaderController	UpdateTimer()	RaidHeaderController.cs:166		E					
+日常/奖励	RaidOrArmyReleaseMenuContainer	OnEnable()	RaidOrArmyReleaseMenuContainer.cs:309		E					
+日常/奖励	RaidOrArmyReleaseMenuContainer	OnInitialize(LiveOpsEvent liveopEvent)	RaidOrArmyReleaseMenuContainer.cs:83		E					
+日常/奖励	RaidOrArmyReleaseMenuContainer	RefreshProgressBar()	RaidOrArmyReleaseMenuContainer.cs:314		E					
+日常/奖励	RaidOrArmyReleaseMenuContainer	SetAndRefreshProgressBar(ParentEvent parentEvent)	RaidOrArmyReleaseMenuContainer.cs:295		E					
+日常/奖励	RaidProgressBarScaleAndPositionController	SetPositionAndScale(Vector2 positionToModify, Vector2 scaleToModify, RaidEventRewardItemContainer.State stateToApply, Vector2 positionOffset, Vector2 scaleOffset)	RaidProgressBarScaleAndPositionController.cs:6		E					
+日常/奖励	RaidProgressClaimButtonController	CollectionClick()	RaidProgressClaimButtonController.cs:50		E					
+日常/奖励	RaidProgressClaimButtonController	Initialize(RaidEventRewardItemContainer.State currentState, CurrencyValue normalPrice, CurrencyValue discountedPrice, Action onCollect)	RaidProgressClaimButtonController.cs:12		E					
+日常/奖励	RaidProgressClaimButtonController	ToggleCollectButtonInteractable(bool option)	RaidProgressClaimButtonController.cs:45		E					
+日常/奖励	RaidRewardDrawerController	ChangeState(RaidEventRewardItemContainer.State currentState)	RaidRewardDrawerController.cs:3		E					
+日常/奖励	RaidRewardSelector	CollectRewardClicked(int rewardToClaim)	RaidRewardSelector.cs:176		E					
+日常/奖励	RaidRewardSelector	CreateMilestoneInfo(RaidMilestone milestoneDefinition, RaidMilestone previousMilestoneDefinition, int playerCurrentScore, int communityCurrentScore, int level)	RaidRewardSelector.cs:543		E					
+日常/奖励	RaidRewardSelector	CreateRewards()	RaidRewardSelector.cs:199		E					
+日常/奖励	RaidRewardSelector	Initialize(RaidEvent raidEvent)	RaidRewardSelector.cs:165		E					
+日常/奖励	RaidRewardSelector	RefreshData()	RaidRewardSelector.cs:171		E					
+日常/奖励	RaidRewardSelector	Reset()	RaidRewardSelector.cs:702		E					
+日常/奖励	RaidRewardSelector	_003CCollectRewardClicked_003Eb__7_0(RewardInfo[] rewardInfo)	RaidRewardSelector.cs:739		E					
+日常/奖励	RaidRewardSelector	_003CCollectRewardClicked_003Eb__7_1(string error)	RaidRewardSelector.cs:750		E					
+日常/奖励	RaiseEventOptions	Reset()	RaiseEventOptions.cs:19		E					
+日常/奖励	RankedEventWindow	ChangeDeckButtonClick()	RankedEventWindow.cs:221		E					
+日常/奖励	RankedEventWindow	ChangeRankedButtonClick()	RankedEventWindow.cs:254		E					
+日常/奖励	RankedEventWindow	Close()	RankedEventWindow.cs:140		E					
+日常/奖励	RankedEventWindow	CloseButtonClick()	RankedEventWindow.cs:215		E					
+日常/奖励	RankedEventWindow	DeckChanged(CardDeck deck)	RankedEventWindow.cs:245		E					
+日常/奖励	RankedEventWindow	LeaderboardButtonClick()	RankedEventWindow.cs:281		E					
+日常/奖励	RankedEventWindow	OnDisable()	RankedEventWindow.cs:75		E					
+日常/奖励	RankedEventWindow	OnEnable()	RankedEventWindow.cs:45		E					
+日常/奖励	RankedEventWindow	Open()	RankedEventWindow.cs:119		E					
+日常/奖励	RankedEventWindow	PlayButtonClicked()	RankedEventWindow.cs:271		E					
+日常/奖励	RankedEventWindow	PlayButtonDebugClicked()	RankedEventWindow.cs:277		E					
+日常/奖励	RankedEventWindow	SetDivision()	RankedEventWindow.cs:147		E					
+日常/奖励	RankedEventWindow	SetRankedToggle()	RankedEventWindow.cs:263		E					
+日常/奖励	RankedEventWindow	TryOpen(object data, GameWindowOptions options)	RankedEventWindow.cs:103		E					
+日常/奖励	RankedEventWindow	ViewDeckButtonClick()	RankedEventWindow.cs:234		E					
+日常/奖励	RewardCollected	OnInitialize()	RewardCollected.cs:82		E					
+日常/奖励	RewardCollected	OnReset()	RewardCollected.cs:221		E					
+日常/奖励	RewardCollected	OnTrigger(CollectRewardsSignal obj)	RewardCollected.cs:227		E					
+日常/奖励	RewardCollected	_003COnInitialize_003Eb__6_0(IIdentifiable x)	RewardCollected.cs:546		E					
+日常/奖励	RewardCollected	_003COnInitialize_003Eb__6_1(IItemInfo<IIdentifiable> x)	RewardCollected.cs:582		E					
+日常/奖励	RewardCollected	_003COnTrigger_003Eb__8_0(RewardInfo i)	RewardCollected.cs:599		E					
+日常/奖励	RewardCollected	_003COnTrigger_003Eb__8_2(RewardInfo x)	RewardCollected.cs:669		E					
+日常/奖励	RewardInfo	CanCollect()	RewardInfo.cs:105		E					
+日常/奖励	RewardInfo	FromItemInfo(IItemInfo<ObtainableItem> itemInfo, RewardTier tier, string instanceId)	RewardInfo.cs:84		E					
+日常/奖励	RewardProgressBarPanel	Awake()	RewardProgressBarPanel.cs:51		E					
+日常/奖励	RewardProgressBarPanel	CollectButtonClick()	RewardProgressBarPanel.cs:65		E					
+日常/奖励	RewardProgressBarPanel	HasMilestoneToCollect(GenericScoringMilestone[] scoringMilestones)	RewardProgressBarPanel.cs:114		E					
+日常/奖励	RewardProgressBarPanel	Initialize(int currentScore, GenericScoringMilestone[] scoringMilestones, Action onCollect, Sprite resourceIcon, string resourceName)	RewardProgressBarPanel.cs:74		E					
+日常/奖励	RewardProgressBarPanel	OnDestroy()	RewardProgressBarPanel.cs:58		E					
+日常/奖励	RewardService	Collect(IReadOnlyList<RewardInfo> rewards, bool showAnimation, Action<IReadOnlyList<RewardInfo>> onCollected, IReadOnlyList<RewardInfo> collectedRewards, bool isPremiumLocked, string customTitle, bool showXpToast)	RewardService.cs:136		E					
+日常/奖励	RewardService	CollectCurrencyReward(Currency currency, int quantity)	RewardService.cs:821		E					
+日常/奖励	RewardService	CollectDeckReward(PrebuiltDeck deck)	RewardService.cs:900		E					
+日常/奖励	RewardService	CollectItemReward(RewardInfo reward)	RewardService.cs:853		E					
+日常/奖励	RewardService	CollectItemReward<T>(T reference, string instanceID, int quantity)	RewardService.cs:890		E					
+日常/奖励	RewardService	CollectSingleReward(RewardInfo reward)	RewardService.cs:513		E					
+日常/奖励	RewardService	Preview(IReadOnlyList<RewardInfo> rewards, Action<IReadOnlyList<RewardInfo>> onClose, IReadOnlyList<RewardInfo> collectedRewards, bool isPremiumLocked, string customTitle)	RewardService.cs:809		E					
+日常/奖励	RewardWindow	Close()	RewardWindow.cs:827		E					
+日常/奖励	RewardWindow	ConfigureIsPreviewState(bool isPreview)	RewardWindow.cs:796		E					
+日常/奖励	RewardWindow	DelayedParticlePlay(int rewardIndex, float delay, float normalizeDistance)	RewardWindow.cs:782		E					
+日常/奖励	RewardWindow	DoRewardAnimation()	RewardWindow.cs:640		E					
+日常/奖励	RewardWindow	FixLayoutSize()	RewardWindow.cs:805		E					
+日常/奖励	RewardWindow	OnCollectClicked()	RewardWindow.cs:815		E					
+日常/奖励	RewardWindow	OnDisable()	RewardWindow.cs:290		E					
+日常/奖励	RewardWindow	OnEnable()	RewardWindow.cs:280		E					
+日常/奖励	RewardWindow	Open()	RewardWindow.cs:300		E					
+日常/奖励	SharedEventDataManager	GetContext<T>()	SharedEventDataManager.cs:169		E					
+日常/奖励	SharedEventDataManager	Initialize()	SharedEventDataManager.cs:148		E					
+日常/奖励	SharedEventDataManager	Unpack(SharedEventData persistence)	SharedEventDataManager.cs:49		E					
+日常/奖励	ShowEventArmiesPanel	Initialize(CardArmy[] cardArmies)	ShowEventArmiesPanel.cs:16		E					
+日常/奖励	ShowEventArmiesPanel	Reset()	ShowEventArmiesPanel.cs:64		E					
+日常/奖励	SinglePlayerOnlyEnergyEventWindow	CloseButtonClick()	SinglePlayerOnlyEnergyEventWindow.cs:402		E					
+日常/奖励	SinglePlayerOnlyEnergyEventWindow	CollectClicked()	SinglePlayerOnlyEnergyEventWindow.cs:389		E					
+日常/奖励	SinglePlayerOnlyEnergyEventWindow	GetScoringIconFromEvent(out ScoringIconsSO.ScoringIcon scoringIcon)	SinglePlayerOnlyEnergyEventWindow.cs:407		E					
+日常/奖励	SinglePlayerOnlyEnergyEventWindow	OnDestroy()	SinglePlayerOnlyEnergyEventWindow.cs:299		E					
+日常/奖励	SinglePlayerOnlyEnergyEventWindow	OnDisable()	SinglePlayerOnlyEnergyEventWindow.cs:88		E					
+日常/奖励	SinglePlayerOnlyEnergyEventWindow	OnEnable()	SinglePlayerOnlyEnergyEventWindow.cs:81		E					
+日常/奖励	SinglePlayerOnlyEnergyEventWindow	Open()	SinglePlayerOnlyEnergyEventWindow.cs:118		E					
+日常/奖励	SinglePlayerOnlyEnergyEventWindow	RefreshScore()	SinglePlayerOnlyEnergyEventWindow.cs:306		E					
+日常/奖励	SinglePlayerOnlyEnergyEventWindow	RefreshScore(RewardInfo[] obj)	SinglePlayerOnlyEnergyEventWindow.cs:397		E					
+日常/奖励	SinglePlayerOnlyEnergyEventWindow	TryOpen(object data, GameWindowOptions options)	SinglePlayerOnlyEnergyEventWindow.cs:95		E					
+日常/奖励	SinglePlayerOnlyEnergyEventWindow	_003COpen_003Eb__11_0(RewardEvent e)	SinglePlayerOnlyEnergyEventWindow.cs:464		E					
+日常/奖励	SinglePlayerScoringEvent	PurchaseMilestone(int milestoneIndex, Action<RewardInfo[]> onComplete, Action<string> onError)	SinglePlayerScoringEvent.cs:105		E					
+日常/奖励	SinglePlayerScoringEvent	TryColllect(Action<RewardInfo[]> onComplete, Action<string> onError)	SinglePlayerScoringEvent.cs:96		E					
+日常/奖励	SkirmishEventWindow	BattleButtonClick()	SkirmishEventWindow.cs:608		E					
+日常/奖励	SkirmishEventWindow	Close()	SkirmishEventWindow.cs:641		E					
+日常/奖励	SkirmishEventWindow	CloseButtonClick()	SkirmishEventWindow.cs:636		E					
+日常/奖励	SkirmishEventWindow	CollectClicked()	SkirmishEventWindow.cs:458		E					
+日常/奖励	SkirmishEventWindow	HelpButtonClick()	SkirmishEventWindow.cs:616		E					
+日常/奖励	SkirmishEventWindow	OnDeckSelected(CardDeck deck, CardArmy army)	SkirmishEventWindow.cs:488		E					
+日常/奖励	SkirmishEventWindow	OnDisable()	SkirmishEventWindow.cs:208		E					
+日常/奖励	SkirmishEventWindow	OnEnable()	SkirmishEventWindow.cs:92		E					
+日常/奖励	SkirmishEventWindow	Open()	SkirmishEventWindow.cs:466		E					
+日常/奖励	SkirmishEventWindow	RefreshScore()	SkirmishEventWindow.cs:344		E					
+日常/奖励	SkirmishEventWindow	SelectArmy(CardArmy selectedArmy)	SkirmishEventWindow.cs:526		E					
+日常/奖励	SkirmishEventWindow	StartBattle()	SkirmishEventWindow.cs:649		E					
+日常/奖励	SkirmishEventWindow	TryOpen(object data, GameWindowOptions options)	SkirmishEventWindow.cs:324		E					
+日常/奖励	SurvivalEventWindowEnemyMarker	Awake()	SurvivalEventWindowEnemyMarker.cs:12		E					
+日常/奖励	SurvivalEventWindowEnemyMarker	SetEnemyName(string name)	SurvivalEventWindowEnemyMarker.cs:18		E					
+日常/奖励	SurvivalEventWindowEnemyMarker	SetHiddenEnemy()	SurvivalEventWindowEnemyMarker.cs:25		E					
+日常/奖励	TimerDisplay	Awake()	TimerDisplay.cs:128		E					
+日常/奖励	TimerDisplay	Initialize(DateTime target, string timerDescription)	TimerDisplay.cs:134		E					
+日常/奖励	TimerDisplay	Initialize(long target, string timerDescription)	TimerDisplay.cs:187		E					
+日常/奖励	TimerDisplay	InitializeWitLocKey(DateTime target, string timerKeyDescription)	TimerDisplay.cs:143		E					
+日常/奖励	TimerDisplay	InitializeWitLocKey(long target, string timerKeyDescription)	TimerDisplay.cs:158		E					
+日常/奖励	TimerDisplay	LocalizationChange()	TimerDisplay.cs:329		E					
+日常/奖励	TimerDisplay	OnDestroy()	TimerDisplay.cs:342		E					
+日常/奖励	TimerDisplay	SetTimerDescriptionText(string timerDescription)	TimerDisplay.cs:220		E					
+日常/奖励	TimerDisplay	Update()	TimerDisplay.cs:210		E					
+日常/奖励	TimerDisplay	UpdateTimer()	TimerDisplay.cs:231		E					
+日常/奖励	ToastNotificationMission	Initialize(object obj)	ToastNotificationMission.cs:8		E					
+日常/奖励	TwoSidesEvent	Expire(Action onComplete)	TwoSidesEvent.cs:397		E					
+日常/奖励	TwoSidesEvent	GetCurrentStats()	TwoSidesEvent.cs:213		E					
+日常/奖励	TwoSidesEvent	GetTotalStats()	TwoSidesEvent.cs:234		E					
+日常/奖励	TwoSidesEvent	PurchaseMilestone(int milestoneIndex, Action<RewardInfo[]> onComplete, Action<string> onError)	TwoSidesEvent.cs:260		E					
+日常/奖励	TwoSidesEvent	SelectTeam(string teamId, Action onComplete)	TwoSidesEvent.cs:357		E					
+日常/奖励	TwoSidesEvent	TryColllect(Action<RewardInfo[]> onComplete, Action<string> onError)	TwoSidesEvent.cs:251		E					
+日常/奖励	TwoSidesEvent	_003C_003En__0(Action onComplete)	TwoSidesEvent.cs:430		E					
+日常/奖励	TwoSidesEventData	ReleaseContent()	TwoSidesEventData.cs:63		E					
+日常/奖励	TwoSidesEventSelectTeamContainer	ContainerButtonClick()	TwoSidesEventSelectTeamContainer.cs:41		E					
+日常/奖励	TwoSidesEventSelectTeamContainer	Initialize(TwoSidesEventData.TeamInfo teamInfo, Action<TwoSidesEventData.TeamInfo> onTeamSelected)	TwoSidesEventSelectTeamContainer.cs:31		E					
+日常/奖励	TwoSidesEventSelectTeamContainer	OnDisable()	TwoSidesEventSelectTeamContainer.cs:24		E					
+日常/奖励	TwoSidesEventSelectTeamContainer	OnEnable()	TwoSidesEventSelectTeamContainer.cs:17		E					
+日常/奖励	TwoSidesEventWindow	CheckAndOpenTab()	TwoSidesEventWindow.cs:33		E					
+日常/奖励	TwoSidesEventWindow	OnCloseButtonClick()	TwoSidesEventWindow.cs:22		E					
+日常/奖励	TwoSidesEventWindow	OnDisable()	TwoSidesEventWindow.cs:15		E					
+日常/奖励	TwoSidesEventWindow	OnEnable()	TwoSidesEventWindow.cs:8		E					
+日常/奖励	TwoSidesEventWindow	Open()	TwoSidesEventWindow.cs:27		E					
+日常/奖励	TwoSidesEvent_ChooseSideTab	OnDestroy()	TwoSidesEvent_ChooseSideTab.cs:30		E					
+日常/奖励	TwoSidesEvent_ChooseSideTab	OnEnable()	TwoSidesEvent_ChooseSideTab.cs:16		E					
+日常/奖励	TwoSidesEvent_ChooseSideTab	OnOpen()	TwoSidesEvent_ChooseSideTab.cs:44		E					
+日常/奖励	TwoSidesEvent_ChooseSideTab	OnTeamSelectionCompleted()	TwoSidesEvent_ChooseSideTab.cs:160		E					
+日常/奖励	TwoSidesEvent_ChooseSideTab	TeamSelected(TwoSidesEventData.TeamInfo teamInfo)	TwoSidesEvent_ChooseSideTab.cs:109		E					
+日常/奖励	TwoSidesEvent_ChooseSideTab	_003COnDestroy_003Eb__4_0()	TwoSidesEvent_ChooseSideTab.cs:176		E					
+日常/奖励	TwoSidesEvent_ChooseSideTab	_003COnEnable_003Eb__3_0()	TwoSidesEvent_ChooseSideTab.cs:167		E					
+日常/奖励	TwoSidesEvent_OnGoingTab	BackButtonPressed()	TwoSidesEvent_OnGoingTab.cs:359		E					
+日常/奖励	TwoSidesEvent_OnGoingTab	CollectClicked()	TwoSidesEvent_OnGoingTab.cs:340		E					
+日常/奖励	TwoSidesEvent_OnGoingTab	InitializeMilestones()	TwoSidesEvent_OnGoingTab.cs:252		E					
+日常/奖励	TwoSidesEvent_OnGoingTab	OnDisable()	TwoSidesEvent_OnGoingTab.cs:233		E					
+日常/奖励	TwoSidesEvent_OnGoingTab	OnOpen()	TwoSidesEvent_OnGoingTab.cs:83		E					
+日常/奖励	TwoSidesEvent_OnGoingTab	_003CCollectClicked_003Eb__13_0(RewardInfo[] _)	TwoSidesEvent_OnGoingTab.cs:368		E					
+日常/奖励	UIGenericEventCatcher	InvokeEvent(UnityEvent eventToCall)	UIGenericEventCatcher.cs:44		E					
+日常/奖励	UIGenericEventCatcher	SourceDelegate()	UIGenericEventCatcher.cs:7		E					
+日常/奖励	UIGenericEventCatcher	Toggle(bool option)	UIGenericEventCatcher.cs:15		E					
+日常/奖励	WeeklyMissionMilestone	DisplayCheckmark(int value, int currentValue, int lastReachedMilestone, RewardInfo[] rewardsToDisplay)	WeeklyMissionMilestone.cs:28		E					
+日常/奖励	WeeklyMissionMilestone	Setup(int value, int currentValue, int lastReachedMilestone, bool displayMark, RewardInfo[] rewardsToDisplay)	WeeklyMissionMilestone.cs:19		E					

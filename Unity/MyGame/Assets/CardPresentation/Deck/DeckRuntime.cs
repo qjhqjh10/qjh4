@@ -1449,9 +1449,18 @@ namespace CardPresentation
         ///   `m_color2 = (0.0470588, 0, 0.0156863, 1)` · `m_angle = **82**`。
         ///   🔴 **这一对色与主菜单整屏底图那对【逐位相同】**（`MainMenuRuntime.BuildBackground` 用的就是
         ///   同一对 + 同一个角）—— 原来那句「原版用哪张底图没查」的答案就是：**没有底图，是渐变**。
-        /// · **角度换算**：原版 `UIGradient` 的方向是 `(sin, cos)`，我们助手是 `(cos, sin)`
-        ///   ⇒ 差 90°；再翻 180°（我们 `c1` 在 `t=0` 端、而原版亮色在**右上**）⇒ **传 188**
-        ///   （同 `MainMenuRuntime.BuildBackground` 那条已订正的结论，⛔ 别把它记成「原版写的就是 188」）。
+        /// · **角度换算**（🔴 **2026-10-25 就地订正（铁律 5 · 判据来自代理 D 的现核）：理由原来写错了，数值 188 不变。**）
+        ///   **错因**：原文写「原版方向是 `(sin,cos)`、我们助手是 `(cos,sin)` ⇒ 差 90°」——
+        ///   那是把**两个不同的东西**当成同一个量比：
+        ///     · `UIGradientUtils.RotationDir` 返回的**就是 `(cosθ, sinθ)`**
+        ///       （`decomp_full/UIGradientUtils__RotationDir.c:9-11`）⇒ 与我们的 `(cosθ, sinθ)` **同形**；
+        ///     · 真正决定屏幕上的渐变方向的，是 **`ModifyMesh` 里那条【有效轴】= `(sinθ, cosθ)`**
+        ///       （`UIGradient__ModifyMesh.c:148-149` 取 `RotationDir` 的两个分量**交叉**写进局部位置矩阵；
+        ///        `UIGradientUtils__LocalPositionMatrix.c:20-27`）—— 它才是「镜像」的来源。
+        ///   ⇒ 换算 = **`φ = 90° − θ + 180°`**（**镜像（交换轴）+ 反色序**），
+        ///     代 `θ = 82` 得 `φ = 188` ⇒ **数值 188 是对的**（这一处只改理由，⛔ 没动数值）。
+        ///   ⚠️ 那 180° 那一半的理由不变：我们 `c1` 在 `t=0` 端、而原版亮色在**右上**。
+        ///   （同 `MainMenuRuntime.BuildBackground` 那条已订正的结论，⛔ 别把它记成「原版写的就是 188」。）
         ///   实拍复核（`原版参照图/用户实拍_1017/卡组编辑界面参考.png` 按 1920 折算后采样）：
         ///   `(960,90) = (33,1,4)` 偏亮 · `(540,125) = (24,1,6)` 更暗 ⇒ **右上亮、左下暗**，与 188° 自洽。</para>
         ///
@@ -1461,7 +1470,8 @@ namespace CardPresentation
         void BuildAreaBackground()
         {
             var tex = CardArt.Gradient(new Color(0.2235294f, 0.0117647f, 0.0196078f, 1f),
-                                       new Color(0.0470588f, 0f, 0.0156863f, 1f), 188f);
+                                       new Color(0.0470588f, 0f, 0.0156863f, 1f), 188f,
+                                       (1009.06f - 70.97f) / (1752.83f - 167.18f));   // 下面 Img 那个矩形的高/宽（原版 CompensateAspectRatio）
             Img("area_bg", tex, 167.18f, 70.97f, 1752.83f, 1009.06f, QAreaBg);
         }
 
@@ -4220,10 +4230,66 @@ namespace CardPresentation
             return shown;
         }
 
+        // ============================================================ 🆕 **2026-10-25（`C` 卡组编辑域）**
+        /// <summary>这张卡是不是**异画**（判据 = 原版 `RawCardScript.IsAlternateArt()`；我们查静态表）。
+        /// <para>⚠️ **如实标**：原版那个标记是卡 SO 上的字段；我们的异画是**单独一批卡 id**
+        /// （`CollectionWindow.AltArtCards`，7 条）⇒ 这里查表，**语义等价但机制不同**。</para></summary>
+        public static bool IsAltArtCard(CardDef d)
+        {
+            if (d == null || string.IsNullOrEmpty(d.Id)) return false;
+            var arr = CollectionWindow.AltArtCards;
+            for (int k = 0; k < arr.Length; k++) if (arr[k].CardId == d.Id) return true;
+            return false;
+        }
+
+        /// <summary>卡组列表**真正要铺的行** = <see cref="DeckEntries"/> ＋ **两个空位占位行**。
+        ///
+        /// <para>判据 = `DeckListDrawer.ShowEmptySlotsIfNeeded.c:1061-1080`（逐句现读）：
+        /// 那两个 `UICardInfoItem` 是**预先摆在抽屉里的行实例**，开关条件是
+        /// `SetActive(!deck.HasDefensiveCard)` 与 `SetActive(deck.deckHero == null)`
+        /// ⇒ **没督军时第 0 槽留一行空的、没防御卡时那一槽也留一行空的**
+        /// （空 = 名字空、不印费用/份数）。原来我们只在有 id 时加那两行 ⇒ 新开的空卡组
+        /// **一行都没有**（`Empty Warning` 之外什么都没有）。</para>
+        ///
+        /// <para>⚠️ **槽序**：原版抽屉里那两行是**常驻**的（前两槽），卡行才另起 ⇒ 我们这里
+        /// 槽 0 = 督军（缺 ⇒ `null`）、槽 1 = 防御（缺 ⇒ `null`），其后才是卡。
+        /// 缺 id **或 id 查不到**都当空位（后者原版是「那行留着但不画内容」的同一种观感）。</para>
+        ///
+        /// <para>🔴 **为什么新开一个口、不改 `DeckEntries()`**：后者被 8 处消费（滚动上界 / 行命中 /
+        /// 拖拽 / 自检读数），那些地方要的是「**有内容的卡**」；只有「行渲染 + 行命中/拖拽」这一族
+        /// 需要空位行。两件事分开，免得把「行数」这一条口径污染到滚动与自检上。</para></summary>
+        List<CardDef> DeckRows()
+        {
+            var rows = new List<CardDef>();
+            // 槽 0：督军
+            rows.Add(string.IsNullOrEmpty(State.Deck.WarlordId) ? null : State.Find(State.Deck.WarlordId));
+            // 槽 1：防御卡
+            rows.Add(string.IsNullOrEmpty(State.Deck.DefensiveId) ? null : State.Find(State.Deck.DefensiveId));
+            // 槽 2+：卡（跳过已经在前面出现的那两个 id —— 与 `DeckEntries` 同一个口径）
+            foreach (var d in DeckEntries())
+            {
+                if (d == null) continue;
+                if (!string.IsNullOrEmpty(State.Deck.WarlordId) && d.Id == State.Deck.WarlordId
+                    && ReferenceEquals(d, rows[0])) continue;
+                if (!string.IsNullOrEmpty(State.Deck.DefensiveId) && d.Id == State.Deck.DefensiveId
+                    && ReferenceEquals(d, rows[1])) continue;
+                rows.Add(d);
+            }
+            return rows;
+        }
+
+        /// <summary>行列表里**真正的卡**有几行（空位占位行不算）—— `Empty Warning` 的判据。</summary>
+        int DeckRowCardCount(List<CardDef> rows)
+        {
+            int n = 0;
+            if (rows != null) foreach (var d in rows) if (d != null) n++;
+            return n;
+        }
+
         void RefreshDeckList()
         {
             bool cards = DeckListPage, info = InfoTab;
-            var shown = DeckEntries();
+            var shown = DeckRows();
 
             // 🔴 **2026-10-21（`A1721`）**：滚动上界 = 原版 `ScrollRect` 那条 **`Content 高 − 视口高`**，
             //   而 `Content 高 = n × 57.7 − 2.0`（`n` 行 + `n−1` 个 `m_Spacing`）⇒ **要减掉那 2px**
@@ -4237,6 +4303,9 @@ namespace CardPresentation
             for (int i = 0; i < RowVisible; i++)
             {
                 bool on = cards && (firstRow + i) < shown.Count;
+                // 🆕 **2026-10-25（`C` 卡组编辑域）**：这一槽是**空位占位行**（没督军 / 没防御卡）——
+                //   原版 `DeckListDrawer.ShowEmptySlotsIfNeeded.c:1061-1080` 就是这两行常驻、按「有没有」开。
+                bool emptySlot = on && shown[firstRow + i] == null;
                 // 🔴 **2026-10-20（A1527）**：**督军行不印费用圆** —— 这一颗原来只按
                 //   「这一行显不显示」开（`SetOn(_deckRowCost[i], on)`）⇒ 督军行也印了一颗 `0`
                 //   （实拍 `_tmp_view/play17/D2_deck.png` 第 0 行）。**三条独立判据**：
@@ -4296,7 +4365,7 @@ namespace CardPresentation
                 //      ③ 选哪一族由**卡种**定：`DeckListDrawer__SpawnCardInfo.c`（现读）第 29/40/51 行
                 //         `card+0x94 == 10`（= `CardTypeOptions.Hero`）⇒ 英雄族。
                 //      ⇒ **原版督军行【不印】费用**，我们这两句 `on && !heroRow` **是对的**（`A2006②` 判为**无偏离、不改**）。
-                bool heroRow = on && shown[firstRow + i].Type == "hero";
+                bool heroRow = on && !emptySlot && shown[firstRow + i].Type == "hero";
                 // 🔴 **2026-10-21（`A1720`）：槽 0 那**两套件**二选一** ——
                 //   本行装的是督军（`heroRow`）就开督军档 `row_0/row_g0/row_b0`，否则开卡行档
                 //   `row_0c/row_g0c/row_b0c`。**两个判断只差 `on`**：
@@ -4304,8 +4373,8 @@ namespace CardPresentation
                 //   · 卡行档要 `on && !heroRow` —— 写成 `!heroRow` 会在**这一槽没有数据**时也开
                 //     （`on == false` ⇒ `heroRow == false`）⇒ 空槽上留一条卡行底板（静默）。
                 //   ⚠️ 槽 1+ 没有第二套件（它们恒是卡行档）⇒ 仍走原来那两句 `on`。
-                bool heroPiece = heroRow;
-                bool cardPiece = on && !heroRow;
+                bool heroPiece = heroRow || (emptySlot && firstRow + i == 0);
+                bool cardPiece = on && !heroRow && !(emptySlot && firstRow + i == 0);
                 if (i == 0)
                 {
                     SetOn(_deckRowBg[0], heroPiece); SetOn(_deckRowGrad[0], heroPiece);
@@ -4330,7 +4399,24 @@ namespace CardPresentation
                 var def = shown[firstRow + i];
                 float y = ListY + i * RowPitch - off;
                 MoveRow(i, y);
-                _deckRowName[i].SetText(CardText.Name(def));
+                if (emptySlot)
+                {
+                    // 🆕 **2026-10-25（`C` 卡组编辑域）**：原版 `DeckListDrawer.ShowEmptySlotsIfNeeded.c:1061-1080`
+                    //   —— 没督军 / 没防御卡时，那一槽**留一行空的**（底板照画、名字空、**不印费用与份数**）。
+                    //   ⛔ 别在这里 `continue` 之前把行底板关掉：原版那一行是**看得见的空槽**（不是隐形）。
+                    _deckRowName[i].SetText("");
+                    SetOn(_deckRowCost[i], false);          // 蓝六边形（原版 `Cost Image`）
+                    SetOn(_deckRowCostText[i], false);      // 圆里那个数（原版 `Cost`）
+                    SetOn(_deckRowCountText[i], false);     // 份数（原版 `Count`）
+                    ClipRowToBand(i, y, heroPiece, false);  // 第 4 个实参 = 「费用圆该不该显示」⇒ 空位行不带
+                    ClipRowLabels(i);
+                    continue;
+                }
+                // 🆕 **2026-10-25（`C` 域 · E 查出的 C-P2 ①）**：**异画卡的名单后面加 `*`** ——
+                //   判据 `UICardInfoItem__Initialize.c:116-119`（现读）：`if (card.IsAlternateArt()) text = 名字 + "*";`。
+                //   ⚠️ 「是不是异画」在我们这边**没有 `IsAlternateArt()` 这个字段** ⇒ 只能查那份静态异画表
+                //   `CollectionWindow.AltArtCards`（7 条，唯一真值）。⛔ 别在别处另抄一张表。
+                _deckRowName[i].SetText(CardText.Name(def) + (IsAltArtCard(def) ? "*" : ""));
                 // 🔴 **2026-10-20（行名左对齐）**：**左沿的落点在这里** —— `SetAlignLeft()`
                 //   只管「真折行时每行在块内怎么排」，把**整块**挪到左沿的是 `AlignLeftOn`
                 //   （两个口的分工 → `Battle/Label.cs` 那两段 doc）。
@@ -4385,8 +4471,8 @@ namespace CardPresentation
                 ClipRowLabels(i);
             }
 
-            SetOn(_emptyWarn, cards && shown.Count == 0);
-            if (_emptyWarnGo != null) _emptyWarnGo.SetActive(cards && shown.Count == 0);
+            SetOn(_emptyWarn, cards && DeckRowCardCount(shown) == 0);
+            if (_emptyWarnGo != null) _emptyWarnGo.SetActive(cards && DeckRowCardCount(shown) == 0);
             RefreshTabVisibility();
 
             var curve = State.CostCurve();
@@ -4559,7 +4645,7 @@ namespace CardPresentation
         /// ③ 常态 = 白（原版那张图 `m_Color = (1,1,1,1)`）。</summary>
         void ApplyRowHover()
         {
-            var shown = DeckEntries();
+            var shown = DeckRows();
             int firstRow = Mathf.FloorToInt(_deckScroll / RowPitch);
             for (int i = 0; i < _deckRowBg.Count; i++)
             {
@@ -4798,10 +4884,59 @@ namespace CardPresentation
             //   （`TryAddCard` → `MarkDeckDirty()` → 本函数；`ClearWarlord` 那条链同理走 `RefreshAll`）。
             //   `SetSprite` **同一张图不再设**，所以这里每次刷新调它不花代价。
             SetSprite(Lookup("hdr_army"), DeckArmyIcon(State));
-
+            // 🔴🔴 **2026-10-25（`C` 卡组编辑域）：原版还有一条「跟着列表走」的换图路径 —— 本轮补上。**
+            //   判据 = `DeckEditorCollectionDisplay__CheckFocusedArmy.c`（与收藏窗 `CardCollectionDisplay` 同形：
+            //   `RectExtensions.OverlapsAny(referenceCardPoint, Cells 的 RectTransform, out 命中格)` ⇒
+            //   `WildcardDisplay.Initialize(命中格那张卡的 cardArmy)`），入口 = `…__OnListDrag.c`
+            //   （`OnListDrag(Vector2)` ⇒ `CheckFocusedArmy()`）。
+            //   ⚠️ **必须在上面那句之后调**（那一句是「这副卡组的阵营」那条稳定态；本句按滚动位置**覆盖**它）。
+            //   ⛔ 早先 `DeckArmyIcon` 的 doc 里写着「本笔没做」—— **本句就是那个「没做」的补齐**（铁律 5）。
             // 🔴 **2026-10-17（D9 删件）**：这里原来还有一句 `_poolInfo.SetText("卡池 N / M 张")`
             //   —— 卡池左上那块**黄色水印**（图 `pool_info_bg` + 字 `pool_info`）**原版没有**、已删
             //   （它是自检读数的可视化；读数走 `State.VisibleCards()` / `UiPoolCardAt(...)`，不需要画在屏幕上）。
+            CheckFocusedArmy();
+        }
+
+        // ============================================================ 🆕 **2026-10-25（`C` 卡组编辑域）**
+        /// <summary>卡组编辑窗的 `Reference Card Pointer` 参考矩形。
+        /// 判据 = `python -I -X utf8 工具/menu_dump.py bundle_menus_assets_all "Deck Editing Menu" --depth 4 --no-sprite`
+        /// 现读（2026-10-25）：`Card Display ▸ Scroll View ▸ Reference Card Pointer` =
+        /// **417.7,261.0 → 611.5,306.0**（193.84×45.09，`INACT` = 不画但矩形照用）。
+        /// ⚠️ 本组数与我们的卡池视口 `PoolX/PoolY = 330.2,156` **同一帧**（同一份 dump 的 `Scroll View` 就是
+        /// 330.2,156.0）⇒ 可直接与 `UiPoolCellRect` 的返回值比，⛔ 不要加父链偏移。
+        /// 🔴 **注意别和收藏窗那一颗混了**：收藏窗（`CardsTab`）的是 **402.3,236.4 → 596.1,281.4**
+        /// （见 `Shell/CollectionWindow.WcRefL/T/R/B`）—— K3 报告里记成 417.69,260.95→611.53,306.05 那一组
+        /// **其实是本窗（卡组编辑）这一颗**，两个 prefab 各有一颗、不是同一颗的两种 dump 口径。</summary>
+        public const float PoolRefL = 417.7f, PoolRefT = 261.0f, PoolRefR = 611.5f, PoolRefB = 306.0f;
+
+        /// <summary>原版 `DeckEditorCollectionDisplay.CheckFocusedArmy` 的等价物：
+        /// 拿固定参考矩形与**当前在屏的卡池格**求交，**第一个**相交那格的阵营交给页头 `hdr_army`。
+        /// <para>命中序 = `RectExtensions.OverlapsAny` = **按传入序返回第一个相交的**（两份反编译一致，
+        /// 见 `Shell/CollectionWindow.CheckFocusedArmy` 的 doc）。⚠️ **本窗不像收藏窗那样「最多命中一格」**：
+        /// 参考矩形横向 `417.7…611.5` 压过第 0/1 列分界（`330.2 + 262.5 = 592.7`）约 19px
+        /// ⇒ 同屏可能有**两格**同时相交；我们按**可见序**（`_poolViews[0]` 恒为最上一行）取第一个，
+        /// 而原版按 `RecyclableScrollRect.Cells` 的**池序**（滚动后是环形的，可能取到另一格）——
+        /// 差别只在「正好压在列分界上」那一小段，**如实记**（不为了逐位对齐去模拟回收池的旋转）。</para>
+        /// <para>未命中 ⇒ **什么都不做**（原版 `CheckFocusedArmy` 走完循环直接返回 ⇒ 保留上一次那张；
+        /// 而上面那句 `DeckArmyIcon` 已经把稳定态铺好了）。</para></summary>
+        void CheckFocusedArmy()
+        {
+            var q = Lookup("hdr_army");
+            if (q == null) return;
+            var list = State.VisibleCards();
+            for (int i = 0; i < _poolViews.Count; i++)
+            {
+                if (!UiPoolCellRect(i, out float cx, out float cy, out float w, out float h)) continue;
+                float x1 = cx - w * 0.5f, x2 = cx + w * 0.5f;
+                float y1 = cy - h * 0.5f, y2 = cy + h * 0.5f;
+                // 原版 `RectExtensions.Overlaps` 是**严格不等**的 AABB（贴边不算相交）
+                if (!(x1 < PoolRefR) || !(PoolRefL < x2)) continue;
+                if (!(y1 < PoolRefB) || !(PoolRefT < y2)) continue;
+                int ci = UiPoolSlotCardIndex(i);
+                if (ci < 0 || ci >= list.Count) return;      // 空槽/越界 ⇒ 当「没命中」
+                SetSprite(q, FactionIcon(list[ci].Faction));
+                return;                                       // ★ 第一个命中的
+            }
         }
 
         void Say(string s)
@@ -5079,9 +5214,10 @@ namespace CardPresentation
                 var rowGo = RowBgGo(i);
                 if (rowGo == null || !rowGo.activeSelf || !HitRow(i, wp)) continue;
                 if (!left) return true;
-                var shown = DeckEntries();
+                var shown = DeckRows();
                 int idx = Mathf.FloorToInt(_deckScroll / RowPitch) + i;
-                if (idx >= shown.Count) return true;
+                // 🆕 2026-10-25（C 卡组编辑域）：空位占位行（`DeckRows` 里的 null）不给拖/点
+                if (idx >= shown.Count || shown[idx] == null) return true;
                 StartRowDrag(idx, i, wp);
                 return true;
             }
@@ -5216,7 +5352,7 @@ namespace CardPresentation
             // 没怎么动 = 点击 ⇒ 弹放大窗（照原版）
             if (!_draggingMoved)
             {
-                var shown0 = DeckEntries();
+                var shown0 = DeckRows();
                 if (row >= 0 && row < shown0.Count) OpenCardWindow(shown0[row]);
                 RefreshDeckList();
                 return;
@@ -5232,8 +5368,8 @@ namespace CardPresentation
             //    **保持 325.4 不动**（= 旧行为，且自检按它写的），⛔ 别顺手改成 317.4。
             if (screenX > ListX + RowW)
             {
-                var shown = DeckEntries();
-                if (row >= 0 && row < shown.Count)
+                var shown = DeckRows();
+                if (row >= 0 && row < shown.Count && shown[row] != null)   // 🆕 空位行不是卡，不能删
                 {
                     var def = shown[row];
                     if (State.TryRemove(def)) { MarkDeckDirty(); Say("已移出卡组：" + CardText.Name(def)); }
@@ -6033,7 +6169,7 @@ namespace CardPresentation
         /// —— ⛔ 别在这里另写一份（两处写同一条规则迟早不一致）。</summary>
         public float MaxDeckScrollPx
         {
-            get { return Mathf.Max(0f, DeckEntries().Count * RowPitch - RowSpacing - ListH); }
+            get { return Mathf.Max(0f, DeckRows().Count * RowPitch - RowSpacing - ListH); }
         }
 
         public void UiToggleFilters() { ToggleFilters(); }
@@ -6146,7 +6282,7 @@ namespace CardPresentation
         public CardDef UiDeckRowAt(int i)
         {
             if (!DeckListPage) return null;
-            var shown = DeckEntries();
+            var shown = DeckRows();
             int idx = Mathf.FloorToInt(_deckScroll / RowPitch) + i;
             return (i >= 0 && i < RowVisible && idx >= 0 && idx < shown.Count) ? shown[idx] : null;
         }
@@ -6779,9 +6915,10 @@ namespace CardPresentation
         /// 「拖出侧栏 = 删除」的办法（删牌只有这一条路，原版 `DeckEditingPanel__CheckCardSlotDrag.c:59,66`）。</summary>
         public bool UiDragDeckRow(int viewRow, float toScreenX)
         {
-            var shown = DeckEntries();
+            var shown = DeckRows();
             int idx = Mathf.FloorToInt(_deckScroll / RowPitch) + viewRow;
             if (viewRow < 0 || viewRow >= RowVisible || idx >= shown.Count) return false;
+            if (shown[idx] == null) return false;      // 🆕 空位占位行（没督军/没防御卡）不能拖
             // 🔴 **2026-10-21（`A1720`）**：读**现在开着的那一份**行底（槽 0 两套 —— 见 `RowBgGo`）。
             //   ⛔ 原来写死 `_deckRowBg[viewRow]`：槽 0 滚到卡行档时那一份关着 ⇒ 本口**静默答 false**
             //   （自检会把它读成「这一行不能拖」）。
@@ -6796,9 +6933,10 @@ namespace CardPresentation
         /// <summary>模拟「点一下卡组第 viewRow 行」（不动 ⇒ 松开时弹放大窗，照原版）。</summary>
         public bool UiClickDeckRow(int viewRow)
         {
-            var shown = DeckEntries();
+            var shown = DeckRows();
             int idx = Mathf.FloorToInt(_deckScroll / RowPitch) + viewRow;
             if (viewRow < 0 || viewRow >= RowVisible || idx >= shown.Count) return false;
+            if (shown[idx] == null) return false;      // 🆕 空位占位行（没督军/没防御卡）点不出详情
             var rowGo = RowBgGo(viewRow);          // 同上（`A1720`：槽 0 两套件）
             if (rowGo == null || !rowGo.activeSelf) return false;
             StartRowDrag(idx, viewRow, rowGo.transform.position);
@@ -8241,6 +8379,13 @@ namespace CardPresentation
             // 🆕 2026-09-28：**把卡表项一起传进去** —— 相关卡那一叠要按它算（判据 → `RelatedCards`）。
             //    ⚠️ 换卡靠 `ShowCard` 里那句**显式 `Build()`**（同窗再开不会重建内容）—— 判据 → 它的 doc。
             _cardWindow.ShowCard(def);
+            // 🔴 **2026-10-25（`C` 卡组编辑域）：原版这一拍还会换页头徽记** ——
+            //   `DeckEditingWindow__OpenCardInformation.c:35` = `WildcardDisplay.Initialize(wildcards, 这张卡的 cardArmy)`
+            //   （`WildcardDisplay__Initialize` 只有「army == currentArmy 就早退」那一句 ⇒ 换图）。
+            //   ⛔ 早先 `DeckArmyIcon` 的 doc 写着「本笔没做」的**第二条**就是它（铁律 5，已补齐）。
+            //   ⚠️ 之后任何一次 `RefreshHeader` 都会把它按「这副卡组的阵营」重置回去 —— 与原版同（原版
+            //   也只有开详情这一拍换，关掉详情不会换回来）。
+            SetSprite(Lookup("hdr_army"), FactionIcon(def.Faction));
         }
 
         // ============================================================ 命中判定

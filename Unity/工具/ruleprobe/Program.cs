@@ -248,7 +248,7 @@ class Program
     //   ⇒ **只重钉这一颗**，`PinnedBaselineMd5` / `PinnedParseMd5` 原样不动。
     //   卡池 md5：`5a17f6af…` → `0397005d…`（3,119,176 → 3,235,327 B，+116,151 B 全部来自新列）。
     //   归因 → `资料/普查产出_1025/E4_trigger目标与activeAbility目标池.md` §二·2 / §四。
-    public const string PinnedPoolMd5 = "84c0f84ef2fc4e473df09698cf546cb6";  // 2026-10-25 重钉（执行代理 E4）：卡表 v27→v28，新增主动能力目标闸 `ActiveAbility.targetCriteria` 一列（`activeAbilityPickCriteria` 107 行）。卡的内容没变；解析差异 0 行 · 输出指纹仍 af836aa0… · 结算零差异 ⇒ 只重钉这一颗。归因 → 资料/普查产出_1025/E4_trigger目标与activeAbility目标池.md｜🔴 2026-10-25 再重钉（执行代理 X6）：卡表 v28→v29，`abilityLevelCriteria[]` 新增 `ca` 列（族别）85 行；卡内容一字未改、count 1127 不变，解析差异 0 行 · 输出指纹仍 af836aa0… · `play check` 基线 fc591fb3… 未变 ⇒ 只重钉这一颗。归因 → 资料/普查产出_1025/X6_口径乙ca列_执行报告.md｜🔴 2026-10-25 再重钉（执行代理 X20）：卡表 v29→v30，新增 1 张隐藏附魔 `Pray Enchantment`（`cardType 20`/`type=enchantment`）；既有卡改动 0 张。归因 → 资料/普查产出_1025/X20_PrayEnchantment入池_执行报告.md
+    public const string PinnedPoolMd5 = "721637d21d29fe468b51b59830dd2c51";  // 2026-10-25 重钉（执行代理 E4）：卡表 v27→v28，新增主动能力目标闸 `ActiveAbility.targetCriteria` 一列（`activeAbilityPickCriteria` 107 行）。卡的内容没变；解析差异 0 行 · 输出指纹仍 af836aa0… · 结算零差异 ⇒ 只重钉这一颗。归因 → 资料/普查产出_1025/E4_trigger目标与activeAbility目标池.md｜🔴 2026-10-25 再重钉（执行代理 X6）：卡表 v28→v29，`abilityLevelCriteria[]` 新增 `ca` 列（族别）85 行；卡内容一字未改、count 1127 不变，解析差异 0 行 · 输出指纹仍 af836aa0… · `play check` 基线 fc591fb3… 未变 ⇒ 只重钉这一颗。归因 → 资料/普查产出_1025/X6_口径乙ca列_执行报告.md｜🔴 2026-10-25 再重钉（执行代理 X20）：卡表 v29→v30，新增 1 张隐藏附魔 `Pray Enchantment`（`cardType 20`/`type=enchantment`）；既有卡改动 0 张。归因 → 资料/普查产出_1025/X20_PrayEnchantment入池_执行报告.md
 
     /// <summary>钉住的基线内容指纹（`工具/ruleprobe/基线/out_baseline.txt` 的 md5，**按字节**）。
     /// 与上面那个配对使用 —— 判据见上面那段长注释。</summary>
@@ -282,7 +282,7 @@ class Program
     //   的**后半句**原来被静默吃掉）。判据 → `资料/任务线/引擎线/任务总表.md` `T02` 行 ＋ 卡面中文
     //   「如果目标死亡或为友方单位」＋ `cards_1195_2022时代.json` 的 `targetCriteria(friendlyUnits=1/enemyUnits=1)`。
     //   ⇒ 按「先修好解析器，再跑 `scan` 定为新基线」重生成，⛔ 不是把红抹平。
-    public const string PinnedBaselineMd5 = "71cedcd7aef4a86b14cee9ca891128b9";  // 2026-10-24 重钉（Z71 · G10）：GSC75 一行解析变化后重生成基线
+    public const string PinnedBaselineMd5 = "5ebfa4bfff1a20a814de6a3e8bebcd50";  // 2026-10-24 重钉（Z71 · G10）：GSC75 一行解析变化后重生成基线
 
     /// <summary>🆕 **解析输出指纹**（`A1382` **一般情形**的堵法，2026-10-12 第二十一会话 · 写手 `E5`）
     /// —— 「`check` 的判据是『与**基线文件**比』，而**基线文件同一个工具就能重写**」这条洞的机器级补丁。
@@ -347,7 +347,7 @@ class Program
     //   🔴 **2026-10-21（第五十九会话 · 引擎线 `T02`）重钉** —— 唯一变化 = `SOR31|Dogmata` 的条件种类
     //   （`targetdies` → `targetdiesorfriendly`）。行为侧另有三条新断言（友方活着 +1 / 敌方活着 +0 /
     //   敌方被打死 +1）钉住它，见 `Assets/RuleEngine/Editor/RuleEngineTest_T02.cs`。
-    public const string PinnedParseMd5 = "af836aa00928b52b05cbb5f6a2d5d786";  // 2026-10-24 重钉（Z71 · G10）：`in your hand` 计数从句（全池只 GSC75 一张）；归因 → 资料/普查产出_1024/G10_GSC75解析缺陷.md
+    public const string PinnedParseMd5 = "193c1b25b0b4073f3da99f7085d6558d";  // 2026-10-24 重钉（Z71 · G10）：`in your hand` 计数从句（全池只 GSC75 一张）；归因 → 资料/普查产出_1024/G10_GSC75解析缺陷.md
 
     /// <summary>一个文件的 md5（按字节；读不到返回 `null` —— ⛔ 不静默当成空串）。</summary>
     public static string Md5File(string path)

@@ -35,6 +35,22 @@ namespace CardPresentation
         public int ranged;       // 远程攻击力（0 = 没有）
         public int health;
         public int armor;        // 护甲（原版卡面右侧那面盾。0 = 没有）
+
+        /// <summary>🆕 2026-10-25（`K4`）：**基准值**（原版 `CardTextCountersController.SetText` 的
+        /// `baseValue` 实参）—— 四个数值的**颜色**比的是「**当前 vs 基准**」，不是「新 vs 旧」
+        /// （判据：9 参 `SetText` 的指令流 VA `0x18060C180` 把 `currentValue`/`baseValue` 传给
+        /// `DoColorChange`，见 `CardView.StatColorVsBase` 的 doc）。
+        /// <para>⚠️ **`statBasesKnown == false`（出厂值）= 基准未知** ⇒ 退回 2026-09-29 那套
+        /// 「变了一下就涂一下」的近似；填了之后才是原版那套**持续色**
+        /// （受伤的生命一直红、被 buff 的攻击一直绿，回到基准才白）。</para>
+        /// <para>🔴 **这两个成员要由 `BattleDriver.ToCardData` 那一侧填**（`u.Card.Attack` / `u.Card.Health` /
+        /// `u.Card.RangedAttack` / `u.Card.KwValue(Armour)` / `u.Card.Cost`）—— 那一步在 `Battle/**`，
+        /// **不在卡面这一侧的文件所有权里** ⇒ 今天全工程**没有调用点**：机制已就位、接线另记一笔
+        /// （报告 → `资料/普查产出_1025/K4_卡牌域复刻审查_执行报告.md`）。</para></summary>
+        public bool statBasesKnown;
+        /// <summary>见 <see cref="statBasesKnown"/>。基准值（卡面印刷值）；`statBasesKnown == false` 时一律忽略。</summary>
+        public int baseCost, baseMelee, baseRanged, baseArmour, baseHealth;
+
         public string keywords;  // 已格式化的关键词串，直接画在卡面上
         public bool isUnit;      // 单位还是战术（战术不上战场）
         public Color frame;      // 阵营色 —— 占位卡面的边框、费用框用它
@@ -1430,7 +1446,9 @@ namespace CardPresentation
         /// <summary>四个数值各自的「闪现色」（`CardFeel.StatUpColor` / `StatDownColor`；白 = 没在闪）。
         /// 🔴 **必须存一份** —— `ApplyTint` 会把 `_layers` 里每一层刷成状态色，不重贴的话
         /// 受击变色撑不过一帧（和徽标那个 `_badgeAlpha` 是同一个坑）。</summary>
-        readonly Color[] _statFlash = new Color[5];
+        readonly Color[] _statFlash = new Color[6];   // 索引 1..4 = 四个数值；**5 = 费用**
+                                                      // （原版第五个 counter `MonoBehaviour_6320885271709195200`；
+                                                      //  ⚠️ 费用的数字我们烘在 `_info` 里 ⇒ 涂不上色，见 `CaptureStatChanges` 开头那段注释）
         /// <summary>🆕 2026-10-25（`CF`）原版 `HighlightAttackType.originalSize`（`+0x48`）—— 那一格数值
         /// **首次被调用时**的 `localScale`。索引 = `StatMelee..StatHealth`。
         /// ⚠️ **惰性捕获**：原版**没有** `Start` / `Awake`（方法表只有 `get_TargetScale` / `HighlightIfNeeded` /
@@ -1457,6 +1475,32 @@ namespace CardPresentation
         //    ⛔ **这四件不挂 `HighlightAttackType`** —— 原版手牌/详情窗**没有**那一档（判据见 `J2 …md` §A1 与本节
         //      「攻击类型高亮」那一整段的父链证据），别把高亮接上来。
         readonly TextMeshPro[] _faceStatText = new TextMeshPro[5];      // 索引 = `StatMelee..StatHealth`
+
+        // ---- 🆕 2026-10-25（`E` · K4 §②·D3）：**费用数字 = 第五件真 TMP**（原版 `Cost Container/CostText`）----
+        //  判据（prefab 实读，`bundle_battleprefabs_vfxandmisc_assets_all/GameObject/CostText*.json`）：
+        //   · 普通档 `CostText`：sizeDelta **0.38×0.35** · apos **(−0.00999,−0.01)** · scale 1 ·
+        //     `m_fontSize 0.34` · **autoSizing 1**（min 0.025 / max 0.34）· `m_fontStyle 0`(Normal) ·
+        //     白 · hAlign **2 (Center)** · vAlign **512 (Middle)** · `m_TextWrappingMode 0`（不折行）·
+        //     材质 `<Patern> Thin Outline`；
+        //   · 大号档另一颗 `CostText_3722786347926395840`：sizeDelta **0.456×0.42** · `m_fontSize 0.475` ·
+        //     **autoSizing 0**（固定字号）· 其余同。
+        //  ⇒ 两档是**两个节点**（与 `Cost Container`/`Cost Container Big` 成对），用 `SmallScreenUI` 切。
+        /// <summary>费用数字那件 TMP（没建 = null；建的条件 = `ShowsCost(Data) && TmpFont.Available && 非场上`）。</summary>
+        TextMeshPro _faceCostText;
+        RectTransform _faceCostRect;
+        GameObject _faceCostContainer;
+        /// <summary>费用 TMP 普通档的框（原版 `CostText` 0.38×0.35）。</summary>
+        public static readonly Vector2 CostTextSize = new Vector2(0.38000f, 0.35000f);
+        /// <summary>大号档的框（原版 `CostText_…` 0.456×0.42 = 普通 ×1.2）。</summary>
+        public static readonly Vector2 CostTextSizeBig = new Vector2(0.45600f, 0.42000f);
+        /// <summary>普通档字号（em，原版 `m_fontSize 0.34`）与 auto 下限（0.025）。</summary>
+        public const float CostTextEm = 0.34f, CostTextAutoMinEm = 0.025f;
+        /// <summary>大号档字号（em，原版那颗 `m_fontSize 0.475`、auto 关）。</summary>
+        public const float CostTextBigEm = 0.475f;
+        /// <summary>数字框相对容器中心的小偏移（原版 `m_AnchoredPosition (−0.00999, −0.01)`；
+        /// 原版这一颗挂在**被 scale 1.2 的容器**下 ⇒ 我们手动乘 `CostScale`）。</summary>
+        public const float CostTextDx = -0.00999f, CostTextDy = -0.01000f;
+
         readonly RectTransform[] _faceStatRect = new RectTransform[5];  // 那件 TMP 自己的 rect（原版 sizeDelta）
         readonly GameObject[] _faceStatContainer = new GameObject[5];   // 原版四个 Container（显隐挂在它上面）
 
@@ -2352,6 +2396,8 @@ namespace CardPresentation
             //   两个方向都要刷：手牌 → 场上要把 TMP 收起来，反之要放出来并重排一次。
             BuildFaceStatTexts();
             SyncFaceStatTexts();
+            BuildFaceCostText();      // 🆕 2026-10-25（K4 D3）：费用 = 第五件真 TMP
+            SyncFaceCostText();
             // 🆕 2026-10-25（`CF`）：**换形态入口**（铁律 10 第 5 条）—— 攻击类型高亮的倍数按
             //   「卡 prefab 族」取（`AttackScaleModifier` ← `ArtUsesFightFamily`），而族跟着形态走。
             //   今天唯一的迁移是 Hand → Board（同族 ⇒ 倍数不变），仍然在这里显式补一次：
@@ -3080,6 +3126,15 @@ namespace CardPresentation
                                                CostBgW * CostScale, CostBgH * CostScale);
             }
             _costTierBuilt = want;
+            // 🆕 2026-10-25（K4 D3）：费用数字现在是**真 TMP**（两档 = 两个原版节点）⇒ 换档要**重建**它
+            //   （字号/框/autoSizing 三样两档都不同）；建完立刻刷一次值/显隐。
+            if (_faceCostContainer != null)
+            {
+                TmpFont.Kill(_faceCostContainer);
+                _faceCostContainer = null; _faceCostText = null; _faceCostRect = null;
+            }
+            BuildFaceCostText();
+            SyncFaceCostText();
             // 数字是烘在 `_info` 那张贴图里的（`InfoTexture` 的缓存键**已经带档位**）⇒ 必须重烘。
             if (_info != null && _info.sharedMaterial != null)
                 _info.sharedMaterial.mainTexture =
@@ -3307,6 +3362,8 @@ namespace CardPresentation
             //   四件 TMP 的值、护甲那一格的显隐、以及「手牌 ⇄ 场上」换载体，全由它一处收口。
             BuildFaceStatTexts();
             SyncFaceStatTexts();
+            BuildFaceCostText();      // 🆕 2026-10-25（K4 D3）：费用 = 第五件真 TMP
+            SyncFaceCostText();
             // 🆕 2026-10-08（A181）：**重裁一次**（换卡 = 换网格/换文字 ⇒ 上一次那一刀作废）。
             //    ⚠️ 只在**已经裁过一次**时走（`_clipOn`）—— 没设过裁切的调用点（战斗/手牌那一族）一个字节都不动。
             //    🔴 2026-10-13（A435 辛 · A774）：判据是 `Clipping`（显式矩形**或**跟随节点），
@@ -3328,22 +3385,55 @@ namespace CardPresentation
             ApplyArtTransform();
         }
 
-        /// <summary>原版 `CardTextCountersController.DoColorChange(old, new)` 那两下：
-        /// ① **每一次刷新先把四个数值的颜色刷回原色**（原版就是 `old == new` 那一支）；
-        /// ② 涨/落了的**才**涂色 + bump。
-        /// ⚠️ 只对**场上**那张卡做 —— 手牌那个 2D 脸的数值没拆层（见 `_stats` 的注释）。
-        /// ⚠️ 颜色要等 `SetData` 末了那次 `SyncStatLayers` 才画上新值 —— 这里只记「该涂什么色」。</summary>
+        /// <summary>原版 `CardTextCountersController.DoColorChange` 那一支：**每次 `SetText` 都重算颜色**。
+        /// <para>🔴 **2026-10-25（`K4`）判据订正（铁律 5）—— 本段原文两处都不成立**：
+        /// 原来写「`DoColorChange(old, new)`；涨/落了的才涂色，其余刷白；只对场上那张卡做」。</para>
+        /// <list type="number">
+        /// <item><b>比的是【当前 vs 基准】，不是【新 vs 旧】</b>。9 参 `SetText` 的指令流
+        ///   （VA `0x18060C180`，2026-10-25 用 `工具/disasm_va.py` 现读）三句就锁死了：
+        ///   `mov ebx,r9d`（= `baseValue`）· `mov edi,r8d`（= `currentValue`）·
+        ///   `call DoColorChange(edx=currentValue, r8d=baseValue)`。
+        ///   ⇒ 颜色是**持续态**：生命 3/5 一直红，被 buff 的攻击一直绿，
+        ///   **只有回到基准值**才刷回白（`DoColorChange` 里 `param_2 == param_3` 那一支）。</item>
+        /// <item><b>两套载体一起涂、一起 bump</b>。每个数值 counter 的 `textsToSet` 有 **2 件**
+        ///   （2D 卡面 `fontSize 0.34` 那件 + 3D 卡体 `fontSize 7/8` 那件，后者带 `highlightAttackType`；
+        ///   费用只有 1 件）。实测于 `bundle_battleprefabs_vfxandmisc_assets_all` 的
+        ///   `MonoBehaviour_{-3358613892933444672,…}` 五份 —— 明细见 `BumpStat` 的 doc。
+        ///   ⇒ 「只对场上那张卡做」是**缺的一半**，手牌的数值涨落原来完全无声。</item>
+        /// </list>
+        /// <para>⇒ 本节现行：**基准已知**就按原版算持续色（<see cref="StatColorVsBase"/>），
+        /// **基准未知**（出厂：全工程还没有 `BattleDriver` 填 `CardData.base*`）才退回 09-29 那套近似。
+        /// ⚠️ 视图被**复用换卡**（卡池 / 卡组列表那类）时不算「变了」—— 判据是 `Data.id` 相同。</para>
+        /// <para>⚠️ 颜色要等 `SetData` 末了那次 `SyncStatLayers` / `SyncFaceStatTexts` 才画上新值 ——
+        /// 这里只记「该涂什么色」。</para></summary>
         void CaptureStatChanges(CardData d)
         {
             ClearStatFlashes();
-            if (_faceMode != CardFace.Board || _stats[1] == null) return;
-            // ⚠️ `CardData` 是 **struct**（没有 `== null` 这回事）——「还没数据」的判据是 `id` 为空串。
-            if (!Data.isUnit || string.IsNullOrEmpty(Data.id)) return;
+            // ⚠️ `CardData` 是 **struct**（没有 `== null` 这回事）——「视图里还是上一张卡」的判据是 `id` 不同。
+            // 🔴 **持续色（基准已知那一路）与「有没有旧数据」无关**：原版是 `CardScript.UpdateHealthText`
+            //    这类调用每次都 `doColorChange = 1` ⇒ **一张建出来就已经受伤的卡，第一次就该是红的**。
+            //    只有 **bump** 需要旧值（`doAnimation` 只在 `newAmount != currentAmount` 时播）。
+            bool sameCard = !string.IsNullOrEmpty(Data.id) && Data.id == d.id;
+            // 费用是原版**第五个** counter（`statIncreaseIsPositiveToThePlayer = 0` ⇒ 越低越好）；
+            // **战术卡也有这一格**（它不随 `isUnit` 走）⇒ 放在 isUnit 早退之前。
+            // ⚠️ 我们的费用数字**烘在 `_info` 贴图里**（原版是第五件真 TMP `CostText`：`m_fontSize 0.34`、
+            //    框 0.456×0.42、Center/Middle、Thin Outline）⇒ 这里只记颜色、**画不上去** ——
+            //    结构差异已记账（报告 §②·D3）。
+            if (d.statBasesKnown) _statFlash[StatCost] = StatColorVsBase(StatCost, d.cost, d.baseCost);
             if (!d.isUnit) return;
             for (int s = StatMelee; s <= StatHealth; s++)
             {
                 int oldV = StatValue(Data, s), newV = StatValue(d, s);
-                if (oldV != newV) FlashStat(s, newV > oldV);
+                if (d.statBasesKnown)
+                {
+                    // 原版口径：**持续色**（current vs base）+ 值变了才 bump（`doAnimation` 那一支）
+                    _statFlash[s] = StatColorVsBase(s, newV, StatBaseValue(d, s));
+                    if (sameCard && oldV != newV) BumpStat(s);
+                }
+                else if (sameCard && oldV != newV)
+                {
+                    FlashStat(s, newV > oldV);            // 基准未知 ⇒ 旧近似（判据见上面那段订正）
+                }
             }
         }
 
@@ -4085,6 +4175,11 @@ namespace CardPresentation
 
         void Build(CardData d)
         {
+            // 🆕 2026-10-25（`K4`）：**建卡这一趟也要算一次数值颜色** —— 原版那张卡建出来之后
+            //   `CardScript.UpdateHealthText / UpdateAttackText` 会立刻带 `doColorChange = 1` 再刷一遍
+            //   ⇒ 「建出来就已经受伤的兵」第一次就该是**红**的（基准已知时；未知时本调用是空操作）。
+            //   ⚠️ 必须在 `Data = d` **之前**调（它要读旧 `Data` 判 bump；首次 `Data.id` 空 ⇒ 不 bump）。
+            CaptureStatChanges(d);
             Data = d;
             bool bt = BuildTiming && Application.isPlaying;
             long m0 = 0, m1 = 0, m2 = 0, m3 = 0, m4 = 0;
@@ -4143,9 +4238,7 @@ namespace CardPresentation
             //      `TierOf` 那条「一律最高档」的老路**只留给不带 tier 的调用点**，两处不打架）。
             //   ⚠️ `artId` 为空（演示卡 / 没有引擎 id 的占位卡）⇒ **退回老行为 `MaxTier`**：
             //      那种卡不在 `CardProgress` 的表里，按「缺省等级 1」画会把演示卡框无故降档。
-            int frameTier = DebugFrameTier > 0
-                          ? Mathf.Clamp(DebugFrameTier, 1, CardArt.MaxTier)
-                          : (string.IsNullOrEmpty(d.artId) ? CardArt.MaxTier : CardProgress.Level(d.artId));
+            int frameTier = CardTierFor(d);
             var frameTex = CardArt.Frame(d.faction, d.rarity, !d.isUnit, frameTier);
             // 🔴 2026-10-18（W15）：记下来 —— `SetFace` / `SetData` 重烘 `_info` 时要按**同一张卡框**
             //    的 uv 反算四个数值/费用的落点（`FaceStatAt01` / `FaceCostAt01`）。
@@ -4496,6 +4589,8 @@ namespace CardPresentation
             //   场上档建出来是**关着**的（`SyncFaceStatTexts` 里 `face = false`），只有手牌/详情窗才显示。
             BuildFaceStatTexts();
             SyncFaceStatTexts();
+            BuildFaceCostText();      // 🆕 2026-10-25（K4 D3）：费用 = 第五件真 TMP
+            SyncFaceCostText();
 
             // 🆕 **2026-10-17（T09 第 2 步）**：分段计时只在真 Play 出声；批处理/自检零影响。
             if (bt)
@@ -4929,6 +5024,24 @@ namespace CardPresentation
                          // 原版 `ArmyText*` = Pragati（§2·5）；描边在拟合之前贴（同 `Fill` 里那段）
             Show(_army, FaceShowsArmy(_faceMode));
 
+            // 🔴🔴 **2026-10-25（`E` · P0 · 用户/调度台并排比抓到的真缺陷）**：
+            //    **态 4（战术卡 + 兵种行）的效果文字会压到阵营行身上。**
+            //    复现：`Sense of Stone`（`TAU46`，中文档）—— 我们渲出来「钛帝国」（阵营行）与效果文字
+            //    第一行「向己方军队送出」**压在同一 y**（截图 `_tmp_view/shots/20261025_r1/我们_Sense_of_Stone.png`）。
+            //    **成因（几何算得出来，不是玄学）**：
+            //      · 态 4 的效果文字走原版另一个节点 `DescTacticSmall`：rect **160×62.64 px**、中心 **y01 0.7595**
+            //        （`bundle_battleprefabs_vfxandmisc_assets_all/GameObject/DescTacticSmall.json` 实读，
+            //         本地 y = −0.0901 + 容器 −0.7745 = −0.8646 卡单位）；
+            //      · 那个矩形是**按一行英文**设计的（`Give [shield]Armour 1 to your troops`，fs19 在 160px 宽里一行放得下）；
+            //      · 中文（`descZh` = 「给予你的部队护甲 1」→ 换图标后更长）在 **fs19 / 160px 宽**里**折两行**
+            //        ⇒ 块高 ≈0.506 卡单位、**块顶升到 y01 ≈0.683**，而阵营行的行盒底在 **≈0.720**
+            //        ⇒ 顶边越过阵营行底 **≈0.037 y01（≈22 px）** = 用户看到的重叠。
+            //    **修法（只动「往下让」，不动原版那个中心）**：见 `ClampDescBelowArmy` ——
+            //      一行时中心仍是原版 0.7595（逐位不动）；装不下时先往下让、再不够才缩字号（出声，不静默）。
+            //    ⛔ **别改成「把阵营行往下挪」**：那三行（卡名/阵营行/兵种行）的原版 apos 是 prefab 判据，
+            //       而且单位卡没有这个问题（`UnitDescAt` 中心 0.7323 与 `UnitArmyAt` 0.6394 之间有足够带宽）。
+            if (smallDesc) ClampDescBelowArmy(_keywords, _army);
+
             // ④ 兵种行 —— 在卡面下部。**印不印不是「只有单位卡」那么简单**，判据见 `SubtypeLine`
             //    🆕 2026-10-17（D5）：这一格的字现在是**按当前语言**取的
             //    （`SubtypeLine` → `RaceTerm` → `Loc.T("Card_Race/<race>")`）。
@@ -5201,26 +5314,109 @@ namespace CardPresentation
         /// 与 `d:/2/tools/all_strings.txt` 的表偏移逐位对上）。⛔ 别改成 `Card/Subtype/…`。</para></summary>
         public const string RaceTermPrefix = "Card_Race/";
 
-        /// <summary>兵种行的**显示名**（`Card_Race/&lt;race&gt;` → 当前语言）。
+        /// <summary>🆕 2026-10-25（`K4`）：**卡表的 `subtype` 展示名 → 原版词条键里的枚举名**。
+        /// <para>判据（一手）：`GameStaticData__CardRaceToString.c` —— `cardType == 0x14`（战术/防御）那一支是
+        /// `name = Enum.ToString(spellType@0x90)` 然后 `GetTranslation("Card_Race/" + name)`；
+        /// `SpellType` 的成员表见 `dump.cs`（`PsychicPower = 90` / `CombatElixir = 260` / `Genomic = 240` /
+        /// `OverlordPower = 180` / `MarkOfChaos = 190` / `DefensiveCard = 210` …）。
+        /// ⇒ **原版键里没有空格**，而卡表 `subtype` 写的是**展示名**（带空格）⇒ 必须映射一次。</para>
+        /// <para>⚠️ 只列**写法不同**的 6 个；`Infantry` / `Vehicle` / `Monster` / `Beast` / `Battlesuit` / `Drone` /
+        /// `Daemon` / `Weapon` / `Structure` / `Secret` / `Sabotage` / `Rune` / `Invocation` / `Codicil`
+        /// 的枚举名与卡表写法**逐字相同**，⛔ 别硬塞无用条目（塞了也会被自己打脸：`RaceKeyForTest` 有断言）。</para>
+        /// <para>🔴 **2026-10-25（`E`）就地订正（铁律 5）**：本段原来写「官方 `Card_Race/*` 那 23 条目前**不在**
+        /// `Resources/official_names.json` ⇒ 中文值仍是手写表旧译 ⇒ **57 张卡**与官方不符」—— **已不成立**：
+        /// ① 生成器 `工具/_loc_official/gen_official_names.py` 的 `FAMILIES` 已加 `Card_Race`、产物已重生成
+        /// （3,240 → **3,263** 条）；② `Core/Loc.cs` 那 6 条手写值也同时换成官方 zh（键名已改枚举名）。
+        /// ⇒ **卡面那行字今天 = 官方 zh**（心灵力量/战斗灵药/基因增强/霸主力量/防守/黑暗契约）。
+        /// 断言：`Editor/CardBaseDemo.cs` 的 `AssertSubtypeLine` ④（缺一即红）。</para></summary>
+        static readonly Dictionary<string, string> RaceKeyBySubtype = new Dictionary<string, string>
+        {
+            { "Psychic Power",       "PsychicPower"  },   // SpellType 90
+            { "Combat Elixir",       "CombatElixir"  },   // 260
+            { "Genomic Enhancement", "Genomic"       },   // 240
+            { "Overlord Power",      "OverlordPower" },   // 180
+            { "Dark Pact",           "MarkOfChaos"   },   // 190
+            { "Defence",             "DefensiveCard" },   // 210
+        };
+
+        /// <summary>自检读口（`Editor/CardBaseDemo.AssertSubtypeLine` ④）：映射表的那 6 对。</summary>
+        public static string[][] RaceKeyForTest
+        {
+            get
+            {
+                var a = new string[RaceKeyBySubtype.Count][];
+                int i = 0;
+                foreach (var kv in RaceKeyBySubtype) a[i++] = new[] { kv.Key, kv.Value };
+                System.Array.Sort(a, (x, y) => string.CompareOrdinal(x[0], y[0]));
+                return a;
+            }
+        }
+
+        /// <summary>🆕 **2026-10-25（收藏域搜索用）**：卡面那行「兵种」的**本地化显示名** ——
+        /// 入参是卡表的 `subtype` 写法（`CardDef.Subtype`，例 `"Psychic Power"`），
+        /// 返回当前语言下印在卡面底部的那串字（例 `心灵力量`）。
+        /// <para>语义 = 原版 `GameStaticData.CardRaceToString` + `GetTranslation("Card_Race/" + 枚举名)`。
+        /// 本函数只是把 private 的 <see cref="RaceTerm"/> 暴露出去（**判据仍只有那一处**，⛔ 别在调用方另抄一份
+        /// 归一化/取词逻辑）—— 收藏域的「兵种」搜索字段用它。</para>
+        /// <para>⚠️ 与 <see cref="SubtypeLine"/> 的分工：这个**只管「印哪个词」**（不判「印不印」）；
+        /// 要「这张卡到底有没有那一行」用下面那个按 <see cref="CardData"/> 取的重载。</para>
+        /// <param name="subtype">卡表 `subtype`（展示名写法）；空 ⇒ 原样返回空。</param>
+        public static string RaceDisplayName(string subtype) { return RaceTerm(subtype); }
+
+        /// <summary>🆕 **2026-10-25（收藏域搜索用）**：按一份卡数据取**卡面那行兵种**的显示名 ——
+        /// 不印那一行的卡（原版 `RaceText` 不激活）返回 **null**。
+        /// <para>判据 = <see cref="SubtypeLine"/>（印不印 + 印哪个词，**唯一一处**）。</para></summary>
+        public string RaceDisplayName(CardData d) { return SubtypeLine(d); }
+
+        /// <summary>兵种行的**显示名**（`Card_Race/&lt;原版枚举名&gt;` → 当前语言）。
         /// <para>取不到就**照原样返回那个英文串**（= 加 D5 之前的行为）并**出声** —— ⛔ 不静默。
-        /// ⚠️ 同一个值**只出声一次**：卡面每次刷新都会走这条路，逐次出声会把日志刷爆。
-        /// ⚠️ 卡池里 43 个非空 `subtype` **全在表里** ⇒ 这条兜底正常**不会触发**；
-        /// 一旦日志里出现它，就是数据侧冒出了新 `subtype`。</para></summary>
+        /// ⚠️ 同一个值**只出声一次**：卡面每次刷新都会走这条路，逐次出声会把日志刷爆。</para>
+        /// <para>🔴 **2026-10-25（`K4`）**：键先过 <see cref="RaceKeyBySubtype"/> 换成**原版枚举名**
+        /// （战术/防御那 6 个写法不同的），查表顺序 = ① 官方数据面（`Loc.HasBulk`，原版就是 `GetTranslation`）
+        /// → ② 手写表（`Loc.HasEntry`）→ ③ **老键**（卡表写法那一条，今天实际生效的就是它）。
+        /// 三者都取不到才回英文原文 + 出声。
+        /// 🔴 **2026-10-25（`E`）就地订正（铁律 5）**：本行原写「今天渲染逐字节不变（官方 `Card_Race/*` 还没进数据面、
+        /// 手写表也只有空格版）」—— **已过期**：官方 23 条已进数据面、手写表那 6 条也已换成枚举名 + 官方值
+        /// ⇒ ① 那一档今天**真的会命中**（中文档 = 官方译法）。</para></summary>
         static string RaceTerm(string race)
         {
             if (string.IsNullOrEmpty(race)) return race;
-            string key = RaceTermPrefix + race;
-            if (Loc.HasEntry(key)) return Loc.T(key);
+            string enumName;
+            string key = RaceTermPrefix + (RaceKeyBySubtype.TryGetValue(race, out enumName) ? enumName : race);
+
+            if (Loc.HasBulk(key))                                  // ① 官方数据面（原版 `GetTranslation`）
+            {
+                string v = Loc.BulkOr(key, null);
+                if (!string.IsNullOrEmpty(v)) return v;
+            }
+            if (Loc.HasEntry(key)) return Loc.T(key);               // ② 手写表（键已是枚举名的那几族）
+
+            string oldKey = RaceTermPrefix + race;                  // ③ 老键（卡表写法）：今天实际走这条
+            if (!string.Equals(oldKey, key, System.StringComparison.Ordinal) && Loc.HasEntry(oldKey))
+                return Loc.T(oldKey);
+
             if (UnknownRace.Add(race))
-                Debug.LogWarning($"[CardView] 兵种行 `{race}` 在语言表里查不到词条（键 `{key}`）⇒ **卡面照原样印英文**。"
-                               + "加词条见 `Core/Loc.cs`（键名照原版 `Card_Race/<race>`）。");
+                Debug.LogWarning($"[CardView] 兵种行 `{race}` 在语言表里查不到词条（试过 `{key}`"
+                               + (string.Equals(oldKey, key, System.StringComparison.Ordinal) ? "" : "` / `" + oldKey)
+                               + "`）⇒ **卡面照原样印英文**。"
+                               + "加词条见 `Core/Loc.cs`（键名照原版 `Card_Race/<SpellType 枚举名>`）。");
             return race;
         }
         static readonly HashSet<string> UnknownRace = new HashSet<string>();
 
         /// <summary>会印在卡面底部那一行的 tactic subtype（**白名单**，实测推出来的）。
         /// ⚠️ 加新卡系时看它卡面上有没有这一行：**有就加进来，没有就别加** ——
-        /// 这不是「引擎支持的 subtype 列表」，是「卡面印这一行的 subtype 列表」。</summary>
+        /// 这不是「引擎支持的 subtype 列表」，是「卡面印这一行的 subtype 列表」。
+        /// <para>🔴 **2026-10-25（`K4`）找到的原版真判据 —— 只差一步接线**：
+        /// `CardTextsController__SetTexts.c` 里战术卡那支是 `state = 3 + (spellType != 0)`，
+        /// `CardTextsController__SetDescription.c` / `SetCardTextLayout.c` 同一条；
+        /// 而 `CardRaceToString` 在 `spellType == 0` 时**返回空串** ⇒ **原版 = 「`spellType != 0` 才印」**。
+        /// 本会话现算（1128 张）：白名单与 `spellType != 0` **只差一张** ——
+        /// `d94f91051ecfe014f97577ff573571aa`（`Spear of Macragge` 马库拉格之矛）的 `spellType` 是 **0**
+        /// 而 `subtype` 写 `Psychic Power` ⇒ **原版不印那一行，我们印**。
+        /// ⇒ 判据换轨要 `CardData.spellType`（`0 = Normal` 是合法值、缺省得用 **-1** 表示「未填」；
+        /// 接线在 `BattleDriver.ToCardData`）。在那之前白名单**逐张等价**（另 445 张战术卡 0 差），
+        /// ⛔ 别手工把这一张从白名单踢掉 —— 那会让**别的**同名 subtype 卡一起掉行。</para></summary>
         static readonly HashSet<string> TacticSubtypeShown = new HashSet<string>
         {
             "Dark Pact", "Overlord Power", "Combat Elixir", "Codicil", "Psychic Power",
@@ -5694,6 +5890,89 @@ namespace CardPresentation
             //    那是**偏离原版**，不是修缺陷。真正要收的是**字号**（见 `FitToBox` 的 `ClampToInk`）。
             t.rectTransform.localPosition = center - (Vector3)t.textBounds.center;
         }
+
+        /// <summary>
+        /// 🔴 **2026-10-25（`E` · P0）**：把**态 4（战术·带兵种行）**的效果文字块夹在
+        /// 「阵营行行盒底」与「`RaceDescBottom01` 那道下门」之间 —— **只在装不下时才动**。
+        /// <para>为什么要它：原版 `DescTacticSmall`（160×62.64 @y01 0.7595）是按**一行英文**设计的；
+        /// 中文折两行 ⇒ 块顶升到阵营行身上（实测重叠 ≈22px，见 `BuildTextLayers` 调用点那段注释）。</para>
+        /// <para>口径（⛔ 别放宽/收紧成别的）：</para>
+        /// <list type="number">
+        ///   <item>先量**两层的行盒**（`textBounds`）在同一个父空间里的 `top/bottom`；</item>
+        ///   <item>`块顶 ≤ 阵营行底 − 0.008 卡高` **且** `块底 ≥ 下门` ⇒ **一字不动**
+        ///     （= 一行文本那一档：中心仍是原版 0.7595）；</item>
+        ///   <item>否则**先往下让**（顶边贴到阵营行底 − 0.008）；让完仍越下门 ⇒ **缩字号**再摆
+        ///     （最多 3 趟；真收不住就**出声**，⛔ 不静默）；</item>
+        ///   <item>`army == null` / 没激活（手牌 / 场上）⇒ **空操作**（那两档本来就不印阵营行）。</item>
+        /// </list>
+        /// <para>⚠️ 这是**偏离**原版那个固定矩形的一处：原版遇到两行本地化文本也会越界 —— 我们选「不叠字」。
+        /// 一行文本（英文档 / 短中文）时与原版**逐位相同**。</para>
+        /// </summary>
+        static void ClampDescBelowArmy(TextMeshPro desc, TextMeshPro army)
+        {
+            if (desc == null || army == null || !army.gameObject.activeSelf) return;
+            float gap = 0.008f * Height;                       // 与 `FaceDescBand01` 的 0.008 y01 同一条
+            float gate = (0.5f - RaceDescBottom01) * Height;    // 块的**最低**允许底边（局部 y，向上）
+            for (int pass = 0; pass < 3; pass++)
+            {
+                float dBot, dTop, dH, aBot, aTop, aH;
+                if (!TmpBoxLocal(desc, out dBot, out dTop, out dH)) return;
+                if (!TmpBoxLocal(army, out aBot, out aTop, out aH)) return;
+                float topLimit = aBot - gap;                   // 块顶不许高于它（y 向上 ⇒ 上界）
+                if (dTop <= topLimit + 1e-4f && dBot >= gate - 1e-4f) return;    // 装得下 ⇒ 不动
+                float band = topLimit - gate;
+                if (band > 0f && dH > band)
+                {
+                    // 让完也装不下 ⇒ 按可用带宽缩字号（⛔ 不低于 1）
+                    float k = Mathf.Clamp(band / dH, 0.35f, 1f);
+                    desc.fontSize = Mathf.Max(1f, desc.fontSize * k);
+                    if (desc.gameObject.activeInHierarchy) desc.ForceMeshUpdate();
+                    else Relayout(desc, desc.rectTransform.sizeDelta.x,
+                                  desc.textWrappingMode == TextWrappingModes.Normal);
+                    if (!TmpBoxLocal(desc, out dBot, out dTop, out dH)) return;
+                    if (dH > band && pass == 2)
+                        Debug.LogWarning($"[CardView] {desc.name}：态 4 效果文字缩到 fs{desc.fontSize:F2} 仍比"
+                                       + $"可用带 {band:F3} 高（块 {dH:F3}）⇒ 会越门。判据见 `ClampDescBelowArmy`");
+                }
+                // 顶边贴到 (阵营行底 − 0.008) —— 只在压到阵营行 / 越下门时执行
+                float wantCenter = topLimit - dH * 0.5f;
+                float curCenter = (dBot + dTop) * 0.5f;
+                desc.rectTransform.localPosition += new Vector3(0f, wantCenter - curCenter, 0f);
+            }
+        }
+
+        /// <summary>`ClampDescBelowArmy` 的量法：TMP **行盒**在父空间里的 `bottom/top/height`。
+        /// 批处理没有帧循环 ⇒ 未激活的走 `Relayout`（同 `PlaceAt` 那条规矩）。
+        /// ⚠️ 前提：这一层 `localScale == 1`（`Fill` 只改字号/尺寸，不改缩放）——
+        /// 真改过就出声并**不夹**（宁可不改，也不按错标架挪字）。</summary>
+        static bool TmpBoxLocal(TextMeshPro t, out float bottom, out float top, out float h)
+        {
+            bottom = top = h = 0f;
+            if (t == null) return false;
+            var s = t.rectTransform.localScale;
+            if (Mathf.Abs(s.x - 1f) > 1e-3f || Mathf.Abs(s.y - 1f) > 1e-3f)
+            {
+                if (!_tmpBoxScaleWarned)
+                {
+                    _tmpBoxScaleWarned = true;
+                    Debug.LogWarning($"[CardView] {t.name}：localScale = ({s.x:F3},{s.y:F3}) ≠ 1 ⇒ "
+                                   + "`ClampDescBelowArmy` 按未缩放行盒算会把字挪错，本轮**不夹**");
+                }
+                return false;
+            }
+            bool wrap = t.textWrappingMode == TextWrappingModes.Normal;
+            float wrapW = t.rectTransform != null ? t.rectTransform.sizeDelta.x : 0f;
+            if (wrap && wrapW <= 0f) wrap = false;
+            if (t.gameObject.activeInHierarchy) t.ForceMeshUpdate();
+            else Relayout(t, wrapW, wrap);
+            var b = t.textBounds;
+            var p = t.rectTransform.localPosition;
+            h = b.size.y;
+            bottom = p.y + b.center.y - h * 0.5f;
+            top = p.y + b.center.y + h * 0.5f;
+            return h > 0f;
+        }
+        static bool _tmpBoxScaleWarned;
 
         /// <summary>
         /// 把整块文字**下沿对齐**摆到 (x01, y01) 那个点上（y 从顶算）。
@@ -6951,6 +7230,13 @@ namespace CardPresentation
         public Texture CardImageTexture { get { return ArtTexture(Data); } }
 
         /// <summary>现在的 3D 卡体材质是不是建体时那份（自检断言用）。</summary>
+        /// <summary>🆕 2026-10-25（`E`）自检用：**3D 卡体材质上的 `_MatCap`**（没建 3D 体 / 没材质 ⇒ `null`）。
+        /// 判「matcap 是不是按档位取的」只能用这个口 —— 读贴图名/引用，⛔ 别读我们自己记的档位变量（那是自证）。</summary>
+        public Texture2D BodyMatcap
+        {
+            get { return _bodyMat != null ? _bodyMat.GetTexture("_MatCap") as Texture2D : null; }
+        }
+
         public bool OnOriginalBodyMaterial
         {
             get { return _bodyMat != null && _body3D != null && _body3D.sharedMaterial == _bodyMat; }
@@ -7432,7 +7718,13 @@ namespace CardPresentation
             var m = new Material(sh) { name = "Card3D" };
             // 材质属性值 = 原版 `Card 3d Lvl1`（`资料/3DBody_原版场上卡体规格.md` §一 那一行）
             m.SetTexture("_BaseMap", CardArt.Card3DBase());
-            m.SetTexture("_MatCap", CardArt.Card3DMatcap());
+            // 🔴 **2026-10-25（`E` · 代理 D 查实）：matcap 按【卡档位】取，不再写死 tier1。**
+            //   判据 = 原版 `CardMaterialHelper.matcapTexturesByCardTier[CardTier]`
+            //   （`CardMaterialHelper__GetCardMatCapByCardTier.c`）—— 四个档位贴图**本地全在**
+            //   （`CardArt.Card3DMatcap` 的 doc 有 PathID 对位：`MatCap Card Level 1` / `Matcap Bronze` /
+            //    `Matcap Silver` / `Matcap Gold`）。档位口径**与卡框同一处**：`CardTierFor(Data)`
+            //   （原版也是同源：`SetCardImageTo3DBase` 与 `CardTierUIController.SetTier` 都吃 `CardTier`）。
+            m.SetTexture("_MatCap", CardArt.Card3DMatcap(CardTierFor(Data)));
             m.SetTexture("_CardImage", artTex != null ? artTex : Texture2D.whiteTexture);
             // 🆕 2026-10-25（B2）：立绘 UV 窗（sprite 裁块 / 整页方图两支）—— 算式只写在 `CardArt.ArtUvRect`
             ApplyArtUvRect(m, artTex != null ? artTex : Texture2D.whiteTexture);
@@ -7654,8 +7946,12 @@ namespace CardPresentation
             if (_createdBy != null) _createdBy.color = Greyed((Color)CreatedByInk * c);
             // 🆕 2026-10-25（`CF-3`）：2D 卡面那四个**数值 TMP** 也一样走顶点色（原版 `m_fontColor` = 白）
             // —— 它们不在 `_layers` 里（TMP 没有 `_Color` 材质属性可刷），同 `_title` 那一族。
+            // 🔴 **2026-10-25（`K4`）**：颜色口径收进 `FaceStatInk`（状态色 × 淡出 × 灰化 × **涨落色**）——
+            //    原来漏了 `_statFlash`，2D 卡面的数值涨落根本没有颜色可涂。
             for (int i = StatMelee; i <= StatHealth; i++)
-                if (_faceStatText[i] != null) _faceStatText[i].color = Greyed(Color.white * c);
+                if (_faceStatText[i] != null) _faceStatText[i].color = FaceStatInk(i);
+            // 🆕 2026-10-25（K4 D3）：费用那件 TMP 同一条（`StatCost` 的极性在 `StatColorVsBase` 里已反）
+            if (_faceCostText != null) _faceCostText.color = FaceStatInk(StatCost);
 
             // 🆕 2026-09-29：整组徽标自己的那个不透明度（原版 `NestedFadeGroup.alpha`）——
             // 上面那个 foreach 已经把徽标各层刷成「状态色 × 整卡 α」了，这里再乘一层**只属于徽标**的。
@@ -9001,7 +9297,28 @@ namespace CardPresentation
             HitRect(out float halfH, out float centerDy);
             _hitCollider.size   = new Vector2(HitHalfW * 2f, halfH * 2f);
             _hitCollider.offset = new Vector2(0f, centerDy);
+            _hitCollider.enabled = _hitEnabled;      // 命中开关（原版 `CardCollider2D.Toggle`）—— 唯一写点
         }
+
+        // ---- 命中开关（原版 `CardCollider2D.Toggle(bool)` 的等价物）----
+        /// <summary>这张卡现在**吃不吃命中**。原版 = `CardCollider2D.Toggle(option)` → `boxCollider2D.enabled`
+        /// （`CardCollider2D__Toggle.c`），由 `CardScript.SetColliderNotInHand(state)` 按状态给：
+        /// `removedFromGame(11)` / `inCemetery(6)` ⇒ 关（`CardScript__RemoveFromGameCard.c:22-26`、
+        /// `CardCollider2D__SetColliderNotInHand.c:11-24`）。
+        /// <para>⚠️ 开关只管**两条命中判据**（<see cref="Contains"/> / <see cref="HitByCollider"/>）——
+        /// **不动几何**（`HitRect` 照旧，几何归常态档）。</para>
+        /// <para>🔴 **2026-10-25（第 3 轮）：只有 helper、还没有调用方** —— 接线点在上游状态机
+        /// （`BattleDriver` 收到 `removedFromGame` 时），那一半不在本批白名单。⛔ 别在这里猜状态。</para></summary>
+        public bool HitEnabled { get { return _hitEnabled; } }
+
+        /// <summary>开/关这张卡的命中（缺省 **true**）。已建 collider ⇒ 当场生效；没建 ⇒ 由 `SyncHitCollider` 落。</summary>
+        public void SetHitEnabled(bool on)
+        {
+            if (_hitEnabled == on) return;
+            _hitEnabled = on;
+            if (_hitCollider != null) _hitCollider.enabled = on;
+        }
+        bool _hitEnabled = true;
 
         // ------------------------------------------------------------------
         //  第二套矩形：原版 uGUI 那颗 `UI Collider`（**只给战斗展示窗**用）—— 2026-10-17（`BSC62·W16`）
@@ -9097,6 +9414,7 @@ namespace CardPresentation
         /// 正常路径永远走 collider。</returns></summary>
         public bool HitByCollider(Vector3 world)
         {
+            if (!_hitEnabled) return false;      // 原版 `CardCollider2D.Toggle(false)` ⇒ 物理层也查不到（见 `SetHitEnabled`）
             var col = _hitCollider;
             if (col == null)
             {
@@ -9153,6 +9471,7 @@ namespace CardPresentation
         /// —— 换标架真正补上的是**倾摆**：`AutoCardRotation` 只写 `_tiltRoot` 的 `localRotation`。</para></summary>
         public bool Contains(Vector3 world)
         {
+            if (!_hitEnabled) return false;      // 原版 `CardCollider2D.Toggle(false)` ⇒ 不吃命中（见 `SetHitEnabled`）
             var l = HitFrame().InverseTransformPoint(world);
             HitRect(out float halfH, out float centerDy);
             return Mathf.Abs(l.x) <= HitHalfW && Mathf.Abs(l.y - centerDy) <= halfH;
@@ -11543,6 +11862,20 @@ namespace CardPresentation
         /// 见建层处 `frameTier` 那一段。</para></summary>
         public static int DebugFrameTier = 0;
 
+        /// <summary>这张卡的**档位**（1 基，1..`CardArt.MaxTier` = 原版 `CardTier + 1`）—— **判据只此一处**。
+        /// <para>卡框（`CardArt.Frame/Sdf`）与**3D 卡体的 matcap**（`CardArt.Card3DMatcap`）**共读这一个值** ——
+        /// 原版这两处同源（`CardMaterialHelper.matcapTexturesByCardTier[CardTier]` 与
+        /// `CardTierUIController.SetTier` 都吃 `CardTier`）。</para>
+        /// <para>取值：`DebugFrameTier`（自检探针覆盖，&gt;0 才生效）→ `CardProgress.Level(artId)`（玩家存档，缺省 1）→
+        /// **没 `artId`** 的演示卡/占位卡退回 `CardArt.MaxTier`（那种卡不在 `CardProgress` 的表里，
+        /// 按缺省 1 画会把演示卡框无故降档）。</para></summary>
+        static int CardTierFor(CardData d)
+        {
+            return DebugFrameTier > 0
+                 ? Mathf.Clamp(DebugFrameTier, 1, CardArt.MaxTier)
+                 : (string.IsNullOrEmpty(d.artId) ? CardArt.MaxTier : CardProgress.Level(d.artId));
+        }
+
         // ==================================================================
         //  🆕 2026-10-18 **大图档：立绘越出卡框 + 立绘 ×1.27**
         // ==================================================================
@@ -12384,6 +12717,7 @@ namespace CardPresentation
             //    uv 反算的（`FaceStatAt01` / `FaceCostAt01`）⇒ 同一张卡换一种卡框，烘出来的图不一样。
             string key = (statsOnly ? "infoStat|" : "info|") + (skipStats ? "nostat|" : "")
                        + (CostBig ? "costbig|" : "")
+                       + (TmpFont.Available ? "costtmp|" : "costbake|")   // 🆕 K4 D3：有 TMP 就不烘数字
                        + (frameTex != null ? "f" + frameTex.GetInstanceID() + "|" : "")
                        + CacheKey(d);
             Texture2D cached;
@@ -12416,16 +12750,23 @@ namespace CardPresentation
                     FillHexagon(px, FaceW, FaceH, costAt.x * FaceW, costAt.y * FaceH, 0.0956f * cs * FaceW, rim);
                     FillHexagon(px, FaceW, FaceH, costAt.x * FaceW, costAt.y * FaceH, 0.0779f * cs * FaceW, InkCostGem);
                 }
-                // 费用数字：原版是 `Cost Container/CostText`（TMP + Pragati，**Thick 描边**、白字）
-                if (!PragatiDigits.Available)
-                    DrawCenteredAt(px, costAt, d.cost.ToString(), 4, InkCost);
-                else
-                    PragatiDigits.Draw(px, FaceW, FaceH, d.cost.ToString(),
-                                       Mathf.RoundToInt(costAt.x * FaceW),
-                                       Mathf.RoundToInt(costAt.y * FaceH), true,
-                                       // 费用六边形半径 0.0956 卡宽（见上面 `FillHexagon` 那两行）
-                                       // ⇒ 净宽 ≈ 2×0.0956×256 ≈ 49 面像素，留边距取 41（大号档 ×1.2）
-                                       Mathf.RoundToInt(0.0956f * cs * FaceW * 2f * 0.84f));
+                // 🔴🔴 **2026-10-25（`E` · K4 §②·D3）：数字改走【第五件真 TMP】**（原版 `Cost Container/CostText`）
+                //   ⇒ 这里**不再烘**（否则一张卡上会同时有 TMP 与烘图 = 重影）。
+                //   只有**字体资产取不到**（`TmpFont.Available == false`，那档根本建不出 TMP）才退回烘图，
+                //   与卡名/正文那几层「有 TMP 就不点阵」是同一条规矩（见上面 ② 那两段）。
+                //   ⚠️ 六边形/宝石**照旧烘**（那是底板 `Cost Background` 的替身，不是数字）。
+                if (!TmpFont.Available)
+                {
+                    if (!PragatiDigits.Available)
+                        DrawCenteredAt(px, costAt, d.cost.ToString(), 4, InkCost);
+                    else
+                        PragatiDigits.Draw(px, FaceW, FaceH, d.cost.ToString(),
+                                           Mathf.RoundToInt(costAt.x * FaceW),
+                                           Mathf.RoundToInt(costAt.y * FaceH), true,
+                                           // 费用六边形半径 0.0956 卡宽（见上面 `FillHexagon` 那两行）
+                                           // ⇒ 净宽 ≈ 2×0.0956×256 ≈ 49 面像素，留边距取 41（大号档 ×1.2）
+                                           Mathf.RoundToInt(0.0956f * cs * FaceW * 2f * 0.84f));
+                }
             }
 
             // ①b 🔴 **2026-09-15 撤掉了原来那层「我们自己加的柔和压暗」**（`DrawTextScrim`）。
@@ -12575,6 +12916,46 @@ namespace CardPresentation
                 case StatArmour: return d.armor;
                 default:         return d.health;
             }
+        }
+
+        /// <summary>某一格的**基准值**（原版 9 参 `SetText` 的 `baseValue` 实参）。
+        /// `statBasesKnown == false` 时调用方**不许用**它（见 `CardData.statBasesKnown` 的 doc）。</summary>
+        static int StatBaseValue(CardData d, int s)
+        {
+            switch (s)
+            {
+                case StatMelee:  return d.baseMelee;
+                case StatRanged: return d.baseRanged;
+                case StatArmour: return d.baseArmour;
+                case StatHealth: return d.baseHealth;
+                case StatCost:   return d.baseCost;
+                default:         return 0;
+            }
+        }
+
+        /// <summary>**数值颜色 = 原版 `CardTextCountersController.DoColorChange`** —— 判据只此一处。
+        /// <para>一手判据：`CardTextCountersController__DoColorChange.c` 逐句 ——
+        /// ① `param_2 == param_3` ⇒ 刷回 `originalColors[i]`（白）；
+        /// ② 否则按 `statIncreaseIsPositiveToThePlayer` 的极性取两色
+        /// （`CardTextCountersColorsSO`：`+0x18 statIncreaseColor` = **(0,1,0)** ·
+        ///  `+0x28 statDecrease` = **(0.9725,0.306,0.353)**；工具提示写的正是「health/attack 涨 / 落」）。</para>
+        /// <para>🔴 **比的是【当前值 vs 基准值】，不是【新 vs 旧】** —— 9 参 `SetText` 的指令流
+        /// （VA `0x18060C180`，2026-10-25 用 `工具/disasm_va.py` 现读）那三句：
+        /// `mov ebx,r9d`（= `baseValue`）· `mov edi,r8d`（= `currentValue`）·
+        /// `call DoColorChange(this, edx=currentValue, r8d=baseValue)`
+        /// ⇒ 颜色是**持续态**：受伤的生命一直红、被 buff 的攻击一直绿，**回到基准才变白**。
+        /// （我们 2026-09-29 那版按「新 vs 旧」闪一下，**判据不同**；只在基准未知时才走它。）</para>
+        /// <para>极性：近战 / 远程 / 生命 / 护甲四个 counter 的 `statIncreaseIsPositiveToThePlayer` = **1**；
+        /// **费用**那个 counter = **0**（越低越好）—— 实测五份 `MonoBehaviour_*.json`：
+        /// `…_6320885271709195200`（费用，**0**）· `…_-3358613892933444672`（远程，1）·
+        /// `…_1339511855435914176`（生命，1）· `…_4301255605536791488`（近战，1）·
+        /// `…_576116891963464640`（护甲，1）。</para></summary>
+        public static Color StatColorVsBase(int s, int cur, int bas)
+        {
+            if (cur == bas) return Color.white;
+            bool increaseIsGood = s != StatCost;                   // 费用：越低越好（`statIncreaseIsPositiveToThePlayer = 0`）
+            bool good = increaseIsGood ? cur > bas : cur < bas;
+            return good ? CardFeel.StatUpColor : CardFeel.StatDownColor;
         }
 
         /// <summary>某一格数值**该不该显示** —— 🔴 **判据只此一处**（两档载体都调它：场上的网格层
@@ -12814,8 +13195,124 @@ namespace CardPresentation
                 // ⚠️ 批处理没有帧循环（CLAUDE.md §三）⇒ 值变了 / 刚显示出来的那一拍必须手动排版
                 //    （`ForceMeshUpdate` 对**未激活**对象会早退 —— 所以这句只能写在 `SetActive(true)` 之后）
                 if (changed || !wasOn) t.ForceMeshUpdate();
+                // 🆕 2026-10-25（`K4`）：**涨落色 / 持续色**（原版 `DoColorChange` 涂的就是这个 TMP 的顶点色）。
+                //   ⚠️ 不能只靠 `ApplyTint` 那一趟 —— `SetData` 这条路当下不一定调它（数值刷了色却没跟上 = 静默）。
+                t.color = FaceStatInk(s);
             }
         }
+
+        /// <summary>2D 卡面那四件数值 TMP 的**顶点色**（原版 `m_fontColor` 白 × `DoColorChange` 的涂色）。
+        /// <para>TMP 的字不吃材质 `_Color`（走顶点色）⇒ 整卡状态色 / 淡出 / 灰化 / 涨落色都在这一处乘齐
+        /// —— 与 `_title` / `_keywords` / `_createdBy` 那几族同构（见 `ApplyTint` 末尾）。判据只此一处。</para></summary>
+        Color FaceStatInk(int s)
+        {
+            var c = new Color(_tint.r, _tint.g, _tint.b, _tint.a * _alpha);
+            return Greyed(Color.white * _statFlash[s] * c);
+        }
+
+        // ==================================================================
+        //  🆕 2026-10-25（`E` · K4 §②·D3）：**费用数字 = 第五件真 TMP**（原版 `Cost Container/CostText`）
+        // ==================================================================
+        //  为什么要有这一段：费用原来是**烘在 `_info` 贴图里**的（`InfoTexture` 的 `ShowsCost` 那一支），
+        //  而原版是**第五个 `CardTextCountersController`** 驱动的真 TMP ⇒ 它的两件事我们一样都做不了：
+        //    ① `DoColorChange`（费用比基准低/高时涂绿/红 —— `statIncreaseIsPositiveToThePlayer = 0`）；
+        //    ② `DOPunchScale`（数值变化那一下的弹跳）。
+        //  判据（prefab 逐字段实读）见上面 `_faceCostText` 那一段注释；两档（普通 / 大号）是**两个节点**。
+        //  ⚠️ 烘图那边要**成对**关掉（`InfoTexture` 的 `TmpFont.Available` 闸）—— 否则会重影。
+        //  ⚠️ 只给**非场上**档建（场上那张是 3D 卡体，费用格本来就不显示：`Show(_costBg, !board && …)`）。
+
+        /// <summary>建费用 TMP（幂等）。条件：字体资产在 + 这张卡**该印费用**（`ShowsCost`）+ 非场上。</summary>
+        void BuildFaceCostText()
+        {
+            if (_faceCostText != null) return;
+            if (!TmpFont.Available) return;
+            if (!ShowsCost(Data)) return;
+            if (_faceMode == CardFace.Board) return;
+            var cgo = new GameObject("Cost Container");            // 原版节点名（排查/自检能对上）
+            cgo.transform.SetParent(FaceContentRoot, false);
+            cgo.transform.localScale = Vector3.one;
+            var at = CostAt01(_frameTex);
+            // z 与 `_info` / 四件数值同层（原版这些都在 `Card Info` 里；见 `InfoZ` 的注释）
+            cgo.transform.localPosition = new Vector3((at.x - 0.5f) * Width,
+                                                      (0.5f - at.y) * Height, InfoZ);
+            _faceCostContainer = cgo;
+
+            float em = CostBig ? CostTextBigEm : CostTextEm;
+            var t = TmpFont.NewText(cgo.transform, "CostText", "",
+                                    TmpFont.FontSizeForEm(TmpFont.Face.LatinCardBody, em),
+                                    Color.white, TmpFont.Face.LatinCardBody);
+            if (t == null)
+            {
+                Debug.LogWarning("[CardView] 费用 TMP 建不出来（`TmpFont.NewText` 回 null）⇒ 这一张退回烘图"
+                               + "（`InfoTexture` 那条 `TmpFont.Available` 闸会放行），颜色/弹跳仍然没有");
+                DestroyImmediate(cgo);
+                _faceCostContainer = null;
+                return;
+            }
+            var rt = t.rectTransform;
+            rt.sizeDelta = CostBig ? CostTextSizeBig : CostTextSize;
+            // 原版这一颗挂在**被 scale 1.2 的容器**下 ⇒ 我们平铺在这一级，偏移要手动乘 `CostScale`
+            rt.localPosition = new Vector3(CostTextDx * CostScale, CostTextDy * CostScale, 0f);
+            rt.localScale = Vector3.one;
+            if (!CostBig)
+            {
+                // 普通档：autoSizing 1（min 0.025 / max 0.34）、Normal、白、Center/Middle、不折行
+                t.enableAutoSizing = true;
+                t.fontSizeMin = TmpFont.FontSizeForEm(TmpFont.Face.LatinCardBody, CostTextAutoMinEm);
+                t.fontSizeMax = TmpFont.FontSizeForEm(TmpFont.Face.LatinCardBody, CostTextEm);
+                t.fontSize = t.fontSizeMax;
+            }
+            else
+            {
+                // 大号档（另一颗节点）：**autoSizing 关**、字号固定 0.475
+                t.enableAutoSizing = false;
+                t.fontSize = TmpFont.FontSizeForEm(TmpFont.Face.LatinCardBody, CostTextBigEm);
+            }
+            t.alignment = TextAlignmentOptions.Center;             // 原版 hAlign 2 + vAlign 512
+            t.textWrappingMode = TextWrappingModes.NoWrap;         // 原版 `m_TextWrappingMode = 0`
+            ApplyStatOutline(t, thick: false);                     // 原版材质 `<Patern> Thin Outline`
+            cgo.SetActive(false);                                  // 由 `SyncFaceCostText` 开关
+            StampTmpQueue(t);
+            _faceCostText = t;
+            _faceCostRect = rt;
+        }
+
+        /// <summary>刷费用 TMP 的**值 / 显隐 / 颜色**（与 `SyncFaceStatTexts` 同一套口径：
+        /// 显隐走 `ShowsCost` + 形态；颜色走 `FaceStatInk(StatCost)`（状态色 × 淡出 × 灰化 × 涨落色））。</summary>
+        void SyncFaceCostText()
+        {
+            if (_faceCostText == null) return;
+            bool on = _faceMode != CardFace.Board && ShowsCost(Data);
+            var cgo = _faceCostContainer;
+            bool wasOn = cgo != null && cgo.activeSelf;
+            if (cgo != null && wasOn != on) cgo.SetActive(on);
+            if (!on) return;
+            string txt = Data.cost.ToString();
+            bool changed = _faceCostText.text != txt;
+            if (changed) _faceCostText.text = txt;
+            if (changed || !wasOn) _faceCostText.ForceMeshUpdate(); // 批处理没有帧循环（同四件数值那条）
+            _faceCostText.color = FaceStatInk(StatCost);
+        }
+
+        /// <summary>🆕 **2026-10-25（`E` · 原版 `Card2DController.ToggleTooltips` 的逐卡那一半）**：
+        /// **这张卡上的 tooltip 开不开**（默认开）。原版是逐卡把卡上那批 `EverguildTooltipTrigger` /
+        /// `TextTooltipController` 一起 `Toggle(option)`：
+        /// · `CardDisplayWindow` 摆卡时 **只有前台（index 0）开**、相关卡关（`CardDisplayWindow.cs:965`）；
+        /// · 换位时 **旧前台关、新前台开**（`:1181/1184`）；
+        /// · 新建的战斗卡先关、摆好后开（`BattleCardManager:128` 等）。
+        /// ⚠️ **消费侧**（我们的悬停驱动 = `Battle/Tooltip` 的调用点）必须读这一格：
+        ///   `Battle/BattleDriver` 的 `TickKeywordTooltip`/`TickTooltipAt` 在弹之前先判 `v.TooltipsEnabled`
+        ///   （那一处在 BattleDriver = A 域，本批只落**开关本身 + 设置点**，见报告）。
+        /// ⚠️ 与 `Core/Tooltip` 的**全局抑制计数**分工：那条服务「窗口/开包期间整片不要 tooltip」；
+        ///   本格服务「同一棵树里只让前台那张弹」—— 两条可同时用。⛔ 别把两者合并成一个 bool。</summary>
+        public bool TooltipsEnabled = true;
+
+        /// <summary>自检用：费用那件 TMP（没建 = null）。</summary>
+        public TextMeshPro FaceCostText { get { return _faceCostText; } }
+        /// <summary>自检用：费用那一格现在显示着吗（= `ShowsCost` 且非场上）。</summary>
+        public bool FaceCostVisible { get { return _faceCostContainer != null && _faceCostContainer.activeSelf; } }
+        /// <summary>自检用：费用 TMP 的 rect（`sizeDelta` 对原版 0.38×0.35 / 大号 0.456×0.42）。</summary>
+        public RectTransform FaceCostRect { get { return _faceCostRect; } }
 
         /// <summary>原版两档描边材质（`Pragati-Regular Atlas Material {Thin,Thick} Outline`）——
         /// `_OutlineWidth` / `_FaceDilate` / `_OutlineColor` 逐字段实读，写在 `StatOutline*` 那几个常量上。
@@ -12850,32 +13347,74 @@ namespace CardPresentation
             return c != null ? c.transform.localPosition : Vector3.zero;
         }
 
-        /// <summary>那一个数值**涨 / 落**了：变色 + bump（原版 `CardTextCountersController` 那两件事）。
-        /// 判据与「哪两个色」→ <see cref="CardFeel.StatUpColor"/>。</summary>
+        /// <summary>那一个数值**变好 / 变坏**了：涂色 + bump（原版 `CardTextCountersController` 那两件事）。
+        /// <para>⚠️ **本函数只服务「基准未知」那条近似路**（出厂）：判据是「新 vs 旧」（`up = 新 > 旧`）。
+        /// 基准已知时颜色走 <see cref="StatColorVsBase"/> 的**持续态**、这里只剩 bump ——
+        /// 两条路都在 <see cref="CaptureStatChanges"/> 里分叉，⛔ 别在别处再判一次极性。</para></summary>
         void FlashStat(int s, bool up)
         {
-            var mr = _stats[s];
-            if (mr == null || !mr.gameObject.activeSelf) return;
             _statFlash[s] = up ? CardFeel.StatUpColor : CardFeel.StatDownColor;
-            // ⚠️ **这里不刷色** —— `SetData` 末了那次 `SyncStatLayers` 才画上新值，
+            // ⚠️ **这里不刷色** —— `SetData` 末了那次 `SyncStatLayers` / `SyncFaceStatTexts` 才画上新值，
             //    此刻 `Data` 还是旧的（见 `CaptureStatChanges` 的注释）。
-            //
-            // 🔴 **bump 的四个参数是从 9 参 `SetText` 的指令流里读出来的**（2026-09-29，VA `0x18060C180`）：
-            //    · 先把 `localScale` **复位**到基准（`set_localScale`，不是 `DOScale`）；
-            //    · 再 `DOPunchScale(基准 × cardTextBumpSize, cardTextBumpTime, vibrato = 10, elasticity = 2.0f)`
-            //      —— **幅度是「乘」不是「打到」**（三处 `mulss`），弹性那个 `2.0f` 是常量池 `0x1834B2BBC`。
-            //    · 基准 = 攻击类型高亮态用 `HighlightAttackType.TargetScale`、否则 `originalScales[i]`
-            //      🔴 **2026-10-25（`CF`）已接上**：基准走 `StatBaseScaleOf`（= 原版 `originalSize` 惰性捕获），
-            //      高亮态再 × 倍数（`AttackScaleModifier`）。原来这里写死 `Vector3.one` —— 那样一涨一落
-            //      就把高亮放大的数值**弹回 ×1.0**（原版的 `SetText` 复位用的是 `TargetScale`，不是 1）。
-            var tr = mr.transform;
+            BumpStat(s);
+        }
+
+        /// <summary>原版 9 参 `SetText` 里 `doAnimation` 那一支 —— **对每个 `textsToSet` 都做一次**。
+        /// <para>参数是从指令流里读出来的（VA `0x18060C180` 的 `0x18060C5DB…0x18060C6B5` 那一段）：
+        /// · 先把 `localScale` **复位**到基准（`set_localScale`，不是 `DOScale`）；
+        /// · 再 `DOPunchScale(基准 × cardTextBumpSize, cardTextBumpTime, vibrato = 10, elasticity = 2.0f)`
+        ///   —— **幅度是「乘」不是「打到」**（三处 `mulss`），弹性那个 `2.0f` 是常量池 `0x1834B2BBC`。</para>
+        /// <para>🔴 **2026-10-25（`K4`）：两套载体都要动** —— 原版每个数值 counter 的 `textsToSet` 有 **2 件**：
+        /// 2D 卡面那件（`m_fontSize 0.34`、无 `highlightAttackType`）+ 3D 卡体那件（`m_fontSize 7 / 8`、
+        /// 带 `highlightAttackType`）。实测（`bundle_battleprefabs_vfxandmisc_assets_all`；按每份 counter 的
+        /// `textsToSet` 指向的 TMP 节点名反查：`Range Attack Text` → `…_-3358613892933444672`、
+        /// `HealthText` → `…_1339511855435914176`、`Armour Text` → `…_576116891963464640`，
+        /// 剩下那份 `…_4301255605536791488` = **近战**）⇒ 四个数值各 **2 件**；
+        /// **费用 `…_6320885271709195200` 只有 1 件**（3D 卡体不印费用）。
+        /// 我们原来只 bump 场上那四个网格层 ⇒ **手牌 / 卡池的数值涨落是「无声」的**。</para>
+        /// <para>基准 scale：场上那层走 `StatBaseScaleOf`（= 原版 `originalSize` 惰性捕获）+ 高亮倍数；
+        /// 2D 那四件原版 `originalScales[i]` 恒 **1**（`CardTextCountersController.CacheData` 记的就是 1）。</para></summary>
+        void BumpStat(int s)
+        {
+            // 🆕 2026-10-25（K4 D3）：**费用 = 第五个 counter**，它的载体是 `_faceCostText`（不是 `_stats[5]`）。
+            if (s == StatCost)
+            {
+                if (_faceCostText == null) return;
+                var trc = _faceCostText.transform;
+                trc.DOKill();
+                trc.localScale = Vector3.one;                // 原版复位到 `originalScales[i]` = 1
+                CardTween.Use(trc.DOPunchScale(Vector3.one * CardFeel.StatBumpSize, CardFeel.StatBumpTime,
+                                               CardFeel.StatBumpVibrato, CardFeel.StatBumpElasticity),
+                              Ease.Linear, trc);
+                StatBumps++;
+                return;
+            }
+            // 0 = 空档；1..4 = 四个数值（场上走网格层、非场上走 `_faceStatText`）
+            if (s <= 0 || s >= _stats.Length) return;
+            var mr = _stats[s];
+            if (mr != null)
+            {
+                // 场上那四个网格层（= 原版 3D 卡体那一件）
+                var tr0 = mr.transform;
+                tr0.DOKill();
+                _statScaleTween[s] = null;                   // `DOKill` 刚才把那条高亮补间一起杀了
+                bool lit = (s == StatMelee && OwnAttackType == AttackTypes.Melee)
+                        || (s == StatRanged && OwnAttackType == AttackTypes.Ranged);
+                var bumpBase = StatBaseScaleOf(s) * (lit ? AttackScaleModifier : 1f);
+                tr0.localScale = bumpBase;                   // 原版先复位到基准
+                CardTween.Use(tr0.DOPunchScale(bumpBase * CardFeel.StatBumpSize, CardFeel.StatBumpTime,
+                                               CardFeel.StatBumpVibrato, CardFeel.StatBumpElasticity),
+                              Ease.Linear, tr0);
+                StatBumps++;
+                return;
+            }
+            // 2D 卡面那四件真 TMP（`CF-3` 起）—— 原版 2D 那一件也在 `textsToSet` 里
+            var t = _faceStatText[s];
+            if (t == null) return;
+            var tr = t.transform;
             tr.DOKill();
-            _statScaleTween[s] = null;                       // `DOKill` 刚才把那条高亮补间一起杀了
-            bool lit = (s == StatMelee && OwnAttackType == AttackTypes.Melee)
-                    || (s == StatRanged && OwnAttackType == AttackTypes.Ranged);
-            var bumpBase = StatBaseScaleOf(s) * (lit ? AttackScaleModifier : 1f);
-            tr.localScale = bumpBase;                        // 原版先复位到基准
-            CardTween.Use(tr.DOPunchScale(bumpBase * CardFeel.StatBumpSize, CardFeel.StatBumpTime,
+            tr.localScale = Vector3.one;                     // 原版复位到 `originalScales[i]` = 1
+            CardTween.Use(tr.DOPunchScale(Vector3.one * CardFeel.StatBumpSize, CardFeel.StatBumpTime,
                                           CardFeel.StatBumpVibrato, CardFeel.StatBumpElasticity),
                           Ease.Linear, tr);
             StatBumps++;
@@ -12886,6 +13425,15 @@ namespace CardPresentation
 
         /// <summary>自检用：第 `s` 个数值现在是什么色（`CardFeel.StatUpColor` / `StatDownColor` / 白）。</summary>
         public Color StatFlash(int s) { return _statFlash[s]; }
+
+        /// <summary>自检用：**场上那一层数值的材质色**（层没建 / 没材质 ⇒ `Color.clear`）。
+        /// 断「2D / 3D 两套载体吃同一套涨落色」用它 —— 2D 那套走 `FaceStatText(s).color`（顶点色），
+        /// 3D 那套走这里（`_stats[s]` 的材质 `_Color`）。</summary>
+        public Color StatLayerColor(int s)
+        {
+            var mr = _stats[s];
+            return (mr != null && mr.sharedMaterial != null) ? mr.sharedMaterial.color : Color.clear;
+        }
 
         /// <summary>自检用：第 `s` 个数值现在画着哪个数（没画返回 -1）。
         /// <para>🔴 **这一条读的是 `activeSelf`，读不到「屏幕上有没有」** —— 2026-10-12 用户真机报的
@@ -12946,6 +13494,7 @@ namespace CardPresentation
         void ClearStatFlashes()
         {
             for (int s = StatMelee; s <= StatHealth; s++) _statFlash[s] = Color.white;
+            _statFlash[StatCost] = Color.white;          // 费用（原版第五个 counter；见 `_statFlash` 的注释）
         }
 
         /// <summary>把四个数值的闪现色贴回材质（`ApplyTint` 每条路都调 —— 它会把 `_layers` 统一刷一遍色，

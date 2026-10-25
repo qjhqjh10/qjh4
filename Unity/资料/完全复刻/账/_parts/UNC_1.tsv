@@ -1,0 +1,151 @@
+AlternateArtStyleItem|Release(AddressableCacheGroup cacheGroup)|D|按 cacheGroup 释放这份异画资产：AlternateArtStyleItem.cs:26|无|Addressables 句柄管理，我们不走远端包| |D①：方法体只有 `AddressableCacheGroup.Release(handle)` 一跳；异画（AA_HB/_AA_）已作为静态图导入 `Art/`，没有运行期句柄要释放
+AlternateArtStyleItem|TryGetItem(AlternateArtSyle alternateArtSyle, out T returnItem)|D|按异画档从 Addressables 取资产：AlternateArtStyleItem.cs:13|无|同上| |D①：唯一动作为 `cacheGroup.GetAsset(...)`；我们的异画是本地静态引用（`资料/普查产出_1018` 的两份异画表）
+AlternateArtStyleItem|TryRelease(AlternateArtSyle alternateArtSyle)|D|按档位释放：AlternateArtStyleItem.cs:58|无|同上| |D①：唯一动作 `cacheGroup.Release(...)`；类本身不是 MonoBehaviour（无 guid）⇒ 实例统计不适用
+ArmyHeader|Initialize(CardArmy army)|D|按阵营取抬头图并 `image.sprite =` 设置：ArmyHeader.cs:12|CardPresentation/Shell/DeckSelectionPopup.cs（选卡组抬头按阵营画）|我方按阵营直接选图，没有「运行期换 sprite 的组件」| |D②：类级入口只有 prefab 上这一颗（导出集 1 处实例）；我们对应的抬头是建视图时按阵营一次画好
+ArmyIconsSO|GetArmyIcon(CardArmy cardArmy)|B|按阵营返回图标 sprite（缺就 LogError）：ArmyIconsSO.cs:10|CardPresentation/Core/ArmyIcons.cs|等价（我们按阵营取图，来源同一批图）| |判据里「缺图 LogError 不静默」这一条我们也做了
+ArmyIconsSO|Release(CardArmy army)|D|释放该阵营图标的 Addressables 句柄：ArmyIconsSO.cs:36|无|远端包特有| |D①：方法体唯一动作是 `Addressables.Release(handle)`；我们的图是工程内资产
+AttackEnemyUnit|OnAttack(AttackSignal obj)|D|按 anyAttackingType/anyEnemyType/anyAttackType/anySelfTrait/anySelfKeyword 过滤后 `UpdateProgress(1)`（只算我方出手）：AttackEnemyUnit.cs:40|无|我方成就系统按 `k` 类名分派，这一类**没有任何成就使用**| |D④：判据 = `Resources/profile_cosmetics.json` 102 条成就的 `k` 取值分布（GamesPlayed 30 · UpgradeCard 27 · TriggerAbility 17 · DamageDeltToEnemyUnit 7 · CardPlayedCount 5 · ConstantChallenge 4 · 其余各 1）——**没有 AttackEnemyUnit**
+AttackEnemyUnit|OnInitialize()|D|`Signal.Register<AttackSignal>(OnAttack)`：AttackEnemyUnit.cs:34|无|同上| |D④：同上（这一类 0 条成就使用）
+AttackEnemyUnit|OnReset()|D|`Signal.Unregister(OnAttack)`：AttackEnemyUnit.cs:28|无|同上| |D④：同上
+BaseAddressableLibrary|AssetCompletedLoading(AsyncOperationHandle obj, string assetKey)|D|资产加载完成回调：写缓存表 + 清 pending：BaseAddressableLibrary.cs:416|无|我们不用 Addressables 远端加载（资产已导入工程）| |D①：方法体唯一动作是回调和缓存表写入（`AsyncOperationHandle`），本工程没有这条链
+BaseAddressableLibrary|GetLocalHandle(IResourceLocation element)|D|按位置取本地句柄：BaseAddressableLibrary.cs:398|无|同上| |D①：唯一动作是 `Addressables.LoadAssetAsync` 句柄封装
+BaseAddressableLibrary|LoadLibrary(bool canUpdate)|D|整库加载（可带更新检查）：BaseAddressableLibrary.cs:407|无|同上| |D①：入口只有 `LoadLibrary` 一条（各 *Library 子类的 `Load` 调它），我们这侧没有库加载层
+BaseAddressableLibrary|Release()|D|释放整库：BaseAddressableLibrary.cs:430|无|同上| |D①：唯一动作 `Addressables.Release`
+BaseAddressableLibrary|ValidateLibraryLoad(bool canUpdate)|D|加载前校验（版本/依赖）：BaseAddressableLibrary.cs:425|无|同上| |D①：唯一调用点是 `LoadLibrary`
+BiDirectionalDictionary|Add(KeyValuePair<TKey, TValue> item)|C|双向下标同步插入（两个平行 List + 下标表）：BiDirectionalDictionary.cs:412|无|我们没有这个容器（`grep` 仅两处说明文字，无实现）；整类未实现|P2|🔵 **已由 G 覆盖**（`报告/G_泛型与启动链_第1轮.md` §2.1 + §三-#9：判 C，规模很小 15–60 行）；本条按 G 的口径落 C
+BiDirectionalDictionary|Add(TKey key, TValue value)|C|同上（键值版）：BiDirectionalDictionary.cs:366|无|同上；整类未实现|P2|已由 G 覆盖（同上）
+BiDirectionalDictionary|Clear()|C|清两个 List 与下标表：BiDirectionalDictionary.cs:460|无|同上；整类未实现|P2|已由 G 覆盖
+BiDirectionalDictionary|Contains(KeyValuePair<TKey, TValue> item)|C|键值对包含判定：BiDirectionalDictionary.cs:480|无|同上；整类未实现|P2|已由 G 覆盖
+BiDirectionalDictionary|ContainsKey(TKey key)|C|键包含判定：BiDirectionalDictionary.cs:503|无|同上；整类未实现|P2|已由 G 覆盖
+BiDirectionalDictionary|ContainsValue(TValue value)|C|值包含判定（走反向表）：BiDirectionalDictionary.cs:515|无|同上；整类未实现|P2|已由 G 覆盖
+BiDirectionalDictionary|CopyTo(KeyValuePair<TKey, TValue>[] array, int arrayIndex)|C|按 key 顺序拷进数组：BiDirectionalDictionary.cs:527|无|同上；整类未实现|P2|已由 G 覆盖
+BiDirectionalDictionary|GetEnumerator()|C|按插入序枚举：BiDirectionalDictionary.cs:562|无|同上；整类未实现|P2|已由 G 覆盖
+BiDirectionalDictionary|GetKey(TValue value)|C|反查键；找不到抛 `KeyNotFoundException("The key 'X' was not found in the dictionary.")`：BiDirectionalDictionary.cs:308|无|同上；整类未实现；异常文案是原版原文|P2|已由 G 覆盖（G 记了异常文案逐字）
+BiDirectionalDictionary|GetValue(TKey key)|C|正查值；找不到同样抛异常：BiDirectionalDictionary.cs:337|无|同上；整类未实现|P2|已由 G 覆盖
+BiDirectionalDictionary|Remove(KeyValuePair<TKey, TValue> item)|C|按键值对删（两表同步）：BiDirectionalDictionary.cs:620|无|同上；整类未实现|P2|已由 G 覆盖
+BiDirectionalDictionary|Remove(TKey key)|C|按键删：BiDirectionalDictionary.cs:595|无|同上；整类未实现|P2|已由 G 覆盖
+BiDirectionalDictionary|TryGetKey(TValue value, out TKey key)|C|反向查询（不抛）：BiDirectionalDictionary.cs:283|无|同上；整类未实现|P2|已由 G 覆盖
+BiDirectionalDictionary|TryGetValue(TKey key, out TValue value)|C|正向查询（不抛）：BiDirectionalDictionary.cs:663|无|同上；整类未实现|P2|已由 G 覆盖
+BiDirectionalDictionary|get_Item(TKey key)|C|索引器读：BiDirectionalDictionary.cs:148|无|同上；整类未实现|P2|已由 G 覆盖
+BiDirectionalDictionary|set_Item(TKey key, TValue value)|C|索引器写（存在则改、不存在则加）：BiDirectionalDictionary.cs:177|无|同上；整类未实现|P2|已由 G 覆盖
+BoardCriteria|DeepCopy()|A|深拷（逐字段复制 criteria）：BoardCriteria.cs:17|RuleEngine/Data/AiScoringData.cs（Criteria 深拷）|一致| |判据两侧都在：原版按字段逐个 new 一份；我们 AiScoringData 的 Criteria 也走字段级复制
+CSVReader|Read(string fileString)|D|解析 LiveOps CSV（IData 行 → 字典）：Everguild.LiveOps/CSVReader.cs:16|无|远端活动配置表，离线不适用| |D①：入口只有 LiveOps 配置加载（`IConfigData` 反序列化链）；我们的活动数据是构建期烘焙的 `Resources/*.json`
+CSVReader|ReadForge(string fileString, string army)|D|解析锻造表（按阵营分列）：Everguild.LiveOps/CSVReader.cs:122|无|同上| |D①：同上（同一 CSV 解析器的锻造变体）
+CardDisplayOptions|Initialize(BasicCardUI card, CardDisplayWindow display, Action<RawCardScript> onChangeArt)|B|记卡与详情窗，绑定换画/排序按钮回调：CardDisplayOptions.cs:24|CardPresentation/Battle/CardDisplayWindow.cs|等价（详情窗的显示选项按钮已建），但回调接线不是逐句| |导出集 1 处实例（详情窗 prefab）
+CardDisplayOptions|Refresh()|B|按当前卡刷新按钮可用态：CardDisplayOptions.cs:46|CardPresentation/Battle/CardDisplayWindow.cs|等价| |
+CardDisplayOptions|ResetDisplayOrder()|B|恢复默认显示顺序：CardDisplayOptions.cs:41|CardPresentation/Battle/CardDisplayWindow.cs|等价（重开窗即重建）| |
+CardRarityColorsSO|GetColor(CardRarity cardRarity)|B|按稀有度取颜色（缺就 LogError 回默认）：CardRarityColorsSO.cs:38|CardPresentation/Core/RarityColors.cs|等价（同一张表的两侧实现）| |
+CardRarityColorsSO|TryGetColor(CardRarity rarityToCheck, out Color color)|B|Try 版（不抛）：CardRarityColorsSO.cs:14|CardPresentation/Core/RarityColors.cs|等价| |
+CardTraitDuty|IsActive(CardScript card)|B|「坚守/警戒」类被动词条是否生效：CardTraitDuty.cs:6|CardPresentation/Battle/BattleDriver.cs:26564（KeywordActive）|等价（走关键词生效判定），但没逐字比对词条列表| |
+CollectFaith|OnCollectFaith(CollectFaithSignal obj)|B|收到 `CollectFaithSignal` 时 `UpdateProgress(Amount)`，只算我方：CollectFaith.cs:21|CardPresentation/Shell/ProfileData.cs:682（`case "CollectFaith": return faithGained`）|等价（按局累计信仰后一次结账）；原版是事件驱动逐次记| |成就 `k=CollectFaith` 1 条（`profile_cosmetics.json` 现读）
+CollectFaith|OnInitialize()|B|`Signal.Register<CollectFaithSignal>`：CollectFaith.cs:15|同上|同一件事的两套机制（事件 vs 结算快照）| |
+CollectFaith|OnReset()|B|`Signal.Unregister`：CollectFaith.cs:9|同上|同上| |
+ContentSizeFitterMinMax|ClampSize()|B|按 maxSize 夹住首选尺寸：ContentSizeFitterMinMax.cs:48|CardPresentation/Editor/MainMenuScene.cs:2003（框宽 clamp 断言）+ 各窗固定 PxRect|我们按原版序列化尺寸定宽，不做运行时夹取| |导出集 138 处实例 / 87 文件（本项目最常用的布局件之一）
+ContentSizeFitterMinMax|SetLayoutHorizontal()|B|`ILayoutController` 横向：算首选宽后夹 max：ContentSizeFitterMinMax.cs:36|同上|同上| |
+ContentSizeFitterMinMax|SetLayoutVertical()|B|纵向同：ContentSizeFitterMinMax.cs:42|同上|同上| |
+CosmeticPreview|Initialize(CosmeticItem item)|B|把装饰件（头像/称号/卡背）装到预览位：CosmeticPreview.cs:8|CardPresentation/Core/CosmeticPreview.cs|等价（同名件已建）| |导出集 1 处实例
+Countdown|Activate(float speed, int secondsDuration)|B|启动倒计时（速度 + 总秒数）：Countdown.cs:23|CardPresentation/Battle/BattleDriver.cs（回合计时/断线计时那几处）|等价（按秒推进 + 文本刷新），不是同名组件| |
+Countdown|ChangeSpeed(float newSpeed)|B|改推进速度：Countdown.cs:56|同上|等价| |
+Countdown|GetSecondsLeft()|B|剩余秒数：Countdown.cs:70|同上|等价| |
+Countdown|Stop()|B|停止：Countdown.cs:65|同上|等价| |
+Countdown|Update()|B|每帧 `time += dt*speed`，到点回调 + 变红：Countdown.cs:81|同上|等价（我们是拍序列推进）| |
+CrappyDate|GetNormalDate()|B|把 `yyyyMMdd` 串解成 DateTime：CrappyDate.cs:14|CardPresentation/Shell/DailyData.cs（日期解析）|等价| |类名就是原版的可疑命名
+CrappyDate|IsvalidDate()|B|日期合法性：CrappyDate.cs:22|CardPresentation/Shell/DailyData.cs|等价| |
+DLCMessageAssetProvider|GetAssets()|D|DLC 文案资产清单：DLCMessageAssetProvider.cs:9|无|远端 DLC 文案，离线不适用| |D①：唯一生产者是 `AssetProvider<T>` 的取资产口；我们的 DLC 文案在 `官方本地化` 表里
+DemoCell|ButtonListener()|D|Demo 场景的联系人格点击：DemoCell.cs:39|无|Demo 场景（非游戏内容）| |D④：导出集 0 处实例；类所在 `DemoCell` 只服务 `Demo` 场景
+DemoCell|ConfigureCell(ContactInfo contactInfo, int cellIndex)|D|填联系人格：DemoCell.cs:26|无|同上| |D④：同上
+DemoCell|Start()|D|初始化：DemoCell.cs:19|无|同上| |D④：同上
+DropdownList|OnEnable()|D|启用时刷一次列表：DropdownList.cs:10|CardPresentation/Shell/SettingsWindow.cs（设置项的下拉）|我们的下拉是按需重建，不是常驻组件| |D②：类级入口只有 `OnEnable`（组件自身）；导出集 2 处实例。我们的设置窗/语言选择是自绘下拉
+Enchantments|GetMarkOfChaos(MarkOfChaosType markOfChaosType)|B|按混沌标记类型取对应卡：Enchantments.cs:71|RuleEngine/Core/EffectResolver.cs（附魔/暗约那几条支）|等价（按类型分派），不是同名静态件| |
+Enchantments|TryGetCard(T cardEffect, out RawCardScript cardToReturn)|B|从 cardEffect 反查它指的是哪张卡：Enchantments.cs:29|RuleEngine/Core/EffectResolver.cs|等价| |
+EverguildDropfield|DropDelegate(PointerEventData source)|D|把一次拖放转给接收入口：EverguildDropfield.cs:8|CardPresentation/Shell/ReferralPopupWindow.cs（唯一命中，是说明）|我们的拖放走自绘指针层，没有 `IDropHandler`| |D②：类级入口 = uGUI 的 `OnDrop` 事件（`IDropHandler`），我们不用 uGUI 事件系统（`Shell/PointerLayer.cs` 自算命中）；导出集 0 处实例
+EverguildDropfield|OnDrop(PointerEventData eventData)|D|接 uGUI 放下事件：EverguildDropfield.cs:86|同上|同上| |D②：同上
+EverguildDropfield|OnPointerEnter(PointerEventData eventData)|D|悬停进入（高亮）：EverguildDropfield.cs:99|同上|同上| |D②：同上
+EverguildDropfield|OnPointerExit(PointerEventData eventData)|D|悬停离开：EverguildDropfield.cs:95|同上|同上| |D②：同上
+EverguildTextController|Awake()|D|把 Text 的 `text` 与一个数值绑定（阈值/计数文本），Awake 取 Text 引用：EverguildTextController.cs:10|CardPresentation/Shell/DailyData.cs:342（同族语义的落地）|我们直接 `text.text = value.ToString()`，没有这个绑定组件| |D②：类级入口 = 组件自身 `Awake`（`GetComponent<TMP_Text>`）；导出集 **4257 处**实例，但有 270 个文件里绝大多数只是「文本 + 数值绑定」这一层，我们统一改成建视图时写值（`DeckSelectionPopup.cs:175` 有同族的组件表实读）
+Fake3DSpriteMovement|Start()|D|记初始位置/相位：Fake3DSpriteMovement.cs:20|无|假 3D 摆动（菜单背景件）| |D④：导出集 0 处实例
+Fake3DSpriteMovement|Update()|D|`sin` 叠 `cos` 做假透视摆动：Fake3DSpriteMovement.cs:28|无|同上| |D④：同上
+FatigueCard|DrawFatigue(Vector2 deckPos, Vector2 cardDrawnPos, int damageValue, Sprite cardbackSprite)|B|疲劳抽卡演出（卡背从牌库飞到手上再翻面）：FatigueCard.cs:298|CardPresentation/Core/CardFeel.cs（疲劳/抽卡演出）|等价（抽卡与疲劳都在 CardFeel），但不是同名类| |
+FatigueCard|FinishCardDrawRotation()|B|翻面结束回调：FatigueCard.cs:330|CardPresentation/Core/CardFeel.cs|等价| |
+FatigueCard|SetVisibility(bool frontSide)|B|翻面（正/背面）：FatigueCard.cs:317|CardPresentation/Core/CardFeel.cs|等价| |
+GameBootstrap|Awake()|D|全局启动：建服务、读配置、进主菜单：GameBootstrap.cs:209|无（我们的启动链是 `Shell/MainMenuRuntime` + `SceneInitializer` 等价物）|架构不同：我们没有同名 bootstrapper| |D②：类级入口 = 场景里那一颗 `GameBootstrap`；导出集 0 处（它挂在首个场景，导出集只覆盖 17 个 .unity —— 其中不含 bootstrap 场景）
+HealAmount|OnHeal(HealUnitSignal obj)|D|按「治疗量 / 目标是否受伤」过滤后 `UpdateProgress`：HealAmount.cs:91 段（`OnHeal` 在 :97）|无|我方成就里没有这一类| |D④：判据 = `profile_cosmetics.json` 102 条成就的 `k` 分布里**没有 HealAmount**
+HealAmount|OnInitialize()|D|`Signal.Register<HealUnitSignal>`：HealAmount.cs:91|无|同上| |D④：同上
+HealAmount|OnReset()|D|`Signal.Unregister`：HealAmount.cs:85|无|同上| |D④：同上
+HealCriteria|DeepCopy()|B|深拷：HealCriteria.cs:20|RuleEngine/Data/AiScoring.cs（Criteria 深拷）|等价| |AI 评分用
+HealCriteria|GetAverageValue(CardScript thisCard, CardScript targetCard, int multiplierFactor)|B|治疗评分：HealCriteria.cs:13|RuleEngine/Data/AiScoring.cs|等价（AI 打分），没逐字比系数| |
+HighlightAttackType|HighlightIfNeeded(AttackTypes selectedAttackType)|B|按当前选中攻击类型点亮/熄灭这颗按钮（并 `SetActive(true)`）：HighlightAttackType.cs:79|CardPresentation/Battle/AttackSelector.cs:130/608/689/905（逐条引同一条判据）|等价（已按原版 HighlightIfNeeded 逐句实现）| |导出集 304 处 / 41 文件
+InitializableBehaviour|Initialize()|D|调 `OnBeforeInitialization` → 子类 `Initialize` → `OnInitializationComplete`：InitializableBehaviour.cs:23|无（我们同步 `Build()` + 静态数据类）|没有初始化框架| |D②：类级入口 = `SceneInitializer` 的登记表（`FindObjectsOfType<MonoBehaviour>` + 优先级分组）；我们是同步构建，没有这套生命周期
+InitializableBehaviour|OnBeforeInitialization()|D|虚方法，默认空：InitializableBehaviour.cs:34|无|同上| |D③：空虚方法（子类覆盖才有行为）
+InitializableBehaviour|OnInitializationComplete()|D|虚方法，默认空：InitializableBehaviour.cs:30|无|同上| |D③：空虚方法
+InitializableBehaviour|Start()|D|`Start` 里调 `Initialize()`：InitializableBehaviour.cs:25|无|同上| |D②：同上（入口 = Unity `Start`）
+ItemInfo|Add(int amount, string instanceId)|C|数量增减（按 instanceId 累进/新建）：ItemInfo.cs:226|无（背包容器整层未建）|`Inventory<T>` 一族的成员模型|P2|🔵 已由 G 判 `Inventory<T>` 为 C（`G_泛型与启动链_第1轮.md` §三-#2「背包容器」）；本条按同一口径落 C
+ItemInfo|AssignEphemeralState(EphemeralState rewardEphemeralState)|C|挂临时态（限时奖励）：ItemInfo.cs:252|无|同上|P2|已由 G 覆盖（同上）
+ItemInfo|Convert<TOut>()|C|转成别的 item 类型：ItemInfo.cs:144|无|同上|P2|已由 G 覆盖
+ItemInfo|SetAmount(int amount)|C|直接设数量：ItemInfo.cs:243|无|同上|P2|已由 G 覆盖
+ItemInfo|SetInfo(LoadableReference<T> setItem, int setQty, string instanceId)|C|初始化一条背包记录：ItemInfo.cs:213|无|同上|P2|已由 G 覆盖
+ItemSpentSignal|ValidateSignal(InventoryUpdatedSignal signal)|D|LiveOps 任务信号校验（花掉某类道具算进度）：Everguild.LiveOps/ItemSpentSignal.cs:8|无|该类只服务远端 LiveOps 任务| |D④：判据 = `profile_cosmetics.json` 的 `k` 分布里没有它（远端任务不在本地）
+KeyTypeProvider|TryGetKey(Type type, out string key)|D|类型 → LiveOps 配置键：Everguild.LiveOps/KeyTypeProvider.cs:82|无|远端配置键体系| |D①：入口只有 LiveOps 配置反序列化（`IConfigData` 的 key 解析）
+KeyTypeProvider|TryGetType(string key, out Type type)|D|键 → 类型：Everguild.LiveOps/KeyTypeProvider.cs:44|无|同上| |D①：同上
+LookAtConstrainWIP|Update()|B|每帧把自身朝向目标（战场灯/炮塔类）：LookAtConstrainWIP.cs:19|CardPresentation/Battle/LookAtConstrainWIP.cs|同名件已建（WIP 版）| |导出集 4 处实例（同一文件）
+MessageList|Initialize(List<IGameNews> messages, IGameNews currentMessage)|B|收件箱列表初始化（选中项 + 逐条建格）：Everguild.LiveOps/MessageList.cs:41|CardPresentation/Shell/InboxWindow.cs|等价（按数据重建列表）| |
+MessageList|OnContainerClicked(UiContainer<IGameNews> container)|B|点某条消息 → 在右栏显示正文：MessageList.cs:150|CardPresentation/Shell/InboxWindow.cs|等价| |
+MessageList|Refresh()|B|重建整个列表：MessageList.cs:266|CardPresentation/Shell/InboxWindow.cs|等价| |
+MultiKeyDictionary|ContainsKey(T1 key1, T2 key2)|D|双键包含判定：MultiKeyDictionary.cs:47|无|工具容器| |D④：非 MonoBehaviour（无 guid）；全量反编译里除自身外 0 调用点（`grep MultiKeyDictionary` 只命中定义）
+MultiKeyDictionary|get_Item(T1 key)|D|按第一键取：MultiKeyDictionary.cs:8|无|同上| |D④：同上
+OnJoinedInstantiate|OnJoinedRoom()|D|Photon 进房后实例化玩家化身：OnJoinedInstantiate.cs:13|无|Photon 联机（我们用自研 TCP P2P）| |D④：第三方 Photon SDK；导出集 0 处实例
+PlatformBasedComponents|DisplayPlatform(PlatformDisplay platform)|D|按平台显隐一组子件：PlatformBasedComponents.cs:98|CardPresentation/Shell/SettingsWindow.cs（唯一命中，是说明）|我们只有一个运行平台| |D④：单平台（PC/Editor）；导出集 4 处实例都在同一 prefab
+PlatformBasedComponents|DoToggle()|D|按当前平台跑一遍显隐：PlatformBasedComponents.cs:54|同上|同上| |D④：同上
+PlatformBasedComponents|Initialize(PlatformDisplay platform)|D|记平台：PlatformBasedComponents.cs:20|同上|同上| |D④：同上
+PlatformBasedComponents|Start()|D|Start 里初始化：PlatformBasedComponents.cs:65|同上|同上| |D④：同上
+PlayerItem|GetCustomData()|D|LiveOps 玩家道具的自定义数据：PlayerItem.cs:96|无|远端 LiveOps 道具模型| |D④：非 MonoBehaviour；只被 `Inventory<PlayerItem>`（G 判 C 的那层）使用
+PlayerItem|GetID()|D|道具 id：PlayerItem.cs:79|无|同上| |D④：同上
+PlayerItem|IsHidden()|D|是否隐藏道具：PlayerItem.cs:84|无|同上| |D④：同上
+PointAssetProvider|GetAssets()|D|积分资产清单：PointAssetProvider.cs:7|无|远端积分体系| |D①：唯一生产者 = `AssetProvider<T>.GetAssets`
+PowerToDisplay|SetupActiveAbility(RawCardScript warlord)|D|详情窗「主动技能」栏：PowerToDisplay.cs:47|CardPresentation/Shell/CardDetailPopup.cs（技能栏已建）|我们直接按 `desc` 画，没有这个同名组件| |D②：类级入口 = 卡详情窗 prefab 上那一颗；导出集 0 处实例
+PowerToDisplay|SetupPassiveSkill(RawCardScript skillCard)|D|「被动技能」栏：PowerToDisplay.cs:31|同上|同上| |D②：同上
+QuitOnEscapeOrBack|Update()|D|按 Esc/返回键退出游戏：QuitOnEscapeOrBack.cs:5|无|我们不做「按 Esc 退出」| |D④：导出集 0 处实例；方法体只有 `Input.GetKeyDown(Escape)` → `Application.Quit()`
+RemnantNecrons|AnimationResurrectionEnd()|B|死灵残骸体复活动画结束回调：RemnantNecrons.cs:104|CardPresentation/Core/CardFeel.cs（残骸体）+ BattleDriver.cs:20486（`RemnantNecrons__DoDestroy` 恒走 `DoDestroyByAttack`）|等价（残骸体系统已建并逐条引原版判据）| |导出集 1 处实例
+RemnantNecrons|DoDestroy(UnitDeathType deathType)|B|残骸体被摧毁（死灵恒走 `DoDestroyByAttack`，没有「收集」这一手）：RemnantNecrons.cs:81|CardPresentation/Battle/BattleDriver.cs:20486|一致（同一条判据已落地）| |
+RemnantNecrons|GetDeathParticlePosition()|B|残骸体自己的 `transform.position` 当死亡粒子位置：RemnantNecrons.cs:86|CardPresentation/Core/CardFeel.cs:2498|一致| |
+RemnantNecrons|Initialize(CardScript card)|B|记卡 + 播放待机：RemnantNecrons.cs:20|CardPresentation/Core/CardFeel.cs|等价| |
+RemnantNecrons|Toggle(bool option, bool withAnimation, Action onComplete)|B|显隐（可带动画 + 回调）：RemnantNecrons.cs:34|CardPresentation/Core/CardFeel.cs|等价| |
+Rotate|Start()|D|记初始角：Rotate.cs:8|无|自转件（0 实例）| |D④：导出集 0 处实例；`Rotate` 类只在若干 prefab 版本里存在过，出货 build 无挂载
+Rotate|Update()|D|每帧 `transform.Rotate(speed*dt)`：Rotate.cs:17|无|同上| |D④：同上。⚠️ 与 U4 报的 `SimpleRotation`（42 处实例、竞技场高亮件自转）**不是同一个类**，别混
+ScheduledAction|CompareTo(ScheduledAction other)|D|按触发时间排序：ScheduledAction.cs:93|无|调度器内部比较器| |D③：纯比较器（`IComparable`），非 MonoBehaviour；行为在 `ActionScheduler`（U2 已判 C/P2）
+ScoringPoint|Collect(int amount)|D|LiveOps 积分累加：ScoringPoint.cs:48|无|远端 LiveOps 积分| |D④：`profile_cosmetics.json` 的 `k` 分布里没有 ScoringPoint
+ScoringPoint|GetID()|D|积分 id：ScoringPoint.cs:43|无|同上| |D④：同上
+ScoringPoint|OnAfterWrite(JToken rawJson)|D|反序列化后钩子：ScoringPoint.cs:55|无|同上| |D④：同上
+SharedDataContext|UnpackData(SharedEventData sharedEventData)|D|解远端共享事件数据：SharedDataContext.cs:5|无|远端 LiveOps| |D①：唯一入口 = `SharedEventData` 解包；非 MonoBehaviour
+SkullsCount|OnBattleEnd(BattleEndSignal obj)|B|对局结束按模式/阵营过滤后把本局骷髅数计入：SkullsCount.cs:42|CardPresentation/Shell/ProfileData.cs:681（`case "SkullsCount": return skullsCollected`）|等价（结算时一次读快照），原版是事件驱动| |成就 `k=SkullsCount` 1 条
+SkullsCount|OnInitialize()|B|`Signal.Register<BattleEndSignal>`：SkullsCount.cs:30|同上|同一件事的两种机制| |
+SkullsCount|OnReset()|B|`Signal.Unregister`：SkullsCount.cs:36|同上|同上| |
+SpriteAtlasReference|ValidateAsset(UnityEngine.Object obj)|D|校验图集引用类型：SpriteAtlasReference.cs:15|无|Addressables 资产校验| |D④：导出集 0 处实例；只被 `AssetReferenceTyped` 的校验链调用
+SpriteAtlasReference|ValidateAsset(string path)|D|按路径校验：SpriteAtlasReference.cs:59|无|同上| |D④：同上
+SupportLogger|Start()|D|Photon 连接日志（延迟连上时补日志）：SupportLogger.cs:7|无|Photon SDK| |D④：第三方 Photon；导出集 0 处实例
+UITextCornersGradient|ModifyMesh(VertexHelper vh)|D|四角顶点色渐变（文本）：UITextCornersGradient.cs:16|CardPresentation/Shell（按用途逐处画顶点色）|我们的文本渐变按用途直接写顶点色，没有这个 `IMeshModifier` 组件| |D④：导出集 0 处实例（同族 `UICornersGradient` 另有实现）
+TreeFloorPositioning|OnValidate()|D|编辑器里重算子件落位：TreeFloorPositioning.cs:143|无|编辑器专用| |D④：`OnValidate`（运行期不跑）+ 导出集 0 处实例
+TreeFloorPositioning|Reposition()|D|把子树贴到地面：TreeFloorPositioning.cs:13|无|同上| |D④：入 = `OnValidate`/编辑器按钮，运行期无入口
+TextLinkProcessing|ProcessText(TextMeshProUGUI text, LinkType type, List<string> dataArray)|B|把 `<link>` 段按类型处理成富文本：TextLinkProcessing.cs:48|CardPresentation/Core/Tooltip.cs + BattleDriver.cs:11546（`FindIntersectingLink`）|等价（TMP 超链接走自己的链）| |导出集 0 处实例（原版用 TMP 自带 link 的更常见）
+TextLinkProcessing|ProcessURL(TextMeshProUGUI text, string url)|B|把 URL 段染色/加下划线：TextLinkProcessing.cs:52|CardPresentation/Core/Tooltip.cs|等价| |
+TextLinkProcessing|TryProcessText(TextMeshProUGUI text, PointerEventData eventData)|B|按鼠标位置命中某个 link：TextLinkProcessing.cs:15|CardPresentation/Core/Tooltip.cs（`FindIntersectingLink`）|等价（我们直接调 TMP 的命中 API）| |
+UnitOnBoardAttackTypeSelector|AttackButtonClick(AttackTypes attackType)|B|点某颗攻击类型钮（`pindown` 时近战那颗点了没反应）：UnitOnBoardAttackTypeSelector.cs:163|CardPresentation/Battle/AttackSelector.cs:1037（逐句引同一条判据）|一致（已按原版 `AttackButtonClick.c:27-33` 实现）| |导出集 13 处实例（每场 1）
+UnitOnBoardAttackTypeSelector|Awake()|B|取三颗钮 + 记默认：UnitOnBoardAttackTypeSelector.cs:16|CardPresentation/Battle/AttackSelector.cs|等价| |
+UnitOnBoardAttackTypeSelector|Toggle(bool option, CardScript card)|B|开/关整组按钮（按卡可用性）：UnitOnBoardAttackTypeSelector.cs:24|CardPresentation/Battle/AttackSelector.cs:841（引 `Toggle.c:112-126`）|一致| |
+UnitOnBoardAttackTypeSelector|ToggleJustOne(bool option, AttackTypes attackType, CardScript card)|B|只开/关某一颗：UnitOnBoardAttackTypeSelector.cs:101|CardPresentation/Battle/AttackSelector.cs:1046（引 `ToggleJustOne.c`）|一致| |
+UnitSwarmCount|OnInitialize()|B|`Signal.Register<UnitSwarmSignal>`：UnitSwarmCount.cs:15|RuleEngine/Core/AchievementTally.cs:240（`AddSwarmMerge`）|等价（按真合并记）| |成就 `k=UnitSwarmCount` 1 条
+UnitSwarmCount|OnReset()|B|`Signal.Unregister`：UnitSwarmCount.cs:9|同上|同上| |
+UnitSwarmCount|OnUnitSwarm(UnitSwarmSignal obj)|B|暴群合并 +1（按 owner 记）：UnitSwarmCount.cs:21|CardPresentation/Shell/ProfileData.cs:701（`SwarmMergesOf`）|一致（原版方法体撞名丢失，我们取「真合并了才算」，已在代码注释标近似）| |
+UpgradeCard|OnInitialize()|B|`Signal.Register<UpgradeCardSignal>` + 预建卡→档表：UpgradeCard.cs:67|CardPresentation/Shell/ProfileData.cs（`ApplyAchievementUpgrade`）+ CardDetailPopup.cs:2275|等价（升级时按阵营/档位累加）| |成就 `k=UpgradeCard` **27 条**（本域最多的一类之一）
+UpgradeCard|OnReset()|B|`Signal.Unregister`：UpgradeCard.cs:150|同上|同上| |
+UpgradeCard|OnTrigger(UpgradeCardSignal obj)|B|升级一次 → 按卡型/档位过滤后 `UpdateProgress`：UpgradeCard.cs:156|CardPresentation/Shell/ProfileData.cs 的 `ApplyAchievementUpgrade`|等价（写点唯一，CardDetailPopup 只转发）| |
+UpgradeCard|_003COnInitialize_003Eb__7_1(KeyValuePair<RawCardScript, CardTier> c)|D|建表时的 LINQ 选择器（取卡）：UpgradeCard.cs:186|无|编译器生成闭包| |D③：`_003C…_003Eb__` 闭包，行为已算进 `OnInitialize` 那一行
+UpgradeCard|_003COnInitialize_003Eb__7_2(KeyValuePair<RawCardScript, CardTier> c)|D|同上（取档位）：UpgradeCard.cs:208|无|同上| |D③：同上
+Wildcard|GetCustomData()|D|通配道具的自定义数据：Wildcard.cs:62|无|LiveOps 道具模型（`IItem`）| |D④：非 MonoBehaviour；只被 `Inventory<Wildcard>` 使用（G 判 C 那层）
+Wildcard|GetID()|D|通配道具 id：Wildcard.cs:52|无|同上| |D④：同上
+WebRpcResponse|ToStringFull()|D|PlayFab WebRPC 响应转字符串（调试）：WebRpcResponse.cs:242|无|PlayFab SDK| |D③：PlayFab 类型自带调试格式化；非 MonoBehaviour，0 调用点
+SwarmIconController|Initialize()|B|取 `myAnimation` 与两段 clip（开/关）并记 `offAnimationTime = 0.3`：SwarmIconController.cs:74|CardPresentation/Core/CardView.cs:8498-8509（`3DBody/SwarmIcon` 两层已按原版坐标/缩放建出）|等价（图标层已建；组件化差异见下）||导出集 1 处实例
+SwarmIconController|SetActivationState(bool option)|B|按状态开关图标（关时先播 off 动画再隐藏）：SwarmIconController.cs:84|CardPresentation/Core/CardView.cs:8498-8509|等价（按虫群层数显隐）||同上
+SwarmIconController|Toggle(bool option)|B|开/关（option 变才动）：SwarmIconController.cs:22|CardPresentation/Core/CardView.cs:8498-8509|等价||同上
+SwarmIconController|_003CToggle_003Eb__7_0()|D|关动画结束回调（隐藏 + 停音）：SwarmIconController.cs:90|无|编译器生成闭包||D③：`_003C…_003Eb__` 闭包；行为已算进 `SetActivationState` 那一行
+TemplateAssetProvider|GetAssets()|D|模板资产清单（LiveOps 配置模板）：TemplateAssetProvider.cs:8|无|远端配置资产||D①：唯一生产者 = `AssetProvider<T>.GetAssets`；导出集 1 处实例但只服务远端模板

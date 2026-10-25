@@ -1,0 +1,11 @@
+域	原版类	方法	判据出处	判据要点	状态	我们的落点	差异	等级	轮次	备注
+本地化	AddressableLocalizationLibrary	AssetCompletedLoading(AsyncOperationHandle obj, string assetKey)	AddressableLocalizationLibrary.cs:50	单个语言表资产加载完成	D	Core/Loc.cs			R1	断点：Addressables 远端语言表；替代 = 官方表已并入工程
+本地化	AddressableLocalizationLibrary	GetLocalHandle(IResourceLocation element)	AddressableLocalizationLibrary.cs:34	取本地加载句柄	D	Core/Loc.cs			R1	断点：同上
+本地化	EverguildLocalization	GetTranslationWithParameters(string localizationKey, string param1, string param2, string param3)	EverguildLocalization.cs:6	取词并用 1~3 个参数填充	B	Core/Loc.cs	一致		R1	
+本地化	LanguageSelector	Initialize()	LanguageSelector.cs:13	给下拉挂 OnLanguageChanged	B	Shell/SettingsWindow.cs			R1	
+本地化	LanguageSelector	OnDestroy()	LanguageSelector.cs:21	摘监听	B	Shell/SettingsWindow.cs			R1	
+本地化	LanguageSelector	OnLanguageChanged(int option)	LanguageSelector.cs:28	按选项设 CurrentLanguage 并保存	B	Core/Loc.cs			R1	
+本地化	LanguageSelector	ResetLanguagesDropdown()	LanguageSelector.cs:52	按 languagesDefinition 重建选项	B	Shell/SettingsWindow.cs			R1	
+本地化	LocalizationKeyChangerByPlatform	Awake()	LocalizationKeyChangerByPlatform.cs:8	touchInput 时给 key 加平台后缀	D	—			R1	断点：`if (!GameStaticData.touchInput) return;`（桌面不触发）
+本地化	LocalizedMessage	GetLocCodes()	Everguild.LiveOps/LocalizedMessage.cs:38	取当前支持的语言码列表	B	Core/Loc.cs			R1	
+本地化	TranslationService	Translate(string text, Action<string> onSuccess, Action onError)	TranslationService.cs:46	调云翻译并回填	D	—			R1	断点：云翻译 HTTP/云函数调用

@@ -356,13 +356,33 @@ namespace CardPresentation
                          s => { _text = s ?? ""; RefreshInputText(); });
         }
 
-        /// <summary>点 `Confirm`：**校验只走 `CollectionData.ImportDeck` 那一份**。</summary>
+        /// <summary>点 `Confirm`：**校验只走 `CollectionData.ImportDeck` 那一份**。
+        /// <para>🆕 **2026-10-25（K3）**：解析前**先按 `\n` 取最后一行** —— 原版 `ImportDeckPopup__TryImport.c:14-18`
+        /// 逐句 `String.Split(text, "\n")` → `Enumerable.Last(...)` → `CardDeck.DeserializeDeckString(那一行)`。
+        /// 为什么必须做：原版 `Share` 造出来的串是**整块可读文本 + 最后一行才是 base64**
+        /// （`DeckInfoPopup__MakeDeckString.c`：`* {卡组名}\n*\n* {Card_Race/Warlord}: {督军}\n*\n`
+        /// + 每张卡 `* {N}x {卡名}\n` + `*\n` + base64）⇒ **原版玩家分享出来的串贴进本窗，最后一行才是有效载荷**。
+        /// ⚠️ **我们与 `Last()` 的唯一差别**：原版对「尾随换行」会取到**空串**（⇒ 报「不是合法卡组串」）；
+        /// 我们跳过尾部空行 —— 它只会把「本来能读的串」判成错，跳过是**更宽容、且不改变有效串的结果**。</para></summary>
         public bool TryImport()
         {
             var pl = PointerLayer.Instance;
             if (pl != null && pl.TextEditing) pl.EndText(true);     // 键盘焦点先收（不然它还在改缓冲）
+            // 判据 → 本方法 doc（`ImportDeckPopup__TryImport.c:14-18`）：有效载荷 = **最后一行非空**。
+            string payload = (_text ?? "");
+            bool multiline = payload.IndexOf('\n') >= 0;
+            int cut = payload.LastIndexOf('\n');
+            while (cut >= 0 && payload.Substring(cut + 1).Trim().Length == 0)
+            {
+                payload = payload.Substring(0, cut);
+                cut = payload.LastIndexOf('\n');
+            }
+            if (cut >= 0) payload = payload.Substring(cut + 1);
+            if (multiline)
+                Debug.Log("[ImportDeck] 粘贴的是**整块分享文本** ⇒ 照原版 `Split(\"\\n\").Last()` 取**最后一行**"
+                          + "当卡组串（" + payload.Trim().Length + " 字符）");
             string why;
-            string name = CollectionData.ImportDeck(_text, out why);
+            string name = CollectionData.ImportDeck(payload, out why);
             if (string.IsNullOrEmpty(name))
             {
                 _error = why;

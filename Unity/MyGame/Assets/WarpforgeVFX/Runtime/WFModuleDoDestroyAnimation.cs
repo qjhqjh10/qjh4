@@ -28,9 +28,16 @@
 //      两条路的判据都在 `Battle/AnimFXController.cs:318-345`（那边先按原版实现过一遍）。
 //   ⚠️ `Kill()` 仍强制销毁（「立刻停掉」的口）。
 //
+// ✅ **2026-10-25 订正（铁律 5）：下面这段「全工程 0 个 `.anim`」【已过期】，别再照它判**。
+//   现读：`WarpforgeVFX/Animations/` 有 **47 个 `.anim`**（全 `Assets/` 共 **56 个**），
+//   `Pray_Idle.prefab` 的 `Animation.m_Animations` 两条引用解得到
+//   `Pray Enter.anim`（`m_Legacy: 1`）与 `Pray Exit.anim`（`m_Legacy: 1`、`m_Name: Pray Exit`）
+//   ⇒ `GetClip("Pray Exit")` 命中，退场动画**会播**。原来那句是 2026-09-18 的口径
+//   （当时 `CardPresentation` 侧的 `.anim` 确实没有；A2 报告 2026-10-23 也订正过同一句）。
+//
 // 🔴 **仍未还原（只有一条）**：
-//   **退场动画本体**：这个 clip 在我们工程里**没有**（全工程 0 个 `.anim`；prefab 里
-//   `m_Animations` 的两条引用 guid 全 0 ⇒ 挂不到资产）。`endAnimationName` 找不到就只报不播。
+//   ~~**退场动画本体**~~ ⇒ ✅ 见上「2026-10-25 订正」，`Pray Exit.anim` 在工程里、能播。
+//   （若将来某件 prefab 的 clip 引用真的是 guid 全 0，那条警告会照常出声、不静默。）
 using UnityEngine;
 
 namespace WarpforgeVFX
@@ -92,9 +99,10 @@ namespace WarpforgeVFX
                     if (!_warnedNoClip)
                     {
                         _warnedNoClip = true;
-                        Debug.LogWarning($"🔴 未还原：《{EffectName}》要播的退场动画 `{endAnimationName}` " +
-                                         $"在 {myAnimation.name} 上找不到 —— 全工程 0 个 `.anim`，" +
-                                         "prefab 里那两条 clip 引用的 guid 全是 0（导出侧没搬 AnimationClip）。");
+                        Debug.LogWarning($"🔴 《{EffectName}》要播的退场动画 `{endAnimationName}` " +
+                                         $"在 {myAnimation.name} 上找不到 —— 这件 prefab 的 Animation " +
+                                         "组件里没有这个状态名的 clip（⚠️ 2026-10-25 订正：工程里**有** 47 个 " +
+                                         "`.anim`，所以这不再是「全工程没有」那种情况，是**这一件**缺）。");
                     }
                 }
                 else myAnimation.Play(endAnimationName);
