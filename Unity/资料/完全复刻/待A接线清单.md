@@ -4,6 +4,9 @@
 > 但落点在 `BattleDriver.cs`（属 A），按单写手规则没动。
 > **每一条都是「一行到三行」的接线，判据已在报告里，⛔ 不用重新查。**
 > 更新于 2026-10-25 第七十八会话收尾。
+>
+> 🔴 **2026-10-26 现读订正（铁律 5）：本清单 7 条待接项 + 1 条「无需改」全部已落地**（逐条核实见文末 §核实）。
+> ⇒ **本文件从此是「已收口记录」，⛔ 不再当待办用**；改 `BattleDriver.cs` 的行号漂移也不再需要按本表回填。
 
 | # | 要接什么 | 落点 | 判据 / 参数 | 出处 |
 |---|---|---|---|---|
@@ -25,3 +28,18 @@
 
 > 📌 **A 每改一次 `BattleDriver.cs`，E 那四份账的行号会漂** ⇒ 交活前跑
 > `python -I -X utf8 工具/check_ledger_points.py --fix <那些账>` 再报（E 已养成这个习惯）。
+
+---
+
+## 核实（2026-10-26 · 主对话现读 `grep`，不是照抄）
+
+| # | 落地证据（`CardPresentation/` 相对路径） |
+|---|---|
+| 1 | `Battle/BattleDriver.cs:14094-14106`：`_choosePanel.TickOpenDelay((int)_clockLeft)` + 每秒 `CountdownTrigger(sec)`（`:2896` 有「每秒只调一次」的闸注释） |
+| 2 | `Battle/BattleDriver.cs:12666`：`if (interaction != null && interaction.CardDisplaySuppressedFor(card)) return;`（判据口 `Hand/CardInteraction.cs:560`） |
+| 3 | `Battle/BattleDriver.cs:2717`：`CardDrawPositionsRect = new Vector4(0, 490, 100, 100)`；消费点在 `:23627-23638` |
+| 4 | `Battle/BattleDriver.cs:32422`：`tf.DOPunchScale(Vector3.one * 0.2f, 0.5f, 10, 1f)`（四常量见 `:32401` 注释） |
+| 5 | `Battle/BattleDriver.cs:28057` / `:28064`：`_settingsPanel.OnSkipTutorial = SkipTutorialFromSettings;` |
+| 6 | `Battle/BattleDriver.cs:22`：`class BattleDriver : MonoBehaviour, INetBattleHost, INetChatHost, INetFoePresentationHost`（三个表现口已实现） |
+| 7 | `Battle/BattleDriver.cs:31025-31028`：`_net.BeginFinishWait()` / `if (_net.TickFinishWait(Time.deltaTime))` |
+| 8 | 无需改（原版零可达），保持 |

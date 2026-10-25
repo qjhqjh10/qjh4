@@ -1284,6 +1284,49 @@ namespace CardPresentation
         /// 半路被打断而不复位的话，镜头会**永久**歪着（而且 HUD 跟着歪）。</summary>
         public static Tween LastShake;
 
+        // ==================================================================
+        //  🆕 2026-10-26（批次 6 · G12）原版 `CameraShakerManager.shakesEnabled` 那道闸
+        // ==================================================================
+        /// <summary>原版 `CameraShakerManager.shakesEnabled`（字段偏移 `+0x60`）：**唯一真正能停震的开关**。
+        /// <para>判据（机器码级）：`CameraShakerManager._DoShake_d__33__MoveNext.c:30,34-37` —— 协程第一次
+        /// MoveNext 先读 `this+0x60`，为 0 就 `return`（**一条都不播**），之后才 `set_enabled(this, true)`；
+        /// 偏移由 `dump.cs:49309` 坐实（`bool shakesEnabled // 0x60`）。</para>
+        /// <para>⚠️ 与 <see cref="ToggleAllShakesSources"/> 的区别（**别混**）：那个方法除了写这一格，
+        /// 还会把 `sourcesPool` 里那 10 台 `CinemachineImpulseSource` 的 `enabled` **写死成 false**
+        /// （与 `option` 无关，`ToggleAllShakesSources.c:23`）；而 `enabled` **本身不停震** ——
+        /// `CinemachineImpulseSource.GenerateImpulseWithVelocity` 不读自己的 `enabled`
+        /// （本地实证：`d:/2/tools/cpp2il/out_cpp2il_dev/Cinemachine.dll` 反编译，那一族方法里 0 处 `enabled` 判定）。</para></summary>
+        public static bool ShakesEnabled = true;
+
+        /// <summary>被 <see cref="ShakesEnabled"/> `== false` 挡掉的震屏次数（自检用；原版是静默 return）。</summary>
+        public static int ShakeSuppressed;
+
+        /// <summary>`ToggleAllShakesSources` 被调用过几次（原版关的是 10 台池源；我们**没有** Cinemachine 池，
+        /// 所以这一边是空操作 —— 记数只为让「查过、不是漏了」看得见）。</summary>
+        public static int ShakesSourcesToggleCalls;
+
+        /// <summary>原版 `CameraShakerManager.ToggleAllShakesSources(bool option)`。
+        /// <para>逐句（`ToggleAllShakesSources.c:9-24`）：`shakesEnabled = option` → 遍历 `sourcesPool` →
+        /// 对每台 `Behaviour.set_enabled(src, 0)`。**全文件没有一处把它 re-enable**（池源永久关）。</para>
+        /// <para>我们**没有池化 impulse source**（震屏由本类直接写相机）⇒ `enabled` 那半边是空操作；
+        /// **真正生效的只有 <see cref="ShakesEnabled"/>**。</para>
+        /// <para>调用点：`BattleCacheInitializer.Initialize` 预缓存期间 `ToggleAllShakesSources(false)`，
+        /// 卡牌/音频预载完再 `(false)` 一次，`DelayedOperations` 等 1 秒后 `(true)`
+        /// ⇒ 预缓存期及之后 1 秒内**真停**。</para></summary>
+        public static void ToggleAllShakesSources(bool option)
+        {
+            ShakesEnabled = option;
+            ShakesSourcesToggleCalls++;
+        }
+
+        /// <summary>自检用：把这道闸复位（`ShakesEnabled = true` + 两个计数清零）。</summary>
+        public static void ResetShakeGateForTest()
+        {
+            ShakesEnabled = true;
+            ShakeSuppressed = 0;
+            ShakesSourcesToggleCalls = 0;
+        }
+
         /// <summary>
         /// 挨打震镜头。**原版是震主相机**（执行链见上面那一节的注释），不是逐个单位位移。
         ///
@@ -1343,6 +1386,15 @@ namespace CardPresentation
                                         float rotationGain = ShakeHitRotationGain)
         {
             if (cam == null) return null;
+
+            // 🔴 2026-10-26（批次 6 · G12）：原版 `CameraShakerManager.DoShake` 协程的**第一句**就是这道闸
+            //    （`_DoShake_d__33__MoveNext.c:30,34-37`：`if (!shakesEnabled) return;`）⇒ 关掉时
+            //    连包络/噪声都不算，一条都不播。⛔ 别把这道闸挪到调用点（原版是「manager 一级」的）。
+            if (!ShakesEnabled)
+            {
+                ShakeSuppressed++;
+                return null;
+            }
 
             // 🔴 **从「收干净的位置」起步**（2026-09-19 修，自检抓到的真 bug）。
             //    下面 `camHome/hudHome` 取的是**当前的 transform 值**；而上一次震动**没跑完**时，

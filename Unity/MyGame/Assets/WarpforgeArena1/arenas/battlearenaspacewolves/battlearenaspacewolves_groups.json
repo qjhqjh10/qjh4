@@ -1,10 +1,10 @@
 {
  "scene": "battlearenaspacewolves",
- "_schema": "nodes[] = 要新建的节点（浅→深；localPos/localRot/localScale = **原版 local**，`ArenaBuilder` 直接写下去 —— 不引入第二套坐标口径）· targets[] = 已建对象（改挂到 `parent` 那条路径下；`pos`/`parentPos` = **与清单同一套**的无缩放世界链，用于按「名字 + 最近位置」对上对象）· adds[] = 已建对象**不改挂**、只补 `Animation` 组件 · animation=1 = 原版这个 GO 上有它 · 🆕 A345：`want` = 本场清单里**每一条会建出来的**对象（网格/粒子/灯）的原版路径 + 旁挂那两样 ⇒ `nodes[]` 是「原版有、我们没建」的那批（含容器层）",
+ "_schema": "nodes[] = 归位时需要在工程里存在（多数要新建）的节点（浅→深；localPos/localRot/localScale = **原版 local**，`ArenaBuilder` 直接写下去 —— 不引入第二套坐标口径）· targets[] = 已建对象（改挂到 `parent` 那条路径下；`pos`/`parentPos` = **与清单同一套**的无缩放世界链，用于按「名字 + 最近位置」对上对象）· adds[] = 已建对象**不改挂**、只补 `Animation` 组件 · animation=1 = 原版这个 GO 上有它 · 🆕 A345：`want` = 本场清单里**每一条会建出来的**对象（网格/粒子/灯）的原版路径 + 旁挂那两样 · 🔴 2026-10-23 订正（A1559②）：**nodes[] 不是「缺失清单」** —— 它的内容 = `want` 的祖先链 + 子树 − targets[]，所以**容器层、已建对象的路径、被闸门挡掉的对象混在一起**（实测 astra 里 `Battle Arena Astra Militarum Baked`、`Bunker Gun .001` 都是已建的）；而「原版有、清单没提、又不在任何人子树里」的对象**根本不进这张表**（astra 的 `Generator ` 就不在）⇒ ⛔ 别拿它找「还缺什么」",
  "_sources": "scenes_scenes_battlearenaspacewolves.bundle（直读）＋ arenas/battlearenaspacewolves/battlearenaspacewolves_manifest.json（清单全覆盖，A345）＋ 数据/游戏数据/env_blendables.json 的 _missingTargets[].wantedPath 与 lookat 目标的 target 字段",
  "_stats": {
-  "nodes": 12,
-  "targets": 82,
+  "nodes": 13,
+  "targets": 83,
   "adds": 0,
   "animation": 0,
   "gatesExcluded": {
@@ -15,9 +15,9 @@
    "meshQuality": 0
   },
   "coverage": {
-   "want": 82,
-   "manifestRows": 88,
-   "manifestBuilt": 82,
+   "want": 83,
+   "manifestRows": 89,
+   "manifestBuilt": 83,
    "sidecarPaths": 0,
    "skipWorldBaked": 0,
    "unmatched": 0,
@@ -186,6 +186,33 @@
     113.237961,
     -8.695,
     19.85265
+   ],
+   "animation": 0
+  },
+  {
+   "path": "BattlePrefab/BattleBoardElements/Colliders",
+   "name": "Colliders",
+   "localPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "localRot": [
+    0.0,
+    0.0,
+    0.0,
+    1.0
+   ],
+   "localScale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "parent": "BattlePrefab/BattleBoardElements",
+   "parentPos": [
+    100.0,
+    0.0,
+    0.0
    ],
    "animation": 0
   },
@@ -392,8 +419,8 @@
    ],
    "parent": "Scenario/Battle Arena Space Wolves Baked",
    "parentPos": [
-    0.0,
-    0.0,
+    -0.0,
+    -0.0,
     0.0
    ],
    "animation": 0
@@ -407,8 +434,8 @@
    ],
    "parent": "Scenario/Battle Arena Space Wolves Baked",
    "parentPos": [
-    0.0,
-    0.0,
+    -0.0,
+    -0.0,
     0.0
    ],
    "animation": 0
@@ -422,8 +449,8 @@
    ],
    "parent": "Scenario/Battle Arena Space Wolves Baked",
    "parentPos": [
-    0.0,
-    0.0,
+    -0.0,
+    -0.0,
     0.0
    ],
    "animation": 0
@@ -437,8 +464,8 @@
    ],
    "parent": "Scenario/Battle Arena Space Wolves Baked",
    "parentPos": [
-    0.0,
-    0.0,
+    -0.0,
+    -0.0,
     0.0
    ],
    "animation": 0
@@ -452,8 +479,8 @@
    ],
    "parent": "Scenario/Battle Arena Space Wolves Baked",
    "parentPos": [
-    0.0,
-    0.0,
+    -0.0,
+    -0.0,
     0.0
    ],
    "animation": 0
@@ -467,8 +494,8 @@
    ],
    "parent": "Scenario/Battle Arena Space Wolves Baked",
    "parentPos": [
-    0.0,
-    0.0,
+    -0.0,
+    -0.0,
     0.0
    ],
    "animation": 0
@@ -482,8 +509,8 @@
    ],
    "parent": "Scenario/Battle Arena Space Wolves Baked",
    "parentPos": [
-    0.0,
-    0.0,
+    -0.0,
+    -0.0,
     0.0
    ],
    "animation": 0
@@ -497,8 +524,8 @@
    ],
    "parent": "Scenario/Battle Arena Space Wolves Baked",
    "parentPos": [
-    0.0,
-    0.0,
+    -0.0,
+    -0.0,
     0.0
    ],
    "animation": 0
@@ -512,8 +539,8 @@
    ],
    "parent": "Scenario/Battle Arena Space Wolves Baked",
    "parentPos": [
-    0.0,
-    0.0,
+    -0.0,
+    -0.0,
     0.0
    ],
    "animation": 0
@@ -527,8 +554,8 @@
    ],
    "parent": "Scenario/Battle Arena Space Wolves Baked",
    "parentPos": [
-    0.0,
-    0.0,
+    -0.0,
+    -0.0,
     0.0
    ],
    "animation": 0
@@ -542,8 +569,8 @@
    ],
    "parent": "Scenario/Battle Arena Space Wolves Baked",
    "parentPos": [
-    0.0,
-    0.0,
+    -0.0,
+    -0.0,
     0.0
    ],
    "animation": 0
@@ -557,8 +584,8 @@
    ],
    "parent": "Scenario/Battle Arena Space Wolves Baked",
    "parentPos": [
-    0.0,
-    0.0,
+    -0.0,
+    -0.0,
     0.0
    ],
    "animation": 0
@@ -572,8 +599,8 @@
    ],
    "parent": "Scenario/Battle Arena Space Wolves Baked",
    "parentPos": [
-    0.0,
-    0.0,
+    -0.0,
+    -0.0,
     0.0
    ],
    "animation": 0
@@ -587,8 +614,8 @@
    ],
    "parent": "Scenario/Battle Arena Space Wolves Baked",
    "parentPos": [
-    0.0,
-    0.0,
+    -0.0,
+    -0.0,
     0.0
    ],
    "animation": 0
@@ -602,8 +629,8 @@
    ],
    "parent": "Scenario/Battle Arena Space Wolves Baked",
    "parentPos": [
-    0.0,
-    0.0,
+    -0.0,
+    -0.0,
     0.0
    ],
    "animation": 0
@@ -617,8 +644,8 @@
    ],
    "parent": "Scenario/Battle Arena Space Wolves Baked",
    "parentPos": [
-    0.0,
-    0.0,
+    -0.0,
+    -0.0,
     0.0
    ],
    "animation": 0
@@ -632,8 +659,8 @@
    ],
    "parent": "Scenario/Battle Arena Space Wolves Baked",
    "parentPos": [
-    0.0,
-    0.0,
+    -0.0,
+    -0.0,
     0.0
    ],
    "animation": 0
@@ -647,8 +674,8 @@
    ],
    "parent": "Scenario/Battle Arena Space Wolves Baked",
    "parentPos": [
-    0.0,
-    0.0,
+    -0.0,
+    -0.0,
     0.0
    ],
    "animation": 0
@@ -662,8 +689,8 @@
    ],
    "parent": "Scenario/Battle Arena Space Wolves Baked",
    "parentPos": [
-    0.0,
-    0.0,
+    -0.0,
+    -0.0,
     0.0
    ],
    "animation": 0
@@ -677,8 +704,8 @@
    ],
    "parent": "Scenario/Battle Arena Space Wolves Baked",
    "parentPos": [
-    0.0,
-    0.0,
+    -0.0,
+    -0.0,
     0.0
    ],
    "animation": 0
@@ -692,8 +719,8 @@
    ],
    "parent": "Scenario/Battle Arena Space Wolves Baked",
    "parentPos": [
-    0.0,
-    0.0,
+    -0.0,
+    -0.0,
     0.0
    ],
    "animation": 0
@@ -707,8 +734,8 @@
    ],
    "parent": "Scenario/Battle Arena Space Wolves Baked",
    "parentPos": [
-    0.0,
-    0.0,
+    -0.0,
+    -0.0,
     0.0
    ],
    "animation": 0
@@ -722,8 +749,8 @@
    ],
    "parent": "Scenario/Battle Arena Space Wolves Baked",
    "parentPos": [
-    0.0,
-    0.0,
+    -0.0,
+    -0.0,
     0.0
    ],
    "animation": 0
@@ -737,8 +764,8 @@
    ],
    "parent": "Scenario/Battle Arena Space Wolves Baked",
    "parentPos": [
-    0.0,
-    0.0,
+    -0.0,
+    -0.0,
     0.0
    ],
    "animation": 0
@@ -752,8 +779,8 @@
    ],
    "parent": "Scenario/Battle Arena Space Wolves Baked",
    "parentPos": [
-    0.0,
-    0.0,
+    -0.0,
+    -0.0,
     0.0
    ],
    "animation": 0
@@ -767,8 +794,8 @@
    ],
    "parent": "Scenario/Battle Arena Space Wolves Baked",
    "parentPos": [
-    0.0,
-    0.0,
+    -0.0,
+    -0.0,
     0.0
    ],
    "animation": 0
@@ -782,8 +809,8 @@
    ],
    "parent": "Scenario/Battle Arena Space Wolves Baked",
    "parentPos": [
-    0.0,
-    0.0,
+    -0.0,
+    -0.0,
     0.0
    ],
    "animation": 0
@@ -797,8 +824,8 @@
    ],
    "parent": "Scenario/Battle Arena Space Wolves Baked",
    "parentPos": [
-    0.0,
-    0.0,
+    -0.0,
+    -0.0,
     0.0
    ],
    "animation": 0
@@ -812,8 +839,8 @@
    ],
    "parent": "Scenario/Battle Arena Space Wolves Baked",
    "parentPos": [
-    0.0,
-    0.0,
+    -0.0,
+    -0.0,
     0.0
    ],
    "animation": 0
@@ -827,8 +854,8 @@
    ],
    "parent": "Scenario/Battle Arena Space Wolves Baked",
    "parentPos": [
-    0.0,
-    0.0,
+    -0.0,
+    -0.0,
     0.0
    ],
    "animation": 0
@@ -842,8 +869,8 @@
    ],
    "parent": "Scenario/Battle Arena Space Wolves Baked",
    "parentPos": [
-    0.0,
-    0.0,
+    -0.0,
+    -0.0,
     0.0
    ],
    "animation": 0
@@ -857,8 +884,8 @@
    ],
    "parent": "Scenario/Battle Arena Space Wolves Baked",
    "parentPos": [
-    0.0,
-    0.0,
+    -0.0,
+    -0.0,
     0.0
    ],
    "animation": 0
@@ -872,8 +899,8 @@
    ],
    "parent": "Scenario/Battle Arena Space Wolves Baked",
    "parentPos": [
-    0.0,
-    0.0,
+    -0.0,
+    -0.0,
     0.0
    ],
    "animation": 0
@@ -887,8 +914,8 @@
    ],
    "parent": "Scenario/Battle Arena Space Wolves Baked",
    "parentPos": [
-    0.0,
-    0.0,
+    -0.0,
+    -0.0,
     0.0
    ],
    "animation": 0
@@ -902,8 +929,8 @@
    ],
    "parent": "Scenario/Battle Arena Space Wolves Baked",
    "parentPos": [
-    0.0,
-    0.0,
+    -0.0,
+    -0.0,
     0.0
    ],
    "animation": 0
@@ -917,8 +944,8 @@
    ],
    "parent": "Scenario/Battle Arena Space Wolves Baked",
    "parentPos": [
-    0.0,
-    0.0,
+    -0.0,
+    -0.0,
     0.0
    ],
    "animation": 0
@@ -932,8 +959,8 @@
    ],
    "parent": "Scenario/Battle Arena Space Wolves Baked",
    "parentPos": [
-    0.0,
-    0.0,
+    -0.0,
+    -0.0,
     0.0
    ],
    "animation": 0
@@ -947,8 +974,8 @@
    ],
    "parent": "Scenario/Battle Arena Space Wolves Baked",
    "parentPos": [
-    0.0,
-    0.0,
+    -0.0,
+    -0.0,
     0.0
    ],
    "animation": 0
@@ -962,8 +989,8 @@
    ],
    "parent": "Scenario/Battle Arena Space Wolves Baked",
    "parentPos": [
-    0.0,
-    0.0,
+    -0.0,
+    -0.0,
     0.0
    ],
    "animation": 0
@@ -977,8 +1004,8 @@
    ],
    "parent": "Scenario/Battle Arena Space Wolves Baked",
    "parentPos": [
-    0.0,
-    0.0,
+    -0.0,
+    -0.0,
     0.0
    ],
    "animation": 0
@@ -992,8 +1019,8 @@
    ],
    "parent": "Scenario/Battle Arena Space Wolves Baked",
    "parentPos": [
-    0.0,
-    0.0,
+    -0.0,
+    -0.0,
     0.0
    ],
    "animation": 0
@@ -1007,8 +1034,8 @@
    ],
    "parent": "Scenario/Battle Arena Space Wolves Baked",
    "parentPos": [
-    0.0,
-    0.0,
+    -0.0,
+    -0.0,
     0.0
    ],
    "animation": 0
@@ -1022,8 +1049,8 @@
    ],
    "parent": "Scenario/Battle Arena Space Wolves Baked",
    "parentPos": [
-    0.0,
-    0.0,
+    -0.0,
+    -0.0,
     0.0
    ],
    "animation": 0
@@ -1037,8 +1064,8 @@
    ],
    "parent": "Scenario/Battle Arena Space Wolves Baked",
    "parentPos": [
-    0.0,
-    0.0,
+    -0.0,
+    -0.0,
     0.0
    ],
    "animation": 0
@@ -1052,8 +1079,8 @@
    ],
    "parent": "Scenario/Battle Arena Space Wolves Baked",
    "parentPos": [
-    0.0,
-    0.0,
+    -0.0,
+    -0.0,
     0.0
    ],
    "animation": 0
@@ -1067,8 +1094,8 @@
    ],
    "parent": "Scenario/Battle Arena Space Wolves Baked",
    "parentPos": [
-    0.0,
-    0.0,
+    -0.0,
+    -0.0,
     0.0
    ],
    "animation": 0
@@ -1082,8 +1109,8 @@
    ],
    "parent": "Scenario/Battle Arena Space Wolves Baked",
    "parentPos": [
-    0.0,
-    0.0,
+    -0.0,
+    -0.0,
     0.0
    ],
    "animation": 0
@@ -1097,8 +1124,8 @@
    ],
    "parent": "Scenario/Battle Arena Space Wolves Baked",
    "parentPos": [
-    0.0,
-    0.0,
+    -0.0,
+    -0.0,
     0.0
    ],
    "animation": 0
@@ -1112,8 +1139,8 @@
    ],
    "parent": "Scenario/Battle Arena Space Wolves Baked",
    "parentPos": [
-    0.0,
-    0.0,
+    -0.0,
+    -0.0,
     0.0
    ],
    "animation": 0
@@ -1127,8 +1154,8 @@
    ],
    "parent": "Scenario/Battle Arena Space Wolves Baked",
    "parentPos": [
-    0.0,
-    0.0,
+    -0.0,
+    -0.0,
     0.0
    ],
    "animation": 0
@@ -1142,8 +1169,8 @@
    ],
    "parent": "Scenario/Battle Arena Space Wolves Baked",
    "parentPos": [
-    0.0,
-    0.0,
+    -0.0,
+    -0.0,
     0.0
    ],
    "animation": 0
@@ -1157,8 +1184,8 @@
    ],
    "parent": "Scenario/Battle Arena Space Wolves Baked",
    "parentPos": [
-    0.0,
-    0.0,
+    -0.0,
+    -0.0,
     0.0
    ],
    "animation": 0
@@ -1172,8 +1199,8 @@
    ],
    "parent": "Scenario/Battle Arena Space Wolves Baked",
    "parentPos": [
-    0.0,
-    0.0,
+    -0.0,
+    -0.0,
     0.0
    ],
    "animation": 0
@@ -1187,8 +1214,8 @@
    ],
    "parent": "Scenario/Battle Arena Space Wolves Baked",
    "parentPos": [
-    0.0,
-    0.0,
+    -0.0,
+    -0.0,
     0.0
    ],
    "animation": 0
@@ -1265,6 +1292,21 @@
     106.151817,
     -4.915215,
     3.145439
+   ],
+   "animation": 0
+  },
+  {
+   "name": "Shadow Receiver",
+   "pos": [
+    100.0,
+    0.0,
+    0.0
+   ],
+   "parent": "BattlePrefab/BattleBoardElements/Colliders",
+   "parentPos": [
+    100.0,
+    0.0,
+    0.0
    ],
    "animation": 0
   },

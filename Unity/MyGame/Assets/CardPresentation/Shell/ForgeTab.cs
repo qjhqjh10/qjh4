@@ -1180,7 +1180,7 @@ namespace CardPresentation
                 // 野牌 id 走原版命名 `Wildcard<阵营><1..4>`（`ItemDrawer.Spec` 会解出 Rarity / CardArmy）。
                 var spec = ItemDrawer.Spec("Wildcard" + ForgeData.Selected + rw.WildcardRarity, rw.Art, rw.Label);
                 var st = ItemDrawerStyle.Default(QCellReward, QCellRewardArt, QCellRewardText);
-                st.IconFill = 0.95f;      // ⚠️ **我们挑的**（默认 0.7 是给 200×300 的格子；本格 297.655×384.66）
+                st.IconFill = 0.95f;   // 🔶 自己设计（非原版）：野牌格子 `IconFill = 0.95` · 默认 0.7 是给 200×300 的格子，本格 297.655×384.66（原版判据拿不到） · TODO(谁定的)｜原注：⚠️ **我们挑的**（默认 0.7 是给 200×300 的格子；本格 297.655×384.66）
                 st.QDecor = QCellRewardText;
                 st.NodeName = ItemDrawer.PickDrawer(spec, DrawerOverride.Default) ?? "Reward";
                 var res = ItemDrawer.Draw(holder, holderR, spec, rw.Qty, DrawerOverride.Default, st);

@@ -342,7 +342,10 @@ namespace CardPresentation
             Rect(lv, "UI_Button_Round_background", new PxRect(PlL, PlT, PlR, PlB), "Image", L_Art);
             // 🔴 **A406**：`Ranking Tab/Profile Player Info/Player Level/Player Level Text`
             //   原版 `auto[18.0~37.2] 基准=36.88999938964844` ⇒ 上限 37.2（= 标称）· base 36.89。
-            Text(lv, "-", new PxRect(PltL, PltT, PltR, PltB), Color.white, "Player Level Text",
+            // 🆕 **2026-10-26（批次 4 · F7 · 任务 ③）**：值从 `"-"` 改成 **`CardTierConfig.PlayerLevelText`**
+            //   —— 与顶栏 / 档案窗**同一个口**（⛔ 别在这里各算一份）。原版这一格也是
+            //   `PlayerProfileUIController.SetPlayerLevel` 写的（判据 → `Shell/TopBar.cs` 那一大段）。
+            _levelLabel = Text(lv, CardTierConfig.PlayerLevelText, new PxRect(PltL, PltT, PltR, PltB), Color.white, "Player Level Text",
                  PltPx, L_Text2, autoFit: true, autoMinPx: PltAutoMin, alignLeft: false, wrap: true,
                  autoMaxPx: 37.2f, basePx: 36.88999938964844f, face: TmpFont.Face.LatinCardBody);
         }
@@ -656,6 +659,10 @@ namespace CardPresentation
         public void RefreshIdentity()
         {
             if (_playerName != null) _playerName.SetText(ProfileData.PlayerName);
+            // 🆕 2026-10-26（F7 · 任务 ④）：等级那一格也刷 —— 原版是 `PlayerProfileUIController.OnCollectorLevelUpdate`
+            //   那条升级信号驱动的（`PlayerProfileUIController__OnCollectorLevelUpdate.c`）；我们没信号层 ⇒
+            //   **每次开页（`OnOpen`）重读同一个口**（`CardTierConfig.PlayerLevelText`），与顶栏/档案窗一致。
+            if (_levelLabel != null) _levelLabel.SetText(CardTierConfig.PlayerLevelText);
             string art = CurrentAvatarArt();
             if (_avatarArt != null)
             {
@@ -687,5 +694,10 @@ namespace CardPresentation
             Debug.Log("[Profile] `Ranking` 页的改名键：**原版这一页没有订阅者**（改名链只挂在 `ProfileTab` 那个实例上，§C·2）"
                     + "⇒ 点了什么都不发生。要改名请到 `Profile` 页点那个键。");
         }
+
+        /// <summary>🆕 **2026-10-26（批次 4 · F7 · 任务 ④）**：本页 `Player Level Text` 那颗字
+        /// （`RefreshIdentity` 里按 `CardTierConfig.PlayerLevelText` 重写）。
+        /// ⚠️ 声明在**类尾**（`CLAUDE.md` §三「新成员追加到类尾」）—— 本页既有成员的行号一个不动。</summary>
+        Label _levelLabel;
     }
 }

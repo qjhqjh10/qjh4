@@ -968,8 +968,35 @@ namespace RuleEngine
             string why;
             int handIdx = TutorialRules.FindHandIndex(ctx, d.acting, out why);
             if (handIdx < 0) { Fail(ctx, a.Kind, why); return false; }
-            int slot = DeploySlot(ctx, seat);
-            if (slot < 0) { Fail(ctx, a.Kind, "这一侧的棋盘上没有可落的位置（`ResolveDeploySlot` 返回 -1）"); return false; }
+            // 🔴 **2026-10-26（批次 6 · G18 · P1）：非单位卡的脚本目标是脚本写死的，必须读 `d.target`。**
+            //   改前一律拿 `DeploySlot`（自己半场离督军最近的空格）当 `slot` 传下去，而
+            //   `RuleCore.PlayCard` 对非单位卡走 `PlayTactic(..., slot)` ⇒ 带目标的战术卡拿到的是
+            //   「自己半场某格」，`CanPlayTactic` 判 `ErrNoTargetAvailable`（静默失败）。
+            //   判据（第一权威）：原版 `AiScripted.ExecuteAction` 的 PlayCard 分支
+            //   （cpp2il dev `AiScripted.cs:2585-2680` 取 acting、`:2940-2968`）**在排队之前**就把
+            //   `targetUnitType` 解析成 `chosenCard6` ⇒ 原版动作**带脚本目标**。
+            //   ⇒ 非单位卡且脚本写了目标（`d.target.unitType != 0`）：用 `FindBoardUnit` 解析出目标格，
+            //     把**格号**当 `slot` 传下去（`PlayTactic` 按卡的 `spec.Side` 解读这一格，故只需格号）；
+            //     认不出就 `Fail`（⛔ 不猜）。
+            //   ⚠️ **单位卡仍走 `DeploySlot`**（原版落点是鼠标位置，本环境没有鼠标 ⇒ 退化成最近空格）。
+            //   ⚠️ `RuleCore.PlayCard(..., chosen)` 的 5 参重载在非单位分支**不把 `chosen` 转给
+            //      `PlayTactic`**（`RuleCore.cs:3884-3885`，该文件不属本批）⇒ 今天只能靠正确的 `slot`
+            //      把目标送进去；要显式传选中单位得改 `RuleCore` ⇒ 已写改动请求（见报告）。
+            var handCard = ctx.Players[seat].Hand[handIdx] != null ? ctx.Players[seat].Hand[handIdx].Card : null;
+            bool isUnitCard = handCard != null && handCard.IsUnit;
+            int slot;
+            if (!isUnitCard && d.target != null && d.target.unitType != 0)
+            {
+                int tSide, tSlot;
+                if (!TutorialRules.FindBoardUnit(ctx, d.target, out tSide, out tSlot, out why))
+                { Fail(ctx, a.Kind, "认不出**这条战术卡的脚本目标**：" + why); return false; }
+                slot = tSlot;
+            }
+            else
+            {
+                slot = DeploySlot(ctx, seat);
+                if (slot < 0) { Fail(ctx, a.Kind, "这一侧的棋盘上没有可落的位置（`ResolveDeploySlot` 返回 -1）"); return false; }
+            }
             int code = RuleCore.PlayCard(ctx, seat, handIdx, slot);
             if (code != RuleCodes.OK) { Fail(ctx, a.Kind, "引擎拒绝了这次出牌：" + RuleCodes.Describe(code)); return false; }
             done.Kind = ScriptedActionType.PlayCard; done.Seat = seat; done.HandIdx = handIdx; done.Slot = slot;
@@ -1643,6 +1670,123 @@ namespace RuleEngine
             why = (side == 0 ? "玩家" : "AI") + "手上**没有**「" + r.ourId + "」（"
                 + (string.IsNullOrEmpty(r.name) ? "?" : r.name) + "）这一张";
             return -1;
+        }
+
+        // ==================================================================
+        //  🆕 2026-10-26（批次 5 · G11）：三条**纯谓词**从表现层搬进 Core
+        // ==================================================================
+        //  原版它们都是 `AiScripted` 上的方法；此前在 `BattleDriver` 里各自内联/自写一份
+        //  ⇒ 纯 dotnet 的读数口（`工具/ruleprobe` 的 `tutorial g3`）取不到，账里只能停在 `B`。
+        //  搬进来之后（三处调用点同步改成调这里，表达式逐字等价）：
+        //    · `BattleDriver.TutorialTipOffset`          → `IsReferenceCardElement`（改动请求 G5-R1）
+        //    · `BattleDriver.IsTutorialChatKind`          → `IsChatKind`（G5-R2；跳过闸与气泡从此共用一份）
+        //    · `BattleDriver.TutorialCompleteChangeAttack`→ `IsWaitingChangeAttack`（G5-R3）
+        //  ⛔ 搬的只是**谓词**：偏移量的载体（卡的宽/高 vs `VarsDevice` 的 20/18）、气泡/高亮的实现都不动。
+
+        /// <summary>原版 `AiScripted.IsReferenceCardElement(PositionReference)` ——
+        /// 「这个锚点是不是**督军卡面上那一排数值格**」（Melee / Range / Health 两套编号）。
+        ///
+        /// 判据 🥇 `decomp_full/AiScripted__IsReferenceCardElement.c:7-11`（全文 8 行，逐字转写）：
+        /// <code>
+        /// uVar1 = param_2 - 0xb;                                   // pos − 11
+        /// if ((2 &lt; uVar1) &amp;&amp; (uVar1 = param_2 - 0x15, 2 &lt; uVar1)) return 0;
+        /// return 1;                                                // (uint)(pos−11) ≤ 2 ‖ (uint)(pos−21) ≤ 2
+        /// </code>
+        /// ⇒ 真值域 = **{11,12,13} ∪ {21,22,23}**。🔴 `unchecked` 很关键：负数靠**无符号回绕**
+        /// 落进「不成立」那一支（`(uint)(-1) = 0xFFFFFFFF`），与原版 `uint` 比较逐位一致。
+        ///
+        /// 原版唯一调用点 = `AiScripted.GetHorizontalOffset`（`fVar9` 取 `+0x38` 还是 `+0x34` 就看它）；
+        /// 我们这边 = `BattleDriver.TutorialTipOffset`（同一处）。
+        /// ⚠️ 搬进来的是**谓词**，⛔ 不是那两个偏移量 —— 载体差异（20/18 还是卡的宽/高）仍待裁定，见该方法的注释。</summary>
+        public static bool IsReferenceCardElement(int positionReference)
+        {
+            return unchecked((uint)(positionReference - 11)) <= 2
+                || unchecked((uint)(positionReference - 21)) <= 2;
+        }
+
+        /// <summary>原版 `AiScripted.CanSkipAction(…)` 判的那**五档聊天** ——
+        /// `scriptedActionData[0].actionType` ∈ {`0x32`,`0x37`,`0x3C`,`0x41`,`0x5A`}
+        /// = **{50,55,60,65,90}** = `PlayerChat` / `PlayerChatBig` / `AiChat` / `AiChatBig` / `RadioMessage`。
+        /// 判据 🥇 `decomp_full/AiScripted__CanSkipAction.c`（亲读）。
+        ///
+        /// 🔑 **这一份是唯一正本**：`BattleDriver.IsTutorialChatKind`（气泡哪一档、跳过闸）
+        /// 与 <see cref="CanSkipCurrentAction"/> 都转发到它 —— 原版这两处本来就是同一组集合，
+        /// 改一边另一边会立刻显得可疑（那就是这条对照的用处；2026-10-18 `A899` 起就写着「互为锚点」，
+        /// 2026-10-26 起从「两处各写一份」变成**字面上只有一份**）。</summary>
+        public static bool IsChatKind(ScriptedActionType kind)
+        {
+            return kind == ScriptedActionType.PlayerChat || kind == ScriptedActionType.PlayerChatBig
+                || kind == ScriptedActionType.AiChat || kind == ScriptedActionType.AiChatBig
+                || kind == ScriptedActionType.RadioMessage;
+        }
+
+        /// <summary>原版 `AiScripted.CanSkipCurrentAction(TurnScriptedData turnData)` ——
+        /// 「**当前这一条**是不是可跳过的聊天」。
+        ///
+        /// 判据 🥇 `decomp_full/AiScripted__CanSkipCurrentAction.c:13-36`（逐句转写）：
+        /// `ElementAtOrDefault(turnData.scriptedActions(+0x20), this.actionCounter(+0x10))`
+        /// → 元素非空且 `scriptedActionData(+0x48)` 非空 ⇒ 看 `data[0].actionType(+0x10)` 是不是上面那五档。
+        /// ⚠️ **原版三条前置任一不成立都落进 `FUN_1803f47a0()`
+        /// （`WARNING: Subroutine does not return`，实为抛/不返回）**：
+        /// `turnData == null` · 下标越界（`ElementAtOrDefault` 给 null）· 元素或 `data`/`data[0]` 为空。
+        ///
+        /// 🔶 自己设计（非原版）：三条前置不成立时返回 **false**（= 不能跳过 ⇒ 保守走「真等满 `time` 秒」那一支）·
+        /// 原版那条是不返回的异常链，我们这边调用点在跳过闸上、抛会把整段教程打断，而**不跳过**在语义上就是安全侧 ·
+        /// G11 定，2026-10-26（行为差异只在输入域外；真实域 6 关 430 条动作里三条前置全部成立）。
+        ///
+        /// ⚠️ ⛔ **别拿 `TutorialScript.IsNoOpScriptKind` 顶替**：它收 **14 档**（含 SmallTip/EndTurn/ClickCard…），
+        /// 口径是「计不计入 `StageActions`」，拿它当本谓词会**系统性放宽**（那是另一个问题，2026-10-26 `G5` 实读）。
+        /// 等价实现：`BattleDriver` 的跳过闸（`SkipTutorialWait` 那一支，经 `IsTutorialChatKind(acted.Kind)`）。</summary>
+        public static bool CanSkipCurrentAction(TutorialTurn turn, int actionCounter)
+        {
+            if (turn == null || turn.actions == null) return false;
+            if (actionCounter < 0 || actionCounter >= turn.actions.Length) return false;
+            var a = turn.actions[actionCounter];
+            if (a == null || a.data == null || a.data.Length == 0 || a.data[0] == null) return false;
+            return IsChatKind((ScriptedActionType)a.data[0].type);
+        }
+
+        /// <summary>原版 `AiScripted.CheckIfWaitingToChangeAttack(BattleManager, TurnScriptedData)` ——
+        /// 「**脚本是不是正在等玩家换打法**」。
+        ///
+        /// 判据 🥈 `cpp2il/out_cpp2il_dev_ilspy/AiScripted.cs:1170-1265`（逐句转写；Ghidra 那份 `.c` 落的
+        /// 是同族重载，⛔ 别引）：
+        /// `manager.IsTutorialMatch() &amp;&amp; turnData/actions 非空 &amp;&amp; counter &lt; Count &amp;&amp; cur != null
+        ///  &amp;&amp; cur.playerAction &amp;&amp; cur.scriptedActionData != null
+        ///  &amp;&amp; ∃i: data[i].actionType ∈ {ChangeToMelee(36), ChangeToRanged(35)}`。
+        /// ⇒ 我们这边 `turn`/`counter` 由调用方给（`CurrentTurn` / `ActionCounter`），
+        ///   `IsTutorialMatch` 那一半由调用方保证（`tut != null`）。
+        ///
+        /// 🔴 **G5 第 5 轮最重要的负面结论（⛔ 别「修」）**：`TutorialScript.Matches` 的 case 5/6
+        /// **不是**这个谓词的等价物 —— `Matches` 是**白名单闸**（「这个动作准不准做」），
+        /// 它连 `AttackFreeMode(31)` / `TapCard(120)` 的 data 也接受 `changeAttack`
+        /// ⇒ 拿它当本谓词在真实域 430 条里会**过宽 22 条**。
+        /// 而**过宽与原版同构**：`decomp_full/ScriptedActionData__CheckIfMatchesActionData.c:96-102`
+        /// 的 `TapCard(0x78)` 支**同样**不提前 `return 0`（只有 `param_2 == 0x4c` 才 `return 1`）
+        /// ⇒ 那是**两个不同的问题被一个函数回答了**，⛔ 不是缺陷。
+        /// （后果：行 95 的落点**不是** `Matches` 的 case 5/6 —— 那一条同时纠正了 F4 的 `G1✅ G2✅`。）
+        ///
+        /// 🔶 自己设计（非原版）：`manager == null` / `turnData == null` 时返回 **false**（原版抛 NRE，见其 `IL_03ce`）·
+        /// 调用点在「玩家选打法」那一拍，抛等于把教程打断；而「不是在等换打法」就是要返回假 ·
+        /// G11 定，2026-10-26（输入域外：调用点恒有当前回合、恒在教程局里）。
+        ///
+        /// 等价实现：`BattleDriver.TutorialCompleteChangeAttack`（玩家选打法那一拍做「写 `CurrentAttackType` + 指针 +1」，
+        /// 即原版 `UnitOnBoardAttackTypeSelector__AttackButtonClick` → `CardScript.ChangeAttackType`
+        /// → `FinishResolvingAction`；`BattleManager__Update.c:1055-1085` 那一半「拦下这一刀」由
+        /// 「要打必须先选打法」在更早一层等价）。</summary>
+        public static bool IsWaitingChangeAttack(TutorialTurn turn, int actionCounter)
+        {
+            if (turn == null || turn.actions == null) return false;
+            if (actionCounter < 0 || actionCounter >= turn.actions.Length) return false;
+            var cur = turn.actions[actionCounter];
+            if (cur == null || !cur.playerAction || cur.data == null) return false;
+            for (int i = 0; i < cur.data.Length; i++)
+            {
+                var d = cur.data[i];
+                if (d != null && (d.type == (int)ScriptedActionType.ChangeToRanged
+                               || d.type == (int)ScriptedActionType.ChangeToMelee)) return true;
+            }
+            return false;
         }
     }
 }

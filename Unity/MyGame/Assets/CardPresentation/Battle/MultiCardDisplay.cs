@@ -310,7 +310,7 @@ namespace CardPresentation
         /// `velocity *= Mathf.Pow(rate, deltaTime × 60)`）。</summary>
         public const float ScrollDecelerationRate = 0.135f;
         /// <summary>拖拽阈值（px）：按下后横向移动超过它才当「拖拽」——
-        /// ⚠️ **这是我们加的**（原版靠 `ScrollRect` 自己分派；我们那颗全屏背景关闭件会吃掉抬手
+        /// 🔶 自己设计（非原版）：多卡展示的拖拽阈值 `DragSlopPx = 6f` · 原版靠 ScrollRect 自己分派，我们全屏背景关闭件会吃掉抬手 ⇒ 判据缺失 · TODO(谁定的)｜原注：⚠️ **这是我们加的**（原版靠 `ScrollRect` 自己分派；我们那颗全屏背景关闭件会吃掉抬手
         /// ⇒ 必须自己分开「点一下（关窗）」与「拖一下（滚动）」）。判据缺失，如实标着。</summary>
         const float DragSlopPx = 6f;
 

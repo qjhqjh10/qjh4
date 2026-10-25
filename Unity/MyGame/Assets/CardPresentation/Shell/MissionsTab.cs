@@ -962,7 +962,7 @@ namespace CardPresentation
             //    ⇒ 图标 / 数量 / 发放三者不一致。
             // ⚠️ **格数 = 我们自己那张表的长度**（不是照原版抄的）：原版的格数是**数据驱动**的、那份数据
             //    （PlayFab Title Data 的 `MissionsConfig`）**本地没有** ⇒ 判据全文见 `DailyData` 的
-            //    「「格数」的数据源」那一段（块6 · 件②）。每一格的**币种与数量也都是我们挑的**。
+            // 🔶 自己设计（非原版）：登录卡奖励的格数 / 币种 / 数量 · 原版格数数据驱动（PlayFab Title Data `MissionsConfig`），本地没有 · TODO(谁定的)｜原注：「「格数」的数据源」那一段（块6 · 件②）。每一格的**币种与数量也都是我们挑的**。
             for (int i = 0; i < DailyData.LoginRewardCells; i++)
                 // 🆕 **A1205 接上**（`R5` §2·J #59 · 登录卡那一档）—— 宿主 =
                 //    `Daily Login Container ▸ background ▸ footer ▸ Rewards` ⇒

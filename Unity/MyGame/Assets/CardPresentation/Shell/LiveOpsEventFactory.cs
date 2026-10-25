@@ -37,7 +37,7 @@ namespace CardPresentation
     {
         /// <summary>宽松：解析失败返回 null（原版行为）。</summary>
         Lenient = 0,
-        /// <summary>严格：解析失败**额外 LogError**（我们加的，便于定位坏载荷；⛔ 不改变返回值）。</summary>
+        /// 🔶 自己设计（非原版）：`Strict` 策略额外 LogError · 原版 `ValidationStrategy` 这三个方法体没用到，我们只借它决定是否出声（原版判据拿不到） · TODO(谁定的)｜原注：<summary>严格：解析失败**额外 LogError**（我们加的，便于定位坏载荷；⛔ 不改变返回值）。</summary>
         Strict = 1,
     }
 

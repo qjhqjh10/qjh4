@@ -2361,23 +2361,26 @@ public static class BattleScene
                     driver.SimulateDeselect();
                     Remove20(s);
                 }
-                // ---- ②b 友方档 **且有 `Ability`**：读数 2、仍退回敌方、出声 ----
+                // ---- ②b 友方档 **且有 `Ability`**：读数 2、**直接返回我方**、不出声 ----
                 //   ⚠️ 这一条**只能**用合成夹具：现池 0 张 `Ability:`（见本节开头那条如实记），
                 //      而真卡 `AM69`（criteria `(0,1)`）的 `Card.Ability == null` ⇒ 走**不到**候选侧那一支
                 //      （它的 `CommandTargetSide` 恒 `-1`，见上面 ②）。
+                //   🔴 2026-10-26（`G21`）：`R5 P2` 起 `AbilityPickOwner` 对 **Friendly 直接返回 `_me`**
+                //      （引擎侧已按 `targetCriteria` 解 owner，见 `BattleDriver.AbilityPickOwner` 的 doc）⇒
+                //      本条的「仍退回敌方 / 出声 ≥1 / 每问 +1」全部过期。
                 {
                     var r = probe20(cFriend20);
-                    Check(r[0] == 1 && r[1] == 2 && r[2] == 1 - me20 && r[3] >= 1 && r[5] == 1,
-                          $"★ R20②b：`(0,1)` 档 ⇒ 读数 **2**（友方）、**仍退回敌方**（{r[2]}）、出声 **≥1**（整趟 {r[3]}）"
-                        + "｜🧨 把 Friendly 直接映射成 `_me` ⇒ 「退回敌方」那条红（并打开**静默错打**的口子）；"
-                        + "删掉 `NoteAbilitySideGap` ⇒ 出声那条红");
-                    // 🔴 计数口径（原来那条「再问一次仍然 +1」太松：`>= 1` 对「每问都 +1」和
-                    //   「只 +1 一次」都成立）。这里**钉死**：再问两次 ⇒ **恰好 +2**。
-                    Check(r[4] == 2,
-                          "★ R20②b（计数口径）：**每问一次 `CommandTargetSide` 就 +1**（再问两次 = +2）"
-                        + $"（实 +{r[4]}）—— 「每张卡每类原因只喊一次」那道闩只压 `LogWarning`、不压计数"
-                        + "（`NoteAbilitySideGap` 先把计数 +1 再查闩）"
-                        + "｜🧨 把计数挪到闩之后（只在第一次 +1）⇒ 本条红");
+                    Check(r[0] == 1 && r[1] == 2 && r[2] == me20 && r[3] == 0 && r[5] == 1,
+                          $"★ R20②b：`(0,1)` 档 ⇒ 读数 **2**（友方）、候选所有者 = **我方 `_me`**（{r[2]}）、"
+                        + $"出声 **0**（整趟 {r[3]}）"
+                        + "｜🧨 把 Friendly 映射回敌方 ⇒ 「候选所有者」那条红（并重新打开**静默错打**的口子）；"
+                        + "🧨 Friendly 也去 `NoteAbilitySideGap` ⇒ 出声那条红");
+                    // 🔴 计数口径：`NoteAbilitySideGap` **只在 Any / 判不出 两档**被调（Friendly 直接 return）
+                    //   ⇒ 这一档再问两次必须**恰好 +0**。（改前这条断 +2，是 Friendly 还退回敌方那个年代的口径。）
+                    Check(r[4] == 0,
+                          "★ R20②b（计数口径）：**Friendly 档不问不做声**（再问两次 = +0）"
+                        + $"（实 +{r[4]}）—— `NoteAbilitySideGap` 只在 Any / 判不出两档被调（现池覆盖面见 ③ / ④）"
+                        + "｜🧨 给 Friendly 也补一声 ⇒ 本条红");
                 }
                 // ---- ③ (1,1) ⇒ 3 · (0,0) ⇒ 0，两档都退回敌方 + 出声 ----
                 {
@@ -11865,6 +11868,46 @@ public static class BattleScene
                               $"★ 切回 {langWasTargets} 档后那行复原（实得「{sp.TargetsText}」）");
                     }
                     Check(sp.Alpha > 0.9f, $"淡入推完了（alpha {sp.Alpha:F2}）");
+
+                    // ══ 🆕 2026-10-26（批次 6 · G16）：把「技能面板 · 可选目标字并进描述」的规格落成断言 ══
+                    //   规格 → `报告/E6_第3轮.md` §④ A1（+ `报告/G7_第5轮.md` §④ A2 的 `any` 闸）。
+                    //   判据 = 原版 `ActiveSkillDisplay.SetupActiveSkill`（🥈 `cpp2il/ActiveSkillDisplay.cs:170-196`）：
+                    //     ① 那段字拼在 `descText` **后面**（`desc + " " + targetAvailableText`）；
+                    //     ② `TargetsAvailableText` 那颗节点**零写入**（原版只为树同构留位）；
+                    //     ③ `targetsAffected == any` ⇒ **整段不拼**、描述原样（那个 `if` 的整个 else 支）。
+                    {
+                        var g16SkDesc = sp.TextForTest(2);
+                        var g16SkTgt = sp.TextForTest(3);
+                        string g16SkDescTxt = g16SkDesc != null ? g16SkDesc.Text : null;
+                        Check(g16SkDescTxt != null && !string.IsNullOrEmpty(sp.TargetsText)
+                              && g16SkDescTxt.EndsWith(sp.TargetsText),
+                              $"★ 可选目标那段字拼在**描述里**（`DescText` 应以「{sp.TargetsText}」结尾，"
+                            + $"实得「{Short(g16SkDescTxt, 40)}」）—— 原版 `SetupActiveSkill` 写的是 `descText + \" \" + targetAvailableText`"
+                            + "｜🧨 把 `SkillPanel.SetTargetsSuffix` 里那句 `_desc.SetText(...)` 删掉（退回「只写 `_targets` 那颗节点」）⇒ 本条红");
+                        Check(g16SkTgt != null && string.IsNullOrEmpty(g16SkTgt.Text),
+                              $"★ 原版 `TargetsAvailableText` 节点**恒空**（现得「{(g16SkTgt == null ? "<没建>" : Short(g16SkTgt.Text, 20))}」）"
+                            + "｜🧨 把数写回 `_targets` ⇒ 本条红（会一次印两处）"
+                            + " —— 两条**合起来**才是灭自证：旧写法恰好是「desc 不带后缀 + tgt 非空」");
+
+                        // ---- ③ `targetsAffected == any` ⇒ 整段不拼（原版 `ActiveSkillDisplay.cs:170` 的 else 支）----
+                        string g16SkSuffixBak = sp.TargetsText;
+                        string g16SkDescBak = g16SkDescTxt != null && !string.IsNullOrEmpty(g16SkSuffixBak) && g16SkDescTxt.EndsWith(" " + g16SkSuffixBak) ? g16SkDescTxt.Substring(0, g16SkDescTxt.Length - (1 + g16SkSuffixBak.Length)) : g16SkDescTxt;   // = 基串：把 " " + 后缀 摘掉（拿不到后缀就退回现串）
+                        sp.SetTargetsAvailable(wantT, targetsAny: true);
+                        Check(sp.TargetsText == "",
+                              $"★ any 档**整段不拼**（`TargetsText` 应空，实得「{sp.TargetsText}」）"
+                            + "｜🧨 删掉 `SetTargetsSuffix` 里 `targetsAny` 那一支 ⇒ 后缀变回「N 可用」⇒ 本条红");
+                        var g16SkDesc2 = sp.TextForTest(2);
+                        string g16SkDesc2Txt = g16SkDesc2 != null ? g16SkDesc2.Text : null;
+                        Check(g16SkDesc2Txt != null && g16SkDesc2Txt == g16SkDescBak,
+                              $"★ any 档的描述**原样**（⛔ 别留尾随空格）：实得「{Short(g16SkDesc2Txt, 40)}」"
+                            + " —— 原版那个 else 支什么都不加"
+                            + "｜🧨 改成「拼一个空串 + 空格」⇒ 本条红");
+                        sp.SetTargetsAvailable(wantT);            // 复原（下面几条还读面板状态）
+                        Check(sp.TargetsText == g16SkSuffixBak && sp.TargetsText != "",
+                              "（复原）any 档撤掉之后后缀原样回来 —— 两态是**一开一关**，不是恒空"
+                            + "｜🧨 把闸写成「恒不拼」⇒ 本条红");
+                    }
+
                     Check(sp.CurrentLight == SkillPanel.Light.Available,
                           $"有合法目标 → 铺黄绿那层（原版 `LightAvailable`，{sp.CurrentLight}）");
                     Debug.Log(P + "   " + sp.Describe());
@@ -15916,8 +15959,32 @@ public static class BattleScene
 
                     if (free0 >= 0 && emptyCount >= 2)
                     {
+                        // 🔴🆕 2026-10-26（`G21` · 诊断 `D2` §四·1）：**先记下「认领前」那一格挂着谁**
+                        //   —— `BattleDriver.SyncBoard` 有两条路：③ 新建（`CardView.Create(…, CardFace.Board)`，
+                        //   会建 3D 卡身）/ ② 认领一张**主人已不在场上**的旧视图（那一支只 `SetData`，
+                        //   **从不 `SetFace(CardFace.Board)`**）⇒ 认领来的视图可能一直是 `CardFace.Hand`、没有 3D 卡身。
+                        //   探针要的就是这一格：认领前的名字 + 认领后是不是同一个对象。
+                        var beforeA = driver.BoardViewAt(free0);
                         var vA = ProbeRemnantView(driver, c2, free0, KeywordTable.Waystone,
                                                  "RemnantBody3D Aeldari");
+                        // ---- G21 探针（读数写进 `报告/G21_收尾22红修复_第7轮.md` §4）----
+                        Debug.Log("[G21·探针] A 组（灵族/路标石）slot=" + free0
+                                + " 认领前=" + (beforeA == null ? "<null>" : beforeA.name)
+                                + " 认领后=" + (vA == null ? "<null>" : vA.name)
+                                + " 同一对象=" + (vA != null && ReferenceEquals(beforeA, vA))
+                                + " Face=" + (vA == null ? "—" : vA.Face.ToString())
+                                + " Body3DWorldScale=" + (vA == null ? "—" : vA.Body3DWorldScale.ToString("F5")));
+                        // 🔴 **夹具前提（3D 组）** —— `D2` 判这一组是 **(δ) 夹具前提不成立**：那四条的
+                        //   `CardView` 没有 3D 卡身（`Body3DWorldScale == 0`），实际测的是 **2D 退回档**。
+                        //   2D 组本来就有这条前提断言，3D 组**原来没有** ⇒ 结构性「静默测错档」。
+                        //   ⛔ 别把下面那四条放宽成 `|| Body3DWorldScale == 0`：那会把 B5 那条
+                        //      专门挡「无条件 `Show(_art,true)`」的对照组一起废掉。
+                        Check(vA != null && vA.Body3DWorldScale != Vector3.zero,
+                              "★ 夹具前提（3D 组）：那一格的卡**有 3D 卡身**"
+                            + $"（`Body3DWorldScale` = {(vA == null ? "—" : vA.Body3DWorldScale.ToString("F5"))}、"
+                            + $"`Face` = {(vA == null ? "—" : vA.Face.ToString())}）"
+                            + " —— 不成立 ⇒ 下面「残骸体缩放 = 卡身那个值」「撤掉 ⇒ 回来的是 3D 卡身」"
+                            + "**测的是 2D 退回档**（静默测错档），先查 `SyncBoard` 那两条路");
                         {
                             string whyA;
                             Check(BoardSlots.IsContiguous(c2.Players[0], out whyA),
@@ -16488,8 +16555,15 @@ public static class BattleScene
                         driver.RefreshAll();
                         bool bodyWas = CardView.DebugNoBody3D;
                         CardView.DebugNoBody3D = true;
+                        var before2D = driver.BoardViewAt(free1);            // G21 探针：认领前
                         var v2D = ProbeRemnantView(driver, c2, free1, KeywordTable.Waystone,
                                                    "RemnantBody3D Aeldari");
+                        Debug.Log("[G21·探针] 2D 组 slot=" + free1
+                                + " 认领前=" + (before2D == null ? "<null>" : before2D.name)
+                                + " 认领后=" + (v2D == null ? "<null>" : v2D.name)
+                                + " 同一对象=" + (v2D != null && ReferenceEquals(before2D, v2D))
+                                + " Face=" + (v2D == null ? "—" : v2D.Face.ToString())
+                                + " Body3DWorldScale=" + (v2D == null ? "—" : v2D.Body3DWorldScale.ToString("F5")));
                         CardView.DebugNoBody3D = bodyWas;   // 🔴 立刻关回去（static：留着会波及后面每一张新建的卡）
                         Check(v2D != null && v2D.Body3DWorldScale == Vector3.zero,
                               "★ 夹具：那一格确实处在「**没有 3D 卡体**」那一态"
@@ -16530,10 +16604,17 @@ public static class BattleScene
                         //   死灵这具**用完把这格清掉**（后面的用例还要 `FreeSlot`）。
                         {
                             int slotN = FreeSlot(c2, 0);
+                            var beforeN = slotN >= 0 ? driver.BoardViewAt(slotN) : null;    // G21 探针：认领前
                             var vN2 = slotN >= 0
                                     ? ProbeRemnantView(driver, c2, slotN, KeywordTable.Remnant,
                                                        "RemnantBody3D Necrons", idSuffix: "Anim")
                                     : null;
+                            Debug.Log("[G21·探针] 第三具（死灵）slot=" + slotN
+                                    + " 认领前=" + (beforeN == null ? "<null>" : beforeN.name)
+                                    + " 认领后=" + (vN2 == null ? "<null>" : vN2.name)
+                                    + " 同一对象=" + (vN2 != null && ReferenceEquals(beforeN, vN2))
+                                    + " Face=" + (vN2 == null ? "—" : vN2.Face.ToString())
+                                    + " Body3DWorldScale=" + (vN2 == null ? "—" : vN2.Body3DWorldScale.ToString("F5")));
                             Check(vN2 != null && v2D != null,
                                   $"（前提）第三具残骸体（死灵）摆得下、`v2D` 也在（`FreeSlot` 实得 {slotN}）"
                                 + " —— 下面是这一组的全部动画/材质断言");
@@ -22665,11 +22746,26 @@ public static class BattleScene
 
                     int idx = drv.HandIndex(dv);
                     CardTween.Advance(CardFeel.DealDuration + 0.1f);
+                    // 🔴 2026-10-26（`G21`）：**发牌改成了两跳**（`BattleDriver.cs:26613-26629`）——
+                    //   第一跳从牌堆飞到**抽牌锚**（`CardDrawPositionWorld`），**落地回调**才开第二跳
+                    //   `TweenIntoSlot`（`CardTween.RelayoutDuration` = 0.2s）进格位。
+                    //   ⇒ 原来那条「0.3s 后必须已经落在格位上」是旧单跳口径（实测偏差 10.7254 = 锚到格位的距离）。
+                    //   ⛔ 别把 `DealDuration` 调短迁就断言（`BattleDriver.cs:26599` 明写 0.3 > 0.2 是换牌兜底能赢的前提）。
+                    var anchor = drv.CardDrawPositionWorld(true);
+                    float offA = Mathf.Abs(dv.transform.position.x - anchor.x)
+                               + Mathf.Abs(dv.transform.position.y - anchor.y);
+                    Check(offA < 0.02f,
+                          $"第一跳：推出 {CardFeel.DealDuration:F2}s → 它**落到了抽牌锚**上（偏差 {offA:F4}）"
+                        + "｜🧨 把两跳并回一跳（或第一跳终点写回格位）⇒ 红");
+                    Check(dv.Alpha > 0.99f, $"……而且已经**不透明**了（alpha {dv.Alpha:F2}）");
+                    // 第二跳：锚 → 手牌格位
+                    CardTween.Advance(CardTween.RelayoutDuration + 0.05f);
                     var want = hand.SlotPosition(Mathf.Max(0, idx), drv.HandCount);
                     float off = Mathf.Abs(dv.transform.position.x - want.x)
                               + Mathf.Abs(dv.transform.position.y - want.y);
-                    Check(off < 0.02f, $"推出 {CardFeel.DealDuration:F2}s → 它**落到了手牌位**上（偏差 {off:F4}）");
-                    Check(dv.Alpha > 0.99f, $"……而且已经**不透明**了（alpha {dv.Alpha:F2}）");
+                    Check(off < 0.02f,
+                          $"第二跳：再 {CardTween.RelayoutDuration:F2}s → 它**进到了手牌格位**（偏差 {off:F4}）"
+                        + "｜🧨 落地回调没接 `TweenIntoSlot`（停在锚上）⇒ 红");
                     Shot(cam, "19_发牌入场之后");
                 }
 
@@ -24026,14 +24122,26 @@ public static class BattleScene
                                 + $"{CardFeel.LastShakeDuration:F3}s（🧨 一律用 Hit Small 的 0.4 s ⇒ 红）");
                             SettleShake();
 
-                            // 信号表也一路到底：`Shake Forward Pull` 在原版用的是 `Warpforge 6D Shake One Axis`
+                            // 🔴 2026-10-26 订正（G12 机器码实证）：原版 `GetModifiedPreset` **只写 7 个字段、
+                            //   **从不写 rawSignal** ⇒ 所有 `OverwriteCameraShakePreset`（含 `AnimInfo.screenShake` 1099 条）
+                            //   **恒播默认 `Warpforge 6D Shake`**。本行原来把「preset 自己的 `…One Axis`」钉成唯一答案 = 旧口径。
+                            //   改成**两端**断言：默认档 = 默认信号（原版真语义）· 显式 `usePresetSignal:true` = preset 自己的信号。
                             var fpReq = WarpforgeVFX.WFModuleScreenShake.Resolve(
                                 new WarpforgeVFX.WFModuleScreenShake.ShakeEntry { preset = "Shake Forward Pull" });
                             prevOnShake(fpReq);
-                            Check(fpReq.signal != null && fpReq.signal.name == "Warpforge 6D Shake One Axis"
+                            Check(fpReq.signal != null && fpReq.signal.name == "Warpforge 6D Shake"
+                                  && CardFeel.LastShakeSignalName == "Warpforge 6D Shake",
+                                  $"★ R9 **默认档丢 preset 信号**（原版 `GetModifiedPreset` 不写 rawSignal）：`Shake Forward Pull` ⇒ `{CardFeel.LastShakeSignalName}`"
+                                + $"（数据层 {fpReq.signal?.name}）｜🧨 改成用 preset 自己的 signal ⇒ 红");
+                            SettleShake();
+                            var fpReq2 = WarpforgeVFX.WFModuleScreenShake.Resolve(
+                                new WarpforgeVFX.WFModuleScreenShake.ShakeEntry { preset = "Shake Forward Pull" },
+                                usePresetSignal: true);
+                            prevOnShake(fpReq2);
+                            Check(fpReq2.signal != null && fpReq2.signal.name == "Warpforge 6D Shake One Axis"
                                   && CardFeel.LastShakeSignalName == "Warpforge 6D Shake One Axis",
-                                  $"★ R9 **`rawSignal` 信号表送到了下游**：`Shake Forward Pull` ⇒ `{CardFeel.LastShakeSignalName}`"
-                                + $"（数据层 {fpReq.signal?.name}）｜🧨 `Request` 不带 signal ⇒ 退回默认名 ⇒ 红");
+                                  $"★ R9 **显式档才用 preset 信号**：`Shake Forward Pull` + `usePresetSignal:true` ⇒ `{CardFeel.LastShakeSignalName}`"
+                                + $"（数据层 {fpReq2.signal?.name}）｜🧨 忽略 usePresetSignal ⇒ 上一端与这一端不可能同时绿 ⇒ 红");
                             SettleShake();
 
                             // 默认那 12 个：`Shake Hit Small` 没有 rawSignal ⇒ 落到场景默认信号
@@ -25067,13 +25175,13 @@ public static class BattleScene
                 drv.Begin("Ultramarines", "Goff", 20260916);
                 Step(BattleDriver.TurnHeadsUpHold + 0.3f);
 
-                // 🔴 2026-10-19（A1502②）：**10 → 12** —— 新补的那两层头像立绘（`AvatarImage_Me` /
-                //    `AvatarImage_Foe`）走的是同一个 `HudAbsTex`（后者里那一句 `_hudExtras.Add`）
-                //    ⇒ 同样计进 `_hudExtras`。⛔ 这不是「放宽断言」，是跟着实现改计数；
-                //    下面第二节（16·b）会把这两件单独再钉一遍（真的画出来了 / 尺寸 / z / 图名）。
-                Check(drv.HudExtraCount == 12, $"补摆的图 {drv.HudExtraCount} 件（应有 12：头衔底条×2 / 头像块×2 / **头像立绘×2** / 三个按钮 / 能量累积×2 / 加时标记）");
+                // 🔴 2026-10-26（`G21` · 批次 5 `F5`）：**12 → 14** —— 新补的两颗 **OFF 能量图**
+                //    （`40k_battle_energy_empty`，原版 `manaAccumulationVFXOFF`，判据
+                //    `decomp_full/ManaTypeHolder__SetSavedMana.c:44-56`：ON/OFF 两颗 `SetActive` 互斥）
+                //    同样走 `HudAbs` ⇒ 计进 `_hudExtras`。⛔ 这不是「放宽断言」，是跟着实现改计数。
+                Check(drv.HudExtraCount == 14, $"补摆的图 {drv.HudExtraCount} 件（应有 14：头衔底条×2 / 头像块×2 / **头像立绘×2** / 三个按钮 / 能量累积 **ON×2 + OFF×2** / 加时标记）");
                 // ⚠️ 这条是「不许静默失败」：图名字写错、资源没同步进来，都会在这里红
-                Check(drv.HudExtrasMissingArt() == 0, $"这 12 件的贴图**都取到了**（缺图 {drv.HudExtrasMissingArt()} 件）");
+                Check(drv.HudExtrasMissingArt() == 0, $"这 14 件的贴图**都取到了**（缺图 {drv.HudExtrasMissingArt()} 件）");
                 Debug.Log(P + "   补摆清单：\n" + drv.HudExtraReport());
 
                 // 位置：和资料里的绝对矩形**中心**比（每件都在 1.5 px 内）
@@ -25581,6 +25689,77 @@ public static class BattleScene
                       "🆕 T13：`manaAccumulation = 0`（默认值 / LiveOps 没开）⇒ 能量累积那一【整组】不显示"
                     + "（原版 `ManaTypeHolder.SetAccumulationMana(false)`；"
                     + "🧨 改回「无条件显示」或用 `HudAbs` 建完不等于显隐 ⇒ 本条红）");
+
+                // ---- 🔴 2026-10-26（批次 6 · G16）：`ManaTypeHolder.SetSavedMana` 六步状态机（F5 已落实现，这里补断言）----
+                //   规格 → `报告/F5_第4轮.md` §六·② A3（= `报告/E6_第3轮.md` §④ A3 的落地版，自检口用 F5 留的那几个）。
+                //   判据 = `decomp_full/ManaTypeHolder__SetSavedMana.c:44-86`（① 两颗 `SetActive` 互斥 · ② `unUsedMana - 1` · ③ 组闸）
+                //        + `…__ToggleManaAccumulation.c`（`Mathf.Approximately(当前α, 目标α) ⇒ 整段 return`）。
+                //   ⚠️ 前置：组闸 = `0 < Ctx.Vars.addedManaSecond`（经典 0 / 遭遇 1）。这一局的组闸关着（上面 T13 刚断过）
+                //      ⇒ 这里**临时掰成遭遇档**、验完还原（`addedManaSecond` 只在 `BeginTurn` 兑现，中途改它不动局面）。
+                {
+                    int g16AddedBak = drv.Ctx.Vars.addedManaSecond;
+                    drv.Ctx.Vars.addedManaSecond = 1;
+                    drv.RefreshEnergyAccumulation();
+                    Check(drv.EnergyAccumulationOn, "（前提）「能量累积」组闸已掰成「开」（`0 < addedManaSecond`）");
+
+                    drv.SetSavedManaForTest(savedMana: 0, unUsedMana: 5, totalMana: 5, useNumberChange: true);
+                    Check(!drv.EnergyAccumOnVisibleForTest && drv.EnergyAccumOffVisibleForTest,
+                          "★ `savedMana = 0` ⇒ **ON 关 / OFF 开**（原版 `.c:44-56` 那两颗 `SetActive` 互为反档）"
+                        + "｜🧨 把 ① 那两行写成同一个档（或只写 ON）⇒ 本条红");
+
+                    drv.SetSavedManaForTest(savedMana: 1, unUsedMana: 5, totalMana: 5, useNumberChange: true);
+                    Check(drv.EnergyAccumOnVisibleForTest && !drv.EnergyAccumOffVisibleForTest,
+                          "★ `savedMana = 1` ⇒ **ON 开 / OFF 关**（与上一条**互斥** ⇒ 结构上糊不过去："
+                        + "「恒亮」过不了上一条、「恒灭」过不了本条）");
+                    Check(drv.MyEnergyText == "4/5",
+                          $"★ 累积期那颗数 = `unUsedMana − 1`（银行里那 1 点不计数；应「4/5」，实「{drv.MyEnergyText}」）"
+                        + "｜🧨 把 `.c:45` 那个 `-1` 去掉 ⇒ 本条红（会印 5/5）");
+
+                    int g16Snd0 = drv.ManaAccumSoundCount;
+                    drv.SetSavedManaForTest(savedMana: 1, unUsedMana: 5, totalMana: 5, useNumberChange: true);
+                    Check(drv.ManaAccumSoundCount == g16Snd0,
+                          "★ **同档重入 ⇒ `Mathf.Approximately(α, 目标)` 那道闸整段 return**（连音效计数都不涨）"
+                        + "｜🧨 删掉那道闸 ⇒ 先写反档 ⇒ ON 那颗会被写成 α=0（补间在批处理里不推进）"
+                        + " —— ⚠️ 本条是**次腿**：批处理里 `Time.frameCount` 不推进、音效那半还有静态帧号去重，"
+                        + "单看计数可能空过；真正兜住这一档的是上面「ON 亮着」+ `MyEnergyText` 两条（见报告 §2）");
+
+                    // ⚠️ **组 × 组内是两层**（原版两颗是组 GO 的子件）：组关着 ⇒ 就算 `savedMana = 1` 也一颗都不许亮。
+                    drv.Ctx.Vars.addedManaSecond = 0;
+                    drv.RefreshEnergyAccumulation();
+                    drv.SetSavedManaForTest(savedMana: 1, unUsedMana: 5, totalMana: 5, useNumberChange: true);
+                    Check(!drv.EnergyAccumOnVisibleForTest && !drv.EnergyAccumOffVisibleForTest,
+                          "★ **组关着 ⇒ `savedMana = 1` 也不许点亮任何一颗**（原版两层：`SetAccumulationMana` 切组、"
+                        + "`SetSavedMana` 切组内）｜🧨 把两层合成一层（只按 `savedMana` 定显隐）⇒ 本条红");
+
+                    drv.Ctx.Vars.addedManaSecond = g16AddedBak;       // 还原
+                    drv.RefreshAll();                                // 那颗数 / HUD 按引擎真值重算（上面被写成了 4/5）
+                    Check(!drv.EnergyAccumulationOn && !drv.EnergyAccumOnVisibleForTest && !drv.EnergyAccumOffVisibleForTest,
+                          "（复原）组闸关回去 ⇒ 两颗都不显示（与上面 T13 那条同一状态）"
+                        + "｜🧨 还原漏了 ⇒ 后面那条 T13 会连带红（这不是本条要说的事，但别让它静默）");
+                }
+
+                // ---- 🔴 2026-10-26（批次 6 · G16）：**局内换语言广播口真的打到订户** ----
+                //   规格 → `报告/E6_第3轮.md` §④ A2。判据 = 原版 `BattleHud.BroadcastChangedLanguage()`
+                //   （🥈 `cpp2il/BattleHud.cs:399-407`）= `BroadcastMessage("ChangedLanguage")`（按名字打整棵 HUD 子树）。
+                //   我们的等价物 = `BattleHudLanguage.Changed`（E6 建）；日志那半边的订户 = `BattleDriver.HookHudLanguageChanged`。
+                {
+                    int g16Sub0 = BattleHudLanguage.SubscriberCount;
+                    int g16Fired = 0;
+                    System.Action g16Probe = () => g16Fired++;
+                    BattleHudLanguage.Changed += g16Probe;
+                    int g16N = BattleHudLanguage.Notify();
+                    BattleHudLanguage.Changed -= g16Probe;
+                    Check(g16N == g16Sub0 + 1 && g16Fired == 1,
+                          $"★ 广播口真的**打到订户**（`Notify` 返回 {g16Sub0}+1、probe 被调 1 次；实得 n={g16N} fired={g16Fired}）"
+                        + "｜🧨 删掉广播（或让它只返回数、不真调）⇒ 本条红");
+                    int g16SubAfter = BattleHudLanguage.SubscriberCount;
+                    int g16N2 = BattleHudLanguage.Notify();
+                    Check(g16N2 == g16Sub0 && g16Fired == 1 && g16SubAfter == g16Sub0,
+                          $"★ **退订后不再被调**（第二次 `Notify` 应返回 {g16Sub0}、probe 仍只被调 1 次；"
+                        + $"实得 n={g16N2} 订户={g16SubAfter} fired={g16Fired}）"
+                        + "｜🧨 改成「不管订户数都返回 1」/ 忘了 `-=`（旧订户留下）⇒ 本条红");
+                }
+
                 AtExact("OvertimeIndicator",      1753.1948928833008f, 377.0f);
 
                 // 任务点：🔴 **只属于暗黑天使**（2026-09-13 更正 —— 原来无条件摆给全部 13 个阵营，
@@ -29211,6 +29390,22 @@ public static class BattleScene
                           $"★ 候选 **{driver.ChooseOptionCount}** 张"
                           + "（= 牌库里**非传说暗黑天使**卡，实测全池 69 张）");
                     int hand0 = ctx.Players[0].Hand.Count;
+                    // 🔴 **2026-10-26（`G21`）：先腾一格 —— 这是【夹具】前提，不是放宽断言。**
+                    //   走到这一步手牌恰好**满了**（这一局从开局发牌到议程共进 10 张），而引擎对「满手入牌」的
+                    //   口径是 `RuleCore.AddCardToHandWithinLimit`：**满了就把刚造出来的那一份送弃牌堆 + 出声**
+                    //   （原版 `PlayerHand._AddDrawnCardToHand_d__37:113-140` 同形）⇒ **引擎行为正确**，
+                    //   不成立的是夹具前提（本条要验的是「议程结算的那一张**进了手牌**」）。
+                    //   把手里最末一张挪进弃牌堆腾出格子（只动夹具，⛔ 不改断言口径）。
+                    if (ctx.Players[0].Hand.Count >= ctx.Vars.handLimit)
+                    {
+                        int last = ctx.Players[0].Hand.Count - 1;
+                        var moved = ctx.Players[0].Hand[last];
+                        ctx.Players[0].Hand.RemoveAt(last);
+                        ctx.Players[0].Discard.Add(moved);
+                        ctx.Log($"（自检夹具：手牌已满 {ctx.Vars.handLimit} ⇒ 先把「{moved.Card.Name}」挪进弃牌堆腾一格）");
+                        driver.RefreshAll();
+                        hand0 = ctx.Players[0].Hand.Count;
+                    }
                     // 🔴 2026-10-17（F6 #6）：同 #5 —— 面板那几个 `CardData` 的 `id` 是**卡名**，
                     //    引擎记的却是 `CardDef.Id`；要比「引擎用的是面板给的那一张」得用**稳定卡号**。
                     string wid = driver.ChooseOptionStableId(0);
@@ -34111,15 +34306,21 @@ public static class BattleScene
                     for (int i = 0; i < cT1.Players[0].Deck.Count; i++)
                         deckNow.Add(cT1.Players[0].Deck[i].Card.Id);
                     int drawn = d1.player.cardIds.Length - deckNow.Count;    // 已被抽走的张数
-                    bool prefix = drawn >= 0;
+                    // 🔴 **2026-10-26（`G21`）：`G18` 起牌库是【倒序装载】** —— `BeginTutorial` 把
+                    //   `cardIds` **反着**装进 `Deck` ⇒ 牌库第 i 项 == `cardIds[n-1-i]`。
+                    //   （实测：牌库串与 `reverse(cardIds)` **逐项相等**。改前断的是**正序**前缀，
+                    //     那是倒序装载落地之前的快照。）
+                    int nIds = d1.player.cardIds.Length;
+                    bool prefix = drawn >= 0 && deckNow.Count <= nIds;
                     for (int i = 0; i < deckNow.Count && prefix; i++)
-                        if (deckNow[i] != d1.player.cardIds[i]) prefix = false;
+                        if (deckNow[i] != d1.player.cardIds[nIds - 1 - i]) prefix = false;
                     Check(prefix,
                           $"★ **不洗牌**：第 1 关我方牌库 == `tutorial_decks.json` 的 `player.cardIds`"
-                        + $"（{d1.player.cardIds.Length} 张）的**前缀**、逐项同序 —— 现 {deckNow.Count} 张，"
-                        + $"实得 `{string.Join("/", deckNow)}`（洗过牌的话前缀关系必破）");
+                        + $"（{nIds} 张）的**逆序前缀**（第 i 项 == `cardIds[n-1-i]`）、逐项同序 —— 现 {deckNow.Count} 张，"
+                        + $"实得 `{string.Join("/", deckNow)}`（洗过牌的话逆序前缀关系必破）");
 
-                    // 少掉的那几项 = `cardIds` 的**后缀** ⇒ 应当在**手牌**里（先手第 1 回合抽走的）
+                    // 少掉的那几项 = `cardIds` 的**前缀** ⇒ 应当在**手牌**里（先手第 1 回合抽走的）
+                    //   ⚠️ 牌库是**倒序**装的、而 `Draw` 从**末尾**抽 ⇒ 抽走的是牌库尾部 = `cardIds` 的**头部**。
                     var handNow = new List<string>();
                     for (int i = 0; i < cT1.Players[0].Hand.Count; i++)
                         handNow.Add(cT1.Players[0].Hand[i].Card.Id);
@@ -34127,7 +34328,7 @@ public static class BattleScene
                     bool firstTurnNoDraw = tutStages[0] != null && tutStages[0].turns != null
                                            && tutStages[0].turns.Length > 0 && tutStages[0].turns[0].dontDrawCard;
                     bool drewThem = drawn > 0 || (firstTurnNoDraw && drawn == 0);
-                    for (int k = deckNow.Count; drewThem && k < d1.player.cardIds.Length; k++)
+                    for (int k = 0; drewThem && k < drawn; k++)
                     {
                         int at = handNow.IndexOf(d1.player.cardIds[k]);       // 按**张**核（同卡多份也对）
                         if (at < 0) drewThem = false; else handNow.RemoveAt(at);
@@ -36217,10 +36418,148 @@ public static class BattleScene
                           "★ **G-5**：这一条提示写着 `showLeftArrow = true` ⇒ **左箭头亮、右箭头不亮**"
                         + "（原版 `SetupArrows(showLeft, showRight)` 两态）"
                         + "｜🧨 只 `Debug.Log` 不画（改之前就是这样）⇒ 本条红");
+
+                    // ---------- 🔴 2026-10-26（批次 6 · G16）：**箭头跟着整块一起淡**（原版 `FadeElements` 第二、三句）----------
+                    //   规格 → `报告/G7_第5轮.md` §④ A1。判据 = `TutorialTipScript.FadeElements`
+                    //   （🥈 `cpp2il/TutorialTipScript.cs:365-391`）：整块 `DOFade` **之后**再对
+                    //   `leftArrow` / `rightArrow` 各 `DOFade(targetAlpha)`，**两句都带 `activeSelf` 闸**。
+                    //   闸门里这一拍 `_fade` 刚从 0 起（`Begin` → `TutorialOverlay.HideAll()` 归零）
+                    //   ⇒ `Tick(0.1)` 后应 = 0.5（`FadeDuration = 0.2`，`MoveTowards` 一步 0.1/0.2）。
+                    if (arrowOv != null)
+                    {
+                        arrowOv.Tick(0.1f);
+                        Check(Mathf.Abs(arrowOv.ArrowLeftAlpha - 0.5f) < 1e-3f,
+                              $"★ **亮着的左箭头跟着整块一起淡**（原版 `FadeElements` 那两句；应 0.5，实 {arrowOv.ArrowLeftAlpha:F3}）"
+                            + "｜🧨 删掉 `TutorialOverlay.ApplyFade` 里那两行箭头 tint ⇒ 本条红（箭头停在建件时的 α=1）");
+                        // 🔴 这一条断的是**另一句**：没亮的那颗**不许被写**（`activeSelf` 闸）。
+                        Check(Mathf.Abs(arrowOv.ArrowRightAlpha - 1f) < 1e-3f,
+                              $"★ **没亮的右箭头不被写**（原版那两句都带 `activeSelf` 闸；应保持 1，实 {arrowOv.ArrowRightAlpha:F3}）"
+                            + "｜🧨 把闸去掉（无条件设 α）⇒ 本条红（会被写成 0.5）"
+                            + " —— 与上一条**合起来**才是灭自证：两条判的是原版那两句里**不同的那半**");
+                    }
+                    else
+                        Check(false, "★ 箭头淡入：`TutorialView` 没建出来 ⇒ 这一组等于没验（⛔ 不静默跳过）");
+
                     driver.DriveTutorialScriptForTest();
                     Check(arrowOv != null && !arrowOv.ArrowLeftVisible && !arrowOv.ArrowRightVisible,
                           "★ **判别式**：下一条提示两格都是 false ⇒ **两颗都收掉**"
                         + "（不是「亮过就一直亮」）");
+
+                    // ---------- 🔴 2026-10-26（批次 6 · G16）：**P0 灭自证 —— 轻点灵魂石 = 收集** ----------
+                    //   规格 → `报告/F5_第4轮.md` §六·② A4；实现 = `BattleDriver.TapBoardCard`（`BoardPress` 的 `!dragged` 支）。
+                    //   判据（原版）= `CardScript.OnTouchUpAsButton`（🥈 `cpp2il/CardScript.cs:10114-10183`）场上卡那一档的**另一条支**：
+                    //     `IsAeldariRemnant ⇒ BattleMgr.TryUsingWaystone`（**不是** `DisplayCard`）→ 收集算一个动作
+                    //     → `FinishResolvingAction` → `AiScripted.PlayerChoiceAction`（`actionCounter += 1`）。
+                    //   🧨 灭自证：把 `BoardPress` 的 `TapBoardCard` 换回 `ToggleUnitCard` ⇒
+                    //     ① 脚本指针不动 ② 灵魂石不涨 ③ 反而开了大卡窗 —— 三条**同时**红；
+                    //     而「实现与检测器一起改回去」结构上做不到：指针来自 `RuleEngine/TutorialScript`、
+                    //     石头来自 `PlayerState.SpiritStones`，是**两条独立判据**。
+                    {
+                        TutorialAction G16TapAct()
+                        {
+                            return new TutorialAction
+                            {
+                                index = 0, type = "TapCard", arg = "点那颗灵魂石去收集", playerAction = true,
+                                data = new[] { new TutorialActionData { type = (int)ScriptedActionType.TapCard } },
+                            };
+                        }
+                        var g16TapStage = new TutorialStageData
+                        {
+                            stage = 83, so = "<自检合成·轻点灵魂石>", playerStarts = true,
+                            turns = new[]
+                            {
+                                new TutorialTurn
+                                {
+                                    turnName = "Turn1", scriptedTurn = true, actionCount = 2,
+                                    // ⚠️ **两条**：`CheckIfWaitingForPlayerAction` 的守卫是 `ActionCounter + 1 < count`
+                                    //    （最后一条永不算「等玩家」）⇒ `TapCard` 后面必须**还有一条**。
+                                    actions = new[] { G16TapAct(), MkTip(false, false) },
+                                },
+                            },
+                        };
+                        driver.Begin(myFaction: BattleDriver.DefaultFactionA, foeFaction: BattleDriver.DefaultFactionB,
+                                     seed: 20261026, tutorial: new TutorialScript(g16TapStage));
+                        var g16Ctx = driver.Ctx;
+                        var g16Tut = g16Ctx != null ? g16Ctx.Tutorial : null;
+                        int g16Me = driver.MySideForTest;
+                        Check(g16Ctx != null && g16Tut != null && g16Tut.Turn == 1 && g16Tut.ActionCounter == 0
+                              && g16Tut.CheckIfWaitingForPlayerAction,
+                              "（前提）合成教程脚本停在第一条 `TapCard(playerAction = true)` 上（后面还跟一条）"
+                            + " —— 这一组靠它验「收集算不算玩家的那一步」");
+                        Check(g16Ctx != null && g16Ctx.Active == g16Me,
+                              $"（前提）轮到玩家自己（`CanCollectWaystone` 要求 `p == ctx.Active`；Active={g16Ctx?.Active}）");
+                        if (g16Ctx != null && g16Tut != null)
+                        {
+                            int g16MySlot = FreeSlot(g16Ctx, g16Me);
+                            int g16FoeSlot = FreeSlot(g16Ctx, 1 - g16Me);
+                            Check(g16MySlot >= 0 && g16FoeSlot >= 0, "（前提）两侧各有一个空的可部署格");
+                            if (g16MySlot >= 0 && g16FoeSlot >= 0)
+                            {
+                                // 一具**灵族灵魂石残骸**（白盒：真跑一局时它是死亡链 `CleanupDeaths` 造出来的；
+                                // 判据 = `TapBoardCard` 认的条件 `IsRemnant && Card.Faction == SaimHann`，
+                                // 而引擎那一侧 `CanCollectWaystone` 认的是 `IsRemnant && Has(Waystone)`）
+                                var g16StoneCard = new CardDef("G16_AshStone", "G16 Storm Guardian", "unit", "", null,
+                                                               BattleDriver.SpiritStoneFaction, 1, 0, 1, 0,
+                                                               new[] { KeywordTable.Waystone });
+                                // 登记进逐卡残骸体表（否则 `RefreshAll` 会喊「表里没有这张卡 ⇒ 不建残骸体」）
+                                BattleDriver.RemnantBodyTable.SetForTest("G16_AshStone", "G16 Storm Guardian",
+                                                                         "RemnantBody3D Aeldari", true);
+                                g16Ctx.Players[g16Me].Board[g16MySlot] = new UnitState(g16StoneCard, false)
+                                {
+                                    IsRemnant = true, AttackBase = 0, RangedAttackBase = 0,
+                                    Health = 1, MaxHealthBase = 1, Exhausted = true,
+                                };
+                                g16Ctx.Players[1 - g16Me].Board[g16FoeSlot] = new UnitState(g16StoneCard, false)
+                                {
+                                    IsRemnant = true, AttackBase = 0, RangedAttackBase = 0,
+                                    Health = 1, MaxHealthBase = 1, Exhausted = true,
+                                };
+                                // ⚠️ 白盒改棋盘**不发事件** ⇒ 自己刷一次（正常路径是事件驱动 `RefreshAll`）
+                                driver.RefreshAll();
+
+                                int g16Ptr0 = g16Tut.ActionCounter;
+                                int g16Stone0 = g16Ctx.Players[g16Me].SpiritStones;
+                                bool g16Opened = driver.SimulateTapUnit(g16Me, g16MySlot);
+                                Check(g16Tut.ActionCounter == g16Ptr0 + 1,
+                                      $"★ **轻点灵魂石 ⇒ 教程脚本指针 +1**（{g16Ptr0} → {g16Tut.ActionCounter}）"
+                                    + " —— 原版 `TryUsingWaystone` → `FinishResolvingAction` → `AiScripted.PlayerChoiceAction`"
+                                    + "｜🧨 把 `BoardPress` 的 `TapBoardCard` 换回 `ToggleUnitCard` ⇒ 本条红"
+                                    + "（指针不动 ⇒ 那 5 条 `TapCard` 永久卡死，正是 F5 查到的 P0）");
+                                Check(g16Ctx.Players[g16Me].SpiritStones == g16Stone0 + RuleCore.WaystoneGiveMana,
+                                      $"★ 而且**真的收到 {RuleCore.WaystoneGiveMana} 颗**"
+                                    + $"（{g16Stone0} → {g16Ctx.Players[g16Me].SpiritStones}）"
+                                    + "｜🧨 同上 ⇒ 本条也红（旧写法根本不收集）"
+                                    + " —— 与指针那条来自**两条独立判据**，这才挡得住「一起改回去」");
+                                Check(!g16Opened,
+                                      "★ **残骸这一下不开大卡窗**（原版残骸那一支走 `TryUsingWaystone`、**不** `DisplayCard`）"
+                                    + "｜🧨 换回 `ToggleUnitCard` ⇒ 本条红（弹出大卡窗，正是 F5 记的硬卡死现场）");
+                                Check(g16Ctx.Players[g16Me].Board[g16MySlot] == null,
+                                      "★ 石头被收走 ⇒ 我那格**空了**（原版先加石、再 `DestroyUnit` 那两拍）"
+                                    + "｜🧨 只加石不销毁残骸 ⇒ 本条红");
+
+                                // 判别式 ①：**敌方**那侧的残骸 ⇒ 不收、不开窗、指针不动
+                                //   （原版 `CanUseWaystone` ①：只认自己那侧；连窗都不开）
+                                int g16Ptr1 = g16Tut.ActionCounter;
+                                int g16Stone1 = g16Ctx.Players[g16Me].SpiritStones;
+                                bool g16FoeOpened = driver.SimulateTapUnit(1 - g16Me, g16FoeSlot);
+                                Check(!g16FoeOpened && g16Tut.ActionCounter == g16Ptr1
+                                      && g16Ctx.Players[g16Me].SpiritStones == g16Stone1
+                                      && g16Ctx.Players[1 - g16Me].Board[g16FoeSlot] != null,
+                                      "★ **判别式**：点**敌方**那侧的残骸 ⇒ 不收 / 不开窗 / 指针不动"
+                                    + "（原版 `CanUseWaystone` ①：只认自己那侧）"
+                                    + "｜🧨 把 `TapBoardCard` 里 `if (side != _me) return;` 删掉 ⇒ 本条红"
+                                    + "（会去收敌方那颗，还把玩家的脚本指针推掉）");
+                                // 判别式 ②：**普通单位**照旧轻点开窗（⛔ 别为了修残骸把「轻点」整条吞掉）
+                                int g16Ptr2 = g16Tut.ActionCounter;
+                                bool g16WarlordOpened = driver.SimulateTapUnit(g16Me, BoardSpec.WarlordSlot);
+                                Check(g16WarlordOpened && g16Tut.ActionCounter == g16Ptr2,
+                                      "★ **判别式**：轻点**普通单位**（自家督军）⇒ 大卡窗**照旧开着**、脚本指针不动"
+                                    + "（原版 `DisplayCard` 那一支；⛔ 别为了修残骸把轻点整条吞掉）"
+                                    + "｜🧨 把 `TapBoardCard` 写成「恒收集 / 恒 return」⇒ 本条红");
+                            }
+                        }
+                    }
+
 
                     // ---------- G-6：`preventSkipTip`（原版 `TutorialTipScript.Update.c:14-15`）----------
                     TutorialAction MkWaitTip(bool preventSkip)

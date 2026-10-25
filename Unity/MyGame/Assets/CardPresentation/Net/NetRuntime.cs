@@ -165,6 +165,39 @@ namespace CardPresentation
         /// 后者只有真 Play 验得到（批处理里没有 `WindowsManager`）。</summary>
         public static int HidePopupCallsForTest { get; private set; }
 
+        // ============================================================ 🆕 2026-10-26（批次 6 · G15）
+        /// <summary>原版「对手打岔」那扇窗（`BattleErrorUIManager.OpponentDesyncCancelMatch`：
+        /// `WindowsManager.ShowPopUp(EnemySyncError, localizeTexts:false, closeOnEsc:false, SubmitButton, onSubmit)`）。
+        ///
+        /// <para>🔴 **必须走带回调的那个 `ShowPopUp` 重载**（`Shell/WindowsManager.cs` 的
+        /// `ShowPopUp(text, okText, onOk, …)`）—— 原版那一下**点了确定才** `BattleManager.CancelMatch(MatchWon)`；
+        /// 用 `Notice`（队列那条）会把「判胜负」这一跳丢掉（那正是 G7 §⑥·② 第 7 条点名的缺口）。</para>
+        ///
+        /// <para>⚠️ **批处理 / 自检没有窗口系统**（`WindowsManager.Instance == null`）⇒ **不能等人点**：
+        /// 记一条 `LogWarning` 之后**立刻按「点了确定」处理**（否则自检里这一局永远挂着、断言也读不到结果）。
+        /// ⚠️ 真 Play 有窗口 ⇒ 走原版那条路（等玩家点）。</para>
+        /// <para>两条文案都用**原版词条**：正文 `Battle/EnemySyncError`、钮 `MainMenu/General/OK`
+        /// （= 原版的 `EnemySyncError` / `SubmitButton` 两个 `LocalizedString` 字段，见 `Core/Loc.cs` 那两行）。</para></summary>
+        public static void ShowSyncErrorPopup(System.Action onSubmit)
+        {
+            SyncErrorPopupsShownForTest++;
+            var wm = WindowsManager.Instance;
+            if (wm != null)
+            {
+                wm.ShowPopUp(Loc.T("Battle/EnemySyncError"), Loc.T("MainMenu/General/OK"), onSubmit);
+                return;
+            }
+            Debug.LogWarning("[Net] 要弹「对手打岔」那扇窗，但这一帧**没有 `WindowsManager`**（批处理 / 自检）"
+                           + " ⇒ 不等点击，**立刻**按「点了确定」处理（生产路径上这一步是玩家点 `OK`）");
+            if (onSubmit != null) onSubmit();
+        }
+
+        /// <summary>自检读：<see cref="ShowSyncErrorPopup"/> 被调过几次。</summary>
+        public static int SyncErrorPopupsShownForTest { get; private set; }
+
+        /// <summary>自检用：把上面那个计数归零（几个用例之间互相串数会看错）。</summary>
+        public static void ResetSyncErrorPopupCountForTest() { SyncErrorPopupsShownForTest = 0; }
+
         void Update()
         {
             // 先弹通知：**它不该被 `Session == null` 那道闸挡住**（会话断了才更需要说话）

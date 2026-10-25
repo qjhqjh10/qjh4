@@ -95,7 +95,7 @@ namespace CardPresentation
         /// <summary>⚠️ `Name` 的**上下切分是我们推的**（判据 ⑤）：原版两行都印 0 高，真高要字体度量。
         /// 可信的是 `x 290..1000.79`、以及 `Name Holder` 是 100 高的 `VerticalLayoutGroup`（spacing 0 · Middle）。
         /// 我们按「40px 与 30px 两行文字各占一半」切 ⇒ 6..52 / 50..96。</summary>
-        static readonly PxRect NameR = new PxRect(290f, 6f, 1000.79f, 52f);
+        static readonly PxRect NameR = new PxRect(290f, 6f, 1000.79f, 52f);   // 🔶 自己设计（非原版）：联盟行 Name / Guild 两行的上下切分 · 原版两行都印 0 高、真高要字体度量 ⇒ 我们按 40px / 30px 各占一半推（原版判据拿不到） · TODO(谁定的)
         /// <summary>同上（推的）。</summary>
         static readonly PxRect GuildR = new PxRect(290f, 50f, 1000.79f, 96f);
         /// <summary>`RankingIcon`：**右对齐族**（`a=(1,.5) p=(1,.5) apos=(-150,-1.7)`）⇒ 右缘 = 行宽 − 150。</summary>

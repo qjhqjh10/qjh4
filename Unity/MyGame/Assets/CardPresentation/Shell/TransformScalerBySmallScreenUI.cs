@@ -55,7 +55,7 @@ namespace CardPresentation
     /// </summary>
     public static class SmallScreenUI
     {
-        /// <summary>我们的持久化 key（原版走玩家存档 —— 见文件头「我们挑的」①）。</summary>
+        /// 🔶 自己设计（非原版）：小屏 UI 开关的持久化 key `SmallScreenUI` · 原版走玩家存档（原版判据拿不到） · TODO(谁定的)｜原注：<summary>我们的持久化 key（原版走玩家存档 —— 见文件头「我们挑的」①）。</summary>
         public const string PrefKey = "SmallScreenUI";
 
         /// <summary>🔴 **自检注入点**：true ⇒ <see cref="Set"/> 只改内存、**不写 `PlayerPrefs`**

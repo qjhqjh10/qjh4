@@ -490,6 +490,15 @@ namespace CardPresentation
             //   `StartCoroutine(ResolveTraitAnim(…))`、**不 `yield`**；那件 Start(0) 由 prefab 自己的
             //   `destroyTime` 收尾（同 `CollectWaystone` 那一档的口径）。
             EvtKind.StatusApplied,
+            // 🆕 2026-10-26（执行代理 `E11` · 诊断 `D1` #15/#18）：**关键词被摘掉** 这一拍**不占时间线**。
+            //   判据：① 原版 `CardScript.RemoveTrait` 之后进 `Expiring State` 那一步
+            //     （`MarkerlightController.MarkerLightUsed()`）是**普通方法、不 `yield`**
+            //     （见 `BattleEvent.cs:374-377` 对 `判据/TraitEffectController_钩子层.md` §6.1③ 的引用）；
+            //   ② 我们这两个发出点（`EffectResolver.EmitTraitRemoved` · `RuleCore` 回合末摘标记光）
+            //     都在**同步结算里**，`BattleDriver` 侧今天**没有任何消费者**（纯表现信号）。
+            //   ⇒ 与 `StatusApplied` 同档口径。⛔ 别改成 `TimedKinds`：那要在 `DurationOf` / `SourceOf`
+            //   各补一个 `case`，而我们**没有**任何「这一拍演多久」的判据。
+            EvtKind.TraitRemoved,
         };
 
         /// <summary>🆕 2026-10-24（`A2`）：**在 `DurationOf(EvtKind)` 里【有值】的事件种类**

@@ -468,7 +468,7 @@ namespace CardPresentation
                 //   `Classic` / `Skirmish` / `Practice` 三条；`MenuDeck/*` 112 条里没有 `MenuDeck/GameMode/*`
                 //   这一族 —— 唯一带 Mode 的 `MenuDeck/SelectDeckGameMode` 是「选择游戏模式」的标题，不是模式名）
                 //   ⇒ 按「⛔ 不另造新键」**沿用** `Core/Loc.cs:2073-2074` 那两条
-                //   （值 = 「遭遇 · 12 张」/「经典 · 30 张」，属于我们自拟的短形状，不是原版词条）。
+                // 🔶 自己设计（非原版）：模式名短形状「遭遇 · 12 张」/「经典 · 30 张」 · 官方两张本地化表里没有 `*Tag*` 类键（原版没有这一族键） · TODO(谁定的)｜原注：（值 = 「遭遇 · 12 张」/「经典 · 30 张」，属于我们自拟的短形状，不是原版词条）。
                 why = Loc.T("MenuDeck/Error/WrongGameMode")
                           .Replace("{1}", DeckGameModeName)
                           .Replace("{0}", pre.gameMode == (int)GameMode.Skirmish

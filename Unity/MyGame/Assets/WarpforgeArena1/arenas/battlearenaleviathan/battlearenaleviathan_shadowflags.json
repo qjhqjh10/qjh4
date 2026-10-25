@@ -142,6 +142,16 @@
    "receive": 1
   },
   {
+   "go": "Shadow Receiver",
+   "pos": [
+    100.0,
+    0.0,
+    0.0
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
    "go": "Bunker_wall",
    "pos": [
     99.467,

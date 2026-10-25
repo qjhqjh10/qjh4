@@ -1197,15 +1197,23 @@ public static partial class RuleEngineTest
             var ctx = BattlePool(new[] { ec33 }, new[] { Unit("EFoe", 1, 1, 9) }, pool);
             ToP1Turn(ctx, 4);
             // 与 `play` 探针的 `FIX_E1` 同形：2/0/0/6（近战 2 · 远程 0 · 护甲 0 · 生命 6）。
-            var foe = Place(ctx, 1, 3, Ranged("FixtureEC33Target", 1, 2, 6, 0), exhausted: true);
+            // 🔴 **2026-10-26（`E11` · 诊断 `D1` #14）**：远程那格从 **0 抬到 5** —— 原版
+            //   `EntityScript.get_CurrentRangeAttack`（`EntityScript__get_CurrentRangeAttack.c:50-64`）
+            //   是 `if (-1 < base + Σ) return base + Σ; return 0;` ⇒ 夹 0。
+            //   夹具留在 0 时「结算一次(-2)」与「结算两次(-4)」**都读 0** ⇒ 下面那条断言
+            //   会变成**永远绿的空断言**（抓不到「Rally 跑两遍」）。
+            //   ⚠️ 近战留 2（不夹 0）：一次 0、两次 -2 本来就判得出，不必动
+            //   （D1 的「5/5」是举例；两格各自只要「一次/两次读数不同」就够）。
+            var foe = Place(ctx, 1, 3, Ranged("FixtureEC33Target", 1, 2, 6, 5), exhausted: true);
             CheckCode(RuleCore.PlayCard(ctx, 0, HandIdx(ctx, 0, "Alluress"), 1), RuleCodes.OK,
                       "把 `EC33 Alluress` 打到场上（`Rally:` 随之触发）");
             Check(foe.Attack, 0,
                   "★★ `T02·dup` ②：Rally **只结算一次** ⇒ 目标近战 2 → **0**（不是 -2）"
                 + "｜🧨 去重键改回整串相等 ⇒ 实得 -2" + LogTail(ctx));
-            Check(foe.RangedAttack, -2,
-                  "★★ `T02·dup` ②：目标的远程 0 → **-2**（不是 -4）"
-                + "｜🧨 同上 ⇒ 实得 -4" + LogTail(ctx));
+            Check(foe.RangedAttack, 3,
+                  "★★ `T02·dup` ②：目标的远程 5 → **3**（不是 1）"
+                + "｜🧨 去重键改回整串相等 ⇒ 实得 1（原版 `CurrentRangeAttack` 只夹 0、"
+                + " 所以夹具必须 ≥5 才判得出，见上面那段）" + LogTail(ctx));
             Check(foe.Health, 6,
                   "（反例）这一下不碰生命：6 → 6（`Rally` 只给 -2/-2）" + LogTail(ctx));
         }

@@ -19,8 +19,11 @@
 //      我们是**纯 C# 类**（工程里没有那种 prefab，也没接 `SceneInitializer`）⇒ 由 `LiveOpsManager` 用注册表持有。
 //   ② 原版刷新时刻靠 `SingletonBehaviour<ActionScheduler>.Instance.Schedule(...)`（Unity 时间驱动）；
 //      我们是 <see cref="LiveOpsScheduler"/>（纯 C#，由宿主每帧/每拍调 `Tick(utc)` 推进）。
-//   ③ `ScheduleEventPopups()` 里的**弹窗排期**属 C1-W2（14 条 P2）⇒ 本批只落地「同一 id 只排一次」的记账表，
-//      真正的弹窗/过期窗由 W2 覆盖。**它出声**（日志一行条数），⛔ 不静默。
+//   ③ ✅ **2026-10-26（Q3）起 `ScheduleEventPopups` 已是真身**（原批 ③「属 C1-W2、只落地去重表」那条**作废**）：
+//      `ScheduleEventPopups` / `QueueEventPopup` / `ShowTriggerEventPopup` / `ExpireEvent` 四个方法按 Ghidra 反编译逐句照抄，
+//      `handlerActions` 改存 `MenuAction` 句柄，并复刻了 `MenuActions` 等价物（含静态 `ReleaseAction`）。
+//      ⚠️ 唯一未接的一跳 = **弹窗 prefab 解析**（`LiveOpsAssetUtility.GetComponentReference`）：本地只有 GUID 没有 prefab 名
+//      ⇒ 经 `LiveOpsPopupPresenter` 缝注入，钩子为空时出声、不出窗（排期链照走）。
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -149,8 +152,10 @@ namespace CardPresentation
         /// **不是各自 SO 里带**。原版消费点 = `DeserializeSharedData()` 读 `NextRefresh`。</summary>
         protected LiveOpsJson shared;
         /// <summary>弹窗排期表（原版 `Dictionary&lt;string, MenuActions.Action&gt; handlerActions`，+0x38）：
-        /// key = 事件 id，value = 已排的动作。**已排过的 id 不再排第二次**（去重的唯一正本）。</summary>
-        protected readonly Dictionary<string, Action> handlerActions = new Dictionary<string, Action>();
+        /// key = 事件 id，value = 已排的动作。**已排过的 id 不再排第二次**（去重的唯一正本）。
+        /// <para>🆕 **2026-10-26（Q3）**：值类型从 `System.Action` 换成 <see cref="MenuAction"/>（原版就是
+        /// `MenuActions.Action`）—— 只有这样 `ClearEvents` 才能对每个句柄调 `MenuActions.ReleaseAction`（撤销菜单排期）。</para></summary>
+        protected readonly Dictionary<string, MenuAction> handlerActions = new Dictionary<string, MenuAction>();
         /// <summary>最近一次排上的刷新句柄（原版 `ScheduledAction scheduledRefresh`，+0x50）。</summary>
         protected LiveOpsScheduledRefresh scheduledRefresh;
         /// <summary>所属管理器（原版 `LiveOpsManager Manager`，+0x58；由 `RegisterManager` 写）。</summary>
@@ -239,30 +244,211 @@ namespace CardPresentation
                 TryScheduleHandlerRefresh(ms);           // 两道门都在里面（⛔ 别改成 ScheduleHandlerRefresh）
         }
 
-        /// <summary>原版 `private void ScheduleEventPopups()`（`:1606`）：给每个事件排一次「活动开始/结束」弹窗，
-        /// 用 `handlerActions` 按事件 id 去重。
-        /// <para>🔴 **本批（C1-W1）只落地去重记账表**：真正的弹窗（`ShowTriggerEventPopup` / `ExpireEvent` /
-        /// `QueueEventPopup`）属 C1-W2 的 14 条 P2 ⇒ **由 W2 覆盖本方法**。这里**出声**一行（排了几条 / 跳过几条），
-        /// ⛔ 不静默当成「已经做完」。</para>
-        /// <para>📍 **交给 W2 的指路**（判据件 §三 #11 / §四·4）：真身 = cpp2il `LiveOpsHandler.cs:1606` 附近（**有体**、SEV4、41 行注记）；
-        /// 入口地址 `ShowTriggerEventPopup` = **`0x181019560`**；逐事件读 `data.drawData.ShowWindowOnTrigger` /
-        /// `ShowWindowOnExpire`（`EventElements` +0x28 / +0x38）再调 `ShowTriggerEventPopup` / `ExpireEvent`。
-        /// ⚠️ `ExpireEvent` 弹窗支有一条**反常次序**（开窗后**立刻**走完成回调，不等窗口关）—— 反汇编确实如此，
-        /// ⛔ **别按「关闭后才回调」去改**（判据件 §四·5）。</para></summary>
+        /// <summary>原版 `private void ScheduleEventPopups()`（VA `0x181018D60`，size `0x?`；Ghidra 产物
+        /// `decomp_generic_trial/out/LiveOpsHandler_object___ScheduleEventPopups__1018d60.c`）—— **2026-10-26（Q3）已拿到真身**，
+        /// 逐句照抄（两个 lambda 的实体也读到了：`<ScheduleEventPopups>b__0` = `ShowTriggerEventPopup`、
+        /// `b__1` = `ExpireEvent`，见 `decomp_full/LiveOpsHandler.__c__DisplayClass19_0_object____ScheduleEventPopups_b__{0,1}.c`）：
+        /// <code>
+        /// foreach (TEvent newEvent in events)                       // ILiveOps slot 15 = GetBaseData
+        /// {
+        ///     var drawData = newEvent.GetBaseData().drawData;       // LiveOpsEventData +0x38
+        ///     if (drawData == null) throw NRE;                      // 隐式
+        ///     if (drawData.ShowWindowOnTrigger                      // EventElements +0x28
+        ///         &amp;&amp; !newEvent.GetBaseSave().WasSeen                 // slot 16 → +0x19
+        ///         &amp;&amp; !handlerActions.ContainsKey(newEvent.GetID()))  // IIdentifiable slot 0
+        ///     {
+        ///         QueueEventPopup(newEvent, drawData.TriggerPopupOptions,          // +0x30
+        ///             onComplete =&gt; ShowTriggerEventPopup(newEvent, drawData.TriggerPopupOptions, onComplete));
+        ///         continue;                                          // ★ 排了触发弹窗就【不再】看过期支
+        ///     }
+        ///     if (newEvent.EventState == LiveOpState.Finished)       // ILiveOps slot 23 == 3
+        ///         QueueEventPopup(newEvent, drawData.ExpirePopupOptions,            // +0x40
+        ///             onComplete =&gt; ExpireEvent(newEvent, drawData.ExpirePopupOptions, drawData.ShowWindowOnExpire, onComplete));
+        /// }
+        /// </code>
+        /// 🔴 **三个判据要点**（判据件 §一·附 · Q3 本轮新取证）：
+        /// ① 触发支的三道闸 = `ShowWindowOnTrigger &amp;&amp; !WasSeen &amp;&amp; !已排过`（**按事件 id 去重**）；
+        /// ② **过期支只在 `EventState == Finished(3)` 时排**（不是 `Expired(4)`！反汇编 `FUN_1800021f0(0x17=slot23) == 3`）；
+        /// ③ 触发支排上就 `continue` —— **同一个事件不会同时排触发弹窗与过期弹窗**。
+        /// <para>⚠️ 有意差异：原版 `data` / `drawData` 为 null 直接 NRE；我们出声后跳过该事件（坏数据不让整条链崩）。</para></summary>
         protected virtual void ScheduleEventPopups()
         {
-            int queued = 0, skipped = 0;
+            int queued = 0;
             for (int i = 0; i < events.Count; i++)
             {
-                var ev = events[i];
-                string id = ev == null ? null : ev.GetID();
-                if (string.IsNullOrEmpty(id)) { skipped++; continue; }
-                if (handlerActions.ContainsKey(id)) { skipped++; continue; }
-                handlerActions[id] = null;      // W2 会把真正的 Action 填进这一格
-                queued++;
+                var newEvent = events[i];
+                if (newEvent == null) continue;
+                var data = newEvent.GetBaseData();
+                var drawData = data == null ? null : data.drawData;
+                if (drawData == null)
+                {
+                    Debug.LogError("[LiveOps][" + HandlerKey + "] ScheduleEventPopups：事件 '"
+                                 + (newEvent.GetID()) + "' 的 `drawData` 是 null（原版这里 NRE）⇒ 跳过该事件的排期");
+                    continue;
+                }
+                if (drawData.ShowWindowOnTrigger)
+                {
+                    var save = newEvent.GetBaseSave();
+                    if (save != null && !save.WasSeen)
+                    {
+                        string id = newEvent.GetID();
+                        if (!handlerActions.ContainsKey(id))
+                        {
+                            var ev = newEvent;                       // 捕获循环局部（每轮新变量）
+                            var opts = drawData.TriggerPopupOptions;
+                            QueueEventPopup(newEvent, opts, onComplete => ShowTriggerEventPopup(ev, opts, onComplete));
+                            queued++;
+                            continue;                                // ★ 排了触发弹窗 ⇒ 不再看过期支
+                        }
+                    }
+                }
+                // ILiveOps slot 23 = get_EventState（= GetBaseData().GetState(NowUtc)）；== Finished(3)
+                if (data != null && data.GetState(LiveOpsClock.NowUtc) == LiveOpState.Finished)
+                {
+                    var ev = newEvent;
+                    var opts = drawData.ExpirePopupOptions;
+                    bool showExpirePopup = drawData.ShowWindowOnExpire;
+                    QueueEventPopup(newEvent, opts, onComplete => ExpireEvent(ev, opts, showExpirePopup, onComplete));
+                    queued++;
+                }
             }
-            Debug.Log("[LiveOps][" + HandlerKey + "] ScheduleEventPopups：记账 " + queued + " 条、跳过 " + skipped
-                    + " 条（**真正的弹窗排期属 C1-W2**，本批只建去重表）");
+            Debug.Log("[LiveOps][" + HandlerKey + "] ScheduleEventPopups：排入菜单队列 " + queued + " 条"
+                    + "（触发支 = `ShowWindowOnTrigger&&!WasSeen&&!已排`；过期支 = `EventState==Finished`）");
+        }
+
+        /// <summary>原版 `private void QueueEventPopup(ILiveOps newEvent, PopupOptions options, Action&lt;Action&gt; eventAction)`
+        /// （VA `0x181018490`，Ghidra `LiveOpsHandler_object___QueueEventPopup__1018490.c`）：
+        /// <code>
+        /// if (handlerActions.ContainsKey(newEvent.GetID())) return;        // 按事件 id 去重
+        /// var menu   = SingletonBehaviour&lt;MenuActions&gt;.Instance;
+        /// var data   = newEvent.GetBaseData();
+        /// var filter = data.filter;                                        // LiveOpsEventData +0x30
+        /// string[] groups = filter.eventGroups.Select(r =&gt; r.TargetId).ToArray();
+        /// bool forceRun = data.drawData.ForceRun;                          // EventElements +0x49
+        /// var action = menu.QueueActionWithCallback(eventAction, options.ActionRule, newEvent.Priority,
+        ///                                             groups, options.TriggerBeforeOnboardingEnds, forceRun, recurring:false, menuFilter:null);
+        /// handlerActions.Add(newEvent.GetID(), action);
+        /// </code>
+        /// <para>⚠️ 判据细节：优先级用的是**事件自己的 `Priority`**（ILiveOps slot 21 = `get_Priority`），不是 options 里的。
+        /// `groups` 我们的等价物 = `filter.eventGroupIds`（本地目录还没抄 ⇒ 空组，见 <see cref="LiveOpsEventFilter.eventGroupIds"/>）。</para></summary>
+        protected virtual void QueueEventPopup(ILiveOps newEvent, PopupOptions options, Action<Action> eventAction)
+        {
+            if (newEvent == null) { Debug.LogError("[LiveOps] QueueEventPopup(null)"); return; }
+            string id = newEvent.GetID();
+            if (handlerActions.ContainsKey(id)) return;
+
+            var data = newEvent.GetBaseData();
+            var filter = data == null ? null : data.filter;
+            string[] groups = filter != null && filter.eventGroupIds != null ? filter.eventGroupIds : new string[0];
+            bool forceRun = data != null && data.drawData != null && data.drawData.ForceRun;
+            int priority = data == null ? 0 : data.priority;
+
+            var action = MenuActions.QueueActionWithCallback(
+                eventAction,
+                options == null ? ActionRule.DontBlock : options.ActionRule,
+                priority,
+                groups,
+                options != null && options.TriggerBeforeOnboardingEnds,
+                forceRun,
+                false,          // recurring
+                null);          // menuFilter
+
+            handlerActions.Add(id, action);
+            Debug.Log("[LiveOps][" + HandlerKey + "] QueueEventPopup：事件 '" + id + "' 已排入菜单队列"
+                    + "（优先级 " + priority + " · 组 " + groups.Length + " · forceRun=" + forceRun + "）");
+        }
+
+        /// <summary>原版 `private void ShowTriggerEventPopup(ILiveOps newEvent, PopupOptions options, Action onComplete)`
+        /// （VA `0x181019560`，Ghidra `LiveOpsHandler_object___ShowTriggerEventPopup__1019560.c`）：
+        /// <code>
+        /// if (!handlerActions.ContainsKey(newEvent.GetID())) return;     // 没排过 ⇒ 什么都不做
+        /// handlerActions.Remove(newEvent.GetID());
+        /// CustomDebug.Log("…" + newEvent.GetID());
+        /// if (options != null) {
+        ///     var reference = LiveOpsAssetUtility.GetComponentReference(newEvent, options.PopupLabel);  // +0x10
+        ///     var window = SingletonBehaviour&lt;WindowsManager&gt;.Instance.OpenWindow(reference, newEvent, closeAll:false, default);
+        ///     if (options.MarkOnScreenClose)                    // +0x19
+        ///         window.&lt;+0x60&gt; += () =&gt; newEvent.MarkAsSeen();   // ILiveOps slot 12
+        ///     if (onComplete != null) onComplete();             // ★ 开窗后【立刻】回调（不等关窗）
+        /// }
+        /// </code>
+        /// <para>⚠️ 离线缺口：`LiveOpsAssetUtility.GetComponentReference` 需要「事件 → 弹窗 prefab」的资产引用，
+        /// 本地只解到 GUID、没解到 prefab 名 ⇒ 交给 <see cref="LiveOpsPopupPresenter"/> 装；钩子为空时出声 + 不出窗，
+        /// 但**仍然走完成回调**（原版拿不到窗会 NRE，我们不让排期链卡死）。</para></summary>
+        protected virtual void ShowTriggerEventPopup(ILiveOps newEvent, PopupOptions options, Action onComplete)
+        {
+            if (newEvent == null) { Debug.LogError("[LiveOps] ShowTriggerEventPopup(null)"); return; }
+            string id = newEvent.GetID();
+            if (!handlerActions.ContainsKey(id)) return;
+            handlerActions.Remove(id);
+            Debug.Log("[LiveOps][" + HandlerKey + "] 触发弹窗：" + id);
+            if (options != null)
+            {
+                var window = LiveOpsPopupPresenter.Open == null ? null : LiveOpsPopupPresenter.Open(newEvent, options);
+                if (window == null)
+                {
+                    Debug.LogWarning("[LiveOps] 触发弹窗：没有可用的弹窗 prefab 解析器（`LiveOpsPopupPresenter.Open` 未装）"
+                                   + " ⇒ 事件 '" + id + "' 的触发弹窗未真正显示（原版走 `LiveOpsAssetUtility.GetComponentReference`）");
+                }
+                else if (options.MarkOnScreenClose)
+                {
+                    window.OnCloseWindow += () => newEvent.MarkAsSeen();   // 原版写的是 window+0x60（= GameWindow.OnCloseWindow）
+                }
+                if (onComplete != null) onComplete();                    // ★ 立刻（照抄原版反常次序）
+            }
+        }
+
+        /// <summary>原版 `private void ExpireEvent(ILiveOps newEvent, PopupOptions options, bool showExpirePopup, Action onComplete)`
+        /// （VA `0x181017C80`，Ghidra `LiveOpsHandler_object___ExpireEvent__1017c80.c`）：
+        /// <code>
+        /// if (!handlerActions.ContainsKey(newEvent.GetID())) return;      // 没排过 ⇒ 什么都不做
+        /// handlerActions.Remove(newEvent.GetID());
+        /// CustomDebug.Log("…" + newEvent.GetID());
+        /// if (!showExpirePopup) { newEvent.Expire(HandleOnComplete); return; }   // ILiveOps slot 2
+        /// if (options != null) {
+        ///     var reference = LiveOpsAssetUtility.GetComponentReference(newEvent, options.PopupLabel);
+        ///     var window = WindowsManager.Instance.OpenWindow(reference, newEvent, closeAll:false, default);
+        ///     if (options.MarkOnScreenClose)
+        ///         window.&lt;+0x60&gt; += () =&gt; newEvent.Expire(null);
+        ///     HandleOnComplete();                 // ★ 弹窗支【立刻】走完成回调（不等关窗）—— 判据件 §四·5，⛔ 别改成关窗后
+        /// }
+        /// // HandleOnComplete = Signal.Raise(new EventExpiredSignal(id)); onComplete?.Invoke();
+        /// </code>
+        /// <para>⚠️ 离线缺口同 <see cref="ShowTriggerEventPopup"/>：弹窗解析交给 <see cref="LiveOpsPopupPresenter"/>。
+        /// 信号总线原版是 `Scaffold.Core.Events.Signal`，我们等价物 = <see cref="LiveOpsSignals.EventExpired"/>。</para></summary>
+        protected virtual void ExpireEvent(ILiveOps newEvent, PopupOptions options, bool showExpirePopup, Action onComplete)
+        {
+            if (newEvent == null) { Debug.LogError("[LiveOps] ExpireEvent(null)"); return; }
+            string id = newEvent.GetID();
+            if (!handlerActions.ContainsKey(id)) return;
+            handlerActions.Remove(id);
+            Debug.Log("[LiveOps][" + HandlerKey + "] 过期弹窗：" + id);
+
+            Action handleOnComplete = () =>
+            {
+                LiveOpsSignals.RaiseEventExpired(id);       // 原版：Signal.Raise(new EventExpiredSignal(id))
+                if (onComplete != null) onComplete();
+            };
+
+            if (!showExpirePopup)
+            {
+                newEvent.Expire(handleOnComplete);          // 非弹窗支：把回调交给 Expire
+                return;
+            }
+            if (options != null)
+            {
+                var window = LiveOpsPopupPresenter.Open == null ? null : LiveOpsPopupPresenter.Open(newEvent, options);
+                if (window == null)
+                {
+                    Debug.LogWarning("[LiveOps] 过期弹窗：没有可用的弹窗 prefab 解析器（`LiveOpsPopupPresenter.Open` 未装）"
+                                   + " ⇒ 事件 '" + id + "' 的过期弹窗未真正显示（原版走 `LiveOpsAssetUtility.GetComponentReference`）");
+                }
+                else if (options.MarkOnScreenClose)
+                {
+                    window.OnCloseWindow += () => newEvent.Expire(null);
+                }
+                handleOnComplete();                         // ★ 立刻（判据：弹窗支不等关窗）
+            }
         }
 
         // ── 刷新 ────────────────────────────────────────────────────────────────
@@ -414,15 +600,17 @@ namespace CardPresentation
         /// events.Clear(); blockedEvents.Clear(); handlerActions.Clear();           // ④ 三段清空
         /// </code>
         /// 🔴 **顺序照抄**：先撤排期、后清列表。
-        /// <para>⚠️ **① 还没接**：原版 `MenuActions.ReleaseAction` 是**全局静态**（`actions.Remove(action)`），
-        /// 「`handlerActions.Clear()`」≠「菜单队列已撤销」。我们全仓**没有 `MenuActions` 等价物**
-        /// （`Shell/ToastNotifications.cs` 的 `_scheduled` 只是 `QueueAction` 的近似，**没有按句柄撤销的口**），
-        /// 且本批 `handlerActions` 的值全是 `null`、没有真排期 ⇒ **① 记成改动请求**（先复刻 `MenuActions` 才能接），
-        /// ⛔ 不自己造一个。判据 → 判据件 §一 #1 / §四·3。</para>
+        /// <para>🆕 **① 已于 2026-10-26（Q3）接上**：原版 `MenuActions.ReleaseAction` 是**全局静态**
+        /// （`actions.Remove(action)`）—— 「`handlerActions.Clear()`」≠「菜单队列已撤销」，是**两个口**。
+        /// 我们已在文件尾复刻了 `MenuActions` 等价物（`QueueAction` / `QueueActionWithCallback` 返回句柄 +
+        /// 静态 `ReleaseAction`），本方法逐个撤排期。判据 → 判据件 §一 #1 / §四·3 · `LiveOpsHandler_11方法_第2轮.md` §五·5。</para>
         /// <para>⚠️ 有意差异：原版不判空、不 catch；我们逐个判空 + catch 出声。</para></summary>
         public virtual void ClearEvents()
         {
-            if (handlerActions.Count > 0) handlerActions.Clear();      // ① 的占位：只清表（撤销见上面的 ⚠️）
+            // ① 原版：`foreach (MenuActions.Action a in handlerActions.Values) MenuActions.ReleaseAction(a);`
+            //    `ReleaseAction` 是**全局静态**（`actions.Remove(action)`）⇒ 把菜单队列里排着的动作**逐个撤掉**。
+            //    🆕 2026-10-26（Q3）：`MenuActions` 等价物已落地（文件尾），这一跳**已接**（原「改动请求」收口）。
+            foreach (var a in handlerActions.Values) MenuActions.ReleaseAction(a);
             for (int i = 0; i < events.Count; i++)
             {
                 var e = events[i];
@@ -439,6 +627,7 @@ namespace CardPresentation
             }
             events.Clear();
             blockedEvents.Clear();
+            handlerActions.Clear();
         }
 
         /// <summary>原版 `public unsafe void ResetEvents()`（`:3005` / VA `0x181018B90`，size `0x130`）：
@@ -603,6 +792,31 @@ namespace CardPresentation
                 priority = local.Priority,
                 showInMainMenu = local.ShowInMainMenu,
                 location = local.LocationType,          // = SO `location.type`（EventLocationType 的 int）
+                // 🆕 2026-10-26（Q3）：`drawData`（EventElements）—— 排期/弹窗的判据输入。
+                // 4 个 bool 从 `LiveOpsLocalEvent` 的同名字段取（R14 已逐份照 SO 抄好）；
+                // 两组 PopupOptions 是 13 份 SO 的**固定取值**（逐份相同）：Trigger={20, ActionRule 1, 0, true} / Expire={21, 同上}
+                // 判据 → `LiveOpsLocalCatalog.cs` §drawData 注释 + R14 报告 §五·3。
+                drawData = new EventElements
+                {
+                    ShowWindowOnTrigger = local.ShowWindowOnTrigger,
+                    ShowWindowOnExpire = local.ShowWindowOnExpire,
+                    HideContainer = local.HideContainer,
+                    ForceRun = local.ForceRun,
+                    TriggerPopupOptions = new PopupOptions
+                    {
+                        PopupLabel = 20,
+                        ActionRule = ActionRule.BlockActionsFromSameGroup,   // 原版值 = 1
+                        TriggerBeforeOnboardingEnds = false,
+                        MarkOnScreenClose = true,
+                    },
+                    ExpirePopupOptions = new PopupOptions
+                    {
+                        PopupLabel = 21,
+                        ActionRule = ActionRule.BlockActionsFromSameGroup,   // 原版值 = 1
+                        TriggerBeforeOnboardingEnds = false,
+                        MarkOnScreenClose = true,
+                    },
+                },
                 dates = new LiveOpsEventTimeData
                 {
                     startDate = local.StartMs,
@@ -863,6 +1077,10 @@ namespace CardPresentation
 
         static void OnUpdate()
         {
+            // 🆕 2026-10-26（Q3）：菜单动作队列的重试探口（原版靠 `MenuActions.Routine` 协程驱动；
+            // 我们的等价物在这里每帧重试一次 —— 只有「入队时条件还不满足」的动作会留到下一帧）。
+            // 放在时间隔离之前：它不依赖 `LiveOpsClock`，自检里也该照常推进。
+            MenuActions.TryDrain();
             if (LiveOpsClock.NowProvider != null) return;      // ← 隔离 ①：自检钉死了「现在」⇒ 泵让位
             float now = Time.unscaledTime;
             if (now < _nextTickAt) return;                     // ← 隔离 ②：节流
@@ -921,5 +1139,269 @@ namespace CardPresentation
             }
             return false;
         }
+    }
+
+    // ============================================================ 菜单动作队列（原版 `MenuActions` 的等价物 · 2026-10-26 Q3）
+    /// <summary>原版 `ActionRule`（`MenuActions.Action.ActionRule`，显式值逐个抄）：
+    /// `DontBlock=0 · BlockActionsFromSameGroup=1 · BlockAllActions=2`。
+    /// 判据 = `d:/2/tools/il2cpp_out/dump.cs` 的 `enum ActionRule`（TypeDefIndex 1566）。</summary>
+    public enum ActionRule
+    {
+        DontBlock = 0,
+        BlockActionsFromSameGroup = 1,
+        BlockAllActions = 2,
+    }
+
+    /// <summary>原版 `MenuActions.Action`（`dump.cs` TypeDefIndex 1560；字段逐个抄）—— **一条已排/待排的菜单动作**。
+    /// <para>原版两个构造函数：接 `Action callback`（同步）与接 `Action&lt;Action&gt; asyncCallback`（异步、完成后回调）。
+    /// `Priority` 降序排队；`Groups` 与 `usedGroups` 交集非空则不触发；`MenuFilter` = 「只在这些窗类型里触发」的白名单；
+    /// `ActionRule` 决定触发**之后**怎么封锁后续动作；`Recurring` = 触发后不摘除。</para>
+    /// <para>`IsEnqueued` = 原版 `MenuActions.actions.Contains(this)`（全局静态表）。</para></summary>
+    public sealed class MenuAction
+    {
+        public Action Callback;                          // +0x10
+        public Type[] MenuFilter;                        // +0x18
+        public ActionRule ActionRule;                    // +0x20
+        public int Priority;                             // +0x24
+        public bool TriggerBeforeOnboardingEnds;         // +0x28
+        public string[] Groups;                          // +0x30
+        public Action<Action> AsyncCallback;             // +0x38
+        public bool ForceRun;                            // +0x40
+        public bool Recurring;                           // +0x41
+
+        public bool IsEnqueued { get { return MenuActions.Contains(this); } }
+        public override string ToString()
+        {
+            return "MenuAction(prio=" + Priority + " rule=" + ActionRule + " groups=" + (Groups == null ? 0 : Groups.Length)
+                 + (Callback != null ? " sync" : " async") + (Recurring ? " recurring" : "") + ")";
+        }
+    }
+
+    /// <summary>原版 `MenuActions : SingletonBehaviour&lt;MenuActions&gt;` 的**等价物**（2026-10-26 · Q3）。
+    ///
+    /// <para>**为什么要有它**：原版 `LiveOpsHandler.ClearEvents` 的第一句是
+    /// `foreach (var a in handlerActions.Values) MenuActions.ReleaseAction(a);` —— 而 `ReleaseAction` 是
+    /// **全局静态**（`actions.Remove(action)`）。「排期表清空」≠「菜单队列撤销」，是**两个口**；没有这个等价物，
+    /// `ClearEvents` 的第一跳就只能空着（R12 §六·2 的改动请求）。</para>
+    ///
+    /// <para>**逐条照抄的语义**（判据 = `d:/2/tools/decomp_full/MenuActions__*.c` 全量现读，2026-10-26）：
+    /// <list type="bullet">
+    /// <item>`QueueAction` / `QueueActionWithCallback`：建一条 <see cref="MenuAction"/> 塞进**静态** `actions`，
+    ///       返回**句柄**（原版返回 `MenuActions.Action`，调用方拿它去 `ReleaseAction`）；</item>
+    /// <item>`ReleaseAction(action)`：`actions.Remove(action)` —— **按句柄撤销**（本类存在的唯一理由）；</item>
+    /// <item>`BlockGroups(groups)`：往 `usedGroups` 里塞组名（原版 `BlockGroups` = `usedGroups.AddRange`）；</item>
+    /// <item>触发顺序：`OrderByDescending(x =&gt; x.Priority)`（**稳定**）；条件 = 「组不冲突」+「当前窗类型在 `MenuFilter` 里」+
+    ///       「`TriggerBeforeOnboardingEnds` 或 onboarding 已结束」+「有当前窗」；</item>
+    /// <item>触发**之后**：`BlockActionsFromSameGroup` ⇒ 本动作的组塞进 `usedGroups`；
+    ///       `BlockAllActions` ⇒ 置 `blockAllActions`；非 `Recurring` 触发后从 `actions` 摘除。</item>
+    /// </list></para>
+    ///
+    /// <para>⚠️ **如实简化（⛔ 不是「已经一样」）**：
+    /// ① 原版是 **协程**（`Routine`）驱动，触发一条 yield 一帧；我们是**同步 drain**（入队时 + 每帧泵各重试一次）。
+    /// ② `blockAllActions` 的**清零时机**原版挂在场景切换（`StopMenuActions`/`ResumeMenuActions`）上；我们没有那条总线
+    ///    ⇒ 提供 <see cref="ResetBlocking"/> 手动清（目前 13 份 SO 没有任何 `BlockAllActions` 动作，不会卡）。
+    /// ③ `CanTrigger` 里原版那两道「onboarding 完成 / 某静态开关」判据，我们用可注入的 <see cref="OnboardingEnded"/>（默认 true）。</para>
+    /// </summary>
+    public static class MenuActions
+    {
+        static readonly List<MenuAction> actions = new List<MenuAction>();
+        static readonly List<string> usedGroups = new List<string>();
+        static bool blockAllActions;
+        static bool draining;
+
+        /// <summary>onboarding 是否已结束（原版 `CanTrigger` 的 `SegmentationController.CheckTag(0x14)`）。
+        /// 默认 `true`（离线没有 onboarding 阶段状态）；⛔ 别为了「看着像」改成 false。</summary>
+        public static Func<bool> OnboardingEnded = () => true;
+
+        /// <summary>原版 `Routine` 的排序键 `&lt;&gt;9__10_0`：`x =&gt; x.Priority`（降序）。此处只暴露条数。</summary>
+        public static int Count { get { return actions.Count; } }
+        public static bool IsBlockingAll { get { return blockAllActions; } }
+
+        public static bool Contains(MenuAction a) { return a != null && actions.Contains(a); }
+
+        /// <summary>原版 `QueueAction(Action action, ActionRule rule=0, int priority=0, string[] groups,
+        /// bool triggerBeforeOnboardingEnds=false, bool forceRun=false, bool recurring=false, Type[] menuFilter)`。</summary>
+        public static MenuAction QueueAction(Action action, ActionRule rule = ActionRule.DontBlock, int priority = 0,
+            string[] groups = null, bool triggerBeforeOnboardingEnds = false, bool forceRun = false,
+            bool recurring = false, Type[] menuFilter = null)
+        {
+            var m = new MenuAction
+            {
+                Callback = action, ActionRule = rule, Priority = priority, Groups = groups,
+                TriggerBeforeOnboardingEnds = triggerBeforeOnboardingEnds, ForceRun = forceRun,
+                Recurring = recurring, MenuFilter = menuFilter,
+            };
+            Enqueue(m);
+            return m;
+        }
+
+        /// <summary>原版 `QueueActionWithCallback(Action&lt;Action&gt; action, …)` —— 异步回调版（LiveOps 弹窗走这一支）。</summary>
+        public static MenuAction QueueActionWithCallback(Action<Action> action, ActionRule rule = ActionRule.DontBlock, int priority = 0,
+            string[] groups = null, bool triggerBeforeOnboardingEnds = false, bool forceRun = false,
+            bool recurring = false, Type[] menuFilter = null)
+        {
+            var m = new MenuAction
+            {
+                AsyncCallback = action, ActionRule = rule, Priority = priority, Groups = groups,
+                TriggerBeforeOnboardingEnds = triggerBeforeOnboardingEnds, ForceRun = forceRun,
+                Recurring = recurring, MenuFilter = menuFilter,
+            };
+            Enqueue(m);
+            return m;
+        }
+
+        static void Enqueue(MenuAction m)
+        {
+            if (m == null) return;
+            actions.Add(m);
+            TryDrain();      // 原版：QueueAction 末尾调 CheckActiveMenus（没有在跑就起协程）
+        }
+
+        /// <summary>原版 `public static void ReleaseAction(MenuActions.Action action) => actions.Remove(action);`
+        /// —— **全局静态、按句柄撤销**。重复释放安全。</summary>
+        public static void ReleaseAction(MenuAction action)
+        {
+            if (action == null) return;
+            actions.Remove(action);
+        }
+
+        /// <summary>原版 `BlockGroups(string[] groups)`：`usedGroups.AddRange(groups)`。</summary>
+        public static void BlockGroups(string[] groups)
+        {
+            if (groups == null) return;
+            for (int i = 0; i < groups.Length; i++) if (!string.IsNullOrEmpty(groups[i])) usedGroups.Add(groups[i]);
+        }
+
+        /// <summary>清掉「已用组」与「全封锁」标记（等价原版 `ResumeMenuActions` 里对 `usedGroups`/`blockAllActions` 的清零）。</summary>
+        public static void ResetBlocking()
+        {
+            usedGroups.Clear();
+            blockAllActions = false;
+        }
+
+        /// <summary>推进一次队列（原版 `Routine` 的主循环体）。可重入保护：drain 过程中再调直接返回。
+        /// 每条动作在**一次** drain 里最多触发一次（防 `Recurring` 自旋）。</summary>
+        public static void TryDrain()
+        {
+            if (draining) return;
+            draining = true;
+            try
+            {
+                var triggeredThisPass = new HashSet<MenuAction>();
+                while (true)
+                {
+                    MenuAction pick = null;
+                    for (int i = 0; i < actions.Count; i++)
+                    {
+                        var a = actions[i];
+                        if (a == null || triggeredThisPass.Contains(a)) continue;
+                        if (!CanTriggerNow(a)) continue;
+                        if (pick == null || a.Priority > pick.Priority) pick = a;   // 降序；同优先级保持入队序（稳定）
+                    }
+                    if (pick == null) break;
+                    triggeredThisPass.Add(pick);
+                    Trigger(pick);
+                }
+            }
+            finally { draining = false; }
+        }
+
+        /// <summary>触发条件（原版 `TryTriggerAction` + `CanTrigger` 的合并）：
+        /// 组不冲突 · 有当前窗且其类型在 `MenuFilter` 里 · `TriggerBeforeOnboardingEnds || OnboardingEnded()`。
+        /// ⚠️ 原版 `currentWindow == null` ⇒ 一律不触发（`UnityEngine.Object.op_Equality` 那一支）；照抄。</summary>
+        static bool CanTriggerNow(MenuAction a)
+        {
+            if (blockAllActions && !a.ForceRun) return false;      // 原版 Routine：blockAllActions 时暂停（ForceRun 豁免）
+            if (a.Groups != null)
+            {
+                for (int i = 0; i < a.Groups.Length; i++)
+                    if (!string.IsNullOrEmpty(a.Groups[i]) && usedGroups.Contains(a.Groups[i])) return false;
+            }
+            var wm = WindowsManager.Instance;
+            var win = wm == null ? null : wm.currentWindow;
+            if (win == null) return false;                         // 原版：没有当前窗 ⇒ 不触发
+            if (a.MenuFilter != null && Array.IndexOf(a.MenuFilter, win.GetType()) < 0) return false;
+            if (!a.TriggerBeforeOnboardingEnds && OnboardingEnded != null && !OnboardingEnded()) return false;
+            return true;
+        }
+
+        static void Trigger(MenuAction a)
+        {
+            if (a.Callback != null)
+            {
+                try { a.Callback(); }
+                catch (Exception e) { Debug.LogError("[MenuActions] 动作回调抛异常：" + e); }
+                Complete(a);
+            }
+            else if (a.AsyncCallback != null)
+            {
+                a.AsyncCallback(() => Complete(a));       // 原版 b__1：完成时摘除 + 应用 ActionRule + onComplete(true)
+            }
+            else
+            {
+                Complete(a);                              // 没有回调：直接算完成
+            }
+        }
+
+        static void Complete(MenuAction a)
+        {
+            if (a == null) return;
+            if (!a.Recurring) actions.Remove(a);
+            if (a.ActionRule == ActionRule.BlockActionsFromSameGroup && a.Groups != null)
+            {
+                for (int i = 0; i < a.Groups.Length; i++) if (!string.IsNullOrEmpty(a.Groups[i])) usedGroups.Add(a.Groups[i]);
+            }
+            else if (a.ActionRule == ActionRule.BlockAllActions)
+            {
+                blockAllActions = true;
+            }
+            TryDrain();                                    // 原版：onComplete(true) ⇒ 协程继续下一轮
+        }
+
+        /// <summary>自检收尾：清空队列与封锁状态。</summary>
+        public static void ResetForTest()
+        {
+            actions.Clear();
+            usedGroups.Clear();
+            blockAllActions = false;
+            draining = false;
+        }
+    }
+
+    // ============================================================ 弹窗呈现缝（原版 `LiveOpsAssetUtility.GetComponentReference` + `WindowsManager.OpenWindow`）
+    /// <summary>把「事件 + `PopupOptions.PopupLabel`」解析成**要开的窗**（原版
+    /// `WindowsManager.OpenWindow(LiveOpsAssetUtility.GetComponentReference(ev, label), ev, closeAll:false, default)`）。
+    /// <para>🔴 **离线缺口**：`LiveOpsAssetUtility.GetComponentReference` 需要「事件 → 弹窗 prefab」的资产引用；
+    /// 本地只解到 `EventComponents` 的 **GUID**、没解到 prefab 名（判据 → R12/R14 报告的「没查清」）。
+    /// ⇒ 这一跳做成可注入的缝：**钩子为空时 `ShowTriggerEventPopup` / `ExpireEvent` 出声、不出窗，但排期链照走**
+    /// （原版拿不到窗会 NRE，我们不让整条刷新链卡死）。</para>
+    /// <para>装上真实解析器时：返回一个**已 Open 的 `GameWindow`**（`ShowTriggerEventPopup` 会给它挂 `OnCloseWindow += MarkAsSeen`）。</para></summary>
+    public static class LiveOpsPopupPresenter
+    {
+        /// <summary>(事件, 弹窗选项) → 已开的窗（返回 null / 未装 ⇒ 不出窗）。</summary>
+        public static Func<ILiveOps, PopupOptions, GameWindow> Open;
+        public static void ResetForTest() { Open = null; }
+    }
+
+    // ============================================================ 信号（原版 `Scaffold.Core.Events.Signal` + `EventExpiredSignal`）
+    /// <summary>原版 `ExpireEvent.g__HandleOnComplete` 里 `Signal.Raise(new EventExpiredSignal(id))` 的等价物。
+    /// <para>`EventExpiredSignal` 的成员是**事件 id**（cpp2il 现读：`new EventExpiredSignal(eventID)`）。我们工程没有
+    /// `Scaffold.Core.Events.Signal` 总线 ⇒ 用静态事件承载；**目前没有订阅方**（如实记）。</para></summary>
+    public static class LiveOpsSignals
+    {
+        /// <summary>某个活动过期的通知（参数 = 事件 id）。</summary>
+        public static event Action<string> EventExpired;
+        /// <summary>是否打印「离线跳过」这类过程日志（诊断用；默认 true）。</summary>
+        public static bool Verbose = true;
+        public static void RaiseEventExpired(string eventId)
+        {
+            var h = EventExpired;
+            if (h != null)
+            {
+                try { h(eventId); }
+                catch (Exception e) { Debug.LogError("[LiveOps] EventExpired 订阅方抛异常：" + e); }
+            }
+        }
+        public static void ResetForTest() { EventExpired = null; Verbose = true; }
     }
 }

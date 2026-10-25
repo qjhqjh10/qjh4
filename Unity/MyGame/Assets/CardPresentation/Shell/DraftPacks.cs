@@ -72,11 +72,11 @@ namespace CardPresentation
         /// <summary>每包几张卡。**原版真值**（882/882 包实测恒 3）。</summary>
         public const int CardsPerPack = 3;
 
-        /// <summary>🔴 **我们挑的，不是原版真值** —— 原版 `DraftEventData.draftRounds` 由服务端下发，
+        /// 🔶 自己设计（非原版）：一局轮抽场数 `RoundsPerDraft = 4` · 原版 `DraftEventData.draftRounds` 服务端下发、本地 0 命中 · TODO(谁定的)｜原注：<summary>🔴 **我们挑的，不是原版真值** —— 原版 `DraftEventData.draftRounds` 由服务端下发，
         /// 本地 0 命中（判据见文件头「规模那三个数」）。⛔ 别当原版数用。</summary>
         public const int RoundsPerDraft = 4;
 
-        /// <summary>🔴 **我们挑的，不是原版真值** —— 原版 `packsPerDraft` 同上（服务端下发）。
+        /// 🔶 自己设计（非原版）：每轮可选包数 `PacksPerRoundOffered = 3` · 原版 `packsPerDraft` 服务端下发 · TODO(谁定的)｜原注：<summary>🔴 **我们挑的，不是原版真值** —— 原版 `packsPerDraft` 同上（服务端下发）。
         /// 本地唯一旁证是 `DraftModeSelectPacksStateDemo` 的列表容量 3，但那**不等于**这个数。</summary>
         public const int PacksPerRoundOffered = 3;
 

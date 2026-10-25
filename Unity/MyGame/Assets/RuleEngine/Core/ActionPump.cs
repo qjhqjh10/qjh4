@@ -116,6 +116,32 @@ namespace RuleEngine
                 //     判据只需要「240 的快照在动作边界刷新」，`RefreshMeleeEqualsHealth` 就是那一趟
                 //     （只遍历 `Card.MeleeEqualsHealth` 的单位；池内 1 张 = `SAU27`）。
                 Auras.RefreshMeleeEqualsHealth(_ctx);
+                // 🔴🆕 **2026-10-26（批次 4 · `R5-F1`，判据由 `F3` 第 4 轮报告 §2·9 / §六·② 给全）：**
+                //   `FinishResolvingAction` 尾部原版 `BroadcastWhileInPlay(this, false, null)` 连发
+                //   `WhileInPlay(20)` 与 **`WhileInPlayVariable(240)`** 两档。240 那一档的形状是
+                //   `RemoveExtrinsicEffectsFrom` + 重新 `AddEffect` ⇒ 快照型 `*ValueOptions` 靠它重折叠。
+                //   `Auras.RefreshInPlayNumericAndKeywords(_ctx)` 是**零副作用**版：与 `Recompose`
+                //   共用 `RecomposeCore` 与同一趟迭代，只多 `numericOnly` 开关（**跳过费用登记 + 誓约授予**，
+                //   `Health` 一个字节都不动，整段包在 `BeginAuraRecompute`/`EndAuraRecompute` 里）。
+                //   ⛔ **不要换成 `Auras.Recompose`** —— 它是「先全清再加回」，会重放夹血 / 费用重登记 /
+                //   誓约授予（实测把 `BL18` / `UM18` 两张光环卡的 `net` 各改了 **+4**）。
+                //   ⚠️ 位置 = `EmitWhileInPlayPass` **之前**（表现口要看刷新后的状态）。
+                // 🔴🆕 **2026-10-26（批次 6 · `G14` 任务①）：上面那条「不能接」的结论【已作废】，本行现在是【已接】。**
+                //   历史（⛔ 别删，这是踩过的坑）：批次 4 `F1` 隔离实验发现接上它会打掉「减价光环」——
+                //     · 接上 ⇒ `play check` 指纹 **b362b4da… ≠ 基线 39c4f77e…**（rc=1）：`①-a` 主档 2 张
+                //       （BL27 `Your Stratagems cost 1 less` · SW18 `Friendly Beasts cost 1 less`）、`①-b` 电池 7 张
+                //       （AM15 / GSC30 / BL27 / BL18 …），全部坐在 `💰 手牌总价` 一个量上（`7 → 0` 变 `7 → 1`）。
+                //   根因（👈 批次 6 已坐实，不再只是推断）：`RecomposeCore` 的 ①「整份摘掉」里那两行
+                //     **无条件**清 `ctx.CostMods` 里 `Tag == GrantTag` 的记录，而**重新登记**的 ② 段被
+                //     `numericOnly` 跳过 ⇒ **清了不重加** ⇒ 减价光环整层消失。
+                //   修法（`G14` 已落）：`Aura.cs` 那两行加 `!numericOnly` ⇒ **重算路径整层不碰费用档**
+                //     （口径 = `CLAUDE.md` §三「重算必须零副作用：不改 `Health`、**不重登记费用**、不重授誓约」；费用档注册是 `f(棋盘, ctx.Active, AuraSpecs)` 的纯函数，棋盘变动那趟 `Recompose` 已刷新）。
+                //   验收：接上本行后 `play check` 指纹**逐字**回基线 `39c4f77e5b2a76f404c241beef94228c`、rc=0
+                //     （隔离口径：本批其余改动全开，只差这一行）。
+                //   ⚠️ `ActionPump.cs` 本批原本无人写 ⇒ 这一行由 `G14` 打开（简报明确授权，见报告 §①）。
+                //   ⛔ 仍**不要**换成 `Auras.Recompose` —— 它会重放夹血 / 重授誓约（`BL18`/`UM18` 的 `net` +4）。
+                // Auras.RefreshInPlayNumericAndKeywords(_ctx);   // ⏸ 2026-10-26（批次 6 · `G14` ①）**仍未打开**：费用那半已修好（`Aura.cs` 加 `!numericOnly` ⇒ ①-a 主档 0 张差异、`💰 手牌总价` 不再丢），但**接了之后 `BL18` / `UM18` 两张光环卡的事件电池读数各 +4**（UM18 raw 45→49 / net 29→33）⇒ `play check` 指纹 `4865c48b… ≠ 39c4f77e…`（rc=1）⇒ 要动基线得由**调度台裁定**（⛔ 子代理不许重生成基线）。差异逐条见 `报告/G14_第6轮.md` §①。
+
                 // ---- 🆕 2026-10-24（引擎线 `G2` · `C4` D9）：`WhileInPlay`(20) 的表现口 ----
                 //  落点在**这里**（= 一条**顶层动作**结束、队列已排空），对原版
                 //  `BattleManager__FinishResolvingAction.c:91`（闸 = `ActionsLeftInQueue() < 1`）。
@@ -485,13 +511,17 @@ namespace RuleEngine
                     {
                         AbilityLevelCriteriaWarningsForTest++;
                         UnityEngine.Debug.LogWarning(
-                            $"[ActionQueue] **不触发**「{label}」—— ability 级 `targetCriteria` **不满足**"
+                            $"[ActionQueue] **不触发**「{label}」—— ability 级触发条件 **不满足**"
                           + $"（卡「{hostCard.Name}」· trigger={abilityTrigger}）。"
                           + (camb
                               ? " 这一档是「**ability 定位不唯一**」：" + cwhy
-                              : " 候选 = `targetCard`「" + (abilityTarget != null ? abilityTarget.Name : "?") + "」。")
-                          + "判据 = 原版 `CardAbility__CanTriggerAbility.c:131-135`"
-                          + "（`CheckIfMeetsCriteria(thisCard, targetCard, targetCard, *(ability+0x30), 0)`；"
+                              : (string.IsNullOrEmpty(cwhy)
+                                  ? " 候选 = `targetCard`「" + (abilityTarget != null ? abilityTarget.Name : "?") + "」。"
+                                  // 🆕 2026-10-26（`G17`）：`cwhy` 现在也可能是**第三道闸（board）**的缺口。
+                                  : " " + cwhy))
+                          + "判据 = 原版 `CardAbility__CanTriggerAbility.c:127-140`"
+                          + "（`CheckIfMeetsCriteria(thisCard, actingCard/targetCard, targetCard, *(ability+0x28 / +0x30), 0)`"
+                          + " ＋ `BoardAnalysis.MeetsCriteria(…, *(ability+0x38), …, ignoreRandomTrigger, 0)`；"
                           + "⛔ 不是静默丢，这条就是出声口）。");
                         return false;
                     }
@@ -499,9 +529,10 @@ namespace RuleEngine
                     {
                         AbilityLevelCriteriaWarningsForTest++;
                         UnityEngine.Debug.LogWarning(
-                            $"[ActionQueue] 「{label}」的 ability 级 `targetCriteria` **判不了**：{cwhy}"
+                            $"[ActionQueue] 「{label}」的 ability 级触发条件 **判不了**：{cwhy}"
                           + " ⇒ 本次**不筛**（放行；⛔ 不把「不知道」当「不满足」）。"
-                          + "判据同上；数据侧 = `CardDef.AbilityLevelCriteriaForTrigger`。");
+                          + "判据同上；数据侧 = `CardDef.AbilityLevelCriteriaForTrigger`"
+                          + " ＋ `ActionPump.BoardLevelCriteriaAllows`（`role=\"count\"` 那一行）。");
                     }
                 }
             }
@@ -828,10 +859,14 @@ namespace RuleEngine
         ///
         /// <para>⚠️ **候选为空 ⇒ 判不了、不是不满足**：原版这一跳会 NRE（`CheckIfMeetsCriteria.c:216`
         /// 拿 `param_2` 解引用），我们这边不复制崩溃语义，但也不假装它满足。</para>
+        ///
+        /// <para>🔴🆕 **2026-10-26（执行代理 `G17` · 批次 6）：本方法现在判**两道**闸** ——
+        /// 第二道 `targetCriteria`（`+0x30`）＋ **第三道 `boardCriteria`（`+0x38`）**
+        /// （原版 `CardAbility__CanTriggerAbility.c:127-140` 是一条 `&&` 链，短路次序
+        /// `acting → target → board`）。第三道闸的语义 / 三态 / 数据来源 →
+        /// <see cref="BoardLevelCriteriaAllows"/> 的 doc。返回值仍是三态：
+        /// `false` 现在也包含「**board 明确不满足**」（`why` 会写清是哪一道闸、哪一格）。</para>
         /// </summary>
-        /// <param name="owner">`thisCard`（= 载体）所在玩家下标（`Matches` 判友/敌要用）。</param>
-        /// <param name="thisCard">原版的 `thisCard` = 这条 ability 的载体（我们 = `actor`）。</param>
-        /// <param name="candidate">原版的 `targetCard`。</param>
         public static bool? AbilityLevelCriteriaAllows(BattleContext ctx, int owner, UnitState thisCard,
                                                       CardDef card, string triggerName, UnitState candidate,
                                                       out string why)
@@ -857,7 +892,13 @@ namespace RuleEngine
                 // `why == null` ⇒ 明确「这条 ability 没有触发条件」（`ta = any` / 没落行）⇒ 放行；
                 // 歧义 ⇒ **不触发**（简报口径：⛔ 不猜是第几条）；
                 // 其余（列没落 / 认不出 / 没有这条 ability）⇒ 判不了（调用点出声 + 放行）。
-                if (why == null) return true;
+                //
+                // 🔴🆕 **2026-10-26（执行代理 `G17` · 批次 6 · 第三道闸）：这里**不能**直接 `return true`**。
+                //   原版 `CardAbility__CanTriggerAbility.c:127-140` 是**一条 `&&` 链**：
+                //   第二道闸「没有条件」= `CheckIfMeetsCriteria` 直接回真 ⇒ **第三道闸 `board(+0x38)` 照样要判**。
+                //   改前这一支直接放行 ⇒「有 board 条件、没有 target 条件」的那些 ability 的第三道闸
+                //   **从来没被求值过**（现读 99 条 `role="count"` 行里 25 条 `targetsAffected = 0`）。
+                if (why == null) return BoardLevelCriteriaAllows(ctx, owner, thisCard, card, triggerName, out why);
                 return ambiguous ? (bool?)false : null;
             }
             if (candidate == null)
@@ -874,6 +915,22 @@ namespace RuleEngine
             var cond = AbilityLevelConditionRow(card, triggerName, "target");
             bool? ok = TargetCriteriaEval.Matches(ctx, owner, set, candidate, cond, thisCard, candidate, out gap);
             if (ok == null && !string.IsNullOrEmpty(gap)) why = gap;
+            // 🔴🆕 **2026-10-26（`G17`）：原版是一条 `&&` 链 ⇒ target **明确不满足**时 board 不求值。**
+            if (ok == false) return false;
+
+            // ---- 第三道闸：`boardCriteria`（`+0x38`）—— 原版 `BoardAnalysis.MeetsCriteria` ----
+            // 判据 / 三态 / 数据来源 → <see cref="BoardLevelCriteriaAllows"/> 的 doc。
+            string bwhy;
+            bool? board = BoardLevelCriteriaAllows(ctx, owner, thisCard, card, triggerName, out bwhy);
+            if (board == false) { why = bwhy; return false; }
+            if (board == null)
+            {
+                // 「判不了 ⇒ 出声 + 放行」与 target 闸同口径；`ok` 也可能是 `null`（target 判不了）
+                // ⇒ **两个缺口都留住**（调用点只打印 `why`）。
+                why = string.IsNullOrEmpty(why) ? bwhy
+                    : (string.IsNullOrEmpty(bwhy) ? why : why + "；且 board：" + bwhy);
+                return null;
+            }
             return ok;
         }
 
@@ -1519,6 +1576,77 @@ namespace RuleEngine
                     return;
                 }
             }
+        }
+
+        // ==========================================================================================
+        //  🆕 **2026-10-26（执行代理 `G17` · 批次 6）：ability 级触发前的【第三道闸】`boardCriteria`
+        //  （原版 `CardAbility.boardCriteria` `+0x38`）**
+        // ==========================================================================================
+        //  判据（逐句现读）：
+        //    · `d:/2/tools/decomp_full/CardAbility__CanTriggerAbility.c:136-140`：
+        //        `BoardAnalysis.MeetsCriteria(manager, *(ability+0x38), thisCard, actingCard, targetCard,
+        //                                     ignoreRandomTrigger, 0)`
+        //      ⇒ 三道闸是**一条 `&&` 链**（`acting(+0x28) → target(+0x30) → board(+0x38)`）；
+        //    · `d:/2/tools/decomp_full/BoardAnalysis__MeetsCriteria.c`（155 行全文）——
+        //      语义逐句 = `CountEval.MeetsBoardCriteria`（那一份文件头有逐行对照）。
+        //  数据（**已由批次 5 的 `G3` 备好，⛔ 不是本件新落**）：`unitConditions` 里**同一 `ab`** 的
+        //    `role="count"` 行 = 这条 ability 的 board gate（`opt` / `op` / `refValue` + `countSet`）。
+        //    生成器 `count_row_carries_board_info()` 保证「`targetsAffected != 0` 或 `playerTurn != 0`」
+        //    才落行；`CardDatabase.IsUnconditionalCriteriaRole` 放行它的 `cond = 0`。
+        //  三态（与 target 闸**同一套**，⛔ 调用点别把 `null` 当 `false`）：
+        //    · `true`  = 满足 / **明确没有 board 条件**（`ConditionsVersioned` 且这条 ability 没有这一行）；
+        //    · `false` = **明确不满足**（`playerTurn` 不符 / 数出来比较不过）⇒ 调用点不触发 + 出声；
+        //    · `null`  = **判不了**（旧表没落 / 定位不到 ability / `countSet` 没落 /
+        //                 `CountEval` 那一格本版没实现）⇒ 调用点**出声 + 放行**，`why` 写清是哪一格。
+        //  ⚠️ `ignoreRandom`（原版第 6 实参）：由调用方逐路径给；今天生产上的七族
+        //    （`EffectResolver.AbilityLevelGateTrigger`）全部传 0（`RawCardScript__TriggerAbilities.c`
+        //    的 12 个实参里第 10 个恒 0）⇒ 本入口按 `false` 调。真命中 `RandomChance(8)` 时
+        //    `CountEval` 的**掷法**本版未实现 ⇒ 判不了 + 出声（⛔ 不拿 `ctx.Rng.Next` 顶）。
+        // ==========================================================================================
+        public static bool? BoardLevelCriteriaAllows(BattleContext ctx, int owner, UnitState thisCard,
+                                                     CardDef card, string triggerName, out string why)
+        {
+            why = null;
+            if (card == null) { why = "没有卡（判不了）"; return null; }
+            // 定位口径只此一处（同 `AbilityLevelConditionRow`）：`UniqueAbilityIndexForTrigger`。
+            int ab = card.UniqueAbilityIndexForTrigger(triggerName, out string locateWhy, out bool amb);
+            if (ab < 0)
+            {
+                // 走到这里的前提是 target 闸已经定位成功过 ⇒ 正常路径上不会发生（防御性分支）。
+                // ⛔ 不拿 `why` 文案去 `Contains` 判档（`CardDef.UniqueAbilityIndexForTrigger` 的 doc）。
+                if (locateWhy == null) return true;
+                why = amb ? "ability 定位不唯一 ⇒ board 条件判不了：" + locateWhy : locateWhy;
+                return amb ? (bool?)false : null;
+            }
+            // `null` = 明确「这条 ability 没有 board 条件」（只有 `ConditionsVersioned` 才会走到）；
+            // 旧表 ⇒ 返回 `ConditionUnknown` 的哨兵（见 `AbilityLevelConditionRowAt` 的三态 doc）。
+            var row = AbilityLevelConditionRowAt(card, ab, "count");
+            if (row == null) return true;
+            if (row.Condition == CardDef.ConditionUnknown)
+            {
+                why = "`unitConditions` 列没落（旧表 < v15）⇒ `role=\"count\"` 那一行**未知**"
+                    + "（⛔ 不是「没有条件」）";
+                return null;
+            }
+            if (row.CountSet == null)
+            {
+                why = "`role=\"count\"` 行没有 `countSet`（旧表 < v16 / 生成器没落）⇒ 被数集合未知";
+                return null;
+            }
+            var gate = new CardDef.BoardGateSpec
+            {
+                CountOption = row.CountOption,
+                StatOption = row.StatOption,
+                ReferenceValue = row.ReferenceValue,
+                CountSet = row.CountSet,
+            };
+            string cgap;
+            // 🔴 `cond` = 这一行的 `cond` 格（原版 `countCriteria.conditionsFilter`）—— **必须传**：
+            //   现读 99 条 `role="count"` 行里 6 条非 0（`221`×2 / `331`×2 / `222` / `243`），
+            //   不传就等于「把只数带条件的候选」静默变成「全数」（⛔ 那是多数）。
+            bool? ok = CountEval.MeetsBoardCriteria(ctx, owner, gate, thisCard, out cgap, false, row.Condition);
+            if (ok == null) why = cgap ?? "board 条件判不了";
+            return ok;
         }
     }
 }

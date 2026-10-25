@@ -148,7 +148,7 @@ namespace CardPresentation.Net
         /// 走**现成的动作流**（`Action`/`Applied` 那两条），所以顺带就带上了主机定序、重连重放、录像
         /// —— 不另开一路（`CLAUDE.md` §三：新增会改引擎状态的动作路径，必须走记账口）。
         /// 判据全在 `RuleCore.EmitBloodThirst` 那个文件邻居 `RuleCore.ChooseOffensiveCard` 上。</summary>
-        public const int OffensivePick = 102;
+        public const int OffensivePick = 102;   // 🔶 自己设计（非原版）：后手方选进攻/防御卡的同步包（`OffensivePick = 102` / `DefensivePick = 103`） · 原版两台各弹各的面板、没有这条同步包，判据为空 · TODO(谁定的)
         /// <summary>🆕 2026-09-30：**后手方选防御卡**（同上一族，我们自己设计的同步）。
         /// 它改的是**后手方手牌**（换进一张）⇒ 不同步的话两端手牌会不同、指纹迟早不一致。</summary>
         public const int DefensivePick = 103;
@@ -160,6 +160,27 @@ namespace CardPresentation.Net
     /// 🔴 两端必须**按同一顺序**调 `RuleCore.Mulligan`（它掷 Rng）⇒ 主机先算完再发。</summary>
     [Serializable] public class MsgMulliganSync { public int[] seat0Marks; public int[] seat1Marks; }
     [Serializable] public class MsgResign { }
+    /// <summary>🆕 **2026-10-26（批次 6 · G15）：「我发现这一局已经打岔了」**（原版
+    /// `BattleCommsManager.SendDesync()` 那条 Photon RPC，`PUNReceiveEnemyDesync`）。
+    ///
+    /// <para>**为什么要有它**（判据 = 原版那一整条链，逐句）：原版 `BattleManager.CancelMatchWithVictory(errorLog)`
+    /// 在**本机**解析/结算不出对面的动作时做四件 —— 记 `desyncCancelledGame` · 记「本站胜」·
+    /// **`commsManager.SendDesync()`**（告诉对面）· 触发 `OnOpponentDesync(true)` ⇒ 弹窗
+    /// `Battle/EnemySyncError` ⇒ 点 OK 走 `BattleManager.CancelMatch(true)`（= `DeadHero(对面, Cancelled=5)` ⇒ **本机胜**）。
+    /// 收方 `PUNReceiveEnemyDesync` → `BattleManager.ReceiveEnemyDesync` → **只认账**
+    /// （`RecordMatchWonByCancelEnemy` = 记「对面靠取消赢了我」），**不弹窗、不判自己**。
+    /// ⇒ 这条消息就是那一下「告诉对面」。</para>
+    ///
+    /// <para>⚠️ **与原版的差别（如实记）**：原版收方只写服务器的那一笔账、**本地对局不动**（谁赢由服务端记）。
+    /// 我们本地没有服务器 ⇒ 收方必须自己也把这一局收尾（否则这一局永远挂着）——
+    /// 做法 = **判本机负**、理由码 `Cancelled`(5)（等价于原版 `DeadHero(本机, 5)` 的本地版），
+    /// **不弹窗**（照原版收方那一档）。两端因此报的是**同一个弃权座位**（同 `A914` 那条口径）。</para>
+    ///
+    /// <para>⚠️ **兼容口径同 `Chat` / `MatchFinished`**：只**新增一个 kind**、不动任何既有消息格式
+    /// ⇒ **不 +`NetProtocol.Version`**；旧端收到会走 `NetBattle.Dispatch` 末尾「不认识的联机消息」出声丢掉。</para>
+    /// <para>载荷今天**为空**：原版的 RPC 也不带参数（`SendDesync` 的 `parameters = Array.Empty&lt;object&gt;()`）。
+    /// ⛔ 别顺手把「对端的理由串」塞进来 —— 原版那条 RPC 就没有，理由只进本机日志。</para></summary>
+    [Serializable] public class MsgDesync { }
     /// <summary>🆕 **取消这一局的匹配**（A1）。⚠️ **我们设计的，不是复刻** —— 见 `NetKind.MatchCancel`。
     /// `reason` 只进日志（给对面看的那句话固定，不渲染对面传来的任意文本）。</summary>
     [Serializable] public class MsgMatchCancel { public string reason; }
@@ -250,6 +271,14 @@ namespace CardPresentation.Net
         public const string Mulligan  = "mulligan";
         public const string MulliganSync = "mulligan.sync";
         public const string Resign    = "resign";
+        /// <summary>🆕 **2026-10-26（批次 6 · G15）：本机发现「这一局已经打岔了」** —— 原版
+        /// `BattleCommsManager.SendDesync()` 那条 RPC（`PUNReceiveEnemyDesync`）。载荷 = <see cref="MsgDesync"/>（空）。
+        /// <para>语义（判据逐句 → <see cref="MsgDesync"/> 的 doc）：**谁是发现方、谁就 claim 胜利**
+        /// （原版 `CancelMatchWithVictory`）；收方**认账判自己负**（原版 `ReceiveEnemyDesync` 的
+        /// `RecordMatchWonByCancelEnemy` 的本地等价）。原版对端 desync 的**唯一**触发源就是它。</para>
+        /// ⚠️ 与 `Chat`/`MatchFinished`/`ModeMismatch` 同一条兼容口径：**新增 kind、不改既有消息格式
+        /// ⇒ 不 +`NetProtocol.Version`**。</summary>
+        public const string Desync    = "desync";
         /// <summary>🆕 **2026-10-25（执行代理 `CH`）**：战斗内「督军聊天」（原版 `BattleCommsManager`
         /// 那条单 int RPC）。⚠️ **只在对局中发**，不落地、不改局面、不参与指纹。
         /// <para>🔴 **为什么不 +`NetProtocol.Version`**（照同族先例 `NetWireText` 那段的口径）：

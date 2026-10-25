@@ -64,7 +64,7 @@ namespace CardPresentation
         /// <summary>当前生效的一份（启动链将来从远端配置建；现在恒 <see cref="Default"/>）。</summary>
         public static LiveOpsFeatureConfig Current = Default;
 
-        /// <summary>某个 handler 是否启用。⚠️ **口径是我们挑的**（原版真值在远端配置里）——账里已标。</summary>
+        /// 🔶 自己设计（非原版）：`IsHandlerEnabled` 恒 true · 原版真值在远端配置里 · TODO(谁定的)｜原注：<summary>某个 handler 是否启用。⚠️ **口径是我们挑的**（原版真值在远端配置里）——账里已标。</summary>
         public bool IsHandlerEnabled(string handlerKey) { return true; }
     }
 

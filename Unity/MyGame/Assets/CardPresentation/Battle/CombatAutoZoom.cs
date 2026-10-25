@@ -711,7 +711,7 @@ namespace CardPresentation
         float _originalSensorX;
         /// <summary>= 原版 `CameraVerticalFramer.originalSensorSize`（`framer+0x98`）的 `.x`。
         /// 原版**只在「缓存 ≈ 零」时**从相机重抓（`|cached|² &lt; DAT_1834b2ba8 = 1e-10`，指令流
-        /// `0x1806080…`/`0x1806088BE` 那一段）—— 那条规则照抄；额外那一条「换相机就重抓」是**我们加的**（见上）。</summary>
+        /// 🔶 自己设计（非原版）：「换相机就重抓 `originalSensorSize`」这一条 · 原版一局一份场景、没有这一格（原版判据拿不到） · TODO(谁定的)｜原注：`0x1806080…`/`0x1806088BE` 那一段）—— 那条规则照抄；额外那一条「换相机就重抓」是**我们加的**（见上）。</summary>
         float OriginalSensorSizeX()
         {
             if (boardCamera == null) return 0f;

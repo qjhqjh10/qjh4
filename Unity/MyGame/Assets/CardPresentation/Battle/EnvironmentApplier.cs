@@ -252,7 +252,7 @@ namespace CardPresentation
                         if (f.mine[k] != null) f.mine[k].Advance(dt);
                 AdvanceSpawners(f.spawners, f.controllers, dt);            // 🆕 A137
                 // 原版靠**每个 blendable 的 OnComplete** 计数归零才 Destroy；
-                // 这里再加一道**兜底超时**（`blendTime + 1s`）—— 有组件永远不回调时**出声**，不静默挂着。
+                // 🔶 自己设计（非原版）：`blendTime + 1s` 的兜底超时 · 原版靠每个 blendable 的 OnComplete 计数，我们加一道防永远不回调（原版判据拿不到） · TODO(谁定的)｜原注：这里再加一道**兜底超时**（`blendTime + 1s`）—— 有组件永远不回调时**出声**，不静默挂着。
                 if (f.pending <= 0) { FinishFadeOut(f, false); _fading.RemoveAt(i); }
                 else if (f.left > Mathf.Max(1f, f.timeout)) { FinishFadeOut(f, true); _fading.RemoveAt(i); }
             }

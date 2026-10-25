@@ -75,6 +75,33 @@ def qinv(q):
     return (-x, -y, -z, w)
 
 
+def mat_mul(A, B):
+    return [[sum(A[i][k] * B[k][j] for k in range(4)) for j in range(4)] for i in range(4)]
+
+
+def local_matrix(lp, lq, ls):
+    """一级局部 TRS → 4×4（左上 3×3 = R·diag(s)，平移列 = localPosition）。
+    四元数是本文件的 (x,y,z,w) 次序。判据 → `资料/完全复刻/判据/T09_清单坐标口径_第4轮.md` §1.2
+    （与 `gen_unity_arena_manifest._local_matrix` 同一份算式，只是四元数下标顺序不同）。"""
+    px, py, pz = lp
+    qx, qy, qz, qw = lq
+    sx, sy, sz = ls
+    x2, y2, z2 = qx + qx, qy + qy, qz + qz
+    xx, xy, xz = qx * x2, qx * y2, qx * z2
+    yy, yz, zz = qy * y2, qy * z2, qz * z2
+    wx, wy, wz = qw * x2, qw * y2, qw * z2
+    r = [[1 - (yy + zz), xy - wz, xz + wy, 0.0],
+         [xy + wz, 1 - (xx + zz), yz - wx, 0.0],
+         [xz - wy, yz + wx, 1 - (xx + yy), 0.0],
+         [0.0, 0.0, 0.0, 1.0]]
+    for i in range(3):
+        r[i][0] *= sx
+        r[i][1] *= sy
+        r[i][2] *= sz
+    r[0][3], r[1][3], r[2][3] = px, py, pz
+    return r
+
+
 def main():
     args = [a for a in sys.argv[1:] if not a.startswith('--')]
     check = '--check' in sys.argv
@@ -117,23 +144,30 @@ def main():
                     break
             if tid is None:
                 continue
-            # 收集父链（自己 → 根），然后**从根往下**累加（世界 = 父世界 ∘ 本地）
+            # 收集父链（自己 → 根），然后**从根往下**累乘（世界 = 父世界 ∘ 本地）
             # 🔴 2026-09-25 踩过：反着累加（子→父方向）会把父级旋转漏掉 ⇒ 位置算出 y=28.5 这种离谱值。
+            # 🔴 2026-10-26（T09）：原来只累乘「旋转 + 平移」、**不乘父级缩放** —— 那是本文件**第三份**
+            #    无缩放链（另两份 = `gen_unity_arena_manifest.world_chain` / `gen_arena_groups._world_of`）。
+            #    镜面对象在 `…/Floor/reflection camera` 下、`Floor` 世界缩放 **100** ⇒ aeldari / tauviorla
+            #    各偏 **3.553**（`ArenaMirror.planePos` 直接用这个值 ⇒ 反射平面摆错）。
+            #    改法 = 父世界矩阵的平移列（判据 → `资料/完全复刻/判据/T09_清单坐标口径_第4轮.md` §9·4）。
             chain, cur, seen = [], tid, 0
             while cur and cur in tr and seen < 20:
                 t = tr[cur]
                 lp = t.get('m_LocalPosition') or {}
                 lr = t.get('m_LocalRotation') or {}
+                ls = t.get('m_LocalScale') or {}
                 chain.append(((lp.get('x', 0.0), lp.get('y', 0.0), lp.get('z', 0.0)),
-                              (lr.get('x', 0.0), lr.get('y', 0.0), lr.get('z', 0.0), lr.get('w', 1.0))))
+                              (lr.get('x', 0.0), lr.get('y', 0.0), lr.get('z', 0.0), lr.get('w', 1.0)),
+                              (ls.get('x', 1.0), ls.get('y', 1.0), ls.get('z', 1.0))))
                 cur = (t.get('m_Father') or {}).get('m_PathID', 0)
                 seen += 1
-            pos = (0.0, 0.0, 0.0)
+            M = [[1.0 if i == j else 0.0 for j in range(4)] for i in range(4)]
             rot = (0.0, 0.0, 0.0, 1.0)
-            for local, lq in reversed(chain):
-                dp = qrot(rot, local)          # ⚠️ 别用 `d` —— 那会盖掉上面那份 MonoBehaviour
-                pos = (pos[0] + dp[0], pos[1] + dp[1], pos[2] + dp[2])
+            for local, lq, ls in reversed(chain):
+                M = mat_mul(M, local_matrix(local, lq, ls))
                 rot = qmul(rot, lq)
+            pos = (M[0][3], M[1][3], M[2][3])
             # 镜面法线 = 这台对象的 **forward**（判据 = 原版 `kTools.Mirrors.Mirror.GetMirrorPlane` 读的就是
             # `Transform.get_forward`，再沿它偏移 `m_Offset`=0.01 —— 见 `decomp_full/kTools.Mirrors.Mirror__GetMirrorPlane.c`）
             fwd = qrot(rot, (0.0, 0.0, 1.0))

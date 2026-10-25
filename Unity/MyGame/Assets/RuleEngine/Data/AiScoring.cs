@@ -356,7 +356,7 @@ namespace RuleEngine
                     {
                         var u = targets[i].Unit;
                         if (u == null) continue;
-                        sum += SimpleAI.ScoreStun(u) * SideMul(targets[i].Side, thisSide, e) * mult;
+                        sum += SimpleAI.ScoreStun(ctx, u) * SideMul(targets[i].Side, thisSide, e) * mult;
                     }
                     return sum;
                 }
@@ -368,7 +368,7 @@ namespace RuleEngine
                     {
                         var u = targets[i].Unit;
                         if (u == null) continue;
-                        sum += ReturnToHandValue(u) * SideMul(targets[i].Side, thisSide, e) * mult;
+                        sum += ReturnToHandValue(ctx, targets[i].Side, u) * SideMul(targets[i].Side, thisSide, e) * mult;
                     }
                     return sum;
                 }
@@ -565,13 +565,35 @@ namespace RuleEngine
 
                 float s = SimpleAI.ScoreDamaging(target, atk, ignoreDroppod: true);
 
-                // 反击：近战攻击会被还手（`LongRange` 的免反击只对**远程**那一刀成立）
-                int counter = target.Attack;
-                if (counter > 0)
+                // ---- 反击（判据 = `AI__ScoreFromBuffedAttack.c:55-75` 逐句；2026-10-26 `E4` 复核）----
+                //   ① 闸 = `EnemyReturnsAttack(…)` —— 唯一判据在 `CounterAttack.NoCounter`（与 `ScoreFromAttack`
+                //      同一条，⛔ 别在这儿写第二份）；
+                //   ② 🔴 **守方带 `ambush(1200)` ⇒ 反击伤害被【替换成常数 4】**（`.c:47-53` 重建
+                //      `DamageInfo(target, 4, …)`，**不是 +4**）—— 旧实现用守方的实际近战攻击力；
+                //      池内 `ambush` **12 张** ⇒ 这一条会改那 12 张的 option 5 估值；
+                //   ③ 这一笔原版传 `shouldCountDamagedBastion = false`（`.c:66` 第 6 实参 0）；
+                //   ④ `+0.1` 的闸 = `health > 反击伤害`（**扣甲前**，`.c:71-75` + `DAT_1834b2dc4`）；
+                //      旧实现是 `DamageAfterReduction(u, counter) < u.Health`（**扣甲后**）= 与 `R6-07` 同一条缺口。
+                int counter = target.Has(KeywordTable.Ambush) ? 4 : target.Attack;   // 4 = `.c:47-53` 的常数
+                bool noCounter = CounterAttack.NoCounter(ctx, t.Side, u, foe, target, false,
+                                                         RuleCore.WouldKill(target, atk));
+                if (!noCounter)
                 {
-                    s -= SimpleAI.ScoreDamaging(u, counter, ignoreDroppod: true);
-                    if (RuleCore.DamageAfterReduction(u, counter) < u.Health) s += 0.1f;
+                    s -= SimpleAI.ScoreDamaging(u, counter, ignoreDroppod: true, countDamagedBastion: false);
+                    if (u.Health > counter) s += 0.1f;
                 }
+
+                // ---- 毒（`poisonous 380`）：这一刀**打不死**才加分（`.c:90-113`）----
+                //   gate = `has(poisonous) && !dodge && !shield && !dropPod && atk < health + bastion`
+                //   ⇒ `+= ScorePoisoning(target) × 0.7f`（`DAT_1834b3188`）。
+                //   ⚠️ 它在 `ScoreFromBuffedAttack` 里 ⇒ **option 5 这条链也吃它**（旧实现漏了这一支）。
+                //   池内 `poisonous` 0 张 ⇒ 今天零行为变化（铁律 11 照做）。
+                if (u.Has(SimpleAI.PoisonousKeyword)
+                    && !target.Has(KeywordTable.Dodge) && !target.Has(KeywordTable.Shield)
+                    && !target.Has(KeywordTable.DropPod)
+                    && atk < target.Health + target.Bastion)
+                    s += SimpleAI.ScorePoisoning(target) * SimpleAI.PoisonousScale;
+
                 if (s > best) best = s;
             }
             return best;
@@ -673,17 +695,29 @@ namespace RuleEngine
             return sum;
         }
 
-        /// <summary>原版 `ScoreFromReturnToHand`（RVA 0x93C600）：
-        /// `当前费 − (2×基础费+1 − GetValueInPlay) × 1.5 − (rally ? 2 : 0) − (codex ? 2 : 0)`。</summary>
-        static float ReturnToHandValue(UnitState u)
+        /// <summary>原版 `AI.ScoreFromReturnToHand`（`d:/2/tools/decomp_full/AI__ScoreFromReturnToHand.c:1-40`，
+        /// 2026-10-26 `E4` 逐句复核）：
+        /// `CurrentCost − (2×基础费+1 − GetValueInPlay) × 1.5 − (rally ? 2 : 0) − (codex ? 2 : 0)`。
+        ///
+        /// 🔴 **2026-10-26（`E4`）订正两处（保留痕迹）**：
+        ///   ① 头一项原版是 **`EntityScript.get_CurrentCost(card)`（运行时费，含降费/加费）**，
+        ///      旧实现用 `u.Card.Cost`（**卡面费**）⇒ 有 `changeCost/setCost` 时算错；
+        ///   ② `rally` / `codex` 那两笔原版是 **`RawCardScript.HasDefaultTrait(10 / 1000)`**（**卡面默认 trait**），
+        ///      旧实现用 `u.Has(...)`（**当前**关键词集合，含临时给的）⇒ 被「给 rally/codex」的单位会被多扣 2 分。
+        ///      现在两处都读 `u.Card.Has(...)`（= 卡模板那一份）。
+        ///   ③ `2×基础费+1` 那一项原版是 `rawCard.overrideDefaultValueInPlay ? manualValueInPlay : manaCost`
+        ///      —— 该分支数据全 0（`R6-08`）⇒ 这里仍用卡面 `Cost`，与 `SimpleAI.ValueInPlay` 同口径。
+        /// </summary>
+        static float ReturnToHandValue(BattleContext ctx, int side, UnitState u)
         {
             if (u == null || u.Card == null) return 0f;
             float refValue = 2f * u.Card.Cost + 1f;
-            float v = (refValue - SimpleAI.ValueInPlay(u)) * 1.5f;
+            float v = (refValue - SimpleAI.ValueInPlay(u)) * 1.5f;      // 1.5 = `DAT_1834b3090`
             float bonus = 0f;
-            if (u.Has(KeywordTable.Rally)) bonus += 2f;
-            if (u.Has(KeywordTable.Codex)) bonus += 2f;
-            return u.Card.Cost - v - bonus;
+            if (u.Card.Has(KeywordTable.Rally)) bonus += 2f;            // 原版 `HasDefaultTrait(rally 10)`
+            if (u.Card.Has(KeywordTable.Codex)) bonus += 2f;            // 原版 `HasDefaultTrait(codex 1000)`
+            int cost = u.Instance != null ? RuleCore.CostOf(ctx, side, u.Instance) : u.Card.Cost;
+            return cost - v - bonus;
         }
 
         /// <summary>原版 `ScoreFromManaBuff`（RVA 0x93BF60）的骨架：
@@ -753,23 +787,29 @@ namespace RuleEngine
             return -1;
         }
 
-        /// <summary>原版 `AI.ScoreFromJam`（判据 §6·6）：
+        /// <summary>原版 `AI.ScoreFromJam`（判据 §6·6，`AI__ScoreFromJam.c:1-24` 逐句）：
         /// `ValueOfEnchantments(t) + ValueOfTraits(t) + (t.has(jam) ? 0 : rawCard.extraScoreFromJamming)`。
         ///
-        /// 🔴 **`ValueOfTraits` 本条未实现（如实标注）**：
-        ///   · 原版 = `Σ CardTraitCollection.GetTrait(trait)._aIScore`；
-        ///   · **遍历的是哪个集合**本身没查清（判据 §9-2）；
-        ///   · 而且**本地一条 `_aIScore` 数据都没有** —— `cards_truth.json` / `cards_raw.json` 的
-        ///     `CardTraits` 只有 `name / _trait / _traitValue / _hide` 四格（现读）。
-        ///   ⇒ 这里按 **0** 计。可达性：option 7 在池内 **0 条**、`extraScoreFromJamming`
-        ///     真值 1,351/1,351 = 0 ⇒ **今天行为影响为零**；数据接进来再补 `ValueOfTraits`。
+        /// ✅ **2026-10-26（`E4`）：`ValueOfTraits` 这一项【已查明恒为 0，所以算 0 是【精确】而不是近似】。**
+        ///   判据 §9-2 / `R11` §五-4 原来写「本地一条 `_aIScore` 数据都没有」——**那句话查的是卡上的
+        ///   trait 列表**（`cards_truth.json` 的 `CardTraits` 只有 name/_trait/_traitValue/_hide）。
+        ///   **真正的 `CardTrait._aIScore` 在另一份数据里、本机有**：
+        ///   `d:/4/Unity/数据/游戏数据/trait_collection.json`（= 原版 `CardTraitCollection` 的 77 个
+        ///   `CardTrait` 资产，`d:/2/.../sharedassets0.assets` 现解）。
+        ///   现读：**77 条里 `aIScore != 0` 的 0 条**（全 `0.0`；`berzerk`/`dodge` 两条 `traitConfig` 为 null）。
+        ///   ⇒ 原版 `ValueOfTraits(card) = Σ GetTrait(t)._aIScore ≡ 0`（**与遍历哪个集合无关**，
+        ///   `AI__ValueOfTraits.c` 那个 `card+0x128` 的遍历源疑问也随之**不再是缺口**）。
+        ///   ⇒ 本函数返回 `ValueOfEnchantments(t)` 就是**逐字等价**。
+        ///
+        /// ⚠️ 剩下那一项 `rawCard.extraScoreFromJamming`（`+0x2dc`）现读 1,351/1,351 = 0，且本工程没有
+        ///   这一列 ⇒ 今天恒 0（数据出现时再加）。可达性：option 7 在池内 **0 条**。
         /// </summary>
         static float ScoreFromJam(UnitState t)
         {
             if (t == null) return 0f;
-            // `+ (t.has(jam) ? 0 : rawCard.extraScoreFromJamming)` —— `extraScoreFromJamming`
-            // 真值 1,351/1,351 = 0，且本工程没有这一列 ⇒ 那一项今天恒为 0（数据出现时再加）。
-            return ValueOfEnchantments(t);      // + ValueOfTraits(t)（未实现，见上）
+            // `+ (t.has(jam) ? 0 : rawCard.extraScoreFromJamming)` —— 真值 1,351/1,351 = 0
+            // ⇒ 那一项今天恒 0；`ValueOfTraits ≡ 0`（见 doc：77 个 CardTrait 的 aIScore 全 0）。
+            return ValueOfEnchantments(t);
         }
 
         /// <summary>原版 `AI.ScoreFromBuff(t, e)`（判据 §6·6，逐句）：

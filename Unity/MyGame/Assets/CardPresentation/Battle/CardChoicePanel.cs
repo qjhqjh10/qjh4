@@ -1220,7 +1220,7 @@ namespace CardPresentation
             int hit = ButtonIndexAt(world);
             if (hit >= 0) { TogglePick(hit); return true; }
 
-            // 点卡本身也能选（原版是卡片上那颗按钮；**点卡这条路是我们加的**）
+            // 🔶 自己设计（非原版）：「点卡本身也能选」这条输入路径 · 原版只有卡片上那颗按钮，点卡选择是我们加的（原版判据拿不到） · TODO(谁定的)｜原注：点卡本身也能选（原版是卡片上那颗按钮；**点卡这条路是我们加的**）
             for (int i = 0; i < _cards.Count; i++)
                 if (_cards[i] != null && _cards[i].Contains(world)) { TogglePick(i); return true; }
 

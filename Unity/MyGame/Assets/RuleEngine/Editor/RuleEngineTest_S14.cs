@@ -404,28 +404,57 @@ public static partial class RuleEngineTest
                     + "｜🧨 把毒支里 `ctx.Players[ctx.Active]` 改成两边都扫 ⇒ 本行红");
         }
 
-        // ---- #13 毒 + resistant ----
+        // ---- #13 毒 × resistant：**加 resistant ⇒ 毒被摘掉**（原版真正可观测的那一条）----
+        // 🔴 **2026-10-26（`E11` · 诊断 `D1` #12/#13）就地重设计（铁律 5）**：
+        //   改前这一格先 `AddKeyword(poisoned)` 再 `AddKeyword(resistant)`，然后断言
+        //   「两条**都为真**」—— **原版里这两条结构上不能共存**：
+        //     · 加抗性时身上有毒 ⇒ `CardScript.cs:18142-18151` 的 `RemoveTrait(poisoned)`
+        //       （我们 = `UnitState.cs:1131-1132`，走 `RemoveAll`：**不写「已移除」簿记**）；
+        //     · 加毒时身上有 resistant ⇒ `CardScript.cs:17631-17643` 这次中毒**作废**
+        //       （我们 = `UnitState.cs:1101` 的 `return false`）。
+        //   ⇒ 「毒 + resistant 同时为真」这个前提**根本造不出来**（先加哪个都不行）；
+        //   而 `RuleCore.cs:2529-2535` 毒支里那条 `if (u.Has(Resistant)) 豁免` ——
+        //   **在原版不变式下不可达**（保留代码、删掉对它的断言；判据见上面两处引用）。
+        //   ⇒ 本格改钉**原版真正可观测的**那一对：加抗性摘毒 / 有抗性时中毒作废（一真一假两个方向）。
         {
             var ctx = Battle(new[] { Unit("S14_A1", 1, 1, 5) }, new[] { Unit("S14_B1", 1, 1, 5) });
             ToP1Turn(ctx, 2);
             var pr = Place(ctx, 0, 3, Unit("S14_PoisonR", 1, 1, 9), exhausted: true);
             pr.AddKeyword(KeywordTable.Poisoned, 1);
+            CheckTrue(pr.Has(KeywordTable.Poisoned),
+                      "★ （前提）先中毒：`poisoned` 为真（全池 0 张卡带它 ⇒ 只能夹具自造）");
             pr.AddKeyword(KeywordTable.Resistant, 1);
-            CheckTrue(pr.Has(KeywordTable.Poisoned) && pr.Has(KeywordTable.Resistant),
-                      "★ （前提）`poisoned` 与 `resistant` **都为真**（否则「没被摧毁」可能是别的理由）");
+            CheckTrue(pr.Has(KeywordTable.Resistant), "★ 加 `resistant` 本身生效了");
+            CheckTrue(!pr.Has(KeywordTable.Poisoned),
+                      "★★ **加 `resistant` ⇒ 身上的毒被摘掉**"
+                    + "（原版 `CardScript.cs:18142-18151`：`DisplayStatusAnim(resistant)` + `RemoveTrait(poisoned)`）"
+                    + "｜🧨 删掉 `UnitState.cs:1131-1132` 那两句 ⇒ 本行红");
 
             RuleCore.EndTurn(ctx);
             CheckTrue(SlotOf(ctx, 0, "S14_PoisonR") >= 0,
-                      "★ 毒 + `resistant` ⇒ 本方回合末**也不摧毁**（第三条守卫 `resistant == 0`）"
-                      + $"｜🧨 删掉 `u.Has(KeywordTable.Resistant)` 那道守卫 ⇒ 本行红{LogTail(ctx, 4)}");
-            CheckTrue(S14Log(ctx, "resistant"),
-                      "★ 而且日志里有那条**豁免**（不许静默略过 —— 本工程红线「不许静默失败」）");
+                      "★ 回合末：毒**已经被摘掉** ⇒ 不会被毒死"
+                    + "（⚠️ 这**不再**依赖 `RuleCore.cs:2529-2535` 那条 `resistant == 0` 豁免 ——"
+                    + " 原版不变式下它不可达，代码保留、断言删除）");
+
+            // 反方向（灭自证）：先有 `resistant` 再加毒 ⇒ **这次中毒作废**
+            var ctx2 = Battle(new[] { Unit("S14_A1b", 1, 1, 5) }, new[] { Unit("S14_B1b", 1, 1, 5) });
+            ToP1Turn(ctx2, 2);
+            var pr2 = Place(ctx2, 0, 3, Unit("S14_PoisonR2", 1, 1, 9), exhausted: true);
+            pr2.AddKeyword(KeywordTable.Resistant, 1);
+            pr2.AddKeyword(KeywordTable.Poisoned, 1);
+            CheckTrue(pr2.Has(KeywordTable.Resistant) && !pr2.Has(KeywordTable.Poisoned),
+                      "★★ 反方向：身上已有 `resistant` 时再加毒 ⇒ **这次中毒作废**"
+                    + "（`CardScript.cs:17631-17643`；我们 = `UnitState.cs:1101` 的 `return false`）"
+                    + "｜🧨 删掉 `UnitState.cs:1101` 那道闸 ⇒ 本行红"
+                    + "｜🧨 与上一条**结构上两个方向**：只留一边的实现必有一条红（灭自证）");
         }
     }
 
     /// <summary>
     /// **`#14` 「毒支**不跳**下面的块」** —— `resistant` + `stun` + 「回合开始时就在晕」的单位，
-    /// 在自己的回合末：① 毒被豁免、人活着；② **「摘闸门」那块照跑**（眩晕到期被摘掉）。
+    /// 在自己的回合末：① 毒在**加 `resistant` 那一刻就被摘掉** ⇒ 人活着；② **「摘闸门」那块照跑**（眩晕到期被摘掉）。
+    ///   🔴 **2026-10-26（`E11` · 诊断 `D1` #12/#13）**：原来这里写「毒被 `resistant` **豁免**」——
+    ///   那是**不可达**的那条支（原版不变式下 `poisoned` 与 `resistant` 不能共存，见 `#13` 那一格）。
     ///
     /// 判据 = `CardScript__OnTurnEnd.c`：三条守卫的跳转**都跳到 `:113` 那个标签**，而毒支那段机器码
     ///   排在标签**之前** ⇒ `.c:260` 那个 `goto` 是 Ghidra 对**直落**的渲染、机器码里**没有跳转指令**
@@ -435,8 +464,11 @@ public static partial class RuleEngineTest
     ///
     /// ⚠️ **规格表自己标着「行为断言不好钉（人先没了）——另一半只在注释里留判据」**：
     ///   确实钉不住「被毒死的那一具身上摘没摘闸门」（它已经不在了）；本方法改成钉
-    ///   **「同一个回合末里，毒那条路走不走**都不影响**摘闸门照跑」** —— 上面 `#13` 的豁免格
-    ///   提供「人还在」，这里再断「闸门摘了」。两格合起来才是那句注释能变成断言的部分。
+    ///   **「同一个回合末里，毒那条路走不走**都不影响**摘闸门照跑」** —— 这里断「人还在 + 闸门摘了」。
+    ///   🔴 **2026-10-26（`E11` · 诊断 `D1` #12/#13）**：「人还在」的**理由改了** ——
+    ///   原版不变式下 `poisoned` 与 `resistant` **不能共存**（加 resistant 就摘毒，见 `#13`），
+    ///   所以这里的人还在是「**毒在加 resistant 那一刻已经被摘掉**」，
+    ///   **不是** `RuleCore.cs:2529-2535` 那条豁免（那支在原版不变式下不可达）。
     /// </summary>
     static void TestS14PoisonBranchDoesNotSkipStunGate()
     {
@@ -445,13 +477,16 @@ public static partial class RuleEngineTest
         var u = Place(ctx, 0, 3, Unit("S14_StunPoison", 1, 1, 9), exhausted: true);
         u.AddKeyword(KeywordTable.Poisoned, 1);
         u.AddKeyword(KeywordTable.Resistant, 1);
+        CheckTrue(!u.Has(KeywordTable.Poisoned),
+                  "★ （前提）加 `resistant` 那一刻毒已被摘掉（原版不变式：两条不能共存，见 `#13` 那一格）");
         u.AddKeyword(KeywordTable.Stun, 1);
         u.StunnedAtStartOfTurn = true;
         CheckTrue(u.IsStunned && u.StunnedAtStartOfTurn && u.Has(KeywordTable.Resistant),
                   "★ （前提）三样都在：`stun` + 「回合开始就在晕」+ `resistant`");
 
         RuleCore.EndTurn(ctx);
-        CheckTrue(SlotOf(ctx, 0, "S14_StunPoison") >= 0, "① 毒被 `resistant` 豁免 ⇒ 人还在（`#13` 那一格）");
+        CheckTrue(SlotOf(ctx, 0, "S14_StunPoison") >= 0,
+                  "① 毒已在加 `resistant` 时被摘掉 ⇒ 回合末人还在（不是靠那条不可达的豁免支）");
         CheckTrue(!u.Has(KeywordTable.Stun) && !u.IsStunned && !u.StunnedAtStartOfTurn,
                   "★ ② **「摘闸门」那块照跑**：眩晕到期被摘掉（`Has(stun) == false` / `IsStunned == false` /"
                 + " 「回合开始就在晕」那一位清 0）—— 毒支**没有**把下面那块跳掉"

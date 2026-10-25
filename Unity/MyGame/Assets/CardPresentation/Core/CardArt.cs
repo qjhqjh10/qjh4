@@ -933,8 +933,7 @@ namespace CardPresentation
         /// ③ 噪声图 `Noise Combined.png`（同一 bundle 的 `Texture2D/`）。
         /// **错因**：原版是经 **PPtr** 引用的 —— 材质名之外没有 "glitch" 线索、shader 名里一个 "glitch" 都没有。
         /// ⇒ 现在的结论是「**要做，只差一个自建 shader**」（铁律 11：⛔ 不许按成本判「不做」），**不是**「原版没有」。
-        /// 本轮**仍然先用**这张关键词图标顶上（比自绘接近原版、零风险），
-        /// 待办与判据全文 → `资料/完全复刻/报告/R16_卡牌面遗留C_第2轮.md` §没做·ToggleGlitch。
+        /// 本轮**仍然先用**这张关键词图标顶上（比自绘接近原版、零风险），✅ **2026-10-25（E7 批次 3）glitch 材质已接线**（`CardView.SetGlitch` + 自建 `Resources/Shaders/CardFrameGlitch.shader`，算式照抄原版 DXBC）—— 角标**不撤**，原版是两件事。待办与判据全文 → `资料/完全复刻/报告/R16_卡牌面遗留C_第2轮.md` §没做·ToggleGlitch。
         ///
         /// ⚠️ 取不到时返回 `null` —— 调用方要判（卡面标记整块不画，而不是画个错的）。
         /// </summary>

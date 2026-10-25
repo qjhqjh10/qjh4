@@ -1532,7 +1532,9 @@ namespace CardPresentation
         /// `ability` 是效果、`targets` 是**现在有几个合法目标** —— 由 `BattleDriver` 数好传进来，
         /// 面板不自己判规则。
         /// </summary>
-        public void Show(string cardName, EffectSpec ability, int targets)
+        public void Show(string cardName, EffectSpec ability, int targets,
+                         int maxTargets = 0, string firstTargetName = null,
+                         bool targetsAny = false)
         {
             Build();
             ShownName = cardName;
@@ -1544,11 +1546,14 @@ namespace CardPresentation
             if (_actingFade != null) { _actingFade.Kill(); _actingFade = null; }
 
             if (_name != null) _name.SetText(cardName);
-            if (_desc != null) _desc.SetText(CardText.EffectSentence(ability));
+            _descBase = CardText.EffectSentence(ability);
+            // 🔴 2026-10-26（B3·E6）：原版把「可选目标」那一段**拼进描述**（`SetupActiveSkill` 的
+            //   `text7 = desc + " " + targetAvailableText`），`TargetsAvailableText` 那颗节点**零写入**。
+            //   ⇒ 这里改成「描述 + 后缀」，那颗节点只为树同构留位（判据见类尾 `_targetsSuffix` 那一段）。
             // 🔴 2026-10-24（`E17`）：`TargetsAvailableText` 不参与淡入淡出 ⇒ 它靠「开关 GameObject」
             //   藏，**必须在写字/排版之前打开**（TMP 在未激活对象上排不出网格，见 `HideImmediate` 那段踩坑）。
             SetTargetsShown(true);
-            if (_targets != null) _targets.SetText(CardText.TargetsAvailable(targets));
+            SetTargetsSuffix(targets, maxTargets, firstTargetName, targetsAny);
             // 我们的技能**不吃能量、吃一次行动** —— 原版这一格是能量费。照实填 0，
             // 不把行动费伪装成能量费（以后技能真收能量了，这格已经接好）
             if (_cost != null) _cost.SetText("0");
@@ -1560,21 +1565,24 @@ namespace CardPresentation
             FadeTo(1f, FadeTime);
         }
 
-        /// <summary>合法目标数变了就更新那一行和色片（判据在 `BattleDriver`，这儿只显示）</summary>
-        public void SetTargetsAvailable(int n)
+        /// <summary>合法目标数变了就更新那一行和色片（判据在 `BattleDriver`，这儿只显示）
+        /// <para>🔴 **2026-10-26（B3·E6）**：原版这段字**拼在描述后面**（`SetupActiveSkill`），
+        /// 不写 `TargetsAvailableText` ⇒ 本方法改成「重拼描述」；原来那句「关着的时候别写 `_targets`」
+        /// 的守门搬进了 <see cref="SetTargetsSuffix"/>。</para></summary>
+        public void SetTargetsAvailable(int n, bool targetsAny = false)
         {
             ShownTargets = n;
-            // 🔴 2026-10-24（`E17`）：这一件收起时是**整个 GameObject 关掉**的（它不参与淡入淡出），
-            //   而 TMP 在未激活对象上排不出网格 ⇒ 关着的时候别写它（`Show()` 打开时会重设一次）。
-            if (_targets != null && _targets.gameObject != null && _targets.gameObject.activeSelf)
-                _targets.SetText(CardText.TargetsAvailable(n));
+            SetTargetsSuffix(n, 0, null, targetsAny);
             ApplyColors();
         }
 
         /// <summary>🆕 **2026-10-18（第十三轮 · G2b）**：那一行**现在印出来的字**（自检用）。
         /// 权威 = 原版词条 `Battle/HUD/TargetsAvailable`（`CardText.TargetsAvailable` → `Loc.T` +
-        /// `{0}` 替换；拼法与出处见 `Core/Loc.cs` 那一块）⇒ 切语档后重设一次再读它，两档分得出。</summary>
-        public string TargetsText { get { return _targets != null ? _targets.Text : null; } }
+        /// `{0}` 替换；拼法与出处见 `Core/Loc.cs` 那一块）⇒ 切语档后重设一次再读它，两档分得出。
+        /// 🔴 **2026-10-26（B3·E6）**：语料**已改成拼进描述**（原版行为）⇒ 这里报的是**拼进去的那一段后缀**
+        /// （`{0} 可用` / `(目标名)`），不再是 `TargetsAvailableText` 那颗节点的 `Text`（它现在恒空）。
+        /// 语义没变：本来就是「面板上印出来的那段可选目标字」。</summary>
+        public string TargetsText { get { return _targetsSuffix; } }
 
         /// <summary>指针喂进来（`down` = 这一帧按着）—— 决定要不要铺蓝色那层</summary>
         public void SetPointer(Vector3 world, bool down)
@@ -2042,5 +2050,54 @@ namespace CardPresentation
             return p.Rect.GetComponent<UnityEngine.UI.Graphic>();
         }
 #endif
+
+        // ═══════════════════════════════════════════════════════════════════════════════════════════
+        //  🆕 2026-10-26（批次 3 · `E6`）：**「可选目标」那段字并入描述**（原版 `SetupActiveSkill` 的行为）
+        //  ───────────────────────────────────────────────────────────────────────────────────────────
+        //  判据 = 🥇 `d:/2/tools/cpp2il/out_cpp2il_dev_ilspy/ActiveSkillDisplay.cs:115-196`（`SetupActiveSkill`）：
+        //    原版把这段**拼进 `descText`**，而 `TargetsAvailableText` 那颗节点**全库零写入**
+        //    （`targetsAvailableText` 这个序列化字段在方法体里一次都没被赋过）——
+        //      `text7 = parentCard.GetCurrentLocalizedAbilityDescription() + " " + targetAvailableText`
+        //    两档（`SupportMethods.cs:1478` / `:1494`）：
+        //      · `maxTargets == 1 && targets.Count > 0` ⇒ `GetTargetAvailableText(第一个合法目标名)`
+        //        —— 方法体就是 return `"(" + target + ")"`（**不加词条、不加空格以外的任何东西**）；
+        //      · 否则                                   ⇒ `GetTargetsAvailableText(targets.Count)`
+        //        —— 词条 `Battle/HUD/TargetsAvailable` 的 `{0}` 替换（= `CardText.TargetsAvailable`）。
+        //  我们原来的做法 = 把数写进 `TargetsAvailableText` 那颗节点 ⇒ **原版那颗恒空**，我们却在那儿印字；
+        //  且「单目标 ⇒ 印目标名」那一档整条没做。
+        //  ⇒ 落法：
+        //    ① `_desc` 写 `描述 + " " + 后缀`（与描述**同一颗 TMP** ⇒ 一起淡入淡出 —— 原版就是同一颗）；
+        //    ② `_targets`（原版那颗 `TargetsAvailableText` 节点）**保持空**，只为树同构留位
+        //       ⛔ 别再把数写回它（那会一次印两处；也⛔ 别删节点 —— 它的 rect/字体是 `A1212`/`A1024`/`A1284` 钉住的）；
+        //    ③ `TargetsText` 改报**后缀本身**（自检读它，语义 = 「拼进去的那段可选目标字」）。
+        //  ⚠️ `maxTargets` / 第一个合法目标名 由驱动喂（`Show(..., maxTargets, firstTargetName)`）；
+        //     不给就退回「`{0} 可用`」那一档。原版的 `maxTargets` 来自 `TargetCriteria.maxTargets`，
+        //     我们的 `EffectSpec` **还没有这个字段**（`RuleEngine/Core/EffectSpec.cs` 只有 Verb/Target/Amount）
+        //     ⇒ 单目标那一档要引擎线补字段 + 驱动线喂参（见 `报告/E6_第3轮.md` §⑤）。
+        string _targetsSuffix = "";
+        string _descBase = "";
+
+        /// <summary>把「可选目标」后缀写进描述（**唯一写口**）。`maxTargets==1 && firstTargetName 非空` ⇒ `(名字)`。
+        /// <para>🆕 2026-10-26（批次 5 · G7）：**加了原版那道闸** —— `SetupActiveSkill` 只在
+        /// `targetsAvailableCounter != null && targetsAffected != any` 时才拼后缀
+        /// （🥈 `cpp2il/ActiveSkillDisplay.cs:170`，`if` 的整个 else 支就是「描述原样」）。
+        /// ⇒ `targetsAny = true`（= 原版 `TargetsAffected.any`）时**整段不拼**、`_targetsSuffix` 记空串。
+        /// ⚠️ 今天唯一调用方 `BattleDriver.ShowSkillPanel`（`:15059`）没传 ⇒ 全部吃默认 `false`（沿用改前行为）。
+        /// 缺的输入 = 效果那一格的 `targetsAffected`（`EffectSpec` 没有这个字段，引擎线补；卡数据侧
+        /// `CardDef.AbilityTargets` 已有真值）⇒ 接线请求在 `报告/G7_第5轮.md`。</para></summary>
+        void SetTargetsSuffix(int targets, int maxTargets, string firstTargetName, bool targetsAny = false)
+        {
+            _targetsSuffix = targetsAny
+                ? ""
+                : ((maxTargets == 1 && !string.IsNullOrEmpty(firstTargetName))
+                    ? "(" + firstTargetName + ")"
+                    : CardText.TargetsAvailable(targets));
+            // TMP 在未激活对象上排不出网格（同 `SetTargetsAvailable` 那条 `E17` 注释）⇒ 面板关着时只记后缀，
+            // 下次 `Show` 会整段重写（它先 `SetTargetsShown(true)` 再调本方法）。
+            if (_desc != null && _desc.gameObject != null && _desc.gameObject.activeInHierarchy
+                && !string.IsNullOrEmpty(_descBase))
+                _desc.SetText(string.IsNullOrEmpty(_targetsSuffix) ? _descBase : _descBase + " " + _targetsSuffix);
+            if (_targets != null) _targets.SetText(string.Empty);
+        }
     }
 }

@@ -43,7 +43,7 @@ namespace CardPresentation
         /// ⚠️ **`StartSpinning` 现读全仓仍零运行时调用点** —— 它只在降级路径/自检里被手动打开。</summary>
         public static bool IsBlocking { get; private set; }
 
-        /// <summary>渲染队列（⚠️ **[我们挑的]梯子**，判据与取舍 → 文件头 2026-10-20 那一段）。
+        /// 🔶 自己设计（非原版）：降级遮罩队列 `QDim = 3338 / QSpinner = 3339` · 原版没有这两件的绝对队列，梯子是我们挑的 · TODO(谁定的)｜原注：<summary>渲染队列（⚠️ **[我们挑的]梯子**，判据与取舍 → 文件头 2026-10-20 那一段）。
         /// 取 `GenericOptionsPanel` 带尾 3337 与 `AllianceMemberOptionsPopup` 带首 3340 之间的空隙。</summary>
         public const int QDim = 3338, QSpinner = 3339;
 

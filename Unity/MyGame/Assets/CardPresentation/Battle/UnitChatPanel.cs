@@ -712,7 +712,7 @@ namespace CardPresentation
             b.audio = gameObject.AddComponent<AudioSource>();
             b.audio.playOnAwake = false;
             b.audio.spatialBlend = 0f;            // 2D（原版也挂在 UI 上）
-            b.audio.volume = 0.85f;               // ⚠️ 这个系数是**我们自己定的**（原版逐 source 的音量没查到）
+            b.audio.volume = 0.85f;   // 🔶 自己设计（非原版）：台词音量系数 0.85 · 原版逐 source 的音量没查到（原版判据拿不到） · TODO(谁定的)｜原注：⚠️ 这个系数是**我们自己定的**（原版逐 source 的音量没查到）
             // 🆕 2026-09-19：挂到 `Voices` 通道 ⇒ 受设置面板那根「语音」滑块控制（原版就是这么分的）
             // 🆕 2026-10-21（`新账-63` 诊断）：`WF_VOICE_NO_MIXER=1` 时**不挂 Voices 组**，
             //   用来判定「Play 后立刻 isPlaying=false」是不是 mixer 组造成的。生产默认不变。

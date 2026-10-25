@@ -200,7 +200,7 @@ namespace CardPresentation
         // `Time Remaining`：pivot **1.0** ⇒ 右缘钉在 x 1638.425；原版**宽 0**（CSF 横向 PreferredSize）
         // ⇒ 见 `TimeTitleR` 的说明（本壳没有 CSF 运行时，用 300 宽的右对齐框代替）。
         static readonly PxRect TimeRemainingR = R(1638.425f, 6.03f, 1638.425f, 56.03f);
-        static readonly PxRect TimeTitleR = R(1338.425f, 6.03f, 1638.425f, 56.03f);     // ← 我们挑的框（右缘 = 原版 pivot）
+        static readonly PxRect TimeTitleR = R(1338.425f, 6.03f, 1638.425f, 56.03f);   // 🔶 自己设计（非原版）：时间标题框 `TimeTitleR`（300 宽右对齐） · 原版宽 0 靠 CSF，我们没有运行时 CSF（原版判据拿不到） · TODO(谁定的)｜原注：← 我们挑的框（右缘 = 原版 pivot）
         static readonly PxRect TimeR = R(1645.25f, 6.03f, 1755.56f, 56.03f);
         static readonly PxRect HelpGracePeriodR = R(1581.64f, 4.94f, 1633.82f, 57.12f);
 
@@ -287,7 +287,7 @@ namespace CardPresentation
 
         // ============================================================ 本地化键（原版 `Localize.mTerm` / `EverguildTooltipTrigger.text` 实读）
         /// <summary>页签文字兜底。⚠️ **原版取的是 `LiveOpsAssetUtility.GetLabel(事件)`（远端）**；
-        /// 本条是 `Event_Description/General/Raid`（官方表里那条通用「Raid / 突袭」）—— **我们挑的兜底**，⛔ 不冒充原版。</summary>
+        /// 🔶 自己设计（非原版）：Raid 页签兜底词条 `Event_Description/General/Raid` · 原版取远端 `LiveOpsAssetUtility.GetLabel(事件)` · TODO(谁定的)｜原注：本条是 `Event_Description/General/Raid`（官方表里那条通用「Raid / 突袭」）—— **我们挑的兜底**，⛔ 不冒充原版。</summary>
         public const string TermTabTitle = "Event_Description/General/Raid";
         public const string TermInstructionsCommunity = "Event_Description/Raid/CollectiveScoringHelp";
         public const string TermInstructionsPlayer = "Event_Description/Raid/PlayerScoringHelp";

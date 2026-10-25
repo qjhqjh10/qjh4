@@ -603,10 +603,20 @@ namespace RuleEngine
             //   ⛔ 别再写回来（改一处漏两处的先例就在本行上方那段订正里）。
             bool noCounter = CounterAttack.NoCounter(ctx, side, u, foe, target, ranged, RuleCore.WouldKill(target, atk));
             int counter = RuleCore.FieldAttack(ctx, foe, target, ranged);
-            if (!noCounter && counter > 0)
+            // 🔴 2026-10-26（`E4` · 判据 `AI__ScoreFromBuffedAttack.c:47-53`）：**守方带 `ambush(1200)` ⇒
+            //   反击伤害被【替换成常数 4】**（原版重建一条 `DamageInfo(target, 4, …)`；**不是 +4**）。
+            //   旧实现用守方的实际攻击力 ⇒ 12 张 ambush 卡的反击估值偏高。
+            //   ⚠️ 这一句也决定下面 `u.Health > counter` 那个 0.1 分的闸（原版闸比的就是「替换后」的值）。
+            if (target.Has(KeywordTable.Ambush)) counter = 4;
+            if (!noCounter)
             {
                 float before = s;
-                s -= ScoreDamaging(u, counter);
+                // 🔴 2026-10-26（`E4` · 判据 §6·4 逐句复核）：原版这一笔是
+                //   `ScoreFromDamagingBuffedUnit(thisCard, …, /*ignoreDroppod*/true, /*shouldCountDamagedBastion*/false)`
+                //   —— **反击那一笔不把「攻方自己的堡垒」算进血量**（`bastion = shouldCountDamagedBastion ? CurrentBastion : 0`）。
+                //   改前我们走默认（= 算堡垒）⇒ 带 `bastion(850)` 的攻方被反击时估值偏乐观。
+                //   池内 `bastion` 现读 **0 张** ⇒ 今天零行为变化；铁律 11 照做。
+                s -= ScoreDamaging(u, counter, countDamagedBastion: false);
                 // 🔴 2026-10-25（`R11` · `R6-07`）：原版判据是 **`thisCard.health > tgtDmg`（扣甲【前】）**
                 //   —— `AI__ScoreFromBuffedAttack.c:87-91` + `DAT_1834b2dc4 = 0.1f`（判据 §6·4）。
                 //   改前是 `DamageAfterReduction(u, counter) < u.Health`（扣甲【后】）⇒ 有护甲时偏乐观
@@ -617,7 +627,7 @@ namespace RuleEngine
                      + "（counter=" + counter + " · 存活奖励=" + (u.Health > counter ? SurvivalBonus.ToString("0.###") : "0") + "）");
             }
             else if (tr != null)
-                tr("② 反击 = 0（" + (noCounter ? "豁免" : "守方攻击 0") + "）");
+                tr("② 反击 = 0（豁免）");    // 走到这里只可能是 `noCounter`（原版没有「守方攻击 0 就跳过」这道闸）
 
             // ---- 毒（poisonous 380）：**只有这一下打不死时**才加分 ----
             // 判据 = `AI__ScoreFromBuffedAttack.c:96-123`（判据 §6·4）：
@@ -813,7 +823,8 @@ namespace RuleEngine
         ///   它让有护甲的目标被低估（4 血 1 甲挨 4 伤：原版判「打死 = 满额」，改前判「没打死 = 0.45V」）。
         ///   现在两处都是 `PreArmorDamage`。
         /// </summary>
-        public static float ScoreDamaging(UnitState target, int dmg, bool ignoreDroppod = false)
+        public static float ScoreDamaging(UnitState target, int dmg, bool ignoreDroppod = false,
+                                          bool countDamagedBastion = true)
         {
             if (target == null || !target.IsAlive) return 0f;
 
@@ -824,7 +835,7 @@ namespace RuleEngine
             if (target.Has(KeywordTable.LongRange)) return 3f;
             if (target.Has(KeywordTable.DropPod) && !ignoreDroppod) return 0.5f;
 
-            if (target.IsWarlord) return ScoreWarlordDamage(target, dmg);
+            if (target.IsWarlord) return ScoreWarlordDamage(target, dmg, countDamagedBastion);
 
             // 🔴 2026-10-25（`R11` 第二段 · 调度台裁定「两条真缺口都做」）：
             //   **「打没打死」的闸也改成【扣甲前】**，与下面那条比值同口径。
@@ -836,10 +847,11 @@ namespace RuleEngine
             //   · `buff.healthChange`：原版是「本次施加的那个 buff」，无 buff 这一路恒 0；而我们的
             //     `MaxHealth` **本来就是** `currentMaxHealthProcessed`（含全部属性 buff）
             //     ⇒ 分母 = `MaxHealth + Bastion`，⛔ 别再加一次 `healthChange`。
-            int totalMax = target.MaxHealth + target.Bastion;
+            int bastion = countDamagedBastion ? target.Bastion : 0;
+            int totalMax = target.MaxHealth + bastion;
             if (totalMax <= 0) return 0f;      // 原版 `LogError("Trying to divide by 0! in ScoreFromDamagingUnit…") + return 0`
             int preArmor = PreArmorDamage(target, dmg);
-            int totalCur = target.Health + target.Bastion;
+            int totalCur = target.Health + bastion;
 
             float v = ValueInPlay(target);
             if (preArmor >= totalCur)                               // 打死（原版 `dmg < totalCur` 取反）
@@ -869,12 +881,12 @@ namespace RuleEngine
         /// 🔴 2026-10-25（`R11` 第二段）：**伤害与「剩余血」都改成【扣甲前】**，与小兵那一支同口径
         ///   （原版两处读的都是同一个 `dmg`，判据 §6·5；改前用的是 `DamageAfterReduction` 之后的 `dealt`）。
         /// </summary>
-        public static float ScoreWarlordDamage(UnitState warlord, int dmg)
+        public static float ScoreWarlordDamage(UnitState warlord, int dmg, bool countDamagedBastion = true)
         {
             if (warlord == null || !warlord.IsAlive) return 0f;
             int preArmor = PreArmorDamage(warlord, dmg);
             if (preArmor <= 0) return 0f;
-            int totalCur = warlord.Health + warlord.Bastion;
+            int totalCur = warlord.Health + (countDamagedBastion ? warlord.Bastion : 0);
             if (preArmor >= totalCur) return WarlordKillScore;      // 原版 `dmg < totalCur` 取反
             return preArmor * (totalCur - preArmor > 15 ? HeroDamageLow : HeroDamageHigh);
         }
@@ -904,20 +916,38 @@ namespace RuleEngine
             return ValueInPlay(u) * healed / u.MaxHealth;
         }
 
-        /// <summary>晕一个目标值多少分（原版 `ScoreFromStun`：英雄按近战攻、小兵减半）。</summary>
-        public static float ScoreStun(UnitState target)
+        /// <summary>
+        /// 晕一个目标值多少分（原版 `AI.ScoreFromStun`，`d:/2/tools/decomp_full/AI__ScoreFromStun.c:1-42` 逐句）。
+        ///
+        /// **原版结构（顺序即语义）**：
+        /// <code>
+        /// if (card.stunnedAtStartOfTurn(+0x55)) return 0;                      // ① 回合开局就晕着 ⇒ 再晕没用
+        /// if (card.hasCantAttack(0x96) &amp;&amp; !card.hasActiveAbility(+0x220)) return 0;  // ② 本来就打不了、也没技能
+        /// if (card.has(unstunnable 0xfa)) return 0;                            // ③ 免疫
+        /// if (card.mightAct)  return 英雄 ? CurrentMeleeAttack : CurrentMeleeAttack × 0.5;  // ④ 它会出手
+        /// return card.hasActiveAbility ? GetValueInPlay × 0.2 : 0;             // ⑤ 它不会出手
+        /// </code>
+        ///
+        /// 🔴 **2026-10-26（`E4` · 判据复核）订正：改前的实现在两处系统性高估**（保留订正痕迹）：
+        ///   旧写法 = 「`cantAttack` 或 `unstunnable` ⇒ `ValueInPlay × 0.2`；否则 `Attack × (督军 ? 1 : 0.5)`」
+        ///   ⇒ ① 少了 `stunnedAtStartOfTurn` 闸；② `cantAttack` **且没有主动技** 原版是 **0**，旧实现白给
+        ///   0.2×价值；③ 「不会出手且没主动技」原版是 **0**，旧实现给 0.5×攻击。两处都是**高估**。
+        ///
+        /// ⚠️ `mightAct` 走 <see cref="AiTargets.MightAct"/>（= `ConditionEval` 的 case 20，**唯一判据**），
+        ///   ⛔ 不在这里另写一份。
+        /// ⚠️ `hasActiveAbility(+0x220)` 读 **卡数据**那一格（`CardDef.HasActiveAbility`；`GateUnknown=-1` ⇒ 当假）。
+        /// ⚠️ `unstunnable` 走 `RuleCore.StunBlockedByTraits`（同一判据的共用口）。
+        /// </summary>
+        public static float ScoreStun(BattleContext ctx, UnitState target)
         {
             if (target == null || !target.IsAlive) return 0f;
-            // `unstunnable` 那一半走**共用判定口** —— 原来这里是**第二份裸字符串比较**
-            // （`A1134` 收口到 `RuleCore.StunBlockedByTraits`；判据 = 原版 `CardScript__Stun.c:46`
-            // 的 `HasCurrentTrait(0xfa)`，见 `RuleCore.Unstunnable` 的注释）。
-            // ⚠️ **打分口径不变**（还是那 0.2 倍），改的只是「这条规则在哪儿判」。
-            // 🆕 **2026-10-09（`A1166`）**：本方法开头那句 `!target.IsAlive` 就是原版
-            // `CardScript__Stun.c:44-45` 那道 `cardState ∈ {2,0xf,3,0x11}`（= `IsInPlay()`）闸的落点
-            // —— AI 只看棋盘、**已判等价、⛔ 不另加判据**（逐档对照见 `RuleCore.StunBlockedByTraits` 下方）。
-            if (target.Has(KeywordTable.CantAttack) || RuleCore.StunBlockedByTraits(target))
-                return ValueInPlay(target) * 0.2f;
-            return target.Attack * (target.IsWarlord ? 1f : 0.5f);
+            if (target.StunnedAtStartOfTurn) return 0f;                            // ① 原版 `+0x55`
+            bool hasAbility = target.Card != null && target.Card.HasActiveAbility > 0;
+            if (target.Has(KeywordTable.CantAttack) && !hasAbility) return 0f;     // ②
+            if (RuleCore.StunBlockedByTraits(target)) return 0f;                   // ③ unstunnable(0xfa)
+            if (AiTargets.MightAct(ctx, new AiTargetRef { Unit = target, Inst = target.Instance }))
+                return target.Attack * (target.IsWarlord ? 1f : 0.5f);             // ④ 它会出手
+            return hasAbility ? ValueInPlay(target) * 0.2f : 0f;                   // ⑤ 只有「关掉主动技」这一点价值
         }
 
         /// <summary>下毒一个目标值多少分（原版 `ScoreFromPoisoning`）。</summary>
@@ -1117,14 +1147,14 @@ namespace RuleEngine
                     if (slotIsTarget && BoardSpec.IsValid(slot))
                     {
                         var tu = foeBoard[slot];
-                        if (tu != null && tu.IsAlive) return ScoreStun(tu);
+                        if (tu != null && tu.IsAlive) return ScoreStun(ctx, tu);
                     }
                     float best = 0f;
                     for (int t = 0; t < BoardSpec.Size; t++)
                     {
                         var tu = foeBoard[t];
                         if (tu == null || !tu.IsAlive) continue;
-                        float v = ScoreStun(tu);
+                        float v = ScoreStun(ctx, tu);
                         if (v > best) best = v;
                     }
                     return best;
@@ -1388,8 +1418,15 @@ namespace RuleEngine
 
         /// <summary>
         /// 难度 → 旋钮。
-        /// 🔴 **这四个档的取值是我们配的**：原版那三旋钮的**值**在 `AIBotsConfig` 的资产里
-        /// （按排位/连败挑配置），**本地没有那份数据**（和 `ScoringCriteria` 同一种情况）。
+        /// 🔴 **这四个档的取值是我们配的**：原版那三旋钮的**值**在远端 LiveOps 配置
+        /// `AIBotsConfig.BotConfig`（`GetNormalBotConfig` 按 `minRank..maxRank` + `minLossStreak..maxLossStreak`
+        /// 在 `BotList` 里挑一条、**命中就用它、一条都不命中就用 `[0]`**；`GetFTUEBotConfig` 按
+        /// `CurrentModeVictories == winCount` 挑；`GetFastModeBotConfig` 同 Normal 但查 `BotListFastMode` ——
+        /// 判据 `d:/2/tools/decomp_full/MatchData__GetNormalBotConfig.c` / `__GetFTUEBotConfig.c` /
+        /// `__GetFastModeBotConfig.c`）。
+        /// **本机拿不到那份数据**：`d:/2/新解包资源/assets_full`、`d:/2/关服前存档`（含安卓 Unity 缓存）
+        /// 全盘搜 `skipChance` / `minSkips` / `BotListFTUE` / `AIBotsConfig` ⇒ **0 个文件**（2026-10-26 现搜）。
+        /// ⇒ 下面四个档的数值**是我们挑的，不是原版值** —— ⛔ 别在别处当成原版。
         /// 结构照原版：**越简单 = 砍得越狠**（砍掉的都是分最低的那些，所以 AI 会做出菜的选择）。
         ///
         /// ⚠️ **`MinSkips` 一律给 0**（原版那个值是「无条件先砍掉几条」）—— 给正数的话，
@@ -1408,29 +1445,54 @@ namespace RuleEngine
         }
 
         /// <summary>
-        /// 难度旋钮：把动作按分降序排，然后**从最低分那条开始**、跳过 `endTurn`，
-        /// 前 `MinSkips` 条**无条件删**，之后每条掷一次骰子（`&lt; SkipChance` 就删），
-        /// 最多删 `MaxSkips` 条。`endTurn` **永远不删**（它是基准，删了 AI 就没法收手）。
+        /// 难度旋钮（原版 `AI.TweakAvailableActions`，`d:/2/tools/decomp_full/AI__TweakAvailableActions.c:1-144`）。
         ///
-        /// ⚠️ 骰子走 <see cref="BattleContext.AiRng"/>（种子派生 ⇒ 同一局可复现）。
-        /// ⚠️ 与反编译的一处细节差别：原版是「删一条 → 再往前挪一条重掷」，这里是「从尾巴上逐条掷一次」。
-        ///    语义一致（都是**砍最低分的**、最多 `MaxSkips` 条），消耗的随机数个数不同。
+        /// **原版形状（逐句，2026-10-26 `E4` 复核）**：
+        /// <code>
+        /// if (FeatureConfig.ShouldDisableNewMatchMaking()) return list;            // 远端开关（我们无此开关 ⇒ 恒不成立）
+        /// switch (MatchType.Effective) { … 见 ShouldDisableTweak … }               // **模式闸**（:22-52）
+        /// minSkips / maxSkips / skipChance = MatchData.GetBotConfig{Min,Max}Skips / GetBotConfigSkipChance
+        /// list = currentActions.OrderByDescending(a =&gt; a.actionScore).ToList()     // 降序
+        /// for (round = 0; round &lt; maxSkips; round++) {                             // **恰好 maxSkips 轮**
+        ///     for (i = list.Count-1; i &gt;= 0; i--) {                                // 每轮**从表尾重扫**
+        ///         if (list[i].actionType == 4 /*endTurn*/) continue;               // 跳过基准
+        ///         if (round &lt; minSkips) { 删; break; }                            // 前 minSkips 轮**无条件删**
+        ///         if (skipChance &gt; GetRandomInt(0,100)) { 删; break; }           // 掷骰命中才删
+        ///         // 没命中 ⇒ 继续往前扫（**不回滚、不重掷当前这条**）
+        ///     }
+        ///     // 扫到底还没删成 ⇒ 直接进下一轮
+        /// }
+        /// </code>
+        /// ⇒ 关键两点：① **删掉一条后下一轮从表尾重扫** ⇒ 上面的条目会被**重新掷骰**（这就是原版的 RNG
+        /// 消耗比「每条只掷一次」多的原因）；② `endTurn` **永远不删**。
+        ///
+        /// 🔴 **2026-10-26（`E4`）改前 vs 改后**：改前是「单趟、每条只掷一次、最多删 `MaxSkips` 条」
+        /// —— 语义结局相同（都砍最低分、上限 `MaxSkips`），但**随机数消耗序列不同**（原版会重掷）。
+        /// 现在按原版形状重写；随机源仍是 <see cref="BattleContext.AiRng"/>（种子派生，同一局可复现）。
+        /// ⚠️ **三个旋钮的「值」仍取不到**（`AIBotsConfig.BotConfig` 在远端 LiveOps 配置里，
+        ///   本地 `assets_full` / 关服前存档 0 命中）⇒ 见 `KnobsOf`，仍是**我们挑的常量**。
         /// </summary>
         public static void TweakAvailableActions(BattleContext ctx, List<AiAction> list, AiDifficulty d)
         {
+            if (ctx == null || list == null) return;
+            if (ShouldDisableTweak(ctx)) return;                  // 原版模式闸（`ShouldDisableTweakAvailableActionsByMode`）
             var k = KnobsOf(d);
-            if (k.MaxSkips <= 0 || list == null || list.Count <= 1) return;
+            if (k.MaxSkips <= 0 || list.Count <= 1) return;
 
-            list.Sort((x, y) => y.Score.CompareTo(x.Score));      // 降序（原版 OrderByDescending(actionScore)）
+            list.Sort((x, y) => y.Score.CompareTo(x.Score));      // 降序（原版 `OrderByDescending(actionScore)`）
 
-            int removed = 0;
-            for (int i = list.Count - 1; i >= 0 && removed < k.MaxSkips; i--)
+            // 原版：**共 `MaxSkips` 轮，每轮从表尾（最低分）往前扫一次**；删掉一条就进下一轮。
+            for (int round = 0; round < k.MaxSkips; round++)
             {
-                if (list[i].Kind == AiActionKind.EndTurn) continue;
-                bool cut = removed < k.MinSkips || ctx.AiRng.Next(0, 100) < k.SkipChance;
-                if (!cut) continue;
-                list.RemoveAt(i);
-                removed++;
+                for (int i = list.Count - 1; i >= 0; i--)
+                {
+                    if (list[i].Kind == AiActionKind.EndTurn) continue;      // 基准永不删
+                    bool cut = round < k.MinSkips                            // 前 minSkips 轮：无条件
+                             || k.SkipChance > ctx.AiRng.Next(0, 100);       // 之后：原版 `skipChance > roll`
+                    if (!cut) continue;                                      // 没命中 ⇒ 继续往前扫
+                    list.RemoveAt(i);
+                    break;                                                   // 删一条 ⇒ 进下一轮（**从表尾重扫**）
+                }
             }
         }
 
@@ -1953,10 +2015,10 @@ namespace RuleEngine
         /// ⚠️ 我们 `KeywordTable` 里**没有**这个常量（全池 0 张卡带它），按既有惯例用裸串
         /// （同 `ScoreDamaging` 里的 `"invulnerable"` / `ValueInPlay` 里的 `"pindown"`）。
         /// 数据里一旦出现这个 trait，`KwValue/ Has` 照样认（键就是字符串）。</summary>
-        const string PoisonousKeyword = "poisonous";
+        public const string PoisonousKeyword = "poisonous";
 
         /// <summary>毒追加分的系数（`DAT_1834b3188` = `0.7f`；判据 §6·1 逐字节核过）。</summary>
-        const float PoisonousScale = 0.7f;
+        public const float PoisonousScale = 0.7f;
 
         /// <summary>献祭那一支「非 special」的固定加分（原版 `+2.0f`，`AI__ScoreFromAttack.c:52`）。</summary>
         const float SacrificeBonus = 2f;
@@ -2006,6 +2068,59 @@ namespace RuleEngine
             for (int i = 0; i < slots.Count; i++)
                 if (BoardSpec.IsValid(slots[i]) && board[slots[i]] != null) n++;
             return n;
+        }
+
+        // ==================================================================
+        //  ⑧ 🆕 2026-10-26（`E4` 批次 3）：原版 `AI.ShouldDisableTweakAvailableActionsByMode`
+        //     （`d:/2/tools/decomp_full/AI__ShouldDisableTweakAvailableActionsByMode.c:1-41`
+        //      ＋ `AI__TweakAvailableActions.c:22-52` 是同一段的两个入口）
+        //     ⚠️ 追加在类尾（铁律：新成员追加类尾，免得账里 A 行号整体下移）
+        // ==================================================================
+
+        /// <summary>
+        /// **这一局到底套不套难度旋钮** —— 原版 `AI.ShouldDisableTweakAvailableActionsByMode`。
+        /// 返回 **`true` = 不套**（动作表原样返回）、**`false` = 照做**。
+        ///
+        /// **判据（`.c:9-40` 逐句）** —— 读的是 **`MatchData.matchType`（`SetBotOpponent` 翻转后）**：
+        /// <code>
+        /// if (matchType == 20  RankedBot)     return false;
+        /// if (matchType == 120 ClosedDeckBot) return false;
+        /// if (matchType == 210 FastModeBot)   return false;
+        /// if (matchType == 50  PracticeOffline)
+        ///       return MatchData.IsInFTUEState();     // 在 FTUE 里 ⇒ true（不套）
+        /// return true;                                // 其余档**一律不套**
+        /// </code>
+        /// ⚠️ 前面还有一道 `FeatureConfig.ShouldDisableNewMatchMaking()` ⇒ 为真时**整段不跑**；
+        ///   那是远端 feature 表，我们**没有**这个开关 ⇒ 按「新匹配已启用」处理（恒不成立）。
+        /// ⚠️ `IsInFTUEState` 读的是**远端 FTUE 配置**（`AIBotsConfig.BotListFTUE` + `CurrentModeVictories`，
+        ///   见 `d:/2/tools/decomp_full/MatchData__IsInFTUEState.c`）；**FTUE 整套未建** ⇒ 本地恒 `false`。
+        ///
+        /// 🔴 **没有 `BotSeat` 时的一处本地迁移**：原版这一格恒在「对手是电脑」的局里被调（`matchType`
+        ///   已被 `MatchData.SetBotOpponent` 翻成 `…Bot`）。我们若没声明 `BotSeat`（自检夹具 / 兼容层），
+        ///   <see cref="MatchTypes.Effective"/> 会给**未翻转**值（`Ranked 10` / `ClosedDeck 110` / `FastMode 200`）
+        ///   ⇒ 这里**把这三档按「会翻转」处理**。
+        ///   ⛔ **这不是第二张翻转表** —— 翻转规则仍只在 `MatchTypes.Effective` 一处，这里只是「同一档的
+        ///   Bot 变体也算数」。⚠️ `BotSeat < 0` 时本来就没有 AI 在跑，这一支对产品路径不可达。
+        /// </summary>
+        public static bool ShouldDisableTweak(BattleContext ctx)
+        {
+            if (ctx == null) return true;                  // 原版 `matchData == null` ⇒ NRE；我们保守「不动」
+            switch (MatchTypes.Effective(ctx))
+            {
+                case MatchType.RankedBot:          //  20
+                case MatchType.ClosedDeckBot:      // 120
+                case MatchType.FastModeBot:        // 210
+                    return false;
+                case MatchType.PracticeOffline:    //  50 —— 原版只在 FTUE 里不套；我们无 FTUE ⇒ 套
+                    return false;
+                // ↓ 仅在「没声明 BotSeat」时可达（`Effective` 会翻转成 …Bot）—— 见 doc
+                case MatchType.Ranked:             //  10 → 对 bot 时原版会翻成 20
+                case MatchType.ClosedDeck:         // 110 → 120
+                case MatchType.FastMode:           // 200 → 210
+                    return false;
+                default:
+                    return true;                   // 其余档（含 Tutorial / Practice / Campaign / Duel …）
+            }
         }
     }
 }

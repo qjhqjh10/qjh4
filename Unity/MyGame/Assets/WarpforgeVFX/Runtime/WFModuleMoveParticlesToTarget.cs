@@ -286,9 +286,11 @@ namespace WarpforgeVFX
             var from = FromCamera != null ? FromCamera() : null;
             var to = ToCamera != null ? ToCamera() : null;
             if (from == null || to == null) return false;
-            var v = from.WorldToViewportPoint(hudPos);
-            v.z = depth - to.transform.position.z;
-            boardPos = to.ViewportToWorldPoint(v);
+            // 🔴 2026-10-26（批次 6 · G12）：换算本体收口到 `WFCamerasConversion.ConvertPositionBetweenCameras`
+            //    （原版就是调它）。⛔ 别在这里再手写一遍 WorldToViewportPoint/ViewportToWorldPoint ——
+            //    两处写同一条规则 = 迟早不一致。算式与判据见那个文件的文件头。
+            boardPos = WFCamerasConversion.ConvertPositionBetweenCameras(from, to,
+                                                                       depth - to.transform.position.z, hudPos);
             return true;
         }
 
@@ -308,9 +310,9 @@ namespace WarpforgeVFX
             var to = ToCamera != null ? ToCamera() : null;
             if (from != null && to != null)
             {
-                var v = from.WorldToViewportPoint(target.position);
-                v.z = desiredZPosition - to.transform.position.z;
-                targetPosition = to.ViewportToWorldPoint(v);
+                // 换算本体见 `WFCamerasConversion.ConvertPositionBetweenCameras`（原版就是调它）
+                targetPosition = WFCamerasConversion.ConvertPositionBetweenCameras(
+                    from, to, desiredZPosition - to.transform.position.z, target.position);
                 ConvertedTargets++;
             }
             else

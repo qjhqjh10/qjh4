@@ -855,19 +855,31 @@ def uv_fields(ps):
 
 # ------------------------------------------------------------------ 世界变换
 def world_chain(a, tpid):
-    """沿 m_Father 上溯累乘 → (world_pos, world_quat)。抄自 gen_spec_scenes.py"""
+    """沿 m_Father 上溯累乘 → (world_pos, world_quat)。
+
+    🔴 2026-10-26（T09）**改了 pos 的口径**：原来只累乘「旋转 + 平移」、**不乘父级缩放**
+      （`p += rot * localPosition`），但 Unity 的 `Transform.position` 是
+      **父世界矩阵 × 局部 TRS 的平移列**（父级缩放**会**乘进子的 localPosition）。
+      实测 13 场有 194 条清单条目因此不是真世界坐标（最大 47.65，arena2 `RocketTrail/BigExplosion`）。
+      判据 → `资料/完全复刻/判据/T09_清单坐标口径_第4轮.md` §1（两种口径的定义与证据）。
+    ⚠️ `rot` **一个字没动**（四元数连乘，与缩放无关）—— T09 只改 `pos`。
+    ⚠️ 不能写成 `pos_parent + R_parent · (lossyScale_parent ⊙ localPos)`（那只在父级无旋转时成立；
+      父级同时有非均匀缩放 + 旋转时真变换带剪切，只有 4×4 矩阵是精确解）。
+    ⚠️ `_mat_mul` / `_local_matrix` 定义在本函数**下方**（同文件）—— Python 到调用时才解析，没问题。
+    ⚠️ 同族还有两份「无缩放链」已一并修：`工具/gen_arena_groups.py` 的 `Scene._world_of`、
+      `工具/gen_arena_mirror.py` 的镜面父链。
+    """
     chain = []
     cur = tpid
     while cur is not None and cur in a.TF:
         chain.append(a.local_trans(cur))
         cur = a.TF[cur].get('m_Father', {}).get('m_PathID')
-    p = [0.0, 0.0, 0.0]
+    M = [[1.0 if i == j else 0.0 for j in range(4)] for i in range(4)]
     q = [0.0, 0.0, 0.0, 1.0]
     for lt in reversed(chain):
-        rp = q_rot_vec(tuple(q), lt[0:3])
-        p = [p[0] + rp[0], p[1] + rp[1], p[2] + rp[2]]
+        M = _mat_mul(M, _local_matrix(lt))
         q = list(q_mul(tuple(q), lt[3]))
-    return p, q
+    return [M[0][3], M[1][3], M[2][3]], q
 
 
 def _mat_mul(A, B):

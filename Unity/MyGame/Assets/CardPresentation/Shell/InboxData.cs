@@ -110,7 +110,7 @@ namespace CardPresentation
 
             // ---- ① 本地欢迎信（`LocalInboxMessage`）----
             // 判据：`LocalInboxMessage.cs:6` `ClaimRewards()` 直接 `base.ClaimRewards()` ⇒ 与普通消息同一条领取链。
-            // ⚠️ 文案与 300 点奖励都是**我们挑的**；奖励键 = 战役点图（与 `DailyData` 的三条日常同一张图）。
+            // 🔶 自己设计（非原版）：本地欢迎信的文案与 300 点奖励 · 原版这两项在服务端 / 词条表，本地没有 · TODO(谁定的)｜原注：⚠️ 文案与 300 点奖励都是**我们挑的**；奖励键 = 战役点图（与 `DailyData` 的三条日常同一张图）。
             list.Add(new Msg
             {
                 Id = "local_welcome",

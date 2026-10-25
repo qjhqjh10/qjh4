@@ -382,7 +382,7 @@ namespace CardPresentation
             var card = _dragging;
             _dragging = null;
             _insertIndex = -1;
-            _hovered = -1;
+            SetHovered(-1);
             DiscardPress();
             ClearDropIndicator();
             if (card != null)
@@ -583,7 +583,7 @@ namespace CardPresentation
         ///   ⚠️ `_cards` 照样更新（换牌面板的命中 `CardAt` 转发本类的 `HitTest`，靠的就是它）。</summary>
         public void SetCards(List<CardView> cards, bool relayout = true)
         {
-            _cards.Clear();
+            ResetShowInHandAll(); _cards.Clear();   // 换列表前把「抬起档」从旧卡上摘掉（判据/理由 → 类尾 ResetShowInHandAll）
             _cards.AddRange(cards);
             if (relayout) { Relayout(); return; }
             bool animate = hand.animateRelayout;
@@ -605,7 +605,7 @@ namespace CardPresentation
             _placed.Clear();
             _dragging = null;
             _insertIndex = -1;
-            _hovered = -1;
+            SetHovered(-1);
             ClearDropIndicator();     // 🆕 2026-10-01：重开一局时别把上一次的落点指示留着
         }
 
@@ -732,7 +732,7 @@ namespace CardPresentation
             //   ⛔ 别把这两条「统一」成「右键期间整段冻结」—— 原版右键拖战场时手牌是会落下去的。
             if (hit != _hovered && hit >= 0 && IsRightButtonOrTwoFingerTouch()) return;
             if (hit == _hovered) return;
-            _hovered = hit;
+            SetHovered(hit);
             // 🔴🆕 2026-10-25（`K2`）：**选目标 / 打法选择器那一档不抬牌、不重排**。
             //   判据 = 原版手牌悬停预览走 `ShowCardInHand`，而它的闸 `BattleManager.CanDisplayHandCard`
             //   要求 `isPlayer && cardState==1 && UIstate==1`（`dc/BattleManager__CanDisplayHandCard.c:7-11`）
@@ -845,13 +845,24 @@ namespace CardPresentation
             //   ⚠️ 与 `_travel < TapThreshold` 是**两条独立判据、都要满足**：位移近 ≠ 还在卡上。
             // 🔴🆕 2026-10-25（`K2`）：第三条 —— **长按不开窗**（`PressShortEnough`，判据见
             //   `LongPressNoDisplaySeconds`）。原版 `OnTouchUpAsButton` 那一支先量按下→松手的时长。
+            // 🔴 2026-10-26（`G21` · 账 `B9`/`B10`）：**先收抬牌、再转发轻点**。
+            //   原来这里是「先 `OnTapped`、后 `SetHovered(-1)`」，而
+            //   `BattleDriver.OnCardTapped` 的第一道闸是 `CardDisplaySuppressedFor(card)`
+            //   （= `card == HoveredCard && !DragOnlyBlocked()`，本文件 `:560-563`）——
+            //   候选态（触摸那条正路）松手时 `_hovered` **必然还等于这张卡**
+            //   ⇒ 每次轻点都被自己吞掉、卡面展示窗**永远不开**。
+            //   语义也更贴原版：`OnPointerClick` 到达时 `StopShowingCardInHand` 已经开始收牌。
+            //   ⛔ 别把 `CardDisplaySuppressedFor` 删掉 —— 它对应原版
+            //   `ToggleOpenCardDisplayOnTouch(false)`，是真闸（抬牌期间点这张卡不开展示窗）。
+            //   下面紧跟 `_pressInside = false;` 那个 `SetHovered(-1)` 保留（幂等，`OnTapped` 之后的路径不变）。
+            SetHovered(-1);
             if (card != null && _pressInside && _travel < TapThreshold && PressShortEnough
                 && OnTapped != null) OnTapped(card);
             else if (card != null && _pressInside && _travel < TapThreshold && !PressShortEnough)
                 Debug.Log($"[CardPresentation] 长按 {PressElapsedSeconds:F2}s ≥ {LongPressNoDisplaySeconds}s ⇒ "
                         + $"**不开卡面展示窗**（原版 `CardScript__OnTouchUpAsButton.c:37-44`）—— 卡「{card.name}」");
             _pressInside = false;
-            _hovered = -1;
+            SetHovered(-1);
             // 🆕 2026-10-24（`J3`）：轻点结束 ⇒ 原版 `CardScript.StopShowingCardInHand(restart: true)` ⇒
             //   `PlayerHand.MoveCardsInHandToPosition(-1, null)`（**传 -1**）⇒ 整把重排 + 开闸。
             Relayout(true);
@@ -890,7 +901,7 @@ namespace CardPresentation
 
             // 空位先落在它自己原来的位置 —— 之后跟手往哪拖，空位就跟到哪
             _insertIndex = Mathf.Clamp(_cards.IndexOf(card), 0, Mathf.Max(0, _cards.Count - 1));
-            _hovered = -1;
+            SetHovered(-1);
 
             card.SetHighlight(CardHighlightState.Selected);
             // 🔴 2026-10-24（`A26`）：ease 这一档的口径 —— **单补间传 `OutQuad`，Sequence 才传 `Linear`**。
@@ -1483,7 +1494,7 @@ namespace CardPresentation
                         + $"**不开卡面展示窗**（原版 `CardScript__OnTouchUpAsButton.c:37-44`：`0.2 <= elapsed` "
                         + $"那一支只 `StopShowingCardInHand`，跳过 `DisplayCard`）—— 卡「{card.name}」");
 
-            _hovered = -1;
+            SetHovered(-1);
             // 🆕 2026-10-24（`J3`）：松手后这一趟重排 = 原版 `HandCardMovedToNewIndex` +
             //   `HandCardReleased` 那两条 `MoveCardsInHandToPosition(-1, null)`（**传 -1**）⇒ 带闸。
             //   回弹本身也由这一趟补间完成（见上面 else 支那段判据）。
@@ -1843,5 +1854,74 @@ namespace CardPresentation
                         new Vector3(u * CardView.Width, v * CardView.Height, 0f));
             return true;
         }
+
+        // ==================================================================
+        //  🆕 2026-10-26（执行代理 `F6` · 批次 4）：**抬起档的成对开关**
+        // ==================================================================
+        //  判据（一手，`d:/2/tools/cpp2il/out_cpp2il_dev_ilspy/CardScript.cs`，**真方法体**那份）：
+        //   · `StartShowingCardInHand`（`:10593-10601`）—— 抬牌（= 手牌「亮出来」）末尾三句：
+        //       `card2DController.ToggleTooltips(true)`（本卡 tooltip **开**）
+        //       → `cardCollider2D.SetCollidersShowBig(true, PositionInHand)`（第二颗 collider 开 + 主面回常态矩形）
+        //       → `CardUI.ToggleOpenCardDisplayOnTouch(false)`（抬牌期不开展示窗 —— 这一条早在 `CardDisplaySuppressedFor`）。
+        //   · `StopShowingCardInHand`（`:11013-11036`）—— 放回去那三句：`SetCollidersShowBig(false)`
+        //       → `ToggleTooltips(false)` → `ToggleOpenCardDisplayOnTouch(true)`。
+        //   ⇒ **成对**：进 = 开、出 = 关；**离开无条件复位**（原版 `StopShowingCardInHand` 没有任何闸）。
+        //   ⚠️ **进入要走 `DragOnlyBlocked()` 那道闸**：原版抬牌的前置是
+        //     `BattleManager.CanDisplayHandCard` = `isPlayer && cardState==1 && UIstate==1`
+        //     （`dc/BattleManager__CanDisplayHandCard.c:7-11`）⇒ 选目标 / 打法选择器那两档**根本不进
+        //     `ShowCardInHand`**（同 `UpdateHover` 里那段 `K2` 注释）。`_hovered` 本身照常更新（轻点看牌要用它）。
+        //   🔴 **卡侧 API 是 `Core/CardView.SetCollidersShowBig`（`CardView.cs:13931`，E7 已做完）** ——
+        //     本类只负责「什么时候调」，⛔ 不在这儿重写一遍几何（两处写同一条规则 = 迟早不一致）。
+        //   🔴 **tooltip 那半是逐卡的、不是全局的**：`BattleDriver.TickTooltipAt` / `TickCardTip`
+        //     读的就是 `CardView.TooltipsEnabled`（逐卡闸，早就在）。⛔ 别把这两句换成
+        //     `Tooltip.SuppressTooltips`（那是窗口级的总闸，会把 HUD 那几条一起掐掉）。
+
+        /// <summary>`_hovered` 的**唯一写口**（本类只有这一处改「指针压在哪个下标」）。
+        /// <para>原版那两条成对方法（`StartShowingCardInHand` / `StopShowingCardInHand`）在本类的等价物
+        /// 就是「下标从 A 变成 B」这一件事 ⇒ 全部走这里，⛔ 别再直接写 `_hovered = …`（那样会漏掉成对开关）。</para></summary>
+        void SetHovered(int idx)
+        {
+            int prev = _hovered;
+            _hovered = idx;
+            ApplyShowInHand(prev, idx);
+        }
+
+        /// <summary>抬起档的成对开关（判据见上面那段）。两个实参都是 **`_cards` 的下标**（-1 = 没有）。
+        /// <para>① 离开：`prev` **无条件**复位（`SetCollidersShowBig(false)` + tooltip 关）。</para>
+        /// <para>② 进入：`now` 只有**没被 `DragOnlyBlocked()` 挡**才开（= 原版 `CanDisplayHandCard` 那道闸）。</para>
+        /// <para>⚠️ 两个下标是同一张卡（含「都是 -1」）时**什么都不做**。</para></summary>
+        void ApplyShowInHand(int prevIdx, int nowIdx)
+        {
+            var prev = (prevIdx >= 0 && prevIdx < _cards.Count) ? _cards[prevIdx] : null;
+            var now  = (nowIdx  >= 0 && nowIdx  < _cards.Count) ? _cards[nowIdx]  : null;
+            if (prev == now) return;
+            if (prev != null)
+            {
+                prev.SetCollidersShowBig(false);
+                prev.TooltipsEnabled = false;
+            }
+            if (now == null || DragOnlyBlocked()) return;
+            now.SetCollidersShowBig(true);
+            // 原版抬牌那一支的 `ToggleTooltips(true)`：**只有抬起来这一张**能吃 tooltip。
+            now.TooltipsEnabled = true;
+        }
+
+        /// <summary>把**当前这批手牌**全部复位成「没抬起」档（`SetCards` 换列表时调）。
+        /// <para>为什么换列表也要复位：视图会被复用 / 搬去战场 —— 带着 `big = true` 走就是
+        /// 「场上一张牌脚下多一块看不见的判定区」；tooltip 那半同理（原版新卡 `CreateCard` 末尾
+        /// 就是 `ToggleTooltips(false)`，`BattleCardManager.cs:128`）。</para>
+        /// <para>⚠️ 它顺带把 `_hovered` 清成 -1（旧下标对新列表没有意义）—— **必须在 `_cards.Clear()` 之前调**。</para></summary>
+        void ResetShowInHandAll()
+        {
+            for (int i = 0; i < _cards.Count; i++)
+            {
+                var c = _cards[i];
+                if (c == null) continue;
+                c.SetCollidersShowBig(false);
+                c.TooltipsEnabled = false;
+            }
+            _hovered = -1;
+        }
+
     }
 }

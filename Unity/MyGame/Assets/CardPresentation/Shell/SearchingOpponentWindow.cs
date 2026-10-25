@@ -96,7 +96,7 @@ namespace CardPresentation
         //     80 个半宽字位 = 中文 40 字 ≈ 英文 80 字；推导与实测见那颗常量的注释块）—— 超了会**出声**
         //     （见 `ShowHint`），⛔ **不截断**（截了就是把该玩家看的话吃掉）。
         // ==================================================================
-        public const float HintL = 610f, HintT = 200f, HintR = 1310f, HintB = 348f;   // 700×148 —— **我们挑的**
+        public const float HintL = 610f, HintT = 200f, HintR = 1310f, HintB = 348f;   // 🔶 自己设计（非原版）：提示行框 700×148 · 原版没有这一态的可照矩形 · TODO(谁定的)｜原注：700×148 —— **我们挑的**
 
         /// <summary>此刻那行提示（`null` = 没有提示、那一行是空的）。自检读它。</summary>
         public string HintText { get; private set; }
@@ -164,7 +164,7 @@ namespace CardPresentation
         public bool NetWatch;
 
         /// <summary>「找到对手」展示多久再切战场。**1s = 原版 `waitLoadTime` 的默认值**
-        /// （`MatchMakerManager.StartBattleWithDelay`）；⚠️ **拿它当展示时间是我们挑的**（正本 §6·4）。</summary>
+        /// 🔶 自己设计（非原版）：「找到对手」展示 1 秒 · 1s 是原版 `waitLoadTime` 默认值，但拿它当展示时间是我们挑的（原版判据拿不到） · TODO(谁定的)｜原注：（`MatchMakerManager.StartBattleWithDelay`）；⚠️ **拿它当展示时间是我们挑的**（正本 §6·4）。</summary>
         public float PresentationHold = 1f;
 
         Transform _foeFound; PxRect _foeFoundRect, _foeNameRect; GameObject _foeNotFound;

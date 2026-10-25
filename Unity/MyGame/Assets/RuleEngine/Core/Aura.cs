@@ -637,8 +637,8 @@ namespace RuleEngine
             }
         }
 
-        /// <summary>`Recompose` 的本体（见 <see cref="Recompose"/> 的外壳：重算期间禁副作用）。</summary>
-        static void RecomposeCore(BattleContext ctx)
+        /// <summary>`Recompose` 的本体（见 <see cref="Recompose"/> 的外壳：重算期间禁副作用）。`numericOnly = true` 时只做「数值 + 关键词」两层（R5，见 <see cref="RefreshInPlayNumericAndKeywords"/>）。</summary>
+        static void RecomposeCore(BattleContext ctx, bool numericOnly = false)
         {
 
             // ---- ① 整份摘掉 ----
@@ -647,9 +647,9 @@ namespace RuleEngine
                 {
                     var u = ctx.Players[p].Board[s];
                     if (u == null) continue;
-                    u.ClearAuraGrants();          // 关键词（只减光环那一份）+ 属性（RevertGrantsFrom）
+                    if (numericOnly) u.ClearAuraNumericAndKeywords(); else u.ClearAuraGrants();  // 后者 = 关键词（只减光环那一份）+ 属性（RevertGrantsFrom）
                 }
-            for (int i = ctx.CostMods.Count - 1; i >= 0; i--)
+            for (int i = ctx.CostMods.Count - 1; i >= 0 && !numericOnly; i--)   // 🔴 `numericOnly` ⇒ **不清费用档**：下面 ② 是费用登记的**唯一**口、它被 `numericOnly` 跳过 ⇒ 原来无条件清 = **清了不重加** = 减价光环（`BL27`/`SW18`/`AM15`/`GSC30`/`BL18` …）全丢（实测 `play check` 指纹 `b362b4da… ≠ 39c4f77e…`）。口径 = `CLAUDE.md` §三「重算必须零副作用（不改 `Health`、**不重登记费用**、不重授誓约）」⇒ 重算路径**整层不碰**费用，不是「清完再登记」；费用档注册是 `f(棋盘, ctx.Active, AuraSpecs)` 的纯函数，棋盘变动那趟 `Recompose` 已经刷新过。· 2026-10-26 批次 6 `G14` 任务①
                 if (ctx.CostMods[i].Tag == GrantTag) ctx.CostMods.RemoveAt(i);
 
             // ---- ①·b 🆕 2026-10-25（`E1` · 第三段）：**「近战 = 生命」的重挂**（实现见下面那个方法）----
@@ -665,7 +665,7 @@ namespace RuleEngine
             // ⚠️ 登记成 `Tag = GrantTag`，重算时整份撤 —— 来源离场就**立刻**失效
             //    （不用 `ExpireTurn`，那个是按回合数过期的）。
             // ⚠️ 这一段**不参与下面的迭代**：它筛的是**手牌里的卡**，与光环之间没有依赖。
-            for (int p = 0; p < 2; p++)
+            for (int p = 0; p < 2 && !numericOnly; p++)
                 for (int s = 0; s < BoardSpec.Size; s++)
                 {
                     var src = ctx.Players[p].Board[s];
@@ -707,7 +707,7 @@ namespace RuleEngine
             //     `BattleManager__IsThereDoubleOathEffect.c:33` **本来就是**遍历同方场上数张数的
             //     ⇒ 我们那一份照抄它，保持不动（见 `RuleCore.OathExtraReplays`）。
             //  ⚠️ 这一步**不参与下面 ③ 的迭代** —— 它没有「光环之间互相引用」那种依赖。
-            for (int p = 0; p < 2; p++)
+            for (int p = 0; p < 2 && !numericOnly; p++)
             {
                 var gboard = ctx.Players[p].Board;
                 for (int s = 0; s < BoardSpec.Size; s++)
@@ -963,6 +963,57 @@ namespace RuleEngine
         static void GrantEmbeddedAura(BattleContext ctx, UnitState t, string embedded, UnitState src)
         {
             RuleCore.GrantEmbeddedAbilityFromAura(ctx, t, embedded, src);
+        }
+
+        /// <summary>
+        /// 🆕 **2026-10-26（完全复刻 · 第 4 轮 · 执行代理 `F3` · 任务 R5）
+        /// —— 「零副作用的整体重算口」：只覆盖**「数值 + 关键词」那两层**。**
+        ///
+        /// <para>**为什么需要它（判据 = `调度台日志` 的 H1 裁定 + `报告/E1_第3轮.md` 的 R5）**：
+        /// `Auras.Recompose` 是「**整份摘掉再重加**」，它同时会（a）重登记费用（② 的 `CostMod`）、
+        /// （b）重授誓约（②·b 的 `OathTripleGranted` / `OathAllTurnsGranted`）。
+        /// 实测把 `Recompose` 挂到**每个动作边界**上会改掉 `BL18` / `UM18` 两张光环卡的结算读数
+        /// （`net` 各 +4）⇒ 那条路被收窄成「只跑 `SAU27` 的 `MeleeEqualsHealth`」。
+        /// 而原版在 `FinishResolvingAction` 尾部那次 `BroadcastWhileInPlay` 刷新的**是全部常驻效果**
+        /// （`WhileInPlay(20)` + `WhileInPlayVariable(240)` 两档，`RawCardScript.cs:1239-1253`），
+        /// 不只是 `240` 那一张 ⇒ 需要**一个更宽的、但零副作用的**口。</para>
+        ///
+        /// <para>**零副作用靠两件事保证**：
+        /// ① 整段包在 `BeginAuraRecompute` / `EndAuraRecompute` 之间 ⇒ **重算期间 `Health` 一个字节都不动**，
+        ///    结束时按「光环血修饰总量的前后差」结算一次（+差加、−差夹、零差什么都不做）——
+        ///    这就是 `H1` 要的「重算 ≠ 真移除」（`UnitState.BeginAuraRecompute` 的头注有完整判据）。
+        /// ② `RecomposeCore(numericOnly: true)` ⇒ **跳过 ②（费用）与 ②·b（誓约）**，
+        ///    ① 也换成 <see cref="UnitState.ClearAuraNumericAndKeywords"/>（不清誓约那两位）。
+        ///    ⚠️ 誓约那两位是**幂等布尔授予**，但**只有 ②·b 会重新授**；在「棋盘没变」的动作边界上
+        ///    清掉而不重授 = **静默丢授予**（`Ferren Areios` 那两句凭空失效）⇒ 必须跳过。</para>
+        ///
+        /// <para>**它里面仍然做的事**：① 整份摘掉光环给的关键词 / 属性 / 光环挂的触发正文 / 残骸标记；
+        /// ①·b `RefreshMeleeEqualsHealth`（`SAU27` 那一条 `IsSet` 近战修饰按当前 `Health` 重挂）；
+        /// ③ 按当前棋盘逐条重放光环（`ApplyAura`，含 4 轮迭代收敛）。
+        /// ⇒ **净效果 = 把光环的数值/关键词快照刷新到当前棋盘**，其余一概不动。</para>
+        ///
+        /// <para>🔴 **接线点（属 `F1`，本代理只做 `Aura.cs` 这一侧）**：`Core/ActionPump.cs` 的
+        /// `ActionScope.Dispose`（现在那一行是 `Auras.RefreshMeleeEqualsHealth(_ctx);`，`ActionPump.cs:118`）
+        /// ⇒ 建议**追加**一次 `Auras.RefreshInPlayNumericAndKeywords(_ctx);`（在 `EmitWhileInPlayPass` **之前**，
+        /// 与现有先后一致）。⛔ **不要**换成 `Auras.Recompose`（那会把费用/誓约一起重做）。</para>
+        ///
+        /// <para>⚠️ **与 <see cref="Recompose"/> 的关系**：两者**共用** `RecomposeCore` 与 ③ 那套迭代
+        /// ⇒ 「哪些光环作用于谁」这条判据仍然**只有一处**；差别只有「跳过哪两层」一个开关。</para>
+        /// </summary>
+        public static void RefreshInPlayNumericAndKeywords(BattleContext ctx)
+        {
+            if (ctx == null || ctx.Players[0] == null || ctx.Players[1] == null) return;
+            // ⚠️ `finally` 是必须的：`RecomposeCore` 的 ③ 里有多处 `return`（同 `Recompose` 那份外壳）。
+            for (int p = 0; p < 2; p++)
+                for (int s = 0; s < BoardSpec.Size; s++)
+                    if (ctx.Players[p].Board[s] != null) ctx.Players[p].Board[s].BeginAuraRecompute();
+            try { RecomposeCore(ctx, numericOnly: true); }
+            finally
+            {
+                for (int p = 0; p < 2; p++)
+                    for (int s = 0; s < BoardSpec.Size; s++)
+                        if (ctx.Players[p].Board[s] != null) ctx.Players[p].Board[s].EndAuraRecompute();
+            }
         }
     }
 }

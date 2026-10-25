@@ -4270,7 +4270,7 @@ public static class CollectionScene
                 // `1373.78,269.62 → 1726.64,303.62`（= 该文件的 `WnL/WnT/WnR/WnB` 四个字面量，
                 // 下面按 1726.64 − 1373.78 现算 ⇒ ⛔ 不引实现里的常量名）。
                 // ⚠️ **如实记**：原版那颗**宽 0 + `ContentSizeFitter` 撑开**、「右沿取 `Deck Name` 的 `DnR`」
-                //    **是我们挑的**（见 `Shell/PracticeModePopup.cs` `BuildDeckInfoHead` 的头注）
+                // 🔶 自己设计（非原版）：练习窗战将名框宽（右沿取 Deck Name 的 `DnR`） · 原版那颗宽 0 + ContentSizeFitter 撑开，右沿取谁是我们的版面约束（原版判据拿不到） · TODO(谁定的)｜原注：**是我们挑的**（见 `Shell/PracticeModePopup.cs` `BuildDeckInfoHead` 的头注）
                 //    ⇒ 这一条的「框宽」**不是原版数字**，是**我们自己的版面约束**；
                 //    它证明的是「这段字放得进我们给它的那一格」，⛔ 不是「与原版一致」。
                 const float PrWlBoxW = 352.86f;             // = 1726.64 − 1373.78

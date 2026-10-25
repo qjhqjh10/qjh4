@@ -404,7 +404,8 @@ class Program
                               + "layers <out.jsonl> | "
                               + "willrun [dump <out>] | faith [dump <out>] | play <id|卡名> | play all [dump <out>] [pf <out>] | "
                               + "play check [<pf.txt>] | nonkw | jackal | emergency | suppressor | played | b19test | "
-                              + "dbparse | ai <卡id|卡名>");
+                              + "dbparse | ai <卡id|卡名> | "
+                              + "tutorial <list|run [S]|g3 [行号]|pred <行号>>");
             Environment.Exit(1);
         }
         if (args[0] == "scan")
@@ -442,6 +443,18 @@ class Program
         if (args[0] == "ai")
         {
             Environment.Exit(AiProbe.Run(args.Length > 1 ? args[1] : ""));
+        }
+        // 🆕 **`tutorial <list|run|g3|pred>`**（`G5`，2026-10-26 · 第 5 轮）：**教程局读数口**。
+        //   🔴 为什么需要它：`F4_第4轮.md` §1·3 —— 15 条 B 里 **12 条 `AiScripted` 全卡在 G3（可观察量）**，
+        //   原话「落点全在 `CardPresentation/**` 或私有谓词上，`ruleprobe` 结构上读不到」。
+        //   本模式用**真实 6 关教程数据（462 条动作）**造一局真教程局，把「原版判据转写」与
+        //   「我们产品代码的实际返回值」**并排打出来**。
+        //   ⛔ 只读：不碰基线、不碰三个指纹、不改 `check`/`play`/`ai` 的任何输出。
+        //   ⚠️ 它**没有门禁**（`rc` 恒 0）：读数摆出来，判决归调度台（与 `play`/`ai` 同口径）。
+        if (args[0] == "tutorial")
+        {
+            Environment.Exit(TutorialProbe.Run(args.Length > 1 ? args[1] : "list",
+                                               args.Length > 2 ? args[2] : ""));
         }
         if (args[0] == "check" && !File.Exists(PoolPath)) { Console.Error.WriteLine("!! 找不到卡池：" + PoolPath); Environment.Exit(2); }
         int i = 0;
@@ -828,12 +841,18 @@ class Program
                     //    ⛔ 改前这里对**所有** role 一律丢 ⇒ 探针看不见 `G6` 新增的 131 行（`GOF4` 的结构化
                     //    `mult` 那条腿因此验不到）。⚠️ 这一行与引擎那份是**同一条规则的第二处** ——
                     //    引擎那格的 role 集合变了，这里要跟着改。
+                    //    🔴 **2026-10-26（批次 5 · `G3`）加第五个 `count`**：第三道闸
+                    //    `CardAbility.boardCriteria`（`+0x38`）的数据就挂在这行上（`countSet` / `opt` /
+                    //    `op` / `refValue`），判据 = `BoardAnalysis__MeetsCriteria.c:150-152`；引擎那份已同步
+                    //    （`CardDatabase.IsUnconditionalCriteriaRole`）。⛔ 不加这一档 ⇒ 池内 93 条会在这里
+                    //    被当坏数据丢掉、每次跑都印一条**假的**「93 条被丢弃」。
                     bool hasCond = e.TryGetProperty("cond", out var ucCvEl) && ucCvEl.ValueKind == JsonValueKind.Number;
                     if (!hasCond) { nBadUc++; continue; }
                     int ucCond = ucCvEl.GetInt32();
                     if (!CardDef.IsLegalUnitCondition(ucCond)) { nBadUc++; continue; }
                     if (ucCond == CardDef.ConditionNone
-                        && ucRole != "mult" && ucRole != "multi" && ucRole != "avail" && ucRole != "choice")
+                        && ucRole != "mult" && ucRole != "multi" && ucRole != "avail" && ucRole != "choice"
+                        && ucRole != "count")
                     { nBadUc++; continue; }
                     // ④ 同 `(ab, lg, role)` 重复 ⇒ 丢弃后出现的那条（先到的保留）。
                     string ucKey = ucAb + ":" + ucLg + ":" + ucRole;
@@ -1153,8 +1172,9 @@ class Program
             Console.WriteLine("⚠️ 卡池 `unitConditions` 有 " + nBadUc + " 条被丢弃（`role` 不认识 / 缺 `ab`·`lg` 键 / "
                               + "`cond` 缺键·为 none·不在枚举里 / 同 (ab,lg,role) 重复）—— 口径同 `CardDatabase.MapUnitConditions`。");
         Console.WriteLine("  unitConditions: 带行的卡 = " + nUcCards + " · 条 = " + nUcRows
-                          + "（原版 `TargetCriteria.conditionsFilter`；`mult`/`multi`/`avail`/`choice` 四格的"
-                          + " `cond = 0` 行**照收**（`G6` 起，与引擎同口径），其余 role 的 none(0) 省略"
+                          + "（原版 `TargetCriteria.conditionsFilter`；`mult`/`multi`/`avail`/`choice` 四格"
+                          + " ＋ 🆕 `count` 第五格（批次 5 `G3`，第三道闸的数据）的 `cond = 0` 行**照收**"
+                          + "（与引擎同口径），其余 role 的 none(0) 省略"
                           + " —— 判据 → 资料/普查产出_1022/W64_兜底审计_战斗.md B-16）");
         // 🆕 v16（`B-16` 的明确缺口）：`count` 行的**被数集合**（原版 `BoardCriteria.countCriteria` ＋ `playerTurn`）。
         if (poolVersion < 16)

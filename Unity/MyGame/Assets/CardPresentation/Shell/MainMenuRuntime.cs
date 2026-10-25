@@ -817,7 +817,7 @@ namespace CardPresentation
         /// `BuildNavigationPanel` 末尾那颗 **`Event Navigation Button`**（原版 prefab 真名）⇒
         /// `SetNavToggle(Event)` 现在真的会点亮它；点它 ⇒ `OnNavClick(5)` → `WindowsManager.OpenEventHub(Parent)`。
         /// ⚠️ **原版那一颗是「每个 live 事件一颗」**（`NavigationPanelController.BuildEventButtons` 按服务端
-        /// 事件 `Instantiate`）；本机**没有事件列表** ⇒ 本仓建**一颗**总入口钮（如实标，⛔ 不是原版的一对一映射）。</para></summary>
+        /// 🔶 自己设计（非原版）：只建一颗「活动」总入口钮 · 原版按服务端事件列表每事件一颗，本地没有事件列表 · TODO(谁定的)｜原注：事件 `Instantiate`）；本机**没有事件列表** ⇒ 本仓建**一颗**总入口钮（如实标，⛔ 不是原版的一对一映射）。</para></summary>
         public enum NavigationPanelToggleType { Main = 0, Collection = 1, Shop = 2, Rewards = 3, Social = 4, Event = 5 }
 
         // ============================================================ 🔴 **2026-10-24（用户口径）：左竖导航暂时只留两颗**
@@ -2368,7 +2368,7 @@ namespace CardPresentation
         ///      三张可见的卡 y `150..880`（**730/950 × 1080 = 830**）、宽 `420/1568 × 1920 = 514`
         ///      ⇒ **514×830 ≈ 535×848.8 = 1×2** ✓，且第四张在右缘被切（**原版就是横滚、切是对的**）。
         /// ⚠️ **原版「哪个模式用 1×1 / 哪个用 1×2」是 liveop 服务端数据**（本地查不到，§九 9·3 明写
-        ///    「别自己编一套映射」）⇒ 我们这五张选哪一档**本来就是我们自己定的**；选 1×2 是为了与实拍同形。
+        /// 🔶 自己设计（非原版）：五张模式卡统一取 1×2 档 · 原版哪个模式用哪档是 liveop 服务端数据 · TODO(谁定的)｜原注：「别自己编一套映射」）⇒ 我们这五张选哪一档**本来就是我们自己定的**；选 1×2 是为了与实拍同形。
         /// ⛔ `CardH`（1×1）**别删** —— 原版那一档真实存在（`Reward Event Container 1x1` / `1x1 Claim`），
         /// `BuildModeCard` 两条路都留着，将来接 liveop 数据时要按数据选档。</summary>
         const float CardHTall = 848.8f;
@@ -3287,7 +3287,7 @@ namespace CardPresentation
         // ⚠️ **几何复核**：六个卡内坐标用**归一化比值**验过一遍（避开「卡被竖向拉高」这个未定缩放）——
         //    参考图那排实测卡内 **0.790~0.863**，`steps` 带的设计值 **0.759~0.861** ⇒ **吻合**。
 
-        /// <summary>那一排的**兜底颗数**。🔴 **这不是原版常数** —— 原版来自远端 `RankedDivisionV2.TotalSeals`
+        /// 🔶 自己设计（非原版）：印玺排兜底颗数 · 原版来自远端 `RankedDivisionV2.TotalSeals` · TODO(谁定的)｜原注：<summary>那一排的**兜底颗数**。🔴 **这不是原版常数** —— 原版来自远端 `RankedDivisionV2.TotalSeals`
         /// （由 `ConfigManager.GetConfig<>()` 构造），本地拿不到（判据 → 本段上方）。
         /// ⚠️ **自检别拿这个常量当期望值**（那是同式自证）—— 期望值写死 `4` 并把上面那条判据引上。</summary>
         public const int RankedSealFallbackCount = 4;

@@ -28516,9 +28516,9 @@
     {
      "name": "BigExplosion",
      "pos": [
-      46.409104,
-      45.817358,
-      0.227474
+      76.515736,
+      21.656537,
+      28.161739
      ],
      "parent": "Scenario/Battle Arena 2 Particles/RocketTrail",
      "parentPos": [
@@ -28544,9 +28544,9 @@
     {
      "name": "Embers",
      "pos": [
-      96.509416,
-      7.088971,
-      46.70403
+      96.503757,
+      6.205459,
+      46.704029
      ],
      "parent": "Scenario/Battle Arena 2 Particles/RocketTrail",
      "parentPos": [
@@ -28558,9 +28558,9 @@
     {
      "name": "Twinkle",
      "pos": [
-      113.658155,
-      7.509143,
-      40.635138
+      103.345417,
+      6.373091,
+      44.282784
      ],
      "parent": "Scenario/Battle Arena 2 Particles/RocketTrail",
      "parentPos": [
@@ -28572,9 +28572,9 @@
     {
      "name": "Fire Small",
      "pos": [
-      96.461551,
-      10.859356,
-      46.737595
+      96.48466,
+      7.709692,
+      46.71742
      ],
      "parent": "Scenario/Battle Arena 2 Particles/RocketTrail",
      "parentPos": [
@@ -28586,9 +28586,9 @@
     {
      "name": "Launch Smoke",
      "pos": [
-      96.518085,
-      6.118894,
-      46.744837
+      96.507215,
+      5.818438,
+      46.72031
      ],
      "parent": "Scenario/Battle Arena 2 Particles/RocketTrail",
      "parentPos": [

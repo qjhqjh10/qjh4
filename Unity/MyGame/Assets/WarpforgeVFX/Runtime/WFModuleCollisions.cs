@@ -37,6 +37,21 @@
 //   ⑤ 还有一个 `UpdateTargetCollisionPlanePosition(plane, actingT, targetT)`：与 ② 的 `GenericTarget` 分支
 //      **同一条公式的独立刷新版**。⚠️ 反编译集里**只有它的定义、没有调用点**（是不是废弃的没验证）
 //      ⇒ 本类**不带它**（块1 §6 已记这条「未验证」）。
+//      🔴 **2026-10-26（批次 6 · G12）已查清：它是【死代码】，本类不带它是正确的 —— 别再「补」它。**
+//        判据（四条，都现读）：
+//          ① 声明是 `private unsafe void`（`cpp2il/out_cpp2il_dev_ilspy/AnimFXModuleCollisions.cs:488`）——
+//             同文件的 `CollisionAndParticles` **没有** `Update` / `LateUpdate` / `FixedUpdate`（全类只有
+//             `Initialize` / `UpdateTargetCollisionPlanePosition` / `.ctor`）。
+//          ② 全量反编译 **25,096 个 `.c`** 里，这个名字只出现在**它自己**的产物
+//             `decomp_full/AnimFXModuleCollisions.CollisionAndParticles__UpdateTargetCollisionPlanePosition.c`，
+//             **0 个调用点**（`grep -rl` 命中的文件数 = 1）。
+//          ③ `assets_full` 全库 **0 处**把这个方法名写进 `m_MethodName`（UnityEvent 挂不上 private 方法，
+//             但 `SendMessage` 那类字符串调用也一并排除）。
+//          ④ 方法体本身只是 ② 那段 `dir = acting.position − target.position; up = normalize(dir);
+//             position = target.position` 的复写（`.c:15-49` 逐句），**没有任何「每帧跟着卡动」的调度**。
+//        ⇒ 上一轮 G1 把它判成「真缺口：原版每帧跟着卡动，我们只在 `Initialize` 摆一次」—— **那条不成立**
+//          （没有任何东西每帧调它）。**账上这一条应判 D（死代码），不是 C。**
+//        ⚠️ 如果将来真要做「目标卡移动时平面跟随」，那是**新行为**，不是复刻 —— 别挂在这个方法名下。
 //
 // ---- 我们自己定的（逐条在代码里也标着）----
 //   A. **两个下游钩子**（不接就报，不静默）：

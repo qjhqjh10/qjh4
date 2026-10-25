@@ -171,7 +171,7 @@ namespace CardPresentation
         /// <summary>`ContentSizeFitter.m_HorizontalFit = 1 (MinSize)` · `m_VerticalFit = 0` ⇒ **最小宽 120**。</summary>
         public const float MinContentW = 120f;
 
-        /// <summary>🔴 **我们挑的**：一个奖励物品格的尺寸。原版这里是 `ItemDrawer.Draw` 从 `ItemDrawerConfig`
+        /// 🔶 自己设计（非原版）：奖励物品格 `ItemW = 200 / ItemH = 300` · 原版尺寸在抽屉 prefab 里（原版判据拿不到） · TODO(谁定的)｜原注：<summary>🔴 **我们挑的**：一个奖励物品格的尺寸。原版这里是 `ItemDrawer.Draw` 从 `ItemDrawerConfig`
         /// 取的**抽屉 prefab**，尺寸在 prefab 里（那批 prefab dump 得出来，但**照它改版式**是另一件待做的活
         /// —— 见 `Shell/ItemDrawer.cs` 文件头 ②）⇒ 与我们别处同一口径取 **200×300**
         /// （判据只有「视口 632.53 高、`padT 30 / padB 50` ⇒ 可用 552.53，300 放得下」）。

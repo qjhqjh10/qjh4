@@ -1234,6 +1234,12 @@ public static partial class RuleEngineTest
         Step(TestR11Option35BaseInsideMultiplier);
         Step(TestR11ArmourIgnoredInDamageScore);
 
+        // 🆕 2026-10-26（批次 4 · 执行代理 `F4`）：`E4` 那 6 处真实行为改动里**零断言保护**的三处。
+        //   判据 = `decomp_full/AI__ScoreFromStun.c` / `AI__TweakAvailableActions.c` /
+        //          `AI__ScoreFromBuffedAttack.c:41-80`。测试体在**本文件末尾**（同一 partial 类）。
+        Section("🆕 B4 · AI 判别式（ScoreStun 四档 · Tweak 多轮重扫重掷 · ambush 反击常数 4）");
+        Step(TestB4AiDiscriminants);
+
         // 🔴 **`Run()` 自己的「静默少跑」闸**（`A1591`）—— 必须在【汇总】之前跑，
         //    否则它的 `Check` 不计进 `_pass/_fail`（汇总行会漏掉它）。
         // ⚠️ **故意缩进深一层**：`工具/gen_diag_runner.py` 只把「**8 空格缩进的顶层语句**」当用例
@@ -6033,13 +6039,24 @@ public static partial class RuleEngineTest
             CheckTrue(same[0].HandEffects[0].RecordId != same[0].HandEffects[1].RecordId,
                       "★ 两条的 `RecordId` **不同**（= 两次挂载 = 两个记录）");
 
-            // 后进手牌的那一份 ⇒ **两条都该补给它**
-            Check(RuleCore.SetupCardInHand(ctx, 0, same[1]), 2,
-                  "★ 后进手牌那份**补到 2 条**（两条记录各一条）—— "
-                  + "🔴 判别力：登记表用「来源 + 载荷」字符串键去重的写法**在这条上实得 1** ⇒ 红");
-            Check(same[1].HandEffects.Count, 2, "……而且那 2 条真的落在它自己身上");
+            // 后进手牌的那一份 ⇒ **只补到 1 条**（🔴 **1 才是原版值**）
+            // 🔴 **2026-10-26（`E11` · 诊断 `D1` #8~#11）就地订正（铁律 5）**：本行原来期望 **2**
+            //   （=「登记表两条记录各补一条」）—— **那个期望是错的**。判据：
+            //   原版 `PlayerHand__SetupCardInHand.c:58-71` 是
+            //     `if (!CardScript.AlreadyContainsEffect(card, handEffect.cardEffect)) AddEffect(...)`；
+            //   而 `CardEffect__IsSameEffect` 比的是**字段值**（`buffType` / `enchantingCard` /
+            //   五个 `until*` / `+0x48..0x70` 的数值）—— **没有记录号、没有 `numberOfUses`**
+            //   ⇒ 两条字段完全相同的记录里，**第二条被挡掉**。
+            //   我们这一侧 `EffectResolver.AttachHandEffectCopy`（`:5560-5561`）的 `IsSameHandEffect`
+            //   逐字段比**恰好就是原版那条闸** ⇒ 这 4 条**换哪种去重口径都红**，必须改断言。
+            //   ⚠️ **`RecordId` 去重 ≠ `AlreadyContainsEffect`**：前者回答「是不是同一次挂载」
+            //   （`RuleCore.HandEffectRegistry`，`:10585-10603`，⛔ 不许动），后者回答「字段是不是一样」。
+            Check(RuleCore.SetupCardInHand(ctx, 0, same[1]), 1,
+                  "★ 后进手牌那份**补到 1 条**（原版 `AlreadyContainsEffect` 逐字段比 ⇒ 第二条字段相同的被挡掉）"
+                  + "｜🧨 把这道闸放宽（退回去不按字段去重）⇒ 这里实得 2 ⇒ 红");
+            Check(same[1].HandEffects.Count, 1, "……而且那 1 条真的落在它自己身上");
 
-            // 再补一次 ⇒ **一条都不该多**（原版 `CardScript.AlreadyContainsEffect`，按记录认）
+            // 再补一次 ⇒ **一条都不该多**（原版 `CardScript.AlreadyContainsEffect`，**按字段**认）
             // 🔴 2026-10-18（`WE` · 就地订正，铁律 5）：**这条在改夹具之前是「假绿」** ——
             //    那时三档 criteria 一起判不出来，`HandEffectFits` 一律拒（`Core/RuleCore.cs` 的
             //    `if (crit == null && !hasSubtype) { loose = true; return false; }`）
@@ -6047,24 +6064,24 @@ public static partial class RuleEngineTest
             //    「整条消费者链一次都没工作」（`DB_手牌效果登记6红.md` §6.2 点名的就是它）。
             //    补上 `unitCrit` 之后，它**才第一次真的**在判幂等。
             //    🧨 **判别力（两侧各一处，缺一不可）**：
-            //      · 上一句「后进手牌那份**补到 2 条**」刚实测 `== 2` ⇒ 消费者确实工作过；
-            //      · 把 `AttachHandEffectCopy` 按 `RecordId` 去重的那两句删掉
-            //        （`EffectResolver.AttachHandEffect` 的签名 —— `dedupSamePayload`）⇒ **这里实得 2** ⇒ 红。
+            //      · 上一句「后进手牌那份**补到 1 条**」刚实测 `== 1` ⇒ 消费者确实工作过；
+            //      · 把 `AttachHandEffectCopy` 里 `IsSameHandEffect` 那道闸删掉 ⇒ **这里实得 1** ⇒ 红。
             //    ⛔ 别只留这一句 —— 单看它，`SetupCardInHand` 恒 `return 0` 时它照样绿。
             Check(RuleCore.SetupCardInHand(ctx, 0, same[1]), 0,
-                  "★ 再补一次是**幂等**的（原版 `AlreadyContainsEffect` 按记录认）；"
-                  + "🔴 它只在与上面那条「补到 2 条」**成对**时才判得出（单看它容得下「恒 0」）");
-            Check(same[1].HandEffects.Count, 2, "……条数没变");
+                  "★ 再补一次是**幂等**的（原版 `AlreadyContainsEffect` 按字段认）；"
+                  + "🔴 它只在与上面那条「补到 1 条」**成对**时才判得出（单看它容得下「恒 0」）");
+            Check(same[1].HandEffects.Count, 1, "……条数没变");
 
-            // 兑现：两份的 +1 各跑一遍 ⇒ 打出后是 2 + 2 = 4 攻
+            // 兑现：那一份的 +1 跑一遍 ⇒ 打出后是 2 + 1 = 3 攻
             int i0 = -1;
             for (int i = 0; i < ctx.Players[0].Hand.Count; i++)
                 if (object.ReferenceEquals(ctx.Players[0].Hand[i], same[1])) { i0 = i; break; }
             CheckCode(RuleCore.PlayCard(ctx, 0, i0, 3), RuleCodes.OK, "把补过效果的那一份打出去");
             var u = Board(ctx, 0, 3);
-            CheckTrue(u != null && u.Attack == 4,
-                      "★ **端到端**：打出后 **2 → 4 攻**（两条记录各 +1 = 真·叠加）—— "
-                      + "被压成一条的写法这里实得 3" + LogTail(ctx, 6));
+            CheckTrue(u != null && u.Attack == 3,
+                      "★ **端到端**：打出后 **2 → 3 攻**（只有一条记录生效 ⇒ +1）—— "
+                      + "🔴 **3 才是原版值**（原版 `AlreadyContainsEffect` 那一步会挡掉字段重复的第二条）；"
+                      + "被放宽成「两条都补」的写法这里实得 4" + LogTail(ctx, 6));
         }
 
         // ==================================================================
@@ -15865,13 +15882,18 @@ public static partial class RuleEngineTest
             var kinds = new List<string>();
             foreach (EvtKind k in System.Enum.GetValues(typeof(EvtKind))) kinds.Add(k.ToString());
             // 🔴 **2026-10-24（引擎线 `G1b` · `C2` §6）**：18 → **19**（新增 `StatusApplied`）。
-            Check(kinds.Count, 19, "`EvtKind` 现在 **19** 种"
-                                 + "（18 + `StatusApplied`（`G1b` · `C2` §6：关键词再次施加））"
+            // 🔴 **2026-10-26（`E11` · `D1` #3）**：19 → **20**（新增 `TraitRemoved`（`E1` 第四段 · W9））。
+            Check(kinds.Count, 20, "`EvtKind` 现在 **20** 种"
+                                 + "（19 + `TraitRemoved`（`E1` 第四段 · W9：关键词被摘掉，"
+                                 + "`Expiring State` 那一支靠它）"
+                                 + " + `StatusApplied`（`G1b` · `C2` §6：关键词再次施加））"
                                  + " —— 🔴 **加新事件时同步改这一条**：它是「事件表」的护栏"
                                  + "（`BattleEvent.cs` 头写着「少而稳定」）");
             CheckTrue(kinds.Contains("Draw") && kinds.Contains("AmbushExit") && kinds.Contains("SecretOrder")
-                      && kinds.Contains("Heal") && kinds.Contains("Retaliation") && kinds.Contains("StatusApplied"),
-                      "★ 新事件都在表里（`Draw` / `AmbushExit` / `SecretOrder` / `Heal` / `Retaliation` / `StatusApplied`）");
+                      && kinds.Contains("Heal") && kinds.Contains("Retaliation") && kinds.Contains("StatusApplied")
+                      && kinds.Contains("TraitRemoved"),
+                      "★ 新事件都在表里（`Draw` / `AmbushExit` / `SecretOrder` / `Heal` / `Retaliation`"
+                      + " / `StatusApplied` / `TraitRemoved`）");
 
             // 「今天没有任何一处会发它」—— 跑几个回合问一遍。
             // ⚠️ **这一条不是行为断言、是记账**：🔴 **2026-10-19 第五十五会话 `E3` 订正（铁律 5）**：
@@ -16792,8 +16814,52 @@ public static partial class RuleEngineTest
                 CheckTrue(rem != null && rem.IsRemnant, "★ 它翻面成残骸（留在格位上，不是进弃牌堆）");
                 CheckTrue(rem != null && rem.Has("shield"),
                           "★ **常驻效果真的响了** —— 残骸拿到 Shield"
-                          + "（卡面 `when a friendly troop becomes a Remnant it gains Shield`）");
+                          + "（卡面 `when a friendly troop becomes a Remnant it gains Shield`）"
+                          // 🔴 **2026-10-26（`E11` · 诊断 `D1` #1）探针读数（期望值**未**改）**：
+                          //   离屏探针 `_tmp_view/e11/`（(a) 解析层 + (b) 登记层 + (c) 广播层全量跑过）
+                          //   实测：解析出 `Verb=persist` / `When.Kind=becomesremnant`（✅）·
+                          //   `ctx.PersistentEffects.Count = 1`（✅）·
+                          //   日志 `—— 事件「becomesremnant」触发**常驻效果**`（✅）——
+                          //   **但这一项 `shield` 被 `AddEffect` 闸③ 残骸门拦下**：
+                          //   「只收「生命增减」与 `addTraitRemnant`」（`EffectResolver.cs:11065/11110-11128`，
+                          //   判据 `CardScript__AddEffect.c:159-170`：`isRemnant(+0x65)` ⇒ 只放
+                          //   `buffType==1`（且带 healthChange）与 `0x5a`）。
+                          //   ⇒ **两条各自都忠实的东西撞上了**：闸③ 是照原版抄的；
+                          //   `becomesremnant` 广播是我们**自设计**的（见 `RuleCore.cs:9521-9527` 的如实标注），
+                          //   而残骸结构上收不了 `addTrait(shield)` ⇒ 这条**待调度台裁定**（不是回归：
+                          //   10-24 基线绿是因为闸③ 10-25 才进仓）。
+                          //   ⛔ 别为了让这条变绿去删/放宽闸③（那是把原版语义改坏）；
+                          //   ⛔ 也别把期望值改宽（那等于丢掉「到底有没有生效」）。
+                          //   ✅ **2026-10-26（批次 4 · `F2`）：已修（期望值一字未动）** ——
+                          //     根因不是闸③，是**投递类型**这一维缺失：原版下的是 `buffType 90
+                          //     addTraitRemnant`（附魔 SO `path -5318231028992627218`），我们下的是
+                          //     `addTrait(3)`。现由 `EffectOp.AddTraitRemnant`（解析期只在
+                          //     `When … becomes a Remnant` 那一支置位）→ `ApplyOneGain` → 闸③；
+                          //     **闸③ 的判据本身一字未动**，反例见下一块 ①-b。
+                          + LogTail(ctx, 8));
             }
+        }
+
+        // ---------- ①-b 闸③ 残骸门的**反例**（灭自证；`F2` 2026-10-26 批次 4） ----------
+        //  🔴 为什么要有这一块：`SAU53` 上面那条要变绿，**只允许**通过「投递类型 = 原版
+        //     `buffType 90 addTraitRemnant`」这一条路（`EffectOp.AddTraitRemnant` → `ApplyOneGain`
+        //     → 闸③）。若有人为了让别的卡绿而去**放宽闸③**（例如「凡关键词授予都放行」），
+        //     下面第一、二条**必红** —— 那就把「补一个投递类型」变成了「拆掉原版的一道闸」。
+        //  判据（第一权威）：`CardScript__AddEffect.c:159-170` —— `isRemnant` 时**只**放
+        //     `buffType == 1 addStats` 且 `healthChange != 0`，或 `buffType == 0x5a addTraitRemnant`。
+        //  ⚠️ 纯判据入口 = `RuleCore.RemnantDoorAllowsForTest`（无 ctx / 无状态 / 无日志，
+        //     调的是与产品路径**同一个** `RemnantDoorAllowsCore`）。
+        {
+            CheckTrue(!RuleCore.RemnantDoorAllowsForTest(true, null, 1, false),
+                      "★ 闸③ 反例：**普通**关键词授予（非 `addTraitRemnant`）在残骸上**仍被拒**"
+                      + "（`give Shield` 不是 `buffType 90`）");
+            CheckTrue(!RuleCore.RemnantDoorAllowsForTest(false, "attack", 1, false),
+                      "★ 闸③ 反例：**非生命**的属性增益在残骸上**仍被拒**（`+1 melee`）");
+            CheckTrue(RuleCore.RemnantDoorAllowsForTest(false, "health", 1, false),
+                      "闸③ 正例：**生命**增益在残骸上放行（`+1 health`）");
+            CheckTrue(RuleCore.RemnantDoorAllowsForTest(true, null, 1, true),
+                      "闸③ 正例：**投递类型 = addTraitRemnant** 时关键词授予放行"
+                      + "（上面的 `SAU53` 那条走的就是它）");
         }
 
         // ---------- ② `ASH48 Cosmic Serpent`：触发所有部队的灵魂石能力，**不付石** ----------
@@ -24310,10 +24376,16 @@ public static partial class RuleEngineTest
         Check(ctx.Players[0].Deck.Count, deck1, "牌库张数也不变（弃回 2 + 抽回 2）");
         Check(CardsSignature(ctx, 0), before, "**牌一张不多一张不少**（手牌+牌库+弃牌堆的签名不变）");
 
-        // 越界/重复的下标：忽略，不报错也不重复删
+        // 越界的下标 ⇒ **整批拒绝**（🔴 2026-10-26 `G21` 订正：`F1` 起改成「一条不合法就一条都不换」，
+        //   改前是逐张跳过 ⇒ 返回 1。判据 = `PlayerHand__CheckIfMulliganCardsCorrect.c:29-78`：
+        //   找不到那张牌 ⇒ `LogError` + `return false`，两个调用方看到 false 就**一个字都不改**。）
         int m = RuleCore.Mulligan(ctx, 0, new List<int> { 0, 0, 99, -1 });
-        Check(m, 1, "重复下标只算一次、越界下标被忽略（换掉 {0,0,99,-1} → 实际 1 张）");
+        Check(m, -1, "越界下标 ⇒ **整批拒绝、一张不换**（换掉 {0,0,99,-1} → 返回 -1）");
         Check(CardsSignature(ctx, 0), before, "……牌还是不多不少");
+        // 「重复下标只算一次」这条口径**另钉**一条（唯一合法的那一半）：原版按 `uniqueInGameID`
+        // 扫整份手牌 ⇒ 重复天然幂等；我们去重（`RuleCore.MulliganCollectIndices`）。
+        Check(RuleCore.Mulligan(ctx, 0, new List<int> { 0, 0 }), 1,
+              "重复下标只算一次（换掉 {0,0} → 实际 1 张）");
 
         // 空列表 = 不换（原版「什么都不选直接继续」就是这个）
         Check(RuleCore.Mulligan(ctx, 0, new List<int>()), 0, "空列表 → 换 0 张（合法，不是错误）");
@@ -24714,9 +24786,15 @@ public static partial class RuleEngineTest
             Place(dctx, 1, 5, Unit("Big", 3, 0, 40));
             float sKill = AiScorerHook.Scorer.ScoreAttack(dctx, 0, 3, 3, false);
             float sHurt = AiScorerHook.Scorer.ScoreAttack(dctx, 0, 3, 5, false);
-            CheckTrue(System.Math.Abs(sKill - 7f) < 1e-3f,
-                      $"★ 打死 3 费小兵 = 卡价值 2×3+1 = **7**（实得 {sKill:0.###}）"
-                      + "（原版 `ScoreFromDamagingBuffedUnit` 致死那一支）");
+            // 🔴 **2026-10-26（`E11` · 诊断 `D1` #4）就地订正（铁律 5）**：期望从 **7** 改成 **7.1**。
+            //   原版 `AI__ScoreFromBuffedAttack.c:55-75`：卡价值那一笔 **7** 之后还有一笔
+            //   `if (thisCard.health > tgtDmg) s += 0.1f;`（`:71-75`）—— 夹具里攻方 10 血、守方 0 攻
+            //   ⇒ 反击 0、攻方存活 ⇒ **+0.1**。改前写 7 = 只算了卡价值、漏了存活奖励。
+            //   ⚠️ E4 的改动（`SimpleAI.cs:606-628`）是照 `.c` 逐句核过的**忠实改动** —— E4 不是缺陷，勿回滚。
+            CheckTrue(System.Math.Abs(sKill - 7.1f) < 1e-3f,
+                      $"★ 打死 3 费小兵 = 卡价值 2×3+1 = **7** ＋ 存活奖励 **0.1** = **7.1**（实得 {sKill:0.###}）"
+                      + "（原版 `ScoreFromDamagingBuffedUnit` 致死那一支 + `ScoreFromBuffedAttack` 的 `+= 0.1f` 闸，"
+                      + "判据 `AI__ScoreFromBuffedAttack.c:71-75`）");
             CheckTrue(sHurt > 0f && sHurt < sKill,
                       $"★ 同一刀「打不死」的分更低（{sHurt:0.###} < {sKill:0.###}）"
                       + "（原版未致死 = 卡价值 × 0.6 × 实际伤害 / 血上限）");
@@ -28462,8 +28540,14 @@ public static partial class RuleEngineTest
         //    「技能分 vs 同一目标的平A分」。督军那一档由下面的 ⑤ 单独验。
         var brute = AiAbilityDamageCard("Brute", 3, 2, 5, includeHero: 0);
         var ctx2 = ToP2TurnWith(brute);
-        Place(ctx2, 0, 3, Unit("Prey", 1, 0, 5));
-        CheckTrue(SimpleAI.NextAbility(ctx2, out s, out t), "2 攻打 2 伤技能 → 放技能");
+        // 🔴 **2026-10-26（`E11` · 诊断 `D1` #5）夹具订正**：`Prey` 的攻击从 **0 → 1**。
+        //   0 攻时平A**完全不吃反击罚分**（`ScoreDamaging(Brute, 0)`），而 2 伤技能是 0.72
+        //   ⇒ 平A（0）反而赢了技能 ⇒ 本组该红。给守方 1 攻：平A = 0 − `ScoreDamaging(Brute,1)` = **−0.02**，
+        //   技能仍是 0.72（技能不吃反击）⇒ 保住原意「伤害持平 ⇒ 技能不吃反击所以更优」。
+        //   ⚠️ E4 的改动（`SimpleAI.cs:1911-1940` 的 `ownAttack > a.Score`）是照 `.c` 逐句核过的
+        //   **忠实改动** —— E4 不是缺陷，勿回滚（#6/#7 是同一根因的级联，⛔ 不单独改）。
+        Place(ctx2, 0, 3, Unit("Prey", 1, 1, 5));
+        CheckTrue(SimpleAI.NextAbility(ctx2, out s, out t), "2 攻打 2 伤技能 → 放技能（守方 1 攻 ⇒ 平A 要吃反击罚分）");
         Check(t, 3, "目标是对面那个单位");
         CheckCode(RuleCore.UseAbility(ctx2, 1, s, t), RuleCodes.OK, "放得出来");
 
@@ -29480,6 +29564,11 @@ public static partial class RuleEngineTest
             { "DoReanimate",     "③ 再造（残骸翻回）" },
             { "PlaceTroops",     "④ 教程起始单位（不吃召唤病；专用钩子 ActivateTraitsOnSummonOrEnchantment）" },
             { "CleanupDeaths",   "特例：残骸翻面（写死 Exhausted=true，不是新入场）" },
+            // 🆕 **2026-10-26（`G21` · 批次 5 `F2`）**：目标池预览那一支只会造一个**临时 `UnitState`**
+            //   交给 `GetTargets` 数个数，用完即弃 —— **不落棋盘、不发召唤事件、不走部署钩子**
+            //   （判据 → `EffectResolver.PlayTargetPoolAsIfDeployed` 的方法体）。
+            //   ⛔ 别把这一条改成黑名单 / 让扫描跳过它：将来「真**落地**」的新入口还是要被这张表拦下来。
+            { "PlayTargetPoolAsIfDeployed", "F2 预览支：临时 UnitState 算目标池，不落地" },
         };
 
         var found = new SortedDictionary<string, string>();   // 方法名 → 文件:行（取第一处）
@@ -35378,10 +35467,14 @@ public static partial class RuleEngineTest
     //     的行也**照落**（`cond = 0`；判据 → `工具/gen_cards_engine.py` 的 `CONDITION_ROLES_OPTIONAL_COND`
     //     ＋ `criteria_carries_targets`，`targetsAffected == 0 (any)` 不带「数谁」的信息 ⇒ 仍不落）。
     //     行格式 `ab,lg,role,cond,ex[,opt,op,refValue]`（`count` 才带后三格），卡内**按字符串序**排、`;` 连接。
-    //     ⚠️ 表只收**在池内**的卡（现读 **285 张 / 349 条**；`G6` 改前 = 167 张 / 218 条）。
+    //     ⚠️ 表只收**在池内**的卡（现读 **328 张 / 442 条**；🔴 **2026-10-26（`G21` · 批次 5 `G3` 改口径）**：
+    //        `role == "count"` 的行在 `conditionsFilter == 0` 时**只要第三道闸还用得上就照落**
+    //        （判据 → `工具/gen_cards_engine.py` 的 `count_row_carries_board_info`）⇒ 表由 285/349 长到
+    //        328/442，新增的 43 张 / 93 条**全部**是 `role=count / cond=0` 行（逐条核过，0 处其它变化）。
+    //        `G6` 改前 = 167 张 / 218 条）。
 
     /// <summary>🆕 `W64`：`unitConditions` 的逐卡真值（`id|` + 上面那种行串）。</summary>
-    static readonly string[] W64ConditionsTruth =
+        static readonly string[] W64ConditionsTruth =
     {
 "09bcb1b3b8794c4429d82d4b2e68fa1f|-3,-1,choice,0,0;-3,0,nontarget,10,0",   // Path of the Seer
 "141c5ed661a9e42bd9a793f0d2a1c682|-3,-1,choice,0,0",   // Unhallowed Gifts
@@ -35389,34 +35482,41 @@ public static partial class RuleEngineTest
 "1ff4815a506d2f34e94ec2f50900d352|1,-1,target,220,0",   // Efficiency and Excellence
 "20d0f4451f16fc441836a02f99bf77da|-3,-1,avail,0,0",   // Da Red Waaagh
 "27a4b748a7bf358499f038aa09895ead|-3,-1,cardtarget,340,0",   // Reanimate
+"315d9f293e4f56d4f813584b43f0511c|0,-1,count,0,0,0,2,1;1,-1,count,0,0,0,1,0",   // Exhortation of Rage
+"334a32d196d46ed4387bf3740cce069b|0,-1,count,0,0,0,0,0",   // Improvised Barricade
 "33eabec155f628440a426a4ba480ec24|-3,0,nontarget,10,0",   // Wrath of Khaine
 "38871853fabb5244d8148766829230cd|0,1,mult,0,0",   // Refuse to Yield
 "3a52026b99bb56f40aa9dc130fc66f34|-3,0,nontarget,341,1",   // Cadian Honour
+"3ebb159036778d14ebd1c48451aa6ca0|0,-1,count,0,0,0,0,0;1,-1,count,0,0,0,0,1",   // Greatest Warboss
 "40667e346ae58a84dbda1033dff70ccb|-3,-1,choice,0,0",   // Author of the Codex
 "468db99b4b10d0745bab346df37d3fb2|-3,-1,cardtarget,40,0",   // Feeding Frenzy
 "4959cd9e99597f74ca9af0bd65ae6307|-3,-1,choice,0,0",   // Experimental Bio-Horrors
 "4cdc1b5f965f99945b685bca7660e9fa|1,-1,target,220,1",   // Exemplar of Hate
 "4d348cff71208c24d8e39252d913ff9d|-3,-1,choice,0,0",   // Hymn of Battle
-"4de4fcfb5d7e0554a88b9f419a2cd7c2|-3,-1,choice,0,0",   // Angel's Wrath
+"4de4fcfb5d7e0554a88b9f419a2cd7c2|-3,-1,choice,0,0;0,-1,count,0,0,0,3,1;1,-1,count,0,0,0,2,2",   // Angel's Wrath
 "507f79fa60945d04e93fe806aca912b7|-3,-1,cardtarget,276,0",   // Deploy Anchors
-"508002f5d7ee54f4686aefa2e6adce41|-3,-1,avail,0,0",   // Wreckin' Ball
+"508002f5d7ee54f4686aefa2e6adce41|-3,-1,avail,0,0",   // Wreckin Ball
 "61046837c330b48978b4af5201230b6e|-3,0,nontarget,10,0",   // Helspear Assault
 "64a657fc5ed5bbb4fa7b585cf29c1e95|1,-1,target,220,1",   // Da Bigger Dey Iz...
 "65b2be828179515458a282cf1b027182|-3,-1,choice,0,0",   // Indomitable Will
 "67adbc7f7bce2bd4c8f6937fab3134e5|-3,0,nontarget,10,0",   // Flickerjump
+"68909cf02f472734ea391665e0d28e15|0,-1,count,0,0,0,0,0;1,-1,count,0,0,0,0,0",   // Jammed Communications
 "6ed51d59b9f8ea24ab0dc7ceaef7956c|-3,-1,choice,0,0",   // Duelist's Hubris
 "70199b6f183ec364082ca16e62f3d0cb|-3,0,targetscore,10,0",   // Heliotrophos
 "708c0306e73fd494eb0f718ddaeea48a|1,0,target,40,0",   // Smothering Decree
 "7bf8ce67fb6be4744ae44345a5b465fd|-3,0,nontarget,10,0",   // Diabolic Strength
+"7c666a04c1b9e8b4e9a96247e9fe115a|0,-1,count,0,0,0,0,0;1,-1,count,0,0,0,0,0",   // Cult Propaganda
 "8425b809e9e64e24f9035f709f5aaee4|-3,0,nontarget,10,0",   // Worst Temper
-"8482077f309b08943b190f18b5874871|-3,-1,choice,0,0",   // Catechism of Death
+"8482077f309b08943b190f18b5874871|-3,-1,choice,0,0;0,-1,count,0,0,0,3,2;1,-1,count,0,0,0,2,3",   // Catechism of Death
 "851f73daf747eb642934a16429b391db|1,0,target,220,1",   // Storm of Silence
 "8f2da557fe484ee4bbf427c13eccd4cb|-3,-1,cardtarget,40,0;0,2,mult,0,0",   // Alpha Warrior
+"8f35df0536e4f7e4d86f3885e2597404|1,-1,count,0,0,0,2,1",   // Dok’s Toolz
 "98d3c65702746b04baf7f5ead1a9e507|-3,-1,avail,0,0",   // Ramshackle
 "9c3562ffa183ede41b1626d9c9dc1e2f|-3,0,nontarget,10,0",   // Path of Command
 "9dcbe3d0c04b02f4fbb19974ae0e37b2|-3,-1,avail,0,0;-3,-1,choice,0,0",   // Mekaniak
 "9f4e1b7ea9f00da458c6a859a4e958c8|-3,-1,avail,0,0",   // More Dakka
-"AM18|0,-1,multi,0,0;0,0,target,220,1",   // Master of Ordnance
+"AM18|0,-1,count,0,0,0,0,0;0,-1,multi,0,0;0,0,target,220,1",   // Master of Ordnance
+"AM19|0,-1,count,0,0,0,1,0",   // Attilan Rough Rider
 "AM21|0,0,target,40,0;1,0,target,40,0",   // Tech-Priest Enginseer
 "AM32|0,0,target,220,1",   // Leman Russ Tank
 "AM4|-3,-1,choice,0,0",   // Faeburn Vanquisher
@@ -35425,14 +35525,18 @@ public static partial class RuleEngineTest
 "AM47|-3,0,nontarget,341,1",   // Press the Attack
 "AM52|-3,-1,choice,0,0",   // Armoured Squadron
 "AM53|0,0,target,220,1",   // Artillery Strike
+"AM54|1,-1,count,0,0,0,1,1",   // At All Costs
 "AM6|0,0,target,220,1",   // Ratling
 "AM61|0,0,target,220,1",   // Defence Batteries
 "AM62|-3,-1,choice,0,0",   // Munitorum Supplies
 "AM67|0,0,target,220,1",   // Aquilon Servo-Sentry
 "AM69|0,0,target,220,1",   // Tempestor Sergeant
 "AM75|1,-1,target,220,0",   // Valkyrie Drop
+"AM76|0,-1,count,0,0,0,1,0;1,-1,count,0,0,0,2,1",   // Armoured Lightning
 "AM8|0,0,target,40,0;1,0,target,40,0",   // Cadian Medic
 "AM9|0,0,target,220,1",   // Kasrkin
+"ASH25|0,-1,count,0,0,0,0,0",   // Warlock Skyrunner
+"ASH28|0,-1,count,0,0,0,0,0",   // Spiritseer Qelenaris
 "ASH30|0,-1,target,244,1;1,-1,target,244,0;1,0,target,244,0",   // Fire Prism
 "ASH41|-3,-1,choice,0,0",   // Webway Gate
 "ASH46|0,0,target,220,1",   // Aerial Dominion
@@ -35442,8 +35546,10 @@ public static partial class RuleEngineTest
 "ASH57|-3,-1,choice,0,0",   // Webway Entrance
 "ASH71|-3,-1,choice,0,0",   // Craftworld Convergence
 "ASH73|0,1,target,220,0",   // Whirling Death
-"ASH80|-3,-1,choice,0,0",   // Farseer
-"ASH82|-3,-1,choice,0,0",   // Farseer Skyrunner
+"ASH78|0,-1,count,0,0,0,0,0",   // Warp Spider Exarch
+"ASH80|-3,-1,choice,0,0;1,-1,count,0,0,0,0,0",   // Farseer
+"ASH82|-3,-1,choice,0,0;0,-1,count,0,0,0,2,1",   // Farseer Skyrunner
+"ASH85|0,-1,count,0,0,0,2,1",   // Fate Inescapable
 "BL13|-3,-1,choice,0,0",   // Chosen
 "BL23|-3,-1,choice,0,0",   // Sorcerer
 "BL28|0,0,target,220,1",   // Helbrute
@@ -35460,15 +35566,17 @@ public static partial class RuleEngineTest
 "BL51|0,1,mult,0,0",   // Hosts of Chaos
 "BL52|1,0,mult,0,0",   // Unholy Smite
 "BL56|-3,-1,choice,0,0",   // Throne of the Heretic
-"BL57|-3,-1,choice,0,0",   // Hellfire Torch
+"BL57|-3,-1,choice,0,0",   // Helfire Torch
 "BL63|0,0,target,220,1",   // Havoc
 "BL64|-3,-1,cardtarget,40,0;0,0,target,341,1",   // Murderous Desires
+"BL67|0,-1,count,0,0,0,0,0",   // Ghallaron's Champion
 "BL69|0,0,target,220,1",   // Meltagun Legionary
-"DA1|-3,-1,choice,0,0",   // Azrael
+"DA1|-3,-1,choice,0,0",   // Azrael, Grand Master
 "DA11|-3,-1,choice,0,0",   // Chaplain
 "DA15|1,0,target,220,1",   // Ravenwing Champion
 "DA16|-3,-1,choice,0,0",   // Captain
 "DA17|0,0,target,220,1",   // Deathwing Terminator
+"DA21|0,-1,count,0,0,0,1,0",   // Land Speeder Vengeance
 "DA22|1,-1,acting,220,1",   // Techmarine
 "DA24|0,0,target,220,1",   // Company Champion
 "DA34|0,0,target,220,1",   // Unforgiven Redemptor
@@ -35477,7 +35585,7 @@ public static partial class RuleEngineTest
 "DA40|-3,-1,choice,0,0",   // Inner Circle
 "DA42|-3,-1,choice,0,0",   // Reconnaissance Mission
 "DA43|1,-1,target,220,0",   // Grim Resolve
-"DA44|-3,-1,choice,0,0",   // Secret Agenda
+"DA44|-3,-1,choice,0,0;1,-1,count,0,0,0,2,1",   // Secret Agenda
 "DA45|0,0,mult,0,0",   // Stubborn Defiance
 "DA46|-3,-1,choice,0,0",   // The Rock
 "DA49|0,1,mult,0,0",   // Hunt the Fallen
@@ -35488,6 +35596,7 @@ public static partial class RuleEngineTest
 "DA73|-3,-1,avail,0,0;0,1,mult,0,0",   // Relic Munitions
 "DA75|-3,-1,choice,0,0",   // Master Zacharial
 "EC10|-3,-1,choice,0,0",   // Infractor Obsessionist
+"EC17|0,-1,count,0,0,0,0,0",   // Konstrictus Tormentor
 "EC2|0,0,target,244,0",   // Blastmaster Noise Marine
 "EC3|0,0,target,245,0",   // Disharmonist
 "EC39|-3,-1,avail,222,0;-3,-1,choice,222,0;0,0,target,222,0",   // Eternal Servitude
@@ -35495,18 +35604,21 @@ public static partial class RuleEngineTest
 "EC45|0,1,mult,0,0",   // Mechanised Murder
 "EC5|0,0,target,220,1",   // Tormentor
 "EC50|1,-1,target,220,0",   // Rapid Evisceration
+"EC54|0,-1,count,0,0,0,2,1;1,-1,count,0,0,0,1,0",   // Dark Apparitions
 "EC55|1,0,target,220,1",   // Lucius the Eternal
 "EC58|0,-1,count,221,0,0,1,0;1,-1,count,221,0,0,2,1",   // Vengeful Surge
 "EC59|-3,-1,choice,0,0",   // Vial Tanks
-"EC61|-3,-1,choice,0,0",   // Decadent Throne
+"EC61|-3,-1,choice,0,0",   // Dark Prince's Throne
 "GOF10|0,0,target,220,1",   // Grot Tank
-"GOF104|0,-1,target,220,0;2,-1,target,220,0",   // Drag it Down
-"GOF12|0,0,target,220,1",   // Spanner
+"GOF104|0,-1,target,220,0;1,-1,count,0,0,0,0,0;2,-1,target,220,0",   // Drag it Down
+"GOF105|1,-1,count,0,0,0,2,1",   // Monster Hunters
+"GOF12|0,-1,count,0,0,0,0,0;0,0,target,220,1",   // Spanner
 "GOF13|0,0,target,220,1",   // Deffgun Loota
+"GOF15|0,-1,count,0,0,0,2,1",   // Burna Boy
 "GOF16|0,0,target,220,1",   // Big Krumpaz
 "GOF17|0,0,target,220,1",   // Killa Kan
-"GOF22|0,0,target,220,1;1,0,target,220,1",   // Deff Dread
-"GOF24|0,0,target,220,1",   // Battlewagon
+"GOF22|0,0,target,220,1;1,-1,count,0,0,0,0,0;1,0,target,220,1",   // Deff Dread
+"GOF24|0,0,target,220,1;1,-1,count,0,0,0,0,0",   // Battlewagon
 "GOF25|0,0,target,220,1",   // Gorkanaut
 "GOF26|0,0,target,220,1;1,0,target,220,1",   // Stompa
 "GOF3|1,0,target,220,1",   // Bomb Squig
@@ -35515,6 +35627,7 @@ public static partial class RuleEngineTest
 "GOF4|0,0,mult,0,0",   // Slugga Boy
 "GOF41|0,0,target,220,1",   // Unbridled Carnage
 "GOF46|1,-1,multi,0,0",   // Stormboyz Strike
+"GOF5|0,-1,count,0,0,0,2,1",   // Trukk Boy
 "GOF56|0,0,target,220,1",   // Deffkopta
 "GOF58|0,0,target,220,1",   // Boomdakka Snazzwagon
 "GOF59|0,0,target,220,0;1,0,target,220,1",   // Big Shoota Boy
@@ -35522,14 +35635,19 @@ public static partial class RuleEngineTest
 "GOF63|0,0,target,220,1",   // Gunwagon
 "GOF66|0,0,target,220,1",   // Rokkit Boy
 "GOF69|0,0,target,220,1",   // Mega Blasta Deffkopta
+"GOF7|0,-1,count,0,0,0,1,0",   // Warbiker
 "GOF70|1,0,target,220,1",   // Krumpaklaw
 "GOF74|-3,0,nontarget,40,0;0,1,mult,40,0",   // Grizzled Skarboy
+"GOF79|0,-1,count,0,0,0,2,1",   // Beast Snagga Boy
 "GOF80|-3,0,targetscore,40,0",   // Grot Orderly
+"GOF82|0,-1,count,0,0,0,0,0",   // Beast Snagga Nob
 "GOF86|0,0,target,220,1",   // Unleashed Tramplasquig
+"GOF89|0,-1,count,0,0,0,1,0",   // Squighog Boyz
 "GOF9|0,0,target,220,1",   // Shoota Boy
-"GOF90|0,0,target,220,1;1,0,target,220,1",   // Wurrboy
+"GOF90|0,0,target,220,1;1,-1,count,0,0,0,0,0;1,0,target,220,1",   // Wurrboy
 "GOF92|0,0,target,220,1",   // Weirdboy
-"GOF93|-3,-1,choice,0,0",   // Hunta Rig
+"GOF93|-3,-1,choice,0,0;0,-1,count,0,0,0,2,1",   // Hunta Rig
+"GOF94|1,-1,count,0,0,0,2,1",   // Painboss
 "GOF95|0,0,target,220,1;1,0,target,244,1;1,1,target,244,0",   // Kill Rig
 "GOF96|0,0,target,220,1",   // Snakebite Battlewagon
 "GSC11|0,0,target,220,1",   // Neophyte Heavy
@@ -35546,8 +35664,9 @@ public static partial class RuleEngineTest
 "GSC44|-3,-1,choice,0,0",   // Subterranean Ambush
 "GSC46|0,-1,target,244,1;1,-1,target,244,0;1,0,target,244,0",   // Bore Through
 "GSC47|0,0,mult,0,0",   // Perfect Hosts
+"GSC49|0,-1,count,0,0,0,3,7",   // Telephatic Domination
 "GSC50|-3,-1,choice,0,0",   // Clandestine Operation
-"GSC55|-3,-1,avail,0,0",   // Eve of the Uprising
+"GSC55|-3,-1,avail,0,0;0,-1,count,0,0,0,2,1",   // Eve of the Uprising
 "GSC56|0,0,target,220,1;1,-1,multi,0,0;1,0,target,220,1",   // A Trap Sprung
 "GSC59|0,0,mult,0,0",   // Day of Ascension
 "GSC6|0,0,target,220,1",   // Neophyte Initiate
@@ -35557,9 +35676,11 @@ public static partial class RuleEngineTest
 "GSC74|-3,-1,choice,0,0",   // Rogue Informant
 "GSC75|0,0,target,220,1;1,0,mult,0,0;1,0,target,220,1",   // Roaming Outriders
 "SAU11|-3,-1,avail,340,0;0,0,target,340,0;1,0,target,340,0",   // Technomancer
+"SAU15|0,-1,count,0,0,0,1,0",   // Deathmark
+"SAU16|0,-1,count,0,0,0,1,0",   // Night Scythe
 "SAU17|0,0,target,220,1",   // Psychomancer
 "SAU19|-3,-1,cardtarget,340,0",   // Canoptek Reanimator
-"SAU20|1,0,target,340,0",   // Chronomancer
+"SAU20|1,-1,count,0,0,0,0,0;1,0,target,340,0",   // Chronomancer
 "SAU22|0,0,target,220,1",   // Lokhust Heavy Destroyer
 "SAU25|0,0,target,220,1",   // Hexmark Destroyer
 "SAU26|0,0,target,220,1",   // Plasmancer
@@ -35570,7 +35691,7 @@ public static partial class RuleEngineTest
 "SAU42|0,0,target,40,0",   // Relentless Advance
 "SAU45|-3,-1,choice,0,0",   // Hyperlogical Strategist
 "SAU49|-3,0,nontarget,340,0;0,0,target,340,0",   // Resurrection Orb
-"SAU57|-3,-1,avail,0,0",   // Tomb World
+"SAU57|-3,-1,avail,0,0;0,-1,count,0,0,0,2,1;1,-1,count,0,0,0,2,1;2,-1,count,0,0,0,2,1;3,-1,count,0,0,0,2,1;4,-1,count,0,0,0,2,1",   // Tomb World
 "SAU59|1,-1,target,220,0",   // Awakened Obelisk
 "SAU6|0,0,target,220,1",   // Tesla Immortal
 "SAU61|-3,-1,cardtarget,340,0",   // Resurrection Vault
@@ -35586,28 +35707,38 @@ public static partial class RuleEngineTest
 "SOR46|-3,0,targetscore,40,0;0,1,target,40,0",   // Furious Reprisal
 "SOR49|0,1,mult,0,0",   // Shrineworld
 "SOR54|-3,0,nontarget,10,0",   // Fiery Conviction
+"SOR66|1,-1,count,0,0,0,0,0",   // Armorium Cherub
 "SOR70|0,-1,count,243,0,0,2,1",   // Sororitas Rhino
-"SOR71|0,0,mult,0,0",   // Adelaide the Serene
+"SOR71|0,-1,count,0,0,0,3,5;0,0,mult,0,0",   // Adelaide the Serene
 "SOR72|0,0,target,220,1",   // Castigator
+"SOR73|0,-1,count,0,0,0,3,5;1,-1,count,0,0,0,2,6",   // Sacred Rose
 "SOR74|0,1,mult,0,0",   // Emperor's Judgement
 "SOR75|0,1,target,243,0",   // Devout Serenity
 "SW1|-3,-1,choice,0,0",   // Logan Grimnar
 "SW14|0,0,target,40,0",   // Wolf Priest
+"SW15|0,-1,count,0,0,0,0,0",   // Fyrri Askar
 "SW22|0,-1,target,220,1",   // Blackmane Inceptor
+"SW41|1,-1,count,0,0,0,1,1",   // Pack of One
 "SW42|1,-1,target,220,0",   // Savage Legacy
 "SW44|0,0,target,221,0;0,1,target,221,0",   // Death Shun
+"SW47|1,-1,count,0,0,0,2,3",   // Saga of the Bold
 "SW48|-3,-1,choice,0,0",   // The Fang
 "SW51|1,-1,multi,0,0",   // Hunter's Guile
 "SW58|0,-1,multi,0,0;1,0,mult,0,0",   // Fenrisian Wolfpack
 "SW7|0,0,target,220,1",   // Deathwolf Scout
 "SW9|-1,-1,target,50,1",   // Fenrisian Wolf
+"TAU10|0,-1,count,0,0,0,0,0",   // Stealth Drone
+"TAU13|0,-1,count,0,0,0,0,0",   // DS8 Support Turret
 "TAU18|0,-1,target,220,1",   // Fire Warrior Marksman
+"TAU3|1,-1,count,0,0,0,0,0",   // Commander O'Maisos
 "TAU47|-3,-1,avail,0,0",   // Dynamic Offensive
 "TAU48|-3,-1,choice,0,0",   // Emergency Dispensation
 "TAU51|-3,-1,choice,0,0",   // Saviour Protocols
 "TAU58|1,-1,target,220,1",   // Coordinated Engagement
-"TAU6|0,0,target,220,1",   // Gun Drone
-"TAU7|0,0,target,220,1",   // Marker Drone
+"TAU6|0,-1,count,0,0,0,0,0;0,0,target,220,1",   // Gun Drone
+"TAU66|0,-1,count,0,0,0,1,0",   // Kroot Carnivore
+"TAU7|0,-1,count,0,0,0,0,0;0,0,target,220,1",   // Marker Drone
+"TAU72|0,-1,count,0,0,0,1,0",   // Lone-spear
 "TAU75|-3,0,nontarget,40,0;0,0,mult,40,0",   // Hunter's Instincts
 "TL17|0,0,target,220,1",   // Deathleaper
 "TL20|-3,-1,choice,0,0",   // Carnifex
@@ -35617,19 +35748,20 @@ public static partial class RuleEngineTest
 "TL46|1,0,target,40,0",   // Rapacious Hunger
 "TL49|-3,-1,choice,0,0",   // Hyper-adaptation
 "TL50|-3,-1,choice,0,0",   // Infinite Biomorphologies
+"TL6|0,-1,count,0,0,0,0,0",   // Biovore
 "TL62|0,0,target,220,1;0,1,target,220,1",   // Ravener
 "TL68|1,0,mult,40,0",   // Psychophage
 "TL71|0,0,target,220,1;0,1,target,220,1",   // Toxic Entanglement
 "TL75|0,0,target,220,1",   // Termagant Brood
-"UM109|-3,-1,choice,0,0",   // Adaptive Strategy
-"UM110|-3,-1,choice,0,0",   // Fall Back
-"UM111|-3,-1,choice,0,0",   // Shall Know No Fear
-"UM112|-3,-1,choice,0,0",   // Champions of Humanity
+"UM109|-3,-1,choice,0,0;0,-1,count,0,0,0,3,0;1,-1,count,0,0,0,2,1",   // Adaptive Strategy
+"UM110|-3,-1,choice,0,0;0,-1,count,0,0,0,3,1;1,-1,count,0,0,0,2,2",   // Fall Back
+"UM111|-3,-1,choice,0,0;0,-1,count,0,0,0,3,7;1,-1,count,0,0,0,2,8",   // Shall Know No Fear
+"UM112|-3,-1,choice,0,0;0,-1,count,0,0,0,3,3;1,-1,count,0,0,0,2,4",   // Champions of Humanity
 "UM114|-3,-1,choice,0,0",   // Lead From the Front
-"UM115|-3,-1,choice,0,0",   // Stormhawk Interception
-"UM116|-3,-1,choice,0,0;2,0,target,40,0",   // No Mercy
-"UM117|-3,-1,choice,0,0",   // No Respite
-"UM118|-3,-1,choice,0,0",   // Indomitus Crusade
+"UM115|-3,-1,choice,0,0;0,-1,count,0,0,0,3,2;1,-1,count,0,0,0,2,3",   // Stormhawk Interception
+"UM116|-3,-1,choice,0,0;0,-1,count,0,0,0,3,3;1,-1,count,0,0,0,2,4;2,0,target,40,0",   // No Mercy
+"UM117|-3,-1,choice,0,0;0,-1,count,0,0,0,3,2;1,-1,count,0,0,0,2,3",   // No Respite
+"UM118|-3,-1,choice,0,0;0,-1,count,0,0,0,3,5;1,-1,count,0,0,0,2,6;2,-1,count,0,0,0,0,0",   // Indomitus Crusade
 "UM15|0,0,target,40,0;0,1,target,40,0",   // Apothecary Polixis
 "UM2|-3,-1,cardtarget,40,0",   // Octavio Infiltrator
 "UM21|0,0,target,220,1",   // Primaris Judiciar
@@ -35648,8 +35780,10 @@ public static partial class RuleEngineTest
 "UM74|-3,-1,choice,0,0",   // Rapid Deployment
 "UM77|0,0,target,220,1;1,-1,multi,222,0;1,0,mult,222,0;1,0,target,220,1",   // Chairon
 "UM79|0,0,target,244,0",   // Primaris Eradicator
+"UM80|0,-1,count,0,0,0,1,0",   // Bladeguard Sergeant
 "UM97|-3,-1,choice,0,0",   // Suppressor
 "a51adc8f5c311584385c3117cfd919e9|-3,-1,choice,0,0",   // High Rune Priest
+"a7bb23355a30d344e9d2decf976d91e1|0,-1,count,0,0,0,0,0;1,-1,count,0,0,0,0,0",   // Poisoned Supplies
 "a84a5b49f0ca9144585058db6987c2a0|1,-1,target,220,0",   // Master Interromancer
 "af98d423c7279a14c84c0d0382c53541|-3,-1,choice,0,0",   // Legendary Commandant
 "b4d6d186eb95a3f468013c5be649ee3b|1,-1,target,220,1",   // Sawbonez
@@ -35662,6 +35796,8 @@ public static partial class RuleEngineTest
 "d01a5ba5865ded4418194ea50e333b21|-3,-1,choice,0,0",   // Inscrutable Cunning
 "d19e8b68aaa9a884781d06697ad237a6|-3,-1,cardtarget,277,0",   // Special Dose
 "dc7e575c0a328f446be1521c23ec850b|-3,0,nontarget,10,0;1,-1,target,220,0;1,0,target,220,1",   // Empyric Ambush
+"dd535f7a54bcf6241b24ca6d0e81bbb4|0,-1,count,0,0,0,2,1;1,-1,count,0,0,0,1,0",   // Supreme Grand Master
+"e01f4d54e8a474d96b5a1167cc28eebf|0,-1,count,0,0,0,3,5",   // Daemonbreaker
 "e59ac9e46f4ea804784e954c3b820e77|-3,-1,cardtarget,275,0;-3,0,nontarget,10,0",   // Path of the Warrior
 "e9952f50921d2844a94d39ce883430f4|-3,-1,choice,0,0",   // Vox-Hacker
 "f104d4c21abe84546abc9365d9eda8dd|-3,0,nontarget,10,0",   // Righteous Repugnance
@@ -35721,7 +35857,7 @@ public static partial class RuleEngineTest
 
     /// <summary>🆕 2026-10-22（`W64` · 战斗审计 `B-16`）：结构化条件的数据层自检。
     ///
-    /// <para>五组断言：① 版本正面信号 + 覆盖数；② **285 张逐张**对真值表（含「表里的 id 必须都在池内」）；
+    /// <para>五组断言：① 版本正面信号 + 覆盖数；② **328 张逐张**对真值表（含「表里的 id 必须都在池内」）；
     /// ③ 0 条件的卡 ⇒ `ConditionNone`（**不是** `ConditionUnknown`）；④ 旧版表 ⇒ 出声 + 未知
     /// （**且不是** `ConditionNone` —— 灭自证那一半）；⑤ 抽 220 / 244 两条语义的期望真假。</para>
     ///
@@ -35743,12 +35879,14 @@ public static partial class RuleEngineTest
         Check(versioned, pool.Count,
               "★ 全池卡都来自 v15+ 卡表（`ConditionsVersioned` 全真 —— 否则 `ConditionOf` 全是 -1 未知）"
             + "｜🧨 `CardDatabase.Parse` 的 `conditionsVersioned: dto.version >= 15` 写错 ⇒ 红");
-        Check(withRows, 285,
-              "★ `unitConditions` 落值 **285** 张（`G6` 起：`mult`/`multi`/`avail`/`choice` 四格的 `cond = 0` 行"
-            + "也照落，判据 → `工具/gen_cards_engine.py` 的 `criteria_carries_targets`）"
+        Check(withRows, 328,
+              "★ `unitConditions` 落值 **328** 张（`G6` 起：`mult`/`multi`/`avail`/`choice` 四格的 `cond = 0` 行"
+            + "也照落，判据 → `工具/gen_cards_engine.py` 的 `criteria_carries_targets`；"
+            + "🔴 `G21`·2026-10-26 起 `count` 的 `cond = 0` 行也照落 ⇒ 285 → 328）"
             + "｜🧨 生成器漏一个位置（十个 role 少一个）⇒ 掉下去");
-        Check(rowTotal, 349,
-              "★ 条件行合计 **349** 条（同上；改前 167 张 / 218 条，`G6` 新增 118 张 / 131 条）"
+        Check(rowTotal, 442,
+              "★ 条件行合计 **442** 条（同上；改前 167 张 / 218 条，`G6` 新增 118 张 / 131 条，"
+            + "`G21` 起 `count` 的 `cond = 0` 行再 +43 张 / +93 条）"
             + "｜🧨 漏 role / 漏 ab·lg 的行才会掉；`count` 参数漏落不影响这个数");
 
         // ---- ② 逐张真值（285 张；独立走法，见本节头顶）----
@@ -35759,7 +35897,7 @@ public static partial class RuleEngineTest
             if (bar <= 0) continue;
             truth[line.Substring(0, bar)] = line.Substring(bar + 1);
         }
-        Check(truth.Count, 285, "★ 真值表自身 285 行（少一行 = 表被误删）");
+        Check(truth.Count, 328, "★ 真值表自身 328 行（少一行 = 表被误删）");
         var mismatched = new List<string>();
         int compared = 0;
         foreach (var c in pool)
@@ -35775,7 +35913,7 @@ public static partial class RuleEngineTest
               "★ 真值表里的每张卡都在池内被比到（⛔ 表里的 id 与池对不上会静默少比）"
             + "｜🧨 卡池 id 改名 / 表里写了池外卡 ⇒ 红");
         Check(mismatched.Count, 0,
-              "★ **285 张逐张**：`unitConditions` 与 `cards_raw.json` 真值**逐条相等**"
+              "★ **328 张逐张**：`unitConditions` 与 `cards_raw.json` 真值**逐条相等**"
             + "（ab/lg/role/cond/ex + count 的三个参数）"
             + (mismatched.Count > 0 ? " —— 差异：" + string.Join(" / ", mismatched.ToArray()) : "")
             + "｜🧨 生成器少落/多落一个位置、`ex` 取反、`count` 参数读错字段 ⇒ 红");
@@ -35794,8 +35932,13 @@ public static partial class RuleEngineTest
               "★ **没有条件的卡**解析成 `ConditionNone`（0）而不是 `ConditionUnknown`（-1）"
             + (noneBad.Count > 0 ? " —— 不对：" + string.Join(" / ", noneBad.ToArray()) : "")
             + "｜🧨 把「查不到」和「无条件」并成一个哨兵 ⇒ 红");
-        CheckTrue(noneOk >= 800,
-                  $"★ 无条件的卡 {noneOk} 张（现池 1128 - 285 = 843）—— 数量级对才说明整列没漏读");
+        // 🔴 **2026-10-26（`G21`）**：这两句原来写死「现池 1128 - 285 = 843」并断 `noneOk >= 800`
+        //   —— `G3` 让有条件的那一档涨到 328 之后，真实值正好压到边界（1128 − 328 = 800）
+        //   ⇒ 卡池张数再动一张就会**假红**。改成**恒等式**：无条件的卡 == 全池 − 有条件的，
+        //   既不给假红留口子，也仍然能抓到「整列没漏读」（漏读 ⇒ 有条件的变多 ⇒ 这个数跟着掉）。
+        Check(noneOk, pool.Count - withRows,
+              $"★ 无条件的卡 {noneOk} 张（现池 {pool.Count} − 有条件的 {withRows} = {pool.Count - withRows}）"
+            + " —— 两档加起来必须是全池（漏读某一列 ⇒ 有条件的变多、这里跟着少）");
 
         // ---- ④ 旧版表（version 14）⇒ **出声 + 未知**（且不是「无条件」）----
         //   `unitConditions` 加列在 v15；v14 的表整列没有 ⇒ 必须出声，⛔ 不许静默当「全池都没条件」。
@@ -37835,5 +37978,223 @@ public static partial class RuleEngineTest
         CheckTrue(Math.Abs(SimpleAI.ScoreDamaging(arm2, 3) - SimpleAI.ScoreDamaging(plain, 3)) < 1e-4f,
                   "★【灭自证】同伤害下「2 甲 vs 0 甲」必须同分 —— 任何把护甲折进打分的写法"
                 + "都不可能同时满足这一条与上面的 3.15");
+    }
+
+    // ==================================================================
+    //  🆕 2026-10-26（批次 4 · 执行代理 `F4`）：三条 **判别式** 断言
+    //
+    //  **为什么要单开一条用例**：上一批 `E4` 落了 **6 处真实行为改动**，其中这三处
+    //  **一条断言都没有**（它自己交接里的待办 ①/②）。三条都按本仓 `R11` 那一批的写法做成
+    //  「**同一局面只差一位、两态方向相反**」的判别式 —— 光断「新写法对」不够，
+    //  改回旧写法必须**必红**。
+    //
+    //  **判据（第一权威，逐句现读，不是转述别人的报告）**：
+    //   · `decomp_full/AI__ScoreFromStun.c:13-41` —— 五道闸的**次序即语义**；
+    //     常量用 `工具/read_literal.py` 现读（`DAT_1834b2bb4` = **0.5f**、`DAT_1834b2bb0` = **0.2f**，
+    //     两处都是 **4 字节 float**：`.c` 里是 `(float)iVar2 * DAT_…`，形参类型是 float）。
+    //   · `decomp_full/AI__TweakAvailableActions.c:83-141` —— 外层 `iVar9 < maxSkips` 轮；
+    //     每轮 **`iVar1 = list.Count` 重取**（⇒ 从表尾重扫）· 跳 `actionType == 4`（`endTurn`）·
+    //     `round < minSkips` 无条件删、否则 `while (chance <= roll)` 继续往前扫 ·
+    //     删一条落 `LAB_18093d358` ⇒ `iVar9++` 进下一轮 ⇒ **上面的条目会在下一轮重掷**。
+    //   · `decomp_full/AI__ScoreFromBuffedAttack.c:41-53` —— 守方 `HasCurrentTrait(0x4b0)`（= **1200
+    //     `ambush`**）⇒ **重建**一条 `DamageInfo(target, **4**, …)`（**覆盖**，不是 +4）；
+    //     `:55-57` `EnemyReturnsAttack` **没有**「守方攻击 0 就跳过」那道闸；
+    //     `:71-80` `counterDamage < thisCard.health` ⇒ `+= DAT_1834b2dc4`（= **0.1f**，4B float）。
+    //
+    //  **期望值一律是手算的解析式**（⛔ 不是从实现读回来的）；每条都写出推导链。
+    // ==================================================================
+    static void TestB4AiDiscriminants()
+    {
+        // ------------------------------------------------------------------
+        //  ① `ScoreStun` 四档（原版五道闸，次序即语义）
+        //     ① `stunnedAtStartOfTurn(+0x55)` ⇒ 0
+        //     ② `cantAttack(0x96) ∧ !hasActiveAbility(+0x220)` ⇒ 0
+        //     ③ `unstunnable(0xfa)` ⇒ 0
+        //     ④ 会出手（`MeetsConditionCriteria(mightAttack, exclude:true)` 回 false）
+        //          ⇒ 督军 `CurrentMeleeAttack` ×1 / 小兵 ×0.5
+        //     ⑤ 不会出手 ⇒ `hasActiveAbility ? GetValueInPlay × 0.2 : 0`
+        //
+        //     ⚠️ **「不会出手」这一档不能拿「已疲劳」当探针**：`mightAct` 的六条闸
+        //     （`CardScript__get_mightAct.c` 逐句：attacksThisTurn / IsUnit / displaySummonSickness /
+        //     stun(100) / cantAttack(0x96) / nonCombatant(0x370)）里**没有 `Exhausted`**
+        //     ⇒ 疲劳单位照样算「会出手」，两版同值、验不出闸。这里用 `SummonSickness`。
+        // ------------------------------------------------------------------
+        {
+            var ctx = Battle(new[] { Unit("B4M1", 1, 1, 1) }, new[] { Unit("B4E1", 1, 1, 1) });
+            ToP1Turn(ctx, 3);
+
+            // ① 回合开局就晕着 —— 再晕没用（旧实现给 0.5×6 = 3）
+            var a = Place(ctx, 1, 0, Unit("B4StunStart", 3, 6, 10));
+            a.StunnedAtStartOfTurn = true;
+            CheckFloatDelta(SimpleAI.ScoreStun(ctx, a), 0f,
+                  "★★ ① `stunnedAtStartOfTurn` ⇒ **0**（盯 `+0x55` 那道闸）"
+                + "｜🧨 删掉那道闸 ⇒ 这里会变 3（= 6×0.5）");
+
+            // ② 打不了 + 没主动技 ⇒ 0（旧实现给 `ValueInPlay×0.2` = 7×0.2 = 1.4）
+            var b = Place(ctx, 1, 1, Unit("B4CantAtk", 3, 6, 10, "Cant Attack"));
+            CheckTrue(b.Has(KeywordTable.CantAttack),
+                      "（前提）关键词进得来 —— `Normalize` 是**前缀匹配**：必须写卡面原文 `Cant Attack`，"
+                    + "写规范名 `cantattack` 会被**静默丢弃**（`Prefixes` 里只有 `cant attack` / `can't attack`）");
+            CheckFloatDelta(SimpleAI.ValueInPlay(b), 7f, "（前提）卡价值 = 2×3 + 1 = 7（满血、无附魔）");
+            CheckFloatDelta(SimpleAI.ScoreStun(ctx, b), 0f,
+                  "★★ ② `cantAttack ∧ 无主动技` ⇒ **0**"
+                + "｜🧨 旧实现这里给 7×0.2 = **1.4**（这是「系统性高估」的第一档）");
+
+            // ② 的反面：同样打不了，但**有主动技** ⇒ 不是 0，而是 `ValueInPlay×0.2`
+            var b2 = Place(ctx, 1, 2, new CardDef("B4CantAtkAb", "B4CantAtkAb", "unit", "", null, "Test",
+                                                  3, 6, 10, 0, new[] { "Cant Attack" },
+                                                  hasActiveAbility: 1));
+            Check(b2.Card.HasActiveAbility, 1, "（前提）这张卡真的带主动技");
+            CheckFloatDelta(SimpleAI.ScoreStun(ctx, b2), 1.4f,
+                  "★★ ② 的反面：`cantAttack ∧ 有主动技` ⇒ **1.4**（= 7×0.2）"
+                + "｜🧨 把 ② 写成「cantAttack 一律 0」⇒ 这里变 0");
+
+            // ③ 免疫
+            var e = Place(ctx, 1, 3, Unit("B4Unstun", 3, 6, 10, "Unstunnable"));
+            CheckFloatDelta(SimpleAI.ScoreStun(ctx, e), 0f, "★ ③ `unstunnable` ⇒ 0");
+
+            // ④ 会出手：小兵 ×0.5 / 督军 ×1
+            var c = Place(ctx, 1, 5, Unit("B4Acting", 3, 6, 10));
+            CheckFloatDelta(SimpleAI.ScoreStun(ctx, c), 3f,
+                  "★ ④ 会出手 · 小兵 6 攻 ⇒ **3**（= 6×0.5，`DAT_1834b2bb4`）");
+            var cw = ctx.Players[1].Warlord;
+            Check(cw.Attack, 2, "（前提）夹具督军近战 = 2（`Deck()` 里的 `Hero(\"FixtureWarlord\", 2, 30)`）");
+            CheckFloatDelta(SimpleAI.ScoreStun(ctx, cw), 2f, "★ ④ 会出手 · 督军 ⇒ **满攻**（×1）");
+
+            // ⑤ 不会出手：有主动技 ⇒ 只有主动技那点价值；没有 ⇒ 0
+            var d = Place(ctx, 1, 6, Unit("B4Sleepy", 3, 6, 10));
+            d.SummonSickness = true;
+            CheckFloatDelta(SimpleAI.ScoreStun(ctx, d), 0f,
+                  "★★ ⑤ 不会出手 ∧ 无主动技 ⇒ **0**"
+                + "｜🧨 旧实现这里给 6×0.5 = **3**（「系统性高估」的第二档）");
+            var d2 = Place(ctx, 1, 7, new CardDef("B4SleepyAb", "B4SleepyAb", "unit", "", null, "Test",
+                                                  3, 6, 10, 0, null, hasActiveAbility: 1));
+            d2.SummonSickness = true;
+            CheckFloatDelta(SimpleAI.ScoreStun(ctx, d2), 1.4f,
+                  "★ ⑤ 不会出手 ∧ 有主动技 ⇒ **1.4**（= 7×0.2，不是 0）");
+
+            // 【灭自证】两处「系统性高估」必须**真的低于旧实现给的值**。
+            //   旧实现（改前那一版）= `cantAttack || unstunnable ⇒ ValueInPlay×0.2；否则 Attack×0.5(督军×1)`。
+            CheckTrue(SimpleAI.ScoreStun(ctx, b) < 1.4f - 0.01f,
+                      "★★【灭自证】② 那一档必须**低于**旧实现的 1.4 —— 它与上面 `== 0` 那条"
+                    + "结构上不可能被同一个「改回旧写法」同时满足");
+            CheckTrue(SimpleAI.ScoreStun(ctx, d) < 3f - 0.01f,
+                      "★★【灭自证】⑤ 那一档必须**低于**旧实现的 3");
+        }
+
+        // ------------------------------------------------------------------
+        //  ② `TweakAvailableActions` 的「**多轮重扫 ⇒ 重掷**」
+        //
+        //  夹具：3 条 `PlayCard`（分 9 / 5 / 1）+ `EndTurn`；`SuperEasy` = MaxSkips 3 · MinSkips 0 · SkipChance 90。
+        //  乱数流 = `ctx.AiRng` = `new System.Random(seed ^ 0x0A1A1A1A)`（`BattleContext.cs:681`）。
+        //
+        //    seed = 3 ⇒ roll 序列 = **75, 94, 48, 16, …**（现读；`new Random(3 ^ 0x0A1A1A1A)` 可复现）
+        //    **原版形状（= 现在这版）**：
+        //      轮 0 → 表尾「1 分那条」掷 75（90 > 75 ⇒ 砍）
+        //      轮 1 → **从表尾重扫**：「5 分那条」掷 94（90 > 94 假 ⇒ 不砍）→ 继续往前 → 「9 分那条」掷 48（砍）
+        //      轮 2 → 只剩「9 分那条」掷 16（砍）
+        //      ⇒ **三条全砍**、**消耗 4 个乱数**
+        //    **改前形状（单趟、每条只掷一次）**：
+        //      「1 分」掷 75 砍 ·「5 分」掷 94 不砍 ·「9 分」掷 48 砍 ⇒ **剩 5 分那条**、**消耗 3 个**
+        // ------------------------------------------------------------------
+        {
+            var ctx = RuleCore.NewBattle(
+                Deck(new[] { Unit("B4K1", 1, 1, 1) }),
+                Deck(new[] { Unit("B4K2", 1, 1, 1) }),
+                seed: 3, shuffle: false);
+            CheckTrue(!SimpleAI.ShouldDisableTweak(ctx),
+                      "（前提）模式闸放行（默认 `GameMode.Classic` ⇒ `Ranked` ⇒ 原版那三档「照做」之一）");
+
+            var list = new List<AiAction> {
+                new AiAction { Kind = AiActionKind.PlayCard, HandIdx = 0, Score = 9f },
+                new AiAction { Kind = AiActionKind.PlayCard, HandIdx = 1, Score = 5f },
+                new AiAction { Kind = AiActionKind.PlayCard, HandIdx = 2, Score = 1f },
+                new AiAction { Kind = AiActionKind.EndTurn, Score = 0f },
+            };
+            SimpleAI.TweakAvailableActions(ctx, list, AiDifficulty.SuperEasy);
+
+            CheckTrue(list.Count == 1 && list[0].Kind == AiActionKind.EndTurn,
+                      "★★ 三条动作**全被砍**、只剩 `endTurn`（多轮重扫的结果）"
+                    + "｜🧨 改回单趟那版 ⇒ 这里剩 2 条（`HandIdx=1` 那条会留下来）"
+                    + "（实得 " + list.Count + " 条）");
+
+            // 🔴 **真正的判别式 = 乱数消耗个数**：原版 4 个、单趟 3 个。
+            //    做法：用同一个派生种重建一条副本、先走 **4** 步，再连比 3 个数
+            //    （比 3 个而不是 1 个 —— 单个相等有 1/100 的偶合空间）。
+            var replica = new System.Random(3 ^ 0x0A1A1A1A);
+            for (int i = 0; i < 4; i++) replica.Next(0, 100);
+            bool sameStream = true;
+            for (int i = 0; i < 3; i++)
+                if (ctx.AiRng.Next(0, 100) != replica.Next(0, 100)) sameStream = false;
+            CheckTrue(sameStream,
+                      "★★【判别】本调用**恰好消耗 4 个乱数**（轮 1 对「5 分那条」重掷过一次）"
+                    + "｜🧨 改回「每条只掷一次」⇒ 只消耗 3 个 ⇒ 后面 3 个数逐个对不上");
+
+            // 对照：seed = 4（roll 36, 41, 97）—— 两版**同结果**，防「这条用例只是把动作全砍光」
+            var ctx4 = RuleCore.NewBattle(
+                Deck(new[] { Unit("B4K3", 1, 1, 1) }),
+                Deck(new[] { Unit("B4K4", 1, 1, 1) }),
+                seed: 4, shuffle: false);
+            var l4 = new List<AiAction> {
+                new AiAction { Kind = AiActionKind.PlayCard, HandIdx = 0, Score = 9f },
+                new AiAction { Kind = AiActionKind.PlayCard, HandIdx = 1, Score = 5f },
+                new AiAction { Kind = AiActionKind.PlayCard, HandIdx = 2, Score = 1f },
+                new AiAction { Kind = AiActionKind.EndTurn, Score = 0f },
+            };
+            SimpleAI.TweakAvailableActions(ctx4, l4, AiDifficulty.SuperEasy);
+            Check(l4.Count, 2, "（对照 seed=4）两版同结果 ⇒ 只剩「9 分那条」+ `endTurn`"
+                              + "（1 分掷 36 砍 · 5 分掷 41 砍 · 9 分掷 97 不砍）");
+            CheckTrue(l4.Exists(x => x.Kind == AiActionKind.PlayCard && x.HandIdx == 0),
+                      "（对照）留下的正是 9 分那条 ⇒ 说明这不是「无脑全砍」");
+        }
+
+        // ------------------------------------------------------------------
+        //  ③ `ScoreFromAttack`：`ambush` 的反击伤害是**常数 4**，且「守方攻击 0 也照算」
+        //
+        //  解析式（`AI__ScoreFromBuffedAttack.c` 逐句）：
+        //    s = ScoreFromDamagingBuffedUnit(守方, DamageInfo(攻方, atk))
+        //      − ScoreFromDamagingBuffedUnit(攻方, DamageInfo(守方, **counter**))      // 守方会还手时
+        //      + 0.1f                                                                 // counter < 攻方血
+        //    counter = 守方攻击力；**守方带 ambush ⇒ counter = 4（覆盖）**
+        // ------------------------------------------------------------------
+        {
+            // (a) 守方带 `ambush`、近战 9 ⇒ counter 必须是 **4**（不是 9）
+            var ctx = Battle(new[] { Unit("B4A1", 1, 1, 1) }, new[] { Unit("B4A2", 1, 1, 1) });
+            ToP1Turn(ctx, 3);
+            var atk = Place(ctx, 0, 3, Unit("B4Atk", 3, 3, 10));
+            var amb = Place(ctx, 1, 3, Unit("B4Amb", 3, 9, 20, "Ambush"));
+            CheckTrue(amb.Has(KeywordTable.Ambush), "（前提）守方真带 `ambush`（卡面原文可解析）");
+            Check(amb.Attack, 9, "（前提）守方近战 = 9 —— 与常数 4 **不同**，替换才看得出来");
+            CheckFloatDelta(SimpleAI.ScoreDamaging(atk, 4), 1.68f,
+                            "（参照）攻方 3 费 10 血挨 4 ⇒ `7 × 0.6 × 4/10` = **1.68**");
+            CheckFloatDelta(SimpleAI.ScoreFromAttack(ctx, 0, atk, amb, false), 8.42f,
+                  "★★ 守方带 `ambush` ⇒ 反击按**常数 4**：伤害分 10（`ambush` 靶的常数）− 1.68 + 存活 0.1 = **8.42**"
+                + "｜🧨 改前（用守方攻击力 9）⇒ 10 − 3.78 + 0.1 = 6.32");
+            CheckTrue(Math.Abs(SimpleAI.ScoreFromAttack(ctx, 0, atk, amb, false) - 6.32f) > 0.5f,
+                  "★★【灭自证】不能落在「用守方攻击力 9」那一版上（6.32）");
+        }
+        {
+            // (b) 守方攻击 0（无 ambush）：反击那一笔**照算** ⇒ 存活奖励 0.1 仍在
+            var ctx = Battle(new[] { Unit("B4B1", 1, 1, 1) }, new[] { Unit("B4B2", 1, 1, 1) });
+            ToP1Turn(ctx, 3);
+            var atk = Place(ctx, 0, 3, Unit("B4Atk2", 3, 3, 10));
+            var soft = Place(ctx, 1, 3, Unit("B4Soft", 3, 0, 20));
+            Check(soft.Attack, 0, "（前提）守方近战 = 0");
+            CheckFloatDelta(SimpleAI.ScoreDamaging(soft, 3), 0.63f,
+                            "（参照）`7 × 0.6 × 3/20` = **0.63**");
+            CheckFloatDelta(SimpleAI.ScoreFromAttack(ctx, 0, atk, soft, false), 0.73f,
+                  "★★ 守方攻击 0 **也照算**反击那一笔 ⇒ 存活奖励 0.1 仍在（0.63 − 0 + 0.1 = **0.73**）"
+                + "｜🧨 改前那道「`counter > 0` 才扣」的闸 ⇒ 这里只剩 0.63");
+        }
+        {
+            // (c) 对照组：**普通**守方 ⇒ 反击取守方攻击力 5（证明「常数 4」只在 ambush 那一档）
+            var ctx = Battle(new[] { Unit("B4C1", 1, 1, 1) }, new[] { Unit("B4C2", 1, 1, 1) });
+            ToP1Turn(ctx, 3);
+            var atk = Place(ctx, 0, 3, Unit("B4Atk3", 3, 3, 10));
+            var foe = Place(ctx, 1, 3, Unit("B4Foe", 3, 5, 20));
+            CheckFloatDelta(SimpleAI.ScoreFromAttack(ctx, 0, atk, foe, false), -1.37f,
+                  "★（对照组）普通守方 ⇒ 反击取守方攻击力 5：0.63 − 2.1 + 0.1 = **−1.37**"
+                + "｜🧨 把「守方一律按 4」写死 ⇒ 这里变 −0.95");
+        }
     }
 }

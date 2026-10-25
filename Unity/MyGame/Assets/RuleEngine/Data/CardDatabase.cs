@@ -2324,10 +2324,10 @@ namespace RuleEngine
         ///      ⛔ 别让它静默落成 0：`0` 是**合法** `ab`（第 0 条 ability）与**合法** `lg`
         ///      （第 0 条 logic）⇒ 缺键读成 0 会把条件挂到**错的位置**上。
         ///   ③ `cond` **缺键**（`-1`）/ 不在 `UnitConditions` 枚举里 ⇒ 丢弃。
-        ///      `0`（`none`）**只对 `mult` / `multi` / `avail` / `choice` 四格放行**
-        ///      （🆕 2026-10-24 · `G6` · `C6` §1·3 A：那四格是「整条 criteria」行，`cond`
-        ///      只是其中一个字段；判据 → `IsUnconditionalCriteriaRole`）；其余 role 落成 0
-        ///      **仍是坏数据**（本列每一行都表示**有一个条件**，⛔ 不静默当成「无条件」）。
+        ///      `0`（`none`）**只对 `mult` / `multi` / `avail` / `choice` / `count` 五格放行**
+        ///      （判据 → `IsUnconditionalCriteriaRole`）；⚠️ 2026-10-26 批次 5 `G3` 新增 `count`：
+        ///      那一行回答的是第三道闸（`CardAbility.boardCriteria +0x38`）的「数几个/跟谁比」，
+        ///      `cond` 只是它的一个字段。其余 role 落成 0 **仍是坏数据**（⛔ 不静默当「无条件」）。
         ///   ④ 同 `(ab, lg, role)` 重复 ⇒ **丢弃后出现的那条**（先到的保留）＋出声。
         ///      生成器每一格只落一行（同一格天然唯一）；这里是**第二道闸**，且**必须**丢：
         ///      `CardDef` 的索引是「后写覆盖」⇒ 不丢就是静默取最后一条。
@@ -2340,12 +2340,12 @@ namespace RuleEngine
         /// <para>判据：原版里这四个位置都是**一个完整 `TargetCriteria`**，`conditionsFilter` 只是其中一个字段
         /// —— 它等于 0 时，这条 criteria 仍在回答「**数谁 / 候选池是谁**」（`AM18` 的
         /// `multiCountCriteria` 就是 `ta 10 + keywordFilter 10(Vehicle) + cond 0`）。</para>
-        /// <para>⚠️ 其余 role（`target` / `acting` / `count` / 卡级计分）**不放行** ——
-        /// 它们的「缺行 = 这一格没有条件」是消费端（`ConditionOf` / `TryStructuredCondition`）依赖的契约。</para>
+        /// <para>🔴 **2026-10-26（批次 5 `G3`）加第五个 `count`**：判据 = `BoardAnalysis__MeetsCriteria.c:150-152`
+        /// （`ta == 0` ⇒ 整条只剩 `playerTurn`）；生成器同口径 → `count_row_carries_board_info`。其余 role 仍不放行。</para>
         /// </summary>
         static bool IsUnconditionalCriteriaRole(string role)
         {
-            return role == "mult" || role == "multi" || role == "avail" || role == "choice";
+            return role == "mult" || role == "multi" || role == "avail" || role == "choice" || role == "count";
         }
 
         static List<CardDef.ConditionSpec> MapUnitConditions(CardDto c)

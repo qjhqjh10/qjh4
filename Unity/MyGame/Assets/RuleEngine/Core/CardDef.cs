@@ -907,7 +907,7 @@ namespace RuleEngine
                        // 「这一列**来自 v18 卡表**」的正面信号（只有 `CardDatabase.Parse` 知道）。
                        bool abilityTriggerPrioritiesVersioned = false,
                        // 🆕 v19（2026-10-23 · 引擎线 `新账-97` ③/⑤）：原版 `RawCardScript.spellType`
-                       //   （`SpellType` 枚举）。`-1` = 未知（快照里没这张卡）—— ⛔ 别当成 Normal(0)。
+                       // 🔶 自己设计（非原版）：我们自设那 26 张卡的 `spellType = -1`（= 未知，⛔ 不是 Normal(0)） · 那 26 张不在原版快照里 ⇒ 原版 `RawCardScript.spellType` 取不到（原版判据拿不到） · TODO(谁定的)｜原注：（`SpellType` 枚举）。`-1` = 未知（快照里没这张卡）—— ⛔ 别当成 Normal(0)。
                        //   ⚠️ **追加在参数表末尾**（同前几条：全仓有位置传参的老调用点）。
                        int spellType = -1,
                        // 🔴🆕 2026-10-23（引擎线 `新账-95` #2）：原版 `RawCardScript.targeted`（`+0x268`）
@@ -3202,8 +3202,8 @@ namespace RuleEngine
         /// <summary>替代行动那一族的关键词 —— **`gate=1` 时正文就收在这个键下**：
         /// `duty`/`pray`/`ferocity`/`agenda` 走 `TriggerOps`（`RuleCore.UseAlternative` 读 `u.FxOps(kw)`）、
         /// `oath` 走 `OathOps`（`RuleCore.UseOathAbility` → `EffectResolver.ResolveOathAbility`）。
-        /// ⚠️ 这是**唯一一份**名单：`RuleCore.AlternativeKeywords`（运行期那四条）＋ `oath`，
-        /// 但本表**不能**直接引用它的常量（那个数组在 `RuleCore`、语义是「可用的替代行动」）。
+        /// ⚠️ 这是**唯一一份**名单：`CardDef.RoutableTriggers`（运行期那四条；🔴 2026-10-26 就地订正 —— 原写 `RuleCore.AlternativeKeywords`，**该符号全仓不存在**）＋ `oath`，
+        /// 但本表**不能**直接引用它的常量（那个数组在**本类**的 `RoutableTriggers`、语义是「一张卡里可路由的触发关键词」，比替代行动那四条宽）。
         /// 判据 → `RuleCore.cs` 的 `UseAlternative` / `UseOathAbility` 两处读点。</summary>
         static readonly string[] ActiveActionKeywordNames =
         {
@@ -6190,6 +6190,81 @@ namespace RuleEngine
             }
         }
 
+        // =====================================================================================
+        //  🆕 **2026-10-26（执行代理 `G17` · 批次 6 · 第三道闸 ③）：
+        //  【按 trigger 遍历 ability 级 criteria 行】的入口**
+        // =====================================================================================
+        //  为什么需要它：`AbilityLevelCriteriaForTrigger` 的契约是「**唯一**定位到一条 ability」——
+        //  trigger 撞车（同卡两条同 trigger 的 ability，实测 89 张）时它只能回「不唯一」，
+        //  而有一类**存在性**判定（「这张卡**有没有**某类 ability 级条件」）不需要唯一定位，
+        //  只需要**逐行扫**。判据实例 = 原版 `CardScript__HasWhileInPlayAdjacentEffect.c`：
+        //    `HasWhileInPlayAbility()` ∧ `∃ cardAbilities[i].targetCriteria.targetsAffected(+0x10) == 100`
+        //  （🔴 读的是 **ability 级** `CardAbility.targetCriteria(+0x30)`，逐字现读 ·
+        //    cpp2il `CardScript.cs:6865-6919` 与 `decomp_full` 两份一致；
+        //    ⚠️ **不是** `AbilityLogic.targetCriteria(+0x28)` —— 那是另一层的同名对象）。
+        //  ⚠️ **数据现状（如实记录，⛔ 别当「已覆盖」）**：现读 v30 卡池
+        //    `abilityLevelCriteria` 共 86 行 / `targetsAffected ∈ {10:62, 30:8, 20:8, 90:7, 55:1}`，
+        //    **`ta == 100` 的行 = 0**；而 `ta == 100` 的 18 行全在 **logic 级**
+        //    （`abilityTargetCriteria`，`AbilityLogic.targetCriteria`）。⇒ 拿本入口照原版判
+        //    `HasWhileInPlayAdjacentEffect` 会得到 **0 张**；是否改用 logic 级那一列是**另一个裁定**
+        //    （已写进 `报告/G17_第6轮.md` §④ 与本入口的交接），⛔ 本入口不改口径。
+        // =====================================================================================
+
+        /// <summary>🆕 2026-10-26（`G17`）：**按 trigger 名遍历这条卡的 ability 级 criteria 行**
+        /// （原版 `CardAbility.targetCriteria` `+0x30`，逐行 = `cardAbilities` 下标）。
+        ///
+        /// <para>返回 `List&lt;KeyValuePair&lt;int, CountSetSpec&gt;&gt;`：`Key` = `cardAbilities` 下标
+        /// （可直接喂 <see cref="AbilityLevelCriteriaAt"/>），`Value` = 那一行的 36 格
+        /// （`null` = 坏行/没落，今天数据里没有）。</para>
+        ///
+        /// <para><paramref name="why"/> 的契约（**与 <see cref="AbilityLevelCriteriaForTrigger"/> 同一套**）：</para>
+        /// <list type="bullet">
+        /// <item>空列表 + `why == null` ⇒ **明确没有**这一类的行（这条 trigger 下没有 ability，
+        ///   或者它的 criteria 是 `ta = any` ⇒ 生成器不落行）；</item>
+        /// <item>非空列表 + `why == null` ⇒ 正常（**有多少行全在这儿**；⛔ 与「唯一定位」不同，
+        ///   这里**允许**同 trigger 多行）；</item>
+        /// <item>空列表 + `why != null` ⇒ **判不了**（列没落 / 认不出 trigger 名 /
+        ///   有行的 `trigger` 未知）⇒ 调用点**出声并放行**（⛔ 不许当「没有」）。</item>
+        /// </list>
+        /// <para>⚠️ 行的 `trigger` 取自生成器那一列（`abilityLevelCriteria[].trigger`）；
+        /// `-1`（读不到）的行**不参与**任何 trigger 的匹配，但只要存在这样的行，
+        /// 本方法会把 `why` 置成「有 N 行 trigger 未知」——因为**不能排除**它本来属于被查的那个
+        /// trigger（现读全池 `trigger = -1` 的行 **0** 条）。</para>
+        /// <para>⚠️ 纯读取、无副作用；顺序 = `cardAbilities` 下标升序（可复现）。</para>
+        /// </summary>
+        public System.Collections.Generic.List<System.Collections.Generic.KeyValuePair<int, CountSetSpec>>
+            AbilityLevelCriteriaRowsForTrigger(string triggerName, out string why)
+        {
+            why = null;
+            var rows = new System.Collections.Generic.List<System.Collections.Generic.KeyValuePair<int, CountSetSpec>>();
+            if (!AbilityLevelCriteriaVersioned)
+            {
+                why = "`abilityLevelCriteria` 列没落（旧表 < v26）⇒ **未知**（⛔ 不是「没有条件」）";
+                return rows;
+            }
+            int n = AbilityTriggerNumber(triggerName);
+            if (n < 0)
+            {
+                why = $"认不出 trigger 名「{triggerName}」（不在 AbilityTrigger 枚举表里）";
+                return rows;
+            }
+            var abs = new System.Collections.Generic.List<int>(_abilityLevelCriteria.Keys);
+            abs.Sort();
+            int unknown = 0;
+            for (int i = 0; i < abs.Count; i++)
+            {
+                int ab = abs[i];
+                int tg;
+                if (!_abilityLevelRowTrigger.TryGetValue(ab, out tg) || tg == -1) { unknown++; continue; }
+                if (tg != n) continue;
+                rows.Add(new System.Collections.Generic.KeyValuePair<int, CountSetSpec>(ab, _abilityLevelCriteria[ab]));
+            }
+            if (unknown > 0 && rows.Count == 0)
+                why = $"这张卡有 {unknown} 行 `abilityLevelCriteria` 的 `trigger` **未知**（-1）"
+                    + $"⇒ 判不出「没有 trigger = {n}（{triggerName}）的行」还是「就是它」";
+            return rows;
+        }
+
     }
 
     /// <summary>
@@ -6690,7 +6765,7 @@ namespace RuleEngine
         /// <summary>**集结** —— **从手牌部署到场上之后**触发（不是「打出时」）。
         /// 触发点在 `RuleCore` 的部署链里，位置在 `ResolveSpiritAbility` **之后**
         /// ⇒ 正文里的 `Self` 指向的已经是场上那个单位，而且看得见刚给出的关键词。
-        /// 出处：规则书 `:200`。⚠️ 那一跳的**先后是我们挑的**（原版无据可查，如实标着）。</summary>
+        /// 🔶 自己设计（非原版）：`Rally` 的触发先后（部署到场上之后） · 规则书只写「部署到场上之后」，与原版方法体的先后无据可查（原版判据拿不到） · TODO(谁定的)｜原注：出处：规则书 `:200`。⚠️ 那一跳的**先后是我们挑的**（原版无据可查，如实标着）。</summary>
         public const string Rally = "rally";
 
         /// <summary>**猛击** —— **攻击结算之后**触发，**打没打死都算**。
@@ -6793,7 +6868,7 @@ namespace RuleEngine
         ///
         /// ⚠️ **规则书一条写「后」一条写「时」**（`:193` 是「后」、`:202` 是「时」）——
         ///    我们没有能分辨这个差别的依据 ⇒ **两条都放在同一个位置**（伤害结算完、`Slay`/`Strike` 之后）。
-        ///    这是**我们挑的**，如实标着。
+        /// 🔶 自己设计（非原版）：`Regiment` 的触发先后（伤害结算完、`Slay`/`Strike` 之后） · 规则书一条写「后」一条写「时」，我们分不出差别（原版判据拿不到） · TODO(谁定的)｜原注：这是**我们挑的**，如实标着。
         /// </summary>
         public const string Regiment = "regiment";
 
@@ -6922,7 +6997,7 @@ namespace RuleEngine
         public const string Cruelty = "cruelty";
         /// <summary>
         /// 主动技能：**消耗本单位的一次行动**发动效果。
-        /// 这是本工程自己定的关键词 —— 原版的「替代行动」（职责 Duty / 狂暴 Ferocity / 祈祷 Pray /
+        /// 🔶 自己设计（非原版）：`Ability` 关键词（花一次行动换一个效果） · 原版「替代行动」（Duty/Ferocity/Pray/Agenda）用法各异，v1 收成一条（原版判据拿不到） · TODO(谁定的)｜原注：这是本工程自己定的关键词 —— 原版的「替代行动」（职责 Duty / 狂暴 Ferocity / 祈祷 Pray /
         /// 议程 Agenda）是一族用法各异的东西，v1 先收成一条：「花一次行动换一个效果」。
         /// 不是原版关键词，所以卡面上按本工程的名字显示。
         /// </summary>
@@ -7095,10 +7170,40 @@ namespace RuleEngine
         /// ⇒ 不会抢先吃掉别人；反过来查了卡池（1126 张全文扫 `jam` 词根，只有一张战术卡
         /// **名字**叫 `Jammed Communications`，**没有任何一张**卡带 `jam` 词条）
         /// ⇒ 加它**不改动任何现有解析结果**。
-        /// ⚠️ **没有进 `Implemented`**：这个词的机制只做了「摘除那一支」，而全池 0 张卡带着它
-        /// ⇒ 不把它报成「已实现关键词」（0 张卡受影响）。
+        /// ⚠️ **没有进 `Implemented`**：全池 0 张卡带着它 ⇒ 不把它报成「已实现关键词」。🆕 2026-10-26（第 4 轮 `F3` · 任务 R3）**状态侧的整个组合口已补**：`UnitState.ApplyJam()`（照 `CardScript.ReactToUnitJammed` 的 ①②③④⑤ 逐句搬）+ `UnitState.RemoveAllAppliedEffectsForJam()` + `UnitState.RemoveExtrinsicEffectsFrom(卡名)`；
+        /// 驱动侧（`ResolveJamUnit` / `BroadcastUnitJammed`）属 `F2`，已写改动请求（R3-F2）。
         /// </summary>
         public const string Jam = "jam";
+
+        /// <summary>
+        /// 🆕 **2026-10-26（完全复刻 · 第 4 轮 · 执行代理 `F3` · 任务 R4）：**安魂**（`requiem`）
+        /// —— 原版 `DefinedTrait.requiem = 760`**（`dump.cs` 的 `DefinedTrait` 段；
+        /// 反编译里写作 `0x2f8`；消费者 `CardScript.HasCurrentTrait(requiem)`，见 `Data/SimpleAI.cs:167` 那条注）。
+        ///
+        /// **为什么这一格以前不存在**：`requiem` 的**触发号**早就有了
+        /// （`CardDef` 那张 `trigger 名 → 号` 表里 `{"Requiem", 430}` / `{"OtherCardRequiem", 435}`，
+        /// 见 `RuleCore` 的 `UseAlternative` 族），但**卡面词**一直没登记 ⇒ 卡数据里写 `Requiem`
+        /// 会被 `Normalize` 判成 null、被构造函数**静默丢弃**（本工程红线：
+        /// 与 `noncombatant` / `unstunnable` / `dropPod` 当年那个缺口**逐字同形**）。
+        ///
+        /// **语义（两层，别混）**：
+        ///   · **卡面词**（本常量）= 「这张牌带 `requiem` 这个 trait」—— 它**只是资格**；
+        ///   · **触发**（`AbilityTrigger.Requiem = 430`）= **自己**被 `ResolveTriggerRequiem` 触发时的号；
+        ///     别的单位被触发时发给全场（含双方手牌、除自己）的是 **435 `OtherCardRequiem`**
+        ///     （`BattleManagerSupport__BroadcastUnitRequiem.c:25/:31-34` + `CardScript__TriggerOtherCardRequiem.c:14`）。
+        ///     🔴 **430 ≠ 435**（与 `220 Sacrifice` / `225 OtherCardSacrifice` 同一族、同一坑）。
+        ///
+        /// **入口那条闸**（`BattleManager__ResolveTriggerRequiem.c:29` 现读）：
+        /// `if (targetCard != null &amp;&amp; !CardScript.IsInPlayOrDying(targetCard)) ⇒ FinishResolvingAction; return`
+        /// —— **不满足 `IsInPlayOrDying` 就什么都不做**（`ResolveTriggerSacrifice.c` 同一句）。
+        /// 我们那一侧（`RuleCore.UseAlternative` 族）**尚未搬这条闸** ⇒ 属 `F1`，已写改动请求（R4-F1）。
+        ///
+        /// **可达性（如实记）**：全池 **0 张**卡带它（`cards_engine.json` 全文扫 `requiem` 0 命中；
+        /// `Data/SimpleAI.cs:174-175` 也记着同一读数）⇒ 休眠机制，按铁律 11 先补「认得出」这一层。
+        /// ⚠️ **没有进 <see cref="Implemented"/>**：那一栏的判据是「那个时机**真的有人读它**」，
+        /// 而我们的 `ResolveTriggerRequiem` 入口还没接（见上面的改动请求）⇒ 今天不冒充已实现。
+        /// </summary>
+        public const string Requiem = "requiem";
 
         /// <summary>
         /// **虫群**（`Swarm`，2026-09-13 A2）：**打出在同名部队左侧时合并**（置于其下、攻击生命相加）。
@@ -7630,6 +7735,13 @@ namespace RuleEngine
             //    （`d:/2/Warpforge_code/Scripts/Assembly-CSharp/DefinedTrait.cs:13` = 反编译里的 `0x82`）。
             //    判据出处与影响面（前缀不撞车、全池 0 张卡带它）见 <see cref="KeywordTable.Jam"/>。
             new[] { "jam", KeywordTable.Jam },
+            // 🆕 **2026-10-26（第 4 轮 · `F3` · 任务 R4）：`requiem`（安魂，trait 760）** ——
+            //    不登记 ⇒ `Normalize` 返回 null ⇒ `CardDef` 构造函数**静默丢弃**
+            //    （与 `noncombatant` / `unstunnable` / `jam` 当年同形，踩「不许静默失败」红线）。
+            //    前缀撞车已核：`Prefixes` 里**没有任何**以 `r` 开头的条目，反向也不成立
+            //    （`"requiem".StartsWith("…")` 不会吃掉 `regiment` / `rally` / `remnant` —— 首字母后即分岔）。
+            //    ⚠️ 全池 **0 张**卡带它；判据与两层语义见 <see cref="KeywordTable.Requiem"/>。
+            new[] { "requiem", KeywordTable.Requiem },
             new[] { "stimulation", "stimulation" },
             // 🆕 2026-10-20（`A947` 收口）：**`noncombatant`（非战斗人员，trait 880）**。
             //    判据 = 原版 `CanAttackNow.c:25/:27`（`cantAttack`(150) 与 `noncombatant`(880)

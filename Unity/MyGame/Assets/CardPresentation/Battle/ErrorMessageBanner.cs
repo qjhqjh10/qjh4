@@ -368,7 +368,7 @@ namespace CardPresentation
         /// <para>🔴 **相对次序 = 原版判据**：原版主菜单里这颗 `UI Error Message Controller` = **`PopUps` / order 1**
         /// ⇒ 在 `3 - PopUp Holder`（窗，`PopUps`/0）**之上**、教学高亮（`PopUps`/601）与 toast（`PopUps`/900）**之下**
         /// （判据 → `资料/普查产出_1020/W58_界面线_Toast黑场次序判据.md` §2·3）。</para>
-        /// <para>🔑 **4035 这个绝对值 = [我们挑的]**：窗带最高 `AlliancePanelWindow.QText = 4030` 之上、
+        /// 🔶 自己设计（非原版）：菜单档错误横幅的绝对值队列 `MenuQueue = 4035` · 原版只给 `PopUps/1` 的相对次序；绝对值要落在我们窗带 4030 与教学高亮 4040 之间（原版判据拿不到） · TODO(谁定的)｜原注：<para>🔑 **4035 这个绝对值 = [我们挑的]**：窗带最高 `AlliancePanelWindow.QText = 4030` 之上、
         /// 教学高亮 `MenuTutorialHighlight.QShade = 4040` 之下。⛔ 别把它套到战斗档（两档的层带不同）。</para></summary>
         public const int MenuQueue = 4035;
         /// <summary>**战斗档**的底条队列（= `Q`）；文字比它大 1（= 原版兄弟序 Background → Text）。

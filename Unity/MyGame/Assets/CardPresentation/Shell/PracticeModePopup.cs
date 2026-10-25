@@ -512,7 +512,7 @@ namespace CardPresentation
         public const float DlPadL = 22f, DlPadT = 4f;
         public const float DnL = 1371.64f, DnT = 224.13f, DnR = 1726.64f, DnB = 271.82f;
         /// <summary>⚠️ 原版 `Warlord Name` 的矩形**宽 0**（`ContentSizeFitter` + `RectSizeLimiter` 运行时算）
-        /// ⇒ **右沿是我们挑的**（取 `Deck Name` 的 `DnR`）。**不是复刻**。</summary>
+        /// 🔶 自己设计（非原版）：战将名框 `WnL/WnT/WnR/WnB` 的右沿（取 `Deck Name` 的 `DnR`） · 原版 `Warlord Name` 宽 0、靠 ContentSizeFitter + RectSizeLimiter 运行时算（原版判据拿不到） · TODO(谁定的)｜原注：⇒ **右沿是我们挑的**（取 `Deck Name` 的 `DnR`）。**不是复刻**。</summary>
         public const float WnL = 1373.78f, WnT = 269.62f, WnR = 1726.64f, WnB = 303.62f;
         /// <summary>`Army Image` **105.26×104**（原版 sprite = 该阵营的 `40k_DeckSelection_icon_Faction*`）。</summary>
         public const float ArmImgL = 1258.85f, ArmImgT = 210.08f, ArmImgR = 1364.11f, ArmImgB = 314.08f;
@@ -1307,6 +1307,12 @@ namespace CardPresentation
         /// 「关窗 = 归零」不是我们独有的偏离。⛔ 别按旧注释去补一条原版都没有的「记住」。</para></summary>
         public override void Close()
         {
+            // 🆕 **2026-10-26（批次 6 · G15）：原版 `Close` 的第二句 `SaveSelectedDeck()`**
+            //   （判据 = `cpp2il/.../PracticeModePopup.cs:1096-1101`：`base.Close(); SaveSelectedDeck(); ResetContent();`）。
+            //   🔴 **必须排在那段「选择归零」之前**（原版相对次序 = 先存后清；倒过来就永远存到 null）。
+            //   ⚠️ 我们的 `base.Close()` 仍在**最后**（窗的可见性收尾要在状态收干净之后）——
+            //      相对次序差**不可观测**（`SaveSelectedDeck` 只读 `PickedPrebuilt`，而它下面就被清掉了）。
+            SaveSelectedDeck();
             if (!StartedBattle)
             {
                 if (PickedPrebuilt != null)
@@ -1403,6 +1409,20 @@ namespace CardPresentation
             //    293.51×57.84、文字也画在整框上，**两颗 94.64² 模式图标 + 名牌底一个都没建**、点了只 `NotBuilt`。
             //    现在四件按原版逐值建全并接上 `SetGameMode`（判据 = 本文件常量段 `Gm*` 那一组）。
             BuildGameModeToggle(root);
+            // 🆕 **2026-10-26（批次 6 · G15）：原版 `Awake` 的末句 —— 开关的显隐闸**。
+            //   判据 = `cpp2il/out_cpp2il_dev_ilspy/PracticeModePopup.cs:95-100`（`Awake` 逐句）：
+            //     `gameModeSelector.gameObject.SetActive(LiveOpsManager.GetHandler<GameModes>()
+            //        .GetActiveEvent<RankedV3Event>() != null)` —— **有 RankedV3 活动才显示那颗开关**。
+            //   🔴 **本地等价源 = `Shell/RankedData.cs` 的那一季**（判据见 <see cref="HasActiveRankedEvent"/>）——
+            //     ⛔ 别写成「本地没有 RankedV3 事件 ⇒ 隐藏」：我们有本地排季 + `RankedEventWindowV2` 恒可进
+            //     （`Shell/MainMenuRuntime.cs` 的排位模式卡恒在），那是**同一语义的本地来源**。
+            //   ⚠️ 隐藏时**开关下那四件一起藏**（它们是 `Toggle` 的子件）—— 原版 `SetActive` 打的就是那整颗
+            //     `gameModeSelector`（四件都是它的子件，`Barn`/`Background`/两颗图标/名牌都跟着藏）。
+            if (_gmToggle != null) _gmToggle.gameObject.SetActive(HasActiveRankedEvent);
+            if (!HasActiveRankedEvent)
+                Debug.Log("[Practice] `Game mode` 开关**藏起来**：本地没有在期的 RankedV3 活动"
+                        + "（原版 `Awake` 末句的闸 = `GetActiveEvent<RankedV3Event>() != null`）"
+                        + " ⇒ 本窗照旧按 `Skirmish(13)` 跑（原版开关藏起来时 `currentPlayMode` 就停在出厂值）");
 
             Img(root, "40k_bt_underbutton", ContL, ContT, ContR, ContB, "Continue Button", QPrRow, true,
                 new Color(0.369f, 0.894f, 0.587f, 1f));
@@ -1472,7 +1492,10 @@ namespace CardPresentation
             // 原版 `Toggle` 那一层（`EverguildToggle` + `NonDrawingGraphic`）—— 四件子件挂在它下面，
             // 兄弟序照原版（从下到上）：`Background` → `Skirmish toggle Image` → `Classic toggle Image`
             //                      → `Label Background`（其下 `Label`）。
-            var tog = New(root, "Toggle", new PxRect(TogL, TogT, TogR, TogB));
+            // 🆕 2026-10-26（批次 6 · G15）：节点存一份 —— `Build()` 末尾那道 `Awake` 闸要用它
+            //   （原版 `gameModeSelector.SetActive(有 RankedV3 活动)`，判据见 `Build()` 里那一段）。
+            _gmToggle = New(root, "Toggle", new PxRect(TogL, TogT, TogR, TogB));
+            var tog = _gmToggle;
 
             // ① `Background`（89×40）—— **只有它随 `isOn` 换图**（`m_PreserveAspect = 0` ⇒ ⛔ 别 keepAspect，
             //    这张图正好 89×40；旧代码把它按 keepAspect 拉进整框就是这么错的）。
@@ -2392,10 +2415,20 @@ namespace CardPresentation
                 if (pick.Prebuilt)
                 {
                     PickPrebuilt(pick.PrebuiltDeck);
+                    // 🆕 **2026-10-26（批次 6 · G15）**：原版「换卡组」那条链 = `DeckGeneralInfoDemo.ChangePlayerDeckButton`
+                    //   → `DeckSelectionPopup`（回调 `DeckChanged`）→ 本窗的 `PlayerDeckChanged`（判据 → 那个方法的 doc）。
+                    //   ⚠️ **预组也用同一条回调**（原版 `DeckChanged(CardDeck)` 不区分预组/自建，它只拿到 `CardDeck`）
+                    //   ⇒ 阵营筛选照原版跟到这副牌的阵营（哪怕它是从「预组」页挑的）。
+                    if (pick.PrebuiltDeck != null) PlayerDeckChanged(pick.PrebuiltDeck.faction);
                     return;
                 }
                 int idx = CollectionData.IndexOf(pick.Info.Name);
-                if (idx >= 0) PickDeck(idx);
+                if (idx >= 0)
+                {
+                    PickDeck(idx);
+                    // 🆕 2026-10-26（批次 6 · G15）：同上 —— 换了自己的卡组之后阵营筛选跟到新卡组。
+                    PlayerDeckChanged(CollectionData.DeckAt(idx).Faction);
+                }
             }, (int)SelectedGameMode);   // 🆕 2026-10-17（U4-1）：按**开关当前的赛制**筛「我的卡组」页
             // 🔴 **2026-10-17（U4-1）就地订正（铁律 5）**：这里原来写「原版练习窗里有个 `Game mode` 开关我们**没建**
             //    ⇒ 写死经典」—— **已经建了**（`BuildGameModeToggle`），模式按 `SelectedGameMode` 走。
@@ -2598,6 +2631,25 @@ namespace CardPresentation
             //   ⇒ 切到别的阵营之后 `PickedPrebuilt` 仍是旧阵营那一副（断言「选中态必须在列表里」红）。
             if (!SelectDefaultDeck())
                 ShowNoDeckSelected("阵营筛选：" + (ArmyIndex < 0 ? "不限" : _facs[ArmyIndex]));
+            // 🆕 **2026-10-26（批次 6 · G15）：`ChangeSelectedArmy` 的【高亮那一圈】补上。**
+            //   原版 `PracticeModePopup.ChangeSelectedArmy`（`cpp2il/out_cpp2il_dev_ilspy/PracticeModePopup.cs:745-853`）
+            //   在 `selectedArmy = army` 之后、`SetArmyButtons(army)` 之前还有一整圈：
+            //     · `selectedArmyName.text = GetTermTranslation("Armies/{army}")`（我们由 `PickDeck`/`ShowNoDeckSelected` 写 `_txtArmy`）
+            //     · **逐格** `SetActive(btn.highlight,  btn.army == army)`
+            //     · **逐格** `SetActive(btn.hasPlayerDeck,
+            //                  wrapper.cardDeck == null ? false : btn.army == wrapper.cardDeck.deckHero.cardArmy)`
+            //   ⇒ 这两颗显隐的**唯一写点**就是那一圈（另一处 = `ConfigureArmyFilterButtons` 的出厂全关，
+            //     判据写在 `RebuildArmyCells` 头上那一段）。我们原来只有「建窗 / 滚轮」会重画那一列
+            //     ⇒ **点一格之后高亮停在旧格、火漆印不跟卡组**（G7 §⑥·② 第 9 条）。
+            //   🔑 现成的补法 = 本文件另一条入口（`StartPracticeMatch`）已经这么做的那一句：
+            //     `w.ArmyScroll.OnChanged()` ⇒ 重画阵营列。**不整列重建新的 Scroll**（`OnChanged` 只是回调
+            //     `RebuildArmyCells`），所以**滚动位置不动**：`RebuildArmyCells` 用 `ArmyScroll.Shift(r)` 摆格，
+            //     `MenuScroll.Offset` 是它自己的字段、重建格不会重置它。
+            //   ⚠️ **顺序与原版不同（如实记）**：原版先刷高亮、后 `SetArmyButtons`（重列 + 默认选 item0）；
+            //     我们反过来（先 `SelectDefaultDeck` 再重画）—— 因为我们的火漆印读的是 `CurrentDeck`
+            //     （唯一判源），而它**在 `SelectDefaultDeck` 里才换**。净可见状态相同（都是终态），
+            //     只是中间那一帧没有高亮（原版那一帧也没有高亮，两边都不上屏）。
+            if (ArmyScroll != null) ArmyScroll.OnChanged();   // 阵营列重画 ⇒ 高亮落到这一格 + 火漆跟卡组
             Debug.Log("[Practice] 阵营筛选：" + (ArmyIndex < 0 ? "不限" : _facs[ArmyIndex]));
         }
 
@@ -2904,6 +2956,11 @@ namespace CardPresentation
                 if (Manager != null) Manager.ShowPopUp(Loc.T("MenuDeck/Error/CantStartNoWarlord"), Loc.T("MainMenu/General/OK"), null);
                 return;
             }
+            // 🆕 **2026-10-26（批次 6 · G15）：原版 `BattleButtonOnClick` 里那一句 `SaveSelectedDeck()`**
+            //   （判据 = `cpp2il/.../PracticeModePopup.cs:979-1082` 的方法体：它在 `StartMatch(...)` **之前**调
+            //   `SaveSelectedDeck()` ⇒ 点 `Battle!` 也会把「上次选的演示卡组」写进存档）。
+            //   ⚠️ 放在督军闸**之后**：闸不过就不开局（原版那一刻也走不到 `SaveSelectedDeck` 后面那几跳）。
+            SaveSelectedDeck();
             // 🆕 2026-10-17（U4-1）：`Battle!` **按当前开关的赛制取卡组**（原版 `BattleButtonOnClick.c:96-160`
             //   按 `gameMode` 在 `plVar1[3]/[4]` 两套卡组/督军槽位里二选一）。我们每副牌自带 `GameMode`
             //   ⇒ 列表与选卡组窗都已按模式筛，这里只做**一致性出声**：选中的那副若是另一档
@@ -3392,5 +3449,124 @@ namespace CardPresentation
             wb.clickCue = clickCue;
             return hit.transform;
         }
+
+        // ============================================================ 🆕 2026-10-26（批次 6 · G15）
+        //  本窗三条**原版方法**的等价物（判据全部实读 `d:/2/tools/cpp2il/out_cpp2il_dev_ilspy/PracticeModePopup.cs`，
+        //  那是唯一有真方法体的那份）。为什么新成员都追加在类尾：铁律「增行会推下游行号」——
+        //  本文件在账里只有**类级**引用（`卡组编辑.tsv` 一族写的是 `Shell/PracticeModePopup.cs`，不带 `:行`）
+        //  ⇒ 追加是安全的；仍然照规矩**只往类尾加**，⛔ 别插进已有成员之间。
+
+        /// <summary>原版 `Awake` **末句**的闸（`:95-100`）：
+        /// `gameModeSelector.SetActive(LiveOpsManager.GetHandler&lt;GameModes&gt;().GetActiveEvent&lt;RankedV3Event&gt;() != null)`。
+        ///
+        /// <para>🔴 **本地等价源 = `Shell/RankedData.cs` 的那一季**（不是「本地没有」——那是 G7 特意提醒过的一句）。
+        /// 我们的对应物有三件：① `Shell/RankedData.cs`（本地排季：赛季号 / 积分 / 段位，带本地存档）；
+        /// ② `Shell/RankedEventWindow.cs`（`RankedEventWindowV2` 的本地实现，**恒可进**）；
+        /// ③ `Shell/MainMenuRuntime.cs` 的「排位」模式卡（**恒在**）。⇒ 本地**恒有一档在期的排位季**
+        /// ⇒ 开关**常显**，与原版「有 RankedV3 活动 ⇒ 显示」**等价**（F6 / G7 都写过：别按「本地没有」结案）。</para>
+        ///
+        /// <para>⚠️ **为什么读 `SeasonNumber` 而不是恒 `true`**：`SeasonNumber` 是那份数据层的真实字段
+        /// （缺省 1、存档里读回，`RankedData.Load`）—— 万一将来本地排季被关掉/清空（赛季号 ≤ 0），
+        /// 这颗开关会自动跟着藏起来，与「没有在期活动」同向。⛔ 别把它写成 `return true`（那就是写死）。
+        /// ⚠️ **时间限定**：当前 build 里 `LiveOpsLocalCatalog` 的 13 份本地活动 SO **没有任何 Ranked 类**
+        /// （枚举只有 Parent / Scoring / PremiumItemOffer / FastMode），所以**不能**拿它当判据源；
+        /// 若将来本地出现 Ranked 类活动实例，应改指它（那才是原版那个 `GetActiveEvent` 的真等价物）。</para></summary>
+        public static bool HasActiveRankedEvent { get { return RankedData.SeasonNumber > 0; } }
+
+        /// <summary>原版 `PlayerDeckChanged(CardDeck newDeck)`（`:722-731`）的等价物。
+        ///
+        /// <para>原版三句（逐句）：`playerDeckInfoWrapper.cardDeck = newDeck;` · `selectedArmy = CardArmy.Neutral;` ·
+        /// `ChangeSelectedArmy(newDeck.deckHero.cardArmy);` —— 第二句是**故意的**：`ChangeSelectedArmy` 开头有
+        /// `if (army == selectedArmy) return;`（`:750-753`），先把筛选取成 `Neutral` 才保证「哪怕新旧卡组同阵营也走完整一圈」
+        /// （重取 label + 重刷高亮 / 火漆 + 末尾 `SetArmyButtons` 重列）。</para>
+        ///
+        /// <para>⚠️ **我们的「selectedArmy」就是 <see cref="ArmyIndex"/>**（阵营名在 `Factions()` 里的下标），
+        /// 没有 `Neutral` 那一档（那是 `CardArmy` 的 0 号；我们这一维是**下标**、原版那一维是**枚举值**）。
+        /// ⇒ 等价做法：直接按新卡组的阵营算下标再走一次「重画 + 重列」——
+        /// 少掉的只是「同阵营时也要走一圈」这个副作用，而本方法**本来就会被调用**
+        /// （调用点 = `OpenDeckSelection` 的选卡组回调，每次玩家点定都调一次），所以那一圈不会漏。</para>
+        ///
+        /// <para>🔴 **为什么不复用 <see cref="PickArmy"/>**：那一支有「同阵营早返回」的闸（原版
+        /// `ChangeSelectedArmy.c:30-33`），而本方法要的正是**绕过**它（原版先用 `Neutral` 顶开的那个闸）。</para>
+        ///
+        /// <para>⚠️ **一条与原版一致的怪行为（如实记，⛔ 别「修」）**：原版 `SetArmyButtons` 建完列表后
+        /// **默认选 item0**（= 你的卡组；阵营不匹配时 = 该阵营第一对）⇒ 玩家若从选卡组窗的「预组」页挑了一副
+        /// **不是该阵营第一对**的牌，这一圈会把它换回**第一对**。原版就是这样（`DeckSelected(item0)`），
+        /// 我们照做。</para></summary>
+        /// <param name="faction">新选中那副牌的阵营名（`CollectionData.DeckAt(i).Faction` / `PrebuiltDecks.Deck.faction`）。
+        /// 空 ⇒ 落 `Ultramarines`（同 <see cref="DefaultArmyIndexOf"/> 的回落）。</param>
+        public void PlayerDeckChanged(string faction)
+        {
+            var facs = CollectionWindow.CardsState.Factions();
+            int ni = DefaultArmyIndexOf(faction, facs);
+            Debug.Log("[Practice] 换了自己的卡组 ⇒ 阵营筛选跟到新卡组（原版 `PlayerDeckChanged`："
+                    + "`selectedArmy = Neutral` 再 `ChangeSelectedArmy(新卡组阵营)`）：「"
+                    + (string.IsNullOrEmpty(faction) ? "<空>" : faction) + "」→ 第 " + ni + " 格"
+                    + (ni == ArmyIndex ? "（与当前筛选同一格，仍按原版走完一圈）" : ""));
+            ArmyIndex = ni;
+            // 原版末尾的 `SetArmyButtons(army)`：按新阵营重列 + 默认选 item0。
+            if (!SelectDefaultDeck())
+                ShowNoDeckSelected("换卡组后的阵营筛选：" + (ArmyIndex < 0 ? "不限" : facs[ArmyIndex]));
+            // 原版那一圈的两颗显隐（`Highlight` / `Has Player Deck`）都由 `ChangeSelectedArmy` 重刷
+            // ⇒ 等价物 = 重画阵营列（与 `PickArmy` 末尾那**同一句、同一顺序**，⛔ 别各写一份）。
+            // ⚠️ 顺序与 `PickArmy` 保持一致（先选默认牌、后重画）：火漆印读的是 `CurrentDeck`，
+            //    `SelectDefaultDeck` 有可能换成「该阵营第一对」⇒ 重画放在它后面，读到的才是终态。
+            if (ArmyScroll != null) ArmyScroll.OnChanged();
+        }
+
+        /// <summary>原版 `SaveSelectedDeck()`（`:733-743`）的等价物 —— **写存档里的「上次选的演示卡组」**。
+        ///
+        /// <para>原版三句：取 `selectedDeck` · 按当前 `currentPlayMode` 二选一（`classicDeck` / `skirmishDeck`）·
+        /// **那一档非空才** `PlayerDataManager.SetDemoDeck(prebuiltDeck.deckId)`（= 写 `DemoData.currentDeck`）。</para>
+        ///
+        /// <para>🔴 **它写进去的那个值在原版这一版【只写不读】** —— 两个读者
+        /// `IsSavedDeck`(:645) / `LoadSavedDeck`(:610) 都是**零调用死代码**（cpp2il 只有定义、`decomp_full` 只命中它自己；
+        /// 判据链 → F6 第 4 轮报告 §二 与 `账/_parts/B4_F6.tsv` 那一行）。
+        /// ⇒ 观感上「关窗重开不会恢复上次选的牌」，但**存档那一格真的会被写**（行为可观察）⇒ 仍要做（铁律 11）。</para>
+        ///
+        /// <para>⚠️ **玩家自己的卡组那一档在原版【不写】**：那时 `selectedDeck` 是
+        /// `PlayerDeckDemoDeckInfoWrapper`（`ScriptableObject.CreateInstance` 出来的，`classicDeck/skirmishDeck`
+        /// 两个字段**都是 null**）⇒ `if ((bool)obj)` 为假 ⇒ 跳过。我们照此：`PickedPrebuilt == null` 时**不写**。</para>
+        ///
+        /// <para>落点：`SaveCenter` 的 <see cref="SaveKeys.DemoData"/>（原版 `PlayerDataKey.DemoData` = 第 15 条，
+        /// 本工程此前**空缺** —— `SaveKeys.cs` 那一条的注释写着）。⚠️ **只写 `currentDeck` 一个字段**：
+        /// 原版 `DemoData` 另有 8 个字段（`tutorialsCompleted` / `gameAfterTutorialPlayed` / `canEnterDraftMode` …），
+        /// 它们在本工程各自由别的模块负责/尚未实现 ⇒ ⛔ 别在这里塞默认值冒充（会覆盖将来那些字段）。</para>
+        /// <para>存/取都只是 JSON：`SaveCenter.Set`（批处理/没进 Play 且没设 `OverrideRoot` 时它自己会出声并丢弃写）。</para></summary>
+        public void SaveSelectedDeck()
+        {
+            var pre = PickedPrebuilt;
+            if (pre == null)
+            {
+                Debug.Log("[Practice] `SaveSelectedDeck`：现在选的是**玩家自己的卡组** ⇒ 原版这一档**不写**"
+                        + "（`selectedDeck` 是 `PlayerDeckDemoDeckInfoWrapper`，它的 `classicDeck/skirmishDeck` 都是 null）");
+                return;
+            }
+            if (string.IsNullOrEmpty(pre.deckId))
+            {
+                Debug.LogWarning("[Practice] `SaveSelectedDeck`：预组「" + pre.DisplayName
+                               + "」**没有 deckId** ⇒ 不写（⛔ 不编一个 id 塞进存档）");
+                return;
+            }
+            var dto = new DemoDataDto { currentDeck = pre.deckId };
+            bool ok = SaveCenter.Set(SaveKeys.DemoData, dto);
+            Debug.Log("[Practice] `SaveSelectedDeck` ⇒ `DemoData.currentDeck = " + pre.deckId + "`"
+                    + "（原版 `SetDemoDeck(deckId)`；⚠️ 本 build 那两个读者 `IsSavedDeck`/`LoadSavedDeck` 是死代码"
+                    + " ⇒ **只写不读**）" + (ok ? " · 已落盘" : " · **没落盘**（原因见紧邻的那条 `[SaveCenter]` 日志）"));
+        }
+
+        /// <summary>🆕 2026-10-26（批次 6 · G15）：`DemoData` 的**最小本地形状**（只含我们真的会写的字段）。
+        /// 🔴 字段名照原版（`currentDeck`，`cpp2il/DemoData.cs:24` 那一列的第 5 个）——
+        /// 这是落盘格式，⛔ 别改名。其余 8 个字段**本工程尚未实现**（见 <see cref="SaveSelectedDeck"/> 的 doc）。</summary>
+        [System.Serializable]
+        class DemoDataDto
+        {
+            public string currentDeck;
+        }
+
+        /// <summary>`Game mode` 开关那一整颗节点（原版 `gameModeSelector`）—— `Build()` 末尾那道
+        /// 「有 RankedV3 活动才显示」的闸要用它（判据见 <see cref="HasActiveRankedEvent"/>）。
+        /// 🔴 隐藏时**开关四件一起藏**（它们都是这颗的子件，同原版 `SetActive` 打在 `gameModeSelector` 上）。</summary>
+        Transform _gmToggle;
     }
 }

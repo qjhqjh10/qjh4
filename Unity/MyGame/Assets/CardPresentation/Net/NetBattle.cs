@@ -256,6 +256,15 @@ namespace CardPresentation.Net
             return nb;
         }
 
+        /// <summary>「这一局打岔了，但**这一跳判不了**」的收尾：只出声、**不判胜负、也不终止网络**。
+        /// <para>🆕 **2026-10-26（批次 6 · G15）**：它现在**只剩两个调用点**：
+        /// ① `case NetKind.Hash` 的**状态指纹对不上** —— 那是**我们自设**的检测（原版没有这一跳），而 `SendFingerprint`
+        /// 两端都发 ⇒ 两端都可能判出来 ⇒ 「谁赢」都可能是错的 ⇒ 保持「不判」；
+        /// ② `case NetKind.Reject`（主机拒了我那条动作）—— 只报、不判，判负那一跳由紧跟的
+        /// `NetKind.Desync` 走 <see cref="AcceptPeerDesync"/>（理由见那一支）。
+        /// 原版能判结果的两条同类路径已经落地：发现方 <see cref="AbortWithVictory"/>
+        /// （= `CancelMatchWithVictory` ⇒ 判本机胜）、收方 <see cref="AcceptPeerDesync"/>
+        /// （= `ReceiveEnemyDesync` ⇒ 认账判自己负）。⛔ 别把这两条改回 `Abort`（那会把判胜负丢掉）。</para></summary>
         void Abort(string why)
         {
             if (_aborted) return;
@@ -272,24 +281,134 @@ namespace CardPresentation.Net
         }
 
         // ==================================================================
-        //  🆕 2026-10-19（W · 结算掉线口径）：**`CancelMatch` 一族 —— 原版有对应物，但我们不建**
+        //  🆕 2026-10-26（批次 6 · G15）：原版「对手打岔」那一族 —— `OnOpponentDesync` / `CancelMatch`
         // ==================================================================
-        //  原版 `BattleManager.CancelMatch(bm, bool)`（`d:/2/tools/decomp_full/BattleManager__CancelMatch.c`）：
-        //    · `bool == 0` ⇒ `BattleNetworkManager.LeaveBattle()`（`:22`，离开、**不判结果**）；
-        //    · `bool != 0` ⇒ `AddResignAction` + `DeadHero(bm, 0, Cancelled=5)`（`:28-29`）
-        //      ⇒ `playerIsLoser = false` ⇒ **判玩家胜**（⚠️ 不是「取消者输」，`param_2` 那个 `0` = 玩家不是负方）。
-        //  🔑 **唯一触发源 = 服务端检测到对手 desync**：
-        //    `BattleErrorUIManager.OpponentDesyncCancelMatch` 弹窗的确认回调
-        //    （`…DisplayClass18_0___OpponentDesyncCancelMatch_b__0.c:25`）。
-        //    同族的 `CancelMatchWithVictory` / `CancelMatchWithoutResult` 触发点也全在服务端 / 兜底协程
-        //    （`_InBattleFallbackCountdown`、`_ResolveAttack_d__438__MoveNext.c:234`、`PUNReceiveWrongRoom.c:78`、
-        //     `EventPlayerDisconnected.c:67`）—— **本地没有这条数据 / 触发源**。
-        //  ⇒ **不建**（铁律 11 例外①：原版那条数据/触发源本地不存在），⛔ 也别为它造一套仲裁机制。
-        //    我们唯一的 desync 收尾 = 上面 `Abort`（只出声、**不判胜负** —— 没有仲裁者就不该判）。
-        //  ⚠️ 将来若接：`Cancelled=5` 在原版是「**玩家胜**」⇒ 落点应是
-        //    `RuleCore.Forfeit(Ctx, 对面, BattleResult.Cancelled)`（把**对面**当负方），
-        //    ⛔ 别写成 `Forfeit(Ctx, 我方, …)`（那是「取消者输」，与原版相反）。
-        //  判据全文 → `资料/普查产出_1019/W_战斗线_T07结算_1019b.md` §一·3。
+        //  🔴 **就地订正（铁律 5）**：本节原来写的是「**`CancelMatch` 一族 —— 原版有对应物，但我们不建**」
+        //    （理由 =「唯一触发源 = 服务端检测到对手 desync，本地没有这条数据 ⇒ 铁律 11 例外①」）。
+        //    那句话**只对了一半**：原版那条链的**检测在客户端**（本机结算对面那条动作失败时），
+        //    只有最后的「记账」才在服务端。而我们这边**本机检测早就有了** —— `Abort` 那几个调用点就是它
+        //    （对面不是他的回合就发动作 / 本机引擎拒了对面的动作 / 主机拒了我的动作 / 状态指纹对不上）。
+        //    ⇒ 本批把原版那条链补上（判据逐句）：
+        //
+        //   · **发现方** = 原版 `BattleManager.CancelMatchWithVictory(errorLog)`
+        //     （`decomp_full/BattleManager__CancelMatchWithVictory.c:11-33`）四步：
+        //     ① 置 `matchData.desyncCancelledGame = true` + `alreadyCancelledMatch = true`（**只认一次**）；
+        //     ② 记「本站胜」（`PlayerDataManager.RecordMatchWonByCancel` —— **服务器那一笔账，我们不做**）；
+        //     ③ **`commsManager.SendDesync()`**（`BattleCommsManager__SendDesync.c:20-27` =
+        //        `photonView.RPC("PUNReceiveEnemyDesync", PhotonTargets.All)`，**无参**）；
+        //     ④ 触发 `OnOpponentDesync(true)` ⇒ `BattleErrorUIManager.OpponentDesyncCancelMatch(true)`
+        //        （`cpp2il/Everguild/BattleErrorUIManager.cs:537-560`）：
+        //        `WindowsManager.ShowPopUp(EnemySyncError, localizeTexts:false, closeOnEsc:false, SubmitButton, onSubmit)`，
+        //        submit = `BattleManager.CancelMatch(MatchWon)`。
+        //   · **`BattleManager.CancelMatch(bm, bool MatchWon)`**（`decomp_full/BattleManager__CancelMatch.c:18-29`）：
+        //       `MatchWon == false` ⇒ `BattleNetworkManager.LeaveBattle()`（**不判结果**）；
+        //       否则 ⇒ `AddResignAction` + **`DeadHero(bm, 0, 5)`**（那个 `0` = 本机不是负方 ⇒ **判本机胜**；
+        //       理由码 `5` = `Cancelled`，与 `RuleEngine/Core/RuleCore.cs` 的 `BattleResult.Cancelled` 逐值相同）。
+        //       ⛔ 别读成「取消者输」：`CancelMatch.c` 的 `param_2` 是**负方座位**，写反就是把胜负弄反。
+        //   · **收方**（`PUNReceiveEnemyDesync` → `BattleManager.ReceiveEnemyDesync`，
+        //     `decomp_full/BattleManager__ReceiveEnemyDesync.c:22-45`）：**只认账**
+        //     （`PlayerDataManager.RecordMatchWonByCancelEnemy` = 记「对面靠取消赢了我」），
+        //     **不弹窗、不判自己、不动本机局面**（谁赢由服务端记）。
+        //
+        //  🔴 **我们的落地（两条路，落点都不新造口）**：
+        //   · 发现方 = <see cref="AbortWithVictory"/>：发 `NetKind.Desync`（= ③）⇒ 弹窗
+        //     `Loc.T("Battle/EnemySyncError")` + 提交钮 `Loc.T("MainMenu/General/OK")`（= ④；两条词条都在
+        //     `Core/Loc.cs`、值是从官方表录的）⇒ 点确定的回调 = `INetBattleHost.NetRemoteResign(BattleResult.Cancelled)`
+        //     （= `CancelMatch(true)` 的 `DeadHero(对面, 5)`；宿主那份仍走既有记账口 `RecRaw` + `RuleCore.Forfeit`）。
+        //   · 收方 = <see cref="AcceptPeerDesync"/>（`case NetKind.Desync`；`case NetKind.Reject` 仍走 `Abort`
+        //     只报不打分 —— 判负那一跳由紧跟的 `desync` 那条走，理由见那一支的注释）：
+        //     **不弹窗**（原版收方也没有），只**判本机负**、理由码同样 `Cancelled` —— 因为**我们本地没有服务器
+        //     那一笔账**，不收尾这一局就永远挂着（⚠️ 如实写：这一句是**本地等价**，原版是「服务端记一笔、本地不动」）。
+        //     两端因此报**同一个弃权座位**（同 `A914` 那条口径）。
+        //   · **`MatchWon == false`（`CancelMatchWithoutResult` / `LeaveBattle`）今天【没有落地】**：原版它由
+        //     `PUNReceiveWrongRoom` / `EventPlayerDisconnected` 触发，我们这两档各自的收尾**已经有了**
+        //     （`NetMatchmaking` 的 `ModeMismatch` 那条 + `HandlePeerClosed` 那条）⇒ 再建一个「不判结果直接离开」
+        //     的口 = 第三条同类路（判据还落在别人文件里）。**唯一仍走 `Abort`（只报不打分）的是「状态指纹对不上」**
+        //     —— 那是**我们自设**的检测（原版没有这一跳），且**两端可能同时判出来** ⇒ 谁赢都可能是错的 ⇒ 保持「不判」。
+        //   · **`BattleErrorUIManager.SetupErrors()` 那 5 条订阅，逐条对账**（判据 = `decomp_full/Everguild.BattleErrorUIManager__SetupErrors.c`，
+        //     5 处 `System_Delegate__Combine`，挂在 `BattleManager` 的 `+0x1c0/+0x1b0/+0x1b8/+0x1c8` 与
+        //     `UIGenericEventCatcher.Source(+0x148)` 上）：
+        //     ① `OnConnectionStatusChanged` ⇒ 我们的 `HandlePeerLost` / `HandlePeerClosed` / `Tick` 那条「对面回来了」的边沿（**有等价**）；
+        //     ② `UpdateReconnectStatus` ⇒ `ReportReconnectStatus`（**有等价**，每秒一拍）；
+        //     ③ `OnOpponentDesync` ⇒ **本批补上**（`NetKind.Desync` + `AbortWithVictory` + `AcceptPeerDesync`）；
+        //     ④ `UIGenericEventCatcher.Source`（`GameBlocked` = 重复连接 ⇒ 弹 `CustomErrors/DuplicateConnection` 后 `Application.Quit()`）——
+        //        **原版触发源本地不存在**（那是 Photon 房间层的「同一账号重复进房」）⇒ 例外①，⛔ 别自己造一个；
+        //     ⑤ `Action<object>`（`SaveMatchFailed` ⇒ 弹 `CustomErrors/ErrorSavingMatch`）—— **原版触发源在服务端**
+        //        （局末成绩上传失败）⇒ 例外①，同上。
+        //  判据全文 → `资料/普查产出_1019/W_战斗线_T07结算_1019b.md` §一·3（原结论保留，只订正「不建」那句）。
+
+        /// <summary>🆕 **2026-10-26（批次 6 · G15）**：发现方主张胜利（= 原版 `CancelMatchWithVictory`）。
+        /// 与 <see cref="Abort"/> 的差别**只有一处**：它发 `NetKind.Desync` 并且**点了确定就判本机胜**
+        /// （`BattleResult.Cancelled`）；<see cref="Abort"/> 只报信、不判。</summary>
+        /// <param name="why">为什么判「打岔了」（进日志与提示行；⛔ 它不上对端屏幕 —— 原版那条 RPC 不带理由）。</param>
+        void AbortWithVictory(string why)
+        {
+            if (_desyncClaimed) return;      // 原版 `alreadyCancelledMatch`：**只认一次**
+            _desyncClaimed = true;
+            _aborted = true;                 // 顺带停掉「再发动作」（同 `Abort` 那一条）
+            _desyncClaims++;
+            Debug.LogError("[Net] 🔴 联机对局打岔（**判本机胜**）：" + why
+                         + "（原版 `CancelMatchWithVictory` → `SendDesync` → `OnOpponentDesync(true)` → "
+                         + "`CancelMatch(true)` = `DeadHero(对面, 5)`；理由码 `Cancelled`(5)）");
+            if (_d != null) _d.NetSay("对面那一手和本机对不上 —— 这一局按打岔结束（判你胜）");
+            // ③ 先告诉对面（原版 `commsManager.SendDesync()` 在弹窗**之前**）——
+            //    对面收到 `NetKind.Desync` 就走 `AcceptPeerDesync`（认账判自己负）。
+            Send(NetKind.Desync, new MsgDesync());
+            // ④ 弹窗 + 提交回调（原版 `WindowsManager.ShowPopUp(EnemySyncError, …, SubmitButton, onSubmit)`）。
+            NetRuntime.ShowSyncErrorPopup(() =>
+            {
+                // = `CancelMatch(MatchWon: true)` ⇒ `AddResignAction` + `DeadHero(对面, 5)`。
+                // ⚠️ 点确定那一刻这一局可能已经被别的路径收掉了（玩家先投降 / 对面先认账）——
+                //    判负入口自己那道闸管着（`RuleCore.Forfeit` 见 `Winner != 0` 一律挡），这里只保证**有宿主**。
+                if (_d == null)
+                {
+                    Debug.LogWarning("[Net] 打岔窗点了确定，但本类**没有挂宿主**（`_d == null`）"
+                                   + " ⇒ 判胜这一跳走不了（如实出声，不假装收干净了）");
+                    return;
+                }
+                Debug.Log("[Net] 打岔窗点了确定 ⇒ `NetRemoteResign(Cancelled)`（= 原版 `CancelMatch(true)` 的 "
+                        + "`DeadHero(对面, 5)` ⇒ **判本机胜**）");
+                _d.NetRemoteResign(BattleResult.Cancelled);
+            });
+        }
+
+        /// <summary>🆕 **2026-10-26（批次 6 · G15）**：收方认账（= 原版 `BattleManager.ReceiveEnemyDesync`
+        /// 的本地等价：`RecordMatchWonByCancelEnemy` 记「对面靠取消赢了我」）。
+        /// <para>⚠️ 原版收方**不弹窗、不动本机局面**（谁赢由服务端记）；我们本地没有服务器 ⇒ 必须在这里把这一局
+        /// 收掉（判**本机负**、理由码 `Cancelled`），否则对端已经结束、本机永远挂着。</para>
+        /// <para>⛔ 别用 `NetRemoteResign`：那是「对面负」；收方这一档是**自己负**
+        /// （原版 `ReceiveEnemyDesync` 记的是自己输）。</para></summary>
+        void AcceptPeerDesync(string why)
+        {
+            if (_desyncAccepted) return;     // 只认一次（原版 `alreadyCancelledMatch` 同效）
+            _desyncAccepted = true;
+            _aborted = true;                 // 顺带停掉「再发动作」（同 `Abort` 那一条）
+            _desyncAccepts++;
+            Debug.LogWarning("[Net] 对面声称这一局打岔了 ⇒ **认账、判本机负**（原版 `ReceiveEnemyDesync` 的 "
+                           + "`RecordMatchWonByCancelEnemy` 的本地等价；理由码 `Cancelled`(5)，不弹窗）：" + why);
+            if (_d == null)
+            {
+                Debug.LogWarning("[Net] 认账那一跳没走成：本类**没有挂宿主**（`_d == null`）—— 如实出声，不假装收干净了");
+                return;
+            }
+            if (_d.Ctx != null && _d.Ctx.IsOver)
+            {
+                Debug.Log("[Net] 对面声称打岔时，本机这一局**已经结束了**（`Ctx.IsOver`）⇒ 不再判一次（同一个判据管两档）");
+                return;
+            }
+            _d.NetSay("这一局和对面打岔了 —— 按对面的账，这一局判你负");
+            _d.NetSelfResign(BattleResult.Cancelled);
+        }
+
+        /// <summary>自检读口：本机以「打岔」为由**主张胜利**过几次（原版 `CancelMatchWithVictory` 那一跳）。</summary>
+        public int DesyncClaimsForTest { get { return _desyncClaims; } }
+        /// <summary>自检读口：本机以「打岔」为由**认账判自己负**过几次（原版 `ReceiveEnemyDesync` 那一跳）。</summary>
+        public int DesyncAcceptsForTest { get { return _desyncAccepts; } }
+        int _desyncClaims, _desyncAccepts;
+        /// <summary>「本机已经以打岔为由主张过胜利」/「本机已经认账判过自己负」—— 各只认一次
+        /// （原版 `CancelMatchWithVictory` 的 `alreadyCancelledMatch` 那个闸；⛔ 别拿 `_aborted` 兼职：
+        /// 它还会被 `Abort`（指纹那一档）与别的收尾路径立起来，兼职会把判负那一跳静默吞掉）。</summary>
+        bool _desyncClaimed, _desyncAccepted;
 
         // ==================================================================
         //  🆕 2026-10-17（B13·A880 / B17·A900+A901）：对面**掉线 / 主动离开** —— 出厂接线 + 到点判负
@@ -422,9 +541,12 @@ namespace CardPresentation.Net
             ClockPaused = true;                 // 🔴 A901：对局时钟停走（原版 `ClockManager.PauseClock()`）
             // 🔴 2026-10-19（W · 结算掉线）：**没有对局状态**时不许再说「N 秒后判他弃权」——
             //   那一支**没有倒计时**（`StartReconnectCountdown` 只报信），说秒数也是一句假话。
-            SayPeerGone(hasCtx ? ReconnectHint(_countdownLeft) : "对手掉线了 —— 正在等他回来",
-                        hasCtx ? ReconnectPopup(_countdownLeft)
-                               : "对手掉线了 —— 正在等他回来。\n（这一档只报信：本机没有对局状态，没有弃权可判。）");
+            SayPeerGone(hasCtx ? ReconnectHint(IAmDisconnectedEnd, _countdownLeft)
+                               : (IAmDisconnectedEnd ? "本机掉线了 —— 正在重连" : "对手掉线了 —— 正在等他回来"),
+                        hasCtx ? ReconnectPopup(IAmDisconnectedEnd, _countdownLeft)
+                               : (IAmDisconnectedEnd
+                                  ? "本机掉线了 —— 正在重连。\n（这一档只报信：本机没有对局状态，没有结果可判。）"
+                                  : "对手掉线了 —— 正在等他回来。\n（这一档只报信：本机没有对局状态，没有弃权可判。）"));
         }
 
         /// <summary>🆕 2026-10-19（W · 结算掉线）：**掉线那一刻**的传输层原因（`_s.LastError`）。
@@ -705,8 +827,8 @@ namespace CardPresentation.Net
         /// 我们这边两个口都刷：**提示行**（真 Play 与自检都看得见）+ **弹窗正文**（只有真 Play 验得到）。</summary>
         void ReportReconnectStatus(int sec)
         {
-            if (_d != null) _d.NetSay(ReconnectHint(sec));
-            NetRuntime.UpdateReconnectPopup(ReconnectPopup(sec));
+            if (_d != null) _d.NetSay(ReconnectHint(IAmDisconnectedEnd, sec));
+            NetRuntime.UpdateReconnectPopup(ReconnectPopup(IAmDisconnectedEnd, sec));
         }
 
         // ================================================================================
@@ -783,14 +905,53 @@ namespace CardPresentation.Net
         //        收侧 `NetWireText.Unpack` 对它 `HasEntry` 为假 ⇒ **原样回显**，行为与接线前逐字相同。
         // ================================================================================
 
-        static string ReconnectHint(int sec)
+        /// <summary>🆕 **2026-10-26（批次 6 · G15）**：**本机是不是「断线那一端」** —— 全类**只此一处判**。
+        ///
+        /// <para>判据（自拟，理由见 `ReconnectCountdownExpired` 里那一段长注释）：**我们这套里只有客机**有主动重连
+        /// 那条路（`NetSession.Pump` 的「客机：重连退避」支）⇒ 本机是客机 = 断线那一端；主机 = 观察对面没了的那一端。
+        /// 原版两端各有自己的 `AttemptReconnect` ⇒ **原版这一维有「本机/对面」两个来源**，我们没有第二个。</para>
+        /// <para>它驱动三处**必须分档**的东西：① 提示行 / 弹窗的文案（本机掉线说「你」，对面掉线说「他」）
+        /// ② 倒计时到点判谁负（`ReconnectCountdownExpired`）③ 原版 `BattleErrorUIManager.ShowDisconnectionPopUp(bool
+        /// localPlayerDisconnected)` 的 `isPlayer` 字段（本机断线 ⇒ `LostConnection` + `PleaseWaitConnection` 两行；
+        /// 对面断线 ⇒ `WaitOpponentConnectionMsg` 一行，判据 = `decomp_full/Everguild.BattleErrorUIManager__ShowDisconnectionPopUp.c:30-60`）。</para></summary>
+        public bool IAmDisconnectedEnd { get { return _s != null && _s.Role == NetRole.Client; } }
+
+        /// <summary>`mm:ss`（原版 `BattleErrorUIManager__UpdateReconnectWindow.c:27-30` 用
+        /// `TimeSpan.FromSeconds(sec).ToString("mm\\:ss")` 拼进弹窗正文）。</summary>
+        static string ReconnectClock(int sec)
         {
-            return $"对手掉线了 —— 正在等他回来（{sec} 秒后判他弃权）";
+            if (sec < 0) sec = 0;
+            return (sec / 60).ToString("00") + ":" + (sec % 60).ToString("00");
         }
-        static string ReconnectPopup(int sec)
+
+        /// <summary>倒计时那一句**提示行**（HUD 上那一行）。🆕 **2026-10-26（批次 6 · G15）**：按
+        /// <paramref name="iAmDisconnectedEnd"/> 分两档 —— 这是 #8/#12 那个缺口的正主：
+        /// 原来**无条件**说「对手掉线了」，本机自己是断线那一端时那句话是**反的**（说错话 = 另一种静默）。
+        /// ⚠️ 提示行是**我们自设的通道**（原版没有 HUD 提示行），所以本机那一档的措辞是**我们写的**，
+        /// 但**语义与原版 `LostConnection` 一致**（本机掉线、正在重连）；弹窗那一档用的是**原版词条**（见 <see cref="ReconnectPopup"/>）。</summary>
+        static string ReconnectHint(bool iAmDisconnectedEnd, int sec)
         {
-            return "对手掉线了 —— 正在等他回来。\n"
-                 + $"（对局已暂停：对面回来就能接着打。{sec} 秒之内没回来，就判他弃权。）";
+            return iAmDisconnectedEnd
+                ? $"本机掉线了 —— 正在重连（{sec} 秒之内连不回来，就判你负）"
+                : $"对手掉线了 —— 正在等他回来（{sec} 秒后判他弃权）";
+        }
+
+        /// <summary>倒计时那一句**弹窗正文**。🆕 **2026-10-26（批次 6 · G15）**：改走**原版词条**
+        /// （`Core/Loc.cs` 里那 4 条 `Battle/HUD/*`，值是从官方表录入的），两档的拼法逐句照原版：
+        /// <list type="bullet">
+        /// <item>`ShowDisconnectionPopUp(true)`（本机掉线）= `LostConnection` **换行** `WaitForConnection`
+        ///   （`decomp_full/…__ShowDisconnectionPopUp.c:30-58`：`param_2 != 0` 走 `+0x30`，再 `AppendLine(+0x60)`）；</item>
+        /// <item>`ShowDisconnectionPopUp(false)`（对面掉线）= `WaitingForOpponent` 一行（同文件 `+0x48` 那一支）；</item>
+        /// <item>每秒那一拍 `UpdateReconnectWindow(sec)` 两条都**再换行拼 `mm:ss`**（`…__UpdateReconnectWindow.c:27-30`）。</item>
+        /// </list>
+        /// ⚠️ **与原版的一处措辞差（如实记）**：原版那两句是「与**服务器**断开」，我们是 P2P（没有服务器）——
+        /// 但**用的是原版词条本身**（复刻优先，⛔ 别自己改写成「与对手断开」：那会让两列文案与官方表不一致）。</summary>
+        static string ReconnectPopup(bool iAmDisconnectedEnd, int sec)
+        {
+            string head = iAmDisconnectedEnd
+                ? Loc.T("Battle/HUD/LostConnectionMsg") + "\n" + Loc.T("Battle/HUD/PleaseWaitConnection")
+                : Loc.T("Battle/HUD/WaitOpponentConnectionMsg");
+            return head + "\n" + ReconnectClock(sec);
         }
 
         /// <summary>到点那一跳（原版 `…_d__322__MoveNext.c:118-145`）。</summary>
@@ -849,7 +1010,7 @@ namespace CardPresentation.Net
             //   ⚠️ 另外：本格**只在对局中走到**（`HandlePeerLost` 在 `Ctx.IsOver` 时已经静默早退）——
             //     原版【结算段本机掉线 ⇒ 重判本机负】那一档（`DisconnectedDuringBattle.c:52-64` +
             //     `shouldLoseIfDisconnectEnd` 放行 `DeadHero` 战后重入）我们**没有**，理由见 `HandlePeerLost` 的 summary。
-            bool iAmDisconnectedEnd = _s != null && _s.Role == NetRole.Client;
+            bool iAmDisconnectedEnd = IAmDisconnectedEnd;   // 🆕 2026-10-26（G15）：判据收口到属性，⛔ 别在这里再写一份
             Debug.Log("[Net] 掉线倒计时到点的判负对象：" + (iAmDisconnectedEnd
                         ? "本机是**客机** ⇒ 按「断线那一端」处理（判本机负）"
                         : "本机是**主机** ⇒ 按「对面掉线那一端」处理（判对面弃权）")
@@ -1294,7 +1455,9 @@ namespace CardPresentation.Net
                     //   守卫对它们不适用（那时候还没轮到谁）。其余动作照旧拦。
                     if (!NetApply.IsEnvPick(m) && _d.Ctx.Active != RemoteSeat)
                     {
-                        Abort($"对面在**不是他回合**的时候发了一条动作（现在行动方是本机）—— 拒绝并中止");
+                        // 🆕 2026-10-26（批次 6 · G15）：这一档 = 原版 `CancelMatchWithVictory`
+                        //   （对面那一手本机判定为非法 ⇒ **本机主张胜利**）。判据与该路径的四步 → `AbortWithVictory` 的 doc。
+                        AbortWithVictory($"对面在**不是他回合**的时候发了一条动作（现在行动方是本机）—— 拒绝并中止");
                         // 🔴 **2026-10-19（P6d · A1038）**：线上发**词条键**（收侧 `NetWireText.Unpack` 取词）
                         //    —— 原来发的是中文整句「不是你的回合」，等于把**本机**的界面语言灌到对面屏幕上。
                         Send(NetKind.Reject, new MsgReject
@@ -1308,7 +1471,9 @@ namespace CardPresentation.Net
                     if (code != RuleCodes.OK)
                     {
                         Send(NetKind.Reject, new MsgReject { seq = m.seq, reason = RuleCodes.Describe(code) });
-                        Abort($"引擎拒了对面那条动作：{RuleCodes.Describe(code)}");
+                        // 🆕 2026-10-26（批次 6 · G15）：对面那一手本机引擎拒了 ⇒ 原版 `CancelMatchWithVictory`
+                        //   （本机主张胜利；判据 → `AbortWithVictory` 的 doc）。
+                        AbortWithVictory($"引擎拒了对面那条动作：{RuleCodes.Describe(code)}");
                         return;
                     }
                     m.seq = Log.Count;                                  // 🔴 主机定序
@@ -1345,7 +1510,9 @@ namespace CardPresentation.Net
                     // 剩下的都要落地：**主机自己的动作** + **换牌那两条伪动作**（它们是主机定序的）
                     int code = _d.ApplyLoggedAction(m);
                     if (code != RuleCodes.OK)
-                        Abort($"本机引擎拒了对面的动作（{RuleCodes.Describe(code)}，kind={m.kind}）—— 两端打岔了");
+                        // 🆕 2026-10-26（批次 6 · G15）：对面（主机）那条动作本机引擎拒了 ⇒ 原版 `CancelMatchWithVictory`
+                        //   （本机主张胜利；判据 → `AbortWithVictory` 的 doc）。
+                        AbortWithVictory($"本机引擎拒了对面的动作（{RuleCodes.Describe(code)}，kind={m.kind}）—— 两端打岔了");
                     return;
                 }
                 case NetKind.Reject:
@@ -1362,6 +1529,14 @@ namespace CardPresentation.Net
                     //   （上面 `case NetKind.Action` 里那条 `Send(NetKind.Reject, …)`）—— 那是**中文整句、不是键**
                     //   ⇒ `Unpack` 的 `HasEntry` 为假 ⇒ **原样回显**，行为与接线前逐字相同
                     //   （`RuleCodes.cs` 逐字写着「改成键」是 `A985⑧` 第 ③ 步、本轮不做）。
+                    //   🔴 **2026-10-26（批次 6 · G15）**：这一档**仍然是 `Abort`（只报不打分）** —— 判胜负那一跳
+                    //   **不在这里**：对面拒了我的动作之后会紧跟一条 `NetKind.Desync`（原版 `CancelMatchWithVictory`
+                    //   那四步里的 ③），**判本机负**由那一支走 `<see cref="AcceptPeerDesync"/>`。
+                    //   ⚠️ **为什么不在这里直接判**：① 原版收方（`ReceiveEnemyDesync`）也不在这一跳判；
+                    //     ② `Editor/NetSelfTest.cs` 的 Q⑪/Q⑫ 钉的正是「`reject.reason` 那串对端可控文本
+                    //        经 `Abort` **钳过**才进提示行 + 弹窗」—— 挪走就会把那条断言弄成空转（它会在 0 条通知上红）。
+                    //   ⚠️ 两条消息（`reject` / `desync`）**可能都到**：这个 `Abort` 先把 `_aborted` 立起来（停止再发动作），
+                    //     而 `AcceptPeerDesync` 用的是**它自己的** `_desyncAccepted` 闸 ⇒ 判负那一跳照样会走到（只走一次）。
                     Abort($"主机拒绝了我的动作：{(m != null ? NetWireText.Unpack(NetSession.ClampPeerText(m.reason)) : "?")}");
                     return;
                 }
@@ -1415,6 +1590,15 @@ namespace CardPresentation.Net
                         //   这条投降**判不了**（对面已经退出，本机却什么都没发生）。
                         Debug.LogWarning("[Net] NET/BYE-R7/no-host 收到对面投降，但**本机没有对局宿主**（`_d == null`）"
                                        + " ⇒ 判负这一跳走不了，这一局不会结束（真 Play 看到它就是缺陷）");
+                    return;
+                }
+                case NetKind.Desync:
+                {
+                    // 🆕 **2026-10-26（批次 6 · G15）**：对面说「这一局已经打岔了」（原版
+                    //   `PUNReceiveEnemyDesync` → `BattleManager.ReceiveEnemyDesync`）。载荷为空（原版那条 RPC 也无参）。
+                    Debug.Log("[Net] 对面发来 `desync`（= 原版 `SendDesync` / `PUNReceiveEnemyDesync`）"
+                            + " ⇒ 认账、判本机负（理由码 `Cancelled`(5)，**不弹窗** —— 原版收方 `ReceiveEnemyDesync` 也不弹）");
+                    AcceptPeerDesync("对面通过 `NetKind.Desync` 声称这一局打岔了");
                     return;
                 }
                 case NetKind.Chat:

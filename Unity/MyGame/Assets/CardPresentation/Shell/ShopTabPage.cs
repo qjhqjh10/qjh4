@@ -167,7 +167,7 @@ namespace CardPresentation
         /// 🆕 A8：`ItemDrawer.Draw` 的 `box` 就吃它（见 `DrawerStyle` 的注释）。</summary>
         public static readonly PxRect CellArtBox = new PxRect(11f, 64f, 325.6f, 272f);
 
-        /// <summary>🆕 A8：商店格**走抽屉那条路**时用的版式（`ItemDrawer.Draw` 那一份）。三处**我们挑的**：
+        /// 🔶 自己设计（非原版）：商店格走抽屉路线时的主图框 / 类型带 / 名字带版式 · 原版走 `ItemDrawer`，这套版式是我们挑的（原版判据拿不到） · TODO(谁定的)｜原注：<summary>🆕 A8：商店格**走抽屉那条路**时用的版式（`ItemDrawer.Draw` 那一份）。三处**我们挑的**：
         /// · `NodeName = "Art"` —— 既有的四条断言按 `FindChild(cell,"Art")` 找主图（`Art` / `ArtPlaceholder` 二选一），
         ///   名字换了那几条会**静默跳过**（`RectOf` 拿不到就 `continue`）⇒ 名字必须留 `Art`。
         /// · `IconFill = 1f` —— `ItemDrawer` 把主图画成 `min(box) × IconFill` 的**居中方块**、
@@ -794,7 +794,7 @@ namespace CardPresentation
             if (inRange && offers[idx].Type == "Booster Pack")
             {
                 // 🆕 2026-10-03（§三 第 29 条 **A7**）：**买完开包**。
-                // 🔴 入口是我们定的那一处：原版这条链的上游在服务端（买成功 → 服务端回执 → 弹开包窗），
+                // 🔶 自己设计（非原版）：「买完开包」的入口挂在购买成功之后 · 原版这条链的上游在服务端（买成功 → 服务端回执 → 弹开包窗），本地没有 · TODO(谁定的)｜原注：🔴 入口是我们定的那一处：原版这条链的上游在服务端（买成功 → 服务端回执 → 弹开包窗），
                 //    本地没有 ⇒ 我们把它接在**购买成功之后**（`§五·三` 只说「规格已备好、没建」，没给入口判据）。
                 // ⚠️ `BoosterPackOpenWindow` 是 `type = 0 (Fullscreen)` ⇒ `OpenWindow` 会**把商店关掉**
                 //    （原版 `OpenWindowCO` 对全屏窗就是这个行为），这是照原版的，不是我们图省事。

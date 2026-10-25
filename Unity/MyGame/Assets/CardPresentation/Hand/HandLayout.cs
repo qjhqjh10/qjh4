@@ -296,7 +296,7 @@ namespace CardPresentation
         //   而卡内真实跨度是 **0.09**（`shadow +0.06` … 文字 `−0.03`，`0.06` 那条注释漏算了 `shadow` 层）
         //   ⇒ 0.08 其实**仍然小于跨度**，**用户 2026-10-12 又报了一次同一个症状**。
         //   ⇒ 这次上队列（根治），不再调步长。
-        public float zOrderStep = 0.08f;
+        public float zOrderStep = 0.08f;   // 🔶 自己设计（非原版）：手牌 z 步长 `zOrderStep = 0.08` · 原版是 0.001（靠 canvas 排序），我们是世界空间 2D 面（原版判据拿不到） · TODO(谁定的)
 
         /// <summary>🆕 2026-10-12（`A1665`）**手牌队列段的顶号** —— 第 `top` 靠前的那张拿 `queueTop − top`。
         ///

@@ -354,7 +354,7 @@ namespace CardPresentation
         public const string DefNameText = "Legendary Wildcard Bundle ";
         public const string DefTypeText = "Booster Pack";
 
-        // ============================================================ 渲染队列（**我们挑的**：原版这一族没有宿主窗口）
+        // 🔶 自己设计（非原版）：商品容器这一族的渲染队列相对偏移 · 原版这一族没有宿主窗口（原版判据拿不到） · TODO(谁定的)｜原注：============================================================ 渲染队列（**我们挑的**：原版这一族没有宿主窗口）
 
         // 相对基准的偏移：
         // ⚠️ **`raycast target` 是整根那么大**（原版就是），而 `WebShop Button Square Variant` 是它里面的

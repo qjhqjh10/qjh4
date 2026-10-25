@@ -1986,6 +1986,52 @@ namespace RuleEngine
             return $"回合 {Turn}（P{Active + 1} 行动）  "
                  + $"P1 {Players[0]}  |  P2 {Players[1]}";
         }
+
+        // ============================================================================================
+        //  🆕 2026-10-26（完全复刻批次 3 · 执行代理 E1）：「开局那份」名单 + 它的记口
+        //  ⚠️ 位置说明：**加在本类尾部**（本文件后面还有 `MatchType` / `MatchTypes` 两个类型，
+        //     本条**不是**本文件的末尾）。选在这里是因为账里引用本文件的最大行号是 `:1868`
+        //     ⇒ 在这里插入**不动任何已引用的行号**。
+        // ============================================================================================
+
+        /// <summary>
+        /// 🆕 2026-10-26（完全复刻批次 3 · E1 · 账行 `BattleManager.ResolveDrawCard` 空牌库回填支）：
+        /// **开局组牌时进过牌库的那些 `CardInstance.Id`** —— 原版
+        /// `CardScript.createdInInitialDeck` 的等价物。
+        ///
+        /// <para>**判据（第一权威 · 现读）**：`d:/2/tools/il2cpp_out/dump.cs:35450`
+        /// `private bool &lt;createdInInitialDeck&gt;k__BackingField; // 0x223`（`CardScript` 上的自动属性
+        /// `CreatedInInitialDeck`）。读点 = `decomp_full/BattleManager._ResolveDrawCard_d__432__MoveNext.c:89`
+        /// （`if (*(char *)(lVar5 + 0x223) != '\0')` ⇒ 那一段「搬回牌库」的协程）。</para>
+        ///
+        /// <para>**语义**：`shouldReshuffle == true` 且牌库抽空时，墓地按「从末尾往前」逐个看 ——
+        /// **在这张名单里**的卡搬回牌库（落位随机）；**不在**的（战斗中造出来的副本 / 衍生物）
+        /// **只从墓地删掉、不回牌库**（判据 `:169-173`）。</para>
+        ///
+        /// <para>⚠️ **为什么是这个形状而不是 `CardInstance` 上一个 bool**：本批白名单不含
+        /// `Core/CardInstance.cs`（铁律 13·3 单写手）⇒ 先在 `ctx` 上收一份「编号名单」，
+        /// 语义等价（**只判成员、从不遍历** ⇒ 不影响对局可复现；`HashSet` 的枚举序从不被读）。
+        /// 📌 若将来 `CardInstance` 可改，正解是并成实例字段、并让本名单只留一个指针。</para>
+        ///
+        /// <para>⚠️ **写点只此一处** = <see cref="MarkInitialDeckCard"/>（唯一调用方
+        /// `RuleCore.BuildPlayer`）。⛔ 别在「洗回牌库 / 造副本 / 衍生物」那些路上补写
+        /// —— 原版那个 bool 也只在初始组牌时置位。</para>
+        /// </summary>
+        public readonly HashSet<int> InitialDeckInstanceIds = new HashSet<int>();
+
+        /// <summary>
+        /// 记下「这一份是开局牌库里那张」（原版 `CardScript.createdInInitialDeck` 的写口）。**原样返回实参**，
+        /// 便于写成 `Deck.Add(ctx.MarkInitialDeckCard(ctx.NewInstance(c)))` —— 一个表达式、不加行
+        /// （`RuleCore.BuildPlayer` 那一处**刻意**不增行，免得全仓账的行号整体漂）。
+        ///
+        /// ⚠️ `Id &lt; 0`（`CardInstance.Detached`，自检 / 演示用的分离实例）**不登记**：
+        ///   那些号是**重复**的负数，登记进来会让「是不是开局那张」按号误判。
+        /// </summary>
+        public CardInstance MarkInitialDeckCard(CardInstance inst)
+        {
+            if (inst != null && inst.Id >= 0) InitialDeckInstanceIds.Add(inst.Id);
+            return inst;
+        }
     }
 
     /// <summary>对局**类型** = 原版 `MatchType`（`d:/2/tools/il2cpp_out/dump.cs:27369-27391`，

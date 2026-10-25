@@ -21,7 +21,7 @@ namespace CardPresentation.Net
         // ---- 常量（改这里 = 改行为，正本 §二 有对应说明）----
         public const int HeartbeatMs = 1000;        // 心跳间隔
         public const int SilentTimeoutMs = 10000;   // 多久没收到对面的任何包 = 掉线
-        public const int ReconnectEveryMs = 2000;   // 客机重连尝试间隔
+        public const int ReconnectEveryMs = 2000;   // 🔶 自己设计（非原版）：P2P 客机重连间隔 `ReconnectEveryMs = 2000` · 原版走 Photon 重连、本地没有对应参数（整套 `Net/*` 是自建 P2P） · TODO(谁定的)｜原注：客机重连尝试间隔
         public const int ConnectTimeoutMs = 4000;   // 单次连接超时
         /// <summary>🆕 🔴 **2026-10-20（W58-S6FIX）**：**待替换候选**从被接受到凭据齐了的最长等待。
         /// 过期 ⇒ 关候选、**旧连接原样保留**（`NET/BYE-S6/replacement-timeout`）。

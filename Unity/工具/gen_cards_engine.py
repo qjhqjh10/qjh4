@@ -2565,6 +2565,41 @@ def criteria_carries_targets(cr):
     ta = cr.get("targetsAffected")
     return isinstance(ta, int) and not isinstance(ta, bool) and ta != 0
 
+
+# 🆕 **2026-10-26（批次 5 · 执行代理 `G3`）**：`role == "count"` 的行在 `conditionsFilter == 0`
+# 时**还值不值得落** —— 判据 = 原版**第三道闸** `CardAbility.boardCriteria`（`+0x38`）的求值器
+# `BoardAnalysis__MeetsCriteria.c`（🥇 `decomp_full`，全文 155 行逐句读过）：
+#   · `:33-35` `param_2 == 0`（没有 BoardCriteria）⇒ **true**；
+#   · `:36-38` `boardCriteria.countCriteria(+0x18) == 0` ⇒ **true**（连 `playerTurn` 都不看）；
+#   · `:39-52` `playerTurn(+0x10)`：`10 Self` / `20 Enemy` 是**整条闸**（不满足 ⇒ false）；
+#   · `:54-...` `triggerIf(+0x24) == 8 (RandomChance)` 且 `referenceValue(+0x28) > 0` ⇒ 掷骰；
+#   · `:104-118` 否则 `countCriteria.targetsAffected(+0x10) != 0` ⇒ `GetTargets(...)` 数个数、
+#     再按 `triggerIf` 跟 `referenceValue` 比；`:150-152` **`targetsAffected == 0(any)` ⇒ return true**
+#     （`any` 让其余 35 格全失效 ⇒ 这一条 criteria 只剩 `playerTurn` 那一格在起作用）。
+# ⇒ **有信息 ⇔ `targetsAffected != 0` 或 `playerTurn != 0`**（`countCriteria` 为 null 时整条恒真，
+#   但那种行在 `add()` 里根本走不到：`cr` 不是 dict 就 return 了）。
+#
+# 🔴 **改前这里是整行丢**（`count` 不在 `CONDITION_ROLES_OPTIONAL_COND` 里 ⇒ 因为 `cond == 0` 被
+# `if role not in CONDITION_ROLES_OPTIONAL_COND ... return` 拦掉）⇒ 池内 **83 张卡 / 86 条**
+# 第三道闸的数据**一条都落不下来**（现读：`conditionsFilter == 0` 且带信息的 boardCriteria 行）。
+# 后果 = **「有闸没人读、有数据没人喂」**：引擎侧 `ActionPump.AbilityLevelCriteriaAllows` 求 board
+# 那一跳时永远查不到行（判据闭合于 `CardAbility__CanTriggerAbility.c:127-140` 的短路次序
+# `acting(+0x28) → target(+0x30) → board(+0x38)`）。
+#
+# ⚠️ **与本列其它 role 的分工没有变**：`count` 行的 `cond` 仍然是 `conditionsFilter`；这里只是允许
+# `cond == 0` 的行**也落下来**（它的价值全在 `countSet` / `opt` / `op` / `refValue` 上）。
+# ⚠️ 消费端 `CardDatabase.MapUnitConditions` 必须同步放行 `count` 的 `cond = 0`
+# （`IsUnconditionalCriteriaRole`）—— 否则会「生成器落了、装载层丢掉 + 每条报一次 LogError」。
+def count_row_carries_board_info(cc, board):
+    """`role == "count"` 的行是不是「第三道闸还得用」的那一条（判据见上面那段）。"""
+    if not isinstance(cc, dict):
+        return False
+    ta = cc.get("targetsAffected")
+    if isinstance(ta, int) and not isinstance(ta, bool) and ta != 0:
+        return True
+    pt = (board or {}).get("playerTurn") if isinstance(board, dict) else None
+    return isinstance(pt, int) and not isinstance(pt, bool) and pt != 0
+
 # ------------------------------------------------------------------------------------------
 #  🆕 v16（2026-10-22 · 引擎线 `W64` · 战斗审计 `B-16` 的**明确缺口**）：`count` 行的「被数集合」
 # ------------------------------------------------------------------------------------------
@@ -2745,7 +2780,14 @@ def condition_rows_of(cid, name, trow, cond_names, report, truth_by_path):
             # 🆕 2026-10-24（`G6` · `C6` §1·3 A）：四格「整条 criteria」**无条件也照落行**
             # （判据 → `CONDITION_ROLES_OPTIONAL_COND` / `criteria_carries_targets` 的 doc）。
             # 其余 role：none = 本列省略（缺行 = 这一格没有条件）—— 一字不动。
-            if role not in CONDITION_ROLES_OPTIONAL_COND or not criteria_carries_targets(cr):
+            if role == "count":
+                # 🔴 🆕 2026-10-26（批次 5 · `G3`）：`count` 行在 `cond == 0` 时**只要第三道闸还用得上
+                # 就照落**（判据 / 量 → `count_row_carries_board_info` 的 doc）。改前这两行不存在
+                # ⇒ 池内 83 张卡的 board gate 数据整行被丢（「有闸没人喂」）。
+                if not count_row_carries_board_info(cr, board):
+                    return
+                report["count_board_only"] += 1
+            elif role not in CONDITION_ROLES_OPTIONAL_COND or not criteria_carries_targets(cr):
                 return
             # `cond = 0` + `name = null`（`UnitConditions.none`）——消费端按「无条件」档收
             # （`CardDatabase.MapUnitConditions` 对这四个 role 放行；其余 role 仍出声丢弃）。
@@ -4175,6 +4217,9 @@ def build():
                               "by_cond": {}, "by_role": {},
                               # 🆕 v16（`B-16` 缺口）：`count` 行的「被数集合」
                               "set_rows": 0, "set_bad": [], "set_unresolved": [],
+                              # 🆕 2026-10-26（批次 5 · `G3`）：`cond == 0` 但第三道闸用得上的
+                              #   `count` 行数（改前恒 0 —— 那一族整行不落，见 `count_row_carries_board_info`）
+                              "count_board_only": 0,
                               # 🆕 v22（2026-10-24 · `新账-95` #2）：`mult`/`multi`/`avail`/`choice`
                               #   四格各自落了整条 criteria 的**行数**（分布读数；键 = role）。
                               "role_set": {}}
@@ -6452,6 +6497,11 @@ def main():
     for _cid, _nm, _f, _pid in _ucr["set_unresolved"]:
         print(f"  ⚠️ 被数集合引用解不出：{_cid} {_nm} · `{_f}` 的 `m_PathID`={_pid!r}"
               " ⇒ **不落那一条**（⛔ 不拿 path_id 当 id）")
+    # 🆕 2026-10-26（批次 5 · `G3`）：`cond == 0` 的 `count` 行（第三道闸的数据）落了几个。
+    if _ucr.get("count_board_only"):
+        print(f"             ⚙ `cond == 0` 的 `count` 行（第三道闸 `CardAbility.boardCriteria +0x38`"
+              f" 用；`CardDatabase.IsUnconditionalCriteriaRole` 同步放行）落值 "
+              f"**{_ucr['count_board_only']}** 条 —— 改前这族整行被丢")
     # 🆕 v22（2026-10-24 · 引擎线 `新账-95` #2）：`mult` / `multi` / `avail` / `choice`
     #   四格的「整条 criteria」覆盖读数（键 = role；每条计数 = 落下来的行数）。
     _rs = _ucr.get("role_set") or {}

@@ -2,6 +2,26 @@
  "arena": "battlearenaemperorschildren",
  "items": [
   {
+   "go": "Tank distortion 1",
+   "pos": [
+    110.352,
+    2.335,
+    3.72
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Tank distortion 1 (1)",
+   "pos": [
+    109.47,
+    1.111,
+    5.364
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
    "go": "Cauldron 1",
    "pos": [
     96.423,
@@ -157,6 +177,16 @@
     97.232,
     10.177,
     8.387
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Shadow Receiver",
+   "pos": [
+    100.0,
+    0.0,
+    0.0
    ],
    "cast": 1,
    "receive": 1

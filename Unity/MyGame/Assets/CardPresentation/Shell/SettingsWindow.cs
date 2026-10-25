@@ -673,7 +673,7 @@ namespace CardPresentation
         public const float GenOnlineT = 686.26f;                          // 横带 ① 里垂直居中（683.03 底 + 3.23）
         public const float GenOnlineL = GenR - GenBtnW,                    // 1131.33（右对齐 `GenR`）
                            GenOnlineR = GenR;                              // 1431.33
-        /// <summary>那颗钮上的字号 —— **我们挑的**（同族那两颗原版是 40 / 38；取 38 = 它右手边那颗
+        /// 🔶 自己设计（非原版）：联机钮字号 38 · 同族那两颗原版是 40 / 38，取 38 是我们挑的（原版判据拿不到） · TODO(谁定的)｜原注：<summary>那颗钮上的字号 —— **我们挑的**（同族那两颗原版是 40 / 38；取 38 = 它右手边那颗
         /// `Close Game Button` 那一档）。⚠️ 它同时是自适应上限（`autoMaxPx`），下限 / `base` 照同族那两颗
         /// 的 `12 / fs / 12 · 折行 0`。</summary>
         public const float GenOnlineFontPx = 38f;
@@ -1271,7 +1271,7 @@ namespace CardPresentation
                                     + "(GameStaticData.TermsOfServiceUrl is explicitly nulled in the static ctor) "
                                     + "- no URL to open, so we do NOT open one";
 
-        // 联机页（**这一页是我们设计的**，见文件头 ①）
+        // 🔶 自己设计（非原版）：设置窗「联机」整页的版面 · 原版没有联机页（自建 P2P 的入口） · TODO(谁定的)｜原注：联机页（**这一页是我们设计的**，见文件头 ①）
         public const float OnRoleT = 280f, OnRoleB = 340f, OnRoleW = 300f, OnRoleGap = 20f;
         public const float OnLabelT = 370f, OnFieldT = 400f, OnFieldH = 60f, OnFieldW = 500f;
         public const float OnPassLabelT = 480f, OnPassT = 510f;

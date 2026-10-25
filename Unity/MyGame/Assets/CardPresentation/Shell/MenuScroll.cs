@@ -100,7 +100,7 @@ namespace CardPresentation
         /// 🔴 **缺省 = 未现读到原版值的视图**（没有判据时保留旧行为并出声）；**有判据的视图一律显式传**
         /// 原版那台 `ScrollRect` 的 `m_ScrollSensitivity`（见各调用点）。⛔ 别把 48 当成「原版就是这样」
         /// —— 原版 143 台的实测分布是 1.0 / 10 / 30 / 50 / 100，**没有 48**。</summary>
-        public const float DefaultNotchPx = 48f;
+        public const float DefaultNotchPx = 48f;   // 🔶 自己设计（非原版）：缺省滚轮一格 48 画布 px · 未现读到原版值的视图保留旧手感；原版 143 台分布里没有 48（原版判据拿不到） · TODO(谁定的)
 
         /// <summary>一格滚轮滚多少画布像素。**这个字段的口径** = 原版那台 `ScrollRect` 的
         /// `m_ScrollSensitivity`（uGUI `OnScroll`：`position += scrollDelta × scrollSensitivity`，

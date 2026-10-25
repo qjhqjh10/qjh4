@@ -120,7 +120,7 @@ namespace CardPresentation
 
     /// <summary>一个物品。**原版 `ObtainableItem` 的替身**（那个类只在服务端模型里）。
     /// 每个字段后面标了它**有没有判据**。</summary>
-    public struct ItemSpec
+    public partial struct ItemSpec
     {
         /// <summary>服务端 id（= SO 的 `m_Name` / `RewardInfo.targetId`）。</summary>
         public string Id;
@@ -232,7 +232,7 @@ namespace CardPresentation
     }
 
     /// <summary>`ItemDrawer.Draw` 的返回 —— 调用方靠它**出声**（判据空 / 取不到图 / 用了退档图）。</summary>
-    public struct ItemDrawResult
+    public partial struct ItemDrawResult
     {
         /// <summary>建出来的抽屉根节点。`null` = **没画**（原版第 ②步：`drawer == null`）。</summary>
         public Transform Node;
@@ -253,7 +253,7 @@ namespace CardPresentation
     }
 
     /// <summary>抽屉库。**只此一份**（A8 / A12 都读它）。</summary>
-    public static class ItemDrawer
+    public static partial class ItemDrawer
     {
         // ============================================================ 抽屉名（诊断 + 自检按它认）
 
@@ -261,9 +261,9 @@ namespace CardPresentation
         public const string DrawerWildcard = "WildcardDrawer";
         /// <summary>野牌图标档（原版 `WildcardIconDrawer : ItemDrawer&lt;Wildcard&gt;`，`Override = Icon` 那档）。</summary>
         public const string DrawerWildcardIcon = "WildcardIconDrawer";
-        /// <summary>通用图标抽屉 —— **我们建的**（原版对应哪个类**读不出来**）。</summary>
+        /// <summary>🔶 自己设计（非原版）：抽屉名 `"IconDrawer"` —— 原版**没有这个类**（`dump.cs` 全库 0 个 `class IconDrawer`；只有 `XxxIconDrawer` 那几族）· 必须自己定：`DrawerOverride.Icon` 那档的真身类名只能反查 `ItemDrawerConfig`（该资产本地没有）⇒ 只能起个名字占位 · 我们定的（`A79` 那批 2026-10-05；2026-10-26 G8 复核「原版无此类」）。</summary>
         public const string DrawerIcon = "IconDrawer";
-        /// <summary>占位板抽屉 —— **我们建的**（判据空的物品走它；原版这边是「真抽屉 + prefab 自带的图」）。</summary>
+        /// <summary>🔶 自己设计（非原版）：抽屉名 `"PlaceholderDrawer"` —— 原版没有「占位板抽屉」这个东西（判据空的物品在原版走「真抽屉 + prefab 自带图」）· 必须自己定：我们拿不到那条判据时**不许静默画成别的样子**（红线）⇒ 只能显式画一块会出声的占位板 · 我们定的（`A79` 那批 2026-10-05）。</summary>
         public const string DrawerPlaceholder = "PlaceholderDrawer";
 
         // 抽屉内部的节点名（`Icon`/`IconPlaceholder`/`ItemName`/`Quantity` 是战役奖励窗既有自检找的名字，
@@ -724,7 +724,7 @@ namespace CardPresentation
         public static readonly string[] DrawerImpls =
         {
             "WildcardDrawer:" + DrawerWildcard,          // 原版 `WildcardDrawer : ItemDrawer<Wildcard>`
-            "WildcardIconDrawer:" + DrawerWildcardIcon,  // 原版 `WildcardIconDrawer : ItemDrawer<Wildcard>`
+            "WildcardIconDrawer:" + DrawerWildcardIcon, "DeckDrawer:" + DrawerDeck, "DeckAndCardbackDrawer:" + DrawerDeckAndCardback,  // 原版 `WildcardIconDrawer : ItemDrawer<Wildcard>`；后两条 = 2026-10-26（批次 3 · Q1）新建（判据 = `DeckDrawer.cs:7` `DeckAndCardbackDrawer : DeckDrawer`）
         };
 
         /// <summary>原版抽屉类 → 我们的实现（表里查不到 ⇒ `null` = **这个抽屉我们没实现**）。</summary>
@@ -849,13 +849,13 @@ namespace CardPresentation
             res.Node = MenuDraw.Node(parent,                                       // ③「Instantiate」
                 string.IsNullOrEmpty(style.NodeName) ? "Item Drawer" : style.NodeName, box);
 
-            switch (drawer)                                                        // ④ 抽屉自己的 Draw
+            switch (drawer)                                                        // ④ 抽屉自己的 Draw（实现只此一份 = `Dispatch`，`Refresh()` 也走它）
             {
-                case DrawerWildcard: Wildcard(res.Node, box, item, quantity, style, ref res); break;
-                case DrawerWildcardIcon: WildcardIcon(res.Node, box, item, quantity, style, ref res); break;
-                case DrawerIcon: Icon(res.Node, box, item, quantity, style, ref res); break;
+                case DrawerWildcard: case DrawerWildcardIcon: case DrawerIcon: case DrawerDeck: case DrawerDeckAndCardback:
+                    Dispatch(drawer, res.Node, box, item, quantity, style, ref res); break;
                 default: Placeholder(res.Node, box, item, quantity, style, ref res); break;
             }
+            res = Bind(res, box, item, quantity, style);
             return res;
         }
 
@@ -1482,7 +1482,7 @@ namespace CardPresentation
         {
             var r = Draw(parent, box, item, quantity, drawerOverride, style);
             if (r.Node == null) return null;
-            var v = new ItemDrawerView(r, box, style);
+            var v = r.View != null ? r.View : new ItemDrawerView(r, box, style);
             v.RememberFace(item.Label, item.Art);      // 句柄自己留一份（`ItemSpec` 出了这句就没了）
             return v;
         }
@@ -1492,7 +1492,7 @@ namespace CardPresentation
     /// 一个画出来的抽屉的**可变句柄**（原版 `ItemDrawer&lt;T&gt;` 上那些「画完之后再调」的方法的等价物）。
     /// 判据与「哪些是空方法」见 `ItemDrawer` 文件里 §⑦ 那一段。
     /// </summary>
-    public sealed class ItemDrawerView
+    public sealed partial class ItemDrawerView
     {
         public Transform Node { get; private set; }
         public string Id { get; private set; }
@@ -1591,14 +1591,14 @@ namespace CardPresentation
         /// **有 `onClick` 就跑它、没有就 `HandlePointerClick()`**。</summary>
         public void OnPointerClick()
         {
-            if (string.IsNullOrEmpty(Id))
+            if (!ShowInfoOnClick) return; if (string.IsNullOrEmpty(Id))
             {
                 Debug.LogError("[ERROR] We are trying to open a item display window without an item. "
                              + "Mat check this out, Probably we are abusing the use of ItemDrawer");
                 return;
             }
-            if (_onClick != null) { try { _onClick(); } catch (Exception e) { Debug.LogError("[ItemDrawer] onClick 抛异常：" + e); } return; }
-            HandlePointerClick();
+            if (_onClick != null) { try { _onClick(); } catch (Exception e) { Debug.LogError("[ItemDrawer] onClick 抛异常：" + e); } PlayInspectSound(); return; }
+            HandlePointerClick(); PlayInspectSound();
         }
 
         /// <summary>原版 `HandlePointerClick()`：开物品详情窗（`ItemDisplayWindowContext(item, 0)`）。</summary>
@@ -1627,5 +1627,347 @@ namespace CardPresentation
         // 画的时候用的「名字 / 图名」——`ItemSpec` 在 `Draw` 之后就没了，句柄要自己留一份。
         string _styleLabel, _styleArt;
         internal void RememberFace(string label, string art) { _styleLabel = label; _styleArt = art; }
+    }
+
+    // ============================================================ 追加区 · 2026-10-26（批次 3 · Q1）
+    //
+    // 【这一段补的是什么】账 `账/卡组编辑.tsv` 那 5 条 C（`DeckDrawer` 的 4 个方法 + `DeckAndCardbackDrawer.Draw`）：
+    //   原版 `DeckDrawer : ItemDrawer<PrebuiltDeck>` 与 `DeckAndCardbackDrawer : DeckDrawer` 这两个抽屉我们**没有**
+    //   ⇒ 「奖励/商店里发一整副卡组」那一格今天落到 `default: Placeholder`（画成占位板 + 出声）。
+    //
+    // 【判据】（逐条都是从 `d:/2/tools/cpp2il/out_cpp2il_dev_ilspy/` 的**真方法体**读的，
+    //         并用 `d:/2/tools/decomp_full/DeckDrawer__*.c` 的 Ghidra 版交叉核对）
+    //   · `DeckDrawer.cs:35-55` `Draw`：① `armyIcon.sprite = ArmyUtilities.GetArmyIcon(item.DeckHero.cardArmy)`
+    //     ② `base.image.sprite = item.DeckHero.cardImageReference.Load()` ③ `gameModeIcon.sprite =
+    //     ScriptableObjectsCollectionsUtilities.GetGameModeIcon(item.gameMode)` ④ `gameModeIcon.enabled = 图标非空`
+    //   · `DeckDrawer.cs:57-73` `GetItemName`：词条 **`"PrebuiltDecks/" + item.deckId`**（不是 SO 名，也不是 deckName）
+    //   · `DeckDrawer.cs:17-28` `HandlePointerClick`：`new CardDeck(item)` → `DeckInfoContext(deck, View, selectButton=null,
+    //     shouldCheckOwnership, editButtonAction=null)` → `WindowsManager.OpenWindow<DeckInfoPopup>(ctx)`
+    //   · `DeckDrawer.cs:30-33` `SetShowOwnership(bool)`：只写 `shouldCheckOwnership`（**反编译全库 0 调用点**）
+    //   · `DeckAndCardbackDrawer.cs:7-17` `Draw`：`base.Draw(item,q)`；**若 `cardBackDrawer` 非空**再 `cardBackDrawer.Draw(...)`
+    //     + `cardBackDrawer.gameObject.SetActive(true)`
+    //
+    // 【几何】= `Deck Drawer` prefab（`bundle_menus_assets_all`，GameObject `Deck Drawer_-3438027711880944002`）
+    //   逐节点的 `RectTransform.m_AnchorMin/m_AnchorMax` 现读（2026-10-26 侦察代理现核）：
+    //     `Deck Image(mask)` aMin(.044,.180) aMax(.956,.93547) · `Frame` aMin(0,.04935) aMax(1,.958)
+    //     · `Deck Name` aMin(.08,.052) aMax(.92,.15)（TMP fs **32**，白）
+    //     · `Faction Icon` aMin(-.042,.11253) aMax(.296,.32425) · `Game Mode Icon` aMin(.682,.11253) aMax(1.02,.32425)
+    //     · `Deck Image`（mask 的子件）aMin(-.265,-.067) aMax(1.26,1.065) —— 那是**过扫**给 `RectMask2D` 裁的；
+    //       我们这一层没有 mask ⇒ 直接画在 **mask 那个矩形**里（可见范围相同，见 `Deck` 的注释）
+    //     · 参考高度 **496.97** = prefab 里 `Collection Deck` 那一格的高度（字号按 `box.H / 496.97` 线性换算）
+    //   ⚠️ **这套几何没有做视觉验收**：当前 `数据/游戏数据/*.json` 里 **0 条 `PrebuiltDeck` 发放物**
+    //      ⇒ 没有可比对的实例（报告里已如实记）。节点矩形本身是资产现读，不是猜的。
+    //
+    // 【⛔ 不画的两件，各有出处】
+    //   · `Highlight`（`Highlight Rounded Square`，金）：原版那是**选中高亮**、由 `CollectionDeck.SetSortMode`/`selected`
+    //     控制，抽屉里出厂不显示 ⇒ 不建。
+    //   · `Ban Icon` / `Converted Drawer` / `Ephemeral Drawer` / `Collected Badge` / `Premium Highlight`：
+    //     原版是**调用方**按奖励状态三跳（`TogglePremiumHighlight` / `SetEphemeralDisplay` / `SetConvertedItem`）
+    //     才开的那几层，本抽屉不负责（本库同一个口径，见 `ItemDrawerStyle.Premium/Ephemeral/Converted`）。
+    /// <summary>`ItemSpec` 的 partial 第二部分：**一副卡组**这条数据（原版 `DeckDrawer.Draw(PrebuiltDeck item,…)` 读的那些位）。
+    /// <para>为什么追加在这里而不就近加进结构体：`账/` 有 10 条 A 行的落点钉在 `Shell/ItemDrawer.cs:427…1605`
+    /// ⇒ 往中间插字段会让它们整体漂移。⛔ 别把这条理由删掉。</para></summary>
+    public partial struct ItemSpec
+    {
+        /// <summary>整副预组卡组（`DeckDrawer` / `DeckAndCardbackDrawer` 专用）。`null` = 不是卡组类物品。</summary>
+        public PrebuiltDecks.Deck Deck;
+        /// <summary>画的时候要不要叠卡背（原版 `DeckAndCardbackDrawer` 那一档）。</summary>
+        public bool WithCardback;
+    }
+
+    public static partial class ItemDrawer
+    {
+        /// <summary>原版 `DeckDrawer : ItemDrawer&lt;PrebuiltDeck&gt;`。</summary>
+        public const string DrawerDeck = "DeckDrawer";
+        /// <summary>原版 `DeckAndCardbackDrawer : DeckDrawer`。</summary>
+        public const string DrawerDeckAndCardback = "DeckAndCardbackDrawer";
+
+        /// <summary>`Deck Drawer` prefab 里 `Collection Deck` 那一格的高度（**设计 px**）——
+        /// 本抽屉那几颗字号（`Deck Name` fs32）按它折算。出处见上面的「几何」段。</summary>
+        const float DeckDrawerRefH = 496.97f;
+
+        /// <summary>按 prefab 的 `anchorMin/anchorMax` 换算成我们的绝对矩形。
+        /// ⚠️ Unity 的 `anchorMin.y = 0` 是**底边**，我们的 `PxRect` 是**左上原点** ⇒ y 要翻。</summary>
+        static PxRect DeckAnchor(PxRect box, float ax1, float ay1, float ax2, float ay2)
+        {
+            return new PxRect(box.x1 + ax1 * box.W, box.y2 - ay2 * box.H,
+                              box.x1 + ax2 * box.W, box.y2 - ay1 * box.H);
+        }
+
+        /// <summary>原版 `DeckDrawer.Draw(PrebuiltDeck item, int quantity = 1)` 的四步。
+        /// <para>⚠️ 两处**如实标**的偏离：① 原版第 ②步给的是**过扫**的 `Deck Image`（靠 `RectMask2D` 裁），
+        /// 我们这一层没有 mask ⇒ 直接按 mask 矩形画（可见范围相同）；② 原版 `armyIcon` /
+        /// `gameModeIcon` 是 prefab 里的 `Image`，我们按同一个矩形**建**。</para></summary>
+        static void Deck(Transform node, PxRect box, ItemSpec item, int qty, ItemDrawerStyle st, ref ItemDrawResult res)
+        {
+            var deck = item.Deck;
+            if (deck == null)
+            {
+                // 判据空：`ItemTypeSets` 说它是 `PrebuiltDeck`，但调用方没把 `Deck` 填进来 ⇒ 照旧占位并出声。
+                Placeholder(node, box, item, qty, st, ref res);
+                res.MissingArt = true;
+                InventoryManager.Note("deck-spec:" + item.Id,
+                    "物品 `" + item.Id + "` 走的是 `DeckDrawer`，但 `ItemSpec.Deck` 是 null ⇒ 摊到占位板（调用方要填 `Deck`）");
+                return;
+            }
+
+            // ① 英雄卡图（原版 `base.image.sprite = item.DeckHero.cardImageReference.Load()`）
+            Texture2D hero = CardArt.DeckHero(deck.heroId);
+            PxRect heroR = DeckAnchor(box, 0.044f, 0.180f, 0.956f, 0.93547f);
+            if (hero != null)
+            {
+                MenuDraw.Rect(node, hero, heroR, NodeIcon, st.QArt, null, false, st.Clip, st.ClipSoftness);
+                res.Art = deck.heroId;
+            }
+            else
+            {
+                res.MissingArt = true;
+                InventoryManager.Note("deck-hero:" + deck.heroId,
+                    "预组卡组 `" + deck.deckId + "` 的督军 `" + deck.heroId + "` 取不到卡图（`CardArt.DeckHero`）⇒ 只画框与名字");
+            }
+
+            // 卡框（`Frame` = `40K_bt_deck`）
+            Texture2D frame = Tex("40K_bt_deck");
+            if (frame != null)
+                MenuDraw.Rect(node, frame, DeckAnchor(box, 0f, 0.04935f, 1f, 0.958f), NodeDeckFrame, st.QArt + 1,
+                              null, false, st.Clip, st.ClipSoftness);
+
+            // ② 阵营徽记（原版 `armyIcon.sprite = ArmyUtilities.GetArmyIcon(item.DeckHero.cardArmy)`）
+            Texture2D fac = Tex(DeckRuntime.FactionIcon(deck.faction));
+            if (fac != null)
+                MenuDraw.Rect(node, fac, DeckAnchor(box, -0.042f, 0.11253f, 0.296f, 0.32425f), NodeDeckFaction,
+                              st.QArt + 2, null, true, st.Clip, st.ClipSoftness);
+
+            // ③④ 模式图标：有图才画（原版 `gameModeIcon.enabled = 图标非空`）
+            string gmName = MenuDraw.GameModeIconFile(deck.gameMode);
+            Texture2D gm = Tex(gmName);
+            if (gm != null)
+                MenuDraw.Rect(node, gm, DeckAnchor(box, 0.682f, 0.11253f, 1.02f, 0.32425f), NodeDeckGameMode,
+                              st.QArt + 2, null, true, st.Clip, st.ClipSoftness);
+
+            // 名字（原版 `GetItemName` = 词条 `"PrebuiltDecks/" + deckId`；`Deck.DisplayName` 就是这个口）
+            float fs = 32f * (box.H / DeckDrawerRefH);
+            ClippedText(node, DeckAnchor(box, 0.08f, 0.052f, 0.92f, 0.15f), deck.DisplayName, Color.white,
+                        NodeItemName, fs, st.QText, box.W, st);
+
+            if (st.QuantityPx > 0f) Quantity(node, box, qty, st);
+        }
+
+        /// <summary>原版 `DeckAndCardbackDrawer.Draw`：`base.Draw(item, q)`，然后**若 `cardBackDrawer` 非空**再画卡背。
+        /// <para>🔴 **判据实情**：本地能找到的**两处** `DeckAndCardbackDrawer` 实例（都在
+        /// `General Basic Offer … Variant Deck_cardback_avatar` 那两个宿主 prefab 里）**`cardBackDrawer` 都是 null**
+        /// ⇒ 原版在**当前能观察到的全部实例**上，这一跳与 `DeckDrawer.Draw` **完全等价**（只是多一个 null 判断）。
+        /// 独立 prefab `Deck and Cardback Drawer` 本地**查不到**（`assets_full` 全 91 个 bundle 按 GameObject 名 +
+        /// 全 JSON 搜 `"Deck and Cardback"` 均无，只有内嵌节点）⇒ 「卡背子抽屉」那一格的节点树**判据空**。
+        /// 所以这里：① 有 `cardBackDrawer` 等价物的数据（`WithCardback` + `Deck.Cardback`）就画一层卡背；
+        /// ② 画不出来时**出声**（⛔ 不静默）。</para></summary>
+        static void DeckAndCardback(Transform node, PxRect box, ItemSpec item, int qty, ItemDrawerStyle st,
+                                   ref ItemDrawResult res)
+        {
+            Deck(node, box, item, qty, st, ref res);
+            if (item.Deck == null) return;
+
+            Texture2D cb = item.Deck.Cardback;
+            if (cb == null)
+            {
+                InventoryManager.Note("deck-cardback:" + item.Deck.deckId,
+                    "预组卡组 `" + item.Deck.deckId + "` 的卡背（`" + (item.Deck.cardback ?? "?")
+                    + "`）取不到 ⇒ 不画卡背那一层（`DeckAndCardbackDrawer` 原版对 `cardBackDrawer == null` 也是跳过）");
+                return;
+            }
+            // 卡背画在**右下角**那块空档上（原版那格是 `CosmeticDrawer` 自己的 prefab 节点，本地查不到 ⇒
+            // 位置是**我们挑的**，等拿到真 prefab 再改）。⚠️ 这一条是**我们挑的，不是原版做法**。
+            float side = Mathf.Min(box.W, box.H) * 0.26f;
+            var cbr = new PxRect(box.x2 - side - box.W * 0.06f, box.y2 - side - box.H * 0.04f,
+                                 box.x2 - box.W * 0.06f, box.y2 - box.H * 0.04f);
+            MenuDraw.Rect(node, cb, cbr, NodeDeckCardback, st.QArt + 3, null, true, st.Clip, st.ClipSoftness);
+        }
+
+        // 本抽屉自己那几个节点名（诊断/自检按它认；与 `NodeIcon` 等同一套写法）
+        const string NodeDeckFrame = "Deck Frame";
+        const string NodeDeckFaction = "Deck Faction Icon";
+        const string NodeDeckGameMode = "Deck Game Mode Icon";
+        const string NodeDeckCardback = "Deck Cardback";
+    }
+
+    // ============================================================ 追加区 · 2026-10-26（批次 5 · 代理 G8）
+    //
+    // 【这一段补的是什么】原版 `ItemDrawer<T>` 是 **MonoBehaviour + IPointerClickHandler** ——
+    //   「画出来的那一格抽屉」**本身就是一个可点格子**。我们的抽屉只是 `MenuDraw` 建的节点树，
+    //   `ItemDrawerView` 那 9 个「画完之后再调」的方法**全库 0 调用点** ⇒ 功能与死代码等同
+    //   （F7 第 4 轮 §五·4 的结论）。这一区把它接上，并把原来缺的三处判据补齐。
+    //
+    // 【判据 ①（点击的第一道闸）】`out_cpp2il_dev_ilspy/ItemDrawer.cs:917-951`（🥈 唯一有真方法体那份）逐句：
+    //   `if (!showItemInfoOnClick) return;` → `if (item != null) { if (onClick == null) HandlePointerClick();
+    //   else onClick(); if (inspectSound != null) inspectSound.Play2D(); } else CustomDebug.LogError(…)`。
+    //   🔴 **第一道闸是【序列化字段】`showItemInfoOnClick`**（`dump.cs:93379` `[SerializeField] protected bool`），
+    //      而 `ToggleShowInfoOnClick(bool)` 在 `:876-878` 是**空方法体** ⇒ 它那 4 个调用点
+    //      （`MissionRewardItem:20` / `EndBattleRewardHolder:15` / `GenericArmyItemDrawer:35` /
+    //       `CarouselOfferPopupDrawer:305`）**全是空转**。⛔ 所以不能「一律可点」，要按预制体实例的那个值来。
+    //   值从哪来（2026-10-26 现扫）：`assets_full` 全树 **374 份**带该字段的 MB ⇒ `0=296 / 1=78`；
+    //      按 `m_Script` → `bundle_Waprforge_monoscripts/MonoScript_<pathID>.json` 的 `m_ClassName` 归类：
+    //      CardDrawer 19/19=1 · WildcardDrawer 1/1=1 · DeckDrawer 1/1=1 · DeckAndCardbackDrawer 2/2=1 ·
+    //      CardAlternateArtDrawer 7/7=1 · AvatarBorderDrawer 5/5=1 · **CardbackDrawer 23 个 0 / 3 个 1（混合）** ·
+    //      WildcardIconDrawer 1/1=0 · XSollaOfferDrawer 1/1=0 · PremiumIconDrawer/TitleIconDrawer/ForgePointIconDrawer 全 0。
+    //      ⇒ **同一类里也会不一致** ⇒ 只有「全票一致」的那几档敢给默认值，混合档留 `SetShowInfoOnClick()` 由调用方定。
+    //   我们实现的抽屉只有五档 ⇒ 表里没命中的（含 `DrawerIcon`：**原版全库没有 `IconDrawer` 这个类**）一律 0 + 出一次声。
+    //
+    // 【判据 ②（点击音）】`inspectSound` 的 PPtr = `{m_FileID:6, m_PathID:-5758964851120979674}`（374 份 MB 同值）。
+    //   2026-10-26 用 UnityPy 读**真包**（`d:/2/unity_run_ref/.../soundcollection_assets_all.bundle`）解出：
+    //   `m_Name = "ButtonClick 1"` · `clipList = [AudioClip "UI Click 1"]` · pitch/volume 全 1.0 · 节流 0.1s。
+    //   🔴 本工程 `Resources/Art/audio/sfx/` **没有 `UI Click 1.wav`**（导入器只收了被组件引用的那批）
+    //      ⇒ 这一格**不出声 + 出一次声说明**（⛔ 不拿别的 clip 顶）。补法 = 用 `工具/import_original_sfx.py` 收这条 cue。
+    //
+    // 【判据 ③（句柄表）】`ItemDrawer.cs:36-68` 静态 `Draw` 末段 = `drawerReferences.Add(itemDrawer, ref)`；
+    //   `:98-112` 两个 `Release` = `dict.TryGetValue ⇒ ref.Release(General)`；`:134-141` `OnDestroy` = `OnRelease()` + 同一次 Release；
+    //   `drawerReferences` 的 `.cctor` 在 `:171-175`。活调用点（现核）：`WhereToGetCardsSection.cs:205` 调实例 `Release()`、
+    //   `GachaRewardContainer.cs:81` 调静态 `Release(itemDrawer)`。
+    //   ⚠️ **差异（如实记）**：原版的「句柄」是 Addressables 的 `ComponentReference`，`Release` **不从字典里删键**
+    //      （对已释放句柄再 release 是安全空操作）；我们的图走 `Resources`、没有加载句柄 ⇒ 净效果等价物 = **解除登记**
+    //      （`HandleCount` 减一、第二次调用是空操作）。
+    //
+    // 【判据 ④（Refresh）】`ItemDrawer.cs:344-352` 全篇一句 `Draw(item, amount, options)` ⇒ **同一格重画**，
+    //   装饰层（premium / ephemeral / converted）原版也不会被 `Refresh` 重刷 ⇒ 我们同样不重刷。
+    //   入参（`item` / `amount` / `options`）是实例字段 `+0x38` / `+0x40` / `+0x28` ⇒ 句柄自己留了一份 `Spec` / `Quantity` / `_style`。
+    //
+    // 🔴 **行号守恒**：本条只往**文件尾**加东西（`ItemDrawResult` / `ItemDrawerView` 都改成 partial）；
+    //   中间那几处改动全是**同一行内替换**（`Draw` 的 switch 仍是 7 行、`OnPointerClick` 仍是 11 行）
+    //   ⇒ 账里钉在 `Shell/ItemDrawer.cs:427…1605` 的那批 A 落点**零漂移**。⛔ 别把这些新成员挪进上面。
+
+    /// <summary>`ItemDrawResult` 的第二部（⛔ 别加进 `:235` 那个本体 —— 见追加区头注「行号守恒」）。</summary>
+    public partial struct ItemDrawResult
+    {
+        /// <summary>画出来的那一格的**句柄**（原版 `Draw` 的返回值本身就是个 `ItemDrawer` 组件）。
+        /// `null` = 没画（`Node == null` 那一支）。</summary>
+        public ItemDrawerView View;
+    }
+
+    public static partial class ItemDrawer
+    {
+        /// <summary>④ 抽屉自己的 Draw —— **只此一份**（`Draw` 与 `ItemDrawerView.Refresh()` 共用；
+        /// 两处各写一遍 switch 迟早不一致）。</summary>
+        internal static void Dispatch(string drawer, Transform node, PxRect box, ItemSpec item, int quantity,
+                                      ItemDrawerStyle style, ref ItemDrawResult res)
+        {
+            switch (drawer)
+            {
+                case DrawerWildcard: Wildcard(node, box, item, quantity, style, ref res); break;
+                case DrawerWildcardIcon: WildcardIcon(node, box, item, quantity, style, ref res); break;
+                case DrawerIcon: Icon(node, box, item, quantity, style, ref res); break;
+                case DrawerDeck: Deck(node, box, item, quantity, style, ref res); break;
+                case DrawerDeckAndCardback: DeckAndCardback(node, box, item, quantity, style, ref res); break;
+                default: Placeholder(node, box, item, quantity, style, ref res); break;
+            }
+        }
+
+        /// <summary>画完之后的「建句柄 + 登记进句柄表 + 按原版那道序列化闸决定要不要可点」。</summary>
+        static ItemDrawResult Bind(ItemDrawResult res, PxRect box, ItemSpec item, int quantity, ItemDrawerStyle style)
+        {
+            var v = new ItemDrawerView(res, box, style);
+            v.RememberFace(item.Label, item.Art);      // 句柄自己留一份（`ItemSpec` 出了这句就没了）
+            v.Spec = item; v.Quantity = quantity;      // `Refresh()` 要用（原版是实例字段 +0x38/+0x40）
+            v.ShowInfoOnClick = ShowInfoOnClickOf(res.Drawer);
+            res.View = v;
+            _handles[v] = res.Drawer;                  // 原版 `drawerReferences.Add(itemDrawer, ref)`
+            if (v.ShowInfoOnClick) v.AttachHit(style); // 原版 `OnPointerClick` 那道闸为真 ⇒ 这一格可点
+            return res;
+        }
+
+        /// <summary>原版抽屉 prefab 的 `showItemInfoOnClick`（**只有「全票一致」的类才敢给默认值**）。
+        /// 证据 = 追加区头注 ①（2026-10-26 全树扫的 374 份 MB + 类名归类）。</summary>
+        public static bool ShowInfoOnClickOf(string drawer)
+        {
+            if (drawer == DrawerWildcard || drawer == DrawerDeck || drawer == DrawerDeckAndCardback) return true;
+            if (drawer == DrawerWildcardIcon) return false;
+            if (drawer == DrawerIcon)
+                Note("showinfo|" + drawer, "原版没有 `IconDrawer` 这个类（`cpp2il` 全库 0 个），"
+                     + "374 份带 `showItemInfoOnClick` 的抽屉 MB 里**没有一份**能对上它 ⇒ 这一档**判据空**，按 0 办（不可点）");
+            return false;
+        }
+
+        /// <summary>句柄表（原版 `drawerReferences`）。`Release` 只解除登记，见追加区头注 ③。</summary>
+        static readonly System.Collections.Generic.Dictionary<ItemDrawerView, string> _handles
+            = new System.Collections.Generic.Dictionary<ItemDrawerView, string>();
+
+        /// <summary>已登记的抽屉句柄数（自检读口）。</summary>
+        public static int HandleCount { get { return _handles.Count; } }
+
+        /// <summary>自检用：清空句柄表（⛔ 只给自检，别在生产路径调）。</summary>
+        public static void ClearHandlesForTest() { _handles.Clear(); }
+
+        /// <summary>原版 `ItemDrawer.Release(ItemDrawer)` / 实例 `Release()` 的等价物（追加区头注 ③）。</summary>
+        public static void Release(ItemDrawerView view)
+        {
+            if (view == null) return;
+            if (!_handles.Remove(view))
+                Note("release|miss", "`Release` 收到一个**没登记过**的抽屉句柄 ⇒ 原版那两句都是 "
+                     + "`dict.TryGetValue` 落空（什么都不做）⇒ 我们同样不动");
+        }
+
+        /// <summary>原版 `inspectSound.Play2D()`（`ItemDrawer.cs:944-947`）—— cue 名与 clip 都已解出，
+        /// 但 clip 本地缺 ⇒ 只出一次声（判据 = 追加区头注 ②）。</summary>
+        internal static void NoteInspectCueMissing()
+        {
+            Note("inspectSound", "原版抽屉点击音 = AudioCue `ButtonClick 1`（clip `UI Click 1`；"
+                 + "`soundcollection_assets_all.bundle` 2026-10-26 现读）；本工程 `Resources/Art/audio/sfx/` "
+                 + "**没有 `UI Click 1.wav`** ⇒ 这一格不出声（⛔ 不拿别的 clip 顶）。"
+                 + "补法 = 用 `工具/import_original_sfx.py` 收这条 cue");
+        }
+    }
+
+    public sealed partial class ItemDrawerView
+    {
+        /// <summary>原版 `ItemDrawer<T>.showItemInfoOnClick`（序列化字段，`dump.cs:93379`）—— **点击的第一道闸**：
+        /// 假 ⇒ 连 `OverrideOnClickAction` 覆写与音效都**不会发生**（原版 `OnPointerClick` 头一句就 return）。</summary>
+        public bool ShowInfoOnClick { get; set; }
+
+        /// <summary>画这一格用的那三样（原版实例字段 `item +0x38` / `amount +0x40` / `options +0x28`）——
+        /// `Refresh()` 重画要用。</summary>
+        internal ItemSpec Spec;
+        internal int Quantity;
+
+        /// <summary>点击命中区那个节点（原版这一层就是组件自己那颗 `Graphic` 的 `RectTransform`）。</summary>
+        public Transform HitNode { get; private set; }
+
+        /// <summary>按**这一格**改那道闸（原版是逐 prefab 实例的序列化值；混合档 `CardbackDrawer` 靠它定）。</summary>
+        public void SetShowInfoOnClick(bool on)
+        {
+            ShowInfoOnClick = on;
+            if (on && HitNode == null) AttachHit(_style);
+            else if (!on && HitNode != null)
+            {
+                if (Application.isPlaying) UnityEngine.Object.Destroy(HitNode.gameObject);
+                else UnityEngine.Object.DestroyImmediate(HitNode.gameObject);
+                HitNode = null;
+            }
+        }
+
+        /// <summary>建点击命中区。🔶 自己设计（非原版）：队列 = `QDecor + 6` 是**自选值** —— `ItemDrawerStyle` 没有「命中档」这一格，取「最高视觉层 `QDecor + 4` 的 ephemeral 字」再 +2 · 2026-10-26 G8 选值、调度台记账：**需真机验**（点一格商店野牌；若抢点击只改这一个数）</summary>
+        internal void AttachHit(ItemDrawerStyle style)
+        {
+            if (Node == null || HitNode != null) return;
+            HitNode = MenuDraw.Hit(Node, "Hit", _box, style.QDecor + 6, () => OnPointerClick(), clip: style.Clip);
+            if (HitNode == null)
+                Debug.LogWarning("[ItemDrawer] `" + Drawer + "` 的点击命中区没建起来（`MenuDraw.Hit` 返回 null）"
+                               + " ⇒ 这一格**真鼠标点不动**（不静默）");
+        }
+
+        /// <summary>原版 `ItemDrawer<T>.Refresh()`（`ItemDrawer.cs:344-352`，全篇一句 `Draw(item, amount, options)`）
+        /// —— **同一格重画**（不重建节点；装饰层原版也不会被 `Refresh` 重刷，我们同样不重刷）。</summary>
+        public void Refresh()
+        {
+            if (Node == null) return;
+            MenuDraw.ClearChildren(Node);
+            HitNode = null;                                   // 命中区是 Node 的子件 ⇒ 刚被一起清了
+            var res = new ItemDrawResult { Id = Id, Kind = Kind, Drawer = Drawer };
+            ItemDrawer.Dispatch(Drawer, Node, _box, Spec, Quantity, _style, ref res);
+            if (ShowInfoOnClick) AttachHit(_style);
+        }
+
+        /// <summary>原版 `ItemDrawer.Release()`（实例版，`ItemDrawer.cs:106-112`）。</summary>
+        public void Release() { ItemDrawer.Release(this); }
+
+        /// <summary>原版 `inspectSound.Play2D()`（`ItemDrawer.cs:944-947`）—— 见追加区头注 ②。</summary>
+        void PlayInspectSound() { ItemDrawer.NoteInspectCueMissing(); }
     }
 }

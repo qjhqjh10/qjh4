@@ -251,14 +251,14 @@ namespace CardPresentation
         public const int WarlordsPerDraft = 3;
 
         /// <summary>一局最多输几场就收尾（= <see cref="LossSlots"/>，判据见那一行）。
-        /// 原版是 `StagedEventData.maxTries`（`+0x90`，**服务端值、本地 0 命中**）⇒ 3 这个数**我们挑的**。</summary>
+        /// 🔶 自己设计（非原版）：一局最多输几场 `MaxTries = LossSlots`（=3） · 原版 `StagedEventData.maxTries` 是服务端值、本地 0 命中 · TODO(谁定的)｜原注：原版是 `StagedEventData.maxTries`（`+0x90`，**服务端值、本地 0 命中**）⇒ 3 这个数**我们挑的**。</summary>
         public const int MaxTries = LossSlots;
 
         /// <summary>一局最多打几场就收尾 = <see cref="DraftPacks.RoundsPerDraft"/>（4）。
         /// <para>🔴 **2026-10-24 用户拍板「轮抽不做奖励」之后，主对话定的本地收尾口径**：
         /// **打满 4 场结束 · 败满 3 场提前结束** ⇒ 直接进「结束」态、**没有领奖步**。
         /// 判据出处 → `资料/任务线/界面线/任务总表.md` §一 轮抽那一段（「收尾口径（主对话定的本地值）」）。</para>
-        /// <para>⚠️ 这是**我们挑的本地值**，不是原版字段：原版这一格是 `StagedEventData.matches`（`+0x88`，
+        /// 🔶 自己设计（非原版）：「打满 4 场收尾」的本地口径 · 原版按服务端 `matches.Length` 收尾 · 调度台 2026-10-24 裁定｜原注：<para>⚠️ 这是**我们挑的本地值**，不是原版字段：原版这一格是 `StagedEventData.matches`（`+0x88`，
         /// `EventMatchInfo[]`，**服务端下发、本地 0 命中**，D2 §五·1）⇒ 原版按 `matches.Length` 收尾，
         /// 我们按「打满 4 场」收尾。⛔ 别再回去找 `matches.Length`。</para></summary>
         public const int MatchesToFinish = DraftPacks.RoundsPerDraft;
@@ -310,7 +310,7 @@ namespace CardPresentation
         public int ReRolls { get { return _run != null ? _run.reRolls : 0; } }
 
         /// <summary>重掷价格表（原版 `DraftEventData.reRollCosts`，`+0xE0`）。
-        /// <para>🔴 **空表 = 我们挑的**（不是原版值）：服务端下发，本地 0 命中（D2 §五·1）。
+        /// 🔶 自己设计（非原版）：重掷价格表（空表 = 免费） · 原版 `reRollCosts` 服务端下发、本地 0 命中 · TODO(谁定的)｜原注：<para>🔴 **空表 = 我们挑的**（不是原版值）：服务端下发，本地 0 命中（D2 §五·1）。
         /// **空表的语义照原版** = `GetReRollCosts` 返回 **0 = 免费**（见下面 `ReRollCost` 的规则）。
         /// 拿到服务端真值时把这一格填上即可 —— ⛔ 别在别处另写一套价格规则。</para></summary>
         static readonly int[] ReRollCosts = new int[0];
@@ -417,7 +417,7 @@ namespace CardPresentation
         /// 左上角摆的）⇒ ⛔ 别拿「格心」摆卡（旧写法居中对齐 ⇒ 卡比原版低 89.0、右 45.6 px）。</summary>
         static readonly Vector2 WlCardOff = new Vector2(13.10f, -19.60f);
         /// <summary>滚动一格多少画布像素。🔴 原版那台 `ScrollRect` 的 `m_ScrollSensitivity` 查不到
-        /// （组件被禁，现读只有 `h=1/v=0`），**120 是我们挑的**（与主菜单模式卡同一条口径）。</summary>
+        /// 🔶 自己设计（非原版）：轮抽滚轮一格 `WlScrollNotch = 120` · 原版 ScrollRect 被禁、`m_ScrollSensitivity` 查不到 · TODO(谁定的)｜原注：（组件被禁，现读只有 `h=1/v=0`），**120 是我们挑的**（与主菜单模式卡同一条口径）。</summary>
         const float WlScrollNotch = 120f;
 
         // ============================================================ SelectPack 页（S3 §2.5 现读）
@@ -451,7 +451,7 @@ namespace CardPresentation
         const float PackW = 305.89f, PackH = 390.94f;
         static readonly PxRect PackTitleR = new PxRect(4.40f, 25.50f, 301.50f, 58.70f);
         static readonly PxRect PackSepR = new PxRect(0f, 70.40f, 305.89f, 73.30f);
-        /// <summary>包内 3 张缩略卡的区域（🔴 **我们挑的布局**：原版按 `pack.GetCardLibrary()` 逐张实例化
+        /// 🔶 自己设计（非原版）：包内 3 张缩略卡的布局 `PackCardsArea` · 原版 `cardInfoItem` 模板 prefab 的尺寸本地解不出（原版判据拿不到） · TODO(谁定的)｜原注：<summary>包内 3 张缩略卡的区域（🔴 **我们挑的布局**：原版按 `pack.GetCardLibrary()` 逐张实例化
         /// `cardInfoItem` = `UICardInfoItem` 信息行，那颗模板 prefab 的尺寸本地解不出
         /// （`cardInfoItem` 的 PathID `-5880222813801091413` 在 `GameObject/` 里 0 命中）⇒
         /// 我们改成 **3 张缩略卡面 + 卡名**（复用 `CardView`，判据 → 派单「卡区按 3 张实例化（复用现有卡面渲染件）」）。</summary>
@@ -2156,7 +2156,7 @@ namespace CardPresentation
         /// ⚠️ 原版 `DraftRunDisplay.ChooseQuote` 算的是 `wins / data.matches.Length` 归一值再比
         /// `DraftEndQuote.normalizedVictoriesRange`，而 `matches.Length` 是**服务端值、本地 0 命中**
         /// （S3 §五）⇒ 归一值算不出来；本地**唯一**能用的判据就是那五个键名 ⇒ 按胜场取档。
-        /// 🔴 这一条是「用键名反推档位」，⛔ 不是原版的归一算法。</summary>
+        /// 🔶 自己设计（非原版）：「按胜场取档」代替原版归一算法 · 原版要 `matches.Length`（服务端），本地唯一判据是五个键名 · TODO(谁定的)｜原注：🔴 这一条是「用键名反推档位」，⛔ 不是原版的归一算法。</summary>
         public static string QuoteTermForWins(int wins)
         {
             if (wins <= 0) return "Demo/DraftMode/Quote0Victories";
@@ -2729,7 +2729,7 @@ namespace CardPresentation
             //                     + 卡背/战将卡 + 9 行费用分布 —— 这些件在原版**都属于这一页**，
             //                     切到另两页要一起关，判据 = prefab 的父链现读）
             //         1 = Card List（头部 + 已拿到的卡名）
-            //         2 = Alliance Info（原版要联盟数据/排行榜，本地 0）⇒ 自拟一句提示 + 出声
+            // 🔶 自己设计（非原版）：Alliance Info 页的自拟提示 · 原版要联盟数据/排行榜，本地 0（原版判据拿不到） · TODO(谁定的)｜原注：2 = Alliance Info（原版要联盟数据/排行榜，本地 0）⇒ 自拟一句提示 + 出声
             bool infoTab = _deckTab == 0;
             if (_deckTitle != null) _deckTitle.gameObject.SetActive(infoTab);
             // `CardCounter` 的显隐 = 「在 Deck Info 页」**且**「原版那一页的 `showCardCounter`」
@@ -3293,7 +3293,7 @@ namespace CardPresentation
                 nameZh = "选秀 " + _seed,
                 faction = WarlordFaction,
                 armyOrder = WarlordArmyId(),
-                // 🔴 **我们挑的**：`GameplayVariables.For` 里**没有 ClosedDeck 那一档**
+                // 🔶 自己设计（非原版）：轮抽副牌按 Skirmish 参数打（`gameMode = GameMode.Skirmish`） · `GameplayVariables.For` 里没有 ClosedDeck 那一档（落到 Classic 30 张），而轮抽牌恒 12 张（原版判据拿不到） · TODO(谁定的)｜原注：🔴 **我们挑的**：`GameplayVariables.For` 里**没有 ClosedDeck 那一档**
                 // （`RuleEngine/Core/GameplayVariables.cs:444-449` ⇒ 落到 Classic **30 张**），
                 // 而轮抽牌恒 12 张（4 包 × 3）⇒ 这副牌按 **Skirmish（12 张 / 4 传说）** 那套参数打；
                 // 真实模式号仍走 `SetPendingPlayMode(GameMode.ClosedDeck)`（日志/记录/骷髅口径用那个）。

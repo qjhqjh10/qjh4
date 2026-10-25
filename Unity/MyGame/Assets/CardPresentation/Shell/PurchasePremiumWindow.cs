@@ -135,7 +135,7 @@ namespace CardPresentation
         static readonly PxRect PriceBtnTxtR = new PxRect(943.60f, 767.32f, 1246.31f, 826.20f);     // 出厂 **F**
         static readonly PxRect PriceBoxR    = new PxRect(947.36f, 766.72f, 1240.57f, 826.74f);
         static readonly PxRect PriceIconR   = new PxRect(1063.96f, 766.72f, 1123.98f, 826.74f);    // ×1.2 ⇒ 视觉 72.03²
-        /// <summary>⚠️ **这一格是「我们摆的」，不是原版量出来的**（全文件**唯一**一处非逐字照抄）：
+        /// 🔶 自己设计（非原版）：`Price Display/text` 的宽（取框的右半 `[icon 右沿, PriceBox 右沿]`） · dump 量出来 text 宽 = 0（带 ContentSizeFitter，要字体度量）（原版判据拿不到） · TODO(谁定的)｜原注：<summary>⚠️ **这一格是「我们摆的」，不是原版量出来的**（全文件**唯一**一处非逐字照抄）：
         /// dump 量出来 `text` 的宽 = **0.00**，因为它带 `ContentSizeFitter(h:PreferredSize)`、而文字宽要 Unity 的字体度量。
         /// **能反推的那一半**（逐位可验）：`icon.x1 = PriceBox.x1 + (293.21 − 总首选宽)/2 = 947.36 + 116.6`
         /// ⇒ **总首选宽 = 60.01 = icon 的宽**（60.025）⇒ 证明 dump 那一刻 **`text` 的宽确实是 0**（不是被截掉）。

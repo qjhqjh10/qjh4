@@ -112,6 +112,16 @@
    "receive": 1
   },
   {
+   "go": "Shadow Receiver",
+   "pos": [
+    100.0,
+    0.0,
+    0.0
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
    "go": "Terminal_R",
    "pos": [
     109.972,

@@ -299,7 +299,7 @@ namespace RuleEngine
                     // 🆕 2026-10-24（引擎线 `A20`）：原版这一格读的是**卡数据** `hasActiveAbility(+0x220)`
                     //   （`MeetsConditionCriteria.c:73-77`），v21 卡表把它落下来了 ⇒ **有数据就以数据为准**。
                     //   旧表 / 真值里没这张卡（`-1`）才退回 `u.HasAbility`（= `Ability != null`，
-                    //   那是**文本解析**的近似，⛔ 不是原版判据本身）。
+                    // 🔶 自己设计（非原版）：condition 190 在无卡数据时退回 `u.HasAbility`（文本解析近似） · 原版读卡数据 `hasActiveAbility(+0x220)`，旧表 / 无真值时拿不到 · TODO(谁定的)｜原注：那是**文本解析**的近似，⛔ 不是原版判据本身）。
                     var _c190 = card ?? u.Card;
                     if (_c190 != null && _c190.HasActiveAbility >= 0) return _c190.HasActiveAbility != 0;
                     return u.HasAbility;

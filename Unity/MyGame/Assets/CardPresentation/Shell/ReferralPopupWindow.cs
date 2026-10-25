@@ -706,7 +706,7 @@ namespace CardPresentation
                     + "`m_CharacterLimit = 0` = 不限长；我们这一侧上限 " + InputCharLimit + "）。");
         }
 
-        /// <summary>本壳输入上限（**我们挑的** —— 原版是 0 = 不限长，如实标）。</summary>
+        /// 🔶 自己设计（非原版）：推荐码输入上限 `InputCharLimit = 64` · 原版 `m_CharacterLimit = 0`（不限长）（原版判据拿不到） · TODO(谁定的)｜原注：<summary>本壳输入上限（**我们挑的** —— 原版是 0 = 不限长，如实标）。</summary>
         public const int InputCharLimit = 64;
 
         /// <summary>把字画进 `Text Area/Text`（**逐次重裁** —— 打进去的字不会溢出输入框）。

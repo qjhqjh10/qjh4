@@ -124,7 +124,7 @@ namespace CardPresentation
         /// 🔴 **这个数只此一处**：`WeeklyCounter` / `WeeklyProgress01` 与进度条都从它取
         /// （⛔ 别再写第二个 `30`）。</summary>
         const int WeeklyTarget = 30;
-        /// <summary>⚠️ **我们挑的** mock 进度。实拍那张图的 `25/30` 是**那个玩家当时的进度**（服务端下发），
+        /// 🔶 自己设计（非原版）：周常 mock 进度 13 · 实拍那个 25/30 是服务端下发的玩家进度，不是写死值 · TODO(谁定的)｜原注：<summary>⚠️ **我们挑的** mock 进度。实拍那张图的 `25/30` 是**那个玩家当时的进度**（服务端下发），
         /// 不是原版写死的值 ⇒ 我们照旧填一个我们挑的数（保留 A372 之前的 `13`：
         /// 在 `5/10/15/20/25/30` 这套阈值下它 **亮第 1、2 档**，其余四档灭 —— 视觉上与原版那张图同构）。
         /// 自检要造别的态走 `ForceWeeklyProgressForTest`（**测试口，不在出厂路径上**）。</summary>
@@ -496,7 +496,7 @@ namespace CardPresentation
         /// <summary>重摇用的种子。**定死** ⇒ 同一串调用每次得到同一条（自检可复现）。</summary>
         public const int RerollSeed = 20261004;
 
-        /// <summary>可用来顶替的任务池（**文案/数值都是我们挑的** —— 与原版一样，任务内容本来就由服务端下发）。
+        /// 🔶 自己设计（非原版）：顶替任务池的文案与数值 · 原版任务内容由服务端下发 · TODO(谁定的)｜原注：<summary>可用来顶替的任务池（**文案/数值都是我们挑的** —— 与原版一样，任务内容本来就由服务端下发）。
         /// 🔴 **池里每一条的 `Desc`/`Target`/`RewardText` 都与 `_daily` 那三条全不同** ——
         /// 这样「换完逐项不同」这条断言才有意义（拿同一条顶替等于没换）。</summary>
         static readonly Task[] _rerollPool =
@@ -740,7 +740,7 @@ namespace CardPresentation
         // 结构**照原版**：一条轨上 4 个 `Entry`（一天一格），每格两个抽屉（`NormalReward` / `Premium Reward`），
         // 每个抽屉**各自**持一个四态 `RewardState`。状态怎么算照原版
         // （`DF:DailyRewardItemContainer__GetCurrentState.c:18-46`，见 `资料/日常_调用链_三窗.md` §一·D；⚠️ 更正：原来指 `资料/日常_调用链_DailyRewardPopup.md`，2026-10-10 已并入）。
-        // ❌ **我们挑的**：天数、奖励内容与数量、里程碑目标值、有没有买 Premium。
+        // 🔶 自己设计（非原版）：每日奖励的天数 / 奖励内容与数量 / 里程碑目标值 · 原版由服务端下发 · TODO(谁定的)｜原注：❌ **我们挑的**：天数、奖励内容与数量、里程碑目标值、有没有买 Premium。
 
         public const int RewardDays = 4;
         /// <summary>⚠️ 我们挑的：已领到第几天（`index &lt; 它` ⇒ 该格 `Collected`）。</summary>
@@ -757,7 +757,7 @@ namespace CardPresentation
         static readonly int[] _rewardFreeCount = { 150, 20, 200, 160 };
         static readonly int[] _rewardPremCount = { 300, 40, 400, 320 };
         static readonly bool[] _rewardClaimed = new bool[RewardDays];
-        /// <summary>⚠️ 我们挑的：**单机不卖 Premium**（边界②「不做真实经济」）⇒ Premium 抽屉恒为 `PremiumLocked`。</summary>
+        /// 🔶 自己设计（非原版）：单机不卖 Premium（`_premiumOwned = false`） · 用户边界②「不做真实经济」（判据不适用：原版是真实经济、本项由用户拍板） · 用户 2026-09-17｜原注：<summary>⚠️ 我们挑的：**单机不卖 Premium**（边界②「不做真实经济」）⇒ Premium 抽屉恒为 `PremiumLocked`。</summary>
         static readonly bool _premiumOwned = false;
 
         static int RI(int day) { return Mathf.Clamp(day, 0, RewardDays - 1); }
@@ -811,7 +811,7 @@ namespace CardPresentation
         //   （= 原版 `IconsByArmySO` 逐字节解出的唯一一份映射；判据链在那个文件头）。
         public static string HeaderArmyIcon() { return ArmyIcons.IconName(HeaderArmy); }
         public static string HeaderArmyName() { return ArmyIcons.LocalizedName(HeaderArmy) ?? "Orks"; }   // 原版 prefab 占位串就是 'Orks'
-        public static string HeaderArmySubTitle() { return "Daily Rewards"; }   // ⚠️ 我们挑的（原版是本地化词条）
+        public static string HeaderArmySubTitle() { return "Daily Rewards"; }   // 🔶 自己设计（非原版）：顶栏副标题 `Daily Rewards` · 原版是本地化词条、本地无 value（原版判据拿不到） · TODO(谁定的)｜原注：⚠️ 我们挑的（原版是本地化词条）
         /// <summary>本窗顶栏固定展示的阵营（见上一条注释；`CardArmy.Goff = 20`）。</summary>
         public const int HeaderArmy = 20;
 
@@ -949,7 +949,7 @@ namespace CardPresentation
         /// <summary>三条每日任务的条数（自检/红点 provider 用；⛔ 别在别处再写死 `3`）。</summary>
         public static int DailyTaskCount { get { return _daily.Length; } }
 
-        /// <summary>⚠️ 我们挑的：单机默认**不断签**（这样默认看到的是 `Streak Successful`）。</summary>
+        /// 🔶 自己设计（非原版）：单机默认不断签（`_streakFailed = false`） · 原版由服务端 `currentValue` 给 · TODO(谁定的)｜原注：<summary>⚠️ 我们挑的：单机默认**不断签**（这样默认看到的是 `Streak Successful`）。</summary>
         static bool _streakFailed = false;
         /// <summary>⚠️ 我们挑的：当前连了几天（原版由服务端 `currentValue` 给）。</summary>
         const int StreakCurrent = 5;
@@ -1048,7 +1048,7 @@ namespace CardPresentation
         public const int StreakDays = 7;
         /// <summary>`i &lt; 它` ⇒ 这一格**已领**；`i == 它` ⇒ **可领**（也是 `scaleMultiplierFirstElement` 作用的那一格）。</summary>
         public const int StreakCollected = 5;
-        /// <summary>⚠️ 我们挑的：断签时掉的层数（原版是 `MainMenuMission.FailedValue`）。</summary>
+        /// 🔶 自己设计（非原版）：断签时掉的层数 `StreakLostValue = 10` · 原版是 `MainMenuMission.FailedValue`（服务端） · TODO(谁定的)｜原注：<summary>⚠️ 我们挑的：断签时掉的层数（原版是 `MainMenuMission.FailedValue`）。</summary>
         const int StreakLostValue = 10;
 
         static readonly string[] _streakName =
@@ -1325,7 +1325,7 @@ namespace CardPresentation
         {
             if (!CanCollectWeekly()) { Say("周常还没达成，领不了"); return false; }
             _weeklyState = State.Claimed;
-            const string art = "40k_topmarquee_currency_gold";      // 500 金块是**我们挑的**（见上面那段）
+            const string art = "40k_topmarquee_currency_gold";   // 🔶 自己设计（非原版）：周常奖励 500 金块 · 周常没有奖励格（原版 `Rewards` 出厂关），这一份只有这里一处（原版判据拿不到） · TODO(谁定的)｜原注：500 金块是**我们挑的**（见上面那段）
             const int n = 500;
             Wallet.Grant(art, n);
             Say("周常已领取");

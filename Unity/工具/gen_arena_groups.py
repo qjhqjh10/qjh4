@@ -70,7 +70,8 @@
     而「原版有、清单没提、又不在任何人子树里」的对象**根本不进这张表**
     （astra 的 `Battle Arena Astra Militarum Baked/Generator ` 就不在 —— 照 `nodes[]` 找会漏掉它）。
   · `targets[]` = 我们**已经建出来**的对象 ⇒ 改挂到 `parent` 那条路径下。
-    `pos` / `parentPos` = **与清单同一套**的无缩放世界链（`world_chain` 口径），
+    `pos` / `parentPos` = **与清单同一套**的世界坐标（`world_chain` 口径，2026-10-26 T09 起
+    = **父世界矩阵的平移列**，父级缩放**会**乘进子 localPosition；之前两边都少乘了父级缩放），
     用来在 `ArenaBuilder` 侧按「名字 + 最近位置」把它对上（同名对象不止一个）。
   · `adds[]` = 已建对象**不改挂**、只补 `Animation` 组件（A345 起大多已并入 `nodes[]`/`targets[]`，
     剩 0 条）。
@@ -187,25 +188,24 @@ class Scene(object):
         return hit
 
     def _world_of(self, gopid):
-        """**与清单同一套**（判据 = `工具/scripts快照/gen_unity_arena_manifest.py:662` 的 `world_chain`）：
-        `pos` 沿父链**只累乘旋转与平移、不乘父级缩放**（那个函数就是这么写的 —— 它自己注释
-        「坐标: 一律 Unity 原始世界变换」，但 `world_chain` 里没有 scale 这一项）。
-        🔴 **必须照抄这个口径**：我们要匹配的是**我们建出来的对象**，而它们的 `localPosition`
-          就是清单那个值（父级 = 场根 = identity）⇒ 拿「真·世界坐标」去比会**对不上**
-          （实测 `Cylinder.001`：真世界 (84.6697, 4.9387, 56.2087) vs 清单 (83.9002, 4.9602, 55.8322)，
-           差 0.86 —— 那是父级 183.7 倍缩放乘在 0.0047 的小偏移上）。
+        """**与清单同一套**（判据 = `工具/scripts快照/gen_unity_arena_manifest.py` 的 `world_chain`）。
+
+        🔴 2026-10-26（T09）**两边一起换成 Unity 真语义**：`pos` = **父世界矩阵的平移列**
+          （父级缩放**会**乘进子的 localPosition）。原来这里与 `world_chain` 都**不乘父级缩放**，
+          于是 `Cylinder.001` 真世界 (84.6697, 4.9387, 56.2087) vs 清单 (83.9002, 4.9602, 55.8322) 差 0.86
+          —— 那不是「两套口径各自都对」，是**两边都错**（判据 → `资料/完全复刻/判据/T09_清单坐标口径_第4轮.md`）。
+        ✅ **仍然必须与清单一致**：我们要按「名字 + 最近位置」匹配**我们建出来的对象**，
+          而它们的 `localPosition` 就是清单那个值（父级 = 场根 = identity）⇒ 两份值必须同口径。
+          改完之后两边都是真世界坐标，匹配距离从「靠容差硬撑」变成**逐位一致**。
         `scale` 用另一套（真正的 lossyScale，判据 = 同文件 `world_scale`）。
         ⚠️ 建节点时**不用**这个值 —— 用**原版 local**（见 `nodes[]` 的字段），那才是不会有第二套口径的做法。"""
-        p = [0.0, 0.0, 0.0]
-        q = [1.0, 0.0, 0.0, 0.0]          # w,x,y,z
         m = [[1.0 if i == j else 0.0 for j in range(4)] for i in range(4)]
+        q = [1.0, 0.0, 0.0, 0.0]          # w,x,y,z
         for (_n, lp, lq, ls) in self.chain(gopid):
-            rp = quat_rot(q, lp)                       # ← 不乘 scale（照 `world_chain`）
-            p = [p[0] + rp[0], p[1] + rp[1], p[2] + rp[2]]
             q = quat_mul(q, [lq[3], lq[0], lq[1], lq[2]])
             m = mat_mul(m, local_matrix(lp, lq, ls))
         s = [math.sqrt(sum(m[i][j] ** 2 for i in range(3))) for j in range(3)]
-        return p, [q[1], q[2], q[3], q[0]], s
+        return [m[0][3], m[1][3], m[2][3]], [q[1], q[2], q[3], q[0]], s
 
     def local_of(self, gopid):
         """它**自己**那一级的 local TRS（原版值，原样）。"""
@@ -263,6 +263,9 @@ def quat_mul(a, b):          # a,b = (w,x,y,z)
 
 
 def quat_rot(q, v):          # q=(w,x,y,z)
+    # ⚠️ 2026-10-26（T09）：`_world_of` 改走 4×4 矩阵之后**本函数已无调用点**（原来在 `_world_of`
+    #   里把 localPosition 按父旋转转一次、不乘缩放 —— 那正是 T09 的口径错）。
+    #   留着不删（删函数要动文件、收益为零）；⛔ 别拿它去算世界坐标。
     w, x, y, z = q
     t = [2 * (y * v[2] - z * v[1]), 2 * (z * v[0] - x * v[2]), 2 * (x * v[1] - y * v[0])]
     return [v[0] + w * t[0] + (y * t[2] - z * t[1]),
@@ -354,8 +357,9 @@ def find_by_name_pos(sc, name, pos):
     `Norm(name)` 相等 + 同名里取距离最小的那一个（**没有容差**，不因「差一点点」而拒绝候选）。
     返回 `(gopid, 距离)`；找不到回 `(None, None)`。
 
-    ⚠️ 位置口径 = 清单那一套（`工具/scripts快照/gen_unity_arena_manifest.py:662` 的 `world_chain`：
-      沿父链只累乘旋转与平移、**不乘父级缩放**）—— `Scene.world_of()` 是同一套（见它的 docstring）。
+    ⚠️ 位置口径 = **清单那一套**（`工具/scripts快照/gen_unity_arena_manifest.py` 的 `world_chain`：
+      2026-10-26 T09 起 = 父世界矩阵的平移列，**父级缩放会乘进子 localPosition**）——
+      `Scene.world_of()` 是同一套（见它的 docstring）。两边**必须**同口径，否则「名字 + 最近位置」配不上。
     ⚠️ 名字先按**原样**查（快），查不到再按 `norm()` 扫一遍（原版真有带**尾随空格**的名字，
       如 `'Railgun Turret 1 Target '`；清单里存的也是原样）。"""
     cands = sc.by_name.get(name)

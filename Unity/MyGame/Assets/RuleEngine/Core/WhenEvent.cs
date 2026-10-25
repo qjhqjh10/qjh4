@@ -250,6 +250,111 @@ namespace RuleEngine
         /// 发生点同上。</summary>
         public const string CreatesSabotage = "createsabotage";
 
+        // ==================================================================
+        //  🆕 2026-10-26（完全复刻批次 4 · 执行代理 `F2`）：三族「原版真有 `OnTrigger` 号」的事件
+        // ==================================================================
+        //  判据 = `d:/2/tools/decomp_full/` 逐行现读（接收端那条 `OnTrigger` 的号）：
+        //    · `CardScript__ReactToUnitHealed.c:7`  → `OnTrigger(0x46  = **70**)`；
+        //      广播器 `BattleManagerSupport__BroadcastUnitHealed.c:17-58`。
+        //    · `CardScript__TriggeredEarnSkull.c:7` → `OnTrigger(0x280 = **640**)`；
+        //      广播器 `BattleManagerSupport__BroadcastEarnedSkull.c:15-35`（**只有棋盘一跳**）。
+        //    · `CardScript__TriggerOtherCardRequiem.c:14/:20` → `OnTrigger(0x1b3 = **435**)`；
+        //      广播器 `BattleManagerSupport__BroadcastUnitRequiem.c:19-70`。
+        //
+        //  ⚠️ **三个今天都零可观测**（现读 `cards_engine.json` 1,128 张）：`desc` 里
+        //     「`When …` + `heal` / `skull` / `requiem`」的事件句 **0 张**，
+        //     `abilityTriggers` 含 70 / 640 / 435 的也是 **0 张** ⇒ 照铁律 11 补全休眠机制。
+        //
+        //  🔴 **两条的处置（同批判据订正，铁律 5）—— 别照着「8 个常量」硬凑**：
+        //     · `BroadcastRemoveFromGame` **没有 `OnTrigger` 号**：`CardScript__RemoveFromGameCard.c:14-16`
+        //       在 `removedCard != this` 时走 `ReactToUnitJammed(自己, 被移出那张)`，而
+        //       `ReactToUnitJammed`（真体 = `out_cpp2il_dev_ilspy/CardScript.cs:19980-20140`）
+        //       体内**一次 `OnTrigger` 都没有**（只剩「清 effects / 摘 trait / 关 hasActiveAbility」）
+        //       ⇒ 它是「**清理外来增益**」的广播，**不是事件** ⇒ **不建 Kind**
+        //       （建了就是一条**永远不会被原版机制叫醒**的监听器）。
+        //     · `BroadcastUnitJammed` 的接收方是同一个 `ReactToUnitJammed` ⇒ 同上，**原版也没有触发号**；
+        //       但这一条**仍然建了** `UnitJammed` —— 理由见那个常量的 doc（🔶 我们自己的广播需要一个名字）。
+        //     这两条真正的行为等价物都是「按来源撤 extrinsic 效果」，我们**只做到一半**：
+        //     `UnitState.RemoveExtrinsicEffectsFrom(卡名)` 只覆盖「限时增益 + 记了来源名的数值修饰」
+        //     （`F3` 已在方法 doc 里如实标）⇒ 见 `报告/F2_第4轮.md` §三 的改动请求。
+        //
+        //  ⚠️ `sacrifice` 那一族**不在这里**：它早就由带参的 `triggers:sacrifice` 承载
+        //     （225 = `OtherCardSacrifice`，见 `TryParseKeywordTrigger` 与 `TriggerNameOfWhenKind`），
+        //     **别为它另开一个 Kind**（那是同一条判据的第二份写法）。
+
+        /// <summary>**某个单位被治疗**（🆕 2026-10-26 批次 4 · `F2`）。
+        ///
+        /// <para>**判据（第一权威，逐行现读）**：接收端 `CardScript__ReactToUnitHealed.c:7`
+        /// → `OnTrigger(0x46 = **70** = AbilityTrigger.UnitHealed)`；
+        /// 广播器 `BattleManagerSupport__BroadcastUnitHealed.c:17-58` —— **棋盘（`IsInPlay` 过滤）
+        /// → 当前回合方手牌 → 另一方手牌**，`:30/:41/:53` 三处**都没有 `op_Inequality`**
+        /// ⇒ **没有预调、也没有自排除**（治疗者自己也收得到）。
+        /// 与 `Deploy` 那种「三跳 + 自排除」**不是同一个形状**，⛔ 别按模板套。</para>
+        ///
+        /// <para>🔶 **自己设计（非原版）：解析词形**。卡池 **0 张**卡面写这类监听 ⇒
+        /// 词形没有样本，只按「`Clean` 抹掉 `a/an/the/your/their/its` 之后剩下的形状」推
+        /// （`… is healed` / `… is healed to full` / `… gets healed` / `… receives healing`）。
+        /// **判据只有「这个事件存在」那一半是真的**；真数据出现必须拿卡面核一遍。
+        /// · `F2` 2026-10-26。</para>
+        /// </summary>
+        public const string UnitHealed = "unithealed";
+
+        /// <summary>**某一方获得了骷髅**（🆕 2026-10-26 批次 4 · `F2`）。
+        ///
+        /// <para>**判据**：接收端 `CardScript__TriggeredEarnSkull.c:7` → `OnTrigger(0x280 = **640**)`；
+        /// 广播器 `BattleManagerSupport__BroadcastEarnedSkull.c:15-35` —— **只有棋盘一跳**
+        /// （`+0x470` 逐个 `IsInPlay` 才发），**没有手牌两跳、没有预调**；
+        /// 入参是**刚跨过阈值的那张督军卡**（`BattleManager__BroadcastEarnSkull.c:1-20` 取该方英雄卡）。
+        /// ⇒ 我们广播时 `subject` = 那张督军单位、`who` = 它的归属方、`card` = 它的卡。</para>
+        ///
+        /// <para>🔶 **自己设计（非原版）：解析词形**。卡池 0 张样本（`desc` 搜 `skull` 只命中
+        /// `Ferocious Rage` 的图标词）⇒ 只收 `earn(s) (a) skull` 这一族最直白的形状；
+        /// 真数据出现要回核卡面。· `F2` 2026-10-26。</para>
+        /// </summary>
+        public const string EarnedSkull = "earnedskull";
+
+        /// <summary>**别的单位用了「安魂」（Requiem）**（🆕 2026-10-26 批次 4 · `F2`）。
+        ///
+        /// <para>**判据**：接收端 `CardScript__TriggerOtherCardRequiem.c:14/:20`
+        /// → `OnTrigger(0x1b3 = **435** = AbilityTrigger.OtherCardRequiem)`，且
+        /// `:14` 的 `op_Inequality(param_2, param_1)`（= 触发源 ≠ 接收者自己）**在接收方体内**
+        /// ⇒ **自排除**。广播器 `BattleManagerSupport__BroadcastUnitRequiem.c:19-70`：
+        /// 棋盘（`IsInPlay`）→ 双方手牌。
+        /// ⚠️ **430 ≠ 435**：430 是「用安魂那张**自己**的能力」（`FireTriggerAt(Requiem)` 那一跳），
+        /// 435 才是「**别的**卡用了」。两条在原版是两个 `OnTrigger`，⛔ 别合并。</para>
+        ///
+        /// <para>🔴 **为什么不用带参的 `triggers:requiem`**：那条路要求
+        /// `KeywordTable.Implemented.Contains("requiem") && HasTriggerMoment("requiem")`
+        /// （`ParsePredicate` 里那道闸），而我们**没有** `KeywordTable.Requiem` 常量、
+        /// `Implemented` 里也没有这个词 ⇒ 那条路**今天收不到**。
+        /// `TriggerNameOfWhenKind` 里 `case "requiem"` 那条映射照旧留着（等关键词建起来）。
+        /// ⇒ 见 `报告/F2_第4轮.md` §三 的改动请求（F3 面：`KeywordTable` 加 `Requiem`）。</para>
+        ///
+        /// <para>🔶 **自己设计（非原版）：解析词形**。卡池 0 张样本 ⇒ 复用
+        /// `TryParseKeywordTrigger` 拆出「主语 / 关键词」，只在关键词 == `requiem` 时收。
+        /// · `F2` 2026-10-26。</para>
+        /// </summary>
+        public const string OtherCardRequiem = "othercardrequiem";
+
+        /// <summary>**某个单位被 jam**（🆕 2026-10-26 批次 4 · `F2` · `F3` 的 R3-F2c）。
+        ///
+        /// <para>🔶 **自己设计（非原版）：这一条【没有】对应的 `AbilityTrigger` 号。**
+        /// 原版 `ReactToUnitJammed`（真体 `out_cpp2il_dev_ilspy/CardScript.cs:19980-20140`）体内
+        /// **一次 `OnTrigger` 都没有** —— `BroadcastUnitJammed` 的「广播」实质是
+        /// 「让场上每张牌 + 双方手牌各跑一遍 `ReactToUnitJammed(那张, 被 jam 的)`」，
+        /// 别人那一支只做 `RemoveExtrinsicEffectsFrom(被 jam 的) + UpdateWhileInPlay(false)`。
+        /// ⇒ 原版**没有**「被 jam 时叫醒某个监听器」这件事。
+        /// 我们仍然建这个 Kind，是因为**我们自己**的 `ResolveJamUnit` 在清理之后要发一条事件
+        /// （给表现层/日志一个名字，也给将来「真出现卡面写 `When a unit is jammed`」留位）。
+        /// ⛔ **别给它编一个触发号**：`TriggerNameOfWhenKind` 对它**返回 `null`**（原版没有号，
+        /// 编一个会让 `EmitListenerTrigger` 发出一个原版不存在的 `EvtKind.Trigger`）。
+        /// · `F2` 2026-10-26。</para>
+        ///
+        /// <para>🔶 **自己设计（非原版）：解析词形**。卡池 0 张样本 ⇒ 只收
+        /// `is/are/get(s) jammed` 这三条最直白的形状。· `F2` 2026-10-26。</para>
+        /// </summary>
+        public const string UnitJammed = "unitjammed";
+
         /// <summary>见 <see cref="WhenEventKind"/>。**认不出的不注册**。</summary>
         public string Kind;
 
@@ -446,6 +551,53 @@ namespace RuleEngine
         public const string BecomesRemnant = WhenEvent.BecomesRemnant;   // 🆕 2026-09-16
         public const string CreatesSecret = WhenEvent.CreatesSecret;
         public const string CreatesSabotage = WhenEvent.CreatesSabotage;
+
+        // ==================================================================
+        //  🆕 2026-10-26（完全复刻批次 3 · 执行代理 `E2`）：回手 / 回牌库 两族
+        // ==================================================================
+
+        /// <summary>**一张牌被送回手牌**（🆕 2026-10-26 批次 3 · `E2`）。
+        ///
+        /// <para>**判据（第一权威，逐行现读 `d:/2/tools/decomp_full/`）**：
+        ///   · 接收端 = `CardScript__CardReturnedHand.c:1-13` → `RawCardScript__OnCardReturnedHand.c:7`
+        ///     的 `OnTrigger(0x1d6 = **470** = `AbilityTrigger.CardReturnedToHand`)`；
+        ///   · 广播器 = `BattleManagerSupport__BroadcastCardReturnedHand.c:20-81` —— 四跳：
+        ///     被送回那张自己 → **场上每张牌**（`+0x470`）→ 当前回合方手牌 → 另一方手牌
+        ///     （最后一跳带 `op_Inequality(item, 被送回那张)`）。
+        ///   ⇒ 这四跳与我们 `EffectResolver.BroadcastWhen`（自己 / 棋盘 / 手牌两跳）**同形**
+        ///     （`CardScript__ReactToUnitMarkerlight.c` 那一族已经逐条核过同形）。</para>
+        ///
+        /// <para>🔴 **可达性（诚实标注）**：当前 build 卡池 `cards_engine.json`（现读 1,128 张）
+        /// 里**0 张**卡面写这类监听 ⇒ 下面的解析词形**没有真实卡面样本**。词形是按
+        /// 「`Clean` 会抹掉 `a/an/the/your/their/its` 之后剩下的形状」推的；
+        /// ⛔ 真数据出现时**必须拿卡面核一遍**，别把它当已验收。</para>
+        /// <para>⚠️ 和 `EvtKind.Return` **不是一回事**：那条是给表现层播位移动画的（`DoReturn` 早就发），
+        ///   本条只叫醒「When &lt;被送回&gt;」的监听器。</para></summary>
+        public const string CardReturnedHand = "cardreturnedhand";
+
+        /// <summary>**一张牌被洗回牌库**（同族，`E2` 2026-10-26）。
+        ///
+        /// 判据：`CardScript__CardReturnedDeck.c:1-13` → `RawCardScript__OnCardReturnedDeck.c:7`
+        /// 的 `OnTrigger(0x1e0 = **480** = `AbilityTrigger.CardReturnedToDeck`)`；
+        /// 广播器 `BattleManagerSupport__BroadcastCardReturnedDeck.c`（与回手**逐句同形**，四跳）。
+        /// 可达性与词形口径同 <see cref="CardReturnedHand"/>（池内 0 张卡面样本）。</summary>
+        public const string CardReturnedDeck = "cardreturneddeck";
+
+        // ==================================================================
+        //  🆕 2026-10-26（批次 4 · 执行代理 `F2`）：治疗 / 骷髅 / 安魂 三族
+        //  —— 判据、可达性、以及「为什么不建 RemoveFromGame / UnitJammed」都在
+        //     `WhenEvent` 类里那三处分节注释里（⛔ 别在这里抄第二份）。
+        // ==================================================================
+
+        /// <summary>**某个单位被治疗**（trigger **70**）→ <see cref="WhenEvent.UnitHealed"/>。</summary>
+        public const string UnitHealed = WhenEvent.UnitHealed;
+        /// <summary>**某一方获得骷髅**（trigger **640**）→ <see cref="WhenEvent.EarnedSkull"/>。</summary>
+        public const string EarnedSkull = WhenEvent.EarnedSkull;
+        /// <summary>**别的单位用了安魂**（trigger **435**）→ <see cref="WhenEvent.OtherCardRequiem"/>。</summary>
+        public const string OtherCardRequiem = WhenEvent.OtherCardRequiem;
+        /// <summary>**某个单位被 jam**（🔶 **没有触发号** —— 见 <see cref="WhenEvent.UnitJammed"/> 的 doc）
+        /// → <see cref="WhenEvent.UnitJammed"/>。</summary>
+        public const string UnitJammed = WhenEvent.UnitJammed;
 
         // ==================================================================
         //  🆕 带参数的 Kind：`triggers:<关键词>`（2026-09-13 候选 E）
@@ -1041,6 +1193,77 @@ namespace RuleEngine
                                        " turns into a remnant"))
             {
                 ev.Kind = WhenEvent.BecomesRemnant; SetWho(subj, ev); return;
+            }
+
+            // ---- 🆕 回手 / 回牌库 两族（2026-10-26 批次 3 · `E2`）----
+            //   判据见 `WhenEventKind.CardReturnedHand` / `CardReturnedDeck` 的 doc。
+            //   ⚠️ 词形只列**不带冠词 / 所有格**的形状 —— `Clean` 早就把
+            //      `a` / `the` / `your` / `their` / `its` 抹掉了（`a friendly unit is returned to
+            //      your hand` 到这里就是 `friendly unit is returned to hand`）。
+            //      ⇒ 再列 `… to your hand` 那些是**死条目**，别加（同 `gains markerlight` 那条的注释）。
+            //   ⚠️ 顺序：**回牌库在前**、回手在后 —— `is returned to top of deck` 里没有 `hand`
+            //      字样，两者本来不会撞；先判更长的那一族更不容易被将来加的尾词吃掉。
+            if (StripFirst(s, out subj, " is returned to deck", " returns to deck", " return to deck",
+                                       " is shuffled into deck", " return shuffled into deck",
+                                       " is returned to top of deck", " returns to top of deck"))
+            {
+                ev.Kind = WhenEventKind.CardReturnedDeck; SetWho(subj, ev); return;
+            }
+            if (StripFirst(s, out subj, " is returned to hand", " returns to hand", " return to hand"))
+            {
+                ev.Kind = WhenEventKind.CardReturnedHand; SetWho(subj, ev); return;
+            }
+
+            // ---- 🆕 治疗族（2026-10-26 批次 4 · `F2`）：`When … is healed, …` → `… is healed` ----
+            //   判据 = `CardScript__ReactToUnitHealed.c:7` → `OnTrigger(0x46 = 70)`；
+            //   词形无样本（池内 0 张）⇒ 只收最直白的几条（见 `WhenEvent.UnitHealed` 的 doc）。
+            //   ⚠️ **不收 `heal …`（动词开头）**：那是「**谁**治疗了别人」，与 trigger 70
+            //      （**被治疗者**那一侧）不是同一件事 —— 收下来就是「打得比卡面宽」。
+            if (StripFirst(s, out subj, " is healed", " are healed", " gets healed",
+                                       " is healed to full", " receives healing"))
+            {
+                ev.Kind = WhenEventKind.UnitHealed; SetWho(subj, ev); return;
+            }
+
+            // ---- 🆕 骷髅族（2026-10-26 批次 4 · `F2`）：`When you earn a Skull, …` → `earn skull` ----
+            //   判据 = `CardScript__TriggeredEarnSkull.c:7` → `OnTrigger(0x280 = 640)`；
+            //   广播器**只有棋盘一跳、`IsInPlay` 过滤、无预调**。
+            //   ⚠️ 两种形状都收：带主语（`a friendly Warlord earns a Skull`）与省主语（`you earn a Skull`）。
+            //     省主语那条**不能**走 `StripFirst`（空主语一律判失败），所以单独一条 `StartsWith`。
+            if (StripFirst(s, out subj, " earns skull", " earn skull", " earns a skull", " earn a skull"))
+            {
+                ev.Kind = WhenEventKind.EarnedSkull; SetWho(subj, ev); return;
+            }
+            if (s.StartsWith("earn skull") || s.StartsWith("earns skull")
+                || s.StartsWith("earn a skull") || s.StartsWith("earns a skull"))
+            {
+                ev.Kind = WhenEventKind.EarnedSkull; return;
+            }
+
+            // ---- 🆕 安魂族（2026-10-26 批次 4 · `F2`）：`When another unit uses Requiem, …` ----
+            //   判据 = `CardScript__TriggerOtherCardRequiem.c:14/:20` → `OnTrigger(0x1b3 = 435)`，
+            //   且自排除在**接收方体内**（`op_Inequality(源, 我)`）。
+            //   🔴 **复用 `TryParseKeywordTrigger` 拆分**（⛔ 别另写一份「`uses <词>`」的切法）：
+            //     只在关键词 == `requiem` 时收；`requiem` 不在 `KeywordTable.Implemented` 里
+            //      ⇒ 下面那条通用分支收不到它，所以这一条必须排在它**之前**。
+            if (TryParseKeywordTrigger(s, out string rqSubj, out string rqKw, out bool rqSelf)
+                && rqKw == "requiem")
+            {
+                ev.Kind = WhenEventKind.OtherCardRequiem;
+                // `this unit uses Requiem`（0 张样本）—— 原版自排除在接收方体内，
+                // 所以「自己用」那条监听器同样不该被叫醒；`SelfOnly` 不适用于这里
+                // （它要求「事落在监听者身上」，而这里是「监听者干的」）⇒ 记 `ActorSelf`。
+                if (rqSelf) ev.ActorSelf = true;
+                else SetWho(rqSubj, ev);
+                return;
+            }
+
+            // ---- 🆕 Jam 族（2026-10-26 批次 4 · `F2` · `F3` 的 R3-F2c）：`When a unit is jammed, …` ----
+            //   ⚠️ `Clean` 之后是 `unit is jammed`（冠词已去）。
+            //   🔶 词形无卡面样本（池内 0 张）；这个 Kind **没有触发号**（见 `WhenEvent.UnitJammed` 的 doc）。
+            if (StripFirst(s, out subj, " is jammed", " are jammed", " gets jammed", " get jammed"))
+            {
+                ev.Kind = WhenEventKind.UnitJammed; SetWho(subj, ev); return;
             }
 
             // ---- `When a friendly unit prays, …` → `friendly unit prays` ----
@@ -1663,6 +1886,14 @@ namespace RuleEngine
         public static bool SelfExcludesOnKeywordTrigger(string kind)
         {
             if (kind == null) return false;
+            // 🆕 **2026-10-26（批次 4 · `F2`）：安魂族同样自排除** —— 判据不在 `triggers:` 那一族里，
+            //   而在接收方体内：`CardScript__TriggerOtherCardRequiem.c:14` 的
+            //   `op_Inequality(param_2, param_1)`（`param_2` = 用安魂那张、`param_1` = 接收者自己）
+            //   ⇒ 「自己用安魂」时自己的监听器**不响**。
+            //   ⚠️ 它与 `triggers:sacrifice`（225）**同一条口径**，只是承载的 Kind 不是带参前缀
+            //      （`requiem` 还没进 `KeywordTable.Implemented`，见 `WhenEvent.OtherCardRequiem` 的 doc）
+            //      ⇒ 这里显式列一次，⛔ 别把下面那句 `StartsWith(TriggersPrefix)` 判断放宽。
+            if (kind == WhenEventKind.OtherCardRequiem) return true;
             if (!kind.StartsWith(WhenEventKind.TriggersPrefix, System.StringComparison.Ordinal))
                 return false;                                   // 不是这一族 ⇒ 本守卫不适用
             string kw = kind.Substring(WhenEventKind.TriggersPrefix.Length);

@@ -139,7 +139,7 @@ namespace CardPresentation
         //    ③ 文案用原版自己的词（`Battle Log`），但我们不假装它是原版的东西。
         /// <summary>🆕 **2026-10-24（调度台 · 真机发现）**：这颗钮上屏改走**官方词条**
         /// `PlayerProfile/BattleLog`（中文「战斗记录」），取不到才回英文原文。
-        /// ⚠️ 钮本身仍是**我们补的**（原版打开点本地查不到，用户 2026-09-27 拍板），
+        /// 🔶 自己设计（非原版）：「战斗记录」入口钮本身 · 原版打开点本地查不到（74 处 OpenWindow + 91 包搜 GUID 零命中） · 用户 2026-09-27 拍板｜原注：⚠️ 钮本身仍是**我们补的**（原版打开点本地查不到，用户 2026-09-27 拍板），
         /// 这里只把「用原版自己的词」落到**当前语言** —— 中文档下原来印英文 `Battle Log`。</summary>
         public const string PopupButtonFallback = "Battle Log";
         public static string PopupButtonLabel
@@ -245,8 +245,11 @@ namespace CardPresentation
         {
             // 🆕 2026-10-24（E13）：**本表实时**（`RebuildRows` 的老口径不变）+ **盘上录像兜底行走快照**。
             //   兜底行接在本表**后面**（本表是「真打过的记录」，新的在前）。
-            var own = BattleLogData.All;
-            var ex = _extra != null ? _extra : new List<BattleLogData.Match>();
+            // 🔴 **2026-10-26（批次 6 · G15）：行集先过原版 `OnOpen` 那道谓词**（判据 → <see cref="IsShown"/>）。
+            //   两半都要滤：本表那半与读盘兜底那半（原版只有一个来源 `PlayerDataManager.battleLogData`，
+            //   ⇒ 谓词对它**整体**生效；我们的第二半是我们自己的数据面，口径必须与第一半一致）。
+            var ex = FilterShown(_extra != null ? _extra : new List<BattleLogData.Match>(), "盘上录像兜底");
+            var own = FilterShown(BattleLogData.All, "本表");
             int n = own.Count + ex.Count;
             float contentH = n == 0 ? 0f : n * RowH + (n - 1) * RowGap;
             // 内容上边 = 视口上边（原版 `Content` 锚在 `a=(0,1)-(1,1)`）；下边 = 行数算出来的高度
@@ -281,6 +284,63 @@ namespace CardPresentation
         {
             _extra = BattleLogData.FallbackRows();
             RebuildRows();
+        }
+
+        // ============================================================ 🆕 2026-10-26（批次 6 · G15）
+        //  原版 `BattleLogTab.OnOpen` 的两件（判据 = `d:/2/tools/cpp2il/out_cpp2il_dev_ilspy/BattleLogTab.cs`）：
+        //    · `:47-53` `OnOpen` = `SupportMethods.DestroyAllChildren(holder)` → `battleLogData.Where(谓词)`
+        //      → 逐条 `Instantiate(logPrefab, holder)` + `Initialize(match)`；
+        //    · 谓词 = 同一个类里那个编译器生成的 lambda（`:22-38`，闭包 `_003COnOpen_003Eb__2_0`）：
+        //      `!string.IsNullOrWhiteSpace(x.ownHeroName) && x.ownHeroName != "0"`。
+        //  ⇒ 两处落点：① 行集过滤（`BuildRows` 里那两半都过 <see cref="IsShown"/>）；
+        //    ② **每次切到本页都重画**（原版 `OnOpen` 就是「清空 + 逐条 instantiate」；
+        //       我们这边的等价物 = <see cref="RefreshRows"/>（重拍读盘那一半 + 清空重画）。
+        //  ⚠️ 原版那三句是**同一个方法**里的顺序（清 → 筛 → 建），我们拆成「Build 时建一次 + 每次
+        //      `OnOpen` 重来一次」—— `WindowTabBase.TryOpenTab` 是 `SetActive(true); OnOpen();`
+        //     （`Shell/WindowTabBase.cs:54-60`，判据 = 原版 `WindowTabBase.cs:74-84`）⇒ **每次切页都走到**。
+
+        /// <summary>原版 `BattleLogTab` 的行谓词（`:22-38` 那个 lambda，逐字）：
+        /// `!string.IsNullOrWhiteSpace(x.ownHeroName) && x.ownHeroName != "0"`。
+        /// <para>⚠️ **`null` 那一档**：原版 lambda 对 `null` 会直接取 `x.ownHeroName`（ILSpy 那里只剩
+        /// `new NullReferenceException()` 的残渣）⇒ 原版行为 = **抛**。我们**滤掉并出声**（⛔ 不静默、
+        /// 也不让一页空行把整页炸掉）。</para>
+        /// <para>语义：`ownHeroName` 为空 / 全空白 / 字面 `"0"` 的行**不进列表** —— 原版那三种都是
+        /// 「这一局没有记到我方督军」，画出来左边那半是没有督军的空行。</para></summary>
+        public static bool IsShown(BattleLogData.Match x)
+        {
+            if (x == null) return false;
+            return !string.IsNullOrWhiteSpace(x.OwnHeroName) && x.OwnHeroName != "0";
+        }
+
+        /// <summary>把一批行过一遍 <see cref="IsShown"/>（两半共用；⛔ 别在调用处各写一份谓词）。
+        /// 滤掉几条就报几条（原版没有这一步日志 —— 这是**我们的数据面**才有的诊断，如实标出）。</summary>
+        static List<BattleLogData.Match> FilterShown(List<BattleLogData.Match> src, string what)
+        {
+            var dst = new List<BattleLogData.Match>(src != null ? src.Count : 0);
+            int dropped = 0, nulls = 0;
+            if (src != null)
+            {
+                for (int i = 0; i < src.Count; i++)
+                {
+                    if (src[i] == null) { nulls++; continue; }
+                    if (!IsShown(src[i])) { dropped++; continue; }
+                    dst.Add(src[i]);
+                }
+            }
+            if (dropped > 0 || nulls > 0)
+                Debug.Log("[Profile] `Battle Log` 页（" + what + "）按原版谓词滤掉 **" + dropped + "** 条"
+                        + "（`ownHeroName` 空 / `\"0\"`）" + (nulls > 0 ? " + " + nulls + " 条 null 行" : "")
+                        + " —— 判据 = 原版 `BattleLogTab.OnOpen` 那个 lambda（`cpp2il/BattleLogTab.cs:22-38`）");
+            return dst;
+        }
+
+        /// <summary>每次切到本页（原版 `OnOpen`）⇒ **重拍读盘那一半 + 清空重画**。
+        /// 🔴 为什么要它：原版 `OnOpen` 每次都 `DestroyAllChildren` 再逐条 instantiate ⇒ **切回来一定是新数据**；
+        /// 我们原来只在 `Build()` 里建一次 ⇒ 上一页/对局结算之后切回来看到的是旧行（静默陈旧）。</summary>
+        public override void OnOpen()
+        {
+            base.OnOpen();
+            RefreshRows();
         }
     }
 }

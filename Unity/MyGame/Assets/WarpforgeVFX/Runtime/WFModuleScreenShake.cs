@@ -167,18 +167,57 @@ namespace WarpforgeVFX
         void Play(ShakeEntry e, string from)
         {
             if (e == null || string.IsNullOrEmpty(e.preset)) return;   // 原版：preset 空就跳过
+            // 🔴 2026-10-26（批次 6 · G12）：模块档 = 原版 `OverwriteCameraShakePreset.Play()` 那条链
+            //    ⇒ **恒用默认信号**（池化副本的 `rawSignal` 永不赋值）。见 `Resolve` 的 `usePresetSignal`。
             Fire(Resolve(e), from);
         }
 
         /// <summary>🆕 2026-10-25（D 域 · 特效重建链）：按 **preset 名**播一次屏震 ——
         /// 给那些**不是 AnimFX 模块**的组件用（原版 `ShakeAndSoundObject.OnEnable` →
         /// `OverwriteCameraShakePreset.Play()` → `CameraShakerManager.DoShake`）。
-        /// 落点/调用方 = `WarpforgeVFX/Runtime/WFEffectExtras.cs` 的 `WFExtraShakeAndSound`。</summary>
-        public static void PlayPresetByName(string presetName, string from = "extras")
+        /// 落点/调用方 = `WarpforgeVFX/Runtime/WFEffectExtras.cs` 的 `WFExtraShakeAndSound`。
+        /// <para>🔴 2026-10-26（批次 6 · G12）：`ShakeAndSoundObject.onEnableShakes` 的类型是
+        /// **`OverwriteCameraShakePreset[]`**（`WFEffectExtras.cs:433-455` 同源）⇒ 它同样走"池化档"，
+        /// **恒用默认信号** ⇒ `usePresetSignal` 默认 **false**。⛔ 别按 preset 名自动开。</para></summary>
+        public static void PlayPresetByName(string presetName, string from = "extras", bool usePresetSignal = false)
         {
             if (string.IsNullOrEmpty(presetName)) return;
-            Fire(Resolve(new ShakeEntry { preset = presetName }), from);
+            Fire(Resolve(new ShakeEntry { preset = presetName }, usePresetSignal), from);
         }
+
+        /// <summary>🆕 2026-10-26（批次 6 · G12）：原版 `CameraShakerManager.DoSimpleShake(float strength)`
+        /// 的**请求侧**。判据（机器码级，`d:/2/tools/decomp_full/CameraShakerManager__DoSimpleShake.c:10-22`）：
+        /// <code>
+        /// var p = instancedDefaultPreset.preset;     // = Instantiate(defaultPreset).preset（只改克隆体）
+        /// p.amplitude = strength;                    // ← **唯一被 strength 覆盖的字段**
+        /// StartCoroutine(DoShake(p.sustainTime, p.attackTime, p.decayTime, p.amplitude /*=strength*/,
+        ///                        p.frequency, p.direction, p.delay, p.rawSignal));
+        /// </code>
+        /// <para>⇒ `strength` **只替换 amplitude**，时间轴/频率/方向/信号全部取 preset 原值。</para>
+        /// <para>`defaultPreset` 现核 = `CameraShakePresetSO` 资产 **"Shake Big"**
+        /// （`bundle_scenes_scenes_battlearena{1,2,3,aeldari,astramilitarum,blacklegion,darkangels,
+        /// emperorschildren,genestealers,leviathan,sororitas,spacewolves,tauviorla}` 的 `CameraShakerManager`
+        /// 实例，`defaultPreset` 的 PathID **13/13 全是 6418738238139997370**，`m_FileID` 只有 20/21 两种
+        /// externals 下标 ⇒ 同一份资产；真件 = `bundle_tweenandshakes_assets_all/MonoBehaviour/Shake Big.json`：
+        /// delay 0 · sustain 0.25 · attack 0.15 · decay 0.15 · amplitude 4.0 · frequency 0.2 ·
+        /// direction (0, 0.5, 1) · rawSignal **null**（⇒ 落 `defaultRawSignal` = `Warpforge 6D Shake`）。</para>
+        /// <para>⚠️ 主菜单那个 `CameraShakerManager` 的 `defaultPreset` 是**另一份**（PathID −4069090446645055156），
+        /// 但 `DoSimpleShake` 的**唯一调用点**是 `CardScript.RemoveDropPod`（战斗内）⇒ 只按 arena 这份建模。</para>
+        /// <para>调用点：`CardScript.RemoveDropPod(bool isDestroyed = false)` →
+        /// `strength = isDestroyed ? 3f : 0.5f`（`CardScript.cs:14932`；Ghidra `CardScript__RemoveDropPod.c:9-12,18`
+        /// 常量 `DAT_1834b2bb4` = **0.5** · `DAT_1834b2e8c` = **3.0**，`read_literal.py` 现读）。</para></summary>
+        public static void DoSimpleShake(float strength, string from = "DoSimpleShake")
+        {
+            // 走 `Resolve` ⇒ `overwriteAmplitude = 1` 就是原版那句 `p.amplitude = strength`
+            // （其余 5 个开关保持 0 = 用 preset 原值），`usePresetSignal: false` = 池化档（Shake Big 的
+            // rawSignal 本来就是 null，这里显式写出来是为了让语义不依赖数据）。
+            var e = new ShakeEntry { preset = SimpleShakePresetName, overwriteAmplitude = 1, amplitude = strength };
+            Fire(Resolve(e, usePresetSignal: false), from);
+        }
+
+        /// <summary>原版 `CameraShakerManager.instancedDefaultPreset` 的 SO 名 —— **13 个战场实测同一个**（见
+        /// <see cref="DoSimpleShake"/> 的注释）。⚠️ 若将来发现某场不同，改这里一处即可（⛔ 别在调用点写死）。</summary>
+        public const string SimpleShakePresetName = "Shake Big";
 
         /// <summary>把一份解析好的请求送到下游（`OnShake`）。**唯一收口**：模块档与「按名字」档共用。</summary>
         static void Fire(Request req, string from)
@@ -226,16 +265,28 @@ namespace WarpforgeVFX
         static readonly List<string> _missingPresets = new List<string>();
         static readonly List<string> _rawSignalPresets = new List<string>();
         static readonly List<string> _missingSignals = new List<string>();
+        /// <summary>🆕 2026-10-26（批次 6 · G12）：`OverwriteCameraShakePreset` 档里「preset 自带
+        /// `rawSignal`、但按池化语义被吃掉」的那些 preset 名（现数 5 个：Forward Pull / Land on ground /
+        /// Upwards Hand / UI Earthquake / UI Hit）。**这不是缺陷**，是原版结果
+        /// （判据见 `Resolve` 里那段长注释）；自检拿它证「池化语义真的生效」。</summary>
+        static readonly List<string> _presetSignalDropped = new List<string>();
 
         /// <summary>找不到的 preset 名（自检用）。</summary>
         public static IReadOnlyList<string> MissingPresets { get { return _missingPresets; } }
-        /// <summary>2026-10-23（R9 落地后改口径）：**实际用到了非默认信号**（`rawSignal` 非空）的 preset 名 ——
-        /// 5 个。⛔ 它**不再是「没实现」的标记**（波形已经真采了），是「这几个走的是 × 号信号」的读数。
-        /// 判据 → `资料/普查产出_1023b/特效线_执行报告.md` §二。</summary>
+        /// <summary>2026-10-23（R9 落地后改口径）：**数据里带非空 `rawSignal`** 的 preset 名 —— 5 个。
+        /// 🔴 **2026-10-26（批次 6 · G12）就地订正**：本属性原来写「**实际用到了**非默认信号」——
+        /// **不成立**：`Overwrite` 档按池化语义**恒播默认信号**（判据见 `Resolve`），这 5 个只在
+        /// `usePresetSignal: true` 时才会真用上。⇒ 它现在的语义是「**数据里有**独立波形的 preset」，
+        /// 是读数、不是「已生效」的标记。</summary>
         public static IReadOnlyList<string> RawSignalPresets { get { return _rawSignalPresets; } }
         /// <summary>🆕 数据里引用了、但 `signals` 段里找不到的信号名（**真空缺**，会一次性警告）。
         /// 非空 = json 与 preset 不同步（`工具/gen_shake_presets.py` 重跑一遍通常就好）。</summary>
         public static IReadOnlyList<string> MissingSignals { get { return _missingSignals; } }
+        /// <summary>🆕 2026-10-26（G12）：`OverwriteCameraShakePreset` 档「按池化语义丢掉 preset 自带
+        /// `rawSignal`」的**次数**。⇒ 恒 > 0 = 那条语义真的在跑（自检用）。</summary>
+        public static int PresetSignalDropped { get; private set; }
+        /// <summary>同上，丢掉过的那几个 preset 名（去重）。</summary>
+        public static IReadOnlyList<string> PresetSignalDroppedNames { get { return _presetSignalDropped; } }
         /// <summary>默认信号（没有 `rawSignal` 的 preset 落到它）。数据没读到时为 null。</summary>
         public static SignalRec DefaultSignal { get { EnsurePresets(); return _defaultSignal; } }
         /// <summary>数据里的**全部**信号表（4 份 `Warpforge 6D Shake*`；自检用它验结构与一致性）。
@@ -244,6 +295,7 @@ namespace WarpforgeVFX
         public static void ResetDiagnostics()
         {
             _missingPresets.Clear(); _rawSignalPresets.Clear(); _missingSignals.Clear(); DroppedRequests = 0;
+            _presetSignalDropped.Clear(); PresetSignalDropped = 0;
         }
 
         static void EnsurePresets()
@@ -300,8 +352,10 @@ namespace WarpforgeVFX
             return _defaultSignal;
         }
 
-        /// <summary>preset 值 → 应用 6 个覆盖开关。**找不到 preset 要报**（不然屏震会「安静地不对」）。</summary>
-        public static Request Resolve(ShakeEntry e)
+        /// <summary>preset 值 → 应用 6 个覆盖开关。**找不到 preset 要报**（不然屏震会「安静地不对」）。
+        /// <para>🔴 2026-10-26（批次 6 · G12）：<paramref name="usePresetSignal"/> 默认 **false** ——
+        /// 判据与「两条链为什么必须分开」写在方法体里那段长注释上。</para></summary>
+        public static Request Resolve(ShakeEntry e, bool usePresetSignal = false)
         {
             EnsurePresets();
             var r = new Request { preset = e.preset };
@@ -322,8 +376,36 @@ namespace WarpforgeVFX
             //   判据 → `资料/普查产出_1023b/R9_rawSignal_算式.md`（算式）+ 同目录 `特效线_执行报告.md` §二（全表）。
             if (p != null && p.hasRawSignal != 0 && !_rawSignalPresets.Contains(e.preset))
                 _rawSignalPresets.Add(e.preset);
-            // 信号解析：空 / 找不到 ⇒ 默认信号（找不到**非默认**信号会在 `SignalFor` 里报警，不静默）
-            r.signal = SignalFor(e.preset);
+            // 🔴 2026-10-26（批次 6 · G12）**rawSignal 的两条链必须分开** —— 判据（机器码级实读）：
+            //   · `OverwriteCameraShakePreset__GetModifiedPreset.c:76-139` 往池化副本里**只写 7 个字段**
+            //     （`delay` 无条件 + sustain/amplitude/frequency/direction/attack/decay 六个开关条件），
+            //     **`rawSignal`（+0x38）一次都没写**；池项由 `IncreaseCameraShakePresetPoolSize.c:21-39`
+            //     新建的是**默认 `CameraShakePreset`**（`rawSignal` 所在 +0x38 从未赋值 ⇒ 恒 null）。
+            //   · `CameraShakerManager._DoShake_d__33__MoveNext.c:59-67`：`rawSignalToUse` 为空 ⇒ 用
+            //     `manager.defaultRawSignal`（= `Warpforge 6D Shake`，`CameraShakerManager.cs:134`）。
+            //   ⇒ **所有 `OverwriteCameraShakePreset` 入口**（模块档 `cameraShakes` 342 + `manualTrigger` 166 ·
+            //     `AnimInfo.screenShake` 1099 · `ShakeAndSoundObject.onEnableShakes` 9 · 宝箱
+            //     `contentByRarities[].shakes` 20 · `BoosterPackVisualItem.shakePresets` 34 ·
+            //     `CardScript.meleeHitCameraShakePreset/shakeWhenLand` 与
+            //     `CardDisplayLevelUpAnimationController.cameraShakePreset` 各 1）**在原版恒播默认信号**。
+            //   ⇒ 只有 `CameraShakePresetSO.Play()`（`CameraShakePresetSO.cs:11-14` → `presetSO.preset.Play()`）
+            //     是把 SO 里那份 preset **原样**播，`rawSignal` 才生效 —— 那条链我们**今天没有**
+            //     （全量反编译 0 个调用者）⇒ 要它请显式传 `usePresetSignal: true`，⛔ 不要按 preset 名自动开。
+            //   ⚠️ 代价（原来恒用 preset 自己的信号）：数据里 **35 条模块档 / 18 个 prefab** 播的是
+            //     `Warpforge 6D Shake One Axis` / `…No rotation`，原版应播 `Warpforge 6D Shake`。
+            if (usePresetSignal)
+            {
+                r.signal = SignalFor(e.preset);
+            }
+            else
+            {
+                if (p != null && p.hasRawSignal != 0)
+                {
+                    PresetSignalDropped++;
+                    if (!_presetSignalDropped.Contains(e.preset)) _presetSignalDropped.Add(e.preset);
+                }
+                r.signal = DefaultSignal;
+            }
 
             r.sustainTime = p != null ? p.sustainTime : 0.1f;
             r.attackTime  = p != null ? p.attackTime  : 0f;

@@ -1828,5 +1828,82 @@ namespace CardPresentation
             return p != null && p.IsUgui && p.Rect != null ? p.Rect.GetComponent<Image>() : null;
         }
 #endif
+
+        // ==================================================================
+        //  🆕 2026-10-26（执行代理 `F6` · 批次 4）：**敌方「伏击单位」的展示窗支**
+        // ==================================================================
+        //  判据（一手，`d:/2/tools/cpp2il/out_cpp2il_dev_ilspy/CardDisplayWindow.cs:666-708`，**真方法体**）：
+        //  `ShowBattleCard(card, warlordHealthModifier)` = `DisplayCardEffects(card)` → `ShowCard(...)`
+        //  → `cardUIs[0].ToggleStats(true)`，**然后**这一道三合一闸：
+        //  <code>
+        //    if (card.IsInPlay() && !card.isPlayer && card.HasCurrentTrait(DefinedTrait.ambush)) {
+        //        cardUIs[0].ToggleStats(false);                              // ① 藏数值
+        //        cardUIs[0].SetEmptyRarityStars();                           // ② 清稀有度
+        //        cardUIs[0].cardTextsController.SetTexts("", "", Minion, 0); // ③ 清文字（卡名 + 效果文字）
+        //        tex = CardTraitCollection.GetTrait(ambush).CustomObject;    // ④ 换伏击图
+        //        cardImageController.SetImage(Sprite.Create(tex, …), cardType);
+        //        cardImageController.ChangeSize(Small, instant: true);        // ⑤ 图回小档
+        //        DisableAllCards();                                          // ⑥ 相关卡一律不画
+        //        loreObjectBG.SetActive(false);                              // ⑦ 风味底板关
+        //        voiceOverButton.SetActive(false);                            // ⑧ 语音钮关
+        //    }
+        //  </code>
+        //  ⚠️ 闸是**三合一**：在场上 · 敌方 · **当前挂着 ambush 词条**（翻面之后词条被摘 ⇒ 回到正常窗）。
+        //  ⚠️ ② 在卡表面的等价物 = **把稀有度宝石画成最低档（common）**，⛔ 不是「不画宝石」：
+        //     `SetCardRarity(0, max)` 的索引是 `clamp(rarity-1, 0, len-1)` = 0（E6 现读）。
+        //     我们的 `CardData.rarity == null` 正好落到 common 那一张（`CardView.RarityGem`），
+        //     而且**卡框不受影响** —— 框档走 `CardTierFor(d)`（恒 >= 1；`CardArt.Frame` 里那条
+        //     「tier <= 0 才用 rarity 兜底」的路永远走不到）。
+        //  ⚠️ ④ 那张图的**唯一取法**是 `CardView.FaceDownArtTexture()`（与 `CardView.SetAmbush` 同源，
+        //     出处/降级/出声都在那儿）—— ⛔ 别在这儿另找一张图、⛔ 别拿卡背顶替。
+        //  ⚠️ ⑥⑦⑧ 的等价物 = 「不传 `def` ⇒ 只画主卡」+「关风味底板」+「关语音钮」。
+        //  🔴 **① 藏数值这一半本批做不了**：`Core/CardView` 只有读口（`FaceStatText/…`），没有运行期写口
+        //     ⇒ 这里**出声**（⛔ 不静默：那一格会比原版多显示四个数）。写口规格见报告改动请求 ①。
+
+        /// <summary>原版 `CardDisplayWindow.ShowBattleCard(CardScript, int)` 的等价物
+        /// （含**敌方伏击单位**那一支，判据见上面那段）。
+        /// <param name="enemyInPlayAmbush"/> = 原版那道三合一闸（在场上 ∧ 敌方 ∧ 当前带 `ambush`）；
+        /// 由调用方（`BattleDriver`）按引擎真值给 —— ⛔ 别在窗里自己按卡状态推。
+        /// <para>⚠️ 与 <see cref="Show(CardData, CardDef, IReadOnlyList{EffectRow}, bool)"/> 的分工：
+        /// 那个 `faceDown` 是「**敌方手牌**先露背」那一档（`Card2DController.SetCardVisibility`），
+        /// 本条是「**场上**的伏击单位」—— 两者互不替代。</para></summary>
+        public void ShowBattleCard(CardData d, CardDef def, IReadOnlyList<EffectRow> effects, bool enemyInPlayAmbush)
+        {
+            if (!enemyInPlayAmbush) { Show(d, def, effects); return; }
+
+            var masked = d;
+            masked.title = "";            // ③ 清文字（原版 `SetTexts("", "", Minion, 0)`）
+            masked.keywords = "";
+            masked.rarity = null;         // ② 清稀有度 ⇒ 最低档（common）宝石；卡框档不受影响（见上）
+            var amb = CardView.FaceDownArtTexture();
+            if (amb != null) masked.artOverride = amb;   // ④ 换伏击图
+            else Debug.LogWarning("[展示窗] 敌方伏击单位：伏击图取不到 ⇒ 照旧画它自己的立绘（`CardView.FaceDownArtTexture()` 已出声）");
+            Debug.LogWarning("[展示窗] 敌方伏击单位：**数值还没藏**（原版 `cardUIs[0].ToggleStats(false)`）—— "
+                           + "`Core/CardView` 今日只有读口、没有运行期写口 ⇒ 这一格现在比原版多露四个数（不静默）。"
+                           + "写口规格 → `资料/完全复刻/报告/F6_第4轮.md` 改动请求 ①");
+
+            // ⑥ 相关卡一律不画：不传 `def` ⇒ `BuildFan` 只建主卡（原版 `DisableAllCards()`）
+            Show(masked, null, effects);
+
+            // ⑦ 风味底板关（原版 `loreObjectBG.SetActive(false)`）——
+            //    ⚠️ 它**不是**按有没有字开关的（`RefreshLore` 认的是 flavourText）⇒ 必须显式关。
+            if (_bg != null && _bg.gameObject.activeSelf) _bg.gameObject.SetActive(false);
+            // ⑧ 语音钮关（原版 `voiceOverButton.SetActive(false)`）——
+            //    ⚠️ `RefreshButtons` 是按「这张卡有没有语音」开关的，而伏击单位通常有语音 ⇒ 必须显式关。
+            if (_voiceBtn != null && _voiceBtn.gameObject.activeSelf) _voiceBtn.gameObject.SetActive(false);
+        }
+
+        /// <summary>🆕 2026-10-26（`F6`）自检读口：主卡现在画的立绘贴图是不是**伏击图**
+        /// （= `CardView.FaceDownArtTexture()`；那张图取不到时恒 `false`）。⛔ 别读我们自己的 bool 记账（那是自证）。</summary>
+        public bool MainCardShowsAmbushArt
+        {
+            get
+            {
+                var v = SlotViews[0];
+                var amb = CardView.FaceDownArtTexture();
+                return v != null && amb != null && v.ArtLayerTexture == amb;
+            }
+        }
+
     }
 }

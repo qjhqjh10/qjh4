@@ -272,7 +272,7 @@ namespace CardPresentation
 
         // ---- `Header` ----
         // `Title`：原版 rect 宽 0（`ContentSizeFitterMinMax`）⇒ 本壳没有 CSF 运行时，用 1312 宽的左对齐框
-        //   （左缘 = 原版 133、高度 = 原版 63.66）—— **这是我们挑的框**，逐条注在报告里。
+        // 🔶 自己设计（非原版）：活动标题框 `TitleR`（宽 1312、左缘 133、高 63.66） · 原版宽 0 靠 ContentSizeFitter，我们没有运行时 CSF（原版判据拿不到） · TODO(谁定的)｜原注：（左缘 = 原版 133、高度 = 原版 63.66）—— **这是我们挑的框**，逐条注在报告里。
         static readonly PxRect TitleR = R(133.0f, 29.1f, 1445.6f, 92.7f);
         static readonly PxRect HelpIconPlayerR = R(144.9f, 34.8f, 197.1f, 87.0f);
         static readonly PxRect ArmyIconR = R(5.0f, 0.9f, 125.0f, 120.9f);           // liveops `LoadAsset(事件,5)`
@@ -382,7 +382,7 @@ namespace CardPresentation
         public const string TermClaim = "MainMenu/General/Claim";
         // ---- 第二页（`Expansion Pass Missions Tab`）----
         /// <summary>页签文字兜底。⚠️ **原版取的是 `LiveOpsAssetUtility.GetLabel(事件)`（远端）**；
-        /// 本条是官方表里那条通用「Missions / 布道所」—— **我们挑的兜底**，⛔ 不冒充原版。</summary>
+        /// 🔶 自己设计（非原版）：Missions 页签兜底词条 `MainMenu/General/Missions` · 原版取远端 `LiveOpsAssetUtility.GetLabel(事件)` · TODO(谁定的)｜原注：本条是官方表里那条通用「Missions / 布道所」—— **我们挑的兜底**，⛔ 不冒充原版。</summary>
         public const string TermMissionsTab = "MainMenu/General/Missions";
         public const string TermWeeklyChallenges = "Missions/Title/WeeklyChallenges";   // 页内 `Mission Header/name`
         public const string TermDailySkulls = "Missions/Title/DailySkulls";            // 骷髅卡头部

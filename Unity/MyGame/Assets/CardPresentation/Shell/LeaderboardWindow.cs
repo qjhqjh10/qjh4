@@ -213,7 +213,7 @@ namespace CardPresentation
         static readonly PxRect EmbBtnR = new PxRect(275.50f, 90.73f, 520.50f, 158.37f);
         static readonly PxRect EmbBtnTxR = new PxRect(287.20f, 97.35f, 508.01f, 151.74f);
         static readonly PxRect EmbSeasonTextR = new PxRect(1265.70f, 73.06f, 1674.50f, 176.03f);
-        /// <summary>🔴 **推算值**（不是原版）：嵌入版的 `Scroll View` 序列化高是 **0**（没有 `LayoutElement`）
+        /// 🔶 自己设计（非原版）：嵌入版列表框 `EmbListR`（按父 Content 撑满） · 原版 Scroll View 序列化高是 0、没有 LayoutElement（原版判据拿不到） · TODO(谁定的)｜原注：<summary>🔴 **推算值**（不是原版）：嵌入版的 `Scroll View` 序列化高是 **0**（没有 `LayoutElement`）
         /// ⇒ 我们按它的父 `Content`（`248.99,176.01→1671.01,1006.93`）撑满。见文件头「哪些是我们挑的」。</summary>
         static readonly PxRect EmbListR = new PxRect(248.99f, 176.01f, 1671.01f, 1006.93f);
 

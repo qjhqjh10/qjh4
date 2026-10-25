@@ -432,15 +432,22 @@ namespace CardPresentation
             if (s.isLocal == 0)
             {
                 tn = t.DOMove(v, s.duration);
+                tw = tn.SetRelative(s.relative != 0);
             }
             else
             {
                 float k = t.localScale.x;
                 v = new Vector3(v.x * k, v.y * k, v.z * k);
+                // 🔴 2026-10-26（`C38` 补齐，判据 = `decomp_full/MoveTween__GetTween.c:80-89`）：
+                //   **非** awayFromUnit（= 0）**且**目标单位是玩家侧时，`z` 再 ×−1
+                //   （实读常量 `DAT_1834b2bc8` = −1.0f）。原版只在 `isLocal` 这条支做它。
+                if (s.awayFromUnit == 0 && IsPlayerSide(t)) v.z = -v.z;
                 if (s.from != 0) v += t.position;
                 tn = t.DOLocalMove(v, s.duration);
+                // 🔴 `decomp_full/MoveTween__GetTween.c:104-107`：本地支的 `isRelative = relative && !from`
+                //   （非本地支是 `relative`，见上面那条）。原来两边共用 `relative` ⇒ `from=1` 时会多相对一次。
+                tw = tn.SetRelative(s.relative != 0 && s.from == 0);
             }
-            tw = tn.SetRelative(s.relative != 0);
             return s.from != 0 ? (Tween)tn.From() : tw;   // `From()` 只在 `Tweener` 上
         }
 
@@ -455,10 +462,13 @@ namespace CardPresentation
                 // 原版 `Internal_MakePositive`：把欧拉角折进 [0,360)
                 e += new Vector3(Pos(eul.x), Pos(eul.y), Pos(eul.z));
             }
-            else if (s.relative != 0)
+            else if (s.isLocal != 0 && IsPlayerSide(t))
             {
-                // 原版：`relative` 时按「目标是不是面向左」翻 x 的符号（+0x40 = isPlayer 那一位）
-                e = new Vector3(e.x, e.y, e.z);   // 符号由 who 决定 —— 我们没有那一份 ⇒ 不翻，如实标
+                // 🔴 2026-10-26（`C48` 补齐，判据 = `RotateTween.cs:50-67` + `:111-116`）：
+                //   原版是 `awayFromUnit == undefined && isLocal && 目标.isPlayer ⇒ obj2 = -1，然后
+                //   `rotation.x * obj2`` ⇒ **x 取反**。**与 `relative` 无关**（`relative` 只进最后的
+                //   `SetRelative`）—— 我们原来把这句误挂在 `relative` 名下、而且没取反。
+                e = new Vector3(-e.x, e.y, e.z);
             }
 
             Tweener tn = s.isLocal == 0
@@ -511,6 +521,28 @@ namespace CardPresentation
             if (s.resetRotation != 0) seq.Join(t.DORotateQuaternion(t.rotation, s.duration).SetEase(ease));
             if (s.resetScale != 0) seq.Join(t.DOScale(t.localScale, s.duration).SetEase(ease));
             return seq;
+        }
+
+        // ==================================================================
+        //  🆕 2026-10-26（`C38` / `C48`）：原版 `MoveTween` / `RotateTween` 里那句
+        //  「目标单位 `isPlayer` ⇒ z / x 取反」需要的 **isPlayer 判据**。
+        // ==================================================================
+        /// <summary>「这个 Transform 属于**本地玩家**那一侧吗」—— 原版读 `CardScript.isPlayer`（+0x40）。
+        ///
+        /// <para>我们 `CardView` **不带阵营字段**（阵营只在 `BattleDriver` 的两个视图字典里，
+        /// 见 `CardFeel.IsPlayerRow` 的注释）⇒ 默认判据 = **静止位离哪一行近**
+        /// （`CardFeel.IsPlayerRow`，与 `CardFeel.ApplyDepthScale` 的兜底档**同一条口径**）。
+        /// 原版只在这两条很少用到的数据上依赖它：`MoveTween.isLocal=1` **1 条**、`RotateTween.isLocal=1`
+        /// **1 条**，且都只被 `Execution_BL` 引用（我们侧 0 引用）⇒ 当前无可观测后果。</para>
+        /// <para>表现层若要更准（例如 P2P 里本地座位被翻转），挂 <see cref="IsPlayerSideOf"/> 覆盖即可；
+        /// 没挂就走上面那条兜底。⛔ 别在别处再写第二份判据（CLAUDE.md 三·5）。</para></summary>
+        public static Func<Transform, bool> IsPlayerSideOf;
+
+        static bool IsPlayerSide(Transform t)
+        {
+            if (t == null) return false;
+            if (IsPlayerSideOf != null) return IsPlayerSideOf(t);
+            return CardFeel.IsPlayerRow(t.position.z);
         }
     }
 }

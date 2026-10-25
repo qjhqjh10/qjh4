@@ -63,7 +63,7 @@ namespace CardPresentation
         ///   （`PointerLayer.HitButton` 挑队列最大者当赢家）⇒ **它连点击也一并吃掉**。
         ///   改到 **2900 之下** ⇒ 阴影回到「背景压暗」该在的位置（**在全部 shell UI 之前被绘制**）。
         /// ⚠️ **这张梯子的号是【我们自己起的】**（原版没有逐件渲染队列这套机制，它靠兄弟序 + 排序层）
-        ///   ⇒ 值由我们定，**约束只有一条：低过全部 shell UI**；
+        /// 🔶 自己设计（非原版）：压暗四条（`Smooth background fade *`）的渲染队列梯子 · 原版没有逐件渲染队列这套机制（靠兄弟序 + 排序层），值由我们定 · TODO(谁定的)｜原注：⇒ 值由我们定，**约束只有一条：低过全部 shell UI**；
         ///   ⛔ `0` 以下别用 —— `Editor/MainMenuScene.cs` 里那句 `if (q.RenderQueue &lt;= 0) continue;` 是**跳过口**。
         /// </summary>
         public const int FadeQueue = 2890;

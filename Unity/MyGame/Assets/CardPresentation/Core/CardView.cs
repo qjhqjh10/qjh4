@@ -1186,9 +1186,9 @@ namespace CardPresentation
         // 材质 `Card Frame Glitch`（`bundle_duplicateassetisolation_assets_all/Material/Material_-2877403367212247079.json`）、
         // shader **`Everguild/FX/Sprite Scan Lines`**（`bundle_shaders_assets_all/Shader/Shader_-5025784757600742591.json`）、
         // 噪声图 `Noise Combined.png` **三件都在本地**（原版走 PPtr，名字里没有 "glitch"）。
-        // ⇒ 结论改成「**要做，只差自建那个 shader**」（铁律 11），本轮**先用**原版真有的那张关键词图标顶上
-        // （`Atlas_trait_icon_ephemeral.png`，80×80，就在本地图集里）；判据/待办见
-        // `资料/完全复刻/报告/R16_卡牌面遗留C_第2轮.md` §没做·ToggleGlitch。
+        // ⇒ 结论改成「**要做，只差自建那个 shader**」（铁律 11）。✅ **2026-10-25（E7 批次 3）已补上**：
+        // `SetGlitch` + 自建 `Resources/Shaders/CardFrameGlitch.shader`（算式逐条照抄原版 DXBC，见类尾判据块）。
+        // 这张关键词图标**仍然保留** —— 原版本来就是「角标 + 换材质」**两件事**，不是二选一。
         //
         // ⚠️ **位置和大小是「我们挑的」**：原版的 `ShowEphemeral` 是拿组件在**运行时**实例化
         //    一个 prefab，dump 里看不到它的 rect；那个 prefab 本身也不在我们手上。
@@ -3451,21 +3451,21 @@ namespace CardPresentation
         }
 
         /// <summary>
-        /// **这张卡是不是「临时卡（Ephemeral）」的角标**（规则书 `:183`/`:229`）。
+        /// **这张卡是不是「临时卡（Ephemeral）」的标记** —— 打开它 = 原版那**两件事一起做**（规则书 `:183`/`:229`）。
         ///
-        /// 规则书说临时卡「回合结束若在手牌则移除」—— **玩家得看得出哪张是临时的**，
-        /// 否则牌忽然没了就是「静默失败」。原版的标记是 `BattleCardUI.ShowEphemeral()` +
-        /// `ToggleGlitch()`（glitch 材质 —— 🔴 2026-10-25（R16）更正：**素材本地有**
-        /// `<Material_-2877403367212247079.json>` / shader `Everguild/FX/Sprite Scan Lines` / `Noise Combined.png`，
-        /// 只是要自建那个 shader；见 <see cref="EphemeralIconAt"/> 上面那段），我们**暂时**改用原版的**关键词图标**
-        /// （`Atlas_trait_icon_ephemeral.png`）。取舍与出处见 `EphemeralIconAt` 上面的注释。
+        /// 规则书说临时卡「回合结束若在手牌则移除」—— **玩家得看得出哪张是临时的**，否则牌忽然没了就是
+        /// 「静默失败」。原版 `CardScript.cs:8046` 的写法是**两行紧挨着**：`ToggleGlitch(true)`（换卡框材质）
+        /// + `CardUI.ShowEphemeral()`（在卡的位置实例化状态角标）。**两件我们都有**：
+        /// ① 角标 = 原版**关键词图标** `Atlas_trait_icon_ephemeral.png`（取舍与出处见 `EphemeralIconAt` 上面那段）
+        /// ② glitch 材质 = `SetGlitch`（自建 `CardPresentation/CardFrameGlitch`，算式照抄原版 DXBC）
+        /// 🔴 原版那两行外面还套了一层 `isPlayer` 闸；我们的唯一调用点 `BattleDriver.SyncHand` **只对手牌视图**调
+        /// ⇒ 结构上已经是「玩家侧」，不必再传布尔（见类尾 glitch 判据块）；⚠️ 图标没导进来时角标那条**什么都不做**（不画错的），自检有一条断言盯着 `CardArt.Trait("ephemeral")` 非空。
         ///
-        /// ⚠️ 图标没导进来时这个方法**什么都不做**（不画错的），
-        ///    自检里有一条断言盯着 `CardArt.Trait("ephemeral")` 非空。
         /// </summary>
         public void ShowEphemeral(bool on)
         {
             if (_ephemeral != null) _ephemeral.enabled = on;
+            SetGlitch(on);      // 原版同一个调用点紧挨着的那一行（`CardScript.cs:8046` 的 `ToggleGlitch(true)`）
         }
 
         /// <summary>现在画着临时角标吗（自检用）</summary>
@@ -10234,7 +10234,7 @@ namespace CardPresentation
                 _clippedTexts.Add(tmp);
         }
 
-        void OnDestroy() { DisposeCrops(); }
+        void OnDestroy() { DisposeCrops(); DisposeGlitchMaterial(); }
 
         // ==================================================================
         //  高亮那一下的缩放（原版 `CardBodyToScale × ScaleFactor`，带补间）
@@ -13994,5 +13994,191 @@ namespace CardPresentation
             if (d.spellTypeKnown) return d.spellType != 0;
             return TacticSubtypeShown.Contains(d.subtype);
         }
+
+        // ==================================================================
+        //  glitch —— 原版 `Card2DController.ToggleGlitch(bool)`（2026-10-25 · E7 批次 3）
+        // ==================================================================
+        // 🔴 **为什么这一段在类尾**：本文件被几本账按 `<文件>:<行号>` 引用（`CardView.cs` 共 159 处），
+        //    往中间插成员会让下游整体平移（`check_ledger_points.py` 报「漂移」，别的代理的账也跟着脏）
+        //    ⇒ **新成员一律追加在类尾**；就地改动保持**行数不变**（只替换同一行）。
+        //
+        // 🥇 判据（`Card2DController.cs:132` 现读，cpp2il 真体）：
+        //      `ToggleGlitch(bool option) { frame.material = option ? glitchMaterial : originalFrameMaterial; }`
+        //    · `Awake()` 里 `originalFrameMaterial = frame.material`（= 出厂那一份，**只缓存一次**）。
+        //    · `glitchMaterial` 是**预制体上的 PPtr**（`MonoBehaviour_8218469410760203200.json` →
+        //      `{m_FileID: 4, m_PathID: -2877403367212247079}` = 材质 **`Card Frame Glitch`**）。
+        //    · **调用面只有一处**：`CardScript.cs:8046` —— `if (HasCurrentTrait(ephemeral) && isPlayer)
+        //      card2DController.ToggleGlitch(true);`（紧挨着 `ShowEphemeral()`；**AI 侧不换材质**）。
+        //      `CardUI.ShowEphemeral()` 本身是**另一件事**（在卡的位置实例化状态角标 prefab）。
+        //    ⇒ 我们把两步合成一个入口 `ShowEphemeral(bool)`（见那个方法的新注释）：
+        //      我们的调用点 `BattleDriver.SyncHand` **只对手牌视图**调它（手牌 = 玩家侧），
+        //      所以原版那个 `isPlayer` 闸在结构上已经满足，不需要再传一个布尔。
+        //
+        // 🥇 材质参数（`Material_-2877403367212247079.json` 实读，逐条抄，不取默认值）：
+        //      `_GlitchPercentaje` 0.1 · `_ScanLinesIntensity` 0.547 · `_NoiseIntensity` 0.0035 ·
+        //      `_AntialiasScale` 1.3 · `_MainColorIntensityFix` 1.29 ·
+        //      `_NoiseColor` (0.056604, 0.040851, 0.056604, 1) · `_NoiseScaleAndSpeed` (10, 18.05, 1, 1)
+        //    · `_Noise` = 贴图 `Noise Combined`（128²）—— 我们工程里就是
+        //      `Resources/Art/card_sdf/cardback_noise.png`，**逐字节相同**
+        //      （sha256 前缀 `4b0742aa5fb9f85f`，两侧实测一致）⇒ 走 `CardArt.CardbackSdfNoise()`。
+        //    · `_MainTex` 在原版材质里是 **null**（UGUI 的 CanvasRenderer 每帧把 sprite 贴图喂进去）
+        //      ⇒ 我们这边必须**显式**写当前卡框那张图（`SyncGlitchMainTex`）。
+        //    🔴 **顺手发现（铁律 13·4⑧）**：那份材质上还有 4 个**该 shader 根本没声明**的残留属性 ——
+        //      `_Aplha` 0.5 · `_MainColorIntensity` 0.29 · `_NoiseIntensity_Color_Alpha` (0.01,1,0,0) ·
+        //      `_NoiseScaleAndSpeed2` (1,1,0,1)。判据 = `Shader.json` 的 `m_PropInfo` 只有 9 个自定义属性
+        //      （上面那 7 个 + `_MainTex` + `_Noise`）。**与「原版材质带内置 Standard 残留死值」同一族**
+        //      ⇒ ⛔ 不抄、也不要以为它们生效。
+        //
+        // 🥇 自建 shader = `Resources/Shaders/CardFrameGlitch.shader`（`CardPresentation/CardFrameGlitch`）。
+        //    **为什么不直接拿原版 shader**：它在本地也在 `wf_shaders.bundle` 里，但它的 VS 把顶点色乘了
+        //    `unity_SpriteColor`（`SpriteRenderer` 专用通道），而我们的卡面全是 **MeshRenderer**
+        //    ⇒ 直接用会渲染成黑/透明（本轮不能跑 Unity 验证 ⇒ 不赌）。算式**逐条照抄** DXBC，见那个文件头。
+
+        /// <summary>自建 glitch shader 的名字（`Resources/Shaders/CardFrameGlitch.shader`）。</summary>
+        const string GlitchShaderName = "CardPresentation/CardFrameGlitch";
+
+        static readonly int GlitchUvRectId = Shader.PropertyToID("_UvRect");
+
+        Material _glitchMat;                 // 每张卡一份（`_MainTex` 是逐卡的卡框图）
+        Material _frameMatBeforeGlitch;      // 原版 `originalFrameMaterial`（换上去之前那一份）
+        bool     _glitchShown;
+        static bool _glitchWarned;
+
+        /// <summary>现在卡框是不是挂着 glitch 材质（原版「`frame.material == glitchMaterial`」那一档）。</summary>
+        public bool GlitchShown { get { return _glitchShown; } }
+
+        /// <summary>原版 `Card2DController.ToggleGlitch(bool)`：把**卡框那一层**的材质在
+        /// 「glitch」与「换之前那一份」之间来回换。
+        /// <para>=== 与 `BeginFrameDissolve`/`EndFrameDissolve` 的分工 ===</para>
+        /// <para>两条都换 `_frame` 的材质：溶解记自己的 `_frameMatBeforeDissolve`、我们记
+        /// `_frameMatBeforeGlitch`，各自**只还原自己换上去的那一份**（同族约定见 `EndFrameDissolve` 的注释）。
+        /// 两者同时开启（临时卡 + 卡框溶解）时**后开的赢**，先关的那个发现当前不是自己那份就只清状态、不抢材质。</para>
+        /// <para>⚠️ `_frame == null`（`frameTex` 取不到时走的占位卡面支路）⇒ 什么都不做并**出声一次**：
+        /// 那条支路没有「卡框层」可换（原版也没有 —— 它是同一个 `frame` Image）。</para></summary>
+        public void SetGlitch(bool on)
+        {
+            if (_frame == null)
+            {
+                if (on && !_glitchWarned)
+                {
+                    _glitchWarned = true;
+                    Debug.LogWarning("[CardView] 这张卡没有卡框层（`_frame == null`）⇒ glitch 材质无处可换"
+                                   + "（原版 `Card2DController.ToggleGlitch` 换的就是卡框 Image 的材质）。");
+                }
+                return;
+            }
+            var cur = _frame.sharedMaterial;
+            bool isGlitch = cur != null && cur.shader != null && cur.shader.name == GlitchShaderName;
+
+            if (on)
+            {
+                // 🔴 **溶解优先**（两条都换 `_frame` 材质；`ShowEphemeral` 每轮 `SyncHand` 都会重刷，
+                //    不挡的话 glitch 会**每帧把溶解材质抢回来**，卡就溶不掉了）。原版两者分属 2D/3D 两条 prefab，
+                //    不会撞；我们合并在一个 CardView 上，所以这里显式定优先级（先开的让位给后开的）。
+                if (OnFrameDissolveMaterial) { _glitchShown = false; return; }
+                var m = GlitchMaterial();
+                if (m == null) return;                 // 取不到 shader ⇒ 已出声，卡照常
+                SyncGlitchMainTex(m);
+                if (!isGlitch)
+                {
+                    _frameMatBeforeGlitch = cur;
+                    m.renderQueue = _queue;            // 跟这张卡的队列段（`SetQueue` 靠 `renderQueue == _queue` 早退）
+                    _frame.sharedMaterial = m;
+                }
+                _glitchShown = true;
+                return;
+            }
+
+            _glitchShown = false;
+            if (!isGlitch)
+            {
+                // 当前挂的不是我们那份（没开过 / 已被溶解抢占）⇒ 只清状态，别抢别人的材质
+                _frameMatBeforeGlitch = null;
+                return;
+            }
+            var back = _frameMatBeforeGlitch;
+            _frameMatBeforeGlitch = null;
+            if (back != null)
+            {
+                _frame.sharedMaterial = back;
+                StampQueue(_frame);                    // 换回来的那一份可能不是这一档队列 ⇒ 重新盖章
+            }
+        }
+
+        /// <summary>这张卡的 glitch 材质（懒建；取不到 shader ⇒ `null` + **出声一次**）。
+        /// <para>⚠️ 参数**全部来自原版材质**（见上面判据块），不取 shader 默认值 ——
+        /// shader 默认 `_NoiseColor` 是**纯白**、`_ScanLinesIntensity` 是 1，
+        /// 直接吃默认值会渲成一片白噪音。</para></summary>
+        Material GlitchMaterial()
+        {
+            if (_glitchMat != null) return _glitchMat;
+            var sh = Shader.Find(GlitchShaderName);
+            if (sh == null)
+            {
+                if (!_glitchWarned)
+                {
+                    _glitchWarned = true;
+                    Debug.LogWarning("[CardView] 找不到 `" + GlitchShaderName + "` shader ⇒ 临时卡**不换 glitch 材质**，"
+                                   + "只留关键词角标（`Resources/Shaders/CardFrameGlitch.shader` 在不在？）");
+                }
+                return null;
+            }
+            var m = new Material(sh) { name = "Card Frame Glitch" };
+            m.SetFloat("_GlitchPercentaje", 0.1f);            // 原版材质值
+            m.SetFloat("_ScanLinesIntensity", 0.547f);
+            m.SetFloat("_NoiseIntensity", 0.0035f);
+            m.SetFloat("_AntialiasScale", 1.3f);              // ⚠️ 只在 SUPERSAMPLING_ON 那支被读（本材质没开）
+            m.SetFloat("_MainColorIntensityFix", 1.29f);      // ⚠️ 可达那支里**没读**（死属性），照抄只为对账
+            m.SetColor("_NoiseColor", new Color(0.056604f, 0.040851f, 0.056604f, 1f));
+            m.SetVector("_NoiseScaleAndSpeed", new Vector4(10f, 18.05f, 1f, 1f));
+            var noise = CardArt.CardbackSdfNoise();
+            if (noise != null) m.SetTexture("_Noise", noise);
+            else Debug.LogWarning("[CardView] `Art/card_sdf/cardback_noise` 取不到 ⇒ glitch 的噪声图是 shader 默认（白）"
+                                + "—— 原版是 `Noise Combined`（128²，与原图逐字节相同的那一张）。");
+            m.renderQueue = _queue;
+            _glitchMat = m;
+            return m;
+        }
+
+        /// <summary>把「当前那张卡框图 + 它的 uv 矩形」同步进 glitch 材质。
+        /// <para>⚠️ 原版不需要这一步（`_MainTex` 由 CanvasRenderer 喂）；我们的卡框是 MeshRenderer，
+        /// `_MainTex` 必须自己写。**每次 `SetGlitch(true)` 都同步**，因为 `SetFace` 会换卡框图而
+        /// 我们不知道（本文件 `SetData` 不碰 `_frame`）。</para></summary>
+        void SyncGlitchMainTex(Material m)
+        {
+            if (m == null || _frame == null) return;
+            // ⚠️ **优先读 `_frameTex` 这个字段**（`Build` 里记下的「这张卡该用哪张卡框图」，`SetFace` 会更新它）——
+            //    已经换着 glitch 材质时 `_frame.sharedMaterial.mainTexture` 就是我们自己写的那张，读它认不出「图变了」。
+            var tex = _frameTex;
+            if (tex == null)
+            {
+                var cur = _frame.sharedMaterial;
+                tex = cur != null ? cur.mainTexture as Texture2D : null;
+            }
+            if (tex == null || m.mainTexture == tex) return;
+            m.mainTexture = tex;
+            // 我们的卡框 mesh uv 是**图集子矩形** ⇒ 噪声 UV 要按 0..1 归一化（见 shader 文件头 `_UvRect`）
+            var r = FrameUv(tex);
+            m.SetVector(GlitchUvRectId, new Vector4(r.x, r.y, r.width, r.height));
+        }
+
+        /// <summary>销毁本卡那份 glitch 材质（`OnDestroy` 里调；`SetGlitch` 之后可能从没建过 ⇒ 空操作）。</summary>
+        void DisposeGlitchMaterial()
+        {
+            _frameMatBeforeGlitch = null;
+            _glitchShown = false;
+            if (_glitchMat == null) return;
+            if (Application.isPlaying) Object.Destroy(_glitchMat); else Object.DestroyImmediate(_glitchMat);
+            _glitchMat = null;
+        }
+
+#if UNITY_EDITOR
+        /// <summary>自检用：这张卡的 glitch 材质（没建过 = `null`；建过才能断参数）。</summary>
+        public Material GlitchMatForTest { get { return _glitchMat; } }
+        /// <summary>自检用：换 glitch 之前那一份卡框材质（没开过 / 已关 = `null`）。</summary>
+        public Material FrameMatBeforeGlitchForTest { get { return _frameMatBeforeGlitch; } }
+        /// <summary>自检用：卡框层当前材质（= `FrameMatView`，这里给个短名字给灭自证断言读）。</summary>
+        public Material FrameMatNowForTest { get { return _frame != null ? _frame.sharedMaterial : null; } }
+#endif
     }
 }

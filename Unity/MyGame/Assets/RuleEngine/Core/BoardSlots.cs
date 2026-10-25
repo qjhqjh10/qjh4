@@ -462,5 +462,135 @@ namespace RuleEngine
             }
             return true;
         }
+
+        /// <summary>
+        /// 🆕 2026-10-26（批次 3 · 执行代理 `E3`）：**原版 `MinionManager.GetInteractiveUnitsCount()` 的等价物**
+        /// = 这一侧「能被交互的单位」个数 = 场上单位数 **−** 带 `summonRift(730)` 的单位数。
+        ///
+        /// <para>**判据**（第一权威 `d:/2/tools/decomp_full/MinionManager__GetInteractiveUnitsCount.c`，
+        /// 56 行逐句读过；🥈 交叉验证 `cpp2il/out_cpp2il_dev_ilspy/MinionManager.cs:3495-3580`）：</para>
+        /// <list type="number">
+        /// <item>`iVar3 = leftMinions.Count + rightMinions.Count`（`.c:18`，`+0x60`/`+0x68` 两条 `List`）；
+        ///   我们的两条 `List` = 棋盘上「非空格数」⇒ <see cref="CountOnSide"/> 逐字同义。</item>
+        /// <item>逐单位 `EntityScript__HasCurrentTrait(u, 0x2da, 0)`（`.c:25` / `:38`）为真 ⇒ `iVar3 -= 1`。
+        ///   `0x2da = 730 = DefinedTrait.summonRift`（`d:/2/Warpforge_code/Scripts/Assembly-CSharp/DefinedTrait.cs:73`）。</item>
+        /// <item>两个列表各扫一遍（先左后右），**两侧都减**；返回减完的数。</item>
+        /// </list>
+        ///
+        /// <para>⚠️ **别把它接到 `CountEval` 上**：`BoardCriteria` 数目标走的是
+        /// `FilterMethods.CheckIfMeetsCriteria`，那份**根本不看 `0x2da`**
+        /// （`decomp_full/FilterMethods__CheckIfMeetsCriteria.c` 里 `0x2da` **0 命中**，2026-10-26 现读）
+        /// ⇒ 原版的「数目标」**不排除**裂隙单位。两者是**两条不同的口径**，混用会静默少数。</para>
+        ///
+        /// <para>⚠️ **本版没有调用方，是【有意为之】**：原版 `GetInteractiveUnitsCount` 的**唯一**消费者是
+        /// `BoardAnalysis.EnemyHasMoreTroops` / `…AfterPlay`（`.c:12,21`），而那两份的**调用方 = 0**
+        /// （`decomp_full` + `cpp2il` 全树 0 命中；`d:/2/新解包资源/assets_full` 里按方法名字符串搜也 0 命中
+        /// ⇒ 不是反射/SO 调）。⇒ 原版这条链在本 build 里是**死代码**。这里按原语义建好，
+        /// 等 AI 打分那条线（`Data/AiScoring.cs`，属 `E4`）接 `EnemyHasMoreTroops`（账行 750/751）时直接用。</para>
+        /// </summary>
+        public static int InteractiveUnitsCount(PlayerState ps)
+        {
+            if (ps == null || ps.Board == null) return 0;
+            int n = 0;
+            for (int s = 0; s < BoardSpec.Size; s++)
+            {
+                if (s == BoardSpec.WarlordSlot) continue;       // 督军不在原版那两条 List 里（`dump.cs:39326-39329` 只有 minions）
+                var u = ps.Board[s];
+                if (u == null) continue;
+                if (u.Has(KeywordTable.SummonRift)) continue;   // 原版 `.c:25/:38` 的那一下 `iVar3 -= 1`
+                n++;
+            }
+            return n;
+        }
+
+        // ------------------------------------------------------------------
+        //  🆕 2026-10-26（批次 5 · 执行代理 `G3`）：`MinionManager` 两条**未建**的定位原语
+        //  ⚠️ 两条都是**追加在类尾**（不改任何既有行号 —— 本文件的行号被 6 条账行引用）。
+        // ------------------------------------------------------------------
+
+        /// <summary>
+        /// **原版 `MinionManager.GetIndexOfCard`**（`d:/2/tools/decomp_full/MinionManager__GetIndexOfCard.c`，
+        /// 🥇 逐句读过，全文 62 行）的等价物 —— 「这张牌在棋盘的**有符号格号**」。
+        ///
+        /// <para>**原版行为**：先线性扫 `leftMinions(+0x60)`，第 i 个命中（`Object.op_Equality`）⇒ `return ~i`
+        /// （= `-(i+1)`）；再扫 `rightMinions(+0x68)`，第 i 个命中 ⇒ `return i+1`；两侧都没有 ⇒ **`0`**
+        /// （督军格的编码 —— 督军本身在 `+0x260`，**不在那两条表里**）。</para>
+        ///
+        /// <para>**为什么我们需要它**：我们的棋盘是定长 `Board[9]`，格号 ↔ 原版有符号下标只差
+        /// `+4`（`ourSlot = 4 + origSlot`，见文件头）。`IndexOf(int slot)` 回答的是「**某一格**
+        /// 在本侧排第几」，回答不了「**某张牌**在原版那个编码里是几」—— 后者是 `previousAbilityTargets` /
+        /// `targetsAffected=150` / `filterSpecificCards` 那几族要的编码。</para>
+        ///
+        /// <para>⚠️ **与 `IndexOf(int)` 的分工**：那个是「格 → 侧内下标」，这个是「牌 → 原版有符号格号」。
+        /// ⛔ 别把两者互相当替身（`orig = slot - 4` 只对**侧向格**成立，督军格两种口径都落到 0）。</para>
+        /// </summary>
+        /// <returns>原版有符号格号：`< 0` 左、`> 0` 右、`0` = 不在这两条表里（含督军 / null）。</returns>
+        public static int OriginalIndexOfCard(PlayerState ps, UnitState card)
+        {
+            if (ps == null || ps.Board == null || card == null) return 0;
+            for (int i = 0; i < BoardSpec.SlotsPerSide; i++)
+                if (ReferenceEquals(ps.Board[SlotOf(Left, i)], card)) return -(i + 1);
+            for (int i = 0; i < BoardSpec.SlotsPerSide; i++)
+                if (ReferenceEquals(ps.Board[SlotOf(Right, i)], card)) return i + 1;
+            return 0;
+        }
+
+        /// <summary>
+        /// **原版 `MinionManager.GetNextSlotCheckingAdjacents`**（`d:/2/tools/decomp_full/MinionManager__GetNextSlotCheckingAdjacents.c`，
+        /// 🥇 逐句读过，全文 80 行）的等价物 —— **AI 部署单位时挑「贴着某个「在场所影响相邻」的单位」的落点**。
+        ///
+        /// <para>**原版行为**（三条支，逐句）：</para>
+        /// <list type="number">
+        /// <item>**左侧还有空位**（`leftSlotPos.Length − leftMinions.Count ≥ 1`）⇒ 扫 `leftMinions`：
+        ///   第 i 个满足 `CardScript.HasWhileInPlayAdjacentEffect()` ⇒ **`return -i-2`**
+        ///   （= 那一格**外侧**的下标，贴着他落）。扫完没命中 ⇒ 落进下一支。</item>
+        /// <item>**右侧还有空位** ⇒ 扫 `rightMinions`：命中 ⇒ **`return i+2`**（同上，右侧外侧）。</item>
+        /// <item>两侧都不满足（没空位 / 没那种单位）⇒ **`GetNextSlotWithoutDisplacing`**
+        ///   （= 我们 <see cref="NextWithoutDisplacing"/> 的那条规则）。</item>
+        /// </list>
+        ///
+        /// <para>🔴 **这就是我们之前整条缺的一支**：账行 1264 原来只把落点写成
+        /// 「<see cref="NextWithoutDisplacing"/> 的『人少那侧最外一格』」—— 那是**第三支**。
+        /// 前两支（贴着「相邻效果」单位落）**一行都没实现**。可达性：唯一调用点
+        /// `decomp_full/AI__ExecuteAction.c:63`（AI 部署 `cardType == Minion` 那一支）⇒
+        /// **AI 的部署位置**会不同（贴着 vs 最外），进而影响相邻光环/相邻效果。
+        /// 现读池内 `HasWhileInPlayAdjacentEffect` 的**第一半**（`trait 0x2f8 = 760 requiem`）**0 张**、
+        /// **第二半**（`WhileInPlay` 能力里 `targetsAffected == 100`）**18 张** ⇒ **可达**。</para>
+        ///
+        /// <para>⚠️ **本版返回【绝对格号】**（不是原版的有符号下标）—— 调用方是引擎（`Board[]` 口径）；
+        /// 换算 `side/index` 见 <see cref="SlotOf"/>。原版 `-i-2` ⇔ 我们 `SlotOf(Left, i+1)`。</para>
+        /// <para>⚠️ 原版两侧是 `List`、**没有洞**；我们的 `Board[]` 可能出现 null（自检夹具）⇒ 本方法
+        /// **跳过 null**（⛔ 不中断扫描 —— 原版 `get_Item == null` 那一支是「不该发生」的 throw）。
+        /// 有洞本身由 <see cref="IsContiguous"/> / `WarnHoley` 负责出声。</para>
+        /// <para>⛔ **还没有接线**：调用点（`SimpleAI` 的部署落点）不在本批白名单 ⇒ 见报告
+        /// `报告/G3_第5轮.md` §六 的改动请求（附谓词的判据与写法）。</para>
+        /// </summary>
+        /// <param name="hasAdjacentEffect">「这个单位有没有『在场所影响相邻』」—— 原版那两半见上面
+        /// （`trait 760` / `WhileInPlay` 能力的 `targetsAffected == 100`）。`null` ⇒ 直接走第三支。</param>
+        public static int NextSlotCheckingAdjacents(PlayerState ps, System.Func<UnitState, bool> hasAdjacentEffect)
+        {
+            if (ps == null || ps.Board == null) return -1;
+            if (hasAdjacentEffect != null)
+            {
+                if (RoomOnSide(ps, Left) > 0)                  // 第一支：左侧有空位才扫左侧
+                {
+                    for (int i = 0; i < BoardSpec.SlotsPerSide; i++)
+                    {
+                        var u = ps.Board[SlotOf(Left, i)];
+                        if (u != null && hasAdjacentEffect(u)) return SlotOf(Left, i + 1);   // 原版 `-i-2`
+                    }
+                }
+                if (RoomOnSide(ps, Right) > 0)                 // 第二支
+                {
+                    for (int i = 0; i < BoardSpec.SlotsPerSide; i++)
+                    {
+                        var u = ps.Board[SlotOf(Right, i)];
+                        if (u != null && hasAdjacentEffect(u)) return SlotOf(Right, i + 1);  // 原版 `i+2`
+                    }
+                }
+            }
+            int blocked;
+            return NextFreeWithoutDisplacing(ps, out blocked);  // 第三支（原版 `GetNextSlotWithoutDisplacing`）
+        }
     }
 }

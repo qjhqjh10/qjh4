@@ -400,7 +400,7 @@ namespace CardPresentation
             //   一条 0.2 s 的 clip 推 0.33 s 还**不会收尾**（`BattleScene.Run` 当场红：
             //   「回调 False · enabled True · 剩 clip 1 · 收尾 0 次」）。
             //   ⇒ 现在：`fps <= 0`（没有显式帧率上限）时按 **60** 算 —— 裕量 = 1/60 s，与原版
-            //   「一帧之后才算过期」同义。这一段是**我们挑的**（原版那一格在真包里恒为正），如实记。
+            // 🔶 自己设计（非原版）：`fps <= 0` 时按 60 算的一帧过期裕量 · 原版那一格在真包里恒为正、它的值取不到（原版判据拿不到） · TODO(谁定的)｜原注：「一帧之后才算过期」同义。这一段是**我们挑的**（原版那一格在真包里恒为正），如实记。
             int fps = Application.targetFrameRate;
             if (fps <= 0) fps = 60;
             if (OneFrameSlack / fps + _currentAnimationTime >= 0f) return;

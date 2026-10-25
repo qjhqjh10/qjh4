@@ -102,6 +102,16 @@
    "receive": 1
   },
   {
+   "go": "Shadow Receiver",
+   "pos": [
+    100.0,
+    0.0,
+    0.0
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
    "go": "Full Moon 1",
    "pos": [
     96.194,

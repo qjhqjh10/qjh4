@@ -202,6 +202,16 @@
    "receive": 1
   },
   {
+   "go": "Shadow Receiver",
+   "pos": [
+    100.0,
+    0.0,
+    0.0
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
    "go": "Barricade 2",
    "pos": [
     101.501,
@@ -482,6 +492,16 @@
    "receive": 1
   },
   {
+   "go": "Generator ",
+   "pos": [
+    102.58,
+    0.678,
+    -9.894
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
    "go": "Crates 15",
    "pos": [
     281.48,
@@ -717,6 +737,16 @@
     99.701,
     -0.138,
     -9.863
+   ],
+   "cast": 1,
+   "receive": 1
+  },
+  {
+   "go": "Bunker Gun ",
+   "pos": [
+    70.504,
+    22.679,
+    69.704
    ],
    "cast": 1,
    "receive": 1

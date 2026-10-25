@@ -274,7 +274,7 @@ namespace CardPresentation
         //
         // 状态号**照抄原版 `CardInBoosterPack.state`**（`CardInBoosterPack__ChangeState.c`）：
         //   0 = 无 · 1 = 卡背态（交互关）· 2 = 可交互 · 3 = 翻牌中 · 4 = 防连开抖动 ·
-        //   5 = **我们自己加的「翻完了」**（原版翻完之后 `state` **停在 3** —— `_WaitForSpinAnimationEnd`
+        // 🔶 自己设计（非原版）：自加状态号 `5 = 翻完了` · 原版翻完停在 3；5 只给我们自检读，⛔ 不是原版状态号（原版判据拿不到） · TODO(谁定的)｜原注：5 = **我们自己加的「翻完了」**（原版翻完之后 `state` **停在 3** —— `_WaitForSpinAnimationEnd`
         //       只把交互重新打开、不再改 state，再点走的是它后来加上的 `CardClicked` 监听）
         //       ⇒ 5 只表示「这一张已经收尾」（自检好读），⛔ 别把它当原版状态号。
         public enum CardState { None = 0, Back = 1, Ready = 2, Opening = 3, Shaking = 4, Open = 5 }

@@ -28,7 +28,7 @@ namespace CardPresentation
     /// <summary>单机版的「锻造厂」状态。**纯内存 + 可复现**（不用 `UnityEngine.Random`）。</summary>
     public static class ForgeData
     {
-        /// <summary>轨道格数（= `LevelText` 的分母）。⚠️ **我们挑的 50** ——
+        /// 🔶 自己设计（非原版）：锻造轨道格数 50 · 唯一依据是 prefab 占位文案 `Level 1/50`，原版真实格数在服务端 · TODO(谁定的)｜原注：<summary>轨道格数（= `LevelText` 的分母）。⚠️ **我们挑的 50** ——
         /// 唯一的依据是 prefab 里那句占位文案 `Level 1/50`（`l3_rect_full.txt:229` 那一格，
         /// 原版真实格数在服务端）。**别把它当成原版数字。**</summary>
         public const int MaxLevel = 50;
@@ -67,7 +67,7 @@ namespace CardPresentation
             public string Text { get { return Qty.ToString(); } }
         }
 
-        // ⚠️ **我们挑的奖励表**：按「每级轮换」编。🔴 **2026-10-17（T21）**：从四张货币图标
+        // 🔶 自己设计（非原版）：锻造奖励表（哪一级给哪档） · 原版在服务端 · TODO(谁定的)｜原注：⚠️ **我们挑的奖励表**：按「每级轮换」编。🔴 **2026-10-17（T21）**：从四张货币图标
         //    改成**四档真野牌**（图 = 原版 `40k_general_wildcard_*`，判据 = 实拍那三张卡 + `ItemDrawer`
         //    的 `Wildcard` 抽屉）。**「哪一级给哪档」仍是我们挑的**（原版在服务端）—— 如实标。
         static readonly Reward[] Palette =
@@ -90,7 +90,7 @@ namespace CardPresentation
             return 100 * n + 20 * n * (n / 5);
         }
 
-        // ---- 每个阵营的进度。⚠️ **初值全是我们挑的**（原版在服务端存档里）。
+        // 🔶 自己设计（非原版）：每阵营的锻造进度初值 · 原版在服务端存档 · TODO(谁定的)｜原注：---- 每个阵营的进度。⚠️ **初值全是我们挑的**（原版在服务端存档里）。
         //      故意造出四种状态都出现的情况，好让四种格子都能在画面上验到：
         //        第 1 个：已满级（全 Collected）· 第 2 个：正好可领（ToCollect）
         //        第 3 个：差一点（InProgress）· 其余：按索引错开

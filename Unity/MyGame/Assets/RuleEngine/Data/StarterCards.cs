@@ -23,7 +23,7 @@ using System.Collections.Generic;
 
 namespace RuleEngine
 {
-    public static class StarterCards
+    public static class StarterCards   // 🔶 自己设计（非原版）：我们自设的 26 张测试卡整族（Ember Legion / Tide Swarm） · 原版卡池的效果全靠 desc 文本、v1 引擎不解析 desc（战术卡整类也未实现）⇒ 只能用纯数值 + 已实现关键词自造（原版判据拿不到） · TODO(谁定的)
     {
         public const string EmberFaction = "Ember";
         public const string TideFaction = "Tide";

@@ -1,10 +1,10 @@
 {
  "scene": "battlearena3",
- "_schema": "nodes[] = 要新建的节点（浅→深；localPos/localRot/localScale = **原版 local**，`ArenaBuilder` 直接写下去 —— 不引入第二套坐标口径）· targets[] = 已建对象（改挂到 `parent` 那条路径下；`pos`/`parentPos` = **与清单同一套**的无缩放世界链，用于按「名字 + 最近位置」对上对象）· adds[] = 已建对象**不改挂**、只补 `Animation` 组件 · animation=1 = 原版这个 GO 上有它 · 🆕 A345：`want` = 本场清单里**每一条会建出来的**对象（网格/粒子/灯）的原版路径 + 旁挂那两样 ⇒ `nodes[]` 是「原版有、我们没建」的那批（含容器层）",
+ "_schema": "nodes[] = 归位时需要在工程里存在（多数要新建）的节点（浅→深；localPos/localRot/localScale = **原版 local**，`ArenaBuilder` 直接写下去 —— 不引入第二套坐标口径）· targets[] = 已建对象（改挂到 `parent` 那条路径下；`pos`/`parentPos` = **与清单同一套**的无缩放世界链，用于按「名字 + 最近位置」对上对象）· adds[] = 已建对象**不改挂**、只补 `Animation` 组件 · animation=1 = 原版这个 GO 上有它 · 🆕 A345：`want` = 本场清单里**每一条会建出来的**对象（网格/粒子/灯）的原版路径 + 旁挂那两样 · 🔴 2026-10-23 订正（A1559②）：**nodes[] 不是「缺失清单」** —— 它的内容 = `want` 的祖先链 + 子树 − targets[]，所以**容器层、已建对象的路径、被闸门挡掉的对象混在一起**（实测 astra 里 `Battle Arena Astra Militarum Baked`、`Bunker Gun .001` 都是已建的）；而「原版有、清单没提、又不在任何人子树里」的对象**根本不进这张表**（astra 的 `Generator ` 就不在）⇒ ⛔ 别拿它找「还缺什么」",
  "_sources": "scenes_scenes_battlearena3.bundle（直读）＋ arenas/battlearena3/battlearena3_manifest.json（清单全覆盖，A345）＋ 数据/游戏数据/env_blendables.json 的 _missingTargets[].wantedPath 与 lookat 目标的 target 字段",
  "_stats": {
-  "nodes": 29,
-  "targets": 91,
+  "nodes": 30,
+  "targets": 92,
   "adds": 0,
   "animation": 1,
   "gatesExcluded": {
@@ -15,9 +15,9 @@
    "meshQuality": 0
   },
   "coverage": {
-   "want": 91,
-   "manifestRows": 95,
-   "manifestBuilt": 91,
+   "want": 92,
+   "manifestRows": 96,
+   "manifestBuilt": 92,
    "sidecarPaths": 0,
    "skipWorldBaked": 0,
    "unmatched": 0,
@@ -185,6 +185,33 @@
    "parentPos": [
     0.0,
     -0.001,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
+   "path": "BattlePrefab/BattleBoardElements/Colliders",
+   "name": "Colliders",
+   "localPos": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "localRot": [
+    0.0,
+    0.0,
+    0.0,
+    1.0
+   ],
+   "localScale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "parent": "BattlePrefab/BattleBoardElements",
+   "parentPos": [
+    100.0,
+    0.0,
     0.0
    ],
    "animation": 0
@@ -1608,11 +1635,26 @@
    "animation": 0
   },
   {
+   "name": "Shadow Receiver",
+   "pos": [
+    100.0,
+    0.0,
+    0.0
+   ],
+   "parent": "BattlePrefab/BattleBoardElements/Colliders",
+   "parentPos": [
+    100.0,
+    0.0,
+    0.0
+   ],
+   "animation": 0
+  },
+  {
    "name": "Monolith Glow",
    "pos": [
-    97.389892,
-    0.907611,
-    -9.435649
+    97.264961,
+    1.075622,
+    -9.315026
    ],
    "parent": "Scenario/Battle Arena 3 Baked/Monolith Front Left",
    "parentPos": [
@@ -1625,9 +1667,9 @@
   {
    "name": "Monolith Glow (1)",
    "pos": [
-    102.634873,
-    1.020185,
-    -9.441249
+    102.756592,
+    1.245583,
+    -9.315026
    ],
    "parent": "Scenario/Battle Arena 3 Baked/Monolith Front Right",
    "parentPos": [
@@ -1640,8 +1682,8 @@
   {
    "name": "Additional Glow",
    "pos": [
-    109.630004,
-    11.327999,
+    109.819126,
+    11.41797,
     27.94
    ],
    "parent": "Scenario/Particle Effects/Large Monolith Glow",
@@ -1655,8 +1697,8 @@
   {
    "name": "Center Glow",
    "pos": [
-    109.630004,
-    11.327999,
+    109.819126,
+    11.41797,
     27.94
    ],
    "parent": "Scenario/Particle Effects/Large Monolith Glow",
@@ -1670,8 +1712,8 @@
   {
    "name": "Glow",
    "pos": [
-    109.630004,
-    11.327999,
+    109.819126,
+    11.41797,
     27.94
    ],
    "parent": "Scenario/Particle Effects/Large Monolith Glow",
@@ -1745,9 +1787,9 @@
   {
    "name": "Glow Bottom Fixed",
    "pos": [
-    102.562869,
-    0.546343,
-    -9.525609
+    102.581371,
+    0.536494,
+    -9.526538
    ],
    "parent": "Scenario/Particle Effects/Necrons Close Monolith Rays (1)",
    "parentPos": [
@@ -1760,9 +1802,9 @@
   {
    "name": "Glow Bottom SubEmitBig",
    "pos": [
-    102.562869,
-    0.546343,
-    -9.525609
+    102.581371,
+    0.536494,
+    -9.526538
    ],
    "parent": "Scenario/Particle Effects/Necrons Close Monolith Rays (1)",
    "parentPos": [
@@ -1775,9 +1817,9 @@
   {
    "name": "Glow Bottom SubEmitSmall",
    "pos": [
-    102.676932,
-    0.544026,
-    -9.526399
+    102.670229,
+    0.536029,
+    -9.52708
    ],
    "parent": "Scenario/Particle Effects/Necrons Close Monolith Rays (1)",
    "parentPos": [
@@ -1790,9 +1832,9 @@
   {
    "name": "Glow Top",
    "pos": [
-    102.607724,
-    0.798138,
-    -9.440566
+    102.62101,
+    0.808489,
+    -9.439701
    ],
    "parent": "Scenario/Particle Effects/Necrons Close Monolith Rays (1)",
    "parentPos": [
@@ -1805,9 +1847,9 @@
   {
    "name": "Smoke",
    "pos": [
-    102.688497,
-    0.67698,
-    -9.456517
+    102.681771,
+    0.679596,
+    -9.456264
    ],
    "parent": "Scenario/Particle Effects/Necrons Close Monolith Rays (1)",
    "parentPos": [
@@ -1820,9 +1862,9 @@
   {
    "name": "Glow Bottom Fixed",
    "pos": [
-    97.444913,
-    0.44994,
-    -9.543203
+    97.441454,
+    0.441506,
+    -9.546185
    ],
    "parent": "Scenario/Particle Effects/Necrons Close Monolith Rays",
    "parentPos": [
@@ -1835,9 +1877,9 @@
   {
    "name": "Glow Bottom SubEmitBig",
    "pos": [
-    97.353783,
-    0.395692,
-    -9.425659
+    97.352958,
+    0.383879,
+    -9.427381
    ],
    "parent": "Scenario/Particle Effects/Necrons Close Monolith Rays",
    "parentPos": [
@@ -1850,9 +1892,9 @@
   {
    "name": "Glow Bottom SubEmitSmall",
    "pos": [
-    97.350102,
-    0.584078,
-    -9.419074
+    97.351442,
+    0.586419,
+    -9.418014
    ],
    "parent": "Scenario/Particle Effects/Necrons Close Monolith Rays",
    "parentPos": [
@@ -1865,9 +1907,9 @@
   {
    "name": "Glow Top",
    "pos": [
-    97.324632,
-    0.67699,
-    -9.459169
+    97.335102,
+    0.68539,
+    -9.451907
    ],
    "parent": "Scenario/Particle Effects/Necrons Close Monolith Rays",
    "parentPos": [
@@ -1880,9 +1922,9 @@
   {
    "name": "Smoke",
    "pos": [
-    97.367914,
-    0.582321,
-    -9.450723
+    97.369441,
+    0.584269,
+    -9.449589
    ],
    "parent": "Scenario/Particle Effects/Necrons Close Monolith Rays",
    "parentPos": [
@@ -1955,7 +1997,7 @@
   {
    "name": "FireEmbers",
    "pos": [
-    98.513003,
+    98.367401,
     4.175,
     8.181
    ],
@@ -1985,9 +2027,9 @@
   {
    "name": "LightShaft",
    "pos": [
-    85.218041,
-    3.937289,
-    10.270018
+    85.199779,
+    4.500857,
+    10.355199
    ],
    "parent": "Scenario/Particle Effects/LightShafts/Light Shaft Rig (monolith 1)/Rotation",
    "parentPos": [
@@ -2000,9 +2042,9 @@
   {
    "name": "LightShaft",
    "pos": [
-    82.231146,
-    6.52107,
-    17.012971
+    82.313582,
+    7.071541,
+    16.80449
    ],
    "parent": "Scenario/Particle Effects/LightShafts/Light Shaft Rig (monolith 2)/Rotation",
    "parentPos": [
@@ -2015,9 +2057,9 @@
   {
    "name": "LightShaft",
    "pos": [
-    90.826976,
-    7.273557,
-    17.478703
+    90.661325,
+    7.504445,
+    17.667972
    ],
    "parent": "Scenario/Particle Effects/LightShafts/Light Shaft Rig (monolith 3)/Rotation",
    "parentPos": [
@@ -2030,9 +2072,9 @@
   {
    "name": "LightShaft",
    "pos": [
-    94.942409,
-    5.331104,
-    10.372115
+    94.774129,
+    5.349877,
+    10.646779
    ],
    "parent": "Scenario/Particle Effects/LightShafts/Light Shaft Rig (monolith 4)/Rotation",
    "parentPos": [

@@ -394,41 +394,55 @@ public static class HandAssertE8
     //     `m_SizeDelta = (−350, −512)`、父 `Content` 已 stretch 到 `Collection Card` 的 350×512
     //     ⇒ 算出 **0×0**；`localScale` 出厂就是 150。⇒ 卡的真尺寸/位置是**运行时**设的
     //     （同族结论见 `资料/普查产出_0923/A4_装饰页与驱动链.md:149,223` 的「查不到」）。
-    //   · 🔑 **最终判据 = 用户的原版实拍** `C:/Users/qjh36/Desktop/warpforge参考图/
-    //     收藏—张牌的界面参考图（打开过滤器按钮后）.png`：卡框底边（含银色下边框）在**张数条之上**，
-    //     两者几乎相接、**没有重叠** ⇒ 卡只占「条顶以上那一段」= 格高 − 张数条高。
-    //     ⇒ **现行口径（`CardsCardRect` = 格高 − `CardsCounterH`）与原版实拍一致，本批【不改】**；
-    //       把 150/512 直译进来反而会压条 **29.1 px**（与实拍矛盾）。
+    //   · 🔴 **2026-10-26（`G21`）就地订正（铁律 5）—— 上面那条「最终判据 = 用户实拍」的结论【已被推翻】**：
+    //     `W11` 那版（`CardsCardRect` = 格高 − `CardsCounterH`、卡只占条顶以上）**不是原版长相**。
+    //     2026-10-25 裁定（判据 = prefab 现读 `Collection Card/CardUI/2DCard`：350×512 原型里
+    //     y **6.2 → 505.8**，上下各 6.2 ⇒ **在整格里居中**、高 374.8）：
+    //       · `CardsCardRect(cell)` == **整格**（`CollectionWindow.cs:278-293` 现在就是 `return cell;`）；
+    //       · 卡体按原版公式缩放后在整格里**居中** ⇒ 上下各 ≈4.6 px；
+    //       · ⇒ 卡底**压住张数条 ≈33.6 px**，**那是原版长相**（张数条画在卡下缘之上）。
+    //     ⚠️ `W11` 当时量到的「重叠」根因是**缩放口径**（按整格反解、没有公式给的居中），
+    //       不是「卡不该压条」；用户 2026-10-18 报的那一版**重叠得更多**（卡按整格撑满）。
     //
-    // 这一组钉的是**口径本身**（`Shell/CollectionWindow.cs` 那两条 public 几何），不是在断实现：
-    //   🧨 谁把 `CardsCardRect` 改成「整格 384」/ 把卡按 `150/512` 直译 ⇒ ② 与 ③ 变红。
+    // 这一组钉的是**口径本身**（`Shell/CollectionWindow.cs` 那条 public 几何 + 原版缩放公式），不是在断实现：
+    //   🧨 把 `CardsCardRect` 改回「格高 − 张数条」（`W11` 那版）⇒ ① ② ③ 一起变红。
     static void D_InitialCardScale()
     {
         // 一格（相对坐标即可，两条几何都只吃相对量）
         var cell = new PxRect(0f, 0f, CollectionWindow.CardsCellW, CollectionWindow.CardsCellH);
         var cardRect = CollectionWindow.CardsCardRect(cell);
         var barRect = CollectionWindow.CardsCounterRect(cell);
-        float barH = cell.y2 - barRect.y1;             // 张数条占掉的高度（原版锚点 `CardsCntMaxY`）
+        float barH = cell.y2 - barRect.y1;             // 张数条占掉的高度（原版锚点 `CardsCntMaxY`）= 38.272
 
-        Check(Mathf.Abs(cardRect.y2 - barRect.y1) < 1e-3f,
-              $"★① 卡区**底边**正好停在张数条**框顶**（卡区底 {cardRect.y2:F2} vs 条顶 {barRect.y1:F2}）"
-            + "｜判据 = 用户原版实拍「卡框底边在张数条之上、无重叠」（见本段方法头）"
-            + "｜🧨 卡区改成整格（`CardsCellRect`）⇒ 卡底 = 格底 ⇒ 压条 38.27 px ⇒ 红");
+        Check(Mathf.Abs(cardRect.x1 - cell.x1) < 1e-3f && Mathf.Abs(cardRect.y1 - cell.y1) < 1e-3f
+              && Mathf.Abs(cardRect.x2 - cell.x2) < 1e-3f && Mathf.Abs(cardRect.y2 - cell.y2) < 1e-3f,
+              $"★① 卡体**位置框 = 整格**（`CardsCardRect(cell)` 逐字段等于 `cell`：{cardRect}）"
+            + "｜判据 = prefab `Collection Card/CardUI/2DCard` 在 350×512 原型里 y 6.2→505.8（上下各 6.2 ⇒ **居中**）"
+            + "｜🧨 改回 `W11` 那版「格高 − 张数条」⇒ 红");
 
-        CheckClose(cell.y2 - cardRect.H, barH, 0.01f,
-                   "★② 卡区高 = 格高 − 张数条高（两段拼满一格，一格不少一格不多）"
-                 + "｜期望值 = 原版 prefab 的张数条锚点（`CardsCntMaxY × CardsCellH`）"
-                 + "｜🧨 `CardsCardRect` 少减/多减一格 ⇒ 红");
+        // ---- ② 卡体**渲染高** = 原版公式（`CollectionCard__OnRectTransformDimensionsChange.c:16-22`）----
+        //   `sizeDelta.y × initialCardScale(150) ÷ initialHeight(512)` = 每「卡单位」多少 px
+        //   ⇒ 渲染高 = `CardView.Height(3.3313) × (CardsCellH × 150/512 ÷ 108) × 108` = **374.77 px**。
+        //   ⚠️ `÷108 ×108` 那两步是「px/卡单位 → 世界缩放 → px」的换算，⛔ 别把它当成我们另外挑的数。
+        float cardPx = CardView.Height * (CollectionWindow.CardsCellH * (150f / 512f) / 108f) * 108f;
+        CheckClose(cardPx, 374.77f, 0.05f,
+                   "★② 卡体渲染高 = 原版公式给的 **374.77 px**（`3.3313 × 384 × 150/512`）"
+                 + "｜🧨 把 `150/512` 换成「按整格反解」（`W11` 那版）⇒ 卡高变 384 ⇒ 红");
 
-        // 原版公式**直译**到我们口径会长成多高（纯原版常数算术，与我们的常量无关）：
-        //   `initialCardScale / initialHeight` = 150/512 = 0.29296875（每 px 格高给多少「px/卡单位」）
-        //   卡单位高 3.3313（`CardView.Height`）⇒ 渲染高 = 3.3313 × 384 × 0.29296875 = 374.76 px
-        float naivePx = CardView.Height * CollectionWindow.CardsCellH * (150f / 512f);
-        Check(cardRect.H < naivePx - 20f,
-              $"★③ ⛔ **别把 `150/512` 直译成我们的 `SetPose` 口径**：直译渲成 {naivePx:F2} px 高，"
-            + $"卡区只有 {cardRect.H:F2} px ⇒ 会压进张数条 {naivePx - cardRect.H:F2} px"
-            + "｜判据 = 原版实拍「无重叠」＋ `CardUI` 的 rect 在 prefab 里是 0×0（`sizeDelta.y` 是运行时值，"
-            + "静态推不出来）｜🧨 把卡区改成整格 / 把 `CardsCellH` 抬大到让差值 <20 px ⇒ 红");
+        CheckClose(cell.H - cardPx, 9.23f, 0.05f,
+                   "★②b 卡高与格高的差 = **9.23 px**（上下各 ≈4.61，**居中**）"
+                 + "｜判据 = prefab `2DCard` 上下各 6.2/512 ⇒ 折成 384 格 = 4.65（差 0.04 来自 `CardView.Height` 的取整）"
+                 + "｜🧨 卡撑满整格 ⇒ 差 0 ⇒ 红");
+
+        // ---- ③ 卡底压进张数条 **≈33.6 px** —— 🔴 **这是原版长相，不是缺陷** ----
+        //   卡在整格里居中 ⇒ 卡底离格底 ≈4.61；而张数条的顶在格底往上 38.272
+        //   ⇒ 卡底越过条顶 38.272 − 4.61 = **33.66 px**（原版张数条就画在卡下缘之上）。
+        float margin = (cell.H - cardPx) * 0.5f;       // 居中 ⇒ 上下各这么多
+        float overlap = barH - margin;                 // 卡底越过「条顶」多少
+        CheckClose(overlap, 33.66f, 0.2f,
+                   $"★③ 卡底压进张数条 **{overlap:F2} px**（条高 {barH:F2} − 居中下边距 {margin:F2}）"
+                 + " —— 🔴 **这是原版长相**（判据 = prefab `CardUI/2DCard` 的 y 区间 vs `/Counter` 的上锚点）"
+                 + "｜🧨 为了「不压条」把卡缩到条顶以上（`W11` 那版）⇒ 重叠变 0 ⇒ 红");
     }
 
     // ==================================================================

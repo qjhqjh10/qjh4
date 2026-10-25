@@ -23,7 +23,7 @@
 //   ② 原版 `LoadableRef<T>` 是惰性资源引用（G §三 #6 还没建）；我们这里 `Item` 就是**直接的 T**。
 //      将来 `LoadableRef<T>` 落地时，`ItemInfo.Item` 改成引用 + 加一个 `Value` 访问器即可（调用点不用改）。
 //
-// ⚠️ `EphemeralState`：原版是枚举（限时物品的到期态）；我们存 `int`（判据只需「这一格存在且能读写」）。
+// ⚠️ `EphemeralState`：原版是**类**（`LiveopsReference boundEvent` + `long ephemeralStartTime` + `long ephemeralDuration`，见 `d:/2/tools/cpp2il/out_cpp2il_dev_ilspy/EphemeralState.cs`）—— 2026-10-26 就地订正：原来这里写「原版是枚举、我们存 int」，**两处都错**（原版不是枚举；本轮已建同名类，见文件尾追加区）。
 using System;
 using System.Collections.Generic;
 
@@ -33,17 +33,17 @@ namespace CardPresentation
     /// <summary>一个物品条目（原版 `IItemInfo<T>` / `ItemInfo<T>`）。
     /// 字段/方法对位：`Item`(= `LoadableRef<T> Item`) · `Amount` · `InstanceId` · `EphemeralState`
     /// + `SetInfo` / `Add` / `SetAmount` / `AssignEphemeralState`。</summary>
-    public sealed class ItemInfo<T> where T : class
+    public partial class ItemInfo<T> where T : class
     {
         /// <summary>物品本体（原版是 `LoadableReference<T>`；我们直接持有 —— 见文件头「差异 ②」）。</summary>
         public T Item { get; private set; }
         /// <summary>数量。**这是「拥有数」的正本**（⛔ 别在别处再存第二份）。</summary>
-        public int Amount { get; private set; }
+        public int Amount { get { return _quantityBoundTo != null ? _quantityBoundTo.Amount : _amount; } private set { _amount = value; } }
         /// <summary>实例 id（原版 `IItemInfo.instanceId`；同一物品可有多份**不同实例**时用它区分）。
         /// 空串 = 合并到「该物品那一条」。</summary>
         public string InstanceId { get; private set; }
         /// <summary>临时态（原版 `EphemeralState`：限时物品的到期信息）。我们用 `int`，语义待用到时再定。</summary>
-        public int EphemeralState { get; private set; }
+        public EphemeralState EphemeralState { get; private set; }
 
         internal ItemInfo(T item, int amount, string instanceId)
         {
@@ -69,7 +69,7 @@ namespace CardPresentation
         public void SetAmount(int amount) { Amount = Math.Max(0, amount); }
 
         /// <summary>原版 `ItemInfo.AssignEphemeralState(EphemeralState)`：标注临时态。</summary>
-        public void AssignEphemeralState(int state) { EphemeralState = state; }
+        public void AssignEphemeralState(EphemeralState state) { EphemeralState = state; }
 
         public override string ToString() { return (Item != null ? Item.ToString() : "<null>") + " ×" + Amount; }
     }
@@ -77,7 +77,7 @@ namespace CardPresentation
     // ============================================================ 背包
     /// <summary>一份背包（原版 `Inventory<T>`）：`id → 条目` + 变更事件 + 子集。
     /// ⚠️ **它不是解锁闸**（见文件头口径）：只做数量/实例/限购的正本。</summary>
-    public sealed class Inventory<T> where T : class
+    public partial class Inventory<T> where T : class
     {
         readonly Func<T, string> _idOf;
         readonly Dictionary<string, ItemInfo<T>> _byId = new Dictionary<string, ItemInfo<T>>();
@@ -209,7 +209,7 @@ namespace CardPresentation
         }
 
         /// <summary>原版 `Inventory.OnItemCountModify(T item, int amount)`：**对外**的数量变化入口。</summary>
-        public void OnItemCountModify(T item, int amount)
+        public virtual void OnItemCountModify(T item, int amount)
         {
             if (item == null) return;
             string id = _idOf(item);
@@ -224,8 +224,8 @@ namespace CardPresentation
             OnItemCountModifyInternal(item, amount);
         }
 
-        /// <summary>原版 `Inventory.OnItemCountModifyInternal(IIdentifiable, int)`：内部处理
-        /// —— 更新字典（上面已做）→ 通知子集 → 抛 <see cref="OnItemCountChange"/>。</summary>
+        /// <summary>原版 `Inventory.OnItemCountModifyInternal(IIdentifiable, int)`：内部处理 —— 更新字典（上面已做）→ **调虚拟钩子 <see cref="OnItemCountModified"/>** → 通知子集 → 抛 <see cref="OnItemCountChange"/>。</summary>
+        /// <para>🔴 2026-10-26（批次 3 Q1）就地补齐：原版 `Inventory.cs:1055-1120` 的**第一句**就是这个 `protected virtual` 扩展点，本类原来漏了 ⇒ 子类 override 永远不会被 `Add` 触发（静默）。钩子改名多一个 d（`OnItemCountModified`）是因为本类**已有**一个 public `OnItemCountModify` 当「外部改数量」的入口（`ShopData`/`ShopScene` 在用）—— 两个同名重载会打架，合并又会变成钩子调自己。</para>
         void OnItemCountModifyInternal(T item, int amountChanged)
         {
             ItemInfo<T> info;
@@ -234,7 +234,7 @@ namespace CardPresentation
                 string id = _idOf(item);
                 if (!string.IsNullOrEmpty(id) && _byId.TryGetValue(id, out info)) NotifySubsets(info);
             }
-            if (OnItemCountChange != null) OnItemCountChange(item, amountChanged);
+            OnItemCountModified(item, amountChanged); if (OnItemCountChange != null) OnItemCountChange(item, amountChanged);
         }
 
         void NotifySubsets(ItemInfo<T> info)
@@ -246,7 +246,7 @@ namespace CardPresentation
         /// ⚠️ 我们是**字典即正本**（没有另一份实例列表）⇒ 本方法**没有活可干**；
         /// 留着它是为了让「原版的调用点」有一个同名落点（⛔ 别把调用点改成空语句）。
         /// 📌 将来若真的引入「实例列表 + 重建」那一套（原版那样），**改这一个方法**即可，调用点不动。</summary>
-        public void UpdateItemCollection() { }
+        public virtual void UpdateItemCollection() { }
 
         /// <summary>原版 `Inventory.RegisterSubset(Type, InventorySubset)`：登记一个子集视图。</summary>
         public void RegisterSubset(InventorySubset<T> set)
@@ -518,13 +518,34 @@ namespace CardPresentation
         public static readonly Inventory<ShopItem> Shop =
             new Inventory<ShopItem>(it => it != null ? it.Id : null);
 
-        /// <summary>**卡牌的背包**（原版 `Inventory&lt;RawCardScript&gt;`；见 `判据/泛型与启动链.md` §二）。
+        /// <summary>**卡牌的背包**（原版 `CardInventory : Inventory&lt;RawCardScript&gt;`；见 `判据/泛型与启动链.md` §二）。
         /// <para>⚠️ **今天还没接消费点**：收藏页那一格「xN」现在读的是 `CardProgress.Owned(id, rarity)`
         /// （那一份在 `Shell/CardDetailPopup.cs` 里，**不在本代理白名单**）⇒ 迁过来要改那个文件。
         /// 本背包先建好、并按「全解锁」口径**播种**（见 <see cref="SeedCardsAllUnlocked"/>），
-        /// 等那份被划进来时**只需把 `CardsCounterText` 的读口换成 `Inventories.Cards.Get(def)`**（一行）。</para></summary>
-        public static readonly Inventory<RuleEngine.CardDef> Cards =
-            new Inventory<RuleEngine.CardDef>(c => c != null ? c.Id : null);
+        /// 等那份被划进来时**只需把 `CardsCounterText` 的读口换成 `Inventories.Cards.Get(def)`**（一行）。</para>
+        /// <para>🆕 **2026-10-26（批次 3 · Q1）**：类型从 `Inventory&lt;CardDef&gt;` 换成它的**原版子类**
+        /// <see cref="CardInventory"/>（源码兼容 —— 所有调用点仍当 `Inventory&lt;CardDef&gt;` 用）。
+        /// 换来的是「`UpdateItemCollection` 发一次收藏更新」「`customData.CardTier` ⇒ 登记档位」两跳。</para></summary>
+        public static readonly CardInventory Cards = new CardInventory();
+
+        /// <summary>**异画的背包**（原版 `AlternateArtInventory`；条目 = <see cref="AltArtUnlock"/>）。
+        /// <para>⚠️ 今天它**是空的**：异画在收藏窗那边是 `CollectionWindow.AltArtCards` 的静态全解锁表，
+        /// 还没有谁往这里播种（要不要播见 `SeedAltArtsAllUnlocked` 的注释）。</para></summary>
+        public static readonly AlternateArtInventory AltArts = new AlternateArtInventory();
+
+        /// <summary>**万能卡的背包**（原版 `WildcardInventory`；条目 = <see cref="InventoryWildcard"/>）。
+        /// ⚠️ 数量正本仍是 `CardProgress`（按稀有度分桶）；本背包今天的唯一作用是「重建后发一次刷新信号」。</summary>
+        public static readonly WildcardInventory Wildcards = new WildcardInventory();
+
+        /// <summary>把上面四份背包登记进门面（原版 `InventoryManager` 的 `inventories`）。
+        /// ⚠️ 静态构造：字段初始化之后跑一次；`ClearForTest()` **不**注销它们（自检要能反复用同一批实例）。</summary>
+        static Inventories()
+        {
+            InventoryManager.Register(Cards);
+            InventoryManager.Register(Shop);
+            InventoryManager.Register(AltArts);
+            InventoryManager.Register(Wildcards);
+        }
 
         /// <summary>按「全解锁」口径给 <see cref="Cards"/> 播种：每张卡的数量 = **能带几张**
         /// （`RuleEngine.DeckRules.CopyLimit(rarity, type)` —— 与收藏格那行「xN」的**上限**同一个口）。
@@ -544,6 +565,27 @@ namespace CardPresentation
                 int n = amount != null ? amount(c) : RuleEngine.DeckRules.CopyLimit(c.Rarity, c.Type);
                 Cards.Add(c, n < 0 ? 0 : n);
             }
+            // 🆕 2026-10-26（批次 3 · Q1）：**异画也是「全解锁」** ⇒ 用同一个口径顺手播一次（幂等）。
+            //    两件事仍各有各的方法（`SeedAltArtsAllUnlocked`），这里只是把它接上 —— 否则
+            //    `AlternateArtInventory.OnFinishUnpack` 那两跳永远没有条目可跑（空背包 = 假实现）。
+            SeedAltArtsAllUnlocked();
+        }
+
+        /// <summary>按「全解锁」口径给 <see cref="AltArts"/> 播种（7 条，来自 `CollectionWindow.AltArtCards`）。
+        /// <para>判据：原版异画条目的来源是服务器背包（`AlternateArtInventory.OnItemCountModify`）；
+        /// 本项目「卡池/卡牌/头像全解锁」⇒ 等价于「7 条各 +1」。**幂等**。</para>
+        /// <para>⚠️ **不由 `SeedCardsAllUnlocked` 自动调**（两件事各管各的；谁要异画背包谁显式调）。
+        /// `ClonedCardId` 留 null（本地查不到真值，见 <see cref="AltArtUnlock.ClonedCardId"/>）。</para></summary>
+        public static void SeedAltArtsAllUnlocked()
+        {
+            var table = CollectionWindow.AltArtCards;
+            if (table == null) return;
+            for (int i = 0; i < table.Length; i++)
+            {
+                string id = table[i].CardId;
+                if (string.IsNullOrEmpty(id) || AltArts.Get(id) != null) continue;
+                AltArts.Add(new AltArtUnlock { CardId = id, Style = table[i].Style }, 1);
+            }
         }
 
         /// <summary>自检用：把注册过的背包清空（**不落盘**）。</summary>
@@ -551,6 +593,8 @@ namespace CardPresentation
         {
             Shop.ClearForTest();
             Cards.ClearForTest();
+            AltArts.ClearForTest();
+            Wildcards.ClearForTest();
         }
     }
 
@@ -562,5 +606,908 @@ namespace CardPresentation
         public string Name;
         public ShopItem(string id, string name) { Id = id; Name = name; }
         public override string ToString() { return Name ?? Id; }
+    }
+
+    // ============================================================ 追加区 · 2026-10-26（批次 3 · Q1）
+    //
+    // 【这一段补的是什么】
+    //   账 `账/收藏.tsv` 那 49 条 C 里，**库存那一族**（`InventoryManager` 24 · `CardInventory` 2 ·
+    //   `AlternateArtInventory` 2 · `WildcardInventory` 1 · `WildcardDisplay` 的**信号那一半**）全部要求
+    //   「原版那个类/那个方法在我们这边有等价物」。本段一次把它们落地：
+    //     · `InventoryManager` 门面 —— 判据 = `d:/2/tools/cpp2il/out_cpp2il_dev_ilspy/InventoryManager.cs`
+    //       （**只有这一份产物有真方法体**；`out_cpp2il_ilspy` / `out_il2csharp` / `out_cpp2il_dif` 都是签名壳，
+    //       ⛔ 别拿它们判「方法体是空的」）。`decomp_full/InventoryManager__*.c`（33 个）用作交叉核对。
+    //     · 三份特化 `CardInventory` / `AlternateArtInventory` / `WildcardInventory` —— 判据 = 同名 cpp2il 文件。
+    //     · 支撑件 `EphemeralState`（判据 `EphemeralState.cs`）· `ItemInstance`（原版是
+    //       `PlayFab.ClientModels.ItemInstance`，见 `d:/2/Warpforge_code/Scripts/PlayFab/PlayFab/ClientModels/ItemInstance.cs`）
+    //       · `QuantityBoundItemInfo<T>`（判据 `CardInventory.CreateAlternateArtInfo` 里 `new QuantityBoundItemInfo(...)`）
+    //       · `AltArtUnlock` / `InventoryWildcard`（见各自类头）。
+    //
+    // 🔴 【为什么用 partial 的第二部分、而不是就近插进各自类里】
+    //   `账/*.tsv` 有 6 条 A 行的落点钉在 `Shell/Inventory.cs:46/54/62/69/72/91/103/127/…/343`
+    //   （`未分类_其他.tsv` · `社交_聊天.tsv` · `收藏.tsv` · `日常_奖励.tsv`）。
+    //   往中间插一行就会让它们**整体漂移**，`工具/check_ledger_points.py` 会逐条报 drift（2026-10-25 N9 那次的原形）。
+    //   ⇒ 本段一律**追加在文件尾**：`ItemInfo<T>` / `Inventory<T>` 各开一个 `partial` 第二部（C# 允许分散），
+    //     新类型直接排在 `ShopItem` 之后。文件里唯一被改动的既有行是 8 处**一对一替换**（行数不变）：
+    //     类声明去 `sealed`（要能继承 = 原版 `CardInventory : Inventory<RawCardScript>`）、
+    //     `Amount` 变成可绑定的计算属性、`EphemeralState` 由 `int` 换成同名类、
+    //     `OnItemCountModify` / `UpdateItemCollection` 加 `virtual`（原版被子类 override）。
+    //
+    // ⚠️ 【本段**如实标**的三处与原版的结构性差异】（⛔ 不是「已经一样」）
+    //   ① 原版 `InventoryManager` 是 `SingletonBehaviour<T>` + `Dictionary<Type, IInventory<IIdentifiable>>`；
+    //      我们**没有非泛型背包接口**（`Inventory<T>` 的 ctor 要注入 `Func<T,string> idOf` —— 见文件头「差异 ①」）
+    //      ⇒ 门面收 `Type → Entry`（`Entry.Inventory` 是 `object`，泛型路径一律走 `GetInventory<T>()`）。
+    //      `GetInventory(Type)` 因此返回 `object`（原版返回 `IInventory<IIdentifiable>`）。
+    //   ② 原版 `CreateInventory(Type)` 用反射 `ReflectionHelper.New(Inventory<T>)` 现造；反射造不出「要注入 idOf」的
+    //      背包 ⇒ 我们的等价口是 `Register<T>(inv)`（显式登记）；`CreateInventory` 退化成「查已登记的那份，没有就出声」。
+    //      `SubscribeInventories` 同理：原版它做两件事（按 Type 登记 + 把 `all` 里同类型的 `InventorySubset` 绑上去），
+    //      我们**只留登记那一半** —— 子集由调用方直接 `Inventory<T>.RegisterSubset`（那一条已 A）。
+    //   ③ 原版 `Add(ItemInstance)` / `Remove(instanceId,…)` 靠 `AssetLocator.GetAsset<T>(id)` 把 id 解回资产；
+    //      我们没有 Addressables 那层 ⇒ 用 `SetResolver<T>(Func<string,T>)` 注入「id → 资产」。没注入 resolver 的
+    //      类型**不会被猜**，`DeserializeInventory` 会给该 id 打一条警告（不静默）。
+
+    // ---------------------------------------------------------- ItemInfo<T>：可绑定数量 + customData
+    /// <summary>`ItemInfo<T>` 的 **partial 第二部分**（为什么在文件尾 → 见上面「追加区」头）。
+    /// 补的两件都来自原版：① `QuantityBoundItemInfo<T>` 要能「数量跟着另一条走」（`Amount` 在
+    /// 第一部分已改成计算属性，读 `_quantityBoundTo`）；② `ItemInfo.customData`（原版
+    /// `IItemInfo<T>.customData`，`CardInventory.UpdateCardTier` 就从它读 `CardTier`）。</summary>
+    public partial class ItemInfo<T> where T : class
+    {
+        int _amount;
+        ItemInfo<T> _quantityBoundTo;
+        Dictionary<string, string> _customData;
+
+        /// <summary>原版 `IItemInfo.customData`（服务器随物品下发的自定义字典；`CardTier` 就在里面）。
+        /// ⚠️ 今天只有 `CardInventory` 读它；别拿它当第二份数量/等级正本。</summary>
+        public Dictionary<string, string> CustomData { get { return _customData; } }
+
+        /// <summary>这一条的数量**绑在别人身上**（= 原版 `QuantityBoundItemInfo`）。
+        /// ⚠️ 绑上之后 `SetAmount/Add` 写的是本条的 `_amount`（**读**不到），与原版一致：这种条目的数量只由被绑方决定。</summary>
+        public bool QuantityIsBound { get { return _quantityBoundTo != null; } }
+
+        internal void BindQuantityTo(ItemInfo<T> other) { _quantityBoundTo = other; }
+
+        internal void SetCustomData(Dictionary<string, string> customData) { _customData = customData; }
+    }
+
+    /// <summary>原版 `QuantityBoundItemInfo<T> : ItemInfo<T>` —— 一条「数量跟着另一条走」的条目。
+    /// 判据：`d:/2/tools/cpp2il/out_cpp2il_dev_ilspy/CardInventory.cs:158-176`
+    /// （`new QuantityBoundItemInfo<RawCardScript>(item, boundItem, instanceId)`，`boundItem = Get(originalCard, autoCreate:true)`）。
+    /// 用途 = **异画卡的数量跟着原卡走**（异画不是独立份数）。</summary>
+    public sealed class QuantityBoundItemInfo<T> : ItemInfo<T> where T : class
+    {
+        public QuantityBoundItemInfo(T item, ItemInfo<T> boundItem, string instanceId)
+            : base(item, boundItem != null ? boundItem.Amount : 0, instanceId)
+        {
+            BindQuantityTo(boundItem);
+        }
+    }
+
+    // ---------------------------------------------------------- Inventory<T>：idOf 暴露 + customData 那两个虚口
+    /// <summary>`Inventory<T>` 的 **partial 第二部分**。只补门面/子类真正要用到的四件，
+    /// 已有的成员一个都不搬（行号守恒，见「追加区」头）。</summary>
+    public partial class Inventory<T> where T : class
+    {
+        /// <summary>本背包的「取 id 口」（原版 `IIdentifiable.GetID()` 的替身）。
+        /// `InventoryManager` 的路由要用它；子类判断「这条是谁」也要用。</summary>
+        internal string IdOf(T item) { return item != null ? _idOf(item) : null; }
+
+        /// <summary>原版 `Inventory.Add(T, int, string, Dictionary&lt;string,string&gt;, bool)` 的**带 customData 那一档**。
+        /// ⚠️ **故意不给默认值**：给了就会和第一部分那个 4 参 `Add` 在 `Add(x, 1, "id")` 上撞成二义（CS0121）。
+        /// ⇒ 3~4 个实参走老那个，5 个实参走这个。</summary>
+        public virtual ItemInfo<T> Add(T item, int amount, string instanceId, Dictionary<string, string> customData, bool overrideAmount)
+        {
+            ItemInfo<T> info = Add(item, amount, instanceId, overrideAmount);
+            if (info != null && customData != null) info.SetCustomData(customData);
+            return info;
+        }
+
+        /// <summary>原版 `Inventory.Create(T, string, Dictionary&lt;string,string&gt;)` 的**带 customData 那一档**
+        /// （同样**不给默认值**，理由同上）。`CardInventory` override 它来做「异画条目的数量绑定」。</summary>
+        public virtual ItemInfo<T> Create(T item, string instanceId, Dictionary<string, string> customData)
+        {
+            ItemInfo<T> info = Create(item, instanceId);
+            if (info != null && customData != null) info.SetCustomData(customData);
+            return info;
+        }
+
+        /// <summary>原版 `Inventory.OnFinishUnpack()`：**整包解包完成后**的那一跳。
+        /// 调用点 = <see cref="InventoryManager.DeserializeInventory"/> 的收尾循环（⚠️ 那一处推断见该方法的注释）。
+        /// 默认空实现；`AlternateArtInventory` 覆盖它。</summary>
+        public virtual void OnFinishUnpack() { }
+
+        /// <summary>原版 `Inventory.OnItemCountModify(T item, int amount)` —— **`protected virtual` 的扩展点**
+        /// （`d:/2/tools/cpp2il/out_cpp2il_dev_ilspy/Inventory.cs:1122`，默认空实现）。
+        /// 由 <see cref="OnItemCountModifyInternal"/> 的**第一句**调用 ⇒ `Add` / 外部改数量**两条路都会触发**。
+        /// <para>⚠️ 本类**另有一个同概念的 public `OnItemCountModify`**（= 外部改数量的入口，`ShopData` / `ShopScene` 在用；
+        /// 原版那一档叫 `Inventory.Remove` / `Add` 而不是这个名）。为了避免同名重载打架，**钩子这一档多一个 d**：
+        /// `OnItemCountModified`。⛔ 别把两者合并（合并就会变成「钩子调用自己」= 递归）。</para></summary>
+        protected virtual void OnItemCountModified(T item, int amountChanged) { }
+
+        /// <summary>把一个新条目塞进字典（原版 `Inventory<T>` 内部对 `m_Items` 的写；我们子类要用）。
+        /// ⚠️ **只给「自己造条目」的子类用**（`CardInventory.CreateAlternateArtInfo` 造 `QuantityBoundItemInfo`）；
+        /// 普通加量请走 `Add`（它会走变更通知）。</summary>
+        internal void PutInfo(string id, ItemInfo<T> info)
+        {
+            if (string.IsNullOrEmpty(id) || info == null) return;
+            _byId[id] = info;
+            NotifySubsets(info);
+        }
+    }
+
+    // ---------------------------------------------------------- 限时态（原版 EphemeralState）
+    /// <summary>原版 `EphemeralState`（**限时物品的到期信息**）。
+    /// 判据 = `d:/2/tools/cpp2il/out_cpp2il_dev_ilspy/EphemeralState.cs` 全文件（真方法体）＋签名桩
+    /// `d:/2/Warpforge_code/Scripts/Assembly-CSharp/EphemeralState.cs`。
+    /// <para>原版三字段：`LiveopsReference boundEvent` / `long ephemeralStartTime` / `long ephemeralDuration`
+    /// （都是**毫秒**，字段上标着 `[DrawMillis]`）。我们没有 LiveOps 事件层 ⇒ `boundEvent` 落成 **事件 id 字符串**。</para>
+    /// <para>⚠️ **与 `Shell/CampaignData.cs` 的 `RewardSpec.IsEphemeral/EphemeralMs` 是同一个东西的两种形状**：
+    /// 那一份是「SO 侧扁平化」的（只留了「是否限时 + 总时长」两个量），本类是完整同名类。
+    /// 两者**今天都保留**（改 `CampaignData` 不在本轮白名单）；将来收口只能留一处 —— 见报告「顺手发现」。</para></summary>
+    [Serializable]
+    public class EphemeralState
+    {
+        /// <summary>原版 `ephemeralStartTime`（毫秒；0 = 没设）。</summary>
+        public long StartTimeMs;
+        /// <summary>原版 `ephemeralDuration`（毫秒；0 = 没设）。</summary>
+        public long DurationMs;
+        /// <summary>原版 `boundEvent`（`LiveopsReference`）—— 我们只留事件 id（空 = 没绑事件）。</summary>
+        public string BoundEventId;
+
+        public EphemeralState() { }
+        /// <summary>原版 `EphemeralState(long ephemeralDuration)`。</summary>
+        public EphemeralState(long durationMs) { DurationMs = durationMs; }
+        /// <summary>原版 `EphemeralState(ILiveOps boundEvent)` → `new LiveopsReference(boundEvent.GetID())`。</summary>
+        public EphemeralState(string boundEventId) { BoundEventId = boundEventId; }
+
+        static DateTime Millis(long ms)
+        {
+            // 原版 `TimeHelper.MillisToDateTime`（Unix 毫秒 → DateTime）。我们没那一件 ⇒ 就地等价实现。
+            return new DateTime(1970, 1, 1, 0, 0, 0, DateTimeKind.Utc).AddMilliseconds(ms);
+        }
+
+        /// <summary>原版 `EphemeralStartTime` = `TimeHelper.MillisToDateTime(ephemeralStartTime)`。</summary>
+        public DateTime EphemeralStartTime { get { return Millis(StartTimeMs); } }
+
+        /// <summary>原版 `EphemeralDuration`。</summary>
+        public long EphemeralDuration { get { return DurationMs; } }
+
+        /// <summary>原版 `HasExpiration`：`(boundEvent != null &amp;&amp; 它的 EventReference 解得出来)
+        /// || (ephemeralStartTime &gt; 0 &amp;&amp; ephemeralDuration &gt; 0)`。
+        /// 我们没有 EventReference 那层 ⇒ 第一支用「`BoundEventId` 非空」代（**如实标**）。</summary>
+        public bool HasExpiration
+        {
+            get { return !string.IsNullOrEmpty(BoundEventId) || (StartTimeMs > 0 && DurationMs > 0); }
+        }
+
+        /// <summary>原版 `EphemeralEndTime`：① `start &gt; 0 &amp;&amp; duration &gt; 0` ⇒ `start + duration` 毫秒；
+        /// ② 否则若绑了事件 ⇒ **事件自己的结束时刻**；③ 都没有 ⇒ `DateTime.MaxValue`。
+        /// ⚠️ **② 我们这一侧实现不了**（要 LiveOps 事件表）⇒ 落到 ③ `DateTime.MaxValue`，
+        /// 与「没有到期信息」同档。⛔ 别把它当「永不过期」以外的东西用。</summary>
+        public DateTime EphemeralEndTime
+        {
+            get
+            {
+                if (StartTimeMs > 0 && DurationMs > 0) return Millis(StartTimeMs).AddMilliseconds(DurationMs);
+                return DateTime.MaxValue;
+            }
+        }
+
+        /// <summary>原版 `AddDuration(long)`。</summary>
+        public void AddDuration(long duration) { DurationMs = DurationMs + duration; }
+
+        /// <summary>原版 `FormatTime()`：取 `End − Start`（没 start 时取 `End − ServerNow`）→
+        /// `SupportMethods.GetTimeString(ts, eventTimer:true)` → `Replace("0m","").Replace("0h","")`。
+        /// ⚠️ **`SupportMethods.GetTimeString` 我们没有** ⇒ 这里自己出 `<d>d <h>h <m>m` 再套**同样那两次 Replace**
+        /// （如实标：日那一段原版由 GetTimeString 决定要不要出现，我们固定带）。</summary>
+        public string FormatTime()
+        {
+            TimeSpan ts;
+            if (StartTimeMs > 0) ts = EphemeralEndTime - EphemeralStartTime;
+            else if (!string.IsNullOrEmpty(BoundEventId)) ts = EphemeralEndTime - DateTime.UtcNow;
+            else ts = TimeSpan.Zero;
+            if (ts < TimeSpan.Zero) ts = TimeSpan.Zero;
+            string s = ((long)ts.TotalDays) + "d " + ts.Hours + "h " + ts.Minutes + "m";
+            return s.Replace("0m", "").Replace("0h", "").Trim();
+        }
+    }
+
+    // ---------------------------------------------------------- 服务器下发的物品实例（原版 PlayFab ItemInstance）
+    /// <summary>服务器背包的**一条原始记录**。原版类型 = `PlayFab.ClientModels.ItemInstance`
+    /// （15 个字段，见 `d:/2/Warpforge_code/Scripts/PlayFab/PlayFab/ClientModels/ItemInstance.cs`）。
+    /// 我们只带**库存路径真正消费**的五个 —— 判据是逐方法读出来的，不是挑的：
+    /// `InventoryManager.Add(ItemInstance)` 读 `ItemId` / `DisplayName` / `RemainingUses`（数量在 +120，就是它）；
+    /// `HasItemByID`/`GetOwnedCount` 的「未解包」那一支读 `ItemId` + `RemainingUses`；
+    /// `Add<T>` 再把 `instanceId` / `customData` 交给背包。
+    /// ⚠️ 其余 10 个（`Annotation` / `BundleContents` / `CatalogVersion` / `Expiration` / `ItemClass` /
+    /// `PurchaseDate` / `UnitCurrency` / `UnitPrice` / `UsesIncrementedBy` / `BundleParent`）本地库存路径**零读取点**
+    /// ⇒ 不建空字段（本项目口径：别先建空壳）。</summary>
+    [Serializable]
+    public class ItemInstance
+    {
+        public string ItemId;
+        public string ItemInstanceId;
+        public string DisplayName;
+        public Dictionary<string, string> CustomData;
+        /// <summary>原版这一格是**数量**（`int?`；`null` 当 0）。</summary>
+        public int? RemainingUses;
+    }
+
+    // ---------------------------------------------------------- 门面（原版 InventoryManager）
+    /// <summary>原版 `InventoryManager`（`SingletonBehaviour&lt;InventoryManager&gt;`）的**静态等价物**。
+    /// <para>判据：`d:/2/tools/cpp2il/out_cpp2il_dev_ilspy/InventoryManager.cs`（真体）＋
+    /// `d:/2/tools/decomp_full/InventoryManager__*.c`（33 个方法，逐条交叉核对）。</para>
+    /// <para>🔴 三处结构性差异（`CreateInventory` 反射 / `IInventory` 非泛型接口 / `AssetLocator`）见上面「追加区」头，
+    /// ⛔ 别把它们当「已一样」。</para></summary>
+    public static class InventoryManager
+    {
+        /// <summary>一个类型在门面上的全部入口。泛型方法**不**走它（走 `GetInventory&lt;T&gt;()`），
+        /// 只有「手里只有一个 id / 不知道类型」的那几条（解包 / 按 instanceId 删 / 收尾）要用。</summary>
+        sealed class Entry
+        {
+            public Type ItemType;
+            public object Inventory;
+            public Func<string, object> ResolveId;                       // id → T（null = 没注入 resolver）
+            public Func<object, int, string, Dictionary<string, string>, bool, object> AddRaw;
+            public Func<string, int, bool> RemoveById;
+            public Action FinishUnpack;
+        }
+
+        sealed class PendingExpiry
+        {
+            public DateTime At;
+            public string ItemId;
+            public string ActionId;
+            public Action Remove;
+        }
+
+        static readonly Dictionary<Type, Entry> _inventories = new Dictionary<Type, Entry>();
+        static readonly Dictionary<Type, Func<string, object>> _resolvers = new Dictionary<Type, Func<string, object>>();
+        /// <summary>原版 `inventoryInstanceIds`（`instanceId → itemId`）—— `Add` 写、`Remove(string …)` 读。</summary>
+        static readonly Dictionary<string, string> _instanceIds = new Dictionary<string, string>();
+        static readonly List<PendingExpiry> _expiries = new List<PendingExpiry>();
+        static readonly HashSet<string> _noted = new HashSet<string>();
+        static IReadOnlyList<ItemInstance> _raw;
+        static Dictionary<string, int> _virtualCurrencies;
+        static bool _finishedUnpack;
+
+        /// <summary>原版 `RawInventory`（解包前那一份原始列表）。</summary>
+        public static IReadOnlyList<ItemInstance> RawInventory { get { return _raw; } }
+        /// <summary>原版 `finishedUnpack`：**这一位决定「数量从哪读」**
+        /// （`false` ⇒ 读原始列表；`true` ⇒ 读类型化背包）。⛔ 别在别处再存第二份。</summary>
+        public static bool FinishedUnpack { get { return _finishedUnpack; } }
+        /// <summary>原版 `inventoryInstanceIds` 的只读视图（诊断用）。</summary>
+        public static IReadOnlyDictionary<string, string> InstanceIds { get { return _instanceIds; } }
+        /// <summary>还没到期的限时物品条数（诊断用；见 <see cref="PumpExpiries"/>）。</summary>
+        public static int PendingExpiryCount { get { return _expiries.Count; } }
+        /// <summary>`DeserializeInventory` 收到的虚拟货币（原版逐条 `AssetLocator.GetAsset&lt;ICurrency&gt;` 再进背包；
+        /// 我们没有货币背包 ⇒ 原样留一份快照，可读不可写）。</summary>
+        public static IReadOnlyDictionary<string, int> VirtualCurrencies { get { return _virtualCurrencies; } }
+
+        /// <summary>同一件事**只出声一次**（本项目口径：不许静默失败，但也别刷屏）。
+        /// key 不变就不再报。进程内静态（批处理之间会重置）。</summary>
+        internal static void Note(string key, string msg)
+        {
+            if (key == null) key = "";
+            if (!_noted.Add(key)) return;
+            UnityEngine.Debug.LogWarning("[InventoryManager] " + msg);
+        }
+
+        /// <summary>自检用：清掉「已报过」的记忆（否则第二趟自检看不到警告）。</summary>
+        public static void ResetNotesForTest() { _noted.Clear(); }
+
+        /// <summary>原版 `CreateInventory(Type)` 的**等价口**（差异见「追加区」头 ②）：把一件已经建好的背包
+        /// 登记到它的物品类型上。`Type` 取的是**物品类型**（`Inventory<CardDef>` 登记在 `CardDef` 上），与原文一致。
+        /// ⚠️ 重复登记 = 后者覆盖前者（原版 `inventories[type] = …` 也是这么写的）。</summary>
+        public static void Register<T>(Inventory<T> inv) where T : class
+        {
+            if (inv == null) return;
+            var e = new Entry();
+            e.ItemType = typeof(T);
+            e.Inventory = inv;
+            e.AddRaw = (o, amount, instanceId, customData, overrideAmount) =>
+                inv.Add((T)o, amount, instanceId, customData, overrideAmount);
+            e.RemoveById = (id, amount) =>
+            {
+                ItemInfo<T> info = inv.Get(id);
+                if (info == null) return false;
+                inv.OnItemCountModify(info.Item, -amount);
+                return true;
+            };
+            e.FinishUnpack = () => inv.OnFinishUnpack();
+            Func<string, object> resolver;
+            if (_resolvers.TryGetValue(typeof(T), out resolver)) e.ResolveId = resolver;
+            _inventories[typeof(T)] = e;
+        }
+
+        /// <summary>原版 `AssetLocator.GetAsset&lt;T&gt;(id)` 的替身（差异见「追加区」头 ③）：
+        /// 注入「id → 物品本体」。**没注入 = 不知道**（`DeserializeInventory` 会警告，不猜）。</summary>
+        public static void SetResolver<T>(Func<string, T> byId) where T : class
+        {
+            if (byId == null) return;
+            Func<string, object> boxed = id => (object)byId(id);
+            _resolvers[typeof(T)] = boxed;
+            Entry e;
+            if (_inventories.TryGetValue(typeof(T), out e) && e != null) e.ResolveId = boxed;
+        }
+
+        /// <summary>按 id 解出物品本体（原版 `AssetLocator.GetAsset&lt;T&gt;`）。没注入 resolver ⇒ `null` + 出声。</summary>
+        public static T Resolve<T>(string id) where T : class
+        {
+            Func<string, object> f;
+            if (!_resolvers.TryGetValue(typeof(T), out f) || f == null)
+            {
+                Note("no-resolver:" + typeof(T).Name,
+                     "类型 `" + typeof(T).Name + "` 没有 id→资产 resolver（`SetResolver`）⇒ 按 id 取不到物品");
+                return null;
+            }
+            return f(id) as T;
+        }
+
+        /// <summary>原版 `GetInventory(Type)`。⚠️ 我们返回 `object`（差异见「追加区」头 ①）；
+        /// 查不到给 `null` + 出声（原版是 `Dictionary` 索引器 = **抛 KeyNotFound**，我们不出声崩）。</summary>
+        public static object GetInventory(Type type)
+        {
+            if (type == null) return null;
+            Entry e;
+            if (_inventories.TryGetValue(type, out e) && e != null) return e.Inventory;
+            Note("no-inventory:" + type.Name,
+                 "类型 `" + type.Name + "` 没有登记背包（`InventoryManager.Register`）⇒ 视为没有这件背包");
+            return null;
+        }
+
+        /// <summary>原版 `GetInventory&lt;T&gt;()`（`inventories[typeof(T)] as Inventory&lt;T&gt;`）。</summary>
+        public static Inventory<T> GetInventory<T>() where T : class
+        {
+            return GetInventory(typeof(T)) as Inventory<T>;
+        }
+
+        /// <summary>原版 `SubscribeInventories(Type, IInventory&lt;IIdentifiable&gt;)`。
+        /// ⚠️ 只留「按 Type 登记」这一半（差异见「追加区」头 ②）。若同一件背包已按自己的物品类型登记过，
+        /// 这里把它**再挂一个别名键**（原版就是靠这一跳让「基类类型」也能取到同一份背包）。</summary>
+        public static void SubscribeInventories(Type inventoryType, object inventory)
+        {
+            if (inventoryType == null || inventory == null) return;
+            Entry e;
+            if (_inventories.TryGetValue(inventoryType, out e) && e != null && object.ReferenceEquals(e.Inventory, inventory)) return;
+            foreach (var kv in _inventories)
+                if (kv.Value != null && object.ReferenceEquals(kv.Value.Inventory, inventory)) { _inventories[inventoryType] = kv.Value; return; }
+            _inventories[inventoryType] = new Entry { ItemType = inventoryType, Inventory = inventory };
+        }
+
+        /// <summary>原版 private `CreateInventory(Type)`：**查已登记的那份**。
+        /// 原版这里用反射现造（`ReflectionHelper.New`）；我们造不出（ctor 要注入 idOf）⇒ 退化成查表 + 出声。
+        /// 需要新背包请用 <see cref="Register{T}"/>（差异见「追加区」头 ②）。</summary>
+        public static object CreateInventory(Type itemType)
+        {
+            object inv = GetInventory(itemType);
+            if (inv == null)
+                Note("create-inventory:" + (itemType != null ? itemType.Name : "?"),
+                     "`CreateInventory` 造不出 `Inventory<" + (itemType != null ? itemType.Name : "?")
+                     + ">`（我们靠 `Register<T>` 显式登记，没有反射那一跳）");
+            return inv;
+        }
+
+        /// <summary>原版 `SetRawInventory(rawInventory)`：只设原始列表（不清类型化背包）。</summary>
+        public static void SetRawInventory(IReadOnlyList<ItemInstance> items) { _raw = items; }
+
+        /// <summary>原版 `DeserializeInventory(items, virtualCurrencies)` —— **服务器背包灌进来的唯一入口**。
+        /// <para>逐步对位（cpp2il 体可读的那几段）：① `SetRawInventory(items)`；②（原版此处给所有
+        /// `IIdentifiable` 派生类型 `CreateInventory` + `SubscribeInventories` —— 我们改用已 `Register` 的那几份）；
+        /// ③ 逐条 `Add(ItemInstance)`；④ 收 `virtualCurrencies`；⑤ 收尾对每个背包做一次回调，然后 `finishedUnpack = true`。</para>
+        /// <para>⚠️ **⑤ 那个回调是推断**：cpp2il 在那一行只留了 `Indirect call: [v1320 @ rdx_v35]`（反编译器的间接调用，
+        /// 目标读不出）。按同名同用途落成 `Inventory&lt;T&gt;.OnFinishUnpack()`（`AlternateArtInventory` 正是 override 它做收尾）
+        /// ⇒ **如实标为推断**，不是反编译直读。</para>
+        /// <para>⚠️ `virtualCurrencies` 原版逐条 `AssetLocator.GetAsset&lt;ICurrency&gt;` 再进货币背包；我们没有货币背包
+        /// ⇒ 只留快照（<see cref="VirtualCurrencies"/>），**不假装加到了哪里**。</para></summary>
+        public static void DeserializeInventory(IReadOnlyList<ItemInstance> items, Dictionary<string, int> virtualCurrencies)
+        {
+            SetRawInventory(items);
+            _virtualCurrencies = virtualCurrencies;
+            if (items != null)
+                for (int i = 0; i < items.Count; i++) AddItemInstance(items[i]);
+            foreach (var kv in _inventories)
+                if (kv.Value != null && kv.Value.FinishUnpack != null) kv.Value.FinishUnpack();
+            _finishedUnpack = true;
+        }
+
+        /// <summary>原版 private `Add(ItemInstance)`：按 `ItemId` 解出资产再交给**该类型的背包**。
+        /// 解不出 ⇒ 原版 `CustomDebug.LogError("error adding item to inventory, couldn't find item …")`，我们同样出声。</summary>
+        static void AddItemInstance(ItemInstance x)
+        {
+            if (x == null) return;
+            if (string.IsNullOrEmpty(x.ItemId))
+            {
+                Note("add-empty-id", "`ItemInstance.ItemId` 为空 ⇒ 不入背包（原版 `AssetLocator` 也解不出）");
+                return;
+            }
+            int amount = x.RemainingUses.HasValue ? x.RemainingUses.Value : 0;
+            foreach (var kv in _inventories)
+            {
+                Entry e = kv.Value;
+                if (e == null || e.ResolveId == null || e.AddRaw == null) continue;
+                object item = e.ResolveId(x.ItemId);
+                if (item == null) continue;
+                e.AddRaw(item, amount, x.ItemInstanceId, x.CustomData, false);
+                if (!string.IsNullOrEmpty(x.ItemInstanceId)) _instanceIds[x.ItemInstanceId] = x.ItemId;
+                return;
+            }
+            Note("add-unresolved:" + x.ItemId,
+                 "往背包里加物品失败：解不出 id `" + x.ItemId + "`（" + (x.DisplayName ?? "?")
+                 + "）—— 需要先给对应类型 `SetResolver`");
+        }
+
+        /// <summary>原版 `HasItemByID&lt;T&gt;(string id)`：**解包前**扫原始列表（`ItemId` 命中且数量 ≠ 0）；
+        /// **解包后**查类型化背包。⚠️ 「解包前」那一支原版**不看 T**（扫的是同一份原始列表），我们照样。</summary>
+        public static bool HasItemByID<T>(string id) where T : class
+        {
+            if (string.IsNullOrWhiteSpace(id)) return false;
+            if (!_finishedUnpack)
+            {
+                if (_raw != null)
+                    for (int i = 0; i < _raw.Count; i++)
+                    {
+                        ItemInstance x = _raw[i];
+                        if (x == null || x.ItemId != id) continue;
+                        int n = x.RemainingUses.HasValue ? x.RemainingUses.Value : 0;
+                        if (n != 0) return true;
+                    }
+                return false;
+            }
+            Inventory<T> inv = GetInventory<T>();
+            if (inv == null) return false;
+            ItemInfo<T> info;
+            return inv.TryGetItem(id, out info) && info != null;
+        }
+
+        /// <summary>原版 `HasItem&lt;T&gt;(T item)` = `HasItemByID&lt;T&gt;(item.GetID())`。</summary>
+        public static bool HasItem<T>(T item) where T : class
+        {
+            if (item == null) return false;
+            Inventory<T> inv = GetInventory<T>();
+            if (inv == null) return false;
+            return HasItemByID<T>(inv.IdOf(item));
+        }
+
+        /// <summary>原版 `GetOwnedCount&lt;T&gt;(string itemId)`：**解包前** = 原始列表里该 id 的**数量之和**；
+        /// **解包后** = 类型化背包那一条的 `Amount`。</summary>
+        public static int GetOwnedCount<T>(string itemId) where T : class
+        {
+            if (string.IsNullOrWhiteSpace(itemId)) return 0;
+            if (!_finishedUnpack)
+            {
+                int sum = 0;
+                if (_raw != null)
+                    for (int i = 0; i < _raw.Count; i++)
+                    {
+                        ItemInstance x = _raw[i];
+                        if (x == null || x.ItemId != itemId) continue;
+                        sum += x.RemainingUses.HasValue ? x.RemainingUses.Value : 0;
+                    }
+                return sum;
+            }
+            Inventory<T> inv = GetInventory<T>();
+            if (inv == null) return 0;
+            ItemInfo<T> info = inv.Get(itemId);
+            return info != null ? info.Amount : 0;
+        }
+
+        /// <summary>原版 `GetOwnedCount&lt;T&gt;(T item)` = 按 `item.GetID()` 那一档。</summary>
+        public static int GetOwnedCount<T>(T item) where T : class
+        {
+            if (item == null) return 0;
+            Inventory<T> inv = GetInventory<T>();
+            if (inv == null) return 0;
+            return GetOwnedCount<T>(inv.IdOf(item));
+        }
+
+        /// <summary>原版 `GetOwnedCount&lt;T&gt;()`（无 id 那一档）：**这一类物品的总数** ——
+        /// 解包前 = 原始列表全体求和；解包后 = 该背包所有条目 `Amount` 之和。</summary>
+        public static int GetOwnedCount<T>() where T : class
+        {
+            if (!_finishedUnpack)
+            {
+                int sum = 0;
+                if (_raw != null)
+                    for (int i = 0; i < _raw.Count; i++)
+                    {
+                        ItemInstance x = _raw[i];
+                        if (x == null) continue;
+                        sum += x.RemainingUses.HasValue ? x.RemainingUses.Value : 0;
+                    }
+                return sum;
+            }
+            Inventory<T> inv = GetInventory<T>();
+            if (inv == null) return 0;
+            int n = 0;
+            foreach (ItemInfo<T> info in inv.GetItems()) if (info != null) n += info.Amount;
+            return n;
+        }
+
+        // ⚠️ 原版还有 `GetOwnedCount<T>(LoadableReference<T>)` / `HasEnough<T>(LoadableReference<T>, int)` 两个重载 ——
+        //    它们只做一件事：`item.TargetId` → 转调 id 那一档。我们**没有 `LoadableRef<T>`**（`判据/泛型与启动链.md`
+        //    §三 #6 还没建）⇒ 这两个重载**不存在**，不是漏写。建了 `LoadableRef<T>` 之后各补三行即可。
+
+        /// <summary>原版 `TryGetItem&lt;T&gt;(string id, out IItemInfo&lt;T&gt;)`。</summary>
+        public static bool TryGetItem<T>(string id, out ItemInfo<T> item) where T : class
+        {
+            item = null;
+            if (string.IsNullOrWhiteSpace(id)) return false;
+            Inventory<T> inv = GetInventory<T>();
+            return inv != null && inv.TryGetItem(id, out item);
+        }
+
+        /// <summary>原版 `TryGetItem&lt;T&gt;(Func&lt;T,bool&gt;, out IItemInfo&lt;T&gt;)`：按谓词取第一条。</summary>
+        public static bool TryGetItem<T>(Func<T, bool> predicate, out ItemInfo<T> item) where T : class
+        {
+            item = null;
+            Inventory<T> inv = GetInventory<T>();
+            return inv != null && inv.TryGetItem(predicate, out item);
+        }
+
+        /// <summary>原版 `Add&lt;T&gt;(item, amount, instanceId, customData, overrideAmount)`。
+        /// 两句与原文一致：① `instanceId` 非空 ⇒ 记进 `inventoryInstanceIds`（`instanceId → itemId`）；
+        /// ② 再转调该类型的背包。</summary>
+        public static void Add<T>(T item, int amount = 1, string instanceId = null,
+                                 Dictionary<string, string> customData = null, bool overrideAmount = false) where T : class
+        {
+            if (item == null) return;
+            Inventory<T> inv = GetInventory<T>();
+            if (inv == null) return;
+            if (!string.IsNullOrWhiteSpace(instanceId)) _instanceIds[instanceId] = inv.IdOf(item);
+            inv.Add(item, amount, instanceId, customData, overrideAmount);
+        }
+
+        /// <summary>原版 `Remove(string instanceId, int amount)`：按 `instanceId → itemId` 找到那件物品，再删。
+        /// 找不到 ⇒ 原版两条 `CustomDebug.LogError`（「There's no item with instanceId …」/「couldn't find item …」），
+        /// 我们同样出声。</summary>
+        public static void Remove(string instanceId, int amount)
+        {
+            string itemId;
+            if (string.IsNullOrEmpty(instanceId) || !_instanceIds.TryGetValue(instanceId, out itemId))
+            {
+                Note("rm-no-instance:" + (instanceId ?? "<null>"),
+                     "背包里没有 instanceId 为 `" + (instanceId ?? "<null>") + "` 的物品 ⇒ 不删任何东西");
+                return;
+            }
+            foreach (var kv in _inventories)
+            {
+                Entry e = kv.Value;
+                if (e == null || e.ResolveId == null || e.RemoveById == null) continue;
+                if (e.ResolveId(itemId) == null) continue;
+                if (!e.RemoveById(itemId, amount))
+                    Note("rm-miss:" + itemId, "按 instanceId 定位到了 `" + itemId + "`，但在背包里没有那一条 ⇒ 不删");
+                return;
+            }
+            Note("rm-unresolved:" + itemId,
+                 "删物品失败：没有哪个类型解得出 id `" + itemId + "`（需要 `SetResolver`）");
+        }
+
+        /// <summary>原版 `Remove&lt;T&gt;(T item, int amount)`：走 `OnItemCountModify(item, -amount)`
+        /// （= 第一部分那个「对外数量变化入口」，会调子类钩子 + 通知子集 + 抛变更事件；数量夹在 0 以上，不出现负库存）。
+        /// ⚠️ 背包里**没有这一条**时**直接返回**（原版 `Inventory.Remove` 也是找不到就不动；⛔ 别让本方法顺手建一条 0 的）。</summary>
+        public static void Remove<T>(T item, int amount) where T : class
+        {
+            Inventory<T> inv = GetInventory<T>();
+            if (inv == null || item == null) return;
+            if (inv.Get(item) == null) return;
+            inv.OnItemCountModify(item, -amount);
+        }
+
+        /// <summary>原版 `RemoveAll&lt;T&gt;(T itemRef)`：`TryGetItem(id)` 命中 ⇒ 把这一条清成 0。</summary>
+        public static void RemoveAll<T>(T itemRef) where T : class
+        {
+            Inventory<T> inv = GetInventory<T>();
+            if (inv == null || itemRef == null) return;
+            string id = inv.IdOf(itemRef);
+            if (string.IsNullOrWhiteSpace(id)) return;
+            ItemInfo<T> info;
+            if (!inv.TryGetItem(id, out info) || info == null) return;
+            int n = info.Amount;
+            if (n != 0) inv.OnItemCountModify(info.Item, -n);
+        }
+
+        /// <summary>原版 `HasEnough&lt;T&gt;(T item, int amount)` = `GetOwnedCount(item) - amount &gt;= 0`。</summary>
+        public static bool HasEnough<T>(T item, int amount) where T : class
+        {
+            if (item == null) return false;
+            return GetOwnedCount<T>(item) >= amount;
+        }
+
+        /// <summary>原版 `HasEnough&lt;T&gt;(string itemId, int amount)`。</summary>
+        public static bool HasEnough<T>(string itemId, int amount) where T : class
+        {
+            return GetOwnedCount<T>(itemId) >= amount;
+        }
+
+        /// <summary>原版 `AssignEphemeralState&lt;T&gt;(T rewardItem, EphemeralState)`：把限时态记到那一条上，
+        /// 并在 `EphemeralEndTime` 排一个 `actionId = "RemoveEphemeralItem_" + itemId` 的**移除**动作。
+        /// <para>⚠️ 原版那一刻交给 `ActionScheduler.Instance.Schedule(...)`（单例，全项目共用一个时钟）；
+        /// **我们没有 `ActionScheduler`** ⇒ 排进本类的待办表，由 **`PumpExpiries(now)`** 触发。
+        /// 🔴 **今天没有谁在泵它** —— 全工程「限时物品」实例数 = **0**（`Shell/CampaignData.cs:325-341` 实读：
+        /// 47 份战役节点 89 条奖励 `ephemeralState` 全空、`start/duration` 全 0）⇒ 可见差异 0，**但它不是「已实现」**：
+        /// 真接上时钟之前，到期**不会**自动移除（`PendingExpiryCount` 会告诉你堆了几条）。</para></summary>
+        public static void AssignEphemeralState<T>(T rewardItem, EphemeralState rewardEphemeralState) where T : class
+        {
+            if (rewardItem == null || rewardEphemeralState == null) return;
+            Inventory<T> inv = GetInventory<T>();
+            if (inv == null) return;
+            string id = inv.IdOf(rewardItem);
+            if (string.IsNullOrWhiteSpace(id)) return;
+            ItemInfo<T> info;
+            if (!inv.TryGetItem(id, out info) || info == null) return;
+
+            info.AssignEphemeralState(rewardEphemeralState);
+            string actionId = "RemoveEphemeralItem_" + id;
+            for (int i = _expiries.Count - 1; i >= 0; i--)
+                if (_expiries[i] != null && _expiries[i].ActionId == actionId) _expiries.RemoveAt(i);
+
+            T captured = rewardItem;
+            var p = new PendingExpiry();
+            p.At = rewardEphemeralState.EphemeralEndTime;
+            p.ItemId = id;
+            p.ActionId = actionId;
+            p.Remove = () => { RemoveAll<T>(captured); };
+            _expiries.Add(p);
+        }
+
+        /// <summary>原版 `GetExpirationDate&lt;T&gt;(T itemRef)`：**没有限时态 ⇒ `DateTime.MinValue`**（不是 MaxValue），
+        /// 有 ⇒ 它的 `EphemeralEndTime`。⚠️ 两支都别弄反（`MaxValue` 是 `EphemeralState` 自己「没信息」时的值）。</summary>
+        public static DateTime GetExpirationDate<T>(T itemRef) where T : class
+        {
+            if (itemRef == null) return DateTime.MinValue;
+            Inventory<T> inv = GetInventory<T>();
+            if (inv == null) return DateTime.MinValue;
+            string id = inv.IdOf(itemRef);
+            if (string.IsNullOrWhiteSpace(id)) return DateTime.MinValue;
+            ItemInfo<T> info = inv.Get(id);
+            if (info == null || info.EphemeralState == null) return DateTime.MinValue;
+            return info.EphemeralState.EphemeralEndTime;
+        }
+
+        /// <summary>把到期的限时物品移除掉（原版没有这个方法：那边是 `ActionScheduler` 自己按时间调）。
+        /// 返回本次移除了几条。**谁有时钟谁泵** —— 今天没人泵（见 `AssignEphemeralState` 的注释）。</summary>
+        public static int PumpExpiries(DateTime nowUtc)
+        {
+            int n = 0;
+            for (int i = _expiries.Count - 1; i >= 0; i--)
+            {
+                PendingExpiry p = _expiries[i];
+                if (p == null) { _expiries.RemoveAt(i); continue; }
+                if (p.At > nowUtc) continue;
+                _expiries.RemoveAt(i);
+                try { if (p.Remove != null) { p.Remove(); n++; } }
+                catch (Exception e)
+                {
+                    UnityEngine.Debug.LogWarning("[InventoryManager] 限时物品 `" + p.ItemId + "` 到期移除失败：" + e.Message);
+                }
+            }
+            return n;
+        }
+
+        /// <summary>自检用：把门面全部清空（**不落盘**；背包本身的内容由各自的 `ClearForTest` 清）。</summary>
+        public static void ClearForTest()
+        {
+            _inventories.Clear();
+            _resolvers.Clear();
+            _instanceIds.Clear();
+            _expiries.Clear();
+            _noted.Clear();
+            _raw = null;
+            _virtualCurrencies = null;
+            _finishedUnpack = false;
+        }
+    }
+
+    // ---------------------------------------------------------- 三份特化（原版三个 Inventory<T> 子类）
+    /// <summary>原版 `CardInventory : Inventory&lt;RawCardScript&gt;`（cpp2il 真体 183 行）。
+    /// 它多出来的是三件：① 数量变化/重建时**发一次「卡牌收藏更新」信号**；② `customData.CardTier` ⇒ 登记卡牌档位；
+    /// ③ **异画条目数量绑在原卡上**（`QuantityBoundItemInfo`）。
+    /// <para>⚠️ **ctor 的差异（如实标）**：原版 ctor = `CardServices.CleanTierCollection()`（清**运行时**档位表，
+    /// 之后由 `Add` 从 customData 重建）；我们的档位正本是**持久化的** `CardProgress._lvl`（`WarpforgeCardLevels.json`）
+    /// ⇒ **绝不能在这里清**（清 = 抹掉玩家的升级）。ctor 因此是空实现，理由写在 ctor 上。</para></summary>
+    public class CardInventory : Inventory<RuleEngine.CardDef>
+    {
+        /// <summary>「这张异画的原卡 id」—— 原版是 `RawCardScript.currentAlternateArt.originalCard`（SO 里的 PPtr）。
+        /// 本地**没有**那层映射（`currentAlternateArt` 在 1,351 张卡的导出里**全为 null**，
+        /// 判据 = `资料/普查产出_1018/allcards_1350/cards_raw.json`）⇒ 缺省 `null`，
+        /// 与原文「`currentAlternateArt == null` ⇒ 返回 null」那一支**行为相同**。谁拿到真映射谁注入（一行）。</summary>
+        public static Func<RuleEngine.CardDef, string> AlternateArtOriginalOf;
+
+        /// <summary>原版 `Signal.Raise&lt;CardCollectionUpdatedSignal&gt;()` 的等价物（我们没信号层 ⇒ 普通事件）。</summary>
+        public event Action CollectionUpdated;
+
+        public CardInventory() : base(c => c != null ? c.Id : null)
+        {
+            // 原版这里是 `CardServices.CleanTierCollection()`。⛔ **我们不清**：`CardProgress._lvl` 是持久化正本，
+            // 清掉等于把玩家的升级档抹回出厂值。原版清的是「运行时档位表」（每次解包后由 customData 重建），
+            // 我们的等价重建是 `Add/UpdateCardTier` 那条路（不依赖前置清空）。
+        }
+
+        /// <summary>原版 override：`base.UpdateItemCollection(); Signal.Raise&lt;CardCollectionUpdatedSignal&gt;();`</summary>
+        public override void UpdateItemCollection()
+        {
+            base.UpdateItemCollection();
+            if (CollectionUpdated != null) CollectionUpdated();
+        }
+
+        /// <summary>原版 `CardInventory.Create(item, instanceId, customData)`：**只管异画**
+        /// （非异画 ⇒ 原版**返回 null**，普通卡走 `Add` 那条路 —— 这是原文读出来的，不是我们简化）。</summary>
+        public override ItemInfo<RuleEngine.CardDef> Create(RuleEngine.CardDef item, string instanceId,
+                                                           Dictionary<string, string> customData)
+        {
+            if (item == null) return null;
+            if (!IsAlternateArt(item)) return null;
+            ItemInfo<RuleEngine.CardDef> info = CreateAlternateArtInfo(item, instanceId, customData);
+            if (info != null && customData != null) info.SetCustomData(customData);
+            return info;
+        }
+
+        /// <summary>原版 `CardInventory.Add(...)`：`base.Add(...)` 之后再按 customData 登记档位。</summary>
+        public override ItemInfo<RuleEngine.CardDef> Add(RuleEngine.CardDef item, int amount, string instanceId,
+                                                        Dictionary<string, string> customData, bool overrideAmount)
+        {
+            ItemInfo<RuleEngine.CardDef> info = base.Add(item, amount, instanceId, customData, overrideAmount);
+            if (info != null) UpdateCardTier(item, customData);
+            return info;
+        }
+
+        /// <summary>原版 private static `UpdateCardTier(RawCardScript card, Dictionary customData)`：
+        /// **异画不登记**；否则读 `customData["CardTier"]`（缺省 `"0"`）⇒ `CardServices.RegisterCardTier(card, tier)`。
+        /// ⚠️ 落点差异：我们的档位正本 = `CardProgress`（`CardProgress.Level` 是 **1 基** = 原版 `CardTier + 1`，
+        /// 判据见 `Core/CardArt.cs:326-330` 那一串）⇒ 这里写 `SetLevel(id, tier + 1)`。
+        /// ⚠️ 原版 `int.Parse` 遇坏串会**抛**；我们出声 + 跳过（不崩）。</summary>
+        public static void UpdateCardTier(RuleEngine.CardDef card, Dictionary<string, string> customData)
+        {
+            if (card == null) return;
+            if (IsAlternateArt(card)) return;
+            string s = null;
+            if (customData != null) customData.TryGetValue("CardTier", out s);
+            if (s == null) s = "0";
+            int tier;
+            if (!int.TryParse(s, out tier))
+            {
+                InventoryManager.Note("tier-bad:" + card.Id,
+                    "卡 `" + card.Id + "` 的 customData.CardTier = `" + s + "` 解不成整数 ⇒ 不登记档位（原版这里会抛）");
+                return;
+            }
+            CardProgress.SetLevel(card.Id, tier + 1);
+        }
+
+        /// <summary>原版 private `CreateAlternateArtInfo(item, instanceId, customData)`：
+        /// 已有 ⇒ 返回已有的；否则「原卡那条（`autoCreate`）」+ 新建一条 `QuantityBoundItemInfo`；
+        /// `currentAlternateArt == null` ⇒ **返回 null**。</summary>
+        public ItemInfo<RuleEngine.CardDef> CreateAlternateArtInfo(RuleEngine.CardDef item, string instanceId,
+                                                                  Dictionary<string, string> customData)
+        {
+            if (item == null) return null;
+            string id = IdOf(item);
+            if (string.IsNullOrEmpty(id)) return null;
+            ItemInfo<RuleEngine.CardDef> existing = Get(id);
+            if (existing != null) return existing;
+
+            if (AlternateArtOriginalOf == null) return null;       // = 原版 currentAlternateArt == null 那一支
+            string originalId = AlternateArtOriginalOf(item);
+            if (string.IsNullOrEmpty(originalId)) return null;
+            RuleEngine.CardDef original = InventoryManager.Resolve<RuleEngine.CardDef>(originalId);
+            if (original == null)
+            {
+                InventoryManager.Note("altart-orig:" + originalId,
+                    "异画 `" + id + "` 的原卡 `" + originalId + "` 解不出来 ⇒ 不能绑数量（原版 `Get(originalCard, autoCreate:true)`）");
+                return null;
+            }
+            ItemInfo<RuleEngine.CardDef> boundInfo = Get(original);
+            if (boundInfo == null) boundInfo = Create(original);
+            var bound = new QuantityBoundItemInfo<RuleEngine.CardDef>(item, boundInfo, instanceId);
+            PutInfo(id, bound);
+            return bound;
+        }
+
+        /// <summary>这张卡在本地是不是**异画**。判据 = 我们自己的异画表
+        /// `CollectionWindow.AltArtCards`（7 条，卡 id 逐个实读；`Collections` 页那 7 张就是它）。
+        /// ⚠️ 原版判据是 `RawCardScript.IsAlternateArt()`（SO 上的方法），我们没那一位 ⇒ 用这张表当唯一判据，
+        /// ⛔ 别按「id 里有 AA」猜（那是文件名约定，不是数据）。
+        /// 声明成 `Func` 让调用方可以换（自检也会换）—— 缺省实现就是查那张表。</summary>
+        public static Func<RuleEngine.CardDef, bool> IsAlternateArtOf;
+
+        static bool IsAlternateArt(RuleEngine.CardDef card)
+        {
+            if (IsAlternateArtOf != null) return IsAlternateArtOf(card);
+            if (card == null) return false;
+            var table = CollectionWindow.AltArtCards;
+            if (table == null) return false;
+            for (int i = 0; i < table.Length; i++) if (table[i].CardId == card.Id) return true;
+            return false;
+        }
+    }
+
+    /// <summary>异画解锁条目（原版 `AlternateArtCard`：`style` + `originalCard` + `cardImage` + …）。
+    /// <para>⚠️ **为什么不直接用 `CollectionWindow.AltArtCard`**：那是 `struct`，而 `Inventory&lt;T&gt;` 的
+    /// `where T : class`（文件头「差异 ①」的连带）要求引用类型 ⇒ 这里给一个**同两字段的类**当背包条目。
+    /// ⛔ 别把它当成第二个异画正本：卡 id / 风格的**正本仍然是 `CollectionWindow.AltArtCards`**，本类只是背包条目。</para></summary>
+    public sealed class AltArtUnlock
+    {
+        /// <summary>= `AlternateArtCard.GetID()`（异画自己那张卡的 id）。</summary>
+        public string CardId;
+        /// <summary>= `AlternateArtCard.style`（原版枚举名，本地 7 张全 `HammerAndBolter`）。</summary>
+        public string Style;
+        /// <summary>= `AlternateArtCard.GetIdForClonedCard()`：解锁异画时**同时给的那张卡的 id**。
+        /// ⚠️ 本地**查不到**它的真值（原版要读 `AlternateArtCard` 那批 SO，本地 `assets_full` 里没有；
+        /// 7 张卡的 `currentAlternateArt` 也全 null）⇒ 留 null 并在 `AlternateArtInventory` 里出声。</summary>
+        public string ClonedCardId;
+        public override string ToString() { return CardId + "/" + Style; }
+    }
+
+    /// <summary>原版 `AlternateArtInventory : Inventory&lt;AlternateArtCard&gt;`（cpp2il 真体 168 行）。
+    /// 两处 override：① `OnFinishUnpack()` —— 解包完成后**逐条**把「被克隆的那张卡」补进卡牌背包；
+    /// ② `OnItemCountModify(item, amount)` —— `amount &gt; 0` 时同样补一次。
+    /// <para>🔴 **我们落成事件的如实理由**：原版这两跳调 `InventoryManager.Add(AssetLocator.GetAsset(clonedId))`，
+    /// 也就是「**解锁异画 ⇒ 顺手给一张原卡**」。我们的卡牌拥有数是 `CardProgress` 的「全解锁」口径
+    /// （`Inventories.Cards` 已把每张卡按 `CardProgress.Owned` 播满）⇒ **再 Add 一次会翻倍**。
+    /// 所以这里落成 `AlternateArtUnlocked(clonedCardId)` 事件：需要那张卡的消费方自己决定加不加。
+    /// ⚠️ 这是**有意的行为差异**（不是没做），⛔ 别为了让日志好看去调 `Add`。</para></summary>
+    public class AlternateArtInventory : Inventory<AltArtUnlock>
+    {
+        /// <summary>某张异画解锁了（参数 = `ClonedCardId`，可能为 null）。</summary>
+        public event Action<string> AlternateArtUnlocked;
+
+        public AlternateArtInventory() : base(a => a != null ? a.CardId : null) { }
+
+        public override void OnFinishUnpack()
+        {
+            base.OnFinishUnpack();
+            foreach (ItemInfo<AltArtUnlock> info in GetItems())
+                if (info != null && info.Item != null) Raise(info.Item);
+        }
+
+        /// <summary>原版 `AlternateArtInventory.OnItemCountModify(item, amount)`（`protected override`）：
+        /// `base` 之后 `amount &gt; 0` 就补一次「解锁」动作。
+        /// ⚠️ 我们的钩子名多一个 d（`OnItemCountModified`）—— 理由见 `Inventory&lt;T&gt;.OnItemCountModified` 的 doc。</summary>
+        protected override void OnItemCountModified(AltArtUnlock item, int amountChanged)
+        {
+            base.OnItemCountModified(item, amountChanged);
+            if (amountChanged > 0 && item != null) Raise(item);
+        }
+
+        void Raise(AltArtUnlock item)
+        {
+            if (AlternateArtUnlocked == null) return;
+            if (string.IsNullOrEmpty(item.ClonedCardId))
+                InventoryManager.Note("altart-clone:" + item.CardId,
+                    "异画 `" + item.CardId + "` 的 `ClonedCardId` 查不到（原版 `GetIdForClonedCard()`）⇒ 事件里给 null");
+            AlternateArtUnlocked(item.ClonedCardId);
+        }
+    }
+
+    /// <summary>万能卡条目（原版 `Wildcard`：`cardArmy` + `cardRarity` 两个 SO 字段）。
+    /// <para>⚠️ 我们的万能卡计数正本是 `CardProgress`（按**小写稀有度**分桶：`common/rare/epic/legendary`）。
+    /// 这个类只当背包条目的 key，`Id` 拼成原版那套 id 形状（`ItemDrawer.Spec` 认的 `Wildcard&lt;阵营&gt;&lt;档&gt;`
+    /// 里「不带阵营」那一支）。⛔ 别把它当第二份计数正本。</para></summary>
+    public sealed class InventoryWildcard
+    {
+        /// <summary>阵营名（原版 `Wildcard.cardArmy` 的**名字**；空 = 中立/不分区）。</summary>
+        public string Army;
+        /// <summary>稀有度档（本地约定 = 小写英文，同 `CardProgress` 的键）。</summary>
+        public string Rarity;
+        /// <summary>`"Wildcard" + Army + Rarity`（与 `ItemDrawer.Spec` 解析的那套 id 同形）。</summary>
+        public string Id { get { return "Wildcard" + (Army ?? "") + (Rarity ?? ""); } }
+        public override string ToString() { return Id; }
+    }
+
+    /// <summary>原版 `WildcardInventory : Inventory&lt;Wildcard&gt;`（cpp2il 真体 22 行）：
+    /// 唯一的行为是 `UpdateItemCollection()` 里 `Signal.Raise(updateSignal)` —— 即「重建完 ⇒ 通知万能卡界面刷新」。
+    /// 我们没信号层 ⇒ 落成普通事件。⚠️ 它**只发信号**，不碰数量（数量正本仍在 `CardProgress`）。</summary>
+    public class WildcardInventory : Inventory<InventoryWildcard>
+    {
+        /// <summary>原版 `Signal.Raise(WildcardUpdateSignal)` 的等价物。</summary>
+        public event Action Updated;
+
+        public WildcardInventory() : base(w => w != null ? w.Id : null) { }
+
+        public override void UpdateItemCollection()
+        {
+            base.UpdateItemCollection();
+            if (Updated != null) Updated();
+        }
     }
 }

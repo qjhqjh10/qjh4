@@ -186,15 +186,32 @@ namespace RuleEngine
         //    `:119-131` triggerIf 1 EqualTo / 2 EqualOrHigher / 3 EqualOrLower；其余值 ⇒ `LogError` 后**真**
         //
         //  🔴 与 <see cref="Meets"/> 的分工：那个回答「一条 `count` 条件行成不成立」（条件 = 行里的 `cond`），
-        //     本方法回答「**这张卡的普通/替代主动能力该走哪一支**」（条件 = `countCriteria` 自己，
-        //     **没有**额外的 `cond` ⇒ 数的时候按 `UnitConditions.none(0)` = 无条件，恒真）。
-        //  ⚠️ `RandomChance(8)` 本版**未实现**：反编译里第 6 个实参（`param_6`）的语义读不出，
-        //     而它正是那一支的闸之一 ⇒ **返回 null 并出声**（⛔ 不猜「param_6 == 0」）。
-        //     现读全库**没有**卡的 criteria 用到 8（`SW9` / `SW21` 都是 1）⇒ 今天零影响。
+        //     本方法回答「这条 `BoardCriteria`（`countCriteria` 自己）成不成立」。
+        //     🔴🆕 **2026-10-26（`G17` 批次 6）就地订正**：原来这里写「**没有**额外的 `cond` ⇒ 按 `none(0)` 数」——
+        //     **只对了一半**：`countCriteria` 这个 `TargetCriteria` 对象**自己带 `conditionsFilter`**
+        //     （`+0x38`）；卡级 `normalAbilityBoardCriteria` 那一格至今没落（⇒ 传 0，与本条旧行为相同），
+        //     而 **ability 级第三道闸**的 `cond` 就落在 `unitConditions` 的 `role="count"` 行 `cond` 格里
+        //     （现读 99 行里 6 行非 0）⇒ 那个消费点**必须**把 `cond` 传进来（见 `<param name="cond">`）。
+        //  🔴🆕 **2026-10-26（执行代理 `G17` · 批次 6 · 第三道闸）：第 6 实参 = `ignoreRandom`。**
+        //     判据 = `CardAbility__CanTriggerAbility.c` 的签名
+        //     （`dump.cs:20360`：`CanTriggerAbility(AbilityTrigger trigger, BattleManager manager,
+        //       CardScript thisCard, CardScript actingCard, CardScript targetCard, bool ignoreRandomTrigger = false)`）
+        //     与调用点 `:127-140`：`BoardAnalysis.MeetsCriteria(manager, boardCriteria, thisCard,
+        //     actingCard, targetCard, ignoreRandom, 0)` ⇒ 原版那一支的闸是
+        //     **`(ignoreRandom == 0) && triggerIf == 8 && referenceValue > 0`**。
+        //     ⇒ `ignoreRandom == true` 时**整段跳过随机支**，落到 `:104` 的「数个数再比」
+        //     （⚠️ 那一支对 `triggerIf == 8` **不比较、也不 LogError** —— 原版 `else if (local_28 != 8)`）。
+        //     ⚠️ 随机**掷法本身**本版仍未实现（原版走 `BattleManager.GetRandomInt`
+        //     = `MatchData` 的「开局预烧 100 + 按下标取」那张表，见 `CLAUDE.md` 那条红线）⇒
+        //     `ignoreRandom == false` 且真命中这一档时 **返回 null 并出声**（⛔ 不猜、不拿 `ctx.Rng.Next` 顶）。
+        //     现读全库**没有**卡的 criteria 用到 8（`normalAbilityBoardCriteria` 2 张都是 1；
+        //     v30 的 `role="count"` 行 99 条 `op ∈ {0,1,2,3}` · 见 `cards_engine.json`）⇒ 今天零影响。
 
         /// <summary>原版 `BoardAnalysis.MeetsCriteria` 的等价求值器。`null` = 本版判不了。
         /// <paramref name="gate"/> 为 `null` ⇒ **真**（原版恒真的默认 criteria，不是「判不了」）。
-        /// <paramref name="owner"/> = 这张卡的拥有者（`playerTurn` 要拿它比 `ctx.Active`）。</summary>
+        /// <paramref name="owner"/> = 这张卡的拥有者（`playerTurn` 要拿它比 `ctx.Active`）。
+        /// <para>⚠️ 本重载 = `ignoreRandom: false`（原版触发路径
+        /// `RawCardScript.TriggerAbilities` 的 `param_10` 在全部已知调用点上都是 0）。</para></summary>
         public static bool? MeetsBoardCriteria(BattleContext ctx, int owner, CardDef.BoardGateSpec gate,
                                                UnitState actor = null)
         {
@@ -203,8 +220,20 @@ namespace RuleEngine
         }
 
         /// <summary>同上，多一个 <paramref name="gap"/>（**判不了时**写清是哪一格没实现）。</summary>
+        /// <param name="ignoreRandom">原版第 6 实参（`CanTriggerAbility` 的 `ignoreRandomTrigger`）。
+        /// `true` ⇒ **跳过 `RandomChance(8)` 支**，落到「数个数再比」（原版 `:104-131` 那一半）。
+        /// `false`（缺省）⇒ 命中 `triggerIf == 8 && referenceValue > 0` 时进随机支 ——
+        /// 本版那一支的**掷法**未实现 ⇒ 返回 `null` + `gap`（⛔ 不是「直接 true」）。</param>
+        /// <param name="cond">🆕 2026-10-26（执行代理 `G17` · 批次 6）：**`countCriteria.conditionsFilter`**
+        /// （原版 `TargetCriteria +0x38`）—— 数候选时**逐个过的那条条件**。
+        /// 缺省 `0`（`UnitConditions.none`）= 无条件（卡级 `normalAbilityBoardCriteria` 那条老调用点就是这一档：
+        /// 它的 `conditionsFilter` 至今没落进 `BoardGateSpec`，见 `报告/G17_第6轮.md` §四）。
+        /// 🔴 **ability 级第三道闸必须传**：数据在 `unitConditions` 的 `role="count"` 行 `cond` 格里
+        /// （现读 99 行里 **6 行** `cond != 0`：`221`×2 / `331`×2 / `222` / `243`）。
+        /// ⛔ 不传 = 把「只数带某条件的候选」静默变成「全数」。</param>
         public static bool? MeetsBoardCriteria(BattleContext ctx, int owner, CardDef.BoardGateSpec gate,
-                                               UnitState actor, out string gap)
+                                               UnitState actor, out string gap, bool ignoreRandom = false,
+                                               int cond = 0)
         {
             gap = null;
             if (gate == null) return true;              // `:44-46` criteria == null
@@ -238,14 +267,24 @@ namespace RuleEngine
                 return null;
             }
 
-            // ---- `RandomChance(8)`（`:65-99`）：本版未实现 ⇒ null（见上面文件尾那段）----
+            // ---- `RandomChance(8)`（`:65-99`）----
+            //  原版的闸是 `(ignoreRandom == 0) && triggerIf == 8 && referenceValue > 0`
+            //  ⇒ `ignoreRandom == true` 时**根本不进这一支**（见方法 doc 与文件尾那段）。
             if (gate.StatOption == 8)
             {
                 // ⚠️ 原版那一支还有个 `referenceValue > 0` 的前置：不满足时**不进随机**，
-                //    落到 `:118` 的 else ⇒ 数完**不比较** ⇒ **真**。这一半可以照做。
+                //    落到 `:104` 的 else ⇒ 数完**不比较** ⇒ **真**。这一半可以照做。
                 if (gate.ReferenceValue == 0) return true;
-                gap = "`triggerIf = RandomChance(8)` 本版未实现（第 6 实参 `param_6` 的语义反编译读不出）";
-                return null;
+                if (!ignoreRandom)
+                {
+                    // 本版**掷法未实现**（原版走 `BattleManager.GetRandomInt` = `MatchData` 的
+                    // 「开局预烧 100 + 按下标取」那张表）⇒ 判不了 + 出声，⛔ 不拿 `ctx.Rng.Next` 顶。
+                    gap = "`triggerIf = RandomChance(8)` 的**掷法**本版未实现"
+                        + "（原版 `BattleManager.GetRandomInt` = `MatchData` 预烧 100 + 下标）"
+                        + " ⇒ 判不了；传 `ignoreRandom: true` 可跳过这一支（原版第 6 实参）";
+                    return null;
+                }
+                // `ignoreRandom == true` ⇒ 原版整段跳过随机支，落下面「数个数」那一半。
             }
 
             if (gate.CountOption != 0 && gate.CountOption != 10)
@@ -269,15 +308,20 @@ namespace RuleEngine
             if (why != null) { gap = why; return null; }
 
             int count;
-            // `cond = 0`（`UnitConditions.none`）= **无条件** —— 原版这一支数的是 `countCriteria`
-            // 选出来的**全部**候选（条件就是 criteria 自己），不是「再叠一条 cond」。
-            if (CountSet(ctx, owner, set, 0, gate.CountOption, actor, out count, out why) == null)
+            // `cond` = `countCriteria.conditionsFilter`（原版同一个 `TargetCriteria` 对象里的那一格）：
+            //   卡级老调用点不传 ⇒ `0`（无条件，行为与改前逐字相同）；
+            //   ability 级第三道闸传 `role="count"` 行的 `cond`（见方法 doc 的 `<param name="cond">`）。
+            // ⚠️ 改前这里**恒 0**（注释还写着「条件就是 criteria 自己」）—— 那只对「行里 `cond` 恰好是 0」
+            //   的 93 条成立；另 6 条（`221`/`331`/`222`/`243`）本来是**带条件地数**。
+            if (CountSet(ctx, owner, set, cond, gate.CountOption, actor, out count, out why) == null)
             {
                 gap = why ?? "集合判不了";
                 return null;
             }
 
-            if (gate.ReferenceValue == CardDef.CountSetSpec.Unknown)
+            // 原版 `:100-131` 的 else 支：`triggerIf == 8` 那一档**只数不比**（`else if (local_28 != 8)`
+            // ⇒ 既不比较、也不 `LogError`）⇒ 走到这里时 `referenceValue` 对 8 档没有意义。
+            if (gate.StatOption != 8 && gate.ReferenceValue == CardDef.CountSetSpec.Unknown)
             {
                 gap = "`normalAbilityBoardCriteria.referenceValue` **未知（没落）**";
                 return null;
@@ -287,6 +331,11 @@ namespace RuleEngine
                 case 1: return count == gate.ReferenceValue;   // EqualTo
                 case 2: return count >= gate.ReferenceValue;   // EqualOrHigher
                 case 3: return count <= gate.ReferenceValue;   // EqualOrLower
+                case 8:
+                    // `ignoreRandom == true` 落到这里（原版 `:104-131` 的 else 支；`local_28 != 8`
+                    // 那一跳 ⇒ **不比较、不 LogError**）⇒ 数完**真**。
+                    // ⚠️ `ignoreRandom == false` 根本走不到这里（上面那一支已 return）。
+                    return true;
                 default:
                     // 原版 `:118-130`：不是 1/2/3/8 ⇒ `CustomDebug.LogError` 之后**照样 return true**
                     // （那一档不比）。⚠️ 与 `Compare`（返回 null）**不同** —— 那是 `count` 行的口径。

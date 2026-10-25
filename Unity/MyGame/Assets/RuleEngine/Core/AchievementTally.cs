@@ -131,7 +131,7 @@ namespace RuleEngine
         /// **每翻回一个 +1**。归属 = 施放者 `owner`。
         /// ⚠️ 原版的真判据（`UnitReanimated__OnUnitReanimated.c`）里还有一格 `unit+0x40 != 0`
         /// 的过滤 —— **那一格语义没解出来**（反编译产物撞名，见判据 §N2 同族问题）⇒ 我们按「翻了就算」
-        /// 实现，如实标为**近似**。</para></summary>
+        /// 🔶 自己设计（非原版）：`ReanimatedCount` 按「翻了就算」计数 · 原版 `unit+0x40 != 0` 那格过滤语义没解出来（判据 §N2 同族问题） · TODO(谁定的)｜原注：实现，如实标为**近似**。</para></summary>
         public readonly int[] ReanimatedCount = new int[2];
 
         /// <summary>`[座位]` —— **虫群合并发生次数**（`Ach_10` `UnitSwarmCount`，判据 §B-3 #15）。

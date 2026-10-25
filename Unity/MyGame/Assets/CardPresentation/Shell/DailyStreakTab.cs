@@ -35,7 +35,7 @@ namespace CardPresentation
         Transform _root;
 
         /// <summary>页矩形：与 `Campaign Tab` 同一格（`RewardsWindow.TabRectFor(0f, 0f)` 算出来 = 330.69..1920 × 70.94..1080）。
-        /// ⚠️ **我们挑的** —— 原版没有这一页，没有可照的矩形。</summary>
+        /// 🔶 自己设计（非原版）：每日连胜页的页面矩形 `TabL/TabT/TabR/TabB` · 原版没有这一页 · TODO(谁定的)｜原注：⚠️ **我们挑的** —— 原版没有这一页，没有可照的矩形。</summary>
         public const float TabL = 330.69f, TabT = 70.94f, TabR = 1920f, TabB = 1080f;
 
         /// <summary>渲染队列：与同族「页」同档（`ForgeTab`/`CampaignTab` 那一带 3027/3064 之内、弹窗 3110+ 之下）。
@@ -45,9 +45,9 @@ namespace CardPresentation
         /// ⛔ 改这里的数会让那条断言跟着变，别把最高那一档抬到 3130 以上。</summary>
         public const int QTitle = 3020, QLabel = 3021, QValue = 3022, QInfo = 3023;
 
-        /// <summary>大标题那条**我们挑的**文案（用户实拍那页的大标题是「每日连胜」；本壳一律英文）。</summary>
+        /// 🔶 自己设计（非原版）：大标题文案 `Daily Streak` · 原版没有这一页（用户实拍中文是「每日连胜」，本壳一律英文） · TODO(谁定的)｜原注：<summary>大标题那条**我们挑的**文案（用户实拍那页的大标题是「每日连胜」；本壳一律英文）。</summary>
         public const string TitleText = "Daily Streak";
-        /// <summary>三条句子的**画布矩形**（`x1,x2,y1,y2`）—— **全是我们挑的**（原版没有这一页）。
+        /// 🔶 自己设计（非原版）：三条句子的画布矩形 `TitleR/LabelR/ValueR/InfoR` · 原版没有这一页 · TODO(谁定的)｜原注：<summary>三条句子的**画布矩形**（`x1,x2,y1,y2`）—— **全是我们挑的**（原版没有这一页）。
         /// 竖着排在页面中段：标题 → 「Current streak:」+ 数值 → 说明句。</summary>
         static readonly PxRect TitleR = new PxRect(600f, 320f, 1650f, 400f);
         static readonly PxRect LabelR = new PxRect(620f, 560f, 1180f, 640f);
@@ -55,7 +55,7 @@ namespace CardPresentation
         static readonly PxRect InfoR  = new PxRect(600f, 700f, 1650f, 760f);
 
         /// <summary>文字色：标题/数值取左栏文案那条 **#F4E1AC**（`MainMenuSubmenuWindow.BuildTabButton` 用的同一个色），
-        /// 「Current streak:」用白、说明句用灰 —— **我们挑的**。</summary>
+        /// 🔶 自己设计（非原版）：标题 / 数值 / 说明三档文字色（Gold / Grey） · 原版没有这一页 · TODO(谁定的)｜原注：「Current streak:」用白、说明句用灰 —— **我们挑的**。</summary>
         static readonly Color Gold = new Color(0.9569f, 0.8824f, 0.6745f);
         static readonly Color Grey = new Color(0.70f, 0.70f, 0.70f);
 

@@ -2873,9 +2873,9 @@ namespace CardPresentation
         /// ⚠️ 原版是「照建、切显隐」⇒ 我们也是建好再切（⛔ 不是「不建」）。</summary>
         public void RefreshEnergyAccumulation()
         {
-            bool on = EnergyAccumulationOn;
-            if (_energyAccumFoe != null && _energyAccumFoe.gameObject.activeSelf != on) _energyAccumFoe.gameObject.SetActive(on);
-            if (_energyAccumMe != null && _energyAccumMe.gameObject.activeSelf != on) _energyAccumMe.gameObject.SetActive(on);
+            // 🆕 2026-10-26（F5）：四颗（ON/OFF × 两侧）一起算 —— 组显隐 +（已知 `savedMana` 时的）组内互斥。
+            //   判据全文见 `ApplyEnergyAccumulationVisual` / `SetSavedMana`。
+            ApplyEnergyAccumulationVisual();
         }
 
         /// <summary>本回合还剩多少秒（走表用）。`_clockInCountdown` = 已经进「超时后的 15 秒」那一段</summary>
@@ -3094,14 +3094,16 @@ namespace CardPresentation
             //    根因与两条修法（运行期接线 / 导出器补 tsa）见
             //    `资料/普查产出_0918/孤儿待办_五条查证.md` §一 + 下面的 `CardBackSprite`。
             //
-            // 原版取的是**玩家档案里的卡背装饰品**（`PlayerDataManager.GetCosmeticItem` →
-            // `CosmeticItemCardback.GetCardBackSprites().Item1`）；我们单机没有档案 ⇒
-            // 退化成**按那一方的阵营取**我们已经有的 4 张 `Art/cards/back_<faction>.png`。
-            // ⚠️ 走 `CardArt.CardBack`（**牌堆、敌方手牌用的是同一张** ⇒ 同源，别另挑一张）。
+            // 原版取的是**那副卡组自己选的卡背装饰品**（`CardDeck.GetDeckCardback()` →
+            // `cardbackId` 空才 `ArmyUtilities.GetDefaultCardback(deckArmy)`）。我们这侧的数据在
+            // `DeckRules.PlayerDeck.CardbackId`（`Shell/DeckRuntime` 在卡组编辑里装备的那个）——
+            // 🔴 **2026-10-26（F5 · 铁律 5）**：本行原来写「我们单机没有档案 ⇒ 退化成按阵营取 4 张手挑的背」
+            //   —— **已过期**：`cardbackId` 早就有（卡组编辑里装备），只是**战斗侧没接**。
+            // ⚠️ 仍走 `CardArt.DeckCardback`（**牌堆、敌方手牌用的是同一张** ⇒ 同源，别另挑一张）。
             // ⚠️ 实参语义照原版：那是 **`actingCard.isPlayer`**（为谁的卡播的），不是「我是谁」——
             //    `true` = 我方那张、`false` = 敌方那张。
             WarpforgeVFX.WFModuleCardback.CardbackResolver = isPlayer =>
-                CardBackSprite(isPlayer ? _myFaction : _foeFaction);
+                CardBackSprite(isPlayer ? _myFaction : _foeFaction, DeckCardbackIdOf(isPlayer ? _me : 1 - _me));
 
             // 🆕 2026-10-01（§三 第 31 条 · 第 2 件）：**`InstanceParticleAdjacent` 接上了**
             //   （全库 1 实例 / 1 效果：`BulletImpact_deathspinner_arc_alt`）。
@@ -3463,25 +3465,25 @@ namespace CardPresentation
             }
         }
 
-        /// <summary>阵营卡背 → `Sprite`。
+        /// <summary>阵营卡背 → `Sprite`（🆕 2026-10-26 F5：多了 `cardbackId` —— 见 <see cref="DeckCardBackOf"/>）。
         ///
         /// 为什么要有它：`CardArt.CardBack` 给的是 `Texture2D`，而 `tsa.AddSprite` 要的是
         /// **`Sprite`**（原版那边 `GetCardBackSprites().Item1` 本来就是 sprite）。
-        /// **按阵营缓存一份** —— 每个模块实例各 `Sprite.Create` 一张会白占内存。
+        /// **按 (卡背 id, 阵营) 缓存一份** —— 每个模块实例各 `Sprite.Create` 一张会白占内存。
         /// ⚠️ 阵营名拿不到（或那张 `back_*.png` 不存在）时返回 **null** ⇒ 模块按原版
         ///   「拿不到卡背」处理（LogError + 计数，**不静默**）。</summary>
         readonly Dictionary<string, Sprite> _cardBackSprites = new Dictionary<string, Sprite>();
 
-        Sprite CardBackSprite(string faction)
+        Sprite CardBackSprite(string faction, string cardbackId)
         {
-            if (string.IsNullOrEmpty(faction)) return null;
+            if (string.IsNullOrEmpty(faction)) return null; string key = faction + "|" + (cardbackId ?? "");
             Sprite sp;
-            if (_cardBackSprites.TryGetValue(faction, out sp)) return sp;
-            var tex = CardArt.CardBack(faction);
-            if (tex == null) { _cardBackSprites[faction] = null; return null; }
+            if (_cardBackSprites.TryGetValue(key, out sp)) return sp;
+            var tex = CardArt.DeckCardback(cardbackId, faction);
+            if (tex == null) { _cardBackSprites[key] = null; return null; }
             sp = Sprite.Create(tex, new Rect(0, 0, tex.width, tex.height), new Vector2(0.5f, 0.5f), 100f);
             sp.name = "CardBack_" + faction;
-            _cardBackSprites[faction] = sp;
+            _cardBackSprites[key] = sp;
             return sp;
         }
 
@@ -4233,6 +4235,9 @@ namespace CardPresentation
         {
             int n = 0;
             ForEachStaticHook((cur, clear) => { if (cur != null) { clear(); n++; } });
+            // 🆕 2026-10-26（F5）：换语言广播那条**不在** `ForEachStaticHook` 的清单里 —— 它是 `event`
+            //   （背后那个委托读不出来，`StaticHookCount` 数不到它）⇒ 在这里显式摘。幂等。
+            BattleHudLanguage.Changed -= RefreshBattleLog;
             // 后期那一条**除了**那个静态回调，`_postFx` 手里还攥着两张 RT 与一份 Material 实例 ——
             // 那半走它自己的 `DetachPostFx()`（不带条件调也行：它幂等，那句静态赋值与上面清单里那条**同一条**）
             if (_postFx != null) DetachPostFx();
@@ -4754,7 +4759,18 @@ namespace CardPresentation
             }
             cards.Add(hero);
             int missing = 0;
-            for (int i = 0; i < deck.CardIds.Count; i++)
+            // 🔴 **2026-10-26（批次 6 · G18 · P0）：这里必须【倒序】喂牌库** ——
+            //   教程**不洗牌**（`decomp_full/MatchData__ShouldShuffleDeck.c:1-6`：`matchType == 100`
+            //   = Tutorial ⇒ 返回 0），且运行时牌库顺序 = SO `cardLibraryIds` 原序、**下标 0 = 顶**
+            //   （`DeckAndWarlordData.cs:613` `shuffledCardLibrary = deck.cardLibrary` +
+            //   `BattleCardManager.cs:246-300` 的 `CreateDeck` 按 `cardList[0..n-1]` 依次造）；
+            //   `RuleCore.Draw` 取我们列表的**末尾**当「顶」（`RuleCore.cs:3093-3096` 的镜像约定）。
+            //   ⇒ 装载口按**原序**喂 ⇒ 抽牌顺序被整套倒过来（S4 的 AI 7 次抽牌与脚本 7 条
+            //   `PlayCard` **逐张相等却全抽成另一头**就是这条的直证）。倒序装载 = 追平镜像约定。
+            //   ⚠️ **不要**原地反转调用方传进来的 list；`TutorialScript.SetupInitialHand` 那条
+            //   「追加到末尾再抽」的镜像逻辑**已经是对的，别动**。探针 `TutorialProbe.DeckCards`
+            //   是同一口径的**量具**，必须同步改（否则量具与产品分叉）。
+            for (int i = deck.CardIds.Count - 1; i >= 0; i--)
             {
                 var c = lookup(deck.CardIds[i]);
                 if (c == null) { missing++; continue; }
@@ -4929,6 +4945,7 @@ namespace CardPresentation
             //   （座位 → 阵营、卡名 → `CardDef.AnimTimes`）**只有驱动知道** ⇒ 同一条挂钩模式、幂等覆盖。
             //   没挂钩时 `EventTiming` 按「拿不到逐卡数据」处理（走 `RangedVfxFallback` 并出声）。
             HookEventTimingCardSource();
+            HookHudLanguageChanged();      // 🆕 2026-10-26（F5）：换语言 ⇒ 战斗日志逐行重拼（E6 建的广播口）
 
             // 🆕 **2026-10-18（A985⑦）**：`Battle/Tips/HandFull` 那三张「见过没有」的表**每局清一次**
             //    （不清的话上一局见过的实例会让这一局「首次判据」恒假 —— 静默）。
@@ -14436,7 +14453,7 @@ namespace CardPresentation
             {
                 // 松手 ⇒ 轻点：开/关大卡窗（**拖过的松手不算轻点** —— 原版拖拽起手就把卡面收了）
                 _pressSlot = -1; _pressSide = -1;
-                if (!dragged) ToggleUnitCard(side, s);
+                if (!dragged) TapBoardCard(side, s);   // 2026-10-26（F5·P0）：灵族灵魂石轻点=收集（判据见该方法）
                 return true;
             }
             if (side == _me && dragged)
@@ -16031,9 +16048,9 @@ namespace CardPresentation
             if (tut == null || _replaySession) return;       // 非教程局 / 回放局：一个字都不做
             if (_selectedSlot < 0 || kind == AttackKind.Ability) return;
             var cur = tut.CurrentAction;
-            if (cur == null || !cur.playerAction) return;    // 只对「等玩家做」的那一条生效
-            if (cur.Kind != ScriptedActionType.ChangeToRanged
-                && cur.Kind != ScriptedActionType.ChangeToMelee) return;
+            if (cur == null || !cur.playerAction) return;    // 只对「等玩家做」的那一条生效（快路径，判据同谓词）
+            // ↓ 谓词正本 = `TutorialRules.IsWaitingChangeAttack`（原版逐条比 `data[i]`，⛔ 不是只看 `Kind` = `data[0]`）
+            if (!TutorialRules.IsWaitingChangeAttack(tut.CurrentTurn, tut.ActionCounter)) return;
 
             int type = kind == AttackKind.Ranged ? UnitState.AttackTypeRanged : UnitState.AttackTypeMelee;
             bool ok = RuleCore.SetCurrentAttackType(Ctx, _me, _selectedSlot, type);
@@ -16183,8 +16200,8 @@ namespace CardPresentation
         /// </summary>
         static float TutorialTipOffset(int positionReference)
         {
-            bool sub = (positionReference >= 11 && positionReference <= 13)
-                    || (positionReference >= 21 && positionReference <= 23);
+            bool sub = TutorialRules.IsReferenceCardElement(positionReference);   // 判据搬进 Core（G5-R1）
+            // ↑ 2026-10-26（批次 5 · G11）：谓词正本 = `RuleEngine/Core/TutorialScript.cs` 的 `TutorialRules.IsReferenceCardElement`
             float v = sub ? CardView.Height : CardView.Width;
             if (SmallScreenUI.Enabled) v *= TutSmallScreenFactor;
             return v;
@@ -16637,9 +16654,9 @@ namespace CardPresentation
         ///   时长语义那三条的判据正本 = `RuleEngine/Core/TutorialScript.cs` 的 `PlayScriptedTurn` 注释（`A899` 一节）。</summary>
         static bool IsTutorialChatKind(ScriptedActionType k)
         {
-            return k == ScriptedActionType.PlayerChat || k == ScriptedActionType.PlayerChatBig
-                || k == ScriptedActionType.AiChat || k == ScriptedActionType.AiChatBig
-                || k == ScriptedActionType.RadioMessage;
+            // 🔁 2026-10-26（批次 5 · G11）：五档集合已提到 `RuleEngine/Core/TutorialScript.cs` 的
+            //   `TutorialRules.IsChatKind`（唯一正本）—— 跳过闸（`CanSkipCurrentAction`）与本处从此共用一份（G5-R2）。
+            return TutorialRules.IsChatKind(k);
         }
 
         /// <summary>脚本这一条动作指的**那个人**是哪一张卡（`acting` 优先，没有就 `target`）——
@@ -25033,7 +25050,7 @@ namespace CardPresentation
 
             // ---- 卡背：敌方手里那张是背（`SetObjectVisibility(1)` 对 `isPlayer == 0` ⇒ Back）；
             //      我方自己的手牌是正面；`showFront` 那一支开场就正面（原版 `SetCardVisibility(Front)`）----
-            var backTex = CardArt.CardBack(mine ? _myFaction : _foeFaction);
+            var backTex = DeckCardBackOf(mine ? _me : 1 - _me);
             bool startBack = !showFront && !mine;
             if (startBack) v.SetBackVisible(true, backTex);   // 缺图时 `CardView` 自己出声
 
@@ -26573,7 +26590,7 @@ namespace CardPresentation
                 if (MulliganRowPose(v, out p, out sc))
                 {
                     var deal = CardFeel.DealInPose(v, deck, p, 0f, sc, dealDelay,
-                                                   back: CardArt.CardBack(_myFaction));
+                                                   back: DeckCardBackOf(_me));
                     // 🔴 **2026-10-22（W63 · 换牌那排卡是斜的）**：**确定性兜底** —— 这条发牌补间
                     //   是这一帧**最后结束**的那一条（`CardFeel.DealDuration = 0.3 s`；
                     //   它内嵌的翻面只占两段 `× 0.25` = **0.15 s**，那 0.15 s 之后**没人再写旋转**）。
@@ -26603,7 +26620,7 @@ namespace CardPresentation
                     Vector3 anchorWorld = CardDrawPositionWorld(true);
                     var handWorld = p; float handAng = ang, handSc = sc;
                     var deal = CardFeel.DealInPose(v, deck, anchorWorld, ang, sc, dealDelay,
-                                                   back: CardArt.CardBack(_myFaction));
+                                                   back: DeckCardBackOf(_me));
                     if (deal != null)
                     {
                         var parent = v.transform.parent;
@@ -26709,7 +26726,7 @@ namespace CardPresentation
             //   `CardbackFace.Fit`（两段式，本仓唯一一份口径 → `Core/CardbackFace.cs`）；
             //   取图仍走 `CardArt.CardBack`（缺图那边会出声），本处不再自己 `SetAspect(卡身比例)`。
             //   ⚠️ 一把牌里每张用的都是**同一张**卡背（按 `_foeFaction` 取）⇒ 几何算**一次**就够。
-            var backTex = CardArt.CardBack(_foeFaction);
+            var backTex = DeckCardBackOf(1 - _me);
             float backW, backH, backDx, backDyUp;
             bool backGeom = FoeHandBackGeom(backTex, out backW, out backH, out backDx, out backDyUp);
             _foeBackWorldW = backGeom ? backW : 0f;      // 🆕 B3：飞行载体用它算落点缩放（判据见那个字段）
@@ -26956,6 +26973,15 @@ namespace CardPresentation
                 rarity = c.Rarity,                 // 卡框按稀有度分四档
                 subtype = c.Subtype,               // 卡面下方的兵种行（**印不印由 CardView.SubtypeLine 判**）
                 type = c.Type,                     // 判「印不印兵种行」要用它（`hero`/`defence` 也印）
+                // 🆕 2026-10-26（批次 3 · E5 · 卡牌线①a）：原版 = 「`spellType != 0` 才印兵种行 / 文字态才 4」
+                //   （判据两份方法体互证 → `Core/CardView.cs` 类尾 `TacticSubtypeLineShown` 的 doc）。
+                //   `CardDef.SpellType` = v19 卡表 `spellType` 列（1128/1128 有值）；`-1` = **未知**
+                //   （我们自己设计那 26 张）⇒ `spellTypeKnown=false`，`CardView` 退回白名单兜底。
+                //   ⛔ `0 = Normal` 是**合法值**（`spellTypeKnown` 才表达「填了没有」）。
+                //   现算：446 张战术卡里白名单与 `spellType != 0` 只差 `Spear of Macragge`
+                //   （`d94f91051ecfe014f97577ff573571aa`，spellType=0）⇒ 接线后只有它掉兵种行。
+                spellType = c.SpellType,
+                spellTypeKnown = c.SpellType >= 0,
             };
         }
 
@@ -27822,9 +27848,9 @@ namespace CardPresentation
             _myDeckSdf = MakeDeckSdf(root, _myFaction, MyDeckX01, MyDeckY01, "MyDeckSdf");
             _foeDeckSdf = MakeDeckSdf(root, _foeFaction, FoeDeckX01, FoeDeckY01, "FoeDeckSdf");
 
-            _myPile = HudImageTex(root, CardArt.CardBack(_myFaction), MyDeckX01, MyDeckY01,
+            _myPile = HudImageTex(root, DeckCardBackOf(_me), MyDeckX01, MyDeckY01,
                                   new Vector2(0.5f, 0.5f), Px(DeckCardPx), "MyDeck");
-            _foePile = HudImageTex(root, CardArt.CardBack(_foeFaction), FoeDeckX01, FoeDeckY01,
+            _foePile = HudImageTex(root, DeckCardBackOf(1 - _me), FoeDeckX01, FoeDeckY01,
                                    new Vector2(0.5f, 0.5f), Px(DeckCardPx), "FoeDeck");
             // 🔴 **2026-10-19（B2）就地订正（铁律 5）—— 这一段原来的前提是【错的】**。
             //    原文写：「两张**贴图**的宽高比与这两个 rect 都不一样（`_Main` 707×996、`_SDF` 100×130.5），
@@ -27839,8 +27865,8 @@ namespace CardPresentation
             //    （算式/判据全文 → `Core/CardbackFace.cs`，本仓唯一一份）。
             //    ⚠️ 与 CLAUDE.md「战斗侧是另一个模型（`ImageQuad` 恒等比、PA=0）」**不冲突** ——
             //    PA=0 仍是另一个模型，只是「节点比例 == `m_Rect` 比例」这条事实把 A20 当年的困惑解释掉了。
-            FitDeckPile(_myPile, CardArt.CardBack(_myFaction), MyDeckX01, MyDeckY01);
-            FitDeckPile(_foePile, CardArt.CardBack(_foeFaction), FoeDeckX01, FoeDeckY01);
+            FitDeckPile(_myPile, DeckCardBackOf(_me), MyDeckX01, MyDeckY01);
+            FitDeckPile(_foePile, DeckCardBackOf(1 - _me), FoeDeckX01, FoeDeckY01);
 
             // 回合灯：底板右下角（位置在 `PlaceDeckLights` 里统一摆）
             // ⚠️ **2026-10-17 更正：原来这里接着写「换分辨率要重贴」，【已过期】。** 字族/图族
@@ -28054,7 +28080,7 @@ namespace CardPresentation
             //     `SkipTutorialFromSettings()`（= 原版 `ClickSkipTutorial`：教程局判我方督军负、非教程局出声）。
             _settingsPanel = SettingsPanel.Create(root, Forfeit,
                                                   Ctx != null ? Ctx.MatchType : (RuleEngine.MatchType?)null);
-            _settingsPanel.OnSkipTutorial = SkipTutorialFromSettings;
+            _settingsPanel.OnSkipTutorial = SkipTutorialFromSettings; _settingsPanel.MatchTypeSource = MatchTypeForSettingsPanel;   // 🆕 G21·B13（说明见 MatchTypeForSettingsPanel）
             // 🔴 **2026-10-20（W57 · 战斗线 `T09` 步骤 A3-b2 的 D 半）：把「跳过教程」那颗钮的回调接上。**
             //   面板自 A3-b2 起输入切成 uGUI，那颗钮的动作走 `OnSkipTutorial` 回调口；**没接线时它只
             //   `LogWarning`** ⇒ 玩家点了那颗钮**没有任何效果**（静默）。`SettingsPanel.Create` 的形参
@@ -29120,16 +29146,22 @@ namespace CardPresentation
             //   判据 = `BattleManager__SetupBoardPhase.c:179,194` →
             //     `ManaTypeHolder__SetAccumulationMana.c:16,20`：**两个 GO 都 `SetActive(param_2)`**
             //     （`manaAccumulationObj` = **整组** ＋ `manaAccumulationImageOn` = 那张 **ON** 图）。
-            //   实测后果：默认 `manaAccumulation = 0` ⇒ **原版整组不显示、我们却贴着一张
+            //   实测后果：整组默认不亮 ⇒ **原版整组不显示、我们却贴着一张
             //   `40k_battle_energy_empty`** —— 一条「该藏没藏」，而且是我们自己那半句判据造出来的。
-            //   ⇒ 照原版：**`0 < manaAccumulation` 才 `SetActive`**（原版就是「照建、切显隐」，
+            //   ⇒ 照原版：**`0 < addedManaSecond` 才 `SetActive`**（原版就是「照建、切显隐」，
             //     ⛔ 不是「不建」）；建的时候组内 ON 图就是亮的，故用 `…_full`。
-            //   ⚠️ **仍未定**（⛔ 不猜，记在 `任务线/战斗线/任务/T13` 的「还差什么」）：
-            //     组内那颗 **OFF** 图（`40k_battle_energy_empty`）**什么时候亮** ——
-            //     `SetAccumulationMana` 只管 ON 那一颗，OFF 那颗的开关点本轮没查到；
-            //     它**不是**这个方法的 else 支（那支是「整组关」，连 OFF 都看不见）。
+            //   🔴 **2026-10-26（E5 · 铁律 5）：本段 `:29120` 那半句「判据 = `0 < manaAccumulation`」已过期** ——
+            //     `vars+0x34` 是 `addedManaSecond`（`manaAccumulation` 在 `+0x40`），正本见 `EnergyAccumulationOn` 的 doc。
+            //   ✅ **OFF 图（`40k_battle_energy_empty`）什么时候亮：查到了** → `decomp_full/ManaTypeHolder__SetSavedMana.c`：
+            //     `manaAccumulationVFXON.SetActive(0 < savedMana)` ∧ `…VFXOFF.SetActive(savedMana < 1)`（两颗互斥）。
             _energyAccumFoe = HudAbs(root, "40k_battle_energy_full", 1746.6571888152716f, 247.9047392226712f, 77.78600692749023f, 80.11302185058594f, "EnergyAccumulation_Foe");
             _energyAccumMe  = HudAbs(root, "40k_battle_energy_full", 1748.5645137293218f, 515.5400514454191f, 77.78600692749023f, 80.11302185058594f, "EnergyAccumulation_Me");
+            // 🆕 2026-10-26（F5 · P0 之外第 1 件）：**OFF 那颗也建出来**（原版 `manaAccumulationVFXOFF`，
+            //   判据 `decomp_full/ManaTypeHolder__SetSavedMana.c:44-56`：两颗 `SetActive` 互斥）。
+            //   原来只建了 ON 那张 ⇒ `SetSavedMana` 整条没法落地（E5 记的阻塞之一）。
+            //   ⚠️ rect 与 ON 那颗**逐位相同**（T13 现核：两对 `RectTransform` 同参数、运行时切显隐）。
+            _energyAccumOffFoe = HudAbs(root, "40k_battle_energy_empty", 1746.6571888152716f, 247.9047392226712f, 77.78600692749023f, 80.11302185058594f, "EnergyAccumulation_Foe_OFF");
+            _energyAccumOffMe  = HudAbs(root, "40k_battle_energy_empty", 1748.5645137293218f, 515.5400514454191f, 77.78600692749023f, 80.11302185058594f, "EnergyAccumulation_Me_OFF");
             RefreshEnergyAccumulation();      // 判据只此一处（见 `EnergyAccumulationOn`）
 
             // 🆕 2026-10-16（`T01`）：**进战斗那块黑场**（原版 `LoadingMenu`）—— 放在这一批的**最后**建，
@@ -32483,6 +32515,318 @@ namespace CardPresentation
             if (_countdownAnimGo != null) { Kill(_countdownAnimGo); _countdownAnimGo = null; }
             _clockInCountdown = false;
             UpdateClockLabel();          // 原版 `SetEndTurnText(isPlayer:false)` —— 本方法只在 `BeginTurn` 之后被调，`Ctx.Active` 已经是对方
+        }
+
+        // ================================================================
+        //  🆕 2026-10-26（F5 · 批次 4 · P0）：**轻点场上的一张卡 —— 灵魂石走收集，其余走大卡窗**
+        // ================================================================
+        //
+        //  为什么单开这一处：`BoardPress` 原来「没拖够 = 轻点 ⇒ `ToggleUnitCard`」，只有下面两条支的**第二条**。
+        //  原版 `CardScript.OnTouchUpAsButton`（`d:/2/tools/cpp2il/out_cpp2il_dev_ilspy/CardScript.cs:10114-10183`，
+        //  `cardState ∈ {inPlay(2), inPlayAttacking(3), inPlayAminingAttack(17)}` 那一档）是**两条支**：
+        //    ① `SupportMethods.IsAeldariRemnant(this)` 为真 ⇒ `BattleMgr.TryUsingWaystone(this)` —— **收集灵魂石**。
+        //       `IsAeldariRemnant` = `rawCardData.cardArmy(+0x2c) == CardArmy.SaimHann(30)` **且** `isRemnant(+0x65)`。
+        //       判据：`d:/2/tools/decomp_full/SupportMethods__IsAeldariRemnant.c`（全文两条分支）·
+        //             `dump.cs` 的 `ObtainableItem.cardArmy // 0x2C` · `CardArmy.SaimHann = 30`。
+        //       收集那一半的闸/顺序在 `BattleManager__TryUsingWaystone.c` → `BattleManager__CanUseWaystone.c`。
+        //    ② 否则 ⇒ `displayingCardFlag = true; DisplayCard(this, displayY:true, …)` —— 开大卡窗。
+        //  ⇒ 我们**只有 ②**；灵魂石收集只挂在「拖出选择器」（`OpenCommand` 的 waystone 段）那条路上。
+        //
+        //  🔴 **这就是 P0 软锁的根因**（**不是闸门太严**，闸门口径与原版一致）：
+        //     教程 `Warpforge_TutorialStage5` 有 **5 条 `TapCard(playerAction=true)`** —— `tutorial_stages.json`
+        //     现读 = stage4(第 5 关) turn6 act2 / turn6 act7 / turn10 act0 / turn12 act4 / turn12 act5，
+        //     acting 全是 `PlayerMinion` 的四只灵族单位（ASH11 Striking Scorpion · ASH5 Storm Guardian ·
+        //     ASH12 Swooping Hawk · ASH4 Guardian Defender，逐个带 `Waystone` 关键词），
+        //     而它**前一条 SmallTip 就是**「Click on the Spirit Stone to collect it.」。
+        //     玩家按提示**点**那颗灵魂石 ⇒ 原版收集、`FinishResolvingAction` → 指针 +1；
+        //     我们**开出一张卡**（6 关 `hideLargeCardDisplay` 现读全 false ⇒ 窗真会开）⇒ `ContinueTutorialScript()`
+        //     一次都不被调 ⇒ 脚本永远停在 `WaitingForActor`；而 `TutorialScript.Matches` 的 TapCard 档
+        //     只认 `useWaystone`（`RuleEngine/Core/TutorialScript.cs:1255-1258`）⇒ **别的动作全被闸门挡** = 卡死。
+        //
+        //  ⚠️ 收集那一支**不另写一份**：直接交给 `OpenCommand(slot)` 的 waystone 段（判据同一处，
+        //     `RuleCore.CanCollectWaystone` 把「不是自己那侧 / 不是残骸 / 不是灵魂石 / 不是自己回合」全挡掉）。
+        //  ⚠️ **敌方**的灵族残骸：原版也走 `TryUsingWaystone`，然后被 `CanUseWaystone` 的
+        //     `isPlayer(+0x40) == isPlayerAsking` 挡掉 —— **连卡窗都不开**。我们照抄这一条：
+        //     点敌方的灵魂石什么都不发生（⛔ 别顺手给它开窗）。
+        //  ⚠️ 回放局：原版没有这个概念；我们这侧收集会改局面 ⇒ 与 `BoardPress` 的拖拽那一支同口径（只读）。
+        void TapBoardCard(int side, int slot)
+        {
+            var u = (Ctx != null && side >= 0 && side < Ctx.Players.Length && BoardSpec.IsValid(slot))
+                    ? Ctx.Players[side].Board[slot] : null;
+            if (u != null && u.IsRemnant && u.Card != null && u.Card.Faction == SpiritStoneFaction)
+            {
+                if (side != _me) return;        // 原版 `CanUseWaystone` ①：只能点自己那侧（连窗都不开）
+                if (_replaySession) return;     // 回放只读（判据同 `BoardPress` 的拖拽那一支）
+                // 原版这一步 = `TryUsingWaystone` → `CanUseWaystone`：不合法时只 `CustomDebug.Log`、**什么都不做**
+                // （⛔ 别落进 `OpenCommand` 下面那两道 `Exhausted` 闸 —— 那会播一句原版没有的
+                //   `UnitNotReady`；残骸恒 `Exhausted`，走进去必响）。合法才交给 waystone 支。
+                if (RuleCore.CanCollectWaystone(Ctx, _me, slot) == RuleCodes.OK) OpenCommand(slot);
+                else Debug.Log("[Battle] 点了自己那侧的灵族残骸，但此刻收不了（`CanCollectWaystone` 不许）"
+                             + " —— 原版 `BattleManager.TryUsingWaystone` 也是只记一句日志、不改局面。");
+                return;
+            }
+            ToggleUnitCard(side, slot);
+        }
+
+        // ================================================================
+        //  🆕 2026-10-26（F5 · 批次 4）：**战斗侧卡背走「那副卡组自己选的那张」**
+        // ================================================================
+        //
+        //  判据（原版）：`CardDeck.GetDeckCardback()` = `cardbackId` 非空就取那个装饰品，
+        //  否则 `ArmyUtilities.GetDefaultCardback(deckArmy)`。
+        //  数据这侧**早就有** —— `RuleEngine/Core/DeckRules.cs` 的 `PlayerDeck.CardbackId`
+        //  （卡组编辑里装备的那一件，写入口 `Shell/DeckRuntime.EquipCardback`），
+        //  `CardArt.DeckCardback(cardbackId, faction)` 也已经把「空 ⇒ 阵营默认」收口成**唯一判据**
+        //  （收藏窗早就在用它）。**缺的只是战斗侧把这一个 id 传进去** —— 原来 8 处直接
+        //  `CardArt.CardBack(faction)` ⇒ 玩家在卡组里装备的卡背，一进战斗就变回阵营默认（静默）。
+        //  ⚠️ 座位映射：`_myDeckSrc/_foeDeckSrc` 是**绝对座位 0/1** 的牌（`Begin` 的形参口径，
+        //     见 `BeginFromPendingCore` 那一句），而所有调用点都是**视图侧**（`_me` / `1-_me`）
+        //     ⇒ 映射**只在这一处**做，⛔ 别在各调用点各自推一份（翻座位时两处会不一致）。
+        //  ⚠️ 还没接的一半：牌堆底下那层 **SDF 掩码**仍按阵营默认取（`CardArt.CardBackSdf`）——
+        //     `CardArt` 没有 `DeckCardbackSdf`（那是 E7 的文件）⇒ 已写进本批报告的**改动请求**。
+        string DeckCardbackIdOf(int seat)
+        {
+            var d = seat == 0 ? _myDeckSrc : _foeDeckSrc;
+            return d != null ? d.CardbackId : null;
+        }
+
+        /// <summary>某一座位那副卡组**实际要画**的卡背（空 id ⇒ 该座位阵营的默认卡背）。
+        /// 判据只此一处：`CardArt.DeckCardback` 自己就是 `cardbackId 空 ⇒ CardBack(faction)`。</summary>
+        Texture2D DeckCardBackOf(int seat)
+        {
+            return CardArt.DeckCardback(DeckCardbackIdOf(seat), seat == _me ? _myFaction : _foeFaction);
+        }
+
+        /// <summary>🆕 2026-10-26（F5 · 批次 4）：**局内换语言 ⇒ 战斗日志逐行重拼**。
+        /// <para>判据：原版 `BattleHud.BroadcastChangedLanguage()` 用 `BroadcastMessage("ChangedLanguage")`
+        /// 打整棵 HUD 子树，其中一个实现者就是 `CemeteryManager.ChangedLanguage()` ——
+        /// 它把战斗日志**每一行**的文案按当前语言重拼一遍。我们的广播口 = `BattleHudLanguage`（E6 建的），
+        /// 日志这一半的订户就是本方法（`RefreshBattleLog` 已经是「按当前语言从 `Ctx.ActionLog` 重拼」）。</para>
+        /// <para>⚠️ **幂等**：先摘再挂 —— `Begin` 会被调多次（重开 / 录像 / 联机重建），
+        /// 直接 `+=` 会叠出 N 个订户（换一次语言重拼 N 遍）。摘的那一半写在 `DetachStaticHooks`。</para></summary>
+        void HookHudLanguageChanged()
+        {
+            BattleHudLanguage.Changed -= RefreshBattleLog;
+            BattleHudLanguage.Changed += RefreshBattleLog;
+        }
+
+        // ================================================================
+        //  🆕 2026-10-26（F5 · 批次 4）：**能量累积那颗的六步状态机**（原版 `ManaTypeHolder.SetSavedMana`）
+        // ================================================================
+        //
+        //  判据（两份反编译互证）：`decomp_full/ManaTypeHolder__SetSavedMana.c` 全文 +
+        //  `…__ToggleManaAccumulation.c` 全文 + `cpp2il …/ManaTypeHolder.cs:186-260`。六步逐句：
+        //    ① `manaAccumulationVFXON(+0x48).SetActive(0 < savedMana)` ∧
+        //       `…VFXOFF(+0x50).SetActive(savedMana < 1)`（两颗**互斥**）
+        //    ② `if (0 < savedMana && imageOn(+0x58) != null) { if (useNumberChange)
+        //         SetMana(unUsedMana − 1, totalMana /* silently=false */); ToggleManaAccumulation(true, null); }`
+        //    ③ 否则 `if (!useNumberChange) return;` 否则 `ToggleManaAccumulation(false, () => SetMana(unUsedMana, totalMana))`
+        //    ④ `ToggleManaAccumulation`：`Kill` → **`Mathf.Approximately(当前α, 目标α) ⇒ 整段 return`（连音效都不播）**
+        //       → `color = (r, g, b, on ? 0 : 1)`（**先写反档**，`param_2 ^ 1`）→ `DOFade(target, 1.0 s)`
+        //       + `SetDelay(0.5 s)` → `DOVirtual.DelayedCall(1.0 s, cb)`
+        //       ⇒ **onComplete 比补间结束早 0.5 s 落地**（照抄这个次序）
+        //    ⑤ 音效 `on ? manaAccumulated(+0x60) : manaAccumulatedUsed(+0x68)`，按**静态 `Time.frameCount`** 去重
+        //    ⑥ 时长常量：`SetDelay = 0.5`（`DAT_1834b2bb4`）· `DOFade = 1.0` 与 `DelayedCall = 1.0`
+        //       （同一个 `DAT_1834b2bb8`，`工具/read_literal.py` 那套口径已复核）
+        //
+        //  🔴 **两条如实记（⛔ 别当成「已复刻完」）**：
+        //    ⓐ **`savedMana` 我们引擎没有这一格**（`PlayerState.ManaCarry` 在 `BeginTurn` 立刻兑现并清零）
+        //       ⇒ 生产路径**从来没调过** `SetSavedMana`；本件今天只在**自检 / 将来接上引擎**时才亮。
+        //       接线请求写进报告（E1–E4 在 `PlayerState` 上暴露 `savedMana` 之后，`UpdateHud` 那一处直接喂）。
+        //    ⓑ **音效的值查不到**：`manaAccumulated` / `manaAccumulatedUsed` 这两个 AudioCue 在本机
+        //       全仓 **0 命中**（`素材/` · `Resources/` · 音效元数据都搜过）⇒ **只记日志、不放音**
+        //       （⛔ 别编一个 cue 名去 `BattleSfx.Play`）。
+        //
+        //  ⚠️ 组显隐与组内互斥**是两层**：原版那两颗是**组 GO 的子件**（`SetAccumulationMana` 切组，
+        //     `SetSavedMana` 切组内）⇒ 我们这侧没有父 GO（两颗是并列件）⇒ 两层**必须都写进同一个判据**
+        //     （<see cref="ApplyEnergyAccumulationVisual"/>），否则「组关着时 SetSavedMana 会把那颗点亮」。
+        //  ⚠️ `savedMana` **未知**（本局还没人调过）时组内保持**原来那一档**（ON 亮 / OFF 灭，
+        //     = 加这一件之前的画面）⇒ 今天的行为**一个像素都没变**。
+        int _savedManaMe = UnknownSavedMana;
+        int _savedManaFoe = UnknownSavedMana;
+        const int UnknownSavedMana = int.MinValue;
+
+        HudPiece EnergyAccumOnPiece(int side) { return side == _me ? _energyAccumMe : _energyAccumFoe; }
+        HudPiece EnergyAccumOffPiece(int side) { return side == _me ? _energyAccumOffMe : _energyAccumOffFoe; }
+        HudPiece _energyAccumOffMe, _energyAccumOffFoe;
+
+        /// <summary>四个件的显隐（组 × 组内两层）—— **判据只此一处**。
+        /// 组档 = <see cref="EnergyAccumulationOn"/>（`0 &lt; addedManaSecond`，原版 `SetAccumulationMana`）；
+        /// 组内 = `SetSavedMana` 写进来的 `savedMana`（未知 ⇒ 保持 ON 亮，见上）。</summary>
+        void ApplyEnergyAccumulationVisual()
+        {
+            bool group = EnergyAccumulationOn;
+            int[] sides = { _me, 1 - _me };
+            for (int i = 0; i < sides.Length; i++)
+            {
+                int side = sides[i];
+                int saved = side == _me ? _savedManaMe : _savedManaFoe;
+                bool known = saved != UnknownSavedMana;
+                bool wantOn = group && (!known || saved > 0);
+                bool wantOff = group && known && saved < 1;
+                var on = EnergyAccumOnPiece(side);
+                if (on != null && on.gameObject.activeSelf != wantOn) on.gameObject.SetActive(wantOn);
+                var off = EnergyAccumOffPiece(side);
+                if (off != null && off.gameObject.activeSelf != wantOff) off.gameObject.SetActive(wantOff);
+            }
+        }
+
+        /// <summary>能量那颗数写 `value/total`（= 原版 `SetMana(value, total)` 的两参重载，
+        /// 它写的就是 `ManaText` 那一颗；我们同一颗是 `_energyLabel` / `_foeEnergyLabel`）。</summary>
+        void SetManaDisplay(int side, int value, int total)
+        {
+            var lbl = side == _me ? _energyLabel : _foeEnergyLabel;
+            if (lbl != null) lbl.SetText(value + "/" + total);
+        }
+
+        /// <summary>原版 `ManaTypeHolder.SetSavedMana(savedMana, unUsedMana, totalMana, useNumberChange)`
+        /// —— 六步里的 ①②③（④⑤⑥ 在 <see cref="ToggleManaAccumulation"/>）。判据与本块的阻塞见上面那段头注。</summary>
+        public void SetSavedMana(int side, int savedMana, int unUsedMana, int totalMana, bool useNumberChange)
+        {
+            if (side == _me) _savedManaMe = savedMana; else _savedManaFoe = savedMana;
+            bool group = EnergyAccumulationOn;               // 组关着 ⇒ 两颗都不显示（原版靠父 GO 实现，我们没有父 GO）
+            var on = EnergyAccumOnPiece(side);
+            if (on != null)
+            {
+                bool want = group && savedMana > 0;                                  // ①
+                if (on.gameObject.activeSelf != want) on.gameObject.SetActive(want);
+            }
+            var off = EnergyAccumOffPiece(side);
+            if (off != null)
+            {
+                bool want = group && savedMana < 1;                                  // ①
+                if (off.gameObject.activeSelf != want) off.gameObject.SetActive(want);
+            }
+            if (savedMana > 0 && on != null)                                          // ②
+            {
+                if (useNumberChange) SetManaDisplay(side, unUsedMana - 1, totalMana); // 银行里那 1 点不计数
+                ToggleManaAccumulation(side, true, null);
+                return;
+            }
+            if (!useNumberChange) return;                                             // ③
+            ToggleManaAccumulation(side, false, () => SetManaDisplay(side, unUsedMana, totalMana));
+        }
+
+        /// <summary>原版 `ManaTypeHolder.ToggleManaAccumulation(on, onComplete)` —— 六步里的 ④⑤⑥。
+        /// ⚠️ 那道 `Mathf.Approximately` 闸是**整段短路**（连音效都不播、回调也不排）—— 🧨 删了它，
+        ///    「同一档重复调用」会每次补一遍淡入淡出并多响一声（原版明确不是）。</summary>
+        void ToggleManaAccumulation(int side, bool on, System.Action onComplete)
+        {
+            var p = EnergyAccumOnPiece(side);
+            if (p == null) return;
+            if (_manaAccumTween[side] != null) { DOTween.Kill(_manaAccumTween[side]); _manaAccumTween[side] = null; }
+            float target = on ? 1f : 0f;
+            var cur = p.Tint;
+            if (Mathf.Approximately(cur.a, target)) return;                  // ④ 那道闸（整段 return）
+            p.SetTint(new Color(cur.r, cur.g, cur.b, on ? 0f : 1f));          // ④ 先写**反档**（`param_2 ^ 1`）
+            var tw = DOTween.To(() => p.Tint.a, a => { var c = p.Tint; c.a = a; p.SetTint(c); },
+                                target, ManaAccumFadeSeconds).SetDelay(ManaAccumFadeDelay);
+            CardTween.Use(tw, Ease.Linear, p.transform);
+            _manaAccumTween[side] = tw;
+            if (onComplete != null)
+            {
+                var dc = DOVirtual.DelayedCall(ManaAccumCallbackSeconds, () => onComplete());
+                CardTween.Use(dc, Ease.Linear, p.transform);
+            }
+            // ⑤ 音效：**按静态 `Time.frameCount` 去重**（同一帧只响一次）。
+            //    ⚠️ 那两条 AudioCue 本地查不到（见本块头注 ⓑ）⇒ 只记日志；`ManaAccumSoundCount` 是
+            //    「**本来该响几次**」的计数（自检拿它验去重，⛔ 别把它当成「真的响了」）。
+            if (Time.frameCount != _manaAccumSoundFrame)
+            {
+                _manaAccumSoundFrame = Time.frameCount;
+                ManaAccumSoundCount++;
+                Debug.Log("[Battle] 能量累积 " + (on ? "开始（原版 `manaAccumulated`）" : "结束（原版 `manaAccumulatedUsed`）")
+                        + " —— 该 cue 本地查不到，这一下**只记不响**（⛔ 没编一个假 cue 名）");
+            }
+        }
+        readonly Tween[] _manaAccumTween = new Tween[2];
+        int _manaAccumSoundFrame = -1;
+        /// <summary>「本来该响几次」的累积计数（自检用：同档重入必须**不涨**）。</summary>
+        public int ManaAccumSoundCount { get; private set; }
+        /// <summary>原版 `ToggleManaAccumulation` 的三条时长常量（④⑥；`read_literal` 已复核）。</summary>
+        const float ManaAccumFadeSeconds = 1.0f;
+        const float ManaAccumFadeDelay = 0.5f;
+        const float ManaAccumCallbackSeconds = 1.0f;
+
+        // ---- 自检口（副作用与产品路径**同一套代码**，⛔ 不另写一份）----
+        /// <summary>自检：按原版形参直接喂一次 `SetSavedMana`（`_me` 那一侧）。</summary>
+        public void SetSavedManaForTest(int savedMana, int unUsedMana, int totalMana, bool useNumberChange)
+        {
+            SetSavedMana(_me, savedMana, unUsedMana, totalMana, useNumberChange);
+        }
+        /// <summary>自检：`_me` 那一侧 ON / OFF 两颗现在是不是亮着（原版 `manaAccumulationVFX{ON,OFF}.activeSelf`）。</summary>
+        public bool EnergyAccumOnVisibleForTest
+        {
+            get { var p = EnergyAccumOnPiece(_me); return p != null && p.gameObject.activeSelf; }
+        }
+        public bool EnergyAccumOffVisibleForTest
+        {
+            get { var p = EnergyAccumOffPiece(_me); return p != null && p.gameObject.activeSelf; }
+        }
+
+        // ================================================================
+        //  🆕 2026-10-26（F5 · 批次 4）：**切后台那段真实时间要补进倒计时**
+        // ================================================================
+        //
+        //  判据（**机器码级**，`ClockManager__OnApplicationPause` @ VA `0x1806221B0`，逐句读；`decomp_full`
+        //  那一份把关键比较打散成 CVT 噪声 ⇒ 以反汇编为准）：
+        //    · `paused == true` ⇒ `timestampPause(+0xC8) = DateTime.UtcNow` ·
+        //      `timeRealtimeStartedPause(+0xD0) = Time.realtimeSinceStartup`，然后**只打一条日志**；
+        //    · `paused == false` ⇒ `secs = (DateTime.UtcNow − timestampPause).TotalSeconds`；
+        //      `realDelta = Time.realtimeSinceStartup − timeRealtimeStartedPause`；
+        //      **`secs < 0` 或 `|secs − realDelta| < 1.0` ⇒ 什么都不做**（两道闸，`0x180622301` / `0x180622338`）；
+        //      否则 `timeInBackground(+0x7C) += secs`，**但还要 `clockCountdownFlag(+0x87) != 0`**（`0x18062234B`）。
+        //    · 消费端 `ClockManager__Update.c:41-43`：
+        //      `elapsed = (realtimeSinceStartup − startTime(+0x90) − timePausedOrDiscounted(+0x78))
+        //                 + timeInBackground(+0x7C) − timeInAnimation(+0x80)`
+        //      ⇒ **补进的是「已用时长」**（剩余变少、该结束就结束），**不是**把剩余时间加回去。
+        //
+        //  🔴 上一轮（E5 §五·2）把这两条记成「没确认」—— 现在钉死了：
+        //     ① 补进 `已用`；② `≥1 s` 那条**不是**门槛，真正的门槛是「两个时钟**差** ≥ 1 s」
+        //     （`realtimeSinceStartup` 在后台也照走 ⇒ 差 ≈ 0 ⇒ **不补**；只有它冻住时才补）。
+        //  ⚠️ 我们这侧没有 `+0x7C` 这一格：`_clockLeft` 是**递减**的剩余量 ⇒ 等价物 = `_clockLeft -= secs`。
+        //  ⚠️ 闸只对我们自己的回合表生效（`TickClock` 本来就在 `Ctx.Active != _me` 时早退，
+        //     而原版 `ClockManager.Update` 头两句也是 `IsPlayerTurn && clockRunningFlag`）⇒ 同口径。
+        void OnApplicationPause(bool paused)
+        {
+            if (paused)
+            {
+                _pauseTimestampUtc = System.DateTime.UtcNow;
+                _pauseRealtime = Time.realtimeSinceStartup;
+                return;
+            }
+            if (_pauseTimestampUtc == default(System.DateTime)) return;   // 从没 pause 过（首帧 resume 那种）
+            var stamp = _pauseTimestampUtc;
+            _pauseTimestampUtc = default(System.DateTime);
+            double secs = (System.DateTime.UtcNow - stamp).TotalSeconds;
+            float realDelta = Time.realtimeSinceStartup - _pauseRealtime;
+            if (secs < 0) return;                                        // 系统时钟被往回拨
+            if (Mathf.Abs((float)secs - realDelta) < PauseCompensateThreshold) return;   // 两个时钟一致 ⇒ 不补
+            if (!_clockInCountdown) return;                              // 原版 `clockCountdownFlag(+0x87)`
+            if (Ctx == null || Ctx.IsOver || Ctx.Active != _me) return;  // 只在玩家自己的表上补
+            _clockLeft = Mathf.Max(0f, _clockLeft - (float)secs);
+            Debug.Log($"[Battle] 切后台 {secs:0.0} s（`realtimeSinceStartup` 只走了 {realDelta:0.0} s）"
+                    + $" ⇒ 倒计时扣掉 {secs:0.0} s，剩 {_clockLeft:0.0} s"
+                    + "（判据：`ClockManager.OnApplicationPause` @ VA 0x1806221B0 + `ClockManager.Update.c:41-43`）");
+            UpdateClockLabel();
+        }
+        /// <summary>原版 `OnApplicationPause` 那道闸的常量：`|secs − realDelta| ≥ 1.0f` 才补
+        /// （立即数 `0x180622322` 的 `movss xmm0, [rip+0x2e9088e]`）。</summary>
+        const float PauseCompensateThreshold = 1.0f;
+        System.DateTime _pauseTimestampUtc;
+        float _pauseRealtime;
+
+        /// <summary>🆕 2026-10-26（`G21` · 账 `B13`）：把**本局**的 `matchType` 交给设置面板 ——
+        /// 接在 <see cref="SettingsPanel.MatchTypeSource"/> 上，`SettingsPanel.Show()` 每次打开都读一次
+        /// （= 原版 `BattleSettingsWindow__Open.c:41-121` 第一句就读 `matchType`）。
+        /// <para>为什么不能只在建面板时推一次：`BuildHud()` 被 `if (_hudBuilt) return;` 闩住、面板**只建一次**，
+        /// 而 `Ctx.MatchType` 由 `PlayMode` 派生、**每局都可能变**（普通局 → 教程局 / 回放局）
+        /// ⇒ 推一次 = 第二局起拿到的还是第一局那个值（症状：打过普通局再进教程局，「跳过教程」钮不出现，
+        /// 而 `SetMatchType(Tutorial)` 那条断言仍绿 —— 面板没坏，只是打开时取的是陈旧值）。</para>
+        /// ⛔ 别在打开面板的每个调用点各推一份 —— `SettingsPanel.Show()` 是唯一读点。</summary>
+        RuleEngine.MatchType? MatchTypeForSettingsPanel()
+        {
+            return Ctx != null ? Ctx.MatchType : (RuleEngine.MatchType?)null;
         }
     }
 }

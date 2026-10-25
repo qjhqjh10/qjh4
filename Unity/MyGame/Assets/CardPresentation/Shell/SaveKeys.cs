@@ -300,7 +300,7 @@ namespace CardPresentation
         //  我们自定的 key —— **必须** `_ours_` 前缀（方案 §九·1：原版没有的要显式标出来）
         // ════════════════════════════════════════════════════════════════════════════════════
 
-        /// <summary>我们自定 key 的前缀（`SaveCenter` 认它 ⇒ 加新 key 不用改键表，但要带这个前缀）。</summary>
+        /// 🔶 自己设计（非原版）：自定存档键前缀 `_ours_` · 原版没有这些键 · TODO(谁定的)｜原注：<summary>我们自定 key 的前缀（`SaveCenter` 认它 ⇒ 加新 key 不用改键表，但要带这个前缀）。</summary>
         public const string OursPrefix = "_ours_";
 
         /// <summary>`_ours_` · 卡牌等级 / 拥有数 / 通配符（`WarpforgeCardLevels.json`，`Shell/CardDetailPopup.cs`

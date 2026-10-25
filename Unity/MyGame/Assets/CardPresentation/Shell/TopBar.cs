@@ -461,14 +461,14 @@ namespace CardPresentation
             //      · `PlayerProfileUIController__Initialize.c` 末段 ⇒ `SetPlayerLevel(PlayerDataManager.CurrentLevel)`；
             //      · `PlayerProfileUIController__SetPlayerLevel.c` ⇒ `playerLevelText.text = level.ToString()`；
             //      · `__OnCollectorLevelUpdate.c` ⇒ 升级信号（`CollectorLevelChangeSignal`，等级在 +0x14）里再写一次。
-            //    ⇒ **数据源 = 服务器**（`PlayerDataManager.CurrentLevel`）⇒ 本地取不到 ⇒ 我们**照 prefab 的空态串 `-`**
-            //      （与档案窗那一格 `Shell/ProfileTab.cs` 的 `PlayerLevelText` **同一份口径**）；
-            //      ⛔ **不许自己编一个数字填上**（那会把「查不到」画成「有数据」）。判据已在报告里写明。
+            //    ⇒ **数据源 = 服务器**（`PlayerDataManager.CurrentLevel`）⇒ 本地取不到。⚠️ **2026-10-26 订正（铁律 5）**：
+            //      本段**原文**写「我们**照 prefab 的空态串 `-`** …⛔ **不许自己编一个数字填上**」—— **该口径已过期**：
+            //      用户当日**裁定 (b)**「算式照原版、4 个标量自拟」⇒ 现在印的是**我们自己算出来的等级**（数值来源非原版，🔶 标记见 `Shell/CardTierConfig.cs` 那 4 个标量）。原文保留更正痕迹，以免被误读成「原版也用 `-`」。判据 → `资料/完全复刻/判据/CardTierConfig_服务端数据_取证_第3轮.md`；算式与取值 → `Shell/CardTierConfig.cs`。
             var lvl = New(p, "Player Level", 53.12f, 53.12f);
             Rect(lvl, ArtRoundBtn, 117.5f, 170.6f, 54.3f, 107.4f, "Icon", QBarLevel,
                  null, false, onMissing);
-            var lv = Text(lvl, "-", 124.3f, 163.7f, 61.1f, 100.5f, 7, Color.white, "Player Level Text",
-                          37.2f, QBarText, TmpFont.Face.LatinCardBody);   // 原版 `Player Level Text` = Pragati
+            var lv = Text(lvl, CardTierConfig.PlayerLevelText, 124.3f, 163.7f, 61.1f, 100.5f, 7, Color.white, "Player Level Text",
+                          37.2f, QBarText, TmpFont.Face.LatinCardBody);   // 原版 = Pragati；🆕 2026-10-26（E8）值改 `CardTierConfig.PlayerLevelText`（与档案窗同一个口；⚠️ **我们自己算的**，不是服务器）
             if (lv != null) lv.SetAutoFitBox(39.4f / 108f, 39.4f / 108f, 18f, 37.2f, 36.89f);
         }
 
@@ -952,6 +952,26 @@ namespace CardPresentation
             if (face != TmpFont.Face.Cjk) lb.SetFace(face);
             if (fontPx > 0f) lb.SetGlyphHeight(fontPx / 108f);
             return lb;
+        }
+
+        /// <summary>🆕 **2026-10-26（批次 4 · F7 · 任务 ④）**：顶栏那颗 `Player Level Text` 按
+        /// `CardTierConfig.PlayerLevelText` 重刷（**变了才写**）。
+        /// <para>**为什么需要它**：原版 `PlayerProfileUIController.OnCollectorLevelUpdate` 收到升级信号
+        /// （`CollectorLevelChangeSignal` 的 `+0x14` = 新等级）就重写这一格；我们没信号层，而顶栏的 `Label`
+        /// 是 `Build` 时写死的 ⇒ **升完卡、等级变了，顶栏数字会停在旧值**（直到整壳重建）。
+        /// 手法照同文件 `RefreshPlayerNameIfChanged`（每帧比一个字符串就够，⛔ 别另造事件机制）。</para>
+        /// <para>⚠️ 批处理没有帧循环 ⇒ **自检直接调这个方法**（同 `RefreshCountersIfChanged` 的约定）。
+        /// ⚠️ 只重写文字、不重跑 `SetAutoFitBox` —— 等级 1~3 位数字的宽度差由这一格自己的字号档吸收；
+        /// 与同文件资源计数那几格「位数变宽不加宽药丸」是同一条取舍（如实标）。</para></summary>
+        public static void RefreshPlayerLevelIfChanged(Parts parts)
+        {
+            if (parts == null || parts.Root == null) return;
+            var t = FindDeep(parts.Root, "Player Level Text");
+            var lb = t != null ? t.GetComponent<Label>() : null;
+            if (lb == null) return;                                  // 建不出来（没图/没节点）⇒ 不静默也做不了，交给建的那一步出声
+            string want = CardTierConfig.PlayerLevelText;
+            if (string.Equals(lb.Text, want, System.StringComparison.Ordinal)) return;
+            lb.SetText(want);
         }
     }
 }

@@ -38,6 +38,13 @@ for n in sorted(x[:-4] for x in os.listdir(D) if x.endswith('.tsv')):
             bad.append((n, c[1], c[2][:30], 'NO_LINE')); continue
         p = find(lm.group(1)); dn = dn_at(p, int(lm.group(2))) if p else '?'
         orig = re.sub(r'\(.*$', '', c[2])
+        # 🆕 2026-10-26：`账/_重复键_待消歧` 的消歧约定把 `方法` 写成 `<真类型>.<原签名>`
+        #    （例：`LiveOpsEvent<TSave,TData>.GetBaseSave()`、`BotConfig.GetBotDecks()`）。
+        #    落点行声明的永远只是**裸方法名** ⇒ 比较前必须把 `<类型>.` 前缀剥掉，
+        #    否则这两条规矩会**永久冲突**（E13 报的 5 条假阳性就是这么来的）。
+        #    参数已经在上一行被 `\(.*$` 剥掉，所以剩下的 `.` 只可能是类型前缀的分隔点。
+        if '.' in orig:
+            orig = orig.rsplit('.', 1)[-1]
         if dn == orig:
             same += 1
         elif '（等价实现' in c[6] or '（实现 =' in c[6]:

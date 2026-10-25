@@ -54,7 +54,7 @@ namespace CardPresentation
         // 🔴 **形状照原版 `TutorialV2SaveData.StageSaveData { stageId, isCompleted }`**：
         //   每个 stage **按 stageId 记一个完成位**。原版把它上传到远端 profile；我们落 `PlayerPrefs`
         //   （= 本地等价物，见文件头）。键里用**原版 stageID 字符串**（`MenuTutorialStageDef.StageId`，逐字节实读）；
-        //   本地没有 SO 的两个 stage 没有原版 stageID ⇒ 用 `#<类名>` 当键（**我们的键，不是原版值**）。
+        // 🔶 自己设计（非原版）：无本地 SO 的两个 stage 用 `#<类名>` 当存档键 · 原版 stageID 取不到 · TODO(谁定的)｜原注：本地没有 SO 的两个 stage 没有原版 stageID ⇒ 用 `#<类名>` 当键（**我们的键，不是原版值**）。
         public const string PrefDonePrefix = "WfMenuTutorial.Done.";
         public const string PrefSkip = "WfMenuTutorial.Skipped";     // 1 = 玩家/调试口整链跳过（我们自己的标记）
         /// <summary>v1 的存档键（按「当前下标 + 位图」存）。**只用于 `ResetProgress` 清旧档**，⛔ 别再写。</summary>

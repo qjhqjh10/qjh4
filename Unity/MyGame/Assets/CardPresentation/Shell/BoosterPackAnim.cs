@@ -94,7 +94,7 @@ namespace CardPresentation
 
         // ============================================================ ② 翻牌（`Booster Opening - Card Open *`）
 
-        /// <summary>采样步长（**我们的**采样，不是原版 —— 原 clip 是 60 Hz 关键帧；见文件头「等价物」）。</summary>
+        /// 🔶 自己设计（非原版）：翻牌动画采样步长 `FlipSampleStep = 1/30` · 原 clip 是 60 Hz 关键帧，我们按代码补间（原版判据拿不到） · TODO(谁定的)｜原注：<summary>采样步长（**我们的**采样，不是原版 —— 原 clip 是 60 Hz 关键帧；见文件头「等价物」）。</summary>
         public const float FlipSampleStep = 1f / 30f;
 
         /// <summary>稀有度（`BoosterPackOpenWindow.RarityInt` 的那套 0..4）→ 用哪条 clip。
@@ -345,7 +345,7 @@ namespace CardPresentation
             }
         }
 
-        /// <summary>一条相机抖的持续时长（**我们挑的** —— preset 的 sustain/attack/decay 本地拿不到）。</summary>
+        /// 🔶 自己设计（非原版）：相机抖持续时长 `CameraShakeDuration = 0.5f` · preset 的 sustain/attack/decay 本地拿不到 · TODO(谁定的)｜原注：<summary>一条相机抖的持续时长（**我们挑的** —— preset 的 sustain/attack/decay 本地拿不到）。</summary>
         public const float CameraShakeDuration = 0.5f;
         /// <summary>相机抖的振荡频率（**我们挑的** —— MB 里的 `frequency` 是 preset 的内部量，语义查不到）。</summary>
         public const float CameraShakeHz = 8f;

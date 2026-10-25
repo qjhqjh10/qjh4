@@ -6038,7 +6038,7 @@ public static class RewardsScene
             // 🔴 **改坏法**：把这两颗塞回 `BuildColumn` 的宽度表（`ws` 里加 `UnlockW` / `BadgeSize`）
             //   ⇒ 下面四条**一起红**（按钮被推到物品右边、徽标被推到按钮右边）。
             {
-                const float itemW = 200f;    // ⚠️ **我们挑的**（原版那一格在抽屉 prefab 里，见上一段）
+                const float itemW = 200f;   // 🔶 自己设计（非原版）：奖励物品格宽 `itemW = 200f`（断言用） · 原版那一格在抽屉 prefab 里，我们没照它量（原版判据拿不到） · TODO(谁定的)｜原注：⚠️ **我们挑的**（原版那一格在抽屉 prefab 里，见上一段）
                 const float padL = 30f, padR = 30f, btnW = 245f, btnH = 45f,
                             btnBottom = 15f, badgeSz = 100f;
                 float hx1, hy1, hx2, hy2, bx1, by1, bx2, by2;

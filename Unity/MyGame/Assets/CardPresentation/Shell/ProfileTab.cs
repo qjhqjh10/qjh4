@@ -438,7 +438,7 @@ namespace CardPresentation
         public const int MinNameLen = 3;
 
         // ============================================================ 空态串（逐类见文件头 ⓐ/ⓑ/ⓒ）
-        /// <summary>ⓐ 空态串：`'-'`（原版 `Player Level Text` 自己用的）。</summary>
+        /// <summary>ⓐ 空态串：`'-'`（原版 `Player Level Text` 自己用的；⚠️ **2026-10-26 起我们这一格不再用它** —— 等级改由 `CardTierConfig` 算，见 `PlayerLevelText`）。</summary>
         public const string Dash = "-";
         /// <summary>ⓐ 空态串：`'------'`（原版 `Current Rank` 的 `Individual rating value` 自己用的）。
         /// 其余几格原版写的是示例数字（`'4879'` / `'32'` / `'16'`）⇒ 我们**沿用同一个空态串**（我们的选择）。</summary>
@@ -470,8 +470,8 @@ namespace CardPresentation
         /// <summary>奖杯行底下那行文案（`Victories text`，装的其实是 `Trophies`）的词条键。
         /// 🆕 2026-10-24（E12 · P0-3）：官方 `PlayerProfile/Trophies` = `Trophies` / `奖杯`；原来写死英文。</summary>
         public const string TrophiesTerm = "PlayerProfile/Trophies";
-        /// <summary>`Player Level Text` 的值：照抄原版预制体自己的空态串 `'-'`（ⓐ）。</summary>
-        public const string PlayerLevelText = Dash;
+        /// <summary>`Player Level Text` 的值 —— ⚠️ 2026-10-26 订正（铁律 5）：原文「照抄原版预制体自己的空态串 `'-'`」**已过期**（原版 prefab 仍写 `-`，但值由服务器下发；用户当日裁定 (b)「算式照原版、4 个标量自拟」⇒ 改成我们自己算的等级）⇒ 转发 `CardTierConfig`，与顶栏**同一个口**。原文保留以免被误读成「原版也用 `-`」。</summary>
+        public static string PlayerLevelText { get { return CardTierConfig.PlayerLevelText; } }
 
         /// <summary>`Events/*/Level` 那一行的词条 —— **逐格不同**（参考图 `账户-个人资料参考图.png`）：
         /// 战将格印 **胜利数**（`胜利 : 487`）、锻造厂与战役两格印 **等级**（`等级 : 32` / `等级 : 9`）。
@@ -650,7 +650,8 @@ namespace CardPresentation
             Rect(lv, ArtRoundBtn, new PxRect(PlL, PlT, PlR, PlB), "Image", L_Art);
             // 🔴 **A406**：`Player Info/Player Level/Player Level Text` 原版
             //   `字号=37.2 基准=**36.88999938964844** auto[18.0~37.2]` ⇒ 上限 37.2（= 标称）· base **36.89**。
-            Text(lv, PlayerLevelText, new PxRect(PltL, PltT, PltR, PltB), Color.white, "Player Level Text",
+            // 🆕 2026-10-26（批次 4 · F7 · 任务 ④）：留住这颗字 —— 升级后 `RefreshIdentity` 要重写它。
+            _levelLabel = Text(lv, PlayerLevelText, new PxRect(PltL, PltT, PltR, PltB), Color.white, "Player Level Text",
                  PltPx, L_Text2, autoFit: true, autoMinPx: PltAutoMin, alignLeft: false, wrap: true,
                  autoMaxPx: 37.2f, basePx: 36.88999938964844f, face: TmpFont.Face.LatinCardBody);
         }
@@ -1638,7 +1639,15 @@ namespace CardPresentation
                     Debug.LogWarning("[Profile] `Player Info` 的立绘取不到（" + (art ?? "清单为空") + "）—— 那一层不画");
                 }
             }
+            // 🆕 2026-10-26（批次 4 · F7 · 任务 ④）：等级那一格也跟着刷 —— 原版是
+            //   `PlayerProfileUIController.OnCollectorLevelUpdate`（升级信号）驱动；我们没信号层 ⇒
+            //   **每次开页（`OnOpen`）重读同一个口**，与顶栏 / 排位页一致。
+            if (_levelLabel != null) _levelLabel.SetText(PlayerLevelText);
             RefreshNameField();
         }
+
+        /// <summary>🆕 **2026-10-26（批次 4 · F7 · 任务 ④）**：本页 `Player Level Text` 那颗字。
+        /// ⚠️ 声明在**类尾**（`CLAUDE.md` §三「新成员追加到类尾」）—— 本页既有成员的行号一个不动。</summary>
+        Label _levelLabel;
     }
 }

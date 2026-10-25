@@ -1363,7 +1363,7 @@ namespace CardPresentation
                 //   不需要再压过面板。⛔ 别再因为「看不见了」把立绘抬到 `QDIRow`（那会盖住半透明面板、偏离原版）。
                 // ⚠️ **拉伸那一半本来就已经对了**：`keepAspect` 传的是 `!(方形)`，而 `CardArt.DeckHero` 这一族
                 //   63 张**逐张量过全是 2048²** ⇒ 方形 ⇒ `keepAspect = false` ⇒ **按 1108² 框拉满**（= 原版
-                //   `m_PreserveAspect = 0`）。只有「取不到立绘、退回卡面插图（671×1024）」那条**我们自己的兜底**
+                // 🔶 自己设计（非原版）：取不到立绘时退回卡面插图（671×1024）并按非方形等比内接 · 原版没有这条路（原版立绘族 63 张全是 2048²） · TODO(谁定的)｜原注：`m_PreserveAspect = 0`）。只有「取不到立绘、退回卡面插图（671×1024）」那条**我们自己的兜底**
                 //   仍按非方形等比内接 —— 原版没有这条路，兜底保形比保「拉伸」更重要。
                 Img(root, root, wlTex, WarlordL, WarlordT, WarlordR, WarlordB, "Warlord Image", QDIWarlord,
                     !(Mathf.Abs(wlTex.width - wlTex.height) <= 1));   // 方形立绘=拉伸(恒等)；退回卡面插图=等比

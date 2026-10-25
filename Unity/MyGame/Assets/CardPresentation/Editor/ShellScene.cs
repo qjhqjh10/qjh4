@@ -7856,7 +7856,7 @@ public static class ShellScene
                         + $"高于社交窗整带（页基 {SocialWindow.QPageBase} + 99）且低于下一档窗 "
                         + $"`GenericOptionsPanel.QShade({GenericOptionsPanel.QShade})`"
                         + "｜🧨 把 `LoadingController.QDark/QCog` 改回 4080/4082 ⇒ 本条红（4080 > 3299 与 4082 > 3330 两侧都越界）");
-                // 绝对值的回归闸（[我们挑的]）—— 上一条挡「转圈 + 社交窗两边一起挪」，这条只钉住这张表本身
+                // 🔶 自己设计（非原版）：加载转圈队列梯子 3327–3329 的绝对值回归期望 · 原版只给相对次序，绝对号段是我们挑的（原版判据拿不到） · TODO(谁定的)｜原注：绝对值的回归闸（[我们挑的]）—— 上一条挡「转圈 + 社交窗两边一起挪」，这条只钉住这张表本身
                 CheckTrue(LoadingController.QDark == 3327 && LoadingController.QSkull == 3328
                           && LoadingController.QCog == 3329,
                           $"（回归闸）W58·D4 的绝对值：[我们挑的] 转圈 QDark/QSkull/QCog = "

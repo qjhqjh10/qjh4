@@ -233,7 +233,7 @@ namespace CardPresentation
         /// ⛔ 这个常量从此**不再参与摆位**（留着只为不让「删掉它」变成一次无谓的 diff）。
         /// 判据与实读值 → `SetTip` 与 `TutTipAboveFactor` 的注释。</summary>
         const float Gap = 0.14f;
-        /// <summary>🔴 **我们挑的**：高亮层在锚点矩形外扩的边距（世界单位）。</summary>
+        /// 🔶 自己设计（非原版）：教学高亮层在锚点矩形外扩的边距 `HighlightPad = 0.06f` · 原版没有这个参数 · TODO(谁定的)｜原注：<summary>🔴 **我们挑的**：高亮层在锚点矩形外扩的边距（世界单位）。</summary>
         const float HighlightPad = 0.06f;
         // 🔴 **2026-10-18（A991）删掉了 `SkipAt01`**（原来是 `new Vector2(0.5f, 0.075f)`，
         //   注释写着「原版那个 `[22,1375]` 的父链偏移没能标定 ⇒ 摆位是我们挑的」）。
@@ -261,7 +261,7 @@ namespace CardPresentation
         ///     ⇒ 相对根 `(1.208, 0.224)` · 旋转 **+113.20°**。
         /// ⚠️ 两个旋转值是我按 `2·atan2(z,w)` 现算的（四元数逐位照抄上面那两份 JSON）——
         ///   **原版那两颗 `SpriteRenderer` 的 `m_Sprite` 是真·空引用**（文件头 ②），所以「箭头长什么样、
-        ///   朝哪边」在原版**本来就是看不见的**；这里照抄的只是**摆放**，贴图仍是我们挑的
+        /// 🔶 自己设计（非原版）：教学箭头贴图 `40k_general_bt_arrow` · 原版两颗 SpriteRenderer 的 `m_Sprite` 是真·空引用，原版本来就不显示箭头（原版判据拿不到） · TODO(谁定的)｜原注：朝哪边」在原版**本来就是看不见的**；这里照抄的只是**摆放**，贴图仍是我们挑的
         ///   `40k_general_bt_arrow`（⛔ 别当成「原版的箭就是这张」）。</summary>
         static readonly Vector2 ArrowLPos = new Vector2(-1.184f, 0.352f);
         static readonly Vector2 ArrowRPos = new Vector2(1.208f, 0.224f);
@@ -985,6 +985,15 @@ namespace CardPresentation
                 if (UguiMode) CvPlace(a.gameObject, _cvTip, _root.TransformPoint(p));
                 else a.transform.localPosition = p;
             }
+            // 🆕 2026-10-26（批次 5 · G7）：**箭头自己的 α 也归 `_fade` 管**。
+            //   判据 = 原版 `TutorialTipScript.FadeElements`（cpp2il `TutorialTipScript.cs:365-391` /
+            //   `RadioMessageScript.cs:303-338`）：整块 `DOFade(canvasGroup)` **之后**，还逐颗对
+            //   `leftArrow` / `rightArrow` 做 `DOFade(targetAlpha)`（**只在那颗 `activeSelf` 时**）。
+            //   ⇒ 刚亮起时 α 取**当前** `_fade`（原版 `SetupArrows` 是「先 α=0 再 DOFade(1)」，
+            //   净效果 = 跟着整块淡入）。⚠️ 如实记一条差异：连续两条提示首尾相接（`_fade` 已是 1）
+            //   时，原版箭头会从 0 重跑 0.2 s，我们直接满 α 出现 —— 今天 6 关 462 条动作
+            //   `showLeftArrow/showRightArrow` 实测**全 false** ⇒ 零可见影响（`BattleDriver.cs:17067` 同记）。
+            if (on) a.SetTint(new Color(1f, 1f, 1f, _fade));
             if (a.gameObject.activeSelf != on) a.gameObject.SetActive(on);
         }
 
@@ -1163,6 +1172,22 @@ namespace CardPresentation
             if (_tipBg != null) _tipBg.SetTint(new Color(1f, 1f, 1f, 0.92f * _fade));
             if (_tipText != null) _tipText.SetColor(new Color(1f, 1f, 1f, _fade));
             if (_tipContinue != null) _tipContinue.SetColor(new Color(1f, 0.85f, 0.35f, _fade));
+            // 🆕 2026-10-26（批次 5 · G7）：左右箭头**跟着整块一起淡**（原版 `FadeElements` 的
+            //   第二、三句；**只对 activeSelf 的那颗**做 `DOFade(targetAlpha)`）。
+            //   判据 → `SetArrow` 里那条注释（两份方法体逐句）。⛔ 别把这两行写成「无条件设 α」
+            //   —— 原版那两句都有 `activeSelf` 闸，收起来的箭头保持它自己的 α（下次亮起由 `SetArrow` 重设）。
+            if (_arrowL != null && _arrowL.gameObject.activeSelf) _arrowL.SetTint(new Color(1f, 1f, 1f, _fade));
+            if (_arrowR != null && _arrowR.gameObject.activeSelf) _arrowR.SetTint(new Color(1f, 1f, 1f, _fade));
         }
+
+        // ==================================================================
+        //  🆕 2026-10-26（批次 5 · G7）：箭头**不透明度**的自检读口（**追加在类尾**，⛔ 别插到中间去）
+        // ==================================================================
+        /// <summary>自检用：左箭头的**实际不透明度**（`HudPiece.Tint.a`；没建出来 ⇒ −1）。
+        /// 判据 = 原版 `TutorialTipScript.FadeElements` 对 activeSelf 的箭头做 `DOFade(targetAlpha)`
+        /// ⇒ 亮着时应跟 <see cref="TipAlpha"/> 同值（断「箭头真的跟着整块淡」，不是只看它开没开）。</summary>
+        public float ArrowLeftAlpha { get { return _arrowL != null ? _arrowL.Tint.a : -1f; } }
+        /// <inheritdoc cref="ArrowLeftAlpha"/>
+        public float ArrowRightAlpha { get { return _arrowR != null ? _arrowR.Tint.a : -1f; } }
     }
 }

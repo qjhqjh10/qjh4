@@ -261,7 +261,7 @@ namespace CardPresentation
         public void NewDeck(string name, int gameMode = 0)
         {
             // 🔴 **2026-10-18（双语线 · 波 1 · P1）**：默认名走词条 `MenuDeck/NewDeckName`
-            //   （键名 = 调度台 2026-10-18 裁定、自拟；中文列 = 改之前这里写死的 `新卡组` ⇒ 中文档零变化）。
+            // 🔶 自己设计（非原版）：新建卡组默认名的词条键 `MenuDeck/NewDeckName` · 原版两张表都查不到这条键，键名由调度台裁定自拟 · 调度台 2026-10-18 裁定｜原注：（键名 = 调度台 2026-10-18 裁定、自拟；中文列 = 改之前这里写死的 `新卡组` ⇒ 中文档零变化）。
             //   ⚠️ **同一个串的第二处**在 `Deck/DeckRuntime.cs` 的清名那一拍（`SetDeckName`）；
             //      第三处（`Shell/CollectionData.cs:260` 的 `Lib.UniqueName("新卡组")`）**不在本笔白名单里** ⇒
             //      已写进交件报告（铁律 6：同一件事只留一条键，三处一律用 `MenuDeck/NewDeckName`）。

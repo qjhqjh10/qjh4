@@ -65,7 +65,7 @@ namespace CardPresentation
         /// <summary>播放瞬间把 graphic 自身 α 置成这个值。原版 `ChangeGraphicAlpha(0f)`（`:205`）。</summary>
         public float alphaOnPlay = 0f;
 
-        // ── 🔴 替代路径（**不是原版口径**，默认关闭）────────────────────────────────
+        // 🔶 自己设计（非原版）：「材质没有 `_Reveal` 时退化成 α 渐隐/渐显」的替代路径 · 原版只有 reveal 那条路（原版判据拿不到） · TODO(谁定的)｜原注：── 🔴 替代路径（**不是原版口径**，默认关闭）────────────────────────────────
         /// <summary>材质没有 `_Reveal` 时，是否退化成「α 渐隐/渐显」。⛔ 默认 false = 不猜。</summary>
         public bool alphaBreathing;
         /// <summary>替代路径的起始 α（**非原版值**，接线方自己给）。</summary>

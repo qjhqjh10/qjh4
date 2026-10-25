@@ -4323,6 +4323,40 @@ public static class ArenaBuilder
                 def.targetAnchor = FindBuiltByGo(all, e.anchor.go, e.anchor.pos, out _, null, e.anchor.scale);
                 if (def.targetAnchor == null)
                 {
+                    // 🆕 2026-10-26（Q2 第 3 轮）**第二条判据：按整条路径找**。
+                    //   为什么「名字 + 坐标 + 缩放」会假失败：清单的 `pos` 来自 `gen_unity_arena_manifest.py`
+                    //   的 `world_chain()` —— 它沿父链**只累乘旋转与平移、不乘父级缩放**（`gen_arena_groups.py`
+                    //   的 `_world_of` 明写「必须照抄这个口径」）。而我们的节点带的是**原版 local TRS**
+                    //   （`ApplyGroupNodes` 那一套）⇒ 它的 `Transform.position` 是**真·Unity 世界坐标**
+                    //   （= 父级缩放乘在子 localPosition 上）。⇒ 只要父链上有非单位缩放、而这条锚点的
+                    //   localPosition 非零，两个数就**结构性对不上**（实测 5 条：差 0.089 ~ 1.479）。
+                    //   判据全文（逐条父链 / 两套口径 / 真实差值）→ `资料/完全复刻/报告/Q2_第3轮.md` §②。
+                    //   ⇒ **锚点用「整条路径」认身份**（清单 `anchor.path` 就是原版那条层级路径，我们树里
+                    //     逐段同名），这条路**与坐标口径无关**、也不靠容差；找不到/同层重名 ⇒ 返回 null，
+                    //     继续走下面的自建兜底（⛔ 不猜）。
+                    var byPath = FindBuiltByPath(root, e.anchor.path);
+                    if (byPath != null && !AnchorScaleOk(byPath, e.anchor.scale))
+                    {
+                        // 路径对上了、但缩放差太多 ⇒ 我们这棵树在那条路径上建的**不是**原版那颗（出声，别静默采信）
+                        Debug.LogWarning($"[Arena] {mf.scene}：`{e.go}` 的锚点 `{e.anchor.go}` 按路径命中了"
+                                       + $"（path `{e.anchor.path}`），但**缩放对不上**（树里 "
+                                       + $"{Vec3Str(F3(byPath.lossyScale))} vs 清单 {Vec3Str(e.anchor.scale)}）"
+                                       + " ⇒ 不采信这条路，继续按名字/坐标找");
+                        byPath = null;
+                    }
+                    if (byPath != null)
+                    {
+                        def.targetAnchor = byPath;
+                        var p = byPath.position;
+                        Debug.Log($"[Arena] {mf.scene}：`{e.go}` 的锚点 `{e.anchor.go}` **按名字+坐标没命中**"
+                                + $"（清单 pos {Vec3Str(e.anchor.pos)} · 树里那颗在 "
+                                + $"{Vec3Str(F3(p))} · 差 {Vector3.Distance(p, new Vector3(e.anchor.pos[0], e.anchor.pos[1], e.anchor.pos[2])):F3}）"
+                                + $" ⇒ **按整条路径命中**（path `{e.anchor.path}`）。"
+                                + "差异来源 = 清单 `world_chain()` **不乘父级缩放**（口径差，不是节点丢了）");
+                    }
+                }
+                if (def.targetAnchor == null)
+                {
                     // 🆕 2026-10-25（Q2）：原版这颗锚点我们**没建出来**（旁挂 `nodes[]` 里没有它）。
                     //   两个已查实的根因（判据 → `报告/Q2_建场清单与锚点_第2轮.md` §②·4 / §②·5）：
                     //     ① 父是 **`worldBaked` 网格**（arena2 的 `Rubble`）⇒ 被 `gen_arena_groups.wanted_paths()`
@@ -4331,10 +4365,16 @@ public static class ArenaBuilder
                     //        `MeshFilter` + `BoxCollider`、**没有 `MeshRenderer`**）⇒ 不在 manifest `meshes[]`
                     //        ⇒ 也不在 `want`（那 4 颗 `Grill Anchor` / `Grill anchor` / `GameObject`×2 就是这么丢的）。
                     //   ⇒ **按清单自建**（铁律 11「原版有、我们没建出」）：原版这 5 颗都是**纯空叶子**
-                    //     （只有 `Transform`、0 子件），而清单里的 `anchor.pos/rot/scale` 已经是**世界**口径
-                    //     （生成器 `world_trs()`），`root` 是 identity ⇒ 写 local 等于写世界；
-                    //     原版 `PlayParticle` 只拿它 `SetParent` + 本地零位 ⇒ **世界位姿一致就等价**，
-                    //     不依赖层级路径。
+                    //     （只有 `Transform`、0 子件；2026-10-26 Q2 逐个复读过），原版 `PlayParticle`
+                    //     只拿它 `SetParent` + 本地零位 ⇒ **世界位姿一致就等价**，不依赖层级路径。
+                    //   🔴 **2026-10-26 更正（Q2 第 3 轮）：上面原来写「清单里的 pos 已经是世界口径」——
+                    //     那句**只对了一半**。`gen_unity_arena_manifest.py` 的 `world_chain()` 沿父链
+                    //     **不乘父级缩放** ⇒ 只要父链上有非单位缩放、而这颗锚点的 localPosition 非零，
+                    //     清单 pos 就**不等于** Unity 真世界坐标（实测 arena2 `Squig Anchor`：清单
+                    //     (91.045,0.644,1.081) vs 真 (89.617,1.106,1.687) ⇒ 差 **1.618**；父 `Rubble` 缩放
+                    //     174.86 × localPos 0.0092）。⇒ 这一路的自建**会带着那个差**（本轮只剩 arena2 一条，
+                    //     判据/清单 → `报告/Q2_第3轮.md` §②·6）。根治在生成器（要重生 13 场清单+旁挂+建场，
+                    //     调度台另行拍板），⛔ 本处不去补那个差（没有第二份数据源可比）。
                     //   ⚠️ 清单的 scale 是**模长**（恒 ≥0，见 `world_scale()`）⇒ 若将来遇到镜像锚点，
                     //     自建出来的符号会是正的（这 5 颗都是正缩放，实测无影响）。
                     //   ⛔ **别改成「往 `gen_arena_groups.py` 的 `nodes[]` 里塞」**：`ApplyGroupNodes`(:3005)
@@ -4345,9 +4385,11 @@ public static class ArenaBuilder
                     ApplyTransform(anchorGo.transform, e.anchor.pos, e.anchor.rot, e.anchor.scale);
                     def.targetAnchor = anchorGo.transform;
                     nAnchorRebuilt++;
-                    Debug.Log($"[Arena] {mf.scene}：`{e.go}` 的锚点 `{e.anchor.go}` 旁挂里**没有**"
+                    Debug.Log($"[Arena] {mf.scene}：`{e.go}` 的锚点 `{e.anchor.go}` **旁挂和树里都没有**"
                             + $"（path `{e.anchor.path}`）⇒ **按清单世界 TRS 自建**一颗空节点"
-                            + $"（pos {Vec3Str(e.anchor.pos)} · 原版这颗是纯空叶子，世界位姿与清单一致）");
+                            + $"（pos {Vec3Str(e.anchor.pos)} · 原版这颗是纯空叶子）"
+                            + "⚠️ 清单 pos 是 `world_chain()` 口径（**不乘父级缩放**）⇒ 原版若挂在高缩放父件下，"
+                            + "自建这颗会差「父缩放 × 自身 localPos」（详见 Q2_第3轮.md §②·6）");
                 }
                 if (def.targetAnchor == null)
                 {
@@ -4428,6 +4470,11 @@ public static class ArenaBuilder
 
     /// <summary>在整棵树里按「名字 + 世界坐标」找已建出来的宿主/锚点。
     /// 阈值：位置 0.05（清单坐标是 6 位小数四舍五入后的值）。
+    /// <para>🔴 **2026-10-26（Q2 第 3 轮）：这条判据对「父链上有非单位缩放」的节点结构性失灵** ——
+    /// 清单 `pos` 是 `world_chain()` 口径（**不乘父级缩放**），而这里比的是 `Transform.position`
+    /// （真 Unity 世界坐标）。⇒ **锚点那一侧另有 `FindBuiltByPath` 兜底**（见类尾，判据全文 →
+    /// `资料/完全复刻/报告/Q2_第3轮.md` §②）；宿主那一侧今天靠下面 `requireMesh == true` 那条
+    /// 「名字唯一就认」兜着 —— ⛔ 别把那个兜底删掉。</para>
     /// <para>`requireMesh`：`true` ⇒ 只认**带 MeshFilter**的（清单 `hasMesh`）；`false` ⇒ 只认**不带**的
     /// （原版那颗宿主本来就没有渲染器）；`null` ⇒ 不筛（锚点用）。
     /// ⚠️ 这一层筛是为了**别把 `ApplyGroupNodes` 建出来的同名分组节点**当成宿主 ——
@@ -5804,4 +5851,60 @@ public static class ArenaBuilder
     {
         return c != null && !string.IsNullOrEmpty(c.type);
     }
+
+    // ---------- 🆕 2026-10-26（Q2 第 3 轮）：按**整条层级路径**认一个已建节点 ----------
+    //  为什么需要它（判据 → `资料/完全复刻/报告/Q2_第3轮.md` §②）：
+    //    清单的 `pos` 来自 `gen_unity_arena_manifest.py` 的 `world_chain()`，它沿父链**只累乘旋转
+    //    与平移、不乘父级缩放**；而 `ApplyGroupNodes` 建的节点带的是**原版 local TRS**，其
+    //    `Transform.position` 是**真·Unity 世界坐标**（父级缩放乘在子 localPosition 上）。
+    //    ⇒ 只要父链上有非单位缩放、锚点自身 localPosition 非零，`FindBuiltByGo` 的「名字 + 0.05 坐标
+    //    + 1% 缩放」就**结构性对不上**（2026-10-25 那轮 5 条锚点被误判成「没建出来」就是这么来的：
+    //    arena3 `Monolith Front Left` 差 0.089 · blacklegion `Firepit Anchor` 1.479 / `Ornament Anchor`
+    //    1.365 · sororitas `Cauldron L/R` 0.590 / 0.585）。
+    //    路径是**与坐标口径无关**的身份（原版那条层级路径，我们逐段同名复刻出来了）⇒ 用它兜底最稳。
+
+    /// <summary>按清单里的整条层级路径（`A/B/叶子`）在 `root` 底下找一个子件。
+    /// <para>逐段按 `name` **精确相等**比（大小写/空格/下划线全照抄，不做归一化 —— 与
+    ///   `FindBuiltByGo` 的 `t.name != goName` 同一套；⛔ **别改用 `Transform.Find`**：它把 `/` 当路径
+    ///   分隔符，而原版有带 `/` 的节点名）。</para>
+    /// <para>⚠️ 同层出现**重名**时返回 null（判不出是哪一个，⛔ 不猜）—— 调用方会继续走
+    ///   「名字+坐标」与「自建」两条兜底，行为不比改之前差。</para></summary>
+    static Transform FindBuiltByPath(Transform root, string path)
+    {
+        if (root == null || string.IsNullOrEmpty(path)) return null;
+        var segs = path.Split('/');
+        var cur = root;
+        for (int i = 0; i < segs.Length; i++)
+        {
+            string want = segs[i];
+            if (string.IsNullOrEmpty(want)) return null;
+            Transform hit = null;
+            int n = 0;
+            for (int c = 0; c < cur.childCount; c++)
+            {
+                var ch = cur.GetChild(c);
+                if (ch.name != want) continue;
+                n++;
+                if (hit == null) hit = ch;
+            }
+            if (hit == null || n > 1) return null;      // 找不到 / 同层重名 ⇒ 不猜
+            cur = hit;
+        }
+        return cur == root ? null : cur;
+    }
+
+    /// <summary>锚点按路径命中之后，**再核一次缩放**（清单 `world_scale()` = 真 lossyScale 的模长）。
+    /// <para>为什么要核：路径只证「层级位置对」，缩放是另一件事 —— 若我们这条路径上建的节点缩放
+    ///   与原版不符（例如父件被错挂），把它当锚点会让粒子按错误缩放继承。⛔ 别把这一句删成
+    ///   「路径命中就直接采信」。</para>
+    /// <para>清单没给 scale（或不够 3 位）⇒ 不核（返回 true）。</para></summary>
+    static bool AnchorScaleOk(Transform t, float[] scale)
+    {
+        if (t == null) return false;
+        if (scale == null || scale.Length < 3) return true;
+        return ScaleClose(t.lossyScale, new Vector3(scale[0], scale[1], scale[2]));
+    }
+
+    /// <summary>`Vector3` → `float[]`（只为复用 `Vec3Str`，不引入第二套格式化）。</summary>
+    static float[] F3(Vector3 v) { return new float[] { v.x, v.y, v.z }; }
 }

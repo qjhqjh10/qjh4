@@ -110,9 +110,11 @@
 // · **任务进度**：有本地数据源 —— `Shell/DailyData.cs`（`DailyDesc` / `DailyCounter` /
 //   `DailyProgress01` / `DailyRewardArt` / `DailyRewardText`）⇒ `ShowMission(index)` 走它。
 // · **收藏经验 / 收藏等级 / 成就**：**本地没有数据源**（原版由服务端下发；`CollectorLevelData` /
-//   `CollectorLevelChangeSignal` 只有类型、没有本地实例）。⇒ `ShowCollectionGainXP(amount)` /
-//   `ShowCollectionLevelUp(level)` 两件**只听声、不弹**（`Debug.LogWarning` + 返回 false）；
-//   要弹只能走通用 `ShowNotification(Context)` 并**由调用方提供真实文案**。
+//   `CollectorLevelChangeSignal` 只有类型、没有本地实例）。⇒ `ShowCollectionGainXP(amount)` **只听声、不弹**
+//   （`Debug.LogWarning` + 返回 false）；要弹只能走通用 `ShowNotification(Context)` 并由调用方给真实文案。
+//   🆕 **2026-10-26（批次 4 · F7）订正**：`ShowCollectionLevelUp(level)` **不再是聋子** —— 等级现在有
+//   **本地来源**（`CardTierConfig.PlayerLevel`：算式照原版、4 个标量自拟，判据 → `Shell/CardTierConfig.cs`）
+//   ⇒ 它会真弹（标题走官方词条、等级格走同一个口）。本行原来把两件并列写成「两件只听声」，已过期。
 // · **成就**：原版 `Toast` 的文案是词条（`Congratulations! You've earned an achievement.`），
 //   本地没有「哪个成就、什么时候给」的数据 ⇒ 不主动弹；调用方有真实成就事件时走通用口。
 //
@@ -593,7 +595,10 @@ namespace CardPresentation
             // 🔴 **2026-10-20（W58 · D7）**：`wrap: false` → **`true`**。
             //   原版 `MB_505`（`Player Level Text`）的 `m_TextWrappingMode = 1 (Normal)`；
             //   我们这一格原来是 `0 (NoWrap)`（RV·L1）。单/双位数字看不出差别，但字段必须与原版同值。
-            var lvlText = Tmp(lvl, lvlTextRect, "-", Color.white, "Player Level Text", 37.2f, QText,
+            // 🆕 **2026-10-26（批次 4 · F7 · 任务 ③）**：初值从 `"-"` 改成 `CardTierConfig.PlayerLevelText`
+            //   —— 与顶栏 / 档案窗 / 排位页**同一个口**（原版这颗字由 `SetPlayerLevel(PlayerDataManager.CurrentLevel)` 写，
+            //   见 `Shell/TopBar.cs` 那一段判据）。模板只建一次，**每次弹**再由 `Fill` 按同一个口重写一次。
+            var lvlText = Tmp(lvl, lvlTextRect, CardTierConfig.PlayerLevelText, Color.white, "Player Level Text", 37.2f, QText,
                               wrap: true, autoMin: 18f, autoMax: 37.2f, autoBase: 36.89f, face: TmpFont.Face.LatinCardBody);
             MenuDraw.SetVAlign(lvlText, Label.VAlign.Midline, lvlTextRect);
 
@@ -812,13 +817,24 @@ namespace CardPresentation
             return false;
         }
 
-        /// <summary>收藏等级提升飘窗。🔴 **本地没有数据源** ⇒ **不弹**（同上）。</summary>
+        /// <summary>收藏等级提升飘窗。🆕 **2026-10-26（批次 4 · F7 · 任务 ③/④）：有数据源了** ——
+        /// 等级不再来自服务器，而是 `CardTierConfig.PlayerLevel`（算式照原版、4 个标量自拟，
+        /// 判据 → `Shell/CardTierConfig.cs` 文件头）。标题走官方词条
+        /// `MainMenu/ToastNotifications/PlayerCollectorLevelUp`（= 原版 prefab 那句 `Collector Level Up!`），
+        /// 等级那一格由 `Fill` 按 `CardTierConfig.PlayerLevelText` 写。
+        /// <para>⚠️ `level` 实参：原版它是 signal 载荷（`CollectorLevelChangeSignal +0x14`）。
+        /// 我们的等级是**本地算出来的**，只有一个口 ⇒ 实参只用来**对账**（不一致就出声），不参与印字
+        /// （⛔ 不许让调用点成为第二个数字来源）。</para></summary>
         public static bool ShowCollectionLevelUp(int level)
         {
-            Debug.LogWarning("[ToastNotifications] `ShowCollectionLevelUp(" + level + ")`：**本地没有玩家收藏等级"
-                           + "的数据源**（原版由服务端下发）⇒ **不弹**（⛔ 不编数值）。"
-                           + "有真实事件时走 `Show(CollectionLevelUp, 文案, 图标)`。");
-            return false;
+            int have = CardTierConfig.PlayerLevel;
+            if (level > 0 && level != have)
+                Debug.LogWarning("[ToastNotifications] `ShowCollectionLevelUp(" + level + ")` 的实参与本地算出的等级 "
+                               + have + " 不一致 ⇒ 这一格按 `CardTierConfig.PlayerLevelText` 印（同一口），实参只当记录（不静默）");
+            var c = new Context("MainMenu/ToastNotifications/PlayerCollectorLevelUp",
+                                ToastNotificationType.CollectionLevelUp);
+            c.Localize = true;
+            return ShowNotification(c);
         }
 
         // ============================================================ 弹一条
@@ -978,6 +994,17 @@ namespace CardPresentation
                             else if (tex == null)
                                 Debug.LogWarning($"[ToastNotifications] 图标 `{ctx.IconArt}` 取不到 ⇒ 这一条沿用模板图"
                                                + "（⛔ 不静默）。");
+                        }
+                        // 🆕 **2026-10-26（批次 4 · F7 · 任务 ③/④）**：升级飘窗那颗 `Player Level Text` 走
+                        //   **同一个口** `CardTierConfig.PlayerLevelText`（顶栏 / 档案窗 / 排位页都是它，
+                        //   ⛔ 别在这里另算一份）。原版这一格由 signal 载荷（`CollectorLevelChangeSignal +0x14`）写；
+                        //   我们的等级是本地算出来的 ⇒ 直接读那一个口。
+                        if (ctx.Type == ToastNotificationType.CollectionLevelUp)
+                        {
+                            //   ⚠️ `FindLabel` 走的是 `Transform.Find(路径)`（**不是**按名字全树搜）⇒ 必须给完整路径。
+                            var lvlLb = FindLabel(root, "Player Level (1)/Player Level Text");
+                            if (lvlLb != null) lvlLb.SetText(CardTierConfig.PlayerLevelText);
+                            else Debug.LogWarning("[ToastNotifications] 升级飘窗里找不到 `Player Level Text` ⇒ 等级那一格是旧值（不静默）");
                         }
                         break;
                     }

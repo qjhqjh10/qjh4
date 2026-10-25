@@ -294,7 +294,7 @@ namespace CardPresentation
         /// 只作「没有存档时的初值」，之后以 <see cref="Wildcards"/> 的实读为准。</summary>
         public const int WildcardsPerRarity = 99;
 
-        /// <summary>这张卡那种稀有度的通配符还有几张（**只此一处**）。稀有度大小写不敏感。</summary>
+        /// <summary>这张卡那种稀有度的通配符还有几张 —— **「不分阵营」那一桶**（历史存档/自检/既有调用点的兼容口）。🆕 2026-10-26（F7）：详情窗改走两维重载 <see cref="Wildcards(string,string)"/>（`(army, rarity)` = 原版 `CheckForCardCrafting` 的谓词）；本重载等价 `Wildcards(null, rarity)`，但少一道「这一档有没有通配符定义」的闸（`special` 这边 99 / 两维那边 0）—— 保留旧行为是为了不动既有自检（`Editor/CollectionScene.cs` · `CardFaceAssertE5.cs` 用它摆库存）。⛔ 新代码别再用这一支。</summary>
         public static int Wildcards(string rarity)
         {
             EnsureLoaded();
@@ -345,6 +345,197 @@ namespace CardPresentation
         public static void SetWildcardsForTest(string rarity, int n)
         {
             _wild[(rarity ?? "").ToLowerInvariant()] = Mathf.Max(0, n);
+        }
+
+        // ============================================================ 🆕 2026-10-26（批次 4 · F7）
+        // 一、**升级 XP 奖励**那一维（`CardTierConfig.XPReward` 的数据源）
+        // 二、**通配符的第二个维度**（`army`）+ 原版 `CheckForCardCrafting` 的兜底与 `CanCraft()` 闸
+        // 三、**合成异画**（原版 `CardServices.CraftAlternateArt`）
+        //
+        // ⚠️ 全部追加在类尾（`CLAUDE.md` §三「新成员追加到类尾」）—— 类中段的既有行号照旧只被
+        //    上面那两条 `internal` 改动之外的东西影响；漂移数以 `check_ledger_points.py` 实测为准（报告 §末）。
+
+        /// <summary>升到第 i 级给多少**玩家收藏 XP**（下标 = 等级，1 基；`MaxLevel = 4`）。
+        /// = 原版 `CardTierConfig.CardTierInfo.xpReward` 那一维的数据源（`CardTierConfig.cs:31` /
+        /// `判据/CardTierConfig_服务端数据_取证_第3轮.md` §一）。
+        /// <para>🔶 自己设计（非原版）：升级 XP 奖励表 · 原版在远端 CardTierConfig，本机四条取证全负 ·
+        /// 用户 2026-09-22（升级表）+ 2026-10-26（4 个标量）两次裁定自拟</para>
+        /// <para>**为什么是这组数（梯度与另三条自洽，不是随手填的）**：</para>
+        /// <list type="number">
+        /// <item>**同序**：与 `NeedCopies` `{0,0,2,5,9}` / `NeedGold` `{0,0,500,1000,2000}` /
+        ///   `Points` `{0,0,100,250,500}` 一样，**下标 1 全是 0**（Tier1 = 新卡出厂档，没有「升到 1 级」这回事）
+        ///   ⇒ 新号总 XP 仍是 0、玩家等级仍是 1（与原版「新号 1 级」一致，不是缺陷）。</item>
+        /// <item>**量级 = `Points` 的约 1/20**（5↔100 · 12↔250 · 30↔500）：锻造点是一次性货币，
+        ///   收藏 XP 是累计进等级曲线的量（`Shell/CardTierConfig.cs` 的曲线每级 35–100 XP），
+        ///   两者不该同量级 —— 取 1/20 之后「升满一张卡」= **47 XP**，约等于曲线上一级的 0.5–1.3 倍
+        ///   （1→2 级 35 · 20 级 50），即**升满几张卡看得见升级、又不会一次跳很多级**。</item>
+        /// <item>**上限保护留足余量**：1,127 张卡**全部**升满 = `1127 × 47 = 52,969` XP
+        ///   ⇒ 按自拟曲线约 500 级，**远离** `GetLevelForXP` 那条 `num &gt; 9999` 的告警上界
+        ///   （判据 → `Shell/CardTierConfig.cs` 的 `GetLevelForXP`）。</item>
+        /// </list>
+        /// <para>⚠️ 将来远端真配置出现（或用户另定），**只改这一个数组**，`CardTierConfig` 那边不用动。</para></summary>
+        public static readonly int[] XpAward = { 0, 0, 5, 12, 30 };
+
+        // ------------------------------------------------------------ 二、通配符：(army, rarity) 两个维度
+        //
+        // 🔴 判据（唯一正本）= `d:/2/tools/cpp2il/out_cpp2il_dev_ilspy/CardServices.cs:548-650`
+        //   （`CheckForCardCrafting`，逐句）+ `d:/2/tools/decomp_full/CardServices__CheckForCardCrafting.c`
+        //   （机器码复核，两支都在：精确命中 ⇒ 读数量 `return 0 < count`；没命中 ⇒ 走 `AssetLocator`）：
+        //   ① **精确匹配** = `w.cardArmy == ogCard.cardArmy && w.cardRarity == ogCard.Rarity`，且数量 > 0 ⇒ 可合成；
+        //   ② **同阵营兜底** = 精确没命中时 `AssetLocator.GetAssets<Wildcard>()` +
+        //      `FirstOrDefault(w => w.cardArmy == ogCard.cardArmy)`（**只看阵营、不看稀有度**）——
+        //      把那张「定义」当 out 交出去（决定**面板建不建**），但方法**`return false`**（兜底**不让合成通过**）；
+        //   ③ 真扣减那一步（`CardServices.CraftCard`，`CardServices.cs:651+`）**只有①**：没有兜底、也不重判 `CanCraft()`。
+        //   ⇒ 我们这一侧：库存键从「只看稀有度」升成 **`army|rarity`**；旧的纯稀有度键保留为
+        //     **「不分阵营」那一桶**（历史存档 + 既有调用点 + 自检的兼容面，见 `WildKey`）。
+        //   🔴 **等价替换，如实标**：原版兜底找的是 **SO 定义**不是库存，而我们四档定义全都有
+        //     （`WildcardIcons` / `WildcardRarities`）⇒「定义存在」这一层恒真。所以本文件把兜底落成
+        //     **「同阵营别的稀有度桶里还有库存」** —— 同样是「找得出一张、但目标那桶不可用」的语义。
+
+        /// <summary>库存键。`army` 为空 ⇒ **「不分阵营」那一桶**（2026-10-18 起的旧口径；历史存档里的键就是
+        /// 纯稀有度串）。两个维度都按**小写**比（原版那是 `cardArmy` / `CardRarity` 两个枚举，我们这边是字符串）。</summary>
+        public static string WildKey(string army, string rarity)
+        {
+            string r = (rarity ?? "").ToLowerInvariant();
+            string a = (army ?? "").ToLowerInvariant();
+            return a.Length == 0 ? r : a + "|" + r;
+        }
+
+        /// <summary>`(army, rarity)` 那一桶还有几张（**精确匹配**；原版谓词里的两个字段都在）。
+        /// <para>⚠️ **这一档没有通配符定义 ⇒ 0**（原版：`AssetLocator` 里没有那张 SO ⇒ 背包里不可能有）。
+        /// 判据的「有没有定义」只走 `CardDetailPopup.WildcardRarities`（四档，⛔ 别在这里再写一份 switch）。</para></summary>
+        /// <param name="army">阵营（`CardDef.Faction`）；`null` / 空 = 「不分阵营」的兼容桶。</param>
+        public static int Wildcards(string army, string rarity)
+        {
+            if (System.Array.IndexOf(CardDetailPopup.WildcardRarities, (rarity ?? "").ToLowerInvariant()) < 0) return 0;
+            EnsureLoaded();
+            int v;
+            return _wild.TryGetValue(WildKey(army, rarity), out v) ? Mathf.Max(0, v) : WildcardsPerRarity;
+        }
+
+        /// <summary>扣 1 张 `(army, rarity)` 的通配符；不够返回 `false`（**不改任何数**）。
+        /// 调用方必须判返回值（原版 = 服务端受理才发奖励）。</summary>
+        public static bool TrySpendWildcard(string army, string rarity)
+        {
+            int have = Wildcards(army, rarity);
+            if (have <= 0) return false;
+            _wild[WildKey(army, rarity)] = have - 1;
+            Save();
+            return true;
+        }
+
+        /// <summary>原版 `CheckForCardCrafting` 的 **out 参数**（= 找出来的那张通配符）。
+        /// ⚠️ 只留四件事（找得到 / 能不能合成 / 哪一桶 / 剩几张）—— 原版那个 `Wildcard` 是 SO 引用，
+        /// 我们这边没有 SO 层（图标走 `CardDetailPopup.WildcardIconFor(rarity)`）。</summary>
+        public struct WildcardMatch
+        {
+            /// <summary>找没找到一张（原版 `out wildcard != null` ⇒ 决定**整块面板建不建**）。</summary>
+            public bool Found;
+            /// <summary>**能不能合成**（= 原版这个方法的返回值）。⚠️ 兜底命中时 `Found=true` 而这里是 `false`。</summary>
+            public bool Craftable;
+            /// <summary>命中那一桶的阵营（兜底时仍是同一阵营）。</summary>
+            public string Army;
+            /// <summary>命中那一桶的稀有度（兜底时是**别的**档）。</summary>
+            public string Rarity;
+            /// <summary>命中那一桶剩几张。</summary>
+            public int Count;
+            /// <summary>这一条是不是**同阵营兜底**（精确那桶 0 张 ⇒ 原版 `AssetLocator` 那条支的等价物）。</summary>
+            public bool Fallback;
+        }
+
+        /// <summary>原版 `CardServices.CheckForCardCrafting(card, out wildcard)` 的等价物（判据全文见上面那一大段注释）。
+        /// <para>⚠️ **它不含 `CanCraft()` 闸** —— 原版那道闸在同一个方法的第一句（`RawCardScript.CanCraft()`），
+        /// 我们拆成 <see cref="CanCraftCard"/> 由调用方先判（`BuildCrafting` 两件都调）。</para></summary>
+        public static WildcardMatch MatchWildcard(string army, string rarity)
+        {
+            var m = new WildcardMatch { Army = army, Rarity = (rarity ?? "").ToLowerInvariant() };
+            m.Count = Wildcards(army, rarity);
+            if (m.Count > 0)
+            {
+                m.Found = true;
+                m.Craftable = true;
+                return m;
+            }
+            // ---- 同阵营兜底（原版 `AssetLocator.GetAssets<Wildcard>()` 那支）----
+            m.Found = true;          // 我们四档定义全有 ⇒「至少找得出一张」恒真
+            m.Fallback = true;
+            m.Count = 0;
+            var others = CardDetailPopup.WildcardRarities;
+            for (int i = 0; i < others.Length; i++)
+            {
+                if (string.Equals(others[i], m.Rarity, System.StringComparison.OrdinalIgnoreCase)) continue;
+                int n = Wildcards(army, others[i]);
+                if (n > 0) { m.Rarity = others[i]; m.Count = n; break; }
+            }
+            return m;
+        }
+
+        /// <summary>原版 `RawCardScript.CanCraft()`（`RawCardScript.cs:2081-2099`）= **两个 LiveOps 配置谓词的与**：
+        /// ① `FeatureConfig.CanCraftItem(this)` = `card.expansionPack ∉ expansionsNotCrafting`（`FeatureConfig.cs:492-520`）；
+        /// ② `CardsSpecialConfig.CanCraftCard(this)` = `card.uniqueId ∉ blacklistedCardsToCraft`（`CardsSpecialConfig.cs:213-247`）。
+        /// <para>🔴 **本地取证（本笔现做）**：`assets_full`（247,612 个对象）全量搜 `expansionsNotCrafting` /
+        /// `blacklistedCardsToCraft` = **0 命中**（对照组：同一遍搜 `cardArmy` 有命中、搜 `CardsSpecialConfig`
+        /// 只命中 2 个 `MonoScript` 类名壳 ⇒ 不是「grep 坏了」）。两份配置都是远端 `IConfigData`，
+        /// 与 `CardTierConfig` 同一族（→ `判据/CardTierConfig_服务端数据_取证_第3轮.md` §三 的四条取证口径）。</para>
+        /// <para>⇒ **我们的等价 = 稀有度四档白名单**（`CardDetailPopup.Craftable`；`special` 那批不可合成
+        /// 是用户 2026-09-27 的裁定）。**如实标为等价替换**：原版按「扩展包 / 卡 id 黑名单」判，我们按稀有度判；
+        /// 将来远端配置到手，**只换本方法的体**，调用方不动。</para></summary>
+        public static bool CanCraftCard(CardDef card)
+        {
+            return card != null && CardDetailPopup.Craftable(card.Rarity);
+        }
+
+        // ------------------------------------------------------------ 三、合成异画
+
+        /// <summary>这张异画**解锁了没有** = 原版 `InventoryManager.HasItem(alternateArt)`
+        /// （判据 = `CraftingPanel.ArtStyleChanged` 里的 `HasItem(alternateArtCard)` 那一跳）。
+        /// <para>我们的正本 = `Inventories.AltArts`（`Shell/Inventory.cs` 的 `AlternateArtInventory`）。
+        /// ⚠️ 与「收藏窗那张静态表 `CollectionWindow.AltArtCards`」**不是一件事**：
+        /// 表 = 「世上存在哪些异画」，背包 = 「玩家手里有哪几张」（本项目按全解锁口径播种，
+        /// 见 `Inventories.SeedAltArtsAllUnlocked`）。</para></summary>
+        public static bool IsAltArtUnlocked(string cardId)
+        {
+            if (string.IsNullOrEmpty(cardId)) return false;
+            return Inventories.AltArts.Get(cardId) != null;
+        }
+
+        /// <summary>合成异画 = 原版 `CardServices.CraftAlternateArt`（`out_cpp2il_dev_ilspy/CardServices.cs:816+`
+        /// · 机器码 `decomp_full/CardServices__CraftAlternateArt.c` 逐句）。原版四步：
+        /// ① 按 `(army, rarity)` **精确**找 1 张通配符（**没有兜底**；找不到直接 return、连回调都不调）；
+        /// ② `HasItem(alternateArt)` ⇒ `onError(0x32)`（**失败码 50 = 已拥有**）；
+        /// ③ 云端受理 ⇒ `RewardService.Collect(result.Rewards)`（发奖励）；
+        /// ④ `InventoryManager.Remove(wildcardItem, 1)`（扣 1 张）。
+        /// <para>我们的等价：②⇒ 已解锁就**出声 + false**；①④⇒ 扣 1 张（`TrySpendWildcard` 失败则**什么都不发**）；
+        /// ③⇒ 把这条 `AltArtUnlock` 加进 `Inventories.AltArts`（**发奖励**那一半）。
+        /// ⚠️ **两处如实标**：(a) 异画背包今天**不落盘**（由全解锁播种、原版是服务器背包）⇒
+        /// 扣掉的通配符**会**落盘（`Save()`）、解锁这一半不会；(b) `ClonedCardId` 本地查不到真值（留 null，
+        /// 见 `AltArtUnlock.ClonedCardId`）。</para></summary>
+        public static bool CraftAlternateArt(string cardId, string style, string army, string rarity)
+        {
+            if (string.IsNullOrEmpty(cardId))
+            {
+                Debug.LogWarning("[CardProgress] 合成异画**请求不发**：卡 id 为空");
+                return false;
+            }
+            if (IsAltArtUnlocked(cardId))
+            {
+                // 原版 `onError(0x32)`：已拥有。⚠️ 本项目「全解锁」播种 ⇒ **正常路径到这里就停**
+                // （机制在、但本机没有可合成的异画 —— 如实出声，⛔ 不假装成功）。
+                Debug.Log("[CardProgress] 合成异画**不做**：「" + cardId + "」的异画已经在背包里"
+                        + "（原版同一支 = `CraftAlternateArt` 的 `onError(0x32)` / 失败码 50）");
+                return false;
+            }
+            if (!TrySpendWildcard(army, rarity))
+            {
+                Debug.LogWarning("[CardProgress] 合成异画**失败**：`" + (army ?? "?") + "/" + rarity
+                               + "` 的通配符 0 张（原版同一支：`TryGetItem` 找不到 ⇒ 直接 return，不发奖励）");
+                return false;
+            }
+            Inventories.AltArts.Add(new AltArtUnlock { CardId = cardId, Style = style }, 1);
+            Debug.Log("[CardProgress] 合成异画：「" + cardId + "」（风格 " + style + "）已解锁；"
+                    + "扣 1 张「" + (army ?? "?") + "/" + rarity + "」通配符（剩 "
+                    + Wildcards(army, rarity) + "）—— 原版 `CardServices.CraftAlternateArt`");
+            return true;
         }
     }
 
@@ -1209,7 +1400,7 @@ namespace CardPresentation
         /// ⚠️ **原版运行时长什么样，关服查不到**（可能整块隐藏、也可能是个灰掉的按钮）
         ///   ⇒ 这里选**整块不建**，**不造一个假的禁用态**（同 `CLAUDE.md`「宁可没有，不可错着显示」）。
         ///   真要改成「建出来但点不动」是一行的事 —— 先把口径记在这儿。</summary>
-        static bool Craftable(string rarity)
+        internal static bool Craftable(string rarity)   // ⚠️ `internal`：`CardProgress.CanCraftCard` 要转发它（同一条判据只留一处）
         {
             switch ((rarity ?? "").ToLowerInvariant())
             {
@@ -1235,7 +1426,7 @@ namespace CardPresentation
         /// ⚠️ 两个数组的次序**必须同序** —— 改一个就要改另一个（下面 `BuildWildcards` 按下标同时用）。
         /// 🔴 **2026-10-24**：它同时是「稀有度 → 原版 `craftVFXs` 的 1 基 rarity」的**唯一判据**
         /// （<see cref="CraftRarityIndex"/>）—— ⛔ 别在调用点另写一份 switch。</summary>
-        static readonly string[] WildcardRarities = { "common", "rare", "epic", "legendary" };
+        internal static readonly string[] WildcardRarities = { "common", "rare", "epic", "legendary" };   // ⚠️ `internal`：`CardProgress.Wildcards(army,rarity)` 用它判「这一档有没有通配符定义」
 
         /// <summary>稀有度键 → 原版 `CraftingPanel.craftVFXs[]` 的 **1 基 rarity 号**
         /// （1=Common · 2=Rare · 3=Epic · 4=Legendary）。认不出（`special` / 空）⇒ **0**。
@@ -1280,7 +1471,18 @@ namespace CardPresentation
             //   的 `zh` 列，2026-10-18 现读；`Loc.T` 那三档兜底的最后一段就是这张表）。
             //   ⚠️ 中文串传 `Face.Cjk`（同本文件「将此张牌降级或升级」那一处）—— 混排兜底虽然也画得出汉字，
             //   但字号是按 `ActualFace` 的 em 换算的 ⇒ 纯中文串走 CJK 面才与本仓其它中文同一档。
-            Title(p, "Crafting Title", Loc.T("MenuDeck/Craft/CraftDescription"),
+            // 🆕 **2026-10-26（批次 4 · F7 · 任务 ①）：这颗钮还有第二种用途** —— 原版
+            //   `CraftingPanel.ArtStyleChanged`（`out_cpp2il_dev_ilspy/CraftingPanel.cs:558-620` 逐句）在
+            //   「当前看的是**还没解锁的异画**」时把 title 换成 `MenuDeck/Craft/CraftAlternateArt`、
+            //   置 `willCraftAlternateArt = true`，点下去走 `CardServices.CraftAlternateArt`（扣通配符 + 发奖励）；
+            //   而 `TryCrafting`（`:641`）在 `willCraftAlternateArt == false` 时才做「传奇确认」那道闸。
+            //   ⚠️ 描述行**不换**成 `MenuDeck/Craft/CraftAlternateCantCraft`：原版那一支只在「**没拥有原卡**」时换
+            //      （`ArtStyleChanged` 里的 `HasItem(originalCard)` 为假），而本工程拥有数是「给足」口径
+            //      （任何 id ≥ 1）⇒ 那一支在本项目走不到（如实标，⛔ 不假装它存在）。
+            bool willCraftAltArt = AltStyleIndex > 0 && Card != null
+                                   && HasAltArtStyle(Card.Id) && !CardProgress.IsAltArtUnlocked(Card.Id);
+            Title(p, "Crafting Title", Loc.T(willCraftAltArt ? "MenuDeck/Craft/CraftAlternateArt"
+                                                             : "MenuDeck/Craft/CraftDescription"),
                   1307.5f, 165.17f, 1726f, 244.29f, 42f, TmpFont.Face.Cjk);
             var b = new PxRect(1384f, 244.29f, 1654f, 304.95f);
             // ⚠️ `UI_Button_Mulligan` **不是九宫格图**（实读 `Sprite/UI_Button_Mulligan.json`：`m_Border = None`，
@@ -1348,12 +1550,23 @@ namespace CardPresentation
             if (craftWb != null)
             {
                 // 原版 `CheckButtons`：没有通配符 ⇒ `Selectable.interactable = false`（灰掉、点不派发）。
-                int have = CardProgress.Wildcards(Card.Rarity);
-                craftWb.Interactable = have > 0;
+                // 🆕 **2026-10-26（F7）**：从「只看稀有度」升成 **`(army, rarity)` 精确 → 同阵营兜底 → `CanCraft()` 闸**
+                //   三件 —— 判据 = `CardServices__CheckForCardCrafting.c` 的两支（逐句见
+                //   `CardProgress.MatchWildcard` / `CardProgress.CanCraftCard` 的注释）。
+                //   ⚠️ 兜底命中（`Fallback = true`）时 `Craftable` 仍是 `false` = 原版那句 `return false`
+                //      （面板照样建、钮灰着）；`Found = false` 才是原版的「整块 `SetActive(false)`」。
+                var wm = CardProgress.MatchWildcard(Card.Faction, Card.Rarity);
+                bool canCraft = CardProgress.CanCraftCard(Card) && wm.Craftable;
+                craftWb.Interactable = canCraft;
                 craftWb.playClickSound = true;    // 用户 2026-10-18 追加：**保留按钮音**（⛔ 别再关掉）
-                if (have <= 0)
-                    Debug.Log("[CardDetail] 「创建副本」那颗钮 = **不可交互**（「" + Card.Rarity + "」通配符 0 张）"
-                            + " —— 判据 = 原版 `CraftingPanel__CheckButtons.c` 的 `set_interactable(CheckForCardCrafting())`");
+                if (!canCraft)
+                    Debug.Log("[CardDetail] 「" + (willCraftAltArt ? "合成异画" : "创建副本") + "」那颗钮 = **不可交互**（"
+                            + (CardProgress.CanCraftCard(Card) ? "" : "`CanCraft()` 闸不放行；")
+                            + (wm.Craftable ? "" : "「" + Card.Faction + "/" + Card.Rarity + "」通配符 0 张"
+                                              + (wm.Fallback ? "（同阵营兜底命中 `" + wm.Rarity + "` 那一桶 " + wm.Count
+                                                               + " 张 —— 原版兜底同样**不让合成通过**）" : "")
+                            )
+                            + "）—— 判据 = 原版 `CraftingPanel__CheckButtons.c` 的 `set_interactable(CheckForCardCrafting())`");
             }
             else Debug.LogWarning("[CardDetail] 「创建副本」那颗钮的 `WindowButton` 拿不到 ⇒ "
                                 + "**「请求 + 特效」没落地**（不静默）");
@@ -1904,13 +2117,17 @@ namespace CardPresentation
                 // 🔴 **2026-10-18 改判（铁律 5）**：这里原来写死 `DeckRuntime.WcCountText`（= `"99"` 常量）。
                 //   **那条口径作废** —— 用户当天拍板「照参考图布置两块面板」⇒ 创建副本会**真扣**通配符
                 //   （`DoCraft` → `TrySpendWildcard`），数字还钉在 99 就是**画的和用的对不上**。
-                //   ⇒ 本窗 4 格改读**真库存** `CardProgress.Wildcards(rarity)`（落盘，见「存档」那一段）。
+                //   ⇒ 本窗 4 格改读**真库存**（落盘，见「存档」那一段）。🆕 2026-10-26（F7）：读 **`(army, rarity)`** 那桶，见下面那句。
                 //   ⚠️ **本窗之外还欠两处**：`Shell/CollectionWindow.cs` 与 `Deck/DeckRuntime.cs` 里
                 //   那两条计数仍读 `DeckRuntime.WcCountText`（同一个 `"99"` 常量；**不在本笔白名单**）
                 //   ⇒ 扣过之后那两处会与本窗**不一致**，已报回调度台。
                 //   原版语义：那 4 个数是 `WildcardDisplay` 的库存直出、跟着**指针悬停那张卡**的阵营走。
+                //   🆕 **2026-10-26（F7 · 任务 ①）**：把那一层真的接上 —— 键从「只看稀有度」升成
+                //   **`(army, rarity)`**（`CardProgress.Wildcards(army, rarity)`），army 取**本窗正在看的这张卡**的
+                //   `Faction`（原版那颗指针悬停卡 = 本窗这张）。⚠️ 旧存档里的键是纯稀有度串 = 「不分阵营」那一桶，
+                //   仍在（`WildKey`），所以升级后数字会**从旧桶切到新桶**（各自按 99 起算）—— 如实标。
                 MenuDraw.Text(panel, new PxRect(x + 30f, WcBgT, x + 30f + DeckRuntime.WcCountWrapPx, WcBgB),
-                              CardProgress.Wildcards(WildcardRarities[i]).ToString(), Color.white,
+                              CardProgress.Wildcards(Card != null ? Card.Faction : null, WildcardRarities[i]).ToString(), Color.white,
                               "Wildcard Count " + i, WcPx, QCdText,
                               // 🔴 **2026-10-17（`A1229`）**：这一处原来**没传四格**（另两个宿主传了）——
                               //   现按同一份共用常量补上。判据 = 原版
@@ -2053,9 +2270,26 @@ namespace CardPresentation
         /// 拥有数取 <see cref="CardProgress.Owned"/> —— ⛔ 别在调用点另写一份 `rarity == "legendary"`。</para></summary>
         bool NeedsLegendaryCraftConfirm()
         {
+            // 🆕 2026-10-26（F7）：原版 `TryCrafting` 的**第一句**是 `if (!willCraftAlternateArt) { …传奇确认… }`
+            //   （`out_cpp2il_dev_ilspy/CraftingPanel.cs:641-660`）⇒ 合成异画那一支**跳过**这道闸。
+            if (WillCraftAlternateArt) return false;
             return Card != null
                 && CraftRarityIndex(Card.Rarity) == 4
                 && CardProgress.Owned(Card.Id, Card.Rarity) == 1;
+        }
+
+        /// <summary>🆕 **2026-10-26（F7）**：原版 `CraftingPanel.willCraftAlternateArt` 的等价物 ——
+        /// 「当前展示的是**还没解锁的异画**」⇒ 这颗钮合成的是**异画**（不是再买一张副本）。
+        /// <para>判据 = `ArtStyleChanged`（`out_cpp2il_dev_ilspy/CraftingPanel.cs:558-620`）：
+        /// `willCraftAlternateArt = (alternateArtCard != null) && !HasItem(alternateArtCard) && HasItem(original)`。
+        /// ⚠️ 第三项（拥有原卡）在本工程**恒真**（拥有数 = 给足口径，任何 id ≥ 1）⇒ 只留前两项。</para></summary>
+        bool WillCraftAlternateArt
+        {
+            get
+            {
+                return AltStyleIndex > 0 && Card != null
+                    && HasAltArtStyle(Card.Id) && !CardProgress.IsAltArtUnlocked(Card.Id);
+            }
         }
 
         /// <summary>弹那扇确认窗 = 原版 `WindowsManager.ShowPopUp(正文, localizeTexts:1, closeOnEsc:0,
@@ -2159,6 +2393,24 @@ namespace CardPresentation
                                + "」不在原版 `craftVFXs` 的 1..4 里（`special` 那档原版整块不建）");
                 return false;
             }
+            // 🆕 **2026-10-26（F7 · 任务 ①·异画）**：合成异画那一支 —— 原版 `TryCraftingInternal`
+            //   （`out_cpp2il_dev_ilspy/CraftingPanel.cs:660-700`）在 `willCraftAlternateArt` 时走
+            //   `CardServices.CraftAlternateArt(alternateArtPanel.currentAlternateArtCard, …)`，
+            //   **不是** `CraftCard`。特效那一步两支共用（原版 `DoVFX()` 在分支**之后**、无条件跑）。
+            if (WillCraftAlternateArt)
+            {
+                var altStyles = AltStylesOf(Card.Id);
+                int ai = Mathf.Clamp(AltStyleIndex - 1, 0, Mathf.Max(0, altStyles.Count - 1));
+                string style = altStyles.Count > 0 ? altStyles[ai].Style : CollectionWindow.StyleDefault;
+                if (!CardProgress.CraftAlternateArt(Card.Id, style, Card.Faction, Card.Rarity))
+                {
+                    Debug.Log("[CardDetail] 「合成异画」请求失败 ⇒ **不播特效**"
+                            + "（判据 = 原版 `TryCraftingInternal` 只在请求发出后调 `DoVFX`；失败走 `OnFail`）");
+                    return false;
+                }
+                RebuildKeepingState();     // 解锁后「已拥有」那一档要重画（标题/锁/描述都跟着变）
+                return true;
+            }
             if (!DoCraft())
             {
                 // 失败原因与后续提示已在 DoCraft 里出声（原版这一支 = `OnFail_22_1` 的 ErrorPopup）。
@@ -2214,9 +2466,10 @@ namespace CardPresentation
         ///
         /// <para>原版那一支（`CardServices__CheckForCardCrafting.c` / `CraftingPanel__TryCrafting.c`）：
         /// 按 **army + rarity** 找通配符且数量 &gt; 0 ⇒ 扣 1、`owned +1`（拥有数无上限）。
-        /// ⚠️ **我们的等价物少一个维度**：通配符库存只按 **稀有度** 记（4 档），**不区分阵营** ——
-        /// 因为详情窗底下那条通配符计数条本来就只画 4 格（原版那 4 格跟着**指针悬停那张卡**的阵营走，
-        /// 单机没有发放源）。⇒ **如实标注为一处偏离**，⛔ 别当成原版语义。
+        /// ✅ **2026-10-26（F7 · 任务 ①）就地订正（铁律 5）**：本段原来写「**我们的等价物少一个维度**：
+        /// 通配符库存只按稀有度记（4 档）、不区分阵营 ⇒ 如实标注为一处偏离」—— **那个偏离已销**：
+        /// 库存键升成 `army|rarity`（`CardProgress.WildKey`），本方法读的是 `Card.Faction` + `Card.Rarity`
+        /// 两个维度；旧的纯稀有度键只当「不分阵营」的历史桶（兼容存档与既有自检调用点）。
         /// 🔴 **2026-10-24（A6）就地订正（铁律 5）**：原来这里写「原版『传奇且 `owned==1` 先弹确认窗』
         /// 那一支**没做**」—— **现在做了**，但**不在本方法里**：闸在 `OnCraftClicked`（= 原版
         /// `TryCrafting` 那一层）。本方法对应的是 `TryCraftingInternal`（闸**之后**）⇒ 它**不该**再判一次
@@ -2226,27 +2479,35 @@ namespace CardPresentation
         public bool DoCraft()
         {
             if (Card == null) return false;
-            if (CardProgress.Wildcards(Card.Rarity) <= 0)
+            // 🆕 **2026-10-26（F7 · 任务 ①）**：两个维度（`Card.Faction` + `Rarity`）+ `CanCraft()` 闸。
+            //   判据 = 原版 `CardServices__CraftCard.c` 的谓词（`w.cardArmy == ogCard.cardArmy &&
+            //   w.cardRarity == ogCard.Rarity`，**只有精确匹配、没有兜底** —— 见 `CardProgress.MatchWildcard`）。
+            var wm = CardProgress.MatchWildcard(Card.Faction, Card.Rarity);
+            if (!CardProgress.CanCraftCard(Card) || !wm.Craftable)
             {
-                Debug.LogWarning("[CardDetail] 创建副本**失败**：「" + Card.Name + "」那种稀有度（" + Card.Rarity
-                        + "）的通配符 = 0 —— 原版 `CraftingPanel__CheckButtons.c` 同支：没通配符 ⇒ 钮 `interactable=false`；"
+                Debug.LogWarning("[CardDetail] 创建副本**失败**：「" + Card.Name + "」（" + Card.Faction + "/" + Card.Rarity
+                        + "）：" + (CardProgress.CanCraftCard(Card) ? "" : "`CanCraft()` 闸不放行；")
+                        + (wm.Craftable ? "" : "通配符 0 张"
+                            + (wm.Fallback ? "（同阵营兜底命中 `" + wm.Rarity + "` 那桶 " + wm.Count
+                                             + " 张 —— 原版兜底**不让合成通过**）" : ""))
+                        + " —— 原版 `CraftingPanel__CheckButtons.c` 同支：没通配符 ⇒ 钮 `interactable=false`；"
                         + "走到这里说明有人绕过了灰钮（本方法照样拒绝、**不播特效**）");
                 return false;
             }
             // 🔴 扣减的结果**必须判**：`TrySpendWildcard` 在竞争 / 存档异常时可能返回 false，
             //   不判就会「没扣成功却 +1 张卡」（静默送卡）。原版那一支是「服务端受理才 owned+1」。
-            if (!CardProgress.TrySpendWildcard(Card.Rarity))
+            if (!CardProgress.TrySpendWildcard(Card.Faction, Card.Rarity))
             {
-                Debug.LogWarning("[CardDetail] 创建副本**失败**：扣通配符那一步没成功（「" + Card.Rarity
-                               + "」现有 " + CardProgress.Wildcards(Card.Rarity) + " 张）⇒ 不做后面的 +1、不播特效");
+                Debug.LogWarning("[CardDetail] 创建副本**失败**：扣通配符那一步没成功（「" + Card.Faction + "/" + Card.Rarity
+                               + "」现有 " + CardProgress.Wildcards(Card.Faction, Card.Rarity) + " 张）⇒ 不做后面的 +1、不播特效");
                 return false;
             }
             CardProgress.AddOwned(Card.Id, Card.Rarity, 1);
             Debug.Log("[CardDetail] 创建副本：「" + Card.Name + "」拥有数 → "
                       + CardProgress.Owned(Card.Id, Card.Rarity)
-                      + "；扣 1 张「" + Card.Rarity + "」通配符（剩 " + CardProgress.Wildcards(Card.Rarity) + "）"
-                      + " —— 原版 `CardServices.CraftCard`：同阵营同稀有度 1 张通配符 ⇒ owned +1；"
-                      + "⚠️ 我们只按稀有度记库存（不分阵营），以本地库存等价服务端那半");
+                      + "；扣 1 张「" + Card.Faction + "/" + Card.Rarity + "」通配符（剩 "
+                      + CardProgress.Wildcards(Card.Faction, Card.Rarity) + "）"
+                      + " —— 原版 `CardServices.CraftCard`：**同阵营同稀有度** 1 张通配符 ⇒ owned +1");
             RebuildKeepingState();
             return true;
         }

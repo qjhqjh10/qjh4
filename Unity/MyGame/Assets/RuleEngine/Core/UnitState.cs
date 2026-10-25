@@ -1242,22 +1242,18 @@ namespace RuleEngine
         /// 规则书里明确说「移除全部」的地方必须用这个 —— 例：`Markerlight X`
         /// 「受远程伤害后**移除全部**标记光」（:192）；用 `RemoveKeyword` 只会减一层。
         ///
-        /// ⚠️ 摘掉关键词时**连带撤掉它当初授予的属性增益** —— 见 <see cref="PendingGrants"/>。
+        /// ⚠️ 摘掉关键词时**连带撤掉它当初授予的属性增益** —— 见 <see cref="PendingGrants"/>。🆕 **2026-10-26（第 4 轮 · `F3` · 任务 R4）`silent` = 原版 `CardScript.RemoveTraitSilently` 的等价位**（摘 trait 但**不重算**「能动/能攻击」；判据 = `CardScript__RemoveTrait.c:66-68` 对 flank/fast 会调 `UpdateSummonSicknessAnims`，而 `CardScript__RemoveTraitSilently.c` 全文 55 行**一次都没调**；两个原版调用点 = `CardScript__RemoveEffect.c:69` · `CardScript__TransformIntoRemnant.c:74`）。
         /// </summary>
-        public void RemoveAll(string keyword)
+        public void RemoveAll(string keyword, bool silent = false)
         {
             if (string.IsNullOrEmpty(keyword)) return;
             _keywords.Remove(keyword);
             if (keyword == KeywordTable.Armour) Armor = 0;
-            // 🔴🆕 **2026-10-25（完全复刻 · 执行代理 A · 第 9 段）：摘掉 `fast`/`flank` 也要重算「能动 / 能攻击」。**
-            //   判据 = `CardScript.RemoveTrait`（`CardScript.cs:19361-…` 方法体，现读）：
-            //     `if (trait == flank || trait == fast) UpdateSummonSicknessAnims();`
-            //     而 `UpdateSummonSicknessAnims.c:20` 转调 `ActivateMinion` ⇒ 就是
-            //     `displaySummonSickness = +0x58 && !fast && !flank` 那两位的重写。
-            //   ⚠️ **加的那一半早就有**（`AddKeyword` 里同一条判据，`AddEffect.c:570-572`，见上面那段注释），
-            //     **摘的这一半原来没有** ⇒ 「本回合给的侧翼/迅捷到期、或被效果摘掉」之后
-            //     单位仍按「带 flank」算（`CanAct/CanAttack` 停在上一次的值 —— **静默**）。
-            if (keyword == "fast" || keyword == "flank") RuleCore.RecomputeActAndAttack(this);
+            // 🔴 **2026-10-26（第 4 轮 · `F3` 去重）**：本段原来还有**第二份**一模一样的
+            //   `if (keyword == "fast" || keyword == "flank") RuleCore.RecomputeActAndAttack(this);`
+            //   （两笔不同批次的改动各加了一份）⇒ 「同一件事实写两遍」，已删掉这一份；
+            //   唯一保留的那一处在本方法**末尾**（那里紧挨着 `RemoveTrait.c:66-68` 的逐行判据，
+            //   并且是 `silent` 唯一生效的地方）。行为不变（重算是幂等的）。
             // 🔴 **2026-10-09（`A1116`）**：这里原来写的是
             //   `if (keyword == "blind") IsBlind = false;`（「`AddKeyword` 那边补了置位，这是它的对偶」）
             //   —— 那是**两个表示的第二次同步**，删掉：`IsBlind` 现在派生自关键词，摘掉键它自己就为假。
@@ -1291,7 +1287,9 @@ namespace RuleEngine
             //    ⚠️ **光环那份收回不走这里**（`ClearAuraGrants` 是直接写 `_keywords` 的）——
             //      原版「光环给/收关键词」走哪条路**还没查清**，如实留着（见
             //      `RuleCore.RecomputeActAndAttack` 的 doc 末段）。
-            if (keyword == "fast" || keyword == "flank") RuleCore.RecomputeActAndAttack(this);
+            // 🔴 **2026-10-26（第 4 轮 · `F3`）：`silent` 唯一生效的地方就是这一行** ——
+            //    `silent = true` = 原版 `RemoveTraitSilently`（**不重算**，`canAct`/`canAttack` 停在旧值）。
+            if (!silent && (keyword == "fast" || keyword == "flank")) RuleCore.RecomputeActAndAttack(this);
         }
 
         // ---- 关键词「带出来的」属性增益 ----------------------------------
@@ -2111,6 +2109,213 @@ namespace RuleEngine
                 s += m.Value;
             }
             return s;
+        }
+
+        // ================================================================================================
+        // 🆕 2026-10-26（完全复刻 · 第 4 轮 · 执行代理 `F3` · 任务 R3）
+        //      **`jam`（干扰，原版 `DefinedTrait.jam = 130`）的运行时语义 —— 状态侧**
+        //
+        // 【原版是什么】`CardScript.ReactToUnitJammed(disenchantedCard)`（cpp2il 真体
+        //   `out_cpp2il_dev_ilspy/CardScript.cs:19980-20118`，**唯一有真方法体的那份**；
+        //   `decomp_full/CardScript__ReactToUnitJammed.c` 只剩指针搬运 ⇒ **别拿它当判据**，判据见 E1 报告 §二·8）
+        //   是**双分支**：
+        //     · `disenchantedCard == this`（**自己被 jam**）：
+        //         ① 倒序遍历 `activeEffects`(+0x108)，逐条 `RemoveEffect(effect, fromJam: true)`；
+        //         ② 把**当前全部 trait** 收进一个列表，逐条 `RemoveTrait(trait)`
+        //            （⚠️ 是 `RemoveTrait` 不是 `RemoveTraitSilently` ⇒ **会重算**召唤病/anims）；
+        //         ③ `stunnedAtStartOfTurn(+0x55) = false` 与 `removeMarkerlightAtEndOfTurn(+0x57) = false`；
+        //         ④ 新建 `CardTraitData(jam)` 压进 `CurrentTraits`；
+        //         ⑤ 卡型 ≠ `Hero` ⇒ `hasActiveAbility(+0x220) = false`（**督军除外**）；
+        //         ⑥ 一串表现 + `CheckIfDead(UnitDeathType.undefined)`（**jam 之后可能当场死**）。
+        //     · 否则（**别的单位被 jam**）：`RemoveExtrinsicEffectsFrom(被 jam 的那张)`
+        //         + `UpdateWhileInPlay(false)`（= 把「挂在它身上、由那张卡给的效果」整份撤掉并重算常驻）。
+        //
+        // 【我们这边怎么落】我们没有 `activeEffects` 那套统一记录 —— 效果被摊成四本账：
+        //   `_statMods`（数值修饰）/ `_buffs`（限时增益）/ `_grants`（关键词带出来的增益）/
+        //   `_auraKw` + `_grantedOps`（光环给的关键词与正文）。所以「清空 activeEffects」= **把这四本账
+        //   全部收干净**（`RemoveAllAppliedEffectsForJam`）。⭐ 这与 `Auras.Recompose` 的
+        //   `ClearAuraGrants` **不是同一件事**：后者只收**光环那一份**，本支收**全部由效果挂上来的**。
+        //
+        // ⚠️ **可达性如实记（铁律 11：休眠 ≠ 不做）**：池内**0 张卡**带 `jam` 词条
+        //   （`cards_engine.json` / `cards_truth.json` 全文扫 `jam` 词根只命中卡名
+        //   `Jammed Communications` 与 `JAM` 缩写，见 <see cref="KeywordTable.Jam"/> 的 doc）。
+        //   ⇒ 本支今天**零可观察量**；实现依据是「原版有、我们缺」（铁律 11）。
+        //   驱动侧（`ResolveJamUnit` / `BroadcastUnitJammed` / `CardScript.TriggerOtherCardJammed`）
+        //   属 `EffectResolver.cs` + `WhenEvent.cs` ⇒ **不在 `F3` 白名单**，已写进改动请求（R3-F2）。
+        // ================================================================================================
+
+        /// <summary>
+        /// **卡型 ≠ 督军时被压掉的「有主动能力」那一位** —— 原版 `CardScript.hasActiveAbility`
+        /// （`+0x220`）**实例级**的那一份，写点只有 `ReactToUnitJammed` 一处
+        /// （`CardScript.cs:20085-20089`：`if (cardType != Hero) hasActiveAbility = false;`）。
+        ///
+        /// ⚠️ **别和 <see cref="CardDef.HasActiveAbility"/> 混**：那一格是**卡面印的**（不可变定义，
+        /// 池内 87 张为真），这一格是**这一局这一个单位**的运行时压制位。
+        /// **读它的人**：主动能力可用性判定（原版 `DoesAbilityRequireLoading` / 主动技能按钮态）
+        /// —— 我们的读点由 `RuleCore.CanUseAbility` 那一族接（属 F1/F2，见改动请求）。
+        /// </summary>
+        public bool ActiveAbilitySuppressed;
+
+        /// <summary>
+        /// **把「由效果挂上来的一切」整份收掉** —— 原版 `ReactToUnitJammed` ①那一轮
+        /// `RemoveEffect(effect, fromJam: true)`（`CardScript.cs:19990-20010`）的等价位。
+        ///
+        /// <para>**逐本账**（这四本就是我们全部「运行时效果状态」）：</para>
+        /// <list type="number">
+        ///   <item>`_buffs`（限时增益）：逐条按「真移除」口径撤（关键词走 `RemoveKeyword`、
+        ///         数值走 `RemoveStatMod`、生命走 `ClampHealthToMax`）—— 与 `RevertBuffs` 同一台机器。</item>
+        ///   <item>`_grants`（关键词带出来的属性增益）：逐条 `ApplyGrant(g, -1)` 后清表。</item>
+        ///   <item>`_auraKw` / `_auraFx` / `_statMods(GrantTag)`：`ClearAuraGrants()`（光环那一份）。</item>
+        ///   <item>剩下的 `_statMods`（`addStats` 那一族直接建的）：**全摘**（`_statMods.Clear()`）。</item>
+        /// </list>
+        /// <para>⚠️ 顺序有语义：**先撤 buff / grants**（它们各自持有 `StatMod` 引用并会顺手夹血），
+        /// 再 `ClearAuraGrants`，**最后**才清残留的修饰表 —— 反过来的话「夹到新上限」那一步
+        /// 会在表已清空之后跑，看到的 `MaxHealth` 是**撤完的**值（结果反而对），但
+        /// `TempBuff.Mod` 的引用会指向已不在表里的格子（幂等，仍安全）。按上面顺序可读性最好。</para>
+        /// </summary>
+        /// <returns>撤掉了几条（报表/探针用）</returns>
+        public int RemoveAllAppliedEffectsForJam()
+        {
+            int n = 0;
+            // ① 限时增益（`_buffs`）—— 走与 `RevertBuffs` 相同的三种撤法
+            for (int i = _buffs.Count - 1; i >= 0; i--)
+            {
+                var b = _buffs[i];
+                _buffs.RemoveAt(i);
+                if (b == null) continue;
+                if (b.IsKeyword) { RemoveKeyword(b.Name, b.Value); }
+                else
+                {
+                    switch (b.Name)
+                    {
+                        case "attack": RemoveStatMod(b.Mod); break;
+                        case "ranged": RemoveStatMod(b.Mod); break;
+                        case "health": RemoveStatMod(b.Mod); ClampHealthToMax(); break;
+                        case "armour": RemoveKeyword(KeywordTable.Armour, b.Value); break;
+                    }
+                }
+                n++;
+            }
+            // ② 关键词带出来的属性增益
+            for (int i = _grants.Count - 1; i >= 0; i--)
+            {
+                var g = _grants[i];
+                _grants.RemoveAt(i);
+                ApplyGrant(g, -1);
+                n++;
+            }
+            // ③ 光环那一份（关键词 + 属性 + 光环挂的触发正文 + 残骸/誓约那几个标记）
+            ClearAuraGrants();
+            // ④ 残留的数值修饰（`addStats` 直接建的、没进 `_grants` 的那一批）
+            n += _statMods.Count;
+            _statMods.Clear();
+            // ⑤ 「关键词带出来的正文」那本账 —— 关键词马上要全摘，这里一并清掉
+            _grantedOps.Clear();
+            _grantedText.Clear();
+            return n;
+        }
+
+        /// <summary>
+        /// **`jam` 组合口** —— 原版 `ReactToUnitJammed(this)` 那 ①–⑤ 步（见上面那段头注）。
+        ///
+        /// <para>**做什么（顺序照原版）**：
+        /// ① 清空全部「由效果挂上来的」状态（<see cref="RemoveAllAppliedEffectsForJam"/>）；
+        /// ② **摘掉全部 trait**（含卡面印的那些）—— 用 <see cref="RemoveAll"/> 的**非 silent** 形态
+        ///    （原版这里走 `RemoveTrait`，会重算 `fast`/`flank` 的召唤病那两位）；
+        /// ③ `StunnedAtStartOfTurn` / `RemoveMarkerlightAtEndOfTurn` 清 0；
+        /// ④ 挂上 `jam` 关键词（值 1，与原版 `new CardTraitData(jam)` 一致）；
+        /// ⑤ 非督军 ⇒ <see cref="ActiveAbilitySuppressed"/> = true。</para>
+        ///
+        /// <para>🔴 **`CheckIfDead` 不在这里做**（它在 `RuleCore`，不是本文件的东西）——
+        /// 本方法**返回 `Health &lt;= 0`**，调用方据此走原版第 ⑥ 步。
+        /// 返回值**不是**「jam 成功没有」：`jam` 本身恒成功。</para>
+        /// </summary>
+        /// <returns>`Health &lt;= 0` ⇒ 调用方必须接着调死亡结算（原版 `CheckIfDead(undefined)`）</returns>
+        public bool ApplyJam()
+        {
+            // ① 清空全部效果态
+            RemoveAllAppliedEffectsForJam();
+            // ② 摘掉全部 trait —— 键先快照（`RemoveAll` 会改字典）
+            var keys = new List<string>(_keywords.Keys);
+            foreach (string kw in keys) RemoveAll(kw);
+            // ③ 两个「回合开始时就在某状态」的闸门清 0（原版两行直接写 0）
+            StunnedAtStartOfTurn = false;
+            RemoveMarkerlightAtEndOfTurn = false;
+            // ④ 挂上 jam
+            AddKeyword(KeywordTable.Jam, 1);
+            // ⑤ 督军除外
+            if (!IsWarlord) ActiveAbilitySuppressed = true;
+            return Health <= 0;
+        }
+
+        /// <summary>
+        /// **「别人被 jam」那一支的等价位** —— 原版 `ReactToUnitJammed` 的 else 分支
+        /// `RemoveExtrinsicEffectsFrom(disenchantedCard)`（`CardScript.cs:20115`）。
+        ///
+        /// **原版语义**：把「施放者 = 那张卡」的那一批 extrinsic 效果整份摘掉（然后由调用方
+        /// `UpdateWhileInPlay(false)` 重算常驻）。
+        ///
+        /// <para>⚠️ **我们只能做到一半，如实标着**：我们的 `_statMods.Source` / `TempBuff.SourceCard`
+        /// 记的是**来源标签**（`Auras.GrantTag` / 卡名），`RecordGrant` 那条路**没有记施放者卡名**
+        /// ⇒ 「按施放者整份撤」只能覆盖 `SourceCard`（限时增益）与 `Source`（若恰好填了卡名）两本账。
+        /// 判据上**不假装**：返回撤掉几条，调用方（`F1`/`F2`）拿到后仍应跑一次光环重算。</para>
+        /// </summary>
+        /// <returns>撤掉了几条（限时增益 + 匹配来源的数值修饰）</returns>
+        public int RemoveExtrinsicEffectsFrom(string sourceCardName)
+        {
+            if (string.IsNullOrEmpty(sourceCardName)) return 0;
+            int n = RemoveBuffsFromCard(sourceCardName);
+            for (int i = _statMods.Count - 1; i >= 0; i--)
+            {
+                if (_statMods[i].Source != sourceCardName) continue;
+                bool health = _statMods[i].Attr == "health";
+                _statMods.RemoveAt(i);
+                if (health) ClampHealthToMax();
+                n++;
+            }
+            return n;
+        }
+
+        /// <summary>
+        /// 🆕 **2026-10-26（第 4 轮 · `F3` · 任务 R5）**：**只收「数值 + 关键词」那两层的
+        /// 光环赠予**（`Auras.RefreshInPlayNumericAndKeywords` 专用）。
+        ///
+        /// <para>🔴 **与 <see cref="ClearAuraGrants"/> 的差别只有一句**：**不动誓约授予那两位**
+        /// （<see cref="OathTripleGranted"/> / <see cref="OathAllTurnsGranted"/>）。</para>
+        ///
+        /// <para>**为什么需要这个更窄的口**（`调度台日志` 的 **H1 裁定** + `报告/E1_第3轮.md` 的 **R5**）：
+        /// 誓约那两位是**布尔幂等授予**，但它只能由 `Recompose` 的 ②·b 层**重新授**。
+        /// 若在「动作边界」那种**棋盘根本没变**的场合把它清掉（走 `ClearAuraGrants`）而不重授，
+        /// 结果是**静默丢授予**（`Ferren Areios` 那两句会凭空失效）。
+        /// ⇒ 动作边界那种重算只该覆盖「数值 + 关键词」，誓约/费用两层由棋盘变动那趟 `Recompose` 管。</para>
+        /// </summary>
+        public void ClearAuraNumericAndKeywords()
+        {
+            if (_auraKw.Count > 0)
+            {
+                bool needActRecompute = false;
+                foreach (var kv in _auraKw)
+                {
+                    string kw = kv.Key;
+                    int left = KwValue(kw) - kv.Value;
+                    if (left > 0) _keywords[kw] = left; else _keywords.Remove(kw);
+                    if (kw == KeywordTable.Armour) Armor = System.Math.Max(0, Armor - kv.Value);
+                    if (kw == "fast" || kw == "flank") needActRecompute = true;
+                }
+                _auraKw.Clear();
+                if (needActRecompute) RuleCore.RecomputeActAndAttack(this);
+            }
+            if (_auraFx.Count > 0)
+            {
+                foreach (string kw in _auraFx) { _grantedOps.Remove(kw); _grantedText.Remove(kw); }
+                _auraFx.Clear();
+            }
+            // 属性那一份（`GrantTag`）—— 数值层，必须收
+            RevertGrantsFrom(Auras.GrantTag);
+            // ⚠️ **刻意不动**：`OathTripleGranted` / `OathAllTurnsGranted`（那是「授予」层，见上面）
+            // ⚠️ `AuraRemnantStay` **要清** —— 它是棋盘派生标记（来源离场就该没），
+            //    与本轮重算同一生命周期，不属于 H1 点名要保住的那三层。
+            AuraRemnantStay = false;
         }
     }
 }

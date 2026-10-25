@@ -106,7 +106,7 @@ namespace CardPresentation
         static readonly List<Match> _all = new List<Match>();
 
         /// <summary>全部记录（**新的在前** —— 原版是服务器的列表顺序，我们按「最近一局在最上面」排）。
-        /// ⚠️ 这是**本表原文**；页面要的那一份（含录像兜底行）走 <see cref="DisplayRows"/>。</summary>
+        /// 🔶 自己设计（非原版）：战报列表「最近一局在最上面」的排序 · 原版是服务器的列表顺序（原版判据拿不到） · TODO(谁定的)｜原注：⚠️ 这是**本表原文**；页面要的那一份（含录像兜底行）走 <see cref="DisplayRows"/>。</summary>
         public static List<Match> All { get { return _all; } }
         public static int Count { get { return _all.Count; } }
 

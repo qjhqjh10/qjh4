@@ -111,7 +111,7 @@ namespace CardPresentation
         Transform _holder, _tabCol, _enterText, _options;
         public int BuiltMessages { get; private set; }
 
-        /// <summary>本窗的两个频道（`ChatRoom` 枚举的值 + 页签文案）。**这是我们挑的**（判据 ③）。</summary>
+        /// 🔶 自己设计（非原版）：聊天窗两个频道 `Channels = { Global, Alliance }` · 原版频道枚举值与页签文案取不到（判据③） · TODO(谁定的)｜原注：<summary>本窗的两个频道（`ChatRoom` 枚举的值 + 页签文案）。**这是我们挑的**（判据 ③）。</summary>
         public static readonly string[] Channels = { "Global", "Alliance" };
 
         public GameObject OptionsPanel { get { return _options != null ? _options.gameObject : null; } }
@@ -699,7 +699,7 @@ namespace CardPresentation
         /// **默认 `null` = 一律没禁言**（本地没有 `PlayerDataManager.IsBannedFromChat` 的等价数据）。</summary>
         public static System.Func<int, bool> ChatBanProvider;
 
-        /// <summary>禁言时输入框里那句。⚠️ 原版是 I2 词条（本地无 value）⇒ **这句是我们自拟的**。</summary>
+        /// 🔶 自己设计（非原版）：禁言时输入框里那句 `BannedInputText` · 原版是 I2 词条、本地无 value（原版判据拿不到） · TODO(谁定的)｜原注：<summary>禁言时输入框里那句。⚠️ 原版是 I2 词条（本地无 value）⇒ **这句是我们自拟的**。</summary>
         public const string BannedInputText = "You are banned from this chat channel.";
 
         /// <summary>当前页那个频道的号（`0 = Global` / `1 = Alliance`）—— 取不到页时按 0。</summary>

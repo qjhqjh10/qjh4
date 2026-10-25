@@ -1346,7 +1346,7 @@ namespace CardPresentation
             //
             // ⚠️ **如实标注（偏离）**：原版 `GetEmptyDeck` 是一副**空卡组**（没有督军、没有牌、名字为空），
             //   我们这里给的是一副**合法满编的演示牌**（名字「复仇者之刃」）。
-            //   这是**我们多做的**、不是原版行为 —— 保留它只为「编辑器一打开不是一片空白」。
+            // 🔶 自己设计（非原版）：库空时用演示牌填一副未入库的 `_newDeck` · 原版 `GetEmptyDeck` 是空卡组；我们这么做只为编辑器一打开不是空白（原版判据拿不到） · TODO(谁定的)｜原注：这是**我们多做的**、不是原版行为 —— 保留它只为「编辑器一打开不是一片空白」。
             //   ⛔ 别因此把「演示牌」写进库或存档（那正是本次删掉的那段）。
             if (_newDeck == null && Library.Count == 0)
             {
@@ -3782,7 +3782,7 @@ namespace CardPresentation
         ///    取不到时 `DraggableController.PlayDragSound` 会**出声一次**（不是静默）。</summary>
         const string DragCue = "CardStartDrag";
 
-        /// <summary>⚠️ **我们挑的一档队列**（原版靠 Canvas 层级；本工程的世界空间 quad 必须显式分层）。
+        /// 🔶 自己设计（非原版）：拖拽预览的渲染队列 `QDragPreview = 3050` · 原版靠 Canvas 层级，本工程世界空间 quad 必须显式分层（原版判据拿不到） · TODO(谁定的)｜原注：<summary>⚠️ **我们挑的一档队列**（原版靠 Canvas 层级；本工程的世界空间 quad 必须显式分层）。
         /// 取在筛选抽屉（`QFlt` 3020 那族）**之上**（原导入弹窗那档 3100 已随 T23 删件删掉）。</summary>
         const int QDragPreview = 3050;
         /// <summary>「按住之后动了多少才算起拖」—— **与行拖出那条同一个阈值**：`0.15` 世界单位 × 108
@@ -5605,7 +5605,7 @@ namespace CardPresentation
         /// 英文那一列是我们译的（原版英文在远端 I2 表，本地取不到）。</summary>
         public const string TermSaveFailed = "MenuDeck/Error/SaveFailed";
 
-        /// <summary>落盘失败的原因 —— 🔴 **`2026-10-18（G8）` 起改成「人话走 `Loc`、诊断当兜底」**。
+        /// 🔶 自己设计（非原版）：落盘失败提示「人话走 Loc、诊断串只当兜底」 · 原版提示文案在远端 I2 表；本地只剩诊断串 · TODO(谁定的)｜原注：<summary>落盘失败的原因 —— 🔴 **`2026-10-18（G8）` 起改成「人话走 `Loc`、诊断当兜底」**。
         ///
         /// **改之前**：`string.IsNullOrEmpty(Library.LastError) ? "写不进存档文件" : Library.LastError`
         /// —— 一句话全写死在这里，且**直接拿 `LastError` 当显示主路**。
@@ -8795,7 +8795,7 @@ namespace CardPresentation
         public static PlayerDeck PlayerDeckForDemo(DeckEditorState state)
         {
             // 🔴 **2026-10-18（双语线 · 波 1 · P1）**：演示卡组名走词条 `MenuDeck/DemoDeckName`
-            //   （键名 = 调度台 2026-10-18 裁定自拟；中文列 = 改之前写死的 `复仇者之刃` ⇒ 中文档零变化）。
+            // 🔶 自己设计（非原版）：演示卡组名的词条键 `MenuDeck/DemoDeckName` · 原版两张表都查不到这条键，键名由调度台裁定自拟 · 调度台 2026-10-18 裁定｜原注：（键名 = 调度台 2026-10-18 裁定自拟；中文列 = 改之前写死的 `复仇者之刃` ⇒ 中文档零变化）。
             //   ⚠️ 它与 `MenuDeck/DefaultDeckName`（空库时替玩家建的那套）**是两条键、两个值**，⛔ 别合并。
             var deck = new PlayerDeck { Name = Loc.T("MenuDeck/DemoDeckName") };
             CardDef warlord = null;

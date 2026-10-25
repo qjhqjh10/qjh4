@@ -1894,9 +1894,18 @@ namespace CardPresentation
             if (Loc.Current == v) { Debug.Log($"[Settings] 语言已经是「{Loc.LanguageName(v)}」—— 不变"); return; }
             bool changed = Loc.SetLanguage(v);
             RefreshTexts();
+            // 🆕 **2026-10-26（B3 · `E6`）：整棵战斗 HUD 的换语言广播**
+            //   判据 = 原版 `LanguageSelector.cs:46/48` → `BattleManager.BroadcastChangedLanguage()`
+            //   → `BattleHud.BroadcastChangedLanguage()` → `BroadcastMessage("ChangedLanguage")`
+            //   （4 个实现者：卡面 ×2 / 回合钮 / 战斗日志）。判据与订阅方分工见 `Battle/BattleHudLanguage.cs`。
+            //   🔴 **订户 = 0 时要出声**（⛔ 不静默）：今天只有广播口，卡面重排字（`Core/CardView.cs`，E7）
+            //   与日志重拼行（`BattleDriver.RefreshBattleLog`，E5）还没订 ⇒ 会打出 0。
+            int listeners = BattleHudLanguage.Notify();
             Debug.Log("[Settings] 语言 → " + Loc.LanguageName(Loc.Current) + $"（{Loc.Current}）"
                     + (Loc.HasOwnText(Loc.Current) ? "" : "　⚠️ 本地没有这一套文案 ⇒ 界面文字**回退英文**（见 `Loc.T`）")
-                    + (changed ? "" : "（值没变）"));
+                    + (changed ? "" : "（值没变）")
+                    + $"　｜ 战斗 HUD 换语言广播：{listeners} 个订户"
+                    + (listeners == 0 ? "　⚠️ **没人订阅** ⇒ 已画出来的卡面/日志行**仍是旧语言**（原版这一步会重刷）" : ""));
         }
 
         /// <summary>把 12 行的**勾**那一层按当前语言重挑（= 原版 `Toggle.isOn = (value == i)` →
@@ -2488,9 +2497,28 @@ namespace CardPresentation
             ApplyAutoFit(_resignText, BtnTextWPx, BtnTextHPx, BtnAutoMin, ResignFontPx, BtnAutoBase, 0);
         }
 
+        /// <summary>🆕 2026-10-26（`G21` · 账 `B13`）：`matchType` 的 **拉式读口** —— 等价于原版
+        /// `BattleSettingsWindow__Open.c:41-121`「**每次打开都读一次** `matchType`」。
+        /// <para>为什么必须有它：本面板是**建一次、长期复用**的（`BattleDriver.BuildHud` 被
+        /// `if (_hudBuilt) return;` 闩住 ⇒ `Create(...)` 里的那个 `matchType` 只在**第一局**是对的），
+        /// 而 `matchType` 每局都可能变（普通局 → 教程局 / 回放局）⇒ 只推一次就**拿到陈旧值**
+        /// （症状：打过普通局再进教程局，「跳过教程」钮不出现；而紧接着的
+        /// `SetMatchType(Tutorial)` 那条断言是绿的 —— 面板没坏，只是打开时值是旧的）。</para>
+        /// <para>⚠️ 驱动不接这个口时（null）行为不变（仍用 `Create` 那一次推下来的值）。
+        /// ⛔ 别在打开面板的每个调用点各推一份 —— `Show()` 是**唯一**的读点。</para></summary>
+        public Func<RuleEngine.MatchType?> MatchTypeSource;
+
         public void Show()
         {
             Visible = true; SetActive(true);
+            // 🆕 2026-10-26（`G21` · 账 `B13`）：**打开即读一次**（原版 `Open` 的读法）。
+            //   只写字段、不在这里调 `SetMatchType`（那会多跑一次 `ApplyMatchTypeUI`）——
+            //   下面那一行 `ApplyMatchTypeUI()` 是**唯一**的落地口。
+            if (MatchTypeSource != null)
+            {
+                var m = MatchTypeSource();
+                if (m.HasValue) { _matchType = m.Value; _matchTypeKnown = true; }
+            }
             ApplyMatchTypeUI();
             if (!_matchTypeKnown && !_matchTypeWarned)
             {

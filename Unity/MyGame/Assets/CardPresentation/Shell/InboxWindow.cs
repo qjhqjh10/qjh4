@@ -321,7 +321,7 @@ namespace CardPresentation
         // 参数逐字照原版 prefab（`Message Container` 的 MB）：
         //   `animationDelay = 0.1` · `animationTime = 0.15` · `curve` = 原版那条 AnimationCurve。
         //   ⚠️ 曲线**没解出数值**（`m_Curve` 在 MB 里、本件没读）⇒ 我们用 `EaseOutQuad` 等价，
-        //   如实标「曲线是我们挑的」（铁律 3）。原版还有 `DOScale(底图, localScale).From(localScale×0.5)`。
+        // 🔶 自己设计（非原版）：收件箱条目入场动画曲线用 `EaseOutQuad` 等价 · 原版 `m_Curve` 没解出数值（原版判据拿不到） · TODO(谁定的)｜原注：如实标「曲线是我们挑的」（铁律 3）。原版还有 `DOScale(底图, localScale).From(localScale×0.5)`。
         public const float AnimDelay = 0.1f, AnimTime = 0.15f, AnimScaleFrom = 0.5f;
         float _animT = -1f;                      // <0 = 没在播
         int _animRows;                           // 这一轮有几行要入场

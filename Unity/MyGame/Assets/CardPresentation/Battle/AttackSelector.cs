@@ -1099,7 +1099,7 @@ namespace CardPresentation
         /// （= **一颗钮一辈子只弹一次**）。挂点 = 按钮自己的 `transform`（`SetParent(button)`），
         /// 位置 = 设置对象那个向量 × `tooltipVerticalOffset`（`+0x60`，技能那颗序列化值 = **−100**）。
         /// <para>⚠️ **−100 乘的那个基准向量本地取不到**（它在 `DAT_1842da2a8+0xb8` 那个设置对象里）
-        /// ⇒ 我们只能定「弹在钮**下方**」，落点距离是**我们挑的**（`TooltipDropPx`），如实标着。</para></summary>
+        /// 🔶 自己设计（非原版）：技能钮 tooltip 的落点距离 `TooltipDropPx = 70f` · 原版 −100 乘的那个基准向量在 `DAT_1842da2a8+0xb8` 设置对象里、本地取不到（原版判据拿不到） · TODO(谁定的)｜原注：⇒ 我们只能定「弹在钮**下方**」，落点距离是**我们挑的**（`TooltipDropPx`），如实标着。</para></summary>
         const float TooltipDropPx = 70f;
         bool _tooltipShown;
         /// <summary>自检用：这一次展开里技能钮 tooltip 弹过没有。</summary>

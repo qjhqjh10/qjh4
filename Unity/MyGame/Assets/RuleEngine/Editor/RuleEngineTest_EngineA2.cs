@@ -317,12 +317,26 @@ public static partial class RuleEngineTest
                 + " LogWarning 返回、根本不建那条 effect）"
                 + "｜🧨 在 `RemoveAll` 里无条件 `Add` ⇒ 本行红（这条正是「不能只看 `RemoveAll`」的判别式）");
 
-        // 加任意一条 trait ⇒ 原版 `AddEffect case 3` 的 `RemoveActiveEffects(4)` 把整本清掉
+        // 加**别的** trait ⇒ 那条已移除记录**仍在**（原版 `AddEffect case 3` 只清【同名】那一条：
+        //   `RemoveActiveEffects(BuffType.removeTrait, newEffect.trait)`，带 trait 过滤）。
+        // 🔴 **2026-10-26（`E11` · 诊断 `D1` #16）就地订正（铁律 5）**：本行**原来是反的** ——
+        //   它断言「加任意一条 trait ⇒ 整本清掉」，而那个口径来自
+        //   `decomp_full/CardScript__AddEffect.c:474` 的 `RemoveActiveEffects(card, 4);` ——
+        //   **Ghidra 少印了第三个实参**。两份独立 IL 一致（`out_cpp2il_dev_ilspy/CardScript.cs:17651` /
+        //   `out_il2csharp/Assembly-CSharp/CardScript.cs:10855`）⇒ 原版只清 `T` 这一条。
+        //   ⛔ **绝不许**为此把 `UnitState.cs:1121` 的 `_removedTraits.Remove(keyword)` 改回 `Clear()`。
         u.AddKeyword("flank", 1);
+        CheckTrue(u.HasRemovedTrait(KeywordTable.Stealth),
+                  "★★ ③ 加一条**别的** trait ⇒ 那条已移除记录**仍在**"
+                + "（原版 `RemoveActiveEffects(removeTrait, newEffect.trait)` 带 trait 过滤、只清同名那一条）"
+                + "｜🧨 改回 `_removedTraits.Clear()`（整本清）⇒ 本行红");
+
+        // 正例（灭自证）：再加一条**同名** trait ⇒ 该条记录被清掉
+        u.AddKeyword(KeywordTable.Stealth, 1);
         CheckTrue(!u.HasRemovedTrait(KeywordTable.Stealth),
-                  "★★ ③ 加一条 trait ⇒ 已移除簿记**整本清掉**（原版 `CardScript__AddEffect.c:474` 的"
-                + " `RemoveActiveEffects(card, 4)` 不带 trait 过滤）"
-                + "｜🧨 改成「只清同名 trait」⇒ 本行红（那是「看着更合理」的偏离）");
+                  "★★ ③ 再加一条**同名** trait ⇒ 该条已移除记录**被清掉**"
+                + "（`RemoveActiveEffects(removeTrait, trait)` 的 trait 过滤就是为这一支）"
+                + "｜🧨 与上一条**结构上不能同时绿**：整本清 ⇒ 上一条红；根本不清 ⇒ 本条红（灭自证：一真一假两个方向）");
 
         // ---- 消费点：`280 siege` 必须读这本账 ----
         var siegeCard = new CardDef("A2Siege", "A2Siege", "unit", "", "common", "Test", 1, 1, 5, 0, null,
@@ -343,11 +357,14 @@ public static partial class RuleEngineTest
                 + "记一条「已移除 reload」⇒ 立刻变假"
                 + "｜🧨 改回 `u.Has(\"reload\")`（= 改前）⇒ 这一格仍是 **true** ⇒ 红（灭自证）");
 
-        // 负例：同一张卡把记录清掉（加一条 trait）⇒ 又变 true
-        s.AddKeyword("flank", 1);
+        // 负例：同一张卡把记录清掉（加一条**同名** trait）⇒ 又变 true
+        // 🔴 **2026-10-26（`E11` · 诊断 `D1` #17）**：夹具从 `flank` 改成**同名**的 `reload` ——
+        //   原版 `RemoveActiveEffects(removeTrait, newEffect.trait)` 只清**同名**那一条，
+        //   所以「加一条别的 trait 就清账」的夹具**永远等不到清账**。
+        s.AddKeyword(ConditionEval.ReloadTrait, 1);
         CheckTrue(ConditionEval.MeetsUnit(ctx, s, 280) == true,
-                  "★ ③ 再 `AddKeyword` 一次（清空簿记）⇒ 280 又变回 true"
-                + "｜🧨 「清空点」没接上 ⇒ 一直 false ⇒ 红（与上一条互为灭自证：一真一假两个方向）");
+                  "★ ③ 再 `AddKeyword` 一条**同名** trait（`reload`）⇒ 清掉那条「已移除 reload」记录 ⇒ 280 又变回 true"
+                + "｜🧨 「清账点」没接上 ⇒ 一直 false ⇒ 红（与上一条互为灭自证：一真一假两个方向）");
     }
 
     // ==================================================================
@@ -433,9 +450,11 @@ public static partial class RuleEngineTest
         string keepName = ps.Hand[0].Card.Name;
         ps.Hand[0].MulliganOption = 30;
         int swapped = RuleCore.Mulligan(ctx, second, new List<int> { 0 });
-        Check(swapped, 0,
-              "★★ ④ `mulliganOption = 30` ⇒ 玩家换牌**被拒**（原版 `CardScript__ClickMulliganSelected.c:27`）"
-            + "｜🧨 不判这一格 ⇒ 返回 1 ⇒ 红");
+        Check(swapped, -1,
+              "★★ ④ `mulliganOption = 30` ⇒ 玩家换牌**整批拒绝**（返回 **-1**、**一张都不换**）"
+            + "（原版 `CardScript__ClickMulliganSelected.c:27`；🔴 `F1`·2026-10-25 起改成**整批校验**，"
+            + " 改前是逐张跳过 ⇒ 返回 0）"
+            + "｜🧨 不判这一格 ⇒ 返回 0 / 1 ⇒ 红");
         Check(ps.Hand[0].Card.Name, keepName, "★ ④ 那张 30 档的牌**还在原位**");
         ps.Hand[0].MulliganOption = 10;
         int swapped2 = RuleCore.Mulligan(ctx, second, new List<int> { 0 });

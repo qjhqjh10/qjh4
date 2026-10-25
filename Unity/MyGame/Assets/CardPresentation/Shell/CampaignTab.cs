@@ -644,7 +644,7 @@ namespace CardPresentation
             //    自检可以直接断「这一格用的是哪个抽屉」。
             st.NodeName = ItemDrawer.PickDrawer(item, DrawerOverride.Icon) ?? "Item Drawer";
             st.QuantityPx = 0f;                               // `Icon` 档不画数量（`WildcardIconDrawer.Draw` 只碰一张图）
-            st.NamePx = 0f;                                   // **我们挑的**：节点只有 100²，8 位 hex 的短名在这里读不出来 ⇒ 不画
+            st.NamePx = 0f;   // 🔶 自己设计（非原版）：Icon 档抽屉不画 8 位 hex 短名（`NamePx = 0`） · 节点只有 100²，短名在这里读不出来（原版判据拿不到） · TODO(谁定的)｜原注：**我们挑的**：节点只有 100²，8 位 hex 的短名在这里读不出来 ⇒ 不画
             // 🔴 **2026-10-13（A435 甲 · B9）：这一行原来把窗级状态【派生】喂给抽屉** ——
             //   `st.Clip = _win != null ? _win.Clip : null;`。迁到「状态长在视口节点上」之后
             //   `_win.Clip` **恒为 `null`**（本页一个字节都不写它了）⇒ 这一行成了**恒等于默认值的派生**。
@@ -1424,7 +1424,7 @@ namespace CardPresentation
         public int PremiumPanelState { get { return _premState; } }
         int _premState = -1;
 
-        /// <summary>**我们挑的**三态来源（⛔ 不是原版的）。原版 =
+        /// 🔶 自己设计（非原版）：Premium Panel 三态来源 · 原版两个输入都来自服务端（反编译 `CampaignPremiumPointsPanel.Initialize`） · TODO(谁定的)｜原注：<summary>**我们挑的**三态来源（⛔ 不是原版的）。原版 =
         /// `CampaignPremiumPointsPanel.Initialize` 里 `collected ? AlreadyCollected : (campaign.IsPremium ? PremiumPurchased : PremiumNotPurchased)`
         /// （反编译 `CampaignPremiumPointsPanel__Initialize.c:36-43`）—— 两个输入**都来自服务端**
         /// （`Campaign.IsPremium` 与当日 `collected`），而本地数据模型里**一个都没有**：

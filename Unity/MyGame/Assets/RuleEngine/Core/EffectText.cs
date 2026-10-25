@@ -669,6 +669,34 @@ namespace RuleEngine
         public List<EffectOp> AtTurnOps;
 
         /// <summary>
+        /// 🔶 **2026-10-26（完全复刻批次 4 · 执行代理 `F2`）：这一条增益的「投递类型 = 原版
+        /// `buffType 90 addTraitRemnant`」。**
+        ///
+        /// <para>**为什么要它（判据链，逐行现读）**：
+        ///   · `SAU53 Undying Legions` 的「残骸拿 Shield」在原版**不是** `addTrait(3)` ——
+        ///     它由一张**附魔 SO**（`T16 Sautekh-Undying Legions_enchantment`，
+        ///     `path -5318231028992627218`，与父卡**同一份 `__data`**）下发，
+        ///     载荷是 `{buffType = 90 (addTraitRemnant), trait = 80 (shield)}`；
+        ///     见 `CardScript__AddEffect.c:158-170 / :219 / :461-475`。
+        ///   · **闸③ 残骸门**（`CardScript__AddEffect.c:159-170`，我们照抄在
+        ///     `EffectResolver.AddEffectRemnantAllows`）放行的**只有两种**：
+        ///     `buffType == 1 addStats` **且** `healthChange != 0`，或 **`buffType == 0x5a`**。
+        ///     ⇒ 少了这一维，`shield` 落到残骸上会被**正确地**拒（这正是 `E11` 那条红断言的根因）。
+        ///   · 换句话说：**原版区分「普通 addTrait」与「可落在残骸上的 addTrait」靠的是投递类型，
+        ///     不是靠「授予的关键词是哪个」。**</para>
+        ///
+        /// <para>🔴 **只对「接受者按定义就是残骸」的那一类事件置位**：目前唯一一处 =
+        /// `When … becomes a Remnant it gains …`（`WhenEvent.Kind == becomesremnant`）——
+        /// 那句话的宾语**按定义**是残骸。⛔ 别对整族 `when &lt;事件&gt;` 一律置位
+        /// （其它事件的目标不一定是残骸，置了就等于**放宽闸③**）。</para>
+        ///
+        /// <para>⚠️ 与 `PayloadOp` 的关系：本字段挂在 **op** 上（解析期定），结算时由
+        /// `ApplyOneGain` 透传给闸③，并且**再要求 `PayloadOp.IsKeyword`** 才算数
+        /// （属性项照旧走 `addStats` 那条规则 —— 原版 `buffType 90` 只授 trait，不授属性）。</para>
+        /// </summary>
+        public bool AddTraitRemnant;
+
+        /// <summary>
         /// 常驻效果**作用在哪种卡上**（`Trigger == "deploy"` / 持续改费时用）。
         /// **空 = 不筛**。见 <see cref="CardCriteria"/>。
         ///
@@ -3991,6 +4019,13 @@ namespace RuleEngine
             op = TryBlind(low, src);
             if (op != null) return Finish(r, op, src);
 
+            // ---- 2c) Jam   （🆕 2026-10-26 批次 4 · `F2` · `F3` 的 R3-F2①）----
+            //   `Jam a unit` / `Jam all enemies` —— 动词 `jam`，结算全在 `UnitState.ApplyJam()`。
+            //   ⚠️ 走 `Finish`（与 `TryStun` / `TryBlind` / `TryDestroy` 同）：目标解不出来要**报半懂**，
+            //      别让 `Jam <不认识的词>` 冒充「解析干净、jam 一个敌方单位」。
+            op = TryJam(low, src);
+            if (op != null) return Finish(r, op, src);
+
             // ---- 3) Destroy   (`:2818`) ----
             op = TryDestroy(low, src);
             if (op != null) return Finish(r, op, src);
@@ -4758,6 +4793,9 @@ namespace RuleEngine
             switch ((w ?? "").ToLowerInvariant())
             {
                 case "deal": case "deals": case "stun": case "stuns":
+                // 🆕 2026-10-26（批次 4 · `F2`）：`Jam a unit and …` —— `and` 后面若是
+                //   `jam …` 必须能切成新效果（判据同 `stun`）。池内 0 张，纯口径补齐。
+                case "jam": case "jams":
                 case "destroy": case "destroys": case "heal": case "heals":
                 case "draw": case "draws": case "give": case "gives":
                 case "gain": case "gains": case "lose": case "loses":
@@ -5420,6 +5458,13 @@ namespace RuleEngine
                         }
                         if (ev == null) return false;        // 都不成立 ⇒ 不是这个形状
                     }
+                    // 🔴 **2026-10-26（完全复刻批次 4 · `F2`）**：`When … becomes a Remnant it gains X`
+                    //   —— 这条持久效果的**接受者按定义就是残骸** ⇒ 载荷要按原版
+                    //   `buffType 90 addTraitRemnant` 投递（判据链见 `EffectOp.AddTraitRemnant` 的 doc）。
+                    //   ⛔ **只标这一族事件**；`inner.Ops` 里的**属性项**由闸③ 那个 `p.IsKeyword` 再挡一道
+                    //   （原版 `buffType 90` 只授 trait、不授属性）。
+                    if (ev.Kind == WhenEventKind.BecomesRemnant && inner.Ops != null)
+                        foreach (var io in inner.Ops) if (io != null) io.AddTraitRemnant = true;
                     r.Ops.Add(new EffectOp
                     {
                         Verb = "persist",
@@ -5888,7 +5933,7 @@ namespace RuleEngine
         ///      —— 见 `资料/卡牌效果or句_审计.md`「还不会的 5 类」。
         /// </summary>
         static readonly Regex ReEffectClauseHead = new Regex(
-            @"^(deal|give|gain|lose|stun|destroy|heal|draw|return|refill|deploy|create|"
+            @"^(deal|give|gain|lose|stun|jam|destroy|heal|draw|return|refill|deploy|create|"
           + @"reanimate|discard|shuffle|lower|reduce|restore|summon|place|put|remove|exile|"
           + @"attack|trigger)\b");
 
@@ -7140,6 +7185,48 @@ namespace RuleEngine
             return op;
         }
         static readonly Regex ReBlind = new Regex(@"^blinds?\s", RegexOptions.Compiled);
+
+        /// <summary>
+        /// 🆕 **2026-10-26（完全复刻批次 4 · 执行代理 `F2` · 判据来自 `F3` 的 R3-F2）**：
+        /// `Jam a unit` / `Jam all enemies` —— **卡面动词 → `jam` op**。
+        ///
+        /// <para>**判据**：原版这一动作的入口是 `BattleManager__ResolveJamUnit.c:1-321`
+        /// （闸 `targetCard != null &amp;&amp; IsInPlayOrDying` → `ReactToUnitJammed` → `BroadcastUnitJammed`
+        /// → …，结构已由 `F3` 读全）；卡面**动词本身**在原版是 `AbilityEffect` 那一族里的
+        /// `jam`，我们这边的动词白名单**早就有 `"jam"`**
+        /// （`CardDef.ActiveAbilityFamilyHasVerb` 的 `case "jam": return verb == "jam" || verb == "blind";`）
+        /// —— 缺的只是**解析层没人产出** `Verb == "jam"` 的 op（`F3` 报告 §六·② 的 R3-F2①）。
+        /// 语义（清效果 / 摘 trait / 挂 jam / 压主动技能 / 可能致死）**一行都不在这里**，
+        /// 全在 `UnitState.ApplyJam()`（`F3` 已建）+ 本文件对应 `DoJam` 那一跳。</para>
+        ///
+        /// <para>⚠️ **不是 `blind`**：`blind` 有自己的 op 与 `DoBlind`（那是「看不见/不能打」的
+        /// 另一个关键词）。`CardDef` 那条 `verb == "blind"` 只是说「主动能力的 jam **族**里也认 blind」，
+        /// ⛔ **别把 `Jam` 的卡面动词并进 `blind`**。</para>
+        ///
+        /// <para>🔶 **自己设计（非原版）：解析词形**。卡池 **0 张**卡面写 `Jam`（现读 1,128 张：
+        /// `desc` / `descZh` / `keywords` 全 0 命中）⇒ 词形没有卡面样本，
+        /// 只收「动词开头 + 目标短语」这一种最直白的形状（同 `TryStun` / `TryBlind` 的骨架）。
+        /// 真数据出现必须拿卡面核一遍。· `F2` 2026-10-26。</para>
+        /// </summary>
+        static EffectOp TryJam(string low, string src)
+        {
+            if (!ReJam.IsMatch(low)) return null;
+            var op = new EffectOp { Verb = "jam", Amount = 1, Source = src };
+            // ⚠️ 尾句先切（`Jam a unit and draw a card` 那种形态）—— 切法照 `TryBlind` / `TryStun`，
+            //    切完由调用方 `Finish` 递归解。
+            string tail = null;
+            SplitAndTail(low, out low, out tail);
+            op.Tail = tail;
+            var m = Regex.Match(low, @"^jams?\s+(.+)$");
+            if (m.Success)
+            {
+                string tok = m.Groups[1].Value.Trim();
+                if (PeelInstead(ref tok)) op.Instead = true;
+                if (tok.Length > 0) op.Target = ParseTarget(tok);
+            }
+            return op;
+        }
+        static readonly Regex ReJam = new Regex(@"^jams?\s", RegexOptions.Compiled);
 
         /// <summary>`Destroy`（含 `destroy it instead` 的条件形式 —— 条件由上层判，这里只认动词）。
         /// `rule_core.gd:2818`（旁证）；⚠️ `Invulnerable` 挡得住（`rule_core.gd:2820`，同属旁证），那在结算层。</summary>

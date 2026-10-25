@@ -86,7 +86,7 @@ namespace CardPresentation
         /// <para>⚠️ **「原版用的是这条键」是【推断】**：本页 prefab 无 `mTerm` 可依 —— ⛔ 别写成原版证据
         /// （判据只能记到「节点同一族 + 官方表有这条同值键」）。</para></summary>
         public const string BtnLabelTerm = "Demo/AvatarMenu/SelectAvatarButton";
-        /// <summary>我们挑的英文原文（= 官方英文列）—— ⛔ 不上屏，只留作判据（上屏走 `Loc.T(BtnLabelTerm)`）。</summary>
+        /// 🔶 自己设计（非原版）：称号页钮的英文原文 `Select`（不上屏） · 原版本页 prefab 无 mTerm，只能按节点同族推断 · TODO(谁定的)｜原注：<summary>我们挑的英文原文（= 官方英文列）—— ⛔ 不上屏，只留作判据（上屏走 `Loc.T(BtnLabelTerm)`）。</summary>
         public const string BtnLabel = "Select";
 
         /// <summary>`Item Display Panel`：`632.79,210.69 → 1701.49,868.61`（1068.70×657.92）。</summary>

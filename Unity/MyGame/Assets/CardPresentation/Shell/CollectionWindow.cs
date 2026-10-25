@@ -2439,8 +2439,8 @@ namespace CardPresentation
             if (q != null && mirror) q.SetUvRect(new Rect(1f, 0f, -1f, 1f));
             // ⚠️ 名字要**带左右**：两颗钮各有一个 `ArrowHit`，同名的话自检按名字找只会拿到第一颗
             //    （`FindChild` 是按名字找的，传路径进去恒 null —— `资料/已知的坑.md`）
-            AddHit(node, "ArrowHit " + side, r, QPageRow, onClick, arrowBg, "40k_general_bt_yellow",
-                   clickCue: WindowSounds.DefaultCloseCue);
+            var hit = AddHit(node, "ArrowHit " + side, r, QPageRow, onClick, arrowBg, "40k_general_bt_yellow",
+                   clickCue: WindowSounds.DefaultCloseCue); if (AltStyles.Length == 1) { var wb = hit != null ? hit.GetComponent<WindowButton>() : null; if (wb != null) wb.Interactable = false; }   // 原版 `AlternateArtCardCollectionTab.Setup` 第⑤步：`alternateArtStyles.Count == 1 ⇒ 两颗钮 interactable = false`（本机 7 张异画全同一风格 ⇒ 这是常态，不是边角）
         }
 
         /// <summary>切风格（`ChangeStyleButton(bool isLeft)`：**isLeft=true = 上一个(−1)**，越界回绕）。</summary>
@@ -3566,7 +3566,7 @@ namespace CardPresentation
                     MenuDraw.PaddedRect(new PxRect(FltBtnX, FltBtnY, FltBtnX + FltBtnS, FltBtnY + FltBtnS),
                                         new Vector4(-10f, -10f, -15f, -10f)),
                     fltLabR);
-                var fltHit = AddHit(filterToggle, "FiltersHit", fltHitR, QPageRow, onToggle);
+                var fltHit = AddHit(filterToggle, "FiltersHit", fltHitR, QPageRow, onToggle, clickCue: pageNo == 0 ? WindowSounds.SelectToggleCue : null);   // 判据：原版四页 `Filter Toggle` 的 `m_onClickSound` 逐颗实读 —— Deck 页那颗（`Select Deck Tab ▸ Header ▸ Filter Toggle`，MB 根 `709345757288850133`）= `Select Toggle`（pid 8881786964274599484）；Cards / Cardback / Alternate Art 三页 = `{0,0}` 且 `useDefaultAudioClipIfNull=1` ⇒ 默认 `ButtonClick`（= 我们 `clickCue:null` 那一支）。
                 // 🆕 **ColorTint 悬停/按下** —— 原版 `EverguildToggle.m_Transition = 1`、
                 //   `HL = 0.9607843` · `PR = 0.7843137` · `fade = 0.1`、**`m_TargetGraphic` = 本颗 `Image` 自己**。
                 //   本仓默认值恰好就是这三个（`WindowButton.HighlightKey/PressedKey/FadeSeconds`）⇒ 只补 `target`。
@@ -4750,7 +4750,7 @@ namespace CardPresentation
             }
             Rect(nameRow, "40k_icon_search", new PxRect(268.45f, 180.94f, 303.45f, 210.94f), "Search Icon",
                  QFltRow, null, true);
-            var deckNameHit = AddHit(nameRow, "Hit", ir, QFltHit, BeginDeckNameFilter);
+            var deckNameHit = AddHit(nameRow, "Hit", ir, QFltHit, BeginDeckNameFilter); DisableClickSound(deckNameHit);   // 判据：原版这颗是 `EverguildInputField`（`TMP_InputField` 子类；`Deck Name Filter ▸ Input Field` 的 MB `3479015056449266389` **没有** `m_onClickSound`/`useDefaultAudioClipIfNull` 字段，UnityEvent 全 0，`EverguildInputField.cs` 也无音频引用）⇒ 点击**无声**，而我们缺省会播 `ButtonClick`。
             // 🆕 **2026-10-23（`C3`）ColorTint 悬停/按下** —— 原版 `EverguildInputField.m_Transition = 1`、
             //   `HL = 0.9607843` · `PR = 0.7843137` · `fade = 0.1`、`m_TargetGraphic` = 输入框底图
             //   （`InputFieldBackground` 那一块）。缺省 key 就是这三个值 ⇒ 只补 `target`。
@@ -6091,7 +6091,7 @@ namespace CardPresentation
         /// <para>⇒ **原版：有「名字 / 阵营」筛选时格子根本不可拖**（两张表长度不等）。
         /// 我们照抄这一条，比较基准是 <see cref="BaseDeckIndices"/>（= 模式筛之后，**不含**名字/阵营筛）。</para>
         /// <para>`allowItemDrag` 那一半我们在**调用点**表达（只有 Deck 页调 `AttachDeckDrag`；
-        /// 原版三份 prefab 里也只有 Deck 那一份是 1，见 `BuildDeckCell` 尾部那段出处）。</para></summary>
+        /// 原版三份 prefab 里也只有 Deck 那一份是 1，见 `BuildDeckCell` 尾部那段出处）。⚠️ **这里「能拖」是原版行为，不是我们的加法** —— prefab 里 `DragAndDropItem.autoInitialize=0`+`scrollRect=null` 是故意的（`SetCell` 运行时 `Initialize`+`Toggle(true)` 才打开），**勘误详见本文件末尾那段 `🔴🔴 勘误`**。</para></summary>
         bool DeckDragAllowed()
         {
             var baseIdx = BaseDeckIndices();
@@ -6321,6 +6321,59 @@ namespace CardPresentation
             DeckDragDrop(from, fromPos, Vector2.zero);      // 真落点 + 真落盘 + 重建
             return true;
         }
+
+        /// <summary>关窗时把本窗名下的**可拖件登记**撤掉 —— 原版 `DeckCollectionDisplay.OnDisable()`
+        /// （`CollectionDisplay.cs:46`：`base.OnDisable()` 退订 + `SaveDeckOrder()`）里**退订那一跳**的等价物。
+        /// <para>⚠️ 两处如实差异：① 原版摘的是 `DragAndDropItem` 的**静态事件回调**（那是它的拖拽层）；
+        /// 我们摘的是 `PointerLayer.UnregisterDragsOwnedBy(gameObject)`（我们的拖拽层）。② 原版**同一处**还会
+        /// `SaveDeckOrder()`（逐格比 Item、顺序变了才落盘）；我们是**松手即落盘**（`MoveDeckInOrder` → `CollectionData.ReorderDecks`），
+        /// 所以这里**不重复写盘** —— 可观测结果相同（顺序已落），时机不同（已明账）。</para>
+        /// <para>⚠️ **不加也不会出错**：`PointerLayer.HitButton` 只认激活件 ⇒ 关掉的窗不会误命中；
+        /// 只是登记表要等到下一次 `RebuildDeckCells` 才被清。补这一条是为了**与原版同一时机**，不是修 bug。</para></summary>
+        public override void Close()
+        {
+            PointerLayer.UnregisterDragsOwnedBy(gameObject);
+            base.Close();
+        }
     }
 
 }
+
+// ============================================================================================
+// 🔴🔴 勘误：**原版收藏窗的卡组格【是可以拖拽重排的】** —— 2026-10-26（用户亲自把关后重查）
+//
+// 这一条踩过一次，代价是「差点把一个原版真功能当成我们的多余发明删掉」。写完以后**别再重犯**。
+//
+// 【错在哪】
+//   只看 prefab 的序列化字段，看到 `DragAndDropItem` 的 `autoInitialize = 0` 且 `scrollRect = null`，
+//   就判定「组件出厂是关的 ⇒ 原版拖不动」。**那个读法漏了运行时的第二条开启路。**
+//
+// 【原版真机制（判据：`CollectionDisplay<T>.SetCell`，RVA `0x1815EEB64` 反汇编逐条）】
+//   `cmp byte [this+0x49], 0`                     // `allowItemDrag`
+//   ⇒ 非 0 才比 `collection.Count(+0x50)` 与 `filteredCollection.Count(+0x58)`
+//   ⇒ **相等**时：`GetComponent<DragAndDropItem>(cell).Initialize(父 ScrollRect)` + `Toggle(true)`
+//   ⇒ 否则：`Toggle(false)`
+//   而 `DragAndDropItem.Initialize(ScrollRect)` 的体内第一句就是 **`enabled = true;`**
+//   （随后存 `scrollRect`、没有占位件就 `CreateEmptyObject()`）——`d:/2/tools/cpp2il/out_cpp2il_dev_ilspy/DragAndDropItem.cs:79-104`
+//   ⇒ **prefab 里 `autoInitialize = 0` / `scrollRect = null` 是【故意的】**：那两条是给
+//     `Awake()` 那条「自动初始化」路用的；Deck 页走的是 `SetCell` **运行时注入**这条路。
+//
+// 【两条**不构成反证**的东西，别再拿它们说「原版拖不动」】
+//   ① `DragAndDropItem.Awake()` 末尾 `if (!scrollRect) enabled = false;` —— 那是在 `SetCell` 之前跑的，
+//      之后 `Initialize` 会把它打开。只看 `Awake` 会得出相反的结论。
+//   ② `CollectionDeck.ToggleReorder(bool)` 全量 C# **0 调用者**、`assets_full` 字符串也 **0 命中** ——
+//      它**根本不是**这套机制（我们一度把它当成唯一开关）。真正的开关是 `CollectionDisplay.SetCell`。
+//
+// 【原版「重新排序」落盘那一跳】
+//   `DeckCollectionDisplay.SaveDeckOrder()`（比较显示序与旧序 → 变了才 `DeckInventory.UpdateOrder(list)`
+//   → `PlayerDataManager.singletonManager.OrderDecks(playMode, 成功回调, 失败回调)`；
+//   成功打 `"Success ordering decks"`、失败打 `"[ERROR] Can't reorder decks"`）⇒ 顺序是**存服务器**的。
+//   我们对位 = `MoveDeckInOrder` → `CollectionData.ReorderDecks`（见 `DeckDragDrop`）。
+//
+// 【我们现在的状态 = 忠实复刻，不是超集】
+//   `DeckDragAllowed()` 照抄了原版那道闸（`allowItemDrag` 那一半在调用点表达：只有 Deck 页挂拖拽；
+//   另一半 = `FilteredDeckIndices().Count == BaseDeckIndices().Count`，即**有名字/阵营筛选时不给拖**）。
+//   ⚠️ 所以账里凡是写「我们用超集 / 拖拽恒开」的措辞**都过期**，正解是「与原版一致」。
+//
+// 【用户口径】2026-10-26：「**卡组应该可以调整位置，否则不合理。**」—— 保留可拖，⛔ 不要关。
+// ============================================================================================

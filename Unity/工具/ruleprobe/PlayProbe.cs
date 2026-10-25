@@ -2696,7 +2696,7 @@ class PlayProbe
     //    ⛔ **另外三颗指纹原样不动**：`PinnedPoolMd5`（卡池没改）· `PinnedParseMd5`（`check` 现跑
     //      解析差异仍 0 行、输出指纹 ✓）· `PinnedBaselineMd5`（`基线/out_baseline.txt` 没重生成）。
     //    判据全文 → `资料/普查产出_1025/E6_十三行接闸.md` §五·2 / §六。
-    public const string PinnedPlayMd5 = "39c4f77e5b2a76f404c241beef94228c";  // 🔴 2026-10-25 重钉（第八十会话 · 调度台同步点）：属性模型 Stage 2 的「负攻值夹成 0」+ `SAU27` 近战快照，**两笔都有意** —— 主档 6 张（EC16/EC27/EC32/EC33/SW45/b551c835…）、电池 8 张（EC1/EC3/EC14/EC16/EC27/EC32/EC33/SAU27），逐条核对过「都是 clamp0 / 快照」这两族、无新回归。⚠️ 这个值是探针对**归一化内容**算的（文件原始 md5 = `d278bfe6…`，两者不同，别混）。上一版 = `374ae748…`（E6 的 BL8 那笔）
+    public const string PinnedPlayMd5 = "a93ffb8f344517a9ac611ef06de17a3a";  // 🔴 2026-10-26 重钉（第八十一会话 · 调度台收尾同步点）：**G14 的「死后相邻单位」效果修好** —— 那 5 张卡原本「卡面写着、我们不打」，现在照卡面生效 ⇒ 主档 **5 张变**（ASH54 dmg 8→12 · ASH73 伤害累计 8→13 且督军 28→26 · SAU56 dmg 0→3 · Particle Whip · None Must Know 眩晕督军 1），**事件电池 586 张逐字节一致**（零外溢）。逐条核对过「都是这 5 张、无新回归」。⚠️ 探针对**归一化内容**算的（文件原始 md5 另算，别混）。上一版 = 39c4f77e…
 
 
     /// <summary>`play check` 的缺省基线 —— **按名字往上找**（形状照 `Program.CheckMain.DefaultBaseline`，

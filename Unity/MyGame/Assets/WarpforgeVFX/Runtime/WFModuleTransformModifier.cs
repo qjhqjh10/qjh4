@@ -65,12 +65,21 @@
 //      **直接 NullReferenceException**（`FUN_1803f47a0` = 抛异常）；我们**报错并跳过**（不崩）。
 //
 // 🔴 没还原的（各有明确的「为什么做不了」，实现里都 `LogWarning` + 计数）
-//    ⚠️ 2026-10-23：**② 已接线、不再是「没还原」**（留在本节只为保留它当年的判据链）；①③④ 仍然没还原。
+//    ⚠️ 2026-10-23：**② 已接线、不再是「没还原」**（留在本节只为保留它当年的判据链）。
+//    🔴 **2026-10-26（批次 6 · G12）就地订正（铁律 5）：① 与 ③ 也已接线** —— 原来那两句
+//       「我们没有『单位尺寸』这个概念」「我们没有『卡的 effect anchor』这个节点」**都不成立**：
+//         · ① 的四个数就在 `ArenaSlots.CardScale/HeroScale`（0.36/0.69 · 0.40/0.77），正是
+//           `BattleManager__GetUnitSizeInPlay.c` 读的那两个字段 `desiredScale(+0x80)` / `heroScale(+0xA8)`；
+//         · ③ 的锚点 2026-10-16 就建好了（`CardView.EffectAnchorBoard/EffectAnchorHand`，
+//           判据 `CardScript__GetEffectAnchor.c`）。
+//       ⇒ **现在只剩 ④ 的「没有父级」那一档仍然靠 `Vector3.one` 兜底**（那本来就是原版值，不算缺口）。
+//       两处旧注释按铁律 5 保留原文在下面（划掉），别当成现状。
 // ----------------------------------------------------------------
-//   ① `setDefaultUnitTransformScaleWhenUnParenting`（2 例：`Teleport Trait Summon` /
+//   ① ~~`setDefaultUnitTransformScaleWhenUnParenting`（2 例：`Teleport Trait Summon` /
 //      `Teleport Trigger Effect Quick`）：要 `BattleManager.GetUnitSizeInPlay(cardType, isPlayer)`。
 //      我们**没有「单位尺寸」这个概念**（`CardPresentation/Core/CardFeel.cs:334` 已经记着
-//      「我们的单位不占多格，没有『尺寸』这个概念」，那三档尺寸常量也接不上）⇒ **跳过**。
+//      「我们的单位不占多格，没有『尺寸』这个概念」，那三档尺寸常量也接不上）⇒ **跳过**。~~
+//      ✅ 2026-10-26 已接线 → `ApplyDefaultUnitSize`（类尾）。
 //   ② `updateScaleByBoardPosition`（2 例：`Ork_Squiggoth_Charge` / `Ork_Trampla_Charge`）：
 //      要 `cardTarget.CardUI.<0x1c0>.MinionScaleByPositionSO.GetScale(isPlayer, localPosition,
 //      originalScale)`。
@@ -92,10 +101,12 @@
 //      改走共用静态口 `CardFeel.DepthScaleFactor(worldZ, isPlayer)`（`isPlayer` 在 `Initialize` 缓存、
 //      `worldZ` 用卡的世界 z —— 原版那句 `localPosition` 是「相对自己那一行」，我们卡父节点恒在原点，
 //      与 `CardFeel` 同一套换算）。⚠️ 卡不是 `CardView` 时（理论上没有这类调用点）退回直写 `localScale`。
-//   ③ `aimToTargetInUpdate`（1 例：`Shuriken_Short_Trait`）：要
+//   ③ ~~`aimToTargetInUpdate`（1 例：`Shuriken_Short_Trait`）：要
 //      `controller.targetCard.GetEffectAnchor().position`。`CardScript.GetEffectAnchor` 是**原版卡
 //      prefab 上的锚点节点**，我们这边**没有对应物**（特效是按世界坐标播的，不挂在卡上）
-//      ⇒ **跳过**（有卡上下文也只差这一件）。
+//      ⇒ **跳过**（有卡上下文也只差这一件）。~~
+//      ✅ 2026-10-26 已接线 → `ResolveEffectAnchor`（类尾）+ `ModuleTick` 第 3 支；
+//      锚点载体 = `CardView.EffectAnchor(onBoard)`（`onBoard = Face == CardFace.Board`）。
 //   ④ `alwaysMaintainWorldScale` 的「没有父级」分支：原版除以 `DAT_1842da2a8` 静态块里的一个
 //      Vector3。⚠️ **2026-10-23 更正（铁律 5）**：原来这里写「**类名未定，查不到**」+「这条是
 //      **我们挑的**，不是原版的值」—— **都过期了**。实况：`DAT_1842da2a8` = `UnityEngine.Vector3`
@@ -283,7 +294,10 @@ namespace WarpforgeVFX
             StoppedNoCard = 0; DegradedRuns = 0;
             SkippedUnitSize = 0; SkippedBoardScale = 0; SkippedAim = 0; ZeroLossyScale = 0;
             BoardScaleApplied = 0; SkippedBoardScale2D = 0;
+            // 🆕 2026-10-26（批次 6 · G12）：本轮接线的两条分支的计数器
+            AimApplied = 0; UnitSizeApplied = 0; UnitSizeSkippedNonUnit = 0;
             _warnedDegraded = _warnedAim = _warnedUnitSize = _warnedZeroScale = false;
+            _warnedUnitNonUnit = false;
         }
 
         static bool _warnedDegraded, _warnedAim, _warnedUnitSize, _warnedZeroScale;
@@ -376,25 +390,25 @@ namespace WarpforgeVFX
                 transform.SetParent(null);
                 if (setDefaultUnitTransformScaleWhenUnParenting)
                 {
-                    // 🔴 未还原（文件头「没还原 ①」）：原版是
-                    // `BattleManager.GetUnitSizeInPlay(actingCard.cardType, actingCard.isPlayer)`，
-                    // 我们**没有「单位尺寸」这个概念** ⇒ 跳过（localScale 保持不动）。
-                    SkippedUnitSize++;
-                    if (!_warnedUnitSize)
-                    {
-                        _warnedUnitSize = true;
-                        Debug.LogWarning("[WarpforgeVFX] 🔴 未还原：`setDefaultUnitTransformScaleWhenUnParenting`"
-                                       + "（原版 `BattleManager.GetUnitSizeInPlay`）—— 我们没有「单位尺寸」"
-                                       + "这个概念（`CardFeel.cs:334` 同一条），脱父级时**不**复位 localScale。"
-                                       + $"受影响 {SkippedUnitSize} 次起（`Teleport Trait Summon` / "
-                                       + "`Teleport Trigger Effect Quick`）。这条警告只报一次。");
-                    }
+                    // ✅ **2026-10-26（批次 6 · G12）已接线**（本节原来是「没还原 ①」）：
+                    //    原版 = `BattleManager.GetUnitSizeInPlay(actingCard.cardType, actingCard.isPlayer)`
+                    //    （`AnimFXModuleTransformModifier__Initialize.c` 那三句），
+                    //    实读 `BattleManager__GetUnitSizeInPlay.c:14-74`：`cardType == 0` ⇒
+                    //    `Vector3.one × playerManager[isPlayer].desiredScale(+0x80)`；
+                    //    `cardType == 10` ⇒ `Vector3.one × playerManager[isPlayer].heroScale(+0xA8)`。
+                    //    ⇒ 我们那四个常量**就是**这两个字段（`ArenaSlots.CardScale/HeroScale`，
+                    //    出处 `MonoBehaviour_4372/4373.json` 的 `desiredScale`/`heroScale`）。
+                    ApplyDefaultUnitSize(wired, ctx);
                 }
             }
 
             // ⑥ cardTarget = objective 那张
             if (wired) cardTarget = objective == WFVFXObjective.Caster ? ctx.actingCard : ctx.targetCard;
             else cardTarget = null;
+
+            // ⑥·b 🆕 2026-10-26（G12）：`aimToTargetInUpdate` 读的是 **`animFXController.targetCard`**
+            //    （与 `cardTarget` 不是同一个 —— 后者跟 `objective` 走）。见 `AnimFXModuleTransformModifier__Update.c:120`。
+            targetCardForAim = wired ? ctx.targetCard : null;
 
             // ⑦ 原版：卡为空 → LogError + enabled = false，**整条不做**
             if (wired && cardTarget == null)
@@ -509,18 +523,29 @@ namespace WarpforgeVFX
             // ---- 3) aimToTargetInUpdate ----
             if (aimToTargetInUpdate)
             {
-                // 🔴 未还原（文件头「没还原 ③」）：要 `controller.targetCard.GetEffectAnchor()`。
-                // ⚠️ 原版在这一条上 targetCard 为空会**直接 NRE**（FUN_1803f47a0），我们报错后跳过（不崩）。
-                SkippedAim++;
-                if (!_warnedAim)
+                // ✅ **2026-10-26（批次 6 · G12）已接线**（本节原来是「没还原 ③」）。
+                //    原版 `AnimFXModuleTransformModifier__Update.c:120-158`：
+                //      `t = controller.targetCard.GetEffectAnchor().transform;`
+                //      `transform.forward = normalize(t.position - transform.position);`
+                //    ⚠️ 原版 `targetCard == null` / `GetEffectAnchor()` 返回 null 时**直接 NRE**
+                //       （`FUN_1803f47a0` = 抛异常桩）；我们报错 + 计数后跳过（不崩）。
+                Transform anchor = ResolveEffectAnchor(targetCardForAim);
+                if (anchor == null)
                 {
-                    _warnedAim = true;
-                    Debug.LogWarning("[WarpforgeVFX] 🔴 未还原：`aimToTargetInUpdate` —— 原版是 "
-                                   + "`transform.forward = normalize(targetCard.GetEffectAnchor().position - "
-                                   + "transform.position)`；我们**没有「卡的 effect anchor」这个节点**"
-                                   + "（特效按世界坐标播、不挂卡）⇒ 跳过。受影响 `Shuriken_Short_Trait`。"
-                                   + "（另：原版 targetCard 为空时这里会 NullReferenceException，"
-                                   + "我们改成报错+跳过。）这条警告只报一次。");
+                    SkippedAim++;                      // 与旧口径同名计数（自检仍在看它）
+                    if (!_warnedAim)
+                    {
+                        _warnedAim = true;
+                        Debug.LogError("[WarpforgeVFX] `aimToTargetInUpdate` 取不到 `targetCard` 的 effect anchor" +
+                                     "（原版 `CardScript.GetEffectAnchor()`；`targetCard` 必须是带特效锚点的卡，" +
+                                     "我们的载体 = `CardView.EffectAnchorBoard/EffectAnchorHand`）—— 本条跳过" +
+                                     "（原版这里会 NullReferenceException）。受影响 `Shuriken_Short_Trait`。");
+                    }
+                }
+                else
+                {
+                    transform.forward = Vector3.Normalize(anchor.position - transform.position);
+                    AimApplied++;
                 }
             }
 
@@ -616,6 +641,88 @@ namespace WarpforgeVFX
                 return a;
             }
             return a / b;
+        }
+
+        // ==================================================================
+        //  🆕 2026-10-26（批次 6 · G12）本轮补的两条分支 —— 成员一律追加在类尾，
+        //  ⛔ 别插进既有成员之间（会把下游行号整体推走，账里 A 档落点全漂）。
+        // ==================================================================
+
+        /// <summary>原版 `animFXController.targetCard`（**与 `cardTarget` 不同**：后者跟 `objective` 走）。
+        /// 只在 `aimToTargetInUpdate` 那一支用。`Initialize` 时缓存一次（原版每次 Update 现读）。</summary>
+        [NonSerialized] public Transform targetCardForAim;
+
+        /// <summary>`aimToTargetInUpdate` **真写过 `forward`** 的次数（自检用）。
+        /// 与 `SkippedAim` 成对 —— 只涨 `SkippedAim` 说明接线没生效。</summary>
+        public static int AimApplied;
+        /// <summary>`setDefaultUnitTransformScaleWhenUnParenting` **真写过 `localScale`** 的次数（自检用）。</summary>
+        public static int UnitSizeApplied;
+        /// <summary>`setDefaultUnitTransformScaleWhenUnParenting` 遇到**非单位卡**（`cardType ∉ {0,10}`）的次数 ——
+        /// 原版那一支要 `globalVars` 里的另外两个缩放，我们没建（**出声**，不静默）。</summary>
+        public static int UnitSizeSkippedNonUnit;
+        static bool _warnedUnitNonUnit;
+
+        /// <summary>原版 `setDefaultUnitTransformScaleWhenUnParenting` 的落地：
+        /// `transform.localScale = BattleManager.GetUnitSizeInPlay(actingCard.cardType, actingCard.isPlayer)`。
+        /// <para>判据（`d:/2/tools/decomp_full/BattleManager__GetUnitSizeInPlay.c`）：</para>
+        /// <list type="bullet">
+        /// <item>`cardType == 0`（部队）⇒ `Vector3.one × playerManager[isPlayer].desiredScale`（偏移 `+0x80`）</item>
+        /// <item>`cardType == 10`（督军）⇒ `Vector3.one × playerManager[isPlayer].heroScale`（偏移 `+0xA8`）</item>
+        /// </list>
+        /// <para>我们那四个常量就是这两个字段：`ArenaSlots.CardScale(enemy)` = 0.36/0.69 ·
+        /// `ArenaSlots.HeroScale(enemy)` = 0.40/0.77（出处 `MonoBehaviour_4372/4373.json` 的
+        /// `desiredScale` / `heroScale`）。⚠️ `enemy = !isPlayer`。</para>
+        /// <para>⚠️ `cardType` 既不是 0 也不是 10 的那一支（原版乘 `globalVars` 的两个缩放）**没建** ——
+        /// 记 `UnitSizeSkippedNonUnit` + 一次警告（数据里开这条的两个实例 `Teleport Trait Summon` /
+        /// `Teleport Trigger Effect Quick` 出手的都是单位卡）。</para></summary>
+        void ApplyDefaultUnitSize(bool wired, WFEffectCardContext ctx)
+        {
+            if (!wired || ctx.actingCard == null)
+            {
+                SkippedUnitSize++;                 // 降级模式：没有卡 ⇒ 算不出（上面已出声）
+                return;
+            }
+            var cv = ctx.actingCard.GetComponent<CardView>();
+            // ⚠️ `CardView.Data` 是**结构体**（`default(CardData)` 是「空卡位」那一路，`type` 为 null）
+            //    ⇒ ⛔ 不能写 `cv.Data != null`（CS0019）。判「有没有填」就看 `type` 这一格。
+            string type = cv != null ? cv.Data.type : null;
+            bool isHero;
+            if (type == "hero") isHero = true;
+            else if (type == "unit") isHero = false;
+            else
+            {
+                // ⚠️ 判不出卡型：**不猜**（猜错的后果是把特效放大/缩小一档，肉眼很难发现）
+                UnitSizeSkippedNonUnit++;
+                if (!_warnedUnitNonUnit)
+                {
+                    _warnedUnitNonUnit = true;
+                    Debug.LogWarning("[WarpforgeVFX] `setDefaultUnitTransformScaleWhenUnParenting` 要按卡型取单位尺寸"
+                                   + "（原版 `BattleManager.GetUnitSizeInPlay(cardType, isPlayer)`），"
+                                   + $"但这张卡的 `CardData.type` 是 `{type ?? "null"}`（只认 `unit` / `hero`）——"
+                                   + " 这一条不设 localScale。");
+                }
+                return;
+            }
+            bool enemy = !ctx.actingIsPlayer;
+            float s = isHero ? ArenaSlots.HeroScale(enemy) : ArenaSlots.CardScale(enemy);
+            transform.localScale = Vector3.one * s;
+            UnitSizeApplied++;
+        }
+
+        /// <summary>原版 `CardScript.GetEffectAnchor()` 的载体解析：给定**卡**的 Transform，返回它的特效锚点。
+        /// <para>判据（`d:/2/tools/decomp_full/CardScript__GetEffectAnchor.c`，全篇 24 行、逐句亲读）：
+        /// `cardType(+0x228) ∈ {0,1,4,8,9,10,12,16}` ⇒ `BattleCardUI.card2DController.transform(+0x30)`
+        /// （= 手牌档 = 我们的 `CardView.EffectAnchorHand`）；**其余** ⇒
+        /// `BattleCardUI.effectsAnchor(+0x1A0)`（= 场上档 = `CardView.EffectAnchorBoard`）。</para>
+        /// <para>我们的等价判据 = <see cref="CardView.EffectAnchor"/>（它内部就按「在不在场上」二分，
+        /// ⛔ 别在这里再写一遍那张卡型表）；「在不在场上」取 `CardView.Face == CardFace.Board`。</para>
+        /// <para>卡不是 `CardView`（理论上没有这类调用点）⇒ 返回 null（调用方报错 + 计数，不静默）。</para></summary>
+        static Transform ResolveEffectAnchor(Transform card)
+        {
+            if (card == null) return null;
+            var cv = card.GetComponent<CardView>();
+            if (cv == null) return null;
+            return cv.EffectAnchor(cv.Face == CardFace.Board);
         }
     }
 }

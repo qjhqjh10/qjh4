@@ -193,7 +193,7 @@ namespace CardPresentation
         /// ⇒ 它落在 **holder 的左上角**（**连 `PadL`(30) 都没加** —— 布局组永远摆不出这个位置）。</summary>
         public const float BadgeSize = 100f;
 
-        /// <summary>🔴 **我们挑的**：一个奖励物品格的尺寸。原版这里是 `ItemDrawer` 从
+        /// 🔶 自己设计（非原版）：奖励物品格尺寸 `ItemW = 200 / ItemH = 300` · 原版尺寸在抽屉 prefab 里，我们没照它量（原版判据拿不到） · TODO(谁定的)｜原注：<summary>🔴 **我们挑的**：一个奖励物品格的尺寸。原版这里是 `ItemDrawer` 从
         /// `ItemDrawerConfig` 里取的抽屉 prefab ⇒ **尺寸在 prefab 里**，我们没照它量（照 dump 出来的
         /// 抽屉几何改版式 = **一件待做的活**，见 `Shell/ItemDrawer.cs` 文件头 ②）⇒ 这个值是我们定的，
         /// 依据只有一条：**两列各最多 2 个物品**（89 条奖励里基础档最多 2、高级档最多 1），
@@ -245,7 +245,7 @@ namespace CardPresentation
         public const float TitleAutoMax = 50f, TitleAutoBase = 36f;
 
         /// <summary>按钮文案。⚠️ **原版是 I2 词条**（`Rewards Menu/Claimed` · `MainMenu/General/Claim`），
-        /// 词条表在**远端 CCD、本地没有** ⇒ 下表是**我们按 term 末段填的**（不是原版字符串）。</summary>
+        /// 🔶 自己设计（非原版）：按钮文案 `Claimed` / `Claim` 的英文串 · I2 词条表在远端 CCD、本地没有 value · TODO(谁定的)｜原注：词条表在**远端 CCD、本地没有** ⇒ 下表是**我们按 term 末段填的**（不是原版字符串）。</summary>
         public const string TxtClaimed = "Claimed", TxtClaim = "Claim";
         /// <summary>⚠️ 同上：结论是 `Rewards Menu/PremiumUnlockWarning` / `Rewards Menu/PremiumExtraTip`，
         /// **真值本地没有** ⇒ 这两句是**我们填的占位**（而且我们的口径下高级轨恒解锁 ⇒ 一般不显示）。</summary>

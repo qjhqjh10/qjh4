@@ -61,6 +61,13 @@
     <Compile Include="../../MyGame/Assets/RuleEngine/Data/AiTargets.cs" />
     <Compile Include="../../MyGame/Assets/RuleEngine/Data/AiScoringData.cs" />
     <Compile Include="AiProbe.cs" />
+    <!-- 🆕 `tutorial`（`G5`，2026-10-26 · 第 5 轮）：**教程局读数口**。
+         🔴 它修的是 `F4_第4轮.md` §1·3 那一类「12 条 `AiScripted` 全卡在 G3（可观察量）」——
+         `ruleprobe` 结构上看不见教程局（没有「局」也没有关卡数据）。
+         ⚠️ 它**不需要**新增编译项：`Core/TutorialScript.cs` 早就在 `Core/*.cs` 里，
+         关卡数据由探针自己读 `Resources/tutorial_stages.json` + `TutorialData.Install(...)` 装上。
+         ⛔ 别把 `Data/TutorialDatabase.cs` 加进来（那半个 partial 走 `Resources.Load`，探针里是桩）。 -->
+    <Compile Include="TutorialProbe.cs" />
     <!-- 被测对象：相对路径（原来写死 D:/4/... 绝对路径 ⇒ 换机器/换盘就编不过）。
          🔴 从 工具/ruleprobe/ 上去两级才是 Unity/ ⇒ ../../MyGame/... -->
     <Compile Include="../../MyGame/Assets/RuleEngine/Core/*.cs" />

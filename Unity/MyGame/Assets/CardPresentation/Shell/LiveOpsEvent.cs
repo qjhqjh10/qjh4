@@ -98,6 +98,60 @@ namespace CardPresentation
         public bool hasDuration;
         /// <summary>原版 `EventFilter.eventDuration`（+0x1C），**单位 = 小时**，默认 **24**。</summary>
         public int eventDuration = 24;
+        /// <summary>原版 `EventFilter.eventGroups`（+0x28，`List&lt;LoadableReference&lt;EventGroup&gt;&gt;`）的**等价物**：
+        /// 预计算的 `eventGroups.Select(r =&gt; r.TargetId).ToArray()` —— `LiveOpsHandler.QueueEventPopup` 用的正是这个投影
+        /// （判据 = `LiveOpsHandler&lt;object&gt;$$QueueEventPopup` 的 `Enumerable.Select(... TargetId).ToArray()`）。
+        /// <para>⚠️ **数据源有、但还没搬**：13 份 SO 的 `filter.eventGroups` 有值，本地目录层（`LiveOpsLocalEvent`）
+        /// 没抄 ⇒ 这里现在恒 `null`（`QueueEventPopup` 按「空组」处理 = 不参与组去重）。
+        /// ⛔ 别在这里塞假的组名（铁律 2「没查到就说没查到」）。</para></summary>
+        public string[] eventGroupIds;
+    }
+
+    // ============================================================ 弹窗选项（原版 `PopupOptions`）
+    /// <summary>原版 `Everguild.LiveOps.PopupOptions`（字段逐个抄，偏移 = `LiveOpsHandler_11方法_第2轮.md` §0·5）：
+    /// `PopupLabel`(+0x10) / `ActionRule`(+0x14) / `TriggerBeforeOnboardingEnds`(+0x18) / `MarkOnScreenClose`(+0x19，默认 **true**)。
+    /// <para>13 份 SO 的两组取值（逐份相同，判据 → R14 报告 §五·3）：
+    /// `TriggerPopupOptions = { PopupLabel 20, ActionRule 1, TriggerBeforeOnboardingEnds 0, MarkOnScreenClose 1 }` ·
+    /// `ExpirePopupOptions  = { PopupLabel 21, 同上三项 }`。</para>
+    /// <para>`PopupLabel` 是 `EventComponentReferenceType` 的一个值（原版用它去 `LiveOpsAssetUtility.GetComponentReference(ev, label)`
+    /// 解析出弹窗 prefab）；我们**没有**那份 GUID→prefab 映射 ⇒ 目前只存值、由 `LiveOpsPopupPresenter` 那一跳兜底。</para></summary>
+    [Serializable]
+    public class PopupOptions
+    {
+        /// <summary>原版 `PopupOptions.PopupLabel`（+0x10）：弹窗组件引用键（13 份 SO：触发 20 / 过期 21）。</summary>
+        public int PopupLabel;
+        /// <summary>原版 `PopupOptions.ActionRule`（+0x14）：见 <see cref="ActionRule"/>。13 份 SO 全是 `1`。</summary>
+        public ActionRule ActionRule;
+        /// <summary>原版 `PopupOptions.TriggerBeforeOnboardingEnds`（+0x18）：13 份 SO 全是 `false`。</summary>
+        public bool TriggerBeforeOnboardingEnds;
+        /// <summary>原版 `PopupOptions.MarkOnScreenClose`（+0x19，**默认 true**）：窗口关掉时给事件打 `MarkAsSeen`。</summary>
+        public bool MarkOnScreenClose = true;
+    }
+
+    // ============================================================ 事件绘制元素（原版 `EventElements`）
+    /// <summary>原版 `Everguild.LiveOps.EventElements`（+0x10..+0x49）里**排期/弹窗真正用到的那半**：
+    /// `ShowWindowOnTrigger`(+0x28) / `TriggerPopupOptions`(+0x30) / `ShowWindowOnExpire`(+0x38) /
+    /// `ExpirePopupOptions`(+0x40) / `HideContainer`(+0x48) / `ForceRun`(+0x49)。
+    /// <para>⚠️ **没搬的三格**：`EventAssets`(+0x10) / `EventComponents`(+0x18) / `EventLabels`(+0x20) —— 它们各自对应
+    /// `LiveOpsLocalEvent` 的 `Assets` / `Components` / `Labels`（本地目录已有，见 `Shell/LiveOpsLocalCatalog.cs`）；
+    /// 弹窗排期用不到它们，⛔ **别在这里建第二份表**（铁律 6）。</para>
+    /// <para>🔴 数据源 = 13 份 SO 的 `drawData.*`，已由 `LiveOpsLocalEvent` 的 4 个同名字段承载；
+    /// `LocalLiveOpsEvent.MapData` 在这里装配（4 bool + 两组 PopupOptions）。</para></summary>
+    [Serializable]
+    public class EventElements
+    {
+        /// <summary>原版 `EventElements.ShowWindowOnTrigger`（+0x28）。13 份 SO：`Parent` 事件 = true。</summary>
+        public bool ShowWindowOnTrigger;
+        /// <summary>原版 `EventElements.TriggerPopupOptions`（+0x30）。</summary>
+        public PopupOptions TriggerPopupOptions;
+        /// <summary>原版 `EventElements.ShowWindowOnExpire`（+0x38）。13 份 SO：`Scoring` 事件 = true。</summary>
+        public bool ShowWindowOnExpire;
+        /// <summary>原版 `EventElements.ExpirePopupOptions`（+0x40）。</summary>
+        public PopupOptions ExpirePopupOptions;
+        /// <summary>原版 `EventElements.HideContainer`（+0x48）。13 份 SO 全 false。</summary>
+        public bool HideContainer;
+        /// <summary>原版 `EventElements.ForceRun`（+0x49）。13 份 SO 全 false。`QueueEventPopup` 会传给 `MenuActions`。</summary>
+        public bool ForceRun;
     }
 
     // ============================================================ 活动数据（原版 `LiveOpsEventData`）
@@ -124,6 +178,11 @@ namespace CardPresentation
         /// <summary>原版 `EventFilter filter`（+0x30）。原版靠 Unity 序列化保证**非 null**；
         /// 我们是 POCO，用字段初始化器给出等价物（⛔ 别让它 null —— `Initialize()` 会读 `filter.hasDuration`）。</summary>
         public LiveOpsEventFilter filter = new LiveOpsEventFilter();
+        /// <summary>原版 `LiveOpsEventData.drawData`（`EventElements`，+0x38）。排期/弹窗的判据都住在这里
+        /// （`ScheduleEventPopups` / `QueueEventPopup` 逐条读）。由 `LocalLiveOpsEvent.MapData` 从
+        /// `LiveOpsLocalEvent` 的 4 个 bool + 两组固定 PopupOptions 装配。⚠️ 原版靠 Unity 序列化保证非 null；
+        /// 我们自己造 `LiveOpsEventData` 时**要么给非 null、要么读之前判空**（`ScheduleEventPopups` 已判空并出声）。</summary>
+        public EventElements drawData;
         public int priority;
         /// <summary>原版的 `EventLocation` **整体**（`{ type, parent{…} }`）我们**没有等价类**；
         /// 这里只存它的 `type` 那半（= `EventLocationType` 的 int：`Main = 0` / `None = 1` / `Parent = 2`）。
@@ -226,6 +285,19 @@ namespace CardPresentation
         void SaveEventProgress(Action onSuccess, Action onFail);
         bool IsActive();
         void Dispose();
+        /// <summary>原版 `ILiveOps.get_EventState()`（slot 23）：`GetBaseData().GetState(CurrentServerDateTime())`。
+        /// 判据 = `LiveOpsEvent__get_EventState.c`（`GetBaseData()` → `LiveOpsEventData.GetState(ServerDateTime())`）。
+        /// `ScheduleEventPopups` 的过期支读它（`== LiveOpState.Finished`）。</summary>
+        LiveOpState EventState { get; }
+        /// <summary>原版 `ILiveOps.Expire(Action onComplete)`（slot 2）：记遥测 → `ToggleEventActivation(false, true, true)`
+        /// → `onComplete?.Invoke()`。判据 = `LiveOpsEvent__Expire.c`。</summary>
+        void Expire(Action onComplete);
+        /// <summary>原版 `ILiveOps.MarkAsSeen()`（slot 12）：`save.WasSeen` 已是 true 就直接返回；否则置 true 并上传。
+        /// 判据 = `LiveOpsEvent__MarkAsSeen.c`。</summary>
+        void MarkAsSeen();
+        /// <summary>原版 `ILiveOps.ToggleEventActivation(bool active, bool forceReload, bool saveOnServer)`（slot 13）。
+        /// 判据 = `LiveOpsEvent__ToggleEventActivation.c`。</summary>
+        void ToggleEventActivation(bool active, bool forceReload, bool saveOnServer);
     }
 
     // ============================================================ 非泛型基类（原版 `LiveOpsEvent`）
@@ -287,6 +359,95 @@ namespace CardPresentation
 
         /// <summary>原版 `LiveOpsEvent.Dispose()`（virtual）：默认空（子类释放自己的容器/句柄）。</summary>
         public virtual void Dispose() { }
+
+        // ── 状态 / 过期 / 已读（原版 `ILiveOps` slot 2 / 12 / 13，逐条照抄）──────────────────────
+        /// <summary>原版 `LiveOpsEvent.Expire(Action onComplete)`（`Everguild.LiveOps.LiveOpsEvent__Expire.c`）：
+        /// <code>
+        /// var id = GetID();
+        /// var data = GetBaseData();
+        /// var state = data.GetState(TimeHelper.ServerDateTime());
+        /// PlayfabWrapper.LogActionToPlaystream(…id, state, serverTime…);   // ← 服务器遥测
+        /// ToggleEventActivation(active:false, forceReload:true, saveOnServer:true);
+        /// if (onComplete != null) onComplete();
+        /// </code>
+        /// <para>⚠️ 遥测那段（PlayFab）离线没有等价物 ⇒ **跳过并出声一次**（不静默）。
+        /// ⚠️ `ToggleEventActivation` 的 `saveOnServer:true` 在离线等价于写本地存档（见该方法）。</para></summary>
+        public virtual void Expire(Action onComplete)
+        {
+            var d = GetBaseData();
+            if (d == null)
+            {
+                Debug.LogError("[LiveOps] 活动 '" + GetID() + "' 的 Expire()：没有 data（原版会 NRE）⇒ 仍走停用并回调");
+            }
+            // 原版这里 LogActionToPlaystream（服务器遥测：事件状态 / 服务器时间 / id）—— 离线无等价物。
+            if (LiveOpsSignals.Verbose) Debug.Log("[LiveOps] 活动 '" + GetID() + "' 过期：遥感上报已跳过（离线）");
+            ToggleEventActivation(false, true, true);
+            if (onComplete != null) onComplete();
+        }
+
+        /// <summary>原版 `LiveOpsEvent.MarkAsSeen()`（`Everguild.LiveOps.LiveOpsEvent__MarkAsSeen.c`）：
+        /// <code>
+        /// var save = GetBaseSave();
+        /// if (save.WasSeen) return;                 // 已读过 ⇒ 直接返回（不重复上报）
+        /// save.WasSeen = true;
+        /// if (Handler != null) PlayfabWrapper.GenericCloudScriptHandler(0x404, {id});   // ← 服务器上传
+        /// </code>
+        /// <para>⚠️ 有意的离线等价：原版只上传服务器；离线我们把 `WasSeen` **写回本地存档**（否则重启又变未读）。
+        /// 保留 `Handler != null` 那道闸（原版 Handler 为 null 时只置位、不上报）。</para></summary>
+        public virtual void MarkAsSeen()
+        {
+            var save = GetBaseSave();
+            if (save == null)
+            {
+                Debug.LogError("[LiveOps] 活动 '" + GetID() + "' 的 MarkAsSeen()：没有存档（原版会 NRE）");
+                return;
+            }
+            if (save.WasSeen) return;
+            save.WasSeen = true;
+            if (Handler != null) SaveEventProgress(null, null);   // 原版：GenericCloudScriptHandler(0x404) 上传
+        }
+
+        /// <summary>原版 `LiveOpsEvent.ToggleEventActivation(bool active, bool forceReload, bool saveOnServer)`
+        /// （`Everguild.LiveOps.LiveOpsEvent__ToggleEventActivation.c`）：
+        /// <code>
+        /// save.IsActive = active;                                   // +0x1A
+        /// if (!active)                            save.expiredTime = now;    // +0x28
+        /// else if (save.triggerTime &lt; 1 || saveOnServer) save.triggerTime = now;   // +0x20
+        /// if (data.filter != null) EventFilter.AddOrRemoveFromGroups(data.filter, this, active);
+        /// if (forceReload &amp;&amp; Handler != null) Handler.RefreshHandlerLocally();     // ILiveOpsHandler slot 9
+        /// if (saveOnServer) GenericCloudScriptHandler(0x403, {save, active, state, time});   // ← 服务器上传
+        /// </code>
+        /// <para>⚠️ 有意差异：`AddOrRemoveFromGroups` 需要 `filter.eventGroups` 数据（本地目录没抄 ⇒ 空）⇒ **跳过并出声**。
+        /// `saveOnServer` 在离线等价于写本地存档（`SaveEventProgress`）。</para></summary>
+        public virtual void ToggleEventActivation(bool active, bool forceReload, bool saveOnServer)
+        {
+            var save = GetBaseSave();
+            if (save == null)
+            {
+                Debug.LogError("[LiveOps] 活动 '" + GetID() + "' 的 ToggleEventActivation()：没有存档（原版会 NRE）");
+                return;
+            }
+            save.IsActive = active;
+            long nowMs = LiveOpsEventTimeData.ToMs(LiveOpsClock.NowUtc);
+            if (!active)
+            {
+                save.expiredTime = nowMs;
+            }
+            else if (save.triggerTime < 1L || saveOnServer)
+            {
+                save.triggerTime = nowMs;
+            }
+            var d = GetBaseData();
+            if (d != null && d.filter != null && d.filter.eventGroupIds != null && d.filter.eventGroupIds.Length > 0)
+            {
+                // 原版 EventFilter.AddOrRemoveFromGroups(filter, this, active)：维护 `filter.eventGroups` 的成员关系。
+                // 我们没有那套「组 → 事件集合」注册表（本地目录没抄 eventGroups）⇒ 出声，不假装做完。
+                Debug.LogWarning("[LiveOps] 活动 '" + GetID() + "' 的 ToggleEventActivation：`filter.eventGroups` 非空，"
+                               + "但本地没有「组注册表」等价物 ⇒ 组归属未更新（原版走 `EventFilter.AddOrRemoveFromGroups`）");
+            }
+            if (forceReload && Handler != null) Handler.RefreshHandlerLocally();
+            if (saveOnServer) SaveEventProgress(null, null);   // 原版：GenericCloudScriptHandler(0x403) 上传
+        }
     }
 
     // ============================================================ 泛型基类（原版 `LiveOpsEvent<TSave,TData>`）

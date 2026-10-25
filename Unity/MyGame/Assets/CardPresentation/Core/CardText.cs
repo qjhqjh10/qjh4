@@ -73,15 +73,15 @@ namespace CardPresentation
         //      ⚠️ 断言里**写字面量**跟这些常量对，⛔ 别拿常量去断常量（同义反复，两边一起改照样绿）。
 
         /// <summary>卡名词条的键前缀。族名照原版（原版那 8 条 `Card_Name/{EC21,EC57,…}` 是异画特例），
-        /// 我们自造那 26 张的**键名自拟**（原版两张表都查不到）。</summary>
+        /// 🔶 自己设计（非原版）：自造 26 张卡的卡名词条键名（`Card_Name/` 族下自拟） · 原版两张本地化表都查不到这 26 张卡 · TODO(谁定的)｜原注：我们自造那 26 张的**键名自拟**（原版两张表都查不到）。</summary>
         public const string CardNameTermPrefix = "Card_Name/";
         /// <summary>关键词词条的键前缀。**族 = 原版**（`GameStaticData.TraitNameToString` 拼的就是它）；值取不到。</summary>
         public const string TraitTermPrefix = "Card_Trait/";
         /// <summary>阵营词条的键前缀。**族 = 原版**（`Armies/<Faction>`，表① 里那 14 条 mTerm 全在）。</summary>
         public const string ArmyTermPrefix = "Armies/";
-        /// <summary>HUD 短语词条的键前缀（**自拟族**；另立键、不复用 `Battle/BattleEnd/*` 与 `Battle/Tips/*`）。</summary>
+        /// 🔶 自己设计（非原版）：HUD 短语词条键前缀 `Battle/Phrase/`（自拟族） · 原版两张表里没有这一族键（原版判据拿不到） · TODO(谁定的)｜原注：<summary>HUD 短语词条的键前缀（**自拟族**；另立键、不复用 `Battle/BattleEnd/*` 与 `Battle/Tips/*`）。</summary>
         public const string PhraseTermPrefix = "Battle/Phrase/";
-        /// <summary>效果小字 / 技能卡面板整句的键前缀（**自拟族**）。</summary>
+        /// 🔶 自己设计（非原版）：效果小字 / 技能卡面板整句的键前缀 `CardEffect/`（自拟族） · 原版两张表里没有这一族键（原版判据拿不到） · TODO(谁定的)｜原注：<summary>效果小字 / 技能卡面板整句的键前缀（**自拟族**）。</summary>
         public const string EffectTermPrefix = "CardEffect/";
 
         /// <summary>`TurnLabel` 那一条的键（数字在中间 ⇒ 单独一条，值是 `第 {0} 回合` / `TURN {0}`）。</summary>
@@ -806,7 +806,7 @@ namespace CardPresentation
         /// 🔴 **2026-10-10（`A1084`）**：这一串也搬进 `Loc` 了（键 = <see cref="TurnLabelTerm"/>，
         /// 值 = `第 {0} 回合` / `TURN {0}`）⇒ 上面那个手写的 `Zh &amp;&amp; Loc.Current == Chinese` 二选一
         /// **已经不需要**（`Term` 里判的就是同一条）。
-        /// ⚠️ 缺键时回 **`TURN N`**（英文；⛔ 不是中文兜底 —— 兜底不许再写中文）。</summary>
+        /// 🔶 自己设计（非原版）：「回合 N」的中英文串 · 原版 `Battle/HUD/*` 没有这一条词条（原版判据拿不到） · TODO(谁定的)｜原注：⚠️ 缺键时回 **`TURN N`**（英文；⛔ 不是中文兜底 —— 兜底不许再写中文）。</summary>
         public static string TurnLabel(int n)
         {
             return TermOr(TurnLabelTerm, "TURN " + n).Replace("{0}", n.ToString());
