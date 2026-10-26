@@ -119,6 +119,15 @@ WARN_TITLE = {
 }
 
 _IDENT = re.compile(r"[A-Za-z_]\w*")
+# 🔴 2026-10-26：`decl_name_at` 取「紧贴 `(` 的第一个标识符」时要排除这些——它们不是声明名。
+#   起因：C# 7 元组返回 `public static (A a, bool b) M(` 旧写法读成 `static`（假失败，实测 1 条）。
+_NOT_A_NAME = {
+    "public", "private", "protected", "internal", "static", "readonly", "const", "sealed",
+    "partial", "virtual", "override", "abstract", "extern", "unsafe", "async", "new",
+    "return", "throw", "await", "yield", "typeof", "nameof", "sizeof", "default", "checked",
+    "unchecked", "if", "else", "for", "foreach", "while", "do", "switch", "case", "using",
+    "lock", "try", "catch", "finally", "in", "out", "ref", "params", "this", "base",
+}
 _ATTR = re.compile(r"^(?:\[[^\]]*\]\s*)+")
 _NOT_DECL_HEAD = re.compile(
     r"^(?:get|set|add|remove|return|throw|await|yield|case|default|if|else|for|foreach|while|do|"
@@ -184,12 +193,22 @@ def decl_name_at(line):
     if m:
         return m.group(2)
     if "(" in head:
-        pre = re.sub(r"<[^<>]*>", "", head[:head.index("(")].rstrip()).rstrip()
-        if re.search(r"\.\s*[A-Za-z_]\w*$", pre):  # `a.B(` = 调用，不是声明
+        # 🔴 2026-10-26 修：**C# 7 元组返回类型**会把第一个 `(` 当成形参表。
+        #   实测 `public static (ControlledSeedState state, bool found) GetSeedState(string id)`
+        #   旧写法读出的是修饰符 `static` ⇒ 该行被判「声明名对不上」= 假失败。
+        #   ⇒ 改成「取**第一个**紧贴 `(` 的**非关键字**标识符」：
+        #     · 元组返回里 `static (` 被关键字表挡掉，下一个就是真名；
+        #     · 形参默认值里的调用（`void F(int x = Mathf.Max(1,2))`）排在真名**之后**，取第一个不会误取。
+        cands = [mm for mm in re.finditer(r"([A-Za-z_]\w*)\s*\(", re.sub(r"<[^<>]*>", "", head))
+                 if mm.group(1) not in _NOT_A_NAME]
+        if not cands:
             return None
-        m = re.search(r"([A-Za-z_]\w*)$", pre)
+        m = cands[0]
+        pre = re.sub(r"<[^<>]*>", "", head)[:m.start()]
+        if re.search(r"\.\s*$", pre):                 # `a.B(` = 调用，不是声明
+            return None
         # `RefreshDeckList()` 这种**裸调用行**：名字前面什么都没有（没有返回类型 / 修饰符）⇒ 不是声明
-        if not m or m.start() == 0:
+        if not pre.strip():
             return None
         return m.group(1)
     if re.search(r"\.\s*[A-Za-z_]\w*$", head):     # `a.B` = 成员访问

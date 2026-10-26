@@ -65,10 +65,11 @@ namespace WarpforgeVFX
         /// · `Core/TraitFrames.cs`（按卡持有，状态消失 `Exit()`）⇒ 需要 ∞，✅ 这条现在对了；
         /// · 一次性播那条（`VfxMap` 的 `play`/`trigger` 桶 → `CardEffects.Fire`）⇒ **没有清理点**，
         ///   现读命中 **1 条 (卡,事件)**：`Blind_continuous_effect` @ `EC54/play`。
-        ///   它的正解是原版那一跳「按格位登记 + 单位离场走 `DoDestroy`」
-        ///   （`BattleManager.RemoveDestroyableAnims`），落在 `CardPresentation/Battle/**` ⇒ 已写改动请求。
-        ///   ⚠️ 在那条接线落地前，这 1 条会**留到本局结束**（`Blind_continuous_effect` 只有 1.5 s 的
-        ///   循环发射器 ⇒ 可见残留）。与此前「状态还在框却没了」相比，这是**更接近原版**的那一侧错误。</para>
+        ///   🔴 **2026-10-26 订正（铁律 5 · 第八十三会话 `V3` 现读原版）：它【不是】缺失的清理点。**
+        ///   `RemoveDestroyableAnims` 的闸是 `buffType ∈ {15,16}`（`singleUseEnchantment`/`choiceEnchantment`）、
+        ///   而且**只动 `TraitFrameEffectsPlay/Trigger` 两本字典**（判据 `out_cpp2il_dev_ilspy/BattleManager.cs:26301`）；
+        ///   `EC54` 是 `buffType 3 addTrait`、这件 prefab 来自**技能 `cardAnimations` 的一次性播** ⇒ 它管不到。
+        ///   原版那一件同样是 `destroyTime == 0`、同样没人收（`AnimFXController.OnEnable` 是唯一的自毁点）⇒ **两边一致，⛔ 别为它另造清理点**（铁律：原版有 bug 就照抄）。</para>
         ///
         /// <para>⚠️ 另：`RemnantBody3D Necrons`（`destroyTime == 0`）走 `death` 桶 42 张卡 ⇒ 现在也会
         /// 留到本局结束。**这正是原版行为**（残骸体本来就该一直在），清理由残骸体自己的生命周期管。</para></summary>

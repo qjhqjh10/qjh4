@@ -1,0 +1,687 @@
+账行号	原版类	方法	分类(B1..B7)	离A还差什么(一句话)	可批量块编号	建议动作(改账/改码)	目标文件	预估条数权重
+25	AI	ScoreFromHandBuff(BattleManager manager, CardScript thisCard, List<CardScript> possibleTargets, ScoringCriteria criteria)	B1	补判据要点逐条 + 观测量；落点已是方法级（必要时按符号重钉行号）	X-账-其它	改账	RuleEngine/Data/AiScoring.cs	2
+62	AbilityData	SetNewData(CardScript thisCard, CardScript actingCard, CardScript targetCard, bool isPlayerTurn, int priority, bool blockPlayerActions)	B5	原版判据读不到/失真（补 VA 反汇编或另一份反编译）：判据侧不可靠三个形参丢失，要 VA 反汇编才能确认真被写入；我们侧没有 AbilityDa…	X-判据读不到	补判据	RuleEngine/Core/ActionPump.cs	2
+72	AbilityLogic	GetPos(BattleManager manager, AbilityData abilityData, CardScript abilityTarget, PositionOption posOption)	B2	落点文件级/「同上」/无行号 ⇒ 补方法级行号范围（判据要点一并补）	X-落点补行号	改账	Core/BoardSlots.cs	2
+76	AbilityLogic	GetTargets(BattleManager manager, TargetCriteria criteria, CardScript thisCard, CardScript actingCard, CardScript targetCard, bool checkMaxTargets)	B1	补判据要点逐条 + 观测量；落点已是方法级（必要时按符号重钉行号）	X-账-其它	改账	RuleEngine/Core/EffectResolver.cs	3
+77	AbilityLogic	GetValueFromCriteria(BattleManager manager, int minValue, int maxValue, CardScript thisCard, CardScript targetCard, ChooseValueOptions valueOptions, int multiplierFactor, CardScript refCard)	B2	落点文件级/「同上」/无行号 ⇒ 补方法级行号范围（判据要点一并补）	X-落点补行号	改账	Core/CountEval.cs	2
+79	AbilityLogic	NewBuffStat(BattleManager manager, ChooseValueOptions valueOption, int minValue, AbilityData abilityData, int multiplier, int altvalue)	B1	补判据要点逐条 + 观测量；落点已是方法级（必要时按符号重钉行号）	X-账-其它	改账	RuleEngine/Core/EffectResolver.cs	2
+80	AbilityLogic	PlayAbility(BattleManager manager, AbilityData abilityData, AbilityTrigger trigger)	B1	补判据要点逐条 + 观测量；落点已是方法级（必要时按符号重钉行号）	X-账-其它	改账	RuleEngine/Core/EffectResolver.cs	3
+81	AbilityLogic	PlayAnim(BattleManager manager, AbilityData abilityData, List<CardScript> abilityTargets)	B7	口径六域外（纯表现层/UI）⇒ 移交 CardPresentation 线，本域不计 A	X-表现层移交	移交	CardPresentation/**（移交战斗界面/特效动画线）	2
+83	ActiveAbility	DeepCopy()	B1	补判据要点逐条 + 观测量；落点已是方法级（必要时按符号重钉行号）	X-账-其它	改账	RuleEngine/Core/CardDef.cs	2
+84	ActiveAbility	ShallowCopy()	B1	补判据要点逐条 + 观测量；落点已是方法级（必要时按符号重钉行号）	X-账-其它	改账	RuleEngine/Core/CardDef.cs	1
+85	ActiveWarlordAbility	GetParentCard()	B7	口径六域外（纯表现层/UI）⇒ 移交 CardPresentation 线，本域不计 A	X-表现层移交	移交	CardPresentation/**（移交战斗界面/特效动画线）	1
+86	ActiveWarlordAbility	OnTouchDown(Vector2 originalTouchPosition)	B7	口径六域外（纯表现层/UI）⇒ 移交 CardPresentation 线，本域不计 A	X-表现层移交	移交	CardPresentation/**（移交战斗界面/特效动画线）	1
+87	ActiveWarlordAbility	OnTouchExit(Vector2 originalTouchPosition)	B7	口径六域外（纯表现层/UI）⇒ 移交 CardPresentation 线，本域不计 A	X-表现层移交	移交	CardPresentation/**（移交战斗界面/特效动画线）	1
+88	ActiveWarlordAbility	OnTouchUpAsButton(Vector2 originalTouchPosition)	B7	口径六域外（纯表现层/UI）⇒ 移交 CardPresentation 线，本域不计 A	X-表现层移交	移交	RuleCore.cs	1
+89	ActiveWarlordAbility	Start()	B7	口径六域外（纯表现层/UI）⇒ 移交 CardPresentation 线，本域不计 A	X-表现层移交	移交	CardPresentation/**（移交战斗界面/特效动画线）	1
+90	ActiveWarlordAbility	Update()	B7	口径六域外（纯表现层/UI）⇒ 移交 CardPresentation 线，本域不计 A	X-表现层移交	移交	CardPresentation/**（移交战斗界面/特效动画线）	1
+91	ActiveWarlordAbility	_003COnTouchUpAsButton_003Eb__12_0()	B7	口径六域外（纯表现层/UI）⇒ 移交 CardPresentation 线，本域不计 A	X-表现层移交	移交	CardPresentation/**（移交战斗界面/特效动画线）	1
+101	AiScripted	ExecuteAction(BattleManager manager, ScriptedAction action)	B4	先修差异：6 档状态 + 聊天/提示/标注/高亮已接；未接 3 档：ActiveAbility桩、ShowManaAura、Res…	X-差异-引擎数据	改码	RuleEngine/Core/TutorialScript.cs	3
+104	AiScripted	GetActingCard(BattleManager manager, ScriptedActionData actionData, bool acting)	B1	补判据要点逐条 + 观测量；落点已是方法级（必要时按符号重钉行号）	X-账-其它	改账	RuleEngine/Core/TutorialScript.cs	1
+111	AiScripted	GetTipPosition(BattleManager manager, PositionReference positionReference, PositionRelation positionRelation, RawCardScript referenceUnit)	B1	补判据要点逐条 + 观测量；落点已是方法级（必要时按符号重钉行号）	X-账-其它	改账	CardPresentation/Battle/BattleDriver.cs	2
+123	AiScripted	ShowPlayerActionAnim(BattleManager manager, ScriptedAction playerAction)	B7	口径六域外（纯表现层/UI）⇒ 移交 CardPresentation 线，本域不计 A	X-表现层移交	移交	Battle/TutorialOverlay.cs	1
+126	BattleManager	ActionsInQueue()	B1	补判据要点逐条 + 观测量；落点已是方法级（必要时按符号重钉行号）	X-账-BattleManager	改账	RuleEngine/Core/ActionQueue.cs	1
+127	BattleManager	ActionsLeftInQueue()	B1	补判据要点逐条 + 观测量；落点已是方法级（必要时按符号重钉行号）	X-账-BattleManager	改账	RuleEngine/Core/ActionQueue.cs	1
+129	BattleManager	AddAttackContinuationAction(BattleAction baseAction)	B4	先修差异：原版取消之后会补一条续攻:426，我们不补 ⇒ 带 landing 的单位在我们这里永远真的打不到人；原版是「等开舱动画…	X-差异-RuleCore	改码	RuleEngine/Core/RuleCore.cs	2
+133	BattleManager	AddCardAnim(AnimInfo animInfo, Transform startPos, Transform endPos, Transform rotateTowards, bool waitForAnim, int priority, bool checkIfCasterInPlay, CardScript casterCard, CardScript targetCard, bool blockPlayerActions)	B7	口径六域外（纯表现层/UI）⇒ 移交 CardPresentation 线，本域不计 A	X-表现层移交	移交	CardPresentation/Battle/Card3DAnimationController.cs	2
+135	BattleManager	AddCardToDeck(CardScript card, List<CardScript> deck, int posInDeck)	B1	补判据要点逐条 + 观测量；落点已是方法级（必要时按符号重钉行号）	X-账-BattleManager	改账	RuleEngine/Core/RuleCore.cs	1
+146	BattleManager	AddExchangeMinions(CardScript actingCard, CardScript minion1, CardScript minion2, int priority, bool blockPlayerActions)	B2	落点文件级/「同上」/无行号 ⇒ 补方法级行号范围（判据要点一并补）	X-落点补行号	改账	（待定位）	1
+149	BattleManager	AddFollowResolutionAttackContinuationAction(BattleAction baseAction)	B1	补判据要点（入队vs同步的机制差异+等价依据）+ 一个观测量两侧数值（ruleprobe）	X-入队同步改账	改账	RuleEngine/Core/RuleCore.cs	2
+154	BattleManager	AddInitialCardToDeck(RawCardScript startingCard, bool isPlayerY, RawCardScript warlord, ref List<CardScript> deck)	B7	原版死代码/恒常量/0 调用 ⇒ 建议判 D（带时间限定），不是 A	X-D休眠	判D	RuleEngine/Core/RuleCore.cs	1
+159	BattleManager	AddNextReplayAction()	B7	口径六域外（纯表现层/UI）⇒ 移交 CardPresentation 线，本域不计 A	X-表现层移交	移交	RuleEngine/Core/ReplayFingerprintTrace.cs	1
+167	BattleManager	AddRemoveFromCemetery(CardScript targetCard, int priority, bool checkIfCasterInPlay, CardScript casterCard, bool blockPlayerActions)	B1	补判据要点逐条 + 观测量；落点已是方法级（必要时按符号重钉行号）	X-账-BattleManager	改账	EffectResolver.cs	1
+169	BattleManager	AddResetDuty(CardScript resetCard, bool targetPlayer, int priority, bool checkIfCasterInPlay, CardScript casterCard, bool blockPlayerActions)	B2	落点写「我们无动作队列」（已过期）⇒ 定位 FireTriggerAt/Do* 的具体行号	X-AddTrigger族	改账	RuleEngine/Core/{RuleCore,EffectResolver}.cs（待定位）	1
+170	BattleManager	AddResignAction(bool isPlayer)	B1	补判据要点（入队vs同步的机制差异+等价依据）+ 一个观测量两侧数值（ruleprobe）	X-入队同步改账	改账	RuleEngine/Core/RuleCore.cs	1
+171	BattleManager	AddRevealOrders(CardScript actingCard, RawCardScript enchantment, int priority, bool blockPlayerActions)	B1	补判据要点（入队vs同步的机制差异+等价依据）+ 一个观测量两侧数值（ruleprobe）	X-入队同步改账	改账	RuleEngine/Core/RuleCore.cs	1
+172	BattleManager	AddScriptedAttack(CardScript actingCard, CardScript targetCard, int priority, bool checkIfCasterInPlay, CardScript casterCard, bool blockPlayerActions)	B2	落点写「我们无动作队列」（已过期）⇒ 定位 FireTriggerAt/Do* 的具体行号	X-AddTrigger族	改账	RuleEngine/Core/{RuleCore,EffectResolver}.cs（待定位）	1
+173	BattleManager	AddScriptedForceAttack(CardScript actingCard, CardScript targetCard, int priority, bool checkIfCasterInPlay, CardScript casterCard, bool blockPlayerActions, bool dontCountAttack)	B2	落点写「我们无动作队列」（已过期）⇒ 定位 FireTriggerAt/Do* 的具体行号	X-AddTrigger族	改账	RuleEngine/Core/{RuleCore,EffectResolver}.cs（待定位）	1
+174	BattleManager	AddSetCardToTop(CardScript targetCard, CardScript actingCard, int priority, bool blockPlayerActions)	B2	落点写「我们无动作队列」（已过期）⇒ 定位 FireTriggerAt/Do* 的具体行号	X-AddTrigger族	改账	RuleEngine/Core/{RuleCore,EffectResolver}.cs（待定位）	1
+175	BattleManager	AddShowCardsWindowAction(List<CardScript> targetCardList, CardEffect buffEffect, int priority, bool blockPlayerActions)	B1	补判据要点（入队vs同步的机制差异+等价依据）+ 一个观测量两侧数值（ruleprobe）	X-入队同步改账	改账	RuleEngine/Core/EffectResolver.cs	1
+176	BattleManager	AddStealFromDeck(CardScript stolenCard, CardScript actingCard, int priority, bool blockPlayerActions)	B1	补判据要点（入队vs同步的机制差异+等价依据）+ 一个观测量两侧数值（ruleprobe）	X-入队同步改账	改账	RuleEngine/Core/EffectResolver.cs	1
+177	BattleManager	AddStealFromHand(CardScript stolenCard, CardScript actingCard, int priority, bool blockPlayerActions)	B1	补判据要点（入队vs同步的机制差异+等价依据）+ 一个观测量两侧数值（ruleprobe）	X-入队同步改账	改账	RuleEngine/Core/EffectResolver.cs	1
+178	BattleManager	AddStealMinion(CardScript stolenCard, int priority, bool blockPlayerActions)	B1	补判据要点（入队vs同步的机制差异+等价依据）+ 一个观测量两侧数值（ruleprobe）	X-入队同步改账	改账	RuleEngine/Core/EffectResolver.cs	1
+179	BattleManager	AddStun(CardScript targetCard, int priority, bool checkIfCasterInPlay, CardScript casterCard, bool blockPlayerActions)	B1	补判据要点（入队vs同步的机制差异+等价依据）+ 一个观测量两侧数值（ruleprobe）	X-入队同步改账	改账	RuleEngine/Core/EffectResolver.cs	1
+180	BattleManager	AddSummonUnit(RawCardScript summonedCard, int summonPos, bool isPlayer, int priority, bool checkIfCasterInPlay, CardScript casterCard, CardEffect cardEffect, bool blockPlayerActions, RawCardScript enchantment)	B1	补判据要点（入队vs同步的机制差异+等价依据）+ 一个观测量两侧数值（ruleprobe）	X-入队同步改账	改账	RuleEngine/Core/RuleCore.cs	1
+182	BattleManager	AddTransformCard(CardScript targetCard, RawCardScript transformedIntoCard, int priority, bool checkIfCasterInPlay, CardScript casterCard, bool keepEffects, bool blockPlayerActions)	B1	补判据要点（入队vs同步的机制差异+等价依据）+ 一个观测量两侧数值（ruleprobe）	X-入队同步改账	改账	RuleEngine/Core/EffectResolver.cs	1
+183	BattleManager	AddTransformCardWithBuff(CardScript targetCard, RawCardScript transformedIntoCard, int priority, bool checkIfCasterInPlay, CardScript casterCard, CardEffect buffEffect, bool keepEffects, bool blockPlayerActions)	B2	落点写「我们无动作队列」（已过期）⇒ 定位 FireTriggerAt/Do* 的具体行号	X-AddTrigger族	改账	RuleEngine/Core/{RuleCore,EffectResolver}.cs（待定位）	1
+184	BattleManager	AddTransformFromRemnant(CardScript targetCard, bool waitToTransform, int priority, bool checkIfCasterInPlay, CardScript casterCard, bool blockPlayerActions)	B1	补判据要点（入队vs同步的机制差异+等价依据）+ 一个观测量两侧数值（ruleprobe）	X-入队同步改账	改账	RuleEngine/Core/EffectResolver.cs	1
+185	BattleManager	AddTransformIntoRemnant(CardScript targetCard, int priority, bool checkIfCasterInPlay, CardScript casterCard, bool blockPlayerActions)	B2	落点写「我们无动作队列」（已过期）⇒ 定位 FireTriggerAt/Do* 的具体行号	X-AddTrigger族	改账	RuleEngine/Core/{RuleCore,EffectResolver}.cs（待定位）	1
+186	BattleManager	AddTriggerAmbush(CardScript targetCard, CardScript actingCard, int priority, bool blockPlayerActions)	B2	落点写「我们无动作队列」（已过期）⇒ 定位 FireTriggerAt/Do* 的具体行号	X-AddTrigger族	改账	RuleEngine/Core/{RuleCore,EffectResolver}.cs（待定位）	1
+187	BattleManager	AddTriggerCardPlayedByStimulation(CardScript targetCard, CardScript actingCard, CardScript thisCard)	B2	落点写「我们无动作队列」（已过期）⇒ 定位 FireTriggerAt/Do* 的具体行号	X-AddTrigger族	改账	RuleEngine/Core/{RuleCore,EffectResolver}.cs（待定位）	1
+188	BattleManager	AddTriggerCodex(CardScript targetCard, CardScript actingCard, int priority, bool blockPlayerActions)	B1	补判据要点（入队vs同步的机制差异+等价依据）+ 一个观测量两侧数值（ruleprobe）	X-入队同步改账	改账	RuleEngine/Core/RuleCore.cs	1
+189	BattleManager	AddTriggerCourtesy(CardScript targetCard, CardScript actingCard, int priority, bool blockPlayerActions)	B2	落点写「我们无动作队列」（已过期）⇒ 定位 FireTriggerAt/Do* 的具体行号	X-AddTrigger族	改账	RuleEngine/Core/{RuleCore,EffectResolver}.cs（待定位）	1
+190	BattleManager	AddTriggerMob(CardScript targetCard, CardScript actingCard, int priority, bool blockPlayerActions, bool isAdditionalMobTrigger)	B2	落点写「我们无动作队列」（已过期）⇒ 定位 FireTriggerAt/Do* 的具体行号	X-AddTrigger族	改账	RuleEngine/Core/{RuleCore,EffectResolver}.cs（待定位）	1
+191	BattleManager	AddTriggerPlayerCodex(CardScript actingCard, CardScript targetCard, int priority, bool blockPlayerActions)	B2	落点写「我们无动作队列」（已过期）⇒ 定位 FireTriggerAt/Do* 的具体行号	X-AddTrigger族	改账	RuleEngine/Core/{RuleCore,EffectResolver}.cs（待定位）	1
+192	BattleManager	AddTriggerPray(CardScript targetCard, CardScript actingCard, int priority, bool blockPlayerActions)	B2	落点写「我们无动作队列」（已过期）⇒ 定位 FireTriggerAt/Do* 的具体行号	X-AddTrigger族	改账	RuleEngine/Core/{RuleCore,EffectResolver}.cs（待定位）	1
+193	BattleManager	AddTriggerRegiment(CardScript targetCard, CardScript actingCard, int priority, bool blockPlayerActions)	B2	落点写「我们无动作队列」（已过期）⇒ 定位 FireTriggerAt/Do* 的具体行号	X-AddTrigger族	改账	RuleEngine/Core/{RuleCore,EffectResolver}.cs（待定位）	1
+194	BattleManager	AddTriggerRelentless(CardScript targetCard, CardScript actingCard, int priority, bool blockPlayerActions)	B2	落点写「我们无动作队列」（已过期）⇒ 定位 FireTriggerAt/Do* 的具体行号	X-AddTrigger族	改账	RuleEngine/Core/{RuleCore,EffectResolver}.cs（待定位）	1
+195	BattleManager	AddTriggerRequiem(CardScript targetCard, CardScript actingCard, int priority, bool blockPlayerActions)	B1	补判据要点（入队vs同步的机制差异+等价依据）+ 一个观测量两侧数值（ruleprobe）	X-入队同步改账	改账	RuleEngine/Core/RuleCore.cs	1
+196	BattleManager	AddTriggerSacrifice(CardScript targetCard, CardScript actingCard, int priority, bool blockPlayerActions)	B2	落点写「我们无动作队列」（已过期）⇒ 定位 FireTriggerAt/Do* 的具体行号	X-AddTrigger族	改账	RuleEngine/Core/{RuleCore,EffectResolver}.cs（待定位）	1
+197	BattleManager	AddTriggerSlay(CardScript targetCard, CardScript actingCard, int priority, bool blockPlayerActions)	B2	落点写「我们无动作队列」（已过期）⇒ 定位 FireTriggerAt/Do* 的具体行号	X-AddTrigger族	改账	RuleEngine/Core/{RuleCore,EffectResolver}.cs（待定位）	1
+198	BattleManager	AddTriggerSpiritStone(CardScript targetCard, CardScript actingCard, int priority, bool blockPlayerActions)	B2	落点写「我们无动作队列」（已过期）⇒ 定位 FireTriggerAt/Do* 的具体行号	X-AddTrigger族	改账	RuleEngine/Core/{RuleCore,EffectResolver}.cs（待定位）	1
+199	BattleManager	AddTriggerSynapse(CardScript targetCard, CardScript actingCard, int priority, bool blockPlayerActions)	B2	落点写「我们无动作队列」（已过期）⇒ 定位 FireTriggerAt/Do* 的具体行号	X-AddTrigger族	改账	RuleEngine/Core/{RuleCore,EffectResolver}.cs（待定位）	1
+200	BattleManager	AddTriggerTeleport(CardScript targetCard, CardScript actingCard, int priority, bool blockPlayerActions)	B2	落点写「我们无动作队列」（已过期）⇒ 定位 FireTriggerAt/Do* 的具体行号	X-AddTrigger族	改账	RuleEngine/Core/{RuleCore,EffectResolver}.cs（待定位）	1
+201	BattleManager	AddTriggerUprising(CardScript targetCard, CardScript actingCard, int priority, bool blockPlayerActions)	B2	落点写「我们无动作队列」（已过期）⇒ 定位 FireTriggerAt/Do* 的具体行号	X-AddTrigger族	改账	RuleEngine/Core/{RuleCore,EffectResolver}.cs（待定位）	1
+202	BattleManager	AddVoiceLinesControllerListeners()	B2	落点写「我们无动作队列」（已过期）⇒ 定位 FireTriggerAt/Do* 的具体行号	X-AddTrigger族	改账	RuleEngine/Core/{RuleCore,EffectResolver}.cs（待定位）	1
+203	BattleManager	AllUnitsInPlay(List<CardScript> cards)	B2	落点是占位「RuleCore/EffectResolver 同族落点」⇒ 读原版体后补方法级行号范围	X-BM落点-规则	改账	RuleEngine/Core/{RuleCore,EffectResolver,ActionPump,BattleContext}.cs（待定位）	1
+204	BattleManager	AllowResolveAttack(BattleAction battleAction)	B1	补判据要点逐条 + 观测量；落点已是方法级（必要时按符号重钉行号）	X-账-BattleManager	改账	RuleEngine/Core/RuleCore.cs	1
+205	BattleManager	AlreadyPlayedCardThisTurn(bool isPlayer)	B4	先修差异：差异：原版按方各一个 bool，我们只有一个全局 int 计数只有行动方能出牌 ⇒ 对行动方等价，对非行动方无对应物；全…	X-差异-引擎数据	改码	RuleEngine/Core/BattleContext.cs	1
+207	BattleManager	ApplyEnvEffect(RawCardScript card, bool isPlayer)	B2	落点是占位「RuleCore/EffectResolver 同族落点」⇒ 读原版体后补方法级行号范围	X-BM落点-规则	改账	RuleEngine/Core/{RuleCore,EffectResolver,ActionPump,BattleContext}.cs（待定位）	1
+208	BattleManager	ApplyOffensiveAndDefensiveEffects()	B2	落点是占位「RuleCore/EffectResolver 同族落点」⇒ 读原版体后补方法级行号范围	X-BM落点-规则	改账	RuleEngine/Core/{RuleCore,EffectResolver,ActionPump,BattleContext}.cs（待定位）	1
+212	BattleManager	BasicBattleEndSequence()	B7	口径六域外（纯表现层/UI）⇒ 移交 CardPresentation 线，本域不计 A	X-表现层移交	移交	CardPresentation/**（移交战斗界面/特效动画线）	1
+214	BattleManager	BroadcastActivateMinions(bool playerTurn)	B1	补判据要点（跳数/预调/自排除逐条）+ 观测量；机制差异写成一句可复核的话	X-广播族改账	改账	RuleEngine/Core/RuleCore.cs	2
+216	BattleManager	BroadcastChangedLanguage()	B1	补判据要点（跳数/预调/自排除逐条）+ 观测量；机制差异写成一句可复核的话	X-广播族改账	改账	CardPresentation/Battle/BattleHudLanguage.cs	2
+217	BattleManager	BroadcastCollectedFaith(CardScript unitCollected)	B4	先修差异：2026-10-26B8AE已收窄，本节原文「我们走通用四跳 ⇒ 会叫醒手牌」已过期：三处发 GainFaith 的地方…	X-差异-EffectResolver	改码	RuleEngine/Core/EffectResolver.cs	2
+218	BattleManager	BroadcastCollectedQuestPoints(CardScript unitCollected)	B4	先修差异：2026-10-26B8AE已收窄，原文「我们走通用四跳」已过期boardAndPersistentOnly: true…	X-差异-EffectResolver	改码	RuleEngine/Core/EffectResolver.cs	2
+219	BattleManager	BroadcastCollectedSpiritStone(CardScript unitCollected)	B4	先修差异：2026-10-26B8AE已收窄，原文「我们走通用四跳」已过期boardAndPersistentOnly: true…	X-差异-RuleCore	改码	RuleEngine/Core/RuleCore.cs	2
+220	BattleManager	BroadcastEarnSkull(bool isPlayer)	B1	补判据要点（跳数/预调/自排除逐条）+ 观测量；机制差异写成一句可复核的话	X-广播族改账	改账	RuleEngine/Core/EffectResolver.cs	2
+221	BattleManager	BroadcastHuntMarkResolved(CardScript unitMarked)	B1	补判据要点（跳数/预调/自排除逐条）+ 观测量；机制差异写成一句可复核的话	X-广播族改账	改账	RuleEngine/Core/EffectResolver.cs	2
+222	BattleManager	BroadcastMarkResolved(CardScript unitMarked)	B1	补判据要点（跳数/预调/自排除逐条）+ 观测量；机制差异写成一句可复核的话	X-广播族改账	改账	RuleEngine/Core/EffectResolver.cs	2
+223	BattleManager	BroadcastMarkerlightResolved(CardScript unitMarked)	B1	补判据要点逐条 + 观测量；落点已是方法级（必要时按符号重钉行号）	X-账-BattleManager	改账	RuleEngine/Core/EffectResolver.cs	1
+224	BattleManager	BroadcastQuestResolved(CardScript questCard)	B4	先修差异：机制不同、结果等价有边界：原版走「满阈值 → OnQuestResolved(490) → 督军卡上的 createCa…	X-差异-EffectResolver	改码	RuleEngine/Core/EffectResolver.cs	2
+225	BattleManager	BroadcastSabotageCreated(CardScript unitCollected)	B1	补判据要点（跳数/预调/自排除逐条）+ 观测量；机制差异写成一句可复核的话	X-广播族改账	改账	RuleEngine/Core/EffectResolver.cs	1
+226	BattleManager	BroadcastSacrificeResolved(CardScript unitSacrifice)	B1	补判据要点（跳数/预调/自排除逐条）+ 观测量；机制差异写成一句可复核的话	X-广播族改账	改账	RuleEngine/Core/RuleCore.cs	2
+227	BattleManager	BroadcastSecretCreated(CardScript unitCollected)	B1	补判据要点（跳数/预调/自排除逐条）+ 观测量；机制差异写成一句可复核的话	X-广播族改账	改账	RuleEngine/Core/EffectResolver.cs	1
+228	BattleManager	BroadcastTacticPlayed(CardScript tacticard, CardScript targetCard)	B1	补判据要点（跳数/预调/自排除逐条）+ 观测量；机制差异写成一句可复核的话	X-广播族改账	改账	RuleEngine/Core/EffectResolver.cs	2
+230	BattleManager	BroadcastUnitCodex(CardScript unitCodex)	B1	补判据要点（跳数/预调/自排除逐条）+ 观测量；机制差异写成一句可复核的话	X-广播族改账	改账	RuleEngine/Core/EffectResolver.cs	1
+231	BattleManager	BroadcastUnitDamaged(CardScript damagedUnit, DamageInfo damageInfo, bool dealtByAttacker)	B1	补判据要点（跳数/预调/自排除逐条）+ 观测量；机制差异写成一句可复核的话	X-广播族改账	改账	RuleEngine/Core/RuleCore.cs	2
+232	BattleManager	BroadcastUnitDuty(CardScript unitCodex)	B1	补判据要点（跳数/预调/自排除逐条）+ 观测量；机制差异写成一句可复核的话	X-广播族改账	改账	RuleEngine/Core/EffectResolver.cs	1
+233	BattleManager	BroadcastUnitFerocity(CardScript unitCodex)	B1	补判据要点（跳数/预调/自排除逐条）+ 观测量；机制差异写成一句可复核的话	X-广播族改账	改账	RuleEngine/Core/EffectResolver.cs	1
+234	BattleManager	BroadcastUnitHealed(CardScript unitHealed)	B1	补判据要点（跳数/预调/自排除逐条）+ 观测量；机制差异写成一句可复核的话	X-广播族改账	改账	RuleEngine/Core/EffectResolver.cs	2
+235	BattleManager	BroadcastUnitLanded(CardScript unitLanded)	B1	补判据要点（跳数/预调/自排除逐条）+ 观测量；机制差异写成一句可复核的话	X-广播族改账	改账	RuleEngine/Core/RuleCore.cs	1
+236	BattleManager	BroadcastUnitLoseStealth(CardScript unitLoseStealth)	B1	补判据要点（跳数/预调/自排除逐条）+ 观测量；机制差异写成一句可复核的话	X-广播族改账	改账	RuleEngine/Core/EffectResolver.cs	1
+237	BattleManager	BroadcastUnitMob(CardScript unitMob, CardScript unitMobCaster)	B1	补判据要点（入队vs同步的机制差异+等价依据）+ 一个观测量两侧数值（ruleprobe）	X-入队同步改账	改账	RuleEngine/Core/RuleCore.cs	1
+238	BattleManager	BroadcastUnitPray(CardScript unitCodex)	B1	补判据要点（跳数/预调/自排除逐条）+ 观测量；机制差异写成一句可复核的话	X-广播族改账	改账	RuleEngine/Core/RuleCore.cs	2
+239	BattleManager	BroadcastUnitRegiment(CardScript unitRegiment, CardScript unitRegimentCaster)	B1	补判据要点（跳数/预调/自排除逐条）+ 观测量；机制差异写成一句可复核的话	X-广播族改账	改账	RuleEngine/Core/RuleCore.cs	2
+240	BattleManager	BroadcastUnitRequiem(CardScript unitRequiem, CardScript unitRequiemCaster)	B1	补判据要点（跳数/预调/自排除逐条）+ 观测量；机制差异写成一句可复核的话	X-广播族改账	改账	RuleEngine/Core/EffectResolver.cs	2
+241	BattleManager	BroadcastUnitSpiritStone(CardScript unitSpiritStone)	B1	补判据要点（跳数/预调/自排除逐条）+ 观测量；机制差异写成一句可复核的话	X-广播族改账	改账	RuleEngine/Core/EffectResolver.cs	2
+242	BattleManager	BroadcastUnitSwarm(CardScript playedUnit, CardScript buffedunit)	B1	补判据要点（跳数/预调/自排除逐条）+ 观测量；机制差异写成一句可复核的话	X-广播族改账	改账	RuleEngine/Core/RuleCore.cs	1
+243	BattleManager	BroadcastUnitSynapse(CardScript synapseUnit)	B1	补判据要点（跳数/预调/自排除逐条）+ 观测量；机制差异写成一句可复核的话	X-广播族改账	改账	RuleEngine/Core/EffectResolver.cs	1
+245	BattleManager	CanDisplayCemeteryInTutorial()	B7	口径六域外（纯表现层/UI）⇒ 移交 CardPresentation 线，本域不计 A	X-表现层移交	移交	CardPresentation/Battle/BattleDriver.cs	1
+246	BattleManager	CanDisplayChatInTutorial()	B7	口径六域外（纯表现层/UI）⇒ 移交 CardPresentation 线，本域不计 A	X-表现层移交	移交	CardPresentation/**（移交战斗界面/特效动画线）	1
+247	BattleManager	CanDisplayDeckSize()	B7	口径六域外（纯表现层/UI）⇒ 移交 CardPresentation 线，本域不计 A	X-表现层移交	移交	CardPresentation/**（移交战斗界面/特效动画线）	1
+248	BattleManager	CanDisplayHandCard(CardScript card)	B7	口径六域外（纯表现层/UI）⇒ 移交 CardPresentation 线，本域不计 A	X-表现层移交	移交	CardPresentation/**（移交战斗界面/特效动画线）	1
+249	BattleManager	CanDisplayLargeCardInTutorial()	B7	口径六域外（纯表现层/UI）⇒ 移交 CardPresentation 线，本域不计 A	X-表现层移交	移交	CardPresentation/**（移交战斗界面/特效动画线）	1
+250	BattleManager	CanMoveHandCard()	B7	口径六域外（纯表现层/UI）⇒ 移交 CardPresentation 线，本域不计 A	X-表现层移交	移交	CardPresentation/**（移交战斗界面/特效动画线）	1
+251	BattleManager	CanPlayCard(CardScript card, bool showTips, bool initiateAction, bool actionAlreadyStarted)	B1	补判据要点逐条 + 观测量；落点已是方法级（必要时按符号重钉行号）	X-账-BattleManager	改账	RuleEngine/Core/RuleCore.cs	1
+252	BattleManager	CanShowCemetery()	B7	口径六域外（纯表现层/UI）⇒ 移交 CardPresentation 线，本域不计 A	X-表现层移交	移交	CardPresentation/Battle/BattleDriver.cs	1
+253	BattleManager	CanShowPotentialTargets(CardScript actingCard)	B7	口径六域外（纯表现层/UI）⇒ 移交 CardPresentation 线，本域不计 A	X-表现层移交	移交	CardPresentation/Battle/BattleDriver.cs	1
+254	BattleManager	CanUseActiveAbility(CardScript parentCard, bool isPlayerAsking, bool showTips)	B1	补判据要点逐条 + 观测量；落点已是方法级（必要时按符号重钉行号）	X-账-BattleManager	改账	RuleEngine/Core/RuleCore.cs	1
+257	BattleManager	CancelActionStates()	B2	落点是占位「RuleCore/EffectResolver 同族落点」⇒ 读原版体后补方法级行号范围	X-BM落点-规则	改账	RuleEngine/Core/{RuleCore,EffectResolver,ActionPump,BattleContext}.cs（待定位）	1
+260	BattleManager	CancelBattleActionFromQueue(List<BattleAction> queue, int actionIndex)	B1	补判据要点逐条 + 观测量；落点已是方法级（必要时按符号重钉行号）	X-账-BattleManager	改账	RuleEngine/Core/ActionQueue.cs	1
+261	BattleManager	CancelEffectsFromDisappearingUnit(CardScript disappearingUnit, CardScript targetCard, bool shouldIgnoreDestroy)	B2	落点是占位「RuleCore/EffectResolver 同族落点」⇒ 读原版体后补方法级行号范围	X-BM落点-规则	改账	RuleEngine/Core/{RuleCore,EffectResolver,ActionPump,BattleContext}.cs（待定位）	1
+262	BattleManager	CancelEffectsFromDisappearingUnitFromQueue(CardScript jammedUnit, CardScript targetCard, List<BattleAction> queue, bool shouldIgnoreDestroy)	B2	落点是占位「RuleCore/EffectResolver 同族落点」⇒ 读原版体后补方法级行号范围	X-BM落点-规则	改账	RuleEngine/Core/{RuleCore,EffectResolver,ActionPump,BattleContext}.cs（待定位）	1
+266	BattleManager	CancelMulliganAfterBattleEnd()	B2	落点是占位「RuleCore/EffectResolver 同族落点」⇒ 读原版体后补方法级行号范围	X-BM落点-规则	改账	RuleEngine/Core/{RuleCore,EffectResolver,ActionPump,BattleContext}.cs（待定位）	1
+268	BattleManager	CheckForHeroDeckTransform(DeckAndWarlordData rawBattleData, bool isPlayer)	B2	落点文件级/「同上」/无行号 ⇒ 补方法级行号范围（判据要点一并补）	X-落点补行号	改账	（待定位）	1
+269	BattleManager	CheckForTutorialPointer()	B7	口径六域外（纯表现层/UI）⇒ 移交 CardPresentation 线，本域不计 A	X-表现层移交	移交	CardPresentation/**（移交战斗界面/特效动画线）	1
+270	BattleManager	CheckIfAbilityCancelsAttack(CardScript actingCard, CardScript targetCard)	B1	补判据要点逐条 + 观测量；落点已是方法级（必要时按符号重钉行号）	X-账-BattleManager	改账	RuleEngine/Core/RuleCore.cs	1
+272	BattleManager	CheckIfCodexTriggered(CardScript card, int manaLeft, CardScript targetCard, bool shouldCheckCost)	B1	补判据要点逐条 + 观测量；落点已是方法级（必要时按符号重钉行号）	X-账-BattleManager	改账	RuleEngine/Core/RuleCore.cs	1
+273	BattleManager	CheckIfPlayerActionPermittedInTutorial(BattleActionType actionType, CardScript actingUnit, CardScript targetUnit, int targetPosition)	B2	落点是占位「RuleCore/EffectResolver 同族落点」⇒ 读原版体后补方法级行号范围	X-BM落点-规则	改账	RuleEngine/Core/{RuleCore,EffectResolver,ActionPump,BattleContext}.cs（待定位）	1
+274	BattleManager	CheckUnitsCancellingAttack(CardScript actingCard, CardScript targetCard)	B1	补判据要点逐条 + 观测量；落点已是方法级（必要时按符号重钉行号）	X-账-BattleManager	改账	RuleEngine/Core/RuleCore.cs	1
+275	BattleManager	ChoiceOfCardEnemy(CardScript actingCard, CardScript targetCard, int selectedCard)	B1	补判据要点逐条 + 观测量；落点已是方法级（必要时按符号重钉行号）	X-账-BattleManager	改账	RuleEngine/Core/EffectResolver.cs	1
+276	BattleManager	ChoiceOfCardPlayer(CardScript actingCard, CardScript targetCard, int actionValue)	B1	补判据要点逐条 + 观测量；落点已是方法级（必要时按符号重钉行号）	X-账-BattleManager	改账	RuleEngine/Core/EffectResolver.cs	1
+277	BattleManager	ChooseCardMethod(BattleAction battleAction, Action<int> callback)	B1	补判据要点逐条 + 观测量；落点已是方法级（必要时按符号重钉行号）	X-账-BattleManager	改账	RuleEngine/Core/EffectResolver.cs	1
+278	BattleManager	ChooseUnitTarget(CardScript actingCard)	B7	口径六域外（纯表现层/UI）⇒ 移交 CardPresentation 线，本域不计 A	X-表现层移交	移交	CardPresentation/Battle/BattleDriver.cs	1
+289	BattleManager	CloseBattleDoors(MatchResultData matchResultData)	B7	口径六域外（纯表现层/UI）⇒ 移交 CardPresentation 线，本域不计 A	X-表现层移交	移交	CardPresentation/**（移交战斗界面/特效动画线）	1
+290	BattleManager	ClosePopupsAfterBattleEnd()	B7	口径六域外（纯表现层/UI）⇒ 移交 CardPresentation 线，本域不计 A	X-表现层移交	移交	CardPresentation/**（移交战斗界面/特效动画线）	1
+292	BattleManager	CompleteBattleFinished()	B7	口径六域外（纯表现层/UI）⇒ 移交 CardPresentation 线，本域不计 A	X-表现层移交	移交	CardPresentation/**（移交战斗界面/特效动画线）	1
+294	BattleManager	ContinuePlayerScriptedTurn()	B2	落点是占位「RuleCore/EffectResolver 同族落点」⇒ 读原版体后补方法级行号范围	X-BM落点-规则	改账	RuleEngine/Core/{RuleCore,EffectResolver,ActionPump,BattleContext}.cs（待定位）	1
+295	BattleManager	CopyUnitInCemetery(CardScript targetCard, int priority, bool blockPlayerActions)	B2	落点是占位「RuleCore/EffectResolver 同族落点」⇒ 读原版体后补方法级行号范围	X-BM落点-规则	改账	RuleEngine/Core/{RuleCore,EffectResolver,ActionPump,BattleContext}.cs（待定位）	1
+296	BattleManager	CountdownTrigger(int counter)	B7	口径六域外（纯表现层/UI）⇒ 移交 CardPresentation 线，本域不计 A	X-表现层移交	移交	CardPresentation/**（移交战斗界面/特效动画线）	1
+299	BattleManager	CreatePlayerDeck(bool isPlayer)	B2	落点文件级/「同上」/无行号 ⇒ 补方法级行号范围（判据要点一并补）	X-落点补行号	改账	CardPresentation/Battle/BattleDriver.cs	1
+301	BattleManager	CreateStartingTroop(RawCardScript troopData, bool isPlayer)	B2	落点文件级/「同上」/无行号 ⇒ 补方法级行号范围（判据要点一并补）	X-落点补行号	改账	（待定位）	1
+302	BattleManager	CreateStartingTroops(List<RawCardScript> troops, bool isPlayer)	B2	落点文件级/「同上」/无行号 ⇒ 补方法级行号范围（判据要点一并补）	X-落点补行号	改账	（待定位）	1
+305	BattleManager	DealMultiDamageAndDestroySelf(DamageInfo damageInfo, List<CardScript> targetList, int priority, bool checkIfCasterInPlay, CardScript casterCard, bool blockPlayerActions)	B1	补判据要点（跳数/预调/自排除逐条）+ 观测量；机制差异写成一句可复核的话	X-广播族改账	改账	RuleEngine/Core/RuleCore.cs	1
+306	BattleManager	DealMultiDamageVariable(List<DamageInfo> damageInfoList, List<CardScript> targetList, int priority, bool checkIfCasterInPlay, CardScript casterCard, bool blockPlayerActions)	B1	补判据要点（入队vs同步的机制差异+等价依据）+ 一个观测量两侧数值（ruleprobe）	X-入队同步改账	改账	RuleEngine/Core/RuleCore.cs	1
+318	BattleManager	DestroyUnitsAfterBattleEnd(bool isPlayer, bool skipDeathSound)	B7	口径六域外（纯表现层/UI）⇒ 移交 CardPresentation 线，本域不计 A	X-表现层移交	移交	CardPresentation/**（移交战斗界面/特效动画线）	1
+319	BattleManager	DeviceVariables()	B2	落点是占位「RuleCore/EffectResolver 同族落点」⇒ 读原版体后补方法级行号范围	X-BM落点-规则	改账	RuleEngine/Core/{RuleCore,EffectResolver,ActionPump,BattleContext}.cs（待定位）	1
+325	BattleManager	DisplayHurryUpChatMessage()	B1	补判据要点逐条 + 观测量；落点已是方法级（必要时按符号重钉行号）	X-账-BattleManager	改账	CardPresentation/Battle/BattleDriver.cs	2
+328	BattleManager	DoNormalBattleEndSequence(TutorialStage tutorialStage, bool isVictory)	B7	口径六域外（纯表现层/UI）⇒ 移交 CardPresentation 线，本域不计 A	X-表现层移交	移交	CardPresentation/**（移交战斗界面/特效动画线）	1
+331	BattleManager	EndTurnClick(bool timeOutFlag)	B1	补判据要点逐条 + 观测量；落点已是方法级（必要时按符号重钉行号）	X-账-BattleManager	改账	RuleEngine/Core/RuleCore.cs	1
+332	BattleManager	EnemyTargetingAnim(CardScript cardOrigin, CardScript target, AttackTypes attackType)	B7	口径六域外（纯表现层/UI）⇒ 移交 CardPresentation 线，本域不计 A	X-表现层移交	移交	CardPresentation/Battle/BattleDriver.cs	1
+334	BattleManager	ExecuteCampaignScriptedTurn(List<ScriptedActionCampaignData> turnScriptedData, Action onComplete)	B2	落点是占位「RuleCore/EffectResolver 同族落点」⇒ 读原版体后补方法级行号范围	X-BM落点-规则	改账	RuleEngine/Core/{RuleCore,EffectResolver,ActionPump,BattleContext}.cs（待定位）	1
+335	BattleManager	ExecuteNextAction(List<PlayerAction> actionsLog, ref int actionsIndex, bool isPlayer)	B1	补判据要点逐条 + 观测量；落点已是方法级（必要时按符号重钉行号）	X-账-BattleManager	改账	RuleEngine/Core/ActionPump.cs	1
+336	BattleManager	ExecuteScriptedTurn(TurnScriptedData turnScriptedData, bool newScriptedTurn, bool inBattleActions, Action onComplete)	B2	落点是占位「RuleCore/EffectResolver 同族落点」⇒ 读原版体后补方法级行号范围	X-BM落点-规则	改账	RuleEngine/Core/{RuleCore,EffectResolver,ActionPump,BattleContext}.cs（待定位）	1
+337	BattleManager	ExecuteUseWaystone(CardScript actingCard)	B1	补判据要点逐条 + 观测量；落点已是方法级（必要时按符号重钉行号）	X-账-BattleManager	改账	RuleEngine/Core/RuleCore.cs	1
+339	BattleManager	FinishMulliganFinalPhase()	B2	落点文件级/「同上」/无行号 ⇒ 补方法级行号范围（判据要点一并补）	X-落点补行号	改账	（待定位）	1
+340	BattleManager	FinishMulliganFirstPhase()	B2	落点文件级/「同上」/无行号 ⇒ 补方法级行号范围（判据要点一并补）	X-落点补行号	改账	（待定位）	1
+342	BattleManager	FinishWaitingForTutorialTip()	B2	落点是占位「RuleCore/EffectResolver 同族落点」⇒ 读原版体后补方法级行号范围	X-BM落点-规则	改账	RuleEngine/Core/{RuleCore,EffectResolver,ActionPump,BattleContext}.cs（待定位）	1
+343	BattleManager	FinishedChoosingAbilityTargetByClick(CardScript targetCard)	B7	口径六域外（纯表现层/UI）⇒ 移交 CardPresentation 线，本域不计 A	X-表现层移交	移交	CardPresentation/Battle/BattleDriver.cs	1
+344	BattleManager	FinishedLeavingBattle()	B7	口径六域外（纯表现层/UI）⇒ 移交 CardPresentation 线，本域不计 A	X-表现层移交	移交	CardPresentation/**（移交战斗界面/特效动画线）	1
+345	BattleManager	FinishedProcessingMatchResult(OnlineMatchResult onlineRankedMatchResult)	B7	口径六域外（纯表现层/UI）⇒ 移交 CardPresentation 线，本域不计 A	X-表现层移交	移交	CardPresentation/**（移交战斗界面/特效动画线）	1
+351	BattleManager	GetAdjacentUnitRight(CardScript referenceCard)	B2	落点是占位「RuleCore/EffectResolver 同族落点」⇒ 读原版体后补方法级行号范围	X-BM落点-规则	改账	RuleEngine/Core/{RuleCore,EffectResolver,ActionPump,BattleContext}.cs（待定位）	1
+353	BattleManager	GetAllCardsInHand()	B3	落点改到方法级声明（现指字段/注释/候选或挂错符号）	X-字段落点-引擎	改账	RuleEngine/Core/PlayerState.cs	1
+354	BattleManager	GetAllCardsInPlay(bool includeDying)	B3	落点改到方法级声明（现指字段/注释/候选或挂错符号）	X-字段落点-引擎	改账	RuleEngine/Core/PlayerState.cs	1
+355	BattleManager	GetAnimTransform(PositionOption positionOption, CardScript actingCard, CardScript targetCard)	B7	口径六域外（纯表现层/UI）⇒ 移交 CardPresentation 线，本域不计 A	X-表现层移交	移交	CardPresentation/**（移交战斗界面/特效动画线）	1
+356	BattleManager	GetAttackBattleAction(CardScript actingCard, CardScript targetCard, bool blockPlayerActions)	B2	落点是占位「RuleCore/EffectResolver 同族落点」⇒ 读原版体后补方法级行号范围	X-BM落点-规则	改账	RuleEngine/Core/{RuleCore,EffectResolver,ActionPump,BattleContext}.cs（待定位）	1
+357	BattleManager	GetAvailableActions(bool isPlayer, bool allowAutoActions)	B1	补判据要点逐条 + 观测量；落点已是方法级（必要时按符号重钉行号）	X-账-BattleManager	改账	RuleEngine/Data/SimpleAI.cs	2
+358	BattleManager	GetAvailableAttackActions(CardScript actingCard, bool allowAutoActions)	B1	补判据要点逐条 + 观测量；落点已是方法级（必要时按符号重钉行号）	X-账-BattleManager	改账	RuleEngine/Core/RuleCore.cs	1
+359	BattleManager	GetAvailableAttackTargets(CardScript attacker)	B1	补判据要点逐条 + 观测量；落点已是方法级（必要时按符号重钉行号）	X-账-BattleManager	改账	RuleEngine/Core/RuleCore.cs	1
+360	BattleManager	GetBattleEndScriptedData(bool isVictory)	B2	落点是占位「RuleCore/EffectResolver 同族落点」⇒ 读原版体后补方法级行号范围	X-BM落点-规则	改账	RuleEngine/Core/{RuleCore,EffectResolver,ActionPump,BattleContext}.cs（待定位）	1
+366	BattleManager	GetCampaignScriptedData(CampatinScriptedActionType actionType)	B7	原版死代码/恒常量/0 调用 ⇒ 建议判 D（带时间限定），不是 A	X-D休眠	判D	账（判 D + 时间限定）	1
+367	BattleManager	GetCardsDeckPlayer(bool isPlayer)	B3	落点改到方法级声明（现指字段/注释/候选或挂错符号）	X-字段落点-引擎	改账	RuleEngine/Core/PlayerState.cs	1
+368	BattleManager	GetCardsHandPlayer(bool isPlayer)	B3	落点改到方法级声明（现指字段/注释/候选或挂错符号）	X-字段落点-引擎	改账	RuleEngine/Core/PlayerState.cs	1
+369	BattleManager	GetCardsInCemetery(bool inclMinions, bool inclSpells, bool inclWhispers, bool inclWeapons, bool inclPlayer, bool inclEnemy)	B3	落点改到方法级声明（现指字段/注释/候选或挂错符号）	X-字段落点-引擎	改账	RuleEngine/Core/PlayerState.cs	1
+370	BattleManager	GetCardsInDeck(bool inclMinions, bool inclSpells, bool inclWeapons, bool inclPlayer, bool inclEnemy)	B3	落点改到方法级声明（现指字段/注释/候选或挂错符号）	X-字段落点-引擎	改账	RuleEngine/Core/PlayerState.cs	1
+371	BattleManager	GetCardsInHandList(bool inclMinions, bool inclSpells, bool inclWhispers, bool inclWeapons, bool inclPlayer, bool inclEnemy)	B3	落点改到方法级声明（现指字段/注释/候选或挂错符号）	X-字段落点-引擎	改账	RuleEngine/Core/PlayerState.cs	1
+372	BattleManager	GetCardsInHandRef(bool isPlayer)	B3	落点改到方法级声明（现指字段/注释/候选或挂错符号）	X-字段落点-引擎	改账	RuleEngine/Core/PlayerState.cs	1
+373	BattleManager	GetCardsPlayPlayer(bool isPlayer)	B3	落点改到方法级声明（现指字段/注释/候选或挂错符号）	X-字段落点-引擎	改账	RuleEngine/Core/PlayerState.cs	1
+374	BattleManager	GetChoiceFullPool(CardScript actingCard, CardScript targetCard)	B2	落点文件级/「同上」/无行号 ⇒ 补方法级行号范围（判据要点一并补）	X-落点补行号	改账	RuleEngine/Core/EffectResolver.cs	1
+375	BattleManager	GetChoiceIndexOfCard(CardScript actingCard, CardScript targetCard, RawCardScript chosenCard)	B2	落点文件级/「同上」/无行号 ⇒ 补方法级行号范围（判据要点一并补）	X-落点补行号	改账	（待定位）	1
+376	BattleManager	GetChoiceOptions(CardScript actingCard, CardScript targetCard, bool isBotAndNotReplay)	B2	落点文件级/「同上」/无行号 ⇒ 补方法级行号范围（判据要点一并补）	X-落点补行号	改账	RuleEngine/Core/EffectResolver.cs	1
+377	BattleManager	GetCurrentPlayerId(bool isPlayerTurn)	B2	落点文件级/「同上」/无行号 ⇒ 补方法级行号范围（判据要点一并补）	X-落点补行号	改账	RuleEngine/Core/BattleContext.cs	1
+378	BattleManager	GetCurrentTurnScriptedData()	B2	落点是占位「RuleCore/EffectResolver 同族落点」⇒ 读原版体后补方法级行号范围	X-BM落点-规则	改账	RuleEngine/Core/{RuleCore,EffectResolver,ActionPump,BattleContext}.cs（待定位）	1
+379	BattleManager	GetCurrentTutorialStage()	B7	口径六域外（纯表现层/UI）⇒ 移交 CardPresentation 线，本域不计 A	X-表现层移交	移交	CardPresentation/**（移交战斗界面/特效动画线）	1
+380	BattleManager	GetDeathType(BattleAction battleAction, DamageInfo damageInfo)	B1	补判据要点逐条 + 观测量；落点已是方法级（必要时按符号重钉行号）	X-账-BattleManager	改账	RuleEngine/Core/RuleCore.cs	1
+381	BattleManager	GetDeck(bool playerHeroY)	B3	落点改到方法级声明（现指字段/注释/候选或挂错符号）	X-字段落点-引擎	改账	RuleEngine/Core/PlayerState.cs	1
+382	BattleManager	GetDeckManager(bool playerHeroY)	B3	落点改到方法级声明（现指字段/注释/候选或挂错符号）	X-字段落点-引擎	改账	RuleEngine/Core/PlayerState.cs	1
+383	BattleManager	GetEnemyHandRef()	B3	落点改到方法级声明（现指字段/注释/候选或挂错符号）	X-字段落点-引擎	改账	RuleEngine/Core/PlayerState.cs	1
+384	BattleManager	GetEnemyMinionsAndRemnantInPlay()	B3	落点改到方法级声明（现指字段/注释/候选或挂错符号）	X-字段落点-引擎	改账	RuleEngine/Core/PlayerState.cs	1
+385	BattleManager	GetEnvEffectCards(bool shouldUseOffensive, bool justOwnedCards)	B2	落点是占位「RuleCore/EffectResolver 同族落点」⇒ 读原版体后补方法级行号范围	X-BM落点-规则	改账	RuleEngine/Core/{RuleCore,EffectResolver,ActionPump,BattleContext}.cs（待定位）	1
+386	BattleManager	GetEnviromentalCardList(CardArmy useArmy, bool shouldUseOffensive, bool justOwnedCards, int rewardsCollected)	B2	落点是占位「RuleCore/EffectResolver 同族落点」⇒ 读原版体后补方法级行号范围	X-BM落点-规则	改账	RuleEngine/Core/{RuleCore,EffectResolver,ActionPump,BattleContext}.cs（待定位）	1
+387	BattleManager	GetFriendlyHandRef()	B3	落点改到方法级声明（现指字段/注释/候选或挂错符号）	X-字段落点-引擎	改账	RuleEngine/Core/PlayerState.cs	1
+389	BattleManager	GetHero(bool playerHeroY)	B3	落点改到方法级声明（现指字段/注释/候选或挂错符号）	X-字段落点-引擎	改账	RuleEngine/Core/PlayerState.cs	1
+392	BattleManager	GetHighestHealthWarlord()	B6	无对应实现 ⇒ 按判据补实现后升 A：取两方督军 +0x68 的当前血量：敌方 < 我方 ⇒ 我方督军；敌方 我方 ⇒ 敌方督军；相等 ⇒…	X-休眠缺口	改码	RuleEngine/Data/AiTargets.cs	1
+393	BattleManager	GetInitialHandsCards(TutorialStage stage, bool isPlayer)	B2	落点是占位「RuleCore/EffectResolver 同族落点」⇒ 读原版体后补方法级行号范围	X-BM落点-规则	改账	RuleEngine/Core/{RuleCore,EffectResolver,ActionPump,BattleContext}.cs（待定位）	1
+394	BattleManager	GetLowestHealthUnit(bool isPlayer)	B1	补判据要点逐条 + 观测量；落点已是方法级（必要时按符号重钉行号）	X-账-BattleManager	改账	RuleEngine/Core/EffectResolver.cs	2
+395	BattleManager	GetMainCamera()	B7	口径六域外（纯表现层/UI）⇒ 移交 CardPresentation 线，本域不计 A	X-表现层移交	移交	CardPresentation/**（移交战斗界面/特效动画线）	1
+396	BattleManager	GetMinionManager(bool playerY)	B2	落点是占位「RuleCore/EffectResolver 同族落点」⇒ 读原版体后补方法级行号范围	X-BM落点-规则	改账	RuleEngine/Core/{RuleCore,EffectResolver,ActionPump,BattleContext}.cs（待定位）	1
+399	BattleManager	GetMulliganCard(bool isPlayer)	B1	补判据要点逐条 + 观测量；落点已是方法级（必要时按符号重钉行号）	X-账-BattleManager	改账	RuleEngine/Core/RuleCore.cs	1
+400	BattleManager	GetNextCardsInDeck(bool isPlayer, int numCards)	B2	落点文件级/「同上」/无行号 ⇒ 补方法级行号范围（判据要点一并补）	X-落点补行号	改账	（待定位）	1
+401	BattleManager	GetOriginalWarlord(bool playerHeroY)	B3	落点改到方法级声明（现指字段/注释/候选或挂错符号）	X-字段落点-引擎	改账	RuleEngine/Core/PlayerState.cs	1
+402	BattleManager	GetPendingBerzerkUnit(bool isPlayer)	B1	补判据要点逐条 + 观测量；落点已是方法级（必要时按符号重钉行号）	X-账-BattleManager	改账	RuleEngine/Core/RuleCore.cs	1
+404	BattleManager	GetPlayerHand(bool playerY)	B3	落点改到方法级声明（现指字段/注释/候选或挂错符号）	X-字段落点-引擎	改账	RuleEngine/Core/PlayerState.cs	1
+405	BattleManager	GetPlayerManager(bool playerY)	B2	落点是占位「RuleCore/EffectResolver 同族落点」⇒ 读原版体后补方法级行号范围	X-BM落点-规则	改账	RuleEngine/Core/{RuleCore,EffectResolver,ActionPump,BattleContext}.cs（待定位）	1
+406	BattleManager	GetPlayerMinionsAndRemnantInPlay()	B3	落点改到方法级声明（现指字段/注释/候选或挂错符号）	X-字段落点-引擎	改账	RuleEngine/Core/PlayerState.cs	1
+407	BattleManager	GetPremulliganScriptedData()	B2	落点是占位「RuleCore/EffectResolver 同族落点」⇒ 读原版体后补方法级行号范围	X-BM落点-规则	改账	RuleEngine/Core/{RuleCore,EffectResolver,ActionPump,BattleContext}.cs（待定位）	1
+408	BattleManager	GetRandomAttackTarget(CardScript attacker)	B1	补判据要点逐条 + 观测量；落点已是方法级（必要时按符号重钉行号）	X-账-BattleManager	改账	RuleEngine/Core/RuleCore.cs	1
+409	BattleManager	GetRandomDeckIndex(bool isPlayerY)	B1	补判据要点逐条 + 观测量；落点已是方法级（必要时按符号重钉行号）	X-账-BattleManager	改账	RuleEngine/Core/EffectResolver.cs	1
+411	BattleManager	GetRawcardScript(TargetsAffected targetsAffected, List<CardScript> cardScriptList, List<RawCardScript> rawCardScriptList)	B2	落点是占位「RuleCore/EffectResolver 同族落点」⇒ 读原版体后补方法级行号范围	X-BM落点-规则	改账	RuleEngine/Core/{RuleCore,EffectResolver,ActionPump,BattleContext}.cs（待定位）	1
+415	BattleManager	GetStartingMana(bool isPlayer)	B1	补判据要点逐条 + 观测量；落点已是方法级（必要时按符号重钉行号）	X-账-BattleManager	改账	RuleEngine/Core/GameplayVariables.cs	1
+416	BattleManager	GetTargetInPos(Vector3 worldSpaceMousePosition)	B5	原版判据读不到/失真（补 VA 反汇编或另一份反编译）：候选等价物 ResolveAim 的出射相机不同我们 boardCam → screen …	X-判据读不到	补判据	CardPresentation/Battle/TargetReticle.cs	2
+417	BattleManager	GetTargettingTime()	B7	口径六域外（纯表现层/UI）⇒ 移交 CardPresentation 线，本域不计 A	X-表现层移交	移交	CardPresentation/Core/CardFeel.cs	1
+418	BattleManager	GetTotalMana(bool isPlayer)	B3	落点改到方法级声明（现指字段/注释/候选或挂错符号）	X-字段落点-引擎	改账	RuleEngine/Core/PlayerState.cs	1
+419	BattleManager	GetTraitEffect(DefinedTrait trait, CardTrait.EffectTriggerType trigger, CardArmy cardArmy)	B7	原版死代码/恒常量/0 调用 ⇒ 建议判 D（带时间限定），不是 A	X-D休眠	判D	账（判 D + 时间限定）	1
+420	BattleManager	GetUIState()	B7	口径六域外（纯表现层/UI）⇒ 移交 CardPresentation 线，本域不计 A	X-表现层移交	移交	CardPresentation/**（移交战斗界面/特效动画线）	1
+422	BattleManager	GetUnitSizeRatio(bool isPlayer)	B7	口径六域外（纯表现层/UI）⇒ 移交 CardPresentation 线，本域不计 A	X-表现层移交	移交	CardPresentation/**（移交战斗界面/特效动画线）	1
+423	BattleManager	GetUnitsInPlayList(ref List<CardScript> listToFill, bool clearList, bool inclHero, bool inclMinions, bool inclHeroParts, bool inclWeapons, bool inclRemnants, bool inclPlayer, bool inclEnemy, bool includeDying)	B1	补判据要点逐条 + 观测量；落点已是方法级（必要时按符号重钉行号）	X-账-BattleManager	改账	RuleEngine/Core/PlayerState.cs	1
+424	BattleManager	GetUnitsInPlayNewList(bool inclHero, bool inclMinions, bool inclHeroParts, bool inclWeapons, bool inclRemnants, bool inclPlayer, bool inclEnemy, bool includeDying)	B1	补判据要点逐条 + 观测量；落点已是方法级（必要时按符号重钉行号）	X-账-BattleManager	改账	RuleEngine/Core/PlayerState.cs	1
+425	BattleManager	GetUnitsInPlayPooledList(bool inclHero, bool inclMinions, bool inclHeroParts, bool inclWeapons, bool inclRemnants, bool inclPlayer, bool inclEnemy, bool includeDying)	B1	补判据要点逐条 + 观测量；落点已是方法级（必要时按符号重钉行号）	X-账-BattleManager	改账	RuleEngine/Core/PlayerState.cs	1
+426	BattleManager	GetUnitsInPlayRef()	B3	落点改到方法级声明（现指字段/注释/候选或挂错符号）	X-字段落点-引擎	改账	RuleEngine/Core/PlayerState.cs	1
+428	BattleManager	GetValueInPlay(CardScript card)	B1	补判据要点逐条 + 观测量；落点已是方法级（必要时按符号重钉行号）	X-账-BattleManager	改账	RuleEngine/Data/SimpleAI.cs	1
+430	BattleManager	GetViewportPointFromBoardPos(Vector3 worldPos)	B1	补判据要点逐条 + 观测量；落点已是方法级（必要时按符号重钉行号）	X-账-BattleManager	改账	CardPresentation/Battle/BattleDriver.cs	1
+431	BattleManager	GetWarcry(bool isPlayer)	B2	落点是占位「RuleCore/EffectResolver 同族落点」⇒ 读原版体后补方法级行号范围	X-BM落点-规则	改账	RuleEngine/Core/{RuleCore,EffectResolver,ActionPump,BattleContext}.cs（待定位）	1
+432	BattleManager	GetWarlordDataString(bool isPlayer)	B7	口径六域外（纯表现层/UI）⇒ 移交 CardPresentation 线，本域不计 A	X-表现层移交	移交	CardPresentation/**（移交战斗界面/特效动画线）	1
+434	BattleManager	HandleOfflineBattleResult()	B2	落点文件级/「同上」/无行号 ⇒ 补方法级行号范围（判据要点一并补）	X-落点补行号	改账	（待定位）	1
+435	BattleManager	HasScriptedBattleEnd(TutorialStage tutorialStage, bool isVictory)	B2	落点是占位「RuleCore/EffectResolver 同族落点」⇒ 读原版体后补方法级行号范围	X-BM落点-规则	改账	RuleEngine/Core/{RuleCore,EffectResolver,ActionPump,BattleContext}.cs（待定位）	1
+436	BattleManager	HasScriptedPremulliganActions(TutorialStage tutorialStage)	B2	落点是占位「RuleCore/EffectResolver 同族落点」⇒ 读原版体后补方法级行号范围	X-BM落点-规则	改账	RuleEngine/Core/{RuleCore,EffectResolver,ActionPump,BattleContext}.cs（待定位）	1
+441	BattleManager	InBattleFallbackCountdown()	B7	口径六域外（纯表现层/UI）⇒ 移交 CardPresentation 线，本域不计 A	X-表现层移交	移交	CardPresentation/**（移交战斗界面/特效动画线）	1
+442	BattleManager	Initialize()	B2	落点是占位「RuleCore/EffectResolver 同族落点」⇒ 读原版体后补方法级行号范围	X-BM落点-规则	改账	RuleEngine/Core/{RuleCore,EffectResolver,ActionPump,BattleContext}.cs（待定位）	1
+443	BattleManager	IsAgainstAI()	B2	落点是占位「RuleCore/EffectResolver 同族落点」⇒ 读原版体后补方法级行号范围	X-BM落点-规则	改账	RuleEngine/Core/{RuleCore,EffectResolver,ActionPump,BattleContext}.cs（待定位）	1
+444	BattleManager	IsAgainstExpectedAI()	B7	原版死代码/恒常量/0 调用 ⇒ 建议判 D（带时间限定），不是 A	X-D休眠	判D	账（判 D + 时间限定）	1
+445	BattleManager	IsAgainstHuman()	B7	原版死代码/恒常量/0 调用 ⇒ 建议判 D（带时间限定），不是 A	X-D休眠	判D	账（判 D + 时间限定）	1
+446	BattleManager	IsAgainstOnlineBot()	B2	落点是占位「RuleCore/EffectResolver 同族落点」⇒ 读原版体后补方法级行号范围	X-BM落点-规则	改账	RuleEngine/Core/{RuleCore,EffectResolver,ActionPump,BattleContext}.cs（待定位）	1
+447	BattleManager	IsBattleNotBegun()	B7	原版死代码/恒常量/0 调用 ⇒ 建议判 D（带时间限定），不是 A	X-D休眠	判D	账（判 D + 时间限定）	1
+449	BattleManager	IsCampaignScriptAvailable(CampatinScriptedActionType actionType)	B7	原版死代码/恒常量/0 调用 ⇒ 建议判 D（带时间限定），不是 A	X-D休眠	判D	账（判 D + 时间限定）	1
+450	BattleManager	IsCampaignStageAvailable()	B2	落点是占位「RuleCore/EffectResolver 同族落点」⇒ 读原版体后补方法级行号范围	X-BM落点-规则	改账	RuleEngine/Core/{RuleCore,EffectResolver,ActionPump,BattleContext}.cs（待定位）	1
+451	BattleManager	IsCardIncluded(CardScript card, bool inclHero, bool inclMinions, bool inclHeroParts, bool inclSpells, bool inclWhispers, bool inclWeapons, bool inclRemnants, bool inclPlayer, bool inclEnemy)	B1	补判据要点逐条 + 观测量；落点已是方法级（必要时按符号重钉行号）	X-账-BattleManager	改账	RuleEngine/Core/PlayerState.cs	1
+452	BattleManager	IsClosedDeckGame(MatchType chosenMatchType)	B1	补判据要点逐条 + 观测量；落点已是方法级（必要时按符号重钉行号）	X-账-BattleManager	改账	RuleEngine/Core/BattleContext.cs	1
+454	BattleManager	IsDuringBattle(bool includeMulligan)	B2	落点文件级/「同上」/无行号 ⇒ 补方法级行号范围（判据要点一并补）	X-落点补行号	改账	（待定位）	1
+457	BattleManager	IsMobilePlatform()	B7	口径六域外（纯表现层/UI）⇒ 移交 CardPresentation 线，本域不计 A	X-表现层移交	移交	CardPresentation/**（移交战斗界面/特效动画线）	1
+459	BattleManager	IsNotSelectingDefenceMode()	B2	落点是占位「RuleCore/EffectResolver 同族落点」⇒ 读原版体后补方法级行号范围	X-BM落点-规则	改账	RuleEngine/Core/{RuleCore,EffectResolver,ActionPump,BattleContext}.cs（待定位）	1
+461	BattleManager	IsPlayingCardState()	B2	落点是占位「RuleCore/EffectResolver 同族落点」⇒ 读原版体后补方法级行号范围	X-BM落点-规则	改账	RuleEngine/Core/{RuleCore,EffectResolver,ActionPump,BattleContext}.cs（待定位）	1
+462	BattleManager	IsPostBattleScriptAvailable(bool isVictory)	B2	落点是占位「RuleCore/EffectResolver 同族落点」⇒ 读原版体后补方法级行号范围	X-BM落点-规则	改账	RuleEngine/Core/{RuleCore,EffectResolver,ActionPump,BattleContext}.cs（待定位）	1
+463	BattleManager	IsPremulliganScriptAvailable()	B2	落点是占位「RuleCore/EffectResolver 同族落点」⇒ 读原版体后补方法级行号范围	X-BM落点-规则	改账	RuleEngine/Core/{RuleCore,EffectResolver,ActionPump,BattleContext}.cs（待定位）	1
+464	BattleManager	IsReplayMatch()	B2	落点是占位「RuleCore/EffectResolver 同族落点」⇒ 读原版体后补方法级行号范围	X-BM落点-规则	改账	RuleEngine/Core/{RuleCore,EffectResolver,ActionPump,BattleContext}.cs（待定位）	1
+465	BattleManager	IsScriptedStageAvailable()	B2	落点是占位「RuleCore/EffectResolver 同族落点」⇒ 读原版体后补方法级行号范围	X-BM落点-规则	改账	RuleEngine/Core/{RuleCore,EffectResolver,ActionPump,BattleContext}.cs（待定位）	1
+468	BattleManager	IsThereDoubleOathEffect(bool isPlayer)	B3	落点改到方法级声明（现指字段/注释/候选或挂错符号）	X-字段落点-引擎	改账	RuleEngine/Core/Aura.cs	1
+469	BattleManager	IsThereValidAbilityTarget(CardScript actingCard)	B1	补判据要点逐条 + 观测量；落点已是方法级（必要时按符号重钉行号）	X-账-BattleManager	改账	RuleEngine/Core/RuleCore.cs	1
+470	BattleManager	IsThereValidSpellTarget(CardScript targetedSpellCard)	B1	补判据要点逐条 + 观测量；落点已是方法级（必要时按符号重钉行号）	X-账-BattleManager	改账	RuleEngine/Core/RuleCore.cs	1
+473	BattleManager	IsTutorialOrCampaignMatch()	B7	口径六域外（纯表现层/UI）⇒ 移交 CardPresentation 线，本域不计 A	X-表现层移交	移交	CardPresentation/Battle/BattleDriver.cs	1
+474	BattleManager	IsTutorialStageAvailable()	B2	落点是占位「RuleCore/EffectResolver 同族落点」⇒ 读原版体后补方法级行号范围	X-BM落点-规则	改账	RuleEngine/Core/{RuleCore,EffectResolver,ActionPump,BattleContext}.cs（待定位）	1
+475	BattleManager	IsValidActiveAbilityTarget(CardScript actingCard, CardScript target)	B1	补判据要点逐条 + 观测量；落点已是方法级（必要时按符号重钉行号）	X-账-BattleManager	改账	RuleEngine/Core/RuleCore.cs	1
+478	BattleManager	IsValidSpellTarget(CardScript spell, CardScript target)	B1	补判据要点逐条 + 观测量；落点已是方法级（必要时按符号重钉行号）	X-账-BattleManager	改账	RuleEngine/Core/RuleCore.cs	1
+479	BattleManager	JamUnit(CardScript jammedCard, int priority, bool blockPlayerActions)	B1	补判据要点逐条 + 观测量；落点已是方法级（必要时按符号重钉行号）	X-账-BattleManager	改账	RuleEngine/Core/EffectResolver.cs	1
+481	BattleManager	LeaveBattle()	B1	补判据要点逐条 + 观测量；落点已是方法级（必要时按符号重钉行号）	X-账-BattleManager	改账	CardPresentation/Battle/BattleDriver.cs	1
+486	BattleManager	MulliganCountdown()	B2	落点是占位「RuleCore/EffectResolver 同族落点」⇒ 读原版体后补方法级行号范围	X-BM落点-规则	改账	RuleEngine/Core/{RuleCore,EffectResolver,ActionPump,BattleContext}.cs（待定位）	1
+487	BattleManager	MulliganFallbackCountdown()	B2	落点是占位「RuleCore/EffectResolver 同族落点」⇒ 读原版体后补方法级行号范围	X-BM落点-规则	改账	RuleEngine/Core/{RuleCore,EffectResolver,ActionPump,BattleContext}.cs（待定位）	1
+488	BattleManager	NeedToChooseMinionTarget(CardScript actingCard)	B4	先修差异：四条闸都齐，但目标池是在「落位前」算的EffectResolver.PlayTargetPool :1990-2011 …	X-差异-表现件	改码	CardPresentation/Battle/BattleDriver.cs	2
+489	BattleManager	NextActionInQueue()	B1	补判据要点逐条 + 观测量；落点已是方法级（必要时按符号重钉行号）	X-账-BattleManager	改账	RuleEngine/Core/ActionQueue.cs	1
+490	BattleManager	NextReplayAction(bool fastAction)	B2	落点是占位「RuleCore/EffectResolver 同族落点」⇒ 读原版体后补方法级行号范围	X-BM落点-规则	改账	RuleEngine/Core/{RuleCore,EffectResolver,ActionPump,BattleContext}.cs（待定位）	1
+493	BattleManager	OnDestroy()	B7	口径六域外（纯表现层/UI）⇒ 移交 CardPresentation 线，本域不计 A	X-表现层移交	移交	CardPresentation/Battle/BattleDriver.cs	1
+494	BattleManager	OnInitializationComplete()	B7	口径六域外（纯表现层/UI）⇒ 移交 CardPresentation 线，本域不计 A	X-表现层移交	移交	CardPresentation/**（移交战斗界面/特效动画线）	1
+497	BattleManager	PayActiveAbilityCostOath(CardScript card)	B2	落点是占位「RuleCore/EffectResolver 同族落点」⇒ 读原版体后补方法级行号范围	X-BM落点-规则	改账	RuleEngine/Core/{RuleCore,EffectResolver,ActionPump,BattleContext}.cs（待定位）	1
+499	BattleManager	PayCardPlayedCostOath(CardScript card)	B2	落点是占位「RuleCore/EffectResolver 同族落点」⇒ 读原版体后补方法级行号范围	X-BM落点-规则	改账	RuleEngine/Core/{RuleCore,EffectResolver,ActionPump,BattleContext}.cs（待定位）	1
+501	BattleManager	PlayAi()	B1	补判据要点逐条 + 观测量；落点已是方法级（必要时按符号重钉行号）	X-账-BattleManager	改账	CardPresentation/Battle/BattleDriver.cs	1
+511	BattleManager	PreloadTraitEffect(DefinedTrait trait, CardArmy cardArmy)	B7	口径六域外（纯表现层/UI）⇒ 移交 CardPresentation 线，本域不计 A	X-表现层移交	移交	CardPresentation/**（移交战斗界面/特效动画线）	1
+514	BattleManager	ReadyToUseActiveAbility(CardScript parentCard, bool isPlayerAsking, bool showTips)	B1	补判据要点逐条 + 观测量；落点已是方法级（必要时按符号重钉行号）	X-账-BattleManager	改账	RuleEngine/Core/RuleCore.cs	1
+516	BattleManager	ReceiveEnemyForfeit()	B2	落点文件级/「同上」/无行号 ⇒ 补方法级行号范围（判据要点一并补）	X-落点补行号	改账	（待定位）	1
+518	BattleManager	ReceiveMatchFinished()	B2	落点文件级/「同上」/无行号 ⇒ 补方法级行号范围（判据要点一并补）	X-落点补行号	改账	（待定位）	1
+519	BattleManager	ReceiveMulliganAck(int[] mulliganCardsToDiscardId, string envCard)	B2	落点是占位「RuleCore/EffectResolver 同族落点」⇒ 读原版体后补方法级行号范围	X-BM落点-规则	改账	RuleEngine/Core/{RuleCore,EffectResolver,ActionPump,BattleContext}.cs（待定位）	1
+521	BattleManager	RecordAttackPendingDamage(CardScript actingCard, CardScript attackedCard, AttackTypes attackType, int actionPriority, bool recordReturnDamage)	B1	补判据要点逐条 + 观测量；落点已是方法级（必要时按符号重钉行号）	X-账-BattleManager	改账	RuleEngine/Core/RuleCore.cs	1
+522	BattleManager	RegisterPlayerAction(BattleAction battleAction)	B2	落点是占位「RuleCore/EffectResolver 同族落点」⇒ 读原版体后补方法级行号范围	X-BM落点-规则	改账	RuleEngine/Core/{RuleCore,EffectResolver,ActionPump,BattleContext}.cs（待定位）	1
+523	BattleManager	RegisterPlayerActionCancelled(BattleAction battleAction)	B2	落点是占位「RuleCore/EffectResolver 同族落点」⇒ 读原版体后补方法级行号范围	X-BM落点-规则	改账	RuleEngine/Core/{RuleCore,EffectResolver,ActionPump,BattleContext}.cs（待定位）	1
+524	BattleManager	ReleaseCardbacks()	B7	口径六域外（纯表现层/UI）⇒ 移交 CardPresentation 线，本域不计 A	X-表现层移交	移交	CardPresentation/**（移交战斗界面/特效动画线）	1
+526	BattleManager	RemoveDestroyableAnims(CardScript targetCard, CardEffect cardEffect)	B3	落点改到方法级声明（现指字段/注释/候选或挂错符号）	X-字段落点-其它	改账	CardPresentation/Core/TraitFrames.cs	1
+528	BattleManager	RemoveExtrinsicEffectsFrom(CardScript actingCard, int priority)	B4	先修差异：已知必改点：原版这套「摘掉重加」挂在每个动作结束；我们只在 Auras.RefreshMeleeEqualsHealth…	X-差异-引擎数据	改码	RuleEngine/Core/Aura.cs	1
+530	BattleManager	RemoveVoiceLinesControllerListeners()	B7	口径六域外（纯表现层/UI）⇒ 移交 CardPresentation 线，本域不计 A	X-表现层移交	移交	CardPresentation/**（移交战斗界面/特效动画线）	1
+531	BattleManager	ReplaceHeroPower(RawCardScript newPower, bool isPlayer, int priority)	B2	落点是占位「RuleCore/EffectResolver 同族落点」⇒ 读原版体后补方法级行号范围	X-BM落点-规则	改账	RuleEngine/Core/{RuleCore,EffectResolver,ActionPump,BattleContext}.cs（待定位）	1
+532	BattleManager	ReplayPlayAction()	B2	落点是占位「RuleCore/EffectResolver 同族落点」⇒ 读原版体后补方法级行号范围	X-BM落点-规则	改账	RuleEngine/Core/{RuleCore,EffectResolver,ActionPump,BattleContext}.cs（待定位）	1
+533	BattleManager	ReplaySkipAnims()	B7	口径六域外（纯表现层/UI）⇒ 移交 CardPresentation 线，本域不计 A	X-表现层移交	移交	CardPresentation/**（移交战斗界面/特效动画线）	1
+538	BattleManager	ResolveAction(BattleAction battleAction)	B1	补判据要点（入队vs同步的机制差异+等价依据）+ 一个观测量两侧数值（ruleprobe）	X-入队同步改账	改账	RuleEngine/Core/ActionPump.cs	2
+541	BattleManager	ResolveAddEffect(BattleAction battleAction)	B1	补判据要点逐条 + 观测量；落点已是方法级（必要时按符号重钉行号）	X-账-BattleManager	改账	RuleEngine/Core/EffectResolver.cs	1
+542	BattleManager	ResolveAddHandEffect(BattleAction battleAction)	B4	先修差异：差异：原版按 HandEffect 的五个时长旗标分桶，我们的到期是单值 HandEffect.Expire；同一 bu…	X-差异-RuleCore	改码	RuleEngine/Core/EffectResolver.cs	1
+545	BattleManager	ResolveAnimInfoRangeAttack(AnimInfo animInfo, CardScript actingCard, CardScript targetCard, bool waitForAnim, bool skipSound)	B7	口径六域外（纯表现层/UI）⇒ 移交 CardPresentation 线，本域不计 A	X-表现层移交	移交	CardPresentation/Battle/BattleDriver.cs	1
+546	BattleManager	ResolveAttack(BattleAction battleAction)	B2	落点文件级/「同上」/无行号 ⇒ 补方法级行号范围（判据要点一并补）	X-落点补行号	改账	RuleEngine/Core/RuleCore.cs	2
+547	BattleManager	ResolveAttackDamage(CardScript dealer, CardScript receiver, bool dealtByAttacker, AttackTypes attackType)	B2	共享落点改行号范围 + 判据要点写清这段代码如何分别满足各 Resolve*	X-Resolve共享落点	改账	RuleEngine/Core/RuleCore.cs	1
+548	BattleManager	ResolveBacklash(BattleAction battleAction)	B2	共享落点改行号范围 + 判据要点写清这段代码如何分别满足各 Resolve*	X-Resolve共享落点	改账	RuleEngine/Core/RuleCore.cs	1
+549	BattleManager	ResolveBloodThirstAnim(BattleAction battleAction)	B7	口径六域外（纯表现层/UI）⇒ 移交 CardPresentation 线，本域不计 A	X-表现层移交	移交	CardPresentation/Battle/BattleDriver.cs	2
+550	BattleManager	ResolveCardAutoSummoned(BattleAction battleAction)	B2	共享落点改行号范围 + 判据要点写清这段代码如何分别满足各 Resolve*	X-Resolve共享落点	改账	RuleEngine/Core/RuleCore.cs	2
+551	BattleManager	ResolveChangeBaseAttack(CardScript targetCard, int newAttack)	B4	先修差异：差异：原版是「赋值到 base 字段 + 先清同类增益」，我们走 AddStatMod 修饰表、且不清增益 ⇒ 挂着增益…	X-差异-EffectResolver	改码	RuleEngine/Core/EffectResolver.cs	1
+552	BattleManager	ResolveChangeMaxHealth(CardScript targetCard, int newHealth)	B4	先修差异：差异：原版「写上限 + 当前血只向下夹」，我们 DoDouble 是「当前血连上限一起 ×2」、DoSetHealth …	X-差异-EffectResolver	改码	RuleEngine/Core/EffectResolver.cs	1
+553	BattleManager	ResolveClearEndOfTurnEffectsFrom(CardScript actingCard)	B1	补判据要点（入队vs同步的机制差异+等价依据）+ 一个观测量两侧数值（ruleprobe）	X-入队同步改账	改账	RuleEngine/Core/RuleCore.cs	2
+554	BattleManager	ResolveCopyUnitInCemetery(BattleAction battleAction)	B2	落点文件级/「同上」/无行号 ⇒ 补方法级行号范围（判据要点一并补）	X-落点补行号	改账	（待定位）	1
+555	BattleManager	ResolveCreateDeckCard(BattleAction battleAction)	B1	补判据要点逐条 + 观测量；落点已是方法级（必要时按符号重钉行号）	X-账-BattleManager	改账	RuleEngine/Core/EffectResolver.cs	1
+556	BattleManager	ResolveCreateHandCard(BattleAction battleAction)	B1	补判据要点逐条 + 观测量；落点已是方法级（必要时按符号重钉行号）	X-账-BattleManager	改账	RuleEngine/Core/EffectResolver.cs	1
+557	BattleManager	ResolveDestroyUnit(BattleAction battleAction)	B2	共享落点改行号范围 + 判据要点写清这段代码如何分别满足各 Resolve*	X-Resolve共享落点	改账	RuleEngine/Core/RuleCore.cs	2
+558	BattleManager	ResolveDisappearFromHand(BattleAction battleAction)	B1	补判据要点逐条 + 观测量；落点已是方法级（必要时按符号重钉行号）	X-账-BattleManager	改账	RuleEngine/Core/RuleCore.cs	1
+559	BattleManager	ResolveDisappearUnit(BattleAction battleAction)	B7	口径六域外（纯表现层/UI）⇒ 移交 CardPresentation 线，本域不计 A	X-表现层移交	移交	RuleEngine/Core/RuleCore.cs	2
+560	BattleManager	ResolveDiscardFromHand(BattleAction battleAction)	B4	先修差异：差异：原版是独立 action可被队列取消/排序，我们在进手牌那一刻同步判上限并弃；净结果同但中间态与取消语义不同	X-差异-RuleCore	改码	RuleEngine/Core/RuleCore.cs	2
+561	BattleManager	ResolveDisplayFromHand(BattleAction battleAction)	B7	口径六域外（纯表现层/UI）⇒ 移交 CardPresentation 线，本域不计 A	X-表现层移交	移交	CardPresentation/**（移交战斗界面/特效动画线）	2
+563	BattleManager	ResolveDrawCard(BattleAction)	B2	共享落点改行号范围 + 判据要点写清这段代码如何分别满足各 Resolve*	X-Resolve共享落点	改账	RuleEngine/Core/RuleCore.cs	1
+564	BattleManager	ResolveEndTurn(BattleAction battleAction)	B2	共享落点改行号范围 + 判据要点写清这段代码如何分别满足各 Resolve*	X-Resolve共享落点	改账	RuleEngine/Core/RuleCore.cs	1
+566	BattleManager	ResolveExchangeMinion(BattleAction battleAction)	B6	无对应实现 ⇒ 按判据补实现后升 A：原版交换两单位格位协程 MoveNext:154-344：:319/:323 两处落位；调用口只有 …	X-真缺口	改码	EffectResolver.cs	2
+568	BattleManager	ResolveFatigue(bool playerDrawing)	B4	先修差异：差异：原版走 DealMultiDamage→ReceiveDamage 完整管线护甲/盾是否参与未核；我们绕开 App…	X-差异-RuleCore	改码	RuleEngine/Core/RuleCore.cs	1
+569	BattleManager	ResolveFollowAfterResolution(BattleAction battleAction)	B1	补判据要点逐条 + 观测量；落点已是方法级（必要时按符号重钉行号）	X-账-BattleManager	改账	RuleEngine/Core/EffectResolver.cs	1
+570	BattleManager	ResolveForceAttack(BattleAction battleAction)	B1	补判据要点逐条 + 观测量；落点已是方法级（必要时按符号重钉行号）	X-账-BattleManager	改账	RuleEngine/Core/EffectResolver.cs	1
+571	BattleManager	ResolveForceAttackFriendly(BattleAction battleAction)	B1	补判据要点逐条 + 观测量；落点已是方法级（必要时按符号重钉行号）	X-账-BattleManager	改账	RuleEngine/Core/EffectResolver.cs	1
+572	BattleManager	ResolveHeal(BattleAction battleAction)	B2	共享落点改行号范围 + 判据要点写清这段代码如何分别满足各 Resolve*	X-Resolve共享落点	改账	RuleEngine/Core/RuleCore.cs	1
+573	BattleManager	ResolveJamUnit(BattleAction battleAction)	B4	先修差异：五步顺序逐句照搬。缺两格：① CancelEffectsFromDisappearingUnit我们没有对应口，Acti…	X-差异-EffectResolver	改码	RuleEngine/Core/EffectResolver.cs	2
+574	BattleManager	ResolveManaBuff(BattleAction battleAction)	B1	补判据要点逐条 + 观测量；落点已是方法级（必要时按符号重钉行号）	X-账-BattleManager	改账	RuleEngine/Core/EffectResolver.cs	1
+575	BattleManager	ResolveMinionDeath(BattleAction battleAction)	B4	先修差异：差异：原版用 cardState==5 作闸并显式排一条「重组」动作；我们以 Health<=0 + 连续棋盘 Remo…	X-差异-RuleCore	改码	RuleEngine/Core/RuleCore.cs	1
+576	BattleManager	ResolveMissAction(CardScript target)	B2	落点文件级/「同上」/无行号 ⇒ 补方法级行号范围（判据要点一并补）	X-落点补行号	改账	（待定位）	1
+577	BattleManager	ResolveMultiDamage(BattleAction battleAction)	B2	共享落点改行号范围 + 判据要点写清这段代码如何分别满足各 Resolve*	X-Resolve共享落点	改账	RuleEngine/Core/RuleCore.cs	1
+578	BattleManager	ResolveMultiDamageAndDestroySelf(BattleAction battleAction)	B2	共享落点改行号范围 + 判据要点写清这段代码如何分别满足各 Resolve*	X-Resolve共享落点	改账	RuleEngine/Core/RuleCore.cs	2
+579	BattleManager	ResolvePlayActiveAbility(BattleAction battleAction)	B1	补判据要点逐条 + 观测量；落点已是方法级（必要时按符号重钉行号）	X-账-BattleManager	改账	RuleEngine/Core/RuleCore.cs	2
+580	BattleManager	ResolvePlayCardFromHand(BattleAction battleAction)	B1	补判据要点逐条 + 观测量；落点已是方法级（必要时按符号重钉行号）	X-账-BattleManager	改账	RuleEngine/Core/RuleCore.cs	3
+585	BattleManager	ResolveRemoveEffectsFrom(CardScript actingCard)	B1	补判据要点（跳数/预调/自排除逐条）+ 观测量；机制差异写成一句可复核的话	X-广播族改账	改账	RuleEngine/Core/UnitState.cs	2
+586	BattleManager	ResolveRemoveFromCemetery(BattleAction battleAction)	B3	落点改到方法级声明（现指字段/注释/候选或挂错符号）	X-字段落点-引擎	改账	RuleEngine/Core/EffectResolver.cs	1
+587	BattleManager	ResolveResetActions(CardScript target)	B2	落点文件级/「同上」/无行号 ⇒ 补方法级行号范围（判据要点一并补）	X-落点补行号	改账	（待定位）	1
+588	BattleManager	ResolveResetDuty(CardScript target)	B2	落点文件级/「同上」/无行号 ⇒ 补方法级行号范围（判据要点一并补）	X-落点补行号	改账	（待定位）	1
+589	BattleManager	ResolveRevealOrders(BattleAction battleAction)	B2	落点文件级/「同上」/无行号 ⇒ 补方法级行号范围（判据要点一并补）	X-落点补行号	改账	RuleEngine/Core/RuleCore.cs	1
+590	BattleManager	ResolveScriptedTargetCardAttack(BattleAction battleAction)	B2	落点文件级/「同上」/无行号 ⇒ 补方法级行号范围（判据要点一并补）	X-落点补行号	改账	（待定位）	1
+591	BattleManager	ResolveStealFromDeck(BattleAction battleAction)	B2	落点文件级/「同上」/无行号 ⇒ 补方法级行号范围（判据要点一并补）	X-落点补行号	改账	RuleEngine/Core/EffectResolver.cs	2
+592	BattleManager	ResolveStealFromHand(BattleAction battleAction)	B2	落点文件级/「同上」/无行号 ⇒ 补方法级行号范围（判据要点一并补）	X-落点补行号	改账	RuleEngine/Core/EffectResolver.cs	2
+596	BattleManager	ResolveTraitAdjacentDamage(CardScript dealer, CardScript receiver, DefinedTrait traitDamage)	B2	共享落点改行号范围 + 判据要点写清这段代码如何分别满足各 Resolve*	X-Resolve共享落点	改账	RuleEngine/Core/RuleCore.cs	1
+597	BattleManager	ResolveTraitAnim(CardAnim traitAnim, CardScript actingCard, CardScript targetCard, CardScript casterCard, int traitValue, Action<GameObject> callback)	B7	口径六域外（纯表现层/UI）⇒ 移交 CardPresentation 线，本域不计 A	X-表现层移交	移交	CardPresentation/**（移交战斗界面/特效动画线）	2
+598	BattleManager	ResolveTraitStompDamage(CardScript dealer, CardScript receiver, int adjacentDmg, DefinedTrait traitDamage)	B2	共享落点改行号范围 + 判据要点写清这段代码如何分别满足各 Resolve*	X-Resolve共享落点	改账	RuleEngine/Core/RuleCore.cs	1
+599	BattleManager	ResolveTransformFromRemnant(BattleAction battleAction)	B1	补判据要点逐条 + 观测量；落点已是方法级（必要时按符号重钉行号）	X-账-BattleManager	改账	RuleEngine/Core/EffectResolver.cs	1
+600	BattleManager	ResolveTransformIntoRemnant(BattleAction battleAction)	B2	共享落点改行号范围 + 判据要点写清这段代码如何分别满足各 Resolve*	X-Resolve共享落点	改账	RuleEngine/Core/RuleCore.cs	1
+601	BattleManager	ResolveTransformUnit(BattleAction battleAction)	B1	补判据要点逐条 + 观测量；落点已是方法级（必要时按符号重钉行号）	X-账-BattleManager	改账	RuleEngine/Core/EffectResolver.cs	3
+602	BattleManager	ResolveTriggerAmbush(BattleAction battleAction)	B2	落点文件级/「同上」/无行号 ⇒ 补方法级行号范围（判据要点一并补）	X-落点补行号	改账	（待定位）	1
+603	BattleManager	ResolveTriggerCardPlayedByStimulation(BattleAction battleAction)	B2	落点是占位「RuleCore/EffectResolver 同族落点」⇒ 读原版体后补方法级行号范围	X-BM落点-规则	改账	RuleEngine/Core/{RuleCore,EffectResolver,ActionPump,BattleContext}.cs（待定位）	1
+604	BattleManager	ResolveTriggerCodex(BattleAction battleAction)	B1	补判据要点逐条 + 观测量；落点已是方法级（必要时按符号重钉行号）	X-账-BattleManager	改账	RuleEngine/Core/RuleCore.cs	1
+605	BattleManager	ResolveTriggerCourtesy(BattleAction battleAction)	B2	落点文件级/「同上」/无行号 ⇒ 补方法级行号范围（判据要点一并补）	X-落点补行号	改账	（待定位）	1
+606	BattleManager	ResolveTriggerMob(BattleAction battleAction, bool isAdditionalTriggerMob)	B1	补判据要点逐条 + 观测量；落点已是方法级（必要时按符号重钉行号）	X-账-BattleManager	改账	RuleEngine/Core/RuleCore.cs	1
+607	BattleManager	ResolveTriggerPlayerCodex(BattleAction battleAction)	B2	落点文件级/「同上」/无行号 ⇒ 补方法级行号范围（判据要点一并补）	X-落点补行号	改账	（待定位）	1
+609	BattleManager	ResolveTriggerRegiment(BattleAction battleAction)	B1	补判据要点逐条 + 观测量；落点已是方法级（必要时按符号重钉行号）	X-账-BattleManager	改账	RuleEngine/Core/RuleCore.cs	1
+610	BattleManager	ResolveTriggerRelentless(BattleAction battleAction)	B2	落点文件级/「同上」/无行号 ⇒ 补方法级行号范围（判据要点一并补）	X-落点补行号	改账	（待定位）	1
+611	BattleManager	ResolveTriggerRequiem(BattleAction battleAction)	B1	补判据要点（跳数/预调/自排除逐条）+ 观测量；机制差异写成一句可复核的话	X-广播族改账	改账	RuleEngine/Core/RuleCore.cs	2
+612	BattleManager	ResolveTriggerSacrifice(BattleAction battleAction)	B4	先修差异：自己那条 220 已覆盖FireTriggerAlways → BroadcastWhen(triggers:sacri…	X-差异-RuleCore	改码	RuleEngine/Core/RuleCore.cs	2
+616	BattleManager	ResolveTriggerTeleport(BattleAction battleAction)	B1	补判据要点逐条 + 观测量；落点已是方法级（必要时按符号重钉行号）	X-账-BattleManager	改账	RuleEngine/Core/RuleCore.cs	1
+619	BattleManager	ResolveUnitShake(UnitShake unitShake)	B7	口径六域外（纯表现层/UI）⇒ 移交 CardPresentation 线，本域不计 A	X-表现层移交	移交	CardPresentation/**（移交战斗界面/特效动画线）	2
+621	BattleManager	RunCheckAchievements()	B7	原版死代码/恒常量/0 调用 ⇒ 建议判 D（带时间限定），不是 A	X-D休眠	判D	账（判 D + 时间限定）	1
+625	BattleManager	SetAllCardsInHandsStart()	B7	口径六域外（纯表现层/UI）⇒ 移交 CardPresentation 线，本域不计 A	X-表现层移交	移交	CardPresentation/**（移交战斗界面/特效动画线）	1
+626	BattleManager	SetCardFromDeckToTop(BattleAction action)	B2	落点是占位「RuleCore/EffectResolver 同族落点」⇒ 读原版体后补方法级行号范围	X-BM落点-规则	改账	RuleEngine/Core/{RuleCore,EffectResolver,ActionPump,BattleContext}.cs（待定位）	1
+627	BattleManager	SetCardTracked(CardScript card)	B7	口径六域外（纯表现层/UI）⇒ 移交 CardPresentation 线，本域不计 A	X-表现层移交	移交	CardPresentation/Core/CardHighlight.cs	2
+629	BattleManager	SetNextCardAsDeckDrawing(bool isPlayer)	B2	落点是占位「RuleCore/EffectResolver 同族落点」⇒ 读原版体后补方法级行号范围	X-BM落点-规则	改账	RuleEngine/Core/{RuleCore,EffectResolver,ActionPump,BattleContext}.cs（待定位）	1
+630	BattleManager	SetPlayerDataAndWarlord(DeckAndWarlordData deckData, bool isPlayer)	B2	落点是占位「RuleCore/EffectResolver 同族落点」⇒ 读原版体后补方法级行号范围	X-BM落点-规则	改账	RuleEngine/Core/{RuleCore,EffectResolver,ActionPump,BattleContext}.cs（待定位）	1
+631	BattleManager	SetTutorialStopState(bool option)	B2	落点是占位「RuleCore/EffectResolver 同族落点」⇒ 读原版体后补方法级行号范围	X-BM落点-规则	改账	RuleEngine/Core/{RuleCore,EffectResolver,ActionPump,BattleContext}.cs（待定位）	1
+632	BattleManager	SetUnitOrderInPlay(CardScript card)	B1	补判据要点逐条 + 观测量；落点已是方法级（必要时按符号重钉行号）	X-账-BattleManager	改账	RuleEngine/Core/BattleContext.cs	2
+633	BattleManager	SetupBoardPhase()	B2	落点文件级/「同上」/无行号 ⇒ 补方法级行号范围（判据要点一并补）	X-落点补行号	改账	（待定位）	2
+634	BattleManager	SetupDataDependentElements()	B7	口径六域外（纯表现层/UI）⇒ 移交 CardPresentation 线，本域不计 A	X-表现层移交	移交	CardPresentation/**（移交战斗界面/特效动画线）	1
+635	BattleManager	SetupEnviromentalEffectPhase()	B2	落点是占位「RuleCore/EffectResolver 同族落点」⇒ 读原版体后补方法级行号范围	X-BM落点-规则	改账	RuleEngine/Core/{RuleCore,EffectResolver,ActionPump,BattleContext}.cs（待定位）	1
+636	BattleManager	SetupFullHero(DeckAndWarlordData fullHero, bool isPlayer)	B2	落点是占位「RuleCore/EffectResolver 同族落点」⇒ 读原版体后补方法级行号范围	X-BM落点-规则	改账	RuleEngine/Core/{RuleCore,EffectResolver,ActionPump,BattleContext}.cs（待定位）	1
+637	BattleManager	SetupInitialMana(bool isPlayer)	B1	补判据要点逐条 + 观测量；落点已是方法级（必要时按符号重钉行号）	X-账-BattleManager	改账	RuleEngine/Core/RuleCore.cs	2
+638	BattleManager	SetupInitialState()	B2	落点文件级/「同上」/无行号 ⇒ 补方法级行号范围（判据要点一并补）	X-落点补行号	改账	（待定位）	1
+639	BattleManager	SetupMulliganPhase()	B2	落点文件级/「同上」/无行号 ⇒ 补方法级行号范围（判据要点一并补）	X-落点补行号	改账	（待定位）	1
+640	BattleManager	SetupPlayerDeckAndInitialTroops(bool isPlayer)	B2	落点是占位「RuleCore/EffectResolver 同族落点」⇒ 读原版体后补方法级行号范围	X-BM落点-规则	改账	RuleEngine/Core/{RuleCore,EffectResolver,ActionPump,BattleContext}.cs（待定位）	1
+641	BattleManager	SetupReplayMulligan()	B2	落点是占位「RuleCore/EffectResolver 同族落点」⇒ 读原版体后补方法级行号范围	X-BM落点-规则	改账	RuleEngine/Core/{RuleCore,EffectResolver,ActionPump,BattleContext}.cs（待定位）	1
+642	BattleManager	SetupReplayMulliganStart()	B2	落点是占位「RuleCore/EffectResolver 同族落点」⇒ 读原版体后补方法级行号范围	X-BM落点-规则	改账	RuleEngine/Core/{RuleCore,EffectResolver,ActionPump,BattleContext}.cs（待定位）	1
+644	BattleManager	SetupStartingTroops()	B2	落点是占位「RuleCore/EffectResolver 同族落点」⇒ 读原版体后补方法级行号范围	X-BM落点-规则	改账	RuleEngine/Core/{RuleCore,EffectResolver,ActionPump,BattleContext}.cs（待定位）	1
+645	BattleManager	SetupStartingWarlordTroops(bool isPlayer)	B2	落点文件级/「同上」/无行号 ⇒ 补方法级行号范围（判据要点一并补）	X-落点补行号	改账	（待定位）	1
+649	BattleManager	ShouldActivatInitialEnchantments()	B1	补判据要点逐条 + 观测量；落点已是方法级（必要时按符号重钉行号）	X-账-BattleManager	改账	RuleEngine/Core/RuleCore.cs	1
+650	BattleManager	ShouldFadeMulliganCards()	B7	原版死代码/恒常量/0 调用 ⇒ 建议判 D（带时间限定），不是 A	X-D休眠	判D	账（判 D + 时间限定）	1
+651	BattleManager	ShouldTriggerAdjacentDamage(CardScript actingCard)	B1	补判据要点逐条 + 观测量；落点已是方法级（必要时按符号重钉行号）	X-账-BattleManager	改账	RuleEngine/Core/RuleCore.cs	1
+652	BattleManager	ShouldTriggerStompDamage(CardScript actingCard, CardScript targetCard, int adjacentUnits)	B1	补判据要点逐条 + 观测量；落点已是方法级（必要时按符号重钉行号）	X-账-BattleManager	改账	RuleEngine/Core/RuleCore.cs	1
+653	BattleManager	ShouldUseEnviromentalEffects()	B7	原版死代码/恒常量/0 调用 ⇒ 建议判 D（带时间限定），不是 A	X-D休眠	判D	账（判 D + 时间限定）	1
+658	BattleManager	ShowEnemyCardSeen(int uniqueInGameID)	B7	口径六域外（纯表现层/UI）⇒ 移交 CardPresentation 线，本域不计 A	X-表现层移交	移交	CardPresentation/Battle/BattleDriver.cs	1
+659	BattleManager	ShowEnemyHandReorder(int uniqueInGameID, int newIndex)	B7	口径六域外（纯表现层/UI）⇒ 移交 CardPresentation 线，本域不计 A	X-表现层移交	移交	CardPresentation/Battle/BattleDriver.cs	1
+662	BattleManager	ShowPotentialTargets(CardScript actingCard, TargetingReason targetingReason)	B7	口径六域外（纯表现层/UI）⇒ 移交 CardPresentation 线，本域不计 A	X-表现层移交	移交	CardPresentation/Battle/BattleDriver.cs	1
+663	BattleManager	ShowTutorialTip(SmallTipData tipData)	B7	口径六域外（纯表现层/UI）⇒ 移交 CardPresentation 线，本域不计 A	X-表现层移交	移交	CardPresentation/Battle/BattleDriver.cs	1
+664	BattleManager	ShuffleDeck(List<CardScript> deckToShuffle, bool checkStratagem)	B1	补判据要点逐条 + 观测量；落点已是方法级（必要时按符号重钉行号）	X-账-BattleManager	改账	RuleEngine/Core/RuleCore.cs	1
+665	BattleManager	ShuffleDeck(bool isPlayer)	B4	先修差异：差异同 1473/1513Fisher-Yates vs 按名次挑选；RNG 来源不同。	X-差异-洗牌随机	改码	RuleEngine/Core/RuleCore.cs	1
+667	BattleManager	SpendEnchantment(CardScript actingCard, RawCardScript enchantment)	B2	落点是占位「RuleCore/EffectResolver 同族落点」⇒ 读原版体后补方法级行号范围	X-BM落点-规则	改账	RuleEngine/Core/{RuleCore,EffectResolver,ActionPump,BattleContext}.cs（待定位）	1
+668	BattleManager	StartAttackFrom(CardScript card, Vector3 boardPosition, bool playerInitiated)	B7	口径六域外（纯表现层/UI）⇒ 移交 CardPresentation 线，本域不计 A	X-表现层移交	移交	CardPresentation/**（移交战斗界面/特效动画线）	1
+669	BattleManager	StartBattleManager()	B7	口径六域外（纯表现层/UI）⇒ 移交 CardPresentation 线，本域不计 A	X-表现层移交	移交	CardPresentation/**（移交战斗界面/特效动画线）	1
+670	BattleManager	StartBattlePhase()	B1	补判据要点逐条 + 观测量；落点已是方法级（必要时按符号重钉行号）	X-账-BattleManager	改账	RuleEngine/Core/RuleCore.cs	1
+671	BattleManager	StartBattleSequence()	B2	落点是占位「RuleCore/EffectResolver 同族落点」⇒ 读原版体后补方法级行号范围	X-BM落点-规则	改账	RuleEngine/Core/{RuleCore,EffectResolver,ActionPump,BattleContext}.cs（待定位）	1
+672	BattleManager	StartChoosingAbilityTargetByClick(CardScript actingCard)	B7	口径六域外（纯表现层/UI）⇒ 移交 CardPresentation 线，本域不计 A	X-表现层移交	移交	CardPresentation/**（移交战斗界面/特效动画线）	1
+673	BattleManager	StartMovingCardInHand(CardScript card, Vector2 clickPos)	B7	口径六域外（纯表现层/UI）⇒ 移交 CardPresentation 线，本域不计 A	X-表现层移交	移交	CardPresentation/Hand/CardInteraction.cs	1
+674	BattleManager	StartSpellFrom(CardScript card, Vector2 pos)	B7	口径六域外（纯表现层/UI）⇒ 移交 CardPresentation 线，本域不计 A	X-表现层移交	移交	CardPresentation/**（移交战斗界面/特效动画线）	1
+675	BattleManager	StartTargetedActiveAbility()	B7	口径六域外（纯表现层/UI）⇒ 移交 CardPresentation 线，本域不计 A	X-表现层移交	移交	CardPresentation/**（移交战斗界面/特效动画线）	1
+676	BattleManager	StartTargetedSpellAnim()	B7	口径六域外（纯表现层/UI）⇒ 移交 CardPresentation 线，本域不计 A	X-表现层移交	移交	CardPresentation/**（移交战斗界面/特效动画线）	1
+678	BattleManager	StopBattleAfterBattleEnd()	B2	落点文件级/「同上」/无行号 ⇒ 补方法级行号范围（判据要点一并补）	X-落点补行号	改账	（待定位）	1
+679	BattleManager	StopDisplayCardDescription()	B7	口径六域外（纯表现层/UI）⇒ 移交 CardPresentation 线，本域不计 A	X-表现层移交	移交	CardPresentation/**（移交战斗界面/特效动画线）	1
+680	BattleManager	StopDisplayingActiveAbility()	B7	口径六域外（纯表现层/UI）⇒ 移交 CardPresentation 线，本域不计 A	X-表现层移交	移交	CardPresentation/**（移交战斗界面/特效动画线）	1
+681	BattleManager	StopHandAnim(float delay)	B7	口径六域外（纯表现层/UI）⇒ 移交 CardPresentation 线，本域不计 A	X-表现层移交	移交	CardPresentation/**（移交战斗界面/特效动画线）	1
+683	BattleManager	StopShowingPotentialTargets(bool isAttack)	B7	口径六域外（纯表现层/UI）⇒ 移交 CardPresentation 线，本域不计 A	X-表现层移交	移交	CardPresentation/Battle/BattleDriver.cs	1
+684	BattleManager	StopTargetedSpellAnim()	B7	口径六域外（纯表现层/UI）⇒ 移交 CardPresentation 线，本域不计 A	X-表现层移交	移交	CardPresentation/**（移交战斗界面/特效动画线）	1
+690	BattleManager	TryUsingActiveAbility()	B1	补判据要点逐条 + 观测量；落点已是方法级（必要时按符号重钉行号）	X-账-BattleManager	改账	RuleEngine/Core/RuleCore.cs	1
+691	BattleManager	TryUsingActiveAbilityOfCard(CardScript card, bool forceSelectCard)	B1	补判据要点逐条 + 观测量；落点已是方法级（必要时按符号重钉行号）	X-账-BattleManager	改账	RuleEngine/Core/RuleCore.cs	1
+694	BattleManager	TutorialSetup()	B7	口径六域外（纯表现层/UI）⇒ 移交 CardPresentation 线，本域不计 A	X-表现层移交	移交	CardPresentation/**（移交战斗界面/特效动画线）	1
+695	BattleManager	TutorialStartSequence()	B7	口径六域外（纯表现层/UI）⇒ 移交 CardPresentation 线，本域不计 A	X-表现层移交	移交	CardPresentation/**（移交战斗界面/特效动画线）	1
+696	BattleManager	Update()	B7	口径六域外（纯表现层/UI）⇒ 移交 CardPresentation 线，本域不计 A	X-表现层移交	移交	CardPresentation/Battle/BattleDriver.cs	1
+698	BattleManager	UpdateManaLeftAccumulation(bool isPlayer)	B5	原版判据读不到/失真（补 VA 反汇编或另一份反编译）：我们按「一次性结转」实现下回合 +它、之后清零；规则书没写死「临时还是永久」⇒ 这是已知的…	X-判据读不到	补判据	RuleEngine/Core/PlayerState.cs	1
+699	BattleManager	UsedEnchantment()	B2	落点是占位「RuleCore/EffectResolver 同族落点」⇒ 读原版体后补方法级行号范围	X-BM落点-规则	改账	RuleEngine/Core/{RuleCore,EffectResolver,ActionPump,BattleContext}.cs（待定位）	1
+700	BattleManager	VoiceLinesPopUpHid()	B7	口径六域外（纯表现层/UI）⇒ 移交 CardPresentation 线，本域不计 A	X-表现层移交	移交	CardPresentation/**（移交战斗界面/特效动画线）	1
+701	BattleManager	VoiceLinesPopUpShowedUp()	B7	口径六域外（纯表现层/UI）⇒ 移交 CardPresentation 线，本域不计 A	X-表现层移交	移交	CardPresentation/**（移交战斗界面/特效动画线）	1
+702	BattleManager	WaitOpponentLastActions()	B2	落点文件级/「同上」/无行号 ⇒ 补方法级行号范围（判据要点一并补）	X-落点补行号	改账	（待定位）	1
+703	BattleManager	WaitingForBlockingAction(bool showTips)	B2	落点是占位「RuleCore/EffectResolver 同族落点」⇒ 读原版体后补方法级行号范围	X-BM落点-规则	改账	RuleEngine/Core/{RuleCore,EffectResolver,ActionPump,BattleContext}.cs（待定位）	1
+706	BattleManagerSupport	BroadcastCardPlayed(BattleManager manager, CardScript actingCard, CardScript targetCard)	B4	先修差异：我们 BroadcastWhen(Play,…) 传 preCalled=null ⇒ 打出的那张不被排除，它自己若带 …	X-差异-EffectResolver	改码	RuleEngine/Core/EffectResolver.cs	1
+710	BattleManagerSupport	BroadcastCollectQuestPoints(BattleManager manager, CardScript unitCollected)	B1	补判据要点（跳数/预调/自排除逐条）+ 观测量；机制差异写成一句可复核的话	X-广播族改账	改账	RuleEngine/Core/EffectResolver.cs	2
+711	BattleManagerSupport	BroadcastCollectSpiritStone(BattleManager manager, CardScript unitCollected)	B4	先修差异：2026-10-26B8AE已收窄：boardAndPersistentOnly: true原版 0 处 GetCard…	X-差异-RuleCore	改码	RuleEngine/Core/RuleCore.cs	2
+712	BattleManagerSupport	BroadcastDeadUnit(BattleManager manager, BattleAction battleAction)	B4	先修差异：我们一跳广播棋盘含待死闸 + 手牌两跳，没有原版第 4 支那个「手牌里不在场的那张」分支；ResolveDeadCard…	X-差异-RuleCore	改码	RuleEngine/Core/RuleCore.cs	2
+713	BattleManagerSupport	BroadcastEarnedSkull(BattleManager manager, CardScript earnedWarlord)	B4	先修差异：广播器逐句同形一跳 + IsInPlay + 无预调。调用点未接：原版在 CheckForSkullEarned督军血跨…	X-差异-EffectResolver	改码	RuleEngine/Core/EffectResolver.cs	1
+714	BattleManagerSupport	BroadcastRemoveEffectsFrom(BattleManager manager, CardScript actingCard)	B4	先修差异：原版是「一次全员扫」的广播器/动作；我们没有这条动作，只有单元级的「按来源摘」口与整份重算 ⇒ 等价只在「调用点成对」时…	X-差异-引擎数据	改码	RuleEngine/Core/UnitState.cs	1
+716	BattleManagerSupport	BroadcastSabotageCreated(BattleManager manager, CardScript unitCollected)	B4	先修差异：2026-10-26B8AE已收窄：boardAndPersistentOnly: true原版 0 处 GetCard…	X-差异-EffectResolver	改码	RuleEngine/Core/EffectResolver.cs	2
+717	BattleManagerSupport	BroadcastSecretCreated(BattleManager manager, CardScript unitCollected)	B4	先修差异：2026-10-26B8AE已收窄：三处都传 boardAndPersistentOnly: true原版 0 处 Ge…	X-差异-EffectResolver	改码	RuleEngine/Core/EffectResolver.cs	2
+718	BattleManagerSupport	BroadcastTurnBeforeEnd(BattleManager manager, bool isPlayerTurn)	B1	补判据要点（入队vs同步的机制差异+等价依据）+ 一个观测量两侧数值（ruleprobe）	X-入队同步改账	改账	RuleEngine/Core/EffectResolver.cs	2
+719	BattleManagerSupport	BroadcastTurnEnd(BattleManager manager, bool isPlayerTurn)	B1	补判据要点（入队vs同步的机制差异+等价依据）+ 一个观测量两侧数值（ruleprobe）	X-入队同步改账	改账	RuleEngine/Core/EffectResolver.cs	1
+720	BattleManagerSupport	BroadcastTurnSetup(BattleManager manager, bool isPlayerTurn)	B6	无对应实现 ⇒ 按判据补实现后升 A：棋盘一跳IsInPlay+ 双方手牌两跳，无预调、0 条 opInequality；接收端 OnTr…	X-休眠缺口	改码	RuleEngine/Core/RuleCore.cs	1
+721	BattleManagerSupport	BroadcastTurnStart(BattleManager manager, bool isPlayerTurn)	B1	补判据要点逐条 + 观测量；落点已是方法级（必要时按符号重钉行号）	X-账-BattleManager	改账	RuleEngine/Core/EffectResolver.cs	2
+722	BattleManagerSupport	BroadcastTurnStarted(BattleManager manager, bool isPlayerTurn)	B6	无对应实现 ⇒ 按判据补实现后升 A：棋盘一跳 + 双方手牌两跳，无预调、0 条 opInequality；接收端 OnTrigger(0…	X-休眠缺口	改码	EffectResolver.cs	1
+723	BattleManagerSupport	BroadcastUnitAttacked(BattleManager manager, CardScript actingCard, CardScript targetCard, AttackTypes attackType)	B4	先修差异：两次预调 + 棋盘排除两者 + 手牌两跳已同形第二条预调带 allowPendingDeath:true，正好对上原版这…	X-差异-RuleCore	改码	RuleEngine/Core/RuleCore.cs	2
+725	BattleManagerSupport	BroadcastUnitDamaged(BattleManager manager, CardScript damagedUnit, DamageInfo damageInfo)	B4	先修差异：预调 + 排除被打者已同形含 EffectChain 二次判。缺原版「攻击者那一支」：原版保证攻击者一定收到一次哪怕它不…	X-差异-RuleCore	改码	RuleEngine/Core/RuleCore.cs	2
+728	BattleManagerSupport	BroadcastUnitHealed(BattleManager manager, CardScript healedUnit)	B4	先修差异：广播器逐句同形。调用点未接：原版唯一生产调用点 = CardScriptUseSurvivor.c:87不是 CardS…	X-差异-EffectResolver	改码	RuleEngine/Core/EffectResolver.cs	1
+730	BattleManagerSupport	BroadcastUnitLanded(BattleManager manager, CardScript unitLanded)	B1	补判据要点（跳数/预调/自排除逐条）+ 观测量；机制差异写成一句可复核的话	X-广播族改账	改账	RuleEngine/Core/RuleCore.cs	2
+732	BattleManagerSupport	BroadcastUnitMob(BattleManager manager, CardScript unitMob, CardScript unitMobCaster)	B4	先修差异：trigger 名映射 2026-10-25 已补TriggerNameOfWhenKind，机制那一半走 FireTr…	X-差异-RuleCore	改码	RuleEngine/Core/RuleCore.cs	2
+733	BattleManagerSupport	BroadcastUnitObtainedHuntMark(BattleManager manager, CardScript unitMarked)	B4	先修差异：逐句同形预调 + 排除自己 + 手牌两跳。唯一差异：我们棋盘跳带「待死」闸，原版这一跳没有 IsInPlay 过滤	X-差异-EffectResolver	改码	RuleEngine/Core/EffectResolver.cs	1
+734	BattleManagerSupport	BroadcastUnitObtainedMark(BattleManager manager, CardScript unitMarked)	B4	先修差异：没有预调BroadcastKeywordEvent 的 preCallSelf 只认 HuntMark / Marker…	X-差异-EffectResolver	改码	RuleEngine/Core/EffectResolver.cs	2
+736	BattleManagerSupport	BroadcastUnitPoisoned(BattleManager manager, CardScript poisonedUnit, CardScript actingUnit)	B6	无对应实现 ⇒ 按判据补实现后升 A：棋盘一跳IsInPlay+ 双方手牌两跳，无预调、0 条 opInequality；接收端 OnTr…	X-休眠缺口	改码	RuleEngine/Core/RuleCore.cs	1
+738	BattleManagerSupport	BroadcastUnitReanimated(BattleManager manager, CardScript unitReanimated)	B4	先修差异：三跳同形棋盘 + 手牌两跳排除自己，TriggerNameOfWhenKind 有 570 分支。差 ① 原版先 Sig…	X-差异-EffectResolver	改码	RuleEngine/Core/EffectResolver.cs	1
+739	BattleManagerSupport	BroadcastUnitRegiment(BattleManager manager, CardScript unitRegiment, CardScript unitRegimentCaster)	B4	先修差异：trigger 名 646 分支 2026-10-25 已补；机制走 FireTriggerAlways → Broad…	X-差异-RuleCore	改码	RuleEngine/Core/RuleCore.cs	1
+743	BattleManagerSupport	BroadcastUnitSummoned(BattleManager manager, CardScript actingCard, CardScript targetCard)	B1	补判据要点（跳数/预调/自排除逐条）+ 观测量；机制差异写成一句可复核的话	X-广播族改账	改账	RuleEngine/Core/RuleCore.cs	1
+748	BattleManagerSupport	GetTargetUnit(TargetUnit targetUnitCriteria, CardScript actingCard, CardScript targetCard)	B4	先修差异：旧记账把 30/40/50 读反了：原版 friendlyHero(40) = 同侧督军不是异侧、abilityTarg…	X-差异-RuleCore	改码	RuleEngine/Core/RuleCore.cs	2
+752	BoardAnalysis	GetManaLeft(BattleManager manager, bool isPlayer)	B3	落点改到方法级声明（现指字段/注释/候选或挂错符号）	X-字段落点-引擎	改账	RuleEngine/Core/PlayerState.cs	1
+753	BoardAnalysis	GetTotalMana(BattleManager manager, bool isPlayer)	B3	落点改到方法级声明（现指字段/注释/候选或挂错符号）	X-字段落点-引擎	改账	RuleEngine/Core/PlayerState.cs	1
+755	CardAbility	CanTriggerAbility(AbilityTrigger trigger, BattleManager manager, CardScript thisCard, CardScript actingCard, CardScript targetCard, bool ignoreRandomTrigger)	B4	先修差异：① 原版六道闸压在一个方法里，我们拆成入队参数abilityTrigger/abilityActingCard/abil…	X-差异-ActionPump	改码	RuleEngine/Core/ActionPump.cs	2
+759	CardDamageCounterController	DamageReceived(int damageValue)	B7	口径六域外（纯表现层/UI）⇒ 移交 CardPresentation 线，本域不计 A	X-表现层移交	移交	CardPresentation/**（移交战斗界面/特效动画线）	1
+760	CardDamageCounterController	Toggle(bool option)	B7	口径六域外（纯表现层/UI）⇒ 移交 CardPresentation 线，本域不计 A	X-表现层移交	移交	CardPresentation/**（移交战斗界面/特效动画线）	1
+761	CardScript	ActivateBloodThirst()	B4	先修差异：原版 4 个合取项，我们只写 2 个同侧/state 两个由 3 处调用点隐含：RuleCore:6249/11208/…	X-差异-RuleCore	改码	RuleEngine/Core/RuleCore.cs	1
+762	CardScript	ActivateCard(bool activateY)	B7	口径六域外（纯表现层/UI）⇒ 移交 CardPresentation 线，本域不计 A	X-表现层移交	移交	CardPresentation/Battle/BattleDriver.cs	2
+763	CardScript	ActivateIconAnim(AbilityTrigger trigger)	B7	口径六域外（纯表现层/UI）⇒ 移交 CardPresentation 线，本域不计 A	X-表现层移交	移交	CardPresentation/Core/TraitFrames.cs	1
+764	CardScript	ActivateMinion(bool isPlayerTurn)	B1	补判据要点逐条 + 观测量；落点已是方法级（必要时按符号重钉行号）	X-账-CardScript	改账	RuleEngine/Core/RuleCore.cs	1
+765	CardScript	ActivateTraitAnim(DefinedTrait trait, bool playSound)	B7	口径六域外（纯表现层/UI）⇒ 移交 CardPresentation 线，本域不计 A	X-表现层移交	移交	CardPresentation/Core/TraitFrames.cs	2
+767	CardScript	ActivateTraitParticlesFromCodeInTarget(DefinedTrait trait, CardScript targetCard)	B7	口径六域外（纯表现层/UI）⇒ 移交 CardPresentation 线，本域不计 A	X-表现层移交	移交	CardPresentation/Battle/BattleDriver.cs	1
+769	CardScript	ActivateTriggerTraitAnim(AbilityTrigger trigger)	B7	口径六域外（纯表现层/UI）⇒ 移交 CardPresentation 线，本域不计 A	X-表现层移交	移交	CardPresentation/Core/TraitFrames.cs	1
+771	CardScript	AddEffect(CardEffect newEffect, int enchantmentCardId)	B1	补判据要点逐条 + 观测量；落点已是方法级（必要时按符号重钉行号）	X-账-CardScript	改账	RuleEngine/Core/EffectResolver.cs	3
+777	CardScript	ApplyMovementDisappearAnimRotations(Quaternion originalRotation, Vector3 axis, MinionMovementInfo.AnimationDefinition animationDefinition, float animTime, float currentTime)	B7	口径六域外（纯表现层/UI）⇒ 移交 CardPresentation 线，本域不计 A	X-表现层移交	移交	CardPresentation/Battle/BattleDriver.cs	1
+782	CardScript	CanContinueAnim()	B7	口径六域外（纯表现层/UI）⇒ 移交 CardPresentation 线，本域不计 A	X-表现层移交	移交	CardPresentation/Battle/BattleDriver.cs	1
+783	CardScript	CanPlayWithCodexNow()	B4	先修差异：我们只做了「能量恰好归零」一条，另三条回合/allowPlayerActions/!jam/默认 trait没写成显式判…	X-差异-RuleCore	改码	RuleEngine/Core/RuleCore.cs	1
+784	CardScript	CanPlayWithOathNowInHand()	B4	先修差异：我们用 OathCost0 代替「有默认 oath trait」，缺 !jam 与回合两道；且判据在 BattleDri…	X-差异-表现件	改码	CardPresentation/Battle/BattleDriver.cs	1
+785	CardScript	CanPlayWithOathNowInPlay()	B6	无对应实现 ⇒ 按判据补实现后升 A：同手牌版但manaLeft≥oathN(不减Cost)；我们无在场版	X-真缺口	改码	BattleDriver.cs	1
+789	CardScript	CancelActiveAbility()	B7	口径六域外（纯表现层/UI）⇒ 移交 CardPresentation 线，本域不计 A	X-表现层移交	移交	CardPresentation/Battle/BattleDriver.cs	1
+790	CardScript	CancelAttack(bool playerInitiated)	B1	补判据要点逐条 + 观测量；落点已是方法级（必要时按符号重钉行号）	X-账-CardScript	改账	RuleEngine/Core/RuleCore.cs	1
+791	CardScript	CardDrawn(CardScript actingCard)	B4	先修差异：原版这条是「抽到那张牌自己的 OnCardDrawn 钩子」；我们只有广播 + Draw 事件，trap+armed ⇒…	X-差异-RuleCore	改码	RuleEngine/Core/RuleCore.cs	1
+795	CardScript	CardSetup(BattleManager mgr, bool isPlayer, CardArmy mainArmy, bool keepStats)	B1	补判据要点逐条 + 观测量；落点已是方法级（必要时按符号重钉行号）	X-账-CardScript	改账	RuleEngine/Core/UnitState.cs	2
+796	CardScript	CardToMinionAnim()	B7	口径六域外（纯表现层/UI）⇒ 移交 CardPresentation 线，本域不计 A	X-表现层移交	移交	CardPresentation/Battle/BattleDriver.cs	1
+798	CardScript	CardWaitingToBePlayed()	B6	无对应实现 ⇒ 按判据补实现后升 A：只置cardState=waitingToBePlayed(4)；我们无状态机	X-休眠缺口	改码	RuleCore.cs	1
+800	CardScript	ChangeBaseAttack(int newAttack)	B4	先修差异：原版那段 RemoveAt先清固有近战增益我们没清EffectResolver.cs:14303-14306 自己标着；…	X-差异-EffectResolver	改码	RuleEngine/Core/EffectResolver.cs	1
+801	CardScript	ChangeMaxHealth(int newHealth)	B6	无对应实现 ⇒ 按判据补实现后升 A：非extrinsic生命增益整条删+extrinsic求和；max=Σ+N，health=min(旧…	X-真缺口	改码	RuleEngine/Core/EffectResolver.cs	1
+802	CardScript	ChangeOwner()	B1	补判据要点逐条 + 观测量；落点已是方法级（必要时按符号重钉行号）	X-账-CardScript	改账	RuleEngine/Core/EffectResolver.cs	1
+803	CardScript	CheckAndApplyCurrentPack()	B4	先修差异：我们数的是含自己在内的全部非督军单位:4907 的 !tu.IsWarlord，原版部队取 Count−1排自己⇒ 带 …	X-差异-RuleCore	改码	RuleEngine/Core/RuleCore.cs	1
+809	CardScript	CheckReplacedAbility()	B1	补判据要点逐条 + 观测量；落点已是方法级（必要时按符号重钉行号）	X-账-CardScript	改账	RuleEngine/Core/CardDef.cs	1
+813	CardScript	ClearPendingDamage()	B1	补判据要点逐条 + 观测量；落点已是方法级（必要时按符号重钉行号）	X-账-CardScript	改账	（待定位）	1
+814	CardScript	ClickMulliganSelected(bool fromClick)	B4	先修差异：原版有两条路钮 = ClickMulliganSelected、点卡 = DisplayCard，我们只保留钮那条；闸只…	X-差异-RuleCore	改码	CardPresentation/Battle/MulliganPanel.cs	1
+818	CardScript	CreateCardInGame(Vector3 newScale, Vector3 newPosition, Vector3 newRotation, float timeToDraw)	B7	口径六域外（纯表现层/UI）⇒ 移交 CardPresentation 线，本域不计 A	X-表现层移交	移交	CardPresentation/Board/DeploySequence.cs	1
+819	CardScript	DestroyCard(float stepTime, bool skipInit)	B7	口径六域外（纯表现层/UI）⇒ 移交 CardPresentation 线，本域不计 A	X-表现层移交	移交	CardPresentation/Core/CardFeel.cs	1
+820	CardScript	DestroyCardOffensive(float stepTime)	B7	口径六域外（纯表现层/UI）⇒ 移交 CardPresentation 线，本域不计 A	X-表现层移交	移交	CardPresentation/Battle/BattleDriver.cs	1
+821	CardScript	DisplayEnemyCardInCenter(float timeToDraw, float stepTime, bool changeVisibility)	B7	口径六域外（纯表现层/UI）⇒ 移交 CardPresentation 线，本域不计 A	X-表现层移交	移交	CardPresentation/Battle/CardDisplayWindow.cs	1
+822	CardScript	DisplayOffensiveCardInCenter(float timeToDraw, float stepTime)	B7	口径六域外（纯表现层/UI）⇒ 移交 CardPresentation 线，本域不计 A	X-表现层移交	移交	CardPresentation/Battle/CardDisplayWindow.cs	1
+824	CardScript	DisplayingActiveAbility()	B7	口径六域外（纯表现层/UI）⇒ 移交 CardPresentation 线，本域不计 A	X-表现层移交	移交	CardPresentation/Battle/SkillPanel.cs	1
+826	CardScript	DissolveWholeCard(float timeToDissolve)	B7	口径六域外（纯表现层/UI）⇒ 移交 CardPresentation 线，本域不计 A	X-表现层移交	移交	CardPresentation/Battle/BattleDriver.cs	1
+827	CardScript	DoBodyAnimation(AnimationClip clip, bool disableFlying, Action onFinish, bool safeResetOnEnd)	B7	口径六域外（纯表现层/UI）⇒ 移交 CardPresentation 线，本域不计 A	X-表现层移交	移交	CardPresentation/Battle/Card3DAnimationController.cs	1
+837	CardScript	ExecuteSynapeEffect(CardScript actingCard)	B1	补判据要点逐条 + 观测量；落点已是方法级（必要时按符号重钉行号）	X-账-CardScript	改账	RuleEngine/Core/EffectResolver.cs	1
+839	CardScript	FinishAfterAttack()	B1	补判据要点逐条 + 观测量；落点已是方法级（必要时按符号重钉行号）	X-账-CardScript	改账	RuleEngine/Core/RuleCore.cs	1
+842	CardScript	FinishMulliganUi()	B7	口径六域外（纯表现层/UI）⇒ 移交 CardPresentation 线，本域不计 A	X-表现层移交	移交	CardPresentation/Battle/BattleDriver.cs	1
+843	CardScript	FollowUpResolutionPlayed(CardScript targetCard)	B1	补判据要点（跳数/预调/自排除逐条）+ 观测量；机制差异写成一句可复核的话	X-广播族改账	改账	RuleEngine/Core/EffectResolver.cs	1
+844	CardScript	ForceChangeMaxHealth(int newHealth)	B1	补判据要点逐条 + 观测量；落点已是方法级（必要时按符号重钉行号）	X-账-CardScript	改账	RuleEngine/Core/EffectResolver.cs	1
+845	CardScript	ForceDisableCanActAnim()	B7	口径六域外（纯表现层/UI）⇒ 移交 CardPresentation 线，本域不计 A	X-表现层移交	移交	CardPresentation/**（移交战斗界面/特效动画线）	1
+846	CardScript	ForceDisplayCard()	B7	口径六域外（纯表现层/UI）⇒ 移交 CardPresentation 线，本域不计 A	X-表现层移交	移交	CardPresentation/Battle/CardDisplayWindow.cs	1
+848	CardScript	GetAdjustedDamage(DamageInfo grossDamage, bool shouldCountBastion)	B5	原版判据读不到/失真（补 VA 反汇编或另一份反编译）：伪码把 dropPod/dodge/invulnerable 那一支反成死存算了没用⇒ 那…	X-判据读不到	补判据	RuleEngine/Core/RuleCore.cs	1
+851	CardScript	GetCardImageSprite()	B7	口径六域外（纯表现层/UI）⇒ 移交 CardPresentation 线，本域不计 A	X-表现层移交	移交	CardPresentation/**（移交战斗界面/特效动画线）	1
+856	CardScript	GetCurrentLocalizedAbilityDescription()	B7	口径六域外（纯表现层/UI）⇒ 移交 CardPresentation 线，本域不计 A	X-表现层移交	移交	CardPresentation/Battle/SkillPanel.cs	1
+858	CardScript	GetEnemyCardPlayedDisplayPosition()	B7	口径六域外（纯表现层/UI）⇒ 移交 CardPresentation 线，本域不计 A	X-表现层移交	移交	CardPresentation/Battle/BattleDriver.cs	1
+859	CardScript	GetEnemyCardPlayedDisplayScale()	B7	口径六域外（纯表现层/UI）⇒ 移交 CardPresentation 线，本域不计 A	X-表现层移交	移交	CardPresentation/Battle/BattleDriver.cs	1
+862	CardScript	GetHighestAttackValue()	B1	补判据要点逐条 + 观测量；落点已是方法级（必要时按符号重钉行号）	X-账-CardScript	改账	RuleEngine/Data/AiTargets.cs	1
+866	CardScript	GetOffensiveCardPlayedDisplayPosition()	B7	口径六域外（纯表现层/UI）⇒ 移交 CardPresentation 线，本域不计 A	X-表现层移交	移交	BattleDriver.cs	1
+867	CardScript	GetOwnHero()	B1	补判据要点逐条 + 观测量；落点已是方法级（必要时按符号重钉行号）	X-账-CardScript	改账	RuleEngine/Core/PlayerState.cs	2
+870	CardScript	GetTargetsAvailable()	B1	补判据要点逐条 + 观测量；落点已是方法级（必要时按符号重钉行号）	X-账-CardScript	改账	RuleEngine/Core/EffectResolver.cs	1
+874	CardScript	HasCancelAttackAbility(CardScript actingCard, CardScript targetCard)	B1	补判据要点逐条 + 观测量；落点已是方法级（必要时按符号重钉行号）	X-账-CardScript	改账	RuleEngine/Core/RuleCore.cs	1
+876	CardScript	HasDiedSinceLastTurn()	B1	补判据要点逐条 + 观测量；落点已是方法级（必要时按符号重钉行号）	X-账-CardScript	改账	RuleEngine/Core/BattleContext.cs	1
+877	CardScript	HasDiedThisTurn()	B1	补判据要点逐条 + 观测量；落点已是方法级（必要时按符号重钉行号）	X-账-CardScript	改账	RuleEngine/Core/BattleContext.cs	1
+879	CardScript	HasEnoughPendingDamageAndIsRemnant()	B1	补判据要点逐条 + 观测量；落点已是方法级（必要时按符号重钉行号）	X-账-CardScript	改账	RuleEngine/Core/RuleCore.cs	1
+881	CardScript	HasPackBuffTrait()	B4	先修差异：原版查的是效果表里那条 buff 在不在；我们查关键词集合 u.Has(pack) ⇒ 手牌里/未挂 buff 时也会判…	X-差异-RuleCore	改码	RuleEngine/Core/RuleCore.cs	1
+884	CardScript	HasToUseLegendarySummonEffect()	B7	口径六域外（纯表现层/UI）⇒ 移交 CardPresentation 线，本域不计 A	X-表现层移交	移交	CardPresentation/Battle/BattleDriver.cs	1
+889	CardScript	HideWarlordActiveAbilityForTutorial()	B4	先修差异：逐句 1 句；原版能运行时把该位置 0，我们是只读属性、无写点 ⇒ 缺「教程隐藏主动能力」这一档TutorialScri…	X-差异-引擎数据	改码	RuleEngine/Core/CardDef.cs	1
+890	CardScript	HighlightBloodThirst()	B7	口径六域外（纯表现层/UI）⇒ 移交 CardPresentation 线，本域不计 A	X-表现层移交	移交	CardPresentation/Battle/BattleDriver.cs	1
+892	CardScript	IsActiveAbilityTargeted()	B1	补判据要点逐条 + 观测量；落点已是方法级（必要时按符号重钉行号）	X-账-CardScript	改账	RuleEngine/Core/EffectSpec.cs	1
+904	CardScript	IsSameTrait(CardEffect effect1, CardEffect effect2)	B1	补判据要点逐条 + 观测量；落点已是方法级（必要时按符号重钉行号）	X-账-CardScript	改账	RuleEngine/Core/UnitState.cs	1
+906	CardScript	IsTheSameTurnPlayed()	B1	补判据要点逐条 + 观测量；落点已是方法级（必要时按符号重钉行号）	X-账-CardScript	改账	RuleEngine/Core/UnitState.cs	2
+908	CardScript	IsValidActiveAbilityTarget(CardScript target)	B1	补判据要点逐条 + 观测量；落点已是方法级（必要时按符号重钉行号）	X-账-CardScript	改账	RuleEngine/Core/RuleCore.cs	1
+913	CardScript	MoveAndDisappearAnim(Vector3 pos, CardScript target, MinionMovementInfo movementInfo)	B7	口径六域外（纯表现层/UI）⇒ 移交 CardPresentation 线，本域不计 A	X-表现层移交	移交	CardPresentation/Battle/BattleDriver.cs	2
+915	CardScript	MoveIntoFieldFromHand()	B7	口径六域外（纯表现层/UI）⇒ 移交 CardPresentation 线，本域不计 A	X-表现层移交	移交	CardPresentation/Battle/BattleDriver.cs	1
+917	CardScript	NeedsToChooseFromPool(CardScript targetCard)	B4	先修差异：原版两段已挂 90 效果 / 1275 付费闸；我们只做候选池侧「要不要选」，1275 的法力闸未接	X-差异-EffectResolver	改码	RuleEngine/Core/EffectResolver.cs	2
+918	CardScript	NonTargetSpellPlayed()	B4	先修差异：进弃牌✓、Play 广播✓、巧技广播✓；差异：① Combo(590) 未实现池内 0；② OnCardPlayedWi…	X-差异-EffectResolver	改码	RuleEngine/Core/EffectResolver.cs	1
+923	CardScript	OnTouchUpAsButton()	B7	口径六域外（纯表现层/UI）⇒ 移交 CardPresentation 线，本域不计 A	X-表现层移交	移交	CardPresentation/Core/CardHighlight.cs	2
+925	CardScript	OnTurnEnd(bool playerTurn)	B1	补判据要点（入队vs同步的机制差异+等价依据）+ 一个观测量两侧数值（ruleprobe）	X-入队同步改账	改账	RuleEngine/Core/RuleCore.cs	2
+926	CardScript	OnTurnSetup(bool playerTurn, bool isInHand)	B1	补判据要点逐条 + 观测量；落点已是方法级（必要时按符号重钉行号）	X-账-CardScript	改账	RuleEngine/Core/RuleCore.cs	2
+927	CardScript	OnTurnStart(bool playerTurn)	B1	补判据要点逐条 + 观测量；落点已是方法级（必要时按符号重钉行号）	X-账-CardScript	改账	RuleEngine/Core/RuleCore.cs	2
+929	CardScript	OrientToTargetingDirection()	B7	口径六域外（纯表现层/UI）⇒ 移交 CardPresentation 线，本域不计 A	X-表现层移交	移交	CardPresentation/Battle/BattleDriver.cs	2
+931	CardScript	PlayEnemyCard(float stepTime)	B7	口径六域外（纯表现层/UI）⇒ 移交 CardPresentation 线，本域不计 A	X-表现层移交	移交	CardPresentation/Battle/BattleDriver.cs	1
+932	CardScript	PlayPlayerCard(float stepTime)	B7	口径六域外（纯表现层/UI）⇒ 移交 CardPresentation 线，本域不计 A	X-表现层移交	移交	CardPresentation/Battle/BattleDriver.cs	1
+933	CardScript	PlayTriggerAnim(GameObject animPrefab, CardScript targetCard, int traitValue)	B7	口径六域外（纯表现层/UI）⇒ 移交 CardPresentation 线，本域不计 A	X-表现层移交	移交	CardPresentation/Battle/AnimFXController.cs	1
+934	CardScript	PrepareAttack(bool toPrepareAttack, bool playSound)	B1	补判据要点逐条 + 观测量；落点已是方法级（必要时按符号重钉行号）	X-账-CardScript	改账	RuleEngine/Core/RuleCore.cs	1
+937	CardScript	QuestResolved(CardScript actingCard)	B1	补判据要点逐条 + 观测量；落点已是方法级（必要时按符号重钉行号）	X-账-CardScript	改账	Core/EffectResolver.cs	1
+944	CardScript	ReactToUnitHealed(CardScript healedUnit, CardScript actingUnit)	B4	先修差异：接收侧三件事件 Kind / trigger 名 70 / 广播器本批齐；发送侧调用点未接原版唯一 = UseSurvi…	X-差异-EffectResolver	改码	RuleEngine/Core/EffectResolver.cs	1
+946	CardScript	ReactToUnitJammed(CardScript disenchantedCard)	B4	先修差异：逐支对过：①–⑤ 状态侧由 F3 逐句搬；驱动五步顺序由本批落地闸 IsInPlayOrDying → ApplyJam…	X-差异-EffectResolver	改码	RuleEngine/Core/EffectResolver.cs	2
+953	CardScript	ReceiveAttackAnim(Vector3 pos, CardScript attacker)	B7	口径六域外（纯表现层/UI）⇒ 移交 CardPresentation 线，本域不计 A	X-表现层移交	移交	CardPresentation/Battle/BattleDriver.cs	1
+954	CardScript	ReceiveDamage(UnitDeathType deathType, DamageInfo damageInfo, bool doItFast)	B1	补判据要点逐条 + 观测量；落点已是方法级（必要时按符号重钉行号）	X-账-CardScript	改账	RuleEngine/Core/RuleCore.cs	2
+955	CardScript	ReceiveSneakAttackAnim(CardScript attacker)	B7	口径六域外（纯表现层/UI）⇒ 移交 CardPresentation 线，本域不计 A	X-表现层移交	移交	BattleDriver.cs	1
+963	CardScript	RemoveBuffHandCostEffects()	B4	先修差异：我们整份清手牌效果、费用修正只对手牌期有效 ⇒ 结果等价但对不回逐句；permanentBuff 无字段 ⇒ 那 1 条…	X-差异-RuleCore	改码	RuleEngine/Core/RuleCore.cs	1
+965	CardScript	RemoveCardFromCemetery()	B1	补判据要点逐条 + 观测量；落点已是方法级（必要时按符号重钉行号）	X-账-CardScript	改账	（待定位）	1
+968	CardScript	RemoveDuplicitous()	B6	无对应实现 ⇒ 按判据补实现后升 A：RemoveBuffedTrait(0xa0=160) + RemoveTrait(160) + U…	X-休眠缺口	改码	ConditionEval.cs	1
+971	CardScript	RemoveFromGameCard(CardScript removedCard)	B1	补判据要点逐条 + 观测量；落点已是方法级（必要时按符号重钉行号）	X-账-CardScript	改账	RuleEngine/Core/BattleContext.cs	1
+979	CardScript	RemoveTraitSilently(DefinedTrait traitToRemove)	B4	先修差异：结构差已有账：我们的 keywords 是合并字典，RemoveAll(kw, silent:true) 把整条删掉 ⇒…	X-差异-引擎数据	改码	RuleEngine/Core/UnitState.cs	2
+982	CardScript	ResetToValuesInHand(bool resetTriggeredBacklash)	B1	补判据要点逐条 + 观测量；落点已是方法级（必要时按符号重钉行号）	X-账-CardScript	改账	RuleEngine/Core/UnitState.cs	2
+983	CardScript	ResolveActiveAbilityPlayed(CardScript actingCard, CardScript targetCard)	B4	先修差异：缺「先播装填、下回合才生效」那道闸我们只有条件判定 CE:442 的 cond 220-225；doubleOath 有	X-差异-RuleCore	改码	RuleEngine/Core/EffectResolver.cs	2
+984	CardScript	ResolveAttackAnimationEffects(Transform anchor, Vector3 attackDirection)	B7	口径六域外（纯表现层/UI）⇒ 移交 CardPresentation 线，本域不计 A	X-表现层移交	移交	CardPresentation/Battle/BattleDriver.cs	1
+985	CardScript	ResolveAttackRangedAnim(CardScript target, bool isAttacker)	B7	口径六域外（纯表现层/UI）⇒ 移交 CardPresentation 线，本域不计 A	X-表现层移交	移交	CardPresentation/Battle/BattleDriver.cs	2
+987	CardScript	ResolveCardPlayed(CardScript cardPlayed, CardScript targetCard)	B4	先修差异：swarm ✓2026-10-25 补了「右邻也要带 swarm」；缺 Combo池内 0、「打出时摘 ephemera…	X-差异-RuleCore	改码	RuleEngine/Core/RuleCore.cs	1
+988	CardScript	ResolveDamageDealt(CardScript damagedCard, DamageInfo damageInfo)	B4	先修差异：缺三支：syphon(池内 0)、poisonous(池内 0)、concussive 只在 DeclareAttack…	X-差异-RuleCore	改码	RuleEngine/Core/RuleCore.cs	2
+989	CardScript	ResolveDeadCard(BattleAction battleAction)	B4	先修差异：缺：① Requiem 那条池内 430/435 各 0 ⇒ 不可观测；② RemoveExtrinsicEffects…	X-差异-RuleCore	改码	RuleEngine/Core/RuleCore.cs	2
+991	CardScript	ResolveRangedAttack(CardScript target)	B7	口径六域外（纯表现层/UI）⇒ 移交 CardPresentation 线，本域不计 A	X-表现层移交	移交	CardPresentation/Battle/BattleDriver.cs	1
+993	CardScript	ResolveTransient()	B4	先修差异：原版销毁场上单位死因 20；我们的 SweepEphemeral 处理的是手牌临时卡 ⇒ 不是同一件事；池内 trans…	X-差异-RuleCore	改码	RuleEngine/Core/RuleCore.cs	1
+994	CardScript	ResolveUnitAttacked(CardScript actingCard, CardScript targetCard, AttackTypes attackType)	B4	先修差异：两处缺口：① untilNextAttack 这一到期档我们没有只有本回合末 / 我的下回合开始；② 「被攻击但 0 伤…	X-差异-RuleCore	改码	RuleEngine/Core/RuleCore.cs	2
+995	CardScript	ResolveUnitSummoned(CardScript cardPlayed, CardScript targetCard)	B4	先修差异：190/195/605 对上；真差异：① Uprising 缺 playedIntoFieldTurnCounter==…	X-差异-RuleCore	改码	RuleEngine/Core/RuleCore.cs	1
+997	CardScript	ReturnToDeckAnim(float timeToMove)	B7	口径六域外（纯表现层/UI）⇒ 移交 CardPresentation 线，本域不计 A	X-表现层移交	移交	CardPresentation/Core/CardFeel.cs	1
+999	CardScript	SendClearEndOfTurnEffects(int priority)	B1	补判据要点（入队vs同步的机制差异+等价依据）+ 一个观测量两侧数值（ruleprobe）	X-入队同步改账	改账	RuleEngine/Core/EffectResolver.cs	1
+1000	CardScript	SendHighlightBloodThirstAction()	B7	口径六域外（纯表现层/UI）⇒ 移交 CardPresentation 线，本域不计 A	X-表现层移交	移交	CardPresentation/Battle/BattleDriver.cs	1
+1001	CardScript	SendRemoveEffect(CardEffect cardEffect, int priority)	B1	补判据要点（入队vs同步的机制差异+等价依据）+ 一个观测量两侧数值（ruleprobe）	X-入队同步改账	改账	RuleEngine/Core/RuleCore.cs	1
+1006	CardScript	SetAsDeck(int indexInDeck)	B7	口径六域外（纯表现层/UI）⇒ 移交 CardPresentation 线，本域不计 A	X-表现层移交	移交	CardPresentation/Battle/BattleDriver.cs	1
+1009	CardScript	SetAsPlayer(bool isPlayer, CardArmy army, bool setCardback)	B1	补判据要点逐条 + 观测量；落点已是方法级（必要时按符号重钉行号）	X-账-CardScript	改账	RuleEngine/Core/BattleContext.cs	1
+1015	CardScript	SetCardMovement(Vector3 targetPoint, Vector3 forcedExtraRotation, Vector3 newScale)	B7	口径六域外（纯表现层/UI）⇒ 移交 CardPresentation 线，本域不计 A	X-表现层移交	移交	CardPresentation/Battle/BattleDriver.cs	1
+1016	CardScript	SetCardPosAndScaleToBoard(float zDistance)	B7	口径六域外（纯表现层/UI）⇒ 移交 CardPresentation 线，本域不计 A	X-表现层移交	移交	CardPresentation/Board/DeploySequence.cs	1
+1017	CardScript	SetCardState(CardStateOptions newState)	B1	补判据要点逐条 + 观测量；落点已是方法级（必要时按符号重钉行号）	X-账-CardScript	改账	CardPresentation/Battle/BattleDriver.cs	1
+1021	CardScript	SetFutureRemnant(bool willBeRemnant)	B1	补判据要点逐条 + 观测量；落点已是方法级（必要时按符号重钉行号）	X-账-CardScript	改账	RuleEngine/Core/UnitState.cs	2
+1022	CardScript	SetHealthToZero()	B6	无对应实现 ⇒ 按判据补实现后升 A：SetHealthToZero：把 currentHealth 写成 0CardScript.cs:…	X-真缺口	改码	RuleEngine/Core/RuleCore.cs	1
+1023	CardScript	SetInBattleId(int newUniqueId)	B7	口径六域外（纯表现层/UI）⇒ 移交 CardPresentation 线，本域不计 A	X-表现层移交	移交	RuleEngine/Core/CardInstance.cs	1
+1025	CardScript	SetLeavingRemnant()	B1	补判据要点逐条 + 观测量；落点已是方法级（必要时按符号重钉行号）	X-账-CardScript	改账	RuleEngine/Core/UnitState.cs	2
+1027	CardScript	SetPray(bool activate)	B5	原版判据读不到/失真（补 VA 反汇编或另一份反编译）：2026-10-26B8AM · 铁律 5就地订正：本行「差异」原来写「一致：我们同样只置…	X-判据读不到	补判据	RuleEngine/Core/UnitState.cs	2
+1029	CardScript	SetRemoveMarkerlight()	B1	补判据要点逐条 + 观测量；落点已是方法级（必要时按符号重钉行号）	X-账-CardScript	改账	RuleEngine/Core/UnitState.cs	1
+1032	CardScript	SetStateAsMulligan(bool toBeDiscarded)	B1	补判据要点逐条 + 观测量；落点已是方法级（必要时按符号重钉行号）	X-账-CardScript	改账	CardPresentation/Battle/BattleDriver.cs	1
+1036	CardScript	SetupActiveAbility()	B1	补判据要点逐条 + 观测量；落点已是方法级（必要时按符号重钉行号）	X-账-CardScript	改账	RuleEngine/Core/RuleCore.cs	1
+1037	CardScript	SetupAttack(bool playSound, bool playerInitiated)	B1	补判据要点逐条 + 观测量；落点已是方法级（必要时按符号重钉行号）	X-账-CardScript	改账	RuleEngine/Core/RuleCore.cs	1
+1038	CardScript	SetupCardLayout(CardsHorizontalLayout layout)	B7	口径六域外（纯表现层/UI）⇒ 移交 CardPresentation 线，本域不计 A	X-表现层移交	移交	CardPresentation/Hand/HandLayout.cs	1
+1041	CardScript	ShouldTriggerCompanion()	B4	先修差异：逐句对过 ~8 句；差异：原版读 HasCurrentTrait当前关键词，我们读 card.Has卡面印刷⇒ 运行时授…	X-差异-RuleCore	改码	RuleEngine/Core/RuleCore.cs	1
+1048	CardScript	ShowCardInCenter(float stepTime)	B7	口径六域外（纯表现层/UI）⇒ 移交 CardPresentation 线，本域不计 A	X-表现层移交	移交	CardPresentation/Battle/BattleDriver.cs	1
+1053	CardScript	ShowDropPodFigures()	B1	补判据要点逐条 + 观测量；落点已是方法级（必要时按符号重钉行号）	X-账-CardScript	改账	RuleEngine/Core/RuleCore.cs	1
+1056	CardScript	ShowWarlordActiveAbilityForTutorial()	B7	口径六域外（纯表现层/UI）⇒ 移交 CardPresentation 线，本域不计 A	X-表现层移交	移交	CardPresentation/Battle/BattleDriver.cs	1
+1060	CardScript	StopDisplayingCardDescription()	B7	口径六域外（纯表现层/UI）⇒ 移交 CardPresentation 线，本域不计 A	X-表现层移交	移交	CardPresentation/Battle/CardDisplayWindow.cs	1
+1063	CardScript	TacticPlayed(CardScript actingCard, CardScript targetCard)	B4	先修差异：两处差已核：① 我们用 HasFx(artifice)看有没有正文而不是 HasCurrentTrait；② 我们排在效…	X-差异-RuleCore	改码	RuleEngine/Core/EffectResolver.cs	1
+1064	CardScript	TargetedSpellPlayed(CardScript actingCard, CardScript targetCard)	B4	先修差异：synapse 五步逐句对过未发现差异我们多一个 SynapseBusy 递归守卫 —— 原版不会自递归。差异：Comb…	X-差异-EffectResolver	改码	RuleEngine/Core/EffectResolver.cs	1
+1068	CardScript	TransformIntoRemnant()	B4	先修差异：2026-10-26B8BH③ 已接：rem.ClearAllKeywords()= 原版倒序 RemoveTraitS…	X-差异-RuleCore	改码	RuleEngine/Core/RuleCore.cs	2
+1072	CardScript	TriggerCodex(CardScript targetCard)	B1	补判据要点逐条 + 观测量；落点已是方法级（必要时按符号重钉行号）	X-账-CardScript	改账	RuleEngine/Core/RuleCore.cs	1
+1076	CardScript	TriggerOtherCardAbility(RawCardScript abilityCard)	B3	落点改到方法级声明（现指字段/注释/候选或挂错符号）	X-字段落点-引擎	改账	RuleEngine/Data/OffensiveCardMap.cs	2
+1077	CardScript	TriggerOtherCardCodex(CardScript codexUnit)	B1	补判据要点（跳数/预调/自排除逐条）+ 观测量；机制差异写成一句可复核的话	X-广播族改账	改账	RuleEngine/Core/EffectResolver.cs	1
+1079	CardScript	TriggerOtherCardMob(CardScript mobUnit)	B1	补判据要点（跳数/预调/自排除逐条）+ 观测量；机制差异写成一句可复核的话	X-广播族改账	改账	RuleEngine/Core/EffectResolver.cs	1
+1081	CardScript	TriggerOtherCardRequiem(CardScript requiemUnit)	B4	先修差异：接收侧三件本批齐Kind / 自排除 / trigger 名 435；发送侧未接缺 Requiem 关键词正文 + Re…	X-差异-EffectResolver	改码	RuleEngine/Core/WhenEvent.cs	1
+1084	CardScript	TriggerSacrifice()	B1	补判据要点（跳数/预调/自排除逐条）+ 观测量；机制差异写成一句可复核的话	X-广播族改账	改账	RuleEngine/Core/RuleCore.cs	1
+1087	CardScript	TriggerSpiritStone(CardScript actingCard)	B1	补判据要点（跳数/预调/自排除逐条）+ 观测量；机制差异写成一句可复核的话	X-广播族改账	改账	RuleEngine/Core/EffectResolver.cs	1
+1089	CardScript	TriggerUnitBacklashActions(UnitDeathType deathType, CardScript actingCard)	B1	补判据要点（入队vs同步的机制差异+等价依据）+ 一个观测量两侧数值（ruleprobe）	X-入队同步改账	改账	RuleEngine/Core/RuleCore.cs	2
+1093	CardScript	TriggeredEarnSkull(CardScript earnedWarlord)	B4	先修差异：接收侧三件本批齐Kind / trigger 名 640 / 广播器一跳；发送侧未接CheckForSkullEarne…	X-差异-EffectResolver	改码	RuleEngine/Core/EffectResolver.cs	1
+1098	CardScript	TryCardHighlight()	B7	口径六域外（纯表现层/UI）⇒ 移交 CardPresentation 线，本域不计 A	X-表现层移交	移交	CardPresentation/Core/CardHighlight.cs	1
+1099	CardScript	TryDraggingFromBoard(PointerEventData eventData, Vector2 originalTouchPosition)	B1	补判据要点逐条 + 观测量；落点已是方法级（必要时按符号重钉行号）	X-账-CardScript	改账	CardPresentation/Hand/CardInteraction.cs	2
+1102	CardScript	TutorialIconAnim(bool isHealth)	B7	口径六域外（纯表现层/UI）⇒ 移交 CardPresentation 线，本域不计 A	X-表现层移交	移交	CardPresentation/Battle/BattleDriver.cs	1
+1105	CardScript	UnitDeath(bool skipDeathSound, bool allowWarlord, UnitDeathType deathType)	B7	口径六域外（纯表现层/UI）⇒ 移交 CardPresentation 线，本域不计 A	X-表现层移交	移交	CardPresentation/Battle/BattleDriver.cs	2
+1106	CardScript	Update()	B7	口径六域外（纯表现层/UI）⇒ 移交 CardPresentation 线，本域不计 A	X-表现层移交	移交	CardPresentation/Battle/AttackSelector.cs	1
+1107	CardScript	UpdateAssetInPlayPosition(Vector3 pos, float reassembleTime, bool doAnim, bool setAsPermanent)	B7	口径六域外（纯表现层/UI）⇒ 移交 CardPresentation 线，本域不计 A	X-表现层移交	移交	CardPresentation/Core/CardView.cs	2
+1111	CardScript	UpdateHealthText(bool shouldAnimate)	B7	口径六域外（纯表现层/UI）⇒ 移交 CardPresentation 线，本域不计 A	X-表现层移交	移交	CardPresentation/Core/CardView.cs	1
+1113	CardScript	UpdateMinionInPlayPosition(Vector3 pos, float reassembleTime, bool doAnim, bool isFromCard)	B7	口径六域外（纯表现层/UI）⇒ 移交 CardPresentation 线，本域不计 A	X-表现层移交	移交	CardPresentation/Core/CardView.cs	1
+1118	CardScript	UsedActiveAbility()	B4	先修差异：逐句对过 6 段；差异：① 原版 agenda ⇒ signal 705 与 oath ⇒ signal 738 两条 …	X-差异-RuleCore	改码	RuleEngine/Core/RuleCore.cs	2
+1121	CardScript	hasMaintenanceEffects()	B4	先修差异：逐句对过 3 段；差异：原版是布尔查询谁调用它决定扣不扣，未查，我们是直接求和；口径差：原版 HasDefaultTra…	X-差异-RuleCore	改码	RuleEngine/Core/RuleCore.cs	1
+1126	CardTraitCollection	GetTraitEffect(DefinedTrait trait, CardTrait.EffectTriggerType triggerType)	B1	补判据要点逐条 + 观测量；落点已是方法级（必要时按符号重钉行号）	X-账-其它	改账	RuleEngine/Core/CardDef.cs	2
+1128	CardTraitCollection	GetTraitEffects(DefinedTrait trait)	B1	补判据要点逐条 + 观测量；落点已是方法级（必要时按符号重钉行号）	X-账-其它	改账	RuleEngine/Core/CardDef.cs	1
+1130	CardTraitCollection	GetTraitFromAbilityTrigger(AbilityTrigger abilityTrigger)	B1	补判据要点逐条 + 观测量；落点已是方法级（必要时按符号重钉行号）	X-账-其它	改账	RuleEngine/Core/CardDef.cs	2
+1131	CardTraitCollection	GetTraitInPlayListForIcons(CardScript card)	B7	口径六域外（纯表现层/UI）⇒ 移交 CardPresentation 线，本域不计 A	X-表现层移交	移交	CardPresentation/**（移交战斗界面/特效动画线）	1
+1132	CardTraitCollection	GetTraitListForCardIcons(RawCardScript card)	B7	口径六域外（纯表现层/UI）⇒ 移交 CardPresentation 线，本域不计 A	X-表现层移交	移交	CardPresentation/**（移交战斗界面/特效动画线）	1
+1133	CardTraitCollection	GetTraitTextSprite(DefinedTrait traitName)	B7	口径六域外（纯表现层/UI）⇒ 移交 CardPresentation 线，本域不计 A	X-表现层移交	移交	CardPresentation/**（移交战斗界面/特效动画线）	1
+1135	CardTraitCollection	GetTraitsFromAbilitiesRawCard(CardTypeOptions cardType)	B7	口径六域外（纯表现层/UI）⇒ 移交 CardPresentation 线，本域不计 A	X-表现层移交	移交	CardPresentation/**（移交战斗界面/特效动画线）	1
+1143	DamageCriteria	GetAverageDamage(CardScript thisCard, CardScript targetCard, int multiplierFactor)	B2	落点文件级/「同上」/无行号 ⇒ 补方法级行号范围（判据要点一并补）	X-落点补行号	改账	（待定位）	1
+1144	DamageDeltToEnemyUnit	OnDamageDelt(DamageSignal obj)	B4	先修差异：① 我们记 actual扣甲后，原版记 damageValue被盾挡下/absorbed 时是否仍计入未核；② 归属按「…	X-差异-引擎数据	改码	RuleEngine/Core/AchievementTally.cs	1
+1147	DamageInfo	IsPlayer()	B2	落点文件级/「同上」/无行号 ⇒ 补方法级行号范围（判据要点一并补）	X-落点补行号	改账	（待定位）	1
+1164	EntityScript	CreateMarkCardEffect(MarkOfChaosType markOfChaosType)	B7	口径六域外（纯表现层/UI）⇒ 移交 CardPresentation 线，本域不计 A	X-表现层移交	移交	EffectResolver.cs	1
+1166	EntityScript	EnemyReturnsAttack(CardScript attackedCard, bool isAttacker, AttackTypes attackType)	B1	补判据要点逐条 + 观测量；落点已是方法级（必要时按符号重钉行号）	X-账-其它	改账	RuleEngine/Core/CounterAttack.cs	2
+1167	EntityScript	GetActiveAbilityCard()	B1	补判据要点逐条 + 观测量；落点已是方法级（必要时按符号重钉行号）	X-账-其它	改账	RuleEngine/Core/CardDef.cs	2
+1169	EntityScript	GetCardEffectsToShow()	B7	口径六域外（纯表现层/UI）⇒ 移交 CardPresentation 线，本域不计 A	X-表现层移交	移交	Core/Badges.cs	1
+1177	EntityScript	GetMarksOfChaos()	B7	原版死代码/恒常量/0 调用 ⇒ 建议判 D（带时间限定），不是 A	X-D休眠	判D	RuleEngine/Core/EffectResolver.cs	1
+1179	EntityScript	GetThisCardPlayedDamage(CardScript targetCard)	B2	落点文件级/「同上」/无行号 ⇒ 补方法级行号范围（判据要点一并补）	X-落点补行号	改账	（待定位）	1
+1183	EntityScript	HasCurrentTraitActiveEffect(DefinedTrait trait)	B1	补判据要点逐条 + 观测量；落点已是方法级（必要时按符号重钉行号）	X-账-其它	改账	RuleEngine/Core/UnitState.cs	1
+1184	EntityScript	HasEnchantment(AbilityTrigger trigger)	B1	补判据要点逐条 + 观测量；落点已是方法级（必要时按符号重钉行号）	X-账-其它	改账	RuleEngine/Core/Enchantment.cs	2
+1194	EntityScript	ReachedQuestCounter(RawCardScript enchantment, CardScript thisCard)	B4	先修差异：原版三条判据 = cardType == Whispers(0x28) ∧ spellType == Quest(0x7…	X-差异-引擎数据	改码	RuleEngine/Core/Enchantment.cs	2
+1195	EntityScript	RevealedSecret(RawCardScript enchantment)	B1	补判据要点逐条 + 观测量；落点已是方法级（必要时按符号重钉行号）	X-账-其它	改账	RuleEngine/Core/RuleCore.cs	1
+1201	MatchData	GetBotConfigDecks(bool shouldCheckFTUE)	B7	原版死代码/恒常量/0 调用 ⇒ 建议判 D（带时间限定），不是 A	X-D休眠	判D	CardPresentation/Shell/PrebuiltDecks.cs	2
+1207	MatchData	GetBotDeck(MatchType matchType)	B7	原版死代码/恒常量/0 调用 ⇒ 建议判 D（带时间限定），不是 A	X-D休眠	判D	CardPresentation/Shell/PrebuiltDecks.cs	1
+1215	MatchData	GetRankedBotPrebuiltDeck(PlayerDataManager playerData, bool shouldUseEasyDeck)	B7	原版死代码/恒常量/0 调用 ⇒ 建议判 D（带时间限定），不是 A	X-D休眠	判D	CardPresentation/Shell/PrebuiltDecks.cs	1
+1220	MatchData	SetBotMatch()	B2	落点文件级/「同上」/无行号 ⇒ 补方法级行号范围（判据要点一并补）	X-落点补行号	改账	（待定位）	1
+1221	MatchData	SetBotOpponent(CardDeck enemyDeck)	B2	落点文件级/「同上」/无行号 ⇒ 补方法级行号范围（判据要点一并补）	X-落点补行号	改账	（待定位）	1
+1222	MatchData	SetBotOpponentDeck(PrebuiltDeck botDeck, PlayerDataManager playerData)	B2	落点文件级/「同上」/无行号 ⇒ 补方法级行号范围（判据要点一并补）	X-落点补行号	改账	（待定位）	1
+1223	MatchData	SetMatchRecording(BattleRecordData matchRecording, PlayerDataManager playerData)	B2	落点文件级/「同上」/无行号 ⇒ 补方法级行号范围（判据要点一并补）	X-落点补行号	改账	（待定位）	1
+1224	MatchData	SetPlayerData(MatchType matchType, PlayerBattleData playerBattleData, CardDeck playerDeck)	B2	落点文件级/「同上」/无行号 ⇒ 补方法级行号范围（判据要点一并补）	X-落点补行号	改账	（待定位）	1
+1225	MatchData	SetPlayerDeck(MatchType matchType, PlayerBattleData playerBattleData, CardDeck playerDeck)	B2	落点文件级/「同上」/无行号 ⇒ 补方法级行号范围（判据要点一并补）	X-落点补行号	改账	（待定位）	1
+1233	MatchData	ShoultSetAiOpponent(PlayModes playMode)	B2	落点文件级/「同上」/无行号 ⇒ 补方法级行号范围（判据要点一并补）	X-落点补行号	改账	（待定位）	1
+1235	MinionManager	ActivateMinions(bool isPlayerTurn)	B1	补判据要点逐条 + 观测量；落点已是方法级（必要时按符号重钉行号）	X-账-其它	改账	RuleEngine/Core/RuleCore.cs	1
+1237	MinionManager	AdjustMinionBoardPos(Vector3 origPos)	B7	原版死代码/恒常量/0 调用 ⇒ 建议判 D（带时间限定），不是 A	X-D休眠	判D	账（判 D + 时间限定）	1
+1239	MinionManager	AreMinionsOutOfPos()	B7	口径六域外（纯表现层/UI）⇒ 移交 CardPresentation 线，本域不计 A	X-表现层移交	移交	CardPresentation/Battle/BattleDriver.cs	2
+1240	MinionManager	AreMinionsWithAmbush()	B1	补判据要点逐条 + 观测量；落点已是方法级（必要时按符号重钉行号）	X-账-其它	改账	RuleEngine/Core/RuleCore.cs	1
+1244	MinionManager	Awake()	B1	补判据要点逐条 + 观测量；落点已是方法级（必要时按符号重钉行号）	X-账-其它	改账	CardPresentation/Board/ArenaSlots.cs	2
+1245	MinionManager	BroadcastActivateMinion(bool playerTurn)	B1	补判据要点（跳数/预调/自排除逐条）+ 观测量；机制差异写成一句可复核的话	X-广播族改账	改账	RuleEngine/Core/RuleCore.cs	2
+1246	MinionManager	FillMinionPositions()	B1	补判据要点逐条 + 观测量；落点已是方法级（必要时按符号重钉行号）	X-账-其它	改账	CardPresentation/Board/ArenaSlots.cs	2
+1250	MinionManager	GetClosestAvailableSlot(Vector2 pos)	B1	补判据要点逐条 + 观测量；落点已是方法级（必要时按符号重钉行号）	X-账-其它	改账	RuleEngine/Core/BoardSlots.cs	1
+1251	MinionManager	GetDummyDistance(Vector2 position1, Vector2 position2)	B7	原版死代码/恒常量/0 调用 ⇒ 建议判 D（带时间限定），不是 A	X-D休眠	判D	账（判 D + 时间限定）	1
+1257	MinionManager	GetMinionConversionTime(CardScript card)	B7	口径六域外（纯表现层/UI）⇒ 移交 CardPresentation 线，本域不计 A	X-表现层移交	移交	CardPresentation/**（移交战斗界面/特效动画线）	1
+1258	MinionManager	GetMinionList()	B5	原版判据读不到/失真（补 VA 反汇编或另一份反编译）：逐句对过 90 行；机制差异：原版排序键是一个缓存委托.c:60-71 用 FUN181a…	X-判据读不到	补判据	RuleEngine/Core/PlayerState.cs	2
+1265	MinionManager	GetNextSlotPos(Vector2 pos, int nextSlotRequired)	B1	补判据要点逐条 + 观测量；落点已是方法级（必要时按符号重钉行号）	X-账-其它	改账	CardPresentation/Board/BoardLayout.cs	2
+1266	MinionManager	GetNextSlotToCard(CardScript card)	B1	补判据要点逐条 + 观测量；落点已是方法级（必要时按符号重钉行号）	X-账-其它	改账	Core/EffectResolver.cs	2
+1268	MinionManager	GetOwnPositionInBoard(CardScript card)	B1	补判据要点逐条 + 观测量；落点已是方法级（必要时按符号重钉行号）	X-账-其它	改账	RuleEngine/Core/BoardSlots.cs	1
+1274	MinionManager	HideCardShadow()	B7	口径六域外（纯表现层/UI）⇒ 移交 CardPresentation 线，本域不计 A	X-表现层移交	移交	CardPresentation/Board/BoardLayout.cs	1
+1281	MinionManager	MoveMinionToConversionPoint(CardScript card, int adjSlot, bool isFromTeleport)	B7	口径六域外（纯表现层/UI）⇒ 移交 CardPresentation 线，本域不计 A	X-表现层移交	移交	CardPresentation/**（移交战斗界面/特效动画线）	1
+1285	MinionManager	ReassembleMinions(CardScript minionToSkipAnim)	B7	口径六域外（纯表现层/UI）⇒ 移交 CardPresentation 线，本域不计 A	X-表现层移交	移交	CardPresentation/Board/BoardLayout.cs	1
+1286	MinionManager	ReassembleMinionsWhilePlayingUnit(Vector2 newUnitPos)	B1	补判据要点逐条 + 观测量；落点已是方法级（必要时按符号重钉行号）	X-账-其它	改账	CardPresentation/Battle/BattleDriver.cs	1
+1289	MinionManager	RemoveSwarm(CardScript exceptionCard)	B5	原版判据读不到/失真（补 VA 反汇编或另一份反编译）：原版是「关图标」；引擎属性的回滚不在这两个方法里可能在 MoveBackToHand/Ad…	X-判据读不到	补判据	RuleEngine/Core/RuleCore.cs	1
+1291	MinionManager	SetCardShadow(Vector2 pos, bool showY, bool boardPosition)	B7	口径六域外（纯表现层/UI）⇒ 移交 CardPresentation 线，本域不计 A	X-表现层移交	移交	CardPresentation/Board/BoardLayout.cs	1
+1292	MinionManager	SlotPosToBoardPos(Vector3 targetPos)	B1	补判据要点逐条 + 观测量；落点已是方法级（必要时按符号重钉行号）	X-账-其它	改账	CardPresentation/Board/ArenaSlots.cs	2
+1294	MinionScaleByPositionSO	GetInversedPos(float currentZ)	B7	口径六域外（纯表现层/UI）⇒ 移交 CardPresentation 线，本域不计 A	X-表现层移交	移交	CardPresentation/**（移交战斗界面/特效动画线）	1
+1295	MinionScaleByPositionSO	GetScale(bool isPlayer, Vector3 localPosition, Vector3 initialScale)	B7	口径六域外（纯表现层/UI）⇒ 移交 CardPresentation 线，本域不计 A	X-表现层移交	移交	CardPresentation/**（移交战斗界面/特效动画线）	1
+1296	PlayerHand	AddActiveTrapToHand(CardScript card)	B7	原版死代码/恒常量/0 调用 ⇒ 建议判 D（带时间限定），不是 A	X-D休眠	判D	账（判 D + 时间限定）	2
+1297	PlayerHand	AddCardNotDrawnToHand(CardScript card)	B1	补判据要点逐条 + 观测量；落点已是方法级（必要时按符号重钉行号）	X-账-其它	改账	RuleEngine/Core/RuleCore.cs	1
+1298	PlayerHand	AddCardNotDrawnToHandAtIndex(CardScript card, int indexInHand)	B1	补判据要点逐条 + 观测量；落点已是方法级（必要时按符号重钉行号）	X-账-其它	改账	RuleEngine/Core/RuleCore.cs	1
+1303	PlayerHand	CardPlayedWithEffects(List<CardEffect> effects)	B4	先修差异：原版按「这条效果被用掉几次」核销，我们按 CardInstance.HandBuffUses挂在牌上递减、归零后摘 ⇒ …	X-差异-RuleCore	改码	RuleEngine/Core/RuleCore.cs	2
+1304	PlayerHand	CheckEffectsOnNewCard(CardScript card)	B1	补判据要点逐条 + 观测量；落点已是方法级（必要时按符号重钉行号）	X-账-其它	改账	RuleEngine/Core/RuleCore.cs	1
+1305	PlayerHand	CheckIfMulliganCardsCorrect(int[] mulliganCardsToDiscardId)	B1	补判据要点逐条 + 观测量；落点已是方法级（必要时按符号重钉行号）	X-账-其它	改账	RuleEngine/Core/RuleCore.cs	1
+1306	PlayerHand	CompleteMulliganPhase()	B1	补判据要点逐条 + 观测量；落点已是方法级（必要时按符号重钉行号）	X-账-其它	改账	RuleEngine/Core/RuleCore.cs	2
+1309	PlayerHand	FinishMulligan(bool fadeMulliganCards)	B2	落点文件级/「同上」/无行号 ⇒ 补方法级行号范围（判据要点一并补）	X-落点补行号	改账	CardPresentation/Battle/MulliganPanel.cs	2
+1310	PlayerHand	FinishMulliganFinalPhase()	B2	落点文件级/「同上」/无行号 ⇒ 补方法级行号范围（判据要点一并补）	X-落点补行号	改账	CardPresentation/Battle/MulliganPanel.cs	1
+1316	PlayerHand	GetMulliganCardsToDiscardIds()	B4	先修差异：差异：原版传 卡 id 列表+0x22c，我们传 手牌下标。两者在「手牌无重复 id」时等价；手牌里有两张同名同 id …	X-差异-RuleCore	改码	RuleEngine/Core/RuleCore.cs	1
+1319	PlayerHand	GetWhispersCardsCount()	B5	原版判据读不到/失真（补 VA 反汇编或另一份反编译）：没查到：原版「whispers 张数」到底数什么低语牌？某种 spellType？。不许猜…	X-判据读不到	补判据	d:/2/tools/decomp_full + VA 反汇编（判据侧）	2
+1328	PlayerHand	MoveCardToMulliganPos(CardScript newCardDrawn, int cardPos, int totalCards)	B1	补判据要点逐条 + 观测量；落点已是方法级（必要时按符号重钉行号）	X-账-其它	改账	CardPresentation/Battle/MulliganPanel.cs	2
+1335	PlayerHand	RemoveEffectsFromCard(CardScript cardRemoved)	B1	补判据要点逐条 + 观测量；落点已是方法级（必要时按符号重钉行号）	X-账-其它	改账	RuleEngine/Core/RuleCore.cs	1
+1336	PlayerHand	RemoveFromGameCard(CardScript removedCard)	B4	先修差异：差异：原版手牌有三条去向墓地 SendToCemetery / 移出游戏 RemovedFromGame / 回牌库，我…	X-差异-RuleCore	改码	Core/RuleCore.cs	1
+1337	PlayerHand	RemoveHandEffectAt(int index)	B4	先修差异：同 RemoveEffectsFromCard 那条差异我们按来源摘、且效果本来只挂在命中的那几份上，不需要「遍历全部手…	X-差异-RuleCore	改码	RuleEngine/Core/RuleCore.cs	1
+1338	PlayerHand	ReplaceMulliganCard(CardScript cardsToDiscard)	B4	先修差异：原版逐张替换一张换一张，即时补，我们整批替换后再洗再抽 ⇒ 净结果同换 N 张、牌库 N 张回去、再抽 N 张，但牌库顺…	X-差异-RuleCore	改码	RuleEngine/Core/RuleCore.cs	1
+1339	PlayerHand	SetMulliganCardsToDiscard(int[] mulliganCardsToDiscardId)	B1	补判据要点逐条 + 观测量；落点已是方法级（必要时按符号重钉行号）	X-账-其它	改账	RuleEngine/Core/RuleCore.cs	1
+1340	PlayerHand	SetMulliganCardsToDiscardStart(int[] mulliganCardsToDiscardId)	B4	先修差异：同 CheckIfMulliganCardsCorrect 那一条：我们逐条静默跳过非法项、其余照换 ⇒ 「部分生效」。…	X-差异-RuleCore	改码	RuleEngine/Core/RuleCore.cs	1
+1341	PlayerHand	SetParentOfCard(CardScript card)	B7	口径六域外（纯表现层/UI）⇒ 移交 CardPresentation 线，本域不计 A	X-表现层移交	移交	CardPresentation/Hand/CardInteraction.cs	1
+1342	PlayerHand	SetupCardInHand(CardScript card)	B1	补判据要点逐条 + 观测量；落点已是方法级（必要时按符号重钉行号）	X-账-其它	改账	RuleEngine/Core/RuleCore.cs	2
+1343	PlayerHand	SetupCardInMulligan(CardScript card, MulliganOptions mulliganOption)	B2	落点文件级/「同上」/无行号 ⇒ 补方法级行号范围（判据要点一并补）	X-落点补行号	改账	CardPresentation/Battle/MulliganPanel.cs	2
+1346	PlayerHand	StartMovingHandCard(CardScript card)	B2	落点文件级/「同上」/无行号 ⇒ 补方法级行号范围（判据要点一并补）	X-落点补行号	改账	CardPresentation/Hand/CardInteraction.cs	2
+1360	RawCardScript	CanPlayAbilities(List<AbilityLogic> standardAbilities, BattleManager manager, AbilityData abilityData)	B1	补判据要点逐条 + 观测量；落点已是方法级（必要时按符号重钉行号）	X-账-其它	改账	RuleEngine/Core/RuleCore.cs	1
+1365	RawCardScript	CountShowTraits()	B7	口径六域外（纯表现层/UI）⇒ 移交 CardPresentation 线，本域不计 A	X-表现层移交	移交	CardPresentation/**（移交战斗界面/特效动画线）	1
+1369	RawCardScript	GetAbilitiesForTriggerRawcard(AbilityTrigger trigger)	B1	补判据要点逐条 + 观测量；落点已是方法级（必要时按符号重钉行号）	X-账-其它	改账	RuleEngine/Core/CardDef.cs	1
+1370	RawCardScript	GetActiveAbility(BattleManager manager, CardScript thisCard, CardScript cardPlayed, CardScript targetCard)	B1	补判据要点逐条 + 观测量；落点已是方法级（必要时按符号重钉行号）	X-账-其它	改账	RuleEngine/Core/CardDef.cs	2
+1380	RawCardScript	GetExtraAbilityTraits()	B6	无对应实现 ⇒ 按判据补实现后升 A：原版 = 「按阵营取一张 25 对 (trigger→trait) 表 → 逐对看这张卡的 card…	X-休眠缺口	改码	RuleEngine/Core/RuleCore.cs	2
+1394	RawCardScript	GetOriginalCard()	B7	口径六域外（纯表现层/UI）⇒ 移交 CardPresentation 线，本域不计 A	X-表现层移交	移交	CardPresentation/**（移交战斗界面/特效动画线）	1
+1395	RawCardScript	GetOriginalId()	B3	落点改到方法级声明（现指字段/注释/候选或挂错符号）	X-字段落点-引擎	改账	RuleEngine/Data/LegacyCardIds.cs	1
+1399	RawCardScript	GetTargetsMeetingCriteria(BattleManager manager, CardScript thisCard, CardScript targetCard, TargetCriteria criteria)	B1	补判据要点逐条 + 观测量；落点已是方法级（必要时按符号重钉行号）	X-账-其它	改账	RuleEngine/Core/EffectResolver.cs	1
+1400	RawCardScript	GetTransformedKnightId(string pilotId)	B1	补判据要点逐条 + 观测量；落点已是方法级（必要时按符号重钉行号）	X-账-其它	改账	EffectResolver.cs	1
+1401	RawCardScript	GetValidTargets(BattleManager manager, CardScript thisCard)	B1	补判据要点逐条 + 观测量；落点已是方法级（必要时按符号重钉行号）	X-账-其它	改账	RuleEngine/Core/RuleCore.cs	1
+1403	RawCardScript	HasAlternativeArtStyles()	B7	口径六域外（纯表现层/UI）⇒ 移交 CardPresentation 线，本域不计 A	X-表现层移交	移交	CardPresentation/**（移交战斗界面/特效动画线）	1
+1404	RawCardScript	HasCustomAbility()	B7	口径六域外（纯表现层/UI）⇒ 移交 CardPresentation 线，本域不计 A	X-表现层移交	移交	CardPresentation/**（移交战斗界面/特效动画线）	2
+1409	RawCardScript	IsAlternateArt()	B7	口径六域外（纯表现层/UI）⇒ 移交 CardPresentation 线，本域不计 A	X-表现层移交	移交	CardPresentation/**（移交战斗界面/特效动画线）	1
+1417	RawCardScript	IsValidActiveAbilityTarget(CardScript thisCard, CardScript targetCard)	B1	补判据要点逐条 + 观测量；落点已是方法级（必要时按符号重钉行号）	X-账-其它	改账	RuleEngine/Core/RuleCore.cs	1
+1418	RawCardScript	IsValidTarget(CardScript thisCard, CardScript targetCard)	B4	先修差异：① 我们对应的是 Ward/WardWb/SummonRift 三条关键词闸RuleCore.cs:10986-1101…	X-差异-RuleCore	改码	RuleEngine/Core/RuleCore.cs	2
+1419	RawCardScript	OnCardDrawn(BattleManager manager, CardScript thisCard, CardScript drawnCard)	B1	补判据要点逐条 + 观测量；落点已是方法级（必要时按符号重钉行号）	X-账-其它	改账	RuleEngine/Core/EffectResolver.cs	2
+1420	RawCardScript	OnCardPlayedWithTarget(BattleManager manager, CardScript thisCard, CardScript cardPlayed, CardScript targetCard)	B1	补判据要点逐条 + 观测量；落点已是方法级（必要时按符号重钉行号）	X-账-其它	改账	RuleEngine/Core/EffectResolver.cs	1
+1421	RawCardScript	OnCardPlayedWithTargetJustThisCardPlayed(BattleManager manager, CardScript thisCard, CardScript cardPlayed, CardScript targetCard)	B1	补判据要点逐条 + 观测量；落点已是方法级（必要时按符号重钉行号）	X-账-其它	改账	RuleEngine/Core/EffectResolver.cs	1
+1426	RawCardScript	OnQuestResolved(BattleManager manager, CardScript thisCard, CardScript actingCard)	B1	补判据要点逐条 + 观测量；落点已是方法级（必要时按符号重钉行号）	X-账-其它	改账	RuleEngine/Core/EffectResolver.cs	1
+1433	RawCardScript	OnTriggerAlt(AbilityTrigger trigger, BattleManager manager, CardScript thisCard, CardScript actingCard, CardScript targetCard, bool resolveOnlyEnchantments, bool ignoreRandomTrigger, bool dontResolveEnchantments)	B1	补判据要点逐条 + 观测量；落点已是方法级（必要时按符号重钉行号）	X-账-其它	改账	RuleEngine/Core/EffectResolver.cs	1
+1434	RawCardScript	OnTriggerEffectInCard(AbilityTrigger trigger, BattleManager manager, CardScript thisCard, CardScript actingCard, CardScript targetCard)	B1	补判据要点逐条 + 观测量；落点已是方法级（必要时按符号重钉行号）	X-账-其它	改账	RuleEngine/Core/EffectResolver.cs	1
+1437	RawCardScript	ResolveAbilities(List<AbilityLogic> standardAbilities, BattleManager manager, AbilityData abilityData, AbilityTrigger trigger, bool randomAbilityResolved)	B1	补判据要点逐条 + 观测量；落点已是方法级（必要时按符号重钉行号）	X-账-其它	改账	RuleEngine/Core/EffectResolver.cs	1
+1438	RawCardScript	ResolveActiveAbility(BattleManager manager, CardScript thisCard, CardScript cardPlayed, CardScript targetCard)	B1	补判据要点逐条 + 观测量；落点已是方法级（必要时按符号重钉行号）	X-账-其它	改账	RuleEngine/Core/CardDef.cs	2
+1441	RawCardScript	ShowDefaultTrait(DefinedTrait trait)	B7	口径六域外（纯表现层/UI）⇒ 移交 CardPresentation 线，本域不计 A	X-表现层移交	移交	CardPresentation/**（移交战斗界面/特效动画线）	1
+1442	RawCardScript	TriggerAbilities(AbilityTrigger trigger, BattleManager manager, CardScript thisCard, CardScript cardPlayed, CardScript targetCard, DamageInfo damageInfo, bool isEnchantment, bool resolveOnlyEnchantments, bool ignoreRandomTrigger, bool dontResolveEnchantments)	B1	补判据要点逐条 + 观测量；落点已是方法级（必要时按符号重钉行号）	X-账-其它	改账	RuleEngine/Core/ActionPump.cs	2
+1443	RawCardScript	TriggerAbility(CardAbility ability, BattleManager manager, CardScript thisCard, CardScript cardPlayed, CardScript targetCard, DamageInfo damageInfo, RawCardScript enchantment, int enchantmentCardId)	B1	补判据要点逐条 + 观测量；落点已是方法级（必要时按符号重钉行号）	X-账-其它	改账	RuleEngine/Core/EffectResolver.cs	1
+1445	RawCardScript	UpdateTriggerOnce(BattleManager manager, CardScript thisCard)	B4	先修差异：同上一行；另：原版这条路径靠 TriggerAbilities 统一分发，我们的分发点是 EffectResolver …	X-差异-引擎数据	改码	RuleEngine/Core/CardDef.cs	1
+1451	RemnantBody	BodyVisibilityToggle(bool option)	B7	口径六域外（纯表现层/UI）⇒ 移交 CardPresentation 线，本域不计 A	X-表现层移交	移交	CardPresentation/**（移交战斗界面/特效动画线）	1
+1452	RemnantBody	DoDestroy(UnitDeathType deathType)	B7	口径六域外（纯表现层/UI）⇒ 移交 CardPresentation 线，本域不计 A	X-表现层移交	移交	BattleContext.cs	1
+1453	RemnantBody	DoDestroyByAttack()	B7	口径六域外（纯表现层/UI）⇒ 移交 CardPresentation 线，本域不计 A	X-表现层移交	移交	CardPresentation/**（移交战斗界面/特效动画线）	1
+1454	RemnantBody	GetDeathParticlePosition()	B7	口径六域外（纯表现层/UI）⇒ 移交 CardPresentation 线，本域不计 A	X-表现层移交	移交	CardPresentation/**（移交战斗界面/特效动画线）	1
+1455	RemnantBody	Initialize(CardScript card)	B7	口径六域外（纯表现层/UI）⇒ 移交 CardPresentation 线，本域不计 A	X-表现层移交	移交	CardPresentation/**（移交战斗界面/特效动画线）	1
+1456	RemnantBody	Toggle(bool option, bool withAnimation, Action onComplete)	B7	口径六域外（纯表现层/UI）⇒ 移交 CardPresentation 线，本域不计 A	X-表现层移交	移交	CardPresentation/**（移交战斗界面/特效动画线）	1
+1457	ShowStatusWhenConnecting	GetConnectingDots()	B7	口径六域外（纯表现层/UI）⇒ 移交 CardPresentation 线，本域不计 A	X-表现层移交	移交	CardPresentation/**（移交战斗界面/特效动画线）	1
+1458	ShowStatusWhenConnecting	OnGUI()	B7	口径六域外（纯表现层/UI）⇒ 移交 CardPresentation 线，本域不计 A	X-表现层移交	移交	CardPresentation/**（移交战斗界面/特效动画线）	1
+1465	SupportMethods	GetCardListFromIds(string[] enemyDeckIDs, List<RawCardScript> cardCollection)	B1	补判据要点逐条 + 观测量；落点已是方法级（必要时按符号重钉行号）	X-账-其它	改账	RuleEngine/Data/CardDatabase.cs	1
+1473	SupportMethods	GetRandomOrder(int numElements, MatchData matchData, List<int> stratagemList)	B4	先修差异：两处机制差异：① 原版是「按名次挑选」每次抽一个名次、跳过已用，Fisher-Yates 是「逐个交换」——同种子排列不…	X-差异-洗牌随机	改码	RuleEngine/Core/RuleCore.cs	2
+1486	SupportMethods	IsCustomAbility(AbilityTrigger trigger)	B7	口径六域外（纯表现层/UI）⇒ 移交 CardPresentation 线，本域不计 A	X-表现层移交	移交	CardPresentation/**（移交战斗界面/特效动画线）	1
+1513	SupportMethods	ShuffleCardList(List<CardScript> deck, MatchData matchData, bool checkStratagem)	B4	先修差异：同 1473：Fisher-Yates vs 按名次挑选；RNG 来源不同；钉位池内全 0。	X-差异-洗牌随机	改码	RuleEngine/Core/RuleCore.cs	1
+1514	SupportMethods	ShuffleRawCardList(List<RawCardScript> deck, MatchData matchData)	B4	先修差异：同 1473只差钉位那支不存在。	X-差异-洗牌随机	改码	RuleEngine/Core/RuleCore.cs	1
+1521	TriggerAbility	OnInitialize()	B1	补判据要点逐条 + 观测量；落点已是方法级（必要时按符号重钉行号）	X-账-其它	改账	RuleEngine/Core/AchievementTally.cs	1
+1522	TriggerAbility	OnReset()	B1	补判据要点逐条 + 观测量；落点已是方法级（必要时按符号重钉行号）	X-账-其它	改账	RuleEngine/Core/AchievementTally.cs	1
+1523	TriggerAbility	OnTriggerAbility(TriggerAbilitySignal obj)	B1	补判据要点逐条 + 观测量；落点已是方法级（必要时按符号重钉行号）	X-账-其它	改账	RuleEngine/Core/AchievementTally.cs	1
+1527	TurnExtensions	GetFinishedTurn(PhotonPlayer player)	B1	补判据要点（跳数/预调/自排除逐条）+ 观测量；机制差异写成一句可复核的话	X-广播族改账	改账	CardPresentation/Net/NetBattle.cs	1
+1529	TurnExtensions	GetTurnStart(RoomInfo room)	B1	补判据要点（跳数/预调/自排除逐条）+ 观测量；机制差异写成一句可复核的话	X-广播族改账	改账	CardPresentation/Net/NetBattle.cs	2
+1530	TurnExtensions	SetFinishedTurn(PhotonPlayer player, int turn)	B1	补判据要点（跳数/预调/自排除逐条）+ 观测量；机制差异写成一句可复核的话	X-广播族改账	改账	CardPresentation/Net/NetBattle.cs	2
+1532	TurnScriptedData	UpdateName(bool playerStarts, int turnNumber)	B5	原版判据读不到/失真（补 VA 反汇编或另一份反编译）：字符串拼法读不全num6 = default 等失真⇒ 不能逐字等价；且它只影响可读名、不…	X-判据读不到	补判据	RuleEngine/Core/TutorialScript.cs	1
+1533	WarlordMasteryContainer	OnInitialize(PlayerInfo context)	B6	无对应实现 ⇒ 按判据补实现后升 A：原版 WarlordMasteryContainer.OnInitialize，判据见同名的 ils…	X-真缺口	改码	RuleEngine/Core/RuleCore.cs	1
+1538	CardScript	StartShowingCardInHand()	B1	补判据要点逐条 + 观测量；落点已是方法级（必要时按符号重钉行号）	X-账-CardScript	改账	CardPresentation/Hand/CardInteraction.cs	2

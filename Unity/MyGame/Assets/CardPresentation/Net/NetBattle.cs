@@ -535,7 +535,7 @@ namespace CardPresentation.Net
                 return;
             }
             _peerGone = true;
-            _peerLossWhy = _s != null ? _s.LastError : null;   // 掉线**这一刻**的原因（30 秒里重连退避会把它覆盖，先抓住）
+            _peerLossWhy = _s != null ? _s.LastError : null; if (DeferForPeerLastActions()) return;   // 掉线**这一刻**的原因（重连退避会覆盖它，先抓住）；后半句 = 原版 `DisconnectedDuringBattle.c:74-89`
             bool hasCtx = _d != null && _d.Ctx != null;
             StartReconnectCountdown();          // 🔴 A900：先起倒计时（第一拍的数字要进下面那两句文案）
             ClockPaused = true;                 // 🔴 A901：对局时钟停走（原版 `ClockManager.PauseClock()`）
@@ -812,7 +812,7 @@ namespace CardPresentation.Net
         /// （⇔ 整段恰好 N 秒）。用 `while` 而不是 `if`：自检把假钟一次性推过 30 秒也能一次走到位。</summary>
         void TickReconnectCountdown()
         {
-            if (!_countdownOn) return;
+            if (!_countdownOn) { TickNetFallbacks(); return; }   // 没在等重连 = 原版 `waitingWhileDisconnected` 的反面 ⇒ 才数兜底（见 `TickNetFallbacks`）
             while (_countdownOn && NowSec() >= _countdownNextAt)
             {
                 _countdownNextAt += 1f;
@@ -1077,8 +1077,8 @@ namespace CardPresentation.Net
                 //     （`AddResignAction(param_1, 1)` + `DeadHero(param_1, 1, 3)` —— `isPlayerDying = 1` = **我死**）。
                 //   `NetSelfResign()` 走的是**同一套既有记账口**（`BattleDriver` 那份 = `RecRaw(RecKindForfeit)` +
                 //   `RuleCore.Forfeit(Ctx, _me)` + 刷新）—— ⛔ **不是**这里直接调 `RuleCore.Forfeit`（那会绕过录像口）。
-                Debug.Log($"[Net] 本机掉线超过 {sec} 秒、重连没成功 ⇒ **判本机负**"
-                        + "（原版 `FailedToReconnectAfterDisconnect.c:26-27`：`AddResignAction(1)` + `DeadHero(我, 3)`）");
+                if (_d != null && _d.Ctx != null && _d.Ctx.MulliganOpen) { LeaveWithoutResult($"还没开打（换牌阶段）就断线、重连也没成功（{sec} 秒）"); _s.StopReconnecting(); return; }   // 原版 `FailedToReconnectAfterDisconnect.c:54-108`：battleStage==0 ⇒ CancelMatchWithoutResult（**不判结果**）
+                Debug.Log($"[Net] 本机掉线超过 {sec} 秒、重连没成功 ⇒ **判本机负**（原版 `FailedToReconnectAfterDisconnect.c:26-27`：`AddResignAction(1)` + `DeadHero(我, 3)`）");
                 if (_d != null) _d.NetSay($"重连没成功（超过 {sec} 秒）—— 这一局判你负");
                 _d.NetSelfResign(BattleResult.Disconnect);   // 🆕 A913：码 3 = 原版那一跳的第三个实参
                 // 停重连 = 原版同一支 `:14` 的 `StopCoroutine(AttemptReconnect)`；
@@ -1211,7 +1211,7 @@ namespace CardPresentation.Net
         /// <summary>本地换牌**提交**（联机局里 `Mulligan` 由主机定序 ⇒ 本地先不落地）。</summary>
         public void OnLocalMulligan(int[] marks)
         {
-            _myMulligan = marks ?? new int[0];
+            _myMulligan = marks ?? new int[0]; BeginMulliganFallback();   // 原版 `SendMulliganCards()` 之后起那条兜底（ILSpy `:25865`）
             if (IsHost)
             {
                 Debug.Log($"[Net] 主机换牌已提交（换 {_myMulligan.Length} 张）；"
@@ -1338,7 +1338,7 @@ namespace CardPresentation.Net
         /// <summary>开一个「等对手最后几条动作」的窗口（原版在收尾前调 `WaitOpponentLastActions`）。</summary>
         public void BeginFinishWait()
         {
-            _finishWaitLeft = FinishWaitCap;
+            _finishWaitLeft = _peerForfeited ? -1f : FinishWaitCap;   // 对面已投降 ⇒ 不开窗（原版 `ReceiveEnemyForfeit` 第 ① 步就把它停了）
             _finishWaitAcc = 0f;
         }
 
@@ -1352,7 +1352,7 @@ namespace CardPresentation.Net
             bool keepGoing = PeerMatchFinished || pendingIn > 0;
             if (!keepGoing || _finishWaitLeft <= 0f)
             {
-                _finishWaitLeft = -1f;
+                _finishWaitLeft = -1f; OnFinishWaitEnded();   // 原版那条协程的收尾支（`_WaitOpponentLastActions_d__316:47-65`）
                 return false;
             }
             _finishWaitAcc += dt;
@@ -1513,7 +1513,7 @@ namespace CardPresentation.Net
                     }
                     // 日志按 seq 对齐（自己发出去的那条也会被广播回来 ⇒ 靠 seq 认领）
                     while (Log.Count <= m.seq) Log.Add(null);
-                    if (m.seq >= 0 && m.seq < Log.Count) Log[m.seq] = m;
+                    if (m.seq >= 0 && m.seq < Log.Count) Log[m.seq] = m; NoteApplied(m);   // 换牌兜底那两个退出条件
                     // 🔴 `preApplied` = 主机说「这条你本地已经落过了」（乐观执行那条路）⇒ 只认领 seq，别再落一遍
                     if (m.preApplied) return;
                     // 剩下的都要落地：**主机自己的动作** + **换牌那两条伪动作**（它们是主机定序的）
@@ -1557,9 +1557,9 @@ namespace CardPresentation.Net
                     if (m == null)
                         Debug.LogWarning("[Net] NET/BYE-R1/mulligan-unparsable 对手换牌包 **解不出来** ⇒ 按「换了 0 张」继续定序"
                                        + "（这一条不改行为；真连看到它 = 换牌包坏了，两端牌序可能因此分叉）");
-                    _theirMulligan = true; _theirMulliganMarks = m != null ? m.indices : new int[0];
+                    _theirMulligan = true; _theirMulliganMarks = m != null ? m.indices : new int[0]; _peerMulliganSeen = true;   // 原版 `+0x29c`
                     Debug.Log($"[Net] 主机收到对手换牌（{(_theirMulliganMarks != null ? _theirMulliganMarks.Length : 0)} 张）");
-                    if (_myMulligan != null) HostResolveMulligan();
+                    if (_myMulligan != null && !_mulliganResolved) HostResolveMulligan();   // ⛔ 已定序就不再定一次（重复换牌包会让牌被洗两遍）
                     return;
                 }
                 case NetKind.Hash:
@@ -1594,17 +1594,17 @@ namespace CardPresentation.Net
                 }
                 case NetKind.Resign:
                 {
-                    // 🆕 2026-10-18（A913）：这一档的理由码 = **`Forfeit`(2)** —— 判据 = 原版
-                    //   `BattleManager__ReceiveEnemyForfeit.c:37`：对面那条 RPC 收到之后
-                    //   `DeadHero(param_1, 0, 2)`，那个 `2` 是**写死**的（对面点投降时
-                    //   `SendForfeit` 根本不带参数 —— 见 `BattleResult` 的注）。
-                    Debug.Log("[Net] 对面投降了（`NetKind.Resign` ⇒ 理由码 `Forfeit`(2)，原版 `ReceiveEnemyForfeit.c:37`）");
-                    if (_d != null) _d.NetRemoteResign(BattleResult.Forfeit);
-                    else
-                        // 🔴 **2026-10-20（W58-NETPROBE · T05 探针，只加日志、不改行为）**：没有宿主 ⇒
-                        //   这条投降**判不了**（对面已经退出，本机却什么都没发生）。
-                        Debug.LogWarning("[Net] NET/BYE-R7/no-host 收到对面投降，但**本机没有对局宿主**（`_d == null`）"
-                                       + " ⇒ 判负这一跳走不了，这一局不会结束（真 Play 看到它就是缺陷）");
+                    // 🆕 2026-10-26（执行代理 W2）：整支挪进类尾的 `AcceptPeerForfeit()` = 原版 `ReceiveEnemyForfeit`
+                    //   的四步（`BattleManager__ReceiveEnemyForfeit.c:19-37`）：停两处协程 → 连接状态置 4
+                    //   （`EnemyForfeit`）→ `matchFinished(+0x2cc) = true` → `DeadHero(对面, 2)`。
+                    //   ⚠️ 原来这一支**只有第 ④ 步**（判对面负）⇒ 账 516 只能记 B；①②③ 本轮补上。
+                    //   🔴 理由码 = **`Forfeit`(2)**，那个 `2` 在原版是**写死**的（`SendForfeit` 不带参数）。
+                    //   ⚠️ 与 `HandlePeerClosed`（对面说 `bye`）那一档**不是**同一条：那边理由码是 `Disconnect`(3)，
+                    //      因为原版「对面不会回来了」走的是掉线那条链（`DeadHero(对面, 3)`）——
+                    //      `Forfeit`(2) 只留给「对面**真的点了**投降」这一条（判据同 `NetRemoteResign` 的 doc）。
+                    //   ⚠️ 第 ② 步（连接状态 4）我们**没有那一格**，如实记在 `AcceptPeerForfeit` 的 doc 里，⛔ 不造假状态。
+                    //   判据逐句 → 那个方法的 doc；无宿主时仍**出声**（⛔ 不静默，T05 探针那条）。
+                    AcceptPeerForfeit();
                     return;
                 }
                 case NetKind.Desync:
@@ -1694,14 +1694,14 @@ namespace CardPresentation.Net
                 }
                 case NetKind.MatchFinished:
                 {
-                    // 原版 `PUNReceiveMatchFinished` → `BattleManager.ReceiveMatchFinished`：**只置标志**
-                    // （`+0x2cc`），那个标志正是 `ShouldWaitForOpponentLastActions` 的第一个条件。
-                    if (PeerMatchFinished) return;                        // 幂等（原版重复收也只是再置一次 1）
-                    PeerMatchFinished = true;
-                    Debug.Log("[Net] 对面说「他打完了」（`match.finished`）⇒ 收尾窗口的等待条件已成立");
-                    if (_d is INetFoePresentationHost h3) h3.NetRemoteMatchFinished();
-                    else Debug.Log($"[Net] 宿主没实现 `INetFoePresentationHost` ⇒ 不额外做什么"
-                                 + "（标志已置，`TickFinishWait` 那一跳照常生效）");
+                    // 原版 `PUNReceiveMatchFinished` → `BattleManager.ReceiveMatchFinished`
+                    // （`BattleManager__ReceiveMatchFinished.c:16-19`）：**只把 `matchFinished(+0x2cc)` 置 1**，
+                    // 没有别的副作用；重复收到就是再置一次 1（幂等），那个标志正是 `ShouldWaitForOpponentLastActions` 的第一个条件。
+                    // 🆕 2026-10-26（执行代理 W2）：整支挪进类尾的 `AcceptPeerMatchFinished()`（幂等闸 +
+                    // 表现层通知 `INetFoePresentationHost.NetRemoteMatchFinished`），判据逐行见那个方法的 doc
+                    // ⇒ 账 518 因此有了**方法级**落点（原来只落一个 `case` 支 ⇒ 只能记 B）。
+                    // ⚠️ 它**不判胜负**：只用来开「等对手最后几条动作」那个窗口（胜负由 `DeadHero` 那条链判）。
+                    AcceptPeerMatchFinished();
                     return;
                 }
             }
@@ -1721,7 +1721,7 @@ namespace CardPresentation.Net
             AppendLogAndApply(NetActionKind.Mulligan, actor: 0, marks: seat0);
             AppendLogAndApply(NetActionKind.Mulligan, actor: 1, marks: seat1);
             AppendLogAndApply(NetActionKind.MulliganDone, actor: 0, marks: null);
-            Debug.Log($"[Net] 换牌已定序（主机 {seat0.Length} 张 / 客机 {seat1.Length} 张）");
+            Debug.Log($"[Net] 换牌已定序（主机 {seat0.Length} 张 / 客机 {seat1.Length} 张）"); NoteMulliganResolved("主机定序完成（seat0 → seat1 → mulliganDone）");
         }
 
         /// <summary>主机：把一条「定序过的」消息记进权威流 → **本机先落地** → 广播给客机。
@@ -1844,5 +1844,262 @@ namespace CardPresentation.Net
                     + "本机这一侧**没有结果**（原版同一支里也没有 `DeadHero`）");
             return true;
         }
+
+        // ==================================================================
+        //  🆕 2026-10-26（执行代理 W2 · B9 P1）：原版「兜底倒计时」两个协程 + 收方三条 + 收尾窗口的收尾支
+        // ==================================================================
+        //  🔴 判据一律取自**原版方法体**（`D:/2/tools/decomp_full/**` 与 `cpp2il/out_cpp2il_dev_ilspy/**`），
+        //     ⛔ 不用我们自己的注释当判据。逐支出处写在各方法的 doc 里。
+        //  ⚠️ 整段**故意追加在类尾**：插在中间会让账里按 `文件:行号` 的落点整片漂移
+        //     （`CLAUDE.md` §三「新成员一律追加到类尾」）。
+
+        /// <summary>原版 `scenarioVariables.clockTimeLimit` = **60**（`DefaultScenario.json:19`，
+        /// `bundle_duplicateassetisolationso_assets_all/MonoBehaviour/`）。`InBattleFallbackCountdown`
+        /// 等的是它 **× 3**（`BattleManager._InBattleFallbackCountdown_d__400__MoveNext.c:43-45`）。</summary>
+        public const float FallbackClockTimeLimit = 60f;
+        /// <summary>原版换牌兜底每拍等的秒数：`new WaitForSeconds(4f)`
+        /// （`out_cpp2il_dev_ilspy/BattleManager.cs:3733`；`.c` 里是 `DAT_1834b2df0`）。</summary>
+        public const float MulliganFallbackInterval = 4f;
+        /// <summary>换牌兜底的判胜阈值（原版 `attemptsCount > 15`，`.c:84`）。</summary>
+        public const int MulliganFallbackAttempts = 15;
+        /// <summary>对局中兜底的判胜阈值（原版 `attemptsCount > 10`，`.c:75`）。</summary>
+        public const int InBattleFallbackAttempts = 10;
+
+        // ---- 换牌兜底（原版 `MulliganFallbackCountdown`）----
+        bool _mulliganFallbackOn;
+        float _mulliganFallbackNextAt;
+        /// <summary>原版那个 `attemptsCount`（`.c` 的 `param_1+0x30`）。</summary>
+        int _mulliganFallbackAttempts;
+        /// <summary>原版 `+0x29c`（「我已经收到对面的换牌」）—— 与 `ReceiveMulliganAck` 置的 `+0x2a8`
+        /// 一起构成本协程的两个退出条件（`.c:61-72`）。</summary>
+        bool _peerMulliganSeen;
+        /// <summary>原版 `+0x2a8`（「对面确认了我的换牌」，由 `ReceiveMulliganAck` 置真，`.c:19-28`）。</summary>
+        bool _mulliganAcked;
+        /// <summary>本局换牌阶段已经定序完成（= 上面两格都成立的那个**本地等价**）。</summary>
+        bool _mulliganResolved;
+
+        // ---- 对局中兜底（原版 `InBattleFallbackCountdown`）----
+        /// <summary>上一次看到的「行动方 + 回合」；一变就重置计时（原版拿 `+0x3f8` 前后比对，`.c:88/118`）。</summary>
+        int _fallbackSig = int.MinValue;
+        float _fallbackNextAt;
+        int _fallbackAttempts;
+        /// <summary>「掉线时先把对手最后几条动作等完」只延一次（原版那两个协程的起停是配对的，
+        /// 延完还延就等于永远不判弃权）。</summary>
+        bool _peerLastActionsWaited;
+        /// <summary>对面已经投降（原版 `ReceiveEnemyForfeit` 那一跳；只为幂等 + `BeginFinishWait` 的闸）。</summary>
+        bool _peerForfeited;
+
+        /// <summary>自检读口：换牌兜底现在在不在跑（原版那条协程活着没有）。</summary>
+        public bool MulliganFallbackRunning { get { return _mulliganFallbackOn; } }
+        /// <summary>自检读口：换牌兜底已经数到第几拍。</summary>
+        public int MulliganFallbackAttemptsForTest { get { return _mulliganFallbackAttempts; } }
+        /// <summary>自检读口：对局中兜底已经数到第几拍。</summary>
+        public int InBattleFallbackAttemptsForTest { get { return _fallbackAttempts; } }
+        /// <summary>自检读口：原版 `ReceiveMulliganAck` 置的那一格（`+0x2a8`）。</summary>
+        public bool MulliganAcked { get { return _mulliganAcked; } }
+        /// <summary>自检读口：本局换牌阶段定序完成没有。</summary>
+        public bool MulliganPhaseResolved { get { return _mulliganResolved; } }
+
+        /// <summary>原版 `MulliganFallbackCountdown` 的**启动点**（ILSpy `BattleManager.cs:25865`：联机局
+        /// 「本地提交换牌 + `SendMulliganCards()`」之后）。⚠️ **两端都起**（原版两端各跑一份）。
+        /// ⚠️ 我们只在会话已经在「对局/等重连」那一档时起 —— 大厅阶段收到换牌提交是调用点搞错了。</summary>
+        void BeginMulliganFallback()
+        {
+            if (_mulliganFallbackOn || _mulliganResolved) return;
+            if (_s == null || _s.State == NetState.Off || _s.State == NetState.Closed) return;
+            _mulliganFallbackOn = true;
+            _mulliganFallbackAttempts = 0;
+            _mulliganFallbackNextAt = NowSec() + MulliganFallbackInterval;
+            Debug.Log("[Net] 换牌兜底开始（原版 `MulliganFallbackCountdown`：每 "
+                    + $"{MulliganFallbackInterval} 秒一拍，`attempts > {MulliganFallbackAttempts}` 且仍没收到对面换牌"
+                    + " ⇒ `CancelMatchWithVictory` = **判本机胜**）");
+        }
+
+        /// <summary>换牌阶段定序完成 ⇒ 收掉兜底。原版停止点 = ILSpy `BattleManager.cs:3082` 的
+        /// `StopCoroutine("MulliganFallbackCountdown")`（那一刻的日志是 `Finished waitingForEnemyMulligan`）。
+        /// 🔴 同时把 `+0x29c` / `+0x2a8` 两格置真 —— 那就是原版那两个退出条件。</summary>
+        void NoteMulliganResolved(string why)
+        {
+            if (_mulliganResolved) return;
+            _mulliganResolved = true;
+            _peerMulliganSeen = true;
+            _mulliganAcked = true;      // = 原版 `ReceiveMulliganAck` 置的 `+0x2a8`（我们的 ack 就是定序结果）
+            _mulliganFallbackOn = false;
+            Debug.Log("[Net] 换牌阶段定序完成 ⇒ 换牌兜底收掉（原版 `StopCoroutine(\"MulliganFallbackCountdown\")`）：" + why);
+        }
+
+        /// <summary>每拍推一次。**由 <see cref="TickReconnectCountdown"/> 在「没在跑掉线倒计时」时转调** ——
+        /// 那正是原版的 `waitingWhileDisconnected` 闸（`.c:117-160`：掉线期间只 `yield`、不计数）。</summary>
+        void TickNetFallbacks()
+        {
+            float now = NowSec();
+            TickMulliganFallback(now);
+            TickInBattleFallback(now);
+        }
+
+        /// <summary>换牌兜底一拍。逐条对 `.c:79-161`：
+        /// ① `attemptsCount++`；② 没收到对面换牌 ⇒ `RequestMulliganResend(attempts)`、收到了 ⇒ `ConfirmMulliganReceived(...)`；
+        /// ③ `attempts > 15` 且**仍没收到对面换牌** ⇒ `CancelMatchWithVictory("MulliganFallbackCountdown " + opponentId)`
+        /// （⇒ **判本机胜**）。
+        /// <para>⚠️ **两处本地等价（如实标，⛔ 不是原版那一句）**：
+        /// ① `ConfirmMulliganReceived` 我们**不发帧** —— 我们的「确认」就是定序结果广播（`applied(mulliganDone)`），
+        /// 重发它会让对端在 `case NetKind.Applied` 里把换牌**再落地一次**；
+        /// ② `RequestMulliganResend`（原版是「请对面重发」）我们落成**自己重发自己的换牌** ——
+        /// 净效果同为「让缺的那条换牌包重传」，且不必新增消息种类（`NetKind` 不在本笔白名单里）。</para></summary>
+        void TickMulliganFallback(float now)
+        {
+            if (!_mulliganFallbackOn) return;
+            if (_mulliganResolved) { _mulliganFallbackOn = false; return; }
+            if (_d == null || _d.Ctx == null) return;
+            if (_d.Ctx.IsOver) { _mulliganFallbackOn = false; return; }
+            if (now < _mulliganFallbackNextAt) return;
+            _mulliganFallbackNextAt = now + MulliganFallbackInterval;
+            _mulliganFallbackAttempts++;
+            if (!_peerMulliganSeen)
+            {
+                if (!IsHost && _myMulligan != null)
+                    Send(NetKind.Mulligan, new MsgMulligan { indices = _myMulligan });   // = 原版 `RequestMulliganResend`
+                if (_mulliganFallbackAttempts > MulliganFallbackAttempts)
+                {
+                    _mulliganFallbackOn = false;
+                    AbortWithVictory($"换牌兜底：对面 {MulliganFallbackAttempts} 拍（每拍 {MulliganFallbackInterval} 秒）"
+                                   + "一直没把换牌发过来（原版 `CancelMatchWithVictory(\"MulliganFallbackCountdown \" + opponentId)`"
+                                   + " ⇒ 判本机胜）");
+                }
+                return;
+            }
+            Debug.Log($"[Net] 换牌兜底第 {_mulliganFallbackAttempts} 拍：已收到对面换牌 ⇒ 原版这一跳是 "
+                    + "`ConfirmMulliganReceived`（我们不发帧 —— 确认 = 定序结果广播，理由见本方法 doc）");
+        }
+
+        /// <summary>对局中兜底一拍。逐条对 `.c:27-133`：
+        /// 记下**那一刻的行动方**（`+0x3f8`）→ 等 `clockTimeLimit × 3`（= **180 秒**）→
+        /// 之后每拍「行动方没变」⇒ `attemptsCount++` + `ResendLostActions()` + 等约 1 秒；
+        /// `attempts > 10` 且行动方仍没变 ⇒ `LogError("Failed InBattleFallbackCountdown after 10 attempts for player …")`
+        /// + `CancelMatchWithVictory("InBattleFallbackCountdown")`（⇒ **判本机胜**）；行动方一变 ⇒ 协程结束。
+        /// <para>⚠️ **两处如实记**：① `ResendLostActions()` 在本机**没有对应物** —— 我们走 TCP（有序可靠，
+        /// 对局内不会丢动作），重连走「全量重放」⇒ 这一跳是**空操作**，⛔ 别为它造一条假的补发；
+        /// ② 原版的**启动点读不到**（`decomp_full` 里除自身外 0 引用，ILSpy 只有 `StopBattleAfterBattleEnd`
+        /// 的 `StopCoroutine`；那属于「没方法体」那一族）⇒ 本实现按「每回合重置」对待。</para></summary>
+        void TickInBattleFallback(float now)
+        {
+            if (_d == null || _d.Ctx == null || _d.Ctx.IsOver) { _fallbackSig = int.MinValue; return; }
+            if (_s == null || _s.State != NetState.InBattle) { _fallbackSig = int.MinValue; return; }
+            if (ClockPaused) return;                                               // 掉线期间由 `ForfeitDisconnectedEnemy` 那条管
+            if (_d.Ctx.MulliganOpen) { _fallbackSig = int.MinValue; return; }       // 换牌阶段不算（那是上面那个兜底的事）
+            int sig = _d.Ctx.Active * 1000000 + _d.Ctx.Turn;
+            if (sig != _fallbackSig)
+            {
+                _fallbackSig = sig; _fallbackAttempts = 0;
+                _fallbackNextAt = now + FallbackClockTimeLimit * 3f;
+                return;
+            }
+            if (now < _fallbackNextAt) return;
+            _fallbackNextAt = now + 1f;
+            _fallbackAttempts++;
+            if (_fallbackAttempts > InBattleFallbackAttempts)
+            {
+                int who = _d.Ctx.Active;
+                _fallbackSig = int.MinValue;
+                Debug.LogError($"[Net] Failed InBattleFallbackCountdown after {InBattleFallbackAttempts} attempts "
+                             + $"for player {(who == MySeat ? "本机" : "对面")}（原版同一句 `LogError`，`.c:90-91`）");
+                AbortWithVictory($"{FallbackClockTimeLimit * 3f:F0} 秒之后行动方（座位 {who}）又 "
+                               + $"{InBattleFallbackAttempts} 拍没换过手（原版 "
+                               + "`CancelMatchWithVictory(\"InBattleFallbackCountdown\")` ⇒ 判本机胜）");
+            }
+        }
+
+        /// <summary>对面投降 —— 原版 `BattleManager.ReceiveEnemyForfeit`
+        /// （`BattleManager__ReceiveEnemyForfeit.c:19-37`，逐句四步）：
+        /// ① `StopCoroutine(DAT_184281920)` + `StopCoroutine(DAT_1842cbea0)` —— 两个 DAT 与
+        ///    `ShowDisconnectionPopup.c:27`（`ForfeitDisconnectedEnemy`）/ `DisconnectedDuringBattle.c:74-89`
+        ///    （`WaitOpponentLastActions`）交叉认出 ⇒ 停「等对面重连」与「等对手最后动作」两处；
+        /// ② 连接状态 ≠ **4 = `EnemyForfeit`** ⇒ 广播 `OnConnectionStatusChanged(prev,4)` 再置 4；
+        /// ③ `matchFinished(+0x2cc) = true`；
+        /// ④ `DeadHero(this, 0, 2)` —— `0` = **对面死** ⇒ 本机胜，码 2 = `Forfeit`（与 `RuleCore` 的 `BattleResult` 同值）。
+        /// <para>⚠️ 第 ② 步在本机**没有对应格**（`NetState` 没有「对面投降」这个状态：投降直接判负 + 收局，
+        /// 见 `ReconnectCountdownExpired` 那段长注释）—— 如实记，⛔ 不造一个走不到的状态。</para></summary>
+        void AcceptPeerForfeit()
+        {
+            if (_peerForfeited) return;
+            _peerForfeited = true;
+            Debug.Log("[Net] 对面投降了（`NetKind.Resign` ⇒ 理由码 `Forfeit`(2) = 原版 `ReceiveEnemyForfeit.c:37`"
+                    + " 的 `DeadHero(param_1, 0, 2)`）");
+            // ① 停两处协程（= `CancelReconnectCountdown`：掉线倒计时 + 收尾等待窗口）
+            CancelReconnectCountdown(hideWindow: _peerGone || _countdownOn);
+            // ② 连接状态置 4（EnemyForfeit）—— ⚠️ 本机这一格不存在，如实记在 doc 里
+            // ③ matchFinished = true（原版 `+0x2cc`；它正是 `ShouldWaitForOpponentLastActions` 的第一个条件）
+            PeerMatchFinished = true;
+            // ④ 判对面负（理由码 `Forfeit`(2)）；仍然走既有记账口 `INetBattleHost.NetRemoteResign`
+            if (_d != null) _d.NetRemoteResign(BattleResult.Forfeit);
+            else
+                Debug.LogWarning("[Net] NET/BYE-R7/no-host 收到对面投降，但**本机没有对局宿主**（`_d == null`）"
+                               + " ⇒ 判负这一跳走不了，这一局不会结束（真 Play 看到它就是缺陷）");
+        }
+
+        /// <summary>对面说「我这局打完了」—— 原版 `BattleManager.ReceiveMatchFinished`
+        /// （`BattleManager__ReceiveMatchFinished.c:16-19`）：**只**把 `matchFinished(+0x2cc)` 置 1，
+        /// 没有别的副作用；重复收到就是再置一次 1（幂等）。
+        /// ⚠️ 它**不判胜负** —— 只用来开「等对手最后几条动作」那个窗口。</summary>
+        void AcceptPeerMatchFinished()
+        {
+            if (PeerMatchFinished) return;                       // 幂等（原版重复收也只是再置一次 1）
+            PeerMatchFinished = true;
+            Debug.Log("[Net] 对面说「他打完了」（`match.finished`）⇒ 收尾窗口的等待条件已成立");
+            if (_d is INetFoePresentationHost h) h.NetRemoteMatchFinished();
+            else Debug.Log("[Net] 宿主没实现 `INetFoePresentationHost` ⇒ 不额外做什么"
+                         + "（标志已置，`TickFinishWait` 那一跳照常生效）");
+        }
+
+        /// <summary>收到主机一条 `applied`（不管是不是本机自己那条）—— 两件事，都在
+        /// `MulliganFallbackCountdown` 的**退出条件**上（`.c:61-72`）：
+        /// ① `mulligan(actor=对面)` ⇒ 原版 `+0x29c`（「我收到对面换牌了」）置真；
+        /// ② `mulliganDone` ⇒ 换牌阶段定序完成 = 原版 `ReceiveMulliganAck` 置的 `+0x2a8`（我们的 ack 就是这条定序结果）。
+        /// ⛔ 这里**不改局面**（落地是 `case NetKind.Applied` 自己的事）。</summary>
+        void NoteApplied(MsgAction m)
+        {
+            if (m == null) return;
+            if (m.kind == NetActionKind.Mulligan && m.actor == RemoteSeat) _peerMulliganSeen = true;
+            if (m.kind == NetActionKind.MulliganDone)
+                NoteMulliganResolved("收到主机广播的定序结果（`applied` mulliganDone）");
+        }
+
+        /// <summary>原版 `BattleManager.DisconnectedDuringBattle` 的第三支
+        /// （`…__DisconnectedDuringBattle.c:74-89`）：**对手掉线**时，若「对手已经 `matchFinished`」或
+        /// 「动作队列里还有动作」⇒ `StopCoroutine` + `StartCoroutine(WaitOpponentLastActions)`（= 重启收尾等待窗口）
+        /// 然后 **return** —— ⛔ **不弹掉线窗、也不起弃权倒计时**，等窗口收尾那一跳再走（见 <see cref="OnFinishWaitEnded"/>）。
+        /// <para>返回真 = 这一跳被延后了（调用方应立刻 `return`）。
+        /// 🔴 **只延一次**（`_peerLastActionsWaited`）：原版那两个协程的起停是配对的，延完还延就等于永远不判弃权。
+        /// ⚠️ 原版这一支只看 `param_2 == 0`（对手掉线）⇒ 本机掉线那一档不延（用 `IAmDisconnectedEnd` 那个自拟判据）。</para></summary>
+        bool DeferForPeerLastActions()
+        {
+            if (IAmDisconnectedEnd) return false;                 // 原版这一支只管「对手掉线」
+            if (_peerLastActionsWaited) return false;             // 只延一次
+            if (_d == null || _d.Ctx == null || _d.Ctx.IsOver) return false;
+            // ⚠️ 代理量：与 `TickFinishWait` 用**同一个**口径（`Session.Inbox.Count`），⛔ 不另造第二份
+            int pending = (_s != null && _s.Inbox != null) ? _s.Inbox.Count : 0;
+            if (!PeerMatchFinished && pending <= 0) return false;
+            _peerLastActionsWaited = true;
+            BeginFinishWait();                                    // 原版 `StopCoroutine` + `StartCoroutine(WaitOpponentLastActions)`
+            Debug.Log($"[Net] 对手掉线，但它已经说过打完 / 队列里还有 {pending} 条 ⇒ 按原版**先重启收尾等待窗口**，"
+                    + "暂不弹掉线窗、也不起弃权倒计时（判据 = `DisconnectedDuringBattle.c:74-89`）");
+            return true;
+        }
+
+        /// <summary>原版 `WaitOpponentLastActions` 的**收尾支**
+        /// （`BattleManager._WaitOpponentLastActions_d__316__MoveNext.c:47-65`）：窗口结束时若**还在对局中** ⇒
+        /// `matchFinished(+0x2cc) = 0` + `ShowDisconnectionPopup(false)`。
+        /// <para>我们只在「对手确实不在了」（`_peerGone`）时走这一跳 —— 那条协程在原版就是**只从掉线链启动**的
+        /// （`DisconnectedDuringBattle` 那两支）；我们额外从 `SendMatchFinished` 那条开窗，那一路不该按掉线收尾。</para></summary>
+        void OnFinishWaitEnded()
+        {
+            if (!_peerGone) return;
+            if (_d == null || _d.Ctx == null || _d.Ctx.IsOver) return;   // 原版那道 `IsDuringBattle()` 闸
+            PeerMatchFinished = false;                                   // 原版 `+0x2cc = 0`
+            HandlePeerLost();                                            // = 原版 `ShowDisconnectionPopup(false)`
+        }
+
+        /// <summary>自检读口：`DeferForPeerLastActions` 那一跳走过没有（原版那两个协程的起停配对）。</summary>
+        public bool PeerLastActionsWaitedForTest { get { return _peerLastActionsWaited; } }
     }
 }

@@ -2115,6 +2115,12 @@ public static class DeckScene
 
             CheckTrue(s.Factions().Count == 13, $"阵营下拉有 13 项（实际 {s.Factions().Count}）");
             CheckTrue(s.Costs().Count > 0, "费用下拉非空");
+            // 🆕 2026-10-26（`G1` · 补 `F4` 的 S5 建议）：`DeckFilter.IsEmpty` 的**结构断言** —— 四个多选集合各勾一项都必须非空
+            //   （`Factions` / `Costs` 上面已各有一条，这里补 `Rarities` / `Types`）。🧨 「加了集合字段忘了算进 IsEmpty」必红。
+            f = DeckFilter.None; f.Rarities = new HashSet<string> { "epic" }; CheckTrue(!f.IsEmpty, "★ 只设 `Rarities` 集合 ⇒ `IsEmpty` 必须为假");
+            f = DeckFilter.None; f.Types = new HashSet<string> { "unit" }; CheckTrue(!f.IsEmpty, "★ 只设 `Types` 集合 ⇒ `IsEmpty` 必须为假");
+            // 🔴 **灭自证**：出厂态（`DeckFilter.None`，四个集合全 null）必须是**空** —— 否则恒 false 的实现能让上面四条全绿。
+            CheckTrue(DeckFilter.None.IsEmpty, "★ 灭自证：出厂态（四个集合全 null）⇒ `IsEmpty` 必须为**真**");
         }
 
         static void TestEditing()
@@ -2520,7 +2526,7 @@ public static class DeckScene
                 for (int i = 0; i < 18; i++)
                 {
                     var d = rt.UiPoolCardAt(i);
-                    if (d != null && rt.State.CanAdd(d) == DeckError.None) { view = i; break; }
+                    if (d != null && d.Type != "hero" && d.Type != "defence" && rt.State.CanAdd(d) == DeckError.None) { view = i; break; }   // 🔴 2026-10-26（B9/F4）：**必须排除督军/防御卡** —— 2026-10-25 起 `CanAdd` 按原版 `CardDeck.CanAddHero` 放行「**同阵营换督军**」（`Deck/DeckEditorState.cs:418-436`）⇒ 挑中督军时 `TryAdd` 只写 `Deck.WarlordId`（`:479`）、`CardIds` **不 +1** ⇒ 下面那条「卡组多了正好 1 张」必红（旧夹具是靠 `CanAdd == None` 等价于「张数 +1」，那个等价 2026-10-25 起不成立了）
                 }
                 CheckTrue(view >= 0, "（前提）卡池前 18 格里有一张现在加得进去的卡（`CanAdd` 过了才起得了拖）");
                 if (view >= 0)
@@ -3120,8 +3126,8 @@ public static class DeckScene
                 //   🧨 改坏法 ①：把这个调用删掉（只剩 `DeckArmyIcon` 稳定态）⇒ 本条「滚到底」的期望对不上；
                 //   ② 命中序改成「取最后一格」⇒ 边界那一格对不上。
                 {
-                    float savedScroll = _rt.PoolScrollPx;
-                    _rt.UiScrollPool(1e9f);                     // 滚到底（RefreshPool 内部夹到 maxScroll）
+                    bool savedGated = _rt.State.WarlordGatedPool; _rt.State.WarlordGatedPool = false; float savedScroll = _rt.PoolScrollPx;   // 🔴 2026-10-26（B9/F4，δ 夹具）：**临时关掉「按督军分流」** —— `DeckRuntime` 构造时 `WarlordGatedPool = true`（`Deck/DeckRuntime.cs:1433`）⇒ 池里**只有本副督军那一个阵营**，顶端与末端必然同一阵营 ⇒ 下面「两格阵营确实不同」永远做不到。关掉之后池子含全部 13 个阵营（原版收藏窗那条无门路径就是这个口径）；测完在 `:3137` 还原
+                    _rt.RefreshAll(); string hitTop = HitPoolRefFaction(_rt); _rt.UiScrollPool(1e9f);                     // 滚到底（RefreshPool 内部夹到 maxScroll）
                     string hitEnd = HitPoolRefFaction(_rt);
                     CheckTrue(hitEnd != null, "（前提）滚到底之后参考矩形仍压住一格（视口首行 156→540 与 261→306 相交）");
                     if (hitEnd != null)
@@ -3129,12 +3135,12 @@ public static class DeckScene
                         Check(_rt.UiTextureName("hdr_army"), DeckRuntime.FactionIcon(hitEnd),
                               $"★ **滚到底**之后页头徽记 = 参考矩形命中的那一格（阵营 `{hitEnd}`）"
                             + "｜🧨 徽记若停在卡组阵营/上一格 ⇒ 红（原版 `CheckFocusedArmy` 就是按列表位置换的）");
-                        CheckTrue(hitFac0 == null || hitFac0 != hitEnd,
+                        CheckTrue(hitTop != null && hitFac0 != null && hitTop != hitEnd,
                                   "★ 这一滚的两格阵营**确实不同**（否则上一条分不清「跟着列表」与「一直没变」；"
                                 + "实测 池子按阵营升序 ⇒ 顶端是 Ultramarines、末端是 SpaceWolves）");
                     }
                     _rt.UiScrollPool(-1e9f);                    // 还原到顶
-                    CheckTrue(Mathf.Abs(_rt.PoolScrollPx) < 0.5f, "（把卡池滚动量放回 0）");
+                    CheckTrue(Mathf.Abs(_rt.PoolScrollPx) < 0.5f, "（把卡池滚动量放回 0）"); _rt.State.WarlordGatedPool = savedGated; _rt.RefreshAll();   // 🔴 2026-10-26（B9/F4）：**把「按督军分流」还回去**（本节的初态）
                 }
 
                 // ---- 🔴 2026-10-21（`A1145`）：给那 13 条映射补一条【独立腿】----
@@ -3672,14 +3678,14 @@ public static class DeckScene
                         var keepFull = new List<string>(_rt.State.Deck.CardIds);
                         // ⚠️ 防御卡**不占 `CardIds`**（`TryAdd` 把它放进 `Deck.DefensiveId`）⇒ 只恢复 `CardIds`
                         //    会把「填满时顺手加上的那张防御卡」留在卡组里（静默改了后面各节的前提）。
-                        string keepDef3 = _rt.State.Deck.DefensiveId;
+                        string keepDef3 = _rt.State.Deck.DefensiveId, keepWl3 = _rt.State.Deck.WarlordId;   // 🔴 2026-10-26（B9/F4）：**督军也要存** —— 下面那个填满循环会碰到督军（见 `:3682`），只恢复 `CardIds`/`DefensiveId` 会把它换掉却不还（D14 那条「编辑器那份与库里那份内容一致」就是这么红的：内存 `ASH2` / 库里 `ASH1`）
                         string whyFill;
                         int guard = 0;
                         for (int round = 0; round < 4 && _rt.State.DeckCount < _rt.State.MaxDeckCount; round++)
                             foreach (var c in _rt.State.Pool)
                             {
                                 if (_rt.State.DeckCount >= _rt.State.MaxDeckCount || ++guard > 5000) break;
-                                _rt.State.TryAdd(c, out whyFill);
+                                if (c.Type != "hero" && c.Type != "defence") _rt.State.TryAdd(c, out whyFill);   // 🔴 2026-10-26（B9/F4）：**跳过督军/防御卡** —— 2026-10-25 起 `CanAdd` 允许「同阵营换督军」（`Deck/DeckEditorState.cs:428-436`），本循环只想把 `CardIds` 填到 30；放它进来会**换掉督军**而不加牌（原版 `TryAddCard` 的 hero 支 = 整张替换）⇒ 后面 A397 的「编辑器那份与库里那份一致」会红
                             }
                         _rt.RefreshAll();
                         Check(_rt.State.DeckCount, _rt.State.MaxDeckCount,
@@ -3712,7 +3718,7 @@ public static class DeckScene
                             + "｜🧨 把 `canAdd` 接回卡面 ⇒ 本条红（真机「所有卡都是灰色」就是这个）");
                         _rt.State.Deck.CardIds.Clear();
                         _rt.State.Deck.CardIds.AddRange(keepFull);
-                        _rt.State.Deck.DefensiveId = keepDef3;
+                        _rt.State.Deck.DefensiveId = keepDef3; _rt.State.Deck.WarlordId = keepWl3;   // 🔴 2026-10-26（B9/F4）：督军**一起还**（直接写字段，⛔ 不走 `SetWarlord` —— 那会清掉不合阵营的卡）
                         _rt.RefreshAll();
                         Check(_rt.State.DeckCount, keepFull.Count, "（把卡组恢复原样 —— 后面的断言仍按原状态跑）");
                     }
@@ -4407,12 +4413,12 @@ public static class DeckScene
 
             // 筛选动作（走的是和鼠标同一条路）
             _rt.UiFilterRow("$rar:legendary");
-            Check(state.Filter.Rarity, "legendary", "点稀有度 → 筛选条件变了");
+            CheckTrue(state.Filter.Rarities != null && state.Filter.Rarities.Contains("legendary") && state.Filter.Rarity == "", "点稀有度 → 筛选条件变了（🔴 2026-10-26（B9/F4）：2026-10-25 按原版 `ToggleCollectionFilter.OnFilterChange` 把筛选改成**集合** `typeFilters`（`Core/FilterPanelModel.cs:885-892`）⇒ 读 `Rarities`；单值 `Rarity` **被主动清空**（否则集合+单值叠成 AND、比原版严）。旧期望 `Rarity == \"legendary\"` 是改集合之前的口径、必然读到空串");
             CheckTrue(state.VisibleCards().Count < state.PoolCount, "筛出来的确实变少了");
             _rt.UiFilterRow("$rar:legendary");
-            Check(state.Filter.Rarity, "", "再点一次 → 取消该筛选");
+            CheckTrue(state.Filter.Rarities == null || !state.Filter.Rarities.Contains("legendary"), "再点一次 → 取消该筛选（🔴 2026-10-26（B9/F4）：断**集合里那个成员被删掉**；旧期望写 `Rarity == \"\"` —— 那个字段改集合之后永远是空 ⇒ 恒真、**没有鉴别力**（集合没被取消也照样绿）");
             _rt.UiFilterRow("$fac:Ultramarines");
-            Check(state.Filter.Faction, "Ultramarines", "点阵营 → 筛选条件变了");
+            CheckTrue(state.Filter.Factions != null && state.Filter.Factions.Contains("Ultramarines") && state.Filter.Faction == "", "点阵营 → 筛选条件变了（🔴 2026-10-26（B9/F4）：同稀有度那条 —— `$fac:` 现在写 `Factions` 集合（`Core/FilterPanelModel.cs:877-883`）、单值 `Faction` 被清空 ⇒ 旧期望 `Faction == \"Ultramarines\"` 读到空串");
             _rt.UiClearFilters();
             CheckTrue(state.Filter.IsEmpty, "Clear filters → 条件清空");
             _rt.UiToggleFilters();
@@ -6881,11 +6887,11 @@ public static class DeckScene
                       + "不 UploadDeck；把 `SaveAndSay()` 里那道闸删掉/改成 `if (false)` ⇒ 这条红）");
                 Check(DeckLibrary.Load().Current.CardIds.Count, keepIds.Count, "★ ……而且盘上张数也没变");
                 CheckTrue(_rt.UiLastSay != noticeBefore
-                          && (_rt.UiLastSay ?? "").Contains("卡组张数不够"),
+                          && (_rt.UiLastSay ?? "").Contains("您的卡组不完整。您需要将30张牌添加到您的卡组中，将它们拖入左侧面板的卡组列表。"),
                           "★ ……而且**出声了**，印的是那条词条的**中文列**（`Say()` 那句：「" + _rt.UiLastSay
                         + "」—— 静默挡下 = 这条红）。"
-                        + "｜🔴 **2026-10-18（`G9`）灭自证**：期望值原来是 `DeckRules.Describe(…)`"
-                        + "（**取自实现本身**）⇒ 那时「让 `Describe` 返回空串」照样绿；现在钉的是**字面量**。");
+                        + "｜🔴 **2026-10-18（`G9`）灭自证**：期望值原来是 `DeckRules.Describe(…)`（**取自实现本身**）⇒ 那时「让 `Describe` 返回空串」照样绿；现在钉的是**字面量**。"
+                        + "｜🔴 **2026-10-26（B9/F4）就地把期望值换成原版判据**：上屏键 = **`MenuDeck/Error/IncompleteDeck`** —— 原版 `DeckUtility.ToRawLocalizationString` 的 `{0}` 装的是**原版那 6 个枚举名**（`TooFewCards` 属 `IncompleteDeck=5`），而 `MenuDeck/Error/TooFewCards` 在官方 I2 表里 **= None**；中文列字面量取自 `数据/游戏数据/官方本地化_en+zh-CN.json`，⛔ 不取自实现");
 
                 // ==== 🆕 2026-10-18（`G9`）：`DeckRules.Describe` 从「造中文句子」改成「出词条键」====
                 //   判据链：① 键的**形状**（照原版具名族 `"MenuDeck/Error/" + 名字`）；
@@ -6934,7 +6940,7 @@ public static class DeckScene
                     Loc.RestoreForTest(AvailableLanguages.English);
                     string enMsg = DeckRuntime.DeckErrorText(DeckError.TooFewCards);
                     Loc.RestoreForTest(AvailableLanguages.Chinese);       // 收尾：还给本节的语档
-                    Check(zhMsg, "卡组张数不够", "★ G9 **中文档**：键取到的是中文那一列（**字面量**，不是从实现里读）");
+                    Check(zhMsg, "您的卡组不完整。您需要将30张牌添加到您的卡组中，将它们拖入左侧面板的卡组列表。", "★ G9 **中文档**：键取到的是中文那一列（**字面量**，不是从实现里读）｜🔴 2026-10-26（B9/F4）订正期望值：`DeckErrorText(TooFewCards)` 走 `ErrorTextKey` → 原版枚举名 `IncompleteDeck`（官方表 `MenuDeck/Error/TooFewCards` = None），旧期望「卡组张数不够」是改键之前那条自拟键的文案");
                     CheckTrue(enMsg.Length > 0 && enMsg != zhMsg && enMsg != kFew,
                           $"★ G9 **英文档**：同一把键取到**另一句话**（「{enMsg}」）"
                         + "｜🧨 那半边原来是引擎里写死的中文 ⇒ 英文档下**照样印中文** ⇒ 红");
@@ -7507,7 +7513,7 @@ public static class DeckScene
                 live.CardIds.RemoveAt(0);              // 腾一格（只动内存，同上面 A330 那节的写法）
                 CardDef add = null;
                 foreach (var c in _rt.State.VisibleCards())
-                    if (c != null && c.Id != removedId && _rt.State.CanAdd(c) == DeckError.None) { add = c; break; }
+                    if (c != null && c.Id != removedId && c.Type != "hero" && c.Type != "defence" && _rt.State.CanAdd(c) == DeckError.None) { add = c; break; }   // 🔴 2026-10-26（B9/F4）：同 `:2523` —— `CanAdd == None` 从 2026-10-25 起**不再**等价于「张数 +1」（同阵营督军也能过）⇒ 挑中督军就变成「换督军」、`CardIds` 仍是 29 ⇒ 下面「又是满编 30 张」必红；⛔ 别改期望值（`TryAdd` 原版确实是「换」）
                 CheckTrue(add != null,
                           $"（前提）卡池里找得到一张加得进去、且**不是刚摘掉那张**的牌（{add?.Name}）");
                 string disk0 = DeckLibrary.ExportString(DeckLibrary.Load().Current);
@@ -7518,7 +7524,7 @@ public static class DeckScene
                       "★ A363：……盘上那份**一个字节都没动**（加牌自己写盘 = 这条红）");
                 CheckTrue(DeckLibrary.ExportString(live) != disk0,
                           "（前提）内存这份**确实已经和盘上不一样了**（换过牌）⇒ 上一条才有鉴别力");
-                _rt.EscPressed();                                        // = Done
+                _rt.EscPressed(); CheckTrue(!_rt.ModalPopupOpen, "（前提）**Done 之后场上没有模态窗** —— 不合法 ⇒ `SaveAndSay` 弹 `ShowInvalidDeckPopUp`（`Deck/DeckRuntime.cs:5548-5556`）⇒ `UiClickPx` 头一句 `if (ModalPopupOpen) return false`（`:6599`）把**后面所有点击**都挡死 ⇒ A396/A397 那一整片会连锁红（2026-10-26（B9/F4）加的这条就是钉死那条连锁链）");                                        // = Done
                 CheckTrue(!_rt.DeckDirty, "★ ……按 Done ⇒ 脏标记清掉");
                 CheckTrue(DeckLibrary.ExportString(DeckLibrary.Load().Current) != disk0,
                           "★ ……**Done 之后才落盘**（盘上那份变了）");

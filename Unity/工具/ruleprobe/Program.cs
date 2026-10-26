@@ -551,7 +551,7 @@ class Program
                     {
                         if (args.Length <= i + 1)
                         {
-                            Console.Error.WriteLine("!! 用法：play <id|卡名> [preset <spec>] | play all [dump <out.tsv>] [pf <out.txt>] | play check [<pf.txt>]");
+                            Console.Error.WriteLine("!! 用法：play <id|卡名> [preset <spec>] | play all [dump <out.tsv>] [pf <out.txt>] [preset <spec>（另一次扫描，必须给独立输出路径）] | play check [<pf.txt>]");
                             Environment.Exit(2);
                         }
                         string pKey = args[i + 1], pDump = null, pPf = null, pBase = null, pPreset = null;
@@ -564,9 +564,9 @@ class Program
                         {
                             if (args[j] == "dump" && j + 1 < args.Length) { pDump = args[j + 1]; j += 2; continue; }
                             if (args[j] == "pf" && j + 1 < args.Length) { pPf = args[j + 1]; j += 2; continue; }
-                            // 🆕 `A2009`：夹具预置局面（`play <id> preset dead=1:Infantry`）——
-                            //   只有单卡档用得上（`all`/`check` 传了也不会改变全池读数，但**别静默**：
-                            //   在下面统一出声）。
+                            // 🆕 `A2009`：夹具预置局面（`play <id> preset dead=1:Infantry`）。
+                            // 🆕 `P3`（2026-10-26）：`play all … preset <spec>` 也吃这一格 = **另一次全池扫描**
+                            //   （B9 全池对拍要按族换夹具），但**必须**给独立输出路径、⛔ 不碰基准那一份。
                             if (args[j] == "preset" && j + 1 < args.Length) { pPreset = args[j + 1]; j += 2; continue; }
                             if ((args[j] == "baseline" || args[j] == "base") && j + 1 < args.Length)
                             { pBase = args[j + 1]; j += 2; continue; }
@@ -580,12 +580,23 @@ class Program
                             break;   // 不认识的 token：不吞，留给后面的模式
                         }
                         if (!string.IsNullOrEmpty(pPreset)
-                            && (string.Equals(pKey, "all", StringComparison.OrdinalIgnoreCase)
-                                || string.Equals(pKey, "check", StringComparison.OrdinalIgnoreCase)))
+                            && string.Equals(pKey, "check", StringComparison.OrdinalIgnoreCase))
                         {
                             // ⛔ 静默丢掉最坏（你会以为全池读数是在预置局面上跑的）⇒ 出声并停。
-                            Console.Error.WriteLine("!! `preset` 只用于**单卡** `play <id>`；"
-                                                    + "`play all`/`play check` 的读数必须保持全池同一套夹具。");
+                            Console.Error.WriteLine("!! `preset` **不用于** `play check`（基线是基准夹具跑出来的，"
+                                                    + "拿预置局去比一定红）。");
+                            Environment.Exit(2);
+                        }
+                        // 🆕 `P3`（2026-10-26）：`play all … preset <spec>` = **另一次全池扫描**（B9 的全池
+                        //   对拍要按族换夹具：`reanimate` 要坟场、`ta=30` 的单位要一个点定的目标）。
+                        //   本档**不**写基准文件、也不进 `play check` 的基线 —— 调用方必须给**另一个**输出路径；
+                        //   探针自己在摘要那一行会**出声**说明「这是带 preset 的另一次扫描」（见 `Sweep` 的头两行）。
+                        if (!string.IsNullOrEmpty(pPreset)
+                            && string.Equals(pKey, "all", StringComparison.OrdinalIgnoreCase)
+                            && string.IsNullOrEmpty(pDump) && string.IsNullOrEmpty(pPf))
+                        {
+                            Console.Error.WriteLine("!! `play all preset <spec>` 必须同时给**独立的**输出路径"
+                                                    + "（`dump <out.tsv>` / `pf <out.txt>`）—— ⛔ 别覆盖基准那一份。");
                             Environment.Exit(2);
                         }
                         Environment.Exit(PlayProbe.Run(PoolList, pKey, pDump, pPf, pBase, pPreset));

@@ -361,19 +361,29 @@ namespace RuleEngine
         /// `countSet` 里**本版一个都没实现**的那些筛维度 —— 只要它们不是「不适用」/「空」就返回一句缺口，
         /// 调用方据此返回 `null`（⛔ 不许当「不过滤」）。
         /// 取值域 → `CountSetSpec` 的 doc；判据 → `FilterMethods__CheckIfMeetsCriteria.c`（见文件头 ④）。
+        ///
+        /// <para>🆕 **2026-10-26（第八十三会话 · 执行代理 `B1`）：从这里【放开】六格** ——
+        /// `keywordFilter`（池内 12 行）/ `traitsFilter`（2 行）/ `currentHealthFilterOption`（2 行）/
+        /// `filterSpecificCards`（1 行）/ `excludeRace` / `excludeTrait`。
+        /// 它们由 <see cref="TargetCriteriaEval.Matches"/> 求值（**全仓唯一那份 36 格判据**），
+        /// 本文件不再自带一份 —— 棋盘跳与 `ta=150` 两支直接转调它（见 `BoardCandidatePasses`）。
+        /// ⚠️ 放开之后**墓地那支（`ta=60`）要自己再挡一次**（候选不是 `UnitState`，
+        /// 运行期那几维读不到）⇒ 见 `CemeteryCandidatePasses`。</para>
+        ///
+        /// <para>⛔ 仍挡在这里的：`armyFilter` / `spellType` / `attackFilterOption` /
+        /// `manaCostFilterOption` / `rarityFilterOption` / `excludeEnchantments` / 四个布尔排除 /
+        /// `selectFromChooseResolution`。前六格 `TargetCriteriaEval` 其实**已经有实现**，
+        /// 本笔只按「一次放一类、池内现读有行才放」的保守口径处理（这六格池内现读均 **0 行**）；
+        /// `selectFromChooseResolution` 是**判据读不出**（`dump.cs` 里只有字段声明、全量反编译里
+        /// 没有任何消费点 ⇒ 语义拿不到，⛔ 不猜）。</para>
         /// </summary>
         static string SetGap(CardDef.CountSetSpec s)
         {
             if (s.ArmyFilter != 0) return Gap("armyFilter", s.ArmyFilter);
-            if (s.KeywordFilter != 0) return Gap("keywordFilter", s.KeywordFilter);
-            if (s.TraitsFilter != 0) return Gap("traitsFilter", s.TraitsFilter);
             if (s.SpellType != 0) return Gap("spellType", s.SpellType);
             if (s.AttackFilterOption != 0) return Gap("attackFilterOption", s.AttackFilterOption);
-            if (s.CurrentHealthFilterOption != 0) return Gap("currentHealthFilterOption", s.CurrentHealthFilterOption);
             if (s.ManaCostFilterOption != 0) return Gap("manaCostFilterOption", s.ManaCostFilterOption);
             if (s.RarityFilterOption != 0) return Gap("rarityFilterOption", s.RarityFilterOption);
-            if (s.FilterSpecificCardIds != null && s.FilterSpecificCardIds.Length > 0)
-                return "countSet.filterSpecificCards 未实现";
             if (s.ExcludeEnchantmentIds != null && s.ExcludeEnchantmentIds.Length > 0)
                 return "countSet.excludeEnchantments 未实现";
             // 下面这些是**布尔筛**（1 = 开）：本版没实现的都为 0 才算「不适用」。
@@ -381,8 +391,6 @@ namespace RuleEngine
             if (s.ExcludeTargetted != 0) return "countSet.excludeTargetted 未实现";
             if (s.ExcludeFriendlyHero != 0) return "countSet.excludeFriendlyHero 未实现";
             if (s.ExcludeEnemyHero != 0) return "countSet.excludeEnemyHero 未实现";
-            if (s.ExcludeRace != 0) return "countSet.excludeRace 未实现";
-            if (s.ExcludeTrait != 0) return "countSet.excludeTrait 未实现";
             if (s.SelectFromChooseResolution != 0) return "countSet.selectFromChooseResolution 未实现";
             return null;
         }
@@ -418,7 +426,13 @@ namespace RuleEngine
                     for (int s = 0; s < ps.Board.Length; s++)
                     {
                         var u = ps.Board[s];
-                        if (!IncludeUnit(u, set, actor)) continue;
+                        // 🆕 2026-10-26（`B1`）：逐候选的 36 格判据**改走 `TargetCriteriaEval.Matches`**
+                        //   （全仓唯一一份）。改前这里只有 `IncludeUnit`（卡种 / 残骸 / 自他），
+                        //   `keywordFilter` / `traitsFilter` / 四组 stat / `filterSpecificCards`
+                        //   四维**一格都没跑**（而且整行被 `SetGap` 挡成 null）。
+                        bool? pass = BoardCandidatePasses(ctx, owner, set, u, actor, out string bWhy);
+                        if (pass == null) { gap = bWhy; return null; }
+                        if (!pass.Value) continue;
                         var v = ConditionEval.MeetsUnit(ctx, u, cond, false);
                         if (v == null) { gap = $"cond={cond} 在候选身上判不了"; return null; }
                         if (v.Value) count += Weight(owner, p, countOption);
@@ -441,6 +455,12 @@ namespace RuleEngine
                     // ⇒ `includeMinions == 0` 时整个墓地都不数；`includeHero` 在这里没有对象
                     //   （督军死亡 = 输局，正常对局里不会进墓地）。
                     if (set.IncludeMinions == 0) continue;
+                    // 🆕 2026-10-26（`B1`）：`keywordFilter` / `filterSpecificCards` 在**卡模板**上就能判
+                    //   （原版 `RawCardScript.IsKeyword` = `rawCardData.keyword(+0x98) == k`，纯静态）；
+                    //   运行期那几维（trait / 四组 stat）墓地候选**没有单位实体** ⇒ 判不了、如实出声。
+                    bool? cpass = CemeteryCandidatePasses(set, d.Card, out string cWhy);
+                    if (cpass == null) { gap = cWhy; return null; }
+                    if (!cpass.Value) continue;
                     var v = ConditionEval.MeetsCard(ctx, d.Card, d.Owner, cond, false, d.InstanceId);
                     if (v == null) { gap = $"cond={cond} 在墓地候选身上判不了"; return null; }
                     if (v.Value) count += Weight(owner, d.Owner, countOption);
@@ -515,7 +535,11 @@ namespace RuleEngine
                         return null;
                     }
                     if (!SideMatches(owner, side, set)) continue;
-                    if (!IncludeUnit(u, set, actor)) continue;
+                    // 🆕 2026-10-26（`B1`）：同棋盘那一支 —— 36 格判据走 `TargetCriteriaEval.Matches`
+                    //   （⛔ 不在这里再写一份）。池内 `ta=150` 的 count 行现读 **0 条**，这里只为口径一致。
+                    bool? pass = BoardCandidatePasses(ctx, owner, set, u, actor, out string bWhy);
+                    if (pass == null) { gap = bWhy; return null; }
+                    if (!pass.Value) continue;
                     var v = ConditionEval.MeetsUnit(ctx, u, cond, false);
                     if (v == null) { gap = $"cond={cond} 在上一条能力的目标身上判不了"; return null; }
                     if (v.Value) count += Weight(owner, side, countOption);
@@ -651,8 +675,11 @@ namespace RuleEngine
         /// <summary>🆕 2026-10-24（执行代理 `E8`）：卡种白名单（`includeHero` / `includeMinions` /
         /// `includeSpells`）在**一张不在场上的牌**上的口径 —— 只给 <see cref="CountDrawnAsPreviousTargets"/> 用。
         ///
-        /// <para>取值口径与 <see cref="IncludeUnit"/> 一致：**`!= 0` 才筛**（`Unknown(-1)` = 未知 ⇒ 不筛，
-        /// 与原版「没落 ≠ 明确不要」同一条纪律）。</para>
+        /// <para>取值口径与棋盘那一支一致：**`!= 0` 才筛**（`Unknown(-1)` = 未知 ⇒ 不筛，
+        /// 与原版「没落 ≠ 明确不要」同一条纪律）。
+        /// ⚠️ 2026-10-26（`B1`）：棋盘那一支已改走 `TargetCriteriaEval.Matches`，本函数
+        /// **仍是自己一份**（抽到的牌不在棋盘上，`Matches` 收不了）—— 但它只判「卡种」那一格，
+        /// 其余维度仍由调用方按 `null` 出声。</para>
         /// <para>`null` = 本版分不了这一档：`includeWhispers` / `includeWeapons` / `includeHeroParts`
         /// 非 0（原版另有 `cardType` 取值，本版没建模），或卡种不在这三档里（`defence` 等）。
         /// ⛔ 不静默当「都算」。</para>
@@ -669,24 +696,82 @@ namespace RuleEngine
             return null;   // `defence` / 空 type ⇒ 本版没建模（原版 `cardType` 另有取值）
         }
 
-        /// <summary>`includeHero` / `includeMinions` / `includeRemnants` 三格（**卡种白名单**，不是「要不要额外加」）
-        /// ＋ `includeSelf` / `excludeNotSelf` 两格（`CheckIfMeetsCriteria.c:234-261`）。
-        /// <para>`-1` = 未知 ⇒ 按「不拿它筛」处理（不是 0）；0 = 明确**不要**这一档。</para>
-        /// <para>⚠️ `includeSelf==0`（默认）要求**候选不能是这条 ability 的所有者自己**；
-        /// 拿不到 <paramref name="actor"/> 时这一格**没法判** ⇒ 只能不筛（池内 4 张卡里
-        /// 三张是战术卡、`SOR70` 自己是辆不祈祷的车 ⇒ 今天不影响读数）。</para></summary>
-        static bool IncludeUnit(UnitState u, CardDef.CountSetSpec set, UnitState actor)
+        /// <summary>
+        /// 🆕 **2026-10-26（第八十三会话 · 执行代理 `B1`）：棋盘跳 / `ta=150` 两支的逐候选判据** ——
+        /// **直接转调 <see cref="TargetCriteriaEval.Matches"/>**（全仓唯一那份 36 格判据，⛔ 别在这里再写一份）。
+        ///
+        /// <para>**为什么换成它**：改前这两支只调 `IncludeUnit`（卡种 / 残骸 / 自他）+ `ConditionEval`，
+        /// `keywordFilter` / `traitsFilter` / 四组 `MeetsStatCriteria` / `filterSpecificCards`
+        /// 四维**一格都没跑**，而 `SetGap` 又把带这四维的行整条挡成 `null` ⇒ 池内
+        /// **18 行 / 13 张卡**一直在「正文正则兜底 + 出声」（普查见
+        /// `资料/完全复刻/报告/B1b_追加三项判据.md` §③）。
+        /// `TargetCriteriaEval` 里这四维**早就有实现**（`KeywordPasses` / `TraitPasses` /
+        /// `StatGroupsPass` / ⑫白名单）⇒ 本笔只是把它接上，**没有第二份判据**。</para>
+        ///
+        /// <para>⚠️ **`cond` 不在这里判**：调用方随后仍调 `ConditionEval.MeetsUnit/MeetsCard`（既有口径，
+        /// 也是 `CountEval` 文件头的分工）⇒ 这里给 `Matches` 传 `cond: null`
+        /// （= `none(0)` = 放行），**不判两次**。</para>
+        /// <para>⚠️ `thisCard` 传 <paramref name="actor"/>（= 这条 ability 的所有者单位）。
+        /// 只有 `4/5/7` 三档 stat 需要载体，`Matches.TryStatThisCardStat` 已按档判过；
+        /// 战术卡那条路 `actor` 本来就是 `null`，池内也 0 行用到那三档。</para>
+        /// <para>⚠️ 每多导入一个候选侧信息，返回 `false` 的方向**只会更准、不会更宽**：
+        /// `Matches` 对判不了的维度返回 `null`（本方法原样上抛 ⇒ 调用方 `return null` + 出声）。</para>
+        /// </summary>
+        static bool? BoardCandidatePasses(BattleContext ctx, int owner, CardDef.CountSetSpec set,
+                                          UnitState u, UnitState actor, out string gap)
+            => TargetCriteriaEval.Matches(ctx, owner, set, u, null, actor, null, out gap);
+
+        /// <summary>
+        /// 🆕 **2026-10-26（`B1`）：墓地候选（`ta=60`）的逐候选判据。**
+        ///
+        /// <para>**为什么不能走 <see cref="TargetCriteriaEval.Matches"/>**：它收 `UnitState`，
+        /// 而墓地候选是 `BattleContext.DeadUnit`（只有 `Card` / `Owner` / `Instance`），
+        /// **没有运行期状态**（当前攻/血/费、当前 traits 全没了）。</para>
+        ///
+        /// <para>**能判的两维（纯静态，卡模板上就够 —— 判据在第一权威里就是静态的）**：
+        /// <list type="bullet">
+        /// <item>`filterSpecificCards`：原版 `FilterMethods__CheckIfMeetsCriteria.c:465-483` 比的是
+        /// `PlayerItem.uniqueId(+0x38)` 字符串全等；我们比 `CardDef.Id`（生成器已把 PPtr 解成同一套 id）。</item>
+        /// <item>`keywordFilter` + `excludeRace`：原版 `:304-313` 的第一段就是
+        /// `RawCardScript.IsKeyword(card, k)` = **`rawCardData.keyword(+0x98) == k`**（纯静态整数全等）
+        /// ⇒ 我们比 `CardDef.KeywordId == k`。⛔ 这里**不**走 `CreatePool.MatchesKind` 那套词表 ——
+        /// 原版这一格是**数值全等**，词表是另一层（`TargetCriteriaEval.KeywordPasses` 用的是词表，
+        /// 两条对池内 Vehicle/Infantry/Beast/Daemon 取值等价，如实并列在这里）。</item>
+        /// </list></para>
+        ///
+        /// <para>**判不了的维（`null` + 出声）**：`traitsFilter`（原版读候选的**当前** traits）·
+        /// 四组 stat（当前攻/血/费 —— 墓地里的卡没有当前值）。
+        /// 今天池内 `ta=60` 的 count 行只用 `keywordFilter`（`SAU57` ×5 = Infantry ·
+        /// `GOF94` = Beast）⇒ 这一格零影响。</para>
+        /// </summary>
+        static bool? CemeteryCandidatePasses(CardDef.CountSetSpec set, CardDef card, out string gap)
         {
-            if (u == null) return false;
-            if (u.IsRemnant && set.IncludeRemnants == 0) return false;
-            bool hero = u.IsWarlord;
-            if (hero && set.IncludeHero == 0) return false;
-            if (!hero && set.IncludeMinions == 0) return false;
-            if (actor != null)
+            gap = null;
+            if (card == null) return false;
+            if (set.TraitsFilter != 0)
             {
-                bool self = ReferenceEquals(u, actor);
-                if (self && set.IncludeSelf == 0) return false;
-                if (!self && set.ExcludeNotSelf == 1) return false;
+                gap = "墓地候选没有单位实体 ⇒ `traitsFilter` 要读**当前** traits，判不了";
+                return null;
+            }
+            if (set.CurrentHealthFilterOption != 0 || set.AttackFilterOption != 0
+                || set.ManaCostFilterOption != 0 || set.RarityFilterOption != 0)
+            {
+                gap = "墓地候选没有单位实体 ⇒ 四组 stat 筛（当前攻/血/费）判不了";
+                return null;
+            }
+            if (set.FilterSpecificCardIds != null && set.FilterSpecificCardIds.Length > 0)
+            {
+                bool hit = false;
+                for (int i = 0; i < set.FilterSpecificCardIds.Length; i++)
+                    if (card.Id != null && string.Equals(card.Id, set.FilterSpecificCardIds[i],
+                                                        System.StringComparison.Ordinal))
+                    { hit = true; break; }
+                if (!hit) return false;
+            }
+            if (set.KeywordFilter != 0)
+            {
+                bool has = card.KeywordId == set.KeywordFilter;
+                if (set.ExcludeRace != 0 ? has : !has) return false;
             }
             return true;
         }

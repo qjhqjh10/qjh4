@@ -2524,8 +2524,8 @@ public static class CardBaseDemo
                 new { name = "Roboute Guilliman",   why = "真机报溢出的督军（2 行 + 两枚图标）", needLines = 2 },
                 // 🔴 **2026-10-25（`E` · P0）**：**战术卡 + 兵种行（文字态 4）** 这一档 ——
                 //    用户/调度台并排比抓到的「阵营行（钛帝国）与效果文字第一行压在同一 y」。
-                //    判据 = `CardView.ClampDescBelowArmy` 的那段注释；这里逐字钉两条几何关系（⑥⑦）。
-                new { name = "Sense of Stone",      why = "战术卡 + 兵种行（态 4）：阵营行/效果文字不许叠字", needLines = 2 },
+                //    判据 = `CardView.ClampDescBelowArmy` 的那段注释；这里逐字钉两条几何关系（⑥⑦）。🔴 **2026-10-26（`F5`）：`needLines` 2 → 1 —— 「几行」【不是原版判据】**：原版那颗 `DescTacticSmall` 的 TMP 是 **`m_enableAutoSizing = 1`**（`m_fontSizeMin 1` / `Max 19`）+ rect **160×62.64**（`bundle_battleprefabs_vfxandmisc_assets_all/RectTransform/RectTransform_-8188883067619402816.json` 实读；`bundle_staticgeneralassets_assets_all/MonoBehaviour_2136251321394907534.json` 同值）⇒ **行数是 autosize/fit 的结果、不是版式常量**；而生产 `ClampDescBelowArmy` 为「不叠字」会在两行装不下时**缩字号** ⇒ 实测落到 **1 行 / fs 1.331**。旧「至少 2 行」是 `E/X1` 手工钉的**我们自己的**期望（δ），不是原版判据；①⑤⑥⑦ 的判别力与行数无关。
+                new { name = "Sense of Stone",      why = "战术卡 + 兵种行（态 4）：阵营行/效果文字不许叠字", needLines = 1 },
             };
             var pool = RuleEngine.CardDatabase.Load();
             for (int ci = 0; ci < cases.Length; ci++)
@@ -2585,7 +2585,7 @@ public static class CardBaseDemo
                 string tag = $"[{c.name}／{cd.type}／{c.why}，{lines} 行]";
 
                 Check(lines >= c.needLines,
-                      $"{tag} ★ 前提：至少 {c.needLines} 行 —— 只有 1 行时 ②③④ 量不到折行后的块");
+                      $"{tag} ★ 前提：至少 {c.needLines} 行 —— 行数不够时 ②③④ 量不到折行后的块（态 4 那档 ②③④ 本就跳过，只要 ≥1 行）");
                 // ★ **2026-10-25（`X16`）**：**「生产 fit 真的缩过字号」** —— 这是真机那一格溢出的**直接**判别式
                 //   （`X1` 已查实：`FitsBox` 靠 `ForceMeshUpdate` 量 `textBounds`，而它在**未激活**对象上早退
                 //    ⇒ 新建/池化那条路上字号**一次都不缩** ⇒ 正文按名义字号印出去、越框 16~19%）。
@@ -5343,7 +5343,7 @@ public static class CardBaseDemo
                           $"长档键 `{longKeys[i]}`（{lang}）解析出非空且 ≠ 键名：\"{l}\"");
                 }
             }
-            // 引擎侧口径：有短档的拼 `/Short`；没短档的**回长档**
+            // 引擎侧口径：有短档的拼 `/Short`；没短档的**回常量兜底 `MenuDeck/Error/InvalidDeck/Short`**（2026-10-26 按原版 `.c:21-24` 订正 —— 原来这里写「回长档」）
             // （`DeckError.InvalidDeck` = A 2026-10-25 补在枚举**末尾**的那一档，⛔ 别插中间）
             Check(RuleEngine.DeckRules.DescribeShort(RuleEngine.DeckError.InvalidDeck) == "MenuDeck/Error/InvalidDeck/Short",
                   "`DeckRules.DescribeShort(InvalidDeck)` = `MenuDeck/Error/InvalidDeck/Short`"
@@ -5351,9 +5351,9 @@ public static class CardBaseDemo
             // 同一档走长档口：`Describe(InvalidDeck)` 必须是**长键**（短档不能污染长档）
             Check(RuleEngine.DeckRules.Describe(RuleEngine.DeckError.InvalidDeck) == "MenuDeck/Error/InvalidDeck",
                   "`DeckRules.Describe(InvalidDeck)` = `MenuDeck/Error/InvalidDeck`（长档不带 `/Short`）");
-            Check(RuleEngine.DeckRules.DescribeShort(RuleEngine.DeckError.TooFewCards) == "MenuDeck/Error/TooFewCards",
-                  "`DeckRules.DescribeShort(TooFewCards)` = **长档**（官方 15 条里只有两条有 `/Short`）"
-                + "｜🧨 给每条都加 `/Short` ⇒ 红");
+            Check(RuleEngine.DeckRules.DescribeShort(RuleEngine.DeckError.TooFewCards) == "MenuDeck/Error/InvalidDeck/Short",
+                  "`DeckRules.DescribeShort(TooFewCards)` = **`InvalidDeck/Short` 兜底**（原版 `…ToShortRawLocalizationString.c:21-24`："
+                + "`GetTermData(Format(\"MenuDeck/Error/{0}/Short\"))` 为空 ⇒ 回**常量**；⛔ 不是回长档）｜🧨 回长档 / 给每条都加 `/Short` ⇒ 红");
         }
         finally { Loc.RestoreForTest(back); Loc.PersistOverride = false; }
     }

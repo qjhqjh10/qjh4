@@ -524,16 +524,16 @@ namespace WarpforgeVFX
                 if (_extraTicks[i] != null) _extraTicks[i].ExtraTick(dt);
 
             // 🆕 原版 `DestroyByTime`：到点**直接销毁**（与 `destroyTime` 那条同一个 `DestroyAtLifetime`）
+            // 🔴 2026-10-26（X5）：**往下走之前先判一次活着** —— 上面的模块广播（`_modules[i].ModuleTick`）可能已经在本帧把宿主收掉：
+            //    原版 `AnimFXModuleAnimation.AnimationExitEnd` 就是 `Object.Destroy(gameObject)`（判据 → `WFModuleAnimation.cs` 文件头 §2）。
+            //    编辑/批处理里那条销毁走 `DestroyImmediate`（**同步**执行、`OnDestroy` 当场把 `_destroyed` 置真）⇒ 之后任何 `transform` /
+            //    `gameObject` 读都会抛 MissingReferenceException（2026-10-26 `AnimFXCheck.Run` R24 实测：断在 `PlayOneSound` 的 `transform.position`）。
+            //    运行期 `Destroy` 是**帧末**生效 ⇒ 同一帧还读得到、不抛；但实例已经判死，**不该再推音效/计时** ⇒ 两条路都从这里返回（正常收场，不是错误）。
+            if (_destroyed || this == null) { Debug.Log("[WarpforgeVFX] 跳过一次对已销毁特效的 Tick 尾部（宿主已被模块销毁 —— 正常收场，不是错误）。"); return; }
             if (!_exiting && _destroyAfterAt >= 0f && _time >= _destroyAfterAt) { DestroyAtLifetime(); return; }
 
-            if (!_exiting && _time >= _lifetime)
-            {
-                // 原版 `AnimFXController.OnEnable` 里那句 `Object.Destroy(gameObject, destroyTime)` 到点。
-                // ⚠️ **不走 `Exit()`** —— 原版那条路上不调 Exit、不广播模块、不停发射、不播 exitSounds
-                //    （判据见文件头）。`_destroyHandedOff` 也不挡：原版这句销毁在 OnEnable 就排好了。
-                DestroyAtLifetime();
-                return;
-            }
+            // 原版 `AnimFXController.OnEnable` 那句 `Object.Destroy(gameObject, destroyTime)` 到点 ⚠️ **不走 `Exit()`** —— 原版那条路上不调 Exit、不广播模块、不停发射、不播 exitSounds（判据见文件头）；`_destroyHandedOff` 也不挡：原版这句在 OnEnable 就排好了。
+            if (!_exiting && _time >= _lifetime) { DestroyAtLifetime(); return; }
 
             // 音效在**模块广播旁**（原版 `AnimFXController.Update` 里就是逐条 `sounds[i].Update(currentTime, …)`）。
             // ⚠️ 排在 `Exit()` **之后**：`exitSounds` 只有在 `exiting` 之后才开始判

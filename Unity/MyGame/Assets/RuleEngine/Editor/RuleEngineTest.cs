@@ -812,7 +812,7 @@ public static partial class RuleEngineTest
         Step(TestS23ResolveDeployCopyOfThisTroop);
         Step(TestS23ResolveInsteadOnAbilityLayer);
         Step(TestS23ResolveInsteadConditionalNotPairedOnAbilityLayer);
-        Step(TestS23ResolveLandingCancelsAttack);
+        Step(TestS23ResolveLandingCancelsThenReattacks);
 
         // 🆕 2026-10-19（引擎线波 1）：`RuleEngine/Core` 小改那一批的回归点。
         //  ⚠️ 本批 Host 文件只加这四行 Step 注册（测试体全在 `RuleEngineTest_S23_Resolve.cs`）——
@@ -15603,7 +15603,7 @@ public static partial class RuleEngineTest
     /// · 面朝下打出 = `CardScript.SetAmbush(true)` 的 4 个调用点（手牌 / 召唤 / 自动召唤 / 变身）；
     /// · **翻开只有两条**：① 它真挨到伤害（`ResolveDamageDealt:173`）；
     ///   ② **面朝下的它出手**（`_ResolveAttack:288-305`：`CancelAttack` + 双方 `ClearPendingDamage`
-    ///   + `SetAmbush(false)`，这一记**不出伤害**）；
+    ///   + `SetAmbush(false)`，随后 `:488` 压一条续攻 ⇒ **这一记照打**，净效果 = 一次攻击）；
     /// · ⛔ **没有「回合开始自动揭示」** —— `SetAmbush` 全二进制 7 个调用点里**一个都不在回合开始**
     ///   （粉丝规则书 `:166` 后半句在这个 build 未实现；我们旧的 `RevealAmbush` 是自造行为，已删）；
     /// · 触发闸 = `isPlayer(+0x40) == IsPlayerTurn(+0x274)`（`CardScript__SetAmbush.c:69-129`）
@@ -15696,15 +15696,15 @@ public static partial class RuleEngineTest
             Check(u.Attack, 1, "★ 也没触发伏击效果（还是 1）");
         }
 
-        // ---- ④ 面朝下的伏击单位出手 ⇒ **这一记被取消** + 翻开 + 触发（且**不吃攻击配额**）----
-        //  判据 = `BattleManager._ResolveAttack_d__438__MoveNext.c:288-305`：
-        //    `CancelAttack(攻方)` + 双方 `ClearPendingDamage` + `SetAmbush(false)`，
-        //    然后 `goto LAB_1809ad363` **直接去收尾**（不出伤害、不进反击）。
-        //  配额：`EntityScript.attacksThisTurn(+0x48)` 的写点全在攻击执行路
-        //    （`_AttackMeleeAnim:116` / `_ResolveAttackRangedAnim:69` / `_ResolveRangedAttack:17` /
-        //     `FinishAttackActionWithoutMoving:13` / `UsedActiveAbility:20` / `MissActions:26`）
-        //    ⇒ 取消的这一记**一处都到不了** ⇒ **不消耗**。见本文件头与
-        //    `资料/普查产出_1020/W58_回合流程_三处未定判据.md` §三·3.5。
+        // ---- ④ 面朝下的伏击单位出手 ⇒ 翻开 + 触发 `Ambush:` + **这一记照打**（耗 1 次配额）----
+        //  判据 = `BattleManager._ResolveAttack_d__438__MoveNext.c`（🥇 原版真体，逐行读过）：
+        //    · `:293` 有 `ambush`(0x4b0) + `:296 IsInPlay` ⇒ `:299 CancelAttack` → `:301/:303 ClearPendingDamage`
+        //      → `:305 SetAmbush(false)`（翻开）；🔴 **这里不是收尾** —— 流程落到 `:488`：
+        //    · `:488 AddFollowResolutionAttackContinuationAction` ⇒ 它 `:124` 调 `BattleAction___ctor(&a, **1**, …)`，
+        //      `1` = `BattleActionType.attack`（与常规攻击 `AddAttackAction.c:36` 同号；landing 那支 `:426`/`:451` 同）
+        //      ⇒ 压回一条**普通攻击**动作；`ResolveAction` 的 `case 1`（与 0x34/0x35/0x4a 同组，`ResolveAction.c:689-692`）
+        //      出队后再进一遍 `_ResolveAttack`、**照常结算伤害** ⇒ 净效果 = 恰好一次攻击。
+        //  配额：`EntityScript.attacksThisTurn(+0x48)` 的写点全在攻击执行路 ⇒ 这一记**真消耗** 1 次。
         {
             var amb4 = new CardDef("FixtureAmbush4", "FixtureAmbush4", "unit",
                                    "Ambush: Gain +3 Attack",
@@ -15717,25 +15717,33 @@ public static partial class RuleEngineTest
             var u = Board(ctx, 0, 3);
             PassTurn(ctx); PassTurn(ctx);              // 解召唤病（顺便证明回合开始不翻开）
             CheckTrue(u.FaceDown, "前提：解了召唤病，但它**仍然面朝下**");
-            var foe = Place(ctx, 1, 3, Unit("EFoeB", 1, 0, 10));
-            int foeHp = foe.Health, declared0 = ctx.AttacksDeclared[0];
+            // 🔴 **2026-10-26（B9 · `X4` 就地订正，α：断言写错 —— 夹具实参读错）**：
+            //   夹具签名是 **`Unit(name, cost, atk, hp, …)`**（`RuleEngineTest.cs:2423`）⇒
+            //   这里原来写 `Unit("EFoeB", 1, 0, 10)` = cost 1 / **atk 0** / hp 10 —— `T1` 把 `cost` 当成了 `atk`，
+            //   所以下面那句「反击 1 点」是**从一个不存在的攻击力**来的（0 攻的单位不会反击）。
+            //   改成 **atk = 1**：主伤害 4 落下后它活着（10 − 4 = 6）⇒ 反击 **1** 点；
+            //   `u` 的 `armour` = 0（`CardDef` 默认值、本夹具没给）⇒ 1 点全额进血 ⇒ `u` 9 → 8。
+            var foe = Place(ctx, 1, 3, Unit("EFoeB", 1, 1, 10));
+            Check(foe.Attack, 1, "（夹具前提）被打那个 **atk = 1**（`Unit` 的第 3 个实参是 `atk`，不是 `cost`）⇒ 它真会反击");
+            int foeHp = foe.Health, selfHp = u.Health, declared0 = ctx.AttacksDeclared[0];
             ctx.ClearSignals();
 
             CheckCode(RuleCore.DeclareAttack(ctx, 0, 3, 1, 3), RuleCodes.OK,
                       "面朝下的伏击单位出手");
             CheckTrue(!u.FaceDown, "★ **它翻开了**");
             CheckTrue(!u.Has(KeywordTable.Ambush),
-                      "★ P2-A（攻击取消那条出口）：翻开后 `ambush` 关键词也摘掉了"
+                      "★ P2-A（续攻那条出口）：翻开后 `ambush` 关键词也摘掉了"
                     + "（原版 `_ResolveAttack:305 SetAmbush(false)` 同一个摘 trait）");
-            Check(foe.Health, foeHp, "★ 目标**一点血都没掉** —— 这一记攻击被取消了（原版 `:299-303`）");
             Check(u.Attack, 4, "★ 伏击效果触发（1 + 3）—— 翻开发生在它主人自己的回合");
-            Check(u.AttacksThisTurn, 0, "★ **取消的这一记不消耗攻击配额**（原版计数写在攻击执行路里，"
-                                      + "而伏击支直接去收尾）");
-            Check(ctx.AttacksDeclared[0], declared0, "★ 任务计数「攻击 N 次」也**不记**（这一记没发生）");
-            CheckTrue(!u.Exhausted, "★ 它**没有**因此疲劳");
-            CheckCode(RuleCore.DeclareAttack(ctx, 0, 3, 1, 3), RuleCodes.OK,
-                      "★ 配额还在 ⇒ **同一回合还能再打一记**");
-            Check(foe.Health, foeHp - 4, "★ 这一记是真打出去的（4 点）—— 与上一记「0 点」成对");
+            Check(foe.Health, foeHp - 4, "★ 目标**照样掉 4 血** —— 这一记真打出去了（原版 `:488` 续攻）");
+            Check(u.Health, selfHp - 1, "★【灭自证】它自己也吃了**反击 1 点**（夹具 `atk = 1`、`u` 的 `armour = 0` ⇒ 1 点全额："
+                                      + selfHp + " → " + (selfHp - 1) + "）⇒ 续攻那一记走完了整段攻击"
+                                      + "（主伤害 + 反击）；旧的「取消这一记」下本行与上一行不可能同时成立");
+            Check(u.AttacksThisTurn, 1, "★ **真消耗 1 次攻击配额**（原版计数写在攻击执行路）");
+            Check(ctx.AttacksDeclared[0], declared0 + 1, "★ 任务计数「攻击 N 次」**恰好 +1**（不是 >0）");
+            CheckTrue(u.Exhausted, "★ 配额 1 用完 ⇒ 疲劳");
+            // 与旧的「配额还在、还能再打」正好翻转：现在第二记被配额挡下。
+            CheckCode(RuleCore.DeclareAttack(ctx, 0, 3, 1, 3), RuleCodes.ErrExhausted, "★ 配额用完 ⇒ **同一回合打不了第二记**（旧期望是「还能再打一记、4 点」）");
         }
     }
 
@@ -15893,7 +15901,7 @@ public static partial class RuleEngineTest
             Check(n, 0, "★ 没翻开 ⇒ **一条 `AmbushExit` 都不发**（🧨 把 `Emit` 提到护盾那一关之前 ⇒ 本条红）");
         }
 
-        // ---- ②d 另一条出口：**面朝下的它出手 ⇒ 这一记被取消、翻开**（`effect = "attack"`）----
+        // ---- ②d 另一条出口：**面朝下的它出手 ⇒ 取消这一记、再由续攻补打、翻开**（`effect = "attack"`）----
         //  🔴 **2026-10-20（`W58-AMBUSH`）取代原来的 `window` 那一档** —— `window`（回合开始自动揭示）
         //    是自造行为、已删（原版 `SetAmbush` 全二进制 0 个回合开始调用点）。
         //    现在这一档对应原版 `_ResolveAttack:288-305` 那条 `SetAmbush(false)`。
@@ -15913,7 +15921,7 @@ public static partial class RuleEngineTest
             CheckCode(RuleCore.DeclareAttack(ctx, 0, 3, 1, 3), RuleCodes.OK, "面朝下的它出手");
             int n = 0;
             foreach (var e in ctx.Signals) if (e.Kind == EvtKind.AmbushExit) { n++; atkEv = e; }
-            Check(n, 1, "★ 「用它攻击 ⇒ 攻击被取消、翻开」这一条出口**也发**"
+            Check(n, 1, "★ 「用它攻击 ⇒ 取消这一记 + 续攻补打、翻开」这一条出口**也发**"
                       + "（本事件的语义 = 「不再面朝下」这个状态迁移）");
             Check(atkEv != null ? atkEv.Effect : null, "attack", "★ 标签 = `attack`");
             CheckTrue(atkEv != null && BoardSpec.IsValid(atkEv.Slot) && Board(ctx, 0, atkEv.Slot) == u,
@@ -33048,7 +33056,7 @@ public static partial class RuleEngineTest
         }
 
         // ==============================================================
-        //  ⑧ **伏击那一维**（`PlayAmbush`）—— 两态 + 判据的两个半句各钉一次
+        //  ⑧ **伏击那一维**（`PlayAmbush`）—— 两态 + 两个交叉态（判据只有一句，见 ⑧-c）
         // ==============================================================
         {
             // 夹具照 `TestAmbush` 那份**已被证过**的构造（desc 里写正文明细）
@@ -33092,18 +33100,18 @@ public static partial class RuleEngineTest
             var u2 = OnBoardByName(ctx, 0, "A985Plain");
             CheckTrue(u2 != null && !u2.FaceDown, "★ ⑧-b【交叉】它没面朝下");
 
-            // ---- ⑧-c 只有 `ambush` 关键词、**卡面没写正文** ⇒ 不算伏击 ----
-            //   这一格钉的是判别式的**第二个半句**（`TriggerOps(ambush) != null`）。
+            // ---- ⑧-c 只有 `ambush` 关键词、**卡面没写正文** ⇒ **照样算伏击、照样面朝下** ----
+            //   判据 = `_ResolvePlayCardFromHand_d__447__MoveNext.c:194` 只判 `HasCurrentTrait(0x4b0)` ⇒ `:197 SetAmbush(true)`。
             ctx.ClearSignals();
             CheckCode(RuleCore.PlayCard(ctx, 0, HandIdx(ctx, 0, "A985BareAmb"), 5), RuleCodes.OK,
                       "⑧-c 打出「光有 `ambush` 关键词、没有正文」的那张");
             var ev3 = FindSignal(ctx, EvtKind.Play);
-            CheckTrue(ev3 != null && !ev3.PlayAmbush,
-                      "★ ⑧-c 有 `ambush` 关键词但**正文是空的** ⇒ `PlayAmbush == false`"
-                    + "｜🧨 把 `&& card.TriggerOps(KeywordTable.Ambush) != null` 那半句删掉 ⇒ 本行红");
+            CheckTrue(ev3 != null, "⑧-c 前提：事件流里有 `Play`（⛔ 别写成 `if (ev3 != null) Check(...)`）");
+            CheckTrue(ev3 != null && ev3.PlayAmbush,
+                      "★ ⑧-c 有 `ambush` 关键词、**正文是空的** ⇒ `PlayAmbush == true`（原版只判关键词）"
+                    + "｜🧨 把 `TriggerOps(ambush) != null` 那半句加回去 ⇒ 本行红");
             var u3 = OnBoardByName(ctx, 0, "A985BareAmb");
-            CheckTrue(u3 != null && !u3.FaceDown,
-                      "★ ⑧-c【交叉】这种卡**也不会**面朝下（面朝下了没有任何效果可触发）");
+            CheckTrue(u3 != null && u3.FaceDown, "★ ⑧-c【交叉】它**真的面朝下**在场（`FaceDown`）");
 
             // ---- ⑧-d 🔴【与靶向**分开**断】伏击那条**不带**靶向 ----
             //   ⛔ 这一格是「一个 bool 顶两个语义」的**结构判别式**：本格要求

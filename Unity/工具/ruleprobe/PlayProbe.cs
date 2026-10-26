@@ -149,6 +149,10 @@ class PlayProbe
         /// ⚠️ 它**不进** `Fingerprint` / `FingerprintRow`（那两处动一下就要重钉 `PinnedPlayMd5`）；
         /// 只作为 dump 的**附加列**与单卡读数的一行。</summary>
         public string PlayOrder = "";
+        /// <summary>🆕 `P3`（2026-10-26）：`preset pick=1` 时**实际点定的那个目标**的卡名
+        /// （空串 = 这一张没走 pick / 目标池是空的 ⇒ 没点）。见 <see cref="PresetSpec.Pick"/>。
+        /// ⚠️ 它**不进** `Fingerprint` / `FingerprintRow`（同 `PlayOrder`），只作 dump 的**附加列**。</summary>
+        public string PickTarget = "";
         public int EnergyDelta;              // 能量净变动（读数用）
         public int HandCostDelta;            // 手牌总价净变动（读数用）
         /// <summary>打出去之后**引擎自己的事件日志**末尾几行 —— 🔴 少了它，「什么都没发生」就只能靠猜；
@@ -205,15 +209,16 @@ class PlayProbe
             catch (Exception ex)
             {
                 Console.Error.WriteLine("!! `preset` 写法不对：" + ex.Message);
-                Console.Error.WriteLine("   用法：preset dead[=N][:Subtype][,enemyhand=N][,chipenemy=1][,sub=<卡id|卡名>][,legal=1]"
-                                        + " [,hand=<卡id|卡名|self>][,handn=N][,event=<gainfaith|gainquest|gainspirit|createssecret|createssabotage>][,amount=N][,legacy=1]"
+                Console.Error.WriteLine("   用法：preset dead[=N][:Subtype][,enemyhand=N][,chipenemy=1][,sub=<卡id|卡名>][,legal=1][,pick=1]"
+                                        + " [,hand=<卡id|卡名|self>][,handn=N][,event=<gainfaith|gainquest|gainspirit|createssecret|createssabotage>][,amount=N][,legacy=1][,face=ambush]"
                                         + " —— 例 `preset dead=1:Infantry` / `preset enemyhand=2` / `preset chipenemy=1`"
                                         + " / `preset sub=BL1`（把夹具的 `FIX_A` 换成池内一张真卡，`B8_AH`）"
-                                        + " / `preset hand=self,event=gainfaith`（**手牌态监听卡**，`B8_AV`）");
+                                        + " / `preset hand=self,event=gainfaith`（**手牌态监听卡**，`B8_AV`）"
+                                        + " / `preset face=ambush`（**面朝下 + 带 `ambush` 的出手**，`B9_A3`）");
                 return 2;
             }
         }
-        if (string.Equals(key, "all", StringComparison.OrdinalIgnoreCase)) return Sweep(pool, dumpPath, pfPath);
+        if (string.Equals(key, "all", StringComparison.OrdinalIgnoreCase)) return Sweep(pool, dumpPath, pfPath, preset);
         if (string.Equals(key, "check", StringComparison.OrdinalIgnoreCase)) return Check(pool, basePath);
 
         var hit = Find(pool, key);
@@ -221,6 +226,8 @@ class PlayProbe
         // 🆕 `B8_AV`（2026-10-26）：**手牌态监听**那一档 —— 与「真打一发」是两条完全不同的路
         //   （这条**不把被测卡打出去**，它要那张卡**躺在手里**）。见 `PresetSpec` 的 `HandListenMode`。
         if (preset != null && preset.HandListenMode) return RunHandListen(pool, hit, preset);
+        // 🆕 `B9_A3`（2026-10-26）：**面朝下 + 带 `ambush` 的出手**那一档（见 `PresetSpec.Face`）。
+        if (preset != null && preset.FaceAmbushMode) return RunFaceAmbush(pool, hit, preset);
         var r = Measure(pool, hit, preset);
         Print(r);
         // 🆕 `A1431` 第三笔：**单卡也要能看事件电池**（否则「这一张到底有没有被验到」得整池跑一遍才知道）。
@@ -366,6 +373,32 @@ class PlayProbe
         /// ⇒ 那是一个**量具盲区**，不是引擎读数。⛔ 不传 = 夹具与目标挑法都不变。</summary>
         public int Legal;
 
+        /// <summary>🆕 `P3`（2026-10-26）：`pick=1` —— **单位卡也给它一个「玩家点定的目标」**。
+        ///
+        /// <para>🔴 它治的是哪一条：不带目标的单位卡 `Rally`（例如 `AM70 Scion Medic` 的
+        /// `Rally: Heal 2 to a friendly unit`）在**默认夹具**里会把「友方单位」解析成
+        /// **刚打出去的这张卡自己**（它落场后是棋盘扫描里第一个友方单位），而它通常是满血
+        /// ⇒ 治疗恒 0、整族「看不到」。</para>
+        ///
+        /// <para>**判据（第一权威，现读）**：原版 `AbilityLogic.GetTargets` 里 `ta=30 (target)`
+        /// 那一支（`AbilityLogic__GetTargets.c:192-207` = `iVar6 == 0x1e`）**只**把**调用方传进来的
+        /// 那个目标**放进结果表，**传 null 就返回空表**（⛔ 不以「自己」兜底）。
+        /// 而调用方传的就是 `abilityData.targetCard`（`AbilityLogic__CanPlayAbility.c:47-57` 读
+        /// `+0x10/+0x18/+0x20` 三个字段）；`targeted == true` 的卡**没有目标时整段
+        /// `ThisCardPlayed` 直接跳过**（`RawCardScript.OnCardPlayedWithTarget`：`if (!targeted || target != null)`
+        /// 才 `TriggerAbilities`，否则只打一条 `OnCardPlayedWith null Target` 警告）。
+        /// ⇒ 原版语义 = **这类卡必须带一个玩家选的目标**；夹具给一个合法目标才叫保真。</para>
+        ///
+        /// <para>**怎么挑**：走**产品代码**自己的目标池 `EffectResolver.PlayTargetPool`
+        /// （= 拖拽高亮 / `IsLegalPlayTarget` 问的那一处，⛔ 不另立一套筛），
+        /// 在池里**优先取已受伤的那个**（治疗只有在受伤目标上才看得见；对伤害类无害），
+        /// 然后把它当 `RuleCore.PlayCard(..., chosen)` 的 `chosen` 传进去。</para>
+        ///
+        /// <para>⚠️ 这是**量具干预**（与 `preset dead=` / `hand=` 同一档）；⛔ 不传 `pick=1` 时
+        /// 夹具一个字节都不变（全池默认读数不受影响 —— 本档只用于**另一次**全池扫描）。</para>
+        /// </summary>
+        public int Pick;
+
         // ==================================================================
         //  🆕 `B8_AV`（2026-10-26）：「手牌态监听卡 + 触发一个事件」夹具
         // ==================================================================
@@ -400,6 +433,22 @@ class PlayProbe
         /// <summary>`legacy=1` —— **改前形状**：广播不带 `boardAndPersistentOnly`（= 四跳，会把
         /// 手牌里那些监听者真的叫醒并 `ResolveOps`）。⛔ 这是**复现历史缺陷**用的，不是产品路径。</summary>
         public bool Legacy;
+
+        // ==================================================================
+        //  🆕 `B9_A3`（2026-10-26）：**面朝下的伏击单位出手**夹具
+        // ==================================================================
+        //
+        // 🔴 它治的是哪一条（`A1` 本批的原话）：探针电池的 `selfChip`（`ApplyDamage(被测单位, 2)`）
+        //   排在两发攻击**之前**，而引擎 `ApplyDamage` 一挨伤害就把 `FaceDown` 置假
+        //   ⇒ 「面朝下的伏击单位出手」那一支**结构上到不了**；第二发又带 `forced:true`，本来也不走。
+        //   ⇒ 没有这条夹具之前，「伏击翻开之后再补打这一记」在产品里**零可观察量**。
+        //
+        // **形状**：`play <卡id|卡名> preset face=ambush`（见 <see cref="RunFaceAmbush"/>）。
+        // ⚠️ 这是量具干预（与 `preset dead=` / `hand=` 同一档）；⛔ 不传 `face=` 时一条都跑不到。
+        /// <summary>`face=ambush` —— 把被测单位摆成「面朝下 + 带 `ambush`」再让它出手（只认这一个取值）。</summary>
+        public string Face;
+
+        public bool FaceAmbushMode { get { return Face != null; } }
 
         public bool HandListenMode { get { return Hand != null || Event != null; } }
 
@@ -458,6 +507,11 @@ class PlayProbe
                     case "legal":
                         ps.Legal = string.IsNullOrEmpty(val) ? 1 : int.Parse(val);
                         break;
+                    // 🆕 `P3`（2026-10-26）：`pick=1` —— 单位卡也给它一个「玩家点定的目标」
+                    //   （见 `PresetSpec.Pick` 的 doc；判据 = 原版 `ta=30` 那一支与 `targeted` 两道闸）。
+                    case "pick":
+                        ps.Pick = string.IsNullOrEmpty(val) ? 1 : int.Parse(val);
+                        break;
                     // 🆕 `B8_AV`（2026-10-26）：手牌态监听卡 ＋ 事件（见 `HandListenMode` 上面那一整段注释）。
                     case "hand":
                         // ⚠️ 用 `rest`（不是 `val`）—— 卡名里可能带 `:`；这里整段就是那张卡的名字/id。
@@ -480,9 +534,17 @@ class PlayProbe
                     case "legacy":
                         ps.Legacy = (string.IsNullOrEmpty(val) || val != "0");
                         break;
+                    // 🆕 `B9_A3`（2026-10-26）：`face=ambush` —— 面朝下 + 带 `ambush` 的出手夹具
+                    //   （见 `PresetSpec.Face` 上面那一整段注释；⛔ 认不出就抛，不静默忽略）。
+                    case "face":
+                        ps.Face = string.IsNullOrEmpty(rest) ? null : rest.Trim();
+                        if (string.IsNullOrEmpty(ps.Face)
+                            || !string.Equals(ps.Face, "ambush", StringComparison.OrdinalIgnoreCase))
+                            throw new ArgumentException("`face=` 今天只认 `ambush`（现读 `" + (ps.Face ?? "") + "`）");
+                        break;
                     default:
                         throw new ArgumentException("不认识的预置项 `" + raw + "`（只认 dead / enemyhand / chipenemy / sub / legal"
-                                                  + " / hand / handn / event / amount / legacy）"
+                                                  + " / pick / hand / handn / event / amount / legacy / face）"
                                                   + "　⚠️ `preset` 是用**逗号**分项的 ⇒ 卡名里带逗号的两张"
                                                   + "（`Varius, Lord Kakophonist` / `Xarahan, Daemon Prince`）"
                                                   + "在 `hand=` / `sub=` 里会被切碎，请改用**卡 id**");
@@ -770,6 +832,149 @@ class PlayProbe
         return 0;
     }
 
+    // ==================================================================
+    //  🆕 `B9_A3`（2026-10-26）：**面朝下的伏击单位出手 ⇒ 翻开 + 续攻**
+    // ==================================================================
+    //
+    // 🔴 它治的是哪一条（`A1` 本批的原话）：探针电池的 `selfChip`（`ApplyDamage(被测单位, 2)`）
+    //   排在两发攻击**之前**，而引擎 `ApplyDamage` 一挨伤害就把 `FaceDown` 置假
+    //   ⇒ 「面朝下的伏击单位出手」那一支**结构上到不了**；第二发又带 `forced:true`，本来也不走。
+    //   ⇒ 没有这条夹具之前，「伏击翻开之后再补打这一记」在产品里**零可观察量**。
+    //
+    // **形状**：`play <卡id|卡名> preset face=ambush`
+    //   · 被测卡必须是 `type=unit`（督军没有「打出去」这个动作）；
+    //   · 走引擎自己的 `PlayCard` 落到 `FreeSlot`，再**过一个完整来回**
+    //     （清「部署当回合不能行动」：`Exhausted` / `AttacksThisTurn`）；
+    //   · 然后把它摆成 **面朝下 + 带 `ambush`** —— 两个写入口都是引擎自己的
+    //     （`FaceDown` 位 / `AddKeyword`，与 `PlayCard` 那条「面朝下下场」用的是同一对，
+    //     ⛔ 不手改 `Board`）；
+    //   · 最后 `RuleCore.DeclareAttack` 打一发，逐条比前后局面。
+    //
+    // ⚠️ **这是量具干预**（与 `preset dead=` / `hand=` 同一档）：它**不**声称「原版开局这个单位就面朝下」；
+    //   它只回答「面朝下 + 带 `ambush` 的单位出手时，那一记**到底打不打出去**」。
+    // ⛔ 不传 `face=` 时一条都跑不到这里 ⇒ 全池指纹不受影响。
+    static int RunFaceAmbush(List<CardDef> pool, CardDef card, PresetSpec ps)
+    {
+        if (card.Type != "unit")
+        {
+            Console.Error.WriteLine("!! `face=ambush` 只对 `type=unit` 有意义（现读 `" + card.Id + "` type=" + card.Type + "）");
+            return 2;
+        }
+        int handIdx; bool injected;
+        var ctx = BuildFixture(pool, card, null, out handIdx, out injected, ps);
+        if (handIdx < 0)
+        {
+            Console.Error.WriteLine("!! 夹具没接住：`" + card.Id + "` 打出时不在手牌里");
+            return 2;
+        }
+        int slot;
+        int rc = RuleCore.PlayCard(ctx, 0, handIdx, FreeSlot(ctx, 0), out slot);
+        if (rc != RuleCodes.OK)
+        {
+            Console.Error.WriteLine("!! 被测卡打不出去 rc=" + CodeName(rc) + " ⇒ 本档无从起步");
+            return 2;
+        }
+        // 过一个完整来回：清「部署当回合不能行动」（`Exhausted` / `AttacksThisTurn`）——
+        // 否则下一发会被疲劳/配额挡住，读数就变成「被闸挡下」而不是「伏击那一支跑没跑」。
+        RuleCore.EndTurn(ctx); RuleCore.BeginTurn(ctx);   // → P1
+        RuleCore.EndTurn(ctx); RuleCore.BeginTurn(ctx);   // → P0
+        SetEnergy(ctx, 0);
+        SetFaction(ctx, 0);
+
+        var atk = ctx.Players[0].Board[slot];
+        if (atk == null)
+        {
+            Console.Error.WriteLine("!! 过完一个来回，被测单位已经不在 " + slot + " 格（被别的效果移除）");
+            return 2;
+        }
+        // 摆成「面朝下 + 带 `ambush`」—— 两个写入口都是引擎自己的（同 `PlayCard` 的「面朝下下场」那一支）。
+        bool hadAmbush = atk.Has(KeywordTable.Ambush);
+        atk.FaceDown = true;
+        if (!hadAmbush) atk.AddKeyword(KeywordTable.Ambush, 1);
+
+        // 目标：优先**非督军**（打死督军会牵出 `IsOver` 那一串，读数不好读）；没有就退回任意一格。
+        int tgtSlot = -1;
+        for (int s = 0; s < BoardSpec.Size && tgtSlot < 0; s++)
+        {
+            var u = ctx.Players[1].Board[s];
+            if (u != null && !u.IsWarlord) tgtSlot = s;
+        }
+        for (int s = 0; s < BoardSpec.Size && tgtSlot < 0; s++)
+            if (ctx.Players[1].Board[s] != null) tgtSlot = s;
+        if (tgtSlot < 0)
+        {
+            Console.Error.WriteLine("!! 敌方棋盘一个单位都没有（夹具坏了，不是被测卡的问题）");
+            return 2;
+        }
+        var tgt = ctx.Players[1].Board[tgtSlot];
+        int hpBefore = tgt.Health;
+        string tgtCellBefore = Cell(tgt);   // ⚠️ 出手之后它可能已经离场（空串/`.`），要在出手前取
+
+        // 打法：先近战，近战不可用（`ErrNoMeleeAttack` 那一族）再试远程 —— 读数里如实打出来。
+        bool ranged = false;
+        int pre = RuleCore.CanAttackNow(ctx, 0, slot, false);
+        if (pre != RuleCodes.OK && RuleCore.CanAttackNow(ctx, 0, slot, true) == RuleCodes.OK) ranged = true;
+
+        var before = Capture(ctx);
+        string atkCellBefore = Cell(atk);
+        // ⚠️ 这三个状态必须**在出手之前**取下来：`DeclareAttack` 会当场把 `FaceDown` 置假、
+        //    摘掉 `ambush`、并把 `AttacksThisTurn` +1 / 配额用完时置 `Exhausted` ⇒
+        //    在打印那一刻再读，读到的是**出手之后**的状态（第一版就是这么错的）。
+        bool faceBefore = atk.FaceDown;
+        bool ambBefore = atk.Has(KeywordTable.Ambush);
+        bool exhBefore = atk.Exhausted;
+        int atkCntBefore = atk.AttacksThisTurn;
+        int rcAtk = RuleCore.DeclareAttack(ctx, 0, slot, 1, tgtSlot, ranged);
+        var after = Capture(ctx);
+        var changes = new List<string>();
+        Diff(before, after, changes);
+
+        Console.WriteLine("=== play " + card.Id + " · " + card.Name + " [" + card.Type + "] ‖ 面朝下伏击出手夹具（`B9_A3`）===");
+        Console.WriteLine("  被测单位    : " + card.Id + " · " + card.Name + "（落第 " + slot + " 格）");
+        Console.WriteLine("  敌目标      : 第 " + tgtSlot + " 格 " + tgtCellBefore + "（出手前）");
+        Console.WriteLine("  摆好的状态  : FaceDown=" + (faceBefore ? "真" : "假")
+                          + " · Has(ambush)=" + (ambBefore ? "真" : "假")
+                          + "（摆之前" + (hadAmbush ? "**本来就有** ambush" : "**没有** ambush，本档补上") + "）"
+                          + " · Exhausted=" + (exhBefore ? "真" : "假")
+                          + " · AttacksThisTurn=" + atkCntBefore);
+        Console.WriteLine("  出手        : `RuleCore.DeclareAttack`（" + (ranged ? "远程" : "近战") + "）rc=" + rcAtk
+                          + "（" + CodeName(rcAtk) + "）"
+                          + (pre != RuleCodes.OK ? "　⚠️ 近战前置检查 rc=" + pre + "（" + CodeName(pre) + "）" : ""));
+        Console.WriteLine();
+        Console.WriteLine("  ── 出手之前 ──");
+        Console.WriteLine("     " + Fingerprint(before));
+        Console.WriteLine("     " + atkCellBefore);
+        Console.WriteLine("  ── 出手之后 ──");
+        Console.WriteLine("     " + Fingerprint(after));
+        Console.WriteLine();
+        Console.WriteLine("  ── 变化逐条（" + changes.Count + " 条）──");
+        if (changes.Count == 0) Console.WriteLine("     （局面一个字段都没动）");
+        foreach (var ch in changes) Console.WriteLine("     " + ch);
+        Console.WriteLine();
+        Console.WriteLine("  ── 关键读数（这一档要回答的就是这两行）──");
+        var atkAfter = ctx.Players[0].Board[slot];
+        Console.WriteLine("    · 翻开 / 撤伏击：FaceDown=" + (atkAfter == null ? "（不在场）"
+                          : (atkAfter.FaceDown ? "**仍然为真**" : "已置假"))
+                          + " · Has(ambush)=" + (atkAfter == null ? "（不在场）"
+                          : (atkAfter.Has(KeywordTable.Ambush) ? "**仍然有**" : "已摘掉")));
+        Console.WriteLine("    · 敌目标血量：" + hpBefore + " → " + (ctx.Players[1].Board[tgtSlot] == null
+                          ? "（已离场）" : ctx.Players[1].Board[tgtSlot].Health.ToString())
+                          + " · 对敌伤害累计（`ctx.DamageToEnemy[1]`）：" + before.Dmg[1] + " → " + after.Dmg[1]);
+        Console.WriteLine();
+        Console.WriteLine("  ── 引擎自己的事件日志（末尾 16 条）—— 「一记都没打」时先看这里它自己说了什么 ──");
+        var tail = ctx.Events.Skip(Math.Max(0, ctx.Events.Count - 16)).ToList();
+        if (tail.Count == 0) Console.WriteLine("     （一条都没有）");
+        foreach (var l in tail) Console.WriteLine("     " + Clip(l, 150));
+        Console.WriteLine();
+        Console.WriteLine("  ── 怎么读这一档（⛔ 本工具不判对错）──");
+        Console.WriteLine("    · 原版 `_ResolveAttack…:288-305` 在「面朝下的攻方出手」那一支：先 `SetAmbush(false)`（翻开 + 触发 `Ambush:`），");
+        Console.WriteLine("      随后 `:478` 压一条 `AddFollowResolutionAttackContinuationAction`（`BattleActionType.attack`）⇒ **这一记要补打**；");
+        Console.WriteLine("    · ⇒ 读数为「揭开 + 撤 ambush」**且**「敌目标掉血 / 对敌伤害累计 > 0」= 与判据一致；");
+        Console.WriteLine("      若只有前半句、伤害仍是 0 ⇒ **续攻那一半没落地**（`B9 A1` 修的就是这一条）。");
+        Console.WriteLine("    ⚠️ 伤害为 0 也可能是「这一记被别的闸挡了」（看上面的 rc 与日志），⛔ 别单看伤害一个数。");
+        return 0;
+    }
+
     /// <summary>把 `event=` 指定的那个广播**打进去**。返回 `null` = 成功；否则返回错误文案（⛔ 不静默）。
     /// `pathDesc` 回填「走的哪条路」（读数里要看得见 —— 产品路径和「直调广播」是两件事）。
     ///
@@ -887,8 +1092,28 @@ class PlayProbe
         if (card.IsUnit)
         {
             int slot = FreeSlot(ctx, 0);
-            r.How = "`RuleCore.PlayCard`（落第 " + slot + " 格）";
-            r.Rc = RuleCore.PlayCard(ctx, 0, handIdx, slot);
+            // 🆕 `P3`（2026-10-26）：`pick=1` ⇒ 给这张单位卡**一个玩家点定的目标**（见 `PresetSpec.Pick`）。
+            //   判据：原版 `targeted == true` 的卡**没有目标时整段 `ThisCardPlayed` 直接跳过**
+            //   （`RawCardScript.OnCardPlayedWithTarget`）；而 `ta=30` 那一支只认调用方传进来的目标
+            //   （`AbilityLogic__GetTargets.c:192-207`）。⛔ 不传 `pick=1` ⇒ 走原来那一句，一个字节都不变。
+            UnitState chosen = null;
+            if (preset != null && preset.Pick > 0)
+                chosen = PickPlayTarget(ctx, 0, card);
+            if (chosen != null)
+            {
+                r.PickTarget = chosen.Name ?? "";
+                r.How = "`RuleCore.PlayCard`（落第 " + slot + " 格 · `pick=1` 点定目标 = "
+                      + chosen.Name + "）";
+                r.Rc = RuleCore.PlayCard(ctx, 0, handIdx, slot, chosen);
+            }
+            else
+            {
+                if (preset != null && preset.Pick > 0)
+                    r.How = "`RuleCore.PlayCard`（落第 " + slot + " 格 · `pick=1` **目标池为空 ⇒ 没点**）";
+                else
+                    r.How = "`RuleCore.PlayCard`（落第 " + slot + " 格）";
+                r.Rc = RuleCore.PlayCard(ctx, 0, handIdx, slot);
+            }
         }
         else
         {
@@ -1317,20 +1542,23 @@ class PlayProbe
     }
 
     /// <summary>走一趟事件电池（<see cref="RunEventPass"/> 的正文与取舍见本区块头注）。</summary>
-    static EventPass RunEventPass(List<CardDef> pool, CardDef card)
+    static EventPass RunEventPass(List<CardDef> pool, CardDef card, PresetSpec preset = null)
     {
-        return RunEventPass(pool, card, PassVariant.Main);
+        return RunEventPass(pool, card, PassVariant.Main, preset);
     }
 
     /// <summary>`A1965`：带**夹具变体**的一趟电池（三个变体见 <see cref="PassVariant"/>）。
     /// ⚠️ 主档（`Main`）的步骤序列 = 原六步 ＋ 新增 6 步（`selfChip`/`chip2`/`tactic`/`troop2`/
     ///   `friendDies`/`collect`）＋ `enemyTactic`；三个变体**只改夹具的起始状态**，步骤一字不差
-    ///   ⇒ 变体与主档的读数可以直接并进同一个 `net`（设计 §四）。</summary>
-    static EventPass RunEventPass(List<CardDef> pool, CardDef card, PassVariant variant)
+    ///   ⇒ 变体与主档的读数可以直接并进同一个 `net`（设计 §四）。
+    /// 🆕 `P3`（2026-10-26）：`preset` 非 null 时**同一套预置**也进电池夹具 —— 否则「另一次全池扫描
+    ///   带预设」这条路上，主档有预置、电池没有 ⇒ 两半读数不同口径（而且不会报错）。</summary>
+    static EventPass RunEventPass(List<CardDef> pool, CardDef card, PassVariant variant,
+                                  PresetSpec preset = null)
     {
         var ep = new EventPass();
         int handIdx; bool injected;
-        var ctx = BuildFixture(pool, card, null, out handIdx, out injected);
+        var ctx = BuildFixture(pool, card, null, out handIdx, out injected, preset);
 
         // ---- 🆕 `A1965` 变体准备（⛔ 全部在「打出被测卡」之前做完）----
         switch (variant)
@@ -1376,7 +1604,12 @@ class PlayProbe
 
         // ---- ⓪ 出牌（与 `MeasurePlay` 同一条路、同一个落点选择）----
         int slot = -1;
-        ep.PlayRc = RuleCore.PlayCard(ctx, 0, handIdx, FreeSlot(ctx, 0), out slot);
+        // 🆕 `P3`（2026-10-26）：`pick=1` ⇒ 与主档**同一个**目标挑法（`PickPlayTarget`），
+        //   否则「主档带目标、电池不带」两条读数不同口径（⛔ 不许这样，且它不会报错）。
+        UnitState picked = (preset != null && preset.Pick > 0) ? PickPlayTarget(ctx, 0, card) : null;
+        ep.PlayRc = picked != null
+            ? RuleCore.PlayCard(ctx, 0, handIdx, FreeSlot(ctx, 0), out slot, picked)
+            : RuleCore.PlayCard(ctx, 0, handIdx, FreeSlot(ctx, 0), out slot);
         ep.Played = ep.PlayRc == RuleCodes.OK;
         ep.Steps.Add("play=" + ep.PlayRc);
         if (!ep.Played) return ep;              // 打不出去 ⇒ 电池无从起步（主档已经报了这条）
@@ -1840,19 +2073,19 @@ class PlayProbe
     /// <summary>`A1431` 第三笔：一张卡的**事件电池读数**（含对照局的净差）。
     /// 🆕 `A1965`：除主档那一遍之外，再跑**三个夹具变体**（<see cref="PassVariant"/>），
     ///   四遍的净差**取并集**（同一个 `Net` 列，⛔ 不开四列）—— 见 <see cref="MergeVariant"/>。</summary>
-    static EventReading MeasureEvents(List<CardDef> pool, CardDef card)
+    static EventReading MeasureEvents(List<CardDef> pool, CardDef card, PresetSpec preset = null)
     {
         var r = new EventReading { C = card };
         try
         {
             r.Bucket = Bucket(card);
-            var a = RunEventPass(pool, card);
+            var a = RunEventPass(pool, card, preset);
             r.Steps = string.Join(",", a.Steps);
             r.PlayRc = a.PlayRc;
             r.Played = a.Played;
             r.Raw = a.Changes.Count;
             if (!a.Played) { r.Note = "电池没起步（出牌 rc=" + CodeName(a.PlayRc) + "）"; return r; }
-            var b = RunEventPass(pool, Blank(card));
+            var b = RunEventPass(pool, Blank(card), preset);
             r.CtrlPlayed = b.Played;
             r.Ctrl = b.Changes.Count;
             if (!b.Played)
@@ -1866,9 +2099,9 @@ class PlayProbe
                 r.Net = a.Changes.Where(x => !b.Changes.Contains(x)).ToList();
                 if (a.End != null && b.End != null) r.NetDmg = a.End.Dmg[0] - b.End.Dmg[0];
                 // 🆕 `A1965`：三个夹具变体各跑一遍（a/b 两局同步骤 ⇒ 噪声相减抵消）。
-                MergeVariant(pool, card, PassVariant.LowEnergy, "V1", r);
-                MergeVariant(pool, card, PassVariant.FromDeck,  "V2", r);
-                MergeVariant(pool, card, PassVariant.Solo,      "V3", r);
+                MergeVariant(pool, card, PassVariant.LowEnergy, "V1", r, preset);
+                MergeVariant(pool, card, PassVariant.FromDeck,  "V2", r, preset);
+                MergeVariant(pool, card, PassVariant.Solo,      "V3", r, preset);
             }
         }
         catch (Exception ex)
@@ -1892,13 +2125,14 @@ class PlayProbe
     /// ⚠️ 只有**真带来新条目**时才把这个变体的 `steps` 追加进 `r.Steps`（前缀 = `V1:`/`V2:`/`V3:`）
     ///   —— 这样「主档那一遍没变」的行**一个字节都不变**，变体只在它**真救回一张卡**时才留下痕迹。
     /// ⚠️ `NetDmg` 仍只取主档那一遍（四个变体的伤害基数不同，混在一起不可比）。</summary>
-    static void MergeVariant(List<CardDef> pool, CardDef card, PassVariant v, string tag, EventReading r)
+    static void MergeVariant(List<CardDef> pool, CardDef card, PassVariant v, string tag, EventReading r,
+                             PresetSpec preset = null)
     {
-        var a = RunEventPass(pool, card, v);
+        var a = RunEventPass(pool, card, v, preset);
         // 🔴 **不许静默**：变体没起步 ⇒ `steps` 里**点名**（否则「这一遍没救回任何东西」
         //   和「这一遍压根没跑」在读数上长得一模一样 —— 正是本笔要治的那一类）。
         if (!a.Played) { r.Steps += " | " + tag + ":miss(rc=" + a.PlayRc + ")"; return; }
-        var b = RunEventPass(pool, Blank(card), v);
+        var b = RunEventPass(pool, Blank(card), v, preset);
         if (!b.Played) { r.Steps += " | " + tag + ":ctrlMiss(rc=" + b.PlayRc + ")"; return; }
         if (a.Changes.Count == b.Changes.Count && a.Changes.SequenceEqual(b.Changes))
             return;                                  // 两局逐条相同 ⇒ 没有可归因的净差（也挡 RNG 分叉）
@@ -2089,6 +2323,31 @@ class PlayProbe
         foreach (int s in new[] { 3, 5, 2, 6, 1, 7, 0, 8 })
             if (ctx.Players[p].Board[s] == null) return s;
         return 3;
+    }
+
+    /// <summary>🆕 `P3`（2026-10-26）：`preset pick=1` 时给**单位卡**挑一个「玩家点定的目标」。
+    ///
+    /// <para>**池子 = 产品代码自己的那个**（`RuleCore.PlayTargetPool` —— 拖拽高亮 / `IsLegalPlayTarget`
+    /// 问的就是它，⛔ 不另立一套筛）。这里**不传「落位后预览」**：那样池子里会多出**刚打出去的这张卡
+    /// 自己**，而 `ta=30` 的语义是「调用方传进来的目标」（⛔ 不是自己），预览那一个不该被选。</para>
+    ///
+    /// <para>**怎么挑**：池里**优先取已受伤的**（`Health &lt; MaxHealth`）。理由 —— 治疗类
+    /// （`Heal N to a friendly unit`）只有在受伤目标上才看得见；对伤害/加成一类**无害**
+    /// （效果一样会发生、一样可读）。都不受伤就取第一个。</para>
+    ///
+    /// <para>⚠️ 池子空 ⇒ 返回 `null`（= 这张卡没有可选目标，走原路径，⛔ 不替它发明一个）。</para></summary>
+    static UnitState PickPlayTarget(BattleContext ctx, int p, CardDef card)
+    {
+        var pool = RuleCore.PlayTargetPool(ctx, p, card);
+        if (pool == null || pool.Count == 0) return null;
+        UnitState first = null, damaged = null;
+        foreach (var u in pool)
+        {
+            if (u == null || !u.IsAlive) continue;
+            if (first == null) first = u;
+            if (damaged == null && u.Health < u.MaxHealth) damaged = u;
+        }
+        return damaged ?? first;
     }
 
     /// <summary>「要选目标」的战术卡：挑一个**该侧真有单位**的格（先非督军格，没有才用督军格 4）。
@@ -2369,7 +2628,7 @@ class PlayProbe
     /// ⚠️ 这是 `A1431` 那句「**全池尺子对『解析过、结算错』这一类结构性失明**」的正面回答：
     ///   本仓第一次有一条全池尺子**能看见「打出去之后局面动了没有」**。
     /// ⛔ 输出的是**候选**，判决归调度台/引擎侧（与 `willrun` 同一条纪律）。</summary>
-    static int Sweep(List<CardDef> pool, string dumpPath, string pfPath = null)
+    static int Sweep(List<CardDef> pool, string dumpPath, string pfPath = null, PresetSpec preset = null)
     {
         var sb = new StringBuilder();
         sb.Append("id\tname\ttype\tbucket\twarlord\tplayRc\trcName\tplayed\tfaceOps\tselfPlace\tmech\tother\t"
@@ -2379,7 +2638,10 @@ class PlayProbe
                   // 🆕 `B8_AV`（2026-10-26）：棋盘上的 `PlayOrder`（进场序）—— 同样**只加在末尾**。
                   //   形如 `P0[4]=0 P0[3]=1 …`（按号升序 ⇒ 字面次序 = 谁先响），见 `PlayOrderCol`。
                   //   ⚠️ 它**不进**结算指纹（`FingerprintRow`）⇒ 加这一列**不需要**重钉 `PinnedPlayMd5`。
-                  + "\tplayOrder\n");
+                  + "\tplayOrder"
+                  // 🆕 `P3`（2026-10-26）：`preset pick=1` 实际点定的那个目标（空 = 没走 pick / 目标池空）。
+                  //   同样**只加在末尾**、同样**不进**结算指纹。
+                  + "\tpickTarget\n");
         var pfRows = new List<string>();      // 🆕 `A1431` 第二笔：**结算指纹**（逐卡一行，见 `FingerprintRow`）
         var ecRows = new List<string>();      // 🆕 `A1431` 第三笔：**事件电池**（`E|` 前缀那一套，见 `FingerprintERow`）
         var ecReads = new List<EventReading>();   // 电池档的读数（末尾那两节要按档统计）
@@ -2393,7 +2655,7 @@ class PlayProbe
 
         foreach (var c in pool)
         {
-            var r = Measure(pool, c);
+            var r = Measure(pool, c, preset);
             r.Bucket = Bucket(c);
             if (c.Type == "hero") heroCnt++;
             if (r.Crash != null) { crash++; crashes.Add(r); }
@@ -2422,7 +2684,7 @@ class PlayProbe
             // 🆕 `A1431` 第三笔：**事件电池**（只对 `unit`，见本区块头注）
             if (c.Type == "unit")
             {
-                var er = MeasureEvents(pool, c);
+                var er = MeasureEvents(pool, c, preset);
                 er.Cand = r.Played && r.FaceHasOps && r.Other == 0;   // 见 `EventReading.Cand`
                 ecRows.Add(FingerprintERow(c, er));
                 ecReads.Add(er);
@@ -2451,10 +2713,19 @@ class PlayProbe
               .Append('\t').Append(r.Injected ? "1" : "0")
               // 🆕 `B8_AV`：`PlayOrder` 列（见 `PlayOrderCol`；空 = 这一档没有 ctx / 督军档）
               .Append('\t').Append(r.PlayOrder)
+              // 🆕 `P3`：`pickTarget` 列（`preset pick=1` 实际点定的目标；空 = 没走 pick / 目标池空）
+              .Append('\t').Append(r.PickTarget.Replace('\t', ' ').Replace('\n', ' '))
               .Append('\n');
         }
 
         Console.WriteLine("=== play all · 逐卡真打（不跑 Unity）· 池 " + pool.Count + " 张 ===");
+        // 🆕 `P3`（2026-10-26）：带 `preset` 的全池扫描 = **另一次**夹具，⛔ 不是上面那套基准读数。
+        //   ⛔ 不许静默（否则你会以为全池读数是在同一套夹具上跑的）。
+        if (preset != null && preset.Any)
+            Console.WriteLine("  🔴 本次是 **带 `preset` 的另一次全池扫描**（`dead=" + preset.Dead
+                              + "` · `pick=" + preset.Pick + "` · `enemyhand=" + preset.EnemyHand
+                              + "` · `chipenemy=" + preset.ChipEnemy + "`）—— ⛔ 它不是基准读数，"
+                              + "别拿它去对 `play check` 的基线。");
         Console.WriteLine("  夹具（全池同一份，所以读数能横向比）：");
         Console.WriteLine("    · 双方督军各 1（P0 的督军 = 夹具 `FIXWarlord`，**除非被测卡本身是 hero**）");
         Console.WriteLine("    · 双方各 3 张固定部队：我方 `FIX_A` 步 2/4 · `FIX_B` 载具 3/5 · `FIX_C` 兽 1/4，"
@@ -3102,7 +3373,7 @@ class PlayProbe
     //    ⛔ **另外三颗指纹原样不动**：`PinnedPoolMd5`（卡池没改）· `PinnedParseMd5`（`check` 现跑
     //      解析差异仍 0 行、输出指纹 ✓）· `PinnedBaselineMd5`（`基线/out_baseline.txt` 没重生成）。
     //    判据全文 → `资料/普查产出_1025/E6_十三行接闸.md` §五·2 / §六。
-    public const string PinnedPlayMd5 = "6e888bbe1415ee84f05ecb82ec1111d1";  // 🔴 2026-10-26 重钉（第八十二会话同步点）：本会话引擎改动（残骸清 trait / 灵魂石按阵营 / 相邻目标 / 5 条广播收窄 / 强制攻击退还 / 探针夹具阵营改 SaimHann） ｜ 🔴 2026-10-26 重钉（第八十一会话 · 调度台收尾同步点）：**G14 的「死后相邻单位」效果修好** —— 那 5 张卡原本「卡面写着、我们不打」，现在照卡面生效 ⇒ 主档 **5 张变**（ASH54 dmg 8→12 · ASH73 伤害累计 8→13 且督军 28→26 · SAU56 dmg 0→3 · Particle Whip · None Must Know 眩晕督军 1），**事件电池 586 张逐字节一致**（零外溢）。逐条核对过「都是这 5 张、无新回归」。⚠️ 探针对**归一化内容**算的（文件原始 md5 另算，别混）。上一版 = 39c4f77e…
+    public const string PinnedPlayMd5 = "af8e817839fa1dd199d33320f6bf1b2e";  // 🔴 2026-10-26 重钉（第八十三会话同步点）：伏击/landing **续打一记**（`A1`/`A3` 查实原版两支都压一条 `BattleActionType=1` 续攻、出队后再进 `_ResolveAttack` ⇒ 12 张 `ambush` 卡从「**零次攻击**」变成「一次」）。电池段 **5 张变**（GSC11/GSC15/GSC25/GSC69/GSC7），`A3` 做过 A/B 实证：**不是卡行为变了**，是控制臂 `Blank(card)` 保留了 `ambush` 关键词、现在也面朝下，与真卡逐字相同被净差减掉（插桩证明两版 a/b 条数完全相同 45/43，只 `b` 里一行内容变了）。主档 1128 张**逐字节一致**。上一版 = 6e888bbe… ｜ 🔴 2026-10-26 重钉（第八十二会话同步点）：本会话引擎改动（残骸清 trait / 灵魂石按阵营 / 相邻目标 / 5 条广播收窄 / 强制攻击退还 / 探针夹具阵营改 SaimHann） ｜ 🔴 2026-10-26 重钉（第八十一会话 · 调度台收尾同步点）：**G14 的「死后相邻单位」效果修好** —— 那 5 张卡原本「卡面写着、我们不打」，现在照卡面生效 ⇒ 主档 **5 张变**（ASH54 dmg 8→12 · ASH73 伤害累计 8→13 且督军 28→26 · SAU56 dmg 0→3 · Particle Whip · None Must Know 眩晕督军 1），**事件电池 586 张逐字节一致**（零外溢）。逐条核对过「都是这 5 张、无新回归」。⚠️ 探针对**归一化内容**算的（文件原始 md5 另算，别混）。上一版 = 39c4f77e…
 
 
     /// <summary>`play check` 的缺省基线 —— **按名字往上找**（形状照 `Program.CheckMain.DefaultBaseline`，

@@ -9163,7 +9163,7 @@ public static class MainMenuScene
                         libE14.Decks[2].GameMode = 0;
                         libE14.Save();
                     }
-                    CollectionData.ResetForTest();
+                    CollectionData.ResetForTest(); (sk as SkirmishEventWindow)?.RefreshBannedLine();   // 🔴 2026-10-26（X2 · δ 夹具）：`sk` 在 `:8724` 就 `Open()` 过了，这里才改卡组 ⇒ 不通知窗的话生产侧 `RefreshBannedLine` 不会被重新触发，后面那条「`Banned card in deck/Text` 显隐」读的是**旧卡组**的状态。`sk` 的声明类型是基类 `LiveOpsEventWindow`（`LastOpened` 在那里）⇒ 必须 `as` 下来。⛔ 别放宽那条断言（它读 `Text` 的 `activeSelf`、是对的）。
                 }
                 Check(CollectionData.DeckAt(0).GameMode, 0,
                       "（夹具还原）第 0 套改回**经典(0)** —— 后面排位窗 / 练习窗按经典筛「我的卡组」页");
@@ -9448,6 +9448,12 @@ public static class MainMenuScene
                 {
                     var ban = FindChild(sk.transform, "Banned card in deck");
                     CheckTrue(ban != null, "`Banned card in deck` **建出来了**（原版 prefab 出厂 act=1）");
+                    // 🔴 **2026-10-26（调度台裁定 · `X4`）**：显隐读**那颗 TMP 自己**（`…/Text` 子件），⛔ **不读容器** ——
+                    //   判据 = 原版 `SkirmishEventWindow.OnDeckSelected` 里 `bannedCardInDeckText.text = …` 操作的是那颗 TMP
+                    //   （prefab `Banned card in deck/Text`），而容器 `Banned card in deck` **出厂 `act=1`、原版从不动它**
+                    //   ⇒ 我们的实现也改成「容器恒开、只开关 `Text`」（`Shell/SkirmishEventWindow.cs` 的 `RefreshBannedLine`）。
+                    var banText = FindChild(ban, "Text");
+                    CheckTrue(banText != null, "（前提）`Banned card in deck/Text` 在 —— 下面那条显隐读的是它（⛔ 不是容器）");
                     // 🔴 **2026-10-26（B8_BR）就地改写（铁律 5）**：原来断「建了但**恒关**（本地没有禁用卡表 —— 出声）」——
                     //   那条**前提已过期**：2026-10-25（`E`）按原版把它接成了**动态**那一行。
                     //   一手判据 = `SkirmishEventWindow__OnDeckSelected`：
@@ -9467,13 +9473,14 @@ public static class MainMenuScene
                             : RuleEngine.DeckRules.Validate(banDeck, CollectionData.Card,
                                 banDeck.GameMode == (int)RuleEngine.GameMode.Skirmish);
                         bool wantOn = banErr != RuleEngine.DeckError.None;
-                        CheckTrue(ban != null && ban.gameObject.activeSelf == wantOn,
-                                  "`Banned card in deck` 的显隐 = **当前这副牌校不通过**"
-                                + "（判据 = 原版 `OnDeckSelected`：`HasValidDeckWithValidationMessage()` 不通过才写这一行）"
+                        CheckTrue(banText != null && banText.gameObject.activeSelf == wantOn,
+                                  "`Banned card in deck/Text`（那颗 TMP 自己，⛔ 不是容器）的显隐 = **当前这副牌校不通过**"
+                                + "（判据 = 原版 `OnDeckSelected`：`HasValidDeckWithValidationMessage()` 不通过才写这一行；"
+                                + "原版只 SetActive 这颗 TMP、容器出厂 `act=1` 恒开）"
                                 + "—— 实得 期望" + (wantOn ? "开" : "关") + "、实际"
-                                + (ban != null && ban.gameObject.activeSelf ? "开" : "关")
+                                + (banText != null && banText.gameObject.activeSelf ? "开" : "关")
                                 + "（本窗当前卡组校验 = " + banErr + "）");
-                        if (wantOn && ban != null)
+                        if (wantOn && banText != null)
                         {
                             string gotBan = TextOf(ban);
                             string shortA = Loc.T("MenuDeck/Error/InvalidDeck/Short");

@@ -309,6 +309,13 @@ public static class AnimFXCheck
                 + " ⇒ 换信号不改角度波形（同 `Position.Y` 那条的对称断言）");
 
             // preset → 信号：5 个非空（3 个 `One Axis` + 2 个 `No rotation`），其余 12 个落默认
+            // 🔴 **2026-10-26（B9 · `X4` 就地订正，α：断言过期）**：`Resolve` 的第二参
+            //   `usePresetSignal` **今天的默认是 `false`**（判据在 `WFModuleScreenShake.Resolve` 方法体
+            //   那段机器码级注释里：`OverwriteCameraShakePreset.GetModifiedPreset` 只写 7 个字段、
+            //   **从不写 `rawSignal`** ⇒ 池化副本的 `rawSignal` 恒 null ⇒ 原版恒播 `manager.defaultRawSignal`）。
+            //   ⇒ 本组测的是「preset ↔ 它自己那份信号」的**映射表本身**，就必须**显式**要那一支
+            //   （= 原版 `CameraShakePresetSO.Play()` 那条链；那条链今天没有调用者）；
+            //   ⛔ 不许靠「顺手把默认值改回去」让它绿 —— 那正是 `G12` 修掉的东西（反向那条见下）。
             var expectSignal = new Dictionary<string, string>
             {
                 { "Shake Forward Pull",   "Warpforge 6D Shake One Axis" },
@@ -320,10 +327,27 @@ public static class AnimFXCheck
             int mapBad = 0;
             foreach (var kv in expectSignal)
             {
-                var r = WFModuleScreenShake.Resolve(new WFModuleScreenShake.ShakeEntry { preset = kv.Key });
+                var r = WFModuleScreenShake.Resolve(new WFModuleScreenShake.ShakeEntry { preset = kv.Key },
+                                                  usePresetSignal: true);
                 if (r.signal == null || r.signal.name != kv.Value) { mapBad++; Debug.LogError(P + $"  ✗ R9 `{kv.Key}` 的信号是 `{r.signal?.name}`，应为 `{kv.Value}`"); }
             }
-            Check(mapBad == 0, $"R9 5 个带 `rawSignal` 的 preset 各自解析到正确的信号表（错 {mapBad} 个）");
+            Check(mapBad == 0, $"R9 5 个带 `rawSignal` 的 preset 各自解析到正确的信号表（错 {mapBad} 个；"
+                             + "显式 `usePresetSignal: true` = 原版 `CameraShakePresetSO.Play()` 那条链）");
+
+            // 🔴 **灭自证（2026-10-26 · B9 `X4`）**：上面那条走的是**显式**支；这 5 个 preset 的**默认支**
+            //   必须回 `DefaultSignal` —— 上一条单靠「显式传 `true`」就能绿，若有人把 `Resolve` 的默认值
+            //   改回 `true`（或删掉 `else` 那一支），上一条照样绿、**这一条会红**。
+            //   判据 = `WFModuleScreenShake.Resolve` 里 `G12` 那段（`OverwriteCameraShakePreset` 从不写 `rawSignal`）。
+            int rawDfltBad = 0;
+            foreach (var kv in expectSignal)
+            {
+                var d = WFModuleScreenShake.Resolve(new WFModuleScreenShake.ShakeEntry { preset = kv.Key });
+                if (d.signal == null || WFModuleScreenShake.DefaultSignal == null
+                    || d.signal.name != WFModuleScreenShake.DefaultSignal.name) rawDfltBad++;
+            }
+            Check(rawDfltBad == 0,
+                  $"R9 这 5 个带 `rawSignal` 的 preset 走**默认支**一律回 `DefaultSignal`（错 {rawDfltBad} 个）"
+                + "｜🧨 把 `Resolve` 的 `usePresetSignal` 默认值改回 `true` ⇒ 本行红（那正是 `G12` 修掉的口径）");
 
             int dfltBad = 0;
             foreach (var n in new[] { "Shake Hit Small", "Shake Big", "Shake Hit Medium" })

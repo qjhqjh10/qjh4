@@ -762,7 +762,7 @@ namespace CardPresentation
         /// <summary>换底图（原版 `MessageContainer.ToggleSelection(bool selected)` =
         /// `background.sprite = selected ? selectedMessageSprite : normalMessageSprite`）。
         /// 两张图 = `40K_settings_button`（常态）与 `40K_settings_button_selected`（选中）；
-        /// ⚠️ 后者在 `WindowButton.HoverNames` 里**只被 `ChatPanel` 的页签用**，⛔ 别让表去推。</summary>
+        /// 🔴 2026-10-26（`F1`·β2）：换底图**必须同时**改这颗钮的 `_normalTex` —— 见 `SetRowNormalTex`。</summary>
         void RefreshSelection()
         {
             for (int i = 0; i < _rowBgs.Length && i < _rowNodes.Length; i++)
@@ -770,8 +770,8 @@ namespace CardPresentation
                 var q = _rowBgs[i];
                 if (q == null) continue;
                 bool sel = i == _current;
-                var tex = Art(sel ? ArtRowSelected : ArtRowBg);
-                if (tex != null) q.SetTexture(tex);
+                var tex = Art(sel ? ArtRowSelected : ArtRowBg);   // ⚠️ `_selected` 那张在 `WindowButton.HoverNames` 里只被 `ChatPanel` 页签用，⛔ 别让表去推
+                if (tex != null) { q.SetTexture(tex); SetRowNormalTex(i, tex); }
                 q.SetTint(sel ? Color.white : RowBgTint);
             }
         }
@@ -787,7 +787,7 @@ namespace CardPresentation
             if (m == null) { if (_display != null) _display.gameObject.SetActive(false); return; }
             if (_display != null) _display.gameObject.SetActive(true);
             if (_warn != null) _warn.gameObject.SetActive(false);
-            if (_mdTitleLb != null) _mdTitleLb.SetText(m.Title ?? "");
+            if (_mdTitleLb != null) { _mdTitleLb.SetText(m.Title ?? ""); TitleLeft(_mdTitleLb, MdTitle); }   // 🔴 2026-10-26（F1·β3）：`SetText` 会以**新宽度**重新居中（`Label.RefreshBounds`）⇒ 必须再左对齐一次（`TitleLeft` 的那个平移是按**旧宽**算的）
             if (_mdBody != null) _mdBody.SetText(m.Body ?? "");
             bool hh = !string.IsNullOrEmpty(m.HeaderArt);
             bool hf = !string.IsNullOrEmpty(m.FooterArt);
@@ -1071,7 +1071,7 @@ namespace CardPresentation
             if (bg != null)
             {
                 int captured = idx;                      // ⚠️ 闭包捕获：`idx` 是每行自己的数据下标
-                AddHit(e, "RowHit", OR(RowBg), QRowHit,
+                AddHit(e, RowHitName, OR(RowBg), QRowHit,
                        () => SelectMessage(captured),
                        bg, ArtRowBg, ArtRowHover, ArtRowPressed);
             }
@@ -1191,6 +1191,40 @@ namespace CardPresentation
         public string Dump()
         {
             return $"Inbox：{(HasMessages ? "有消息" : "**空态**")} · 取不到的图 {MissingArt.Count} 张";
+        }
+
+        // ============================================================ 🆕 2026-10-26（F1）：选中态换底图必须同步按钮的常态图
+
+        /// <summary>条目命中区节点的名字 —— `BuildRow` 建它（`AddHit(e, RowHitName, …)`）、
+        /// `SetRowNormalTex` 反查它。**一处定义、两处引用**（⛔ 别在两处各写一个字符串字面量）。
+        /// ⚠️ 自检侧也在按这个名字找（`Editor/RewardsScene.cs` 的 A273 那一段 `FindChild(rowHov, "RowHit")`）
+        /// ⇒ 改名要同时改那边，否则「悬停还原」那条会变成「找不到按钮」的绿。</summary>
+        const string RowHitName = "RowHit";
+
+        /// <summary>🔴 **2026-10-26（`F1`·β2 修复）**：把第 <paramref name="row"/> 行那颗 `WindowButton` 的
+        /// **常态底图**同步成当前的底图。
+        ///
+        /// <para><b>为什么必须有这一步</b>：原版 `MessageContainer.ToggleSelection(bool)` 换的是**同一个
+        /// `Image` 的 `sprite`**（`background.sprite = selected ? selectedMessageSprite : normalMessageSprite`）
+        /// —— 那颗 `Image` 既是「常态底图」又是「选中底图」，两档长在**同一个字段**上。
+        /// 我们这边被拆成了两层：底图 quad 的贴图（`RefreshSelection` 换的）＋ `WindowButton._normalTex`
+        /// （`Bind()` 那一刻记下的常态图、`Exit()`/`Release()` 还原时用它）。**只换前者 ⇒ 悬停离开时
+        /// 按钮把底图还原成「未选中」那张** ⇒ 选中的那一行被悬停一次就掉色（`AuditHoverSwap` 报
+        /// 「离开**没还原**」）。</para>
+        ///
+        /// <para>⚠️ 反查走节点名（`RowHitName`），⛔ 不另建一张 `WindowButton[]` 登记表 —— 那要多一个字段
+        /// 与一次分配，而行表本来就是「每次滚动/选中都重建」（`BuildMessageRows`），多一张表只会多一处能忘。</para>
+        /// <para>⚠️ 找不到（整条落在视口外 ⇒ `MenuDraw.Hit` 按 `ClipRect` 返回 null、那一行的命中区**根本没建**）
+        /// 是**合法**的，静默跳过；此时那一行也看不见，没有「还原成错图」这回事。</para></summary>
+        void SetRowNormalTex(int row, Texture t)
+        {
+            if (t == null || row < 0 || row >= _rowNodes.Length) return;
+            var node = _rowNodes[row];
+            if (node == null) return;
+            var hit = node.Find(RowHitName);
+            if (hit == null) return;                       // 视口外：那一行的命中区本来就没建（见上面的注释）
+            var wb = hit.GetComponent<WindowButton>();
+            if (wb != null) wb.SetNormalTex(t);
         }
     }
 }

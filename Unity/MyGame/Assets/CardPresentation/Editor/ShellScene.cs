@@ -1006,19 +1006,6 @@ public static class ShellScene
 
     // ============================================================ 自检
 
-    /// <summary>🆕 2026-10-25（复刻第 3 轮）：页签生命周期的**自检探针页**。
-    /// 只记账、不建内容 ⇒ 可以在批处理里安全地 `AddComponent`（不碰美术/数据）。</summary>
-    sealed class ProbeTab : WindowTabBase
-    {
-        public WindowTabType type;
-        public int setups, opened, closed, focused;
-        public override WindowTabType Type { get { return type; } }
-        public override void Setup(GameWindow window) { setups++; base.Setup(window); }
-        public override void OnOpen() { opened++; }
-        public override void OnClose() { closed++; }
-        public override void ToFocus() { focused++; }
-    }
-
     public static void Run()
     {
         // 🔴 **2026-10-19（`A1534` 尾巴 · 铁律 11）**：批处理自检**不出声** —— `WFSoundPlayer.Enabled = false`

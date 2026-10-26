@@ -1876,6 +1876,7 @@ namespace CardPresentation
             if (col == null) return;
             RewardsWindow.DestroySafe(col.gameObject);
             BuildDeckSelection(transform);
+            OnDeckColumnChanged();   // 2026-10-26（X4）：这一栏重建完 ⇒ 通知子类（判据见类尾那个虚钩子）
         }
 
         /// <summary>开 `Deck Selection Popup with Tabs`（原版 `RankedDeckSelector` 那颗换卡组钮）。</summary>
@@ -1974,5 +1975,19 @@ namespace CardPresentation
         //    `LogWarning`）。全仓 `grep "NotBuilt("` 现读 **0 个调用点**（唯一那个 `BuildHelp` 已改成真开窗，
         //    见本文件 `本文件` 那段）⇒ 死代码。⛔ 别为了「以后可能用」把它加回来 —— 新的「没实现」走
         //    `RuleEngine` 那套 `ErrUnimplemented` 或就地 `Debug.LogWarning`，不留一个没人调的空壳。
+
+        /// <summary>「卡组那一栏重建完了」的**注入点**（2026-10-26 · `X4`；追加在类尾，⛔ 别插到成员中间）。
+        /// <para>🔴 **为什么需要它**：原版换卡组走 `SkirmishEventWindow.OnDeckSelected`
+        /// （`d:/2/tools/decomp_full/SkirmishEventWindow__OnDeckSelected.c`）—— 那里除了重画那一栏，
+        /// **同一拍**还会 `battleButton.set_interactable(valid)` 并把 `bannedCardInDeckText.text`
+        /// 写成 `DeckUtility.ToShortLocalizedString(err)`（= 遭遇战窗那颗「卡组不可用」提示）。
+        /// 我们这边「重画那一栏」**只有 `RefreshDeckColumn` 一个出口**（4 个调用点：<see cref="PickArmy"/> /
+        /// <see cref="StepDeck"/> / <see cref="OpenDeckSelection"/> 的预组支与自建支），而它是 `private`
+        /// ⇒ 子类挂不上去。加这个**空实现**的虚钩子，由 `RefreshDeckColumn` 收尾调用。</para>
+        /// <para>⛔ **默认必须什么都不做**：本族另一支 `RankedEventWindow` 根上**没有**「卡组不可用」这一行
+        /// （反向断言 → `Editor/MainMenuScene.cs` 的「排位窗没有 `Banned card in deck`」）⇒
+        /// 基类在这里干任何事，都是**平白给排位窗加行为**。</para>
+        /// <para>⛔ 也别把 `RefreshDeckColumn` 改成 `protected virtual` —— 那会动到所有子类的可见性契约。</para></summary>
+        protected virtual void OnDeckColumnChanged() { }
     }
 }

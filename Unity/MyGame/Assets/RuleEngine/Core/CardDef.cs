@@ -1559,7 +1559,7 @@ namespace RuleEngine
             // 传送（2026-09-13 A2）：**当回合从牌库抽到即打出时**触发（`RuleCore.PlayCard` 里）
             KeywordTable.Teleport,
             // 伏击（2026-09-13 A2）：**面朝下打出**；翻开只有两条路 —— 真挨到伤害
-            // （`RuleCore.ApplyDamage`）或**面朝下地出手攻击**（`RuleCore.DeclareAttack`，这一记被取消）。
+            // （`RuleCore.ApplyDamage`）或**面朝下地出手攻击**（`RuleCore.DeclareAttack`：先翻开、**再补打这一记**）。
             // 🔴 **2026-10-20（`W58-AMBUSH` · 铁律 5 就地订正）**：本行原写「**窗口到期时**翻开
             //   （`RuleCore.RevealAmbush` / `ApplyDamage`）」—— **作废**：原版 `SetAmbush` 的 7 个调用点里
             //   没有一个在回合开始 ⇒ 「窗口到期自动揭示」不存在，`RuleCore.RevealAmbush` **已删除**。
@@ -6936,8 +6936,8 @@ namespace RuleEngine
         ///
         /// ✅ **2026-10-12（账 `A1617`）：出手那一处「带 `landing` ⇒ 取消这一记」也已做完** ——
         ///   位置 = **开舱之后** · 闸 = **这一次真的开了舱**（`OpenDropPod` 返回 `bool`，
-        ///   原版那两跳在同一个 `has dropPod` 分支里）· 「取消」= **最小档**
-        ///   （`return OK`、不落伤害、**不撤事件 / 不撤替身** —— **这是我们挑的**）。
+        ///   原版那两跳在同一个 `has dropPod` 分支里）· 「取消」的含义见下面那半句
+        ///   （🔴 **2026-10-26 订正（B9 `A1`）**：原版 `:428` 取消之后紧接着压了一条 `AddAttackContinuationAction` ⇒ **不是「最小档」**：不再早退、照常打出去，净效果 = **一次攻击**）。
         ///   判据全文 → `KeywordTable.Landing` 的 doc 与 `RuleCore.DeclareAttack`。
         ///
         /// ⚠️ **出手那一处的次序也要一起读**（本段原来没写，容易读成「开舱就一定会打」）：
@@ -7583,10 +7583,10 @@ namespace RuleEngine
         ///     与 `abouttoabouttoattack` 那条**相反**）；
         ///   · **闸 = 「这一次真的开了舱没有」**（`RuleCore.OpenDropPod` 改返回 `bool`）——
         ///     原版那两跳在**同一个 `has dropPod` 分支**里 ⇒ **只带 `landing`、不带 `dropPod` 的卡照常打**；
-        ///   · **「取消」= 最小档**：`return RuleCodes.OK`、**不落任何伤害**，
-        ///     **⛔ 不撤 `EvtKind.Attack` / 不撤替身重定向**（同族先例 `TryCancelAttackByOwnAboutToAttack`
-        ///     已定过这一档；撤事件会同时动**日志 / 录像 / AI** 三处，而**判据为空**
-        ///     ⇒ **这是我们挑的，不是原版的做法** —— 铁律 3）。
+        ///   · 🔴 **「取消」不是终点**（**2026-10-26 订正（B9 `A1`）**）：原版 `:428` 紧接着压了一条
+        ///     `AddAttackContinuationAction`（`BattleActionType.attack`）⇒ **这一记会补打**。
+        ///     ⛔ 旧口径「最小档 = `return RuleCodes.OK`、不落任何伤害」**已作废**；
+        ///     现在**不早退**、照常把这一记打出去（净效果 = **一次攻击**，不是零次）。
         ///   落点 = `RuleCore.DeclareAttack` 里 `openedPod` 那一段（判据全文在那儿）；
         ///   ⚠️ 今天全池 **0 张**卡带 `landing` ⇒ 不可观测（铁律 11：不是「不做」）。
         ///

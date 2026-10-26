@@ -73,7 +73,7 @@ namespace CardPresentation
             for (int i = 0; i < all.Length; i++) Add(all[i].gameObject);
         }
 
-        void Add(GameObject go)
+        void Add(GameObject go)   // 🔴 口径（2026-10-26 F3b 写死）：本函数**只收带渲染件的节点**（`ImageQuad`/`Label`/`Graphic`）—— 那是「淡 alpha」要的集合，**不是**「要 SetActive 的集合」（后者见 `ToggleGameObjects`：还包含 `gameObject` 自己）⇒ 把 toggler 挂到**一个渲染件都没有的容器**上是能用的（容器自己被开关），但⛔ 别指望 `_quads/_labels/_graphics` 能代表它（曾经就这么以为 ⇒ `Ready for level up` 的根一直没被关掉、`ForgeTab.Tick` 的闸成了死闸）。
         {
             if (go == null) return;
             var q = go.GetComponent<ImageQuad>();
@@ -137,6 +137,19 @@ namespace CardPresentation
         public void ToggleGameObjects(bool option)
         {
             Capture();
+            // 🔴 **2026-10-26（F3b）：原版关的是「挂 `CanvasGroup` 的那个节点」，不是「带渲染件的子件」。**
+            //   判据（`bundle_menus_assets_all` 两个实例都实测过）：`canvasGroups` 都指向 toggler **自己那颗节点**
+            //   （`GameObject/Ready for level up.json` 的 `m_Component` 里就有 `CanvasGroup_-8925591374284515585`，
+            //   而 `MonoBehaviour_-2144581031693838593.json` 的 `canvasGroups = [同一 pid]` ⇒ `sameNode = True`；
+            //   另一个实例 `MonoBehaviour_-3990891791924359523.json` 同形）。
+            //   ⇒ 这里也必须把 `gameObject` **自己**关掉。⛔ 只关下面那三张表（= 带 `ImageQuad`/`Label`/`Graphic` 的件）
+            //   的后果：把 toggler 挂到**不带渲染件的容器**（例：`ForgeTab` 的 `Ready for level up` = 裸 `RectTransform`）
+            //   上时 `deactivateOnDisable` 会**静默关不掉那个容器**（连带 `Shell/ForgeTab.cs` 的 `Tick` 里
+            //   `_readyRoot.activeInHierarchy` 那道闸成了**死闸**，A426 ⑦「关着 ⇒ 时钟冻住」永不成立）。
+            //   ⚠️ 这一句必须排在下面那个早退**之前** —— 容器自己恰恰可能一个渲染件都没有。
+            //   ⚠️ 与 `Toggle` 的 `ToggleGameObjects(instant ? option : true)` 不冲突：要淡出时传的是 `true`（先开），
+            //      淡完 `AnimationFinished` 才传 `false`。
+            gameObject.SetActive(option);
             if (_quads.Count == 0 && _labels.Count == 0 && _graphics.Count == 0) return;
             for (int i = 0; i < _quads.Count; i++) if (_quads[i] != null) _quads[i].gameObject.SetActive(option);
             for (int i = 0; i < _labels.Count; i++) if (_labels[i] != null) _labels[i].gameObject.SetActive(option);

@@ -5526,6 +5526,24 @@ namespace CardPresentation
                 //   `CanPlayCard` 只在这一处被问（`DropReject` 的唯一引擎入口）⇒ 记在这里就够。
                 int rc = RuleCore.CanPlayCard(Ctx, _me, idx, slot);
                 _lastPlayRejectCode = rc;
+                // 🆕 2026-10-26（执行代理 `A2` · 本批 P0「手牌目标型卡」）：「**没有合法目标**」这一档
+                //   对**非单位 `targeted` 卡**放行 —— 原版「这张牌进 play area」那一跳**不校验目标**
+                //   （`BattleManager__Update.c:255-280` 只问 `CanPlayCard`），目标是在
+                //   `playingTargetedSpell(4)` 里才判的（`:676-684` 的 `IsValidSpellTarget`）。
+                //   ⇒ 这里放行，交给 `TryBeginPlayTargetPick`：落点上就有合法目标 ⇒ 直接打完（不再多点一下）；
+                //     落点上没有 ⇒ 进选目标态，点不出合法目标就回手 + 给 `DragToTarget` 提示。
+                //   ⚠️ **只放这一档**（费用 / 回合 / 两侧满 / 回放 / 教程 仍然照旧拒），且只对 `targeted == 1` 的非单位卡。
+                if (rc == RuleCodes.ErrNoTargetAvailable)
+                {
+                    var deferHand = Ctx.Players[_me].Hand;
+                    var deferDef = (idx >= 0 && idx < deferHand.Count) ? deferHand[idx].Card : null;
+                    // ⚠️ 只放「**这一格**没有合法目标、但**全场还有**」那一档 —— 原版 `CanPlayCard.c:142-156`
+                    //   还会先扫一遍全场，一个合法目标都没有 ⇒ `NoTargetAvailable`（那一档仍然在这里拒，
+                    //   牌根本不离开手牌；否则会「飞出去又飞回来」）。同一份判据 = `RuleCore.PlayTargetPool`。
+                    if (deferDef != null && !deferDef.IsUnit && deferDef.Targeted == 1
+                        && RuleCore.PlayTargetPool(Ctx, _me, deferDef).Count > 0)
+                        return true;
+                }
                 return rc == RuleCodes.OK;
             };
             // 战术卡能落到**敌方半场**（`Deal 3 damage to an enemy` 打的就是敌方单位）——
@@ -7723,11 +7741,13 @@ namespace CardPresentation
         /// <summary>打过这一档的牌（同一局同一张只报一次 —— 战斗日志刷屏没意义，也不会多出信息）。</summary>
         readonly HashSet<string> _unitTargetPickNoted = new HashSet<string>();
 
-        /// <summary>见 <see cref="NeedsUnitTargetAfterDeploy"/> 那一大段 —— 本批**只出声**，不改任何对局状态。
-        /// <para>⚠️ 这里的「出声」= `Ctx.Log`（→ `BattleContext.Events`，**诊断流**；
-        /// ⛔ **不是** HUD 提示条 —— 提示条那一档原版没有对应词条，而我们的口径是
-        /// 「战斗里原版没有的设计不要」⇒ 不往屏幕上编一句）。</para>
-        /// <para>⛔ 别在这里顺手进「选目标态」：引擎还不收那个目标（点了没用 = 静默失败）。</para></summary>
+        /// <summary>「这张是 targeted 卡」的**诊断出声**（同一局同一张只报一次 —— 刷屏没意义）。
+        /// <para>⚠️ 「出声」= `Ctx.Log`（→ `BattleContext.Events`，**诊断流**；⛔ **不是** HUD 提示条 ——
+        /// 原版这一档没有屏幕文案，我们也不编）。</para>
+        /// <para>🔴 **2026-10-26（`A2`）就地订正（铁律 5）**：原来这里写「这一条我们还没接、目标由引擎自动挑」
+        /// —— **已过期**。玩家点定的目标经 `_chosenTargetForNextPlay` → `RuleCore.PlayCard(…, chosen)` 结算；
+        /// 只有「一个合法目标都没有」时才是引擎按目标池取（原版同样不问，见
+        /// `_ResolvePlayCardFromHand…:843-865` 的 `IsThereValidUnitTarget` 为假那一支）。</para></summary>
         void NotifyUnitTargetPickPending(CardDef def)
         {
             if (Ctx == null || _replaySession) return;              // 原版 `matchType != 0xA0`
@@ -7735,8 +7755,7 @@ namespace CardPresentation
             string key = def.Id ?? def.Name;
             if (key == null || !_unitTargetPickNoted.Add(key)) return;
             Ctx.Log($"（「{CardText.Name(def)}」是**要选目标**的单位卡（原版 `NeedToChooseMinionTarget`）："
-                  + "落地后**有合法目标时会让你点棋盘**。这一条**我们还没接** —— "
-                  + "这次的目标由引擎按目标池自动挑了。判据 "
+                  + "有合法目标时目标由**玩家点定**，一个都没有时按目标池取。判据 "
                   + "`_ResolvePlayCardFromHand_d__447__MoveNext.c:849-860` / 取消回手 `:903-970`）");
         }
 
@@ -7782,37 +7801,187 @@ namespace CardPresentation
         /// ⚠️ 只在 `DoPlay` 里被读一次并立刻清空 —— 别让它活过一手（会串到下一张牌上）。</summary>
         UnitState _chosenTargetForNextPlay;
 
+        // ==================================================================
+        //  🆕 2026-10-26（执行代理 `A2` · 本批 P0「手牌目标型卡打出后点选目标」）
+        // ==================================================================
+        //  原版两条闸读的是**同一个字段**（`RawCardScript +0x268 targeted`），落在两个 UI 态上：
+        //    · 单位卡 ⇒ `NeedToChooseMinionTarget` ⇒ `choosingUnitTarget(9)`（落位后点人）；
+        //    · 战术/防御卡 ⇒ `Update.c:1058-1061` 的 `get_targeted()` ⇒ `playingTargetedSpell(4)`
+        //      （`MoveIntoFieldFromHand.c:35-75` 起准星 + 溶卡；`Update.c:626-793` 选目标 / 取消回手）。
+        //  ⇒ 「要不要问玩家」只有一处判据：`def.Targeted == 1`（`TryBeginPlayTargetPick`）。
+        //  ⚠️ **点亮只在单位卡那一支**（原版 `ShowPotentialTargets(mode=1)` 全库唯一调用点 =
+        //     `_ChooseUnitTarget…:62`；战术卡那一支 `Update.c:626-793` 通篇不点亮 ⇒ 我们**也不点亮**，
+        //     ⛔ 不补一个原版没有的反馈 —— 2026-10-26 调度台裁定 1）。
+        //  ⚠️ **「松手即结算」那条快捷路保留**：落点上就有合法目标 ⇒ 直接打完，不多要一次点击
+        //     （原版 `Update.c:676-684`）⇒ 196 张非单位 `targeted` 卡的**常见路径一个字没变**；
+        //     落点上没有合法目标 ⇒ 进「点选目标」态（🔶 标记见 `TryBeginPlayTargetPick` 里那一条）。
+        // ==================================================================
         /// <summary>这张卡落地后**要不要先问一个目标**；要的话进「等点目标」态并返回 true。
         /// 返回 false = 照旧一路打出去（`BeginPlay`）。</summary>
         bool TryBeginPlayTargetPick(CardView card, int idx, int slot)
         {
             if (_replaySession || Ctx == null || Ctx.IsOver) return false;
             if (card == null) return false;
+            // 🔴 上一手点定的目标要是**没被 `DoPlay` 消费掉**（它读那一格之前有两道早退：回放闸 / 教程白名单）
+            //   ⇒ 在这里作废，⛔ 别串到这张牌上（会静默打错目标）。
+            _chosenTargetForNextPlay = null;
             // 上一张还在等目标（极短窗口：玩家又拖了另一张）⇒ 先把上一张的等态收掉，
             //   否则两张牌的「等目标」会互相覆盖（静默串到另一张上）。
             if (AwaitingPlayTarget)
             {
+                var prevCard = _awaitPlayTargetCard;
+                var prevDef = _awaitPlayTargetDef;
                 _awaitPlayTargetCard = null; _awaitPlayTargetDef = null;
                 _awaitPlayTargetIdx = -1; _awaitPlayTargetSlot = -1;
                 ClearPlayTargetHighlight();
                 _chosenTargetForNextPlay = null;
+                // 🔴 **2026-10-26（`A2`）**：上一张的**视图已经被搬去棋盘**（`DeploySequence` 跑完了），
+                //   而它在引擎里**还在手牌**（我们没调 `PlayCard`）⇒ 把视图收回手牌形态，
+                //   否则棋盘上会留一张幽灵牌。
+                //   ⚠️ **这里不调 `SyncHand()`**：此刻**新那张牌**正在 `OnCardDeployed`→`DoPlay` 中间，
+                //     它在 `_handViews` 里 ⇒ 重排会把它拽回手牌位、和即将发生的出牌打架。
+                //     被放弃的那张会在下一次 `SyncHand`（这一手打完/取消之后必然有一次）自动归位。
+                if (prevCard != null)
+                {
+                    prevCard.SetFace(CardFace.Hand);
+                    prevCard.transform.SetParent(transform, true);
+                    Debug.LogWarning("[Battle] 又拖了一张要选目标的牌 ⇒ 上一张「"
+                                   + (prevDef != null ? CardText.Name(prevDef) : "?")
+                                   + "」的选目标作废（牌留在手里）");
+                }
             }
             var hand = Ctx.Players[_me].Hand;
             var def = (idx >= 0 && idx < hand.Count) ? hand[idx].Card : null;   // CardDef（⛔ 不是 `card.Data`）
-            if (def == null) return false;
-            if (!NeedsUnitTargetAfterDeploy(def)) return false;      // 原版 `NeedToChooseMinionTarget`
-            var pool = RuleCore.PlayTargetPool(Ctx, _me, def);
-            if (pool.Count == 0) return false;                       // 原版 `IsThereValidUnitTarget` 为假 ⇒ 直接打
+            if (def == null)
+            {
+                Debug.LogWarning("[Battle] 选目标态：手牌第 " + idx + " 张取不到 `CardDef` —— 这一手照旧直接打出去"
+                               + "（引擎会按目标池自己挑）");
+                return false;
+            }
+            // 🆕 2026-10-26（执行代理 `A2` · 本批 P0「手牌目标型卡」）：**闸从「单位卡」放宽到【所有 `targeted` 卡】**。
+            //   原版两条闸读的是**同一个字段**（`RawCardScript +0x268 targeted`），只是落在两个 UI 态上：
+            //     · 单位卡 ⇒ `BattleManager__NeedToChooseMinionTarget.c:7-19`（`cardType==0 && targeted`）
+            //       ⇒ 落地后 `_ResolvePlayCardFromHand…:849-860` 进 `choosingUnitTarget(9)`；
+            //     · 战术/防御卡 ⇒ `BattleManager__Update.c:1058-1061`（`targeted != 0`）进
+            //       `playingTargetedSpell(4)`（`BattleManager__MoveIntoFieldFromHand.c:35-75` 起准星 + 溶卡；
+            //       `Update.c:626-793` 才是「选目标 / 取消回手」那一支）。
+            //   ⇒ 判据收成一处：`def.Targeted == 1`（`NeedsUnitTargetAfterDeploy` 只留作单位专用，⛔ 别再抄一份）。
+            if (def.Targeted != 1) return false;
+            bool unitCard = def.IsUnit;
+            // ⚠️ `targeted` 位与「卡面有没有目标规格」是两个事实（数据边角）——
+            //   没有规格的卡**不进**选目标态（进了会因为池子空把一张本来能打的牌判死）。
+            if (!unitCard && SpellTargetSide(def).Length == 0)
+            {
+                Ctx.Log($"（「{CardText.Name(def)}」带 `targeted` 位但卡面**没有目标规格** ⇒ 照常直接打出去；"
+                      + "判据 = `EffectText.PickTarget(Parse(desc))` 为 null）");
+                return false;
+            }
+            // 🆕 2026-10-26（调度台裁定 2 的后续件 · F2 报告 `R1`）：**单位卡的目标池按「落位后」算** ——
+            //   原版 `IsThereValidUnitTarget` 是在 `MinionPlayedIntoField` **之后**问的（`_ResolvePlayCardFromHand…:849-860`），
+            //   那时**待落地那张已经在棋盘上** ⇒ 用 `PlayTargetPoolAsIfDeployed` 把「它自己」也算进候选。
+            //   只用于**判空**；点亮仍走棋盘上的 `IsLegalPlayTarget`（棋盘上没有它的视图，玩家此刻点不到它）。
+            var pool = unitCard
+                ? RuleCore.PlayTargetPoolAsIfDeployed(Ctx, _me, hand[idx])
+                : RuleCore.PlayTargetPool(Ctx, _me, def);
+            if (pool.Count == 0)
+            {
+                // 单位卡：原版 `IsThereValidUnitTarget` 为假 ⇒ **不问，直接打**（`:843-865`）。
+                if (unitCard) return false;
+                // 非单位卡：一个合法目标都没有 ⇒ 原版 `CanPlayCard.c:142-156` 那一档 =
+                //   `NotifyCantDoAction(Battle/Tips/NoTargetAvailable)`（⚠️ **不是** `DragToTarget` ——
+                //   后者是「点了个非法目标」那一支 `Update.c:668`，见下面的取消支）。
+                NotifyCantDoAction(Loc.T(NoTargetAvailableTerm));
+                if (card != null)
+                {
+                    card.SetFace(CardFace.Hand);
+                    card.transform.SetParent(transform, true);
+                }
+                SyncHand();
+                Ctx.Log($"「{CardText.Name(def)}」现在**没有合法目标** ⇒ 不进选目标态（原版 `CanPlayCard.c:142-156`："
+                      + "拒这一手、牌回手、给 `NoTargetAvailable` 提示）");
+                return true;
+            }
+
+            // 🆕 2026-10-26（`A2`）：**非单位卡**再加一条「原版松手即结算」的快捷路 ——
+            //   落点那一格上的那张卡**本身就在合法池里** ⇒ 它就是这一下的目标，直接打出去、不再多要一次点击
+            //   （原版 `Update.c:676-684`：松手时指针下那张卡过 `IsValidSpellTarget` 就进动作队列）。
+            // 🔶 自己设计（非原版）：落点非合法目标时进入「点选目标」态 · 判据缺失（原版 FUN_180617800 未导出，两种自洽读法给出相反触发沿）· 调度台 2026-10-26 裁定取「两读法皆成立」的最小假设
+            if (!unitCard)
+            {
+                UnitState landed = null;
+                // ⚠️ 只看**引擎真会解到的那一侧**（`SpellTargetBoardOwner`）—— 否则「卡面任意侧」
+                //   的卡在「我方这格空、敌方这格有人」时会把对面那张当成目标（同号格错打）。
+                int owner4 = SpellTargetBoardOwner(def);
+                if (owner4 >= 0 && slot >= 0 && slot < BoardSpec.Size)
+                {
+                    var u4 = Ctx.Players[owner4].Board[slot];
+                    if (u4 != null && pool.Contains(u4)) landed = u4;
+                }
+                if (landed != null)
+                {
+                    _chosenTargetForNextPlay = landed;
+                    Ctx.Log($"「{CardText.Name(def)}」直接打向落点上的「{landed.Name}」"
+                          + "（原版 `Update.c:676-684`：松手时指针下的那张卡本身就是合法目标）");
+                    return false;      // 照旧一路打出去（`DoPlay` 会消费 `_chosenTargetForNextPlay`）
+                }
+            }
 
             _awaitPlayTargetCard = card;
             _awaitPlayTargetDef = def;
             _awaitPlayTargetIdx = idx;
             _awaitPlayTargetSlot = slot;
             int n = HighlightPlayTargets(def);
-            Ctx.Log($"「{CardText.Name(def)}」要选目标：点棋盘上高亮的那 {n} 个之一"
-                  + "（原版 `NeedToChooseMinionTarget` + `ShowPotentialTargets(mode=1)`）；"
-                  + "点空白 = 取消（这张牌留在手里）");
+            // ⚠️ 这条闸**只对单位卡**：非单位卡按原版**不点亮**（`n` 恒 0），不能拿它当「没有候选」。
+            if (unitCard && n == 0)
+            {
+                // 🔴 **2026-10-26（F2 报告 `R1` 末句）**：池子非空、但**棋盘上一个能点的都没有**
+                //   （唯一候选 = 待落地那张自己：原版是「**先落位**、再点自己」`_ResolvePlayCardFromHand…:849-860`，
+                //   我们点完目标才落位 ⇒ 此刻点不到它）⇒ **不进等待态**，出声，让引擎按目标池取。
+                _awaitPlayTargetCard = null; _awaitPlayTargetDef = null;
+                _awaitPlayTargetIdx = -1; _awaitPlayTargetSlot = -1;
+                Debug.LogWarning("[Battle] 「" + CardText.Name(def) + "」的合法目标只有它自己（待落地那张）——"
+                               + "我们是「点完目标才落位」，此刻点不到 ⇒ 这一手不进选目标态、由引擎按目标池取"
+                               + "（原版「先落位再点自己」那条差异见报告 §五）");
+                return false;
+            }
+            Ctx.Log(unitCard
+                  ? $"「{CardText.Name(def)}」要选目标：点棋盘上高亮的那 {n} 个之一"
+                    + "（原版 `NeedToChooseMinionTarget` + `ChooseUnitTarget` + `ShowPotentialTargets(mode=1)`）"
+                    + "；点空白/点非法目标 = 取消（这张牌留在手里）"
+                  : $"「{CardText.Name(def)}」要选目标：点棋盘上的合法目标"
+                    + "（原版 `playingTargetedSpell` 那一支 `Update.c:626-684`；"
+                    + "⚠️ 原版这一支**不点亮**潜在目标 ⇒ 屏幕上没有任何提示，这是原版行为）"
+                    + "；点空白/点非法目标 = 取消（这张牌留在手里，并给 `DragToTarget` 提示）");
             return true;
+        }
+
+        /// <summary>非单位卡的「目标规格」是哪一侧（`"enemy"` / `"own"` / `"any"`；**`""` = 这张卡根本不需要目标**）。
+        /// <para>🔴 判据 = `EffectText.PickTarget(Parse(def.Desc)).Side` —— 与
+        /// `EffectResolver.CanPlayTactic` / `PlayTacticCore` 用的**同一个函数**，⛔ 不是第二份解析。</para>
+        /// <para>⚠️ 要它是因为 `targeted` 位与「卡面有没有目标规格」**不是同一个事实**：
+        /// 少数卡 `targeted == 1` 但正文没有目标（数据边角）⇒ 那一档**不许**进选目标态，
+        /// 否则会因池子空把一张本来能打的牌判死。</para></summary>
+        static string SpellTargetSide(CardDef def)
+        {
+            if (def == null || def.IsUnit) return "";
+            var ops = RuleEngine.EffectText.Parse(def.Desc, out _, out _, card: def);
+            return RuleEngine.EffectText.PickSide(ops);
+        }
+
+        /// <summary>非单位卡**按格号**解析时，引擎读的是**哪一侧**的棋盘（返回座位号；-1 = 不适用 = 单位卡）。
+        /// <para>🔴 判据与 `EffectResolver.PlayTacticCore` 那两句**同一个函数**
+        /// （`side == "enemy" ? 1-p : p` / `EffectText.PickSide`）—— ⛔ 不是第二份判据。</para>
+        /// <para>⚠️ **为什么必须收窄**：`PlayTargetPool` 对 `Side == "any"` 给的是**两侧并集**
+        /// （`AddSide(own)` + `AddSide(enemy)`），而引擎结算只读**我方**那一侧 ⇒
+        /// 照池子点亮会让玩家「点亮敌方、点下去打到自己人同号格」（静默错打）。
+        /// 现池 `targeted == 1` 的非单位卡里 `Side == "any"` 的那一族（「Deal 2 damage to a troop」）
+        /// 正是这一档。⇒ 点亮/点选都收窄到引擎真会解的那一侧。</para></summary>
+        int SpellTargetBoardOwner(CardDef def)
+        {
+            if (def == null || def.IsUnit) return -1;
+            string s = SpellTargetSide(def);
+            if (s.Length == 0) return -1;          // 卡面没有目标规格 ⇒ 不限制（也不需要选目标）
+            return s == "enemy" ? 1 - _me : _me;
         }
 
         /// <summary>把这张卡的合法目标点亮（**判据 = `EffectResolver.PlayTargetPool`**，
@@ -7823,6 +7992,11 @@ namespace CardPresentation
                 if (_awaitPlayTargetLit[i] != null) _awaitPlayTargetLit[i].SetHighlight(CardHighlightState.Normal);
             _awaitPlayTargetLit.Clear();
             if (def == null) return 0;
+            // 🔴 **2026-10-26（调度台裁定 1 · 铁律 11）**：**原版只有单位卡那一支点亮潜在目标**
+            //   （`BattleManager__ShowPotentialTargets` 的 `mode=1` 全库唯一调用点 = `_ChooseUnitTarget_d__780__MoveNext.c:62`；
+            //   战术/防御卡那一支 `BattleManager__Update.c:626-793` 通篇没有点亮动作）
+            //   ⇒ **非单位卡一个都不点亮**（⛔ 别补一个原版没有的反馈）。
+            if (!def.IsUnit) return 0;
 
             int n = 0;
             for (int side = 0; side < 2; side++)
@@ -7864,16 +8038,41 @@ namespace CardPresentation
         bool ResolvePlayTargetByUnit(UnitState hit, int hitSlot)
         {
             if (!AwaitingPlayTarget) return false;
+            // 🔴 **2026-10-26（`A2`）**：等目标期间**回合已经不是我们的 / 局已结束** ⇒ 这一手作废。
+            //   原版这一档由 `CancelActionStates` 收（`Update.c` 的 UIstate 4/9 都在它的 2..5 与 9 两支里，
+            //   `BattleManager__CancelActionStates.c:24-40`）⇒ 不留在场上等下一回合被误按。
+            if (Ctx == null || Ctx.IsOver || Ctx.Active != _me)
+            {
+                Debug.LogWarning("[Battle] 「等点目标」期间回合已易主 / 对局结束 ⇒ 取消这一手（原版 `CancelActionStates`）");
+                _awaitPlayTargetCard = null; _awaitPlayTargetDef = null;
+                _awaitPlayTargetIdx = -1; _awaitPlayTargetSlot = -1;
+                _chosenTargetForNextPlay = null;
+                ClearPlayTargetHighlight();
+                return true;
+            }
             var card = _awaitPlayTargetCard;
             var def = _awaitPlayTargetDef;
             int idx = _awaitPlayTargetIdx, slot = _awaitPlayTargetSlot;
+            // 🔴 **2026-10-26（`A2`）**：非单位卡再核一道「引擎真会解到这张吗」——
+            //   池子是**两侧并集**（`Side=="any"` 时），而结算只读卡面指定那一侧的同号格
+            //   （`PlayTacticCore`）⇒ 点中另一侧那张 = 会把效果打到自己人同号格上（静默错打）。
+            //   这一档按「非法目标」处理（进下面的取消支、并出声），⛔ 不许放过去。
+            int onlyOwner = SpellTargetBoardOwner(def);
+            bool onEngineSide = onlyOwner < 0
+                             || (hit != null && hitSlot >= 0 && hitSlot < BoardSpec.Size
+                                 && ReferenceEquals(Ctx.Players[onlyOwner].Board[hitSlot], hit));
 
-            if (hit != null && RuleCore.IsLegalPlayTarget(Ctx, _me, def, hit))
+            if (hit != null && onEngineSide && RuleCore.IsLegalPlayTarget(Ctx, _me, def, hit))
             {
                 _awaitPlayTargetCard = null; _awaitPlayTargetDef = null;
                 _awaitPlayTargetIdx = -1; _awaitPlayTargetSlot = -1;
                 ClearPlayTargetHighlight();
                 _chosenTargetForNextPlay = hit;
+                // 🔴 **2026-10-26（`A2`）**：**非单位卡**把 `slot` 换成「玩家点定的那一格」——
+                //   战术卡的 `slot` 本来就是「效果打谁」（`RuleCore.PlayCard` 的 doc），而
+                //   **本地录像/联机动作**只带 `AiAction.Slot`（`AiAction` 没有出牌目标字段）⇒
+                //   不换的话「点了一个和落点不同的目标」在回放里会**打到落点那一格**（别局重演）。
+                if (def != null && !def.IsUnit && hitSlot >= 0) slot = hitSlot;
                 Ctx.Log($"点定目标：{hit.Name}（{hitSlot} 号格）");
                 // ⚠️ 手牌下标可能在这段等待里变过（极短，但按「那一份实例」重算最稳）
                 var inst = (idx >= 0 && idx < Ctx.Players[_me].Hand.Count) ? Ctx.Players[_me].Hand[idx] : null;
@@ -7886,6 +8085,12 @@ namespace CardPresentation
 
             // 取消（原版 `:903-970` 整张回手）—— 我们这张牌**根本没离开手牌**（见上面 ①），
             //   ⇒ 只需把视图复位、把点亮收掉。**出声**（本仓红线），但不编屏幕文案。
+            // 🆕 2026-10-26（`A2`）：**非单位卡**这一支原版会**播提示**（语音 + 文字）——
+            //   `BattleManager__Update.c:635-673`：`MoveBackToHand` + `HandCardReleased` +
+            //   `NotifyCantDoAction(GetTranslation(0x428A030))`，词条 = `Battle/Tips/DragToTarget`
+            //   （地址 ↔ 键的对应见 `DragToTargetTerm` 的 doc）。
+            //   ⚠️ 单位卡那一支（`_ResolvePlayCardFromHand…:903-970`）原版**不出声** ⇒ 保持静默，⛔ 别一起加。
+            if (def != null && !def.IsUnit) NotifyCantDoAction(Loc.T(DragToTargetTerm));
             Ctx.Log($"没点中合法目标 ⇒ 取消「{(def != null ? CardText.Name(def) : "?")}」的选目标，"
                   + "这张牌留在手里（原版 `:903-970` 是把它从场上撤回手牌）");
             _awaitPlayTargetCard = null; _awaitPlayTargetDef = null;
@@ -11370,7 +11575,7 @@ namespace CardPresentation
             //          `:6065` 窗口路」—— 那两处行号早已漂走，而且「窗口路」**已不存在**：
             //          `RuleCore.RevealAmbush` 已删除、`"window"` 是**历史值、今天不可达**
             //          （判据 → `EvtKind.AmbushExit` 的 doc）。今天两档 = `"damage"`（真挨伤害）/
-            //          `"attack"`（面朝下出手 ⇒ 这一记被取消）。
+            //          `"attack"`（面朝下出手 ⇒ 取消这一记、再由续攻补打）。
             //        **仍缺的两条** = `ActionDisplay{Your,Enemy}CardInHand`（亮手牌）与 `AmbushedTroop`
             //        （我们不发这两种事件）；**`SecretOrder` 仍无发出点**（密令 = 战将身上的面朝下附魔，
             //        我们**没有那一层机制** —— 判据写在 `EvtKind.SecretOrder` 的 doc 里）。
@@ -11632,7 +11837,7 @@ namespace CardPresentation
                         // 判据（= 原版）：`CemeteryManager.AddExitAmbushActionToCemetery` 的**唯一**调用点是
                         //   `CardScript.SetAmbush(card, **false**)` 的尾部；`SetAmbush(card, 0)` 的三个调用点 =
                         //   **两条伤害路**（`ResolveUnitAttacked.c:111` · `ResolveDamageDealt.c:173`）
-                        //   **＋ 一条攻击取消路**（`_ResolveAttack…:305`：面朝下的攻方出手 ⇒ 取消这一记）
+                        //   **＋ 一条攻击取消路**（`_ResolveAttack…:305`：面朝下的攻方出手 ⇒ 取消这一记、再由续攻补打）
                         //   ⇒ **三条路都印同一行**（同一个函数、同一个键 `Battle/Cemetery/ActionExitAmbush`）。
                         // 原文（2026-10-18 裁定）写「只印 `"damage"` 那一档，⛔ 不印 `"window"`」——
                         //   **「只印 damage」不成立**：那是把「三个调用点**全是伤害路**」这个错前提当了判据
@@ -13471,14 +13676,14 @@ namespace CardPresentation
             //   `FinishedChoosingAbilityTargetByClick` 那条失败支（`Battle/Tips/InvalidTarget`）
             //   **并把这张牌整个撤回来**（`:903-970`：`RemoveMinion` → `TransformUnitInPlayToCard`
             //   → `AddCardNotDrawnToHandAtIndex(原下标)`）—— 也就是**回手到原索引**，不是「已落位不结算」。
-            //   🔴 **现状（如实记）**：我们这一条**还没接** —— `RuleCore.PlayCard` 没有「目标」形参
-            //   （`Core/RuleCore.cs:3520/3577` 两个重载都没有），引擎在 `EffectResolver` 的
-            //   `firstAdded` 那一支**按目标池表头取**（`Core/EffectResolver.cs:1832-1847`）；
-            //   ⛔ 本轮**不许**自己发明回滚语义（撤单位要 `KillUnit` = 让一个活单位「死」一次，那**不是**原版的撤牌），
-            //   ⛔ 也不许进一个「点了也没用」的空选目标态。⇒ 本批只做到**出声**
-            //   （`Ctx.Log` 一行诊断 —— ⛔ 不是 HUD 提示条：原版没有对应词条，而「战斗中不许自拟文案」是用户口径），
-            //   引擎侧那一条（`PlayCard` 收一个 `UnitState chosen` + 取消时按上面那条链撤回）
-            //   等下一批（`RuleEngine/**` 本轮不在本线所有权里）。
+            //   🔴 **2026-10-26（执行代理 `A2`）就地订正（铁律 5）**：上面「现状：还没接」那一段**已过期** ——
+            //   两条选目标的路现在都在 `DoPlay` **之前**走完（`TryBeginPlayTargetPick`）：单位卡进
+            //   `choosingUnitTarget(9)`、**战术/防御卡进 `playingTargetedSpell(4)`**（`Update.c:626-793`）。
+            //   玩家点定的目标经 `_chosenTargetForNextPlay` → `RuleCore.PlayCard(…, UnitState chosen)` 进结算
+            //   （`Core/RuleCore.cs:3791` 那个重载）；`EffectResolver` 的 `firstAdded` 只会在「一个合法目标都没有、
+            //   原版也不问」那一支被踩到。取消（点空白/点非法目标）时这张牌**根本没离开手牌** ⇒ 只复位视图 + 出声。
+            //   ⚠️ 单位卡的「撤单位 → 回手到原索引」（`:903-970`）仍然**没做** —— 我们的形状是「点完目标才落位」，
+            //   没有「已落位再撤回」这一跳（差异见 `TryBeginPlayTargetPick` 上面那段 ①）。
             //   ⚠️ 只在**真的打出去之后**报（被拒的那一支上面已经 `return`）。
             NotifyUnitTargetPickPending(playedInst != null ? playedInst.Card : null);
             _cardsPlayedThisTurn++;             // 本回合已出牌数（原版 `CardsPlayedInTurn1..3` 那三枚灯）
@@ -33070,5 +33275,48 @@ namespace CardPresentation
         /// <summary>自检口径：走一次「按下棋盘卡」（产品那条路 = `Update` ⑤ 段记 `_pressSlot` 的那一句）。
         /// ⛔ 只做命中 → 状态机派发，不改引擎状态。</summary>
         public void SimulateBoardCardTouchDown(int side, int slot) { BoardCardTouchDown(slot, side); }
+
+        // ══════════════════════════════════════════════════════════════════════════
+        //  🆕 2026-10-26（第八十三会话 · 执行代理 `V3`）：原版 `BattleManager.RemoveDestroyableAnims` 的入口
+        // ══════════════════════════════════════════════════════════════════════════
+        //  原版那一跳在 `ResolveRemoveEffect` 里（`cpp2il BattleManager.cs:26297`），闸 = `buffType ∈ {15,16}`、
+        //  键 = `cardEffect.trait`、动作 = 把两张状态框 `DoDestroy()` 并摘字典 —— 判据全文与「三个必须照抄的
+        //  怪形状」写在 `Core/TraitFrames.RemoveDestroyable` 的注释里（⛔ 别在这里抄第二份）。
+        //
+        //  🔴 **接线现状（如实记，别当成「已经跑起来了」）**：
+        //    · **表现层这一半已就位**：本方法 + `TraitFrames.RemoveDestroyable`。
+        //    · **引擎侧还差两个输入**，都在 `RuleEngine`：
+        //      ① `ActiveCardEffect`（`Core/Enchantment.cs`）**没有 `trait` 这一格**（原版 `CardEffect.trait +0x3C`）
+        //         ⇒ 现在取不到 `cardEffect.trait`；
+        //      ② `Enchantments.Remove` **不向表现层发任何信号**（`EvtKind` 里没有「一条效果被摘掉」这一档）。
+        //      两个写点都在 `EffectResolver` 那条链上（本轮 `B1` 持有 `EffectResolver`）
+        //      ⇒ **交给下一个引擎批**：补 `ActiveCardEffect.Trait` 的写点 + 一条表现信号，然后在这里接一行。
+        //    · **命中面（现读 `cards_truth.json`，别夸大也别缩小）**：`buffType 15/16` 的 buff 条目 57 条，带 `trait` 的 28 条
+        //      = **2 个 trait**：`480 vulnerable`（`Spreading Corruption`）与 `1185 pray`（索里塔斯 24 张卡的「祈祷」附魔）。
+        //      `pray` 在绑定表里有 **TriggerOnPlay(6)** 那一行 ⇒ 它的 `Pray_Idle` **真会进 `_trigger` 字典**
+        //      ⇒ 这条不是「理论上有」：**引擎侧一接上，索里塔斯那批卡就会命中**。
+        /// <summary>原版 `BattleManager.RemoveDestroyableAnims(targetCard, cardEffect)` 的**表现层入口**：
+        /// 把 `(player, slot)` 那张卡上 `trait` 名下那两张状态框 `DoDestroy()` 掉。
+        /// <para>⚠️ **调用方自己保证 `buffType ∈ {15,16}` 那一道闸**（原版在方法体第一句）—— 本入口不重复判，
+        /// 因为 `BuffType` 在引擎侧、表现层拿不到（这也是上面「接线现状」第 ① 条的一半原因）。</para>
+        /// <para>`trait` 用**关键词名**（`vulnerable` / `stun` …，大小写不敏感）—— 两本字典的键就是它。</para></summary>
+        public void RemoveDestroyableAnims(int player, int slot, string trait)
+        {
+            if (Ctx == null || Ctx.Players == null) return;
+            if (string.IsNullOrEmpty(trait)) return;
+            var v = ViewAt(player, slot);
+            if (v == null) return;
+            TraitFrames tf = v.GetComponent<TraitFrames>();
+            if (tf == null) return;                 // 这张卡从没演过状态框 ⇒ 两本字典都不存在（原版同理）
+            tf.RemoveDestroyable(trait);
+        }
+
+        // 🔵 2026-10-26（第八十三会话 · 执行代理 `V3`）：**原版 `BattleManager.CancelAnimsFromUnit` 是死代码，
+        //   我们刻意【不】实现它**（铁律 11 例外①：原版本身不可达）。四路查证全 0 调用点：
+        //   ① `out_cpp2il_dev_ilspy/BattleManager.cs:34080` 只有定义；② `out_il2csharp/Assembly-CSharp/BattleManager.cs:14916`
+        //   只有定义（`script.json:12184` 那条只是方法登记，不是调用）；③ `decomp_full/` 全库 grep 只命中它自己那一个 `.c`；
+        //   ④ `assets_full` 全部 `MonoBehaviour/*.json` grep 0 命中（排除 UnityEvent 的 `m_MethodName` 反射）。
+        //   ⇒ **`ClearAbilityVfxMoves()` 那条「全局清」就是我们的全部**，⛔ 别照 V2 报告的「未接」去补一个
+        //   「按单位撤队列」（那会变成原版没有的行为）。判据全文 → `资料/完全复刻/账/_parts/B9_V3.tsv` 第 3 行。
     }
 }

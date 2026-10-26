@@ -29,13 +29,13 @@ bad = []; same = 0; ann = 0
 import os
 for n in sorted(x[:-4] for x in os.listdir(D) if x.endswith('.tsv')):
     raw = io.open(D + n + '.tsv', 'rb').read()
-    for l in raw.decode('utf-8').split('\n'):
+    for i, l in enumerate(raw.decode('utf-8').split('\n')[1:], start=2):
         c = l.split('\t')
         if len(c) != 11 or c[5] != 'A':
             continue
         lm = REF.search(c[6])
         if not lm:
-            bad.append((n, c[1], c[2][:30], 'NO_LINE')); continue
+            bad.append((n, i, c[1], c[2][:30], 'NO_LINE')); continue
         p = find(lm.group(1)); dn = dn_at(p, int(lm.group(2))) if p else '?'
         orig = re.sub(r'\(.*$', '', c[2])
         # 🆕 2026-10-26：`账/_重复键_待消歧` 的消歧约定把 `方法` 写成 `<真类型>.<原签名>`
@@ -50,7 +50,7 @@ for n in sorted(x[:-4] for x in os.listdir(D) if x.endswith('.tsv')):
         elif '（等价实现' in c[6] or '（实现 =' in c[6]:
             ann += 1
         else:
-            bad.append((n, c[1], c[2][:34], dn))
+            bad.append((n, i, c[1], c[2][:40], dn))
 print('同名 %d · 异名已注解 %d · 缺注解 %d' % (same, ann, len(bad)))
-for x in bad[:15]:
+for x in bad:
     print('  ', x)

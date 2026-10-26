@@ -3777,9 +3777,9 @@ public static class RewardsScene
                 if (ft0 != null && ft0.TrackScroll != null)
                 {
                     // ① **开局定位**：照原版 `ForgeRewardSelector` 的吸附语义，把「该领的那一格」对到视口中心
-                    float wantOff = ForgeTab.TabL + ForgeTab.TrackPadL + ForgeData.LevelOf(ForgeData.Selected) * (ForgeTab.CellW + ForgeTab.TrackSpacing) + ForgeTab.CellW * 0.5f - 1125.35f;
+                    float wantOff = ForgeTab.TabL + ft0.TrackPadLeftNow + ForgeData.LevelOf(ForgeData.Selected) * (ForgeTab.CellW + ForgeTab.TrackSpacing) + ForgeTab.CellW * 0.5f - 1125.35f;
                     CheckNear(ft0.TrackScroll.Offset, wantOff, 1f,
-                              $"开机对到**该领的那一格**（照原版吸附语义）：偏移 = {wantOff:F1}px（= 第 {ForgeData.LevelOf(ForgeData.Selected) + 1} 格中心 − 视口中心）");
+                              $"开机对到**该领的那一格**（照原版吸附语义）：偏移 = {wantOff:F1}px（= 第 {ForgeData.LevelOf(ForgeData.Selected) + 1} 格中心 − 视口中心）。🔴 2026-10-26（F3）α 订正：左 pad 在生产里读的是 `ForgeTab.TrackPadLeftNow`（= 裸 `TrackPadL` + 可领让位 `MenuScroll.RewardClaimExtraPadding` 895，判据 = 原版 `ForgeRewardSelector.modifiedLayoutPadding`）；旧期望只用裸 {ForgeTab.TrackPadL} ⇒ 差 895.28px");
                     // ② **滚到最右** ⇒ 最后一格（level 50）完整落在视口里
                     float saved = ft0.TrackScroll.Offset;
                     ft0.TrackScroll.ScrollBy(ft0.TrackScroll.MaxOffset);
@@ -4037,14 +4037,14 @@ public static class RewardsScene
                     CheckTrue(layer.ButtonAt(blankP.x, blankP.y) == null, "页面左上角空白处**点不中任何按钮**（不误触）");
                     if (ft2 != null && ft2.TrackScroll != null)
                     {
-                        float o0 = ft2.TrackScroll.Offset;
+                        float o0 = ft2.TrackScroll.Offset; bool lockW = ft2.TrackScroll.Locked;   // 可领态这一区**锁着**（N1 = 原版 `m_Horizontal = !hasToCollectReward`）—— 下面分「锁着 / 解锁」两档验
                         var wheelInP = MenuCheck.PointerFramePxFromDesign(new Vector2(1125f, 700f), forge);
                         var wheelOutP = MenuCheck.PointerFramePxFromDesign(new Vector2(1125f, 300f), forge);
-                        CheckTrue(layer.WheelAt(wheelInP.x, wheelInP.y, -1f), "在锻造轨道**视口里**滚轮被接受");   // 2026-10-22 量纲 120→1（一格 = ±1）
-                        CheckTrue(!Mathf.Approximately(ft2.TrackScroll.Offset, o0), "…而且偏移**真的变了**");
+                        CheckTrue(lockW && layer.WheelAt(wheelInP.x, wheelInP.y, -1f) && Mathf.Approximately(ft2.TrackScroll.Offset, o0), "在锻造轨道**视口里**滚轮被这一区接住；可领态这一区**锁着** ⇒ 偏移**不动**（原版 `m_Horizontal = false` 那一支）");   // 2026-10-22 量纲 120→1（一格 = ±1）
+                        ft2.TrackScroll.Locked = false; CheckTrue(layer.WheelAt(wheelInP.x, wheelInP.y, -1f) && !Mathf.Approximately(ft2.TrackScroll.Offset, o0), "…**解锁之后**同一处滚轮 ⇒ 偏移**真的变了**（`MenuScroll.Wheel` 的数学没坏）");
                         CheckTrue(!layer.WheelAt(wheelOutP.x, wheelOutP.y, -1f),   // 2026-10-22 量纲 120→1（一格 = ±1）
                                   "在锻造轨道视口**外**（y=300，两条滚动区都不覆盖）滚轮不生效");
-                        ft2.TrackScroll.ScrollBy(o0 - ft2.TrackScroll.Offset);     // 还原
+                        ft2.TrackScroll.ScrollBy(o0 - ft2.TrackScroll.Offset); ft2.TrackScroll.Locked = lockW;     // 还原（偏移 + 锁档）
                     }
 
                     // ---- 🆕 2026-10-03：**悬停 / 拖拽 / 惯性 / 回弹**（§三 第 29 条 A15 + A5）----
@@ -4083,7 +4083,7 @@ public static class RewardsScene
                         }
 
                         // ② 拖拽阈值 10px + 「拖了就不点按钮」+ 惯性（速度照 UGUI `Lerp(v,newV,dt*10)`）
-                        var s = ft2 != null ? ft2.TrackScroll : null;
+                        var s = ft2 != null ? ft2.TrackScroll : null; bool lockD = s != null && s.Locked; if (s != null) s.Locked = false;   // 同上一组：这里验的是 `MenuScroll` 的拖拽/惯性**数学**；可领态的锁是另一档（上面那组已断过）
                         if (s != null)
                         {
                             float o1 = s.Offset;
@@ -4117,7 +4117,7 @@ public static class RewardsScene
                             CheckTrue(!Mathf.Approximately(s.Offset, o2), "松手后还会**自己走一段**（惯性）");
                             CheckTrue(layer.TickAt(0f) == false, "`dt <= 0` 那一帧不动（照 UGUI 那条守卫）");
                             s.Stop();                                   // 别把速度带到后面的断言里
-                            s.SetOffset(o1);
+                            s.SetOffset(o1); if (lockD) s.Locked = true;   // 还原偏移 + 锁档
                         }
 
                         // ③ 回弹（Elastic）—— 原版锻造轨道是 **Clamped** ⇒ 这里量的是**算式**
@@ -4185,15 +4185,15 @@ public static class RewardsScene
                 }
                 var blobDown = readyRoot != null ? FindChild(readyRoot, "War ParticleSystemUI Down") : null;
                 var blobUp = readyRoot != null ? FindChild(readyRoot, "War Particle System Up") : null;
-                CheckNearPx(blobDown, 1125.35f, 949.5f, "`War ParticleSystemUI Down`（原版 `pos = (0, −374)`）");
-                CheckNearPx(blobUp, 1125.35f, 191.5f, "`War Particle System Up`（原版 `pos = (0, +384)`；两件**不对称**）");
+                CheckNearPx(blobDown, 1125.35f, (318.60f + 1080f) * 0.5f + 374f, "`War ParticleSystemUI Down`（原版 `pos = (0, −374)`；🔴 2026-10-26 F3 α：N1 起 `PlaceReadyGlowAt` 把 `Ready for level up` 搬到该格中心（判据 = 原版 `ToggleCollectReward` 的 `canLevelUpEffect.transform.position = target.position`）⇒ 宿主 y = 格心 = 视口中心 (318.60+1080)/2 = 699.30；旧期望 575.5 是「还没吸附」那一态）");
+                CheckNearPx(blobUp, 1125.35f, (318.60f + 1080f) * 0.5f - 384f, "`War Particle System Up`（原版 `pos = (0, +384)`；两件**不对称**；吸附后宿主 = 格心 y 699.30）");
                 // 两团各自的 `Rays → Glow` —— 两层都与宿主同中心（原版 `anchoredPosition` 是 1e−5 量级）
-                CheckNearPx(blobDown != null ? FindChild(blobDown, "Rays") : null, 1125.35f, 949.5f,
+                CheckNearPx(blobDown != null ? FindChild(blobDown, "Rays") : null, 1125.35f, (318.60f + 1080f) * 0.5f + 374f,
                             "`…Down/Rays`（与宿主同中心）");
-                CheckNearPx(blobDown != null ? FindChild(blobDown, "Glow (1)") : null, 1125.35f, 949.5f,
+                CheckNearPx(blobDown != null ? FindChild(blobDown, "Glow (1)") : null, 1125.35f, (318.60f + 1080f) * 0.5f + 374f,
                             "`…Down/Rays/Glow (1)`（🔴 原版 Down 那一支的孙件**叫 `Glow (1)`**，与 Up 的 `Glow` 不同名）");
-                CheckNearPx(blobUp != null ? FindChild(blobUp, "Rays") : null, 1125.35f, 191.5f, "`…Up/Rays`（与宿主同中心）");
-                CheckNearPx(blobUp != null ? FindChild(blobUp, "Glow") : null, 1125.35f, 191.5f,
+                CheckNearPx(blobUp != null ? FindChild(blobUp, "Rays") : null, 1125.35f, (318.60f + 1080f) * 0.5f - 384f, "`…Up/Rays`（与宿主同中心）");
+                CheckNearPx(blobUp != null ? FindChild(blobUp, "Glow") : null, 1125.35f, (318.60f + 1080f) * 0.5f - 384f,
                             "`…Up/Rays/Glow`（与宿主同中心）");
 
                 // ---- 空态：**一个 `ParticleSystem` 都没有** ----
@@ -4649,7 +4649,7 @@ public static class RewardsScene
                 // ---- ② 奖励轨道：滚到最后一格 ⇒ 第 1 格连节点都不建、那一带也点不中 ----
                 var tScroll = ftV != null ? ftV.TrackScroll : null;
                 // 原版 `Rewards Scroll View` = 330.97,318.60 → 1919.73,1080.00（本文件上面 `CheckAt(ftrack, …)` 已钉住）
-                var trackR = new PxRect(330.97f, 318.60f, 1919.73f, 1080f);
+                var trackR = new PxRect(330.97f, 318.60f, 1919.73f, 1080f); float trackPadNow = ftV != null ? ftV.TrackPadLeftNow : ForgeTab.TrackPadL;   // `ForgeTab.TrackPadLeftNow`（只读口，= `TrackPadLNow`）：生产建格/吸附读的就是它，⛔ 别用裸 `TrackPadL`（可领时差 895）
                 CheckTrue(tScroll != null && fcontent != null, "轨道的滚动区与 `Rewards Content` 都在");
                 if (tScroll != null && fcontent != null)
                 {
@@ -4657,7 +4657,7 @@ public static class RewardsScene
                     CheckTrue(FindChild(fcontent, "ForgeCell_0") == null,
                               "**滚到最后一格 ⇒ 第 1 格整格在视口外 ⇒ 连节点都不建**（原版 `RectMask2D` 就是裁掉它）");
                     var c0r = tScroll.Shift(UguiLayout.HorizontalChild(trackR, ForgeTab.CellW, ForgeTab.CellH, 0,
-                                                                      ForgeTab.TrackPadL, ForgeTab.TrackSpacing));
+                                                                      trackPadNow, ForgeTab.TrackSpacing));
                     PxRect c0v;
                     CheckTrue(!MenuDraw.ClipRect(c0r, trackR, out c0v),
                               "…（现算：第 1 格的矩形与视口**无交集** ⇒ 「不建」正是原版 `RectMask2D` 的结果）");
@@ -4676,7 +4676,7 @@ public static class RewardsScene
                     Check(ForgeData.StateAt(ForgeData.Selected, lvV), ForgeData.ToCollect,
                           "该领那一格的状态 = `ToCollect`（否则下面这条非空对照没意义）");
                     var cellLv = UguiLayout.HorizontalChild(trackR, ForgeTab.CellW, ForgeTab.CellH, lvV,
-                                                            ForgeTab.TrackPadL, ForgeTab.TrackSpacing);
+                                                            trackPadNow, ForgeTab.TrackSpacing);
                     tScroll.SetOffset(cellLv.CX - (trackR.x1 + 26.5f));   // 让 Claim 的左半截伸到视口左边缘之外
                     var cellEdge = FindChild(fcontent, "ForgeCell_" + lvV);
                     var claimEdge = FindChild(cellEdge, "ClaimHit");
@@ -4694,7 +4694,7 @@ public static class RewardsScene
                         //    ⛔ 别把它写回 `trackR.x1` —— 那是 pad 缩在命中区上的错模型（实测差 10px）。
                         CheckNear(qx1, trackR.x1 + 10f, 0.5f,
                                   "它的命中区**左边缘被截到 `V.x1 + padL = 340.97`**"
-                                  + "（`RectMask2D.m_Padding` 缩的是 mask 自己那个框，不是命中区自己的矩形）");
+                                  + "（`RectMask2D.m_Padding` 缩的是 mask 自己那个框，不是命中区自己的矩形；🔴 2026-10-26 F3 α：上面 `cellLv` 现按 `trackPadNow`（= `TrackPadLNow`）算 —— 旧式用裸 `TrackPadL` ⇒ 那一格实际落在视口中部、压根没压边 ⇒ 本条实得 1152.09）");
                         CheckTrue(qx2 - qx1 < 200.762f - 1f,
                                   $"…渲出来的宽 {qx2 - qx1:F1} **比原版整块 200.762 窄**（真被截了，不是整块）");
                         var wbEdge = claimEdge.GetComponent<WindowButton>();
@@ -7949,8 +7949,8 @@ public static class RewardsScene
         CheckTrue(badge1 != null && badge1.gameObject.activeSelf,
                   "第 2 键的红点节点**是激活的**（原版出厂四个都 `active=1`）—— 这条正是「`SetActive` 不是判据」");
         CheckNear(AlphaOf(badge1), 0f, 0.01f, "第 2 键（Campaign）的红点 **alpha = 0**（没有通知源 ⇒ 原版 `Hide()` 的样子）");
-        // 两态都验：开窗那一瞬（`ForceCollectableForTest` 还没跑）应当是 0；刷新之后应当变 1
-        CheckNear(AlphaOf(badge0), 0f, 0.01f, "开窗时没有「可领」的任务 ⇒ 第 1 键红点 alpha = 0");
+        // 两态都验：开窗那一瞬（`ForceCollectableForTest` 还没跑）应当是 0；刷新之后应当变 1。🔴 2026-10-26（F3）δ：「没有可领」这个前提**必须自己造** —— 红点 provider 判据 = `DailyData.RewardsHasBadge`（`Shell/RewardsWindow.cs` 的 `RefreshBadges`：`idx==0 && CollectableMissionCount()>0`，四类源 = 三条每日 + 周常 + 骷髅 + 登录），而 `CanCollectLogin()` = `_loginState != Claimed` ⇒ 只要登录没被显式置成 `Claimed`，这个态**根本造不出来**（旧期望依据已不成立）。⛔ 与 `RewardsTabButton_0` 无关的是锻造红点（`RewardsMenu_ForgeButton` 的 `ForgeBadge` 挂在**锻造页那颗钮**上）。
+        { DailyData.ResetAllStatesForTest(); DailyData.ForceLoginStateForTest(DailyData.State.Claimed); DailyData.ForceSkullsStateForTest(DailyData.State.Claimed); win.RefreshBadges(); CheckNear(AlphaOf(badge0), 0f, 0.01f, "开窗时没有「可领」的任务 ⇒ 第 1 键红点 alpha = 0（四类源全不可领：三条每日 / 周常 `InProgress`、骷髅 / 登录已领）"); DailyData.ResetAllStatesForTest(); }
         DailyData.ForceCollectableForTest();
         win.RefreshBadges();
         CheckNear(AlphaOf(badge0), 1f, 0.01f,
@@ -10484,8 +10484,8 @@ public static class RewardsScene
             }
         }
         var warnNode = FindChild(inbox.transform, "No News Warning");
-        CheckTrue(mdNode != null && !mdNode.gameObject.activeSelf, "空态下 `Message Display` **是关的**");
-        CheckTrue(warnNode != null && warnNode.gameObject.activeSelf, "空态下 `No News Warning` **是开的**");
+        CheckTrue(mdNode != null && mdNode.gameObject.activeSelf, "非空态下 `Message Display` **是开的**（🔴 2026-10-26 F3 α：原写「空态下是关的」—— `N17` 起收件箱有本地消息源（出厂 2 条），空态那一支已不会出现；判据 = 原版 `InboxWindow__Open.c:49` 的 else 支，与上面 `:10459` 那条同源）");
+        CheckTrue(warnNode != null && !warnNode.gameObject.activeSelf, "非空态下 `No News Warning` **是关的**（同上：旧「空态下是开的」已不成立；`N17` 之前本地没有消息源才走空态）");
         // 🆕 2026-10-09（`A1125`）：关窗钮的**命中区 + 换图层**四连断。
         //   🔴 **2026-10-18（B3）**：`Shell/InboxWindow.cs` 那处**节点名与内容错位**已按原版**改正** ——
         //   改前叫 `Background` 的 quad 画**圆底盘**、叫 `Icon` 的画**黄面**、叫 `Icon (X)` 的画叉
@@ -10670,10 +10670,10 @@ public static class RewardsScene
         CheckTrue(msgList != null && msgList.childCount == 1 && msgList.GetChild(0) == msgListVp,
                   "…那唯一一颗子件是 `Viewport`（掩码 / 裁切那一层；原版父链 = Message List/Viewport/Content）");
         var msgListContent = FindPath(inbox.transform, "Content/Message List/Viewport/Content");
-        CheckTrue(msgListContent != null && msgListContent.childCount == 0,
-                  "**0 子件**的是 `Viewport` 底下那颗 `Content`（原版出厂就是 0 ——"
-                  + " `menu_dump.py … Inbox Menu --depth 6` 里 `Content` 那一行底下一条都没有；"
-                  + "条目由服务端事件数据决定）");
+        CheckTrue(msgListContent != null && msgListContent.childCount == inbox.Rows.Count && msgListContent.childCount == 2,
+                  "`Viewport` 底下那颗 `Content` 的子件数 = **消息条数 = 2**（🔴 2026-10-26 F3 α：旧期望「0 子件」是 `N17` 之前的实况"
+                  + " —— 那时本地没有消息源；现判据 = 原版 `InboxWindow__Open.c:49` 非空支的 `list.Initialize(messages)`，"
+                  + "条数 = `InboxData.BuildSeed()` 出厂表 2 条，与上面 `Rows.Count` 那条同源）");
         // 🔴 **2026-10-19（批次 D · 红 #6）**：旧断言「**不建** `Reset Button`」已过期 —— 本批**照原版 prefab 建了壳**，
         //   并由 `Shell/InboxWindow.cs` 的 `SetActive(false)` 立即 `SetActive(false)`（判据 = 原版 `InboxWindow__Open.c:28-29` **首句**就关它）。
         //   `MenuCheck.FindChild` 走 `GetComponentsInChildren<Transform>(true)` ⇒ **关着的也找得到**，所以旧断言变红。

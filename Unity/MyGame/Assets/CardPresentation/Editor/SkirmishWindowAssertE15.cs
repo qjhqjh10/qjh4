@@ -223,9 +223,22 @@ public static class SkirmishWindowAssertE15
                       $"★ A9 非活动期 ⇒ **`{nm}` 一个节点都没有**（用户点名的那五样：活动进度/说明/胜利数/5 档里程碑/收集）"
                     + "｜🧨 把 `Reward Display` 建好再 `SetActive(false)` ⇒ 本条照样红（要的是**不画**，不是藏起来）");
 
-            CheckTrue(DirectChild(skOff.transform, "Banned card in deck") != null
-                      && !DirectChild(skOff.transform, "Banned card in deck").gameObject.activeSelf,
-                      "★ A10 `Banned card in deck` 没被这次分叉误删（它建着、主动关着 = 本地没有禁用卡表）");
+            // 🔴 **2026-10-26（调度台裁定 · `X4`）**：A10 原来读**容器** `Banned card in deck` 的 `activeSelf`，理由写
+            //   「主动关着 = 本地没有禁用卡表」—— **两句现在都不成立了**：
+            //   ① 那句理由 **2026-10-25 起过期**（`E` 已按原版把这一格接成**动态**那一行：卡组校验不通过才显示）；
+            //   ② 形状也订正了 —— 原版 `SkirmishEventWindow.OnDeckSelected` 只
+            //      `SetActive(bannedCardInDeckText.get_gameObject())` = **那颗 TMP 自己**（`…/Text` 子件），
+            //      容器 prefab 出厂 `act = 1`、**原版从不动它** ⇒ 容器现在是**恒开**的。
+            //   ⇒ 本条改读 `Text` 子件；判定值与改前**完全等价**（该时刻当前卡组合法 ⇒ `Text` 也关着）。
+            var a10Ban = DirectChild(skOff.transform, "Banned card in deck");
+            CheckTrue(a10Ban != null,
+                      "（前提 · A10）`Banned card in deck` **容器在**（没被非活动期这条分叉误删）");
+            var a10BanText = DirectChild(a10Ban, "Text");
+            CheckTrue(a10BanText != null,
+                      "（前提 · A10）`Banned card in deck/Text`（那颗 TMP 自己）在 —— 显隐读的是它，⛔ 不是容器");
+            CheckTrue(a10BanText != null && !a10BanText.gameObject.activeSelf,
+                      "★ A10 `Banned card in deck/Text` **建着、关着**（容器恒开，只有这颗 TMP 参与显隐 ——"
+                    + "判据 = 原版 `SkirmishEventWindow.OnDeckSelected` 只 SetActive 这颗 TMP、容器出厂 `act=1`）");
             Check(skOff.MissingArt.Count, 0,
                   "★ A11 遭遇战窗（非活动期）**图一张都不缺**（`Tex()` 会记账；取不到的层 `MenuDraw` 静默不画）");
 

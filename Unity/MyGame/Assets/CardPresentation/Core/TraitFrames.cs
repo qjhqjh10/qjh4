@@ -1299,5 +1299,61 @@ namespace CardPresentation
             if (!_syncedOnce) return true;               // 落场那一拍：原版那条路**没有**这道闸
             return PlaysInPlayAnim(key);
         }
+
+        // ══════════════════════════════════════════════════════════════════════════════════════
+        //  🆕 2026-10-26（第八十三会话 · 执行代理 `V3`）：原版 `BattleManager.RemoveDestroyableAnims`
+        //  ══════════════════════════════════════════════════════════════════════════════════════
+        //  判据（两份一起读，逐句对齐）：
+        //    · `d:/2/tools/decomp_full/BattleManager__RemoveDestroyableAnims.c`（机器码）
+        //    · `d:/2/tools/cpp2il/out_cpp2il_dev_ilspy/BattleManager.cs:26301-26349`（**带字段名的**那份）
+        //  原版全文（去掉空判）：
+        //      if ((uint)(cardEffect.buffType - 15) > 1u) return;          // ⇒ 只认 15 / 16
+        //      var ui = targetCard.CardUI;
+        //      if (ui.TraitFrameEffectsPlay.ContainsKey(cardEffect.trait)) {        // `+0x2d0`
+        //          var go = ui.TraitFrameEffectsPlay[cardEffect.trait];
+        //          if (go != null) {
+        //              var fx = go.GetComponent<AnimFXController>();
+        //              if (fx != null) fx.DoDestroy();                            // ⚠️ 没组件 ⇒ **什么都不做**
+        //              ui.TraitFrameEffectsPlay.Remove(cardEffect.trait);           // 但字典照样摘
+        //          }
+        //      }
+        //      if (!ui.TraitFrameEffectsTrigger.ContainsKey(cardEffect.trait)) return; // `+0x2d8`
+        //      …同上两跳…
+        //  🔴 **三个必须照抄的细节**（别「顺手改好」）：
+        //    ① **闸是 `buffType ∈ {15 singleUseEnchantment, 16 choiceEnchantment}`**（`BuffType.cs` 现读），
+        //       ⛔ **不是「任意一条效果被摘」** —— `addTrait(3)` / `removeTrait(4)` 走不到这里；
+        //    ② **`go == null` 时连字典都不摘**（`UnityEngine.Object` 的 `!= null` 重载判的是「还活着」）；
+        //    ③ **`GetComponent<AnimFXController>() == null` ⇒ 不销毁、但字典照样摘**（丢掉引用、对象留场）。
+        //       这是原版的形状，照抄 —— ⛔ 别换成 `Exit()`（那是 `RemoveStatusAnim` 的另一条路）。
+        //  调用点（原版）= `BattleManager.ResolveRemoveEffect` 里那一句
+        //  （`cpp2il BattleManager.cs:26297`，紧跟在 4 条 `CancelAnimFromUnitFromQueue` 之后）。
+        //  ⚠️ **我们的接线现状**：表现层这一半（本方法 + `BattleDriver.RemoveDestroyableAnims`）已就位；
+        //     **引擎侧那一跳还差一个信号** —— 见 `BattleDriver.RemoveDestroyableAnims` 的 doc。
+        /// <summary>原版 `BattleManager.RemoveDestroyableAnims(targetCard, cardEffect)` 的**表现层那一半**：
+        /// 把 `trait` 名下那两张状态框（OnPlay 那本 / Trigger 那本）`DoDestroy()` 掉并从字典摘除。
+        /// <para>⚠️ **它与 <see cref="Remove"/>(`RemoveStatusAnim`) 是两条路**：那条先 `Exit()`
+        /// （广播模块 `Exit` + 排 `exitDestroyTime` 后销毁），这条**当场 `DoDestroy()`**
+        /// （无模块 ⇒ 立即销毁；有模块 ⇒ 只广播 `DoDestroy`、自己不动）。⛔ 别合并。</para>
+        /// <para>空名 / 没有这个 trait 的框 ⇒ 静默返回（原版 `ContainsKey` 为假时就是什么都不做）。</para></summary>
+        public void RemoveDestroyable(string trait)
+        {
+            string key = Norm(trait);
+            if (key.Length == 0) return;
+            DestroyableOne(_play, key);
+            DestroyableOne(_trigger, key);
+        }
+
+        /// <summary><see cref="RemoveDestroyable"/> 的单本那一半 —— 逐句对原版（含那三条「照抄」的怪形状）。</summary>
+        static void DestroyableOne(Dictionary<string, WarpforgeEffectPlayer> dict, string key)
+        {
+            WarpforgeEffectPlayer p;
+            if (!dict.TryGetValue(key, out p)) return;
+            // ② 原版 `if (go != null)` —— Unity 的 `!= null` 重载：已销毁的 GameObject 也算 null
+            if (p == null || p.gameObject == null) return;
+            // ③ 原版 `go.GetComponent<AnimFXController>()`：没有那个组件 ⇒ **不销毁**（对象留场）
+            var fx = p.GetComponent<AnimFXController>();
+            if (fx != null) fx.DoDestroy();
+            dict.Remove(key);                    // …但字典照样摘（原版 `Dictionary.Remove` 在判空之内）
+        }
     }
 }

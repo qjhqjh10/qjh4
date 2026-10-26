@@ -5930,7 +5930,7 @@ namespace CardPresentation
         ///     （最多 3 趟；真收不住就**出声**，⛔ 不静默）；</item>
         ///   <item>`army == null` / 没激活（手牌 / 场上）⇒ **空操作**（那两档本来就不印阵营行）。</item>
         /// </list>
-        /// <para>⚠️ 这是**偏离**原版那个固定矩形的一处：原版遇到两行本地化文本也会越界 —— 我们选「不叠字」。
+        /// <para>🔶 自己设计（非原版）：`ClampDescBelowArmy` 这一档「态 4 效果文字块夹在阵营行底与 `RaceDescBottom01` 下门之间、装不下就下移 + 缩字号」的夹字规则 · 为什么必须自己定：原版 `DescTacticSmall` 的 TMP 是 `m_enableAutoSizing = 1`（`m_fontSizeMin 1` / `Max 19`）+ rect **160×62.64**（资产 `bundle_battleprefabs_vfxandmisc_assets_all/RectTransform/RectTransform_-8188883067619402816.json`），按 autosize 复算 2 行块高 ≈0.506 < 矩形高 0.6264 ⇒ 原版**不会缩**、停在 fs19 / 2 行，**原版没有这一段** · 我们要它是因为用户 2026-10-17 实拍裁定「战术卡要印阵营行」（原版不印），多出那一行后中文折两行会叠字 · 调度台 2026-10-26 裁定（起因 = 用户 2026-10-17 实拍）。
         /// 一行文本（英文档 / 短中文）时与原版**逐位相同**。</para>
         /// </summary>
         static void ClampDescBelowArmy(TextMeshPro desc, TextMeshPro army)
@@ -13083,9 +13083,9 @@ namespace CardPresentation
 
             for (int s = StatMelee; s <= StatHealth; s++)
             {
-                // ⚠️ **`Color[]` 的默认元素是 (0,0,0,0) 不是白** —— 不显式填白的话，
-                //    这四个数值层的颜色会被 `ApplyStatFlashes` 乘成**全透明**（卡上看不见数字）。
-                _statFlash[s] = Color.white;
+                // ⚠️ **`Color[]` 的默认元素是 (0,0,0,0) 不是白** —— 不填白的话这四个数值层会被 `ApplyStatFlashes` 乘成**全透明**（卡上看不见数字）。
+                // 🔴 2026-10-26（`F1`·β4）：**只在槽位仍是数组默认透明时才补白** —— 本方法跑在 `Build` 首句 `CaptureStatChanges` **之后**，无条件刷白会把它按原版 `doColorChange=1` 算好的**持续色**抹掉（带伤进场的兵第一次画成白色，实测期望 `(0.973,0.306,0.353)`、实得 `(1,1,1)`）；⛔ 也别改成「永不补白」（未初始化那一档会被乘成透明）。判据：`ClearStatFlashes` 已把六格填白 ⇒ 正常路径此守卫恒假。
+                if (_statFlash[s].a <= 0f) _statFlash[s] = Color.white;
                 var at = StatAt01(s, true);
                 var go = new GameObject("stat" + s);
                 // ⚠️ **2026-10-25（`M2`）四个数值层【不挂】`Front`**：它们的位置取 `StatAt01(s, true)`

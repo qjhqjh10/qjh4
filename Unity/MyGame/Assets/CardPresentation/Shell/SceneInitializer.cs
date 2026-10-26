@@ -77,23 +77,6 @@ namespace CardPresentation
     /// <summary>初始化**之前**回调（原版 `IBeforeInitializationHandler`）。</summary>
     public interface IBeforeInitializationHandler { void OnBeforeInitialization(); }
 
-    /// <summary>原版 `InitializableBehaviour` 的等价基类：`Start()` 里自己向场景登记。</summary>
-    public abstract class InitializableBehaviour : MonoBehaviour, IInitializable, IInitializationComplete, IBeforeInitializationHandler
-    {
-        [SerializeField] InitializationPriority priority = InitializationPriority.Data;
-        [SerializeField] InitializationStatus status = InitializationStatus.Pending;
-
-        public InitializationPriority Priority { get { return priority; } }
-        public InitializationStatus Status { get { return status; } set { status = value; } }
-
-        public abstract void Initialize();
-
-        void Start() { SceneInitializer.QueueForInitialization(this); }
-
-        public virtual void OnInitializationComplete() { }
-        public virtual void OnBeforeInitialization() { }
-    }
-
     /// <summary>
     /// 场景初始化机（原版 `SceneInitializer`）。**判据全文见文件头**。
     /// ⛔ 一个场景只该有一台；`Awake` 里重复的那台会被 `Destroy`（同原版单例语义）。

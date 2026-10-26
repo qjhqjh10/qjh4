@@ -898,11 +898,11 @@ namespace CardPresentation
                     // 🔴 **2026-10-25（迁移第一步）**：播种口径 = **`CardProgress.Owned`**（「给足」口径），
                     //   不是默认的 `CopyLimit` —— 为的是让背包里的拥有数与旧的 `CardProgress` **逐值相等**，
                     //   先把「两套并存」的读口对齐（断言在 `Editor/CollectionScene.cs`），下一步再删旧写口。
-                    // 🔴 **顺序不能反**：**先读盘**（盘上有值就以它为准），**再播种**（只补还没有条目的卡）。
-                    //   反过来的话，播种会把盘上的值盖成出厂值（静默丢数据）。
-                    InventoryStore.Load(CardProgress.InventoryName, Inventories.Cards);
+                    // 🔴 **2026-10-26（C1）就地订正（铁律 5）**：顺序是**先播种、再读盘**（原来写反了）。`InventoryStore.Load` →
+                    //   `RestoreAmounts` 的契约是「**已在的改、不在的跳过**」⇒ 冷启动背包是空的、一条也读不进来 ⇒ 拥有数（合成/升级加的）**重启清零**；`SeedCardsAllUnlocked` 幂等（只补缺条目）⇒ 先播种不会盖掉盘上的值。
                     Inventories.SeedCardsAllUnlocked(_cardsState.Pool,
                         c => CardProgress.Owned(c.Id, c.Rarity));
+                    InventoryStore.Load(CardProgress.InventoryName, Inventories.Cards);
                 }
                 return _cardsState;
             }
@@ -5036,11 +5036,11 @@ namespace CardPresentation
         /// <para>我们的等价物：**鼠标主键按住 = 可能正在拖**（任何拖拽期间必然按住；点击当帧也会命中，
         /// 代价 = 按下瞬间移入卡格不亮描边，松手后下一次 enter 恢复）。</para>
         /// <para>⚠️ 为什么不用「真拖拽标志」：本工程拖拽状态在 `Core/DraggableController` 的**实例**上
-        /// （`Dragging`），没有全局口；而收藏卡格本身不参与拖拽 ⇒ 用按键按下做等价闸，并在自检里可强开。</para></summary>
+        /// （`Dragging`），没有全局口；而收藏卡格本身不参与拖拽 ⇒ 用按键按下做等价闸，并在自检里可强开。🔴 **2026-10-26（执行代理 `X2`）**：读数口**不再是 legacy `Input`** —— 本工程 `activeInputHandler: 1` ⇒ 那句 `Input.GetMouseButton(0)` 一调用就抛 `InvalidOperationException`（玩家鼠标移到卡格上必崩）⇒ 现读数口 = 类尾 `PointerHeldForHover()`（新输入系统，口径同 `BattleDriver.PointerHeldRaw()`）。</para></summary>
         static bool _hoverSuppressedForTest;
         public static bool HoverSuppressed
         {
-            get { return _hoverSuppressedForTest || Input.GetMouseButton(0); }
+            get { return _hoverSuppressedForTest || PointerHeldForHover(); }
         }
         public static void SetHoverSuppressedForTest(bool on) { _hoverSuppressedForTest = on; }
 
@@ -6378,6 +6378,29 @@ namespace CardPresentation
                 default:
                     break;                        // 页 2/3：原版那两个 tab 没有 `ToFocus` 覆写
             }
+        }
+
+        // ============================================================ 🆕 **2026-10-26（执行代理 `X2`）**
+        // 指针「按住」读数口 —— 专门给 `HoverSuppressed` 用（原版 `CollectionItem.OnPointerEnter` 的
+        // `if (eventData.pointerDrag != null) return;` 那道闸的等价物，语义见上方 `HoverSuppressed` 的 doc）。
+        //
+        // 🔴 **为什么改这一处**：原来写的是 legacy `UnityEngine.Input.GetMouseButton(0)`，而本工程
+        //    `ProjectSettings.asset` 的 `activeInputHandler: 1` = **只启用 Input System 包**
+        //    ⇒ 那句一调用就抛 `InvalidOperationException`（一手证据：`CollectionScene.Run` 崩在
+        //    `CollectionWindow.get_HoverSuppressed` → `AttachCardHover.b__0`；玩家侧鼠标一移到卡格上同样崩）。
+        // ✅ **读数口径照抄已有的那一套**（⛔ 不新造）：`BattleDriver.PointerHeldRaw()` 与
+        //    `Hand/CardInteraction.PointerScreen()` 都是 `Mouse.current` → `Touchscreen.current`，
+        //    没有鼠标设备就退回触摸主指。
+        // ⚠️ **编辑/批处理（`Application.isPlaying == false`）没有帧循环** ⇒ 设备读数既无意义、也可能
+        //    根本没有设备（`Mouse.current == null`）⇒ 一律当「没按住」。自检要验「拖拽中不悬停」时
+        //    走已有的自检口 `SetHoverSuppressedForTest(true)`（⛔ 不靠伪造鼠标）。
+        static bool PointerHeldForHover()
+        {
+            if (!Application.isPlaying) return false;
+            var m = UnityEngine.InputSystem.Mouse.current;
+            if (m != null && m.leftButton.isPressed) return true;
+            var ts = UnityEngine.InputSystem.Touchscreen.current;
+            return ts != null && ts.primaryTouch.press.isPressed;
         }
     }
 

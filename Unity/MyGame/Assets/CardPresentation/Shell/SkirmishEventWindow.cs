@@ -741,7 +741,7 @@ namespace CardPresentation
             _bannedLine = MenuDraw.Text(b, new PxRect(BannedL, BannedT, BannedR, BannedB),
                           Loc.T("MenuDeck/Error/InvalidDeckBannedCards"),
                           Color.white, "Text", 50f, QText, BannedR - BannedL, 18f, 50f, 36f, face: TmpFont.Face.LatinCardBody);
-            b.gameObject.SetActive(false);
+            // 🔴 2026-10-26（调度台裁定）：**容器恒开**（原版 prefab `act=1`、`OnDeckSelected` 只 SetActive 那颗 TMP）⇒ 显隐全交给下面这行开关 `Text`
             RefreshBannedLine();       // 建完就按当前卡组刷一次（原版这一行也是随 `OnDeckSelected` 刷的）
         }
 
@@ -753,10 +753,10 @@ namespace CardPresentation
         /// <para>🔴 **兜底（本工程红线：不许把键名印到屏幕上）**：`Loc.T(键)` 在**缺词条时返回键名本身**
         /// ⇒ 若取到的串 == 键名，就**回退长档**；长档也缺 ⇒ **出声并整行关掉**（⛔ 不印键名、不静默）。
         /// ⛔ 别为此去改 `Loc.T` 的全局行为（会影响别人）。</para>
-        /// <para>⚠️ **刷新时机**：原版是「换卡组那一刻」；我们窗内换卡组的箭头/弹窗在**基类**里
-        /// （`RefreshDeckColumn` 不是虚方法、本批不能改基类）⇒ 我们在 <see cref="Open"/> 与
-        /// <see cref="StartMatch"/> 两个点刷（**点 Battle 前一定是最新的**）；窗内换卡组后**不立即**变，
-        /// 如实记在报告里。</para></summary>
+        /// <para>⚠️ **刷新时机**（🔴 **2026-10-26（`X4`）就地订正**：原来这里写「窗内换卡组后**不立即**变、
+        /// 如实记在报告里」—— 那是「基类 `RefreshDeckColumn` 不是虚方法、子类挂不上」时的遗留限制，**已解除**）：
+        /// 现在挂在基类的注入点 `LiveOpsEventWindow.OnDeckColumnChanged` 上（空实现虚钩子，`RefreshDeckColumn` 收尾调）
+        /// ⇒ **换阵营 / 上下一套 / 选卡组弹窗挑完，这一行同一拍就刷**；<see cref="Open"/> 与 <see cref="StartMatch"/> 那两处保留兜底。</para></summary>
         public void RefreshBannedLine()
         {
             if (_bannedLine == null) return;
@@ -791,7 +791,7 @@ namespace CardPresentation
             }
             _bannedLine.SetText(text);
             _bannedLine.gameObject.SetActive(true);
-            _bannedLine.transform.parent.gameObject.SetActive(true);
+            // 🔴 2026-10-26（调度台裁定）：⛔ 不动容器 —— 原版 `OnDeckSelected` 只 SetActive 这颗 TMP（= `Text` 子件），容器出厂 `act=1` 恒开
             Debug.Log("[Event] 「卡组不可用」提示 = " + text + "（短档 " + err + "）");
         }
 
@@ -889,5 +889,17 @@ namespace CardPresentation
 
         static PxRect RectOf(float cx, float cy, float w, float h)
             => new PxRect(cx - w * 0.5f, cy - h * 0.5f, cx + w * 0.5f, cy + h * 0.5f);
+
+        // ============================================================ 2026-10-26（`X4`）：换卡组 ⇒ 「卡组不可用」那一行同一拍刷
+        /// <summary>基类 `RefreshDeckColumn()` 收尾的注入点 ⇒ 原版 `OnDeckSelected` 里
+        /// 「换卡组那一刻就重写 `bannedCardInDeckText`」那半句在这里落地
+        /// （判据 `d:/2/tools/decomp_full/SkirmishEventWindow__OnDeckSelected.c`；文案/兜底见 <see cref="RefreshBannedLine"/>）。
+        /// <para>⛔ **别以为 <see cref="BuildBanned"/> / <see cref="Open"/> / <see cref="StartMatch"/> 那三处就够了** ——
+        /// 它们只保证「开窗」「点 Battle 前」是对的；窗内换阵营 / 上下箭头 / 选卡组弹窗挑完时，
+        /// 这一行会停在**上一副牌**的校验结论上（原版没有这种残留）。</para></summary>
+        protected override void OnDeckColumnChanged()
+        {
+            RefreshBannedLine();
+        }
     }
 }

@@ -423,7 +423,7 @@ namespace CardPresentation
             var readyToggler = _readyRoot.gameObject.AddComponent<UIEffectCanvasGroupToggler>();
             readyToggler.deactivateOnDisable = true;
             _readyToggler = _readyRoot.gameObject.AddComponent<UIEffectTogglerController>();
-            _readyToggler.Toggle(false, 0f);
+            _readyToggler.Rescan(); _readyToggler.Toggle(false, 0f);   // 🔴 2026-10-26（X2）：`togglers` 只由 `Awake → Rescan()` 填，而**编辑/批处理下 `AddComponent` 不触发 `Awake`** ⇒ 列表恒空 ⇒ 下面每次 `Toggle` 都空转、`Ready for level up` 从建出来就一直 active（连带 `Tick` 的「关着冻时钟」成了死闸）。`Rescan` 幂等（先 `Clear` 再按 `GetComponentsInChildren(true)` 重填，见 `Effects/UIEffectTogglerController.cs` 的 `Rescan`）⇒ 运行期 `Awake` 已填过，这一句只重扫同一批，不重复注册。⛔ 别删（删了自检那 5 条又红、真机看不出来）。
 
             // ---- ③ `Rewards Scroll View`：奖励轨道（**横向可滚** —— 原版这一件是个 `ScrollRect(横, Elastic)`）
             var track = RewardsWindow.Node(root, "Rewards Scroll View", _trackR);
@@ -1258,5 +1258,15 @@ namespace CardPresentation
                    + " · 轨道 " + (_trackContent != null ? _trackContent.childCount : 0) + " 格"
                    + " · 可领光效 " + (_readyRoot != null && _readyRoot.gameObject.activeSelf ? "亮" : "灭");
         }
+
+        /// <summary>🆕 **2026-10-26（F3b）**：**当前**左 pad 的**只读公开口** —— = 私有的 <see cref="TrackPadLNow"/>
+        /// （`TrackPadL + _trackPadExtra`，可领态 +`MenuScroll.RewardClaimExtraPadding`(895)，
+        /// 判据 = 原版 `ForgeRewardSelector.modifiedLayoutPadding` + `HORIZONTAL_LAYOUT_GROUP_EXTRA_PADDING`）。
+        /// <para>⚠️ **给自检 / 别的宿主「现算某一格在哪」用**（`UguiLayout.HorizontalChild(..., padL, …)` 的 `padL`）。
+        /// ⛔ 别在调用点再写一遍 `TrackPadL + (HasToCollect ? 895 : 0)` —— 那是同一条规则的第二份
+        /// （`CLAUDE.md` §三「两处写同一条规则 = 迟早不一致」）⇒ 档位一改就静默错位 895px、且不报错。</para>
+        /// <para>⚠️ 它读的是**当前档**（`Refresh()` / `ApplyCollectLayout()` 之后才是最新值）——
+        /// 换阵营后必须先 `Refresh()` 再读。</para></summary>
+        public float TrackPadLeftNow { get { return TrackPadLNow; } }
     }
 }

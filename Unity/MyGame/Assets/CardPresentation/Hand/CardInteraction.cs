@@ -1191,6 +1191,11 @@ namespace CardPresentation
         ///   · 单位卡：落在**自己半场的空格**上，而且这格本回合还没摆过（`_placed`）；
         ///   · 战术卡：落在**一个单位**上（自己或对面的都行，由卡面文本决定），**不占格位** ——
         ///     所以既不该要求「这格空着」，也不该因为「这格本回合摆过牌」就被拒。
+        /// 🆕 **2026-10-26（执行代理 `A2`）**：**`targeted == 1` 的非单位卡**还有一档例外 ——
+        ///   落在目标侧的**空格**上也放行（驱动层 `CanDropAtSlot` 对 `ErrNoTargetAvailable` 放行）：
+        ///   原版「这张牌进 play area」那一跳**不校验目标**（`BattleManager__Update.c:255-280`），
+        ///   目标是在 `playingTargetedSpell(4)` 里才判的（`:676-684`）⇒ 放行之后由
+        ///   `BattleDriver.TryBeginPlayTargetPick` 进「点选目标」态（点不出就回手 + 提示）。
         /// 合法性本身仍然只有**引擎一处**说了算（`CanDropAtSlot` → `RuleCore.CanPlayCard`）。
         /// </summary>
         /// <summary>落点被拒的**类别** —— 加它是因为「拖回手牌」与「拖到格位上但被引擎拒」在日志上

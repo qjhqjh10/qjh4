@@ -21,6 +21,9 @@
 --------
 按 `Transform.m_Father` 逐级拼回，段格式 `名字#下标`（下标 0 省略），与
 `WFEffectModule.ResolvePath` 的语法**逐字一致**（同一份约定，⛔ 别在别处另定）。
+下标 = 本 transform 在**父的 `m_Children` 列表里的位置**；⛔ **别读 `m_RootOrder`** ——
+Unity 2023+/6 已删该字段（序列化里恒无 ⇒ 恒 0），2026-10-26 因为段下标恒 0，
+`Pray_Idle/Pray VFX mesh` 少了 `#1`，`AnimFXCheck` 报「模块引用路径 1 处解析失败」。
 
 用法
 ----
@@ -103,6 +106,20 @@ def yaml_block(body, key):
     return out
 
 
+def yaml_name(raw):
+    """`m_Name:` 那一行的值 → **真名**。
+
+    ⚠️ YAML 会把**带首尾空格**的名字用单引号包起来（导出集里 107 处，例如
+    `m_Name: 'Impact '`，真名是 `Impact `）。不脱引号的话路径段会多一对 `'`，
+    而 `ResolvePath` 是**逐字比**（不 Trim 子件名）⇒ 必然解析失败。2026-10-26 顺手修。
+    """
+    s = raw.strip()
+    if len(s) >= 2 and s[0] == s[-1] and s[0] in "'\"":
+        inner = s[1:-1]
+        return inner.replace("''", "'") if s[0] == "'" else inner.replace('\\"', '"')
+    return s
+
+
 def fnum(body, key):
     m = re.search(r"(?:^|%s)  %s:\s*([-\d.eE]+)" % (NL, re.escape(key)), body)
     return float(m.group(1)) if m else None
@@ -124,17 +141,26 @@ def scan_prefab(path, g2c):
     for pid, (ty, body) in docs.items():
         if ty == "1":
             m = re.search(r"%s  m_Name: (.*)" % NL, body)
-            goname[pid] = m.group(1).strip() if m else ""
+            goname[pid] = yaml_name(m.group(1)) if m else ""
 
     tr = {}
     for pid, (ty, body) in docs.items():
         if ty in ("4", "224"):
             g = re.search(r"m_GameObject: \{fileID: (-?\d+)\}", body)
             f = re.search(r"m_Father: \{fileID: (-?\d+)\}", body)
-            sib = re.search(r"m_RootOrder: (\d+)", body)
+            # 🔴 Unity 2023+/6 已删 `m_RootOrder`（序列化里根本没有这个字段，硬读恒 0
+            #    ⇒ 每一段的下标都成 0 ⇒ 非首个子件的路径静默解析失败）。
+            #    兄弟下标只认父的 `m_Children` 序：本 transform 在父列表里的位置（下面统一算 `sib_of`）。
+            kids = re.search(r"%s  m_Children:\s*%s((?:  - \{fileID: -?\d+\}%s)+)" % (NL, NL, NL), body)
             tr[pid] = (g.group(1) if g else None,
                        f.group(1) if f else "0",
-                       int(sib.group(1)) if sib else 0)
+                       re.findall(r"\{fileID: (-?\d+)\}", kids.group(1)) if kids else [])
+
+    sib_of = {}
+    for _pid, (_g, _f, kids) in tr.items():
+        for i, k in enumerate(kids):
+            sib_of.setdefault(k, i)
+    tr = {pid: (g, f, sib_of.get(pid, 0)) for pid, (g, f, _kids) in tr.items()}
 
     comp_go = {}
     for pid, (ty, body) in docs.items():

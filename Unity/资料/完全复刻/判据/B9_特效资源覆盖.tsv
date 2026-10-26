@@ -1,0 +1,65 @@
+原版资源	bundle	类型	被原版谁引用	我们用了没有	我们对应文件	判定
+【全集】bundle_battleprefabs_vfxandmisc_assets_all 里「根上带 ≥1 个 ParticleSystem」的 GameObject = 962 件	bundle_battleprefabs_vfxandmisc_assets_all	GameObject（特效 prefab 根）	原版按 CardAnim / TraitEffect / AbilityLogic / BattleAnims / RangedAttackParticlesByClan / TapHitMaterialDefinition 等引用（逐条见下面各行的单件）	962/962 已导出（我们 Prefabs 目录 978 件，多出 17 件来自其它 bundle/环境）	MyGame/Assets/WarpforgeVFX/Prefabs/（978 个 .prefab）· Resources/WarpforgeVFX/WarpforgeEffectLibrary.asset（982 条）	已用（名称匹配 961/962；唯一差异 = 原版名 `Orbital 5 repeat `（尾随空格），我们有的是 `Orbital 5 repeat` ⇒ 覆盖 962/962）
+Tap Rock	battleprefabs_vfxandmisc	Tapped 粒子 prefab	battlesharedresources 的 TapHitMaterialDefinition ×24 + arena3/aeldari/astra/blacklegion/genestealers/leviathan/sororitas/tauviorla 场景内定义	是	WarpforgeVFX/Prefabs/Tap Rock.prefab（guid 1bf8b580c1b61d249a403f10c333781c，被 8 个 Resources/ArenaPrefabs/*.prefab 引用）· 播放体 CardPresentation/Battle/TapParticleController.cs:228	已用
+Tap Hit Metal Red	battleprefabs_vfxandmisc	Tapped 粒子 prefab	arena2 场景内 TapHitMaterialDefinition ×20	是	Resources/ArenaPrefabs/battlearena2.prefab	已用
+Tap Hit Metal Small	battleprefabs_vfxandmisc	Tapped 粒子 prefab	battlesharedresources ×4 + astra/genestealers/sororitas/arena2/tauviorla/blacklegion/darkangels 场景内 ×30	是	同 7 个 ArenaPrefabs	已用
+Tap Hit Metal	battleprefabs_vfxandmisc	Tapped 粒子 prefab	arena1/astra/darkangels/genestealers/leviathan/sororitas/tauviorla 场景内定义（我们的数据里带这件）	是	Resources/ArenaPrefabs/*.prefab	已用
+Tap squishy	battleprefabs_vfxandmisc	Tapped 粒子 prefab	battlesharedresources ×5 + leviathan 场景 ×5	是	Resources/ArenaPrefabs/battlearenaleviathan.prefab	已用
+Tap Floor Grille	battleprefabs_vfxandmisc	Tapped 粒子 prefab	blacklegion 场景 ×4（本包内另有 1 个嵌套副本）	是	Resources/ArenaPrefabs/battlearenablacklegion.prefab	已用
+Default Tap Floor	battleprefabs_vfxandmisc	Tapped 粒子 prefab	13 场各 1-2 条场景内定义（共 13 场全有）	是	13 个 Resources/ArenaPrefabs/*.prefab	已用
+Generic Tap Material	battleprefabs_vfxandmisc	Tapped 粒子 prefab	arena1 场景内定义	是	Resources/ArenaPrefabs/battlearena1.prefab	已用
+Tap Monolith Left Glow	battleprefabs_vfxandmisc	Tapped 粒子 prefab	battlesharedresources ×1 + arena3 场景 ×1	是	Resources/ArenaPrefabs/battlearena3.prefab	已用
+Tap Monolith Right Glow	battleprefabs_vfxandmisc	Tapped 粒子 prefab	battlesharedresources ×1 + arena3 场景 ×1	是	Resources/ArenaPrefabs/battlearena3.prefab	已用
+Tap Red Glow Eye	battleprefabs_vfxandmisc	Tapped 粒子 prefab	blacklegion 场景 ×1	是	Resources/ArenaPrefabs/battlearenablacklegion.prefab	已用
+Tap Toxic Sludge	battleprefabs_vfxandmisc	Tapped 粒子 prefab	battleprefabs ×1 + arena2 场景 ×1	是	Resources/ArenaPrefabs/battlearena2.prefab	已用
+Tap Toxic Sludge green	battleprefabs_vfxandmisc	Tapped 粒子 prefab	battlesharedresources ×1 + leviathan 场景 ×1	是	Resources/ArenaPrefabs/battlearenaleviathan.prefab	已用
+Bolter Casing_Imperial	battleprefabs_vfxandmisc	内嵌子 prefab	原版无 MonoBehaviour 引用；本包内 GameObject 副本 ×5 ⇒ 作为零件嵌在别的特效 prefab 里	是（随父件导入）	WarpforgeVFX/Prefabs/ 内 5 个父 prefab 文本里都有这个子件	已用
+Bolter Casing_Orks	battleprefabs_vfxandmisc	内嵌子 prefab	同上（副本 ×10）	是（随父件导入）	同上（Blast_Big_Ork.prefab 等）	已用
+Bolter Casing_Traitor	battleprefabs_vfxandmisc	内嵌子 prefab	同上（副本 ×17）	是（随父件导入）	同上（16 个父 prefab 命中）	已用
+Vortex Warhead Impact	battleprefabs_vfxandmisc	特效 prefab	原版无 MonoBehaviour 引用；本包内 GameObject 副本 ×2 ⇒ 被别件内嵌	是（随父件导入）	WarpforgeVFX/Prefabs/	已用
+BloodThirstEffect_continuous	battleprefabs_vfxandmisc	特效 prefab	查不到（0 MonoBehaviour GUID 引用 / 0 代码字面量 / 本包只 1 个定义副本）	否	—	未用（查不到引用方）
+Buff_Hand_1	battleprefabs_vfxandmisc	特效 prefab	同上	否	—	未用（查不到引用方）
+Buff_SW_Runes_Blizzard OLD	battleprefabs_vfxandmisc	特效 prefab	同上（名字带 OLD）	否	—	未用（查不到引用方）
+BulletImpact_BulletHole	battleprefabs_vfxandmisc	特效 prefab	同上	否	—	未用（查不到引用方）
+BulletImpact_DeathSpinner Test	battleprefabs_vfxandmisc	特效 prefab	同上（名字带 Test）	否	—	未用（查不到引用方）
+BulletImpact_DeathSpinner_twinlink_large parabolic	battleprefabs_vfxandmisc	特效 prefab	同上	否	—	未用（查不到引用方）
+BulletImpact_Kroot_KrootGun OLD	battleprefabs_vfxandmisc	特效 prefab	同上（OLD）	否	—	未用（查不到引用方）
+BulletImpact_Kroot_RepeaterCannon OLD	battleprefabs_vfxandmisc	特效 prefab	同上（OLD）	否	—	未用（查不到引用方）
+BulletImpact_Sonic Weapon 1 Dual Pistol OLD	battleprefabs_vfxandmisc	特效 prefab	同上（OLD）	否	—	未用（查不到引用方）
+BulletImpact_Spore Launch 1	battleprefabs_vfxandmisc	特效 prefab	同上	否	—	未用（查不到引用方）
+BulletImpact_Tau_Pulse Carbine Dual OLD	battleprefabs_vfxandmisc	特效 prefab	同上（OLD）	否	—	未用（查不到引用方）
+BulletImpact_Tau_Pulse Carbine OLD	battleprefabs_vfxandmisc	特效 prefab	同上（OLD）	否	—	未用（查不到引用方）
+CamouflageEffect New	battleprefabs_vfxandmisc	特效 prefab	同上（注意：无后缀的 `CamouflageEffect` 有引用、这一件没有）	否	—	未用（查不到引用方）
+CodexIdleEffect	battleprefabs_vfxandmisc	特效 prefab	同上（codex 的 trait 行只指向别的件）	否	—	未用（查不到引用方）
+ComboEffect	battleprefabs_vfxandmisc	特效 prefab	同上（trait `combo` 的 effectAnim 在原版就是空引用）	否	—	未用（查不到引用方）
+CreateCard Orks 1	battleprefabs_vfxandmisc	特效 prefab	同上（`CreateCard Orks` 有引用、`… 1` 没有）	否	—	未用（查不到引用方）
+Cryptek_Stun	battleprefabs_vfxandmisc	特效 prefab	同上	否	—	未用（查不到引用方）
+Delightful Agonies Launch Projectile	battleprefabs_vfxandmisc	特效 prefab	同上（`Delightful_Agonies_Projectile` 才是被引用的那件）	否	—	未用（查不到引用方）
+Explosion Hive Fleet Arrival Explosions only	battleprefabs_vfxandmisc	特效 prefab	同上（同族 `… Tendrils` 有引用）	否	—	未用（查不到引用方）
+Explosion_GroundBreak	battleprefabs_vfxandmisc	特效 prefab	同上	否	—	未用（查不到引用方）
+Faith UI Trigger	battleprefabs_vfxandmisc	特效 prefab	同上（`Faith UI Gain` 有引用、Trigger 这件没有）	否	—	未用（查不到引用方）
+Hammer_Throw_SW	battleprefabs_vfxandmisc	特效 prefab	同上（`Hammer_Slam_SW` 有引用）	否	—	未用（查不到引用方）
+Infernal_Gaze	battleprefabs_vfxandmisc	特效 prefab	同上	否	—	未用（查不到引用方）
+Kroot_Summon_quick	battleprefabs_vfxandmisc	特效 prefab	同上（`Kroot_Summon_quick` 同族其它件有引用）	否	—	未用（查不到引用方）
+Lasrifle_auto OLD	battleprefabs_vfxandmisc	特效 prefab	同上（OLD）	否	—	未用（查不到引用方）
+Lasrifle_basic OLD	battleprefabs_vfxandmisc	特效 prefab	同上（OLD）	否	—	未用（查不到引用方）
+Lasrifle_laspistol OLD	battleprefabs_vfxandmisc	特效 prefab	同上（OLD）	否	—	未用（查不到引用方）
+MoreDakkaEffect	battleprefabs_vfxandmisc	特效 prefab	同上	否	—	未用（查不到引用方）
+PathOfTheWarrior_Projectile	battleprefabs_vfxandmisc	特效 prefab	同上（`PathOfTheWarrior` 族其它件有引用）	否	—	未用（查不到引用方）
+Plasma_basic_pink OLD	battleprefabs_vfxandmisc	特效 prefab	同上（OLD；无后缀 `Plasma_basic_pink` 有引用）	否	—	未用（查不到引用方）
+Protocol Base	battleprefabs_vfxandmisc	特效 prefab	同上（Sau_*Protocol 族其它件有引用）	否	—	未用（查不到引用方）
+Sau_DamageProtocol_OLD	battleprefabs_vfxandmisc	特效 prefab	同上（OLD）	否	—	未用（查不到引用方）
+Sau_HealProtocol_OLD	battleprefabs_vfxandmisc	特效 prefab	同上（OLD）	否	—	未用（查不到引用方）
+Screen_Top_Green	battleprefabs_vfxandmisc	特效 prefab	同上（`Screen_Gold`/`Screen_Red` 有引用）	否	—	未用（查不到引用方）
+Space Wolves Summon OLD	battleprefabs_vfxandmisc	特效 prefab	同上（OLD）	否	—	未用（查不到引用方）
+Stealth_Proc_Eldar	battleprefabs_vfxandmisc	特效 prefab	同上（`Stealth_Proc` / `Stealth_Proc_UM` 有引用）	否	—	未用（查不到引用方）
+Sword_Slash_EC_User Inverted	battleprefabs_vfxandmisc	特效 prefab	同上（同族 3x/7x 有引用）	否	—	未用（查不到引用方）
+Tap Blue Glow Blink	battleprefabs_vfxandmisc	特效 prefab	同上（**原版 tap 定义里也没引用它**；被引用的是 `Tap Blue Glow`）	否	—	未用（查不到引用方）
+Tap Green Glow	battleprefabs_vfxandmisc	特效 prefab	同上	否	—	未用（查不到引用方）
+Tau Coordinated Engagement	battleprefabs_vfxandmisc	特效 prefab	同上（`CoordinatedEngagement` 才是被引用那件）	否	—	未用（查不到引用方）
+ToxicMiasma_Board	battleprefabs_vfxandmisc	特效 prefab	同上（`ToxicMiasma_Venomthrope`/`_Warlord` 有引用）	否	—	未用（查不到引用方）
+Warp Storm Target	battleprefabs_vfxandmisc	特效 prefab	同上（`Environmental Condition Black Legion Warp Storm` 是环境件、不是这件）	否	—	未用（查不到引用方）
+WhileInPlay_Nurgle	battleprefabs_vfxandmisc	特效 prefab	同上（`Aura_WhileInPlay_1/2` 才是被引用的那两件）	否	—	未用（查不到引用方）
+WhileInPlay_Tzeentch	battleprefabs_vfxandmisc	特效 prefab	同上	否	—	未用（查不到引用方）
+【场景自带粒子】13 个战场 + battlesharedresources 各包 ParticleSystem 组件共 931 个（arena1 60 / arena2 72 / arena3 72 / aeldari 49 / astra 46 / blacklegion 65 / darkangels 60 / emperorschildren 39 / genestealers 61 / leviathan 71 / sororitas 75 / spacewolves 57 / tauviorla 189 / shared 15）	各 bundle_scenes_scenes_battlearena*	场景内 ParticleSystem	挂在战场场景对象上（环境、篝火、雾等）	由战场线按场搬进 prefab（WarpforgeVFX/ArenaOriginalPrefabs + WarpforgeArena1 生成器）	WarpforgeVFX/ArenaOriginalPrefabs/{13 场 + _shared} · Resources/ArenaPrefabs/*.prefab	已用（本次**没有逐件核**这 931 个的「我们实例化了几个」——那是战场线既有账，不在 B9 两件范围内（已写进报告「判不了的清单」））
+【其它 bundle 的粒子】mainmenuwarpforge 76 / menus 79 / boosterpacks 299（与上面 931 相加 = 1,385 = 全库 15,311 − 特效包 13,926）	bundle_scenes_scenes_mainmenu*、bundle_menus_assets_all、bundle_boosterpacks_assets_all	场景/界面粒子	开包、主菜单、奖励等界面演出	有（我们导出到同目录，别名如 RewardAppearParticle / Wildcard_Use_*）	WarpforgeVFX/Prefabs/（17 件「ours but not orig」即来自这些包）	已用（P1 界面域，不在本次 P0 触发链范围）

@@ -442,8 +442,8 @@ namespace RuleEngine
         ///   · 挨到**实际伤害**（所有减免之后）→ `RuleCore.ApplyDamage` 里 `FaceDown = false`
         ///     并发 `EvtKind.AmbushExit{Effect="damage"}`；**卡主自己那一方是当前行动方**才触发伏击正文；
         ///   · **面朝下地出手攻击** → `RuleCore.DeclareAttack` 里 `FaceDown = false`
-        ///     并发 `EvtKind.AmbushExit{Effect="attack"}`，**这一记攻击被取消**
-        ///     （原版 `_ResolveAttack:288-305`）；同样只在卡主自己那一方是当前行动方时触发正文。
+        ///     并发 `EvtKind.AmbushExit{Effect="attack"}`，取消这一记、**再由续攻补打**
+        ///     （原版 `_ResolveAttack:288-305` + `:488`）；同样只在卡主自己那一方是当前行动方时触发正文。
         /// ⚠️ `EvtKind.AmbushExit.Effect` 里 `"window"` 是**历史值、今天不可达**（见它的 doc）。
         ///
         /// ⚠️ **我们不做「藏起来」** —— 引擎里双方都看得见对方场上是什么（全工程没有隐藏信息这一层），

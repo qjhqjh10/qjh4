@@ -297,6 +297,11 @@ namespace CardPresentation
         BattleButtonFx _fxBar, _fxEye;
         readonly List<BattleButtonFx> _fxCardBtns = new List<BattleButtonFx>();
         readonly List<Label> _cardTexts = new List<Label>();
+        /// <summary>🆕 2026-10-26（第八十三会话 · 执行代理 `V3`）：原版 `mulliganSelectedPrefab` 那件
+        /// **「这张牌打算换掉」的标记**（见 <see cref="BuildSelectedMarkers"/> 的判据）。
+        /// 下标与 <see cref="_cards"/> 一一对齐（同 `_cardBtns` / `_cardTexts` 的口径）。</summary>
+        readonly List<HudPiece> _selBgs = new List<HudPiece>();
+        readonly List<Label> _selTexts = new List<Label>();
         readonly List<CardView> _cards = new List<CardView>();
         /// <summary>🔴 **2026-10-13**：那几张牌**搬进换牌区之前**的位姿（`Open` 时存、`ClearCardButtons` 还）。
         /// 不复位的话换牌结束后它们会**留在屏幕中央** —— `RefreshAll()` 只按 `_dealt`（这一轮新进手牌）
@@ -1129,6 +1134,82 @@ namespace CardPresentation
                 _cardTexts.Add(t);
             }
             BuildFeedback();
+            BuildSelectedMarkers();          // 🆕 2026-10-26（V3）：标记件与钮同一批重建
+        }
+
+        /// <summary>🆕 2026-10-26（第八十三会话 · 执行代理 `V3`）：原版 `BattleCardUI.mulliganSelectedPrefab`
+        /// 那件 **「这张牌打算换掉」的标记** —— 判据是**按 pid 从 bundle 里现读**出来的（旧判据记「判不了」）：
+        ///
+        /// <para>**件本身**（`bundle_battleprefabs_vfxandmisc_assets_all`，
+        /// `mulliganSelectedPrefab` 的 pid `-8797923186420842695`，UnityPy 现读 `m_Name` = **`CardMulliganSelected`**）：</para>
+        /// <list type="bullet">
+        /// <item>`ReplaceTextBg` —— `Image`，图 = **`40k_replace_display`**（468×152 · `battleatlasui`，
+        ///   pid `-2810539295074734524` 现读 `m_Name`），`m_Color = (0.632, 0, 0, 1)`；
+        ///   `RectTransform` 现读 `m_SizeDelta = 2.5345 × 0.8232`、`m_AnchoredPosition = (0.05, 0.489)`。</item>
+        /// <item>`ReplaceText` —— TMP `m_text = "Replace"` + I2 `mTerm = ` **`Battle/Mulligan/Replace`**，
+        ///   `m_fontSize 0.3` / `autosize 0.1–0.3` / 白 / 居中；
+        ///   `m_SizeDelta = 1.7546 × 0.3818`、`m_AnchoredPosition = (0, 0.395)`。</item>
+        /// </list>
+        ///
+        /// <para>**单位换算（只此一处）**：卡框那一层是 `2.3335 × 4.167` 卡框单位 ⇒
+        /// `1 单位 = CardWidthPx / 2.3335` 设计 px —— 与同文件 `BtnHFactor` 的**分母同一个常量**，⛔ 别另推一份。
+        /// 于是：底条高 `0.8232u ≈ 103 px`、中心在卡中心**上方** `0.489u ≈ 61 px`；
+        /// 字中心在上方 `0.395u ≈ 49 px`、字号 `0.3u ≈ 37.5 px`
+        /// （= 同文件那颗钮 `SetScriptFont(t, btnText, 37f)` 的同一个数，判据同源）。</para>
+        ///
+        /// <para>**摆放**：原版 `SetupStatusFrame`（`BattleCardUI.cs:3032-3045`）= 挂到 `card2DController.transform`
+        /// + `localScale = one` + `localRotation = identity`；父件与卡同原点 ⇒ 直接按卡中心加偏移。</para>
+        ///
+        /// <para>**显隐**：原版 `SetAsMulliganSelected(bool)`（`:2812-2834`）选中才 `Instantiate`、取消就 `Destroy`，
+        /// `FinishMulligan()`（`:2837-2846`）再收一次。我们**建一次 + `SetActive` 开关**（等价、少一次实例化）。
+        /// ⚠️ 那件**不跟「眼睛」开关**（原版 `ShowMulliganElements` 只收按钮/压暗，不收它）—— 这里照此。</para>
+        ///
+        /// <para>⚠️ **一处如实记**：原版挂的父件是 `card2DController`，**我们挂在画布 `_frame` 上** ——
+        /// 与同文件那批钮同一档（`T09` 那两条「有意不迁」的既定代价：卡在世界空间、钮在画布）。
+        /// 非 16:9 下两者会错开一点，机制与钮完全一样。</para></summary>
+        void BuildSelectedMarkers()
+        {
+            for (int i = 0; i < _selBgs.Count; i++) if (_selBgs[i] != null) Kill(_selBgs[i].gameObject);
+            for (int i = 0; i < _selTexts.Count; i++) if (_selTexts[i] != null) Kill(_selTexts[i].gameObject);
+            _selBgs.Clear();
+            _selTexts.Clear();
+
+            int n = _cards.Count;
+            if (n == 0 || _frame == null) return;
+
+            // 1 卡框单位 = 卡宽 / 2.3335 设计 px（与 `BtnHFactor` 同一个分母）
+            const float FrameUnitsWide = 2.3335f;
+            float u = CardWidthPx / FrameUnitsWide;
+            var tex = CardArt.MenuUi("40k_replace_display");
+            if (tex == null)
+            {
+                Debug.LogWarning("[Battle] 换牌面板：取不到 `40k_replace_display`（应在 `Resources/Art/ui_menu/`）"
+                               + " ⇒ **「已标记」那块红条画不出来**（钮与字照旧；⛔ 不静默）");
+            }
+            string word = CardBtnWord(false);              // 原版那件印的永远是 `Battle/Mulligan/Replace`
+
+            for (int i = 0; i < n; i++)
+            {
+                float bx = RowCx + RowDX(i, n);            // 卡中心（面板内设计 px，左上原点）
+                float by = RowCy;
+
+                var bg = Img(_frame, tex, "MulliganSelBg_" + i,
+                             bx + 0.05f * u, by - 0.489f * u, 0.8232f * u, Z - 0.02f,
+                             new Color(0.632f, 0f, 0f, 1f));   // 原版 `m_Color`
+                _selBgs.Add(bg);
+
+                Label t = null;
+                if (word != null)
+                {
+                    var lp = Px(bx, by - 0.395f * u);
+                    t = HudCanvas.MakeText(_frame, word, lp.x, lp.y, 5, Color.white,
+                                           new Vector2(0.5f, 0.5f), Z - 0.07f, "MulliganSelText_" + i,
+                                           face: TmpFont.Face.LatinCardBody);
+                    if (t != null) SetScriptFont(t, word, 0.3f * u);   // 原版 `m_fontSize 0.3` 卡单位
+                }
+                _selTexts.Add(t);
+            }
+            ApplyMarks();                                   // 建好立刻按 `_marked` 同步一次显隐
         }
 
         /// <summary>🆕 2026-10-19（B4 · `N70` P0-2）：建/重建按钮反馈（跟着 `_cardBtns` 一起重建）。</summary>
@@ -1206,8 +1287,13 @@ namespace CardPresentation
         {
             for (int i = 0; i < _cardBtns.Count; i++) if (_cardBtns[i] != null) Kill(_cardBtns[i].gameObject);
             for (int i = 0; i < _cardTexts.Count; i++) if (_cardTexts[i] != null) Kill(_cardTexts[i].gameObject);
+            // 🆕 2026-10-26（V3）：已标记那件标记（原版 `FinishMulligan` 也在这里那一档收掉）
+            for (int i = 0; i < _selBgs.Count; i++) if (_selBgs[i] != null) Kill(_selBgs[i].gameObject);
+            for (int i = 0; i < _selTexts.Count; i++) if (_selTexts[i] != null) Kill(_selTexts[i].gameObject);
             _cardBtns.Clear();
             _cardTexts.Clear();
+            _selBgs.Clear();
+            _selTexts.Clear();
             _fxCardBtns.Clear();
 
             // 🔴 **2026-10-13**：把起手牌**放回搬进来之前**的位姿（`Open` 存、这里还）。
@@ -1386,6 +1472,13 @@ namespace CardPresentation
                 // 🆕 2026-10-18（第十三轮 · G2b）：**字跟着档走**（原版三处都是点一下就把 term 重设一遍）
                 if (i < _cardTexts.Count && _cardTexts[i] != null)
                     _cardTexts[i].SetText(CardBtnWord(m));
+                // 🆕 2026-10-26（第八十三会话 · V3）：**原版 `mulliganSelectedPrefab` 那件标记**的显隐
+                //   （判据 → `BuildSelectedMarkers`）。⚠️ 原版是「选中才 Instantiate / 取消就 Destroy」，
+                //   我们建一次 + `SetActive` —— 等价，少一次实例化。
+                if (i < _selBgs.Count && _selBgs[i] != null)
+                    _selBgs[i].gameObject.SetActive(m);
+                if (i < _selTexts.Count && _selTexts[i] != null)
+                    _selTexts[i].gameObject.SetActive(m);
             }
         }
 
@@ -1592,6 +1685,20 @@ namespace CardPresentation
         {
             if (i < 0 || i >= _cardBtns.Count || _cardBtns[i] == null) return "<无>";
             return _cardBtns[i].Texture != null ? _cardBtns[i].Texture.name : "<无>";
+        }
+
+        /// <summary>🆕 2026-10-26（V3）：「已标记」那件标记（原版 `mulliganSelectedPrefab`）第 `i` 张现在**显示着**吗。
+        /// 自检读口 —— 断「选中 ⇒ 出现 / 取消 ⇒ 消失」用（判据 → <see cref="BuildSelectedMarkers"/>）。</summary>
+        public bool SelectedMarkerShown(int i)
+        {
+            if (i < 0 || i >= _selBgs.Count || _selBgs[i] == null || _selBgs[i].gameObject == null) return false;
+            return _selBgs[i].gameObject.activeSelf;
+        }
+        /// <summary>🆕 2026-10-26（V3）：标记件上印的字（没建出来 / 没这张 ⇒ `null`）。
+        /// 原版那件恒为 `Battle/Mulligan/Replace`（⛔ 不随「已标记」变，那是**钮**上的字）。</summary>
+        public string SelectedMarkerText(int i)
+        {
+            return (i >= 0 && i < _selTexts.Count && _selTexts[i] != null) ? _selTexts[i].Text : null;
         }
 
         // ══════════════════════════════════════════════════════════════════════════════════════

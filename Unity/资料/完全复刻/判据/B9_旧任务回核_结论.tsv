@@ -1,0 +1,116 @@
+原候选行号	任务线	原条目(截60字)	今日结论	证据(文件:行 或 账/类/方法)	仍缺什么	该改哪儿	建议优先级
+2	卡牌ID逆推线	**本线当前无未完成**	已解决	任务线/卡牌ID逆推线/任务总表.md:32「本线当前无未完成」（§一 无待办行）	—（非待办）	—	—
+3	卡牌线	📌 **`AlphaMask=null` 的 SoftMask 实际是「把挂到的那颗 Graphic 整层淡没」**（2	已解决	任务线/卡牌线/任务总表.md:75 状态=📌 常驻口径（SoftMask 口径订正，非待办）	—（非待办）	—	—
+4	卡牌线	**X1·「fit 没跑」的具体触发入口还没查清**	判不了	任务线/卡牌线/任务总表.md:88 状态=◐；机制已修：CardPresentation/Core/CardView.cs:4698 RefitTextLayers + :2749 _textNeedsRefit 重试	只剩「哪个入口让 TMP 停在未激活态」的运行时观测（判据=Unity/真机）	Unity 运行时探针：池化／裁切／先建后激活 三档	P2
+5	工具文档线	🆕 **黑名单内 65 条死链引用**（2026-10-24 M1/M2 未动）	已解决	任务线/工具文档线/任务总表.md:31 状态=📌 常驻口径（历史证据原样保留，非待办；候选写的 :30 已漂移到 :31）	—（非待办）	—	—
+6	引擎线	**新账-97 · 规则语义 P2 六条 + 判据不足三条**（E-A，2026-10-23）	仍缺	任务线/引擎线/任务总表.md:149 状态=◐；①③④⑥⑧ 与 ⑤(240/250/280/320/330) 已落	判据不足三条：TargetsAffected 23 档只抽核 6 档 · terror 的 get_currentCombatAttack 未读	判据：AbilityLogic.GetTargets 各 ta 档 + terror 方法体；账 战斗逻辑驱动.tsv 的 AbilityLogic.GetTargets 两行仍 B	P2
+7	引擎线	🆕 **`questTimes` 只有数据没有消费点**（2026-10-24 A20）	已解决	任务线/引擎线/任务总表.md:151；消费点已接 = RuleEngine/Core/Enchantment.cs:420 FilterByQuestCounter + :437 QuestCounter + RuleCore.FireTriggerAt 闸	（标题已闭，残余另计）现池 questTimes/spellType=120 全 0 无可达卡；FireTriggerAlways 支未加闸；同一条附魔多 ability 原版 +N 我们 +1；账 战斗逻辑驱动.tsv:1194 ReachedQuestCounter 仍 B（cardType=Whispers 无字段可判）	RuleEngine/Core/Enchantment.cs + RuleCore；账行 1194	P2
+8	引擎线	**C5·Q1 `talent` 那一拍**	仍缺	任务线/引擎线/任务总表.md:162 状态=◐（①②④ 已落）	③ regeneration + 另 8 个同形状 trait 记账进「不可达清单」（现只在 Core/VfxMap.cs:2592 注释里点名）	Core/VfxMap.cs 建成表的不可达清单	P2
+9	引擎线	**C5·Q4 v25 消费端 + v26 补列**	仍缺	任务线/引擎线/任务总表.md:163 状态=◐；求值器 Core/TargetCriteriaEval.cs 已在	v26 补列：ability 级其余 35 格 criteria	卡表生成器 + RuleEngine/Core/TargetCriteriaEval.cs	P1
+10	引擎线	**AUD7·`ward`/`wardWb`/`tainted`/`summonRift` 漏登 `Implemente	仍缺	现核：RuleEngine/Core/CardDef.cs:7652-8002 的 Implemented 集合里 Ward/WardWb/Tainted/SummonRift 仍 0 成员（Jam/SneakAttack 已由 B8_D 2026-10-26 补进 :7904）	四词进 Implemented（常量现只在 ConditionEval.cs:55-57 / KeywordTable.SummonRift）	RuleEngine/Core/CardDef.cs:7904 一带	P2
+11	引擎线	**AUD7·`sneakAttack` 原版有徽标、我们没进白名单**	仍缺	现核：CardDef.cs:7904 已有 SneakAttack（B8_D 补）；但 CardPresentation/Core/Badges.cs:413 InPlayIconKeys 无 sneakattack、CardPresentation/Resources/trait_tips.json 无 sneakattack 条目	白名单 + tooltip 正文两处	Badges.cs:413 与 trait_tips.json（生成器 工具/gen_trait_tips.py）	P2
+12	引擎线	**AUD7·`jam` 语义只做了 3 处**	仍缺	任务线/引擎线/任务总表.md:166 状态=◐ 部分完成（状态侧组合口已在）	驱动 5 步顺序 + 卡面短语路由 + 全量落点普查	现三处之外的能力入口：RuleCore.cs:5602 / ConditionEval.cs:501 / HandEffectExpired:9901	P2
+13	引擎线	**AUD7·「有键无实现」词条欠账（约 22 ＋ 44 条）**	仍缺	任务线/引擎线/任务总表.md:167 状态=✗	22 个「只有引擎没有操作层」+ 44 个「两边都没有」词条	按 普查产出_1025/AUD7_关键词词条_引擎与操作层.md 的两张清单补	P2
+14	引擎线	**AUD7·`RuleCore.TermResolver` 那行表现层接线**	仍缺	现核：全仓 RuleCore.TermResolver 只有声明 RuleEngine/Core/RuleCore.cs:11887 与「还没挂」警告 :11950-11952，0 个赋值点	表现层启动处挂 RuleCore.TermResolver = CardPresentation.Loc.T	Shell/SceneInitializer.cs 或 BattleDriver 启动处	P2
+15	引擎线	**AUD7·`ferocity` 中文「凶残 vs 狂暴」一次改齐**	仍缺	现核：CardPresentation/Core/CardText.cs:224 仍 {ferocity → 狂暴}，官方 CardPresentation/Core/Loc.cs:2742 = 凶残；trait_tips.json 的 ferocity zh=狂暴(src=rulebook)	三处统一为官方「凶残」（按钮／卡面／tooltip）	CardText.cs:224 + trait_tips.json 生成器 + 卡面词条	P2
+16	引擎线	**AUD7·`companion` 的「玩家选」要复核一次**	仍缺	账 战斗逻辑驱动.tsv:935 CardScript.ProcessCompanion 已 A（RuleCore.cs:4312 PlayCompanions），但判据要点没回答「玩家选」	复核原版 ProcessCompanion 是否允许玩家选（CardScript__ProcessCompanion.c:26/29/35/70/74/85/88-89 + ShouldTriggerCompanion.c:12-29）	只读复核；若需改则 RuleCore.PlayCompanions	P2
+17	引擎线	**AUD7·`InPlayIconKeys` 里 `relentless`/`resolution` 引擎零实现**	仍缺	现核：Badges.cs:413 InPlayIconKeys 含 relentless/resolution；CardDef.Implemented 无这两词、引擎零实现	要么补引擎实现、要么从 InPlayIconKeys 摘掉（今天 0 卡）	CardPresentation/Core/Badges.cs:413 / RuleEngine	P2
+18	引擎线	**AUD7·黑暗契约四变体与「关键词」不是同一层**	仍缺	任务线/引擎线/任务总表.md:172 状态=？ 判据待核	黑暗契约四变体（markOfChaos）归属核查	EffectResolver.cs GrantDarkPact(:12251 一带) + 附魔模板 :1807	P2
+19	引擎线	**附魔执行器（`buffType 12/15/16` 派发 + 隐藏卡 ability 执行）**	仍缺	现核：Enchantments 只有 AttachPray 一个挂载口（RuleEngine/Core/RuleCore.cs:11771）；Enchantments.Attach 全仓 0 调用点	缺口① 父卡 buffType 12/15/16 派发；缺口② 附魔自身 ability 执行	RuleEngine/Core/EffectResolver.cs:6405-6427（注释非代码）+ Enchantment.cs	P1
+20	引擎线	**附魔 · Carnifex 3 张与 2 张部队形态的关联方式未查清**	仍缺	任务线/引擎线/任务总表.md:174 状态=？ 判据未定	Carnifex 3 张与 2 张部队形态的关联路径（真值 0 引用）	判据/X20_附魔能力表.tsv Carnifex 分组 + 卡 SO 引用链	P2
+21	引擎线	**AUD7·两处注释还写着旧口径**	仍缺	任务线/引擎线/任务总表.md:175 状态=✗（代码都对，只是注释旧口径）	两处注释：RuleCore.cs:11281-11283 · BattleDriver.cs:29840	同左	P2
+22	引擎线	**X3·`ta=100` 的「相邻里有人满足同一 criteria」那半**	仍缺	任务线/引擎线/任务总表.md:176 状态=✗；现核 BoardSpec.AdjacentSlots 已存在（BattleDriver.cs:3242 在用）	ta=100 的「相邻里有人满足同一 criteria」递归口（防自嵌套）+ 读闭包谓词 DAT_184241e60	RuleEngine/Core/EffectResolver.cs ResolveTargets + TargetCriteriaEval	P1
+23	引擎线	**X3·「被闸拒 ⇒ 0 条 `Trigger`」还没有断言**	仍缺	任务线/引擎线/任务总表.md:177 状态=✗	缺真卡（手牌陷阱／常驻效果 + ability 级 criteria 行；HandTrapWhens 族 0 行）⇒ 等数据侧先有	数据侧先有卡，再补断言	P2
+24	引擎线	**X3·降费监听（`BroadcastCostWhen`）没有入队口**	仍缺	任务线/引擎线/任务总表.md:178 状态=？	先查清降费修正过不过闸（PlayerHand__SetupCardInHand.c:60-73）	判据核查 → EffectResolver.cs:9871 入队点	P2
+25	引擎线	**X3·`E5` 那 13 行判据齐的「接闸」活（含 `FireTriggerAt`／580／620）**	仍缺	任务线/引擎线/任务总表.md:179 状态=✗（落点逐条已给）	13 行 criteria 接闸：FireTriggerAt(RuleCore.cs:11649/:11456) · 580(:6236) · 620(:11769/:11884) · AbilityLevelGateApplies 白名单缺 swarm(EffectResolver.cs:6956)	同左	P1
+26	引擎线	**X6·`Rally` 与 `tactic-body` 那 8 行还是「判不了 ⇒ 放行」**	仍缺	任务线/引擎线/任务总表.md:180 状态=✗	Rally 与 tactic-body 8 行 criteria（缺「先取目标再判」次序；tactic-body EffectResolver.cs:2360 另需 19 张定位唯一）	EffectResolver.cs:2360 + GetTargets 次序	P1
+27	引擎线	**X6·`chooseone` 折成单条 op ⇒ 族闸碰不到分支**	仍缺	任务线/引擎线/任务总表.md:181 状态=✗	chooseone 拆到分支层（SW43/SAU40 等）	RuleEngine/Core/EffectText.cs + EffectResolver	P1
+28	引擎线	**X3／X6／AUD7·本轮新断言待跑 `RuleEngineTest.Run`**	已解决	2026-10-26 批次 8：RuleEngineTest.Run 全量实跑 9,354/9,354 全绿（比 08:02 那趟 8,823 多 531 条 = 本批新增用例），17 红全清 → 报告/B8_BK_17红诊断.md	—	—	—
+29	战场线	**T00·素材备用**	已解决	任务线/战场线/任务总表.md:43；实现侧已落：9 条 legacy clip + 6 controller 进 9 只小包 + ArenaSceneAnims.Bind() + ArenaAnimsProbe 19/19 取到 · 10/10 场绑定；9 只 wf_arena_anims 包加载失败已修、C4 复跑 9/9 就绪	（验收残留）真机逐件核布景骨骼实际位移	真机（暂停中）	—
+30	战场线	**T00·13 场入 Assets**（2026-10-23 第六十八会话）	仍缺	任务线/战场线/任务总表.md:44 状态=◐「拷贝/映射/import 已完成，渲染与逐场对账未做」；13/13 prefab 已进 Assets/WarpforgeVFX/ArenaOriginalPrefabs（382 MB）	渲染 + 逐场对账（与 T01 同一件事）	并入 T01（任务线/战场线/任务总表.md:46）	P1
+31	战场线	**T00·13 场引用修复**（AR 产出，2026-10-23）	仍缺	任务线/战场线/任务总表.md:45 状态=◐（P0-1/P1/P3 已做）	① P0-2 探针 ArenaOriginalShaderRebindProbe.Run 未跑 ② Timeline 唯一未解（需新打包口/Unity 重建）③ Unity import 一次	战场线 T00·引用修复 + ArenaOriginalShaderRebindProbe.Run	P2
+32	战场线	**13 场逐场对账差异** —— 每一场「我们 vs 原版」的局部差收敛到 ±5% 内（13 场里 12 场还没开始）	仍缺	任务线/战场线/任务总表.md:46 状态=✗ 未做	13 场逐场对账（12 场还没开始，收敛到 ±5%）	工具/arena_diff.py 逐场（A1558/A1589/A1677）	P1
+33	战场线	**粒子侧** —— 那 4 条「建出来了却一个像素都不出」的粒子出像素	仍缺	任务线/战场线/任务总表.md:47 状态=✗；真正还开的是 A1556/A1578/A1580（A1557 已判原版不做）	4 条「建出来却零像素」的粒子出像素	战场线 T02（A1556/A1578/A1580）	P1
+34	战场线	**全局色调 / 对比度** —— 「暗部偏亮、亮部偏暗」那个 **13 场共有**的签名消失	仍缺	任务线/战场线/任务总表.md:48 状态=✗（判据齐、候选已排掉一批）	13 场共有签名「暗部偏亮／亮部偏暗」	A1630 后处理/色调	P1
+35	战场线	**13 场 × 4 环境（52 态）** —— 另外 **3 个环境**也逐场跟原版比过（现在只比过「默认」那 1 个	仍缺	任务线/战场线/任务总表.md:49 状态=✗ 未做（详情件待写）	另外 3 个环境 × 13 场 = 52 态逐场比	A1550 + 施工图 资料/加时与冲突模式_原版规格.md	P2
+36	战场线	**`Barrels` 旁那团火** —— 亮度 / 色偏追上原版	仍缺	任务线/战场线/任务总表.md:50 状态=◐（pivot 尾巴已完成）	Barrels 火光亮度/色偏（我们暗一半偏蓝）+ 同源 Barrels Light FX 发光板偏亮 +44	A1552	P2
+37	战场线	**T06·残余·renderqueue 同名冲突**	仍缺	任务线/战场线/任务总表.md:51 状态=？改法待定；工具/gen_renderqueue_truth.py:95-97 仍取最小	二选一未裁：冲突项不进 mat 表 / 改成逐条出声	工具/gen_renderqueue_truth.py:95-97	P2
+38	战场线	**生成器「静默丢对象」两因** —— 文件名洗掉 `:` / 名字末尾带空格，都不会再让对象凭空消失	仍缺	任务线/战场线/任务总表.md:52 状态=◐（两因代码都修了、清单逐字段 0 差异）	Unity 侧 BuildArenaPrefabs + 出图（要等代理停笔）+ A1586 主菜单链	ArenaBuilder.BuildPrefabFromCLI 逐场 + 出图	P2
+39	战场线	**预览链口径与对位** —— 量出来的差异不再被「粒子推进时长」「恒定 `(0,+2)` 对位」「三路不同步」污染	仍缺	任务线/战场线/任务总表.md:53 状态=◐（尺子假绿已修）	A1667 恒定 (0,+2) 对位 · A1579 三路不同步 · A1615 相位推进时长逐场验	工具/arena_diff_phases.sh + arena_diff.py	P2
+40	战场线	🆕 **Tap 族建场（13 场）**	已解决	任务线/战场线/任务总表.md:85（§二）状态列原文 ✓ 已完成（2026-10-26 第八十一会话）：13/13 全部建完、逐场 rc=0、Tap 自检逐场相等、锚点告警 0 条	—	—	—
+41	战场线	🆕 **Tap 漏匹配根因**（Q2 第3轮，2026-10-26）	已解决	任务线/战场线/任务总表.md:86（§二）✓：根因 = 清单 world_chain 坐标口径（不乘父级缩放），改法 = 失败后走 FindBuiltByPath	—	—	—
+42	战场线	🆕 **Tap 5 锚点是否静态**（Q2 第3轮，2026-10-26）	已解决	任务线/战场线/任务总表.md:85-86（§二，同批）✓：5 锚点名字/路径一字不差，2 条会动 3 条静态（报告 Q2_第3轮）	—	—	—
+43	战场线	🔴🆕 **T09·清单坐标口径（`world_chain` 不乘父级缩放）**	仍缺	任务线/战场线/任务总表.md:54 状态=◐ 部分完成（判据+施工单已做）	生成器 world_chain 改动 / 13 场清单重生成 / 13 场 prefab+scene 重建 + 出图	工具/gen_unity_arena_manifest.py 的 world_chain + gen_arena_groups._world_of + 13 场重建	P1
+44	战斗线	**W62·真机**	已解决	任务线/战斗线/任务总表.md:413（§二）✓ 已完成（2026-10-26）：D1 已烘对 · D5/D6 均已落（D6 = MulliganPanel.cs:528/539/827 + BattleScene.cs:27566-27649）	—	—	—
+45	战斗线	战斗音响接线	已解决	任务线/战斗线/任务总表.md:236 状态=◐ 但实现已修：BattleDriver.EnsureAudioListener() 在 Begin 第一句补 AudioListener（原战斗场景 0 台）	（验收残留）真机听感	真机（暂停中）	—
+46	战斗线	其余零星真缺/真错	仍缺	任务线/战斗线/任务总表.md:237 状态=◐	A1750 12.5 s 冻帧（需真跑）· A1489 补日志/断言	A1750 / A1489	P2
+47	战斗线	逐卡专属动画触发面	仍缺	任务线/战斗线/任务总表.md:238 状态=◐（②③④ 已闭/已落）	① 引擎加「目标侧+格号」落点通道 + 4 张手牌陷阱的手牌锚（发射层与结算层一起改）	TraitEffectController / VfxMap 发射层 + 引擎	P1
+48	战斗线	**T09 / T09-残**	仍缺	任务线/战斗线/任务总表.md:239 状态=◐	A4 退两条手搓沿 + 模态链（最危险，需单独一波 + 真机）	战斗 HUD 锚点/模态链	P1
+49	战斗线	**T09-新账**	仍缺	任务线/战斗线/任务总表.md:240 状态=◐（EndPanel 压暗已修）	AbilityBoxClick 音效无 cue · MultiCard ESC/tooltip/横向 ScrollRect · 全屏件压 3D 卡格 · Log RowClicked · TickMultiCards 先 Hide 再 ShowMyDeck	战斗线 T09-新账 各项	P1
+50	战斗线	**W63·战斗完整审查**	仍缺	任务线/战斗线/任务总表.md:242 状态=◐（5 条里 3 条已闭）	余 2 条：拖指向性战术卡时合法目标是否点亮 · 敌方回合手牌能否拖/点	普查产出_1022/W63_战斗完整审查.md 末节	P1
+51	战斗线	**W63·审查-结束回合UI**	已解决	任务线/战斗线/任务总表.md:243；核心已落：三种文案收口一颗 _endTurnLabel（END TURN/ENEMY TURN/秒数）、TurnClock 整颗删除、SpriteSwap 判定 + 纯白断言；CreateInOutAnim 判据为空（铁律11例外①）	（验收残留）待重编 player 真机确认「敌回合整块透明 + 只剩 ENEMY TURN」	真机（暂停中）	—
+52	战斗线	**W64·兜底审计（战斗/动画/VfxMap）**	仍缺	任务线/战斗线/任务总表.md:244 状态=◐（17 条 RuleEngine 侧已做、多项已落）	5 条卡点（缩时累加点/AutoPlay/攻击钮 24.37px/横向滚动/父子颠倒）+ B-23 判据空 + 新账 AnimInfo.unitsShake 无消费者 + CardView.EndDissolve 早退疑反	战斗线 W64 逐条	P1
+53	战斗线	**拆账·MenuScroll 半格门槛**（拆自 `W63·战场相机`）	已解决	任务线/战斗线/任务总表.md:245；现核 CardPresentation/Shell/MenuScroll.cs:354 if (dy == 0f) return；（上游 PointerLayer.WheelAt 同道）+ CollectionScene 4 条断言 2223/2223 全过	—	—	—
+54	战斗线	🆕 **动画/特效/音效全量审查（第一批：DA / UM / Orks）** —— 5 条差异	仍缺	任务线/战斗线/任务总表.md:248 状态「见下逐条」（第一批 5 条差异）	第一批 5 条差异（D4/D6/D7/D8 等）	任务线/战斗线/任务总表.md:249-255 逐条	P2
+55	战斗线	├ **D4 `trigger` 桶把 `Start(0)`(88 条) 与 `Trigger(3)`(86 条) 混在	仍缺	任务线/战斗线/任务总表.md:249 状态=◐ 已知（Core/VfxMap.cs:1207-1210 有注释）；34 张卡 ≥2 条	trigger 桶把 Start(0)(88) 与 Trigger(3)(86) 混播	Core/VfxMap.cs:1207-1210	P1
+56	战斗线	└ **D5 ✅ 不是缺陷**	已解决	任务线/战斗线/任务总表.md:250 状态=📌「D5 不是缺陷」（延迟已烙进 cards_engine.json 的 animTimes[].t，非待办）	—（非待办）	—	—
+57	战斗线	🆕 **动画/特效审查 第二批（C4：SpaceWolves 68 / EmperorsChildren 70 / So	仍缺	任务线/战斗线/任务总表.md:252 状态「见下」（第二批 C4 新差异 5 条）	C4 的 5 条差异	资料/完全复刻/普查产出_1023e/C4_动画特效审查_索引.md	P2
+58	战斗线	├ **D8(C4) 🟠 `ThisUnitSummoned`（SW10）永不相交**	已解决	任务线/战斗线/任务总表.md:414（§二）✓ 已完成（2026-10-26）：TriggerNameOfWhenKind(+selfOnly) 按 WhenEvent.SelfOnly 分流（G2）	—	—	—
+59	战斗线	🆕 **动画/特效审查 收尾批（C5：AM 78 / Sautekh 79 / Leviathan 79 / TauEm	仍缺	任务线/战斗线/任务总表.md:253（收尾批 C5：297 一致 / 20 差异）	C5 的 20 条差异	资料/完全复刻/普查产出_1023e/C5_动画特效审查_索引.md	P2
+60	战斗线	📌 **C5 订正两条**（铁律 5）	已解决	任务线/战斗线/任务总表.md:254 状态=📌 口径订正两条（铁律 5，非待办）	—（非待办）	—	—
+61	战斗线	📌 **两处订正（A30 实测）**	已解决	任务线/战斗线/任务总表.md:255 状态=📌 两处订正（A30 实测，非待办）	—（非待办）	—	—
+62	战斗线	🆕 **`AttackGiantKiller` 的 trait 建模**（2026-10-24 主对话裁定：**可做、要	已解决	任务线/战斗线/任务总表.md:261；现核 RuleEngine/Core/CardDef.cs:7659 GiantKiller 已在 Implemented + ErrAttackGiantKiller；断言随 RuleEngineTest 9,354 全绿	—	—	—
+63	战斗线	**RE1·列表与文件**	仍缺	任务线/战斗线/任务总表.md:270 状态=◐（①文件名防覆盖已做 · ②R2 覆盖率 5/6 · ③R6 出处已找到）	① 列表读盘（Shell/BattleLogData · BattleLogTab · MatchLogRow）② ⑤ finalBreakdown 诊断	Shell/BattleLog* + Battle/ReplayStore	P1
+64	战斗线	**AN1·R3/R5/R8/R11/R12**	仍缺	任务线/战斗线/任务总表.md:271 状态=◐（R5/R8/R11 已修）	R3（ability 桶 tg=-1 单点播 59 行/31 卡）· R12（7 张卡 1.0 s 兜底 + 未归口件）	Core/VfxMap.cs + CardAnimOrder	P1
+65	战斗线	**U3·T1 替代能力周边**	仍缺	任务线/战斗线/任务总表.md:272 状态=◐（③④⑤ 已由 W10 做完）	Duty「一局一次」改数据驱动（现硬编码 DutyUsed）· agenda/oath 两个 signal 未建模	RuleCore.UseAlternative + 数据侧	P2
+66	战斗线	**AUD6·手牌目标型卡「打出后点选目标」**	仍缺	任务线/战斗线/任务总表.md:273 状态=✗；数据侧已进：cards_engine.json 有 targeted 列（1128 张里 246 张=1）+ RuleEngine/Core/CardDef.cs:324 Targeted	表现层/引擎一条链：BeginPlay 前进选目标态 + 点空白取消回手（原版 _ChooseUnitTarget state 9）	BattleDriver.BeginPlay + HighlightTargetsCore + CardInteraction	P0
+67	战斗线	**AUD6·飞行目标的「先锋」近战豁免**	仍缺	任务线/战斗线/任务总表.md:274 状态=✗；现核 RuleEngine/Core/RuleCore.cs:5509 只判 !ranged && target.Has(Flying) && !attacker.Has(Flying)，无 vanguard 豁免	IsValidTarget 补「目标带 vanguard ⇒ 近战合法」那半（判据 IsValidAttackTarget.c:177-181；现池 flying∩vanguard=0）	RuleEngine/Core/RuleCore.cs:5509	P2
+68	战斗线	**AUD6·攻击合法性缺六道闸**	仍缺	任务线/战斗线/任务总表.md:275 状态=✗；现核 pindown 只在 CanAttackNow(RuleCore.cs:5690)、SummonRift:11077 / Tainted:11089 在另一条路，攻击闸无六道	按原版顺序在 IsValidTarget 返回前补六道（precognition/summonRift/coward/tainted/stun/pindown）	RuleEngine/Core/RuleCore.cs:5509-5540 一带	P2
+69	战斗线	**AUD6·stealth／camo／ward 分侧口径收口**	仍缺	任务线/战斗线/任务总表.md:276 状态=◐（AddSide doc 已写清）	需裁「是否按施放者卡种收窄」	RuleEngine/Core/EffectResolver.cs:2658-2683 AddSide	P2
+70	战斗线	**AUD6·打法枚举补 `Spell=3`**	仍缺	现核 CardPresentation/Battle/AttackSelector.cs:95-101 AttackKind = None0/Melee1/Ranged2/Ability4，无 Spell=3	补 Spell = 3 + TryPresetOf 归 Gold	AttackSelector.cs:95-101	P2
+71	战斗线	**AUD6·抬手别被落场补间挡掉**	仍缺	任务线/战斗线/任务总表.md:278 状态=✗	TickTargetingLean 见 IsTweening 就让开 ⇒ 落场补间期间不抬手	BattleDriver.TickTargetingLean	P2
+72	战斗线	**AUD6／X9·本轮新断言一次都没跑过**	已解决	任务线/战斗线/任务总表.md:279 状态=✓：BattleScene.Run 5434/0 实跑绿（含 X8-a/b/c/d · X9-A/B/C · HandAssertE8 22 条）	（验收残留）真机三条手感（5 px 阈值/起手准星跟手/抬手幅度）	真机（暂停中）	—
+73	战斗线	**AUD8·友方／任意目标的主动能力点不到**	仍缺	任务线/战斗线/任务总表.md:280 状态=✗	AbilityPickOwner 三档映射（Enemy/Friendly/Any）+ HighlightTargetsCore 与 HitCommandTargetSlot 改两侧并集 + DoResolve 的 act.TargetP	BattleDriver 能力目标侧	P1
+74	战斗线	**AUD8·单位卡「落位后再点目标」整条缺**	仍缺	任务线/战斗线/任务总表.md:281 状态=◐；驱动层已落 BattleDriver.cs:7716 NeedsUnitTargetAfterDeploy + :7734 出声；RuleEngine.NeedChooseDeployTarget 全仓 0 命中	引擎 PlayCard 目标形参 + 取消回手两个口 ⇒ 玩家点选态	RuleEngine/Core/RuleCore.cs PlayCard + BattleDriver	P0
+75	战斗线	**AUD8·非法出牌按因给提示（四档错文案）**	已解决	任务线/战斗线/任务总表.md:282 状态=✓ 已修待验收；现核 BattleDriver.cs:7668 OnIllegalAction（表上 :7493 已漂移）+ :7510 IllegalActionText；断言 BattleScene.cs:7237 四句互异	（未跑 Unity）	跑 BattleScene.Run	—
+76	战斗线	**AUD8·选目标点到卡（含自己人）要出声**	已解决	任务线/战斗线/任务总表.md:283 状态=✓ 已修待验收；现核 BattleDriver.cs:14224 CancelTargetChoosingByInvalidClick（表上 :13770 已漂移）；断言 BattleScene.cs:7297	（未跑 Unity）	跑 BattleScene.Run	—
+77	战斗线	**AUD8·战术卡拖空要出声**	仍缺	任务线/战斗线/任务总表.md:284 状态=✗	CardInteraction.Release 把 DropRejectKind 与 isUnit 一起带出，仅 !isUnit 补 SpeakCantDo	Hand/CardInteraction.cs Release	P1
+78	战斗线	**AUD8·手牌轻点开窗缺 UIstate 闸**	仍缺	任务线/战斗线/任务总表.md:285 状态=◐（上游闸 BattleStateBlocked 已覆盖）	OnCardTapped 本层独立闸（防绕过 CardInteraction 的入口）+ 真机	BattleDriver.OnCardTapped	P2
+79	战斗线	**AUD8·「点我方牌堆摊开牌库」是我们自造的入口**	仍缺	现核 BattleDriver.cs:12785 HitMyDeckPile 仍在、:14380 仍调用 ShowMyDeck(true)	删掉「点我方牌堆摊开牌库」这条自造入口（动作 86 的 OpenShowCardsWindow 链路保留）	BattleDriver.cs:14380（表上 :13719 已漂移）	P2
+80	战斗线	**AUD8·`CardText.Phrase("THIS UNIT CANNOT ACT")` 不是官方词条**	仍缺	现核 BattleDriver.cs:14569/14592 仍 CardText.Phrase("THIS UNIT CANNOT ACT")，已挂非官方词条 CardText.cs:724 + Loc.cs:2819	换官方词条；或补「刻意保留」理由	BattleDriver.cs:14569/14592	P2
+81	战斗线	**AUD8·被引擎拒后让位预览停在假位**	仍缺	任务线/战斗线/任务总表.md:288 状态=✗	被拒后 EndPreviewReturn() + 一次 SyncBoard/RefreshAll	BattleDriver.cs 早退支（表上 :12937 已漂移）	P2
+82	战斗线	**AUD8·「ESC 取消选择（`BattleDriver.cs:11673`）」这句引用是错的**	仍缺	任务线/战斗线/任务总表.md:289 状态=✗（文档引用订正）	AUD7 文件头与 AU3 两处引用 ESC 行号	资料/完全复刻/普查产出_1025/AUD7_* + AU3	P2
+83	新手引导线	**菜单侧新手引导链** —— 玩家第一小时里，主菜单依次引导：领任务 → 打排位 → 选阵营/卡组 → 升级卡 → 取	仍缺	任务线/新手引导线/任务总表.md:27 状态=🟡（静态面全过，真机验到「选军队」）	7 阶段主链未逐段走完 · LevelUpCard/ClaimForge 的 SO 本地缺 · 跳过键 F9 未接 UI（本线用户已暂停）	Shell/MenuTutorialFlow.cs + FTUE 窗	P1
+84	活动线	**Gacha 抽卡活动页** —— 活动窗里出现「抽卡」页签：箱体进度、奖励池、开箱演出与结果	已解决	任务线/活动线/任务总表.md:27 状态=✓ 已修待验收：三扇兄弟窗各自 SetupTabs（GameWindowWithTabs.cs:80 共用实现）+ 主菜单第 6 颗 OnNavClick(5)；ShellScene 1747/0 · MainMenuScene 4010/0	（验收残留）真机点第 6 颗	真机（暂停中）	—
+85	活动线	**Raid 活动页** —— 团队进度条、奖励选择器、Raid 头部状态	已解决	任务线/活动线/任务总表.md:28 状态=✓ 已修待验收：同上（三扇兄弟窗共用 SetupTabs + 主菜单第 6 颗 OnNavClick(5)）	（验收残留）真机点第 6 颗	真机（暂停中）	—
+86	活动线	**Expansion Pass 战令页** —— 奖励轨道、进度与领取、付费档；我们已有 `PurchasePremi	已解决	任务线/活动线/任务总表.md:29 状态=✓ 已修待验收：同上（三扇兄弟窗共用 SetupTabs + 主菜单第 6 颗 OnNavClick(5)）	（验收残留）真机点第 6 颗	真机（暂停中）	—
+87	活动线	**活动钮图标 `40k_main_bt_event` 导入并接线** —— 主菜单第 6 颗 `Event Navig	仍缺	现核 CardPresentation/Resources/Art 下无 40k_main_bt_event 相关文件；任务线/活动线/任务总表.md:30 状态=✗	导入 Resources/Art + EventImageSelectorController 接线（两件同批）	工具/import_original_art.py + 事件钮 EventImageSelectorController	P1
+88	特效线	特效线真 Play	判不了	任务线/特效线/任务总表.md:32 状态=✗「纯验证项，卡在真机」（_SOFT 支 + 顶点色 VS 变体未在真场景确认）	需要起 player 在真场景确认这两条 shader 支	资料/真Play待验清单.md	P2
+89	特效线	**新账-69**	仍缺	任务线/特效线/任务总表.md:34 状态=◐（两条 E 已收口/可核销）	ShapeModule.m_Mesh 导出缺陷：EffectExporter 不导 ShapeModule ⇒ 补导出 + 重导 5 个 ShieldTraitEffect_Idle 变体 + A/B	工具/EffectExporter.cs 的 ShapeModule 分支	P2
+90	特效线	**W64·兜底审计-shader/导出**	仍缺	任务线/特效线/任务总表.md:35 状态=◐（9/10 已核销）	只剩 B14（技能时长只覆盖 62/873）	工具/gen_ability_anim_durations.py	P1
+91	特效线	**W65·自造/兜底残留（A1）**	仍缺	任务线/特效线/任务总表.md:37 状态=◐（已收 7 条）	R1 LutBlendProbe.Run 仍开	WFLUTBlender + LutBlendProbe.Run	P2
+92	特效线	**W65·未导出/未使用（A2）**	仍缺	任务线/特效线/任务总表.md:38 状态=◐（97/98 clip 有产物、Recorded 已重打包备用）	只差跑两个导出器：BoosterPackExporter.Run（2→19 根）与 EffectExporter.RunListed（TurnTimerTickPulse）	BoosterPackExporter.Run / EffectExporter.RunListed	P2
+93	特效线	**新账-72**	仍缺	任务线/特效线/任务总表.md:41 状态=◐（③④⑤⑥ 已销，只剩 ①②）	① 同档多播桶 1192 要真机看 ② 6 条 Shield 变体（EC/TAU override）是否改播	真机 + 6 条变体核对	P2
+94	特效线	**Trait 权威化·静音桶复核**	仍缺	任务线/特效线/任务总表.md:44 状态=◐（复核已完，4 个 unbacked 删得对）	4 个 unbacked 桶继续挖卡 SO 其它字段引用链	原版卡 SO 引用链（AM30 等 4 桶）	P2
+95	特效线	📌 **`DisplayStatusAnim` 重复施加同一关键词的「重播」我们复现不全**（2026-10-23 A7	已解决	任务线/特效线/任务总表.md:46 状态=✓ 已修待验收；现核 EvtKind.StatusApplied 存在（BattleDriver.cs:21971 消费、5 个 AddKeyword 语义点发、EventTiming.cs:492 在表）	（验收残留）真机看「再晕一次」那一拍重播	真机（暂停中）	—
+96	界面线	主菜单与外壳	判不了	任务线/界面线/任务总表.md:183 状态=◐（静态那半已消）	「壳卡死」无判据、无复现，唯一验法是真机复现	真机（暂停中）	P2
+97	界面线	外壳运行层	判不了	任务线/界面线/任务总表.md:184 状态=◐；静态项全部已闭（N45②/D5/D6/D7/D9/D4 转圈档/N27/N28/N67/N83）	只剩两件真机项：D10 Toast 根高（缺原版 rect.height 探针）· D4 暗底姿态（等原版 player 探针）	起原版 player 探针	P2
+98	界面线	**S1 结算屏点击穿透**	判不了	任务线/界面线/任务总表.md:195 状态=◐（2026-10-24 真机复验未复现，P8 通过；W20 另加 End.ExitReady 闸）	需要一次带录屏的复现（同帧关面板 + 下层点击）	真机复现	P2
+99	界面线	**U2·V1 头衔空态**	仍缺	任务线/界面线/任务总表.md:196 状态=🟡 部分（档案窗空态不复现已验 + ProfileAssertU2b 58/0）	「没开过档案窗就直接进战斗」时 HUD 称号仍空 ⇒ 默认称号种子搬进 ProfileData	Shell/ProfileData.cs + ProfileTab.EnsureLocalDefaultTitle	P1
+100	界面线	**X2·成就剩余 4 个计数源**	已解决	任务线/界面线/任务总表.md:197 状态=◐「3/4 已落」但现核第 4 条也已在：CampaignData.AllNodesClaimed/NotifyCampaignCompletionIfAllClaimed（CampaignData.cs:224-250，写 ProfileData.IdAchCompleteCampaign）+ 断言 RuleEngineTest_EngineX18 的 X18T9，RuleEngineTest 9,354 全绿	—	—	—
+101	界面线	**X2·猎杀标记／黑暗契约的成就授予点**	已解决	现核：AchievementTally.MarksOfChaosGiven/HuntMarksGiven（AchievementTally.cs:228/222）+ 写点 EffectResolver.cs:12251 AddMarkOfChaos / :11771 AddHuntMark + 读口 ProfileData.cs:694-699	—	—	—
+102	界面线	**X2·隐秘／破坏的成就计数**	已解决	任务线/界面线/任务总表.md:199 ✓ 已修待验收 + 2026-10-26 已付（RuleEngineTest 9,354 全绿）；现核 AchievementTally.cs SecretsMade/SabotageMade + EffectResolver 计数点	—	—	—
+103	界面线	**X2·再造／暴群的成就计数**	已解决	现核：AchievementTally.cs:234/240 AddReanimated/AddSwarmMerge + 写点 EffectResolver.cs:15254/15294 与 RuleCore.cs:4657 + 读口 ProfileData.cs:701/703 + 断言 X18-6d/7e/7f	（判据只能近似：原版 unit+0x40 过滤与 UnitSwarmCount 方法体撞名丢失，代码里已标 近似）	—	—
+104	界面线	**X2·`Ach_89`／`Ach_97` 的过滤位判据不闭合**	判不了	任务线/界面线/任务总表.md:201 状态=？（Ach_89 anyCardType=0 却无 cardType 值字段；Ach_97 anyTrait=1 与 withTrait 自相矛盾）	两条都要数据侧补格后才闭合 ⇒ 判据不闭合	数据侧补字段（卡表）+ 成就判定	P2
+105	界面线	**X2·本批 8 组成就断言待跑 `RuleEngineTest.Run`**	已解决	任务线/界面线/任务总表.md:202 ✓ 已核销（2026-10-26 批次 8）：RuleEngineTest 9,354/9,354 全绿，覆盖 X2 的 8 组 + X18	—	—	—
+106	界面线	**X4·模式卡新断言待复跑 `MainMenuScene.Run`**	仍缺	任务线/界面线/任务总表.md:203 状态=✗「缺 = 复跑一次 MainMenuScene.Run」	一次 MainMenuScene.Run 复跑（确认含 X4 新增断言）	跑 MainMenuScene.Run	P2
+107	界面线	**P03·「卡池拖拽」**（2026-10-25 从 `远端挂起线` 移回，按铁律 11 例外② 改口径 + 本表规矩	仍缺	任务线/界面线/任务总表.md:204 状态=？；现核 Deck/DeckRuntime.cs 已有 _cardDrag/_cosmDrag + OnBeginDrag/OnDrag/OnEndDrag	① 原版拖拽面清单未列（收藏卡池↔卡组 双向、卡组内重排）② 真机手感	Deck/DeckRuntime.cs + 收藏侧卡池	P1
+108	联机线	传输层与握手收尾	已解决	任务线/联机线/任务总表.md:26 状态=✓（N19：实现侧静态已闭，A1277 注释已落 NetTransport.cs:349）	（验收残留）真跑 NetSelfTest/NetBattleTest（自检暂停 + 线暂停）	恢复自检后跑	—
+109	联机线	大厅与匹配收尾	已解决	任务线/联机线/任务总表.md:27 状态=✓（N19：实现侧静态已闭，A1322 选项 A 已落）	（验收残留）真跑 NetSelfTest L12-b/c	恢复自检后跑	—
+110	联机线	录像/回放与座位口径	已解决	任务线/联机线/任务总表.md:28 状态=✓（静态闭合：Net 侧注释订正 + BattleDriver._me 还原/SetMySeat；SetMySeat 新账已于 08e1d726 落地 + 6 类残留已补）	（验收残留）真跑；顺手发现 Editor/BattleScene.cs:23161 单参 SetMySeat 视图停旧身份（不现形）	Editor/BattleScene.cs:23161	—
+111	联机线	`bye` 丢在哪一跳	已解决	任务线/联机线/任务总表.md:29 状态=◐ 但实现侧静态已闭（31 处探针 + S6 已修 + ②③④⑤ 已修）；⑥ 有界回执用户 2026-10-20 拍板「暂不加」	（验收残留）① 真连日志钉死（grep 配方已给）	恢复联机线后真连	—
+112	自检断言线	**X5／Dg5·「延后生成」链第 4 步为什么没落下网格**	判不了	任务线/自检断言线/任务总表.md:48 状态=？	需一条 Unity 探针（CollectionScene.cs:10602 前打 ttTmp.text / characterCount / isActiveAndEnabled / PendingWrapAppliedCount）分三档	CollectionScene 探针	P2
+113	自检断言线	**X5／Dg5·469 格同帧激活可能是生成尖峰**	判不了	任务线/自检断言线/任务总表.md:49 状态=？（未证项，判据不足）	真机逐帧量 469 格同帧激活是否尖峰	真机逐帧	P2
+114	自检断言线	**X5／Dg5·若证实 469 格打断生成链，要修「激活时生成」**	判不了	任务线/自检断言线/任务总表.md:50 状态=？（条件项，依赖上一条证实）	若探针证实 ⇒ TryApplyPendingWrap 失败可重试 / OnEnable 后补 ForceMeshUpdate	CardView/标签层	P2
+115	自检断言线	🆕 **`CardFaceAssertE5.Run` 不在 `_run_8_checks.sh` 的 13 条里**（2	已解决	现核 工具/_run_8_checks.sh:53 已有 run CardFaceAssertE5.Run cardface_e5.log，脚本自述 14 条入口（13→14）	—	—	—
+116	远端挂起线	`RawLiveOpsHandlerPersistence`（**服务器载荷解析**）	判不了	任务线/远端挂起线/任务总表.md:15 R04 状态=等远端（输入是服务器下发内容，本地永远拿不到；结构已由 E2 摸清）	需要真实运营数据（服务器/存档样本）	等远端	—

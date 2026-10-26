@@ -81,7 +81,7 @@ public static partial class RuleEngineTest
         "TestA1563VulnerableDamageSplit", "TestA1566LandingAndAboutToAttackRegistration", "TestA1462NonKeywordTargetFilter", "TestA1606TurnStartForceAttack", "TestA1631HalfUnderstoodTriggerBody", "TestA1632EachTurnAttackOnOpponentTurn",
         "TestA1455DeployNamedTroop", "TestA1600SelfFatalHitHeard", "TestA1468BatchAllEnemiesHitsStealth", "TestA1600DyingListenerExcluded", "TestA1468SingleTargetStealthGate", "TestS23ParseWhenPrefix",
         "TestS23ParseCostWhenInstead", "TestS23ParseCostWhenIconMarker", "TestS23AssertImplementedReadSites", "TestS23AssertA1413PayGroup", "TestS23ResolveDeployCopyOfThisTroop", "TestS23ResolveInsteadOnAbilityLayer",
-        "TestS23ResolveInsteadConditionalNotPairedOnAbilityLayer", "TestS23ResolveLandingCancelsAttack", "TestS23ResolveA1426GiveToDyingOnBoard", "TestS23ResolveArmourTwoRepresentations", "TestS23ResolveA1692DeployFreeNoOverwrite", "TestS23ResolveA1690WhenBodyAdjacentAnchor",
+        "TestS23ResolveInsteadConditionalNotPairedOnAbilityLayer", "TestS23ResolveLandingCancelsThenReattacks", "TestS23ResolveA1426GiveToDyingOnBoard", "TestS23ResolveArmourTwoRepresentations", "TestS23ResolveA1692DeployFreeNoOverwrite", "TestS23ResolveA1690WhenBodyAdjacentAnchor",
         "TestS23ResolveA1312KeepStatusTurnState", "TestW59PlayOrderSameSideDeploy", "TestW59PlayOrderCrossPlayer", "TestW59PlayOrderTurnStartEnd", "TestW59PlayOrderReentry", "TestW59PlayOrderInvariant",
         "TestW59PlayOrderOnSide", "TestT21TurnBeforeEndBeforeTurnEnd", "TestA24EC58DeployPairAndFlank", "TestW61ActionQueue", "TestEngineP1", "TestEngineP2",
         "TestT02OrConditionTargetDiesOrFriendly", "TestT02SacrificeBodyLandsOnSelf", "TestT02PlacementNoOverwriteFamily", "TestT02FirstFreeSlotHonoursAvailability", "TestT02NextDeploySlotHonoursAvailability", "TestT02ReturnSideIsAvailableSlot",
@@ -511,7 +511,7 @@ public static partial class RuleEngineTest
         Safe("TestS23ResolveDeployCopyOfThisTroop", () => TestS23ResolveDeployCopyOfThisTroop());
         Safe("TestS23ResolveInsteadOnAbilityLayer", () => TestS23ResolveInsteadOnAbilityLayer());
         Safe("TestS23ResolveInsteadConditionalNotPairedOnAbilityLayer", () => TestS23ResolveInsteadConditionalNotPairedOnAbilityLayer());
-        Safe("TestS23ResolveLandingCancelsAttack", () => TestS23ResolveLandingCancelsAttack());
+        Safe("TestS23ResolveLandingCancelsThenReattacks", () => TestS23ResolveLandingCancelsThenReattacks());
         Safe("TestS23ResolveA1426GiveToDyingOnBoard", () => TestS23ResolveA1426GiveToDyingOnBoard());
         Safe("TestS23ResolveArmourTwoRepresentations", () => TestS23ResolveArmourTwoRepresentations());
         Safe("TestS23ResolveA1692DeployFreeNoOverwrite", () => TestS23ResolveA1692DeployFreeNoOverwrite());

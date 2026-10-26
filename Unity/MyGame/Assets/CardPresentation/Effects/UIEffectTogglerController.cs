@@ -54,7 +54,7 @@ namespace CardPresentation
         public void Toggle(bool option, float duration = 0.3f, bool forceChange = false)
         {
             if (_targetStateEnabled.HasValue && _targetStateEnabled.Value == option && !forceChange) return;
-
+            if (!Application.isPlaying) duration = 0f;   // 🔴 2026-10-26（F3b）编辑器/批处理**没有帧循环** ⇒ 靠 `Update` 推进的补间永远走不完（`AnimationFinished` 不跑）⇒ 非运行期走**已有的瞬间档**（`duration<=0` 那条分支：`currentTime=MaxValue; Update()` ⇒ `DoUpdate(n=1)`+`AnimationFinished` 一次跑完）。先例 = `Shell/ForgeTab.FocusClaimable` 的 `!Application.isPlaying ⇒ FocusOn` · `Shell/InboxWindow.StartAnimateIn`。⚠️ 运行期行为零变化。
             _doAnim = true;
             _targetStateEnabled = option;
             _currentDuration = duration;

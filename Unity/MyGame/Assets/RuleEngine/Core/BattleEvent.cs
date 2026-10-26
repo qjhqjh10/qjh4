@@ -151,10 +151,10 @@ namespace RuleEngine
         /// 「`SetAmbush(card, 0)` 的调用点三个，**全是伤害路**」—— **「全是伤害路」不成立**：
         /// 三个调用点是 `CardScript__ResolveUnitAttacked.c:111` · `CardScript__ResolveDamageDealt.c:173`
         /// （**这两条**才是伤害路）· `BattleManager._ResolveAttack_d__438__MoveNext.c:305`
-        /// （**面朝下的攻方出手 ⇒ 取消这一记**，不是伤害路）。
+        /// （**面朝下的攻方出手 ⇒ 取消这一记、再由续攻补打一记**，不是伤害路）。
         /// 我们对应的两条出口：
         ///   · `"damage"` → `RuleCore.ApplyDamage`（真掉血、所有减免之后）；
-        ///   · `"attack"` → `RuleCore.DeclareAttack`（伏击单位面朝下攻击 ⇒ 翻开 + 取消这一记）。
+        ///   · `"attack"` → `RuleCore.DeclareAttack`（伏击单位面朝下攻击 ⇒ 翻开 + 取消这一记、立刻补打一记）。
         ///
         /// 🔴 **2026-10-20 同一笔订正**：本段原写「`"window"` 那一档是【我们模型的出口】……
         /// `RuleCore.RevealAmbush`（撑到控制者下个回合开始 → 翻开并触发）……仍然**两条出口都发**」
@@ -498,7 +498,7 @@ namespace RuleEngine
         ///   ⛔ **不许**复用 `Effect`（那是字符串**诊断**位、是自造编码）或 `Keyword`。
         ///
         /// **我们这边的判别式**（全工程只有一处算它 —— `RuleCore.PlaysFaceDown(CardDef)`）=
-        /// `card.Has(Ambush)` **且** `card.TriggerOps(Ambush) != null`。它同时也是
+        /// `card.Has(Ambush)`（🔴 **2026-10-26 订正（B9 `A3`）**：原版只判 trait、**不要求**正文，旧写「且 `TriggerOps` 非空」已作废）。它同时也是
         /// 「**这个单位面朝下上场**」那一支的条件（`RuleCore.PlayCard`）⇒ 两个字段**同真同假**。
         ///
         /// ⚠️ **不是伏击就保持 `false`**（⛔ 别拿哨兵值顶替）；别的种类（`Attack`/`Ability`/…）不填这一位。

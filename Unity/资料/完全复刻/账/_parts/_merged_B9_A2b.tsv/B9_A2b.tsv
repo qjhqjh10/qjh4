@@ -1,0 +1,2 @@
+域	原版类	方法	判据出处	判据要点	状态	我们的落点	差异	等级	轮次	备注
+战斗逻辑驱动	BattleManager	StartTargetedSpellAnim()	decomp_full/BattleManager__StartTargetedSpellAnim.c:24-63 · 停：BattleManager__StopTargetedSpellAnim.c	取 CardScript+0x28 RawCardScript+0x130 的准星 prefab，Instantiate 到该卡 2D 位 + 一个欧拉偏移（量在 DAT_1834b2dc0），存 BattleManager+0x370；停那一支由 StopTargetedSpellAnim 收	C	查不到等价实现（手牌目标卡没有准星；攻击侧的 TargetReticle 是另一件）	未接（表现/特效侧）	P2	B9-A2	⚠️ 本行原本在 B9_A2.tsv 里，合并后主表 grep StartTargetedSpellAnim = 0 ⇒ 单开这份补丁补上；要接需要 prefab 本体 + 那个欧拉常数逐值解 ⇒ 归特效线

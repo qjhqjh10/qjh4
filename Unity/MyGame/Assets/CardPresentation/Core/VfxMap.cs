@@ -307,7 +307,15 @@ namespace CardPresentation
         /// <summary>② **有真件、但本机还接不上**的事件（回 `null` **且出声一次**，⛔ 绝不拿替代品顶）。
         /// <para>`AmbushExit`（B7）：真值表**已解出** —— `Ambush` 只有一条 **End(1)** → `AmbushEffect`，
         /// **没有 `FromCode(5)`**；而反编译里**没有消费 End(1) 的调用点** ⇒ 原版哪一刻播它证不出来，
-        /// 照铁律 3 留空 + 出声（详见 `AmbushExit` 的注释）。</para>
+        /// 照铁律 3 留空 + 出声（详见 `AmbushExit` 的注释）。
+        /// 🔴 **2026-10-26（第八十三会话 `V3` 复核）就地升级结论：从「判据不明」改成「原版不可达」（铁律 11 例外①）。**
+        /// 三条现读证据：① `CardTrait` 类**根本没有 `AmbushEffect` 字段**（只有 `_traitEffects: List<TraitEffect>`，
+        /// `out_cpp2il_dev_ilspy/CardTrait.cs:7-41`）⇒ 它是 `Ambush` 那张 `CardTrait` 里一条 **`triggerType = End(1)`**
+        /// 的 `TraitEffect` 的 `effectAnim`；② 全 build 三种产物（`out_cpp2il_dev_ilspy` / `out_il2csharp` /
+        /// `decomp_full`）grep `AmbushEffect` **0 命中**（不是「没找到」，是**没有任何代码读它**）；
+        /// ③ 消费端只认两档：`DisplayStatusAnim` = 0/2、`DisplayTriggerAnim` = 3/6（`BattleCardUI.cs` 现读）
+        /// ⇒ **End(1) 在这个 build 里没有任何消费口**。所以「留空」不是将就、就是原版的形状；
+        /// 出声保留（诊断用），⛔ 别去找替代件。</para>
         /// <para>🔴 **2026-10-22（P6 · `W64` B8 收口）：`CollectWaystone` 已从这里【移出】** ——
         /// 真件 `Remnant Aeldari Collect particles` 当天已导进效果库、映射见 `ByEvent` 那一行
         /// ⇒ 它现在**解析得出**，不再是缺口。⚠️ 把它留在这个名单里会**劫持** `ResolveFallback`：

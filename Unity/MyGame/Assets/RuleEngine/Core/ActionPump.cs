@@ -1118,7 +1118,7 @@ namespace RuleEngine
                 case KeywordTable.Ecstasy:       return "Ecstasy";           // 715
                 case KeywordTable.Cruelty:       return "Cruelty";           // 720
                 case KeywordTable.Ferocity:      return "Ferocity";          // 725
-                default:                         return null;
+                default:                         return ExtraTriggerName(keyword);   // ⛔ 别直接加 case：会插行 ⇒ 账漂移，见类尾 §八
             }
         }
 
@@ -1474,7 +1474,7 @@ namespace RuleEngine
                 //  在棋盘上被换成了**另一个 `UnitState`**（`RuleCore.CleanupDeaths` 里
                 //  `new UnitState(u.Instance, …) { IsRemnant = true }`，`RuleCore.cs:8454`）
                 //  ⇒ <see cref="CarrierReplacedByRemnant"/> 认得出。
-                //    · `jamUnit` / `transformUnit` / `removeEffect` 三路：现池**零可达**
+                //    · `jamUnit` / `transformUnit` / `removeEffect` 三路：现池**零可达**（三源判据 = 本类尾「账 166」那一段，⛔ 别再重查一遍）
                 //      （`jam` 只在 `ResolveAction.c:2574` 的动画四条道上，我们没有对应建模）
                 //      ⇒ 如实记在报告里，⛔ 不是「不用做」，是「还没有判据把它接出来」。
                 //    · **死亡 / 回手 / 洗回牌库 ⇒ 不取消**（原版保留 `destroyUnit` / `recallToHand`）。
@@ -1647,6 +1647,254 @@ namespace RuleEngine
             bool? ok = CountEval.MeetsBoardCriteria(ctx, owner, gate, thisCard, out cgap, false, row.Condition);
             if (ok == null) why = cgap ?? "board 条件判不了";
             return ok;
+        }
+
+        // ==========================================================================================
+        //  🔴 **2026-10-26（第八十三会话 · 执行代理 `W1` · 账 B9 的 20 行）：
+        //  原版 14 个 `AddTrigger*` / 6 个 `ResolveTrigger*` 的【动作类型 + AbilityTrigger +
+        //  三卡槽 + 队列道】对照表（判据 = 逐文件现读 `d:/2/tools/decomp_full/`）**
+        // ==========================================================================================
+        //
+        //  ⚠️ **为什么写在类尾、不贴到 `TriggerNameOfKeyword`（`:1081-1123`）每一行旁边**：
+        //    本文件被 `资料/完全复刻/账/*.tsv` 按 `文件:行号` 引用（现读 12 处，最大到 `:1606`）；
+        //    在那张 switch 里插行会让下游**全部漂移**（CLAUDE.md 铁律 ·「新成员一律追加到类尾」）。
+        //    ⇒ 只追加在类尾，**零漂移**。⛔ 别再往 `:1084-1120` 中间插行。
+        //
+        //  ── 一、原版 `AddTrigger*` 的**统一形状**（除账 187 / 191 两个例外）──────────────────
+        //    签名 = `AddTriggerX(manager param_1, targetCard param_2, actingCard param_3,
+        //                        priority param_4, blockPlayerActions param_5)`
+        //    体内三句（每个文件同一位置）：
+        //      · `BattleAction___ctor(action, <actionType>, 0, param_3, param_5, 0)`
+        //        ⇒ `casterCard(+0xD8) = param_3` · `blockPlayerActions(+0xF4) = param_5` ·
+        //          `checkIfCasterInPlay(+0xD0) = 0`（**14 个全是 0**）
+        //      · `local_1f8[0] = param_2` ⇒ `targetCard(+0x10) = param_2`
+        //      · `uStack_200 = param_3` ⇒ `actingCard(+0x08) = param_3` —— 🔴 **16 个 `AddTrigger*` 文件里
+        //        只有 4 个写**（Mob / Pray / Synapse ＋ 账 187 的 Stimulation，它写的是 `param_4`），
+        //        其余 12 个**不写**（`+0x08` 保持 null）；**本表 14 行 = 4 写 10 不写**
+        //      · `BattleManager__AddAutoActionToQueue(manager, action, param_4, 0)`
+        //        ⇒ **道 = 调用方给的 priority**（0 Player / 1 Instant / 2 Interrupt / 3 DelayedInstant，
+        //        见 `Core/ActionQueue.cs` 文件头；本方法**自己不改道**）
+        //
+        //    🔑 **「+0x08 到底写没写」的判法**（本批复用；16 个 `AddTrigger*` 文件 **100% 一致**）：
+        //      Ghidra 的**局部变量声明宽度** ——
+        //        `undefined8 local_208 [2]`（16 字节，**盖住** `+0x08`）⇔ **没写**；
+        //        `undefined8 local_208`（8 字节）**+** `undefined8 uStack_200` ⇔ **写了**。
+        //      与各自 Resolve 侧的读法自洽 ⇒ 可以当判据直接复用，不必每张都读汇编。
+        //
+        //  ── 二、逐条对照（`+0x08` = actingCard 槽；`+0xD8` = casterCard）────────────────────
+        //    账行 | 原版方法                    | actionType        | AbilityTrigger        | +0x08           | Resolve 侧 OnTrigger 三槽
+        //    -----|------------------------------|-------------------|-----------------------|-----------------|----------------------------
+        //    186  | AddTriggerAmbush             | 0x53 = 83         | 670 Ambush            | **不写**        | `CardScript__TriggerAmbush.c:12-15`：this=acting=target=**自己**
+        //    187  | AddTriggerCardPlayedByStimulation | 0x5b = 91    | **字面量 0**（ThisCardPlayed） | **写 param_4** | this=+0x08=**被打出那张战术**·acting=+0xD8=**同一张战术**·target=+0x10=Stimulation 单位（调用点 `param_3==param_4` ⇒ 只有两张不同的卡）
+        //    189  | AddTriggerCourtesy           | 0x41 = 65         | 43 Courtesy           | **不写**        | `ResolveTriggerCourtesy.c:217`：this=target(+0x10)·acting=+0xD8·target=null
+        //    190  | AddTriggerMob                | 0x50 = 80（`isAdditionalMobTrigger` 真 ⇒ **0x51 = 81**） | 300 Mob | **写 param_3** | `ResolveTriggerMob.c:218`：this=target·acting=+0xD8·target=null
+        //    191  | AddTriggerPlayerCodex        | 0x46 = 70         | 145 Codex             | **不写**        | `CardScript__TriggerCodex.c:29`：this=acting=自己·target=`codexSource ?? 自己`
+        //    192  | AddTriggerPray               | 0x52 = 82         | 655 Pray              | **写 param_3**  | `ResolveTriggerPray.c:217`：this=target·acting=+0xD8·target=null
+        //    193  | AddTriggerRegiment           | 0x58 = 88         | 301 Regiment          | **不写**        | `CardScript__TriggerRegiment.c:12-15`：三槽全自己
+        //    194  | AddTriggerRelentless         | 0x3e = 62         | 230 Relentless        | **不写**        | `ResolveTriggerRelentless.c:217`：this=target·acting=+0xD8·target=null
+        //    196  | AddTriggerSacrifice          | 0x3f = 63         | 220 Sacrifice         | **不写**        | `CardScript__TriggerSacrifice.c:41-43`：三槽全自己
+        //    197  | AddTriggerSlay               | 0x59 = 89         | 120 Slay              | **不写**        | `CardScript__TriggerSlay.c:12-15`：三槽全自己
+        //    198  | AddTriggerSpiritStone        | 0x4d = 77         | 600 UseSpiritStone    | **不写**        | `CardScript__TriggerSpiritStone.c:15-16`：this=自己·**acting=param_2（≠自己）**·target=自己
+        //    199  | AddTriggerSynapse            | 0x4e = 78         | **630 TriggeredSynapse** | **写 param_3** | `CardScript__TriggeredSynapse.c:6-9`：this=自己·acting=param_2·target=null
+        //    200  | AddTriggerTeleport           | 0x5a = 90         | 690 Teleport          | **不写**        | `CardScript__TriggerTeleport.c:12-15`：三槽全自己
+        //    201  | AddTriggerUprising           | 0x54 = 84         | 680 Uprising          | **不写**        | `CardScript__TriggerUprising.c:12-15`：三槽全自己
+        //
+        //    ⚠️ **两个例外（⛔ 别按上表推）**：
+        //      · **账 187**：签名只有 4 参、**没有 priority**（`AddTriggerCardPlayedByStimulation.c:2`），
+        //        且 `AddAutoActionToQueue(…, **1 硬编码**, 0)`（`:79`）；
+        //        `casterCard = param_3 = 那张战术`、`targetCard(+0x10) = param_2 = 被刺激的单位`、
+        //        `actingCard(+0x08) = param_4 = 被打出那张`（`:27-30`）。
+        //        调用点 = `RawCardScript__OnCardPlayedWithTarget.c:56`。
+        //      · **账 191**：签名顺序**与其它 13 个相反** —— `AddTriggerPlayerCodex(manager param_1,
+        //        actingCard param_2, targetCard param_3, priority param_4, blockPlayerActions param_5)`；
+        //        `casterCard = param_2`（`:27`）、`targetCard(+0x10) = param_3`（`:28`）。
+        //
+        //  ── 三、`ResolveTrigger*` 侧（出队闸 + 真正的 `OnTrigger`）──────────────────────────
+        //    · **602** `ResolveTriggerAmbush.c:128-130`：出队闸 = `targetCard` 非空 ∧
+        //      `CardScript.IsInPlayOrDying()`；随后 `:226 CardScript__TriggerAmbush()`（三槽全自己）。
+        //      🔴 **语义上只读 `+0x10`（`param_2[2]`）**（`if (param_2[2] != 0) { IsInPlayOrDying(param_2[2]) … }`）；
+        //      `+0x08` / `+0xD8` 除了 Ghidra 那两段「整块 0x100 结构体搬运副本」以外
+        //      **没有任何语义读点**（全文件核过，`0xd8` 零命中）⇒ 「`casterCard` ≠ `actingCard`」
+        //      这个区分**观测不到**（原判据说「两槽表达不了」，实测是**观测等价**）。
+        //      ⚠️ 后面 `:127 if (local_f8 != 0) { IsInPlayOrDying(); … }` 那个 `local_f8` 是
+        //      **幻影局部量**（Ghidra 全文件无赋值点）⇒ 它应就是 `targetCard`，⛔ 别当成第三张卡。
+        //      闸我们由 `abilityContext = 40 (InPlayOrDying)` 承担。
+        //    · **603** `ResolveTriggerCardPlayedByStimulation.c:205-208`：现场从池里取一个
+        //      `<>f__AnonymousType31` 闭包（`thunk_FUN_18042f4a0` + `..ctor(x, 0)`），
+        //      调 `RawCardScript.OnTrigger(this, trigger, mgr, thisCard, actingCard, targetCard,
+        //      resolveOnlyEnchantments, ignoreRandomTrigger)` —— **8 个实参、trigger 位是字面量 `0`**。
+        //      🔴 **`0` 的语义已 VA 级定案 = `AbilityTrigger.ThisCardPlayed(0)`，不是「跑整条 ability」的哨兵**：
+        //        ① `RawCardScript.OnTrigger`（7 参重载，VA **`0x18094A9F0`**，RVA `0x94A9F0`）
+        //           **整份体只有 19 行、是一个纯转发器**（Ghidra `.c` 全读 + 机器码核对：
+        //           `0x18094AA17 mov ebp,edx` 保存第 2 实参、`0x18094AA69 mov edx,ebp` 原样放回、
+        //           `0x18094AA9F call 0x18094B420`），**对 trigger **不做任何比较/分支**；
+        //        ② `0x18094B420` = `RawCardScript.TriggerAbilities`，它把 trigger 原样传给
+        //           `CardAbility__CanTriggerAbility(ability, trigger, …)`；
+        //        ③ `CardAbility__CanTriggerAbility.c:71` = `if (*(int *)(ability + 0x10 /* triggerValue */)
+        //           != trigger) return 0;` ⇒ **`trigger == 0` 就是「只挑 `triggerValue == 0` 那条能力」**。
+        //      ⇒ 原版这句 = **把「被打出那张战术」自己的 `ThisCardPlayed` 能力跑一遍**。
+        //      三槽 = `+0x08`(被打出那张) / `+0xD8`(**同一张**，因为调用点 `param_3 == param_4`) /
+        //      `+0x10`(被刺激的单位) ⇒ **只有两张不同的卡 ⇒ 我们的两槽模型表达得了**。
+        //    · **605/610** `ResolveTriggerCourtesy.c:217` / `ResolveTriggerRelentless.c:217` ——
+        //      **逐字节同形**，只差 trigger id（43 vs 230）与 type 常量（65 vs 62）。
+        //    · **607** `ResolveTriggerPlayerCodex.c`：`:185 TriggerCodex(自己)` →
+        //      `:233-283` 若 `raw.HasAbilityType(0x91)` 则 `BroadcastUnitCodex(自己)` →
+        //      `:285-511` **循环**扫「同阵营 ∧ 在场 ∧ 非自己」逐张 `TriggerCodex(那张)`，
+        //      且该张 `HasCurrentTrait(1000 = codex trait)` 时再 `BroadcastUnitCodex`。
+        //      ⇒ **Codex 是群体触发**（原判据说「我们只做了第一段」—— 实测**已实现**：
+        //        `RuleCore.CheckCodex`（`RuleCore.cs:12917` 起）扫整排 `p.Board`，
+        //        2026-10-14 `A1155①` 已删掉那句多写的 `break`；同阵营/在场/非自己由
+        //        「按 `p` 扫本排」+ `Has(Codex)` + 每轮重读 `Board[s]` 承担）。
+        //
+        //  ── 四、我们的**两槽模型** ↔ 原版三槽（`RuleCore.FireTriggerAt`）──────────────────
+        //    `FireTriggerAt(ctx, u, keyword, owner, slot, chosen, subject, …)`：
+        //      · `u`       = 原版 `OnTrigger.thisCard`（还决定读谁的 `FxOps(keyword)`）；
+        //      · `subject` = 原版 `OnTrigger.actingCard`（`RuleCore.cs:12180-12190` 的 doc 写明了；
+        //                    **缺省 `null` = `u` 自己**）；
+        //      · `chosen`  = 这一条 op 的**目标**（≈ `targetCard`，但它是 **op 级**、不是 OnTrigger 级）。
+        //    ⇒ **两槽够用的判据**：原版三槽满足 `thisCard == actingCard`（`targetCard` 可同可异）
+        //      时，`u` + 缺省 `subject` 就是**逐字同形** —— 本表 14 个 trigger **全部**属于这一档
+        //      （🔴 2026-10-26 `W1b` 就地订正：原判据说「187/603 三张卡全不同」，**错** ——
+        //        调用点 `param_3 == param_4` ⇒ `thisCard == actingCard`，见 §三·603 的 VA 定案）。
+        //    ⇒ **两槽真的不够的，只剩一条、且不在本文件**：
+        //      · 账 572 `UnitHealed`（`RuleCore.HealUnit`）：thisCard=被治那张、actingCard=治疗源、
+        //        targetCard=原 targetCard —— 三张里**两张不同且都要**，补它要扩签名 + 单开一批。
+        //      · 账 198 / 199 的 `actingCard = param_2`：那一槽**能**用 `subject` 表达，
+        //        但 `ResolveTriggerSpiritStone.c:266` 的 `local_30` / `TriggeredSynapse` 的
+        //        `param_2` 在 Ghidra 体里**无赋值点**（幻影局部量）⇒ **具体传的是哪张卡未定**，
+        //        如实标着（⛔ 不猜）。
+        //    ⛔ **别为了让这几条「表达得出」去改 `FireTriggerAt` 的签名**：它被全引擎的触发链
+        //      （`RuleCore` C5 / `EffectResolver` / 附魔递归）引用，扩签名要单开一批 + 全量自检。
+        //
+        //  ── 五、本批顺手把两个裸偏移表具名（⛔ 别再各处重推）────────────────────────────────
+        //    ① `VarsGlobal` 的 **5 条优先级道**（原版 `AddAutoActionToQueue` 的 `priority` 来源）：
+        //       `+0xb4 playerActionPriority` · `+0xb8 instantPriority` · `+0xbc deathPriority` ·
+        //       `+0xc0 backlashPriority` · `+0xc4 turnEndPriority`
+        //       判据 = `d:/2/Warpforge_code/Scripts/Assembly-CSharp/VarsGlobal.cs` 字段声明序
+        //       （`deckSize` 起 `+0x18`，逐个 4 字节、`Vector2` 占 8）；**两处独立验证**：
+        //       `+0x6c addCardToDeckShowScale`（`AddCardInPlayToDeck.c`）·
+        //       `+0x70 cardDrawnScale`（`AddActiveTrapToHand.c`）都与字段表吻合。
+        //    ② `BattleAction` 字段偏移（这批 `Add*` 行全靠它）：
+        //       `+0x00 actionType(int)` · `+0x04 isPlayer(bool)` · `+0x08 actingCard` ·
+        //       `+0x10 targetCard` · `+0x18 multiTargetCard` · `+0x38 attackType` ·
+        //       `+0x70 cardEffect` · `+0x78 manaBuff` · `+0x88 newCardData` ·
+        //       `+0xD0 checkIfCasterStillInPlay` · `+0xD8 casterCard` · `+0xE0 casterCardRaw` ·
+        //       `+0xEC keepEffects` · `+0xF4 blockPlayerActions` · `+0xF6 toRemnant`
+        //       （判据 = `BattleAction.cs` 字段声明序 + `BattleAction__.ctor.c:1-30` 的四处写点）。
+        //
+        //  ── 六、逐条【我方落点】（写手/审查按这个找，⛔ 别再按方法名 grep 猜）──────────────
+        //    186 Ambush      → `TriggerNameOfKeyword` 的 `case KeywordTable.Ambush`（`:1113`）；
+        //                      触发口 `RuleCore.DeclareAttack`（`RuleCore.cs:6267`，翻开后补打）
+        //                      与 `RuleCore.ApplyDamage`（`RuleCore.cs:8592`，挨伤害翻开）
+        //    187/603 Stimulation → `TriggerNameOfKeyword` 的 `case KeywordTable.Stimulation`（`:1117`）；
+        //                      🔴🆕 **2026-10-26 `W1b` 就地改判 C → A（VA 定案后）**：原版这一段是
+        //                      **两条动作，但它们拼起来就跑「这张战术自己的效果」一次** ——
+        //                        (a) `OnTrigger(710 Stimulation, thisCard=被选中的单位, actingCard=那张战术,
+        //                            targetCard=被选中的单位)`（`RawCardScript__OnCardPlayedWithTarget.c:53-55`，
+        //                            闸 = `playedCardType == 0x14(Tactic)` ∧ `HasCurrentTrait(chosen, 0x4dd=1245
+        //                            = DefinedTrait.stimulation)`）；
+        //                        (b) `AddTriggerCardPlayedByStimulation` → 出队后 `OnTrigger(0 ThisCardPlayed, …)`，
+        //                            **它替代**了同一函数里那条 `TriggerAbilities(0)`（`:40`）——即
+        //                            **「把这张战术自己的效果跑一遍」只是改成排队、并稍带上 (thisCard=actingCard=战术,
+        //                            targetCard=被刺激单位)**。⛔ **不是**「再跑一次额外的东西」。
+        //                      🔴 为什么判 A（四条都核过）：
+        //                        ① `0` = `ThisCardPlayed`（VA 定案，见 §三·603）；
+        //                        ② 三槽里 `thisCard == actingCard`（调用点 `param_3 == param_4`）⇒ 两张卡，
+        //                           两槽模型够用；
+        //                        ③ **次序**：原版 (a) 入队、(b) 入队 ⇒ FIFO「先激励、后战术正文」。
+        //                           我们 `EffectResolver.PlayTactic` 就是 `FireTriggerAt(Stimulation)`（`:2557`）
+        //                           先入 Instant 道、再 `EnqueueAbility(Instant, "tactic-body:")`（`:2588`）
+        //                           —— 这正是 2026-10-22 `W62·R2` 为这一格做的修正，**逐字同序**；
+        //                        ④ 我们「战术自己的效果」= `PlayTacticBodyDeferred` 跑卡面正文
+        //                           （= 原版 `TriggerAbilities(0)` 那条 ability 的等价物），`chosen` 传的就是
+        //                           被刺激的单位 ⇒ `targetCard` 那一槽也对上。
+        //                      ⚠️ **残留差异（观测不到，如实标着）**：原版 `actingCard` 槽填的是**这张战术**，
+        //                      我们这一路没有「actingCard」概念（跑自己的正文不需要它）；若将来有卡的正文
+        //                      依赖「我是被谁触发的」，这条要重开。
+        //                      ⚠️ 另注：`PlayTacticBodyDeferred` 跑的是**解析出来的 op**，原版走的是
+        //                      `TriggerAbilities(0)`（含 `CanTriggerAbility` 的 ability 级三道闸）——
+        //                      那是**「卡面正文到达率」那条更大的账**，不在本行。
+        //    189/605 Courtesy   → 🔴 **状态 = B（有缺口 · 本 build 池内 0 张卡可达）**：
+        //                      我的引擎里**整条没有**（卡池 0/1,128 张卡 keywords 含 `courtesy`、
+        //                      `abilityTriggers` 含 43 的也是 **0**；`KeywordTable` 没有 `Courtesy`
+        //                      常量、`Prefixes` 里也没有 `courtesy`、映射表无行、无触发口）。
+        //                      ⇒ 按**铁律 11**「休眠机制也要做」⇒ **要做、排最后一批**，
+        //                      时间限定：出现带 Courtesy 的卡时立刻升 P0。
+        //    190 Mob         → `:1104` `case KeywordTable.Mob`；触发口 `RuleCore.cs:6678/10201`；
+        //                      `isAdditionalMobTrigger` 那第二档 type（81）我们不需要建模 ——
+        //                      两条 type 在 Resolve 侧落到**同一个** `OnTrigger(300)`
+        //                      （`ResolveTriggerMob.c:218`），差别只在 `param_3` 的一个分支。
+        //    191/607 Codex   → `:1101` `case KeywordTable.Codex`；触发口 `RuleCore.CheckCodex`
+        //                      （`RuleCore.cs:12917` 起，见 §三·607）。
+        //    192 Pray        → `:1111` `case KeywordTable.Pray`。
+        //    193 Regiment    → `:1105` `case KeywordTable.Regiment`。
+        //    194/610 Relentless → 🔴 **状态 = B（有缺口 · 本 build 池内 0 张卡可达）**：同 189 ——
+        //                      卡池 0 张 keywords 含 `relentless`（现读唯一命中是 `SAU36` 的**天赋名**
+        //                      `Talent: Relentless March`，不是关键词）、`abilityTriggers` 含 230 的 0 张、
+        //                      `KeywordTable` 无 `Relentless` 常量、`Prefixes` 无 `relentless`
+        //                      ⇒ 同按**铁律 11**「休眠机制也要做」：**要做、排最后一批**。
+        //    196 Sacrifice   → `:1102` `case KeywordTable.Sacrifice`。
+        //    197 Slay        → `:1100` `case KeywordTable.Slay`；出队复核 = `PumpActionQueues` 的
+        //                      `RequireActorInPlayOrDying` 那一支（本文件 `:1536-1546`，判据
+        //                      `ResolveTriggerSlay.c:116-226` 的 `CardScript.IsInPlayOrDying`）。
+        //    198 SpiritStone → `:1110` `case KeywordTable.SpiritStone`（名字 = `UseSpiritStone`）；
+        //                      ⚠️ 起触发的是`ResolveSpiritAbility` 一族，不走 `FireTriggerAt(SpiritStone)`。
+        //    199 Synapse     → 🔴 **本表【不该】加 `synapse`**：`TriggerNameOfKeyword` 只服务
+        //                      「`FireTriggerAt` 拿到的关键词 → AbilityTrigger 名」这一条路，
+        //                      而突触在我们这里是 `EffectResolver.RepeatTacticOnAdjacent` 尾部那条
+        //                      `BroadcastKeywordEvent(Triggers(synapse))`（不经过 `FireTriggerAt`）；
+        //                      630 `TriggeredSynapse` 的名字映射在 `EffectResolver.TriggerNameOfWhenKind`
+        //                      （`TN_TriggeredSynapse`，判据 `CardScript__TriggeredSynapse.c:6-9`）。
+        //                      ⛔ 别往 `:1084-1120` 里加 `case KeywordTable.Synapse` ——
+        //                      没有任何调用点，加了就是死代码（而且会插行导致账漂移）。
+        //    200 Teleport    → `:1115` `case KeywordTable.Teleport`；触发口 `RuleCore.cs:4186`。
+        //    201 Uprising    → `:1114` `case KeywordTable.Uprising`。
+        //
+        //  ── 七、账 166 `AddRemoveEnchantment`（`removeEffect(16)`）的三源判据 ──────────────
+        //    **原版可达**（所以 ⛔ 不能判「原版没有」）：唯一调用方 =
+        //      `AbilityLogic__PlayAbility.c:2280`（另一处 `:2360` 同一段），双闸 =
+        //      `abilityLogic == 0x154 (340)` ∧ `cardEffect.spellType == 0x0f (15)`。
+        //    **本 build 不可达**：
+        //      ① `cards_engine.json` 1,128 张里 `spellType == 15` 的 **0 张**
+        //         （`cards_truth.json` 1,351 张同 —— `spellType` 分布只有 0/90/150/180/190/200/
+        //          210/220/230/240/260/265/270，**没有 15**）；
+        //      ② 我们引擎**没有** `removeEffect(16)` 的发射口 —— 全仓只有
+        //         `Core/TutorialScript.cs:114` 的枚举名与 `ActionPump.cs` 的注释；
+        //         `EffectResolver` 里也没有对应的 op 分派档；
+        //      ③ `activeAbilityLogic` 132 张卡里 0 张带 340 的整条逻辑。
+        //    ⇒ **状态 = D（本 build 不适用）+ 时间限定**：出现 `spellType == 15` 的卡 /
+        //      `removeEffect` 真接上分派档时**必须重跑**本条（它不是「原版没有」，是「这版池里到不了」）。
+        //    ⚠️ 原版这条动作**只带 targetCard + cardEffect 两颗**（`AddRemoveEnchantment.c:28-30`：
+        //      `casterCard` 也填 targetCard），`blockPlayerActions = param_5`。
+        //
+        // ==========================================================================================
+        //
+        //  ── 八、`TriggerNameOfKeyword` 的【不可插行】补充行（⛔ 别把它们搬回 `:1084-1120` 那张 switch）
+        // ==========================================================================================
+        //  🔴 **为什么要有这个方法**：那张 switch 被 `账/*.tsv` 按 `文件:行号` 引用（现读 12 处）；
+        //    往里插一行 `case` 会让**本文件下游所有落点 + 本段（`:1653` 起）整体 +1**。
+        //    ⇒ 新补的映射一律走 `default:` 这一跳（`TriggerNameOfKeyword` 的 `default` 现在转调本方法），
+        //      本方法**只追加、不改既有行**。
+        //
+        //  · **账 187/603（`W1b` 顺手发现 · 第八十三会话）**：`RuleCore.FireSpentAllMana`
+        //    （`RuleCore.cs:12802` 起）会 `FireTriggerAt(w, KeywordTable.SpentAllMana, …)`（`:12812`），
+        //    但原表**没有 `spentallmana` 这一行** ⇒ `_kwTriggerName == null` ⇒
+        //    `AbilityContextOfAbilityV14(card, null, "spentallmana")` 的 `TriggerNameOfKeyword` 那一跳
+        //    也拿不到名字 ⇒ `abilityContext` 恒走 `-1` 回退口径（= ability 级四道闸**静默不判**）。
+        //    ✅ 原版对应物 **存在**：`CardScript__TriggerSpentAllMana` → `OnTrigger(0x281 = 641
+        //    = `AbilityTrigger.SpentAllMana`)`（`SpentAllMana` 在 `CardDef.AbilityTriggerNumberOfName`
+        //    `CardDef.cs:1940` 名字表里本来就有）。
+        //    📊 **今天零可观测**（现读 `cards_engine.json` 1,128 张）：`abilityTriggers` 含 **641 的 0 张**、
+        //    `desc`/`descZh` 里出现 `SpentAllMana` 的也是 **0 张** ⇒ 补它**不改任何现有行为**；
+        //    补的是「原版有、我们缺」这一层（铁律 11：休眠机制也要做）。
+        //    ⚠️ 一个都没补的还有 **`backlash`** —— 但它不受影响：`TriggerSkipsAbilityContext`
+        //    的**关键词**那一半已经兜住了它（见那一支），所以不需要名字。
+        //    📌 **同一套形状的既有先例** = `WhenEvents.ExtraTriggerNameForKind`（`Core/WhenEvent.cs:2087`）
+        //    —— `TriggerNameOfWhenKind` 的 switch 之后也是这么兜底的（`EffectResolver.cs:7421`）。
+        static string ExtraTriggerName(string keyword)
+        {
+            if (keyword == KeywordTable.SpentAllMana) return "SpentAllMana";   // 641
+            return null;
         }
     }
 }

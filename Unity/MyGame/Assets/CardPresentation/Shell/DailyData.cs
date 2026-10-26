@@ -2211,7 +2211,7 @@ namespace CardPresentation
             _daily[0].St = State.Collectable;
             _daily[1].St = State.Collectable;
             _weeklyState = State.Collectable;
-        }
+        } /* 🆕 2026-10-26（F3b）：**全量还原口**（三条每日 + 周常 + 骷髅 + 登录）。`ResetMissionsForTest` 只管三条每日 ⇒ 别的宿主拿它当「回到出厂」时，上一次留下的 `_weeklyState` / `_skullsState` / `_loginState` 会**泄漏**过来（最坑的是 `CanCollectLogin()` = `_loginState != Claimed` ⇒ 只要没被显式置成 `Claimed`，「一条可领都没有」这个态**根本造不出来**，红点断言恒 1）。⛔ 别改 `ResetMissionsForTest` 现有行为（别的宿主在用）；「回到出厂」一律用本口。⚠️ 它**不**把登录/骷髅置成可领 —— 出厂就是 `InProgress`（`_loginState`/`_skullsState` 的初值）。 */ public static void ResetAllStatesForTest() { _weeklyState = State.InProgress; _skullsState = State.InProgress; _loginState = State.InProgress; ResetMissionsForTest(); }
 
         // ============================================================ 领奖窗（= 原版 `RewardService.Collect` 的开窗那一半）
         //

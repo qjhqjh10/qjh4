@@ -6,7 +6,7 @@
 //   · `A1685`：能力层那个 `ResolveOps`（`IReadOnlyList` 重载）**从不消费 `EffectOp.Instead`**
 //     ⇒ `instead` 在能力层两条都跑（离线实测 **9 伤**，出牌那条路是 **6 伤**）。
 //     本笔把配对规则收进 `InsteadSkips`，**两个重载共用**。
-//   · `A1617`（≡ `A1395②`）：带 `landing` ⇒ **取消这一记攻击**（原版 `CancelAttack` 那一跳）。
+//   · `A1617`（≡ `A1395②`）：带 `landing` ⇒ 取消这一记、**再由续攻补打**（原版 `CancelAttack` + `AddAttackContinuationAction`）。
 //
 // 为什么单开一个文件：`RuleEngineTest` 是 `public static partial class`（已有兄弟
 // `RuleEngineTest.cs` / `_S14` / `_Diag` / `_BoardModel` / `_S23_Assert` / `_S23_Parse`），
@@ -450,30 +450,30 @@ public static partial class RuleEngineTest
     }
 
     // ==================================================================
-    //  A1617 · 带 `landing` ⇒ 取消这一记攻击
+    //  A1617 · 带 `landing` ⇒ 取消这一记、再由续攻补打
     // ==================================================================
 
     /// <summary>
     /// 🔴 **本格的被测对象** = `Core/RuleCore.cs` 的 `DeclareAttack` 里那段
-    /// 「`if (openedPod &amp;&amp; attacker.Has(KeywordTable.Landing)) return RuleCodes.OK;`」，
-    /// 以及为它把 `OpenDropPod` 改成返回 `bool` 的那一处。
+    /// 「`if (openedPod &amp;&amp; attacker.Has(KeywordTable.Landing)) { …复检目标… }`」——
+    /// 🔴 **2026-10-26（`B9 A1`）起它【不再早退】**（原版取消之后还压一条续攻），`OpenDropPod` 也返回 `bool`。
     ///
     /// **判据** = `BattleManager._ResolveAttack_d__438__MoveNext.c:339-379`（VA 逐条读过）：
     ///   `0x1809ad4c8 mov edx,0xe6`（`dropPod`）→ `je 0x1809ad847`（**没有就整段跳过**）；
     ///   有 ⇒ `RemoveDropPod` → `0x1809ad50e mov edx,0x302`（`landing`）→
     ///   带 `landing` ⇒ `CancelAttack` + 两次 `ClearPendingDamage` + `OnTrigger(0x1b8)`
-    ///   ⇒ `FinishResolvingAction`（**这一下不打**）。
+    ///   ⇒ `AddAttackContinuationAction`（`:428`；它 `:451` 压一条 `BattleActionType.attack`）⇒ **这一记补打**。
     ///   ⇒ **闸是「有没有 `dropPod`」**，`landing` 只是在那个分支里再分一次；
     ///     **位置**在协程 `yield` 之后 ⇒ 排在**扣配额 / 现身 / 失去伪装之后**（与 `abouttoattack` 相反）。
     ///
-    /// **怎么才能红**：把那段 `if (openedPod &amp;&amp; …) return RuleCodes.OK;` 删掉
-    /// ⇒ 本格第 ① 格实得守方 `6/9`（被打 3）。
+    /// **怎么才能红**：把续攻那一段改回 `return RuleCodes.OK;`（= 旧口径「一个伤害点都不出」）
+    /// ⇒ 本格第 ① 格实得守方 `9/9`（旧期望就是这么写的 —— 已被原版判据推翻）。
     /// ⚠️ **可达性**：今天全池 **0 张**卡带 `landing` ⇒ 只能靠夹具立起来（铁律 11：
     /// 这是把「**还没做**」变成「已做」，不是「不做」）。
     /// </summary>
-    static void TestS23ResolveLandingCancelsAttack()
+    static void TestS23ResolveLandingCancelsThenReattacks()
     {
-        // ---- ① 带 `DropPod` + `Landing` ⇒ 这一记取消 ----
+        // ---- ① 带 `DropPod` + `Landing` ⇒ 取消这一记、再由续攻补打（守方照样掉 3）----
         {
             var lz = new CardDef("S23R_LAND", "S23R Land Prober", "unit",
                                  "Landing: Gain +2 Attack", "common", "Test", 1, 3, 9, 0,
@@ -488,10 +488,10 @@ public static partial class RuleEngineTest
             CheckCode(RuleCore.DeclareAttack(ctx, p, 3, q, 3), RuleCodes.OK, "出手（合法目标）");
             string logs = S23RTail(ctx, logFrom);
 
-            Check(def.Health, 9,
-                  "★★ `A1617`：带 `landing` ⇒ **一个伤害点都不出**（守方还是 9/9）"
-                + "｜🧨 删掉 `DeclareAttack` 里那段 `if (openedPod && attacker.Has(Landing)) return OK;`"
-                + " ⇒ 本行实得 **6**（照常打 3）" + logs);
+            Check(def.Health, 6,
+                  "★★ `A1617`：带 `landing` ⇒ 取消这一记、**再由续攻补打**（守方 9 → 6，被打 3）"
+                + "｜🧨 把续攻那一段改回 `return RuleCodes.OK`（旧的「一个伤害点都不出」）"
+                + " ⇒ 本行实得 **9**" + logs);
             CheckTrue(!atk.Has(KeywordTable.DropPod),
                       "（前提）开舱那一跳照旧发生了（`dropPod` 已摘掉）");
             CheckTrue(HasLog(ctx, "触发 LANDING"),
@@ -502,7 +502,7 @@ public static partial class RuleEngineTest
             CheckTrue(atk.Exhausted,
                       "★ **配额照扣**（「取消」排在消耗之后 —— 原版那一跳在协程 `yield` 之后；"
                     + "⛔ 别把它挪到 `IsValidTarget` 之前那一档，那是 `abouttoattack` 的位置）");
-            CheckTrue(HasLog(ctx, "这一记攻击取消"), "★ ……并且**出声**（红线：不许静默）");
+            CheckTrue(HasLog(ctx, "取消这一记、再补打一记"), "★ ……并且**出声**（红线：不许静默）");
         }
 
         // ---- ② 反例 A：只带 `DropPod`、**不带** `landing` ⇒ 照常打 ----

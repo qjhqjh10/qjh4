@@ -5390,20 +5390,20 @@ public static class CollectionScene
                 var cc0 = win.CardsCells[0];
                 CheckNear(MenuCheck.DesignPx(cc0).x, 468.8f, 1.5f,
                           "第 1 格中心 x = **468.8**（贴左但整体居中：330.2 + 7.35 + 262.5/2）");
-                // 🔴 **2026-10-18 就地订正（铁律 5）**：这条原来钉 **347.9**（= 格心 155.9 + 384/2），
-                //   `W11`（2026-10-18，用户报「张数与卡牌重叠」）之后**卡**不再占满整格 ——
-                //   卡块 = 格高 384 − 底下张数条 **38.272**（原版 `/Counter` 锚 `0.09966714 × 384`，
-                //   见 `Shell/CollectionWindow.cs` 的 `CardsCounterH` / `CardsCardRect`；
-                //   缩放与 `SetPose` 在 `CardPresentation/Shell/CollectionWindow.cs` / `CardPresentation/Shell/CollectionWindow.cs`），而 `win.CardsCells` 存的是
-                //   **`CardView` 的 transform**（`CardPresentation/Core/CardView.cs`）⇒ 这里量到的是**卡块中心**：
-                //   347.9 − 38.272/2 = **328.764**（实得 328.76 逐位吻合）。
-                //   ⛔ 别再改回 347.9（那是格心，不是卡心）。
-                CheckNear(MenuCheck.DesignPx(cc0).y, 328.76f, 1.5f,
-                          "第 1 格**卡块**中心 y = **328.76**（= 格心 347.9 − 张数条 38.272/2；W11）");
+                // 🔴 **2026-10-26 就地订正（铁律 5）**：这条的 `W11`（2026-10-18）口径**已被 2026-10-25 裁定推翻**。
+                //   判据（prefab 现读，`menu_dump.py bundle_menus_assets_all "Collection Card" --depth 4`）：
+                //   `CardUI/2DCard` 在 **350×512** 原型里是 **y 6.2 → 505.8**（上下各 6.2 ⇒ **整格里居中**），
+                //   张数条 `/Counter` = y 461→511 **画在卡下缘之上**（原版长相，不是「卡不压条」）。
+                //   ⇒ 卡体**位置框 = 整格**（`CardsCardRect(cell) == cell`）、按原版公式缩放后在整格里居中
+                //     ⇒ `win.CardsCells` 存的那颗 `CardView` transform 中心 = **格心 347.9**。
+                //   ⛔ 别再改回 328.764（`W11` 那版「格心 − 张数条/2」，已推翻；判据 → `Shell/CollectionWindow.cs` 的 `CardsCardRect` doc · `Editor/HandAssertE8.cs` §D）。
+                CheckNear(MenuCheck.DesignPx(cc0).y, 347.9f, 1.5f,
+                          "第 1 格**卡块**中心 y = **347.9**（= 格心；原版 `2DCard` 在整格里居中）");
             }
             // 🆕 **2026-10-24（`E6`）**：卡池小卡的**格子几何**逐条钉给原版
-            //   （格/间距/列数/居中偏移 = 原版 RSR 序列化字段 + 反编译算法；卡体宽占比 = 原版**实拍** 81.7%，
-            //    卡底不越张数条 = 活对象量出来的结构式）。
+            //   （格/间距/列数/居中偏移 = 原版 RSR 序列化字段 + 反编译算法；卡体宽/高占比 = 原版 prefab
+            //    `CardUI/2DCard` 的 313.91/350 与 499.70/512；卡底压条 33.62px = 原版长相）。
+            //   🔴 **2026-10-26**：`E6` 原来那三条 `W11` 口径（345.728 / 不压条 / 实拍 81.7%）已按 2026-10-25 裁定就地订正（判据见 `Editor/PoolCardGridAssertE6.cs` 文件头）。
             //   🔴 顺带把 `A2` §Q6 那条错判据挡在门外：它引的 225×364.5 / spacing 20 是**卡组列表**的格
             //   （那两份 MB 的 `PrototypeCell` = `Collection Deck[ With Highlight]`），不是卡池。
             //   判据与逐条出处 → `Editor/PoolCardGridAssertE6.cs` 文件头 + `资料/普查产出_1024c/E6_收藏卡池格子几何.md`。
@@ -5754,9 +5754,9 @@ public static class CollectionScene
                               && System.IO.File.Exists(InventoryStore.StorePath(CardProgress.InventoryName)),
                               "★ `AddOwned` **真的写盘**了（`InventoryStore.LastStorePath` 非 null + 文件在）");
                     Inventories.Cards.ClearForTest();          // 灭自证：先清内存
+                    // 🔴 **2026-10-26（C1）**：**播种在前、读盘在后** —— 与生产 `CollectionWindow.CardsState` 同一条顺序（本次一并订正）。`RestoreAmounts` 的契约是「**已在的改、不在的跳过**」⇒ 空背包读盘 = **什么都不读**（原来那句「先读盘再播种」正是拥有数**重启清零**的根因）；`SeedCardsAllUnlocked` 幂等（只补缺条目）⇒ 先播种不会把盘上的值盖掉。
+                    Inventories.SeedCardsAllUnlocked(CollectionWindow.CardsState.Pool, c => CardProgress.Owned(c.Id, c.Rarity));
                     InventoryStore.Load(CardProgress.InventoryName, Inventories.Cards);
-                    Inventories.SeedCardsAllUnlocked(CollectionWindow.CardsState.Pool,
-                        c => CardProgress.Owned(c.Id, c.Rarity));
                     var back = Inventories.Cards.Get(probe);
                     CheckTrue(back != null && back.Amount == before2 + 1,
                               $"★ **重读之后拥有数还在**（{before2 + 1}）—— = 重启不清零");
@@ -8328,6 +8328,25 @@ public static class CollectionScene
                         if (view1 != null)
                             CheckTrue(view1.OutlineTargetForTest.a <= 1e-4f,
                                       "★ 反向：没悬停过的那一格描边目标 α = **0**（悬停只作用在被指的那一张）");
+                        // 🆕 **2026-10-26（`G1` · 补 `X2` 查出的自检缺口）**：`CollectionWindow.SetHoverSuppressedForTest`
+                        //   **全仓 0 调用者** ⇒「指针按住 / 拖拽中 ⇒ 悬停被抑制」这条**从来没被断言覆盖过**。
+                        //   判据 = 原版 `CollectionItem.OnPointerEnter` 第一句 `if (eventData.pointerDrag != null) return;`；
+                        //   我们的等价物 = `CollectionWindow.HoverSuppressed`（`AttachCardHover` 的 `onEnter` 里那道闸）。
+                        //   🔴 **两半都要断**：只断「抑制」那半 ⇒ 把实现改成「永远不亮」也照样绿（= 自证）。
+                        //   🧨 改坏法：删掉 `AttachCardHover` 的 `&& !HoverSuppressed` ⇒ 第一条红；
+                        //     删掉 `onEnter` 里那句 `v.SetHoverHighlight(true)` ⇒ 第二条红。
+                        CollectionWindow.SetHoverSuppressedForTest(true);
+                        hb0.onEnter();
+                        CheckTrue(view0.OutlineTargetForTest.a <= 1e-4f,
+                                  "★ 抑制档：指针按住期间 `onEnter` ⇒ 描边目标 α 仍 **0**（原版 `pointerDrag != null` 直接 return）");
+                        hb0.onExit();
+                        CollectionWindow.SetHoverSuppressedForTest(false);
+                        hb0.onEnter();
+                        CheckTrue(view0.OutlineTargetForTest.a > 0f,
+                                  $"★ 放开抑制 ⇒ 同一个 `onEnter` **点亮**（α = {view0.OutlineTargetForTest.a:F4}）"
+                                + " —— 灭自证：实现改成「永远不亮」必红");
+                        hb0.onExit();                                       // 收尾还原（否则后面的断言跑在假状态上）
+                        CheckTrue(view0.OutlineTargetForTest.a <= 1e-4f, "★ （还原）收尾后描边目标 α 回到 **0**");
                         CardTween.Mode = prevMode;
                     }
                 }
@@ -8955,15 +8974,15 @@ public static class CollectionScene
                             int rIdx = ci + 1;                // 与 `craftRarities` 同序：1=common … 4=legendary
                             cd.ShowCard(ccard);               // 换到这一档那张（⇒ 面板 / 按钮按它重建）
                             int owned0 = CardProgress.Owned(ccard.Id, craftRarity);
-                            int wc0 = CardProgress.Wildcards(craftRarity);
+                            // 🔴 **2026-10-26（C1）**：通配符库存键 = **`army|rarity`**（2026-10-26 `F7` 起，判据 = 原版 `CheckForCardCrafting` 的谓词 `w.cardArmy == card.cardArmy && w.cardRarity == card.Rarity`）⇒ 夹具**必须**走两维口；单维 `Wildcards(rarity)` 是「不分阵营」的**兼容旧桶**、生产链根本不读它（读它 = 摆了个生产看不见的库存 ⇒ 一条断言也验不到）。
+                            int wc0 = CardProgress.Wildcards(ccard.Faction, craftRarity);
                             var ch = cd.CraftHit; var chb = ch != null ? ch.GetComponent<WindowButton>() : null;
                             // （前提·不静默）四档**必须**都有那颗钮（原版 `CheckButtons`：有价就 `SetActive(1)`）
                             CheckTrue(chb != null,
                                       $"（前提·不静默）`{craftRarity}` 那张卡（{ccard.Name}）⇒ `CraftHit` **必须在**"
                                     + "（原版 `CraftingPanel__CheckButtons.c`：有价 ⇒ 面板 `SetActive(1)`）");
                             if (chb == null) continue;
-                            // 原版 `CraftingPanel__CheckButtons.c`：`interactable = CheckForCardCrafting(...)`
-                            //   —— **有同稀有度通配符才可点**（⚠️ 2026-10-18 那版「恒可交互」已作废）。
+                            // 原版 `CraftingPanel__CheckButtons.c`：`interactable = CheckForCardCrafting(...)` —— **有同稀有度通配符才可点**（⚠️ 2026-10-18 那版「恒可交互」已作废）。
                             CheckTrue(chb.Interactable == (wc0 > 0),
                                       $"`{craftRarity}`：`Craft` 那颗钮的可交互度 = **有通配符**（现有 {wc0} 张 ⇒ 期望 "
                                     + $"{(wc0 > 0 ? "可点" : "灰")}）—— 判据 = 原版 `CheckButtons` 的 "
@@ -8984,7 +9003,7 @@ public static class CollectionScene
                             Check(CardProgress.Owned(ccard.Id, craftRarity), owned0 + 1,
                                   $"★ `{craftRarity}`：点 `Craft` ⇒ 拥有数 **{owned0} → {owned0 + 1}**"
                                 + "（原版 `CraftCard` 受理后 owned+1）—— 没加/加多了都红");
-                            Check(CardProgress.Wildcards(craftRarity), wc0 - 1,
+                            Check(CardProgress.Wildcards(ccard.Faction, craftRarity), wc0 - 1,
                                   $"★ `{craftRarity}`：…而且**扣了 1 张**通配符（{wc0} → {wc0 - 1}）"
                                 + " —— 原版 `This will consume a wildcard`；⛔ 不扣 = 白送");
                             // ---- ② 同一拍播了**两件**，名字照原版那两列 ----
@@ -9033,7 +9052,7 @@ public static class CollectionScene
                                       $"…`{craftRarity}`：两件 Kill 之后活着的特效数回到基线 {fx0}");
                             }
                             // ---- ③ 反向（非自证）：**没有通配符 ⇒ 请求不发、特效一件都不许播** ----
-                            CardProgress.SetWildcardsForTest(craftRarity, 0);
+                            CardProgress.SetWildcardsForTest(CardProgress.WildKey(ccard.Faction, craftRarity), 0);
                             cd.ShowCard(ccard);              // 重建 ⇒ 钮按库存变灰（原版 `CheckButtons`）
                             var zeroBtn = cd.CraftHit != null ? cd.CraftHit.GetComponent<WindowButton>() : null;
                             CheckTrue(zeroBtn != null && !zeroBtn.Interactable,
@@ -9050,13 +9069,13 @@ public static class CollectionScene
                                   $"★ `{craftRarity}`：…而且**一件特效都没播**（不是 1 件、不是 2 件）"
                                 + " —— ⛔ 不合成却播特效 = 假反馈（原版失败走 `OnFail_22_1`、**不调 `DoVFX`**）");
                             // ---- ④ 还原这一档（后面的断言与 `Shoot` 都按原状态走）----
-                            CardProgress.SetWildcardsForTest(craftRarity, wc0);
+                            CardProgress.SetWildcardsForTest(CardProgress.WildKey(ccard.Faction, craftRarity), wc0);
                             CardProgress.AddOwned(ccard.Id, craftRarity,
                                                   owned0 - CardProgress.Owned(ccard.Id, craftRarity));
                             cd.ShowCard(ccard);
                             Check(CardProgress.Owned(ccard.Id, craftRarity), owned0,
                                   $"（收尾）`{craftRarity}` 拥有数还原成 {owned0}");
-                            Check(CardProgress.Wildcards(craftRarity), wc0,
+                            Check(CardProgress.Wildcards(ccard.Faction, craftRarity), wc0,
                                   $"（收尾）`{craftRarity}` 通配符还原成 {wc0} 张");
                         }
                         // ============================================================ ⑥ 🆕 2026-10-24（A6）
@@ -9086,10 +9105,10 @@ public static class CollectionScene
                             {
                                 string lr = lg.Rarity;
                                 int ownedL0 = CardProgress.Owned(lg.Id, lr);
-                                int wcL0 = CardProgress.Wildcards(lr);
+                                int wcL0 = CardProgress.Wildcards(lg.Faction, lr);   // 🔴 两维桶（`army|rarity`，见上段 C1 注）
                                 // 夹具：owned **正好 1**（原版条件是 `== 1`）、通配符 3 张（够扣两次）
                                 CardProgress.AddOwned(lg.Id, lr, 1 - CardProgress.Owned(lg.Id, lr));
-                                CardProgress.SetWildcardsForTest(lr, 3);
+                                CardProgress.SetWildcardsForTest(CardProgress.WildKey(lg.Faction, lr), 3);
                                 Check(CardProgress.Owned(lg.Id, lr), 1, "（夹具）传奇那张卡的 owned 摆成 **1**");
 
                                 // ---- ② 点「创建副本」⇒ 只弹窗：卡不变、通配符不扣、特效 0 件 ----
@@ -9111,7 +9130,7 @@ public static class CollectionScene
                                     Check(CardProgress.Owned(lg.Id, lr), 1,
                                           "★ …而且**卡没变**（owned 仍 1）—— 确认之前不许合成"
                                         + "（改坏法：闸里顺手调了 `CraftNow()` ⇒ 本条红）");
-                                    Check(CardProgress.Wildcards(lr), 3,
+                                    Check(CardProgress.Wildcards(lg.Faction, lr), 3,
                                           "★ …通配符**一张都没扣**（仍 3）—— 确认之前不许扣");
                                     Check(WarpforgeVFX.WarpforgeEffectPlayer.ActiveCount, fxBase,
                                           "★ …而且**一件特效都没播**（原版那一支 `return` 在 `DoVFX` 之前）"
@@ -9147,7 +9166,7 @@ public static class CollectionScene
                                         ClickPopUpButton(conf, "ButtonRight");
                                         Check(CardProgress.Owned(lg.Id, lr), 2,
                                               "★ 点 **OK** ⇒ owned **1 → 2**（原版 `TryCraftingInternal` 受理后 owned+1）");
-                                        Check(CardProgress.Wildcards(lr), 2,
+                                        Check(CardProgress.Wildcards(lg.Faction, lr), 2,
                                               "★ …而且**扣了 1 张**通配符（3 → 2）");
                                         var add = new List<WarpforgeVFX.WarpforgeEffectPlayer>();
                                         foreach (var fp in WarpforgeVFX.WarpforgeEffectPlayer.ActivePlayers)
@@ -9183,7 +9202,7 @@ public static class CollectionScene
                                     if (hitL2 != null)
                                     {
                                         int fxB2 = WarpforgeVFX.WarpforgeEffectPlayer.ActiveCount;
-                                        int wcB2 = CardProgress.Wildcards(lr);
+                                        int wcB2 = CardProgress.Wildcards(lg.Faction, lr);
                                         hitL2.Click();
                                         var conf2 = cd.CraftConfirmPopup;
                                         CheckTrue(conf2 != null && conf2.gameObject.activeSelf,
@@ -9193,7 +9212,7 @@ public static class CollectionScene
                                             ClickPopUpButton(conf2, "ButtonLeft");
                                             Check(CardProgress.Owned(lg.Id, lr), 1,
                                                   "★ 点 **Cancel** ⇒ owned **不变**（仍 1）—— ⛔ 取消不许合成");
-                                            Check(CardProgress.Wildcards(lr), wcB2,
+                                            Check(CardProgress.Wildcards(lg.Faction, lr), wcB2,
                                                   "★ …通配符**一张都没扣**");
                                             Check(WarpforgeVFX.WarpforgeEffectPlayer.ActiveCount, fxB2,
                                                   "★ …而且**一件特效都没播**（⛔ 不合成却播 = 假反馈）");
@@ -9239,12 +9258,12 @@ public static class CollectionScene
                                 }
                                 // ---- 收尾：库存 / 窗 全部还原（后面的升级断言与 `Shoot` 都按进块前的状态走）----
                                 if (cd.CraftConfirmPopup != null) cd.HideCraftConfirm();
-                                CardProgress.SetWildcardsForTest(lr, wcL0);
+                                CardProgress.SetWildcardsForTest(CardProgress.WildKey(lg.Faction, lr), wcL0);
                                 CardProgress.AddOwned(lg.Id, lr, ownedL0 - CardProgress.Owned(lg.Id, lr));
                                 cd.ShowCard(lg);
                                 Check(CardProgress.Owned(lg.Id, lr), ownedL0,
                                       $"（收尾）legendary 那张的拥有数还原成 {ownedL0}");
-                                Check(CardProgress.Wildcards(lr), wcL0,
+                                Check(CardProgress.Wildcards(lg.Faction, lr), wcL0,
                                       $"（收尾）legendary 通配符还原成 {wcL0} 张");
                                 CheckTrue(cd.CraftConfirmPopup == null, "（收尾）没有留下开着的确认窗");
                             }
@@ -11610,7 +11629,7 @@ public static class CollectionScene
                 grabbed.Clear();
                 Application.LogCallback h = (c, s, t) => { if (c != null) grabbed.Add(c); };
                 Application.logMessageReceived += h;
-                if (hit != null) { var wb = hit.GetComponent<WindowButton>(); if (wb != null) wb.ClickForTest(); }
+                if (hit != null) { var wb = hit.GetComponentInChildren<WindowButton>(true); if (wb != null) wb.ClickForTest(); }   // 🔴 **2026-10-26（C1）**：`GetComponent` → **`GetComponentInChildren`** —— `PopUpGameWindow.MakeButton` 把 `WindowButton` 挂在节点的**子件 `Image`** 上（`MenuDraw.Node("ButtonLeft")` → `MenuDraw.Rect(…, "Image")` ← 才挂 `WindowButton`）⇒ 只查自己那一层永远取不到，**确认窗左钮点了等于没点**（K3 的「删确认窗 → 点左钮」那一整段 9 条红就是这么来的）。
                 Application.logMessageReceived -= h;
             }
             int HitCount(string contains) { int k = 0; foreach (var l in grabbed) if (l.Contains(contains)) k++; return k; }

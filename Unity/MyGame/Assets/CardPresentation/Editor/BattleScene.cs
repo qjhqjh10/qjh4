@@ -28838,6 +28838,118 @@ public static class BattleScene
             Debug.Log(P + "   （回放那一手仍走了正常的落位入口 dropped=" + dropped2+ "；被只读闸挡下 —— 只记录，不断言结果）");
         }
 
+        // ---- 19·b. 选目标态：池子非空但**棋盘上一个都点不到**（`n == 0` 闸）----
+        //   🆕 2026-10-26（执行代理 `A2`）。判据：原版 `_ResolvePlayCardFromHand_d__447__MoveNext.c:849-860`
+        //   是在 `MinionPlayedIntoField` **之后**问 `IsThereValidUnitTarget`（那一刻**待落地那张已经在棋盘上**）
+        //   ⇒「只有它自己合法」时原版**会问**；我们是「点完目标才落位」⇒ 棋盘上没有它的视图、点不到它
+        //   ⇒ 只能**不进等待态并出声**（`BattleDriver.cs:7935` 的 `unitCard && n == 0`；F2 报告 `R1` 末句）。
+        //   夹具：`Rally: Heal 2 to a friendly Vehicle` + `subtype = Vehicle` —— 句形取自真卡 `AM21`
+        //   （`Regiment: Heal 2 to a friendly Vehicle`，现读 `cards_engine.json`）；我方棋盘上没有别的 Vehicle 时，
+        //   `PlayTargetPoolAsIfDeployed` 里只剩「待落地那张自己」⇒ 池非空、可点格数 `n == 0`。
+        //   ⚠️ 句形若解析不出来 ⇒ **前提 2 会 ✗**（不会变成假绿）。
+        //   ⚠️ 必须**重开一局**再测：上面 ①~④ 那块在**我方棋盘上留了一张 `subtype` 为空**的夹具单位，
+        //      而 `EffectResolver.ApplyTargetFilters` 的兵种筛对「原版没给兵种」的单位是**保留**
+        //      ⇒ 它会混进池子、让 `clickable0` 变成 1（那就是假红）。
+        Debug.Log(P + "--- 选目标态：池非空但棋盘上一个都点不到（n == 0 闸）---");
+        {
+            var bdef = new RuleEngine.CardDef("SelfTestOnlySelfTarget", "SelfTestOnlySelfTarget", "unit",
+                                              "Rally: Heal 2 to a friendly Vehicle",
+                                              "common", "Test", 0, 1, 5, 0, null,
+                                              subtype: "Vehicle", targeted: 1);
+            driver.SetReplaySessionForTest(false);
+            driver.Begin(BattleDriver.DefaultFactionA, BattleDriver.DefaultFactionB, 20261026);
+            Step(BattleDriver.TurnHeadsUpHold + 0.05f);
+            ctx = driver.Ctx;                                  // 重建过对局 ⇒ 重新取
+            Check(ctx != null && !ctx.IsOver, "夹具前提：重开之后对局还在进行");
+            int me = driver.MyIndex, foe = 1 - me;
+
+            // ---------- 前提：夹具干净（我方棋盘上没有别的 Vehicle、也没有「兵种未知」的单位） ----------
+            int badUnits = 0;
+            for (int s = 0; s < BoardSpec.Size; s++)
+            {
+                var ub = ctx.Players[me].Board[s];
+                if (ub == null || ub.Card == null) continue;
+                string sub = ub.Card.Subtype ?? "";
+                if (sub.Length == 0 || sub == "Vehicle") badUnits++;
+            }
+            Check(badUnits == 0, "前提 A：我方棋盘上**没有 Vehicle、也没有兵种未知的单位**"
+                              + "（后者会被兵种筛保留下来；实际 " + badUnits + " 只）");
+
+            // ---------- 第一段：池非空（只有它自己）⇒ 可点 0 格 ⇒ **不进等待态** ----------
+            ctx.Players[me].Hand.Add(ctx.NewInstance(bdef));
+            ctx.Players[me].Energy = 9;
+            driver.RefreshAll();
+            Step(BattleDriver.TurnHeadsUpHold + 0.05f);
+            int bhi = -1;
+            for (int i = 0; i < ctx.Players[me].Hand.Count; i++)
+                if (ReferenceEquals(ctx.Players[me].Hand[i].Card, bdef)) { bhi = i; break; }
+            int handN0 = ctx.Players[me].Hand.Count;
+            Check(bhi >= 0 && bdef.IsUnit && driver.HandViewAt(bhi) != null,
+                  "前提 1：夹具卡进了手牌、`def.IsUnit` 为真、手牌视图也在（下标 " + bhi + "）");
+            // 这一句就是「池非空」：`PlayTargetPoolAsIfDeployed` 把**待落地那张自己**也算进候选。
+            var asIf = bhi >= 0 ? RuleCore.PlayTargetPoolAsIfDeployed(ctx, me, ctx.Players[me].Hand[bhi]) : null;
+            Check(asIf != null && asIf.Count > 0,
+                  "前提 2：`PlayTargetPoolAsIfDeployed` **非空**（" + (asIf != null ? asIf.Count : -1)
+                  + " 个）—— 空的话测的是「池空」那一条支，不是本闸");
+            // 「可点格数」用的 judgement 与 `HighlightPlayTargets` 同一个（`RuleCore.IsLegalPlayTarget`）
+            int clickable0 = 0;
+            for (int s = 0; s < BoardSpec.Size; s++)
+            {
+                var a = ctx.Players[me].Board[s];
+                var b = ctx.Players[foe].Board[s];
+                if (a != null && RuleCore.IsLegalPlayTarget(ctx, me, bdef, a)) clickable0++;
+                if (b != null && RuleCore.IsLegalPlayTarget(ctx, me, bdef, b)) clickable0++;
+            }
+            Check(clickable0 == 0, "前提 3：棋盘上**可点格数 == 0**（实际 " + clickable0 + "）");
+            int cant0 = driver.CantDoCount;
+            bool drop0 = driver.SimulateCardDroppedForTest(bhi, 2);
+            Check(drop0 && !driver.AwaitingPlayTarget,
+                  "★ 结论：池非空、棋盘上一个都点不到 ⇒ **不进等待态**"
+                  + "（走 `TryBeginPlayTargetPick` 的 `unitCard && n == 0` 那一支）");
+            Check(ctx.Players[me].Hand.Count == handN0 - 1,
+                  "★ 结论：……而且这一手**照常打出去**了（手牌 −1；原版这一档会问它自己，我们问不到 ⇒ 引擎按池取）");
+            Check(driver.CantDoCount == cant0,
+                  "★ 结论：这一档**不弹 `cantdo`**（是「问不到」，不是「玩家做了非法操作」）");
+
+            // ---------- 灭自证：同一夹具 + 场上有一只可点的我方 Vehicle ⇒ **进等待态** ----------
+            //   （第一段打出去的那张自己就是 Vehicle ⇒ 现在棋盘上有 Vehicle 了。
+            //     不另造棋盘：同一个夹具、只改「场上有没有可点的」这一个条件，
+            //     才证明这条闸真的按 `n==0` 分流，而不是**恒不进**。）
+            ctx.Players[me].Hand.Add(ctx.NewInstance(bdef));
+            ctx.Players[me].Energy = 9;
+            driver.RefreshAll();
+            Step(BattleDriver.TurnHeadsUpHold + 0.05f);
+            int bhi2 = -1;
+            for (int i = 0; i < ctx.Players[me].Hand.Count; i++)
+                if (ReferenceEquals(ctx.Players[me].Hand[i].Card, bdef)) { bhi2 = i; break; }
+            int clickable1 = 0;
+            for (int s = 0; s < BoardSpec.Size; s++)
+            {
+                var a = ctx.Players[me].Board[s];
+                if (a != null && RuleCore.IsLegalPlayTarget(ctx, me, bdef, a)) clickable1++;
+            }
+            Check(bhi2 >= 0 && clickable1 >= 1,
+                  "灭自证前提：手牌里又有了一张，且我方棋盘上**有可点的 Vehicle**（" + clickable1 + " 格）");
+            Check(driver.SimulateCardDroppedForTest(bhi2, 2) && driver.AwaitingPlayTarget,
+                  "★ 灭自证：同一个夹具、只多一只可点的我方 Vehicle ⇒ **进等待态**"
+                  + "（证明这条闸按 `n==0` 分流，⛔ 不是恒不进）");
+            driver.SimulatePlayTargetPickForTest(-1, -1);      // -1 = 点空白 ⇒ 取消（牌留手里）
+
+            // ---------- 收尾：把夹具清回干净 ----------
+            int removedUnits = 0;
+            for (int s = 0; s < BoardSpec.Size; s++)
+            {
+                var a = ctx.Players[me].Board[s];
+                if (a != null && a.Card != null && a.Card.Id == "SelfTestOnlySelfTarget")
+                { ctx.Players[me].Board[s] = null; removedUnits++; }
+            }
+            int removedHand = ctx.Players[me].Hand.RemoveAll(x => x != null && ReferenceEquals(x.Card, bdef));
+            driver.RefreshAll();
+            Step(BattleDriver.TurnHeadsUpHold + 0.05f);
+            Check(!driver.AwaitingPlayTarget && removedUnits >= 1 && removedHand >= 1,
+                  "收尾：夹具清回干净（棋盘清掉 " + removedUnits + " 只、手牌清掉 " + removedHand + " 张），没留等待态");
+        }
+
         // ---- 20. 选牌面板（原版 `ChooseCardMenu`）：引擎不再替玩家挑 ----
         //   引擎那半在 `RuleEngineTest.TestPlayerChoice`（含「不同下标 → 不同卡」那条硬判据）；
         //   这一节验的是**表现层那半**：面板真的弹出来、点得动、选完关得掉。

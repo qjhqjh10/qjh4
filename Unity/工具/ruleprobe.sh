@@ -12,6 +12,10 @@
 #               `ev` ∈ gainfaith / gainquest / gainspirit / createssecret / createssabotage。
 #               ⚠️ 加 `legacy=1` = **改前形状**（广播四跳）⇒ 与不加时**读数应当不同**（那就是鉴别力）。
 #               例：`play SOR38 preset hand=self,event=gainfaith`（1 条变化）vs 加 `,legacy=1`（3 条，敌督军 −4）
+#         … play <id> preset face=ambush               **面朝下伏击出手夹具**（`B9_A3`）—— 把被测单位摆成
+#               「面朝下 + 带 `ambush`」，再 `RuleCore.DeclareAttack` 打一发；读「翻开/撤 ambush」+「敌目标掉血」
+#               （治的是「探针电池的 `selfChip` 会先把 `FaceDown` 置假 ⇒ 那一支结构上到不了」）。
+#               例：`play GSC11 preset face=ambush`
 #         … ai actions <卡id|卡名>                    **AI 动作表**（`SimpleAI.EnumerateActions` = 原版
 #               `BattleManager.GetAvailableActions` 的等价物）＋每条 `ScoreAction` ＋ `SelectBestAction`
 #               ＋ `NextAction(Normal)`。⚠️ `play all dump` 结构上看不见 AI ⇒ AI 侧只有这条路。

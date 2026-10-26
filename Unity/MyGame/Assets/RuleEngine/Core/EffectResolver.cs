@@ -962,7 +962,7 @@ namespace RuleEngine
                 //       卡面写的是「**当**你触发一个灵魂石能力」，一次激活 = 一次触发；
                 //       一份付费前缀盖住 2 条 op 时发两遍就成了「触发两次」的假事件。
                 if (kind == "spirit" && !op.CostShared)
-                    BroadcastWhen(ctx, WhenEventKind.SpiritAbility, owner, null, null);
+                    BroadcastUnitSpiritStone(ctx, owner, source);
             }
 
             // 🔴 **2026-10-11（第十四会话 · `A1413` ①）：`payOnly` —— 只走付费支、不结算效果。**
@@ -1042,7 +1042,16 @@ namespace RuleEngine
             { "draw",       (c, o, b, op, ch, un) => DoDraw(c, o, b, op) },
             { "drawtype",   (c, o, b, op, ch, un) => DoDrawType(c, o, b, op) },
             { "drawref",    (c, o, b, op, ch, un) => DoDrawRef(c, o, b, op, un) },
-            { "return",     (c, o, b, op, ch, un) => DoReturn(c, o, b, op, un) },
+            // 🔴🆕 **2026-10-26（完全复刻 · `P3` · `TAU68`）**：`return` 这一行原来**把 `ch` 丢了**
+            //   （`DoReturn(c, o, b, op, un)`），而同一块上下的 `heal` / `deal` / `give` 全都转发。
+            //   后果 = 玩家点定的目标在「回手 / 回牌库」这条路上**被静默忽略**，handler 自己按卡面
+            //   文本重扫棋盘 ⇒ `TAU68 Trail Shaper`（`Rally: Return a friendly Infantry to your hand`）
+            //   把**刚打出去的它自己**收回手牌。
+            //   判据（第一权威）= 原版 `AbilityLogic__PlayAbility.c:549-568`（`iVar8 == 0x8c`）：
+            //   `recallToOwnerHand` 是**遍历 `GetTargets` 的结果表**逐张 `AddRecallToHand`，
+            //   而 `ta=30 (target)` 的结果表 = `{targetCard}`（`AbilityLogic__GetTargets.c:192-207`）
+            //   ⇒ 原版**只回玩家点的那一张**，没有「扫第一个」这种兜底。
+            { "return",     (c, o, b, op, ch, un) => DoReturn(c, o, b, op, ch, un) },
             { "destroy",    (c, o, b, op, ch, un) => DoDestroy(c, o, b, op, ch, un) },
             { "stun",       (c, o, b, op, ch, un) => DoStun(c, o, b, op, ch, un) },
             // 🆕 **2026-10-26（完全复刻批次 4 · `F2` · 判据来自 `F3` 的 R3-F2）**：
@@ -6406,7 +6415,8 @@ namespace RuleEngine
         /// ⚠️ 回手/回牌库**不是阵亡**：卡进手牌或牌库，不是 `Discard`，
         ///    **也不进 `DeadUnits`**（复活的卡不该从弃牌堆里捞）。
         /// </summary>
-        static bool DoReturn(BattleContext ctx, int owner, string by, EffectOp op, List<string> unresolved)
+        static bool DoReturn(BattleContext ctx, int owner, string by, EffectOp op,
+                             UnitState chosen, List<string> unresolved)
         {
             // 目标可能有**两个**：`Return a friendly troop **and a random enemy troop** to the top of their deck`
             var phrases = new List<string>();
@@ -6520,8 +6530,14 @@ namespace RuleEngine
                 // ⚠️ `source` 传 `null`：`ResolveTargets` 内部会**从 `ctx.ActingUnit` 回落**
                 //    （`ResolveOne` 在结算每条效果之前把它设好，见那边的注释）——
                 //    `Subjectless` 那一支靠它判「就是施放者自己」。本函数**没有** `source` 形参。
+                // 🔴🆕 **2026-10-26（完全复刻 · `P3` · `TAU68`）**：第 4 个形参是 **`chosen`**，
+                //    原来硬写 `null` ⇒ 玩家点定的目标在这一条路上**被丢掉**（判据见 `EffectDispatch`
+                //    里 `"return"` 那一行上面的整段注释）。改成转发之后，口径与 `heal` / `deal` /
+                //    `give` 等**其余 18 处** `ResolveTargets` 调用一致（全仓只有这里和 `Shuriken`
+                //    那条「每个单位自己掷」会丢，后者按语义**应该**丢）。
+                //    ⚠️ `chosen == null`（= 这张牌不需要选目标 / 调用方没点）⇒ 行为与改前**逐字相同**。
                 var targets = spec == null ? new List<UnitState>()
-                                           : ResolveTargets(ctx, owner, spec, null, null);
+                                           : ResolveTargets(ctx, owner, spec, null, chosen);
                 if (targets.Count == 0) { miss++; continue; }
 
                 foreach (var u in targets)
@@ -9719,9 +9735,14 @@ namespace RuleEngine
             //     而且手牌跳的监听集合本来就该是「轮到时那一眼」的。
             // 🆕 2026-10-22（`W62` · R2）：快照要么由调用方在【事件发生那一刻】给（见 `boardListeners`），
             //   要么就在这里现扫（老行为，绝大多数调用点）。拷一份是因为下面 `StableSortByPlayOrder` 会原地排序。
+            // 🆕 2026-10-26（第八十三会话 · 执行代理 `B1`）：**这一族的棋盘跳是否也收待死单位**
+            //   —— 原版每条广播器的闸**不统一**，只有 `BroadcastUnitUsedSacrifice`
+            //   （= `triggers:sacrifice`）那一族三趟**都没有 `IsInPlay`** ⇒ 由
+            //   `BoardJumpIncludesPendingDeath` 一处按族判（⛔ 别在这里写第二份名单）。
+            bool boardIncludesPending = BoardJumpIncludesPendingDeath(kind);
             var listeners = boardListeners != null
                           ? new List<BoardListener>(boardListeners)
-                          : SnapshotBoardListeners(ctx, preCalled, preCalled2);
+                          : SnapshotBoardListeners(ctx, preCalled, preCalled2, boardIncludesPending);
 
             // ---- ② 棋盘那一跳（原版第 2 跳）----
             // 🔴 2026-10-21（引擎线 `T03·c` 批 A · `W59`）：**先按【进场序】排，再逐条结算** ——
@@ -9757,6 +9778,10 @@ namespace RuleEngine
                         // 🆕 2026-10-22（`W63` #9）：`pinnedOwner` = 快照那一刻的归属 —— 出队时
                         //   那个人可能已经被洗回牌库 / 移出棋盘，现查会把它的监听器静默丢掉。
                         FireBoardWhenListener(ctx, l.Unit, kind, who, card, subject, actor, target, targetWho,
+                                              // 🆕 2026-10-26（`B1`）：原版**没有 `IsInPlay` 闸**的那一族
+                                              //   （`triggers:sacrifice`）这里也要放行待死单位 ——
+                                              //   判据仍是 `BoardJumpIncludesPendingDeath` 一处。
+                                              allowPendingDeath: boardIncludesPending,
                                               pinnedOwner: l.Owner, actingCard: actingCard);
                         if (ctx.IsOver) break;
                     }
@@ -9829,9 +9854,22 @@ namespace RuleEngine
         /// （2026-10-22 `W62` · R2：`FireTriggerAt` 要能在**入队那一刻**拍同一份快照）。
         /// 过滤口径与抽出来之前**逐字相同**（⛔ 别在这里改）：
         /// 跳过无卡 / 待死 / 没有监听器的单位，并排除 `preCalled` / `preCalled2` 两个预调主体。
+        ///
+        /// <para>🆕 **2026-10-26（第八十三会话 · 执行代理 `B1`）：`includePendingDeath`** ——
+        /// 原版**没有 `IsInPlay` 闸**的那一族（`triggers:sacrifice`）**不跳待死单位**。
+        /// 判据 = `BattleManagerSupport.BroadcastUnitUsedSacrifice`
+        /// （ILSpy `BattleManagerSupport.cs:1764-1805`；`BattleManager.BroadcastSacrificeResolved`
+        /// 只是转调它）三趟循环里**唯一**的闸是 `card != unitSacrifice`（自排除）——
+        /// **没有** `IsInPlay`；接收方 `CardScript.ReactToUnitUsedSacrifice`
+        /// （`CardScript.cs:7783-7788`）体内也没有。⇒ 与 `BroadcastUnitSpiritStone` /
+        /// `BroadcastUnitSummoned` 那一族**不同**：那些棋盘那一趟**逐张判 `IsInPlay`**
+        /// （`BattleManagerSupport.cs:1057` / `…__BroadcastUnitSummoned.c:25-39`）。
+        /// 本参数**只由 <see cref="BoardJumpIncludesPendingDeath"/> 按族打开**，
+        /// ⛔ 别把默认值改成 `true`。</para>
         /// </summary>
         static List<BoardListener> SnapshotBoardListeners(BattleContext ctx, UnitState preCalled,
-                                                      UnitState preCalled2)
+                                                      UnitState preCalled2,
+                                                      bool includePendingDeath = false)
         {
             var listeners = new List<BoardListener>();
             if (ctx == null) return listeners;
@@ -9845,7 +9883,8 @@ namespace RuleEngine
                     // 2026-10-12（账 A1600）：原版这一跳的谓词是 `CardScript.IsInPlay()`（只看状态字、不看生命；
                     // `CardScript__IsInPlay.c:7-14` = {inPlay 2, inPlayAttacking 3, inPlayTransforming 0xf,
                     // inPlayAminingAttack 0x11}）。我们对应的「不在场上」= 已入将死队列（≈ waitingToDie 5）。
-                    if (ctx.IsPendingDeath(u)) continue;
+                    // 🆕 2026-10-26（`B1`）：原版**没有**这道闸的族（`triggers:sacrifice`）按参数放行 —— 见上面的 param doc。
+                    if (!includePendingDeath && ctx.IsPendingDeath(u)) continue;
                     if (u.Card.WhenTriggers.Count == 0) continue;   // 没监听器的卡直接跳过
                     // 🔴 **2026-10-20（`W58` · D8）**：调用方已经对 `preCalled` **预调过一次**
                     //   ⇒ 这一跳**跳过它**（原版 `BroadcastUnitDamaged` 的
@@ -16013,6 +16052,118 @@ namespace RuleEngine
                   + $"（`AbilityLogic__AdjustManaEffect.c:5-7`）⇒ {op.Amount} × {repeats} = {folded.Amount}，结算 1 遍");
             repeats = 1;
             return folded;
+        }
+
+        // ==========================================================================================
+        //  🆕 2026-10-26（第八十三会话 · 执行代理 `B1`）：两处广播接收方缺口
+        //  （新成员一律追加到类尾 —— 避免给 `账/*.tsv` 的 `文件:行号` 落点造成漂移）
+        // ==========================================================================================
+
+        /// <summary>
+        /// **这一族广播的「棋盘那一跳」是否也收【待死】单位** —— 原版每条广播器的闸**不统一**，
+        /// 本方法就是那份名单的**唯一落点**（⛔ 别在 `BroadcastWhenCore` / `SnapshotBoardListeners`
+        /// 里再写第二份）。
+        ///
+        /// <para>**为什么会有这个问题**：我们的 `BroadcastWhen` 是**一个统一广播器**，
+        /// 原版是**每条广播器各自一份循环** ⇒ 「棋盘那一趟要不要判 `IsInPlay`」在原版里
+        /// **逐族不同**，统一器只能把它变成一个按 `kind` 查的表。</para>
+        ///
+        /// <para>**今天只有一族是「不判」的**：
+        /// `triggers:sacrifice`（= 原版 `BattleManager.BroadcastSacrificeResolved`
+        /// → `BattleManagerSupport.BroadcastUnitUsedSacrifice`）。判据（逐句现读，ILSpy 优先）：
+        /// <list type="number">
+        /// <item>`BattleManager.BroadcastSacrificeResolved`
+        /// （`out_cpp2il_dev_ilspy/BattleManager.cs:27937-27939`）= 一句转调
+        /// `BattleManagerSupport.BroadcastUnitUsedSacrifice(this, unitSacrifice)`。</item>
+        /// <item>`BattleManagerSupport.BroadcastUnitUsedSacrifice`
+        /// （`BattleManagerSupport.cs:1764-1805`）三趟：棋盘（`:1766-1777`）→ 当前回合方手牌
+        /// （`:1778-1790`）→ 另一方手牌（`:1791-1804`）。**三趟的闸都只有**
+        /// `if (cardScript != unitSacrifice)`（自排除）—— **没有 `IsInPlay()`、没有 null 判**。
+        /// （`.c` 版 `decomp_full/BattleManagerSupport__BroadcastUnitUsedSacrifice.c` 第 1/2 趟里
+        /// 那句 `op_Inequality(uVar3)` **看着只有一个实参**，那是 Ghidra 把 `rdx` 掉了 —— 机器码里
+        /// 有 `mov rdx, rsi`，与第 3 趟的 `op_Inequality(uVar3, param_2)` 同义。）</item>
+        /// <item>接收方 `CardScript.ReactToUnitUsedSacrifice`
+        /// （`CardScript.cs:7783-7788`）体内**只有** `OnTrigger(225, …, this, default, default)`
+        /// —— 自排除写在调用方，接收方不再排一次。</item>
+        /// </list>
+        /// ⇒ 待死（≈ 原版 `waitingToDie(5)`）的卡**照样收**这一族。</para>
+        ///
+        /// <para>⛔ **别把这条推广到别的族**：`BroadcastUnitSpiritStone`
+        /// （`BattleManagerSupport.cs:1050-1083`）棋盘那一趟有 `if (cardScript.IsInPlay())`
+        /// （`:1057`）；`BroadcastUnitSummoned` / `Damaged` / `Attacked` / `Landing` …
+        /// 同族也各有自己的 `IsInPlay`。要加新族**回原版广播器逐行读一遍**再往这里加。</para>
+        /// </summary>
+        static bool BoardJumpIncludesPendingDeath(string kind)
+        {
+            if (kind == null) return false;
+            // `WhenEventKind.Triggers("sacrifice")` —— 唯一那一族（现读 `cards_engine.json` 里
+            // 提到 `sacrifice` 的卡 **0 张**，所以今天**不可观测**；本节是口径对齐）。
+            return kind == WhenEventKind.Triggers(KeywordTable.Sacrifice);
+        }
+
+        /// <summary>
+        /// 某个单位**用了灵魂石能力**之后按原版广播（trigger **455** = `AbilityTrigger.OtherCardSpiritStone`）。
+        ///
+        /// <para>**🔴 本方法存在的唯一理由是【自排除】**（2026-10-26 第八十三会话 · 执行代理 `B1`）。
+        /// 改前调用点直接 `BroadcastWhen(SpiritAbility, owner, null, null)` —— `subject` 传 `null`
+        /// ⇒ `WhenEvents` 那条「关键词触发族·自排除」守卫「拿不到事实就不收窄」⇒
+        /// **自己用灵魂石时自己的监听器会被叫醒**（比卡面宽）。</para>
+        ///
+        /// <para>**判据（逐句，第一权威 = ILSpy `out_cpp2il_dev_ilspy`，第二 = `decomp_full/*.c`）**：
+        /// <list type="bullet">
+        /// <item>`CardScript.TriggerSpiritStone(this)`：先 `RawCardScript.OnTrigger(600, …, this, this)`，
+        /// 再判这张卡**真有** 600 那条 ability ⇒ `BattleManager.BroadcastUnitSpiritStone(this)`
+        /// （`decomp_full/CardScript__TriggerSpiritStone.c` 全文；`BattleManager.cs:27987-27989`
+        /// 只是一句转调）⇒ 广播的实参**就是发起那张卡**。</item>
+        /// <item>接收方 `CardScript.TriggerOtherCardSpiritStone(CardScript spUnit)`
+        /// （`CardScript.cs:7619-7627`）**体内第一句**就是
+        /// `if (spUnit != this) { … OnTrigger(455, …, actingCard = default, targetCard = default); }`
+        /// —— `.c` 里同一句渲染成 `UnityEngine_Object__op_Inequality(param_2, param_1)`。
+        /// ⇒ **发起者自己不被叫醒**；且 `actingCard` / `targetCard` **都是 `null`**。</item>
+        /// <item>广播器 `BattleManagerSupport.BroadcastUnitSpiritStone`
+        /// （`BattleManagerSupport.cs:1050-1083`）三趟：棋盘（**带 `IsInPlay` 闸**，`:1057`）→
+        /// 当前回合方手牌（`:1064-1072`）→ 另一方手牌（`:1073-1082`）；三趟**都没有**额外的
+        /// `op_Inequality` —— 自排除**只在接收方体内**。</item>
+        /// </list></para>
+        ///
+        /// <para>**为什么自排除写在这一侧、而不是 `WhenEvent.cs` 的
+        /// `WhenEvents.SelfExcludesOnKeywordTrigger`**：那个守卫**只对 `triggers:*` 那一族生效**
+        /// （入口按 `WhenEventKind.TriggersPrefix` 判），而 `SpiritAbility` 的 Kind 是
+        /// `spiritability`、**不在那一族里**；反过来 `triggers:*` 那一族**原版也不自排除**
+        /// （自己本身就是触发器 —— 见那个方法的 doc 里 `Ferocity` / `Synapse` 那几条）
+        /// ⇒ **⛔ 绝不能一刀切去改 `triggers:*` 那一支**。`OtherCardRequiem` 是同一形状，
+        /// 它落进了 `WhenEvent.cs`；本笔的文件白名单只有本文件 ⇒ 走
+        /// `BroadcastWhen` 原生的 `boardListeners` 口（调用方在**事件发生那一刻**拍快照）实现，
+        /// 判据仍然**只有 `SnapshotBoardListeners` 一份**（这里只多做一件「剔掉发起者」）。</para>
+        ///
+        /// <para>⚠️ **手牌那两跳不另做排除**：原版排的是「**同一个对象**」，而手牌里的卡
+        /// 不可能就是场上刚用石的那个 `UnitState` ⇒ 等价于不排除（我们照样发）。</para>
+        ///
+        /// <para>⚠️ **`card` / `subject` / `actor` 都【故意】传 `null`**：原版 `OnTrigger` 的
+        /// `actingCard` / `targetCard` 都是 `default`（见上）⇒ 传 `subject` 会**多出**一个
+        /// 「事件主体」（`ResolveOps` 的 `it` 种子 + `SelfOnly` / `criteria` 会拿它判），
+        /// 那是**比原版宽**。原版那个 `spUnit` **只用于自排除**，所以这里也只用于自排除。</para>
+        /// </summary>
+        /// <param name="who">**付石那一方**（原版 `IsPlayerTurn()` 那一侧的手牌先扫）。</param>
+        /// <param name="spUnit">**发起那张卡**（= 原版 `unitsp`）。`null` ⇒ 不做自排除（出声那一档）。</param>
+        public static void BroadcastUnitSpiritStone(BattleContext ctx, int who, UnitState spUnit)
+        {
+            if (ctx == null) return;
+            if (spUnit == null)
+            {
+                // 施放者**不是棋盘上的单位**（现读全是「手牌里的战术卡付石」那一档：`ASH49` / `ASH54` … 12 张）。
+                // 原版这时 `unitsp` 是**手牌那张 CardScript**，而 `TriggerOtherCardSpiritStone` 排的是
+                // 「同一个对象」—— 手牌卡与棋盘/手牌里的**监听者**永不相等 ⇒ **排除退化为无操作**，
+                // 与我们这条 `null` 支路**等价**。⚠️ 我们这层没有手牌卡的 CardScript 身份 ⇒ 不猜、出声。
+                ctx.Log("灵魂石广播：发起方不是棋盘单位（手牌战术卡付石）⇒ 自排除退化为无操作（与原版等价）");
+                BroadcastWhen(ctx, WhenEventKind.SpiritAbility, who, null, null);
+                return;
+            }
+            // 快照由调用方在**事件发生那一刻**拍（`BroadcastWhen` 的 `boardListeners` 口），
+            // 判据仍是 `SnapshotBoardListeners` 那一份 —— 这里只多做一件事：剔掉发起者自己。
+            var snap = SnapshotBoardListeners(ctx, null, null);
+            snap.RemoveAll(l => ReferenceEquals(l.Unit, spUnit));
+            BroadcastWhen(ctx, WhenEventKind.SpiritAbility, who, null, null, boardListeners: snap);
         }
     }
 }

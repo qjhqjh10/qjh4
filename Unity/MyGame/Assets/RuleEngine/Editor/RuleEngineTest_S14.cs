@@ -2218,16 +2218,25 @@ public static partial class RuleEngineTest
     ///   · `0x1809ad4c8 mov edx,0xe6` → `call`（`HasCurrentTrait`）→ `0x1809ad4d4 je 0x1809ad847`：
     ///     **没有 `dropPod` ⇒ 跳到「正常继续」那一格**；
     ///   · 有 ⇒ `0x1809ad4ec call`（`RemoveDropPod(card, 0)`）—— **无条件**；
-    ///   · 随后才判 `0x302`（`DefinedTrait.landing = 770`）⇒ 不带的「开舱 + 等一帧 + 照常打」、
-    ///     带的才 `CancelAttack`。「带 `landing` ⇒ 取消这次攻击」那一支**我们没做**（另立 `A1395`）。
+    ///   · 随后才判 `0x302`（`DefinedTrait.landing = 770`）⇒ 不带的「开舱 + 等一帧 + **照常打**」、
+    ///     带的才 `CancelAttack` + `OnTrigger(0x1b8 /*Landing*/)`。
+    ///     🔴 **2026-10-26（B9 · `X4`）就地订正（铁律 5）**：原来这里写「带 `landing` ⇒ 取消这次攻击」
+    ///     那一支**我们没做**（另立 `A1395`）」—— **已过期**：`A1617`（≡ `A1395②`，2026-10-22）落了那一支、
+    ///     `A1`（2026-10-26）补齐了随后的**续攻**（`:428 AddAttackContinuationAction` ⇒ 这一记会**补打**）
+    ///     ⇒ 落在 `RuleCore.cs:6379`（`fireLanding` 实参 = `attacker.Has(KeywordTable.Landing)`）与 `:6418` 那一段。
     ///
-    /// **断什么**：① 出手后**攻击者**的舱开了（词摘掉 ＋ 一条 `Trigger{landing}`，格位 = 攻击者那一格）；
+    /// **断什么**：① 出手后**攻击者**的舱开了（词摘掉）；`Trigger{landing}` **只有带 `landing` trait 才发**
+    ///   （不带 ⇒ **0 条**，判据 `:362` 的 `HasDefaultTrait(770)`）；
     ///   ② **被打的那个不开舱**（原版那一跳只对攻击者；这里它的池只按**伤害**扣）；
-    ///   ③ 攻击者**没有** `dropPod` ⇒ **一条 `landing` 都不发**。
+    ///   ③ 攻击者**没有** `dropPod`（哪怕带 `landing`）⇒ **一条 `landing` 都不发**（`:339` 先判 `dropPod`）；
+    ///   ④ 攻方**同时**带 `dropPod` 与 `landing` ⇒ 恰好**一条** `Trigger{landing}`（谁 / 格位都断），
+    ///   且这一记**照打**（原版 `:428` 的续攻）。
     ///
     /// 🔴 **灭自证**：删掉 `DeclareAttack` 里那句 `OpenDropPod` ⇒ ①② 全红，
     ///    而 `TestS14DropPodOpensAtTurnStart`（**另一支**）**照旧全绿**；
-    ///    把那一句写成「攻守双方都开舱」⇒ ② 红；删掉 `OpenDropPod` 的 `Has` 守卫 ⇒ ③ 红。
+    ///    把那一句写成「攻守双方都开舱」⇒ ② 红；把 `fireLanding` 实参改成恒 `false` ⇒ ④ 红、
+    ///    改成恒 `true` ⇒ ① 红（两条成对，只改一边两边都不绿）；
+    ///    删掉 `OpenDropPod` 里那句 `Has(DropPod)` 守卫 ⇒ ③ 红。
     /// </summary>
     static void TestS14DropPodOpensAfterAttack()
     {
@@ -2252,9 +2261,20 @@ public static partial class RuleEngineTest
                     + "｜🧨 删掉 `DeclareAttack` 里那句 `OpenDropPod(ctx, p, atkSlot, attacker)` ⇒ 本行红"
                     + "（而 `TestS14DropPodOpensAtTurnStart` 那一支**照旧全绿**）");
             Check(atk.KwValue(KeywordTable.DropPod), 0, "★ ① ……血池归 0");
-            Check(S14Sig(ctx, EvtKind.Trigger, "landing"), 1, "★ ① 恰好一条 `Trigger{landing}`");
-            Check(S14SigWho(ctx, EvtKind.Trigger, "landing"), atkP, "★ ① ……报的是**攻击者那一方**");
-            Check(S14SigSlot(ctx, EvtKind.Trigger, "landing"), 3, "★ ① ……格位 = 攻击者那一格（3）");
+            // 🔴 **2026-10-26（B9 · `X4` 就地订正，α：断言过期）**：出手那条 `landing` **有闸** ——
+            //   判据 = `BattleManager._ResolveAttack_d__438__MoveNext.c:362`（VA `0x1809ad513` = `HasDefaultTrait`，
+            //   实参 `0x302` = `DefinedTrait.landing = 770`）：**带 `dropPod`、但卡上没有 `landing` 那个 trait**
+            //   ⇒ 只开舱 + 挂起一帧 + **照常打**，`OnTrigger(0x1b8 /*Landing*/)` 一次都不发。
+            //   本轮 `A1` 按原版把闸补对了（`RuleCore.cs:6379` 的 `attacker.Has(KeywordTable.Landing)`）⇒
+            //   本子例（攻方**只有** `dropPod`）的期望从 **1 翻成 0**；「谁 / 格位」的覆盖搬到下面 ④ 那个带 `landing` 的子例。
+            Check(S14Sig(ctx, EvtKind.Trigger, "landing"), 0,
+                  "★ ① 【什么时候不发】攻方只带 `dropPod`、**不带 `landing` trait** ⇒ **一条 `Trigger{landing}` 都不发**"
+                + "（判据 = `_ResolveAttack…:362` 的 `HasDefaultTrait(770)`；开舱本身照旧：`RemoveDropPod` 无条件）"
+                + "｜🧨 把 `RuleCore.cs:6379` 的 `fireLanding` 实参改回恒 `true` ⇒ 本行实得 1");
+            Check(S14SigWho(ctx, EvtKind.Trigger, "landing"), -1,
+                  "★ ① ……没有事件 ⇒ 取值器给缺省 **−1**（`S14SigWho` 的 `return -1` 那一支；「谁」的覆盖见 ④）");
+            Check(S14SigSlot(ctx, EvtKind.Trigger, "landing"), -1,
+                  "★ ① ……同上，格位 **−1**（「格位」的覆盖见 ④）");
             CheckTrue(def.Has(KeywordTable.DropPod),
                       "★ ② 【不是「谁挨打谁开舱」】被打的那个舱**没被动过**（词还在）"
                     + "｜🧨 把那一句写成「攻守双方都开舱」⇒ 本行红");
@@ -2264,19 +2284,61 @@ public static partial class RuleEngineTest
                 + "｜🧨 同上 ⇒ 本行实得 0");
         }
 
-        // ---- ③ 攻击者**没有** `dropPod` ⇒ 一条 `landing` 都不发 ----
+        // ---- ③ 攻击者**没有** `dropPod`（但**带** `landing`）⇒ 一条 `landing` 都不发 ----
         {
             var ctx = ProbeBattle(new[] { Unit("S14_AtkMine2", 1, 1, 5) }, new[] { Unit("S14_AtkFoe2", 1, 1, 5) });
             ToP1Turn(ctx, 2);
             int atkP = ctx.Active, foeP = 1 - ctx.Active;
-            Place(ctx, atkP, 3, Unit("S14_NoPodAtkU", 1, 3, 9), exhausted: false);
+            var atk3 = Place(ctx, atkP, 3, Unit("S14_NoPodAtkU", 1, 3, 9), exhausted: false);
+            // 🔴 **2026-10-26（B9 · `X4`）：给 ③ 补上 `landing` trait** —— 不补的话（原来两边都没有关键词）
+            //   本行在 `A1` 把闸改成 `Has(Landing)` 之后**变成了同义反复**（两个词都没有 ⇒ 当然不发），
+            //   鉴别力归零。补上之后本行验的正是原版那道闸的**另一个方向**：
+            //   判据 = `_ResolveAttack…:339-379` 的 `HasCurrentTrait(0xe6 /*dropPod*/)` 先判 ——
+            //   **没有 `dropPod` ⇒ 整个跳过**（`0x1809ad4d4 je 0x1809ad847`），`landing` 再有无也没用。
+            atk3.AddKeyword(KeywordTable.Landing, 1);
+            CheckTrue(atk3.Has(KeywordTable.Landing), "（夹具前提）③ 的攻方**带 `landing` trait**（与 ① 的唯一差别 = 没有 `dropPod`）");
             Place(ctx, foeP, 3, Unit("S14_NoPodDefU", 1, 0, 9), exhausted: true);
             ctx.ClearSignals();
             CheckCode(RuleCore.DeclareAttack(ctx, atkP, 3, foeP, 3), RuleCodes.OK,
                       "没有空投舱的单位照样能打（开舱是**额外**的一跳，不是前置）");
             Check(S14Sig(ctx, EvtKind.Trigger, "landing"), 0,
-                  "★ ③ 【什么时候不开】攻击者**没有** `dropPod` ⇒ 一条 `landing` 都不发"
-                + "｜🧨 把 `OpenDropPod` 里那句 `u.Has(KeywordTable.DropPod)` 守卫删掉 ⇒ 本行实得 1");
+                  "★ ③ 【什么时候不开】攻击者**没有** `dropPod`（哪怕带 `landing`）⇒ 一条 `landing` 都不发"
+                + "（判据 = `_ResolveAttack…:339` 的 `HasCurrentTrait(0xe6)` 先判、没有就整段跳过）"
+                + "｜🧨 把闸改成只看 `landing`、不看 `openedPod` ⇒ 本行实得 1");
+        }
+
+        // ---- ④ 攻方带 `dropPod` **且**带 `landing` trait ⇒ 开舱 + **恰好一条** `Trigger{landing}` ----
+        //  判据 = `BattleManager._ResolveAttack_d__438__MoveNext.c:362-379`（VA 逐条读过）：
+        //    带 `landing` ⇒ `CancelAttack` + `ClearPendingDamage` 双方 + `OnTrigger(0x1b8 /*Landing*/)`，
+        //    随后 `:428 AddAttackContinuationAction`（`:451 BattleAction___ctor(&action, **1**, …)`，1 = attack）
+        //    把这一记**补打出去** ⇒ 净效果 = 一次攻击（伤害照落）。
+        //  🔴 **这一格是 ① 被翻成 0 之后「谁 / 格位」的唯一覆盖** —— ⛔ 别删。
+        //  真实卡池今天 0 张带 `landing` 也 0 张带 `dropPod`（`cards_truth.json` 现扫 `cardTraits`）
+        //  ⇒ 这一支只有本子例能验（铁律 11：不可达 ≠ 不做）。
+        {
+            var ctx = ProbeBattle(new[] { Unit("S14_LandMine", 1, 1, 5) }, new[] { Unit("S14_LandFoe", 1, 1, 5) });
+            ToP1Turn(ctx, 2);
+            int atkP = ctx.Active, foeP = 1 - ctx.Active;
+            var atkL = Place(ctx, atkP, 3, Unit("S14_PodLandU", 1, 3, 9), exhausted: false);
+            atkL.AddKeyword(KeywordTable.DropPod, 2);
+            atkL.AddKeyword(KeywordTable.Landing, 1);
+            CheckTrue(atkL.Has(KeywordTable.Landing) && atkL.KwValue(KeywordTable.DropPod) == 2,
+                      "（夹具前提）④ 的攻方 **`dropPod` 2 层 + `landing` trait 都在**");
+            var defL = Place(ctx, foeP, 3, Unit("S14_PodLandDefU", 1, 0, 9), exhausted: true);
+            defL.AddKeyword(KeywordTable.DropPod, 5);
+            Check(defL.Attack, 0, "（前提）被打的那个 0 攻 ⇒ 不反击（免得搅了攻击者的读数）");
+
+            ctx.ClearSignals();
+            CheckCode(RuleCore.DeclareAttack(ctx, atkP, 3, foeP, 3), RuleCodes.OK, "带 `landing` 的近战打出去");
+            CheckTrue(!atkL.Has(KeywordTable.DropPod), "★ ④ 舱照样开了（`RemoveDropPod` 无条件，判据 = `_ResolveAttack…:346`）");
+            Check(S14Sig(ctx, EvtKind.Trigger, "landing"), 1,
+                  "★ ④ 带 `landing` trait ⇒ **恰好一条** `Trigger{landing}`"
+                + "（判据 = `_ResolveAttack…:379` 的 `OnTrigger(0x1b8 /*Landing*/)`）"
+                + "｜🧨 把 `RuleCore.cs:6379` 的 `fireLanding` 实参改成恒 `false` ⇒ 本行实得 0");
+            Check(S14SigWho(ctx, EvtKind.Trigger, "landing"), atkP, "★ ④ ……报的是**攻击者那一方**");
+            Check(S14SigSlot(ctx, EvtKind.Trigger, "landing"), 3, "★ ④ ……格位 = 攻击者那一格（3）");
+            Check(atkL.Health, 9, "★ ④ ……而且**这一记真打出去了**（被打的 0 攻 ⇒ 攻击者不掉血，仍 9）");
+            Check(defL.Health, 6, "★ ④ ……伤害照落 3 点（9 − 3 = 6；原版 `:428` 的续攻把这一记补打出去，不是零次）");
         }
     }
 

@@ -1871,12 +1871,12 @@ namespace RuleEngine
             //  §三·3.1，`.text` + `il2cpp` 两段扫 `E8/E9 rel32`）：
             //  `CardScript.SetAmbush`（VA `0x1805FB1F0`）**全库只有 7 个直接调用点** ——
             //    · 4 个 `SetAmbush(true)`：手牌打出 / 召唤 / 自动召唤 / 变身（=「面朝下打出场」）；
-            //    · 3 个 `SetAmbush(false)`：`_ResolveAttack:305`（攻方是面朝下伏击 ⇒ 取消这一记）、
+            //    · 3 个 `SetAmbush(false)`：`_ResolveAttack:305`（攻方是面朝下伏击 ⇒ 取消这一记、**再由续攻补打**）、
             //      `ResolveDamageDealt:173`（它真挨到伤害）、`ResolveUnitAttacked:111`（被攻击广播）。
             //  `NextTurn` / `BroadcastTurnSetup` / `BroadcastTurnStart` / `CardScript.OnTurnStart` /
             //  `CardScript.OnTurnSetup` **一个调用点都没有**。
             //  ⇒ **原版没有「撑到自己的下个回合自动翻开」这条规则**：面朝下的单位一直藏着，
-            //    直到 **你用它攻击**（这一记被取消）或 **它挨到伤害**。
+            //    直到 **你用它攻击**（翻开、补打这一记）或 **它挨到伤害**。
             //  ⛔ 别再按粉丝规则书 `:166` 后半句（「若未被伤害：翻开并触发效果」）把它加回来 ——
             //    那是**实体卡规则**，这个 build 没实现（`资料/…/W58_…三处未定判据.md` §三·3.1）。
             //  ⚠️ 原来的 `RevealAmbush(ctx, ctx.Active)` 调用与那个方法**已按此删除**。
@@ -3758,12 +3758,12 @@ namespace RuleEngine
         ///    提出来以后三处共用一份；行为零变化（多一个 `card != null` 的守卫，
         ///    而调用点传进来的 `card` 本来就不可能为 null）。
         ///
-        /// ⚠️ 光有 `ambush` 关键词、**卡面没写正文**的卡**不算**（`TriggerOps` 为 null）：
-        ///    那种卡面朝下没有任何效果可触发，不是「伏击」那一维 —— 也别为它填 `PlayAmbush`。
+        /// 🔴 **2026-10-26（B9 `A3`）就地订正**：原版 `_ResolvePlayCardFromHand…:194` 只判 `HasCurrentTrait(ambush)`
+        ///    就 `SetAmbush(true)` ⇒ **不要求卡面写了 `Ambush:` 正文**（旧口径「`TriggerOps` 为 null 不算」已作废）。
         /// </summary>
         static bool PlaysFaceDown(CardDef card)
-            => card != null && card.Has(KeywordTable.Ambush)
-                           && card.TriggerOps(KeywordTable.Ambush) != null;
+            // 原版只判 trait（判据见上），不要求正文
+            => card != null && card.Has(KeywordTable.Ambush);
 
         /// <summary>
         /// 打出第 handIdx 张手牌到 slot 格。（rule_core.play_card）
@@ -4022,7 +4022,7 @@ namespace RuleEngine
             // 🔴 **2026-10-20（`W58-AMBUSH`）**：翻开**只有两条**路（原版 `SetAmbush(false)` 的 3 个调用点，
             //   其中 `ResolveUnitAttacked:111` 与 `_ResolveAttack:305` 同属「用它攻击」这一件事）：
             //     · `ApplyDamage` —— 它真挨到伤害 ⇒ 翻开；**在它主人的回合才触发** `Ambush:` 效果；
-            //     · `DeclareAttack` —— 面朝下的它出手 ⇒ **这一记被取消**、翻开、按回合归属触发。
+            //     · `DeclareAttack` —— 面朝下的它出手 ⇒ 翻开、按回合归属触发，**再由续攻把这一记打出去**。
             //    ⛔ **没有「回合开始自动揭示」这一条**（原版全二进制 0 个调用点，见 `BeginTurn` 里那段注释）。
             // 🔴 **2026-10-18（`A985⑥①`）**：判别式**提成 `PlaysFaceDown`** —— 上面那条 `Play`
             //    事件要用同一句，⛔ 不许在别处再写一份（判据共用一份）。
@@ -4030,7 +4030,7 @@ namespace RuleEngine
             {
                 unit.FaceDown = true;
                 ctx.Log($"{unit.Name} **面朝下**落在 {slot} 号格 —— "
-                      + "翻开前挨到伤害就露脸（不在你回合则效果不触发）；用它攻击会取消那一记并触发伏击");
+                      + "翻开前挨到伤害就露脸（不在你回合则效果不触发）；用它攻击会先翻开、触发伏击，再补打这一记");
             }
 
             ctx.Log($"{ps.Name} 部署 {unit.Name}（{costPaid} 费，{unit.Attack}/{unit.Health}）"
@@ -6223,7 +6223,7 @@ namespace RuleEngine
             int code = IsValidTarget(ctx, p, atkSlot, tgtP, tgtSlot, ranged);
             if (code != RuleCodes.OK) return code;
 
-            // ---- 🔴 **2026-10-20（`W58-AMBUSH`）：面朝下的伏击单位出手 ⇒ 这一记被【取消】** ----
+            // ---- 🔴 **2026-10-20（`W58-AMBUSH`）：面朝下的伏击单位出手 ⇒ 取消这一记、再由续攻补打** ----
             //  判据 = `BattleManager._ResolveAttack_d__438__MoveNext.c:288-305`（逐行读过，**原版原文**）：
             //    · `:289` `HasCurrentTrait(攻方, 0x46 /*stealth*/)` —— **有潜行走另一支**（那一支只摘潜行）；
             //    · `:293` `HasCurrentTrait(攻方, 0x4B0 /*ambush*/)` + `:296 IsInPlay(攻方)` ⇒
@@ -6235,9 +6235,24 @@ namespace RuleEngine
             //    原版 `EntityScript.attacksThisTurn(+0x48)` 的**全部写点**（`decomp_full` 全树现扫）是
             //    `_AttackMeleeAnim:116` · `_ResolveAttackRangedAnim:69` · `_ResolveRangedAttack:17` ·
             //    `FinishAttackActionWithoutMoving:13` · `UsedActiveAbility:20` · `MissActions:26` ——
-            //    **全是「攻击真的执行 / 动作真的花掉」那几条路**，而伏击这一支在 `:305` 之后**直接去
-            //    `LAB_1809ad363` 收尾**（`:487-492`），一条都到不了 ⇒ **取消的这一记【不】消耗配额**。
+            //    **全是「攻击真的执行 / 动作真的花掉」那几条路**，而伏击这一支在 `:305` 之后去的是
+            //    `LAB_1809ad363`，一条都到不了 ⇒ **被取消的这一记【不】消耗配额**。
             //    （另外 `CardScript__CancelAttack.c` 全文不碰 `+0x48`，`RemoveAttackThisTurn` 只减不读这处。）
+            //  🔴🔴 **2026-10-26（B9 · `A1`）就地订正 —— `LAB_1809ad363`【不是】收尾，是【续攻】**：
+            //    `BattleManager._ResolveAttack_d__438__MoveNext.c:478` 那一行就是
+            //      `BattleManager__AddFollowResolutionAttackContinuationAction(lVar1, local_148, 0)`；
+            //    它（与 landing 那一支用的 `AddAttackContinuationAction`，`:428`）都调
+            //      `BattleAction___ctor(&action, **1**, …)`（`:124` / `:451`；`1` = `BattleActionType.attack`，
+            //      与常规攻击 `BattleManager__AddAttackAction.c:36` 的实参**完全相同**，而
+            //      `AddScriptedAttack` 那里写的是 `0x34`）⇒ **压回去的是一条【普通攻击】动作**，
+            //    出队后走 `ResolveAction` 的 `case 1`（`BattleManager__ResolveAction.c:689-692` 与
+            //    `scriptedAttack` / `attackContinuation` / `redirectedAttack` 同组）→ **再进一遍
+            //    `_ResolveAttack`，照样出伤害**。
+            //    ⇒ 原版的净效果 = **恰好一次攻击**，只是排在「翻开伏击 + 触发 `Ambush:` 正文」之后。
+            //    ⚠️ 我们同步模型里没有第二条动作 ⇒ 等价写法 = **就地继续往下打**
+            //      （复检一次结算层的合法性：原版续攻那一记只重跑 `AllowResolveAttack`
+            //       —— `BattleManager__AllowResolveAttack.c:236-341`：攻方还在场 / 没晕 / 有攻击力 /
+            //       不带 `cantAttack`(150) 与 `nonCombatant`(880) / 目标仍合法 —— **不重跑声明层**）。
             //  ⚠️ **`forced`（脚本/卡面强制攻击）不走这一支**：`SetAmbush` 的 7 个调用点里**没有**
             //    `_ResolveForceAttack_d__504` —— 强制攻击那条协程没有伏击分支（照原版）。
             //  ⚠️ **stealth 优先**：原版先判 `0x46`，有潜行就绝不进伏击支（`:289-293`）——
@@ -6258,13 +6273,64 @@ namespace RuleEngine
                 //    后 `OnTrigger(0x29E)`）一致。
                 //  ⛔ 两条翻开出口（本处 + `ApplyDamage` 的挨伤害那一处）**都要摘**，别再漏。
                 attacker.RemoveAll(KeywordTable.Ambush);
-                // 伏击的「取消这一记」= 不出伤害 ⇒ 连 `AttacksThisTurn` / `AttacksDeclared` 都不记账
-                // （判据见上：原版那个计数在攻击执行路里）。
-                ctx.Log($"{attacker.Name} 面朝下地出手 ⇒ **这一记攻击被取消**（原版 `_ResolveAttack:288-305`）"
-                      + "，伏击翻开");
+                // 🔴 2026-10-26（B9 · `A1`）：**不再 `return`** —— 原版取消这一记之后立刻压了一条
+                //   续攻（`AddFollowResolutionAttackContinuationAction`，判据全文见上面那段订正），
+                //   净效果 = 翻开 + 触发 `Ambush:` 之后**把这一记打出去**。
+                ctx.Log($"{attacker.Name} 面朝下地出手 ⇒ 先翻开伏击、再补打这一记"
+                      + "（原版 `_ResolveAttack:288-305` 取消 + `FollowResolutionAttackContinuation` 续攻）");
                 EmitUnit(ctx, EvtKind.AmbushExit, attacker, 0, effect: "attack");
                 if (p == ctx.Active && !ctx.IsOver)
                     FireTriggerAt(ctx, attacker, KeywordTable.Ambush, p, atkSlot);
+                // 续攻那一记是**一条新的 `attack` 动作** ⇒ 只复检结算层
+                // 🔴🔴 **2026-10-26（B9 · `X1`）：续攻 = **一条【进队】的 `attack` 动作**，不是就地往下打。**
+                //
+                //  **判据（三处，逐条读过）**
+                //   ① 伏击 ability 是**入队**的：`:305 SetAmbush(false)` → 广播 → `OnTrigger(0x29E=Ambush)`
+                //      → `AbilityLogic.PlayAbility` → `BattleManager.AddAutoActionToQueue`
+                //      （与 `RawCardScript__TriggerAbilities.c:108,207` 同一条链）⇒ **不抢占当前动作**。
+                //   ② 续攻也是**入队**的：`:478 BattleManager__AddFollowResolutionAttackContinuationAction`
+                //      → `BattleAction___ctor(&action, 1 /*attack*/, …)` → 末尾
+                //      `BattleManager__AddAutoActionToQueue(bm, action, **(int **)(globalVars + 0xB8))`。
+                //      🔴 **那个 `+0xB8` 现读出来了 = `VarsGlobal.instantPriority`**
+                //      （`dump.cs:120117` `public int instantPriority; // 0xB8`；类 = `VarsGlobal`，
+                //       取值口 `BattleManager__get_globalVars.c` 的 `+0x38`）⇒ **`Instant` 道**，
+                //      与伏击 ability 的默认道**同一条**（`CardAbility__ctor.c:5` 写 `+0x18 = 1`）。
+                //   ③ 同一条道 = **严格 FIFO**（`ActionQueue.cs:14-15`：入队 `List.Add`、出队 `GetItem(0)`；
+                //      全库没有 `Insert(0, …)`）⇒ 队列里的次序 = **伏击 ability 先、续攻后**。
+                //
+                //  **⇒ 净效果 = 伏击正文（可能改攻击力 / 晕 / 打死攻方）先落地，然后才打这一记**
+                //    —— 这一记的攻击力因此**必须**在那一刻现算（原版 `:1116 GetCombatDamage` 也在
+                //    **每一个** `_ResolveAttack` 实例里现算）。
+                //
+                //  **为什么不能就地继续往下打（本轮实测）**：我们的触发一律「只入队、由泵点结算」
+                //    （`FireTriggerAt` 的 doc）⇒ 就地打完时伏击正文**还没跑**
+                //    ⇒ `Ambush: Gain +N Attack` 那类卡的伤害少 N
+                //    （实测 `play GSC16 preset face=ambush`：改前 5 伤、应为 7；
+                //     `RuleEngineTest` 的 `Ambush: Gain +3 Attack` 夹具：期望 foe 掉 4、实得 1）。
+                //  **⇒ 把这一记包成一条队列动作**（道 = `Instant`，排在刚入队的伏击 ability 之后），
+                //    本函数**到此结束**（原版那一记也是「取消 + 什么都不做」）。
+                //    续攻那一记走**完整一遍 `DeclareAttack`** ⇒ 攻击力 / 配额 / 广播 / 开舱 / 失 Stealth
+                //    全按那一刻的状态重算，与「原版再进一遍 `_ResolveAttack`」逐字同形。
+                //  ⚠️ **本波可达性**：池内 4 张带非默认 `triggerPriority` 的卡（`ASH53`/`SAU13`/`SAU70`/`UM37`）
+                //    全是 `artifice`/`codex`/`spiritstone` = `DelayedInstant(3)`，**`ambush` 一族恒为默认 `Instant(1)`**
+                //    ⇒ 「伏击 ability 排在本续攻之前」这一条今天的卡池**恒成立**。
+                //    将来真出现「`ambush` + priority 3」的卡，这里要按它的道号分派（⛔ 别静默错序）。
+                {
+                    int contP = p, contAtkSlot = atkSlot, contTgtP = tgtP, contTgtSlot = tgtSlot;
+                    bool contRanged = ranged, contForced = forced;
+                    var contUnit = attacker;
+                    if (!EnqueueAbility(ctx, ActionPriority.Instant, "伏击续攻:" + (contUnit.Name ?? "?"),
+                        () =>
+                        {
+                            int contRc = DeclareAttack(ctx, contP, contAtkSlot, contTgtP, contTgtSlot,
+                                                       contRanged, contForced);
+                            if (contRc != RuleCodes.OK)
+                                ctx.Log($"{contUnit.Name} 翻开后这一记不再成立（`{contRc}`）⇒ 续攻也打不出去"
+                                      + "（原版续攻要重新过 `AllowResolveAttack`：`BattleManager__AllowResolveAttack.c:236-341`）");
+                        }))
+                        ctx.Log($"{contUnit.Name} 的伏击续攻没能排进动作队列（`EnqueueAbility` 返回 false）"
+                              + "⇒ 这一记不会补打（⛔ 不静默）");
+                }
                 return RuleCodes.OK;
             }
 
@@ -6347,9 +6413,9 @@ namespace RuleEngine
             //    ① 出手后的开舱 = `RemoveDropPod` **无条件**（只要带 `dropPod`）；
             //    ② `Landing` **只在卡上带 `landing`（770）那个 trait 时才发**，而且那一下会
             //       **取消这次攻击**；不带的东西只是开舱 + 等一帧 + 照常打。
-            //  ✅ **两条结论现在都落了**：① 开舱（`A1354`，2026-10-21）· ② 「带 `landing` ⇒ 取消这一记」
-            //     （`A1617` ≡ `A1395②`，2026-10-22）—— 就在下面那一段。
-            bool openedPod = OpenDropPod(ctx, p, atkSlot, attacker);
+            //  ✅ **两条结论现在都落了**：① 开舱（`A1354`，2026-10-21）· ② 「带 `landing` ⇒ 取消这一记、**再补打一记**」
+            //     （`A1617` ≡ `A1395②`，2026-10-22 起 · 续攻那一半 2026-10-26 由 B9 `A1` 补齐）—— 就在下面那一段。
+            bool openedPod = OpenDropPod(ctx, p, atkSlot, attacker, attacker.Has(KeywordTable.Landing));  // 🔴 出手路：`Landing` 只在带 `landing` trait 时发（判据 = `_ResolveAttack…:362`）
 
             // ---- 🆕 2026-10-22（账 `A1617` ≡ `A1395②`）：**带 `landing` ⇒ 取消这一记** ----
             //  **判据** = `BattleManager._ResolveAttack_d__438__MoveNext.c:339-379`（VA 逐条读过，
@@ -6359,7 +6425,9 @@ namespace RuleEngine
             //       · **带** `landing` ⇒ `0x1809ad56d`（`CancelAttack`）+ 两次 `0x1805ea740`
             //         （`ClearPendingDamage` 双方）+ `0x1809ad5c1 mov edx,0x1b8`
             //         （= `AbilityTrigger.Landing = 440`）→ `0x1809ad5cb`（`OnTrigger`）
-            //         ⇒ 随后 `jmp 0x1809ad373`（`FinishResolvingAction`）⇒ **这一下不打**。
+            //         ⇒ 🔴 **订正（2026-10-26 · B9 `A1`）**：随后**不是**「这一下不打」就完 ——
+            //           `.c:428` 紧接着就是 `AddAttackContinuationAction(lVar1, local_148, 0)`，
+            //           它压的是一条 `BattleActionType.attack`（见下面那条订正）⇒ **这一记会补打**。
             //  🔴 **闸 = `openedPod`，不是「有没有 `landing`」** —— 原版这两跳**在同一个
             //     `has dropPod` 分支里**（`0x1809ad4c8 mov edx,0xe6` → `0x1809ad4d4 je 0x1809ad847`
             //     把没有 `dropPod` 的**整个跳过**）⇒ 只带 `landing`、不带 `dropPod` 的卡
@@ -6367,25 +6435,59 @@ namespace RuleEngine
             //  ✅ **位置** = 排在**扣配额 / 现身（失 Stealth）/ 失去伪装之后**（就是这儿）——
             //     与 `abouttoattack` 那条（`IsValidTarget` 之后、**消耗配额之前**）**方向相反**，
             //     因为原版这一跳在协程 `yield` **之后**（动作已消耗）。
-            //  ✅ **「取消」= 【最小档】**（调度台 2026-10-22 裁定，照做）：
-            //     `return RuleCodes.OK` + **一个伤害点都不出**；
-            //     ⛔ **不撤 `EvtKind.Attack`、不撤替身重定向** —— 同族先例
-            //     `TryCancelAttackByOwnAboutToAttack` 已定过「位置 + 取消 = `return RuleCodes.OK`」这一档，
-            //     它本身**没回答**「要不要撤事件」；而撤事件会同时动**日志 / 录像 / AI** 三处，
-            //     **没判据就不做**。⇒ 本行 `return` 落在 `ctx.Emit(EvtKind.Attack, …)` **之前**，
-            //     所以那一跳**自然不发生**（不是「撤掉」，是「还没到」）。
-            //  ⚠️ **如实标着**：原版那两跳还有 `CancelAttack` / `ClearPendingDamage` 两件事，
-            //     我们同步模型下**没有 pending damage** 可撤（伤害在本函数末尾才落）⇒
-            //     `return` 已经等价。**「撤事件」那一半没有判据、按最小档做** ——
-            //     这一段与 `KeywordTable.Landing` 的 doc 是**同一份说法**（另见下方那条 TODO：
-            //     该 doc 的补写要求落在 `CardDef.cs`，本轮由 `W1` 持有，未动）。
-            //  ⚠️ **可达性**：今天全池 **0 张**卡带 `landing` ⇒ 这一支**恒假**（铁律 11：
+            //  ⚠️ **旧口径（2026-10-22 调度台按「最小档」裁的那一版）已被上一条订正取代** ——
+            //     当时判成「取消 = `return RuleCodes.OK`、一个伤害点都不出」，是因为**只读到
+            //     `OnTrigger` 就收手、没读到紧跟着的那条续攻**。现在这一段**不再早退**。
+            //  ⚠️ **如实标着**：原版那两跳里的 `CancelAttack` / `ClearPendingDamage`，
+            //     我们同步模型下**没有 pending damage** 可撤（伤害在本函数末尾才落）⇒ 无对应物；
+            //     真正要补的是**取消之后那一条续攻**（本轮已补）。
+            //  ⚠️ **可达性**：今天全池 **0 张**卡带 `landing`、也 **0 张**带 `dropPod`
+            //     （`cards_truth.json` 现扫 `cardTraits`）⇒ 这一支**恒假**（铁律 11：
             //     它是「**还没做**」变「已做」，不是「不做」）。
+            //  🔴🔴 **2026-10-26（B9 · `A1`）就地订正 —— 「取消」不是终点，下面还压了一条续攻**：
+            //    `:379` 的 `OnTrigger(0x1b8 = Landing)` 之后紧接着
+            //    `BattleManager__AddAttackContinuationAction(lVar1, local_148)`（`:428`），
+            //    而它 `:451` 是 `BattleAction___ctor(&action, **1**, …)`（`1` = `BattleActionType.attack`，
+            //    与常规攻击 `BattleManager__AddAttackAction.c:36` 同一实参）⇒ **这一记会被重新打出去**，
+            //    只是排在「开舱 + `Landing` 正文」之后（净效果 = 一次攻击，不是零次）。
+            //  🔴🆕 **2026-10-26（B9 · `X1`）：这一支【仍然是就地继续往下打】，是**已记账的残余偏差**
+            //    （⛔ 不是「原版就这样」）。伏击那一支本轮已改成**真正的队列续攻**（见 `:6300` 一带），
+            //    这一支为什么没跟着改、以及差在哪，逐条写在这里：
+            //     ① **伏击**那一支能直接 `return` 进队，是因为它排在【扣配额之前】⇒ 续攻那一遍
+            //        可以完整重跑一次 `DeclareAttack`（含配额）。
+            //     ② **这一支排在【扣配额之后】**（原版在之前 —— `attacksThisTurn++` 的写点在
+            //        `_AttackMeleeAnim:116` / `_ResolveAttackRangedAnim:69`，而这一跳在协程更前面）
+            //        ⇒ 若也 `return` 进队，续攻那一遍会在 `CanAttackNow` 的
+            //        「`AttacksThisTurn >= ActionQuota`」上被误判成打不了。
+            //     ③ ⇒ 要改对必须把「开舱 + 这一支」整段**挪到扣配额之前**，并让**攻击段的全部尾巴**
+            //        （Stealth / 伪装 / 广播 / 伤害 / 反击…）都归续攻那一遍 —— 那等于把
+            //        `DeclareAttackCore` 劈成「声明层 / 执行层」两半，⛔ 不是本批该顺手做的事。
+            //     ④ **今天**这一支的净偏差 = 「`Landing:` 正文若改攻击力 / 晕 / 打死攻方，
+            //        对本记伤害不生效」（因为 `FireTriggerAt` 只入队、泵点才结算）。
+            //       ⚠️ **可达性 0**：全池 0 张带 `landing`、0 张带 `dropPod` ⇒ 现在观测不到。
+            //       📌 **已记进账**：`账/_parts/B9_X1.tsv`（等调度台排）—— 铁律 11：只分先后，不是不做。
+            //  ⚠️ 复检：续攻那一记只重跑 `AllowResolveAttack`。**这里不重跑 `CanAttackNow`** ——
+            //    我们这一段排在「扣配额」**之后**（原版在之前），再问一次会命中
+            //    `AttacksThisTurn >= ActionQuota` 而误判成「打不了」。只复检目标那一半。
             if (openedPod && attacker.Has(KeywordTable.Landing))
             {
-                ctx.Log($"{attacker.Name} 带 `Landing` ⇒ **这一记攻击取消**"
-                      + "（原版 `_ResolveAttack` 的 `CancelAttack` 那一跳；伤害一个点都不出）");
-                return RuleCodes.OK;
+                ctx.Log($"{attacker.Name} 带 `Landing` ⇒ 开舱后**取消这一记、再补打一记**"
+                      + "（原版 `_ResolveAttack:379` 的 `CancelAttack` + `AddAttackContinuationAction`）");
+                int landingRecheck = ctx.Players[p].Board[atkSlot] == attacker
+                    ? IsValidTarget(ctx, p, atkSlot, tgtP, tgtSlot, ranged)
+                    : RuleCodes.ErrNotUnit;
+                if (landingRecheck != RuleCodes.OK)
+                {
+                    ctx.Log($"{attacker.Name} 开舱后这一记不再成立（`{landingRecheck}`）⇒ 续攻也打不出去");
+                    return RuleCodes.OK;
+                }
+                // 🔴 **2026-10-26（B9 · `X1`）：攻击力在同一函数里是**开头**取的（`atk`，`:6220`），
+                //  而原版续攻那一遍是 `:1116 EntityScript__GetCombatDamage` **现算**
+                //  （`BattleManager._ResolveAttack_d__438__MoveNext.c`；每一个 `_ResolveAttack` 实例各算一次）。
+                //  ⇒ 这里按原版**重取一次**。⚠️ 今天它是**空操作**（`FireTriggerAt` 只入队 ⇒
+                //  `Landing:` 正文还没跑，`FieldAttack` 读到的值没变），留着是为了「原版那一跳的位置」不丢；
+                //  真要它生效得先按上面 ③ 把这一支挪到扣配额之前并进队。
+                atk = FieldAttack(ctx, p, attacker, ranged);
             }
             //  📌 **账 `A1395②` 的旧注（⛔ 别再照它写）**：那一段原来写着「② 那一支**没做**、
             //    两条口径待裁（位置 / 取消的含义）」——**2026-10-22 已按调度台裁定实现**，
@@ -7648,7 +7750,7 @@ namespace RuleEngine
         /// **做三件事**（原版 `CardScript__RemoveDropPod.c:7-8` = `RemoveBuffedTrait(0xe6)`
         /// + `RemoveTrait(0xe6)`，再加镜头抖 / `BattleCardUI.RemoveStatusAnim(0xe6)` / `UpdateFigures`）：
         ///   ① 把 `dropPod` 这个词**整个摘掉**（= 血池没了）；
-        ///   ② 发 `landing` 那一跳（**表现层那两格**：`EvtKind.Trigger{landing}` 事件
+        ///   ② 发 `landing` 那一跳（**闸见下**；**表现层那两格**：`EvtKind.Trigger{landing}` 事件
         ///      + `When … triggers Landing` 广播）—— 走 <see cref="FireTriggerAlways"/>
         ///      （**不是** `FireTriggerAt`：原版 `OnTrigger(0x1b8)` 是**直接调的**，
         ///      「这张卡有没有那条 ability」不影响它被发出来）；
@@ -7665,9 +7767,9 @@ namespace RuleEngine
         ///   出手那一处要用它当「带 `landing` ⇒ 取消这一记」的**同一个闸**：
         ///   原版那两跳在**同一个 `has dropPod` 分支里**（见 `DeclareAttack` 里那段 VA 判据），
         ///   所以「带 `landing` 但没有 `dropPod`」按判据**不取消**。
-        ///   ⚠️ `BeginTurn` 那个调用点不看返回值（行为逐字不变）。
+        ///   ⚠️ `BeginTurn` 不看返回值；**`Landing` 的闸分两条路**（回合开始只要开过舱就发 —— `OnTurnStart.c:264` 的 `if (bVar3)`；出手还要 `HasDefaultTrait(landing)` —— `_ResolveAttack…:362`）⇒ `fireLanding` 由调用点给，⛔ 别塞进本函数。
         /// </summary>
-        static bool OpenDropPod(BattleContext ctx, int p, int slot, UnitState u)
+        static bool OpenDropPod(BattleContext ctx, int p, int slot, UnitState u, bool fireLanding = true)
         {
             if (ctx == null || u == null) return false;
             if (!u.Has(KeywordTable.DropPod)) return false;
@@ -7675,7 +7777,7 @@ namespace RuleEngine
             u.RemoveAll(KeywordTable.DropPod);
             ctx.Log($"{u.Name} 的空投舱打开（开舱）—— 血池 {left} 撤掉"
                   + "（原版 `CardScript__RemoveDropPod`；触发 `Landing`）");
-            FireTriggerAlways(ctx, u, KeywordTable.Landing, p, slot);
+            if (fireLanding) FireTriggerAlways(ctx, u, KeywordTable.Landing, p, slot);
             return true;
         }
 
@@ -9106,7 +9208,7 @@ namespace RuleEngine
         //  （判据与扫描方法 → `资料/普查产出_1020/W58_回合流程_三处未定判据.md` §三·3.1）。
         //  现在两条翻开出口各在自己的位置：
         //    · `ApplyDamage` —— 真挨到伤害 ⇒ 翻开，**卡主回合才触发**；
-        //    · `DeclareAttack` —— 面朝下出手 ⇒ 取消那一记 + 翻开 + 按回合归属触发。
+        //    · `DeclareAttack` —— 面朝下出手 ⇒ 取消那一记、**再由续攻补打** + 翻开 + 按回合归属触发。
         //  ⛔ 别再按粉丝规则书 `:166` 后半句把它加回来。
 
         /// <summary>

@@ -717,8 +717,24 @@ public static class NetBattleTest
                 Ok(n9a.Length == 1,
                    $"★（对面掉线）**弹了一条给人看的提示**（原来零接线 ⇒ 一条都没有；实得 {n9a.Length} 条）"
                  + " —— 🧨 改坏法：删掉 `WireSession` 里那句 `s.OnPeerLost += …` ⇒ 红");
-                Ok(n9a.Length >= 1 && n9a[0].Contains("掉线"),
-                   $"★（对面掉线）那条话点明是**对面掉线**（实得「{(n9a.Length > 0 ? n9a[0] : "")}」）");
+                // 🔴 **2026-10-26（`F5`）**：这一条原来断的是**我们自设的提示行**措辞「掉线」——
+                //   而弹窗正文 2026-10-26（批次 6 · `G15`）已改走**原版词条**（`Net/NetBattle.cs:949-953`
+                //   的 `ReconnectPopup(false)` ⇒ `Loc.T("Battle/HUD/WaitOpponentConnectionMsg")`）。
+                //   判据 = 原版 `Everguild.BattleErrorUIManager__ShowDisconnectionPopUp.c:20-24`：`param_2 == '\0'`
+                //   （对面掉线）取 `+0x48` 那颗 `LocalizedString`（本机掉线走 `+0x30` 再 `AppendLine(+0x60)`）；
+                //   那颗词条的键在 13 个战场场景里都是 `Battle/HUD/WaitOpponentConnectionMsg`
+                //   （`bundle_scenes_scenes_battlearena1/MonoBehaviour/MonoBehaviour_4062.json:26`）。
+                //   ⇒ 断言随语档比**词条**（⛔ 别再断死中文 —— 英文档必红），并排除「错用本机那一档」。
+                string wantPeerMsg = Loc.T("Battle/HUD/WaitOpponentConnectionMsg");
+                string wantSelfMsg = Loc.T("Battle/HUD/LostConnectionMsg");
+                Ok(!string.IsNullOrEmpty(wantPeerMsg) && wantPeerMsg != "Battle/HUD/WaitOpponentConnectionMsg",
+                   $"（前提）`Battle/HUD/WaitOpponentConnectionMsg` 在词条表里（实得「{wantPeerMsg}」）"
+                 + " —— ⛔ 取不到时 `Loc.T` 回键名，下一条会拿键名**假绿**");
+                Ok(n9a.Length >= 1 && n9a[0].Contains(wantPeerMsg)
+                   && (string.IsNullOrEmpty(wantSelfMsg) || !n9a[0].Contains(wantSelfMsg)),
+                   $"★（对面掉线）那条话点明是**对面掉线**（= 原版词条 `Battle/HUD/WaitOpponentConnectionMsg`"
+                 + $"；实得「{(n9a.Length > 0 ? n9a[0] : "")}」）"
+                 + "｜🧨 换成「本机掉线」那一档（`Battle/HUD/LostConnectionMsg`）/ 退回我们自设的提示行措辞 ⇒ 红");
                 Ok(hb9.LastSay != null && hb9.LastSay.Contains("掉线"),
                    $"★（对面掉线）**提示行**也说了（实得「{hb9.LastSay}」）");
 

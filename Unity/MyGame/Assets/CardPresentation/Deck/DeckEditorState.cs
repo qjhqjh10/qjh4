@@ -163,9 +163,9 @@ namespace CardPresentation
             return string.Equals(f.Type ?? "", v ?? "", StringComparison.Ordinal);
         }
 
-        /// <summary>「5 个筛选字段都没设」。⚠️ **不含 `Owned` / `Upgradable`** —— 那两个是独立开关
-        /// （原版 `Clear filters` 清的是 `filters[]` 那几件，**不动** `showOnlyOwnedCards`），
-        /// 而且 `Owned` 出厂就是开、在单机全解锁下也不改变结果 ⇒ 它不是「有没有筛选」的判据。</summary>
+        /// <summary>「筛选一个字都没设」：单值五项全空 **＋** 四个多选集合（`Factions`/`Rarities`/`Types`/**`Costs`**）全空
+        /// （集合是 2026-10-25 多选改造的第 2 条路 ⇒ **同一个谓词的两半都得算**；漏 `Costs` ⇒ 只勾费用档时 `Clear filters` 不亮，2026-10-26 补）
+        /// ⚠️ **不含 `Owned` / `Upgradable`** —— 那两个是独立开关（原版 `Clear filters` 清的是 `filters[]`，**不动** `showOnlyOwnedCards`），且 `Owned` 出厂就开、单机全解锁下不改变结果 ⇒ 不是「有没有筛选」的判据。</summary>
         public bool IsEmpty
         {
             get
@@ -174,7 +174,7 @@ namespace CardPresentation
                     && string.IsNullOrEmpty(Rarity) && string.IsNullOrEmpty(Type) && Cost < 0
                     && (Factions == null || Factions.Count == 0)
                     && (Rarities == null || Rarities.Count == 0)
-                    && (Types == null || Types.Count == 0);
+                    && (Types == null || Types.Count == 0) && (Costs == null || Costs.Count == 0);
             }
         }
     }

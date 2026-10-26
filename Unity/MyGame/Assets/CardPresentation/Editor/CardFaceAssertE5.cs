@@ -282,7 +282,18 @@ public static class CardFaceAssertE5
               "C1b 原版第 5 行（Button 复用 4 / Card 回落 1）**照原值收着**（⛔ 别当笔误改掉）");
 
         // ---- C2 命中区 → 回调：`CraftHit` 在、挂着 `WindowButton`、且有 onClick ----
-        CardProgress.SetWildcardsForTest(common.Rarity, 3);
+        // 🔴 **2026-10-26（B9 · `X4` 就地订正，α：夹具摆在生产看不见的桶里）**：今日 `F7` 把通配符库存键
+        //   升成 **两维 `army|rarity`**（`CardProgress.WildKey`；判据 = 原版 `CardServices.CheckForCardCrafting`
+        //   的谓词 `w.cardArmy == card.cardArmy && w.cardRarity == card.Rarity`，见 `Shell/CardDetailPopup.cs:381-414`），
+        //   而本自检原来摆的是**一维旧桶**（`Wildcards(rarity)` = 「不分阵营」兼容桶）⇒ 生产链**看不见**它
+        //   （两维桶缺键 = 缺省 99）⇒ C3 的「3→3」与 C6 的「0 张」两条**都没验到东西**
+        //   （C6 更是从 `F7` 起一直**空跑**）。⇒ 摆/读一律改走两维口（先例 = `Editor/CollectionScene.cs:9055/9072/9111`）。
+        Check(!string.IsNullOrEmpty(common.Faction),
+              "（夹具前提）样本卡有阵营 —— 否则 `WildKey(Faction, Rarity)` 会退化成「不分阵营」旧桶、本组又变空跑");
+        CardProgress.SetWildcardsForTest(CardProgress.WildKey(common.Faction, common.Rarity), 3);
+        Check(CardProgress.Wildcards(common.Faction, common.Rarity) == 3,
+              "（夹具前提）`" + common.Faction + "|" + common.Rarity + "` 那桶真是 **3** 张（用**生产侧那个读口**读回来；"
+            + "摆进旧桶 ⇒ 这里读到缺省 99 ⇒ 红，⛔ 不静默空跑）");
         var go1 = NewPopup(common);
         try
         {
@@ -293,7 +304,7 @@ public static class CardFaceAssertE5
                   "C2 「创建副本」命中区 `CraftHit` 建出来了、挂着 `WindowButton` 且可交互（可合成稀有度 + 有通配符）");
 
             // ---- C3 真点一下 ⇒ 请求真的发出去了（扣 1 张通配符 + owned +1）----
-            int wild0 = CardProgress.Wildcards(common.Rarity);
+            int wild0 = CardProgress.Wildcards(common.Faction, common.Rarity);   // 🔴 两维桶（`army|rarity`，见上面 C2 前那段订正）
             int owned0 = CardProgress.Owned(common.Id, common.Rarity);
             // 🔴 **2026-10-25（执行代理 D · 铁律 5）：走【真实入口】`WindowButton.Click()`** ——
             //   原来的 `else pop.OnCraftClicked()` 那条兜底已删：`C2` 已经断过 `wb != null`，
@@ -305,14 +316,16 @@ public static class CardFaceAssertE5
             //   （同族先例 = `Editor/MainMenuScene.cs` 的「首格点击后节点被重建 ⇒ 再查恒 null」。）
             bool hadBtn = wb != null;
             if (hadBtn) wb.Click();
-            int wild1 = CardProgress.Wildcards(common.Rarity);
+            int wild1 = CardProgress.Wildcards(common.Faction, common.Rarity);   // 🔴 两维桶（同上）
             int owned1 = CardProgress.Owned(common.Id, common.Rarity);
             Check(hadBtn && wild1 == wild0 - 1 && owned1 == owned0 + 1,
                   "C3 点一下（走真实入口 `CraftHit` 的 `WindowButton.Click()`）= **真发请求**：通配符 "
                   + wild0 + "→" + wild1 + " · 拥有数 " + owned0 + "→" + owned1
                   + "（空实现 ⇒ 两个数都不动 ⇒ 红）"
                   + "｜🧨 `wb` 的判空必须在**点击之前**（`DoCraft → RebuildKeepingState` 会重建整棵树，"
-                  + "点完之后那颗 `WindowButton` 是已销毁对象 ⇒ 假 null）");
+                  + "点完之后那颗 `WindowButton` 是已销毁对象 ⇒ 假 null）"
+                  + "｜🧨 摆/读若退回一维 `Wildcards(rarity)` ⇒ 生产扣的是两维桶、这里读的是旧桶 ⇒ "
+                  + wild0 + "→" + wild0 + "（= `F7` 之前那条假绿）");
 
             // ---- C4/C5 同一拍播了两件特效，且按这张卡的稀有度选件 ----
             var players = go1.GetComponentsInChildren<WarpforgeEffectPlayer>(true);
@@ -328,7 +341,19 @@ public static class CardFaceAssertE5
         finally { Object.DestroyImmediate(go1); }
 
         // ---- C6 失败支 ⇒ **一件都不播**（原版失败走 `OnFail`、不调 DoVFX）----
-        CardProgress.SetWildcardsForTest(common.Rarity, 0);
+        // 🔴 **2026-10-26（B9 · `X4`）就地订正 —— 这一条自 `F7` 起是【空跑】**：原来摆的是
+        //   `SetWildcardsForTest(common.Rarity, 0)`（一维旧桶），而生产读 `(Faction, Rarity)` 两维桶
+        //   ⇒ 那桶一直是缺省 **99** ⇒ 合成照样成功、特效照播。也就是说「没有通配符 ⇒ 不许播特效」
+        //   这条判据**从 `F7` 起没有任何断言在真守**（`D2` 报告 §四 的牙口缺口）。现在真摆 0：
+        //   `MatchWildcard` 会走「同阵营兜底」（别的稀有度桶仍有 99）⇒ `Craftable = false`
+        //   ⇒ `DoCraft()` 拒绝、`TryCraft` 返回 false ⇒ 不合成、不播
+        //   （判据 = 原版 `CardServices.CheckForCardCrafting` 兜底那一支 `return false`；
+        //     我们的等价物见 `Shell/CardDetailPopup.cs:459-471`）。
+        //   ⚠️ 对照组 = 上面 C3（同一个读口、3 张时**真扣成 2 且 owned +1**）⇒ 这一条不是「什么都验不到」。
+        CardProgress.SetWildcardsForTest(CardProgress.WildKey(common.Faction, common.Rarity), 0);
+        Check(CardProgress.Wildcards(common.Faction, common.Rarity) == 0,
+              "（夹具前提）`" + common.Faction + "|" + common.Rarity + "` 那桶**真的摆成 0 张**"
+            + "（⛔ 不摆 0 的话下面那条只剩「什么也没发生」——`F7` 之后它就是那样空跑的）");
         var go2 = NewPopup(common);
         try
         {
@@ -336,22 +361,27 @@ public static class CardFaceAssertE5
             int ownedA = CardProgress.Owned(common.Id, common.Rarity);
             pop2.OnCraftClicked();          // ⚠️ 直调：模拟「有人绕过了灰钮」（原版灰钮那一支根本不派发）
             var pl2 = go2.GetComponentsInChildren<WarpforgeEffectPlayer>(true);
-            Check(CardProgress.Wildcards(common.Rarity) == 0
+            Check(CardProgress.Wildcards(common.Faction, common.Rarity) == 0
                   && CardProgress.Owned(common.Id, common.Rarity) == ownedA
                   && (pl2 == null || pl2.Length == 0),
                   "C6 通配符 = 0 ⇒ 请求失败 ⇒ **不合成、不播特效**（owned 不变、特效 0 件；实得 "
-                  + (pl2 != null ? pl2.Length : 0) + " 件）");
+                  + (pl2 != null ? pl2.Length : 0) + " 件）"
+                  + "｜🧨 抠掉 `DoCraft` 里 `!wm.Craftable` 那道闸 ⇒ 本行红（会 owned+1 + 播 2 件）"
+                  + "｜🧨 摆/读退回一维旧桶 ⇒ 生产看两维桶仍是 99 ⇒ 同样 owned+1 + 播 2 件 ⇒ 本行红");
         }
         finally { Object.DestroyImmediate(go2); }
 
         // ---- C7 闸：传奇且 owned == 1 ⇒ 弹确认窗、**不合成不播**（原版 `TryCrafting` 那一支 `return`）----
-        CardProgress.SetWildcardsForTest(legendary.Rarity, 3);
+        // 🔴 **2026-10-26（B9 · `X4`）顺手一起改（同 C3/C6 那笔 `F7` 换桶，`D2` §七.5 标过的那一格）**：
+        //   这一条今天是**碰巧绿**（闸由 `owned == 1` 挡下、与通配符无关 ⇒ 摆在旧桶里也绿）
+        //   ⇒ 留着等于给下一个人埋一个「摆位其实没生效」的假前提。摆/读一并改两维。
+        CardProgress.SetWildcardsForTest(CardProgress.WildKey(legendary.Faction, legendary.Rarity), 3);
         CardProgress.AddOwned(legendary.Id, legendary.Rarity, 1 - CardProgress.Owned(legendary.Id, legendary.Rarity));
         var go3 = NewPopup(legendary);
         try
         {
             var pop3 = go3.GetComponent<CardDetailPopup>();
-            int wildB = CardProgress.Wildcards(legendary.Rarity);
+            int wildB = CardProgress.Wildcards(legendary.Faction, legendary.Rarity);   // 🔴 两维桶
             int ownedB = CardProgress.Owned(legendary.Id, legendary.Rarity);
             // 🔴 **2026-10-25（执行代理 D）：走【真实入口】**（原来这里直调 `pop3.OnCraftClicked()`）——
             //   传奇且 owned==1 那张的钮**仍是可点的**（有通配符 ⇒ `CheckButtons` 给可交互），
@@ -363,7 +393,7 @@ public static class CardFaceAssertE5
             if (hadBtn3) wb3.Click();
             var pl3 = go3.GetComponentsInChildren<WarpforgeEffectPlayer>(true);
             Check(ownedB == 1 && hadBtn3 && pop3.CraftConfirmPopup != null
-                  && CardProgress.Wildcards(legendary.Rarity) == wildB
+                  && CardProgress.Wildcards(legendary.Faction, legendary.Rarity) == wildB
                   && CardProgress.Owned(legendary.Id, legendary.Rarity) == ownedB
                   && (pl3 == null || pl3.Length == 0),
                   "C7 传奇 + owned==1 ⇒ **点真实入口只弹确认窗**（不走合成、不播特效；通配符 " + wildB + " 不变、"

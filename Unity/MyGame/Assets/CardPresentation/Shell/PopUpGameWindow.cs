@@ -537,17 +537,32 @@ namespace CardPresentation
         /// 取不到就**不做**（= 原版 `GetUICamera()` 找不到 `UICamera`/`MainCamera` 时返回 0 那一支）。</para>
         /// <para>⚠️ 触发口 = `MessageText Hit` 那颗命中区的 `onDown`（原版 prefab 那颗
         /// `EventTrigger.PointerDown`，判据见 `_msgHit` 的 doc）。
-        /// ⚠️ 批处理/自检里 `Input.mousePosition` 恒为 `(0,0)` ⇒ 这条链**只能在真机上点**，
+        /// ⚠️ 批处理/自检里没有鼠标设备（`Mouse.current == null`）⇒ 指针退回 `(0,0)`（🔴 2026-10-26：原来读 legacy `Input.mousePosition`，本工程 `activeInputHandler: 1` ⇒ 一调用就抛 `InvalidOperationException`；现走 `PointerScreenForLink()`）⇒ 这条链**只能在真机上点**，
         /// 自检改用「命中区是否建出来 + `onDown` 接的是本方法」来核（不伪造鼠标）。</para></summary>
         public void CheckLinkText()
         {
             if (_msgLb == null) return;
             var cam = Camera.main;
             if (cam == null) return;
-            Vector3 m = Input.mousePosition;
+            Vector3 m = PointerScreenForLink();
             float z = cam.WorldToScreenPoint(_msgLb.transform.position).z;
             string url = _msgLb.LinkAt(cam.ScreenToWorldPoint(new Vector3(m.x, m.y, z)), cam);
             if (!string.IsNullOrEmpty(url)) Application.OpenURL(url);
+        }
+
+        /// <summary>屏幕指针（**屏幕像素、原点左下**，与 legacy `Input.mousePosition` 同口径）。
+        /// 🔴 **2026-10-26（执行代理 `X2`）**：原来这里直接读 `UnityEngine.Input.mousePosition`，而本工程
+        /// `ProjectSettings.asset` 的 `activeInputHandler: 1` = **只启用 Input System 包** ⇒ 那句**一调用就抛**
+        /// `InvalidOperationException`（点带 `<link>` 的弹窗正文必崩）。现读数口径**照抄已有的那一套**
+        /// （`BattleDriver.PointerScreen()` / `Hand/CardInteraction.PointerScreen()`）：`Mouse.current` →
+        /// `Touchscreen.current` → `(0,0)`（批处理没有设备 ⇒ `(0,0)`，与上面 doc 那句一致）。</summary>
+        static Vector3 PointerScreenForLink()
+        {
+            var m = UnityEngine.InputSystem.Mouse.current;
+            if (m != null) return m.position.ReadValue();
+            var ts = UnityEngine.InputSystem.Touchscreen.current;
+            if (ts != null) return ts.primaryTouch.position.ReadValue();
+            return Vector3.zero;
         }
 
         /// <summary>一颗钮：底图（`40K_button`）+ `Button Text`（stretch + `sizeDelta.x = −26` + ARF 宽控高）。
