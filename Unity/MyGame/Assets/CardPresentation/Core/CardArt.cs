@@ -1063,6 +1063,7 @@ namespace CardPresentation
             if (_cache.TryGetValue(path, out t)) return t;
             t = Resources.Load<Texture2D>(path);
             _cache[path] = t;                 // null 也缓存：找不到就别每次都去 IO
+            if (t != null) _pathOf[t] = path; // 反查表（类尾 `Release` / `PathOf` 用）
             return t;
         }
 
@@ -1077,5 +1078,137 @@ namespace CardPresentation
                  + $"已加载 {n} 张"
                  : "没有原版美术（Resources/Art 空）—— 用程序生成的占位卡面";
         }
+
+        // ============================================================ 图缓存的「释放」= 原版 `AssetReference.Release` 的等价物
+        //
+        // 判据（🥇 `d:/2/tools/decomp_full/`；三份方法体**第一行的函数名都与文件名一致** ⇒ 避开「文件名与内容不符」
+        // 那 16.5% 的坑）：
+        //  · `CosmeticItem__UnloadReferences.c:2-16`：`imageReference`（+0x40，类型 `AssetReferenceTyped<Sprite>`，🥈 `CosmeticItem.cs:10`）非空
+        //    ⇒ `AssetReferenceTyped<object>.Release(cacheGroup: General(1), releaseAll: false)`（`.c:9-13` 的实参 `(handle,1,0,…)`；
+        //    签名 🥈 `dump.cs:135633`；`AddressableCacheGroup.General = 1` 🥈 `dump.cs:45274-45281`）—— **一次只放这一条、不是全清**；
+        //    为空 ⇒ `FUN_1803f47a0()`（`.c:14-15`，`/* Subroutine does not return */` —— 全库 11,020 份 `.c` 共用的
+        //    **不返回的抛出出口** ⇒ 那一档是「抛异常」，不是「跳过」）。
+        //  · `CursorByArmySO__ReleaseArmyCursor.c:2-39`：遍历表（长度 `+0x18`、元素基址 `+0x20`），命中
+        //    `+0x10 == cardArmy` 的那一项 ⇒ `+0x18`(cursor) 与 `+0x20`(highlight) **两个** AssetReference 各 Release 一次（`.c:28-32`）。
+        //  · `FlavourTextSO__ReleaseFlavorBackground.c:2-57`：遍历表找 `+0x10 == army` 的项，命中 ⇒ `+0x18`(flavorBg)
+        //    Release（`.c:50-51`），随后**无条件** `CustomDebug.LogWarning`（`.c:28-32`，在循环外 —— 原版自己的日志噪声，
+        //    不是行为，不照抄）。
+        // ⇒ **原版释放的是 Addressables 句柄 = 引用计数减一，不是「立刻销毁贴图」**：`Release` 之后只要还有使用者，
+        //   资产照样在；最后一个句柄放掉才卸载。
+        //   我们全工程没有 Addressables：图一律 `Resources.Load` 进 `_cache`（本文件 `Get`），**那份字典就是我们的句柄表**。
+        //   等价语义 = **把这一份强引用从表里放掉**；贴图本身**不销毁**（⛔ 全仓 `Resources.UnloadAsset` 零处；
+        //   `UnloadUnusedAssets` 只出现在三份 Editor 探针里）⇒ 仍被 `ImageQuad` / 材质引用的图**照常显示**
+        //   —— 这正是「不能释放正在用的图」的结构保证，与「Release 只减计数」同形。
+        //   调用口 = `Shell/MenuDraw.cs` 的 `ReleaseArtUnder`（`ClearChildren` 在销毁每个子树前调它）：
+        //   原版是按「装饰品 / 阵营 / 风味底图」的对象放句柄，我们是按**即将销毁的子树**放 —— 同一档时机
+        //   （原版靠 `ItemDrawer.OnDestroy` / 各 `OnDisable`，我们靠节点销毁；先例 `Shell/ItemDrawerLeash.cs`）。
+
+        /// <summary>`_cache` 条数（含负缓存）—— 释放的**可观察量**：`Release` 前后相减 = 放掉几条。</summary>
+        public static int CacheCount { get { return _cache.Count; } }
+
+        /// <summary>里面**真有图**的条数（负缓存不计）—— 与 <see cref="CacheCount"/> 一起读，
+        /// 才分得清「放掉一张图」和「放掉一条空记录」。</summary>
+        public static int LiveCacheCount
+        {
+            get { int n = 0; foreach (var kv in _cache) if (kv.Value != null) n++; return n; }
+        }
+
+        /// <summary>`Release` 成功放掉的累计次数（自检读口）。</summary>
+        public static int ReleasedCount { get { return _released; } }
+
+        /// <summary>贴图 → 资源路径（反查）。不是经 <see cref="Get"/> 来的（`Solid()` / 渐变 / `RenderTexture`）⇒ null。</summary>
+        internal static string PathOf(Texture2D t)
+        {
+            string p;
+            return t != null && _pathOf.TryGetValue(t, out p) ? p : null;
+        }
+
+        /// <summary>
+        /// 「逐项美术」族 —— 只有这些在子树销毁时放（原版那三个方法放的也正是族内对象）。
+        /// 共享件（卡框 `cards/frame_*` · SDF · `traits/` · 战斗 `ui/` 的 HUD 图 · `card3d/`）**不进这一族**：
+        /// 原版对应的是 `CardFramesSO` 那种常驻 SO 的引用，三个释放方法一个都没碰它们。
+        /// </summary>
+        public static bool IsPerItemArt(string path)
+        {
+            if (string.IsNullOrEmpty(path)) return false;
+            for (int i = 0; i < PerItemArtPrefix.Length; i++)
+                if (path.StartsWith(PerItemArtPrefix[i], System.StringComparison.Ordinal)) return true;
+            return false;
+        }
+        static readonly string[] PerItemArtPrefix =
+        {
+            Root + "cards/art_",      // 卡面立绘（原版 `RawCardScript.cardSprite`）
+            Root + "cardbacks/",      // 装饰品·卡背（= `CosmeticItem.UnloadReferences` 的对象）
+            Root + "avatars/",        // 装饰品·头像
+            Root + "altarts/",        // 异画立绘
+            Root + "ui/flavourbg_",   // 风味底图（= `FlavourTextSO.ReleaseFlavorBackground` 的对象）
+            Root + "ui_menu/Cursor_", // 阵营光标两图（= `CursorByArmySO.ReleaseArmyCursor` 的对象；本机只导了 SM 一族）
+        };
+
+        /// <summary>
+        /// 原版 `AssetReferenceTyped&lt;object&gt;.Release(handle, …)` 的等价物：**把这一条从 `_cache` 里放掉**。
+        /// ⛔ **不销毁贴图**（见本节头注）；空路径 / 有租约 / 不是缓存条目 ⇒ 拒绝并**出声**（「不许静默失败」）。
+        /// ⚠️ 负缓存条目（value == null）不放：那不是句柄，`Get` 故意缓存它免得每次重试 IO。
+        /// </summary>
+        public static bool Release(string path)
+        {
+            if (string.IsNullOrEmpty(path))
+            {
+                // 原版这一档是「不返回的抛出出口」（`CosmeticItem__UnloadReferences.c:14-15`）。我们不出炸界面的异常，
+                // 改成出声 + false —— 差异如实记在账里。
+                Debug.LogWarning("[CardArt] `Release` 收到空路径 ⇒ 不释放。原版同档走抛出出口"
+                    + "（`CosmeticItem__UnloadReferences.c:14-15`），我们在 UI 路径上不出异常。");
+                return false;
+            }
+            if (IsRetained(path))
+            {
+                Debug.LogWarning("[CardArt] `Release` 被租约挡下：「" + path + "」还有 Retain 没解（正在显示）⇒ 照旧显示，不释放");
+                return false;
+            }
+            Texture2D t;
+            if (!_cache.TryGetValue(path, out t))
+            {
+                Debug.LogWarning("[CardArt] `Release` 收到一条没缓存过的路径：「" + path + "」⇒ 什么都不做"
+                    + "（原版 `ReleaseArmyCursor` 表里找不到那一项也是直接往下走）");
+                return false;
+            }
+            if (t == null) return false;        // 负缓存：无句柄可放
+            _cache.Remove(path);
+            string mapped;
+            if (_pathOf.TryGetValue(t, out mapped) && mapped == path) _pathOf.Remove(t);
+            _released++;
+            return true;
+        }
+
+        /// <summary>🔶 自己设计（非原版）：租约闸 —— 已知「正在显示、必须留住」的图先 `Retain`，`Release` 会被拒。
+        /// 原版没有对应物（它的保护来自「句柄只由持有者放」）；我们没有句柄层，需要一个显式标记。
+        /// 判据拿不到原版等价物，因为它不存在。调度台 2026-10-26 定（工作项 B8_BF）。</summary>
+        public static void Retain(string path)
+        {
+            if (string.IsNullOrEmpty(path)) return;
+            int n;
+            _leases.TryGetValue(path, out n);
+            _leases[path] = n + 1;
+        }
+
+        /// <summary>🔶 自己设计（非原版）：解一份租约（**不放图**）。见 <see cref="Retain"/>。</summary>
+        public static bool Unretain(string path)
+        {
+            int n;
+            if (string.IsNullOrEmpty(path) || !_leases.TryGetValue(path, out n)) return false;
+            if (n <= 1) _leases.Remove(path); else _leases[path] = n - 1;
+            return true;
+        }
+
+        /// <summary>这张图现在有没有租约（正在显示）。</summary>
+        public static bool IsRetained(string path)
+        {
+            int n;
+            return !string.IsNullOrEmpty(path) && _leases.TryGetValue(path, out n) && n > 0;
+        }
+
+        static readonly Dictionary<string, int> _leases = new Dictionary<string, int>();
+        static readonly Dictionary<Texture2D, string> _pathOf = new Dictionary<Texture2D, string>();
+        static int _released;
     }
 }

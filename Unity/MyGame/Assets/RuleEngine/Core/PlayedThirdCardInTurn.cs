@@ -121,10 +121,21 @@ namespace RuleEngine
             {
                 // 判据 = 原版 `PlayersAffected`（`PlayersAffected.cs`：0 Both / 10 Self / 20 Enemy），
                 // 且 `AbilityLogic.cs` 的 Tooltip 明确写着这一格是给 DrawCard / DiscardWholeHand 用的。
-                if (lg.playersAffected == "Self") Draw(ctx, seat);
-                else if (lg.playersAffected == "Enemy") Draw(ctx, 1 - seat);
-                else { Draw(ctx, 0); Draw(ctx, 1); }
-                ctx.Log($"「{label}」触发抽牌（playersAffected = {lg.playersAffected ?? "?"}）");
+                // 🔴 **2026-10-26（`B8_AN`）**：这里原来是 `if/else` 三档、**兜底 = 两侧都抽** ——
+                //   原版 `SupportMethods.IsPlayerAffected.c:1-15` 对**未列出的非 0 值返回 false**
+                //   （两侧都不抽）⇒ 那个兜底会把「谁都不抽」做成「两人都抽」。已改走统一判据
+                //   <see cref="IsPlayerAffected"/>（判据只此一处），未知档 ⇒ 不抽并出声。
+                //   参考系 = 【施放这张牌的那一侧】：原版 `AbilityLogic__PlayAbility.c:308/324` 两次问
+                //   `IsPlayerAffected(card.isPlayer, pa)` 与 `IsPlayerAffected(!card.isPlayer, pa)`，
+                //   `d:/2/tools/il2cpp_out/dump.cs:21973` 证 `+0x40` 就是 `<isPlayer>k__BackingField`
+                //   ⇒ `Self` 落在「出牌者那一侧」，与我们传 `seat` 同义。
+                int drawn = 0;
+                for (int s2 = 0; s2 < 2; s2++)
+                {
+                    if (!IsPlayerAffected(s2 == seat, lg.playersAffected)) continue;
+                    Draw(ctx, s2); drawn++;
+                }
+                ctx.Log($"「{label}」触发抽牌（playersAffected = {lg.playersAffected ?? "?"} ⇒ 抽 {drawn} 侧）");
                 return;
             }
 
@@ -196,6 +207,39 @@ namespace RuleEngine
                     || string.Equals(lg.valueOptions, "RandomizedOnResolution", StringComparison.Ordinal)))
                 return lg.minDamage + ctx.Rng.Next(lg.maxDamage - lg.minDamage + 1);
             return lg.minDamage;
+        }
+
+        // ==========================================================================================
+        //  🆕 2026-10-26（执行代理 `B8_AN` · 账 战斗逻辑驱动:1488）
+        //  🔴 **一律追加在类尾**（本文件被账按行号引用；往中间插成员会让下游落点整体下移）。
+        // ==========================================================================================
+
+        /// <summary>
+        /// 原版 `SupportMethods.IsPlayerAffected(bool isPlayer, PlayersAffected playersAffected)`
+        /// （`decomp_full/SupportMethods__IsPlayerAffected.c:1-13`，🥇 全文 13 行逐句）。
+        ///
+        /// <para>真值表（逐句照抄）：`Both(0)` ⇒ **true** · `Self(10)` ⇒ `isPlayer` ·
+        /// `Enemy(20)` ⇒ `!isPlayer` · **其它任何非 0 值 ⇒ false**
+        /// （`.c:5-6` 的 `return param_2 == 0x14` 与 `.c:9-10` 的 `return param_2 == 10` ——
+        /// 它们是**等值比较**、不是「非 0 即真」⇒ 未知值两边都落 `false`，⛔ 不是当 `Both`）。</para>
+        ///
+        /// <para>🔴 **参考系**（本轮查实的唯一一格，原来账上标着「两种读法都自洽」）：
+        /// 原版**唯一**调用点 `AbilityLogic__PlayAbility.c:308/324` 是**同一个 `pa` 问两次** ——
+        /// `IsPlayerAffected(card.isPlayer, pa)` 与 `IsPlayerAffected(!card.isPlayer, pa)`，
+        /// 再交给 `BattleManager.GetCardsInHandList(…, 两个 bool, …)` 取并集。
+        /// `d:/2/tools/il2cpp_out/dump.cs:21973` 证 `+0x40` 就是 `<isPlayer>k__BackingField`
+        /// ⇒ **`isPlayer` 是「这张施放中的卡属于哪一侧」的那个位**，不取反。
+        /// 在 `Self` 档上两次问法只会有一次为真 ⇒ 落在**出牌者那一侧**。</para>
+        ///
+        /// <para>`playersAffected` 在本工程里的载体 = <see cref="OffensiveLogic.playersAffected"/>
+        /// （字符串 `Both` / `Self` / `Enemy`；`null`/空串按 `Both` 解 —— 原版缺省值就是 `0`）。</para>
+        /// </summary>
+        public static bool IsPlayerAffected(bool isPlayer, string playersAffected)
+        {
+            if (string.IsNullOrEmpty(playersAffected) || playersAffected == "Both") return true;
+            if (playersAffected == "Self") return isPlayer;
+            if (playersAffected == "Enemy") return !isPlayer;
+            return false;                       // 原版 `.c:5-11`：未列出的非 0 值 ⇒ false（⛔ 不是 Both）
         }
     }
 }

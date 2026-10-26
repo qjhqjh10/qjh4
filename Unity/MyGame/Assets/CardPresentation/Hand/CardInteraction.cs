@@ -1923,5 +1923,25 @@ namespace CardPresentation
             _hovered = -1;
         }
 
+        // ==================================================================
+        //  🆕 2026-10-26（`B8_AL`）：**输入态一行可读**（账升 A 的 G3 读数口）
+        // ==================================================================
+        /// <summary>把「指针这一层此刻的状态」打成一行 —— 供自检断言 / 诊断读，⛔ 不参与任何逻辑。
+        /// <para>为什么要有：账里 `OnTouchDown` / `OnTouchDrag` / `OnTouchEnter` / `OnTouchExit` /
+        /// `ShowCardInHand` / `TryDraggingFromHand` 那几行的可观察量**都是同一批状态位**（悬停下标、
+        /// 拖拽中的卡、空位下标、累计位移、按下时长、以及四道闸），它们散在十个私有字段里；
+        /// 不集中打出来，自检就只能断言「没崩」。⛔ 别在这里做判断 —— 只读。</para>
+        /// <para>刻意读**闸的当前值**（`DragBlocked` / `FrozenNow` / `TouchInputOn`）：这三条是原版
+        /// `OnTouchDrag.c:17-23` 与 `TryDraggingFromHand.c:64-69` 的等价物，账里要的就是「此刻拦不拦」。</para></summary>
+        public string DescribeInput()
+        {
+            var hov = HoveredCard;
+            return $"悬停={(_hovered >= 0 ? _hovered + ":" + (hov != null ? hov.name : "null") : "无")}"
+                 + $" 拖拽中={(_dragging != null ? _dragging.name : "无")}"
+                 + $" 空位={_insertIndex} 累计位移={_travel:F3}（轻点门限 {TapThreshold:F2}）"
+                 + $" 按下候选={(_pressPending ? "是" : "否")} 按下时长={PressElapsedSeconds:F3}s"
+                 + $" 短按={PressShortEnough} 第二颗碰撞={((hov != null) ? (hov.ShowInBigColliderEnabled ? "开" : "关") : "-")}"
+                 + $" 冻结={FrozenNow} 拖拽闸={(DragBlocked() ? "拦" : "放")} 触屏档={TouchInputOn}";
+        }
     }
 }

@@ -3481,5 +3481,33 @@ namespace CardPresentation
         //   见上面「① 挨打震镜头」那一节与 `ShakeCamera`。原版问的那个问题**原版自己有答案**：
         //   震**主相机**（Cinemachine Impulse）、**不震 UI**。我们单相机分不开，
         //   所以落地方式是「相机 + HUD 根**同向**等量平移」，观感与原版一致。
+        // ==================================================================
+        //  🆕 2026-10-26（`B8_AL`）：**表现层可观察量读数口**（账升 A 的 G3 用）
+        //
+        //  为什么单开一段：本域的账行大多是「原版的一段补间 / 一个锚点 / 一个事件时刻」，
+        //  而 `ruleprobe`（纯 dotnet）结构上读不到 Unity 视图 ⇒ 必须有一个**能拿去和原版字段比**
+        //  的名量。下面两条**只做测量**、不参与任何生产逻辑（⛔ 改它们不许改变行为）。
+        // ==================================================================
+
+        /// <summary>一条 DOTween 的**实测总时长**（秒）。`null` ⇒ **−1**（不静默当成 0）。
+        /// <para>用途（账 `CardScript.AttackMeleeAnim` / `CardScript.GetHandToBoardAnimEventTime` 的 G3）：
+        /// 那两条的可观察量分别是「序列总长 = `attackStepTime 0.1 + interval 0.1 + 2×attackStepTime 0.2 = 0.4 s`」
+        /// 与「clip 的 `AnimationEvent[0].time = 0.55 s`」—— 两侧都量**跑起来的那条补间**，⛔ 不拿常量自比。</para></summary>
+        public static float SequenceSeconds(Tween t) { return t == null ? -1f : t.Duration(); }
+
+        /// <summary>`EffectsAnchorHeight ÷ 卡的世界缩放` —— **原版 prefab 的锚点高度 1.34**（无量纲，跨参考系可比）。
+        /// <para>用途（账 `CardScript.GetEffectAnchor` 的 G3）：原版那个方法返回的是**一个 Transform**
+        /// （两个候选之一：`card2DController` / `effectsAnchor`），可观察量只能落到「锚点比卡底边高多少」上 ——
+        /// 原版 prefab `CardPrefab/Board Elements/EffectAnchor.localPosition.y = 1.34`（**原版卡根 = 卡底边**），
+        /// 我们卡根 = 卡心 ⇒ <see cref="EffectsAnchorHeight"/> 量到卡底边之后，**这个比值必须回到 1.34**。
+        /// 取比值而不取绝对值，是为了把卡的世界缩放（手牌档 / 场上档 / 各档分辨率）约掉。</para>
+        /// <para>取不到卡 / 缩放为 0 ⇒ 返回 **−1**（不静默当成 0）。</para></summary>
+        public static float EffectsAnchorScaleRatio(CardView card)
+        {
+            if (card == null) return -1f;
+            float s = card.transform.lossyScale.y;
+            if (Mathf.Abs(s) < 1e-6f) return -1f;
+            return EffectsAnchorHeight(card) / s;
+        }
     }
 }

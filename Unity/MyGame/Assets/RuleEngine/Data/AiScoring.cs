@@ -530,8 +530,7 @@ namespace RuleEngine
         /// 枚举该单位所有合法的**近战**目标，取「`ScoreFromDamagingBuffedUnit(目标) − 反击 − 存活奖励`」的最大值。
         ///
         /// **逐条照 `ScoreFromBuffedAttack`（`AI__ScoreFromBuffedAttack.c`）**：
-        ///   · 攻击力 = `CurrentMeleeAttack + buff.meleeAttackChange`（⛔ 不是 `FieldAttack`，
-        ///     原版这里不叠 pack/swarm 那一层）；
+        ///   · 攻击力 = `CurrentMeleeAttack + buff.meleeAttackChange`（⛔ 不是 `FieldAttack`，原版这里不叠 pack/swarm 那一层）；
         ///   · 目标那一侧：`ScoreFromDamagingBuffedUnit(target, DamageInfo)`，`ignoreDroppod = true`
         ///     （调用点 flags `1,0`）；
         ///   · 会被反击：`ScoreFromDamagingBuffedUnit(attacker, 反击伤害)` 扣掉；反击后还活着 `+0.1`
@@ -543,8 +542,9 @@ namespace RuleEngine
         {
             var u = t.Unit;
             if (u == null || !u.IsAlive) return 0f;
-            // 原版 `GetPotentialBuffedAttackActions` 先过 `MightAttackBuffedCard`（能不能出手）
+            // 原版 `GetPotentialBuffedAttackActions` 的**第一道闸** = `MightAttackBuffedCard(card, buff)`（`.c:48`，逐句判据 → `SimpleAI.MightAttackBuffedCard` 的 doc）。🔴 只对**带 buff 那一档**（`meleeDelta != 0`）套它 —— 原版 `ScoreFromBestAttack.c:21` 只调一次带 buff 的列表，`meleeDelta == 0` 是「不带 buff」的对照分、原版不过本闸。⚠️ 旧口径 `Exhausted || IsStunned`（= 我们侧 `canAct`）**保留**：原版 `get_mightAct` 并不读 `canAct`（见那个方法的 doc ③），两者谁该管这一格**待引擎线裁决**（2026-10-26 `B8_E` 顺手发现，已记账）
             if (u.Exhausted || u.IsStunned) return 0f;
+            if (meleeDelta != 0 && !SimpleAI.MightAttackBuffedCard(ctx, t, meleeDelta, 0)) return 0f;
             var board = ctx.Players[t.Side].Board;
             int slot = -1;
             for (int s = 0; s < BoardSpec.Size; s++)
@@ -575,9 +575,11 @@ namespace RuleEngine
                 //   ④ `+0.1` 的闸 = `health > 反击伤害`（**扣甲前**，`.c:71-75` + `DAT_1834b2dc4`）；
                 //      旧实现是 `DamageAfterReduction(u, counter) < u.Health`（**扣甲后**）= 与 `R6-07` 同一条缺口。
                 int counter = target.Has(KeywordTable.Ambush) ? 4 : target.Attack;   // 4 = `.c:47-53` 的常数
-                bool noCounter = CounterAttack.NoCounter(ctx, t.Side, u, foe, target, false,
-                                                         RuleCore.WouldKill(target, atk));
-                if (!noCounter)
+                // 🔴 2026-10-26（批次 8 · `B8_P`）：这里改调**预测版** `EnemyReturnsAttack` —— 原版
+                //   `AI__ScoreFromBuffedAttack.c:77` 调的正是它（四道 ＋ 第 5 道 `shuriken(1120)`）；
+                //   而**实际结算**那条链（`_ResolveAttack_d__438__MoveNext.c:871-895`）只有四道
+                //   ⇒ 原版这两条路本来就不同源，⛔ 别统一（`CounterAttack.EnemyReturnsAttack` 的 doc 已写明）。
+                if (CounterAttack.EnemyReturnsAttack(ctx, t.Side, u, foe, target, false))
                 {
                     s -= SimpleAI.ScoreDamaging(u, counter, ignoreDroppod: true, countDamagedBastion: false);
                     if (u.Health > counter) s += 0.1f;

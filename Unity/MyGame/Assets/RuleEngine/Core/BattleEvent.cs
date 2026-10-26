@@ -717,3 +717,44 @@ namespace RuleEngine
         }
     }
 }
+// ==========================================================================================
+//  ⚠️ **`EvtKind`（20 个成员）不是「原版广播族」的对应物 —— ⛔ 别拿两边的条数比**
+//  （2026-10-26 · 完全复刻批次 8 · 执行代理 `B8_R` 查证，判据见下）
+// ==========================================================================================
+//  起因：一轮只读普查怀疑「`EvtKind` 现读 20 个成员、而原版广播有 35 种 ⇒ 这是
+//  『广播族升 A』的真缺口」。**查证结论：那是两条不同的轴，条数无可比性。**
+//
+//  · **原版那一侧是「监听者派发器」，不是事件枚举**：
+//    `BattleManagerSupport__Broadcast*` **43 个**（🥇 `d:/2/tools/decomp_full/`）＋
+//    `BattleManager__Broadcast*` **30 个**（其中 **24 个是纯转调**到 Support 那一份）＋
+//    `MinionManager__BroadcastActivateMinion` **1 个**。它们的做法是逐个
+//    `CardScript.ReactTo* / Trigger* / Resolve*` 调下去，最终由
+//    `RawCardScript.OnTrigger(id, …)` 带出 **57 个不同的 `AbilityTrigger` id**（id → 名字全表 =
+//    `d:/2/Warpforge_code/Scripts/Assembly-CSharp/AbilityTrigger.cs`）。
+//    ⇒ **原版根本没有「事件种类枚举」这种对象**；「35 种」是某种数法下的中间数，不是可对账的口径。
+//
+//  · **我们的对应物是 `WhenEventKind`**（29 种 + `triggers:<kw>` 家族，见 `Core/WhenEvent.cs`）
+//    ＋ `EffectResolver.BroadcastWhen(kind, …)`（60 余个调用点）。**那本账** =
+//    `资料/完全复刻/账/战斗逻辑驱动.tsv` 里 `BattleManagerSupport.Broadcast*` 那 43 行。
+//
+//  · **`EvtKind` 是【表现层词汇】**（哪个时机能播什么），消费端 = `CardPresentation/Core/VfxMap.cs`
+//    ＋ `CardPresentation/Battle/BattleDriver.cs`。原版没有对应枚举 ⇒ 给它加成员必须**同时**
+//    有发射口与消费口，否则是死代码（`VfxMap.cs` 的 `TriggersPrefix` 一节明写
+//    「⛔ 不许照着原版 trigger 名字表补齐 —— 加了 = 永远等不到」）。
+//
+//  · **原版那 57 个 trigger id 今天全都走同一条通用事件 `EvtKind.Trigger`**
+//    （「哪个关键词」装在 `CardId`／`Keyword`，见 `BattleEvent.CardId` 的约定）
+//    ⇒ 表现层不缺「种类」，缺的是 **`WhenEventKind` → 原版 trigger 名的映射**；
+//      那一处 = `EffectResolver.TriggerNameOfWhenKind` ＋ `WhenEvents.ExtraTriggerNameForKind`
+//      （2026-10-26 已由 `B8_C` 补 `kills`→`Slay(120)` / `losestealth`→`UnitLoseStealth(647)`）。
+//
+//  · **可达性结论（现读 `RuleEngine/Resources/cards_engine.json` = 1,128 张）**：
+//    原版**未实现**的那几条广播 trigger —— `155 TurnSetup` · `160 TurnStarted` ·
+//    `210 CardCreatedInHand` · `270 TrapResolved` · `290 UnitPoisoned` · `430 Requiem` ·
+//    `185/187` · `250` · `15` · `641` · `550` · `230` —— **命中卡数全部是 0**
+//    ⇒ 今天**没有任何一张卡**会因为「补上它们」而从『不响』变『响』。
+//    它们是**休眠机制**（铁律 11：休眠机制也要做），但**不构成本账升 A 的判据**。
+//
+//  逐条去向（原版 49 条 `Broadcast*` 各自的跳数 / trigger id / 我们落点 / 可达卡数）与
+//  「哪几条我们有真跳数差异」→ `资料/完全复刻/报告/B8_R_事件族补全.md`。
+//  账补丁 → `资料/完全复刻/账/_parts/B8_R.tsv`（`BattleManager.Broadcast*` 那 30 行，键 = (原版类, 方法)）。

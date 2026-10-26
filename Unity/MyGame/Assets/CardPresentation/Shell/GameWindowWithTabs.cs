@@ -310,5 +310,10 @@ namespace CardPresentation
             Debug.Log($"[Rewards] `{what}` 还没实现（原版是跳商店的卡包页，属**阶段二第 3 层「商店」**；"
                     + "它这一格是**母版**、运行期关着 ⇒ 屏幕上没有这个键可点）");
         }
+
+        /// <summary>自检壳：原版 `OpenTabs` 是 `protected`，`Editor/ShellScene.cs` 调不到 ⇒ 给一条只转发的口。
+        /// ⚠️ **零逻辑**（同 `TabButtons.ToggleForTest` / `FirstTimeGateForTest` 的先例）；
+        /// 追加在**类尾**以免动到账引用的行号。</summary>
+        public void OpenTabsForTest() { OpenTabs(); }
     }
 }

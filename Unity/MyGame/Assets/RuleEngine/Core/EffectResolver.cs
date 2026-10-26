@@ -594,6 +594,10 @@ namespace RuleEngine
                 int repeats;
                 if (!TryComputeRepeats(ctx, owner, source, op, sourceCard, chosen, by, unresolved, out repeats))
                     continue;
+                // 🔴 2026-10-26（批次 8 · `B8_P`）：**阵营资源（buffMana 族）的乘数要乘进数值、不是重跑 N 遍** ——
+                //   判据 `AbilityLogic__AdjustManaEffect.c:5-7`（`amount *= 乘数`，随后只建**一条** `BattleAction`）。
+                //   ⚠️ 只影响「几次事件/广播」，数值不变 ⇒ 指纹会变、血量不变。见 `FoldManaMultiplier` 的 doc。
+                op = FoldManaMultiplier(ctx, by, op, ref repeats);
 
 
                 // ---- 🔴 2026-10-10（第十四会话 · `A1369` 洞 1）：**这 N 遍【只收一次钱】** ----
@@ -1709,21 +1713,31 @@ namespace RuleEngine
             //      这里用 `pool.Contains(u)` 判：`pool` 正是「过了筛选的那一批」。
             if (spec.Adjacent)
             {
-                var anchor = ResolveAdjacentAnchor(ctx, owner, spec, source, chosen);
+                var anchor = ResolveAdjacentAnchorFromPool(ctx, owner, spec, source, chosen, pool);
                 int ap = -1, aslot = -1;
                 // 🔴 **2026-10-26（批次 6 · `G14` ④）：锚点【已死】也要算；残骸换过对象就按 `Instance` 映射。** 判据（第一权威，现读）= `MinionManager__GetAdjacentUnits.c:52-70`：它在 `+0x60`（己方部队列表）里**按引用找锚点**、取 `i-1`/`i+1` —— 死亡单位要等到 `MoveToCemetery` **之后**才离开那条列表 ⇒ 锚点刚死（`IsAlive == false`、同一拍还在棋盘上）时**原版照打邻居**。我们原来那句 `anchor.IsAlive` 把整条挡掉 = **静默空过**（4 张可复现：`ASH73 Whirling Death` · `Particle Whip` · `SAU56 Methodical Destruction` · `None Must Know`；反证 `SOR43 Cleansing Flames` 锚点活着时正常）。
                 //   ⚠️ 第二道 = `RuleCore.BoardOccupantByInstance`（**只认 `Instance`**：锚点翻面成残骸后棋盘上是**另一个对象**；先例 = 眩晕那条 `A1224`）。⛔ 别按格号找 —— 同一批里别人真死会让连续列表内移。
                 if (anchor != null && !FindSlot(ctx, anchor, out ap, out aslot)) { var occ = RuleCore.BoardOccupantByInstance(ctx, anchor); if (occ != null) FindSlot(ctx, occ, out ap, out aslot); }
                 if (anchor != null && ap >= 0)
                 {
-                    if (spec.AnchorInSet) list.Add(anchor);       // 卡面点名了锚点本体 ⇒ 它也在目标集里
+                    // 🔴 2026-10-26（批次 8 · `B8_P`）：**锚点本体也过阵营筛** —— 原版对相邻候选逐个
+                    //   `CheckIfMeetsCriteria`（`AbilityLogic__GetTargets.c:1100-1110`），锚点自己不是例外。
+                    //   改前这一句无条件 `list.Add(anchor)` ⇒ 锚点一旦落错边（`GOF97` 晕自己 / `SOR43` 打自己人）
+                    //   就**静默打到自己人**，卡面还打着解析成功的绿灯。
+                    if (spec.AnchorInSet && AnchorOnSpecSide(spec, ap, owner)) list.Add(anchor);       // 卡面点名了锚点本体 ⇒ 它也在目标集里
                     var slots = new List<int>();
                     BoardSpec.AdjacentSlots(aslot, slots);
                     foreach (int sl in slots)
                     {
                         var u = ctx.Players[ap].Board[sl];
-                        if (u == null || !u.IsAlive || list.Contains(u)) continue;
-                        if (!pool.Contains(u)) continue;          // 过不了同一套筛选 ⇒ 不算相邻目标
+                        if (u == null || list.Contains(u)) continue;
+                        // 🔴 2026-10-26（批次 8 · `B8_P`）：**邻居不看死活**（判据 = `MinionManager__GetAdjacentUnits.c:52-70`：
+                        //   按引用在那一侧的**部队列表**里找锚点、取 `i±1`；死亡单位要等 `MoveToCemetery` 之后才离开列表
+                        //   ⇒ 锚点刚死、邻居刚死，同一拍都还在列表里）。改前这一句多要了一道 `!u.IsAlive`
+                        //   —— `G14` 只修了锚点那一半，邻居这一半漏着 ⇒ 同一拍刚死的邻居静默少打。
+                        //   筛选（阵营/兵种/关键词/受伤/祈祷/结构化 criteria）照旧要过；`pool` 那一份是**活的**
+                        //   （`AddSide` 跳过死单位）⇒ 死邻居在 `AdjacentNeighborCounts` 里按**同一套筛**单独判一次。
+                        if (!AdjacentNeighborCounts(ctx, owner, spec, op, source, chosen, structuredCondition, u, ap, pool)) continue;
                         list.Add(u);
                     }
                     // 取几个：复数字面（`adjacent units`）= 那一圈**全部**；单数（`an adjacent troop`）
@@ -3993,11 +4007,19 @@ namespace RuleEngine
                     //   那是全仓**唯一**的「这张卡算不算某一类」判据（`KindWords` 里有
                     //   `{"secret","subtype","Secret"}` / `{"sabotage","subtype","Sabotage"}`），
                     //   不另写一份名字比对。
+                    // 🔴 **2026-10-26（批次 8 · `B8_AE`）：下面两条广播只跑棋盘跳。**
+                    //   原版 `BattleManagerSupport__BroadcastSecretCreated.c` /
+                    //   `…__BroadcastSabotageCreated.c` 全文 `GetCardsInHandRef` = **0**
+                    //   （🥇 `decomp_full/`：只有「预调 `:28`/`:22` + 棋盘循环 :29-46/:23-40」两段）
+                    //   ⇒ 「`When you create a Secret, …`」那两张（`DA15`/`DA66`）**只在棋盘上**才该响。
+                    //   ⚠️ 原版那个预调的实参 = **刚造出来的那张卡**（`param_2`，在手牌/牌库里，
+                    //   不是棋盘单位）⇒ 我们这边 `subject` 只能是 `null`（`preCalled` 是 `UnitState`）。
                     foreach (var c in picked)
                     {
                         if (CreatePool.MatchesKind(c, "secret"))
                         {
-                            BroadcastWhen(ctx, WhenEventKind.CreatesSecret, owner, c, null);
+                            BroadcastWhen(ctx, WhenEventKind.CreatesSecret, owner, c, null,
+                                          boardAndPersistentOnly: true);
                             // 🆕 **2026-10-25（执行代理 `X18`）**：成就 `Ach_78`（`CreateSecret`）计数
                             //   —— 判据 §B-3 #14「在同一个 if 旁边累加」。归属 = **造牌的施放者 `owner`**
                             //   （与上一句广播同一条口径；⛔ 不是 `who` = 收牌方）。
@@ -4005,7 +4027,8 @@ namespace RuleEngine
                         }
                         else if (CreatePool.MatchesKind(c, "sabotage"))
                         {
-                            BroadcastWhen(ctx, WhenEventKind.CreatesSabotage, owner, c, null);
+                            BroadcastWhen(ctx, WhenEventKind.CreatesSabotage, owner, c, null,
+                                          boardAndPersistentOnly: true);
                             // 🆕 同上：成就 `Ach_65`（`AddSabotageCard`）计数。
                             ctx.Tally.AddSabotage(owner);
                         }
@@ -4820,7 +4843,10 @@ namespace RuleEngine
                     // 与 `QuestPointThreshold` 同一份判据（`CreatePool.MatchesKind`），只是那边造的一定是隐秘。
                     if (CreatePool.MatchesKind(pick, "secret"))
                     {
-                        BroadcastWhen(ctx, WhenEventKind.CreatesSecret, owner, pick, null);
+                        // 🔴 2026-10-26（批次 8 · `B8_AE`）：原版 `BroadcastSecretCreated.c` 全文
+                        //   `GetCardsInHandRef` = 0 ⇒ 只跑棋盘跳（判据与 `DoCreate` 的那两条同一份）。
+                        BroadcastWhen(ctx, WhenEventKind.CreatesSecret, owner, pick, null,
+                                      boardAndPersistentOnly: true);
                         // 🆕 **2026-10-25（执行代理 `X18`）**：成就 `Ach_78` 的第二处写点
                         //   —— 本支（`DA44 Secret Agenda` 的 `to your deck`）与 `DoCreate` 的
                         //   `hand` 支**各自对应原版同一个 `BroadcastSecretCreated` 函数**
@@ -7101,6 +7127,9 @@ namespace RuleEngine
                     ctx.Log($"{by}：「{amtOp.Source}」按 `{amtOp.CountRef}` 计 **0** 遍 ⇒ 这条什么都不做");
                     continue;
                 }
+                // 🔴 2026-10-26（批次 8 · `B8_P`）：触发路同一个口径 —— 阵营资源的乘数**乘进数值**、只结算 1 遍
+                //   （判据 `AbilityLogic__AdjustManaEffect.c:5-7`；与出牌路**共用** `FoldManaMultiplier`）。
+                runOp = FoldManaMultiplier(ctx, by, runOp, ref opRepeats);
                 // 🆕 2026-10-22（`W64` · `B-16`）：触发路的卡 = `source.Card`（`source` = 触发的那张）。
                 for (int k = 0; k < opRepeats; k++)
                 {
@@ -7389,7 +7418,7 @@ namespace RuleEngine
 
                 }
             }
-            return null;
+            return WhenEvents.ExtraTriggerNameForKind(kind);   // 🆕 2026-10-26（批次 8 · `B8_C`）：`kills`→`Slay`(120) · `losestealth`→`UnitLoseStealth`(647)；其余（`getsshield`/`becomesremnant`/`unitjammed`）**原版也没有** AbilityTrigger 号 ⇒ 仍返 null。判据全在 `WhenEvents.ExtraTriggerNameForKind` 的注释里（另见 `WhenEvents.KindsAbsentInOriginal`）。
         }
 
         // ==========================================================================================
@@ -11502,7 +11531,18 @@ namespace RuleEngine
                         : $"{by}：「{op.Source}」没有合法目标，空过");
                 return true;
             }
-            if (targets.Count > 1 && op.Target != null && op.Target.Count == 1 && !op.Target.Auto)
+            // 🔴 **2026-10-26（批次 8 · `B8_AE`）：「相邻」那一家【不裁】。** 下面这条裁剪的口径是
+            //   「卡面只写了一个目标（`a friendly troop`），却解出多个 ⇒ 取第一个」，而
+            //   `ResolveTargetsCore` 的相邻那一段**已经**按同一份判据裁过：
+            //   `keep = (spec.AdjacentAll || spec.AnchorInSet) ? 0 : spec.Count`（「取几个」那一段）。
+            //   ⇒ 这里再裁一次会把**相邻那一圈整个抹掉**，只剩锚点。实证：
+            //   `f8260229254a09746af6d9ff7a9b0b54 Ethereal Supreme`
+            //   （`Give +1 Health to your Warlord and adjacent units`）相邻那一步算出
+            //   「3 个目标：FIXWarlord_TauEmpire、FIX_A、FIX_B」，裁完只剩督军 +1 血
+            //   （`FIX_A` / `FIX_B` 一点没动）—— 卡面写的是「战将和相邻单位」，**静默少给两个**。
+            //   ⚠️ 只对 `Adjacent` 豁免（`AnchorInSet` / `AdjacentAll` 只在相邻那一支里置位）。
+            if (targets.Count > 1 && op.Target != null && op.Target.Count == 1 && !op.Target.Auto
+                && !op.Target.Adjacent)
             {
                 // 要多目标却只写了一个（如 `a friendly troop`）→ 取第一个，别默默全加
                 targets.RemoveRange(1, targets.Count - 1);
@@ -12623,15 +12663,30 @@ namespace RuleEngine
                 }
                 else
                 {
+                    // 🔴 **2026-10-26（批次 8 · `B8_AE` · 判据由 `B8_R` 查清）：只跑棋盘跳。**
+                    //   原版 `BattleManagerSupport__BroadcastCollectQuestPoints.c` 全文
+                    //   `GetCardsInHandRef` = **0**、`GetCardsInHandList` = **0**
+                    //   （🥇 `decomp_full/`，整个函数只有「预调 `:22` + 棋盘循环 `:23-42`」两段）
+                    //   ⇒ 手牌里的监听者**原版一次都不叫醒**。我们原来走通用四跳
+                    //   （事件型降费 / 手牌陷阱 / 手牌单位）⇒ `DA5` / `DA12` / `DA6` 躺在手里
+                    //   也会被叫醒并**真的 `ResolveOps`**。⛔ 别改回默认四跳。
                     for (int k = 0; k < n; k++)
-                        BroadcastWhen(ctx, WhenEventKind.GainQuest, gainOwner, srcCard, subj);
+                        BroadcastWhen(ctx, WhenEventKind.GainQuest, gainOwner, srcCard, subj,
+                                      boardAndPersistentOnly: true);
                 }
             }
             else if (faith)
             {
                 var wl = ctx.Players[gainOwner].Warlord;
+                // 🔴 **2026-10-26（批次 8 · `B8_AE`）：只跑棋盘跳** —— 原版
+                //   `BattleManagerSupport__BroadcastCollectFaith.c` 全文 `GetCardsInHandRef` = 0
+                //   （只有「预调 `:22` + 棋盘循环 `:23-42`」两段；🥇 `decomp_full/`）。
+                //   通用四跳的「手牌单位」那一跳会对手牌里的单位卡**真的 `ResolveOps`**
+                //   ⇒ `SOR38 Paragon Warsuit`（`When you gain Faith, deal 4 damage to the enemy Warlord`）
+                //   躺在手里、你获得 1 点信仰，我们就会对敌督军造成 4 点伤害 —— 原版不会。
                 BroadcastWhen(ctx, WhenEventKind.GainFaith, gainOwner,
-                              wl != null ? wl.Card : null, wl);
+                              wl != null ? wl.Card : null, wl,
+                              boardAndPersistentOnly: true);
             }
             return true;
         }
@@ -12693,7 +12748,11 @@ namespace RuleEngine
             ctx.Log($"{unit.Name} 的主动能力结束 —— `alternativeTraitLogic` = true（Alt 档）且它带 pray 特性 ⇒ "
                   + $"信仰 +1（现 {ps.Faith}；原版 `CardScript__FinishActiveAbility.c`）");
             // 原版 `BroadcastCollectedFaith(该卡)` —— subject = **这张祈祷卡本身**。
-            BroadcastWhen(ctx, WhenEventKind.GainFaith, owner, unit.Card, unit);
+            // 🔴 **2026-10-26（批次 8 · `B8_AE`）：只跑棋盘跳** —— `BattleManager__BroadcastCollectedFaith.c`
+            //   是 `BattleManagerSupport__BroadcastCollectFaith` 的**纯转调**（全文 2 行，🥇 `decomp_full/`），
+            //   而后者 `GetCardsInHandRef` = 0 ⇒ 与 `DoFactionResource` 的信仰支同一条广播、同样不该有手牌跳。
+            BroadcastWhen(ctx, WhenEventKind.GainFaith, owner, unit.Card, unit,
+                          boardAndPersistentOnly: true);
             // 表现层那一条（与 `DoFactionResource` 的信仰支同形 —— 同一个 `EvtKind`、`Slot = -1`）
             ctx.Signals.Add(new BattleEvent
             {
@@ -12930,7 +12989,10 @@ namespace RuleEngine
             // 归属传 `owner`（造牌的施放者），与 `DoCreate` 的 `hand` 分支同一条口径。
             if (CreatePool.MatchesKind(card, "secret"))
             {
-                BroadcastWhen(ctx, WhenEventKind.CreatesSecret, owner, card, null);
+                // 🔴 2026-10-26（批次 8 · `B8_AE`）：原版 `BroadcastSecretCreated.c` 全文
+                //   `GetCardsInHandRef` = 0 ⇒ 只跑棋盘跳（与 `DoCreate` / `DA44` 那条同一份判据）。
+                BroadcastWhen(ctx, WhenEventKind.CreatesSecret, owner, card, null,
+                              boardAndPersistentOnly: true);
                 // 🆕 **2026-10-25（执行代理 `X18`）**：成就 `Ach_78` 的第三处写点 ——
                 //   任务点满阈值造隐秘入牌库，原版走**同一个** `BroadcastSecretCreated`
                 //   （`_ResolveCreateDeckCard…:113-119`）⇒ 与上面两处同一条判据、同一个归属。
@@ -15767,26 +15829,48 @@ namespace RuleEngine
         //
         //  🔴 **为什么必须出声**（工程红线「不许静默失败」）：`TriggerNameOfWhenKind` 返回 `null` 时，
         //  `EmitListenerTrigger` 原来是**直接 `return`** ⇒ 结果是「**卡的效果照跑、动画一条不播**」，
-        //  而且玩家和我们**都看不出哪里不对**。本批已补 4 条映射（`GainQuest` 695 / `CreatesSecret` 700 /
-        //  `CreatesSabotage` 701 / `Triggers:landing` 450），但 `WhenEventKind` 里还有几种今天**没有**映射
-        //  （现读：`kills` / `getsshield` / `losestealth` / `becomesremnant` / `unitjammed`）——
-        //  其中 `unitjammed` 有判据证明**原版就没有** AbilityTrigger 号（`CardScript__ReactToUnitJammed` 体内 0 处 `OnTrigger`，
-        //  见 `F2` 第 4 轮 §2·1），其余几种**还没查清**。⇒ 让它们在这条路上自己报出来，别等表现层发现「怎么没动画」。
+        //  而且玩家和我们**都看不出哪里不对**。批次 6（`G14`）已补 4 条映射（`GainQuest` 695 / `CreatesSecret` 700 /
+        //  `CreatesSabotage` 701 / `Triggers:landing` 450）。
+        //
+        //  🆕 **2026-10-26（批次 8 · `B8_C` · 任务②）**：剩下几种**逐种回原版查过**，结论分两类 ——
+        //   · **真缺 ⇒ 已补**（`WhenEvents.ExtraTriggerNameForKind`；`TriggerNameOfWhenKind` 在 switch 之后兜底调）：
+        //      `kills` → `Slay`(120，`CardScript__TriggerSlay.c:9-11`) ·
+        //      `losestealth` → `UnitLoseStealth`(647，`CardScript__TriggerLoseStealth.c:5-9`)。
+        //   · **原版本身就没有 AbilityTrigger 号 ⇒ 这里【降噪但不静音】**（`WhenEvents.KindsAbsentInOriginal`）：
+        //      `getsshield`（`AbilityTrigger` 97 条无 shield 名 · `CardScript` 15 个 `ReactTo*` 无 shield）·
+        //      `becomesremnant`（枚举无 Remnant 名 · `CardScript.TransformIntoRemnant` 体内 0 处 `OnTrigger`；
+        //      `SAU53` 那条走附魔 SO `buffType 90`）·
+        //      `unitjammed`（`ReactToUnitJammed` 体内 0 处 `OnTrigger`，`F2` 第 4 轮 §2·1）。
+        //      ⇒ 这三种**不再报 `LogWarning`**（否则「真缺口」会被预期噪声淹掉），改成每种一次的
+        //      `Debug.Log`（信息级），文案直接写「**原版也没有** ⇒ 预期，不是我们的缺口」。
+        //      ⛔ 仍然**出声**：静默失败是红线，只是把级别降下来。
         //
         //  ⚠️ **只报一次 / 每种 kind 一次**（静态去重）：否则每个动作都刷一行，日志里就看不见真问题了。
-        //  ⚠️ 用 `Debug.LogWarning`（**不是** `ctx.Log`）：`ctx.Log` 是玩家侧日志，这是**我们自己的映射缺口**、
-        //     属于引擎级告警，日志筛查看得见（`F1` 第 4 轮踩过「拿 `ctx.Log` 当错误日志」那个坑）。
+        //  ⚠️ 用引擎级日志（**不是** `ctx.Log`）：`ctx.Log` 是玩家侧日志，这是**引擎自己的诊断**、
+        //     日志筛查看得见（`F1` 第 4 轮踩过「拿 `ctx.Log` 当错误日志」那个坑）。
         static readonly HashSet<string> _unmappedWhenKindWarned = new HashSet<string>(System.StringComparer.Ordinal);
 
-        /// <summary>见上面那段：`EmitListenerTrigger` 在 `TriggerNameOfWhenKind` 返回 `null` 时调一次（每种 kind 只报一次）。
-        /// // 🔶 自己设计（非原版）：未映射事件的告警口 · 原版没有这种诊断（它自己不会漏映射）· `G14` 2026-10-26 定</summary>
+        /// <summary>见上面那段：`EmitListenerTrigger` 在 `TriggerNameOfWhenKind` 返回 `null` 时调一次（每种 kind 一次）。
+        /// <para>两类分档：**原版也没有号**的（`WhenEvents.KindsAbsentInOriginal`）⇒ `Log`（信息级，预期）；
+        /// 其余（真缺口）⇒ `LogWarning`。</para>
+        /// // 🔶 自己设计（非原版）：未映射事件的告警口 · 原版没有这种诊断（它自己不会漏映射）· `G14` 2026-10-26 定；分档 `B8_C` 2026-10-26 加</summary>
         static void WarnUnmappedListenerKind(string kind)
         {
             if (string.IsNullOrEmpty(kind)) return;
             if (!_unmappedWhenKindWarned.Add(kind)) return;
+            const string tail = "（`EmitListenerTrigger` 的 `tn == null` 支：监听器的**效果照跑、动画一条都不播**）";
+            if (WhenEvents.KindsAbsentInOriginal.Contains(kind))
+            {
+                // 🔉 **降噪档**：逐种查过，原版**本来就没有**这条 AbilityTrigger ⇒ 不出动画是**预期**。
+                UnityEngine.Debug.Log($"[TriggerNameOfWhenKind] 事件 `{kind}` 没有 AbilityTrigger 名 —— "
+                    + "**原版也没有**（判据见 `WhenEvents.ExtraTriggerNameForKind` / `KindsAbsentInOriginal` 的注释）"
+                    + $" ⇒ 不出 Trigger 动画是**预期行为**，不是缺口{tail}。");
+                return;
+            }
             UnityEngine.Debug.LogWarning($"[TriggerNameOfWhenKind] 事件 `{kind}` 没有映射到 AbilityTrigger 名 ⇒ "
-                + "监听器的**效果会照跑、动画一条都不播**（`EmitListenerTrigger` 的 `tn == null` 支）。"
-                + "判据口径见 `EffectResolver.TriggerNameOfWhenKind` 的 switch；已知原版就没有号的：`unitjammed`。");
+                + $"**这是我们的映射缺口**{tail}。"
+                + "判据口径见 `EffectResolver.TriggerNameOfWhenKind` 的 switch 与 `WhenEvents.ExtraTriggerNameForKind`；"
+                + "已知原版也没有号的三种见 `WhenEvents.KindsAbsentInOriginal`。");
         }
 
         /// <summary>
@@ -15803,6 +15887,132 @@ namespace RuleEngine
             UnityEngine.Debug.LogWarning($"[相邻] 锚点 `{anchorKind}`（施放者：{sourceName ?? "无"}）认不出 / 已不在棋盘上 "
                 + "⇒ 这次**空过**（不按整个目标池打）。⚠️ 若卡面确实写着「相邻」，这就是**我们的缺口**："
                 + "判据 `MinionManager__GetAdjacentUnits.c:52-70`（在己方部队列表里按引用找锚点）。");
+        }
+
+        // ==========================================================================================
+        //  🆕 2026-10-26（批次 8 · 执行代理 `B8_P`）：**「相邻」目标集的两处真缺陷** ＋ **阵营资源乘值**
+        //  🔴 **一律追加在类尾**（本文件被账大量按 `EffectResolver.cs:<行号>` 引用；
+        //     在类中间插成员会让下面每一行整体下移 ⇒ 账里的落点全部漂）。
+        // ==========================================================================================
+
+        /// <summary>
+        /// 「相邻」锚点的**收口版**：先走 <see cref="ResolveAdjacentAnchor"/>，再补一条「`PreviousTarget`
+        /// 不许落回这条能力的主语」的兜底。
+        ///
+        /// <para>**判据（第一权威，现读）= `decomp_full/AbilityLogic__GetTargets.c:1046-1057`**（🥇）：
+        /// `ta == 0x6e (110 adjacentToTargetIfMeetsCriteria)` 那一支是
+        /// `cVar3 = UnityEngine_Object.op_Inequality(param_5, 0); if (cVar3 != '\0') { GetAdjacentUnits(param_1, param_5, 0); … }`
+        /// —— **锚点 = `param_5` = 这条 ability 的【目标】**；`param_5 == null` 时**连候选都不填**
+        /// （⛔ 不是退回「施放者自己」）。对比 `ta == 0x69 (105)` 那一支才是「上一批目标的首个，**否则** `param_3`（拥有者）」。
+        /// 全池 `ta` 分布（技能行现读）= **110: 14 行 / 100: 17 / 113: 3 / 106: 1 / 105: 0**
+        /// ⇒ 卡池里**一条 105 都没有**，所以我们解析层那个 `PreviousTarget` 实际对应的全是原版的 **110**，
+        /// 它的兜底**不该**是「拥有者自己」。</para>
+        ///
+        /// <para>🔴 **改前的可见缺陷（两张，卡面都不打 `*`）**：
+        /// · `GOF97 Gargantuan Squiggoth`：`Rally: Stun an enemy and adjacent units` 是**单 op**
+        ///   ⇒ `ctx.LastTarget` 还是能力入口种下的主语（`ResolveOps` 的 `prime = source`）
+        ///   ⇒ 锚点 = 它自己 ⇒ 配合 `AnchorInSet` **把自己眩晕**（探针读数见账 `B8_P`）。
+        /// · `SOR43 Cleansing Flames` / `AM23` / `TL27` / `UM105` / `UM115` / `9238…` 同形（`enemy … and its adjacent`）。</para>
+        ///
+        /// <para>🔶 自己设计（非原版）：目标池取首个兜底 · 原版 param_5==null ⇒ 候选为空 · 调度台 2026-10-26 裁定 ｜ 兜底口径：原版「目标」由 `param_5` 从外面给（玩家 / AI 选）；
+        /// 我们这条路上没有 `chosen` 时，按**目标池的第一个**当锚点 —— 与本工程其它「取第一个」的定死规则同一条
+        /// （⛔ 不掷骰、同一局必须可复现）。**有** `chosen`、或同一 ability 前面那条 op 已经选中过目标
+        /// （`ctx.LastTarget != source`）时，**原口径一字不动**。</para>
+        /// </summary>
+        static UnitState ResolveAdjacentAnchorFromPool(BattleContext ctx, int owner, EffectTargetSpec spec,
+                                                        UnitState source, UnitState chosen, List<UnitState> pool)
+        {
+            var anchor = ResolveAdjacentAnchor(ctx, owner, spec, source, chosen);
+            if (spec == null || spec.Anchor != AdjacentAnchor.PreviousTarget) return anchor;
+            if (chosen != null) return anchor;                                     // 调用方点定的目标优先（原版 `param_5`）
+            if (anchor != null && !ReferenceEquals(anchor, source)) return anchor;  // 同一 ability 前一条 op 的目标
+            // 到这里 = 这条 ability **还没有真正的「上一个目标」**（`ctx.LastTarget` 只是主语）⇒ 按目标池挑一个。
+            if (pool == null || pool.Count == 0) return null;
+            ctx.Log($"（「相邻」锚点：这条能力还没有选过目标（`ctx.LastTarget` 只是施放者自己）"
+                  + $" ⇒ 按目标池取第一个「{pool[0].Name}」当锚点）");
+            return pool[0];
+        }
+
+        /// <summary>
+        /// 锚点/邻居的**阵营**是否落在这条 op 写的那一侧（`spec.Side` ∈ {`own`,`enemy`,`any`}）。
+        /// 判据 = `AbilityLogic__GetTargets.c:1100-1110`：相邻候选**逐个**过 `CheckIfMeetsCriteria`
+        /// （`friendlyUnits/enemyUnits/includeHero…` 那张 36 格）⇒ 锚点自己不是例外。
+        /// </summary>
+        static bool AnchorOnSpecSide(EffectTargetSpec spec, int anchorPlayer, int owner)
+        {
+            if (spec == null) return true;
+            bool ownSide = anchorPlayer == owner;
+            if (spec.Side == "own") return ownSide;
+            if (spec.Side == "enemy") return !ownSide;
+            return true;                                   // `any` / 其它值 = 不过滤
+        }
+
+        /// <summary>
+        /// 「相邻」那一圈的**成员判定**（改前的两句 `!u.IsAlive` ＋ `pool.Contains(u)` 合成这一处）。
+        ///
+        /// <para>① **活着**且 `pool.Contains` ⇒ 收（**原口径一字不动**）。</para>
+        /// <para>② **活着但不在池里** ⇒ 收不了（过不了同一套筛选，原口径）。</para>
+        /// <para>③ **刚死**（`Health &lt;= 0`、还没出队）⇒ 判据 `MinionManager__GetAdjacentUnits.c:52-70`（🥇）：
+        ///   原版在那一侧的**部队列表**里按引用找锚点、取 `i±1`，死亡单位要等 `MoveToCemetery` 才离开列表
+        ///   ⇒ **同一拍刚死的邻居照样是相邻目标**。改前多要了一道 `IsAlive`（`G14` 只修了锚点那一半）
+        ///   ⇒ 静默少打。这里用**同一套筛**重判一次（`pool` 是活的，含不了它）：阵营 ＋ `troopOnly` ＋
+        ///   <see cref="ApplyTargetFilters"/> ＋ <see cref="ApplyTargetCriteriaFilter"/>。</para>
+        /// </summary>
+        static bool AdjacentNeighborCounts(BattleContext ctx, int owner, EffectTargetSpec spec, EffectOp op,
+                                           UnitState source, UnitState chosen,
+                                           CardDef.ConditionSpec structuredCondition,
+                                           UnitState u, int anchorPlayer, List<UnitState> pool)
+        {
+            if (u == null) return false;
+            if (pool != null && pool.Contains(u)) return true;          // ① 活着的那一批
+            if (u.IsAlive) return false;                               // ② 活着却过不了筛选
+            if (!AnchorOnSpecSide(spec, anchorPlayer, owner)) return false;   // ③ 死邻居：同一套筛
+            if (spec.Kind == "troop" && u.IsWarlord) return false;      // `AddSide` 的 `troopOnly` 那一道
+            var one = new List<UnitState> { u };
+            ApplyTargetFilters(ctx, one, spec, quiet: true, structuredCondition: structuredCondition);
+            if (one.Count == 0) return false;
+            ApplyTargetCriteriaFilter(ctx, one, op, owner, source, chosen, quiet: true);
+            return one.Count > 0;
+        }
+
+        /// <summary>
+        /// 这条 op 的「数值」是不是**玩家身上的阵营资源**（`buffMana` 那一族）——
+        /// 原版 `AbilityLogic.AdjustManaEffect` 对它做的是**乘进数值**，不是重跑 N 遍。
+        /// 判据 = `decomp_full/AbilityLogic__AdjustManaEffect.c:1-11`（🥇 全文 11 行）：
+        /// `*(int *)(lVar1 + 0x10) = param_3 * *(int *)(lVar1 + 0x10);` —— `param_3` = 倍率，
+        /// 直接把 `ManaBuff` 的数量格**乘一次**；随后 `BattleManager.AddManaBuff` 只建**一条** `BattleAction(0x22)`
+        /// （`BattleManager__AddManaBuff.c:22`）⇒ 一次加值、一次广播。
+        /// </summary>
+        static bool IsManaAmountOp(EffectOp op)
+        {
+            return op != null && (op.Verb == "gainfaith" || op.Verb == "gainspirit"
+                                || op.Verb == "gainquest" || op.Verb == "gainenergy");
+        }
+
+        /// <summary>
+        /// 阵营资源（信仰/灵魂石/任务点/最大能量）的「`for each` / `furtherMultiplier`」要**乘进 `Amount`**、
+        /// 然后**只结算 1 遍**（判据见 <see cref="IsManaAmountOp"/>）。
+        ///
+        /// <para>🔴 **改前的可见差异**：`SOR49 Shrineworld`（`fm = 3`）我们打**三行**「信仰 +1」
+        /// （三次 `CollectFaith` 广播）—— 数值恰好也是 +3，但**事件次数 3≠1**：`SOR38 Paragon Warsuit`
+        /// 的「When you gain Faith」在原版响 **1** 次、我们响 **3** 次。见账 `B8_P` 的观测列。</para>
+        ///
+        /// <para>⚠️ **只管乘数那一半**：`…, N times`（<see cref="EffectOp.RepeatTimes"/>）是**另一条判据**
+        /// （原版真是「重复结算」，见 `TryComputeRepeats` ③ 的 doc）⇒ `RepeatTimes &gt; 1` 时**不折**，
+        /// 保持原来那条循环。</para>
+        /// <para>返回**同一个对象** = 不折（调用方 `ReferenceEquals` 判得出来）；否则是**副本**
+        /// （⛔ 绝不改解析产物本身 —— 那张卡第二次打出时是同一份对象）。</para>
+        /// </summary>
+        static EffectOp FoldManaMultiplier(BattleContext ctx, string by, EffectOp op, ref int repeats)
+        {
+            if (op == null || repeats <= 1 || !IsManaAmountOp(op)) return op;
+            if (op.RepeatTimes > 1) return op;             // `…, N times` 那一档走原循环（见上面 doc）
+            var folded = op.Clone();
+            folded.Amount = op.Amount * repeats;
+            ctx.Log($"{by}：「{op.Source}」原版是**乘进数值**、不是重跑 {repeats} 遍"
+                  + $"（`AbilityLogic__AdjustManaEffect.c:5-7`）⇒ {op.Amount} × {repeats} = {folded.Amount}，结算 1 遍");
+            repeats = 1;
+            return folded;
         }
     }
 }

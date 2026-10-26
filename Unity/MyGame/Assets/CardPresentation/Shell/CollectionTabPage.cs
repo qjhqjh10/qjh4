@@ -73,5 +73,21 @@ namespace CardPresentation
                     break;
             }
         }
+
+        // ⚠️ 本成员**追加在类尾**（`Setup` 之后）—— 账里 `CollectionTabPage.cs:51 / :56` 是既有落点，
+        //    插在中间会把 `Setup` 顶到 69 行 ⇒ `check_ledger_points` 报 2 条漂移（已经踩过一次）。
+
+        /// <summary>原版 `CardCollectionTab.ToFocus()` / `DeckCollectionTab.ToFocus()`（🥈 `CardCollectionTab.cs:186-194` ·
+        /// `DeckCollectionTab.cs:158-165`）—— **窗回前台时把当前集合重灌一遍**。
+        /// <para>⚠️ 本仓的调用链只在「`Background ⇒ Open`」那一拍（原版一样：`GameWindow.TryOpen` 的
+        /// `Background` 支 → `GameWindowWithTabs.ToFocus` → `CurrentTab.ToFocus()`）；**换页签不重灌**
+        /// （原版 `ChangeTab` 只 `TryOpenTab`，见 `CollectionWindow.RefillCollectionForFocus` 的 doc）。</para>
+        /// <para>⚠️ 只对 Deck / Cards 两页有动作 —— 原版 Cosmetics / Styles 那两个 tab **没有**覆写 `ToFocus`。</para></summary>
+        public override void ToFocus()
+        {
+            if (_win == null) return;
+            if (!_built) return;                   // 内容还没建：`OnOpen` 那一趟就是首建，重灌无意义
+            _win.RefillCollectionForFocus(_page);
+        }
     }
 }

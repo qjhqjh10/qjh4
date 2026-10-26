@@ -1769,6 +1769,9 @@ public static partial class RuleEngineTest
                 CheckTrue(r.Ops[0].Target2 == null, "被打的那一栏是空的（`by itself` = 自动挑）");
             }
 
+            // 🔴 合成夹具**显式声明**自己的族（不在卡表里 ⇒ 否则走 `ForcedAttackRefund` 的 `Unknown` 回退档）：
+            //    正文 `Make … attack by itself` = 231 那一族（`BL64` / `DA25`），原版**退还**。
+            ForcedAttackRefund.SetForTest("T_MurderousDesires", ForcedAttackRefund.Verdict.Refund);
             var card = Tactic("T_MurderousDesires", 4, "Make a damaged friendly unit attack by itself");
             var ctx = ProbeBattle(new[] { card }, new[] { Unit("EFoe", 1, 0, 9) });
             ToP1Turn(ctx, 3);
@@ -1792,8 +1795,18 @@ public static partial class RuleEngineTest
             Check(foeBefore - foe.Health, 3,
                   "★ 真打出了 **3 点**（该单位自己的近战攻击力）—— 走的必须是 `RuleCore.DeclareAttack`"
                   + "那条唯一路径" + LogTail(ctx));
-            CheckTrue(wounded.Exhausted,
-                      "★ 攻击算「本回合已行动」⇒ 它**疲劳**了（走真实攻击路径才会这样）" + LogTail(ctx));
+            // 🔴 2026-10-26（`B8_BM` · 铁律 5 就地订正）：`BL64 Murderous Desires` 的 `chosenAbility = 231`
+            //    ⇒ 原版 `AbilityLogic__PlayAbility.c:2666-2686` 的 `0xe7` 支传 `AddForceAttack(…, 1, 0)`
+            //    （第 7 参 = `dontCountAttack`）⇒ `BattleManager__AddForceAttack.c:39-43` 预扣 + 记 `wasFree`
+            //    → `_ResolveForceAttack…:73-77` 排 `AddResetActions` → `CardScript__ResetActions.c:29-34`
+            //    计数 -1 + 重算 ⇒ **这一记不消耗它的行动**（本行原来断「疲劳」，那是改前「一律不退还」的产物）。
+            //    ⚠️ 只断 `!Exhausted` 在「这段根本没执行」时也会绿 ⇒ 补一条数值灭自证。
+            CheckTrue(!wounded.Exhausted,
+                      "★ 攻击算「本回合已行动」……**但原版对 231 这一族退还** ⇒ 它**不该**疲劳"
+                    + "（判据：`PlayAbility.c` 的 `0xe7` 支传 `dontCountAttack = 1`）" + LogTail(ctx));
+            Check(wounded.AttacksThisTurn, 0,
+                  "★ （灭自证）它的本回合攻击次数**回到 0** —— 退还真的发生了"
+                + "｜🧨 把退还那段删掉 ⇒ 上一行与本行一起红");
         }
 
         // ---- ② `Target friendly unit attacks the enemy with highest attack`（`Peerless Bladesmen`）----
@@ -1849,6 +1862,10 @@ public static partial class RuleEngineTest
                       "★ **攻击者继承前半句的目标**（`Each friendly Beast`）—— 不继承的话 `Target` 是空的，"
                       + "结算会退回「本卡自己」= 让**战术卡**去打人");
 
+            // 🔴 合成夹具**显式声明**自己的族：它代表 **238** 那一族 —— 真卡 `SW56 Let Loose` 的攻击落在
+            //    它造出来的**附魔模板** `f16df0b3…` 上（`chosenAbility = 238`，本卡自己的 abilities 里没有攻击族）
+            //    ⇒ 卡表查不到这张夹具，必须在这里声明，否则走 `Unknown` 回退档（⛔ 别靠回退档凑绿）。
+            ForcedAttackRefund.SetForTest("T_LetLoose", ForcedAttackRefund.Verdict.Refund);
             var card = Tactic("T_LetLoose", 6, letLoose);
             var ctx = ProbeBattle(new[] { card }, new[] { Unit("EFoe", 1, 0, 9) });
             ToP1Turn(ctx, 3);
@@ -1869,8 +1886,15 @@ public static partial class RuleEngineTest
                   "★ **2 个兽各打一次、各 3 点**（先 +1 近战 → 攻击力 2+1=3，再各打一下）" + LogTail(ctx));
             Check(ctx.Players[0].Board[1].Attack, 3,
                   "★ 兽拿到了 +1 近战（`gets +1 [fist] this turn` 真生效）");
-            CheckTrue(ctx.Players[0].Board[1].Exhausted && ctx.Players[0].Board[2].Exhausted,
-                      "★ 两个兽都疲劳了（真打了 —— 走的是 `DeclareAttack` 那条路才会疲劳）");
+            // 🔴 2026-10-26（`B8_BM` · 铁律 5 就地订正）：238 那一族原版**退还**
+            //    （`AbilityLogic__PlayAbility.c:2767-2780` 的 `0xee` 支传 `AddScriptedForceAttack(…, 1, 0)`）
+            //    ⇒ 两只兽打完**都不疲劳**、`AttacksThisTurn` 都回 0（原来断的是「都疲劳」）。
+            CheckTrue(!ctx.Players[0].Board[1].Exhausted && !ctx.Players[0].Board[2].Exhausted,
+                      "★ 两个兽都**不**疲劳（原版对 238 这一族退还这一记行动额度）");
+            Check(ctx.Players[0].Board[1].AttacksThisTurn, 0,
+                  "★ （灭自证）兽 1 的本回合攻击次数回到 0 —— 退还真的发生了");
+            Check(ctx.Players[0].Board[2].AttacksThisTurn, 0,
+                  "★ （灭自证）兽 2 同上");
             CheckTrue(!ctx.Players[0].Board[3].Exhausted,
                       "★ 反例：**不是 Beast** 的那个没动（兵种筛生效）");
         }
@@ -1933,6 +1957,9 @@ public static partial class RuleEngineTest
                           "★ 前提：这个形态**被打那栏是空的**（`Target2 == null`）—— "
                           + "变了的话下面测的就不是「没写打谁」这条路了");
 
+            // 🔴 合成夹具**显式声明**自己的族：`Make a friendly unit attack by itself` 与 `BL64` / `DA25`
+            //    同一个文本形状 ⇒ **231 那一族**，原版退还。
+            ForcedAttackRefund.SetForTest("T_ForceKill", ForcedAttackRefund.Verdict.Refund);
             var card = Tactic("T_ForceKill", 4, byItself);
             var ctx = ProbeBattle(new[] { card }, new[] { Unit("EFoe", 1, 0, 9) });
             ToP1Turn(ctx, 3);
@@ -1948,8 +1975,12 @@ public static partial class RuleEngineTest
                       + "就会去打格位 0 的血厚怪，这条断言会红" + LogTail(ctx));
             Check(tanky.Health, tankyBefore,
                   "★ 反例：**打不死**的那个一点没挨" + LogTail(ctx));
-            CheckTrue(ctx.Players[0].Board[3].Exhausted,
-                      "★ 攻击者疲劳了（走的是 `DeclareAttack` 那条唯一路径才会这样）");
+            // 🔴 2026-10-26（`B8_BM` · 铁律 5 就地订正）：231 那一族原版退还 ⇒ 攻击者**不**疲劳
+            //    （判据同 ①：`PlayAbility.c` 的 `0xe7` 支传 `dontCountAttack = 1`）。
+            CheckTrue(!ctx.Players[0].Board[3].Exhausted,
+                      "★ 攻击者**不**疲劳（原版对 231 这一族退还这一记行动额度）");
+            Check(ctx.Players[0].Board[3].AttacksThisTurn, 0,
+                  "★ （灭自证）它的本回合攻击次数回到 0 —— 退还真的发生了");
         }
 
         // ---- ⑥-b 反例：**一个都打不死** ⇒ 退回原顺序（按格位号试第一个打得动的）----
@@ -2392,6 +2423,18 @@ public static partial class RuleEngineTest
     static CardDef Unit(string name, int cost, int atk, int hp, params string[] kws)
     {
         return new CardDef(name, name, "unit", "", null, "Test",
+                           cost, atk, hp, 0, kws);
+    }
+
+    /// <summary>🆕 2026-10-26（`B8_BH`/`B8_AX`）：指定阵营的 `Unit`。
+    /// **为什么需要**：原版有几条判据是**按阵营**认的，不是按关键词 ——
+    /// 灵魂石收集 = `SupportMethods.IsAeldariRemnant`（`cardArmy == 30 SaimHann ∧ isRemnant`）、
+    /// 死灵残骸寿命 = `ShouldRemnantDestroyOnTurnEnd`（`cardArmy == 40 Sautekh`）。
+    /// `Unit(...)` 的阵营写死 `"Test"` ⇒ 那些夹具会**永远走不到**对应分支（且不报错）。
+    /// ⚠️ 只在这几处用，别普遍改 `Unit(...)` 的默认阵营（会影响别的断言）。</summary>
+    static CardDef UnitFaction(string name, int cost, int atk, int hp, string faction, params string[] kws)
+    {
+        return new CardDef(name, name, "unit", "", null, faction,
                            cost, atk, hp, 0, kws);
     }
 
@@ -4059,7 +4102,7 @@ public static partial class RuleEngineTest
         // （`d:/2/tools/decomp_full/SupportMethods__HasToTransformIntoRemnant.c`，逐行读过）；
         // 收集那半 = `clickWaystone(6)` → `useWaystone(76)` → `AddSpiritStoneMana(…, waystoneGiveMana = 1)`。
         {
-            var stone = Unit("Stone", 1, 1, 1, "Waystone");
+            var stone = UnitFaction("Stone", 1, 1, 1, "SaimHann", "Waystone");   // 🔴 原版收集认阵营(不认关键词)
             var kill = Tactic("T_Kill", 0, "Deal 5 damage to an enemy");
             var ctx = Battle(new[] { kill }, new[] { stone });
             ToP1Turn(ctx, 1);
@@ -4129,7 +4172,10 @@ public static partial class RuleEngineTest
         // ---- ④b 🆕 残骸的寿命：**死灵那种回合末消失，灵族那种留着**（2026-09-25）----        // 原版 `SupportMethods.ShouldRemnantDestroyOnTurnEnd`：`faction == 0x28 (Sautekh)` **且**
         // `isRemnant` **且没有** `notDestroyRemnant(1190)` ⇒ 只有死灵那边会自己消失。
         {
-            var sau = Unit("SauRem", 1, 1, 1, "Remnant");
+            // 🔴 2026-10-26（`B8_BM`）：阵营必须是 `Sautekh` —— `DestroyRemnants` 按**阵营**判
+            //    （`RuleCore.IsNecronRemnant` ← `SupportMethods__ShouldRemnantDestroyOnTurnEnd.c:1-27`），
+            //    而 `Unit(...)` 的阵营写死 `"Test"` ⇒ 这一格原来**永远扫不到**（= 本行原来红的原因）。
+            var sau = UnitFaction("SauRem", 1, 1, 1, "Sautekh", "Remnant");
             var sauKill = Tactic("T_Kill", 0, "Deal 5 damage to an enemy");
             var c1 = Battle(new[] { sauKill }, new[] { sau });
             ToP1Turn(c1, 1);
@@ -4164,7 +4210,10 @@ public static partial class RuleEngineTest
         //    下面那一趟自然扫不到它。改之前我们反过来（先摧毁、再跑触发段）⇒ 那句 `reanimate`
         //    在**这一趟**里再也找不到目标。
         {
-            var sauF = Unit("SauRemF", 1, 1, 1, "Remnant");          // 死灵部队：死了留残骸
+            // 🔴 2026-10-26（`B8_BM` 顺手做 · 铁律 14①）：同族第 4 处 —— 阵营也要 `Sautekh`。
+            //    不给阵营的话 `DestroyRemnants` **一趟都不扫它** ⇒ 下面「翻回来之后摧毁那一趟扫不到」
+            //    是**空转绿**（那条断言的正向部分永远成立）。判据同 ④b。
+            var sauF = UnitFaction("SauRemF", 1, 1, 1, "Sautekh", "Remnant");   // 死灵部队：死了留残骸
             var killF = Tactic("T_KillF", 0, "Deal 5 damage to an enemy");
             var reviver = new CardDef("FixtureReviver", "FixtureReviver", "unit",
                                       "At the end of your turn, reanimate a friendly Remnant",
@@ -15976,8 +16025,10 @@ public static partial class RuleEngineTest
     /// </summary>
     static void TestRemnant()
     {
+        // 🔴 2026-10-26（`B8_BM`）：阵营 = `Sautekh`（原来是 `"Test"`）—— 回合末摧毁残骸按**阵营**判
+        //    （`IsNecronRemnant` ← `ShouldRemnantDestroyOnTurnEnd.c:1-27`），`"Test"` 永远扫不到。
         var rem = new CardDef("FixtureRemnant", "FixtureRemnant", "unit", "",
-                              "common", "Test", 1, 2, 5, 0,
+                              "common", "Sautekh", 1, 2, 5, 0,
                               new[] { KeywordTable.Remnant }, subtype: "Infantry");
         var kill = Tactic("T_RemKill", 0, "Deal 99 damage to a friendly unit");
         var raise = Tactic("T_Raise", 0, "Reanimate a friendly Remnant");
@@ -18585,8 +18636,10 @@ public static partial class RuleEngineTest
             //    **死灵那一种**（原版 `ShouldRemnantDestroyOnTurnEnd` 查 `faction == Sautekh`，
             //    灵族的灵魂石要一直留着等人收集）⇒ 光设 `IsRemnant = true` 的合成件
             //    在真实卡池里不存在（`Remnant.` 只在 Sautekh、`Waystone.` 只在 SaimHann）。
-            var near = Place(ctx, 0, 2, Unit("RemNear", 1, 1, 5, "Remnant"));
-            var far = Place(ctx, 0, 5, Unit("RemFar", 1, 1, 5, "Remnant"));
+            // 🔴 2026-10-26（`B8_BM`）：两具都要 `Sautekh` 阵营（`Unit` 写死 `"Test"` ⇒ 回合末那一趟
+            //    一具都扫不到 ⇒ 上面「被罩住的留场」是**空转绿**、下面这条反例恒红）。
+            var near = Place(ctx, 0, 2, UnitFaction("RemNear", 1, 1, 5, "Sautekh", "Remnant"));
+            var far = Place(ctx, 0, 5, UnitFaction("RemFar", 1, 1, 5, "Sautekh", "Remnant"));
             near.IsRemnant = true;
             far.IsRemnant = true;
             Auras.Recompose(ctx);
@@ -21077,7 +21130,7 @@ public static partial class RuleEngineTest
             if (ash28 != null)
             {
                 // 正面：真的走「收集路标石」那条路
-                var stone = Unit("W57Stone", 1, 1, 1, "Waystone");
+                var stone = UnitFaction("W57Stone", 1, 1, 1, "SaimHann", "Waystone");   // 🔴 同上
                 var kill = Tactic("T_W57Kill", 0, "Deal 5 damage to an enemy");
                 var ctx = Battle(new[] { kill }, new[] { stone });
                 ToP1Turn(ctx, 1);
@@ -28729,7 +28782,7 @@ public static partial class RuleEngineTest
         //       AI 永远不收石头，而没有任何报错。
         {
             var ctx = ToP2TurnWith(Unit("W", 2, 2, 3));
-            var st = Place(ctx, 1, 3, Unit("AS", 1, 1, 1, KeywordTable.Waystone));
+            var st = Place(ctx, 1, 3, UnitFaction("AS", 1, 1, 1, "SaimHann", KeywordTable.Waystone));   // 🔴 同上
             st.IsRemnant = true;
             st.Health = 1;
 
@@ -34819,7 +34872,22 @@ public static partial class RuleEngineTest
                         "At the start of your turn attack a random enemy", "common", "Test",
                         1, 4, 9, 0, null, subtype: "Infantry"),
         };
-        var real = CardDatabase.Find(CardDatabase.Load(), "Unleashed Tramplasquig");
+        // 🔴 2026-10-26（`B8_BM`）：两张合成夹具**显式声明「不退还」** —— 它们模仿的就是真卡
+        //    `GOF86`（`chosenAbility = 235` ⇒ 原版**不退还**，`PlayAbility.c:2701-2713` 的 `0xeb` 支
+        //    调 `AddScriptedAttack`，签名里没有 `dontCountAttack`）。夹具不在卡表里 ⇒ 不声明的话会走
+        //    `ForcedAttackRefund` 的 `Unknown` 回退档（= 退还）⇒ 下面三条「打完必须疲劳」会红。
+        ForcedAttackRefund.SetForTest("FixtureA1606Each", ForcedAttackRefund.Verdict.NoRefund);
+        ForcedAttackRefund.SetForTest("FixtureA1606You", ForcedAttackRefund.Verdict.NoRefund);
+        // （前提）**数据链路自证**：表真的从卡表装载了、两侧各一张真卡的三态也对得上 ——
+        //   否则下面 γ 那几条红的原因会被误读成「引擎又退回去了」（实际可能是表没载到）。
+        var pool0 = CardDatabase.Load();
+        Check(ForcedAttackRefund.InstalledRowsForTest, pool0.Count,
+              "（前提）退还表读到**全池行数**（`cards_engine.json` v32 的 `chosenAbility` 列）");
+        Check(ForcedAttackRefund.Of("GOF86"), ForcedAttackRefund.Verdict.NoRefund,
+              "（前提）`GOF86 Unleashed Tramplasquig`（235）⇒ **NoRefund**");
+        Check(ForcedAttackRefund.Of("BL64"), ForcedAttackRefund.Verdict.Refund,
+              "（前提）`BL64 Murderous Desires`（231）⇒ **Refund**");
+        var real = CardDatabase.Find(pool0, "Unleashed Tramplasquig");
         CheckTrue(real != null, "（前提）卡池里有真卡 `GOF86 Unleashed Tramplasquig`");
         if (real != null) cases.Add(real);
 
@@ -35074,6 +35142,9 @@ public static partial class RuleEngineTest
     /// </summary>
     static void TestA1632EachTurnAttackOnOpponentTurn()
     {
+        // 🔴 2026-10-26（`B8_BM`）：这个夹具模仿 `GOF86`（`chosenAbility = 235` ⇒ 原版**不退还**）
+        //    ⇒ 显式声明；否则走 `Unknown` 回退档（退还）⇒「这一记照旧消耗攻击配额」那条灭自证会红。
+        ForcedAttackRefund.SetForTest("FixtureA1632Each", ForcedAttackRefund.Verdict.NoRefund);
         A1632Run(new CardDef("FixtureA1632Each", "FixtureA1632Each", "unit",
                              "At the start of each turn attack a random enemy", "common", "Test",
                              1, 4, 9, 0, null, subtype: "Infantry"),

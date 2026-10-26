@@ -10413,7 +10413,14 @@ public static class ShellScene
                 var info = new CollectionData.DeckInfo { Name = "probe", Faction = "", WarlordId = "", CardbackId = "", Count = 0 };
                 var rN = new PxRect(0f, 0f, 225f, 364.5f);
                 var normal = MenuDraw.DeckCell(dparent.transform, "CellNormal", rN, info, true,
-                                               3000, 2999, 3001, 3002, 3003, null);
+                                               3000, 2999, 3001, 3002, 3003,
+                                               // 🔴 **2026-10-26（`B8_BN`）**：这里原来传的是 `null` —— 而 `MenuDraw.DeckCell` 的命中钮
+                                               //   **整块包在 `if (onClick != null)` 里**（`Shell/MenuDraw.cs` 的 `DeckCell`，「点击区」那一段：
+                                               //   `if (onClick != null) { … AddComponent<WindowButton>() … }`）⇒ `null` = **这一格根本没有 Hit/WindowButton**，
+                                               //   下面「格子里有命中钮」必然红（那条断言本身没错，是**夹具少给了一个实参**）。
+                                               //   生产两个调用点**都传非空**：`Shell/CollectionWindow.cs:5286` 的 `() => { … SelectDeck(idx); }` ·
+                                               //   `Shell/DeckSelectionPopup.cs:964` 的 `() => UpdateInfo(pick)` ⇒ 夹具照生产给一个空动作即可（⛔ 别改成放宽断言）。
+                                               () => { });
                 CheckTrue(normal != null, "⑥ （前提）非排序列建出来了");
                 CheckNear(normal.localScale.x, 1f, 1e-4f, "⑥ 非排序列：不缩放");
                 CheckTrue(FindChildIn(normal, "Highlight Rounded Square") != null,
@@ -10431,7 +10438,8 @@ public static class ShellScene
 
                 var sorted = MenuDraw.DeckCell(dparent.transform, "CellSorted",
                                                new PxRect(300f, 0f, 525f, 364.5f), info, true,
-                                               3000, 2999, 3001, 3002, 3003, null,
+                                               3000, 2999, 3001, 3002, 3003,
+                                               () => { },     // 同上一格：`onClick == null` ⇒ `DeckCell` 不建命中钮（见上一条的注释）
                                                maskPad: Vector4.zero, sortMode: true);
                 CheckTrue(sorted != null, "⑥ （前提）排序列建出来了");
                 CheckNear(sorted.localScale.x, MenuDraw.DeckCellSortK, 1e-4f,
@@ -10458,8 +10466,21 @@ public static class ShellScene
             //   关掉时还原（调用点 = `CardDisplayWindow.ShowCard/Close/ToBackground/ToFocus`）。
             //   我们没有 uGUI Canvas ⇒ 等价物 = 把资源条子树的渲染队列整体 **+134**（2986 → 3120，高于详情窗最高的 3118）。
             {
-                var bar = TopBar.LastBuilt;
-                CheckTrue(bar != null && bar.Root != null, "⑦ （前提）顶栏建出来了（`TopBar.LastBuilt.Root`）");
+                // 🔴 **2026-10-26（`B8_BN`）**：这一段原来读 `TopBar.LastBuilt` 当夹具 —— 而 **`ShellScene` 这场里根本没有顶栏**：
+                //    顶栏只由 `Shell/MainMenuRuntime.cs` 的 `Build()`（`TopBar.Build(safeH, …)`）与 `Shell/DeckRuntime.cs` 的
+                //    `BuildTopBar`（`if (HostWindow != null) return;`）建；本宿主的 `Build()` 只造 `ShellRuntime`（壳），
+                //    全场没有任何一处调 `TopBar.Build` ⇒ `LastBuilt` 恒 `null`（= 那条「（前提）顶栏建出来了」红，
+                //    而下面 5 条全被它**静默跳过**（`if (bar != null && bar.Root != null)`）⇒ 一段 6 条断言等于没跑）。
+                //    ⇒ 夹具**自己建一条**（生产同一个入口 `TopBar.Build`；`MainMenuScene` 的 A374 也是这么另开一台实例的），
+                //      跑完销毁 + 把 `LastBuilt` 还回去（⛔ 别留给后面的段：`CardDetailPopup` 那几个 `ToggleOverlay(TopBar.LastBuilt, …)`
+                //      会读到这个夹具，销毁后就成假 null 的幽灵）。
+                var keepLastBuilt = TopBar.LastBuilt;
+                var tbProbe = new GameObject("TopBarProbe");
+                tbProbe.transform.SetParent(probeRoot.transform, false);
+                var bar = TopBar.Build(tbProbe.transform, null);
+                CheckTrue(bar != null && bar.Root != null,
+                          "⑦ （前提）顶栏建出来了（**夹具** `TopBar.Build` —— `ShellScene` 自己从来不建顶栏，"
+                        + "顶栏只由 `MainMenuRuntime.Build` / `DeckRuntime.BuildTopBar` 建；⛔ 不是放宽：本条只负责给下面 5 条一个真顶栏）");
                 if (bar != null && bar.Root != null)
                 {
                     var q0 = bar.Root.GetComponentInChildren<ImageQuad>(true);
@@ -10477,6 +10498,8 @@ public static class ShellScene
                         Check(q0.RenderQueue, before, "⑦ 队列**逐件还原**（🧨 不还原 ⇒ 资源条永远压在窗上 ⇒ 红）");
                     }
                 }
+                TopBar.LastBuilt = keepLastBuilt;      // 还原（见上面那段：别给后面的段留一个指向夹具的幽灵）
+                Object.DestroyImmediate(tbProbe);      // 夹具连它登记的命中区一起消失（`PointerLayer` 的死条目会被顺手清掉）
             }
         }
         finally

@@ -105,9 +105,9 @@ namespace CardPresentation
 
     /// <summary>原版 `Draggable.cs` 的泛型那一半 —— **内容载体**：预览本体（`CosmeticPreview` /
     /// `CardPreview`）都派生自它，`SetDraggable` 会调它的 <see cref="Initialize"/>。
-    /// <para>⚠️ **`OnDrag()` / `OnRelease()` 两个方法体没有反编译产物**（`all_methods.txt` 里也没有
-    /// 带 `Draggable&lt;…&gt;` 前缀的条目）⇒ 这里留空，**如实标成「没查清」**，⛔ 别照它推断语义：
-    /// 跟指针的是 <see cref="DraggableController{T}.OnDrag"/>，不是这两个。</para></summary>
+    /// <para>🔴 **2026-10-26（`B8_AP`）就地订正（铁律 5）**：本段原来写「两个方法体没有反编译产物 ⇒ 留空」——**错**。
+    /// 真体在 `out_cpp2il_dev_ilspy/Draggable.cs:33-37 / :39-43`（🥈）：`OnDrag` = `gameObject.SetActive(true)`、
+    /// `OnRelease` = `SetActive(false)`（ICF 佐证：`Draggable&lt;object&gt;$$OnRelease` 与 `CollectionFilterController&lt;object&gt;__&lt;Toggle&gt;b__9_0` 同址）。跟指针的仍是 <see cref="DraggableController{T}.OnDrag"/>。</para></summary>
     public abstract class Draggable<T> : MonoBehaviour
     {
         [SerializeField] protected CanvasGroup canvasGroup;
@@ -117,8 +117,8 @@ namespace CardPresentation
 
         public abstract void Initialize(T item);
 
-        public void OnDrag() { }
-        public void OnRelease() { }
+        public void OnDrag() { gameObject.SetActive(true); }       // 判据 → Draggable.cs:33-37（🥈）
+        public void OnRelease() { gameObject.SetActive(false); }   // 判据 → Draggable.cs:39-43（🥈）
     }
 
     /// <summary>原版 `DraggableController.cs` —— 通用拖拽控制器。

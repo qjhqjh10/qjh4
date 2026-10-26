@@ -1868,7 +1868,7 @@ namespace CardPresentation
             v.Spec = item; v.Quantity = quantity;      // `Refresh()` 要用（原版是实例字段 +0x38/+0x40）
             v.ShowInfoOnClick = ShowInfoOnClickOf(res.Drawer);
             res.View = v;
-            _handles[v] = res.Drawer;                  // 原版 `drawerReferences.Add(itemDrawer, ref)`
+            _handles[v] = res.Drawer; ItemDrawerLeash.Attach(v);   // 原版 `drawerReferences.Add(itemDrawer, ref)`；后半句 = 原版 `OnDestroy` 的等价钩子（见 `ItemDrawerLeash.cs`）
             if (v.ShowInfoOnClick) v.AttachHit(style); // 原版 `OnPointerClick` 那道闸为真 ⇒ 这一格可点
             return res;
         }

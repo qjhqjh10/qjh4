@@ -7207,8 +7207,8 @@ namespace CardPresentation
         ///
         /// ⚠️ **原版藏的是 2D 卡面那一套**（文字 / 图 / 稀有度星 / 费用 / `effectsAnchor`）——
         /// 场上（`CardFace.Board`）那套 2D 卡面**本来就没建**（`SetFace` 里全 `!board` 关掉了）
-        /// ⇒ 我们场上要藏的就是**数值**：`ToggleStats` 的对应物是四个数值层 + `_info` + 护甲盾。
-        /// 徽标**不藏**（原版那一支没碰 `boardTraitIcons` —— 伏击这个词条图标本来就该看得见）。</summary>
+        /// ⇒ 我们场上要藏的只有**数值本身**，而且原版是**印 `?`**、不是关层（见 `SetStatsHidden`）。
+        /// 徽标的显隐**不归这里管**：整排由 `Badges.For(..., isPlayer)` 那道闸定（见 `Core/Badges.cs` 的 `W10` 订正）。</summary>
         void ApplyAmbush()
         {
             // ① **2D 立绘那一层**（原版 `BasicCardUI.SetImageSprite(伏击图, cardType)`）——
@@ -7232,14 +7232,14 @@ namespace CardPresentation
                     _ambushStashArmour = _armourIcon != null && _armourIcon.gameObject.activeSelf;
                     _ambushHidden = true;
                 }
-                for (int s = StatMelee; s <= StatHealth; s++)
-                    if (_stats[s] != null) _stats[s].gameObject.SetActive(false);
-                Show(_info, false);
-                Show(_armourIcon, false);
+                // 🔴 2026-10-26（B8_N）：原版 `HideStat` **一个东西都不关** —— `hiddenStat=1` + 逐件 `text="?"`
+                SetStatsHidden(true);
+                Show(_info, false);              // 场上这张本来全透明；「字形表不在」兜底档靠它挡住烘进去的数字
                 return;
             }
             if (!_ambushHidden) return;              // 没藏过 ⇒ 什么都不动（别把正常态刷掉）
             _ambushHidden = false;
+            SetStatsHidden(false);                   // 原版 `ResetHide` 只清闸；值由下面 `SyncStatLayers` 重刷（盾牌全程不藏，见 `SetStatsHidden`）
             if (_ambushStashValid)
             {
                 Show(_info, _ambushStashInfo);
@@ -7977,6 +7977,11 @@ namespace CardPresentation
                 if (_faceStatText[i] != null) _faceStatText[i].color = FaceStatInk(i);
             // 🆕 2026-10-25（K4 D3）：费用那件 TMP 同一条（`StatCost` 的极性在 `StatColorVsBase` 里已反）
             if (_faceCostText != null) _faceCostText.color = FaceStatInk(StatCost);
+            // 🆕 2026-10-26（B8_N）：埋伏/保密那一档数值位上的四颗 `?`（也是 TMP ⇒ 走顶点色，同一族口径）。
+            //    ⚠️ 不能靠 `ApplyStatFlashes` —— 它 `_stats[1] == null` 就早退、且跳过未激活的网格
+            //    （藏住时那四层正是关着的）。
+            for (int i = StatMelee; i <= StatHealth; i++)
+                if (_ambushMark[i] != null) _ambushMark[i].color = Greyed(Color.white * _statFlash[i] * c);
 
             // 🆕 2026-09-29：整组徽标自己的那个不透明度（原版 `NestedFadeGroup.alpha`）——
             // 上面那个 foreach 已经把徽标各层刷成「状态色 × 整卡 α」了，这里再乘一层**只属于徽标**的。
@@ -13111,8 +13116,9 @@ namespace CardPresentation
                 if (mr == null) continue;
                 int v = StatValue(Data, s);
                 // 逐格显隐走**唯一判据** `StatShownFor`（原版逐 counter `Toggle`；**远程 = 0 照印 `0`**，
-                // 只有**护甲 0** 才整格不显示 —— 判据与出处见那个函数的 doc）。
-                bool show = board && StatShownFor(s, Data);
+                // 只有**护甲 0** 才整格不显示 —— 判据与出处见那个函数的 doc）。`_statsHidden` = 原版
+                // `CardTextCountersController.SetText` 开头那句 `if (hiddenStat) return;`（挡住藏住期间的刷新）。
+                bool show = board && !_statsHidden && StatShownFor(s, Data);
                 var tex = show ? StatTexture(s, v) : null;
                 if (tex == null) show = false;
                 mr.gameObject.SetActive(show);
@@ -13210,11 +13216,13 @@ namespace CardPresentation
                 // **远程 = 0 照印**、只有**护甲 0** 不显示）。⚠️ 简化视图 / `SmallScreenUI` **不参与**这一条 ——
                 // 原版那四个 `CardTextCounterContainer.activationRules` 实测**全是 `[0] = Normal`**
                 // （只有 `Cost Container` 是 `[0,15]`、`Cost Container Big` 是 `[5,10]`）。
-                bool on = face && StatShownFor(s, Data);
+                // 🆕 2026-10-26（B8_N）：`_statsHiddenArmourCell` = 原版 `BasicCardUI.ToggleStats(false)` 在护甲那件上
+                // 多出来的那次 `Toggle(false)`（**整格关掉**，连 `?` 都不印）；其余三格照印 `?`（见下面 `txt`）。
+                bool on = face && StatShownFor(s, Data) && !(s == StatArmour && _statsHiddenArmourCell);
                 bool wasOn = cgo.activeSelf;
                 if (wasOn != on) cgo.SetActive(on);
                 if (!on) continue;
-                string txt = v.ToString();
+                string txt = StatsHiddenFor(s) ? HiddenStatText : v.ToString();
                 bool changed = t.text != txt;
                 if (changed) t.text = txt;
                 // ⚠️ 批处理没有帧循环（CLAUDE.md §三）⇒ 值变了 / 刚显示出来的那一拍必须手动排版
@@ -14172,6 +14180,204 @@ namespace CardPresentation
             _glitchMat = null;
         }
 
+        // ==================================================================
+        //  「数值位印 `?`」（原版 `CardTextCountersController.HideStat` / `ResetHide`）
+        //  —— 🆕 2026-10-26（`B8_N`）。**这条修的是一个 P0 真缺陷**：埋伏（面朝下）的敌方单位，
+        //     原版把四个数值位印成 `?`，我们原来是 `SetActive(false)` ⇒ 一片空白。
+        // ==================================================================
+        // 🔴 判据（两份反编译交叉读过，互相对得上）：
+        //   · 🥈 `cpp2il/out_cpp2il_dev_ilspy/CardTextCountersController.cs:698-721`（`HideStat`）：
+        //       `hiddenStat = true; currentAmount = -1;` 然后 `foreach (textsToSet) textToSet.textToSet.text = "?";`
+        //       —— **它一个 GameObject 都不关**。`:726-729`（`ResetHide`）只有 `hiddenStat = false;`。
+        //   · 🥇 `decomp_full/CardTextCountersController__HideStat.c:13-16`（`+0x65 = 1` = `hiddenStat`、
+        //       `+0x60 = 0xffffffff` = `currentAmount`）+ `:26-33`（逐个 `textToSet` 调 TMP 的 `text` setter，
+        //       实参 `DAT_18423be78` 就是静态串 `"?"`）。
+        //   · `SetText` 开头 `if (hiddenStat) return;`（🥈 `:209-212`）⇒ **藏住期间任何刷新都改不动它**
+        //       —— 这就是「闸」的语义，落到我们这边 = `SyncStatLayers` / `SyncFaceStatTexts` 里那道 `_statsHidden`。
+        // 调用链（**不是死代码**，两个入口都现读过）：
+        //   · 场上：`CardScript.SetAmbush(true)`（`decomp_full/CardScript__SetAmbush.c:21-41`）
+        //     → `BattleCardUI.ToggleStats(false,false)`（`decomp_full/BattleCardUI__ToggleStats.c:13-63`）
+        //     → **五个 counter 各 `HideStat()`**（血/甲/近战/远程/**费用**），另加
+        //     `armourFrame.SetActive(false)` —— 那是护甲**词条框**（`dump.cs` 的 `BattleCardUI.armourFrame // 0x150`），
+        //     **不是** `Armour Container/Image`（我们那面盾 `_armourIcon`）⇒ **盾牌全程不藏**。
+        //   · 2D 展示窗：`CardDisplayWindow.ShowBattleCard`（🥈 `CardDisplayWindow.cs:657-708`）里那条
+        //     `IsInPlay && !isPlayer && HasCurrentTrait(ambush)` 支 → `BasicCardUI.ToggleStats(false)`
+        //     （`cpp2il/out_cpp2il_dev_ilspy/BasicCardUI.cs:383-408`）：同样五个 `HideStat()`，但**护甲那件多一次
+        //     `armourCountersController.Toggle(false)`**（= 整格关掉，连 `?` 都不印）⇒ 本类 `hideArmourCell` 形参
+        //     就是这两支的唯一差别。
+        // ⚠️ **载体是我们自己的选择**（原版那五件全是真 TMP）：
+        //   · 场上我们那四个数是**烘出来的字形网格**（`PragatiDigits` 的表里**只有 0–9**，没有 `?`）
+        //     ⇒ 场上这一档**另建四件 TMP** 印 `?`（`_ambushMark`）：字体 = 原版同一份 `Pragati-Regular`，
+        //     字号/对齐/描边照原版那四件 prefab **逐值抄**（见下面 `BoardStatTextScale` 那几个常量）。
+        //   · 2D 面那四件本来就是 TMP（`_faceStatText`）⇒ 直接把 `text` 写成 `?`，**零新增件**。
+        //   🔶 自己设计（非原版）：场上这套「网格换成 TMP」是**载体差异**，不是原版的构建方式 ·
+        //     因为 `PragatiDigits` 的字形表只有 0–9（生成物 `Core/PragatiDigits.Data.cs`，本批不在白名单）·
+        //     调度台 2026-10-26 按本批任务口径定（若要改回网格，得先给字形表补 `?` 并重烘三档）。
+
+        /// <summary>原版**场上**那四件数值 TMP 的「有效世界字号系数」。
+        /// <para>判据（prefab 逐字段实读 2026-10-26，`bundle_battleprefabs_vfxandmisc_assets_all/`）：
+        /// `Melee AttackText` / `Range Attack Text` / `Armour Text_3697587013347089344` 的 RectTransform
+        /// `m_LocalScale = 0.4828722` 且 TMP `m_fontSize = 7`；`HealthText` 的 `m_LocalScale = 3.4678855`、
+        /// 父级 0.13924（乘积 = 0.48286，与本值差 1e-5）、`m_fontSize = 8`
+        /// ⇒ 有效世界字号 **3.3801 / 3.8629**（= 7 / 8 × 本系数）。</para>
+        /// <para>四件的 `m_VerticalAlignment` 全是 **512（Middle）**、`m_HorizontalAlignment` **2（Center）**、
+        /// `m_fontColor` 白、`m_fontStyle 0`、`m_enableAutoSizing 1`（min 2 / 2.7、max 7 / 8）、
+        /// `m_sharedMaterial` 全是 `Material_-1760077249967186717`。</para></summary>
+        const float BoardStatTextScale = 0.4828722f;
+
+        /// <summary>原版那四件共用的材质 `Pragati-Regular White_thick Offset for 3D`
+        /// （`bundle_fonts_assets_all/Material/Material_-1760077249967186717.json`）里的描边三个值。
+        /// ⚠️ 我们挂在**字体资产自带的那份实例材质**上 ⇒ `_GradientScale` 与原版那份（21）可能不同，
+        /// 同样的 `_OutlineWidth` 观感未必逐像素一致（本机不跑 Unity、没并排验过 —— 如实记）。</summary>
+        const float BoardStatOutlineWidth = 0.12f, BoardStatFaceDilate = 0.12f;
+        static readonly Color BoardStatOutlineColor = new Color(0f, 0f, 0f, 1f);
+
+        /// <summary>「数值位隐去」那个占位串 —— 原版 `HideStat` 里写死的字面量（见本段判据）。
+        /// ⛔ 别改成 `"--"` / 空串 / 卡背色块：原版白纸黑字就是一个半角问号。</summary>
+        public const string HiddenStatText = "?";
+
+        readonly TextMeshPro[] _ambushMark = new TextMeshPro[5];   // 索引 = StatMelee..StatHealth
+        bool _statsHidden;              // = 原版 `hiddenStat`（挡刷新 + 数值位写 "?"）
+        bool _statsHiddenArmourCell;    // = 原版 `BasicCardUI.ToggleStats` 那一支多出来的「护甲整格关掉」
+        bool _ambushMarkWarned;         // 「字体资产取不到」只出声一次
+
+        /// <summary>把四个数值格切到「隐去数值」那一档（原版 `CardTextCountersController.HideStat` / `ResetHide`）。
+        /// <para><paramref name="hide"/> = true ⇒ 数值位印 <see cref="HiddenStatText"/>（⛔ **不再是关层变空白**）。</para>
+        /// <para><paramref name="hideArmourCell"/> = 原版两个调用入口的**唯一差别**：场上那支
+        /// （`BattleCardUI.ToggleStats`）护甲照样印 `?`（盾牌也照样在）；2D 展示窗那支
+        /// （`BasicCardUI.ToggleStats`）额外 `armourCountersController.Toggle(false)` ⇒ **护甲那一格整个关掉**。</para>
+        /// <para>⚠️ 幂等：重复调用只重刷一遍。`false` 时清闸 —— 这就是原版 `ResetHide` 的语义
+        /// （它只清 `hiddenStat`，真正的重刷发生在下一次 `SetText`；我们由两个 `Sync*` 立刻重算）。</para></summary>
+        public void SetStatsHidden(bool hide, bool hideArmourCell = false)
+        {
+            _statsHidden = hide;
+            _statsHiddenArmourCell = hide && hideArmourCell;
+            if (!hide)
+            {
+                for (int s = StatMelee; s <= StatHealth; s++)
+                    if (_ambushMark[s] != null) _ambushMark[s].gameObject.SetActive(false);
+            }
+            else
+            {
+                for (int s = StatMelee; s <= StatHealth; s++)
+                {
+                    // 场上：四个字形网格关掉、原位换四件 TMP 的 `?`
+                    if (_stats[s] != null) _stats[s].gameObject.SetActive(false);
+                    var t = EnsureAmbushMark(s);
+                    if (t == null) continue;                       // 字体资产取不到 ⇒ 已出声（见 `EnsureAmbushMark`）
+                    if (t.text != HiddenStatText) t.text = HiddenStatText;
+                    bool show = StatsHiddenFor(s);
+                    if (t.gameObject.activeSelf != show) t.gameObject.SetActive(show);
+                    if (show) PlaceAmbushMark(s);
+                }
+            }
+            // 两条载体都重算一遍（`ResetHide` 之后「下一次 SetText 才重刷」的等价物）。
+            // ⚠️ `SyncStatLayers` 只碰场上的网格层、`SyncFaceStatTexts` 只碰 2D 那四件 TMP ⇒ 各调各的，互不覆盖。
+            SyncStatLayers();
+            if (_faceStatText[StatMelee] != null) SyncFaceStatTexts();
+        }
+
+        /// <summary>第 `s` 格现在是不是「隐去数值 ⇒ 该印 `?`」。
+        /// 三条闸叠起来 = 原版那两层的合：`hiddenStat`（藏住）× 这一格该不该显示（`StatShownFor`）
+        /// × 护甲那一格有没有被整格关掉（`BasicCardUI` 那一支）。
+        /// <para>🔴 自检读口：判「埋伏时印 `?`、不是空白」要**同时**读本方法（真）与 <see cref="AmbushMarkText"/>
+        /// （`"?"`）—— 只读前者会被「闸开了但没画」骗过，只读后者会被「画了但闸没开」骗过。</para></summary>
+        public bool StatsHiddenFor(int s)
+        {
+            if (!_statsHidden) return false;
+            if (s == StatArmour && _statsHiddenArmourCell) return false;   // 整格关掉 ⇒ 连 `?` 都没有
+            return StatShownFor(s, Data);
+        }
+
+        /// <summary>懒建第 `s` 格那颗 `?`（原版那四件 TMP 的同构件）。返回 `null` = 建不出来。
+        /// 取不到字体资产时**出声一次**（⛔ 不静默：那一档会退回「整层空白」= 原版以外）。</summary>
+        TextMeshPro EnsureAmbushMark(int s)
+        {
+            if (_ambushMark[s] != null) return _ambushMark[s];
+            // 场上那一档才要这四件（2D 面那四件本来就是 TMP，由 `SyncFaceStatTexts` 直接印 `?`）。
+            if (_faceMode != CardFace.Board) return null;
+            if (!TmpFont.Available)
+            {
+                if (!_ambushMarkWarned)
+                {
+                    _ambushMarkWarned = true;
+                    Debug.LogWarning("[CardView] 埋伏/保密卡要把数值位印成 `?`，但字体资产（`Resources/Fonts/"
+                                   + "Pragati-Regular SDF`）取不到 ⇒ **这一档退回「整层空白」**（原版印的是 `?`）。"
+                                   + "这条警告只报一次。");
+                }
+                return null;
+            }
+            // 父节点选 `FaceRoot`（`2DCard`）= 与四个数值层同一套坐标（见 `BuildStatLayers` 里那段「不挂 Front」）；
+            // 位置在 `PlaceAmbushMark` 里按 `StatAt01(s, true)` 摆（原版那四件也挂在 `3DBody` 那一空间）。
+            var t = TmpFont.NewText(FaceRoot, "statHidden" + s, HiddenStatText,
+                                    AmbushMarkFontSize(s), Color.white, TmpFont.Face.LatinCardBody);
+            if (t == null) return null;
+            t.rectTransform.localScale = Vector3.one;
+            t.alignment = TextAlignmentOptions.Center;   // 原版 `m_HorizontalAlignment 2` + `m_VerticalAlignment 512`
+            t.enableAutoSizing = false;                  // 原版 autoSize 只在 Rect 装不下时才缩；单个 `?` 装得下
+            t.fontSize = AmbushMarkFontSize(s);
+            ApplyAmbushMarkOutline(t);
+            t.gameObject.SetActive(false);               // 由 `SetStatsHidden` 按格开关
+            StampTmpQueue(t);                            // `A1665`：TMP 也是这张卡的一层（要跟着本卡那段渲染队列）
+            _ambushMark[s] = t;
+            return t;
+        }
+
+        /// <summary>第 `s` 格 `?` 的字号 = 原版那四件的**有效世界字号**（7 / 8 × `BoardStatTextScale`）。
+        /// <para>⚠️ 我们 TMP 的 `fontSize` **就是世界字号**（`TmpFont.TrueEmPerFontSize = 0.1` 那套，
+        /// 同 `BadgeCounterFontSize` 的 `5.5 × 0.7502` 口径）⇒ 原版那两格原样乘起来即可，
+        /// ⛔ 别再 `FontSizeForEm` 折一次（那会小 10 倍）。</para></summary>
+        static float AmbushMarkFontSize(int s)
+        {
+            return (s == StatHealth ? 8f : 7f) * BoardStatTextScale;
+        }
+
+        /// <summary>把那件 TMP 的描边切成原版那四件共用的材质（`Pragati-Regular White_thick Offset for 3D`）。
+        /// ⚠️ 走 `fontMaterial`（**实例材质**）—— 改共享材质会让全工程所有卡一起变。</summary>
+        static void ApplyAmbushMarkOutline(TextMeshPro t)
+        {
+            var mat = t.fontMaterial;
+            if (mat == null) return;
+            mat.EnableKeyword("OUTLINE_ON");
+            mat.SetColor(ShaderUtilities.ID_OutlineColor, BoardStatOutlineColor);
+            mat.SetFloat(ShaderUtilities.ID_OutlineWidth, BoardStatOutlineWidth);
+            mat.SetFloat(ShaderUtilities.ID_FaceDilate, BoardStatFaceDilate);
+            t.UpdateMeshPadding();                       // 描边会画到 quad 之外 ⇒ 重算留白（同 `ApplyStatOutline`）
+        }
+
+        /// <summary>`?` 的摆位 = 原版那件 TMP 的**矩形中心**（`m_VerticalAlignment = 512` Middle ⇒
+        /// `PlaceAt` 摆的就是行盒中心，同一口径；⛔ 别改成按墨心摆，那会偏离原版）。</summary>
+        void PlaceAmbushMark(int s)
+        {
+            var t = _ambushMark[s];
+            if (t == null) return;
+            t.verticalAlignment = VerticalAlignmentOptions.Middle;
+            PlaceAt(t, StatAt01(s, true), BoardInfoZ);   // z 与四个数值网格同层（`BoardInfoZ`）
+            t.ForceMeshUpdate();                         // 批处理没有帧循环 ⇒ 手动重排一次
+        }
+
+        /// <summary>自检读口：第 `s` 格那颗 `?` 的**文本**（没建 / 不该显示 ⇒ `""`）。
+        /// <para>🔴 **灭自证**：这条断言必须与「数值层关着」**同时**成立 —— 旧实现（整层关掉 = 空白）
+        /// 也能让「数值层关着」那条绿，所以只钉那一条**验不出这个缺陷**。</para></summary>
+        public string AmbushMarkText(int s)
+        {
+            var t = _ambushMark[s];
+            return t != null && t.gameObject.activeSelf ? t.text : "";
+        }
+
+        /// <summary>自检读口：那颗 `?` 现在亮着吗（`_ambushMark[s]` 没建 ⇒ false）。</summary>
+        public bool AmbushMarkShown(int s)
+        {
+            var t = _ambushMark[s];
+            return t != null && t.gameObject.activeSelf;
+        }
+
+        /// <summary>自检读口：2D 面第 `s` 格那件 TMP 现在印的**文本**（`_faceStatText` 没建 ⇒ `""`）。</summary>
+        public string FaceStatTextNow(int s)
+        {
+            return _faceStatText[s] != null ? _faceStatText[s].text : "";
+        }
+
 #if UNITY_EDITOR
         /// <summary>自检用：这张卡的 glitch 材质（没建过 = `null`；建过才能断参数）。</summary>
         public Material GlitchMatForTest { get { return _glitchMat; } }
@@ -14180,5 +14386,70 @@ namespace CardPresentation
         /// <summary>自检用：卡框层当前材质（= `FrameMatView`，这里给个短名字给灭自证断言读）。</summary>
         public Material FrameMatNowForTest { get { return _frame != null ? _frame.sharedMaterial : null; } }
 #endif
+
+        // ==================================================================
+        //  场上卡高亮【状态机】的渲染侧入口 —— 2026-10-26（执行代理 `AW`）
+        // ==================================================================
+        //  🔴 **为什么加在类尾**：本文件有 40+ 条账的落点按 `文件:行号` 指进来（`卡牌面_渲染.tsv` 与
+        //     `战斗逻辑驱动.tsv`），**中间插一行就会整片漂移**（`check_ledger_points` 立刻报）。
+        //     ⇒ 新增成员一律追加在类尾（同 `CLAUDE.md` 那条「新成员追加到类尾」）。
+        //
+        //  判据与字段对齐表 → `Core/CardHighlight.cs` 里 `CardBoardHighlight` 的头注释（逐方法 + 逐字段偏移）。
+        //  ⛔ 本段**不新增任何行为**：它只把「原版那台状态机」接到**已有的**三层渲染
+        //     （状态环 `_rim` / 卡体缩放 `SetHighlightScale` / 整卡着色 `SetTint`）上。
+
+        CardHighlight.CardBoardHighlight _boardHighlight;
+
+        /// <summary>这张卡的**原版高亮状态机**（懒建）。
+        /// <para>手牌 / 收藏卡格也能取到（同一个类），但只有**场上**那一档会有人调它的四个入口
+        /// —— 原版那四个入口本来就在 `CardScript` 上、手牌与场上共用同一个组件。</para></summary>
+        public CardHighlight.CardBoardHighlight BoardHighlight
+        {
+            get
+            {
+                if (_boardHighlight == null) _boardHighlight = new CardHighlight.CardBoardHighlight(this);
+                return _boardHighlight;
+            }
+        }
+
+        /// <summary>自检读口：原版 `CardHighlight.state`（`+0x24`）的**整数**值
+        /// （`regular 0 / potentialTargetInHand 1 / selected 2 / potentialTargetInBoard 3 /
+        ///   selectedTargetInBoard 4 / displayingActiveAbility 5`）。
+        /// <para>⚠️ 与 <see cref="State"/> **不是同一个数**：那个是我们自己的视图枚举（多 3 档、少 1 档），
+        /// 映射只有一处 = `CardHighlight.CardBoardHighlight.MapToView` 的逆。</para></summary>
+        public int BoardHighlightStateId { get { return (int)BoardHighlight.State; } }
+
+        /// <summary>自检读口：高亮缩放当前乘数（`1` = 没放大、`1.05` = 原版 `ScaleFactor`）。</summary>
+        public float HighlightScaleMulForTest { get { return _hlMul; } }
+
+        /// <summary>原版 `CardHighlight.ChangeState` 的**渲染侧**：6 档逐档落到我们已有的三层。
+        /// <para>判据 = `decomp_full/CardHighlight__ChangeState.c:19-76`（逐 case 读出来的色字段 / 补间时长 / 是否缩放）：</para>
+        /// · `regular 0` → `SetHighlight(Normal)`：环淡到 `RegularColor`（alpha 0）+ **缩放回 1.0 带 0.1 s 补间**
+        /// · `potentialTargetInHand 1` → `SetHighlight(ValidTarget)`：绿环 0.1 s、**不缩放**（手牌形态下 `ScaleOf` 给 1）
+        /// · `selected 2` → `SetHighlight(Selected)`：白环**瞬切**（`TweenTimeOf` 给 0）、不缩放
+        /// · `potentialTargetInBoard 3` → `SetHighlight(ValidTarget)`：绿环 0.1 s、**×1.05**（场上形态）
+        /// · `selectedTargetInBoard 4` → `SetHighlight(SelectedTargetInBoard)`：橙 `#FF8400` 0.1 s、**×1.05**
+        /// · `displayingActiveAbility 5` → **本方法第三支**：黄 `PlayableColor` 瞬切、不缩放
+        ///   （原版 `:63-70` 只置 `uVar2 = 0` 后走 `ChangeFrameColor`，**没有** `ChangeTargetScale`）
+        /// <para>⚠️ 整卡着色这一路（`SetTint`）对棋盘两态是**白**（= 不染色）—— 那是 2026-10-24 的改判
+        /// （原版这五个状态色**只喂那圈环**，见 `CardHighlight` 文件头），⛔ 别在这里「补回」染色。</para></summary>
+        internal void ApplyBoardHighlightState(CardHighlight.CardBoardHighlightState st)
+        {
+            if (st == CardHighlight.CardBoardHighlightState.displayingActiveAbility)
+            {
+                if (_rim != null) { _rim.enabled = true; ApplyRimColor(CardHighlight.PlayableColor, 0f); }
+                return;
+            }
+            SetHighlight(CardHighlight.CardBoardHighlight.MapToView(st));
+        }
+
+        /// <summary>原版 `CardHighlight.Start` 那两句渲染（`Start.c:18` `ToggleFrames(true)` +
+        /// `:19-23` `ChangeFrameColor(RegularColor, **0**)`）：**瞬切**回常规，不走 `ChangeState` 的同态早退。</summary>
+        internal void ForceRegularFrame()
+        {
+            if (_rim == null) return;
+            _rim.enabled = true;
+            ApplyRimColor(CardHighlight.FrameColorOf(CardHighlightState.Normal), 0f);
+        }
     }
 }

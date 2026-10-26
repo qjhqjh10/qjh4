@@ -388,6 +388,8 @@ namespace CardPresentation
             foreach (var wb in root.GetComponentsInChildren<WindowButton>(true))
             {
                 if (wb == null || wb._hoverTex == null || wb.target == null) continue;
+                // 🔴 2026-10-26（`B8_BR`）：禁用钮不应换图—— `Enter()`已在 N5 按原版加了 `if (!_interactable)` 闸。
+                if (!wb.Interactable) continue;
                 n++;
                 var before = wb.target.Texture;
                 wb.Enter();
@@ -443,6 +445,7 @@ namespace CardPresentation
             foreach (var wb in root.GetComponentsInChildren<WindowButton>(true))
             {
                 if (wb == null || wb.target == null) continue;
+                if (!wb.Interactable) continue;   // 🔴 2026-10-26（`B8_BR`）同《`AuditHoverSwap`》
                 var want = wb._pressedTex != null ? wb._pressedTex : wb._hoverTex;
                 if (want == null) continue;                  // 两张都没有 = `Press()` 那一档（那边出声）
                 n++;
@@ -1031,6 +1034,29 @@ namespace CardPresentation
         /// 并且**出声**：原版那一刻玩家看得见「钮是灰的」，我们若连日志都不打，就成了静默失败。</summary>
         public void Click()
         {
+            // 🔴🆕 **2026-10-26（B8_BP）：已销毁的钮一律不再派发 —— 护栏，不是语义。**
+            //   触发场景 = 调用点**点一下就把整列/整页拆了重建**、随后又拿**旧引用**点第二下。
+            //   实测（`MainMenuScene.Run`，日志 `_tmp_view/wf_MainMenuScene.Run_b.log`）：阵营格那一下走
+            //   `PickArmy` 末句 `ArmyScroll.OnChanged()` ⇒ `RebuildArmyCells` 把 `Filters` 的子件全
+            //   `DestroySafe` 掉重建；夹具再点第二次时就死在这个函数下面那句 `PlayClickSound()`
+            //   → `MenuDraw.WasShadeHit(transform)` 的 `Component.get_transform` 上 ——
+            //   **856 条 ✓ 之后整场自检中止（rc=1）**。
+            //   ⚠️ Unity 的「已销毁」`== null` 为**真**，但**访问任何成员（`transform` / `name` / `onClick`…）
+            //      照样抛** `MissingReferenceException` ⇒ 这道闸只能在**第一句**，且只能写 `this == null`
+            //      （重载的 `Object.operator==` 看的是原生对象还活没活）。
+            //   ⚠️ **只吞「已销毁」这一种**：对象还活着时的一切失败照旧抛（⛔ 别把真异常一起吞掉）。
+            //   ⚠️ 它**不改任何活着对象的行为**（一句比较）：下面 `absorbOnly` / `_interactable` /
+            //      `allowClickWhenAlreadySelected` / `PlayClickSound` 那四条原版次序一个字节没动。
+            //   ⚠️ 出声，不静默：真正的修法是**调用点重新取引用**（先例 = 本行下面 `CollectionScene`
+            //      风格页夹具那段「桶 C」注释、以及本轮 `Editor/MainMenuScene.cs` 阵营格夹具）。
+            if (this == null)
+            {
+                Debug.LogWarning("[Button] 点了一颗**已被销毁**的钮 ⇒ 这一下**不派发**（原版没有这种态）。"
+                                 + "⛔ 这不是「按钮坏了」，是**调用点拿着重建前的旧引用** —— "
+                                 + "修调用点：点完重取引用（先例：`Editor/CollectionScene.cs` 风格页夹具、"
+                                 + "`Editor/MainMenuScene.cs` 阵营格夹具）。");
+                return;
+            }
             // 🔴 **吸收层（`MenuDraw.Absorb` 建的）在这里就结束**：这一下**被吃掉、什么都不做**
             //    （原版：面板那颗 `Image` 是射线落点、父链上没有点击处理器）。
             //    ⚠️ 必须挡在下面那条 `_interactable` 告警**之前** —— 否则每次点面板都误报一次。

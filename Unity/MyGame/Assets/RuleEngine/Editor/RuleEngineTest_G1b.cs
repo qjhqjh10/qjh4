@@ -46,7 +46,7 @@ public static partial class RuleEngineTest
     /// <summary>摆一张「可收集的路标石残骸」（`IsRemnant` + `waystone` ⇒ `CanCollectWaystone` 认）。</summary>
     static UnitState PutWaystoneForTest(BattleContext ctx, int side, int slot)
     {
-        var u = Place(ctx, side, slot, Unit("G1bWaystone", 1, 1, 1, KeywordTable.Waystone));
+        var u = Place(ctx, side, slot, UnitFaction("G1bWaystone", 1, 1, 1, "SaimHann", KeywordTable.Waystone));   // 🔴 原版收集认阵营
         u.IsRemnant = true;
         return u;
     }

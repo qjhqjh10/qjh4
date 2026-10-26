@@ -44,10 +44,10 @@
 // ⛔ **不编来源、不拿别的表顶**。
 //
 // ============================ 我们侧的对位（逐件写清，不冒充原版）============================
-// · **`Menu Dark Background` 的关闭语义**：原版 `BackgroundCloseButton.window` 的 PPtr 是 **0**、`onClick` 也是空
-//   （MB `2649394885390853425` 实读）⇒ **点暗底什么都不发生**（但那一层仍然吃掉点击）。
-//   🔴 **2026-10-17（`N51③`）**：原来做成「点暗底 = 关窗」是**我们挑的**，按铁律 11 已改回原版语义
-//   （`MenuDraw.Absorb` 吸收层）。关窗只走右上那颗钮 / ESC（家族默认关窗音 `ButtonClick Back`）。
+// · **`Menu Dark Background` 的关闭语义 = 关窗**（`MenuDraw.ShadeHit`）。`BackgroundCloseButton.window` 的 PPtr 是 **0**、
+//   `onClick` 的**序列化**监听表也空（MB `2649394885390853425` 实读）—— 但 `__OnPointerClick.c:27` **无条件** `onClick.Invoke()`，
+//   而 `WhereToGetCardsWindow__Awake.c:12-24` 运行期往那张表里挂了监听器（`+0x1c0` = vtable 槽 `+0x1b8` 的 methodInfo，同槽 = `Close`）。
+//   🔴 **2026-10-26 订正**：`N51③` 判「点暗底什么都不发生」只读了序列化监听表、漏了 `Awake` 那条 ⇒ 已改回关窗。
 // · **段模板的卡片格**：原版那一格是 `Card Drawer`（`CardDrawer + ItemDrawerComponents`，ARF 高控宽 0.66）。
 //   ✅ **2026-10-17（`N51②`）已画**：按 `CardRefs` 在本地卡池里查（`CardDatabase.Find`）→ `CardView`；
 //   查不到的格如实计数 + 出声（⛔ 不假装画了）。
@@ -303,12 +303,12 @@ namespace CardPresentation
             // ---- 1) `Menu Dark Background`（压暗 + 「点窗外关窗」）----
             _shade = MenuDraw.Node(transform, "Menu Dark Background", ShadeR);
             MenuDraw.Rect(_shade, CardArt.Solid(), ShadeR, "Image", QShade, ShadeTint);
-            //   原版 prefab 的 `BackgroundCloseButton.window` 是 **空 PPtr**、`onClick` 也空
-            //   （`BackgroundCloseButton__OnPointerClick.c`：`if (window != null) Close(); if (onClick != null) Invoke();`）
-            //   ⇒ **点暗底什么都不发生**，但那一层**仍然吃掉点击**。
-            //   🔴 **2026-10-17（第四十八会话 · `N51③`）**：原来做成「点暗底 = 关窗」是**我们挑的**；
-            //   按铁律 11 改回原版语义 ⇒ 走 `MenuDraw.Absorb`（吸收层：吃掉点击、零派发、零视觉）。
-            MenuDraw.Absorb(_shade, "BackgroundHit", ShadeR, QShade, QHit);
+            //   原版 prefab 的 `BackgroundCloseButton.window` 是**空 PPtr**、`onClick` 的**序列化**监听表也空 ——
+            //   **但那不是「什么都不发生」**：`__OnPointerClick.c:24-27` = `if (window != null) window.Close(); onClick.Invoke();`
+            //   （`onClick` 是序列化 `UnityEvent`、永不为 null ⇒ `Invoke()` **无条件跑**），而 `WhereToGetCardsWindow__Awake.c:12-24`
+            //   运行期挂了监听器：`*param_1 + 0x1c0` = vtable 槽 **`+0x1b8` 的 methodInfo**（同槽 = `Close`，`OnPointerClick` 自己调 `window.Close()` 也走它）
+            //   ⇒ **点暗底 = 关窗**。🔴 2026-10-26 订正 `N51③`：它只读了序列化监听表、漏了 `Awake` 那条。
+            MenuDraw.ShadeHit(_shade, ShadeR, QShade, QHit, () => Close(), "BackgroundHit");
 
             // ---- 2) `Generic Window Red Background Big`（九宫底；`Image.m_RaycastTarget = 1` ⇒ 吃点击）----
             _panel = MenuDraw.Node(transform, "Generic Window Red Background Big", PanelR);

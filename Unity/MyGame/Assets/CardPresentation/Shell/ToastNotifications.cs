@@ -1454,5 +1454,10 @@ namespace CardPresentation
                            + "`Toast Collection Level Up` / `Get XP` 的根底图**退回** "
                            + "`UI_Deck_Information_submenu_Back_opaque`（同族、已导；⛔ 不静默、也⛔ 不写成原版行为）。");
         }
+
+        /// <summary>只读计数口（给断言用，追加在类尾以免动到账引用的行号）：**`ShowInternal` 被进入的次数**
+        /// —— 语义 = 「绕过 handler 表、真自己弹了几条」。与 <see cref="ShowCount"/> 同源（同一处 `:916` `ShowCount++`）；
+        /// 原版 `TryShowNotification` 命中 handler 时**不**走内部展示，所以这条计数是「handler 支 vs 内部支」的判据。</summary>
+        public int InternalShowCount { get { return ShowCount; } }
     }
 }

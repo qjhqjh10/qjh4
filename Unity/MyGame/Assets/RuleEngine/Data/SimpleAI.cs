@@ -2122,5 +2122,79 @@ namespace RuleEngine
                     return true;                   // 其余档（含 Tutorial / Practice / Campaign / Duel …）
             }
         }
+
+        // ==================================================================
+        //  🆕 2026-10-26（`B8_E`）：原版 `BattleManager.MightAttackBuffedCard`
+        //  —— 追加在类尾（铁律 18·b：上面的行号都是账里的落点，别插在中间）
+        // ==================================================================
+
+        /// <summary>
+        /// 「这个单位**叠上这条 buff 之后**还出得了手吗」—— 原版
+        /// `BattleManager.MightAttackBuffedCard(CardScript card, CardEffect buffEffect)`。
+        /// 它是 `AI.GetPotentialBuffedAttackActions` 的**第一道闸**（能不能出手），
+        /// 也是 `ScoreFromBestAttack` / `ScoreFromBuffedAttack` 那条链的前置。
+        ///
+        /// <para>**判据（第一权威，逐句）**：🥇 `decomp_full/BattleManager__MightAttackBuffedCard.c:1-33`
+        /// （全文 33 行，逐段对照如下）：
+        /// <code>
+        /// if (card != null) {
+        ///   if (card.mightAct) {                                            // .c:10
+        ///     v = card.CurrentMeleeAttack + buff.meleeAttackChange(+0x48);  // .c:12-14
+        ///     if (v &lt; 1) {                                                  // .c:16
+        ///       v = card.CurrentRangeAttack + buff.rangeAttackChange(+0x50);// .c:17-19
+        ///       if (v &lt; 1) return false;                                    // .c:20
+        ///     }
+        ///     if (card.state(+0x228) == 2) return true;                     // .c:22-24  (2 = 在场)
+        ///   }
+        /// }
+        /// return false;
+        /// </code>
+        /// ⇒ 合取三条：`mightAct` ∧（`近战+Δ ≥ 1` **或** `远程+Δ ≥ 1`）∧ `状态 == 2`（在场）。</para>
+        ///
+        /// <para>**机制差异 / 我们等价在哪**：
+        /// ① **第三条（`state == 2`）我们不另写判据** —— 交付进来的 `t.Unit` 本来就是
+        ///    **棋盘上**的单位（调用点先按 `ctx.Players[side].Board` 枚举），恒真；
+        /// ② `mightAct` 走引擎唯一判据 <see cref="AiTargets.MightAct"/>
+        ///    （→ `ConditionEval.MeetsUnit(..., 20, ...)`，同源 `CardScript__get_mightAct.c`），
+        ///    ⛔ 不在这里另写一份；
+        /// ③ 🔴 **本条是本轮补上的缺口**：`AiScoring.BestAttackScore` 原来只判
+        ///    `u.Exhausted || u.IsStunned` —— 那是我们侧 `canAct`（`+0x230`）的近似，
+        ///    而原版这个闸读的是 `mightAct`：`CardScript__get_mightAct.c:7-27` 逐句 =
+        ///    「已攻击过须 `bloodThirst` 且 `== 1` · 是单位 · **`!displaySummonSickness`** ·
+        ///    `!stun(100)` · `!cantAttack(0x96=150)` · `!nonCombatant(0x370=880)`」——
+        ///    **它一处都不读 `canAct`**（同族佐证：`UnitState.cs` 的 `CannotAttackThisTurn` doc
+        ///    明写「不能拿 `Exhausted` 顶替」，那是另一位）。
+        ///    ⇒ 旧写法把「本回合已行动（用过主动技等）」误当成「不能出手」，会让这一类单位
+        ///    整族不进 option 5 的候选；现在「带 buff」那一档的闸收在这一处。
+        ///    ⚠️ **只对「带 buff」那一档生效**（见 ⑤）；`AiScoring.BestAttackScore` 的
+        ///    `meleeDelta == 0` 是「不带 buff」的对照分，原版那条路不经过本闸。
+        ///    🔴 **两个闸谁管这一格待裁决**：本方法（原版 `mightAct`）与 `AiScoring` 的旧口径
+        ///    （`Exhausted || IsStunned` = 我们侧 `canAct`）在「已行动但未攻击」的单位上结论相反；
+        ///    2026-10-26 `B8_E` 取**保守合取**（两个都过才进候选，只会收紧不会放宽），
+        ///    并在实测夹具上看到两者确实分叉（`ai "Path of the Warrior"` 的 option 5 从 0 变 −1.2）
+        ///    ⇒ 已记账交引擎线裁决，⛔ 别单方面删掉 `Exhausted` 那一句；
+        /// ④ 两个 Δ 由调用方从**它自己那套 buff 表示**里取（原版是 `CardEffect` 的
+        ///    `+0x48 / +0x50` 两格）；`AiScoring.BestAttackScore` 那条链目前只有近战 Δ
+        ///    （远程 Δ 传 0 —— 因为 `GetPotentialBuffedAttackActions` 只枚举**近战** action，
+        ///    远程那一支进了门之后也会被 `atk &lt;= 0` 挡掉，净结果相同）；
+        /// ⑤ **为什么「不带 buff」那一档不套本闸**：原版 `AI__ScoreFromBestAttack.c:21`
+        ///    **只调一次** `GetPotentialBuffedAttackActions(manager, actingCard, buff)`（带 buff），
+        ///    拿到的列表逐条打分取 max；option 5 里那个「不带 buff」的对照分是我们自己重建的
+        ///    （判据里没有对应方法体），所以那一侧仍走原来的 `Exhausted || IsStunned`。</para>
+        ///
+        /// <para>**可观察量**：`bash d:/4/Unity/工具/ruleprobe.sh ai &lt;卡id&gt;` 的 `[出牌分·逐条]`
+        /// 那一行 `cardTarget[0] option=5 … mightAct=真 M / 假 K` —— `M`/`K` 是这张卡
+        /// option 5 候选里「过闸 / 被闸掉」的目标数（见 `工具/ruleprobe/AiProbe.cs` 文件头
+        /// 第 34-37 行给的验法）。</para>
+        /// </summary>
+        public static bool MightAttackBuffedCard(BattleContext ctx, AiTargetRef t,
+                                                 int meleeDelta, int rangedDelta)
+        {
+            var u = t.Unit;
+            if (u == null || !u.IsAlive) return false;
+            if (!AiTargets.MightAct(ctx, t)) return false;      // `.c:10`
+            if (u.Attack + meleeDelta >= 1) return true;        // `.c:12-16`（近战那支过闸）
+            return u.RangedAttack + rangedDelta >= 1;           // `.c:17-20`（近战不行再看远程）
+        }
     }
 }

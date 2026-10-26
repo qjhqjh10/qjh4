@@ -943,7 +943,7 @@ namespace CardPresentation
             // 🔴 只播**一次**：行是每次滚动/选中都重建的（`BuildMessageRows` 的幂等设计），
             //   原版只在 `MessageList.Initialize` 那一刻 `AnimateIn` 一遍 ⇒ 这里用一个「播过没有」的位挡住重播
             //   （`LoadFromStore` / `Initialize` 会把它清掉 = 换了一批消息才重新入场）。
-            if (_animPlayed) { for (int i = 0; i < _rowNodes.Length; i++) ApplyRowAnim(i, 1f); return; }
+            if (_animPlayed || !Application.isPlaying) { for (int i = 0; i < _rowNodes.Length; i++) ApplyRowAnim(i, 1f); return; }   // 🔴 2026-10-26（B8_BN）：批处理/编辑器**没有帧循环** ⇒ `Tick` 一次都不会被推 ⇒ 入场动画**根本播不动**，行会**永久停在起点**（`localScale = AnimScaleFrom = 0.5`、底图 alpha 0）。实测代价：`Editor/ShellScene.cs` 的 A743 三态量到的文字右沿恰好是「全尺寸值 ×0.5 绕格心」= 571.10 / 429.32 / 684.38（原版全尺寸下是 728.28 / cutX / 954.83）⇒ 三条红，且建场截图里条目是**半尺寸 + 透明**。⇒ 非 Play 直接落到终态（`p = 1`）。⚠️ 同族口径：`Shell/CollectionWindow.cs:1337` 的「生产路径用 `Application.isPlaying`」· `Shell/DraftModeWindow.cs:2548` 的 `if (!Application.isPlaying) { node.localScale = Vector3.one; return; }`
             _animPlayed = true;
             _animRows = _messages.Count;
             _animT = _animRows > 0 ? 0f : -1f;

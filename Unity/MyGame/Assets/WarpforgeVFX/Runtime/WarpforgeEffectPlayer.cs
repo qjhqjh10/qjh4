@@ -636,10 +636,10 @@ namespace WarpforgeVFX
         /// 带一个动画事件 `functionName: OnAnimationEndEvent`。原版那个方法体
         /// （`SwarmVFXController__OnAnimationEndEvent.c`，逐句）做三件事：
         /// ① 调回调（`CardScript.ExecuteSwarm` 传进来的闭包）· ② `StopAllCoroutines` ·
-        /// ③ `Object.Destroy(gameObject)`。
+        /// ③ `Object.Destroy(gameObject, 5f)` —— **不是立即销毁**（字面量现读见 `SwarmAnimationEnded`）。
         /// 我们这边**没有** `SwarmVFXController`（那份 prefab 的 `m_Script` 反查出来只有 binder）
         /// ⇒ 这一拍原来既**没有接收者**（Unity 会打一条 "has no receiver"）**也不销毁**，
-        /// 对象一路活到 `natural = 3.5 s` 才被计时路收掉 ⇒ **比原版多活 2.3 s**。</para>
+        /// 对象一路活到 `natural = 3.5 s` 才被计时路收掉｜🔴 **2026-10-26（B8_AB）就地订正**：这里原来写「⇒ 比原版多活 2.3 s」——**那条结论错了**（它按「原版立即销毁」推；原版是 `Destroy(go, 5f)`）。</para>
         ///
         /// <para>**为什么收在这里、而不是新加一个组件**：`WarpforgeEffectPlayer` 是
         /// `WarpforgeEffectPlayer.Play()` 给**每一个**实例都挂上的（见 `Play` 末尾
@@ -659,9 +659,9 @@ namespace WarpforgeVFX
         /// 动画结束之后再合并数值，得由战斗侧另挂。</para></summary>
         public void OnAnimationEndEvent()
         {
-            // 只在真播着的时候走销毁：已经收过（`_destroyed`）或正在 `Exit()` 收尾时
-            // `DoDestroy` 自己会 return，不会重复销毁。
-            DoDestroy();
+            // 🔴 2026-10-26（B8_AB）：原版 ③ 是 `Destroy(gameObject, 5f)`（**5 秒尾巴**）⇒ 走 `SwarmAnimationEnded`，
+            // ⛔ 别再退回「立即 `DoDestroy()`」（那样比原版少活 5 秒，见该方法里的判据与字面量）。
+            SwarmAnimationEnded();
         }
 
         /// <param name="force">保留参数只为让调用点读起来明确；**Exit 计时路与 Kill 一律销毁**。</param>
@@ -848,5 +848,35 @@ namespace WarpforgeVFX
         {
             return float.IsPositiveInfinity(v) ? "不自动收" : $"{v:F2}s";
         }
+
+        // ==================================================================
+        //  原版 `SwarmVFXController.OnAnimationEndEvent` 的第 ③ 跳（5 秒尾巴）
+        // ==================================================================
+        //  判据 🥇 `d:/2/tools/decomp_full/SwarmVFXController__OnAnimationEndEvent.c:3-27`：
+        //      `onFinish?.Invoke()` → `StopAllCoroutines()` → `UnityEngine_Object__Destroy(go, DAT_1834b2df4, 0)`
+        //  字面量现读（`工具/read_literal.py "D:/2/unity_run_ref/GameAssembly.dll" 0x1834b2df4`）：
+        //      4B float = **5.0** ✅（8B double = 5.3568e-315 ⇒ 不是字面量）
+        //  ⇒ 动画事件（`Swarm Triat Merge.anim` t = 1.2 s）之后**还要活 5 秒**（≈ 6.2 s 才没），不是立即销毁。
+        //  ⚠️ 本 effect 的自然寿命 = `natural 3.5 s`（**估的**：原版那份 prefab 没有 `AnimFXController`
+        //     ⇒ 原版根本没有计时销毁；`Resources/WarpforgeVFX/WarpforgeEffectLibrary.asset` 里
+        //     `Swarm Card Merge VFX` = `destroyTime -1 / modules []`）⇒ 不把 `_lifetime` 抬起来的话
+        //     3.5 s 会先到、5 秒尾巴等于没接（「改了但看不出来」那类静默失效）。
+        //  ⚠️ 与原版仍差两处（如实记，⛔ 别当成已对齐）：① `onFinish` 回调无对应物
+        //     （原版那个闭包接在 `CardScript.ExecuteSwarm` / `Battle/**` 侧）；② `SafeExit` 看门狗
+        //     （4 s 内没收到事件 ⇒ `LogError` + 回调 + 5 s 尾巴）没做 —— 我们靠自然寿命兜底
+        //     （账 `特效动画.tsv:405` 的 D 依据就是这一条）。
+        //  观测量（留给真 Play；本代理不跑 Unity）：`WarpforgeEffectPlayer.ActiveCount` 在 t ≈ 1.2 s
+        //     动画事件之后应保持 1 到 t ≈ 6.2 s（原版同刻同一口径）。
+        void SwarmAnimationEnded()
+        {
+            if (_destroyed) return;
+            float tail = SwarmAnimationEndTail;
+            if (_lifetime < _time + tail) _lifetime = _time + tail;
+            DestroyAfter(tail);
+        }
+
+        /// <summary>原版 `SwarmVFXController.OnAnimationEndEvent` 里 `Destroy(gameObject, 5f)` 的 **5.0**
+        /// （`DAT_1834b2df4` 现读 4 字节 float）。</summary>
+        public const float SwarmAnimationEndTail = 5f;
     }
 }

@@ -2044,5 +2044,62 @@ namespace RuleEngine
                 return list;
             }
         }
+
+        // ==========================================================================================
+        //  🆕 **2026-10-26（完全复刻 · 批次 8 · 执行代理 `B8_C` · 任务②）：`WhenEventKind` 里
+        //     `TriggerNameOfWhenKind` 的 switch **没有映射**的那几种 —— 逐种回原版查，能补的补。**
+        // ==========================================================================================
+        //  接线：`EffectResolver.TriggerNameOfWhenKind` 的 switch **之后**兜底调本方法
+        //  （返 `null` 才算「没映射」⇒ 那时 `EmitListenerTrigger` 走 `WarnUnmappedListenerKind`）。
+        //  ⛔ 放在 `WhenEvents` 类尾（而不是 `WhenEventKind` 常量表里）是**行号纪律**：
+        //     账里 `WhenEvent.cs` 的落点最高到 `:1886-1902`，插在中间会让下游行号整体漂。
+        //
+        //  逐种判据（🥇 `d:/2/tools/decomp_full/`；枚举真值 = `d:/2/Warpforge_code/Scripts/Assembly-CSharp/AbilityTrigger.cs`）：
+        //   · **`kills` → `Slay`(120)**：`CardScript__TriggerSlay.c:9-11`
+        //     `OnTrigger(0x78 = 120, …, thisCard, thisCard, thisCard, 0)` —— 三格实参都是**凶手自己**
+        //     ⇒ 与我们的 `WhenEvent.Kills` + 自指（`ActorSelf`）同形。
+        //     调度形状：`BattleManager__AddTriggerSlay.c:37` 组 `BattleAction(type = 0x59 = 89)` 入队；
+        //     出队 `BattleManager__ResolveTriggerSlay.c` 里**先判 `CardScript__IsInPlayOrDying()`**
+        //     （在场上/将死才调 `TriggerSlay`）—— 🔴 我们**没有那一闸**，见下面「残留」。
+        //     📊 安全边界（现读 `cards_engine.json` 1,128 张）：`abilityTriggers` 含 **120** 的 = **16 张**。
+        //   · **`losestealth` → `UnitLoseStealth`(647)**：`CardScript__TriggerLoseStealth.c:5-9`
+        //     `OnTrigger(0x287 = 647, …, thisCard = 掉隐身那个, actingCard = param_2, targetCard = 0)`。
+        //     📊 安全边界：`abilityTriggers` 含 **647** 的 = **1 张**（`ASH79 Orian Laratharjos`，
+        //     卡面 `When a friendly unit loses Stealth, give it Shuriken 1 this turn`）。
+        //   · **`getsshield` —— ⛔ 原版也没有（不补）**：`AbilityTrigger` 全 97 条里**没有任何
+        //     「获得护盾」的号**（`AbilityTrigger.cs` 全文 `grep -i shield` = **0 行**）；
+        //     `CardScript` 的 15 个 `ReactTo*` 里也没有 shield。
+        //   · **`becomesremnant` —— ⛔ 原版也没有（不补）**：同上枚举无 `Remnant` 名；
+        //     `CardScript.TransformIntoRemnant()` 体内 **0 处** `OnTrigger`
+        //     （🥈 `out_cpp2il_dev_ilspy/CardScript.cs:14973-15008`，逐行读过）；
+        //     `SAU53 Undying Legions` 那条「变成残骸时获得 Shield」在原版走的是**附魔 SO**
+        //     （`buffType 90 addTraitRemnant`），不是 AbilityTrigger
+        //     （判据链 → `EffectOp.AddTraitRemnant` 的 doc）。
+        //   · **`unitjammed` —— ⛔ 原版也没有**：`CardScript__ReactToUnitJammed` 体内 0 处 `OnTrigger`（`F2` 第 4 轮 §2·1）。
+        //
+        //  ⚠️ **残留（如实标着，⛔ 别当成已对齐）**：`kills` 那一族原版**出队前**有一道
+        //     `IsInPlayOrDying` 闸（`ResolveTriggerSlay`）—— 我们**没有**这一闸
+        //     ⇒ 「凶手在 Slay 动作出队前就离场（死在同批结算里）」那一档我们会**照响**、原版**不响**。
+        //     今天零可观测（`ruleprobe play` 的 `kill` 步里凶手都还活着），要点 → `报告/B8_C_EffectResolver族.md` §四。
+
+        /// <summary>`TriggerNameOfWhenKind` 的 switch 没覆盖的几种 kind → 原版 `AbilityTrigger` 名
+        /// （判据见上）；<c>null</c> = 原版也没有 / 未查清。</summary>
+        public static string ExtraTriggerNameForKind(string kind)
+        {
+            switch (kind)
+            {
+                case WhenEventKind.Kills:        return "Slay";             // 120
+                case WhenEventKind.LosesStealth: return "UnitLoseStealth"; // 647
+            }
+            return null;
+        }
+
+        /// <summary>原版**也没有**对应 `AbilityTrigger` 号的那几种 kind（判据见上）。
+        /// <para>给诊断口径用：它们出现在「未映射」那一支时是**预期**，⛔ 不是「我们漏了」。</para></summary>
+        public static readonly System.Collections.Generic.HashSet<string> KindsAbsentInOriginal =
+            new System.Collections.Generic.HashSet<string>(System.StringComparer.Ordinal)
+            {
+                WhenEventKind.GetsShield, WhenEventKind.BecomesRemnant, WhenEventKind.UnitJammed,
+            };
     }
 }

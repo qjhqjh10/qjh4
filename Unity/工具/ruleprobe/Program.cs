@@ -248,7 +248,7 @@ class Program
     //   ⇒ **只重钉这一颗**，`PinnedBaselineMd5` / `PinnedParseMd5` 原样不动。
     //   卡池 md5：`5a17f6af…` → `0397005d…`（3,119,176 → 3,235,327 B，+116,151 B 全部来自新列）。
     //   归因 → `资料/普查产出_1025/E4_trigger目标与activeAbility目标池.md` §二·2 / §四。
-    public const string PinnedPoolMd5 = "721637d21d29fe468b51b59830dd2c51";  // 2026-10-25 重钉（执行代理 E4）：卡表 v27→v28，新增主动能力目标闸 `ActiveAbility.targetCriteria` 一列（`activeAbilityPickCriteria` 107 行）。卡的内容没变；解析差异 0 行 · 输出指纹仍 af836aa0… · 结算零差异 ⇒ 只重钉这一颗。归因 → 资料/普查产出_1025/E4_trigger目标与activeAbility目标池.md｜🔴 2026-10-25 再重钉（执行代理 X6）：卡表 v28→v29，`abilityLevelCriteria[]` 新增 `ca` 列（族别）85 行；卡内容一字未改、count 1127 不变，解析差异 0 行 · 输出指纹仍 af836aa0… · `play check` 基线 fc591fb3… 未变 ⇒ 只重钉这一颗。归因 → 资料/普查产出_1025/X6_口径乙ca列_执行报告.md｜🔴 2026-10-25 再重钉（执行代理 X20）：卡表 v29→v30，新增 1 张隐藏附魔 `Pray Enchantment`（`cardType 20`/`type=enchantment`）；既有卡改动 0 张。归因 → 资料/普查产出_1025/X20_PrayEnchantment入池_执行报告.md
+    public const string PinnedPoolMd5 = "8aa37475268b685929c113e925f613ad";  // 🔴 2026-10-26 重钉（第八十二会话同步点）：卡表 v30→v31（新增 `keyword` 列） ｜ 2026-10-25 重钉（执行代理 E4）：卡表 v27→v28，新增主动能力目标闸 `ActiveAbility.targetCriteria` 一列（`activeAbilityPickCriteria` 107 行）。卡的内容没变；解析差异 0 行 · 输出指纹仍 af836aa0… · 结算零差异 ⇒ 只重钉这一颗。归因 → 资料/普查产出_1025/E4_trigger目标与activeAbility目标池.md｜🔴 2026-10-25 再重钉（执行代理 X6）：卡表 v28→v29，`abilityLevelCriteria[]` 新增 `ca` 列（族别）85 行；卡内容一字未改、count 1127 不变，解析差异 0 行 · 输出指纹仍 af836aa0… · `play check` 基线 fc591fb3… 未变 ⇒ 只重钉这一颗。归因 → 资料/普查产出_1025/X6_口径乙ca列_执行报告.md｜🔴 2026-10-25 再重钉（执行代理 X20）：卡表 v29→v30，新增 1 张隐藏附魔 `Pray Enchantment`（`cardType 20`/`type=enchantment`）；既有卡改动 0 张。归因 → 资料/普查产出_1025/X20_PrayEnchantment入池_执行报告.md
 
     /// <summary>钉住的基线内容指纹（`工具/ruleprobe/基线/out_baseline.txt` 的 md5，**按字节**）。
     /// 与上面那个配对使用 —— 判据见上面那段长注释。</summary>
@@ -282,7 +282,7 @@ class Program
     //   的**后半句**原来被静默吃掉）。判据 → `资料/任务线/引擎线/任务总表.md` `T02` 行 ＋ 卡面中文
     //   「如果目标死亡或为友方单位」＋ `cards_1195_2022时代.json` 的 `targetCriteria(friendlyUnits=1/enemyUnits=1)`。
     //   ⇒ 按「先修好解析器，再跑 `scan` 定为新基线」重生成，⛔ 不是把红抹平。
-    public const string PinnedBaselineMd5 = "5ebfa4bfff1a20a814de6a3e8bebcd50";  // 2026-10-24 重钉（Z71 · G10）：GSC75 一行解析变化后重生成基线
+    public const string PinnedBaselineMd5 = "5fb45aec9e162dab2349d9b86bf5740a";  // 🔴 2026-10-26 重钉（第八十二会话同步点）：基线重生成（Ethereal Supreme 的 `warlord`→`unit`） ｜ 2026-10-24 重钉（Z71 · G10）：GSC75 一行解析变化后重生成基线
 
     /// <summary>🆕 **解析输出指纹**（`A1382` **一般情形**的堵法，2026-10-12 第二十一会话 · 写手 `E5`）
     /// —— 「`check` 的判据是『与**基线文件**比』，而**基线文件同一个工具就能重写**」这条洞的机器级补丁。
@@ -347,7 +347,7 @@ class Program
     //   🔴 **2026-10-21（第五十九会话 · 引擎线 `T02`）重钉** —— 唯一变化 = `SOR31|Dogmata` 的条件种类
     //   （`targetdies` → `targetdiesorfriendly`）。行为侧另有三条新断言（友方活着 +1 / 敌方活着 +0 /
     //   敌方被打死 +1）钉住它，见 `Assets/RuleEngine/Editor/RuleEngineTest_T02.cs`。
-    public const string PinnedParseMd5 = "193c1b25b0b4073f3da99f7085d6558d";  // 2026-10-24 重钉（Z71 · G10）：`in your hand` 计数从句（全池只 GSC75 一张）；归因 → 资料/普查产出_1024/G10_GSC75解析缺陷.md
+    public const string PinnedParseMd5 = "18439d965d14288fe28cfbe5986dc445";  // 🔴 2026-10-26 重钉（第八十二会话同步点）：解析输出随基线同步 ｜ 2026-10-24 重钉（Z71 · G10）：`in your hand` 计数从句（全池只 GSC75 一张）；归因 → 资料/普查产出_1024/G10_GSC75解析缺陷.md
 
     /// <summary>一个文件的 md5（按字节；读不到返回 `null` —— ⛔ 不静默当成空串）。</summary>
     public static string Md5File(string path)
@@ -404,7 +404,7 @@ class Program
                               + "layers <out.jsonl> | "
                               + "willrun [dump <out>] | faith [dump <out>] | play <id|卡名> | play all [dump <out>] [pf <out>] | "
                               + "play check [<pf.txt>] | nonkw | jackal | emergency | suppressor | played | b19test | "
-                              + "dbparse | ai <卡id|卡名> | "
+                              + "dbparse | ai <卡id|卡名> | traits [<id|卡名>|q=<trait,…>|cond=<n,…>] | "
                               + "tutorial <list|run [S]|g3 [行号]|pred <行号>>");
             Environment.Exit(1);
         }
@@ -442,7 +442,13 @@ class Program
         //   ⛔ 只读：不碰基线、不碰三个指纹、不改 `check`/`play` 的任何输出。
         if (args[0] == "ai")
         {
-            Environment.Exit(AiProbe.Run(args.Length > 1 ? args[1] : ""));
+            // 🆕 `B8_AV`（2026-10-26）：`ai actions <卡id>` —— **动作表**读数口
+            //   （`SimpleAI.EnumerateActions` = 原版 `BattleManager.GetAvailableActions` 的等价物）。
+            //   🔴 为什么需要它（`B8_E` §五）：`ai` 原来只打 `ScoreAction` 的分解、**看不到候选动作集**；
+            //   而 `play all dump` 结构上看不见 AI ⇒ 那 3 条账行没有读数口。
+            //   ⚠️ 第一参仍可以是卡 id/卡名（老用法一字不动）—— 只有字面量 `actions` 才切到动作表那一档。
+            Environment.Exit(AiProbe.Run(args.Length > 1 ? args[1] : "",
+                                         args.Length > 2 ? args[2] : ""));
         }
         // 🆕 **`tutorial <list|run|g3|pred>`**（`G5`，2026-10-26 · 第 5 轮）：**教程局读数口**。
         //   🔴 为什么需要它：`F4_第4轮.md` §1·3 —— 15 条 B 里 **12 条 `AiScripted` 全卡在 G3（可观察量）**，
@@ -455,6 +461,18 @@ class Program
         {
             Environment.Exit(TutorialProbe.Run(args.Length > 1 ? args[1] : "list",
                                                args.Length > 2 ? args[2] : ""));
+        }
+        // 🆕 **`traits [<id|卡名> | q=<trait,…> | cond=<n,…>]`**（`B8_AH`，2026-10-26）：
+        //   **trait 家族（原版 `RawCardScript.CardTraits +0x230`）＋ `keyword(+0x98)`** 的只读读数口。
+        //   🔴 为什么需要它：`layers` 只给 `kw`/`kwKeys`（`_keywords` 那一份），**看不到**
+        //   `CardDef.CardTraits`（`CountTraits` / `HasDefaultTrait` / `GetDefaultTraitValue` /
+        //   `FindDefaultTrait` 的唯一数据源）与 `CardDef.KeywordId`（条件 275/276/277 的判据）；
+        //   而 `play` 的夹具单位是现造的 `new CardDef(...)`（不带 keyword）⇒ 结构上测不到真值透传。
+        //   `cond=` 那一档直接调**产品代码** `ConditionEval.MeetsCard` ⇒ 候选集可观察。
+        //   ⛔ 只读：不碰基线、不碰三个指纹、不改 `check`/`play`/`ai` 的任何输出；`rc` 恒 0（与 `play`/`ai` 同口径）。
+        if (args[0] == "traits")
+        {
+            Environment.Exit(TraitsProbe.Run(args.Length > 1 ? args[1] : ""));
         }
         if (args[0] == "check" && !File.Exists(PoolPath)) { Console.Error.WriteLine("!! 找不到卡池：" + PoolPath); Environment.Exit(2); }
         int i = 0;
@@ -622,6 +640,17 @@ class Program
         int poolVersion = doc.RootElement.TryGetProperty("version", out var vEl) && vEl.ValueKind == JsonValueKind.Number
                           ? vEl.GetInt32() : -1;
         int nMissInv = 0, nMissShow = 0, nMissInit = 0;
+        // 🆕 **2026-10-26（执行代理 `B8_AV`）：`targeted` 这一列也要传**（`A1911` 同族的第 5 例）。
+        //   `CardDef.Targeted` 默认 `-1`，而它唯一的消费者
+        //   `EffectText.AssignCardTargetFallback`（`Core/EffectText.cs:1942`）的闸正是 **`Targeted != 1` ⇒ 不接**
+        //   ⇒ 探针不传 = **卡级 `cardtarget` 条件在 `play` 这条路上永远挂不上**：
+        //   引擎（`Data/CardDatabase.cs:1499`）传了、探针没传 ⇒ **探针与引擎口径不同**，
+        //   任何拿 `play` 量「这张卡的卡级目标条件筛没筛掉人」的读数都是**静默错**。
+        //   ⚠️ **`-1` 契约（⛔ 不许借 `I()`）**：`targeted = 0`（「不需要选目标」）是**合法真值**
+        //      （现读池内 882 张 `0` / 246 张 `1`）⇒ 缺列一律 `-1`（= 缺值）并出声。
+        //   🔴 **它会让 `check` / `play all` 的读数变**（`targeted=1` 且卡级条件真的筛人的那几张）
+        //      ⇒ 改完必须记新指纹，⛔ **不许自己改 `Pinned*Md5`**（那是调度台重钉窗口的事）。
+        int nMissTargeted = 0;
         // 🔴 🆕 **2026-10-19（收口硬前置 · `A1959`/`A1960`）**：`choicesDefinition` 那三列也要传
         //   （接口来源 = `资料/普查产出_1018/W_引擎线_波2b.md` §六·1）。
         //   不传的后果与 `A1911` **一模一样**（同一条链：**探针与引擎口径不同**）：
@@ -686,6 +715,9 @@ class Program
             if (!hasInv) nMissInv++;
             if (!hasShow) nMissShow++;
             if (!hasInit) nMissInit++;
+            // 🆕 `B8_AV`（2026-10-26）：`targeted` —— 同样**逐格判「有没有这一格」**（理由见上面那段）。
+            bool hasTgt = c.TryGetProperty("targeted", out var tgtEl) && tgtEl.ValueKind == JsonValueKind.Number;
+            if (!hasTgt) nMissTargeted++;
             // 🆕 **2026-10-19**：`choicesDefinition` 三列 —— 同样**逐格判「有没有这一格」**。
             bool hasCTa = c.TryGetProperty("choicesTargetsAffected", out var cTaEl) && cTaEl.ValueKind == JsonValueKind.Number;
             bool hasCMt = c.TryGetProperty("choicesMaxTargets", out var cMtEl) && cMtEl.ValueKind == JsonValueKind.Number;
@@ -1052,6 +1084,9 @@ class Program
                                  inventoryOptions: hasInv ? invEl.GetInt32() : -1,
                                  showInCollectionOptions: hasShow ? showEl.GetInt32() : -1,
                                  initiative: hasInit ? initEl.GetInt32() : -1,
+                                 // 🆕 `B8_AV`（2026-10-26）：原版 `RawCardScript.targeted` 透传（`-1` = 未知）。
+                                 //   缺列 `-1`（⛔ 不是 `0` —— `0` 是「不需要选目标」的合法真值）。
+                                 targeted: hasTgt ? tgtEl.GetInt32() : -1,
                                  // 🆕 2026-10-19（`A1959`，v10）：缺列 `-1` / 空表 ⇒ 如实收下，
                                  //   ⛔ 不在这里替消费侧决定「该不该开面板」（那在 `EffectText` 那四道闸）。
                                  choicesTargetsAffected: hasCTa ? cTaEl.GetInt32() : -1,
@@ -1112,6 +1147,12 @@ class Program
             Console.WriteLine("⚠️ 卡池有缺列（探针按 **-1 = 缺值** 收下，⛔ 没当成 `0`）：`inventoryOptions` 缺 "
                               + nMissInv + " 行 · `showInCollectionOptions` 缺 " + nMissShow + " 行 · `initiative` 缺 "
                               + nMissInit + " 行 —— 先看生成器是不是漏了这一列（`gen_cards_engine.py`）。");
+        // 🆕 `B8_AV`（2026-10-26）：`targeted` 缺列同样出声（⛔ 不静默变成「这张卡不需要选目标」）。
+        if (nMissTargeted > 0)
+            Console.WriteLine("⚠️ 卡池有缺列（探针按 **-1 = 缺值** 收下，⛔ 没当成 `0`）：`targeted` 缺 "
+                              + nMissTargeted + " 行 —— ⇒ `EffectText.AssignCardTargetFallback` 的闸（`Targeted != 1`）"
+                              + "对这些行恒不成立，**卡级 `cardtarget` 条件挂不上**（`play` 的读数会与引擎不同口径）；"
+                              + "先看生成器是不是漏了这一列（`gen_cards_engine.py`）。");
         // 🆕 2026-10-19（`A1959`）：`choicesDefinition` 三列同样出声（判据/后果见上面那一段）。
         if (nMissChoicesTa > 0 || nMissChoicesMt > 0 || nMissChoicesIds > 0)
             Console.WriteLine("⚠️ 卡池有缺列（探针按 **-1 / 空表 = 缺值** 收下）：`choicesTargetsAffected` 缺 "

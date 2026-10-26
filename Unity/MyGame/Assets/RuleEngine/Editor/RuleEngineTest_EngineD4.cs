@@ -90,12 +90,17 @@ public static partial class RuleEngineTest
         // 🔴 2026-10-25（执行代理 `X20` · 铁律 5 就地订正）：同会话的 `X20` **加了一张卡不加列**
         //   （隐藏附魔模板 `Pray Enchantment`，池 1127→1128）⇒ 表 bump 到 **30**。
         //   归因 → `资料/普查产出_1025/X20_PrayEnchantment入池_执行报告.md`。
-        Check(dto.version, 30,
-              "★ A1 卡表 `version` = **30**（v30 = **加卡不加列**：池内新增隐藏附魔模板 `Pray Enchantment`；"
+        // 🔴 2026-10-26（执行代理 `B8_BM` · 铁律 5 就地订正）：同会话的 `B8_AH` 加了 **`keyword` 一列**
+        //   （v31）、`B8_BM` 又加了 **`chosenAbility` 一列**（v32）⇒ 表 bump 到 **32**。
+        //   归因 → `资料/完全复刻/报告/B8_BM_强制攻击退还数据化.md`。
+        Check(dto.version, 32,
+              "★ A1 卡表 `version` = **32**（v32 = 加 `chosenAbility` 一列 —— 「强制攻击退不退还行动额度」"
+            + "的判据来源（`ForcedAttackRefund`）；v31 = 加 `keyword` 一列；"
+            + "v30 = **加卡不加列**：池内新增隐藏附魔模板 `Pray Enchantment`；"
             + "v29 `abilityLevelCriteria` 的 `ca` 一格 / v28 `activeAbilityPickCriteria` / v27 "
             + "`abilityActingCriteria` / v26 / v25 各列照旧；"
-            + "⛔ 不 bump 的话卡池变更没有版本可认）"
-            + "｜🧨 生成器 return 里改回 29（或忘了 bump）⇒ 红");
+            + "⛔ 不 bump 的话卡池/新列的变更没有版本可认）"
+            + "｜🧨 生成器 return 里改回 31（或忘了 bump）⇒ 红");
 
         // ---- A2 · 两列「每张卡都落」：`null` 与空数组必须分得开 ----
         int aatNull = 0, atcNull = 0;

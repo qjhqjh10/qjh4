@@ -1476,7 +1476,7 @@ namespace RuleEngine
         /// 🔴🔴 **2026-10-10（第十四会话 · `A1398`）：本表的【入表判据】—— 普查 47 词后定案。**
         ///
         /// 🔴 **<see cref="Implemented"/> 不是入表依据，两张表本来就不同**（实测
-        ///    `Implemented` **70** 词 − **两表共有的 23 词** = **47 词**）。
+        ///    `Implemented` **70** 词 − **两表共有的 23 词** = **47 词**）。⚠️ **`70 / 23 / 47` 是 2026-10-11 那一版的快照**：2026-10-26（`B8_D` 任务 2）往 `Implemented` 补了 `Jam` / `SneakAttack` 两个词（判据见那一格的注释）⇒ `Implemented` 现值比 70 多 2；**`47` 不受影响**（它数的是下面那三段「正文型关键词」清单，本批一个词都没动）。
         ///    ⚠️ **2026-10-11 就地订正（铁律 5）**：这句原来写「− 本表 **23** 词 = 47 词」，
         ///    **那个 23 是错的、算法也不对**（`68 − 23 = 45`，与 47 对不上 —— 那时
         ///    `Implemented` 还是 68）。**现核**（数得出来的）：
@@ -6018,8 +6018,8 @@ namespace RuleEngine
         /// 规范化后的**关键词 → X 值**（`ICardProvider.Keywords`）。键是小写规范名
         /// （`"flying"` / `"armour"`），值是 `KeywordTable.Parse` 算出来的数。
         ///
-        /// 🔴 **值 `1` 不等于「卡面印了 1」** —— 没写数字的词由 `KeywordTable.FirstNumber` **兜底成 1**
-        /// （「存在即真」）。「卡面到底有没有印数字」是**另一个集合**：<see cref="NumericKeywords"/>。
+        /// 🔴 **值 `1` 不等于「卡面印了 1」** —— 没写数字的词由 `KeywordTable.FirstNumber` **兜底成 1**（「存在即真」）· 🔶 自己设计（非原版）：这个兜底值**是我们挑的** —— 原版 `CardTraitData._traitValue` 对「只写了词、没写数字」的 trait 存的是 **0**（`traits SW21`：`pack`/`ferocity` 的 `GetDefaultTraitValue` 都是 0，而我们的 `Keywords` 是 1）· 判据拿不到原版运行时那一格（`GetCurrentTraitValue` 读的是 `+0x128` 的 `_traitValue`，我们只从卡表落 `cardTraits` 的 value）⇒ 只有「有没有」这一侧能与原版逐值对齐，**取数**那一侧本池没有消费者依赖它（数值词 `armour`/`blast` 全部印了数字）· 调度台 B8_AM 2026-10-26 裁定.
+        /// （「卡面到底有没有印数字」是**另一个集合**：<see cref="NumericKeywords"/>）。
         /// ⚠️ 所以：**判「有没有这个词」用 <see cref="Has"/>，取数用 <see cref="KwValue"/>，
         /// 判「要不要画角标」用 `NumericKeywords`/`KeywordTable.HasNumber`** —— 三件事，别混用。
         /// </summary>
@@ -6264,6 +6264,292 @@ namespace RuleEngine
                     + $"⇒ 判不出「没有 trigger = {n}（{triggerName}）的行」还是「就是它」";
             return rows;
         }
+
+        // =====================================================================================
+        //  🆕 **2026-10-26（执行代理 `B8_D` · 任务 3）：原版
+        //  `CardScript.HasWhileInPlayAdjacentEffect` 的第 ③ 支（ability 级 `targetsAffected`）**
+        // =====================================================================================
+        //  判据（🥇 `D:/2/tools/decomp_full/CardScript__HasWhileInPlayAdjacentEffect.c:28-43` ·
+        //  与 🥈 `cpp2il/out_cpp2il_dev_ilspy/CardScript.cs:6865-6919` 逐句一致）：
+        //    遍历 `rawCardScript.cardAbilities(+0x290)`，只要某一条
+        //    `ability.targetCriteria(+0x30)` 非空、且 `targetCriteria.targetsAffected(+0x10) == 100`
+        //    ⇒ **返回 true**；扫完没有 ⇒ false。
+        //  🔴 **读的是 ability 级 `+0x30`，不是 logic 级 `AbilityLogic.targetCriteria(+0x28)`**
+        //    —— 那是另一层的同名对象（`ta == 100` 的 17 行**全在 logic 级**）。
+        //
+        //  ⚠️ **数据现状（2026-10-26 现读，⛔ 别当「已覆盖」）**：全池 `abilityLevelCriteria` 86 行，
+        //    `targetsAffected ∈ {10:62, 30:8, 20:8, 90:7, 55:1}` —— **`== 100` 的行 = 0**
+        //    ⇒ 照原版逐字判，全池 **0 张**命中（这正是调度台 2026-10-26 裁定「照原版、恒 false」的依据）。
+        // =====================================================================================
+
+        /// <summary>
+        /// 🆕 2026-10-26（`B8_D`）：**这张卡的 ability 级 criteria 行里，有没有
+        /// `targetsAffected == <paramref name="targetsAffected"/>` 的那一条**。
+        ///
+        /// <para>语义/判据 → 上面那一段（原版 `CardScript__HasWhileInPlayAdjacentEffect.c:28-43`）。
+        /// ⛔ 注意它**不按 trigger 过滤** —— 原版是「逐条 `cardAbilities`、只看 `targetCriteria`」，
+        /// 与那一条 ability 的 trigger 无关。</para>
+        ///
+        /// <para><paramref name="why"/> 的契约（与 <see cref="AbilityLevelCriteriaForTrigger"/> 同一套）：
+        /// `null` = 判得出（返回 false 就是**明确没有**）；非空 = **判不了**（列没落 / 有行的
+        /// `targetsAffected` 是 `-1` 未知）⇒ 调用点**出声**，⛔ 不许当「没有」。</para>
+        /// </summary>
+        public bool AnyAbilityLevelCriteriaTargetsAffected(int targetsAffected, out string why)
+        {
+            why = null;
+            if (!AbilityLevelCriteriaVersioned)
+            {
+                why = "`abilityLevelCriteria` 列没落（旧表 < v26）⇒ **未知**（⛔ 不是「没有」）";
+                return false;
+            }
+            int hit = 0, unknown = 0;
+            foreach (var kv in _abilityLevelCriteria)
+            {
+                CountSetSpec s = kv.Value;
+                if (s == null || s.TargetsAffected == CountSetSpec.Unknown) { unknown++; continue; }
+                if (s.TargetsAffected == targetsAffected) hit++;
+            }
+            if (hit > 0) return true;
+            if (unknown > 0)
+                why = $"这张卡有 {unknown} 行 `abilityLevelCriteria` 的 `targetsAffected` **未知**"
+                    + $"（-1）⇒ 判不出「没有 == {targetsAffected} 的行」";
+            return false;
+        }
+
+        // =====================================================================================
+        //  🆕 2026-10-26（执行代理 `B8_Q` · 任务 1/2）：**原版 trait 清单模型（`defaultTraits`）+ `keyword` 字段**
+        // =====================================================================================
+        //  【一 · `armour` 到底算不算 trait —— 定案：不算，它是【字段】】
+        //  原版 `RawCardScript` 把「trait 清单」与「三围 / 护甲」分成两组字段（`il2cpp_out/dump.cs:23264` 的
+        //    `public int armour; // 0xA0` 与 `:23325` 的 `public List<CardTraitData> CardTraits; // 0x230`）：
+        //    · `armour` = **独立 int，`+0xA0`**。运行时由 `CardScript.CardSetup` 读进
+        //      `EntityScript.currentArmourValue(+0xB8)`，与 `currentMaxHealth` / `currentBaseMeleeAttack` /
+        //      `currentBaseRangedAttack` **四兄弟并列**、逐个从 raw 的四个字段读
+        //      （🥈 `cpp2il/out_cpp2il_dev_ilspy/CardScript.cs:6465-6481`）；`AddArmour` 只动那一格
+        //      （`.c:21-59`，负值夹 0）。
+        //    · `CardTraits` = **`List<CardTraitData>`，`+0x230`**。`CountTraits` / `HasDefaultTrait` /
+        //      `GetDefaultTraitValue` / `FindTraitInList` / `CheckIfTraitIsInList` **只扫这一张**
+        //      （`decomp_full/RawCardScript__*.c` 五份方法体逐句读过 ⇒ 账 `战斗逻辑驱动.tsv` 那 5 行）。
+        //    ⇒ **`armour` 不是 trait 家族的一员**（`DefinedTrait.armour = 1020` 只说明「护甲也占一个枚举位」，
+        //      好让 `CardEffect.trait` 指得到它）。数据层面它**极少**进 `CardTraits`：
+        //      现读 `cards_truth.json` 1,351 张 ⇒ `_trait == 1020` 的 **只有 5 张**
+        //      （`BL27` · `GOF61` · `GSC28` · `GSC32` · `TL70`，`_traitValue` 全 = 1），
+        //      而 `armour` 字段 `> 0` 的有 **81 张**。`ASH34 Avatar of Khaine` 是典型：
+        //      `CardTraits = [talent]`、`armour = 2`。
+        //  ⇒ 🔴 **我们原来那条等价映射（`Has` / `KwValue` / `Keywords.Count` ≡ 原版 trait 家族）不成立**：
+        //      `_keywords` 里那条 `Armour N` 是**卡面关键词行**（PnP 印的），语义上对应原版的
+        //      **`armour` 字段**（`_keywords[armour]` 正是 `UnitState.Armor` 的来源），
+        //      **不是 `defaultTraits` 里的一条**。trait 家族一律读下面这四个方法。
+        //      ⚠️ 现读全池 **81 张**带 `Armour N` 关键词（62×`Armour 1` · 17×`Armour 2` ·
+        //      1×`Armour 2.` · 1×`Armour 3`），与 `armour` 字段 **81/81 逐张相等** ⇒
+        //      `CountTraits` 会**逐张差 1**（那 5 张除外 —— 它们的 `armour` 本来就在 `CardTraits` 里）。
+        //
+        //  【二 · `keyword`（`+0x98`）是【另一件事】，同样别拿卡面那行橙字顶替】
+        //    `RawCardScript.IsKeyword(Keyword)` = `*(int*)(raw+0x98) == param`（`RawCardScript__IsKeyword.c:5`），
+        //    取值只有 9 档（`Keyword` 枚举：`none 0 / Infantry 5 / Vehicle 10 / Monster 15 / Building 20 /
+        //    Battlesuit 25 / Drone 30 / Beast 35 / Daemon 40`，`dump.cs:45899-45912`），**没有 `Warlord`**。
+        //    而 <see cref="Subtype"/> 是**卡面下部那行橙字**（PnP 判据）—— 两者在 4 张上不一致：
+        //      · `BL1 Chaos Spawn`：卡面印 `Infantry`（亲读
+        //        `d:/2/Warpforge部队卡片/Chaos/3部队/Warpforge_9_Chaos-Spawn.png`），
+        //        SO `keyword = 40 Daemon` ⇒ **原版印刷与数据自相矛盾**，按数据记
+        //      · `EC55 Lucius the Eternal` / `EC56 Lord Kaphrael` / `EC57 Xarahan Daemon Prince`：
+        //        卡面印 `Warlord`（亲读
+        //        `d:/2/Warpforge部队卡片/Emperor_s Children/1督军/Warpforge_03_Lucius-The-Eternal.png`），
+        //        SO `keyword = 5 Infantry` ⇒ 同上
+        //    ⇒ 全池 `keyword != 0` 的 589 张里 **585 一致、4 不一致**。`Subtype` 继续只当**显示**用；
+        //      `IsKeyword` 的判据走下面的 <see cref="KeywordId"/>。
+        //
+        //  【三 · 为什么不在构造参数里加（行数纪律）】
+        //    `CardDef.cs` 有 40 处账落点按 **行号** 引用，构造函数在 `:839-1000` ⇒ 在那里加一行会让它们
+        //    整体漂移。⇒ 走「构造后挂载」（<see cref="AttachCardTraits"/> / <see cref="AttachKeywordId"/>），
+        //    两个挂载点都在**类尾**，不挪任何既有行。
+        //    ⚠️ **接线不属于本代理白名单**（已写进报告 §⑥）：`CardDatabase.cs` 的 `new CardDef(...)` 要加
+        //     `cardTraits: c.cardTraits`（**v9 起就有的既有列**，`CardDatabase.cs:172`，注释明写「本列不喂引擎」）
+        //     与 `keyword: c.keyword`（**新列**：`cards_engine.json` 现读没有，要生成器落；真值 =
+        //     `cards_truth.json.keyword`）。没接线时 `CardTraitsKnown == false` / `KeywordId == -1`
+        //     ⇒ 查询一律返回「判不了」+ `why`，⛔ **不许静默当成「没有」**。
+        // =====================================================================================
+
+        /// <summary>原版一条 `CardTraitData`：`_trait`(`+0x18`) 的规范化名 + `_traitValue`(`+0x1c`)。</summary>
+        public sealed class CardTraitEntry
+        {
+            /// <summary>规范化名（`KeywordTable.Normalize` 认得就用它；否则 = 去空白、去数字的小写原文）。
+            /// ⚠️ `Normalize` 认不出 `Frenzied` / `Rage` / `Unstoppable` 三个真值 trait（`Prefixes` 没登记）
+            /// ⇒ 本字段**不丢它们**（会丢的只是关键词那一层）。</summary>
+            public string Name;
+            /// <summary>原版 `_traitValue`。🔴 **没印数字的 trait 是 `0`**（`Talent` / `Ephemeral` / `Pack`），
+            /// ⛔ **不是** `KeywordTable.Parse` 的兜底 `1` —— 那个兜底只服务「存在即真」的关键词判定；
+            /// 原版 `CardTrait.GetNewTrait(..., int defaultValue = 0)` 的默认值是 0。</summary>
+            public int Value;
+            /// <summary>卡表原始写法（`Armour 1` / `Talent` / `Long Range`）。报表与出声用。</summary>
+            public string Raw;
+            public override string ToString() { return Raw ?? Name; }
+        }
+
+        /// <summary>原版 `RawCardScript.CardTraits`（`+0x230`）。`null` = **没喂**（≠「没有 trait」）。</summary>
+        List<CardTraitEntry> _cardTraits;
+
+        /// <summary>`defaultTraits` 这一列到底喂进来没有。`false` ⇒ 四个查询全部「判不了」。</summary>
+        public bool CardTraitsKnown { get { return _cardTraits != null; } }
+
+        /// <summary>原版 `CardTraits` 的只读视图（没喂 = `null`）。</summary>
+        public IReadOnlyList<CardTraitEntry> CardTraits { get { return _cardTraits; } }
+
+        /// <summary>
+        /// 挂上原版 `CardTraits` 的**显示写法**（`cards_engine.json` 的 `cardTraits` 列，形如
+        /// `["Armour 1", "Long Range"]`）。**`null` = 没喂**（什么都不做，保持 `CardTraitsKnown == false`）。
+        ///
+        /// ⚠️ **重复项照收**（原版是一张 `List`、`CountTraits()` 数的就是 `List.Count`）——
+        ///   现读 1,351 张**没有一张有重复 trait**（1,138 条 / 750 张带 trait / 601 张没有），
+        ///   但结构上别去重：去重就与 `CountTraits` 不等价了。
+        /// </summary>
+        public void AttachCardTraits(IEnumerable<string> raw)
+        {
+            if (raw == null) return;
+            var list = new List<CardTraitEntry>();
+            foreach (var item in raw)
+            {
+                string key = TraitKeyOf(item);
+                if (key == null) continue;
+                string head = KeywordTable.HeadOf(item);
+                list.Add(new CardTraitEntry
+                {
+                    Name = key,
+                    Raw = item,
+                    Value = KeywordTable.HasNumber(head) ? KeywordTable.FirstNumber(head) : 0,
+                });
+            }
+            _cardTraits = list;
+        }
+
+        /// <summary>
+        /// 原版 `RawCardScript.CountTraits()`（`decomp_full/RawCardScript__CountTraits.c:9-12`：
+        /// `+0x230 == null ⇒ 0`，否则 `List.Count`）。
+        /// <para><paramref name="why"/>：`null` = 判得出；非空 = **没喂数据**（那时返回 `-1`，⛔ 不是 0）。</para>
+        /// </summary>
+        public int CountTraits(out string why)
+        {
+            why = null;
+            if (_cardTraits == null) { why = CardTraitsWhy; return -1; }
+            return _cardTraits.Count;
+        }
+
+        /// <summary>
+        /// 原版 `RawCardScript.HasDefaultTrait(DefinedTrait)`（`.c:10-34`：遍历 `defaultTraits`、
+        /// 命中 `_trait(+0x18) == param` ⇒ true）；`CheckIfTraitIsInList` 是**同一次线性扫**。
+        /// <para>🔴 **`_keywords` 的 `Has` 不能顶它** —— 见类尾那段【一】。</para>
+        /// </summary>
+        public bool HasDefaultTrait(string trait, out string why)
+        {
+            why = null;
+            if (trait == null) return false;
+            if (_cardTraits == null) { why = CardTraitsWhy; return false; }
+            string key = TraitKeyOf(trait);
+            for (int i = 0; i < _cardTraits.Count; i++)
+                if (_cardTraits[i].Name == key) return true;
+            return false;
+        }
+
+        /// <summary>
+        /// 原版 `RawCardScript.GetDefaultTraitValue(DefinedTrait)`（`.c:21-34`：找到就返回 `_traitValue`，
+        /// 扫完没有 ⇒ `0`）。**「没有」与「值是 0」在原版里也分不开** ⇒ 我们照旧返回 0，
+        /// 要分清先问 <see cref="HasDefaultTrait"/>。
+        /// </summary>
+        public int GetDefaultTraitValue(string trait, out string why)
+        {
+            CardTraitEntry e = FindDefaultTrait(trait, out why);
+            return e != null ? e.Value : 0;
+        }
+
+        /// <summary>原版 `RawCardScript.FindTraitInList` 在「这张卡自己的 `defaultTraits`」上的那一支：
+        /// 返回**命中的那条**；未命中 ⇒ `null` 且 `why == null`；没喂 ⇒ `null` 且 `why` 非空。</summary>
+        public CardTraitEntry FindDefaultTrait(string trait, out string why)
+        {
+            why = null;
+            if (trait == null) return null;
+            if (_cardTraits == null) { why = CardTraitsWhy; return null; }
+            string key = TraitKeyOf(trait);
+            for (int i = 0; i < _cardTraits.Count; i++)
+                if (_cardTraits[i].Name == key) return _cardTraits[i];
+            return null;
+        }
+
+        const string CardTraitsWhy =
+            "`cardTraits`（原版 `RawCardScript.CardTraits +0x230`）**没挂到 CardDef 上**"
+            + "（`CardDatabase` 的 `new CardDef(...)` 还没传 `cardTraits:`）⇒ trait 家族**判不了**";
+
+        /// <summary>trait 名归一化：先走 `KeywordTable.Normalize`（它认得那 51 个名字），认不出就退化成
+        /// 「去空白、去数字的小写原文」（`Frenzied` / `Rage` / `Unstoppable` / `Long Range` 走这一支）。</summary>
+        static string TraitKeyOf(string raw)
+        {
+            if (string.IsNullOrEmpty(raw)) return null;
+            string norm = KeywordTable.Normalize(raw);
+            if (norm != null) return norm;
+            string head = KeywordTable.HeadOf(raw).Trim().ToLowerInvariant();
+            var sb = new System.Text.StringBuilder(head.Length);
+            for (int i = 0; i < head.Length; i++)
+            {
+                char c = head[i];
+                if (char.IsWhiteSpace(c) || char.IsDigit(c)) continue;
+                sb.Append(c);
+            }
+            return sb.Length > 0 ? sb.ToString() : null;
+        }
+
+        // ---- 原版 `RawCardScript.keyword`（`+0x98`）—— 与 `Subtype` 是两件事（见类尾【二】）------------
+
+        int _keywordId = -1;
+
+        /// <summary>原版 `RawCardScript.keyword`（`+0x98`，`Keyword` 枚举原值）。
+        /// **`-1` = 没喂**（≠ `none(0)`）。</summary>
+        public int KeywordId { get { return _keywordId; } }
+
+        /// <summary>挂上原版 `keyword` 字段（`cards_engine.json` 还没有这一列；真值 = `cards_truth.json.keyword`）。</summary>
+        public void AttachKeywordId(int keywordId) { _keywordId = keywordId; }
+
+        /// <summary>
+        /// 原版 `RawCardScript.IsKeyword(Keyword)` —— `RawCardScript__IsKeyword.c:5`：`*(int*)(raw+0x98) == param`。
+        ///
+        /// <para>🔴 **别拿 <see cref="Subtype"/> 顶它**：`Subtype` 是卡面那行橙字（PnP 判据），原版这里读的是
+        /// SO 的 `keyword` 字段，两者在 **4 张**上不一致（`BL1` · `EC55` · `EC56` · `EC57`，逐张出处见类尾【二】）。
+        /// 全池 `keyword != 0` 的 589 张里 585 张一致。</para>
+        ///
+        /// <para><paramref name="why"/>：`null` = 判得出；非空 = 没喂 `keyword` ⇒ 返回 `null`（**判不了**）。</para>
+        /// </summary>
+        public bool? IsKeyword(int keyword, out string why)
+        {
+            why = null;
+            if (_keywordId < 0)
+            {
+                why = "`keyword`（原版 `RawCardScript +0x98`）**没挂到 CardDef 上** ⇒ `IsKeyword` 判不了";
+                return null;
+            }
+            return _keywordId == keyword;
+        }
+
+        /// <summary>
+        /// 原版 `GameStaticData.IsWarlordEquivalent(RawCardScript)` = **`cardType`（`rawCard +0x94`）== 10**。
+        ///
+        /// <para>**判据（🥇 `decomp_full/`，逐句）**：
+        /// · 真体 = `decomp_full/GameStaticData__IsWarlordEquivalent.c:1-11`（11 行全文）：
+        ///   `return *(int *)(param_1 + 0x94) == 10;`；
+        /// · 调用方 `CardScript.IsWarlordEquivalent()` = `decomp_full/CardScript__IsWarlordEquivalent.c`
+        ///   —— 一句转调、**不判空**（`param_1` 为 0 时走 `FUN_1803f47a0` 抛出），实参是 `*(card + 0x28)`
+        ///   （= 卡 SO）；同一格 `rawCard +0x94` 就是 `EntityScript.get_cardType`
+        ///   （`decomp_full/EntityScript__get_cardType.c:18-21`）⇒ **是 `cardType`，不是 cardState**。</para>
+        ///
+        /// <para>**我们这一侧** = <see cref="Type"/> 是字符串 `"hero"`，由 `CardDatabase` 从**同一个**
+        /// `cardType` 映射而来（`10 → "hero"`）⇒ 判据同源，只换了表示。</para>
+        ///
+        /// <para>**数据侧等价已逐张核**（`cards_truth.json` 1,351 张现扫）：`cardType == 10` 的 **66 张**里
+        /// **56 张在池内、56/56** 的 `cards_engine.type == "hero"`；另 10 张是池外 GUID 卡（非可玩）。
+        /// 反方向也查了：池内 `type == "hero"` 恰好 **56** 张
+        /// （`Counter({unit:586, tactic:446, hero:56, defence:39, enchantment:1})`）⇒ **双向同集合**。</para>
+        ///
+        /// <para>⚠️ **别拿 <see cref="IsUnit"/> 顶替**：那一格是 `unit ∨ hero`（两档、语义更宽），
+        /// 本属性只认督军那一档 —— 「能不能当单位上场」与「是不是督军卡」是两件事。</para>
+        /// </summary>
+        public bool IsWarlordEquivalent { get { return Type == "hero"; } }
 
     }
 
@@ -7597,6 +7883,26 @@ namespace RuleEngine
             // —— 结算在 `RuleCore.KillUnit` 里（和 `Backlash` 同一个时机点上）。
             Waystone,
 
+            // 🆕 **2026-10-26（执行代理 `B8_D` · 任务 2「关键词全集对账」）：`jam`（130）·
+            //    `sneakattack`（20 `sneakAttack`）** —— 两个词**早就认得出**（`Prefixes` 里有）、
+            //    机制**也早就在读**，只是**没登记进这一栏** ⇒ `UnimplementedKeywords()` 会多报两条
+            //    （那正是本栏存在的意义：**这一栏 = 「本版会不会结算它」**）。
+            //    判据 = 「**那个时机真的有人读它**」（与 `Sacrifice` / `DropPod` / `Unstoppable`
+            //    同一把尺子，⛔ 不是承诺书）：
+            //      · `jam`    → `ConditionEval.cs:501`（`u.Has(Jam)` ⇒ 该单位不能当主动能力目标）·
+            //                   `EffectResolver.cs:11327`（带 jam 的施法者跳过）·
+            //                   `RuleCore.cs:6022`（布场扫描跳过）· `RuleCore.cs:10458`
+            //                   （`RemoveExtrinsicEffectsFrom` 那族按 jam 判来源）；
+            //      · `sneakattack` → `CounterAttack.cs:49`（免反击）。
+            //    ⚠️ **为什么这两个可以进、`terror` / `markOfChaos` 不行**：这一栏还被
+            //      `BattleDriver` 拿去**过滤关键词外观**（`:27102/27111`）⇒ 隐藏 trait 放进来了
+            //      会渲染一个**假徽章**。`Card_Trait/jam` = 「Jam」、`Card_Trait/sneak` =
+            //      「Sneak Attack」**都有官方本地化条目**（= 卡面印得出）；而 `Card_Trait/terror`
+            //      与 `markOfChaos` 在官方表里**不是这两张脸**（见各自 doc）⇒ 那两个仍然不进。
+            //    ⚠️ 今天全池 **0 张卡**在 `keywords` 里带这两个词（`cards_engine.json` 1128 张现扫）
+            //      ⇒ 本笔**不改动任何现有对局**，只是把「诊断单多报两条」关掉。
+            Jam, SneakAttack,
+
             // ---- 2026-09-12 补的四个（都是战术卡高频载荷）----
             // 出处：**卡面 + 规则书**（⚠️ 规则书 = 粉丝实体版，只算**旁证**）；下面的**结算细节**
             // 照我们上一版 Godot 复刻：`rule_core.gd` 的 `_damage_unit:4406` / 部署段 `:2248`
@@ -8025,6 +8331,47 @@ namespace RuleEngine
             new[] { "ward", ConditionEval.Ward },
             new[] { "tainted", ConditionEval.Tainted },
             new[] { "summonrift", KeywordTable.SummonRift },
+            // 🆕 **2026-10-26（执行代理 `B8_D` · 任务 2「关键词全集对账」）：
+            //    `firstStrike` / `large` / `relentless` / `resolution` / `combo` / `support` / `chooseOne`**
+            //
+            //  **为什么补这七个**：把原版 `DefinedTrait` 的**全集**（133 个，`dump.cs:45721-45868`）
+            //  拿 `Card_Trait/*`（官方本地化 83 条，= **卡面印得出名字的那些**）过滤，
+            //  再与我们的 `Prefixes` 逐词对账 ⇒ 只剩这七个**印得出、却认不出**的词
+            //  ⇒ `Normalize` 返回 null ⇒ `Parse` / 构造函数**双双丢弃**（本工程「不许静默失败」红线，
+            //  与 `noncombatant` / `unstunnable` / `landing` 那条先例同形）。
+            //  ⚠️ 补的**只是「认得出」这一层**：这七个词**都没有机制**（不进 `Implemented`）⇒
+            //  真出现时如实报成「未实现关键词」+ 卡面打 `*`，这才是对的。
+            //  🔴 **为什么不补另外 45 个**（现读逐条核过，别再来一遍）：
+            //   · 原版枚举里有、但 `Card_Trait/*` **没有名字** ⇒ 是**隐藏 trait / 内部标记**
+            //     （`syphon` `coward` `corrupt` `poisonous` `activeAbility` `passiveAbility`
+            //      `whileInPlayAbility` `survivorSpent` `transient` `reload` `notCollectable`
+            //      `secret` `trap` `secretOrder` `secretIdentity` `fear` `meltdown` `massive` `psyker`
+            //      `reactor` `precognition` `psychicPower` `plasmaPower` `spikes` `horns` `daemonhost`
+            //      `questCompleted` `mutation` `chaosOnly` `mekaniak` `piercing` `daemonicAllegiance`
+            //      `notDestroyRemnant` `dontReturnFerocity` `oathInAllTurns` `oathDouble`
+            //      `oathTripleActivation` `markOfChaos` …）—— 登记它们会给「未实现关键词」那张单
+            //      与卡面徽章**加噪声**（`Implemented` 被 `BattleDriver` 用来过滤外观，
+            //      见 `MarkOfChaos` 的 doc 那段血案）；
+            //   · `markOfKhorne` / `markOfNurgle` / `markOfSlaanesh` / `markOfTzeentch` 的卡面名是
+            //      `Dark Pact of …`，**已由 `"dark pact"` 一条统一收下**（变体走 `GivePayload.Variant`）
+            //      ⇒ 再登记会变成「一个 trait 两份表示」；
+            //   · `rage` / `frenzied` / `concussive` 是**同义拼法**，早已登记（指 `Penitence` /
+            //      `Destroyer` / `concussion`）。
+            //  ⚠️ **前缀撞车已现核**（`Normalize` = `StartsWith` + **先到先得**）：七个词与既有
+            //  `f*`（`fast`/`flank`/`ferocity`/`flying`/`frenzied`）· `l*`（`long range`/`longrange`/
+            //  `landing`）· `r*`（`rally`/`regeneration`/`remnant`/`regiment`/`requiem`/`rage`）·
+            //  `c*`（`can't attack`/`cruelty`/`codex`/`concussion`/`camouflage`/`companion`）·
+            //  `s*`（`survivor`/`summonrift`/`sabotage`/`sentry`/…）**第二个字母前后就分岔**；
+            //  反向（新词抢先吃掉老词）也不成立 —— 既有条目里**没有任何**以这七个词开头的。
+            //  ⚠️ **影响面实测（2026-10-26，全池 1128 张现扫）**：`cards_engine.json` 的
+            //  `keywords` / `cardTraits` 两列**静默丢弃 = 0**（改前改后同）；`desc` 分句里
+            //  以这七个词开头的 **0 条** ⇒ `IsKeywordOnly`（要求**吃满整句**）也不会误判。
+            //  改后 `ruleprobe check` 仍是「解析差异 0 行 · 哨兵合计 0」（见报告 §五）。
+            new[] { "first strike", "firststrike" }, new[] { "firststrike", "firststrike" },
+            new[] { "large", "large" }, new[] { "relentless", "relentless" },
+            new[] { "resolution", "resolution" }, new[] { "combo", "combo" },
+            new[] { "support", "support" },
+            new[] { "choose one", "chooseone" }, new[] { "chooseone", "chooseone" },
             // ⚠️ 本工程自定（原版 61 个里没有）—— 放最后，免得吃掉将来可能加进来的同前缀词
             new[] { "ability", Ability },
         };
@@ -8152,7 +8499,7 @@ namespace RuleEngine
             return kws;
         }
 
-        static int FirstNumber(string s)
+        internal static int FirstNumber(string s)
         {
             int i = 0;
             while (i < s.Length)

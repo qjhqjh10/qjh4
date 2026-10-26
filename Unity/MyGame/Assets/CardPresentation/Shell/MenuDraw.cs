@@ -140,7 +140,7 @@ namespace CardPresentation
             if (root == null) return;
             for (int i = root.childCount - 1; i >= 0; i--)
             {
-                var go = root.GetChild(i).gameObject;
+                var go = root.GetChild(i).gameObject; ReleaseArtUnder(go.transform);   // ← 零新增行（这行原来只取 go）：子树要销毁 ⇒ 放掉它用的逐项美术，等价于原版 `AssetReference.Release` 那一跳（判据/范围见类尾 `ReleaseArtUnder`）
 #if UNITY_EDITOR
                 if (!Application.isPlaying) { Object.DestroyImmediate(go); continue; }
 #endif
@@ -3592,6 +3592,44 @@ namespace CardPresentation
             }
             return cell;
         }
+
+        // ============================================================ 图缓存释放（`ClearChildren` 那一跳）
+        //
+        // 判据（🥇 `d:/2/tools/decomp_full/`；三份方法体第一行的函数名都与文件名一致）：
+        //  · `CosmeticItem__UnloadReferences.c:9-13` —— 放 `imageReference` 那一个 Addressables 句柄；
+        //  · `CursorByArmySO__ReleaseArmyCursor.c:28-32` —— 按 `CardArmy` 遍历表，命中就把 cursor / highlight **两个**句柄各放一次；
+        //  · `FlavourTextSO__ReleaseFlavorBackground.c:50-51` —— 放该阵营的 `flavorBg` 句柄（随后那句 LogWarning 在循环外，
+        //    是原版自己的日志噪声，不是行为 ⇒ 不照抄）。
+        // ⇒ 原版这三处都发生在**对象被卸载那一刻**（`ItemDrawer.OnDestroy` / 各 `OnDisable` 一类的收尾）。
+        //    我们这边没有「组件随节点销毁」这回事（`ImageQuad` 不是原版那个持有句柄的组件，见 `Shell/ItemDrawerLeash.cs`
+        //    的先例）⇒ 把这一步挂在**唯一知道子树要没了的地方** = `ClearChildren`（它起手就把子树销毁）。
+        // ⚠️ 只放 `CardArt.IsPerItemArt` 那一族（立绘 / 卡背 / 头像 / 异画 / 风味底图 / 光标两图）；
+        //    共享件（卡框 `cards/frame_*` · SDF · `traits/` · HUD 图 · `card3d/`）**不放** —— 原版那三个释放方法也没碰它们。
+        // ⚠️ 贴图**不销毁**（`CardArt.Release` 只放缓存引用，全仓 `Resources.UnloadAsset` 零处）⇒ 同一张图还挂在
+        //    别的活节点上时照常显示。这条就是「不能释放正在用的图」的结构保证，另配 `CardArt.Retain/Unretain` 显式租约闸。
+
+        /// <summary>子树销毁前，把它用到的「逐项美术」从图缓存里放掉（= 原版 `AssetReference.Release` 那一跳）。
+        /// ⚠️ 走的是**即将销毁**的子树（含 inactive 子件），不是「全清缓存」。</summary>
+        /// <returns>真放掉的条数（自检读口）。</returns>
+        static int ReleaseArtUnder(Transform root)
+        {
+            if (root == null) return 0;
+            var stack = _artWalk; stack.Clear(); stack.Add(root);
+            int n = 0;
+            for (int i = 0; i < stack.Count; i++)
+            {
+                var t = stack[i];
+                for (int k = 0; k < t.childCount; k++) stack.Add(t.GetChild(k));
+                var q = t.GetComponent<ImageQuad>();
+                if (q == null || q.Texture == null) continue;
+                var p = CardArt.PathOf(q.Texture as Texture2D);       // 不是经 `CardArt.Get` 来的（Solid/渐变/RT）⇒ null
+                if (p != null && CardArt.IsPerItemArt(p) && CardArt.Release(p)) n++;
+            }
+            stack.Clear();                                            // ⛔ 别把节点留在静态表里（那就是「只增不减」的老毛病）
+            return n;
+        }
+        static readonly System.Collections.Generic.List<Transform> _artWalk
+            = new System.Collections.Generic.List<Transform>(256);
     }
 
 }

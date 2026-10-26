@@ -583,6 +583,21 @@ namespace RuleEngine
             /// **`countSet` 与 `unitConditions[].countSet` 逐字同形**（`playerTurn` 就在里面）。
             /// 语义 → <see cref="CardDef.BoardGateSpec"/>。</para></summary>
             public AbilityGateDto normalAbilityBoardCriteria;
+
+            /// <summary>🆕 v31（2026-10-26 · 执行代理 `B8_AH` · 账 `战斗逻辑驱动.tsv` 的 `IsKeyword` 行）：
+            /// 原版 `RawCardScript.keyword`（`int @+0x98`，`Keyword` 枚举：`none 0 / Infantry 5 /
+            /// Vehicle 10 / Monster 15 / Building 20 / Battlesuit 25 / Drone 30 / Beast 35 / Daemon 40`，
+            /// `il2cpp_out/dump.cs:45899-45912`）。**缺列 / 真值里没这张卡 = `-1`（未知）**。
+            ///
+            /// <para>🔴 **⛔ 别拿 `subtype`（卡面那行橙字）顶它** —— 原版
+            /// `RawCardScript.IsKeyword(Keyword)` 就是 `*(int*)(raw+0x98) == param`
+            /// （`decomp_full/RawCardScript__IsKeyword.c:5-7`，全文 7 行），两者在全池 **4 张**上不一致
+            /// （`BL1` SO=Daemon 而卡面印 Infantry；`EC55/56/57` SO=Infantry 而卡面印 Warlord）。
+            /// `subtype` 继续只当**显示**用。判据全文 → `资料/完全复刻/报告/B8_Q_trait口径与卡定义.md` §2.2。</para>
+            /// <para>读点 = `CardDef.AttachKeywordId` → `CardDef.IsKeyword` →
+            /// `ConditionEval` 的条件 **275 / 276 / 277**（`isWarlordOrVehicle` /
+            /// `isBattlesuitOrVehicle` / `isInfrantryOrBeast`）。</para></summary>
+            public int keyword = -1;
         }
 
         /// <summary>🆕 v21（2026-10-24 · 引擎线 `A20`）：`normalAbilityBoardCriteria` 的传输形状
@@ -1334,6 +1349,19 @@ namespace RuleEngine
                                + " 会在未知时**出声 + 放行**（不筛 = 改前行为；⛔ 不是「原版说没有这一格条件」）。"
                                + "跑一下 gen_cards_engine.py 重生成。");
 
+            // 🆕 v31（2026-10-26 · 执行代理 `B8_AH` · 账 `战斗逻辑驱动.tsv` 的 `IsKeyword` 行）：
+            //   **`keyword` 列**（原版 `RawCardScript.keyword`，`int @+0x98`）。
+            //   缺列（v30 及更早）⇒ `CardDto.keyword` 的字段初值 `-1` = **未知**
+            //   ⇒ `CardDef.IsKeyword` 返回 `null`（判不了），条件 275/276/277 的消费端
+            //   **退回 `Subtype` 口径并出声**（`ConditionEval.KeywordOrSubtype`）。
+            //   ⛔ 旧表**不许**被读成 `none(0)`（那会让 275/276/277 全池变假 = 静默筛空）。
+            if (dto.version < 31)
+                Debug.LogWarning($"[RuleEngine] 卡表 version={dto.version} < 31 —— 没有 `keyword` 列"
+                               + "（原版 `RawCardScript.keyword` `+0x98`，`RawCardScript__IsKeyword.c:5-7`）。"
+                               + "`CardDto.keyword` 会是 **-1 = 未知**（⛔ 不是 `none(0)`）。"
+                               + "消费端 `ConditionEval` 的条件 275/276/277 会**退回 `Subtype` 口径并出声**"
+                               + "（旧行为 = 改前行为）。跑一下 gen_cards_engine.py 重生成。");
+
             int noId = 0;
 
             // 🆕 2026-10-22（卡牌线 `T04`）：`useOverDraw` 一列的**缺列兜底** —— v9 才有这一列，
@@ -1383,7 +1411,7 @@ namespace RuleEngine
                     noId++;
                     continue;
                 }
-                list.Add(new CardDef(
+                var def = new CardDef(
                     id: cid,                    // 稳定 id = 原版 uniqueId（v6 起有该列；W25 起缺 id 直接跳过）
                     name: c.name,
                     type: c.type,
@@ -1556,7 +1584,32 @@ namespace RuleEngine
                     hasAlternativeAbility: dto.version >= 21 ? c.hasAlternativeAbility : -1,
                     quest: dto.version >= 21 ? c.quest : -1,
                     questTimes: dto.version >= 21 ? c.questTimes : -1,
-                    normalAbilityBoardCriteria: dto.version >= 21 ? MapBoardGate(c) : null));
+                    normalAbilityBoardCriteria: dto.version >= 21 ? MapBoardGate(c) : null);
+
+                // ================================================================================
+                //  🆕 v31（2026-10-26 · 执行代理 `B8_AH`）：**两个「构造后挂载」**
+                // ================================================================================
+                //  🔴 **为什么不写成构造参数**：`CardDef` 的构造函数在 `CardDef.cs:839-1000`，
+                //     它下面有 40 处账落点按**行号**引用 ⇒ 在那里加两行会让它们整体漂移
+                //     （判据 → `资料/完全复刻/报告/B8_Q_trait口径与卡定义.md` §⑥ 的警告）。
+                //     `AttachCardTraits` / `AttachKeywordId` 就是为此建在 `CardDef` **类尾**的。
+                //
+                //  ① `cardTraits` —— 原版 `RawCardScript.CardTraits`（`List<CardTraitData> @+0x230`）。
+                //     本列 **v9 起就在**（`CardDto.cardTraits` 的 doc 明写「本列不喂引擎」）；
+                //     现在起它是 trait 家族四个查询（`CountTraits` / `HasDefaultTrait` /
+                //     `GetDefaultTraitValue` / `FindDefaultTrait`）的**唯一数据源**。
+                //     `null`（旧表整列没有）⇒ `CardTraitsKnown == false` ⇒ 四个查询返回「判不了」+ `why`。
+                //  ② `keyword` —— 原版 `RawCardScript.keyword`（`int @+0x98`，**v31 新列**）。
+                //     `-1`（旧表 / 真值里没这张卡）⇒ `IsKeyword` 返回 `null`（判不了），
+                //     条件 275/276/277 退回 `Subtype` 口径并出声（见 `ConditionEval.KeywordOrSubtype`）。
+                //
+                //  ⚠️ **`codex` / `strike` / `stomp` 三个词不进 `cardTraits`**（调度台 2026-10-26 裁定）：
+                //     原版 `CardTraits(+0x230)` 只有 trait 家族那 5 个方法在扫，而这三个词
+                //     **只出现在 `keywords` 里** ⇒ 按原版数据记，⛔ 别为了让 `Has()` 与
+                //     `HasDefaultTrait()` 一致去补数据（判据 → `B8_Q` 报告 §⑤-1 + 调度台裁定）。
+                def.AttachCardTraits(c.cardTraits);
+                def.AttachKeywordId(c.keyword);
+                list.Add(def);
             }
             // 🆕 v23（2026-10-24 · 引擎线 `G12`）：`activeAbilityLogic` 的**挂载读数**（一行，⛔ 不逐卡刷屏）。
             //   为什么要有这一行：这一列只在「1 个对象 ↔ 1 行 ↔ 1 条 op」时能挂上（理由 →

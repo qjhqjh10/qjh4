@@ -10198,6 +10198,26 @@ namespace RuleEngine
                 }
             }
 
+            // ---- 🔴 2026-10-26（批次 8 · `B8_AE`）：`your Warlord **and adjacent units**` ----
+            //   改前这两支会把这种句子定成 `Kind = "warlord"`（上面「谁的」/「哪种」两处都会命中
+            //   `warlord` 这个词），而结算层 `ResolveTargetsCore`（`EffectResolver.cs:1676-1681`）
+            //   对 `Kind == "warlord"` 只把**督军一个人**放进候选池；相邻那一圈的成员判定
+            //   （`AdjacentNeighborCounts(..., pool)`）正是拿这个池当**筛**用的
+            //   ⇒ **邻居（部队）永远不在池里 ⇒ 永远收不到 buff**，而卡面不打 `*`（句子解析成功）= 静默少给。
+            //   判据：
+            //     · 卡面 `Give +1 Health to your Warlord and adjacent units` / 中文
+            //       「给你的战将和相邻单位增加+1生命值」（`f8260229254a09746af6d9ff7a9b0b54 Ethereal Supreme`，
+            //       PnP 成品卡图同文）—— **督军和相邻单位都要吃**；
+            //     · 原版结构数据 `ta=10 (F1E0 h1 m0)` ＋ `ta=113 (F1E0 h0 m1)`
+            //       = 「督军」＋「督军周边的部队」两段（`h`/`m` 分别开关督军与部队）。
+            //   ⇒ 锚点 / `AnchorInSet` 不变（仍由上面「相邻」那一段定成 `FriendlyWarlord` + 入集），
+            //     只把 **`Kind` 放宽到 `unit`**，让候选池覆盖部队 —— 最终目标集仍由
+            //     「锚点 + 它的相邻格」那一段决定（⛔ 不是「全体己方单位」，别把这条改成 `all`）。
+            //   ⚠️ 全池只有 **2 句**同时出现 `warlord` 与 `adjacent`：本卡，以及 `SOR60 Holy Fire`
+            //     （它是两条 op —— `your Warlord` 与 `adjacent troops` 各自一句，`Adjacent` 只在第二句上
+            //     ⇒ 这条判断**碰不到**它第一句；`SOR60` 的读数变化来自 `DoGive` 那条相邻裁剪豁免，不是这条）。
+            if (spec.Adjacent && spec.Kind == "warlord") spec.Kind = "unit";
+
             // ---- 几个 ----
             // 🔴 **复数的己方部队 = 全体**（2026-09-14 T2b 补）：
             //    出处（旁证）：我们上一版复刻 `rule_core.gd:3966-3980` 那一支自己的注释就是「**复数全体**」——

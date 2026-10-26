@@ -1628,8 +1628,13 @@ namespace RuleEngine
             ctx.Log($"{u.Name} 的祈祷附魔到期 ⇒ {ps.Name} 信仰 +1（现 {ps.Faith}；"
                   + "原版 `Pray Enchantment` 的 `TurnStartPlayer` + `buffMana{faithMana:1}`）");
             // 原版 `BroadcastCollectedFaith(该卡)` —— subject = **这张祈祷卡本身**（与 `FinishActiveAbility` 同形）
+            // 🔴 **2026-10-26（批次 8 · `B8_AE`）：只跑棋盘跳** —— 原版这条路是
+            //   `Pray Enchantment` 的 `buffMana{faithMana:1}` → `BattleManager__ProcessManaBuff.c:91`
+            //   → `BattleManagerSupport__BroadcastCollectFaith`，而那份 `.c` 全文 `GetCardsInHandRef` = 0
+            //   （🥇 `decomp_full/`）⇒ 与另两处信仰广播同一条、同样没有手牌跳。
             if (u.Card != null)
-                BroadcastWhen(ctx, WhenEventKind.GainFaith, p, u.Card, u);
+                BroadcastWhen(ctx, WhenEventKind.GainFaith, p, u.Card, u,
+                              boardAndPersistentOnly: true);
             // 表现层一条（与 `DoFactionResource` 的信仰支 / `FinishActiveAbility` 同形：同一个 `EvtKind`、`Slot = -1`）
             ctx.Signals.Add(new BattleEvent
             {
@@ -3133,7 +3138,7 @@ namespace RuleEngine
                 SetupCardInHand(ctx, p, inst);
                 return true;
             }
-            ps.Discard.Add(inst);          // 第 7 行第 2 步：进弃牌堆的是**那一份实例**（不是模板）
+            AddToCemetery(ps, inst);       // 第 7 行第 2 步：进弃牌堆的是**那一份实例**（不是模板）
             ctx.Log($"{ps.Name} 手牌已满（{ps.Hand.Count}/{limit}），{inst.Card.Name} 直接进弃牌堆"
                   + "（原版 `AddDrawnCardToHand`：满了就把**刚抽到/刚造出的这张**送墓地，手牌不动）");
             return false;
@@ -3208,7 +3213,7 @@ namespace RuleEngine
                 int over = ps.Hand.Count - 1;
                 var dropped = ps.Hand[over];
                 ps.Hand.RemoveAt(over);
-                ps.Discard.Add(dropped);       // 第 7 行第 2 步：丢的是**那一份实例**（不是模板）
+                AddToCemetery(ps, dropped);    // 第 7 行第 2 步：丢的是**那一份实例**（不是模板）
                 ctx.Log($"{ps.Name} 手牌超上限，{dropped.Card.Name} 进弃牌堆");
             }
         }
@@ -3882,7 +3887,7 @@ namespace RuleEngine
             // 单位卡的判据在下面；战术卡先分流（判据共用 `CanPlayTactic`，不在这儿重写一份）
             if (p >= 0 && p < 2 && handIdx >= 0 && handIdx < ctx.Players[p].Hand.Count
                 && !ctx.Players[p].Hand[handIdx].Card.IsUnit)
-                return PlayTactic(ctx, p, handIdx, slot);
+                return PlayTactic(ctx, p, handIdx, ChosenTargetSlot(ctx, chosen, slot));
 
             int code = CanPlayCard(ctx, p, handIdx, slot);
             if (code != RuleCodes.OK) return code;
@@ -6195,7 +6200,7 @@ namespace RuleEngine
                                         int tgtP, int tgtSlot, bool ranged = false,
                                         bool forced = false)
         {
-            using (BeginAction(ctx)) return DeclareAttackCore(ctx, p, atkSlot, tgtP, tgtSlot, ranged, forced);
+            using (BeginAction(ctx)) return DeclareAttackRefundingForced(ctx, p, atkSlot, tgtP, tgtSlot, ranged, forced);
         }
 
         /// <summary><see cref="RuleCore.BeginAction"/> 包住的原文（2026-10-21 `T03·c` 批 B 接线）。</summary>
@@ -9133,9 +9138,10 @@ namespace RuleEngine
             for (int s = 0; s < BoardSpec.Size; s++)
             {
                 var u = ps.Board[s];
-                // ⚠️ 那半句 `Has(Remnant)` 是**必须的**（2026-09-25 加）：没有它，
-                //    灵族的灵魂石会被这里扫掉，玩家永远没机会点它收集。
-                if (u != null && u.IsRemnant && u.Has(KeywordTable.Remnant)) slots.Add(s);
+                // 🔴 2026-10-26（`B8_BH` 就地订正）：判据从 `Has(Remnant)` 换成**阵营** —— 翻面那刻已被 `ClearAllKeywords()` 摘光 trait
+                //    （原版 `TransformIntoRemnant.c:54-75`）⇒ 再按关键词判**一条都扫不到**（死灵残骸永不消失）。原版判据本来就是阵营：
+                //    `faction == 0x28 (Sautekh) ∧ isRemnant ∧ !notDestroyRemnant(1190)`（`decomp_full/SupportMethods__ShouldRemnantDestroyOnTurnEnd.c`，逐行读过）⇒ 收进 `IsNecronRemnant`。
+                if (IsNecronRemnant(u)) slots.Add(s);
             }
             if (slots.Count == 0) return;
             foreach (int s in slots)
@@ -9489,7 +9495,7 @@ namespace RuleEngine
                 //   `if (!HasCurrentTrait(ephemeral)) AddToCemetery(this); else gameObject.SetActive(false);`
                 //   ⇒ **带 `ephemeral` 的牌死掉【不进墓地】**（现读卡池 105 张）。
                 if (!u.Has("ephemeral"))
-                    ps.Discard.Add(u.Instance);  // 第 7 行第 2 步：进弃牌堆的是**那一份**（残骸本来就是它）
+                    AddToCemetery(ps, u.Instance); // 第 7 行第 2 步：进弃牌堆的是**那一份**（残骸本来就是它）
                 ctx.DeadUnits.Add(new DeadUnit { Card = u.Card, Instance = u.Instance, Owner = p, DeathTurn = ctx.Turn });
                 ctx.Emit(EvtKind.Death, p, slot, u.Name, instanceId: u.InstanceId);
                 ctx.Log($"残骸 {u.Name} 被摧毁，那张卡进弃牌堆");
@@ -9572,7 +9578,7 @@ namespace RuleEngine
                     Health = 1, MaxHealthBase = 1,      // 挨任何一下就没（规则书：受伤害即被摧毁）
                     Exhausted = true,                   // 残骸不能行动
                 };
-                ps.Board[slot] = rem;
+                rem.ClearAllKeywords(); ps.Board[slot] = rem;   // 原版 `TransformIntoRemnant` 第三步（`CardScript__TransformIntoRemnant.c:54-75` 倒序 `RemoveTraitSilently`）⇒ 残骸**一条 trait 都不剩**（我们新造 `UnitState` 会把卡面关键词全拷进来，不清就带着全部 trait）
                 SweepHandEffectsOnRemoval(ctx);   // 🆕 翻面同样是「不在场上了」（原版 `IsInPlay` 那几条 extrinsic 支线立刻成立）
                 ctx.Log($"{ps.Name} 的 {u.Name} 阵亡 → **翻面成残骸**（留在 {slot} 号格；"
                       + "受伤害、或你的回合结束时被摧毁）");
@@ -9922,12 +9928,12 @@ namespace RuleEngine
             }
             else if (leftPlay && !refiled)
             {
-                ps.Discard.Add(u.Instance);      // 第 7 行第 2 步：**那一份**回弃牌堆（原来放的是模板）
+                AddToCemetery(ps, u.Instance);   // 第 7 行第 2 步：**那一份**回弃牌堆（原来放的是模板）
                 // 虫群合并时**压在下面**的那些牌一起进弃牌堆（2026-09-13 A2）——
                 // 物理上就是「宿主死了，下面压着的一起走」
                 if (u.SwarmUnder.Count > 0)
                 {
-                    foreach (var under in u.SwarmUnder) ps.Discard.Add(under);
+                    foreach (var under in u.SwarmUnder) AddToCemetery(ps, under);
                     ctx.Log($"（{u.Name} 下面压着的 {u.SwarmUnder.Count} 张一起进弃牌堆）");
                     u.SwarmUnder.Clear();
                 }
@@ -12020,7 +12026,7 @@ namespace RuleEngine
             if (!BoardSpec.IsValid(slot)) return RuleCodes.ErrSlot;
             var u = ctx.Players[p].Board[slot];
             if (u == null) return RuleCodes.ErrNotUnit;
-            if (!u.IsRemnant || !u.Has(KeywordTable.Waystone)) return RuleCodes.ErrNotWaystone;
+            if (!u.IsAeldariRemnant) return RuleCodes.ErrNotWaystone;   // 原版 = 阵营 30(SaimHann) ∧ `isRemnant(+0x65)`，**与 trait 无关**（`decomp_full/SupportMethods__IsAeldariRemnant.c:1-14`；此刻能不能收的另外五道闸在 `BattleManager__CanUseWaystone.c:20-53`）⇒ 判据收在 `UnitState.IsAeldariRemnant` **一处**
             return RuleCodes.OK;
         }
 
@@ -12062,7 +12068,17 @@ namespace RuleEngine
             //    ⚠️ 参数照 `DoGain` 同形：`who` = **获得资源的那一方**、`card`/`subject` 传 `null`
             //      （玩家级事件，没有具体单位）；`OwnerIs=RelFriendly` 的监听者靠 `who` 对上。
             //    ⚠️ 位置：**加完石头之后、销毁残骸之前**（原版也是先广播再 `DestroyUnit`）。
-            BroadcastWhen(ctx, WhenEventKind.GainSpirit, p, null, null);
+            //    🔴 **2026-10-26（批次 8 · `B8_AE`）：只跑棋盘跳** —— 原版
+            //      `BattleManagerSupport__BroadcastCollectSpiritStone.c` 全文 `GetCardsInHandRef` = 0
+            //      （判据 🥇 `decomp_full/`，调用点 `BattleManager._ResolveUseWaystone_d__480__MoveNext.c:131`）；
+            //      通用四跳会叫醒**手牌里**的监听者并真的结算。
+            //      ⚠️ **已知差异（还没修，见台账 C 行）**：原版预调的实参是**那颗残骸本身**
+            //      （`_ResolveUseWaystone…:131` 传 `param_1 + 0x30` = 被收集的那张路标石卡），
+            //      我们这里 `card` / `subject` 都传 `null` ⇒ **少了这一条预调**。
+            //      ⛔ 没顺手改：`card` 还喂「代词 `it`」与 `WhenEvent` 的卡级筛选，
+            //      影响面没查清（今天 4 张监听卡卡面都不用代词 ⇒ 无可观测差）。
+            BroadcastWhen(ctx, WhenEventKind.GainSpirit, p, null, null,
+                          boardAndPersistentOnly: true);
 
             // ① 玩家资源那一条 —— **`Slot` 按 `GainFaith` 那族的约定写 -1**（那条链上三个事件
             //    都是「给玩家的、不属于任何格位」，见 `BattleEvent.GainFaith` 的注释）。
@@ -13950,10 +13966,257 @@ namespace RuleEngine
                 SetupCardInHand(ctx, p, inst);
                 return true;
             }
-            ps.Discard.Add(inst);
+            AddToCemetery(ps, inst);
             ctx.Log($"{ps.Name} 手牌已满（{ps.Hand.Count}/{limit}），插回失败的 {inst.Card?.Name} 直接进墓地"
                   + "（原版 `AddCardNotDrawnToHandAtIndex`：满了就把这张送墓地，手牌不动）");
             return false;
+        }
+
+        // ==================================================================
+        //  🆕 2026-10-26（完全复刻 · 执行代理 `B8_B`）：`PlayCard(..., chosen)` 的**战术卡分支**
+        //     —— `chosen` 原来被整段丢掉
+        //
+        //  🔴 **改前的形状**（`PlayCardCore` 的非单位分流那两句）：
+        //         if (… !Hand[handIdx].Card.IsUnit)
+        //             return PlayTactic(ctx, p, handIdx, slot);      ← `chosen` 不见了
+        //     而 `PlayCard(ctx, p, handIdx, slot, UnitState chosen)` 这个重载的**存在理由**
+        //     就是「调用方已经点定了目标、直接按它结算」（见该重载的 doc）。
+        //     丢掉它 ⇒ 入参写了也没用，仍然是「按格位现场查那一个」——
+        //     两者**在多数情况下同值**，但调用方显式指定单位时（AI / 自检夹具 / 网战回传）
+        //     会**静默按另一套口径挑目标**。
+        //
+        //  **判据**：原版把玩家点中的目标写进 `BattleAction + 0x20`，
+        //     之后 `CardScript.TargetedSpellPlayed(card, target)` / ability 结算**都读那一格**
+        //     （`decomp_full/BattleManager._ResolvePlayCardFromHand_d__447__MoveNext.c:905-940`）。
+        //     ⇒ 原版**没有**「再按格号回查一遍」这一步；格号只是表现层的坐标。
+        //
+        //  **为什么落成「把 chosen 翻成格号」而不是给 `PlayTactic` 加形参**：
+        //     `EffectResolver.PlayTactic` 的签名本轮**不在本代理白名单**内（文件有别的写手）⇒
+        //     改不了它。而 `PlayTacticCore` 内部只用 `targetSlot` 做两件事
+        //     （① `ctx.Players[side…].Board[targetSlot]` 取目标 ② 填事件的 `Slot`），
+        //     所以**把 chosen 的格号递进去**在净结果上与「直接递实例」等价。
+        //     ⚠️ 残留口径差异（如实记）：`PlayTacticCore` 仍按卡面 `PickSide` 决定去哪一侧的棋盘取，
+        //        因此**只有当 `chosen` 本来就在卡面指定的那一侧**时两者才严格等价；
+        //        把敌方单位传给一张「友方」卡这种调用本身不合法（`CanPlayTactic` 会先拒），
+        //        ⇒ 实际可达路径上等价。**要彻底消掉这一格，得给 `PlayTactic` 加 `chosen` 形参**
+        //        （`EffectResolver.cs`，本轮不归我改 —— 已写进报告 §六）。
+        //  ⚠️ `FindUnit` 找不到（单位已离场）⇒ **出声**退回 `fallbackSlot`，⛔ 不静默。
+        // ==================================================================
+        /// <summary>
+        /// 把「调用方点定的那个单位」翻成**棋盘格号**；翻不出来就退回调用方给的格号并出声。
+        /// 只服务 <see cref="PlayCardCore"/> 的战术卡分支（见上方注释块的判据）。
+        /// </summary>
+        static int ChosenTargetSlot(BattleContext ctx, UnitState chosen, int fallbackSlot)
+        {
+            if (chosen == null || ctx == null) return fallbackSlot;
+            if (FindUnit(ctx, chosen, out _, out int chosenSlot)) return chosenSlot;
+            ctx.Log($"⚠ 出牌点了目标「{chosen.Name}」，但它已经不在棋盘上"
+                  + $"（战术卡目标按格位 {fallbackSlot} 解析）");
+            return fallbackSlot;
+        }
+
+        // ==================================================================
+        //  🆕 2026-10-26（完全复刻 · 执行代理 `B8_B`）：**「进墓地」的唯一收口**
+        //
+        //  原版只有**一个**入口：`BattleManager.AddToCemetery(card)`（`decomp_full/BattleManager__AddToCemetery.c:5-6`）
+        //  → `CemeteryManager.AddCardToCemetery(cemetery, card, false)`（`CemeteryManager__AddCardToCemetery.c`）：
+        //     `:16-37` 往墓地列表 `Add`（`List<CardScript>`）· `:38-42` 把卡挂到墓地节点下
+        //     · `:47-54` `CardScript.SetAsCemetery(card, 列表下标)`（它体内就是
+        //       `CardScript__SetCardStateInCemetery.c:5` 的 `cardState = 6`）＋ `gameObject.SetActive(false)`。
+        //  我们**改前是 6 处散写** `ps.Discard.Add(...)`（手牌满两条 · 死亡两条 · 虫群下层 · 原位插回失败一条）
+        //  ⇒ 账行 `BattleManager.AddToCemetery` 只能记 B（「共享落点、没有单一收口方法」）。
+        //
+        //  **等价口径**：原版那个方法里**只有第一段是引擎状态**（列表写入），后两段都是表现层
+        //  （挂父节点 / 关渲染 / 写 `cardState`）—— 我们的 `cardState` 由「实例进 `Discard`」表示
+        //  （同一个事实的两种编码，见 `SetCardStateInCemetery` 那一条的差异列），表现层由
+        //  `CardPresentation` 从 `EvtKind.Death` 事件补。⇒ 本方法**只做那一句列表写入**，
+        //  ⛔ 不在这里加日志（会改 `ctx.Events.Count` ⇒ 动 `NetProtocol.Fingerprint`）。
+        //
+        //  ⚠️ **纯提取，零行为变化**：6 个原调用点逐个换成这里，判据 = 改完 `ruleprobe play check`
+        //     指纹不变（`a93ffb8f…`）。将来「进墓地要出声 / 要记账」只改这一处。
+        // ==================================================================
+        /// <summary>**进墓地的唯一写点**（原版 `BattleManager.AddToCemetery` 的引擎侧等价物）。
+        /// 判据与「为什么只做列表写入」见上方注释块。</summary>
+        static void AddToCemetery(PlayerState ps, CardInstance inst)
+        {
+            ps.Discard.Add(inst);
+        }
+
+        // ==================================================================
+        //  🆕 2026-10-26（完全复刻 · 执行代理 `B8_BH`）：**强制攻击退还一次行动额度**
+        //  （原版 `CardScript.RemoveAttackThisTurn` ＋ `CardScript.ResetActions` 这一对）
+        //
+        //  原版这一条**不在攻击结算里**：它在**入队那一刻**预扣、在**结算之后**再补回。
+        //    ① `decomp_full/BattleManager__AddForceAttack.c:39-43`（= `AddForceAttack(CardScript targetCard,
+        //       int priority, bool checkIfCasterInPlay, CardScript casterCard, bool blockPlayerActions = false,
+        //       bool dontCountAttack = false)` 的**最后一参**那一支；签名见 🥈
+        //       `cpp2il/out_cpp2il_dev_ilspy/BattleManager.cs:39952`）：
+        //         `local_111 = 0;  if (param_7 /*= dontCountAttack*/ != 0) {`
+        //         `    local_111 = *(int *)(card + 0x48) == 0;      // = wasFree`
+        //         `    CardScript__RemoveAttackThisTurn(card); }`
+        //       `local_111` 就是 `BattleAction.+0xF7`：`local_208` 是那个 `BattleAction` 的基址
+        //       （`BattleAction___ctor(local_208, …)`、`local_1f8` = `+0x10` 的 `multiTargetCard`），
+        //       而 `local_111` 在 `-0x111` ⇒ `-0x111 - (-0x208) = 0xF7`；`+0xF7` 在 🥇
+        //       `d:/2/tools/il2cpp_out/dump.cs:118995` 是 **`public bool extraValue`**（结构体里唯一的那个字节）。
+        //    ② `decomp_full/CardScript__RemoveAttackThisTurn.c:5-7`（全文 10 行）：
+        //       `if (0 < attacksThisTurn(+0x48)) attacksThisTurn--;` —— **下限 0，减不穿**。
+        //    ③ `decomp_full/BattleManager._ResolveForceAttack_d__504__MoveNext.c`：
+        //       `:34` 让 AI 挑目标 → `:61` `ChangeAttackType` → `:69` 排 `AddScriptedAttack`（真打）
+        //       → **`:73` `if (*(char *)(param_1 + 0x117) != '\0')`**（`param_1+0x117` = 状态机里那份
+        //       `BattleAction` 的 `+0xF7` = 上面那个 `extraValue` = `wasFree`）⇒ `:77` 再排一条
+        //       `AddResetActions`（`BattleActionType 0x29`）。**`wasFree` 为假就不排。**
+        //    ④ `decomp_full/CardScript__ResetActions.c`：`:18` `RawCardScript.IsUnit` ·
+        //       `:22-27` `cardState(+0x228)` 必须是 `2/3/15/17`（在场那四档），否则只打一条 warning、
+        //       **什么都不做** ⇒ `:29-31` `if (0 < attacksThisTurn) attacksThisTurn--`
+        //       ⇒ `:34` `ActivateMinion(card, IsPlayerTurn() == card.isPlayer)` = **重算 canAct / canAttack**。
+        //
+        //  **净语义（两条合起来才是完整语义）**
+        //    · 攻击前 `attacksThisTurn == 0` ⇒ `wasFree = true`：①的预扣是空操作（下限 0），
+        //      ③的真打 `+1`，④ 再 `-1` 并重算两位 ⇒ **这一次强制攻击不消耗单位的行动**。
+        //    · 攻击前 `attacksThisTurn > 0` ⇒ `wasFree = false`：预扣 `-1`、真打 `+1` 互相抵消，
+        //      **不排 ④** ⇒ 计数不变、`Exhausted` 不变 ⇒ 同样是「不额外消耗」。
+        //  ⇒ 我们这套**同步**引擎里两条并成一句：**只在「攻击前计数 == 0」时，攻击成功之后
+        //    把计数减回去并重算两位**（`wasFree == false` 那一支的预扣与自增在这里天然抵消）。
+        //
+        //  ⚠️ **⛔ 不能真的照 ① 在入口处预扣**：`EffectResolver.TryAttackOnce` 会对**每个候选**
+        //    各调一次 `DeclareAttack`（`EffectResolver.cs:3243-3255` 的 `foreach`）⇒ 预扣一次就多扣一次；
+        //     而原版那个「预扣了、但目标不合法 ⇒ 白扣一点行动」是**它自己的 bug**
+        //     （`_ResolveForceAttack…:34-60` 不合法就直接 `goto LAB_1809b42e5` → `FinishResolvingAction`，
+        //      补偿那一跳永远排不上）—— 我们不照抄这一条，如实记在账的「差异」列。
+        //
+        //  **池内可达性**（`cards_truth.json` 1,351 张现扫，取 `abilities[].logic[].chosenAbility`）：
+        //    · ❌ **不退还**：`0xe6`(230) / `0xe9`(233) 池内 **0 张**；`0xeb`(235，池内 **2** 张 =
+        //      `GOF86`/`GOF93`) 走 `AddScriptedAttack`、`0xec`(236，池内 **1** 张 = `SAU33`) 走
+        //      `AddRedirectedAttack` —— 这两支的签名里**没有** `dontCountAttack`（`dump.cs:32502/32505`）、
+        //      方法体里 `RemoveAttackThisTurn` **0 命中** ⇒ 它们（合计 3 张）**不退还**；
+        //    · ✅ **退还**（传 `dontCountAttack = 1`）：`0xe7`(231，2 张) · `0xed`(237，1 张) ·
+        //      `0xee`(238，7 张)（`decomp_full/AbilityLogic__PlayAbility.c:2659 / 2748 / 2764`）。
+        //    🔴 **2026-10-26（`B8_BM` · 铁律 5）就地订正**：本段原来写「池内每一张『强制攻击』卡都退还」、
+        //      而且只列了五支（漏 `0xeb`/`0xec`）—— **错**（235×2 + 236×1 不退还）。现行判据 = 数据驱动：
+        //      卡表 v32 的 `chosenAbility` 列 ∈ `{231,237,238}` 才退还（`ForcedAttackRefund` 一处判）。
+        // ==================================================================
+
+        /// <summary>`DeclareAttack` 外面那一层：**按原版判据决定强制攻击退还一次行动额度**
+        /// （`ForcedAttackRefunds`：`chosenAbility ∈ {231,237,238}` 才退）；判据/净语义/为什么不在入口预扣 → 上方注释块。
+        /// ⚠️ 全仓只有 `EffectResolver.TryAttackOnce` 传 `forced: true`（`grep` 现核）。</summary>
+        static int DeclareAttackRefundingForced(BattleContext ctx, int p, int atkSlot,
+                                                int tgtP, int tgtSlot, bool ranged, bool forced)
+        {
+            if (!forced)
+                // 原版非强制那一条（玩家点出来的那一记）一个字都不碰
+                return DeclareAttackCore(ctx, p, atkSlot, tgtP, tgtSlot, ranged, false);
+
+            // `wasFree` 取的时刻 = **入队那一刻**（`AddForceAttack.c:41`）⇒ 必须在攻击之前取。
+            UnitState atkUnit = (ctx != null && p >= 0 && p <= 1 && BoardSpec.IsValid(atkSlot))
+                                ? ctx.Players[p].Board[atkSlot] : null;
+            bool wasFree = atkUnit != null && atkUnit.AttacksThisTurn == 0;
+
+            int code = DeclareAttackCore(ctx, p, atkSlot, tgtP, tgtSlot, ranged, true);
+            if (code == RuleCodes.OK && wasFree && ForcedAttackRefunds(ctx))
+                RefundForcedAttackAction(ctx, p, atkSlot, atkUnit);
+            return code;
+        }
+
+        /// <summary>原版 **`CardScript.RemoveAttackThisTurn`**
+        /// （`decomp_full/CardScript__RemoveAttackThisTurn.c:5-7`，全文 10 行）的等价物：
+        /// `if (attacksThisTurn > 0) attacksThisTurn--` —— **下限 0，减不穿**。</summary>
+        static void RemoveAttackThisTurn(UnitState u)
+        {
+            if (u != null && u.AttacksThisTurn > 0) u.AttacksThisTurn--;
+        }
+
+        /// <summary>强制攻击结算**之后**的「退还」那一跳 = 原版 **`CardScript.ResetActions`**
+        /// （`decomp_full/CardScript__ResetActions.c`）：`:18` 必须还是单位 · `:22-27` `cardState` 必须在场 ·
+        /// `:29-31` 计数 `-1` · `:34` `ActivateMinion` 重算两位。
+        ///
+        /// <para>我们的等价物：计数走 <see cref="RemoveAttackThisTurn"/>，重算走
+        /// <see cref="RecomputeActAndAttack"/>（它逐句就是 `ActivateMinion` 的 `canAct`/`canAttack`
+        /// 那两位，判据写在它自己的 doc 里；**只写那两个字段、零别的副作用**）。</para>
+        ///
+        /// <para>⚠️ `:22-27` 那三档「已离场 / 已死」我们表示成「不在棋盘上 / `!IsAlive`」⇒
+        /// 直接跳过（原版在那里 `LogWarning` 后 `return`，同样一个字段都不写）。</para>
+        /// </summary>
+        static void RefundForcedAttackAction(BattleContext ctx, int p, int atkSlot, UnitState u)
+        {
+            if (u == null || !u.IsAlive) return;
+            if (ctx == null || p < 0 || p > 1 || !BoardSpec.IsValid(atkSlot)) return;
+            if (ctx.Players[p].Board[atkSlot] != u) return;      // 换过人/已移除 ⇒ 不是同一张牌，不动
+
+            int before = u.AttacksThisTurn;
+            RemoveAttackThisTurn(u);            // 原版 `:29-31`
+            RecomputeActAndAttack(u);           // 原版 `:34` `ActivateMinion`
+
+            // 原版 `:14-15` 在 `ResetActions` 开头有一条 `CustomDebug.Log(cardName + …)` ——
+            // 本仓把 `CustomDebug.Log` 一律映射成 `ctx.Log`（先例：`DeclareAttack` 里那条
+            // 「面朝下地出手」）。它同时是这一跳**唯一的读数口**：`AttacksThisTurn` / `Exhausted`
+            // 都不进 `ruleprobe` 的任何指纹（`PlayProbe.Capture` 只记 `攻/远/甲/血/关键词`），
+            // 而 `ctx.Events` 的**日志序**是 G3 允许的观测量。
+            ctx.Log($"{u.Name} 重置行动：本回合攻击次数 {before} → {u.AttacksThisTurn}"
+                  + "（原版 `CardScript.ResetActions`；强制攻击不消耗它的行动）");
+        }
+
+        // ==================================================================
+        //  🆕 2026-10-26（完全复刻 · 执行代理 `B8_BH`）：**「死灵的残骸」判据收成一处**
+        //
+        //  原版有两个同形谓词，都只读**阵营 + isRemnant**、**一个字都不读 trait**：
+        //    · `SupportMethods.IsNecronRemnant`（`decomp_full/SupportMethods__IsNecronRemnant.c:4-11`）：
+        //      `rawCardData.cardArmy(+0x2c) == 40 (Sautekh)` **且** `isRemnant(+0x65)`；
+        //    · `SupportMethods.ShouldRemnantDestroyOnTurnEnd`
+        //      （`decomp_full/SupportMethods__ShouldRemnantDestroyOnTurnEnd.c:1-27`）：
+        //      上面那条 **且** `!HasCurrentTrait(1190 = notDestroyRemnant)`。
+        //  我们这边原来写成 `Has(KeywordTable.Remnant)`（**关键词**口径），靠「池内 `Remnant` 只在 Sautekh」
+        //  取等价 —— 但残骸翻面那一刻已经 `ClearAllKeywords()` 摘光 trait（原版 `TransformIntoRemnant.c:54-75`）
+        //  ⇒ 关键词口径**当场失效**。⇒ 改回原版的**阵营**口径。
+        //  ⚠️ `1190` 那一半我们走 `UnitState.AuraRemnantStay`（`Auras.Recompose` 置，见 `DestroyRemnants` 里
+        //      那条 `if (u.AuraRemnantStay)`）；摘 trait 之后 `Has(1190)` 恒假，与阵营口径**不冲突**。
+        //  🔴 **同一句今天还有第二份**：`ConditionEval.cs:540-542`（`case 340 onlyRemnants`）内联了
+        //     `u.IsRemnant && card.Faction == "Sautekh"` —— 该并到本方法来（`ConditionEval.cs` 不在本笔白名单）。
+        // ==================================================================
+
+        /// <summary>**太空死灵**那一族的阵营名（原版 `cardArmy(+0x2c) == 40`）。判据只此一处。</summary>
+        public const string NecronFaction = "Sautekh";
+
+        /// <summary>**这一格是不是一具死灵的残骸**（原版 `SupportMethods.IsNecronRemnant`：
+        /// `cardArmy(+0x2c) == 40(Sautekh) ∧ isRemnant(+0x65)`）。判据与「为什么不再看关键词」见上方注释块。</summary>
+        public static bool IsNecronRemnant(UnitState u)
+        {
+            return u != null && u.IsRemnant && u.Card != null
+                && string.Equals(u.Card.Faction, NecronFaction, System.StringComparison.Ordinal);
+        }
+
+        // ==================================================================
+        //  🆕 2026-10-26（完全复刻 · 执行代理 `B8_BM`）：**「这一记强制攻击退不退还」是【数据】判据**
+        //
+        //  判据 = 原版 `AbilityLogic.PlayAbility` 按 `chosenAbility` 分派，只有 **231 / 237 / 238**
+        //  三支教 `dontCountAttack = 1`（逐支行号 / 签名 / 方法体反证 → `Core/ForcedAttackRefund.cs` 文件头）。
+        //  ⇒ 退还的**开关** = 卡表 v32 的 `chosenAbility` 列（`ForcedAttackRefund.Of(卡id)`）。
+        //
+        //  「这次结算是哪张卡」= **能力属主**：`ctx.ActingUnit.Card`（单位自己的能力 ——
+        //  `EffectResolver.ResolveOne` 逐 op save/restore 它）→ 回落 `ctx.CardPlaySource`
+        //  （战术卡整条结算 / 常驻效果来源卡；同样 save/restore）。
+        //  ⛔ **别用 `ctx.PlayingCard`**：那个字段**从不清空**，事件触发那条路上它会停在
+        //  「本局最后打出的一张牌」上（判据 → `BattleContext.cs` 里 `CardPlaySource` 的 doc · P3 审计）。
+        //
+        //  ⚠️ `Unknown`（查不到）⇒ **照旧退还** = 改前行为的回退档。靠它活着的真实一例 =
+        //  `SW56 Let Loose`（它的 238 落在**附魔模板** `f16df0b3…` 上，本卡 abilities 只有 30/320/260）。
+        //  ==================================================================
+
+        /// <summary>这一记**强制攻击**该不该退还一次行动额度（原版 `chosenAbility ∈ {231,237,238}`）。
+        /// 三态 / 为什么取 `FactionSourceCard → ActingUnit → CardPlaySource` / `Unknown` 为什么退还 → 上方注释块。</summary>
+        static bool ForcedAttackRefunds(BattleContext ctx)
+        {
+            CardDef src = null;
+            if (ctx != null)
+            {
+                // ① 常驻作业 / 手牌陷阱的**真实来源卡**（那两条路的 `ActingUnit` 是事件宾语，不是能力属主）
+                if (ctx.FactionSourceCard != null) src = ctx.FactionSourceCard;
+                // ② 单位自己的能力（`ResolveOne` 逐 op save/restore）
+                if (src == null && ctx.ActingUnit != null) src = ctx.ActingUnit.Card;
+                // ③ 战术卡整条结算 / 事件型常驻效果（`CardPlaySource`，同样 save/restore）
+                if (src == null) src = ctx.CardPlaySource;
+            }
+            return ForcedAttackRefund.Of(src != null ? src.Id : null)
+                != ForcedAttackRefund.Verdict.NoRefund;
         }
     }
 }

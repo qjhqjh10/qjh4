@@ -71,7 +71,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Rendering;
 using UnityEngine.Rendering.Universal;
-using WarpforgeVFX;
+using WarpforgeVFX; using DG.Tweening;   // ⚠️ 必须 `using DG.Tweening`：`SetEase` / `IsActive` / `Complete` / `Elapsed` 都是**扩展方法**（同 `BattleCameraSreenSize.cs:89`）
 
 namespace CardPresentation
 {
@@ -295,11 +295,11 @@ namespace CardPresentation
             if (r.setThreshold) { _bloom.threshold.overrideState = true; _bloom.threshold.value = r.threshold; }
         }
 
-        /// <summary>原版 `DoLUTAnim()` + `DoBlend()`：先（首次）把两张 LUT 推上去、必要时合进 RT，
-        /// 再按 `lutBlend` 把结果写进 `ColorLookup.texture`。</summary>
+        /// <summary>原版 `DoLUTAnim()` + `DoBlend()`：先（首次）把两张 LUT 推上去、必要时合进 RT，再按 `lutBlend` 把结果写进 `ColorLookup.texture`。
+        /// ⚠️ 复位斜坡在走时丢掉「空闲那一发」（`lutBlend == 0`），否则它会把 `ResetLUT` 的 1.0 s 过渡当场盖掉（见类尾 `ResetLutCore`）；在播的效果照旧放行。</summary>
         void LutBlend(PostFxRequest r)
         {
-            if (_mat == null || _cl == null) return;
+            if (_mat == null || _cl == null || (_lutRampActive && r.lutBlend == 0f)) return;   // ← 后者见 doc（别删）
 
             if (r.setTextures)              // 原版 `alreadySetLUTAnimTexture == false` 那一支
             {
@@ -346,26 +346,24 @@ namespace CardPresentation
             Graphics.Blit(null, _combined, _mat);
             _cl.texture.overrideState = true;
             _cl.texture.value = _combined;
-            Blends++;
+            Blends++; _lastBlend = v;        // `_lastBlend` = 读口 + `ResetLutCore` 的起点（见类尾那段）
         }
 
-        /// <summary>原版 `PostFXController.ResetLUT(instant)`：把目标 LUT 设回「原 LUT」。
-        /// ⚠️ 原版这里会起一段 `timeToBlend`（instant=0 → `TIME_TO_RESET` = **1.0f**）的**动画**过渡；
-        ///    我们**直接落位**（我们的 `_Blend` 过渡由模块每帧算，见文件头第 ③ 条），
-        ///    并把 `ColorLookup.texture` 交还战场那张静态 LUT。</summary>
+        /// <summary>原版 `PostFXController.ResetAll(bool instant)`（🥇 `decomp_full/PostFXController__ResetAll.c`
+        /// = `ResetBloom(instant)` + `ResetLUT(instant)` 两句转调）。两件的**机制**都收在**类尾**
+        /// （<see cref="ResetBloomCore"/> / <see cref="ResetLutCore"/>，判据出处与两侧数值写在那一段），
+        /// 这里保持原版那一层的「纯转发」。
+        /// <para>判据落点：`ResetBloom` = `__ResetBloom.c:14-47`（instant=0 ⇒ `DOTween.Kill` + 两条 `DOTween.To(→ 缓存原值, 1.0 s)`；
+        /// 否则逐件判空后直接写回）；`ResetLUT` = `__ResetLUT.c:13-37`（`timeToBlend = instant ? 0 : TIME_TO_RESET`，
+        /// `LUTBlender` 为空则原版 NRE）+ `LUTBlender__Update.c:8-21`（`currentTime += dt; DoBlend(currentTime / timeToBlend)`，到点自关）。</para>
+        /// <para>⚠️ 我们这条链上还有两个**既有偏离**（文件头 ③ ④ 已写）：`_Blend` 由模块每帧算、且不建 workingRT。
+        /// 两者都不影响「Reset 之后画面 = 原 LUT」这个净结果（`_Blend → 1` ⇒ `lerp(_LUT1,_LUT2,1) = _LUT2 = 原 LUT`）。</para>
+        /// <para>观测量（自检读口）= <see cref="BloomIntensityNow"/> / <see cref="BloomThresholdNow"/> /
+        /// <see cref="ResetBloomRamp01"/> / <see cref="ResetLutRamp01"/>（原版侧期望值见类尾那段）。</para></summary>
         void Reset(bool instant)
         {
-            if (_cl != null)
-            {
-                _cl.texture.overrideState = true;
-                _cl.texture.value = _original;      // 第 ① 条那张
-            }
-            if (_bloom != null)                     // 原版 `ResetBloom`
-            {
-                if (_bloomIntensity0 >= 0f) { _bloom.intensity.overrideState = true; _bloom.intensity.value = _bloomIntensity0; }
-                if (_bloomThreshold0 >= 0f) { _bloom.threshold.overrideState = true; _bloom.threshold.value = _bloomThreshold0; }
-            }
-            _ = instant;                            // 见上面：过渡由模块负责，这里两条路一样
+            ResetBloomCore(instant);
+            ResetLutCore(instant);
         }
 
         /// <summary>原版 `AnimEventSetOriginalLUTNoTransition()`：把 `_LUT1` 换回原 LUT，不过渡。</summary>
@@ -418,6 +416,147 @@ namespace CardPresentation
             if (_mat != null) { Object.DestroyImmediate(_mat); _mat = null; }
             _cl = null; _bloom = null; _original = null;
             _prof = null; _addedCl = false;
+            if (_bloomTweenI != null) _bloomTweenI.Kill(); if (_bloomTweenTh != null) _bloomTweenTh.Kill(); if (_lutTween != null) _lutTween.Kill(); _lutRampActive = false; _lutRampT = 0f;
         }
+
+        // ==================================================================
+        //  🆕 2026-10-26（执行代理 `B8_AF`）：原版 `ResetBloom` / `ResetLUT` 的 **1.0 s 过渡**
+        // ==================================================================
+        //  判据（🥇 `decomp_full/` 2026-10-26 现读；🥈 `cpp2il/out_cpp2il_dev_ilspy/PostFXController.cs:128-186` 同体）：
+        //   · `PostFXController__ResetAll.c` = `ResetBloom(instant)` + `ResetLUT(instant)` 两句（本类 `Reset` 就是它）。
+        //   · `PostFXController__ResetBloom.c`：
+        //       instant=0 ⇒ `DOTween.Kill(bloom,0,0)` → 两条 `DOTween.To(getter, setter, 目标, TIME_TO_RESET)`
+        //         （目标 = `*(this+0x38)` / `*(this+0x3c)` = `bloomOriginalIntensity` / `bloomOriginalThreshold`，
+        //          即 `Start` 里缓存的那两个原值；**没有 SetEase** ⇒ 走 DOTween 全局默认缓动）；
+        //       instant=1 ⇒ 先写 `intensity`（`bloom+0x48` 判空）、再写 `threshold`（`bloom+0x40` 判空），
+        //         **任一为空原版抛 NRE**（`FUN_1803f47a0`）。
+        //   · `PostFXController__ResetLUT.c`：`timeToBlend = instant ? 0 : TIME_TO_RESET`；`LUTBlender == null` ⇒ 原版 NRE；
+        //       否则 `SetTargetLUT(originalLUTTexture /*+0x50*/)` → `timeToBlend(0x6c)` → `currentTime(0x64)=0`
+        //       → `doAnimatedBlend(0x68)=1` → `enabled=1`。
+        //   · `LUTBlender__SetTargetLUT.c`：`Blit(combined(+0x40) → working(+0x48))` + `SetTexture(mat,"_LUT2",目标)`。
+        //   · `LUTBlender__Update.c`：`currentTime += Time.deltaTime; DoBlend(currentTime / timeToBlend)`；
+        //       到点 ⇒ `doAnimatedBlend=0` + `enabled=0`。**这是一段手写线性斜坡，不是 tween**。
+        //   · `LUTBlender__DoBlend.c`：v 夹到 [0,1]（上界 `0x1834b2bb8` = 1.0f）→ `SetFloat("_Blend", v)` → `Blit(null→combined)`。
+        //   · `PostFXController..cctor.c`：`TIME_TO_RESET = 0x3f800000` = **1.0f**。
+        //  ⇒ **Bloom 用真 `DOTween.To`**（本工程有 DOTween：`Assets/Plugins/Demigiant/DOTween`；
+        //    `Resources/DOTweenSettings.asset` 的 `defaultEaseType = 6` = `OutQuad`，与原版「不写 SetEase」一致；
+        //    同一份 DOTween 已由 `Battle/BattleCameraSreenSize.cs` 在用）。
+        //    **LUT 用一段手写线性斜坡**（原版就是 `currentTime / timeToBlend`，⛔ 别改成 tween —— 那会带上缓动）。
+        //  ⚠️ 批处理里没有帧循环 ⇒ 两条 tween 都不会自己推进；自检要读数就调 `CompleteResetRamps()`
+        //    （同 `BattleCameraSreenSize._sensorTween/_lensTween` 的处置）。
+        //  🔴 **不是「原版自己也有 bug」那一类**：两条都照原版的时长 / 曲线 / 净结果，没有改语义。
+
+        /// <summary>原版 `PostFXController.TIME_TO_RESET`（`..cctor`：`0x3f800000` = **1.0f**）。</summary>
+        public const float TimeToReset = 1f;
+
+        DG.Tweening.Tween _bloomTweenI, _bloomTweenTh;   // 原版 `ResetBloom` 那两条 `DOTween.To`（自检可 `Complete` 跑完）
+        bool _lutRampActive;
+        float _lutRampT;                                 // 原版 `LUTBlender.currentTime`（0 → TimeToReset）
+        DG.Tweening.Tween _lutTween;                     // 只当 `currentTime` 的泵（线性），把 `BlendTo` 推起来
+        float _lastBlend = -1f;                          // 最近一次写进 `_Blend` 的值（读口 + 判断是否已写过）
+        int _lutRampFallback;                            // 「要过渡但没有材质/原 LUT」⇒ 退回直接落位的次数（不静默）
+
+        /// <summary>原版 `ResetBloom(bool instant)`。`instant=false` ⇒ 两条 **1.0 s** 的 `DOTween.To`
+        /// （intensity / threshold 各一条，终点 = `Start` 缓存的 `bloomOriginal*`，**不写 SetEase** = 全局默认 `OutQuad`）。</summary>
+        void ResetBloomCore(bool instant)
+        {
+            if (_bloom == null) return;      // 原版这一支会走到 `FUN_1803f47a0`（NRE）；我们按「这一局没有 Bloom」处理
+            if (!instant)
+            {
+                // 原版 `DOTween.Kill(bloom, 0, 0)`：那两条 tween **没有 target**（`TweenerCore.target == null`），
+                // 所以这句其实杀不到东西 —— 照抄，⛔ 别当冗余删（同 `BattleCameraSreenSize` 文件头 F 那条）。
+                DG.Tweening.DOTween.Kill(_bloom);
+                _bloomTweenI = DG.Tweening.DOTween.To(
+                    () => _bloom.intensity.value, x => _bloom.intensity.value = x, _bloomIntensity0, TimeToReset);
+                _bloomTweenTh = DG.Tweening.DOTween.To(
+                    () => _bloom.threshold.value, x => _bloom.threshold.value = x, _bloomThreshold0, TimeToReset);
+                return;
+            }
+            // instant=1：逐件判空后直接写回（原版 `bloom+0x48` / `bloom+0x40`；`overrideState` 是我们既有的写法，见 `BloomAim`）
+            if (_bloomIntensity0 >= 0f) { _bloom.intensity.overrideState = true; _bloom.intensity.value = _bloomIntensity0; }
+            if (_bloomThreshold0 >= 0f) { _bloom.threshold.overrideState = true; _bloom.threshold.value = _bloomThreshold0; }
+        }
+
+        /// <summary>原版 `ResetLUT(bool instant)`：`instant=false` ⇒ `_Blend` 从 **0** 线性推到 **1**（1.0 s，
+        /// `LUTBlender.Update` 那条手写斜坡），画面 = `lerp(当前基准 LUT, 原 LUT, v)`；`instant=true` ⇒ 当场落到原 LUT。
+        /// <para>🔴 **我们那份「快照」是隐式的**：原版 `SetTargetLUT` 先把 combined 拷进 working（`_LUT1` 的宿主），
+        /// 但模块在每次效果起手时都会把 `_LUT1` 改写成 `customLUT1`（`AnimFXModulePostProcess.cs:224-231`）
+        /// ⇒ **真正参与插值的是「当前基准 LUT」，不是那份快照**。我们的 `_LUT1` 一直是「当前基准」
+        /// （`LutBlend` 的 `setTextures` 支负责写、平时不动）⇒ **净等价，不需要 workingRT**（与文件头第 ④ 条一致）。</para></summary>
+        void ResetLutCore(bool instant)
+        {
+            if (_cl == null) return;         // 原版 `LUTBlender != null` 那道守卫（为空原版 NRE）
+            if (instant || _mat == null || _original == null)
+            {
+                if (!instant && _lutRampFallback++ == 0)
+                    Debug.LogWarning("[BattlePostFx] `ResetLUT(instant:false)` 该走 1.0 s 过渡，但 "
+                                   + (_mat == null ? "`Hidden/LUTBlender` 材质没解析到" : "`originalLUTTexture` 是 null")
+                                   + " ⇒ 这一支退回**直接落位**（不静默，只报一次）。");
+                _lutRampActive = false;
+                _lutRampT = 0f;
+                _cl.texture.overrideState = true;
+                _cl.texture.value = _original;      // 原版走到那一步的**净结果**也是这张
+                if (_mat != null && _original != null)
+                {
+                    // `_LUT1`/`_LUT2` 都归位成原 LUT + `_Blend = 1` ⇒ 之后任何一次 `BlendTo(0)`
+                    // （模块空闲时每帧都会来一发）得到的还是原 LUT —— 不会把刚复位的结果又掀回去。
+                    _mat.SetTexture("_LUT1", _original);
+                    _mat.SetTexture("_LUT2", _original);
+                    BlendTo(1f);
+                }
+                return;
+            }
+            _mat.SetTexture("_LUT2", _original);    // 原版 `SetTargetLUT(originalLUTTexture)` 的第二句
+            _lutRampActive = true;
+            _lutRampT = 0f;
+            BlendTo(0f);                            // 原版 `Update` 的第一帧 ≈ `DoBlend(dt / 1.0) ≈ 0`
+            // 用一条**线性** tween 当 `currentTime` 的泵（原版是 `LUTBlender` 自己 `Update` 累加，我们没建那件 MonoBehaviour）
+            if (_lutTween != null) _lutTween.Kill();
+            _lutTween = DG.Tweening.DOTween
+                .To(() => _lutRampT,
+                    x => { _lutRampT = x; if (_lutRampActive) BlendTo(Mathf.Clamp01(x / TimeToReset)); },
+                    TimeToReset, TimeToReset)
+                .SetEase(DG.Tweening.Ease.Linear)
+                .OnComplete(LutRampComplete);
+        }
+
+        /// <summary>原版 `LUTBlender.Update` 的收尾（`currentTime >= timeToBlend` ⇒ `doAnimatedBlend=0` + `enabled=0`）。</summary>
+        void LutRampComplete()
+        {
+            _lutRampActive = false;
+            _lutRampT = TimeToReset;
+            BlendTo(1f);
+            if (_mat != null && _original != null) _mat.SetTexture("_LUT1", _original);   // 过渡完 = 画面就是原 LUT ⇒ 基准也归位
+        }
+
+        /// <summary>把两段过渡**手动跑完**（批处理/自检里没有帧循环，`DOTween` 不推进 ⇒ 用它读数）。
+        /// 只给自检与无帧循环那一路用，⛔ 生产路径别调（真机上它们自己会走完）。</summary>
+        public void CompleteResetRamps()
+        {
+            if (_bloomTweenI != null && _bloomTweenI.IsActive()) _bloomTweenI.Complete();
+            if (_bloomTweenTh != null && _bloomTweenTh.IsActive()) _bloomTweenTh.Complete();
+            if (_lutTween != null && _lutTween.IsActive()) _lutTween.Complete();
+            if (_lutRampActive) LutRampComplete();     // tween 已被 Kill/丢掉时的兜底
+        }
+
+        // ---- 自检读口：⛔ 别读我们自己的 bool 当观测量；这几个读的是**真落到 Volume / 材质上的值** ----
+        /// <summary>Bloom intensity 的**现值**（= 原版 `bloom.intensity.value`；没有 Bloom ⇒ NaN）。</summary>
+        public float BloomIntensityNow { get { return _bloom != null ? _bloom.intensity.value : float.NaN; } }
+        /// <summary>Bloom threshold 的**现值**（同上）。</summary>
+        public float BloomThresholdNow { get { return _bloom != null ? _bloom.threshold.value : float.NaN; } }
+        /// <summary>Bloom 那段过渡的进度 0..1（tween 不在 ⇒ 1）。原版侧期望：`ResetBloom(false)` 后 0→1 走 1.0 s。</summary>
+        public float ResetBloomRamp01
+        {
+            get
+            {
+                if (_bloomTweenI != null && _bloomTweenI.IsActive())
+                    return Mathf.Clamp01(_bloomTweenI.Elapsed() / TimeToReset);
+                return 1f;
+            }
+        }
+        /// <summary>LUT 那段过渡的进度 0..1（没在走 ⇒ 1）。原版侧期望：`ResetLUT(false)` 后 0→1 走 1.0 s（线性）。</summary>
+        public float ResetLutRamp01 { get { return _lutRampActive ? Mathf.Clamp01(_lutRampT / TimeToReset) : 1f; } }
+        /// <summary>最近一次写进 `_Blend` 的值（-1 = 还没写过）。</summary>
+        public float BlendNow { get { return _lastBlend; } }
     }
 }

@@ -1,7 +1,7 @@
 {
  "schema": "wf.trait_effect_bindings/1",
  "generatedBy": "工具/gen_trait_effect_bindings.py",
- "generatedAt": "2026-10-25 17:13:28",
+ "generatedAt": "2026-10-26 08:10:01",
  "sources": {
   "traitCollection": "数据/游戏数据/trait_collection.json",
   "traitCollectionGenerated": "2026-10-22",
@@ -14,6 +14,7 @@
  "conventions": {
   "triggerType": "原版 `EffectTriggerType`：0 Start · 1 End · 2 OnPlay(→ 状态框「加身」那本) · 3 Trigger(→ 状态框「触发」那本) · 5 FromCode(→ 从代码播的粒子) · 6 TriggerOnPlay(→ 状态框「触发」那本、会写去重表)。2/3/6 三档由 `TraitFrames` 消费，5 由 `TraitParticles` 消费，0/1 只留档。",
   "playIfWarlord": "原版 `TraitEffect.playIfWarlord`；卡是督军且该位为 0 ⇒ 原版不播（`BattleCardUI__DisplayTriggerAnim.c:62-68`）。",
+  "inPlayAnim": "🆕 2026-10-26：**每行的** `CardTrait._hasInPlayAnim`（SO 字段，`+0x20`）—— 原版「**后加到一张在场的卡上**的 trait 要不要演状态帧」的前置闸（`CardScript__ActivateTraitAnim.c:23` · `CardScript__AddEffect.c:657`）。消费端 = `Core/TraitFrames.cs` 的 `InPlayAnimGate` / `PlaysInPlayAnim`：**只在「这张卡第一次同步之后新出现的关键词」上拦**（= 原版 `AddEffect` 那条路）；⛔ 召唤那一拍不拦（原版 `ActivateTraitsOnSummonOrEnchantment` 没有这道闸）；⛔ 触发那一档（`DisplayTrigger`）也不拦。",
   "overrides": "原版 `TraitEffect.overrideByArmies[]` —— 按阵营换掉那条 effect。✅ **运行期已按阵营取**：`TraitFrames.PrefabFor(trait, trigger, army)` / `PrefabOf(row, army)`（= 原版 `TraitEffect.GetEffect(army)`，`TraitEffect__GetEffect.c:9-34`），10 条覆盖（`shield` 4 · `invulnerable` 6）逐条消费。⚠️ **`army` 取的是「拥有者阵营」**：我们只能从 `CardView.Data.faction` 反推（`ToCardData(UnitState, faction)` 填的是拥有者），而**原版读的是卡自己的** `rawCardData.cardArmy`（`ObtainableItem.cardArmy`，偏移 `+0x2C`） ⇒ 同阵营卡组逐字一致；跨阵营的盟军 / 中立卡可能与原版不同（已知偏差与根治办法见 `Core/TraitFrames.cs` 文件头「按阵营覆盖」那一段）。🔴 **2026-10-24 就地订正（铁律 5）**：这一段原来写「运行期**今天还没按阵营取**（`TraitFrames.PrefabFor` 没有阵营参数，改签名要动 `CardView` / `BattleDriver`）⇒ 这里只把真值留全，缺口如实记在 `unresolvedArmyVariants`」—— **两处都过期/不实**：① 2026-10-23 起已有三参 `PrefabFor` 且两个播放口都在传阵营；② 本文档**没有** `unresolvedArmyVariants` 这个键（缺的那几条在 `unresolvedRows`）。错因：那句话写于实现之前，实现之后没有回来改这一行。"
  },
  "stats": {
@@ -31,7 +32,24 @@
   "unresolved": 7,
   "overrides": 10,
   "guidChecked": 68,
-  "guidMismatch": 0
+  "guidMismatch": 0,
+  "inPlayAnim": {
+   "true": 39,
+   "false": 36,
+   "null": 2
+  },
+  "inPlayAnimNullTraits": [
+   "berzerk",
+   "dodge"
+  ],
+  "inPlayAnimFalseWithStartPrefab": [
+   "armour:ArmourTraitStart",
+   "companion:CompanionTraitStart",
+   "flank:FlankTraitStart",
+   "pack:Pack OnPlay Anim",
+   "rally:RallyTraitStart",
+   "tide:TideTraitStart"
+  ]
  },
  "unresolvedRows": [
   {
@@ -101,6 +119,7 @@
    "cardAnim": "DutyAnim",
    "prefab": "DutyEffect",
    "playIfWarlord": true,
+   "inPlayAnim": true,
    "unresolved": "",
    "overrides": []
   },
@@ -113,6 +132,7 @@
    "cardAnim": "Ambush Effect",
    "prefab": "AmbushEffect",
    "playIfWarlord": true,
+   "inPlayAnim": false,
    "unresolved": "",
    "overrides": []
   },
@@ -125,6 +145,7 @@
    "cardAnim": "ArmourTraitStart",
    "prefab": "ArmourEffect",
    "playIfWarlord": false,
+   "inPlayAnim": false,
    "unresolved": "",
    "overrides": []
   },
@@ -137,6 +158,7 @@
    "cardAnim": "ArtificeTraitTrigger",
    "prefab": "ArtificeEffect",
    "playIfWarlord": true,
+   "inPlayAnim": true,
    "unresolved": "",
    "overrides": []
   },
@@ -149,6 +171,7 @@
    "cardAnim": "BacklashTraitTrigger",
    "prefab": "BacklashEffect",
    "playIfWarlord": true,
+   "inPlayAnim": false,
    "unresolved": "",
    "overrides": []
   },
@@ -161,6 +184,7 @@
    "cardAnim": "BlindTraitPlay",
    "prefab": "Blind_continuous_effect",
    "playIfWarlord": true,
+   "inPlayAnim": true,
    "unresolved": "",
    "overrides": []
   },
@@ -173,6 +197,7 @@
    "cardAnim": "BloodThirstGainAnim",
    "prefab": "BloodThirstEffect_Gain",
    "playIfWarlord": true,
+   "inPlayAnim": false,
    "unresolved": "",
    "overrides": []
   },
@@ -185,6 +210,7 @@
    "cardAnim": "BloodThirstIdleAnim",
    "prefab": "BloodThirstEffect_Idle",
    "playIfWarlord": true,
+   "inPlayAnim": false,
    "unresolved": "",
    "overrides": []
   },
@@ -197,6 +223,7 @@
    "cardAnim": "BloodThirstLoseAnim",
    "prefab": "BloodThirstEffect_Lose",
    "playIfWarlord": true,
+   "inPlayAnim": false,
    "unresolved": "",
    "overrides": []
   },
@@ -209,6 +236,7 @@
    "cardAnim": "CamouflageTraitPlay",
    "prefab": "CamouflageEffect",
    "playIfWarlord": true,
+   "inPlayAnim": true,
    "unresolved": "",
    "overrides": []
   },
@@ -221,6 +249,7 @@
    "cardAnim": "CantAttackAnim",
    "prefab": "CantAttackEffect",
    "playIfWarlord": true,
+   "inPlayAnim": true,
    "unresolved": "",
    "overrides": []
   },
@@ -233,6 +262,7 @@
    "cardAnim": "CodexTraitTrigger",
    "prefab": "CodexEffect",
    "playIfWarlord": true,
+   "inPlayAnim": false,
    "unresolved": "",
    "overrides": []
   },
@@ -245,6 +275,7 @@
    "cardAnim": "",
    "prefab": "",
    "playIfWarlord": false,
+   "inPlayAnim": true,
    "unresolved": "`TraitEffect.effectAnim` 是空引用（原版这条 effect 没有动画，不是解错）",
    "overrides": []
   },
@@ -257,6 +288,7 @@
    "cardAnim": "CompanionTraitStart",
    "prefab": "CompanionEffect",
    "playIfWarlord": false,
+   "inPlayAnim": false,
    "unresolved": "",
    "overrides": []
   },
@@ -269,6 +301,7 @@
    "cardAnim": "ConcussiveTraitTrigger",
    "prefab": "ConcussiveEffect",
    "playIfWarlord": true,
+   "inPlayAnim": false,
    "unresolved": "",
    "overrides": []
   },
@@ -281,6 +314,7 @@
    "cardAnim": "CrueltyTraitTrigger",
    "prefab": "CrueltyEffect",
    "playIfWarlord": true,
+   "inPlayAnim": false,
    "unresolved": "",
    "overrides": []
   },
@@ -293,6 +327,7 @@
    "cardAnim": "",
    "prefab": "",
    "playIfWarlord": true,
+   "inPlayAnim": true,
    "unresolved": "`TraitEffect.effectAnim` 是空引用（原版这条 effect 没有动画，不是解错）",
    "overrides": []
   },
@@ -305,6 +340,7 @@
    "cardAnim": "DutyAnim",
    "prefab": "DutyEffect",
    "playIfWarlord": true,
+   "inPlayAnim": true,
    "unresolved": "",
    "overrides": []
   },
@@ -317,6 +353,7 @@
    "cardAnim": "EcstasyTraitTrigger",
    "prefab": "EcstasyEffect",
    "playIfWarlord": false,
+   "inPlayAnim": false,
    "unresolved": "",
    "overrides": []
   },
@@ -329,6 +366,7 @@
    "cardAnim": "FastTraitStart",
    "prefab": "FastEffect",
    "playIfWarlord": true,
+   "inPlayAnim": true,
    "unresolved": "",
    "overrides": []
   },
@@ -341,6 +379,7 @@
    "cardAnim": "FerocityAnim",
    "prefab": "FerocityEffect",
    "playIfWarlord": false,
+   "inPlayAnim": true,
    "unresolved": "",
    "overrides": []
   },
@@ -353,6 +392,7 @@
    "cardAnim": "Ferocity Recall to deck",
    "prefab": "Ferocity_RecallToDeck",
    "playIfWarlord": false,
+   "inPlayAnim": true,
    "unresolved": "",
    "overrides": []
   },
@@ -365,6 +405,7 @@
    "cardAnim": "",
    "prefab": "",
    "playIfWarlord": true,
+   "inPlayAnim": false,
    "unresolved": "`TraitEffect.effectAnim` 是空引用（原版这条 effect 没有动画，不是解错）",
    "overrides": []
   },
@@ -377,6 +418,7 @@
    "cardAnim": "FlankTraitStart",
    "prefab": "FlankEffect",
    "playIfWarlord": true,
+   "inPlayAnim": false,
    "unresolved": "",
    "overrides": []
   },
@@ -389,6 +431,7 @@
    "cardAnim": "FlyingTraitPlay",
    "prefab": "FlyingEffect",
    "playIfWarlord": true,
+   "inPlayAnim": true,
    "unresolved": "",
    "overrides": []
   },
@@ -401,6 +444,7 @@
    "cardAnim": "FrenziedTraitTrigger",
    "prefab": "FrenziedEffect",
    "playIfWarlord": true,
+   "inPlayAnim": true,
    "unresolved": "",
    "overrides": []
   },
@@ -413,6 +457,7 @@
    "cardAnim": "HuntMark Start Anim",
    "prefab": "HuntMark_StartEffect",
    "playIfWarlord": true,
+   "inPlayAnim": true,
    "unresolved": "",
    "overrides": []
   },
@@ -425,6 +470,7 @@
    "cardAnim": "HuntMark Stack Anim",
    "prefab": "HuntMark_StackEffect",
    "playIfWarlord": true,
+   "inPlayAnim": true,
    "unresolved": "",
    "overrides": []
   },
@@ -437,6 +483,7 @@
    "cardAnim": "HuntMark Idle Anim",
    "prefab": "HuntMark_IdleEffect",
    "playIfWarlord": true,
+   "inPlayAnim": true,
    "unresolved": "",
    "overrides": []
   },
@@ -449,6 +496,7 @@
    "cardAnim": "HuntMark Damage Anim",
    "prefab": "HuntMark_DamageEffect",
    "playIfWarlord": true,
+   "inPlayAnim": true,
    "unresolved": "",
    "overrides": []
   },
@@ -461,6 +509,7 @@
    "cardAnim": "HuntMark End Anim",
    "prefab": "HuntMark_EndEffect",
    "playIfWarlord": true,
+   "inPlayAnim": true,
    "unresolved": "",
    "overrides": []
   },
@@ -473,6 +522,7 @@
    "cardAnim": "InvulnerableTraitPlay",
    "prefab": "InvulnerableEffect",
    "playIfWarlord": true,
+   "inPlayAnim": true,
    "unresolved": "",
    "overrides": [
     {
@@ -522,6 +572,7 @@
    "cardAnim": "",
    "prefab": "",
    "playIfWarlord": true,
+   "inPlayAnim": false,
    "unresolved": "`TraitEffect.effectAnim` 是空引用（原版这条 effect 没有动画，不是解错）",
    "overrides": []
   },
@@ -534,6 +585,7 @@
    "cardAnim": "LongRangeAnim",
    "prefab": "LongRange_GainTrait",
    "playIfWarlord": true,
+   "inPlayAnim": false,
    "unresolved": "",
    "overrides": []
   },
@@ -546,6 +598,7 @@
    "cardAnim": "LongRangeTraitEnd",
    "prefab": "LongRange_LoseTrait",
    "playIfWarlord": true,
+   "inPlayAnim": false,
    "unresolved": "",
    "overrides": []
   },
@@ -558,6 +611,7 @@
    "cardAnim": "MarkOfKhorneTraitPlay",
    "prefab": "Buff_MarkOfKhorne",
    "playIfWarlord": true,
+   "inPlayAnim": true,
    "unresolved": "",
    "overrides": []
   },
@@ -570,6 +624,7 @@
    "cardAnim": "MarkOfNurgleTraitPlay",
    "prefab": "Buff_MarkOfNurgle",
    "playIfWarlord": true,
+   "inPlayAnim": true,
    "unresolved": "",
    "overrides": []
   },
@@ -582,6 +637,7 @@
    "cardAnim": "MarkOfSlaaneshTraitPlay",
    "prefab": "Buff_MarkOfSlaanesh",
    "playIfWarlord": true,
+   "inPlayAnim": true,
    "unresolved": "",
    "overrides": []
   },
@@ -594,6 +650,7 @@
    "cardAnim": "MarkOfTzeenchTraitPlay",
    "prefab": "Buff_MarkOfTzeentch",
    "playIfWarlord": true,
+   "inPlayAnim": true,
    "unresolved": "",
    "overrides": []
   },
@@ -606,6 +663,7 @@
    "cardAnim": "MarkerlightTraitStart",
    "prefab": "MarkerlightProcEffect",
    "playIfWarlord": true,
+   "inPlayAnim": true,
    "unresolved": "",
    "overrides": []
   },
@@ -618,6 +676,7 @@
    "cardAnim": "MarkerlightTraitPlay",
    "prefab": "MarkerlightIdle",
    "playIfWarlord": true,
+   "inPlayAnim": true,
    "unresolved": "",
    "overrides": []
   },
@@ -630,6 +689,7 @@
    "cardAnim": "MarkerlightTraitFromCode",
    "prefab": "MarkerlightTriggerDamage",
    "playIfWarlord": true,
+   "inPlayAnim": true,
    "unresolved": "",
    "overrides": []
   },
@@ -642,6 +702,7 @@
    "cardAnim": "MarkerlightTraitEnd",
    "prefab": "MarkerlightExpire",
    "playIfWarlord": true,
+   "inPlayAnim": true,
    "unresolved": "",
    "overrides": []
   },
@@ -654,6 +715,7 @@
    "cardAnim": "",
    "prefab": "",
    "playIfWarlord": true,
+   "inPlayAnim": false,
    "unresolved": "`TraitEffect.effectAnim` 是空引用（原版这条 effect 没有动画，不是解错）",
    "overrides": []
   },
@@ -666,6 +728,7 @@
    "cardAnim": "MobTraitTrigger",
    "prefab": "MobEffect",
    "playIfWarlord": true,
+   "inPlayAnim": false,
    "unresolved": "",
    "overrides": []
   },
@@ -678,6 +741,7 @@
    "cardAnim": "Oath_Effect",
    "prefab": "Oath_Effect",
    "playIfWarlord": false,
+   "inPlayAnim": true,
    "unresolved": "",
    "overrides": []
   },
@@ -690,6 +754,7 @@
    "cardAnim": "Pack OnPlay Anim",
    "prefab": "Pack_WhileInPlay",
    "playIfWarlord": true,
+   "inPlayAnim": false,
    "unresolved": "",
    "overrides": []
   },
@@ -702,6 +767,7 @@
    "cardAnim": "",
    "prefab": "",
    "playIfWarlord": true,
+   "inPlayAnim": false,
    "unresolved": "`TraitEffect.effectAnim` 是空引用（原版这条 effect 没有动画，不是解错）",
    "overrides": []
   },
@@ -714,6 +780,7 @@
    "cardAnim": "PinDownTraitPlay",
    "prefab": "PinDownEffect",
    "playIfWarlord": true,
+   "inPlayAnim": true,
    "unresolved": "",
    "overrides": []
   },
@@ -726,6 +793,7 @@
    "cardAnim": "Pray_Start",
    "prefab": "Pray_Start",
    "playIfWarlord": true,
+   "inPlayAnim": true,
    "unresolved": "",
    "overrides": []
   },
@@ -738,6 +806,7 @@
    "cardAnim": "Pray_Idle",
    "prefab": "Pray_Idle",
    "playIfWarlord": true,
+   "inPlayAnim": true,
    "unresolved": "",
    "overrides": []
   },
@@ -750,6 +819,7 @@
    "cardAnim": "RallyTraitStart",
    "prefab": "RallyEffect",
    "playIfWarlord": true,
+   "inPlayAnim": false,
    "unresolved": "",
    "overrides": []
   },
@@ -762,6 +832,7 @@
    "cardAnim": "RegenerationTraitTrigger",
    "prefab": "OrkBuffGreenWaaagh",
    "playIfWarlord": true,
+   "inPlayAnim": false,
    "unresolved": "",
    "overrides": []
   },
@@ -774,6 +845,7 @@
    "cardAnim": "RegimentAnim",
    "prefab": "RegimentEffect",
    "playIfWarlord": true,
+   "inPlayAnim": false,
    "unresolved": "",
    "overrides": []
   },
@@ -786,6 +858,7 @@
    "cardAnim": "RelentlessTraitTrigger",
    "prefab": "RelentlessEffect",
    "playIfWarlord": true,
+   "inPlayAnim": true,
    "unresolved": "",
    "overrides": []
   },
@@ -798,6 +871,7 @@
    "cardAnim": "",
    "prefab": "",
    "playIfWarlord": true,
+   "inPlayAnim": true,
    "unresolved": "`TraitEffect.effectAnim` 是空引用（原版这条 effect 没有动画，不是解错）",
    "overrides": []
   },
@@ -810,6 +884,7 @@
    "cardAnim": "ShieldTraitPlay",
    "prefab": "ShieldTraitEffect_Idle",
    "playIfWarlord": true,
+   "inPlayAnim": true,
    "unresolved": "",
    "overrides": [
     {
@@ -847,6 +922,7 @@
    "cardAnim": "ShurikenTraitFromCode",
    "prefab": "ShurikenEffect",
    "playIfWarlord": false,
+   "inPlayAnim": false,
    "unresolved": "",
    "overrides": []
   },
@@ -859,6 +935,7 @@
    "cardAnim": "Slay_Effect_target",
    "prefab": "SlayEffect",
    "playIfWarlord": true,
+   "inPlayAnim": false,
    "unresolved": "",
    "overrides": []
   },
@@ -871,6 +948,7 @@
    "cardAnim": "SniperTraitFromCode",
    "prefab": "SniperPreEffect",
    "playIfWarlord": true,
+   "inPlayAnim": false,
    "unresolved": "",
    "overrides": []
   },
@@ -883,6 +961,7 @@
    "cardAnim": "StealthTraitPlay",
    "prefab": "StealthEffect",
    "playIfWarlord": true,
+   "inPlayAnim": true,
    "unresolved": "",
    "overrides": []
   },
@@ -895,6 +974,7 @@
    "cardAnim": "StimulateTraitTrigger",
    "prefab": "StimulateEffect",
    "playIfWarlord": true,
+   "inPlayAnim": true,
    "unresolved": "",
    "overrides": []
   },
@@ -907,6 +987,7 @@
    "cardAnim": "BluntImpact_Stomp_Forward",
    "prefab": "Attack_Stomp",
    "playIfWarlord": true,
+   "inPlayAnim": false,
    "unresolved": "",
    "overrides": []
   },
@@ -919,6 +1000,7 @@
    "cardAnim": "BluntImpact_Stomp_Down",
    "prefab": "Impact_Ground_Stomp",
    "playIfWarlord": true,
+   "inPlayAnim": false,
    "unresolved": "",
    "overrides": []
   },
@@ -931,6 +1013,7 @@
    "cardAnim": "StrikeTraitTrigger",
    "prefab": "StrikeEffect",
    "playIfWarlord": true,
+   "inPlayAnim": true,
    "unresolved": "",
    "overrides": []
   },
@@ -943,6 +1026,7 @@
    "cardAnim": "StunTraitPlay",
    "prefab": "StunEffect",
    "playIfWarlord": true,
+   "inPlayAnim": true,
    "unresolved": "",
    "overrides": []
   },
@@ -955,6 +1039,7 @@
    "cardAnim": "SwarmTraitFromCode",
    "prefab": "Swarm_Trigger_OnTarget",
    "playIfWarlord": true,
+   "inPlayAnim": true,
    "unresolved": "",
    "overrides": []
   },
@@ -967,6 +1052,7 @@
    "cardAnim": "SynapseTraitFromCode",
    "prefab": "SynapseEffect",
    "playIfWarlord": false,
+   "inPlayAnim": true,
    "unresolved": "",
    "overrides": []
   },
@@ -979,6 +1065,7 @@
    "cardAnim": "TalentTraitTrigger",
    "prefab": "TalentEffect",
    "playIfWarlord": false,
+   "inPlayAnim": false,
    "unresolved": "",
    "overrides": []
   },
@@ -991,6 +1078,7 @@
    "cardAnim": "TeleportCardAnim",
    "prefab": "Teleport Trait Summon",
    "playIfWarlord": false,
+   "inPlayAnim": false,
    "unresolved": "",
    "overrides": []
   },
@@ -1003,6 +1091,7 @@
    "cardAnim": "TideTraitStart",
    "prefab": "TideEffect",
    "playIfWarlord": true,
+   "inPlayAnim": false,
    "unresolved": "",
    "overrides": []
   },
@@ -1015,6 +1104,7 @@
    "cardAnim": "UnstableTraitEnd",
    "prefab": "UnstableEffect",
    "playIfWarlord": false,
+   "inPlayAnim": false,
    "unresolved": "",
    "overrides": []
   },
@@ -1027,6 +1117,7 @@
    "cardAnim": "Uprising Effect",
    "prefab": "Uprising Trait",
    "playIfWarlord": true,
+   "inPlayAnim": false,
    "unresolved": "",
    "overrides": []
   },
@@ -1039,6 +1130,7 @@
    "cardAnim": "VanguardIdleAnim",
    "prefab": "VanguardIdleEffect",
    "playIfWarlord": true,
+   "inPlayAnim": true,
    "unresolved": "",
    "overrides": []
   },
@@ -1051,6 +1143,7 @@
    "cardAnim": "VulnerableTraitPlay",
    "prefab": "VulnerableEffect",
    "playIfWarlord": true,
+   "inPlayAnim": true,
    "unresolved": "",
    "overrides": []
   }

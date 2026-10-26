@@ -1,7 +1,7 @@
 // BoardLayout.cs — 战场的 9 个格位（督军居中 + 两侧各 4）
 //
 // 和手牌一样用归一化坐标，换分辨率/宽高比都成立。
-// 格位间距/缩放搬自原版实测（下面的常量），**敌方那个实例要镜像**（原版就是镜像的）。
+// 格位间距/缩放搬自原版实测（下面的常量）；🔴 **原版【不镜像】敌方槽位**（2026-10-26 复核，判据 → `ArenaSlots.Position`）。
 //
 // ⚠️ 格数 **9** 是硬决定，**三处来源指向同一个数**（⚠️ 2026-10-18 更正：原来写「**权威来源**
 //    三处一致」—— 那个「权威」用错了；这三处里**只有第二处是判据**）：
@@ -36,7 +36,7 @@
 //      一直没人发现，因为**它当时一个断言都没有**（2026-09-17 补断言时当场抓到）。
 //      ⇒ 现在默认值改成 `DefaultPlacedScale`（= 0.607），且**与 `BattleScene` 共用这一个判据**。
 //   ⚠️ 原版敌方那一行是**投影收窄**的（131.9 px 步进、卡也更小），**2D 里**不适用 ——
-//      这边同尺寸、只镜像**顺序**。
+//      这边同尺寸、**也不镜像左右**（原版不镜像 ⇒ `mirror` 只表示「这是敌方那一行」）。
 //   🔴 **2026-09-20：真 3D 那条路不吃这一套了** —— 场上的卡搬进透视层之后，落点/缩放
 //      逐值照原版（**玩家敌各一份**：步距 0.82/1.53、`desiredScale` 0.36/0.69），
 //      判据在 `Board/ArenaSlots.cs`。本文件这份（屏幕空间）**只剩命中判定与底片**在用。
@@ -94,7 +94,7 @@ namespace CardPresentation
         [Tooltip("相邻格位的间距（归一化宽度）—— 原版实测 149.3 px / 1920")]
         public float spacing = 0.0778f;
 
-        [Tooltip("镜像：敌方那份要把槽号左右翻过来（原版敌方 leftSlotPosNormal 就是 +x）")]
+        [Tooltip("敌方那一行：只表示「这是敌方的棋盘」（行分层 / 取敌我参数）。⚠️ **不再左右翻槽号** —— 原版不镜像，见 ArenaSlots.Position")]
         public bool mirror = false;
 
         [Tooltip("落位吸附的容差（归一化**宽度**）—— 松手点离格位多近算落上。"
@@ -480,7 +480,7 @@ namespace CardPresentation
         public float NxOf(int slot)
         {
             float d = (slot - WarlordSlot) * spacing;
-            return 0.5f + (mirror ? -d : d);       // 镜像：敌方槽 0 跑到画面右边
+            return 0.5f + d;                       // 不镜像：敌方槽 0 也在画面左边（判据 → ArenaSlots.Position）
         }
 
         /// <summary>把世界坐标解析成格位号。离任何格位都太远就返回 false（不合法落点）。</summary>
@@ -567,7 +567,7 @@ namespace CardPresentation
         /// 换成 `MonoBehaviour_4373.json`）。敌行更远、卡更大 ⇒ 抬得更高，两个数各自都对。</summary>
         public const float EnemyMinionConversionHeight = 2.1f;
 
-        /// <summary>本场棋盘的 `minionConversionHeight`（按镜像位取我方/敌方那一份）。</summary>
+        /// <summary>本场棋盘的 `minionConversionHeight`（`mirror` 位 = 敌方那一行 ⇒ 取敌方那份）。</summary>
         public float MinionConversionHeight
         {
             get { return mirror ? EnemyMinionConversionHeight : PlayerMinionConversionHeight; }

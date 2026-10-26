@@ -6,6 +6,17 @@
 #         … play <id|卡名>                          单卡读数（≈0.3 秒）
 #         … play all [dump <out.tsv>] [pf <out.txt>] 全池逐卡真打（≈5 秒）；`pf` 写**结算指纹**基线
 #         … play check [<pf.txt>]                   结算层对拍（逐卡差异 ＋ 哨兵）⇒ 差异/哨兵 ⇒ rc=1
+#       🆕 2026-10-26（执行代理 `B8_AV`）两档读数口：
+#         … play <id> preset hand=<卡id|卡名|self>,event=<ev>[,handn=N][,amount=N][,legacy=1]
+#               **手牌态监听夹具** —— 把那张卡**留在手牌**（不打出去），再触发一个广播，比事件前后局面。
+#               `ev` ∈ gainfaith / gainquest / gainspirit / createssecret / createssabotage。
+#               ⚠️ 加 `legacy=1` = **改前形状**（广播四跳）⇒ 与不加时**读数应当不同**（那就是鉴别力）。
+#               例：`play SOR38 preset hand=self,event=gainfaith`（1 条变化）vs 加 `,legacy=1`（3 条，敌督军 −4）
+#         … ai actions <卡id|卡名>                    **AI 动作表**（`SimpleAI.EnumerateActions` = 原版
+#               `BattleManager.GetAvailableActions` 的等价物）＋每条 `ScoreAction` ＋ `SelectBestAction`
+#               ＋ `NextAction(Normal)`。⚠️ `play all dump` 结构上看不见 AI ⇒ AI 侧只有这条路。
+#       🆕 `play all dump` 的**末列** = `playOrder`（`P0[4]=0 P0[3]=1 …`，按进场号升序 ⇒ 字面次序 = 谁先响）；
+#           `play <id>` 也会打一行 `进场序(PlayOrder)`。⚠️ 它**不进**结算指纹 ⇒ 加这一列不用重钉 `PinnedPlayMd5`。
 #       ⚠️ 演示/故障注入用 `WFPROBE_POOL=<另一份池.json>`（**会出声**，见 `Program.PoolOverride`）。
 # 判据：**只看那行 `=== 全池 … ===` 摘要**（解析差异 0 行 = 绿）。
 #   ⚠️ **2026-10-12（`A1382`）补**：上面那句**只说了一半** —— `check` 除「与基线比」之外还跑一组

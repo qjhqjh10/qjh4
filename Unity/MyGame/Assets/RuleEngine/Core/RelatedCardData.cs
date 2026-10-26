@@ -6,7 +6,7 @@
 // 它有**两个**互不相干的消费者，两处都靠这张表：
 //   ① **卡牌详情窗** `CardDisplayWindow.InitializeRelatedCards`（`…InitializeRelatedCards.c:26`
 //      调 `GetRelatedCards(0)`；`RawCardScript__GetRelatedCards.c` 把四个引用原样塞进 List；
-//      消费时 `iVar4` 从 **1** 起、**遇到第一个 null 就 break**）
+//      🔴 2026-10-26（`B8_AN`·铁律 5）订正旧句「`iVar4` 从 1 起」：枚举**从第 0 个元素**开始、`iVar4` 只是显示槽号，遇第一个 null 就 break ⇒ 真语义 = 四槽的**连续前缀**（全 1,351 张 SO 洞 = 0，账 战斗逻辑驱动:1397））
 //      → 我们这边 = `CardPresentation.Core.RelatedCards.Find`（两扇详情窗共用）；
 //   ② **引擎 · 伴生部队** `CardScript.ProcessCompanion`（`ProcessCompanion.c:28` 取 `rawCardData +0xE8`；
 //      `ShouldTriggerCompanion.c` = 「有 `Companion` 词条 **且** `relatedCard1 != null`」或 `counter > 0`）

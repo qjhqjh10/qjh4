@@ -3504,9 +3504,14 @@ namespace CardPresentation
                     + (string.IsNullOrEmpty(faction) ? "<空>" : faction) + "」→ 第 " + ni + " 格"
                     + (ni == ArmyIndex ? "（与当前筛选同一格，仍按原版走完一圈）" : ""));
             ArmyIndex = ni;
-            // 原版末尾的 `SetArmyButtons(army)`：按新阵营重列 + 默认选 item0。
-            if (!SelectDefaultDeck())
-                ShowNoDeckSelected("换卡组后的阵营筛选：" + (ArmyIndex < 0 ? "不限" : facs[ArmyIndex]));
+            // 🔴 **2026-10-26（`B8_BR` · 铁律 5 就地订正 —— 本句原来会换掉玩家刚选的那一副，真缺陷）**
+            //   原来这里是 `if (!SelectDefaultDeck()) ShowNoDeckSelected(…)`。
+            //   判据（🥇 `cpp2il/out_cpp2il_dev_ilspy/PracticeModePopup.cs:854-960` 的 `SetArmyButtons`）：
+            //   原版 item0 是用**刚写进 `wrapper.cardDeck(+0x58)` 的那一副**建出来的，随后 `DeckSelected(item0)`
+            //   是**重选同一副**，**不是**退回卡组库那套。
+            //   ⇒ 改成**只重列、不动选中**（`RebuildDeckRows` 只按当前 `_deckHolder` 重排行）。
+            //   ⚠️ 遗留（可选、按铁律 11 记着）：原版这一圈会把 item0 **高亮**，我们今天选预组时一格都不亮。
+            if (_deckHolder != null) RebuildDeckRows(_deckHolder);
             // 原版那一圈的两颗显隐（`Highlight` / `Has Player Deck`）都由 `ChangeSelectedArmy` 重刷
             // ⇒ 等价物 = 重画阵营列（与 `PickArmy` 末尾那**同一句、同一顺序**，⛔ 别各写一份）。
             // ⚠️ 顺序与 `PickArmy` 保持一致（先选默认牌、后重画）：火漆印读的是 `CurrentDeck`，

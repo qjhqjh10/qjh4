@@ -400,7 +400,7 @@ namespace CardPresentation
         /// <summary>建整个主菜单。**自检与运行时调同一个**。</summary>
         public void Build()
         {
-            _root = transform;
+            _root = transform; BadgeWiring.RegisterDefaults();   // 🔴 2026-10-26（B8_BN）：**红点 provider 的登记点补在这一条生产入口上**（零新增行）。原来只有 `Shell/ShellRuntime.cs:768`（壳）与 `Editor/RewardsScene.cs:3539`（自检）各调一次 ⇒ **主菜单这条独立建场路一个 provider 都没有**：`TopBar` / 左栏那几颗红点挂在 `UiBadgeNotification` 上、`Recount()` 读的是 `UiBadgeNotificationManager` 的空表 ⇒ `CampaignBadge`/`ForgeBadge` **恒 0**（`Editor/MainMenuScene.cs` 那三条红：Campaign 期望 1、锻造期望 3、以及「Notifications 里有 CampaignBadge 那一栏」）。`RegisterDefaults()` 自带 `ProviderCount > 0` 幂等闸 ⇒ 与壳那条路并存无副作用（⛔ 别改成「先清空再登记」：provider 表是全局的、清掉会让 `[PlayerBoot]` 之外的宿主丢档）。
 
             // 🆕 **2026-10-17（界面线 T16 / `N4`）**：`Safe area All` 归**壳**所有（`ShellRuntime` 建的那一颗），
             //    而原版里它是 `MainMenuWindow` 的孩子（`RT1086.m_Father = 1087`）⇒ 上一轮构建把它搬进了**本场景**这一棵。

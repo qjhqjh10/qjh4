@@ -68,6 +68,11 @@
          关卡数据由探针自己读 `Resources/tutorial_stages.json` + `TutorialData.Install(...)` 装上。
          ⛔ 别把 `Data/TutorialDatabase.cs` 加进来（那半个 partial 走 `Resources.Load`，探针里是桩）。 -->
     <Compile Include="TutorialProbe.cs" />
+    <!-- 🆕 `traits`（`B8_AH`，2026-10-26）：**trait 家族（`CardTraits +0x230`）＋ `keyword(+0x98)`** 的读数口。
+         🔴 为什么必须显式列进来：本 csproj 关了 `EnableDefaultCompileItems`（漏了 = 构建期 `CS0103 名称"TraitsProbe"`）。
+         ⚠️ 它**不需要**新增别的编译项：`CardDatabase.cs`（上面已列）＋ `Core/*.cs`（`CardDef` / `ConditionEval`）
+         就够；它走 `CardDatabase.Parse` 真实装载链 ⇒ 量得到 `cardTraits` / `keyword` 两列的透传。 -->
+    <Compile Include="TraitsProbe.cs" />
     <!-- 被测对象：相对路径（原来写死 D:/4/... 绝对路径 ⇒ 换机器/换盘就编不过）。
          🔴 从 工具/ruleprobe/ 上去两级才是 Unity/ ⇒ ../../MyGame/... -->
     <Compile Include="../../MyGame/Assets/RuleEngine/Core/*.cs" />

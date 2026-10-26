@@ -109,9 +109,18 @@ public static partial class RuleEngineTest
                 + (enemyWarlord != null ? enemyWarlord.Health.ToString() : "?") + "）"
                 + " —— 打的是卡面点名的「攻击力最高的敌人」= `C5EFoe`，不是随便一个敌方单位"
                 + "｜🧨 挑错人（挑到督军）⇒ 本行红 —— 它也挡住「上面那条因为打错了人而假绿」");
-        CheckTrue(atk.Exhausted,
-                  "★ 攻击算「本回合已行动」⇒ 那个友方疲劳了（走真实攻击路径 `RuleCore.DeclareAttack` 才会这样）"
-                + "｜🧨 另写一条攻击（不走 `DeclareAttack`）⇒ 本行红");
+        // 🔴 2026-10-26（`B8_BM` · 铁律 5 就地订正）：`EC46` 的 `chosenAbility = **237**`
+        //    （`cards_truth.json` 现读）⇒ 原版 `AbilityLogic__PlayAbility.c:2752-2766` 的 `0xed` 支
+        //    传 `AddScriptedForceAttack(…, 1, 0)`（第 8 参 = `dontCountAttack`）⇒ `BattleManager__
+        //    AddScriptedForceAttack.c:42-46` 预扣 + 排 `AddResetActions` ⇒ **不消耗行动**
+        //    （本行原来断的是「疲劳」，那是改前「一律不退还」的产物）。
+        //    ⚠️ 只断 `!Exhausted` 在「这段根本没执行」时也会绿 ⇒ 补一条数值灭自证。
+        CheckTrue(!atk.Exhausted,
+                  "★ 攻击算「本回合已行动」……**但原版对 237 这一族退还** ⇒ 那个友方**不该**疲劳"
+                + "（判据：`PlayAbility.c` 的 `0xed` 支传 `dontCountAttack = 1`）");
+        Check(atk.AttacksThisTurn, 0,
+              "★ （灭自证）它的本回合攻击次数**回到 0** —— 退还真的发生了"
+            + "｜🧨 把退还那段删掉 ⇒ 上一行与本行一起红");
     }
 
     /// <summary>🔴🆕 **2026-10-25（引擎线 `A3` · `C5` Q1）：`talent`（`AbilityTrigger.Talent = 46`）

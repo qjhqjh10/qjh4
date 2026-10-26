@@ -222,26 +222,127 @@ namespace RuleEngine
             return list;
         }
 
-        /// <summary>可部署的空格数</summary>
+        /// <summary>
+        /// 可部署的空格数 —— 原版 `BattleManager.GetSlotsLeftInBattlefield(bool isPlayer)`
+        /// 的等价物。
+        ///
+        /// <para>**判据（第一权威，逐句）**：
+        /// ① `decomp_full/BattleManager__GetSlotsLeftInBattlefield.c:1-19` —— 全文只做
+        ///    「按方取那个 `MinionManager`（`+0xe8`/`+0xe0`）+ 空检 + 转调 `MinionManager.AvailableSlotsCount`」，
+        ///    自己**不算任何一个数**；
+        /// ② `decomp_full/MinionManager__AvailableSlotsCount.c:26-27` —— 唯一的算式
+        ///    `(左容量 − 左人数) + (右容量 − 右人数)`（容量 = `left/rightSlotPos.Length`，
+        ///    人数 = `left/rightMinions.Count`，即 `+0x20/+0x28` 与 `+0x60/+0x68` 那两个 `Count`）。</para>
+        ///
+        /// <para>🔴 **2026-10-26（`B8_E`）就地收口**：本方法原来是**第二份**同式实现
+        /// （自己数「可部署格且为空」），与 `BoardSlots.RoomOnSide`（`BoardSlots.cs:87`，
+        /// 已是 `MinionManager.AvailableSlotsCount` 的 A 档落点）各写一遍 ——
+        /// 按工程铁律「两处写同一条规则 = 迟早不一致」**改成转发**。
+        /// ⚠️ 两者**逐字等价**（不是「连续无洞时才等价」）：`BoardSpec.IsDeployable` 覆盖的正是
+        /// 督军格之外的 **8 格 = 左 4 + 右 4**，而 `CountOnSide` 数的「非空」与 `Board[i] == null`
+        /// 互补 ⇒ `(4−左人数)+(4−右人数)` 与「可部署空格数」恒等。</para>
+        /// </summary>
         public int FreeSlots()
         {
-            int n = 0;
-            for (int i = 0; i < Board.Length; i++)
-                if (BoardSpec.IsDeployable(i) && Board[i] == null) n++;
-            return n;
+            return BoardSlots.RoomOnSide(this, BoardSlots.Left)
+                 + BoardSlots.RoomOnSide(this, BoardSlots.Right);
         }
 
-        /// <summary>有空的部署格吗</summary>
+        /// <summary>有空的部署格吗（= 两侧合起来还放得下 1 个；唯一判据同 <see cref="FreeSlots"/>，
+        /// 转发到 `BoardSlots.IsAvailableSlot`）</summary>
         public bool HasFreeSlot()
         {
-            for (int i = 0; i < Board.Length; i++)
-                if (BoardSpec.IsDeployable(i) && Board[i] == null) return true;
-            return false;
+            return BoardSlots.IsAvailableSlot(this, 1);
         }
 
         public override string ToString()
         {
             return $"{Name} 能量 {Energy}/{MaxEnergy} 手牌 {Hand.Count} 牌库 {Deck.Count} 场 {Board.Length - FreeSlots() - 1}";
         }
+
+        // ==================================================================
+        //  🆕 2026-10-26（`B8_E`）：「这张牌在哪一个区域」＋「这一方用不用任务点」
+        //  —— 四个**原版方法的等价物**。判据逐条见各自 doc；
+        //  ⛔ 别在别处再写第二份成员资格判断（`Hand.Contains(...)` / `Deck.Contains(...)` /
+        //     `Discard.Contains(...)` 这类散写法应当改成调这里）。
+        //  ⚠️ 本段**追加在类尾**（铁律 18·b）：上面那些行号是账里 `A`/`B` 行的落点，插在中间会让它们漂移。
+        // ==================================================================
+
+        /// <summary>
+        /// 原版 `CardScript.IsInDeck()`（🥇 `decomp_full/CardScript__IsInDeck.c:1-13`，全文 13 行）：
+        /// 读状态位 `+0x228`，`== 0`（在牌库）**或** `== 0x10`（16 = 正在从牌库抽出）⇒ 真，其余假。
+        ///
+        /// <para>**落点 / 机制差异**：原版是**一个 int 状态机**，把「正在抽出」也算在牌库里；
+        /// 我们是**一次搬移**（`RuleCore.Draw` 直接把那一份实例从 `Deck` 摘进 `Hand`）⇒
+        /// **没有那个中间态**，抽出那一刻两侧会短暂不一致（我们立刻为假、原版在动画期间仍为真）。
+        /// 该差异**不可观察**：我们的引擎是同步结算，没有帧间的中间状态；
+        /// 「静息态」下（在牌库 / 不在牌库）两侧一一对应。</para>
+        /// </summary>
+        public bool IsInDeck(CardInstance inst)
+        {
+            return inst != null && Deck.Contains(inst);
+        }
+
+        /// <summary>
+        /// 原版 `CardScript.IsInHand()`（🥇 `decomp_full/CardScript__IsInHand.c:1-11`，全文 11 行）：
+        /// 状态位 `+0x228` 落在 **{1, 4, 8, 9, 10, 12}** 六档里 ⇒ 真
+        /// （1 = 手牌 · 4 = 展示中 · 8 = 离场回手 · 9 / 10 / 12 = 飞向战场那一族过渡档）。
+        ///
+        /// <para>**落点 / 机制差异**：同 <see cref="IsInDeck"/> —— 原版把 8/9/10/12 那几个
+        /// **过渡档**也算「在手」，我们出牌即从 `Hand` 摘除 ⇒ 过渡期为假。
+        /// 静息态（1 号档 / 非手牌态）两侧一致；过渡态在同步引擎里不存在。</para>
+        /// </summary>
+        public bool IsInHand(CardInstance inst)
+        {
+            return inst != null && Hand.Contains(inst);
+        }
+
+        /// <summary>
+        /// 原版 `CardScript.IsInCemetery()`（🥇 `decomp_full/CardScript__IsInCemetery.c:1-7`，全文 7 行）：
+        /// 状态位 `+0x228 == 6`（inCemetery）⇒ 真。
+        ///
+        /// <para>**落点 / 机制差异**：原版是**单值状态机**、我们是「三张表之一」的成员资格；
+        /// 静息态一一对应（同一份实例同一时刻只在一张表里）。
+        /// ⚠️ 原版另有一个「正在从墓地取出」的 UI 标志位 `+0x24b`
+        /// （`decomp_full/CardScript__RemoveCardFromCemetery.c:1-8` 只把它清 0）——
+        /// 我们**没有这个中间态** ⇒ 那条方法**无等价落点**（账里仍是 `B`，不是漏做）。</para>
+        /// </summary>
+        public bool IsInCemetery(CardInstance inst)
+        {
+            return inst != null && Discard.Contains(inst);
+        }
+
+        /// <summary>
+        /// 原版 `RawCardScript.UsesQuestPoints()`（🥇 `decomp_full/RawCardScript__UsesQuestPoints.c:5-7`，
+        /// 全文 7 行）：`cardArmy(+0x2c) == 0x6e`（= **110 = DarkAngels**）⇒ 这一方用「任务点」
+        /// 而不是普通法力槽；消费者 `PlayerManager__ResetMana.c:135` 据此
+        /// `ManaManager.ToggleQuestPoints`。
+        ///
+        /// <para>**判定对象是【督军卡】的阵营**（原版那个消费者读的就是场上的督军）。我们这边
+        /// 同一条判据原本只写在表现层 `BattleDriver.ShowsQuestPoints(string faction)`
+        /// （`CardPresentation/Battle/BattleDriver.cs:187`，按 `_me` 取督军阵营）——
+        /// 本方法把它收到**引擎侧一处**，表现层应当转发过来（⛔ 别再各写一份）。
+        /// ⚠️ 与 `EffectResolver.cs:12899` 是同一串 `"DarkAngels"`（那边是
+        /// 「有没有任务点那条能力」的判据，同样按督军阵营）。</para>
+        /// </summary>
+        public bool UsesQuestPoints()
+        {
+            return Warlord != null && Warlord.Card != null
+                && UsesQuestPointsFor(Warlord.Card.Faction);
+        }
+
+        /// <summary>任务点那一条判据的**唯一一份**：`cardArmy(+0x2c) == 0x6e`（110 = DarkAngels）。
+        /// <para>🥇 `decomp_full/RawCardScript__UsesQuestPoints.c:5-7`（全文 7 行）；消费者
+        /// `PlayerManager__ResetMana.c:135` 据此 `ManaManager.ToggleQuestPoints`。</para>
+        /// <para>🔴 2026-10-26（B8_X 接线）：表现层 `BattleDriver.ShowsQuestPoints(string)` 现在**转发到本方法**
+        /// （常量也转发到 <see cref="QuestPointsFaction"/>）⇒ 全仓这一条判据只有一处（⛔ 别再各写一份）。</para></summary>
+        public static bool UsesQuestPointsFor(string faction)
+        {
+            return string.Equals(faction, QuestPointsFaction, System.StringComparison.Ordinal);
+        }
+
+        /// <summary>原版 `+0x2c == 0x6e` 里的那个 `0x6e`（= 110 = DarkAngels）。枚举名见
+        /// `d:/2/Warpforge_code/Scripts/Assembly-CSharp/CardArmy.cs`。</summary>
+        public const string QuestPointsFaction = "DarkAngels";
     }
 }

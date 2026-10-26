@@ -3365,10 +3365,10 @@ namespace CardPresentation
             return _cardPool;
         }
 
-        /// <summary>本局的候选择将 —— **按 seed 确定性抽**（原版 `GetRandomWarlords()` 的**方法体缺失**
-        /// （泛型基类里，S3 §七·2）⇒ 形状我们照 `RollRound` 那一条：逐位一份 `System.Random`）。
-        /// 🔴 候选池 = 本机卡池里**所有** `type == "hero"` 的卡（原版由 `specificArmies/specificWarlords/
-        /// guaranteedArmies/blacklistedWarlords` 过滤，**那四个都在服务端**、我们取空 ⇒ 全池）。</summary>
+        /// <summary>本局的候选择将 —— **按 seed 确定性抽**（🔴 2026-10-26 订正：原版 `GetRandomWarlords()` 的**体在场**，
+        /// 🥈 `Everguild.LiveOps/DraftEventBase.cs:2353-2932`：`RandomSeedProvider.InitSeed(seedID, Fixed, deckHero)`
+        /// + 反复 `GetRandom(seedID, 0, 候选数)` 并从池里移除已选 ⇒ **一条顺序流**；我们逐位一份 `System.Random`（差异已记账））。
+        /// 🔴 候选池 = 本机卡池里**所有** `type == "hero"` 的卡（原版由 `specificArmies/specificWarlords/guaranteedArmies/blacklistedWarlords` 过滤，那四个都在服务端 ⇒ 全池）。</summary>
         public static List<CardDef> RollWarlords(int seed, int count)
         {
             var pool = new List<CardDef>();

@@ -148,8 +148,8 @@ namespace CardPresentation
         public const string SpiritStoneFaction = "SaimHann";
         /// <summary>战斗修女 —— 唯一会显示 <b>信仰</b> 那一组的阵营（原版 `UsesFaith`：`+0x2c == 80`）。</summary>
         public const string FaithFaction = "Sororitas";
-        /// <summary>暗黑天使 —— 唯一会显示 <b>任务点</b> 那一组 HUD 的阵营（原版 `UsesQuestPoints`：`+0x2c == 110`）。</summary>
-        public const string QuestPointsFaction = "DarkAngels";
+        /// <summary>暗黑天使 —— 唯一会显示 <b>任务点</b> 那一组 HUD 的阵营（原版 `UsesQuestPoints`：`+0x2c == 110`）。值转发自 `PlayerState.QuestPointsFaction`（判据共用一份）。</summary>
+        public const string QuestPointsFaction = PlayerState.QuestPointsFaction;
 
         /// <summary>
         /// 这一方**要不要显示任务点**（`QuestPointsHolder` + 接片 + `QPText`）。
@@ -186,7 +186,7 @@ namespace CardPresentation
         /// </summary>
         public static bool ShowsQuestPoints(string faction)
         {
-            return faction == QuestPointsFaction;
+            return PlayerState.UsesQuestPointsFor(faction);   // 2026-10-26（B8_X）：判据唯一一份在引擎侧（`PlayerState.cs` 类尾），本方法只是表现层孪生
         }
 
         // ---- 状态 ----
@@ -14339,9 +14339,9 @@ namespace CardPresentation
             //      · 轻点 = `CardScript.OnTouchUpAsButton` **C 段**（state 2/3/0x11）→ `BattleManager.DisplayCard`
             //        → `CardDisplayWindow.ShowBattleCard`（**这条链里就调 `DisplayCardEffects`**）；
             //        **棋盘段没有敌我判断**（`isPlayer` 守卫在**手牌段**）⇒ 对手单位也给开。
-            //      · 拖拽 = 原版打开三选一的**唯一**入口（`TryDraggingFromBoard` → `StartAttackFrom`
-            //        → `UnitOnBoardAttackTypeSelector.Toggle`）；阈值 = 原版 `accumulatedDragForMinDistance`。
+            //      · 拖拽 = 原版打开三选一的**唯一**入口（`TryDraggingFromBoard` → `StartAttackFrom` → `UnitOnBoardAttackTypeSelector.Toggle`）；阈值 = 原版 `accumulatedDragForMinDistance`。
             //      · 敌方**拖不动**（`OnTouchDrag` 里有 `isPlayer` 闸）⇒ 只有轻点那条路。
+            TickBoardHover(world);   // 🆕 2026-10-26（`BB`）：悬停派发 = 原版 `CardCollider.OnPointerEnter/Exit` → `CardScript.OnTouchEnter/OnTouchExit`（本仓棋盘没有 uGUI collider ⇒ 每帧轮询 `HitSlot`，只在「换了那张卡」时成对派发）
             if (BoardPress(world, PointerHeldRaw())) return;
 
             // ③ 正在选目标 → **每帧**把准星挪到指针压着的那个合法目标上（原版「我现在指着谁」）
@@ -14420,11 +14420,11 @@ namespace CardPresentation
             if (_selectedSlot < 0 || _command == AttackKind.None)
             {
                 int pick = HitSlot(_myUnits, world);
-                if (pick >= 0) { _pressSlot = pick; _pressSide = _me; _pressWorld = world; return; }
+                if (pick >= 0) { _pressSlot = pick; _pressSide = _me; _pressWorld = world; BoardCardTouchDown(pick, _me); return; }
                 //    对手单位：原版棋盘段**没有敌我判断**（唯一的 `isPlayer` 守卫在**手牌段**）⇒ 也能开窗；
                 //    但拖不动（`OnTouchDrag` 的 `isPlayer` 闸）⇒ 只走轻点那条（② 里按 `side` 判）
                 int foePick = HitSlot(_foeUnits, world);
-                if (foePick >= 0) { _pressSlot = foePick; _pressSide = 1 - _me; _pressWorld = world; }
+                if (foePick >= 0) { _pressSlot = foePick; _pressSide = 1 - _me; _pressWorld = world; BoardCardTouchDown(foePick, 1 - _me); }
             }
         }
 
@@ -15067,7 +15067,7 @@ namespace CardPresentation
             if (skillPanel == null || u == null) return;
             _skillPanelTargets = targets;
             // 卡名当技能名 —— 原版有独立的技能名（`NameText` = "Fire Arrow"），我们还没那个字段
-            skillPanel.Show(CardDisplayName(u.Card, u.Name), u.Ability, targets);
+            skillPanel.Show(CardDisplayName(u.Card, u.Name), u.Ability, targets, 0, null, !CardFaceRules.ShouldShowTargetsAvailable(u.Card, false));   // 2026-10-26 接线：`targetsAny` 语义是【反的】（true = 不拼后缀）= 原版 `!ShouldShowTargetsAvailable`（判据正本 = `Core/CardFaceRules.cs`）
         }
 
         // ==================================================================
@@ -16402,23 +16402,23 @@ namespace CardPresentation
         /// （批处理里没有帧循环 ⇒ 改完 <see cref="SetCardHoldForTest"/> 得手动再刷一次）。</summary>
         public void ApplyTutorialVisibilityForTest() { ApplyTutorialVisibility(); }
 
-        /// <summary>🔴 **2026-10-15（`T13` 普查 · 铁律 11）：「按住一张牌」那一格** ——
-        /// 原版**牌库张数与手牌张数只在按住某张牌时亮**（`CardScript__OnTouchDown.c` → `ShowDeckSize()`），
-        /// 松手收起（`BattleManager__Update.c:140-150`，`+0x598` 标志）。**我们原来常显**。
+        /// <summary>🔴 **2026-10-26（`BB` · 铁律 5 就地订正）：「按住一张牌」那一格** ——
+        /// 原版**牌库张数与手牌张数只在按住某一张牌时亮**（`CardScript__OnTouchDown.c` → `BattleManager.ShowDeckSize()`），
+        /// 松手收起（`BattleManager__Update.c:140-150`，`+0x598` 标志）。
         ///
-        /// <para>⚠️ **我们这条是等价物、不是原件**：原版按的是「某一张牌的碰撞体」，
-        /// 而**我们的输入链没有那个事件** ⇒ 近似成「**指针按着** 且（按在棋盘某格 或 按在某张手牌上）」：
-        /// · `_pressSlot >= 0` = 按下那一帧压在棋盘某格（原版 `CardCollider.OnPointerDown` 的同义物）；
-        /// · `interaction.IsDragging` —— 🔴 **它就是「手牌被按着」**（`CardInteraction.PickUp` 置、
-        ///   `Release` 清，中间不判移动；「轻点 vs 拖拽」是**松手那一刻**用 `_travel` 分的，
-        ///   见 `Release` 里那句 `tapped = _travel &lt; TapThreshold`）⇒ 覆盖「按着手牌不动」。</para>
+        /// <para>🔴 **触发条件本轮照反编译改准了**（原来那版是按「手牌 / 棋盘格」近似的，而**两档都不是原版**）：
+        /// `OnTouchDown.c:34-59` 只有**两档**会调 `ShowDeckSize` ——
+        /// · `case 0` = **`inDeck`（牌库里那张卡）** ⇒ `ShowDeckSize(isPlayer)`，**两侧都可能**；
+        /// · `case 1` = **`inHand`** 且 `+0x40 == 0`（**非我方**）⇒ `ShowDeckSize(0)`；
+        ///   **自己手牌按下去不亮**（`:50-52` 直接 return）；棋盘卡是 `case 2`，那一支只改高亮态、**不显牌数**。</para>
         ///
-        /// <para>⚠️ **原版那个闸还有两条**：
-        /// ① `duringBattleFlag`（`BattleManager+0x25c`）—— 🆕 **2026-10-25（`AU1`）已接等价物**
-        ///    （`!InMulligan && Ctx.Turn > 0 && !Ctx.IsOver`，判据 → `CardHoldPeek` 里那段注释）；
-        /// ② `UIstate != choosingResolutionCard(14)` —— **结构上已覆盖**（那几扇模态窗开着时输入先被它们吃掉，
-        ///    `_pressSlot` / `interaction.IsDragging` 置不起来）。
-        /// 而**收起那一支还有半个条件是没反编译出来的**（`FUN_180617800`）⇒ 我们只做了「松手」这一半。</para></summary>
+        /// <para>**我们的等价物** = 「按住 且 指针压在**我方牌堆**上」（`HitMyDeckPile`，对应 `case 0`）。
+        /// ⚠️ 两处**结构上够不到**（如实记，⛔ 不是「查不到」）：
+        /// ① **敌方牌堆**：本仓只有我方牌堆的命中口（`HitMyDeckPile`）⇒ 原版「按敌方牌库那张卡」接不上；
+        /// ② **敌方手牌**：`CardInteraction` 只接管我方手牌 ⇒ `case 1 ∧ !isPlayer` 那档没有按下输入。</para>
+        ///
+        /// <para>⚠️ **另两条闸**：① `duringBattleFlag`（`BattleManager+0x25c`）的等价物 = 下面那句守卫；
+        /// ② `UIstate != choosingResolutionCard(14)` —— 结构上已覆盖（模态窗开着时轮不到）；收起那支另半个条件没反编译出来（`FUN_180617800`）⇒ 只做「松手」这一半。</para></summary>
         public bool CardHoldPeek
         {
             get
@@ -16433,12 +16433,12 @@ namespace CardPresentation
                 //    ⚠️ 与 `CemeteryRowClickAllowed`（`BattleManager__CanShowCemetery.c:16` 读的是**同一个** `+0x25c`）
                 //       是同一格状态的另一半 —— 将来若把那一格提成字段，两处要一起换（⛔ 别各写一份）。
                 //    ⚠️ 第 ② 条闸（`UIstate != choosingResolutionCard(14)`）**结构上已覆盖**：
-                //       选牌窗 / 摊开窗 / 放大窗开着时输入被它们吃掉，`_pressSlot` 与 `interaction.IsDragging`
-                //       都不会置起来（`TickMultiCards` / `TickCardDisplayClick` 先 return true）。
+                //       选牌窗 / 摊开窗 / 放大窗开着时输入被它们吃掉 ⇒ 这条读口（按牌堆）也轮不到
+                //       （`TickMultiCards` / `TickCardDisplayClick` 先 return true）。
                 if (Ctx == null || Ctx.IsOver || InMulligan || Ctx.Turn <= 0) return false;
                 if (!PointerHeldRaw()) return false;
-                if (_pressSlot >= 0) return true;
-                return interaction != null && interaction.IsDragging;
+                // 旧近似（按棋盘格 / 按自己手牌）已删 —— 那两档原版都不显牌数；`OnTouchDown.c:34-59` 只有 `case 0`（牌库里的卡）与 `case 1 ∧ !isPlayer`（敌方手牌）会调 `ShowDeckSize`
+                return HitMyDeckPile(WorldPointer());   // 我们的等价物 = 「按住 且 指针压在**我方牌堆**上」（`case 0`）
             }
         }
 
@@ -32557,6 +32557,18 @@ namespace CardPresentation
             {
                 if (side != _me) return;        // 原版 `CanUseWaystone` ①：只能点自己那侧（连窗都不开）
                 if (_replaySession) return;     // 回放只读（判据同 `BoardPress` 的拖拽那一支）
+                // 🔴 **2026-10-26（`B8_A` · 账缺口 ③）：`UIstate == normalBattle` 那道闸。**
+                //   判据 = `d:/2/tools/decomp_full/BattleManager__CanUseWaystone.c:44-47`（现读）：
+                //   本机那一支要求 `*(int *)(param_1 + 0x290) == 1`（= `UIstateOptions.normalBattle`，
+                //   枚举原文在 `cpp2il/out_cpp2il_dev_ilspy/UIstateOptions.cs`）。
+                //   不合法时原版**只 `CustomDebug.Log` 一句、什么都不做**（连卡窗都不开）⇒ 我们也只记一句。
+                if (!BattleUiIsNormalBattle)
+                {
+                    Debug.Log("[Battle] 点了自己那侧的灵族残骸，但战斗 UI 不在 `normalBattle` 档"
+                            + "（原版 `CanUseWaystone` ③：`UIstate(+0x290) == normalBattle(1)`）"
+                            + " ⇒ 什么都不做（不收集、不开窗）。");
+                    return;
+                }
                 // 原版这一步 = `TryUsingWaystone` → `CanUseWaystone`：不合法时只 `CustomDebug.Log`、**什么都不做**
                 // （⛔ 别落进 `OpenCommand` 下面那两道 `Exhausted` 闸 —— 那会播一句原版没有的
                 //   `UnitNotReady`；残骸恒 `Exhausted`，走进去必响）。合法才交给 waystone 支。
@@ -32828,5 +32840,235 @@ namespace CardPresentation
         {
             return Ctx != null ? Ctx.MatchType : (RuleEngine.MatchType?)null;
         }
+
+        /// <summary>🆕 2026-10-26（`B8_A` · 账缺口 ③）：**战斗 UI 是不是处在 `normalBattle` 档** ——
+        /// 原版 `BattleManager.UIstate(+0x290) == UIstateOptions.normalBattle(1)` 的等价物。
+        /// <para>**为什么要有它**：原版 `BattleManager__CanUseWaystone.c:44-47`（现读）的五道闸里第 ③ 道就是它
+        /// （`local_18 = *(int *)(param_1 + 0x290), local_18 == 1`），而且只在 `card.isPlayer(+0x40) != 0`
+        /// 那一支上判 —— 也就是**玩家点自己那侧的灵魂石**这一支，正是 <see cref="TapBoardCard"/> 走的那条。
+        /// 枚举 15 档的原文 = `cpp2il/out_cpp2il_dev_ilspy/UIstateOptions.cs`。</para>
+        /// <para>**口径**：我们**没有**那套枚举，但它每一档在我们这边都有确定的对应状态
+        /// ⇒ 反过来判「**哪些档不算 `normalBattle`**」，全都不成立才算 1：
+        /// · `inactive` / `finishBattleSequence` / `postBattle` ⇒ `Ctx == null || Ctx.IsOver`；
+        /// · `playingMinion` / `playingTargetedSpell` / `playingNonTargetSpell` / `minionAttacking` /
+        ///   `targetedActiveAbility` ⇒ <see cref="WaitingForBlockingAction"/>（原版同一族的
+        ///   `WaitingForBlockingAction` 是「这一批演出还没收尾」的总闸，那五档正是它罩着的）；
+        /// · `choosingUnitTarget` ⇒ <see cref="AwaitingPlayTarget"/>（打出一张要选目标的牌、等玩家点人）
+        ///   或 `_selectedSlot >= 0`（已经在选攻击目标）；
+        /// · `mulligan` / `mulliganFinished` ⇒ 换牌面板开着（原版这一档就是 `MulliganManager` 写进去的）；
+        /// · `choosingResolutionCard` ⇒ 选牌面板开着。
+        /// ⚠️ `movingHandCard` 不列：原版它由**手牌拖拽**写，而 `DrivePlayerTurn` 在
+        /// `interaction.IsDragging` 那一支已经先 `return` 了（本闸根本轮不到）—— 写在这里只是把
+        /// 「为什么不必再判一次」记清，⛔ 别为它再抄一份判据。</para>
+        /// <para>⚠️ 本闸**只给「收灵魂石」这一支用**（原版 `TryUsingWaystone` 的入口）。
+        /// ⛔ 别拿它去挡「轻点开大卡窗」那一支 —— 原版 `DisplayCard` 是**另一条支**，换牌期它照样能开窗
+        /// （`CardScript__OnTouchUpAsButton.c:52-58` 的 `forceDisplay` 那一档）。</para></summary>
+        bool BattleUiIsNormalBattle
+        {
+            get
+            {
+                if (Ctx == null || Ctx.IsOver) return false;
+                if (WaitingForBlockingAction) return false;
+                if (AwaitingPlayTarget) return false;
+                if (_selectedSlot >= 0) return false;
+                if (_mulligan != null && _mulligan.Visible) return false;
+                if (_choosePanel != null && _choosePanel.Visible) return false;
+                return true;
+            }
+        }
+
+        // ==================================================================
+        //  场上卡高亮【状态机】的派发 —— 2026-10-26（执行代理 `BB` · 账 `B8_BB`）
+        // ==================================================================
+        //  原版：`CardCollider` 是 uGUI 的射线靶，`IPointerEnter/Exit/DownHandler` ⇒ `CardScript.OnTouchEnter/Exit/Down`
+        //        （三个入口的方法体 = `decomp_full/CardScript__OnTouch*.c`，逐句对齐见 `CardHighlight.CardBoardHighlight`）。
+        //  我们：棋盘**没有 uGUI collider**（命中走 `HitSlot`）⇒ 悬停只能**每帧轮询**，只在「换了一张卡」时成对派发。
+        //        ⛔ 这不是第二条命中判据：`HitSlot` 本来就是棋盘命中的唯一口（轻点 / 拖拽用的也是它）。
+        //  ⛔ `DisplayCard` / `CollectWaystone` 两个钩子**故意不接**：开大卡窗与收灵魂石在驱动层已有落点
+        //     （`TapBoardCard` / `_cardWinSource`），接两处 = 一次点开两次窗。⇒ 机器上的 `DisplayingCardFlag` 恒 false。
+        //  ⛔ 纯高亮 / 悬停**不改引擎状态** ⇒ 不走 `LocalAct`（本地录像只录「会改局面的动作」）。
+
+        CardView _hoverBoardCard;
+        int _hoverBoardSide;
+
+        /// <summary>自检读口：现在被判成「悬停」的那张棋盘卡（`null` = 没有）。</summary>
+        public CardView HoverBoardCardView { get { return _hoverBoardCard; } }
+
+        /// <summary>每帧一次：指针现在压着哪张**棋盘卡**，和上一帧不同就成对派发 exit / enter。
+        /// <para>判据 = 原版 `CardCollider.OnPointerEnter/Exit`（`CardScript__OnTouchEnter.c:34-37` ⇒ `TryCardHighlight`；
+        /// `CardScript__OnTouchExit.c:40-50` ⇒ `2⇒0` / `4⇒3`，那一段**通篇没有闸**）。</para>
+        /// <para>⚠️ 只在 `DrivePlayerTurn` 里调 ⇒ **对手回合不更新悬停**（原版 uGUI 事件不分回合）——
+        /// 本轮已知偏离，已记报告 §五。</para>
+        /// <para>⚠️ `SyncBoard` 会把整盘 `SetHighlight(Normal)` ⇒ 那之后要等指针换卡才会重新亮
+        /// （原版靠 `UpdateFigures` 每帧重算那几层，我们还没有那一条 —— 另账）。</para></summary>
+        void TickBoardHover(Vector3 world)
+        {
+            if (Ctx == null) return;
+            int hs = HitSlot(_myUnits, world);
+            int hSide = _me;
+            if (hs < 0) { hs = HitSlot(_foeUnits, world); hSide = 1 - _me; }
+            CardView hv = null;
+            if (hs >= 0) (hSide == _me ? _myUnits : _foeUnits).TryGetValue(hs, out hv);
+            if (hv == _hoverBoardCard) return;
+            // 先 exit 旧的、再 enter 新的（原版 uGUI 的派发次序；两件**成对**，⛔ 别只做一半）
+            if (_hoverBoardCard != null)
+            {
+                var old = _hoverBoardCard;
+                BoardHighlightOf(old).OnTouchExit(BoardTouchInput(old, _hoverBoardSide));
+                // 原版 `OnTouchExit.c:161-168` 的收预览支会给**非我方**卡写 `HighlightAttackTypes(None)`。
+                // 而驱动层是「每张棋盘卡**常显**自己的打法底光」（`ApplyOwnAttackType` 在 `HighlightTargets` /
+                // `ClearTargetHighlights` / `SyncBoard` 里刷）⇒ 那一句会把**敌方**卡常显的底光清掉、要等下一次整盘刷新才回来。
+                // ⇒ 这里**就地补回这一张的常显态**（不违原版语义：原版此刻本来就该「没有预览」）。
+                int oldSide, oldSlot;
+                if (TryLocateBoardView(old, out oldSide, out oldSlot)) ApplyOwnAttackType(oldSide, oldSlot, old);
+            }
+            _hoverBoardCard = hv;
+            _hoverBoardSide = hSide;
+            if (hv != null) BoardHighlightOf(hv).OnTouchEnter(BoardTouchInput(hv, hSide));
+        }
+
+        /// <summary>按下棋盘卡（原版 `CardCollider.IPointerDownHandler` → `CardScript.OnTouchDown`）。
+        /// 只接 `cardState == inPlay(2)` 那一支（`CardScript__OnTouchDown.c:61-70`：`regular` 才转 `selected` +
+        /// **无条件**清 `displayingCardFlag`）。调用点 = ⑤ 记 `_pressSlot` 那两句（与 `CardCollider` 同一刻）。</summary>
+        void BoardCardTouchDown(int slot, int side)
+        {
+            var views = side == _me ? _myUnits : _foeUnits;
+            CardView v;
+            if (!views.TryGetValue(slot, out v) || v == null) return;
+            BoardHighlightOf(v).OnTouchDown(BoardTouchInput(v, side));
+        }
+
+        /// <summary>取这张卡的高亮状态机，并把**伤害预览探针**惰性接上（原版那是组件自带的，我们靠宿主注入）。</summary>
+        CardHighlight.CardBoardHighlight BoardHighlightOf(CardView v)
+        {
+            var h = v.BoardHighlight;
+            if (h.PreviewProbe == null)
+            {
+                var self = v;
+                h.PreviewProbe = (o, a, c, f) => BattleBoardPreview(self, o, a, c, f);
+            }
+            return h;
+        }
+
+        /// <summary>
+        /// 喂给四个入口的「原版读数」。**每个字段替原版哪一个**见 `CardHighlight.TouchInput` 的逐字段 doc；
+        /// 本方法只做映射、**不另立判据**。
+        /// <para>🔴 `HoverAllowed` 的封锁集 = **`{inactive 0, finishBattleSequence 7, postBattle 8, mulligan 11, mulliganFinished 12}`**
+        /// （`CardScript__TryCardHighlight.c:19-24`：`0x1901` 掩码 + `== 7`）—— ⛔ **不是 `BattleUiIsNormalBattle`**：
+        /// 那一个还会把 `playingMinion 3` / `minionAttacking 6` / `choosingUnitTarget 9` / `targetedActiveAbility 10` /
+        /// `choosingAbilityTarget 13` 五档一起挡掉（少 5 档）。</para>
+        /// </summary>
+        CardHighlight.TouchInput BoardTouchInput(CardView v, int side)
+        {
+            var inp = new CardHighlight.TouchInput
+            {
+                CardState = CardHighlight.CardStateId.inPlay,
+                IsPlayer = side == _me,
+                // 封锁集的映射：inactive(0) / finishBattleSequence(7) / postBattle(8) ⇒ 局没开 / 已终；
+                //               mulligan(11) ⇒ `InMulligan`；mulliganFinished(12) 我们没有那一档（转瞬态，如实记）。
+                HoverAllowed = Ctx != null && !Ctx.IsOver && !InMulligan && Ctx.Turn > 0,
+                ChoosingResolutionCard = _choosePanel != null && _choosePanel.Visible,     // 原版 UIstate == 14
+                RightButtonOrTwoFingers = interaction != null && interaction.IsRightButtonOrTwoFingerTouch(),  // `OnTouchEnter.c:12-14`
+                ChoosingUnitOrAbilityTarget = _selectedSlot >= 0 || _command != AttackKind.None,              // 原版 UIstate ∈ {9,10}
+                MulliganElementsVisible = _mulligan != null && _mulligan.Visible,          // 原版 `+0x1E8`
+                // 🔶 自己设计（非原版）：`WaystonePending` 恒 false / `IsAnimatingCombat` 恒 false / `HoverAllowed` 多一道 `Ctx.Turn > 0` —— 判据在本机拿不到（我们无 `waitingToResolveUseWaystoneFlag(+0x419)`、无逐卡的「正在演战斗」`+0x248`；`inactive` 那一档我们用「还没开第 1 回合」近似）· 调度台 2026-10-26 授权按最接近的等价物接，偏离全部记进报告 §五
+                WaystonePending = false,
+                // 原版 `BattleManager.cardTracked(+0x330)` = **玩家正在行动的那张卡**：`StartAttackFrom.c:14` 置成
+                // **攻方单位**、`StartSpellFrom.c:13` / `StartMovingCardInHand.c:5` 置成法术 / 手牌
+                // ⇒ 棋盘这一侧的等价物 = **已选中的那个单位**（`_selectedSlot`），⛔ 不是准星压着的那个目标。
+                TrackedCard = _selectedSlot >= 0 ? ViewAt(_me, _selectedSlot) : null,
+                // 原版 `Time.timeSinceLevelLoad − timeSinceLastClickOnCard(+0x320)`；只被**未接线**的 `OnTouchUpAsButton` 读
+                // （`PressElapsedForTest` 只是那条私有读数的**公开 getter**，返回的是实时值）。
+                PressSeconds = interaction != null ? interaction.PressElapsedForTest : 0f,
+            };
+            // 机器上那几个「这一张自己的」读数（`OnTouchExit.c:145-168` 的收预览支要读）
+            var h = BoardHighlightOf(v);
+            h.IsPlayerSide = side == _me;
+            h.AttackTypeSelf = v.OwnAttackType;                            // 原版 `+0x120`
+            h.IsRemnant = v.RemnantBodyVisible;                            // 原版 `+0x65`（残骸体已建 = 这一格是残骸）
+            h.OwnerTurnNow = Ctx != null && Ctx.Active == side;             // 原版 `IsPlayerTurn() == isPlayer`
+            h.IsAnimatingCombat = false;                                   // 原版 `+0x248`（见上面那条 🔶）
+            return inp;
+        }
+
+        /// <summary>
+        /// 伤害预览探针（接在 `CardBoardHighlight.PreviewProbe`）。
+        /// <para>判据 = `CardHighlight__ToggleCombatPreviewHighlight.c`（**本轮亲读全文 178 行**）：
+        /// · `:98-102` 判死那句的**第一实参是 `param_1+0x50` = 这台高亮组件自己所属的 `CardScript`**
+        ///   ⇒ **`willDie` 说的是「我这一张会不会死」**；
+        /// · 伤害条目来自 **`other`**：`:53-62` `EnemyReturnsAttack(this, other, isAttacker)` +
+        ///   `GetCombatDamageWithType(other, …)`（主伤害）、`:67-81` **other 的**星镖 / **本卡的**标记光、
+        ///   `:86 GetActiveAbilityDamage(other)`、`:48 GetThisCardPlayedDamage(other, this)`。
+        /// 🔴 **上一路报告 §七(e) 的草稿把主语写成了 `other`（`WouldKillByEntries(other…)`）—— 本轮按反编译改正。**
+        /// ⚠️ 我们的聚合口就是准星那一份（`RuleCore.AttackDamageEntries` / `ActiveAbilityDamageEntries` /
+        /// `FieldAttack` + `WouldKillByEntries`）：⛔ 不在这里重写伤害算式（两处写同一条规则 = 迟早不一致）。</para>
+        /// <para>**`isAttacker == true` 那一支**（`tracked.BoardHighlight.ToggleCombatPreviewHighlight(this, true, false)`，
+        /// `TryCardHighlight.c:85`）= 「攻方会不会被反击打死」。原版条目 = `EnemyReturnsAttack(this, other, 1)` 为真时
+        /// 只取 `[GetCombatDamageWithType(other, 自己的 attackType)]` **一条**（`:53-62`；`isAttacker` 真 ⇒ `:66` 的
+        /// 星镖 / 标记光**不加**）。我们照这条抄，但**三处没锚定**（如实记，见报告 §五）：
+        /// ⓐ `EnemyReturnsAttack` 的两道 trait 闸（`0x14` = 20 / `0x208` = 520）没映射成我们的关键词 ⇒ **恒按「有反击」**；
+        /// ⓑ `GetCombatDamageWithType` 的 trait `0xe6`(230) 支路（读 `+0xf0`）认不出 ⇒ 不判；
+        /// ⓒ 残骸那一格原版是 `isRemnant && +0x66 == 0 ⇒ 0`，`+0x66` 没锚定 ⇒ 只按 `IsRemnant`。</para>
+        /// <para>⛔ **算不出就回 `Valid=false`**（机器会收掉预览并出声一次，⛔ 不许假装「不会死」）：
+        /// ① `other` 是计策卡 —— 原版走 `GetThisCardPlayedDamage`（本机无聚合口；且我们的 `other` 永远取自棋盘，
+        ///    `!isUnit` 的卡不在棋盘上 ⇒ 这一支今天**结构上走不到**）；② 两张里有一张不在棋盘上。</para>
+        /// </summary>
+        CardHighlight.CombatPreviewInfo BattleBoardPreview(CardView self, CardView other,
+                                                           bool isAttacker, bool changeAttackType, bool formUnityAbility)
+        {
+            var info = new CardHighlight.CombatPreviewInfo();
+            if (self == null || other == null || Ctx == null) return info;
+            // 原版 `other.rawCardData.cardType == Tactic(20)`；我们的唯一等价判据 = `!CardData.isUnit`
+            // （与 `CardInteraction.IsTactic` 同一句，⛔ 别另写一张映射表）。⚠️ `CardData` 是 **struct**（没有 null 档）。
+            info.OtherIsTactic = !other.Data.isUnit;
+            info.AttackTypeToHighlight = (int)other.OwnAttackType;          // 原版 `:141`（预览支点的是 **other 的** 攻击类型）
+            if (info.OtherIsTactic) return info;                           // 见 doc ①
+            int selfSide, selfSlot, otherSide, otherSlot;
+            if (!TryLocateBoardView(self, out selfSide, out selfSlot)) return info;
+            if (!TryLocateBoardView(other, out otherSide, out otherSlot)) return info;
+            var selfU = Ctx.Players[selfSide].Board[selfSlot];
+            var otherU = Ctx.Players[otherSide].Board[otherSlot];
+            if (selfU == null || otherU == null) return info;
+            // 主伤害用哪一档攻击类型：原版 `:55-61` = `changeAttackType == 0 ? 自己(+0x120) : other(+0x120)`
+            bool ranged = (changeAttackType ? other.OwnAttackType : self.OwnAttackType) == AttackTypes.Ranged;
+            if (formUnityAbility)                                          // 原版 `:85-92`（技能那一支先于 `isAttacker`）
+            {
+                info.WillDie = RuleCore.WouldKillByEntries(selfU,
+                    RuleCore.ActiveAbilityDamageEntries(Ctx, otherSide, otherSlot, selfSide, selfSlot));
+                info.Valid = true;
+                return info;
+            }
+            if (isAttacker)                                                // 原版 `:53-62`（见 doc 的 ⓐⓑⓒ）
+            {
+                var one = new List<int>(1);
+                one.Add(otherU.IsRemnant ? 0 : RuleCore.FieldAttack(Ctx, otherSide, otherU, ranged));
+                info.WillDie = RuleCore.WouldKillByEntries(selfU, one);
+                info.Valid = true;
+                return info;
+            }
+            info.WillDie = RuleCore.WouldKillByEntries(selfU,                    // 原版 `:53-81`
+                RuleCore.AttackDamageEntries(Ctx, otherSide, otherSlot, selfSide, selfSlot, ranged));
+            info.Valid = true;
+            return info;
+        }
+
+        /// <summary>棋盘视图 → `(side, slot)`。⛔ 只查 `_myUnits` / `_foeUnits` 这两本字典（棋盘视图的唯一真值）；
+        /// 查不到 = 这张卡不在棋盘上（手牌 / 收藏格 / 已销毁）。</summary>
+        bool TryLocateBoardView(CardView v, out int side, out int slot)
+        {
+            side = -1; slot = -1;
+            if (v == null) return false;
+            foreach (var kv in _myUnits) if (kv.Value == v) { side = _me; slot = kv.Key; return true; }
+            foreach (var kv in _foeUnits) if (kv.Value == v) { side = 1 - _me; slot = kv.Key; return true; }
+            return false;
+        }
+
+        /// <summary>自检口径：喂一次「指针在 `world`」的悬停判定（产品那条路 = `DrivePlayerTurn` 里那句
+        /// `TickBoardHover(WorldPointer())`）。⛔ 只做命中 → 状态机派发，不结算、不出声。</summary>
+        public void TickBoardHoverForTest(Vector3 world) { TickBoardHover(world); }
+
+        /// <summary>自检口径：走一次「按下棋盘卡」（产品那条路 = `Update` ⑤ 段记 `_pressSlot` 的那一句）。
+        /// ⛔ 只做命中 → 状态机派发，不改引擎状态。</summary>
+        public void SimulateBoardCardTouchDown(int side, int slot) { BoardCardTouchDown(slot, side); }
     }
 }

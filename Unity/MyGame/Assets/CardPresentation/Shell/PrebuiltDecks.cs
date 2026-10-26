@@ -476,5 +476,32 @@ namespace CardPresentation
             _pairDoc = null; _pairLoaded = false; _pairs = null;
             _warnedMissingPairDeck.Clear();
         }
+
+        // ============================================================ 门面方法（账的落点用）
+        // 🔴 **为什么要有这两个**：账里 `DemoDeckInfoSO.GetName` / `PrebuiltDeck.HasHiddenCards` 是**方法**，
+        //   而本类原来只有**属性**（`Deck.DisplayName` / `Deck.complete`）—— `方案 §4.1` 明令
+        //   「纯属性 getter 不得当方法落点」⇒ 各包一层与原版**同形**的名字。
+        //   逻辑一律不在这里另写一份（⛔ 两处写同一条规则 ⇒ 迟早不一致）。
+        //   ⚠️ 追加在**类尾**（上面那些行号被账引用，插在中间会造成漂移）。
+
+        /// <summary>≡ 原版 `DemoDeckInfoSO.GetName(PlayModes mode)`（🥇 `DemoDeckInfoSO__GetName.c:7-27`）：
+        /// `mode == Classic(0)` 取 `classicDeck`（`+0x18`）、否则取 `skirmishDeck`（`+0x20`），再
+        /// `I2 GetTranslation("PrebuiltDecks/" + deck.deckId(+0x48))` —— 与 <see cref="Deck.DisplayName"/> 同一条 join。
+        /// <para>🔶 自己设计（非原版）：**官方表缺键时的回落**。原版 `I2 GetTranslation` 缺键返回键名本身
+        /// （屏幕上会是 `PrebuiltDecks/DA_SK_4`），我们回落自译中文 / 英文原名
+        /// （现读 **2/103** 副：`DA_SK_4` · `DarkAngelsDeck7`，`official_loc_13lang.json` 的 10,862 键里查无）。
+        /// 为什么必须自己定：那两个键**官方表彻底没有**（判据为空，不是我们没找到）；
+        /// 取「能读的名字」而不是把键名印给玩家。判据与理由的完整版 → `Deck.DisplayName` 的头注释（`:103-117`）。
+        /// 调度台 2026-10-26 裁定保持。</para></summary>
+        public static string DeckName(Deck d) { return d == null ? null : d.DisplayName; }
+
+        /// <summary>≡ 原版 `PrebuiltDeck.HasHiddenCards()`（🥇 `PrebuiltDeck__HasHiddenCards.c:16-63`）：
+        /// 原版 = ① 督军（`runTimeDeckHero ?? deckHero.Reference`）非空且 `!IsHidden()`，
+        /// ② 卡库里**任一张** `IsHidden()` ⇒ true。我们的等价物 = **生成期**算好的 `Deck.complete` 位
+        /// （`!complete` ⇔ 有解析不出的原版 id / 督军 ⇒ 判据在 `工具/gen_prebuilt_decks.py`）。
+        /// <para>**机制差异**：原版**运行期逐张扫** `IsHidden()`；我们**生成期**一次性判定并把结果存成一位
+        /// —— 同一份卡表下净结果相同，但「生成之后卡表再变」我们**不会**跟着变（原版会）。</para>
+        /// <para>`d == null` ⇒ 原版走到 `FUN_1803f47a0`（抛）；我们返回 `true`（当「拼不齐」筛掉它，不炸）——如实登记。</para></summary>
+        public static bool HasHidden(Deck d) { return d == null || !d.complete; }
     }
 }

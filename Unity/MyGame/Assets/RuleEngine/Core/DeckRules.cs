@@ -684,8 +684,8 @@ namespace RuleEngine
         /// <para>**唯一外部调用点** = 遭遇事件窗左列「这副卡组为什么不可用」那一行
         /// （`Shell/SkirmishEventWindow.cs:505`，原版用的是短档）⇒ 调用方改走本方法。</para>
         ///
-        /// <para>⛔ **别按「每条都加 Short」补文案** —— 只有那两条是特例；本方法对其它档
-        /// **一律回长档**（<see cref="Describe"/>），这正是原版的行为。</para>
+        /// <para>⛔ **别按「每条都加 Short」补文案** —— 只有那两条是特例；其余档原版**回落到**
+        /// `MenuDeck/Error/InvalidDeck/Short`（`DeckUtility__ToShortRawLocalizationString.c:21-24` 的常量兜底，⛔ 不是回长档）。</para>
         ///
         /// <para>⚠️ **接线依赖**：`MenuDeck/Error/InvalidDeck/Short` 这两条**词条要进 `Core/Loc.cs`**
         /// （那是 `CardPresentation` 的文件、不在本代理白名单）—— 缺条时 `Loc.T` 会把键名印到屏幕上。
@@ -693,16 +693,16 @@ namespace RuleEngine
         /// </summary>
         public static string DescribeShort(DeckError e)
         {
-            string key = Describe(e);
-            if (e == DeckError.None || string.IsNullOrEmpty(key)) return key;
-            // 原版**只有**这两档有 `/Short`（现读官方表）。
-            // ⚠️ 我们这一侧目前能产出的是 `InvalidDeck`（`EffectOnlyCard` 的 catch-all）；
-            //    `InvalidDeckBannedCards` 我们还没有对应枚举 —— 留着这一条是**照原版补全**，
-            //    将来加那张卡池禁令档时不用再回来改这里。
-            string name = key.StartsWith(TermPrefix, System.StringComparison.Ordinal)
-                        ? key.Substring(TermPrefix.Length) : key;
-            if (name == "InvalidDeck" || name == "InvalidDeckBannedCards") return key + "/Short";
-            return key;      // 其余 13 条**没有**短档 ⇒ 回长档（⛔ 别自己造）
+            if (e == DeckError.None) return "";             // 原版 `.c:17` 回静态字段（ILSpy 读作 `(string)0`）；两者在 `Loc.T` 里都等于「不显示」
+            // 🔴 原版（`decomp_full/DeckUtility__ToShortRawLocalizationString.c:4-33`，🥇 33 行逐句）：
+            //   `term = Format("MenuDeck/Error/{0}/Short", error)`（`{0}` = 枚举名），`GetTermData(term) == null`
+            //   ⇒ **返回常量 `MenuDeck/Error/InvalidDeck/Short`**（`.c:21-24` 的 `DAT_1842cf6f0`）—— ⛔ 不是回长档。
+            //   现读官方表：`MenuDeck/Error/*` 15 条里只有 `InvalidDeck/Short` 与 `InvalidDeckBannedCards/Short` 在。
+            //   ⚠️ 改前我们对其余档回**长档**（`Describe(e)`）⇒ 与原版不同，2026-10-26 按 `.c` 订正（铁律 5）。
+            string name = OriginalErrorName(e);             // 我们 14 档 → 原版那 6 个枚举名（同一处判据）
+            string key = TermPrefix + name + "/Short";
+            if (name == "InvalidDeck" || name == "InvalidDeckBannedCards") return key;
+            return TermPrefix + "InvalidDeck/Short";        // 原版 `.c:23-24` 那句常量兜底
         }
     }
 

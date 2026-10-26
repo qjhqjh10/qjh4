@@ -77,8 +77,8 @@ namespace CardPresentation
         //   （`set_parentInternal(hero.transform, minionManager.transform)`）⇒ 那个位置是**局部坐标**。
         //   gizmo 那边 `MinionManager__OnDrawGizmosSelected.c:50-57` 印证同一件事：
         //   它把基准点 `TransformPoint` 到世界再加 `heroExtraOffset` 画线。
-        // ⚠️ **两个 MinionArea 的旋转都是单位四元数、scale 都是 1**（`Transform_1309/1314.json`）
-        //   ⇒ 局部 z 的偏移**原样**就是世界 z 的偏移（不需要转坐标系）。
+        // ⚠️ **两个 MinionArea 的旋转都是单位四元数、scale 都是 1**（`Transform_1309/1314.json`），且父链到根
+        //   `1319/1315 → 1301(BattleBoardElements, x=100) → 1300` 全 identity/scale 1 ⇒ 局部 x/z 原样就是世界 x/z。
         // ⚠️ **我们原来一条都没实现** ⇒ 督军比原版**近** 0.42（我）/ 0.75（敌）个世界单位。
         //    ⚠️ **还没做实况复核**：`heroExtraOffset` 里那个「基准点」是个静态量（反编译读不出它到底是不是原点），
         //    这里按「基准 = MinionArea 原点」算 —— 与 `OnDrawGizmosSelected` 把督军画在原点那句是一致的。
@@ -91,22 +91,22 @@ namespace CardPresentation
         /// <summary>督军卡（原版 `cardType == 10`）的根缩放 —— 原版 `heroScale`。</summary>
         public static float HeroScale(bool enemy) { return enemy ? EnemyHeroScale : PlayerHeroScale; }
 
-        /// <summary>这个槽在 3D 战场里的世界落点。
-        /// ⚠️ **y 恒为 0**（`ExtraYOnBoard = 0`）—— 卡是**站在地面上**的，不是浮起来的。
-        /// ⚠️ **督军位（<see cref="WarlordSlot"/>）多一个 z 偏移** —— 原版 `MinionManager.heroExtraOffset`，
-        ///    见上面那两个常量的出处；其余 8 格没有这一项。</summary>
+        /// <summary>这个槽在 3D 战场里的世界落点 = 原版 `MinionManager.GetSlotPos` 的那条式子。
+        /// ⚠️ **y = `ExtraYOnBoard`**（原版 `SlotPosToBoardPos.c:15-21` 的 `+up×ExtraYOnBoard`；13 场 × 2 实例实读全 0 ⇒ 恒 0）——
+        ///    **督军位那一支不吃这一项**：它走原版另一条方法 `BattleManager.GetHeroBoardPos`（`.c:16-28`，只加 `heroExtraOffset`）。
+        /// ⚠️ **督军位（<see cref="WarlordSlot"/>）多一个 z 偏移** —— 原版 `MinionManager.heroExtraOffset`（= 上面那两个常量）；其余 8 格没有这一项。</summary>
         public static Vector3 Position(int slot, bool enemy)
         {
             float z = enemy ? EnemyZ : PlayerZ;
             int k = slot - WarlordSlot;
             if (k == 0) return new Vector3(0f, 0f, z + (enemy ? EnemyHeroExtraZ : PlayerHeroExtraZ));   // 督军位在正中
             int side = k > 0 ? 1 : -1;
-            int n = Mathf.Abs(k);                                 // 1..4
+            int n = ClampSideIndex(slot, Mathf.Abs(k));           // 1..4；越界照原版夹取并出声
             float x = side * (n * Pitch(enemy) + (enemy ? EnemyExtra : PlayerExtra));
-            // ⚠️ **敌方要镜像**（我们的槽号 → 屏幕左右）。判据沿用 2D 那一份
-            //    （`BoardLayout.mirror`，注释里记着原版的 `leftSlotPosNormal` 对敌方是 +x）——
-            //    两处**必须是同一个方向**，否则「我打你的槽 3」两边指的不是同一个物理格。
-            return new Vector3(enemy ? -x : x, 0f, z);
+            // 🔴 **原版【不镜像】敌方槽位**（2026-10-26 · B8_M 复核 F 后确认）：两个 `MinionArea` 跑**同一段** `Awake`
+            //    （`Awake.c:54-56` 左=负 / `:99-101` 右=正；取负 = `bits ^ 0x80000000`，VA `0x1834b2c80` 实读 int32 −2147483648）
+            //    ⇒ 两侧 left 恒 −x；两 MinionArea 及父链全 identity/scale 1 ⇒ 局部 −x 即世界 −x。详见 `报告/B8_M_敌方槽位镜像.md`。
+            return new Vector3(x, ExtraYOnBoard(enemy), z);
         }
 
         /// <summary>**卡根**的世界落点 = 地面落点 + 半个卡高 × 缩放。
@@ -169,5 +169,54 @@ namespace CardPresentation
         }
 
         static Vector3 Project(Camera cam, Vector3 world) { return cam.WorldToScreenPoint(world); }
+
+        // ==================================================================
+        //  原版 `MinionManager` 里与「槽位几何」有关、但 `Position` 那条式子没直接表达的几项
+        //  （2026-10-26 · B8_AR）⚠️ **一律追加在类尾**：`Position` 在 :98-110，账按行号引用它。
+        // ==================================================================
+
+        /// <summary>原版 `MinionManager.slotsPerSide`（**每侧**几格）—— `MonoBehaviour_4372.json` /
+        /// `MonoBehaviour_4373.json` 实读都是 **4**，且 `Awake` 用它把两条槽位数组**重建**成 4 项
+        /// （`MinionManager__Awake.c:41-46`；序列化里那两条只有 3 项 ⇒ **那 3 项是被覆盖的死值**）。
+        /// ⛔ 别和 <see cref="SlotCount"/>（9 = 4 + 督军 + 4）混用。</summary>
+        public const int SlotsPerSide = (SlotCount - 1) / 2;
+
+        /// <summary>原版 `MinionManager.ExtraYOnBoard`（**我方**）= **0**
+        /// （`MonoBehaviour_4372.json` 实读；13 个战场 × 2 个实例**逐场实读全是 0**）。
+        /// 用法 = `SlotPosToBoardPos` 的 `落点 + Vector3.up × ExtraYOnBoard`
+        /// （`MinionManager__SlotPosToBoardPos.c:15-21`）。
+        /// <para>🔑 **「那枚静态向量是 `Vector3.up`」的推导链**（不是猜的）：
+        /// ① `SlotPosToBoardPos.c:16-20` 读 `Il2CppStaticFields&lt;Vector3&gt;` 的 **+0x18 / +0x1c / +0x20** 三个分量；
+        /// ② `GetHeroBoardPos.c:19-27` 与 `GetLeftMostPos.c:54-56` 读的是**同一个 static_fields 的 +0x00 那一枚**，
+        ///    而它们语义上是「加一个零」（督军世界位 = `heroExtraOffset` 本身、空数组返回 `Vector3.zero`）
+        ///    ⇒ **+0x00 = `Vector3.zero`**；
+        /// ③ Unity 的 `Vector3` 静态字段按 **12 字节**一档紧排，顺序 `zero → one → up → down → left → right → forward → back → ±inf`
+        ///    ⇒ `+0x0C = one`、**`+0x18 = up`**（独立佐证：ILSpy 对本方法 z 分量注的 `+20` 读出来是 0 ⇒ 排除 `one`/`forward`）。</para></summary>
+        public const float PlayerExtraYOnBoard = 0f;
+
+        /// <summary>原版 `ExtraYOnBoard`（**敌方**）= **0**（`MonoBehaviour_4373.json` 实读）。见上。</summary>
+        public const float EnemyExtraYOnBoard = 0f;
+
+        /// <summary>这一侧落点要抬多高（原版 `SlotPosToBoardPos` 的那一项）。当前恒 0，但**照原版留着这一跳**。</summary>
+        public static float ExtraYOnBoard(bool enemy) { return enemy ? EnemyExtraYOnBoard : PlayerExtraYOnBoard; }
+
+        /// <summary>侧内下标 `n`（1..<see cref="SlotsPerSide"/>）越界时**照原版夹取到最外一格并出声**。
+        ///
+        /// <para>判据 = `MinionManager__GetLeftSlotPos.c:25-42` / `__GetRightSlotPos.c:25-42`：
+        /// 下标 ≥ 数组长度 ⇒ `CustomDebug.LogError("Trying to GetLeftSlotPos with slotNum too high " + slot)`
+        /// （原字符串见 `cpp2il/out_cpp2il_dev_ilspy/MinionManager.cs:466 / :507`）**然后夹到 `Length − 1`**；
+        /// 负下标经 `uint` 变成极大的数，走**同一条**支（`.c:25` 比的是 uint）。
+        /// ⇒ 两侧越界都落在**最外一格**（left 的 last = 最负、right 的 last = 最正）。</para>
+        /// <para>我们的 `Position` 把「侧内下标」表达成 `n = |slot − WarlordSlot|` ⇒ 夹到
+        /// <see cref="SlotsPerSide"/>（= 最外一格）。`n &lt; 1` 不可达（`slot == WarlordSlot` 已在上面分流），
+        /// 留着只为不静默吞掉异常输入。</para></summary>
+        static int ClampSideIndex(int slot, int n)
+        {
+            if (n >= 1 && n <= SlotsPerSide) return n;
+            Debug.LogError($"[ArenaSlots] 槽号越界 slot={slot}（侧内下标 {n}，合法 1..{SlotsPerSide}）"
+                         + " ⇒ 照原版 `GetLeft/RightSlotPos` 夹到最外一格"
+                         + "（原版同一情形打 \"Trying to GetLeftSlotPos with slotNum too high\"，MinionManager.cs:466/507）");
+            return n < 1 ? 1 : SlotsPerSide;
+        }
     }
 }

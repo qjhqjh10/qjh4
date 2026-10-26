@@ -3748,6 +3748,41 @@ public static class SettingsScene
                 CheckNear(WarpforgeAudio.Music, 0.42f, 0.01f,
                           $"拖第一根 ⇒ **真的写进 AudioMixer**（Music {before:F2} → {WarpforgeAudio.Music:F2}）");
                 sl[0].SetValue(before, true);
+                // ---- 🆕 2026-10-26（`B8_AQ`）：第 2 / 3 根滑块 —— 原版 `PlayerDataManager__SetMusicAndFxVolumes.c`
+                //  里 `SetMixerVolume(0)` 与 `SetMixerVolume(3)` **写同一个值**（`VolumeJingles` ≡ FX，见
+                //  `Core/WarpforgeAudio.cs` 的 `ApplyAll` / `SetSoundFx`）。上面那条只断了第 1 根（Music）。
+                //  dB 期望值 **−8.6 = 20·log10(0.37)** 是按原版那条公式算出来的字面量，⛔ 不从我们的实现里读。
+                float beforeFx = WarpforgeAudio.SoundFx, beforeVo = WarpforgeAudio.VoiceOver;
+                sl[1].SetValue(0.37f, true);
+                CheckNear(WarpforgeAudio.SoundFx, 0.37f, 0.01f,
+                          "拖第 2 根 ⇒ 原版 `GameStaticData.soundFxVolume`(+0xd4) 那一半");
+                // 🔴 **2026-10-26（`B8_BN`）**：dB **读回**只有真包（Play）能验 —— `Core/PlayerBoot.cs` 的 `DumpAudioSummary`
+                //   注释里写着实测结论：「`AudioMixer.SetFloat` 在**编辑器（非 Play）里是空操作**（实测『设 −20 → 读回 0.00』，
+                //   而音频子系统本身是活的 48kHz/Stereo）⇒ **只有真包能验**」。本宿主是 `-executeMethod` 批处理
+                //   （`Application.isPlaying == false`）⇒ `Dump()` 四路 dB 恒 `0.0`（这一行实得
+                //   `Music=1.00(0.0dB) · FX=0.37(0.0dB) · Jingles(0.0dB) · Voices=1.00(0.0dB)`）。
+                //   ⇒ 按环境两档断（⛔ **不是放宽**：值那一档在环境允许时才成立；环境不允许时同一个数由 player 的
+                //      `[PlayerBoot·音频] **读回往返**` 盯 —— 那一行就是为这件事写的。批处理这一档断的是
+                //      「四个暴露参数名在 mixer 里都认得」= `Write("VolumeJingles", …)` 那个名字写错时**唯一**能在批处理里查到的面）。
+                bool dbReadable = Application.isPlaying;
+                CheckTrue(dbReadable
+                            ? (WarpforgeAudio.Dump().Contains("FX=0.37(-8.6dB)")
+                               && WarpforgeAudio.Dump().Contains("Jingles(-8.6dB)"))
+                            : WarpforgeAudio.ParamsOk,
+                          "★ …而且**真的写进了两条 mixer 参数**（`VolumeFX` 与 `VolumeJingles` 同值、都是 −8.6dB）："
+                        + WarpforgeAudio.Dump()
+                        + (dbReadable
+                            ? "｜🧨 删掉 `SetSoundFx` 里那句 `Write(\"VolumeJingles\", _fx)` ⇒ 本条红（Jingles 掉到 −80dB）"
+                            : "｜⚠️ 批处理：`SetFloat` 在编辑器里是空操作（判据 = `Core/PlayerBoot.cs` 的 `DumpAudioSummary`）"
+                            + "⇒ 本档只断「四个暴露参数名（含 `VolumeJingles`）在 mixer 里都认得」；"
+                            + "−8.6dB 那一半由 player 的 `[PlayerBoot·音频] **读回往返**` 盯")
+                        + "（判据 = `PlayerDataManager__SetMusicAndFxVolumes.c:64-65,79-80`）");
+                sl[1].SetValue(beforeFx, true);
+                sl[2].SetValue(0.23f, true);
+                CheckNear(WarpforgeAudio.VoiceOver, 0.23f, 0.01f,
+                          "拖第 3 根 ⇒ 原版 `voiceOversVolume`(+0xd0)"
+                        + "（`PlayerDataManager__SetMusicAndFxVolumes.c:49-50`）");
+                sl[2].SetValue(beforeVo, true);
                 // 轨道宽取的是**本页容器宽**（不是战斗内那根的 561.08）
                 var rowN = sl[0].WorldPos;
                 float left = sl[0].LeftWorld.x * 108f + 960f, right = sl[0].RightWorld.x * 108f + 960f;
@@ -4185,6 +4220,71 @@ public static class SettingsScene
                 }
             }
 
+            // ---------------- 🆕 2026-10-26（`B8_AQ`）：窗口模式下拉（音频页下半 `Visual Settings > WindowMode Selector`）
+            //  原版 `MediaTab__OnWindowModeChanged.c:13` = `SetFullScreen(param_2 == 0)`（0 = Full screen / 1 = Windowed）。
+            //  两个自检注入点 = `SettingsWindow.FullScreenGetter/Setter`（⛔ 不去真改窗口模式、不写盘）。
+            Section("窗口模式下拉（`Media Tab > Visual Settings`）：两档都断 + 切页重算帽字");
+            {
+                var vmRow = FindChild(FindChild(FindChild(FindChild(root, "Menu Area"), "Media Tab"),
+                                                "Visual Settings"), "WindowMode Selector");
+                var vmFld = vmRow != null ? FindChild(vmRow, "Dropdown") : null;
+                var vmCapTr = vmFld != null ? FindChild(vmFld, "Label") : null;
+                var vmCap = vmCapTr != null ? vmCapTr.GetComponent<Label>() : null;
+                CheckTrue(vmRow != null && FindChild(vmRow, "Hit") != null,
+                          "（前提）音频页下半有 `WindowMode Selector` 那一行 + 命中区"
+                        + "（原版 `Media Tab` 的第二个孩子 `Visual Settings`）");
+                if (vmRow != null)
+                {
+                    SettingsWindow.FullScreenGetter = () => false;          // 起始 = 窗口化
+                    bool? got = null;
+                    SettingsWindow.FullScreenSetter = v => got = v;
+                    Click(vmRow, "Hit");                                    // 真下拉：点行 ⇒ **开列表**
+                    CheckTrue(win.DropdownOpen(SettingsWindow.DdWindowMode),
+                              "点窗口模式行 ⇒ **列表打开了**（真下拉，不是「点一下换一个」）");
+                    Click(win.DropdownRowHit(SettingsWindow.DdWindowMode, 0));   // 选第 0 行 = Full screen
+                    CheckTrue(got == true,
+                              "★ 选 `Full screen`（第 0 行）⇒ 原版 `SetFullScreen(param_2 == 0)` 收到 **true**"
+                            + $"（实得 {(got.HasValue ? got.Value.ToString() : "setter 没被调")}）"
+                            + "｜🧨 把 `SetFullScreen(wantFull)` 改成恒传 true ⇒ 下一条红");
+                    // 判别式（同一道闸的另一侧）：从**全屏**态选 `Windowed` ⇒ 必须收到 false
+                    SettingsWindow.FullScreenGetter = () => true;
+                    Click(vmRow, "Hit");
+                    got = null;
+                    Click(win.DropdownRowHit(SettingsWindow.DdWindowMode, 1));
+                    CheckTrue(got == false,
+                              "★ 判别式：从全屏态选 `Windowed`（第 1 行）⇒ 收到 **false**"
+                            + $"（实得 {(got.HasValue ? got.Value.ToString() : "setter 没被调")}）"
+                            + "｜🧨 `SetFullScreen` 恒传 true ⇒ 这一条红（上一条照绿）");
+                    SettingsWindow.FullScreenSetter = null; SettingsWindow.FullScreenGetter = null;
+                }
+
+                // ⑥ 切页重算帽字（原版 `MediaTab__OnOpen.c:3-7` → `SetupVideoSettings()`；我们的等价物 =
+                //    `OpenTab → RefreshTexts()` 里 `_onLabels` 那一圈）。判据 = **帽字跟着当前全屏态走**：
+                //    先在「全屏」档切页 ⇒ 印 `Full screen`；再把注入点翻成窗口化、**不点任何按钮**、只切页
+                //    ⇒ 帽字必须重算成 `Windowed`。
+                //    改坏法：删掉 `RefreshTexts()` 里 `for (… _onLabels …)` 那一圈 ⇒ 第二句红（帽字停在 Full screen）。
+                if (vmCap != null)
+                {
+                    SettingsWindow.FullScreenGetter = () => true;
+                    win.OpenTab(SettingsTab.General);
+                    win.OpenTab(SettingsTab.Audio);
+                    CheckTrue(vmCap.Text == Loc.T("Settings/Media/WindowMode/Fullscreen"),
+                              "★ 全屏态切回音频页 ⇒ 帽字 = "
+                            + $"`{Loc.T("Settings/Media/WindowMode/Fullscreen")}`（实得「{vmCap.Text}」）"
+                            + "｜判据 = 原版 `MediaTab__OnOpen` → `SetupVideoSettings`");
+                    SettingsWindow.FullScreenGetter = () => false;   // 全屏态变了，但**不点任何按钮**
+                    win.OpenTab(SettingsTab.General);
+                    win.OpenTab(SettingsTab.Audio);
+                    CheckTrue(vmCap.Text == Loc.T("Settings/Media/WindowMode/Windowed"),
+                              "★ 切页 ⇒ 帽字按**当前**全屏态重算 = "
+                            + $"`{Loc.T("Settings/Media/WindowMode/Windowed")}`（实得「{vmCap.Text}」）"
+                            + "｜🧨 删掉 `RefreshTexts()` 的 `_onLabels` 那一圈 ⇒ 帽字停在 Full screen ⇒ 红");
+                    SettingsWindow.FullScreenGetter = null;
+                }
+                else CheckTrue(false,
+                               "（前提）窗口模式那一行的 caption `Label` 取不到 ⇒ 上面那条「切页重算帽字」**没查成**"
+                             + "（不是绿；路径 = `Menu Area/Media Tab/Visual Settings/WindowMode Selector/Dropdown/Label`）");
+            }
             // ---------------- 联机页 ----------------
             Section("联机页（**这一页是我们新增的设计**，用户规格逐条）");
             // 🔴 **2026-10-19（`A1186` 裁定 ①/②）换路**：这一页**在页签栏里没有键**了

@@ -1,0 +1,105 @@
+SegmentationController|AddLocalAttributes(GetPlayerCombinedInfoResultPayload userInfo)|B|由 PlayFab 玩家档案算出属性后 SetAttribute(upload:false)（含 DaysSinceLastLogin）|Shell/MenuTutorialManager.cs:320|只覆盖 CollectedFirstDeck 那一档；其余遥测属性无等价||判据 SegmentationController.cs:103
+SegmentationController|AddTag(PlayerTag tag, bool upload)|B|去重后加进 segmentation.Tags，upload 时走云脚本并抛 AddTagSignal|Shell/MenuTutorialFlow.cs:558|本地等价 = 存档完成位；上传分支离线不适用||判据 SegmentationController.cs:289
+SegmentationController|CheckTag(PlayerTag tag)|B|segmentation.Tags.Contains(tag)|Shell/MenuTutorialManager.cs:320|原版 12 处调用点我们只接了教程/欢迎弹窗那几处||判据 SegmentationController.cs:277；调用点见 TutorialManager/WelcomePopup/TwoSidesEvent/MenuActions
+SegmentationController|DeserializeFromUserData(GetPlayerCombinedInfoResultPayload userInfo)|D|解 PlayFab 玩家数据 JSON 的 Tags 数组|无|||D①：在线 PlayFab 载荷，离线无此数据；SegmentationController.cs:47
+SegmentationController|GetAttribute<T>(PlayerTag tag)|C|从 segmentation.Attributes 按 tag 取，类型不符/缺失时 LogError 并返回 default|无|原版供 LiveOps AttributeCondition.Validate 判条件；我们不做 LiveOps|P2|SegmentationController.cs:374；用户 2026-10-24 口径「过期活动不做」
+SegmentationController|GetRawAttribute(PlayerTag tag)|C|同上去 ToString()|无|同上|P2|SegmentationController.cs:477
+SegmentationController|IncreaseAttribute(PlayerTag key, int value, bool upload)|C|GetAttribute<int> + value 后 SetAttribute|无|同上|P2|SegmentationController.cs:366
+SegmentationController|RemoveTag(PlayerTag tag)|C|从 Tags 移除并调云脚本 RemovePlayerTag|无|全量反编译里除自身外 0 个调用点|P2|SegmentationController.cs:332
+SegmentationController|SetAttribute(PlayerTag key, object value, bool upload)|C|写 Attributes 字典 + 抛 SetAttributeSignal + 可选上传|无|同 GetAttribute|P2|SegmentationController.cs:345
+SegmentationController|Unpack(GetPlayerCombinedInfoResultPayload userInfo)|D|依次调 DeserializeFromUserData 与 AddLocalAttributes|无|||D①：只在登录解包那一条路上；SegmentationController.cs:41
+SegmentationController|_003CDeserializeFromUserData_003Eg__ParseTags_007C2_0(JToken token)|D|把 JSON 数组逐项 Enum.TryParse<PlayerTag>|无|||D④：闭包，唯一消费方是 DeserializeFromUserData；SegmentationController.cs:526
+Card3DAnimationController|AddClipIfNecessary(AnimationClip animationClip)|A|没加过才把 clip 记进 playingClips 并 AddClip(clip,clip.name)|Battle/Card3DAnimationController.cs:346|一致（原版 DoAnim 里还无条件再 AddClip 一次；我们合并成一处，playingClips 每拍收尾都清空 ⇒ 行为等价）||判据 Card3DAnimationController.cs:507 + decomp_full/Card3DAnimationController__DoAnim.c:90
+Card3DAnimationController|AnimFinished()|A|还在飞 ⇒ 摘回调+Toggle(true,0.45)+清 0x48/0x49 两闸；随后 onAnimationEnd、ClearClips、关自己、safeResetOnEnd 时 position/rotation/localScale 三连复位|Battle/Card3DAnimationController.cs:294|一致||判据 Card3DAnimationController.cs:322 与 __AnimFinished.c:47-84
+Card3DAnimationController|ClearClips()|A|currentClip 置 null，逐个 RemoveClip，再清列表|Battle/Card3DAnimationController.cs:336|一致||判据 Card3DAnimationController.cs:464
+Card3DAnimationController|DoAnim(AnimationClip animationClip, bool disableFlying, Action onAnimationEnd, bool safeResetOnEnd)|A|clip 空 ⇒ 只回调并 return false；否则记 safeResetOnEnd、关自己、AddClip、记回调；disableFlying 时按「不飞即起播/未落过地就 Toggle(false,0.15) 等回调/已落过地直接起播」三支|Battle/Card3DAnimationController.cs:208|一致（取不到 FlyingCardController 时原版抛异常，我们出声并直接起播 —— 文件头「我们改的三处」已记）||判据 Card3DAnimationController.cs:116 与 __DoAnim.c:19-137
+Card3DAnimationController|OnDestroy()|A|只做 flyingController.OnFlyingToggleFinish -= OnFlyingToggleFinish|Battle/Card3DAnimationController.cs:421|我们多清两个闸与回调（视图销毁时更安全）||判据 Card3DAnimationController.cs:53
+Card3DAnimationController|OnFlyingToggleFinish(bool option)|A|true = 飞起来 ⇒ AnimFinished()；false = 落地 ⇒ StartAnim()|Battle/Card3DAnimationController.cs:365|一致||判据 Card3DAnimationController.cs:538 与 __OnFlyingToggleFinish.c
+Card3DAnimationController|Start()|A|先关自己与 Animation，再缓存 position/rotation/localScale|Battle/Card3DAnimationController.cs:162|一致（批处理没有 Start，改在 ctor 里做同一件事）||判据 Card3DAnimationController.cs:36 与 __Start.c
+Card3DAnimationController|StartAnim()|A|enabled=true；currentAnimationTime=clip.length；CrossFade(clip.name,0.2)|Battle/Card3DAnimationController.cs:277|prefab 那一档时长由调用方给（= AnimInfo.GetAnimDuration）||判据 Card3DAnimationController.cs:312 与 __StartAnim.c
+Card3DAnimationController|Toggle(bool option)|A|enabled 与 Animation.enabled 一起写|Battle/Card3DAnimationController.cs:357|一致||判据 Card3DAnimationController.cs:532 与 __Toggle.c
+Card3DAnimationController|Update()|A|time -= dt；OneFrameSlack/targetFrameRate + time < 0 时，unitWasFlying 为真就 Toggle(true,0.15) 并 return，否则 AnimFinished()|Battle/Card3DAnimationController.cs:389|targetFrameRate<=0（批处理）时按 60 算，如实标注||判据 Card3DAnimationController.cs:95 与 __Update.c:23-46
+ObjAnimEffects|PlayDelayedEffect(AnimEffectData effectData)|C|waitToPlayEffects 为假时逐条按 animDelay 分流：0 或 Fade 立即播，其余起协程|无|没有「按 AnimEffectData 数组自动播」的通用组件；三条能力分散在 WarpforgeEffectPlayer / WFSoundPlayer / CardFeel.ShakeCamera|P2|ObjAnimEffects.cs:94；原版 9 处实例（资料/普查产出_1025/K5_特效动画域复刻审查_执行报告.md:128）
+ObjAnimEffects|PlayEffect(AnimEffectData effectData)|C|同上但不看 waitToPlayEffects（外部显式触发一次）|无|同上|P2|ObjAnimEffects.cs:137
+ObjAnimEffects|PlayEffects()|C|按 effectType 分派：10 Fade / 20 AnimPrefab / 30 PlaySound / 40 ScreenShake|无|无统一分派件|P2|ObjAnimEffects.cs:175
+ObjAnimEffects|ResolveAnimPrefab(AnimEffectData effectData)|C|协程 WaitForSeconds(animDelay) 后再 PlayEffect|无|无|P2|ObjAnimEffects.cs:222
+ObjAnimEffects|ResolveFade(AnimEffectData effectData)|C|_disableParticles 为假且 animPrefab 非空 ⇒ Instantiate 到自己的 transform 下|WarpforgeVFX/Runtime/WarpforgeEffectPlayer.cs:191|有「按名播 prefab」的入口，没有「按数据在指定 transform 下实例化」那一层|P2|ObjAnimEffects.cs:289
+ObjAnimEffects|ResolvePlaySound(AnimEffectData effectData)|C|对 spritesToFade/textsToFade 先 SetAlpha(start)，再 DOFade(end,duration).SetDelay(delay)|无|只有零散 DOFade 调用点，没有数据驱动的批量淡变|P2|ObjAnimEffects.cs:237
+ObjAnimEffects|ResolveScreenShake(AnimEffectData effectData)|C|audioSource.PlayOneShot(clip, SoundFxVolume*asset.volume)；无 source 时 LogWarning|WarpforgeVFX/Runtime/WFSoundPlayer.cs:80|有 2D/3D 播放入口，没有「挂在物体上的 AudioSource 按数据播 OneShot」这一形|P2|ObjAnimEffects.cs:313
+ObjAnimEffects|Start()|D|FindObjectsOfTypeAll<CameraShake>()[0].DoScreenShake(shakeInfo)|无|||D③：原版战斗场景里 CameraShake 实例 0 个 ⇒ 这条路在原版空转（资料/普查产出_1015战斗判据/T12_演出镜头时序.md:112,147）；其他场景未统计；ObjAnimEffects.cs:338
+MarkerlightController|AimingAttack(bool option)|C|按 alreadyAttacked 选 normal/expiring 两个 MaterialFader，Toggle(!option, fadeTime=1s)|无|T'au 标记光「瞄准时淡出/淡回」没有等价物|P1|MarkerlightController.cs:81；虚调用，grep 查不到直接调用点
+MarkerlightController|ChangeState(bool alreadyAttacked)|C|alreadyAttacked 翻转 normal/expiring 两个状态物件|无|无|P1|MarkerlightController.cs:95；调用点 CardScript__SetRemoveMarkerlight.c
+MarkerlightController|FadeFixedElements(bool option, MaterialFader whoToFade)|D|直接转发 whoToFade.Toggle(option,fadeTime)|无|||D③：全量反编译里除自身外 0 个调用点；MarkerlightController.cs:103
+MarkerlightController|MarkerLightUsed()|C|alreadyAttacked=true，normal 关、expiring 开|无|无|P1|MarkerlightController.cs:88；调用点 CardScript__SetRemoveMarkerlight.c
+MarkerlightController|Start()|C|normal 开/expiring 关；给地板材质写 _RippleScale = lossyScale.x|无|无|P1|MarkerlightController.cs:25
+MarkerlightController|Toggle(bool option)|D|方法体为空（public override void Toggle(bool option) { }）|无|||D④：空方法体，原版什么都不做；MarkerlightController.cs:50；⛔ 别以为漏了
+MarkerlightController|UpdateValue(int newValue)|C|counter.text = 值 + DOPunchScale(0.5s,10)；有 updateMarkerLightVFX 就原位姿实例化并按 lossyScale 缩放|Core/Badges.cs:395（只有关键词图标）|标记光的数值与更新特效都没有|P1|MarkerlightController.cs:54
+CardDisplayLevelUpAnimationController|AnimationFinished()|C|转发 upgradePanel.AnimationFinished()（重新开输入）|无|升级庆祝动画整条没有；我们的升级 = Shell/CardDetailPopup.cs:2253 DoUpgrade 直接换框|P1|CardDisplayLevelUpAnimationController.cs:90；原版 8 处实例（K5:128）
+CardDisplayLevelUpAnimationController|ChangeFrame()|C|相机抖动 preset.Play() + upgradePanel.ChangeFrameOnLevelUp() + 背景 DOFade(0,0.7) 后关背景|Shell/CardDetailPopup.cs:2253（换框有）|缺相机抖动与背景淡出|P1|CardDisplayLevelUpAnimationController.cs:77
+CardDisplayLevelUpAnimationController|DoAnim()|C|开物体、播 Animation、impulseSource.GenerateImpulse()、背景淡到 0.7/0.3s、播 2D cue|无|无|P1|CardDisplayLevelUpAnimationController.cs:40
+CardDisplayLevelUpAnimationController|FadeOutImage(Image image)|C|单张 Image alpha 淡出|无|无|P1|CardDisplayLevelUpAnimationController.cs:69
+CardDisplayLevelUpAnimationController|FadeOutImages()|C|三张 Image（两张特效图 + 背景）一起淡出|无|无|P1|CardDisplayLevelUpAnimationController.cs:55
+CardDisplayLevelUpAnimationController|OnEnable()|C|三张图 alpha 每次开启都归零|无|无|P1|CardDisplayLevelUpAnimationController.cs:26
+CardDisplayLevelUpAnimationController|_003CChangeFrame_003Eb__12_0()|D|fadeBackground 的 OnComplete 闭包：SetActive(false)|无|||D④：闭包，行为已算进 ChangeFrame 那一行；CardDisplayLevelUpAnimationController.cs:95
+CardDisplayLevelUpAnimationNotifier|AnimationFinished()|C|动画事件转发 levelUpController.upgradePanel.AnimationFinished()|无|同升级动画缺失|P1|CardDisplayLevelUpAnimationNotifier.cs:24
+CardDisplayLevelUpAnimationNotifier|ChangeFrame()|C|动画事件转发：抖屏 + 换框 + 背景淡出|无|同上|P1|CardDisplayLevelUpAnimationNotifier.cs:10；原版 3 处实例（K5:128）
+MoveAnimator|CompleteMove()|C|spawnOnEnd.SetActive(true) + movingObject.SetActive(false)|无|没有「A→B 位移、到位换物件」这一件|P2|MoveAnimator.cs:155；原版 6 处实例（K5:128），挂载点未定位
+MoveAnimator|Start()|C|moveEase==Unset ⇒ 起协程等；否则 DOLocalMove(timeToMove) + OnComplete(CompleteMove)|无|无|P2|MoveAnimator.cs:119
+MoveAnimator|WaitToCompleteMove()|C|协程 WaitForSeconds(timeToMove) 后 CompleteMove|无|无|P2|MoveAnimator.cs:144
+AnimEffectData|UpdateName()|D|manualDescription 非空就用它，否则 effectType.ToString()|无|||D③：全量反编译除自身外 0 个调用点（只写 effectName 这一诊断字段）；AnimEffectData.cs:34
+AnimInfo|GetAnimDuration()|A|vfxDelayTime + timeAtStartPos + timeMoving + timeAtEndPos（四项无条件直加）|Battle/CardAnimClips.cs:329|一致（四项判据写在 :338）||AnimInfo.cs:50 与 AnimInfo__GetAnimDuration.c
+AnimInfo|PreloadAssets()|B|地址有效就 Load 再 Instantiate+Destroy(0.01) 预热|无|我们走 Resources 同步加载，没有 Addressables 预热需求||AnimInfo.cs:57
+CardAnimController|Initialize(AnimInfo animInfo, Transform startParent, Transform endParent, Transform rotateTowards, CardScript actingCard, CardScript targetCard)|B|记 start/end parent；orientToVelocity 时先 RotateAnim；shouldMoveVFX 且换父时开 Update；末尾给 AnimFXController SetData|Battle/AnimAnchors.cs:111 · Battle/BattleDriver.cs:3822|等价机制在 BattleDriver 的拍序列，非同名件||CardAnimController.cs:22
+CardAnimController|RotateAnim(AnimInfo animInfo, Transform towardsTransform, bool actingCardIsPlayer)|C|pointTowardsOption=boardCenter 时按两翼最左/最右位算 up 与 -90° 旋转；否则 transform.forward 指向目标|Battle/BattleDriver.cs:18443（朝向落点）|boardCenter 那一支（GetLeftMostPos/GetRightMostPos 算 up 与角度）没找到对应实现|P2|CardAnimController.cs:74
+CardAnimController|Update()|B|按 timeAtStartPos→timeMoving 用 easeCurve 在 start/end 间插值，叠加 movementOffsets、orientToVelocity，最后 SetPositionAndRotation|Battle/BattleDriver.cs:18244（TickAbilityVfxMoves）|等价机制在拍序列，非逐句同构||CardAnimController.cs:192
+CardEffect|GetNewInstanceOfThisEffect()|B|新建一份并逐字段拷贝（含 enchantment、六个 ChooseValueOptions、五个时长开关）|RuleEngine/Core/EffectText.cs:829 · RuleEngine/Core/EffectResolver.cs:2816|我们的 buff 记录是 EffectOp/TempBuff，克隆 = MemberwiseClone||CardEffect.cs:91
+CardEffect|IsEnchantment()|C|buffType ∈ {12 enchantment, 15 singleUseEnchantment, 16 choiceEnchantment}|RuleEngine/Core/CardDef.cs:5876（Type=="enchantment"）|只按卡类型一个维度判，15/16 两个 buffType 没有对应判定|P2|CardEffect.cs:246；调用点 EntityScript__HasSecretOrder/RevealedSecret
+CardEffect|IsSameEffect(CardEffect otherEffect, bool heroCheck)|C|逐字段比：buffType/enchantingCard/heroCheck/enchantmentCardId/extrinsic/四个时长开关/四个数值变更|RuleEngine/Core/EffectResolver.cs:5368（按 RecordId 认「同一次挂载」）|原版按字段内容判重（同来源同载荷的第二次会被压掉），我们按记录身份判 ⇒ 同一载荷挂两次会叠两层|P1|CardEffect.cs:200；调用点 CardScript__AlreadyContainsEffect.c
+CardEffect|SameIsPlayerEffect(CardEffect otherEffect)|C|两张卡的 isPlayer 相同（任一为空视为相同），作为上面判重的一环|无|没有「来源方是否同侧」这一判据|P2|CardEffect.cs:169
+CardEffect|SameTimingAsEffect(CardEffect otherEffect)|C|只比五个时长开关（+ 同侧），不比数值|RuleEngine/Core/CardInstance.cs:172（Expire/ExpireTurn）|时长编码在记录字段里，没有「两条是否同时机」的判定|P2|CardEffect.cs:142；调用点 CardScript__AddEffect.c / IsSameTrait
+CardEffectItem|Disable()|B|secretBuff/questBuff/markOfChaos 分流后写 enchanterText + effectText（描述走 GameStaticData.GetEffectDesc/GetEffectName）|Battle/CardDisplayWindow.cs:851|按数据建「受到以下影响」行、走官方 Battle/Effect/* 键，不是固定槽位||CardEffectItem.cs:12
+CardEffectItem|Enable()|B|gameObject.activeSelf|Battle/CardDisplayWindow.cs:851|无槽位概念（行按数据重建）||CardEffectItem.cs:158
+CardEffectItem|IsActive()|B|string.IsNullOrEmpty(effectText.text)（空描述那一槽会被 Disable）|Battle/CardDisplayWindow.cs:851|等价（空行不建）||CardEffectItem.cs:170
+CardEffectItem|IsTextEmpty()|B|SetActive(true)|Battle/CardDisplayWindow.cs:851|等价||CardEffectItem.cs:182
+CardEffectItem|LoadEffect(CardEffect effect, bool isPlayer)|B|SetActive(false)|Battle/CardDisplayWindow.cs:851|等价||CardEffectItem.cs:188
+CardEffectsService|DisableLeftoverSlots()|B|从当前槽号往后全部 Disable|Battle/CardDisplayWindow.cs:851|每次整块重建，结构上不留残槽||CardEffectsService.cs:134
+CardEffectsService|EnableCardEffectSlots(bool isPlayer, List<CardEffect> effectsToDisplay)|B|逐条 LoadEffect，文本非空才前进槽号并计数|Battle/CardDisplayWindow.cs:851|等价（返回「有几条非空」）；⚠️ 原版有条数上限（槽数组长度），我们没有||CardEffectsService.cs:91
+CardEffectsService|EnableEffects(List<CardEffect> effectsToDisplay, bool isPlayer)|B|先 EnableCardEffectSlots 再 DisableLeftoverSlots，返回「有没有任何一条」|Battle/CardDisplayWindow.cs:851|等价||CardEffectsService.cs:18
+HandEffect|DeepCopy()|B|MemberwiseClone + targetCriteria.DeepCopy() + cardEffect.GetNewInstanceOfThisEffect()|RuleEngine/Core/EffectResolver.cs:5373|手牌 buff 记录 = CardInstance.HandEffect，按记录整份复制||HandEffect.cs:42
+HandEffect|GetNewInstanceOfThisEffect()|B|新建 + 拷四个字段 + 深拷 cardEffect|RuleEngine/Core/CardInstance.cs:172 · EffectResolver.cs:5225|等价||HandEffect.cs:17
+Effect|Trigger()|D|抽象方法，无方法体（public abstract void Trigger();）|无|||D③：抽象声明，原版无实现；Effect.cs:6
+EffectListing|TriggerEffects()|C|遍历 myEffects（DynamicList）逐个 Trigger()|无|没有「挂在物体上的效果清单」这一件|P2|EffectListing.cs:10；原版 2 处实例（K5:128）
+FadeableElement|SetElementAlpha(float targetAlpha, float fadeTime)|C|对 spriteElements/textElements/imageElements，fadeTime==0 直接置 alpha，否则 DOFade|无|只有零散 DOFade（例 Battle/TutorialOverlay.cs:961），没有「一组元素一起淡」的通用件|P2|FadeableElement.cs:18；原版挂载点未统计（判据缺口）
+TweenInfoBase|GetCard(TargetUnit unit)|D|protected abstract Tween GetTween(); 无方法体|无|||D③：抽象声明；TweenInfoBase.cs:37
+TweenInfoBase|GetTween()|A|记 sourceCard/targetCard 后转调无参 GetTween()|Core/UnitTweenTable.cs:172（Build）|一致||TweenInfoBase.cs:18
+TweenInfoBase|GetTween(CardScript source, CardScript target)|A|BattleManagerSupport.GetTargetUnit(unit, sourceCard, targetCard)|Core/UnitTweenTable.cs:323（Target）|一致（10/20/30/40/50 逐值对上）||TweenInfoBase.cs:39
+UnitTweenSO|BuildSequence(CardScript source, CardScript target, Action onSequenceSignal)|A|new Sequence；逐条 GetTween，取不到就跳过；muted 那条不播但记住「本该 Append/Join」；末尾 useCallback 时 InsertCallback|Core/UnitTweenTable.cs:172 + Core/UnitTweenRuntime.cs:92|跳过逻辑逐字照抄；useCallBack 那一支未实现（原版 4 个调用点全传 null ⇒ 不触发）||UnitTweenSO.cs:145
+UnitTweenSO|CheckMuted()|D|把 muted 的补间收进 mutedTweens 并置 hasMuted|无|||D③：全量反编译除自身外 0 个调用点，只写自身诊断字段；UnitTweenSO.cs:88
+TweenInfoAnimationBase|GetTween(CardScript source, CardScript target)|A|SetDelay(delay) → SetLoops(loops,loopType) → ease!=Unset 用 SetEase(ease)，否则 SetEase(curve)|Core/UnitTweenTable.cs:239-260|一致（ease==0 走曲线也照抄，曲线数据见 :277）||TweenInfoAnimationBase.cs:135
+DelayTween|GetTween()|A|DOVirtual.DelayedCall(duration,null)|Core/UnitTweenTable.cs:233|等价（空转 DOTween.To，无回调 ⇒ 画面同）||DelayTween.cs:5
+MoveTween|GetTween()|C|awayFromUnit 时位移绕 LookRotation(TargetDirection) 旋转；isLocal 时三分量 ×localScale.x 且 away==0 且 isPlayer 时 z×-1；from 时位移再加当前 position；本地那支 isRelative = relative && !from|Core/UnitTweenTable.cs:369-390|缺「isLocal+isPlayer ⇒ z 取反」（DAT_1834b2bc8 实读 -1.0f）与「from 时 isRelative 置假」；当前 74 份 SO 里 isLocal=1 的 move 只有 1 条|P2|MoveTween.cs:16 与 MoveTween__GetTween.c:82-107
+ResetBodyTween|GetTween()|A|三个开关各自 Join 一条「回到当前值」（DOMove/DORotateQuaternion/DOScale），各自 SetEase|Core/UnitTweenTable.cs:451|一致||ResetBodyTween.cs:21
+RotateTween|GetTween()|C|awayFromUnit 时 rotation += MakePositive(LookRotation(dir).eulerAngles)；否则 isLocal 且 isPlayer 时 rotation.x×-1；SetRelative(relative)，from 时 From()|Core/UnitTweenTable.cs:393-414|缺「isLocal+isPlayer ⇒ x 取反」（我们错把它写在 relative 名下且不取反，见 :403-407）；当前数据 isLocal=1 的 rotate 只有 1 条|P2|RotateTween.cs:18 与 RotateTween__GetTween.c:24-38
+ScaleTween|GetTween()|A|relative 时 scale 三个分量分别 ×localScale 对应分量；DOScale + from|Core/UnitTweenTable.cs:358|一致||ScaleTween.cs:13 与 ScaleTween__GetTween.c:17-31
+ShakeTween|GetTween()|A|shakeType 1/其它=Position、2=Rotation、3=Scale；参数 strength/vibrato/randomness/fadeOut|Core/UnitTweenTable.cs:440|一致（原版确实一次都没读 awayFromUnit）||ShakeTween.cs:18 与 ShakeTween__GetTween.c:12-64
+MaterialTweenBase|DoTween(Material material, bool reverse)|D|抽象方法，无方法体|无|||D③：抽象声明，三个子类各自实现；MaterialTweenBase.cs:24
+MaterialTweenBase|DoTween(Renderer renderer, bool reverse)|B|renderer.GetMaterial() 后转调 DoTween(Material,reverse)|WarpforgeVFX/Runtime/WFModuleChangeMaterial.cs:416|「snap 起点 + 起播」写在模块里，不是同名基类||MaterialTweenBase.cs:17
+MaterialTweenColor|DoTween(Material material, bool reverse)|B|reverse 选起点；initializeToValue 时先 SetColor 再 DOColor(duration).SetDelay|WarpforgeVFX/Runtime/WFModuleChangeMaterial.cs:473|等价（数据来自 animfx 模块里内联的 materialAnimations）||MaterialTweenColor.cs:14
+MaterialTweenFloat|DoTween(Material material, bool reverse)|B|同上，SetFloat/DOFloat|WarpforgeVFX/Runtime/WFModuleChangeMaterial.cs:473|等价||MaterialTweenFloat.cs:14
+MaterialTweenVector|DoTween(Material material, bool reverse)|B|同上，SetVector/DOVector|WarpforgeVFX/Runtime/WFModuleChangeMaterial.cs:473|等价||MaterialTweenVector.cs:14
+SwarmVFXController|Initialize(CardScript card, Action onFinish)|C|ConfigureMaterial + ToggleBody3D(false) + Play3D(cue) + 起 SafeExit 看门狗|Battle/BattleDriver.cs:23393（PlaySwarmMergeFeel）|已覆盖：合并件 + 3D 音 + 存活那张的虫群图标；缺 ToggleBody3D(false) 与材质交接（我们自己在 :23370-23377 标了 4 条偏离）|P2|SwarmVFXController.cs:93
+SwarmVFXController|OnAnimationEndEvent()|B|回调 onFinish + StopAllCoroutines + Destroy(5s)|WarpforgeVFX/Runtime/WarpforgeEffectPlayer.cs:191|用「件自毁」代替动画事件收尾||SwarmVFXController.cs:121
+SwarmVFXController|SafeExit()|B|WaitForSeconds(4) 还没收到动画事件 ⇒ LogError + 回调 + Destroy(5s)|WarpforgeVFX/Runtime/WarpforgeEffectPlayer.cs:191|我们本来就按时间销毁 ⇒ 看门狗要防的情形不会出现||SwarmVFXController.cs:133
+BattleParticleColliderManager|Awake()|B|单例去重（已存在就 Destroy 自己）|Battle/BattleDriver.cs:3208|由 BattleDriver 单点持有 7 个替身 ⇒ 无需去重||BattleParticleColliderManager.cs:45
+BattleParticleColliderManager|GetColliderTransform(BattleCollider colliderType)|B|7 个 id → 7 个 Transform（0/5/7/8/10/11/15）|Battle/BattleDriver.cs:3208 + WarpforgeVFX/Runtime/WFModuleCollisions.cs:396|等价（7 个空物体按战场位姿现算，每次查都复位）||BattleParticleColliderManager.cs:66
+BattleParticleColliderManager|OnDestroy()|B|单例自清|Battle/BattleDriver.cs:3208|随驱动销毁||BattleParticleColliderManager.cs:58
+ShatterBakeToAnimationController|StartRecording()|D|RayfireRecorder.StartRecord() + rayRigid.Initialize()（RayFire 破坏插件）|无|||D①②：只包装第三方 RayFire 的录制，全量反编译 0 调用点，是制作期烘焙；ShatterBakeToAnimationController.cs:10
+TraitEffect|GetEffect(CardArmy cardArmy)|A|遍历 overrideByArmies，命中 army 返回那一刻的 effectAnim，否则返回默认 effectAnim|Core/TraitFrames.cs:87|一致||TraitEffect.cs:57 与 TraitEffect__GetEffect.c:10-45
+TraitEffectController|AimingAttack(bool option)|D|public abstract void AimingAttack(bool option);|无|||D③：抽象声明；真行为在两个子类（HuntMarkController / MarkerlightController），后者见本表那 7 行；TraitEffectController.cs:15
+TraitEffectController|Start()|D|protected virtual void Start() { } 空体|无|||D④：空方法体；TraitEffectController.cs:7
+TraitEffectController|Toggle(bool option)|D|抽象声明|无|||D③；TraitEffectController.cs:11
+TraitEffectController|UpdateValue(int newValue)|D|抽象声明|无|||D③；TraitEffectController.cs:13
+EnviromentalEffectCardsSO|GetEmptyOffensiveCard(CardArmy useArmy)|B|找 Army 命中的那条，返回它的 emptyOffensive；找不到返回 null|Core/OffensiveCards.cs:55 + :121|我们把它当成列表头那张「不使用进攻卡」（idx<0），不是单独取卡引用||EnviromentalEffectCardsSO.cs:191 与 __GetEmptyOffensiveCard.c
+EnviromentalEffectCardsSO|GetEnvCardList(CardArmy useArmy, bool shouldUseOffensive, bool justOwnedCards, int currentForgeLevelObtained)|A|按 Army 取表；shouldUseOffensive 选进攻/防御列；justOwnedCards 时只留 forgeLevel <= currentForgeLevelObtained|Core/OffensiveCards.cs:98（ChoicesOwnedAt）|一致（<= 比较、空卡不过闸，判据写在 :85-97）||EnviromentalEffectCardsSO.cs:223 与 __GetEnvCardList.c:60/87
+EnviromentalEffectCardsSO|GetEnvCardListDraft(CardArmy useArmy, bool shouldUseOffensive, int currentDraftVictories)|C|胜场<3 且要走进攻 ⇒ 空表；防御恒给第 1 张、>5 给第 2、>8 给第 3；进攻 >2/>5/>8 三档|无|轮抽里没有「按胜场逐步解锁环境卡」这一层，我们一律按锻造等级筛|P2|EnviromentalEffectCardsSO.cs:411 与 __GetEnvCardListDraft.c:27-108；进攻/防御面板当前被用户关掉 ⇒ 暂无可见影响
+EnviromentalEffectCardsSO|GetEnviromentalEffect(RawCardScript card)|B|命中空卡 ⇒ 返回阵营 defaultEnviromentalEffectVFX；命中进攻卡 ⇒ 返回它的 enviromentalEffectVFX；否则 null|Core/OffensiveCards.cs:31（Card.envSO）|用「卡上带 envSO 名」表达，没有再按 uniqueId 反查的一层||EnviromentalEffectCardsSO.cs:63

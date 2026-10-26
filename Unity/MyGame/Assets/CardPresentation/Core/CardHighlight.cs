@@ -255,5 +255,606 @@ namespace CardPresentation
             return string.Equals(rarity, "legendary", System.StringComparison.OrdinalIgnoreCase)
                  ? OutlineLegendary : OutlineSelected;
         }
+
+        // ==================================================================
+        //  🆕 **场上卡高亮【状态机】** —— 原版 `CardHighlight` 组件的等价物
+        //  2026-10-26（执行代理 `AW`）· 判据全部**亲读**（全量反编译，🥇 `decomp_full/*.c`）
+        // ==================================================================
+        //
+        //  🔴 **本类补的是哪一半**：渲染侧（状态环 6 色 / 卡体缩放 / 会死图标 / 攻击类型底光 /
+        //     残骸环拷色）**我们早就有了**；缺的是**那台状态机本身** ——
+        //     谁持有 `State`、谁能从 `potentialTargetInBoard(3)` 变到 `selectedTargetInBoard(4)`
+        //     再退回 `3`、以及 `state == regular(0)` 那道**入口守卫**。四个输入入口
+        //     （`OnTouchDown` / `OnTouchEnter` / `OnTouchExit` / `OnTouchUpAsButton`）**唯一的共同卡点**
+        //     就是它 —— 没有它，那四个入口里所有「置高亮态」的句子都没有落点。
+        //
+        //  判据（**逐份亲读**，行号是现读）：
+        //   · `CardHighlight__ChangeState.c:1-77`      —— 6 档本体（早退 :14-16 · `ToggleFrames(true)` :17 ·
+        //       写 State :18 · 逐 case 的色字段 + 补间时长 + 是否缩放）
+        //   · `CardHighlight__ChangeFrameColor.c:1-94`  —— `SpriteRenderer.set_color` ×2（`+0x70` 主环 /
+        //       `+0x78` 残骸环）+ `DOColor` 补间 + `AppendCallback`（alpha 到 0 才 `ToggleFrames(false)`）
+        //   · `CardHighlight__ChangeTargetScale.c:1-41` —— `localScale = initialScale(+0x60/68) × ScaleFactor(+0x30)`
+        //       或补到入参；`time <= 0` 走瞬切
+        //   · `CardHighlight__ToggleFrames.c:1-33`      —— `SetActive(bool)` ×2（`+0x70` / `+0x78` 的 gameObject）
+        //   · `CardHighlight__Start.c:1-29`             —— 捕获 initialScale · `ToggleFrames(true)` ·
+        //       `ChangeFrameColor(RegularColor, 0)` · `ToggleCombatPreviewHighlight(null,0,0,1,0)`
+        //   · `CardHighlight__SetCombatHighlights.c:1-11` —— 只做 `minionWillDieObject.SetActive(false)`
+        //   · `CardHighlight__HighlightAttackTypes.c:1-28` —— 遍历 `highlightAttackTypes[]` 逐个
+        //       `HighlightAttackType.HighlightIfNeeded(attackType)`（我们的等价物 = `CardView.SetOwnAttackType`）
+        //   · `CardHighlight__ToggleCombatPreviewHighlight.c:1-178` —— 伤害预览 / 「会死」/ 攻击类型底光
+        //   · `CardHighlight__SetRemnantHighlight.c:1-29` —— 把主环的 `color` 原样拷给残骸那个
+        //       `SpriteRenderer`（✅ 我们已由 `CardView.SetHighlight` → `SetRemnantLight(FrameColorOf(s))` 承担）
+        //   · 四个入口：`CardScript__OnTouchDown.c:1-97` · `__OnTouchEnter.c:1-40` · `__OnTouchExit.c:1-57` ·
+        //       `__OnTouchUpAsButton.c:1-87` · `__TryCardHighlight.c:1-99`
+        //
+        //  字段偏移（`d:/2/tools/il2cpp_out/dump.cs`，**本轮展开核过**）：
+        //   · `CardHighlight`（`:34145-34205`）：`+0x20 CardHighlightAnimTime` · `+0x24 state` ·
+        //       `+0x28 CardBodyToScale` · `+0x30 ScaleFactor` · `+0x38 minionWillDieAnimation` ·
+        //       `+0x40 minionWillDieObject` · `+0x48 highlightAttackTypes` · `+0x50 cardScript` ·
+        //       `+0x58 scaleChangeAnimation` · `+0x60 initialScale` · `+0x70 FrameHighlight` ·
+        //       `+0x78 FrameHighlightRemnant` · `+0x80 ValidTargetColor` · `+0x90 SelectedColor` ·
+        //       `+0xA0 PlayableColor` · `+0xB0 SelectedTargetColor` · `+0xC0 RegularColor` ·
+        //       `+0xD0 colorChangeAnimation`
+        //   · `CardHighlight.HighlightStates`（`:34132-34141`）= **6 值，逐值照抄**（见下面的枚举）
+        //   · `CardScript`（`:35370-35532`）：`+0x218 cardHighlight` · `+0x228 cardState` ·
+        //       `+0x248 IsAnimatingCombat` · `+0x24A displayingCardFlag` · `+0x290 CardUI` ·
+        //       `+0x320 timeSinceLastClickOnCard`（= 反汇编里的 `param_1 + 800`！**十进制 800 = 0x320**）
+        //   · `EntityScript`（`:21963-22250`）：`+0x28 rawCardData` · `+0x40 isPlayer` · `+0x65 isRemnant` ·
+        //       `+0x120 currentAttackType`
+        //   · `RawCardScript`（`:23244+`）：`+0x90 spellType` · `+0x94 cardType`
+        //       🔴 **这就是 B8_AL 留下的那个缺口**（「`+0x28`（含 `+0x90 == 0xE6`）字段名未锚定」）：
+        //       `+0x28` = `rawCardData`、`+0x90` = `spellType`、`0xE6(230)` = `SpellType.Sabotage`；
+        //       同一族的 `+0x94 == 0x14(20)` = `CardTypeOptions.Tactic`。**已锚定，不用再猜。**
+        //   · `BattleManager`（`:30709+`）：`+0x1E8 mulliganManager` · `+0x290 UIstate` ·
+        //       `+0x330 cardTracked`（指针正悬着的那张）· `+0x419 waitingToResolveUseWaystoneFlag`
+        //   · 枚举：`UIstateOptions` 15 档 / `CardStateOptions` 18 档 / `CardTypeOptions` / `SpellType`
+        //       / `AttackTypes`（`None 0 / Melee 1 / Ranged 2 / Spell 3 / Active 4`）
+        //
+        //  ⚠️ **两个枚举别合并**（本文件里现在有两套「状态」）：
+        //    · `CardHighlightState` = **我们自己的视图枚举**（多 `Playable` / `Unplayable` / `Hover` 三档，
+        //      **没有** `displayingActiveAbility`）—— 它是「渲染开关」，`CardView.SetHighlight` 的入参；
+        //    · `CardBoardHighlightState` = **原版那 6 档**，是状态机的状态。
+        //    映射只有一处：`CardBoardHighlight.MapToView`。
+
+        /// <summary>原版 `CardHighlight.PlayableColor` = **`(1,1,0)` 黄**（`+0xA0`，`ChangeState` **case 5**
+        /// `displayingActiveAbility` 用的那一色）。
+        /// <para>🔴 与我们枚举里的 <see cref="CardHighlightState.Playable"/> **不是一回事** —— 那个是
+        /// 「打得出去」，原版**没有**这一档（走 SDF `_Outline`，见 `OutlineOf`）。这一色只喂状态环。</para></summary>
+        public static readonly Color PlayableColor = new Color(1.00f, 1.00f, 0f);
+
+        /// <summary>原版 `CardHighlight.HighlightStates`（`dump.cs:34132-34141`）—— **名字与数值逐条照抄**。
+        /// <para>⛔ 别拿它替 <see cref="CardHighlightState"/>（那是我们的视图枚举，理由见上面那段「两个枚举别合并」）。</para></summary>
+        public enum CardBoardHighlightState
+        {
+            regular = 0,                 // 常规（原版 RegularColor 的 alpha = 0 ⇒ 环不亮）
+            potentialTargetInHand = 1,   // 手牌里的合法目标（绿，**不缩放**）
+            selected = 2,                // 已选中（白，**瞬切**、不缩放）
+            potentialTargetInBoard = 3,  // 场上的合法目标（绿，×1.05）
+            selectedTargetInBoard = 4,   // 指针正压着的场上目标（橙 #FF8400，×1.05）
+            displayingActiveAbility = 5, // 正在展示主动技能（黄，**瞬切**、不缩放）
+        }
+
+        /// <summary>原版 `CardStateOptions`（`dump.cs:45465-45487`）里本状态机读到的几档 —— **数值逐条照抄**。
+        /// ⚠️ 我们引擎里**没有** `cardState` 这个字段（方案：我们按「按下/移动/抬起 + 四道闸」分派）⇒ 这几个
+        /// 常量只给**宿主**在调本状态机的入口时当实参用（调用点必须自己已知这张卡在哪一档）。</summary>
+        public static class CardStateId
+        {
+            public const int inDeck = 0;
+            public const int inHand = 1;
+            public const int inPlay = 2;
+            public const int inPlayAttacking = 3;
+            public const int inHandShowing = 8;
+            public const int inMulliganSelected = 13;
+            public const int inMulliganDiscarded = 14;
+            public const int inPlayAimingAttack = 17;
+        }
+
+        /// <summary>伤害预览探针要回给状态机的东西（原版 `ToggleCombatPreviewHighlight` 里那四句算式的**结果**）。
+        /// <para>🔴 **为什么做成探针**：原版那四句（`GetThisCardPlayedDamage` / `EnemyReturnsAttack` /
+        /// `GetCombatDamageWithType` / `GetActiveAbilityDamage`）与
+        /// `EnoughPendingDamageToDieWithDamageValues` 全在**引擎那一侧**（要 `BattleContext` /
+        /// `UnitState`）；本类在表现层、拿不到，也**不该**重算一遍（工程规矩：两处写同一条规则 = 迟早不一致）。
+        /// 探针由宿主接（我们这边现成的等价物 = `RuleCore.AttackDamageEntries` /
+        /// `ActiveAbilityDamageEntries` + `RuleCore.WouldKillByEntries`，见 `BattleDriver.SetReticleTarget`）。</para></summary>
+        public struct CombatPreviewInfo
+        {
+            /// <summary>探针有没有算出结果。`false` ⇒ 状态机把预览整层收掉并**出声**（⛔ 不静默假装没这回事）。</summary>
+            public bool Valid;
+            /// <summary>原版 `otherCard.rawCardData.cardType == CardTypeOptions.Tactic(20)`（`:44` / `:132`）。
+            /// 计策卡在预览里走**另一套算式**，而且最后**不点亮**攻击类型底光（`:131-134` 直接 return）。</summary>
+            public bool OtherIsTactic;
+            /// <summary>原版 `CardScript.EnoughPendingDamageToDieWithDamageValues(...)` 的结果（`:95-120`）：
+            /// 真 ⇒ 播「会死」动画 + `minionWillDieObject.SetActive(true)`。</summary>
+            public bool WillDie;
+            /// <summary>原版传给 `HighlightAttackTypes` 的那个 `AttackTypes` 值。
+            /// · **预览支**（`other` 活着）= **`other` 自己的** `currentAttackType`（`:141`）；
+            /// · **收的支** = 自己的（`isPlayer` ? 自己的 `currentAttackType` : `None`，`:163-168`）。</summary>
+            public int AttackTypeToHighlight;
+        }
+
+        /// <summary>伤害预览探针（宿主接）。入参逐位等于原版
+        /// `ToggleCombatPreviewHighlight(CardScript otherCard, bool isAttacker, bool changeAttackType, bool formUnityAbility)`。</summary>
+        public delegate CombatPreviewInfo CombatPreviewProbe(CardView other, bool isAttacker,
+                                                             bool changeAttackType, bool formUnityAbility);
+
+        /// <summary>调四个入口时要喂的原版读数。**每个字段都标了它替原版哪一个字段/表达式** ——
+        /// ⛔ 别凭名字猜（例如 `HoverAllowed` 不是「UIstate == normalBattle」，见它自己的 doc）。</summary>
+        public struct TouchInput
+        {
+            /// <summary>原版 `CardScript.cardState`（`+0x228`，`CardStateOptions`）。用 <see cref="CardStateId"/> 的常量。</summary>
+            public int CardState;
+            /// <summary>原版 `EntityScript.isPlayer`（`+0x40`）。</summary>
+            public bool IsPlayer;
+            /// <summary>原版 `CardScript.TryCardHighlight` 开头那道 UIstate 闸（`:19-24`）：
+            /// **`UIstate ∉ {inactive 0, finishBattleSequence 7, postBattle 8, mulligan 11, mulliganFinished 12}`**。
+            /// ⚠️ 它**不是**「UIstate == normalBattle」—— `playingMinion 3` / `minionAttacking 6` /
+            /// `choosingUnitTarget 9` / `targetedActiveAbility 10` / `choosingAbilityTarget 13` 都**允许**悬停高亮。
+            /// 映射可由 `BattleDriver.BattleUiIsNormalBattle` 那一套状态位**反推**（口径见该属性的 doc）。</summary>
+            public bool HoverAllowed;
+            /// <summary>原版 `OnTouchEnter.c:21` 与 `OnTouchUpAsButton.c:17` 那道 `UIstate == choosingResolutionCard(14)`
+            /// ⇒ 只打一句 Log 后整条早退。⚠️ **`14` 不在 `HoverAllowed` 的封锁集里**，所以这两条闸必须分开传
+            /// （少了这一条，选牌窗开着时悬停照样会改高亮态 = 多出来的行为）。</summary>
+            public bool ChoosingResolutionCard;
+            /// <summary>原版 `CardScript.OnTouchEnter.c:12-14` 的第一道闸：`Input.GetMouseButton(1) || touchCount &gt;= 2`。
+            /// 我们现成的等价物 = `CardInteraction.IsRightButtonOrTwoFingerTouch()`（那条已是 A 档）。</summary>
+            public bool RightButtonOrTwoFingers;
+            /// <summary>原版 `TryCardHighlight` 里那个 `formUnityAbility` 的 UIstate 那一半
+            /// （`UIstate ∈ {choosingUnitTarget 9, targetedActiveAbility 10}`，`:62`）。
+            /// 另一半（被指的那张卡 `currentAttackType == Active(4)`）由状态机自己补 —— 见 `TryCardHighlight`。</summary>
+            public bool ChoosingUnitOrAbilityTarget;
+            /// <summary>原版 `BattleManager.mulliganManager.MulliganElementsAreVisible()`（`+0x1E8`，`:75`）。
+            /// 换牌元素**看得见**时，开大卡窗那个参数是 `0`（`:76` 传的是 `cVar2 == 0` 的取反结果）。</summary>
+            public bool MulliganElementsVisible;
+            /// <summary>原版 `BattleManager.waitingToResolveUseWaystoneFlag`（`+0x419`，`TryCardHighlight.c:80`）。</summary>
+            public bool WaystonePending;
+            /// <summary>原版 `BattleManager.cardTracked`（`+0x330`）：指针正悬着的**那张卡**（`TryCardHighlight.c:57`）。
+            /// `null` = 没有（原版那时直接不走预览那段）。</summary>
+            public CardView TrackedCard;
+            /// <summary>原版 `Time.timeSinceLevelLoad − CardScript.timeSinceLastClickOnCard(+0x320)`，
+            /// 只用在与 `THRESHOLD_FOR_OPENING_CARD_DISPLAY`（**0.2 s**）比的那两档（`OnTouchUpAsButton.c:37-45`）。</summary>
+            public float PressSeconds;
+        }
+
+        /// <summary>
+        /// 原版 `CardHighlight` 组件的**状态机**（一台机器 = 一张卡一份）。
+        ///
+        /// <para>🔴 **`State` 不另存一份** —— 它**派生自** `CardView.State`（我们唯一的渲染真值）。
+        /// 理由：`CardView.SetHighlight` 有 20+ 个既有调用点（`SyncBoard` / `HighlightTargets` /
+        /// `AwaitingPlayTarget` 的选目标 …），再存一份状态必然两处打架，而「两处写同一条规则 = 迟早不一致」
+        /// 是本工程红线。派生之后：外部把视图刷成 `ValidTarget` ⇒ 本机立刻知道「现在是 3」，
+        /// 于是 `TryCardHighlight` 走「3 ⇒ 4」那一支（**这正是原版的行为**）。</para>
+        ///
+        /// <para>⚠️ 唯一存下来的一档是 `displayingActiveAbility(5)`：我们的视图枚举里没有它
+        /// （`CardView.State` 表达不了），所以用一个布尔记住。它由
+        /// `CardScript.DisplayingActiveAbility()` → `ChangeState(5)` 进入（`DisplayingActiveAbility.c:6`），
+        /// 由 `StopDisplayingActiveAbility()` → `ChangeState(0)` 退出（`StopDisplayingActiveAbility.c:6`）。
+        /// **本批没有接线方**（那两条是技能展示那一族，另有人负责）⇒ 如实记，不冒充已接通。</para>
+        /// </summary>
+        public sealed class CardBoardHighlight
+        {
+            readonly CardView _view;
+
+            internal CardBoardHighlight(CardView view) { _view = view; }
+
+            /// <summary>这张卡的视图（= 原版 `CardHighlight` 组件所在的那个 `CardScript` 的视图等价物）。</summary>
+            public CardView View { get { return _view; } }
+
+            // ---------------------------------------------------------------
+            //  原版同一台机器上的字段（我们这边缺的那几个由宿主喂）
+            // ---------------------------------------------------------------
+
+            /// <summary>原版 `CardHighlight.state`（`+0x24`）—— **派生**（见类 doc），不是独立字段。</summary>
+            public CardBoardHighlightState State
+            {
+                get
+                {
+                    if (_displayingActiveAbility) return CardBoardHighlightState.displayingActiveAbility;
+                    switch (_view.State)
+                    {
+                        case CardHighlightState.ValidTarget:
+                            // 原版同一个「潜在目标」色有手牌/场上两档（state 1 / state 3），
+                            // 我们靠「这张卡现在按哪个形态组装」区分（`CardFace.Board` = 场上）。
+                            return _view.Face == CardFace.Board
+                                 ? CardBoardHighlightState.potentialTargetInBoard
+                                 : CardBoardHighlightState.potentialTargetInHand;
+                        case CardHighlightState.Selected: return CardBoardHighlightState.selected;
+                        case CardHighlightState.SelectedTargetInBoard: return CardBoardHighlightState.selectedTargetInBoard;
+                        // `Playable` / `Unplayable` / `Hover` 是**我们自己加的**三档，原版这台机器没有对应状态
+                        // ⇒ 一律报 `regular`（= 原版「没有高亮态」）。⚠️ 它们只出现在手牌/收藏卡格上，
+                        // 棋盘卡不会走到这三档（见 `SetHighlight` 的调用点）。
+                        default: return CardBoardHighlightState.regular;
+                    }
+                }
+            }
+
+            bool _displayingActiveAbility;
+
+            /// <summary>原版 `CardScript.displayingCardFlag`（`+0x24A`，**私有**）：按下去时开的大卡窗；指针离开时要由它负责关（`OnTouchExit.c:15-20`）；`OnTouchDown` 清它、`OnTouchUpAsButton` 置它。⚠️ **驱动层已经有它的等价物**（`BattleDriver._cardWinSource` + `CardDisplayWindow.Visible`，见 `TickCardWinPointerExit`）⇒ 接线时⛔ **别两处都写**（二选一：要么宿主继续用自己那两个状态位、本字段不赋值；要么把 `DisplayCard` 钩子接到 `BattleDriver` 的开关窗并让它只读本字段）。</summary>
+            public bool DisplayingCardFlag { get; set; }
+
+            /// <summary>原版 `CardScript.IsAnimatingCombat`（`+0x248`）。只在 `OnTouchExit` 一处被读
+            /// （`:27`：演出中关预览时**不改攻击类型底光** —— 原版那里传的是 `IsAnimatingCombat == 0`）。</summary>
+            public bool IsAnimatingCombat { get; set; }
+
+            /// <summary>原版 `EntityScript.isRemnant`（`+0x65`）：残骸体走「展示原卡」那一支。</summary>
+            public bool IsRemnant { get; set; }
+
+            /// <summary>原版 `EntityScript.currentAttackType`（`+0x120`）。只在「收预览」那一支被读
+            /// （`:163-168`：`isPlayer ? 自己的 attackType : None`）。</summary>
+            public AttackTypes AttackTypeSelf { get; set; }
+
+            /// <summary>原版 `EntityScript.isPlayer`（`+0x40`）。同上。</summary>
+            public bool IsPlayerSide { get; set; }
+
+            /// <summary>原版 `BattleManager.IsPlayerTurn() == 自己的 isPlayer`（`TryCardHighlight.c:39-42`）:
+            /// 真 ⇒ 残骸体**不**展示原卡（轮到它自己时看的是残骸本体）。</summary>
+            public bool OwnerTurnNow { get; set; }
+
+            // ---------------------------------------------------------------
+            //  宿主钩子（原版这些动作落在 BattleManager / BattleCardUI 上）
+            // ---------------------------------------------------------------
+
+            /// <summary>原版 `ToggleCombatPreviewHighlight` 里那四句伤害算式 + 判死（见 <see cref="CombatPreviewInfo"/>）。</summary>
+            public CombatPreviewProbe PreviewProbe { get; set; }
+
+            /// <summary>原版 `BattleCardUI.ShowOriginalRemnantCard(bool)`（`+0x290`）。</summary>
+            public System.Action<bool> ShowOriginalRemnantCard { get; set; }
+
+            /// <summary>原版 `BattleManager.DisplayCard(card, show, …, mulliganException)` 的**开/关大卡窗**那一半
+            /// （`:19` 关 / `:47` 开 / `:58` 开 / `:76` 开）。⚠️ 我们现成的是 `BattleDriver.TapBoardCard` +
+            /// `TickCardWinPointerExit`，接线方式见报告 §七。</summary>
+            public System.Action<bool> DisplayCard { get; set; }
+
+            /// <summary>原版 `BattleManager.TryUsingWaystone(card)` 那一支（`OnTouchUpAsButton.c:81`）。</summary>
+            public System.Func<bool> CollectWaystone { get; set; }
+
+            bool _warnedProbe, _warnedRemnant, _warnedDisplay, _warnedWaystone;
+
+            void WarnOnce(ref bool flag, string what)
+            {
+                if (flag) return;
+                flag = true;
+                Debug.LogWarning("[CardHighlight] `CardBoardHighlight` 的宿主钩子 `" + what
+                               + "` 没接线 ⇒ 原版这一段**没有执行**（出声，不静默）");
+            }
+
+            // ---------------------------------------------------------------
+            //  原版 CardHighlight 的方法
+            // ---------------------------------------------------------------
+
+            /// <summary>原版 `CardHighlight.ChangeState`（`.c:1-77`）。
+            /// <para>逐句：`:14-16` 同态早退 → `:17 ToggleFrames(true)` → `:18` 写 State →
+            /// `:19-76` 按 case 取色/时长/缩放。</para>
+            /// <para>逐 case 的落地（**判据是反编译那几行，不是我们的表**）：</para>
+            /// · `regular 0`（`:20-29`）：色 `+0xC0` = `RegularColor`（alpha **0**）、时长 `+0x20` = 0.1、
+            ///   **且** `ChangeTargetScale(initialScale, 0.1)` ⇒ 缩放回 1（带补间）
+            /// · `potentialTargetInHand 1`（`:30-36`）：色 `+0x80` = 绿、时长 0.1、**不缩放**
+            /// · `selected 2`（`:37-42`）：色 `+0x90` = 白、时长 **0**（`uVar2 = 0`，`:69`）、**不缩放**
+            /// · `potentialTargetInBoard 3`（`:43-48` →`:54-61`）：色 `+0x80` = 绿、时长 0.1、
+            ///   `initialScale × ScaleFactor(+0x30)` = **×1.05**
+            /// · `selectedTargetInBoard 4`（`:49-61`）：色 `+0xB0` = 橙 #FF8400、时长 0.1、**×1.05**
+            /// · `displayingActiveAbility 5`（`:63-70`）：色 `+0xA0` = 黄 (1,1,0)、时长 **0**、**不缩放**
+            /// <returns>真 = 状态真的变了（同态返回假，**且一个像素都不改** —— 原版那句早退就是这个意思）。</returns>
+            public bool ChangeState(CardBoardHighlightState newState)
+            {
+                if (newState == State) return false;         // 原版 :14-16
+                // 原版 :17 `ToggleFrames(true)` —— 由 `CardView.SetHighlight` 里的 `_rim.enabled = true` 承担
+                _displayingActiveAbility = newState == CardBoardHighlightState.displayingActiveAbility;
+                _view.ApplyBoardHighlightState(newState);
+                return true;
+            }
+
+            /// <summary>原版 6 档 → 我们**视图**枚举的映射（**只有这一处**；`CardView.ApplyBoardHighlightState` 读它）。
+            /// <para>两处不是一一对应，理由都在映射里：</para>
+            /// · `1` 与 `3` 都落 `ValidTarget` —— 原版是**同一个绿色**、只差「手牌不缩放 / 场上 ×1.05」，
+            ///   而缩放那一半我们早就按「这张卡按哪个形态组装」分好了（`CardHighlight.ScaleOf` 的 `onBoard` 参数）
+            /// · `5` `displayingActiveAbility` → `Normal` 是**占位**：它**不许**走 `SetHighlight`（那会把环收掉），
+            ///   真正那一支在 `CardView.ApplyBoardHighlightState` 里单独写（黄环 + 瞬切 + 不缩放）
+            /// <para>⚠️ 我们的 `Playable` / `Unplayable` / `Hover` 三档**没有**原版来源，别在这里给它们编一个反向映射。</para></summary>
+            public static CardHighlightState MapToView(CardBoardHighlightState s)
+            {
+                switch (s)
+                {
+                    case CardBoardHighlightState.selected: return CardHighlightState.Selected;
+                    case CardBoardHighlightState.potentialTargetInHand:
+                    case CardBoardHighlightState.potentialTargetInBoard: return CardHighlightState.ValidTarget;
+                    case CardBoardHighlightState.selectedTargetInBoard: return CardHighlightState.SelectedTargetInBoard;
+                    default: return CardHighlightState.Normal;   // regular（`displayingActiveAbility` 见上面那条说明）
+                }
+            }
+
+            /// <summary>原版 `CardHighlight.Start`（`.c:1-29`）：捕获 `initialScale`（我们由 `CardView` 自己的
+            /// 基准缩放承担）→ `ToggleFrames(true)` → `ChangeFrameColor(RegularColor, **0**)`（**瞬切**，
+            /// 不是走 `ChangeState` 的早退）→ `ToggleCombatPreviewHighlight(null, 0, 0, 1, 0)`。</summary>
+            public void OnStart()
+            {
+                _displayingActiveAbility = false;
+                _view.ForceRegularFrame();
+                SetCombatHighlights();
+            }
+
+            /// <summary>原版 `CardHighlight.SetCombatHighlights`（`.c:1-11`）：**只做一件事**
+            /// —— `minionWillDieObject.SetActive(false)`。</summary>
+            public void SetCombatHighlights() { _view.SetWillDie(false); }
+
+            /// <summary>现在点亮的是哪一档攻击类型底光（自检读口 = 原版 `HighlightAttackTypes` 的入参）。
+            /// 初值 `None` = 原版 `Start` 之后「两颗都熄」。</summary>
+            public AttackTypes HighlightedAttackType { get; private set; }
+
+            /// <summary>原版 `CardHighlight.HighlightAttackTypes(int)`（`.c:1-28`）：遍历这台机器上的
+            /// `highlightAttackTypes[]`，逐个 `HighlightAttackType.HighlightIfNeeded(attackType)`。
+            /// 我们这侧那两颗实例 = `CardView._stats[StatMelee] / [StatRanged]` 的底光 + 数值放大，
+            /// ✅ 已由 `CardView.SetOwnAttackType` 逐句实现（判据 → `CardView.cs:8940-9110` 那一节）。</summary>
+            public void HighlightAttackTypes(AttackTypes attackType)
+            {
+                HighlightedAttackType = attackType;
+                _view.SetOwnAttackType(attackType);
+            }
+
+            /// <summary>原版 `CardHighlight.ToggleCombatPreviewHighlight(otherCard, isAttacker, changeAttackType, formUnityAbility)`
+            /// （`.c:1-178`）—— 伤害预览那一层。
+            ///
+            /// <para>控制流（**照反编译的标签走**）：</para>
+            /// ① `:26-40` 两台对象都在 ⇒ ②；任一为空 ⇒ 走 `:145-173` 的「收」支
+            /// ② `:41-93` 按 `other` 是否计策卡（`cardType == Tactic(20)`）/ `formUnityAbility` 选算式算伤害条目；
+            ///    结果喂给 `hasCurrentTrait(0x4b0)` 与 `EnoughPendingDamageToDieWithDamageValues` ⇒ `willDie`
+            /// ③ `:104-120` `willDie` ⇒ 播 `minionWillDieAnimation` + `minionWillDieObject.SetActive(IsAnimatingCombat==0)`；
+            ///    否则 `:115-120` `SetActive(false)`
+            /// ④ `:124-127` 自己 `isRemnant` ⇒ `CardUI.ShowOriginalRemnantCard(true)` 后 **return**
+            /// ⑤ `:131-134` `other` 是计策卡 ⇒ **return**（不点亮底光）
+            /// ⑥ `:135-140` `!changeAttackType || formUnityAbility` ⇒ **return**
+            /// ⑦ `:141-142 → :169-170` `HighlightAttackTypes(**other 的** currentAttackType)`
+            /// <para>「收」支（`:145-173`）：`ShowOriginalRemnantCard(false)`（若残骸）→ `SetActive(false)` →
+            /// `HighlightAttackTypes(isPlayer ? 自己的 attackType : None)`。</para>
+            ///
+            /// <para>⚠️ **算不算得出「会不会死」靠宿主探针**（见 <see cref="CombatPreviewInfo"/>）——
+            /// 探针没接时本方法把预览收掉并**出声一次**，⛔ 不假装算过。</para></summary>
+            public void ToggleCombatPreviewHighlight(CardView other, bool isAttacker,
+                                                     bool changeAttackType = true, bool formUnityAbility = false)
+            {
+                if (other != null)
+                {
+                    var info = new CombatPreviewInfo();
+                    bool ok = false;
+                    if (PreviewProbe != null)
+                    {
+                        info = PreviewProbe(other, isAttacker, changeAttackType, formUnityAbility);
+                        ok = info.Valid;
+                    }
+                    if (!ok)
+                    {
+                        if (!_warnedProbe)
+                        {
+                            _warnedProbe = true;
+                            Debug.LogWarning("[CardHighlight] 伤害预览探针（`CardBoardHighlight.PreviewProbe`）没接线"
+                                           + " ⇒ 原版 `ToggleCombatPreviewHighlight:41-93`（计策卡算式 / EnemyReturnsAttack /"
+                                           + " 星镖 / 标记光 / 判死）这一段本次**没有执行**；「会死」图标与攻击类型底光都不会亮"
+                                           + "（出声，不静默）");
+                        }
+                        HideCombatPreview();
+                        return;
+                    }
+                    // ③ 「会不会死」那一层（原版 :104-120）
+                    _view.SetWillDie(info.WillDie);
+                    // ④ 残骸体 ⇒ 展示原卡（原版 :124-127）
+                    if (IsRemnant)
+                    {
+                        if (ShowOriginalRemnantCard != null) ShowOriginalRemnantCard(true);
+                        else WarnOnce(ref _warnedRemnant, "ShowOriginalRemnantCard");
+                        return;
+                    }
+                    // ⑤ 计策卡不点亮底光（原版 :131-134）
+                    if (info.OtherIsTactic) return;
+                    // ⑥ 原版 :135-140
+                    if (!changeAttackType) return;
+                    if (formUnityAbility) return;
+                    // ⑦ 原版 :141-142 → :169-170（**other 的** attackType）
+                    HighlightAttackTypes((AttackTypes)info.AttackTypeToHighlight);
+                    return;
+                }
+                // 「收」支（原版 :145-173）
+                HideCombatPreview();
+                HighlightAttackTypes(IsPlayerSide ? AttackTypeSelf : AttackTypes.None);
+            }
+
+            void HideCombatPreview()
+            {
+                if (IsRemnant && ShowOriginalRemnantCard != null) ShowOriginalRemnantCard(false);  // 原版 :149
+                _view.SetWillDie(false);                                                           // 原版 :152
+            }
+
+            // ---------------------------------------------------------------
+            //  四个输入入口（原版 `CardScript` 上的四个方法）—— 本状态机**承接的那一半**
+            // ---------------------------------------------------------------
+            //
+            //  🔴 **口径**：这四个方法在原版里各含一大段**不属于高亮**的行为（显牌库数 / 开大卡窗 /
+            //     停「手牌悬停」/ 走灵魂石 …）。那几段在我们工程里**已经有落点**（`CardHoldPeek` /
+            //     `TapBoardCard` / `CardInteraction.ApplyShowInHand`），**不在本类里重写**；
+            //     本类只承接「高亮态 + displayingCardFlag 协议 + 伤害预览」这一半。
+            //     ⇒ 每个入口方法都返回「这一半我处理了吗」，其余由宿主那一侧照旧。
+
+            /// <summary>原版 `CardScript.TryCardHighlight`（`.c:1-99`）—— **本状态机的正门**。
+            /// <para>逐句：`:19-24` UIstate 闸（`{0,7,8,11,12}` ⇒ 直接 return）→
+            /// `:27-48` 自己是 `regular` ⇒ `ChangeState(selected)` + 清 `displayingCardFlag` +
+            /// （残骸那支：`IsPlayerTurn() == isPlayer` ⇒ return，否则 `ShowOriginalRemnantCard(true)`）→
+            /// `:49-93` 自己是 `potentialTargetInBoard(3)` ⇒ `ChangeState(selectedTargetInBoard)` +
+            /// `ToggleCombatPreviewHighlight(BM.cardTracked, isAttacker:false, changeAttackType:true,
+            /// formUnityAbility: (tracked.attackType == Active(4) || UIstate ∈ {9,10}))`；
+            /// 之后 `attackType == Active(4)` ⇒ return、`UIstate ∈ {9,10}` ⇒ return、
+            /// `waitingToResolveUseWaystoneFlag` ⇒ return，否则**再给 `cardTracked` 那张**来一次
+            /// `ToggleCombatPreviewHighlight(this, isAttacker:true, changeAttackType:false)`。</para>
+            /// <para>⚠️ 两张卡**互相**开预览（`isAttacker` 一假一真）是原版的行为，别只做一半。</para>
+            /// <returns>真 = 这一次「悬停」被高亮状态机吃掉了。</returns></summary>
+            public bool TryCardHighlight(TouchInput t)
+            {
+                if (!t.HoverAllowed) return false;                      // 原版 :19-24
+                if (State == CardBoardHighlightState.regular)           // 原版 :27-48
+                {
+                    ChangeState(CardBoardHighlightState.selected);
+                    DisplayingCardFlag = false;
+                    if (IsRemnant)
+                    {
+                        if (OwnerTurnNow) return true;                  // 原版 :39-42
+                        if (ShowOriginalRemnantCard != null) ShowOriginalRemnantCard(true);
+                        else WarnOnce(ref _warnedRemnant, "ShowOriginalRemnantCard");
+                    }
+                    return true;
+                }
+                if (State != CardBoardHighlightState.potentialTargetInBoard) return false;  // 原版 :50-52
+
+                ChangeState(CardBoardHighlightState.selectedTargetInBoard);                  // 原版 :53
+                var tracked = t.TrackedCard;
+                if (tracked == null) return true;                        // 原版 :54-57 只在 BM.cardTracked 存在时才走预览
+                int trackedAttack = (int)tracked.OwnAttackType;           // 原版 `+0x120`
+                bool unityAbility = trackedAttack == (int)AttackTypes.Active || t.ChoosingUnitOrAbilityTarget;
+                ToggleCombatPreviewHighlight(tracked, isAttacker: false,                   // 原版 :60-62
+                                             changeAttackType: true, formUnityAbility: unityAbility);
+                if (trackedAttack == (int)AttackTypes.Active) return true;        // 原版 :63-65
+                if (t.ChoosingUnitOrAbilityTarget) return true;                            // 原版 :66-68
+                if (t.WaystonePending) return true;                                        // 原版 :80-82
+                tracked.BoardHighlight.ToggleCombatPreviewHighlight(_view, isAttacker: true,  // 原版 :85
+                                                                   changeAttackType: false, formUnityAbility: false);
+                return true;
+            }
+
+            /// <summary>原版 `CardScript.OnTouchDown`（`.c:1-97`）—— **只承接 `cardState == inPlay(2)` 那一支**
+            /// （`:61-70`：`ChangeState(selected)`（仅当现在是 `regular`）+ **无条件**清 `displayingCardFlag`）。
+            /// <para>其余各档（`0/1` 显牌库数 · `3/8/13-15/17` 早退 · `4-7` 只 LogWarning）**不在本类**：
+            /// 牌库/手牌数那一档的落点 = `BattleDriver.CardHoldPeek`，按下时刻的写入 = `CardInteraction.BeginPressCandidate`
+            /// （两条都已 A 档，见账 `战斗逻辑驱动.tsv`）。</para>
+            /// <returns>真 = 这一半处理了。</returns></summary>
+            public bool OnTouchDown(TouchInput t)
+            {
+                if (t.CardState != CardStateId.inPlay) return false;
+                if (State == CardBoardHighlightState.regular) ChangeState(CardBoardHighlightState.selected);
+                DisplayingCardFlag = false;
+                return true;
+            }
+
+            /// <summary>原版 `CardScript.OnTouchEnter`（`.c:1-40`）—— 只承接 `cardState == inPlay(2)` 那一支
+            /// （`:34-37` ⇒ `TryCardHighlight`）。
+            /// <para>① `:12-14` 右键/双指闸（我们那条已 A：`CardInteraction.IsRightButtonOrTwoFingerTouch`）；
+            /// ② `:21-24` `UIstate == choosingResolutionCard(14)` ⇒ 只 Log；
+            /// ③ `:25-33` `cardState == inHand(1)` 那一支（`CanDisplayHandCard` ⇒ `ShowCardInHand`）**归手牌**
+            /// —— 落点 = `CardInteraction.UpdateHover`（已 A）。</para>
+            /// <returns>真 = 高亮这一半处理了。</returns></summary>
+            public bool OnTouchEnter(TouchInput t)
+            {
+                if (t.RightButtonOrTwoFingers) return false;   // 原版 :12-14
+                if (t.ChoosingResolutionCard) return false;    // 原版 :21-24（只打一句 Log）
+                if (t.CardState != CardStateId.inPlay) return false;   // 手牌那支归 CardInteraction
+                return TryCardHighlight(t);                    // 原版 :34-37
+            }
+
+            /// <summary>原版 `CardScript.OnTouchExit`（`.c:1-57`）—— 承接 ①③④ 三段：
+            /// <para>① `:15-20` `displayingCardFlag != 0` ⇒ 清零 + `DisplayCard(false)`（关大卡窗）；
+            /// ② `:21-23` `isPlayer &amp;&amp; cardState == inHandShowing(8)` ⇒ `StopShowingCardInHand(true)`
+            /// —— **归手牌**（落点 = `CardInteraction.ApplyShowInHand`，已 A）；
+            /// ③ `:24-39` 预览全收：先自己那张（`isAttacker:false`, `changeAttackType = !IsAnimatingCombat`），
+            /// 再**对方那张**（`BM.cardTracked` 的，`isAttacker:true, changeAttackType:true`）；
+            /// ④ `:40-50` 自己 `state == selected(2)` ⇒ `ChangeState(regular)`、
+            /// `state == selectedTargetInBoard(4)` ⇒ `ChangeState(potentialTargetInBoard)`。</para>
+            /// <para>⚠️ 原版这一段**通篇没有闸**（离开就必须收）—— 别在调用点加「只在某种 UIstate 下才收」。</para>
+            /// </summary>
+            public void OnTouchExit(TouchInput t)
+            {
+                if (DisplayingCardFlag)                                     // ① 原版 :15-20
+                {
+                    DisplayingCardFlag = false;
+                    if (DisplayCard != null) DisplayCard(false);
+                    else WarnOnce(ref _warnedDisplay, "DisplayCard");
+                }
+                // ③ 自己那张先收（原版 :26-27：`ToggleCombatPreviewHighlight(ch, 0, 0, IsAnimatingCombat==0, 0)`）
+                ToggleCombatPreviewHighlight(null, isAttacker: false,
+                                             changeAttackType: !IsAnimatingCombat, formUnityAbility: false);
+                // ③′ 对面那张也收（原版 :28-39）
+                var tracked = t.TrackedCard;
+                if (tracked != null)
+                    tracked.BoardHighlight.ToggleCombatPreviewHighlight(null, isAttacker: true,
+                                                                       changeAttackType: true, formUnityAbility: false);
+                // ④ 原版 :40-50
+                if (State == CardBoardHighlightState.selected) ChangeState(CardBoardHighlightState.regular);
+                else if (State == CardBoardHighlightState.selectedTargetInBoard)
+                    ChangeState(CardBoardHighlightState.potentialTargetInBoard);
+            }
+
+            /// <summary>原版 `CardScript.OnTouchUpAsButton`（`.c:1-87`）—— 承接 `displayingCardFlag` 协议那一半。
+            /// <para>逐档（`:21-83`）：</para>
+            /// · `{inHand 1, inHandShowing 8}`（`:22-51`）：`elapsed = 现在 − +0x320`，
+            ///   `0.2 &lt;= elapsed` ⇒ **不开窗**、否则 `DisplayCard(1, 0, 0)`；`state == 8` ⇒ 收「手牌悬停」。
+            ///   **归手牌那一侧**（`CardInteraction.EndPressCandidate` / `Release`，已 A）—— 本类**返回假**。
+            ///   ⚠️ 非我方牌另有一道守卫：`rawCardData != 0 && rawCardData.spellType(+0x90) == 0xE6(Sabotage)`，
+            ///   否则直接 return（`+0x28` = `rawCardData`，**本轮已锚定**）—— 见 <see cref="EnemyHandCardClickable"/>。
+            /// · `{inMulliganSelected 13, inMulliganDiscarded 14}`（`:52-61`）：`displayingCardFlag = 1`，
+            ///   **非我方则 return**；否则 `DisplayCard(1, 1, 0)`（换牌档那一支归 `MulliganPanel`）。
+            /// · `{inPlay 2, inPlayAttacking 3, inPlayAimingAttack 17}`（`:63-83`）：`IsAeldariRemnant` ⇒
+            ///   `TryUsingWaystone`；否则 `displayingCardFlag = 1` + `DisplayCard(1, !MulliganElementsAreVisible, 0)`。
+            ///   **棋盘段没有敌我判断**（原版全文如此）。
+            /// · 其余（`0/4-7/15/16`）⇒ return。</para>
+            /// <returns>真 = 这一档由 `displayingCardFlag` 协议（本类）处理；假 = 归宿主那一侧。</returns>
+            /// </summary>
+            public bool OnTouchUpAsButton(TouchInput t)
+            {
+                if (t.ChoosingResolutionCard) return false;              // 原版 :17-20（LogWarning + return）
+                switch (t.CardState)
+                {
+                    case CardStateId.inHand:                             // 原版 :22-51 —— 归手牌
+                    case CardStateId.inHandShowing:
+                        return false;
+                    case CardStateId.inMulliganSelected:                 // 原版 :52-61
+                    case CardStateId.inMulliganDiscarded:
+                        DisplayingCardFlag = true;
+                        if (!t.IsPlayer) return true;
+                        if (DisplayCard != null) DisplayCard(true);
+                        else WarnOnce(ref _warnedDisplay, "DisplayCard");
+                        return true;
+                    case CardStateId.inPlay:                             // 原版 :63-83
+                    case CardStateId.inPlayAttacking:
+                    case CardStateId.inPlayAimingAttack:
+                        if (IsRemnant)                                   // 原版 :70-83（`IsAeldariRemnant`）
+                        {
+                            if (CollectWaystone != null) { CollectWaystone(); return true; }
+                            WarnOnce(ref _warnedWaystone, "CollectWaystone");
+                            return true;
+                        }
+                        DisplayingCardFlag = true;
+                        if (DisplayCard != null) DisplayCard(!t.MulliganElementsVisible);
+                        else WarnOnce(ref _warnedDisplay, "DisplayCard");
+                        return true;
+                    default:
+                        return false;                                    // 原版 :24-26 / :63-65
+                }
+            }
+
+            /// <summary>原版 `OnTouchUpAsButton.c:31-36` 那道守卫：**非我方的手牌卡**只有在
+            /// `rawCardData.spellType == SpellType.Sabotage(0xE6 = 230)` 时才能点开
+            /// （`+0x28` = `rawCardData`、`+0x90` = `spellType`，`dump.cs:23244+`；`0xE6` 见 `SpellType` 枚举
+            /// `Sabotage = 230`）。`hasRawCard == false` = 原版那句 `+0x28 == 0` ⇒ 也不点。
+            /// <para>⚠️ 我们 `CardDef` 侧没有 `spellType` 这个字段的等价物 —— 已有的判据是
+            /// `CreatePool.MatchesKind(card, "sabotage")`（兵种那一维，`CardHighlight.OutlineOf` 用的同一个）。
+            /// 宿主接线时按那个喂 `sabotageKind`（⛔ 别再造一份判据）。</para></summary>
+            public static bool EnemyHandCardClickable(bool isPlayer, bool hasRawCard, bool sabotageKind)
+            {
+                if (isPlayer) return true;
+                if (!hasRawCard) return false;
+                return sabotageKind;
+            }
+
+            /// <summary>自检 / 报告用的单行读数（⛔ 别在断言里自己拼字符串，读这里）。</summary>
+            public string Describe()
+            {
+                return "state=" + (int)State + "(" + State + ")"
+                     + " view=" + _view.State
+                     + " face=" + _view.Face
+                     + " rim=" + (_view.RimVisible ? "on" : "off")
+                     + " rimRGB=" + (int)(_view.RimTargetForTest.r * 255) + "/"
+                                    + (int)(_view.RimTargetForTest.g * 255) + "/"
+                                    + (int)(_view.RimTargetForTest.b * 255)
+                     + " willDie=" + (_view.WillDieVisible ? "on" : "off")
+                     + " atkGlow=" + HighlightedAttackType
+                     + " displayingCard=" + (DisplayingCardFlag ? 1 : 0)
+                     + " scale=" + _view.HighlightScaleMulForTest.ToString("0.###");
+            }
+        }
     }
 }

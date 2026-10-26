@@ -1560,6 +1560,64 @@ def ability_triggers_of(cid, name, trow, report):
     report["triggers"] += len(out)
     return out
 
+# ==========================================================================================
+#  🆕 v32（2026-10-26 · 执行代理 `B8_BM`）：「**强制攻击退不退还行动额度**」的判据来源
+#    → 逐卡 `chosenAbility` 列（= 这张卡**所有 ability** 的 `abilityLogic[].chosenAbility` 去重集）
+# ==========================================================================================
+# 判据（第一权威 = 全量反编译 `d:/2/tools/decomp_full/`，逐支读过 —— 汇总在
+#       `Assets/RuleEngine/Core/ForcedAttackRefund.cs` 的文件头，⛔ 别在这里抄第二份）：
+#   · 原版 `AbilityLogic__PlayAbility.c` 按 `chosenAbility` 分派；**只有 231 / 237 / 238**
+#     三支教 `dontCountAttack = 1`（退还），230 / 233 / 235 / 236 **不退还**。
+#   · 消费端 = `RuleCore.DeclareAttackRefundingForced`（`ForcedAttackRefund.Of(卡id)` 三态）。
+#   · 🔴 **⛔ 别用 `trigger` 代判**：`GOF86` = trigger 30、`GOF93` = trigger **410**，两张都是 235；
+#     而 238 也出现在 410 ⇒ trigger 分不开这两族（诊断 `资料/完全复刻/报告/B8_BK_17红诊断.md` §3·4 ①）。
+#
+# 形状：`[int, …]`（**去重 + 升序**，与 `abilityTriggers` 同一口径）。覆盖面 = 三条来源：
+#   `cardAbilities[]` / `activeAbility.activeAbilityLogic[]` / `alternativeAbility.activeAbilityLogic[]`。
+#   - 真值快照里**没有这张卡** ⇒ 返回 `None`（调用方**不落列** = 未知，⛔ 不是空表）；
+#   - `chosenAbility` 不是整数（缺键/坏值）⇒ 跳过该行并出声（`report["bad"]`），⛔ 不猜 0
+#     （`0` = `drawCard`，是一个**具体**的能力）。
+CHOSEN_ABILITY_REPORT = {"cards": 0, "values": 0, "no_truth": 0, "bad": []}
+
+
+def chosen_abilities_of(cid, name, trow, report):
+    """一张卡 → `sorted(set(所有 abilityLogic[].chosenAbility))`（**没 ability 就是 `[]`**）。
+
+    真值快照里**没有这张卡** ⇒ `None`（调用方不落列 = 未知）。
+    坏值口径 / 为什么不用 trigger 代判 → 上面那段。
+    """
+    if trow is None:
+        report["no_truth"] += 1
+        return None
+    seen = set()
+
+    def _walk_logic(rows):
+        for j, lg in enumerate(rows or []):
+            if not isinstance(lg, dict):
+                report["bad"].append((cid, name, "logic", j, lg))
+                continue
+            cv = lg.get("chosenAbility")
+            if isinstance(cv, bool) or not isinstance(cv, int):
+                report["bad"].append((cid, name, "chosenAbility", j, cv))
+                continue
+            seen.add(cv)
+
+    for i, ab in enumerate(trow.get("cardAbilities") or []):
+        if not isinstance(ab, dict):
+            report["bad"].append((cid, name, "cardAbilities", i, ab))
+            continue
+        _walk_logic(ab.get("abilityLogic"))
+    for key in ("activeAbility", "alternativeAbility"):
+        obj = trow.get(key)
+        if not isinstance(obj, dict):
+            report["bad"].append((cid, name, key, obj))
+            continue
+        _walk_logic(obj.get("activeAbilityLogic"))
+    out = sorted(seen)
+    report["cards"] += 1
+    report["values"] += len(out)
+    return out
+
 
 # ==========================================================================================
 #  🆕 2026-10-23（引擎线 · 战斗审计 `B-17`）：逐 ability / 逐 logic 的 `targetsAffected`
@@ -4068,6 +4126,8 @@ def build_enchantment_entries(truth_cards, raw, cards, truth_by_path=None,
             "subtype": "",
             "armour": norm_int(r.get("armour")),
             "cardTraits": norm_list(r.get("CardTraits")),
+            # 🆕 v31（`B8_AH`）：与主循环同形（本卡真值 `keyword = 0` ⇒ 落 `0` = `none`，不是「未知」）
+            "keyword": truth_int(r, "keyword", -1),
             "spellType": truth_int(r, "spellType", -1),
             # 🆕 2026-10-25（P3 · 账 3 条 C）：原版 `RawCardScript.specialAttackScoringCriteria`（bool）。
             #   语义 / 判据 / 消费点 → `CardDef.SpecialAttackScoring` 的 doc（⛔ 别在这里抄第二份）。
@@ -4104,6 +4164,9 @@ def build_enchantment_entries(truth_cards, raw, cards, truth_by_path=None,
         # ---- 9 个「每张卡都落」的结构化列（`None` 只会在「真值里没有这张卡」时出现）----
         _atg = ability_triggers_of(uid, name, r, ABILITY_TRIGGER_REPORT)
         if _atg is not None: entry["abilityTriggers"] = _atg
+        # ---- 🆕 v32（`B8_BM`）：`chosenAbility`（与主循环同形；见 `chosen_abilities_of`）----
+        _ica = chosen_abilities_of(uid, name, r, CHOSEN_ABILITY_REPORT)
+        if _ica is not None: entry["chosenAbility"] = _ica
         _atgt = ability_targets_of(uid, name, r, ABILITY_TARGETS_REPORT)
         if _atgt is not None: entry["abilityTargets"] = _atgt
         _amul = ability_multipliers_of(uid, name, r, ABILITY_MULTIPLIERS_REPORT)
@@ -4638,6 +4701,17 @@ def build():
             #   （`ArmourFromPool = armour > 0 ? armour : 0`，非 0 时写回 `_keywords[Armour]`）⇒ **本列非 0 就赢**。
             "armour":   _armour_pnp,
             "cardTraits": _traits,
+            # ---- 🆕 v31（2026-10-26 · 执行代理 `B8_AH`）：`keyword` ---------------------------
+            # 原版 `RawCardScript.keyword`（`int @+0x98`；`Keyword` 枚举：none 0 / Infantry 5 /
+            #   Vehicle 10 / Monster 15 / Building 20 / Battlesuit 25 / Drone 30 / Beast 35 / Daemon 40）。
+            # 🔴 **与 `subtype`（卡面那行橙字）不是一回事** —— 全池 4 张不一致（`BL1` SO=Daemon 而卡面印
+            #   Infantry；`EC55/56/57` SO=Infantry 而卡面印 Warlord）；判据与逐张出处 →
+            #   `资料/完全复刻/报告/B8_Q_trait口径与卡定义.md` §2.2。
+            # 消费点 = `CardDef.IsKeyword`（数据入口 `CardDef.AttachKeywordId`，由 `CardDatabase` 调）
+            #   → `ConditionEval` 的条件 275/276/277（`isWarlordOrVehicle` / `isBattlesuitOrVehicle` /
+            #   `isInfrantryOrBeast`，判据 `FilterMethods__MeetsConditionCriteria.c:183-216`）。
+            # ⚠️ 缺值口径 = `-1`（未知，真值里没这张卡）；⛔ 别当成 `none(0)` —— 那会让三格条件全池变假。
+            "keyword": truth_int(trow, "keyword", -1),
             # ---- 🆕 2026-10-23（v19 · 引擎线 `新账-97` ③/⑤）：`spellType` ---------------------------------
             # 原版 `RawCardScript.spellType`（`dump.cs` 的 `SpellType` 枚举：0 Normal / 60 SecretOrder /
             #   120 Quest / 150 Secret / 230 Sabotage / …）。**真值直搬**，`-1` = 快照里没这张卡（未知）。
@@ -4769,6 +4843,11 @@ def build():
         _atg = ability_triggers_of(cid, name, trow, ABILITY_TRIGGER_REPORT)
         if _atg is not None:
             entry["abilityTriggers"] = _atg
+        # ---- 🆕 v32（`B8_BM`）：逐卡 `chosenAbility`（强制攻击退还判据的数据源）-----
+        #   判据 / 形状 / 为什么不用 trigger 代判 → `chosen_abilities_of` 上面那段。**每张卡都落**。
+        _ica = chosen_abilities_of(cid, name, trow, CHOSEN_ABILITY_REPORT)
+        if _ica is not None:
+            entry["chosenAbility"] = _ica
         # ---- 🆕 2026-10-23（引擎线 · 战斗审计 `B-17`）：逐 ability / 逐 logic 的 `targetsAffected` ----
         # 判据 / 形状 / 两道闸门 → `ability_targets_of` 上面那段。**每张卡都落**。
         _atgt = ability_targets_of(cid, name, trow, ABILITY_TARGETS_REPORT)
@@ -5315,12 +5394,65 @@ def build():
     choices_report["not_in_pool_refs"] = sum(
         1 for c in cards for _i in (c.get("choicesSpecificCardIds") or []) if _i not in _pool_ids)
 
+    # 🆕 v31（2026-10-26 · 执行代理 `B8_AH`）：**`keyword` 列的完整性守卫** --------------
+    #   判据 = 原版 `RawCardScript.keyword`（`int @+0x98`，`RawCardScript__IsKeyword.c:5-7`）；
+    #     真值快照 `cards_raw.json` 的 1,351 张**每一张都有这一格**（现读 1,351/1,351）。
+    #   ⇒ **「池内卡 + 真值里有这一行」的，落值必须 != -1**（⛔ 不许静默落成「未知」）。
+    #     落成 -1 只剩一种合法情形：真值里根本没有这张卡（2025-07-30 之后的新卡）。
+    #   🔴 这条守卫挡的是「键名写错 / 读错层」—— 那种错会让 275/276/277 退回 `Subtype` 口径，
+    #     而 `ConditionEval` 那边**只在第一次出声**，很容易被当成「已经接好了」。
+    _kw_unknown = [c for c in cards if c.get("keyword", -1) < 0]
+    _kw_bad = [c["id"] for c in _kw_unknown if c["id"] in truth_cards]
+    if _kw_bad:
+        sys.exit(f"❌ `keyword` 列有 **{len(_kw_bad)}** 张卡「真值里有这一行、却落成 -1」：{_kw_bad[:10]}"
+                 f" —— 判据 = 真值 1,351 张全有 `keyword`（`RawCardScript.keyword @+0x98`）"
+                 f" ⇒ 这是读错列/键名，⛔ 一个字节都不落盘。")
+    _kw_dist = {}
+    for _c in cards:
+        _v = _c.get("keyword", -1)
+        _kw_dist[_v] = _kw_dist.get(_v, 0) + 1
+    print("\n兵种枚举列   `B8_AH`（v31）：`keyword`（原版 `RawCardScript.keyword @+0x98`）"
+          f"落值 **{len(cards) - len(_kw_unknown)}** 张 · 未知 **{len(_kw_unknown)}** 张"
+          f"（未知 = 真值快照里没有这张卡）· 分布 = "
+          + " · ".join(f"`{k}`×{v}" for k, v in sorted(_kw_dist.items())))
+
+    # 🆕 v32（`B8_BM`）：`chosenAbility` 列 + **强制攻击三族的池内分布**（退还判据的自检读数）。
+    #   ⛔ 这里只**打读数**、不判红：`235/236` 那几张「不退还」是**原版如此**，不是数据缺陷。
+    _ca_unknown = [c for c in cards if "chosenAbility" not in c]
+    _ca_refund = [c["id"] for c in cards
+                  if any(v in (231, 237, 238) for v in (c.get("chosenAbility") or []))]
+    _ca_norefund = [c["id"] for c in cards
+                    if not any(v in (231, 237, 238) for v in (c.get("chosenAbility") or []))
+                    and any(v in (230, 233, 235, 236) for v in (c.get("chosenAbility") or []))]
+    print("强制攻击退还 `B8_BM`（v32）：`chosenAbility` 落列 "
+          f"**{len(cards) - len(_ca_unknown)}/{len(cards)}** 张 · 缺列 **{len(_ca_unknown)}** 张"
+          f"（缺列 = 真值快照里没有这张卡）· 退还族 {{231,237,238}} = **{len(_ca_refund)}** 张"
+          f"（{', '.join(_ca_refund[:12])}{' …' if len(_ca_refund) > 12 else ''}）· "
+          f"不退还族 {{230,233,235,236}} = **{len(_ca_norefund)}** 张（{', '.join(_ca_norefund)}）"
+          f" · 坏值 {len(CHOSEN_ABILITY_REPORT['bad'])} 处")
+
     # 🆕 2026-10-19（`E12` · `A2142`）：**天赋名 → 天赋卡 id** 的真值表（见 `build_talent_name_ids`）。
     #   仍在卡表里（不另立文件）：`CardDatabase` 把它交给 `TalentCardData` 当**兜底查表**用。
     talent_name_ids = build_talent_name_ids(truth_cards, truth_by_path, cards, talent_name_report)
 
     return {
-        "version": 30,         # v30（2026-10-25 `X20`）= 加卡不加列：池内新增隐藏附魔模板
+        "version": 32,         # v32（2026-10-26 · 执行代理 `B8_BM`）= 加 `chosenAbility` 一列
+                               #    （= 这张卡**所有 ability** 的 `abilityLogic[].chosenAbility` 去重集；
+                               #    源 `cards_truth.json` 的 `abilities[].logic[]` + 主动能力两条支）；
+                               #    形状与 `abilityTriggers` 同口径（`[int,…]` 升序、每张卡都落、
+                               #    真值里没这张卡才缺列）。消费端 = `Core/ForcedAttackRefund`（三态）
+                               #    ← `RuleCore.ForcedAttackRefunds`：原版**只有** `{231,237,238}`
+                               #    三族退还强制攻击的行动额度（`AbilityLogic__PlayAbility.c` 逐支；
+                               #    235/236 调的方法签名里**没有** `dontCountAttack`）。
+                               #    缺列（v31 及更早）⇒ `ForcedAttackRefund.Of` 一律 `Unknown`
+                               #    ⇒ 退回**旧行为**（一律退还；235/236 会被多退还一次行动）。
+                               # v31（2026-10-26 · 执行代理 `B8_AH`）= 加 `keyword` 一列
+                               #    （原版 `RawCardScript.keyword` `int @+0x98`；真值
+                               #    `cards_raw.json` 的 1,351 张全有）。消费点 =
+                               #    `CardDef.IsKeyword` → `ConditionEval` 条件 275/276/277。
+                               #    缺列（v30 及更早）⇒ `CardDto.keyword` 是 `-1 = 未知`
+                               #    ⇒ 那三格**退回 `Subtype` 口径并出声**（`CardDatabase` 有 `< 31` 守卫）。
+                               # v30（2026-10-25 `X20`）= 加卡不加列：池内新增隐藏附魔模板
                                #    `Pray Enchantment`（`type = enchantment`，见下面 v30 那段）。
                                # v6: 每张卡带稳定 id（🔴 2026-10-18 `W25` 起按原版 `uniqueId` 直取，
                                #    名级联降为交叉校验；自造 = 生成期自检硬失败）

@@ -22,6 +22,7 @@
 | `cardAnim` | `effectGuid` 反查出来的 CardAnim 资产名（与 `trait_collection.json` 的 `effectAnim` 逐字比，**不等就报错退出**） |
 | `prefab` | 那张 CardAnim 的 target prefab（`数据/索引/anim_address_map.json` 的 `cardanim_to_asset[<CardAnim>].targetName`） |
 | `playIfWarlord` | `TraitEffect.playIfWarlord`（原版 `BattleCardUI__DisplayTriggerAnim.c:62-68` 读它） |
+| `inPlayAnim` | **`CardTrait._hasInPlayAnim`（`+0x20`）** —— 原版「**后加到一张在场的卡上**的 trait 要不要演状态帧」那道前置闸（🥇 `CardScript__ActivateTraitAnim.c:23` / `CardScript__AddEffect.c:657`；`BattleCardUI__DisplayStatusAnim.c` 全文**不读**它 ⇒ 闸在调用点、不是建表时跳过）。⚠️ **召唤那条路没有这道闸**（`CardScript__ActivateTraitsOnSummonOrEnchantment.c` 全篇无 `+0x20` 读取）⇒ 消费端 `TraitFrames.InPlayAnimGate` 只在「第一次同步之后新出现的 trait」上用它。`inPlayAnim` 为 `null` = 这条 `TraitPairs` **没有 CardTrait SO**（`traitConfig == null`），本列写 `false`（那些 trait 也没有任何 effect） |
 | `overrides[]` | `TraitEffect.overrideByArmies[]`（原版按阵营换那条 effect） |
 
 ⛔ **没有一列是猜的**。解不出来的行**照实写 `unresolved`**（`prefab` 留空），
@@ -149,6 +150,7 @@ def main():
                 "cardAnim": anim,
                 "prefab": "",
                 "playIfWarlord": bool(e.get("playIfWarlord")),
+                "inPlayAnim": t.get("inPlayAnim") is True,
                 "unresolved": "",
                 "overrides": [],
             }
@@ -198,6 +200,25 @@ def main():
                 })
             rows.append(row)
 
+    # ---- `inPlayAnim`（原版 `CardTrait._hasInPlayAnim`，`+0x20`）按 **trait** 汇总 --------------
+    #  ⚠️ `rows` 是**按 effect** 一行，同一 trait 会重复出现 ⇒ 这里按 trait 数，⛔ 别从 rows 里数。
+    ipa = {"true": 0, "false": 0, "null": 0}
+    ipa_null, ipa_false_start = [], []
+    for t in traits:
+        v = t.get("inPlayAnim")
+        ipa["true" if v is True else ("false" if v is False else "null")] += 1
+        if v is None:
+            ipa_null.append(t.get("name"))
+        if v is not True:
+            for e in t.get("traitEffects") or []:
+                if e.get("triggerType") == 0 and (e.get("effectAnim") or ""):
+                    # 「闸关掉之后，这条 trait 的 Start(0) 从『会播』变『不播』」
+                    ipa_false_start.append("%s:%s" % (t.get("name"), e.get("effectAnim")))
+                    break
+    stats["inPlayAnim"] = ipa
+    stats["inPlayAnimNullTraits"] = ipa_null
+    stats["inPlayAnimFalseWithStartPrefab"] = ipa_false_start
+
     doc = {
         "schema": "wf.trait_effect_bindings/1",
         "generatedBy": "工具/gen_trait_effect_bindings.py",
@@ -220,6 +241,13 @@ def main():
                             "2/3/6 三档由 `TraitFrames` 消费，5 由 `TraitParticles` 消费，0/1 只留档。"),
             "playIfWarlord": ("原版 `TraitEffect.playIfWarlord`；卡是督军且该位为 0 ⇒ 原版不播"
                               "（`BattleCardUI__DisplayTriggerAnim.c:62-68`）。"),
+            "inPlayAnim": ("🆕 2026-10-26：**每行的** `CardTrait._hasInPlayAnim`（SO 字段，`+0x20`）—— "
+                           "原版「**后加到一张在场的卡上**的 trait 要不要演状态帧」的前置闸"
+                           "（`CardScript__ActivateTraitAnim.c:23` · `CardScript__AddEffect.c:657`）。"
+                           "消费端 = `Core/TraitFrames.cs` 的 `InPlayAnimGate` / `PlaysInPlayAnim`："
+                           "**只在「这张卡第一次同步之后新出现的关键词」上拦**（= 原版 `AddEffect` 那条路）；"
+                           "⛔ 召唤那一拍不拦（原版 `ActivateTraitsOnSummonOrEnchantment` 没有这道闸）；"
+                           "⛔ 触发那一档（`DisplayTrigger`）也不拦。"),
             "overrides": ("原版 `TraitEffect.overrideByArmies[]` —— 按阵营换掉那条 effect。"
                           "✅ **运行期已按阵营取**：`TraitFrames.PrefabFor(trait, trigger, army)` / "
                           "`PrefabOf(row, army)`（= 原版 `TraitEffect.GetEffect(army)`，"
@@ -268,6 +296,11 @@ def main():
     print("[stats] effects=%d byTriggerType=%s guidChecked=%d guidMismatch=%d overrides=%d" %
           (stats["effects"], stats["byTriggerType"], stats["guidChecked"],
            stats["guidMismatch"], stats["overrides"]))
+    print("[inPlayAnim] true=%d false=%d null=%d  闸关掉后不再播 Start(0) 的 %d 条=%s" %
+          (ipa["true"], ipa["false"], ipa["null"], len(ipa_false_start),
+           ", ".join(ipa_false_start) or "(无)"))
+    if ipa_null:
+        print("[inPlayAnim] null（TraitPairs 里没有 CardTrait SO）= %s" % ", ".join(ipa_null))
     for r in unresolved_rows:
         print("  [unresolved] %-16s tt=%s %-18s %s" %
               (r["trait"], r["triggerType"], r["cardAnim"] or "(空)", r["why"][:40]))

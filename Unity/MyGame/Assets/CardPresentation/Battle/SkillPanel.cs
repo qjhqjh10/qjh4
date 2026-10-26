@@ -2066,7 +2066,7 @@ namespace CardPresentation
         //  我们原来的做法 = 把数写进 `TargetsAvailableText` 那颗节点 ⇒ **原版那颗恒空**，我们却在那儿印字；
         //  且「单目标 ⇒ 印目标名」那一档整条没做。
         //  ⇒ 落法：
-        //    ① `_desc` 写 `描述 + " " + 后缀`（与描述**同一颗 TMP** ⇒ 一起淡入淡出 —— 原版就是同一颗）；
+        //    ① `_desc` 写 `描述 + " " + 后缀`（与描述**同一颗 TMP** ⇒ 一起淡入淡出 —— 原版就是同一颗）；⛔ **别与手牌抬牌那一侧抽共用函数** —— `BattleCardUI.ShowAvailableTargets`（:1342）用的是 `desc + "<i>" + 后缀 + "</i>"`（**无空格 + 斜体富文本**，且描述取 `GetLocalizedCardDescWithLineBreak`），两处口径不同（判据 → `报告/B8_J_特效动画与战斗界面判据.md` §⑤·3）；
         //    ② `_targets`（原版那颗 `TargetsAvailableText` 节点）**保持空**，只为树同构留位
         //       ⛔ 别再把数写回它（那会一次印两处；也⛔ 别删节点 —— 它的 rect/字体是 `A1212`/`A1024`/`A1284` 钉住的）；
         //    ③ `TargetsText` 改报**后缀本身**（自检读它，语义 = 「拼进去的那段可选目标字」）。
@@ -2080,7 +2080,7 @@ namespace CardPresentation
         /// <summary>把「可选目标」后缀写进描述（**唯一写口**）。`maxTargets==1 && firstTargetName 非空` ⇒ `(名字)`。
         /// <para>🆕 2026-10-26（批次 5 · G7）：**加了原版那道闸** —— `SetupActiveSkill` 只在
         /// `targetsAvailableCounter != null && targetsAffected != any` 时才拼后缀
-        /// （🥈 `cpp2il/ActiveSkillDisplay.cs:170`，`if` 的整个 else 支就是「描述原样」）。
+        /// （🥈 `cpp2il/ActiveSkillDisplay.cs:**160**` = 那道 `if`；⚠️ **2026-10-26（`B8_U`）就地订正**：原写 `:170` —— 那只是局部变量 `string targetAvailableText;` 的声明，`:193` 才是 else 支那句「描述原样」、`:188` = `desc + " " + 后缀`、`:196` 写 `descText`）。
         /// ⇒ `targetsAny = true`（= 原版 `TargetsAffected.any`）时**整段不拼**、`_targetsSuffix` 记空串。
         /// ⚠️ 今天唯一调用方 `BattleDriver.ShowSkillPanel`（`:15059`）没传 ⇒ 全部吃默认 `false`（沿用改前行为）。
         /// 缺的输入 = 效果那一格的 `targetsAffected`（`EffectSpec` 没有这个字段，引擎线补；卡数据侧

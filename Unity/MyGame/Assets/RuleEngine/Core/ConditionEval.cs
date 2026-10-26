@@ -225,9 +225,9 @@ namespace RuleEngine
                 }
 
                 // ---------------------------------------------------------------- 40 damaged
-                // 原版 `:87-98`：`GetCurrentDamage >= 1` ∧ **没有**「够回满的待处理治疗」
-                // （`CardScript__EnoughPendingHealingToFull`）。我们没有「待处理治疗」这一档
-                // ⇒ 等价于 `Health < MaxHealth`（与 `Data/AiTargets.MeetsCondition` 的 `case 40` 同口径）。
+                // 原版 `:87-98`：`GetCurrentDamage >= 1` ∧ 没有「够回满的待处理治疗」；`GetCurrentDamage` =
+                // `currentMaxHealthProcessed − currentHealth`（`CardScript__GetCurrentDamage.c:6-27`），而我们 `MaxHealth`
+                // 就是那个投影（`UnitState.MaxHealth` = `ProjectMaxHealthProcessed()`）⇒ `Health < MaxHealth`；待处理治疗恒真。
                 case 40:
                     if (u == null) return null;
                     return u.Health < u.MaxHealth;
@@ -272,18 +272,18 @@ namespace RuleEngine
                     if (u == null || thisUnit == null) return null;
                     // `currentCombatAttack`（`EntityScript__get_currentCombatAttack.c`）——主语 = **施法者**：
                     // 带 dropPod(230) 时读空投舱攻击（我们**没有**「空投舱在飞」这一层 ⇒ 拿不到 ⇒ 不猜）；
-                    // 残骸 ⇒ 0；其余按当前攻击型取近战/远程。
+                    // 残骸 ⇒ 0；其余按当前攻击型取近战/远程。末跳 = `HasBastionHigherThanAttack`（`<=`）。
                     if (thisUnit.Has(KeywordTable.DropPod)) return null;
                     int combat = thisUnit.IsRemnant ? 0
                                : (thisUnit.CurrentAttackType == UnitState.AttackTypeRanged
                                   ? thisUnit.RangedAttack : thisUnit.Attack);
-                    return combat <= u.Bastion;          // 原版：`CurrentBastion(card = 候选)`
+                    return CounterAttack.HasBastionHigherThanAttack(u, combat);
                 }
 
                 // ---------------------------------------------------------------- 120 protectedFromDamageOrSurvivor
-                // 原版 `:68-72` → `CardScript__IsProtectedFromDamageOrSurvivor.c`：
-                //   `MeetsTraitCriteriaFromList({dodge(240), shield(80), invulnerable(310), dropPod(230), survivor(430)})`
-                //   ⇒ 任一命中即真。注意它比 `100` **多 shield 与 survivor**（两者不是一个集合，⛔ 别互相顶替）。
+                // 原版 `:68-72` → `CardScript__IsProtectedFromDamageOrSurvivor.c:20-97`（🥇 全文逐句）：
+                //   把 5 个 id 组一张表 `{dodge(0xf0=240), shield(0x50=80), invulnerable(0x136=310), dropPod(0xe6=230), survivor(0x1ae=430)}`
+                //   再调 `FilterMethods__MeetsTraitCriteriaFromList(this, 表, exclude:false, this)`（Any）⇒ 任一命中即真；比 `100` 多 shield/survivor。
                 case 120:
                     if (u == null) return null;
                     return u.Has(KeywordTable.Dodge) || u.Has(KeywordTable.Shield)
@@ -421,22 +421,22 @@ namespace RuleEngine
 
                 // ---------------------------------------------------------------- 275 isWarlordOrVehicle
                 // 原版 `:183-190`：`IsWarlordEquivalent(card)` **或** `RawCardScript.IsKeyword(raw, 10 Vehicle)`
-                //   （`RawCardScript__IsKeyword.c:3-4` = `raw.keyword(+0x98) == param`）。
+                //   （`RawCardScript__IsKeyword.c:5-7` = `raw.keyword(+0x98) == param`）⇒ 前半转调 270 那一格；🆕 2026-10-26（`B8_AH`）后半改走 `CardDef.KeywordId`（= 原版那个 int 字段），⛔ 不拿卡面橙字顶。
                 case 275:
                     if (card == null) return null;
-                    return card.Type == "hero" || SubtypeIs(card, "Vehicle");
+                    return Match(ctx, u, card, owner, 270, thisUnit, instanceId) == true || KeywordOrSubtype(card, KwVehicle, "Vehicle");
 
                 // ---------------------------------------------------------------- 276 isBattlesuitOrVehicle
                 // 原版 `:191-203`：`IsKeyword(raw, 25 Battlesuit)` **或** `IsKeyword(raw, 10 Vehicle)`。
                 case 276:
                     if (card == null) return null;
-                    return SubtypeIs(card, "Battlesuit") || SubtypeIs(card, "Vehicle");
+                    return KeywordOrSubtype(card, KwBattlesuit, "Battlesuit") || KeywordOrSubtype(card, KwVehicle, "Vehicle");
 
                 // ---------------------------------------------------------------- 277 isInfrantryOrBeast
                 // 原版 `:204-216`：`IsKeyword(raw, 5 Infantry)` **或** `IsKeyword(raw, 35 Beast)`。
                 case 277:
                     if (card == null) return null;
-                    return SubtypeIs(card, "Infantry") || SubtypeIs(card, "Beast");
+                    return KeywordOrSubtype(card, KwInfantry, "Infantry") || KeywordOrSubtype(card, KwBeast, "Beast");
 
                 // ---------------------------------------------------------------- 280 siege
                 // 原版 `:220-225` → `CardScript__DoesAbilityRequireLoading.c`：
@@ -618,6 +618,52 @@ namespace RuleEngine
                 $"[RuleEngine] 结构化条件 `UnitConditions.{cond}` **原版自己也没实现**"
               + "（`FilterMethods__MeetsConditionCriteria.c` 落 default → `CustomDebug.LogError` + false）"
               + " ⇒ 本版同样判 **false**。");
+        }
+
+        // ==================================================================
+        //  🆕 2026-10-26（执行代理 `B8_AH`）：条件 275/276/277 的 `IsKeyword` 通道
+        // ==================================================================
+        //  判据（第一权威，全文 7 行）：`decomp_full/RawCardScript__IsKeyword.c:5-7`
+        //    `return *(int *)(param_1 + 0x98) == param_2;` —— **就是 SO 那个 int 字段等于形参**。
+        //  取值域 = `Keyword` 枚举 9 档（`il2cpp_out/dump.cs:45899-45912`）：
+        //    `none 0 / Infantry 5 / Vehicle 10 / Monster 15 / Building 20 / Battlesuit 25 /
+        //     Drone 30 / Beast 35 / Daemon 40`。**没有 `Warlord`**。
+        //
+        //  🔴 **为什么不能拿 `Subtype` 顶**：`Subtype` 是**卡面那行橙字**（PnP 印刷判据），
+        //    与 SO 的 `keyword` 在全池 **4 张**上不一致（`BL1` SO=Daemon 而卡面印 Infantry；
+        //    `EC55/EC56/EC57` SO=Infantry 而卡面印 Warlord）⇒ 拿 Subtype 判会把
+        //    `Speshul Dose`（277 `isInfrantryOrBeast`）的候选集算错（多给 `BL1` 一个非法目标）。
+        //    判据与逐张出处 → `资料/完全复刻/报告/B8_Q_trait口径与卡定义.md` §2.2。
+        //
+        //  ⚠️ **`Subtype` 这一档不删**：它是「`keyword` 列没喂」时的**退回**口径（旧表 / 探针夹具
+        //    直接 `new CardDef(...)` 不带 keyword ⇒ `KeywordId == -1`）。退回时**出声**（同一原因只喊一次）。
+        //    ⛔ 不许把退回读成「没有这个关键词」—— 那是静默筛空（条件 277 会把池子筛到 0）。
+        const int KwInfantry = 5;      // `Keyword.Infantry`
+        const int KwVehicle = 10;      // `Keyword.Vehicle`
+        const int KwBattlesuit = 25;   // `Keyword.Battlesuit`
+        const int KwBeast = 35;        // `Keyword.Beast`
+
+        static readonly HashSet<string> _keywordFallbackNotices = new HashSet<string>();
+
+        /// <summary>原版 `RawCardScript.IsKeyword(keyword)`（`.c:5-7`）；`CardDef.KeywordId` 没喂时
+        /// **退回** `Subtype` 口径并出声（`why` 由 `CardDef.IsKeyword` 给）。</summary>
+        static bool KeywordOrSubtype(CardDef card, int keyword, string subtypeName)
+        {
+            bool? r = card.IsKeyword(keyword, out string why);
+            if (r.HasValue) return r.Value;
+            NoteKeywordFallback(why, subtypeName);
+            return SubtypeIs(card, subtypeName);
+        }
+
+        /// <summary>`keyword` 列没喂时**出声**（同一个 `why` 只喊一次 —— 刷屏不是「不静默」，
+        /// 与 <see cref="NoteOriginalUnhandled"/> 同一条口径）。</summary>
+        static void NoteKeywordFallback(string why, string subtypeName)
+        {
+            if (!_keywordFallbackNotices.Add(why ?? "?")) return;
+            UnityEngine.Debug.LogWarning(
+                "[RuleEngine] 结构化条件 275/276/277 的 `IsKeyword` **判不了** ⇒ **退回 `Subtype` 口径**"
+              + $"（本例 `{subtypeName}`）：{why}"
+              + " ⛔ 这不是「没有这个关键词」；要真判请重跑 `工具/gen_cards_engine.py`（v31 起落 `keyword` 列）。");
         }
     }
 }

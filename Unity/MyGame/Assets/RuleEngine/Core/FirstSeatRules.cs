@@ -8,11 +8,11 @@
 //
 //  **判据（第一权威 = 反编译方法体，`d:/2/tools/decomp_full/`，逐句实读）**
 //
-//  ① 顶层分派 `BattleManager__GetPlayerGoesFirst.c`：
-//       `matchType == 80 (0x50)`  ⇒ return true            （EventAI：**我方**恒先手）
-//       `matchType == 100`         ⇒ 教程：`currentTutorialStage.playerStarts`（`+0x28`）
-//       `matchType ∈ {130(0x82), 140(0x8c), 190(0xbe)}` ⇒ 战役：`currentCampaignStage.playerStarts`
-//       其余                       ⇒ 走下面 ②③④⑤
+//  ① 顶层分派 `BattleManager__GetPlayerGoesFirst.c`（🔴 **原版零调用方 ⇒ 死代码**：`decomp_full` 全树只命中
+//       它自己的定义；真链是 `BattleManager__SetupBoardPhase.c:107` **直接**调 ② 那个，不经过它）：
+//       `80 (0x50)` ⇒ true；`100` 与 **`140 (0x8c)`** ⇒ 教程 `currentTutorialStage.playerStarts`（`.c:46-64`）；
+//       `{130(0x82), 190(0xbe)}` ⇒ 战役 `currentCampaignStage.playerStarts`；其余 ⇒ **直接掷硬币**（`.c:32-45`）
+//  ⚠️ 2026-10-26 现读订正（铁律 5）：原文把 `140` 记成战役、并说「其余走下面 ②③④⑤」—— 两处都不成立。
 //  ② `SupportMethods__GetPlayerGoesFirstWithInitiative.c`（比先攻值那一支的真身）：
 //       `a = MatchData.playerRawBattleData (+0x58) → +0x18 → +0x300 (0x12C = initiative)`
 //       `b = MatchData.enemyRawBattleData  (+0x50) → +0x18 → +0x300`

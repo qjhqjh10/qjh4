@@ -3939,6 +3939,57 @@ public static class MainMenuScene
                         pw.PickedPrebuilt = savedPre; pw.PairIndex = savedPair;   // 见上：还回「当前是哪一对」
                         pw.ArmyScroll.Offset = savedOff;
                         pw.ArmyScroll.OnChanged();      // 还原：后面的夹具/断言看到的还是刚开窗那一态
+                        // ---- 🆕 2026-10-26（`B8_AQ`）：**点**一格阵营 —— 上面那几条都只改字段、从没走过真命中路径 ----
+                        //  判据 = `PracticeModePopup__ChangeSelectedArmy.c:30-33`（`if (param_2 == 本窗选择) return;` 早返回）
+                        //        + `:68-72`（`SetActive(btn+0x28, btn.army == param_2)`）。
+                        //  🧨 改坏法：把 `PickArmy` 里那句 `ArmyIndex = i;` 删掉 ⇒ 第一条红；把早返回改回
+                        //    `ArmyIndex == i ? -1 : i` 那种 toggle ⇒ 第三条红。
+                        {
+                            int keepArmy = pw.ArmyIndex, keepDeck = pw.DeckIndex;
+                            var keepPreb = pw.PickedPrebuilt;
+                            int keepPair = pw.PairIndex;
+                            float keepOff = pw.ArmyScroll.Offset;
+                            int a0 = pw.ArmyIndex;
+                            int other = (a0 + 1) % Mathf.Max(1, pw.ArmyCells.Count);
+                            var cellHit = FindChild(pw.ArmyCells[other], "Hit");
+                            var cellWb = cellHit != null ? cellHit.GetComponent<WindowButton>() : null;
+                            CheckTrue(cellWb != null, "（前提）阵营格有点击区（`Hit` + `WindowButton`）");
+                            if (cellWb != null)
+                            {
+                                cellWb.Click();
+                                Check(pw.ArmyIndex, other,
+                                      "★ 点另一格 ⇒ `ArmyIndex` 换到那一格（原版 `ChangeSelectedArmy` 的 `+0xe8 = param_2`）");
+                                var hlNow = ArmyLit(pw, "Highlight");
+                                CheckTrue(hlNow.Count == 1 && hlNow[0] == other,
+                                          "★ …高亮跟着走到那一格（原版同一循环里 `SetActive(+0x28, army == param_2)`）"
+                                        + $"（实得亮 {hlNow.Count} 格：[{string.Join(",", hlNow)}]）");
+                                // ⚠️ `PickArmy` 末尾走 `ArmyScroll.OnChanged()` ⇒ **整列格被重建**，
+                                //    所以同阵营再点之前必须**重找**那颗命中节点（旧引用当场变假 null）。
+                                var cellHit2 = FindChild(pw.ArmyCells[other], "Hit");
+                                var cellWb2 = cellHit2 != null ? cellHit2.GetComponent<WindowButton>() : null;
+                                if (cellWb2 != null)
+                                {
+                                    cellWb2.Click();
+                                    Check(pw.ArmyIndex, other,
+                                          "★ 同阵营再点 ⇒ `ArmyIndex` **不变**（原版 `ChangeSelectedArmy.c:30-33` 早返回；"
+                                        + "🧨 改回 toggle ⇒ 本条红）");
+                                }
+                                else CheckTrue(false, "（前提）重找阵营格点击区失败（`PickArmy` 会重建整列）");
+                            }
+                            pw.ArmyIndex = keepArmy; pw.DeckIndex = keepDeck;
+                            pw.PickedPrebuilt = keepPreb; pw.PairIndex = keepPair;
+                            pw.ArmyScroll.Offset = keepOff;
+                            pw.ArmyScroll.OnChanged();      // 还原：后面的夹具/断言看到的还是刚开窗那一态
+                            // 🔴 **2026-10-26（`B8_BN`）**：上面那三条还原（`ArmyIndex` / `PickedPrebuilt` / `PairIndex`）都是**直接写字段**，
+                            //   而 `ArmyScroll.OnChanged` 只回调 `RebuildArmyCells`（阵营列），**⛔ 不重建卡组列** ——
+                            //   建卡组列只有 `RebuildDeckRows`（生产入口 = `PickArmy → SelectDefaultDeck` / `PickDeck` / `PickPair`）。
+                            //   而上面 `cellWb.Click()` 走的是真 `PickArmy` ⇒ 卡组列被**按那一个阵营筛过**（6 对 + 首格 = 7 格 ⇒ 4 行 ⇒ 内容高 657）。
+                            //   ⇒ 只还原字段 = **列表留在筛选态、字段说「不限」**（静默不一致）：后面 `★ Highlight 在 7 个格里恰好亮 1 个`
+                            //   （应 8 格）、`…亮的那一个正是 PairIndex = 0 那一格`（`DeckRow_0` 那一格已经不在列表里 ⇒ 找不到）、
+                            //   `㉒④ 不过滤 … 内容高 6381`（实得 657）与 `可滚范围 5840.21`（实得 116.21）五条红。
+                            //   ⇒ 用现成的自检口 `RebuildDeckListForTest()`（= `RebuildDeckRows(_deckHolder)`，与生产同一条路）。
+                            pw.RebuildDeckListForTest();
+                        }
                     }
                     else CheckTrue(false, "阵营格只有 " + pw.ArmyCells.Count + " 个 ⇒ 上面那些断言等于没查");
                 }
@@ -4318,9 +4369,35 @@ public static class MainMenuScene
                                           "★ ㉒④ **可滚范围**也跟着收：" + h0 + " < 视口 540.79 ⇒ **0**"
                                         + "（「内容高不重算」最直接的症状：这里会是 5840.21）");
                                 // 同阵营再点 = 早返回（原版 `ChangeSelectedArmy.c:30-33`）—— 语义没变，照旧钉住
-                                awb.Click();
-                                Check(pw.ArmyIndex, goffA1, "再点同一格 ⇒ **筛选保持不变**（原版同阵营早返回）");
-                                CheckNear(pw.DeckScrollContentH, h0, 0.6f, "…内容高保持 **" + h0 + "**");
+                                // 🔴 **2026-10-26（B8_BP）就地修：上面那句 `awb.Click()` 一返回，`awb` 就【已被销毁】。**
+                                //   根因 = `PickArmy` 末句 `ArmyScroll.OnChanged()`（= `RebuildArmyCells(filters)`，
+                                //   原版 `PracticeModePopup__ChangeSelectedArmy.c:61` 的 `SetArmyButtons` 那一跳）
+                                //   会把 `Filters` 的**全部子件 `DestroySafe` 掉再重建** ⇒ 手里这颗 `WindowButton`
+                                //   所属的 `Army_<n>/Hit` 节点已经没了。
+                                //   ⚠️ Unity 的「已销毁」`== null` 为**真**、但**访问成员照样抛** `MissingReferenceException`
+                                //   ⇒ 外面那句 `if (awb != null)` **拦不住**（它是在**点之前**判的，也判不出「点完之后死了」）。
+                                //   实测形态（`_tmp_view/wf_MainMenuScene.Run_b.log`）：856 条 ✓ 之后在**这一行**抛
+                                //   `WindowButton.PlayClickSound → MenuDraw.WasShadeHit(transform)`、整场中止（rc=1）。
+                                //   ⇒ **每次点完重取引用**，不假设「点一下不重建」（判据/先例 = `Editor/CollectionScene.cs`
+                                //   风格页夹具那段「桶 C」注释：`WindowButton.PlayClickSound` 的 NRE 就是这么来的）。
+                                //   ⚠️ 重取按**格名**（`ArmyCells` 每次重建都重新 `Add`、格名恒 = `"Army_" + 阵营下标`，
+                                //   见 `RebuildArmyCells`），⛔ 不按下标取 —— 阵营列若因滚动把某几格判成「视口外」，
+                                //   下标就不等于阵营下标了。
+                                Transform aCell2 = null;
+                                for (int i = 0; i < pw.ArmyCells.Count && aCell2 == null; i++)
+                                    if (pw.ArmyCells[i] != null && pw.ArmyCells[i].name == "Army_" + goffA1)
+                                        aCell2 = pw.ArmyCells[i];
+                                var aHit2 = aCell2 != null ? FindChild(aCell2, "Hit") : null;
+                                var awb2 = aHit2 != null ? aHit2.GetComponent<WindowButton>() : null;
+                                CheckTrue(awb2 != null,
+                                          "（前提）重画之后 `Goff` 那一格**仍有**点击区（`PickArmy` 会重建整列 ⇒ "
+                                        + "旧引用已失效，这一条断的是「重取到的是活的」）");
+                                if (awb2 != null)
+                                {
+                                    awb2.Click();
+                                    Check(pw.ArmyIndex, goffA1, "再点同一格 ⇒ **筛选保持不变**（原版同阵营早返回）");
+                                    CheckNear(pw.DeckScrollContentH, h0, 0.6f, "…内容高保持 **" + h0 + "**");
+                                }
                             }
                         }
                         // 夹具复位：筛选清回「不限」（下面几段按不过滤写）
@@ -5516,26 +5593,69 @@ public static class MainMenuScene
                                       "（夹具归一·前提）官方表里有阵营词条 `" + CardText.ArmyTermPrefix + first.faction
                                     + "`（缺了阵营标题会回落裸键、下面两条就失去判据）");
                             {
-                                int wantPi = -1;
-                                var psN = PrebuiltDecks.Pairs;
-                                for (int pi2 = 0; pi2 < psN.Count; pi2++)
+                                // 🔴 **2026-10-26（B8_BR）就地重写（铁律 5）**：原来这里写的是
+                                //   「在视口里找一对**阵营 ≠ `first.faction`** 的格」—— **那条前提已不成立**。
+                                //   一手判据（原版）：`decomp_full/PracticeModePopup__PlayerDeckChanged.c:5-10`
+                                //   —— 「换卡组」回调里先把 `wrapper.cardDeck(+0x58)` 写成**新选中的那一副**，
+                                //   随后**立刻** `ChangeSelectedArmy(新那副的阵营)` → `SetArmyButtons(army)`
+                                //   ⇒ **左列的阵营筛选跟着切到新那副的阵营**（我们的等价落点 =
+                                //   `Shell/PracticeModePopup.cs:3498-3515`，筛选在 `:2020` 那句 `deck.faction != _facs[ArmyIndex]`）。
+                                //   本夹具之前刚点过一套 **Ultramarines** 的卡组（`dsEmpty` 选的那套空卡组
+                                //   faction 为空 ⇒ `DefaultArmyIndexOf` 回落 Ultramarines）⇒ 左列**只剩 Ultramarines
+                                //   那一对** ⇒ 旧写法得到 `wantPi = −1`（2026-10-26 实测正是这条红）。
+                                //   ⇒ 改成**走本窗自己的正规入口**：先点一颗「阵营 ≠ 这副预组的阵营」的**阵营格**
+                                //     （`RebuildArmyCells` 给每格接的就是 `PickArmy(i)`，= 原版 `ChangeSelectedArmy` 那条入口），
+                                //     再去点该阵营的**第一对**。
+                                //   ⛔ 这不是放宽口径：改前靠的是「列表恰好跨阵营」这个**偶然**前提；改后是显式把筛选
+                                //     摆到另一档再点 ⇒ 下面那条「标题 ≠ 期望词条」的鉴别力**更强**（原来抽到同阵营就失效）。
+                                var facsN = CollectionWindow.CardsState.Factions();
+                                int wantArmyN = -1;
+                                for (int fi = 0; fi < facsN.Count; fi++)
                                 {
-                                    var row2 = FindChild(pw.transform, "DeckRow_" + pi2);
-                                    if (row2 == null) break;          // 视口外的格不建（后面的更不会有）
-                                    var deck2 = PrebuiltDecks.PairDeck(psN[pi2], pw.SelectedGameMode);
-                                    if (deck2 == null) continue;
-                                    if (!string.Equals(deck2.faction, first.faction, System.StringComparison.OrdinalIgnoreCase))
-                                    { wantPi = pi2; break; }
+                                    if (RuleEngine.DeckRules.SameFaction(facsN[fi], first.faction)) continue;
+                                    // 该阵营在当前模式下**真有**一对（否则点过去是空态、没有格子可点）
+                                    var psN0 = PrebuiltDecks.Pairs;
+                                    bool hasN = false;
+                                    for (int pi2 = 0; pi2 < psN0.Count && !hasN; pi2++)
+                                    {
+                                        var dN = PrebuiltDecks.PairDeck(psN0[pi2], pw.SelectedGameMode);
+                                        if (dN != null && RuleEngine.DeckRules.SameFaction(dN.faction, facsN[fi])) hasN = true;
+                                    }
+                                    if (hasN) { wantArmyN = fi; break; }
                                 }
-                                CheckTrue(wantPi >= 0,
-                                          "（夹具归一·前提）视口里找得到一对**阵营 ≠ " + first.faction + "** 的格");
-                                if (wantPi >= 0)
+                                CheckTrue(wantArmyN >= 0 && wantArmyN < pw.ArmyCells.Count && pw.ArmyCells[wantArmyN] != null,
+                                          "（夹具归一·前提）找得到一颗**阵营 ≠ " + first.faction + "**、且本模式下有卡的阵营格");
+                                if (wantArmyN >= 0 && wantArmyN < pw.ArmyCells.Count)
                                 {
-                                    var preRow = FindChild(pw.transform, "DeckRow_" + wantPi);
-                                    var preHit = preRow != null ? FindChild(preRow, "Hit") : null;
-                                    var preBtn = preHit != null ? preHit.GetComponent<WindowButton>() : null;
-                                    CheckTrue(preBtn != null, "（夹具归一·前提）`DeckRow_" + wantPi + "` 的命中区在");
-                                    if (preBtn != null) preBtn.Click();
+                                    var aHitN = FindChild(pw.ArmyCells[wantArmyN], "Hit");
+                                    var aBtnN = aHitN != null ? aHitN.GetComponent<WindowButton>() : null;
+                                    CheckTrue(aBtnN != null, "（夹具归一·前提）`Army_" + wantArmyN + "` 的命中区在");
+                                    if (aBtnN != null) aBtnN.Click();
+                                    Check(pw.ArmyIndex, wantArmyN,
+                                          "（夹具归一）阵营筛选确实切到了「" + facsN[wantArmyN] + "」那一格"
+                                        + "（判据 = 原版 `PracticeModePopup__ChangeSelectedArmy.c` 开头那句 `selectedArmy = army`）");
+                                    int wantPi = -1;
+                                    var psN = PrebuiltDecks.Pairs;
+                                    for (int pi2 = 0; pi2 < psN.Count; pi2++)
+                                    {
+                                        // ⚠️ 被阵营筛掉 / 视口外的格**都不建** ⇒ ⛔ 别 `break`（下标会跳号）
+                                        var row2 = FindChild(pw.transform, "DeckRow_" + pi2);
+                                        if (row2 == null) continue;
+                                        var deck2 = PrebuiltDecks.PairDeck(psN[pi2], pw.SelectedGameMode);
+                                        if (deck2 == null) continue;
+                                        if (!RuleEngine.DeckRules.SameFaction(deck2.faction, facsN[wantArmyN])) continue;
+                                        wantPi = pi2; break;
+                                    }
+                                    CheckTrue(wantPi >= 0,
+                                              "（夹具归一·前提）「" + facsN[wantArmyN] + "」那一档在视口里有格可点");
+                                    if (wantPi >= 0)
+                                    {
+                                        var preRow = FindChild(pw.transform, "DeckRow_" + wantPi);
+                                        var preHit = preRow != null ? FindChild(preRow, "Hit") : null;
+                                        var preBtn = preHit != null ? preHit.GetComponent<WindowButton>() : null;
+                                        CheckTrue(preBtn != null, "（夹具归一·前提）`DeckRow_" + wantPi + "` 的命中区在");
+                                        if (preBtn != null) preBtn.Click();
+                                    }
                                 }
                                 CheckTrue(pw.ArmyTitleText != wantArmyTitle,
                                           "（夹具归一）选预组**之前**，`Selected Army Title` ≠ 这副预组的阵营词条「"
@@ -7171,8 +7291,24 @@ public static class MainMenuScene
                                   "`Player Title` = **已装备的称号**（读口 `ProfileData.TitleName`；`TitleIndex` 越界 ⇒ 空串）");
                         var lvN = FindChild(piN, "Player Level");
                         CheckAtWorld(lvN, 453.15f, 506.27f, 259.19f, 312.31f, "`Player Level` 圆底（237×237）");
-                        CheckText(TextOf(FindChild(lvN, "Player Level Text")), "-",
-                                  "`Player Level Text` = `-`（ⓐ **照抄原版自己的空态串**，不是我们编的）");
+                        // 🔴 **2026-10-26（B8_BR）就地改期望值（铁律 5）**：原来期望 `-`，理由写着「照抄原版自己的空态串」——
+                        //   那条**前提已过期**：`-` 只是**原版 prefab 的出厂占位**，运行期由服务器下发 ——
+                        //   判据 `PlayerProfileUIController.SetPlayerLevel(PlayerDataManager.CurrentLevel)` 之后
+                        //   `playerLevelText.text = level.ToString()`（`cpp2il/out_cpp2il_dev_ilspy` 同名方法）。
+                        //   本工程没有服务端，已按**用户 2026-10-26 裁定 (b)「算式照原版、4 个标量自拟」**
+                        //   接上**本地等级**（落点 `Shell/CardTierConfig.cs:193-213`；顶栏 `Shell/TopBar.cs` 与
+                        //   档案窗 `Shell/ProfileTab.cs:474` 走**同一个口**）⇒ 这一格现在印的是**算出来的等级**。
+                        //   期望值 = 等级那个 **int** 在本断言里按不变文化自己格式化（⛔ 不读 `PlayerLevelText` 那个**串**口
+                        //   —— 那是被测实现的下游，读了就成恒等式）；这样仍能咬住「印成 `-` / 印成 `Lv.1` / 区域设置改了数形」。
+                        {
+                            string wantLv = CardTierConfig.PlayerLevel.ToString(System.Globalization.CultureInfo.InvariantCulture);
+                            string gotLv = TextOf(FindChild(lvN, "Player Level Text"));
+                            CheckText(gotLv, wantLv,
+                                      "`Player Level Text` = **本地算出来的等级**（" + wantLv + "）"
+                                    + "—— 判据 = 原版 `SetPlayerLevel` 的 `level.ToString()`（`-` 只是 prefab 出厂占位）");
+                            CheckTrue(gotLv != "-",
+                                      "…而且**不是** prefab 那条空态串 `-`（🧨 退回占位串 ⇒ 本条红）");
+                        }
 
                         // ③ `Ranking`：两张卡 + 传奇那一份（互斥支）
                         var rkN = FindChild(pf, "Ranking");
@@ -9311,8 +9447,44 @@ public static class MainMenuScene
                 }
                 {
                     var ban = FindChild(sk.transform, "Banned card in deck");
-                    CheckTrue(ban != null && !ban.gameObject.activeSelf,
-                              "`Banned card in deck` 建了但**关着**（本地没有禁用卡表 —— 出声）");
+                    CheckTrue(ban != null, "`Banned card in deck` **建出来了**（原版 prefab 出厂 act=1）");
+                    // 🔴 **2026-10-26（B8_BR）就地改写（铁律 5）**：原来断「建了但**恒关**（本地没有禁用卡表 —— 出声）」——
+                    //   那条**前提已过期**：2026-10-25（`E`）按原版把它接成了**动态**那一行。
+                    //   一手判据 = `SkirmishEventWindow__OnDeckSelected`：
+                    //     `(valid, err) = rankedDeckSelector.HasValidDeckWithValidationMessage()`
+                    //     → `bannedCardInDeckText.text = DeckUtility.ToShortLocalizedString(err)`
+                    //   ⇒ 这一格印的是**当前这副牌的校验原因（短档）**，不是 prefab 那条固定词条；
+                    //   卡组合法时它 **关着**。落点 = `Shell/SkirmishEventWindow.cs:760-796`（`RefreshBannedLine`）。
+                    //   期望值**现算**（⛔ 不读 `DescribeShort`——那是被测那一侧；只按原版唯一的两条短档键判）：
+                    //   原版 `MenuDeck/Error/*` 里**只有两条**带 `/Short`（`InvalidDeck` · `InvalidDeckBannedCards`），
+                    //   其余档由 `DeckUtility__ToShortRawLocalizationString.c:21-24` **常量兜底**回 `InvalidDeck/Short`。
+                    {
+                        RuleEngine.PlayerDeck banDeck = null;
+                        if (sk.PickedPrebuilt != null) banDeck = PrebuiltDecks.ToPlayerDeck(sk.PickedPrebuilt);
+                        else if (sk.HasEffectiveDeck) banDeck = CollectionData.Raw(sk.DeckIndex);
+                        RuleEngine.DeckError banErr = banDeck == null
+                            ? RuleEngine.DeckError.None
+                            : RuleEngine.DeckRules.Validate(banDeck, CollectionData.Card,
+                                banDeck.GameMode == (int)RuleEngine.GameMode.Skirmish);
+                        bool wantOn = banErr != RuleEngine.DeckError.None;
+                        CheckTrue(ban != null && ban.gameObject.activeSelf == wantOn,
+                                  "`Banned card in deck` 的显隐 = **当前这副牌校不通过**"
+                                + "（判据 = 原版 `OnDeckSelected`：`HasValidDeckWithValidationMessage()` 不通过才写这一行）"
+                                + "—— 实得 期望" + (wantOn ? "开" : "关") + "、实际"
+                                + (ban != null && ban.gameObject.activeSelf ? "开" : "关")
+                                + "（本窗当前卡组校验 = " + banErr + "）");
+                        if (wantOn && ban != null)
+                        {
+                            string gotBan = TextOf(ban);
+                            string shortA = Loc.T("MenuDeck/Error/InvalidDeck/Short");
+                            string shortB = Loc.T("MenuDeck/Error/InvalidDeckBannedCards/Short");
+                            CheckTrue(gotBan == shortA || gotBan == shortB,
+                                      "…文案 = **官方短档**（原版 `ToShortLocalizedString(err)` 只可能落这两条："
+                                    + "`InvalidDeck/Short`「" + shortA + "」或 `InvalidDeckBannedCards/Short`「" + shortB + "」；"
+                                    + "其余 13 档一律常量兜底回前者）—— 实得「" + gotBan + "」"
+                                    + "｜🧨 退回 prefab 那条固定词条 / 印键名 ⇒ 本条红");
+                        }
+                    }
                 }
                 Check(sk.MissingArt.Count, 0,
                       "遭遇战窗**图一张都不缺**（`Tex()` 会记账 —— 取不到的层 `MenuDraw` 是**静默不画**的）");
@@ -13501,11 +13673,57 @@ public static class MainMenuScene
                                         CheckTrue(cA != null && cB != null && aMax > 0 && bMin > 0 && bMax > 0,
                                                   "层序断言的前提：前两格都取到了队列号（取不到一律给 -1）"
                                                   + $"—— 实得 第1格 max={aMax} · 第2格 min={bMin} / max={bMax}");
-                                        CheckTrue(bMin > aMax,
-                                                  "★ **按格号错开**：第 2 格的**每一件**都压在第 1 格的**每一件**之上"
-                                                  + "（原版每格是按序 Instantiate 的兄弟 ⇒ 后画的整格压先画的整格）"
-                                                  + $"—— 实得 第1格 max={aMax} < 第2格 min={bMin}；"
-                                                  + "改回「同类同号」这一条立刻红");
+                                        // 🔴 **2026-10-26（B8_BR）就地改写（铁律 5）**：原来那条是 `bMin > aMax`
+                                        //   （「第 2 格**每一件**都严压第 1 格」）—— **它已被 2026-10-25 的 E4 改动有意破掉**：
+                                        //   一格要塞 **7 层**（Ring < Back < Slot < Fill < End < Frame < Text），而带子只有
+                                        //   **90** 个号（3210–3299；第 i 格 = `3210 + 6i` 起 6 个、15 格上限见 `QCellMax`）
+                                        //   ⇒ `7 × 15 = 105 > 90` 装不下第 8 个号，于是 `LC_Ring` 被挪到 `-1`：
+                                        //   **第 i 格的 `LC_Text` 与第 i+1 格的 `LC_Ring` 共用一号**（本轮实测 `3215 == 3215`）。
+                                        //   判据与整段推导 → `Shell/AllianceMemberTab.cs:69-116`（含「为什么 90 个号够 / 最多 15 格」）。
+                                        //   ✅ 这一档**视觉等价**、不是缺陷：同号的那两颗**几何上不重叠**
+                                        //   （`Collectable Highlight` 只画格子外沿那一圈 52px 描边；`title`/`counter` 都在格内 y+237 起）
+                                        //   ⇒ 同号只决定「万一重叠时谁赢」，今天谁也看不见。
+                                        //   ⇒ 断言改成守住**它真正要守的那条不变式**（鉴别力不比改前弱）：
+                                        //     ① **任何层都不许反序**；② **只允许那一对已知同号**（Ring ↔ 上一格的 Text）；
+                                        //     ③ 第 2 格**除最底那颗 Ring 之外**的每一件都**严压**第 1 格。
+                                        //   🧨 改坏法不变：把队列改回「同类同号」⇒ 第 2 格的 Ring 落到 `3209`、第 1 格的字是 `3215`
+                                        //      ⇒ `bMin < aMax` ⇒ ① 立刻红。
+                                        CheckTrue(bMin >= aMax,
+                                                  "★ **按格号错开**：第 2 格的队列号**不低于**第 1 格的（⛔ 不许反序）"
+                                                + "（原版每格是按序 Instantiate 的兄弟 ⇒ 后画的整格压先画的整格）"
+                                                + $"—— 实得 第1格 max={aMax} · 第2格 min={bMin}；"
+                                                + "改回「同类同号」⇒ 第 2 格的 Ring(3209) 掉到第 1 格的字(3215) 之下 ⇒ 本条真红");
+                                        // ⚠️ 写成「只有相等时才查这一对」—— 将来谁把带子加宽、回到严格版（`bMin > aMax`）时**不会假红**。
+                                        if (bMin == aMax)
+                                        {
+                                            // ③ 同号的两颗**必须**就是那一对：第 2 格最底 = `Collectable Highlight`（Ring）、
+                                            //    第 1 格最高 = 文字（`title` / `counter`，`LC_Text`）。
+                                            var ringBt = QuadOfInactiveToo(FindChild(cB, "Collectable Highlight"));
+                                            CheckTrue(ringBt != null && ringBt.RenderQueue == bMin,
+                                                      "★ …同号那颗是第 2 格的 **`Collectable Highlight`**（`LC_Ring`）"
+                                                    + $"—— 实得 ring={((ringBt != null) ? ringBt.RenderQueue : -1)}、第2格 min={bMin}");
+                                            int lblA = -1;
+                                            foreach (var l in cA.GetComponentsInChildren<Label>(true))
+                                                if (l != null) lblA = Mathf.Max(lblA, l.RenderQueue);
+                                            CheckTrue(lblA == aMax,
+                                                      "★ …另一边那颗同号的是第 1 格的**文字**（`LC_Text`）"
+                                                    + $"—— 实得 第1格 文字={lblA}、第1格 max={aMax}");
+                                        }
+                                        {
+                                            int bAbove = int.MaxValue;
+                                            var hitBt = cB.Find("Hit");
+                                            foreach (var q in cB.GetComponentsInChildren<ImageQuad>(true))
+                                            {
+                                                if (q == null || (hitBt != null && q.transform.IsChildOf(hitBt))) continue;
+                                                if (q.RenderQueue > bMin) bAbove = Mathf.Min(bAbove, q.RenderQueue);
+                                            }
+                                            foreach (var l in cB.GetComponentsInChildren<Label>(true))
+                                                if (l != null && l.RenderQueue > bMin) bAbove = Mathf.Min(bAbove, l.RenderQueue);
+                                            CheckTrue(bAbove > aMax,
+                                                      "★ …而第 2 格**除最底那颗 Ring 之外**的每一件都**严压**第 1 格的每一件"
+                                                    + "（唯一允许同号的那一对就是上面钉住的 Ring ↔ Text）"
+                                                    + $"—— 实得 第2格次低号={bAbove} vs 第1格 max={aMax}");
+                                        }
                                         var cRingB = QuadOfInactiveToo(FindChild(cB, "Collectable Highlight"));
                                         var cBackA = QuadOf(FindChild(cA, "bg"));
                                         int rqB = cRingB != null ? cRingB.RenderQueue : -1;
@@ -17442,6 +17660,30 @@ public static class MainMenuScene
                 // 恢复「无数据」那一档
                 wc.Show(null);
                 Check(wc.SectionsShown, 0, "换回出厂内容 ⇒ 又回到 **0 段**");
+                // ---- 🆕 2026-10-26（`B8_AQ`）：压暗层 = 「**点窗外关窗**」，⛔ 不是吸收层 ----
+                //  判据 = `BackgroundCloseButton__…OnPointerClick.c:24-27`：`if (window != null) window.Close();`
+                //         `onClick.Invoke();`（`onClick` 是**序列化 `UnityEvent`**、永不为 null ⇒ 无条件跑）+
+                //         `WhereToGetCardsWindow__Awake.c:12-24`（运行期给 `backgroundCloseButton.onClick` 挂的
+                //         是 vtable 槽 `+0x1b8` = **`Close`**）。
+                //  ⇒ 原版点暗底 = 关窗。改坏法：把 `MenuDraw.ShadeHit(…, () => Close(), "BackgroundHit")` 换回
+                //    `MenuDraw.Absorb(...)` ⇒ 第一句红（`WasAbsorb` 真 / `WasShadeHit` 假）。
+                {
+                    var shadeHitTr = wc.ShadeNode != null ? FindChild(wc.ShadeNode, "BackgroundHit") : null;
+                    CheckTrue(shadeHitTr != null && MenuDraw.WasShadeHit(shadeHitTr)
+                              && !MenuDraw.WasAbsorb(shadeHitTr),
+                              "★ 压暗层那颗是 **`MenuDraw.ShadeHit`**（点它 = 关窗），⛔ 不是吸收层"
+                            + "（判据 = `BackgroundCloseButton__…OnPointerClick.c:24-27` + "
+                            + "`WhereToGetCardsWindow__Awake.c:12-24`）"
+                            + "｜🧨 换回 `MenuDraw.Absorb(...)`（= 2026-10-17 `N51③` 那条旧做法）⇒ 红");
+                    // 🔴 草稿原来这一句写的是 `MenuDraw.WasShadeHit(wc.CloseHitNode)` —— **事实错**：
+                    //    关窗钮那颗是 `MenuDraw.Hit(_close, "Hit", …)` 建的（`WhereToGetCardsPopup.cs:357`），
+                    //    **不是** `ShadeHit` ⇒ 照抄会红。这里改成断「它是**真动作**」= 原版那颗 `closeButton`
+                    //    挂的是 `Close`，等价判据 = `WindowButton` 在、且不是吸收层。
+                    var closeWb = wc.CloseHitNode != null ? wc.CloseHitNode.GetComponent<WindowButton>() : null;
+                    CheckTrue(closeWb != null && !closeWb.absorbOnly,
+                              "★ 关窗钮那颗是**真动作**（`MenuDraw.Hit` + `WindowButton.onClick = Close`，"
+                            + "⛔ 不是吸收层）—— 原版同一颗 `closeButton` 挂 `Close`");
+                }
 
                 // ---- ⑪ 关窗音（根 MB `closeSound = 空` + `useDefaultCloseSoundIfNull = 1` ⇒ 家族默认 cue）----
                 wc.Close();

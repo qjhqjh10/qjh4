@@ -150,7 +150,7 @@ namespace CardPresentation
             public string effectGuid;
             public string cardAnim;
             public string prefab;
-            public bool playIfWarlord;
+            public bool playIfWarlord, inPlayAnim;
             public string unresolved;
             public BindingOverrideRow[] overrides;
         }
@@ -222,8 +222,8 @@ namespace CardPresentation
             public string CardAnim;
             /// <summary>那张 CardAnim 的 target prefab（= 我们效果库里的名字）。空 = 原版 `effectAnim` 是空引用。</summary>
             public string Prefab;
-            /// <summary>原版 `TraitEffect.playIfWarlord`（`false` = 督军不播这一条）。</summary>
-            public bool PlayIfWarlord;
+            /// <summary>原版 `TraitEffect.playIfWarlord`（`false` = 督军不播这一条）· 同一行并写的 `InPlayAnim` = 原版 **`CardTrait._hasInPlayAnim`（`+0x20`）**，闸的判据/用法见**类尾**那一段。</summary>
+            public bool PlayIfWarlord, InPlayAnim;
             /// <summary>🆕 原版 `TraitEffect.overrideByArmies[]`（按阵营换 effect）。
             /// ✅ **2026-10-23 起运行期已消费** —— 解析口只一处：<see cref="PrefabOf"/>；
             /// 原版判据 `TraitEffect.GetEffect(army)`（`TraitEffect__GetEffect.c:9-34`）。</summary>
@@ -375,7 +375,7 @@ namespace CardPresentation
                     EffectGuid = r.effectGuid ?? "",
                     CardAnim = r.cardAnim ?? "",
                     Prefab = r.prefab ?? "",
-                    PlayIfWarlord = r.playIfWarlord,
+                    PlayIfWarlord = r.playIfWarlord, InPlayAnim = r.inPlayAnim,
                     Overrides = ToOverrides(r.overrides),
                 };
                 all.Add(b);
@@ -776,7 +776,7 @@ namespace CardPresentation
                     if (_prev.Contains(k)) continue;
                     if (DisplayStatus(k, ValueOf(valueOf, k))) added++;
                 }
-            _prev.Clear();
+            _prev.Clear(); _syncedOnce = true;   // ← 首次同步 = 单位落场那一拍（原版 `ActivateTraitsOnSummonOrEnchantment` 那条路**没有** inPlayAnim 闸；见类尾 `InPlayAnimGate`）
             foreach (var k in now) _prev.Add(k);
             RefreshChangedValues(now, valueOf);  // 🆕 W8：兜底（只在值真的变了才刷）
             Clean(now, false);                  // 不再持有的 ⇒ 清掉（原版 `CleanStatusAnims(false)` 那条谓词）
@@ -812,7 +812,7 @@ namespace CardPresentation
         public bool DisplayStatus(string trait, int value)
         {
             var key = Norm(trait);
-            if (key.Length == 0) return false;
+            if (key.Length == 0 || !InPlayAnimGate(key)) return false;   // 🆕 `CardTrait._hasInPlayAnim` 闸（判据/语义 → 类尾那一段）
 
             // ① Start(0) 档 —— **先播、且不受下面那张 OnPlay 去重表影响**（原版 `:86-119` 在 `:121` 那一支之前）
             //    🆕 W3：原版这一档同样把 `traitValue` 传给 `ResolveTraitAnim`（`…DisplayStatusAnim.c:86-119`）
@@ -1200,6 +1200,104 @@ namespace CardPresentation
             if (c == null) return false;
             c.AimingAttack(option);
             return true;
+        }
+
+        // ══════════════════════════════════════════════════════════════════════════════════════
+        //  🆕 2026-10-26（执行代理 `B8_BA`）：`CardTrait._hasInPlayAnim`（`+0x20`）那道前置闸 —— 补上
+        //
+        //  判据（一手，`d:/2/tools/decomp_full/`）：
+        //   · `CardScript__ActivateTraitAnim.c:12-25`：`GetTrait(trait)` → `if (*(char *)(trait + 0x20) != 0)`
+        //     → 才 `BattleCardUI.DisplayStatusAnim(ui, trait, playSound)`。
+        //   · `CardScript__AddEffect.c:645-663`（trait 被加上那一支）：同样先 `GetTrait` + `*(char*)(trait+0x20)`，
+        //     为真才 `DisplayStatusAnim(ui, traitId, 1)` ⇒ **闸在【调用点】、且闸的是整次调用**
+        //     （Start(0) 与 OnPlay(2) 两条腿都进不去；数据现读：`inPlayAnim=false` 却有 OnPlay(2) 行 = 0 条）。
+        //   · `BattleCardUI__DisplayStatusAnim.c` 全文**不读**这个 bool（只按 `TriggerType` 分 0/2 两支）
+        //     ⇒ **不是「建表时就跳过」，是「播之前查」**。
+        //   · 🔴 **召唤那条路没有这道闸**：`CardScript__ActivateTraitsOnSummonOrEnchantment.c` 遍历
+        //     `CurrentTraits(+0x128)` 逐条 `DisplayStatusAnim`，全篇没有 `+0x20` 读取
+        //     （调用点 `CardScript._MinionPlayedIntoField_d__314__MoveNext.c:179` ·
+        //     `CardScript._HeroLandIntoField_d__318__MoveNext.c:352` · `BattleManager__CreateStartingTroop.c:59` ·
+        //     `BattleManager__SetPlayerDataAndWarlord.c:28` · `…ResolveTransformFromRemnant_b__0.c:16`）
+        //     ⇒ 原版是「**后加上的 trait** 才看这个 bool；单位落场时所有 trait 照演」。
+        //     ⇒ 我们只有一个播放入口（`SyncKeywords` 的集合对差 / `EvtKind.StatusApplied`），用
+        //     「**这张卡的第一次同步 = 落场那一拍**」把原版那两个调用点分开（见 `InPlayAnimGate`）。
+        //   · ⛔ **不影响 `DisplayTrigger`**：`inPlayAnim=false` 却有 Trigger(3/6) 行的有 **15** 条
+        //     （bloodThirst · codex · slay · talent · mob · large …），原版触发那一路
+        //     （`BattleCardUI__DisplayTriggerAnim.c`）**也没有**这道闸 —— 照演。
+        //
+        //  数据（`数据/游戏数据/trait_collection.json`，77 条）：`inPlayAnim` true **39** / false **36** /
+        //  null **2**。null 的那 2 条（`berzerk` / `dodge`）是 **TraitPairs 里没有 CardTrait SO**
+        //  （`traitConfig == null` 且 `traitEffects == null`，判据 `工具/export_trait_collection.py:651/686`）
+        //  ⇒ 它们一条 effect 都没有，闸对它们没有行为影响（JSON 里按 `false` 写；⛔ 不是「字段读不到」——
+        //  原版 SO 里 `[SerializeField] bool` 不可能是 null）。
+        //
+        //  修完后的差（`Start(0)` 那一档，逐条）：`armour` · `companion` · `flank` · `pack` · `rally` · `tide`
+        //  六条**从「会播」变「不播」**（它们有真 prefab）；`firstStrike` / `piercing` 的 `effectAnim` 是空引用，
+        //  两边本来都不播（闸只让那句「本档无动画」的出声不再走）。反向证明：`inPlayAnim=true` 且有可播
+        //  Start(0) 的 5 条（`cantAttack` · `fast` · `ferocity` · `huntMark` · `markerlight`）**一条没被关掉**。
+        //
+        //  ⚠️ 本段所有成员**必须留在类尾**（CLAUDE.md §三 2026-10-25 `N9` 实测）—— 本文件被账按行号引用。
+        //     上面那两处 `playIfWarlord, inPlayAnim` / `PlayIfWarlord, InPlayAnim` 的字段**并到同一行**写、
+        //     `DisplayStatus` 入口那一句也只改行内内容，都是同一个原因（⛔ 不是为了省事：加行会让
+        //     `账/战斗界面_HUD.tsv:117/118/131/146/162` 与 `账/特效动画.tsv:233/414` 的落点整体漂移）。
+        // ══════════════════════════════════════════════════════════════════════════════════════
+
+        /// <summary>「这张卡的**第一次** `SyncKeywords` 已经过去了」。只在 <see cref="InPlayAnimGate"/> 里读。</summary>
+        bool _syncedOnce;
+
+        static bool _inPlayAnimScanned, _inPlayAnimKnown;
+
+        /// <summary>原版 `CardTrait._hasInPlayAnim`（`+0x20`）—— **这个 trait「后加到一张在场的卡上」时，
+        /// 原版会不会为它演状态帧**（判据见本段开头；反编译 `CardScript__ActivateTraitAnim.c:23` /
+        /// `CardScript__AddEffect.c:657` 那两句前置闸）。
+        ///
+        /// <para>返回值口径：`false` = 原版**不演**；`true` = 演，或**表里没有这个 trait 的行**（不拦）。
+        /// 断言用：`PlaysInPlayAnim("armour") == false` · `PlaysInPlayAnim("stealth") == true`
+        /// （期望值来自原版 SO 导出的 `inPlayAnim` 列，⛔ 不是从本类自己的两本字典反读 —— 那是自证）。</para>
+        /// <para>⚠️ 数据缺这一列时**恒 `true`**（= 照旧全播 + 出声一次），见 <see cref="ScanInPlayAnim"/>。</para></summary>
+        public static bool PlaysInPlayAnim(string trait)
+        {
+            EnsureBindings();
+            var t = Norm(trait);
+            if (t.Length == 0) return true;
+            ScanInPlayAnim();
+            if (!_inPlayAnimKnown) return true;          // 缺列 ⇒ 不拦（`ScanInPlayAnim` 已经出过声）
+            bool found = false;
+            for (int i = 0; i < _allRows.Length; i++)
+            {
+                if (!string.Equals(_allRows[i].Trait, t, System.StringComparison.Ordinal)) continue;
+                found = true;
+                if (_allRows[i].InPlayAnim) return true;
+            }
+            return !found;                               // 表里没有它（含没有 SO 的 `berzerk`/`dodge`）⇒ 不拦
+        }
+
+        /// <summary>数据里**有没有** `inPlayAnim` 这一列。判据 = 「至少有一行 `inPlayAnim == true`」（真值 39 条）。
+        /// <para>为什么要有这道兜底：2026-10-26 之前的 `Resources/trait_effect_bindings.json` **没有这一列**，
+        /// 缺列时每一行都会读成 `false` ⇒ 一刀切把状态帧全关掉（静默多播变静默不播，更糟）。
+        /// ⇒ 缺列 ⇒ **照旧全播 + 出声一次**。</para></summary>
+        static void ScanInPlayAnim()
+        {
+            if (_inPlayAnimScanned) return;
+            _inPlayAnimScanned = true;
+            for (int i = 0; i < _allRows.Length; i++)
+                if (_allRows[i].InPlayAnim) { _inPlayAnimKnown = true; return; }
+            Debug.LogWarning("[TraitFrames] 绑定表里**没有一条** `inPlayAnim = true` ⇒ 这份 "
+                           + "`Resources/" + BindingsResourcePath + ".json` 早于 2026-10-26 的生成器"
+                           + "（缺 `CardTrait._hasInPlayAnim` 那一列）⇒ **`inPlayAnim` 闸本轮不生效**（照旧全播）。"
+                           + "重跑：\"D:/2/Warpforge_tools/py312/python.exe\" d:/4/Unity/工具/gen_trait_effect_bindings.py");
+        }
+
+        /// <summary>`DisplayStatus` 入口那道闸（判据见本段开头）。`true` = 允许播。
+        /// <para>🔶 自己设计（非原版）：**「第一次同步 = 落场那一拍」这个判别是我们的** —— 原版靠两个不同
+        /// 调用点分开（`AddEffect` 有闸 / `ActivateTraitsOnSummonOrEnchantment` 无闸），我们只有一个入口，
+        /// 而判据侧「这张卡是不是刚进场」要跨层（`CardScript.cardState(+0x228)` 的等价物在 `UnitState`）。
+        /// 调度台 2026-10-26 批次 `B8` 裁定按此实现；若将来能把「刚进场」显式传进来，⛔ 删掉这一层近似、
+        /// 改成调用方给的实参。</para></summary>
+        bool InPlayAnimGate(string key)
+        {
+            if (!_syncedOnce) return true;               // 落场那一拍：原版那条路**没有**这道闸
+            return PlaysInPlayAnim(key);
         }
     }
 }

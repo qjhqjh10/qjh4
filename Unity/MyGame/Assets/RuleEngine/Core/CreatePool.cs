@@ -172,6 +172,25 @@ namespace RuleEngine
 
             string factionWord, kindPhrase;
             var kind = MatchKindWord(pool, what, out factionWord, out kindPhrase);
+            // 🔴 **2026-10-26（`B8_AN`）：`MatchKindWord` 把「不认识的限定词」**静默丢掉** ⇒ 具名卡被降成随机兵种。**
+            //   实证（判据 = 原版 SO 真值 `cards_truth.json` 的 `abilities[].logic[].summon.unitsToSummon`）：
+            //   `Homing Beacon`（`1688c614…`）的 `unitsToSummon = ["TAU11"]` = 唯一一张 **Crisis Battlesuit**；
+            //   而卡面 `Deploy a Crisis Battlesuit…` 走到这里时 —— `battlesuit` 命中兵种词、
+            //   `crisis` 成为 **unknown 被丢** ⇒ 变成「兵种 battlesuit × 8 张随机挑一张」，
+            //   实测 `play` 只抽到 **TAU28 Enforcer Battlesuit**（另一张卡）。
+            //   ⇒ 带限定词时**先按整段当卡名查**（卡名比兵种更具体；查不到才回兵种池，见下面那段）。
+            //   ⚠️ 只改了「有未知限定词」这一档：整段全是兵种/阵营词时行为一字不变（`hadUnknown` 为假）。
+            if (kind != null && factionWord.Length == 0
+                && !string.Equals(kindPhrase, what, System.StringComparison.OrdinalIgnoreCase))
+            {
+                var exact = FindByNameLoose(pool, what);
+                if (exact != null && !exact.IsEnchantment && (!unitsOnly || exact.IsUnit))
+                {
+                    r.Cards.Add(exact);
+                    r.Detail = "具名卡「" + exact.Name + "」（整段命中；丢掉兵种拆分的限定词「" + kindPhrase + "」）";
+                    return r;
+                }
+            }
             if (kind != null)
             {
                 string faction = ResolveFaction(pool, factionWord, casterFaction, r);

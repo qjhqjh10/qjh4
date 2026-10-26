@@ -6335,6 +6335,50 @@ namespace CardPresentation
             PointerLayer.UnregisterDragsOwnedBy(gameObject);
             base.Close();
         }
+
+        /// <summary>原版 `DeckCollectionTab.ToFocus()` / `CardCollectionTab.ToFocus()` 的等价物 ——
+        /// **窗被提回前台（`Background ⇒ Open`）时把当前集合重灌一遍**：
+        /// `collection.UpdateCollection(GetCollection())` ⇒ `RefreshCollection()`（重过滤 / 空态 / `firstShow=false` / `ReloadData`）。
+        ///
+        /// <para>判据：🥈 `d:/2/tools/cpp2il/out_cpp2il_dev_ilspy/DeckCollectionTab.cs:158-165`
+        /// （`GetCollection()` + `[this+0x30].UpdateCollection(...)`，两句）·
+        /// 🥈 `CardCollectionTab.cs:186-194`（同形，`UpdateCollection(GetCollection())` 被反编译成一次间接调用）·
+        /// 🥇 传导链：`GameWindow.TryOpen` 的 `Background` 支末句 `ToFocus()` → `GameWindowWithTabs.ToFocus():430-441`
+        /// → `CurrentTab.ToFocus()`（本仓同形：`Shell/GameWindow.cs:540` · `Shell/GameWindowWithTabs.cs:220`）。
+        /// 🔴 **两处口径订正（铁律 5）**：① 账里原来写「『焦点』= EventSystem 的选中对象」—— **不成立**，
+        /// 这个方法体就是「重灌集合」，同族两个子类逐句同形；② 判据表里写「**切页签**时重灌」—— 也**不准确**：
+        /// 原版**换页签**走 `ChangeTab → TryOpenTab → OnOpen`（`GameWindowWithTabs.cs:363-380`），
+        /// `ToFocus` 只在**窗回前台**那一拍（`GameWindow.TryOpen` 的 `Background` 支）。页签本身**不**重灌。</para>
+        ///
+        /// <para>⚠️ **只重灌格子，⛔ 不重建页框** —— `RebuildCardsPage()` 会清池 + 拆整页，
+        /// 那是「首开 75.5 s」那条性能史里的重活（见 `CollectionTabPage.SetupOnce` 的 doc）。</para>
+        ///
+        /// <para>⚠️ **Cosmetics / Styles 两页在原版【没有】覆写 `ToFocus`**（`CardbackCollectionTab` /
+        /// `AlternateArtCardCollectionTab` 现读都没有）⇒ 这两页我们也不重灌（⛔ 别「顺手补齐」）。</para></summary>
+        public void RefillCollectionForFocus(int page)
+        {
+            switch (page)
+            {
+                case 0:
+                    // = `DeckCollectionTab.ToFocus`：`UpdateCollection(GetCollection())`
+                    // （我们的等价物：重建卡组格 —— 数据源与筛选都在 `RebuildDeckCells` 里**重新读**）。
+                    RebuildDeckListNow();
+                    break;
+                case 1:
+                {
+                    // = `CardCollectionTab.ToFocus`：`UpdateCollection(GetCollection())`
+                    // （`RebuildCardsCells` 每趟都重读 `CardsState.VisibleCards()` ⇒ 等价于「换一份集合 + ReloadData」）。
+                    var pageRoot = PageRoot(1);
+                    var holder = pageRoot != null ? pageRoot.Find("Scroll View") : null;
+                    if (holder == null) return;
+                    RebuildCardsCells(holder);
+                    RefreshCardsEmpty();          // 空态提示跟着集合走（原版 `RefreshCollection` 里那一支）
+                    break;
+                }
+                default:
+                    break;                        // 页 2/3：原版那两个 tab 没有 `ToFocus` 覆写
+            }
+        }
     }
 
 }

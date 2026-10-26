@@ -1131,6 +1131,15 @@ namespace CardPresentation.Net
             _countdownLeft = 0;
             _peerLossWhy = null;
             ClockPaused = false;
+            // 🆕 **2026-10-26（批次 8 · 执行代理 L）**：**第二句 `StopCoroutine` 的等价物** ——
+            //   原版 `BattleManager__StopWaitingOpponentReconnection.c:10-11` 停的是**两处**协程
+            //   （`ForfeitDisconnectedEnemy` + `WaitOpponentLastActions`，两个 DAT 与 `ShowDisconnectionPopup`
+            //   里那两个对照认出）。第一处 = 上面那几行（倒计时闸）；第二处 = 下面这两行
+            //   （收尾等待窗口 `_finishWaitLeft`）—— 原来只做了第一处 ⇒ 对手回来之后
+            //   `WaitsForPeerLastActions` 还会挂到 12.5 秒上限。⛔ 别把这两行挪走：
+            //   「对手回来了」那一刻原版就是**同时**停这两个窗口的。
+            _finishWaitLeft = -1f;
+            _finishWaitAcc = 0f;
             if (hideWindow) NetRuntime.HideNoticePopup();
             if (wasRunning)
                 Debug.Log("[Net] 对手回来了 ⇒ **倒计时取消 + 对局时钟恢复 + 提示窗收掉**"
@@ -1573,7 +1582,13 @@ namespace CardPresentation.Net
                     if (m.turn != _d.Ctx.Turn) { Debug.Log($"[Net] 指纹回合对不上（对面 {m.turn} / 本机 {_d.Ctx.Turn}）—— 可能是交叉到达，先不判"); return; }
                     int mine = NetProtocol.Fingerprint(_d.Ctx);
                     if (mine != m.hash)
+                    {
                         Abort($"**状态指纹对不上**（第 {m.turn} 回合：对面 {m.hash} / 本机 {mine}）—— 两端已经打岔");
+                        // 🆕 2026-10-26（批次 8 · 执行代理 L）：**这一档原先"挂着不结束"** ——
+                        //   原版同一档的收尾是 `CancelMatchWithoutResult` ⇒ `CancelMatch(false)` ⇒ `LeaveBattle`（不判结果）。
+                        //   判据与该路径的每一跳 → `LeaveWithoutResult` 的 doc。⛔ **不判负也不判胜**（原版那条链里没有 `DeadHero`）。
+                        LeaveWithoutResult($"第 {m.turn} 回合状态指纹对不上（对面 {m.hash} / 本机 {mine}）");
+                    }
                     else Debug.Log($"[Net] 第 {m.turn} 回合指纹一致（{mine}）✅");
                     return;
                 }
@@ -1759,5 +1774,75 @@ namespace CardPresentation.Net
         /// 📌 **故意放在类尾**（2026-10-25）：本类被别的账/报告按行号引用得多，插在中间会把
         /// 下游行号整体推移 —— 新增成员一律追加到末尾，别插进已有成员之间。</summary>
         public bool InBattle { get { return _s != null && _s.State == NetState.InBattle; } }
+
+        // ==================================================================
+        //  🆕 2026-10-26（批次 8 · 执行代理 L）：**不判结果直接离场** —— `CancelMatch(false)` 那一半
+        // ==================================================================
+        //  为什么要有它（G15 当时如实留下的缺口）：原版那条链的最后一步是
+        //    `BattleErrorUIManager.OpponentDesyncCancelMatch(MatchWon: false)`（`decomp_full/Everguild.BattleErrorUIManager__OpponentDesyncCancelMatch.c:1-30`）
+        //    的提交钮 = `BattleManager.CancelMatch(false)`（**逐句**：`decomp_full/BattleManager__CancelMatch.c:16-26`）：
+        //      `param_2 == 0` ⇒ `BattleNetworkManager.LeaveBattle()` 然后 **return**（⛔ 没有 `AddResignAction` /
+        //      `DeadHero` —— 那两句只在 `MatchWon == true` 那一支 ⇒ **这条路按定义不产生结果**）。
+        //    `BattleNetworkManager.LeaveBattle()`（`decomp_full/BattleNetworkManager__LeaveBattle.c:38-47`）里那两跳 =
+        //      `NetworkCustomManager.RemoveRoomAfterLeaving()`（房间 `EmptyRoomTtl = 0`，人走房散）
+        //      + **`NetworkCustomManager.LeaveRoom()`** —— **不捎任何告别**；
+        //    对端因此走的是 `OnPhotonPlayerDisconnected` ⇒ `EventPlayerDisconnected` ⇒ `SetOpponentDisconnected`
+        //      （`…__EventPlayerDisconnected.c:45-52`）⇒ 弹窗 + 停表 + **它自己的** `ForfeitDisconnectedEnemy`
+        //      倒计时（`max(15, 30 − 3×enemyDisconnects)` 秒）**到点才判我们弃权**。
+        //
+        //  ⛔ **不能拿 `Close(say: true)` 顶这一跳**：`say:true` 会发 `NetKind.Bye` ⇒ 对端 `HandlePeerClosed`
+        //    **当场判我们弃权**（本文件 `ForfeitPeerIfLeftMidGame`），而原版要等对端那个 15/30 秒窗口。
+        //    ⇒ 唯一正确的原语 = `NetSession.Close(say: false)`（硬断，`NetSession.cs` 的 `Close`；
+        //      `sentBye == false` ⇒ `CloseTransportAfterBye` 走 `HardCloseRequestedForTest` 那一档）。
+        //  ⛔ **不加判负/判胜支**：本机这一侧也**不产生结果**（原版这条链里没有 `DeadHero`）——
+        //    本机只是「离场」，结果由**对端**在它自己的倒计时到点之后判（`ReconnectCountdownExpired`）。
+        //  ⚠️ **与原版的一处差（如实记，⛔ 别当成复刻）**：原版是**玩家点了 `SubmitButton` 之后**才
+        //    `CancelMatch(false)`（`…__OpponentDesyncCancelMatch.c` 的 `ShowPopUp(…, SubmitButton, onSubmit)`），
+        //    我们这里是**调用即离场**（调用点 `case NetKind.Hash` 的那一档**已经**由 `Abort` 弹过一扇告知窗，
+        //    再等一次点击会变成两扇窗叠着等）。⇒ 差异列里写死这一条，别把「立刻」读成「照原版」。
+        //
+        //  调用点（今天只有一处，⛔ 别在别处再叫）：`Dispatch` 的 `case NetKind.Hash` —— **状态指纹对不上**。
+        //    （`case NetKind.Reject` **不调**：那一档紧跟的 `NetKind.Desync` 还要判本机负，
+        //      先硬断会把那条在飞的帧丢掉 ⇒ 判负那一跳丢失。理由见 `case NetKind.Reject` 的注。）
+
+        /// <summary>自检读口：本机以「不判结果直接离场」收过几次（原版 `CancelMatch(false)` 那一跳）。
+        /// ⚠️ 它**不是**「这一局判了谁」—— 这条路按定义不产生结果。</summary>
+        public int NoResultLeavesForTest { get { return _noResultLeaves; } }
+        int _noResultLeaves;
+        /// <summary>只认一次（对齐原版那条链的语义：离场一次就够；重复调不许把状态字再改一遍）。</summary>
+        bool _leftWithoutResult;
+
+        /// <summary>🆕 **2026-10-26（批次 8 · L）**：**不判结果直接离场** —— 原版
+        /// `BattleManager.CancelMatch(false)` ⇒ `BattleNetworkManager.LeaveBattle()` ⇒ `NetworkCustomManager.LeaveRoom()`
+        /// 的本地等价。判据逐跳见本节头部那一段。
+        /// <para>语义三条（缺一条就会走成别的路）：① **不判胜负**（没有 `DeadHero` 那一跳）；
+        /// ② **不发 `bye`**（硬断 ⇒ 对端靠自己的倒计时判，原版 `OnPhotonPlayerDisconnected` 同形）；
+        /// ③ **本机状态字说「房间已经散了」**（`Settings/Online/Wire/RoomGone`，与 `ReconnectCountdownExpired`
+        /// 离开房间那一档同一个键）。</para>
+        /// <para>返回真 = 真做了离场；假 = 已经离过场（幂等），或压根没有会话（那一档**出声**）。</para></summary>
+        /// <param name="why">为什么离场（只进日志与提示行 —— ⛔ 不上对端屏幕：原版那条 `LeaveRoom` 一个字也带不出去）。</param>
+        public bool LeaveWithoutResult(string why)
+        {
+            if (_leftWithoutResult) return false;      // 幂等（原版那条链只会被点一次）
+            _leftWithoutResult = true;
+            _noResultLeaves++;
+            _aborted = true;                           // 同 `Abort`：之后不再发动作（对面已经不在了）
+            Debug.LogError("[Net] 🔴 不判结果直接离场（原版 `CancelMatchWithoutResult` → `CancelMatch(false)` → "
+                         + "`BattleNetworkManager.LeaveBattle` → `NetworkCustomManager.LeaveRoom`）：" + why
+                         + " —— ⛔ 本机**不判胜负**、也**不发 `bye`**（原版 `LeaveRoom` 也不发）");
+            if (_d != null) _d.NetSay("联机对局中止：" + why + "（不判胜负，直接离开）");
+            if (_s == null)
+            {
+                Debug.LogWarning("[Net] 「不判结果直接离场」那一跳走不了：本类**没有挂会话**（`_s == null`）"
+                               + " —— 如实说出来（同族先例：`ReconnectCountdownExpired` 的 `_s == null` 那一支）");
+                return false;
+            }
+            // 🔴 `say: false` 是这一跳的**判据本身**（见本节头部那一段）：发了 `bye` 就变成「当场判我们弃权」。
+            _s.Close(false, "Settings/Online/Wire/RoomGone");
+            Debug.Log("[Net] 已离场（`NetSession.Close(say:false)` ⇒ 硬断、不发 `bye`）—— 对端会用自己的"
+                    + " `ForfeitDisconnectedEnemy` 倒计时（`max(15, 30 − 3×n)` 秒）到点才判；"
+                    + "本机这一侧**没有结果**（原版同一支里也没有 `DeadHero`）");
+            return true;
+        }
     }
 }

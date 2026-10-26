@@ -910,7 +910,7 @@ namespace CardPresentation
             return s.Replace("{0}", (value > 0 ? "+" : "") + value);
         }
 
-        /// <summary>摆/收这块（`rows` 为空 = 整组不出现 —— 原版就是「有 buff 才露」）。
+        /// <summary>摆/收这块（`rows` 为空 = 整组不出现 —— 原版就是「有 buff 才露」）；**槽数上限 5 = 原版 `cardEffectSlots.Length`**（🥈 `CardEffectsService.cs:91-132`：逐条 `LoadEffect`、**文本空的也占一槽**（`Disable` 但槽号 +1 ⇒ 留空洞）、非空才计数、槽用完静默截断；`EnableEffects` = 它 + `DisableLeftoverSlots`、返回「非空条数 > 0」；**13 场序列化实测该数组长恒 = 5**，`B8_U` 2026-10-26 现读；⚠️ 差异：我们按 buff 铸行、空的根本不铸 ⇒ **中间不留空洞**）。
         /// 🔴 **先把根亮起来再改字**：TMP 在**未激活**的对象里量不出尺寸（`SetAutoFitBox` 那条踩过）。</summary>
         void SetEffectRows(IReadOnlyList<EffectRow> rows)
         {
@@ -1878,12 +1878,13 @@ namespace CardPresentation
             var amb = CardView.FaceDownArtTexture();
             if (amb != null) masked.artOverride = amb;   // ④ 换伏击图
             else Debug.LogWarning("[展示窗] 敌方伏击单位：伏击图取不到 ⇒ 照旧画它自己的立绘（`CardView.FaceDownArtTexture()` 已出声）");
-            Debug.LogWarning("[展示窗] 敌方伏击单位：**数值还没藏**（原版 `cardUIs[0].ToggleStats(false)`）—— "
-                           + "`Core/CardView` 今日只有读口、没有运行期写口 ⇒ 这一格现在比原版多露四个数（不静默）。"
-                           + "写口规格 → `资料/完全复刻/报告/F6_第4轮.md` 改动请求 ①");
+            // ① 藏数值（原版 `cardUIs[0].ToggleStats(false)`）—— 写口 = `CardView.SetStatsHidden`，**必须在 `Show` 之后调**
+            //    （视图是 `Show` → `BuildFan` 里**新建**的，调早了 `SlotViews[0]` 还是 null）；`hideArmourCell: true` = 展示窗那一支
+            //    （`BasicCardUI.ToggleStats` 额外 `armourCountersController.Toggle(false)` ⇒ 护甲整格关掉，其余三格印 `?`）
 
             // ⑥ 相关卡一律不画：不传 `def` ⇒ `BuildFan` 只建主卡（原版 `DisableAllCards()`）
             Show(masked, null, effects);
+            { var v0 = SlotViews[0]; if (v0 != null) v0.SetStatsHidden(true, hideArmourCell: true); else Debug.LogWarning("[展示窗] 敌方伏击单位：主卡视图没建出来 ⇒ 数值没藏（不静默）"); }   // ① 藏数值（判据见上：必须在 `Show` 之后）
 
             // ⑦ 风味底板关（原版 `loreObjectBG.SetActive(false)`）——
             //    ⚠️ 它**不是**按有没有字开关的（`RefreshLore` 认的是 flavourText）⇒ 必须显式关。
