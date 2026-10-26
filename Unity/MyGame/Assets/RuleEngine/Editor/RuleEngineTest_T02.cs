@@ -18,7 +18,7 @@
 //   ④ 🆕 **2026-10-22（`W63` 普查）：`SimpleAI.FirstFreeSlot` 是落位判据的第四处写入点**，
 //      `T02` 当时没收口 ⇒ 有洞棋盘上它会返回**被占格**（同上后果）。判据同样是
 //      `BoardSlots.NextFreeWithoutDisplacing`（⛔ 不另写一份「空格 = 没单位」）。
-//   ⑤ 🆕 **2026-10-22（`W63` 普查第二批）：`SimpleAI.NextDeploySlot` 的第三支（平衡）是第五处**
+//   ⑤ 🆕 **2026-10-22（`W63` 普查第二批）：`SimpleAI.NextDeploySlot` 的第三支（平衡）是第五处** —— 🔴 **2026-10-26（`E4P08` · 账行 1120）已收口**：算法搬进 `BoardSlots.NextSlotCheckingAdjacents`（谓词也换成原版逐字 `HasWhileInPlayAdjacentEffect`），`NextDeploySlot` 只剩「有符号 ↔ 绝对」换算 + 兜底出声；下面这段**保留原文当历史判据**（期望值 2 / 6 重算后逐字未变）
 //      —— 它原来写裸算式 `WarlordSlot ± (CountSide+1)`（∝ 原版 `GetNextSlotWithoutDisplacing`），
 //      而 `CountSide` 只数「活着且连续」的那一段 ⇒ 段首那具**非空但已死**的单位会让它提前停、
 //      指向那一格；再喂给 `RuleCore.PlayCard` 就会**静默抹掉**外侧单位（`A1692` 的原始症状）。
@@ -381,8 +381,9 @@ public static partial class RuleEngineTest
     // ==================================================================
 
     /// <summary>
-    /// **落位判据的第五处写入点 = `SimpleAI.NextDeploySlot` 的第三支「平衡」**
-    /// （`Data/SimpleAI.cs` 的 `// ---- 3. 平衡` 那一段）。
+    /// **落位判据的第五处写入点·已收口（2026-10-26 · `E4P08` · 账行 1120）= `BoardSlots.NextSlotCheckingAdjacents` 的第三支「平衡」**
+    /// （`SimpleAI.NextDeploySlot` 现在只做「原版**有符号**格号 → 我们**绝对**格号」的换算 + 兜底出声，
+    /// 算法一行都不在自己身上；原来 `Data/SimpleAI.cs` 的 `// ---- 3. 平衡` 那一段**已搬走**）。
     ///
     /// 原版那一步就是 `GetNextSlotCheckingAdjacents.c:44` 的那一跳 `GetNextSlotWithoutDisplacing`
     /// （`MinionManager__GetNextSlotWithoutDisplacing.c:14-30`：**只比两条 `List.Count`**，
@@ -390,8 +391,11 @@ public static partial class RuleEngineTest
     /// 因为原版两侧是 `List`、结构上不可能有洞。
     ///
     /// 我们的差异（**只可能出现在非法局面上**）：
-    ///   · `CountSide` 数的是「贴督军起**连续且 `IsAlive`**」的段 ⇒ 段首那具**非空但已死**的
-    ///     单位会让它**提前停** ⇒ 裸算式 `WarlordSlot ± (count+1)` 指到**那一格（被占）**；
+    ///   · 旧实现用 `CountSide`（「贴督军起**连续且 `IsAlive`**」的段）⇒ 段首那具**非空但已死**的
+    ///     单位会让它**提前停** ⇒ 裸算式 `WarlordSlot ± (count+1)` 指到**那一格（被占）**。
+    ///     🔴 **现在**（2026-10-26）改走 `RoomOnSide` / `CountOnSide`（数**非空** —— 尸体也算占格，
+    ///     ⇒ 与原版 `List.Count` 同义），再叠 `NextFreeWithoutDisplacing` 的「不覆盖」保险
+    ///     ⇒ **本测试的两条期望值（2 / 6）与灭自证判据逐字未变**（重算过，见 `E4P08` 报告 §②-2）；
     ///   · `Board[]` 是定长数组，**自检夹具**可以直接写出洞。
     /// ⇒ 后果：`RuleCore.PlayCard` 把这个落点喂给 `BoardSlots.Insert`，有洞时降级路径落到插推
     ///   ⇒ **外侧单位被静默抹掉**（与 `A1692` / `FirstFreeSlot` 同一族）。

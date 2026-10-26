@@ -647,6 +647,14 @@ namespace CardPresentation
             //   的等价实现 —— 与上面那条链**并存**、各跑各的；同样只由 `-wfftue` / `AutoStart` 启动。
             //   判据 → `Shell/MenuTutorialManager.cs` 文件头（逐方法对照 + 本地等价物清单）。
             MenuTutorialManager.Attach(this);
+            // 🆕 **2026-10-26（B9 · P9 #430）**：≡ 原版 `MainMenuMission.Initialize()` 末尾那一跳
+            //   （`MainMenuMission__Initialize.c:11-12` 的尾调 `TrySchedulePopup()`，Slot 74）——
+            //   **进主菜单时若有可领的奖励/连登 ⇒ 自动弹那一扇窗**（原版是排进 `MenuActions`，
+            //   且只在当前窗恰好是 `MainMenuWindow` 时开火 ⇒ 这里也一样）。
+            //   ⚠️ 本行**同时**承担 `MainMenuMission.Dispose()` 那一跳（撤上一轮的句柄）——
+            //   见 `DailyData.TrySchedulePopup()` 的第一句，理由写在那里。
+            //   ⏱ 位置 = **整棵树建完之后**（原版「主菜单初始化完成」那一刻；与上面两条教程链同一拍）。
+            DailyData.TrySchedulePopup();
         }
 
         /// <summary>🆕 **2026-10-12（`A1629`）**：**常驻主菜单那一扇**（= 原版 `MainMenuWindow`）。

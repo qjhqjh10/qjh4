@@ -4895,9 +4895,18 @@ namespace RuleEngine
 
             // ---- 追加型：`<基础>, and an additional <增量> for each <计数>` ----
             // 基础 + 计数 × 增量 —— 解析阶段折好，结算层当普通一条办。
-            var add = ReAdditionalForEach.Match(low);
+            // 🔴 2026-10-26（E10TB）：**两种词序**都要认 ——
+            //   ① 数字在前：`and an additional +2 Melee`（`BL43`）
+            //   ② **名词在前**：`and an additional Armour 1`（`BL47`）
+            //   只认 ① 时 BL47 落进下面「后置 for each」那一支 ⇒ `PerCount=0` ⇒ 结算按 `TryComputeRepeats`
+            //   数出 0 遍 ⇒ **整条跳过**（连基础那一份也不结算）、附加从句还被目标短语吞掉。
+            //   判据 = 卡面原文 + `cards_truth.json` BL47 的两条 logic（`buffType 1 / armourChange 1`，
+            //   第二条带 `armourValueOptions 201` = 计数 × change）⇒ 期望 = 1 + n。
+            var add = ReAdditionalForEach.Match(low); bool reversed = false;
+            if (!add.Success) { add = ReAdditionalForEachReversed.Match(low); reversed = add.Success; }
             if (add.Success)
             {
+                // 两条正则的第 3 组**都是**计数短语（位置不变）；组 1/2 顺序相反，见 `reversed`。
                 string countRef = add.Groups[3].Value.Trim();
                 string scope, reference;
                 if (!ClassifyCount(countRef, out scope, out reference)) return false;
@@ -4906,8 +4915,8 @@ namespace RuleEngine
                 var inner = Dispatch(basePart, src);
                 if (inner.Ops == null || inner.Ops.Count == 0) return false;
 
-                int inc = int.Parse(add.Groups[1].Value);
-                string unitWord = add.Groups[2].Value.Trim();
+                int inc = int.Parse((reversed ? add.Groups[2] : add.Groups[1]).Value);
+                string unitWord = (reversed ? add.Groups[1] : add.Groups[2]).Value.Trim();
                 foreach (var o in inner.Ops)
                 {
                     // 与基础同类型的载荷才加（`+2 Melee Attack` 的增量也写 `Melee Attack`）
@@ -5028,6 +5037,14 @@ namespace RuleEngine
         /// <summary>`and an additional +2 Melee Attack for each Dark Pact on it`</summary>
         static readonly Regex ReAdditionalForEach = new Regex(
             @",?\s*and an additional\s+\+?(\d+)\s+(.+?)\s+for (?:each|every)\s+(.+)$",
+            RegexOptions.Compiled);
+
+        /// <summary>`and an additional Armour 1 for each Dark Pact on it` —— **名词在前**那一支（池内只有 `BL47`）。
+        /// ⚠️ 分组顺序与上一条**相反**：本条组 1 = 属性词、组 2 = 数字（调用点按 `reversed` 取），组 3 仍是计数短语。
+        /// 判据 = 卡面原文（`BL47 Disgustingly Resilient`）+ `cards_truth.json` 的两条 logic
+        /// （`buff{buffType 1, armourChange 1}` ＋ `buff{buffType 1, armourChange 1, armourValueOptions 201}`）。</summary>
+        static readonly Regex ReAdditionalForEachReversed = new Regex(
+            @",?\s*and an additional\s+([A-Za-z][A-Za-z ]*?)\s+\+?(\d+)\s+for (?:each|every)\s+(.+)$",
             RegexOptions.Compiled);
 
         /// <summary>

@@ -225,12 +225,12 @@ namespace RuleEngine
                 }
 
                 // ---------------------------------------------------------------- 40 damaged
-                // 原版 `:87-98`：`GetCurrentDamage >= 1` ∧ 没有「够回满的待处理治疗」；`GetCurrentDamage` =
-                // `currentMaxHealthProcessed − currentHealth`（`CardScript__GetCurrentDamage.c:6-27`），而我们 `MaxHealth`
-                // 就是那个投影（`UnitState.MaxHealth` = `ProjectMaxHealthProcessed()`）⇒ `Health < MaxHealth`；待处理治疗恒真。
+                // 原版 `FilterMethods__MeetsConditionCriteria.c:87-98`：`GetCurrentDamage() >= 1` ∧ `!EnoughPendingHealingToFull()`
+                // （`CardScript__GetCurrentDamage.c:6-27`；我们的 `MaxHealth` 就是那个投影 ⇒ `Health < MaxHealth`）。
+                // 🔴 依赖账行 841 那张表：原版 `CardScript._Heal_d__468__MoveNext.c:73-81` **治疗完成即清空** `+0x100` ⇒ 配对修（`RuleCore.HealUnit` 加一句清空）未接之前，这里会把「曾经治满过」的单位永久算成「没受伤」。
                 case 40:
                     if (u == null) return null;
-                    return u.Health < u.MaxHealth;
+                    return u.Health < u.MaxHealth && !RuleCore.EnoughPendingHealingToFull(ctx, u);
 
                 // ---------------------------------------------------------------- 50 flying
                 // 原版 `:38-45`：`(MeetsTraitCriteria(180 unstoppable) || MeetsTraitCriteria(390 flying))

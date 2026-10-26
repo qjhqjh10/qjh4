@@ -933,7 +933,17 @@ namespace CardPresentation
             parent = NodeD(parent, "Daily Login Container", card);
             Draw(parent, "40K_missions_display_Daily_vertical", card, "Daily Login Bonus Container", RewardsWindow.QPanel);
             // 🔴 **2026-10-18（音效线转来的界面缺口）：`raycast target` 命中区**（原来整张卡点了什么都不发生）。
-            AddContainerHit(parent, card, "Daily Login Container");
+            // 🆕 **2026-10-26（B9 · P9 #426/#427）就地改那一跳**：原版这张卡上的那颗钮**不是「什么都不发生」**
+            //   —— 判据 = `d:/2/tools/decomp_full/LoginBonusRewardDisplay__Setup.c`：
+            //   `this.button(0x28).onClick(0x100).AddListener(<Setup>b__0)`，而
+            //   `LoginBonusRewardDisplay.__c__DisplayClass1_0___Setup_b__0.c` 末句 =
+            //   `RewardService.Preview(AvailableRewards(progress).SelectMany(x => x.rewards))`；
+            //   `LoginBonusRewardDisplay__OnDestroy.c` 再把同一个 `UnityEvent` 的监听**全部摘掉**
+            //   （⇒ 我们这边「每次 `Build()` 重建节点」天然等价：监听跟着节点一起没）。
+            //   ⇒ 点整张登录卡 = **「本周期可领奖励一览」预览窗**（`RewardWindow` 的 Preview 态）。
+            //   ⚠️ 这一颗原来走 `AddContainerHit`（点了只打一行日志）；**替换**它，⛔ 别两颗叠在一起
+            //      （同一块矩形两颗命中区 = 谁在上面取决于队列，静默）。
+            AddPreviewHit(parent, card, "Daily Login Container", DailyData.LoginRewardSpecs);
             BuildCardHeader(parent, card, "Daily Login Bonus", DailyData.LoginTitle(), 30f, false, null);
             // ⚠️ 上面最后那个 `null` = **原版 `localize = 0` 的写死英文**（`LoginTipLiteral`）——
             //    ⛔ 别「修正」成 `Missions/Info/DailyLogin`（原版没有任何触发器用那条键，见 `LoginTipLiteral` 的 doc）。
@@ -1426,8 +1436,14 @@ namespace CardPresentation
                 //   数据源 = `DailyData.WeeklyStepTarget(i)`；`small: false` ⇒ 走周常那份 142.95×56 / fs50）。
                 var cell = UguiLayout.HorizontalChild(steps, stepW, stepW, i, 0f, stepSp);
                 // 🆕 **A389**：第 6/7 个实参 = **格号**（决定宝箱是哪一档）与 **是不是最后一档已达成的格**。
-                BuildMilestone(parent, cell, DailyData.WeeklyStepDone(i), false,
-                               DailyData.WeeklyStepTarget(i).ToString(), i, i == lastReached);
+                // 🆕 **2026-10-26（B9 · P9 #778）**：后两个实参 = `interactable` 与预览用的奖励列表 ——
+                //   可点判据照原版 `WeeklyMissionMilestone.DisplayCheckmark` 的 `value >= lastReachedMilestone`
+                //   ⇒ 我们这一侧「已达成的除最后一档之外」那几格不可点（它们已经过去），其余都可点看预览。
+                bool stepDone = DailyData.WeeklyStepDone(i);
+                BuildMilestone(parent, cell, stepDone, false,
+                               DailyData.WeeklyStepTarget(i).ToString(), i, i == lastReached,
+                               interactable: !(stepDone && i != lastReached),
+                               preview: DailyData.WeeklyRewardSpecs());
             }
 
             // `footer`（HLG sp 0）→ `Generic UI Button`  N(3, …, 3.1692,0, 294.29,74.62)
@@ -1507,6 +1523,15 @@ namespace CardPresentation
             //    ⇒ 每日任务那块右边缘一旦被 `localScale` 放大（A124），这段字会**比它的框短一截**、贴不到右边
             //    （静默：位置上仍在屏内、也不与左边的 `name` 相撞 ⇒ 现有断言一条都抓不到）。
             if (rcT != null) rcT.AlignRightOn(LayoutSpace.FromPixel(R(rc).x2, 0f).x);
+            // 🆕 **2026-10-26（B9 · P9 #530）**：`MissionsTab.RefreshRefillCount()` 的末句
+            //   `dailyMissionRefillCounter.enabled = 0 < 合计`（判据 = `MissionsTab__RefreshRefillCount.c`；
+            //   逐句读到的形状：取 `dailyMissionsHolder` 里去重后的任务、按「每条剩余重摇次数」`Math.Max(0,…)`
+            //   累加，**合计 0 就整件不显示**）⇒ 我们这一侧合计 = `DailyData.RefillCountValue()`。
+            //   ⚠️ **「剩余重摇次数」那半我们做不到、如实标注**：原版那个数是 `MissionChallengeProgress`
+            //   的服务端字段（本地 `assets_full` 0 命中）⇒ 我们取「还能重摇的条数」（`InProgress` 那几条，
+            //   ≡ 参考图上那 3）。⛔ 别为了「凑成剩余次数」编一个每格预算 —— 那会连带把重摇变成有限次。
+            //   显隐用 `SetActive(false)` 表达原版 `enabled = 0`（我们没有 `Graphic.enabled` 这条路）。
+            if (rcT != null && !DailyData.RefillCounterVisible) rcT.gameObject.SetActive(false);
         }
 
         // ============================================================ 小件
@@ -1694,6 +1719,28 @@ namespace CardPresentation
                         () => OnMissionContainerClick(who), clickCue: WindowSounds.PurchaseCue);
         }
 
+        /// <summary>🆕 **2026-10-26（B9 · P9 #426/#427）**：整块矩形的命中区 = **打开「奖励一览」预览窗**
+        /// （≡ 原版 `LoginBonusRewardDisplay.Setup` 挂到 `button(0x28)` 上的那一跳
+        /// `RewardService.Preview(progress.AvailableRewards().SelectMany(x => x.rewards))`；
+        /// 判据 → `LoginBonusRewardDisplay__Setup.c` + `…<Setup>b__0.c` + `__OnDestroy.c` 三份全文）。
+        /// <para>`specs` 走**懒取**（`Func`）：卡片是数据驱动重建的、奖励表随时会变（登录卡那两格来自
+        /// `DailyData` 的同一份 `_loginRewardArt/_loginRewardCount`）⇒ ⛔ 别在 `Build` 那一刻捕获快照
+        /// （那样表一变，预览就印旧奖励）。</para>
+        /// <para>⚠️ 与 `AddContainerHit` 二选一 —— 同一块矩形**不许同时挂两颗命中区**（谁在上面取决于队列，
+        /// 静默）；登录卡用的就是本方法（原版那颗钮是**有动作**的，不是「点了什么都不发生」）。</para></summary>
+        void AddPreviewHit(Transform parent, PxRect designCard, string who, System.Func<CampaignData.RewardSpec[]> specs)
+        {
+            _win.AddHit(parent, "Preview Rewards Hit", R(designCard), RewardsWindow.QContent - 1,
+                        () =>
+                        {
+                            var list = specs != null ? specs() : null;
+                            if (DailyData.PreviewRewards(list) == null)
+                                Debug.LogWarning("[Missions] `" + who + "/Preview Rewards Hit` 点了但**没开出预览窗**"
+                                               + "（奖励列表为空 —— 见上一行告警）");
+                        },
+                        clickCue: WindowSounds.PurchaseCue);
+        }
+
         /// <summary>点任务卡容器主体 —— 原版打开远端配置里的任务信息窗；本地没有那份数据 ⇒ 如实出声。</summary>
         void OnMissionContainerClick(string who)
         {
@@ -1833,7 +1880,8 @@ namespace CardPresentation
         /// 由 `MissionMilestonesDisplay__Setup` 用 `LastOrDefault(x =&gt; x.value &lt;= 当前值)` 算出来）。
         /// 只有它**不灰**。</param></summary>
         void BuildMilestone(Transform parent, PxRect r, bool done, bool small, string stepText,
-                            int index = 0, bool current = false)
+                            int index = 0, bool current = false,
+                            bool interactable = true, CampaignData.RewardSpec[] preview = null)
         {
             // 格子的**根节点**：名字沿用旧口径（自检按 `Milestone_on` / `Milestone_off` 计数）。
             var cell = NodeD(parent, "Milestone" + (done ? "_on" : "_off"), r);
@@ -1936,6 +1984,21 @@ namespace CardPresentation
             //   **Small 变体**的数；运行期那份是 **fs 32**（判据见本函数上面那一段），已订正。
             //   `A579` 只核了自适应范围那一栏。
             MenuDraw.SetVAlign(stepLb, Label.VAlign.Midline, tr);
+
+            // 🆕 **2026-10-26（B9 · P9 #778）**：`WeeklyMissionMilestone.DisplayCheckmark` 的**点击那一半**
+            //   （判据 = `d:/2/tools/decomp_full/WeeklyMissionMilestone__DisplayCheckmark.c` 逐句）：
+            //     · `value < lastReachedMilestone` ⇒ `checkMark.interactable = false`，**不挂监听**；
+            //     · 否则（`>=`）⇒ `interactable = true` + `RemoveAllListeners` 之后
+            //       **重挂** `delegate { RewardService.Preview(rewardsToDisplay); }`（闭包 = `b__0`）。
+            //   ⇒ 可点的格子整格一颗命中区（= 原版那颗 `checkMark` 的 `Interactable` 语义）；
+            //     ⛔ 不可点的格子**不建命中区**（点了什么都不发生 —— 与 `interactable = false` 等价）。
+            //   ⚠️ **每日骷髅卡那一份不挂**（`MissionMilestoneStep`，#495）：那一支的监听被
+            //     `previewReward` 这个开关挡着，而**全包 20+ 份 `MissionMilestoneStep` MB 的 `previewReward`
+            //     全是 0**（现读；`MissionMilestoneStep__Setup.c` 也不写它）⇒ 原版那几格**本来就没有监听**。
+            //     ⇒ `small` 那一支保持不传 `preview`（那不是缺陷，是判据本身就是空的）。
+            if (interactable && preview != null && preview.Length > 0)
+                _win.AddHit(parent, "Preview Reward", R(r), RewardsWindow.QText,
+                            () => DailyData.PreviewRewards(preview), clickCue: WindowSounds.PurchaseCue);
         }
 
         // ---- A389 用到的常量（全部是**原版字段/资产**的实读值，逐条给出处）----------------------------

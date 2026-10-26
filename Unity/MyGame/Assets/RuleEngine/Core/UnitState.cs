@@ -939,7 +939,37 @@ namespace RuleEngine
         /// </summary>
         public UnitState(CardDef card, bool isWarlord) : this(CardInstance.Detached(card), isWarlord) { }
 
-        public bool Has(string keyword) { return _keywords.ContainsKey(keyword); }
+        /// <summary>
+        /// **当前带不带这个关键词** —— 原版 `EntityScript.HasCurrentTrait(trait)` 的投影。
+        ///
+        /// 🔴 **2026-10-26（`E10TB` · P-05 ①）：补上原版的【残骸闸】，并给残骸单开一本书。**
+        /// 判据 = `decomp_full/EntityScript__HasCurrentTrait.c:1-75`（🥇 全文逐句）：
+        /// ```
+        /// if (isRemnant(+0x65) == 0 || isLeavingRemnant(+0x66) != 0) {
+        ///     CurrentTraits(+0x128) 里有 ⇒ true; 否则
+        ///     activeEffects(+0x108) 里 { buffType==3(addTrait), trait 命中 } 有 ⇒ true;
+        ///     否则 false
+        /// } else {                       // = 残骸 ∧ 不在离场窗口
+        ///     activeEffects 里 { buffType==0x5a(addTraitRemnant=90), trait 命中 } 有 ⇒ true;
+        ///     否则 false                // 🔴 **卡面印的那一份在残骸上【不算】**
+        /// }
+        /// ```
+        /// ⇒ **残骸身上的 `Has` 只认 90 档授予的**（`90` 池内 2 条：`SAU36` / `eab54e4c…`，
+        ///    卡面写法 `When … becomes a Remnant it gains …`，走 `EffectResolver` 的闸③ 唯一放行路）。
+        ///
+        /// ⚠️ **为什么需要一本书而不是只靠 `ClearAllKeywords`**：`RuleCore.CleanupDeaths` 造残骸时
+        ///   已经调过 `ClearAllKeywords`（卡面那批确实清掉了），但**之后再挂上来的**关键词
+        ///   （90 档授予 / 别的直接写点）若仍读同一本 `_keywords`，残骸就会「看得见非 90 的 trait」——
+        ///   与原版差一个闸，且**只在残骸身上现形、不报错**。⇒ `_remnantTraits` 记「残骸期间授予的」，
+        ///   `Has` 在残骸档只读它（见 <see cref="_remnantTraits"/> 的 doc）。
+        /// ⚠️ **`KwValue` 不带这个闸**（原版 `GetCurrentTraitValueWithModifiers.c:1-80` 里**没有**
+        ///   `isRemnant` 判断）⇒ 那一位保持原样，⛔ 别顺手一起改。
+        /// </summary>
+        public bool Has(string keyword)
+        {
+            if (IsRemnant && !IsLeavingRemnant) return _remnantTraits.Contains(keyword);
+            return _keywords.ContainsKey(keyword);
+        }
 
         /// <summary>
         /// 这个单位**当前**身上有哪些关键词（含加/减益、光环给的、限时增益）—— 只读。
@@ -1120,6 +1150,11 @@ namespace RuleEngine
             //   在「摘掉 reload 之后又拿到别的 trait」时**假变真**（`ConditionEval:468` 的 siege 280 会误判可装填）。
             if (_removedTraits.Count > 0) _removedTraits.Remove(keyword);
             SyncKeywordState(keyword, add);
+            // 🔴 2026-10-26（`E10TB` · P-05 ①）：**残骸期间挂上来的**另记一本（`Has` 的残骸档只读它）。
+            //   原版残骸只认 `activeEffects` 里 `buffType 90 (addTraitRemnant)` 那一条；而闸③
+            //   （`CardScript__AddEffect.c:159-170`）对残骸**只放行 90 档与生命增减**
+            //   ⇒ 「残骸期间能被挂上的 trait」就是 90 那一批 ⇒ 按「此刻是残骸」记账与逐条判 90 等价。
+            if (IsRemnant && !IsLeavingRemnant) _remnantTraits.Add(keyword);
 
             // 🔴 **D3（第三段）· §2·2 逐 trait 特例 —— 只做「池内 0 入口」那几条里还能落地的**。
             //   ⚠️ **池内现读**（`cards_truth.json`，`buffType ∈ {3,90}` 全卡扫）：`poisoned(200)` /
@@ -1248,6 +1283,7 @@ namespace RuleEngine
         {
             if (string.IsNullOrEmpty(keyword)) return;
             _keywords.Remove(keyword);
+            _remnantTraits.Remove(keyword);   // 🆕 2026-10-26（`E10TB` · P-05 ①）：残骸那本账同步摘
             if (keyword == KeywordTable.Armour) Armor = 0;
             // 🔴 **2026-10-26（第 4 轮 · `F3` 去重）**：本段原来还有**第二份**一模一样的
             //   `if (keyword == "fast" || keyword == "flank") RuleCore.RecomputeActAndAttack(this);`
@@ -1532,13 +1568,14 @@ namespace RuleEngine
                     if (kw == KeywordTable.Armour) Armor = System.Math.Max(0, Armor - n);
                     // 🔴🆕 2026-10-25（第 9 段）：**光环这一本账是直接改字典的**（不走 `RemoveAll`），
                     //   所以 `fast`/`flank` 被光环收回时**也要**重算「能动 / 能攻击」——
-                    //   判据同 `CardScript.RemoveTrait`（`flank||fast ⇒ UpdateSummonSicknessAnims`），
-                    //   与 `AddAuraKeyword` 里那一跳（`AddEffect.c:570-572`）成对。
-                    //   ⚠️ 一次性在循环外重算（一次光环收回可能同时摘好几个关键词）。
+                    //   判据同 `CardScript.RemoveTrait`（`flank||fast ⇒ UpdateSummonSicknessAnims`）。
+                    //   🔴 2026-10-27（B9 · `W18AR`）：**重算的【时机】改了** —— 本方法跑在 `Auras.Recompose`
+                    //   的 ①「整份摘掉」里、紧随其后 ③ 就把关键词**原样重挂回**；在这儿按中间态重算是回归
+                    //   （光环给的侧翼/迅捷被判成疲劳，`RE1`–`RE4`）⇒ 改走 `RequestActRecomputeAfterAuraChange`。
                     if (kw == "fast" || kw == "flank") needActRecompute = true;
                 }
                 _auraKw.Clear();
-                if (needActRecompute) RuleCore.RecomputeActAndAttack(this);
+                if (needActRecompute) RequestActRecomputeAfterAuraChange();
             }
             // 光环挂的**触发效果**也一并摘（`Beastboss on Squigosaur` 给友方野兽挂的 `Slay`）——
             // ⚠️ 只摘光环挂的那几个，`Give "💀 Backlash: …"` 那种效果挂的不动
@@ -2059,9 +2096,10 @@ namespace RuleEngine
             if (_recomputingAura) return;       // 嵌套：保留最外层的基准
             _recomputingAura = true;
             _auraHealthBefore = AuraHealthGrantTotal();
+            _auraExemptBefore = RuleCore.SummonSicknessExempt(this);   // 🆕 2026-10-27（B9·`W18AR`）：见类尾那段
         }
 
-        /// <summary>光环重算**结束** ⇒ 按前后差结算一次（+差 加血 / −差 夹到新上限 / 零差 什么都不做）。</summary>
+        /// <summary>光环重算**结束** ⇒ 按前后差结算一次（+差 加血 / −差 夹到新上限 / 零差 什么都不做）；🆕 2026-10-27（B9·`W18AR`）还负责 act 两位（只有 `fast`/`flank` 豁免**真的丢了**才重算，见类尾那段）。</summary>
         public void EndAuraRecompute()
         {
             if (!_recomputingAura) return;
@@ -2069,6 +2107,7 @@ namespace RuleEngine
             int after = AuraHealthGrantTotal();
             if (after > _auraHealthBefore) Health += after - _auraHealthBefore;
             else if (after < _auraHealthBefore) ClampHealthToMax();
+            if (_auraExemptBefore && !RuleCore.SummonSicknessExempt(this)) RuleCore.RecomputeActAndAttack(this);
         }
 
         /// <summary>
@@ -2303,7 +2342,7 @@ namespace RuleEngine
                     if (kw == "fast" || kw == "flank") needActRecompute = true;
                 }
                 _auraKw.Clear();
-                if (needActRecompute) RuleCore.RecomputeActAndAttack(this);
+                if (needActRecompute) RequestActRecomputeAfterAuraChange();
             }
             if (_auraFx.Count > 0)
             {
@@ -2544,6 +2583,543 @@ namespace RuleEngine
                 for (int i = 0; i < keys.Count; i++) RemoveAll(keys[i], silent: true);
             }
             Armor = 0;
+            // 🆕 2026-10-26（`E10TB` · P-05 ①）：残骸那本书一起清（整本摘光时它必然也空）
+            _remnantTraits.Clear();
+            // 🆕 2026-10-26（`W13EN` · 账 64）：`addTrait` 那一族**记录账**也一起清 ——
+            //   原版翻残骸时逐条 `RemoveTraitSilently`（只摘 `CurrentTraits` 那条），但
+            //   `ResetToValuesInHand` 那一路会把 `activeEffects +0x108` 整个 `List.Clear()`
+            //   （判据 = `ResetToValuesInHand.c:45-70`，`E10TB` 已按那条落地）⇒ 记录账与词条账**同生共死**。
+            _traitEffects.Clear();
+        }
+
+        // ================================================================================================
+        //  🆕 2026-10-26（`E10TB` · 完全复刻批次 9 · **P-05**）—— 残骸那一本书 ＋ 原版两个方法的等价位
+        //  判据（🥇 第一权威 · 全量反编译，逐句读过）：
+        //    · `decomp_full/EntityScript__HasCurrentTrait.c:1-75`          → `Has` 的残骸档（见 `Has` 的 doc）
+        //    · `decomp_full/CardScript__TransformFromRemnant.c:1-19`       → `TransformBackFromRemnant`
+        //    · `decomp_full/CardScript__ResetToValuesInHand.c:1-176`       → `ResetToValuesInHand`
+        //    · `decomp_full/CardScript__RemoveEffect.c:1-279`              → `RemoveEffectRecord`
+        //    · 调用链 `BattleManager__AddTransformFromRemnant.c`（`SetLeavingRemnant` + 入队 0x48）
+        //      → `BattleManager__ResolveTransformFromRemnant.c`（`TransformFromRemnant`）→ 完成回调
+        //      `BattleManager.__c__DisplayClass555_0___ResolveTransformFromRemnant_b__0.c:7-31`
+        //      （`ResetToValuesInHand(true)` → 广播 Reanimated → `SetAsUnitInPlay` → `ResetSummonSickness`
+        //       → `ActivateTraitsOnSummonOrEnchantment` → `UpdateWhileInPlay` → `CheckStun`）
+        //  ⚠️ 按本仓既有做法（先例 `B8_AX` 的类尾原语）：**原语备在这里、调用点的改动交调度台** ——
+        //     ② 与 ③ 的真身调用点都在 `Core/EffectResolver.cs`（不在本代理白名单）⇒ 改动请求见报告 §四。
+        // ================================================================================================
+
+        /// <summary>
+        /// **残骸那一本书**：这具残骸身上「**残骸期间**由 90 档（`addTraitRemnant`）授予的」关键词。
+        ///
+        /// <para>**为什么必须有第二本**：原版有两本账 —— `CurrentTraits(+0x128)`（卡面那份 ＋ 3 档授予）
+        /// 与 `activeEffects(+0x108)`（逐条效果记录），而 `HasCurrentTrait` 在**残骸档只扫
+        /// `activeEffects` 里 `buffType 90` 那一条**（`EntityScript__HasCurrentTrait.c:1-75`）。
+        /// 我们只有一本合并的 `_keywords` ⇒ 残骸分不出「哪一个是 90 档给的」⇒ 本集合专记那一批。</para>
+        ///
+        /// <para>**谁写**：<see cref="AddKeyword"/>（**且此刻 `IsRemnant &amp;&amp; !IsLeavingRemnant`**）——
+        /// 闸③（`CardScript__AddEffect.c:159-170`）对残骸只放行 `addStats` 的生命增减与 `buffType 90`，
+        /// 而前者不授 trait ⇒ 「残骸期间能被挂上的关键词」就是 90 那一批（判据只此一处）。</para>
+        /// <para>**谁清**：<see cref="RemoveAll"/>（单条）· <see cref="ClearAllKeywords"/>（整本）·
+        /// <see cref="TransformBackFromRemnant"/>（翻回时整本摘光 —— 原版翻回后 `HasCurrentTrait`
+        /// 走非残骸支、只扫 `buffType 3`，那条 90 记录**仍在 `activeEffects` 里但看不见**）。</para>
+        /// <para>**谁读**：<see cref="Has"/>（**只此一处**）。⛔ `KwValue` 不读 —— 原版
+        /// `GetCurrentTraitValueWithModifiers.c:1-80` 里**没有** `isRemnant` 判断。</para>
+        /// </summary>
+        readonly HashSet<string> _remnantTraits = new HashSet<string>();
+
+        /// <summary>
+        /// **原版 `CardScript.ResetToValuesInHand(bool clearBacklash)` 的等价位**
+        /// （`decomp_full/CardScript__ResetToValuesInHand.c:1-176` 逐句）。语义 = 「把这张在场牌**重置成
+        /// 手牌里的数值**」；原版唯一的带 `true` 调用点 = **再造/翻回**那一路
+        /// （`…_ResolveTransformFromRemnant_b__0.c:7`），所以 ① 也走它。
+        ///
+        /// <para>**逐句照抄（顺序同原版）**：
+        /// ① `activeEffects.Clear()`（`+0x108`）⇒ 我们那几本：`_statMods` / `_grants` / `_buffs` /
+        ///    `_grantedOps` / `_grantedText` / `_auraFx` / `_auraKw` / `_removedTraits` / `ExtraTriggers`；
+        /// ② `activeEnchantments.Clear()`（`+0x110`）⇒ ⚠️ **不在这里**：我们的附魔挂在
+        ///    `CardInstance.ActiveEnchantments`（`Enchantments` 那一套）⇒ 清点归调用方（改动请求 §四·2）；
+        /// ③ `questCounter(+0x270) = 0` ⇒ `Instance.QuestCounter = 0`；
+        /// ④ 单位：`currentMaxHealth(+0xa4) = 卡面血(+0x9c)` · `currentBaseMeleeAttack(+0x7c) = 卡面近战(+0xa4)` ·
+        ///    `currentBaseRangedAttack(+0x90) = 卡面远程(+0xa8)` · `currentHealth(+0x68) = currentMaxHealth` ·
+        ///    `currentArmourValue(+0xb8) = 卡面护甲(+0xa0)`；
+        /// ⑤ `attacksThisTurn(+0x48)=0` · `usedActiveAbility(+0x4c)=false` ·
+        ///    `usedActiveAbilityTimesPerTurn(+0x50)=0`；
+        /// ⑥ 摘 `jam(130)` · `stun(100)`（＋同名 effect）· `blind(975)`（＋同名 effect）· `stealth(70)`；
+        /// ⑦ 残骸档：`isRemnant=0`、`isLeavingRemnant=1`（原版 `.c:147-152` 的 `*(undefined2*)(+0x65)=0x100` ——
+        ///    **两个字节一次写**，所以翻回中间态是「不是残骸、正在离场」）；
+        /// ⑧ `stunnedAtStartOfTurn(+0x55)=false` · `removeMarkerlightAtEndOfTurn(+0x57)=false`；
+        /// ⑨ `SetBaseCardTraits()` ⇒ 卡面那批 trait 重挂（我们：`_keywords` 只留卡面）。
+        /// ⑩ 表现层那四句（`StopAnimsInPlay` / `DestroyRemnantBody` / `SetSpriteAlpha` /
+        ///    `CardHighlight.ChangeState`）我们没有那一层 ⇒ 不在这里。</para>
+        ///
+        /// <para>🔴 **原版【没做】的，我们也别做**：`companionCounter(+0x60)` / `tideCounter(+0x5C)` /
+        /// `orderInPlay(+0x44)` / `isPraying(+0x67)` **一个都不动**（`.c` 全文没碰它们）
+        /// ⇒ 两个计数器（我们的 `CardInstance.CompanionCounter` 那本）**跨翻回保留**。</para>
+        ///
+        /// <para>⚠️ **没建的两位**（如实标，铁律 2）：`currentDropPodHealth/Attack(+0xcc/+0xe0)`
+        /// 我们**没有这两个字段**（drop pod 在我们这边是关键词 `droppod` 的 `KwValue`，
+        /// 见 `CardDef.cs` 的 DropPod 那一族注释）⇒ 原版 ④ 里那两句**不搬**。
+        /// `alreadyTriggeredBacklash(+0x222)` 同样没有字段（反噬是否已触发，我们按「本回合死过」算）
+        /// ⇒ `clearBacklash` 形参**保留但今天不起作用**（留着是为了让调用点与原版形状一致）。</para>
+        /// </summary>
+        public void ResetToValuesInHand(bool clearBacklash)
+        {
+            // ① activeEffects.Clear() —— 我们那几本
+            _statMods.Clear();
+            _grants.Clear();
+            _buffs.Clear();
+            _grantedOps.Clear();
+            _grantedText.Clear();
+            _auraFx.Clear();
+            _auraKw.Clear();
+            _removedTraits.Clear();
+            ExtraTriggers.Clear();
+
+            // ③ questCounter(+0x270)
+            if (Instance != null) Instance.QuestCounter = 0;
+
+            // ④ 数值回卡面 ＋ ⑨ SetBaseCardTraits()
+            var card = Card;
+            if (card != null)
+            {
+                MaxHealthBase = card.Health;
+                AttackBase = card.Attack;
+                RangedAttackBase = card.RangedAttack;
+                _keywords.Clear();
+                foreach (var kv in card.Keywords) _keywords[kv.Key] = kv.Value;
+                Armor = KwValue(KeywordTable.Armour);
+            }
+            Health = MaxHealth;            // currentHealth = currentMaxHealthProcessed
+
+            // ⑤ 每回合那几位
+            AttacksThisTurn = 0;
+            UsedActiveAbilityThisTurn = false;
+            OathUsesThisTurn = 0;          // 原版 `+0x50 usedActiveAbilityTimesPerTurn`
+
+            // ⑥ 摘 jam / stun / blind / stealth（`RemoveTraitSilently` ⇒ 不重算「能动/能攻击」）
+            RemoveAll(KeywordTable.Jam, silent: true);
+            RemoveAll(KeywordTable.Stun, silent: true);
+            RemoveAll(KeywordTable.Blind, silent: true);
+            RemoveAll(KeywordTable.Stealth, silent: true);
+
+            // ⑧ 两个「回合开始时」的状态位
+            BlindedAtStartOfTurn = false;
+            RemoveMarkerlightAtEndOfTurn = false;
+
+            // ⑦ 残骸档：两个字节一次写 ⇒ 不是残骸、正在离场
+            if (IsRemnant)
+            {
+                IsRemnant = false;
+                IsLeavingRemnant = true;
+            }
+            _remnantTraits.Clear();        // 90 档那条记录原版仍在，但非残骸支看不见 ⇒ 整本摘
+            AuraRemnantStay = false;       // 光环那本账同属 activeEffects
+            OathTripleGranted = false;
+            OathAllTurnsGranted = false;
+        }
+
+        /// <summary>
+        /// **原版 `CardScript.TransformFromRemnant(Action onComplete)` 的等价位**
+        /// （`decomp_full/CardScript__TransformFromRemnant.c:1-19`，全文三句）。
+        ///
+        /// <para>原版这三句 = ① `*(undefined2*)(+0x65) = 0`（**一次清 `isRemnant` 与
+        /// `isLeavingRemnant` 两个字节**）② `BattleCardUI.ChangeCardToRemnant(ui, 0, …)`（表现层，
+        /// `BattleCardUI__ChangeCardToRemnant.c:1-42` **纯视觉**：销毁残骸体、显示卡面、
+        /// `HideExtraEffects` —— 里面**没有任何数值恢复**）③ `UpdateHealthText()`。
+        /// **属性不由这个方法恢复** —— 它在动作完成回调里由 `ResetToValuesInHand(true)` 恢复
+        /// （见那个方法的 doc），两条一起才是原版的「翻回」。</para>
+        ///
+        /// <para>⇒ 本方法 = ①＋（调用方紧接着要做的）`ResetToValuesInHand(true)` 一起，**原地**完成翻回。
+        /// 「原地」很重要：原版是**同一个 `CardScript` 对象**翻回来（`isRemnant` 只是两个字节），
+        /// 所以 `companionCounter` / `tideCounter` 这类**没被重置字段**天然延续；
+        /// 我们若换一个新 `UnitState`（改前的做法，`EffectResolver.DoReanimate`）就要逐个搬。</para>
+        /// </summary>
+        public void TransformBackFromRemnant()
+        {
+            ResetToValuesInHand(clearBacklash: true);   // 原版完成回调第一句（b__0.c:7）
+            // ① `*(undefined2*)(+0x65) = 0` —— 两个字节一起清（`isRemnant` + `isLeavingRemnant`）
+            IsRemnant = false;
+            IsLeavingRemnant = false;
+        }
+
+        /// <summary>
+        /// **原版 `CardEffect` 里与「按记录摘效果」相关的那几列**（只这一批 case 用得到）。
+        /// 字段偏移 = `dump.cs` 的 `CardEffect`（`+0x38 buffType` / `+0x3c trait` / `+0x48 meleeAttackChange` /
+        /// `+0x58 armourChange` / `+0x60 healthChange` / `+0x74 permanentBuff`）。
+        /// ⚠️ 我们**没有** `activeEffects` 这份列表（数值在 `_statMods` / trait 在 `_keywords` /
+        /// 附魔在 `Enchantment`）⇒ 摘「一条记录」时由调用方把这条记录的**相关列**投进来。
+        /// </summary>
+        public sealed class EffectRecord
+        {
+            /// <summary>`CardEffect.buffType(+0x38)` —— 语义见 `BuffType` 枚举（`dump.cs:45430-45462`）</summary>
+            public int BuffType;
+            /// <summary>`CardEffect.trait(+0x3c)`（`addTrait` / `addTraitRemnant` 才有）</summary>
+            public string Trait;
+            /// <summary>`CardEffect.meleeAttackChange(+0x48)`</summary>
+            public int MeleeChange;
+            /// <summary>`CardEffect.armourChange(+0x58)`</summary>
+            public int ArmourChange;
+            /// <summary>`CardEffect.healthChange(+0x60)`</summary>
+            public int HealthChange;
+            /// <summary>`CardEffect.permanentBuff(+0x74)` —— 非 0 ⇒ 这条效果**摘不掉**</summary>
+            public bool Permanent;
+        }
+
+        /// <summary>
+        /// **原版 `CardScript.RemoveEffect(CardEffect removedEffect, bool fromJam)` 的等价位**
+        /// （`decomp_full/CardScript__RemoveEffect.c:1-279`，🥇 全文逐 case 对过）。
+        ///
+        /// <para>**原版的四步**：① `permanentBuff(+0x74) != 0 ⇒ 直接 return`；
+        /// ② `activeEffects(+0x108).Remove(effect)`；③ `switch (buffType)` 的逐档收尾；④ 收尾后各自
+        /// `UpdateFigures` / `UpdateTraitIcons`。我们没有 ②（见 <see cref="EffectRecord"/> 的 doc），
+        /// ①③④ 照抄。</para>
+        ///
+        /// <para>**逐档**（`.c` 行号 = 现读）：
+        /// · `1 addStats`（`:155-192`）：`currentHealth = min(currentHealth, currentMaxHealthProcessed)`；
+        ///   `armourChange(+0x58) != 0` ⇒ `AddArmour(-armourChange)`。⇒ 我们：`ClampHealthToMax()` +
+        ///   `RemoveKeyword(armour, ArmourChange)`（护甲在我们这边**只有** `armour` 关键词一本账，
+        ///   `RemoveKeyword` 会同时减 `_keywords` 与 `Armor` 字段 —— 与 `AddArmour(-x)` 等价）。
+        /// · `2 / 10`：只 `UpdateFigures`（我们无表现层 ⇒ 无动作）。
+        /// · `3 addTrait` / `90 addTraitRemnant`（`:60-96`）：**印在卡面上就留着**；否则
+        ///   `RemoveTraitSilently(trait)`。⚠️ 原版还有两条特判（`trait==230 dropPod ⇒ RemoveDropPod`、
+        ///   `trait==610 pack ⇒ +0x358=0`）**我们没有落点**（前者在我们这边是 `RuleCore.OpenDropPod`
+        ///   那条独立机制，后者那格缓存在 `Aura.cs`）⇒ 如实留缺口，见报告 §五。
+        /// · `4 / 6 / 7 / 8 / 9 / 0xB / 0xD / 0xE`：**空档**（`.c:196-201` 只有 `break`）。
+        /// · `5 swapStats`（`:202-238`）：`ChangeBaseAttack(卡面近战)` + `ChangeMaxHealth(卡面血)` + 夹血。
+        /// · `0xC / 0xF / 0x10`（附魔）：摘 `activeEnchantments` 那条，并在
+        ///   `cardType==0x28 && spellType==0x78 && !fromJam` 时 `BroadcastQuestResolved` + `questCounter=0`
+        ///   ⇒ **不在本方法**（`Enchantment.Remove` 那一套），`fromJam` 这个形参就是给它留的。
+        /// · `0x2D(45) addStatsDropPod`（`:98-152`）：`currentDropPodHealth(+0xcc) -= healthChange(+0x60)`、
+        ///   `currentDropPodAttack(+0xe0) -= meleeAttackChange(+0x48)`。我们在这一档**只有血量那半**能落
+        ///   （drop pod 血量 = `KwValue(droppod)`）⇒ 攻击那半如实记「未建」。
+        /// · `default`（`:262-272`）：`buffType != 0x28(40 replaceAbility) ⇒ return`；40 档 =
+        ///   `hasActiveAbility(+0x220) = 卡面 hasActiveAbility(+0x2A9)` + `activeAbilityRef(+0x118) = null`。
+        ///   ⚠️ 我们的 `Ability` **恒读卡面**（`Card.Ability`，没有运行时覆盖位）⇒ 这一档
+        ///   **已经等于「重置回卡面」**，等价实现 = 无动作（如实标「形状差、净行为等价」）。</para>
+        /// </summary>
+        public void RemoveEffectRecord(EffectRecord rec, bool fromJam = false)
+        {
+            if (rec == null) return;
+            if (rec.Permanent) return;      // ① `permanentBuff(+0x74) != 0` ⇒ 摘不掉
+
+            switch (rec.BuffType)
+            {
+                case 1:                     // addStats
+                    ClampHealthToMax();
+                    if (rec.ArmourChange != 0)
+                        RemoveKeyword(KeywordTable.Armour, rec.ArmourChange);   // = `AddArmour(-x)`
+                    SyncAttackTypeAfterStatChange();
+                    break;
+
+                case 3:                     // addTrait（⚠️ 本方法拿不到「哪一条记录」⇒ 只摘词条；要按记录摘那条 addTrait 走类尾 `RemoveTraitEffect`，两处必须一起改）
+                case 90:                    // addTraitRemnant（残骸那本账也一起摘，见 RemoveAll）
+                    if (string.IsNullOrEmpty(rec.Trait)) break;
+                    if (Card != null && Card.Has(rec.Trait)) break;    // `HasDefaultTrait` ⇒ 印在卡面上，留着
+                    RemoveAll(rec.Trait, silent: true);                // `RemoveTraitSilently`
+                    break;
+
+                case 5:                     // swapStats：回卡面攻血 + 夹血
+                    if (Card != null)
+                    {
+                        AttackBase = Card.Attack;
+                        MaxHealthBase = Card.Health;
+                    }
+                    ClampHealthToMax();
+                    SyncAttackTypeAfterStatChange();
+                    break;
+
+                case 45:                    // addStatsDropPod：只有血量那半有落点（见 doc）—— // 🔶 自己设计（非原版）：drop pod 血量用 `KwValue(droppod)` 表达（原版是 `currentDropPodHealth +0xcc` 字段）· 判据拿不到：我们的 drop pod 是 `RuleCore.OpenDropPod` 那条独立机制、没有那两个字段（既有口径见 `CardDef.cs` 的 DropPod 族注释）· 调度台 E10TB 2026-10-26（照既有模型延伸，未新增口径）
+                    if (rec.HealthChange > 0) RemoveKeyword(KeywordTable.DropPod, rec.HealthChange);
+                    else if (rec.HealthChange < 0) AddKeyword(KeywordTable.DropPod, -rec.HealthChange);
+                    break;
+
+                case 40:                    // replaceAbility：我们的 Ability 恒读卡面 ⇒ 已是「重置态」
+                    break;
+
+                // 2 / 10 = 只 UpdateFigures；4/6/7/8/9/0xB/0xD/0xE = 空档；
+                // 0xC/0xF/0x10 = 附魔（Enchantment.Remove，`fromJam` 是它那一支的闸）。
+                // 以上都不动状态 ⇒ 与 `.c` 一致，⛔ 别补动作。
+                default:
+                    break;
+            }
+        }
+
+        // ================================================================================================
+        //  🆕 2026-10-26（第八十四会话 · `W13EN` · 账 64 / P-02 的 `addTrait` 半边）
+        //     **`addTrait` 的「一条实例 ＋ `traitValue`」账**（原版 `CardEffect.traitValue // +0x40`）
+        //  —— **本段全部追加在类尾**（⛔ 别插到中间的成员之间：`账/*.tsv` 按 `文件:行号` 引，插一行就漂）
+        // ================================================================================================
+        //  原版的形状（判据全在 `d:/2/tools/decomp_full/`，逐句亲读）：
+        //   · **值** = `EntityScript.GetCurrentTraitValueWithModifiers(trait)`
+        //     （`EntityScript__GetCurrentTraitValueWithModifiers.c:1-80`）：
+        //         `Σ ( activeEffects(+0x108) 里 { buffType == 3 addTrait ∧ trait(+0x3c) 命中 } 的 traitValue(+0x40) )`
+        //         ＋ 卡面那份（`CurrentTraits(+0x128)` 的 `_traitValue(+0x1c)`）。
+        //     ⇒ **记录列表才是「值」的来源**；`CurrentTraits` 只管「在不在」
+        //       （`CardScript__AddTraitSilently.c` 只建一条默认值的 `CardTrait` 并 `Linq.Any` 去重）。
+        //   · **合并** = `CardScript__AddEffect.c` 的 `case 3`（现读 `:462-570`）：新记录进来时
+        //     **倒序**扫「同 trait ∧ 同 `markOfChaosType(+0x78)` ∧ 同 `daemonHostType(+0x7c)` ∧
+        //     `CardEffect.SameTimingAsEffect`（五个 `until*` 位）∧ **两边 `extrinsic(+0x30)` 都为 0**」的旧记录：
+        //         `_stackable == add(10)`     ⇒ `旧.traitValue += 新.traitValue`（`:544`）
+        //         `_stackable == replace(0)`  ⇒ `旧.traitValue = Max(旧, 新)`（`:531-535`）
+        //         `_stackable == count(20)`   ⇒ `旧.traitValue += 1`（`:554`；新建那条先被**强置 1**，`:496`）
+        //     匹配不上 ⇒ **新建一条**记录、`traitValue` = 新的值（count 档强置 1）追加进 `+0x108`。
+        //   · `_stackable` 真值表 = `判据/CardTrait_stackable_真值表_第2轮.md`：池内 **74 add ·
+        //     1 count（`markOfChaos 330`）· 0 replace**（`berzerk`/`dodge` 没有 SO）。
+        //
+        //  🔴 **为什么要有这一层（不改 `EffectResolver` 的前提下能做什么）**：
+        //     我们把一条 `addTrait` 落地成「一路 `AddKeyword` 加值」，**没有「一条记录」这个概念** ⇒
+        //       · 多目标 / 重复 N 遍时我们做的是「N 次加值」—— **净读数与「一条记录 `traitValue = change × N`」等价**
+        //         （原版那条 `AdjustCardEffect` **只乘五对数值字段，⛔ 不碰 `traitValue(+0x40)`**，
+        //         判据 = `decomp_full/AbilityLogic__AdjustCardEffect.c:1-59` 全文本笔亲读；
+        //         `traitValue` 的 ×N 是由「同一条记录被合并 N 次」自然得到的），但**没有那条实例**可给
+        //         `RemoveEffect` 按记录摘、也答不出「这条 trait 是哪条记录、谁给的」。
+        //       · `count` 档每次 +1 这一位，`AddKeyword` 里 `IsCountStackableTrait` 已经等价实现了。
+        //     ⇒ 本层把**记录的合并语义**备好；`EffectResolver` 侧把 `addTrait` 那一路改成调
+        //       `ApplyTraitEffect(值)` 就落到「一条实例」上（**改动请求 → 报告 §五**；本写手不动 `EffectResolver`）。
+        //
+        //  ⚠️ **两本账的关系**：`_keywords` 仍是**唯一的数值读点**（`Has`/`KwValue` 全走它），
+        //     本记录账只是它的**来路**（`Σ TraitEffects` 恒 ≤ `KwValue`：卡面那份与其它授予路不在记录里）。
+
+        /// <summary>原版 `BuffType.addTrait = 3`（`dump.cs:45430-45462` 的枚举；与 <see cref="EffectRecord.BuffType"/> 同一套值）。</summary>
+        public const int BuffTypeAddTrait = 3;
+
+        /// <summary>原版 `BuffType.addTraitRemnant = 0x5a(90)`（残骸那一档；`AddEffect` 的 `case 3` 与它**共用同一个合并循环**）。</summary>
+        public const int BuffTypeAddTraitRemnant = 90;
+
+        /// <summary>原版 `CardTrait.TraitStackType.replace = 0`（`dump.cs:21302-21308`）。</summary>
+        public const int TraitStackReplace = 0;
+        /// <summary>原版 `CardTrait.TraitStackType.add = 10`。</summary>
+        public const int TraitStackAdd = 10;
+        /// <summary>原版 `CardTrait.TraitStackType.count = 20`。</summary>
+        public const int TraitStackCount = 20;
+
+        /// <summary>
+        /// 原版 `CardEffect` 里 `addTrait` 那一族的**一条记录**（`activeEffects(+0x108)` 里的一条）。
+        /// 字段偏移 = `dump.cs` 的 `CardEffect`（`+0x30 extrinsic` / `+0x38 buffType` / `+0x3c trait` /
+        /// `+0x40 traitValue` / `+0x78 markOfChaosType` / `+0x7c daemonHostType`）。
+        /// ⚠️ 我们**没有**原版那条统一的 `activeEffects` 列表（数值在 `_statMods` / trait 在 `_keywords` /
+        /// 附魔在 `Enchantment`）⇒ 这本账**只收 `addTrait` 这一族**（与 <see cref="EffectRecord"/> 同一片缺口，
+        /// 那一段的 doc 已如实标过）。
+        /// </summary>
+        public sealed class TraitEffectRecord
+        {
+            /// <summary>`CardEffect.trait(+0x3c)` —— 我们的关键词名（`KeywordTable` 那套）。</summary>
+            public string Trait;
+            /// <summary>`CardEffect.buffType(+0x38)` —— `3 addTrait` / `90 addTraitRemnant`（两边共用合并语义）。</summary>
+            public int BuffType = BuffTypeAddTrait;
+            /// <summary>`CardEffect.traitValue(+0x40)` —— **累计值**（同一条反复施加时按 `StackType` 合并）。</summary>
+            public int TraitValue;
+            /// <summary>合并语义（`CardTrait._stackable`）：`0 replace / 10 add / 20 count`。</summary>
+            public int StackType = TraitStackAdd;
+            /// <summary>`CardEffect.extrinsic(+0x30)` —— 为真 ⇒ **不与任何记录合并**（原版那条 `两边 extrinsic == 0` 的闸）。</summary>
+            public bool Extrinsic;
+            /// <summary>`CardEffect.markOfChaosType(+0x78)`（合并键之一）。</summary>
+            public int MarkOfChaosType;
+            /// <summary>`CardEffect.daemonHostType(+0x7c)`（合并键之一）。</summary>
+            public int DaemonHostType;
+            /// <summary>🔶 自己设计（非原版的数据形状）：原版合并键里的「五个 `until*` 位 + isPlayer」
+            /// （`CardEffect__SameTimingAsEffect.c` 逐句比 `+0x32..+0x36` 与 `SameIsPlayerEffect`）
+            /// 我们压成**一个位掩码**（语义相同、少 5 个字段）：bit0..4 =
+            /// `untilEndOfTurn / untilPlayerTurnStart / untilEnemyTurnStart / untilFollowingPlayerTurnStart /
+            /// untilNextAttack`，bit5 = `isPlayer`。`0` = 五个位全假（池内 `addTrait` 的绝大多数）。
+            /// · 判据：`dump.cs:119090-119099` 的 `CardEffect` 字段序 + 上面那个方法的比较链 ·
+            /// 为什么自己定：我们的效果记录没有这五列（没有 `activeEffects` 那张表）· `W13EN` 2026-10-26（承 `AB` 既有「自己设计」口径，未新增行为）</summary>
+            public int TimingBits;
+            /// <summary>谁给的（我们的日志/收回用；原版没有这一列 —— 🔶 自己设计，理由同上）。
+            /// 只为「以后按来源整份收回」留一个抓手，今天**没有消费者**。</summary>
+            public string Source;
+
+            public override string ToString()
+            {
+                return (Trait ?? "?") + "=" + TraitValue
+                     + "（buffType " + BuffType + "，stackType " + StackType
+                     + (Extrinsic ? "，extrinsic" : "") + "）";
+            }
+        }
+
+        readonly List<TraitEffectRecord> _traitEffects = new List<TraitEffectRecord>();
+
+        /// <summary>只看不写：这个人身上**由 `addTrait` 记录授予的**那批（原版 `activeEffects(+0x108)` 里
+        /// `buffType ∈ {3,90}` 那一族的对应物）。⚠️ 卡面那份与光环/手牌加成**不在**这里。</summary>
+        public IReadOnlyList<TraitEffectRecord> TraitEffects { get { return _traitEffects; } }
+
+        /// <summary>某条 trait 的**记录侧**累计值（原版 `GetCurrentTraitValueWithModifiers` 里
+        /// `Σ traitValue` 那一半；**不含**卡面那份、也不含光环/直接 `AddKeyword` 的路）。</summary>
+        public int TraitEffectValue(string trait)
+        {
+            if (string.IsNullOrEmpty(trait)) return 0;
+            int sum = 0;
+            for (int i = 0; i < _traitEffects.Count; i++)
+            {
+                var r = _traitEffects[i];
+                if (r != null && r.Trait == trait) sum += r.TraitValue;
+            }
+            return sum;
+        }
+
+        /// <summary>
+        /// 原版 `CardTrait._stackable` 的**逐 trait 真值**（判据 = `判据/CardTrait_stackable_真值表_第2轮.md`）：
+        /// 本 build 75 个有 SO 的词条里 **74 个 `add(10)`、1 个 `count(20)`（`markOfChaos 330`）、0 个 `replace(0)`**
+        /// ⇒ 这里只写死那条已实读定案的 `count`，其余一律 `add`。
+        /// ⚠️ 与 <see cref="IsCountStackableTrait"/> 是**同一条真值的两个读法** —— 这里直接调它，⛔ 别各写一张表。
+        /// </summary>
+        public static int TraitStackTypeOf(string trait)
+        {
+            return IsCountStackableTrait(trait) ? TraitStackCount : TraitStackAdd;
+        }
+
+        /// <summary>
+        /// **按原版 `CardScript__AddEffect.c` 的 `case 3` 施加一条 `addTrait`** ——
+        /// 合并进已有记录（`StackType` 决定 `+= / Max / +1`）或新建一条，
+        /// 并把**增量**落到 `_keywords`（走 <see cref="AddKeyword"/>，副作用一条不少）。
+        ///
+        /// <para>返回命中的那条记录；`null` = 这次没挂上（`AddKeyword` 拒收：毒 × 抗性那一档 ——
+        /// 原版 `.c:469-471` 也是**整支跳过、不追加记录**）。</para>
+        /// <para>⚠️ **`value &lt;= 0` 直接返回 `null`**：那属于 `removeTrait(4)` 那一族（**不在**
+        /// `AdjustCardEffect` 的 8 个 buffType 里、原版根本不乘也不记 `addTrait` 记录）⇒ ⛔ 别拿本方法做「减」。</para>
+        /// </summary>
+        /// <param name="value">**这一次施加的值**（= 原版 `CardEffect.traitValue`）。多目标 / 重复 N 遍时
+        /// 调用方**逐次调**（值不变）即可 —— 合并语义会把它们累成「一条记录 `traitValue = change × N`」，
+        /// 与原版 `AdjustCardEffect` 的 ×N 结果**等价**（那条只乘五对数值字段，⛔ 不碰 `traitValue`）。</param>
+        /// <param name="stackType">`-1` = 按 <see cref="TraitStackTypeOf"/> 现查（推荐，别手填）。</param>
+        /// <param name="timingBits">合并键之一，见 <see cref="TraitEffectRecord.TimingBits"/>。</param>
+        public TraitEffectRecord ApplyTraitEffect(string trait, int value, int buffType = BuffTypeAddTrait,
+                                                  int stackType = -1, string source = null,
+                                                  bool extrinsic = false, int markOfChaosType = 0,
+                                                  int daemonHostType = 0, int timingBits = 0)
+        {
+            if (string.IsNullOrEmpty(trait) || value <= 0) return null;
+            int stack = stackType >= 0 ? stackType : TraitStackTypeOf(trait);
+            // count 档：新建那条 `traitValue` 先被**强置 1**（`CardScript__AddEffect.c:496`）
+            int incoming = (stack == TraitStackCount) ? 1 : value;
+            TraitEffectRecord rec = null;
+            int keywordDelta = incoming;
+            if (!extrinsic)
+            {
+                rec = FindTraitEffect(trait, markOfChaosType, daemonHostType, timingBits);
+                if (rec != null)
+                {
+                    if (rec.StackType == TraitStackCount)
+                    {
+                        rec.TraitValue += 1;                     // `.c:554` —— 不看给的值
+                        keywordDelta = 1;
+                    }
+                    else if (rec.StackType == TraitStackReplace)
+                    {
+                        int nv = System.Math.Max(rec.TraitValue, incoming);   // `.c:531-535`
+                        keywordDelta = nv - rec.TraitValue;
+                        rec.TraitValue = nv;
+                    }
+                    else
+                    {
+                        rec.TraitValue += incoming;               // `.c:544`
+                        keywordDelta = incoming;
+                    }
+                }
+            }
+            // 毒 × 抗性那一档 `AddKeyword` 会拒收 ⇒ **不建记录**（原版也是整支跳过）
+            if (!AddKeyword(trait, keywordDelta)) return null;
+            if (rec == null)
+            {
+                rec = new TraitEffectRecord
+                {
+                    Trait = trait,
+                    BuffType = buffType,
+                    TraitValue = incoming,
+                    StackType = stack,
+                    Extrinsic = extrinsic,
+                    Source = source,
+                    MarkOfChaosType = markOfChaosType,
+                    DaemonHostType = daemonHostType,
+                    TimingBits = timingBits,
+                };
+                _traitEffects.Add(rec);
+            }
+            return rec;
+        }
+
+        /// <summary>
+        /// 原版合并键的匹配：同 trait ∧ 同 `+0x78` ∧ 同 `+0x7c` ∧ 同 `SameTimingAsEffect` ∧ **两边都非 extrinsic**
+        /// （`CardScript__AddEffect.c:492-568`，**倒序扫**，命中第一条即用 ⇒ 这里也倒序）。
+        /// ⚠️ 原版那个匹配循环**不要求 buffType 相同**（`case 3` 的记录与 `0x5a addTraitRemnant` 的记录
+        /// 走同一个分支，`.c:558-566`）⇒ 这里也不比 buffType。
+        /// </summary>
+        TraitEffectRecord FindTraitEffect(string trait, int markOfChaosType, int daemonHostType, int timingBits)
+        {
+            for (int i = _traitEffects.Count - 1; i >= 0; i--)
+            {
+                var r = _traitEffects[i];
+                if (r == null || r.Extrinsic) continue;
+                if (r.Trait != trait) continue;
+                if (r.MarkOfChaosType != markOfChaosType) continue;
+                if (r.DaemonHostType != daemonHostType) continue;
+                if (r.TimingBits != timingBits) continue;
+                return r;
+            }
+            return null;
+        }
+
+        /// <summary>
+        /// **按记录摘一条 `addTrait`**（原版 `CardScript__RemoveEffect.c` 的 `case 3`：从 `+0x108` 摘掉那条记录，
+        /// 再 `HasDefaultTrait ? 留着 : RemoveTraitSilently(trait)`）。
+        /// 与 <see cref="RemoveEffectRecord"/> 的 `case 3` **同一口径**（那边是「调用方把记录的相关列投进来」，
+        /// 这边是「记录本身就在我们账上」）—— ⛔ 两份必须一起改。
+        ///
+        /// <para>⚠️ **残余（如实记，不是省了）**：原版的值来自 `Σ 剩余记录`，我们只有 `_keywords` 一本账 ⇒
+        /// 摘掉一条时「同 trait 的其它记录还留着值」这一格我们**做不到**（整条摘，但**不写**「已移除」簿记 ——
+        /// `RemoveTraitSilently` 也不写）。今天零可观察：多记录只可能由本方法造出来，而 `EffectResolver`
+        /// 还没切到本方法（那条路仍是一路 `AddKeyword`）；池内 `replace` 档 trait 0 条。</para>
+        /// </summary>
+        public bool RemoveTraitEffect(TraitEffectRecord rec)
+        {
+            if (rec == null) return false;
+            if (!_traitEffects.Remove(rec)) return false;
+            if (string.IsNullOrEmpty(rec.Trait)) return true;
+            if (Card != null && Card.Has(rec.Trait)) return true;   // 印在卡面上 ⇒ 留着（原版 `HasDefaultTrait` 那一支）
+            RemoveAll(rec.Trait, silent: true);                     // `RemoveTraitSilently`
+            return true;
+        }
+
+        // ================================================================================================
+        //  🆕 **2026-10-27（B9 · 执行代理 `W18AR`）：光环重算周期内「act 两位」的重算时机**
+        //
+        //  【问题（`D1DG` 定性 · `RE1`–`RE4`）】`Auras.Recompose` / `Auras.RefreshInPlayNumericAndKeywords`
+        //    的形状都是「① 整份摘掉 → ③ 重新加回」。而 `ClearAuraGrants` / `ClearAuraNumericAndKeywords`
+        //    在 ① 里收回 `fast`/`flank` 时会调 `RuleCore.RecomputeActAndAttack`，`AddAuraKeyword` 在 ③
+        //    重挂时**不重算**（原版「光环给的关键词走哪条路」判据未定，见 `RuleCore.RecomputeActAndAttack`
+        //    的 doc）⇒ **重算一次 = 停在中间态**：光环给的 `Flank`/`Fast` 单位被重新判成疲劳。
+        //    带这类光环的 4 张卡（`AM73 Vitus Gryf` · `DA30 Ravenwing Talonmaster` · `EC8 Alluress` ·
+        //    `TAU31 Devilfish`）覆盖的单位，**部署当回合本来能攻击、一有动作就被打回不能**。
+        //
+        //  【修法（**不新增规则**）】把「要不要重算」从「中途有没有摘掉 `fast`/`flank`」改成
+        //    「**整趟重算前后豁免是否真的丢了**」：
+        //      · **重算周期内**（`_recomputingAura`，= `Auras.Recompose` / 窄口刷新）⇒ 先不重算；
+        //        由 `EndAuraRecompute` 按 `_auraExemptBefore && !现在是豁免` 补一次。
+        //        关键词是「摘了又原样挂回」⇒ 净零 ⇒ **不重算**，两位保持原值（这就是窄口刷新**不动** act 两位）。
+        //      · **不在周期里**（`RemoveAllAppliedEffectsForJam` 那条 `ClearAuraGrants` 调用）⇒ 照旧**立即**重算，
+        //        那是**真移除**（= 2026-10-25 那条判据 `flank||fast ⇒ UpdateSummonSicknessAnims` 的原意）。
+        //    ⇒ 净效果：**真丢**（光环来源离场）照旧会疲劳；**摘了又挂回**不再误判。
+        //
+        //  ⛔ **别改成「`AddAuraKeyword` 重挂时也重算」**（= 原版的另一条路）：那条判据还没查清
+        //    （`RecomputeActAndAttack` 的 doc 自己写着「光环那条路**还没查清**」）⇒ 判据不足就别走。
+        //  ⚠️ **也别把 `ActionPump.cs` 那行 `RefreshInPlayNumericAndKeywords` 注释回去** —— 它是账 669 的接线，
+        //    退回去等于撤销 `BL18` / `UM18` 的修复（`play check` 指纹会退回旧值）。
+        // ================================================================================================
+
+        /// <summary>重算周期**开始那一刻**的「召唤病豁免」快照（`fast`/`flank`；判据只此一处 =
+        /// <see cref="RuleCore.SummonSicknessExempt"/>）。结束时的比对见本段顶部说明。</summary>
+        bool _auraExemptBefore;
+
+        /// <summary>
+        /// 光环收回了 `fast`/`flank` 之后**要不要立刻**重算「能动 / 能攻击」两位。
+        /// <para>**重算周期内不重算** —— 那时关键词只是「暂时摘掉」，③ 马上会原样重挂（在周期里重算 = 按中间态误判）；
+        /// 由 <see cref="EndAuraRecompute"/> 按前后差判。**周期外**（真移除，`RemoveAllAppliedEffectsForJam`）照旧立即重算。</para>
+        /// <para>⛔ 别在调用点各写一份 `_recomputingAura` 判断 —— 判据只此一处。</para>
+        /// </summary>
+        void RequestActRecomputeAfterAuraChange()
+        {
+            if (_recomputingAura) return;
+            RuleCore.RecomputeActAndAttack(this);
         }
     }
 }

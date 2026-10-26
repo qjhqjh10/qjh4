@@ -49,7 +49,7 @@
 //  `BattleManager._ResolvePlayCardFromHand_d__447__MoveNext.c` 里是**等 `_MinionPlayedIntoField`
 //  整条协程跑完**才做的（state 6 → yield → state 7 → `LAB_1809bd825`）⇒ **后演后出**，
 //  不是「先出后演」。⚠️ 代价（如实记）：我们的引擎事件只有一条 `Deploy` ⇒ 登场那两件
-//  （`Invoke Minion Card Fade Default` + 阵营召唤法阵）也跟着挪到了落地那一拍。
+//  （`Invoke Minion Card Fade Default` + 阵营召唤法阵）也跟着挪到了落地那一拍。🆕 **2026-10-26（`B9_E3P13`）**：账 `CardScript.MinionPlayedIntoField` 的 ① `orderInPlay`（原版 `EntityScript.orderInPlay` = 召唤序号，唯一消费者是 `MinionManager.GetMinionList()` 的 `OrderBy`）在本仓的等价物 = **引擎 `UnitState.PlayOrder`**（`BattleContext.TakePlayOrder()` 在部署那一刻发号；排序消费点 `RuleCore.StableSortByPlayOrder` / `EffectResolver` 那一族）⇒ **视图侧不另存一份**（我们的棋盘次序由槽位定）——⛔ 别为它加 `CardView.inPlayOrder` 那种没人读的字段（原版有、我们无消费者 = 死数据）。
 //  ⚠️ **交接动作本身不在这里拼**：由 `BattleDriver.OnDeployHandoff` 一处给出（`Handoff.Apply`），
 //     本类只负责「在 0.4 s 调它、然后让 3D 体在竞技场空间里落下 0.2 s」（铁律 6：判据只留一处）。
 //

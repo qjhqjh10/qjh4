@@ -309,8 +309,7 @@ namespace CardPresentation
         {
             // 🔴 **2026-10-18（第五十一会话 · 对参考图）**：这里是「**N 可用**」= 当前还能做、还没领的日常条数
             //   （参考图 `奖励—布道所（每日任务）参考图.png`：三条都没领 ⇒ 印 **3 可用**）。原来写死 `0`。
-            int n = 0;
-            for (int i = 0; i < _daily.Length; i++) if (_daily[i].St == State.InProgress) n++;
+            int n = RefillCountValue();          // 🆕 2026-10-26（B9 · P9 #530）：计数收成一处，页头显隐读同一个口
             return Loc.T("Missions/RefillCount").Replace("{0}", n.ToString());
         }   // 原版占位串是 `0 Disponible`（葡语残留）；有官方键 `Missions/RefillCount` ⇒ 按词条印
 
@@ -809,8 +808,8 @@ namespace CardPresentation
         // **阵营固定取 `Goff`(20)**（prefab 出厂占位串就是 `'Orks'`，与 Goff 的英文显示名一致）。
         // 🔴 **2026-10-19（U5）**：图名/显示名**不再写死**，走 `Core/ArmyIcons`
         //   （= 原版 `IconsByArmySO` 逐字节解出的唯一一份映射；判据链在那个文件头）。
-        public static string HeaderArmyIcon() { return ArmyIcons.IconName(HeaderArmy); }
-        public static string HeaderArmyName() { return ArmyIcons.LocalizedName(HeaderArmy) ?? "Orks"; }   // 原版 prefab 占位串就是 'Orks'
+        public static string HeaderArmyIcon() { return ArmyIcons.IconName(HeaderArmyValue); }
+        public static string HeaderArmyName() { return ArmyIcons.LocalizedName(HeaderArmyValue) ?? "Orks"; }   // 原版 prefab 占位串就是 'Orks'
         public static string HeaderArmySubTitle() { return "Daily Rewards"; }   // 🔶 自己设计（非原版）：顶栏副标题 `Daily Rewards` · 原版是本地化词条、本地无 value（原版判据拿不到） · TODO(谁定的)｜原注：⚠️ 我们挑的（原版是本地化词条）
         /// <summary>本窗顶栏固定展示的阵营（见上一条注释；`CardArmy.Goff = 20`）。</summary>
         public const int HeaderArmy = 20;
@@ -1325,8 +1324,10 @@ namespace CardPresentation
         {
             if (!CanCollectWeekly()) { Say("周常还没达成，领不了"); return false; }
             _weeklyState = State.Claimed;
-            const string art = "40k_topmarquee_currency_gold";   // 🔶 自己设计（非原版）：周常奖励 500 金块 · 周常没有奖励格（原版 `Rewards` 出厂关），这一份只有这里一处（原版判据拿不到） · TODO(谁定的)｜原注：500 金块是**我们挑的**（见上面那段）
-            const int n = 500;
+            // 🆕 **2026-10-26（B9 · P9）**：这两个字面量已上移到类尾的 `WeeklyRewardArt` / `WeeklyRewardCount`
+            //   —— 预览（`WeeklyRewardSpecs`）与本处必须**同一份**（原来只在这里一处，预览要读它就得分叉）。
+            string art = WeeklyRewardArt;
+            int n = WeeklyRewardCount;
             Wallet.Grant(art, n);
             Say("周常已领取");
             ShowCollectedWindow(art, n, false);     // 🆕 A313：原版同走 `Missions.<CollectChallenge>g__OnCollectSuccess_1`
@@ -1538,6 +1539,14 @@ namespace CardPresentation
         public static void OnBattleEnd(bool win, int damageToEnemy, int troopsPlayed, int skulls, int playMode,
                                        int damageToEnemyWarlord = -1, int attacksDeclared = -1, int rangedAttacksDeclared = -1)
         {
+            // 🆕 **2026-10-26（B9 · P9 #518）**：先存「**这一局之前**哪几条已是可领」—— 差分判据。
+            //   原版那一条链（`BattleManager__FinishedProcessingMatchResult` → `Missions.UpdateMissionProgress`
+            //   → 它的异步回调 `<>c__DisplayClass14_0__<UpdateMissionProgress>b__0` → `TryShowToastNotification`）
+            //   拿的正是**更新后**那份 `missions` + `progress`；飘窗只为「刚完成」的那几条弹
+            //   ⇒ 我们在这里把「之前可领」记下来，末尾做差即得「这一局刚完成」。
+            var wasCollectable = new bool[_daily.Length];
+            for (int i = 0; i < _daily.Length; i++) wasCollectable[i] = CanCollectDaily(i);
+
             // 三张每日任务卡（🆕 2026-10-17 A2070③ 文案已照用户实拍改）：
             //   0 = Deal 45 damage to enemy warlords · 1 = Attack with units 15 times ·
             //   2 = Attack with ranged units 15 times
@@ -1569,6 +1578,16 @@ namespace CardPresentation
             // 🆕 **A429**：这一族是**落盘**的 ⇒ 一局结算这一拍是**最主要的一个写入点**，落一次
             // （⛔ 别挪进 `Advance`/`AddSkulls` —— 那会让一局写三次盘，而且「三张卡 + 骷髅」本来就是一拍改完的）。
             Persist("一局结算");
+
+            // 🆕 **2026-10-26（B9 · P9 #518）**：**任务完成飘窗** —— 这一局**刚变成可领**的每日任务各弹一条
+            //   （≡ 原版 `Missions.TryShowToastNotification`；见 `TryShowMissionToast` 的判据）。
+            // 🔴 **为什么只做每日三条**：`ToastNotifications.ShowMission(int)` 的数据源是
+            //   `DailyData` 的每日三条（`DailyDesc` / `DailyProgress01` / `DailyCounter` / `DailyRewardArt`
+            //   / `DailyRewardText`）。周常 / 骷髅 / 登录那三张卡**原版也是 `IMission`**，
+            //   但它们每一档的奖励由服务端下发（`AvailableRewards()`），本地**没有那一格数据**
+            //   ⇒ 如实不弹（⛔ 不拿卡级奖励冒充档级奖励），已记进报告。
+            for (int i = 0; i < _daily.Length; i++)
+                if (!wasCollectable[i] && CanCollectDaily(i)) TryShowMissionToast(i);
         }
 
         // ============================================================ 每日重置（A384）
@@ -2036,6 +2055,13 @@ namespace CardPresentation
                 LastStoreBytes = new System.Text.UTF8Encoding(false).GetByteCount(json);
                 Debug.Log("[Daily] 落盘（" + why + "）：`" + path + "`（" + LastStoreBytes + " B）—— " + BriefState()
                         + "。⚠️ 编辑器里这个路径在 `AppData/LocalLow` 深处（`Application.persistentDataPath`），不好找。");
+                // 🆕 **2026-10-26（B9 · P9 #431）**：≡ 原版 `MainMenuMission.UpdateSaveGame(save)`
+                //   = `base.UpdateSaveGame(save)` **+ 尾调 `TrySchedulePopup()`**
+                //   （判据 = `d:/2/tools/decomp_full/MainMenuMission__UpdateSaveGame.c:12` 那个尾调用 `[rax+0x5d8]`）
+                //   ⇒ **每次任务存档更新之后重排一次自动弹窗**。我们这一侧「存档更新」= 本方法
+                //   （`Persist` 是全部落盘点，见本文件「每日状态的落盘」那段）⇒ 挂在**写成功之后**。
+                //   ⚠️ 排队体只在当前窗是 `MainMenuWindow` 时开火 ⇒ 战斗中/别的窗上它只是挂着（与原版同）。
+                TrySchedulePopup();
             }
             catch (System.Exception e)
             {
@@ -2281,6 +2307,353 @@ namespace CardPresentation
                 var sw = w as DailyStreakPopup;
                 if (sw != null) { sw.Build(); continue; }
             }
+        }
+
+        // ============================================================ 🆕 2026-10-26（B9 · P9 / U11）
+        // **本段是 U11 那 16 条里三件事的数据侧落点**（方法体判据全部亲读
+        // `d:/2/tools/decomp_full/`，逐条标在各自的 summary 上）：
+        //   ① 进主菜单自动弹窗 —— 原版 `MainMenuMission.TrySchedulePopup()` / `Dispose()`；
+        //   ② 任务完成飘窗   —— 原版 `Missions.TryShowToastNotification(...)`；
+        //   ③ 奖励预览       —— 原版 `RewardService.Preview(...)`（挂在抽屉 / 里程碑格上）。
+        //
+        // 🔴 **为什么落在 `DailyData`**：原版那三条的宿主（`MainMenuMission` / `Missions`）在我们这一侧
+        //    没有对应类 —— 日常状态机**只有 `DailyData` 一份**（本文件头那段「单机口径」）。新造一个
+        //    「任务事件」类只会变成第二份口径（铁律 6：两处写同一条规则 = 迟早不一致）。
+        //
+        // ⚠️ **不要把 `MenuActions` 当「我们发明的排队」** —— 它是 Q3（2026-10-26）照原版建的等价物
+        //    （`Shell/LiveOpsHandler.cs` 的 `MenuActions` 类头有逐条对照）。
+
+        /// <summary>≡ 原版 `MainMenuMission.menuAction`（偏移 **0x38**）—— 排进 `MenuActions` 的那条动作的句柄，
+        /// 用来做**幂等**（已在队列里就不再排）与 `Dispose` 时撤销。
+        /// <para>🔴 **两个句柄 = 两条 mission 实例**：原版 `MainMenuMission` 是**按任务各实例化一份**的
+        /// （`DailyRewardPopup` / `DailyStreakWindow` 都是 `LiveOpsEventWindow&lt;MainMenuMission&gt;`，
+        /// 而 `MainMenuMission` **没有子类** —— `dump.cs:60340` 只有这一个具体类），每份实例的
+        /// `TrySchedulePopup` 各排自己那条 `Popup(12)`。⇒ 我们按两条轨各留一个句柄
+        /// （每日奖励轨 / 连登轨），与「每实例一个 `menuAction`」一一对应。</para></summary>
+        static MenuAction _popupActionDaily, _popupActionStreak;
+
+        /// <summary>见 <see cref="TrySchedulePopup"/> 里那段 🔶 —— **编辑期默认不排队**；自检要验这条链时
+        /// 显式把它打开（`DailyData.AutoPopupInEditor = true`），验完关掉。
+        /// ⚠️ 它只管「自动排程」这一侧；`TrySchedulePopup()` 手调时也受它管。</summary>
+        public static bool AutoPopupInEditor;
+
+        /// <summary>「现在允许排自动动作吗」—— 运行时恒真；编辑期只有显式打开才真（理由见那段 🔶）。</summary>
+        static bool SchedulingAllowed { get { return Application.isPlaying || AutoPopupInEditor; } }
+
+        /// <summary>排过几次弹窗动作（**自检读它做差分** —— 别拿「一定排过」自证）。</summary>
+        public static int PopupScheduleCount { get; private set; }
+        /// <summary>排队体真的开出过几次窗（同上，差分判据）。</summary>
+        public static int PopupOpenCount { get; private set; }
+        /// <summary>现在队列里还挂着几条本类的弹窗动作（`0` / `1` / `2`）。</summary>
+        public static int PendingPopupActions
+        {
+            get
+            {
+                int n = 0;
+                if (MenuActions.Contains(_popupActionDaily)) n++;
+                if (MenuActions.Contains(_popupActionStreak)) n++;
+                return n;
+            }
+        }
+
+        /// <summary>每日奖励轨（4 天）**有没有一格可领** —— 原版那一支的 `!challenges.All(p =&gt; !p.CanCollect())`。
+        /// <para>判据链：`MainMenuMission__TrySchedulePopup.c:42` 的 `Enumerable.All(challenges, b__11_0)`，
+        /// 谓词 `MainMenuMission.__c___TrySchedulePopup_b__11_0.c:8` = **`CanCollect(...) == 0`**
+        /// ⇒ 「全部不可领」为真 ⇒ **不排**；为假（至少一条可领）⇒ 排。
+        /// 我们这一侧的「挑战」= 每天那一格（`DailyRewardItemContainer.GetCurrentState` 的
+        /// `normal == Unlocked` 那一态 = 可领），见 <see cref="RewardStateOf"/>。</para></summary>
+        public static bool HasCollectableDailyReward
+        {
+            get
+            {
+                for (int d = 0; d < RewardDays; d++)
+                    if (RewardStateOf(d, false) == RewardState.Unlocked) return true;
+                return false;
+            }
+        }
+
+        /// <summary>连登轨**那一格可领**（`StreakRewardUnlocked(StreakCollected)`）—— 与
+        /// <see cref="HasCollectableDailyReward"/> 同一条判据形状（各自那条 mission 实例）。</summary>
+        public static bool HasCollectableStreak { get { return StreakRewardUnlocked(StreakCollected); } }
+
+        /// <summary>≡ 原版 `MainMenuMission.TrySchedulePopup()`（虚方法 Slot 74，被 `Initialize()` 与
+        /// `UpdateSaveGame()` **尾调用**；`MainMenuMission__Initialize.c:11-12` / `__UpdateSaveGame.c:12`）。
+        /// <para>**逐句对位**（`MainMenuMission__TrySchedulePopup.c`）：
+        /// ① 门：`if (!challenges.All(p =&gt; !p.CanCollect()))`（判据见 <see cref="HasCollectableDailyReward"/>）；
+        /// ② 幂等：句柄非空且**还在静态 `actions` 列表里** ⇒ 直接 return（`c:44-59` 那段
+        ///    `List.Contains` 早退）；
+        /// ③ 排队：`MenuActions.QueueAction(cb, 0,0, null, false,false,false, Array.Empty&lt;Type&gt;())`，
+        ///    返回值存回句柄（`c:61-68`）。
+        /// 🔴 **`Array.Empty&lt;Type&gt;()` 那个空 filter 不是「不筛」**：原版 `QueueAction` 内部把空表
+        ///    **改写成 `new[]{ typeof(MainMenuWindow) }`**（disasm 0x18069E413-0x18069E487，见
+        ///    `资料/日常_调用链_三窗.md` §一 A-1 第 5 行）⇒ 该动作**只在当前窗恰好是 `MainMenuWindow`
+        ///    时开火**。我们这一侧显式传 `new[]{ typeof(MainMenuWindow) }`（本仓 `MenuActions` 没有那条改写，
+        ///    传 null = 任何当前窗都行 —— 那会**在战斗里的任一一扇窗上弹日常窗**，与判据反）。
+        /// ⚠️ **调用时机**：`MainMenuRuntime.Build()` 末尾（= 主菜单整棵树建完之后，原版「主菜单初始化完成」那一刻）。</para>
+        /// <para>**改坏法**：① 删掉 `menuFilter` ⇒ 战斗里也会弹；② 删掉幂等那段 ⇒ 同一轮重建里堆两条动作
+        /// （`PendingPopupActions` 会变成 4）；③ 把门去掉 ⇒ 一条可领都没有也弹（验收第 ②' 条）。</para></summary>
+        public static bool TrySchedulePopup()
+        {
+            // = 原版 `Dispose()`（`MainMenuMission__Dispose.c`：`List.Remove(this.menuAction)`）在我们这一侧的
+            //   **等价时点** —— 本方法只在「主菜单重建」这一拍被调，那一刻上一轮那份 mission 实例已经没了
+            //   ⇒ 先撤旧句柄、再按新状态排（否则旧句柄会被 `Contains` 判成「已排过」而**永远不再弹**）。
+            ReleasePopupActions();
+
+            // 🔶 自己设计（非原版）：编辑期默认**只撤句柄、不排队**（`AutoPopupInEditor` 可显式打开） · 原版没有「编辑期」
+            // 这个概念、判据为空；但**必须有这道闸** —— 自检宿主（`MainMenuScene.Run` / `ShellScene.Run`）在同一个进程里
+            // 反复 `Build()` + 开关窗，而 `MenuActions.actions` 是**静态**的、跨节存活 ⇒ 不闸的话一条「等
+            // `MainMenuWindow` 的动作」会在**后面某一节**突然开一扇奖励窗，把不相干的断言打红
+            // （同族先例 = `MenuTutorialFlow.Attach` 的 `Application.isPlaying` 闸） · 调度台 2026-10-26
+            if (!SchedulingAllowed) return false;
+
+            bool any = false;
+            if (HasCollectableDailyReward)
+            {
+                _popupActionDaily = MenuActions.QueueAction(
+                    OpenDailyRewardPopupScheduled, ActionRule.DontBlock, 0, null, false, false, false,
+                    new[] { typeof(MainMenuWindow) });
+                any = true;
+            }
+            if (HasCollectableStreak)
+            {
+                _popupActionStreak = MenuActions.QueueAction(
+                    OpenDailyStreakPopupScheduled, ActionRule.DontBlock, 0, null, false, false, false,
+                    new[] { typeof(MainMenuWindow) });
+                any = true;
+            }
+            if (any) PopupScheduleCount++;
+            return any;
+        }
+
+        /// <summary>≡ 原版 `MainMenuMission.Dispose()`（`MainMenuMission__Dispose.c` 末句
+        /// `System_Collections_Generic_List.Remove(actions, menuAction)`）—— **按句柄撤销**。
+        /// 重复调用安全（`ReleaseAction` 就是 `List.Remove`）。</summary>
+        public static void ReleasePopupActions()
+        {
+            if (_popupActionDaily != null) MenuActions.ReleaseAction(_popupActionDaily);
+            if (_popupActionStreak != null) MenuActions.ReleaseAction(_popupActionStreak);
+            _popupActionDaily = null;
+            _popupActionStreak = null;
+        }
+
+        /// <summary>排队体 ≡ 原版 `MainMenuMission.&lt;TrySchedulePopup&gt;b__11_1()`
+        /// （`MainMenuMission___TrySchedulePopup_b__11_1.c`）—— **先重检一次**（这次读裸字段，谓词
+        /// `__c___TrySchedulePopup_b__11_2.c` = `canCollect == 0`），通过才
+        /// `GetComponentReference(mission, 0xC = Popup)` + `WindowsManager.OpenWindow(ref, mission, 0, 0)`。
+        /// <para>⚠️ **`0xC` 那一跳我们做不到、如实标注（铁律 3）**：`Popup` 槽存的是**远端 CCD 下发的
+        /// GUID**（主菜单任务那几份 SO 不在 `assets_full` 里 —— 全树搜两张窗 prefab 的 GUID
+        /// `3d3e5e00…` / `d67d1b71…` **0 命中**，只有 menus 包的容器表里有）⇒ 我们按**窗类直建**
+        /// （`WindowsManager.OpenByRef` 用 prefab 根名做缓存键，等价于原版 `automaticallyLoadedWindows`
+        /// 命中复用那一套）。</para></summary>
+        static void OpenDailyRewardPopupScheduled()
+        {
+            if (!HasCollectableDailyReward) return;                    // ← 原版那句「再判一次」
+            PopupOpenCount++;
+            WindowsManager.OpenByRef("Daily Reward Popup",
+                                     m => DailyRewardPopup.Create(m), false);   // closeAll = 原版第 3 实参 0
+        }
+
+        /// <summary>连登轨那条排队体（与上面同形；窗 = `Daily Streak Popup`）。</summary>
+        static void OpenDailyStreakPopupScheduled()
+        {
+            if (!HasCollectableStreak) return;
+            PopupOpenCount++;
+            WindowsManager.OpenByRef("Daily Streak Popup",
+                                     m => DailyStreakPopup.Create(m), false);
+        }
+
+        // ------------------------------------------------------------ ② 任务完成飘窗（#518）
+
+        /// <summary>≡ 原版 `Missions.TryShowToastNotification(missions, missionChallengeProgress)`
+        /// （`Missions__TryShowToastNotification.c` 逐句）：
+        /// <code>
+        /// var d = new DisplayClass { missions, progress };
+        /// if (instance.&lt;bool@0x1b0&gt; == 0) ShowToastNotification(d.missions, d.progress, 0);   // 不在战斗 ⇒ 立刻弹
+        /// else MenuActions.QueueAction(delegate { ShowToastNotification(d.missions, d.progress, 0); }, …); // 战斗中 ⇒ 排队
+        /// </code>
+        /// <para>🔴 **两支合成一条**：两支的差别只有「现在弹 / 回主菜单弹」，而我们的
+        /// `MenuActions.QueueAction` + `MainMenuWindow` filter **在菜单里会当场 drain、在战斗里会等到
+        /// 回主菜单**（判据 = 本仓 `MenuActions.CanTriggerNow` 的「有当前窗且类型在 filter 里」那两句）
+        /// ⇒ 传 filter 的那一条**与两支观测等价**，不必再自己判「是不是在战斗」。
+        /// ⚠️ 战斗里那一刻 `currentWindow` 到底是谁本地查不到（原版那个 `0x1b0` 字段名也没有产物可读）
+        /// —— 这一条是**我们的落地**，写在报告里。</para>
+        /// <para>触发点 = <see cref="OnBattleEnd"/>（原版 = `BattleManager__FinishedProcessingMatchResult`
+        /// → `Missions.UpdateMissionProgress`，`grep -rl Missions__UpdateMissionProgress` 命中它）。</para></summary>
+        static void TryShowMissionToast(int dailyIndex)
+        {
+            int idx = dailyIndex;
+            // 与 `TrySchedulePopup` 同一道闸（理由见那段 🔶：静态 `MenuActions` 会跨自检小节存活）。
+            // ⚠️ **出声** —— 红线是不许静默失败，所以「没排」这件事要留一行。
+            if (!SchedulingAllowed)
+            {
+                Debug.Log("[Daily] 任务完成的飘窗**没有排**（编辑期默认不排自动动作；"
+                        + "要验这条链先置 `DailyData.AutoPopupInEditor = true`）—— 任务 " + (idx + 1));
+                return;
+            }
+            var a = MenuActions.QueueAction(() => ToastNotifications.ShowMission(idx),
+                                            ActionRule.DontBlock, 0, null, false, false, false,
+                                            new[] { typeof(MainMenuWindow) });
+            // 🆕 **2026-10-26（B9 · P9 #518）**：留句柄只为**自检收尾能撤**（原版那一条是临时动作、
+            //   没有撤销口 —— 我们多这一份纯粹是「别把动作漏进后续自检小节」）。
+            if (a != null)
+            {
+                for (int i = _toastActions.Count - 1; i >= 0; i--)
+                    if (!MenuActions.Contains(_toastActions[i])) _toastActions.RemoveAt(i);
+                _toastActions.Add(a);
+                MissionToastQueuedCount++;
+            }
+        }
+
+        /// <summary>飘窗排过几条（自检差分判据；`ReleaseMissionToastActions()` **不会**把它减回去）。</summary>
+        public static int MissionToastQueuedCount { get; private set; }
+
+        /// <summary>还挂着的任务飘窗动作句柄（只为自检收尾 —— 见 `TryShowMissionToast` 末段）。</summary>
+        static readonly System.Collections.Generic.List<MenuAction> _toastActions =
+            new System.Collections.Generic.List<MenuAction>();
+
+        /// <summary>撤掉所有还挂着的任务飘窗动作（**自检收尾用**）。重复调用安全。</summary>
+        public static void ReleaseMissionToastActions()
+        {
+            for (int i = 0; i < _toastActions.Count; i++) MenuActions.ReleaseAction(_toastActions[i]);
+            _toastActions.Clear();
+        }
+
+        // ------------------------------------------------------------ ③ 奖励预览（#426/#427/#495/#778）
+
+        /// <summary>≡ 原版 `RewardService.Preview(rewards, …)` —— **「你将得到」那一态**。
+        /// <para>判据：`RewardService__Preview.c` 与 `Collect` 共用同一个 `RewardWindowContext` ctor，
+        /// 只差 `isPreview = 1`（全文 → `Shell/RewardWindow.cs` 的 `ShowPreview` doc）。
+        /// 原版的**三个触发者**：抽屉（`DailyRewardDrawerController.Initialize` 里
+        /// `if (1 &lt; rewards.Count)`）· 每日里程碑格（`MissionMilestoneStep.&lt;DisplayCheckmark&gt;b__0`）·
+        /// 周常里程碑格（`WeeklyMissionMilestone.&lt;DisplayCheckmark&gt;b__0`）——后两个都是
+        /// **同一个 lambda 的 ICF 折叠副本**（字节相同）。</para>
+        /// <para>⛔ **不编奖励**：列表为空 ⇒ 出声、不开窗（红线：不许静默失败，也不许假装有奖励）。</para></summary>
+        public static RewardWindow PreviewRewards(CampaignData.RewardSpec[] rewards, bool premiumLocked = false)
+        {
+            if (rewards == null || rewards.Length == 0)
+            {
+                Debug.LogWarning("[Daily] 奖励预览：**这一格没有奖励数据** ⇒ 不开窗"
+                               + "（原版那些奖励由服务端下发；⛔ 不编一条假的顶上）");
+                return null;
+            }
+            return RewardWindow.ShowPreview(rewards, RefreshOpenDailyWindows, premiumLocked);
+        }
+
+        /// <summary>登录卡的奖励列表（两格）—— `CollectLogin` 发的那**同一份**
+        /// （`_loginRewardArt` / `_loginRewardCount`，⛔ 别在预览里另拼一张表）。
+        /// 用于 `LoginBonusRewardDisplay.Setup` 挂的那颗「看本周期可领奖励」按钮（#427）。</summary>
+        public static CampaignData.RewardSpec[] LoginRewardSpecs()
+        {
+            var specs = new CampaignData.RewardSpec[_loginRewardArt.Length];
+            for (int i = 0; i < specs.Length; i++)
+                specs[i] = new CampaignData.RewardSpec(_loginRewardArt[i], _loginRewardCount[i], CampaignData.TierBasic);
+            return specs;
+        }
+
+        /// <summary>骷髅卡的奖励（一份）—— `CollectSkulls` 发的同一份。</summary>
+        public static CampaignData.RewardSpec[] SkullsRewardSpecs()
+        {
+            return new[] { new CampaignData.RewardSpec(SkullsRewardArt(), SkullsRewardCount(), CampaignData.TierBasic) };
+        }
+
+        /// <summary>周常卡的奖励（一份）—— `CollectWeekly` 发的同一份（⛔ 别在预览里另写一个 500）。</summary>
+        public static CampaignData.RewardSpec[] WeeklyRewardSpecs()
+        {
+            return new[] { new CampaignData.RewardSpec(WeeklyRewardArt, WeeklyRewardCount, CampaignData.TierBasic) };
+        }
+
+        /// <summary>第 `i` 条每日任务的奖励（一份）—— `CollectDaily` 发的同一份。</summary>
+        public static CampaignData.RewardSpec[] DailyTaskRewardSpecs(int i)
+        {
+            var t = At(i);
+            return new[] { new CampaignData.RewardSpec(t.RewardArt, ParseCount(t.RewardText), CampaignData.TierBasic) };
+        }
+
+        /// <summary>每日奖励轨上第 `day` 天、普通那条抽屉的奖励（一份；`Premium` 那条单机恒锁、不预览）。
+        /// 与 `CollectReward` 同源。</summary>
+        public static CampaignData.RewardSpec[] DailyTrackRewardSpecs(int day, bool premium)
+        {
+            return new[] { new CampaignData.RewardSpec(RewardIconOf(day, premium), RewardAmount(day, premium),
+                                                       premium ? CampaignData.TierPremium : CampaignData.TierBasic) };
+        }
+
+        /// <summary>🆕 **2026-10-26（B9 · P9 #530）**：页头 `Refill Counter` 该不该显示 ——
+        /// 原版 `MissionsTab.RefreshRefillCount()` 末句 `dailyMissionRefillCounter.enabled = 0 &lt; 合计`
+        /// （`MissionsTab__RefreshRefillCount.c`）⇒ **合计为 0 时整件不显示**。
+        /// <para>合计 = 当前还能重摇的条数（`InProgress` 那几条）—— 见 <see cref="RefillText"/> 的注释：
+        /// 原版数的是「每条任务**剩余重摇次数**之和」，那个字段是**服务端下发的**
+        /// （`MissionChallengeProgress` 的剩余重摇数，本地 `assets_full` 0 命中）⇒ 我们这一侧
+        /// 「剩余次数」无界，取「还能重摇的条数」等价（≡ 参考图上那 3）。</para></summary>
+        public static bool RefillCounterVisible { get { return RefillCountValue() > 0; } }
+
+        /// <summary>`Refill Counter` 那个数（= <see cref="RefillCounterVisible"/> 的判据源，自检也读它）。
+        /// ⛔ 别在 `MissionsTab` 里再数一遍（「两处写同一条规则 = 迟早不一致」）。</summary>
+        public static int RefillCountValue()
+        {
+            int n = 0;
+            for (int i = 0; i < _daily.Length; i++) if (_daily[i].St == State.InProgress) n++;
+            return n;
+        }
+
+        /// <summary>🆕 **2026-10-26（B9 · P9 #530）**：周常奖励的**唯一来源**（`CollectWeekly` 与预览共用）。
+        /// 🔶 自己设计（非原版）：周常奖励 = 500 金块 · 原版周常卡的 `Rewards` 出厂 `activeSelf = false`、
+        /// 那一份奖励由服务端下发（本地判据为空）⇒ 数额是我们挑的 · 用户 2026-09-17（「不做真实经济」）｜
+        /// 原注：原来这两个字面量写在 `CollectWeekly` 方法体里，预览接上后必须收成一处。</summary>
+        public const string WeeklyRewardArt = "40k_topmarquee_currency_gold";
+        /// <summary>见 <see cref="WeeklyRewardArt"/>。</summary>
+        public const int WeeklyRewardCount = 500;
+
+        // ------------------------------------------------------------ ④ 顶栏阵营（#91 / #92）
+
+        /// <summary>顶栏当前阵营 —— ≡ 原版 `CampaignHandler.SelectedArmy`
+        /// （`DailyRewardPopup__Open.c` 读 `LiveOpsManager.GetHandler&lt;CampaignHandler&gt;().&lt;int@0x7C&gt;`；
+        /// `SetArmy` 那一跳写的就是它）。出厂 = `HeaderArmy`（Goff / 20 —— 奖励窗 prefab 的占位串就是 `'Orks'`）。
+        /// <para>⚠️ **持久化没做、如实标注（铁律 3）**：原版那是**玩家账户**里的字段（PlayFab 存档），
+        /// 本机没有账户存档 ⇒ 只在**本次进程内**保持（重启回 `20`）。要落盘得往 `StoreDto` 加一格，
+        /// 而那属于「账户/云存档」那条线（不在本件）。</para></summary>
+        static int _headerArmy = HeaderArmy;
+
+        /// <summary>`DailyRewardPopup` 顶栏现在画哪个阵营（`ArmyIcons.Entry.Army` 的取值域）。</summary>
+        public static int HeaderArmyValue { get { return _headerArmy; } }
+
+        /// <summary>≡ 原版 `DailyRewardPopup.SetArmy(CardArmy)` + `RefreshOnArmyChange(CardArmy)`
+        /// （`DailyRewardPopup__SetArmy.c` / `__RefreshOnArmyChange.c` 两份全文）：
+        /// ① `CampaignHandler.SetSelectedArmy(army)` ⇒ 我们写 <see cref="_headerArmy"/>；
+        /// ② 顶栏两颗按新阵营改写（`ArmyIcons.LocalizedName` / `IconName` 就是原版
+        ///    `ArmyUtilities.GetLocalizedArmyName` / `GetArmyIcon` 的等价物，判据见 `Core/ArmyIcons.cs` 头）；
+        /// ③ `rewardsTrack.RefreshData(mission, refreshAll: true)` ⇒ **调用方重建整扇窗**
+        ///    （本仓两扇日常窗一律「数据驱动 + `Build()` 现算」，同 `RewardWindow` 关窗后的那一次刷新）。
+        /// <para>⚠️ 认不出的阵营**不换**并出声 —— 原版 `armyIcons.GetArmyIcon` 对 `Neutral(0)` 返回 null，
+        /// 顶栏会空一块；我们不让那一态发生（选择条只列 `IconsByArmySO` 里那 13 个）。
+        /// ⚠️ 同阵营再点 ⇒ **不改**（原版 `ChangeSelectedArmy` 的早返回，`c:30-33`）。</para>
+        /// <para>**返回值** = 有没有真的换（`true` = 值变了，调用方才需要重建）。</para></summary>
+        public static bool SetHeaderArmy(int army)
+        {
+            ArmyIcons.Entry e;
+            if (!ArmyIcons.TryGet(army, out e))
+            {
+                Debug.LogWarning("[Daily] 换阵营：`" + army + "` 不在 `IconsByArmySO` 那 13 条里 ⇒ **不换**"
+                               + "（原版那一格取不到图、顶栏会空一块）");
+                return false;
+            }
+            if (_headerArmy == army) return false;              // 原版 `ChangeSelectedArmy` 的早返回
+            _headerArmy = army;
+            Debug.Log("[Daily] 顶栏阵营已切到 `" + e.Faction + "`（" + army + "）"
+                    + " —— 原版这一跳 = `CampaignHandler.SetSelectedArmy` + `RefreshOnArmyChange`");
+            return true;
+        }
+
+        /// <summary>`Army Selector` 的候选列表 —— ≡ 原版 `FeatureConfig.GetValidArmies()`。
+        /// 🔶 自己设计（非原版）：候选 = `IconsByArmySO` 那 13 个阵营**全列** · 原版按远端 `FeatureConfig` 的开关筛
+        /// （`FeatureConfig__GetValidArmies.c` = `ConfigManager.GetConfig&lt;FeatureConfig&gt;()` + `Enum.GetValues(CardArmy)`
+        /// 过滤），那份配置在**远端 CCD**、本地 `assets_full` 0 命中 ⇒ 只能全列 · 调度台 2026-10-26
+        /// ⚠️ 它与 `HeaderArmyIcon/Name` 是**同一份数据的两个读口**（同一个 `ArmyIcons` 表），⛔ 别各自维护一份。</summary>
+        public static int[] ValidArmies()
+        {
+            var all = ArmyIcons.All;
+            var ids = new int[all.Length];
+            for (int i = 0; i < all.Length; i++) ids[i] = all[i].Army;
+            return ids;
         }
     }
 

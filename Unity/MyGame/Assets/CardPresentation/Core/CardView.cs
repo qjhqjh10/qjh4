@@ -2642,9 +2642,9 @@ namespace CardPresentation
             // 只要这一拍是「盖残骸体」，就取消挂起的撤场（否则 `From Remnant` 到点会把刚盖上的藏掉）
             CancelRemnantHide();
 
-            // 关掉原卡卡身（原版 `ToggleBody3D(false)`）。2D 立绘此时一定已经是关的（场上是 3D 形态）
-            if (_body3D != null) Show(_body3D, false);
-            if (_art != null) Show(_art, false);
+            // 关掉原卡卡身（原版 `ToggleBody3D(false)`）。2D 立绘此时一定已经是关的（场上是 3D 形态）· ⚠️ HUD:153：悬停/战斗预览那一拍正把原卡卡身亮着（`ShowOriginalRemnantCard(true)`）⇒ 这一关要跳过，否则每次 `SyncBoard` 都会把刚亮出来的卡身**静默关回去**（两处开关互相覆盖）
+            if (_body3D != null && !_originalRemnantCardShown) Show(_body3D, false);
+            if (_art != null && !_originalRemnantCardShown) Show(_art, false);
             // 🆕 2026-09-29：原版 `CreateRemnantBody` **就在这一步**调 `SetRemnantHighlight` ⇒ 出生时先把
             // 当前那一档的状态色刷上去（不刷的话它会停在内建的 `(0,1,1,0)` 上 = 看着像「永远不亮」）。
             SetRemnantLight(CardHighlight.FrameColorOf(State));
@@ -2755,7 +2755,7 @@ namespace CardPresentation
         /// —— `SetRemnantBody(true, …)` 把它关了，这里不恢复的话，那一格会**只剩残骸体、撤掉之后变成空白**（静默）。</para>
         void HideRemnantBodyNow()
         {
-            _remnantHideAt = -1f;
+            _remnantHideAt = -1f; _originalRemnantCardShown = false;   // HUD:153：撤残骸 ⇒ 原卡预览态一并清（否则下次 `SetRemnantBody` 会跳过「关卡身」那一句）
             _remnantHideClock = 0f;
             if (_remnantBody != null) _remnantBody.SetActive(false);
             if (_body3D != null) Show(_body3D, _faceMode == CardFace.Board);
@@ -5003,7 +5003,7 @@ namespace CardPresentation
             float descFont = (unit ? KeywordFontSize : TacticKeywordFontSize) * kwScale;
             //    ⚠️ `bottomAlign = false` ⇒ 走 `PlaceAt`（块中心摆到 `descAt01`），**与原版 Middle 对齐同构**；
             //       改成 `true` 就是退回「下沿对齐」那个已被真机否掉的旧口径。
-            _keywords = Fill(_keywords, "keywords", d.keywords, descAt01, descW, descFont,
+            _keywords = Fill(_keywords, "keywords", DescTextWithSuffix(d.keywords), descAt01, descW, descFont,
                              InkDesc, true, descH, false, DescLineSpacing, unit ? 0f : DescParaSpacing,
                              face: TmpFont.Face.LatinCardBody, outline: TmpFont.TextOutline.Body);
                              // 原版 `DescTextUnit*` = Pragati（§2·5）；描边在拟合之前贴，见 `Fill` 里那段
@@ -5244,7 +5244,7 @@ namespace CardPresentation
                 float h = tactic ? TacticDescBigH : UnitDescBigH;
                 float em = tactic ? TacticDescBigEm : UnitDescBigEm;
                 float ps = tactic ? TacticDescBigPara : 0f;
-                _keywords = Fill(_keywords, "keywords", d.keywords, at, BigTextW,
+                _keywords = Fill(_keywords, "keywords", DescTextWithSuffix(d.keywords), at, BigTextW,
                                  TmpFont.FontSizeForEm(TmpFont.Face.LatinCardBody, em), InkDesc, true, h, false,
                                  BigLineSpacing, ps, face: TmpFont.Face.LatinCardBody,
                                  outline: TmpFont.TextOutline.Body);
@@ -6940,7 +6940,7 @@ namespace CardPresentation
                 Debug.LogWarning("[CardView] 取不到原版 `Noise Combined`（`Art/card_sdf/cardback_noise`）"
                                + " ⇒ `_DissolveTex` 落回 shader 默认值（**与原版不同**，不静默）");
             }
-            _dissolveMat.SetFloat("_DissolveAmount", 0f);
+            _dissolveMat.SetFloat("_DissolveAmount", 0f); ApplyDissolveVariant(_dissolveMat);   // HUD:108：建出来就按当前档（传说/普通）贴好那两项颜色 + 材质名，见类尾
             _dissolveAmount = 0f;
             return _dissolveMat;
         }
@@ -6985,7 +6985,7 @@ namespace CardPresentation
         /// <summary>换上溶解材质并把 `_DissolveAmount` 归 0（原版那条路的起点）。返回 false = 做不了。</summary>
         public bool BeginDissolve()
         {
-            var m = DissolveMaterial();
+            var m = BeginDissolveMaterial();   // HUD:108：原版 `ChooseDissolveMaterial()`（传说档 = 那两项颜色 + 材质名，见类尾）
             if (_body3D == null || m == null) return false;
             if (_body3D.sharedMaterial != m) _body3D.sharedMaterial = m;
             SetDissolveAmount(0f);
@@ -14407,7 +14407,7 @@ namespace CardPresentation
         {
             get
             {
-                if (_boardHighlight == null) _boardHighlight = new CardHighlight.CardBoardHighlight(this);
+                if (_boardHighlight == null) { _boardHighlight = new CardHighlight.CardBoardHighlight(this); _boardHighlight.ShowOriginalRemnantCard = v => ShowOriginalRemnantCard(v); }   // HUD:153：原版那个回调 `BattleCardUI(+0x290)` 由卡自己实现 ⇒ 在这里接上（钩子声明 `CardHighlight.cs:501`，三处调用 `:642`/`:662`/`:698`；⛔ 不必改 CardHighlight.cs）
                 return _boardHighlight;
             }
         }
@@ -14451,5 +14451,305 @@ namespace CardPresentation
             _rim.enabled = true;
             ApplyRimColor(CardHighlight.FrameColorOf(CardHighlightState.Normal), 0f);
         }
+
+        // ==================================================================
+        //  🆕 2026-10-26（`B9_E3P13`）：原版 `BattleCardUI.StopAnimsInPlay()` 的等价口
+        //  （账 `CardScript.StopAnimsInPlay`；原版 10 个调用点全在「离场 / 重置」那一族：
+        //   `SendToCemetery` · `MoveToDeck` · `ResetToValuesInHand` · `MoveBackToHand` · `RemoveFromGameCard` ·
+        //   `ReactToUnitJammed` · `DestroyCard` · `DestroyCardOffensive` · `TransformUnitInPlayToCard` · `UnitDeath`）
+        // ==================================================================
+        //  判据（🥇 `decomp_full/BattleCardUI__StopAnimsInPlay.c` 全文，2026-10-26 亲读）：
+        //    ① `CleanStatusAnims(true)` —— 停「状态图标」那一族动画；
+        //    ② 倒序遍历 `+0x258` 那个 `List`，逐件 `DestroyImmediate`；随后 `Destroy(+0x260)` 那一件；
+        //    ③ 清表（`+0x1c` 版本号 +1、`+0x18` = 0、`Array.Clear`）。
+        //  ⇒ 语义 = 「把这张卡身上那批**过渡对象**全销毁」，**不是**「复位到某个位姿」。
+        //  ⚠️ 我们这侧没有那批「过渡对象」：我们的过渡**就是 DOTween 补间本身**（没有可 Destroy 的临时件）。
+        //     ⇒ 等价物 = 把这些补间**就地停掉**，并把「停在半路会难看」的两处显式落回**稳态**（见方法里的 ②）。
+
+        /// <summary>停掉这张卡（含各层）上**正在播**的补间，并把两处「停在半路会现形」的落到稳态。
+        /// <para>🔶 **自己设计（非原版）**：原版是「销毁那批过渡对象」，我们销毁不了补间之外的东西 ⇒
+        /// 由我们定「停在哪一态」：① 卡内每个 Transform `DOKill()`；② 数值格**直接**落到稳态
+        /// （该亮的那两格按 `AttackScaleModifier` 亮、其余回基准，底光按 `OwnAttackType` 开关）——
+        /// 因为高亮补间被 ① 杀掉后会**停在放大一半**，那正是「停在半路」这一类缺陷。调度台 2026-10-26 定。</para>
+        /// <para>🔴 **两个已知边界（⛔ 都是「不许静默」的）**：
+        /// ① **没有 target 的 `DOTween.To`**（整卡 `SetAlpha` / 数值涨落色 `_statFlash` 那类）**杀不掉**
+        ///    —— 它们不进 `DOTween.IsTweening(Transform)`。需要一并停的调用点自己 `SetAlpha(1)`。
+        /// ② ⛔ **别在 `DeploySequence.Play` 的飞行途中调它**：那条序列的 `OnComplete` 就是
+        ///    「引擎真正出牌」（`BattleDriver.OnCardDeployed` → `DoPlay`）—— 杀掉它 = **这张牌永远不出**
+        ///    （静默、且不回滚）。原版那 10 个调用点全在离场侧，所以按「离场 / 重置」用是对的。</para></summary>
+        public void StopInPlayAnims()
+        {
+            var trs = GetComponentsInChildren<Transform>(true);
+            for (int i = 0; i < trs.Length; i++)
+                if (trs[i] != null) trs[i].DOKill();
+
+            for (int s = StatMelee; s <= StatHealth; s++)
+            {
+                _statScaleTween[s] = null;
+                var mr = _stats[s];
+                if (mr == null || _statBase[s].sqrMagnitude <= VectorZeroSqr) continue;
+                bool lit = (s == StatMelee  && OwnAttackType == AttackTypes.Melee)
+                        || (s == StatRanged && OwnAttackType == AttackTypes.Ranged);
+                mr.transform.localScale = _statBase[s] * (lit ? AttackScaleModifier : 1f);
+            }
+            if (_glowMelee  != null) _glowMelee.gameObject.SetActive(OwnAttackType == AttackTypes.Melee);
+            if (_glowRanged != null) _glowRanged.gameObject.SetActive(OwnAttackType == AttackTypes.Ranged);
+        }
+
+        /// <summary>自检用：这张卡（含各层）身上**还在跑**的补间个数（`StopInPlayAnims` 之后应为 **0**）。
+        /// ⚠️ 只数「target 是某个 Transform」的那些 —— 见 `StopInPlayAnims` 的边界 ①。</summary>
+        public int PlayingTweenCount()
+        {
+            int n = 0;
+            var trs = GetComponentsInChildren<Transform>(true);
+            for (int i = 0; i < trs.Length; i++)
+                if (trs[i] != null && DG.Tweening.DOTween.IsTweening(trs[i])) n++;
+            return n;
+        }
+
+        // ==================================================================
+        //  🆕 2026-10-26（B9_W2K03）：P0 剩余 C 四条
+        //  账 `HUD:108` · `HUD:153` · `HUD:148` · `HUD:189`
+        //  （`卡组:148` 的详情窗那一半在 K-07，本文件不涉及）
+        //  判据全部来自**反编译方法体逐行** + **原版材质/预制体的序列化字段**，⛔ 没有一条是从截图量的。
+        // ==================================================================
+
+        // ------------------------------------------------------------------
+        //  HUD:108 · 原版 `BattleCardUI.ChooseDissolveMaterial()`
+        //  判据：`decomp_full/BattleCardUI__ChooseDissolveMaterial.c` 全文（16 行）+
+        //        `CardScript__HasToUseLegendarySummonEffect.c` 全文（15 行）
+        // ------------------------------------------------------------------
+        //  原版逐句：
+        //    ① `HasToUseLegendarySummonEffect()` = `!HasCurrentTrait(ambush 0x4B0) && cardRarity == 4`
+        //       （`CardRarity.Legendary = 4` —— `Assembly-CSharp/CardRarity.cs` 的枚举值）；
+        //    ② 真 ⇒ 返回 `dissolveMaterialLegendary`（`this + 0x198`）；否则返回 `dissolveMaterial`（`+ 0x400`）。
+        //  两份材质的**唯一差别 = 两项颜色**（逐项比过两份原版材质 JSON：
+        //    `bundle_battleprefabs_vfxandmisc_assets_all/Material/Material_-6651017123104198842.json`（普通
+        //    `Card 3d WH40K Dissolve`）· `…/Material_-1409023286357856989.json`（传说
+        //    `Card 3d WH40K Dissolve Legendary`）；shader 同一个 pathID `−8335403570401031012`，
+        //    其余 25 项数值逐位相同，连 `_BorderWidth 0.23` / `_CountersIntensity 2.0` 都一样）
+        //  ⇒ 我们**同一份实例换那两项颜色 + 换材质名**，与原版「换材质引用」等价。
+
+        /// <summary>原版**普通**溶解材质的资产名（`m_Name` = `Card 3d WH40K Dissolve`）。</summary>
+        public const string DissolveMaterialNameNormal = "Card 3d WH40K Dissolve";
+        /// <summary>原版**传说**溶解材质的资产名（`m_Name` = `Card 3d WH40K Dissolve Legendary`）。</summary>
+        public const string DissolveMaterialNameLegendary = "Card 3d WH40K Dissolve Legendary";
+
+        /// <summary>传说档 `_BorderColor` = (2.6390157, 2.4975879, 0.7184754, 0) —— 原版材质 JSON 原值（金）。
+        /// ⚠️ 与普通档 (0.714087, 1.91458, 2.639016) 是**两份不同的序列化值**，⛔ 别拿一个乘系数凑另一个。</summary>
+        public static readonly Vector4 DissolveBorderColorLegendary =
+            new Vector4(2.6390156745910645f, 2.4975879192352295f, 0.7184754610061646f, 0f);
+        /// <summary>传说档 `_BorderColor2` = (0.5764706, 0.1012588, 0, 0) —— 原版材质 JSON 原值（橙红）。</summary>
+        public static readonly Vector4 DissolveBorderColor2Legendary =
+            new Vector4(0.5764706134796143f, 0.10125879943370819f, 0f, 0f);
+
+        /// <summary>原版 `CardScript.HasToUseLegendarySummonEffect()`：**不挂着伏击词条** 且 **稀有度 = 传说**。
+        /// 伏击那一档在我们这侧就是 <see cref="FaceDown"/>（`_faceDown` 的 doc 写明「原版 = 身上挂着伏击词条」，
+        /// 与 `SetCardImageTo3DBase` 里那道 `HasCurrentTrait(ambush 0x4B0)` 闸同一件事）；
+        /// 稀有度走 `CardData.rarity`（卡表原值：`common/rare/epic/legendary/special`，现读 197 张 legendary）。</summary>
+        public bool HasToUseLegendarySummonEffect
+        {
+            get { return !_faceDown && Data.rarity == "legendary"; }
+        }
+
+        /// <summary>把当前档（传说 / 普通）那两项颜色与材质名写到 <paramref name="m"/> 上 —— **判据只此一处**
+        /// （建材质时 `DissolveMaterial()` 与每次 `BeginDissolve` 都走它，⛔ 别在两处各选一次档；
+        /// 只在这一处选档，`DissolveMatView` 读到的名字/颜色才和真挂上去的那份一致）。</summary>
+        void ApplyDissolveVariant(Material m)
+        {
+            if (m == null) return;
+            bool legendary = HasToUseLegendarySummonEffect;
+            SetMatV(m, "_BorderColor",  legendary ? DissolveBorderColorLegendary  : DissolveBorderColor);
+            SetMatV(m, "_BorderColor2", legendary ? DissolveBorderColor2Legendary : DissolveBorderColor2);
+            m.name = legendary ? DissolveMaterialNameLegendary : DissolveMaterialNameNormal;
+        }
+
+        /// <summary>`BeginDissolve` 的选材（原版 `ChooseDissolveMaterial`）：建/复用本卡的溶解材质，
+        /// 按传说档写那两项颜色与材质名，再交给 `BeginDissolve` 挂上去。
+        /// <para>⚠️ **每次 `BeginDissolve` 都重贴一遍**（不缓存「上次是哪个档」）—— 同一张卡可以
+        /// 「面朝下时溶解一次、翻开后再溶解一次」，缓存档位会**静默用错那一份**（原版是两次查表）。</para></summary>
+        Material BeginDissolveMaterial()
+        {
+            var m = DissolveMaterial();
+            ApplyDissolveVariant(m);
+            return m;
+        }
+
+        // ------------------------------------------------------------------
+        //  HUD:153 · 原版 `BattleCardUI.ShowOriginalRemnantCard(bool)`
+        //  判据：`decomp_full/BattleCardUI__ShowOriginalRemnantCard.c` 全文 +
+        //        `SupportMethods__ShouldShowOriginalRemnantCard.c` 全文（两份 `.c` 亲读；
+        //        ILSpy `SupportMethods.cs:1234-1259` 是同一条逻辑的可读版本）
+        // ------------------------------------------------------------------
+        //  原版逐句：`body3D.gameObject.SetActive(show && SupportMethods.ShouldShowOriginalRemnantCard(cardScript))`；
+        //  后者 = `isRemnant(+0x65) && cardArmy ∈ { Sautekh(40), SaimHann(30) }`
+        //  （`Assembly-CSharp/CardArmy.cs` 的枚举值 —— 那两族正是**有残骸体**的灵族 / 太空死灵）。
+        //  调用点 4 处：`CardHighlight__ToggleCombatPreviewHighlight.c:126`（开）/`:149`（收）·
+        //  `CardScript__TryCardHighlight.c:45`（悬停）· `CardScript._UnitDeath…` ——
+        //  在我们这侧它们**已经全部收口到 `CardHighlight.CardBoardHighlight.ShowOriginalRemnantCard`
+        //  这个回调**（钩子声明 `Core/CardHighlight.cs:501`；三处调用 `:642`（战斗预览）· `:662`（收）·
+        //  `:698`（悬停））⇒ 本类只要接上回调 + 给实现，**不必改 CardHighlight.cs**。
+
+        /// <summary>原版 `SupportMethods.ShouldShowOriginalRemnantCard` 的**阵营那一半**：
+        /// 只有灵族（`SaimHann` = `CardArmy` 30）与太空死灵（`Sautekh` = 40）的残骸有「原卡 3D 卡身」可展示。
+        /// ⚠️ 我们的 `CardData.faction` 与原版 `CardArmy` **枚举名逐字符恒等**（判据 → `CardArt.FlavorBg` 的 doc：
+        /// 13/13），所以这里直接比那两个 key。</summary>
+        public static bool HasOriginalRemnantCardArmy(string faction)
+        {
+            return faction == "SaimHann" || faction == "Sautekh";
+        }
+
+        /// <summary>原版 `BattleCardUI.ShowOriginalRemnantCard(bool)`：把**原卡 3D 卡身**按原版那条三合一闸开关
+        /// （`show && isRemnant && 阵营 ∈ {SaimHann, Sautekh}`）。返回真 = 这一拍原卡卡身**显示着**。
+        /// <para>⚠️ 与 `SetRemnantBody` 的分工（两处都动 `<c>_body3D</c>` 的开关）：`SetRemnantBody(true, …)`
+        /// 每次 `SyncBoard` 都会把卡身关掉，但**看见 `_originalRemnantCardShown` 就跳过那一关**
+        /// （见 `SetRemnantBody` 里那一句）—— 否则悬停刚亮出来的原卡会被下一次棋盘刷新**静默关回去**。</para></summary>
+        public bool ShowOriginalRemnantCard(bool show)
+        {
+            // isRemnant：原版是实体级标志 `+0x65`；我们的等价物 = **残骸体已建出来且可见**
+            //（同一份映射见 `BattleDriver.BoardTouchInput` 的 `h.IsRemnant = v.RemnantBodyVisible`）。
+            bool isRemnant = RemnantBodyVisible || _originalRemnantCardShown;
+            bool active = show && isRemnant && HasOriginalRemnantCardArmy(Data.faction);
+            _originalRemnantCardShown = active;
+            // 不是残骸 ⇒ **一个开关都不动**（原版 4 个调用点本来就都带 `IsRemnant` 闸；
+            // 这里再兜一道，免得将来有裸调用把正常卡的卡身关掉 = 一张场上的卡凭空消失）
+            if (!isRemnant) return false;
+            if (_body3D != null) Show(_body3D, active);
+            // 🔶 自己设计（非原版）：原版只有 `body3D` 这一件；我们「取不到 3D 卡体」那条退回路里
+            //   卡身是 **2D 立绘层**（同 `HideRemnantBodyNow` 的处理）⇒ 这一档也按同一个开关放/收，
+            //   否则那一格「悬停什么都不出现」。执行代理 W2K03 2026-10-26 定（等价口径，非数值）。
+            else if (_art != null && _faceMode == CardFace.Board) Show(_art, active);
+            return active;
+        }
+
+        /// <summary>现在是不是正显示着残骸那一格的原卡卡身（自检读口；原版没有这个 getter）。</summary>
+        public bool OriginalRemnantCardShown { get { return _originalRemnantCardShown; } }
+
+        bool _originalRemnantCardShown;
+
+        // ------------------------------------------------------------------
+        //  HUD:148 · 原版 `BattleCardUI.ShowAvailableTargets()` 的**描述那一半**
+        //  判据：ILSpy `BattleCardUI.cs:1272-1344` 逐句（`.c` 版在同一逻辑上更绕，已互校）·
+        //        `SupportMethods.cs:1478`（`GetTargetsAvailableText`）· `:1494`（`GetTargetAvailableText`）
+        // ------------------------------------------------------------------
+        //  原版末句（`:1342`）= `SetDescription(desc + "<i>" + 那段 + "</i>")`：
+        //    · `desc` = `GetLocalizedCardDescWithLineBreak()`（带换行那一版）；
+        //    · 那段 = `maxTargets == 1 && 有目标` ⇒ `"(" + 目标卡名 + ")"`（`GetTargetAvailableText`；
+        //        对面那张是 Trap / SecretOrder 战术卡时分别换成 `Card_Trait/trap` / `Card_Trait/secretOrder` 词条）
+        //      否则 ⇒ `GetTargetsAvailableText(n)` = `Battle/HUD/TargetsAvailable` 把 `{0}` 换成 n
+        //        —— 我们已有同一个口 `CardText.TargetsAvailable(n)`，⛔ 别在这条链上再拼一份文案。
+        //  ⇒ 本类只提供**写口**（只重设描述那一颗 TMP + 重拟合）；「拼哪一段 / 什么时候拼」在宿主
+        //    （`Hand/CardInteraction.ApplyShowInHand` 的抬牌支 —— 那个文件归 K-04）。
+        //  ⚠️ 落地前核过的序列化值：`bundle_staticgeneralassets_assets_all/GameObject/DescTextUnit.json`
+        //    → TMP `MonoBehaviour_1130198714162661774.json` 的 **`m_isRichText = 1`**
+        //    ⇒ `<i>` 真的渲成斜体，不会原样印出来（本类仍在这一档显式兜一次，见 `SetDescriptionSuffix`）。
+
+        /// <summary>当前挂着的「可用目标」后缀（`null` = 没有 = 复原态）。</summary>
+        public string DescriptionSuffix { get { return _descSuffix; } }
+
+        string _descSuffix;
+
+        /// <summary>往效果文字尾部拼 `<i>…</i>`（原版 `desc + "<i>" + 那段 + "</i>"`）。
+        /// <paramref name="inner"/> 传 `null` / 空 ⇒ **复原成无后缀**（原版抬牌放回那一拍）。
+        /// <para>幂等：同一个后缀重复调**不重建**；重建走 `BuildTextLayers`（本类唯一排版口）⇒
+        /// 拟合/行距/版面与原版那条路同构，⛔ 不是「直接改 TMP.text」那种绕过拟合的做法
+        /// （绕过会让长出来的那一段**溢出原版那个矩形**）。</para>
+        /// <para>⚠️ 场上形态没有文字层（`Build`/`SetData` 的同一条判据）⇒ 这一档什么都不做。</para></summary>
+        public void SetDescriptionSuffix(string inner)
+        {
+            string want = string.IsNullOrEmpty(inner) ? null : inner;
+            if (want == _descSuffix) return;
+            _descSuffix = want;
+            if (!TmpFont.Available || _faceMode == CardFace.Board) return;
+            BuildTextLayers(Data);
+            // 原版那颗 TMP 是 `m_isRichText = 1`；我们这一颗若被谁关过（或换了别的构造路），
+            // 富文本会**原样印出 `<i>`**（静默难看）⇒ 这一档显式兜一次再重排。
+            if (_keywords != null && !_keywords.richText) { _keywords.richText = true; BuildTextLayers(Data); }
+        }
+
+        /// <summary>`BuildTextLayers` 里描述那一层用的文本（= `Data.keywords` 加上当前后缀）。
+        /// 🔴 **判据只此一处**：两条建字路（初始态 `:5006` / 简化态 `:5247`）都走它，
+        /// ⛔ 别在两处各拼一次（那正是「两处写同一条规则 = 迟早不一致」）。</summary>
+        string DescTextWithSuffix(string baseText)
+        {
+            if (string.IsNullOrEmpty(_descSuffix)) return baseText;
+            return (baseText ?? "") + "<i>" + _descSuffix + "</i>";
+        }
+
+        // ------------------------------------------------------------------
+        //  HUD:189 · 原版 `BattleCardUI.ChangedLanguage()`（`BattleHud.BroadcastChangedLanguage` 的实现者之一）
+        //  判据：ILSpy `BattleCardUI.cs:992-1008` + `BasicCardUI.cs:465-488`（两份实现逐句）·
+        //        `.c` 两份对照（`BattleCardUI__ChangedLanguage.c` / `BasicCardUI__ChangedLanguage.c`）
+        // ------------------------------------------------------------------
+        //  原版逐句：`SetCardTextsExcludingStats(rawCardData)` —— **四颗 TMP**（卡名 / 描述 / 兵种行 / 阵营行，
+        //  名字里的 `ExcludingStats` 就是「⛔ 不碰数值」）；随后若 `cardState == inHand` 再
+        //  `SetCardTextInHand(true)`（= 手牌那套文字态档位重算）。
+        //  ⇒ 我们的等价物 = **重走 `BuildTextLayers(Data)`**：它一处就把四层按当前语档重取
+        //    （兵种行 `SubtypeLine → RaceTerm → Loc`、阵营行 `CardText.Faction`，卡名/描述见下），
+        //    并按 `ComputeTextState` 重算手牌档位 —— 与原版那两句**一一对应**，
+        //    且**不碰**数值层 / 立绘 / 卡框（那几层不在 `BuildTextLayers` 里）。
+        //  ⚠️ 广播本身（`BattleHudLanguage.Changed` 的订户逐张调）在 `Battle/BattleDriver.cs`（K-01），
+        //    不在本文件 —— 见报告 §三 的改动请求。
+
+        /// <summary>语言切换后按**当前语档**重写这张卡的四颗文字层（卡名 / 描述 / 兵种行 / 阵营行），
+        /// **数值（攻 / 血 / 甲 / 费）一个字节都不动**。返回真 = 文字层重建过。
+        /// <para>卡名与描述的重取需要**源卡定义**：本类手上只有 `CardData`（里面的 `title` / `keywords`
+        /// 是**建卡那一刻**按当时语档算好的串）⇒ 这里按 `id` 现查 `CardDatabase`（原版 1127 张都在表里）。
+        /// 🔶 自己设计（非原版）：**查不到源卡**时（自设计 26 张 / 自检夹具 / 合成的卡）⇒
+        /// 卡名退回「`Card_Name/&lt;名字&gt;` 词条族真命中才覆盖」（`CardText.Name` 的兜底是原样回 id，
+        /// 所以原版卡的中文名在 `NameZh` 里、**不会**被降级成英文），描述**保持原样**（如实、不猜）；
+        /// 那一档仍然把兵种行 / 阵营行按语档重取（它们直接吃 `Data.subtype` / `Data.faction`）。
+        /// 执行代理 W2K03 2026-10-26 定（等价口径，非数值）。</para>
+        /// <para>⚠️ 场上形态没有文字层（`Build`/`SetData` 的同一条判据）⇒ 返回 false，什么都做。</para>
+        /// <para>🔴 顺手对齐原版的一处：原版 `SetCardTextsExcludingStats` 写的是**裸描述** ⇒
+        /// 这里把「可用目标」后缀一并清掉（与本文件 `SetDescriptionSuffix` 同一条状态）。</para></summary>
+        public bool RefreshLocalizedText()
+        {
+            if (!_built || !TmpFont.Available) return false;
+            if (_faceMode == CardFace.Board) return false;
+            var d = Data;
+            if (d.title == null && d.keywords == null) return false;   // 空卡位（同 `RefitTextLayers` 的闸）
+            _descSuffix = null;                                        // 原版那条路写的是裸描述（见上）
+            var def = LocalizationSourceDef(d);
+            if (def != null)
+            {
+                string nt = CardText.Name(def);
+                if (!string.IsNullOrEmpty(nt)) d.title = nt;     // 取不到名字时**不覆盖**（⛔ 不让 `Fill` 把卡名层拆掉）
+                d.keywords = BattleDriver.FaceTextFull(def).body;
+                Data = d;
+            }
+            else if (!string.IsNullOrEmpty(d.id))
+            {
+                string n = CardText.Name(d.id);      // 只有自设计卡那一族会与 id 不同
+                if (n != d.id) { d.title = n; Data = d; }
+            }
+            BuildTextLayers(Data);
+            return true;
+        }
+
+        /// <summary>`RefreshLocalizedText` 用的源卡解析（按 `id` + 阵营查全池，命中后缓存）。
+        /// 判据：`CardData.id` 就是原版卡的英文名（`BattleDriver.ToCardData` 的 `id = c.Name / u.Name`）；
+        /// 先按「同名 + 同阵营」（同名跨阵营那 3 组不出错），找不到再退「只按名字」 —— 跨阵营盟军 / 中立卡
+        /// 与「卡的阵营 ≠ 拥有者阵营」那一档（`ToCardData` 两个重载的 `faction` 来源不同）靠这一退兜住。
+        /// <para>⛔ 没用 `CardDatabase.Find(pool,name,faction)` 那个三参重载：它**每次未命中都出声**
+        /// （自设计 26 张 / 自检夹具会各喊一次）—— 而这一条是「查不到就保持原样」的正常分支，不该报警。
+        /// 两参 `Find(pool,name)` 静默返回 `null`，与这里的分工一致。</para></summary>
+        RuleEngine.CardDef LocalizationSourceDef(CardData d)
+        {
+            if (_locSource != null && _locSource.Name == d.id) return _locSource;
+            if (string.IsNullOrEmpty(d.id)) return null;
+            var pool = RuleEngine.CardDatabase.Load();
+            _locSource = null;
+            for (int i = 0; i < pool.Count && _locSource == null; i++)
+            {
+                var c = pool[i];
+                if (c != null && c.Name == d.id && RuleEngine.DeckRules.SameFaction(c.Faction, d.faction))
+                    _locSource = c;
+            }
+            if (_locSource == null) _locSource = RuleEngine.CardDatabase.Find(pool, d.id);
+            return _locSource;
+        }
+
+        RuleEngine.CardDef _locSource;
     }
 }

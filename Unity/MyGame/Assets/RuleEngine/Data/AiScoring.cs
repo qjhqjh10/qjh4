@@ -729,21 +729,21 @@ namespace RuleEngine
         /// 上没有主动技费用 ⇒ **未接**（报告 §三）。</summary>
         static float ManaBuffValue(BattleContext ctx, int p, AiScoringEntryDto e)
         {
-            int change = e.buff != null ? e.buff.costChange : 0;
-            if (change <= 0) return 0f;
-            int cur = ctx.Players[p].Energy;
-            int limit = cur + change;
-            if (limit > ctx.Players[p].MaxEnergy) return 0f;
-
-            float sum = 0f;
-            var hand = ctx.Players[p].Hand;
-            for (int i = 0; i < hand.Count; i++)
-            {
-                if (hand[i] == null || hand[i].Card == null) continue;
-                int cost = RuleCore.CostOf(ctx, p, hand[i]);
-                if (cost > cur && cost <= limit) sum += 1f;
-            }
-            return sum;
+            // 🔴 判据只此一处 = `ScoreFromManaBuff`（原版 `AI.ScoreFromManaBuff` 的完整移植）。
+            //    2026-10-26（`E4P08` · 账行 29）：本方法原来内联了它的**前半段**（⑤ 手牌），
+            //    现在并到那一处 —— 同一条算式**不再有两个写点**。option 13 走这个窄口。
+            // ⑤ 手牌：`CurrentCost > manaLeft && CurrentCost <= limit` ⇒ 每条 +1（`.c:35-47`）。
+            // ⑥ 督军：`hasActiveAbility && activeAbility.manaCost ∈ (manaLeft, limit]` ⇒ +1（`.c:48-59`）。
+            // ⑦ 同侧 `MinionsAndRemnantInPlay`：逐个同判 ⇒ 每条 +1（`.c:61-91`）。
+            // ⑧ 返回累计分（`.c:97`）。
+            // ⚠️ 结果与改前**逐字相同**：⑤ 的算式一字未改；⑥⑦ 因缺数据恒 0（列未落）。
+            // 判据：`d:/2/tools/decomp_full/AI__ScoreFromManaBuff.c:15-97`。
+            // ⚠️ 原版**没有** `change <= 0` 的早退；两者等价（区间为空 ⇒ 0），见 `ScoreFromManaBuff`。
+            // ⚠️ 原版上限判的是 `totalMana`（`BoardAnalysis.GetTotalMana` → `PlayerManager.GetTotalMana`）
+            //    = 我们 `PlayerState.MaxEnergy`；下限 `manaLeft` = `GetUnusedMana` = `PlayerState.Energy`
+            //    （判据 `BoardAnalysis__GetTotalMana.c:4-9` / `__GetManaLeft.c:4-9` 的转发）。
+            // ⚠️ `e.buff == null` ⇒ `change = 0` ⇒ 区间 `(cur, cur]` 为空 ⇒ 0（原版同样只读 `criteria.buffEffect`）。
+            return ScoreFromManaBuff(ctx, p, e);
         }
 
         /// <summary>原版 `AbilityLogic.GetAverageValue(valueOptions, min, max, thisCard, targetCard, mult)`
@@ -885,5 +885,395 @@ namespace RuleEngine
                 default: return 0f;
             }
         }
+
+        // ==================================================================
+        //  🆕 2026-10-26（批次 9 · 执行代理 `E4P08` · 账行 12 / 29 / 38 / 39）
+        //     —— 原版 `AI` 的**四个「0 调用点」方法**
+        //
+        //  🔴 **四条都只加函数、不接线**（判据：`d:/2/tools/decomp_full/` 全树 grep
+        //     `GetDefensiveAttackValue|SuicideHeroAttack|ShouldPlayComboCard` **只命中它们各自那份 `.c`**
+        //     ⇒ 原版调用点 = **0**；我们这边也**一个调用点都没有**）。
+        //  ⇒ **对局 / 结算指纹必须逐字不变**（2026-10-26 实核：`ruleprobe check` 与
+        //     `bash 工具/ruleprobe.sh play check` 都是 0 差异、`af8e8178…` 基线没动）。
+        //  ⚠️ 将来接线（尤其把前两条接进 `SimpleAI.ScoreFromAttack`）**会改 AI 出招偏好**
+        //     ⇒ 那是一次**独立的调度台裁定** + 重钉基线，⛔ 别顺手接。
+        //  ⚠️ 四条**全部追加在类尾**：本文件有 16 条账按「文件:行号」引用（`账/战斗逻辑驱动.tsv`），
+        //     插在成员之间会让它们整体漂移 ⇒ 只许往类尾加（唯一在中间动过的是 `ManaBuffValue`
+        //     的委托改写，**逐行等长**，行号没变）。
+        // ==================================================================
+
+        /// <summary>
+        /// **原版 `AI.GetDefensiveAttackValue(actingCard, targetCard, currentScore)`**
+        /// —— 🥇 `d:/2/tools/decomp_full/AI__GetDefensiveAttackValue.c:1-24`（24 行逐句）·
+        /// 🥈 `cpp2il/out_cpp2il_dev_ilspy/AI.cs:971-991`（两份一致，2026-10-26 现读）。
+        ///
+        /// <para>**原版逐条**：</para>
+        /// <list type="number">
+        /// <item>攻方 `cardType == Hero(10)` 且守方 `cardType == Hero` ⇒ **返回 0**（`.c:9-16`，
+        ///   走 `IL_00a4`）；</item>
+        /// <item>守方是 Hero 且 **`currentScore &lt; 2f`** ⇒ **返回 0**（`.c:19-20`；
+        ///   常数 `DAT_1834b2bbc` = `2.0f` —— 与 `ShouldPlayComboCard` 里那个 `2f` 是**同一个常量**，
+        ///   两处互证）；</item>
+        /// <item>其余 ⇒ **原样返回 `currentScore`**（`.c:22`）。</item>
+        /// </list>
+        ///
+        /// <para>🔴 **两处如实标注（都是刻意偏离字面，理由写在这里）**：</para>
+        /// <list type="number">
+        /// <item>**签名取 `UnitState` 而不是施工单写的 `CardDef`**：原版判的是
+        ///   `EntityScript.get_cardType()` —— 判的是**场上那个实体**。我们对等的就是
+        ///   `UnitState.IsWarlord`（`CardDef.IsWarlordEquivalent` = 同一判据的**卡面视角**，
+        ///   见它的 doc：`cardType 10 ↔ Type=="hero"`）。用 `CardDef` 也能判 10，
+        ///   但会把「卡」和「场上的实体」混起来 —— 本方法第 2 条要看**当前**分，够不到实体就没意义。</item>
+        /// <item>**空引用**：原版对 `actingCard == null` 或 `targetCard == null` 直接走
+        ///   `FUN_1803f47a0`（全局 NRE 桩）= **抛 `NullReferenceException`**。我们**不抛**
+        ///   （引擎里抛会打断整条 AI 回合，且本仓红线是「不许静默失败」而不是「照抄崩溃」），
+        ///   改为 **原样返回 `currentScore`**（= 不扣分）。这是本方法**唯一**与原版不同的地方。</item>
+        /// </list>
+        ///
+        /// <para>⚠️ **原版调用点 = 0** ⇒ 今天两侧都不可观测；接线 = 改 AI「督军互砍」的偏好，
+        /// **必须单独裁定并重钉基线**。</para>
+        /// </summary>
+        public static float GetDefensiveAttackValue(UnitState acting, UnitState target, float currentScore)
+        {
+            if (acting == null || target == null) return currentScore;   // 原版在这里抛 NRE（见 doc ②）
+            if (acting.IsWarlord && target.IsWarlord) return 0f;         // `.c:9-16`
+            if (target.IsWarlord && currentScore < 2f) return 0f;        // `.c:19-20`（`DAT_1834b2bbc`）
+            return currentScore;                                        // `.c:22`
+        }
+
+        /// <summary>
+        /// **原版 `AI.SuicideHeroAttack(actingCard, targetCard)`**
+        /// —— 🥇 `d:/2/tools/decomp_full/AI__SuicideHeroAttack.c:1-48` ·
+        /// 🥈 `cpp2il/out_cpp2il_dev_ilspy/AI.cs:993-1015`（2026-10-26 现读）。
+        ///
+        /// <para>**原版逐条**：① 攻方 `cardType == Hero`（`.c:19-20`）；② 守方 `cardType == Hero`
+        /// （`.c:22-23`）；③ 读双方 `+0x68..+0x78` 那一组 `ObscuredInt`（5 个 dword = 20 字节的
+        /// 混淆整数结构）并用 `op_Implicit` 取 `int` —— 那是 **`currentHealth`**（`.c:24-39`）；
+        /// ④ 攻方 `health &lt;= 守方 health` ⇒ **true**（`.c:40-42`）；⑤ 其余 ⇒ **false**。
+        /// ⇒ 语义 = 「这一下是督军换督军、而且换了也不亏（对方血不比我多）」。</para>
+        ///
+        /// <para>🔴 **签名同样取 `UnitState`**（理由同 `GetDefensiveAttackValue` doc ①）：
+        /// 原版读的是**当前血**，`CardDef.Health` 是**卡面血**、拿不到「打了几轮之后」的值。</para>
+        ///
+        /// <para>🔴 **空引用与 `GetDefensiveAttackValue` 同口径**：原版抛 NRE（`FUN_1803f47a0`），
+        /// 我们返回 **false**。这是本方法**唯一**与原版不同的地方。</para>
+        ///
+        /// <para>⚠️ **原版调用点 = 0** ⇒ 今天不可观测；接线 = 改 AI 督军对砍偏好，
+        /// **必须单独裁定并重钉基线**。</para>
+        /// </summary>
+        public static bool SuicideHeroAttack(UnitState acting, UnitState target)
+        {
+            if (acting == null || target == null) return false;          // 原版在这里抛 NRE（见 doc）
+            if (!acting.IsWarlord || !target.IsWarlord) return false;    // `.c:19-23`（两侧都必须是 Hero）
+            return acting.Health <= target.Health;                       // `.c:40-42`（当前血，不是卡面血）
+        }
+
+        /// <summary>
+        /// **原版 `AI.ShouldPlayComboCard(manager, scoringCriteria, thisCard, score)`**
+        /// —— 🥇 `d:/2/tools/decomp_full/AI__ShouldPlayComboCard.c:1-70` ·
+        /// 🥈 `cpp2il/out_cpp2il_dev_ilspy/AI.cs:2673-2726`（2026-10-26 现读）。
+        ///
+        /// <para>**原版逐条**：① `scoringCriteria.comboCard(+0x60) == null` ⇒ false；
+        /// ② 我方手牌 `PlayerHand.IsRawCardInHand(comboCard)`（`.c:22-25`）；
+        /// ③ `unusedMana = manager.GetUnusedMana(isPlayer: false)`（`.c:26`）；
+        /// ④ **`thisCard.rawCard.manaCost(+0x78) + comboCard.manaCost(+0x78) &lt;= unusedMana`**（`.c:29-30`）；
+        /// ⑤ `AI.playedFirstComboCard(+0x10)` 为真 **或**（`scoringCriteria.comboCardFirst(+0x68)` 为真
+        /// **且** `score &gt;= 2f`）⇒ true；⑥ 否则 false。</para>
+        ///
+        /// <para>🔴 **2026-10-26 顺手发现（施工单写错了一处偏移）**：施工单写「thisCard 的某
+        /// `bool(+0x68)`」，而 `.c:32` 读的是 **`param_3 + 0x68`** = **`ScoringCriteria.comboCardFirst`**
+        /// —— 🥈 的字段名直接给出了答案（`if (scoringCriteria.comboCardFirst == playedFirstComboCard)`）。
+        /// 本方法按**实读**实现（参数 `comboCardFirst`），⛔ 别按施工单那一行找「卡上的标记」。</para>
+        ///
+        /// <para>🔴 **签名与原版的三处差异（都写清理由）**：</para>
+        /// <list type="number">
+        /// <item>`ScoringCriteria` → 拆成 `comboCard` / `comboCardFirst` 两个实参：
+        ///   我们的 `AiScoringEntryDto` 上**没有**这两列，而 `Data/AiScoringData.cs` 不在本代理白名单
+        ///   ⇒ 不硬塞 DTO（宁可显式传参）。**等数据侧把 `comboCard/comboCardFirst` 落进来之后**，
+        ///   接线时那两个实参改从 `e` 取即可，方法体不用动。</item>
+        /// <item>`manager.GetPlayerHand(isPlayer: false)` / `GetUnusedMana(false)` → 显式 `side`：
+        ///   原版**写死 0 号位**（同 `ScoreFromCriteria` option 35 那一段的口径 —— 原版 AI 永远坐 0 号位）。
+        ///   我们的 AI **两个座位都可能是它**（真机 / 联机）⇒ 由调用方传自己的座位
+        ///   （接线时传 `ctx.Active`）。⚠️ 这是**刻意的字面偏离**，理由与 option 35 的 doc 同源。</item>
+        /// <item>`playedFirstComboCard` 显式传入（原版是 `AI` 实例字段 `+0x10`）：
+        ///   我们的 AI 是无状态静态类、没有那个字段 ⇒ 由调用方持有该状态后传入。</item>
+        /// </list>
+        ///
+        /// <para>⚠️ **可达性 = 0**：池内 combo 卡 **0 张**、`trait 1130` 无实现路径 ⇒ 今天不可观测。
+        /// 数据出现后接线点 = `SimpleAI.ScoreAction` 的出牌那一支（那一处**不在本批白名单**）。</para>
+        /// </summary>
+        public static bool ShouldPlayComboCard(BattleContext ctx, int side, CardDef comboCard,
+                                               bool comboCardFirst, CardDef thisCard, float score,
+                                               bool playedFirstComboCard)
+        {
+            if (ctx == null || side < 0 || side > 1) return false;   // 原版对 null manager 抛 NRE
+            if (comboCard == null || thisCard == null) return false; // 原版对 null 抛 NRE（`.c:15-21`）
+            if (!IsRawCardInHand(ctx, side, comboCard)) return false; // `.c:22-25`
+            int unusedMana = ctx.Players[side].Energy;               // 原版 `GetUnusedMana(false)`
+            // `.c:29-30`：两卡 **rawCard.manaCost**（`+0x78`）之和 ≤ 剩余能量 ⇒ 我们取卡面 `Cost`
+            //（`CardDef.Cost` 就是原版 `RawCardScript.manaCost`；运行时降费不参与，原版这里也不参与）。
+            if (thisCard.Cost + comboCard.Cost > unusedMana) return false;
+            // `.c:31-37`：`playedFirstComboCard || (comboCardFirst && score >= 2f)`（`DAT_1834b2bbc` = 2.0f）
+            return playedFirstComboCard || (comboCardFirst && score >= 2f);
+        }
+
+        /// <summary>「这张卡的模板在手牌里吗」= 原版 `PlayerHand.IsRawCardInHand(rawCard)`
+        /// （引用相等；`PlayerHand__IsRawCardInHand.c` 逐个 `Object.op_Equality(rawCard)`）。
+        /// ⚠️ 我们的手牌存的是 `CardInstance` ⇒ 比的是 `inst.Card`。</summary>
+        static bool IsRawCardInHand(BattleContext ctx, int side, CardDef card)
+        {
+            var hand = ctx.Players[side].Hand;
+            for (int i = 0; i < hand.Count; i++)
+                if (hand[i] != null && ReferenceEquals(hand[i].Card, card)) return true;
+            return false;
+        }
+
+        /// <summary>
+        /// **原版 `AI.ScoreFromManaBuff(manager, thisCard, criteria)`**（RVA `0x93BF60`）
+        /// —— 🥇 `d:/2/tools/decomp_full/AI__ScoreFromManaBuff.c:15-97` ·
+        /// 🥈 `cpp2il/out_cpp2il_dev_ilspy/AI.cs:2052-2110`（2026-10-26 现读，两份一致）。
+        ///
+        /// <para>**原版逐条**：</para>
+        /// <list type="number">
+        /// <item>`totalMana = BoardAnalysis.GetTotalMana(manager, isPlayer)`（`.c:22`）→ 我们 `PlayerState.MaxEnergy`；
+        ///   `manaLeft = GetManaLeft`（`.c:23`）→ `PlayerState.Energy`；</item>
+        /// <item>`limit = criteria.buffEffect.costChange + manaLeft`（`.c:25`）；
+        ///   **`limit &gt; totalMana` ⇒ 返回 0**（`.c:26-28`）；</item>
+        /// <item>遍历 **`GetCardsInHandRef` 手牌**：`CurrentCost &gt; manaLeft` 且 `&lt;= limit` ⇒ **+1**
+        ///   （`.c:35-47`）；</item>
+        /// <item>**督军**：`hasActiveAbility` 且 `activeAbility.manaCost ∈ (manaLeft, limit]` ⇒ **+1**
+        ///   （`.c:48-59`）；</item>
+        /// <item>**同侧 `GetPlayerMinionsAndRemnantInPlay` / `GetEnemyMinionsAndRemnantInPlay`**
+        ///   （按 `isPlayer` 选）逐个同判 ⇒ 每条 **+1**（`.c:61-91`）；</item>
+        /// <item>返回累计分（`.c:97`）。</item>
+        /// </list>
+        ///
+        /// <para>🔴 **⑥⑦ 今天恒 0 —— 缺的是【数据列】，不是算式**：原版读
+        /// `ActiveAbility.manaCost(+0x14)`，而我们的卡表里**没有这个字段**
+        /// （`Resources/cards_engine.json` 现读：`"activeAbility"` 键 **0 次**）。
+        /// 真值在 `cards_truth.json` 的 `activeAbility.manaCost`（现池 **143 张**有 `activeAbility`），
+        /// 但要落进 `cards_engine.json` 还得改 `工具/gen_cards_engine.py` + `Core/CardDef.cs`
+        /// —— **两个文件都不在本代理白名单**（施工单行 29 的 ①② 两项）。
+        /// ⇒ 本方法留了接线口 <see cref="ActiveAbilityManaCost"/>（默认 `null` = 未知 ⇒ 两段各恒 0）；
+        /// 那两项做完之后**只要给这个钩子赋值**（或改读 `CardDef`），⑥⑦ 就活了。</para>
+        ///
+        /// <para>⚠️ **调用方 = `ManaBuffValue`（option 13 的窄口）**，所以本方法**不是**未接线函数；
+        /// 只是它的 ⑥⑦ 两段今天恒 0。改前那个内联版的 ⑤ 算式**一字未改** ⇒ 指纹不变。</para>
+        /// </summary>
+        public static float ScoreFromManaBuff(BattleContext ctx, int p, AiScoringEntryDto e)
+        {
+            if (ctx == null || p < 0 || p > 1 || e == null) return 0f;
+            int change = e.buff != null ? e.buff.costChange : 0;      // `.c:25`（`criteria.buffEffect`）
+            int manaLeft = ctx.Players[p].Energy;                     // `.c:23`（`GetManaLeft`）
+            int limit = manaLeft + change;                            // `.c:25`
+            if (limit > ctx.Players[p].MaxEnergy)                      // `.c:26-28`（`GetTotalMana`）
+            {
+                // 🔬 早退这一支**也要有读数**（否则「读数项没出现」会被误读成「没接」）：
+                if (TraceCriteria != null)
+                    Trace("    manaBuff: hand=0 hero=0 minion=0（limit=" + limit + " > totalMana="
+                          + ctx.Players[p].MaxEnergy + " ⇒ 原版整段返回 0）");
+                return 0f;
+            }
+
+            float sum = 0f;
+            int handHits = 0, heroHit = 0, minionHits = 0;
+
+            // ---- ⑤ 手牌（`.c:35-47`）----
+            var hand = ctx.Players[p].Hand;
+            for (int i = 0; i < hand.Count; i++)
+            {
+                if (hand[i] == null || hand[i].Card == null) continue;
+                int cost = RuleCore.CostOf(ctx, p, hand[i]);           // 原版 `CurrentCost`（运行时费）
+                if (cost > manaLeft && cost <= limit) { sum += 1f; handHits++; }
+            }
+
+            // ---- ⑥ 督军（`.c:48-59`）· ⑦ 同侧场上（含残骸，`.c:61-91`）----
+            // 两段都只看「主动技 manaCost 是否落在 (manaLeft, limit]」，判据函数收在下面一处。
+            if (AbilityManaCostInRange(ctx.Players[p].Warlord, manaLeft, limit)) { sum += 1f; heroHit++; }
+            var board = ctx.Players[p].Board;
+            for (int s = 0; s < BoardSpec.Size; s++)
+            {
+                if (s == BoardSpec.WarlordSlot) continue;               // 督军不在原版那两条 minions 表里
+                if (AbilityManaCostInRange(board[s], manaLeft, limit)) { sum += 1f; minionHits++; }
+            }
+
+            // 🔬 读数项（⛔ 只走 `TraceCriteria`，产品路径恒 null ⇒ 零影响）：
+            //    ⑥⑦ 要等 `activeAbility.manaCost` 列落进来才会出非 0（见 doc）。
+            if (TraceCriteria != null)
+                Trace("    manaBuff: hand=" + handHits + " hero=" + heroHit + " minion=" + minionHits
+                      + (ActiveAbilityManaCost == null ? "（🔴 主动技 manaCost 列未落 ⇒ ⑥⑦ 恒 0）" : ""));
+            return sum;
+        }
+
+        /// <summary>
+        /// 读数/接线口（🆕 2026-10-26 `E4P08`）：**某张卡的主动技 `manaCost`**
+        /// （原版 `ActiveAbility.manaCost // +0x14`）。
+        ///
+        /// <para>产品路径**默认 `null` = 未知** —— 那份数据列还没落进 `cards_engine.json`
+        /// （见 `ScoreFromManaBuff` 的 doc：真值在 `cards_truth.json`，但要经
+        /// `工具/gen_cards_engine.py` + `Core/CardDef.cs` 两处改动，均不在本代理白名单）。</para>
+        ///
+        /// <para>⚠️ 只有 `ScoreFromManaBuff` 的 ⑥⑦ 两段读它；默认 `null` ⇒ 两段各恒 0
+        /// ⇒ **行为零变化**（2026-10-26 实核：`play check` 指纹 `af8e8178…` 未动）。</para>
+        /// <para>⛔ **别在游戏代码里给它赋值**（同 <see cref="TraceCriteria"/> 的口径：只给探针/自检用）。</para>
+        /// </summary>
+        public static Func<CardDef, int> ActiveAbilityManaCost;
+
+        /// <summary>「这个单位的主动技费用落在 `(manaLeft, limit]` 吗」——**⑥⑦ 共用的唯一判据**
+        /// （原版两段的算式逐字相同：`hasActiveAbility &amp;&amp; manaCost &gt; manaLeft &amp;&amp; manaCost &lt;= limit`）。
+        /// `unknown`（钩子为 null / 卡没有主动技 / `hasActiveAbility` 判不出）⇒ **false**
+        /// （⛔ 不猜 —— 本仓红线：没有判据就不猜）。
+        /// </summary>
+        static bool AbilityManaCostInRange(UnitState u, int manaLeft, int limit)
+        {
+            if (u == null || u.Card == null) return false;
+            var look = ActiveAbilityManaCost;
+            if (look == null) return false;                       // 列未落 ⇒ 未知（不猜）
+            if (u.Card.HasActiveAbility == 0) return false;       // 原版 `hasActiveAbility == false` ⇒ 整段跳过
+            int cost = look(u.Card);
+            if (cost < 0) return false;                           // 约定：<0 = 未知
+            return cost > manaLeft && cost <= limit;
+        }
     }
+
+#if UNITY_EDITOR
+    /// <summary>
+    /// 🆕 2026-10-26（批次 9 · 执行代理 `E4P08`）：**账行 12 / 29 / 38 / 39 四条的单测入口**。
+    ///
+    /// <para>放在 `#if UNITY_EDITOR` 里（`Assembly-CSharp.csproj` 的 `DefineConstants` **含
+    /// `UNITY_EDITOR`** ⇒ `工具/typecheck.sh` 会真的编到它，不是「没被编过」的盲区）。
+    /// ⛔ **产品路径不调它**；由自检宿主（`RuleEngine/Editor/RuleEngineTest.cs`）接一行即可：
+    /// <c>AiScoringSelfTest.Run((tag, ok, detail) =&gt; CheckTrue(ok, tag + " —— " + detail));</c>
+    /// （⚠️ 那一行要由调度台派给自检线的写手 —— `RuleEngineTest.cs` **不在本代理白名单**。）</para>
+    ///
+    /// <para>⚠️ 本入口**只依赖引擎的公开件**（`BattleContext(seed)` + `PlayerState` + `UnitState` +
+    /// `CardInstance.Detached`）：不建牌库、不跑 `RuleCore.NewBattle` ⇒ 夹具不会碰到「洗牌/抽牌」
+    /// 那些与本包无关的路径。</para>
+    /// </summary>
+    public static class AiScoringSelfTest
+    {
+        static CardDef Hero() { return new CardDef("E4P08HERO", "E4P08HERO", "hero", "",
+                                                  "common", "Test", 0, 2, 30, 0, null); }
+        static CardDef Troop(string id, int cost, int hp)
+        {
+            return new CardDef(id, id, "unit", "", "common", "Test", cost, 1, hp, 0, null);
+        }
+        static BattleContext Ctx()
+        {
+            var ctx = new BattleContext(0xC0FFEE);
+            ctx.Players[0] = new PlayerState();
+            ctx.Players[1] = new PlayerState();
+            return ctx;
+        }
+        static void PutWarlord(BattleContext ctx, int p, CardDef card)
+        {
+            var w = new UnitState(card, true);
+            ctx.Players[p].Warlord = w;
+            ctx.Players[p].Board[BoardSpec.WarlordSlot] = w;
+        }
+        static void AddUnit(BattleContext ctx, int p, int slot, CardDef card)
+        {
+            ctx.Players[p].Board[slot] = new UnitState(card, false);
+        }
+
+        /// <param name="check">(说明, 通过?, 细节)</param>
+        public static void Run(Action<string, bool, string> check)
+        {
+            if (check == null) return;
+
+            // ================= 行 12：GetDefensiveAttackValue =================
+            {
+                var hero = Hero();
+                var h1 = new UnitState(hero, true);
+                var h2 = new UnitState(hero, true);
+                var u1 = new UnitState(Troop("E4P08U", 1, 3), false);
+
+                check("行12 ① 双督军 ⇒ 0（不看分）", AiScoring.GetDefensiveAttackValue(h1, h2, 9f) == 0f, "score=9 ⇒ 0");
+                check("行12 ② 守方督军 + 1.9 分 ⇒ 0", AiScoring.GetDefensiveAttackValue(u1, h2, 1.9f) == 0f, "1.9 < 2f");
+                check("行12 ③ 守方督军 + 2.1 分 ⇒ 2.1", AiScoring.GetDefensiveAttackValue(u1, h2, 2.1f) == 2.1f, "原样返回");
+                check("行12 ④ 守方督军 + 正好 2.0 分 ⇒ 2.0（闸是 < 2f）",
+                      AiScoring.GetDefensiveAttackValue(u1, h2, 2f) == 2f, "2f < 2f 为假 ⇒ 返回原分");
+                check("行12 ⑤ 守方非督军 ⇒ 原样返回", AiScoring.GetDefensiveAttackValue(u1, u1, 7f) == 7f, "无任何闸");
+                check("行12 ⑥ 空引用 ⇒ 原样返回（原版抛 NRE，见 doc）",
+                      AiScoring.GetDefensiveAttackValue(null, u1, 3f) == 3f, "不抛");
+            }
+
+            // ================= 行 39：SuicideHeroAttack =================
+            {
+                var hero = Hero();
+                var strong = new UnitState(hero, true); strong.Health = 5;
+                var weak = new UnitState(hero, true); weak.Health = 3;
+                var tie = new UnitState(hero, true); tie.Health = 3;
+                var troop = new UnitState(Troop("E4P08T", 1, 3), false);
+
+                check("行39 ① 攻血 3 ≤ 守血 5 ⇒ true", AiScoring.SuicideHeroAttack(weak, strong), "3 <= 5");
+                var low = new UnitState(hero, true); low.Health = 2;
+                check("行39 ② 攻血 3 > 守血 2 ⇒ false", !AiScoring.SuicideHeroAttack(weak, low), "3 > 2");
+                check("行39 ③ 平血 ⇒ true（闸是 <=）", AiScoring.SuicideHeroAttack(weak, tie), "3 <= 3");
+                check("行39 ④ 攻方非督军 ⇒ false", !AiScoring.SuicideHeroAttack(troop, strong), "两侧都必须是 Hero");
+                check("行39 ⑤ 守方非督军 ⇒ false", !AiScoring.SuicideHeroAttack(strong, troop), "同上");
+                check("行39 ⑥ 空引用 ⇒ false（原版抛 NRE，见 doc）", !AiScoring.SuicideHeroAttack(null, strong), "不抛");
+            }
+
+            // ================= 行 38：ShouldPlayComboCard =================
+            {
+                var ctx = Ctx();
+                int side = 1;
+                var combo = Troop("E4P08COMBO", 2, 2);
+                var me = Troop("E4P08ME", 3, 2);
+                ctx.Players[side].Hand.Add(CardInstance.Detached(combo));
+                ctx.Players[side].Energy = 5;                       // 3 + 2 = 5 ⇒ 够
+
+                check("行38 ① combo 在手 + 能量够 + comboCardFirst + 2 分 ⇒ true",
+                      AiScoring.ShouldPlayComboCard(ctx, side, combo, true, me, 2f, false), "5 >= 3+2");
+                ctx.Players[side].Energy = 4;                       // 4 < 5 ⇒ 差 1
+                check("行38 ② 能量差 1 ⇒ false",
+                      !AiScoring.ShouldPlayComboCard(ctx, side, combo, true, me, 9f, false), "4 < 3+2");
+                ctx.Players[side].Energy = 5;
+                check("行38 ③ comboCardFirst 假 且 没打过第一张 ⇒ false",
+                      !AiScoring.ShouldPlayComboCard(ctx, side, combo, false, me, 9f, false), "两道闸都不成立");
+                check("行38 ④ playedFirstComboCard ⇒ true（不看分数/标记）",
+                      AiScoring.ShouldPlayComboCard(ctx, side, combo, false, me, 0f, true), "第一张已打");
+                check("行38 ⑤ comboCardFirst + 1.9 分 ⇒ false",
+                      !AiScoring.ShouldPlayComboCard(ctx, side, combo, true, me, 1.9f, false), "1.9 < 2f");
+                ctx.Players[side].Hand.Clear();
+                check("行38 ⑥ combo 不在手 ⇒ false",
+                      !AiScoring.ShouldPlayComboCard(ctx, side, combo, true, me, 9f, true), "IsRawCardInHand 为假");
+            }
+
+            // ================= 行 29：ScoreFromManaBuff（⑤ 今天可验；⑥⑦ 待数据列）=================
+            {
+                var ctx = Ctx();
+                int side = 1;
+                var hero = Hero();
+                PutWarlord(ctx, side, hero);
+                ctx.Players[side].Energy = 3;
+                ctx.Players[side].MaxEnergy = 5;
+                // 手牌：cost 4（落在 (3,5] ⇒ +1）· cost 6（超出上限 ⇒ 不数）· cost 3（已打得起 ⇒ 不数）
+                ctx.Players[side].Hand.Add(CardInstance.Detached(Troop("E4P08H4", 4, 2)));
+                ctx.Players[side].Hand.Add(CardInstance.Detached(Troop("E4P08H6", 6, 2)));
+                ctx.Players[side].Hand.Add(CardInstance.Detached(Troop("E4P08H3", 3, 2)));
+
+                var e = new AiScoringEntryDto();
+                e.buff = new AiBuffDto { costChange = 2 };          // limit = 3 + 2 = 5 = MaxEnergy ⇒ 不早退
+                check("行29 ① ⑤ 手牌 (cur,limit] 的张数 = 1", AiScoring.ScoreFromManaBuff(ctx, side, e) == 1f, "只有 cost 4");
+
+                e.buff.costChange = 3;                              // limit = 6 > 5 ⇒ 0
+                check("行29 ② limit > totalMana ⇒ 0", AiScoring.ScoreFromManaBuff(ctx, side, e) == 0f, "6 > 5");
+                e.buff.costChange = 2;
+
+                // ⑥⑦：钩子默认 null ⇒ 恒 0（列未落）；赋一个假的钩子 ⇒ 两段各 +1（证明算式是活的）
+                AiScoring.ActiveAbilityManaCost = null;
+                check("行29 ③ 钩子为 null ⇒ ⑥⑦ 恒 0（今天的真实读数）",
+                      AiScoring.ScoreFromManaBuff(ctx, side, e) == 1f, "只有 ⑤ 那 1 分");
+                AiScoring.ActiveAbilityManaCost = c => (c != null && c.Id == hero.Id) ? 5 : 4;
+                // 督军 cost 5 落在 (3,5] ⇒ +1；场上那个 cost 4 ⇒ +1
+                AddUnit(ctx, side, BoardSpec.WarlordSlot + 1, Troop("E4P08M", 1, 2));
+                check("行29 ④ 钩子给值 ⇒ 督军 +1 / 场上 +1（⑥⑦ 算式是活的）",
+                      AiScoring.ScoreFromManaBuff(ctx, side, e) == 3f, "1(手牌) + 1(督军) + 1(场上)");
+                AiScoring.ActiveAbilityManaCost = null;             // ⛔ 复位：产品路径必须回到「未知」
+            }
+        }
+    }
+#endif
 }

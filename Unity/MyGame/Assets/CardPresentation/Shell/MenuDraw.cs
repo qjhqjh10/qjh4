@@ -3624,6 +3624,15 @@ namespace CardPresentation
                 if (q == null || q.Texture == null) continue;
                 var p = CardArt.PathOf(q.Texture as Texture2D);       // 不是经 `CardArt.Get` 来的（Solid/渐变/RT）⇒ null
                 if (p != null && CardArt.IsPerItemArt(p) && CardArt.Release(p)) n++;
+                // 🔴 **2026-10-26（K-02 · 账 `收藏:203` · 调度台追加授权只改本处）**：**模式图标那一族**也在这一跳放。
+                //   判据 = 原版 `CollectionDeck.OnDestroy` → `ScriptableObjectsCollectionsUtilities.ReleaseGameModeIcon`
+                //   → `GameModesIconCollection.Release(<deck 的 gameMode>)`（**带值**，不是「只放默认那张」——
+                //   订正与 SO 实读见 `Core/CardArt.cs` 类尾「模式图标的『释放』那一族」那一段）。
+                //   ⛔ 它**不进** `PerItemArtPrefix`：那一族还装着 `ui_menu/` 下的 HUD 图 / 难度角标 / 阵营图标，
+                //   原版那三个释放方法一张都没碰（见 `CardArt.PerItemArtPrefix` 上面那条注释）。
+                //   ⚠️ 模式图标是**共享缓存条目**（一张图一条登记）⇒ 必须先用 `CardArt.IsCached` 挡掉「已经放过了」
+                //   那 N-1 次（否则每格都喊一条 `Release` 的「没缓存过」告警 —— 那是正常情形，不是失败）。
+                if (p != null && CardArt.IsModeIconArt(p) && CardArt.IsCached(p) && CardArt.Release(p)) n++;
             }
             stack.Clear();                                            // ⛔ 别把节点留在静态表里（那就是「只增不减」的老毛病）
             return n;

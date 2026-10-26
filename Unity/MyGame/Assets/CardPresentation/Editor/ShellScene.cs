@@ -4729,7 +4729,91 @@ public static class ShellScene
         if (intro != null)
             CheckTrue(intro.length > 1.0f, $"开场动画时长 > 1s（实测 {intro.length:F2}s）");
         CheckNear(ShellRuntime.IntroVolume, 0.65f, 0.0001f, "开场动画音量 = 0.65（`AudioSource_261` 实证）");
-        CheckNear(ShellRuntime.MusicVolumeMultiplier, 0.2f, 0.0001f, "菜单音乐源音量系数 = 0.2（`MusicManager` 预制体实证）");
+        // 🆕 2026-10-26（W11AU · 账行 69）：原版这个音源上挂着 `MusicVolumePlayerPrefsSetting`
+        //   （`MusicVolumePlayerPrefsSetting__Start.c:16-27`）：`v = PlayerPrefs.GetFloat(key, 源自身音量)`，`volume = 源音量 × v`。
+        //   ⇒ 期望值 = `0.65 × 存档量`（默认值是**源自身音量**，不是 1.0 ⇒ 初装 = 0.65×0.65 = 0.4225）。
+        //   ⚠️ 期望值里那两个数都来自**原版判据**（0.65 出自 `AudioSource_261`；默认值语义出自 `.c`），不是我们自己编的常量互比。
+        float musicPref = PlayerPrefs.GetFloat(WarpforgeAudio.MusicPrefKey, ShellRuntime.IntroVolume);
+        CheckNear(shell.IntroAudioVolumeForTest, ShellRuntime.IntroVolume * musicPref, 0.0001f,
+                  "开场视频音量 = 0.65 × 音乐存档量（原版 `MusicVolumePlayerPrefsSetting.Start`；没存档时 = 0.4225）");
+        CheckNear(ShellRuntime.IntroVolume * ShellRuntime.IntroVolume, 0.4225f, 0.0001f,
+                  "…且「初装无 `MusicVolume` 存档」这一档 = 0.65 × 0.65 = **0.4225**（默认值取源自身音量）");
+
+        // ---- 🆕 2026-10-26（W11AU）：音乐**源**音量 vs mixer 侧的 ×0.2 ----
+        // 🔴 这两条必须成对看（拆开看任何一条都会得出错结论）：
+        //   · `PlayMusic` 的 Instant 档把 `source.volume` **强写 1.0**（`MusicManager__PlayMusic.c:71-78` 读静态表 `[0]`；
+        //     原版两个音乐源的序列化 `m_Volume` 也是 1.0）⇒ **源侧没有 0.2**。
+        //   · 0.2 是 `MusicManager.musicVolumeMultiplier`（预制体 `MonoBehaviour_-1722128571091716916.json` = 0.2），
+        //     原版把它乘进 **mixer 的 `VolumeMusic`**（`PlayerDataManager__SetMusicAndFxVolumes.c` → `SoundManager__SetMixerVolume.c`，dB 换算）
+        //     ⇒ 我们这一侧的对应物 = `WarpforgeAudio.MusicVolumeMultiplier`，**必须是 0.2**。
+        //   ⇒ 总响度 = 1.0 × (存档量 × 0.2)。⛔ 别把 0.2 乘回源侧（那就是原版的 1/5）；也⛔ 别两边都不乘。
+        CheckNear(ShellRuntime.MusicSourceVolume, 1.0f, 0.0001f,
+                  "★ 菜单音乐**源**音量 = 1.0（原版 `MusicManager__PlayMusic.c:71-78` Instant 档 / `AudioSourcesController.MAX_VOLUME`；"
+                + "改回 0.2 这里就红）");
+        CheckNear(WarpforgeAudio.MusicVolumeMultiplier, 0.2f, 0.0001f,
+                  "★ 音乐的 ×0.2 在 **mixer 侧**（`WarpforgeAudio.MusicVolumeMultiplier` = 原版 `MusicManager.musicVolumeMultiplier`，"
+                + "预制体实证 0.2）—— 源侧已是 1.0，这一格不是 0.2 时**总响度**就与原版不等（少乘 = 响 5 倍）");
+
+        // ---- 🆕 2026-10-26（W11AU · 账行 19·20·21·22·23·27·28·29·30·31）：`AudioSourcesController` 双源 3 s 交叉淡变 ----
+        // 判据：`AudioSourcesController__{Blend,DecrementVolume,FadeIn,FadeOut,IncrementVolume,SetMaxVolume,SetMinVolume,Stop,
+        // SwitchMainAudioSource,VolumeLerp}.c` + 三个状态机 `._*_d__{14,16,18}__MoveNext.c` + 常量 `__.cctor.c:9-11`。
+        // ⚠️ **完全离线跑**：`ResetClockForTest()` 把钟切成手动档、`AdvanceForTest(dt)` 一帧一帧推
+        //    （批处理没有帧循环 ⇒ 原版的 `Task`/协程都动不了；机制见 `Core/AudioSourcesController.cs` 文件头）。
+        CheckNear(ShellRuntime.MusicQueueLeadSeconds, 3.0f, 0.0001f,
+                  "排队下一曲**提前 3 s**（`MusicManager__PlayMusicQueued.c:43-52`；常量 0x1834b2e8c 实读 = 3.0f）");
+        {
+            var goA = new GameObject("AudioSourcesController 探针 A");
+            var goB = new GameObject("AudioSourcesController 探针 B");
+            var srcA = goA.AddComponent<AudioSource>();
+            var srcB = goB.AddComponent<AudioSource>();
+            var ctl = new AudioSourcesController();
+            ctl.Init(srcA, srcB);
+            CheckTrue(ctl.MainAudioSource == srcA, "`Init()` ⇒ 主源 = **first**（`AudioSourcesController__Init.c:5`）");
+            CheckTrue(!srcB.enabled, "`Init()` ⇒ **second 停用**（同文件最后一句 `set_enabled(0)`）");
+
+            ctl.ResetClockForTest();
+            ctl.FadeIn(main);
+            CheckNear(srcA.volume, 0f, 0.001f,
+                      "FadeIn 起播音量 = **0**（`AudioSourcesController__FadeIn.c:31-32` 写静态表[1]）");
+            ctl.AdvanceForTest(1.5f);
+            CheckNear(srcA.volume, 0.5f, 0.02f,
+                      "FadeIn **1.5 s ⇒ 0.5**（`LERP_DURATION` = 3 s 线性；上限常量 0x1834b2bb8 实读 = 1.0f）");
+            ctl.AdvanceForTest(1.5f);
+            CheckNear(srcA.volume, 1.0f, 0.001f,
+                      "FadeIn **3 s ⇒ 1.0**（`._IncrementVolume_d__14__MoveNext.c` 末句 `set_volume(静态表[0])`）");
+            Check(ctl.ActiveLerpCount, 0, "FadeIn 的补间 3 s 后**收工**（原版 `Task` 结束，不再写 volume）");
+
+            var blended = ctl.Blend(idle);
+            CheckTrue(blended == srcB && ctl.MainAudioSource == srcB,
+                      "★ `Blend` ⇒ 主源切到**另一个**源，并返回它（`__Blend.c:14-29`）");
+            CheckNear(srcB.volume, 0f, 0.001f, "…新源从 **0** 起播（Blend = FadeOut + 切主源 + FadeIn）");
+            ctl.AdvanceForTest(1.5f);
+            CheckNear(srcA.volume, 0.5f, 0.02f, "Blend 的**旧源**在淡出（1.5 s ⇒ 0.5）");
+            CheckNear(srcB.volume, 0.5f, 0.02f, "Blend 的**新源**在淡入（1.5 s ⇒ 0.5）");
+            ctl.AdvanceForTest(1.5f);
+            CheckNear(srcA.volume, 0f, 0.001f,
+                      "Blend 3 s ⇒ **旧源 = 0**（`._DecrementVolume_d__16__MoveNext.c` 末句）；改坏成硬切这里就红");
+            CheckTrue(!srcA.enabled, "…而且旧源 `enabled = false`（同末句）");
+            CheckNear(srcB.volume, 1.0f, 0.001f, "Blend 3 s ⇒ **新源 = 1.0**");
+
+            ctl.FadeOut();
+            ctl.AdvanceForTest(3f);
+            CheckNear(srcB.volume, 0f, 0.001f, "`FadeOut()`（= `MusicManager.StopMusic(instant:false)`）3 s 后当前源 = 0");
+            CheckTrue(!srcB.enabled, "…并 `enabled = false`（`AudioSourcesController__FadeOut.c` → Decrement 末句）");
+            Object.DestroyImmediate(goA);
+            Object.DestroyImmediate(goB);
+        }
+
+        // ---- 🆕 2026-10-26（W11AU · 账行 62·63·67）：排队下一曲 **可取消**（原版 `+0x40` 那个句柄）----
+        CheckTrue(shell.MusicQueuedForTest,
+                  "（前提）`PlayMenuMusic()` 之后 idle 已经**排进队列**（`MainMenuMusicController__Initialize.c` 第二句 `PlayMusicQueued`）");
+        CheckTrue(shell.QueuedMusicClipForTest == idle, "…排的就是 `menu_idle_theme`（主主题先播、idle 接着上）");
+        shell.CheckQueue();
+        CheckTrue(!shell.MusicQueuedForTest,
+                  "★ `CheckQueue()` ⇒ 排队的下一曲**取消**（`MusicManager__CheckQueue.c`：`StopCoroutine(+0x40)`；"
+                + "改坏成「只置空不取消」或「根本没存句柄」这里就红）");
+        shell.PlayMenuMusic();   // 复位：别让后面那几段跑在「没排队」的状态里
+
 
         Check(shell.Current, ShellRuntime.Phase.Intro, "一开始停在**开场**阶段");
         shell.SkipIntro();

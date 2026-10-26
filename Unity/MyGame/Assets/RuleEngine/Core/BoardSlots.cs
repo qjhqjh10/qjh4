@@ -537,60 +537,54 @@ namespace RuleEngine
 
         /// <summary>
         /// **原版 `MinionManager.GetNextSlotCheckingAdjacents`**（`d:/2/tools/decomp_full/MinionManager__GetNextSlotCheckingAdjacents.c`，
-        /// 🥇 逐句读过，全文 80 行）的等价物 —— **AI 部署单位时挑「贴着某个「在场所影响相邻」的单位」的落点**。
+        /// 🥇 逐句读过，全文 80 行）的等价物 —— **AI 部署单位时挑「贴着某个『在场所影响相邻』的单位」的落点**。
+        /// <para>**原版三条支**：① 该侧还有空位（`slotPos.Length − minions.Count ≥ 1`）⇒ 扫那侧的 minions：
+        /// 第 i 个满足 `CardScript.HasWhileInPlayAdjacentEffect()` ⇒ **`return -i-2`**（左）/ **`i+2`**（右）
+        /// （= 那一格**外侧**的下标，贴着他落）；② 两侧都不满足 ⇒ **`GetNextSlotWithoutDisplacing`**
+        /// （= 我们 <see cref="NextWithoutDisplacing"/> 那条：人少那侧最外一格、平手走右）。</para>
         ///
-        /// <para>**原版行为**（三条支，逐句）：</para>
-        /// <list type="number">
-        /// <item>**左侧还有空位**（`leftSlotPos.Length − leftMinions.Count ≥ 1`）⇒ 扫 `leftMinions`：
-        ///   第 i 个满足 `CardScript.HasWhileInPlayAdjacentEffect()` ⇒ **`return -i-2`**
-        ///   （= 那一格**外侧**的下标，贴着他落）。扫完没命中 ⇒ 落进下一支。</item>
-        /// <item>**右侧还有空位** ⇒ 扫 `rightMinions`：命中 ⇒ **`return i+2`**（同上，右侧外侧）。</item>
-        /// <item>两侧都不满足（没空位 / 没那种单位）⇒ **`GetNextSlotWithoutDisplacing`**
-        ///   （= 我们 <see cref="NextWithoutDisplacing"/> 的那条规则）。</item>
-        /// </list>
+        /// <para>🔴 **2026-10-26（批次 9 · `E4P08` · 账行 1120）：改成【返回原版的有符号格号】+ 已接线。**
+        /// 返回域 = 原版口径：`&lt; 0` 左（`-1` = 贴督军那格）、`&gt; 0` 右，**`|值| − 1` = 该侧下标**；
+        /// 绝对格号 = `BoardSpec.WarlordSlot + 返回值`（`ourSlot = 4 + origSlot`，见文件头）。
+        /// 原版 `-i-2` / `i+2` 是扫描时直接算好的数，⛔ 别在内部先换绝对号再换回来。
+        /// **接线点 = `SimpleAI.NextDeploySlot`**（原版唯一调用点 `AI__ExecuteAction.c:60-63`，AI 部署小兵那一支）。</para>
         ///
-        /// <para>🔴 **这就是我们之前整条缺的一支**：账行 1264 原来只把落点写成
-        /// 「<see cref="NextWithoutDisplacing"/> 的『人少那侧最外一格』」—— 那是**第三支**。
-        /// 前两支（贴着「相邻效果」单位落）**一行都没实现**。可达性：唯一调用点
-        /// `decomp_full/AI__ExecuteAction.c:63`（AI 部署 `cardType == Minion` 那一支）⇒
-        /// **AI 的部署位置**会不同（贴着 vs 最外），进而影响相邻光环/相邻效果。
-        /// 现读池内 `HasWhileInPlayAdjacentEffect` 的**第一半**（`trait 0x2f8 = 760 requiem`）**0 张**、
-        /// **第二半**（`WhileInPlay` 能力里 `targetsAffected == 100`）**18 张** ⇒ **可达**。</para>
+        /// <para>🔴 **判据换了（2026-10-26 裁定）：`HasWhileInPlayAdjacentEffect()` 照原版逐字判。**
+        /// 我们此前用「`CardDef.AuraSpecs` 里有没有 `Adjacent == true`」当它的替代 —— 那是**另一件事**
+        /// （光环作不作用到相邻格 ≠ 原版这个判据），已撤（判据 → `UnitState.HasWhileInPlayAdjacentEffect` 的 doc）。
+        /// ⚠️ **今天这一支恒不触发**：池内 `requiem` 0 张 · ability 级 `targetsAffected == 100` 0 行
+        /// ⇒ 部署落点**结构上永远走第三支**（这正是「照原版」，⛔ 不是「没做」）。</para>
         ///
-        /// <para>⚠️ **本版返回【绝对格号】**（不是原版的有符号下标）—— 调用方是引擎（`Board[]` 口径）；
-        /// 换算 `side/index` 见 <see cref="SlotOf"/>。原版 `-i-2` ⇔ 我们 `SlotOf(Left, i+1)`。</para>
-        /// <para>⚠️ 原版两侧是 `List`、**没有洞**；我们的 `Board[]` 可能出现 null（自检夹具）⇒ 本方法
-        /// **跳过 null**（⛔ 不中断扫描 —— 原版 `get_Item == null` 那一支是「不该发生」的 throw）。
-        /// 有洞本身由 <see cref="IsContiguous"/> / `WarnHoley` 负责出声。</para>
-        /// <para>⛔ **还没有接线**：调用点（`SimpleAI` 的部署落点）不在本批白名单 ⇒ 见报告
-        /// `报告/G3_第5轮.md` §六 的改动请求（附谓词的判据与写法）。</para>
+        /// <para>⚠️ **返回 `0` = 我们这边「放不下」**（两侧都满）：原版这个函数在满场时返回越界的
+        /// `rightCount+1`（调用方靠 `IsAvailableSlot` 事先挡住）；我们给**本函数原版值域里不可达的 0**
+        /// （`~count` ≤ −1、`count+1` ≥ 1 ⇒ 原版永远拿不到 0），调用方据此返回自己的哨兵。
+        /// ⚠️ 原版两侧是 `List`、**没有洞**；我们的 `Board[]` 可能出现 null（自检夹具）⇒ 本方法
+        /// **跳过 null** 继续扫（⛔ 不中断 —— 原版 `get_Item == null` 那一支是「不该发生」的 throw），
+        /// 有洞本身由 <see cref="IsContiguous"/> / <see cref="WarnHoley"/> 负责出声。</para>
         /// </summary>
-        /// <param name="hasAdjacentEffect">「这个单位有没有『在场所影响相邻』」—— 原版那两半见上面
-        /// （`trait 760` / `WhileInPlay` 能力的 `targetsAffected == 100`）。`null` ⇒ 直接走第三支。</param>
-        public static int NextSlotCheckingAdjacents(PlayerState ps, System.Func<UnitState, bool> hasAdjacentEffect)
+        /// <param name="hasAdjacentEffect">**`null` = 用原版判据 `UnitState.HasWhileInPlayAdjacentEffect()`**
+        /// （产品路径就是这条）；非 null 仅供自检/探针注入替身谓词（做鉴别力用）。</param>
+        public static int NextSlotCheckingAdjacents(PlayerState ps, System.Func<UnitState, bool> hasAdjacentEffect = null)
         {
-            if (ps == null || ps.Board == null) return -1;
-            if (hasAdjacentEffect != null)
+            if (ps == null || ps.Board == null) return 0;
+            bool Adj(UnitState u)
             {
-                if (RoomOnSide(ps, Left) > 0)                  // 第一支：左侧有空位才扫左侧
-                {
-                    for (int i = 0; i < BoardSpec.SlotsPerSide; i++)
-                    {
-                        var u = ps.Board[SlotOf(Left, i)];
-                        if (u != null && hasAdjacentEffect(u)) return SlotOf(Left, i + 1);   // 原版 `-i-2`
-                    }
-                }
-                if (RoomOnSide(ps, Right) > 0)                 // 第二支
-                {
-                    for (int i = 0; i < BoardSpec.SlotsPerSide; i++)
-                    {
-                        var u = ps.Board[SlotOf(Right, i)];
-                        if (u != null && hasAdjacentEffect(u)) return SlotOf(Right, i + 1);  // 原版 `i+2`
-                    }
-                }
+                if (u == null) return false;
+                return hasAdjacentEffect != null ? hasAdjacentEffect(u) : u.HasWhileInPlayAdjacentEffect();
+            }
+            if (RoomOnSide(ps, Left) > 0)                                   // 第一支：左侧有空位才扫左侧
+            {
+                for (int i = 0; i < BoardSpec.SlotsPerSide; i++)
+                    if (Adj(ps.Board[SlotOf(Left, i)])) return -(i + 2);    // 原版 `-i-2`（有符号）
+            }
+            if (RoomOnSide(ps, Right) > 0)                                  // 第二支
+            {
+                for (int i = 0; i < BoardSpec.SlotsPerSide; i++)
+                    if (Adj(ps.Board[SlotOf(Right, i)])) return i + 2;      // 原版 `i+2`（有符号）
             }
             int blocked;
-            return NextFreeWithoutDisplacing(ps, out blocked);  // 第三支（原版 `GetNextSlotWithoutDisplacing`）
+            int abs = NextFreeWithoutDisplacing(ps, out blocked);            // 第三支（原版 `GetNextSlotWithoutDisplacing`）
+            return abs < 0 ? 0 : abs - BoardSpec.WarlordSlot;               // 绝对 → 有符号（`ourSlot = 4 + orig`）
         }
     }
 }

@@ -142,8 +142,8 @@ namespace RuleEngine
 
         /// <summary>🆕 2026-09-26：**上一次自己回合结束时没花完的能量结转**（遭遇模式的 `manaAccumulation`）。
         /// 经典恒 0（`GameplayVariables.manaAccumulation = 0` ⇒ 这条路一次都不走）。
-        /// ⚠️ 语义按「**一次性结转**」实现（下回合最大能量 +它，之后清零）—— 规则书只写了
-        /// 「保存 1 点 → 下回合最大 +1」，**是临时还是永久没写死**，我们按更保守的那种做，注释标着。</summary>
+        /// 🔴 判据（2026-10-26 `W12MN`/`W15MN` 实读）= `decomp_full/BattleManager__UpdateManaLeftAccumulation.c:51-57`：`SetSavedMana(min(manaAccumulation(+0x40), GetUnusedMana()), 1)`，`+0x40 == 0` 时**整条早退不写** ⇒ 我们那一行整数域**逐项等价**（原文引的非官方规则书 `:60` 已作废）。
+        /// ⚠️ 语义 = **一次性结转**（下回合最大能量 +它、之后清零）＝ 原版 `_NextTurn:344-352` 的 `RefillCustomMana(saved)` + `SetSavedMana(0)`；今天只有遭遇真的用上（`manaAccumulation = 1`）。</summary>
         public int ManaCarry;
 
         /// <summary>
@@ -344,5 +344,153 @@ namespace RuleEngine
         /// <summary>原版 `+0x2c == 0x6e` 里的那个 `0x6e`（= 110 = DarkAngels）。枚举名见
         /// `d:/2/Warpforge_code/Scripts/Assembly-CSharp/CardArmy.cs`。</summary>
         public const string QuestPointsFaction = "DarkAngels";
+
+        // ==================================================================
+        //  🆕 2026-10-26（`W12MN` · 账 556/563/565/566/573/574/576/577 那 7 条）：
+        //  **原版 `PlayerManager` 的 7 个纯数值取值口** —— 逐一转发到本类字段。
+        //
+        //  判据（第一权威；7 份 `.c` **全文实读**，2026-10-26）：
+        //   · `decomp_full/PlayerManager__GetCurrentFaith.c:1-28`       → `faithMana(+0xB0)` 解混淆返回
+        //   · `decomp_full/PlayerManager__GetCurrentSpiritStone.c:1-28` → `spiritStoneMana(+0x9C)`
+        //   · `decomp_full/PlayerManager__GetCurrentQuestPoints.c:1-28` → `questPoints(+0xC4)`（**减过阈值的余数**）
+        //   · `decomp_full/PlayerManager__GetSecretsPlayed.c:1-28`      → `secretsPlayed(+0xEC)`
+        //   · `decomp_full/PlayerManager__GetSavedMana.c:1-28`          → `savedMana(+0xD8)`
+        //   · `decomp_full/PlayerManager__GetTotalMana.c:1-28`          → `totalMana(+0x38)`
+        //   · `decomp_full/PlayerManager__GetUnusedMana.c:1-28`         → `unusedMana(+0x4C)`
+        //  这 7/.c 的**方法体都只做一件事**：把那个 `CodeStage.ObscuredInt` 解混淆后 return，
+        //  **没有任何计算 / 上限 / 衰减 / 修正** ⇒ 我们的等价物就是字段本身，一行转发即逐字等价。
+        //
+        //  🔴 **为什么要有这层转发（而不是让调用方直读字段）**：
+        //   ① 施工单 W22 ③ 明写「13 个 getter 直接转发」；
+        //   ② 账的 **A 档**要求落点**是方法级声明** —— `工具/check_ledger_points.py` 的
+        //      `looks_like_decl` 不认 `public int Faith;` 这种「无 `(` / 无 `{` / 无 `=>`」的字段行
+        //      ⇒ 只有转发方法能让那 7 条成为**可机检**的 A（先例：`Deck` 那条能过是因为
+        //      `= new List<CardInstance>()` 里带了括号）；
+        //   ③ 原版这 7 个名字是对局内读这几条计数的**唯一官方口**；将来把
+        //      `EffectResolver` / `RuleCore` / `AiTargets` 里那些**直读字段**的调用方
+        //      迁移过来时，一次只改一处。
+        //  ⚠️ **今天没有调用点**（消费者仍直读字段）—— 这是**取值口**、不是「死机制」：
+        //     它自己不做任何判断，⛔ **别在它里面加规则**（那会变成第二份规则）。
+        //  ⚠️ `GetCurrentMaintenance()` **故意没有**：原版那条是 private 且**三源零调用**
+        //     （decomp / ILSpy / assets_full 全 0），照铁律 11 例外① 判 `D`；同一条
+        //     「维护费合计」的活路径内联在 `RuleCore.BeginTurn`（⛔ 别为它建第二份）。
+        //  ⚠️ 本段**追加在类尾**（铁律 18·b）：上面那些行号是账里 A 行的落点，
+        //     插在中间会让它们整体漂移。
+        // ==================================================================
+
+        /// <summary>原版 `PlayerManager.GetCurrentFaith()`（`decomp_full/PlayerManager__GetCurrentFaith.c:1-28`，
+        /// 全文 28 行）：把 `faithMana(+0xB0)` 解混淆后**原样**返回。
+        /// 语义 = **无上限、不衰减、不是货币**（不花掉）—— 见 <see cref="Faith"/>。</summary>
+        public int GetCurrentFaith()
+        {
+            return Faith;
+        }
+
+        /// <summary>原版 `PlayerManager.GetCurrentSpiritStone()`（`decomp_full/PlayerManager__GetCurrentSpiritStone.c:1-28`）：
+        /// 把 `spiritStoneMana(+0x9C)` 解混淆后返回。它**是货币**（`ManaType.SpiritStone = 5`，能花）。</summary>
+        public int GetCurrentSpiritStone()
+        {
+            return SpiritStones;
+        }
+
+        /// <summary>原版 `PlayerManager.GetCurrentQuestPoints()`（`decomp_full/PlayerManager__GetCurrentQuestPoints.c:1-28`）：
+        /// 把 `questPoints(+0xC4)` 解混淆后返回。🔴 **存的是「减过阈值之后的余数」**
+        /// （阈值那一步在 `AddQuestPoints` 内部就减掉了）—— 见 <see cref="QuestPoints"/>。</summary>
+        public int GetCurrentQuestPoints()
+        {
+            return QuestPoints;
+        }
+
+        /// <summary>原版 `PlayerManager.GetSecretsPlayed()`（`decomp_full/PlayerManager__GetSecretsPlayed.c:1-28`）：
+        /// 把 `secretsPlayed(+0xEC)` 解混淆后返回。唯一读点 = `AbilityLogic__GetTargets.c:523`
+        /// （`TargetsAffected.secretsPlayed = 245`，拿它当循环次数）—— 见 <see cref="SecretsPlayed"/>。</summary>
+        public int GetSecretsPlayed()
+        {
+            return SecretsPlayed;
+        }
+
+        /// <summary>原版 `PlayerManager.GetSavedMana()`（`decomp_full/PlayerManager__GetSavedMana.c:1-28`）：
+        /// 把 `savedMana(+0xD8)` 解混淆后返回。值由两处写：`BattleManager__UpdateManaLeftAccumulation.c:51-57`
+        /// （`min(manaAccumulation, unusedMana)`，`manaAccumulation == 0` 整条不写）与
+        /// `_NextTurn:296-334`（后手一次性补贴）—— 见 <see cref="ManaCarry"/>。</summary>
+        public int GetSavedMana()
+        {
+            return ManaCarry;
+        }
+
+        /// <summary>原版 `PlayerManager.GetTotalMana()`（`decomp_full/PlayerManager__GetTotalMana.c:1-28`）：
+        /// 把 `totalMana(+0x38)` 解混淆后返回 = **永久**法力槽数（跨回合保留）。
+        /// 我们的等价物 = <see cref="MaxEnergy"/>（原版是累加器、我们每回合从式子重算，
+        /// 逐项等价 —— 推导见 `RuleCore.BeginTurn` 的 `MaxEnergy` 式子那一段）。</summary>
+        public int GetTotalMana()
+        {
+            return MaxEnergy;
+        }
+
+        /// <summary>原版 `PlayerManager.GetUnusedMana()`（`decomp_full/PlayerManager__GetUnusedMana.c:1-28`）：
+        /// 把 `unusedMana(+0x4C)` 解混淆后返回 = **当前可用**能量。
+        /// 我们的等价物 = <see cref="Energy"/>（唯一扣口 = `RuleCore.SpendNormalMana`）。</summary>
+        public int GetUnusedMana()
+        {
+            return Energy;
+        }
+
+        // ==================================================================
+        //  🆕 2026-10-26（`W15MN` · 账 558/562/581/587 那 4 条）：原版 `PlayerManager` 的
+        //  **【写入侧】四个口** —— 与上面那 7 个【取值口】一一配对（`AddFaithMana` / `AddSpiritStoneMana` /
+        //  `SetSavedMana` / `RefillCustomMana`）。
+        //
+        //  判据（第一权威；4 份 `.c` **方法体实读**，2026-10-26）：
+        //   · `decomp_full/PlayerManager__AddFaithMana.c`           → `faithMana(+0xB0) += n`（再 `ManaManager.SetFaithMana`）
+        //   · `decomp_full/PlayerManager__AddSpiritStoneMana.c`     → `spiritStoneMana(+0x9C) += n`（再 `ManaManager.SetSpiritStoneMana`）
+        //   · `decomp_full/PlayerManager__SetSavedMana.c`           → `savedMana(+0xD8) = n`（再 `ManaManager.SetManaSaved`，第 3 个实参只喂 HUD）
+        //   · `decomp_full/PlayerManager__RefillCustomMana.c:35-41` → `unusedMana(+0x4C) += n`（**无封顶**，`totalMana` 不动；第 2 个实参只喂 HUD）
+        //  **四个方法体都只是「读 ObscuredInt → 加减 → 写回」**，没有上限 / 下限 / 衰减 / 修正
+        //  ⇒ 我们的等价物就是字段本身加减，一行转发即逐字等价。末尾那一跳 `ManaManager.*` 是
+        //  **HUD 刷新**（`ManaManager__SetAccumulationMana` 那种只有 `GameObject.SetActive` + 重排）
+        //  ⇒ 引擎侧不建模，表现层按 `EvtKind` / `ctx.Signals` 自己刷。
+        //
+        //  ⚠️ 与上面 7 个取值口同一条纪律：**这四个方法自己不做任何判断**
+        //     （上限 / 来源 / 触发 / 广播全在调用方 `RuleCore` / `EffectResolver` 那一侧），
+        //     ⛔ 别在它们里面加规则 —— 那会变成同一条判据的第二份实现。
+        //  ⚠️ 本段**追加在类尾**（铁律 18·b）：上面那些行号是账里 `A` 行的落点，
+        //     插在中间会让它们整体漂移。
+        // ==================================================================
+
+        /// <summary>原版 `PlayerManager.AddFaithMana(int)`（`decomp_full/PlayerManager__AddFaithMana.c`）：
+        /// `faithMana(+0xB0) += newMana`，随后 `ManaManager.SetFaithMana`（HUD）。
+        /// **无上限、不衰减、不是货币**（`ResetMana` 里没有 faith 参数、`ManaType` 里也没有 Faith）—— 见 <see cref="Faith"/>。</summary>
+        public void AddFaithMana(int newMana)
+        {
+            Faith += newMana;
+        }
+
+        /// <summary>原版 `PlayerManager.AddSpiritStoneMana(int)`（`decomp_full/PlayerManager__AddSpiritStoneMana.c`）：
+        /// `spiritStoneMana(+0x9C) += newMana`，随后 `ManaManager.SetSpiritStoneMana`（HUD）。
+        /// **无初始值、无上限** —— 见 <see cref="SpiritStones"/>；花费方向由 `EffectResolver` 的几处花费点自己扣。</summary>
+        public void AddSpiritStoneMana(int newMana)
+        {
+            SpiritStones += newMana;
+        }
+
+        /// <summary>原版 `PlayerManager.SetSavedMana(int value, bool useNumberChange)`（`decomp_full/PlayerManager__SetSavedMana.c`）：
+        /// `savedMana(+0xD8) = value`，随后 `ManaManager.SetManaSaved(...)` —— 第二个实参（`useNumberChange`）
+        /// **只控制 HUD 数字跳动**，状态侧就是一句赋值。
+        /// 我们只有值这一半 —— 见 <see cref="ManaCarry"/>。写点两处（都在 `RuleCore`）：
+        /// · `BattleManager__UpdateManaLeftAccumulation.c` 的 `min(manaAccumulation, GetUnusedMana)`（`EndTurnCore`）；
+        /// · `_NextTurn:344-352` 兑现后的 `SetSavedMana(0)`（`BeginTurnCore`）。</summary>
+        public void SetSavedMana(int value)
+        {
+            ManaCarry = value;
+        }
+
+        /// <summary>原版 `PlayerManager.RefillCustomMana(int manaToRefill, bool silently)`（`decomp_full/PlayerManager__RefillCustomMana.c:35-41`）：
+        /// `unusedMana(+0x4C) += manaToRefill` —— **没有封顶**（`totalMana` / 最大能量**一点不动**），
+        /// 第 2 个实参只控制 HUD。唯一调用点 = `RuleCore.BeginTurnCore` 兑现 `addedManaSecond`
+        /// （=`_NextTurn:344-352` 的 `RefillCustomMana(saved)`；今天两个模式都是 0 ⇒ 休眠）。</summary>
+        public void RefillCustomMana(int manaToRefill)
+        {
+            Energy += manaToRefill;
+        }
     }
 }

@@ -413,7 +413,16 @@ def build_matcher(pool, mapping, true_to_pool=None):
             return hit["id"], "id命中(名字表作 %s)" % v
         _pid = true_to_pool.get(hid) if true_to_pool else hid
         c = by_id.get(_pid) if _pid else None
-        v = (warlord or {}).get(hid)
+        # 🆕 2026-10-26（W5K09 · 账 `卡组:284`）：`warlord_ids.json` 里**没有**这条 id 时，用
+        #    `card_ids.json` 的 `mapping`（原版 id → 卡名）兜底，再走下面**同一个**名字表。
+        #    触发它的只有 6 副 FTUE 简单局 bot 牌（`*_BOT_FTUE_EASY`）：它们的 `heroId` 是 **32 位 GUID**，
+        #    `warlord_ids.json` 一条都没有，而 `mapping` 有名字（Medreyal Ghaelyn / Uriel Ventris /
+        #    Haarken Worldclaimer / Grukk Face-Rippa / Nemesor Zahndrekh / Tervigon）——
+        #    这 6 个名字在卡池里**恰好各有一张督军**（ASH3 / UM47 / BL35 / GOF29 / SAU36 / TL34），
+        #    而且正是它们各自 `_Deck1` 兄弟那副的督军（互相独立的两条证据）。
+        #    ⚠️ **预组池那 103 副 0 命中这条兜底**（现读：它们的 heroId 全部在 `warlord_ids.json` 里）
+        #      ⇒ `prebuilt_decks.json` 的产物逐字节不变。
+        v = (warlord or {}).get(hid) or (mapping or {}).get(hid)
         if v is None:
             return None, "查不到"
         s = norm(warlord_name_of_table(v))

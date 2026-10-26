@@ -82,29 +82,61 @@ namespace CardPresentation
     }
 
     // ============================================================ 事件过滤器（原版 `EventFilter`）
-    /// <summary>原版 `EventFilter`（`EventFilter.cs`，`[Serializable]`）—— **本批只搬 `Initialize` 用得到的那两格**：
-    /// `hasDuration`（默认 **false**）与 `eventDuration`（默认 **24**，单位 = **小时**）。
-    /// <para>🔴 判据（2026-10-25 坐实）：`d:/2/tools/cpp2il/out_cpp2il_dev_ilspy/Everguild.LiveOps/EventFilter.cs`
-    /// 的字段初始化器 `public int eventDuration = 24;`；字段偏移（`hasDuration` +0x18 / `eventDuration` +0x1C）
-    /// 见 `资料/完全复刻/判据/LiveOpsHandler_11方法_第2轮.md` §0·5。</para>
-    /// <para>⚠️ **原版还有 `army` / `expansion` / `hasCooldown` / `eventCooldown` / `eventGroups` / `Triggers` /
-    /// `Conditions`** —— 那些属 C1-W2（`CheckEventFilter` / `RegisterEventTriggers` / 冷却门）**本批没搬**，
-    /// ⛔ 没搬就是没搬，别以为 `EventFilter` 已经整个有了。本地 13 份 SO 的 `hasDuration` **全是 0**、
-    /// `eventDuration` 全是 24（逐份核过）⇒ 这里保持默认值即可，无需从目录映射。</para></summary>
+    /// <summary>原版 `EventFilter`（`EventFilter.cs`，`[Serializable]`）—— **字段表逐个照抄**（偏移 = 括号里那列）：
+    /// `army`(+0x10) · `expansion`(+0x14) · `hasDuration`(+0x18，默认 **false**) · `eventDuration`(+0x1C，默认 **24**，单位**小时**) ·
+    /// `hasCooldown`(+0x20，默认 false) · `eventCooldown`(+0x24，默认 **168**，单位**小时**) ·
+    /// `eventGroups`(+0x28) · `Triggers`(+0x30) · `Conditions`(+0x38)。
+    /// <para>🔴 判据（第一权威 = Ghidra 真身）：
+    /// `d:/2/tools/decomp_full/Everguild.LiveOps.EventFilter__.ctor.c`
+    /// （`*(this+0x1c) = 0x18`（24）· `*(this+0x24) = 0xa8`（168）· `+0x28` = `List&lt;LoadableReference&lt;EventGroup&gt;&gt;` ·
+    /// `+0x30` = `DynamicList&lt;EventTrigger&gt;` · `+0x38` = `DynamicList&lt;EventCondition&gt;`）+
+    /// 骨架 `out_cpp2il_dev_ilspy/Everguild.LiveOps/EventFilter.cs:25-41`；偏移表 → `判据/LiveOpsHandler_11方法_第2轮.md` §0·5。</para>
+    /// <para>🆕 **2026-10-26（W8P1 / U01）本条已订正**：原来这里写「**本批只搬 `Initialize` 用得到的那两格**，
+    /// `army` / `expansion` / `hasCooldown` / `eventCooldown` / `eventGroups` / `Triggers` / `Conditions` 属 C1-W2、
+    /// **本批没搬**，⛔ 没搬就是没搬」——**那一批已经过去，七格现在都在**（本类就是它们）。
+    /// **行为**（`Validate` / `CheckEventGroups` / `AddOrRemoveFromGroups` / `RegisterTriggers` / `CleanupTriggers` /
+    /// `TryActivateEvent` / `GetExpirationTime` / `HasTriggers`）**写在 `Shell/LiveOpsFilter.cs` 的 `partial` 另一半**，
+    /// ⛔ 别在别处再声明一次同名类。</para>
+    /// <para>⚠️ **数据缺口的现状（如实）**：本地 13 份 SO 的 `filter.army` / `expansion` / `eventGroups` **有值**
+    /// （判据 → `报告/R12_LiveOps判据落地_第2轮.md` §五·5），但**目录层没抄** ⇒ `eventGroupIds` 现在恒 `null`；
+    /// `Triggers` / `Conditions` 是**抽象多态表**，`JsonUtility` 也序列化不了 ⇒ 只能由代码/自检注入。⛔ 别编数据。</para></summary>
     [Serializable]
-    public class LiveOpsEventFilter
+    public partial class LiveOpsEventFilter
     {
-        /// <summary>原版 `EventFilter.hasDuration`（+0x18）。`false` ⇒ `Initialize()` **不排期**。</summary>
+        /// <summary>原版 `EventFilter.army`（+0x10，`CardArmy`）。⚠️ **本包没有任何读者**（原版 `Validate` /
+        /// `CheckEventGroups` / `AddOrRemoveFromGroups` / `RegisterTriggers` / `TryActivateEvent` 全不读它）——
+        /// 留字段是为了 `CheckEventFilter` 将来接「按阵营过滤」时不用再改一次形状。
+        /// ⚠️ 类型用 `int`（= 原版枚举的值）：我们工程里有多个 `CardArmy` 同名类型/枚举，⛔ 别在这里绑死某一个。</summary>
+        public int army;
+        /// <summary>原版 `EventFilter.expansion`（+0x14，`CardExpansionType`）。同 `army`：**本包零读者**，`int` 存值。</summary>
+        public int expansion;
+        /// <summary>原版 `EventFilter.hasDuration`（+0x18）。`false` ⇒ `Initialize()` **不排期**（唯一早退条件）。</summary>
         public bool hasDuration;
         /// <summary>原版 `EventFilter.eventDuration`（+0x1C），**单位 = 小时**，默认 **24**。</summary>
         public int eventDuration = 24;
+        /// <summary>原版 `EventFilter.hasCooldown`（+0x20）。`true` ⇒ `LiveOpsEvent.CanActivate()` 走冷却门
+        /// （`now - save.triggerTime &lt; eventCooldown*3600000` ⇒ 拒）。</summary>
+        public bool hasCooldown;
+        /// <summary>原版 `EventFilter.eventCooldown`（+0x24），**单位 = 小时**，默认 **168**（`0xa8` = 一周）。
+        /// 🔴 原版算式是 **32 位乘法**（`eventCooldown * 3600000`，`imul`）⇒ `eventCooldown &gt; 596` 会溢出成负数；
+        /// `CanActivate` 照抄那个 32 位乘法（见 `<see cref="LiveOpsEvent.CanActivate"/>` 的注释）。</summary>
+        public int eventCooldown = 168;
         /// <summary>原版 `EventFilter.eventGroups`（+0x28，`List&lt;LoadableReference&lt;EventGroup&gt;&gt;`）的**等价物**：
         /// 预计算的 `eventGroups.Select(r =&gt; r.TargetId).ToArray()` —— `LiveOpsHandler.QueueEventPopup` 用的正是这个投影
         /// （判据 = `LiveOpsHandler&lt;object&gt;$$QueueEventPopup` 的 `Enumerable.Select(... TargetId).ToArray()`）。
-        /// <para>⚠️ **数据源有、但还没搬**：13 份 SO 的 `filter.eventGroups` 有值，本地目录层（`LiveOpsLocalEvent`）
-        /// 没抄 ⇒ 这里现在恒 `null`（`QueueEventPopup` 按「空组」处理 = 不参与组去重）。
-        /// ⛔ 别在这里塞假的组名（铁律 2「没查到就说没查到」）。</para></summary>
+        /// <para>🔴 组实例由 <see cref="LiveOpsEventFilter.ResolveGroups"/> 查 <see cref="EventGroupConfig"/> 解析
+        /// （`Shell/LiveOpsFilter.cs`）；解析不到 id ⇒ 出声（每 id 一次）后跳过。
+        /// 数据源 = 13 份 SO 的 `filter.eventGroups`（有值）**但目录层没抄** ⇒ 现在恒 `null`，⛔ 别塞假组名。</para></summary>
         public string[] eventGroupIds;
+        /// <summary>原版 `EventFilter.Triggers`（+0x30，`DynamicList&lt;EventTrigger&gt;`）：信号触发器表。
+        /// 由 `RegisterTriggers` 逐条挂上总线、`CleanupTriggers` 逐条摘掉（`Shell/LiveOpsFilter.cs`）。
+        /// 🔴 **原版 ctor 里就 `new` 出来了 ⇒ 永不为 null**（`EventFilter__.ctor.c` 的 `+0x30`），我们同样给初始化器。
+        /// ⚠️ 抽象多态表 ⇒ **`JsonUtility` 序列化不了**（原版也不走 Json，走 Unity 序列化）⇒ 只能代码/自检注入。</summary>
+        public List<LiveOpsEventTrigger> Triggers = new List<LiveOpsEventTrigger>();
+        /// <summary>原版 `EventFilter.Conditions`（+0x38，`DynamicList&lt;EventCondition&gt;`，**私有**）：额外条件，
+        /// `Validate` 里「组门过后逐条 `Validate(liveOps)`，任一 false 即 false」。**原版 ctor 里也是 `new` 出来的**（永不为 null）。
+        /// 同 `Triggers`：POCO 装不进 Json。</summary>
+        public List<EventCondition> Conditions = new List<EventCondition>();
     }
 
     // ============================================================ 弹窗选项（原版 `PopupOptions`）
@@ -284,7 +316,25 @@ namespace CardPresentation
         void ResetEventProgress();
         void SaveEventProgress(Action onSuccess, Action onFail);
         bool IsActive();
+        /// <summary>原版 `ILiveOps.CanActivate()`（方法表槽 **5**）：冷却门（`hasCooldown` ⇒ `now-triggerTime &lt; eventCooldown*3600000` 就拒）。
+        /// 判据 = `LiveOpsEvent__CanActivate.c`。🆕 2026-10-26（W8P1）补。</summary>
+        bool CanActivate();
         void Dispose();
+        /// <summary>原版 `ILiveOps.RegisterEventTriggers()`（槽 **8**）：把 `data.filter.Triggers` 逐条挂上信号总线。
+        /// 判据 = `LiveOpsEvent__RegisterEventTriggers.c`。🆕 2026-10-26（W8P1）补。</summary>
+        void RegisterEventTriggers();
+        /// <summary>原版 `ILiveOps.CheckEventFilter()`（槽 **9**）：`data.filter == null ⇒ true`，否则 `filter.Validate(this)`。
+        /// 判据 = `LiveOpsEvent__CheckEventFilter.c`。🆕 2026-10-26（W8P1）补。</summary>
+        bool CheckEventFilter();
+        /// <summary>原版 `ILiveOps.RefreshExpire(Action callback)`（槽 **10**）：`EventState` 是 `Finished`/`Expired` ⇒
+        /// `Expire(callback)`。判据 = `LiveOpsEvent__RefreshExpire.c`。🆕 2026-10-26（W8P1）补。</summary>
+        void RefreshExpire(Action callback);
+        /// <summary>原版 `ILiveOps.MarkAsOld()`（槽 **11**）：`IsNew ⇒ IsNew=false + WasSeen=true + 上报 0x405`。
+        /// 判据 = `LiveOpsEvent__MarkAsOld.c`。🆕 2026-10-26（W8P1）补。</summary>
+        void MarkAsOld();
+        /// <summary>原版 `ILiveOps.OnEventTriggered()`（槽 **14**）：**基类空方法**（真身 = `LiveOpsEvent__OnEventTriggered.c`
+        /// 这个共享空桩），由具体子类覆盖。`EventFilter.TryActivateEvent` 激活成功后调它。🆕 2026-10-26（W8P1）补。</summary>
+        void OnEventTriggered();
         /// <summary>原版 `ILiveOps.get_EventState()`（slot 23）：`GetBaseData().GetState(CurrentServerDateTime())`。
         /// 判据 = `LiveOpsEvent__get_EventState.c`（`GetBaseData()` → `LiveOpsEventData.GetState(ServerDateTime())`）。
         /// `ScheduleEventPopups` 的过期支读它（`== LiveOpState.Finished`）。</summary>
@@ -357,8 +407,26 @@ namespace CardPresentation
             return d != null && d.IsActive(LiveOpsClock.NowUtc, false);
         }
 
-        /// <summary>原版 `LiveOpsEvent.Dispose()`（virtual）：默认空（子类释放自己的容器/句柄）。</summary>
-        public virtual void Dispose() { }
+        /// <summary>原版 `LiveOpsEvent.Dispose()`（`Everguild.LiveOps.LiveOpsEvent__Dispose.c`，**逐句**）：
+        /// <code>
+        /// var data = GetBaseData();                        // 槽 15；null ⇒ NRE（原版无空判）
+        /// if (data.filter != null) data.filter.CleanupTriggers(this);   // EventFilter.CleanupTriggers
+        /// </code>
+        /// 🆕 **2026-10-26（W8P1）本条已从「默认空」改成真身**：`CleanupTriggers` = ① 从**每个组**里摘掉本事件
+        /// ② 逐条 `Trigger.Unregister()`（见 `Shell/LiveOpsFilter.cs`）。调用点 = `LiveOpsHandler.ClearEvents`
+        /// 里的 `foreach (var e in events) e.Dispose();`（`Shell/LiveOpsHandler.cs:598` 那一带）。
+        /// ⚠️ `data == null` 原版 NRE；我们出声后返回。</summary>
+        public virtual void Dispose()
+        {
+            var d = GetBaseData();
+            if (d == null)
+            {
+                Debug.LogError("[LiveOps] 活动 '" + (GetID() ?? "<null>") + "' 的 Dispose()：没有 data（原版会 NRE）"
+                             + "⇒ 触发器/组归属都**没清理**（原版这一跳走 `filter.CleanupTriggers`）");
+                return;
+            }
+            if (d.filter != null) d.filter.CleanupTriggers(this);
+        }
 
         // ── 状态 / 过期 / 已读（原版 `ILiveOps` slot 2 / 12 / 13，逐条照抄）──────────────────────
         /// <summary>原版 `LiveOpsEvent.Expire(Action onComplete)`（`Everguild.LiveOps.LiveOpsEvent__Expire.c`）：
@@ -417,8 +485,11 @@ namespace CardPresentation
         /// if (forceReload &amp;&amp; Handler != null) Handler.RefreshHandlerLocally();     // ILiveOpsHandler slot 9
         /// if (saveOnServer) GenericCloudScriptHandler(0x403, {save, active, state, time});   // ← 服务器上传
         /// </code>
-        /// <para>⚠️ 有意差异：`AddOrRemoveFromGroups` 需要 `filter.eventGroups` 数据（本地目录没抄 ⇒ 空）⇒ **跳过并出声**。
-        /// `saveOnServer` 在离线等价于写本地存档（`SaveEventProgress`）。</para></summary>
+        /// <para>⚠️ `saveOnServer` 在离线等价于写本地存档（`SaveEventProgress`）。
+        /// 🆕 **2026-10-26（W8P1）**：`filter.eventGroups` 那半**已接上**（组注册表现在有了 ——
+        /// `EventGroup` / `EventGroupConfig` / `EventFilter.AddOrRemoveFromGroups` 在 `Shell/LiveOpsFilter.cs`）⇒
+        /// 原来那句「本地没有组注册表等价物 ⇒ 组归属未更新」的出声**已删**。`eventGroupIds == null` 时
+        /// `AddOrRemoveFromGroups` 自己早退（原版 `if (eventGroups == null) return;` 同义）。</para></summary>
         public virtual void ToggleEventActivation(bool active, bool forceReload, bool saveOnServer)
         {
             var save = GetBaseSave();
@@ -438,15 +509,214 @@ namespace CardPresentation
                 save.triggerTime = nowMs;
             }
             var d = GetBaseData();
-            if (d != null && d.filter != null && d.filter.eventGroupIds != null && d.filter.eventGroupIds.Length > 0)
-            {
-                // 原版 EventFilter.AddOrRemoveFromGroups(filter, this, active)：维护 `filter.eventGroups` 的成员关系。
-                // 我们没有那套「组 → 事件集合」注册表（本地目录没抄 eventGroups）⇒ 出声，不假装做完。
-                Debug.LogWarning("[LiveOps] 活动 '" + GetID() + "' 的 ToggleEventActivation：`filter.eventGroups` 非空，"
-                               + "但本地没有「组注册表」等价物 ⇒ 组归属未更新（原版走 `EventFilter.AddOrRemoveFromGroups`）");
-            }
+            // 原版：`if (data.filter != null) EventFilter.AddOrRemoveFromGroups(data.filter, this, active);`
+            if (d != null && d.filter != null) d.filter.AddOrRemoveFromGroups(this, active);
             if (forceReload && Handler != null) Handler.RefreshHandlerLocally();
             if (saveOnServer) SaveEventProgress(null, null);   // 原版：GenericCloudScriptHandler(0x403) 上传
+        }
+
+        // ── 🆕 2026-10-26（W8P1 / U01）：`ILiveOps` 槽 5 / 8 / 9 / 10 / 11 / 14 的六个方法（**追加在类尾**）──────
+        // 🔴 全部 virtual + 有实现 ⇒ 具体子类（`LocalLiveOpsEvent` 等）**不用改一行**（`Shell/LiveOpsHandler.cs` 不在本包白名单）。
+        // 🔴 判据逐个写在方法头上，全部来自 Ghidra 真身（`decomp_full/Everguild.LiveOps.LiveOpsEvent__*.c`）。
+
+        /// <summary>原版 `LiveOpsEvent.CanActivate()`（`LiveOpsEvent__CanActivate.c`，**逐句**）：
+        /// <code>
+        /// var data   = GetBaseData();            // 槽 15；null ⇒ NRE
+        /// var filter = data.filter;              // +0x30；null ⇒ NRE
+        /// if (!filter.hasCooldown) return true;  // +0x20
+        /// long now   = PlayerDataManager.currentServerTime;
+        /// var save   = GetBaseSave();            // 槽 16；null ⇒ NRE
+        /// long elapsed = now - save.triggerTime; // save+0x20
+        /// int cms    = filter.eventCooldown * 3600000;   // +0x24；★ 32 位乘法
+        /// if (elapsed &lt; (int)cms) { Log(string.Format(…elapsed, cms)); return false; }
+        /// return true;
+        /// </code>
+        /// 🔴 **两处照抄**：① 乘法在 **32 位 int** 里做（`imul eax,[filter+0x24],0x36EE80`）⇒ `eventCooldown &gt; 596` 会溢出成负数，
+        /// 那时「永远冷却未到」；② 判据是**严格小于**（`elapsed == cooldown` ⇒ 放行）。
+        /// ⚠️ `triggerTime == 0`（从没触发过）⇒ `elapsed` 极大 ⇒ 放行（没有「首次特判」）。
+        /// ⚠️ 原版时间源是服务器时间；我们用 `LiveOpsClock.NowUtc`（可注入，自检钉死时间）。</summary>
+        public virtual bool CanActivate()
+        {
+            var d = GetBaseData();
+            if (d == null)
+            {
+                Debug.LogError("[LiveOps] 活动 '" + (GetID() ?? "<null>") + "' 的 CanActivate()：没有 data（原版会 NRE）⇒ 按「不可激活」处理");
+                return false;
+            }
+            var filter = d.filter;
+            if (filter == null)
+            {
+                Debug.LogError("[LiveOps] 活动 '" + (GetID() ?? "<null>") + "' 的 CanActivate()：`data.filter` 是 null（原版会 NRE）⇒ 按「不可激活」处理");
+                return false;
+            }
+            if (!filter.hasCooldown) return true;                       // ★ 唯一放行早退
+            var save = GetBaseSave();
+            if (save == null)
+            {
+                Debug.LogError("[LiveOps] 活动 '" + (GetID() ?? "<null>") + "' 的 CanActivate()：没有存档（原版会 NRE）⇒ 按「不可激活」处理");
+                return false;
+            }
+            long nowMs = LiveOpsEventTimeData.ToMs(LiveOpsClock.NowUtc);
+            long elapsed = nowMs - save.triggerTime;
+            int cooldownMs = unchecked(filter.eventCooldown * 3600000);   // 原版 32 位乘法（照抄，见注释 ①）
+            if (elapsed < cooldownMs)
+            {
+                if (LiveOpsSignals.Verbose)
+                    Debug.Log("[LiveOps] 活动 '" + (GetID() ?? "<null>") + "' 冷却未到：已过 " + elapsed
+                            + " ms &lt; 冷却 " + cooldownMs + " ms（`eventCooldown` = " + filter.eventCooldown + " 小时）");
+                return false;
+            }
+            return true;
+        }
+
+        /// <summary>原版 `LiveOpsEvent.CheckEventFilter()`（`LiveOpsEvent__CheckEventFilter.c`，**逐句**）：
+        /// <code>
+        /// var data = GetBaseData();              // 槽 15；null ⇒ NRE
+        /// if (data.filter == null) return true;  // ★ filter 缺席 = 通过
+        /// return data.filter.Validate(this);     // EventFilter.Validate（组门 && 条件全过）
+        /// </code></summary>
+        public virtual bool CheckEventFilter()
+        {
+            var d = GetBaseData();
+            if (d == null)
+            {
+                Debug.LogError("[LiveOps] 活动 '" + (GetID() ?? "<null>") + "' 的 CheckEventFilter()：没有 data（原版会 NRE）⇒ 按「不过」处理");
+                return false;
+            }
+            if (d.filter == null) return true;
+            return d.filter.Validate(this);
+        }
+
+        /// <summary>原版 `LiveOpsEvent.RegisterEventTriggers()`（`LiveOpsEvent__RegisterEventTriggers.c`，**逐句**）：
+        /// <code>
+        /// var data = GetBaseData();                          // 槽 15；null ⇒ NRE
+        /// if (data.filter != null) data.filter.RegisterTriggers(this);
+        /// </code>
+        /// ⇒ 把每条 `Trigger` 挂到信号总线上（信号到 ⇒ `EventFilter.TryActivateEvent(this)`）。</summary>
+        public virtual void RegisterEventTriggers()
+        {
+            var d = GetBaseData();
+            if (d == null)
+            {
+                Debug.LogError("[LiveOps] 活动 '" + (GetID() ?? "<null>") + "' 的 RegisterEventTriggers()：没有 data（原版会 NRE）⇒ 什么都不做");
+                return;
+            }
+            if (d.filter != null) d.filter.RegisterTriggers(this);
+        }
+
+        /// <summary>原版 `LiveOpsEvent.RefreshExpire(Action callback)`（`LiveOpsEvent__RefreshExpire.c`，**逐句**）：
+        /// <code>
+        /// var closure = new &lt;&gt;c__DisplayClass38_0 { callback = callback };
+        /// var data  = GetBaseData();                        // 槽 15；null ⇒ NRE
+        /// var state = data.GetState(TimeHelper.ServerDateTime());
+        /// if (state == Finished(3) || state == Expired(4))
+        ///     this.Expire(closure.&lt;RefreshExpire&gt;b__0);     // 槽 2；lambda 体 = `callback?.Invoke()`
+        /// </code>
+        /// 🔴 **注意判据是 `Finished(3)` 【或】 `Expired(4)`**（与 `ScheduleEventPopups` 只认 `Finished(3)` **不同**，⛔ 别统一）。
+        /// ⚠️ `state == Active/OnPreview/Planned/NotAvailable` ⇒ **什么都不做**（不排期、不回调）。
+        /// ⚠️ 它**不**自己定时 —— 原版由 `LiveOpsEvent.Initialize()` 排的刷新在到点时调它（那一跳已在泛型基类落地）。</summary>
+        public virtual void RefreshExpire(Action callback)
+        {
+            var d = GetBaseData();
+            if (d == null)
+            {
+                Debug.LogError("[LiveOps] 活动 '" + (GetID() ?? "<null>") + "' 的 RefreshExpire()：没有 data（原版会 NRE）⇒ 不回调");
+                return;
+            }
+            var state = d.GetState(LiveOpsClock.NowUtc);
+            if (state != LiveOpState.Finished && state != LiveOpState.Expired) return;
+            Expire(delegate { if (callback != null) callback(); });
+        }
+
+        /// <summary>原版 `LiveOpsEvent.MarkAsOld()`（`LiveOpsEvent__MarkAsOld.c`，**逐句**）：
+        /// <code>
+        /// var save = GetBaseSave();              // 槽 16；null ⇒ NRE
+        /// if (!save.IsNew) return;               // +0x18
+        /// save.IsNew   = false;
+        /// save.WasSeen = true;                   // +0x19
+        /// var id = GetID();                      // 槽 0
+        /// if (Handler != null) PlayfabWrapper.GenericCloudScriptHandler(0x405, {id});   // ← 服务器上传
+        /// </code>
+        /// 🔴 **两处照抄**：① 判据是 `IsNew`（**不是** `WasSeen`）⇒ 第二次调用直接返回（**幂等**）；
+        /// ② `MarkAsOld` 会**顺手把 `WasSeen` 也置真**（所以「旧了」必然「已读」）。
+        /// ⚠️ 0x405 的上传离线等价于写本地存档（与 `MarkAsSeen` 的 0x404 同一口径，见那条注释）。</summary>
+        public virtual void MarkAsOld()
+        {
+            var save = GetBaseSave();
+            if (save == null)
+            {
+                Debug.LogError("[LiveOps] 活动 '" + (GetID() ?? "<null>") + "' 的 MarkAsOld()：没有存档（原版会 NRE）");
+                return;
+            }
+            if (!save.IsNew) return;
+            save.IsNew = false;
+            save.WasSeen = true;
+            if (Handler != null) SaveEventProgress(null, null);   // 原版：GenericCloudScriptHandler(0x405) 上传
+        }
+
+        /// <summary>原版 `LiveOpsEvent.OnEventTriggered()`（槽 **14**）：**基类空方法**
+        /// （真身 = `LiveOpsEvent__OnEventTriggered.c`，内容就是「共享空桩 `ret`」那一类；子类各自覆盖，
+        /// 例：`RaidEvent` 的触发后处理）。调用点 = `EventFilter.TryActivateEvent` 激活成功后。
+        /// ⛔ 别在这里加逻辑 —— 它在本类就该是空的。</summary>
+        public virtual void OnEventTriggered() { }
+
+        /// <summary>原版 `LiveOpsEvent.OpenWindow()`（`LiveOpsEvent__OpenWindow.c`，**逐句**）：
+        /// <code>
+        /// var data  = GetBaseData();                              // 槽 15；null ⇒ NRE
+        /// var state = data.GetState(TimeHelper.ServerDateTime());
+        /// int label = state switch { OnPreview(1) =&gt; 20, Finished(3) =&gt; 21, _ =&gt; 10 };
+        /// var reference = LiveOpsAssetUtility.GetComponentReference(this, label);
+        /// if (reference == null || &lt;reference 无效&gt;) {
+        ///     LogError(string.Format(…, GetID(), label));         // 槽 0 + label
+        ///     return;
+        /// }
+        /// WindowsManager.Instance.OpenWindow(reference, this, closeAll: false, data.mainMenuOptions);
+        /// </code>
+        /// 🔴 **三档分派照抄**：`OnPreview ⇒ 20`（触发弹窗）· `Finished ⇒ 21`（过期弹窗）· **其余一律 10**（主窗）。
+        /// 注意 `Expired(4)` / `Planned(0)` / `NotAvailable(-1)` 都落到 **10**（不是 21）—— 判据就是 `switch` 的 `default` 支。
+        /// <para>⚠️ 我们这一跳的**落地缝** = `LiveOpsPopupPresenter.Open(this, options)`（与 `ShowTriggerEventPopup` /
+        /// `ExpireEvent` 同一个缝，⛔ 不新开第二个）：`PopupOptions.PopupLabel` 装的就是上面那个 `label`
+        /// （20/21 直接复用 `drawData.TriggerPopupOptions` / `ExpirePopupOptions` —— 13 份 SO 里这两个值 13/13 相同；
+        /// 10 则就地合成一个只带 `PopupLabel=10` 的 options）。
+        /// **缺的那一半**：原版还把 `data.mainMenuOptions` 传给 `WindowsManager.OpenWindow`；我们**没有**
+        /// `LiveopsMainMenuData` 等价类（账 row 331/334 属 P8）⇒ 这一格**传不了**，如实记在账的差异列。</para>
+        /// <para>🔴 **不挂 `MarkAsSeen`**：原版 `OpenWindow` 这一跳**没有**挂 `OnCloseWindow`（挂它的是
+        /// `ShowTriggerEventPopup` 里 `PopupOptions.MarkOnScreenClose` 那一支）⇒ 这里也不挂
+        /// （`drawData` 的 `PopupOptions` 只是被借来装 label，别顺手用它的 `MarkOnScreenClose`）。</para></summary>
+        public virtual void OpenWindow()
+        {
+            var d = GetBaseData();
+            if (d == null)
+            {
+                Debug.LogError("[LiveOps] 活动 '" + (GetID() ?? "<null>") + "' 的 OpenWindow()：没有 data（原版会 NRE）⇒ 不开窗");
+                return;
+            }
+            var state = d.GetState(LiveOpsClock.NowUtc);
+            int label;
+            PopupOptions opts = null;
+            switch (state)
+            {
+                case LiveOpState.OnPreview:
+                    label = 20;                                                     // = TriggerPopupOptions.PopupLabel
+                    if (d.drawData != null) opts = d.drawData.TriggerPopupOptions;
+                    break;
+                case LiveOpState.Finished:
+                    label = 21;                                                     // = ExpirePopupOptions.PopupLabel
+                    if (d.drawData != null) opts = d.drawData.ExpirePopupOptions;
+                    break;
+                default:
+                    label = 10;                                                     // MainWindow
+                    break;
+            }
+            if (opts == null) opts = new PopupOptions { PopupLabel = label };
+            GameWindow win = LiveOpsPopupPresenter.Open != null ? LiveOpsPopupPresenter.Open(this, opts) : null;
+            if (win == null)
+            {
+                // 原版这一跳在「GetComponentReference 拿不到 / 引用无效」时 LogError 后 return（不开窗）。同义。
+                Debug.LogError("[LiveOps] 活动 '" + (GetID() ?? "<null>") + "' 的 OpenWindow()：label=" + label
+                             + " 的组件引用解析不到（本地只解到 `EventComponents` 的 GUID、没解到 prefab 名）"
+                             + "或 `LiveOpsPopupPresenter` 没装 ⇒ **不开窗**（原版此支 = `CustomDebug.LogError` 后 return）");
+            }
         }
     }
 

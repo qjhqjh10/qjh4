@@ -50,7 +50,10 @@ public static class BlendProbe
                 foreach (var d in binder.materials)
                 {
                     if (d == null) continue;
-                    var want = WarpforgeShaderMap.InferBlend(d.shader);
+                    // 🆕 2026-10-26（E8SH）：`WFMatDef.shader` 可能是**我们替身的名字**（硬锁，417 块），
+                    //   那就必须先反查回原版名，否则这里 `want` 恒 null ⇒ 这 43 个基材质（417 块）被**静默跳过**。
+                    var origName = WarpforgeShaderMap.OriginalNameFor(d.shader, d.name);
+                    var want = WarpforgeShaderMap.InferBlend(origName);
                     if (want == null) { skipped++; continue; }   // 推不出来 ⇒ 不判（原版属性表是活的）
 
                     mats++;
@@ -64,7 +67,7 @@ public static class BlendProbe
                     bool ok = (!m.HasProperty("_SrcBlend") || Mathf.Approximately(s, want[0]))
                            && (!m.HasProperty("_DstBlend") || Mathf.Approximately(dstop, want[1]))
                            && (!m.HasProperty("_ZWrite") || Mathf.Approximately(zw, want[2]));
-                    rows.AppendLine($"{d.shader}\t{d.name}\t{want[0]}\t{s}\t{want[1]}\t{dstop}\t{want[2]}\t{zw}\t{(ok ? "OK" : "**错**")}");
+                    rows.AppendLine($"{origName}\t{d.name}\t{want[0]}\t{s}\t{want[1]}\t{dstop}\t{want[2]}\t{zw}\t{(ok ? "OK" : "**错**")}");
                     if (ok) pass++;
                     else
                     {
@@ -72,7 +75,7 @@ public static class BlendProbe
                         // ⚠️ **1/0/1 是那个残留值的指纹**（One / Zero / 写深度）
                         bool residue = Mathf.Approximately(s, 1f) && Mathf.Approximately(dstop, 0f)
                                        && Mathf.Approximately(zw, 1f);
-                        bad.Add($"{Path.GetFileName(f)}/{d.name}（原版 {d.shader}）："
+                        bad.Add($"{Path.GetFileName(f)}/{d.name}（原版 {origName}）："
                               + $"期望 {want[0]}/{want[1]}/{want[2]}，实得 {s}/{dstop}/{zw}"
                               + (residue ? " —— **正是 Standard 残留值的指纹（不透明+写深度）**" : ""));
                     }

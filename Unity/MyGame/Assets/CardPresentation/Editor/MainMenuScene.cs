@@ -16119,11 +16119,11 @@ public static class MainMenuScene
             Check(panel.InAllianceGo.activeSelf, true, "…`In Alliance` 开着");
             Check(panel.NoAllianceGo.activeSelf, false, "…`No Alliance` 关着");
             // 层级：`In Alliance` 的三颗（兄弟序）
-            Check(DirectKids(panel.InAllianceGo.transform), "Alliance Name|View Leaderboard Button|Alliance Event Score Info",
+            Check(DirectKids(panel.InAllianceGo.transform), "Alliance Name|*View Leaderboard Button|Alliance Event Score Info",   // 🔴 账128（J9SC 2026-10-26 · 调度台授权）：leaderBoardID 空 ⇒ 两钮 self activeSelf=false（`AlliancesEventScorePanel__Initialize.c:123-137`）⇒ 期望值＝目标态；J-05 落地前这两条**预期红**
                   "★ `In Alliance` 的直接子件（**顺序照 `m_Children`**；`Alliance Event Score Info` 是**嵌套子 prefab**）");
             Check(DirectKids(panel.NoAllianceGo.transform),
-                  "Background|Join Alliance text|Join Alliances Button|Leaderboard Button",
-                  "★ `No Alliance` 的直接子件（**那 6 件「自己 active、祖先 inactive」的都在它底下**）");
+                  "Background|Join Alliance text|Join Alliances Button|*Leaderboard Button",
+                  "★ `No Alliance` 的直接子件（**那 6 件「自己 active、祖先 inactive」的都在它底下**）｜🔴 账128：同上（`*` = 自己 activeSelf=false）");
             // 🔴 **6 处「自己 `m_IsActive=1`、祖先 inactive」的处置**（本件最容易做错的一格）：
             //    判据 = uGUI/渲染看的是 `activeInHierarchy`（整条父链），所以原版**出厂根本不画这 6 件**。
             //    ① **不许把它们提到根上**（那样出厂就会画出 6 件原版不画的东西）；

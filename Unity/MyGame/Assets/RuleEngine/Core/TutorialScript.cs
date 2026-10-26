@@ -1279,6 +1279,15 @@ namespace RuleEngine
             {
                 if (a.Action != BattleActionType.endTurn) return false;
             }
+            // 🔴 2026-10-26（B9/E6P14 · 施工单 89）：**这一支就是「等玩家点卡」的全部判据**。
+            //   原版那个谓词 `AiScripted.CheckIfWaitingToClickCard(manager, turnData, cardClicked)`
+            //   （`decomp_full/AiScripted__CheckIfWaitingToClickCard.c`；六档 = 前闸（turnData/scriptedActions 非空、
+            //   `actionCounter < Count`）→ 当前动作 `playerAction` 且 scriptedActionData 非空 → 遍历 data 命中
+            //   `ClickCard(110)/TapCard(120)` → 按 `actingUnitType` 取候选六档 → `GetChosenCard(候选, acting)`
+            //   → 取不到或 `== cardClicked` ⇒ true）**在我们这里没有消费者、也不打算加**：
+            //   等价物 = 这一支（`TapCard` + `useWaystone`）＋ `BattleDriver.TapBoardCard` 推进指针
+            //   （F5 补了「轻点灵族灵魂石」⇒ 软锁已解除）⇒ 今天**没有可观测差异**。
+            //   ⛔ 别为它新开消费者：那会和 F5 那条推进口并存，先得裁「谁是唯一推进口」。
             else
             {
                 if (T != (int)ScriptedActionType.TapCard) return false;     // 0x78 = 120
@@ -1601,7 +1610,9 @@ namespace RuleEngine
         ///  · `10 / 20`（督军）：**按类型就定得下来**，不需要 id（原版 `GetHero` 也是按侧取的）；
         ///  · `30 / 31 / 32 / 40`（部队）：按 `ourId` 在那一侧的**非督军**格里找，
         ///    ⚠️ **认不出就返回 false 并给出理由** —— ⛔ **不退回 `list[0]`**
-        ///    （原版 `GetChosenCard` 认不出时退回 `list[0]`，那会**静默打错目标**；铁律 2/11 那条「认不出就说认不出」）。
+        ///    （原版 `GetChosenCard` 认不出时退回 `list[0]` —— 判据 `decomp_full/AiScripted__GetChosenCard.c:38`
+        ///    （`iVar4 = 0;` 那一句，cpp2il `AiScripted.cs:3539`）；那会**静默打错目标**，所以我们**不照抄**
+        ///    = **已知偏离**（是否改回照抄待调度台裁定，见施工单 98；铁律 2/11 那条「认不出就说认不出」）。
         ///  · 其余类型（手牌 `50/60` 用 <see cref="FindHandIndex"/>）返回 false。
         /// </summary>
         public static bool FindBoardUnit(BattleContext ctx, TutorialUnitRef r, out int side, out int slot, out string why)

@@ -503,5 +503,299 @@ namespace CardPresentation
         /// —— 同一份卡表下净结果相同，但「生成之后卡表再变」我们**不会**跟着变（原版会）。</para>
         /// <para>`d == null` ⇒ 原版走到 `FUN_1803f47a0`（抛）；我们返回 `true`（当「拼不齐」筛掉它，不炸）——如实登记。</para></summary>
         public static bool HasHidden(Deck d) { return d == null || !d.complete; }
+
+        // ============================================================ 卡组:284 / 285 / 286（原版 `PrebuiltDeckCollection`）
+        //
+        // 原版那三张表（`decks` / `botDecks` / `practiceDecks`）与两个入口，判据逐句读自：
+        //   · `decomp_full/PrebuiltDeckCollection__AddDeck.c:21-40` ＋ `cpp2il/out_cpp2il_dev_ilspy/PrebuiltDeckCollection.cs:234-253`
+        //     ① 资产名含 "Tutorial" ⇒ 直接 return；② 否则 `decks.Add`；③ `Type == Bot(0)` ⇒ `botDecks`；④ `isPracticeDeck` ⇒ `practiceDecks`
+        //   · `decomp_full/PrebuiltDeckCollection__GetDeckByDifficulty.c`（难度+模式过滤 → **未过滤表**长度取下标 → ElementAtOrDefault）
+        //   · `decomp_full/PrebuiltDeckCollection__GetRandomDeck.c`（四道过滤 → `Random.Range(0, Count)`）
+        // 数据 → `Resources/prebuilt_deck_lists.json`（`工具/gen_prebuilt_bot_decks.py`：224 副底表 + 每副的分类位）。
+        //
+        // ⚠️ **三份产物并列，⛔ 别合并**（那两份的 `git diff` 必须能要求「逐字节 0」）：
+        //   `prebuilt_decks.json`       预组页那一池（103 副，`isPractice == 1`）—— `All` / `Tab`
+        //   `prebuilt_decks_extra.json` 练习窗 78 对里落不进池的另外 78 副 —— `AllExtra`
+        //   `prebuilt_deck_lists.json`  原版 `decks` 全部非教程副（224 副）＋ `botDecks` 的分类位 —— `Decks` / `BotDecks`
+        // 🔴 **别拿 `All` 当原版的 `decks`**：`All` 是 103 副（按 isPractice 划），原版 `decks` 是 224 副（按「名字含 Tutorial」划）。
+
+        /// <summary>`Assets/RuleEngine/Resources/prebuilt_deck_lists.json` —— 原版 `PrebuiltDeckCollection` 三张表的底表。</summary>
+        public const string ListResourcePath = "prebuilt_deck_lists";
+
+        /// <summary>原版 `PrebuiltDeck.DeckType.Bot` 的枚举值（`cpp2il dev PrebuiltDeck.cs:10-16`：Bot 0 · Default 1 · Tutorial 2 · Custom 3）。
+        /// `AddDeck` 判的就是这一个数（`.c` 里 `*(int *)(deck + 0x98) == 0`）。</summary>
+        public const int DeckTypeBot = 0;
+
+        /// <summary>一副预组的**分类位**（原版 `PrebuiltDeck.Type` ＋ `isPracticeDeck`）—— `AddDeck` 就是凭这两个字段
+        /// 把同一副牌分别塞进 `decks` / `botDecks` / `practiceDecks` 三张表。
+        /// 🔴 分类在**生成期**定死（与 <see cref="HasHidden"/> 同一条口径）；原版是运行期读 SO 字段。</summary>
+        [System.Serializable]
+        public class DeckMeta
+        {
+            public string deckId;      // 与 `decks[]` 里 `Deck.deckId` 同键
+            public string srcName;     // 原版 SO 资产名（= `deck.name`，`AddDeck` 拿它判 "Tutorial"）—— 诊断用
+            public int type;           // 原版 `PrebuiltDeck.DeckType`（本表只有 0 Bot / 1 Default —— 教程那批进不了 `decks`）
+            public int isPractice;     // 原版 `isPracticeDeck`（0/1）
+        }
+
+        [System.Serializable]
+        class ListDoc
+        {
+            public int format;
+            public string note;
+            public string source;
+            public int deckCount;      // 原版 `decks.Count`（现读 224）
+            public int botCount;       // 原版 `botDecks.Count`（现读 196）
+            public int practiceCount;  // 原版 `practiceDecks.Count`（现读 103 —— 与 `prebuilt_decks.json` 那池同一批，生成器已断言）
+            public Deck[] decks;       // 原版 `decks`（**不是**预组页那 103 副）
+            public DeckMeta[] meta;    // 与 `decks` 同序同长（生成器断言）
+        }
+
+        static ListDoc _lists;
+        static bool _listsLoaded;
+        static List<Deck> _botDecks;
+        static Dictionary<string, DeckMeta> _metaById;
+
+        static void LoadLists()
+        {
+            if (_listsLoaded) return;
+            _listsLoaded = true;
+            var ta = Resources.Load<TextAsset>(ListResourcePath);
+            if (ta == null)
+            {
+                Debug.LogError("[Prebuilt] 读不到 `Resources/" + ListResourcePath + ".json` —— "
+                               + "请跑 `python 工具/gen_prebuilt_bot_decks.py` 生成（bot 预组池会是空的 ⇒ "
+                               + "对局对手只能退回按卡池自动凑）");
+                return;
+            }
+            try { _lists = JsonUtility.FromJson<ListDoc>(ta.text); }
+            catch (System.Exception e)
+            {
+                Debug.LogError("[Prebuilt] `" + ListResourcePath + ".json` 解析失败：" + e.Message);
+                _lists = null;
+                return;
+            }
+            if (_lists == null || _lists.decks == null || _lists.decks.Length == 0)
+                Debug.LogError("[Prebuilt] `" + ListResourcePath + ".json` 里一副牌都没有 —— 重跑生成器");
+            else if (_lists.decks.Length != _lists.deckCount)
+                Debug.LogError("[Prebuilt] `" + ListResourcePath + ".json` 的 deckCount=" + _lists.deckCount
+                               + " 与实际 " + _lists.decks.Length + " 条不符 —— 重跑生成器");
+        }
+
+        static void BuildMetaIndex()
+        {
+            if (_metaById != null) return;
+            _metaById = new Dictionary<string, DeckMeta>();
+            LoadLists();
+            if (_lists == null || _lists.meta == null) return;
+            foreach (var m in _lists.meta)
+                if (m != null && !string.IsNullOrEmpty(m.deckId)) _metaById[m.deckId] = m;
+        }
+
+        /// <summary>这副牌的分类位（原版 SO 上的 `Type` / `isPracticeDeck`）。
+        /// 查不到（不在这张表里 / 产物缺）⇒ <c>null</c>（真发生过就是产物问题，调用方别拿它当「不是 bot」）。</summary>
+        public static DeckMeta MetaOf(Deck d)
+        {
+            if (d == null || string.IsNullOrEmpty(d.deckId)) return null;
+            BuildMetaIndex();
+            DeckMeta m;
+            return _metaById.TryGetValue(d.deckId, out m) ? m : null;
+        }
+
+        /// <summary>≡ 原版 `PrebuiltDeckCollection.Decks`（`IReadOnlyList&lt;PrebuiltDeck&gt; Decks =&gt; decks`）：
+        /// **所有非教程副**（现读 224 副）。原版 `AddDeck` 对资产名含 "Tutorial" 的直接 return ⇒ 本表天然不含教程副。
+        /// 🔴 **不是** <see cref="All"/>（那是预组页那 103 副 `isPractice == 1` 的池）。</summary>
+        public static IList<Deck> Decks
+        {
+            get
+            {
+                LoadLists();
+                return _lists != null && _lists.decks != null ? (IList<Deck>)_lists.decks : new Deck[0];
+            }
+        }
+
+        /// <summary>≡ 原版 `PrebuiltDeckCollection.BotDecks`：<see cref="Decks"/> 里 `Type == Bot(0)` 的那些
+        /// （现读 **196** 副 —— 验收口就用这个数：原版 `Type==Bot` 的 SO 有多少副，这里就该有多少副）。
+        /// 顺序 = <see cref="Decks"/> 的顺序（= 生成期按 SO 资产名升序；原版是 addressables 装载序，**不可复现**，
+        /// 影响面只有「同一个下标抽到哪一副」，见 <see cref="GetDeckByDifficulty"/>）。</summary>
+        public static IList<Deck> BotDecks
+        {
+            get
+            {
+                if (_botDecks != null) return _botDecks;
+                _botDecks = new List<Deck>();
+                foreach (var d in Decks)
+                {
+                    var m = MetaOf(d);
+                    if (m != null && m.type == DeckTypeBot) _botDecks.Add(d);
+                }
+                if (_botDecks.Count == 0)
+                    Debug.LogError("[Prebuilt] bot 预组池是空的（`" + ListResourcePath
+                                   + ".json` 的 meta 里 0 条 `Type == Bot`）—— 重跑生成器");
+                return _botDecks;
+            }
+        }
+
+        /// <summary>原版 `GetDeckByDifficulty` 里那串 `Where` —— **只有** `difficulty` 与 `gameMode` 两道
+        /// （`.c` 的 `System_Predicate` 体：`d.difficulty != difficultyLevel ⇒ false`、`d.gameMode != playMode ⇒ false`）。
+        /// ⚠️ **不过滤 `HasHiddenCards`、不过滤 Type** —— 原版这一支就没有那两道，照抄。</summary>
+        public static List<Deck> FilterByDifficulty(int difficulty, int playMode)
+        {
+            var o = new List<Deck>();
+            foreach (var d in Decks)
+                if (d != null && d.difficulty == difficulty && d.gameMode == playMode) o.Add(d);
+            return o;
+        }
+
+        /// <summary>≡ 原版 `PrebuiltDeckCollection.GetDeckByDifficulty(difficultyLevel, playMode)`
+        /// （🥇 `decomp_full/PrebuiltDeckCollection__GetDeckByDifficulty.c` · 🥈 `cpp2il dev PrebuiltDeckCollection.cs:200-232`）：
+        /// ① 按 `(difficulty, gameMode)` 过滤；② **`Random.Range(0, 未过滤表长度)`**；③ 用那个下标去 `ElementAtOrDefault(过滤后序列)`。
+        ///
+        /// 🔴🔴 **②③ 是原版自带的缺陷，照抄、⛔ 不修**（调度台 2026-10-26 明令）：下标取自**未过滤**的
+        ///   `decks`（现读 224），而序列是过滤后那串（现读 12～74 条）⇒ `index ≥ 过滤后条数` 时
+        ///   `ElementAtOrDefault` 返回 **null**（原版调用方 `MatchData.SetEnemyRandomDeckData` 随后打
+        ///   `[ERROR] Can't find a prebuilt deck for the given player match tier`）。
+        ///   现读七个 (难度, 模式) 格子的命中率只有 **5.4% ～ 33.0%**（表由 `工具/gen_prebuilt_bot_decks.py` 打印）。
+        ///
+        /// ⚠️ **与原版唯一的机制差异**：原版 `UnityEngine.Random`，我们收 `System.Random`
+        ///   （工程铁律「引擎里只用 `System.Random(seed)`」）⇒ 形状与「同 seed 同结果」一致，**具体抽到哪一副不同**。
+        /// ⚠️ 过滤后为空 / 下标越界 ⇒ 返回 null（原版 `ElementAtOrDefault` 也是 null，**不是**我们把错吞了）。
+        /// ⚠️ 本机**没有活调用点**：原版唯一调用者是排行 bot（`MatchData.cs:1385`，难度取自远端 ranked 事件），
+        ///   我们离线没有排位事件 ⇒ 这条只作为**判据齐备的等价实现**存在（账 `卡组:285`）。</summary>
+        public static Deck GetDeckByDifficulty(int difficulty, int playMode, System.Random rng)
+        {
+            if (rng == null) { Debug.LogError("[Prebuilt] GetDeckByDifficulty 没给 rng —— 返回 null"); return null; }
+            var filtered = FilterByDifficulty(difficulty, playMode);
+            int total = Decks.Count;                                   // ← 原版取的就是**未过滤**表的 Count
+            if (total == 0) return null;
+            int index = rng.Next(total);                               // ← 原版 `UnityEngine.Random.Range(0, decks.Count)`
+            var picked = index < filtered.Count ? filtered[index] : null;  // ← 原版 `ElementAtOrDefault(过滤后序列, index)`
+            if (picked == null)
+                Debug.LogWarning("[Prebuilt] GetDeckByDifficulty(" + difficulty + " / " + playMode + ")：下标 "
+                               + index + " ≥ 过滤后 " + filtered.Count + " 条 ⇒ null（**原版就是这样** —— "
+                               + "它拿未过滤的 " + total + " 取下标，照抄不修）");
+            return picked;
+        }
+
+        /// <summary>≡ 原版 `GetRandomDeck` 里那串过滤（🥇 `decomp_full/PrebuiltDeckCollection__GetRandomDeck.c`）：
+        /// 逐副依次过 ① 阵营可选 ② 命中 `selectableBotDecks` 名单 ③ `!HasHiddenCards` ④ `!DeckHasBannedCards`。
+        /// 顺序照 `.c`（① → ② → ③ → ④，任一不过就 continue）；遍历的是 <see cref="Decks"/>（224 副，**含 28 副 `Type==Default`**）。
+        /// <para>原版三个形参我们只拿得到两个半（见下），另外两道是我们补的，逐条标了原因。</para></summary>
+        /// <param name="possibleArmies">原版 `IReadOnlyCollection&lt;CardArmy&gt; possibleArmies` —— 按**督军阵营**（`deckHero.cardArmy`）过滤。
+        /// 原版只在「集合非 null **且** Count &gt; 0」时才过滤（`.c`：`param_3 == 0 || Count &lt; 1 ⇒ 跳过这道`）；
+        /// 离线调用者（`MatchData` 的 `PracticeOffline` 支）传的就是 null ⇒ 不过滤。我们这边用 `Deck.armyOrder`（= 该阵营的 `CardArmy` 枚举值）。</param>
+        /// <param name="selectableDeckIds">原版 `List&lt;LoadableReference&lt;PrebuiltDeck&gt;&gt; selectableBotDecks` 的 `TargetId` 名单
+        /// （= 那副牌的 `deckId`，`PrebuiltDeck__GetID` 返回的就是它）。🔶 原版的名单来自**远端** `AIBotsConfig.botDecks`
+        /// （PlayFab titleData）；本机 0 命中（账 `战斗逻辑驱动:1059` 判 D）⇒ 传 null = 「没有名单、全部可选」。</param>
+        /// <param name="bannedCardIds">原版 `IPlayEvent currentEvent` 的封禁表（`PlayEventData.IsCardBanned`，逐张问）。
+        /// 🔶 原版判据在**远端事件**里；本机没有活动事件 ⇒ 传 null = 「没有封禁」。**别拿卡池猜封禁**。</param>
+        /// <param name="playMode">🔶 自己设计（非原版）：原版 `GetRandomDeck` **不过滤模式** —— 模式跟着匹配结果走；
+        /// 我们的模式由玩家选，不过滤会拿到 12 张的遭遇副去打经典局（构筑/开局全错）。判据为空（原版无此道），
+        /// 调度台 2026-10-26 裁定保留这一道。null = 不过滤。</param>
+        /// <param name="faction">🔶 自己设计（非原版）：原版用 `possibleArmies`（可空）而不是阵营字符串；我们的对手阵营
+        /// 是先选好的（战场/环境都跟着它）⇒ 收一个字符串更直接。null = 不过滤。判据同上，调度台 2026-10-26 裁定。</param>
+        public static List<Deck> FilterDecks(ICollection<string> selectableDeckIds = null,
+                                            ICollection<int> possibleArmies = null,
+                                            ICollection<string> bannedCardIds = null,
+                                            int? playMode = null,
+                                            string faction = null)
+        {
+            var o = new List<Deck>();
+            bool armies = possibleArmies != null && possibleArmies.Count > 0;   // ← 原版 `Count < 1 ⇒ 跳过滤`
+            foreach (var d in Decks)
+            {
+                if (d == null) continue;
+                // ① 阵营可选（原版：`possibleArmies.Contains(deck.DeckHero.cardArmy)`）
+                if (armies && !possibleArmies.Contains(d.armyOrder)) continue;
+                // ② 命中远端可选名单（原版：`selectableBotDecks.Find(x => x.TargetId == deck.deckId) != null`）
+                if (selectableDeckIds != null && !selectableDeckIds.Contains(d.deckId)) continue;
+                // ③ !HasHiddenCards（我们的等价位 = 生成期算好的 `complete`，见 <see cref="HasHidden"/>）
+                if (HasHidden(d)) continue;
+                // ④ !DeckHasBannedCards（原版逐张问 currentEvent；我们只有一张 id 集合）
+                if (bannedCardIds != null && d.cardIds != null)
+                {
+                    bool banned = false;
+                    foreach (var cid in d.cardIds)
+                        if (cid != null && bannedCardIds.Contains(cid)) { banned = true; break; }
+                    if (banned) continue;
+                }
+                // ⑤ 🔶 自己设计（非原版）：模式闸 —— 原版无此道，理由见 `playMode` 参数注释
+                if (playMode.HasValue && d.gameMode != playMode.Value) continue;
+                // ⑥ 🔶 自己设计（非原版）：阵营闸 —— 原版走 `possibleArmies`，理由见 `faction` 参数注释
+                if (!string.IsNullOrEmpty(faction) && d.faction != faction) continue;
+                o.Add(d);
+            }
+            return o;
+        }
+
+        /// <summary>≡ 原版 `PrebuiltDeckCollection.GetRandomDeck(selectableBotDecks, possibleArmies, currentEvent)`
+        /// （🥇 `decomp_full/PrebuiltDeckCollection__GetRandomDeck.c:113-127` 取那一跳：`Random.Range(0, list.Count)` → `list[index]`）。
+        /// 过滤本体在 <see cref="FilterDecks"/>（**同一条过滤只写一处**）。
+        ///
+        /// ⚠️ 原版开头还有一句 `FeatureConfig.ShouldDisableNewMatchMaking()` 决定「② 那道名单闸要不要走」；
+        ///   那个标志也在**远端** `FeatureConfig`（`ConfigManager.GetConfig&lt;FeatureConfig&gt;()`，离线为 null ⇒
+        ///   `return false`），而它一旦为 false 就要用上 `selectableBotDecks` —— 离线那份名单是 null ⇒ 原版这条链**必 NRE**。
+        ///   ⇒ 我们的口径：名单传 null 就**跳过**那道（注释在 `selectableDeckIds` 参数上）。
+        ///
+        /// ⚠️ 抽不到（过滤后为空）⇒ 原版会在空表上取 `[0]` 抛 `ArgumentOutOfRangeException`；
+        ///   我们**返回 null 并出声**（与 <see cref="HasHidden"/> 的「原版抛、我们出声」同一条口径）。
+        /// ⚠️ 原版用 `UnityEngine.Random`，我们收 `System.Random`（可复现）；具体抽到哪一副不同，分布形状相同。</summary>
+        public static Deck GetRandomDeck(System.Random rng,
+                                         ICollection<string> selectableDeckIds = null,
+                                         ICollection<int> possibleArmies = null,
+                                         ICollection<string> bannedCardIds = null,
+                                         int? playMode = null,
+                                         string faction = null)
+        {
+            if (rng == null) { Debug.LogError("[Prebuilt] GetRandomDeck 没给 rng —— 返回 null"); return null; }
+            var cand = FilterDecks(selectableDeckIds, possibleArmies, bannedCardIds, playMode, faction);
+            if (cand.Count == 0)
+            {
+                Debug.LogWarning("[Prebuilt] GetRandomDeck：一副都过不了过滤（Decks=" + Decks.Count
+                               + " · playMode=" + (playMode.HasValue ? playMode.Value.ToString() : "any")
+                               + " · faction=" + (string.IsNullOrEmpty(faction) ? "any" : faction)
+                               + "）⇒ 返回 null（原版此处会在空表上取 [0] 抛异常）；调用方须**出声**并退兜底");
+                return null;
+            }
+            return cand[rng.Next(cand.Count)];                          // ← 原版 `UnityEngine.Random.Range(0, list.Count)`
+        }
+
+        /// <summary>自检用：把这三张表的缓存也丢掉（<see cref="ResetForTest"/> 在类中部，⛔ 别往那里加行 —— 账的落点会漂）。</summary>
+        public static void ResetListsForTest()
+        {
+            _lists = null; _listsLoaded = false; _botDecks = null; _metaById = null;
+        }
+
+        // ============================================================ 卡组:290（原版 `PrebuiltPack.IsValid`）
+        //
+        // 判据：🥇 `decomp_full/PrebuiltPack__IsValid.c`（逐句）+ 🥈 `cpp2il dev PrebuiltPack.cs:195-230`：
+        //   `cardLibrary = GetCardLibrary()`（把 `cardIds` 逐张在全卡表里 `Find`，**查不到就跳过**）
+        //   ① `cardLibrary.Count != cardIds.Count` ⇒ false
+        //   ② 逐张 `IsHidden()` 任一为真 ⇒ false
+        //   ③ 全过 ⇒ true
+        // 活调用点（曾经被判「0 调用点」的那条已推翻）：`cpp2il dev Everguild.LiveOps/DraftEventBase.cs:378`
+        //   的 `_GetRandomPack_b__0`：`pack.packEnabled && pack.packArmy == warlord.cardArmy && pack.IsValid()`。
+
+        /// <summary>≡ 原版 `PrebuiltPack.IsValid()`（两条件，见上面那段判据）。
+        /// <para><paramref name="resolvedCount"/> = 把 `cardIds` 逐张在我们卡池里查过之后**查到的张数**
+        /// （原版 `GetCardLibrary().Count` —— 查不到的 id 原版是**跳过**，所以「少一张」就是条件①挂）。
+        /// 现读 882 个包里 882 个都能全查到 ⇒ 当前恒 true（⇒ **断言必须自己造负例**，见下）。</para>
+        /// <para>🔶 自己设计（非原版）：`hiddenCardIds` 这一半的**判据在远端** —— 原版逐张问 `RawCardScript.IsHidden()`，
+        /// 而那一条是 `PlayerItem.IsHidden()` → `FeatureConfig.IsItemHidden(this)`（`FeatureConfig` 由
+        /// `ConfigManager.GetConfig&lt;FeatureConfig&gt;()` 从 PlayFab titleData 下发，本机 0 命中）。
+        /// 拿不到 ⇒ 本机默认**空集**（= 没有卡被隐藏，与「配置为空」等价）。为什么必须自己定：判据为空，
+        /// 不是我们没查到。**接口留在这里**是为了 ① 负例造得出来（传一个非空集合即可）② 将来接回远端只改一行。
+        /// 调度台 2026-10-26 裁定。</para>
+        /// <para>`cardIds == null` ⇒ 原版会抛（`GetCardLibrary` 的 `cardIds == null` 分支）；我们返回 false。
+        /// 有一张没查到（`resolvedCount &lt; cardIds.Length`）⇒ false（条件①）。</para></summary>
+        public static bool PackIsValid(string[] cardIds, int resolvedCount, ICollection<string> hiddenCardIds = null)
+        {
+            if (cardIds == null) return false;
+            if (resolvedCount != cardIds.Length) return false;               // ① 有 id 解析不出（原版跳过它 ⇒ 条数不等）
+            if (hiddenCardIds != null && hiddenCardIds.Count > 0)            // ② 逐张 IsHidden()
+                foreach (var cid in cardIds)
+                    if (cid != null && hiddenCardIds.Contains(cid)) return false;
+            return true;
+        }
     }
 }

@@ -4064,7 +4064,7 @@ namespace CardPresentation
             if (scroll) return false;                    // 滚动的手势：不弹错、也不起拖
             if (err != DeckError.None)
             {
-                Say("拖不进去：" + State.AddErrorText(def));   // 🆕 2026-10-25（R3）：`CanAdd` 有两条都借 `CopyLimitExceeded` ⇒ 文案必须问 State（传奇总数那条用原版自己的键）
+                SayError(State.AddErrorText(def), "拖不进去：");   // 🆕 2026-10-26（B9 · 卡组:325）：日志与屏幕**分开** —— 屏幕那句 = `DeckError` 词条本身（原版 `ShowError(out msg)`），前缀只留在日志里
                 Debug.Log("[Drag] `CanAdd` 没过（" + err + "）⇒ **不起拖**（原版这一支 = `UIMessageController.ShowError`）");
                 return false;
             }
@@ -8275,10 +8275,10 @@ namespace CardPresentation
             string why;
             if (State.TryAdd(def, out why)) { MarkDeckDirty(); RefreshAll(); Say("已加入：" + CardText.Name(def)); }
             // 🔴 **2026-10-18（A985①）**：`State.TryAdd` 的 `out why` **现在已经是人话**了
-            //   （`DeckEditorState.TryAdd` 里头自己过了一遍 `Loc.T(DeckRules.Describe(e))`）——
+            //   （`DeckEditorState.TryAdd` 里头自己过了一遍 `DeckRuntime.DeckErrorText(e)`）——
             //   ⛔ 这里**不许再包一层** `Loc.T`：那会把一句中文当成键去查表 ⇒ 查不到 ⇒ 原样返回 +
             //   **记一次 `Loc.MissingCount` + 出一条「语言表里没有这个词条」的假告警**（静默坏账）。
-            else Say(why);
+            else SayError(why);   // 🆕 2026-10-26（B9 · 卡组:325）：加不进 ⇒ 屏幕错误横幅（原版 `OnCardClick` 那一支）
         }
 
         /// <summary>🆕 **2026-10-12（A363）**：**标脏 + 刷界面** —— 突变只走这一条，**不落盘**。
@@ -8833,6 +8833,34 @@ namespace CardPresentation
                     deck.CardIds.Add(c.Id);
             }
             return deck;
+        }
+
+        // ==================================================================
+        //  🆕 2026-10-26（B9 · W4K06 · 账 `卡组:325`）—— **加不进卡：日志 + 屏幕横幅**
+        // ==================================================================
+        /// <summary>加不进一张卡时**除了日志还要上屏**（原版两条拦截路径都调 `UIMessageController.ShowError`）。
+        ///
+        /// <para>**判据（逐条实读）**：
+        /// · `d:/2/tools/decomp_full/DeckEditingWindow__OnCardClick.c:29-37` —— 点卡被 `CardDeck.CanAddCard`
+        ///   拦下 ⇒ `UIMessageController.ShowError(out msg, 1)`（**左/右键那条路**，我们 = <see cref="TryAddCard"/>）；
+        /// · `DeckEditingWindow__CheckCardDrag.c:91-96` —— 起拖被拦下 ⇒ 同一条 `ShowError`（我们 = `BeginCardDragAt`）；
+        /// · `UIMessageController__ShowError.c` —— **只有一句转调** `ShowMessage(msg, errorColor, …)`
+        ///   ⇒ 屏幕那句就是 `CanAddCard` 的 `out` 串**本身**，原版**没有**任何前缀。
+        /// 宿主 = 外壳侧那颗同族实例（`Shell/MessageToast` → `ErrorMessageBanner.MenuPreset`；
+        /// 原版主菜单场景里就序列化着一颗，判据 → `Shell/MessageToast.cs` 文件头 ②③）。</para>
+        ///
+        /// <para>⚠️ **为什么分成两个参数**：日志那句要带我们自己的前缀（`ClickLog` 的「实际触发了什么」
+        /// 靠它认路），屏幕那句必须**只有词条本身**（与原版同形）⇒ 别把两者写成同一句。</para>
+        ///
+        /// <para>⛔ **只挂在这两个出口上** —— 别把 `Say()` 整个改成「凡说必弹」：`Say` 还承担
+        /// 「已加入 / 已保存 / 已移出」这类**正常**提示（原版那些走的是页脚，不走 `ShowError`）。</para></summary>
+        /// <param name="bannerText">屏幕上那句（= `DeckError` 词条的人话，不带前缀）。</param>
+        /// <param name="logPrefix">只加在**日志**那句前面的前缀（`null` / 空 = 不加）。</param>
+        void SayError(string bannerText, string logPrefix = null)
+        {
+            Say((logPrefix ?? "") + bannerText);
+            // 屏幕横幅：宿主在壳里（`MessageToast`），**不依赖战斗上下文**；返回 false 时那边已经出过声（⛔ 不静默）
+            ErrorMessageBanner.ShowShellError(bannerText);
         }
     }
 }

@@ -2337,8 +2337,22 @@ public static partial class RuleEngineTest
                 + "｜🧨 把 `RuleCore.cs:6379` 的 `fireLanding` 实参改成恒 `false` ⇒ 本行实得 0");
             Check(S14SigWho(ctx, EvtKind.Trigger, "landing"), atkP, "★ ④ ……报的是**攻击者那一方**");
             Check(S14SigSlot(ctx, EvtKind.Trigger, "landing"), 3, "★ ④ ……格位 = 攻击者那一格（3）");
+            // 🔴 **2026-10-26（第八十四会话 · 调度台就地订正，α：原断言不可满足）**：
+            //   末条原来断 `defL.Health == 6`，但本子例给**守方**挂了 `dropPod 5`（`RuleEngineTest_S14.cs:2328`），
+            //   而引擎对带 `dropPod` 的单位是「**池吃伤害、生命一点不动**」（`RuleCore.Hurt` 里
+            //   `if (u.Has(KeywordTable.DropPod))` 那一支：`absorbed = true`、池 5→2、生命恒 9）
+            //   ⇒ 那条断言与实现无关、**永远不可能绿**（与 E1P01 报告 §③-1 一致）。
+            //   同一个测试的子例 ① 早就自证了这个口径（它断的是 `def.KwValue(DropPod) == 2`，**从不断生命**）。
+            //   ⇒ 改成两条：① 生命不动（池吃伤害）② **池 5 − 3 = 2**（= 伤害照落 3 点）。
+            //   🧨 **鉴别力仍然在**：若续攻一次都不打，池会停在 5 ⇒ 这两个 Check 都红。
+            //   ⚠️ 续攻是**入队**的（原版也是两拍：`:428 AddAttackContinuationAction`）⇒ 读之前必须泵一次。
+            RuleCore.PumpActionQueues(ctx);
             Check(atkL.Health, 9, "★ ④ ……而且**这一记真打出去了**（被打的 0 攻 ⇒ 攻击者不掉血，仍 9）");
-            Check(defL.Health, 6, "★ ④ ……伤害照落 3 点（9 − 3 = 6；原版 `:428` 的续攻把这一记补打出去，不是零次）");
+            Check(defL.Health, 9,
+                  "★ ④ ……守方带 `dropPod` 池 ⇒ **生命一点不动**（池先吃伤害；原版 `CheckIfDead.c` 读 `currentDropPodHealth`）");
+            Check(defL.KwValue(KeywordTable.DropPod), 2,
+                  "★ ④ ……伤害照落 3 点（池 5 − 3 = 2；原版 `:428` 的续攻把这一记补打出去，不是零次）"
+                + "｜🧨 续攻一次都不打 ⇒ 池停在 5，本行红");
         }
     }
 

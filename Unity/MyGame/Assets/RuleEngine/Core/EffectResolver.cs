@@ -1907,7 +1907,13 @@ namespace RuleEngine
         /// （单位卡那条是 `RuleCore.CanPlayCard`，同一个道理）。
         /// </summary>
         /// <param name="targetSlot">表现层选定的目标格位；不需要选目标时传 -1</param>
-        public static int CanPlayTactic(BattleContext ctx, int p, int handIdx, int targetSlot)
+        /// <param name="chosen">🔴 **2026-10-26（批次 9 · 执行代理 `E9ER`）**：玩家**点定的那个单位**。
+        ///   原版认的是这个对象（`action+0x20` 是 CardScript 引用）⇒ **侧由它自己带来**；
+        ///   传 `null` 时退回「按格号 + 卡面 `PickSide` 解一侧」的老口径（逐字不变）。
+        ///   ⚠️ 与 <see cref="RuleCore.PlayCard"/> 的 `chosen` 是**同一个对象**、同一条判据
+        ///   （`RuleCore.PlayCardCore` 那一句 `PlayTactic(…, ChosenTargetSlot(…), chosen)`）。</param>
+        public static int CanPlayTactic(BattleContext ctx, int p, int handIdx, int targetSlot,
+                                       UnitState chosen = null)
         {
             if (ctx.IsOver || p != ctx.Active) return RuleCodes.ErrNotTurn;
             var ps = ctx.Players[p];
@@ -1980,9 +1986,17 @@ namespace RuleEngine
                 //    ⚠️ 别和其它「目标类」码混：`B-31`（2026-10-23）之后，攻击那一侧的
                 //      Vanguard/Stealth/Flying **各有各的码**（`ErrAttackBlock` / `…Stealth` / `…Flying`），
                 //      而 `ErrTarget` 只剩「参数非法 / 技能目标非法」这一层意思。
-                if (targetSlot < 0 || !BoardSpec.IsValid(targetSlot)) return RuleCodes.ErrNoTargetAvailable;
-                var u = ctx.Players[spec.Side == "enemy" ? 1 - p : p].Board[targetSlot];
-                if (u == null || !IsLegalPick(ctx, p, spec, u, pickCond)) return RuleCodes.ErrNoTargetAvailable;
+                // 🔴 **2026-10-26（批次 9 · 执行代理 `E9ER`）：先认「玩家点定的那个单位」，再退回按格号解。**
+                //   原版这一支认的是**目标对象本身**（`_ResolvePlayCardFromHand…:905-940` 把 CardScript 写进
+                //   `action+0x20`）⇒ **侧由目标自己带来**；改前只拿格号反查一侧
+                //   （`spec.Side == "enemy" ? 1-p : p`），而 `Side == "any"` 的卡 `PickTarget` 返回 null
+                //   （它只认 own/enemy）⇒ 「点敌方的单位」被解成**我方同号格**（静默错打，19 张卡）。
+                //   ⛔ 别把 `chosen` 只当提示：它是**唯一**带侧信息的入口（`PickedBySlot` 的 doc 写了兜底）。
+                UnitState u;
+                if (chosen != null) u = chosen;
+                else if (targetSlot < 0 || !BoardSpec.IsValid(targetSlot)) return RuleCodes.ErrNoTargetAvailable;
+                else u = PickedBySlot(ctx, p, spec, targetSlot);
+                if (u == null || !IsLegalPick(ctx, p, spec, u, pickCond, card)) return RuleCodes.ErrNoTargetAvailable;
             }
             return RuleCodes.OK;
         }
@@ -1991,14 +2005,21 @@ namespace RuleEngine
         static bool IsLegalPick(BattleContext ctx, int owner, EffectTargetSpec spec, UnitState u,
                                 // 🆕 2026-10-22（`W64` · `B-16`）：**和结算那一侧同一行**结构化条件 ——
                                 //   不传就是「高亮说能选、打出去空过」（`CanPlayTactic` 注释点名的老毛病）。
-                                CardDef.ConditionSpec structuredCondition = null)
+                                CardDef.ConditionSpec structuredCondition = null,
+                                // 🔴 **2026-10-26（批次 9 · 执行代理 `E9ER`）**：这次选目标的那张牌 ——
+                                //   只服务 `camouflage` 那一格（原版 `RawCardScript__IsValidTarget.c:16-40`
+                                //   要求施放者 `cardType == 0x14`）。`null` ⇒ 按「非战术卡」处理（老口径里
+                                //   伪装对所有来源都挡 ⇒ 传 null 的调用点与改前一致，零回归）。
+                                CardDef casterCard = null)
         {
             var pool = new List<UnitState>();
             bool troopOnly = spec.Kind == "troop";
+            bool tacticCaster = casterCard != null && !casterCard.IsUnit;   // `!IsUnit` = cardType 20（tactic/defence/enchantment）
             if (spec.Side == "own" || spec.Side == "any")
                 AddSide(pool, ctx.Players[owner], false, troopOnly, -1, stealthGate: true);
             if (spec.Side == "enemy" || spec.Side == "any")
-                AddSide(pool, ctx.Players[1 - owner], true, troopOnly, owner, stealthGate: true);
+                AddSide(pool, ctx.Players[1 - owner], true, troopOnly, owner, stealthGate: true,
+                        tacticCaster: tacticCaster);
             // ⚠️ **必须和结算那一侧读同一份筛**（2026-09-13 A4 批 2 修）——
             //    以前只筛阵营 + 「排不排除督军」，兵种 / 已受伤 / 正在祈祷 三道筛漏在这儿
             //    ⇒ **拖拽时高亮说能选、松手打出去却空过**（那正是 `CanPlayTactic` 注释点名的毛病）。
@@ -2053,10 +2074,14 @@ namespace RuleEngine
 
             var pool = new List<UnitState>();
             bool troopOnly = spec.Kind == "troop";
+            // 🔴 2026-10-26（批次 9 · `E9ER`）：`camouflage` 只挡**战术卡来源**（原版 `RawCardScript__IsValidTarget.c:16-40`
+            //   的 `施放者.cardType == 0x14`）—— 本函数的 `card` 就是那张要打出的牌 ⇒ 判据直接读它。
+            bool tacticCaster = card != null && !card.IsUnit;
             if (spec.Side == "own" || spec.Side == "any")
                 AddSide(pool, ctx.Players[owner], false, troopOnly, -1, stealthGate: true);
             if (spec.Side == "enemy" || spec.Side == "any")
-                AddSide(pool, ctx.Players[1 - owner], true, troopOnly, owner, stealthGate: true);
+                AddSide(pool, ctx.Players[1 - owner], true, troopOnly, owner, stealthGate: true,
+                        tacticCaster: tacticCaster);
             CardDef.ConditionSpec pickCond = null;
             for (int i = 0; i < ops.Count; i++)
                 if (ops[i] != null && ReferenceEquals(ops[i].Target, spec)) { pickCond = ops[i].TargetCondition; break; }
@@ -2414,7 +2439,11 @@ namespace RuleEngine
         ///    不许「扣了费然后什么都不发生」—— 那是最难查的那种 bug。
         /// </summary>
         /// <param name="targetSlot">表现层选定的目标格位；不需要选目标时传 -1</param>
-        public static int PlayTactic(BattleContext ctx, int p, int handIdx, int targetSlot = -1)
+        /// <param name="chosen">🔴 **2026-10-26（批次 9 · 执行代理 `E9ER`）**：玩家点定的那个单位 ——
+        ///   **唯一带侧信息的目标入口**（原版 `action+0x20` 是 CardScript 引用）。`null` ⇒ 退回按格号解，
+        ///   见 <see cref="PickedBySlot"/> 与 `Side == "any"` 那 19 张卡的缺口说明。</param>
+        public static int PlayTactic(BattleContext ctx, int p, int handIdx, int targetSlot = -1,
+                                     UnitState chosen = null)
         {
             // 🔴 **2026-10-22（`W62/D5②`）：整条战术结算都在「来源卡 = 这张战术」的作用域里** ——
             //   `ResolveOps` 那条路传的是 `source = null`（`ActingUnit` 也是 `null`）⇒ 效果造出来的牌
@@ -2425,14 +2454,15 @@ namespace RuleEngine
             //      那一刻本字段必须还在（`ResolveOps(…, sourceCard: card)` 那条注释里说的就是这件事）。
             CardDef tacSource = ctx != null ? ctx.HandCardOrNull(p, handIdx) : null;
             CardDef prevSource = ctx != null ? ctx.PushCreationSource(tacSource) : null;
-            try { using (RuleCore.BeginAction(ctx)) return PlayTacticCore(ctx, p, handIdx, targetSlot); }
+            try { using (RuleCore.BeginAction(ctx)) return PlayTacticCore(ctx, p, handIdx, targetSlot, chosen); }
             finally { if (ctx != null) ctx.CreationSource = prevSource; }
         }
 
         /// <summary><see cref="RuleCore.BeginAction"/> 包住的原文（2026-10-21 `T03·c` 批 B 接线）。</summary>
-        static int PlayTacticCore(BattleContext ctx, int p, int handIdx, int targetSlot)
+        static int PlayTacticCore(BattleContext ctx, int p, int handIdx, int targetSlot,
+                                  UnitState pickedByPlayer = null)
         {
-            int code = CanPlayTactic(ctx, p, handIdx, targetSlot);
+            int code = CanPlayTactic(ctx, p, handIdx, targetSlot, pickedByPlayer);
             if (code != RuleCodes.OK) return code;
 
             var ps = ctx.Players[p];
@@ -2443,9 +2473,20 @@ namespace RuleEngine
             var ops = EffectText.Parse(card.Desc, out _, out _, card: card);
             string side = EffectText.PickSide(ops);
 
-            UnitState chosen = null;
-            if (targetSlot >= 0 && BoardSpec.IsValid(targetSlot))
-                chosen = ctx.Players[side == "enemy" ? 1 - p : p].Board[targetSlot];
+            // 🔴 **2026-10-26（批次 9 · 执行代理 `E9ER`）：「点定的那个单位」优先，格号只当兜底。**
+            //   判据：原版 `_ResolvePlayCardFromHand…:905-940` 把**目标 CardScript 引用**写进 `action+0x20`，
+            //   结算时 `IsValidSpellTarget(target)` / `GetTargets(targetCard)` 都读那个对象 ⇒ **侧由目标自带**。
+            //   改前这里只有 `ctx.Players[side == "enemy" ? 1-p : p].Board[targetSlot]` 一条路 ⇒
+            //     · `Side == "any"` 的卡（现池 19 张，`PickTarget` 对它们返回 null、`PickSide` 因此给 `""`）
+            //       无论玩家点哪一侧都读**我方**同号格 ⇒ **打不到对面**（玩家可见的错打）；
+            //     · 我方那一格恰好空着时 `chosen` 直接是 null（效果按「无目标」空过）。
+            //   ⇒ 有 `pickedByPlayer` 就用它；没有才走「按 `side` 读那一侧的同号格」（= 改前逐字不变）。
+            //   ⛔ **不加**「我方空着就解对面」那种兜底：格号本身不带侧信息，两侧同号格都有人时
+            //      两种解都「看着对」—— 猜一个就是静默错打；交给调用方把对象传进来（`PickedBySlot` 的 doc）。
+            UnitState chosen = pickedByPlayer;
+            if (chosen == null && targetSlot >= 0 && BoardSpec.IsValid(targetSlot))
+                chosen = side == "enemy" ? ctx.Players[1 - p].Board[targetSlot]
+                                         : ctx.Players[p].Board[targetSlot];
 
             int paid = CostOf(ctx, p, inst);
             // 🔴 2026-10-21（引擎线 `T03·b`）：走唯一的扣能量口（原版 `PayCardCost` → `UseMana`
@@ -2690,7 +2731,12 @@ namespace RuleEngine
             // ---- 🆕 典籍（`Codex`）的自动触发点：**打出之后的能量为 0**（2026-09-14 A5）----
             // 照我们自己的参考实现 `rule_core.gd:2183`（旁证、非权威）（战术打完那张牌的收尾）。
             // ⚠️ 排在巧技**之后** —— 那边也是把 `_check_codex` 放在战术那一支的**最后一行**。
-            CheckCodex(ctx, p);
+            // 🔴 **2026-10-26（完全复刻批次 9 · 执行代理 `E9ER`）：补闸②** —— 原版 `CheckIfCodexTriggered.c:30-36`
+            //   在 `manaLeft == 0` 之后还要判 `shouldCheckCost ∧ CurrentCost < 1`（**0 费卡不触发 Codex**）；
+            //   本调用点原来只传 `(ctx, p)` ⇒ `playedCard == null` ⇒ 闸②**放行**（= 0 费的战术卡也会触发）。
+            //   战术卡走的是 `PayCardCost` 那条路（`PayCardCost.c:30` 传 **1**）⇒ `shouldCheckCost: true`，
+            //   与 `PlayCardCore` 末尾那个单位卡调用点**同一口径**。`inst` = 刚打出的那一份（`CostOf` 只读卡与 mods）。
+            CheckCodex(ctx, p, inst, shouldCheckCost: true);
 
             // ---- 🆕 2026-10-19（战斗线 `T21` · 缺口 A）：`followAfterResolution`（320/325）的**结算尾部事件** ----
             // 原版：卡自己的 trigger-0 能力里带 `AbilityEffect.followAfterResolution = 320` ⇒
@@ -2705,10 +2751,17 @@ namespace RuleEngine
             //   —— 原版那几条的 `AnimInfo.startPosOption` 是手牌/自身锚，我们的表现层今天没有
             //   手牌锚这条落点（报告 §四 如实记着「仍不可达」）。
             if (FollowUpSchedulerOf(card) == "ThisCardPlayed")
-                EmitFollowUpResolution(ctx, card,
-                                       chosen != null ? (side == "enemy" ? 1 - p : p) : p,
+            {
+                // 🔴 **2026-10-26（批次 9 · 执行代理 `E9ER`）**：这一拍演在**哪一侧**按「点定的那个单位归谁」算 ——
+                //   原版 `followAfterResolution` 的那条动画挂在**目标 CardScript** 上（`isPlayer` 取目标的归属）。
+                //   改前只有 `side == "enemy" ? 1-p : p` 一条：`Side == "any"` 的卡 `side` 恒 `""` ⇒
+                //   一律落到**我方**（现在这类卡能打到对面了 ⇒ 不改就会「打在敌方、动画演在我方同号格」）。
+                int fuOwner = chosen != null ? OwnerOf(ctx, chosen) : -1;
+                if (fuOwner < 0) fuOwner = chosen != null ? (side == "enemy" ? 1 - p : p) : p;
+                EmitFollowUpResolution(ctx, card, fuOwner,
                                        chosen != null ? targetSlot : -1,
                                        chosen != null ? chosen.InstanceId : 0);
+            }
             return;   // 队列体没有返回值（原 `return RuleCodes.OK;` 留在 `PlayTacticCore`）
         }
 
@@ -2828,15 +2881,21 @@ namespace RuleEngine
         ///        ⚠️ **池内 0 张**（`cards_engine.json` v28 的 `keywords`/`desc`/`descZh` 与
         ///        `cards_raw.json` 1,351 张的 `cardTraits` 现扫各 0 命中）⇒ **今天零行为变化**，
         ///        只有合成夹具走得到。⛔ 别因为「不可达」就把它删掉（铁律 11：原版有的都要有）。
-        ///        ⚠️ **如实标着的一处已知偏离（本批不修，非本批范围）**：`RawCardScript__IsValidTarget`
-        ///        的 `camouflage` 那支还多一个条件 `施放者.cardType == 0x14 (§Tactic)`，而
-        ///        `IsValidSpellTarget` 那支**没有**。我们这一处对**所有**效果来源都挡 camouflage
-        ///        （= 战术那支的口径，也更贴规则书「不能被敌方战术**与效果**选中」）⇒
-        ///        **单位能力打伪装单位时我们比原版通用那支严**。要不要按卡种收窄，等主对话裁。
+        ///        ⚠️ **已知偏离（🔴 2026-10-26 批次 9 · `E9ER` 已修，见 `tacticCaster` 形参）**：
+        ///        改前我们对**所有**来源都挡 camouflage（= 战术那支的口径）⇒「单位能力打伪装单位」比原版通用那支**严**。
+        ///        现在按原版：`camouflage` 只在**施放者是战术卡**（`cardType 20`）时挡 —— 判据
+        ///        `RawCardScript__IsValidTarget.c:16-40` 那多出来的一条 `施放者.cardType == 0x14`。
         /// </summary>
         /// <param name="caster">施放者；传 -1 表示这是己方侧、不做隐身过滤</param>
+        /// <param name="tacticCaster">🔴 **2026-10-26（批次 9 · 执行代理 `E9ER`）**：这次效果的施放者是不是**战术卡**。
+        ///   `camouflage` 那一格**只对战术卡的来源生效** —— 原版 `RawCardScript__IsValidTarget.c:16-40`
+        ///   的 camouflage 支多一个条件 `施放者.cardType == 0x14 (§Tactic)`（`IsValidSpellTarget.c:41-53`
+        ///   那条路本身就是战术卡专用的，两支由此**同口径**）。改前我们对**所有**来源都挡 camouflage
+        ///   ⇒ 「单位能力打伪装单位」比原版**严**（账 `B9` · 缺口 ④）。调用方按「点选/结算的那张牌」
+        ///   传进来（`IsLegalPick` / `PlayTargetPool` 手上都有 `CardDef`）。
+        ///   ⚠️ **池内 0 张可达**（`camouflage` 只能由 `addTrait` 效果授予）⇒ 今天零行为变化。
         static void AddSide(List<UnitState> into, PlayerState ps, bool isFoe, bool troopOnly, int caster,
-                              bool stealthGate = false)
+                              bool stealthGate = false, bool tacticCaster = false)
         {
             for (int s = 0; s < BoardSpec.Size; s++)
             {
@@ -2844,7 +2903,8 @@ namespace RuleEngine
                 if (u == null || !u.IsAlive) continue;
                 if (troopOnly && u.IsWarlord) continue;
                 if (stealthGate && isFoe && caster >= 0
-                    && (u.Has(KeywordTable.Stealth) || u.Has(ConditionEval.Camouflage)
+                    && (u.Has(KeywordTable.Stealth)
+                        || (tacticCaster && u.Has(ConditionEval.Camouflage))
                         || IsCurrentlyWarded(u))) continue;
                 into.Add(u);
             }
@@ -3708,7 +3768,7 @@ namespace RuleEngine
             //   ⚠️ **如实标着**：`keepEffects` 那一格原版填几**读不到**（卡数据在远端 CCD，铁律 2），
             //      我们按「原始定义」实现 —— 它同时是**唯一在本地有判据**的那一档；
             //      而 SAU72 触发的那一刻原件本身**就是**刚满血翻回来的
-            //      （`DoReanimate` 用 `new UnitState(rem.Instance, false)`）⇒
+            //      （`DoReanimate` 走 `rem.TransformBackFromRemnant()`、`Health` 必回满）⇒
             //      **两档在今天的可达形状上同值**。
             //   · 落点 = `DeployFree` → `BoardSlots.NextWithoutDisplacing`（**人少那侧最外一格**）——
             //     与原版那条 summon 路用的 `MinionManager__GetNextSlotWithoutDisplacing()`
@@ -11783,7 +11843,35 @@ namespace RuleEngine
                     // 🔴 **2026-10-25（`E1` · 第三段 D3/D4）**：`AddKeyword` 现在会**拒收**两种授予
                     //   （毒 × 抗性），所以它返回 `false` ⇒ **不能**再无条件 `EmitStatusApplied` / 广播，
                     //   否则会对外宣称「拿到了一个它其实没有的 trait」（静默不一致）。
-                    bool added = u.AddKeyword(p.Keyword, val);
+                    // 🔴🆕 **2026-10-26（批次 9 · `W14EC` · 账 64 的另一半）：`addTrait` 正支改走【记录原语】。**
+                    //   判据（🥇 `decomp_full/CardScript__AddEffect.c:469-568`，`W13EN` §二·7 逐句亲读）：
+                    //   原版每一条 `addTrait(3)` / `addTraitRemnant(90)` 都在 `activeEffects(+0x108)` 里
+                    //   留**一条 CardEffect 记录**，合并键 = 同 trait ∧ 同 `markOfChaosType(+0x78)` ∧
+                    //   同 `daemonHostType(+0x7c)` ∧ `SameTimingAsEffect` ∧ **两边 extrinsic 都为 0**；
+                    //   值 = **Σ 记录 `traitValue(+0x40)`**（`EntityScript__GetCurrentTraitValueWithModifiers.c`）。
+                    //   `UnitState.ApplyTraitEffect` 就是那条记录的等价物：合并语义（add 累加 / replace 取 Max /
+                    //   count 每次 +1 且新建强置 1）**加上**把增量落到 `_keywords` ⇒ 净读数与「N 次 `AddKeyword`」
+                    //   逐字相同（本笔**不改任何数值**，只补「实例」：能回答「这是哪条、谁给的」、可被按记录摘）。
+                    //   ⚠️ **只切「无限期」那一档**：
+                    //     · `duration` 非空（`this turn` / `until your next turn`）= 限时路（下面 `AddTempBuff`），
+                    //       到期由 `RevertBuffs` → `RemoveKeyword` 摘词条、**不会**摘记录 ⇒ 切过去会留下一本
+                    //       永不清理的记录账 ⇒ **保持 `AddKeyword`**（如实记：原版连限时那条也建记录）；
+                    //     · `val == 0`（空给）原版连记录都不建 ⇒ 保持 `AddKeyword`（**零行为变化**）。
+                    //   ⚠️ `extrinsic` 恒 `false`：本仓 `extrinsic` 只有两个载体（`CardInstance.HandEffect.Extrinsic`
+                    //     与光环 `Auras.GrantTag` → `UnitState.IsExtrinsicSource`），**都不经过本函数**
+                    //     （光环那条走 `Auras` 的 `RecordGrant`）⇒ 这里判不到「来自 trigger 20/240」，见报告 §五·4。
+                    //   ⚠️ `markOfChaosType` / `daemonHostType`：解析层没有这两列（`PayloadOp` 不带）⇒ 恒 0。
+                    bool added;
+                    if (val > 0 && string.IsNullOrEmpty(duration))
+                        added = u.ApplyTraitEffect(p.Keyword, val,
+                                   // `buffType 90 addTraitRemnant` 与 `3 addTrait` **共用同一个合并循环**
+                                   //（`.c:558-566`）⇒ 只差这一个入参（投递类型由解析期置位，见上面那个形参）。
+                                   buffType: viaAddTraitRemnant ? UnitState.BuffTypeAddTraitRemnant
+                                                                : UnitState.BuffTypeAddTrait,
+                                   stackType: -1,          // -1 = 按 `CardTrait._stackable` 真值现查（只有 markOfChaos = count）
+                                   source: by, extrinsic: false, timingBits: 0) != null;
+                    else
+                        added = u.AddKeyword(p.Keyword, val);
                     if (!added)
                     {
                         ctx.Log($"{by}：「{u.Name}」身上有 **Resistant** —— 这次「{p.Keyword}」**没有挂上**"
@@ -12991,19 +13079,33 @@ namespace RuleEngine
             if (ps.Warlord != null && ps.Warlord.Card != null) faction = ps.Warlord.Card.Faction;
 
             // 原版 `QuestTriggered` 发在**督军卡的 RawCardScript** 上（`:118-119`），由卡上的
-            // `CardAbility(trigger=490)` 命中 `createCardInDeck`。当前卡池里带这条能力的**只有** 4 张
-            // 黑暗天使督军（= 该阵营全部 hero），其他阵营 0 张 ⇒ 用阵营当代理判据。
-            // ⚠️ **不静默**：非黑暗天使拿到任务点（当前池里只有 `SW3` 那份不可达数据会碰到）时说一句。
-            if (!string.Equals(faction, "DarkAngels", System.StringComparison.Ordinal))
+            // `CardAbility(trigger=490)` 命中 `createCardInDeck`。
+            // 🔴 **2026-10-26（批次 9 · 执行代理 `E9ER`）**：判据从「督军阵营 == DarkAngels」**升级成原版那一位** ——
+            //   `CardDef.AbilityTriggerPresence(490)` = 原版 `RawCardScript.HasAbilityType(490)`
+            //   （`HasAbilityType.c:16-38` 遍历 `cardAbilities[].trigger`，只看 trigger、不看 logic 空不空）
+            //   的等价物（`abilityTriggers` 列，v17 起每张卡都落）。三档（⛔ 未知不许读成「没有」）：
+            //     `1` = 有 ⇒ 造；`0` = 明确没有 ⇒ 不造并出声一次；`-1` = 未知（旧表）⇒ 退回**阵营代理**并出声。
+            //   ⇒ 账 `B9` 缺口 ⑤「490 分支缺失」里「别的阵营以后加 490 能力我们表示不出来」这一档**补上了**。
+            int has490 = (ps.Warlord != null && ps.Warlord.Card != null)
+                       ? ps.Warlord.Card.AbilityTriggerPresence(490) : 0;
+            if (has490 != 1)
             {
-                if (!aux.NonFactionNoticeDone)
+                bool proxyByFaction = has490 < 0
+                    && string.Equals(faction, "DarkAngels", System.StringComparison.Ordinal);
+                if (!proxyByFaction)
                 {
-                    aux.NonFactionNoticeDone = true;
-                    ctx.Log($"{by}：任务点到 {full}、已按原版减阈值（余 {ps.QuestPoints}），"
-                          + $"但督军阵营「{faction ?? "(无)"}」没有原版的 `QuestTriggered` 能力"
-                          + "（全库只有 4 张黑暗天使督军有）⇒ **不造隐秘**");
+                    if (!aux.NonFactionNoticeDone)
+                    {
+                        aux.NonFactionNoticeDone = true;
+                        ctx.Log($"{by}：任务点到 {full}、已按原版减阈值（余 {ps.QuestPoints}），"
+                              + $"但督军「{ps.Warlord?.Card?.Name ?? "(无)"}」（阵营「{faction ?? "(无)"}」）"
+                              + $"**没有** `trigger = 490 (QuestTriggered)` 的能力 ⇒ **不造隐秘**"
+                              + "（判据 `CardDef.AbilityTriggerPresence(490)` = 原版 `RawCardScript.HasAbilityType(490)`）");
+                    }
+                    return;
                 }
-                return;
+                ctx.Log($"{by}：`abilityTriggers` 列读不到（旧表）⇒ 任务点奖励**退回阵营代理**判"
+                      + "（`DarkAngels`）—— 原版判据是督军卡上的 `trigger = 490` 能力");
             }
 
             var pick = CreatePool.Resolve(ctx.CardPool, "a secret", faction);
@@ -15237,8 +15339,8 @@ namespace RuleEngine
                     // 翻回来 = 那个格位上换成一个**活着的、全须全尾的**单位
                     int slot = s;
                     // 🔴 第 7 行第 1 步：翻回来**也是那一张牌**（残骸就是它翻的面）
-                    //    ⇒ **沿用同一个实例**，不新发一份。
-                    var back = new UnitState(rem.Instance, false);
+                    //    ⇒ **原地**翻（原版同一个 `CardScript` 对象）—— 见 `ReanimateRemnantInPlace`。
+                    var back = ReanimateRemnantInPlace(rem);
                     back.DeployedTurn = ctx.Turn;   // 🆕 誓约能力的「本回合部署」判据（同上）
                     // 🔴 2026-10-21（引擎线 `T03·c` 批 A · `W59`）：**残骸翻回来 = 重新进场** ⇒ 取**新号**。
                     //   判据 = 原版「死掉 `List.Remove`、之后复活/再造 `List.Add` 到**表尾**」
@@ -15250,7 +15352,7 @@ namespace RuleEngine
                     Auras.Recompose(ctx);      // 🆕 A7：棋盘变动 ⇒ 光环重算
                     // 🔴 **2026-10-17（F9）：部署豁免在【第三个入口】上也要重算一次** ——
                     //    与 `RuleCore.PlayCard:1247` / `RuleCore.DeployFree:1588` 那两次**同一个理由、
-                    //    同一份判据**（⛔ 别在这边另写一份）：上面 `new UnitState(rem.Instance, false)` 的
+                    //    同一份判据**（⛔ 别在这边另写一份）：上面 `ReanimateRemnantInPlace` 的
                     //    `Exhausted` 是**构造时**按**卡模板**关键词算的快照（= `UnitState` 构造里那句 `Exhausted = !RuleCore.HasDeployExemption(this)`），
                     //    而光环（上面那次 `Auras.Recompose` → `Aura` 的 `AddAuraKeyword`）
                     //    是在**那之后**才可能把 `fast`/`flank`/`ferocity` 挂上来的
@@ -15619,10 +15721,12 @@ namespace RuleEngine
         /// 的等价物 —— `SAU53` 那条判据见 `报告/F2_第4轮.md` §四），
         /// ⛔ 不跑事件型降费 / 手牌陷阱 / 手牌单位那三跳（原版确实没有）。</para>
         ///
-        /// <para>⚠️ **调用点还没接**：原版在 `CardScript.CheckForSkullEarned`
-        /// （`CardScript__CheckForSkullEarned.c:1-69`：督军当前血跨过阈值 ⇒ 把 `+0x354` 抬到新值、
-        /// **只在变大时**广播一次）⇒ 需要 `PlayerState` 一个 `earnedSkull` 计数 + 血量写完后的检查点，
-        /// 那两件都在 `RuleCore` / `PlayerState`（`F1` 面）⇒ 已写改动请求。</para>
+        /// <para>✅ **调用点（🔴 2026-10-26 批次 9 · 执行代理 `E9ER` 已接）**：原版在
+        /// `CardScript.CheckForSkullEarned`（`CardScript__CheckForSkullEarned.c:1-69`：督军当前血跨过阈值
+        /// ⇒ 把 `+0x354` 抬到新值、**只在变大时**广播一次）。我们的等价发射点 =
+        /// <see cref="NoteWarlordHealthForSkulls"/>（每局附加状态里存「这张督军卡跨到第几档」），
+        /// 由 `RuleCore` 的**两个督军血量写点**调：`Hurt` 的 `u.Health -= actual` 与牌库抽空的疲劳支。
+        /// ⚠️ 计数按被打那个督军记、得主 = **对面**（`who = 1 - 被打督军的 owner`）—— 判据见那个方法的头注。</para>
         /// </summary>
         /// <param name="who">**获得骷髅那一方**（0/1）。</param>
         /// <param name="warlord">**刚跨过阈值的那张督军单位**（原版 `earnedWarlord` 实参）。</param>
@@ -16164,6 +16268,153 @@ namespace RuleEngine
             var snap = SnapshotBoardListeners(ctx, null, null);
             snap.RemoveAll(l => ReferenceEquals(l.Unit, spUnit));
             BroadcastWhen(ctx, WhenEventKind.SpiritAbility, who, null, null, boardListeners: snap);
+        }
+
+        // ==================================================================
+        //  🔴 2026-10-26（完全复刻批次 9 · 执行代理 `E9ER`）：**「玩家点定的目标」这一层的唯一判据**
+        //
+        //  治的是账 `B9` 的缺口 ②「`Side == "any"` 的 19 张卡打不到对面」（玩家可见的错打）。
+        //  **原版**：出牌时目标以 **CardScript 引用**的形式进动作（`_ResolvePlayCardFromHand…:905-940`
+        //  写 `action+0x20`），结算时 `IsValidSpellTarget(target)` / `GetTargets(targetCard)` 读那个**对象**
+        //  ⇒ **侧是跟着目标走的**，格号在原版根本不是目标身份。
+        //  **我们**：表现层/录像/探针之间传的是**格号**（`AiAction.Slot`），引擎按「卡面 `PickSide` 那一侧」
+        //  去读同号格 ⇒ 卡面是「任意一侧」时（`EffectText.PickTarget` 对 `Side=="any"` 返回 `null`、
+        //  于是 `PickSide` 给 `""`）**恒读我方** ⇒ 玩家点对面的单位，效果落在我方同号格上。
+        //  ⇒ 收口：能拿到**对象**（`chosen` / `pickedByPlayer`）就一律以它为准；格号只在没有对象时兜底。
+        //  ⚠️ 这条**不是**新语义：`IsLegalPick` 早就对 `Side=="any"` 给**两侧并集**（`AddSide` 两支都加），
+        //    表现层 `PlayTargetPool` 同理 ⇒ 池子一直允许点对面，只有「解成谁」这一格缺侧信息。
+        // ==================================================================
+
+        /// <summary>
+        /// **按格号解「玩家点的是谁」** —— 只在调用方**没**给目标对象时用
+        /// （<see cref="CanPlayTactic"/> 的校验支）。
+        ///
+        /// <para>侧按卡面规格解：`enemy` ⇒ 对面；`own` ⇒ 我方；**`any` / `spec == null` ⇒ 我方**
+        /// （= 改前的老口径，⛔ 不改：格号不带侧信息，两侧同号格都有人时「猜对面」就是另一种静默错打）。</para>
+        ///
+        /// <para>⚠️ 想让「任意一侧」的卡真能打到对面，调用方必须把**对象**递进来
+        /// （`RuleCore.PlayCard(ctx, p, handIdx, slot, chosen)` → `PlayTactic(…, chosen)`）；
+        /// 表现层那条路已经这么做了（`BattleDriver._chosenTargetForNextPlay`）。</para>
+        /// </summary>
+        static UnitState PickedBySlot(BattleContext ctx, int owner, EffectTargetSpec spec, int slot)
+        {
+            if (ctx == null || slot < 0 || !BoardSpec.IsValid(slot)) return null;
+            string s = spec != null ? spec.Side : null;
+            if (s == "enemy") return ctx.Players[1 - owner].Board[slot];
+            return ctx.Players[owner].Board[slot];
+        }
+
+        // ==================================================================
+        //  🔴 2026-10-26（完全复刻批次 9 · 执行代理 `E9ER`）：**「督军血跨过骷髅阈值 ⇒ 广播 640」的发射点**
+        //
+        //  治的是账 `B9` 的缺口 ⑥「`BroadcastEarnSkull` 发射点缺失」：`BroadcastEarnedSkull`
+        //  （本文件同名的 `public static` 方法，判据已逐句读过）一直**没有调用点** ⇒ 17 张带 `trigger 640`
+        //  能力的卡（`Earthquake` / `Star Orbit` …，池内 0 张可达）永远是聋子。
+        //
+        //  **判据（`decomp_full/CardScript__CheckForSkullEarned.c:1-69`，逐句）**：
+        //   ```
+        //   if (cardType != 10) return;                       // ① 只对**督军卡**（cardType 10 = Hero）
+        //   if (EnoughPendingDamageToDie()) return;           // ② 这一下会死 ⇒ 不广播（局都结束了）
+        //   n = GetEnemySkullCount(myHealth);                 // ③ =「我的血 ≤ 阈值」的档数（20/10/0）
+        //   if (saved /*+0x354*/ < n) { saved = n; BroadcastEarnSkull(...); }   // ④ **只在变大时**、**一次**
+        //   ```
+        //   `GetEnemySkullCount`（`BattleScoreManager__GetEnemySkullCount.c`）的计数式 =
+        //   `#{t ∈ {20,10,0} : health <= t}`，与 `DeckRules.SkullsFor(health)` **逐字同义**（现读核过）。
+        //   ⚠️ ④ 是「跳到几就抬到几、只广播**一次**」——**不是**逐档各发一次；`play` 里一次掉 15 血
+        //   （25→10）只该响 1 声。⛔ 别改成 for 循环逐档发。
+        //   ⚠️ **得骷髅的是被打那一方的【对手】**（“EnemySkullCount” 的语义；`BroadcastEarnSkull` 取
+        //   `manager + 0xc0/+200` 两套集合之一）⇒ `who = 1 - 被打督军的 owner`。
+        //   ⚠️ 计数按**被打那个督军**记（每方只有一张督军卡 ⇒ 与「按得主记」等价），字段含义 = 「这张
+        //   督军卡的血**曾经**到过第几档」；血被治回去**不回退**（与 `+0x354` 一致）。
+        //  ⚠️ 存档位置用**每局附加状态**（`ConditionalWeakTable`，与 `QuestAux` 同一套模式）——
+        //   `PlayerState` / `BattleContext` 不在本代理白名单，而这是**派生状态**（不参与指纹/存档）。
+        // ==================================================================
+
+        sealed class SkullAux
+        {
+            /// <summary>下标 = **督军的主人**；值 = 这张督军卡的血已经跨到第几档（0..3）。</summary>
+            public readonly int[] Earned = new int[2];
+        }
+
+        static readonly System.Runtime.CompilerServices.ConditionalWeakTable<BattleContext, SkullAux>
+            SkullAuxByCtx = new System.Runtime.CompilerServices.ConditionalWeakTable<BattleContext, SkullAux>();
+
+        static SkullAux SkullAuxOf(BattleContext ctx)
+        {
+            SkullAux aux;
+            if (SkullAuxByCtx.TryGetValue(ctx, out aux)) return aux;
+            aux = new SkullAux();
+            SkullAuxByCtx.Remove(ctx);          // `Add` 对同键会抛 ⇒ 先删（同 `QuestAuxOf`）
+            SkullAuxByCtx.Add(ctx, aux);
+            return aux;
+        }
+
+        /// <summary>
+        /// **督军血量写完之后调一次**（`RuleCore` 里两个真实写点：`Hurt` 的 `u.Health -= actual`
+        /// 与牌库抽空的疲劳那一支）。非督军 / 已死 / 没跨档 ⇒ 什么都不做（零开销）。
+        ///
+        /// <para>⚠️ 判据与「为什么只广播一次」「得主为什么是对面」→ 上面那段注释块。
+        /// ⛔ 别在「治疗 / 加血上限」那些写点上调它（原版 `CheckForSkullEarned` 也只在掉血之后被调）。</para>
+        /// </summary>
+        public static void NoteWarlordHealthForSkulls(BattleContext ctx, UnitState warlord)
+        {
+            if (ctx == null || warlord == null || !warlord.IsWarlord) return;
+            if (!warlord.IsAlive) return;                     // ≈ 原版 ②「这一下会死 ⇒ 不广播」
+            int owner, slot;
+            if (!FindUnit(ctx, warlord, out owner, out slot)) return;   // 已经不在棋盘上
+            int n = DeckRules.SkullsFor(warlord.Health);
+            var aux = SkullAuxOf(ctx);
+            if (n <= aux.Earned[owner]) return;               // ④ 只在**变大**时
+            aux.Earned[owner] = n;
+            BroadcastEarnedSkull(ctx, 1 - owner, warlord);    // 得骷髅的是**对面**
+        }
+
+        // ==========================================================================================
+        //  🆕 2026-10-26（批次 9 · 执行代理 `W10WR` · 调度台追加）：**残骸翻回 = 原地翻**
+        // ==========================================================================================
+        //  判据（🥇 第一权威 · 全量反编译，逐句读过）：
+        //   · `decomp_full/CardScript__TransformFromRemnant.c:1-19`（全文三句）：`*(undefined2*)(+0x65) = 0`
+        //     —— **两个字节一次写**（`isRemnant` + `isLeavingRemnant`）· 表现层换模型 · `UpdateHealthText`；
+        //   · 完成回调 `BattleManager.__c__DisplayClass555_0___ResolveTransformFromRemnant_b__0.c:7-31`：
+        //     `ResetToValuesInHand(true)` → `BroadcastUnitReanimated` → `SetAsUnitInPlay` →
+        //     `ResetSummonSickness` → `ActivateTraitsOnSummonOrEnchantment` → `UpdateWhileInPlay` →
+        //     `CheckStun`（**值恢复在第一句**，后面全是广播/重算）；
+        //   · `decomp_full/CardScript__ResetToValuesInHand.c:45-70`：`activeEffects.Clear()` ＋
+        //     `activeEnchantments.Clear()` —— **两次 `List.Clear()`**
+        //     ⇒ 🔴 翻回**会清掉 buff / 附魔 / 标记**，**只保留** `companionCounter(+0x60)` /
+        //     `tideCounter(+0x5C)` / `orderInPlay(+0x44)` / `isPraying(+0x67)`（`.c` 全文没碰这四个）。
+        //   · 数：`ResetToValuesInHand` 的逐句（①–⑨）见 `UnitState.ResetToValuesInHand` 的 doc。
+        //
+        //  ⇒ 改前是 `new UnitState(rem.Instance, false)`（**换一个新单位对象**）——
+        //    ⚠️ 那与「同一个 `CardScript` 对象翻回来」不符：上面那四个「跨翻回保留」的计数器会被丢掉，
+        //    而附魔那两本账（挂在 `CardInstance` 上、`ResetToValuesInHand` 够不到）整本留着。
+        //  ⚠️ 三句**引擎侧口径**（`DeployedTurn` / `PlayOrder` / `ApplyDeployTurnState`）**不搬进来** ——
+        //    它们是我们的落位/回合位实现，不是原版 `ResetToValuesInHand` 的一部分 ⇒ 仍由 `DoReanimate` 写。
+        //    🔎 顺带：`ResetToValuesInHand` ⑤ 会写 `AttacksThisTurn = 0`，所以
+        //    `RuleCore.ApplyDeployTurnState` → `RecomputeActAndAttack` 里那道 `+0x48` 闸**照旧恒假**。
+        //  ⚠️ 表现层那四句（`StopAnimsInPlay` / `DestroyRemnantBody` / `SetSpriteAlpha` /
+        //    `CardHighlight.ChangeState`）我们没有那一层 ⇒ 不在这里（与 `ResetToValuesInHand` doc ⑩ 同口径）。
+        // ==========================================================================================
+        /// <summary>**把一具残骸原地翻回成部队**（原版 `CardScript.TransformFromRemnant` + 完成回调的
+        /// `ResetToValuesInHand(true)` 两步合起来）。返回**同一个** <see cref="UnitState"/> 对象
+        /// （原版就是同一个 `CardScript`，只是 `+0x65` 那两位字节翻回去）。
+        /// <para>⚠️ 调用方仍要做三件引擎侧的事：`DeployedTurn` / `PlayOrder` / `ApplyDeployTurnState`。</para></summary>
+        static UnitState ReanimateRemnantInPlace(UnitState rem)
+        {
+            if (rem == null) return null;
+            var inst = rem.Instance;
+            if (inst != null)
+            {
+                // ① `activeEffects.Clear()` ＋ ② `activeEnchantments.Clear()`（原版 `:45-70` 那两次 `List.Clear()`）
+                //    ⚠️ 我们这两本账挂在 `CardInstance` 上，`ResetToValuesInHand` 够不到 ⇒ 由这里清
+                //    （`UnitState.ResetToValuesInHand` 的 doc ② 就是把这一句显式留给调用方）。
+                inst.ActiveEffects.Clear();
+                inst.ActiveEnchantments.Clear();
+            }
+            // ③–⑨ ＋ `isRemnant`/`isLeavingRemnant` 两字节
+            //    （`questCounter = 0` 在 `ResetToValuesInHand` 的 ③ 里 —— `Instance.QuestCounter = 0`）
+            rem.TransformBackFromRemnant();
+            return rem;
         }
     }
 }

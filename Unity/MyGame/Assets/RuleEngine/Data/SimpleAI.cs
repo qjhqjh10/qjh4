@@ -161,7 +161,7 @@ namespace RuleEngine
         // ==================================================================
 
         /// <summary>
-        /// 这张小兵卡是不是「**带相邻效果**」（原版 `CardScript.HasWhileInPlayAdjacentEffect`）。
+        /// 这张小兵卡**有没有「光环作用到相邻格」**（⚠️ **不是**原版 `CardScript.HasWhileInPlayAdjacentEffect` 的等价物 —— 那个由 `UnitState.HasWhileInPlayAdjacentEffect()` 逐字实现）。
         ///
         /// **原版判据是两条【或】**（`CardScript__HasWhileInPlayAdjacentEffect.c`）：
         ///   ① `HasCurrentTrait(DefinedTrait.requiem)` —— `requiem = 760`（`dump.cs` 的 `DefinedTrait`）；
@@ -174,7 +174,7 @@ namespace RuleEngine
         ///   · **`requiem` 那一支在我们卡池里 0 命中**（`Resources/cards_engine.json` 全库 grep
         ///     `requiem` = **0 条**，2026-09-29 实测）⇒ 是**空支**，不是被我们砍掉的功能；
         ///   · 第 ② 条在我们这边 = **光环里 `Adjacent == true` 那一条**（<see cref="AuraSpec.Adjacent"/>）
-        ///     —— 那正是「在场上时作用于相邻格」的那族，与原版那个 `targetsAffected` 指同一件事。
+        ///     —— 那正是「在场上时作用于相邻格」的那族。🔴 **2026-10-26（`E4P08`）：部署路径已不再用它** —— `SimpleAI.NextDeploySlot` 改调 `BoardSlots.NextSlotCheckingAdjacents`（谓词 = 原版逐字的 `UnitState.HasWhileInPlayAdjacentEffect()`）；本函数保留给自检/别处「光环覆盖到哪」的问法。
         ///     ⚠️ **别在这儿另写一套相邻筛选**：「谁算相邻」全仓只读 `BoardSpec.AdjacentSlots`。
         /// </summary>
         public static bool HasAdjacentEffect(CardDef c)
@@ -186,11 +186,11 @@ namespace RuleEngine
         }
 
         /// <summary>
-        /// **AI 出小兵时该落哪一格** —— 照原版 `MinionManager.GetNextSlotCheckingAdjacents()` 逐句搬
-        /// （`d:/2/tools/decomp_full/MinionManager__GetNextSlotCheckingAdjacents.c`
-        /// ＋ `MinionManager__GetNextSlotWithoutDisplacing.c`；字段偏移表 = `dump.cs` 的 `MinionManager`）。
+        /// **AI 出小兵时该落哪一格** —— 原版 `MinionManager.GetNextSlotCheckingAdjacents()` 的等价物。
+        /// 🔴 **2026-10-26（批次 9 · `E4P08` · 账行 1120）：算法整体搬进 `BoardSlots.NextSlotCheckingAdjacents`** —— 本方法只做「原版**有符号**格号 → 我们**绝对**格号」的换算 + 出声；判据只此一处（理由见方法体那段长注释）。
+        /// ⚠️ 第 ①② 支的谓词同时换成**原版逐字判据** `UnitState.HasWhileInPlayAdjacentEffect()`（判据 → 那个方法的 doc：`trait 760 requiem` ＋ ability 级 `targetsAffected == 100`）。
         ///
-        /// **原版规则三步，顺序不能换**：
+        /// **原版规则三步，顺序不能换**（**现在实现在 `BoardSlots` 里**，这里保留原文当判据索引）：
         ///   1. **左侧**：若未满，**从督军往外**扫；遇到第一个「带相邻效果」的小兵 ⇒
         ///      返回它**外侧紧邻**那一格（原版 `return -i - 2`，`i` 是列表下标）。
         ///   2. **右侧**：左侧没命中（或已满）才扫右侧，同样从督军往外（原版 `return i + 2`）。
@@ -206,82 +206,82 @@ namespace RuleEngine
         ///     扫描**遇到空位就停**（`get_Item` 返回 null 就 `break`）。
         ///   · 「该侧已满」的判据是 `slotPos.Count(恒 4) − minions.Count &lt; 1`。
         ///
-        /// 🔴 **2026-10-22（`W63`）**：第三支（平衡）改走 `BoardSlots.NextFreeWithoutDisplacing` ——
-        /// 原版那一步同样只读 `List.Count`、**没有「目标格被占」这一档**（原版两侧是 `List`，
-        /// 结构上不可能有洞）；我们这边 `Board[]` 是定长数组、且 `CountSide` 只数活人
-        /// ⇒ 非法局面下 `WarlordSlot ± (count+1)` 会指到**已被占**的那一格，
-        /// 再喂给 `RuleCore.PlayCard` 就会**静默抹掉**外侧单位。判据与措辞口径见方法体第 3 段。
+        /// 🔴 **2026-10-22（`W63`）那一笔仍在，只是搬了家**：第三支（平衡）走
+        /// `BoardSlots.NextFreeWithoutDisplacing`（原版那一步只读 `List.Count`、**没有「目标格被占」这一档**；
+        /// 我们 `Board[]` 是定长数组、自检夹具可以写出洞/尸体 ⇒ 裸算式会指到**已被占**的那一格，
+        /// 再喂给 `RuleCore.PlayCard` 就会**静默抹掉**外侧单位）。判据与措辞口径 → 那个方法自己的 doc。
+        /// ⚠️ **今天第 ①② 支恒不触发**（池内 `requiem` 0 张 · ability 级 `ta==100` 0 行）⇒ 永远走第三支 —— 这正是「照原版」，⛔ 不是「没做」（2026-10-26 现读）。
         ///
-        /// 返回 **棋盘槽号（0..8）**；两处都放不下（格不合法）时返回 **-1**。
+        /// 返回 **棋盘槽号（0..8）**；**没有可用格（含两侧都满）时返回 -1**（原版满场给的是越界值）。
         /// </summary>
         public static int NextDeploySlot(BattleContext ctx, int p)
         {
             if (ctx == null || p < 0 || p > 1) return -1;
             var board = ctx.Players[p].Board;
 
-            // ---- 1. 左侧（下标 i ↔ 槽号 WarlordSlot-(i+1)，i=0 最靠督军）----
-            int leftCount = CountSide(board, -1);
-            if (leftCount < BoardSpec.SlotsPerSide)
+            // ================================================================
+            //  🔴 **2026-10-26（批次 9 · `E4P08` · 账行 1120）：整条算法搬进 `BoardSlots`，这里只换算。**
+            //
+            //  改前：本方法**又写了一份**原版那三步（左扫 / 右扫 / 平衡），而且谓词用的是
+            //  `AuraSpecs.Adjacent`（**不是**原版那个判据）。两件事一起收口：
+            //   ① **算法只留一处** = `BoardSlots.NextSlotCheckingAdjacents`（同一条规则两个写点 =
+            //      迟早不一致；`RuleEngineTest` 那条 `TestT02NextDeploySlotHonoursAvailability`
+            //      盯的「第三支不许返回被占格」那层保险，仍然在 `BoardSlots.NextFreeWithoutDisplacing` 里，
+            //      一行都没丢 —— 判据 → 那个方法的 doc）；
+            //   ② **谓词换成原版逐字判据** `UnitState.HasWhileInPlayAdjacentEffect()`
+            //      （`trait 760 requiem` ＋ ability 级 `targetsAffected == 100`；判据 → 那个方法的 doc）。
+            //
+            //  ⚠️ **今天第 ①②支恒不触发**（池内 `requiem` 0 张 · `ta == 100` 0 行）⇒ 落点**结构上
+            //     永远走第三支**（人少那侧最外一格、平手走右）。这正是「照原版」，⛔ 不是「没做」。
+            //     ⇒ 与改前**唯一**可观察的差别：以前「带 `AuraSpecs.Adjacent` 光环的小兵」会把自己
+            //     外侧那一格当落点，现在不会（那不是原版判据）。
+            //     🔴 2026-10-26 实核：`bash 工具/ruleprobe.sh play check` **0 差异 · `af8e8178…` 未动**
+            //     —— 那份探针不打 AI 决策（见文件头「`play all dump` 结构上看不见 AI」），
+            //     所以「指纹没变」**不证明**这次改动生效，只证明结算层没被碰。
+            //
+            //  ⚠️ **返回 0 = 放不下**：`NextSlotCheckingAdjacents` 用它当「两侧都满」的哨兵
+            //     （原版满场返回越界的 `rightCount+1`，调用方靠 `IsAvailableSlot` 事先挡住）
+            //     ⇒ 这里换成本引擎的老哨兵 **-1**（`EnumerateActions` 按 `-1` 判「这条动作不成立」）。
+            //  ⚠️ 绝对格号 = `BoardSpec.WarlordSlot + 有符号值`（`ourSlot = 4 + origSlot`，见 `BoardSlots` 文件头）。
+            //
+            //  📌 **对 `T02` 那条自检的交代**（`RuleEngineTest_T02.TestT02NextDeploySlotHonoursAvailability`）：
+            //     它盯的三件事**一条都没变**，只是判据都在 `BoardSlots` 那边了：
+            //       · 裸算式 `WarlordSlot ± (CountSide+1)` 会给**被占的那一格**（尸体/洞）⇒ 那是缺陷；
+            //       · 我们给的是**该侧最外的空格**（`NextFreeWithoutDisplacing` 的保险）；
+            //       · `PlayCard` 拿这个落点进城之后，谁都不许被抹掉（`A1692` 的原始症状）。
+            //     ⚠️ 那个测试的注释里写着「`Data/SimpleAI.cs` 的 `// ---- 3. 平衡` 那一段」——
+            //     那一段现在**在 `BoardSlots.NextSlotCheckingAdjacents` 的第三支**（本文件只剩换算）
+            //     ⇒ 那句话要让自检线的写手改指向（`RuleEngineTest_T02.cs` **不在本代理白名单**）。
+            //     ⚠️ 另注：`CountSide`（本文件那个「连续且活人」的读数）**在本文件已无调用点** ——
+            //     保留它是因为「连续段人数」在非法局面下仍是一个有用的读数口；⛔ 别拿它当部署判据。
+            //
+            //  📌 **`SimpleAI.HasAdjacentEffect(CardDef)` 仍在，但部署路径不再用它**（见它自己的 doc）：
+            //     它判的是「光环会不会作用到相邻格」（`AuraSpecs.Adjacent`），**不是**原版
+            //     `HasWhileInPlayAdjacentEffect`。保留给自检/别处按「光环覆盖相邻」问的场景。
+            //
+            //  📌 **验法（今天能验到什么）**：① 部署序列（右近 → 左近 → 右次 → 左次）逐条不变；
+            //     ② 有洞棋盘上不返回被占格（`T02` 那组）；③ 第 ①②支**今天不可达**
+            //     ⇒ 「贴着相邻效果单位放」这条**没有机器读数**能验到（要验得先造一个 `ta==100` 的夹具，
+            //     且走 `NextSlotCheckingAdjacents(ps, 替身谓词)` 那个非 null 分支）。
+            //
+            // ================================================================
+            int signed = BoardSlots.NextSlotCheckingAdjacents(ctx.Players[p]);   // 原版有符号格号
+            if (signed == 0) return -1;                                          // 0 = 两侧都满（见上）
+            int slot = BoardSpec.WarlordSlot + signed;
+            // 结构兜底：越界/督军格只可能来自「满场退化路」（原版那里本来就是越界值）——
+            // 本仓红线「不许静默失败」⇒ 出声后按「没有可用格」处理，⛔ 不静默返回一个非法格号。
+            if (!BoardSpec.IsValid(slot) || slot == BoardSpec.WarlordSlot)
             {
-                for (int i = 0; i < leftCount; i++)
-                {
-                    int s = BoardSpec.WarlordSlot - (i + 1);
-                    var u = board[s];
-                    if (u == null || !u.IsAlive) break;          // 原版遇空位就停
-                    if (HasAdjacentEffect(u.Card)) return BoardSpec.WarlordSlot - (i + 2);
-                }
-            }
-
-            // ---- 2. 右侧（没命中才轮到这儿）----
-            int rightCount = CountSide(board, +1);
-            if (rightCount < BoardSpec.SlotsPerSide)
-            {
-                for (int i = 0; i < rightCount; i++)
-                {
-                    int s = BoardSpec.WarlordSlot + (i + 1);
-                    var u = board[s];
-                    if (u == null || !u.IsAlive) break;
-                    if (HasAdjacentEffect(u.Card)) return BoardSpec.WarlordSlot + (i + 2);
-                }
-            }
-
-            // ---- 3. 平衡：左少 ⇒ 左；否则右（两侧相等 ⇒ 先右）----
-            // 🔴 **2026-10-22（`W63` 普查 · `T02` 同族的**第五处**写入点）：第三支也必须判「这一格真的可占」。**
-            //   原版这一步就是 `GetNextSlotCheckingAdjacents.c:44` 那一跳
-            //   `GetNextSlotWithoutDisplacing` —— 它**只比两条 `List.Count`、没有任何占用检查**
-            //   （`MinionManager__GetNextSlotWithoutDisplacing.c:14-30`），因为原版两侧是 `List`、
-            //   结构上不可能有洞。⚠️ 我们这边的差异有两层，**都只可能出现在非法局面上**：
-            //     · `CountSide` 数的是「贴督军起**连续且 `IsAlive`**」的段 ⇒ 段首那个
-            //       **非空但已死**的残留单位会让它**提前停**（引擎自己的死亡路径当场 `RemoveAt`，
-            //       正常对局打不出这种局面，只有夹具能写出来）；
-            //     · `Board[]` 是**定长数组**，自检夹具可以直接写出洞。
-            //   ⇒ 这时原来那句 `WarlordSlot ± (count + 1)` 会指到**已经被占**的那一格，而
-            //      `RuleCore.PlayCard` 会把它喂给 `BoardSlots.Insert`：有洞时那条降级路径落到插推，
-            //      会把外侧单位**静默抹掉**（同一族的原始症状见 `A1692` / `FirstFreeSlot`）。
-            //   ⇒ 改走**同一个判据的第二档** `BoardSlots.NextFreeWithoutDisplacing`
-            //     （`FirstFreeSlot` / `RuleCore.DeployFree` / `EffectResolver.DoTakeControl` /
-            //      `RuleCore.EndTurn` 四处已经用它）；⛔ 别在这里另写一份「空格 = 没单位」。
-            //   ⚠️ **连续棋盘上行为逐字不变**：那一档的第一支原样返回 `NextWithoutDisplacing`，
-            //     而它与原版 `GetNextSlotWithoutDisplacing.c:14-30` 是同一条算式（左 < 右 ⇒ 左、否则右，
-            //     平手走右），落点 = 该侧最外那一格。
-            //   ⚠️ **原版行为【不可比】**：原版根本没有「目标格被占」这一档 ⇒ 这是**补我们表示法**的洞，
-            //     ⛔ 别在注释里写成「照原版」（同 `A1692` 的措辞口径）。
-            int slot = BoardSlots.NextFreeWithoutDisplacing(ctx.Players[p], out int blockedSlot);
-            if (blockedSlot >= 0)
-            {
-                UnityEngine.Debug.LogWarning("[SimpleAI] ⚠️ 棋盘不连续：`NextDeploySlot`（平衡支）按原版规则算出的 "
-                    + blockedSlot + " 号格已被 " + (board[blockedSlot] != null ? board[blockedSlot].Name : "?")
-                    + " 占着 —— **不覆盖**，改选该侧最外的空格 "
-                    + (slot >= 0 ? slot.ToString() : "（该侧没有空格）")
-                    + "。引擎的增删路径都维持「每侧从贴督军那格起连续无洞」，出现这种局面说明"
-                    + "**有地方（多半是自检夹具）直接写了 `Board[]`**（`T02` / `A1692` 同族）。");
+                UnityEngine.Debug.LogWarning("[SimpleAI] ⚠️ `NextDeploySlot` 拿到越界/督军格落点 "
+                    + slot + "（有符号 " + signed + "）—— 按「没有可用格」处理（返回 -1）。");
+                return -1;
             }
             return slot;
         }
 
         /// <summary>
         /// 这一侧**从督军往外数、连着的**小兵有几个（原版 `leftMinions` / `rightMinions` 那个
-        /// `List.Count` 的同口径读法 —— 列表是按下标连续的，遇到空位就是到头）。
+        /// `List.Count` 的同口径读法 —— 列表是按下标连续的，遇到空位就是到头）。🔴 2026-10-26（`E4P08`）：部署落点改由 `BoardSlots.NextSlotCheckingAdjacents` 一处判 ⇒ **本函数在部署路径上已无调用点**（保留：「贴督军起连续且活人」仍是一个有用的读数口，⛔ 别拿它当部署判据）。
         /// <paramref name="dir"/> = `-1` 左 / `+1` 右。
         /// </summary>
         static int CountSide(UnitState[] board, int dir)
@@ -1418,8 +1418,8 @@ namespace RuleEngine
 
         /// <summary>
         /// 难度 → 旋钮。
-        /// 🔴 **这四个档的取值是我们配的**：原版那三旋钮的**值**在远端 LiveOps 配置
-        /// `AIBotsConfig.BotConfig`（`GetNormalBotConfig` 按 `minRank..maxRank` + `minLossStreak..maxLossStreak`
+        /// 🔶 自己设计（非原版）：四个难度档的旋钮**数值**（`MaxSkips` 3/2/1/0 · `SkipChance` 90/60/30/0 · `MinSkips` 恒 0）· 原版这三格是远端配置里的值、本机拿不到（见下），⛔ 别当成原版值 · 调度台 2026-10-26 裁定「保持现状 + 打本标记」（账行 1062/1063/1064）
+        /// **原版怎么取**：`AIBotsConfig.BotConfig`（`GetNormalBotConfig` 按 `minRank..maxRank` + `minLossStreak..maxLossStreak`
         /// 在 `BotList` 里挑一条、**命中就用它、一条都不命中就用 `[0]`**；`GetFTUEBotConfig` 按
         /// `CurrentModeVictories == winCount` 挑；`GetFastModeBotConfig` 同 Normal 但查 `BotListFastMode` ——
         /// 判据 `d:/2/tools/decomp_full/MatchData__GetNormalBotConfig.c` / `__GetFTUEBotConfig.c` /
@@ -1427,7 +1427,7 @@ namespace RuleEngine
         /// **本机拿不到那份数据**：`d:/2/新解包资源/assets_full`、`d:/2/关服前存档`（含安卓 Unity 缓存）
         /// 全盘搜 `skipChance` / `minSkips` / `BotListFTUE` / `AIBotsConfig` ⇒ **0 个文件**（2026-10-26 现搜）。
         /// ⇒ 下面四个档的数值**是我们挑的，不是原版值** —— ⛔ 别在别处当成原版。
-        /// 结构照原版：**越简单 = 砍得越狠**（砍掉的都是分最低的那些，所以 AI 会做出菜的选择）。
+        /// 结构照原版：**越简单 = 砍得越狠**（砍掉的都是分最低的那些，所以 AI 会做出菜的选择）。⚠️ **比较口径与原版一致**（不是自设计）：原版 `skipChance > GetRandomInt(0,100)`、我们 `k.SkipChance > ctx.AiRng.Next(0,100)` —— 同区间同方向（账行 1064）。
         ///
         /// ⚠️ **`MinSkips` 一律给 0**（原版那个值是「无条件先砍掉几条」）—— 给正数的话，
         ///    当 AI 只剩一两条动作时会把它们**全砍光**，表现成「对手发呆、什么都不做」。
@@ -1437,10 +1437,10 @@ namespace RuleEngine
         {
             switch (d)
             {
-                case AiDifficulty.SuperEasy: return new Knobs { MinSkips = 0, MaxSkips = 3, SkipChance = 90 };
-                case AiDifficulty.Easy:      return new Knobs { MinSkips = 0, MaxSkips = 2, SkipChance = 60 };
-                case AiDifficulty.Normal:    return new Knobs { MinSkips = 0, MaxSkips = 1, SkipChance = 30 };
-                default:                     return new Knobs { MinSkips = 0, MaxSkips = 0, SkipChance = 0 };
+                case AiDifficulty.SuperEasy: return new Knobs { MinSkips = 0, MaxSkips = 3, SkipChance = 90 }; // 🔶 自定值（非原版，见本方法 doc）
+                case AiDifficulty.Easy:      return new Knobs { MinSkips = 0, MaxSkips = 2, SkipChance = 60 }; // 🔶 自定值（非原版）
+                case AiDifficulty.Normal:    return new Knobs { MinSkips = 0, MaxSkips = 1, SkipChance = 30 }; // 🔶 自定值（非原版）
+                default:                     return new Knobs { MinSkips = 0, MaxSkips = 0, SkipChance = 0 };  // 🔶 自定值（非原版）
             }
         }
 

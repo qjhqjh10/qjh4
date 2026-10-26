@@ -282,7 +282,7 @@ class Program
     //   的**后半句**原来被静默吃掉）。判据 → `资料/任务线/引擎线/任务总表.md` `T02` 行 ＋ 卡面中文
     //   「如果目标死亡或为友方单位」＋ `cards_1195_2022时代.json` 的 `targetCriteria(friendlyUnits=1/enemyUnits=1)`。
     //   ⇒ 按「先修好解析器，再跑 `scan` 定为新基线」重生成，⛔ 不是把红抹平。
-    public const string PinnedBaselineMd5 = "5fb45aec9e162dab2349d9b86bf5740a";  // 🔴 2026-10-26 重钉（第八十二会话同步点）：基线重生成（Ethereal Supreme 的 `warlord`→`unit`） ｜ 2026-10-24 重钉（Z71 · G10）：GSC75 一行解析变化后重生成基线
+    public const string PinnedBaselineMd5 = "ce3faf91f9634053e00f0c97e602bb54";  // 🔴 2026-10-26 重钉（第八十四会话同步点）：**有意重生成基线** —— 解析器真改对了（`EffectText` 新增「名词在前」加法型反向正则，`BL47` 的目标短语不再吞掉 `, and an additional armour 1`）。旧（_bak_1026/out_baseline.txt）↔ 新基线 `diff` = **恰好 1 张卡 `BL47`**（逐字节核对过）。上一版 = 5fb45aec… ｜ 🔴 2026-10-26 重钉（第八十二会话同步点）：基线重生成（Ethereal Supreme 的 `warlord`→`unit`） ｜ 2026-10-24 重钉（Z71 · G10）：GSC75 一行解析变化后重生成基线
 
     /// <summary>🆕 **解析输出指纹**（`A1382` **一般情形**的堵法，2026-10-12 第二十一会话 · 写手 `E5`）
     /// —— 「`check` 的判据是『与**基线文件**比』，而**基线文件同一个工具就能重写**」这条洞的机器级补丁。
@@ -347,7 +347,7 @@ class Program
     //   🔴 **2026-10-21（第五十九会话 · 引擎线 `T02`）重钉** —— 唯一变化 = `SOR31|Dogmata` 的条件种类
     //   （`targetdies` → `targetdiesorfriendly`）。行为侧另有三条新断言（友方活着 +1 / 敌方活着 +0 /
     //   敌方被打死 +1）钉住它，见 `Assets/RuleEngine/Editor/RuleEngineTest_T02.cs`。
-    public const string PinnedParseMd5 = "18439d965d14288fe28cfbe5986dc445";  // 🔴 2026-10-26 重钉（第八十二会话同步点）：解析输出随基线同步 ｜ 2026-10-24 重钉（Z71 · G10）：`in your hand` 计数从句（全池只 GSC75 一张）；归因 → 资料/普查产出_1024/G10_GSC75解析缺陷.md
+    public const string PinnedParseMd5 = "c9a647982fad19bb65896011c281c93e";  // 🔴 2026-10-26 重钉（第八十四会话同步点）：唯一解析差异 = `BL47 Disgustingly Resilient`（`EffectText` 新增「名词在前」加法型反向正则 ⇒ 不再被误判成「重复型」）⇒ 上一版 = 18439d96… ｜ 🔴 2026-10-26 重钉（第八十二会话同步点）：解析输出随基线同步 ｜ 2026-10-24 重钉（Z71 · G10）：`in your hand` 计数从句（全池只 GSC75 一张）；归因 → 资料/普查产出_1024/G10_GSC75解析缺陷.md
 
     /// <summary>一个文件的 md5（按字节；读不到返回 `null` —— ⛔ 不静默当成空串）。</summary>
     public static string Md5File(string path)

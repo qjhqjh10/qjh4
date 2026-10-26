@@ -22,7 +22,7 @@
 | **P-02** | `RuleEngine/Core/EffectResolver.cs` | **10** | ✅ **独占** | **P-01**（广播骨架 + 动作队列口） | 64·74·627·631·690·718·719·721·835·1287 | UM118 从 UnparsedEffects 移出；Draw 事件三跳集合；`ruleprobe ai` option 13 分解 |
 | **P-03** | `RuleEngine/Core/Enchantment.cs` | **7** | ✅ 独占（与 P-02 有 2 条同链） | **P-02**（481/532 与 EffectResolver 摘附魔同链） | 481·532·687·763·770·1044·1047 | 摘附魔后该卡 anim cue=0；`HasEnchantmentWhileInPlay` 读数；`FindSecretOrder` 早退 null |
 | **P-04** | `RuleEngine/Core/BattleContext.cs` | **5** | ✅ 独占（小） | 无（但**必须一次改完**随机源三条） | 195·375·1058·1072·1360 | 随机数组长 100 / 游标单调 / 同局两次一致；洗牌·随机部署·RandomizedOnResolution 逐族比 |
-| **P-05** | `RuleEngine/Core/UnitState.cs` | **3** | ✅ 独占（改 `Has` 语义） | **P-01**（残骸化写点） | 853·938·1040 | 残骸 `Has(卡面 trait)`=false（改前 true）；buffType 90 授予=true；翻回后 buff/标记不变 |
+| **P-05** | `RuleEngine/Core/UnitState.cs` | **3** | ✅ 独占（改 `Has` 语义） | **P-01**（残骸化写点） | 853·938·1040 | 残骸 `Has(卡面 trait)`=false（改前 true）；buffType 90 授予=true；🔴 **翻回后 buff/附魔/标记被【清】**（`ResetToValuesInHand.c:45-70`；2026-10-26 订正，原文写"不变"方向反了） |
 | **P-06** | `RuleEngine/Core/ActionPump.cs` + `CountEval.cs` | **2** | ✅ 独占 | **P-04**（676 的 ③ RandomChance）；669 无前置 | 669·676 | 676 四条灭自证断言 + maxTargets 截断 + playerTurn 出声；669 接线后 1128 主档逐字节等基线 |
 | **P-07** | `RuleEngine/Core/CardDef.cs` + 数据生成器 | **2** | ✅ 独占（动数据列） | 无 | 993·1254 | SOR66 `Has(pray)`=true；`cards_truth` 新列全 0 |
 | **P-08** | `RuleEngine/Data/AiScoring.cs` | **4** | ❌ 任意写手 | 无（四条都「只加函数不接线」） | 12·29·38·39 | `ruleprobe ai` 分解出现新项；`check` 指纹**不变** |
@@ -65,7 +65,8 @@
 
 ### P-05 `UnitState.cs` · 3 条 · ✅ 独占
 - **序**：① 1040 HasCurrentTrait（残骸闸 + 与 `:1068` 同批）→ ② 938 TransformFromRemnant（原地翻回、保运行时状态）→ ③ 853 RemoveEffect（按记录摘 + 5/45/40 三档）
-- **验收口**：残骸 `Has(卡面 trait)`=false（改前 true）、90 档授予=true；翻回后 buff/标记/教练数**与翻回前一致**（改前清零）；5/45/40 三档摘除后数值正确。
+- **验收口**：残骸 `Has(卡面 trait)`=false（改前 true）、90 档授予=true；🔴 **翻回后 buff / 附魔 / 标记会被【清掉】**（判据 = `ResetToValuesInHand.c:45-70` 两次 `List.Clear()`：`activeEffects +0x108` / `activeEnchantments +0x110`；「变残骸」那一跳也调同一个复位，`…_ResolveTransformIntoRemnant_d__554__MoveNext.c:43`）—— **只保留** `companionCounter` / `tideCounter` / `orderInPlay` / `isPraying`；5/45/40 三档摘除后数值正确。
+  🔴 **2026-10-26 就地订正（第八十四会话 · `E10TB` 实读推翻本节原验收口）**：原写「翻回后 buff/标记/教练数**与翻回前一致**（改前清零）」—— **方向反了**。原版是**清**，不是"保留"；按原来那句做会得到与原文相反的行为。
 - **风险**：🔴 改 `Has` 语义 ⇒ AI/目标/光环全部读点受影响，必须全池对拍。
 
 ### P-06 `ActionPump.cs` + `CountEval.cs` · 2 条 · ✅ 独占
@@ -96,7 +97,9 @@
 
 ### P-12 三个表现小件 · 6 条 · ✅ 独占
 - 294/295 DisplayBigChat（⚠️ **显示细节判据拿不到** ⇒ 版面参数按场景树，取不到标 🔶）· 460/489 图标动画（同层，参数在 `_ResolveAbilityIconAnim` MoveNext）· 461/464 音效 FIFO（入队 + 出队）。
-- **验收口**：大框+头像出现；图标动画在结算前后各一次；3 条音效串行（队列归 0，间隔 ≈ clip 时长）。
+- **验收口**：大框+头像出现；图标动画在结算前后各一次；**音效出队 = 每帧取一条**（`BattleManager__Update.c:152` 实读；≈16 ms 间隔、`PlayOneShot` 之间**仍可叠着响**），队列归 0。
+  🔴 **2026-10-26 就地订正（第八十四会话）**：本行原写「3 条**串行**、间隔 ≈ **clip 时长**」—— **那句是我们自己编的**，原版就是 `Update` 每帧 `PlayNextSoundInQueue` 一行（`BattleManager__Update.c:152`）。⇒ 实现默认取 `GapPolicy.OnePerFrame`，串行档只留作可选项；验收口按「每帧一条」断。
+  ⚠️ 另：`PlayIconAnim` / `ResolveAbilityIconAnim` 在原版**零调用点**（`decomp_full` + ILSpy 两棵树只命中自身定义）⇒ 图标动画这一路**原版从不触发**，只做形状与参数，⛔ **别发明触发源**。
 
 ### P-13 视觉链（CardFeel/CardView/UnitTweenTable/DeploySequence）· 10 条 · ✅ 独占
 - **一条链**：730 Dissolve 复原支 → 972 UnDissolveWholeCard → 806 MoveBackToHand → 930 StopAnimsInPlay → 921 ShowCardBeingDrawn（弃牌/偷牌各一次，⚠️ 别统一方向）→ 974 UpdateAttackText（高亮族）→ 896 秘密面 → 908 CreatedBy 行 → 732 抖位置 → 804 orderInPlay 语义。

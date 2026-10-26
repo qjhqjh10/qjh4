@@ -488,8 +488,17 @@ public static partial class RuleEngineTest
             CheckCode(RuleCore.DeclareAttack(ctx, p, 3, q, 3), RuleCodes.OK, "出手（合法目标）");
             string logs = S23RTail(ctx, logFrom);
 
-            Check(def.Health, 6,
-                  "★★ `A1617`：带 `landing` ⇒ 取消这一记、**再由续攻补打**（守方 9 → 6，被打 3）"
+            // 🔴 **2026-10-27（`W20AS` 复核 · 铁律 5）：本行期望由 6 改成 4。**
+            //   旧期望 6 是照「续攻只打回**原始**攻击力 3」写的；实现不是那样 —— 续攻是
+            //   **完整重进一遍 `DeclareAttack`、在执行层现算攻击力**（`RuleCore.cs:6554-6557`
+            //   `FieldAttack(ctx, contP, contUnit, contRanged)`），而 `Landing: Gain +2 Attack`
+            //   那一跳**先落地**（同一条 `Instant` 道、FIFO，见 `RuleCore.cs:6498-6510`）
+            //   ⇒ 续攻这一下打的是 **3 + 2 = 5** ⇒ 守方 9 → **4**。
+            //   同形判据（另一条独立取证）→ `资料/完全复刻/报告/X1_续攻重取攻击力.md` §①。
+            Check(def.Health, 4,
+                  "★★ `A1617`：带 `landing` ⇒ 取消这一记、**再由续攻打出去**（守方 9 → 4，被打 5）"
+                + " —— 续攻是**完整重进一遍 `DeclareAttack`、重取攻击力** ⇒ `Landing: Gain +2 Attack`（3→5）"
+                + "也计入这一下，所以是 **5 点**不是 3 点（判据同形 → `X1_续攻重取攻击力.md` §①）"
                 + "｜🧨 把续攻那一段改回 `return RuleCodes.OK`（旧的「一个伤害点都不出」）"
                 + " ⇒ 本行实得 **9**" + logs);
             CheckTrue(!atk.Has(KeywordTable.DropPod),
@@ -502,7 +511,13 @@ public static partial class RuleEngineTest
             CheckTrue(atk.Exhausted,
                       "★ **配额照扣**（「取消」排在消耗之后 —— 原版那一跳在协程 `yield` 之后；"
                     + "⛔ 别把它挪到 `IsValidTarget` 之前那一档，那是 `abouttoattack` 的位置）");
-            CheckTrue(HasLog(ctx, "取消这一记、再补打一记"), "★ ……并且**出声**（红线：不许静默）");
+            // 🔴 **2026-10-27（`W20AS` 复核 · 铁律 5）：文案照【实现】改。**
+            //   实现打的是 `…开舱后**取消这一记、再由续攻打出去**…`（`RuleCore.cs:6528`）；
+            //   旧断言找的是「再补打一记」—— 那是我方早先拟的措辞，实现从来没打过这一串 ⇒ 恒红。
+            //   ⛔ 别去改实现迁就旧断言：**行为是对的，只有这一句文案不同**。
+            CheckTrue(HasLog(ctx, "取消这一记、再由续攻打出去"),
+                      "★ ……并且**出声**（红线：不许静默；文案对齐 `RuleCore.cs:6528`）"
+                    + "｜🧨 把那一句 `ctx.Log` 删掉 / 改静默 ⇒ 红（本行量的就是「有没有出声」）");
         }
 
         // ---- ② 反例 A：只带 `DropPod`、**不带** `landing` ⇒ 照常打 ----

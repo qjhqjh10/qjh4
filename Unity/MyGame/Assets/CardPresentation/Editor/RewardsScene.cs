@@ -2481,6 +2481,21 @@ public static class RewardsScene
                 var lgBtn = lgCard != null ? FindChild(lgCard, "Generic UI Button") : null;
                 var lgWb = lgBtn != null ? lgBtn.GetComponent<WindowButton>() : null;
                 CheckTrue(lgWb != null && lgWb.onClick != null, "（前提）登录卡的 `Collect` 在（点了有事做）");
+                // 🆕 **2026-10-26（B9 · P9 #426/#427）**：**整张登录卡**的命中区 =「本周期可领奖励一览」预览窗
+                //   （判据 = `LoginBonusRewardDisplay__Setup.c` + `…<Setup>b__0.c` 末句 +
+                //    `__OnDestroy.c`：原版把 `RewardService.Preview(AvailableRewards(progress)...)` 挂在
+                //    `button(0x28)` 上）。⛔ 这一块必须在**点 `Collect` 之前**跑 —— 那一下会
+                //    `CollectThenRebuild` 把整页重建，这个节点随后就没了。
+                var lgPv = FindChild(lgCard, "Preview Rewards Hit");
+                var lgPvWb = lgPv != null ? lgPv.GetComponent<WindowButton>() : null;
+                CheckTrue(lgPvWb != null && lgPvWb.onClick != null,
+                          "★ #427：（前提）登录卡的 `Preview Rewards Hit` 在（点了有事做，不是装饰）");
+                var rwPv = ClickCollectAndDismiss(lgPv, lgPvWb, "登录卡的「看奖励」");
+                CheckTrue(rwPv != null, "★ #427：点整张登录卡 ⇒ **弹出 `Reward Window`**"
+                                        + "（把 `MissionsTab.AddPreviewHit` 那一跳删掉 / 改回 `AddContainerHit` ⇒ 红）");
+                Check(rwPv != null && rwPv.IsPreview, true,
+                      "★ #427：…那一扇是 **Preview 态**（原版 `RewardService.Preview` 的 `isPreview = 1`；"
+                    + "写成 `ShowCollected` ⇒ 本条红）");
                 var rwLogin = ClickCollectAndDismiss(lgBtn, lgWb, "登录卡的 `Collect`");
                 Check(DailyData.LoginClaimed(), true, "…领到了（`_loginState` 变**已领取**）");
                 // 🆕 **2026-10-12（A313）**：登录卡这条出口 = `PlayerDataManager.ProcessNewLoginResult`
@@ -12245,6 +12260,84 @@ public static class RewardsScene
                       $"★★ T02：父链 ×2 时 `RectOf` 报的**是设计宽**（本宿主 {dw:F2} vs 世界 {ww:F2} ÷ 2；容差 0.5px）"
                     + "｜🧨 把本文件 `RectOf` 的 `designSize: true` 改回缺省（或删掉 `MenuCheck` 里那一支）"
                     + " ⇒ 读到 `2 × 设计宽` ⇒ **本条红**；两帧一起改回同一帧 ⇒ 本条照样红");
+        }
+
+        // ============================================================ 🆕 2026-10-26（B9 · P9 · W7P9）
+        // 本包两条**数据侧**的链（都不碰窗、不依赖夹具）：① 主菜单自动弹窗的排程；② 顶栏阵营切换。
+        // 判据 → `Shell/DailyData.cs` 的 `TrySchedulePopup` / `SetHeaderArmy` 那两段 doc（逐句对位原版
+        // `MainMenuMission__TrySchedulePopup.c` / `DailyRewardPopup__SetArmy.c`）。
+        Section("B9 · P9 #430/#428/#432：`MainMenuMission.TrySchedulePopup` 的等价物（门 / 幂等 / 撤销）");
+        {
+            // 造态：两条轨各有一格可领（出厂就是；本宿主跑到这里时早被别的节收掉了 ⇒ 显式摆回）
+            DailyData.ForceRewardClaimedForTest(2, false);                              // 每日奖励轨第 3 天 ⇒ Unlocked
+            DailyData.ForceStreakClaimedForTest(DailyData.StreakClaimableDay, false);
+            CheckTrue(DailyData.HasCollectableDailyReward, "（前提）每日奖励轨有一格可领");
+            CheckTrue(DailyData.HasCollectableStreak, "（前提）连登轨那一格可领");
+
+            // ① 编辑期闸：默认**不排**（理由见 `DailyData.TrySchedulePopup` 里那段 🔶）
+            DailyData.AutoPopupInEditor = false;
+            DailyData.ReleasePopupActions();
+            CheckTrue(!DailyData.TrySchedulePopup(), "★ #430：编辑期默认**不排**（`AutoPopupInEditor = false`）");
+            Check(DailyData.PendingPopupActions, 0, "★ …排程条数 0（闸挡在排队**之前**）");
+
+            // ② 打开闸 ⇒ 排两条（每日奖励 + 连登各一条 = 原版「每份 mission 实例各排自己那个 Popup(12)」）
+            DailyData.AutoPopupInEditor = true;
+            int schedBefore = DailyData.PopupScheduleCount;
+            CheckTrue(DailyData.TrySchedulePopup(), "★ #430：门 =「至少一条可领」⇒ 排（返回值 = 真排了）");
+            Check(DailyData.PopupScheduleCount, schedBefore + 1, "★ …排程计数 **+1**（差分判据，不看绝对值）");
+            Check(DailyData.PendingPopupActions, 2, "★ …两条轨各一条（每日奖励 + 连登）");
+
+            // ③ 幂等：再调一次 ⇒ **仍 2 条**（4 ⇒ 原版 `List.Contains(句柄)` 那道早退没了）
+            DailyData.TrySchedulePopup();
+            Check(DailyData.PendingPopupActions, 2, "★ #432：重复调用**不堆动作**（仍 2 条）");
+
+            // ④ 撤销（= `MainMenuMission.Dispose`）
+            DailyData.ReleasePopupActions();
+            Check(DailyData.PendingPopupActions, 0, "★ #428：`ReleasePopupActions` ⇒ 队列里一条都不剩");
+
+            // ⑤ 门关：两条轨都没得领 ⇒ **不排**
+            DailyData.ForceRewardClaimedForTest(2, true);
+            DailyData.ForceStreakClaimedForTest(DailyData.StreakClaimableDay, true);
+            CheckTrue(!DailyData.HasCollectableDailyReward && !DailyData.HasCollectableStreak,
+                      "（前提）两条轨都摆成「没得领」");
+            CheckTrue(!DailyData.TrySchedulePopup(), "★ #430：一条可领都没有 ⇒ **不排**（门在）");
+            Check(DailyData.PendingPopupActions, 0, "★ …排程条数 0");
+            DailyData.AutoPopupInEditor = false;                                        // ⚠️ 静态 ⇒ 必须还原
+            DailyData.ForceRewardClaimedForTest(2, false);                              // 还原成出厂那一态
+            DailyData.ForceStreakClaimedForTest(DailyData.StreakClaimableDay, false);
+        }
+
+        Section("B9 · P9 #91/#92：`DailyRewardPopup.SetArmy / RefreshOnArmyChange` 的等价物（顶栏阵营）");
+        {
+            int was = DailyData.HeaderArmyValue;
+            string iconWas = DailyData.HeaderArmyIcon(), nameWas = DailyData.HeaderArmyName();
+            CheckTrue(DailyData.SetHeaderArmy(10), "★ #92：切到 `Ultramarines`(10) ⇒ **真换了**（返回 true）");
+            Check(DailyData.HeaderArmyValue, 10, "★ …`HeaderArmyValue` = 10（顶栏读的就是它）");
+            CheckTrue(!string.IsNullOrEmpty(DailyData.HeaderArmyIcon()) && DailyData.HeaderArmyIcon() != iconWas,
+                      "★ #91：顶栏**图标**跟着换（`ArmyIcons.IconName` —— 原版 `armyIcons.GetArmyIcon`）");
+            CheckTrue(DailyData.HeaderArmyName() != nameWas,
+                      "★ #91：顶栏**阵营名**跟着换（`ArmyIcons.LocalizedName` —— 原版 `GetLocalizedArmyName`）");
+            CheckTrue(!DailyData.SetHeaderArmy(10), "★ #92：同阵营再点 ⇒ **早返回**（原版 `ChangeSelectedArmy` c:30-33）");
+            CheckTrue(!DailyData.SetHeaderArmy(ArmyIcons.Neutral),
+                      "★ #92：`Neutral(0)` **不在 `IconsByArmySO` 里** ⇒ 不换（原版那一格取不到图 ⇒ 顶栏会空一块）");
+            Check(DailyData.HeaderArmyValue, 10, "★ …那次非法调用没把它改掉");
+            CheckTrue(DailyData.SetHeaderArmy(was), "（还原）切回原阵营 " + was);
+        }
+
+        Section("B9 · P9 #518：任务完成飘窗的触发点（`OnBattleEnd` 差分 ⇒ 真排了一条 `MenuActions`）");
+        {
+            DailyData.AutoPopupInEditor = true;                  // 与自动弹窗同一道闸（理由同 `TryShowMissionToast`）
+            DailyData.ReleaseMissionToastActions();              // 清掉之前可能留下的
+            DailyData.ForceDailyProgressForTest(0, 0);           // 第 0 条从 0 起（目标 45）
+            int toastBefore = DailyData.MissionToastQueuedCount;
+            int qBefore = MenuActions.Count;
+            DailyData.OnBattleEnd(true, 0, 0, 0, 0, damageToEnemyWarlord: 45);
+            CheckTrue(DailyData.CanCollectDaily(0), "（前提）这一局把第 0 条推成**可领**");
+            Check(DailyData.MissionToastQueuedCount, toastBefore + 1, "★ #518：…⇒ **排了一条**任务飘窗");
+            Check(MenuActions.Count, qBefore + 1, "★ …`MenuActions` 里真的多了一条（不是只涨计数）");
+            DailyData.ReleaseMissionToastActions();
+            Check(MenuActions.Count, qBefore, "（收尾）`ReleaseMissionToastActions` ⇒ 那条撤掉了");
+            DailyData.AutoPopupInEditor = false;                 // ⚠️ 静态 ⇒ 必须还原
         }
 
         Debug.Log(P + win.Dump());

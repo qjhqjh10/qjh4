@@ -855,6 +855,272 @@ namespace CardPresentation
                      + " displayingCard=" + (DisplayingCardFlag ? 1 : 0)
                      + " scale=" + _view.HighlightScaleMulForTest.ToString("0.###");
             }
+
+            // ---------------------------------------------------------------
+            //  原版**另一个组件**：`ActiveWarlordAbility`（同一张卡上、挂在子节点）
+            // ---------------------------------------------------------------
+            ActiveWarlordAbilityTouch _warlordAbility;
+
+            /// <summary>原版 `ActiveWarlordAbility`（卡预制体**子节点**上那颗组件，`Start()` 里
+            /// `GetComponentInParent&lt;CardScript&gt;()` 反查父卡）—— 一台机器 = 一张卡一份。
+            /// <para>⛔ **别和 <see cref="CardBoardHighlight"/> 合并**：原版是**两个类、两颗组件** ——
+            /// 高亮 6 态那台机器（本类）与「按住 0.3 s 弹卡 / 轻点填技能面板并试放主动技」（那颗）
+            /// 互不引用，判据也各自独立。</para>
+            /// <para>⚠️ 惰性建（与 `CardView.BoardHighlight` 同一个套路）：没人调的卡不占内存。</para></summary>
+            public ActiveWarlordAbilityTouch WarlordAbility
+            {
+                get
+                {
+                    if (_warlordAbility == null) _warlordAbility = new ActiveWarlordAbilityTouch();
+                    return _warlordAbility;
+                }
+            }
+        }
+
+        // ==================================================================
+        //  原版 `ActiveWarlordAbility` —— 「按住 0.3 s 弹卡面 / 轻点填技能面板并试放主动技」
+        //  2026-10-26（执行代理 `W3K04` · 账 `战斗界面_HUD` 第 682/683/684/686/687 行）
+        // ==================================================================
+        //
+        //  🔴🔴 **本文件里【最容易做反】的一处** —— 把这条和 `CardScript` 那条分开看：
+        //    · `CardScript.OnTouchUpAsButton`（`decomp_full/CardScript__OnTouchUpAsButton.c:37-44`）的
+        //      时长门 = **0.2 s**（`.rdata DAT_1834b2bb0` 实读 0.2f），语义是
+        //      「**长按反而【不】开窗**」—— 那一条归**手牌**（`Hand/CardInteraction.cs` 的
+        //      `LongPressNoDisplaySeconds` / `PressShortEnough`），**我们早就实现对了，⛔ 别改它**。
+        //    · `ActiveWarlordAbility.Update`（`.c:1-26`）的时长门 = **0.3 s**（`cardShowTime`，字段
+        //      偏移 `+0x40`），语义是「**按住【就】弹窗**」—— 就是下面这台机器。
+        //    ⇒ 两条门**时长不同、方向相反、挂在不同类上**；账里原来那句「阈值 0.3 VS 0.2、语义相反」
+        //      是**拿两个类比的**（判据代理 `K1P0` 2026-10-26 专门核过，见 `判据/B9_P0剩余C_派活包.md` §6·1）。
+        //
+        //  判据（🥇 全量反编译 `d:/2/tools/decomp_full/`，逐份亲读；字段偏移 =
+        //        `d:/2/tools/il2cpp_out/dump.cs:38882-38921`）：
+        //    · `.ctor`（`ActiveWarlordAbility__.ctor.c:1-8`）：`+0x40 = 0x3e99999a` = **0.3f**
+        //      （⇒ `cardShowTime` 不是「字段默认 0」，而是构造里就写死的 0.3）
+        //    · `__OnTouchDown.c:1-14`：`+0x3c = Time.time`；`+0x38 = 1` —— **全文就这两句**
+        //    · `__OnTouchExit.c:1-7`：`+0x38 = 0` —— **全文一句**
+        //    · `__Update.c:1-26`：flag 真 ⇒ `elapsed = Time.time − +0x3c`；
+        //        `cardShowTime <= elapsed && elapsed != cardShowTime`（浮点上 = **严格大于** 0.3）
+        //        ⇒ 对 `+0x38` 写**两字节** `0x100`（小端 = `+0x38 inPlayClickFlag=0` +
+        //        `+0x39 displayingCardFlag=1`）⇒ `parentCard(+0x20).ForceDisplayCard()`
+        //    · `__OnTouchUpAsButton.c:1-72`：
+        //        ① `parentCard(+0x20) == null` ⇒ 落 NRE 桩；`parentCard.isPlayer(+0x40) == 0` ⇒ **return**
+        //        ② `manager.activeSkillDesc(+0x168).SetupActiveSkill(parentCard)`（**先填面板**）
+        //        ③ `manager.TryUsingActiveAbilityOfCard(parentCard, forceSelectCard: **1**)`
+        //        ④ ③ 为真 **且** `PressedBtn(+0x30) != null` ⇒ `PressedBtn.SetActive(true)` +
+        //           `DOVirtual.DelayedCall(0.4f, b__12_0)`；`PressedBtn == null` ⇒ **什么都不做**
+        //    · `___OnTouchUpAsButton_b__12_0.c:1-9`：`PressedBtn.SetActive(false)`
+        //    · `CardScript__ForceDisplayCard.c:1-14`：`CardScript.displayingCardFlag(+0x24A) = 1` +
+        //        `BattleManager.DisplayCard(card, show:1, mulliganException:0)`
+        //
+        //  🔴 **顺读出来的两条（本轮新发现，都会决定接线怎么做对）**：
+        //   ① `BattleManager__DisplayCard.c`：**同一张卡重复开窗是幂等的** ——
+        //      `card == +0x588`（当前那面窗的卡）⇒ 只把 `+0x588` 清成 null 后 return；
+        //      `card != +0x588` 且窗口 `activeSelf == show` ⇒ **直接 return**。
+        //      ⇒ 原版「按住 0.3 s 已弹窗、再松手」**不会再开关一次**（松手那句 `DisplayCard` 被吃掉）。
+        //      ⇒ 我们这边 `CardDisplayWindow.Toggle` 是**真 toggle** ⇒ 宿主必须在松手那一支显式挡一次
+        //      （读 <see cref="ActiveWarlordAbilityTouch.HoldDisplayedThisPress"/>），⛔ 别指望它自己幂等。
+        //   ② `BattleManager__TryUsingActiveAbilityOfCard.c`：**返回值决定 PressedBtn 亮不亮** ——
+        //      ① `CanUseActiveAbility(card, isPlayer:1) == 0` ⇒ Log + **return 0**
+        //      ② 技能**不需要选目标** ⇒ `+0x418 = 1` + `ExecuteActiveAbility()` ⇒ **return 1**
+        //      ③ 需要选目标：无合法目标 ⇒ `NotifyCantDoAction` + **return 0**；
+        //         有合法目标 ⇒（`forceSelectCard` 时记 `+0x410`）+ `ShowActingLight` +
+        //         `StartChoosingAbilityTargetByClick` ⇒ **return 0**
+        //      ⇒ 0.4 s 按压反馈 = 「**这一下就把它放掉了**（技能不需要选目标）」，
+        //        **不是**「进入了选目标」。⛔ 宿主给 `TryUseActiveAbility` 钩子时必须照这个返回语义。
+        //
+        //  ⚠️ **拿不到的判据（如实记，⛔ 别自己挑一个图）**：`PressedBtn` 那颗粒子的
+        //     **节点名 / rect / sprite** 本地取不到 —— 类元数据在
+        //     `assets_full/globalgamemanagers/MonoScript/MonoScript_2686.json`（`m_ClassName = ActiveWarlordAbility`），
+        //     但**全库没有任何一份 prefab/场景实例引用它**：
+        //       · `assets_full` 全树 `grep "PressedBtn"` / `"inPlayClickTime"` / 引 `m_PathID: 2686`
+        //         ⇒ 零命中（命中的全是小整数 pathID 的假阳性，逐个核过）；
+        //       · `d:/2/解包整理/08_预制体特效/战斗预制体/GameObject/CardPrefab_-7895724578163876928.json`
+        //         的 **4 个子 GameObject 没有导出**（`-4334370980763821120` / `3756633904034061248` /
+        //         `-8834377289179948096` / `1809300772220869568`）—— 那颗组件就可能在其中一个上面。
+        //     ⇒ **状态与 0.4 s 时序**在这里；**建层**归拿到判据的人（钩子没接时本类**出声一次**，不静默）。
+
+        /// <summary>原版 `ActiveWarlordAbility` 组件的等价物（一张卡一台，经
+        /// <see cref="CardBoardHighlight.WarlordAbility"/> 惰性取）。
+        /// <para>⚠️ **本类只承状态与时序，不建件**：`PressedBtn` 那颗按钮的节点判据本地拿不到
+        /// （见上面那段），建层与接线是宿主的事（`Battle/BattleDriver.cs`，全项目只有 K-01 一个写手）。</para></summary>
+        public sealed class ActiveWarlordAbilityTouch
+        {
+            /// <summary>原版 `cardShowTime`（`+0x40`）—— **按住多久弹卡面**。
+            /// 值 = `.ctor` 里的立即数 `0x3e99999a` = **0.3f**。
+            /// 🔴 ⛔ **别和手牌那 0.2 s（`CardInteraction.LongPressNoDisplaySeconds`）合并**：
+            /// 那是**另一个类**、方向相反（长按**不**开窗），见类头那段。</summary>
+            public const float CardShowTime = 0.3f;
+
+            /// <summary>原版 `DOVirtual.DelayedCall` 的时长 —— **PressedBtn 亮多久**。
+            /// 值 = `.rdata DAT_1834b3158` = **float 0.4**（4 字节读；同一张表见
+            /// `工具/read_literal.py` 文件头「已经靠它读出来的」那一节）。</summary>
+            public const float PressedBtnHideDelay = 0.4f;
+
+            /// <summary>时间泵 —— 原版 `OnTouchDown` / `Update` 直接读 `Time.time`。
+            /// <para>⚠️ 批处理里 **`Time.time` 不前进**（没有帧循环）⇒ 自检要把它钉成假时间
+            /// （先 `Clock = () =&gt; 100f` 按下、再 `Clock = () =&gt; 100.4f` 推进一次 `Tick()`），
+            /// 否则「按住 0.4 s」那一档**永远验不到**（会退化成假绿）。生产恒为默认值。</para></summary>
+            public System.Func<float> Clock = () => Time.time;
+
+            /// <summary>原版 `parentCard.isPlayer`（`EntityScript +0x40`）。假 ⇒
+            /// `OnTouchUpAsButton` **整条早退**（原版 `.c:55-58`）。</summary>
+            public bool IsPlayer;
+
+            /// <summary>原版 `manager.activeSkillDesc(+0x168).SetupActiveSkill(parentCard)` ——
+            /// **填技能面板**（我们的等价物 = `BattleDriver.ShowSkillPanel(u, targets)`）。
+            /// ⚠️ 原版**先填面板、再试放**，两步都要；面板填了但打不了是**正常结果**（不是错误）。</summary>
+            public System.Action SetupActiveSkill;
+
+            /// <summary>原版 `BattleManager.TryUsingActiveAbilityOfCard(parentCard, forceSelectCard: true)`。
+            /// **返回语义必须照抄**（见类头 ①②③）：真 = 「**这一下就把它放掉了**（技能不需要选目标）」；
+            /// 假 = 「打不了」**或**「需要选目标、已进入选目标态」。
+            /// ⛔ 别把「进入了选目标」也算成真 —— 那会让按压反馈多亮一次（原版那里 return 0）。</summary>
+            public System.Func<bool> TryUseActiveAbility;
+
+            /// <summary>原版 `CardScript.ForceDisplayCard()` —— 按住 0.3 s 后**弹大卡窗**
+            /// （我们那一支 = `BattleDriver.ToggleUnitCard` / `CardDisplayWindow` 的开窗）。
+            /// ⚠️ 原版同刻还会把 `CardScript.displayingCardFlag(+0x24A)` 置 1；我们的等价位是
+            /// 驱动层的 `_cardWinSource`（`AfterCardWinToggle` 已写）⇒ ⛔ **别两处都写**
+            /// （见 `CardBoardHighlight.DisplayingCardFlag` 的 doc）。</summary>
+            public System.Action ForceDisplayCard;
+
+            /// <summary>原版 `PressedBtn.SetActive(bool)`（`+0x30` 那颗 GameObject）。
+            /// ⚠️ **节点判据本地拿不到**（见类头末段）⇒ 建层的人接这里；没接时**出声一次**（不静默）。</summary>
+            public System.Action<bool> PressedBtnSetActive;
+
+            bool _inPlayClickFlag;       // 原版 `+0x38`
+            float _inPlayClickTime;      // 原版 `+0x3c`
+            bool _displayingCardFlag;    // 原版 `+0x39`
+            bool _holdDisplayedThisPress;
+            bool _pressedBtnOn;
+            bool _pressedBtnHidePending;
+            float _pressedBtnHideAt;
+            bool _warnedDisplay, _warnedPressedBtn, _warnedSetup, _warnedUse;
+
+            // ---------------------------------------------------------------
+            //  原版 4 个触控入口 + Update
+            // ---------------------------------------------------------------
+
+            /// <summary>原版 `OnTouchDown`（`.c:1-14`，全文两句）：记按下时刻 + 置按下标志。
+            /// <para>⚠️ 调用点 = 棋盘卡的**按下那一沿**（我们 = `BattleDriver` ⑤ 段记 `_pressSlot` 的那一句，
+            /// 与 `BoardCardTouchDown` 同刻）。⛔ 别在「按住每帧」里调它（会把 elapsed 一直清零 ⇒ 永远不到 0.3）。</para></summary>
+            public void OnTouchDown()
+            {
+                _inPlayClickTime = Clock();
+                _inPlayClickFlag = true;
+                _holdDisplayedThisPress = false;
+            }
+
+            /// <summary>原版 `OnTouchExit`（`.c:1-7`，全文一句）：清按下标志。
+            /// <para>调用点三条（松手 / 拖够 / 指针出框）**都要清一次**；出框判据用真 collider
+            /// （与手牌的 `CardInteraction._pressInside` 同一个口，⛔ 别另立一套）。</para></summary>
+            public void OnTouchExit() { _inPlayClickFlag = false; }
+
+            /// <summary>原版 `Update`（`.c:1-26`）—— **每帧一次**。
+            /// <para>两件事：① 按住超过 <see cref="CardShowTime"/> ⇒ 弹卡面（并记
+            /// <see cref="HoldDisplayedThisPress"/>，供松手那支挡「再开关一次」）；
+            /// ② PressedBtn 的 0.4 s 到点 ⇒ 熄灭（原版那半是 `DOVirtual.DelayedCall`，
+            /// 我们收进同一台时钟 ⇒ 批处理可验）。</para>
+            /// <returns>真 = 这一帧刚弹了卡面。</returns></summary>
+            public bool Tick()
+            {
+                float now = Clock();
+                bool fired = false;
+                if (_inPlayClickFlag)
+                {
+                    float elapsed = now - _inPlayClickTime;
+                    // 原版那一句是 `cardShowTime <= elapsed && elapsed != cardShowTime`
+                    // ⇒ 浮点上等价于**严格大于**；⛔ 别改成 `>=`（正好 0.3 那一下原版不弹）。
+                    if (elapsed > CardShowTime)
+                    {
+                        _inPlayClickFlag = false;
+                        _displayingCardFlag = true;      // 原版对 +0x38 写两字节 0x100（= flag 清 0 + 本格置 1）
+                        _holdDisplayedThisPress = true;
+                        if (ForceDisplayCard != null) ForceDisplayCard();
+                        else WarnOnce(ref _warnedDisplay, "ForceDisplayCard");
+                        fired = true;
+                    }
+                }
+                if (_pressedBtnHidePending && now >= _pressedBtnHideAt)
+                {
+                    _pressedBtnHidePending = false;
+                    PressedBtn(false);
+                }
+                return fired;
+            }
+
+            /// <summary>原版 `OnTouchUpAsButton`（`.c:1-72`）—— 轻点/松手那一沿。
+            /// <para>逐句照类头版权 ①②③④；**只有**「技能不需要选目标且真放掉了」才亮 PressedBtn。</para>
+            /// <returns>真 = 这条链走完了（含「打不了」「需选目标」两档，那两档也是正常终态）；
+            /// 假 = 被 `isPlayer` 闸挡掉（原版 `.c:55-58`）。</returns></summary>
+            public bool OnTouchUpAsButton()
+            {
+                if (!IsPlayer) return false;                                  // 原版 `:55-58`
+                if (SetupActiveSkill != null) SetupActiveSkill();              // 原版 `:60`
+                else WarnOnce(ref _warnedSetup, "SetupActiveSkill");
+                bool used;
+                if (TryUseActiveAbility != null) used = TryUseActiveAbility();
+                else { WarnOnce(ref _warnedUse, "TryUseActiveAbility"); used = false; }
+                if (!used) return true;                                       // 原版：打不了 / 进选目标 ⇒ 到此为止
+                if (PressedBtnSetActive == null)                              // 原版 `PressedBtn == null` ⇒ 什么都不做
+                {
+                    WarnOnce(ref _warnedPressedBtn, "PressedBtnSetActive");
+                    return true;
+                }
+                PressedBtn(true);
+                _pressedBtnHideAt = Clock() + PressedBtnHideDelay;             // 原版 `DelayedCall(0.4f)`
+                _pressedBtnHidePending = true;
+                return true;
+            }
+
+            void PressedBtn(bool on)
+            {
+                _pressedBtnOn = on;
+                if (PressedBtnSetActive != null) PressedBtnSetActive(on);
+            }
+
+            void WarnOnce(ref bool flag, string what)
+            {
+                if (flag) return;
+                flag = true;
+                Debug.LogWarning("[CardHighlight] `ActiveWarlordAbilityTouch` 的宿主钩子 `" + what
+                               + "` 没接线 ⇒ 原版 `ActiveWarlordAbility` 那一段本次**没有执行**"
+                               + "（出声，不静默）");
+            }
+
+            // ---------------------------------------------------------------
+            //  读数 / 自检口（⛔ 别在断言里自己拼字符串，读这里）
+            // ---------------------------------------------------------------
+
+            /// <summary>原版 `inPlayClickFlag`（`+0x38`）：现在正按着、且还没到 0.3 s。</summary>
+            public bool InPlayClickFlag { get { return _inPlayClickFlag; } }
+            /// <summary>原版 `inPlayClickTime`（`+0x3c`）。</summary>
+            public float InPlayClickTime { get { return _inPlayClickTime; } }
+            /// <summary>原版 `displayingCardFlag`（`+0x39`）—— 按住 0.3 s 那一支写 1。
+            /// ⚠️ 这是**本组件**那一格，与 `CardScript.displayingCardFlag(+0x24A)` 是两个字段。</summary>
+            public bool DisplayingCardFlag { get { return _displayingCardFlag; } }
+            /// <summary>这一按**已经**因为长按弹过卡面（宿主在松手那支读它，挡一次重复开关）。</summary>
+            public bool HoldDisplayedThisPress { get { return _holdDisplayedThisPress; } }
+            /// <summary>PressedBtn 现在亮着吗（读口）。</summary>
+            public bool PressedBtnVisible { get { return _pressedBtnOn; } }
+            /// <summary>0.4 s 熄灭还挂着吗（读口 —— 「亮了但没灭」这种半成品一眼能看出来）。</summary>
+            public bool PressedBtnHidePending { get { return _pressedBtnHidePending; } }
+            /// <summary>这一按按了多久（秒）；没按着 = 0。</summary>
+            public float PressElapsedSeconds
+            {
+                get { return _inPlayClickFlag ? Mathf.Max(0f, Clock() - _inPlayClickTime) : 0f; }
+            }
+
+            /// <summary>自检/报告用的单行读数。</summary>
+            public string Describe()
+            {
+                return "holdFlag=" + (_inPlayClickFlag ? 1 : 0)
+                     + " elapsed=" + PressElapsedSeconds.ToString("0.###")
+                     + " displayingCard=" + (_displayingCardFlag ? 1 : 0)
+                     + " holdDisplayed=" + (_holdDisplayedThisPress ? 1 : 0)
+                     + " pressedBtn=" + (_pressedBtnOn ? 1 : 0)
+                     + " hidePending=" + (_pressedBtnHidePending ? 1 : 0);
+            }
         }
     }
 }

@@ -411,7 +411,8 @@ namespace WarpforgeVFX
 
         /// <summary>有些原版 shader 把混合写死在 shader 里，材质上没有 _SrcBlend。
         /// 这时必须按 shader 名把混合补回去，否则加法发光会变成不透明。
-        /// 返回 null 表示该 shader 能自己表达混合，不用补。</summary>
+        /// 返回 null 表示该 shader 能自己表达混合，不用补。⚠️ **参数必须是【原版名】** —— `WFMatDef.shader`
+        /// 可能是我们替身的名字（2026-10-26 实测 417 块），那种先过 `OriginalNameFor`。</summary>
         public static float[] InferBlend(string originalName)
         {
             if (string.IsNullOrEmpty(originalName)) return null;
@@ -500,8 +501,16 @@ namespace WarpforgeVFX
             //      **空 pass**，真正的渲染 pass 是 `pass2`、`cull` 读的是 `_Cull`）⇒ 表里**故意没有它**，
             //      走下面兜底那支（仍返回 0，**行为与改前一致**）。
             string n = originalName.ToLowerInvariant();
+            // 🔴 2026-10-26（E8SH · B9 shader 硬锁）：**删掉原来这里的 `|| n == "particles/standard unlit"`**。
+            //   判据：这一族的 `cull` 是**属性驱动**的（`_Cull` 在 pass2 里读，见本函数上面 2026-10-12 那段），
+            //   而原版 6 个该族材质里 `_Cull`=0 的 5 个、**=2（Back）的 1 个**
+            //   （`IceTrail` → `bundle_battleprefabs_vfxandmisc_assets_all/Material_3773910547246591993.json`）
+            //   ⇒ 原来那一支会把这个**活值**强改成 Off。删掉后：那 5 个行为不变（材质本来就是 0），
+            //   第 6 个恢复原版的 Back。⚠️ 只影响「原版名 = Standard Unlit 且走我们替身」的材质 ——
+            //   本轮之前是 **0 个**（28 块都解析到原件），本轮起 `IceTrail` 那 1 块会走到（硬锁修复带来的）。
+            //   判据全文 → `资料/完全复刻/报告/B9_E8SH_shader硬锁修复.md` §二·3。
             if (n.Contains("mobile/particles") || n.Contains("legacy shaders/particles")
-                || n == "particles/additive" || n == "particles/standard unlit")
+                || n == "particles/additive")
                 return 0f;                                          // 0 = Off
             return null;
         }
@@ -611,6 +620,121 @@ namespace WarpforgeVFX
                 return true;
             }
             return false;
+        }
+
+        // ================================================================================================
+        // 🆕 2026-10-26（E8SH · B9「shader 硬锁」修复）：**替身名 → 原版名的反查表**
+        //
+        // 🔴 **为什么需要它**：`WarpforgeEffectBinder` 把 `WFMatDef.shader` 当【原版 shader 名】用
+        //    （解析、三格状态修正、孤儿值闸全都按它查表）。但有 **417 个材质块 / 343 个 prefab**
+        //    （2026-10-26 现数）里这个字段被写成了**我们替身的名字**（`WarpforgeVFX/…`）——
+        //    逐条判据见 `资料/完全复刻/判据/B9_shader近似映射_对账.tsv` 的「硬锁」小节，
+        //    取证与逐族明细见 `资料/完全复刻/报告/B9_E8SH_shader硬锁修复.md` §二。
+        //    后果三条（本表修掉 ②③，①仍未修）：
+        //      ① 解析永远走不到原件（`UseOriginal` 白名单按原名查）—— ⚠️ **本条【仍未修】**，见下；
+        //      ② `InferBlend / InferCull / InferZTest` 按原名查表 ⇒ 替身名查不到 ⇒ **三格都不覆盖**；
+        //      ③ `OriginalShaderBlendTable.OriginalProperties(替身名)` 返回 null ⇒ **孤儿值闸不过滤**
+        //         ⇒ 材质上那批内置 Standard 的**残留死值**（`_SrcBlend/_DstBlend/_ZWrite/_Surface/
+        //         `_Glossiness/_Metallic/_Mode/_Parallax/_UVSec` …）会灌进替身**声明了的**同名属性 ——
+        //         与 2026-09-12 那次「加法发光变不透明 + 写深度」**同形状**。
+        //    ⇒ 修法：调用方先用 `OriginalNameFor()` 换成原版名，再拿去做那四处查表。
+        //
+        // ⚠️ **为什么这次不动解析路径（①）**：换解析 = 这 417 块**整体换渲染源**（替身 → 原件），
+        //    那是 343 个 prefab 的画面变化，必须 A/B（`WFBIND_FORCE_BUILTIN` 的全量 sweep 要起 Unity，
+        //    由主对话做）。根治仍在**数据侧**（让 `WFMatDef.shader` 回到原名，要重跑导出）——
+        //    待办与验收口径写在上面的报告 §三。
+        //
+        // 🔑 **这张表怎么定的（⛔ 别按「看起来像」改）** —— 两路硬证，缺一不填：
+        //    ① **prefab 内部的兄弟块**：同名材质在同一次导出里还留着原名的那一份
+        //       （例：`Laser_Stream_MultiRay 1` 有 2 块 `Everguild/FX/Multi Ray` + 2 块 `WarpforgeVFX/FX/MultiRay`）；
+        //    ② **`assets_full` 的 PPtr**：该材质的 `m_Shader` → `Shader.m_ParsedForm.m_Name`
+        //       （J3SH 给的 8 组 PPtr 本代理逐条自校验通过，见报告 §二·1）。
+        //    ⚠️ **一个替身顶多个原版族**时（`WarpforgeVFX/Particles/Extra Color` 顶 **3** 个族：
+        //      `Mobile/Particles/Additive` 6 个基材质 · `Particles/Standard Unlit` 1 个 · `Mobile/Particles/Alpha Blended` 1 个）
+        //      ⇒ 光靠名字反查**不够**，多出来的那两族按【材质基名】走 `SurrogateMaterialOverrides`。
+        //    ⚠️ 与 `Replacements` 方向相反：这张表是「**值 → 键**」的反查，**不许**拿它去替代
+        //      `Replacements`（那边是「原版名 → 替身」的正查，改动会影响导出期占位材质）。
+        // ================================================================================================
+        public static readonly Dictionary<string, string> SurrogateToOriginal =
+            new Dictionary<string, string>(System.StringComparer.Ordinal)
+        {
+            { "WarpforgeVFX/Particles/Extra Color EC", "Everguild/FX/Extra Color" },                            // 304 块 / 14 个基材质，全部同族
+            { "WarpforgeVFX/FX/MultiRay",              "Everguild/FX/Multi Ray" },                              //  37 / 12
+            { "WarpforgeVFX/FX/TrailShader1",          "Everguild/FX/TrailShader_1" },                          //   6 /  2
+            { "WarpforgeVFX/FX/Distortion",            "Everguild/FX/Particle Distortion Affect Transparents" },//   6 /  2
+            { "WarpforgeVFX/FX/UnlitUVScroll",         "Everguild/FX/Unlit UV scroll" },                         //   5 /  3
+            { "WarpforgeVFX/FX/TrailShaderFading",     "Everguild/FX/TrailShader_Fading" },                      //   3 /  1
+            { "WarpforgeVFX/Matcap/Matcap",            "Everguild/Matcap/Matcap Full Options" },                 //   2 /  1（⚠️ `Matcap With Texture` 也映射到同一个替身，但它 0 块硬锁 ⇒ 名字反查对它不成立，见报告 §三）
+            // ⚠️ 下面这条是**默认档**：8 个基材质里 6 个是它；`IceTrail` / `smokesoft_dark` 两个走例外表。
+            { "WarpforgeVFX/Particles/Extra Color",    "Mobile/Particles/Additive" },                           //  54 /  8（6 默认 + 2 例外）
+        };
+
+        /// <summary>替身名 + **材质基名** → 原版名。**只用于「一个替身顶多个原版族」的那几条**，
+        /// 键 = `替身名|材质基名`（基名 = 去掉导出器加的 `__&lt;hex&gt;` 后缀，见 <see cref="MaterialBaseName"/>）。
+        ///
+        /// ⚠️ 这不是「猜」：两条都同时满足上面那两路硬证（prefab 兄弟块 + `assets_full` PPtr）——
+        ///   逐条出处写在 `资料/完全复刻/报告/B9_E8SH_shader硬锁修复.md` §二·2。</summary>
+        static readonly Dictionary<string, string> SurrogateMaterialOverrides =
+            new Dictionary<string, string>(System.StringComparer.Ordinal)
+        {
+            // 判据：**同一个 prefab**（`PathOfTheWarrior_Projectile.prefab`）里 `IceTrail` 与
+            //   `IceTrail__605375ed` 并存 —— 前者写的正是 `Particles/Standard Unlit`；
+            //   `assets_full` 里同名的 `IceTrail` 也有一份 `m_Shader` 指向 `Particles/Standard Unlit`
+            //   （另一份指向 `Universal Render Pipeline/Particles/Unlit`，那是另一个包里的另一个对象）。
+            { "WarpforgeVFX/Particles/Extra Color|IceTrail",       "Particles/Standard Unlit" },
+            // 判据：55 块原名块 = `Mobile/Particles/Alpha Blended`，3 块被写成替身名（2026-10-26 现数）；
+            //   材质记的那批 `_Glossiness/_Metallic/_Mode/_Parallax/_UVSec/_Cutoff` 是 **Standard 残留死值**
+            //   （两个候选原版族的属性表都只有 `_MainTex`）⇒ 归属只能靠 PPtr/兄弟块，不靠属性。
+            { "WarpforgeVFX/Particles/Extra Color|smokesoft_dark", "Mobile/Particles/Alpha Blended" },
+        };
+
+        /// <summary>把导出器加了 hash 后缀的材质名还原成基名（`LightningTrail__9322aa06` → `LightningTrail`）。
+        ///
+        /// 后缀形状 = `__` + **≥6 位纯十六进制**（`EffectExporter` 给「同名不同源材质」加的）。
+        /// ⚠️ 不满足这个形状就**原样返回** —— ⛔ 别把正常名字里出现的 `__` 截掉
+        ///   （例如 `Chain_Rugged_Trail_blend_SCROLLING` 里根本没有 `__`）。</summary>
+        public static string MaterialBaseName(string materialName)
+        {
+            if (string.IsNullOrEmpty(materialName)) return materialName;
+            int i = materialName.LastIndexOf("__", System.StringComparison.Ordinal);
+            if (i <= 0 || materialName.Length - i - 2 < 6) return materialName;
+            for (int k = i + 2; k < materialName.Length; k++)
+            {
+                char c = materialName[k];
+                bool hex = (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F');
+                if (!hex) return materialName;            // 不是 hash 后缀
+            }
+            return materialName.Substring(0, i);
+        }
+
+        /// <summary>**这个 `WFMatDef.shader` 值是不是我们替身的名字**（`WarpforgeVFX/` 那一批自建 shader）。
+        /// 只用来**出声**（「没查到反查条目」时不许静默），⛔ 不用它做解析判断。</summary>
+        public static bool IsSurrogateName(string shaderName)
+        {
+            return !string.IsNullOrEmpty(shaderName)
+                && shaderName.StartsWith("WarpforgeVFX/", System.StringComparison.Ordinal);
+        }
+
+        /// <summary>🆕 2026-10-26（E8SH）：把 `WFMatDef.shader` 这个值换成**原版 shader 名**。
+        ///
+        /// · 不是替身名 ⇒ **原样返回**（99% 的情况走这条，行为与改前逐字相同）；
+        /// · 是替身名且表里有 ⇒ 返回原名（多族替身再看 `materialName` 走例外表）；
+        /// · 是替身名但表里**没有** ⇒ 原样返回 —— 调用方（`WarpforgeEffectBinder`）会**报一次警告**
+        ///   （用 <see cref="IsSurrogateName"/> 判）⇒ 新出现的硬锁**不会静默**。
+        ///
+        /// ⚠️ **只给「按原版名查表」的四处用**：`OriginalProperties` / `InferBlend` / `InferCull` /
+        ///   `InferZTest`（+ `ApplyDerivedParticleDefaults` 的原版默认值查询）。
+        ///   ⛔ **别拿它去喂 `TryResolve`** —— 那会把这 417 块的渲染源从替身换成原件，是另一件事（见类内注释 ⚠️）。</summary>
+        public static string OriginalNameFor(string shaderName, string materialName = null)
+        {
+            if (string.IsNullOrEmpty(shaderName)) return shaderName;
+            string orig;
+            if (!SurrogateToOriginal.TryGetValue(shaderName, out orig)) return shaderName;
+            string b = MaterialBaseName(materialName);
+            string ov;
+            if (!string.IsNullOrEmpty(b)
+                && SurrogateMaterialOverrides.TryGetValue(shaderName + "|" + b, out ov)) return ov;
+            return orig;
         }
     }
 }

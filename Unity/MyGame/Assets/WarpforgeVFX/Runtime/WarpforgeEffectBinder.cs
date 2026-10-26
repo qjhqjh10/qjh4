@@ -407,7 +407,7 @@ namespace WarpforgeVFX
             // ⚠️ 表读不到（没这个 shader / 属性表空）⇒ `declared == null` ⇒ **不过滤**（不许静默清空一切）。
             // ⚠️ `X_ST` / `X_TexelSize` 是 Unity 按纹理**隐式生成**的，不写进 `m_PropInfo` ⇒ 按基名 `X` 判。
             // 🔬 `WFBIND_NO_PROP_FILTER=1` 关掉这道闸（A/B 用）。
-            var declared = SkipPropFilter ? null : OriginalShaderBlendTable.OriginalProperties(d.shader);
+            var declared = SkipPropFilter ? null : OriginalShaderBlendTable.OriginalProperties(OriginalShaderNameOf(d));
             for (int i = 0; i < d.floatNames.Length && i < d.floatVals.Length; i++)
                 if (DeclaredByOriginal(declared, d.floatNames[i]) && m.HasProperty(d.floatNames[i]))
                     m.SetFloat(d.floatNames[i], d.floatVals[i]);
@@ -439,7 +439,7 @@ namespace WarpforgeVFX
             // ⚠️ 对我们没声明这些属性的 shader，`SetFloat` 是 **no-op**（状态在 pass 里写好了），
             //    所以「一律写」不会破坏 P1-a0 那次修好的东西。
             {
-                var b = WarpforgeShaderMap.InferBlend(d.shader);
+                var b = WarpforgeShaderMap.InferBlend(OriginalShaderNameOf(d));
                 if (b != null)
                 {
                     if (m.HasProperty("_SrcBlend")) m.SetFloat("_SrcBlend", b[0]);
@@ -458,7 +458,7 @@ namespace WarpforgeVFX
             // ⚠️ 一定要放在 `InferBlend` 那个 `if` **外面**：两者是独立的判据，
             //    `InferBlend` 返回 null 不代表 cull 也该留着（`Particles/Standard Unlit` 就是）。
             {
-                var cu = WarpforgeShaderMap.InferCull(d.shader);
+                var cu = WarpforgeShaderMap.InferCull(OriginalShaderNameOf(d));
                 if (cu.HasValue && m.HasProperty("_Cull")) m.SetFloat("_Cull", cu.Value);
             }
 
@@ -470,7 +470,7 @@ namespace WarpforgeVFX
             //     （`Particles/Standard Unlit` 的 pass2 读 `_ZTest`）**不在表里** ⇒ 保持材质活值，别覆盖。
             //   ⚠️ 目标 shader 没声明 `_ZTest` 时 `SetFloat` 是 no-op（状态写在 pass 里）—— 与上面同一条纪律。
             {
-                var zt = WarpforgeShaderMap.InferZTest(d.shader);
+                var zt = WarpforgeShaderMap.InferZTest(OriginalShaderNameOf(d));
                 if (zt.HasValue && m.HasProperty("_ZTest")) m.SetFloat("_ZTest", zt.Value);
             }
             // 🔴 2026-10-12 新加：`Everguild/UnlitAmbient Emissive Flickker` 的「自发光闪烁」那一支。
@@ -551,7 +551,7 @@ namespace WarpforgeVFX
                 }
             }
 
-            ApplyDerivedParticleDefaults(m, d.shader,
+            ApplyDerivedParticleDefaults(m, OriginalShaderNameOf(d),
                 new HashSet<string>(d.floatNames ?? new string[0]),
                 new HashSet<string>(d.colorNames ?? new string[0]));
 
@@ -731,5 +731,48 @@ namespace WarpforgeVFX
 
         /// <summary>已经打过「派生默认值」汇总的原版 shader（只影响日志，不影响取值）。</summary>
         static readonly HashSet<string> DerivedDefaultsReported = new HashSet<string>();
+        // ================================================================================================
+        // 🆕 2026-10-26（E8SH · B9「shader 硬锁」）：`WFMatDef.shader` → **原版 shader 名**
+        //
+        // 🔴 为什么：有 **417 个 `WFMatDef` 块 / 343 个 prefab**（2026-10-26 现数）里，导出器把这个字段
+        //    写成了**我们替身的名字**（`WarpforgeVFX/…`）—— 而本类所有「按原版名查表」的地方
+        //    （三格状态修正 `InferBlend/InferCull/InferZTest` · 孤儿值闸 `OriginalProperties` ·
+        //    派生默认值 `OriginalShaderDefaults`）拿替身名都**查不到**，于是：
+        //      · 三格**不覆盖** ⇒ 混合/剔除/深度落到替身默认值或材质残留值；
+        //      · 孤儿值闸拿到 null ⇒ **不过滤** ⇒ 内置 Standard 的残留死值灌进替身声明了的同名属性
+        //        （与 2026-09-12「加法发光变不透明 + 写深度」同形状）。
+        //    ⇒ 统一走 `WarpforgeShaderMap.OriginalNameFor`（反查表 + 材质基名例外表，判据写在那边的注释里）。
+        //
+        // ⚠️ **解析路径仍然用 `d.shader`**（下面 `TryResolve(d.shader, …)` 一字未改）：把 417 块整体换成
+        //    原件是 343 个 prefab 的画面变化，要 A/B、要重跑导出 —— 那是同步点的事
+        //    （判据与待办 → `资料/完全复刻/报告/B9_E8SH_shader硬锁修复.md` §三）。
+        // ⛔ **别顺手把 `TryResolve(d.shader)` 改成 `OriginalShaderNameOf(d)`** —— 那是另一件事，没量过。
+        // ================================================================================================
+        /// <summary>`WFMatDef.shader` → 原版 shader 名（是替身名就先过反查表，否则原样返回）。
+        ///
+        /// ⚠️ **不许静默**：是替身名而反查表里没有 ⇒ 报一次警告（按 `shader|材质基名` 去重）。
+        ///   `WarpforgeVFX/UnlitAmbient` 就是这样一个**已知缺口**（它一个顶 3 个原版族、当前 0 块硬锁
+        ///   ⇒ 没法填进反查表）：将来真被硬锁住会在这里叫出来，而不是悄悄退化成「三格不覆盖」。</summary>
+        static string OriginalShaderNameOf(WFMatDef d)
+        {
+            if (d == null) return null;
+            string n = WarpforgeShaderMap.OriginalNameFor(d.shader, d.name);
+            string key = d.shader + "|" + WarpforgeShaderMap.MaterialBaseName(d.name);
+            if (n == d.shader)
+            {
+                if (LogResolve && WarpforgeShaderMap.IsSurrogateName(d.shader) && SurrogateNameReported.Add(key))
+                    Debug.LogWarning($"[WarpforgeVFX] 材质 `{d.name}` 的 `WFMatDef.shader` 是**替身名** `{d.shader}`，"
+                                   + "而反查表里没有它 ⇒ 三格状态修正与孤儿值闸都**不生效**"
+                                   + "（`WarpforgeShaderMap.SurrogateToOriginal` 需要补一条，判据见那个类的注释）。");
+                return n;
+            }
+            if (LogResolve && SurrogateNameReported.Add(key))
+                Debug.Log($"[WarpforgeVFX] 材质 `{d.name}`：`WFMatDef.shader` 是替身名 `{d.shader}` ⇒ 按原版名 "
+                        + $"`{n}` 查表（三格状态 / 孤儿值闸 / 派生默认值）。同类只报一次。");
+            return n;
+        }
+
+        /// <summary>上面那条日志的去重表（键 = `替身 shader 名|材质基名`，现读 43 个键；⛔ 只为防刷屏）。</summary>
+        static readonly HashSet<string> SurrogateNameReported = new HashSet<string>();
     }
 }

@@ -282,5 +282,29 @@ namespace RuleEngine
             if (parts.Count == 0) return "（不限）";
             return string.Join(" + ", parts.ToArray());
         }
+        // ======================================================================================
+        //  🆕 2026-10-26（批次 9 · 执行代理 `W6K11` · 账 `收藏:189` / `收藏:201`）
+        //  卡面级（raw card）criteria 的两个公开入口 —— **实现只有一份**，在
+        //  `TargetCriteriaEval.MatchesRawCard` / `RawCardMeetsTraitCriteria`（那里同时放着
+        //  `MeetsStatCriteria` / `ArmyPassesFor` / `TypeGatePasses` / `TraitNameOf` 那批分项，
+        //  棋盘路与卡面路共用）。本类对外的口统一叫 `CardCriteria`，调用点不必去摸 `TargetCriteriaEval`。
+        // ======================================================================================
+
+        /// <summary>原版 `FilterMethods.CheckIfRawCardMeetsCriteria`（账 `收藏:189`）：
+        /// 一张**卡面**（`CardDef`）过不过这份 36 格 criteria。
+        /// <para>判据全文与逐格次序 → <see cref="TargetCriteriaEval.MatchesRawCard"/>（唯一实现）。
+        /// ⚠️ 它读**卡面值**（`Attack` / `Health` / `Cost` / `Rarity` / `CardTraits`），与
+        /// <see cref="Matches(UnitState, BattleContext)"/>（**当前值** + 运行时 traits）**不是同一个口**。</para>
+        /// <para>`null` = 某一格判不了（`gap` 写明是哪一格）；`criteria == null` ⇒ `true`（没有 criteria 行 = 不筛）。</para></summary>
+        public static bool? MatchesRawCard(CardDef card, CardDef.CountSetSpec criteria, out string gap)
+            => TargetCriteriaEval.MatchesRawCard(card, criteria, out gap);
+
+        /// <summary>原版 `FilterMethods.RawCardMeetsTraitCriteria`（账 `收藏:201`）：
+        /// `traitsFilter` / `excludeTrait` / **summonRift 门** 三句。
+        /// <para>判据全文 → <see cref="TargetCriteriaEval.RawCardMeetsTraitCriteria"/>（唯一实现）。
+        /// ⚠️ 这里读**默认 traits**（`CardDef.CardTraits`，原版 `+0x230`）；
+        /// 棋盘那一支读的是**当前** traits（`+0x128` 的等价物）—— ⛔ 两个口别混用。</para></summary>
+        public static bool? RawCardMeetsTraitCriteria(CardDef card, CardDef.CountSetSpec criteria, out string gap)
+            => TargetCriteriaEval.RawCardMeetsTraitCriteria(card, criteria, out gap);
     }
 }

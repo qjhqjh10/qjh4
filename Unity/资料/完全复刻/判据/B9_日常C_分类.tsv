@@ -1,0 +1,283 @@
+账行号	原版类	方法	分类	一句理由	证据
+5	BaseEventProgressClaimButtonController	ApplyState()	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U04：Scoring/里程碑数据层 + 进度条 + 领奖钮基类）	BaseEventProgressClaimButtonController.cs:202
+6	BaseEventProgressClaimButtonController	ApplyState(TState stateToChange)	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U04：Scoring/里程碑数据层 + 进度条 + 领奖钮基类）	BaseEventProgressClaimButtonController.cs:23
+7	BaseEventProgressClaimButtonController	CollectionClick()	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U04：Scoring/里程碑数据层 + 进度条 + 领奖钮基类）	BaseEventProgressClaimButtonController.cs:247
+8	BaseEventProgressClaimButtonController	Initialize(TState currentState, CurrencyValue normalPrice, Action onCollect)	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U04：Scoring/里程碑数据层 + 进度条 + 领奖钮基类）	BaseEventProgressClaimButtonController.cs:215
+12	BaseParentEventWindow	CreateEventTab(ILiveOps liveOps)	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U12：通用活动 UI 件（角标 / 阵营展示 / 加成计时 / 窗基类刷新 / 倒计时本地化））	BaseParentEventWindow.cs:376
+13	BaseParentEventWindow	Open()	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U12：通用活动 UI 件（角标 / 阵营展示 / 加成计时 / 窗基类刷新 / 倒计时本地化））	BaseParentEventWindow.cs:102
+16	BattleEventsController	CheckHealth()	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U09：挑战引擎（日志计数 + 发奖族 + 血变信号））	BattleEventsController.cs:48
+18	BattleEventsController	Update()	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U09：挑战引擎（日志计数 + 发奖族 + 血变信号））	BattleEventsController.cs:43
+19	BoostTimerPanel	Init(BoostItem boostItem)	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U12：通用活动 UI 件（角标 / 阵营展示 / 加成计时 / 窗基类刷新 / 倒计时本地化））	BoostTimerPanel.cs:24
+20	BoostTimerPanel	SetDescription(string text)	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U12：通用活动 UI 件（角标 / 阵营展示 / 加成计时 / 窗基类刷新 / 倒计时本地化））	BoostTimerPanel.cs:14
+21	BoostTimerPanel	SetTimer(string text)	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U12：通用活动 UI 件（角标 / 阵营展示 / 加成计时 / 窗基类刷新 / 倒计时本地化））	BoostTimerPanel.cs:19
+22	BoostTimerPanel	UpdateTimer()	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U12：通用活动 UI 件（角标 / 阵营展示 / 加成计时 / 窗基类刷新 / 倒计时本地化））	BoostTimerPanel.cs:42
+23	ChallengeButton	Awake()	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U10：好友挑战 / 练习邀约（走我们自己的 P2P，不是 PlayFab））	ChallengeButton.cs:16
+24	ChallengeButton	Initialize()	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U10：好友挑战 / 练习邀约（走我们自己的 P2P，不是 PlayFab））	ChallengeButton.cs:33
+25	ChallengeButton	OnButtonClick()	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U10：好友挑战 / 练习邀约（走我们自己的 P2P，不是 PlayFab））	ChallengeButton.cs:87
+27	ChallengeButton	OnSignalRaise(Type signal)	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U10：好友挑战 / 练习邀约（走我们自己的 P2P，不是 PlayFab））	ChallengeButton.cs:50
+28	ChallengeButton	Toggle(bool option)	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U10：好友挑战 / 练习邀约（走我们自己的 P2P，不是 PlayFab））	ChallengeButton.cs:73
+36	ChallengeLogMgr	LogHeal(BattleAction battleAction)	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U09：挑战引擎（日志计数 + 发奖族 + 血变信号））	ChallengeLogMgr.cs:866
+41	ChallengeLogMgr	TroopKilled(BattleAction battleAction)	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U09：挑战引擎（日志计数 + 发奖族 + 血变信号））	ChallengeLogMgr.cs:1054
+42	ChallengeManager	AcceptPracticeChallenge(GameObject source)	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U10：好友挑战 / 练习邀约（走我们自己的 P2P，不是 PlayFab））	ChallengeManager.cs:160
+43	ChallengeManager	AcceptedFriendDuelNotification(string senderId)	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U10：好友挑战 / 练习邀约（走我们自己的 P2P，不是 PlayFab））	ChallengeManager.cs:241
+44	ChallengeManager	CancelDueling(bool fromClick)	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U10：好友挑战 / 练习邀约（走我们自己的 P2P，不是 PlayFab））	ChallengeManager.cs:275
+45	ChallengeManager	CancelPracticeInvitation()	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U10：好友挑战 / 练习邀约（走我们自己的 P2P，不是 PlayFab））	ChallengeManager.cs:371
+46	ChallengeManager	CancelPracticeMatchAndRefresh(GameObject source)	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U10：好友挑战 / 练习邀约（走我们自己的 P2P，不是 PlayFab））	ChallengeManager.cs:249
+48	ChallengeManager	CheckIfPlayerOnline()	② P3候选	原版 ChallengeManager.CheckIfPlayerOnline 的唯一实现是 PlayFab 账户在线查询（按 PlayFabId）；本机无账户目录（后端关服）。时间限定：断点 = ChallengeManager.cs:349 调 PlayFab；可本地替代的只有「P2P 握手可达性」（不同机制，不等价）。	判据 ChallengeManager.cs:349（cpp2il dev）· 官方本地化 `Demo/FriendsMenu/CantFind` = “There isn't any player with that name.”（证明这一支原本按名字查远端名录）· 同类 P3 判据见 判据/服务器与账户_不复刻清单_第2轮.md
+49	ChallengeManager	OnRemoveFriendDuel(string senderId)	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U10：好友挑战 / 练习邀约（走我们自己的 P2P，不是 PlayFab））	ChallengeManager.cs:268
+51	ChallengeManager	SendPracticeInvitation()	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U10：好友挑战 / 练习邀约（走我们自己的 P2P，不是 PlayFab））	ChallengeManager.cs:378
+52	ChallengeManager	Start()	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U10：好友挑战 / 练习邀约（走我们自己的 P2P，不是 PlayFab））	ChallengeManager.cs:46
+53	ChallengeManager	StartChallengeWithUser(string userName, string playfabId, bool playFirst, IPlayEvent playEvent)	② P3候选	StartChallengeWithUser(userName, playfabId, playFirst, playEvent) 的前半步 = 按玩家名查 PlayFabId（账户目录），本机无该目录；后半步（开局）已归 ① U10。时间限定：断点 = ChallengeManager.cs:69 的 DisplayName→PlayFabId 查询。	判据 ChallengeManager.cs:69 · 词条 Demo/FriendsMenu/EnterPlayerName·CantFind·InvalidName 在官方本地化表里可查（说明这一支原本就靠远端名录）
+54	ChallengeManager	TryChallengeMatchStart(IPlayEvent playEvent, bool playerFirst)	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U10：好友挑战 / 练习邀约（走我们自己的 P2P，不是 PlayFab））	ChallengeManager.cs:387
+55	ChallengeManager	_003CCheckIfPlayerOnline_003Eb__14_0(bool isOnline)	② P3候选	_003CCheckIfPlayerOnline_003Eb__14_0(isOnline) 是同一条 PlayFab 在线查询的回调体（在线 ⇒ 发 Practice / 否则撤），随第 48 行一起不可离线复刻。	判据 ChallengeManager.cs:527
+56	ChallengeManager	_003CStartChallengeWithUser_003Eb__8_0()	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U10：好友挑战 / 练习邀约（走我们自己的 P2P，不是 PlayFab））	ChallengeManager.cs:508
+57	ChallengeManager	_003CStartChallengeWithUser_003Eb__8_1(PlayFabErrorCode result, string resultPlayfabId)	② P3候选	_003CStartChallengeWithUser_003Eb__8_1(PlayFabErrorCode, resultPlayfabId) 是 DisplayName→PlayFabId 查询回调，随第 53 行一起属账户目录。	判据 ChallengeManager.cs:513
+86	DailyRewardItemContainer	Initialize(MainMenuMission scoringEvent, MissionChallenge challenge, int index, ChallengeProgress progress, Action<ChallengeMilestone> onCollect)	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U11：每日奖励 / 连登 / 任务页 / 自动弹窗）	DailyRewardItemContainer.cs:83
+91	DailyRewardPopup	RefreshOnArmyChange(CardArmy army)	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U11：每日奖励 / 连登 / 任务页 / 自动弹窗）	DailyRewardPopup.cs:220
+92	DailyRewardPopup	SetArmy(CardArmy army)	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U11：每日奖励 / 连登 / 任务页 / 自动弹窗）	DailyRewardPopup.cs:242
+103	DailyRewardTrackPanel	HandlePurchase()	③ 判不了/别域/非缺口	非缺口（已定口径）：HandlePurchase 走 PremiumOffer.TryPurchaseOffer = 真实商店购买；用户边界②「不做真实经济」已拍板不接真实支付。若改成「本地钱包 2000 购买」属新裁定，需调度台确认。	判据 DailyRewardTrackPanel.cs:63 · CLAUDE.md §四 边界② · 账 差异列已标「用户拍板不做」
+106	DailyRewardTrackPanel	_003CHandlePurchase_003Eb__6_0(IReadOnlyList<RewardInfo> _)	③ 判不了/别域/非缺口	非缺口（已定口径）：同第 103 行（购买成功后的续作，购买链本身不做 ⇒ 无落点）。	判据 DailyRewardTrackPanel.cs:87
+121	DailyStreakWindow	ResetStreakAfterFail()	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U11：每日奖励 / 连登 / 任务页 / 自动弹窗）	DailyStreakWindow.cs:63
+154	EndBattleRewardHolder	SetReward(RewardInfo reward)	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U13：问卷条件显隐 + 战斗结算奖励行）	EndBattleRewardHolder.cs:10
+155	EventBadge	Awake()	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U12：通用活动 UI 件（角标 / 阵营展示 / 加成计时 / 窗基类刷新 / 倒计时本地化））	EventBadge.cs:40
+156	EventBadge	Initialize(ILiveOps liveOps)	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U12：通用活动 UI 件（角标 / 阵营展示 / 加成计时 / 窗基类刷新 / 倒计时本地化））	EventBadge.cs:45
+157	EventBadge	SetNotificationData(ToastNotificationContext context)	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U12：通用活动 UI 件（角标 / 阵营展示 / 加成计时 / 窗基类刷新 / 倒计时本地化））	EventBadge.cs:96
+158	EventBadge	ShowNotification(ToastNotificationContext context)	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U12：通用活动 UI 件（角标 / 阵营展示 / 加成计时 / 窗基类刷新 / 倒计时本地化））	EventBadge.cs:65
+159	EventBadgeController	Awake()	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U12：通用活动 UI 件（角标 / 阵营展示 / 加成计时 / 窗基类刷新 / 倒计时本地化））	EventBadgeController.cs:33
+162	EventFilter	AddOrRemoveFromGroups(ILiveOps liveOps, bool addOrRemove)	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U01：LiveOps 事件过滤/触发/冷却/状态机（C1-W2 收尾））	Everguild.LiveOps/EventFilter.cs:219
+163	EventFilter	CheckEventGroups(ILiveOps liveOps)	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U01：LiveOps 事件过滤/触发/冷却/状态机（C1-W2 收尾））	Everguild.LiveOps/EventFilter.cs:188
+164	EventFilter	CleanupTriggers(ILiveOps liveOps)	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U01：LiveOps 事件过滤/触发/冷却/状态机（C1-W2 收尾））	Everguild.LiveOps/EventFilter.cs:435
+166	EventFilter	RegisterTriggers(ILiveOps liveOps)	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U01：LiveOps 事件过滤/触发/冷却/状态机（C1-W2 收尾））	Everguild.LiveOps/EventFilter.cs:258
+167	EventFilter	TryActivateEvent(ILiveOps liveOps)	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U01：LiveOps 事件过滤/触发/冷却/状态机（C1-W2 收尾））	Everguild.LiveOps/EventFilter.cs:371
+170	EventGroup	AddEvent(ILiveOps eventToAdd)	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U01：LiveOps 事件过滤/触发/冷却/状态机（C1-W2 收尾））	EventGroup.cs:49
+171	EventGroup	CanAddToGroup(ILiveOps liveOps)	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U01：LiveOps 事件过滤/触发/冷却/状态机（C1-W2 收尾））	EventGroup.cs:22
+172	EventGroup	GetID()	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U01：LiveOps 事件过滤/触发/冷却/状态机（C1-W2 收尾））	EventGroup.cs:17
+173	EventGroup	RemoveEvent(ILiveOps eventToRemove)	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U01：LiveOps 事件过滤/触发/冷却/状态机（C1-W2 收尾））	EventGroup.cs:78
+174	EventGroupAssetProvider	GetAssets()	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U01：LiveOps 事件过滤/触发/冷却/状态机（C1-W2 收尾））	EventGroupAssetProvider.cs:7
+175	EventGroupConfig	GetAssets()	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U01：LiveOps 事件过滤/触发/冷却/状态机（C1-W2 收尾））	EventGroupConfig.cs:24
+176	EventImageSelectorController	Initialize(List<EventAsset> eventAssets)	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U15：活动资产图（图标/背景）导入 + 接线）	EventImageSelectorController.cs:88
+179	EventImageSelectorController	TryDraw(List<EventAsset> eventAssets)	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U15：活动资产图（图标/背景）导入 + 接线）	EventImageSelectorController.cs:20
+180	EventLocation	Match(EventLocationType type, string id)	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U01：LiveOps 事件过滤/触发/冷却/状态机（C1-W2 收尾））	EventLocation.cs:11
+181	EventProgressBarController	Initialize(ScoringDataInfo scoringInfo, ObtainableItem scoreItem, bool isLastMilestone)	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U04：Scoring/里程碑数据层 + 进度条 + 领奖钮基类）	EventProgressBarController.cs:81
+182	EventProgressBarController	Initialize(ScoringDataInfo scoringInfo, ObtainableItem spriteIcon, bool isLastMilestone)	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U04：Scoring/里程碑数据层 + 进度条 + 领奖钮基类）	EventProgressBarController.cs:19
+183	EventProgressBarController	PercentageToNextLevel(ScoringDataInfo scoringInfo)	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U04：Scoring/里程碑数据层 + 进度条 + 领奖钮基类）	EventProgressBarController.cs:130
+184	EventProgressBarController	SetBarFill(Slider progressBar, float percentage)	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U04：Scoring/里程碑数据层 + 进度条 + 领奖钮基类）	EventProgressBarController.cs:144
+185	EventProgressBarController	Toggle(bool option)	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U04：Scoring/里程碑数据层 + 进度条 + 领奖钮基类）	EventProgressBarController.cs:63
+186	EventProgressBarController	ToggleRectMask(bool option)	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U04：Scoring/里程碑数据层 + 进度条 + 领奖钮基类）	EventProgressBarController.cs:125
+205	ExpansionPassEvent	Expire(Action onComplete)	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U05：Expansion Pass（事件实例 + Pass/Missions 两页 + 奖励格））	Everguild.LiveOps/ExpansionPassEvent.cs:893
+206	ExpansionPassEvent	GetBaseData()	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U05：Expansion Pass（事件实例 + Pass/Missions 两页 + 奖励格））	Everguild.LiveOps/ExpansionPassEvent.cs:616
+207	ExpansionPassEvent	GetBaseSave()	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U05：Expansion Pass（事件实例 + Pass/Missions 两页 + 奖励格））	Everguild.LiveOps/ExpansionPassEvent.cs:649
+208	ExpansionPassEvent	GetCostToLevelUp(ExpansionMilestone currentMilestone)	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U05：Expansion Pass（事件实例 + Pass/Missions 两页 + 奖励格））	Everguild.LiveOps/ExpansionPassEvent.cs:1470
+209	ExpansionPassEvent	GetCurrentMilestone()	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U05：Expansion Pass（事件实例 + Pass/Missions 两页 + 奖励格））	Everguild.LiveOps/ExpansionPassEvent.cs:848
+210	ExpansionPassEvent	GetCurrentMilestoneIndex()	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U05：Expansion Pass（事件实例 + Pass/Missions 两页 + 奖励格））	Everguild.LiveOps/ExpansionPassEvent.cs:791
+211	ExpansionPassEvent	GetScoringInfoFromCurrentMilestone()	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U05：Expansion Pass（事件实例 + Pass/Missions 两页 + 奖励格））	Everguild.LiveOps/ExpansionPassEvent.cs:861
+212	ExpansionPassEvent	GetState(ScoringMilestone milestone)	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U05：Expansion Pass（事件实例 + Pass/Missions 两页 + 奖励格））	Everguild.LiveOps/ExpansionPassEvent.cs:721
+213	ExpansionPassEvent	IsMilestoneCollected(ScoringMilestone milestone)	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U05：Expansion Pass（事件实例 + Pass/Missions 两页 + 奖励格））	Everguild.LiveOps/ExpansionPassEvent.cs:682
+214	ExpansionPassEvent	PurchaseLevelUp(int milestoneIndex, Action onComplete, Action<string> onError)	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U05：Expansion Pass（事件实例 + Pass/Missions 两页 + 奖励格））	Everguild.LiveOps/ExpansionPassEvent.cs:1168
+215	ExpansionPassEvent	PurchaseMilestone(int milestoneIndex, Action<RewardInfo[]> onComplete, Action<string> onError)	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U05：Expansion Pass（事件实例 + Pass/Missions 两页 + 奖励格））	Everguild.LiveOps/ExpansionPassEvent.cs:917
+216	ExpansionPassEvent	Score(int amount)	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U05：Expansion Pass（事件实例 + Pass/Missions 两页 + 奖励格））	Everguild.LiveOps/ExpansionPassEvent.cs:1151
+217	ExpansionPassEvent	_003CGetCurrentMilestoneIndex_003Eb__10_0(ExpansionMilestone m)	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U05：Expansion Pass（事件实例 + Pass/Missions 两页 + 奖励格））	Everguild.LiveOps/ExpansionPassEvent.cs:1495
+218	ExpansionPassEvent	_003C_003En__0(Action onComplete)	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U05：Expansion Pass（事件实例 + Pass/Missions 两页 + 奖励格））	Everguild.LiveOps/ExpansionPassEvent.cs:1516
+223	ExpansionPassEventTab	RefreshRewards()	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U05：Expansion Pass（事件实例 + Pass/Missions 两页 + 奖励格））	ExpansionPassEventTab.cs:128
+224	ExpansionPassEventTab	RefreshTestEditorOnly()	③ 判不了/别域/非缺口	非缺口：ExpansionPassEventTab.RefreshTestEditorOnly 是编辑器专用钩子（Reset+Initialize 重跑），正式版不调用；等价物 = 自检宿主 Editor/ShellScene.cs 的重建断言。	判据 ExpansionPassEventTab.cs:192（方法名自带 EditorOnly）
+226	ExpansionPassEventTab	SetEventTab(ILiveOps liveOps)	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U05：Expansion Pass（事件实例 + Pass/Missions 两页 + 奖励格））	ExpansionPassEventTab.cs:43
+229	ExpansionPassMissionsTab	OnOpen()	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U05：Expansion Pass（事件实例 + Pass/Missions 两页 + 奖励格））	ExpansionPassMissionsTab.cs:520
+230	ExpansionPassMissionsTab	RefreshMissions()	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U05：Expansion Pass（事件实例 + Pass/Missions 两页 + 奖励格））	ExpansionPassMissionsTab.cs:186
+232	ExpansionPassMissionsTab	SetEventTab(ILiveOps liveOps)	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U05：Expansion Pass（事件实例 + Pass/Missions 两页 + 奖励格））	ExpansionPassMissionsTab.cs:163
+233	ExpansionPassMissionsTab	ToFocus()	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U05：Expansion Pass（事件实例 + Pass/Missions 两页 + 奖励格））	ExpansionPassMissionsTab.cs:526
+234	ExpansionPassMissionsTab	_003CRefreshMissions_003Eb__13_0(IMission x)	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U05：Expansion Pass（事件实例 + Pass/Missions 两页 + 奖励格））	ExpansionPassMissionsTab.cs:553
+235	ExpansionPassProgressClaimButtonController	BuyPremiumClick()	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U05：Expansion Pass（事件实例 + Pass/Missions 两页 + 奖励格））	ExpansionPassProgressClaimButtonController.cs:29
+236	ExpansionPassProgressClaimButtonController	CollectionClick()	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U05：Expansion Pass（事件实例 + Pass/Missions 两页 + 奖励格））	ExpansionPassProgressClaimButtonController.cs:44
+237	ExpansionPassProgressClaimButtonController	Initialize(ScoringMilestone.State currentState, CurrencyValue normalPrice, Action onCollect)	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U05：Expansion Pass（事件实例 + Pass/Missions 两页 + 奖励格））	ExpansionPassProgressClaimButtonController.cs:15
+238	ExpansionPassProgressClaimButtonController	ToggleCollectButtonInteractable(bool option)	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U05：Expansion Pass（事件实例 + Pass/Missions 两页 + 奖励格））	ExpansionPassProgressClaimButtonController.cs:39
+240	ExpansionPassRewardDrawerController	Initialize(IReadOnlyList<RewardInfo> rewards, bool isPremium, ScoringMilestone.State currentState)	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U05：Expansion Pass（事件实例 + Pass/Missions 两页 + 奖励格））	ExpansionPassRewardDrawerController.cs:15
+241	ExpansionPassRewardDrawerController	ShowAllRewards()	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U05：Expansion Pass（事件实例 + Pass/Missions 两页 + 奖励格））	ExpansionPassRewardDrawerController.cs:52
+242	ExpansionPassRewardItemContainer	DelayedInit()	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U05：Expansion Pass（事件实例 + Pass/Missions 两页 + 奖励格））	ExpansionPassRewardItemContainer.cs:281
+243	ExpansionPassRewardItemContainer	Initialize(ExpansionPassEvent liveOps, int milestoneIndex, Action<int> onCollect, Action<int> onLevelUp, int? overrideCurrentScore)	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U05：Expansion Pass（事件实例 + Pass/Missions 两页 + 奖励格））	ExpansionPassRewardItemContainer.cs:74
+244	ExpansionPassRewardItemContainer	OnCollect()	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U05：Expansion Pass（事件实例 + Pass/Missions 两页 + 奖励格））	ExpansionPassRewardItemContainer.cs:291
+245	ExpansionPassRewardItemContainer	PrepareForLateInitialization(RectTransform viewport, ExpansionPassEvent liveOps, int milestoneIndex, Action<int> onCollect, Action<int> onLevelUp, int? overrideCurrentScore)	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U05：Expansion Pass（事件实例 + Pass/Missions 两页 + 奖励格））	ExpansionPassRewardItemContainer.cs:255
+246	ExpansionPassRewardItemContainer	TestHighlighOn()	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U05：Expansion Pass（事件实例 + Pass/Missions 两页 + 奖励格））	ExpansionPassRewardItemContainer.cs:301
+247	ExpansionPassRewardItemContainer	ToggleHighlightEffect(bool option)	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U05：Expansion Pass（事件实例 + Pass/Missions 两页 + 奖励格））	ExpansionPassRewardItemContainer.cs:306
+248	ExpansionPassRewardSelector	CollectRewardClicked(int rewardToClaim)	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U05：Expansion Pass（事件实例 + Pass/Missions 两页 + 奖励格））	ExpansionPassRewardSelector.cs:163
+249	ExpansionPassRewardSelector	CreateRewards(bool refreshAllRewards)	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U05：Expansion Pass（事件实例 + Pass/Missions 两页 + 奖励格））	ExpansionPassRewardSelector.cs:205
+250	ExpansionPassRewardSelector	Initialize(IScoringEvent evt)	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U05：Expansion Pass（事件实例 + Pass/Missions 两页 + 奖励格））	ExpansionPassRewardSelector.cs:21
+251	ExpansionPassRewardSelector	OnLevelUp(int level)	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U05：Expansion Pass（事件实例 + Pass/Missions 两页 + 奖励格））	ExpansionPassRewardSelector.cs:186
+252	ExpansionPassRewardSelector	RefreshData(bool refreshAllRewards)	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U05：Expansion Pass（事件实例 + Pass/Missions 两页 + 奖励格））	ExpansionPassRewardSelector.cs:158
+253	ExpansionPassRewardSelector	Reset()	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U05：Expansion Pass（事件实例 + Pass/Missions 两页 + 奖励格））	ExpansionPassRewardSelector.cs:320
+254	ExpansionPassRewardSelector	_003CCollectRewardClicked_003Eb__8_0(RewardInfo[] _)	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U05：Expansion Pass（事件实例 + Pass/Missions 两页 + 奖励格））	ExpansionPassRewardSelector.cs:371
+255	ExpansionPassRewardSelector	_003CCollectRewardClicked_003Eb__8_1(string _)	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U05：Expansion Pass（事件实例 + Pass/Missions 两页 + 奖励格））	ExpansionPassRewardSelector.cs:382
+256	ExpansionPassRewardSelector	_003COnLevelUp_003Eb__9_0()	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U05：Expansion Pass（事件实例 + Pass/Missions 两页 + 奖励格））	ExpansionPassRewardSelector.cs:389
+257	ExpansionPassRewardSelector	_003COnLevelUp_003Eb__9_1(string _)	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U05：Expansion Pass（事件实例 + Pass/Missions 两页 + 奖励格））	ExpansionPassRewardSelector.cs:396
+258	FastModeBaseEvent	Expire(Action onComplete)	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U08：FastMode / Play / Practice 事件层（战绩·里程碑·默认卡组·禁卡表））	FastModeBaseEvent.cs:1743
+259	FastModeBaseEvent	GetArmyState(CardArmy army, IReadOnlyList<RankedScoreBoostEvent> extraBoosts)	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U08：FastMode / Play / Practice 事件层（战绩·里程碑·默认卡组·禁卡表））	FastModeBaseEvent.cs:482
+260	FastModeBaseEvent	GetArmyStats(CardArmy army)	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U08：FastMode / Play / Practice 事件层（战绩·里程碑·默认卡组·禁卡表））	FastModeBaseEvent.cs:463
+261	FastModeBaseEvent	GetBaseData()	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U08：FastMode / Play / Practice 事件层（战绩·里程碑·默认卡组·禁卡表））	FastModeBaseEvent.cs:718
+262	FastModeBaseEvent	GetBaseSave()	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U08：FastMode / Play / Practice 事件层（战绩·里程碑·默认卡组·禁卡表））	FastModeBaseEvent.cs:1987
+265	FastModeBaseEvent	GetMatchmakingFilter(int currentElo, int tryCount, int gamesLost)	② P3候选	FastModeBaseEvent.GetMatchmakingFilter(currentElo, tryCount, gamesLost) 产出的是给服务器房间列表用的匹配过滤串；我们的 P2P 没有房间列表层（Net/NetMatchmaking 是直连/大厅），无消费方。时间限定：断点 = FastModeBaseEvent.cs:856；消费方 = Photon 房间列表（不复刻）。算式本身可照抄，但建了无消费者。	判据 decomp_generic_trial/out/FastModeBaseEvent_object__object___GetMatchmakingFilter__1a10120.c
+267	FastModeBaseEvent	OnMatchDraw()	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U08：FastMode / Play / Practice 事件层（战绩·里程碑·默认卡组·禁卡表））	FastModeBaseEvent.cs:2169
+268	FastModeBaseEvent	OnMatchFinished(float matchWon, RankedMatchResult result, Action<OnlineMatchResult> callback)	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U08：FastMode / Play / Practice 事件层（战绩·里程碑·默认卡组·禁卡表））	FastModeBaseEvent.cs:1397
+270	FastModeBaseEvent	OnMatchLost()	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U08：FastMode / Play / Practice 事件层（战绩·里程碑·默认卡组·禁卡表））	FastModeBaseEvent.cs:2156
+271	FastModeBaseEvent	OnMatchProcessSuccess(OnlineMatchResult result)	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U08：FastMode / Play / Practice 事件层（战绩·里程碑·默认卡组·禁卡表））	FastModeBaseEvent.cs:1553
+272	FastModeBaseEvent	OnMatchWon()	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U08：FastMode / Play / Practice 事件层（战绩·里程碑·默认卡组·禁卡表））	FastModeBaseEvent.cs:2143
+273	FastModeBaseEvent	RecordMatchFinished(int matchWon, int targetMilestone, int enemyMilestone, Action<OnlineMatchResult> callbackOnSuccess)	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U08：FastMode / Play / Practice 事件层（战绩·里程碑·默认卡组·禁卡表））	FastModeBaseEvent.cs:2025
+274	FastModeBaseEvent	SetCustomMatchOptions(RoomOptions options, int currentElo)	② P3候选	SetCustomMatchOptions(RoomOptions, currentElo) = 写 Photon RoomOptions.CustomProperties（服务器匹配层）。⚠️ 但同一条里「MsgStart 缺 eventId/ELO 字段」那一半**可以**在我们自己的 Net/NetProtocol.cs 加（属我方协议）⇒ 建议调度台拆成两半：Photon 属性（②）+ 协议字段（①）。时间限定：断点 = FastModeBaseEvent.cs:817。	判据 FastModeBaseEvent.cs:817
+275	FastModeBaseEvent	TryCollect(Action onComplete)	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U08：FastMode / Play / Practice 事件层（战绩·里程碑·默认卡组·禁卡表））	FastModeBaseEvent.cs:1794
+297	LiveOpsAssetUtility	GetComponentReference(ILiveOps liveops, EventComponentReferenceType type)	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U02：LiveOps 活动资产装载层（C1-W3））	R7 §四·1；WindowsManager.cs OpenEventHub 头注
+306	LiveOpsAssetUtility	LoadAsset<T>(ILiveOps liveops, EventAssetReferenceType type)	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U02：LiveOps 活动资产装载层（C1-W3））	Everguild.LiveOps/LiveOpsAssetUtility.cs:391
+307	LiveOpsAssetUtility	LoadAsset<T>(LiveOpsEventData liveops, EventAssetReferenceType type)	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U02：LiveOps 活动资产装载层（C1-W3））	Everguild.LiveOps/LiveOpsAssetUtility.cs:486
+308	LiveOpsAssetUtility	LoadComponent<T>(ILiveOps liveops, EventComponentReferenceType type)	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U02：LiveOps 活动资产装载层（C1-W3））	Everguild.LiveOps/LiveOpsAssetUtility.cs:268
+309	LiveOpsAssetUtility	LoadComponent<T>(LiveOpsEventData liveops, EventComponentReferenceType type)	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U02：LiveOps 活动资产装载层（C1-W3））	Everguild.LiveOps/LiveOpsAssetUtility.cs:293
+310	LiveOpsAssetUtility	ReleaseEventAssets(ILiveOps liveOps)	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U02：LiveOps 活动资产装载层（C1-W3））	Everguild.LiveOps/LiveOpsAssetUtility.cs:921
+314	LiveOpsAssetUtility	TryLoadComponent<T>(ILiveOps liveops, EventComponentReferenceType type, out T component)	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U02：LiveOps 活动资产装载层（C1-W3））	Everguild.LiveOps/LiveOpsAssetUtility.cs:365
+315	LiveOpsAssetUtility	TryLoadComponent<T>(LiveOpsEventData liveops, EventComponentReferenceType type, out T component)	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U02：LiveOps 活动资产装载层（C1-W3））	Everguild.LiveOps/LiveOpsAssetUtility.cs:372
+316	LiveOpsAssetUtility	Unload(AssetReference assetReference)	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U02：LiveOps 活动资产装载层（C1-W3））	Everguild.LiveOps/LiveOpsAssetUtility.cs:722
+317	LiveOpsAssetUtility	Unload<T>(ILiveOps liveops, T key)	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U02：LiveOps 活动资产装载层（C1-W3））	Everguild.LiveOps/LiveOpsAssetUtility.cs:735
+318	LiveOpsAssetUtility	Unload<T>(LiveOpsEventData liveops, T key)	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U02：LiveOps 活动资产装载层（C1-W3））	Everguild.LiveOps/LiveOpsAssetUtility.cs:749
+319	LiveOpsEvent	CanActivate()	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U01：LiveOps 事件过滤/触发/冷却/状态机（C1-W2 收尾））	Everguild.LiveOps/LiveOpsEvent.cs:214
+320	LiveOpsEvent	CheckEventFilter()	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U01：LiveOps 事件过滤/触发/冷却/状态机（C1-W2 收尾））	Everguild.LiveOps/LiveOpsEvent.cs:194
+322	LiveOpsEvent	Dispose()	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U01：LiveOps 事件过滤/触发/冷却/状态机（C1-W2 收尾））	Everguild.LiveOps/LiveOpsEvent.cs:133
+328	LiveOpsEvent	GetContainer()	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U02：LiveOps 活动资产装载层（C1-W3））	Everguild.LiveOps/LiveOpsEvent.cs:169
+331	LiveOpsEvent	GetEventPriorityForMainMenu()	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U03：主菜单活动容器（C1-W4））	Everguild.LiveOps/LiveOpsEvent.cs:508
+334	LiveOpsEvent	GetMainMenuData()	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U03：主菜单活动容器（C1-W4））	Everguild.LiveOps/LiveOpsEvent.cs:97
+335	LiveOpsEvent	GetTimeDescriptionText()	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U12：通用活动 UI 件（角标 / 阵营展示 / 加成计时 / 窗基类刷新 / 倒计时本地化））	Everguild.LiveOps/LiveOpsEvent.cs:444
+336	LiveOpsEvent	GetTimeDescriptionTextKey()	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U12：通用活动 UI 件（角标 / 阵营展示 / 加成计时 / 窗基类刷新 / 倒计时本地化））	Everguild.LiveOps/LiveOpsEvent.cs:480
+342	LiveOpsEvent	MarkAsOld()	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U01：LiveOps 事件过滤/触发/冷却/状态机（C1-W2 收尾））	Everguild.LiveOps/LiveOpsEvent.cs:368
+345	LiveOpsEvent	OpenWindow()	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U01：LiveOps 事件过滤/触发/冷却/状态机（C1-W2 收尾））	Everguild.LiveOps/LiveOpsEvent.cs:435
+346	LiveOpsEvent	RefreshExpire(Action callback)	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U01：LiveOps 事件过滤/触发/冷却/状态机（C1-W2 收尾））	Everguild.LiveOps/LiveOpsEvent.cs:402
+347	LiveOpsEvent	RegisterEventTriggers()	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U01：LiveOps 事件过滤/触发/冷却/状态机（C1-W2 收尾））	Everguild.LiveOps/LiveOpsEvent.cs:185
+348	LiveOpsEvent	ReleaseContainer()	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U02：LiveOps 活动资产装载层（C1-W3））	Everguild.LiveOps/LiveOpsEvent.cs:179
+355	LiveOpsEvent	ToggleEventActivation(bool active, bool forceReload, bool saveOnServer)	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U01：LiveOps 事件过滤/触发/冷却/状态机（C1-W2 收尾））	decomp_full/Everguild.LiveOps.LiveOpsEvent__ToggleEventActivation.c
+362	LiveOpsEventData	GetContainer()	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U02：LiveOps 活动资产装载层（C1-W3））	Everguild.LiveOps/LiveOpsEventData.cs:162
+367	LiveOpsEventData	ReleaseContainer()	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U02：LiveOps 活动资产装载层（C1-W3））	Everguild.LiveOps/LiveOpsEventData.cs:167
+374	LiveOpsEventWindow	OnRefresh()	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U12：通用活动 UI 件（角标 / 阵营展示 / 加成计时 / 窗基类刷新 / 倒计时本地化））	LiveOpsEventWindow.cs:71
+382	LiveOpsHandler	ExpireEvent(ILiveOps newEvent, PopupOptions options, bool showExpirePopup, Action onComplete)	③ 判不了/别域/非缺口	账已过期：本方法已由 Q3 第 3 轮落地（真身级），不是新工作。	Shell/LiveOpsHandler.cs:419（ExpireEvent 已实现）· 依据 报告/Q3_第3轮.md:56
+391	LiveOpsHandler	QueueEventPopup(ILiveOps newEvent, PopupOptions options, Action<Action> eventAction)	③ 判不了/别域/非缺口	账已过期：本方法已由 Q3 第 3 轮落地（真身级），不是新工作。	Shell/LiveOpsHandler.cs:334（QueueEventPopup）· 依据 报告/Q3_第3轮.md:54
+397	LiveOpsHandler	ScheduleEventPopups()	③ 判不了/别域/非缺口	账已过期：本方法已由 Q3 第 3 轮落地（真身级，Ghidra VA 0x181018D60），不是新工作。	Shell/LiveOpsHandler.cs:274（ScheduleEventPopups）· 依据 报告/Q3_第3轮.md:53
+401	LiveOpsHandler	ShowTriggerEventPopup(ILiveOps newEvent, PopupOptions options, Action onComplete)	③ 判不了/别域/非缺口	账已过期：本方法已由 Q3 第 3 轮落地（真身级），不是新工作。	Shell/LiveOpsHandler.cs:378（ShowTriggerEventPopup）· 依据 报告/Q3_第3轮.md:55
+409	LiveOpsManager	GetAllEvents(EventLocationType location, string parent)	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U03：主菜单活动容器（C1-W4））	LiveOpsManager.cs:1842
+414	LiveOpsManager	GetEventsForDisplayingInMenu()	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U03：主菜单活动容器（C1-W4））	LiveOpsManager.cs:2075
+422	LiveopUIDrawer_EventAssetSprites	EventAssetImages.Initialize(ILiveOps liveopEvent)	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U15：活动资产图（图标/背景）导入 + 接线）	LiveopUIDrawer_EventAssetSprites.cs:15
+423	LiveopUIDrawer_EventAssetSprites	LiveopUIDrawer_EventAssetSprites.Initialize(ILiveOps liveopEvent)	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U15：活动资产图（图标/背景）导入 + 接线）	LiveopUIDrawer_EventAssetSprites.cs:32
+426	LoginBonusRewardDisplay	OnDestroy()	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U11：每日奖励 / 连登 / 任务页 / 自动弹窗）	LoginBonusRewardDisplay.cs:78
+427	LoginBonusRewardDisplay	Setup(IMission mission, MissionChallengeProgress progress)	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U11：每日奖励 / 连登 / 任务页 / 自动弹窗）	LoginBonusRewardDisplay.cs:54
+428	MainMenuMission	Dispose()	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U11：每日奖励 / 连登 / 任务页 / 自动弹窗）	MainMenuMission.cs:152
+429	MainMenuMission	Initialize()	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U11：每日奖励 / 连登 / 任务页 / 自动弹窗）	MainMenuMission.cs:79
+430	MainMenuMission	TrySchedulePopup()	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U11：每日奖励 / 连登 / 任务页 / 自动弹窗）	MainMenuMission.cs:91
+431	MainMenuMission	UpdateSaveGame(LiveOpsEventPersistence save)	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U11：每日奖励 / 连登 / 任务页 / 自动弹窗）	MainMenuMission.cs:85
+432	MainMenuMission	_003CTrySchedulePopup_003Eb__11_1()	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U11：每日奖励 / 连登 / 任务页 / 自动弹窗）	MainMenuMission.cs:158
+494	MissionMenuContainer	OnClick()	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U03：主菜单活动容器（C1-W4））	MissionMenuContainer.cs:18
+495	MissionMilestoneStep	DisplayCheckmark(int value, int currentValue, RewardInfo[] rewardsToDisplay)	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U11：每日奖励 / 连登 / 任务页 / 自动弹窗）	MissionMilestoneStep.cs:102
+514	Missions	GetPointsPerArmyOnDailyLogin(CardArmy army)	② P3候选	Missions.GetPointsPerArmyOnDailyLogin(army) 的返回值 = 原版 MissionsConfig.dailyLoginRef 首档奖励（远端配置）；本机只有引用字段、无配置实例。时间限定：assets_full 全库对该配置 0 命中（N17 §⑤-5 已核）；这是「数据不可得」不是「没有」。	判据 Missions.cs:2067 · 报告 N17_日常活动_第1轮.md §⑤-5
+518	Missions	TryShowToastNotification(IReadOnlyList<IMission> missions, List<MissionChallengeProgress> missionChallengeProgress)	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U11：每日奖励 / 连登 / 任务页 / 自动弹窗）	Missions.cs:1910
+525	MissionsTab	InstantiateGridMissions(IEnumerable<IMission> missions)	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U11：每日奖励 / 连登 / 任务页 / 自动弹窗）	MissionsTab.cs:784
+530	MissionsTab	RefreshRefillCount()	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U11：每日奖励 / 连登 / 任务页 / 自动弹窗）	MissionsTab.cs:500
+535	MultiplyRewardsFunction	Preview(ILiveOps _, IEnumerable<RewardInfo> rewardInfos)	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U09：挑战引擎（日志计数 + 发奖族 + 血变信号））	MultiplyRewardsFunction.cs:24
+538	OnQuestionAnswered	OnAnswered(FeedbackQuestionItem item)	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U13：问卷条件显隐 + 战斗结算奖励行）	OnQuestionAnswered.cs:116
+540	OnQuestionAnswered	Start()	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U13：问卷条件显隐 + 战斗结算奖励行）	OnQuestionAnswered.cs:15
+545	OpenEventButton	Initialize(ILiveOps liveOps)	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U03：主菜单活动容器（C1-W4））	OpenEventButton.cs:37
+548	OpenEventButton	SetButtonInfo()	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U03：主菜单活动容器（C1-W4））	OpenEventButton.cs:160
+549	OpenEventButton	ToggleValueChange(bool option)	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U03：主菜单活动容器（C1-W4））	OpenEventButton.cs:198
+550	ParentEventHandler	BeforeRefresh()	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U01：LiveOps 事件过滤/触发/冷却/状态机（C1-W2 收尾））	ParentEventHandler.cs:51
+558	PlayEvent	GetMatchmakingFilter(int currentElo, int tryCount, int gamesLost)	③ 判不了/别域/非缺口	非缺口（抽象声明）：PlayEvent.GetMatchmakingFilter 在基类里是 abstract（cpp2il dev PlayEvent.cs:1092），没有方法体可复刻；真正的实现落在子类，两个子类的体都存在 —— decomp_full/Everguild.LiveOps.PracticeEvent__GetMatchmakingFilter.c 与 decomp_generic_trial/out/FastModeBaseEvent_object__object___GetMatchmakingFilter__1a10120.c。	cpp2il dev Everguild.LiveOps/PlayEvent.cs:1092（abstract）· 子类体两处实证
+562	PlayEvent	OnMatchDraw()	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U08：FastMode / Play / Practice 事件层（战绩·里程碑·默认卡组·禁卡表））	Everguild.LiveOps/PlayEvent.cs:1068
+567	PlayEvent	SetCustomMatchOptions(RoomOptions options, int currentElo)	③ 判不了/别域/非缺口	判不了（判据未定）：PlayEvent.SetCustomMatchOptions 在 cpp2il dev 里是 virtual { } 空体；decomp_full 与 decomp_generic_trial 都没有 PlayEvent 的产物（泛型类未导出）⇒『本来就是空钩子』与『Cpp2IL 静默丢体』分不开。差一步：按 dump.cs 的 RVA 反汇编一次（铁律：凡 Cpp2IL 说空，一律用 RVA 复核）。若证空体 ⇒ 非缺口（子类 FastModeBaseEvent 的 SetCustomMatchOptions 体在 generic trial 里）。	cpp2il dev Everguild.LiveOps/PlayEvent.cs:1088（virtual 空体）· 对照 decomp_generic_trial/out/FastModeBaseEvent_object__object___SetCustomMatchOptions__1a11ae0.c
+568	PlayEvent	SetDefaultDeck(CardDeck deck, bool upload)	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U08：FastMode / Play / Practice 事件层（战绩·里程碑·默认卡组·禁卡表））	Everguild.LiveOps/PlayEvent.cs:1371
+574	PlayEvent	_003CGetEventDeck_003Eb__26_0(CardDeck d)	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U08：FastMode / Play / Practice 事件层（战绩·里程碑·默认卡组·禁卡表））	Everguild.LiveOps/PlayEvent.cs:1438
+575	PlayEventData	IsCardBanned(RawCardScript card)	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U08：FastMode / Play / Practice 事件层（战绩·里程碑·默认卡组·禁卡表））	Everguild.LiveOps/PlayEventData.cs:23
+576	PlayEventData	OnAfterRead(JToken rawJson)	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U08：FastMode / Play / Practice 事件层（战绩·里程碑·默认卡组·禁卡表））	Everguild.LiveOps/PlayEventData.cs:39
+579	PlayEventSaveGame	GetArmyStats(CardArmy army)	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U08：FastMode / Play / Practice 事件层（战绩·里程碑·默认卡组·禁卡表））	PlayEventSaveGame.cs:50
+582	PracticeEvent	Initialize()	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U08：FastMode / Play / Practice 事件层（战绩·里程碑·默认卡组·禁卡表））	Everguild.LiveOps/PracticeEvent.cs:34
+583	PracticeEvent	OnMatchFinished(float matchWon, RankedMatchResult result, Action<OnlineMatchResult> callback)	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U08：FastMode / Play / Practice 事件层（战绩·里程碑·默认卡组·禁卡表））	Everguild.LiveOps/PracticeEvent.cs:85
+584	PracticeEvent	OnMatchWon()	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U08：FastMode / Play / Practice 事件层（战绩·里程碑·默认卡组·禁卡表））	Everguild.LiveOps/PracticeEvent.cs:95
+589	RaidEvent	Dispose()	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U06：Raid（事件实例 + 奖励格 5 档 + 页头 + 进度条位移））	Everguild.LiveOps/RaidEvent.cs:421
+590	RaidEvent	Expire(Action onComplete)	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U06：Raid（事件实例 + 奖励格 5 档 + 页头 + 进度条位移））	Everguild.LiveOps/RaidEvent.cs:429
+591	RaidEvent	GetBaseData()	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U06：Raid（事件实例 + 奖励格 5 档 + 页头 + 进度条位移））	Everguild.LiveOps/RaidEvent.cs:311
+592	RaidEvent	GetBaseSave()	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U06：Raid（事件实例 + 奖励格 5 档 + 页头 + 进度条位移））	Everguild.LiveOps/RaidEvent.cs:344
+593	RaidEvent	GetCurrentMilestone()	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U06：Raid（事件实例 + 奖励格 5 档 + 页头 + 进度条位移））	Everguild.LiveOps/RaidEvent.cs:647
+594	RaidEvent	GetCurrentMilestoneIndex()	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U06：Raid（事件实例 + 奖励格 5 档 + 页头 + 进度条位移））	Everguild.LiveOps/RaidEvent.cs:590
+595	RaidEvent	GetScoringInfoFromCurrentMilestone()	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U06：Raid（事件实例 + 奖励格 5 档 + 页头 + 进度条位移））	Everguild.LiveOps/RaidEvent.cs:660
+596	RaidEvent	Initialize()	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U06：Raid（事件实例 + 奖励格 5 档 + 页头 + 进度条位移））	Everguild.LiveOps/RaidEvent.cs:377
+597	RaidEvent	OnRewardCollected(CollectRewardsSignal signal)	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U06：Raid（事件实例 + 奖励格 5 档 + 页头 + 进度条位移））	Everguild.LiveOps/RaidEvent.cs:453
+598	RaidEvent	PurchaseMilestone(int milestoneIndex, Action<RewardInfo[]> onComplete, Action<string> onError)	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U06：Raid（事件实例 + 奖励格 5 档 + 页头 + 进度条位移））	Everguild.LiveOps/RaidEvent.cs:692
+599	RaidEvent	_003CGetCurrentMilestoneIndex_003Eb__15_0(RaidMilestone m)	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U06：Raid（事件实例 + 奖励格 5 档 + 页头 + 进度条位移））	Everguild.LiveOps/RaidEvent.cs:911
+600	RaidEvent	_003CInitialize_003Eb__11_0()	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U06：Raid（事件实例 + 奖励格 5 档 + 页头 + 进度条位移））	Everguild.LiveOps/RaidEvent.cs:891
+601	RaidEvent	_003C_003En__0(Action onComplete)	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U06：Raid（事件实例 + 奖励格 5 档 + 页头 + 进度条位移））	Everguild.LiveOps/RaidEvent.cs:906
+602	RaidEventRewardItemContainer	GetState(bool collected, ScoringDataInfo playerScoringInfo, ScoringDataInfo communityScoringInfo)	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U06：Raid（事件实例 + 奖励格 5 档 + 页头 + 进度条位移））	RaidEventRewardItemContainer.cs:288
+603	RaidEventRewardItemContainer	Initialize(ScoringEventData liveOps, RaidRewardSelector raidRewardSelector, RaidRewardSelector.RaidEventMilestoneInfo currentMilestoneInfo, RaidRewardSelector.RaidEventMilestoneInfo previousMilestoneInfo, bool isLastMilestone)	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U06：Raid（事件实例 + 奖励格 5 档 + 页头 + 进度条位移））	RaidEventRewardItemContainer.cs:41
+604	RaidEventRewardItemContainer	OnCollect()	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U06：Raid（事件实例 + 奖励格 5 档 + 页头 + 进度条位移））	RaidEventRewardItemContainer.cs:242
+605	RaidEventRewardItemContainer	TestHighlighOn()	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U06：Raid（事件实例 + 奖励格 5 档 + 页头 + 进度条位移））	RaidEventRewardItemContainer.cs:269
+606	RaidEventRewardItemContainer	ToggleHighlightEffect(bool option)	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U06：Raid（事件实例 + 奖励格 5 档 + 页头 + 进度条位移））	RaidEventRewardItemContainer.cs:274
+610	RaidEventTab	RefreshTestEditorOnly()	③ 判不了/别域/非缺口	非缺口：RaidEventTab.RefreshTestEditorOnly 同上（编辑器专用），正式版不调用。	判据 RaidEventTab.cs:155
+612	RaidEventTab	SetEventTab(ILiveOps liveOps)	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U06：Raid（事件实例 + 奖励格 5 档 + 页头 + 进度条位移））	RaidEventTab.cs:33
+618	RaidHeaderController	UpdateText()	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U06：Raid（事件实例 + 奖励格 5 档 + 页头 + 进度条位移））	RaidHeaderController.cs:177
+620	RaidOrArmyReleaseMenuContainer	OnEnable()	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U03：主菜单活动容器（C1-W4））	RaidOrArmyReleaseMenuContainer.cs:309
+621	RaidOrArmyReleaseMenuContainer	OnInitialize(LiveOpsEvent liveopEvent)	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U03：主菜单活动容器（C1-W4））	RaidOrArmyReleaseMenuContainer.cs:83
+622	RaidOrArmyReleaseMenuContainer	RefreshProgressBar()	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U03：主菜单活动容器（C1-W4））	RaidOrArmyReleaseMenuContainer.cs:314
+623	RaidOrArmyReleaseMenuContainer	SetAndRefreshProgressBar(ParentEvent parentEvent)	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U03：主菜单活动容器（C1-W4））	RaidOrArmyReleaseMenuContainer.cs:295
+624	RaidProgressBarScaleAndPositionController	SetPositionAndScale(Vector2 positionToModify, Vector2 scaleToModify, RaidEventRewardItemContainer.State stateToApply, Vector2 positionOffset, Vector2 scaleOffset)	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U06：Raid（事件实例 + 奖励格 5 档 + 页头 + 进度条位移））	RaidProgressBarScaleAndPositionController.cs:6
+625	RaidProgressClaimButtonController	CollectionClick()	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U06：Raid（事件实例 + 奖励格 5 档 + 页头 + 进度条位移））	RaidProgressClaimButtonController.cs:50
+626	RaidProgressClaimButtonController	Initialize(RaidEventRewardItemContainer.State currentState, CurrencyValue normalPrice, CurrencyValue discountedPrice, Action onCollect)	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U06：Raid（事件实例 + 奖励格 5 档 + 页头 + 进度条位移））	RaidProgressClaimButtonController.cs:12
+627	RaidProgressClaimButtonController	ToggleCollectButtonInteractable(bool option)	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U06：Raid（事件实例 + 奖励格 5 档 + 页头 + 进度条位移））	RaidProgressClaimButtonController.cs:45
+629	RaidRewardSelector	CollectRewardClicked(int rewardToClaim)	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U06：Raid（事件实例 + 奖励格 5 档 + 页头 + 进度条位移））	RaidRewardSelector.cs:176
+630	RaidRewardSelector	CreateMilestoneInfo(RaidMilestone milestoneDefinition, RaidMilestone previousMilestoneDefinition, int playerCurrentScore, int communityCurrentScore, int level)	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U06：Raid（事件实例 + 奖励格 5 档 + 页头 + 进度条位移））	RaidRewardSelector.cs:543
+631	RaidRewardSelector	CreateRewards()	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U06：Raid（事件实例 + 奖励格 5 档 + 页头 + 进度条位移））	RaidRewardSelector.cs:199
+632	RaidRewardSelector	Initialize(RaidEvent raidEvent)	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U06：Raid（事件实例 + 奖励格 5 档 + 页头 + 进度条位移））	RaidRewardSelector.cs:165
+633	RaidRewardSelector	RefreshData()	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U06：Raid（事件实例 + 奖励格 5 档 + 页头 + 进度条位移））	RaidRewardSelector.cs:171
+634	RaidRewardSelector	Reset()	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U06：Raid（事件实例 + 奖励格 5 档 + 页头 + 进度条位移））	RaidRewardSelector.cs:702
+635	RaidRewardSelector	_003CCollectRewardClicked_003Eb__7_0(RewardInfo[] rewardInfo)	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U06：Raid（事件实例 + 奖励格 5 档 + 页头 + 进度条位移））	RaidRewardSelector.cs:739
+636	RaidRewardSelector	_003CCollectRewardClicked_003Eb__7_1(string error)	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U06：Raid（事件实例 + 奖励格 5 档 + 页头 + 进度条位移））	RaidRewardSelector.cs:750
+646	RankedEventWindow	Open()	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U14：Energy / Skirmish / Ranked 三扇窗收尾）	RankedEventWindow.cs:119
+649	RankedEventWindow	SetDivision()	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U14：Energy / Skirmish / Ranked 三扇窗收尾）	RankedEventWindow.cs:147
+653	RewardCollected	OnInitialize()	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U09：挑战引擎（日志计数 + 发奖族 + 血变信号））	RewardCollected.cs:82
+654	RewardCollected	OnReset()	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U09：挑战引擎（日志计数 + 发奖族 + 血变信号））	RewardCollected.cs:221
+655	RewardCollected	OnTrigger(CollectRewardsSignal obj)	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U09：挑战引擎（日志计数 + 发奖族 + 血变信号））	RewardCollected.cs:227
+656	RewardCollected	_003COnInitialize_003Eb__6_0(IIdentifiable x)	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U09：挑战引擎（日志计数 + 发奖族 + 血变信号））	RewardCollected.cs:546
+657	RewardCollected	_003COnInitialize_003Eb__6_1(IItemInfo<IIdentifiable> x)	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U09：挑战引擎（日志计数 + 发奖族 + 血变信号））	RewardCollected.cs:582
+658	RewardCollected	_003COnTrigger_003Eb__8_0(RewardInfo i)	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U09：挑战引擎（日志计数 + 发奖族 + 血变信号））	RewardCollected.cs:599
+659	RewardCollected	_003COnTrigger_003Eb__8_2(RewardInfo x)	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U09：挑战引擎（日志计数 + 发奖族 + 血变信号））	RewardCollected.cs:669
+660	RewardEvent	AppliesTo(ILiveOps evt)	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U09：挑战引擎（日志计数 + 发奖族 + 血变信号））	Everguild.LiveOps/RewardEvent.cs:252
+662	RewardEvent	IsArmyValid(CardArmy army)	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U09：挑战引擎（日志计数 + 发奖族 + 血变信号））	Everguild.LiveOps/RewardEvent.cs:362
+663	RewardEvent	IsTargetTo(ILiveOps evt)	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U09：挑战引擎（日志计数 + 发奖族 + 血变信号））	Everguild.LiveOps/RewardEvent.cs:102
+666	RewardEventHandler	ApplyExtraRewards(ILiveOps evt, IEnumerable<RewardInfo> rewards)	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U09：挑战引擎（日志计数 + 发奖族 + 血变信号））	Everguild.LiveOps/RewardEventHandler.cs:207
+667	RewardEventHandler	GetExtraRewardsFunction(ILiveOps evt)	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U09：挑战引擎（日志计数 + 发奖族 + 血变信号））	Everguild.LiveOps/RewardEventHandler.cs:334
+668	RewardInfo	CanCollect()	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U09：挑战引擎（日志计数 + 发奖族 + 血变信号））	RewardInfo.cs:105
+671	RewardProgressBarPanel	CollectButtonClick()	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U04：Scoring/里程碑数据层 + 进度条 + 领奖钮基类）	RewardProgressBarPanel.cs:65
+672	RewardProgressBarPanel	HasMilestoneToCollect(GenericScoringMilestone[] scoringMilestones)	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U04：Scoring/里程碑数据层 + 进度条 + 领奖钮基类）	RewardProgressBarPanel.cs:114
+673	RewardProgressBarPanel	Initialize(int currentScore, GenericScoringMilestone[] scoringMilestones, Action onCollect, Sprite resourceIcon, string resourceName)	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U04：Scoring/里程碑数据层 + 进度条 + 领奖钮基类）	RewardProgressBarPanel.cs:74
+691	ScoringEvent	GetBaseData()	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U04：Scoring/里程碑数据层 + 进度条 + 领奖钮基类）	Everguild.LiveOps/ScoringEvent.cs:12
+692	ScoringEvent	GetState(ScoringMilestone milestone)	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U04：Scoring/里程碑数据层 + 进度条 + 领奖钮基类）	Everguild.LiveOps/ScoringEvent.cs:137
+693	ScoringEvent	IsMilestoneCollected(ScoringMilestone milestone)	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U04：Scoring/里程碑数据层 + 进度条 + 领奖钮基类）	Everguild.LiveOps/ScoringEvent.cs:49
+694	ScoringEvent	PurchaseMilestone(int milestoneIndex, Action<RewardInfo[]> onComplete, Action<string> onError)	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U04：Scoring/里程碑数据层 + 进度条 + 领奖钮基类）	Everguild.LiveOps/ScoringEvent.cs:47
+695	ScoringEventHandler	CollectPoints(Points point, int amount)	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U04：Scoring/里程碑数据层 + 进度条 + 领奖钮基类）	Everguild.LiveOps/ScoringEventHandler.cs:20
+696	SharedEventDataManager	GetContext<T>()	③ 判不了/别域/非缺口	非缺口（连带已判 D）：机制本身已存在（LiveOpsSharedDataManager.GetContext<T>，Shell/LiveOpsSharedData.cs:368）；唯一缺的是 EnergyContext，而它已按「不做真实经济」判 D（F3 第4轮）。	Shell/LiveOpsSharedData.cs:368 · 任务线/活动线/任务总表.md（C1-W7 Energy 判 D，依据 报告/F3_第4轮.md §一⑥）
+699	ShowEventArmiesPanel	Initialize(CardArmy[] cardArmies)	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U12：通用活动 UI 件（角标 / 阵营展示 / 加成计时 / 窗基类刷新 / 倒计时本地化））	ShowEventArmiesPanel.cs:16
+700	ShowEventArmiesPanel	Reset()	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U12：通用活动 UI 件（角标 / 阵营展示 / 加成计时 / 窗基类刷新 / 倒计时本地化））	ShowEventArmiesPanel.cs:64
+701	SignalEventTrigger	Register(Action callback)	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U01：LiveOps 事件过滤/触发/冷却/状态机（C1-W2 收尾））	Everguild.LiveOps/SignalEventTrigger.cs:22
+702	SignalEventTrigger	TryTrigger(T signal)	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U01：LiveOps 事件过滤/触发/冷却/状态机（C1-W2 收尾））	Everguild.LiveOps/SignalEventTrigger.cs:49
+703	SignalEventTrigger	Unregister()	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U01：LiveOps 事件过滤/触发/冷却/状态机（C1-W2 收尾））	Everguild.LiveOps/SignalEventTrigger.cs:67
+704	SignalEventTrigger	ValidateSignal(T signal)	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U01：LiveOps 事件过滤/触发/冷却/状态机（C1-W2 收尾））	Everguild.LiveOps/SignalEventTrigger.cs:65
+706	SinglePlayerOnlyEnergyEventWindow	CollectClicked()	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U14：Energy / Skirmish / Ranked 三扇窗收尾）	SinglePlayerOnlyEnergyEventWindow.cs:389
+712	SinglePlayerOnlyEnergyEventWindow	RefreshScore()	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U14：Energy / Skirmish / Ranked 三扇窗收尾）	SinglePlayerOnlyEnergyEventWindow.cs:306
+713	SinglePlayerOnlyEnergyEventWindow	RefreshScore(RewardInfo[] obj)	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U14：Energy / Skirmish / Ranked 三扇窗收尾）	SinglePlayerOnlyEnergyEventWindow.cs:397
+714	SinglePlayerOnlyEnergyEventWindow	TryOpen(object data, GameWindowOptions options)	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U14：Energy / Skirmish / Ranked 三扇窗收尾）	SinglePlayerOnlyEnergyEventWindow.cs:95
+715	SinglePlayerOnlyEnergyEventWindow	_003COpen_003Eb__11_0(RewardEvent e)	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U14：Energy / Skirmish / Ranked 三扇窗收尾）	SinglePlayerOnlyEnergyEventWindow.cs:464
+716	SinglePlayerScoringEvent	PurchaseMilestone(int milestoneIndex, Action<RewardInfo[]> onComplete, Action<string> onError)	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U14：Energy / Skirmish / Ranked 三扇窗收尾）	SinglePlayerScoringEvent.cs:105
+717	SinglePlayerScoringEvent	TryColllect(Action<RewardInfo[]> onComplete, Action<string> onError)	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U14：Energy / Skirmish / Ranked 三扇窗收尾）	SinglePlayerScoringEvent.cs:96
+721	SkirmishEventWindow	CollectClicked()	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U14：Energy / Skirmish / Ranked 三扇窗收尾）	SkirmishEventWindow.cs:458
+727	SkirmishEventWindow	RefreshScore()	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U14：Energy / Skirmish / Ranked 三扇窗收尾）	SkirmishEventWindow.cs:344
+731	SurvivalEventWindowEnemyMarker	Awake()	③ 判不了/别域/非缺口	别域：生存事件窗（Survival 模式）的敌方标记属**战斗内表现**（战斗界面_HUD / 战斗线），不在日常/奖励域落地；账记在本域只是按原版类归档。	判据 判据/日常与活动.md:23（原判「域外 → 战斗线」）· 报告 G2/D1 第2轮改判 C 只表示「不复刻的判据不成立」，不表示该在此域做
+732	SurvivalEventWindowEnemyMarker	SetEnemyName(string name)	③ 判不了/别域/非缺口	别域：同上（写敌方名字 + 重激活隐藏标记 = 战斗内 HUD 行为）。	判据 判据/日常与活动.md:23
+733	SurvivalEventWindowEnemyMarker	SetHiddenEnemy()	③ 判不了/别域/非缺口	别域：同上（显示隐藏标记 / 隐藏已揭示标记 = 战斗内 HUD 行为）。	判据 判据/日常与活动.md:23
+739	TimerDisplay	LocalizationChange()	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U12：通用活动 UI 件（角标 / 阵营展示 / 加成计时 / 窗基类刷新 / 倒计时本地化））	TimerDisplay.cs:329
+745	TwoSidesEvent	Expire(Action onComplete)	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U07：TwoSides 双阵营活动（选边 + 进行中 + 里程碑领取））	TwoSidesEvent.cs:397
+748	TwoSidesEvent	PurchaseMilestone(int milestoneIndex, Action<RewardInfo[]> onComplete, Action<string> onError)	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U07：TwoSides 双阵营活动（选边 + 进行中 + 里程碑领取））	TwoSidesEvent.cs:260
+749	TwoSidesEvent	SelectTeam(string teamId, Action onComplete)	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U07：TwoSides 双阵营活动（选边 + 进行中 + 里程碑领取））	TwoSidesEvent.cs:357
+750	TwoSidesEvent	TryColllect(Action<RewardInfo[]> onComplete, Action<string> onError)	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U07：TwoSides 双阵营活动（选边 + 进行中 + 里程碑领取））	TwoSidesEvent.cs:251
+753	TwoSidesEventSelectTeamContainer	ContainerButtonClick()	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U07：TwoSides 双阵营活动（选边 + 进行中 + 里程碑领取））	TwoSidesEventSelectTeamContainer.cs:41
+765	TwoSidesEvent_ChooseSideTab	OnTeamSelectionCompleted()	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U07：TwoSides 双阵营活动（选边 + 进行中 + 里程碑领取））	TwoSidesEvent_ChooseSideTab.cs:160
+766	TwoSidesEvent_ChooseSideTab	TeamSelected(TwoSidesEventData.TeamInfo teamInfo)	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U07：TwoSides 双阵营活动（选边 + 进行中 + 里程碑领取））	TwoSidesEvent_ChooseSideTab.cs:109
+770	TwoSidesEvent_OnGoingTab	CollectClicked()	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U07：TwoSides 双阵营活动（选边 + 进行中 + 里程碑领取））	TwoSidesEvent_OnGoingTab.cs:340
+775	UIGenericEventCatcher	InvokeEvent(UnityEvent eventToCall)	③ 判不了/别域/非缺口	判不了（架构差异）：UIGenericEventCatcher 是把 prefab 里序列化的 UnityEvent 转发到 C# 委托的适配器（84 包 160 处挂接）；我们的 UI 全部直接 C# 接线，架构里不存在这一层 ⇒ 无对应物。建议判 A，需调度台确认（E13 已把它补成 C/P1，理由是「活件、既非服务器也非空」）。	判据 判据/日常与活动.md:23（原判 D：机制不同，我们走 PointerLayer 显式矩形）· 账 备注 E13 补 P1
+776	UIGenericEventCatcher	SourceDelegate()	③ 判不了/别域/非缺口	判不了（架构差异）：同上（SourceDelegate 转发）。建议判 A，需调度台确认。	判据 判据/日常与活动.md:23
+777	UIGenericEventCatcher	Toggle(bool option)	③ 判不了/别域/非缺口	判不了（架构差异）：同上（Toggle 转发）。建议判 A，需调度台确认。	判据 判据/日常与活动.md:23
+778	WeeklyMissionMilestone	DisplayCheckmark(int value, int currentValue, int lastReachedMilestone, RewardInfo[] rewardsToDisplay)	① 可真做	原版有可复刻的客户端行为、离线可做、落点已定位或可新建（工作单元 U11：每日奖励 / 连登 / 任务页 / 自动弹窗）	WeeklyMissionMilestone.cs:28

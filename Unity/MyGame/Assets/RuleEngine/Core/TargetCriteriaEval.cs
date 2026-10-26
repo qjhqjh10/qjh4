@@ -25,7 +25,7 @@
 //    70 abilityOwner / 40 attacker / 80 actingCard ⇒ 候选 == thisCard（80 另有 `:169 return 1` 一支）
 //    90 targetIfMeetsCriteria ⇒ 候选 == targetCard **只是准入**（不等 ⇒ false），
 //       **相符后继续走下面那批常规格**（`:193-201`；⚠️ 与 30 不是同一档 —— 2026-10-25 `E9` 订正）
-//    140 / 150        ⇒ 候选 ∈「上一条能力的目标」静态表（`:176-206`）
+//    140 / 150        ⇒ 140 **只**回「候选在不在静态表」（`:495-510`）；150 在表里才继续走常规格（`:172-183`）
 //    200 / 201        ⇒ 候选 ∈ `thisCard.referencedCards`（**我们的 `ResolveTargets` 早已单独处理这两档并返回**）
 //    235 warlordsTalent ⇒ 拿督军天赋卡比卡名（**未建模** ⇒ `null`）
 //  🔴 **原版这一档【根本不筛】的**（🆕 2026-10-24 · `W25` · `D1` 的 R1）—— 判据 = **建池**那个函数
@@ -38,7 +38,7 @@
 //    240 lowestHealth（`:835-843`）· 245 secretsPlayed（`:523-622`）⇒ 本类**一律 `true`**。
 //    ⚠️ 别照 `CheckIfMeetsCriteria.c` 反推（那是另一个函数，140/150 两处口径不同）。
 //  常规档 —— 下列次序 = `CheckIfMeetsCriteria.c` 的**语句次序**（`:203-408`），全部 AND、任一不满足立刻 false：
-//    ① `excludeSimilarCards`(`+0x1f`)：候选卡名 == thisCard 卡名 ⇒ false（`:203-215`）
+//    ① `excludeSimilarCards`(`+0x1f`)：候选与 thisCard 是**同一张原卡**（`rawCardData` 引用）⇒ false（`:203-215`）
 //    ② 阵营闸 `friendlyUnits`(`+0x14`) / `enemyUnits`(`+0x15`)（`:216-228`）
 //    ③ `includeSelf`(`+0x1d`) / `excludeNotSelf`(`+0x1e`)（`:232-243`）
 //    ④ `excludeFriendlyHero`(`+0x21`) / `excludeEnemyHero`(`+0x22`)（`:244-272`，逐句见那一格）
@@ -47,14 +47,14 @@
 //       20 Tactic ⇒ `includeSpells`；40 Whispers ⇒ `includeWhispers`（那一格为「假」⇒ false）
 //    ⑦ `spellType`(`+0x68`) != 0 且 != 候选 `+0x90` ⇒ false（`:294-297`）
 //    ⑧ `conditionsFilter`(`+0x38`) / `excludeCondition`(`+0x3d`) → `MeetsConditionCriteria`（`:298-303`）
-//    ⑨ `keywordFilter`(`+0x2c`) + `excludeRace`(`+0x30`)（`:304-313`，语义见下面 `KeywordPasses`）
-//    ⑩ `traitsFilter`(`+0x34`) + `excludeTrait`(`+0x3c`) → `MeetsTraitCriteria`（`:314-317`）
+//    ⑨ `keywordFilter`(`+0x2c`) + `excludeRace`(`+0x30`)（`:304-313`；判「有没有」= `rawCard.keyword(+0x98)` 数值全等）
+//    ⑩ `traitsFilter`(`+0x34`) + `excludeTrait`(`+0x3c`) → `MeetsTraitCriteria`（`:314-317`；含 summonRift(730) 门）
 //    ⑪ 四组 `MeetsStatCriteria`：attack `+0x48/+0x4c` · health `+0x50/+0x54` · cost `+0x58/+0x5c` ·
 //       rarity `+0x60/+0x64`（`:318-375`；逐句实现 = 下面 `MeetsStatCriteria` / `StatGroupsPass`）
 //    ⑫ `filterSpecificCards`(`+0x70`)：非空 ⇒ **白名单**（候选卡名在表里才过，`:465-483`）
 //    ⑬ `excludeEnchantments`(`+0x78`)：候选身上挂了表里任一张附魔 ⇒ false（`:430-463`）
 //    ⑭ `armyFilter`(`+0x28`) + `chosenArmy`(`+0x24`) → `MeetsArmyCriteria`（`:396-406`，逐值见 `ArmyPasses`）
-//    ⑮ `targetsAffected == 100` ⇒ 额外要求「相邻格里有满足者」（`:407-425`）—— **本版未实现**（`null`）
+//    ⑮ `targetsAffected == 100` ⇒ 额外要求**候选就在 thisCard 的相邻里**（`:407-425`，2026-10-26 `W6K11` 落地）
 //  末尾 `:407-408`：`ta != 100` ⇒ **return 1**。
 //  ⚠️ `selectFromChooseResolution` / `maxTargets` / `targetSelectMethod` **不在**这个函数里
 //     （它们不是「筛」：前一个是候选池来源，后两个是**裁剪**）⇒ 本类**不看**它们。
@@ -130,17 +130,17 @@ namespace RuleEngine
                     if (targetCard == null) { gap = $"`ta={ta}` 要拿 targetCard 比身份，这次没有点选目标"; return null; }
                     if (!ReferenceEquals(candidate, targetCard)) return false;
                     break;                                // 身份相符 ⇒ 继续走下面那批常规筛
-                case 140:                                 // previousAbilityTargets
-                case 150:                                 // previousAbilityFiltered
+                case 140:                                 // previousAbilityTargets —— **只**返回「在表里」
+                    if (ctx == null) { gap = "`ta=140` 需要 ctx"; return null; }
+                    if (ctx.PreviousAbilityTargets == null) { gap = "`ta=140` 的静态表不可用"; return null; }
+                    return PrevTargetsContains(ctx, candidate);   // `:495-510`：**不落**常规格（见 helper doc）
+                case 150:                                 // previousAbilityFiltered —— 在表里才继续走常规格
                     if (ctx == null) { gap = "`ta=150` 需要 ctx"; return null; }
                     if (ctx.PreviousAbilityTargets == null) { gap = "`ta=150` 的静态表不可用"; return null; }
-                    {
-                        bool inPrev = false;
-                        for (int i = 0; i < ctx.PreviousAbilityTargets.Count; i++)
-                            if (ReferenceEquals(ctx.PreviousAbilityTargets[i], candidate)) { inPrev = true; break; }
-                        if (!inPrev) return false;
-                    }
+                    if (!PrevTargetsContains(ctx, candidate)) return false;
                     break;                                // 在表里 ⇒ 继续走下面那批常规筛
+                    // 140/150 的分叉判据 = `CheckIfMeetsCriteria.c:172-183`（150 落常规格）
+                    // vs `:495-510`（140 直接 `return List.Contains`）—— 2026-10-26 `W6K11` 现读订正。
                 case 200:                                 // 我们的 ResolveTargets 已单独处理并提前返回
                 case 201:
                     gap = $"`ta={ta}` referencedCards —— 这条路在 `ResolveTargets` 早已单独处理，不该走到这里";
@@ -149,18 +149,18 @@ namespace RuleEngine
                     gap = "`ta=235 warlordsTalent` 本版未建模（要比督军天赋卡）";
                     return null;
                 case 100:                                 // adjacentToSelfIfMeetsCriteria
-                    // 🔴🆕 **2026-10-25（执行代理 `X3`）：本档的【口径订正 + 只做对了一半】。**
+                    // 🔴🆕 **2026-10-25（执行代理 `X3`）：本档的【口径订正】。**
                     //   ① 之前这里直接 `gap=未实现` 早返 ⇒ **常规 36 格一格都没跑**。原版
                     //      `FilterMethods__CheckIfMeetsCriteria.c` 的**早返 switch（`:56-160`）里确实
                     //      没有 100 这一档** ⇒ 常规格该判的都要判 ⇒ 这里改成 `break` 落进常规档。
-                    //   ② ⚠️ **但「原版没有 0x64 分支」这句话是错的**（判据文档 `待办判据_引擎_1025b`
-                    //      「顺手发现 2」的说法，⛔ 别照抄）：该函数**尾巴** `:407` 明写
-                    //      `if (*(int *)(param_4 + 0x10) != 100) return 1;` 然后
-                    //      `:411-425` 走 `BattleManager__GetAdjacentUnits(manager, thisCard)` +
-                    //      `List.Find(predicate)` ⇒ **`ta=100` 还额外要求「thisCard 的相邻里至少有
-                    //      一个满足同一份 criteria 的单位」**。它没被 grep 到只是因为反编译器把常量
-                    //      印成了**十进制 `100`**（`grep 0x64` 自然 0 命中）。⇒ 那一截**仍未实现**，
-                    //      由函数尾那条 `gap` 兜住（`null` = 判不了 ⇒ 保留候选 + 出声）。
+                    //   ② ⚠️ 该函数**尾巴** `:407` 明写 `if (*(int *)(param_4 + 0x10) != 100) return 1;`，
+                    //      `:411-425` 再走 `BattleManager__GetAdjacentUnits(manager, thisCard)` +
+                    //      `List.Find(predicate)`，谓词体 = `DisplayClass0_0_b__0`（`x == 候选`）
+                    //      ⇒ **`ta=100` 额外要求「候选就在 thisCard 的相邻里」**（不是「相邻里有满足者」）。
+                    //      反编译器把这个常量印成**十进制 `100`**（`grep 0x64` 自然 0 命中）。
+                    //   ③ 🆕 2026-10-26（`W6K11`）：那一截**已落地** = 函数尾调 `CandidateAdjacentTo`
+                    //      （判据 = `:411-425` ＋ `MinionManager__GetAdjacentUnits.c` 全文）。
+                    //      它按原版的**两条 List 序**判（贴督军那一格的「前一个邻居」= 督军本身）。
                     //   判据全文 → `资料/普查产出_1025/X3_引擎判据缺口_执行报告.md` §4。
                     break;
 
@@ -210,12 +210,12 @@ namespace RuleEngine
             //     出声，也不冒充「确定淘汰」），如实记在这里 —— 不是原版语义，是本类的降级约定。
             // ==========================================================================================
 
-            // ① `excludeSimilarCards`(`+0x1f`)（`:203-215`）：候选卡名 == thisCard 卡名 ⇒ 淘汰
+            // ① `excludeSimilarCards`(`+0x1f`)（`:203-215`）：候选与 thisCard 是**同一张原卡** ⇒ 淘汰
             if (FlagOn(set.ExcludeSimilarCards))
             {
-                if (thisCard == null) { gap = "`excludeSimilarCards` 要拿 thisCard 比卡名，本版没有载体"; return null; }
-                if (thisCard.Card != null && candidate.Card != null
-                    && string.Equals(thisCard.Card.Name, candidate.Card.Name, StringComparison.Ordinal))
+                if (thisCard == null) { gap = "`excludeSimilarCards` 要拿 thisCard 比原卡，本版没有载体"; return null; }
+                // 🔴 原版比的是 `rawCardData(+0x28)` 的**对象引用**（`:207-212`），不是卡名 —— 同一个 `CardDef` 实例 = 同一张原卡（改前比卡名，见账 `收藏:188`）
+                if (thisCard.Card != null && candidate.Card != null && ReferenceEquals(thisCard.Card, candidate.Card))
                     return false;
             }
 
@@ -374,14 +374,14 @@ namespace RuleEngine
             }
 
             // 🔴 原版 `:407-408`：`ta != 100` ⇒ `return 1`；`ta == 100` 还要过 `:411-425` 的
-            //    「thisCard 的相邻里有满足者」那一截（判据见上面 `case 100` 的注释）。
-            //    ⚠️ 那一截本版**未实现** ⇒ `null`（判不了 ⇒ 保留候选 + 出声）。⛔ 别写成
-            //    `return true` —— 那是「悄悄少筛一道」，正好是 `ta=100` 这一档最容易犯的错。
+            //    「候选是不是 thisCard 的相邻」那一截（`GetAdjacentUnits + List.Find(x == 候选)`）。
+            //    🆕 2026-10-26（`W6K11`）：这一截**已实现**（`CandidateAdjacentTo`，判据 = `:411-425`）。
+            //    候选不在相邻里 ⇒ **false（淘汰）**，⛔ 不是「判不了」；只有缺载体 / 棋盘才 `null`。
             if (ta == 100)
             {
-                gap = "`ta=100` 的「thisCard 的相邻里有满足者」那一截本版未实现"
-                    + "（原版 `CheckIfMeetsCriteria.c:411-425` 的 `GetAdjacentUnits + Find`）";
-                return null;
+                bool? adj = CandidateAdjacentTo(ctx, thisCard, candidate);
+                if (adj == null) { gap = "`ta=100` 要判「候选是不是 thisCard 的相邻」，本版缺载体 / 棋盘 ⇒ 判不了"; return null; }
+                return adj.Value;
             }
             return true;
         }
@@ -510,7 +510,7 @@ namespace RuleEngine
         /// <code>
         /// | 组     | cardStat（候选当前值）        | thisCardStat        | statFilter | altValue（第 5 实参）          |
         /// | 攻     | `CurrentMeleeAttack`          | 载体`CurrentMeleeAttack` | +0x48  | 候选 `CurrentRangeAttack`      |
-        /// | 血     | `CurrentHealth`（ObscuredInt +0x68） | 载体`CurrentMeleeAttack` | +0x50 | 候选 `GetCurrentTraitValueWithModifiers(0x352 /*bastion*/)` |
+        /// | 血     | `CurrentHealth`（ObscuredInt +0x68） | 载体`CurrentMeleeAttack` | +0x50 | 候选 `GetCurrentTraitValueWithModifiers(0x352 /*bastion*/)` = **我们的 `Armor`**（`bastion` 那一格键名在我们数据里是 `armour`，见下） |
         /// | 费     | `CurrentCost`                 | 载体`CurrentMeleeAttack` | +0x58  | 0                              |
         /// | 稀有度 | `cardData.rarity`(+0x28)      | 载体`CurrentMeleeAttack` | +0x60  | 0                              |
         /// </code>
@@ -560,7 +560,7 @@ namespace RuleEngine
                 if (!TryStatThisCardStat(set.CurrentHealthFilterOption, thisCard, out thisStat))
                 { gap = $"`currentHealthFilterOption={set.CurrentHealthFilterOption}` 要与载体比，本版没有载体"; return null; }
                 bool? r = MeetsStatCriteria(candidate.Health, thisStat, set.CurrentHealthFilter,
-                                            set.CurrentHealthFilterOption, candidate.Bastion);
+                                            set.CurrentHealthFilterOption, candidate.Armor);   // 🔴 0x352 `bastion` = 我们的**护甲**（`UnitState.Bastion` 是另一格键，恒 0）
                 if (r == null) { gap = $"`currentHealthFilterOption={set.CurrentHealthFilterOption}` 认不出 ⇒ 判不了"; return null; }
                 if (!r.Value) return false;
             }
@@ -646,18 +646,16 @@ namespace RuleEngine
             return -1;
         }
 
-        /// <summary>卡种白名单（`:280-293`）。`null` = 这一档本版判不了。
-        /// ⚠️ 原版「那一格为假 ⇒ 淘汰」；我们模型里 `-1`（没落）**不当假**（如实：判不了）。</summary>
+        /// <summary>卡种白名单（`:280-293`）。`null` = 这一档本版判不了；`-1`（没落）**不当假**（判不了）。
+        /// ⚠️ `includeWeapons`/`includeHeroParts` 原版**一次都不读**；🆕 判定表收进 `TypeGatePasses`（两条路共用）。</summary>
         static bool? CardTypePasses(UnitState u, CardDef.CountSetSpec set)
         {
-            string t = u.Card != null ? u.Card.Type : null;
-            int need;
-            if (t == "hero") need = set.IncludeHero;
-            else if (t == "unit") need = set.IncludeMinions;
-            else if (t == "tactic" || t == "defence") need = set.IncludeSpells;
-            else return null;                                  // 没建模的卡种
-            if (need == CardDef.CountSetSpec.Unknown) return null;
-            return need != 0;
+            // 原版读候选 `rawCardData.cardType(+0x94)`；我们模型里它就是 `CardDef.Type`
+            //   （对账表 2026-10-26 现读：unit↔Minion(0) · hero↔Hero(10) ·
+            //     tactic / defence / enchantment ↔ Tactic(20) —— 三种 `type` 共用 includeSpells 那一格）
+            return TypeGatePasses(u != null && u.Card != null ? u.Card.Type : null, set);
+            // ⚠️ `whispers(40)` 那一格原版也读；本池 0 张卡落到它，`TypeGatePasses` 里照样保留
+            //    （池内 type 分布现读：unit 586 · tactic 446 · hero 56 · defence 39 · enchantment 1）
         }
 
         /// <summary>`keywordFilter`(`+0x2c`) + `excludeRace`(`+0x30`)，逐句照 `:304-313`：
@@ -666,19 +664,20 @@ namespace RuleEngine
         /// if (keywordFilter != 0 &amp;&amp; excludeRace == 0) ⇒ 候选**没有**这个词 ⇒ false（有 ⇒ true）
         /// if (keywordFilter != 0 &amp;&amp; excludeRace != 0) ⇒ 候选**有**这个词 ⇒ false（没有 ⇒ true）
         /// </code>
-        /// `keywordFilter` 是原版 `Keyword` 枚举（5 Infantry / 10 Vehicle / …）。
-        /// ⚠️ 判「这张卡算不算某一类」走 `CreatePool.MatchesKind` —— **全仓唯一判据**（⛔ 别另写）。
+        /// 🔴 「有没有这个词」= 原版 `RawCardScript.IsKeyword` = **`rawCard.keyword(+0x98)` 数值全等**
+        /// （`RawCardScript__IsKeyword.c:5-7`）⇒ 我们比 `CardDef.KeywordId`（唯一实现 = `KeywordHas`）。
+        /// ⚠️ 改前走 `CreatePool.MatchesKind`（**subtype 词表**）—— 那不是这一格的判据：实测差 3 张
+        /// （`EC55/EC56/EC57` keyword=Infantry 但 subtype=Warlord）＋ 3 张结构体（keyword=0）。见账 `收藏:188`。
         /// </summary>
         static bool? KeywordPasses(UnitState u, int keywordFilter, int excludeRace)
         {
             if (keywordFilter == CardDef.CountSetSpec.Unknown) return null;
             if (keywordFilter == 0) return true;
             if (excludeRace == CardDef.CountSetSpec.Unknown) return null;
-            string word = KindWordOfKeyword(keywordFilter);
-            if (word == null) return null;
-            if (u.Card == null) return null;
-            bool has = CreatePool.MatchesKind(u.Card, word);
-            return excludeRace != 0 ? !has : has;
+            if (u == null || u.Card == null) return null;
+            bool? has = KeywordHas(u.Card, keywordFilter, out _);
+            if (has == null) return null;
+            return excludeRace != 0 ? !has.Value : has.Value;
         }
 
         /// <summary>原版 `Keyword` 枚举 → 我们 `CreatePool.KindWords` 的词
@@ -702,37 +701,38 @@ namespace RuleEngine
 
         /// <summary>`traitsFilter`(`+0x34`) + `excludeTrait`(`+0x3c`)（`:314-317` → `MeetsTraitCriteria`）。
         /// 判法：候选单位**当前**身上有没有这个关键词（`UnitState.Has` —— 含运行时加的，
-        /// 与 `CardCriteria.Matches(UnitState)` 同一口径）。`name` 走 `KeywordTable.Normalize`
-        /// （唯一的关键词归一化口）；认不出 ⇒ `null`。
-        /// ⚠️ `excludeTrait` 的取反方向**没有**单独的反编译方法体可读（`MeetsTraitCriteria` 的产物缺失）
-        /// ⇒ 按与 `excludeRace` 同构的「排除=有就淘汰」处理，**并在这里如实标注**。
+        /// 与 `CardCriteria.Matches(UnitState)` 同一口径）。`key` 走 `TraitKeyOfName`（Normalize → 兜底）。
+        /// 🔴🆕 2026-10-26（`W6K11`）就地订正：`FilterMethods__MeetsTraitCriteria.c:12-60` 与
+        /// ILSpy `FilterMethods.cs:1204-1259` **都有方法体**（原来这里写「产物缺失」已过期）——
+        /// 体内三句：① 候选带 `summonRift(730)` 且 `traitsFilter != 730` ⇒ **false**（`:31-37`，**先于**
+        /// `traitsFilter == 0` 的短路）· ② `traitsFilter == 0` ⇒ true · ③ `excludeTrait ? !has : has`。
         /// </summary>
         static bool? TraitPasses(UnitState u, int traitsFilter, int excludeTrait)
         {
             if (traitsFilter == CardDef.CountSetSpec.Unknown) return null;
-            if (traitsFilter == 0) return true;
-            if (excludeTrait == CardDef.CountSetSpec.Unknown) return null;
-            string name = TraitNameOf(traitsFilter);
-            if (name == null) return null;
-            string key = KeywordTable.Normalize(name);
-            if (string.IsNullOrEmpty(key)) return null;      // 词表里没有 ⇒ 判不了（⛔ 不当「没有」）
+            if (u == null) return null;
+            if (u.Has(KeywordTable.SummonRift) && traitsFilter != TraitSummonRift) return false;   // ① summonRift 门
+            if (traitsFilter == 0) return true;                                                   // ② 不筛
+            if (excludeTrait == CardDef.CountSetSpec.Unknown) return null;   // ③ 只在真筛 trait 时才需要这一格
+            string key = TraitKeyOfName(TraitNameOf(traitsFilter));
+            if (string.IsNullOrEmpty(key)) return null;      // 认不出 ⇒ 判不了（⛔ 不当「没有」）
             bool has = u.Has(key);
-            return excludeTrait != 0 ? !has : has;
+            return excludeTrait != 0 ? !has : has;           // ③ 排除 = 有就淘汰
         }
 
-        /// <summary>原版 `DefinedTrait` 枚举 → 名字（只收**池内数据真的用到**的那 15 个；
+        /// <summary>原版 `DefinedTrait` 枚举 → 名字（池内可达 20 个：原 15 ＋ 2026-10-26 `W6K11` 补的 330/480/730/980/1185；
         /// 表 = `d:/2/Warpforge_code/Scripts/Assembly-CSharp/DefinedTrait.cs`）。
         /// 认不出 ⇒ `null`（判不了）。</summary>
         static string TraitNameOf(int trait)
         {
             switch (trait)
             {
-                case 5: return "ephemeral";
-                case 70: return "stealth";
-                case 80: return "shield";
-                case 100: return "stun";
-                case 310: return "invulnerable";
-                case 390: return "flying";
+                case 5: return "ephemeral"; case 70: return "stealth";
+                case 330: return "markofchaos";
+                case 80: return "shield"; case 100: return "stun";
+                case 480: return "vulnerable";
+                case 310: return "invulnerable"; case 390: return "flying";
+                case 730: return "summonrift";
                 case 610: return "pack";
                 case 650: return "swarm";
                 // 🔴 **2026-10-24（`W19`）就地订正（铁律 5）**：本行原来写
@@ -746,10 +746,10 @@ namespace RuleEngine
                 //    ⚠️ 全池现读 `cardTraits` 里**没有** `Frenzied` 字面量（那 10 张写的是 `Destroyer`）
                 //    ⇒ 走 `u.Has("destroyer")` 才对得上；⛔ 别为它新建 `Frenzied` 常量（同一 trait 两份表示）。
                 case 680: return "frenzied";
-                case 910: return "tide";
-                case 975: return "blind";
-                case 1170: return "markerlight";
-                case 1200: return "ambush";
+                case 910: return "tide"; case 975: return "blind";
+                case 980: return "vanguard";
+                case 1170: return "markerlight"; case 1200: return "ambush";
+                case 1185: return "pray";
                 case 1240: return "stomp";
                 // 🔴 2026-10-25（引擎线 `F1`）**就地订正（铁律 5）**：原来是 `return "huntMark";`
                 //   —— 那串**过不了 `KeywordTable.Normalize`**：`Prefixes` 表里只登记了
@@ -774,22 +774,27 @@ namespace RuleEngine
         /// </summary>
         static bool? ArmyPasses(UnitState u, int chosenArmy, int armyFilter)
         {
-            if (armyFilter == CardDef.CountSetSpec.Unknown) return null;
-            if (armyFilter == 0) return true;
-            if (armyFilter < 1 || armyFilter > 3) return true;   // 原版：LogError 后 return true
-            if (chosenArmy == CardDef.CountSetSpec.Unknown) return null;
-            string chosen = FactionOfArmy(chosenArmy);
-            if (chosen == null) return null;
-            string cand = u.Card != null ? u.Card.Faction : null;
-            if (string.IsNullOrEmpty(cand)) return null;
-            bool same = string.Equals(cand, chosen, StringComparison.OrdinalIgnoreCase);
-            switch (armyFilter)
-            {
-                case 1: return same;
-                case 2: return !same;
-                case 3: return same || string.Equals(cand, "Neutral", StringComparison.OrdinalIgnoreCase);
-                default: return true;
-            }
+            // 🆕 2026-10-26（`W6K11`）：判定体搬到类尾 `ArmyPassesFor(faction, …)` —— 卡面级
+            //   `MatchesRawCard` 要用**同一张表**（原来只有 `UnitState` 这版；两处写同一张表迟早不一致）。
+            return ArmyPassesFor(u != null && u.Card != null ? u.Card.Faction : null, chosenArmy, armyFilter);
+            // 判据（`FilterMethods__MeetsArmyCriteria.c:18-47`，逐值）：
+            //   `0 AnyArmy`                 ⇒ **true**（不筛）
+            //   `1 OnlyChosenArmy`          ⇒ `候选 == chosenArmy`
+            //   `2 ExcludeChosenArmy`       ⇒ `候选 != chosenArmy`
+            //   `3 OnlyChosenArmyOrNeutral` ⇒ 相等，**或** `GameStaticData.IsNeutralArmy(候选)`
+            //   其余值                      ⇒ 原版 `LogError` 之后 **return true**（照抄，⛔ 别改成 false）
+            //
+            // ⚠️ 候选阵营读的是 `CardDef.Faction`（原版 `rawCardData.cardArmy(+0x2c)`）——
+            //    `UnitState` 这版与卡面级那版**只差这一格取值口**，判定体一字不差。
+            //
+            // ⚠️ `chosenArmy == Unknown(-1)` / 阵营名认不出 ⇒ `null`（判不了）；`ArmyPassesFor` 里逐句写着。
+            //    ⚠️ `armyFilter` 落在 `4..` 时原版**仍然返回 true**（`LogError` 只是出声）—— 这是原版的
+            //    宽松档，⛔ 别按「越界 = 判不了」自己收紧（那会让这几档从「全过」变成「不出声地少筛」）。
+            //
+            // -- 下面四行是历史注记（铁律 6：说明搬到哪、为什么搬，不是空行占位）--
+            //    搬出前它在 `:776-793` 自带一份 5 档 switch；搬出后本方法**只留转调**。
+            //    调用点（`Matches` ⑭）行为零变化：同一份 switch、同一批 early-return。
+            //    ⛔ 别把 switch 抄回来 —— 那会让卡面级的 `ArmyPassesFor` 与本方法再次分叉。
         }
 
         /// <summary>原版 `CardArmy` 枚举 → 我们的 `CardDef.Faction` 字符串
@@ -819,6 +824,337 @@ namespace RuleEngine
                 case 120: return "EmperorsChildren";
                 case 130: return "SpaceWolves";
                 default: return null;
+            }
+        }
+
+        // ======================================================================================
+        //  🆕 2026-10-26（批次 9 · 执行代理 `W6K11` · 账 `收藏:188` / `收藏:189` / `收藏:201`）
+        //  类尾追加：原版 `FilterMethods` 三格的剩余判据 + 两个**共用**分项（⛔ 别在别处再写一份）
+        // ======================================================================================
+        //  · `收藏:188`（`CheckIfMeetsCriteria`）—— 上面已就地改了五处（⑨ keyword 数值全等 ·
+        //    ⑩ trait 的 summonRift 门 · ⑪ 血组 altValue 的 `bastion`→`Armour` · ta=140/150 分叉 ·
+        //    ta=100 相邻尾判）；这里只是把它们的 helper 收在一处。
+        //  · `收藏:189`（`CheckIfRawCardMeetsCriteria`）—— **卡面级**（读 `CardDef` 的**默认/卡面值**）
+        //  · `收藏:201`（`RawCardMeetsTraitCriteria`）—— 默认 traits + excludeTrait + summonRift 门
+        //  第一权威：`d:/2/tools/decomp_full/FilterMethods__{CheckIfRawCardMeetsCriteria,
+        //    RawCardMeetsTraitCriteria,MeetsTraitCriteria,MeetsCardTypeCriteria,MeetsArmyCriteria,
+        //    MeetsStatCriteria,MeetsSpecificCardCriteria,MeetsSpellTypeCriteria}.c`（逐句现读）
+        //  交叉：`d:/2/tools/cpp2il/out_cpp2il_dev_ilspy/FilterMethods.cs:612-715 / 1204-1372`（字段名以它为准）
+        //  ⚠️ `MeetsStatCriteria` 的 ILSpy 版**是空的**（间接跳转没解出来）⇒ 那一格只看 `.c`。
+        // ======================================================================================
+
+        /// <summary>原版 `DefinedTrait.summonRift`（`DefinedTrait.cs`: 730 = `0x2da`）。
+        /// 它同时是 **trait 筛的一格** 和 **一道门**（带它的卡只能被 `traitsFilter == 730` 放行）。</summary>
+        internal const int TraitSummonRift = 730;
+
+        /// <summary>原版 `DefinedTrait.bastion`（850 = `0x352`）—— **内部**就是「护甲」：
+        /// `CheckIfMeetsCriteria.c:349` / `CheckIfRawCardMeetsCriteria.c:49` 拿它当血组 `option 6` 的 altValue；
+        /// 而**卡面印的是 `Armour N`**（我们 `CardTraits` / `_keywords` 里的键 = `armour`）⇒ 读值一律用
+        /// `KeywordTable.Armour`（`UnitState.Armor` / `CardDef.GetDefaultTraitValue("armour")`）。</summary>
+        internal const int TraitBastion = 850;
+
+        /// <summary>`ta=140 previousAbilityTargets` ⇒ 原版**只**返回「候选在不在静态表里」
+        /// （`FilterMethods__CheckIfMeetsCriteria.c:495-510`：`List.Contains` 的结果**直接 return**，
+        /// **不落**常规 36 格）；`ta=150 previousAbilityFiltered` 才是「在表里 ⇒ **继续**走常规格」
+        /// （`:172-183`）。⚠️ 别把两档合并 —— 2026-10-26 `W6K11` 现读订正（改前合并 ⇒ 140 多筛了整条 36 格）。
+        /// <para>⚠️ 这两档在**建池侧** `AbilityLogic__GetTargets.c:849-891` 都是「整表 `AddRange` 后直接 return」
+        /// （连这一句 `Contains` 都没有）—— 本类实现的是 `CheckIfMeetsCriteria` 那一份，调它的是
+        /// `ActionPump.AbilityLevelCriteriaAllows` 与 `CountEval` 的计数组，**不是**建池。</para></summary>
+        static bool PrevTargetsContains(BattleContext ctx, UnitState candidate)
+        {
+            var list = ctx.PreviousAbilityTargets;
+            for (int i = 0; i < list.Count; i++)
+                if (ReferenceEquals(list[i], candidate)) return true;
+            return false;
+        }
+
+        /// <summary>`ta=100 adjacentToSelfIfMeetsCriteria` 的**尾判**：候选必须**就是** `thisCard` 的相邻
+        /// （原版 `CheckIfMeetsCriteria.c:407-425`：`GetAdjacentUnits(manager, thisCard)` 里
+        /// `List.Find(x =&gt; x == 候选)` 非 null）。⚠️ 谓词体 = `DisplayClass0_0__CheckIfMeetsCriteria_b__0`
+        /// = `x == evaluatedCard` ⇒ 判的是「**候选在不在相邻表里**」，⛔ **不是**「相邻里有谁满足 criteria」。
+        /// <para>相邻表 = `MinionManager__GetAdjacentUnits.c:18-115`：
+        /// ① `thisCard` 是督军 ⇒ 两条 `List` 各自的 **[0]**（贴督军那一格）；
+        /// ② 否则按它所在那条 List 的下标 `i` ⇒ 取 `i+1`（外侧）与 `i-1`（内侧），
+        ///    **`i == 0` 时「前一个」是督军本身** ⇒ 跨督军也算相邻（左内 ↔ 督军 ↔ 右内）。</para>
+        /// <para>返回 `null` = 缺 ctx / 载体 / 候选不在棋盘上 ⇒ **判不了**（⛔ 不当 false）。</para></summary>
+        static bool? CandidateAdjacentTo(BattleContext ctx, UnitState thisCard, UnitState candidate)
+        {
+            if (ctx == null || thisCard == null || candidate == null) return null;
+            int cp = SideOf(ctx, thisCard), dp = SideOf(ctx, candidate);   // ⚠️ 这是**玩家下标**，不是棋盘侧（±1）
+            if (cp < 0 || dp < 0) return null;
+            if (cp != dp) return false;                       // 相邻只在同一方棋盘里
+            var ps = ctx.Players[cp];
+            int cSlot = SlotOfUnitOnBoard(ps, thisCard), dSlot = SlotOfUnitOnBoard(ps, candidate);
+            if (cSlot < 0 || dSlot < 0) return null;
+            int side = BoardSlots.SideOf(cSlot);               // 棋盘侧：Left(-1) / 督军(0) / Right(+1)
+            if (side == 0)                                     // `thisCard` 是督军 ⇒ 相邻 = 两侧各贴督军那格
+            {
+                for (int s2 = -1; s2 <= 1; s2 += 2)
+                    if (ReferenceEquals(ps.Board[BoardSlots.SlotOf(s2, 0)], candidate)) return true;
+                return false;
+            }
+            int ci = DenseIndexOf(ps, side, thisCard);
+            if (ci < 0) return null;
+            if (DenseIndexOf(ps, side, candidate) < 0) return false;   // 候选在另一侧 ⇒ 不相邻（同一位玩家棋盘）
+            if (ci > 0 && ReferenceEquals(DenseUnitAt(ps, side, ci - 1), candidate)) return true;
+            if (ReferenceEquals(DenseUnitAt(ps, side, ci + 1), candidate)) return true;
+            return ci == 0 && ReferenceEquals(ps.Warlord, candidate);   // 贴督军那一格 ⇒「前一个邻居」= 督军
+        }
+
+        /// <summary>一个单位在这个玩家棋盘上的**格号**（`-1` = 不在）。相邻判定要在格号上再做
+        /// `BoardSlots.SideOf/IndexOf`，⛔ 别把 `SideOf(ctx,u)` 的返回值（玩家下标 0/1）当棋盘侧用。</summary>
+        static int SlotOfUnitOnBoard(PlayerState ps, UnitState u)
+        {
+            for (int s = 0; s < ps.Board.Length; s++)
+                if (ReferenceEquals(ps.Board[s], u)) return s;
+            return -1;
+        }
+
+        /// <summary>候选在**本侧 List 序**里的下标（= 原版两条 `List` 的下标）。棋盘按「连续无洞」建模，
+        /// 洞只可能来自自检夹具 ⇒ 这里按**稠密序**数，与 `List` 下标等价。`-1` = 不在这侧。</summary>
+        static int DenseIndexOf(PlayerState ps, int side, UnitState u)
+        {
+            int dense = 0;
+            for (int i = 0; i < BoardSpec.SlotsPerSide; i++)
+            {
+                var x = ps.Board[BoardSlots.SlotOf(side, i)];
+                if (ReferenceEquals(x, u)) return dense;
+                if (x != null) dense++;
+            }
+            return -1;
+        }
+
+        /// <summary>本侧 List 序第 <paramref name="dense"/> 个（越界 ⇒ `null`；洞被跳过，口径同 <see cref="DenseIndexOf"/>）。</summary>
+        static UnitState DenseUnitAt(PlayerState ps, int side, int dense)
+        {
+            if (dense < 0) return null;
+            int n = 0;
+            for (int i = 0; i < BoardSpec.SlotsPerSide; i++)
+            {
+                var x = ps.Board[BoardSlots.SlotOf(side, i)];
+                if (x == null) continue;
+                if (n == dense) return x;
+                n++;
+            }
+            return null;
+        }
+
+        /// <summary>🆕 `收藏:188` ⑨ 与 `收藏:189` ⑧ 的**共同判据**：这张卡算不算 `Keyword` 枚举的某一类。
+        /// <para>原版 `RawCardScript.IsKeyword` = **`rawCard.keyword(+0x98) == k`**（数值全等；
+        /// `RawCardScript__IsKeyword.c:5-7`）⇒ 我们比 `CardDef.KeywordId`。⛔ 别再用 `CreatePool.MatchesKind`
+        /// 那套 **subtype 词表**顶它：实测差 3 张督军（`EC55/56/57` keyword=Infantry、subtype=Warlord）
+        /// ＋ 3 张 `keyword=0` 的结构体（`ASH84/ASH41/TAU62`）。</para>
+        /// <para>`KeywordId &lt; 0`（旧表 / 合成夹具没喂 `keyword` 列）⇒ 退回词表口径**并出声一次**
+        /// （见 <see cref="NoteKeywordFallback"/>）。池内 v32 卡表**全部有**这一列 ⇒ 兜底只在夹具上生效。</para>
+        /// <para>`keywordFilter == 0 (none)` ⇒ true（= 不筛）；`-1`（没落）⇒ `null` + `gap`。</para></summary>
+        internal static bool? KeywordHas(CardDef c, int keywordFilter, out string gap)
+        {
+            gap = null;
+            if (keywordFilter == CardDef.CountSetSpec.Unknown) { gap = "`keywordFilter` 未知（没落）"; return null; }
+            if (keywordFilter == 0) return true;
+            if (c == null) { gap = "没有卡 ⇒ 判不了"; return null; }
+            int kid = c.KeywordId;
+            if (kid >= 0) return kid == keywordFilter;         // 原版唯一口径
+            string word = KindWordOfKeyword(keywordFilter);
+            if (word == null) { gap = "`keywordFilter=" + keywordFilter + "` 本版认不出"; return null; }
+            NoteKeywordFallback(c);
+            return CreatePool.MatchesKind(c, word);
+        }
+
+        static readonly System.Collections.Generic.HashSet<string> _keywordFallbackNoted
+            = new System.Collections.Generic.HashSet<string>(StringComparer.Ordinal);
+
+        /// <summary>兜底路**出声**（每张卡一次）。为什么必须出声：那一步拿 subtype 词表近似原版
+        /// `keyword(+0x98)`，静默走就成了「我们自己的判据冒充原版判据」（红线：不许静默失败）。</summary>
+        static void NoteKeywordFallback(CardDef c)
+        {
+            string id = c != null && !string.IsNullOrEmpty(c.Id) ? c.Id : (c != null ? c.Name : "?");
+            if (id == null || !_keywordFallbackNoted.Add(id)) return;
+            UnityEngine.Debug.LogWarning("[TargetCriteriaEval] 卡 " + id
+                + " 没有 `keyword`（原版 `RawCardScript.keyword +0x98`）⇒ `keywordFilter` 这一格退回"
+                + " subtype 词表近似（旧表 / 自检夹具没这一列；池内 v32 卡表全都有）");
+        }
+
+        /// <summary>trait 名 → `UnitState._keywords` / `CardDef.CardTraits` 用的那个**规范键**。
+        /// <para>先走 `KeywordTable.Normalize`（已登记前缀）；认不出时按 `CardDef.TraitKeyOf` 的
+        /// **同一条规则**兜底（`':'` 之前、去空白、去数字、小写）—— `CardTraits` 落键走的就是它，
+        /// `markOfChaos` / `summonRift` 这类没进 `Prefixes` 的词靠这条才对得上。</para>
+        /// <para>⚠️ `CardDef.TraitKeyOf` 是 `private` ⇒ 这里只能同构写一份（⛔ 别在别处再抄第三份；
+        /// 哪天它公开了，**这一份就地改成转调**）。</para></summary>
+        static string TraitKeyOfName(string name)
+        {
+            if (string.IsNullOrEmpty(name)) return null;
+            string norm = KeywordTable.Normalize(name);
+            if (norm != null) return norm;
+            string head = KeywordTable.HeadOf(name).Trim().ToLowerInvariant();
+            var sb = new System.Text.StringBuilder(head.Length);
+            for (int i = 0; i < head.Length; i++)
+            {
+                char ch = head[i];
+                if (char.IsWhiteSpace(ch) || char.IsDigit(ch)) continue;
+                sb.Append(ch);
+            }
+            return sb.Length > 0 ? sb.ToString() : null;
+        }
+
+        /// <summary>卡种白名单（原版 `MeetsCardTypeCriteria.c` / `CheckIfRawCardMeetsCriteria.c:29-34` /
+        /// `CheckIfMeetsCriteria.c:280-293` 三处**同四格**）。判定表**只此一处**：
+        /// 棋盘那一支（<see cref="CardTypePasses"/>）与卡面那一支（<see cref="MatchesRawCard"/>）都转调它。
+        /// <para>`CardTypeOptions`: `Minion 0 / Hero 10 / Tactic 20 / Whispers 40`；我们 `CardDef.Type` 的
+        /// 对应（2026-10-26 现读 1,128 张）：`unit→Minion` · `hero→Hero` · `tactic|defence|enchantment→Tactic`。
+        /// `whispers(40)` 池内 0 张，照样保留（将来有卡自动生效）。</para>
+        /// <para>`null` = 卡种没建模 / 那一格未知（`-1`）⇒ 判不了（⛔ 不当「淘汰」）。</para></summary>
+        internal static bool? TypeGatePasses(string type, CardDef.CountSetSpec set)
+        {
+            int need;
+            if (type == "hero") need = set.IncludeHero;
+            else if (type == "unit") need = set.IncludeMinions;
+            else if (type == "tactic" || type == "defence" || type == "enchantment") need = set.IncludeSpells;
+            else return null;                                  // 没建模的卡种
+            if (need == CardDef.CountSetSpec.Unknown) return null;
+            return need != 0;
+        }
+
+        /// <summary>原版 `FilterMethods.RawCardMeetsTraitCriteria(RawCardScript, TargetCriteria, BattleManager, bool)`
+        /// 的等价物 —— **卡面级**（账 `收藏:201`）。
+        /// <para>判据 = `FilterMethods__RawCardMeetsTraitCriteria.c:12-73` 全文 ＋ 两个谓词体
+        /// （`__c__DisplayClass8_0___RawCardMeetsTraitCriteria_b__0.c`：`t.trait == criteria.traitsFilter` ·
+        /// `__c___RawCardMeetsTraitCriteria_b__8_1.c`：`t.trait == 0x2da summonRift`）。
+        /// 体内三句：① `CardTraits` 里有 `summonRift(730)` 且 `traitsFilter != 730` ⇒ **false**
+        /// （**先于**下面两句 —— 所以「带裂隙的卡」连 `traitsFilter == 0` 都过不了）·
+        /// ② `traitsFilter == 0` ⇒ true · ③ `excludeTrait ? !has : has`。</para>
+        /// <para>⚠️ `manager` / `isPlayer` 两个形参原版**体内一次都没读**（`.c` 全文无引用）⇒ 本签名不收。</para>
+        /// <para>🔴 **默认 traits ≠ 当前 traits**：这里读 `CardDef.CardTraits`（原版 `+0x230` 那一张）；
+        /// 棋盘那一支 <see cref="TraitPasses"/> 读的是**当前** `+0x128` 的等价物 —— ⛔ 两个口别混用。</para>
+        /// <para>`null` = 判不了（`cardTraits` 没挂 / 枚举 id 认不出）；`set == null` ⇒ 也 `null`（原版 NRE）。</para></summary>
+        public static bool? RawCardMeetsTraitCriteria(CardDef card, CardDef.CountSetSpec set, out string gap)
+        {
+            gap = null;
+            if (card == null || set == null) { gap = "card / criteria 为空（原版这里 NRE）⇒ 判不了"; return null; }
+            if (set.TraitsFilter == CardDef.CountSetSpec.Unknown) { gap = "`traitsFilter` 未知（没落）"; return null; }
+            string why;
+            bool hasRift = card.HasDefaultTrait(KeywordTable.SummonRift, out why);
+            if (why != null) { gap = why; return null; }        // `cardTraits` 没挂 ⇒ 判不了（⛔ 不当「没有」）
+            if (hasRift && set.TraitsFilter != TraitSummonRift) return false;   // ① summonRift 门
+            if (set.TraitsFilter == 0) return true;                             // ② 不筛
+            if (set.ExcludeTrait == CardDef.CountSetSpec.Unknown) { gap = "`excludeTrait` 未知（没落）"; return null; }
+            string key = TraitKeyOfName(TraitNameOf(set.TraitsFilter));
+            if (key == null) { gap = "`traitsFilter=" + set.TraitsFilter + "` 本版认不出"; return null; }
+            bool has = card.HasDefaultTrait(key, out why);
+            if (why != null) { gap = why; return null; }
+            return set.ExcludeTrait != 0 ? !has : has;                          // ③ 排除 = 有就淘汰
+        }
+
+        /// <summary>原版 `FilterMethods.CheckIfRawCardMeetsCriteria` 的等价物（**卡面级** · 账 `收藏:189`）。
+        /// <para>判据 = `FilterMethods__CheckIfRawCardMeetsCriteria.c:18-103` 全文（ILSpy 交叉
+        /// `out_cpp2il_dev_ilspy/FilterMethods.cs:612-715`）。语句次序（全部 AND、任一 false 立刻返回）：
+        /// ① `targetsAffected == 0 (any)` ⇒ true · ② 卡种白名单（四格 → `TypeGatePasses`）·
+        /// ③ `spellType` · ④ `RawCardMeetsTraitCriteria`（含 summonRift 门）· ⑤ 攻 / 血 / 费 / 稀有度四组
+        /// `MeetsStatCriteria`（`cardStat` = **卡面值**；altValue = 攻→`RangedAttack` · 血→`armour` 值 ·
+        /// 费 / 稀有度→0）· ⑥ `filterSpecificCards` 白名单（比 `uniqueId`）· ⑦ `armyFilter` ·
+        /// ⑧ `keywordFilter` + `excludeRace`（数值全等 → `KeywordHas`）。</para>
+        /// <para>🔴 这个原版函数**一次都不读**的格（⛔ 别顺手补）：`friendlyUnits` / `enemyUnits` /
+        /// `includeSelf` / `excludeNotSelf` / `excludeSimilarCards` / `excludeTargetted` /
+        /// `excludeFriendlyHero` / `excludeEnemyHero` / `includeRemnants` / `excludeEnchantments` /
+        /// `maxTargets` / `targetSelectMethod` / `selectFromChooseResolution` —— 卡面级没有棋盘与实例态。</para>
+        /// <para>`null` = 某一格判不了（`gap` 写明是哪一格）；`set == null` ⇒ true（本仓「没有 criteria 行 = 不筛」，
+        /// 与 <see cref="Matches"/> 同一条约定）。</para></summary>
+        public static bool? MatchesRawCard(CardDef card, CardDef.CountSetSpec set, out string gap)
+        {
+            gap = null;
+            if (set == null) return true;                       // 没有 criteria 行 ⇒ 不筛
+            if (card == null) { gap = "候选卡为空（原版这里 NRE）⇒ 判不了"; return null; }
+            int ta = set.TargetsAffected;
+            if (ta == CardDef.CountSetSpec.Unknown) { gap = "`targetsAffected` 未知（没落）"; return null; }
+            if (ta == 0) return true;                           // ① any（`.c:23-26`）
+            bool? typ = TypeGatePasses(card.Type, set);         // ② 卡种白名单（`.c:29-34`）
+            if (typ == null) { gap = "卡种白名单：`type=" + (card.Type ?? "?") + "` 本版没建模（或那一格未知）⇒ 判不了"; return null; }
+            if (!typ.Value) return false;
+            if (set.SpellType == CardDef.CountSetSpec.Unknown) { gap = "`spellType` 未知（没落）"; return null; }
+            if (set.SpellType != 0)                             // ③ spellType（`.c:34` 的 `&&` 尾巴）
+            {
+                if (card.SpellType < 0) { gap = "候选卡的 `spellType` 未知 ⇒ 判不了"; return null; }
+                if (card.SpellType != set.SpellType) return false;
+            }
+            bool? tr = RawCardMeetsTraitCriteria(card, set, out gap);   // ④ traits（`.c:38`）
+            if (tr != true) return tr;
+            bool? r = RawStat(set.AttackFilterOption, set.AttackFilter, card.Attack, card.RangedAttack);
+            if (r == null) { gap = "`attackFilterOption=" + set.AttackFilterOption + "` 未知 ⇒ 判不了"; return null; }
+            if (!r.Value) return false;
+            string why;
+            int armour = 0;                                     // 血组的 altValue = **护甲**（原版 0x352 `bastion`）
+            if (set.CurrentHealthFilterOption != StatNotApplicable
+                && set.CurrentHealthFilterOption != CardDef.CountSetSpec.Unknown)
+            {
+                armour = card.GetDefaultTraitValue(KeywordTable.Armour, out why);
+                if (why != null) { gap = why; return null; }    // `cardTraits` 没挂 ⇒ 判不了（⛔ 不当 0）
+            }
+            r = RawStat(set.CurrentHealthFilterOption, set.CurrentHealthFilter, card.Health, armour);
+            if (r == null) { gap = "`currentHealthFilterOption=" + set.CurrentHealthFilterOption + "` 未知 ⇒ 判不了"; return null; }
+            if (!r.Value) return false;
+            r = RawStat(set.ManaCostFilterOption, set.ManaCostFilter, card.Cost, 0);
+            if (r == null) { gap = "`manaCostFilterOption=" + set.ManaCostFilterOption + "` 未知 ⇒ 判不了"; return null; }
+            if (!r.Value) return false;
+            int? rar = RarityOf(card);
+            if (rar == null) { gap = "候选卡的 `rarity` 认不出 ⇒ 判不了"; return null; }
+            r = RawStat(set.RarityFilterOption, set.RarityFilter, rar.Value, 0);   // ⑤ 四组（`.c:40-61`）
+            if (r == null) { gap = "`rarityFilterOption=" + set.RarityFilterOption + "` 未知 ⇒ 判不了"; return null; }
+            if (!r.Value) return false;
+            if (set.FilterSpecificCardIds != null && set.FilterSpecificCardIds.Length > 0)   // ⑥ 白名单（`.c:67-94`）
+            {
+                bool hit = false;
+                for (int i = 0; i < set.FilterSpecificCardIds.Length; i++)
+                    if (card.Id != null && string.Equals(card.Id, set.FilterSpecificCardIds[i], StringComparison.Ordinal))
+                    { hit = true; break; }
+                if (!hit) return false;
+            }
+            bool? army = ArmyPassesFor(card.Faction, set.ChosenArmy, set.ArmyFilter);        // ⑦（`.c:70-72`）
+            if (army == null) { gap = "`armyFilter=" + set.ArmyFilter + "` 本版判不了"; return null; }
+            if (!army.Value) return false;
+            if (set.KeywordFilter == CardDef.CountSetSpec.Unknown) { gap = "`keywordFilter` 未知（没落）"; return null; }
+            if (set.KeywordFilter != 0)                                                      // ⑧（`.c:74-79`）
+            {
+                if (set.ExcludeRace == CardDef.CountSetSpec.Unknown) { gap = "`excludeRace` 未知（没落）"; return null; }
+                bool? kw = KeywordHas(card, set.KeywordFilter, out gap);
+                if (kw == null) return kw;
+                if (set.ExcludeRace != 0 ? kw.Value : !kw.Value) return false;
+            }
+            return true;
+        }
+
+        /// <summary>卡面级一组 stat（`MeetsStatCriteria` 的实参包装）：`option` 未知 ⇒ `null`；
+        /// `NotApplicable(0)` ⇒ true；其余转发 <see cref="MeetsStatCriteria"/>。
+        /// 第 2 实参恒 `0` —— 原版这个函数四组传的都是 `0`（`.c:42 / :51 / :55 / :59`）。</summary>
+        static bool? RawStat(int option, int filter, int cardStat, int altValue)
+        {
+            if (option == CardDef.CountSetSpec.Unknown) return null;
+            if (option == StatNotApplicable) return true;
+            if (filter == CardDef.CountSetSpec.Unknown) return null;
+            return MeetsStatCriteria(cardStat, 0, filter, option, altValue);
+        }
+
+        /// <summary>`FilterMethods.MeetsArmyCriteria` 的**卡面级**版（收 `CardDef.Faction` 名字）。
+        /// 判据逐值（`FilterMethods__MeetsArmyCriteria.c:18-47`）：`0 AnyArmy` ⇒ true ·
+        /// `1 OnlyChosenArmy` ⇒ 相等 · `2 ExcludeChosenArmy` ⇒ 不等 · `3 OnlyChosenArmyOrNeutral` ⇒
+        /// 相等**或** Neutral · 其余值 ⇒ 原版 `LogError` 后 **true**（照抄）。
+        /// <para>`null` = 枚举 / 阵营名认不出（判不了）。棋盘那条路 <see cref="ArmyPasses"/> **转调它**
+        /// （判定表只此一处；2026-10-26 `W6K11` 从 `ArmyPasses` 搬出来）。</para></summary>
+        internal static bool? ArmyPassesFor(string faction, int chosenArmy, int armyFilter)
+        {
+            if (armyFilter == CardDef.CountSetSpec.Unknown) return null;
+            if (armyFilter == 0) return true;
+            if (armyFilter < 1 || armyFilter > 3) return true;   // 原版：LogError 后 return true
+            if (chosenArmy == CardDef.CountSetSpec.Unknown) return null;
+            string chosen = FactionOfArmy(chosenArmy);
+            if (chosen == null) return null;
+            if (string.IsNullOrEmpty(faction)) return null;
+            bool same = string.Equals(faction, chosen, StringComparison.OrdinalIgnoreCase);
+            switch (armyFilter)
+            {
+                case 1: return same;
+                case 2: return !same;
+                case 3: return same || string.Equals(faction, "Neutral", StringComparison.OrdinalIgnoreCase);
+                default: return true;
             }
         }
     }

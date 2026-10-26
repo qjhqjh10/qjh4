@@ -10062,11 +10062,20 @@ public static class BattleScene
             // 🔴 **2026-10-25（`R16` · AU1/CF）：底光语义已改（铁律 5 就地翻面）** ——
             //   底光 = **这张卡自己的** `attackType`（原版 `ChangeAttackType` 同拍点亮自己）；
             //   「谁是合法目标」只剩 `SetHighlight(ValidTarget)` 那圈**描边**。
-            //   这张敌人**从没设过** `LastAttackType` ⇒ 它自己那一格是 `None`（原来断 `== Melee` 的语义已废）。
-            Check(driver.FoeUnits[foeSlot].CurrentGem == TargetGem.None,
-                  "合法目标 → 底光读的是**目标卡自己的** `attackType`（这张敌人没设过 ⇒ `None`）；"
+            // 🔴🔴 **2026-10-27（`W20AS` · `D1DG` 定性 α · 账 `974` ①）期望再改一次**：原来断「这张敌人
+            //   从没设过 `LastAttackType` ⇒ `None`」—— 那是 `974` **未做时**的行为（= 缺口本身），不是原版。
+            //   原版 `CardScript.UpdateAttackText` 的 `isPlayer == 0` 那支按**当前两围自动定档**：
+            //   `attackType = (CurrentMelee < CurrentRange) + 1`（判据 `decomp_full/CardScript__UpdateAttackText.c:21-67`；
+            //   **严格小于** ⇒ 两围相等落 `Melee`）。夹具这张 `Tide Minion` 两围 **1/1** ⇒ 自动档 = **Melee**。
+            //   ⚠️ 写法照抄同文件 `R16②`（`:10358` 那一套），⛔ 别在这里另造一个口径。
+            var bt1FoeUnit = ctx.Players[1].Board[foeSlot];
+            var bt1WantGem = bt1FoeUnit.Attack < bt1FoeUnit.RangedAttack ? TargetGem.Ranged : TargetGem.Melee;
+            Check(driver.FoeUnits[foeSlot].CurrentGem == bt1WantGem,
+                  "合法目标 → 底光读的是**目标卡自己的** `attackType`（这张敌人没设过 ⇒ 按两围**自动定档**"
+                + $" = {bt1WantGem}；两围 {bt1FoeUnit.Attack}/{bt1FoeUnit.RangedAttack}）；"
                 + "「合法目标」只走 `SetHighlight(ValidTarget)` 描边"
-                + "｜🧨 改回 `SetTargetGem(legal ? 攻击方打法 : None)` ⇒ 这里变 Melee ⇒ 红");
+                + "｜🧨 删掉敌方的自动定档（回 `None`）、或把 `AutoAttackTypeOf` 的 `<` 写成 `<=`"
+                + "（两围相等就会落 Ranged）⇒ 本行红");
             Shot(cam, "09_选目标_准星");
 
             // ② 指针挪开 → 🔴 **准星不灭**（2026-09-29 照原版改）。
@@ -10209,18 +10218,31 @@ public static class BattleScene
             var rc = driver.reticle.CrossColor;
             Check(rc.b > 0.8f && rc.r > 0.7f && rc.g < 0.5f,
                   $"远程 → 准星紫（{rc.r:F2},{rc.g:F2},{rc.b:F2}，原版 attackType=2）");
-            // 🔴 **2026-10-25（`R16` · AU1/CF）**：切远程只改**我方那张卡自己**的底光，目标卡仍是它自己的 `None`。
-            Check(driver.FoeUnits[foeSlot].CurrentGem == TargetGem.None,
-                  "远程 → **目标卡**的底光仍是**它自己的** `attackType`（这张没设过 ⇒ `None`；"
-                + "换打法只刷我方那张卡自己）"
-                + "｜🧨 改回「按攻方打法点亮目标」⇒ 这里变 Ranged ⇒ 红");
+            // 🔴 **2026-10-25（`R16` · AU1/CF）**：切远程只改**我方那张卡自己**的底光；
+            //   目标卡仍是**它自己的** `attackType`。
+            // 🔴🔴 **2026-10-27（`W20AS` · `D1DG` 定性 α · 账 `974` ①）**：`None` → 按两围**自动定档**
+            //   （判据同上一条：`CardScript__UpdateAttackText.c:21-67`；`Tide Minion` 两围 1/1 ⇒ **Melee**）。
+            //   这条**改完仍有分辨力**：攻方是 Ranged ⇒ 旧口径「按攻方打法点亮目标」会给 **Ranged** ⇒ 红。
+            var bt2FoeUnit = ctx.Players[1].Board[foeSlot];
+            var bt2WantGem = bt2FoeUnit.Attack < bt2FoeUnit.RangedAttack ? TargetGem.Ranged : TargetGem.Melee;
+            Check(driver.FoeUnits[foeSlot].CurrentGem == bt2WantGem,
+                  "远程 → **目标卡**的底光仍是**它自己的** `attackType`（这张没设过 ⇒ 按两围自动定档"
+                + $" = {bt2WantGem}；换打法只刷我方那张卡自己）"
+                + "｜🧨 改回「按攻方打法点亮目标」⇒ 这里变 Ranged（≠ 目标卡自己的 Melee）⇒ 红");
             Shot(cam, "10_选目标_远程准星");
             driver.SimulateDeselect();
             // 🔴 **2026-10-25（`R16`）**：清选择**不再熄底光**（它表达的是卡自己的打法，见 `ClearSelection`）——
-            //   这张敌人本来就是 `None`（没设过），所以读数不变；**描边**才是被清掉的那一半。
-            Check(driver.FoeUnits[foeSlot].CurrentGem == TargetGem.None
+            //   **描边**才是被清掉的那一半。
+            // 🔴🔴 **2026-10-27（`W20AS` · `D1DG` 定性 α · 账 `974` ①）**：底光读数从 `None` 改成
+            //   **按两围自动定档**（同 BT1/BT2；`Tide Minion` 两围 1/1 ⇒ **Melee**）。
+            //   ⇒ 这条比 BT1/BT2 多钉一件事：**清选择不会把底光打回 `None`**。
+            var bt3FoeUnit = ctx.Players[1].Board[foeSlot];
+            var bt3WantGem = bt3FoeUnit.Attack < bt3FoeUnit.RangedAttack ? TargetGem.Ranged : TargetGem.Melee;
+            Check(driver.FoeUnits[foeSlot].CurrentGem == bt3WantGem
                   && driver.FoeUnits[foeSlot].State != CardHighlightState.ValidTarget,
-                  "取消指挥 → **描边**退回 `Normal`；底光**不按「谁在选目标」灭**（这张敌人自己就是 `None`，读数不变）");
+                  "取消指挥 → **描边**退回 `Normal`；底光**不按「谁在选目标」灭**"
+                + $"（这张敌人自己那一格 = 自动定档 {bt3WantGem}，清完读数不变）"
+                + "｜🧨 让 `ClearSelection` 顺手把底光清成 `None` ⇒ 本行红（那正是「按谁在选目标」的旧语义）");
 
             // ④ 主动技能：金色（原版 attackType=3/4）
             ctx.Players[0].Board[retAtk] =
@@ -10343,19 +10365,40 @@ public static class BattleScene
                         + $"{hvR16.AttackGlowOn(true)})）"
                         + "｜🧨 `OwnAttackTypeOf` 缺省给一个打法（不是 `None`）⇒ 红");
                 }
+                var foeUnitR16 = ctx.Players[foeR16Seat].Board[foeSlot];
                 var foeR16 = driver.BoardViewAt(foeSlot, false);
-                if (foeR16 != null)
+                if (foeR16 != null && foeUnitR16 != null)
                 {
-                    float r16FbX = foeR16.StatBaseScale(CardView.StatMelee).x;
-                    float r16FnX = foeR16.StatScaleNow(CardView.StatMelee).x;
-                    Check(foeR16.OwnAttackType == AttackTypes.None
-                          && (r16FbX <= 1e-4f || Mathf.Abs(r16FnX - r16FbX) < 1e-3f),
-                          "★ R16②：**从没设过打法的场卡** ⇒ 近战数值**回基准**（没被 ×倍率）"
-                        + $"（基准 {r16FbX:F4} / 现在 {r16FnX:F4}）"
-                        + "｜🧨 `None` 那一档忘了把数值缩回去 ⇒ 红");
+                    // 🔴🔴 **2026-10-26（W9K01 · 账 `974`）：本条的期望【改口径了】** ——
+                    //   原来断的是「敌方从没设过打法 ⇒ `OwnAttackType == None`、近战数值回基准」，
+                    //   那是 `974` **未做时**的行为（= 缺口本身），不是原版。
+                    //   原版 `CardScript.UpdateAttackText` 的 `isPlayer == 0` 那支会按**当前两围**自动定档：
+                    //   `attackType = (CurrentMelee < CurrentRange) + 1`（严格小于 ⇒ 两围相等落 `Melee`），
+                    //   判据 `decomp_full/CardScript__UpdateAttackText.c:21-67`。
+                    //   现口径 = **自动定档 + 该档数值 ×倍率 + 另一档回基准**（最后一条是灭自证：
+                    //   把「两边一起放大」这种错法挡在这里）。
+                    var foeWantType = foeUnitR16.Attack < foeUnitR16.RangedAttack ? AttackTypes.Ranged : AttackTypes.Melee;
+                    int foeWantStat = foeWantType == AttackTypes.Ranged ? CardView.StatRanged : CardView.StatMelee;
+                    int foeOthStat  = foeWantType == AttackTypes.Ranged ? CardView.StatMelee : CardView.StatRanged;
+                    float foeWantBase = foeR16.StatBaseScale(foeWantStat).x;
+                    float foeWantNow  = foeR16.StatScaleNow(foeWantStat).x;
+                    float foeOthBase  = foeR16.StatBaseScale(foeOthStat).x;
+                    float foeOthNow   = foeR16.StatScaleNow(foeOthStat).x;
+                    float foeR16Mult  = foeR16.AttackScaleModifier;
+                    Check(foeR16.OwnAttackType == foeWantType
+                          && foeR16.AttackGlowOn(foeWantType == AttackTypes.Ranged),
+                          "★ R16②：**敌方从没设过打法** ⇒ 按两围自动定档（`(近战 < 远程) + 1`）"
+                        + $"（两围 {foeUnitR16.Attack}/{foeUnitR16.RangedAttack} ⇒ 期望 {foeWantType}，"
+                        + $"实 {foeR16.OwnAttackType} / glow=({foeR16.AttackGlowOn(false)},{foeR16.AttackGlowOn(true)})）"
+                        + "｜🧨 改回「敌方恒 `None`」（= `974` 未做时的旧口径）⇒ 红");
+                    Check(foeWantBase <= 1e-4f || Mathf.Abs(foeWantNow / Mathf.Max(foeWantBase, 1e-6f) - foeR16Mult) < 1e-3f,
+                          "★ R16②：自动定档那一档数值 = **基准 × 倍率**"
+                        + $"（{foeWantType}：基准 {foeWantBase:F4} → 现在 {foeWantNow:F4}，期望 ×{foeR16Mult:F2}）");
+                    Check(foeOthBase <= 1e-4f || Mathf.Abs(foeOthNow - foeOthBase) < 1e-3f,
+                          "★ R16②（灭自证）：**另一档**数值回基准（「两边一起放大」过不了这一条）"
+                        + $"（{foeOthStat}：基准 {foeOthBase:F4} / 现在 {foeOthNow:F4}）");
                 }
                 // ③ **负例**：敌人**自己**是远程 ⇒ 我方提交近战 + `HighlightTargets()` **不改它的底光**
-                var foeUnitR16 = ctx.Players[foeR16Seat].Board[foeSlot];
                 int r16FoeTypeBackup = foeUnitR16 != null ? foeUnitR16.LastAttackType : 0;
                 if (foeUnitR16 != null)
                 {
@@ -24633,9 +24676,36 @@ public static class BattleScene
                         + " —— 费用只在**手牌形态**上印（`!board && ShowsCost`）");
                     if (cvCost != null)
                     {
+                        // 🔴🆕 **2026-10-27（`W20AS` · `D1DG` 定性 α · 账 `HUD:148`）：手牌 tooltip 现在
+                        //   只对「抬起来」那一张开** —— `W9K01` 删掉了 `SyncHand` 末尾「整排手牌
+                        //   `TooltipsEnabled = true`」，改由 `CardInteraction.ApplyShowInHand` 的**进入支**
+                        //   在抬牌那一下开（`Hand/CardInteraction.cs:1943`；原版 `BattleCardManager:128`
+                        //   建卡先关 → `StartShowingCardInHand` 的 `ToggleTooltips(true)` 才开）。
+                        //   ⇒ 旧夹具直接 tick 一张**从没抬过**的手牌，会被 `TickCardTip` 第一道
+                        //   `if (!v.TooltipsEnabled) return false` 挡掉 —— 那不是 tooltip 坏了。
+                        //   **夹具等价口 = 显式把它置成抬牌态**：`ApplyShowInHand` 的进入支对外可见的效果
+                        //   只有两句 —— `TooltipsEnabled = true`（本行）与 `SetCollidersShowBig(true)`
+                        //   （只扩大命中区，**不参与** tooltip 判定，见 `TickCardTip` / `TickTraitTip`）。
+                        //   ⛔ 别因此把生产里那道 `TooltipsEnabled` 门去掉：那是照原版的（只有抬起来那张能弹）。
+                        //   📌 更干净的等价口是 `CardInteraction.ShowInHandForTest(idx)`（走真 `SetHovered`）——
+                        //      那个文件不在本批白名单里，由它归属的写手补；补上之后这里换成调它。
+                        // ★ 灭自证（`HUD:148`）：**没抬起的那一张必须是关的** —— 这一条把
+                        //   「整排手牌开 tooltip」那个现病钉住（W9K01 修的就是它）。
+                        Check(!cvCost.TooltipsEnabled,
+                              "（前提 / 灭自证 · `HUD:148`）这张手牌**没被抬起** ⇒ `TooltipsEnabled == false`"
+                            + "｜🧨 把 `SyncHand` 末尾那句「整排手牌 `TooltipsEnabled = true`」加回来 ⇒ 本行红"
+                            + "（原版：建卡关、**抬牌才开**）");
+                        // ⚠️ **不在这里再 `Check(cvCost.TooltipsEnabled)`** —— 刚给它赋过值，
+                        //   再读一遍就是同义反复（自证）。前提已由上面那条「赋值前必须是关的」钉住。
+                        cvCost.TooltipsEnabled = true;
                         drv.TickTooltipAt(cvCost.StatWorld(CardView.StatCost));
                         Check(Tooltip.ShownBody == TipText.Cost,
-                              "挪到**费用**上 → 换成费用那条（探的是**手牌**视图 —— 场上那套照原版不印费用）");
+                              "挪到**费用**上 → 换成费用那条（探的是**手牌**视图 —— 场上那套照原版不印费用）"
+                            + "｜🧨 删掉 `TickCardTip` 的 `case CardView.StatCost:` 那一支"
+                            + "（或让 `CardView.StatAt` 不再认费用圈）⇒ 这里弹不出来 ⇒ 红");
+                        // ⚠️ **把夹具改过的状态放回去**（本段后面还有手牌 tooltip 的用例，它们要读
+                        //   「没抬起 ⇒ 关」这个初始档；漏了复位 = 后面那条前提会假红）。
+                        cvCost.TooltipsEnabled = false;
                     }
 
                     // 🔴 原版**护甲容器没有 tooltip**（`子代理读报_2dcard_0827.md:95`）⇒ 我们也不给
@@ -25375,6 +25445,7 @@ public static class BattleScene
             else
             {
                 string foundKey = null; Vector3 foundAt = Vector3.zero;
+                CardView foundView = null;                  // 命中这个词的那张**手牌视图**（下面 tick 要用）
                 int cards = 0, probes = 0;
                 for (int i = 0; i < drv.HandCount && foundKey == null; i++)
                 {
@@ -25390,7 +25461,7 @@ public static class BattleScene
                                                         (b / 6f - 0.5f) * 2f * h.y, 0f);
                             probes++;
                             string k = v.LinkAt(p, cam);
-                            if (!string.IsNullOrEmpty(k)) { foundKey = k; foundAt = p; }
+                            if (!string.IsNullOrEmpty(k)) { foundKey = k; foundAt = p; foundView = v; }
                         }
                 }
                 Check(foundKey != null,
@@ -25398,12 +25469,29 @@ public static class BattleScene
                       + (foundKey != null ? $"：`{foundKey}`" : ""));
                 if (foundKey != null)
                 {
+                    // 🔴🆕 **2026-10-27（`W20AS` · `D1DG` 定性 α · 账 `HUD:148`）：先把它置成「抬牌态」。**
+                    //   同 15b 那一段的口径：`W9K01` 起手牌 tooltip **只对抬起来那一张**开
+                    //   （`CardInteraction.ApplyShowInHand` 的进入支；原版 `BattleCardManager:128` 建卡关、
+                    //   `StartShowingCardInHand` 的 `ToggleTooltips(true)` 才开）。
+                    //   `TickTraitTip` 第一道就是 `if (!v.TooltipsEnabled) return false` ⇒ 不置这一格，
+                    //   「找到 link」与「弹得出来」之间会断在一个**和被测行为无关**的门上。
+                    //   **等价性**：进入支对外可见的效果只有 `TooltipsEnabled = true` 与
+                    //   `SetCollidersShowBig(true)`，后者只扩大命中区、⛔ 不参与 tooltip 判定。
+                    //   ⛔ 别因此删掉生产里那道门（那是照原版的）。
+                    Check(foundView != null,
+                          "（前提）命中 link 的那张手牌视图拿得到（拿不到 ⇒ 下面的 tick 没有受体）");
+                    Check(foundView != null && !foundView.TooltipsEnabled,
+                          "（前提 / 灭自证 · `HUD:148`）命中的那张手牌**没被抬起** ⇒ `TooltipsEnabled == false`"
+                        + "｜🧨 把 `SyncHand` 末尾「整排手牌开 tooltip」加回来 ⇒ 本行红");
+                    // ⚠️ 赋值之后**不再读一遍**（同义反复 = 自证）；等价性见上面那段注释。
+                    if (foundView != null) foundView.TooltipsEnabled = true;
                     Tooltip.Hide(); Tooltip.FinishFade();
                     int n0 = Tooltip.ShowCount;
                     bool hit = drv.TickTooltipAt(foundAt);
-                    Check(hit && Tooltip.Visible, "★ 悬停关键词 → trait tooltip 弹出来");
+                    Check(hit && Tooltip.Visible, "★ 悬停关键词 → trait tooltip 弹出来（手牌要先「抬起」：逐卡 `TooltipsEnabled`）");
                     Check(Tooltip.ShownBody == TipText.Trait(foundKey),
-                          "★ 弹的是**这个词**那一条（实得「" + Tooltip.ShownBody + "」）");
+                          "★ 弹的是**这个词**那一条（实得「" + Tooltip.ShownBody + "」）"
+                        + "｜🧨 把 `TipText.ByLink` 查表改成「认不出就给第一条」⇒ 这里换成别的词 ⇒ 红");
                     Check(Tooltip.ShowCount == n0 + 1, "……而且只来了一条");
                     // 🔴🆕 2026-10-17：同一条活缺陷的第二条路径（关键词 tooltip）—— 底图必须在文字之前。
                     Check(Tooltip.BgSiblingIndexForTest >= 0
@@ -25414,6 +25502,7 @@ public static class BattleScene
                     Debug.Log(P + "  [DBG] trait tooltip: " + Tooltip.DebugDump());
                     Shot(cam, "30_悬停关键词tooltip");
                     Tooltip.Hide(); Tooltip.FinishFade();
+                    if (foundView != null) foundView.TooltipsEnabled = false;   // 夹具改过的状态放回去（同上）
                 }
             }
             // 🔴 2026-10-11（`V5` 双语族）：把语档放回去（本段开头摆成了中文档）
@@ -31521,6 +31610,16 @@ public static class BattleScene
                         //    （`MsgStart` 的卡组 + 阵营）⇒ 空阵营那个杠杆重新生效。
                         //    ⛔ 只断「塌掉」不够：下面那条「确实报了『在卡池里一张卡都没有』」证明它是**因空阵营而塌**、
                         //    不是因别的原因（例如牌表被截断）。
+                        //    🔴🔴 **2026-10-27（`W20AS` · `D1DG` 定性 γ · 账 47）：负控的杠杆换了。**
+                        //    今天 `E2P11`（账 47）把对手牌组改成 `foeDeck ?? PickBotDeck(_foeFaction, …)`
+                        //    （`BattleDriver.cs:5345`），而 `PrebuiltDecks.FilterDecks` 的阵营闸是
+                        //    `if (!string.IsNullOrEmpty(faction) && d.faction != faction) continue;`
+                        //    （`Shell/PrebuiltDecks.cs:721`）⇒ **空串 = 不过滤（any）** ⇒ 照样挑出一副完整预组
+                        //    ⇒ 原来那个「`clientFaction = ""`」的杠杆**已经失效**（塌不掉了）。
+                        //    ⇒ 负控改用一个**卡池里不存在、也匹配不到任何预组的阵营名** ⇒ 预组过滤为空
+                        //    （`GetRandomDeck` 返回 null 并出声）→ 退回 `StarterDeck` → 那个阵营在卡池里
+                        //    一张卡都没有 ⇒ 才真塌。
+                        var noSuchFactionF1 = "NoSuchArmy";
                         var savedFoeFactionF1 = recF1.start.clientFaction;
                         var savedClientIdsF1 = recF1.clientCardIds;
                         int foeInitNeg;
@@ -31529,7 +31628,7 @@ public static class BattleScene
                         try
                         {
                             recF1.clientCardIds = null;         // 让回放退回「按 MsgStart 的阵营 + 卡组」那条老路
-                            recF1.start.clientFaction = "";
+                            recF1.start.clientFaction = noSuchFactionF1;
                             recF1.actions = new List<MsgAction>();
                             driver.PlayReplay(recF1);
                             foeInitNeg = CtxCardsOf(driver.Ctx, 1);
@@ -31543,12 +31642,13 @@ public static class BattleScene
                         }
                         string logNegF1 = string.Join("｜", logF1.ToArray());
                         Check(foeInitNeg < foeInitRec,
-                              "★★ **A1 判别式（灭自证）：同一份录像，拨掉录像头的牌表 + 把 `clientFaction` 拨成 `\"\"` "
-                            + "⇒ 对手那副牌塌掉**"
-                            + $"（空串时 {foeInitNeg} 张 · 有阵营时 {foeInitRec} 张）"
-                            + " —— 一正一反 ⇒ 这一格既不可能是「恒非空」，也不可能是「头部根本不生效」");
+                              "★★ **A1 判别式（灭自证）：同一份录像，拨掉录像头的牌表 + 把 `clientFaction` 拨成"
+                            + $"卡池里不存在的阵营名 `{noSuchFactionF1}` ⇒ 对手那副牌塌掉**"
+                            + $"（不存在的阵营时 {foeInitNeg} 张 · 有阵营时 {foeInitRec} 张）"
+                            + " —— 一正一反 ⇒ 这一格既不可能是「恒非空」，也不可能是「头部根本不生效」"
+                            + "｜🧨 把负控改回空串（`\"\"`）⇒ 预组过滤按 `any` 处理、照样挑出一副完整预组 ⇒ 塌不掉 ⇒ 红");
                         Check(logNegF1.Contains("在卡池里一张卡都没有"),
-                              "★ **A1（对照）：空阵营那一趟确实报了「在卡池里一张卡都没有」**"
+                              "★ **A1（对照）：那个不存在的阵营那一趟确实报了「在卡池里一张卡都没有」**"
                             + " —— 上面那条「回放里没有这条错」的断言靠它证明自己不是恒真");
 
                         // ⑤ 整条动作流：**第 0 条就不许分叉**、演完指纹要相等（这才叫「能回放」）
@@ -35553,11 +35653,26 @@ public static class BattleScene
                     Check(tA.ActionCounter == 3 && cA.Turn == 2, "（前提）推到第 3 条，回合还没变");
                     AiStep();                         // EndTurn（脚本里是 no-op）
                     Check(tA.ActionCounter == 4 && cA.Turn == 2, "（前提）4 条跑完，仍在 AI 回合");
-                    AiStep();                         // Exhausted ⇒ 收尾交回合
+                    AiStep();                         // Exhausted ⇒ 只 arm「收手延迟」，**还没交回合**
+                    // 🔴🆕 **2026-10-27（`W20AS` · `D1DG` 定性 γ · 账 53）：这一支现在**要两步**。**
+                    //   `E2P11` 把三处内联 `EndTurnAndAdvance(1-_me)` 换成了 `AiEndTurnSoon()`
+                    //   （`BattleDriver.cs:33910`）—— 它**先挂起** 0.6~0.9 s（原版 `GetEndTurnDelay`，账 53）
+                    //   再交回合；而 `DriveAiTurnForTest`（`:32332`）只在**入口**把 `_aiEndTurnWait` 压到 0
+                    //   ⇒ 清不到**同一次调用里刚 arm 的**那一个 ⇒ 必须再调一次，让 `DriveAiTurn` 顶部那段
+                    //   （`:18581-18590`）把它走完、然后 `EndTurnAndAdvance`。
+                    //   ⛔ 别改成在夹具里 `Step(0.9f)` 硬等：区间 0.6~0.9 是随机的，等满既拖慢用例、
+                    //     又可能差最后几毫秒没走完（那会变成间歇红）。
+                    Check(driver.AiEndTurnWaitForTest > 0f,
+                          "（前提）收手延迟**确实挂起了** —— 上面那一趟只 arm 了等待、还没交回合"
+                        + $"（`_aiEndTurnWait` = {driver.AiEndTurnWaitForTest:F3}s）"
+                        + "｜🧨 把 `AiEndTurnSoon()` 换回内联 `EndTurnAndAdvance` ⇒ 这里读到 −1 ⇒ 红"
+                        + "（那时下面那次 `AiStep()` 也就多余了 —— 本条正是「多一步」的理由）");
+                    AiStep();                         // 走完收手延迟 ⇒ 那一支交回合
                     Check(cA.Turn == 3 && tA.Turn == 3 && tA.ActionCounter == 0,
                           $"★ **脚本跑完 ⇒ 那一支自己交回合并推进**（回合 {cA.Turn}、指针 {tA.ActionCounter} 归零）"
                         + "｜🧨 把 `DriveAiTurn` 里那段 `if (TutorialOwnsThisTurn) { … }` 删掉 ⇒ 本条红"
-                        + "（AI 会改走 `SimpleAI`，与脚本抢着动）");
+                        + "（AI 会改走 `SimpleAI`，与脚本抢着动）；或删掉 `DriveAiTurn` 顶部那段收手等待 ⇒ "
+                        + "上面那条「确实挂起了」先红");
                 }
 
                 // ============================================================
@@ -43241,16 +43356,79 @@ public static class BattleScene
 
                     // 灭自证：把录像头里的牌表**删掉一张**再放 ⇒ 必须**不是同一局**
                     //（证明回放真的在读这一列；⛔ 否则「改回重算」时这一节照样全绿）
+                    //
+                    // 🔴🔴 **2026-10-27（`W20AS` 复核 · `W21A2` 落地 · 铁律 5）：负控【不删】，但「删哪张」换了。**
+                    //   原来删的是**固定下标 `[1]`** —— 实测那一张**根本不在引擎那副牌里**，所以那一趟
+                    //   「按 31 张重建」之后**整局逐条指纹与终局指纹全同**，负控**静默失去分辨力**
+                    //   （红得看不出原因；换一份录像还可能又碰巧绿）。
+                    //   根因（判据）：`RuleCore.BuildPlayer` 会把**卡组列表里第一张 `hero` / 第一张 `defence`**
+                    //   单独分流出去（`RuleCore.cs:618-622`），而**先手**那一方的防御卡连手牌都不发
+                    //   （`RuleCore.cs:682-684`，原版语义：防御卡是**后手**补偿）⇒ 删掉它，重建出的引擎牌库**一张不差**。
+                    //   ⇒ 现在改成「**从引擎真用过的那副里挑一张**」，并先立两条前提把它钉住。
                     if (recA2 != null && !string.IsNullOrEmpty(fileA2))
                     {
                         var tamperedA2 = ReplayStore.Load(fileA2);
                         if (tamperedA2 != null && tamperedA2.clientCardIds != null && tamperedA2.clientCardIds.Count > 2)
                         {
-                            tamperedA2.clientCardIds.RemoveAt(1);
-                            bool sameBadA2 = driver.PlayReplay(tamperedA2);
-                            Check(!sameBadA2,
-                                  "★★ A2（灭自证）：录像头里的牌表**删掉一张**再放 ⇒ 必须**不是同一局**"
-                                + " —— 这一条证明上面那条量的是「回放读了这一列」，不是「碰巧放得出」");
+                            // 候选 = 「**录像这一列里记了** ∧ **引擎真用过** ∧ 不是督军 ∧ 不是防御卡」的 id：
+                            //   · `UsedCardIds` 覆盖 牌库 + 手牌 + 弃牌堆 + 场上 + 督军（本文件 `:47454`）
+                            //     ⇒ 命中它就一定**进了引擎那一局**；
+                            //   · ⛔ **排除 `hero`**：删督军会让 `BuildPlayer` 的 `warlordCard` 落空、退回
+                            //     `FallbackWarlord`（`RuleCore.cs:631`）⇒ 那是**另一种**篡改，量的不是「牌表这一列」；
+                            //   · ⛔ **也排除 `defence`**：它有**两条旁路** —— 先手那一方根本不发（`RuleCore.cs:682-684`），
+                            //     而**电脑侧**发牌时会丢掉卡组那张、改用「阵营防御池随机」或「督军自带」
+                            //     （`RuleCore.cs:674-677` · `A1070`）⇒ 删它**不保证**改变引擎状态（替代那张可能正好同一个 id）。
+                            //   · ⇒ 剩下的候选**必然进 `p.Deck`**（`BuildPlayer` 只把第一张 `hero` / 第一张 `defence`
+                            //     单独分流，其余一律 `p.Deck.Add(...)` —— `RuleCore.cs:613-623`）⇒ 删它**必然**少一张。
+                            //   · `Ordinal` 排序取第一张 ⇒ 同一份录像每次挑**同一张**，负控可复现（⛔ 别用字典序以外的序）。
+                            var usedNegA2 = UsedCardIds(ctxA2, 1);      // 座位 1 ↔ `clientCardIds`（见上面那圈 `seatA2`）
+                            var candNegA2 = new List<string>();
+                            for (int iNegA2 = 0; iNegA2 < tamperedA2.clientCardIds.Count; iNegA2++)
+                            {
+                                var idNegA2 = tamperedA2.clientCardIds[iNegA2];
+                                if (string.IsNullOrEmpty(idNegA2)) continue;
+                                if (!usedNegA2.ContainsKey(idNegA2)) continue;
+                                var cdNegA2 = CardDatabase.FindById(poolA2, idNegA2);
+                                if (cdNegA2 == null || cdNegA2.Type == "hero"
+                                    || cdNegA2.Type == "defence") continue;
+                                candNegA2.Add(idNegA2);
+                            }
+                            candNegA2.Sort(System.StringComparer.Ordinal);
+                            string delNegA2 = candNegA2.Count > 0 ? candNegA2[0] : null;
+
+                            // 🔴 **前提①（这条负控成不成立的前提）**：要删的那张**必须真的被引擎用过**。
+                            //   没有这一条时，「删了却什么都没变」会红在**下面**那条上、而且**看不出为什么**
+                            //   （2026-10-27 之前就是这样）。有了这一条，**当场**就说清「这条负控今天没有分辨力」。
+                            Check(delNegA2 != null && usedNegA2.ContainsKey(delNegA2),
+                                  "（前提 · A2 灭自证）要删的那一张**真的在引擎用过的那副牌里**"
+                                + $"（挑中 `{delNegA2 ?? "null"}` · 座位 1 引擎实例 id {usedNegA2.Count} 种 · "
+                                + $"候选 {candNegA2.Count} 张）"
+                                + "｜🧨 挑中一张引擎没用过的（效果生成的 token / 没抽到的牌）⇒ 本行红"
+                                + "（= 2026-10-27 之前删固定下标 `[1]` 的状态：删了也不影响任何东西）");
+                            int delIdxNegA2 = delNegA2 == null ? -1 : tamperedA2.clientCardIds.IndexOf(delNegA2);
+                            // 🔴 **前提②**：它还得**真在 `clientCardIds` 这一列里**（两列都对上，删下去才真的改了录像头）。
+                            Check(delIdxNegA2 >= 0,
+                                  "（前提 · A2 灭自证）而且它**确实在 `clientCardIds` 这一列里**"
+                                + $"（下标 {delIdxNegA2}）—— 两列都对上，这一次删除才真的改了录像头");
+
+                            if (delIdxNegA2 >= 0)
+                            {
+                                tamperedA2.clientCardIds.RemoveAt(delIdxNegA2);
+                                int loadErrNegA2 = driver.ReplayLoadErrorCountForTest;
+                                bool sameBadA2 = driver.PlayReplay(tamperedA2);
+                                // 🔴 **前提③（灭自证②）**：这一趟**不是「压根没放起来」** ——
+                                //   否则下面的 `!sameBadA2` 什么都不证明（加载失败也返回 false）。
+                                Check(driver.ReplayLoadErrorCountForTest == loadErrNegA2,
+                                      "（前提 · A2 灭自证）篡改那一趟**不是开局就崩**（加载失败计数没涨）"
+                                    + $"（{loadErrNegA2} → {driver.ReplayLoadErrorCountForTest}"
+                                    + $"「{driver.LastReplayLoadErrorForTest}」）"
+                                    + "｜🧨 删牌把开局头弄炸 ⇒ 下面的「不是同一局」会假绿");
+                                Check(!sameBadA2,
+                                      "★★ A2（灭自证）：录像头里的牌表**删掉一张**再放 ⇒ 必须**不是同一局**"
+                                    + $"（删的是 `{delNegA2}` —— 引擎真用过的那一张）"
+                                    + " —— 这一条证明上面那条量的是「回放读了这一列」，不是「碰巧放得出」"
+                                    + "｜🧨 回放改回「按阵营重算、不读这两列」⇒ 删什么都没用 ⇒ 本行红");
+                            }
                         }
                         else Debug.LogWarning(P + "   ⚠️ A2（灭自证）：录像里牌表不足 3 张 ⇒ 这一条**没验**");
                     }
@@ -47647,6 +47825,17 @@ public static class BattleScene
             IsRemnant = true, AttackBase = 0, RangedAttackBase = 0,
             Health = 1, MaxHealthBase = 1, Exhausted = true,
         };
+        // 🔴🆕 **2026-10-27（`W20AS` · `W19FX` 报回）：照生产先清关键词。**
+        //   生产那一跳（`RuleCore.cs:9834`）造完残骸**立刻** `rem.ClearAllKeywords()`
+        //   —— 判据 = 原版 `CardScript__TransformIntoRemnant.c:54-75` 倒序 `RemoveTraitSilently`
+        //   ⇒ 残骸**一条 trait 都不剩**。夹具原来只设 `IsRemnant = true`，于是这张合成残骸
+        //   **还带着卡面关键词**，与生产形态不一样（`UnitState.Has` 那道「残骸只认 `_remnantTraits`」
+        //   的新闸第一个抓到的就是它）。
+        //   ⚠️ **卡面那一份（`CardDef.keywords`）不受影响** —— 这里清的是**运行时**词条账
+        //   （`_keywords` / `_remnantTraits` / `_traitEffects`，另把 `Armor` 归 0）；
+        //   所以「残骸族按 `Card.HasKeyword(Waystone/Remnant)` 判」的那条链照旧拿得到，
+        //   而「按运行期 `Has(...)` 判」的那条从今往后和生产一样**恒假**。
+        ctx.Players[seat].Board[slot].ClearAllKeywords();
         // ⚠️ 白盒改棋盘**不发事件** ⇒ 得自己调一次刷新（正常路径是事件驱动 `RefreshAll`）
         driver.RefreshAll();
         // 视图侧按**同一个座位**取：`mine` 由「这一侧是不是本机」决定（⛔ 别再假定恒为 `true`）

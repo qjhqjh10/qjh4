@@ -90,6 +90,49 @@ namespace CardPresentation
         public static readonly PxRect TimerMore = new PxRect(245.50f, 990.79f, 935.00f, 1054.15f);
         public static readonly PxRect TimerText = new PxRect(990.20f, 990.79f, 1453.98f, 1054.15f);
 
+        // ---------------- 🆕 **2026-10-26（B9 · P9 #91/#92）**：`Army Selector`（阵营选择条）
+        //
+        // 🔴 **判据（全部现读，⛔ 不是照截图量的）**：
+        //   · 行/视口/内容三层 = `python 工具/menu_dump.py bundle_menus_assets_all "Daily Reward Popup" --depth 3 --relative`：
+        //       `Army Selector` 541.2,0 → 1920,152.85（1378.82×152.85 · `ScrollRect`+`ArmySelector`+`CustomRaycaster`）
+        //       └ `Viewport`（`RectMask2D`）541.2,0 → 1920,**187.85**（比父件高 34.99 —— 原版就是这样）
+        //         └ `Army Content`（HLG+ToggleGroup+CSF）**0 宽 × 130 高** · `spacing = −14` · `align = 4(MiddleCenter)`
+        //           · `pad = (0,0,0,5)`（形状 L,R,T,B ⇒ 左 0 右 0 上 0 **下 5**）
+        //   · 每格模板 = **`Army Item Button`**（`menu_dump … "Army Item Button" --depth 4 --relative`）：
+        //       根 **136.36 × 121.59**（`EverguildToggle` + `ArmyItemContainer` · `onColor (1,1,1,1)` · `offColor (0.75,0.75,0.75,1)`）
+        //       ├ `HighlightBG` 0.2,−0.2 → 136.2,121.8（图 pid `6405302285851217683` = `40K_settings_button_selected` ·
+        //       │   色 **(1, 0.631, 0.278, 1)** · `Simple` · `ppuMul 0.92`）
+        //       ├ `Icon`       11,9 → 126.4,111.6（115.36 × 102.59 · **`preserveAspect`** · 图 = 该阵营徽记）
+        //       └ `Arrow`      17,98.9 → 119.4,129.7（原版切片名 `40K_ArmyTrack_chosen faction` —— **选中那一格**底下那个小箭头；⚠️ 落盘/取图用下划线版 `ArtArmyArrow`）
+        //   · 谁开它 / 谁写值 = `DailyRewardPopup__Open.c`（`armySelector.Initialize(FeatureConfig.GetValidArmies(),
+        //       handler.SelectedArmy, false, false)` + `RefreshOnArmyChange(army)`）· `__SetArmy.c`（`CampaignHandler.SetSelectedArmy`）。
+        // ⚠️ **候选列表是我们挑的**：原版按远端 `FeatureConfig` 筛，本地没有那份配置 ⇒ 见 `DailyData.ValidArmies()` 那条 🔶。
+        // ⚠️ `Toggle` 的「一组只能选一个」我们用一个普通命中区表达（点中 ⇒ 换阵营 + 重建）——
+        //    渲染上等价（`HighlightBG`/`Arrow` 只画在选中那一格），没有引入第二套选中状态。
+        public static readonly PxRect ArmySelectorRect = new PxRect(541.2f, 0f, 1920f, 152.85f);
+        public static readonly PxRect ArmyViewportRect = new PxRect(541.2f, 0f, 1920f, 187.85f);
+        public const float ArmyItemW = 136.36f, ArmyItemH = 121.59f;
+        /// <summary>HLG 的 `m_Spacing` = **−14**（相邻两格**故意重叠 14** —— 与奖格轨那条 −64 同族）。</summary>
+        public const float ArmyItemGap = -14f;
+        /// <summary>`Army Content` 的高（HLG 交叉轴用它 + `align = 4` 居中）。</summary>
+        public const float ArmyContentH = 130f;
+        /// <summary>HLG 的 `m_Padding.bottom` = **5**（形状 `(L,R,T,B)` ⇒ 只有下边有）。</summary>
+        public const float ArmyPadB = 5f;
+        /// <summary>格子内三件的**局部**矩形（相对 `Army Item Button` 左上角；判据见上面那段）。</summary>
+        public static readonly PxRect AI_Highlight = new PxRect(0.2f, -0.2f, 136.2f, 121.8f);
+        /// <summary>见 <see cref="AI_Highlight"/>。</summary>
+        public static readonly PxRect AI_Icon = new PxRect(11f, 9f, 126.4f, 111.6f);
+        /// <summary>见 <see cref="AI_Highlight"/>。</summary>
+        public static readonly PxRect AI_Arrow = new PxRect(17f, 98.9f, 119.4f, 129.7f);
+        public const string ArtArmySelected = "40K_settings_button_selected";
+        public const string ArtArmyArrow = "40K_ArmyTrack_chosen_faction";   // 落盘名把切片名里的空格换成下划线（导入器 name.replace(' ','_')）；带空格取不到图
+        /// <summary>`EverguildToggle.onColor`（选中 ⇒ 徽记满亮）。</summary>
+        public static readonly Color ArmyOnTint = new Color(1f, 1f, 1f, 1f);
+        /// <summary>`EverguildToggle.offColor`（未选中 ⇒ 徽记压到 0.75 灰）。</summary>
+        public static readonly Color ArmyOffTint = new Color(0.75f, 0.75f, 0.75f, 1f);
+        /// <summary>`HighlightBG` 的 `Image.m_Color`（**橙** (1, 0.631, 0.278, 1)）。</summary>
+        public static readonly Color ArmyHighlightTint = new Color(1f, 0.631f, 0.278f, 1f);
+
         // ---------------- 抽屉内（Entry 局部坐标，见 `menu_rect.py … "Daily Reward Popup Entry"`）
         // ⚠️ 这些是**相对 Entry 左上角**的绝对矩形；用的时候加到 entry 的 x1/y1 上（`EntryRect`）。
         public static readonly PxRect DayTitle = new PxRect(-4.94f, 0f, 319.97f, 53.49f);
@@ -104,6 +147,13 @@ namespace CardPresentation
         public static readonly PxRect D_Progression = new PxRect(0f, 356.05f, 315.03f, 456.05f);
         public static readonly PxRect D_ProgMark = new PxRect(123.51f, 358.76f, 191.51f, 446.76f);
         public static readonly PxRect D_ProgCount = new PxRect(115.01f, 358.76f, 200.01f, 446.76f);
+        /// <summary>🆕 **2026-10-26（B9 · P9 #86）**：`Personal Progression ▸ Progress Bar`（`Slider` +
+        /// `MissionProgressBarDisplay`）—— **相对 Entry 左上角**的矩形。
+        /// <para>判据 = `python 工具/menu_dump.py bundle_menus_assets_all "Daily Reward Popup Entry"
+        /// --depth 3 --relative` 实读：`Progress Bar −64.4 396.7 → 157.5 407.2`（**221.93 × 10.55**）；
+        /// 子件 `Background` 与它同框、`Fill` 在作者态是 **0 宽**（value = 0）。
+        /// ⚠️ 左沿在 Entry 之外（−64.4）—— 那是原版值，别「修正」回 0。</para></summary>
+        public static readonly PxRect D_ProgBar = new PxRect(-64.4f, 396.7f, 157.5f, 407.2f);
         /// <summary>`NormalReward` 那一组的原点（`scl=0.8`，相对 Entry 是 (−6.20,−5.51)）。`Premium Reward` 再 +394.49。</summary>
         public const float DrawerOx = -6.20f, DrawerOy = -5.51f, DrawerPitch = 394.49f;
 
@@ -123,6 +173,13 @@ namespace CardPresentation
         public const string ArtHeaderBg = "WF_Campaign_Info_Background";
         public const string ArtMilestoneOn = "40k_missions_milestone_on";
         public const string ArtMilestoneOff = "40k_missions_milestone_off";
+        /// <summary>🆕 **2026-10-26（B9 · P9 #86）**：`Progress Bar` 的两张图（12×12 · 九宫 4,4,4,4 · `ppuMul 2`）。
+        /// 判据 = 原版那一格的 `Image.m_Sprite.m_PathID` 按 pid 反查
+        /// （`-4625651602416804825` → `40k_generial_bar_empty` · `-54430120436810690` → `40k_generial_bar_fill`；
+        /// 反查口 `grep -rl &lt;pid&gt; d:/2/Warpforge_tools/data/ui_extract/*/Sprite/`）。</summary>
+        public const string ArtBarEmpty = "40k_generial_bar_empty";
+        /// <summary>见 <see cref="ArtBarEmpty"/>。</summary>
+        public const string ArtBarFill = "40k_generial_bar_fill";
 
         public static readonly Color ClaimedTint = new Color(0f, 0.90f, 0.29f, 0.95f);
         public static readonly Color HighlightTint = new Color(1f, 1f, 1f, 0.62f);
@@ -146,6 +203,11 @@ namespace CardPresentation
         /// ⚠️ 当前 4 天的内容宽 ≈1068 &lt; 视口 1705 ⇒ 归零后**看不出差别**；但小屏/多天时它是**原版行为**。
         /// 判据 → `资料/普查产出_1017/UI/D_N29_滚动灵敏度逐视图.md` 与 `R_界面线剩余条目现核.md` §`N46②`。</summary>
         MenuScroll _scroll;
+        /// <summary>🆕 **2026-10-26（B9 · P9 #91/#92）**：`Army Selector` 那条**横向**滚动区
+        /// （原版那台 `ScrollRect`：`h=1 v=0 mode=1 inertia=1`）。⛔ 本窗**只有 `MenuScroll` 一份滚动实现**。
+        /// ⚠️ 原版**没登记给指针层的只有连登窗那条**（那条 `m_Enabled = 0`）；这一条 `h=1` ⇒ 玩家**滚得动**，
+        /// 所以要 `SocialPage.RegisterScroll`（同下面奖格轨那条）。</summary>
+        MenuScroll _armyScroll;
 
         public static DailyRewardPopup Create(WindowsManager mgr)
         {
@@ -327,6 +389,10 @@ namespace CardPresentation
             // 4) 侧栏（双轨 + 关闭圆钮）
             BuildSideBar(root);
 
+            // 4b) 🆕 **2026-10-26（B9 · P9 #91/#92）** 阵营选择条 —— 兄弟序照原版
+            //    （`Tracks` → `Tracks Side Bar` → **`Army Selector`** → `Header Header` → `Timer`）。
+            BuildArmySelector(root);
+
             // 5) 顶栏（阵营）与底栏（倒计时）
             BuildHeader(root);
             BuildTimer(root);
@@ -364,6 +430,25 @@ namespace CardPresentation
             MenuDraw.Rect(pg, Art(st == RewardState.Locked ? ArtMilestoneOff : ArtMilestoneOn),
                           Offset(D_ProgMark, entry), "Image", QContent, null, true);
             // ② `progressSlider` **只在 `milestone.Index != 0` 时才开** ⇒ 第 0 天没有进度条
+            // 🆕 **2026-10-26（B9 · P9 #86）**：这一件**原来根本没建**（注释一直写着「只在 …… 才开」，
+            //   而那一件压根不存在 ⇒ 屏上缺每日奖励窗里最容易看见的那条进度条）。
+            //   判据（逐条，`DailyRewardItemContainer__Initialize.c:55-78` + prefab 实读）：
+            //     · `progressSlider.value = 状态 != Locked ? 1 : 0`（四态里的 Locked 才 0）；
+            //     · `wholeNumbers = 1` · `minValue = 0` · `maxValue = 1` · `direction = LeftToRight`；
+            //     · 只在 `milestone.Index != 0` 时 `SetActive(true)` ⇒ **第 0 天整件不建**；
+            //     · 子件序 = `Progress Bar` → `Image` → `Counter` ⇒ 进度条画在里程碑图**之下**。
+            //   ⇒ 队列 `QContent − 2`（底）/ `− 1`（填充）：都低于内容档 3010，又高于 `Personal Progression`
+            //     自己那一层（它只是个容器、不画东西）。
+            if (day != 0)
+            {
+                var barBg = Offset(D_ProgBar, entry);
+                var barGo = MenuDraw.Node(pg, "Progress Bar", barBg);
+                MenuDraw.Nine(barGo, Art(ArtBarEmpty), barBg, new Vector4(4f, 4f, 4f, 4f), 12f, 12f,
+                              QContent - 2, new Color(1f, 0.593f, 0f, 1f), true, "Background");
+                if (st != RewardState.Locked)
+                    MenuDraw.Nine(barGo, Art(ArtBarFill), barBg, new Vector4(4f, 4f, 4f, 4f), 12f, 12f,
+                                  QContent - 1, new Color(1f, 0.769f, 0.333f, 1f), true, "Fill");
+            }
             MenuDraw.Text(pg, Offset(D_ProgCount, entry), DailyData.RewardDayCounter(day), Color.white,
                           "Counter", 30f, QContent, face: TmpFont.Face.LatinUi);
             return e;
@@ -621,6 +706,74 @@ namespace CardPresentation
             //   目标 = 我们自建的**日界** `DailyData.NextResetAt`（本机时间；原版这颗由 `TimerDisplay` 运行时填，
             //   我们没有服务器 —— 见 `DailyData.ResetIn` 那条注释）。前缀与 `RewardTimerText()` 同一格（`Resets in `）。
             TimerDisplay.Attach(tm, () => DailyData.NextResetAt, Loc.T("Missions/CollectCounter"), "每日奖励窗 Timer", null);
+        }
+
+        // ============================================================ 🆕 2026-10-26（B9 · P9 #91/#92）
+        // `Army Selector`（阵营选择条）：一排 13 个阵营徽记，**点一格 = 换阵营** ⇒ 顶栏阵营名/图标改写
+        // + 整扇窗重建（= 原版 `SetArmy` → `CampaignHandler.SetSelectedArmy` → `RefreshOnArmyChange`
+        // → `rewardsTrack.RefreshData(mission, refreshAll:true)`）。几何/图/色全部现读，判据见上面常量块。
+        void BuildArmySelector(Transform root)
+        {
+            var sel = MenuDraw.Node(root, "Army Selector", ArmySelectorRect);
+            // `Viewport` = 原版挂 `RectMask2D` 的那一层（比父件高 34.99 —— 原版值，⛔ 别「修正」）
+            var vpNode = MenuDraw.Node(sel, "Viewport", ArmyViewportRect);
+            var vc = vpNode.gameObject.AddComponent<ViewportClip>();
+            vc.padding = Vector4.zero;
+            vc.softness = Vector2Int.zero;
+            vc.CaptureNow();                       // 同奖格轨：必须在写矩形之后、建子件之前
+            var content = MenuDraw.Node(vpNode, "Army Content",
+                                        new PxRect(ArmyViewportRect.x1, 0f, ArmyViewportRect.x1, ArmyContentH));
+            var ids = DailyData.ValidArmies();
+            float contentW = ids.Length * ArmyItemW + (ids.Length - 1) * ArmyItemGap;
+            _armyScroll = MenuScroll.LeftAligned(ArmyViewportRect, contentW, 120f);
+            _armyScroll.Owner = gameObject;
+            _armyScroll.ClipNode = vc;             // ⚠️ `ClipNode` 只能宿主显式赋值（`Owner` 反查永远 null）
+            var contentBase = content.localPosition;
+            _armyScroll.OnChanged = () =>
+                content.localPosition = contentBase + new Vector3(LayoutSpace.Px(-_armyScroll.Offset), 0f, 0f);
+            SocialPage.RegisterScroll(_armyScroll);
+
+            // 交叉轴（uGUI `HorizontalLayoutGroup` + `align = 4 MiddleCenter`）：
+            //   可用高 = 内容高 − pad.bottom(5) = 125；格高 121.59 ⇒ 上下各留 (125 − 121.59)/2 = 1.705
+            float innerH = ArmyContentH - ArmyPadB;
+            float itemTop = (innerH - ArmyItemH) * 0.5f;
+            float x = ArmyViewportRect.x1;          // pad.L = 0（HLG 的 `m_Padding` 左/右都是 0）
+            for (int i = 0; i < ids.Length; i++)
+            {
+                var r = new PxRect(x, itemTop, x + ArmyItemW, itemTop + ArmyItemH);
+                if (_armyScroll != null) r = _armyScroll.Shift(r);
+                BuildArmyCell(content, r, ids[i]);
+                x += ArmyItemW + ArmyItemGap;
+            }
+        }
+
+        /// <summary>一格阵营徽记（模板 = `Army Item Button`）：选中 ⇒ 橙底 + 小箭头 + 徽记满亮；
+        /// 未选中 ⇒ 只有压到 0.75 灰的徽记。点它 = `DailyData.SetHeaderArmy`（真换了才重建）。</summary>
+        void BuildArmyCell(Transform parent, PxRect r, int army)
+        {
+            bool on = DailyData.HeaderArmyValue == army;
+            var cell = MenuDraw.Node(parent, "Army Item Button (" + army + ")", r);
+            // 🔴 **队列必须低于顶栏底板**：原版 `Daily Reward Popup.m_Children` 的兄弟序是
+            //   `Tracks` → `Tracks Side Bar` → **`Army Selector`** → **`Header Header`** → `Timer`
+            //   ⇒ **顶栏画在阵营条之上**（两件在 x 541.2…604.82 那一段故意重叠 63.6px）。
+            //   UGUI 的「后面的兄弟盖前面的」在我们这边只能靠渲染队列表达 ⇒ 阵营条三件取 `QPanel − 1`(3005)，
+            //   顶栏底板是 `QPanel`(3006) ⇒ 那 63.6px 由顶栏盖住（= 原版的观感）。⛔ 别取 `QContent`。
+            //   ⚠️ 命中区仍留在 `QOverlay`(3014)：本窗整屏那颗 `AbsorbHit` 在 3009，命中区必须**高于**它。
+            if (on)
+                MenuDraw.Rect(cell, Art(ArtArmySelected), Offset(AI_Highlight, r), "HighlightBG", QPanel - 1,
+                              ArmyHighlightTint);
+            MenuDraw.Rect(cell, Art(ArmyIcons.IconName(army)), Offset(AI_Icon, r), "Icon", QPanel - 1,
+                          on ? ArmyOnTint : ArmyOffTint, true);
+            if (on)
+                MenuDraw.Rect(cell, Art(ArtArmyArrow), Offset(AI_Arrow, r), "Arrow", QPanel - 1,
+                              ArmyOnTint, true);
+            // 命中区：同 `colider` 那一族（α=0 的图 + `WindowButton`），整格可点。
+            var cq = MenuDraw.Rect(cell, Art(ArtBackOpaque), r, "Hit", QOverlay, new Color(1f, 1f, 1f, 0f));
+            if (cq == null) return;
+            var hit = cq.gameObject.AddComponent<WindowButton>();
+            int a = army;
+            // 「真换了才重建」—— 原版 `ChangeSelectedArmy` 对同阵营是**早返回**（`SetHeaderArmy` 里那道）。
+            hit.onClick = () => { if (DailyData.SetHeaderArmy(a)) Build(); };
         }
 
         // ============================================================ 工具

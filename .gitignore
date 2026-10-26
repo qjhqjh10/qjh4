@@ -257,3 +257,8 @@ Unity/资料/完全复刻/资源/R0_资源覆盖账.tsv
 /Unity/资料/完全复刻/账/*.bak_*
 /Unity/资料/完全复刻/判据/_bak/
 /Unity/资料/完全复刻/判据/_*.txt
+
+# 🆕 2026-10-27：重同步点的备份（旧资源账 88 MB / 旧基线 1.2 MB）—— 只留盘上，不进仓库
+Unity/资料/完全复刻/资源/_bak/
+Unity/工具/ruleprobe/基线/_bak_*/
+Unity/资料/完全复刻/_parts_B9_*_src.txt

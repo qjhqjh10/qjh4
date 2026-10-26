@@ -64,7 +64,11 @@ namespace RuleEngine
                                   out string gap)
         {
             gap = null;
-            if (ctx == null || spec == null || spec.CountSet == null) { gap = "没有 countSet"; return null; }
+            // 🔴🆕 **2026-10-26（批次 9 · 执行代理 `E7P06` · 账 676 ⑤）就地拆开这两种「没有」**：
+            //   改前 `ctx == null` 与「没有 countSet」共用一句 `gap` ⇒ 前者会被误读成「这条条件没有
+            //   被数集合」（两件事的修法完全不同）。⛔ 不是「不静默」就够了 —— **文案也要指对**。
+            if (ctx == null) { gap = "没有对局上下文（`ctx == null`）—— 判不了"; return null; }
+            if (spec == null || spec.CountSet == null) { gap = "没有 countSet"; return null; }
             if (spec.Condition <= 0) { gap = "cond 不是一条可数的条件"; return null; }
 
             // ---- `playerTurn` 闸（原版 `BoardAnalysis__MeetsCriteria.c:39-52`）----
@@ -79,6 +83,21 @@ namespace RuleEngine
                     gap = pt == CardDef.CountSetSpec.Unknown
                         ? "countSet.playerTurn **未知（没落）**"
                         : $"countSet.playerTurn={pt} 本版未实现（只实现 0/10/20）";
+                    return null;
+                }
+                // 🔴🆕 **2026-10-26（批次 9 · `E7P06` · 账 676 ⑤）：缺 `ctx` / `owner` 时【出声放行】。**
+                //   判据（原版 `BoardAnalysis__MeetsCriteria.c:40-41`）：`playerTurn == 10(Self)` 那一支
+                //   写的是 `if ((manager == null) || (IsPlayerTurn(manager) …) || (thisCard == null))
+                //   goto LAB_…77b2`，而 `LAB_1806077b2` = **NRE 桩**（`FUN_1803f47a0`，不返回）
+                //   ⇒ 原版在「拿不到 manager / thisCard」时是**崩溃**。
+                //   ⛔ **我们不复制崩溃语义**（口径同 `EnqueueAbility` 那几道闸：判不了 ⇒ 出声 + 放行），
+                //   但**也不许静默**：改前 `owner < 0` 会走到 `isMyTurn = ctx.Active == owner` ⇒ 恒假
+                //   ⇒ `pt == 10` 时**静默返回 false**（= 把「不知道」当成「不是自己回合」，那是错的）。
+                if (ctx == null || owner < 0)
+                {
+                    gap = "`playerTurn` 这一格要 `ctx` / `owner` 才能判（`IsPlayerTurn() == owner`），"
+                        + "本路径拿不到（`ctx == null` 或 `owner < 0`）—— 原版 `BoardAnalysis__MeetsCriteria.c:40-41` "
+                        + "在这一格直接 NRE，**我们不复制崩溃语义** ⇒ 判不了（调用点出声 + 放行）";
                     return null;
                 }
                 bool isMyTurn = ctx.Active == owner;
@@ -167,7 +186,13 @@ namespace RuleEngine
                 gap = why ?? "集合判不了";
                 return null;
             }
-            return count;
+            // 🔴🆕 **2026-10-26（批次 9 · `E7P06` · 账 676 ④）**：同一个 `maxTargets` 截断也适用
+            //   这一支 —— 它是 `AbilityLogic__PlayAbility.c:185/:262` 的 `GetTargets(…, 1, 0)`
+            //   （第 4 实参 = `checkMaxTargets`，与原版 `MeetsCriteria.c:101` 那一跳同一个值）
+            //   ⇒ 截短之后 `local_178` 才是 `furtherMultiplier` 的乘数。`countOption` 恒 0 ⇒ 只要个数。
+            int? trimmed = ApplyMaxTargets(set, count, null, null, owner, 0, out why);
+            if (trimmed == null) { gap = why ?? "`maxTargets` 截断判不了"; return null; }
+            return trimmed.Value;
         }
 
         // ======================================================================================
@@ -227,7 +252,15 @@ namespace RuleEngine
         /// <param name="cond">🆕 2026-10-26（执行代理 `G17` · 批次 6）：**`countCriteria.conditionsFilter`**
         /// （原版 `TargetCriteria +0x38`）—— 数候选时**逐个过的那条条件**。
         /// 缺省 `0`（`UnitConditions.none`）= 无条件（卡级 `normalAbilityBoardCriteria` 那条老调用点就是这一档：
-        /// 它的 `conditionsFilter` 至今没落进 `BoardGateSpec`，见 `报告/G17_第6轮.md` §四）。
+        /// 它的 `conditionsFilter` 至今没落进 `BoardGateSpec`）。
+        /// 🔴🆕 **2026-10-26（批次 9 · 执行代理 `E7P06`）把那一格的交接写全** —— 卡级要**四处一起动**
+        /// （全在本件白名单外）：① `Core/CardDef.cs:267` 的 `BoardGateSpec` 加 `ConditionsFilter` 一格；
+        /// ② `Core/CardDef.cs:300`（`UsesAlternativeAbility`）把它当 `cond:` 传进本方法；
+        /// ③ `Data/CardDatabase.cs:2303`（`MapBoardGate`）＋ `:604`（`AbilityGateDto`）映射
+        /// `normalAbilityBoardCriteria.countCriteria.conditionsFilter`；
+        /// ④ `工具/gen_cards_engine.py:2467`（`board_gate_of`）从 `countCriteria.conditionsFilter` 取值。
+        /// ⚠️ 现读池内 2 张卡（`SW9` / `SW21`）与池外 1 张（`Fenrisian Wolfpack`）该值**全是 0**
+        /// （`cards_raw.json` 的 `full_raw` 逐张读）⇒ 落上也**零行为变化**，但 ⛔ 不能因此不做。
         /// 🔴 **ability 级第三道闸必须传**：数据在 `unitConditions` 的 `role="count"` 行 `cond` 格里
         /// （现读 99 行里 **6 行** `cond != 0`：`221`×2 / `331`×2 / `222` / `243`）。
         /// ⛔ 不传 = 把「只数带某条件的候选」静默变成「全数」。</param>
@@ -313,11 +346,23 @@ namespace RuleEngine
             //   ability 级第三道闸传 `role="count"` 行的 `cond`（见方法 doc 的 `<param name="cond">`）。
             // ⚠️ 改前这里**恒 0**（注释还写着「条件就是 criteria 自己」）—— 那只对「行里 `cond` 恰好是 0」
             //   的 93 条成立；另 6 条（`221`/`331`/`222`/`243`）本来是**带条件地数**。
-            if (CountSet(ctx, owner, set, cond, gate.CountOption, actor, out count, out why) == null)
+            // 🔴🆕 **2026-10-26（批次 9 · 执行代理 `E7P06` · 账 676 ④）：`maxTargets` 截断 = 原版
+            //   `AbilityLogic.GetTargets` 的【尾段】**（判据见下面 `ApplyMaxTargets` 的 doc）。
+            //   ⚠️ `countOptions == 10`（同方 −1 / 异方 +1）时**截断发生在加权之前**（原版先
+            //   `GetTargets` 把列表截短、`BoardAnalysis__MeetsCriteria.c:104-118` 才按截短的列表累加）
+            //   ⇒ 那一档必须拿到**候选本身**才排得出顺序，所以要按需收集。
+            bool needCands = set.MaxTargets >= 1 && gate.CountOption == 10;
+            var cands = needCands ? new System.Collections.Generic.List<UnitState>() : null;
+            var candSides = needCands ? new System.Collections.Generic.List<int>() : null;
+            if (CountSet(ctx, owner, set, cond, gate.CountOption, actor, out count, out why,
+                         cands, candSides) == null)
             {
                 gap = why ?? "集合判不了";
                 return null;
             }
+            int? trimmed = ApplyMaxTargets(set, count, cands, candSides, owner, gate.CountOption, out why);
+            if (trimmed == null) { gap = why ?? "`maxTargets` 截断判不了"; return null; }
+            count = trimmed.Value;
 
             // 原版 `:100-131` 的 else 支：`triggerIf == 8` 那一档**只数不比**（`else if (local_28 != 8)`
             // ⇒ 既不比较、也不 `LogError`）⇒ 走到这里时 `referenceValue` 对 8 档没有意义。
@@ -373,30 +418,49 @@ namespace RuleEngine
         /// <para>⛔ 仍挡在这里的：`armyFilter` / `spellType` / `attackFilterOption` /
         /// `manaCostFilterOption` / `rarityFilterOption` / `excludeEnchantments` / 四个布尔排除 /
         /// `selectFromChooseResolution`。前六格 `TargetCriteriaEval` 其实**已经有实现**，
-        /// 本笔只按「一次放一类、池内现读有行才放」的保守口径处理（这六格池内现读均 **0 行**）；
-        /// `selectFromChooseResolution` 是**判据读不出**（`dump.cs` 里只有字段声明、全量反编译里
-        /// 没有任何消费点 ⇒ 语义拿不到，⛔ 不猜）。</para>
+        /// 本笔只按「一次放一类、池内现读有行才放」的保守口径处理（这六格池内现读均 **0 行**）。</para>
+        ///
+        /// <para>🔴🆕 **2026-10-26（批次 9 · 执行代理 `E7P06`）就地订正 —— `selectFromChooseResolution`
+        /// 那句「全量反编译里没有任何消费点」是【错的】**（铁律 5；写在这里免得下个会话照旧话放弃）：
+        /// <list type="bullet">
+        /// <item>**消费点至少三处**（判据 = `cpp2il/out_cpp2il_dev_ilspy/AbilityLogic.cs:1075` /
+        /// `:1414`（`GetCardToSummon`）/ `:1628`（`GetCardScriptToSummon`））；
+        /// 字段声明 = 同目录 `TargetCriteria.cs:82` / `il2cpp_out/dump.cs` 的 `TargetCriteria`（`+0x80`）。</item>
+        /// <item>**语义（现读能确定的）**：该位为真 ⇒ **候选池不是「按 criteria 从棋盘/牌库筛出来的」**，
+        /// 而是**本次「选牌结算」里选中的那一张** —— `AbilityLogic.cs:1077` 那段拿
+        /// `manager + 744`（= `BattleManager.cardChosenInSelection`，`dump.cs:30844` `// 0x2E8`）
+        /// 去**淘汰 uniqueId 不等于它的候选**；`:1414` / `:1628` 则是「为真 ⇒ **跳过**正常的
+        /// `GetTargets` / 牌库扫描那一支」。</item>
+        /// <item>**还差什么（所以本版仍判不了，⛔ 不猜）**：① 我们**没有** `cardChosenInSelection`
+        /// 的等价物（`BattleContext` 上没有「本次选牌结算选中了哪张」的槽）——要先查它的**写点**
+        /// （谁在选牌结算里写它）才能建模；② ILSpy 那三处是**同一个巨函数**（`GetTargets` 1427 行
+        /// 的反编译），`else` 两支的具体行为被反编译糊掉了（`NoteDecompilerIssue` 满屏），
+        /// 要按 `.c` 逐句核才敢落地；③ 池内**唯一一行**用到它 = `ASH82`（Farseer Skyrunner，
+        /// `role="count"`）——而那一行 `targetsAffected = 50`（**手牌族**），本文件的
+        /// `CountSet` ③ 本来就判不了（`ta ∈ {50,51,52,65}` ⇒ `null` + 出声）⇒ **就算把这一格做掉，
+        /// 那张卡也仍然判不了**。⇒ 顺序应当是「先做手牌族（`ta=50`）再回来看这一格」。</item>
+        /// </list></para>
         /// </summary>
         static string SetGap(CardDef.CountSetSpec s)
         {
-            if (s.ArmyFilter != 0) return Gap("armyFilter", s.ArmyFilter);
-            if (s.SpellType != 0) return Gap("spellType", s.SpellType);
-            if (s.AttackFilterOption != 0) return Gap("attackFilterOption", s.AttackFilterOption);
-            if (s.ManaCostFilterOption != 0) return Gap("manaCostFilterOption", s.ManaCostFilterOption);
-            if (s.RarityFilterOption != 0) return Gap("rarityFilterOption", s.RarityFilterOption);
-            if (s.ExcludeEnchantmentIds != null && s.ExcludeEnchantmentIds.Length > 0)
-                return "countSet.excludeEnchantments 未实现";
-            // 下面这些是**布尔筛**（1 = 开）：本版没实现的都为 0 才算「不适用」。
-            if (s.ExcludeSimilarCards != 0) return "countSet.excludeSimilarCards 未实现";
-            if (s.ExcludeTargetted != 0) return "countSet.excludeTargetted 未实现";
-            if (s.ExcludeFriendlyHero != 0) return "countSet.excludeFriendlyHero 未实现";
-            if (s.ExcludeEnemyHero != 0) return "countSet.excludeEnemyHero 未实现";
+            // 🆕 2026-10-26（`W6K11` · 账 `收藏:188`）：原来这 9 格在这里整条挡成 `null` ——
+            //   它们**早在 `TargetCriteriaEval.Matches` 里实现了**（全仓唯一那份 36 格判据）⇒ 撤掉。
+            //   现池受影响：`currentHealthFilterOption ∈ {2,3}` 2 行（`AM54` At All Costs / `GOF105`
+            //   Monster Hunters，ta 都是 10 ⇒ 棋盘路，`Matches` 判得了）；其余 8 格现读 **0 行**。
+            // ⚠️ 判不了的格仍然 `null`（`Matches` / `CemeteryCandidatePasses` 自己出 `gap`）——
+            //   降级路没变，只是从「整行不判」变成「逐格判到判不了为止」。
+            // ⚠️ `excludeTargetted`（`TargetCriteria +0x20`）：ILSpy 全树**只有声明、0 个读者**
+            //   （`CheckIfMeetsCriteria` / `CheckIfRawCardMeetsCriteria` 都不读它）⇒ 它不参与判定，
+            //   挡着反而会把整行误判成「判不了」。
+            // 🔴 `selectFromChooseResolution`（`+0x80`）**仍然没实现**：`AbilityLogic.cs:1075/1414/1628`
+            //   把它当**候选池来源**的开关（不是筛）⇒ 保留 `gap`（池内现读 1 行 = `ASH82`）。
+            //   ⚠️ 它同时卡在 `ta=50`（手牌族，本文件 ③ 判不了）⇒ 那一行本来就到不了这里。
             if (s.SelectFromChooseResolution != 0) return "countSet.selectFromChooseResolution 未实现";
             return null;
         }
 
         /// <summary>`-1` = **没落/未知**（旧表）· 其它非 0 值 = **本版没实现** —— 两种都要 `null`，
-        /// 但日志里必须分得开（「没落」不是「没实现」）。</summary>
+        /// 但日志里必须分得开（「没落」不是「没实现」）。🆕 2026-10-26（`W6K11`）：`SetGap` 撤掉那 9 格后本方法**当前无调用点**（留着给将来新挡的格用同一套文案）。</summary>
         static string Gap(string field, int value)
         {
             return value == CardDef.CountSetSpec.Unknown
@@ -406,9 +470,17 @@ namespace RuleEngine
 
         /// <summary>数一数；返回 `null` = 这个集合/条件本版判不了。<paramref name="count"/> 供诊断。
         /// <para><paramref name="countOption"/> = `BoardCriteria.countOptions`：
-        /// `0` = 数命中个数；`10` = **同方 −1 / 异方 +1 累加**（`BoardAnalysis__MeetsCriteria.c:104-118`）。</para></summary>
+        /// `0` = 数命中个数；`10` = **同方 −1 / 异方 +1 累加**（`BoardAnalysis__MeetsCriteria.c:104-118`）。</para>
+        /// <para>🆕 **2026-10-26（批次 9 · 执行代理 `E7P06` · 账 676 ④）**：<paramref name="cands"/> /
+        /// <paramref name="candSides"/> 非 `null` 时进入「**收集档**」—— 每个命中候选**各收集一份**
+        /// （单位 + 它所在的方），`count` 记的是**命中个数**（⛔ 不在这里加权）。
+        /// 为什么要这样分：原版 `AbilityLogic.GetTargets` 先把列表**截到 `maxTargets`**、
+        /// `MeetsCriteria` 才按截后的列表累加（`countOptions == 10`）⇒ 加权必须在截断**之后**做。
+        /// ⚠️ 只有「加权 + 需要截断」这一种组合才进收集档；其余(含全部现池数据 `maxTargets = 0`)走原路。</para></summary>
         static int? CountSet(BattleContext ctx, int owner, CardDef.CountSetSpec set, int cond, int countOption,
-                             UnitState actor, out int count, out string gap)
+                             UnitState actor, out int count, out string gap,
+                             System.Collections.Generic.List<UnitState> cands = null,
+                             System.Collections.Generic.List<int> candSides = null)
         {
             count = 0;
             gap = null;
@@ -435,7 +507,11 @@ namespace RuleEngine
                         if (!pass.Value) continue;
                         var v = ConditionEval.MeetsUnit(ctx, u, cond, false);
                         if (v == null) { gap = $"cond={cond} 在候选身上判不了"; return null; }
-                        if (v.Value) count += Weight(owner, p, countOption);
+                        if (!v.Value) continue;
+                        // 🆕 2026-10-26（`E7P06`）：收集档只记个数 + 候选（加权与截断都在调用方，
+                        //   见方法 doc）；否则照旧就地加权。
+                        if (candSides != null) { candSides.Add(p); cands.Add(u); count += 1; }
+                        else count += Weight(owner, p, countOption);
                     }
                 }
                 return count;
@@ -463,7 +539,12 @@ namespace RuleEngine
                     if (!cpass.Value) continue;
                     var v = ConditionEval.MeetsCard(ctx, d.Card, d.Owner, cond, false, d.InstanceId);
                     if (v == null) { gap = $"cond={cond} 在墓地候选身上判不了"; return null; }
-                    if (v.Value) count += Weight(owner, d.Owner, countOption);
+                    if (!v.Value) continue;
+                    // 🆕 2026-10-26（`E7P06`）：收集档只记个数 —— 墓地候选是 `DeadUnit`（没有 `UnitState`）
+                    //   ⇒ 收集不到「候选实体」；需要按 `targetSelectMethod` 排序时 `ApplyMaxTargets` 会
+                    //   如实报「判不了」（⛔ 不拿个数顶排序）。
+                    if (candSides != null) count += 1;
+                    else count += Weight(owner, d.Owner, countOption);
                 }
                 return count;
             }
@@ -542,7 +623,10 @@ namespace RuleEngine
                     if (!pass.Value) continue;
                     var v = ConditionEval.MeetsUnit(ctx, u, cond, false);
                     if (v == null) { gap = $"cond={cond} 在上一条能力的目标身上判不了"; return null; }
-                    if (v.Value) count += Weight(owner, side, countOption);
+                    if (!v.Value) continue;
+                    // 🆕 2026-10-26（`E7P06`）：同 ①（收集档只记个数 + 候选）。
+                    if (candSides != null) { candSides.Add(side); cands.Add(u); count += 1; }
+                    else count += Weight(owner, side, countOption);
                 }
                 return count;
             }
@@ -748,11 +832,11 @@ namespace RuleEngine
         {
             gap = null;
             if (card == null) return false;
-            if (set.TraitsFilter != 0)
-            {
-                gap = "墓地候选没有单位实体 ⇒ `traitsFilter` 要读**当前** traits，判不了";
-                return null;
-            }
+            // 🆕 2026-10-26（`W6K11`）：`SetGap` 撤掉那 9 格后，这里是**唯一降级口** ——
+            //   墓地候选只有 `CardDef`（无实例 / 当前值 / thisCard / 阵营）⇒ 这些格必须如实 `null`，
+            //   ⛔ 不许静默当「都过」（那会让 count 数多）。现读这 7 格在 `role="count"` 行里都是 0。
+            if (set.TraitsFilter != 0 || set.ArmyFilter != 0 || set.SpellType != 0 || set.ExcludeSimilarCards != 0 || set.ExcludeFriendlyHero != 0 || set.ExcludeEnemyHero != 0 || (set.ExcludeEnchantmentIds != null && set.ExcludeEnchantmentIds.Length > 0))
+            { gap = "墓地候选没有单位实体 ⇒ traits/army/spellType/excludeSimilarCards/excludeFriendly|EnemyHero/excludeEnchantments 判不了"; return null; }
             if (set.CurrentHealthFilterOption != 0 || set.AttackFilterOption != 0
                 || set.ManaCostFilterOption != 0 || set.RarityFilterOption != 0)
             {
@@ -789,6 +873,134 @@ namespace RuleEngine
                 case 3: return count <= filter;          // EqualOrLower
                 default: return null;
             }
+        }
+
+        // ======================================================================================
+        //  🆕 2026-10-26（批次 9 · 执行代理 `E7P06` · 账 676 ④）：`maxTargets` 截断
+        //  ======================================================================================
+        //  判据（第一权威 = `d:/2/tools/decomp_full/`，逐句现读）：
+        //   · **为什么要在 `BoardCriteria` 这条路上截**：`BoardAnalysis__MeetsCriteria.c:101`
+        //     调 `AbilityLogic__GetTargets(param_1, lVar2 /*countCriteria*/, param_3, param_4, param_5, **1**, 0)`
+        //     —— 第 6 实参 = `checkMaxTargets`（ILSpy 签名
+        //     `GetTargets(BattleManager, TargetCriteria, AbilityData, bool checkMaxTargets = true)`）
+        //     ⇒ **数的是截断之后的列表**（`:103 iVar6 = list._size`）。
+        //   · **截断本体** = `AbilityLogic__GetTargets.c:1164-1365`：
+        //       `if (!checkMaxTargets || maxTargets < 1) skip`（`:1164`）
+        //       `if (pool.Count <= maxTargets) skip`（`:1169`）
+        //       `switch (targetSelectMethod)`（`:1171`）：
+        //         `1 highestAttack`  ⇒ `OrderByDescending(CardScript.GetHighestAttackValue)`
+        //                              ＋次键 `CurrentIntrinsicHealth`（`:1172-1214`）；末尾 `Take(maxTargets)`
+        //         `2 highestValueInPlay` ⇒ `OrderByDescending(GetValueInPlay())`（`:1215-1246`）
+        //         `3 lowestValueInPlay`  ⇒ `OrderBy(GetValueInPlay())`（`:1247-1261`）
+        //         `5 lastAdded`     ⇒ 从**表尾**往前取 `maxTargets` 个（`:1274-1313`）
+        //         `6 lowestHealth`  ⇒ `OrderBy(CurrentIntrinsicHealth)`（`:1314-1338`）
+        //         `7 firstAdded`    ⇒ 从**表头**取 `maxTargets` 个（`:1339-1361`）
+        //         `default`（= `0 random` / `4 cardTarget`）⇒ 逐个
+        //                              `BattleManager.GetRandomInt(0, pool.Count)` 抽一个并从池里删（`:1252-1273`）
+        //       非 `default` 的六档统一在 `:1365` `Enumerable.Take(pool, maxTargets) → ToList()`。
+        //   · **顺序键的语义**（ILSpy 的闭包体 `AbilityLogic._003CGetTargets_003Eb__26_1..4` 现读）：
+        //       `highestAttack` 键 = `CardScript.GetHighestAttackValue()` = **max(CurrentMeleeAttack, CurrentRangeAttack)**
+        //       （`CardScript__GetHighestAttackValue.c:5-13`）；`lowestHealth` 键 =
+        //       `CurrentIntrinsicHealth`（`EntityScript__get_CurrentIntrinsicHealth.c`：血量 **减去**
+        //       `+0x108` 那一串 intrinsic 修饰里 `(+0x30 != 0 && +0x38 == 1)` 的和）。
+        //
+        //  🔑 **纯计数档（`countOptions == 0`）的结论可以省掉顺序**：上面**每一个**分支截完都恰好
+        //     剩 `maxTargets` 个（排序+Take / 头尾取 N / 随机抽 N 都是 N）⇒ 个数 = `min(count, max)`。
+        //     ⚠️ 只有 `countOptions == 10`（同方 −1 / 异方 +1）**必须真的选出是哪几个**，因为净和依赖它们。
+        //
+        //  ⚠️ **`Unknown(-1)` 按「不限」处理**：`maxTargets` 是 `int` 字段（原版 `-1` 不存在，`<= 0` 即不限），
+        //     而我们的 `CountSetSpec` 用 `-1` 当「没落」哨兵；它与「不限」**同向**（都不截），
+        //     与本文件其它布尔格「`Unknown ⇒ 不筛`」是同一条约定。数据侧现读 **99/99 + 2/2 + 31/31
+        //     全部落的是确定的 `0`** ⇒ 生产路径上走不到这一格。
+        // ======================================================================================
+
+        /// <summary>原版 `AbilityLogic.GetTargets` 尾段的 `maxTargets` 截断（判据全文见上面那段）。
+        /// <para>`candSides == null` ⇒ 纯计数（`countOptions == 0` 或 `CountTargets` 那条路）：
+        /// 个数 = `min(count, maxTargets)`。</para>
+        /// <para>`candSides != null` ⇒ **加权档**（`countOptions == 10`）：先按 `targetSelectMethod`
+        /// 选出 `maxTargets` 个候选，再按「同方 −1 / 异方 +1」累加。
+        /// ⚠️ 候选**不是 `UnitState`**（墓地 `DeadUnit` / 抽到的牌）时排不出顺序 ⇒ `null` + `gap`
+        /// （⛔ 不拿个数顶）。</para></summary>
+        static int? ApplyMaxTargets(CardDef.CountSetSpec set, int count,
+                                   System.Collections.Generic.List<UnitState> cands,
+                                   System.Collections.Generic.List<int> candSides,
+                                   int owner, int countOption, out string gap)
+        {
+            gap = null;
+            if (set == null) return count;
+            int max = set.MaxTargets;
+            if (max < 1 || count <= max) return count;      // `:1164` / `:1169` 那两道早退
+
+            if (candSides == null) return max;               // 纯计数档（见上面 🔑 那条结论）
+
+            if (cands == null || cands.Count != count || candSides.Count != count)
+            {
+                gap = "需要按 `maxTargets` 截断（`AbilityLogic__GetTargets.c:1164-1365`），但这一档的候选"
+                    + "**不是 `UnitState`**（墓地 `DeadUnit` / 抽到的牌）⇒ 排不出 `targetSelectMethod` 的顺序，判不了";
+                return null;
+            }
+
+            int method = set.TargetSelectMethod;
+            var keep = new System.Collections.Generic.List<int>(max);
+            switch (method)
+            {
+                case 7:   // firstAdded：池序（= 我们扫棋盘 / 表序）的前 max 个（`:1339-1361`）
+                    for (int i = 0; i < max; i++) keep.Add(i);
+                    break;
+                case 5:   // lastAdded：池序的后 max 个（`:1274-1313`）
+                    for (int i = count - max; i < count; i++) keep.Add(i);
+                    break;
+                case 1:   // highestAttack：`OrderByDescending(GetHighestAttackValue)`（`:1172-1214`）
+                    {
+                        var idx = new System.Collections.Generic.List<int>(count);
+                        for (int i = 0; i < count; i++) idx.Add(i);
+                        // ⚠️ 稳定排序：LINQ `OrderByDescending` 是稳定的 ⇒ 同键保持池序；`List.Sort` 不是
+                        //   ⇒ 平手时显式按原下标升序（`CompareTo` 的次序与 LINQ 同向）。
+                        idx.Sort((a, b) =>
+                        {
+                            int ka = HighestAttackKey(cands[a]), kb = HighestAttackKey(cands[b]);
+                            int c = kb.CompareTo(ka);
+                            return c != 0 ? c : a.CompareTo(b);
+                        });
+                        // ⚠️ 原版 `:1172-1214` 还有**次键** `CurrentIntrinsicHealth`（`ThenBy`）——
+                        //   我们**没有** `CurrentIntrinsicHealth` 的等价字段（`UnitState.Health` 是当前值、
+                        //   `MaxHealth` 是上限，都不是「血量减 intrinsic 修饰」）⇒ 只在**主键打平**时才可能不同，
+                        //   如实标着（池内该组合 0 行）。⛔ 别拿 `Health` 冒充次键。
+                        for (int i = 0; i < max; i++) keep.Add(idx[i]);
+                        break;
+                    }
+                default:
+                    // `0 random` / `4 cardTarget` / `2,3 valueInPlay` / `6 lowestHealth` / 未知值。
+                    gap = method switch
+                    {
+                        0 => "`targetSelectMethod = random(0)` 要随机源（原版 `BattleManager.GetRandomInt` = "
+                           + "`MatchData` 开局预烧 100 + 按下标取，P-04 随机源尚未落地）⇒ 判不了",
+                        4 => "`targetSelectMethod = cardTarget(4)` 在本版没有建模（原版 `:1252-1273` 的 `default` 支"
+                           + "走的是随机抽；`cardTarget` 的真实口径判据未取到）⇒ 判不了",
+                        2 or 3 => "`targetSelectMethod = highest/lowestValueInPlay` 要 `CardScript.GetValueInPlay()`，"
+                                + "本版**没有**这个等价字段 ⇒ 判不了",
+                        6 => "`targetSelectMethod = lowestHealth` 要 `CurrentIntrinsicHealth`"
+                           + "（`EntityScript__get_CurrentIntrinsicHealth.c`：当前血量 **减去** intrinsic 修饰），"
+                           + "本版**没有**这个等价字段（`Health` / `MaxHealth` 都不是它）⇒ 判不了",
+                        _ => method == CardDef.CountSetSpec.Unknown
+                                ? "`targetSelectMethod` **未知（没落）** ⇒ 判不了"
+                                : $"`targetSelectMethod={method}` 不在 `TargetSelectMethod` 的 0..7 里 ⇒ 判不了",
+                    };
+                    return null;
+            }
+
+            int sum = 0;
+            for (int i = 0; i < keep.Count; i++) sum += Weight(owner, candSides[keep[i]], countOption);
+            return sum;
+        }
+
+        /// <summary>`CardScript.GetHighestAttackValue()` 的等价物（`CardScript__GetHighestAttackValue.c:5-13`：
+        /// `max(CurrentMeleeAttack, CurrentRangeAttack)`）—— 只供 `maxTargets` 的 `highestAttack` 排序用。</summary>
+        static int HighestAttackKey(UnitState u)
+        {
+            if (u == null) return int.MinValue;
+            int melee = u.CurrentMeleeAttack, ranged = u.CurrentRangeAttack;
+            return melee >= ranged ? melee : ranged;
         }
     }
 }

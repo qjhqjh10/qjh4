@@ -80,8 +80,26 @@ namespace CardPresentation
 
         /// <summary>开场动画：`VideoPlayer_289.json` 实证 `m_AspectRatio:3`(FitVertically)、`m_PlayOnAwake:1`、`m_WaitForFirstFrame:1`、`m_SkipOnDrop:1`、`m_Looping:0`；同 GO 的 `AudioSource_261` 音量 **0.65**。</summary>
         public const float IntroVolume = 0.65f;
-        /// <summary>菜单音乐。`MusicManager` 预制体实证 `musicVolumeMultiplier = 0.2`。</summary>
-        public const float MusicVolumeMultiplier = 0.2f;
+        /// <summary>菜单音乐**源自身**的音量 = 原版 `AudioSourcesController.MAX_VOLUME` = **1.0**。
+        /// <para>判据（两条独立证据，逐值）：</para>
+        /// <list type="number">
+        /// <item>`MusicManager__PlayMusic.c:71-78`（Instant 档）把 `source.volume` **强写**静态表 `[0] = 0x3f800000 = 1.0f`
+        /// （`AudioSourcesController__.cctor.c:9`）；`FadeIn` / `IncrementVolume` 的终值也是 1.0。</item>
+        /// <item>原版两个音乐源的序列化 `m_Volume` 就是 **1.0**（`bundle_staticgeneralassets_assets_all/AudioSource/`
+        /// `AudioSource_2305825550575662284.json` / `AudioSource_8606218221231011020.json`，`m_Enabled: 0`）。</item>
+        /// </list>
+        /// <para>🔴 **0.2 不在这一格**（2026-10-26 订正 —— 铁律 5：原来这里写的是 `MusicVolumeMultiplier = 0.2` 并把它乘进源音量）：
+        /// 0.2 是 `MusicManager.musicVolumeMultiplier`（预制体 `MonoBehaviour_-1722128571091716916.json` = **0.2**），
+        /// 原版经 `PlayerDataManager.SetMusicAndFxVolumes` 把它乘进 **mixer 的 `VolumeMusic`**
+        /// （`SoundManager__SetMixerVolume.c` ⇒ `dB(v)`，`v = 音乐存档量 × 0.2`）。</para>
+        /// <para>⇒ 我们这一侧的对应物 = **`WarpforgeAudio.MusicVolumeMultiplier`**（那个常量必须是 **0.2**，它乘进 mixer）。
+        /// ⛔ **别把 0.2 再乘回源音量** —— 那就成了 0.2 × 0.2 = 原版的 1/5（这正是 2026-10-26 之前那版的错：
+        /// 我们把 0.2 放在源侧、mixer 侧放 1.0，两者**恰好抵消**所以听感对，但**结构是反的**）。</para></summary>
+        public const float MusicSourceVolume = 1.0f;
+        /// <summary>排队下一曲时**提前多少秒**开始交叉淡变（原版 `PlayMusicQueued` 的硬数字 3.0）。
+        /// <para>判据：`MusicManager__PlayMusicQueued.c:43-52` 的 `delay = clip.length − source.time − 3.0f`
+        /// （常量 `0x1834b2e8c` 已用 `工具/read_literal.py` 读出 = `3.0f`；上限 `0x1834b2d94` = `float.MaxValue` ⇒ **等于不夹**）。</para></summary>
+        public const float MusicQueueLeadSeconds = 3.0f;
 
         public Phase Current { get; private set; } = Phase.Intro;
         public WindowsManager Windows { get; private set; }
@@ -124,6 +142,8 @@ namespace CardPresentation
             {
                 // 🔴 W58·D5：原版 toast 控制器随主菜单场景销毁 ⇒ 直切这条也清（判据 → 上面那一段）
                 ToastNotifications.DisposeForSceneChange();
+                // 🔴 2026-10-26（W11AU）：原版 `MusicManager` 订阅 `SceneTransitionStarted` ⇒ 切场景取消排队的下一曲
+                CheckMusicQueueOnSceneChange("LoadSceneWithFade（无黑场直切）");
                 UnityEngine.SceneManagement.SceneManager.LoadScene(scene);
                 return;
             }
@@ -140,6 +160,7 @@ namespace CardPresentation
                     loading.LoadingFade(true, () =>
                     {
                         ToastNotifications.DisposeForSceneChange();       // 🔴 W58·D5
+                        CheckMusicQueueOnSceneChange("LoadSceneWithFade（批处理）");   // 🆕 W11AU
                         UnityEngine.SceneManagement.SceneManager.LoadScene(scene);
                     });
                 }
@@ -186,6 +207,8 @@ namespace CardPresentation
                     // 🔴 W58·D5：此刻黑场已是 α=1（完全遮住），先销毁 toast 再切场景 ——
                     //    与原版「控制器随主菜单场景一起销毁」同一时刻（判据 → `OnSceneLoadedCleanupToast` 上方）。
                     ToastNotifications.DisposeForSceneChange();
+                    // 🔴 2026-10-26（W11AU）：原版 `MusicManager` 订阅 `SceneTransitionStarted`（**切之前**）⇒ 同刻取消排队
+                    CheckMusicQueueOnSceneChange("LoadSceneWithFade");
                     UnityEngine.SceneManagement.SceneManager.LoadScene(scene);
                 }
                 catch (System.Exception e)
@@ -291,7 +314,16 @@ namespace CardPresentation
         AudioSource _videoAudio;
         RenderTexture _videoRt;
         ImageQuad _videoQuad;
-        AudioSource _musicA, _musicB;
+        /// <summary>原版 `MusicManager._audioSources`（字段偏移 `+0x28`）：两个互为「主/备」的音乐源。
+        /// 🆕 2026-10-26（`W11AU`）：`Music A/B` 不再直接持有，改由 <see cref="AudioSourcesController"/> 管（双源交叉淡变）。</summary>
+        AudioSourcesController _musicSources;
+        /// <summary>原版 `MusicManager.currentAudioSource`（`+0x38`）：最近一次 `PlayMusic` 返回的那个源。
+        /// `PlayMusicQueued` 拿它算「还剩多久」（`clip.length − time − 3`）。</summary>
+        AudioSource _currentMusic;
+        /// <summary>原版 `MusicManager.playQueueCoroutine`（`+0x40`）：排队的下一曲那条句柄。
+        /// ⚠️ 原版这一格是 `Coroutine`；我们**不用协程**（理由 → <see cref="QueuedMusic"/> 的注释），
+        /// 语义相同 =「非 null ⇒ 有一首在排队」。</summary>
+        QueuedMusic _queuedMusic;
         bool _built;
         /// <summary>壳自己所在场景名（`Awake` 里、`DontDestroyOnLoad` **之前**记下）。
         /// 🔴 **2026-10-21（第六十会话 · 工具线 `T02`）**：`-wfscene Battle` 的真机缺陷 —— `PlayerBoot`
@@ -338,7 +370,27 @@ namespace CardPresentation
             // 加载两件（原版 `LoadingMenu` / `MenuLoadingController`）——
             // ⚠️ 两个 dt 分开：黑场补间用 unscaled，齿轮用 `Time.deltaTime`（原版 `SimpleRotation.Update`）。
             if (Loading != null) Loading.Tick(Time.unscaledDeltaTime, Time.deltaTime);
+            TickMusic();          // 🆕 2026-10-26（W11AU）：音量补间 + 排队下一曲（原版 `VolumeLerp` / `DelayedQueuedPlay` 的每帧那一步）
             TickChainCheck();
+        }
+
+        /// <summary>每帧推一次音乐两条时间线（**各自都有绝对时刻，不是「轮询状态」**）：
+        /// ① 在飞的音量补间（原版 `AudioSourcesController.VolumeLerp` 的每帧 `MoveNext`）；
+        /// ② 排队的下一曲（原版 `MusicManager.DelayedQueuedPlay` 的 `WaitForSeconds`）。
+        /// <para>🔶 自己设计（非原版，机制等价）：原版这两条一条是 `async Task`、一条是协程；我们统一成
+        /// 「绝对时刻 + 每帧一次比较」—— 只因**批处理/自检没有帧循环**（协程起不来），而本工程要求任何行为都能离线验。
+        /// ⛔ 这不是「轮询 `isPlaying` 硬换曲」那套旧写法：到点之后走的是 `PlayMusic(clip, Blend)`（3 s 交叉淡变）。</para></summary>
+        void TickMusic()
+        {
+            if (_musicSources == null) return;
+            float now = _musicSources.Now;
+            _musicSources.Tick(now);
+
+            if (_queuedMusic == null || now < _queuedMusic.at) return;
+            var clip = _queuedMusic.clip;
+            _queuedMusic = null;
+            Debug.Log("[Shell] 排队的下一曲到点 ⇒ 交叉淡变接上（原版 `DelayedQueuedPlay` ⇒ `PlayMusic(clip, Blend)`）");
+            PlayMusic(clip, MusicTransitionType.Blend);
         }
 
         // ============================================================ 批处理「真 Play」链验证
@@ -592,6 +644,11 @@ namespace CardPresentation
             //    场景名还没进 Build Settings 的临时场景、或改名之后，① 仍然是对的。
             bool menuIsUp = MainMenuRuntime.Instance != null
                          || scene.name == BattleDriver.MainMenuSceneName;
+            // ③ 🆕 2026-10-26（W11AU）：场景换了 ⇒ 取消排队的下一曲（原版 `MusicManager.CheckQueue`，由
+            //    `MusicManager.Initialize` 订阅 `SceneTransitionStarted`）。这一句盖住**所有直调
+            //    `SceneManager.LoadScene` 的路径**（`TutorialModePopup` / `NetMatchmaking` / `MatchLogRow` …）；
+            //    `LoadSceneWithFade` 在切**之前**另调了一次（时机更贴近原版）—— 两条都是幂等的，谁先到都算。
+            CheckMusicQueueOnSceneChange("场景 `" + scene.name + "` 已载入");
             ApplyMenuChrome(menuIsUp, "场景 `" + scene.name + "`");
         }
 
@@ -676,9 +733,11 @@ namespace CardPresentation
             Bake.cameraToBake = cam;
             Bake.Build();     // 批处理/编辑模式里 `Awake` 不跑 ⇒ 显式调（同 `Loading.Build()` 的规矩）
 
-            // ---- 音频：两个双源（原版 `MusicManager{_audioSources{_first,_second}}` 的双源交叉淡入）----
-            _musicA = MakeMusicSource("Music A");
-            _musicB = MakeMusicSource("Music B");
+            // ---- 音频：双源交叉淡变（原版 `MusicManager ▸ _audioSources{_firstAudioSource,_secondAudioSource}`）----
+            // 两个源 + 三档过渡（FadeIn / Blend / Instant）+ 排队下一曲 → `Core/AudioSourcesController.cs` 与
+            // 本文件「音乐」那一节。`Init` 的语义 = 原版 `AudioSourcesController.Init()`：主源 = first、**second 停用**。
+            _musicSources = new AudioSourcesController();
+            _musicSources.Init(MakeMusicSource("Music A"), MakeMusicSource("Music B"));
 
             // ---- 压暗层（四边）----
             // 🔴 **2026-10-03 订正摆法**：原来四条都按**中心 pivot** 摆在屏幕边上 ⇒ **一半在屏外**。
@@ -833,10 +892,12 @@ namespace CardPresentation
             go.transform.SetParent(transform, false);
             var src = go.AddComponent<AudioSource>();
             src.playOnAwake = false;
-            src.loop = true;
-            // 🔴 **源音量只乘那个常量（0.2）** —— 玩家的音量滑块由 mixer 的 `VolumeMusic` 施加
-            //    （`WarpforgeAudio.Ensure()`）。**两处都乘就是 0.2 × 滑块²**，滑块一拉小音乐就消失。
-            src.volume = MusicVolumeMultiplier;
+            src.loop = true;                      // 原版两个音乐源 `Loop: true`（`AudioSource_2305825550575662284.json`）
+            // 源音量 = 1.0（原版 `m_Volume: 1.0` + `MusicManager.PlayMusic` Instant 档强写 1.0）。
+            // 🔴 **0.2 不在这里** —— 它乘在 **mixer 的 `VolumeMusic`** 上（理由/判据 → `MusicSourceVolume` 的注释）。
+            //    玩家的音乐滑块同样只由 mixer 施加 ⇒ **两处都乘就是 0.2 × 滑块²**，滑块一拉小音乐就消失。
+            src.volume = MusicSourceVolume;
+            src.enabled = false;                  // 原版 `m_Enabled: 0`（出厂停用，`Init` 也只把 second 关掉、first 由 PlayMusic 打开）
             if (WarpforgeAudio.Ready) src.outputAudioMixerGroup = WarpforgeAudio.MusicGroup;
             return src;
         }
@@ -1000,7 +1061,11 @@ namespace CardPresentation
             _video.audioOutputMode = VideoAudioOutputMode.AudioSource;
             _videoAudio = go.AddComponent<AudioSource>();
             _videoAudio.playOnAwake = false;
-            _videoAudio.volume = IntroVolume;                     // 实证 0.65
+            // 原版这个 GO 上挂着 `MusicVolumePlayerPrefsSetting`（`MusicVolumePlayerPrefsSetting__Start.c:16-27`）：
+            //   `v = PlayerPrefs.GetFloat(key, source.volume)`（**默认值 = 源自身音量**）→ `volume = 源音量 × v`
+            // ⇒ 初装**没有 key** 时 = `0.65 × 0.65 = 0.4225`；存过 0.5 ⇒ 0.325；存过 1.0 ⇒ 0.65。
+            // ⚠️ key **必须**复用 `WarpforgeAudio.MusicPrefKey`（另起名 = 静默失效，滑块对它无效）。
+            _videoAudio.volume = IntroVolume * PlayerPrefs.GetFloat(WarpforgeAudio.MusicPrefKey, IntroVolume);
             _video.SetTargetAudioSource(0, _videoAudio);
 
             _video.loopPointReached += _ => FinishIntro("播完");
@@ -1113,9 +1178,32 @@ namespace CardPresentation
             }
         }
 
-        // ---------------------------------------------------------- 音乐
+        // ============================================================ 音乐（原版 `MusicManager`，2026-10-26 W11AU 补齐）
+        //
+        // 判据（第一权威）：`d:/2/tools/decomp_full/MusicManager__{PlayMusic,PlayMusicQueued,CheckQueue,StopMusic}.c`
+        // `MusicManager._DelayedQueuedPlay_d__15__MoveNext.c` · `MusicManager__get_MusicVolumeMultiplier.c` ·
+        // 预制体 `bundle_staticgeneralassets_assets_all/MonoBehaviour/MonoBehaviour_-1722128571091716916.json`。
+        // 字段对照：`_audioSources`(+0x28) → `_musicSources` · `musicVolumeMultiplier`(+0x30) → **`WarpforgeAudio.MusicVolumeMultiplier`**
+        //           `currentAudioSource`(+0x38) → `_currentMusic` · `playQueueCoroutine`(+0x40) → `_queuedMusic`。
 
-        /// <summary>`MainMenuMusicController.Initialize()`：第一次 `PlayMusic(main, transition 2)` 再 `PlayMusicQueued(idle)`；重复进入 `Release(main)` 后直接 `PlayMusic(idle, 2)`。</summary>
+        /// <summary>排队的下一曲（原版 `MusicManager.playQueueCoroutine` 那一格 `Coroutine` 的等价物）。
+        /// <para>🔶 自己设计（非原版，机制等价）：原版是 `StartCoroutine(DelayedQueuedPlay(clip, delay))`、靠
+        /// `StopCoroutine(+0x40)` 取消；我们用「一个带**绝对到点时刻**的小对象 + 每帧一次比较」，
+        /// **只因批处理/自检里起不了协程**（本工程要求行为可离线验），取消语义完全一致（`CheckQueue` 把它置 null）。
+        /// ⚠️ 行为与原版逐条对齐：`delay = 当前曲剩余 − 3 s`（下限 0、上限 `float.MaxValue` = 不夹）· 到点走
+        /// **`PlayMusic(clip, Blend)`**（不是硬切）· `PlayMusic` / `PlayMusicQueued` 开头都会先取消已排的那首
+        /// （= 原版 `StopAllCoroutines()`，它只停得掉协程、停不掉 `AudioSourcesController` 的 `Task`）。</para></summary>
+        sealed class QueuedMusic
+        {
+            public AudioClip clip;
+            /// <summary>到点时刻（绝对时间，与 `AudioSourcesController.Now` 同一个钟）。</summary>
+            public float at;
+        }
+
+        /// <summary>`MainMenuMusicController.Initialize()`（`MainMenuMusicController__Initialize.c`）：
+        /// 第一次 `PlayMusic(main, **Instant**)` 再 `PlayMusicQueued(idle)`；重复进入是 `Release(main)` 后 `PlayMusic(idle, Instant)`。
+        /// <para>⚠️ 本方法**只做第一次那条**（壳重建才走到这里；「重复进入主菜单」在原版是主菜单窗自己的
+        /// `Initialize` 再来一次，我们目前没有那个入口 —— 见报告「下一批」）。</para></summary>
         public void PlayMenuMusic()
         {
             var main = Resources.Load<AudioClip>("Art/audio/music/main_theme");
@@ -1126,23 +1214,150 @@ namespace CardPresentation
                                  "—— 源在 `d:/2/新解包资源/assets_full/bundle_menumusic_assets_all/AudioClip/`");
                 return;
             }
-            if (_musicA == null) return;
-            _musicA.clip = main; _musicA.volume = MusicVolumeMultiplier;
-            _musicA.Play();
-            _queuedIdle = idle;
+            if (_musicSources == null) return;
+            PlayMusic(main, MusicTransitionType.Instant);   // 原版 `PlayMusic(main, 2)`
+            PlayMusicQueued(idle);                          // 原版 `PlayMusicQueued(idle)`
         }
 
-        AudioClip _queuedIdle;
-
-        /// <summary>排队的 idle 主题在主主题放完之后接上（原版 `PlayMusicQueued`）。</summary>
-        void LateUpdate()
+        /// <summary>原版 `MusicManager.PlayMusic(AudioClip, MusicTransitionType)`（`MusicManager__PlayMusic.c`）：
+        /// ① `StopAllCoroutines()`（只影响排队的下一曲）→ ② 按档：`FadeIn`(0) / `Blend`(1) / `Instant`(2)，
+        /// 句柄 = 返回的那个源（`+0x38`）→ ③ **其他值抛 `ArgumentOutOfRangeException`**（.c:44-55，原版真的抛）。
+        /// <para>⚠️ 三种档位**都**把 `+0x38` 写成「当前的源」；`PlayMusicQueued` 靠它算剩余时长。</para></summary>
+        public void PlayMusic(AudioClip musicClip, MusicTransitionType type)
         {
-            if (_queuedIdle != null && _musicA != null && !_musicA.isPlaying)
+            if (_musicSources == null)
             {
-                _musicA.clip = _queuedIdle;
-                _musicA.Play();
-                _queuedIdle = null;
+                Debug.LogWarning("[Shell] `PlayMusic` 时音乐源还没建（`Build` 没跑完？）⇒ 本次什么也没做");
+                return;
             }
+            CancelQueuedMusic();                 // 原版①：StopAllCoroutines()
+
+            switch (type)
+            {
+                case MusicTransitionType.FadeIn:
+                    _currentMusic = _musicSources.FadeIn(musicClip);
+                    break;
+                case MusicTransitionType.Blend:
+                    _currentMusic = _musicSources.Blend(musicClip);
+                    break;
+                case MusicTransitionType.Instant:
+                    _currentMusic = _musicSources.PlayInstant(musicClip);
+                    break;
+                default:
+                    // 原版这里是 `throw new ArgumentOutOfRangeException(...)`（`MusicManager__PlayMusic.c:44-55`）⇒ 照抛
+                    throw new ArgumentOutOfRangeException(
+                        "type", type, "原版 MusicManager.PlayMusic 只认 FadeIn(0) / Blend(1) / Instant(2)");
+            }
+        }
+
+        /// <summary>原版 `MusicManager.PlayMusicQueued(AudioClip)`（`MusicManager__PlayMusicQueued.c`）：
+        /// ① `StopAllCoroutines()` → ② 没有正在播的源 ⇒ `delay = 0` → ③ 否则
+        /// `delay = clip.length − source.time − 3.0f`，**下限 0、上限 `float.MaxValue`（等于不夹）** →
+        /// ④ 起 `DelayedQueuedPlay(clip, delay)`，句柄存 `+0x40`。
+        /// <para>⚠️ 原版②判的是「`+0x38` 那个源对象为 null」；源在但 clip 为 null 那条路原版是**空引用桩**
+        /// （`.c` 末尾 `FUN_1803f47a0`）—— 我们按「delay = 0」处理（不许炸壳，出声）。</para></summary>
+        public void PlayMusicQueued(AudioClip musicClip)
+        {
+            if (_musicSources == null) return;
+            CancelQueuedMusic();
+
+            float delay = 0f;
+            var cur = _currentMusic != null ? _currentMusic : _musicSources.MainAudioSource;
+            if (cur != null && cur.clip != null)
+            {
+                float remain = cur.clip.length - cur.time - MusicQueueLeadSeconds;
+                if (remain < 0f) remain = 0f;                       // .c:47-50（上限 float.MaxValue ⇒ 不夹）
+                delay = remain;
+            }
+            _queuedMusic = new QueuedMusic { clip = musicClip, at = _musicSources.Now + delay };
+            Debug.Log($"[Shell] 排队的下一曲：{delay:F2}s 后交叉淡变接上（= 当前曲剩余 − {MusicQueueLeadSeconds:F1}s）");
+        }
+
+        /// <summary>原版 `MusicManager.CheckQueue(string sceneTarget)`（`MusicManager__CheckQueue.c`）：**只有一句**
+        /// `if (+0x40 != 0) StopCoroutine(+0x40)` ⇒ 语义 =「场景切换了 ⇒ 取消排队的下一曲」。
+        /// <para>⚠️ 形参 `sceneTarget` 在原版方法体里**一次都没用**（签名有、机码没有）⇒ 我们**不留这个形参**
+        /// （照派活包 A-01 的 62 号条）。</para>
+        /// <para>⚠️ 原版订阅的是 `EverguildSceneManager.SceneTransitionStarted`（`MusicManager__Initialize.c`，
+        /// **场景切换开始之前**）；我们的等价钩子挂在 `LoadSceneWithFade`（切之前）与 `sceneLoaded`（覆盖全部
+        /// 直调 `SceneManager.LoadScene` 的路径，**切之后**）—— 两条都只做「清掉排队」这一件事，见
+        /// <see cref="CheckMusicQueueOnSceneChange"/>。</para></summary>
+        public void CheckQueue() { CheckQueueCore("场景切换"); }
+
+        /// <summary>`CheckQueue` 的本体（把「为什么取消」记进日志，便于真机排查「战斗里怎么还有菜单音乐」）。</summary>
+        void CheckQueueCore(string reason)
+        {
+            if (_queuedMusic == null) return;          // 原版：`+0x40 == 0` 就什么都不做
+            CancelQueuedMusic();
+            Debug.Log($"[Shell] `{reason}` ⇒ **取消排队的下一曲**（原版 `MusicManager.CheckQueue` → `StopCoroutine(+0x40)`）");
+        }
+
+        /// <summary>取消排队（= 原版 `StopCoroutine(+0x40)`）。⚠️ 原版**不复位** `+0x40`（留着死句柄）；
+        /// 我们置 null —— 语义等价（再 Stop 一次也是空操作），且「非 null ⇒ 有一首在排队」这个判据才立得住。</summary>
+        void CancelQueuedMusic() { _queuedMusic = null; }
+
+        /// <summary>原版 `MusicManager.StopMusic(bool instant)`（`MusicManager__StopMusic.c`）：
+        /// `instant == false` ⇒ `AudioSourcesController.FadeOut()`（3 s 降到 0、到点 `enabled=false`）；
+        /// `instant == true` ⇒ `current.enabled=false` + `Stop()`（= 账行 29 `Stop()` 那两句的内联）。
+        /// <para>⚠️ 原版**不清排队句柄**（`StopMusic` 里没有 `StopCoroutine`）—— 清排队是 `CheckQueue` 的事（场景切换）。
+        /// 派活包 A-01 的 68 号条「顺手清 `_queuedIdle`」那句**与反编译不符**，这里照反编译做（铁律 5 就地订正）。</para></summary>
+        public void StopMusic(bool instant)
+        {
+            if (_musicSources == null) return;
+            if (instant) _musicSources.Stop();
+            else _musicSources.FadeOut();
+        }
+
+        /// <summary>壳侧入口：离开主菜单（进战斗 / 切场景）时停菜单音乐 = 原版
+        /// `BattleManager.OnInitializationComplete` 里那句 `MusicManager.StopMusic()`。
+        /// <para>参数 = 原版的 `instant`：`false` 走 3 s 淡出（原版默认档）。</para>
+        /// <para>🔴 **调用点在哪**：原版那一句在 `BattleManager` 侧。我们这边**必须由开战入口调**
+        /// （`Battle/BattleDriver.cs` 的 Begin 那一跳 —— 不在本代理的文件白名单里，已写进报告「下一批」）。
+        /// 不调就会：壳是 DDOL、音乐源跟着活 ⇒ **战斗里菜单 idle 主题与战斗 BGM 叠着放**（账行 68 的原症状）。</para></summary>
+        public void StopMenuMusic(bool instant) { StopMusic(instant); }
+
+        /// <summary>场景切换 ⇒ 取消排队的下一曲（原版 `MusicManager.Initialize` 订阅 `SceneTransitionStarted`）。
+        /// <para>调用点两处（**同一条规则，不写第二份**）：① <see cref="LoadSceneWithFade"/>（切之前，时机最贴近原版）；
+        /// ② <see cref="OnSceneLoadedApplyChrome"/>（覆盖所有<b>直调</b> `SceneManager.LoadScene` 的路径）。
+        /// 先例 = `ToastNotifications` 也是「显式一处 + `sceneLoaded` 兜底一处」。</para></summary>
+        public static void CheckMusicQueueOnSceneChange(string reason)
+        {
+            var rt = Instance;
+            if (rt == null) rt = UnityEngine.Object.FindFirstObjectByType<ShellRuntime>();   // 自检/批处理档（`Awake` 不跑）
+            if (rt == null) return;
+            rt.CheckQueueCore(reason);
+        }
+
+        // ---- 自检口（只读 / 只推时钟；⛔ 生产代码别调）----
+
+        /// <summary>自检用：音乐双源控制器（原版 `MusicManager._audioSources`）。没有壳/没建 ⇒ null。</summary>
+        public AudioSourcesController MusicSourcesForTest { get { return _musicSources; } }
+
+        /// <summary>自检用：`当前是否有一首在排队`（= 原版 `+0x40 != 0`）。</summary>
+        public bool MusicQueuedForTest { get { return _queuedMusic != null; } }
+
+        /// <summary>自检用：排队那首的 clip（没有就是 null）。</summary>
+        public AudioClip QueuedMusicClipForTest { get { return _queuedMusic != null ? _queuedMusic.clip : null; } }
+
+        /// <summary>自检用：当前主源（= 原版 `currentAudioSource`，`+0x38`）。</summary>
+        public AudioSource CurrentMusicSourceForTest { get { return _currentMusic; } }
+
+        /// <summary>自检用：**开场视频音源**的当前音量。原版这个 GO 上挂着 `MusicVolumePlayerPrefsSetting`
+        /// （`MusicVolumePlayerPrefsSetting__Start.c:16-27`）⇒ 建完之后它 = `0.65 × PlayerPrefs.GetFloat("MusicVolume", 0.65)`
+        /// （默认值 = 源自身音量 ⇒ 初装 0.4225）。`_videoAudio` 没建（比如开场视频资产缺）⇒ 返 **-1**。</summary>
+        public float IntroAudioVolumeForTest { get { return _videoAudio != null ? _videoAudio.volume : -1f; } }
+
+        /// <summary>自检用：把音乐的钟切到手动档（`AudioSourcesController.ResetClockForTest` 的转发）。</summary>
+        public void ResetMusicClockForTest()
+        {
+            if (_musicSources != null) _musicSources.ResetClockForTest();
+        }
+
+        /// <summary>自检用：手动推进音乐时间线（补间 + 排队）<paramref name="dt"/> 秒。</summary>
+        public void AdvanceMusicForTest(float dt)
+        {
+            if (_musicSources == null) return;
+            _musicSources.AdvanceForTest(dt);
+            TickMusic();
         }
 
         // ---------------------------------------------------------- 诊断
@@ -1156,7 +1371,9 @@ namespace CardPresentation
             sb.Append($" · 载入文案 y={LoadingY}(开)/{ProgressY}(关)");
             sb.Append($" · 模糊快照 {(Bake == null ? "没建" : (Bake.Showing ? "显示中" : "关"))}");
             sb.Append(" · " + (Windows != null ? Windows.Dump() : "没有 WindowsManager"));
-            sb.Append($" · 音乐 {(_musicA != null && _musicA.isPlaying ? _musicA.clip.name : "没在放")}");
+            var src = _musicSources != null ? _musicSources.MainAudioSource : null;
+            sb.Append($" · 音乐 {(src != null && src.isPlaying && src.clip != null ? src.clip.name : "没在放")}"
+                    + $"[排队 {(_queuedMusic != null ? "有" : "无")}]");
             return sb.ToString();
         }
     }

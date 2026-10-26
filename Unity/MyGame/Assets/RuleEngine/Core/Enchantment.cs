@@ -130,6 +130,24 @@ namespace RuleEngine
         {
             return (Card != null ? Card.Name : "?") + "#" + EnchantmentCardId;
         }
+
+        /// <summary>
+        /// 原版 `RawCardScript.whileInPlayAnim // +0x288`（`dump.cs:23338`）——
+        /// `EntityScript__HasEnchantmentWhileInPlay()` 唯一读的那一格（账 1044）。
+        ///
+        /// <para>🔶 自己设计（非原版的数据形状）：原版这个开关在**附魔卡自己**身上（`RawCardScript`），
+        ///   而我们的卡表（`cards_engine.json` / `CardDef`）**还没有这一列** ⇒ 先在**挂载记录**上留一格三态，
+        ///   由 <see cref="Enchantments.Attach"/> 的新形参 `whileInPlayAnim` 填。
+        ///   P-07 把 `CardDef.WhileInPlayAnim` 落进卡表之后，把 `Attach` 的缺省值改成读它即可，
+        ///   消费端 <see cref="Enchantments.HasEnchantmentWhileInPlay"/> 不用动。</para>
+        /// <para>取值：`1` = 真 · `0` = 假 · `-1` = **未知**（数据列还没接，见
+        ///   <see cref="Enchantments.UnknownWhileInPlayAnim"/>）。</para>
+        /// <para>📌 数据在哪（给 P-07 的判据）：`资料/普查产出_1018/allcards_1350/cards_raw.json` 的
+        ///   **`full_raw.whileInPlayAnim`**（1,351 张各一条；`true` = **41** 张，其中**附魔卡 3 张**：
+        ///   `eab54e4c…` T16 Sautekh-Undying Legions · `a5960475…` T18 Leviathan-Hive Fleet Leviathan ·
+        ///   `7c06b811…` Z-SW-Everstorm）。⚠️ 它在 `full_raw` 里、不在解析视图那一层。</para>
+        /// </summary>
+        public int WhileInPlayAnim = Enchantments.UnknownWhileInPlayAnim;
     }
 
     /// <summary>
@@ -180,17 +198,17 @@ namespace RuleEngine
         ///   · `:44/:48` 新记录的 `ID` = **本局当前 `enchatmentsUsed` 的值**，然后计数器 **+1**；
         ///   · `:51` 追加到 `+0x110`；`:63` **同时**追加 `CardEffect` 到 `+0x108`。
         ///
-        /// ⚠️ **原版 `:69` 的 `ActivateTraitsOnSummonOrEnchantment` 我们【没做】**（如实标着）：
-        ///   它重算的是「被附魔之后才生效的静态 trait」（`canAct` / `ferocity` / `oath` …）。
-        ///   我们没有任何「附魔卡 → 关键词」的数据来源（卡表没有附魔列）⇒ 这一步**没有输入**，
-        ///   硬写一个空转会更糟（看着像做了）。等数据侧有了再补，判据原样留在这一行。
+        /// 🔴 **2026-10-26（第八十四会话 · `W13EN` · 账 687）：原版 `:91` 的
+        ///   `ActivateTraitsOnSummonOrEnchantment(carrier, onSummon: false)` **已补**（= 本方法末尾那一句）。
+        ///   它重算的是**载体自己的** `CurrentTraits` 对「能动 / 能攻击」的影响（`fast`/`flank`/`ferocity`/`oath`），
+        ///   **不把附魔卡的 trait 并进载体**（旧记「缺『附魔卡 → 关键词』数据通路」是读错了那一跳，订正 → 报告 §五）。新增形参 `whileInPlayAnim` 见 `ActiveEnchantment.WhileInPlayAnim` 的 doc（等 P-07 落列后改缺省读 `CardDef`）。
         /// </summary>
         /// <param name="spellType">附魔卡的 `spellType(+0x90)`；**不知道就留 `-1`**（⛔ 别猜）。
         /// 密令判定（`SpellTypeSecretOrder`）只认显式给对的这一格。</param>
         public static ActiveCardEffect Attach(BattleContext ctx, CardInstance carrier,
                                               CardDef enchantmentCard, int buffType = BuffTypeEnchantment,
                                               int spellType = -1, string source = null,
-                                              UnitState acting = null)
+                                              UnitState acting = null, int whileInPlayAnim = UnknownWhileInPlayAnim)
         {
             if (enchantmentCard == null)
             {
@@ -224,7 +242,7 @@ namespace RuleEngine
             //   ⇒ 绝大多数附魔的 `SpellType` 停在 `-1`，密令/任务两条判定永远「未知」。
             //   ⚠️ 卡表还是 `< v19`（没这一列）时 `CardDef.SpellType == -1` ⇒ 原样保持未知（⛔ 不猜 0）。
             int _st = spellType >= 0 ? spellType : enchantmentCard.SpellType;
-            var ench = new ActiveEnchantment { Card = enchantmentCard, EnchantmentCardId = id, SpellType = _st };
+            var ench = new ActiveEnchantment { Card = enchantmentCard, EnchantmentCardId = id, SpellType = _st, WhileInPlayAnim = whileInPlayAnim };
             var eff = new ActiveCardEffect
             {
                 EnchantmentCard = enchantmentCard,
@@ -254,7 +272,7 @@ namespace RuleEngine
                           + "（`CardDef.SpellType == -1`：卡表 < v19，或这张附魔卡不在真值快照里）");
                 }
             }
-            return eff;
+            ActivateTraitsAfterEnchant(ctx, carrier); return eff;   // 原版 `:91`（判据/取舍见方法头 2026-10-26 那一段与 `ActivateTraitsAfterEnchant` 的 doc）
         }
 
         // ==================================================================
@@ -276,11 +294,20 @@ namespace RuleEngine
                           + "（原版 `CardScript__RemoveEffect` 同一条闸）");
                 return false;
             }
-            carrier.ActiveEffects.Remove(effect);
+            // 🆕 **2026-10-26（`W14EC` · 排队摘之后才需要）：空过要【如实出声】，⛔ 别打一句假的「摘掉」并返回真。**
+            //   排队的 `removeEffect` 可能晚于「载体变残骸时整表清过」（`EffectResolver.cs` 的残骸支对
+            //   `inst.ActiveEffects` / `inst.ActiveEnchantments` 两条 `Clear()`）⇒ 出队时这条记录已经不在。
+            bool wasThere = carrier.ActiveEffects.Remove(effect);
             if (effect.Enchantment != null) carrier.ActiveEnchantments.Remove(effect.Enchantment);
             if (ctx != null)
-                ctx.Log($"附魔层：从「{NameOf(carrier.Card)}」身上摘掉「{NameOf(effect.EnchantmentCard)}」");
-            return true;
+            {
+                if (wasThere)
+                    ctx.Log($"附魔层：从「{NameOf(carrier.Card)}」身上摘掉「{NameOf(effect.EnchantmentCard)}」");
+                else
+                    ctx.Log($"附魔层：「{NameOf(effect.EnchantmentCard)}」本来就不在「{NameOf(carrier.Card)}」身上"
+                          + "（已摘 / 载体变残骸时整表清过）—— 这条 `removeEffect` **空过**");
+            }
+            return wasThere;
         }
 
         /// <summary>按**附魔卡**摘 —— 摘掉该卡在该载体上的**全部**挂载记录。返回摘掉几条。</summary>
@@ -540,13 +567,22 @@ namespace RuleEngine
         }
 
         /// <summary>
-        /// 原版 `EntityScript__HasSecretOrder.c`：在 `+0x108` 里找
-        /// **`IsEnchantment` 且 `enchantmentCard(+0x88)` 等于给定那张**的那条 `CardEffect`。
-        /// 返回 `null` = 没有。（密令的「揭示」那一步拿的就是它 —— 看它的 `buffType` 决定要不要摘。）
+        /// 原版 `EntityScript__HasSecretOrder.c` / `EntityScript.cs:1977-2035`（逐句）：
+        ///   ① `n = HasSecretOrders()` —— 数 **`activeEnchantments(+0x110)`** 里 `spellType == SecretOrder` 的件数；
+        ///   ② **只有 `n &gt; 0` 才进循环**；
+        ///   ③ 遍历 **`activeEffects(+0x108)`**，只取 `IsEnchantment()` 的；
+        ///   ④ 且 `enchantmentCard(+0x88)` 等于给定那张 ⇒ 返回该 effect；⑤ 否则 `null`。
+        ///
+        /// 🔴 **原版这两个列表不是一条**：闸看 `activeEnchantments`、体查 `activeEffects`
+        /// （`activeEffects` 里同时装着非附魔族的记录，所以只看它会把「不是密令」的判成密令）。
+        /// 🆕 **2026-10-26（第八十四会话 · `W13EN` · 账 1047）：② 那道闸补上了** ——
+        /// 改前「身上没有任何 SecretOrder 附魔、但 `ActiveEffects` 里恰有一条同卡的附魔型效果」时
+        /// 我们会返回它、原版返回 `null`。
         /// </summary>
         public static ActiveCardEffect FindSecretOrder(CardInstance carrier, CardDef only)
         {
             if (carrier == null || only == null) return null;
+            if (CountSecretOrders(carrier) <= 0) return null;   // 原版 `:1977-1981` 的 ②：闸看 `activeEnchantments`（⛔ 别改成数 `activeEffects` —— 那正是原版的坑）
             foreach (var e in carrier.ActiveEffects)
             {
                 if (e == null || !ReferenceEquals(e.EnchantmentCard, only)) continue;
@@ -685,7 +721,9 @@ namespace RuleEngine
             return eff != null ? eff.Enchantment : null;
         }
 
-        /// <summary>**摘掉祈祷附魔**（受伤 / 疲劳 / 回合开始结算三个落点共用）。返回真 = 真摘掉了。</summary>
+        /// <summary>**同步摘掉祈祷附魔**（= `removeEffect(16)` 的【出队体】/ 直调口）。返回真 = 真摘掉了。
+        /// ✅ 2026-10-26（`W14EC`）：三个生产落点已改走**排队**版 <see cref="EnqueueRemovePray"/>
+        /// （原版 340 那支是 `AddRemoveEnchantment` → `AddAutoActionToQueue`）。</summary>
         public static bool RemovePray(BattleContext ctx, UnitState carrier)
         {
             var e = FindPray(carrier);
@@ -697,5 +735,283 @@ namespace RuleEngine
         }
 
         static string NameOf(CardDef c) { return c != null ? c.Name : "?"; }
+
+        // ================================================================================================
+        //  🆕 2026-10-26（第八十四会话 · `W13EN` · 账 1044 / 763 / 770 / 481·532 / 687）
+        //  —— **本段全部追加在类尾**（⛔ 别插到中间的成员之间：`账/*.tsv` 按 `文件:行号` 引，插一行就漂）
+        // ================================================================================================
+
+        /// <summary>`whileInPlayAnim` 三态里的「未知」（见 <see cref="ActiveEnchantment.WhileInPlayAnim"/>）。</summary>
+        public const int UnknownWhileInPlayAnim = -1;
+
+        /// <summary>
+        /// 原版 `EntityScript.HasEnchantmentWhileInPlay()`（`out_cpp2il_dev_ilspy/EntityScript.cs:1843-1874`，
+        /// 逐句核过）—— 判的是 **附魔卡自己的 `whileInPlayAnim(+0x288)` 开关**，
+        /// **不是**「身上有没有附魔」（那个是 <see cref="HasAny"/>，语义完全不同；账 1044 的差异列就是这条）。
+        /// <code>
+        ///   foreach (ActiveEnchantment e in activeEnchantments(+0x110))
+        ///       if (e != null &amp;&amp; e.enchantmentCard != null &amp;&amp; e.enchantmentCard.whileInPlayAnim) return true;
+        ///   return false;
+        /// </code>
+        /// <para>⚠️ 原版对 `e == null` / `enchantmentCard == null` 那一格**会 NRE**（ILSpy 的
+        ///   `NullReferenceException` 桩）⇒ 我们不复制崩溃语义：跳过，件数由
+        ///   <see cref="CountUnknownWhileInPlayAnim"/> 单独查。</para>
+        /// <para>⚠️ 三态：`WhileInPlayAnim &lt; 0`（数据列还没接）**按 false 算** ——
+        ///   ⛔ 不静默当作「原版就是 false」，要查判不了几件请用 <see cref="CountUnknownWhileInPlayAnim"/>。</para>
+        /// <para>📌 今天不可观察：本仓**没有任何**附魔卡的 `whileInPlayAnim` 被填过（`Attach` 的缺省 = 未知）；
+        ///   数据已在 `cards_raw.json` 的 `full_raw.whileInPlayAnim`（3 张附魔卡为真）⇒ 等 P-07 落列。</para>
+        /// </summary>
+        public static bool HasEnchantmentWhileInPlay(CardInstance carrier)
+        {
+            if (carrier == null) return false;
+            foreach (var e in carrier.ActiveEnchantments)
+                if (e != null && e.WhileInPlayAnim == 1) return true;
+            return false;
+        }
+
+        /// <summary>载体身上**判不了** `whileInPlayAnim` 的附魔件数（诚实计数：数据列没接时 = 全部件数）。</summary>
+        public static int CountUnknownWhileInPlayAnim(CardInstance carrier)
+        {
+            int n = 0;
+            if (carrier == null) return 0;
+            foreach (var e in carrier.ActiveEnchantments)
+                if (e != null && e.WhileInPlayAnim < 0) n++;
+            return n;
+        }
+
+        /// <summary>
+        /// 原版 `CardScript.GetQuestTimes()`（`decomp_full/CardScript__GetQuestTimes.c:1-45` ·
+        /// `out_cpp2il_dev_ilspy/CardScript.cs:10604-10654`，亲读）：
+        /// 遍历 `activeEnchantments(+0x110)`，**返回第一条 `enchantmentCard.questTimes(+0x7c) &gt; 0` 的那个值**；
+        /// 一条都没有 ⇒ `0`。
+        ///
+        /// <para>⚠️ 与 <see cref="FilterByQuestCounter"/> **不是同一件事**：那个是 `ReachedQuestCounter`
+        ///   的消费点（逐条累计 + 比 `questTimes`、不放行时摘件），本方法是**取值口**。</para>
+        /// <para>⚠️ 原版对 `enchantmentCard == null` 那一格是 NRE 桩 ⇒ 跳过（不复制崩溃语义）。</para>
+        /// <para>📌 **本方法暂不接线**（原版调用点要先 VA 现扫，见账 763 的施工步骤 ②）；
+        ///   池内 `spellType == 120` 的卡 **0 张** ⇒ 接上也不改任何对局。</para>
+        /// </summary>
+        public static int GetQuestTimes(CardInstance carrier)
+        {
+            if (carrier == null) return 0;
+            foreach (var e in carrier.ActiveEnchantments)
+            {
+                if (e == null || e.Card == null) continue;
+                if (e.Card.QuestTimes > 0) return e.Card.QuestTimes;
+            }
+            return 0;
+        }
+
+        /// <summary>
+        /// 原版 `CardScript.HasCancelAttackEffect(actingCard, targetCard)` 的**完整形态**
+        /// （`decomp_full/CardScript__HasCancelAttackEffect.c:1-66`，逐句亲读）。
+        ///
+        /// <para>原版逐条：① 取 `activeEnchantments(+0x110)`，空/无 ⇒ false；② 逐件取 `enchantmentCard(+0x10)`；
+        /// ③ `RawCardScript.HasAbilityType(enchantmentCard, 0x118 /* AboutToAttack = 280 */)` 为假 ⇒ 下一件；
+        /// ④ 真 ⇒ 遍历该卡 `cardAbilities(+0x290)`，逐条
+        /// `CardAbility.CanTriggerAbility(ability, 0x118, bm, **载体**, actingCard, targetCard, ignoreRandom:0)`；
+        /// ⑤ 任一真 ⇒ 返回该件；⑥ 全无 ⇒ `null`。</para>
+        ///
+        /// <para>**`CanTriggerAbility` 的五道闸**（`decomp_full/CardAbility__CanTriggerAbility.c:1-143` 逐句）
+        /// ⇒ 我们的等价口：
+        ///   ① `ability.trigger == 280`（<see cref="KeywordTable.AboutToAttack"/> 这一族）；
+        ///   ② `IsRightContext(ability, thisCard = 载体)` ⇒ <see cref="RuleCore.IsRightContext"/>；
+        ///   ③ `actingCardCriteria(+0x28)` ⇒ <see cref="RuleCore.ActingLevelCriteriaAllows"/>；
+        ///   ④ `targetCriteria(+0x30)` ＋ ⑤ `boardCriteria(+0x38)` ⇒ <see cref="RuleCore.AbilityLevelCriteriaAllows"/>。</para>
+        ///
+        /// <para>三处如实记的残余（⛔ 别当成「做全了」）：
+        ///   ① 原版**逐条 ability 判**、任一真即真；我们那三个入口按 `(卡, trigger)` 定位**唯一**一条
+        ///     ⇒ 同卡同 trigger 多条 ability 时走既有口径「定位不唯一 ⇒ 不触发 + 出声」（⛔ 不猜第几条）。
+        ///   ② `ignoreRandom` 我们没有等价位（`AbilityLevelCriteriaAllows` 不收它）⇒ 传 `true` 时**出声**
+        ///     并按 `false` 判（原版那一格只影响 `BoardAnalysis.MeetsCriteria` 的随机项）。
+        ///   ③ 附魔卡一般**不在** `cards_engine.json` 里（附魔卡不进可打卡池）⇒ 那三道闸多半回「判不了 ⇒ 放行」，
+        ///     与原版「按 ability 数据判」不等价 —— 池内 0 张卡挂「带 280 能力」的附魔 ⇒ **今天零可观察**。</para>
+        /// <para>📌 旧的单参重载（<see cref="FindCancelAttack(UnitState)"/>）保持原样（只判「在不在」）——
+        ///   `RuleCore` 那个调用点还没切，切的时候改成这个重载（改动请求 → 报告 §五）。</para>
+        /// </summary>
+        public static ActiveEnchantment FindCancelAttack(BattleContext ctx, UnitState carrier,
+                                                         UnitState actingCard, UnitState targetCard,
+                                                         bool ignoreRandom = false)
+        {
+            if (ctx == null || carrier == null || carrier.Instance == null) return null;
+            int owner, slot;
+            BoardOwnerSlotOf(ctx, carrier.Instance, out owner, out slot);
+            if (ignoreRandom)
+                ctx.Log("附魔层：`FindCancelAttack(…, ignoreRandom: true)` —— 我们没有它的等价位"
+                      + "（`AbilityLevelCriteriaAllows` 不收这个实参）⇒ **按 false 判**"
+                      + "（原版只把它传给 board 条件里的随机项）");
+            foreach (var e in carrier.Instance.ActiveEnchantments)
+            {
+                if (e == null || e.Card == null) continue;
+                if (!HasAboutToAttackAbility(e.Card)) continue;                     // ③ `HasAbilityType(0x118)`
+                string why;
+                int abilityContext = RuleCore.AbilityContextOfAbilityV14(
+                                         e.Card, TriggerNameAboutToAttack, KeywordTable.AboutToAttack);
+                if (!RuleCore.IsRightContext(ctx, owner, slot, abilityContext, carrier.Instance))
+                {
+                    ctx.Log($"附魔层：「{NameOf(e.Card)}」的 AboutToAttack 能力**载体不在原版要求的区域**"
+                          + $"（`abilityContext {abilityContext}`）⇒ 这一件取消不了这一记");
+                    continue;
+                }
+                bool? act = RuleCore.ActingLevelCriteriaAllows(ctx, owner, carrier, e.Card,
+                                                               TriggerNameAboutToAttack, actingCard,
+                                                               targetCard, out why);
+                if (act == false)
+                {
+                    ctx.Log($"附魔层：「{NameOf(e.Card)}」的 AboutToAttack 被 `actingCardCriteria` 挡掉：{why}");
+                    continue;
+                }
+                if (act == null)
+                    ctx.Log($"附魔层：「{NameOf(e.Card)}」的 AboutToAttack **第一道闸判不了 ⇒ 放行**（原版会 NRE）：{why}");
+                bool? tgt = RuleCore.AbilityLevelCriteriaAllows(ctx, owner, carrier, e.Card,
+                                                                TriggerNameAboutToAttack, targetCard, out why);
+                if (tgt == false)
+                {
+                    ctx.Log($"附魔层：「{NameOf(e.Card)}」的 AboutToAttack 被 `targetCriteria`/`boardCriteria` 挡掉：{why}");
+                    continue;
+                }
+                if (tgt == null)
+                    ctx.Log($"附魔层：「{NameOf(e.Card)}」的 AboutToAttack **第二/三道闸判不了 ⇒ 放行**（原版会 NRE）：{why}");
+                return e;                                                          // ⑤
+            }
+            return null;
+        }
+
+        /// <summary>原版 `AbilityTrigger.AboutToAttack = 280` 的**枚举名**（与 `CardDef.AbilityTriggerNumber` 同一套词）。
+        /// 判据 = `dump.cs` 的 `AbilityTrigger` 枚举 + `CardDef.cs` 的 `{"AboutToAttack", 280}` 那一行。</summary>
+        public const string TriggerNameAboutToAttack = "AboutToAttack";
+
+        /// <summary>
+        /// 原版 `RawCardScript.HasAbilityType(card, 0x118 /* AboutToAttack */)` 的等价物 ——
+        /// **「这张卡有没有一条 trigger 280 的 ability」**（不是「有没有正文」）。
+        /// 取值口径：先读 v17 真值列 <see cref="CardDef.AbilityTriggerPresence(string)"/>
+        /// （`1` = 有 / `0` = 明确没有 / `-1` = 旧表没这列）；旧表才退回「有没有 AboutToAttack 的
+        /// 触发正文」（= 旧的 <see cref="FindCancelAttack(UnitState)"/> 那一口径）。
+        /// </summary>
+        static bool HasAboutToAttackAbility(CardDef card)
+        {
+            if (card == null) return false;
+            int presence = card.AbilityTriggerPresence(TriggerNameAboutToAttack);
+            if (presence >= 0) return presence == 1;
+            return card.TriggerOps(KeywordTable.AboutToAttack) != null
+                || card.Effect(KeywordTable.AboutToAttack) != null;
+        }
+
+        /// <summary>
+        /// 🆕 **2026-10-26（`W13EN` · 账 481）：原版 `BattleManager.RemoveEnchantment(card, enchantment, priority)`
+        /// 的入队口。**
+        ///
+        /// <para>原版这个方法**不摘任何东西**（`decomp_full/BattleManager__RemoveEnchantment.c:26-79`，83 行亲读）：
+        /// 它组装一条 `BattleAction{actionType = 0x10 (removeEffect)}`（带 carrier + 附魔 effect 两个对象引用），
+        /// 再 `AddAutoActionToQueue(action, priority)` ⇒ 出队时由 `ResolveRemoveEffect` 再调
+        /// `CardScript.RemoveEffect`。**我们的等价物** = <see cref="RuleCore.EnqueueAbility"/>
+        /// （`AddAutoActionToQueue` 的对照物）+ 出队时调 <see cref="Remove"/>。</para>
+        ///
+        /// <para>✅ **2026-10-26（`W14EC` · 本批）：四个调用点已切到本口** ——
+        /// `RuleCore.RevealSecretOrders`（密令揭示那一跳，原版 `RemoveEnchantment(…, 2)` ⇒ `Interrupt`）
+        /// 与`RemovePray` 的三个落点（回合开始 `GrantPrayEnchantmentFaith` / 疲劳 `MoveDeckTopToHand` / 真受伤 `ApplyDamageCore`；
+        /// 原版都由 PME 的 `chosenAbility 340 removeThisEnchantment` → `AbilityLogic__PlayAbility.c:2250-2282`
+        /// → `BattleManager__AddRemoveEnchantment.c` → `AddAutoActionToQueue` ⇒ **排队摘**）。
+        /// `Remove` / `RemoveByCard` / `RemovePray`（同步版）保留为**出队体 / 直调口**。</para>
+        /// <para>📌 532 的另两段（`CancelAnimFromUnitFromQueue` 连走四条队列道 / `RemoveDestroyableAnims`
+        /// 的 buffType 15/16 帧特效）在**表现层**（anim cue 与 trait 帧特效都在 `CardPresentation/Battle/`）
+        /// ⇒ 不在本层；已作为改动请求写进报告（那是 P-11 的面）。</para>
+        /// </summary>
+        /// <param name="lane">进哪条道（原版那个 `priority` 实参 = 来源 ability 的 `priority(+0x44)`）。
+        /// 缺省 `Instant` = 原版「不写 priority 的 ability」那条默认道（`CardAbility__ctor.c:5` 写 `+0x18 = 1`）。</param>
+        public static bool EnqueueRemove(BattleContext ctx, CardInstance carrier, ActiveCardEffect effect,
+                                        ActionPriority lane = ActionPriority.Instant, string label = null)
+        {
+            if (ctx == null || carrier == null || effect == null) return false;
+            bool ok = RuleCore.EnqueueAbility(ctx, lane,
+                                              label ?? ("removeEffect " + NameOf(effect.EnchantmentCard)),
+                                              () => Remove(ctx, carrier, effect));
+            if (!ok)
+                ctx.Log($"附魔层：摘「{NameOf(effect.EnchantmentCard)}」的 `removeEffect(16)` **没能入队** —— 这一条没摘");
+            return ok;
+        }
+
+        /// <summary>
+        /// 原版 `CardScript__AddEnchantment.c:91` →
+        /// `CardScript__ActivateTraitsOnSummonOrEnchantment(carrier, onSummon: false)` 的等价物（账 687 第五步）。
+        ///
+        /// <para>🔴 **那一跳不改任何 trait** —— 它遍历的是**载体自己的** `CurrentTraits(+0x128)`，
+        /// 把「能不能动 / 能不能攻击」按当前 trait 集重算一遍
+        /// （`ActivateTraitsOnSummonOrEnchantment.c:75-99`：`fast`/`flank` ⇒ `canAct = true`；
+        /// `ferocity`/`oath` ⇒ `canAct = true` 且 `canAttack = false`；`dropPod(0xe6)` 那支只在
+        /// `onSummon == true` 时重置 drop pod 数值 ⇒ 我们这一跳 `onSummon:false` **不进那一支**）。
+        /// 等价口 = <see cref="RuleCore.ActivateTraitsOnSummonOrEnchantment"/>（**唯一的写点**，
+        /// 判据/逐行注释都在 `RuleCore.cs`）—— ⛔ 别在本层另写一份。</para>
+        ///
+        /// <para>原版的守卫是 `cardState(+0x228) ∈ {2 在场, 3, 15, 17}`（`.c:43-44`）⇒
+        /// 我们按「载体此刻在棋盘上」等价；不在棋盘上（挂到手里 / 墓地）就**不调**。</para>
+        ///
+        /// <para>⚠️ 原版同一跳还会对每条 trait 调 `BattleCardUI.DisplayStatusAnim`（表现层）—— 我们没有对应层，
+        /// 如实留缺口（另：池内能挂到附魔层的卡当前 0 张带 trait，见报告 §五）。</para>
+        /// </summary>
+        static void ActivateTraitsAfterEnchant(BattleContext ctx, CardInstance carrier)
+        {
+            if (ctx == null || carrier == null) return;
+            int owner, slot;
+            BoardOwnerSlotOf(ctx, carrier, out owner, out slot);
+            if (owner < 0 || slot < 0) return;
+            var u = ctx.Players[owner].Board[slot];
+            if (u == null) return;
+            RuleCore.ActivateTraitsOnSummonOrEnchantment(u);
+        }
+
+        /// <summary>这张牌此刻在**哪一格**（找不到 ⇒ 两个都 `-1`）。
+        /// ⚠️ 这是 `RuleCore.FindBoardCell`（**private**，本类看不见）的**同义扫描** —— 语义逐字相同
+        /// （按 `PlayerState.Board` 两方逐格比 `CardInstance` 引用）；⛔ 两边别各改一半。</summary>
+        static void BoardOwnerSlotOf(BattleContext ctx, CardInstance carrier, out int owner, out int slot)
+        {
+            owner = -1;
+            slot = -1;
+            if (ctx == null || carrier == null) return;
+            for (int p = 0; p < ctx.Players.Length; p++)
+            {
+                var board = ctx.Players[p].Board;
+                for (int s = 0; s < BoardSpec.Size; s++)
+                {
+                    var cell = board[s];
+                    if (cell != null && ReferenceEquals(cell.Instance, carrier)) { owner = p; slot = s; return; }
+                }
+            }
+        }
+
+        /// <summary>
+        /// 🆕 **2026-10-26（`W14EC` · 账 481 的收尾）：把「摘祈祷附魔」也走【排队摘】。**
+        ///
+        /// <para>判据（🥇 全量反编译，本批亲读）：祈祷附魔 `Pray Enchantment` 的两条能力都是
+        /// `chosenAbility 340 removeThisEnchantment` ——
+        /// ability[0] `trigger 60 UnitDamaged`（受伤即撤）· ability[1] `trigger 31 TurnStartPlayer`
+        /// （`buffMana{faithMana:1}` → 340）。而 340 那支在
+        /// `AbilityLogic__PlayAbility.c:2250-2282` 里调的是 `BattleManager__AddRemoveEnchantment`
+        /// → `AddAutoActionToQueue(action, priority = ±0x44)`（`BattleManager__AddRemoveEnchantment.c` 尾部）
+        /// ⇒ **原版是「入队、等当前动作结束再摘」**，不是当场摘。</para>
+        ///
+        /// <para>⚠️ **顺序（`RuleCore.GrantPrayEnchantmentFaith` 那一格必须先看懂）**：`buffMana` 走的 `BattleManager__AddManaBuff`
+        /// 同样是「入队」（同文件尾部也是 `AddAutoActionToQueue`）—— 两条 action 同一条道、FIFO
+        /// ⇒ 原版的相对次序是 **先加信仰、后排摘**。本方法只负责「排摘」这一半；
+        /// 调用点（`RuleCore.GrantPrayEnchantmentFaith`）已经把 `Faith += 1` 挪到它**之前**。</para>
+        ///
+        /// <para>⚠️ **与 <see cref="RemovePray"/> 的分工**：那一份是**同步**摘（出队体 / 直调口）；
+        /// 这一份只入队。`Effect` 丢了（正常挂载路径走不到）时退回同步摘 —— ⛔ 不留半条。</para>
+        /// </summary>
+        /// <param name="lane">缺省 `Instant` = 祷告附魔两条 ability 的 `priority` **数据真值 1**
+        /// （`cards_raw.json` 的 `Z-NC Sororitas-Pray_enchantment`：`cardAbilities[].priority = 1`；
+        /// 与 `CardAbility__ctor.c:5` 的默认 `+0x18 = 1` 同值）。</param>
+        public static bool EnqueueRemovePray(BattleContext ctx, UnitState carrier,
+                                            ActionPriority lane = ActionPriority.Instant)
+        {
+            var e = FindPray(carrier);
+            if (e == null) return false;
+            if (e.Effect != null && carrier.Instance != null)
+                return EnqueueRemove(ctx, carrier.Instance, e.Effect, lane,
+                                     "removeEffect 祈祷附魔：「" + NameOf(e.Card) + "」");
+            // 兜底（正常挂载路径走不到）：`Effect` 丢了也要把 `+0x110` 那条摘掉，⛔ 不留半条。
+            if (carrier.Instance != null) carrier.Instance.ActiveEnchantments.Remove(e);
+            return true;
+        }
     }
 }

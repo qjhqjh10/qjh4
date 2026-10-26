@@ -193,6 +193,41 @@ class AiProbe
                 for (int k = 0; k < ts.Count; k++) { if (AiTargets.MightAct(ctx, ts[k])) yes++; else no++; }
                 extra.Append(" mightAct=真").Append(yes).Append("/假").Append(no);
             }
+            if (e.scoringOption == 5)
+            {
+                // 🆕 2026-10-26（批次 9 · `E4P08` · 账行 12）：**`defensive=` 读数**。
+                //   原版 `AI.GetDefensiveAttackValue` 的**调用点 = 0**（`decomp_full` 全树只命中它自己那份 `.c`）
+                //   ⇒ ⛔ 这个数**不参与打分**（`v` / `sum` 一个字节都没动），只把「若接线会扣成多少」摆出来。
+                //   三档一起摆 = 三条支各一个读数：双督军 ⇒ 0 · 单位打督军 2.1 ⇒ 原样 · 1.9 ⇒ 0（`2.0f` 那道闸）。
+                var myHero = ctx.Players[side].Warlord;
+                var foeHero = ctx.Players[1 - side].Warlord;
+                if (myHero != null && foeHero != null)
+                    extra.Append(" defensive=督军互砍→").Append(F(AiScoring.GetDefensiveAttackValue(myHero, foeHero, 2.1f)))
+                         .Append("（应 0）");
+                // 「非督军打督军」那一档：本方法**不看阵营**（只读 `cardType` 与 `currentScore`）
+                // ⇒ 用夹具里那个「无甲小兵」当非督军样本即可；option 5 的卡都是战术/低语（`probe == null`），
+                //   所以 probe 那道口在这里恒取不到。
+                var anyUnit = probe != null ? probe : ctx.Players[1 - side].Board[FoePlainSlot];
+                if (anyUnit != null && foeHero != null)
+                    extra.Append(" 非督军打督军 2.1→").Append(F(AiScoring.GetDefensiveAttackValue(anyUnit, foeHero, 2.1f)))
+                         .Append(" 1.9→").Append(F(AiScoring.GetDefensiveAttackValue(anyUnit, foeHero, 1.9f)))
+                         .Append("（应 2.1 / 0）");
+                if (myHero == null || foeHero == null)
+                    extra.Append(" defensive=（本夹具缺督军 ⇒ 不可读）");
+                extra.Append("（未接线：原版 0 调用点）");
+            }
+            if (e.scoringOption == 13)
+            {
+                // 🆕 2026-10-26（批次 9 · `E4P08` · 账行 29）：**⑥⑦ 两项**（督军 / 同侧场上的
+                //   `activeAbility.manaCost` 落区间各 +1）的分解。借产品自己的 `ScoreFromManaBuff`
+                //   ＋ `TraceCriteria` 钩子（⛔ 不在这里另写一份算式）—— 跑完**立刻复位**成 null。
+                var mbLines = new List<string>();
+                AiScoring.TraceCriteria = mbLines.Add;
+                try { AiScoring.ScoreFromManaBuff(ctx, side, e); }
+                finally { AiScoring.TraceCriteria = null; }
+                for (int k = 0; k < mbLines.Count; k++)
+                    Console.WriteLine("  " + label + "[" + i + "]" + mbLines[k]);
+            }
             Console.WriteLine("  " + label + "[" + i + "] option=" + e.scoringOption
                             + " base=" + F(e.baseValueFriend) + "/" + F(e.baseValueEnemy)
                             + " mult=" + F(e.multiplyByFriend) + "/" + F(e.multiplyByEnemy)

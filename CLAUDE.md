@@ -1039,7 +1039,11 @@ Unity **只能为「类名 == 文件名」的类建出脚本资产**，其余情
 - 🔴🆕 **`ai_scoring.json` 的 `untilEndOfTurn` 是 `int`（现数 118 处），而我们的 DTO 写的是 `bool`**（2026-10-25 R11 实测）：
   Unity 的 `JsonUtility` **宽容**所以线上没炸；但 **`System.Text.Json` 会直接抛**（`ruleprobe` 的桩就踩了）⇒ 探针里只能内存归一、⛔ 不写回。
   ⇒ **要么生成器输出 `true/false`、要么 DTO 改成 `int`** —— 别指望每个消费方都宽容。
-- 🔴🆕 **`ScheduleAction` 会推「队尾」，不能拿它排演出回调**（2026-10-25 R5 实测）：它内部 `ExtendTimelineTail(at)` ⇒ 每记攻击都把「下一批事件能不能开场」推后 0.4 / 0.85 秒 ⇒ **远程档把 AI 回合节奏悄悄拖慢，且零报错**。
+- 🔴🆕 **`ConditionalWeakTable.GetOrCreateValue` 不能用于数组类型（2026-10-26 `E11RC` 实测，代价 = 全池一起崩）**：
+  它要求 `TValue : new()`，而 `int[]` **没有无参构造** ⇒ **`typecheck 0/0` 完全看不出来**，只在 `ruleprobe play` 里抛
+  `MissingMethodException: Cannot dynamically create an instance of type 'System.Int32[]'`，症状是**全池 1,128 张一起 `playRc 0 → -1`**。
+  ⇒ 往旁表里塞数组一律 **`TryGetValue` + 显式 `new int[n]` + `Remove`/`Add`**，⛔ 不用 `GetOrCreateValue`。
+  ⚠️ 同族教训：**「编译过」不等于「跑得起来」** —— 泛型约束这类错只在运行时炸，`play check` 才是那道闸。它内部 `ExtendTimelineTail(at)` ⇒ 每记攻击都把「下一批事件能不能开场」推后 0.4 / 0.85 秒 ⇒ **远程档把 AI 回合节奏悄悄拖慢，且零报错**。
   ⇒ 演出用**同一条 `_timeline` 泵但不动队尾**的窄口（现有 `SchedulePresentationCallback`）。
 - 🔴🆕 **`cpp2il` 会静默丢掉字段赋值**（2026-10-25 R8 实测）：`CollectionDisplay.UpdateCollection` 在 cpp2il 里只剩 `RefreshCollection()`，**反汇编才露出前面的 `collection = 传入List`**（写 `+0x50`）。
   ⇒ 凡「**只是转调**」的结论，**只要方法签名带参数而体里没用它，必须反汇编确认** —— 否则会漏掉一整句状态写入。
@@ -1092,6 +1096,7 @@ Unity **只能为「类名 == 文件名」的类建出脚本资产**，其余情
   ② Q2 自己的 `extrinsic 20 / extrinsicVariable 42 / doNotStack 44 / permanentBuff 2` 与附魔 `150·88·26` 全是翻倍值，真值 **10 / 21 / 22 / 1** 与 **75 / 44 / 13**。
   ⇒ **写死**：报任何「池内 N 次」之前，先确认统计口径是**单份**；三个张数口径别互相校验 —— **SO 总数 1,351 / `cards_engine.json` `count` 1,128 / `ruleprobe check` 基线 1,121**。
   🥇 **唯一正确源 = `MyGame/Assets/RuleEngine/Resources/cards_truth.json`**（每卡一份、无 `full_raw`）；它**只存有意义的 buff**（没有 `buffType=0` 条目）。
+  🔴🆕 **但 `cards_truth.json` 缺 `abilityTriggers` 列**（2026-10-26 `E9ER` 实测；hero 尤其明显：`DA1` 的 490 只在 `cards_engine.json`）⇒ **任何「这张卡有没有某个 trigger」的判据必须读 `cards_engine.json`**，⛔ 别只在 `cards_truth` 里找（会得出「0 张」的假结论）。两者分工：`cards_truth` = 效果树（buff/stat 统计用它），`cards_engine` = trigger/trait 面。
   🔴 **统计 `buffType` 必须扫【整卡】—— 只扫 `abilities` 会少 73 条**（2026-10-25 实测）：`buffType` 还藏在 **`activeAbility`（143 张卡）** 与 **`alternativeAbility`（2 张）** 里。
   漏扫会得 **1,125** 而不是 **1,198**（差额 = `addStats` −46 · `changeCost` −5 · `addTrait` −21 · `removeTrait` −1）⇒ **差点反过来判「判据错了」而去改一张本来正确的表**。
 - 🔴🆕 **报「某文件不存在」之前先做【模糊匹配】**（2026-10-25 实测两次误判）：判据体检时把 `BadgeNotifications.cs` 报成「全库 0 命中 ⇒ 例子不可复核」——
@@ -1173,6 +1178,7 @@ Unity **只能为「类名 == 文件名」的类建出脚本资产**，其余情
 - 🔴🆕 **`Auras.RefreshInPlayNumericAndKeywords` 也【不是】零副作用**（2026-10-26 F1 用隔离实验推翻 F3 的设计）：
   打开它 ⇒ `play check` 指纹变、**9 张卡受影响**（`BL27`/`SW18` 的「cost 1 less」等），**全部坐在「手牌总价」一个量上**。根因：`Aura.cs:652` 的 `RecomposeCore` **无条件**清 `ctx.CostMods`，而**重加那一半被 `numericOnly` 跳过** ⇒ 清了不重加。
   ⇒ **教训**：「说是零副作用」要**用隔离实验证明**（只开这一行、其余全关，跑 `play check` 对指纹），⛔ 不能只信设计意图。
+  🔴 **2026-10-26 晚订正（`E7P06` 隔离实测）—— 「9 张卡手牌总价」那半句已作废**：根因被批次 6 `G14` 的 `!numericOnly` 修掉了。接线 ON/OFF 两态各跑一份 `play all dump`（**1128 张 × 23 列，含 `handCostDelta`**）⇒ **变化卡数 = 0**（`handCostDelta` 0 次命中）。**接上它现在只改 2 张卡的 event battery**：`BL18`/`UM18` 各 +4（= 240 档重挂把 `WhileInPlayVariable` **快照重折叠一次**，⛔ 不是新的正文结算）⇒ 指纹 `af8e8178…` → `16db33fa…`。**「幂等 ≠ 无副作用」这条结论仍然成立**（快照会被重折），只是它的作用面比原来记的小得多。
 - 🔴🆕 **判据源要读到够深 —— 差一层就会把「恒 false」做成「17 张可达」**（同日 G17）：`CardScript.HasWhileInPlayAdjacentEffect` 读的是 **ability 级** `targetCriteria(+0x30)`，**不是** logic 级 `(+0x28)`；池内 ability 级 `ta==100` 的行 **= 0**（`ta==100` 的 17 行全在 logic 级）⇒ 照原版逐字判 = **恒 false**。
 - ⚠️🆕 **`fix_ledger_drift.py` 只修「缺注解」的行** —— **行号漂移它不管**（缺注解为 0 时工作集为空、`FIXED 0`）。行号漂移要走 `check_ledger_points --all-A --fix`，**且只能在「没有 `.cs` 写手 + 补丁已合并完」时跑一次**。
 - 🔴🆕 **账的「落点」不能机械往上找最近的声明**（2026-10-26 实测：9 条里 6 条被指到**无关方法** —— `LightPlayableHand` 落到 `ReapplyFoeHandPoses`）。工具 `工具/fix_landing_decl.py` 只能当**草稿**，每一条都要按**符号 + 语义**确认；确认不了就**回退 B**（方案 §4.1「类级命中 ⇒ 只能 B」），⛔ 别为了过闸写个错的落点。

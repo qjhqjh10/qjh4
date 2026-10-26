@@ -1039,5 +1039,47 @@ namespace CardPresentation
             }
             RelayoutActive();
         }
+
+        // ==================================================================
+        //  🆕 2026-10-26（B9 · W4K06 · 账 `卡组:325`）—— **不依赖战斗上下文的入口**
+        // ==================================================================
+        //
+        //  【为什么要有它】原版 `UIMessageController` 是**每个场景各自序列化一颗**（13 个 `battlearena*`
+        //   + `mainmenuwarpforge`），所以卡组编辑窗（`DeckEditingWindow.OnCardClick` / `CheckCardDrag`）
+        //   **没有战斗上下文也照样能弹**。我们这一颗原来只由 `BattleDriver.BuildErrorBanner` 建在战斗 HUD 里
+        //   ⇒ 卡组编辑窗那两条拦截路径只能 `Debug.Log`（屏幕上看不见，= 原版行为的缺口）。
+        //
+        //  【宿主从壳拿】外壳侧那颗同族实例由 `Shell/MessageToast` 持有（父节点 `Safe area Only Horizontal`、
+        //   取 `MenuPreset`，判据 → `MessageToast.cs` 文件头 ②③④）—— 本方法**只转发**，
+        //   ⛔ **不另建第二颗横幅**（原版只有一个类；两份实现 = 迟早不一致）。
+        //
+        //  🔶 自己设计（非原版）：**编辑模式（批处理自检）里没有壳宿主时【不建件】** · 原版每场景都序列化了一颗
+        //   实例、不存在「没有宿主」这一态；我们这颗是运行时建的，编辑模式下建出来会被
+        //   `EditorSceneManager.SaveScene` 烘进场景（`DeckEditor.unity` 就是这么被写坏的） ·
+        //   调度台派活单 `B9_P0剩余C` · W4K06 2026-10-26 定（自检要验横幅时**自己先 `MessageToast.Ensure(父节点)`**，
+        //   见 `Editor/DeckScene.cs` 的 `TestAddErrorBanner`）。
+        /// <summary>**不依赖战斗上下文的错误横幅**（= 原版 `UIMessageController.ShowError` 在壳侧的入口）。
+        /// <para>宿主 = <see cref="MessageToast"/> 里那颗（**同一个** <see cref="ErrorMessageBanner"/>，
+        /// 取 <see cref="MenuPreset"/>）；文案语义与 <see cref="ShowError"/> 一致 ——
+        /// <paramref name="localize"/> 为真时 <paramref name="text"/> 是**词条键**，
+        /// 否则是**已经本地化好的整句**（卡组那条链走的是后者，判据 → `DeckRuntime.SayError`）。</para>
+        /// <para>返回「真的弹出去了没有」。两种没弹的情况都会**出声**（⛔ 不静默）：
+        /// ① 空串（原版 `ShowMessage` 第一句也是 `LogError` + return）；
+        /// ② 编辑模式且没有壳宿主（上面那条自己设计 —— 只出声、不建件）。</para></summary>
+        public static bool ShowShellError(string text, bool localize = false, string fallback = null)
+        {
+            if (string.IsNullOrEmpty(text))
+            {
+                Debug.LogError("[ErrorMessageBanner] `ShowShellError` 收到空串 ⇒ **什么都没弹**（同 `ShowMessage` 第一句）");
+                return false;
+            }
+            if (MessageToast.Instance == null && !Application.isPlaying)
+            {
+                Debug.LogWarning("[ErrorMessageBanner] 编辑模式没有壳宿主（`MessageToast.Instance == null`）⇒ "
+                               + "**只出声、不建件**（建了会被 `SaveScene` 烘进场景）：" + text);
+                return false;
+            }
+            return MessageToast.ShowError(text, localize, fallback);
+        }
     }
 }

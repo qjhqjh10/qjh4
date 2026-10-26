@@ -1,0 +1,615 @@
+序	原版cue名	PathID	clip（clipList 解出的真名）	音高区间	音量区间	timeToPlayAgain	我们的key	我们侧出处	原版消费者（类×引用数）	状态	备注
+1	Add card to deck	2819243950734289649	Add card to deck	0.80–1.20	1.00–1.00	0.10	Add card to deck	代码按名播 `MyGame/Assets/CardPresentation/Shell/RewardWindow.cs:445`	（本地无任何组件引用：PPtr 与 AssetGUID 都 0 命中）	对上	
+2	Aeldari To Waystone	-418551176959026007	Aeldari To Waystone Death	0.80–1.24	0.30–0.30	0.10	Aeldari To Waystone	RemnantSfx.ClipOf（直接放 clip，不建 cue key）	RemnantAeldari×1	对上·走clip代替	
+3	Aeldari Waystone Collect	3366126668286154728	Aeldari To Waystone Death	0.80–1.24	0.30–0.30	0.10	Aeldari Waystone Collect	RemnantSfx.ClipOf（直接放 clip，不建 cue key）	RemnantAeldari×1	对上·走clip代替	
+4	Aeldari Waystone Destruction	-3253706476293132357	Aeldari Waystone Destruction	0.80–1.24	0.30–0.30	0.10	Aeldari Waystone Destruction	代码按名播 `MyGame/Assets/CardPresentation/Battle/RemnantSfx.cs:39`	RemnantAeldari×1	对上	
+5	Airstrike Gatling	-383953477227782316	Airstrike Gatling Short	1.00–1.00	0.80–0.80	0.00	—（需新增 key：Airstrike Gatling）	—	（本地无任何组件引用：PPtr 与 AssetGUID 都 0 命中）	缺·本地无任何引用	
+6	Arco-Flagellant Strike	7382390237462519645	Arco-Flagellant Strike	1.00–1.00	1.00–1.00	0.20	Arco-Flagellant Strike	animfx_sounds.json, 代码按名播 `MyGame/Assets/CardPresentation/Editor/BattleScene.cs:39962`	AnimFXController×1	对上	
+7	Armour Effect	-8757610603599893677	ArmourEffect	1.00–1.00	1.00–1.00	0.50	Armour Effect	animfx_sounds.json	AnimFXController×3	对上	
+8	Artillery	-8019312151031258209	Firestrike Artillery	1.00–1.00	1.00–1.00	0.00	Artillery	animfx_sounds.json	AnimFXController×4	对上	
+9	Artillery Missile	-4745984394869801038	Artillery missile launch	0.95–1.05	1.00–1.00	0.00	Artillery Missile	animfx_sounds.json	AnimFXController×4	对上	
+10	ASH RC 2 jingle	-1198252403816842224	Aeldari Reinforcement drop 2 jingle	1.00–1.00	1.00–1.00	0.10	—（需新增 key：ASH RC 2 jingle）	—	（本地无任何组件引用：PPtr 与 AssetGUID 都 0 命中）	缺·本地无任何引用	
+11	Asteroid Zone	2076751965472574616	Dark Angels Asteroid Zone	1.00–1.00	1.00–1.00	0.50	—（需新增 key：Asteroid Zone）	—	ShakeAndSoundObject×1	缺·战场环境	
+12	Attack Buff 1	7438406570268264677	Attack_Buff_1	1.00–1.00	1.00–1.00	0.50	Attack Buff 1	animfx_sounds.json	AnimFXController×9	对上	
+13	Attack Buff 2	-8959772914891057160	Attack_Buff_2	1.00–1.00	1.00–1.00	0.50	Attack Buff 2	animfx_sounds.json	AnimFXController×2	对上	
+14	Attack Squig	3645647576821597786	Attack_Squig	1.00–1.00	1.00–1.00	0.00	Attack Squig	animfx_sounds.json	AnimFXController×1	对上	
+15	Attack Squig BigChompa	6507068362994379963	Attack_Squig_BigChompa	1.00–1.00	1.00–1.00	0.00	Attack Squig BigChompa	animfx_sounds.json	AnimFXController×1	对上	
+16	AudioCue Instance	-9033089951924250772	?0	2.00–2.00	0.00–1.00	0.10	—（需新增 key：AudioCue Instance）	—	（本地无任何组件引用：PPtr 与 AssetGUID 都 0 命中）	缺·本地无任何引用	
+17	Autocannon_1_Quick	1864311841746687707	Autocannon 1	0.85–1.00	0.80–0.80	0.01	Autocannon_1_Quick	animfx_sounds.json	AnimFXController×2	对上	
+18	Autocannon_2_Quick	-5611812797538449038	Autocannon 2	0.90–1.05	1.00–1.00	0.00	Autocannon_2_Quick	animfx_sounds.json	AnimFXController×1	对上	
+19	Autogun_1Shot	-6166763597692541384	Autogun_1; Autogun_2; Autogun_3; Autogun_4; Autogun_5	1.00–1.00	1.00–1.00	0.00	Autogun_1Shot	animfx_sounds.json	AnimFXController×9	对上	
+20	Autogun_automatic	7835454331847674214	Autogun automatic	0.95–1.05	0.90–1.00	0.05	Autogun_automatic	animfx_sounds.json	AnimFXController×1	对上	
+21	Autogun_Liberator	-8920111116725488654	Autogun Liberator 1; Autogun Liberator 2; Autogun Liberator 3	0.80–0.90	0.90–1.00	0.05	Autogun_Liberator	animfx_sounds.json	AnimFXController×2	对上	
+22	Autogun_Shotgun	8856501782491386958	Autogun_Shotgun_1; Autogun_Shotgun_2	0.90–1.05	1.00–1.00	0.10	Autogun_Shotgun	animfx_sounds.json	AnimFXController×1	对上	
+23	Avenging Zeal	-6982656767488279591	AvengingZeal	1.00–1.00	1.00–1.00	0.00	Avenging Zeal	animfx_sounds.json, 代码按名播 `MyGame/Assets/RuleEngine/Editor/RuleEngineTest_S23_Parse.cs:348`	AnimFXController×2	对上	
+24	Axe Cut	5445960074011095978	SW Axe Cut	0.97–1.03	1.00–1.00	0.50	Axe Cut	animfx_sounds.json	AnimFXController×1	对上	
+25	Axe Swing	3278280999572327696	SW Axe Swing	0.97–1.03	1.00–1.00	0.50	Axe Swing	animfx_sounds.json	AnimFXController×1	对上	
+26	Backlash Effect	-8533237093348335852	BacklashEffect	1.00–1.00	1.00–1.00	0.00	—（需新增 key：Backlash Effect）	—	（本地无任何组件引用：PPtr 与 AssetGUID 都 0 命中）	缺·本地无任何引用	
+27	Backstab	7215082005825222478	Backstab	1.00–1.00	1.00–1.00	0.00	Backstab	animfx_sounds.json	AnimFXController×2	对上	
+28	Banshee Howl	-3196147855549922141	Banshee Howl	0.90–1.00	0.80–0.80	0.00	Banshee Howl	animfx_sounds.json	AnimFXController×2	对上	
+29	Banshee Howl Intense	-5959140081113485159	Banshee Howl Intense	0.90–1.00	0.80–0.80	0.00	Banshee Howl Intense	animfx_sounds.json	AnimFXController×1	对上	
+30	Battle Turn End	-2739991237448068886	battle_turn_end	1.00–1.00	1.00–1.00	0.10	Battle Turn End	battle_sounds.json(字段 timerExpired)	[GUID] SoundAssetCollection×1（字段 drawCardFromDeck）	对上	
+31	Black Crusade	67319890616031610	BlackCrusade	1.00–1.00	1.00–1.00	0.00	Black Crusade	animfx_sounds.json	AnimFXController×1	对上	
+32	Blackout	-8352762669946992964	Aeldari Blackout	1.00–1.00	0.50–0.50	0.50	Blackout	代码按名播 `MyGame/Assets/CardPresentation/Editor/RewardsScene.cs:9438`	ShakeAndSoundObject×1	对上	
+33	Blizzard	5863728690908164343	Blizzard sound	0.98–1.02	1.00–1.00	0.50	Blizzard	animfx_sounds.json	AnimFXController×4	对上	
+34	Blizzard Quick	-2375183550019273075	Blizzard Wind Quick	0.98–1.02	1.00–1.00	0.50	Blizzard Quick	animfx_sounds.json	AnimFXController×1	对上	
+35	Blunt Impact Lightning	6296949515410199825	Blunt Impact electric	0.90–1.00	1.00–1.00	0.15	Blunt Impact Lightning	animfx_sounds.json	AnimFXController×4	对上	
+36	Bolter Sweep	5798948755461072783	BolterSweep	1.00–1.00	1.00–1.00	0.00	Bolter Sweep	animfx_sounds.json	AnimFXController×2	对上	
+37	Bolter_1Shot	1193493448179741826	Bolt Rifle 1; Bolt Rifle 2; Bolt Rifle 3	0.95–1.05	0.40–0.45	0.05	Bolter_1Shot	animfx_sounds.json	AnimFXController×31	对上	
+38	Bolter_1Shot_Autocannon	-3683578805451494308	Bolt Rifle 1; Bolt Rifle 2; Bolt Rifle 3	0.95–0.85	0.50–0.55	0.05	Bolter_1Shot_Autocannon	animfx_sounds.json	AnimFXController×3	对上	
+39	Bolter_1Shot_Chaos	-8486891175743440004	Bolter_1shot_chaos	0.92–1.08	1.00–1.00	0.00	Bolter_1Shot_Chaos	animfx_sounds.json	AnimFXController×9	对上	
+40	Bolter_1Shot_Chaos_superquick	178463876588059859	Bolter_1shot_chaos	0.95–1.00	0.70–0.60	0.00	—（需新增 key：Bolter_1Shot_Chaos_superquick）	—	（本地无任何组件引用：PPtr 与 AssetGUID 都 0 命中）	缺·本地无任何引用	
+41	Bolter_1Shot_Nurgle	8863134242351094001	Bolter_1shot_nurgle	0.80–1.00	1.00–1.00	0.10	—（需新增 key：Bolter_1Shot_Nurgle）	—	（本地无任何组件引用：PPtr 与 AssetGUID 都 0 命中）	缺·本地无任何引用	
+42	Bolter_1Shot_Warp	-9101359337196873592	Bolter_1shot_warp	0.90–1.08	1.00–1.00	0.00	Bolter_1Shot_Warp	animfx_sounds.json	AnimFXController×3	对上	
+43	Bolter_4shot	-7884623770981375213	Bolter_4shot	0.90–1.10	1.00–1.00	0.10	—（需新增 key：Bolter_4shot）	—	（本地无任何组件引用：PPtr 与 AssetGUID 都 0 命中）	缺·本地无任何引用	
+44	Bolter_5shot	-4779855448595168302	Bolter_5shot	0.90–1.10	1.00–1.00	0.10	Bolter_5shot	animfx_sounds.json	AnimFXController×1	对上	
+45	Bolter_9shot	3283211843967792436	Bolter_9shot	0.90–1.10	1.00–1.00	0.00	Bolter_9shot	animfx_sounds.json	AnimFXController×1	对上	
+46	Bolter_Abaddon_AA	6608570709229841234	Bolter_Abaddon_AA	0.92–1.08	1.00–1.00	0.00	Bolter_Abaddon_AA	animfx_sounds.json	AnimFXController×1	对上	
+47	Booster Open AstraMilitarum	7408596118414184545	Open_Cardpack_AstraMilitarum	1.00–1.00	0.75–0.75	1.00	—（需新增 key：Booster Open AstraMilitarum）	—	BoosterPackVisualItem×1	缺·UI	
+48	Booster Open BlackLegion	3557262646540086771	Open_Cardpack_BlackLegion	1.00–1.00	0.75–0.75	1.00	—（需新增 key：Booster Open BlackLegion）	—	BoosterPackVisualItem×1	缺·UI	
+49	Booster Open Emperors Children	-6344444166439596294	Open_Cardpack_EmperorsChildren	1.00–1.00	0.75–0.75	1.00	—（需新增 key：Booster Open Emperors Children）	—	BoosterPackVisualItem×1	缺·UI	
+50	Booster Open Orks	-7638648381113274586	Open_Cardpack_Goff	1.00–1.00	0.75–0.75	1.00	—（需新增 key：Booster Open Orks）	—	BoosterPackVisualItem×2；UIEffectTogglerPlaySound×2	缺·UI	
+51	Booster Open SaimHann	7038435918096782978	Open_Cardpack_SaimHann	1.00–1.00	0.75–0.75	1.00	—（需新增 key：Booster Open SaimHann）	—	BoosterPackVisualItem×1	缺·UI	
+52	Booster Open Sautekh	-5753485835800879733	Open_Cardpack_Sautekh	1.00–1.00	0.75–0.75	1.00	Booster Open Sautekh	animfx_sounds.json, 代码按名播 `MyGame/Assets/CardPresentation/Shell/WindowSounds.cs:146`	BoosterPackVisualItem×1	对上	
+53	Booster Open Sororitas	-4933576169538519544	Open_Cardpack_Sororitas	1.00–1.00	0.75–0.75	1.00	—（需新增 key：Booster Open Sororitas）	—	BoosterPackVisualItem×1	缺·UI	
+54	Booster Open Space Wolves	3099545297375711171	Open_Cardpack_SpaceWolves	1.00–1.00	0.75–0.75	0.10	Booster Open Space Wolves	animfx_sounds.json, 代码按名播 `MyGame/Assets/CardPresentation/Shell/WindowSounds.cs:147`	BoosterPackVisualItem×1	对上	
+55	Booster Open Standard	3176864934451478390	Open_Cardpack_Generic	1.00–1.00	0.75–0.75	0.10	Booster Open Standard	animfx_sounds.json, 代码按名播 `MyGame/Assets/CardPresentation/Shell/WindowSounds.cs:149`	BoosterPackVisualItem×2	对上	
+56	Booster Open Tau	-3983914806358017484	Open_Cardpack_Tau	1.00–1.00	0.75–0.75	0.10	—（需新增 key：Booster Open Tau）	—	BoosterPackVisualItem×1	缺·UI	
+57	Booster Open Tyranid	7526271726956611851	Open_Cardpack_Leviathan	1.00–1.00	0.75–0.75	1.00	Booster Open Tyranid	animfx_sounds.json, 代码按名播 `MyGame/Assets/CardPresentation/Shell/WindowSounds.cs:148`	BoosterPackVisualItem×2	对上	
+58	Booster Open Ultramarines	2325362718177958954	Open_Cardpack_Ultramarines	1.00–1.00	0.75–0.75	1.00	Booster Open Ultramarines	animfx_sounds.json, 代码按名播 `MyGame/Assets/CardPresentation/Shell/WindowSounds.cs:145`	BoosterPackVisualItem×3	对上	
+59	Booster Pack Open Card Rarity 1	-4732824110127386553	Cardflip_Common	0.90–1.10	1.00–1.00	0.10	Booster Pack Open Card Rarity 1	animfx_sounds.json, 代码按名播 `MyGame/Assets/CardPresentation/Shell/WindowSounds.cs:119`	CardInBoosterPack×5	对上	
+60	Booster Pack Open Card Rarity 2	-385290479777526356	Cardflip_Rare	1.00–1.00	1.00–1.00	0.10	Booster Pack Open Card Rarity 2	animfx_sounds.json, 代码按名播 `MyGame/Assets/CardPresentation/Shell/WindowSounds.cs:120`	CardInBoosterPack×5	对上	
+61	Booster Pack Open Card Rarity 3	5538655093397336987	Cardflip_Epic	1.00–1.00	1.00–1.00	0.10	Booster Pack Open Card Rarity 3	animfx_sounds.json, 代码按名播 `MyGame/Assets/CardPresentation/Shell/WindowSounds.cs:121`	CardInBoosterPack×5	对上	
+62	Booster Pack Open Card Rarity 4	-6766822682418822905	Cardflip_Legendary	1.00–1.00	1.00–1.00	0.10	Booster Pack Open Card Rarity 4	animfx_sounds.json, 代码按名播 `MyGame/Assets/CardPresentation/Shell/WindowSounds.cs:122`	CardInBoosterPack×5	对上	
+63	Booster Pack Window Close	3416723080278618344	Cardshuffle out	1.00–1.00	1.00–1.00	0.10	Booster Pack Window Close	animfx_sounds.json, WindowSounds.BoosterCloseCue, 代码按名播 `MyGame/Assets/CardPresentation/Shell/WindowSounds.cs:50`	BoosterPackOpenWindow×1	对上	
+64	Bore Through	6010327761472817945	Bore Through	0.98–1.02	1.00–1.00	0.05	Bore Through	animfx_sounds.json	AnimFXController×1	对上	
+65	Buff Black Legion 1	-1809969055476467214	Buff_Black_Legion 1	0.90–1.10	1.00–1.00	0.20	Buff Black Legion 1	animfx_sounds.json	AnimFXController×4	对上	
+66	Buff Black Legion 2	-5522396864252406543	Buff_Black_Legion 2	0.90–1.10	1.00–1.00	0.20	Buff Black Legion 2	animfx_sounds.json	AnimFXController×2	对上	
+67	Buff Chaplain	5152409036616598363	Buff_Chaplain_Rage	1.00–1.00	1.00–1.00	0.50	Buff Chaplain	animfx_sounds.json	AnimFXController×1	对上	
+68	Buff Mana 1	6857198296051779852	Buff_Mana	1.00–1.00	1.00–1.00	0.50	Buff Mana 1	animfx_sounds.json	AnimFXController×17 ｜ [GUID] TapHitMaterialDefinition×2（字段 particleDefinition）	对上	
+69	Buff Mana 2	6202481798936786857	Buff_Mana_2	1.00–1.00	1.00–1.00	0.50	Buff Mana 2	animfx_sounds.json	AnimFXController×12	对上	
+70	Buff Mana Chainsword	391022865960794526	Buff_Mana_Chainsword_2	1.00–1.00	1.00–1.00	0.50	Buff Mana Chainsword	animfx_sounds.json	AnimFXController×1	对上	
+71	Buff Mana Chant	-3894387322439662820	Buff_Mana_Chant	1.00–1.00	1.00–1.00	0.50	Buff Mana Chant	animfx_sounds.json	AnimFXController×1	对上	
+72	Buff Mana Hammer	-1210592211312416400	Buff_Mana_Hammer	1.00–1.00	1.00–1.00	0.50	Buff Mana Hammer	animfx_sounds.json	AnimFXController×3	对上	
+73	Buff Mana_quick	-5828577572731408206	Buff_Mana_quick	1.00–1.00	1.00–1.00	0.50	Buff Mana_quick	animfx_sounds.json	AnimFXController×1	对上	
+74	BulletHit	-6176990936318001096	Boltgun Impact 1; Boltgun Impact 2; Boltgun Impact 3; Boltgun Impact 4	0.80–0.80	0.25–0.35	0.10	BulletHit	animfx_sounds.json	AnimFXModuleCollisions×65	对上	
+75	BulletHit_low	-4721269397284983861	Boltgun Impact 1; Boltgun Impact 2; Boltgun Impact 3; Boltgun Impact 4	0.80–1.00	0.10–0.05	0.05	BulletHit_low	animfx_sounds.json	AnimFXModuleCollisions×10	对上	
+76	Burst Cannon	3153711895671229765	Burst Cannon - Multiple shots	1.00–1.00	1.00–1.00	0.00	Burst Cannon	animfx_sounds.json	AnimFXController×1	对上	
+77	Burst Cannon Short	8441057580014043198	Burst Cannon Short	1.00–1.00	1.00–1.00	0.00	Burst Cannon Short	animfx_sounds.json	AnimFXController×1	对上	
+78	ButtonClick	6176553109044381692	UI Select Toggle	1.00–1.00	1.00–1.00	0.10	ButtonClick	animfx_sounds.json, WindowSounds.DefaultButtonCue, 代码按名播 `MyGame/Assets/CardPresentation/Battle/AttackSelector.cs:1082`	EverguildToggle×15；SoundManager×1 ｜ [GUID] CardDisplayAttackTypeButton×13（字段 soundOnSelect）	对上	
+79	ButtonClick 1	-5758964851120979674	UI Click 1	1.00–1.00	1.00–1.00	0.10	—（需新增 key：ButtonClick 1）	—	ContainerDrawer×41；CurrencyDrawer×39；CampaignPointDrawer×38；AvatarDrawer×35 ｜Preload:scenes_scenes_mainmenuwarpforge	缺·UI	
+80	ButtonClick 2	-7073068878337194448	UI Click 2	1.00–1.00	1.00–1.00	0.10	—（需新增 key：ButtonClick 2）	—	（本地无任何组件引用：PPtr 与 AssetGUID 都 0 命中）	缺·本地无任何引用	
+81	ButtonClick 3	4661624690209085189	UI Click 3 Bip	1.00–1.00	1.00–1.00	0.10	—（需新增 key：ButtonClick 3）	—	（本地无任何组件引用：PPtr 与 AssetGUID 都 0 命中）	缺·本地无任何引用	
+82	ButtonClick 4	-965728437639877262	UI Click 4 Bip	1.00–1.00	1.00–1.00	0.10	—（需新增 key：ButtonClick 4）	—	（本地无任何组件引用：PPtr 与 AssetGUID 都 0 命中）	缺·本地无任何引用	
+83	ButtonClick 5	-7303172427455452040	UI Click 5	1.00–1.00	1.00–1.00	0.10	—（需新增 key：ButtonClick 5）	—	（本地无任何组件引用：PPtr 与 AssetGUID 都 0 命中）	缺·本地无任何引用	
+84	ButtonClick Back	8084683923307806969	UIButton Back	1.00–1.00	1.00–1.00	0.10	ButtonClick Back	animfx_sounds.json, WindowSounds.DefaultCloseCue, 代码按名播 `MyGame/Assets/CardPresentation/Editor/MainMenuScene.cs:17697`	EverguildButton×81；BasicLoginWithEmailWindow×2；SoundManager×1 ｜Preload:scenes_scenes_battlearena1,scenes_scenes_battlearena2	对上	
+85	ButtonClick Negative	1387228150816026206	UIButtonPress Negative	1.00–1.00	1.00–1.00	0.10	ButtonClick Negative	animfx_sounds.json, WindowSounds.NegativeCue, 代码按名播 `MyGame/Assets/CardPresentation/Shell/WindowSounds.cs:61`	EverguildButton×21 ｜Preload:scenes_scenes_battlearena1,scenes_scenes_battlearena2	对上	
+86	ButtonClick Positive	8549838806721213354	UIButtonPress	0.80–1.20	1.00–1.00	0.10	ButtonClick Positive	animfx_sounds.json, WindowSounds.PositiveCue, 代码按名播 `MyGame/Assets/CardPresentation/Shell/WindowSounds.cs:60`	EverguildButton×152 ｜Preload:scenes_scenes_mainmenuwarpforge	对上	
+87	Card Play Minion Or Spell	-4182727865416276950	CardPlay	1.00–1.00	1.00–1.00	0.10	Card Play Minion Or Spell	battle_sounds.json(字段 playMinionFromHand)	[GUID] SoundAssetCollection×1（字段 drawCardFromDeck）	对上	
+88	CardClick 1	604076303329428464	UI Select Toggle	0.80–1.10	1.00–1.00	0.10	CardClick 1	animfx_sounds.json, 代码按名播 `MyGame/Assets/CardPresentation/Shell/CollectionWindow.cs:6284`	CollectionCard×1	对上	
+89	CardClick 2	3481876391266756950	UI Click Card 2	1.00–1.00	1.00–1.00	0.10	CardClick 2	animfx_sounds.json, WindowSounds.BoosterCardClickCue, 代码按名播 `MyGame/Assets/CardPresentation/Shell/WindowSounds.cs:51`	CardInBoosterPack×5；MessageContainer×1	对上	
+90	CardClick 3	-1374357157672124206	UI Click Card 3	1.00–1.00	1.00–1.00	0.10	—（需新增 key：CardClick 3）	—	（本地无任何组件引用：PPtr 与 AssetGUID 都 0 命中）	缺·本地无任何引用	
+91	CardClick 4 cancel	-5163268181372701676	UI Click Card 4 cancel	1.00–1.00	1.00–1.00	0.10	—（需新增 key：CardClick 4 cancel）	—	（本地无任何组件引用：PPtr 与 AssetGUID 都 0 命中）	缺·本地无任何引用	
+92	CardExpand	4006604330728631164	CardExpand	0.80–1.10	1.00–1.00	0.10	CardExpand	animfx_sounds.json, WindowSounds.CardExpandCue, 代码按名播 `MyGame/Assets/CardPresentation/Shell/WindowSounds.cs:80`	CardDisplayWindow×14；ChooseCardMenu×13 ｜Preload:scenes_scenes_battlearena1,scenes_scenes_battlearena2	对上	
+93	Cardmove	308254007879591804	CardMove	1.00–1.00	1.00–1.00	0.10	Cardmove	battle_sounds.json(字段 moveCardIntoBattle), 代码按名播 `MyGame/Assets/CardPresentation/Editor/SoundCueAssertT.cs:96`	[GUID] SoundAssetCollection×1（字段 drawCardFromDeck）	对上	
+94	CardMove	4812904303840730115	CardMove; CardMove_1; CardMove_2; CardMove_3	0.80–1.10	1.00–1.00	0.10	CardMove	animfx_sounds.json, 代码按名播 `MyGame/Assets/CardPresentation/Battle/CardDisplayWindow.cs:249`	CardDisplayWindow×14 ｜Preload:scenes_scenes_battlearena1,scenes_scenes_battlearena2	对上	
+95	CardShatter	4838496698320250485	CardShatter	0.80–1.10	1.00–1.00	0.10	CardShatter	代码按名播 `MyGame/Assets/CardPresentation/Battle/RemnantSfx.cs:40`	RemnantNecrons×1	对上·走clip代替	
+96	CardStartDrag	-4308815958917459268	CardMove	0.80–1.10	1.00–1.00	0.10	CardStartDrag	animfx_sounds.json, 代码按名播 `MyGame/Assets/CardPresentation/Deck/DeckRuntime.cs:3783`	CosmeticDraggingController×1；CardDraggingController×1	对上	
+97	Change to Melee Attack CUE	3683485159432924961	ChangeToMeleeAttack	1.00–1.00	1.00–1.00	0.10	Change to Melee Attack CUE	battle_sounds.json(字段 changeToMeleeAttackCUE)	CardScript×1	对上	
+98	Change to Range Attack CUE	7848013270081000406	ChangeToRangeAttack	1.00–1.00	1.00–1.00	0.10	Change to Range Attack CUE	battle_sounds.json(字段 changeToRangeAttackCUE)	CardScript×1	对上	
+99	Charge_DCannon	-4869249284878457887	Charge_DCannon	1.00–1.00	1.00–1.00	0.00	Charge_DCannon	animfx_sounds.json	AnimFXController×5	对上	
+100	Charge_DCannon_2	-6138599991336229399	Charge_DCannon	1.20–1.20	0.80–0.80	0.00	Charge_DCannon_2	animfx_sounds.json	AnimFXController×1	对上	
+101	Charge_Lascannon	7369763873157929920	Charge_Lascannon	1.00–1.00	1.00–1.00	0.00	Charge_Lascannon	animfx_sounds.json	AnimFXController×4	对上	
+102	ChemVial Break	-5406422756058726580	ChemVial Break	0.90–1.00	0.90–1.00	0.00	ChemVial Break	animfx_sounds.json	AnimFXController×1；AnimFXModuleCollisions×1	对上	
+103	Choppa Slice	5475069815904618517	Choppa_Slice	1.00–1.00	1.00–1.00	0.00	Choppa Slice	animfx_sounds.json	AnimFXController×1	对上	
+104	Close Card Display	3524674544779823761	Close Card Display	1.00–1.00	1.00–1.00	0.10	Close Card Display	animfx_sounds.json, WindowSounds.CloseCardDisplayCue, 代码按名播 `MyGame/Assets/CardPresentation/Shell/WindowSounds.cs:88`	CardDisplayWindow×14 ｜Preload:scenes_scenes_battlearena1,scenes_scenes_battlearena2	对上	
+105	Combat Chats Show	3551940229992650769	Combat_Chats_Show	1.00–1.00	1.00–1.00	0.10	Combat Chats Show	battle_sounds.json(字段 chatShow)	[GUID] SoundAssetCollection×1（字段 drawCardFromDeck）	对上	
+106	Coordinated Engagement Lock	9008030089451708130	Coordinated Engagement Lock	1.00–1.00	1.00–1.00	0.00	Coordinated Engagement Lock	animfx_sounds.json	AnimFXController×2	对上	
+107	Cosmic Serpent	2540987668833756845	Cosmic Serpent	1.00–1.00	1.00–1.00	0.00	Cosmic Serpent	animfx_sounds.json, 代码按名播 `MyGame/Assets/RuleEngine/Editor/RuleEngineTest.cs:16926`	AnimFXController×3	对上	
+108	Create Card GSC	1037466723067106589	CreateCard GSC	1.00–1.00	1.00–1.00	0.00	—（需新增 key：Create Card GSC）	—	（本地无任何组件引用：PPtr 与 AssetGUID 都 0 命中）	缺·本地无任何引用	
+109	Create Card In Hand	-3449790015794475924	CardMove_1; CardMove_2; CardMove_3	0.80–1.10	0.80–0.80	0.10	Create Card In Hand	battle_sounds.json(字段 createCardInHand)	CardScript×1	对上	
+110	CreateCard_1	3101213818054514846	CreateCard_1	1.00–1.00	1.00–1.00	0.00	CreateCard_1	animfx_sounds.json	AnimFXController×3	对上	
+111	CreateCard_2	-1354191359072992450	CreateCard_2	1.00–1.00	1.00–1.00	0.00	CreateCard_2	animfx_sounds.json	AnimFXController×2	对上	
+112	CreateCard_3	-1966167125953299018	CreateCard_3	1.00–1.00	1.00–1.00	0.00	CreateCard_3	animfx_sounds.json	AnimFXController×1	对上	
+113	CreateCard_4	-8041601516753144427	CreateCard_4	1.00–1.00	1.00–1.00	0.00	—（需新增 key：CreateCard_4）	—	（本地无任何组件引用：PPtr 与 AssetGUID 都 0 命中）	缺·本地无任何引用	
+114	CreateCard_GSC	-197876778444932677	CreateCard GSC	1.00–1.00	1.00–1.00	0.00	CreateCard_GSC	animfx_sounds.json, 代码按名播 `MyGame/Assets/CardPresentation/Editor/BattleScene.cs:13228`	AnimFXController×6	对上	
+115	CreateCard_Sabotage	2915206200006688941	Create Card Sabotage	0.90–1.00	1.00–1.00	0.00	CreateCard_Sabotage	animfx_sounds.json	AnimFXController×1	对上	
+116	Crosshair_LockOn	-4550330168532000776	Crosshair_LockOn	1.00–1.00	1.00–1.00	0.00	Crosshair_LockOn	animfx_sounds.json	AnimFXController×1	对上	
+117	Curse of the Phaeron	-9048899263564507535	CurseOfThePhaeron	1.00–1.00	1.00–1.00	0.50	Curse of the Phaeron	animfx_sounds.json	AnimFXController×1	对上	
+118	Cut Quick Variation	-6659030101443292434	Death Cult Strike	0.85–1.10	0.90–1.00	0.05	—（需新增 key：Cut Quick Variation）	—	（本地无任何组件引用：PPtr 与 AssetGUID 都 0 命中）	缺·本地无任何引用	
+119	DA Buff 1	-5579371390571250821	DA_Buff_1	1.00–1.00	1.00–1.00	0.50	DA Buff 1	animfx_sounds.json	AnimFXController×1	对上	
+120	DA Buff 2 Intense	-4719229887142029484	DA_Buff_2_Intense	1.00–1.00	1.00–1.00	0.50	DA Buff 2 Intense	animfx_sounds.json	AnimFXController×1	对上	
+121	DA Buff 3 Secret	-9209865020434753478	DA_Buff_3_Secret	1.00–1.00	1.00–1.00	0.50	DA Buff 3 Secret	animfx_sounds.json	AnimFXController×1	对上	
+122	DA Buff 4 NoIcon Variant	-3855187747408214383	DA_Buff_4_NoIcon	1.00–1.00	1.00–1.00	0.50	DA Buff 4 NoIcon Variant	animfx_sounds.json	AnimFXController×1	对上	
+123	Da Irongob	-5384460798366121613	Da_Irongob	1.00–1.00	1.00–1.00	0.00	Da Irongob	animfx_sounds.json	AnimFXController×1	对上	
+124	Daemonic Feast	7869957202292150956	Black Legion Daemonic Feast	1.00–1.00	1.00–1.00	0.50	—（需新增 key：Daemonic Feast）	—	ShakeAndSoundObject×1	缺·战场环境	
+125	Daemonic Pact	1214343309870535417	DaemonicPact	1.00–1.00	1.00–1.00	0.50	Daemonic Pact	animfx_sounds.json	AnimFXController×1	对上	
+126	Damage Protocol quick	7381730246551165269	DamageProtocolError	0.90–1.10	1.00–1.00	0.05	Damage Protocol quick	animfx_sounds.json	AnimFXController×1	对上	
+127	Damage Protocols	-5191412396756330639	DamageProtocol	0.90–1.10	1.00–1.00	0.05	Damage Protocols	animfx_sounds.json	AnimFXController×3	对上	
+128	Dark Angels Teleport	8223003353562517993	Dark Angels Teleport	0.95–1.05	1.00–1.00	0.20	Dark Angels Teleport	animfx_sounds.json	AnimFXController×2	对上	
+129	Dawn Attack	8147575272355607868	Astra Militarum Dawn Attack	1.00–1.00	0.50–0.50	0.50	—（需新增 key：Dawn Attack）	—	ShakeAndSoundObject×1	缺·战场环境	
+130	Deadliest Killer	-4900594683613092672	Deadliest Killer	0.95–1.00	1.00–1.00	0.05	Deadliest Killer	animfx_sounds.json	AnimFXController×2	对上	
+131	Death Cult Strike	8208382936300444928	Death Cult Strike	0.90–1.05	0.90–1.00	0.05	Death Cult Strike	animfx_sounds.json	AnimFXController×2	对上	
+132	Death From Above	3186069981889660808	SFX_DeathFromAbove	1.00–1.00	1.00–1.00	0.00	Death From Above	animfx_sounds.json	AnimFXController×1	对上	
+133	Deathspinner_Hit	-8844300706784411010	Shuriken_Hit_1	0.80–0.90	0.50–0.50	0.00	Deathspinner_Hit	animfx_sounds.json	AnimFXModuleCollisions×9；AnimFXController×5	对上	
+134	Deck Editing Valid Deck	-8540943293993850510	Progress Jingle	1.00–1.00	1.00–1.00	0.10	—（需新增 key：Deck Editing Valid Deck）	—	DeckEditingWindow×1	缺·UI	
+135	DeckClick 1	605815307224280273	UI Click Deck 1	1.00–1.00	1.00–1.00	0.10	DeckClick 1	animfx_sounds.json, 代码按名播 `MyGame/Assets/CardPresentation/Shell/MenuDraw.cs:3212`	CollectionDeck×2	对上	
+136	Defeat	-1641929618139842138	MatchDefeat	1.00–1.00	0.70–0.70	0.10	Defeat	代码按名播 `MyGame/Assets/CardPresentation/Core/Loc.cs:1267`	EndBattleDoors×13 ｜Preload:scenes_scenes_battlearena1,scenes_scenes_battlearena2	对上	
+137	Delightful Agonies	-2570908991338647526	DelightfulAgonies	0.90–1.10	1.00–1.00	0.50	Delightful Agonies	animfx_sounds.json	AnimFXController×2	对上	
+138	Dimensional Breach Spawn	-3068823351091336264	DimensionalBreachSpawn	1.00–1.00	1.00–1.00	0.00	Dimensional Breach Spawn	animfx_sounds.json	AnimFXController×1	对上	
+139	DimensionalBreach	4839631015736046268	DimensionalBreachSky	1.00–1.00	1.00–1.00	0.10	DimensionalBreach	animfx_sounds.json	AnimFXController×1	对上	
+140	Disrupted Ceremony	8791954029897778457	Disrupted Ceremony	1.00–1.00	0.50–0.50	0.50	Disrupted Ceremony	animfx_sounds.json	AnimFXController×1	对上	
+141	DivineIntervention	-7856325756243240128	Divine Intervention	1.00–1.00	1.00–1.00	0.10	DivineIntervention	animfx_sounds.json	AnimFXController×1	对上	
+142	Division Change	-2236843390636958589	Division Increase	1.00–1.00	1.00–1.00	0.01	Division Change	animfx_sounds.json, WindowSounds.DivisionChangeCue, 代码按名播 `MyGame/Assets/CardPresentation/Shell/WindowSounds.cs:100`	RankedEventDivisionChangeWindowNewSystem×1	对上	
+143	Drach'nyen	-3412796740492188774	DimensionalBreachSpawn	1.00–1.00	1.00–1.00	0.00	Drach'nyen	animfx_sounds.json	AnimFXController×1	对上	
+144	Draft Mode Loss Jingle	3362592311917736029	Draft Mode Loss Jingle	1.00–1.00	1.00–1.00	0.10	Draft Mode Loss Jingle	代码按名播 `MyGame/Assets/CardPresentation/Editor/ArtBaker.cs:152`	DraftRunDisplay×4	对上	
+145	Draft Mode Progress Jingle	-1332049501696130703	Draft Mode GainSkull	1.00–1.00	1.00–1.00	0.10	Draft Mode Progress Jingle	animfx_sounds.json, WindowSounds.FtueOpenCue, 代码按名播 `MyGame/Assets/CardPresentation/Editor/MainMenuScene.cs:17301`	DraftRunDisplay×4；FTUESelectDeckWindow×1	对上	
+146	Draft Mode Warlord Appear	3303690756141063863	CardMove	0.80–1.20	0.80–0.80	0.00	Draft Mode Warlord Appear	代码按名播 `MyGame/Assets/CardPresentation/Shell/DraftModeWindow.cs:3536`	GenericSelectCardContainer×2	对上	
+147	Draft Pack Appear	5352482207326767313	CardMove	0.80–1.20	0.80–0.80	0.00	—（需新增 key：Draft Pack Appear）	—	PrebuiltPackUI×1	缺·UI	
+148	Draft Pack Finish Animation	-5926815556076560268	UI Click Card 3	0.80–1.20	0.80–0.80	0.00	—（需新增 key：Draft Pack Finish Animation）	—	PrebuiltPackUI×1	缺·UI	
+149	Draft Pack Selected Moving	-8276712345428175619	CardDraw	0.80–1.20	0.80–0.80	0.00	—（需新增 key：Draft Pack Selected Moving）	—	PrebuiltPackUI×1	缺·UI	
+150	Draft Prebuilt Pack preview	-2284362213649295224	UI Click Card 3	1.00–1.00	1.00–1.00	0.10	—（需新增 key：Draft Prebuilt Pack preview）	—	PrebuiltPackUI×1	缺·UI	
+151	Draw	-2870999988157826586	MatchDraw	1.00–1.00	0.70–0.70	0.10	Draw	animfx_sounds.json, 代码按名播 `MyGame/Assets/CardPresentation/Core/Loc.cs:1453`	EndBattleDoors×13；AnimFXController×2 ｜Preload:scenes_scenes_battlearena1,scenes_scenes_battlearena2	对上	
+152	Draw Card	-1233371999871375310	CardDraw	1.00–0.90	1.00–1.00	0.10	Draw Card	battle_sounds.json(字段 defaultActiveAbility)	[GUID] SoundAssetCollection×1（字段 drawCardFromDeck）	对上	
+153	Earth Digging	1583993189451423823	Earth Impact 4 Huge	1.00–1.00	1.00–1.00	0.05	Earth Digging	animfx_sounds.json	AnimFXController×1	对上	
+154	Earth Impact Huge	4700738177303132272	Earth Impact 4 Huge	1.00–1.00	1.00–1.00	0.05	Earth Impact Huge	animfx_sounds.json	AnimFXController×4	对上	
+155	Earth Impact random	4082055726041555972	Earth Impact 1; Earth Impact 2; Earth Impact 3	0.90–1.05	1.00–1.00	0.05	Earth Impact random	animfx_sounds.json	AnimFXController×16	对上	
+156	Earth Impact random small	1953223208494437568	Earth Impact 1; Earth Impact 2; Earth Impact 3	1.10–1.05	0.60–0.70	0.05	Earth Impact random small	animfx_sounds.json	AnimFXController×5	对上	
+157	EC Beautiful Death	5548918243476439392	Beautiful Death	0.97–1.02	1.00–1.00	0.10	EC Beautiful Death	animfx_sounds.json	AnimFXController×1	对上	
+158	EC Buff 1	-6728010357797427504	EC Buff 1	0.90–1.05	0.80–1.00	0.50	EC Buff 1	animfx_sounds.json	AnimFXController×2	对上	
+159	EC Buff Intense	-3387480158720518636	EC Buff Intense 1	0.90–1.05	0.80–1.00	0.50	EC Buff Intense	animfx_sounds.json	AnimFXController×1	对上	
+160	EC Debuff	4895498631413008624	EC Debuff 1	0.90–1.05	0.80–1.00	0.50	EC Debuff	animfx_sounds.json	AnimFXController×1	对上	
+161	EC Expansion 1 jingle	-5269354625826179320	Vault Crate Open Full	1.00–1.00	1.00–1.00	0.10	—（需新增 key：EC Expansion 1 jingle）	—	（本地无任何组件引用：PPtr 与 AssetGUID 都 0 命中）	缺·本地无任何引用	
+162	EC Target Lucius Taunt	-5011056888742001597	Ec Lucius Taunt 1; EC Lucius Taunt 2; EC Lucius Taunt 3	1.00–1.00	1.00–1.00	0.10	EC Target Lucius Taunt	animfx_sounds.json	AnimFXController×1	对上	
+163	EC Target User	8999530700524234188	EC Target User	0.97–1.02	1.00–1.00	0.10	EC Target User	animfx_sounds.json	AnimFXController×2	对上	
+164	Electric Cut 1	-7357364145830156646	Electric Cut 1	2.00–2.00	1.00–1.00	0.00	—（需新增 key：Electric Cut 1）	—	（本地无任何组件引用：PPtr 与 AssetGUID 都 0 命中）	缺·本地无任何引用	
+165	Electric Cut 2	7239416533693395782	Electric Cut 2	0.90–1.10	1.00–1.00	0.00	—（需新增 key：Electric Cut 2）	—	（本地无任何组件引用：PPtr 与 AssetGUID 都 0 命中）	缺·本地无任何引用	
+166	Electric Cut 3	-3794525561233036298	Electric Cut 3	0.90–1.10	1.00–1.00	0.00	Electric Cut 3	animfx_sounds.json	AnimFXController×2	对上	
+167	End Turn	827019264881373829	EndTurn	1.00–1.00	1.00–1.00	0.10	End Turn	battle_sounds.json(字段 endTurnButton), 代码按名播 `MyGame/Assets/CardPresentation/Core/Loc.cs:1495`	[GUID] SoundAssetCollection×1（字段 drawCardFromDeck）	对上	
+168	End Turn Button Move	-8308497759842384964	battle_turn_end_timer_3	1.00–1.00	1.00–1.00	0.10	—（需新增 key：End Turn Button Move）	—	（本地无任何组件引用：PPtr 与 AssetGUID 都 0 命中）	缺·本地无任何引用	
+169	End Turn Inactive	2579477027907009947	battle_endturn_error	1.00–1.00	1.00–1.00	0.10	End Turn Inactive	battle_sounds.json(字段 endTurnButtonInactive)	[GUID] SoundAssetCollection×1（字段 drawCardFromDeck）	对上	
+170	Energy Accumulated	7603306406710111657	Energy 1	1.00–1.00	0.80–0.80	0.10	—（需新增 key：Energy Accumulated）	—	ManaTypeHolder×26 ｜Preload:scenes_scenes_battlearena1,scenes_scenes_battlearena2	缺·UI	
+171	Energy Accumulated Used	-4613968291107620334	Energy 2	1.00–1.00	0.80–0.80	0.10	—（需新增 key：Energy Accumulated Used）	—	ManaTypeHolder×26 ｜Preload:scenes_scenes_battlearena1,scenes_scenes_battlearena2	缺·UI	
+172	Everstorm	-594538407514888180	Everstorm	1.00–1.00	0.50–0.50	0.50	—（需新增 key：Everstorm）	—	ShakeAndSoundObject×1	缺·战场环境	
+173	Execution	-7215942036855982999	Execution	1.00–1.00	1.00–1.00	0.00	Execution	animfx_sounds.json	AnimFXController×1	对上	
+174	Exorcist_Launch	6421408922152476662	Exorcist launch	0.95–1.05	0.30–0.40	0.05	Exorcist_Launch	animfx_sounds.json	AnimFXController×3	对上	
+175	Exorcist_MissileChoir	3192084291574617058	Exorcist 1; Exorcist 2; Exorcist 3; Exorcist 4	1.00–1.00	1.00–1.00	0.00	—（需新增 key：Exorcist_MissileChoir）	—	（本地无任何组件引用：PPtr 与 AssetGUID 都 0 命中）	缺·本地无任何引用	
+176	Exorcist_Start	877694649598115742	Exorcist start	0.70–1.00	0.50–0.50	1.00	—（需新增 key：Exorcist_Start）	—	（本地无任何组件引用：PPtr 与 AssetGUID 都 0 命中）	缺·本地无任何引用	
+177	Explosion Big Variation	4411388551624374819	Ork Missile Big Explosion	0.90–1.05	0.90–1.00	0.00	Explosion Big Variation	animfx_sounds.json	AnimFXController×8	对上	
+178	Explosion Distant	7917696988464337502	Distant Explosion 12	0.90–1.05	0.50–0.40	0.05	Explosion Distant	animfx_sounds.json	AnimFXController×1	对上	
+179	Explosion Distant 2	2621620475508096044	Distant Explosion 13; Distant Explosion 14	0.90–1.05	0.50–0.40	0.05	Explosion Distant 2	animfx_sounds.json	AnimFXController×2	对上	
+180	Explosion Huge	-4452028916101900506	Explosion Huge	0.95–1.05	1.00–1.00	0.05	Explosion Huge	animfx_sounds.json	AnimFXModuleCollisions×3；AnimFXController×3	对上	
+181	Explosion Huge 2	-6858376963370503419	Explosion Huge 2	0.95–1.05	1.00–1.00	0.05	Explosion Huge 2	animfx_sounds.json	AnimFXModuleCollisions×8；AnimFXController×2	对上	
+182	Explosion Huge Random	-3157038767084701767	Explosion Huge 2; Explosion Huge	0.95–1.05	1.00–1.00	0.10	Explosion Huge Random	animfx_sounds.json	AnimFXController×3；AnimFXModuleCollisions×3	对上	
+183	Explosion Ork Missile Big	726764951280786089	Ork Missile Big Explosion	1.00–1.00	1.00–1.00	0.00	Explosion Ork Missile Big	animfx_sounds.json	AnimFXModuleCollisions×4；AnimFXController×2	对上	
+184	Explosion plain medium CUE	-3689729330712249658	explosion plain medium_HORUS	0.80–1.10	1.00–1.00	0.10	Explosion plain medium CUE	animfx_sounds.json	AnimFXModuleCollisions×1；AnimFXController×1	对上	
+185	Explosion Short	-4687398404311315755	Explosion Short; Explosion Short 2	0.95–1.05	1.00–1.00	0.05	Explosion Short	animfx_sounds.json	AnimFXModuleCollisions×3；AnimFXController×2	对上	
+186	Explosion_DCannon	257337134906014921	Explosion_DCannon	1.00–1.00	1.00–1.00	0.00	Explosion_DCannon	animfx_sounds.json	AnimFXModuleCollisions×5	对上	
+187	Explosion_DCannon_2	-8131075825126946887	Explosion_DCannon	1.20–1.20	0.80–0.80	0.00	Explosion_DCannon_2	animfx_sounds.json	AnimFXModuleCollisions×9	对上	
+188	Explosion_DCannon_Lasblaster	218113879328113317	Explosion_DCannon	1.20–1.30	0.30–0.40	0.00	Explosion_DCannon_Lasblaster	animfx_sounds.json	AnimFXModuleCollisions×1	对上	
+189	Explosion_Magic_Quick	-7069062520837382267	Explosion Magic Quick	0.80–1.20	1.00–1.00	0.00	Explosion_Magic_Quick	animfx_sounds.json	AnimFXModuleCollisions×2	对上	
+190	Explosion_Missile	6613142996321761435	Explosion Missile	0.95–1.05	1.00–1.00	0.05	Explosion_Missile	animfx_sounds.json	AnimFXModuleCollisions×9；AnimFXController×2	对上	
+191	Explosion_Missile_quiet	-5460510284128759340	Explosion Missile	0.95–1.05	0.20–0.20	0.10	Explosion_Missile_quiet	animfx_sounds.json	AnimFXModuleCollisions×4；AnimFXController×1	对上	
+192	Factory Overdrive	7758829246773958931	Astra Militarum Factory Overdrive	1.00–1.00	1.00–1.00	0.50	—（需新增 key：Factory Overdrive）	—	ShakeAndSoundObject×2	缺·战场环境	
+193	FeedingFrenzy	-889815174100125163	FeedingFrenzy	1.00–1.00	1.00–1.00	0.10	FeedingFrenzy	animfx_sounds.json	AnimFXController×1	对上	
+194	Fenrisian Monstrosities	3164111638754947397	Fenrisian Monstrosities	1.00–1.00	1.00–1.00	0.50	Fenrisian Monstrosities	animfx_sounds.json, 代码按名播 `MyGame/Assets/RuleEngine/Editor/RuleEngineTest.cs:10438`	AnimFXController×1	对上	
+195	Fenrisian Monstrosities Extra Damage	-594008873370825978	Fenrisian Monstrosities Extra Damage	0.97–1.02	1.00–1.00	0.10	Fenrisian Monstrosities Extra Damage	animfx_sounds.json	AnimFXController×1	对上	
+196	Fire Burst Random	-6111929710588924706	Fire Burst 5; Fire Burst 6; Fire Burst 7; Fire Burst 8	0.90–1.05	0.80–1.00	0.00	Fire Burst Random	animfx_sounds.json	AnimFXController×3	对上	
+197	Fire Woosh	-3901492168257388563	SFX_Fire_Woosh_1_Short	1.00–1.00	1.00–1.00	0.00	Fire Woosh	animfx_sounds.json	AnimFXController×1	对上	
+198	Firestorm Loop	-5993767068827573205	Firestorm Long	1.00–1.00	1.00–1.00	0.10	—（需新增 key：Firestorm Loop）	—	ShakeAndSoundObject×1	缺·战场环境	
+199	Firestorm Start	-6232738114596080938	Firestorm Start	1.00–1.00	1.00–1.00	0.10	Firestorm Start	animfx_sounds.json	ShakeAndSoundObject×2；AnimFXController×1	对上	
+200	First Light	1210299923766823312	First Light	1.00–1.00	0.50–0.50	0.50	—（需新增 key：First Light）	—	ShakeAndSoundObject×1	缺·战场环境	
+201	Flame Celestine	-275837974888831038	Flame Celestine	1.00–1.00	1.00–1.00	0.00	Flame Celestine	animfx_sounds.json	AnimFXController×1	对上	
+202	FlameHitImpact	8778642441622608633	FlameHitImpact	0.95–1.05	1.00–1.00	0.20	FlameHitImpact	animfx_sounds.json	AnimFXModuleCollisions×1	对上	
+203	Flamer Burna	7019281249923120476	Flamer Burna	1.00–1.00	1.00–1.00	0.00	Flamer Burna	animfx_sounds.json	AnimFXController×1	对上	
+204	Flamer Burna Sweep	-8169185786901346672	Flamer Burna Sweep	1.00–1.00	1.00–1.00	0.00	Flamer Burna Sweep	animfx_sounds.json	AnimFXController×2	对上	
+205	Flamer Single Short	1609593774224856949	FlamerSingleShort	1.00–1.00	1.00–1.00	0.00	Flamer Single Short	animfx_sounds.json	AnimFXController×8	对上	
+206	Flamer Sweep	3494761384187334493	FlamerSweep	1.00–1.00	1.00–1.00	0.00	—（需新增 key：Flamer Sweep）	—	（本地无任何组件引用：PPtr 与 AssetGUID 都 0 命中）	缺·本地无任何引用	
+207	Forge Card	-4696912684080399316	Forge Card	1.00–1.00	1.00–1.00	0.10	—（需新增 key：Forge Card）	—	CardDisplayLevelUpAnimationController×1 ｜Preload:scenes_scenes_mainmenuwarpforge	缺·UI	
+208	Forge Collect	-5338995450082681464	Forge Collect	1.00–1.00	1.00–1.00	1.00	—（需新增 key：Forge Collect）	—	（本地无任何组件引用：PPtr 与 AssetGUID 都 0 命中）	缺·本地无任何引用	
+209	Frenzied Effect	-1770376853203920891	FrenziedEffect	1.00–1.00	1.00–1.00	0.10	—（需新增 key：Frenzied Effect）	—	（本地无任何组件引用：PPtr 与 AssetGUID 都 0 命中）	缺·本地无任何引用	
+210	FrenziedEffect	2138042252864670178	FrenziedEffect	1.00–1.00	1.00–1.00	0.10	FrenziedEffect	animfx_sounds.json	AnimFXController×1	对上	
+211	Full Moon	-2043529631028593154	Full Moon	1.00–1.00	0.50–0.50	0.50	—（需新增 key：Full Moon）	—	ShakeAndSoundObject×1	缺·战场环境	
+212	Fusion Blaster	-2383935801695682340	Fusion Blaster	1.00–1.00	1.00–1.00	0.10	Fusion Blaster	animfx_sounds.json	AnimFXController×2	对上	
+213	Gacha vault open	-8931646904024042903	Vault Crate Open Full	1.00–1.00	1.00–1.00	0.10	—（需新增 key：Gacha vault open）	—	GachaCratePanel×1	缺·UI	
+214	Gain Armor	6823949022347251172	GainArmor	1.00–1.00	1.00–1.00	0.10	Gain Armor	animfx_sounds.json	AnimFXController×2	对上	
+215	Gain Shuriken	6039110901135415630	GainShuriken	1.00–1.00	1.00–1.00	0.20	Gain Shuriken	animfx_sounds.json	AnimFXController×2	对上	
+216	Gatling_1s	-4703875413347470720	Gatling_1s	0.90–0.95	1.00–1.00	0.00	Gatling_1s	animfx_sounds.json	AnimFXController×1	对上	
+217	Gatling_1s_quiet	2175067025881895522	Gatling_1s	1.10–1.05	0.50–0.50	0.00	Gatling_1s_quiet	animfx_sounds.json	AnimFXController×2	对上	
+218	Gauss Attack Basic	8492046555722236480	Gauss_Attack	1.00–1.00	1.00–1.00	0.00	—（需新增 key：Gauss Attack Basic）	—	（本地无任何组件引用：PPtr 与 AssetGUID 都 0 命中）	缺·本地无任何引用	
+219	Gauss Attack Deathmark	-6947675291385526190	Gauss Rifle Sniper	1.00–1.00	1.00–1.00	0.00	—（需新增 key：Gauss Attack Deathmark）	—	（本地无任何组件引用：PPtr 与 AssetGUID 都 0 命中）	缺·本地无任何引用	
+220	Gauss Attack Hexmark	-5426600045113791056	Gauss_Attack_Hexmark	1.00–1.00	1.00–1.00	0.00	—（需新增 key：Gauss Attack Hexmark）	—	（本地无任何组件引用：PPtr 与 AssetGUID 都 0 命中）	缺·本地无任何引用	
+221	Gauss Attack Tesla	6484343544885521165	Gauss_Attack_Tesla	1.00–1.00	1.00–1.00	0.00	—（需新增 key：Gauss Attack Tesla）	—	（本地无任何组件引用：PPtr 与 AssetGUID 都 0 命中）	缺·本地无任何引用	
+222	Gauss Attack Tesla Annihilator	566832198689086745	Gauss_Attack_Tesla Annihilator	1.00–1.00	1.00–1.00	0.00	Gauss Attack Tesla Annihilator	animfx_sounds.json	AnimFXController×1	对上	
+223	Gauss_Attack	1155445724947098830	Gauss Rifle	0.95–1.05	0.90–1.00	0.10	Gauss_Attack	animfx_sounds.json	AnimFXController×7	对上	
+224	Gauss_Attack_Deathmark	3718491687121541309	Gauss Rifle Sniper	1.00–1.00	0.75–0.75	0.10	Gauss_Attack_Deathmark	animfx_sounds.json	AnimFXController×1	对上	
+225	Gauss_Attack_Hexmark	5757367205763865879	Gauss_Attack_Hexmark	1.00–1.00	0.87–1.00	0.10	Gauss_Attack_Hexmark	animfx_sounds.json	AnimFXController×1	对上	
+226	Gauss_Attack_Imotekh_AA	6282297156222850346	Gauss_Imotekh_AA_2	0.95–1.05	0.90–1.00	0.10	Gauss_Attack_Imotekh_AA	animfx_sounds.json	AnimFXController×1	对上	
+227	Gauss_Attack_Tesla	-6797318505355676947	Gauss_Attack_Tesla	1.00–1.00	0.87–1.00	0.10	Gauss_Attack_Tesla	animfx_sounds.json	AnimFXController×2	对上	
+228	Genestealer Lightning	-2242772435691798322	Genestealer Smite	1.00–1.00	1.00–1.00	0.10	Genestealer Lightning	animfx_sounds.json	AnimFXController×1	对上	
+229	Genestealer Lightning 2	1014736757557283563	Genestealer Smite 2	1.00–1.00	0.80–0.80	0.10	Genestealer Lightning 2	animfx_sounds.json	AnimFXController×1	对上	
+230	Godspear Warhead Explosion	-4388069504446189883	Godspear Warhead Explosion	1.00–1.00	1.00–1.00	0.05	Godspear Warhead Explosion	animfx_sounds.json	AnimFXController×1	对上	
+231	Godspear Warhead Inbound	126847728480787262	Godspear Inbound	1.00–1.00	1.00–1.00	0.05	Godspear Warhead Inbound	animfx_sounds.json	AnimFXController×1	对上	
+232	GravPulse	-97064534715982286	Grav Pulse	0.95–1.05	1.00–1.00	0.00	GravPulse	animfx_sounds.json	AnimFXController×2	对上	
+233	Grenade Launcher whoomp	-7137553680381165576	Grenade Launcher	0.90–1.00	1.00–1.00	0.00	Grenade Launcher whoomp	animfx_sounds.json	AnimFXController×3	对上	
+234	GrotGrenadeThrow	6644957301134061480	Grot grenade throw	1.00–1.00	1.00–1.00	0.00	GrotGrenadeThrow	animfx_sounds.json	AnimFXController×1	对上	
+235	GrotRockThrow	2944690456382112793	Grot rock throw	1.00–1.00	1.00–1.00	0.00	GrotRockThrow	animfx_sounds.json	AnimFXController×1	对上	
+236	GSC Basic	-3263047967635558433	GSC Basic	1.00–1.00	1.00–1.00	0.10	GSC Basic	animfx_sounds.json	AnimFXController×1	对上	
+237	GSC Basic Intense	-4146625593330860412	GSC Basic Intense	1.00–1.00	1.00–1.00	0.10	GSC Basic Intense	animfx_sounds.json	AnimFXController×1	对上	
+238	GSC Basic Jackal	-5486769670200717179	GSC Basic_Jackal	1.00–1.00	1.00–1.00	0.10	GSC Basic Jackal	animfx_sounds.json	AnimFXController×1	对上	
+239	GSC Buff Enhancement	1352070587060293815	GSC_Buff_Enhancement	1.00–1.00	1.00–1.00	0.10	GSC Buff Enhancement	animfx_sounds.json	AnimFXController×1	对上	
+240	GSC Recall	4093846497783461998	GSC Recall	1.00–1.00	1.00–1.00	0.10	GSC Recall	animfx_sounds.json	AnimFXController×3	对上	
+241	Guard Buff 1	8280988326105140942	Guard Buff 1	0.95–1.05	1.00–1.00	0.20	Guard Buff 1	animfx_sounds.json	AnimFXController×22	对上	
+242	Guard Buff 2 Intense	-2075139209899590808	Guard Buff 2 Intense	0.95–1.05	1.00–1.00	0.20	Guard Buff 2 Intense	animfx_sounds.json	AnimFXController×1	对上	
+243	Guard Buff 3 Board	1310574751098519766	Guard Buff 3 Board	0.95–1.05	1.00–1.00	0.20	Guard Buff 3 Board	animfx_sounds.json	AnimFXController×1	对上	
+244	Guard Buff 4 Quick	-1846294310726187728	Guard Buff 4 Quick	0.95–1.05	1.00–1.00	0.20	Guard Buff 4 Quick	animfx_sounds.json	AnimFXController×3	对上	
+245	Guard Buff 5 Digital	-6012124449706034488	Guard Buff 5 Digital	0.95–1.05	1.00–1.00	0.20	Guard Buff 5 Digital	animfx_sounds.json	AnimFXController×1	对上	
+246	Guard Buff 6 duty Reload	-5774792781354486707	Duty Reload	0.95–1.05	1.00–1.00	0.20	Guard Buff 6 duty Reload	animfx_sounds.json	AnimFXController×1	对上	
+247	Guard Master of Ordnance	-4144183165107844714	Guard radio static	0.95–1.05	1.00–1.00	0.20	Guard Master of Ordnance	animfx_sounds.json	AnimFXController×1	对上	
+248	Guard Summon	2856943512752497022	Guard Summon	0.95–1.05	1.00–1.00	0.20	Guard Summon	animfx_sounds.json	AnimFXController×1	对上	
+249	Hammer Slam	-3350577537949251434	SW Hammer Slam	0.97–1.03	1.00–1.00	0.50	Hammer Slam	animfx_sounds.json	AnimFXController×1	对上	
+250	Heal Protocols	6559199837532178221	HealProtocol	1.00–1.00	1.00–1.00	0.10	Heal Protocols	animfx_sounds.json	AnimFXController×3	对上	
+251	Heldrake Strike	-2468925992530261356	HeldrakeStrike3	1.00–1.00	1.00–1.00	0.00	Heldrake Strike	animfx_sounds.json	AnimFXController×3	对上	
+252	Helfire Burst	8541264548664843813	Helfire Burst	1.00–1.00	1.00–1.00	0.00	Helfire Burst	animfx_sounds.json	AnimFXController×1	对上	
+253	Helfire Condition	6728685702760929341	Helfire Condition	1.00–1.00	0.50–0.50	0.20	Helfire Condition	animfx_sounds.json	AnimFXController×1	对上	
+254	Hellblaster	8302725043256431441	Hellblaster_Plasma_Blast	0.95–1.05	1.00–1.00	0.00	Hellblaster	animfx_sounds.json, 代码按名播 `MyGame/Assets/CardPresentation/Editor/BattleScene.cs:43323`	AnimFXController×1	对上	
+255	HelspearThrow	-3117757133481269721	HelspearThrow	1.00–1.00	1.00–1.00	0.00	HelspearThrow	animfx_sounds.json	AnimFXController×5	对上	
+256	Hero of the Empire	4812388572927138395	Hero of the Empire 	1.00–1.00	1.00–1.00	0.00	Hero of the Empire	animfx_sounds.json	AnimFXController×1	对上	
+257	Hexmark Artifice	-7871772244196079456	Hexmark_Artifice_Deal1	0.95–1.05	1.00–1.00	0.10	Hexmark Artifice	animfx_sounds.json	AnimFXController×2	对上	
+258	Hideous Mutation	-2099367509206029669	HideousMutation	1.00–1.00	1.00–1.00	0.10	Hideous Mutation	animfx_sounds.json	AnimFXController×1	对上	
+259	Hive Fleet Rumble	3773550483871171896	Hive Fleet Rumble	0.95–1.00	1.00–1.00	0.05	Hive Fleet Rumble	animfx_sounds.json	AnimFXController×5	对上	
+260	Ice Impact	-6042369530336329841	Ice Impact	0.98–1.02	1.00–1.00	0.10	Ice Impact	animfx_sounds.json	AnimFXModuleCollisions×1	对上	
+261	Immortal Beams	-42160604713367801	Necrons Immortal Beams	1.00–1.00	1.00–1.00	0.50	—（需新增 key：Immortal Beams）	—	ShakeAndSoundObject×1	缺·战场环境	
+262	Immortal Beams Target	-6826870096820398461	Immortal Beams Target	1.10–0.90	0.80–0.80	0.10	Immortal Beams Target	animfx_sounds.json	AnimFXController×1	对上	
+263	Indomitable Will	-5616273729910345950	IndomitableWill	1.00–1.00	1.00–1.00	0.10	Indomitable Will	animfx_sounds.json	AnimFXController×1	对上	
+264	Infernal Gaze	-1208362451185024640	InfernalGaze	1.00–1.00	1.00–1.00	0.00	Infernal Gaze	animfx_sounds.json	AnimFXController×1	对上	
+265	Infinity Circuit	-6737767823666822066	Infinity Circuit	1.00–1.00	1.00–1.00	0.10	Infinity Circuit	animfx_sounds.json	AnimFXController×1	对上	
+266	Infinity Circuit Overload Burst	-8589745840629634076	Infinity Circuit Overload Burst	1.00–1.00	0.50–0.50	0.10	Infinity Circuit Overload Burst	animfx_sounds.json	AnimFXController×1	对上	
+267	Inspired Retribution	494692085930339690	InspiredRetribution	1.00–1.00	1.00–1.00	0.00	Inspired Retribution	animfx_sounds.json, 代码按名播 `MyGame/Assets/CardPresentation/Editor/BattleScene.cs:45348`	AnimFXController×1	对上	
+268	Invoke CUE	-3642711180356068668	Invoke Minion 3	0.80–1.10	0.80–0.80	0.10	Invoke CUE	battle_sounds.json(字段 invokeCUE)	CardScript×1	对上	
+269	Invoke Legendary CUE	5756499144279933982	Invoke Minion Legendary	0.80–1.10	0.80–0.80	0.10	Invoke Legendary CUE	battle_sounds.json(字段 invokeCUELegendary)	CardScript×1	对上	
+270	Invulnerable Effect	-3361427385510183452	Invulnerable_Effect	1.00–1.00	1.00–1.00	0.10	—（需新增 key：Invulnerable Effect）	—	（本地无任何组件引用：PPtr 与 AssetGUID 都 0 命中）	缺·本地无任何引用	
+271	Ion Accelerator	-5541299549499341898	Ion Accelerator	1.00–1.00	1.00–1.00	0.10	Ion Accelerator	animfx_sounds.json	AnimFXController×1	对上	
+272	Khaine Buff	-7007310242469023126	Khaine Buff	1.00–1.00	1.00–1.00	0.10	Khaine Buff	animfx_sounds.json	AnimFXController×1	对上	
+273	Kroot_Buff 1	6097119295092998603	Kroot_Buff_1	0.95–1.05	0.80–0.85	0.05	Kroot_Buff 1	animfx_sounds.json	AnimFXController×2	对上	
+274	Kroot_Buff 2	95413532424945587	Kroot_Buff_2	0.95–1.05	0.80–0.85	0.05	Kroot_Buff 2	animfx_sounds.json	AnimFXController×2	对上	
+275	KrootPistol	6418246881356994255	KrootRifle_1; KrootRifle_2; KrootRifle_3	0.95–1.05	0.40–0.45	0.05	KrootPistol	animfx_sounds.json	AnimFXController×1	对上	
+276	KrootRifle	-1773957451230738469	KrootRifle_1; KrootRifle_2; KrootRifle_3	0.95–1.05	0.80–0.85	0.05	KrootRifle	animfx_sounds.json	AnimFXController×1	对上	
+277	KrootRifle_RepeaterCannon	4188163480528223393	KrootRifle_1; KrootRifle_2; KrootRifle_3	0.95–1.05	0.80–0.85	0.05	KrootRifle_RepeaterCannon	animfx_sounds.json	AnimFXController×1	对上	
+278	KrootScattergun	-3634778251369152957	Kroot_Scattergun	0.95–1.05	0.40–0.45	0.05	KrootScattergun	animfx_sounds.json	AnimFXController×1	对上	
+279	Krumpa Klaw	1817428164150200936	KrumpaKlaw	1.00–1.00	1.00–1.00	0.00	Krumpa Klaw	animfx_sounds.json	AnimFXController×1	对上	
+280	Land On Ground	618506670841826468	MinionStompGround	0.80–1.10	0.80–0.80	0.10	Land On Ground	animfx_sounds.json, battle_sounds.json(字段 landOnGround)	AnimFXController×1；CardScript×1	对上	
+281	LasBlaster_1shot	-8675927591081913703	Lasblaster 1shot	0.95–1.05	1.00–1.00	0.05	LasBlaster_1shot	animfx_sounds.json	AnimFXController×1	对上	
+282	Lasgun_1Shot	-6703582672248457319	Approved Lasgun_1Shot	0.95–1.05	1.00–1.00	0.05	Lasgun_1Shot	animfx_sounds.json	AnimFXController×4	对上	
+283	Lasgun_1Shot_silent	3828072342988653573	Approved Lasgun_1Shot	0.95–1.05	0.50–0.60	0.05	Lasgun_1Shot_silent	animfx_sounds.json	AnimFXController×3	对上	
+284	Lasgun_Hotshot_1shot	-580933358854504837	Lasgun_Hotshot_1shot	0.95–1.05	1.00–1.00	0.05	Lasgun_Hotshot_1shot	animfx_sounds.json	AnimFXController×3	对上	
+285	Lasgun_Hotshot_pistol	482040256065692635	Lasgun_Hotshot_pistol	1.00–1.10	0.80–0.85	0.05	Lasgun_Hotshot_pistol	animfx_sounds.json	AnimFXController×2	对上	
+286	Lasgun_pistol	-6886519339045772279	Approved Lasgun_1Shot	0.95–1.05	1.00–1.00	0.05	Lasgun_pistol	animfx_sounds.json	AnimFXController×7	对上	
+287	Lightning Impact	63092927171372789	Lightning_Impact	1.00–1.00	1.00–1.00	0.10	Lightning Impact	animfx_sounds.json	AnimFXController×2	对上	
+288	Long Range Gain	1856182289510746264	Long Range Gain	1.00–1.00	1.00–1.00	0.10	Long Range Gain	animfx_sounds.json	AnimFXController×1	对上	
+289	Lord of the Storm	-1430390301213344775	LordOfTheStorm	1.00–1.00	1.00–1.00	0.00	Lord of the Storm	animfx_sounds.json, 代码按名播 `MyGame/Assets/CardPresentation/Editor/CardFaceProbe.cs:51`	AnimFXController×2	对上	
+290	Malfunction Damage	7748298572020259889	Malfunction Damage	0.90–1.10	0.50–0.50	0.50	Malfunction Damage	animfx_sounds.json	AnimFXController×1	对上	
+291	Mark of Khorne	8320305849079623061	MarkOfKhorne	1.00–1.00	1.00–1.00	0.10	Mark of Khorne	animfx_sounds.json	AnimFXController×1	对上	
+292	Mark of Nurgle	151370659856563792	MarkOfNurgle	1.00–1.00	1.00–1.00	0.10	Mark of Nurgle	animfx_sounds.json	AnimFXController×3	对上	
+293	Mark of Slaanesh	-4121138769058730591	MarkOfSlaanesh	1.00–1.00	1.00–1.00	0.10	Mark of Slaanesh	animfx_sounds.json	AnimFXController×2	对上	
+294	Mark of Tzeentch	1165140020157146424	MarkOfTzeentch	1.00–1.00	1.00–1.00	0.10	Mark of Tzeentch	animfx_sounds.json	AnimFXController×1	对上	
+295	MarkerlightDamage	7627591335623713372	Markerlight Damage	1.05–0.95	1.00–1.00	0.10	MarkerlightDamage	animfx_sounds.json	AnimFXController×1	对上	
+296	MarkerlightExpire	2159096295567821751	Markerlight Expire	1.00–1.00	1.00–1.00	0.10	MarkerlightExpire	animfx_sounds.json	AnimFXController×1	对上	
+297	MarkerlightProc	-4401032327309957420	MarkerlightProc	1.00–1.00	1.00–1.00	0.10	MarkerlightProc	animfx_sounds.json	AnimFXController×8	对上	
+298	Master Chronomancer	7731873819858239491	MasterChronomancer	1.00–1.00	1.00–1.00	0.00	Master Chronomancer	animfx_sounds.json, 代码按名播 `MyGame/Assets/RuleEngine/Editor/RuleEngineTest.cs:14635`	AnimFXController×1	对上	
+299	Master of Executions	2869154578321468455	MasterOfExecutions	1.00–1.00	1.00–1.00	0.00	Master of Executions	animfx_sounds.json	AnimFXController×2	对上	
+300	Master of the Fleet	-3948728406859256976	Master of the Fleet	1.00–1.00	1.00–1.00	0.00	Master of the Fleet	animfx_sounds.json, 代码按名播 `MyGame/Assets/CardPresentation/Editor/CardBaseDemo.cs:2519`	AnimFXController×1	对上	
+301	Match Found	-8040482539877392901	Multiplayer Match Found 3	0.80–1.10	0.80–0.80	0.10	—（需新增 key：Match Found）	—	（本地无任何组件引用：PPtr 与 AssetGUID 都 0 命中）	缺·本地无任何引用	
+302	Maulerfiend Roar	7267876368466479932	Maulerfiend Roar	0.90–1.10	1.00–1.00	0.10	Maulerfiend Roar	animfx_sounds.json	AnimFXController×1	对上	
+303	MegaBlasta	-1871841926500819889	MegaBlasta3	0.90–1.00	1.00–1.00	0.00	MegaBlasta	animfx_sounds.json	AnimFXController×2	对上	
+304	MegaBlasta_hit	-1230811654762960989	MegaBlastaHit	0.90–1.00	1.00–1.00	0.00	MegaBlasta_hit	animfx_sounds.json	AnimFXModuleCollisions×1	对上	
+305	MegaBlasta_hit_small	-1853997319742026079	MegaBlastaHit	1.05–1.10	0.80–0.70	0.00	MegaBlasta_hit_small	animfx_sounds.json	AnimFXModuleCollisions×1	对上	
+306	MegaBlasta_small	1184458041184288842	MegaBlastaSmall	1.10–1.00	0.80–0.70	0.00	MegaBlasta_small	animfx_sounds.json	AnimFXController×1	对上	
+307	Melee Atack Hit	-3640304923993188049	MeleeAttack_1; MeleeAttack_2; MeleeAttack_3	0.80–1.10	0.80–0.80	0.10	Melee Atack Hit	battle_sounds.json(字段 meleeAttackHitBig)	CardScript×1	对上	
+308	MenuStartGame	-1545367626748338049	StartMatch	1.00–1.00	1.00–1.00	0.10	MenuStartGame	animfx_sounds.json, WindowSounds.StartGameCue, 代码按名播 `MyGame/Assets/CardPresentation/Shell/WindowSounds.cs:65`	EverguildButton×6	对上	
+309	Methodical Destruction	5463126009949246259	MethodicalDestruction	1.00–1.00	1.00–1.00	0.00	Methodical Destruction	animfx_sounds.json	AnimFXController×1	对上	
+310	Mining Laser	-2044606242278684467	Mining Laser	1.00–1.00	1.00–1.00	0.00	Mining Laser	animfx_sounds.json	AnimFXController×1	对上	
+311	Mining Tremors	-5877265655380819390	Mining Tremors; Mining Tremors 2	0.90–1.10	0.50–0.50	0.50	Mining Tremors	animfx_sounds.json	ShakeAndSoundObject×2；AnimFXController×1	对上	
+312	Minion Death CUE	-9018542611352916220	Minion Death 2; Minion Death	0.80–1.24	0.30–0.30	0.10	Minion Death CUE	battle_sounds.json(字段 minionDeathCUE)	CardScript×1	对上	
+313	Minion Move	5543580570883906628	MinionMove	0.80–1.10	0.80–0.80	0.10	Minion Move	animfx_sounds.json	AnimFXController×1	对上	
+314	minionInitiatingAttack	-8348888374783996637	SelectUnit	1.00–1.00	1.00–1.00	0.10	minionInitiatingAttack	battle_sounds.json(字段 minionInitiatingAttack), 代码按名播 `MyGame/Assets/CardPresentation/Battle/BattleSfx.cs:55`	[GUID] SoundAssetCollection×1（字段 drawCardFromDeck）	对上	
+315	Missile Launch	-5479918953921915040	Missile launch	0.95–1.05	1.00–1.00	0.10	Missile Launch	animfx_sounds.json	AnimFXController×12	对上	
+316	Missile Launch quiet	-7262748634454289752	Missile launch	0.90–1.10	0.50–0.50	0.10	Missile Launch quiet	animfx_sounds.json	AnimFXController×3	对上	
+317	Mulligan	2617750227168640568	Mulligan	1.00–1.00	1.00–1.00	0.10	Mulligan	battle_sounds.json(字段 mulligan), 代码按名播 `MyGame/Assets/CardPresentation/Battle/MulliganPanel.cs:786`	[GUID] SoundAssetCollection×1（字段 drawCardFromDeck）	对上	
+318	Mulligan Replace	2141169132338210572	Mulligan Replace	0.85–1.00	0.60–0.60	0.10	—（需新增 key：Mulligan Replace）	—	（本地无任何组件引用：PPtr 与 AssetGUID 都 0 命中）	缺·本地无任何引用	
+319	MultiLas_Single	-7745013377320400033	MultiLas_Single	0.95–1.05	1.00–1.00	0.00	MultiLas_Single	animfx_sounds.json	AnimFXController×1	对上	
+320	MultiplayerModeHover	-3701871049006545423	UI Click 5_no delay	1.00–1.00	1.00–1.00	0.10	—（需新增 key：MultiplayerModeHover）	—	（本地无任何组件引用：PPtr 与 AssetGUID 都 0 命中）	缺·本地无任何引用	
+321	Murderous Desires	-6401728655476687873	Murderous Desires	1.00–1.00	1.00–1.00	0.10	Murderous Desires	animfx_sounds.json	AnimFXController×2	对上	
+322	Necron Mancer Attack	-7988578586747810280	Necron Mancer Attack	1.00–1.00	1.00–1.00	0.50	Necron Mancer Attack	animfx_sounds.json	AnimFXController×4	对上	
+323	NecronsCardReanimate	-370414287433173325	CardReanimate	0.80–1.10	1.00–1.00	0.10	NecronsCardReanimate	RemnantSfx.ClipOf（直接放 clip，不建 cue key）	RemnantNecrons×1	对上·走clip代替	
+324	New Card	4962178071637942874	New Card	1.00–1.00	1.00–1.00	0.10	New Card	animfx_sounds.json, WindowSounds.BoosterNewCardCue, 代码按名播 `MyGame/Assets/CardPresentation/Shell/WindowSounds.cs:52`	CardInBoosterPack×5	对上	
+325	Night Spinner Explosion	-810909880154332292	Night Spinner Explosion	0.95–1.05	1.00–1.00	0.00	Night Spinner Explosion	animfx_sounds.json	AnimFXController×2	对上	
+326	No Actions	2074984234628023183	NoActionsLeft	1.00–1.00	1.00–1.00	0.10	No Actions	battle_sounds.json(字段 outOfActions)	[GUID] SoundAssetCollection×1（字段 drawCardFromDeck）	对上	
+327	NoiseMarineBoom	-5349495946159097842	NoiseMarineBoom	1.00–1.00	1.00–1.00	0.00	NoiseMarineBoom	animfx_sounds.json	AnimFXController×1	对上	
+328	NoiseMarineBoom2	533967517901451465	NoiseMarineBoom2	0.90–1.05	1.00–1.00	0.00	NoiseMarineBoom2	animfx_sounds.json	AnimFXController×2	对上	
+329	NoiseMarineBoom3	-4698136215859144070	NoiseMarineBoom3	0.90–1.05	1.00–1.00	0.00	NoiseMarineBoom3	animfx_sounds.json	AnimFXController×1	对上	
+330	NoiseMarineBoom4	-7117921711468922363	NoiseMarineBoom4	0.90–1.05	1.00–1.00	0.00	NoiseMarineBoom4	animfx_sounds.json	AnimFXController×1	对上	
+331	NoiseMarineBoom5	3089240976562359697	NoiseMarineBoom5	0.90–1.05	1.00–1.00	0.00	NoiseMarineBoom5	animfx_sounds.json	AnimFXController×4	对上	
+332	NoiseMarineBoom5_instant	-7580058589645244529	NoiseMarineBoom5_nocharge	0.90–1.05	1.00–1.00	0.00	NoiseMarineBoom5_instant	animfx_sounds.json	AnimFXController×1	对上	
+333	Orbital Close	490124863330356381	Orbital Close ringing	1.00–1.00	1.00–1.00	0.10	Orbital Close	animfx_sounds.json	AnimFXController×4	对上	
+334	Orbital Distant	7589569972130843662	Orbital Distant	1.00–1.00	1.00–1.00	0.10	Orbital Distant	animfx_sounds.json	AnimFXController×6	对上	
+335	Orbital Initial	-3888569816479931127	Orbital Initial ringing	1.00–1.00	1.00–1.00	0.10	—（需新增 key：Orbital Initial）	—	ShakeAndSoundObject×1	缺·战场环境	
+336	Ork Blast Long	2005738787543149233	Ork_Blast_2s	1.00–1.00	1.00–1.00	0.00	Ork Blast Long	animfx_sounds.json	AnimFXController×1	对上	
+337	Ork Blast Missiles	-7166917932929071236	Ork_Blast_Missiles	1.00–1.00	1.00–1.00	0.00	Ork Blast Missiles	animfx_sounds.json	AnimFXController×1	对上	
+338	Ork Expansion 1 jingle	292006263889922574	Ork expansion pop up jingle	1.00–1.00	1.00–1.00	0.10	—（需新增 key：Ork Expansion 1 jingle）	—	[GUID] ParentEventData×1（字段 drawData）	缺·活动数据(GUID)引用	
+339	Ork Mek Buff	-1715152836809762334	Ork Mek Buff	1.00–1.00	0.50–0.50	0.20	Ork Mek Buff	animfx_sounds.json	AnimFXController×1	对上	
+340	Ork Missile Big	8056680723572866046	Ork Missile Big	1.00–1.00	1.00–1.00	0.00	Ork Missile Big	animfx_sounds.json	AnimFXController×2	对上	
+341	Ork Missile Big Explosion	5348883404728222366	Ork Missile Big Explosion	1.00–1.00	1.00–1.00	0.00	Ork Missile Big Explosion	animfx_sounds.json	AnimFXController×2；AnimFXModuleCollisions×1	对上	
+342	Ork Recall	8663655907564359068	Ork Recall	0.95–1.05	1.00–1.00	0.10	Ork Recall	animfx_sounds.json	AnimFXController×1	对上	
+343	Ork Snakebites Buff 1	4998932754675418726	Ork Buff Snakebites	0.90–1.05	0.80–0.80	0.00	Ork Snakebites Buff 1	animfx_sounds.json	AnimFXController×4	对上	
+344	Ork Snakebites Buff 2	-788318205164005920	Ork Buff Snakebites 2	0.90–1.05	0.80–0.80	0.20	Ork Snakebites Buff 2	animfx_sounds.json	AnimFXController×1	对上	
+345	Ork Snakebites Buff 2 Intense	-2775799778118728871	Ork Buff Snakebites 2 Intense	0.90–1.05	1.00–1.00	0.20	Ork Snakebites Buff 2 Intense	animfx_sounds.json	AnimFXController×1	对上	
+346	Ork Squig Trampla Charge	-243044343477885492	Orks Trampla Charge Roar	0.95–1.05	1.00–1.00	0.10	Ork Squig Trampla Charge	animfx_sounds.json	AnimFXController×1	对上	
+347	Ork Squiggoth Charge	1551351051240129441	Orks Squiggoth Charge Roar	0.95–1.05	1.00–1.00	0.10	Ork Squiggoth Charge	animfx_sounds.json	AnimFXController×1	对上	
+348	Ork Target	3808466544020127342	Ork Target 1	0.97–1.02	0.50–0.60	0.10	Ork Target	animfx_sounds.json	AnimFXController×1	对上	
+349	Orks Dust Storm Start	874716759609316447	Orks Dust Storm Start	1.00–1.00	1.00–1.00	0.10	—（需新增 key：Orks Dust Storm Start）	—	ShakeAndSoundObject×1	缺·战场环境	
+350	Orks Harpoon Shot	113871064076796470	Orks Harpoon Shot	0.95–1.05	1.00–1.00	0.10	Orks Harpoon Shot	animfx_sounds.json	AnimFXController×1	对上	
+351	Orks Harpoon Shot Huh	2505274520956987301	Orks Harpoon Shot Huh	0.95–1.05	1.00–1.00	0.10	—（需新增 key：Orks Harpoon Shot Huh）	—	（本地无任何组件引用：PPtr 与 AssetGUID 都 0 命中）	缺·本地无任何引用	
+352	Orks Harpoon Shot Quick	-8005238120852819213	Orks Harpoon Shot Quick	0.95–1.05	1.00–1.00	0.10	Orks Harpoon Shot Quick	animfx_sounds.json	AnimFXController×2	对上	
+353	OvertimeStart	6374961739927449780	OvertimeStart	1.00–1.00	1.00–1.00	0.10	OvertimeStart	代码按名播 `MyGame/Assets/CardPresentation/Battle/BattleDriver.cs:29842`	OvertimeUi×13 ｜Preload:scenes_scenes_battlearena1,scenes_scenes_battlearena2	对上	
+354	Particle Whip	907287950878022234	ParticleWhip	1.00–1.00	1.00–1.00	0.00	—（需新增 key：Particle Whip）	—	（本地无任何组件引用：PPtr 与 AssetGUID 都 0 命中）	缺·本地无任何引用	
+355	ParticleWhip	6380533354757087199	ParticleWhip	1.00–1.00	1.00–1.00	0.10	ParticleWhip	animfx_sounds.json	AnimFXController×1	对上	
+356	Path of Command	-4836966388238147679	Path of Command	1.00–1.00	1.00–1.00	0.10	Path of Command	animfx_sounds.json, 代码按名播 `MyGame/Assets/CardPresentation/Editor/CollectionScene.cs:9456`	AnimFXController×2	对上	
+357	Path of the Seer	5241469455621906591	Path of the Seer	1.00–1.00	1.00–1.00	0.10	Path of the Seer	animfx_sounds.json, 代码按名播 `MyGame/Assets/RuleEngine/Editor/RuleEngineTest.cs:17859`	AnimFXController×2	对上	
+358	Path of the Seer Green	-2090040022809269153	Path of the Seer Green	1.00–1.00	1.00–1.00	0.10	Path of the Seer Green	animfx_sounds.json	AnimFXController×1	对上	
+359	Path of the Seer Red	2748682469120711643	Path of the Seer Red	1.00–1.00	1.00–1.00	0.10	Path of the Seer Red	animfx_sounds.json	AnimFXController×1	对上	
+360	Pin Down Effect	693276519123066562	PinDown	1.00–1.00	1.00–1.00	0.10	—（需新增 key：Pin Down Effect）	—	（本地无任何组件引用：PPtr 与 AssetGUID 都 0 命中）	缺·本地无任何引用	
+361	Planetary Invasion	-632445147907211996	Astra Militarum Planetary Invasion	1.00–1.00	1.00–1.00	0.50	Planetary Invasion	animfx_sounds.json	AnimFXController×1	对上	
+362	Plasma Explosion	2521770203750446341	Plasma Explosion 2	0.95–1.05	1.00–1.00	0.00	—（需新增 key：Plasma Explosion）	—	（本地无任何组件引用：PPtr 与 AssetGUID 都 0 命中）	缺·本地无任何引用	
+363	Plasma_Shot	-285249724888130462	Plasma_Shot	1.00–1.00	1.00–1.00	0.00	Plasma_Shot	animfx_sounds.json	AnimFXController×4	对上	
+364	Plasma_Shot 2	1686396773672209867	Plasma_Shot_Azrael_AA	0.95–1.05	1.00–1.00	0.00	Plasma_Shot 2	animfx_sounds.json	AnimFXController×9	对上	
+365	Plasma_Shot 3	9204824336343407529	Plasma Explosion 2	0.95–1.05	1.00–1.00	0.00	—（需新增 key：Plasma_Shot 3）	—	（本地无任何组件引用：PPtr 与 AssetGUID 都 0 命中）	缺·本地无任何引用	
+366	Plasma_Shot_Azrael_AA	2763979365465775017	Plasma_Shot_Azrael_AA	1.00–1.00	1.00–1.00	0.00	Plasma_Shot_Azrael_AA	animfx_sounds.json	AnimFXController×1	对上	
+367	Positive Waaagh	820975201262744304	SFX_Positive_Waaagh	0.80–1.00	1.00–1.00	0.00	Positive Waaagh	animfx_sounds.json	AnimFXController×3	对上	
+368	PracticeModeHover	-6614552912725634266	UI Click 5_no delay	1.00–1.00	1.00–1.00	0.10	—（需新增 key：PracticeModeHover）	—	（本地无任何组件引用：PPtr 与 AssetGUID 都 0 命中）	缺·本地无任何引用	
+369	Pray Exit	-6252715886115180332	Pray Exit	0.95–1.00	0.50–0.50	0.20	Pray Exit	animfx_sounds.json	AnimFXController×1	对上	
+370	Pray Start	-4239326046040209330	Pray Start	0.95–1.05	1.00–1.00	0.20	Pray Start	animfx_sounds.json	AnimFXController×1	对上	
+371	Pray Success	5859101690058021414	Pray Success	0.95–1.05	0.60–0.60	0.20	Pray Success	animfx_sounds.json	AnimFXController×1	对上	
+372	Proper Killy	-9219335814721707338	SFX_ProperKilly	1.00–1.00	1.00–1.00	0.00	Proper Killy	animfx_sounds.json	AnimFXController×1	对上	
+373	Prophet of da Waaagh	2825538888718870884	ProphetOfDaWaagh	1.00–1.00	1.00–1.00	0.10	Prophet of da Waaagh	animfx_sounds.json	AnimFXController×4	对上	
+374	PsychicLightning	-7106377164512440808	Lightning_Impact	1.00–1.00	0.80–0.80	0.10	PsychicLightning	animfx_sounds.json	AnimFXController×6	对上	
+375	PsychicLightning_low	6411343101221389441	Lightning_Impact	0.80–0.90	0.80–0.80	0.10	PsychicLightning_low	animfx_sounds.json	AnimFXController×1	对上	
+376	Pulse Blaster	-2054853903045190660	Pulse Blaster	0.95–1.05	1.00–1.00	0.10	Pulse Blaster	animfx_sounds.json	AnimFXController×1	对上	
+377	Pulse Bomb	2217809765501713983	Pulse Bomb	1.00–1.00	1.00–1.00	0.10	Pulse Bomb	animfx_sounds.json	AnimFXController×1	对上	
+378	Pulse Explosion	3081801890720153413	Pulse Explosion	1.00–1.00	1.00–1.00	0.10	—（需新增 key：Pulse Explosion）	—	（本地无任何组件引用：PPtr 与 AssetGUID 都 0 命中）	缺·本地无任何引用	
+379	Pulse Rifle	8971618596930878537	Pulse Rifle	0.97–1.02	1.00–1.00	0.05	Pulse Rifle	animfx_sounds.json	AnimFXController×9	对上	
+380	Pulse Rifle Fusillade	-2488276513070335560	Pulse Rifle	0.97–1.02	0.30–0.30	0.05	Pulse Rifle Fusillade	animfx_sounds.json	AnimFXController×1	对上	
+381	Pulse Sniper	6015117090049140433	Pulse Sniper V2	0.97–1.02	1.00–1.00	0.10	Pulse Sniper	animfx_sounds.json	AnimFXController×2	对上	
+382	PulseHit	7820920170856874669	Pulse Hit 1; Pulse Hit 2; Pulse Hit 3; Pulse Hit 4	0.95–1.05	0.50–0.50	0.10	PulseHit	animfx_sounds.json	AnimFXModuleCollisions×10	对上	
+383	Purchase Click	8111810622317061932	UI PurchaseClick	1.00–1.00	1.00–1.00	0.10	Purchase Click	animfx_sounds.json, WindowSounds.PurchaseCue, 代码按名播 `MyGame/Assets/CardPresentation/Shell/WindowSounds.cs:64`	EverguildButton×67	对上	
+384	Putrid Miasma	1906074316149468694	PutridMiasma	1.00–1.00	1.00–1.00	0.10	Putrid Miasma	animfx_sounds.json	AnimFXController×1	对上	
+385	Ragnar Howl	-4833125099096757516	Ragnar Howl	0.90–1.10	1.00–1.00	0.10	Ragnar Howl	animfx_sounds.json	AnimFXController×1	对上	
+386	Rail Rifle Fire	2963909450170809244	Rail Rifle Fire	1.00–1.00	1.00–1.00	0.10	Rail Rifle Fire	animfx_sounds.json	AnimFXController×1	对上	
+387	Rail Rifle Hit	-5716394188864772225	Rail Rifle Hit	1.00–1.00	0.80–0.80	0.10	Rail Rifle Hit	animfx_sounds.json	AnimFXModuleCollisions×2	对上	
+388	Rail Rifle Hit Loud	106834658813699562	Rail Rifle Hit	1.00–1.00	1.00–1.00	0.10	Rail Rifle Hit Loud	animfx_sounds.json	AnimFXModuleCollisions×2	对上	
+389	Railgun Huge	-7136025203040646187	Railgun Huge Fire	1.00–1.00	0.25–0.25	0.10	Railgun Huge	animfx_sounds.json	AnimFXController×1 ｜Preload:scenes_scenes_battlearenatauviorla	对上	
+390	Railgun Turret	2700193000380154422	Railgun Turret v3	0.90–1.00	0.15–0.15	0.10	Railgun Turret	animfx_sounds.json, 代码按名播 `MyGame/Assets/CardPresentation/Editor/BattleScene.cs:5290`	AnimFXController×1 ｜Preload:scenes_scenes_battlearenatauviorla	对上	
+391	Railgun Turret Far	-7999625259853248332	Railgun Turret v3	0.90–1.00	0.15–0.15	0.10	Railgun Turret Far	animfx_sounds.json, 代码按名播 `MyGame/Assets/CardPresentation/Editor/BattleScene.cs:5291`	AnimFXController×1 ｜Preload:scenes_scenes_battlearenatauviorla	对上	
+392	Rally Vex Machinator	-4975482019516360459	Rally_VexMachinator	1.00–1.00	1.00–1.00	0.00	Rally Vex Machinator	animfx_sounds.json	AnimFXController×1	对上	
+393	Ranked Seal SFX	3505031481084578903	UI Click 6	1.00–1.00	0.70–0.70	0.01	—（需新增 key：Ranked Seal SFX）	—	MilestoneStep×18	缺·UI	
+394	Rapturous Ruination	7553341341757101110	Rapturous Ruination	1.00–1.00	1.00–1.00	0.05	Rapturous Ruination	animfx_sounds.json	AnimFXController×1	对上	
+395	Recall Eldar	1787876191490722680	Recall Eldar	1.00–1.00	1.00–1.00	0.10	Recall Eldar	animfx_sounds.json	AnimFXController×13	对上	
+396	Recall Generic 1	-792598285036318027	DA_Recall	1.00–1.00	1.00–1.00	0.10	Recall Generic 1	animfx_sounds.json	AnimFXController×3	对上	
+397	Reconstitution Protocol	1153730856586993298	ReconstitutionProtocol	1.00–1.00	1.00–1.00	0.00	Reconstitution Protocol	animfx_sounds.json	AnimFXController×1	对上	
+398	Red Waaagh	-5871854513374006126	RedWaaagh	0.90–1.05	0.70–0.80	0.00	Red Waaagh	animfx_sounds.json	AnimFXController×4	对上	
+399	Relentless March	1649402107201787510	RelentlessMarch	1.00–1.00	1.00–1.00	0.00	Relentless March	animfx_sounds.json, 代码按名播 `MyGame/Assets/CardPresentation/Shell/FTUESelectDeckWindow.cs:204`	AnimFXController×2	对上	
+400	RemnantsDestroyed	-4727434593888784742	RemnantsDestroyed	0.70–1.10	1.00–1.00	0.10	RemnantsDestroyed	代码按名播 `MyGame/Assets/CardPresentation/Battle/RemnantSfx.cs:39`	RemnantNecrons×1	对上·走clip代替	
+401	Remote Detonator Saboteur	1039350208109091935	Remote Detonator Saboteur	1.00–1.00	1.00–1.00	0.00	Remote Detonator Saboteur	animfx_sounds.json	AnimFXController×2	对上	
+402	Remove card from deck	7579188896786826273	Remove card from deck	0.80–1.20	1.00–1.00	0.10	—（需新增 key：Remove card from deck）	—	（本地无任何组件引用：PPtr 与 AssetGUID 都 0 命中）	缺·本地无任何引用	
+403	Resurrection Orb	-9029321035297487634	ResurrectionOrb	1.00–1.00	1.00–1.00	0.00	Resurrection Orb	animfx_sounds.json	AnimFXController×1	对上	
+404	ReturnToHand1	-1201403152958169823	ReturnToHand	1.00–1.00	1.00–1.00	0.10	ReturnToHand1	animfx_sounds.json	AnimFXController×3	对上	
+405	ReturnToHand2	-6454878031387327277	ReturnToHand2	1.00–1.00	1.00–1.00	0.10	ReturnToHand2	battle_sounds.json(字段 backToHand)	CardScript×1	对上	
+406	Reward Claim	-7855289738626075706	Reward Claim	1.00–1.00	1.00–1.00	0.10	Reward Claim	animfx_sounds.json, 代码按名播 `MyGame/Assets/CardPresentation/Shell/RewardWindow.cs:1617`	AnimFXController×2	对上	
+407	Reward open item by item	7757703643081722691	Add card to deck	1.00–1.00	0.50–0.50	0.01	Reward open item by item	animfx_sounds.json, 代码按名播 `MyGame/Assets/CardPresentation/Shell/RewardWindow.cs:441`	RewardWindow×1	对上	
+408	Ricochet Low	-4097501915720257905	Ricochet 02; Ricochet 03; Ricochet 05; Ricochet 07; Ricochet 09	0.95–1.05	0.50–0.50	0.01	Ricochet Low	animfx_sounds.json	AnimFXModuleCollisions×1	对上	
+409	RiftCannon	7385751707058035452	RiftCannon	0.95–1.05	1.00–1.00	0.00	RiftCannon	animfx_sounds.json	AnimFXController×1	对上	
+410	Ripper_Gun	8341827858404238756	Ripper Gun 1; Ripper Gun 2; Ripper Gun 3	1.00–1.00	1.00–1.00	0.00	Ripper_Gun	animfx_sounds.json	AnimFXController×1	对上	
+411	Rok Invasion	3408127045013165910	Rok_Invasion	1.00–1.00	1.00–1.00	0.00	Rok Invasion	animfx_sounds.json	AnimFXController×1	对上	
+412	ScanEvil	8881822601280908067	Scan_Evil	1.00–1.00	1.00–1.00	0.10	ScanEvil	animfx_sounds.json	AnimFXController×1	对上	
+413	Scarab_Hit	5054248894565537441	Scarab_Hit	2.00–2.00	0.87–1.00	0.01	Scarab_Hit	animfx_sounds.json	AnimFXController×1	对上	
+414	Scarab_Init	-5590513732877471377	Scarab_Init	2.00–2.00	0.50–0.64	0.10	Scarab_Init	animfx_sounds.json	AnimFXController×1	对上	
+415	Sceamer-Killer cue	4481212062319818265	Screamer-Killer	1.00–1.00	1.00–1.00	0.10	Sceamer-Killer cue	animfx_sounds.json	AnimFXController×5	对上	
+416	Scryers Gaze	-2565780312538201508	ScryersGaze	1.00–1.00	1.00–1.00	0.00	Scryers Gaze	animfx_sounds.json	AnimFXController×1	对上	
+417	Scythe Assault	-4112729545467569057	ScytheAssault	1.00–1.00	1.00–1.00	0.00	Scythe Assault	animfx_sounds.json	AnimFXController×1	对上	
+418	Select Toggle	8881786964274599484	UI Click 2_no delay	1.00–1.00	1.00–1.00	0.10	Select Toggle	animfx_sounds.json, WindowSounds.SelectToggleCue, 代码按名播 `MyGame/Assets/CardPresentation/Shell/WindowSounds.cs:62`	EverguildToggle×139；EverguildButton×2 ｜Preload:scenes_scenes_battlearena1,scenes_scenes_battlearena2	对上	
+419	SelectAvatar	-7839165639853058975	SelectAvatar	1.00–1.00	1.00–1.00	0.10	SelectAvatar	animfx_sounds.json, WindowSounds.SelectAvatarCue, 代码按名播 `MyGame/Assets/CardPresentation/Shell/WindowSounds.cs:63`	EverguildButton×6；EverguildToggle×5	对上	
+420	ShellCasingHit	6531836839461582259	Shell hit 1; Shell hit 2; Shell hit 3; Shell hit 4; Shell hit 5; Shell hit 6; Shell hit 7; Shell hit 8; Shell hit 9	0.80–0.80	0.10–0.15	0.10	ShellCasingHit	animfx_sounds.json	AnimFXModuleCollisions×45	对上	
+421	ShellCasingHit_low	-1631349046701384534	Shell hit 1; Shell hit 2; Shell hit 3; Shell hit 4; Shell hit 5; Shell hit 6; Shell hit 7; Shell hit 8; Shell hit 9	0.60–0.70	0.05–0.01	0.10	ShellCasingHit_low	animfx_sounds.json	AnimFXModuleCollisions×5	对上	
+422	ShellDrop_autogun	1005027167929971853	Bullet Drop autogun 1; Bullet Drop autogun 2; Bullet Drop autogun 3; Bullet Drop autogun 4; Bullet Drop autogun 5	0.80–0.90	0.30–0.20	0.10	ShellDrop_autogun	animfx_sounds.json	AnimFXModuleCollisions×8	对上	
+423	ShieldEnter	8404373221573218566	ShieldEnter	0.80–0.90	0.50–0.50	0.00	ShieldEnter	animfx_sounds.json	AnimFXController×5	对上	
+424	ShieldExit	-7407127194443944688	ShieldExit	0.80–0.90	0.50–0.50	0.00	ShieldExit	animfx_sounds.json	AnimFXController×5	对上	
+425	Shoota	-8377716208219935903	Ork Shoota New	0.95–1.05	1.00–1.00	0.10	Shoota	animfx_sounds.json	AnimFXController×2	对上	
+426	Shoota Ghaz AA	-2601804298114517846	Shoota_Ghaz_AA_Ranged	0.95–1.05	1.00–1.00	0.10	Shoota Ghaz AA	animfx_sounds.json	AnimFXController×1	对上	
+427	Shoota Long	6309471324011655549	Ork Shoota Long	0.95–1.05	1.00–1.00	0.10	Shoota Long	animfx_sounds.json	AnimFXController×2	对上	
+428	Shoota Long Gordrang	7008628436662521249	Ork Gordrang Dakka	0.95–1.05	1.00–1.00	0.10	Shoota Long Gordrang	animfx_sounds.json	AnimFXController×1	对上	
+429	Shoota Long Low	-2512714328254685478	Ork Shoota Long Low	0.95–1.05	1.00–1.00	0.10	—（需新增 key：Shoota Long Low）	—	（本地无任何组件引用：PPtr 与 AssetGUID 都 0 命中）	缺·本地无任何引用	
+430	Shoota Long Morgrim	-6047583860444321253	Ork Shoota Long Morgrim	0.95–1.05	1.00–1.00	0.10	Shoota Long Morgrim	animfx_sounds.json	AnimFXController×2	对上	
+431	Shoota short	-4376413742548155921	Ork Shoota Short	0.95–1.05	1.00–1.00	0.10	Shoota short	animfx_sounds.json	AnimFXController×1	对上	
+432	Shoota_1Shot	-1191341220949809860	Shoota_1shot	0.95–1.05	1.00–1.00	0.10	Shoota_1Shot	animfx_sounds.json	AnimFXController×1	对上	
+433	Shoota_5shot	-5559454674961088792	Shoota_5shot	0.95–1.05	1.00–1.00	0.10	—（需新增 key：Shoota_5shot）	—	（本地无任何组件引用：PPtr 与 AssetGUID 都 0 命中）	缺·本地无任何引用	
+434	Shuriken Catapult	2889079563527348818	Shuriken Catapult	0.80–0.90	0.25–0.25	0.00	Shuriken Catapult	animfx_sounds.json	AnimFXController×9	对上	
+435	Shuriken_Hit_1	-3975138760981622433	Shuriken_Hit_1	0.80–0.90	0.25–0.25	0.00	—（需新增 key：Shuriken_Hit_1）	—	（本地无任何组件引用：PPtr 与 AssetGUID 都 0 命中）	缺·本地无任何引用	
+436	Skorcha Attack	-3666354030093557234	Skorcha Attack	1.00–1.00	1.00–1.00	0.10	Skorcha Attack	animfx_sounds.json	AnimFXController×1	对上	
+437	Slash Heavy	-5705237549661835640	Slash_5	0.95–1.05	0.95–1.00	0.00	Slash Heavy	animfx_sounds.json	AnimFXController×2	对上	
+438	Slash Heavy Quick	5419828815347355831	Slash_4	0.85–1.11	0.95–1.00	0.00	Slash Heavy Quick	animfx_sounds.json	AnimFXController×16；AnimFXModuleCollisions×1	对上	
+439	Slash In-Out	-5111938614371498088	Slash In-Out	0.95–1.05	0.60–0.70	0.00	Slash In-Out	animfx_sounds.json	AnimFXModuleCollisions×4	对上	
+440	Smoke Bomb	-700974000844485628	SmokeBomb	1.00–1.00	1.00–1.00	0.10	Smoke Bomb	animfx_sounds.json	AnimFXController×3	对上	
+441	Sneak Attack	6730090052583811519	battle_attack_soft	1.00–1.00	1.00–1.00	0.10	Sneak Attack	battle_sounds.json(字段 sneakAttack)	[GUID] SoundAssetCollection×1（字段 drawCardFromDeck）	对上	
+442	Sniper Target	-4753693257717735037	Sniper Target	0.97–1.02	1.00–1.00	0.10	Sniper Target	animfx_sounds.json	AnimFXController×1	对上	
+443	SniperShot	-1605009020054247254	Bolt Rifle Sniper	1.00–1.00	1.00–1.00	0.10	SniperShot	animfx_sounds.json	AnimFXController×3	对上	
+444	Snot Joyrider Down	-8518063861184184268	SnotJoyrider_Down_2	1.00–1.00	1.00–1.00	0.00	Snot Joyrider Down	animfx_sounds.json	AnimFXController×1	对上	
+445	Snot Joyrider Up	4002033901127599620	SnotJoyrider_Up	1.00–1.00	1.00–1.00	0.00	Snot Joyrider Up	animfx_sounds.json	AnimFXController×1	对上	
+446	Solar Beam	4131545210908647489	Solar Beam	1.00–1.00	1.00–1.00	0.10	Solar Beam	animfx_sounds.json	AnimFXController×1	对上	
+447	Solar Pulse	7637250894559149135	SolarPulse	1.00–1.00	1.00–1.00	0.00	Solar Pulse	animfx_sounds.json	AnimFXController×1	对上	
+448	Sororitas Buff 1	5849146166158096052	Sororitas Buff 1	0.95–1.05	1.00–1.00	0.20	Sororitas Buff 1	animfx_sounds.json	AnimFXController×4	对上	
+449	Sororitas Buff 2	-6188574871830761557	Sororitas Buff 2	0.95–1.05	1.00–1.00	0.20	Sororitas Buff 2	animfx_sounds.json	AnimFXController×2	对上	
+450	Sororitas Celestine Ranged	-8818762365078181966	Celestine_Ranged_Sword	0.95–1.05	1.00–1.00	0.20	Sororitas Celestine Ranged	animfx_sounds.json	AnimFXController×1	对上	
+451	Sororitas Destroy Flames	5850624358353242071	Sororitas Destroy Flames V2	0.95–1.05	1.00–1.00	0.20	Sororitas Destroy Flames	animfx_sounds.json	AnimFXController×2	对上	
+452	Sororitas Faith Gain UI	854186172770776153	UI Faith Gain	0.95–1.05	0.70–0.70	0.20	Sororitas Faith Gain UI	animfx_sounds.json	AnimFXController×2	对上	
+453	Sororitas Faith Trigger	-9140541716712290003	Sororitas Faith Trigger	0.95–1.05	1.00–1.00	0.20	Sororitas Faith Trigger	animfx_sounds.json	AnimFXController×1	对上	
+454	Sororitas Faith Trigger UI	8343356606528148089	UI Faith Trigger	0.95–1.05	1.00–1.00	0.20	Sororitas Faith Trigger UI	animfx_sounds.json	AnimFXController×2	对上	
+455	Sororitas Summon	-8089962359293516789	Sororitas Summon	0.95–1.05	1.00–1.00	0.20	Sororitas Summon	animfx_sounds.json	AnimFXController×2	对上	
+456	Space Wolves Relase Jingle	7732099252535305473	Ragnar Howl	1.00–1.00	1.00–1.00	0.10	—（需新增 key：Space Wolves Relase Jingle）	—	[GUID] ParentEventData×1（字段 drawData）	缺·活动数据(GUID)引用	
+457	Squig Hook	-4774101341036956060	Squig Hook	1.00–1.00	1.00–1.00	0.00	Squig Hook	animfx_sounds.json	AnimFXController×1	对上	
+458	Squig Hook Explosion	-5414585821300704947	Squig Explosion	1.00–1.00	1.00–1.00	0.00	Squig Hook Explosion	animfx_sounds.json	AnimFXModuleCollisions×1	对上	
+459	Star Orbit	-3819335262797368526	Dark Angels Sun Orbit	1.00–1.00	1.00–1.00	0.50	—（需新增 key：Star Orbit）	—	ShakeAndSoundObject×1	缺·战场环境	
+460	Start Trun	-8851274122509502487	StartTurn	1.00–1.00	1.00–1.00	0.10	Start Trun	battle_sounds.json(字段 startTurn)	[GUID] SoundAssetCollection×1（字段 drawCardFromDeck）	对上	
+461	Stealth Break	-7330988940585634837	trait_stealth_break	1.00–1.00	1.00–1.00	0.10	Stealth Break	animfx_sounds.json	AnimFXController×2	对上	
+462	Stikkbomb grenade throw	-605163870093724888	Stikkboy grenade throw	1.00–1.00	1.00–1.00	0.00	Stikkbomb grenade throw	animfx_sounds.json	AnimFXController×1	对上	
+463	Stimulate Buff	-918547101327906772	Stimulate Buff	1.00–1.00	1.00–1.00	0.50	Stimulate Buff	animfx_sounds.json	AnimFXController×1	对上	
+464	Stormboyz Strike	4482045384679917088	StormboyzStrike	1.00–1.00	1.00–1.00	0.00	Stormboyz Strike	animfx_sounds.json	AnimFXController×1	对上	
+465	Stormraven	-2039546699329627971	StormRaven	1.00–1.00	1.00–1.00	0.00	Stormraven	animfx_sounds.json	AnimFXController×2	对上	
+466	Stormraven_Gatling	6769628484432483407	Stormraven_Gatling	1.00–1.00	1.00–1.00	0.00	Stormraven_Gatling	animfx_sounds.json	AnimFXController×1	对上	
+467	Stormsurge Fire	-5568346477527453606	Stormsurge Fire	1.00–1.00	1.00–1.00	0.00	Stormsurge Fire	animfx_sounds.json	AnimFXController×2	对上	
+468	Stormsurge Hit	-8676873941657140843	Stormsurge Hit	1.00–0.80	0.70–0.80	0.00	Stormsurge Hit	animfx_sounds.json	AnimFXModuleCollisions×2	对上	
+469	Strafing Shots	8302705091352768490	Strafing shots quick	0.70–1.10	0.05–0.10	0.10	Strafing Shots	animfx_sounds.json	AnimFXController×2	对上	
+470	Stun Effect	-6889604951112134230	StunEffect	1.00–1.00	1.00–1.00	0.10	Stun Effect	animfx_sounds.json	（本地无任何组件引用：PPtr 与 AssetGUID 都 0 命中）	对上	
+471	Stun Effect	1659271808959509510	StunEffect	1.00–1.00	1.00–1.00	0.10	Stun Effect	animfx_sounds.json	AnimFXController×3	对上	
+472	Sump Overspill	3287416670577984858	Sump Overspill	1.00–1.00	1.00–1.00	0.50	—（需新增 key：Sump Overspill）	—	ShakeAndSoundObject×1	缺·战场环境	
+473	Sun Shark Bomber	3548314364719362729	Sun Shark Bomber	1.00–1.00	1.00–1.00	0.10	Sun Shark Bomber	animfx_sounds.json	AnimFXController×1	对上	
+474	SW Buff Axe	6373107376435584105	SW Buff Axe	0.97–1.03	1.00–1.00	0.50	SW Buff Axe	animfx_sounds.json	AnimFXController×1	对上	
+475	SW Buff Howl	6126695139690299786	SW Buff Howl	0.97–1.03	1.00–1.00	0.50	SW Buff Howl	animfx_sounds.json	AnimFXController×1	对上	
+476	SW Buff Runes 1	-6616669579335391384	SW Buff Runes	0.97–1.03	1.00–1.00	0.50	SW Buff Runes 1	animfx_sounds.json	AnimFXController×6	对上	
+477	SW Buff Runes 2	-8240737011379231152	SW Buff Runes 2	0.97–1.03	1.00–1.00	0.50	SW Buff Runes 2	animfx_sounds.json	AnimFXController×4	对上	
+478	SW Deck Buff	-2278209969923945661	SW Deck Buff	0.97–1.03	1.00–1.00	0.50	SW Deck Buff	animfx_sounds.json	AnimFXController×1	对上	
+479	SW Wolf Howl	5846215602465732168	SW Howl 1; SW Howl 2; SW Howl 3	0.95–1.05	1.00–1.00	0.20	SW Wolf Howl	animfx_sounds.json	AnimFXController×2	对上	
+480	Swarm Trait UI Enabled	-4158225771113159080	Tyranid_BulletHit	0.90–1.10	1.00–1.00	0.01	Swarm Trait UI Enabled	animfx_sounds.json, 代码按名播 `MyGame/Assets/CardPresentation/Core/CardView.cs:8593`	SwarmIconController×1	对上	
+481	Swarm Trigger OnTarget	-5662887111034611679	Swarm OnTarget	1.00–1.00	1.00–1.00	0.00	Swarm Trigger OnTarget	animfx_sounds.json	AnimFXController×1	对上	
+482	Sword Slash Metallic	-7914287466921263741	Slash_1; Slash_2; Slash_3	0.95–1.05	0.90–1.00	0.00	Sword Slash Metallic	animfx_sounds.json	AnimFXController×3	对上	
+483	Tactical Insight	-2713084836379275430	TacticalInsight	1.00–1.00	1.00–1.00	0.00	—（需新增 key：Tactical Insight）	—	（本地无任何组件引用：PPtr 与 AssetGUID 都 0 命中）	缺·本地无任何引用	
+484	Talent Effect	-8290034957713906734	TalentEffect	1.00–1.00	1.00–1.00	0.00	—（需新增 key：Talent Effect）	—	（本地无任何组件引用：PPtr 与 AssetGUID 都 0 命中）	缺·本地无任何引用	
+485	Talent Helspear Assault	-4360624690323015316	Talent_HelspearAssault	1.00–1.00	1.00–1.00	0.10	Talent Helspear Assault	animfx_sounds.json	AnimFXController×1	对上	
+486	Talent Hexscorn	6971012111725102402	Talent_Hexscorn	1.00–1.00	1.00–1.00	0.00	—（需新增 key：Talent Hexscorn）	—	（本地无任何组件引用：PPtr 与 AssetGUID 都 0 命中）	缺·本地无任何引用	
+487	Talent Rites of Possession	-203151671661005261	Talent_RitesOfPossession	1.00–1.00	1.00–1.00	0.00	Talent Rites of Possession	animfx_sounds.json	AnimFXController×1	对上	
+488	Talent Warmaster	1427657444761617805	Talent_Warmaster	1.00–1.00	1.00–1.00	0.00	Talent Warmaster	animfx_sounds.json	AnimFXController×1	对上	
+489	Talon Slash	7457331426879109191	Talon Slash	0.90–1.10	1.00–1.00	0.10	Talon Slash	animfx_sounds.json	AnimFXController×2	对上	
+490	Tank Shot Big	2432496690975487004	Tank Shot Big	0.90–1.00	1.00–1.00	0.00	Tank Shot Big	animfx_sounds.json	AnimFXController×1	对上	
+491	Tank Shot Huge	55787233605992871	Tank Shot Huge	0.90–1.00	1.00–1.00	0.00	Tank Shot Huge	animfx_sounds.json	AnimFXController×1	对上	
+492	Tank Shot Small	7563537238683982088	Tank_Shot_Small	0.80–1.00	1.00–1.00	0.00	Tank Shot Small	animfx_sounds.json	AnimFXController×5；AnimFXModuleCollisions×2	对上	
+493	Tap Hit Fire	-3837668385572161885	Hit Fire 1; Hit Fire 2; Hit Fire 3	0.90–1.10	0.20–0.20	0.10	Tap Hit Fire	animfx_sounds.json	[GUID] TapHitMaterialDefinition×12（字段 particleDefinition）	对上	
+494	Tap Hit General	7331903224128765787	Hit Floor Generic 1; Hit Floor Generic 2	0.90–1.10	0.20–0.20	0.10	Tap Hit General	animfx_sounds.json	[GUID] TapHitMaterialDefinition×27（字段 particleDefinition）	对上	
+495	Tap Hit Metal Heavy	-8870313785108042647	Hit Heavy Metal 1; Hit Heavy Metal 2	0.95–1.05	0.20–0.30	0.10	Tap Hit Metal Heavy	animfx_sounds.json	[GUID] TapHitMaterialDefinition×61（字段 particleDefinition）	对上	
+496	Tap Hit Metal Light	452202428427297506	Hit Metal Light 1; Hit Metal Light 2	0.95–1.05	0.50–0.70	0.10	Tap Hit Metal Light	animfx_sounds.json	[GUID] TapHitMaterialDefinition×27（字段 particleDefinition）	对上	
+497	Tap Hit Rock	-4258443882095021824	Hit Rock 1; Hit Rock 2; Hit Rock 3	0.90–1.10	0.20–0.20	0.10	Tap Hit Rock	animfx_sounds.json	[GUID] TapHitMaterialDefinition×56（字段 particleDefinition）	对上	
+498	Tap Hit Spark	8465553096917651910	Hit Spark 1; Hit Spark 2; Hit Spark 3	0.90–1.10	0.20–0.20	0.10	Tap Hit Spark	animfx_sounds.json	[GUID] TapHitMaterialDefinition×8（字段 particleDefinition）	对上	
+499	Tap Hit Squishy	1812494415952124207	Hit Squishy 1; Hit Squishy 2	0.90–1.10	0.20–0.20	0.10	Tap Hit Squishy	animfx_sounds.json	[GUID] TapHitMaterialDefinition×10（字段 particleDefinition）	对上	
+500	Tap Hit Water	-4574777984745606570	Hit Water 1; Hit Water 2	0.90–1.10	0.20–0.20	0.10	Tap Hit Water	animfx_sounds.json	[GUID] TapHitMaterialDefinition×4（字段 particleDefinition）	对上	
+501	Tap Monolith	5882605191261702658	Hit Monolith	0.95–1.05	0.10–0.10	0.10	Tap Monolith	animfx_sounds.json	[GUID] TapHitMaterialDefinition×5（字段 particleDefinition）	对上	
+502	Tap Squig	2683824598812391068	Squig Growl 1	0.90–1.10	0.30–0.30	0.10	Tap Squig	animfx_sounds.json	[GUID] TapHitMaterialDefinition×1（字段 particleDefinition）	对上	
+503	Tau Buff 1	-5185418412886876739	Tau Buff 1	0.95–1.05	1.00–1.00	0.10	Tau Buff 1	animfx_sounds.json	AnimFXController×1	对上	
+504	Tau Buff Ranged	709280985893975612	Tau Buff Ranged	0.99–1.02	1.00–1.00	0.00	Tau Buff Ranged	animfx_sounds.json	AnimFXController×1	对上	
+505	Tau Electro-Static Interference	-895455500301147291	Tau Electro-Static Interference Initial	1.00–1.00	1.00–1.00	0.00	—（需新增 key：Tau Electro-Static Interference）	—	ShakeAndSoundObject×1	缺·战场环境	
+506	Tau Summon	7459358637705531145	Tau Summon 	0.95–1.05	1.00–1.00	0.10	Tau Summon	animfx_sounds.json	AnimFXController×1	对上	
+507	Telepathic Control	4264331225799882469	GSC Telepathic Control	1.00–1.00	1.00–1.00	0.00	Telepathic Control	animfx_sounds.json	AnimFXController×1	对上	
+508	Throw_1	2679488598591783440	Throw_1	0.90–1.00	0.90–1.00	0.00	Throw_1	animfx_sounds.json	AnimFXController×4	对上	
+509	Throw_2	-337569266000681054	Throw_2	0.90–1.00	0.90–1.00	0.00	Throw_2	animfx_sounds.json	AnimFXController×1	对上	
+510	Thunderhawk Flyby Quick	-7157851585689398254	Thunderhawk Flyby Quick 2	0.70–1.00	0.20–0.40	0.10	Thunderhawk Flyby Quick	animfx_sounds.json	AnimFXController×5	对上	
+511	Thunderstrike	9220787795968629936	Thunder 1; Thunder 2; Thunder 3	0.90–1.10	0.50–0.50	0.50	Thunderstrike	animfx_sounds.json	AnimFXController×9	对上	
+512	Thunderstrike_damage	1488136347169857536	Thunder 1; Thunder 2; Thunder 3	0.90–1.10	0.50–0.50	0.50	Thunderstrike_damage	animfx_sounds.json	AnimFXController×1	对上	
+513	Tide of Muscle	-6570672862583674332	TideOfMuscle_2	1.00–1.00	1.00–1.00	0.00	—（需新增 key：Tide of Muscle）	—	（本地无任何组件引用：PPtr 与 AssetGUID 都 0 命中）	缺·本地无任何引用	
+514	Tornado	-3993050794029589650	Tornado_sound	0.98–1.02	1.00–1.00	0.50	Tornado	animfx_sounds.json	AnimFXController×1	对上	
+515	Toxic Fumes Start	9033423146207745146	Toxic Fumes Start	0.95–1.05	0.70–0.70	0.50	—（需新增 key：Toxic Fumes Start）	—	ShakeAndSoundObject×2	缺·战场环境	
+516	Toxic Miasma	-3672614835555214403	Toxic Miasma	1.00–1.00	1.00–1.00	0.10	Toxic Miasma	animfx_sounds.json	AnimFXController×2	对上	
+517	Toxic Vapors	7494832264428521617	Toxic Vapors	1.00–1.00	1.00–1.00	0.10	Toxic Vapors	animfx_sounds.json	AnimFXController×1	对上	
+518	Toxic Vapors quick	8454107929775830857	Toxic Vapors quick	0.90–1.05	0.90–1.00	0.00	Toxic Vapors quick	animfx_sounds.json	AnimFXController×1	对上	
+519	Trait Ambush	-4550796264242228570	Ambush	0.95–1.05	1.00–1.00	0.10	Trait Ambush	animfx_sounds.json, 代码按名播 `MyGame/Assets/CardPresentation/Editor/BattleScene.cs:2836`	AnimFXController×1	对上	
+520	Trait Artifice	5617023564923106930	Artifice	0.95–1.05	1.00–1.00	0.10	Trait Artifice	animfx_sounds.json	AnimFXController×1	对上	
+521	Trait Backlash	1407084950809178319	BacklashEffect	1.00–1.00	1.00–1.00	2.05	Trait Backlash	animfx_sounds.json	AnimFXController×2	对上	
+522	Trait Blast	4875080757702425956	Blast	1.00–1.00	1.00–1.00	0.10	—（需新增 key：Trait Blast）	—	（本地无任何组件引用：PPtr 与 AssetGUID 都 0 命中）	缺·本地无任何引用	
+523	Trait Bloodthirst	4845925600488143322	BloodThirst	1.00–1.00	1.00–1.00	0.10	Trait Bloodthirst	animfx_sounds.json	AnimFXController×1	对上	
+524	Trait Camouflage	-2624111157062738506	Camouflage	1.00–1.00	1.00–1.00	0.10	—（需新增 key：Trait Camouflage）	—	（本地无任何组件引用：PPtr 与 AssetGUID 都 0 命中）	缺·本地无任何引用	
+525	Trait Codex	-5218718455126093925	Codex	1.00–1.00	1.00–1.00	0.10	Trait Codex	animfx_sounds.json	AnimFXController×2	对上	
+526	Trait Concussive	2089475385675373269	Concussive	1.00–1.00	1.00–1.00	0.10	—（需新增 key：Trait Concussive）	—	（本地无任何组件引用：PPtr 与 AssetGUID 都 0 命中）	缺·本地无任何引用	
+527	Trait Cruelty	272540417604744526	Trait Cruelty	1.00–1.00	0.90–1.00	0.00	Trait Cruelty	animfx_sounds.json	AnimFXController×1	对上	
+528	Trait Duty	638210212604355254	Trait Duty	0.90–1.05	0.90–1.00	0.00	Trait Duty	animfx_sounds.json	AnimFXController×1	对上	
+529	Trait Ecstasy	-7314673075838664822	Trait Ecstasy	0.95–1.00	0.90–1.00	0.00	Trait Ecstasy	animfx_sounds.json	AnimFXController×1	对上	
+530	Trait Fast	7911907099485806358	Fast	1.00–1.00	1.00–1.00	0.10	Trait Fast	animfx_sounds.json	AnimFXController×1	对上	
+531	Trait Flank	8448450825990550750	Flank	1.00–1.00	1.00–1.00	0.10	Trait Flank	animfx_sounds.json	AnimFXController×4	对上	
+532	Trait Front Line	-5252998228852206687	Front Line	1.00–1.00	1.00–1.00	0.10	—（需新增 key：Trait Front Line）	—	（本地无任何组件引用：PPtr 与 AssetGUID 都 0 命中）	缺·本地无任何引用	
+533	Trait Hunt Mark Damage	-2490328314112712491	Hunt Mark Damage	0.95–1.00	0.90–1.00	0.00	Trait Hunt Mark Damage	animfx_sounds.json	AnimFXController×1	对上	
+534	Trait Hunt Mark End	6749450351988061886	Hunt Mark End	0.95–1.00	0.90–1.00	0.00	Trait Hunt Mark End	animfx_sounds.json	AnimFXController×1	对上	
+535	Trait Hunt Mark Stack	-8115326872569908239	Hunt Mark Stack	0.95–1.00	0.90–1.00	0.00	Trait Hunt Mark Stack	animfx_sounds.json	AnimFXController×1	对上	
+536	Trait Hunt Mark Start	-6063313326539760866	Hunt Mark Start	0.95–1.00	0.90–1.00	0.00	Trait Hunt Mark Start	animfx_sounds.json	AnimFXController×1	对上	
+537	Trait Invulnerable	-3760773760505506247	Invulnerable_Effect	1.00–1.00	1.00–1.00	0.10	Trait Invulnerable	animfx_sounds.json	AnimFXController×7	对上	
+538	Trait Mob	391672124862532556	Mob	1.00–1.00	1.00–1.00	0.10	Trait Mob	animfx_sounds.json	AnimFXController×1	对上	
+539	Trait Penitence	-9080043585716482562	Penitence	0.95–1.05	1.00–1.00	0.10	Trait Penitence	animfx_sounds.json	AnimFXController×1	对上	
+540	Trait Pin Down	8843387858574475755	PinDown	1.00–1.00	1.00–1.00	0.10	Trait Pin Down	animfx_sounds.json	AnimFXController×1	对上	
+541	Trait Rally	-785414771625291375	Rally	1.00–1.00	1.00–1.00	0.10	—（需新增 key：Trait Rally）	—	（本地无任何组件引用：PPtr 与 AssetGUID 都 0 命中）	缺·本地无任何引用	
+542	Trait Regiment	2964244504589310086	Trait Regiment	0.90–1.05	0.90–1.00	0.00	Trait Regiment	animfx_sounds.json	AnimFXController×2	对上	
+543	Trait Relentless	-4004975206310548827	Relentless	1.00–1.00	1.00–1.00	0.10	—（需新增 key：Trait Relentless）	—	（本地无任何组件引用：PPtr 与 AssetGUID 都 0 命中）	缺·本地无任何引用	
+544	Trait Resolution	-5799238647640510521	Resolution	1.00–1.00	1.00–1.00	0.10	—（需新增 key：Trait Resolution）	—	（本地无任何组件引用：PPtr 与 AssetGUID 都 0 命中）	缺·本地无任何引用	
+545	Trait Stealth	6136990572187540509	Stealth	1.00–1.00	1.00–1.00	0.10	—（需新增 key：Trait Stealth）	—	（本地无任何组件引用：PPtr 与 AssetGUID 都 0 命中）	缺·本地无任何引用	
+546	Trait Stimulate	-766108038107087225	Trait Stimulate	0.90–1.05	0.90–1.00	0.00	Trait Stimulate	animfx_sounds.json	AnimFXController×1	对上	
+547	Trait Strike	-8476991855998914425	Strike	0.95–1.05	1.00–1.00	0.10	Trait Strike	animfx_sounds.json	AnimFXController×1	对上	
+548	Trait Swarm Tyranid	5433477300594277068	Trait Swarm Tyranid	0.80–1.24	1.00–1.00	0.10	Trait Swarm Tyranid	animfx_sounds.json, 代码按名播 `MyGame/Assets/CardPresentation/Battle/BattleDriver.cs:24379`	SwarmVFXController×1	对上	
+549	Trait Talent	4464947075423262928	TalentEffect	1.00–1.00	0.25–0.25	0.10	Trait Talent	animfx_sounds.json	AnimFXController×1	对上	
+550	Trait Tide	-5994051479720947568	Tide	1.00–1.00	1.00–1.00	0.10	—（需新增 key：Trait Tide）	—	（本地无任何组件引用：PPtr 与 AssetGUID 都 0 命中）	缺·本地无任何引用	
+551	Trait Unstable	-1044102629866138332	Unstable Explosion with waaagh	1.00–1.00	1.00–1.00	0.00	Trait Unstable	animfx_sounds.json	AnimFXController×1	对上	
+552	Trait Unstable Waaagh Energy	7070869254560546742	Unstable Explosion Waaagh Energy	1.00–1.00	1.00–1.00	0.00	Trait Unstable Waaagh Energy	animfx_sounds.json	AnimFXController×1	对上	
+553	Trait Uprising	-5700096650079914055	Uprising	0.90–1.05	1.00–1.00	0.00	Trait Uprising	animfx_sounds.json	AnimFXController×1	对上	
+554	Trait Vanguard	-7745545289458836021	Vanguard_3	0.95–1.05	1.00–1.00	0.10	Trait Vanguard	animfx_sounds.json	AnimFXController×1	对上	
+555	Traitors Hate	-8883650903966790097	TraitorsHate	1.00–1.00	1.00–1.00	0.10	Traitors Hate	animfx_sounds.json	AnimFXController×3	对上	
+556	Traitors Hate Board	-1060845984824079223	TraitorsHate_Board	1.00–1.00	1.00–1.00	0.10	Traitors Hate Board	animfx_sounds.json	AnimFXController×1	对上	
+557	TurnTimer Tick	4861277350849021050	Turn Timer Tick	1.00–1.00	1.00–1.00	0.10	TurnTimer Tick	animfx_sounds.json	AnimFXController×1	对上	
+558	Tyranid Acid Spit	-8620477243770502339	Tyranid Acid Spit	1.00–1.00	1.00–1.00	0.10	Tyranid Acid Spit	animfx_sounds.json	AnimFXController×1	对上	
+559	Tyranid Buff	-1629590056502809016	Tyranid Buff Low	0.80–1.00	1.00–1.00	0.10	Tyranid Buff	animfx_sounds.json	AnimFXController×4	对上	
+560	Tyranid Buff Flies	-4624009037805275923	Tyranid Buff Flies Hive	0.90–1.10	1.00–1.00	0.10	Tyranid Buff Flies	animfx_sounds.json	AnimFXController×2	对上	
+561	Tyranid Burrow	9090333534581774024	Tyranid Burrow	1.00–1.00	1.00–1.00	0.10	Tyranid Burrow	animfx_sounds.json	AnimFXController×1	对上	
+562	Tyranid Cannon	-8452790503620081100	Tyranid Cannon	0.90–1.10	1.00–1.00	0.10	Tyranid Cannon	animfx_sounds.json	AnimFXController×1	对上	
+563	Tyranid Hive Fleet Ground Hiss	1455532093442346460	Tyranid Hive Fleet Ground Hiss	0.90–1.10	1.00–1.00	0.10	Tyranid Hive Fleet Ground Hiss	animfx_sounds.json	AnimFXController×1	对上	
+564	Tyranid Low Growl	-3973832374129189573	Tyranid Low Growl	0.90–1.10	1.00–1.00	0.10	Tyranid Low Growl	animfx_sounds.json	AnimFXController×1	对上	
+565	Tyranid Pyrovore Explosion	-2842276621408705866	Tyranid Pyrovore Explosion	1.00–1.00	1.00–1.00	0.10	Tyranid Pyrovore Explosion	animfx_sounds.json	AnimFXController×1	对上	
+566	Tyranid Pyrovore Launch	-8202094161156945646	Tyranid Pyrovore Launch	1.00–1.00	1.00–1.00	0.10	Tyranid Pyrovore Launch	animfx_sounds.json	AnimFXController×1	对上	
+567	Tyranid Roar	4889287751032279858	Tyranid Roar	0.90–1.10	1.00–1.00	0.10	Tyranid Roar	animfx_sounds.json	AnimFXController×3	对上	
+568	Tyranid Smite	681083557515425038	Tyranid Smite	1.00–1.00	1.00–1.00	0.10	Tyranid Smite	animfx_sounds.json	AnimFXController×3	对上	
+569	Tyranid Spawn	-8612870320506579981	Tyranid Spawn	0.80–1.00	1.00–1.00	0.10	Tyranid Spawn	animfx_sounds.json, 代码按名播 `MyGame/Assets/CardPresentation/Editor/VfxPicker.cs:32`	AnimFXController×1	对上	
+570	Tyranid Spore Explosion	-6882825253040266844	Tyranid Spore Explosion	0.90–1.10	1.00–1.00	0.10	Tyranid Spore Explosion	animfx_sounds.json	AnimFXController×5；AnimFXModuleCollisions×3	对上	
+571	Tyranid Spore Launch	7679817835474331734	Tyranid Spore Launch	1.00–1.00	1.00–1.00	0.10	Tyranid Spore Launch	animfx_sounds.json	AnimFXController×2	对上	
+572	Tyranid Synapse	3693821616873168296	Tyranid Synapse	0.90–1.10	1.00–1.00	0.10	Tyranid Synapse	animfx_sounds.json	AnimFXController×2	对上	
+573	Tyranid Tyrannofex Acid	-7731487635725263485	Tyranid Tyrannofex Acid	1.00–1.00	1.00–1.00	0.10	Tyranid Tyrannofex Acid	animfx_sounds.json	AnimFXController×1	对上	
+574	Tyranid_BulletHit	-241400468028876392	Tyranid_BulletHit	0.90–1.10	1.00–1.00	0.01	Tyranid_BulletHit	animfx_sounds.json	AnimFXModuleCollisions×5	对上	
+575	Tyranid_Shot_big	-4701399579318160763	Tyranid Fleshborer Short	0.90–1.10	1.00–1.00	0.00	Tyranid_Shot_big	animfx_sounds.json	AnimFXController×4	对上	
+576	Tyranid_Shot_small	6861016984725336356	Tyranid Fleshborer Short	0.95–1.05	0.90–0.90	0.00	Tyranid_Shot_small	animfx_sounds.json	AnimFXController×3	对上	
+577	UI Cancel 1	-8778754749830856374	UI Click Cancel Bip	1.00–1.00	1.00–1.00	0.10	—（需新增 key：UI Cancel 1）	—	（本地无任何组件引用：PPtr 与 AssetGUID 都 0 命中）	缺·本地无任何引用	
+578	UI Confirm 1	-8409643946902471767	UI Click Wrong	1.00–1.00	1.00–1.00	0.10	—（需新增 key：UI Confirm 1）	—	（本地无任何组件引用：PPtr 与 AssetGUID 都 0 命中）	缺·本地无任何引用	
+579	UI Confirm 2	6685340878524734565	UI Click Confirm 2	1.00–1.00	1.00–1.00	0.10	—（需新增 key：UI Confirm 2）	—	（本地无任何组件引用：PPtr 与 AssetGUID 都 0 命中）	缺·本地无任何引用	
+580	UI Confirm 3	-2679987779774848088	UI Click Confirm 3	1.00–1.00	1.00–1.00	0.10	—（需新增 key：UI Confirm 3）	—	（本地无任何组件引用：PPtr 与 AssetGUID 都 0 命中）	缺·本地无任何引用	
+581	UI Press Button	1345235754813660125	UIButtonPress	1.00–1.00	1.00–1.00	0.10	UI Press Button	battle_sounds.json(字段 toggle)	[GUID] SoundAssetCollection×1（字段 drawCardFromDeck）	对上	
+582	UI Purchase 1	4237275976936076308	UI Purchase 1	1.00–1.00	1.00–1.00	0.10	—（需新增 key：UI Purchase 1）	—	（本地无任何组件引用：PPtr 与 AssetGUID 都 0 命中）	缺·本地无任何引用	
+583	UI Purchase 2	6164823724645931967	UI Purchase 2	1.00–1.00	1.00–1.00	0.10	UI Purchase 2	animfx_sounds.json, WindowSounds.Purchase2Cue, 代码按名播 `MyGame/Assets/CardPresentation/Shell/WindowSounds.cs:67`	EverguildButton×1	对上	
+584	UI Raid Claim Reward Ching	-8909631095467380862	UI RaidClaimRewardChing	1.00–1.00	1.00–1.00	0.10	—（需新增 key：UI Raid Claim Reward Ching）	—	DailyRewardSelector×2；ExpansionPassRewardSelector×1；RaidRewardSelector×1	缺·UI	
+585	UI Raid Claim Reward Wait	5888779030983162522	UI RaidClaimRewardWait	1.00–1.00	1.00–1.00	0.10	—（需新增 key：UI Raid Claim Reward Wait）	—	DailyRewardItemContainer×5；RaidEventRewardItemContainer×1；ExpansionPassRewardItemContainer×1	缺·UI	
+586	UI Send Message	-4151575586990132199	UI Send Message	1.00–1.00	1.00–1.00	0.10	UI Send Message	animfx_sounds.json, WindowSounds.SendMessageCue, 代码按名播 `MyGame/Assets/CardPresentation/Shell/WindowSounds.cs:66`	EverguildButton×1	对上	
+587	Unbridled Carnage	-4106698932362885296	Unbridled_Carnage	1.00–1.00	1.00–1.00	0.10	Unbridled Carnage	animfx_sounds.json	AnimFXController×1	对上	
+588	Unholy Smite	3800157746359344715	UnholySmite	1.00–1.00	1.00–1.00	0.00	Unholy Smite	animfx_sounds.json	AnimFXController×3	对上	
+589	UnitDamage	5287400645799507101	UnitDamage	1.00–1.00	1.00–1.00	0.10	UnitDamage	battle_sounds.json(字段 unitDamage)	[GUID] SoundAssetCollection×1（字段 drawCardFromDeck）	对上	
+590	unitDamageHuge	-6582725487622734354	?0	1.00–1.00	1.00–1.00	0.10	—（需新增 key：unitDamageHuge）	—	（本地无任何组件引用：PPtr 与 AssetGUID 都 0 命中）	缺·本地无任何引用	
+591	UnitHeal	7011404757451181385	UnitHeal	1.00–1.00	1.00–1.00	0.10	UnitHeal	battle_sounds.json(字段 minionHeal)	[GUID] SoundAssetCollection×1（字段 drawCardFromDeck）	对上	
+592	Vengeance of Ultramar	2703062782626472096	SFX_VengeanceUltramar	1.00–1.00	1.00–1.00	0.00	Vengeance of Ultramar	animfx_sounds.json	AnimFXController×1	对上	
+593	Vespid Laser	6386485423190993223	Vespid Laser	1.00–1.00	1.00–1.00	0.00	Vespid Laser	animfx_sounds.json	AnimFXController×1	对上	
+594	Victory	-8834901031682234264	MatchVictory	1.00–1.00	0.70–0.70	0.10	Victory	代码按名播 `MyGame/Assets/CardPresentation/Core/Loc.cs:1451`	EndBattleDoors×13 ｜Preload:scenes_scenes_battlearena1,scenes_scenes_battlearena2	对上	
+595	Void Combat	-6201434847764308613	Dark Angels Void Combat	1.00–1.00	1.00–1.00	0.50	—（需新增 key：Void Combat）	—	（本地无任何组件引用：PPtr 与 AssetGUID 都 0 命中）	缺·本地无任何引用	
+596	Vox-pulse	-2313493634603126918	Vox-pulse	0.95–1.05	1.00–1.00	0.10	Vox-pulse	animfx_sounds.json	AnimFXController×3	对上	
+597	Wailing Doom	-2914252395300682675	Wailing Doom	1.00–1.00	1.00–1.00	0.10	Wailing Doom	animfx_sounds.json, 代码按名播 `MyGame/Assets/RuleEngine/Editor/RuleEngineTest.cs:17836`	AnimFXController×1	对上	
+598	Warp Storm	404106094856904824	Black Legion Warp Storm	1.00–1.00	1.00–1.00	0.50	—（需新增 key：Warp Storm）	—	ShakeAndSoundObject×1	缺·战场环境	
+599	Waystone Trigger	2261599542209402355	Waystone Trigger	1.00–1.00	1.00–1.00	0.10	Waystone Trigger	animfx_sounds.json	AnimFXController×1	对上	
+600	Webber impact	5136285629003695099	Webber impact 2	0.90–1.00	0.50–1.00	0.00	Webber impact	animfx_sounds.json	AnimFXModuleCollisions×1	对上	
+601	Webway Rift	165753871913135722	Aeldari Blackout	0.80–0.80	0.50–0.50	0.50	—（需新增 key：Webway Rift）	—	ShakeAndSoundObject×1	缺·战场环境	
+602	Whip Attack	6577952470643616073	Lucius Whip Attack	0.95–1.05	1.00–1.00	0.10	Whip Attack	animfx_sounds.json	AnimFXController×3	对上	
+603	Whip Attack Maulerfiend	3001068062628092607	EC Whip Maulerfiend	0.95–1.05	1.00–1.00	0.10	Whip Attack Maulerfiend	animfx_sounds.json	AnimFXController×1	对上	
+604	Wildcard Use 1	-5392731711732683638	Wildcard Use 1	1.00–1.00	1.00–1.00	0.10	Wildcard Use 1	animfx_sounds.json	AnimFXController×1 ｜Preload:scenes_scenes_mainmenuwarpforge	对上	
+605	Wildcard Use 2	-5282515870250798934	WIldcard Use 2	1.00–1.00	1.00–1.00	0.10	Wildcard Use 2	animfx_sounds.json	AnimFXController×1 ｜Preload:scenes_scenes_mainmenuwarpforge	对上	
+606	Wildcard Use 3	-6809739066147287823	Wildcard Use 3	1.00–1.00	1.00–1.00	0.10	Wildcard Use 3	animfx_sounds.json	AnimFXController×1 ｜Preload:scenes_scenes_mainmenuwarpforge	对上	
+607	Wildcard Use 4	-2837033890265494357	Wildcard Use 4	1.00–1.00	1.00–1.00	0.10	Wildcard Use 4	animfx_sounds.json	AnimFXController×1 ｜Preload:scenes_scenes_mainmenuwarpforge	对上	
+608	Will of Gork	-6350413292265539770	WillOfGork_3	1.00–1.00	1.00–1.00	0.10	Will of Gork	animfx_sounds.json	AnimFXController×1	对上	
+609	Will of Gork	7831698078360990597	WillOfGork_3	1.00–1.00	1.00–1.00	0.00	Will of Gork	animfx_sounds.json	（本地无任何组件引用：PPtr 与 AssetGUID 都 0 命中）	对上	
+610	WorstTemper	-8041996647966898610	WorstTemper	1.00–1.00	1.00–1.00	0.10	WorstTemper	animfx_sounds.json	AnimFXController×1	对上	
+611	Buff Black Legion 3	-1741395398175724090	（clip 在别的 bundle：pid 跨文件未解）	1.00–1.00	1.00–1.00	0.50	Buff Black Legion 3	animfx_sounds.json	AnimFX（bundle_battleprefabs_vfxandmisc）	对上	🔴 该 cue 不在 bundle_soundcollection 而在 bundle_battleprefabs_vfxandmisc（全库仅此 4 条）⇒ 只按 610 条判会误判成「多余 key」；本行 PathID 用 UnityPy 直读该 bundle 取得
+612	Helbrute_plasma	8556967313909730457	Helbrute_Plasma	0.95–1.05	1.00–1.00	0.00	Helbrute_plasma	animfx_sounds.json	AnimFX（bundle_battleprefabs_vfxandmisc）	对上	同上（battleprefabs 包内 cue，非 soundcollection）
+613	Meltagun_Chaos	8783720706901062891	Meltagun_Chaos	0.90–1.00	1.00–1.00	0.00	Meltagun_Chaos	animfx_sounds.json	AnimFX（bundle_battleprefabs_vfxandmisc）	对上	同上（battleprefabs 包内 cue）
+614	Sororitas Shrine Bombardment Audio	-8529120602243516326	（4 条 clip 全在别的 bundle，未解名）	1.00–1.00	1.00–1.00	0.10	Sororitas Shrine Bombardment Audio	animfx_sounds.json	AnimFX（bundle_battleprefabs_vfxandmisc）	对上	同上；⚠️ 它的 4 条 clip 路径跨文件 ⇒ 名字本轮未解（不影响「我们有这个 key」的结论）

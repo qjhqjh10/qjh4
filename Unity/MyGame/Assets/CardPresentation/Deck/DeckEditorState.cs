@@ -420,19 +420,19 @@ namespace CardPresentation
             //         `deck[+0x48] = card`）。
             //    ⇒ 玩家在池里点**同阵营**的另一位战将 / 另一张防御卡 = **换**，不是被挡；
             //      只允许同阵营换 ⇒ 原有卡仍然合法，**换完不需要清卡**（原版 `TryAddCard` 里也没有清）。
-            //    ⚠️ 本工程对「槽里就是这一张」仍只回 `*AlreadySet`（原版给的是 `MaxCopiesReached`）——
-            //      两种都是「挡」，差别只在文案；要逐字对齐得给 `DeckError` 加一档（见账，本轮没动枚举）。
+            //    🆕 **2026-10-26（B9 · 卡组:8）已按原版对齐**：「槽里就是这一张」改回 `CopyLimitExceeded`
+            //      （= 原版 `MenuDeck/Error/MaxCopiesReached` 那一档；`*AlreadySet` 两档从此不由本函数产生）。
             if (c.Type == "hero")
             {
                 if (Deck.WarlordId == null) return DeckError.None;
-                if (Deck.WarlordId == c.Id) return DeckError.WarlordAlreadySet;
+                if (Deck.WarlordId == c.Id) return DeckError.CopyLimitExceeded;
                 var curW = Find(Deck.WarlordId);
                 return (curW == null || DeckRules.SameFaction(curW.Faction, c.Faction)) ? DeckError.None : DeckError.WrongFaction;
             }
             if (c.Type == "defence")
             {
                 if (Deck.DefensiveId == null) return DeckError.None;
-                if (Deck.DefensiveId == c.Id) return DeckError.DefensiveAlreadySet;
+                if (Deck.DefensiveId == c.Id) return DeckError.CopyLimitExceeded;
                 var curD = Find(Deck.DefensiveId);
                 return (curD == null || DeckRules.SameFaction(curD.Faction, c.Faction)) ? DeckError.None : DeckError.WrongFaction;
             }
@@ -444,8 +444,6 @@ namespace CardPresentation
             //    所以这里不必再自己挡一遍（上面那两行早返回的仍在，是**槽位**口径不是准入口径）。
             if (DeckRules.CannotAddToDeck(c)) return DeckError.EffectOnlyCard;
 
-            if (Deck.CardIds.Count >= MaxDeckCount) return DeckError.TooManyCards;
-
             // 阵营：以督军为准；还没选督军时先按卡自己的阵营（选督军时会清掉不合的）
             if (!string.IsNullOrEmpty(Deck.WarlordId))
             {
@@ -455,6 +453,8 @@ namespace CardPresentation
 
             if (Deck.CountOf(c.Id) >= DeckRules.CopyLimit(c.Rarity)) return DeckError.CopyLimitExceeded;
             if (LegendaryTotalReached(c)) return DeckError.LegendaryTotalExceeded;   // 原版 `:100-147`（2026-10-25：不再借 CopyLimitExceeded）
+            // 🔴 2026-10-26（B9 · 卡组:8）：「整副满」是**最后**一道闸 —— 原版 `CanAddCard.c:166`（`EmptySlotsCount` 那一句）
+            if (Deck.CardIds.Count >= MaxDeckCount) return DeckError.TooManyCards;
             return DeckError.None;
         }
 
@@ -1033,11 +1033,13 @@ namespace CardPresentation
         /// `Describe` 出原版键 `MenuDeck/Error/MaxLegendayCopiesReached`）⇒ `CanAdd` / `Validate` 给同一个码，
         /// 且**返回值本身**就能和「同名上限」区分开（⛔ 别再借 `CopyLimitExceeded`）。</para>
         ///
-        /// <para>⚠️ **顺序差异（如实标，本轮未改）**：原版把「整副满」(`DeckFull`) 排在**最后**（`.c:166`），
-        /// 我们排在**第三**（`CanAdd` 里 `CardIds.Count &gt;= MaxDeckCount`）⇒ 两者同时成立时
-        /// 原版报「传奇总数已满」、我们报「卡组已满」。没动它的原因：`Editor/DeckScene.cs:2706` 那条断言
-        /// 钉死了「满 12 张的遭遇牌再加一张 ⇒ `TooManyCards`」，而那份夹具可能已含 4 张传奇
-        /// ⇒ 挪顺序会把它变成 `CopyLimitExceeded`（该文件本轮不在可写范围）。</para></summary>
+        /// <para>✅ **顺序差异已消掉（2026-10-26 · B9 · 账 `卡组:8`）**：原版把「整副满」(`DeckFull`) 排在**最后**
+        /// （`CardDeck__CanAddCard.c:166` 的 `EmptySlotsCount`），我们原来是**第三** ⇒ 两闸同真时报的码不同。
+        /// 现在 `CanAddCore` 的闸序 = 原版：槽位 → 不可入池 → 阵营 → 同名上限(`.c:48`) → 传奇总数(`.c:100-147`)
+        /// → **整副满(`.c:166`)** ⇒ 满编 + 同名同时越限先报 `CopyLimitExceeded`（= 原版 `MaxCopiesReached`）。
+        /// ⚠️ **更正痕迹（铁律 5）**：本节原文写「没动它的原因 = `Editor/DeckScene.cs:2706` 那条断言钉死了
+        /// `TooManyCards`、而该文件不在可写范围」—— 该文件本批已在白名单里，那条夹具已同批改成
+        /// 「**普通卡（非传奇）满编 ⇒ `TooManyCards`** + **满编的同名卡 ⇒ `CopyLimitExceeded`**」两闸分判。</para></summary>
         public bool LegendaryTotalReached(CardDef c)
         {
             if (c == null || Deck == null) return false;

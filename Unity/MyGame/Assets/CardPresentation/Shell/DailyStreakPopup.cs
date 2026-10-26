@@ -632,7 +632,17 @@ namespace CardPresentation
                 hit.clickCue = WindowSounds.PositiveCue;
                 // 原版 `ResetStreakAfterFail` **不发 PlayFab**（prefab 的 `m_OnClick` 持久调用表是空的，
                 // 纯代码挂）；而且它**只是换画面** —— 不写 `HasFailed`、也不减 `currentValue`。
-                hit.onClick = () => { DailyData.ResetStreak(); Close(); };
+                // 🔴 **2026-10-26（B9 · P9 #121）就地改口径（铁律 5）**：原来这一句是
+                //   `DailyData.ResetStreak(); Close();` —— **直接关窗**，与判据相反。
+                //   判据 = `d:/2/tools/decomp_full/DailyStreakWindow__ResetStreakAfterFail.c`（全文三句）：
+                //     `streakFailedPanel.SetActive(false)` → `streakSuccessPanel.SetActive(true)` →
+                //     `RefreshRewards(null)` ⇒ **窗不关**，只是把画面从「断了」切回「连胜」并重刷奖格轨。
+                //   ⇒ 现在的等价物 = `ResetStreak()`（把 `_streakFailed` 清掉）+ `Build()`（两面板按它互斥重建
+                //     + 奖格轨重建 = 那句 `RefreshRewards`）。⛔ **别改回 `Close()`**。
+                //   ⚠️ 与判据的一处**如实差异**：原版这函数**不写 `HasFailed` 字段**（只有面板被换），
+                //     而我们两面板的显隐是**由数据算出来**的（`Build()` 里 `HasFailed = DailyData.StreakFailed()`）
+                //     ⇒ 必须清掉那个字段才能得到同一个终局画面；否则重建后仍是「断了」。
+                hit.onClick = () => { DailyData.ResetStreak(); Build(); };
                 // 🆕 A17：原版 `Streak Failed>Generic Simplified UI Button` 是 SpriteSwap（普查 §块 4 第 9 行）
                 hit.BindSelf(ArtMulligan);
             }

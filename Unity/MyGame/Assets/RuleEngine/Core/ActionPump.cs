@@ -140,7 +140,7 @@ namespace RuleEngine
                 //     （隔离口径：本批其余改动全开，只差这一行）。
                 //   ⚠️ `ActionPump.cs` 本批原本无人写 ⇒ 这一行由 `G14` 打开（简报明确授权，见报告 §①）。
                 //   ⛔ 仍**不要**换成 `Auras.Recompose` —— 它会重放夹血 / 重授誓约（`BL18`/`UM18` 的 `net` +4）。
-                // Auras.RefreshInPlayNumericAndKeywords(_ctx);   // ⏸ 2026-10-26（批次 6 · `G14` ①）**仍未打开**：费用那半已修好（`Aura.cs` 加 `!numericOnly` ⇒ ①-a 主档 0 张差异、`💰 手牌总价` 不再丢），但**接了之后 `BL18` / `UM18` 两张光环卡的事件电池读数各 +4**（UM18 raw 45→49 / net 29→33）⇒ `play check` 指纹 `4865c48b… ≠ 39c4f77e…`（rc=1）⇒ 要动基线得由**调度台裁定**（⛔ 子代理不许重生成基线）。差异逐条见 `报告/G14_第6轮.md` §①。
+                Auras.RefreshInPlayNumericAndKeywords(_ctx);   // ✅ 2026-10-26（批次 9 · 执行代理 `E7P06` · 账 669 · 本行【已打开】）：判据 = `FinishResolvingAction` 尾部 `BroadcastWhileInPlay` 连发 20 / **240** 两档（原版 `RawCardScript.cs:1239-1253`），240 = 「先摘再重加」的快照刷新 ⇒ 就挂在这里（`EmitWhileInPlayPass` **之前**）。⚠️ 上一格阻塞（批次 6 `G14`：接上后 `BL18` / `UM18` 的电池读数各 **+4** ⇒ 指纹 `4865c48b… ≠ 39c4f77e…`）由**调度台**裁定带入基线（⛔ 子代理不重钉基线）；隔离读数与逐条解释 → `报告/B9_E7P06_ActionPump与CountEval.md` §三。· 🔴 2026-10-27（B9 · `W18AR`）：本行**不动** `Exhausted` / `CannotAttackThisTurn` —— 窄口刷新是「摘了又原样挂回」，`UnitState.EndAuraRecompute` 只在 `fast`/`flank` 豁免**真的丢了**（光环来源离场）时才重算（判据与理由 → `UnitState` 类尾那段「光环重算周期内 act 两位的重算时机」）；⛔ 别为了「让刷新别碰这两位」把本行注释回去（那是账 669 的接线）。
 
                 // ---- 🆕 2026-10-24（引擎线 `G2` · `C4` D9）：`WhileInPlay`(20) 的表现口 ----
                 //  落点在**这里**（= 一条**顶层动作**结束、队列已排空），对原版
@@ -1814,12 +1814,12 @@ namespace RuleEngine
         //                      ⚠️ 另注：`PlayTacticBodyDeferred` 跑的是**解析出来的 op**，原版走的是
         //                      `TriggerAbilities(0)`（含 `CanTriggerAbility` 的 ability 级三道闸）——
         //                      那是**「卡面正文到达率」那条更大的账**，不在本行。
-        //    189/605 Courtesy   → 🔴 **状态 = B（有缺口 · 本 build 池内 0 张卡可达）**：
-        //                      我的引擎里**整条没有**（卡池 0/1,128 张卡 keywords 含 `courtesy`、
-        //                      `abilityTriggers` 含 43 的也是 **0**；`KeywordTable` 没有 `Courtesy`
-        //                      常量、`Prefixes` 里也没有 `courtesy`、映射表无行、无触发口）。
-        //                      ⇒ 按**铁律 11**「休眠机制也要做」⇒ **要做、排最后一批**，
-        //                      时间限定：出现带 Courtesy 的卡时立刻升 P0。
+        //    189/605 Courtesy   → ✅ **2026-10-26（批次 9 · 执行代理 `E7P06`）：映射 + 两段入口已落地**
+        //                      （改前是「整条没有」）。落点 = `ExtraTriggerName`（`courtesy` → `Courtesy`/43）
+        //                      ＋ `EnqueueGrantedTrigger`（= 原版 `AddTriggerCourtesy` 入队 ＋
+        //                      `ResolveTriggerCourtesy` 的 `IsInPlayOrDying` 闸 ＋ `OnTrigger(43)` 三槽）；
+        //                      判据与残余（`KeywordTable` 常量 / `EffectResolver` 的 `chosenAbility 400` 分派）
+        //                      → 类尾 §九。时间限定：接上前两句后**立刻可达**，`play check` 必须重比。
         //    190 Mob         → `:1104` `case KeywordTable.Mob`；触发口 `RuleCore.cs:6678/10201`；
         //                      `isAdditionalMobTrigger` 那第二档 type（81）我们不需要建模 ——
         //                      两条 type 在 Resolve 侧落到**同一个** `OnTrigger(300)`
@@ -1828,11 +1828,11 @@ namespace RuleEngine
         //                      （`RuleCore.cs:12917` 起，见 §三·607）。
         //    192 Pray        → `:1111` `case KeywordTable.Pray`。
         //    193 Regiment    → `:1105` `case KeywordTable.Regiment`。
-        //    194/610 Relentless → 🔴 **状态 = B（有缺口 · 本 build 池内 0 张卡可达）**：同 189 ——
-        //                      卡池 0 张 keywords 含 `relentless`（现读唯一命中是 `SAU36` 的**天赋名**
-        //                      `Talent: Relentless March`，不是关键词）、`abilityTriggers` 含 230 的 0 张、
-        //                      `KeywordTable` 无 `Relentless` 常量、`Prefixes` 无 `relentless`
-        //                      ⇒ 同按**铁律 11**「休眠机制也要做」：**要做、排最后一批**。
+        //    194/610 Relentless → ✅ 同 189（`relentless` → `Relentless`/230）：映射 + `EnqueueGrantedTrigger`
+        //                      已落地；两份 `.c` 与 Courtesy **逐字节同形**（`diff` 只剩函数名 / 一个标签 /
+        //                      trigger id `0x2b(43)` vs `0xe6(230)`，actionType `0x41(65)` vs `0x3e(62)`）
+        //                      ⇒ 一个入口同时覆盖两族，⛔ 别为它再写第二份。
+        //                      残余同 189（`KeywordTable` 常量 / `chosenAbility 370` 的 op 分派；判据 → 类尾 §九）。
         //    196 Sacrifice   → `:1102` `case KeywordTable.Sacrifice`。
         //    197 Slay        → `:1100` `case KeywordTable.Slay`；出队复核 = `PumpActionQueues` 的
         //                      `RequireActorInPlayOrDying` 那一支（本文件 `:1536-1546`，判据
@@ -1894,7 +1894,155 @@ namespace RuleEngine
         static string ExtraTriggerName(string keyword)
         {
             if (keyword == KeywordTable.SpentAllMana) return "SpentAllMana";   // 641
+            // 🆕 **2026-10-26（批次 9 · 执行代理 `E7P06` · 账 189/605 · 194/610）：`courtesy` / `relentless`。**
+            //   原版两个 trigger 号 = `CardDef.AbilityTriggerNumberOfName` 里早就有的那两条
+            //   （`CardDef.cs:1919 {"Courtesy", 43}` / `:1927 {"Relentless", 230}`），缺的只是
+            //   「引擎关键词 → 这个枚举名」这一跳。没有它 ⇒ `TriggerNameOfKeyword` 返回 null ⇒
+            //   `AbilityContextOfAbilityV14(card, null, "courtesy")` 拿不到名字 ⇒ 四道 ability 级闸
+            //   **静默不判**（同 §八 里 `spentallmana` 那一格的形状）。
+            //   ⚠️ **写字符串字面量、不写 `KeywordTable.Courtesy`**：那两个常量还没建
+            //   （`KeywordTable` 在 `Core/CardDef.cs`，不在本件白名单）⇒ 等那边加了常量后
+            //   **这里改成引用**（⛔ 别两处各留一份字面量）。判据与残余 → 类尾 §九。
+            // ⚠️ 今天池内 **0 张**卡的 `keywords` 里真的有这两个词（`cards_engine.json` v32 现扫），
+            //   所以本行**零行为变化**，补的是「卡面/数据一出现就自动生效」这一层（铁律 11）。
+            if (keyword == "courtesy") return "Courtesy";        // 43
+            if (keyword == "relentless") return "Relentless";    // 230
             return null;
+        }
+
+        // ==========================================================================================
+        //  §九 🔴 **2026-10-26（批次 9 · 执行代理 `E7P06` · 账 189/605 · 194/610）：
+        //  `Courtesy(43)` / `Relentless(230)` 两族 —— 原版「Add（入队）+ Resolve（结算）」两段机制**
+        // ==========================================================================================
+        //  ⚠️ 为什么写在类尾：本文件被 `账/*.tsv` 按 `文件:行号` 引用（见 §七 开头那段的同一条理由）
+        //     ⇒ 只追加，零漂移；那张关键词 switch（`:1084-1123`）一个字都不动（新映射走 `ExtraTriggerName`）。
+        //
+        //  ── 一、原版四个方法体（第一权威 = `d:/2/tools/decomp_full/`，逐个现读）──────────────
+        //   · **`BattleManager__AddTriggerCourtesy.c:20-79`** —— 与
+        //     **`BattleManager__AddTriggerRelentless.c:20-79` 逐字节同形**，只差 actionType
+        //     （`0x41 = 65 triggerCourtesy` / `0x3e = 62 triggerRelentless`）。体内三句：
+        //      ① `BattleAction___ctor(action, <type>, 0, param_3, param_5, 0)`（`:27`）
+        //         ⇒ `casterCard(+0xD8) = actingCard` · `blockPlayerActions(+0xF4) = param_5` ·
+        //            `checkIfCasterInPlay(+0xD0) = 0`；
+        //      ② `local_1f8[0] = param_2`（`:28`）⇒ `targetCard(+0x10) = targetCard`；
+        //         `+0x08`（`actingCard` 槽）**不写**（判法 = 局部量声明宽度，见 §一 那条通用判法）；
+        //      ③ `AddAutoActionToQueue(manager, action, param_4, 0)`（`:77`）⇒
+        //         **纯入队、不判任何前置**、不读卡状态；道 = 调用方给的 `priority`。
+        //   · **`BattleManager__ResolveTriggerCourtesy.c:28-264`** —— 与 `…Relentless.c` **去掉常数后完全一致**
+        //     （实测 `diff` 只剩函数名 / 一个标签 / trigger id `0x2b(43)` vs `0xe6(230)`）：
+        //      ① `targetCard(+0x10) != null` 且 `CardScript.IsInPlayOrDying()` **为假** ⇒
+        //         `FinishResolvingAction(<type>)` 后**直接返回**（②不跑）；
+        //      ② `raw = targetCard.rawCardData(+0x28)`；`raw != null` ⇒
+        //         `RawCardScript.OnTrigger(<43/230>, manager, thisCard = targetCard,
+        //          actingCard = casterCard(+0xD8), targetCard = null)`（`:217`）
+        //         ⇒ **三槽只涉及两张卡**：`thisCard == targetCard`、`actingCard` = 发起那次登记的单位；
+        //      ③ `FinishResolvingAction(<type>)`。
+        //     ⚠️ `targetCard == null` 或 `rawCardData == null` ⇒ 原版 NRE（`FUN_1803f47a0` 不返回）
+        //        —— **我们不复制崩溃语义**（出声 + 不触发，见下面的入口）。
+        //   · **唯一调用点** = `AbilityLogic__PlayAbility.c:2006`（`chosenAbility == 0x172 = 370` ⇒ Relentless）
+        //     与 `:2102`（`chosenAbility == 0x190 = 400` ⇒ Courtesy）：都是「**对目标列表逐个**各入队一条」，
+        //     实参形状 = `(manager, targetCard = 那个目标, actingCard = abilityData.thisCard(+0x10),
+        //                 priority = abilityData.ability.priority(+0x44), blockPlayerActions = 1)`。
+        //
+        //  ── 二、我们这边的两段映射（结构不同、序列等价；⛔ 别在别处再写一份）──────────────────
+        //    ① **Add** = `EnqueueAbility(..., actor: target, requireActorInPlayOrDying: true, abilityContext: 未知)`
+        //       —— 纯入队、入队时不判前置（与原版 `Add*` 同形；`abilityContext` 留未知 ⇒ 入队那一刻
+        //       不跑 `IsRightContext`，正合原版「Add 什么都不判」）。
+        //    ② **Resolve** = **泵点出队时**那道 `QueuedAction.RequireActorInPlayOrDying` 复核
+        //       （`PumpActionQueues` 的 `IsOnBoardOrDying` 那一支）= 原版 `CardScript.IsInPlayOrDying`；
+        //       闸的判据**只此一份**，本段不另写一遍。
+        //    ③ 出队后的正文 = `FireTriggerAt(target, keyword, …, subject: actingCard)`
+        //       —— `u` 是 `OnTrigger.thisCard`、`subject` 是 `OnTrigger.actingCard`（见 §四 的
+        //       两槽模型；原版 `thisCard == targetCard` 且 `targetCard` 槽为 `null` ⇒ `chosen` 传 `null`）。
+        //    ④ 关键词 → trigger 名 = `ExtraTriggerName`（`courtesy` → `Courtesy(43)` /
+        //       `relentless` → `Relentless(230)`）。**两段必须成对**：只做④不做②③ ⇒ 卡面认得出、
+        //       但没人登记 ⇒ 永远不触发（那正是改前的形状）。
+        //
+        //  ── 三、⏭ 还差什么（都在别的写手的文件里，⛔ 本件不动）────────────────────────────────
+        //    · **数据侧「认得出」**：`CardDef.KeywordTable` 没有 `Courtesy` / `Relentless` 常量、
+        //      `Prefixes` 也没有这两个前缀 ⇒ 卡面/卡数据真写这两个词会被 `Normalize` **静默丢弃**
+        //      （同 `summonrift` / `requiem` 那两格的形状）—— 落点 = `Core/CardDef.cs`（P-07）。
+        //    · **调用点**：`chosenAbility 370 / 400` 的 op 分派在 `EffectResolver`（P-02）。
+        //      今天池内这两档 **0 张卡**（`cards_truth.json` 1,351 张逐张扫 `chosenAbility`
+        //      = 370/375/390/400 **各 0**；`cards_engine.json` v32 的 1,128 张同）
+        //      ⇒ **本件落地后 `play check` 指纹必须逐字节不变**（已验，见报告 §二）。
+        //
+        //  ── 四、池内可达性（时间限定）──────────────────────────────────────────────────────────
+        //    今天 **0 张**卡带 `courtesy` / `relentless` 关键词，也没有任何 ability 的
+        //    `chosenAbility` 是 370 / 400 ⇒ 本族是**休眠档**（与 §六 里 189/194 当年的判法同口径）。
+        //    ⛔ **不是「不用做」**（铁律 11）：映射 + 两段入口已落地；一旦卡池出现带这两个词的卡、
+        //    或出现 chosenAbility 370/400 的 ability ⇒ 本族**立刻可达**，届时只需接 P-02 的 op 分派。
+        // ==========================================================================================
+
+        /// <summary>
+        /// **原版 `AddTriggerCourtesy` / `AddTriggerRelentless` 那一族的等价入口**（两段合一）：
+        /// 「给 <paramref name="target"/> 登记一条 <paramref name="keyword"/> 触发」——
+        /// **立即入队**一条动作（= 原版 `Add*`：纯入队、无前置），出队时按
+        /// `CardScript.IsInPlayOrDying` 复核（= 原版 `Resolve*` 的第一道闸，由泵点那道
+        /// `RequireActorInPlayOrDying` 承担），再跑**目标自己**的那条能力
+        /// （= 原版 `OnTrigger(<trigger>, …, thisCard = target, actingCard = casterCard, targetCard = null)`）。
+        ///
+        /// <para>**判据**（逐句现读，全文 → 类尾 §九）：
+        /// `decomp_full/BattleManager__AddTriggerCourtesy.c:20-79` ·
+        /// `decomp_full/BattleManager__ResolveTriggerCourtesy.c:28-264`（与 `…Relentless.c` 去掉常数后
+        /// **完全一致**）· 唯一调用点 `AbilityLogic__PlayAbility.c:2006`（`chosenAbility 370`）/
+        /// `:2102`（`chosenAbility 400`）。</para>
+        ///
+        /// <para>⚠️ **`blockPlayerActions = 1`**（原版 Add 的第 5 实参恒真）：那是「这条动作结算期间
+        /// 玩家不能操作」的输入锁 —— 我们**没有帧循环也没有输入锁**（`ActionScope` 的形状见文件头），
+        /// 这条语义**无对应物**，如实标着（它只影响 UI 可操作性，不进结算指纹）。</para>
+        ///
+        /// <para>⚠️ **只判据-backed 到这两个关键词**：同族 14 个 `AddTrigger*` 里，
+        /// `+0x08` 写不写、Resolve 侧三槽怎么填**各不相同**（对照表 → 类尾 §二）。
+        /// 本入口的三槽口径 = **本族（Courtesy / Relentless）实测的那一种**；别拿它顶
+        /// `SpiritStone` / `Synapse` 那种 `actingCard ≠ 发起者` 的档（见 §四 的「两槽真的不够」）。</para>
+        /// </summary>
+        /// <param name="keyword">引擎侧关键词（`courtesy` / `relentless`；⛔ 不是 trigger 枚举名 ——
+        /// 名字那一跳由 <see cref="TriggerNameOfKeyword"/> / <see cref="ExtraTriggerName"/> 承担）。</param>
+        /// <param name="target">被登记的那张卡（原版 `targetCard`）。`null` ⇒ 出声 + 不入队
+        /// （原版此处 NRE，⛔ 我们不复制崩溃语义）。</param>
+        /// <param name="actingCard">发起这次登记的单位（原版 `Add*` 的 `actingCard` ⇒ 落到
+        /// `casterCard(+0xD8)`，Resolve 时作为 `OnTrigger.actingCard`）。`null` ⇒ `FireTriggerAt` 的
+        /// `subject` 取缺省（= `target` 自己）—— 与「没有发起者」的那些路径同口径。</param>
+        /// <param name="lane">进哪一条道。**判据 = 原版调用方给的 `priority`**
+        /// （`AbilityLogic__PlayAbility.c:2006/2102` 传的是 `abilityData.ability.priority(+0x44)`），
+        /// ⛔ **不是** `TriggerLane(target, keyword)`（那是「目标自己那条能力的道」，用在**下一跳**：
+        /// `FireTriggerAt` 内部会自己按它入队）。</param>
+        /// <param name="label">人话标签（日志 / 排查用）；`null` ⇒ `<目标名>·<keyword>·granted`。</param>
+        /// <returns>入队成功与否（`ActionQueue.Enqueue` 的返回值；非法道会被它出声丢弃）。</returns>
+        public static bool EnqueueGrantedTrigger(BattleContext ctx, string keyword, UnitState target,
+                                                 UnitState actingCard, ActionPriority lane,
+                                                 string label = null)
+        {
+            if (ctx == null) return false;
+            if (string.IsNullOrEmpty(keyword)) return false;
+            if (target == null)
+            {
+                UnityEngine.Debug.LogWarning(
+                    "[ActionQueue] **不登记**一条触发 —— 目标卡是 `null`。原版 "
+                  + "`BattleManager__ResolveTriggerCourtesy.c:28` 在这一格会 NRE（`FUN_1803f47a0` 不返回），"
+                  + "**我们不复制崩溃语义**（⛔ 不是静默丢，这条就是出声口）。");
+                return false;
+            }
+            // 出队时才算格位：原版 Resolve 侧也只读 `targetCard` 本身（不读存档时的格位）⇒
+            // 这里与 `FireTriggerAt` 的其它调用点同形（格位显式传，供表现层反查视图）。
+            System.Action body = () =>
+            {
+                int o, s;
+                FindBoardCell(ctx, target, out o, out s);
+                // 🆕 2026-10-26（`E7P06`）：`chosen`（≈ 原版 `targetCard` 那槽）**传 null** ——
+                //   原版这一跳三槽是 `thisCard = targetCard` / `actingCard = casterCard` / **`targetCard = null`**
+                //   （`ResolveTriggerCourtesy.c:217`），⛔ 别顺手把 `target` 也填进去（那会让卡面代词
+                //   「it」多指一次，且 `TargetIfMeetsCriteria` 那一档候选会变）。
+                FireTriggerAt(ctx, target, keyword, o, s, chosen: null, subject: actingCard);
+            };
+            return EnqueueAbility(ctx, lane,
+                                  label ?? ((target.Name ?? "?") + "·" + keyword + "·granted"),
+                                  body,
+                                  actor: target,
+                                  // ② = 原版 `Resolve*` 的出队闸 `CardScript.IsInPlayOrDying`
+                                  // （`ResolveTriggerCourtesy.c:28-31`）—— 判据只此一份（泵点那一支）。
+                                  requireActorInPlayOrDying: true);
         }
     }
 }

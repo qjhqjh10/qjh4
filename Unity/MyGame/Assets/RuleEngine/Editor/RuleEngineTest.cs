@@ -4188,7 +4188,7 @@ public static partial class RuleEngineTest
             CheckTrue(Board(c1, 1, 3) == null,
                       "★ **死灵的残骸在控制者回合结束时被摧毁**（原版 `ShouldRemnantDestroyOnTurnEnd`）");
 
-            var ash = Unit("AshRem", 1, 1, 1, "Waystone");
+            var ash = UnitFaction("AshRem", 1, 1, 1, "SaimHann", "Waystone");   // 🔴 阵营口径：原版 `IsAeldariRemnant` 认 `cardArmy == 30 (SaimHann)`（`Unit(...)` 写死 `"Test"` ⇒ 这一格原来碰不到那条支）
             var ashKill = Tactic("T_Kill", 0, "Deal 5 damage to an enemy");
             var c2 = Battle(new[] { ashKill }, new[] { ash });
             ToP1Turn(c2, 1);
@@ -28841,28 +28841,72 @@ public static partial class RuleEngineTest
                       "★ 右侧满 4 只 ⇒ 只能落到左侧（不会算出越界的槽号）");
         }
 
-        // ⑩ 🆕 「**贴着带相邻效果的单位放**」—— 原版那条特判，**优先于**平衡规则。
+        // ⑩ 「**贴着带相邻效果的单位放**」那一条特判 —— 🔴 **2026-10-26（`E4P08` · 账行 1120）口径已换，本段重写**：
+        //    部署落点现在走 `BoardSlots.NextSlotCheckingAdjacents`，谓词是**原版逐字的**
+        //    `UnitState.HasWhileInPlayAdjacentEffect()`（`trait 760 requiem` ＋ ability 级 `targetsAffected == 100`）；
+        //    而 `SimpleAI.HasAdjacentEffect`（= `AuraSpec.Adjacent`，**光环作用到相邻格**）**不再参与部署**
+        //    —— 那是另一件事（原版判据不是它）。所以下面这两段的绿**不再证明**「相邻那两支接上了」，
+        //    真正的鉴别力断言在 ⑩-b。
         {
             var aura = new CardDef("AuraMan", "AuraMan", "unit", "Adjacent units have Armour 1",
                                    null, "Test", 1, 1, 1, 0, null);
             CheckTrue(SimpleAI.HasAdjacentEffect(aura),
-                      "★ 认得「带相邻效果」的卡（我们这边 = `AuraSpec.Adjacent`；"
-                    + "原版判据 = `HasWhileInPlayAdjacentEffect`，`requiem` 那一支全池 0 命中）");
+                      "★ `HasAdjacentEffect` 仍认得「光环作用到相邻格」的卡（= `AuraSpec.Adjacent`）"
+                    + " —— ⚠️ 它**不是**原版 `HasWhileInPlayAdjacentEffect`，部署路径已不用它（见 ⑩-b 的前提二）");
             CheckTrue(!SimpleAI.HasAdjacentEffect(Unit("Plain", 1, 1, 1)),
-                      "反面：普通小兵不算（不然这条特判会天天触发、平衡规则永远轮不到）");
+                      "反面：普通小兵不算（不然按光环问的那些地方会天天触发）");
 
             var ctx = Battle(new[] { Unit("F1", 1, 1, 1) }, new[] { Unit("F2", 1, 1, 1) });
             ToP1Turn(ctx, 2);
             RuleCore.EndTurn(ctx); RuleCore.BeginTurn(ctx);
             int W = BoardSpec.WarlordSlot;
-            // 左侧最靠督军那格站一个带光环的 ⇒ 下一只该**贴着它外侧**（W−2），
-            // 而不是按平衡规则落右侧（那时左 1 右 0，平衡会选**左**…… 所以要挑个平衡会选右的局面）
             Place(ctx, 1, W - 1, aura);
             Place(ctx, 1, W + 1, Unit("R", 1, 1, 1));
             Place(ctx, 1, W + 2, Unit("R2", 1, 1, 1));   // 左 1 / 右 2 ⇒ 平衡会选【左】
             Check(SimpleAI.NextDeploySlot(ctx, 1), W - 2,
-                  "★ 贴着带相邻效果的单位放（这条**优先于**平衡规则）");
+                  "★ 落点 = 左侧最外那格（左 1 < 右 2 ⇒ 平衡走左）—— 🔴 这条**不再是**「贴着光环单位放」，"
+                + "而是平衡支；数值不变（改前是特判给的同一个格，纯属这两条路在这一局面撞了）");
             CheckTrue(SimpleAI.NextDeploySlot(ctx, 1) != W - 1, "反面：不会算到**已占**的那一格上");
+        }
+
+        // ⑩-b 🆕 2026-10-26（`E4P08`）：**「谓词换没换」的鉴别力断言**（灭自证）。
+        //   局面：左 0 / 右 1（那个「光环作用到相邻格」的 `AuraMan` 站在**右近** W+1）。
+        //     · **旧谓词**（`AuraSpec.Adjacent`）⇒ 右扫第 0 个命中 ⇒ 贴它外侧 = **W+2**；
+        //     · **新谓词**（原版逐字，对 `AuraMan` **为假**）⇒ 落进第三支 ⇒ 左 0 < 右 1 ⇒ 平衡走**左** = **W−1**。
+        //   两个值不同 ⇒ 这条断言**结构上**不可能「两边一起改回去还绿」。
+        {
+            var aura = new CardDef("AuraMan2", "AuraMan2", "unit", "Adjacent units have Armour 1",
+                                   null, "Test", 1, 1, 1, 0, null);
+            var ctx = Battle(new[] { Unit("H1", 1, 1, 1) }, new[] { Unit("H2", 1, 1, 1) });
+            ToP1Turn(ctx, 2);
+            RuleCore.EndTurn(ctx); RuleCore.BeginTurn(ctx);
+            int W = BoardSpec.WarlordSlot;
+            Place(ctx, 1, W + 1, aura);                       // 左 0 / 右 1
+
+            // 前提（硬检查，⛔ 不写成 `if (前提) Check(结论)`：前提不成立就必须红）
+            CheckTrue(SimpleAI.HasAdjacentEffect(aura),
+                      "（前提一）它**是**「光环作用到相邻格」（旧谓词会对它返回真）");
+            CheckTrue(!new UnitState(aura, false).HasWhileInPlayAdjacentEffect(),
+                      "（前提二）它**不是**原版 `HasWhileInPlayAdjacentEffect`（`requiem` / `ta==100` 都不成立）"
+                    + " ⇒ 新谓词对它返回**假**");
+
+            // ① 返回域 = 原版**有符号**格号；替身谓词注入可用（这一条同时钉住「不是绝对格号」）
+            Check(BoardSlots.NextSlotCheckingAdjacents(ctx.Players[1], u => true), 2,
+                  "★★ 鉴别力（★1）：`NextSlotCheckingAdjacents(ps, 替身谓词=恒真)` = **+2**（有符号：右下标 0 ⇒ `i+2`）"
+                + "｜🧨 若把返回值改回**绝对格号** ⇒ 实得 6（红）；若替身谓词被忽略 ⇒ 实得 −1（红）");
+            // ② 默认谓词 = 原版逐字（对这张卡为假）⇒ 走第三支（平衡：左 0 < 右 1 ⇒ 左最外 = W−1 ⇒ 有符号 −1）
+            Check(BoardSlots.NextSlotCheckingAdjacents(ctx.Players[1]), -1,
+                  "★★ 鉴别力（★2）：默认谓词下 = **−1**（有符号；平衡走左最外 W−1）"
+                + "｜🧨 把默认谓词改回 `AuraSpec.Adjacent` ⇒ 实得 +2（红）");
+            // ③ 端到端：AI 部署落点 = W−1，而且**不是**旧路那个 W+2
+            int got = SimpleAI.NextDeploySlot(ctx, 1);
+            Check(got, W - 1,
+                  "★★ 鉴别力（★3）：AI 部署落点 = **左最外**（平衡支）"
+                + "｜🧨 谓词改回 `AuraSpec.Adjacent` ⇒ 实得 W+2 = 6（红）");
+            CheckTrue(got != W + 2,
+                  "★★ 灭自证：**不再是**「贴相邻光环单位外侧」那条旧路（旧路会给 " + (W + 2) + "、实得 " + got + "）");
+            CheckTrue(got != W - 2,
+                  "★★ 灭自证之二：也**不是**「贴着它、但算到左侧」的串味结果（那会是 W−2）");
         }
 
         // ⑪ 🆕 2026-09-29（Q6）：**战术卡要挑对目标** —— 同一张卡打不同目标**必须不同分**。
@@ -29622,7 +29666,16 @@ public static partial class RuleEngineTest
             { "BuildPlayer",     "督军创建（恒不疲劳，不走部署钩子）" },
             { "PlayCardCore",    "① 手牌打出（壳 `PlayCard` 只包 `ActionScope`，2026-10-21 接线批拆出）" },
             { "DeployFreeCore",  "② 效果免费部署 / 召唤（壳 `DeployFree` 同上）" },
-            { "DoReanimate",     "③ 再造（残骸翻回）" },
+            // 🔴🔴 **2026-10-27（`W20AS` · `D1DG` 定性 α · 账 `P-05`）：`DoReanimate` 从这张表里【删掉】。**
+            //   今天 `E10TB` 把再造改成**原地翻**（`EffectResolver.ReanimateRemnantInPlace(rem)`，
+            //   `EffectResolver.cs:16402`）—— 它**不再 `new UnitState(`**（返回的是同一份实例，
+            //   原版 `TransformFromRemnant` 就是「同一个 `CardScript` 只翻那两个字节」）。
+            //   ⇒ 按本断言的判据（扫 `Core/*.cs` 里 `new UnitState(` 的宿主）它自然不在清单里，
+            //   而**「部署回合状态」那一跳并没有少**：仍由调用方写 `ApplyDeployTurnState`
+            //   （另有一条断言专门钉它，见 `TestA992ReanimateDeployTurnState`）。
+            //   ⛔ **别把新名字 `ReanimateRemnantInPlace` 加进这张表** —— 它不构造新单位，
+            //     加进来会让下面那条「清单里的入口都还找得到」当场红（扫描器认的是 `new UnitState(`）。
+            //   ⚠️ 将来若有人把「翻回」重新写成新造实例 ⇒ `extra` 那条会立刻把它抓出来（这正是本表的作用）。
             { "PlaceTroops",     "④ 教程起始单位（不吃召唤病；专用钩子 ActivateTraitsOnSummonOrEnchantment）" },
             { "CleanupDeaths",   "特例：残骸翻面（写死 Exhausted=true，不是新入场）" },
             // 🆕 **2026-10-26（`G21` · 批次 5 `F2`）**：目标池预览那一支只会造一个**临时 `UnitState`**
@@ -33014,20 +33067,27 @@ public static partial class RuleEngineTest
 
             // ⚠️ **先做计数器反制**（照 `DrawBodyOrder` 那条自检的先例）：扫出来的数字若本身不可信，
             //    下面两条就是假绿。
-            //   🔴 样本的**真值必须不是下面那个期望值**（这里 3 ≠ 2）——
-            //      否则「恒返回 2」的坏实现**照样绿**，这条反制就没钉住任何东西。
-            Check(CountOf("a EvtKind.Play b EvtKind.Play c EvtKind.Play d", "EvtKind.Play"), 3,
-                  "★ 反制：计数器在合成样本上**数得对**（3 处，不是 2）"
-                + "｜🧨 把 `CountOf` 改成**恒返回 2** ⇒ 本行红");
+            //   🔴 样本的**真值必须不是下面那个期望值**（这里 4 ≠ 3）——
+            //      否则「恒返回 3」的坏实现**照样绿**，这条反制就没钉住任何东西。
+            Check(CountOf("a EvtKind.Play b EvtKind.Play c EvtKind.Play d EvtKind.Play", "EvtKind.Play"), 4,
+                  "★ 反制：计数器在合成样本上**数得对**（4 处，不是 3）"
+                + "｜🧨 把 `CountOf` 改成**恒返回 3** ⇒ 本行红");
             Check(CountOf("这句话里一处都没有", "EvtKind.Play"), 0,
                   "★ 反制：**一处都没有**时数出 **0**"
-                + "｜🧨 让 `CountOf` 在认不出时返回 2（那正是下面两条变成假绿的方式）⇒ 本行红");
+                + "｜🧨 让 `CountOf` 在认不出时返回 3（那正是下面两条变成假绿的方式）⇒ 本行红");
 
             string two = Read("RuleCore.cs") + Read("EffectResolver.cs");
-            Check(CountOf(two, "EvtKind.Play"), 2,
-                  "★ ⑦ 会发事件的那两个文件里，`EvtKind.Play` 恰好 **2 处** = 单位卡那条（`RuleCore.PlayCard`）"
-                + " + 战术卡那条（`EffectResolver.PlayTactic`）"
-                + "｜🧨 新增第 3 个 `Play` 发出点（且不填 `PlayAmbush`）⇒ 本行红");
+            // 🔴🔴 **2026-10-27（`W20AS` · `D1DG` 定性 α）就地改期望值 2 → 3（铁律 5）**：
+            //   今天新增的那一处**不是发出点**，是**读点** —— `RuleCore.CardsPlayedString`
+            //   （`RuleCore.cs:14828`：`if (e.Kind == EvtKind.Play && e.Player == seat && e.CardId != null)`，
+            //   = 原版「这一回合打出过哪些牌」那个查询，等价物 `GetCardsPlayPlayer`）。
+            //   发出点仍是 **2** 处：单位卡（`RuleCore.PlayCard`）+ 战术卡（`EffectResolver.PlayTactic`）。
+            Check(CountOf(two, "EvtKind.Play"), 3,
+                  "★ ⑦ 会发事件的那两个文件里，`EvtKind.Play` 恰好 **3 处** = **2 个发出点**"
+                + "（单位卡 `RuleCore.PlayCard` + 战术卡 `EffectResolver.PlayTactic`）"
+                + " + **1 个读点** `RuleCore.CardsPlayedString`（`RuleCore.cs:14828`，按 `== EvtKind.Play` 过滤，"
+                + "**不是** `Emit` —— 2026-10-27 新增）"
+                + "｜🧨 新增第 4 处（**尤其是新的发出点**，且不填 `PlayAmbush` / 不在这里登记）⇒ 本行红");
             // 🔴 **2026-10-14 就地改期望值 2 → 3（铁律 5 · 账 `A1888`）**：`W15` 按原版
             //   `ResolveActiveAbilityPlayed` 给 **`UseAlternative`（`Duty`/`Ferocity`/`Pray`/`Agenda`）**
             //   也补发了 `EvtKind.Ability` ⇒ 发出点从 2 处变 3 处。
@@ -33036,19 +33096,22 @@ public static partial class RuleEngineTest
                 + "（2026-10-14 按原版补的第 3 个发出点）"
                 + "｜🧨 新增第 4 个发出点（且不在这里登记）⇒ 本行红");
 
-            // 全目录合计：`Play` **3** / `Ability` **4**（= 上面 `Play` 2 个、`Ability` **3 个**发出点
-            //   + 各 **1 处消费**：
+            // 全目录合计：`Play` **4** / `Ability` **4**（= 上面 `Play` **2 个**、`Ability` **3 个**发出点
+            //   + `Play` **2 处**、`Ability` **1 处**消费：
             //   `BattleContext.AppendLog` 的 `last.Kind == EvtKind.Play`（出单位卡时把 Play+Deploy
-            //   合并成一行）· `BattleEvent.ToString()` 的 `case EvtKind.Ability:`）。
+            //   合并成一行）· **`RuleCore.CardsPlayedString` 的 `e.Kind == EvtKind.Play`**
+            //   （2026-10-27 新增的读点，`RuleCore.cs:14828`）· `BattleEvent.ToString()` 的
+            //   `case EvtKind.Ability:`）。
             // ⚠️ **如实标着扫描范围的边界**：这一条盯的是「`Core/` 里再多出一处 `EvtKind.Play`」，
             //    但若将来新增的第 3 个**发出点**落在 `Core/` **之外**（比如表现层自己 `Emit`），
             //    这一条扫不到 —— 那时要一起扩。
             var sbAll = new StringBuilder();
             foreach (var f in System.IO.Directory.GetFiles(dir, "*.cs"))
                 sbAll.Append(StripCsComments(System.IO.File.ReadAllText(f)));
-            Check(CountOf(sbAll.ToString(), "EvtKind.Play"), 3,
-                  "★ ⑦ 整个 `Core/` 里 `EvtKind.Play` 合计 **3** = 2 个发出点 + `BattleContext.AppendLog` "
-                + "那 1 处**消费**（Play+Deploy 合并）｜🧨 任何地方多一处 ⇒ 红");
+            Check(CountOf(sbAll.ToString(), "EvtKind.Play"), 4,
+                  "★ ⑦ 整个 `Core/` 里 `EvtKind.Play` 合计 **4** = **2 个发出点** + **2 处消费**"
+                + "（`BattleContext.AppendLog` 那 1 处 Play+Deploy 合并 · `RuleCore.CardsPlayedString` 那 1 处读点）"
+                + "｜🧨 任何地方多一处 ⇒ 红");
             Check(CountOf(sbAll.ToString(), "EvtKind.Ability"), 4,
                   "★ ⑦ ……`EvtKind.Ability` 全目录合计 **4** = **3 个发出点**（`UseAbility`/`UseOathAbility`/`UseAlternative`）"
                 + " + `BattleEvent.ToString()` 里 `case EvtKind.Ability:` 那 1 处**消费**（显示用，不是发出点）"

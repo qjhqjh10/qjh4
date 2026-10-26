@@ -500,7 +500,7 @@ namespace CardPresentation
             return t.DOPunchPosition(v, s.duration, s.vibrato > 0 ? s.vibrato : s.vibratto, s.elasticity);
         }
 
-        // `ShakeTween.GetTween`：shakeType 1/其它 ⇒ Position · 2 ⇒ Rotation · 3 ⇒ Scale
+        // `ShakeTween.GetTween`：shakeType 1/其它 ⇒ Position · 2 ⇒ Rotation · 3 ⇒ Scale　🔴 **2026-10-26（`B9_E3P13`）就地订正**：账 `CardScript.DoUnitShake` 原来把落点指到这张表（「我们那一档走 DOShakeScale」）—— **指错了**：`CardScript.DoUnitShake` 是 `CardScript` 上的**直接调用**（`transform.DOShakePosition(duration, (s×0.05, s×0.03, 0), vibrato 13, randomness 30, fadeOff… )`，判据 = VA 反汇编 `0x1805EB7A0`），参数**不来自** `Resources/UnitTweens.json`；它的等价物是 `CardFeel.ShakeUnit`（要接线的是 `unitsShake` 那条数据 → `CardAnimOrder`/`BattleDriver`，⛔ 不是这张表）。本表只服务 AnimFX 的 `ShakeTween` 数据行。
         //   ⚠️ `awayFromUnit` 在方法体里**一次都没读** ⇒ 那 2 条数据里它是惰性的（原版如此）。
         static Tween MakeShake(UnitTweenStep s, Transform t)
         {

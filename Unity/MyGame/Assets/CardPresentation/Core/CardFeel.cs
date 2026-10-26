@@ -1863,7 +1863,7 @@ namespace CardPresentation
         ///     （`SetEase(1)` = `DG.Tweening.Ease.Linear`；两个字面量 `DAT_1834b2e8c = 3.0` /
         ///      `DAT_1834b317c = 0.208` 都是实读的），在倒放**一开始**就起（与 clip 并行）。
         ///
-        /// ⚠️ **我们没有那条 clip**（我们的卡没有 `Animation` 组件）⇒ 按**同一条时间轴用代码喂值**。
+        /// ⚠️ **我们没有那条 clip**（我们的卡没有 `Animation` 组件）⇒ 按**同一条时间轴用代码喂值**。🆕 **2026-10-26（`B9_E3P13`）补上本条的第一句**：`card.StopInPlayAnims()`（= 原版 `CardScript._TransformUnitInPlayToCard_d__256__MoveNext.c:50` 的 `StopAnimsInPlay`；⚠️ 必须在 `BeginDissolve()` **之前** —— 它把这张卡身上所有补间 `DOKill()` 掉）。⚠️ 原版 `MoveBackToHand` 里的 `SetSortingLayer(Hand)` **不属于这条路**（那是另一条更轻的回手路，见 `MoveBackToHand`）⇒ ⛔ 别往这里加队列参数。
         /// ⚠️ 取不到原版溶解 shader 时**退回「淡出」并出声**（`CardView.DissolveSupported`）——
         ///    那是我们的做法，不是原版的（原版一定是溶解）。
         /// </summary>
@@ -1871,7 +1871,7 @@ namespace CardPresentation
         {
             if (card == null) return null;
             var tr = card.transform;
-
+            card.StopInPlayAnims();
             // 反向时间轴上的四个时刻（全部由正向那组常量推出来，**别另填数字**）
             float artOn = HandToBoardEnd - HandToBoardDissolveEnd;          // 0.2167
             float artFadeStart = HandToBoardEnd - HandToBoardFadeEnd;       // 0.2500
@@ -3245,14 +3245,14 @@ namespace CardPresentation
         /// 落点角 `restRotZ` 取自手牌那一档（原版终点是 `Vector3.zero`，我们的手牌有 z 倾角）。
         /// ⚠️ 必须经 `CardTween.Use`（批处理要 `UpdateType.Manual`、`SetLink` 防卡销毁后补间还在跑）；
         /// 叶子补间**自己也显式 `SetUpdate`** —— 嵌套序列的 `UpdateType` 在批处理的 Manual 档下
-        /// 不靠继承（`Tween.SetUpdate` 不会往下传），这里是「两个模型下都对」的写法。</summary>
-        public static Tween TurnCardAround(Transform tr, float restRotZ, float drawSeconds)
+        /// 不靠继承（`Tween.SetUpdate` 不会往下传），这里是「两个模型下都对」的写法。🆕 **2026-10-26（`B9_E3P13`）加了第 4 个形参 `delay`** = 原版 `CardScript.TurnCardAround(this, 时长, 延迟)` 里那句 `SetDelay(uVar2, param_3, …)`（`CardScript__TurnCardAround.c` 实读）：抽牌那一支恒 0（`DealInPose` 不传）⇒ 行为逐位不变；**弃牌 / 偷牌揭示**那一路要 `delay == 时长 == stepTime`（见 `ShowCardBeingDrawn`）。</summary>
+        public static Tween TurnCardAround(Transform tr, float restRotZ, float drawSeconds, float delay = 0f)
         {
             float half = drawSeconds * TurnCardAroundFrac;
             var seq = DOTween.Sequence();
             seq.Append(Flip(tr, new Vector3(0f, TurnCardAroundDeg, restRotZ), half));
             seq.Append(Flip(tr, new Vector3(0f, 0f, restRotZ), half));
-            return CardTween.Use(seq, Ease.Linear, tr);
+            return CardTween.Use(seq, Ease.Linear, tr).SetDelay(delay);
         }
 
         /// <summary>翻转的单段叶子补间（`RotateMode.Fast` —— 原版 `DORotate` 第 4 参传的是 0）。</summary>
@@ -3508,6 +3508,304 @@ namespace CardPresentation
             float s = card.transform.lossyScale.y;
             if (Mathf.Abs(s) < 1e-6f) return -1f;
             return EffectsAnchorHeight(card) / s;
+        }
+
+        // ==================================================================
+        //  🆕 2026-10-26（`B9_E3P13`）：回手 / 离场 / 受击 那一链的五件
+        //    ① `UnDissolve`           —— 材质 `_DissolveAmount` **1 → 0**（把卡从溶解态溶回来）
+        //    ② `UnDissolveWholeCard`  —— 原版 `CardScript.UnDissolveWholeCard`（CanvasGroup α 0→1 + 开碰撞）
+        //    ③ `StopInPlayAnims`      —— 原版 `CardScript.StopAnimsInPlay` 的转发（实现在 `CardView`）
+        //    ④ `ShowCardBeingDrawn`   —— 原版 `CardScript.ShowCardBeingDrawn`（弃牌 / 偷牌揭示那一下的翻面）
+        //    ⑤ `ShakeUnit`            —— 原版 `CardScript.DoUnitShake`（**抖位置**，不是抖缩放）
+        //  判据全文（每件都在自己那条 doc 里；⛔ 别在这里抄第二份）：
+        //    `decomp_full/CardScript__{UnDissolveWholeCard,_UnDissolveWholeCard_d__311__MoveNext,
+        //     MoveBackToHand,StopAnimsInPlay,ShowCardBeingDrawn,DoUnitShake}.c`
+        //    · `cpp2il/out_cpp2il_dev_ilspy/CardScript.cs:13103-13116`（DoUnitShake 的 DOTween 签名）
+        //    · `BasicCardUI.FadeCard`（= `FadeCardItems` 调的基类实现：`DOTween.To(fadeGroup.alpha)`）
+        //    · VA 级反汇编 `工具/disasm_va.py 0x1805EB7A0`（DoUnitShake 的五个浮点/整型实参）
+        // ==================================================================
+
+        /// <summary>原版 `VarsGlobal.timeToDissolveCard`（`globalVars + 0xb0`）= **0.2** —— 溶卡 / 复原 /
+        /// 淡入淡出那一族共用的时长。三个消费点同源：`CardScript__DissolveMinionCard.c`（`*(float*)(lVar4+0xb0)`）、
+        /// `CardScript._UnDissolveWholeCard_d__311__MoveNext.c`（`FadeCardItems(1, *(float*)(lVar4+0xb0))`）、
+        /// `CardScript__SendToCemetery.c:12`（`DissolveWholeCard(card, *(float*)(lVar1+0xb0))`）。
+        /// <para>`internal`（不是 `public`）的理由：`Catalog` 是**公开常量**的出处表，而往那张数组里插一行
+        /// 会让它下面整份文件的**落点行号漂移**（铁律 18·b，`check_ledger_points` 会成片报漂移）⇒
+        /// 用 `internal`（同程序集照样能取；本工程**无 asmdef** ⇒ `CardPresentation` 与 `BattleDriver` 同一程序集）。</para></summary>
+        internal const float DissolveCardTime = 0.2f;
+
+        /// <summary>**弃牌**揭示那一下的 `stepTime` = **0.2** —— `.rdata 0x1834b2bb0` 用 `工具/read_literal.py`
+        /// 实读 0.2f；调用点 `BattleManager._ResolveDiscardFromHand_d__544__MoveNext.c:95`
+        /// （`CardScript__ShowCardBeingDrawn(card, DAT_1834b2bb0)`）。</summary>
+        internal const float DiscardRevealStepTime = 0.2f;
+
+        /// <summary>**偷牌**揭示那一下的 `stepTime` = **0.4** —— `.rdata 0x1834b3158` 实读 0.4f；
+        /// 调用点 `BattleManager._ResolveStealFromDeck_d__547__MoveNext.c:243`。
+        /// 🔴 **与弃牌那一档不同值、⛔ 别统一**（两条链各用自己的字面量，不是笔误）。</summary>
+        internal const float StealRevealStepTime = 0.4f;
+
+        // ---- 单位抖位置（`CardScript.DoUnitShake`）的五个实参：VA 级反汇编实读（见 `ShakeUnit` 的 doc）----
+        const float UnitShakeStrengthX = 0.05f;    // `.rdata 0x1834b2f94` —— strength.x = shakeScale × 它
+        const float UnitShakeStrengthY = 0.03f;    // `.rdata 0x1834b3154` —— strength.y = shakeScale × 它
+        const float UnitShakeRandomness = 30f;     // `.rdata 0x1834b3168` —— DOTween `randomness`（⚠️ 不是默认的 90）
+        const int   UnitShakeVibrato = 13;         // `lea r9d,[rax+0xd]` —— `vibrato`（⚠️ 不是默认的 10）
+
+        /// <summary>
+        /// **溶解复原**：把 3D 卡体的材质 `_DissolveAmount` 从 **1 溶回 0**，同时让 2D 卡面淡入、跑完恢复命中。
+        ///
+        /// <para>🔴 **判据 / 哪一半是我们拼的**（⛔ 别把这条当原版逐句）：
+        /// · 原版「溶回来」有两个入口，**走的都是 CanvasGroup α**，**不是材质**：
+        ///   `CardScript.UnDissolveWholeCard`（→ `FadeCardItems(1, 0.2)`）与
+        ///   `CardScript.DissolveMinionCard(dissolveY: true)`（→ `FadeCardItems(1, 0.2)` + `ActivateCard(false)`；
+        ///   ⚠️ 本 build **没有任何调用方**传 `true`：`MoveBackToHand.c:19` 与
+        ///   `OutFromPlayingAreaAnim.c:15` 都传 `0` ⇒ 那一支是**死分支**，见账 `CardScript.DissolveMinionCard`）。
+        /// · 材质 `_DissolveAmount` 的 **1 → 0** 在原版只出现在 `Card Hand To Board` 这条 clip 里
+        ///   （我们已按同一条时间轴实现：见 `HandToBoard` ③ 那一段 `dissolveFrom`）。
+        /// ⇒ 本方法是**我们把这半条曲线抽成独立入口**：🔶 **自己设计（非原版）** —— 原版没有「单独把 3D 体溶回来」
+        /// 的方法，而「卡停在半溶」是上一轮记下的**明确可见缺陷**（账 `CardScript.DissolveMinionCard` 的差异列），
+        /// 需要一个终点口。时长取原版字段 `timeToDissolveCard`（`DissolveCardTime` 0.2）。
+        /// 调度台 2026-10-26 定（`B9_剩余C_派活包` §2·P-13 的 730/972 施工步骤 ①）。</para>
+        ///
+        /// <para>⚠️ **与 <see cref="ReturnToHand"/> 的分工（两者方向相反，⛔ 别互相顶替）**：
+        /// 那条 = 出战时间轴**倒放**（3D 体 0→1 溶出 + 2D 淡入）＝「场上 → 手牌」；
+        /// 本条 = **3D 体 1→0 溶回来 + 2D 淡出**＝「本来该在场上、只是被溶掉了」那一族
+        /// （用户侧入口 = `HideHeroAtStart` / `UndissolveToDeck`，判据 `CardScript__HideHeroAtStart.c:14`、
+        /// `CardScript._UndissolveToDeck…`）。</para>
+        ///
+        /// <para>跑完：`_DissolveAmount == 0`（**不是 −1** —— 这里照 `HandToBoard` 的收尾写法
+        /// `SetDissolveAmount(0)` + `RestoreOriginalMaterial()`，**不用** `EndDissolve()`
+        /// 的理由就这一条：`EndDissolve` 会把 `_dissolveAmount` 置 −1，读数口就没法证明「回到 0」）。</para>
+        /// </summary>
+        public static Tween UnDissolve(CardView card, float seconds = DissolveCardTime, System.Action onDone = null)
+        {
+            if (card == null) return null;
+            var tr = card.transform;
+            float dur = Mathf.Max(seconds, 1e-3f);
+
+            bool canDissolve = !ForceNoDissolveForTest && card.BeginDissolve();
+            var seq = DOTween.Sequence();
+            seq.AppendInterval(dur);                       // 先把总长定死，下面全是 Insert（不受游标影响）
+
+            if (canDissolve)
+            {
+                // ① 3D 体：`_DissolveAmount` 1 → 0（起点用**捕获量**：`DOTween.To` 在开始那一刻才读 getter，
+                //    而 `BeginDissolve()` 刚把量归 0 ⇒ 直接读 getter 会把起点读成 0、整段不动）
+                float from = 1f;
+                seq.Insert(0f, DOTween.To(() => from, v => { from = v; card.SetDissolveAmount(v); }, 0f, dur)
+                                       .SetEase(Ease.Linear).SetUpdate(CardTween.Mode));
+                // ② 2D 卡面：与 `ReturnToHand` 同一个次序（体先回来、面再淡入）—— 后半段 0 → 1
+                seq.InsertCallback(0f, () => card.SetArtAlpha(0f));
+                seq.Insert(dur * 0.5f, DOTween.To(() => card.ArtAlpha, a => card.SetArtAlpha(a), 1f, dur * 0.5f)
+                                              .SetEase(Ease.Linear).SetUpdate(CardTween.Mode));
+            }
+            else
+            {
+                SpeakUnDissolveFallback();
+                seq.InsertCallback(0f, () => { card.SetBody3DVisible(true); card.SetArtAlpha(1f); });
+            }
+
+            var t = CardTween.Use(seq, Ease.Linear, tr);
+            t.OnComplete(() =>
+            {
+                // 收尾与 `HandToBoard` 的两处 `InsertCallback` 同形：量归 0 + 换回正常材质（⛔ 不用 `EndDissolve`）
+                card.SetDissolveAmount(0f);
+                card.RestoreOriginalMaterial();
+                card.SetHitEnabled(true);                  // 原版 `UnDissolveWholeCard` 第③步的等价物
+                if (onDone != null) onDone();
+            });
+            return t;
+        }
+
+        static bool _warnedUnDissolveFallback;
+        /// <summary>`UnDissolve` 取不到溶解材质时**出声一次**（⛔ 不静默：那一档画面上只是「卡出现了」、
+        /// 没有溶解那一路，与原版不一致）。</summary>
+        static void SpeakUnDissolveFallback()
+        {
+            if (_warnedUnDissolveFallback) return;
+            _warnedUnDissolveFallback = true;
+            Debug.LogWarning("[CardFeel] `UnDissolve`：`CardView.BeginDissolve()` = false（取不到原版 shader "
+                           + "`Everguild/Cards/3D Card Dissolve`，或这张卡没有 3D 体）⇒ 直接让体与卡面出现，"
+                           + "**没有溶解那一路**。");
+        }
+        /// <summary>自检口：把「已出过声」那一位清零。</summary>
+        public static void ResetUnDissolveFallbackWarnForTest() { _warnedUnDissolveFallback = false; }
+
+        /// <summary>
+        /// 原版 **`CardScript.UnDissolveWholeCard()`** —— 战术 / 附魔卡从场上回手时「整张卡淡回来」。
+        ///
+        /// <para>判据（🥇 `decomp_full/CardScript__UnDissolveWholeCard.c` 全文 +
+        /// `CardScript._UnDissolveWholeCard_d__311__MoveNext.c:20-100`，2026-10-26 亲读逐句）：
+        /// ① `BattleCardUI.FadeCardItems(1, globalVars+0xb0)` —— **CanvasGroup α → 1**，时长 0.2；
+        ///    真实现 = `BasicCardUI.FadeCard`（`cpp2il/out_cpp2il_dev_ilspy/BasicCardUI.cs:761-771`）：
+        ///    `DOTween.To(() => fadeGroup.alpha, x => fadeGroup.alpha = x, newAlpha, timeToFade)`；
+        /// ② `Task.Delay(ceil(0.2 × **1000**))` = **200 ms**（`.rdata 0x1834b3124` 实读 1000）；
+        /// ③ 碰撞体（`+0x140` 那条组件）的虚方法 `+0x1f8(true)` ⇒ **启用碰撞**。
+        /// ⇒ 顺序 = 「淡入 0.2 s」与「等 200 ms」**并行**，200 ms 到点就开碰撞（≈ 淡入结束那一拍）。</para>
+        ///
+        /// <para>我们的等价物：① `CardView.SetAlpha`（整卡 α；TMP 走顶点色，`ApplyTint` 里已一并乘齐）；
+        /// ② 补间本身就到那一刻 ⇒ ③ 挂 `OnComplete`；③ `CardView.SetHitEnabled(true)`
+        /// （= 原版 `CardCollider2D.Toggle`，见那个方法的 doc）。</para>
+        /// <para>⚠️ 原版这一族**不换材质、不碰 `_DissolveAmount`**（`DissolveWholeCard` 也一样，它只
+        /// `StopShowingCodex` / `StopReflected` / `ToggleHighlight(false)` / `FadeCardItems(0, t)`）——
+        /// ⛔ 别在这里加溶解。调用点：`MoveBackToHand.c:23-27`（战术/附魔且 `targeted`）、
+        /// `OutFromPlayingAreaAnim.c:26`。</para>
+        /// </summary>
+        public static Tween UnDissolveWholeCard(CardView card, float seconds = DissolveCardTime, System.Action onDone = null)
+        {
+            if (card == null) return null;
+            float dur = Mathf.Max(seconds, 1e-3f);
+            var seq = DOTween.Sequence();
+            seq.Append(DOTween.To(() => card.Alpha, a => card.SetAlpha(a), 1f, dur)
+                             .SetEase(Ease.Linear).SetUpdate(CardTween.Mode));
+            var t = CardTween.Use(seq, Ease.Linear, card.transform);
+            t.OnComplete(() =>
+            {
+                card.SetHitEnabled(true);      // 原版第③步：200 ms（≈ 淡入末尾）才开碰撞
+                if (onDone != null) onDone();
+            });
+            return t;
+        }
+
+        /// <summary>
+        /// 原版 **`CardScript.MoveBackToHand()`** —— **轻量回手**（判据 🥇 `decomp_full/CardScript__MoveBackToHand.c:12-30` 全文，
+        /// 2026-10-26 亲读逐句）：
+        /// ① `BattleCardUI.SetSortingLayer(**Hand**)`；② `StopAnimsInPlay()`；
+        /// ③ 若 `cardState ∈ {10, 4}`（`inHandPlaying` / `inPlay`）：
+        ///    · `cardType == 0`（**部队**）⇒ `DissolveMinionCard(false)` + `SetStateInHand()` + **return**；
+        ///    · `cardType ∈ {0x14, 0x28}`（**战术 / 附魔**）且 `targeted` ⇒ `UnDissolveWholeCard()`；
+        /// ④ 落空再 `SetStateInHand()`。
+        ///
+        /// <para>其中 `DissolveMinionCard(false)`（`CardScript__DissolveMinionCard.c:15-49` 逐句）=
+        /// `FadeCardItems(**1**, timeToDissolveCard 0.2)`（= `BasicCardUI.FadeCard` → `DOTween.To(fadeGroup.alpha)`
+        /// ⇒ **CanvasGroup α → 1**，**不是材质溶解**）+ `ActivateCard(true)` +
+        /// `body3D.SetActive(false)`（`+0x158` = `BattleCardUI.body3D`，`il2cpp_out/dump.cs` 字段表实读）
+        /// + 另一颗组件 `+0x2e0` 的虚方法 `+0x1b8(false, 1)`
+        /// （**查不到是哪颗**：`dump.cs` 的字段表在 `0x298` 就断了 ⇒ 那一条只记「疑似某个 Toggle」，⛔ 别猜）。</para>
+        ///
+        /// <para>🔴 **这条路与 <see cref="ReturnToHand"/> **不是同一条**（两者原版都常驻，⛔ 别合并）**：
+        /// `ReturnToHand` 实现的是 `CardScript._TransformUnitInPlayToCard_d__256`（= 反向 clip
+        /// `PlayBackToHandAnimation`，带溶解/淡入时间轴）；本方法实现的是 `MoveBackToHand`（**没有那种动画**：
+        /// α 直接回 1 + 关 3D 体）。`MoveBackToHand` 的三个调用点 =
+        /// `BattleManager.CancelActionStates` / `BattleManager._ResolvePlayCardFromHand_d__447`（取消那一支）/
+        /// `BattleManager.Update`。</para>
+        ///
+        /// <para>⚠️ 两个参数**必须由调用方给、⛔ 不许在视图层猜**：`handQueue` = 这张卡在手牌那一段的
+        /// renderQueue 号（我们的 `SetSortingLayer` 等价物，见 `CardView.QHandMoving` 的 doc）；
+        /// `targeted` = 原版 `EntityScript.get_targeted()`（我们的 `CardData` **没有**这个字段，只有 `spellType`）。</para>
+        /// <para>④ `SetStateInHand`（重挂父件 + `DisplayCreatedByText`）**归驱动层**：
+        /// `PushCreatedByStates` 已是「由谁创建那行」的唯一判据口 ⇒ 本方法**不碰**创建者那行。
+        /// 同理原版那句 `ActivateCard(true)` 我们**不替它开 GameObject**（视图生命周期归驱动层）。</para>
+        ///
+        /// <para>@return 那条 α 补间（部队支）；战术/附魔支返回 `UnDissolveWholeCard` 的补间；
+        /// 其余返回 `null`（原版这一支本来就没有动画，不是失败）。</para></summary>
+        public static Tween MoveBackToHand(CardView card, int handQueue, bool targeted, System.Action onDone = null)
+        {
+            if (card == null) return null;
+            card.SetQueue(handQueue);           // ① `SetSortingLayer(Hand)`
+            card.StopInPlayAnims();             // ② `StopAnimsInPlay()`
+
+            if (card.Data.isUnit)               // ③ 部队：`DissolveMinionCard(false)`
+            {
+                // `FadeCardItems(1, 0.2)` = CanvasGroup α → 1：整卡那一档**当场**落到终点（原版这一步
+                // 在卡刚从场上回来时 α 本来就是 1 ⇒ 无观感），**看得见的那一半是 2D 卡面淡回来**
+                // （它在 `HandToBoard` 里被那条 clip 送到了 0）⇒ 补间走 `ArtAlpha` 0→1。
+                card.SetAlpha(1f);
+                var seq = DOTween.Sequence();
+                seq.Append(DOTween.To(() => card.ArtAlpha, a => card.SetArtAlpha(a), 1f, DissolveCardTime)
+                                 .SetEase(Ease.Linear).SetUpdate(CardTween.Mode));
+                var t = CardTween.Use(seq, Ease.Linear, card.transform);
+                card.SetBody3DVisible(false);   // ⑥-1 `body3D.SetActive(false)`（原版是**当场**关，不等那 0.2 s）
+                t.OnComplete(() => { if (onDone != null) onDone(); });
+                return t;
+            }
+            if (targeted)                       // ③ 战术 / 附魔且 targeted：`UnDissolveWholeCard()`
+                return UnDissolveWholeCard(card, DissolveCardTime, onDone);
+
+            // ④ 其余：原版这一支本来就没有动画
+            if (onDone != null) onDone();
+            return null;
+        }
+
+        /// <summary>原版 **`CardScript.StopAnimsInPlay()`**（判据 `decomp_full/CardScript__StopAnimsInPlay.c:5-6`：
+        /// 只有一句 `BattleCardUI.StopAnimsInPlay()`）—— 转发到 <see cref="CardView.StopInPlayAnims"/>，
+        /// **判据只留一处**（真正的等价细节 + 两条已知边界都写在那个方法上）。
+        /// <para>原版 10 个调用点全在「离场 / 重置」那一族；我们这条链里**第一个**落点是
+        /// <see cref="ReturnToHand"/>（= 原版 `_TransformUnitInPlayToCard_d__256__MoveNext.c:50`），
+        /// 第二个是 <see cref="MoveBackToHand"/>（= 原版 `MoveBackToHand.c:14-15`）。</para></summary>
+        public static void StopInPlayAnims(CardView card) { if (card != null) card.StopInPlayAnims(); }
+
+        /// <summary>
+        /// 原版 **`CardScript.ShowCardBeingDrawn(float stepTime)`** —— **弃牌 / 偷牌揭示**那一下
+        /// （判据 🥇 `decomp_full/CardScript__ShowCardBeingDrawn.c:9-14` 全文，2026-10-26 亲读）：
+        /// ① `cardState = 9`（`inHandMoving`）；② `BattleCardUI.SetSortingLayer(**HandMoving**)`；
+        /// ③ `if (isPlayer == 0) TurnCardAround(this, stepTime, stepTime)` —— **只有「不是自己那张」才翻**，
+        ///    而且**延迟 = 时长 = stepTime**（`CardScript__TurnCardAround.c` 的第 3 实参就是 `SetDelay`）。
+        ///
+        /// <para>调用点两支（各用自己的 `stepTime`，⛔ 别统一）：
+        /// `BattleManager._ResolveDiscardFromHand_d__544__MoveNext.c:95` = <see cref="DiscardRevealStepTime"/> **0.2**；
+        /// `BattleManager._ResolveStealFromDeck_d__547__MoveNext.c:243` = <see cref="StealRevealStepTime"/> **0.4**。</para>
+        ///
+        /// <para>我们这侧的映射：① `cardState` 我们**不存**（视图侧没有那一列）⇒ 无对应物，等价物 =
+        /// 调用方的「手牌活动中」状态本身；② 队列 <see cref="CardView.QHandMoving"/>（3001，判据见那个常量的 doc）；
+        /// ③ <see cref="TurnCardAround"/>（本批给它加了 `delay` 形参，抽牌那一路恒 0 ⇒ 行为不变）。</para>
+        ///
+        /// <para>🔴 **卡背 → 卡面的换件不在这里**：原版这个方法**不碰** `ShowCardBack`，我们照抄
+        /// ⇒ 调用方自己负责把卡背收掉（`CardView.SetBackVisible(false, null)`），否则翻完还是卡背。
+        /// ⛔ 别在本方法里替它决定（`DealInPose` 的接法就是把它留在调用方）。</para>
+        ///
+        /// <para>@return 那条翻面补间；**`isPlayer == true` 时返回 `null`**（原版这一支不翻，不是失败）。</para></summary>
+        public static Tween ShowCardBeingDrawn(CardView card, float stepTime, bool isPlayer, float restRotZ = 0f)
+        {
+            if (card == null) return null;
+            card.SetQueue(CardView.QHandMoving);      // = 原版 `SetSortingLayer(HandMoving)`
+            if (isPlayer) return null;               // 原版：自己那张只摆层、不翻
+            return TurnCardAround(card.transform, restRotZ, stepTime, stepTime);   // 时长 = 延迟 = stepTime
+        }
+
+        /// <summary>原版 `UnitSize`（0/1/2/3）→ `DoUnitShake` 的 `shakeScale`（2/4/8）。
+        /// 判据 `BattleManager._ResolveUnitShake_d__472__MoveNext.c:167-181` 逐句：
+        /// `+0x20 ∈ {0,1} ⇒ 2` · `== 2 ⇒ 4` · `== 3 ⇒ 8`（其余落回 2）—— 与 `SupportMethods.GetUnitSize`
+        /// 那三档同形（同一份尺寸档，`ShakeAmplitudeForUnitSize` 用的也是它）。
+        /// ⛔ 判据只此一处，别在调用点再写一遍 `2/4/8`。</summary>
+        public static int ShakeScaleOfUnitSize(int unitSize)
+        {
+            return unitSize >= 3 ? 8 : unitSize == 2 ? 4 : 2;
+        }
+
+        /// <summary>
+        /// 原版 **`CardScript.DoUnitShake(int shakeScale, float duration)`** —— **抖「位置」**（不是抖缩放）。
+        ///
+        /// <para>判据（两条独立证据，2026-10-26 亲读）：
+        /// · 方法体：`cpp2il/out_cpp2il_dev_ilspy/CardScript.cs:13103-13116` ——
+        ///   `transform.DOShakePosition(duration, strength(Vector3), vibrato, randomness, snapping, fadeOut, mode)`
+        ///   + `OnComplete(ReturnToOriginalPos)`；
+        /// · **五个实参在 ILSpy 里全丢了**（`object obj = default` / 一排 `default`）⇒ 用 **VA 级反汇编**取：
+        ///   `工具/disasm_va.py <dll> 0x1805EB7A0`（`dump.cs` 的 RVA `0x5EB7A0`）读出
+        ///   `strength = (shakeScale × **0.05**, shakeScale × **0.03**, 0)`（`.rdata 0x1834b2f94` / `0x1834b3154`）、
+        ///   `vibrato = **13**`（`lea r9d,[rax+0xd]`）、`randomness = **30**`（`.rdata 0x1834b3168`）、
+        ///   `snapping = false`、`fadeOut = true`、`randomnessMode = 0 (Full)`。
+        /// ⛔ 别与 `UnitTweenTable` 的 `MakeShake`（`shakeType` 那一套）混：那是 **AnimFX 的数据驱动表**
+        /// （参数来自 `Resources/UnitTweens.json`），本条是 `CardScript` 上的**直接调用**，两套数据源不同。</para>
+        ///
+        /// <para>调用方（原版只有 1 处）：`BattleManager._ResolveUnitShake_d__472` ——
+        /// `DoUnitShake(ShakeScaleOfUnitSize(该拍的 shakeSize), 该拍的 shakeDuration)`，
+        /// 数据在 `数据/游戏数据/card_anim_order.json` 的
+        /// `unitsShake[{ targetUnit, awayFromUnit, shakeSize, shakeDuration, shakeDelay }]`（现读 110 条）。
+        /// ⚠️ 同一拍里若两单位位置不同，原版先走**击退**（`DoPushBack`）那一支、**不**抖 —— 本方法不管那一支。</para>
+        ///
+        /// <para>⚠️ `ReturnToOriginalPos`（原版 OnComplete）：只在 `cardState ∈ {2,3,15,17}` 且
+        /// `!AlreadyInPosition` 时把 `localPosition` 写回 `+0x2c4` 缓存的位姿。`DOShakePosition` 自身
+        /// **结尾就回到起点**，而我们的场卡位姿每拍由布局重写 ⇒ 我们不另存缓存位姿
+        /// （🔶 自己设计：等价实现，非原版逐句；调度台 2026-10-26 定）。</para>
+        /// </summary>
+        public static Tween ShakeUnit(CardView card, int shakeScale, float duration, float delay = 0f)
+        {
+            if (card == null) return null;
+            int s = shakeScale <= 0 ? 2 : shakeScale;         // 0 = 「不知道尺寸」⇒ 原版最低档 2
+            Vector3 strength = new Vector3(s * UnitShakeStrengthX, s * UnitShakeStrengthY, 0f);
+            var tw = card.transform.DOShakePosition(duration, strength, UnitShakeVibrato,
+                                                    UnitShakeRandomness, snapping: false, fadeOut: true);
+            return CardTween.Use(tw, Ease.Linear, card.transform).SetDelay(delay);
         }
     }
 }

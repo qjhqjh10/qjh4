@@ -209,7 +209,7 @@ class PlayProbe
             catch (Exception ex)
             {
                 Console.Error.WriteLine("!! `preset` 写法不对：" + ex.Message);
-                Console.Error.WriteLine("   用法：preset dead[=N][:Subtype][,enemyhand=N][,chipenemy=1][,sub=<卡id|卡名>][,legal=1][,pick=1]"
+                Console.Error.WriteLine("   用法：preset dead[=N][:Subtype][,enemyhand=N][,chipenemy=1][,sub=<卡id|卡名>][,legal=1][,pick=1][,tpick=1]"
                                         + " [,hand=<卡id|卡名|self>][,handn=N][,event=<gainfaith|gainquest|gainspirit|createssecret|createssabotage>][,amount=N][,legacy=1][,face=ambush]"
                                         + " —— 例 `preset dead=1:Infantry` / `preset enemyhand=2` / `preset chipenemy=1`"
                                         + " / `preset sub=BL1`（把夹具的 `FIX_A` 换成池内一张真卡，`B8_AH`）"
@@ -396,8 +396,15 @@ class PlayProbe
         ///
         /// <para>⚠️ 这是**量具干预**（与 `preset dead=` / `hand=` 同一档）；⛔ 不传 `pick=1` 时
         /// 夹具一个字节都不变（全池默认读数不受影响 —— 本档只用于**另一次**全池扫描）。</para>
+        /// 🆕 **2026-10-26（执行代理 `E9ER`）**：`tpick=1`（**独立旋钮，不复用 `pick=`**）—— 走
+        /// `RuleCore.PlayTactic` 时优先把**敌方的第一个非督军单位**当 `chosen` 传进去（治「`Side == "any"`
+        /// 的卡点对面却打到自己人同号格」那条缺口的**量具盲区**：`EffectText.PickTarget` 对 `Side=="any"`
+        /// 返回 null ⇒ 默认这一路根本不传目标）。⛔ 不传 `tpick=1` 时这一路一个字节都不变。
         /// </summary>
         public int Pick;
+
+        /// <summary>`tpick=1` —— 非单位卡的「点定目标」（见 <see cref="Pick"/> 上面那段；⛔ 与 `Pick` 分开）。</summary>
+        public int TacticPick;
 
         // ==================================================================
         //  🆕 `B8_AV`（2026-10-26）：「手牌态监听卡 + 触发一个事件」夹具
@@ -511,6 +518,12 @@ class PlayProbe
                     //   （见 `PresetSpec.Pick` 的 doc；判据 = 原版 `ta=30` 那一支与 `targeted` 两道闸）。
                     case "pick":
                         ps.Pick = string.IsNullOrEmpty(val) ? 1 : int.Parse(val);
+                        break;
+                    // 🆕 `E9ER`（2026-10-26）：`tpick=1` —— **非单位卡**（战术/防御）也给它一个「玩家点定的目标」。
+                    //   ⛔ **故意不复用 `pick=`**：`pick=1` 已经被 `P3` 用于单位卡、且 `pool_effect_check`
+                    //   的第二套夹具就靠它 ⇒ 扩义会**静默改掉那批既有读数**。新键 = 新读数、老键一字不动。
+                    case "tpick":
+                        ps.TacticPick = string.IsNullOrEmpty(val) ? 1 : int.Parse(val);
                         break;
                     // 🆕 `B8_AV`（2026-10-26）：手牌态监听卡 ＋ 事件（见 `HandListenMode` 上面那一整段注释）。
                     case "hand":
@@ -1159,9 +1172,27 @@ class PlayProbe
                           + " · gap=`" + (ops[k].TargetConditionGap ?? "") + "`");
                 tslot = legal.Count > 0 ? legal[0] : -1;
             }
+            // 🆕 `E9ER`（2026-10-26）：`tpick=1` —— **非单位卡**也给一个「点定的目标」（⛔ 与 `pick=` 分开：
+            //   那个已被 `P3` 的单位卡占用、且 `pool_effect_check` 第二套夹具靠它 ⇒ 扩义会静默改既有读数）。
+            //   治的是账 `B9` 缺口 ② 的量具盲区：`Side == "any"` 的卡 `EffectText.PickTarget` 返回 null
+            //   ⇒ `spec == null` ⇒ 这一路**根本不传目标**，而引擎改前的结算恒读「我方同号格」
+            //   ⇒ 夹具无论怎么摆都看不出「打到自己人」。判据同上面单位卡那一支（原版 `action+0x20` 是
+            //   **CardScript 引用**，侧跟目标走）。优先取**敌方**那个（那是唯一能看出差异的一侧）。
+            UnitState picked = null;
+            if (preset != null && preset.TacticPick > 0)
+            {
+                for (int i = 0; i < BoardSpec.Size && picked == null; i++)
+                {
+                    var eu = ctx.Players[1].Board[i];
+                    if (eu != null && !eu.IsWarlord) { picked = eu; tslot = i; }
+                }
+                if (picked != null) r.PickTarget = picked.Name ?? "";
+            }
             r.How = "`RuleCore.PlayTactic`"
-                  + (spec == null ? "（不需选目标）" : "（目标侧=`" + spec.Side + "` 格=" + tslot + "）");
-            r.Rc = RuleCore.PlayTactic(ctx, 0, handIdx, tslot);
+                  + (spec == null ? "（不需选目标）" : "（目标侧=`" + spec.Side + "` 格=" + tslot + "）")
+                  + (picked != null ? " · `tpick=1` 点定目标 = " + picked.Name : "");
+            r.Rc = picked != null ? RuleCore.PlayTactic(ctx, 0, handIdx, tslot, picked)
+                                  : RuleCore.PlayTactic(ctx, 0, handIdx, tslot);
         }
 
         var after = Capture(ctx);
@@ -3373,7 +3404,7 @@ class PlayProbe
     //    ⛔ **另外三颗指纹原样不动**：`PinnedPoolMd5`（卡池没改）· `PinnedParseMd5`（`check` 现跑
     //      解析差异仍 0 行、输出指纹 ✓）· `PinnedBaselineMd5`（`基线/out_baseline.txt` 没重生成）。
     //    判据全文 → `资料/普查产出_1025/E6_十三行接闸.md` §五·2 / §六。
-    public const string PinnedPlayMd5 = "af8e817839fa1dd199d33320f6bf1b2e";  // 🔴 2026-10-26 重钉（第八十三会话同步点）：伏击/landing **续打一记**（`A1`/`A3` 查实原版两支都压一条 `BattleActionType=1` 续攻、出队后再进 `_ResolveAttack` ⇒ 12 张 `ambush` 卡从「**零次攻击**」变成「一次」）。电池段 **5 张变**（GSC11/GSC15/GSC25/GSC69/GSC7），`A3` 做过 A/B 实证：**不是卡行为变了**，是控制臂 `Blank(card)` 保留了 `ambush` 关键词、现在也面朝下，与真卡逐字相同被净差减掉（插桩证明两版 a/b 条数完全相同 45/43，只 `b` 里一行内容变了）。主档 1128 张**逐字节一致**。上一版 = 6e888bbe… ｜ 🔴 2026-10-26 重钉（第八十二会话同步点）：本会话引擎改动（残骸清 trait / 灵魂石按阵营 / 相邻目标 / 5 条广播收窄 / 强制攻击退还 / 探针夹具阵营改 SaimHann） ｜ 🔴 2026-10-26 重钉（第八十一会话 · 调度台收尾同步点）：**G14 的「死后相邻单位」效果修好** —— 那 5 张卡原本「卡面写着、我们不打」，现在照卡面生效 ⇒ 主档 **5 张变**（ASH54 dmg 8→12 · ASH73 伤害累计 8→13 且督军 28→26 · SAU56 dmg 0→3 · Particle Whip · None Must Know 眩晕督军 1），**事件电池 586 张逐字节一致**（零外溢）。逐条核对过「都是这 5 张、无新回归」。⚠️ 探针对**归一化内容**算的（文件原始 md5 另算，别混）。上一版 = 39c4f77e…
+    public const string PinnedPlayMd5 = "1b40f42ab010e623e908fcd4a236205f";  // 🔴 2026-10-26 重钉（第八十四会话同步点）：本会话引擎改动 = BL47 解析修正（`EffectText` 加法型反向正则）· 附魔摘除改排队摘（`481`）· `pendingHealing` 治疗收尾清（含满血/溢疗支）· 残骸原地翻回（`DoReanimate`）· P-06 接 `Aura.RefreshInPlayNumericAndKeywords`（`BL18`/`UM18` 各 +4）· P-05 残骸 `Has` 闸（`SW25`）⇒ 主档 1 张（`BL47`）· 电池 3 张（`BL18`/`SW25`/`UM18`）；每条已由各写手做 A/B 隔离归因。上一版 = af8e8178… ｜ 🔴 2026-10-26 重钉（第八十三会话同步点）：伏击/landing **续打一记**（`A1`/`A3` 查实原版两支都压一条 `BattleActionType=1` 续攻、出队后再进 `_ResolveAttack` ⇒ 12 张 `ambush` 卡从「**零次攻击**」变成「一次」）。电池段 **5 张变**（GSC11/GSC15/GSC25/GSC69/GSC7），`A3` 做过 A/B 实证：**不是卡行为变了**，是控制臂 `Blank(card)` 保留了 `ambush` 关键词、现在也面朝下，与真卡逐字相同被净差减掉（插桩证明两版 a/b 条数完全相同 45/43，只 `b` 里一行内容变了）。主档 1128 张**逐字节一致**。上一版 = 6e888bbe… ｜ 🔴 2026-10-26 重钉（第八十二会话同步点）：本会话引擎改动（残骸清 trait / 灵魂石按阵营 / 相邻目标 / 5 条广播收窄 / 强制攻击退还 / 探针夹具阵营改 SaimHann） ｜ 🔴 2026-10-26 重钉（第八十一会话 · 调度台收尾同步点）：**G14 的「死后相邻单位」效果修好** —— 那 5 张卡原本「卡面写着、我们不打」，现在照卡面生效 ⇒ 主档 **5 张变**（ASH54 dmg 8→12 · ASH73 伤害累计 8→13 且督军 28→26 · SAU56 dmg 0→3 · Particle Whip · None Must Know 眩晕督军 1），**事件电池 586 张逐字节一致**（零外溢）。逐条核对过「都是这 5 张、无新回归」。⚠️ 探针对**归一化内容**算的（文件原始 md5 另算，别混）。上一版 = 39c4f77e…
 
 
     /// <summary>`play check` 的缺省基线 —— **按名字往上找**（形状照 `Program.CheckMain.DefaultBaseline`，

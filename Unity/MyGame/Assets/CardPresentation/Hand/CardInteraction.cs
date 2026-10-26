@@ -943,7 +943,26 @@ namespace CardPresentation
                                CardTween.PickUpDuration, Ease.OutQuad);
             }
 
-            Relayout(false);               // 手牌把这张空出来，邻牌补位（原版起拖时走 `DisplayHandWithCardSpace`，不碰碰撞体 ⇒ 不开闸）
+            // 🔴 2026-10-26（B9/E6P14 · 施工单 1157）：**起拖首帧 = 无洞 N-1 张**，⛔ 不是「立刻带洞」。
+            //   判据：原版 `PlayerHand.StartMovingHandCard(card)` 起的是 `DisplayHandMinusCard(currentHand, card)`
+            //   协程（起协程那一跳 = ILSpy `PlayerHand.cs:3306-3322`：`obj+40 = currentHand` / `obj+48 = card`）——
+            //   排除 `cardToExclude`、跳过 `cardState == waitingToBePlayed(4)`、序号**连续递增**、
+            //   `total = list.Count − 1`（`decomp_full/PlayerHand._DisplayHandMinusCard_d__80__MoveNext.c:32-90`，
+            //   跳过那两句在 `:70-75`，Ghidra 吞了 `op_Inequality` 第二实参 ⇒ 用 ILSpy 同族读法补全）
+            //   ⇒ 其余手牌**当场闭合**。带洞那一档是**下一帧起**的 `DisplayHandWithCardSpace`
+            //   （`PlayerHand__DisplayHandWithCardSpace.c:25-84`：逐帧按指针取最近槽、把中间那格让出来）。
+            //   ⚠️ `_insertIndex` 置 -1 只是让**下一帧** `UpdateDrag` 的 `slot != _insertIndex` 恒真
+            //     （= 原版那一趟 `DisplayHandWithCardSpace` 的第一帧），⛔ 不是「拖拽中没有空位」的最终态。
+            //   ⚠️ 原版这条协程**也**置 `+0x61`(isDoingAnim)=1、等 0.2 s 后清 0，但**不关碰撞体**
+            //     （`Toggle(false)` 只在 `MoveCardsInHandToPosition` 里）⇒ 起拖这 0.2 s 原版照旧能交互；
+            //     我们的 `_animGate` 是「输入闸」（等价的是**关碰撞体**那条）⇒ ⛔ 别在这里 ArmAnimGate。
+            {
+                _insertIndex = -1;
+                Relayout(false);
+                // 无洞那一趟不经过 `HandLayout` 的「补顶号」块（那块 `if (hole)` 只在带洞时跑）
+                // ⇒ 自己把被拖那张顶上去（= 原版起拖时的 `SetSortingLayer(<HandMoving>)`，见 `CardView.QHandMoving`）。
+                card.SetQueue(hand.queueTop);
+            }
             // 🔴 **2026-10-01：拿起牌时不再把九格全点亮。** 原来这里调 `board.SetDragHighlight(true)`
             //    （九格一起染绿 = 「哪些格能放」），与原版不符：原版只有**一格**落点指示
             //    （`SetCardShadow(GetLeft/RightSlotPos(落点))`，判据 → `资料/待办判据_战场与战斗视图.md` §8b）。
@@ -1440,19 +1459,32 @@ namespace CardPresentation
             else
             {
                 // 拖到哪就插到哪 —— 松手时把手牌顺序真的改成拖拽时让出来的那个顺序
+                // 🔴 2026-10-26（B9/E6P14 · 施工单 1170）：**逐句对齐原版 `PlayerHand.HandCardMovedToNewIndex`**
+                //   （`decomp_full/PlayerHand__HandCardMovedToNewIndex.c:16-38`；ILSpy 同族 `PlayerHand.cs:3565-3612`）：
+                //     ① `idx = IndexOf(card)`（.c:16-18）；② `newIndex == idx` ⇒ **不动列表**、只重排、返回 0（.c:19-24）；
+                //     ③ `Count <= newIndex` ⇒ 同样只重排、返回 0（.c:27）；④ 否则 Remove + Insert + 重排 +
+                //     **`CheckForTutorialPointer()`**、返回 1（.c:28-38）。
+                //   🔴 **`SendCardReorder` 不在这个方法里** —— 原版在 `BattleManager__Update.c:223-240`：
+                //     只有 `HandCardMovedToNewIndex` **返回 1**（= 列表真的动了）且 `IsNetworkedGame()` 且
+                //     `PhotonNetwork.connected` 才发，新下标取 **`IndexOf(card)`（移动之后）**。
+                //     我们原来无条件发 ⇒ **同位置换位也发一条**（对面白收，且和原版返回 0 的语义相反）。
                 if (_insertIndex >= 0)
                 {
                     int from = _cards.IndexOf(card);
-                    if (from >= 0)
+                    int to = _insertIndex;                      // 空位号 = 原版那个 `newIndex`
+                    if (from >= 0 && to != from && to < _cards.Count)
                     {
                         _cards.RemoveAt(from);
-                        _cards.Insert(Mathf.Clamp(_insertIndex, 0, _cards.Count), card);
-                        // 🔴 **2026-10-25（N9 · 账 27）**：原版 `PlayerHand.HandCardMovedToNewIndex(card, slot)`
-                        //   改完列表序之后会调 `SendCardReorder(uniqueInGameID, newIndex)`（判据
-                        //   `PlayerHand__HandCardMovedToNewIndex.c`）。我们原来只把
-                        //   `NetBattle.SendCardReorder` 建出来、**全仓零调用点** ⇒ 对面永远收不到。
+                        _cards.Insert(to, card);
+                        // = 原版 `BattleManager__Update.c:233-240` 那一跳（只在**真的动了**才发）
                         NotifyHandReordered(card);
+                        // = 原版 `HandCardMovedToNewIndex.c:34-38` 末尾那句 `manager.CheckForTutorialPointer()`
+                        //   （换位后**重算教程指针**：同一条动作重新解析锚点 → 箭头跟到新位置）。
+                        //   ⚠️ 那一位在 `BattleDriver`（别人的文件）⇒ 本层只发事件，订阅方负责重算。
+                        if (OnHandCardMovedToNewIndex != null) OnHandCardMovedToNewIndex(card);
                     }
+                    // `from < 0` / `to == from` / `to >= Count` ⇒ 原版**不改列表、不发消息**（返回 0）；
+                    // 这时唯一的动作就是下面那句 `Relayout(true)` —— 正是原版 `MoveCardsInHandToPosition(-1, …)` 那一趟。
                     _insertIndex = -1;
                 }
 
@@ -1903,12 +1935,12 @@ namespace CardPresentation
             if (prev != null)
             {
                 prev.SetCollidersShowBig(false);
-                prev.TooltipsEnabled = false;
+                prev.TooltipsEnabled = false; SetTargetsSuffix(prev, null);   // HUD:148 —— 放回 ⇒ 复原描述（判据见类尾）
             }
             if (now == null || DragOnlyBlocked()) return;
             now.SetCollidersShowBig(true);
             // 原版抬牌那一支的 `ToggleTooltips(true)`：**只有抬起来这一张**能吃 tooltip。
-            now.TooltipsEnabled = true;
+            now.TooltipsEnabled = true; SetTargetsSuffix(now, TargetSuffixFor);   // HUD:148 —— 抬牌 ⇒ 拼「可用目标」（判据见类尾）
         }
 
         /// <summary>把**当前这批手牌**全部复位成「没抬起」档（`SetCards` 换列表时调）。
@@ -1923,7 +1955,7 @@ namespace CardPresentation
                 var c = _cards[i];
                 if (c == null) continue;
                 c.SetCollidersShowBig(false);
-                c.TooltipsEnabled = false;
+                c.TooltipsEnabled = false; SetTargetsSuffix(c, null);   // HUD:148 —— 换列表 ⇒ 连描述后缀一起复原（视图会被复用/搬去战场）
             }
             _hovered = -1;
         }
@@ -1947,6 +1979,154 @@ namespace CardPresentation
                  + $" 按下候选={(_pressPending ? "是" : "否")} 按下时长={PressElapsedSeconds:F3}s"
                  + $" 短按={PressShortEnough} 第二颗碰撞={((hov != null) ? (hov.ShowInBigColliderEnabled ? "开" : "关") : "-")}"
                  + $" 冻结={FrozenNow} 拖拽闸={(DragBlocked() ? "拦" : "放")} 触屏档={TouchInputOn}";
+        }
+
+        // ==================================================================
+        //  换位之后的「教程指针重算」出口（原版 `HandCardMovedToNewIndex` 末尾那一句）
+        // ==================================================================
+        /// <summary>🔴 2026-10-26（B9/E6P14 · 施工单 1170）：**手牌列表真的换了位**（= 原版
+        /// `PlayerHand.HandCardMovedToNewIndex` 返回 1 的那一支）。
+        ///
+        /// <para>判据（`decomp_full/PlayerHand__HandCardMovedToNewIndex.c:28-38`；ILSpy 同族
+        /// `PlayerHand.cs:3565-3612` 逐句核过）：`Remove` + `Insert` + `MoveCardsInHandToPosition(-1, …)`
+        /// 之后**还有一句** `manager.CheckForTutorialPointer()` —— 那句话把「当前这条脚本动作」的锚点
+        /// 重新解析一遍（`AiScripted.ShowPlayerActionAnim`）⇒ **换位之后教程箭头跟到新位置**。</para>
+        ///
+        /// <para>⚠️ 我们这一句的落点在 `BattleDriver`（`ShowPlayerActionAnim` 是私有，`_tutHandIdx` /
+        /// `_handViews` 也都在那边）⇒ 本组件**只发事件**，由驱动层订阅后做同一件事。
+        /// ⛔ 别在这里自己算锚点 —— 锚点的唯一判据是 `BattleDriver.TutorialAnchor`。</para>
+        ///
+        /// <para>⚠️ 净结果相同的那两支（`newIndex == idx` / `Count &lt;= newIndex`）**不发** ——
+        /// 原版在那两支里 `CheckForTutorialPointer` 之前就 `return 0` 了（.c:19-24 / :27）。</para></summary>
+        public event Action<CardView> OnHandCardMovedToNewIndex;
+
+        // ==================================================================
+        //  🆕 2026-10-26（`W3K04` · 账 `战斗界面_HUD:148` 的**描述那一半**）：
+        //    **抬牌时把「可用目标」印进卡面描述**（原版 `BattleCardUI.ShowAvailableTargets`）
+        // ==================================================================
+        //
+        //  原版末句 = `SetDescription(desc + "<i>" + 那段 + "</i>")`。
+        //  判据（🥇 `decomp_full/BattleCardUI__ShowAvailableTargets.c:1-133`）逐句：
+        //   ① `card(+0x248) == null` ⇒ NRE；`card.isPlayer(+0x40) == 0` ⇒ **return**（只我方）
+        //   ② `card.cardState(+0x228) != inHandShowing(8)` ⇒ **return**
+        //      ⇒ 这段文案**只在「牌抬起来展示」那一档出现**，我们的等价位 = `ApplyShowInHand` 的
+        //         「进入 / 离开」两支（`StartShowingCardInHand` / `StopShowingCardInHand` 的等价物）
+        //   ③ `!CardScript.ShouldShowTargetsAvailable(false)` ⇒ return
+        //   ④ `list = CardScript.GetTargetsAvailable()`
+        //      = `AbilityLogic.GetTargets(manager, raw.targetsAvailableCounter(+0x298), this, this, 0, 1, 0)`
+        //      ⇒ **目标池**
+        //   ⑤ `targetsAvailableCounter.maxTargets(+0x40) == 1` 且 `list.Count > 0` ⇒
+        //      `"(" + list[0] 的卡名 + ")"`；其中**对面那张是 Tactic + spellType = Trap(70) /
+        //      SecretOrder(60)** 时原版换成一条 `Card_Trait/*` 词条（不印卡名）
+        //   ⑥ 其余 ⇒ `GetTargetsAvailableText(list.Count)` = `Battle/HUD/TargetsAvailable` 的 `{0}` 换成 n
+        //   ⑦ 最外层拼装（`"<i>" … "</i>"` 与重拟合）**不在本类** —— 写口 = `CardView.SetDescriptionSuffix`
+        //      （W2K03 2026-10-26 建；它内部走 `BuildTextLayers`，两条建字路都覆盖）
+        //  ⇒ 本类只做三件事：**什么时候挂**（抬牌成对开关）· **拼哪一段**（`AvailableTargetsSuffix`）·
+        //     **怎么复原**（`null` ⇒ 裸描述）。
+        //  ⛔ 与 `HUD:686`（棋盘按住 0.3 s 弹卡 / 手牌 0.2 s **不**弹）**是两件事**：
+        //     那条是**时间闸**，这条是**文案**；别塞进同一处判断。
+
+        /// <summary>抬牌那一刻「可用目标」后缀的来源（宿主接 —— 它手上有 `BattleContext` / 座位号 / `CardDef`）。
+        /// 返回 `null`/空 = 这一张不拼后缀。
+        /// <para>宿主接线一笔（`BattleDriver.Begin` 那一族里）：
+        /// <c>interaction.TargetSuffixFor = v =&gt; CardInteraction.AvailableTargetsSuffix(Ctx, _me, DefOf(v));</c></para>
+        /// <para>⚠️ 没接时**什么都不印**（不是空串后缀）—— 原版没接就等于没有这道文案。</para></summary>
+        public Func<CardView, string> TargetSuffixFor;
+
+        /// <summary>抬牌成对开关的**第三半**（前两半 = `SetCollidersShowBig` / `TooltipsEnabled`）：
+        /// `src == null` ⇒ 复原成裸描述；否则现算一次再挂上。
+        /// <para>幂等靠 `CardView.SetDescriptionSuffix` 自己那道闸（**同一个后缀重复调不重建**），
+        /// ⛔ 别在这里再加一份缓存 —— 两处记同一条状态迟早不一致。</para>
+        /// <para>⚠️ 场上形态的卡 `CardView.SetDescriptionSuffix` 内部直接返回（没有文字层），
+        /// 这里不另判 `CardFace`（判据留一处）。</para></summary>
+        void SetTargetsSuffix(CardView v, Func<CardView, string> src)
+        {
+            if (v == null) return;
+            v.SetDescriptionSuffix(src == null ? null : src(v));
+        }
+
+        /// <summary>原版 `BattleCardUI.ShowAvailableTargets` 里**「那段」**的拼装（第 ③–⑥ 步）。
+        /// 返回 `null`/空 = 这一张不拼后缀（原版那三条早退）。
+        /// <para>🔴 **目标池只走 `RuleEngine.RuleCore.PlayTargetPool`** —— ⛔ 别在表现层另写一套
+        /// 「谁能点」（那就是「两处写同一条规则 = 迟早不一致」）。</para>
+        /// <para>🔴 那道「要不要显示」的闸只走 `CardFaceRules.ShouldShowTargetsAvailable`
+        /// （原版 `CardScript.ShouldShowTargetsAvailable(false)` 的唯一正本），⛔ 别在这里重算
+        /// `targetsAvailableCounter != null && targetsAffected != any`。</para>
+        /// <para>⚠️ **一条查不到的判据（如实记，见报告 §五）**：第 ⑤ 步里「敌方 Trap / SecretOrder
+        /// 战术卡换成词条」那两个词条名，本机取不到 —— 官方词表（10,862 键）里
+        /// `Card_Trait/trap` / `Card_Trait/secretOrder` **都不存在**，而原版那两个常量是
+        /// 元数据里的字符串字面量（`.c` 里只能看到 `DAT_1842ced40` / `DAT_1842ceb40`）。
+        /// ⇒ 这一档**不印卡名**（印了就泄露对手隐藏卡的身份），暂按 ⑥ 的「N 个可用目标」印，并**出声一次**。</para></summary>
+        public static string AvailableTargetsSuffix(RuleEngine.BattleContext ctx, int owner,
+                                                   RuleEngine.CardDef card)
+        {
+            if (ctx == null || card == null) return null;
+            if (!CardFaceRules.ShouldShowTargetsAvailable(card)) return null;            // ③
+            var pool = RuleEngine.RuleCore.PlayTargetPool(ctx, owner, card);              // ④
+            if (pool == null) return null;
+            if (AvailMaxTargets(card) == 1 && pool.Count > 0)                             // ⑤
+            {
+                var t = pool[0];
+                if (t == null || t.Card == null) return null;
+                if (t.Card.Type == "tactic" && !OnSide(ctx, owner, t))
+                {
+                    int st = t.Card.SpellType;                                            // 原版 `EntityScript.get_spellType`
+                    if (st == SpellTypeTrap || st == SpellTypeSecretOrder)
+                    {
+                        if (!_warnedTargetTraitTerm)
+                        {
+                            _warnedTargetTraitTerm = true;
+                            Debug.LogWarning("[CardPresentation] 抬牌时单目标那张是敌方 "
+                                           + (st == SpellTypeTrap ? "Trap" : "SecretOrder")
+                                           + " 战术卡：原版这里把它换成一条 `Card_Trait/*` 词条再印，"
+                                           + "而**那条词条名本机没取到**（官方 10,862 键里 `Card_Trait/trap` /"
+                                           + " `Card_Trait/secretOrder` 都不存在）⇒ 暂按「N 个可用目标」印；"
+                                           + "⛔ 不印卡名（印了就是泄露对手隐藏卡的身份）");
+                        }
+                        return CardText.TargetsAvailable(pool.Count);
+                    }
+                }
+                return "(" + CardText.Name(t.Card) + ")";
+            }
+            return CardText.TargetsAvailable(pool.Count);                                 // ⑥
+        }
+
+        /// <summary>原版 `SpellType.Trap` / `SpellType.SecretOrder`（`dump.cs` 的 `SpellType` 枚举：
+        /// `SecretOrder = 60` / `Trap = 70`）。</summary>
+        const int SpellTypeSecretOrder = 60;
+        const int SpellTypeTrap = 70;
+
+        static bool _warnedTargetTraitTerm;
+
+        /// <summary>原版 `RawCardScript.targetsAvailableCounter(+0x298).maxTargets(+0x40)`。
+        /// <para>`-1` = **没落 / 未知**（⛔ 不是「不限」）；`<= 0` = 不限（原版注释口径）。</para>
+        /// <para>取法与 `RuleEngine/Editor/RuleEngineTest_UnitRoles.cs:236-241` **同一个口**
+        /// （`card.Conditions` 里 `Role == "avail"` 的那一行 ⇒ `AvailSet`）—— ⛔ 别另写一份解析。</para></summary>
+        static int AvailMaxTargets(RuleEngine.CardDef card)
+        {
+            if (card == null) return -1;
+            var conds = card.Conditions;
+            if (conds == null) return -1;
+            foreach (var r in conds)
+            {
+                if (r == null || r.Role != "avail") continue;
+                if (r.AvailSet == null) return -1;
+                return r.AvailSet.MaxTargets;
+            }
+            return -1;
+        }
+
+        /// <summary>这张单位是不是 `owner` 那一侧的 —— 原版是 `EntityScript.isPlayer(+0x40)`，
+        /// 而我们的 `UnitState` **没有 owner 字段** ⇒ 只能按 `ctx.Players[owner].Board` 反查引用。
+        /// ⚠️ 只服务上面第 ⑤ 步的「对面那张」判定；⛔ 别把它当成「谁是行动方」的通用判据。</summary>
+        static bool OnSide(RuleEngine.BattleContext ctx, int owner, RuleEngine.UnitState u)
+        {
+            if (ctx == null || u == null) return false;
+            if (ctx.Players == null || owner < 0 || owner >= ctx.Players.Length) return false;
+            var board = ctx.Players[owner].Board;
+            if (board == null) return false;
+            for (int i = 0; i < board.Length; i++) if (ReferenceEquals(board[i], u)) return true;
+            return false;
         }
     }
 }

@@ -1210,5 +1210,103 @@ namespace CardPresentation
         static readonly Dictionary<string, int> _leases = new Dictionary<string, int>();
         static readonly Dictionary<Texture2D, string> _pathOf = new Dictionary<Texture2D, string>();
         static int _released;
+
+        // ============================================================ 模式图标的「释放」那一族（账 `收藏:203`）
+        //
+        // 判据（🥇 方法体 + 一份 SO 实例实读；2026-10-26 `W1K02` 现读，⛔ 不是转抄账文）：
+        //  · `GameModesIconCollection.Release(PlayModes? playMode)` —— `decomp_full/GameModesIconCollection__Release.c`
+        //    全文 + `cpp2il/out_cpp2il_dev_ilspy/GameModesIconCollection.cs` 的 `Release` C# 形状（两份一致）：
+        //      `HasValue == false` ⇒ 放 **`defaultIcon`**(+0x20) 那一条；
+        //      有值              ⇒ 遍历 `gameModesIcon`(+0x18) 表，命中 `+0x10 == value` 的那一项，放它的
+        //                          `icon`(+0x18)。（`ReleaseAll()` = 表内每项各放一次 + 最后放默认那一条。）
+        //  · 唯一入口 `ScriptableObjectsCollectionsUtilities.ReleaseGameModeIcon(Nullable<int>)`
+        //    （`ScriptableObjectsCollectionsUtilities__ReleaseGameModeIcon.c`：`+0x20` 为 null ⇒ 那条「不返回」的抛出出口）。
+        //    🔴 **订正（铁律 5）**：施工单/账原写「两个调用点都传 null ⇒ 实际只放默认图标」—— **实读不成立**，
+        //    两个调用点**都带值**：
+        //      - `CollectionDeck__OnDestroy.c`：`ReleaseGameModeIcon(Nullable<int>(CardDeck.get_GameMode(deck)))`
+        //        ⇒ **卡组格销毁时放那副卡组自己的模式图标**（就是这一格画的那一张）；
+        //      - `LiveopUIDrawer_GameModeIcon__OnDestroy.c`：同样构造了带值的 `Nullable<int>` 再调。
+        //  · SO 实例实读（`d:/2/tools/assetripper_out/ExportedProject/Assets/MonoBehaviour/GameModesIconCollection.asset`）：
+        //      `gameModesIcon` 两条 = playMode **0 → GUID `bb56ccdf…`**、playMode **13 → GUID `73a53afd…`**；
+        //      `defaultIcon`   = **GUID `73a53afd…`**。
+        //    GUID → 名（`资料/普查产出_第二十七会话/guid_map.tsv` 现查）：
+        //      `bb56ccdf…` = **`40k_gamemode_icon_classic`**（PlayModes.Classic = 0）
+        //      `73a53afd…` = **`40k_gamemode_icon_skirmish`**（PlayModes.Skirmish = 13）
+        //    ⇒ **原版的「默认图标」就是 Skirmish 那一张** —— 数据如此，照抄（⛔ 这不是我们挑的，别「修正」成 classic）。
+        //  · 全库只有这两张模式图（`assets_full` 里 `40k_gamemode_icon_*` 只有 classic / skirmish），
+        //    与 `MenuDraw.GameModeIconFile` 认识的两种模式一一对上。
+        //  ⚠️ **结构性差异（如实记）**：原版每个持有者各有一个 Addressables 句柄 ⇒ N 个格销毁 = N 次 Release
+        //    （引用计数减 N）；我们的 `_cache` 里**一张图只有一条登记** ⇒ 放一次就没了。`ReleaseModeIcon` 因此
+        //    **在「本来就没缓存」时不出声**（那是载体差异下的一次等价空操作，不是失败）；要数「真放掉几次」看
+        //    `ReleasedCount`。⛔ 也**不要**把 `ui_menu/` 整个并进 `PerItemArtPrefix` —— 那一族里还装着 HUD 图 /
+        //    难度角标 / 阵营图标，原版那三个释放方法一个都没碰它们（见 `PerItemArtPrefix` 上面那条注释）。
+
+        /// <summary>模式图标这一族的**文件名前缀**（`40k_gamemode_icon_classic` / `…_skirmish`）。</summary>
+        public const string ModeIconFilePrefix = "40k_gamemode_icon_";
+
+        /// <summary>`GameModesIconCollection` 的 **`defaultIcon` 指向的那张图** —— SO 实例实读值（见上面那段）。
+        /// ⚠️ 它是 **skirmish** 那张（GUID `73a53afd…`），不是 classic。</summary>
+        public const string DefaultGameModeIconFile = "40k_gamemode_icon_skirmish";
+
+        /// <summary>这条路径是不是「模式图标」那一族（`…/40k_gamemode_icon_*`）。
+        /// <para>用途 = `Shell/MenuDraw.ReleaseArtUnder` 在子树销毁时把这一族也放掉（原版 `CollectionDeck.OnDestroy`
+        /// → `ReleaseGameModeIcon(deck.GameMode)`）。**故意只认文件名前缀**：`ui_menu/` 下还有 HUD 图 / 难度角标 /
+        /// 阵营图标，那些原版都不放 —— 把 `ui_menu/` 整目录并进 `PerItemArtPrefix` 会连带放掉它们（做反了）。</para></summary>
+        public static bool IsModeIconArt(string path)
+        {
+            return !string.IsNullOrEmpty(path)
+                && path.StartsWith(Root, System.StringComparison.Ordinal)
+                && path.IndexOf(ModeIconFilePrefix, System.StringComparison.Ordinal) >= 0;
+        }
+
+        /// <summary>放掉模式图标那一族（原版 `GameModesIconCollection.Release` / `ReleaseGameModeIcon`）。
+        /// <paramref name="gameMode"/> 有值 ⇒ 放**那个模式**的图标（= 原版 `CollectionDeck.OnDestroy` 那一跳）；
+        /// 无值 ⇒ 放 `defaultIcon`（= SO 实读的 skirmish 那张）。
+        /// <para>返回 true = 真从 `_cache` 里放掉了一条。**没缓存过 ⇒ 直接 false、不出声**（理由见上面那段
+        /// 「结构性差异」：原版是引用计数，我们一张图只有一条登记）。</para>
+        /// <para>⚠️ 只放缓存登记，**不销毁贴图** —— 正挂在别的活节点上的那张照常显示（同 `Release`）。</para></summary>
+        public static bool ReleaseModeIcon(int? gameMode = null)
+        {
+            string file = gameMode.HasValue ? MenuDraw.GameModeIconFile(gameMode.Value) : DefaultGameModeIconFile;
+            if (string.IsNullOrEmpty(file)) return false;   // 该模式没有图（原版表里也只有 0 / 13 两条）
+            string suffix = "/" + file;
+            string hit = null;
+            foreach (var kv in _cache)                      // 不另拼目录：`MenuUi` 那三级兜底哪一档命中就放哪一档
+            {
+                if (kv.Value == null || !IsModeIconArt(kv.Key)) continue;
+                if (kv.Key.EndsWith(suffix, System.StringComparison.Ordinal)) { hit = kv.Key; break; }
+            }
+            return hit != null && Release(hit);
+        }
+
+        /// <summary>这条路径**现在真在 `_cache` 里、并且有图**（负缓存不算）。
+        /// <para>用途 = 调用点想在 `Release` **之前**挡掉「本来就没缓存」的那一档：`Release` 遇到没缓存的路径会
+        /// **出声**（`Release` 那条 warning，语义是「你放了一条我给不出来的路径」），而**共享件重复放**是正常情形 ——
+        /// 例：一屏 N 个卡组格都画同一张模式图标，原版是 N 个句柄各减一次，我们只有**一条登记** ⇒ 后 N-1 次
+        /// 都应该静默跳过，不是 N-1 条告警。</para></summary>
+        public static bool IsCached(string path)
+        {
+            Texture2D t;
+            return !string.IsNullOrEmpty(path) && _cache.TryGetValue(path, out t) && t != null;
+        }
+
+        /// <summary>一副卡组**实际用哪张卡背的 SDF 掩码** —— <see cref="DeckCardback"/> 的成对那一半。
+        /// <para>判据：原版 `CosmeticItemCardback.GetCardBackSprites()` **成对返回（主卡背, SDF）**
+        /// （本文件 `CosmeticSdf` 头注），战斗侧两处用它 —— 牌堆主图 `DeckManager.cardbackMain`(+0x50) 与
+        /// 掩码 `cardbackShadow`(+0x58) **同源**（`BattleCardUI.BattleCardSetup` 那一链：`GetCardback(isPlayer)`
+        /// → `GetCosmeticItem` → `GetCardBackSprites` → `SetCardBack(主图, SDF)`）。</para>
+        /// <para>`cardbackId` 空 / 取不到 ⇒ 退回**该阵营默认卡背**的 SDF（与原版 `CardDeck.GetDeckCardback()`
+        /// 空 ⇒ `ArmyUtilities.GetDefaultCardback(deckArmy)` 同口径）；取不到时**出声**（不静默画空白）。</para></summary>
+        public static Texture2D DeckCardbackSdf(string cardbackId, string faction)
+        {
+            if (!string.IsNullOrEmpty(cardbackId))
+            {
+                var t = CosmeticSdf(cardbackId);
+                if (t != null) return t;
+                Debug.LogWarning("[CardArt] 卡组选的卡背**没有 SDF 掩码**：" + cardbackId
+                               + " → 退回该阵营默认卡背的 SDF（跑 `python 工具/import_original_art.py --only-cardback-sdf` 补图）");
+            }
+            return CardBackSdf(faction);
+        }
     }
 }

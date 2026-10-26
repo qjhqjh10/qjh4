@@ -2469,11 +2469,13 @@ public static class DeckScene
             CheckTrue(!rt.UiCardGhostActive, "★ 出厂拖影卡行**关着**（原版 `Deck Selector Card Info button` 的 `m_IsActive: false`）");
             // 🔴 **2026-10-17（F2 · 修 (δ) 夹具前提不成立）**：本节那个「挑一张现在加得进去的卡」的**前置**
             //   在这套夹具下**恒不成立** —— `_rt` 的卡组来自 `PlayerDeckForDemo`（`Deck/DeckRuntime.cs`），
-            //   它把 `CardIds` **填满到** `DeckRules.ClassicCards = 30`；而 `CanAdd` 的第一条卡位检查是
+            //   它把 `CardIds` **填满到** `DeckRules.ClassicCards = 30`；而 `CanAdd` 里「整副满」那道闸
             //   `if (Deck.CardIds.Count >= MaxDeckCount) return DeckError.TooManyCards;`
-            //   （`Deck/DeckEditorState.cs` 的 `MaxDeckCount`，`MaxDeckCount = CardCount(Skirmish) = 30`）⇒ **每一张普通卡**
-            //   都 `TooManyCards`；hero / defence 又被 `CanAdd` 的前两支回 `WarlordAlreadySet` /
-            //   `DefensiveAlreadySet`（演示卡组两者都已设）⇒ 找不到 ⇒ `view < 0` ⇒
+            //   （`Deck/DeckEditorState.cs` 的 `MaxDeckCount`，`MaxDeckCount = CardCount(Skirmish) = 30`；
+            //   🆕 2026-10-26 起它排在同名上限 / 传奇总数**之后** = 原版 `CardDeck__CanAddCard.c:166` 的位置）
+            //   ⇒ **每一张普通卡**要么 `TooManyCards`（同名没满）、要么 `CopyLimitExceeded`（同名已满）；
+            //   hero / defence 又被前两支回 `CopyLimitExceeded`（🆕 原版 `MaxCopiesReached` 那一档；
+            //   演示卡组两者都已设）⇒ 找不到 ⇒ `view < 0` ⇒
             //   **⑥ 整节（起拖 / 跟指针 / 落点投递 / 拖影卡行 287.9×55.7）一条都没跑 = 零覆盖**。
             //   铁证（同一个演示卡组、同一次运行）：`deck.log` 里那句 `✓ 能加满 30 张`。
             //   ⇒ **开跑前腾一个空位**。⛔ 别改成「随便挑一张不问 `CanAdd`」—— 那正是原版 `CanAddCard`
@@ -2705,12 +2707,29 @@ public static class DeckScene
             Check(s.MaxDeckCount, 12, "上限还是 12（没被 30 那套盖掉）");
 
             CardDef extra = null;
+            // 🔴 **2026-10-26（B9 · 卡组:8）**：`extra` 必须是**非传奇**且**准入不受别的闸影响**的卡 ——
+            //   闸序改成原版那样（「整副满」排最后）之后，传奇会先撞「传奇总数 ≤ 4」、不可入池卡会先
+            //   撞 `EffectOnlyCard` ⇒ 那两种情况下本条断 `TooManyCards` 就成了**假红**。
             foreach (var c in pool)
-                if (c != null && c.Type == "unit" && c.Faction == hero.Faction && s.Deck.CountOf(c.Id) == 0)
+                if (c != null && c.Type == "unit" && c.Faction == hero.Faction && s.Deck.CountOf(c.Id) == 0 && !DeckRules.IsLegendary(c.Rarity) && !DeckRules.CannotAddToDeck(c))
                 { extra = c; break; }
             if (extra != null)
                 Check(s.CanAdd(extra), DeckError.TooManyCards,
-                      "★ 遭遇牌满 12 张之后**再加一张会被挡**（`TooManyCards`）—— 上限真的生效了");
+                      "★ 遭遇牌满 12 张之后**再加一张会被挡**（`TooManyCards`）—— 上限真的生效了"
+                    + "（夹具挑的是非传奇 / 准入干净的卡 ⇒ 只剩「整副满」这道闸会挡它）");
+
+            // 🆕 **2026-10-26（B9 · 卡组:8）· 两闸同真**（原版 `CardDeck__CanAddCard.c:166` 把「整副满」排在**最后**）：
+            //   满编（12/12）+ 同名已达上限 ⇒ 必须先报**同名上限**（= 原版 `MenuDeck/Error/MaxCopiesReached`），
+            //   不是「整副满」。🧨 灭自证：把「整副满」那一行挪回 `CanAddCore` 前面（旧写法）⇒ 本条红。
+            CardDef dup = null;
+            foreach (var c in pool)
+                if (c != null && c.Type == "unit" && c.Faction == hero.Faction && s.Deck.CountOf(c.Id) >= DeckRules.CopyLimit(c.Rarity))
+                { dup = c; break; }
+            CheckTrue(dup != null, "（前提）这副 12 张里找得到一张「同名已达上限」的卡（两闸同真要有靶子）");
+            if (dup != null)
+                Check(s.CanAdd(dup), DeckError.CopyLimitExceeded,
+                      "★ **满编 + 同名同时越限 ⇒ 报同名上限**（`CopyLimitExceeded` = 原版 `MaxCopiesReached`；"
+                    + "闸序照原版 `.c:48` 早于 `.c:166`）｜🧨 把「整副满」挪回最前 ⇒ 本条红（会变成 `TooManyCards`）");
 
             // 校验走**遭遇那套账**：上限 12（不是 30）。
             // 🔴 **2026-09-26 改口径**：防御卡改成**可选**（照原版 `DeckUtility.ValidateDeck` 不读那一格），
@@ -3593,7 +3612,7 @@ public static class DeckScene
                 //   ⚠️ 旧口径（2026-10-18/19）把 `canAdd` 接到**卡面**（`Unplayable` + `SetGrey(1)`）——
                 //   那三条断言**把错口径钉死了**，本批一并改成断**张数条**。
                 //   🧨 **灭自证 = 同一段 `RefreshPool` 上的两个方向**：
-                //     ① 有督军 ⇒ 池里「当前督军」那格 `CanAdd == WarlordAlreadySet` ⇒ **张数条必须灰**、**卡面必须不灰**
+                //     ① 有督军 ⇒ 池里「当前督军」那格 `CanAdd == CopyLimitExceeded`（🆕 2026-10-26 起 = 原版 `MaxCopiesReached`）⇒ **张数条必须灰**、**卡面必须不灰**
                 //     ② 摘掉督军 ⇒ 池里全是督军且**每一张都加得进** ⇒ **一格张数条都不许灰**
                 //   任何「恒灰」/「恒不灰」/「灰错层」的写法必有一条红。
                 {
@@ -9684,6 +9703,12 @@ public static class DeckScene
                 _rt.UiScrollPool(-100000f);
                 Check(_rt.UiPoolColsNow, 6, "（收尾）回到桌面档 6 列");
             }
+
+            // 🆕 2026-10-26（B9 · W4K06 · 账 `卡组:325`）：**加不进卡 ⇒ 屏幕错误横幅**。
+            //   ⚠️ 放在 `TestLayout` 的**最后**：本节会临时把当前卡组填满再原样还原，而 A363 那一族
+            //   （脏标记 / 落盘 / ESC）在本方法前面已经跑完 ⇒ 不会互相干扰。
+            Section("状态：加不进卡 ⇒ 屏幕错误横幅（原版 `UIMessageController.ShowError` · `卡组:325`）");
+            TestAddErrorBanner();
         }
 
         /// <summary>比一张具名图的 px 中心/尺寸（容差 0.6px —— 坐标是我们自己换算的，不该有误差）。</summary>
@@ -9868,6 +9893,11 @@ public static class DeckScene
 
         static void SaveScene()
         {
+            // 🆕 2026-10-26（B9 · W4K06）：**存盘前拆掉运行时建的那颗错误横幅** —— `SaveScene` 会把
+            //   非激活的 GameObject 一起存（同 `DestroyPopupScaffold` 那条理由），而 `Shell/MessageToast`
+            //    那颗是自检/编辑模式现建的 ⇒ 留着就会被烘进 `DeckEditor.unity`（`TestAddErrorBanner`
+            //    自己会拆，这里再兜一道：别让任何 stray 的横幅落盘）。
+            MessageToast.DisposeForTest();
             Directory.CreateDirectory(Path.GetDirectoryName(ScenePath));
             EditorSceneManager.SaveScene(EditorSceneManager.GetActiveScene(), ScenePath);
             SceneStubAudit.Run(ScenePath);   // 🆕 A1506：存盘后自证「不许有 !u!115 存根」（干净时零输出）
@@ -9941,5 +9971,104 @@ public static class DeckScene
                         + (_rt != null && _rt.State != null
                            ? $"（{_rt.State.PoolCount} 张卡池，演示卡组 {_rt.State.Deck?.Name}）==="
                            : "（⚠️ 拿不到 `DeckRuntime.State` —— 窗没开出来，见上面那条 ★ 断言）"));
+        }
+
+        // ============================================================ 🆕 2026-10-26（B9 · W4K06 · 账 `卡组:325`）
+
+        /// <summary>**加不进卡 ⇒ 屏幕错误横幅**（原版 `UIMessageController.ShowError`）。
+        ///
+        /// <para>**判据**：`decomp_full/DeckEditingWindow__OnCardClick.c:29-37`（点卡被 `CardDeck.CanAddCard`
+        /// 拦下 ⇒ `UIMessageController.ShowError(out msg, 1)`）· `DeckEditingWindow__CheckCardDrag.c:91-96`
+        /// （起拖被拦下 ⇒ 同一条）；`UIMessageController__ShowError.c` **只有一句转调**
+        /// （`ShowMessage(msg, errorColor, …)`）⇒ 屏幕那句 = `CanAddCard` 的 `out` 串**本身**（原版没有任何前缀）。</para>
+        ///
+        /// <para>我们这一侧 = `DeckRuntime.SayError`（两个出口：`TryAddCard` / `BeginCardDragAt`）
+        /// → `ErrorMessageBanner.ShowShellError`（宿主 = 壳里那颗 `MessageToast`，取 `MenuPreset`；
+        /// 原版主菜单场景里就序列化着一颗，判据 → `Shell/MessageToast.cs` 文件头 ②③）。</para>
+        ///
+        /// <para>⚠️ **自检必须在编辑模式**（`ShowShellError` 里那条自己设计的闸：编辑模式没有壳宿主时
+        /// 只出声、不建件，免得被 `SaveScene()` 烘进 `DeckEditor.unity`）⇒ 本节**自己先建一颗**
+        /// （`MessageToast.Ensure(_root)`），收尾 `DisposeForTest()` 拆掉。</para>
+        ///
+        /// <para>🧨 **灭自证**：① 把 `SayError` 里那跳横幅删掉 ⇒ 第二条红；② 把横幅文案改成日志那句
+        /// （带「拖不进去：」前缀）⇒ 第三条红；③ 把**合法**那条也弹 ⇒ 第四条红。</para></summary>
+        static void TestAddErrorBanner()
+        {
+            var rt = _rt;
+            CheckTrue(rt != null && rt.State != null, "（前提）卡组编辑运行时建出来了（`_rt` / `State` 都在）");
+            if (rt == null || rt.State == null) return;
+
+            // ⚠️ 起点干净 + 自己建一颗（编辑模式不跑 `Awake`；`Ensure` 是幂等的）
+            MessageToast.DisposeForTest();
+            var mt = MessageToast.Ensure(_root);
+            CheckTrue(mt != null && mt.Built, "（前提）壳里那颗横幅建出来了（`MessageToast.Ensure` ⇒ 池子 5 条）");
+            if (mt == null || !mt.Built) return;
+
+            // 存原状态（本节要把当前卡组**临时填满**，收尾原样还回去）
+            var keepIds = new List<string>(rt.State.Deck.CardIds);
+            string keepWl = rt.State.Deck.WarlordId, keepDef = rt.State.Deck.DefensiveId;
+
+            // ① 填到满编（跳过督军/防御卡 —— 它们不占 `CardIds` 名额，走它们会**换掉**督军）
+            string ignoredWhy; int guard = 0;
+            for (int round = 0; round < 4 && rt.State.DeckCount < rt.State.MaxDeckCount; round++)
+                foreach (var c in rt.State.Pool)
+                {
+                    if (rt.State.DeckCount >= rt.State.MaxDeckCount || ++guard > 5000) break;
+                    if (c.Type != "hero" && c.Type != "defence") rt.State.TryAdd(c, out ignoredWhy);
+                }
+            Check(rt.State.DeckCount, rt.State.MaxDeckCount, "（前提）当前卡组已填到满编（「整副满」这道闸要有）");
+
+            // ② 挑一张「只剩整副满会挡它」的普通卡（同名 0 张 / 非传奇 / 准入干净 / 同阵营）
+            CardDef extra = null;
+            var wlDef = string.IsNullOrEmpty(rt.State.Deck.WarlordId) ? null : rt.State.Find(rt.State.Deck.WarlordId);
+            foreach (var c in rt.State.Pool)
+            {
+                if (c == null || c.Type == "hero" || c.Type == "defence") continue;
+                if (rt.State.Deck.CountOf(c.Id) != 0) continue;
+                if (DeckRules.IsLegendary(c.Rarity) || DeckRules.CannotAddToDeck(c)) continue;
+                if (wlDef != null && !DeckRules.SameFaction(wlDef.Faction, c.Faction)) continue;
+                extra = c; break;
+            }
+            CheckTrue(extra != null, "（前提）满编时找得到一张「只会被『整副满』挡」的普通卡");
+            if (extra != null)
+            {
+                int before = mt.ShowCount;
+                rt.UiAddCard(extra);                       // 走生产那条路（`TryAddCard` → `SayError`）
+                Check(mt.ShowCount, before + 1,
+                      "★ **加不进 ⇒ 屏幕弹出错误横幅一条**（原版 `UIMessageController.ShowError`；"
+                    + "`UIMessageController__ShowError.c` 只有一句转调）");
+                Check(mt.LastShownText, DeckRuntime.DeckErrorText(DeckError.TooManyCards),
+                      "★ ……文案 = **`DeckError` 词条本身**（`DeckRuntime.DeckErrorText` 的产物，"
+                    + "⛔ 不是日志那句带「拖不进去：」前缀的）｜🧨 把横幅文案换成日志文本 ⇒ 本条红");
+            }
+
+            // ③ 合法的那一条**不许弹**（原版 `CanAddCard` 过了就不 `ShowError`）
+            rt.State.Deck.CardIds.Clear();                 // 腾空 ⇒ 候选卡就都能进了
+            CardDef okCard = null;
+            foreach (var c in rt.State.Pool)
+            {
+                if (c == null || c.Type == "hero" || c.Type == "defence") continue;
+                if (rt.State.CanAdd(c) != DeckError.None) continue;
+                okCard = c; break;
+            }
+            CheckTrue(okCard != null, "（前提）腾空之后找得到一张**加得进**的卡");
+            if (okCard != null)
+            {
+                int before2 = mt.ShowCount;
+                rt.UiAddCard(okCard);
+                Check(rt.State.Deck.CountOf(okCard.Id), 1, "（前提）那张卡真的加进去了");
+                Check(mt.ShowCount, before2,
+                      "★ **加得进**的卡 ⇒ **一条横幅都不弹**（原版这一支不调 `ShowError`）"
+                    + "｜🧨 把两个 `Say` 出口都改成弹 ⇒ 本条红");
+            }
+
+            // ④ 收尾：卡组原样还回去 + 拆掉横幅（⛔ 别让它被 `SaveScene()` 烘进 `DeckEditor.unity`）
+            rt.State.Deck.CardIds.Clear();
+            rt.State.Deck.CardIds.AddRange(keepIds);
+            rt.State.Deck.WarlordId = keepWl;
+            rt.State.Deck.DefensiveId = keepDef;
+            rt.RefreshAll();
+            MessageToast.DisposeForTest();
+            CheckTrue(MessageToast.Instance == null, "★ （收尾）横幅拆掉了（`Instance` 归 null ⇒ 不会被存进场景）");
         }
 }

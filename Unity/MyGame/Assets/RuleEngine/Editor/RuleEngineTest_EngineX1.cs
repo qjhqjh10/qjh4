@@ -231,8 +231,12 @@ public static partial class RuleEngineTest
     /// · 早返 switch（`FilterMethods__CheckIfMeetsCriteria.c:56-160`）里**没有** `100` 这一档
     ///   ⇒ 常规格该判（改前我们 `gap=未实现` 早返 ⇒ **一格都没跑**）；
     /// · 但**尾巴** `:407` 明写 `if (*(int *)(param_4 + 0x10) != 100) return 1;`，`:411-425` 再走
-    ///   `GetAdjacentUnits(thisCard) + Find` ⇒ **`ta=100` 还多一条「相邻里有满足者」**。
-    ///   那一截本版**未实现** ⇒ 常规格过后回 `null`（判不了 ⇒ 保留候选 + 出声）。
+    ///   `GetAdjacentUnits(thisCard) + Find` ⇒ **`ta=100` 还多一条「候选必须就在 `thisCard` 的相邻里」**。
+    ///   🔴 **2026-10-27（`W20AS` 复核 · `W21A2` 落地 · 铁律 5）：上面那句「那一截本版未实现」已过期。**
+    ///   `W6K11`（2026-10-26）已落地 `TargetCriteriaEval.CandidateAdjacentTo`（`TargetCriteriaEval.cs:880`，
+    ///   判据 = 原版 `:411-425` + `MinionManager__GetAdjacentUnits.c:18-115`）⇒ 常规格过后**照尾巴判**：
+    ///   候选不在相邻里 = **`false`（淘汰）**；只有缺 ctx / 载体 / 棋盘才 `null`（判不了 + 出声）。
+    ///   ⛔ 别再按「常规格过后一律回 `null`」写断言 —— 那是 2026-10-26 之前的状态。
     ///   （那份文档说「原版没有 0x64 分支」是因为反编译器把常量印成了**十进制 `100`**、`grep 0x64` 空。）
     /// </summary>
     static void X1T4Ta100RunsRegularFilters()
@@ -279,22 +283,35 @@ public static partial class RuleEngineTest
                 + "（= 2026-10-25 之前的状态）｜实得 " + (v1.HasValue ? v1.Value.ToString() : "null")
                 + (string.IsNullOrEmpty(gap1) ? "" : "（gap=" + gap1 + "）"));
 
-        // ---- ② 敌方候选 ⇒ 常规格全过，但尾巴那一截未实现 ⇒ **null** + gap 指向相邻 ----
+        // ---- ② 敌方候选 ⇒ 常规格全过，但**尾巴**那一截把它淘汰 ⇒ **false**（不是「判不了」）----
+        //  🔴 **2026-10-27（`W20AS` 复核 · `W21A2` 落地 · 铁律 5）：期望由 `null` 改成 `false`。**
+        //    `W6K11`（2026-10-26）把尾巴实现成了 `CandidateAdjacentTo`（`TargetCriteriaEval.cs:880`）。
+        //    夹具 `mine` 在座位 0、`foe` 在座位 1 ⇒ 那一支的 `cp != dp` ⇒ **false（淘汰）**，
+        //    不是「判不了」（`null` 只留给缺 ctx / 载体 / 棋盘）。
+        //    ⇒ 这一条现在**比旧版更有分辨力**：它同时钉住「尾巴真的在筛」和「不是一律放过」。
         string gap2;
         bool? v2 = TargetCriteriaEval.Matches(ctx, 0, set, foe, null, mine, null, out gap2);
-        CheckTrue(v2 == null,
-                  "★★ `ta=100` 的敌方候选 ⇒ `null`（判不了：**相邻里有满足者**那一截未实现）"
-                + "｜🧨 把尾巴写成 `return true`（= 悄悄少筛一道）⇒ 回 true ⇒ 红");
-        CheckTrue(gap2 != null && gap2.Contains("相邻"),
-                  "★ 出声口说清是哪一截（gap 含「相邻」）"
-                + "｜🧨 写一个笼统的 gap（或静默回 null）⇒ 红｜实得 gap=" + (gap2 ?? "null"));
+        CheckTrue(v2 == false,
+                  "★★ `ta=100` 的敌方候选 ⇒ **false**（`CandidateAdjacentTo` 已实现："
+                + "候选必须**就是** `thisCard` 的相邻，原版 `:407-425`；夹具 `mine` 在座位 0 / `foe` 在座位 1 ⇒ 不同盘）"
+                + "｜🧨 退回早返 `gap=未实现` ⇒ 这里回 **null** ⇒ 红；或把尾巴写成 `return true` ⇒ 回 true ⇒ 红"
+                + "｜实得 " + (v2.HasValue ? v2.Value.ToString() : "null")
+                + (string.IsNullOrEmpty(gap2) ? "" : "（gap=" + gap2 + "）"));
+        // 🔴 **2026-10-27（`W20AS` 复核）：这条原为「gap 含『相邻』」。已实现 ⇒ 反向钉「不许再报判不了」。**
+        //   ⚠️ 它**不是**下面那条的重复：上面断「值对不对」，这条断「**出声口干净**」——
+        //     万一哪天有人把尾巴改回「判不了就保留候选」，`v2` 会变 `null`（上面红）、`gap2` 会带「相邻」（这条也红）；
+        //     而「静默回 `false` 但 gap 里塞一句判不了」只有这一条能抓到。
+        CheckTrue(gap2 == null,
+                  "★ 出声口：**已实现 ⇒ 不许再报判不了**（`gap` 必须是 null）"
+                + "｜🧨 退回早返那一版 ⇒ gap 里又出现「相邻」⇒ 红｜实得 gap=" + (gap2 ?? "null"));
 
-        // ---- ③ 对照：同样的棋盘、`ta=10` ⇒ 敌方候选 true（说明 ② 的 null 不是全都不判）----
+        // ---- ③ 对照：同样的棋盘、`ta=10` ⇒ 敌方候选 true（说明 ② 的 false 是 `ta=100` 那截尾巴判的）----
         set.TargetsAffected = 10;
         string gap3;
         bool? v3 = TargetCriteriaEval.Matches(ctx, 0, set, foe, null, mine, null, out gap3);
         CheckTrue(v3 == true,
                   "★ 对照：同一份 36 格把 `ta` 换成 10 ⇒ 敌方候选 **true**"
+                + "（⇒ ② 的 `false` 是 `ta=100` 那截「相邻」判出来的，**不是**常规 36 格把它筛掉了）"
                 + "｜🧨 若这里也是 null/false ⇒ ② 那条量的就不是「尾巴那一截」⇒ 红");
     }
 

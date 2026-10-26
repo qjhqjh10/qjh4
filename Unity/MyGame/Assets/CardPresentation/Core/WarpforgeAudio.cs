@@ -23,8 +23,8 @@ namespace CardPresentation
         public const string MixerResource = "Audio/Main Mixer";
         /// <summary>原版 `GameStaticData.MUSIC_PLAYER_PREFS_VOLUME` —— **唯一**落盘的那个。</summary>
         public const string MusicPrefKey = "MusicVolume";
-        /// <summary>原版 `MusicManager.musicVolumeMultiplier` 在预制体里**查不到默认值** ⇒ 按 1.0 处理。</summary>
-        public const float MusicVolumeMultiplier = 1f;
+        /// <summary>原版 `MusicManager.musicVolumeMultiplier` = **0.2**（`bundle_staticgeneralassets_assets_all/MonoBehaviour/MonoBehaviour_-1722128571091716916.json` 实读；⚠️ 2026-10-26 订正 —— 原来这里写「预制体里**查不到默认值** ⇒ 按 1.0 处理」，**是错的**）· 它**乘在 mixer 的 `VolumeMusic` 上**（`PlayerDataManager__SetMusicAndFxVolumes.c` → `SoundManager__SetMixerVolume.c` 的 `dB = Log10(v)×20`），**不在 `AudioSource.volume` 上**（那边恒 1.0：`MusicManager__PlayMusic.c:71-78` 的 Instant 档强写静态表[0]，原版两源序列化 `m_Volume` 也是 1.0，见 `ShellRuntime.MusicSourceVolume`）· ⇒ 原版总增益 = **源 1.0 × mixer(存档 × 0.2) = 0.2 × 存档**，我们必须是同形（0.2 **只在这一格乘一次**，⛔ 别在源侧再乘一次 ⇒ 那是原版的 1/5）| 调度台 2026-10-26 裁定（与 `ShellRuntime` 侧的 1.0 配对；`Editor/ShellScene.cs` 有一条 ★ 断言钉住这一对）。</summary>
+        public const float MusicVolumeMultiplier = 0.2f;
 
         /// <summary>线性 0..1。⚠️ **取值前先 `Ensure()`** —— 这三个是**自动属性**，`Ensure()` 之前它们是
         /// **0**（不是 1）。踩过：设置面板在 `Ensure()` 之前建，三根滑块全画在 0 上。</summary>
