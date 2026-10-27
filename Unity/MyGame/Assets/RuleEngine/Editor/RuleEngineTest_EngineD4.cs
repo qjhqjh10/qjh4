@@ -98,10 +98,12 @@ public static partial class RuleEngineTest
         //   **v33 = 加 `enchantTrait` 一列** · **v34 = 加 `cardType` 一列**（消费点 `CardDef.IsTrapCard` → `CardInstance.ArmedTrap`）。
         //   归因 → `工具/gen_cards_engine.py:5619`（`"version": 35`；⚠️ 2026-10-27 现读，v33/v34 的注就在它下面几行）
         //   —— 原来这里写的 `:5572`/`:5580` 是 v34 那一版的行号，加列之后整体下移（铁律 5 就地订正）。
-        Check(dto.version, 35,
-              "★ A1 卡表 `version` = **35**（🔴 2026-10-27 批次 A（执行代理 `G1`）= 加三列 "
+        Check(dto.version, 36,
+              "★ A1 卡表 `version` = **36**（🔴 2026-10-28 第八十八会话 · 执行代理 `A1c` = 加 `abilityDamage` 一列 "
+            + "（`damageCriteria` 四格 `min/max/opt/type`，80/90 档 per-target 掷骰的数据面）；"
+            + "🔴 2026-10-27 批次 A（执行代理 `G1`）= 加三列 "
             + "`cardDescriptionTextReferenceId` / `activeAbilityTextReferenceId` / `targetingTextReferenceId`"
-            + "（池内非空 15 / 2 / 51；⚠️ 本版**只加数据列、零引擎行为**，消费端是批次 B）；"
+            + "（池内非空 15 / 2 / 51；⚠️ 那一版**只加数据列、零引擎行为**，消费端是批次 B）；"
             + "v34 = 加 `cardType` 一列 · v33 = 加 `enchantTrait` 一列；"
             + "v32 = 加 `chosenAbility` 一列（「强制攻击退不退还行动额度」的判据来源 = `ForcedAttackRefund`）；"
             + "v31 = 加 `keyword` 一列；"
@@ -109,7 +111,7 @@ public static partial class RuleEngineTest
             + "v29 `abilityLevelCriteria` 的 `ca` 一格 / v28 `activeAbilityPickCriteria` / v27 "
             + "`abilityActingCriteria` / v26 / v25 各列照旧；"
             + "⛔ 不 bump 的话卡池/新列的变更没有版本可认）"
-            + "｜🧨 生成器 return 里改回 34（或忘了 bump）⇒ 红");
+            + "｜🧨 生成器 return 里改回 35（或忘了 bump）⇒ 红");
 
         // ---- A2 · 两列「每张卡都落」：`null` 与空数组必须分得开 ----
         int aatNull = 0, atcNull = 0;

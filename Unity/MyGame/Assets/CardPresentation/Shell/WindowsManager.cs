@@ -1510,5 +1510,47 @@ namespace CardPresentation
             if (popUpWindow != null) sb.Append($" · 弹窗 {popUpWindow.name}");
             return sb.ToString();
         }
+
+        // ---------------------------------------------------- 场景过渡的「临时锚点」那一对（类尾，⛔ 别往中间挪）
+
+        /// <summary>= 原版 `TransitionUIAnchor.DisableAnchor()`（判据 = `d:/2/tools/decomp_full/TransitionUIAnchor__DisableAnchor.c`
+        /// **全 118 行逐跳读完**；`out_cpp2il_dev_ilspy/TransitionUIAnchor.cs:14` 只有签名壳，⛔ 别拿它当体）。
+        /// <para>**原版逐跳**（`EnableAnchor` 的反向那一半）：
+        /// <list type="number">
+        /// <item>`WindowsManager.UnregisterAnchorOverride()`（.c 第 46 行那一跳）；</item>
+        /// <item>遍历**自己的直接子件**（`Transform.GetEnumerator`）；</item>
+        /// <item>每颗 `TryGetComponent&lt;GameWindow&gt;` —— 不是窗就跳过；</item>
+        /// <item>是窗 ⇒ `parentInternal = WindowsManager.Instance.GetWindowAnchor(win.placement)`（`:103-117`）；</item>
+        /// <item>`localPosition = Vector3.zero`（`:126-131`）· `localRotation = identity`（`:140-145`）·
+        ///   `localScale = Vector3.one`（`:148-152`）—— 三样都**复位到单位**，不是「恢复进过渡前的值」
+        ///   （原版没存过旧值，它靠「过渡时只改父节点 + 单位 TRS」这一条自洽）。</item></list></para>
+        /// <para>⚠️ **与 <see cref="RegisterAnchorOverride"/> 同一档**：本机**还没有场景过渡那一层**
+        /// （原版那颗组件的唯一宿主是 `simpletransition` 场景）⇒ 今天没有调用方，行为零变化；
+        /// 记在账里的是「方法已对齐、调用方未建」，⛔ 不是「不可达」。
+        /// ⚠️ 遍历用**倒序下标**而不是原版的 `IEnumerator`：原版一边遍历一边把子件 `SetParent` 挪走，
+        /// 那正是 `Transform` 枚举器最容易踩空/重复的形状；倒序下标在语义上等价且不会跳件。</para>
+        /// <para>⛔ **别把「复位三样」改成「什么都不动」** —— 少了它们，过渡结束后窗会留在
+        /// `EnableAnchor` 期间的缩放/偏移上（原版每个子窗都是靠这一跳回到常态的）。</para></summary>
+        public static void EndTransitionAnchor(Transform anchorRoot)
+        {
+            UnregisterAnchorOverride();                       // 原版第一跳
+            if (anchorRoot == null)
+            {
+                Debug.LogError("[Win] `EndTransitionAnchor(null)` —— 过渡锚点根为空，没有任何子窗会被复位" +
+                               "（原版这一跳会 NRE，我们出声后照旧返回）");
+                return;
+            }
+            for (int i = anchorRoot.childCount - 1; i >= 0; i--)
+            {
+                var t = anchorRoot.GetChild(i);
+                var win = t.GetComponent<GameWindow>();       // 原版 `UnityEngine_Component__TryGetComponent<GameWindow>`
+                if (win == null) continue;                    // 不是窗 ⇒ 原版不碰它（父级/TRS 都不动）
+                Transform anchor = win.HasPlacement ? GetWindowAnchor(win.placement) : null;
+                t.SetParent(anchor, false);                   // 原版 `set_parentInternal`
+                t.localPosition = Vector3.zero;               // `DAT_1842da2a8` = Vector3.zero
+                t.localRotation = Quaternion.identity;
+                t.localScale = Vector3.one;
+            }
+        }
     }
 }

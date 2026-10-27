@@ -114,6 +114,28 @@ namespace CardPresentation
         /// <summary>自检用：`Open Alliances` 那一格的滚动区（原版 = `RecyclableScrollRect`）。</summary>
         public MenuScroll OpenListScroll { get { return _openScroll; } }
 
+        // ---------------------------------------------------------- 🆕 2026-10-27（E9 批 · 账 68/70/410）
+
+        /// <summary>`Invitations` 那一整颗（**标题 + 行容器**）。原版 `JoinAllianceMenu.invitationList`
+        /// —— 空表时**整颗关掉**（`FillGroupInvitations` 的头两句 / 回调里的 `SetActive(count != 0)`），
+        /// 所以「默认空态多一行 `Alliances invitations:`」那个偏离（账 407①）靠它修。</summary>
+        Transform _invNode;
+        /// <summary>原版 `JoinAllianceMenu.loading` —— **重入守卫**（`if (loading) return;`）。
+        /// 我们两张表都是同步的（`Show`/`Hide` 落在同一个调用栈），没有它也不会有重入 ⇒
+        /// 但**必须照原版有这个字段**：将来真接上异步源时它就是那道闸（⛔ 别因为「现在用不上」删掉）。</summary>
+        bool _loading;
+        /// <summary>原版 `AllianceSearchTab.onCreateTab` —— **上次停在哪张表**（`Initialize` 按它恢复）。
+        /// `false` = `Join`（`joinAllianceMenu`）· `true` = `Create`（`createAllianceMenu`）。
+        /// 三个写点逐句照原版：`ShowJoinAllianceMenu` ⇒ false · `ShowCreateAllianceMenu` ⇒ true ·
+        /// `HandleDisplayAlliance` ⇒ false（`out_cpp2il_dev_ilspy/AllianceSearchTab.cs:150-235`）。</summary>
+        bool _onCreateTab;
+        /// <summary>`Open Alliances` 那一格「搜索」圆钮的 `WindowButton`（要按原版把
+        /// `searchButton.interactable` 在取数期间置假：`JoinAllianceMenu__FillOpenAlliances.c:1189/1203`）。</summary>
+        WindowButton _searchBtn;
+
+        /// <summary>自检读口：上次停在哪张表（`false` = `Join` / `true` = `Create`）。</summary>
+        public bool OnCreateTab { get { return _onCreateTab; } }
+
         public void Build()
         {
             BuildHeader();
@@ -122,6 +144,27 @@ namespace CardPresentation
             BuildGeneralDetails();   // 🆕 A55②：未入盟支那一棵 `GeneralDetails`（出厂 act F）
             ShowJoin();          // 出厂：`Create Alliance View` act F ⇒ 默认是 Join 那一支
         }
+
+        /// <summary>= 原版 `AllianceSearchTab.Initialize()`（**逐句**，判据
+        /// `out_cpp2il_dev_ilspy/AllianceSearchTab.cs:150-183`）：`SetActive(true)`，然后**按
+        /// `onCreateTab` 恢复上次那张表** —— 假 ⇒ `joinButton.isOn = 1` + 四句 `SetActive` +
+        /// `joinAllianceMenu.Initialize()` + `onCreateTab = false`；真 ⇒ `createButton.isOn = 1` + 三句
+        /// `SetActive` + `createAllianceMenu.Initialize()` + `onCreateTab = true`。
+        /// <para>🔴 **谁调它**：原版是 `AlliancesTab.ToFocus/Refresh`（每次进联盟页都重跑）。我们这一支
+        /// 由 <see cref="OnEnable"/> 触发 —— 同一件事（「联盟页被点亮时」），只是挂的钩子不同
+        /// （`AlliancesTab.cs` 不在本批白名单内，⛔ 没去改它）。**这就是「页签态记忆」的落地点**（账 68）。</para>
+        /// <para>⚠️ 未 `Build()` 之前（`AddComponent` 那一刻 GameObject 已激活 ⇒ `OnEnable` 会先跑一次）
+        /// 直接返回 —— 否则会对着 null 的 `_listView` 切显隐。</para></summary>
+        public void Initialize()
+        {
+            if (_listView == null) return;      // 还没 Build（见 <see cref="OnEnable"/>）
+            if (!_onCreateTab) ShowJoin();
+            else ShowCreate();
+        }
+
+        /// <summary>见 <see cref="Initialize"/>：原版由 `AlliancesTab.ToFocus/Refresh` 调，我们挂在这里。
+        /// 🔴 **幂等**：`Initialize` 只是「按记忆切一次显隐 + 重填一次」，重复跑不叠加任何东西。</summary>
+        void OnEnable() { Initialize(); }
 
         // ---------------------------------------------------------- 顶部两个页签键
 
@@ -216,28 +259,38 @@ namespace CardPresentation
         /// （`JoinAllianceMenu.Initialize` 的 `ShowLoading → GetGroupList → 回调首句 HideLoading`）。</para></summary>
         public void ShowJoin()
         {
-            WithLoading(() =>
-            {
-                if (_listView != null) _listView.gameObject.SetActive(true);
-                if (_createView != null) _createView.gameObject.SetActive(false);
-                if (_detail != null) _detail.gameObject.SetActive(false);
-                SetJoinLabel(LabelJoin);
-                SwapTabArt(0);
-                // 原版 `JoinAllianceMenu.Initialize()` → `GetGroupList` 回调里 `ReloadData()` 那一步
-                // （本地数据同步 ⇒ 就是一次「清空重填」）。
-                if (_openList != null) RebuildOpenAlliances();
-            });
+            if (_listView != null) _listView.gameObject.SetActive(true);
+            if (_createView != null) _createView.gameObject.SetActive(false);
+            if (_detail != null) _detail.gameObject.SetActive(false);
+            SetJoinLabel(LabelJoin);
+            SwapTabArt(0);
+            _onCreateTab = false;        // 原版 `ShowJoinAllianceMenu` 末句
+            // 原版 `ShowJoinAllianceMenu` → `joinAllianceMenu.Initialize()` → **`FillGroupInvitations()`**
+            // （`JoinAllianceMenu__Initialize.c` 的方法体与 `FillGroupInvitations` 逐句相同）。
+            // 🔴 **2026-10-27（E9 · 账 410）就地订正（铁律 5）**：本处原来包着 `WithLoading(...)` 且重填的是
+            //   **公开联盟列** —— 两处都不对：
+            //   ① 判据：`FillGroupInvitations` **没有** `ShowLoading/HideLoading`（那两句只在
+            //      `FillOpenAlliances`：`JoinAllianceMenu.cs:1189/1203`，且它的回调首句才 `HideLoading`）
+            //      ⇒ 进 Join 页**不转圈**，只有点「搜索」圆钮才转。旧注释「Initialize 的 ShowLoading → …」
+            //      是把 `FillOpenAlliances` 那一段读到了 `Initialize` 头上。
+            //   ② 判据：`Initialize` 重填的是**邀请列**（`FetchGroupInvitations`），公开列由**搜索钮**
+            //      （`JoinAllianceMenu.OnEnable` 挂的 `FillOpenAlliances`）填 ⇒ 我们照做。
+            FillInvitations();
         }
 
         /// <summary>`ShowCreateAllianceMenu` —— 切到 `Create Alliance View`（并**出声**：建盟要服务器）。
         /// 🆕 A55②：原版那一段也**关掉 `allianceView`**（`SetActive(*(param_1 + 0x48), 0)`，
-        /// 就在 `SetActive(createAllianceMenu, 1)` 之前）⇒ 我们照做。</summary>
+        /// 就在 `SetActive(createAllianceMenu, 1)` 之前）⇒ 我们照做。
+        /// <para>🔴 **2026-10-27（E9 · 账 70）**：原版 `ShowCreateAllianceMenu`（`AllianceSearchTab.cs:186-200`）
+        /// **不碰 `joinButtonText`** —— 我们从详情态（`joinButtonText` 已被换成 `Back`）切过来时，
+        /// 原来那句 `SetJoinLabel(LabelJoin)` 会把它改回 `Join` = **多改了一次**。已删；
+        /// 只有 `ShowJoinAllianceMenu`（:210-231）与 `Initialize` 的 Join 支才写那一格。</para></summary>
         public void ShowCreate()
         {
             if (_listView != null) _listView.gameObject.SetActive(false);
             if (_createView != null) _createView.gameObject.SetActive(true);
             if (_detail != null) _detail.gameObject.SetActive(false);
-            SetJoinLabel(LabelJoin);
+            _onCreateTab = true;         // 原版 `ShowCreateAllianceMenu` 末句（`Initialize` 靠它恢复）
             SwapTabArt(1);
             Say("`Create` 页：原版这一步是向服务器**建一个联盟**（`CreateAllianceMenu` 的 `createButton`）——"
               + "本地没有服务器 ⇒ **表填不了、盟也建不了**，按下去的钮会如实出声。");
@@ -313,6 +366,7 @@ namespace CardPresentation
             if (_detail != null) _detail.gameObject.SetActive(true);
             ShowTabArtNone();
             SetJoinLabel(LabelBack);
+            _onCreateTab = false;        // 原版 `HandleDisplayAlliance` 末句（判据 :270）
             if (_detailName != null) _detailName.SetText(allianceName ?? "");
             Say("看联盟详情：原版走 `AlliancesController.GetGroupById`（**服务器**）拿整个 group，再 "
               + "`AllianceView.Draw(group)` 填徽标 / 两个评级 / 简介 / 成员列。本地**只填得起盟名**"
@@ -380,11 +434,17 @@ namespace CardPresentation
             // 🔴 **2026-10-20（W58·D4）**：原版这一颗的点击 = `JoinAllianceMenu.OnEnable` 挂的
             //   `FillOpenAlliances`（`JoinAllianceMenu__FillOpenAlliances.c:29`）⇒ **`ShowLoading()` → 取数重填 →
             //   回调第一句 `HideLoading()`**（`…b__0.c:30`）。本地同步 ⇒ 同帧收尾、视觉 0 帧（见 `WithLoading`）。
-            Hit(go, "GoHit", SearchGoR, L_Hit, () =>
+            var goHit = Hit(go, "GoHit", SearchGoR, L_Hit, () =>
             {
-                WithLoading(RebuildOpenAlliances);      // 原版 `FillOpenAlliances` 本身也是「清空重填」
+                // 🆕 2026-10-27（E9 · 账 408④）：原版 `FillOpenAlliances` 的头尾两句
+                // `searchButton.interactable = false` / `= true`（`JoinAllianceMenu.cs:1189/1203`）
+                // —— 取数期间这颗钮**不可点**（我们的取数是同步的 ⇒ 同一个调用栈里关掉又开回来）。
+                if (_searchBtn != null) _searchBtn.Interactable = false;
+                try { WithLoading(RebuildOpenAlliances); }   // 原版 `FillOpenAlliances` 本身也是「清空重填」
+                finally { if (_searchBtn != null) _searchBtn.Interactable = true; }
                 Say("搜索联盟：要**服务器**（原版走 `JoinAllianceMenu.searchButton` 的 `GetGroupList`）。");
             }, goQ, "40k_general_bt_yellow");
+            _searchBtn = goHit != null ? goHit.GetComponent<WindowButton>() : null;
 
             // `List Area`（VLG spacing 25）→ `Invitations` / `Open Alliances`
             var area = Node(_listView, "List Area", new PxRect(361.00f, 252.29f, 1874.90f, 1079.77f));
@@ -404,7 +464,10 @@ namespace CardPresentation
             _invList = Node(inv, "List", InvListR);
             // ⚠️ `Invitations` 这一列**原版不是滚动区**（树里没有 `ScrollRect`/`Mask`，只有 `List` 的 VLG）
             //    ⇒ 这一处 `sc` 传 **null**：不偏移、不裁（照原版）。
-            BuildRows(_invList, InvListR, SocialData.Invitations.Count, BuildInvitationRow, null, InvRowGap);
+            _invNode = inv;
+            // 🆕 2026-10-27（E9 · 账 407/410）：改走 `FillInvitations()` —— 它带原版那三件事
+            //   （重入守卫 `if (loading) return` · 空表把**整颗 `Invitations` 关掉** · `MemberCount > 0` 过滤）。
+            FillInvitations();
 
             var open = Node(area, "Open Alliances", new PxRect(360.99f, 277.29f, 1874.90f, 1079.77f));
             // 🔴 **2026-10-18（第六轮）：字走 `Loc.T`** —— 键 = 原版那颗 `Title` 的 `Localize.mTerm` 原文
@@ -428,16 +491,82 @@ namespace CardPresentation
             _openScroll.OnChanged = RebuildOpenAlliances;             // 滚轮只改 `Offset`、**画是调用方的事**
             SocialPage.RegisterScroll(_openScroll);                    // 指针层要认识它，滚轮才落得到这一格上
             _openList = Node(vp, "List", OpenListR);
-            BuildRows(_openList, OpenListR, SocialData.OpenAlliances.Count, BuildAllianceListRow, _openScroll,
-                      OpenRowGap);
+            // 🆕 2026-10-27（E9 · 账 408）：改走 `RebuildOpenAlliances()` —— 过滤（`MemberCount > 0`）与
+            //   截断（`Take(200)`）都在它里面（与「清空重填」同一条路，⛔ 别在这里另写一遍条数）。
+            RebuildOpenAlliances();
+        }
+
+        /// <summary>= 原版 `JoinAllianceMenu.FillGroupInvitations()`（**逐句**，判据
+        /// `out_cpp2il_dev_ilspy/JoinAllianceMenu.cs:871-1030` ＋ `JoinAllianceMenu__FillGroupInvitations.c`）：
+        /// ① `if (loading) return; loading = true;`（重入守卫）
+        /// ② `invitationList.SetActive(false)` + `DestroyAllChildren(invitationHolder)`（清空）
+        /// ③ 回调首句 `loading = false`，然后 `invitationList.SetActive(invitations.Count != 0)`
+        ///    —— **空表整颗关掉**（账 407①）
+        /// ④ 逐条 `predicate = x =&gt; x.group != null &amp;&amp; x.group.MemberCount &gt; 0` 过滤后再建行（账 407②）
+        /// <para>⚠️ 原版那两个表是**异步**的（`AlliancesManager.FetchGroupInvitations(cb)`），我们是同步的
+        /// ⇒ ②③④ 落在**同一个调用栈**里、视觉 0 帧（与 `WithLoading` 那条口径同族）。</para></summary>
+        void FillInvitations()
+        {
+            if (_loading) return;        // ① 重入守卫
+            _loading = true;
+            try
+            {
+                if (_invNode != null) _invNode.gameObject.SetActive(false);      // ②
+                if (_invList != null)
+                    for (int i = _invList.childCount - 1; i >= 0; i--)
+                        SocialWindow.DestroySafe(_invList.GetChild(i).gameObject);
+
+                // ③+④ 过滤（原版 `_003CFillGroupInvitations_003Eb__22_1`）
+                var src = SocialData.Invitations;
+                int n = 0;
+                for (int i = 0; i < src.Count; i++)
+                    if (src[i] != null && src[i].Members > 0) n++;     // `group != null && MemberCount > 0`
+                if (_invNode != null) _invNode.gameObject.SetActive(n != 0);
+
+                // 行按 `InvRowGap`（= 10）从 `InvListR` 顶边往下排 —— 与 `BuildRows` 同一套算式
+                // （这一列**不是**滚动区 ⇒ 不偏移、不裁，`sc` 那一支整段不适用）。
+                int k = 0;
+                for (int i = 0; i < src.Count; i++)
+                {
+                    var m = src[i];
+                    if (m == null || m.Members <= 0) continue;
+                    float y = InvListR.y1 + k * (RowH + InvRowGap);
+                    BuildInvitationRow(_invList, new PxRect(InvListR.x1, y, InvListR.x2, y + RowH), m);
+                    k++;
+                }
+            }
+            finally { _loading = false; }    // 原版：回调首句 `loading = false`（这里同步 ⇒ finally）
         }
 
         /// <summary>滚轮改了偏移 ⇒ 重画公开联盟那一列（**先清再建**，回调会重入 —— 同 `ForgeTab.BuildRewardCells` 那条）。
-        /// 数据变了也走它（原版 `FillOpenAlliances` 就是「清空重填」）。**自检的 `RebuildForTest` 也走它** —— 同一条路。</summary>
+        /// 数据变了也走它（原版 `FillOpenAlliances` 就是「清空重填」）。**自检的 `RebuildForTest` 也走它** —— 同一条路。
+        /// <para>🆕 2026-10-27（E9 · 账 408）：补上原版 `FillOpenAlliances` 的两道**数据侧**判定（判据
+        /// `out_cpp2il_dev_ilspy/JoinAllianceMenu.cs:1196-1235`）：
+        /// ① `Where(a =&gt; a != null &amp;&amp; a.MemberCount &gt; 0)`（`_003CFillOpenAlliances_003Eb__23_1`）；
+        /// ② `Take(200)`（:860）。③ 搜索串过滤 `name.Contains(searchText)` **本地没有输入系统**
+        /// （原版 `searchInput.m_Text`；我们的搜索框点下去只出声）⇒ 等价于**搜索串恒空**
+        /// （空串那一支原版也不过滤），如实记，⛔ 不编一个输入源。</para></summary>
         void RebuildOpenAlliances()
         {
-            BuildRows(_openList, OpenListR, SocialData.OpenAlliances.Count, BuildAllianceListRow, _openScroll,
-                      OpenRowGap);
+            var rows = OpenAllianceRows();
+            BuildRows(_openList, OpenListR, rows.Count,
+                      (l, r, i) => BuildAllianceListRow(l, r, rows[i]), _openScroll, OpenRowGap);
+        }
+
+        /// <summary>原版 `FillOpenAlliances` 过滤 + 截断之后的**那一份**（见 `RebuildOpenAlliances` 的 doc）。
+        /// `const 200` = `Enumerable.Take(source, 200)` 的字面量（`JoinAllianceMenu.cs:860`）。</summary>
+        System.Collections.Generic.List<SocialData.AllianceListing> OpenAllianceRows()
+        {
+            const int MaxOpen = 200;
+            var src = SocialData.OpenAlliances;
+            var rows = new System.Collections.Generic.List<SocialData.AllianceListing>(src.Count);
+            for (int i = 0; i < src.Count; i++)
+            {
+                if (rows.Count >= MaxOpen) break;
+                var m = src[i];
+                if (m != null && m.Members > 0) rows.Add(m);
+            }
+            return rows;
         }
 
         /// <summary>自检用：喂了数据之后重画（= 原版 `FillOpenAlliances` 那条路）。**只给自检**。</summary>
@@ -493,21 +622,35 @@ namespace CardPresentation
 
         /// <summary>邀请行（原版 `AllianceInvitationEntry`，§A·2·1 的独立根 `-5586301021970909275`）。
         /// 尾部两个钮的文案是 **`Join` + `Dismiss`**（节点名却叫 `Reject`）。</summary>
-        void BuildInvitationRow(Transform list, PxRect r, int i)
+        void BuildInvitationRow(Transform list, PxRect r, SocialData.Invitation m)
         {
-            var m = SocialData.Invitations[i];
             var row = Node(list, "Invitation List Entry", r);
             RowBase(row, r, "background");
-            var bd = Node(row, "BadgeDrawer", new PxRect(r.x1 + 18.80f, r.y1 + 10.00f, r.x1 + 108.80f, r.y1 + 100.00f));
-            Node(bd, "Frame", new PxRect(r.x1 + 18.80f, r.y1 + 10.00f, r.x1 + 108.80f, r.y1 + 100.00f));
-            Node(bd, "Badge", new PxRect(r.x1 + 18.80f, r.y1 + 10.00f, r.x1 + 108.80f, r.y1 + 100.00f));
+            var bdr = new PxRect(r.x1 + 18.80f, r.y1 + 10.00f, r.x1 + 108.80f, r.y1 + 100.00f);
+            var bd = Node(row, "BadgeDrawer", bdr);
+            // 🔴 **2026-10-28（B88-B7 · 账 14①）**：`Frame` / `Badge` 两层**画出来了**（此前是两个空节点）。
+            //   判据 = `AllianceInvitationEntry__Initialize.c:82-84`：
+            //     `badgeDrawer.Draw(Group__get_Badge(alliance))` ⇒ 先按 `GroupBadge.tierLevel` 取档位框
+            //     （`Math.Max(0, tier-1)` → `Alliance_Trophies_TIER1..4`），再画徽章（`AllianceBadge.uniqueId` → sprite）。
+            //   id→图 映射 = `AllianceBadgeArt`（16 份 SO 全解出，判据 `B88_R8_安卓包徽章挖掘.md` §二）；
+            //   行数据没有 id 时走**原版同一条回落**（`DefaultTrophy` = `Default_Badge`），⛔ 不是我们编的图。
+            if (AllianceBadgeArt.DrawTierFrame(bd, bdr, m.BadgeTier, "Frame", Page.Q + QOff + L_Art) == null)
+                Node(bd, "Frame", bdr);
+            if (AllianceBadgeArt.Draw(bd, bdr, m.BadgeId, "Badge", Page.Q + QOff + L_Art + 1) == null)
+                Node(bd, "Badge", bdr);
             RowTexts(row, r, m.Name, m.Region, m.Members, m.MemberMax, m.Rating, 4.50f);
             // 两个钮（我方 `+393.8` / 邀请方 `+603.8`，都 200×57）
             // 🔴 **2026-10-18（第八轮）**：这颗钮的**文案**走词条（与上面那颗页签**同一条键**
             //   `SocialMenu/Alliances/Join` —— 6 颗里就含列表行这两颗，父链 = `Button Text < Join <
             //   Invitation List Entry < …`）。⛔ 第 3 实参那个**节点名 `"Join"` 不动**。
+            // 🔴 **2026-10-27（E9 · 账 14②）**：`joinButton.interactable = MemberCount < config.maxMemberCount`
+            //    （判据 `AllianceInvitationEntry__Initialize.c` 的 `Selectable__set_interactable(lVar3, iVar4 < *(int*)(lVar5+0x10))`；
+            //    `lVar5` = `ConfigManager.GetConfig<AlliancesConfig>()`、`+0x10` 就是 `maxMemberCount`）。
+            //    ⚠️ 行上的 `MemberMax` 印的就是那个 `maxMemberCount`（`memberCountText = "{MemberCount}/{max}"`）
+            //    ⇒ 用行上的两份数据比即可，⛔ 不另引一份配置。
             RowButton(row, r, 1046.30f, 24.46f, "Join", Loc.T("SocialMenu/Alliances/Join"), () => Say(
-                "`Join`（接受邀请）：要**服务器**（原版 `AllianceInvitationEntry.HandleJoin`）。"));
+                "`Join`（接受邀请）：要**服务器**（原版 `AllianceInvitationEntry.HandleJoin`）。"),
+                interactable: m.Members < m.MemberMax);
             // 🔴 **2026-10-18（第十轮 · B 类）**：这颗钮的**文案**走词条（只换第 4 实参）——
             //   键 = 原版那颗 `Reject/Button Text` 的 `Localize.mTerm` 原文 `SocialMenu/Alliances/Dismiss`
             //   （3 颗同键；父链 = `Button Text < Reject < Invitation List Entry < List < Invitations < List Area
@@ -532,19 +675,34 @@ namespace CardPresentation
 
         /// <summary>公开联盟行（原版 `AllianceListEntry`，§A·2·2 的独立根 `471114273799851884`）。
         /// 与邀请行同构，只是尾部换成**一个** `Join`。</summary>
-        void BuildAllianceListRow(Transform list, PxRect r, int i)
+        void BuildAllianceListRow(Transform list, PxRect r, SocialData.AllianceListing m)
         {
-            var m = SocialData.OpenAlliances[i];
             var row = Node(list, "Entry", r);
             RowBase(row, r, "background");
-            var bd = Node(row, "BadgeDrawer", new PxRect(r.x1 + 18.80f, r.y1 + 10.00f, r.x1 + 108.80f, r.y1 + 100.00f));
-            Node(bd, "Frame", new PxRect(r.x1 + 18.80f, r.y1 + 10.00f, r.x1 + 108.80f, r.y1 + 100.00f));
-            Node(bd, "Badge", new PxRect(r.x1 + 18.80f, r.y1 + 10.00f, r.x1 + 108.80f, r.y1 + 100.00f));
+            var bdr = new PxRect(r.x1 + 18.80f, r.y1 + 10.00f, r.x1 + 108.80f, r.y1 + 100.00f);
+            var bd = Node(row, "BadgeDrawer", bdr);
+            // 🔴 **2026-10-28（B88-B7 · 账 21①）**：同邀请行 —— 两层画出来。判据 =
+            //   `AllianceListEntry__Initialize.c:80-81`：`badgeDrawer.Draw(Group__get_Badge(group))`。
+            //   （映射与回落见 `AllianceBadgeArt`。）
+            if (AllianceBadgeArt.DrawTierFrame(bd, bdr, m.BadgeTier, "Frame", Page.Q + QOff + L_Art) == null)
+                Node(bd, "Frame", bdr);
+            if (AllianceBadgeArt.Draw(bd, bdr, m.BadgeId, "Badge", Page.Q + QOff + L_Art + 1) == null)
+                Node(bd, "Badge", bdr);
             RowTexts(row, r, m.Name, m.Region, m.Members, m.MemberMax, m.Rating, 4.50f);
             // 🔴 **2026-10-18（第八轮）**：同上（与页签那颗 `Join` **同一条键**；父链 = `Button Text < Generic UI Button
             //   < Entry < List < Viewport < Open Alliances < …`）。⛔ 节点名 `"Generic UI Button"` 不动。
-            RowButton(row, r, 1188.00f, 21.18f, "Generic UI Button", Loc.T("SocialMenu/Alliances/Join"), () => Say(
-                "`Join`（加入这个联盟）：要**服务器**（原版 `AllianceListEntry.TryJoin`）。"));
+            // 🔴 **2026-10-27（E9 · 账 21）**：`AllianceListEntry.Initialize`（`out_cpp2il_dev_ilspy/AllianceListEntry.cs:224-300`）
+            //   那两句：
+            //   ① `joinButton.interactable = (privacy == GroupPrivacy.Open) && MemberCount < maxMemberCount`
+            //      —— 非 Open 直接 false；Open 时再比人数（`GroupPrivacy`：`Open = 0 / Private = 1` 实读）。
+            //   ② `privacy == Private` ⇒ `joinButton.text.text = GetTranslation("SocialMenu/Alliances/Privacy/Private")`
+            //      —— **这颗钮的字被换成「Private」**（不是仍然印 `Join`）。词条已在官方表里（现读命中）。
+            bool openForJoin = m.Privacy == 0 && m.Members < m.MemberMax;
+            string joinText = m.Privacy == 1 ? Loc.T("SocialMenu/Alliances/Privacy/Private")
+                                             : Loc.T("SocialMenu/Alliances/Join");
+            RowButton(row, r, 1188.00f, 21.18f, "Generic UI Button", joinText, () => Say(
+                "`Join`（加入这个联盟）：要**服务器**（原版 `AllianceListEntry.TryJoin`）。"),
+                interactable: openForJoin);
             // 🆕 2026-10-04（A55②）：**点公开列表里的某个盟 → 看它的详情**那一态（原版
             // `AllianceListEntry.HandleInfo` → `OnInfoClick` → `JoinAllianceMenu.OnDisplayAlliance`
             // → `AllianceSearchTab.HandleDisplayAlliance`）。
@@ -571,6 +729,16 @@ namespace CardPresentation
         {
             var nameR = new PxRect(r.x1 + 133.55f, r.y1 + 4.50f, r.x1 + 639.03f, r.y1 + 57.50f);
             var regionR = new PxRect(r.x1 + 133.55f, r.y1 + 58.36f, r.x1 + 639.03f, r.y1 + 102.94f);
+            // 🔴 **2026-10-27（E9 · 顺手发现，铁律 14 当场消化）**：原版两族行的 `regionText` **不是原样印**，
+            //   走的是词条 `"SocialMenu/Alliances/Language/" + region`（判据：
+            //   `AllianceInvitationEntry.Initialize` 的 `System_String__Concat(DAT_1842533b0, *(…+0x48))` +
+            //   `I2_Loc_LocalizationManager__GetTermTranslation`；`AllianceListEntry.Initialize` 同一句，
+            //   `out_cpp2il_dev_ilspy/AllianceListEntry.cs:238-245`）。词根那份表 = `SocialData.GroupLanguages`
+            //   （14 个值的枚举名）。官方表里 `Language/{Global,English,…,Turkish}` **14 条全在**（现读命中）
+            //   ⇒ 数据侧照原版填枚举名（`"Global"` / `"English"` …）时显示的就是译文。
+            //   ⚠️ 空串**不拼键**（原版 `group.region` 不会空；拼了会印出键名 = 静默丑）。
+            string regionText = string.IsNullOrEmpty(region)
+                ? "" : Loc.T("SocialMenu/Alliances/Language/" + region);
             var ratingR = new PxRect(r.x1 + 941.86f, r.y1 + 53.00f, r.x1 + 1024.55f, r.y1 + 106.90f);
             var lbName = Text(row, nameR, name ?? "",
                  Color.white, "Title", 55.9f, L_Text, 18f, wrap: true, alignLeft: true,
@@ -578,7 +746,7 @@ namespace CardPresentation
             // 🆕 **2026-10-16（A712 阶段 2）**：纵向那一半 —— 原版 `m_VerticalAlignment = 4096 (Midline)`
             //   （判据 = 上面那条 dump 的 `对齐=Left/Midline`；A323 只落了**横向**那一半）。
             MenuDraw.SetVAlign(lbName, Label.VAlign.Midline, nameR);
-            var lbRegion = Text(row, regionR, region ?? "",
+            var lbRegion = Text(row, regionR, regionText,
                  new Color(0.906f, 0.906f, 0.906f, 1f), "Region", 47.05f, L_Text, 18f, wrap: true, alignLeft: true,
                  autoMaxPx: 72f, autoBasePx: 36f);   // A323：原版 `Left/Midline`；A414（表 #6）`auto[18~72] 基准=36.0`
             MenuDraw.SetVAlign(lbRegion, Label.VAlign.Midline, regionR);
@@ -619,8 +787,12 @@ namespace CardPresentation
             MenuDraw.SetVAlign(lbRating, Label.VAlign.Midline, ratingR);   // A712 阶段 2：原版 `Left/Midline` 的纵向那一半
         }
 
-        /// <summary>行尾那颗钮（`40K_button` 489×107 · 九宫 (234,46,234,46) · preserveAspect）。</summary>
-        void RowButton(Transform row, PxRect r, float x1, float y1, string name, string text, System.Action onClick)
+        /// <summary>行尾那颗钮（`40K_button` 489×107 · 九宫 (234,46,234,46) · preserveAspect）。
+        /// <paramref name="interactable"/> = 原版 `Selectable.interactable`（两款行族各自的判据见两个调用点）。
+        /// 🔴 **必须排在 `BindNine` 之后**（`WindowButton.Interactable` 的 doc：`Bind` 之前调会缓存一个空表 ⇒
+        /// 这颗钮以后永远不变色，静默）。</summary>
+        void RowButton(Transform row, PxRect r, float x1, float y1, string name, string text, System.Action onClick,
+                       bool interactable = true)
         {
             var br = new PxRect(x1, r.y1 + y1, x1 + 200f, r.y1 + y1 + 57f);
             var n = Node(row, name, br);
@@ -642,7 +814,11 @@ namespace CardPresentation
             // —— 底图是**九宫格** ⇒ 九张一起换
             var h = Hit(n, "Hit", br, L_Hit, onClick);
             var wb = h != null ? h.GetComponent<WindowButton>() : null;
-            if (wb != null) wb.BindNine(bgNine, "40K_button");
+            if (wb != null)
+            {
+                wb.BindNine(bgNine, "40K_button");
+                if (!interactable) wb.Interactable = false;   // ⛔ 必须在 BindNine 之后（见 doc）
+            }
         }
 
         // ---------------------------------------------------------- `Create Alliance View`（`CreateAllianceMenu`）

@@ -250,10 +250,10 @@ namespace CardPresentation
                              + "我们按 NotAvailable 处理（判据 `LiveOpsEventData.GetState`）");
                 return LiveOpState.NotAvailable;
             }
-            if (LiveOpsEventTimeData.FromMs(d.FinalDate) < utcNow) return LiveOpState.Expired;
-            if (LiveOpsEventTimeData.FromMs(d.endDate) < utcNow) return LiveOpState.Finished;
-            if (LiveOpsEventTimeData.FromMs(d.startDate) < utcNow) return LiveOpState.Active;
-            return LiveOpsEventTimeData.FromMs(d.InitialDate) < utcNow ? LiveOpState.OnPreview : LiveOpState.Planned;
+            // 🔴 六档只在 `LiveOpsStateMachine.Compute` 一处实现（⛔ 别在这里再写一遍）。顺序：
+            // NotAvailable → Permanent/OneTime 短路 Active → Expired(FinalDate) → Finished(endDate) → Active(startDate) → OnPreview/Planned；全严格小于。
+            return LiveOpsStateMachine.Compute(enabled, activationType, d.startDate, d.endDate,
+                                               d.expirable, d.expireDate, d.previewable, d.previewDate, utcNow);
         }
 
         /// <summary>原版 `LiveOpsEventData.IsActive(currentDatetime, includePlanned=false)`（**逐条照抄**）：
@@ -268,13 +268,13 @@ namespace CardPresentation
         /// ⚠️ 我们旧口径 `LiveOpsLocalEvent.IsInPeriod` = `start ≤ now &lt; end`，**与这条不等价**（见账里差异列）。</summary>
         public bool IsActive(DateTime utcNow, bool includePlanned = false)
         {
-            if (!enabled) return includePlanned;
-            LiveOpState s = GetState(utcNow);
-            if (!includePlanned || s != LiveOpState.Planned)
-            {
-                if ((uint)(s - 2) > 1u) return s == LiveOpState.OnPreview;
-            }
-            return true;
+            // 🔴 「Finished 也算 active」那条只在 `LiveOpsStateMachine.ComputeIsActive` 一处实现：
+            //   `!enabled ⇒ includePlanned`；`(includePlanned && s == Planned) ⇒ true`；
+            //   `s ∈ {Active, Finished} ⇒ true`（`(uint)(s-2) > 1u` 为假 ⇒ 落到 return true）；
+            //   `s == OnPreview ⇒ true`；`Expired` / `NotAvailable` ⇒ false。
+            // 消费者（原版）：`ShopStore.cs:372` 用 `(now,false)`；`FixedStoreData.cs:72,139` 用 `(now,true)`。
+            // ⚠️ 与 `LiveOpsLocalEvent.IsActive` 共用同一实现（`LiveOpsStateMachine.ComputeIsActive`）。
+            return LiveOpsStateMachine.ComputeIsActive(enabled, includePlanned, GetState(utcNow));
         }
     }
 
@@ -714,7 +714,7 @@ namespace CardPresentation
             {
                 // 原版这一跳在「GetComponentReference 拿不到 / 引用无效」时 LogError 后 return（不开窗）。同义。
                 Debug.LogError("[LiveOps] 活动 '" + (GetID() ?? "<null>") + "' 的 OpenWindow()：label=" + label
-                             + " 的组件引用解析不到（本地只解到 `EventComponents` 的 GUID、没解到 prefab 名）"
+                             + " 的组件引用解析不到（⚠️ 2026-10-27 更正：GUID→prefab 名本地**能解**，解析表在 `LiveOpsLocalBoot`；走到这里 = 该事件**确实没有这个 label 的组件**，或它的 prefab 不在本地表）"
                              + "或 `LiveOpsPopupPresenter` 没装 ⇒ **不开窗**（原版此支 = `CustomDebug.LogError` 后 return）");
             }
         }
@@ -1035,7 +1035,7 @@ namespace CardPresentation
     /// <para>判据 = `LiveOpsEvent.cs:97`：`new LiveopsMainMenuData(this, baseData.priority, EventComponentReferenceType.MainMenuContainer)`。
     /// 原版消费方 = `WindowsManager.OpenWindow(reference, this, …, data.mainMenuOptions)`（`OpenWindow()` 那一跳）。</para>
     /// <para>⚠️ 差异：原版这一格还牵着「主菜单容器 prefab 引用」（`MainMenuContainer` = 35 号的
-    /// `EventComponents` 引用）；我们**只解到 GUID、没解到 prefab 名**（`LiveOpsLocalCatalog.cs:38` 记的就是这条）
+    /// `EventComponents` 引用）；⚠️ 2026-10-27 更正：原来这里写「我们只解到 GUID、没解到 prefab 名」——**不成立**，GUID→prefab 名本地能解（`LiveOpsLocalCatalog.cs` 头部 + `判据/B88_P1两条判据.md` §3.3）
     /// ⇒ 这里只留**引用类型号**，没有可解析的 prefab。
     /// 🔶 自己设计（非原版）：把「引用类型号」存成 `int ComponentKey` 而不是 `EventComponentReferenceType` 枚举，
     /// 是因为那个枚举在我们仓库里叫 `LiveOpsComponentRef`（`LiveOpsLocalCatalog.cs:136`，逐值照官方枚举）

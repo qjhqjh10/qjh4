@@ -26,7 +26,10 @@
 //       `activeAnim = true` → 按 `TutorialPointerActions` 起协程（`clickInPosition = 0` / `clickAndHold = 1` /
 //       `clickAndDrag = 2`）。
 //     · `ClickInPosition`：**loop**{ `ShowStartingPointer` → `WaitForSeconds(waitBeforeClick)` →
-//       `ShowClickedPointer` → `WaitForSeconds(waitAfterClick)` }，每轮校验 `animCount` 未变。
+//       `ShowClickedPointer` → `WaitForSeconds(waitAfterClick)` }，每轮校验 `animCount` 未变。（**2 拍 / 1.0s**）
+//     · `ClickAndHold`：**4 拍 / 2.0s** —— 起手 0.5 → 点击 0.5 → **再等 0.5 并 `Instantiate(clickAnim)`** →
+//       **再等 0.5 并 `Instantiate(clickAnim)`** → 回首（`_ClickAndHold_d__24__MoveNext.c` state0→4 逐拍现读）。
+//       `clickAnim` 为 null 只抹掉那两下动画，**等待仍在** ⇒ 点击态占 1.5s（ClickInPosition 只占 0.5s）。
 //     · `ShowStartingPointer`：scale = **1**（`Vector3.one`）· 旋转 = 0（right）/ 180（left）·
 //       位置 = `clickPos + (±xOffset, yOffset)`（**left 时 xOffset 取反**）·
 //       `bgLight`（= `light` 子图）**alpha 置 0** · `pointer.SetActive(showPointer)`。
@@ -90,12 +93,36 @@ namespace CardPresentation
 
         /// <summary>原版 `TutorialPointerActions`（值照 dump：`clickInPosition = 0` / `clickAndHold = 1` / `clickAndDrag = 2`）。
         /// <para>判据（伪码可读 + 常量实读）：
-        /// · Hold：`ShowStartingPointer` → 等 `waitBeforeClick`(0.5) → `ShowClickedPointer` → 等 `waitAfterClick`(0.5) → 循环；
-        ///   与 ClickInPosition **可见行为相同**（差别只在 `clickAnim`，而本 prefab 的 `clickAnim = null` ⇒ 不实例化）。
+        /// · **Hold = 4 拍**（`TutorialPointer._ClickAndHold_d__24__MoveNext.c` state0→4：
+        ///   起手 `waitBeforeClick`(0.5) → 点击 `waitAfterClick`(0.5) → 第 3 拍(0.5) → 第 4 拍(0.5) → 回首），
+        ///   一轮 **2.0s**、其中点击态 **1.5s**。第 3/4 拍原版各 `Instantiate(clickAnim)` 一次，而
+        ///   **本 prefab 的 `clickAnim = null` ⇒ 那两拍只多等、不实例化**。
+        ///   🔴 **2026-10-27（B88-E7 · 铁律 5）就地订正**：本文原来写「Hold 与 ClickInPosition 可见行为相同，
+        ///   差别只在 clickAnim」——**不成立**：`clickAnim` 为 null 只抹掉了「多余的那两下动画」，
+        ///   **那两拍等待还在**（一轮 2.0s vs 1.0s、点击态占比 1.5s vs 0.5s）。
+        /// · ClickInPosition = **2 拍**（`d__23` state0→2）：起手 0.5 → 点击 0.5 → 循环。
         /// · Drag：起始指针 → 0.5s → **点击态停在起点** → `waitAfterClick × 0.5`（=0.25s，常量 `DAT_1834b2bb4 = 0.5`）
         ///   → `DOMove(endPos, moveDuration)`（Menu/Wildcards 的 `moveDuration = 0` ⇒ **瞬移**）
         ///   → 等 `moveDuration + 0.1`（`DAT_1834b2dc4 = 0.1`）→ 回到起点、循环。</para></summary>
         public enum PointerAction { ClickInPosition = 0, ClickAndHold = 1, ClickAndDrag = 2 }
+
+        /// <summary>一轮几拍（`ClickInPosition = 2` / `ClickAndHold = 4`；Drag 走自己的 `TickDrag`）。
+        /// 判据 = 两个协程状态机的状态数（见 <see cref="PointerAction"/> 的 doc）。</summary>
+        public static int BeatsOf(PointerAction a)
+        {
+            return a == PointerAction.ClickAndHold ? 4 : (a == PointerAction.ClickAndDrag ? 4 : 2);
+        }
+
+        /// <summary>一轮总时长（秒）—— 自检判据用：`ClickInPosition = 1.0` / `ClickAndHold = 2.0`。
+        /// ⚠️ Drag 的那三拍时序不同（第 2 拍是 `waitAfterClick × 0.5`），本属性只覆盖前两档。</summary>
+        public static float LoopSecondsOf(PointerAction a)
+        {
+            return WaitBeforeClick + (BeatsOf(a) - 1) * WaitAfterClick;
+        }
+
+        // ---- 自检读口（相位推进）
+        public float Phase { get { return _phase; } }
+        public bool InClickedPhase { get { return _phase >= 0.5f; } }
 
         /// <summary>缺图（自检读口 —— 非空就是「有件根本没画」）。</summary>
         public readonly List<string> MissingArt = new List<string>();
@@ -185,14 +212,18 @@ namespace CardPresentation
                 TickDrag();
                 return;
             }
-            // ClickInPosition / ClickAndHold：同一套两拍（见 PointerAction 的 doc：Hold 的差别只在 clickAnim=null）
+            // ClickInPosition = 2 拍 / ClickAndHold = 4 拍（判据 = 两个协程的状态数，见 PointerAction 的 doc）。
+            // 第 0 拍等 `waitBeforeClick`，其后每一拍都等 `waitAfterClick`；`_phase` 为 0 时是起手、>0 是点击态。
+            int beats = BeatsOf(_action);
             if (_phase <= 0.5f)
             {
                 if (_phaseT >= WaitBeforeClick) { _phase = 1f; _phaseT = 0f; ApplyPhase(); }
             }
-            else
+            else if (_phaseT >= WaitAfterClick)
             {
-                if (_phaseT >= WaitAfterClick) { _phase = 0f; _phaseT = 0f; ApplyPhase(); }
+                _phaseT = 0f;
+                _phase = (_phase < beats - 1) ? _phase + 1f : 0f;
+                ApplyPhase();
             }
         }
 

@@ -180,6 +180,9 @@ namespace CardPresentation
             public WindowButton InboxHit;
             /// <summary>`Challenge button`（`40K_icon_duel`，人形图标）。</summary>
             public WindowButton ChallengeHit;
+            /// <summary>🆕 2026-10-27（`B88_E3`）：那颗钮的节点（自检问「该显的时候显了吗」用；
+            /// 建不出来时是 `null`）。显隐判据 → `ChallengeEngine.Initialize()`。</summary>
+            public GameObject ChallengeRoot;
             /// <summary>`SettingsBtn`（齿轮）。</summary>
             public WindowButton SettingsHit;
 
@@ -271,7 +274,17 @@ namespace CardPresentation
             //   ⚠️ 我们原来把它建成**常显** —— 与同一排「`Feedback Button` 出厂 `False` ⇒ 不建」**自相矛盾**。
             //   主对话 2026-10-11 裁定：**两颗统一按「建、但出厂关着」**（结构与接线照原版留着，
             //   ⛔ 不删节点 —— 删了 `Editor/{MainMenuScene,DeckScene}.cs` 里按名字找它的断言会红）。
-            if (challenge != null) challenge.gameObject.SetActive(false);
+            // 🆕 2026-10-27（`B88_E3` · 账 24/25/28/29）：**改成按挑战引擎的判据显隐** ——
+            //   原版 `ChallengeButton.Initialize()` = `PendingPracticeMatches.Count > 0`（判据 →
+            //   `decomp_full/ChallengeButton__Initialize.c`），`OnSignalRaise` = 徽标信号来了重算，
+            //   `Toggle` = `SetActive(option)`。判据与数据在 `Shell/ChallengeEngine.cs` / `Shell/ChallengeData.cs`
+            //   （⛔ 本件**不重算**判据，只做「该显就 `SetActive`」那一跳）。
+            //   ⚠️ 出厂态**仍然是关**（本地没有挑战源 ⇒ `PendingCount == 0`），与上文 `A1523①` 的实况读数一致。
+            if (challenge != null)
+            {
+                parts.ChallengeRoot = challenge.gameObject;
+                WireChallengeButton(challenge.gameObject);
+            }
             // `Feedback Button`（`565.44..615.44 × 10.50..60.50` = **50×50** · sprite `40K_icon_feedback`）
             // 🔴 **2026-10-11（`A1522①`）：原版是【建了、但出厂关着】⇒ 照原版建、出厂关着**（同上面那一颗）。
             //   判据两条：① 表 `资料/主菜单_原版规格.md:96` 那一行的最后一格 = **出厂 `False`**（表 `:327`
@@ -311,6 +324,31 @@ namespace CardPresentation
         }
 
         // ============================================================ 接线
+
+        // ---- 🆕 2026-10-27（`B88_E3`）：挑战钮的**显隐视图半边**（原版 `ChallengeButton` 的 `Initialize`/`Toggle`）----
+        //  为什么在**本件**：宿主有两个（主菜单 / 卡组编辑），接两份 = 又回到「两份会漂」（本文件头 ①②）。
+        //  ⛔ 判据不在这里：`ChallengeEngine.Initialize()`（= `PendingPracticeMatches.Count > 0`）。
+        static GameObject _challengeRoot;
+        static Action<bool> _challengeApply;
+
+        /// <summary>把「挑战」钮接到挑战引擎：挂徽标总线（`ChallengeEngine.Attach` 幂等）＋
+        /// 订阅 `VisibleChanged` 做 `SetActive`。重复 Build 只保留一份订阅（先 `-=` 再 `+=`）。</summary>
+        static void WireChallengeButton(GameObject root)
+        {
+            _challengeRoot = root;
+            if (_challengeApply == null) _challengeApply = ApplyChallengeVisible;
+            ChallengeEngine.Attach();
+            ChallengeEngine.VisibleChanged -= _challengeApply;
+            ChallengeEngine.VisibleChanged += _challengeApply;
+            ChallengeEngine.Initialize();                     // 先算一次（出厂 = 关：本地 0 条待处理挑战）
+            ApplyChallengeVisible(ChallengeEngine.Visible);
+        }
+
+        static void ApplyChallengeVisible(bool v)
+        {
+            if (_challengeRoot != null) _challengeRoot.SetActive(v);
+        }
+
 
         /// <summary>给一格挂上 `WindowButton`（原版那一件上挂的是 `OpenWindowButton` / `EverguildButton`）。
         /// 建不出那格（缺图）⇒ 返回 `null`（调用方/自检能看出「这颗钮根本没画」）。

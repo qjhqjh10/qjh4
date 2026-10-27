@@ -87,7 +87,19 @@ public static class EngineClosedDeckAssert
         Eq(cd.maxLegendaries, 4, "A2 `maxLegendaries = 4` —— 原版【文案】`Up to 4 Legendaries`");
         Eq(cd.warlordLifeChange, -10, "A2 `warlordLifeChange = -10` —— 原版【文案】`10 less Health`");
         Eq(cd.manaPerTurn, 2, "A2 `manaPerTurn = 2` —— 原版【文案】`+2 Maximum Energy each turn`");
-        Eq(cd.startingManaSecond, 2, "A2 `startingManaSecond = 2` —— 【推断】（文案 `P1 3 Energy P2 4 Energy` 那 1 点差）");
+        // 🔶 自己设计（非原版断言口径）：原版服务端 `PlayEventData.gameplayVariables` 本地取不到 ⇒ **不再把
+        //   `startingManaSecond = 2` 这个【推断值】钉成断言**（拿自己的推断当判据 = 自证：将来若按官方文案改成
+        //   `startingManaSecond = 1 + addedManaSecond = 1`，旧断言会**主动拦住正确的改动**）。
+        //   改钉官方文案 `Event_Description/Skirmish/Help` 的**关系**：
+        //   `Player 1 starts at 3 Energy, Player 2 at 3+1 Energy` ⇒ ① P1 首回合 = 3 ② P2 首回合比 P1 多 1。
+        //   这条关系对两种分解都成立（`2,+0` 与 `1,+1`），因此**不偏向任何一种推断**。
+        //   判据全文 → 资料/完全复刻/报告/B88_J1_两条悬案裁定.md §悬案1。调度台 2026-10-27 裁定。
+        int p1FirstTurn = cd.startingMana + cd.manaPerTurn;
+        int p2FirstTurn = cd.startingManaSecond + cd.manaPerTurn + cd.addedManaSecond;
+        Ok(p1FirstTurn == 3, $"A2 遭遇**先手**首回合能量 = {p1FirstTurn}（官方文案 `Player 1 starts at 3 Energy`）");
+        Ok(p2FirstTurn == p1FirstTurn + 1,
+           $"A2 遭遇**后手**首回合能量 = {p2FirstTurn} = 先手 {p1FirstTurn} + 1（官方文案 `Player 2 at 3+1 Energy`）"
+         + " —— ⚠️ 只断**关系**，不断 `startingManaSecond` 的具体值（那一格是推断，见上面那段 🔶）");
         Eq(cd.showMulligan, false, "A2 `showMulligan = false` —— 原版【文案】`No mulligan`");
         Eq(cd.shouldReshuffle, false, "A2 `shouldReshuffle = false` —— 原版【文案】`No mulligan` 的同族推断");
         Eq(cd.handLimit, 8, "A2 `handLimit = 8` —— 【规则书:58，**非官方**】");

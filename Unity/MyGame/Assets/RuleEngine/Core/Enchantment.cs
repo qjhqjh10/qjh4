@@ -1280,5 +1280,96 @@ namespace RuleEngine
             return op.Source != null
                 && op.Source.IndexOf("when played", System.StringComparison.OrdinalIgnoreCase) >= 0;
         }
+
+        // ==============================================================================================
+        //  🆕 2026-10-27（B88 · 波 2 · 执行代理 `E2` · 账 1287）：**附魔触发的通用入口**
+        // ==============================================================================================
+
+        /// <summary>
+        /// **原版 `RawCardScript.TriggerEnchantment(manager, actingCard, targetCard, onlyEnchantments)`**
+        /// （🥇 `decomp_full/RawCardScript__TriggerEnchantment.c:1-22` 全文；ILSpy `RawCardScript.cs:1881-1897` 交叉）。
+        ///
+        /// <para>**原版逐句**：对**这张附魔卡的 `cardAbilities`** 连跑**两次** `TriggerAbilities` ——
+        /// ① `trigger = 0`（`ThisCardPlayed`）· ② `trigger = 500`（`TriggerEnchantment`）；
+        /// 两次都 `isEnchantment = 1`（🔴 `.c` 第 8 个实参是字面量 `1`；
+        /// ILSpy 那一份把该局部渲染成 `default`（= false）—— 这是**ILSpy 丢 `= true` 常量**的已知形态
+        /// （`CLAUDE.md` §三 同族三条），**以 `.c` 为准**）、`resolveOnlyEnchantments = param_5`、
+        /// 两次各新建一个空 `DamageInfo`（`actingCard` / `targetCard` 原样传，`cardPlayed` 传 `default`）。</para>
+        ///
+        /// <para>🔴 **它【不是】`Enchantments.OnCarrierPlayed`**（那是账 1287 的诊断要点，别混）：
+        /// `OnCarrierPlayed` 是 **DA42 专用**的硬编码（`Enchantment.cs:1190-1214`：写死「+3 任务点 +
+        /// 摘附魔」、按 `CardId + gainquest + when played` 三条闸认卡）。它长得像通用派发，
+        /// 实际只服务**一张卡的一种时机**。本方法才是「**拿任意附魔卡、按它的两条 trigger 派发**」的通用形状。</para>
+        ///
+        /// <para>**我们的两条 trigger 今天各有多少数据（现读，如实）**：</para>
+        /// <list type="bullet">
+        /// <item>**trigger 0**：附魔模板的 ability 在 `desc` 里**不写**（`Pray Enchantment` 的 `desc` 为空、
+        ///   DA42 模板 `e8cf1eb5…` 的两条 logic 是 `chosenAbility 60/340` 而不是文字）⇒ 我们这一侧
+        ///   **能拿到的只有 `EffectText.Parse(card.Desc)`**；模板卡 `desc` 空 ⇒ 这一跳**没有 op 可跑**。</item>
+        /// <item>**trigger 500**：全池 `abilities[].trigger == 500` **0 行**（`cards_truth.json` 现读）⇒
+        ///   `CardDef.TriggerOps(KeywordTable.TriggerEnchantment)` 恒 `null`。</item>
+        /// </list>
+        /// <para>⇒ 本方法**结构照抄**，并在「两跳都没东西可跑」时**出声**（⛔ 不静默空转、⛔ 不发明效果；
+        /// 本工程红线：不许让玩家以为它生效了）。**返回值** = 至少跑成了一跳。</para>
+        ///
+        /// <para>📊 **可达性**：原版两个调用点在我们引擎里**都不存在** ——
+        /// ① `BattleManager.ResolveEndTurnEnchantment`（教程关卡数据 `TutorialStage.playerTurnEndEnchantment`，
+        ///    我们没有战役教程关卡数据）；② `CardScript.cs:14810/14827` 的
+        ///    `activeAbility.loadingAbilityLogic.TriggerEnchantment(...)`（我们没有 `loadingAbilityLogic` 这一格）。
+        /// ⇒ 本入口今天 **0 调用点**（休眠机制，铁律 11：休眠也做）。</para>
+        /// </summary>
+        /// <param name="acting">原版 `actingCard`（谁让这条附魔响的）；可为 null。</param>
+        /// <param name="target">原版 `targetCard`；可为 null。</param>
+        /// <param name="onlyEnchantments">原版 `resolveOnlyEnchantments`（今天原版所有调用点传的都是 false）。</param>
+        public static bool TriggerEnchantment(BattleContext ctx, int owner, CardDef enchantmentCard,
+                                              UnitState acting = null, UnitState target = null,
+                                              bool onlyEnchantments = false)
+        {
+            if (ctx == null || enchantmentCard == null) return false;
+            string name = enchantmentCard.Name ?? "?";
+            bool any = false;
+
+            // ---- ① `trigger = 0`（ThisCardPlayed）：附魔卡自己 `desc` 里那一条正文 ----
+            var playOps = ParseEnchantOps(enchantmentCard);
+            if (playOps != null && playOps.Count > 0)
+            {
+                ctx.Log($"附魔触发：「{name}」跑 `trigger 0`（{playOps.Count} 条；原版 "
+                      + "`RawCardScript__TriggerEnchantment.c:12` 的第一次 `TriggerAbilities`）");
+                RuleCore.ResolveOps(ctx, owner, acting, playOps, "附魔触发(trigger 0):" + name,
+                                    seed: target ?? acting);
+                any = true;
+            }
+
+            // ---- ② `trigger = 500`（TriggerEnchantment）：卡面/数据里标了 500 的那一族 ----
+            var entOps = enchantmentCard.TriggerOps(KeywordTable.TriggerEnchantment);
+            if (entOps != null && entOps.Count > 0)
+            {
+                ctx.Log($"附魔触发：「{name}」跑 `trigger 500`（{entOps.Count} 条；原版 `.c:20` 的第二次 `TriggerAbilities`）");
+                RuleCore.ResolveOps(ctx, owner, acting, entOps, "附魔触发(trigger 500):" + name,
+                                    seed: target ?? acting);
+                any = true;
+            }
+
+            if (!any)
+            {
+                // ⛔ 不静默：这是「结构已复刻、数据今天没有」的**已知空转**，必须说出来。
+                ctx.Log($"（附魔触发：「{name}」的 `trigger 0` / `trigger 500` 两跳**都没有可跑的 op**"
+                      + "（模板卡 `desc` 为空、全池 `trigger == 500` 0 行）⇒ 原版这两跳今天在我们这边空转。"
+                      + "⚠️ DA42 那条链的 `trigger 0` 半走的是**专用的** `Enchantments.OnCarrierPlayed`，"
+                      + "不是本入口）");
+            }
+            return any;
+        }
+
+        /// <summary>
+        /// <see cref="TriggerEnchantment"/> 的 `trigger 0` 取数口：附魔卡 `desc` 解析出的 op。
+        /// 解析不了/没有正文 ⇒ 返回 `null`（⛔ 不返回空表冒充「跑过了」）。
+        /// </summary>
+        static List<EffectOp> ParseEnchantOps(CardDef card)
+        {
+            if (card == null || string.IsNullOrWhiteSpace(card.Desc)) return null;
+            var ops = EffectText.Parse(card.Desc, out _, out _, card: card);
+            return ops != null && ops.Count > 0 ? ops : null;
+        }
     }
 }

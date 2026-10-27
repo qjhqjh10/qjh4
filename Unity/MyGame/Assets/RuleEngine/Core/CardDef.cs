@@ -3322,12 +3322,12 @@ namespace RuleEngine
             if (RowsHaveChosenAbility(grp))
             {
                 string why = AttachByAbilityKind(grp, ops);
-                if (why == "attached") { ActiveAbilityMap = "attached"; return; }
+                if (why == "attached") { StampActiveRollPerTarget(grp, ops); ActiveAbilityMap = "attached"; return; }
                 // 种类配不上时，退回 v23 那一档「1 个对象 / 1 行 / 1 条 op」——
                 // 那一档与种类无关，**只有一种配对可能**，永远安全。
                 if (grp.Count == 1 && grp[0].LogicCount == 1 && ops.Count == 1
                     && AttachSingleActiveRow(grp[0], ops[0]))
-                { ActiveAbilityMap = "attached"; return; }
+                { StampActiveRollPerTarget(grp, ops); ActiveAbilityMap = "attached"; return; }
                 ActiveAbilityMap = why;
                 return;
             }
@@ -3337,6 +3337,7 @@ namespace RuleEngine
             var spec = grp[0];
             if (spec.LogicCount != 1 || ops.Count != 1) { ActiveAbilityMap = "gap:shape"; return; }
             if (!AttachSingleActiveRow(spec, ops[0])) { ActiveAbilityMap = "gap:no-ops"; return; }
+            StampActiveRollPerTarget(grp, ops);
             ActiveAbilityMap = "attached";
         }
 
@@ -6781,6 +6782,86 @@ namespace RuleEngine
             CardDescriptionTextReferenceId = refId;
         }
 
+        // ==================================================================
+        //  🆕 v36（2026-10-28 · 执行代理 `A1c`）：**逐行 `damageCriteria`**
+        // ==================================================================
+        //  判据 → `资料/完全复刻/判据/B88_R1_90档_逐卡施工单.md` §二·3 / §三·4。
+        //  用途只有一件：`valueOptions == 90 (RandomizedOnResolution)` 且 `damageType ∈ {5,10,12}`
+        //  ⇒ **逐目标掷**（原版掷点 = `CardScript__GetAdjustedDamage.c:23-30`，由
+        //  `BattleManager._ResolveMultiDamage_d__456__MoveNext.c:136` 在**逐目标循环**里调）。
+        //  ⚠️ 本类只**存**；判定只在 `RuleCore.StampRollPerTarget`（唯一判据，⛔ 别在别处再写一份）。
+
+        /// <summary>一行 `abilityLogic[].damageCriteria`（原版 `DamageCriteria`）。
+        /// 四格 `-1` = 缺键/坏值 —— ⛔ 不是 `0`（`0` 是合法取值：`valueOptions = Normal` /
+        /// `damageType = Normal` / `minDamage = 0`）。</summary>
+        public sealed class AbilityDamageSpec
+        {
+            /// <summary>`cardAbilities` 下标。</summary>
+            public int Ab = -1;
+            /// <summary>`abilityLogic` 下标。</summary>
+            public int Lg = -1;
+            /// <summary>原版 `damageCriteria.minDamage`。</summary>
+            public int Min = -1;
+            /// <summary>原版 `damageCriteria.maxDamage`。</summary>
+            public int Max = -1;
+            /// <summary>原版 `damageCriteria.valueOptions`（`0` 固定 / `80` `min+max×mult` / `90` 区间逐目标）。</summary>
+            public int ValueOptions = -1;
+            /// <summary>原版 `damageCriteria.damageType`（`5` / `10` / `12` = 随机三档，见 `GetAdjustedDamage.c:26` 的 `0x1420` 掩码）。</summary>
+            public int Type = -1;
+        }
+
+        AbilityDamageSpec[] _abilityDamage;
+
+        /// <summary>`abilityDamage` 列**来自 v36 卡表**的正面信号。`false` ⇒ 整列未知（旧表 / 手写夹具）
+        /// ⇒ 消费端一律**不**逐目标掷（= 与加这一列之前逐字相同）。</summary>
+        public bool HasAbilityDamage { get { return _abilityDamage != null; } }
+
+        /// <summary>由 `CardDatabase.Parse` 在**构造之后**挂载（与 `AttachCardTraits` 同族；
+        /// 理由 = `CardDef` 构造函数那 40 处账落点，⛔ 不往它上面加形参）。
+        /// `null` = 旧表（未知）⇒ 整列判不了。</summary>
+        public void AttachAbilityDamage(AbilityDamageSpec[] rows)
+        {
+            _abilityDamage = rows ?? new AbilityDamageSpec[0];
+        }
+
+        /// <summary>第 <paramref name="ability"/> 条 ability 第 <paramref name="logic"/> 行的
+        /// `damageCriteria`。`null` = 没有这一行 / 旧表 / 坏格 —— 消费端**不掷**（= 保持旧口径）。
+        /// ⚠️ 只有 `op.AbilityIndex/LogicIndex >= 0` 的 op 才查得到（见 `EffectOp.AbilityMap`）。</summary>
+        public AbilityDamageSpec AbilityDamageAt(int ability, int logic)
+        {
+            if (_abilityDamage == null || ability < 0 || logic < 0) return null;
+            for (int i = 0; i < _abilityDamage.Length; i++)
+            {
+                var s = _abilityDamage[i];
+                if (s != null && s.Ab == ability && s.Lg == logic) return s;
+            }
+            return null;
+        }
+
+        /// <summary>🆕 2026-10-28（B88 · `A1d`）：把**主动能力**那一行的 `damageCriteria` 的
+        /// 「逐目标掷」位标到 op 上（与 `RuleCore.StampRollPerTarget` **同一条判据**：
+        /// `valueOptions == 90 ∧ damageType ∈ {5,10,12}`；那边管 `cardAbilities` 的 `abilityDamage` 列，
+        /// 这边管 `activeAbilityLogic[].dmg`，因为两支的 `(ab, lg)` 是**两套下标空间**）。
+        ///
+        /// <para>⚠️ **只在「1 个能力对象 ∧ 1 行 logic」时标** —— 多行时「哪一行对应哪条 op」判不出，
+        /// ⛔ 不猜（与 `AttachByAbilityKind` 的 `gap:kind-ambiguous` 同一条纪律）。
+        /// 来源 / 闸门 → `判据/B88_R1_90档_逐卡施工单.md` §一·a（多目标 16 行里 3 行在 activeAbility）。</para></summary>
+        void StampActiveRollPerTarget(List<ActiveAbilityLogicSpec> grp, IReadOnlyList<EffectOp> ops)
+        {
+            if (grp == null || grp.Count != 1 || grp[0] == null) return;
+            var spec = grp[0];
+            if (spec.LogicCount != 1 || ops == null || ops.Count == 0) return;
+            var dmgRows = spec.Damage;
+            if (dmgRows == null || dmgRows.Length == 0) return;
+            var d = dmgRows[0];
+            if (d == null || d.IsUnknown) return;
+            if (d.ValueOptions != 90) return;
+            if (d.Type != 5 && d.Type != 10 && d.Type != 12) return;
+            // 只标**伤害** op —— 同一段正文里可能还挂着 `give` / `draw` 之类的 op。
+            foreach (var op in ops)
+                if (op != null && op.Verb == "deal") op.RollPerTarget = true;
+        }
+
     }
 
     /// <summary>
@@ -8767,6 +8848,7 @@ namespace RuleEngine
             foreach (char c in HeadOf(item)) if (char.IsDigit(c)) return true;
             return false;
         }
+
     }
 
     /// <summary>
@@ -8863,6 +8945,7 @@ namespace RuleEngine
             "huntMark",       // (b) triggerType ∈ {0,2} ⇒ `ActivateTraitsOnSummonOrEnchantment.c:67`
             "stomp",          // (c) `BattleManager__ShouldTriggerStompDamage`（`0x4d8`）
         };
+
 
     }
 

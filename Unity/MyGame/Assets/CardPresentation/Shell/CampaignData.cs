@@ -127,15 +127,44 @@ namespace CardPresentation
             return -1;
         }
 
-        /// <summary>节点坐标的跨度（给轨道算缩放比用）：x 的 min/max、y 的绝对最大值。</summary>
-        public static void Span(out int minX, out int maxX, out int maxAbsY)
+        /// <summary>根节点（**无前置**的那个）的 Y —— 原版 `CampaignTrack.GetNodesOffset` 的
+        /// `FirstOrDefault(n => n.UnlockedBy.Count &lt;= 0)` 取 `+0x3c`（= Y）。
+        /// 判据：`decomp_full/CampaignTrack__GetNodesOffset.c:34-52` + `__c___GetNodesOffset_b__11_0.c`（谓词 = `Count ≤ 0`）。
+        /// ⚠️ 我们是**从 `Next` 反推**（表里没有 `UnlockedBy` 这一列）：第一个「没有被任何人指向」的节点。
+        /// 本表第一个就是 `UM0`（`Y = −8`）⇒ 与原版同值。
+        /// 🔴 2026-10-27（B88·E13）：**这一个数决定整条轨道的缩放比与竖向对齐**
+        /// （`CalculateRatio` 的分母是「相对它的最大偏差」，`GetNodePosition` 的 y 也减它）—— ⛔ 别改成「minX 那个节点」。</summary>
+        public static int RootY
         {
-            minX = int.MaxValue; maxX = int.MinValue; maxAbsY = 0;
+            get
+            {
+                for (int i = 0; i < Nodes.Length; i++)
+                {
+                    bool hasParent = false;
+                    for (int j = 0; j < Nodes.Length && !hasParent; j++)
+                    {
+                        var nx = Nodes[j].Next;
+                        if (nx == null) continue;
+                        for (int k = 0; k < nx.Length; k++) if (nx[k] == i) { hasParent = true; break; }
+                    }
+                    if (!hasParent) return Nodes[i].Y;
+                }
+                return 0;                                   // 全都有前置（不该发生）⇒ 退化成「不偏移」
+            }
+        }
+
+        /// <summary>节点坐标的跨度（给轨道算缩放比用）：x 的 min/max、**Y 相对根节点的最大绝对偏差**。
+        /// 判据（`decomp_full/CampaignTrack__CalculateRatio.c:40-71`）：`max(|maxY − 根Y|, |minY − 根Y|)`
+        /// —— ⚠️ 不是 `max|Y|`：本表根 Y = −8、极端是 −392 与 376 ⇒ 偏差 **384**（原来按 `max|Y|` 算得 392）。</summary>
+        public static void Span(out int minX, out int maxX, out int maxAbsDevY)
+        {
+            minX = int.MaxValue; maxX = int.MinValue; maxAbsDevY = 0;
+            int ry = RootY;
             for (int i = 0; i < Nodes.Length; i++)
             {
                 if (Nodes[i].X < minX) minX = Nodes[i].X;
                 if (Nodes[i].X > maxX) maxX = Nodes[i].X;
-                int ay = Math.Abs(Nodes[i].Y); if (ay > maxAbsY) maxAbsY = ay;
+                int d = Math.Abs(Nodes[i].Y - ry); if (d > maxAbsDevY) maxAbsDevY = d;
             }
         }
 

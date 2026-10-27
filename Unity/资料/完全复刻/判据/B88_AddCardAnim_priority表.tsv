@@ -1,0 +1,13 @@
+调用点(文件:行号)	原版类.方法	priority	我们对应调用点	是否已传 lane	判据/备注
+cpp2il/out_cpp2il_dev_ilspy/AbilityLogic.cs:1304	AbilityLogic.PlayAnim	数据驱动（`abilityData.priority`，见下）	CardPresentation/Battle/BattleDriver.cs:23457（PlayAbilityBeat）/ :19675 一带（ExpandAbilityBeats）	否	实参 = `priority` 变量；`.c:223` 赋成 `*(undefined4 *)(param_3 + 0x44)`，`param_3 = AbilityData` ⇒ `AbilityData.priority`。而 `RawCardScript__TriggerAbility.c:32` 把它从 `CardAbility.priority(+0x18)` 灌进来（`RawCardScript__ResolveActiveAbility.c:47` 的 `SetNewData(..., CONCAT44(uVar7,1) …)` 是**主动技固定 1**）。我们不传的原因：`EvtKind.Ability` 事件不携带该值（引擎白名单外），⛔ 不猜。
+cpp2il/out_cpp2il_dev_ilspy/AbilityLogic.cs:1374	AbilityLogic.PlayAnim	同上（数据驱动）	同上	否	同 :1304。`.c:273` 直接传 `*(param_3 + 0x44)`。
+cpp2il/out_cpp2il_dev_ilspy/CardScript.cs:7412	CardScript.OnTurnStart	1	无（HUD 无 plasma 能量件 —— 见 AnimAnchors.cs:125/244 的「我们 HUD 里没有 Psychic / SpiritStone / Plasma 三种能量的件」）	否（无对应）	`.c: CardScript__OnTurnStart.c:189` 实参 `0,1,1,1,…` ⇒ priority = 1；`checkIfCasterInPlay = 1`。
+cpp2il/out_cpp2il_dev_ilspy/CardScript.cs:7418	CardScript.OnTurnStart	1	无（同上）	否（无对应）	`.c:206`：`0,uVar12,uVar10,1` ⇒ priority = `uVar10` = `CONCAT44(uVar15,1)` ⇒ **1**。
+cpp2il/out_cpp2il_dev_ilspy/CardScript.cs:7512	CardScript.OnTurnStart	1	无（同上）	否（无对应）	`.c:230`：`uVar14 = CONCAT44(uVar7,1)` ⇒ **1**。
+cpp2il/out_cpp2il_dev_ilspy/CardScript.cs:7518	CardScript.OnTurnStart	1	无（同上）	否（无对应）	`.c:246`：`CONCAT44(uVar7,1)` ⇒ **1**。
+cpp2il/out_cpp2il_dev_ilspy/CardScript.cs:7741	CardScript.ResolvePsyker	1	无（无 psychic 件）	否（无对应）	`.c: CardScript__ResolvePsyker.c:21`：`…,0,1,1,1,param_1,0,0,0` ⇒ **1**。
+cpp2il/out_cpp2il_dev_ilspy/CardScript.cs:7747	CardScript.ResolvePsyker	1	无（无 psychic 件）	否（无对应）	`.c:30` 同上 ⇒ **1**。
+cpp2il/out_cpp2il_dev_ilspy/CardScript.cs:7765	CardScript.ResolveReactor	1	无（无 plasma 件）	否（无对应）	`.c: CardScript__ResolveReactor.c:21` ⇒ **1**。
+cpp2il/out_cpp2il_dev_ilspy/CardScript.cs:7771	CardScript.ResolveReactor	1	无（无 plasma 件）	否（无对应）	`.c:30` ⇒ **1**。
+cpp2il/out_cpp2il_dev_ilspy/CardScript.cs:14587	CardScript.ProcessTide	1	无（GSC Tide 机制未建模；`cards_engine.json` 里 "tide" 只作为卡名出现）	否（无对应）	`.c: CardScript__ProcessTide.c:47`：`…,0,1,1,<bool>,param_1,0,0,0` ⇒ **1**。
+cpp2il/out_cpp2il_dev_ilspy/CardScript.cs:14655	CardScript.ProcessCompanion	1	无（Companion 机制未建模）	否（无对应）	`.c: CardScript__ProcessCompanion.c:59` 同上 ⇒ **1**。

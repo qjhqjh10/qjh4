@@ -298,9 +298,16 @@ namespace RuleEngine
             var ps = ctx.Players[owner];
             int n = op.AmountRef == "faith" ? ps.Faith
                   : op.AmountRef == "spirit" ? ps.SpiritStones
-                  // 「enemy」= **施放者的对手**（`owner` 的对家）——
-                  // 判据在 `EffectText.ReEqualEnemyHandCount` 的 doc（别放宽成任一手牌）。
-                  : op.AmountRef == "enemyhand" ? ctx.Players[1 - owner].Hand.Count
+                  // 「enemy」= 施放者的对手（判据 `EffectText.ReEqualEnemyHandCount`）· 🔴 2026-10-28 `F7`：只数「单位 + 战术」
+                  // （原版 = `min + max × multiplierFactor`，`multiplierFactor` 是 `multiplier` 目标数 ⇒ 附魔/武器/密语不算；判据 `B88_R2…` §四·3）
+                  : op.AmountRef == "enemyhand" ? CountEnemyHandUnitsAndSpells(ctx, 1 - owner)
+                  // 🆕 2026-10-27（B88 · 波 1 · `E2` · 账 77）：原版 `ChooseValueOptions` 的两档 ——
+                  //   `140 OwnWarlordAttack`（**当前**近战，`Exquisite Swordsmanship`）·
+                  //   `101 BaseRefCardMAttack`（**参照卡的基础**近战，`Indomitus Crusade` 的 Oath 句）。
+                  //   ⚠️ 判据写在 `EffectText.ReEqualOwnWarlordMelee` / `ReEqualItsBaseAttack` 与
+                  //      `RuleCore.RefCardBaseAttack` 三处 doc 里（别在这儿再写一份）。
+                  : op.AmountRef == "ownwarlordmelee" ? (ps.Warlord != null ? ps.Warlord.Attack : -1)
+                  : op.AmountRef == "refcardbaseattack" ? RuleCore.RefCardBaseAttack(ctx)
                   : -1;
             if (n < 0)
             {
@@ -344,6 +351,7 @@ namespace RuleEngine
         {
             unresolved = new List<string>();
             if (ops == null) return 0;
+            ctx.ResetDamageExcess();   // 🆕 波 3 `E2`：每条 ability 起手清零（= 原版每次 `PlayAbility` 新建 `DamageInfo`）
             string by = source != null ? source.Name : "战术卡";
 
             // **这次结算的是哪张卡** —— 只有「常驻效果登记」需要它。
@@ -821,6 +829,9 @@ namespace RuleEngine
                                    EffectOp op, UnitState chosen, List<string> unresolved,
                                    bool payOnly = false, CardDef card = null)
         {
+            // 🆕 2026-10-28（B88 · `A1c`）：**把「这一条伤害要不要逐目标掷」从卡表数据位标到 op 上**
+            //   （判据 → `判据/B88_R1_90档_逐卡施工单.md` §三·2）。⛔ `payOnly` 那趟只是收费，不标。
+            if (!payOnly && card != null) StampRollPerTarget(ctx, op, card);
             // ---- 付费激活：付不起就**整段不结算**（我们自己的 `rule_core.gd:2529`（旁证、非权威））----
             // ⚠️ **2026-09-13 第三十三轮修了一条真 bug**：这里原来**只扣能量、完全不看 `CostKind`**。
             //    于是 `8 [Faith]: Deploy an additional Battle Sister` 那族卡**一直在偷偷扣能量** ——
@@ -1944,8 +1955,13 @@ namespace RuleEngine
         ///   传 `null` 时退回「按格号 + 卡面 `PickSide` 解一侧」的老口径（逐字不变）。
         ///   ⚠️ 与 <see cref="RuleCore.PlayCard"/> 的 `chosen` 是**同一个对象**、同一条判据
         ///   （`RuleCore.PlayCardCore` 那一句 `PlayTactic(…, ChosenTargetSlot(…), chosen)`）。</param>
+        /// <param name="oathChosen">🆕 **2026-10-28（B88 · 执行代理 `A1`）**：这一手走不走**誓约版**
+        /// （`true` = 卡费 **＋** 誓约费都要判够 · `false` = 只判卡费 · `null` = **查询口**，只判卡费）。
+        /// <para>⚠️ 查询口（拖拽高亮 / `CanPlayCard`）传 `null` 是对的：**平版永远打得出去**，
+        /// 能不能加付誓约是玩家在面板上才决定的。判据 = `CardScript.CanPlayWithOathNowInHand.c:31-36`
+        /// （`CurrentCost + oathValue <= ManaLeft`）—— 与 `NeedsToChooseFromPool.c:142` 同一条判据的两个时点。</para>
         public static int CanPlayTactic(BattleContext ctx, int p, int handIdx, int targetSlot,
-                                       UnitState chosen = null)
+                                       UnitState chosen = null, bool? oathChosen = null)
         {
             if (ctx.IsOver || p != ctx.Active) return RuleCodes.ErrNotTurn;
             var ps = ctx.Players[p];
@@ -1993,7 +2009,12 @@ namespace RuleEngine
             //   的候选 op 列表（注入的 choosecard 没有 `Target`，不会改变「要不要选目标」）。
             var ops = EffectText.Parse(card.Desc, out _, out _, card: card);
 
-            if (CostOf(ctx, p, inst) > ps.Energy) return RuleCodes.ErrCost;
+            // 🆕 2026-10-28（B88 · `A1`）：**答了「付誓约」就要把誓约费一起判够**（原版
+            //   `CardScript__CanPlayWithOathNowInHand.c:31-36`：`CurrentCost + oathValue <= ManaLeft`）。
+            //   `oathChosen == null` / `false` ⇒ 只判卡费（**逐字等于改前那一条**）。
+            int costNow = CostOf(ctx, p, inst);
+            int needNow = oathChosen == true ? costNow + card.GetDefaultTraitValue(KeywordTable.Oath, out _) : costNow;
+            if (needNow > ps.Energy) return RuleCodes.ErrCost;
 
             // **要选目标**的才要求给格位；`Refill 2 Energy` / `Draw 2 cards` 这类随便放哪都行。
             // 「这一格能不能选」用**结算时那一份判据**（`IsLegalPick` → `AddSide`）——
@@ -2503,7 +2524,16 @@ namespace RuleEngine
         static int PlayTacticCore(BattleContext ctx, int p, int handIdx, int targetSlot,
                                   UnitState pickedByPlayer = null)
         {
-            int code = CanPlayTactic(ctx, p, handIdx, targetSlot, pickedByPlayer);
+            // 🆕 2026-10-28（B88 · 执行代理 `A1`）：**先把「付不付誓约」定下来**（见 `DecideOathChoice`）。
+            //   原版这一步在**基础费扣掉之后**（`_d__447:377 PayCardCost` → `:498 NeedsToChooseFromPool`）；
+            //   我们这条链的判据换成 `CanPlayWithOathNowInHand` 那一句（「卡费 + 誓约 ≤ 法力」），
+            //   与扣费先后无关 ⇒ 可以在校验之前算；**答案队列也在这里取掉**（一次一取）。
+            var psHead = ctx.Players[p];
+            if (handIdx < 0 || handIdx >= psHead.Hand.Count) return RuleCodes.ErrBadHand;
+            var instHead = psHead.Hand[handIdx];
+            bool oathChosen = DecideOathChoice(ctx, p, instHead.Card, instHead);
+
+            int code = CanPlayTactic(ctx, p, handIdx, targetSlot, pickedByPlayer, oathChosen);
             if (code != RuleCodes.OK) return code;
 
             var ps = ctx.Players[p];
@@ -2676,14 +2706,20 @@ namespace RuleEngine
             //    **没有一个是 `stimulation`** ⇒ 激励那条触发也是 `Instant`，同道 FIFO 自然给出
             //    「先激励、后正文」。
             // ==========================================================================
+            // 🆕 2026-10-28（B88 · `A1`）：**玩家选「平版」⇒ 把 `Oath N:` 那个付费组整组摘掉**。
+            //   原版 = 结算**另一张**不带 oath 的变体 SO；我们是合并卡 ⇒ 在正文这一层摘组
+            //   （`WithoutOathPaidGroup` 的判据 = `CostKindOf == "oath" && Cost > 0`，整组每一条都带）。
+            //   ⚠️ 摘在这里（**入队那一刻**）：`ops` 在它之前还喂了 `PickSide` / 目标合法性，
+            //      那两步与 oath 组无关（本章 10 张卡的 oath 半句都不是「定目标」那一句）。
+            var usedOps = oathChosen ? ops : WithoutOathPaidGroup(ops);
             var _tacP = p;
             var _tacCard = card;
-            var _tacOps = ops;
+            var _tacOps = usedOps;
             var _tacChosen = chosen;
             var _tacTargetSlot = targetSlot;
             var _tacSide = side;
             var _tacInst = inst;
-            var _tacPaid = new bool[ops != null ? ops.Count : 0];
+            var _tacPaid = new bool[usedOps != null ? usedOps.Count : 0];
             int _tacSpiritBefore = ps.SpiritStones;
             EnqueueAbility(ctx, ActionPriority.Instant, "tactic-body:" + card.Name,
                            () => PlayTacticBodyDeferred(ctx, _tacP, _tacCard, _tacOps, _tacChosen,
@@ -2974,17 +3010,26 @@ namespace RuleEngine
                 ctx.Log($"{by}：「{op.Source}」没有合法目标，空过");
                 return true;                                   // 没目标 = 正常空过，不是失败
             }
-            // `1-3` 区间：原版是 `randi_range`（`:2677`）—— 用 ctx.Rng 保证可复现
-            int dmg = op.AmountMax > op.Amount ? ctx.GetRandomInt(op.Amount, op.AmountMax + 1) : op.Amount;
+            // `1-3` 区间：原版是 `randi_range`（`:2677`）；🔴 2026-10-28 `F7`：逐目标掷（90 档）**不预掷** —— 原版循环里没有这一次，改前多耗 1 个随机数并把流推后一格
+            bool rollPer = op.RollPerTarget && op.AmountMax > op.Amount; int dmg = !rollPer && op.AmountMax > op.Amount ? ctx.GetRandomInt(op.Amount, op.AmountMax + 1) : op.Amount;
 
             int dealt = 0;
             bool altUsed = false;
             foreach (var t in targets)
             {
                 if (t == null || !t.IsAlive) continue;
+                // 🆕 2026-10-28（B88 · `A1c`）：**90 档（`RandomizedOnResolution`）逐目标掷**。
+                //   原版掷点在 `CardScript__GetAdjustedDamage.c:23-30`，由
+                //   `BattleManager._ResolveMultiDamage_d__456__MoveNext.c:136` 在**逐目标循环**里调
+                //   ⇒ 打 N 个目标就消费 N 个随机数（判据 → `判据/B88_R1_90档_逐卡施工单.md` §二·3）。
+                //   ⚠️ `Normal(0)` 的区间**不是**这样：它在循环外取一次、多目标共用（就是上面的 `dmg`）。
+                //   ⚠️ 这条位只由 `StampRollPerTarget` 按数据位写（`valueOptions == 90 ∧ type ∈ {5,10,12}`）。
+                // （`rollPer` 在循环前定义；这里只消费「逐目标那 N 次」里的一个）
+                int dmgOne = rollPer ? ctx.GetRandomInt(op.Amount, op.AmountMax + 1)
+                                     : dmg;
                 // 🆕 「条件换数值」`Deal N …, or M if <条件>`（`Vindicator` / `Wulfen Pack Leader`）——
                 //    **逐目标判**：`it has Hunt Mark` 说的就是**这一个**目标（理由见 `AltHolds`）。
-                int one = dmg;
+                int one = dmgOne;
                 if (op.AltAmount != 0 && AltHolds(ctx, owner, op, t, by))
                 {
                     one = op.AltAmount; altUsed = true;
@@ -3000,6 +3045,8 @@ namespace RuleEngine
                 //    而阵营是 `Kills` 事件极性的判据，给 -1 = 整档监听器静默不响）。
                 // 判别式 / 发射口**只有一处** ⇒ `RuleCore.TryCreditKill`。
                 int vOwner = OwnerOf(ctx, t);
+                // 🆕 2026-10-27（B88 · 波 3 · `E2` · 账 77 的 `210 TargetExcessDamage`）：记这一下的**超额量**（判据/近似见 `BattleContext.LastDamageExcess` 的 doc）
+                { int wouldDeal = RuleCore.DamageAfterReduction(t, one); ctx.LastDamageExcess = wouldDeal > t.Health ? wouldDeal - t.Health : 0; }
                 // 🆕 **2026-10-20（`W58-INTERLEAVE`）**：把「致死伤害的来源卡」一并交给 `Hurt`
                 //   —— 死亡若被延后进「同时伤害」批，它会随 `PendingDeath` 走到 `FlushDeaths`，
                 //   在那个死者**自己的那一拍**上记账（原版 death action 的 FIFO：死者1 反噬
@@ -3017,7 +3064,10 @@ namespace RuleEngine
                 if (!ctx.DeathsDeferred)
                     RuleCore.TryCreditKill(ctx, ctx.ActingUnit, vOwner, t);
             }
-            ctx.Log($"{by}：「{op.Source}」对 {targets.Count} 个目标造成 {dmg} 点伤害（共 {dealt}）"
+            ctx.Log($"{by}：「{op.Source}」对 {targets.Count} 个目标造成 "
+                  + (op.RollPerTarget && op.AmountMax > op.Amount
+                        ? $"{op.Amount}-{op.AmountMax} 点（**逐目标各掷一次**；共 {dealt}）"
+                        : $"{dmg} 点伤害（共 {dealt}）")
                   + (altUsed ? "（其中有的目标按**条件替换值**结算，见上一行）" : ""));
             return true;
         }
@@ -3531,6 +3581,8 @@ namespace RuleEngine
                 //    ⇒ 这一格是**按卡面语义**落的，不是逐跳核过的。
                 // 阵营要在 `Hurt` 之前取（打完它可能已经不在棋盘上了，见 `DoDeal` 同一条）。
                 int vOwner = OwnerOf(ctx, t);
+                // 🆕 2026-10-27（B88 · 波 3 · `E2` · 账 77 的 `210 TargetExcessDamage`）：记这一下的**超额量**（判据/近似见 `BattleContext.LastDamageExcess` 的 doc）
+                { int wouldDeal = RuleCore.DamageAfterReduction(t, n); ctx.LastDamageExcess = wouldDeal > t.Health ? wouldDeal - t.Health : 0; }
                 // `W58-INTERLEAVE`：同 `DoDeal` —— 延后进批的死亡由 `FlushDeaths` 逐死者记账。
                 dealt += Hurt(ctx, t, n, by, actingCard: u,
                               // 🔴 2026-10-24（`G2` · `C5` 顺手发现 11）：死因同 `DoDeal` —— 按**来源卡种**
@@ -6708,9 +6760,10 @@ namespace RuleEngine
                 return false;
             }
 
-            // 引用位：后面那句 `It costs 4 less`（`Master of Manoeuvre`）指着**刚回手的那张**
+            // 引用位：后面那句 `It costs 4 less`（`Master of Manoeuvre`）指着**刚回手的那张**；🔴 账 531（B88 · `E2`，判据 `decomp_full/BattleManager._ResolveRecallToHand_d__542__MoveNext.c:80-82`）：原版回手后对**双手牌**各调一次 `PlayerHand.UpdateCardEffects` —— 它管的是「**离场的那个单位**给别的手牌挂的外来效果当场失效」。等价位 = `RuleCore.SweepHandEffectsOnRemoval`（死亡/翻面三条路已在用，回手/回牌库这两条 `case` 原先**没扫** ⇒ 会多用一拍）。⚠️ 回牌库同为「离开场上」⇒ 一并扫；幂等。
             // 🔴 **一号验收靶**（待办第 7 行）：`LastCreated` 装的是**哪一份实例** ——
             //    所以「手里两张同名载具时两条一起降价」这个老毛病在这里被收掉。
+            if (moved.Count > 0) SweepHandEffectsOnRemoval(ctx);   // 账 531（B88·E2）：原版 `_ResolveRecallToHand…MoveNext.c:80-82` 的 `PlayerHand.UpdateCardEffects` 等价位
             ctx.LastCreated.Clear();
             foreach (var c in moved) ctx.LastCreated.Add(c);
 
@@ -7060,6 +7113,7 @@ namespace RuleEngine
                                       UnitState chosen = null)
         {
             if (ctx == null || ops == null || ops.Count == 0) return false;
+            ctx.ResetDamageExcess();   // 🆕 波 3 `E2`：每条 ability 起手清零（= 原版每次 `PlayAbility` 新建 `DamageInfo`）
 
             // 🔑 **`this troop` / `this unit` / `it` 指的是「触发的那一个」** —— 但解析器把这一族代词
             //    统一归到 `prev`（`EffectTargetSpec.Side == "prev"`，那是给战术卡的
@@ -9871,8 +9925,8 @@ namespace RuleEngine
             //    样例 = `BattleManagerSupport__BroadcastUnitSummoned.c:25-39`）。
             //   ⇒ 多单位同时听同一个事件时，「先部署的那个先响」。
             //   ⚠️ 排序发生在**快照之后、预调之外**（`preCalled` / `preCalled2` 已经被排除出快照，
-            //   它们的先后仍由调用方决定 —— 原版那条预调本来就在循环之前，不在这一趟里）。
-            RuleCore.StableSortByPlayOrder(listeners, l => l.Unit.PlayOrder);
+            //   它们的先后仍由调用方决定 —— 原版那条预调本来就在循环之前，不在这一趟里）。🔴 账 628（B88 · `E2`）：原版 `BroadcastCardPlayed` 的棋盘循环是 `if (cardScript != actingCard)` —— **只排除、不预调**（`out_cpp2il_dev_ilspy/BattleManagerSupport.cs:669-686`）⇒ `Play` 这一族先把「被打出那张」（= `subject`）剔掉；⛔ 别改用 `preCalled`（那是「先预调再排除」，会多响一次）。
+            if (kind == WhenEventKind.Play && subject != null) listeners.RemoveAll(l => ReferenceEquals(l.Unit, subject)); RuleCore.StableSortByPlayOrder(listeners, l => l.Unit.PlayOrder);
             if (listeners.Count > 0)
             {
                 // ⚠️ `LastTargets` 是**代词机制**的存放位置：`it` / `this troop` 全从它取。
@@ -10937,8 +10991,8 @@ namespace RuleEngine
             //   原版 `AbilityTrigger` 表里**没有任何「获得护盾」的触发**（只有 510 / 515 / 520 这三个
             //   「获得某标记」）⇒ `GetsShield` 是我们这一侧的**推断词**，没有原版形状可照；
             //   要不要给它预调、预调谁，得先有判据（已记进报告，⛔ 别照 HuntMark 硬套）。
-            bool preCallSelf = kind == WhenEventKind.GetsHuntMark
-                            || kind == WhenEventKind.GetsMarkerlight;
+            // 🔴 账 656（B88 · `E2`）：`GetsDarkPact` 也是「预调被标记者 → 棋盘(排除它) → 双手牌(排除它)」，判据 `out_cpp2il_dev_ilspy/BattleManagerSupport.cs:1848-1890`；`ObtainedMark` = Mark of Chaos = 我们的 `GetsDarkPact`（接收端 `ReactToUnitMarked` → 510）。
+            bool preCallSelf = kind == WhenEventKind.GetsHuntMark || kind == WhenEventKind.GetsMarkerlight || kind == WhenEventKind.GetsDarkPact;
             if (preCallSelf)
                 PreCallBoardListener(ctx, u, kind, owner, u.Card, u, null, null, -1);
 
@@ -11199,6 +11253,12 @@ namespace RuleEngine
                     if (myBoard[s] != null) n += myBoard[s].KwValue(KeywordTable.DarkPact);
                 return n;
             }
+
+            // ---- ⓪c 🆕 2026-10-27（B88 · 波 3 · `E2` · 账 77 的 `210 TargetExcessDamage`）----
+            //   上一次伤害的**超额量**（`For each excess damage, heal 1 to your Warlord`，
+            //   池内唯一消费者 `Beautiful Death`；原版 = `ChooseValueOptions.TargetExcessDamage = 210`）。
+            //   写点/默认值语义/近似 → `BattleContext.LastDamageExcess` 的 doc（⛔ 别在这儿再写一份）。
+            if (op.CountScope == "excess") return ctx.LastDamageExcess;
 
             // ---- ① 本次结算抽到的牌（`For each troop drawn`）----
             if (op.CountScope == "draw")
@@ -13849,6 +13909,15 @@ namespace RuleEngine
                 repeats = n;
                 textCounted = true;
                 ctx.Log($"{by}：「{op.Source}」按 {op.CountRef} 计 {n} 遍");
+                // 🔴 2026-10-27（B88 · 波 3 · `E2` · **假绿修复**）：这个计数短语本版**没认出来**，
+                //   上面的 `own|any|all` 是「没写谁 ⇒ 本方 / 没写什么 ⇒ any」**两条默认值**猜出来的
+                //   （判据 = `EffectText.ClassifyCount` ④ 的 `guessed`）。原版这一位来自结构化
+                //   `multiCountCriteria`（`AbilityLogic.GetTargets`），**不是从文本读的**。
+                //   ⇒ **出声**（⛔ 不静默兜底；也⛔ 不改成「整条不结算」—— 那会让今天能跑的卡一起哑掉）。
+                if (op.CountFallback)
+                    ctx.Log($"（⚠️ 上面那个计数「{op.CountRef}」是**本版认不出**该 for-each 短语之后的**兜底猜测**"
+                          + $"（按「本方全部单位」数出 {n}）；原版走的是结构化 `multiCountCriteria`"
+                          + " —— 数错/多数时以卡面为准，别把它当成已验证）");
             }
             // 🆕 v22（2026-10-24 · `新账-95` #2）：**结构化乘数（`role == "mult"`）优先** ——
             //   原版 `AbilityLogic.multiplier`（`PlayAbility.c:181-236`）的个数 = `local_178`。
@@ -13993,6 +14062,22 @@ namespace RuleEngine
             var r = CountMultiplierTargets(ctx, owner, spec.MultiplierSet, spec.Condition, actor, out gap);
             if (r == null) return false;
             n = r.Value;
+            // 🔶 自己设计（非原版）：**原版 80 档（`ChooseValueOptions.MinPlusMaxTimesMultiplier`）的
+            //   `multiplierFactor` 是【值】不是【遍数】** —— 公式 `minValue + maxValue × multiplierFactor`
+            //   （VA `0x18081b728 imul` / `0x18081b731 lea`，判据 → `资料/完全复刻/判据/B88_R2_80档_VA判定.md` §一），
+            //   伤害**只结算一次**（`PlayAbility.c:1504` 的 `DealMultiDamage` 一跳）。
+            //   为什么必须自己定这条判据：我们**没有 `valueOptions` 位**（那个字段在 `abilities[].logic[].damage`
+            //   里，运行期没落进 `CardDef`，而补它要动 `CardDef.cs` / `CardDef.ConditionSpec` ⇒ 本波白名单外）
+            //   ⇒ 用等价形状认：**这条 op 的数值已经由同一个量给出**（`AmountRef == "enemyhand"` 而乘数的池
+            //   也是 ta=50 手牌）⇒ 乘数已折进数值，⛔ 不能再当循环遍数（否则 = 平方：3 张手牌 → 9 点伤害）。
+            //   调度台 2026-10-28 裁定（`B88_A1` 第二批）。
+            if (IsMultiplierFoldedIntoValue(op, ta))
+            {
+                ctx.Log($"（{op.Source}：这条 `multiplier` 走的是原版 **80 档**（`min + max × mult`）"
+                      + "—— 乘数**已折进数值** ⇒ 只结算 **1** 遍（⛔ 不再当循环遍数，否则 = 平方）"
+                      + $"；计数 = {n}）");
+                n = 1;
+            }
             return true;
         }
 
@@ -16294,8 +16379,8 @@ namespace RuleEngine
             // 提到 `sacrifice` 的卡 **0 张**，所以今天**不可观测**；本节是口径对齐）。
             // 🆕 2026-10-27（B9 · `E6ENG` · 账 627 / 631）：`Draw` / `GainFaith` / `GainQuest` 三族**同样没有** `IsInPlay` 闸
             //   —— `BattleManagerSupport__BroadcastCardDrawn.c`（棋盘循环全文只判非 null，`Ghidra` 第 30-33 行）·
-            //   `…__BroadcastCollectFaith.c:29-38` · `…__BroadcastCollectQuestPoints.c:29-38`（后两者逐句同形：预调 + 棋盘循环，循环体只有 `op_Inequality(u, subject)`）。
-            return kind == WhenEventKind.Triggers(KeywordTable.Sacrifice) || kind == WhenEventKind.Draw || kind == WhenEventKind.GainFaith || kind == WhenEventKind.GainQuest;
+            //   `…__BroadcastCollectFaith.c:29-38` · `…__BroadcastCollectQuestPoints.c:29-38`（后两者逐句同形：预调 + 棋盘循环，循环体只有 `op_Inequality(u, subject)`）。🆕 2026-10-27（B88 · `E2` · 账 628 / 656）：`Play`（`BroadcastCardPlayed` 棋盘循环只判 `cardScript != actingCard`、**无 `IsInPlay`** —— `out_cpp2il_dev_ilspy/BattleManagerSupport.cs:674-686`）· `GetsDarkPact`（`BroadcastUnitObtainedMark` 的 `unitsInPlay` 循环同样只有 `!= unitMarked`，`:1852-1862`）两族也没有 `IsInPlay` 闸 ⇒ 一并放开待死。
+            return kind == WhenEventKind.Triggers(KeywordTable.Sacrifice) || kind == WhenEventKind.Draw || kind == WhenEventKind.GainFaith || kind == WhenEventKind.GainQuest || kind == WhenEventKind.Play || kind == WhenEventKind.GetsDarkPact;
         }
 
         /// <summary>
@@ -17544,6 +17629,25 @@ namespace RuleEngine
         // ==================================================================================
         public static List<EffectOp> PlayerChooseOps(BattleContext ctx, int owner, CardDef card)
         {
+            // 🆕 2026-10-28（B88 · 执行代理 `A1`）：**战术卡 oath「平 / 誓二选一」的注入点**。
+            //   判据 → `资料/完全复刻/判据/B88_R3_oath二选一_判据.md` §五·0「口径 A」：
+            //   我们池里是**一张合并卡**（oath 效果并进 `desc`）⇒ 只问「付不付誓约」，
+            //   ⛔ 不是照原版「选哪一个变体 SO」。注入**只在这一版重载**（一参版一个字都不动，
+            //   理由见下面那段旧注释）。⚠️ 注入**排在 `r.Count == 0` 早退之前** ——
+            //   这 10 张卡的正文里**没有**其它 ask 点，早退会把这条也吞掉。
+            if (OathChoiceNeeded(card))
+            {
+                if (ctx != null && !NeedsToChooseFromPool(ctx, owner, card, null))
+                {
+                    ctx.Log($"（选牌面板：「{card.Name}」带 oath，但原版 `NeedsToChooseFromPool` 判否"
+                          + "（不是这一侧的回合 / 带 jam）⇒ 这次**不问**「付不付誓约」，按平版结算）");
+                    return new List<EffectOp>();
+                }
+                var injected = new List<EffectOp>(PlayerChooseOps(card) ?? new List<EffectOp>());
+                injected.Add(new EffectOp { Verb = "chooseoath", Source = card.Desc ?? "" });
+                return injected;
+            }
+
             var r = PlayerChooseOps(card);                      // 旧那一份（判据只此一处）
             if (r == null || r.Count == 0) return r ?? new List<EffectOp>();
             if (card == null || card.ChoicesTargetsAffected <= 0) return r;   // 原版没有这道闸
@@ -17556,6 +17660,207 @@ namespace RuleEngine
                       + $"{card.GetDefaultTraitValue(KeywordTable.Oath, out _)}）—— 这一批 {r.Count} 处 ask "
                       + "交回引擎按兜底挑（⛔ 不是「没实现」，是原版这次也不会问）");
             return new List<EffectOp>();
+        }
+
+        // ==================================================================================
+        //  🆕 2026-10-28（第八十八会话 · 执行代理 `A1`）：**战术卡 `Oath N:` 的「平 / 誓二选一」**
+        //  判据 → `资料/完全复刻/判据/B88_R3_oath二选一_判据.md`
+        //    §一 变体结构 · §二 UI（复用 `ChoosePanel`，不重建）· §三 时机（基础费在选择之前扣、
+        //    誓约费在选择之后扣）· §四 可复用口 · §五 施工面。
+        // ==================================================================================
+        //  原版结构（第一权威，`.c` 偏移逐条核过）：一张卡的 `choicesDefinition`（`TargetCriteria`，
+        //  `targetsAffected = 180`）→ `filterSpecificCards` = **两个** `RawCardScript` 变体
+        //  （一个带默认 trait `oath`(0x4FB) / 一个不带）、`maxTargets = 2` ⇒ 摆两张、玩家选一张，
+        //  **选哪张就结算哪张**（`BattleManager__GetChoiceFullPool.c:28-49`）。
+        //  🔶 自己设计（非原版）：**我们池里是一张合并卡**（oath 效果并进 `desc`，两个变体 id
+        //  只是元数据、都不在池内）⇒ 不重建两个变体 SO，改问**一个布尔**「付不付誓约」
+        //  （`true` = 保留 `Oath N:` 付费组、照旧多付誓约费）。为什么必须自己定：照原版落地会动
+        //  `cards_engine` / 卡号 / 池口径（判据 §5·0 口径 B：不推荐、面广）。调度台 2026-10-28 裁定。
+        // ==================================================================================
+
+        /// <summary>**这张卡是不是「平 / 誓二选一」那种战术卡**（判据三条，逐条对原版）：
+        /// ① `choicesDefinition` 存在且 `targetsAffected == 180`（= 选池轴，`TargetCriteria.cs:9`）·
+        /// ② 卡带默认 trait `oath`（<see cref="HasOathTrait"/>，原版 `RawCardScript.HasDefaultTrait(0x4fb)`）·
+        /// ③ `filterSpecificCards` 正好 **2** 张（= 平 / 誓两个变体，`TargetCriteria.cs:87` + `maxTargets = 2`）。
+        /// ⚠️ 单位卡**不算**（单位那一支的 oath 是「点技能按钮时付」，不是出牌二选一）。
+        /// ⚠️ 数据没喂 `cardTraits` ⇒ `HasOathTrait` 返回 false ⇒ 这里也 false ⇒ **不问**（不会退化成「问一次没有答案」）。</summary>
+        public static bool OathChoiceNeeded(CardDef card)
+        {
+            if (card == null || card.IsUnit) return false;
+            if (card.ChoicesTargetsAffected != 180) return false;
+            if (card.ChoicesSpecificCardIds == null || card.ChoicesSpecificCardIds.Count != 2) return false;
+            return HasOathTrait(card, out _);
+        }
+
+        /// <summary>**这一手付不付得起誓约** —— 原版 `CardScript.CanPlayWithOathNowInHand`
+        /// （`decomp_full/CardScript__CanPlayWithOathNowInHand.c:31-36`：
+        /// `CurrentCost + oathValue <= ManaLeft`）。
+        /// <para>🔴 **这才是「这一手能不能选 oath」的真判据** —— `NeedsToChooseFromPool.c:142`
+        /// 那条（`ManaLeft >= oathValue`）在原版是**基础卡费已经扣掉之后**才判的，而我们表现层是在
+        /// **出牌之前**问（`BattleDriver.PlayAsks`）⇒ 直接照抄它会**少减一个卡费**
+        /// （症状 = 面板摆了 oath 选项、真打出去却付不起）。</para></summary>
+        public static bool CanPayOathChoice(BattleContext ctx, int p, CardDef card, CardInstance inst = null)
+        {
+            if (ctx == null || card == null || p < 0 || p > 1) return false;
+            var ps = ctx.Players[p];
+            if (ps == null) return false;
+            int oath = card.GetDefaultTraitValue(KeywordTable.Oath, out _);
+            if (oath <= 0) return false;
+            int cost = inst != null ? CostOf(ctx, p, inst) : CostOf(ctx, p, card);
+            return cost + oath <= ps.Energy;
+        }
+
+        /// <summary>**这一次出牌走不走誓约**（`true` = 保留 `Oath N:` 付费组）。
+        /// <para>四档，按序：① 不是「平/誓二选一」的卡 ⇒ 恒 `true`（**行为逐字不变**）；
+        /// ② 原版那道池闸判否（不是这一侧的回合 / 带 jam）⇒ `false`（原版这时**不问池**）；
+        /// ③ 付得起 ⇒ 有答案用答案（同座位、一次一取），没人答就**照旧付**
+        /// （= 加这一条之前的行为：`ruleprobe` / 录像回放 / `SimulatePlay` 全部不变）；
+        /// ④ 付不起 ⇒ `false`（只结算平版）。</para>
+        /// <para>⚠️ 第 ②④ 档会把在座的那格答案**作废**并出声（原件 = 原版根本不问 ⇒ 不该留答案）。</para></summary>
+        public static bool DecideOathChoice(BattleContext ctx, int p, CardDef card, CardInstance inst)
+        {
+            if (!OathChoiceNeeded(card)) return true;
+            if (ctx == null) return false;
+
+            if (!NeedsToChooseFromPool(ctx, p, card, null))
+            {
+                if (ctx.HasOathAnswer)
+                {
+                    ctx.Log($"（誓约二选一：「{card.Name}」这次原版**不问池**"
+                          + "（不是这一侧的回合 / 带 jam）⇒ 按平版结算，那格面板答案作废）");
+                    ctx.ClearOathAnswer();
+                }
+                return false;
+            }
+
+            if (CanPayOathChoice(ctx, p, card, inst))
+            {
+                bool pay;
+                if (ctx.TakeOathAnswer(p, out pay))
+                {
+                    int oathVal = card.GetDefaultTraitValue(KeywordTable.Oath, out _);
+                    ctx.Log($"（誓约二选一：「{card.Name}」这次**按玩家的选择**走 "
+                          + (pay ? $"**誓约版**（多付 {oathVal} 能量）" : "**平版**（不付誓约）") + "）");
+                    return pay;
+                }
+                ctx.Log($"（誓约二选一：「{card.Name}」没人回答（AI / 不走面板的入口）⇒ 按原版口径"
+                      + "**付得起就付**（照旧结算誓约版））");
+                return true;
+            }
+
+            if (ctx.HasOathAnswer)
+            {
+                ctx.Log($"（誓约二选一：「{card.Name}」这次**付不起誓约** ⇒ 只结算平版；"
+                      + "那格面板答案作废（原版这时根本不问））");
+                ctx.ClearOathAnswer();
+            }
+            return false;
+        }
+
+        /// <summary>摘掉 `Oath N:` 那个付费组（只用于「玩家选了平版」那一支）。
+        /// <para>判据 = `CostKindOf(op.CostKind) == "oath" &amp;&amp; op.Cost &gt; 0` —— 解析层
+        /// `EffectText.StampPaidCost` 会给**整组每一条**打同一个 `CostKind`
+        /// （含跨句承接来的 `CostShared`）⇒ 一次摘干净，不会漏掉后半句。</para>
+        /// <para>⚠️ 返回新表（⛔ 不就地改 `ops`）—— 同一份 `ops` 还要喂日志 / 事件。</para></summary>
+        public static List<EffectOp> WithoutOathPaidGroup(List<EffectOp> ops)
+        {
+            if (ops == null) return null;
+            var keep = new List<EffectOp>(ops.Count);
+            for (int i = 0; i < ops.Count; i++)
+            {
+                var op = ops[i];
+                if (op != null && op.Cost > 0 && EffectText.CostKindOf(op.CostKind) == "oath") continue;
+                keep.Add(op);
+            }
+            return keep;
+        }
+
+        /// <summary>「平版」那张选项卡上印的正文 = **整条 `desc` 去掉 `Oath N:` 及其后半句**。
+        /// <para>⚠️ **只作面板展示**（⛔ 不参与结算）—— 结算走 <see cref="WithoutOathPaidGroup"/> 那一条。</para>
+        /// <para>⚠️ 查不到「`Oath N:`」时**原样返回 `desc`**（不静默截断）。</para></summary>
+        public static string OathPlainText(CardDef card)
+        {
+            if (card == null || string.IsNullOrEmpty(card.Desc)) return "";
+            var m = ReOathSegmentForDisplay.Match(card.Desc);
+            if (!m.Success || m.Index <= 0) return card.Desc;
+            return card.Desc.Substring(0, m.Index).TrimEnd();
+        }
+
+        /// <summary>`Oath N:` 在卡面原文里的位置（**只给面板展示用**，判据仍是 `EffectText.ReOathPaid` 那条）。</summary>
+        static readonly System.Text.RegularExpressions.Regex ReOathSegmentForDisplay =
+            new System.Text.RegularExpressions.Regex(@"\boath\s+\d+\s*:",
+                System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+
+        /// <summary>🆕 2026-10-28（B88 · `A1b`）：这条 op 的**原版 80 档乘数是否已经折进数值**
+        /// （是 ⇒ `TryStructuredMultiplier` 把它当 1 遍，⛔ 不再当循环遍数）。
+        ///
+        /// <para>🔶 自己设计（非原版）：原版判据是 `damage.valueOptions == 80`（VA 级已核，见
+        /// `判据/B88_R2_80档_VA判定.md` §一）；我们**没有这一位**（`CardDef.ConditionSpec` 的十种 role
+        /// 里没有 `damage`，见 `CardDef.cs:3579-3583`，补它要动 `CardDef.cs` ⇒ 白名单外）。
+        /// ⇒ 用等价形状认：**乘数的池（`multiplierTa == 50` 手牌）就是这条 op 数值的来源
+        /// （`AmountRef == "enemyhand"`）** ⇒ 那个数只会被用一次（折进数值），不会再有第二重乘。</para>
+        /// <para>⚠️ 现池命中面 = 2 张（`GSC35 Benefictus` / `GSC59 Day of Ascension`），
+        /// 其它 `mult` 行（ta=10/50 之外的）**不会**被这条命中。</para></summary>
+        static bool IsMultiplierFoldedIntoValue(EffectOp op, int multiplierTa)
+        {
+            if (op == null) return false;
+            return multiplierTa == 50
+                && string.Equals(op.AmountRef, "enemyhand", System.StringComparison.OrdinalIgnoreCase);
+        }
+
+        /// <summary>🆕 2026-10-28（B88 · `A1c`）：**这一条 op 要不要逐目标掷**（判据只此一处）。
+        ///
+        /// <para>原版：`damageCriteria.valueOptions == 90 (RandomizedOnResolution)` **且**
+        /// `damageType ∈ {5, 10, 12}`（`CardScript__GetAdjustedDamage.c:23-30` 的 `0x1420` 位掩码）
+        /// ⇒ 掷点在逐目标循环里（`_ResolveMultiDamage…:136`）。数据 = 卡表 v36 的 `abilityDamage` 列
+        /// → `CardDef.AbilityDamageAt(ab, lg)`。</para>
+        ///
+        /// <para>⛔ 三条**不许**：
+        /// ① 不用「`AmountMax > Amount`（有区间）」当判据 —— 那会把 `Normal(0)` 的区间卡
+        ///    （`GOF22 Deff Dread` 的 `(0,5)` / 池外 `Infernal Gaze`）也改成逐目标，而原版那里是**共用**；
+        /// ② 不猜 `damageType` 缺失 —— 四格 `-1` 一律**不掷**（= 与加这一列之前逐字相同）；
+        /// ③ 不碰主动能力那一路（`op.AbilityMap == "attached"`；那一支的 `(ab,lg)` 是
+        ///    `activeAbilityLogic` 的下标空间，与 `cardAbilities` 不同 ⇒ 本波不混用）。</para></summary>
+        static void StampRollPerTarget(BattleContext ctx, EffectOp op, CardDef card)
+        {
+            if (op == null || card == null || op.RollPerTarget) return;
+            if (op.AbilityIndex < 0 || op.LogicIndex < 0) return;
+            if (string.Equals(op.AbilityMap, "attached", System.StringComparison.Ordinal)) return;
+            var spec = card.AbilityDamageAt(op.AbilityIndex, op.LogicIndex);
+            if (spec == null || spec.ValueOptions != 90) return;
+            if (spec.Type != 5 && spec.Type != 10 && spec.Type != 12) return;
+            op.RollPerTarget = true;
+        }
+
+        /// <summary>🆕 2026-10-28（B88 · 修复代理 `F7`）：`AmountRef = "enemyhand"` 的**数法** —— 敌方手牌里
+        /// **单位 + 战术**的张数（⛔ 不是 `Hand.Count`）。
+        ///
+        /// <para>判据（第一权威 = 原版 VA + 卡数据位）→ `资料/完全复刻/判据/B88_R2_80档_VA判定.md` §四·3：
+        /// 原版这两张卡（`GSC35 Benefictus` / `GSC59 Day of Ascension`）的数值 =
+        /// `AbilityLogic.GetValueFromCriteria(valueOptions = 80)` = **`minValue + maxValue × multiplierFactor`**，
+        /// 而 `multiplierFactor` = `AbilityLogic.multiplier` 这条 `TargetCriteria` 筛出的**目标个数**
+        /// （`AbilityLogic__PlayAbility.c:181-236`）。它们的取法是
+        /// `includeMinions = 1 · includeSpells = 1`，其余 `includeHero / Whispers / Weapons / Remnants = 0`
+        /// ⇒ **只数单位与战术**（附魔 / 武器 / 密语 / 残骸 / 英雄一律不算）。
+        /// ⚠️ 改前这里是 `Hand.Count`（全卡种）⇒ 敌方手里有附魔模板时**多算** ——
+        /// `RuleEngineTest.TestB88PlayerHandMultiplier` 的夹具实测 8（`Hand.Count`）vs 正解 7（单位 5 + 战术 1… 现读 7）。</para>
+        /// <para>⚠️ 现池**只有这两张卡**走 `enemyhand`（`EffectText.ReEqualEnemyHandCount` 的 doc 现读「全池 2 张」），
+        /// 两张的 `multiplierSet` 取法**完全相同** ⇒ 本函数按这一种形状实现。将来若有别的卡用 `enemyhand`
+        /// 而取法不同，⛔ 别直接复用 —— 回判据重读那张卡的 `multiplierSet`。
+        /// `CountEval` 的 `ta == 50` 支（`CountEval.cs:643`）是**同一条口径的 criteria 驱动版**（同一个卡种判据）。</para></summary>
+        static int CountEnemyHandUnitsAndSpells(BattleContext ctx, int side)
+        {
+            var ps = ctx.Players[side];
+            if (ps == null) return 0;
+            int n = 0;
+            for (int i = 0; i < ps.Hand.Count; i++)
+            {
+                var inst = ps.Hand[i];
+                var c = inst != null ? inst.Card : null;
+                if (c == null) continue;
+                if (c.Type == "unit" || c.Type == "tactic") n++;
+            }
+            return n;
         }
     }
 }

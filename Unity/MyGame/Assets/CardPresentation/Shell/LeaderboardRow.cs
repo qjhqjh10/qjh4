@@ -170,7 +170,13 @@ namespace CardPresentation
             //   ✅ 为什么可以：判据 = 原版 `RectMask2D` 对文字与图片一视同仁（本行行底 `Nine` 早在裁）⇒ 更贴原版；
             //   本句**丢弃返回值**（居中档不接 `Label`）⇒ A798 的「整块在外 ⇒ `null`」在这句上无副作用。
             //   判据全文 → `资料/普查产出_1015/R2_A799全量表.md` §一① #4（同族 #5/#6/#7 = 本文件另外三处）。
-            MenuDraw.Text(row, Abs(r, RankR), d.Rank > 0 ? d.Rank.ToString() : "", Color.white,
+            // 🔴 **2026-10-27（E9 · 账 90②）**：原版 `UIRankingRow.Config` 的三颗字是**无条件写**、
+            //   写完再 `ToggleComponents(true)`（`out_cpp2il_dev_ilspy/UIRankingRow.cs:21-49`：
+            //   `positionText.text = $"{rank}"; pointsText.text = …; nameText.text = …; ToggleComponents(true);`）
+            //   ⇒ **空串 / 0 也照样把节点建出来并点亮**，⛔ 不是「没有就不建」。
+            //   本处原来 `d.Rank > 0 ? … : ""` **连节点都不建**（`MenuDraw.Text` 返回 null 时下面那句丢弃返回值也无妨）
+            //   ⇒ 与 `Name` 那句同族偏离，一并改掉。
+            MenuDraw.Text(row, Abs(r, RankR), d.Rank.ToString(), Color.white,
                           "Ranking", RankPx, c.Q + L_Text, RankR.W, RankMin, RankPx, 36f, face: TmpFont.Face.LatinCardBody);
 
             // ---- 头像格（玩家族）/ 徽章格（联盟族）----
@@ -215,11 +221,22 @@ namespace CardPresentation
                 var drawer = MenuDraw.Node(row, "BadgeDrawer", drawerAbs);
                 MenuDraw.Node(drawer, "Frame", drawerAbs);
                 MenuDraw.Node(drawer, "Badge", drawerAbs);
+                // 🔴 **2026-10-27（E9 · 账 90①）**：原版这一支最后一跳是
+                //   `badgeDrawer.Draw(rowData.Badge)`（`out_cpp2il_dev_ilspy/AllianceUIRankingRow.cs:11-45`）。
+                //   **反证（判据空）**：`AllianceBadgeDrawer.Draw(GroupBadge)` 要的是
+                //   `GroupBadge → featuredTrophy → AllianceTrophyData.reward → AllianceBadge.badgeImage`
+                //   那条 **SO 引用链**，而我们本地**一份 `AllianceBadge` SO 都没有**（`grep -r AllianceBadge`
+                //   在 `d:/4` 只命中盘点文档、零资产；`guid_map.tsv` 也不覆盖徽章 SO）⇒ **没有 id→图 的映射**。
+                //   所以这里只能停在「结构建好、两张 `m_Sprite` 保持空」（= 原版**未 Draw 之前**的出厂态），
+                //   ⛔ 不编一张图冒充（那是自证明）。真要做：先补一份「徽章 SO → sprite」的 GUID 映射。
             }
 
             // ---- 名字 + 公会名（判据 ④：`Guild` 空串 ⇒ 原版整格关掉 ⇒ 我们连节点都不建）----
             var holder = MenuDraw.Node(row, "Name Holder", Abs(r, NameHolderR));
-            if (!string.IsNullOrEmpty(d.Name))
+            // 🔴 **2026-10-27（E9 · 账 90②）**：`Name` / `Points` 两颗原来都带 `if (!string.IsNullOrEmpty(...))`
+            //   ⇒ 空数据时**连节点都不建**；原版 `UIRankingRow.Config` 是**无条件写 + `ToggleComponents(true)`**
+            //   ⇒ 一律建（空串就写空串）。⚠️ 与下面 `Guild Name` 那一颗**不是同一条规矩**：
+            //   原版 `Guild Name` 空串时**真的把 GameObject 关掉**（判据 ④，见文件头）—— 两颗分开照办，⛔ 别一刀切。
             {
                 var nameAbs = Abs(r, NameR);
                 // 🔴 **2026-10-16（A799 · 生产 5/9）：这一格【会新裁】= 目的，⛔ 别「修」。**
@@ -227,7 +244,7 @@ namespace CardPresentation
                 //   本处 `clip` 恒 `null` ⇒ A781 起压在视口边上的「Name」第一次被夹到视口沿。
                 //   ✅ 返回值有守卫（下一句 `if (nm != null) MenuDraw.AlignLeft(...)`）—— A798 起可能返回 `null`。
                 //   判据全文 → `资料/普查产出_1015/R2_A799全量表.md` §一① #5。
-                var nm = MenuDraw.Text(holder, nameAbs, d.Name, Color.white, "Name", NamePx, c.Q + L_Text,
+                var nm = MenuDraw.Text(holder, nameAbs, d.Name ?? "", Color.white, "Name", NamePx, c.Q + L_Text,
                                        NameR.W, NameMin, NamePx, 36f, face: TmpFont.Face.LatinCardBody);   // 🆕 A333/A336③：max 40 · base 36
                 if (nm != null) MenuDraw.AlignLeft(nm, nameAbs);
             }

@@ -174,8 +174,11 @@
 //       **`Badge`** 走 `GroupBadge.featuredTrophy@0x10 → AllianceTrophyData.reward@0x58 → AllianceBadge.badgeImage@0x38`（`AllianceBadgeDrawer__Draw.c:24-30`，null 回落 `DefaultTrophy`）。
 //     · 🔴 **真原因是「走不到那一支」**：`BattleAlliancePanel__Open.c:93-108` 是 **`bVar9 = !IsNullOrEmpty(allianceName)`** 才做联盟那一块
 //       ⇒ 我们传 `Open(name, "", "")` ⇒ **`allianceGO` 关、`Draw` 压根不执行** ⇒ ⛔ **不是「原版没有」**。
-//     · ⚠️ 而且**我们连那份 `*_Badge` 都没接**（`grep Alliance_Trophies` 在 `d:/4` 只命中两份盘点文档、零代码/零生成器引用）。
-//     · ⚠️ **真要建 ③ 还缺一样**：`guid_map.tsv` **不覆盖徽章 SO**（`AM_Forge_Badge.badgeImage` 的 GUID 在那表里 0 命中）⇒ 要另找一份「徽章 GUID → sprite」映射。
+//     · ✅ **2026-10-28（B88-B7 · 账 187③）就地订正（铁律 5）—— 上面两条【都已解决】**：
+//       ① `Frame` / `Badge` 两层**已建**（`Alliance` 组第 3 子件，`AllianceBadgeDrawerR`）；
+//       ② 「徽章 GUID → sprite」那份映射**已有** —— 16 份 SO 的 `badgeImage.m_AssetGUID` → `AssetBundle.m_Container`
+//          → Sprite 名，16/16 解出（判据 `B88_R8_安卓包徽章挖掘.md` §二），落成 `Shell/AllianceBadgeArt.cs`。
+//       ⚠️ 仍然成立的是：**单机恒走「无联盟」那一支**（`BattleDriver` 传 `Open(name,"","")`）⇒ 那两层建了但整组是关的。
 //  ④ **出场动画（`DOFade` + `DOScale`）没做**：原版 `Open` 末尾是 `CanvasGroup.alpha = 0` → `DOFade`
 //     + 「先缩到 `×DAT_1834b2e84` 再 `DOScale` 弹回」。本件**直接显/隐**（本仓其它窗同此）；
 //     ⚠️ 三个 DOTween 常量（目标 alpha / 时长 / 缩放系数）**没读**（要在 `GameAssembly.dll` 里取值）。
@@ -284,6 +287,18 @@ namespace CardPresentation
         static readonly PxRect AllianceGroupR = new PxRect(23.094f, 220.581f, 574.688f, 356.530f);
         static readonly PxRect AllianceLabelR = new PxRect(183.090f, 244.780f, 278.002f, 285.579f);
         static readonly PxRect AllianceNameR = new PxRect(278.940f, 244.780f, 535.827f, 285.579f);
+        /// <summary>🆕 **2026-10-28（B88-B7 · 账 187③）**：`Alliance Badge Drawer`（RT **3503** / GO 同名）
+        /// —— `Alliance` 组的**第 3 个子件**（`m_Children = [2635(Label), 3272(Name), 3503(BadgeDrawer), 3110(Rating)]`）。
+        /// <para>逐字段实读（`bundle_scenes_scenes_battlearena1`）：`m_AnchorMin/Max = (0.5, 0.5)` ·
+        /// `m_AnchoredPosition = (-197.459930, 8.970734)` · `m_SizeDelta = (139.705994, 131.104004)` ·
+        /// `m_Pivot = (0.5, 0.5)` · 🔴 **`m_LocalScale = 1`（不是 0.8）**。</para>
+        /// <para>换算：兄弟节点的位置偏移**不被自己的 scale 缩放**（那是尺寸的事），故
+        /// 中心 = `AllianceGroupR` 中心 + (−197.4599, −8.9707↓) = **(101.439, 279.587)**；
+        /// **尺寸不乘 0.8**（本件 scale = 1）⇒ 半宽 69.853 / 半高 65.552。
+        /// 反证：同组 `AllianceNameR` 用同一条通式算出来是 (278.940, 325.38×0.8…) 与既有值逐位吻合
+        /// （差值 0.01 px = 字段位数），⇒ 这条通式就是本文件一直在用的那条。
+        /// ⚠️ 它**上边缘溢出父组 6.55 px**（214.035 &lt; 220.581）—— 原版就这样（组上没有遮罩）。</para></summary>
+        static readonly PxRect AllianceBadgeDrawerR = new PxRect(31.586f, 214.035f, 171.292f, 345.139f);
         // `NotInaAllianceText`（RT 2660）—— 🔴 原版那句 `is is` 双 is 是笔误，照抄勿改
         static readonly PxRect NotInAllianceR = new PxRect(55.765f, 257.013f, 529.877f, 293.972f);
         const float NotInAllianceAlpha = 0.772549f;             // 实读 `m_fontColor.a`
@@ -503,6 +518,12 @@ namespace CardPresentation
             var c = go.AddComponent<AlliancePanelWindow>();
             c._ugui = ugui;                       // ⚠️ 必须在 `Build()` **之前**赋值
             c._root = go.transform;
+            // 🆕 2026-10-27（E9 · 账 187①）：原版 `canvasGroup`（字段 `+0x68`）就挂在这根节点上
+            //   ⇒ 我们同样在根上加一颗（`Open` 的 `DOFade` 目标就是它，见 `StartAppear`）。
+            //   ⚠️ 世界档（`ugui=false`）那几颗是 `ImageQuad`（MeshRenderer），**`CanvasGroup` 管不到它们**
+            //      ⇒ 淡入只在画布档看得见；缩放两档都有效（如实记，⛔ 不假装世界档也淡入）。
+            c._cg = go.AddComponent<CanvasGroup>();
+            c._baseScale = go.transform.localScale;
             if (ugui)
             {
                 go.transform.SetParent(uguiHost, false);
@@ -672,7 +693,7 @@ namespace CardPresentation
             // ---- ⑥ `Alliance` 组：`Alliance:` / 联盟名 ----
             //  `allianceGO`（原版字段 0x48）—— **无联盟时整组关掉**（`BattleAlliancePanel__Open.c`）。
             //  ⚠️ 组里的 `Alliance Badge Drawer/{Frame,Badge}` 两张图 `m_Sprite` 也是 `0`（`AllianceBadgeDrawer.Draw`
-            //     运行期灌）⇒ 出厂态不画（缺口③）；🆕 2026-10-19（`R01`）`Alliance Rating Display` **已建**（见下）。
+            //     运行期灌）⇒ 🆕 **2026-10-28（B88-B7 · 账 187③）：这两层现在建了**（原版第 3 子件，见下）。
             _allianceGo = Node(_root, RootR, "Alliance", AllianceGroupR, QText);
             BlockRaycasts(Txt(_allianceGo, AllianceGroupR, AllianceLabelR, LocOr(AllianceLabelTerm, AllianceLabelEn),
                               Color.white, "Alliance Label", AllianceLabelPx, Label.VAlign.Capline,
@@ -680,8 +701,21 @@ namespace CardPresentation
             _allianceLb = Txt(_allianceGo, AllianceGroupR, AllianceNameR, "", Color.white, "Alliance Name",
                               AllianceNamePx, Label.VAlign.Capline, face: TmpFont.Face.LatinUi);
             BlockRaycasts(_allianceLb);
+            // ---- ⑥b 🆕 2026-10-28（B88-B7 · 账 187③）：`Alliance Badge Drawer`（`Frame` + `Badge` 两层）----
+            //   位置在**兄弟序第 3**（`Alliance Label` → `Alliance Name` → **本件** → `Alliance Rating Display`），
+            //   与原版 `m_Children = [2635, 3272, 3503, 3110]` 逐位一致。
+            //   出厂画的是**默认那一枚**（`Default_Badge` + `TIER1`）= 原版 `Draw(null)` 的回落支
+            //   （`AllianceBadgeDrawer__Draw.c`：徽章取不到 ⇒ `get_DefaultTrophy()`）；
+            //   有真 id 时由 `Apply(..., badgeId, tier)` 换图（⛔ 不再重建节点）。
+            var badgeGo = Node(_allianceGo, AllianceGroupR, "Alliance Badge Drawer", AllianceBadgeDrawerR, QAvatar);
+            _allyBadgeFrame = Img(badgeGo, AllianceTrophyArt.GetTierFrame(1), AllianceBadgeDrawerR, AllianceGroupR,
+                                  "Frame", QAvatar, null, true);
+            if (_allyBadgeFrame == null) Node(badgeGo, AllianceGroupR, "Frame", AllianceBadgeDrawerR, QAvatar);
+            _allyBadge = Img(badgeGo, AllianceBadgeArt.Get(null), AllianceBadgeDrawerR, AllianceGroupR,
+                             "Badge", QAvatar + 1, null, true);
+            if (_allyBadge == null) Node(badgeGo, AllianceGroupR, "Badge", AllianceBadgeDrawerR, QAvatar + 1);
             // 🆕 2026-10-19（`R01`）：`Alliance Rating Display` —— 原版 `Alliance` 组的**第 4 个子件**
-            //  （我们的兄弟序 = 第 3，因为 `Alliance Badge Drawer`（缺口③）本文件不建；相对序不变）。
+            //  （我们原来排第 3，因为 `Alliance Badge Drawer` 没建；2026-10-28 起本件补上 ⇒ 恢复第 4）。
             //  ⚠️ 原版只在**联盟名非空**时 `Initialize` 这一格（`BattleAlliancePanel__Open.c` 的 `if (bVar9)` 支）
             //  ⇒ 显隐跟着 `_allianceGo`（本方法 ⑥ 已按 `hasAlliance` 开关它），这里**不再单判一次**。
             _allianceRating = RatingDisplay(_allianceGo, AllianceGroupR, "Alliance Rating Display",
@@ -825,11 +859,22 @@ namespace CardPresentation
         /// （`param_7`）—— 本方法逐条照抄，⛔ 别把两者合并成一个「有没有档案」。</summary>
         public void Open(string playerName, string title, string allianceName)
         {
+            // 🆕 2026-10-28（B88-B7 · 账 187③）：三实参这一版 = 「不知道徽章」⇒ 走原版回落（默认徽章 + TIER1）。
+            Open(playerName, title, allianceName, null, 0);
+        }
+
+        /// <summary>🆕 **2026-10-28（B88-B7 · 账 187③）**：带联盟徽章的那一版 —— 原版 `Open` 的第 8 个实参
+        /// `GroupBadge allianceBadge`（`BattleAlliancePanel.cs:55`）。我们收的是**拆平后的两格**：
+        /// `badgeId` = `GroupBadge.featuredTrophy.reward.uniqueId`、`badgeTier` = `GroupBadge.tierLevel`
+        /// （id → 图 见 `AllianceBadgeArt`）。`badgeId` 为空 ⇒ **原版同一条回落**（`DefaultTrophy`），⛔ 不是我们挑的图。</summary>
+        public void Open(string playerName, string title, string allianceName, string badgeId, int badgeTier)
+        {
             // 🆕 2026-10-20（A3-e）：上一扇（或上一次点击）留下的「待关」**不许**落到刚开的这一扇上
             //   —— 没有这一句时，「关窗点击落账 → 同帧有人又 Open」会让新窗在 `LateUpdate` 立刻被关掉。
             _closePending = false;
             gameObject.SetActive(true);
-            Apply(playerName, title, allianceName);
+            Apply(playerName, title, allianceName, badgeId, badgeTier);
+            StartAppear();          // 🆕 2026-10-27（E9 · 账 187①）：原版末尾的 DOFade + DOScale
             _visible = true;
         }
 
@@ -915,6 +960,60 @@ namespace CardPresentation
         void LateUpdate()
         {
             ApplyPendingClose();
+            TickAppear();          // 🆕 2026-10-27（E9 · 账 187①）：出场动画（DOFade + DOScale 的等价物）
+        }
+
+        // ============================================================ 🆕 2026-10-27（E9 · 账 187①）出场动画
+        /// <summary>原版 `BattleAlliancePanel.Open` 末尾那两跳（判据 `BattleAlliancePanel__Open.c:99-125`）：
+        /// `canvasGroup.alpha = 0` → `DOFade(1.0, 0.35s)`；`transform.localScale = base × 0.75` → `DOScale(base, 0.35s)`。
+        /// 三个常量**不是我们挑的**（`工具/read_literal.py` 现读，见文件头 ④）：
+        /// 目标 alpha **1.0**（`0x1834b2bb8`）· 时长 **0.35 s**（`0x1834b31d4`，两跳共用）· 起始缩放系数
+        /// **0.75**（`0x1834b2e84`）。
+        /// <para>⚠️ **只在真机跑**（`Application.isPlaying`）：批处理/自检**没有帧循环** ⇒ 动画会永远停在
+        /// `alpha = 0`（整扇看不见，而断言照旧读矩形 ⇒ **静默的假绿**）⇒ 非播放态**直接落到终态**。
+        /// 这不是「我们简化了动画」，是「没有帧就没有动画」这条事实的显式处理。</para>
+        /// <para>缓动 = DOTween `DOFade(float,float)` / `DOScale` 的**默认** `Ease.OutQuad` = `1−(1−k)²`；
+        /// 时钟 = `Time.deltaTime`（DOTween 默认吃 `Time.timeScale` ⇒ 与原版同一条口径，⛔ 别换成 unscaled）。</para></summary>
+        CanvasGroup _cg;
+        Vector3 _baseScale = Vector3.one;
+        float _animT;
+        bool _animating;
+        /// <summary>原版三个 DOTween 常量的落地值（见上一条 doc 的出处）。</summary>
+        public const float AppearDuration = 0.35f, AppearFromScale = 0.75f, AppearToAlpha = 1f;
+
+        /// <summary>自检读口：出场动画进度 0..1（不动画时恒 1）。</summary>
+        public float AppearProgress { get { return _animating ? Mathf.Clamp01(_animT / AppearDuration) : 1f; } }
+
+        /// <summary>`Open` 末两步：`alpha = 0` + `scale = base × 0.75`，然后交给 `LateUpdate` 每帧推进。</summary>
+        void StartAppear()
+        {
+            if (_cg == null) return;                     // 根上没挂 CanvasGroup（不该发生）
+            if (!Application.isPlaying) { ApplyAppear(1f); return; }   // 批处理/自检：没有帧（见 doc）
+            _animT = 0f;
+            _animating = true;
+            ApplyAppear(0f);
+        }
+
+        /// <summary>把进度 `k`(0..1) 落到 alpha / scale（OutQuad 缓动）。`k >= 1` 时收尾并复位。</summary>
+        void ApplyAppear(float k)
+        {
+            float e = 1f - (1f - k) * (1f - k);          // Ease.OutQuad
+            if (_cg != null) _cg.alpha = Mathf.Lerp(0f, AppearToAlpha, e);
+            if (_root != null) _root.localScale = _baseScale * Mathf.Lerp(AppearFromScale, 1f, e);
+            if (k >= 1f)
+            {
+                _animating = false;
+                if (_cg != null) _cg.alpha = AppearToAlpha;
+                if (_root != null) _root.localScale = _baseScale;
+            }
+        }
+
+        /// <summary>每帧推进一步（`LateUpdate` 调；没有动画时零开销）。</summary>
+        void TickAppear()
+        {
+            if (!_animating) return;
+            _animT += Time.deltaTime;
+            ApplyAppear(Mathf.Clamp01(_animT / AppearDuration));
         }
 
         /// <summary>世界坐标落在**面板本体**上吗（**不含**那张铺满全屏的熄灯层）。
@@ -962,7 +1061,8 @@ namespace CardPresentation
                 && p.y >= BackgroundR.y1 && p.y <= BackgroundR.y2;
         }
 
-        void Apply(string playerName, string title, string allianceName)
+        void Apply(string playerName, string title, string allianceName,
+                   string badgeId = null, int badgeTier = 0)
         {
             if (_nameLb != null) _nameLb.SetText(playerName ?? "");
             bool hasTitle = !string.IsNullOrEmpty(title);
@@ -973,6 +1073,24 @@ namespace CardPresentation
             if (_allianceGo != null) _allianceGo.gameObject.SetActive(hasAlliance);
             if (_allianceLb != null) _allianceLb.SetText(allianceName ?? "");
             if (_notInAlliance != null) _notInAlliance.gameObject.SetActive(!hasAlliance);
+            // 🆕 2026-10-28（B88-B7 · 账 187③）：徽章两层换图 = 原版联盟支里那句
+            //   `allianceBadgeDrawer.Draw(allianceBadge)` —— 先按 `tierLevel` 取档位框（`Max(0, tier-1)`），
+            //   再取徽章图（id 查不到 ⇒ `AllianceBadgeArt` 走原版同一条 `DefaultTrophy` 回落）。
+            //   ⚠️ 原版整段只在**联盟名非空**时执行（`BattleAlliancePanel__Open.c:93-108` 的 `if (bVar9)` 支）
+            //   ⇒ 这里同样只在 `hasAlliance` 时换图（否则保持出厂那两张，反正 `_allianceGo` 已经关了）。
+            if (hasAlliance)
+            {
+                if (_allyBadgeFrame != null)
+                {
+                    var ft = AllianceTrophyArt.GetTierFrame(badgeTier);
+                    if (ft != null) _allyBadgeFrame.SetTexture(ft);
+                }
+                if (_allyBadge != null)
+                {
+                    var bt = AllianceBadgeArt.Get(badgeId);
+                    if (bt != null) _allyBadge.SetTexture(bt);
+                }
+            }
 
             // 🔴 换过字就要**重新左对齐一次**：`Label.SetText` 会重排，而 `RefreshBounds` 把字形块
             //    **居中**到锚点上（见 `Battle/CardDisplayWindow.cs` 的 `PlaceLeft` 那条同族教训）。
@@ -1209,6 +1327,12 @@ namespace CardPresentation
             return g != null && g.raycastTarget;
         }
 #endif
+
+        // 🆕 2026-10-28（B88-B7 · 账 187③）：`Alliance Badge Drawer` 的两层（原版 `AllianceBadgeDrawer`
+        //   在 `Open` 的联盟支里灌图；我们建件时就画默认那一枚，`Apply` 再按 id 换）。
+        //   ⚠️ 追加在**类尾**（铁律：新成员别插在已有成员之间 —— 会让下游账的落点整体漂）。
+        HudPiece _allyBadgeFrame;              // `Frame`（`Alliance_Trophies_TIER1..4`）
+        HudPiece _allyBadge;                   // `Badge`（`Alliance_Trophies_<阵营>`，见 `AllianceBadgeArt`）
     }
 
     // ============================================================ 入口（✅ 2026-10-18 · A985③ 已接）

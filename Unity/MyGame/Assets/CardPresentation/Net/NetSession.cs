@@ -242,7 +242,7 @@ namespace CardPresentation.Net
             if (_t.PeerLost && State != NetState.Closed && State != NetState.WaitingReconnect
                 && State != NetState.Off)
             {
-                _wasInBattle = State == NetState.InBattle;
+                _wasInBattle = State == NetState.InBattle; _wasInLobbyMatch |= !_wasInBattle && NetMatchmaking.InLobbyMatch;   // 🔴 必须在下面 `OnPeerLost()` **之前**：它会 `RevokeMatchLocal → ClearMatch` 把 `_myDeck` 清掉，事后读恒假
                 string why = _t.LastError;
                 SetState(NetState.WaitingReconnect,
                          (_wasInBattle ? Loc.T("Settings/Online/St/PeerLostInBattle")
@@ -251,8 +251,7 @@ namespace CardPresentation.Net
                 if (OnPeerLost != null) OnPeerLost();
             }
 
-            if (State == NetState.Closed || State == NetState.Off) return;
-
+            if (State == NetState.Closed || State == NetState.Off) return; if (!_wasInLobbyMatch && NetMatchmaking.InLobbyMatch) _wasInLobbyMatch = true;   // 🔴 2026-10-28（B88-E8c）：**每帧观察**「本机在匹配中」并**粘住** —— 生产里 `NetRuntime.Update` 每帧 Pump ⇒ 掉线那一刻这个标志已经是真；⛔ 别改成「掉线时才现读」（那时 `OnPeerLost` 可能已经把 `ClearMatch` 跑掉了）
             // ---- 🆕 🔴 **2026-10-20（W58-S6FIX · S6）：主机已有活连接时进来的新连接** ----
             //   旧行为：传输层直接关掉（客机重连只看到「连上了又断」）。现在先收作**候选**，
             //   在这里走凭据（`Challenge → Proof → Reconnect{sessionToken}`）；凭据齐了才提升。
@@ -332,7 +331,7 @@ namespace CardPresentation.Net
                     // 静默太久 = 对面没了（拔网线这种不会触发 TCP 的 FIN）⇒ 当作掉线
                     // ⚠️ 用 `ClosePeer` 而**不是** `Close` —— 主机要把监听留着，否则等不到重连
                     _t.ClosePeer();
-                    _wasInBattle = State == NetState.InBattle;
+                    _wasInBattle = State == NetState.InBattle; _wasInLobbyMatch |= !_wasInBattle && NetMatchmaking.InLobbyMatch;   // 同上：捕获必须在 `OnPeerLost()` 之前
                     LastError = string.Format(Loc.T("Settings/Online/St/SilentTimeout"), SilentTimeoutMs / 1000);
                     // 🆕 2026-10-17（B23·A902）：这行字**要按在不在对局里分开说** —— 原来无条件是
                     //   「对局已暂停」，而大厅阶段（还没进对局）根本不是那么回事（**说错话** = 另一种静默）。
@@ -349,8 +348,15 @@ namespace CardPresentation.Net
             //      「刚连上、还没发过包」的连接不被误判成「10 秒没消息」。⛔ 别挪回这儿。
 
             // ---- 客机：重连退避 ----
-            if (Role == NetRole.Client && State == NetState.WaitingReconnect && _wasInBattle &&
-                !string.IsNullOrEmpty(SessionToken) && now - _lastReconnMs >= ReconnectEveryMs)
+            // 🔴 **2026-10-27（B88-E8b · 联机:81）放宽到原版口径**：原版 `NetworkCustomManager.AttemptReconnect` 只判
+            //   `connectionState == Disconnected`（`_AttemptReconnect_d__32__MoveNext.c`：先 `WaitForSeconds(2.0)` 再连，**不分大厅/对局**）。
+            //   · **对局档**（`_wasInBattle`）必须有 `SessionToken`（那一局的钥匙，没有就重连不回来）—— 原样；
+            //   · **大厅档**（`_wasInLobbyMatch`）没有钥匙，走与「首次加入」**逐字相同**的握手（主机 `PumpReplacement` 的
+            //     `armed` 在大厅为假 ⇒ 新连接按普通加入处理；客机收 `Ack` 后 `_wasInBattle` 为假 ⇒ 落 `Lobby` 并重新拿到钥匙）。
+            //   ⚠️ 它是**掉线那一刻**捕获的快照（见上面两处捕获点）—— `OnPeerLost` 会 `RevokeMatchLocal → ClearMatch` 清掉 `_myDeck`。
+            //   ⚠️ 原版先等 2 s 再连、我们是先试一次再 2 s 退避 —— 对局档本来如此（`P⑫` 钉着它），不动。
+            if (Role == NetRole.Client && State == NetState.WaitingReconnect
+                && (_wasInBattle ? !string.IsNullOrEmpty(SessionToken) : _wasInLobbyMatch) && now - _lastReconnMs >= ReconnectEveryMs)
             {
                 _lastReconnMs = now;
                 var cfg = NetConfig.Current;
@@ -771,7 +777,7 @@ namespace CardPresentation.Net
                     //     ⇒ **是①类玩家可见文案**，落键。键名/两列**两张原版表都搜过、0 命中**（原版联机走 PlayFab、
                     //     没有「检查连接」这套流程）⇒ **自拟**，出处 = 调用点原话逐字（`Core/Loc.cs` 的 `St/CheckOk`）。
                     if (_checkMode && OnCheckDone != null) OnCheckDone(true, Loc.T("Settings/Online/St/CheckOk"));
-                    _checkMode = false;
+                    _checkMode = false; _wasInLobbyMatch = false;   // 🔴 2026-10-28（B88-E8c）：握手通了 ⇒ 「大厅那局还在」这个粘性标志作废（否则通了还一直重连）
                     if (_wasInBattle)
                     {
                         // 🔴 **重连的那一步**：报上钥匙 + 打到第几条，等主机灌权威动作流回来
@@ -969,7 +975,7 @@ namespace CardPresentation.Net
         public void Close(bool say = true, string reason = null)
         {
             string key = reason ?? "Settings/Online/Wire/PeerDone";
-            bool sentBye = false;
+            bool sentBye = false; _wasInLobbyMatch = false;   // 🔴 2026-10-28（B88-E8c）：本机主动关台 ⇒ 那条粘性标志作废（别让它把下一次会话拖进自动重连）
             if (say)
             {
                 if (_t == null || !_t.IsConnected || State == NetState.Off)
@@ -1167,5 +1173,13 @@ namespace CardPresentation.Net
             //    两处各取一次机器名就是「两处写同一条规则」（改了名、联机那边还报旧名）。
             return ProfileData.PlayerName;
         }
+
+        // ---- 🆕 2026-10-27（B88-E8b · 联机:81）：大厅阶段掉线的自动重连 ----------------------------------
+        // 原版 `NetworkCustomManager.AttemptReconnect` 不分大厅/对局（判据见 `Pump` 里那道退避闸的注释）。
+        // 这一格 = **掉线那一刻**「本机正处在大厅匹配里」的快照，两处掉线边沿（`_t.PeerLost` 支 /
+        // 静默超时支）在调 `OnPeerLost()` **之前**写它 —— 那一下会 `RevokeMatchLocal → ClearMatch`
+        // 把 `NetMatchmaking` 的 `_myDeck` 清空 ⇒ 事后读 `InLobbyMatch` 恒假。
+        // ⚠️ 追加在类尾：上面那些成员被账按 `文件:行号` 引用，⛔ 别把它挪到中间（挪了整篇行号下移）。
+        bool _wasInLobbyMatch;
     }
 }

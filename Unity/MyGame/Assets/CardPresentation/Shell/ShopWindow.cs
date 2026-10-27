@@ -12,7 +12,7 @@
 //   `type = 0 (Fullscreen)` · `windowsPlacement = 10 (World)` · `closeOnESC = 1` ·
 //   `updateNavPanel = 1` · `extraScaleSmallScreen = 1.0`。
 //
-// ---- 🔴 三个页签是「同一套树的三份拷贝」----
+// ---- 🔴 三个页签是「同一套树的三份拷贝」（🆕 2026-10-27：第 4 页 VIP 是另一个 prefab `Card Shop VIP Tab Variant`，同构 + 多一段 `VIP Status` 与非 VIP 遮罩）----
 //   `Card Shop Tab` / `Daily Shop Tab` / `Item Shop Tab` **逐节点同构**（节点数 71、结构一致，
 //   但每个节点的 RT/GO pid 各不相同 = 复制粘贴）；**唯一的结构差**在
 //   `daily shop header/TimeCounter` 的第一个子件：
@@ -84,6 +84,11 @@ namespace CardPresentation
                                "ShopMenu_DailyButton", term: "MenuShop/ShopItemType/Gold"),
                 new TabBtnSpec(ShopData.Pages[2].Icon, ShopData.Pages[2].Label, 36f, 5f, 36f,
                                "ShopMenu_ItemsButton", term: "MenuShop/ShopItemType/Cosmetics"),
+                // 🆕 **2026-10-27（B88_E12）第 4 颗键 = VIP 页**（原版 `VIPCardShopTab`）。
+                //   图标 `40K_shop_bt_cards_vip`（原版 `bundle_liveopsicons` 里那张，名字自带 vip ⇒ **不是我们挑的**）；
+                //   文案走官方词条 `MenuShop/VIPCardStore/Title`（en `VIP Card store` / zh `VIP 张牌商店`）。
+                new TabBtnSpec(ShopData.Pages[3].Icon, ShopData.Pages[3].Label, 36f, 5f, 36f,
+                               "ShopMenu_VipButton", term: "MenuShop/VIPCardStore/Title"),
                 // 第 4 个 = 母版（原版 `TabButtons.tabButtonPrefab`）：**照建但关着**。
                 new TabBtnSpec(ShopData.MasterKeyIcon, "Booster Packs", 25.65f, 12f, 33f, "", 47.9f),
             };
@@ -107,11 +112,12 @@ namespace CardPresentation
 
         public ShopWindow()
         {
-            // 左栏的**视觉顺序** = 三个页 + 母版（母版那格是 None ⇒ 点它走 `NotifyNotBuilt`）
+            // 左栏的**视觉顺序** = 四个页 + 母版（母版那格是 None ⇒ 点它走 `NotifyNotBuilt`）
             visualTypes.Clear();
             visualTypes.Add(WindowTabType.ShopCards);
             visualTypes.Add(WindowTabType.ShopDaily);
             visualTypes.Add(WindowTabType.ShopItems);
+            visualTypes.Add(WindowTabType.ShopVip);      // 🆕 2026-10-27（B88_E12）第 4 颗 = VIP 页（枚举成员在 `RewardsWindow.cs` 的 `WindowTabType`）
             visualTypes.Add(WindowTabType.None);
         }
 
@@ -191,7 +197,7 @@ namespace CardPresentation
         public override void NotifyNotBuilt(string what)
         {
             Debug.Log("[Shop] `" + what + "` 还没实现（原版是 `ShopWindow.CreateStoreTab` 按服务端 store 列表建的页签；" +
-                      "本地只有 `Card/Daily/Item Shop Tab` 三页 prefab ⇒ 见 `ShopWindow.cs` 文件头）");
+                      "本地只有 `Card/Daily/Item Shop Tab` + `Card Shop VIP Tab Variant` 四页 prefab ⇒ 见 `ShopWindow.cs` 文件头）");
         }
 
         // ============================================================ 建

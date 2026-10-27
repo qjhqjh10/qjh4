@@ -203,24 +203,24 @@ namespace CardPresentation
         /// `0`（Neutral）与 `10` 同图（SO 第 0 条就是这么配的）；认不出的值 ⇒ `null`（不顶图）。</summary>
         public static string ArmyBackgroundArt(int army)
         {
-            switch (army)
-            {
-                case 0:
-                case 10: return "40K_profile_campaign_bg_UM";
-                case 20: return "40K_profile_campaign_bg_Orks";
-                case 30: return "40K_profile_campaign_bg_SaimHann";
-                case 40: return "40K_profile_campaign_bg_Sautekh";
-                case 50: return "40K_profile_campaign_bg_Black_Legion";
-                case 60: return "40K_profile_campaign_bg_Leviathan";
-                case 70: return "40K_profile_campaign_bg_Tau_Empire";
-                case 80: return "40K_profile_campaign_bg_Sororitas";
-                case 90: return "40K_profile_campaign_bg_GenestealerCults";
-                case 100: return "40K_profile_campaign_bg_AstraMilitarum";
-                case 110: return "40K_profile_campaign_bg_DarkAngels";
-                case 120: return "40K_profile_campaign_bg_Emperors_Children";
-                case 130: return "40K_profile_campaign_bg_SW";
-                default: return null;
-            }
+            // 🔴 **2026-10-28（B88_B2）：收口到 `Core/ArmyIcons.MediumBackgroundName`** ——
+            //   原来这里内联了一张 14 条的 `case` 表，与 `Core/ArmyIcons.cs` 的 `MediumBackgroundTable`
+            //   **是同一份映射**（`0/10→…_UM` … `130→…_SW`，逐条相同；`ArmyIcons` 那边 2026-10-28 逐字节实读校验过）。
+            //   铁律「两处写同一条规则 = 迟早不一致」＋用户 2026-10-28 点名 ⇒ **只留 `ArmyIcons` 那一份**。
+            //   ⚠️ 两个口径逐字相同：`ArmyIcons.ResourceNameOf` 把原版 sprite 名里的空格换成下划线
+            //     （`Black Legion→Black_Legion` · `Tau Empire→Tau_Empire` · `Emperors Children→Emperors_Children`），
+            //     与旧表那几条手写的下划线名**逐字一致** ⇒ 生产路径**逐像素不变**。
+            //   ⚠️ `0`(Neutral) 与 `10` 共用 `…_UM` 那一张（`ArmyBackgroundsSO` 第 0/1 条就是这么配的）——
+            //     `ArmyIcons.MediumBackgroundTable` 里那两条**也是同值** ⇒ 行为不变。
+            //   ⚠️ 认不出的值（如 `999`）⇒ `null`（`ShellScene` 那条 `ArmyBackgroundArt(999) == null` 照旧绿）。
+            //
+            // ⚠️ **2026-10-28 更正（铁律 5）—— 上面「本地还没导入这 13 张」那句【已过期】**：
+            //   现读 `Resources/Art/ui_menu/40K_profile_campaign_bg_*.png` = **13/13 全在**（含 `.meta`）；
+            //   ⇒「取不到就只建节点、不画」现在是**纯兜底**（正常路径取得到图，且 `ProfileTab` 早在用它）。
+            //   `ArmyBackgroundTexForTest` 上面那句「13 张本地未导入」同理**已过期** —— 但它只影响自检写法、
+            //   不影响生产；本批不改它（`Editor/**` 不在本代理白名单）。
+            // ⚠️ 行号纪律（§18·b）：本块与旧 `switch` 块**同为 20 行** —— `Open`(360) / `Initialize`(384) 等账落点才不漂。
+            return ArmyIcons.MediumBackgroundName(army);
         }
 
         /// <summary>自检专用：给 `Army Image Background` 塞一张**临时贴图**。

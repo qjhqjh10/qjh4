@@ -210,6 +210,67 @@ def load_achievements():
     return out
 
 
+# ---------------------------------------------------------------------------------------------------
+# 🆕 **2026-10-27（B88_E10）：头像边框（`CosmeticItemAvatarBorder`）清单**
+#
+# 🔴 为什么以前没有：账 `个人资料_成就_排行:56/57/75/76/77/97/98/141` 那 7 行一直记着
+#    「`profile_cosmetics.json` 无 `borders` 键 ⇒ **无边框物品清单**」；**根因是生成器只抽了三类**
+#    （`Avatar_` / `Title_` / `ACH*`），**从没抽过 `Avatar Border*`**。清单本身**一直在本地**：
+#    `素材/Warpforge原版/装饰品/定义数据/MonoBehaviour/Avatar Border*.json` —— 现读 **5 条**：
+#      `Avatar Border Default` · `… EC Release` · `… Expansion pass` · `… Expansion pass UM Guilliman` · `… SW Release`
+#    字段（逐条实读）：`uniqueId` · `imageReference.m_AssetGUID` · `autoAssign`（Default=**0**，另四条=**1**）·
+#    `parentEvent.targetId`（如 `ECReleaseScoring` / `ExpansionOrks1Scoring` / `ExpansionUM1Scoring`）·
+#    `inInventory=1` · `inDropTables=1` · `showInCollectionOptions=5`。
+#
+# ⚠️ **图只有两张**（5 条边框共用）——两处 GUID→图名都是**查表直读**，不是按名字推：
+#    · `9d34f92533f8f490a8b84f860b19245e` → `Player Profile Border`
+#      （`bundle_cosmeticavatarsimages_assets_all/AssetBundle/AssetBundle_1.json` 的 `m_Container`
+#       第 572 项 pid `-295601456118903261`；该 bundle 的 `Sprite/Player Profile Border.json`）
+#    · `d93f2c1377e2f4c4fb4474cd9996539f` → `Player Profile Border Gold`
+#      （`bundle_duplicateassetisolation_assets_all/AssetBundle/AssetBundle_1.json` 第 114 项 pid
+#       `7249455422728266928`；该 bundle 的 `Sprite/Player Profile Border Gold.json`）
+#    ⇒ **四条活动边框用的是同一张「Gold」**（不是四张不同的图）。
+# 🔴 **`Player Profile Border Gold` 的 Sprite 还没进我们的美术树**（`素材/…/装饰品/头像/Sprite/`
+#    只有 `Player Profile Border`）⇒ 这里的 `art` 只是**图名**，`CardArt.MenuUi` 今天取不到它（会 MissingArt 出声）。
+BORDER_PREFIX = 'Avatar Border '
+BORDER_ART_GUID = {
+    '9d34f92533f8f490a8b84f860b19245e': 'Player Profile Border',
+    'd93f2c1377e2f4c4fb4474cd9996539f': 'Player Profile Border Gold',
+}
+
+
+def load_borders():
+    """抽出 `CosmeticItemAvatarBorder` 的 5 条定义（**定义数据，不是玩家背包**）。
+    ⚠️ 「玩家拥有哪几条」在服务器（`PlayerAvatarDataManager` / `fullCosmeticCollection`）⇒ 本地**没有**。"""
+    out, seen = [], set()
+    for fn in sorted(os.listdir(SRC)):
+        if not fn.endswith('.json') or not fn.startswith(BORDER_PREFIX):
+            continue
+        base = fn[:-5]
+        if PIDSUF.search(base):          # 重复拷贝，跳过
+            continue
+        try:
+            d = json.load(io.open(os.path.join(SRC, fn), encoding='utf-8'))
+        except Exception:
+            continue
+        uid = d.get('uniqueId') or ''
+        if not uid or uid in seen:
+            continue
+        seen.add(uid)
+        g = (d.get('imageReference') or {}).get('m_AssetGUID') or ''
+        pe = (d.get('parentEvent') or {}).get('targetId') or ''
+        out.append({
+            'id': uid,
+            'n': strip_prefix(base, BORDER_PREFIX) or base,   # `Avatar Border Default` → `Default`
+            'art': BORDER_ART_GUID.get(g, ''),                # 图名（取不到 ⇒ 空串，别猜）
+            'g': g,                                           # 原始 AssetGUID（将来查/导图用）
+            'aa': d.get('autoAssign', 0),                      # 1 = 拿到就自动装备
+            'pe': pe,                                          # 父活动 key（空 = 不属任何活动）
+        })
+    out.sort(key=lambda e: e['n'].lower())
+    return out
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('--check', action='store_true')
@@ -218,6 +279,11 @@ def main():
     av = load('avatar', 'Avatar_', guid_to_name())
     ti = load('title', 'Title_')
     ac = load_achievements()
+    bo = load_borders()
+    print('头像边框 %d 条（%s）' % (len(bo), ' / '.join(e['n'] for e in bo)))
+    for e in bo:
+        if not e['art']:
+            print('  ⚠️ 边框「%s」取不到图名（AssetGUID=%s）—— 清单照出，`art` 留空（⛔ 不猜）' % (e['n'], e['g']))
     print('成就 %d 条' % len(ac))
     if ac:
         import collections
@@ -248,7 +314,7 @@ def main():
 
     if args.check:
         return 0
-    doc = {'avatars': av, 'titles': ti, 'achievements': ac,
+    doc = {'avatars': av, 'titles': ti, 'achievements': ac, 'borders': bo,
            '_note': '名字是从资源名反推的（原版真名在远端 I2 语言表）；生成器 工具/gen_profile_cosmetics.py'}
     os.makedirs(os.path.dirname(OUT), exist_ok=True)
     io.open(OUT, 'w', encoding='utf-8', newline='').write(

@@ -625,7 +625,7 @@ namespace CardPresentation
                                       AvatarTab.ScaleAboutCenter(new PxRect(AvImL, AvImT, AvImR, AvImB),
                                                                  AvatarTab.ScaleImage),
                                       "Image", L_ArtOverFrame);
-            Rect(ic, "Player_Profile_Border",
+            Rect(ic, AvatarTab.BorderArtName(),
                  AvatarTab.ScaleAboutCenter(new PxRect(AvBdL, AvBdT, AvBdR, AvBdB), AvatarTab.ScaleBorder),
                  "Border", L_Frame, null, true);
             // 出厂 F 的那行名（`AvatarDisplay.avatarName` 只 set_text、从不 SetActive，§A.1）⇒ 建成后关

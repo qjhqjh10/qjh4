@@ -595,9 +595,9 @@ namespace CardPresentation
                                     new PxRect(cx - BackSdfW * CardK * 0.5f, cy - BackSdfH * CardK * 0.5f,
                                                cx + BackSdfW * CardK * 0.5f, cy + BackSdfH * CardK * 0.5f),
                                     "Cardback Shadow SDF", q0);
-            if (sdf == null)
-                Debug.Log("[BoosterPack] 第 " + (i + 1) + " 格的 `Cardback Shadow SDF` 没画"
-                          + "（`CardArt.CardBackSdf(" + (Army ?? "null") + ")` 取不到 —— 那份 `_SDF` 掩码图没导）");
+            if (sdf == null) Debug.Log("[BoosterPack] 第 " + (i + 1) + " 格的 `Cardback Shadow SDF` 没画" +
+                                       "（`CardArt.CardBackSdf(" + (Army ?? "null") + ")` 取不到 —— 那份 `_SDF` 掩码图没导）");
+            else SdfMat(sdf, q0);   // 换原版 SDF shader（`_Outline` 悬停高亮要用它，见 `OutlineCardback`）
             var back = MenuDraw.Rect(backGo.transform, CardArt.CardBack(Army),
                                      new PxRect(cx - BackW * CardK * 0.5f, cy - BackH * CardK * 0.5f,
                                                 cx + BackW * CardK * 0.5f, cy + BackH * CardK * 0.5f),
@@ -1084,11 +1084,26 @@ namespace CardPresentation
             if (i < 0 || i >= 5) return;
             float s = on ? HoverScale : 1f;
             var one = Vector3.one * s;
-            if (BackNodes[i] != null) BackNodes[i].transform.localScale = one;
-            if (FaceNodes[i] != null) FaceNodes[i].transform.localScale = one;
-            if (UpBadges[i] != null) UpBadges[i].transform.localScale = one;
-            if (NewBadges[i] != null) NewBadges[i].transform.localScale = one;
-            if (BanIcons[i] != null) BanIcons[i].transform.localScale = one;
+            ScaleCardLayers(BackNodes[i] != null ? BackNodes[i].transform : null, one);
+            ScaleCardLayers(FaceNodes[i] != null ? FaceNodes[i].transform : null, one);
+            ScaleCardLayers(UpBadges[i] != null ? UpBadges[i].transform : null, one);
+            ScaleCardLayers(NewBadges[i] != null ? NewBadges[i].transform : null, one);
+            ScaleCardLayers(BanIcons[i] != null ? BanIcons[i].transform : null, one); OutlineCardback(i, on);
+        }
+
+        /// <summary>把一层卡件补到 <paramref name="to"/>（原版 `TryHighlightCardback` 的
+        /// `DOTween.Kill(gameObject)` + `DOScale(transform, …, **0.3 s**)`；常量 = <see cref="HoverTime"/>，
+        /// `_DAT_1834b2dc8` 实读 0.3 · 倍率 `_DAT_1834b31f8` 实读 **1.1** ⇒ 与 <see cref="HoverScale"/> 一致）。
+        /// <para>⚠️ 批处理 / 非播放态**直接设值**（DOTween 补间跑不完，同 `DraftModeWindow` 那五条动画的口径）。</para>
+        /// <para>🔴 原版打的是**整个 `CardInBoosterPack` 根**；我们逐层打（⛔ 不缩命中区 —— 缩了指针一抖就掉出去，
+        /// 这条差异见 <see cref="Hover"/> 的注释，不是这一笔改出来的）。</para></summary>
+        static void ScaleCardLayers(Transform t, Vector3 to)
+        {
+            if (t == null) return;
+            if (!Application.isPlaying) { t.localScale = to; return; }
+            var go = t.gameObject;
+            DG.Tweening.DOTween.Kill(go);
+            DG.Tweening.ShortcutExtensions.DOScale(t, to, HoverTime);
         }
 
         /// <summary>播这一档的粒子（原版 `ChangeState(3)` 里 `Instantiate(contentByRarities[i].particles, card.transform)`）。
@@ -1340,6 +1355,72 @@ namespace CardPresentation
             var s2 = _bgAnim.floatProperty2;
             s2.value = BgCurve2().Evaluate(_bgShakeT);
             _bgAnim.floatProperty2 = s2;
+        }
+
+        // ══════════════════════════════════════════════════════════════════════════════════
+        //  🆕 **2026-10-28（B88_B2 · 账 `锻造:40` 的卡背那半）：`Cardback Shadow SDF` 走原版 SDF shader**
+        //
+        //  判据（第一权威 = `d:/2/tools/decomp_full/CardInBoosterPack__TryHighlightCardback.c` ＋
+        //        `Card2DController__ToggleHighlight.c`，2026-10-28 实读）：
+        //   · `TryHighlightCardback(option)` 在 `currentState == ReadyToOpen` 时调
+        //     **`card2DController.ToggleHighlight(option, isCardback: true, instant: false)`**；
+        //   · `Card2DController.ToggleHighlight` 里 `isCardback == true` 走的是 **`cardBackShadow.material`**
+        //     + `cardBackHighlightAndShadowColorChanger`（= 那颗 **`Cardback Shadow SDF`**，⛔ 不是 `Cardback` 本体），
+        //     把 `cardHighlightMaterialID`（= `Shader.PropertyToID("_Outline")`，`Card2DController.cs:185`）那个
+        //     颜色的 **alpha 写成 `option ? 1 : 0`**，再 `DoColorChange(…, 0.2f, instant)`。
+        //   ⇒ 我们要有 `_Outline` 可写，这一层就必须是**原版 SDF shader**（`CardView.CardbackSdfMaterialBase`
+        //     逐值抄过 `Card Backs SDF`），⛔ 不是 `Sprites/Default`。
+        //   ⚠️ 做法照 `Delegate`/`CollectionWindow` 那一族：**每格一份 clone**（共享会让五格抢同一张掩码）。
+        // ══════════════════════════════════════════════════════════════════════════════════
+
+        /// <summary>把一格的 `Cardback Shadow SDF` quad 换成原版 SDF 材质（`_Outline.a` 平时 0）。
+        /// ⚠️ 队列要在 `SetMaterial` **之后**再设一次 —— `ImageQuad.SetMaterial` 会把旧材质的 renderQueue
+        /// 搬过来（同 `CollectionWindow` 那条注释记的坑）。</summary>
+        static void SdfMat(ImageQuad q, int q0)
+        {
+            if (q == null) return;
+            var baseMat = CardView.CardbackSdfMaterialBase();
+            if (baseMat == null)
+            {
+                // `CardbackSdfMaterialBase` 自己已经报过「解析不到原版 shader」的警告 —— 这里只说明后果
+                Debug.LogWarning("[BoosterPack] 卡背 SDF 材质取不到 ⇒ 悬停时**不会有**那圈描边"
+                                 + "（原版 `ToggleHighlight(isCardback:true)` 打的就是这颗材质）。");
+                return;
+            }
+            var m = new Material(baseMat);       // ⚠️ 每格一份：共享会让五格共用最后一张掩码
+            m.mainTexture = q.Texture;           // SDF 掩码本身
+            q.SetMaterial(m);
+            q.SetRenderQueue(q0);                // `SetMaterial` 搬过来的是旧材质那份队列 ⇒ 显式设回本层
+        }
+
+        /// <summary>`CardInBoosterPack.TryHighlightCardback` 的**卡背描边那半**（缩放那半见 <see cref="Hover"/>）：
+        /// 把该格 `Cardback Shadow SDF` 材质的 `_Outline.a` 补到 **1（悬停）/ 0（离开）**，时长
+        /// **0.2 s**（= 原版 `Card2DController.HIGHLIGHT_COLOR_CHANGE_TIME` ＝ `CardHighlight.OutlineAnimTime`）。
+        /// ⚠️ 批处理 / 非播放态**直接设值**（DOTween 补间跑不完 —— 同 <see cref="ScaleCardLayers"/> 的口径）。
+        /// ⚠️ 目标节点**按名字在 `Cardback Container` 下找**（`transform.Find` 只找直接子件，而它正是直接子件）
+        /// —— 这样**不必新增字段/数组**，也就不会挪动本文件里那些 `文件:行号` 账落点。</summary>
+        void OutlineCardback(int i, bool on)
+        {
+            if (i < 0 || i >= 5 || BackNodes[i] == null) return;
+            var t = BackNodes[i].transform.Find("Cardback Shadow SDF");
+            if (t == null) return;                                   // 那一格没建 SDF（已出声）
+            var mr = t.GetComponent<MeshRenderer>();
+            var m = mr != null ? mr.sharedMaterial : null;
+            if (m == null || !m.HasProperty("_Outline")) return;      // 材质没换成 SDF（`SdfMat` 已出声）
+
+            var cur = m.GetColor("_Outline");
+            float to = on ? 1f : 0f;
+            if (!Application.isPlaying) { cur.a = to; m.SetColor("_Outline", cur); return; }
+
+            DG.Tweening.DOTween.Kill(m);                              // 同一颗材质只留一条补间（快进快出不会打架）
+            float from = cur.a;
+            var tw = DG.Tweening.DOTween.To(() => from, v =>
+            {
+                if (m == null) return;
+                var c = m.GetColor("_Outline"); c.a = v; m.SetColor("_Outline", c);
+            }, to, CardHighlight.OutlineAnimTime);
+            DG.Tweening.TweenSettingsExtensions.SetTarget(tw, m);
+            DG.Tweening.TweenSettingsExtensions.SetEase(tw, DG.Tweening.Ease.Linear);
         }
     }
 }

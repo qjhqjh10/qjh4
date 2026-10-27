@@ -1,0 +1,40 @@
+---- 失败明细（文件 | 类.方法 | 落点 | 失败原因）----
+个人资料_成就_排行.tsv         | RankedEventDivisionChangeWindow.OnEnable()           | （等价实现 = `MenuDraw.ShadeHit(_dark, DarkR, QShade, QTitle, () => Close() | 落点里没有 `文件:行`
+个人资料_成就_排行.tsv         | RankedEventDivisionChangeWindowNewSystem.OnEnable()  | （等价实现 = `MenuDraw.ShadeHit(_dark, DarkR, QShade, QDivision, () => Clos | 落点里没有 `文件:行`
+个人资料_成就_排行.tsv         | RankedEventSeasonEndedWindow.OnEnable()              | （等价实现 = `MenuDraw.ShadeHit(_dark, DarkR, QShade, QDivision, () => Clos | 落点里没有 `文件:行`
+个人资料_成就_排行.tsv         | RankedEventSeasonEndedWindowOld.OnEnable()           | （等价实现 = `MenuDraw.ShadeHit(_dark, DarkR, QShade, QDivision, () => Clos | 落点里没有 `文件:行`
+其他_基础设施.tsv            | ArmyUtilities.GetArmyMediumBackGround(CardArmy army) | CardPresentation/Core/ArmyIcons.cs:411（MediumBackgroundTable，14 条）· :4 | 既无 `(` 也无 `=>`/`{`（不像声明）：`static readonly MediumBackgroundEntry[] MediumBackgroundTabl`
+其他_基础设施.tsv            | ArmyUtilities.GetForgeIconForArmy(CardArmy army)     | CardPresentation/Core/ArmyIcons.cs:324（ForgeTable，13 条）· :362（ForgeIco | 既无 `(` 也无 `=>`/`{`（不像声明）：`static readonly ForgeEntry[] ForgeTable =`
+卡组编辑.tsv               | HasDeckCondition.Validate(ILiveOps liveOps)          | Shell/LiveOpsState.cs:253（HasDeckCondition）＋ :260（Validate）            | 括号里写了声明名 `HasDeckCondition`，但文件里找不到这份声明
+商店.tsv                 | CampaignPremiumPointsPanel.OnDisable()               | Shell/CampaignTab.cs:1476（TogglePremiumState）· 退订随窗关闭                  | 括号里写了声明名 `TogglePremiumState`，但文件里找不到这份声明
+商店.tsv                 | CampaignPremiumPointsPanel.OnEnable()                | Shell/CampaignTab.cs:1476（TogglePremiumState）                          | 括号里写了声明名 `TogglePremiumState`，但文件里找不到这份声明
+战役.tsv                 | CampaignTrack.CalculateRatio(List<CampaignNodeInfo>  | Shell/CampaignTab.cs:458（BuildTrack 的 Ratio）（等价实现 = Ratio = (vpH − Tra | 注释行：`//    而那个高是 prefab 静态链算出来的（= 视口高 − 100，不是 `SetTrackSize` 运行时`
+战斗界面_HUD.tsv           | BattleManager.ResolveDisplayFromHand(BattleAction ba | CardPresentation/Battle/BattleDriver.cs:12112（`case EvtKind.Draw` 里 `e | 注释行：`//   （`param_2[10]` 那个目标引用是否为 null，见 `BattleEvent.TargetCard`
+战斗界面_HUD.tsv           | CardScript.SetCardMovement(Vector3 targetPoint, Vect | CardPresentation/Hand/CardInteraction.cs:987（`UpdateDrag` 的**倾斜半**）· : | 注释行：`// 账 767/768（第二批）：**拖卡倾斜**（原版 `CardScript__SetCardMovement.c`
+战斗逻辑驱动.tsv             | BattleManager.ResolveRemoveEffect(CardScript targetC | RuleEngine/Core/Enchantment.cs（成功分支发 `EvtKind.EnchantmentRemoved`）+ Ca | `)` 后接的是语句（像函数中间的一行）：`Mathf.Abs(hitAmount) >= CardFeel.HeavyHitDamage, 0f, _lastAt`
+战斗逻辑驱动.tsv             | BattleManagerSupport.BroadcastCollectSpiritStone(Bat | RuleEngine/Core/RuleCore.cs:12403（CollectWaystoneCore·预调那颗残骸）+ :12404（ | `)` 后接的是语句（像函数中间的一行）：`if (u.Card != null) PreCallBoardListener(ctx, u, WhenEventKi`
+战斗逻辑驱动.tsv             | CardScript.CheckAndApplyCurrentPack()                | RuleEngine/Core/RuleCore.cs:5034（FieldAttack 的 pack 支）（等价实现 = FieldAtt | `)` 后接的是语句（像函数中间的一行）：`if (!u.IsWarlord) n--; baseAtk += n;   // 🔴 2026-10-27（B88-E`
+战斗逻辑驱动.tsv             | CardScript.RemoveDuplicitous()                       | RuleEngine/Core/RuleCore.cs:6641（DeclareAttackExecute 结算段开头）+ RuleEngi | `)` 后接的是语句（像函数中间的一行）：`if (!forced) TryRedirectAttackToBodyguard(ctx, p, atkSlot, t`
+战斗逻辑驱动.tsv             | CardTraitCollection.GetAbilityToTraitDict(CardTypeOp | RuleEngine/Core/CardDefExtraTraits.cs:60（ExtraTraitTriggers）（等价实现 = 25 | 括号里写了声明名 `ExtraTraitTriggers`，但文件里找不到这份声明
+战斗逻辑驱动.tsv             | EntityScript.GetCurrentTraitValue(DefinedTrait trait | RuleEngine/Core/CardDef.cs:6458-6463（`GetDefaultTraitValue(string, out | 注释行：`/// </summary>`
+战斗逻辑驱动.tsv             | RawCardScript.CheckIfTraitIsInList(List<CardTraitDat | RuleEngine/Core/CardDef.cs:6442-6451（`public bool HasDefaultTrait(stri | 注释行：`/// </summary>`
+战斗逻辑驱动.tsv             | RawCardScript.CountTraits()                          | RuleEngine/Core/CardDef.cs:6430-6435（`public int CountTraits(out strin | 注释行：`/// </summary>`
+战斗逻辑驱动.tsv             | RawCardScript.FindTraitInList(List<CardTraitData> tr | RuleEngine/Core/CardDef.cs:6466-6475（`public CardTraitEntry FindDefaul | 注释行：`/// 返回**命中的那条**；未命中 ⇒ `null` 且 `why == null`；没喂 ⇒ `null` 且 ``
+战斗逻辑驱动.tsv             | RawCardScript.GetDefaultTraitValue(DefinedTrait trai | RuleEngine/Core/CardDef.cs:6458-6462（`public int GetDefaultTraitValue( | 注释行：`/// </summary>`
+战斗逻辑驱动.tsv             | RawCardScript.HasDefaultTrait(DefinedTrait trait)    | RuleEngine/Core/CardDef.cs:6442-6451（`public bool HasDefaultTrait(stri | 注释行：`/// </summary>`
+战斗逻辑驱动.tsv             | RawCardScript.IsKeyword(Keyword checkValue)          | RuleEngine/Core/CardDef.cs:6519-6528（`public bool? IsKeyword(int keywo | 注释行：`/// </summary>`
+收藏.tsv                 | InventoryCondition.Validate(ILiveOps liveOps)        | Shell/LiveOpsState.cs:234（InventoryCondition）＋ :241（Validate）          | 括号里写了声明名 `InventoryCondition`，但文件里找不到这份声明
+教程_引导.tsv              | TutorialStageClaimForgeFirstLevel.DoMenuActions()    | Shell/MenuTutorialFlow.cs:894（Resolve 的 ForgeClaimButton 支）（等价实现 = Tut | `)` 后接的是语句（像函数中间的一行）：`string first = FirstClaimableForgeArmy();`
+教程_引导.tsv              | TutorialStagePlayRanked.CheckForCompletion()         | Shell/MenuTutorialFlow.cs:595（CheckCompletion 的 PlayRanked 支）（等价实现 = T | `)` 后接的是语句（像函数中间的一行）：`if (TopWindowOrNull() is MainMenuWindow) RestoreMenuScroll()`
+教程_引导.tsv              | TutorialStagePlayRanked.ShowCursor()                 | Shell/MenuTutorialFlow.cs:784（RefreshPointer，模式卡那一档之后）（等价实现 = Tutorial | `)` 后接的是语句（像函数中间的一行）：`if (usedKind == MenuTutorialTargetKind.ModeCardRanked) LockM`
+教程_引导.tsv              | TutorialTip.GetLocalizedText()                       | Battle/TutorialOverlay.cs:945（SetTip 里对正文过一道 TipRichText）（等价实现 = Tutor | `)` 后接的是语句（像函数中间的一行）：`if (_tipText != null) _tipText.SetText(TipRichText(text));`
+未分类_其他.tsv             | AttributeCondition.Validate(ILiveOps liveOps)        | Shell/LiveOpsState.cs:314（AttributeCondition）＋ :331（Validate）          | 括号里写了声明名 `AttributeCondition`，但文件里找不到这份声明
+未分类_其他.tsv             | LevelCondition.Validate(ILiveOps liveOps)            | Shell/LiveOpsState.cs:212（LevelCondition）＋ :217（Validate）              | 括号里写了声明名 `LevelCondition`，但文件里找不到这份声明
+未分类_其他.tsv             | TagCondition.Validate(ILiveOps liveOps)              | Shell/LiveOpsState.cs:272（TagCondition）＋ :290（Validate）                | 括号里写了声明名 `TagCondition`，但文件里找不到这份声明
+特效动画.tsv               | RemnantBody.GetDeathParticlePosition()               | CardPresentation/Battle/BattleDriver.cs:21741（TryRemnantIdleWorld = `w | 注释行：`///`
+社交_聊天.tsv              | AllianceMemberEntry.Initialize(Group group, GroupMem | Shell/AllianceMemberTab.cs:1762（AllianceMemberRow.Build）（等价实现 = 成员行逐字段 | 注释行：`/// 真要收成一份得动 `FriendsTab.cs`，不在本批白名单内 —— 已记在报告里）。`
+菜单_外壳.tsv              | EverguildTooltipTrigger.OnPointerClick(PointerEventD | （等价实现 = `CardPresentation/PointerLayer` 的选中模型：点面板/空白 ⇒ 清选中；tooltip 自己不 | 落点里没有 `文件:行`
+轮抽.tsv                 | DraftModeMenuPayStateDemo.OnClose()                  | Shell/DraftModeWindow.cs:2170（ApplyState 换页处）（等价实现 = DraftModeMenuPayS | `)` 后接的是语句（像函数中间的一行）：`TopBar.ToggleOverlay(TopBar.LastBuilt, page == _pagePay);`
+轮抽.tsv                 | DraftModeSelectPacksStateDemo.UpdateDeckInfoPanelAni | Shell/DraftModeWindow.cs:1884（WildcardShineLayer.AttachNine 挂到 Generic | `)` 后接的是语句（像函数中间的一行）：`_deckShine = WildcardShineLayer.AttachNine(flash.transform, `
+
+合计：A 4638 条 · 通过 4578（其中告警 226 条）· 漂移 23 · 失败 37

@@ -792,6 +792,21 @@ namespace RuleEngine
         public int PerCount;
 
         /// <summary>
+        /// 🆕 2026-10-27（B88 · 波 3 · 执行代理 `E2` · **假绿修复**）：这条 `for each` 的计数短语是
+        /// **兜底猜出来的**（`ClassifyCount` 的 ④ 盘面支：短语里**既没有阵营词、也没有兵种词、也没有
+        /// `damaged` / `in play`** ⇒ 按「本方全体单位」计数）。
+        ///
+        /// <para>**为什么要有这一格**：`Beautiful Death` 的 `For each excess damage, heal 1 to your Warlord`
+        /// 今天会被兜底成 `own|any|all` ⇒ `CountFor` 数出「本方场上 4 个单位」⇒ 日志印
+        /// 「按 own|any|all 计 4 遍」—— **看起来像在正常结算，实际那个 4 毫无语义**（`A1433` 那类假绿）。
+        /// 原版这一位来自结构化 `multiCountCriteria`（`AbilityLogic.GetTargets`），**不是文本**。</para>
+        ///
+        /// <para>**消费点 = 唯一一处**：`EffectResolver.TryComputeRepeats` —— 见到本旗标就 `ctx.Log` **出声**
+        /// （⛔ 不静默兜底、也⛔ 不改成「整条不结算」：那会让今天能跑的 20 多张卡一起哑掉）。</para>
+        /// </summary>
+        public bool CountFallback;
+
+        /// <summary>
         /// **「共 N 次」的重复次数**（`Deal 1 damage to a random enemy, **8 times**`）。
         /// `0` = 没写/只一次。
         ///
@@ -858,6 +873,16 @@ namespace RuleEngine
         {
             return (EffectOp)MemberwiseClone();
         }
+
+        /// <summary>🆕 2026-10-28（B88 · 执行代理 `A1c`）：**这条伤害要【逐目标】掷骰**。
+        /// <para>原版判据 = `damageCriteria.valueOptions == 90 (RandomizedOnResolution)`
+        /// **且** `damageType ∈ {5, 10, 12}`（`CardScript__GetAdjustedDamage.c:23-30` 的 `0x1420` 位掩码）⇒
+        /// 掷点在**逐目标循环**里（`BattleManager._ResolveMultiDamage_d__456__MoveNext.c:136`）⇒
+        /// 一个伤害打 N 个目标就消费 **N** 个随机数（`判据/B88_R1_90档_逐卡施工单.md` §二·3）。</para>
+        /// <para>⚠️ **`Normal(0)` 的区间不逐目标**（原版在 `GetValueFromCriteria` 取一次、多目标**共用**）
+        /// ⇒ 这个位**只**由 `RuleCore.StampRollPerTarget` 按数据位写（唯一判据），
+        /// ⛔ 别用「有区间就逐目标」这种近似（会把 `GOF22` 的 `(0,5)` 卡改错）。</para></summary>
+        public bool RollPerTarget;
 
         public override string ToString()
         {
@@ -3468,6 +3493,30 @@ namespace RuleEngine
                     s = low;
                     if (low.Length == 0) { r.Kind = SegKind.Unknown; r.Ops = null; return r; }
                 }
+                else
+                {
+                    // 🆕 2026-10-27（B88 · 波 1 · 执行代理 `E2` · 账 77）：**两种新的数值来源**（判据
+                    //   = 原版 `ChooseValueOptions` 的两档，`cpp2il/out_cpp2il_dev_ilspy/ChooseValueOptions.cs`）：
+                    //   · `140 OwnWarlordAttack` —— `Exquisite Swordsmanship`「Deal damage to all enemies
+                    //     **equal to your Warlord's Melee**」⇒ **当前**近战（那张卡自己先给 +1 攻击，这句要吃它）；
+                    //   · `101 BaseRefCardMAttack` —— `Indomitus Crusade` 的 Oath 句「Deal damage to all enemy
+                    //     troops **equal to its [Attack]**」⇒ **参照卡**（= 同一条 ability 刚部署出来的那个单位）
+                    //     的**基础**近战（`AttackBase`，含 `addStats` 之前的原值 —— 名字里的 `Base` 就是这个意思）。
+                    //   ⚠️ 只认**句尾**这一族、且**只认这两个词形**：池内 `equal to its …` 共 4 处，另 2 处是
+                    //     `equal to its Shuriken`（`Sudden Assault`，另有专用路）与 `equal to its Health`
+                    //     （`Scarab Swarm`，是**持续性换算**不是取值来源）—— 都不许吞进来（现扫 `cards_engine.json` 4/4 对上）。
+                    //   ⚠️ 认不出的资源名照样**不许静默当 0**：结算层对未知 `AmountRef` 会出声。
+                    var mwl = ReEqualOwnWarlordMelee.Match(low);
+                    var mit = mwl.Success ? null : ReEqualItsBaseAttack.Match(low);
+                    if (mwl.Success || (mit != null && mit.Success))
+                    {
+                        var mm = mwl.Success ? mwl : mit;
+                        amountRef = mwl.Success ? "ownwarlordmelee" : "refcardbaseattack";
+                        low = low.Substring(0, mm.Index).Trim();
+                        s = low;
+                        if (low.Length == 0) { r.Kind = SegKind.Unknown; r.Ops = null; return r; }
+                    }
+                }
             }
 
             // ---- 🆕 `Oath N: …`（极限战士）= **付费激活**，只是写法用了阵营词 ----
@@ -4908,8 +4957,8 @@ namespace RuleEngine
             {
                 // 两条正则的第 3 组**都是**计数短语（位置不变）；组 1/2 顺序相反，见 `reversed`。
                 string countRef = add.Groups[3].Value.Trim();
-                string scope, reference;
-                if (!ClassifyCount(countRef, out scope, out reference)) return false;
+                string scope, reference; bool guessed;
+                if (!ClassifyCount(countRef, out scope, out reference, out guessed)) return false;
 
                 string basePart = low.Substring(0, add.Index).Trim().TrimEnd(',');
                 var inner = Dispatch(basePart, src);
@@ -4925,6 +4974,7 @@ namespace RuleEngine
                     o.PerCount = inc;
                     o.CountRef = reference;
                     o.CountScope = scope;
+                    o.CountFallback = guessed;   // 🆕 波 3 `E2`：兜底猜出来的计数 ⇒ 结算层出声
                     o.Source = src;
                     // 基础值同样要从载荷里抠（`+2 melee attack` 的 2；`Amount` 对 give 是 0）
                     o.Amount = BaseAmountOf(o);
@@ -4943,8 +4993,8 @@ namespace RuleEngine
                 {
                     string countRef = low.Substring("for each ".Length, comma - "for each ".Length).Trim();
                     string body = low.Substring(comma + 1).Trim();
-                    string scope, reference;
-                    if (ClassifyCount(countRef, out scope, out reference) && body.Length > 0)
+                    string scope, reference; bool guessed;
+                    if (ClassifyCount(countRef, out scope, out reference, out guessed) && body.Length > 0)
                     {
                         var inner = Dispatch(body, src);
                         if (inner.Ops == null || inner.Ops.Count == 0) return false;
@@ -4952,6 +5002,7 @@ namespace RuleEngine
                         {
                             o.CountRef = reference;
                             o.CountScope = scope;
+                            o.CountFallback = guessed;   // 🆕 波 3 `E2`：兜底猜出来的计数 ⇒ 结算层出声
                             o.Source = src;
                             o.Amount = BaseAmountOf(o);
                         }
@@ -4989,8 +5040,8 @@ namespace RuleEngine
                     countRef = countRef.Substring(0, ta).Trim();
                 }
 
-                string scope, reference;
-                if (ClassifyCount(countRef, out scope, out reference) && body.Length > 0)
+                string scope, reference; bool guessed;
+                if (ClassifyCount(countRef, out scope, out reference, out guessed) && body.Length > 0)
                 {
                     var inner = Dispatch(body, src);
                     if (inner.Ops == null || inner.Ops.Count == 0) return false;
@@ -4998,6 +5049,7 @@ namespace RuleEngine
                     {
                         o.CountRef = reference;
                         o.CountScope = scope;
+                        o.CountFallback = guessed;   // 🆕 波 3 `E2`：兜底猜出来的计数 ⇒ 结算层出声
                         o.Source = src;
                         o.Amount = BaseAmountOf(o);
                     }
@@ -5102,9 +5154,21 @@ namespace RuleEngine
         /// 语义出处（**旁证**，非原版判据）：我们上一版复刻 `rule_core.gd:1347` 的 `_fe_count`
         /// （分支顺序照抄；要判原版语义回 `d:/2/tools/decomp_full/` 核）。
         /// </summary>
+        /// <summary>
+        /// 三参重载（既有调用点原样）—— 只是丢掉「兜底猜」那一格。
+        /// ⚠️ 新代码请用四参版：`guessed == true` 表示**这个计数短语本版没认出来**、
+        /// 是按 `ClassifyCount` ④ 的默认「本方全体单位」兜底的（消费端要出声）。
+        /// </summary>
         static bool ClassifyCount(string countRef, out string scope, out string reference)
         {
-            scope = null; reference = null;
+            bool guessed;
+            return ClassifyCount(countRef, out scope, out reference, out guessed);
+        }
+
+        /// <summary>四参版：多输出一格 <paramref name="guessed"/>（见三参版的 doc）。</summary>
+        static bool ClassifyCount(string countRef, out string scope, out string reference, out bool guessed)
+        {
+            scope = null; reference = null; guessed = false;
             if (string.IsNullOrEmpty(countRef)) return false;
             string raw = countRef.Trim().ToLowerInvariant();
             string c = raw
@@ -5209,6 +5273,18 @@ namespace RuleEngine
             {
                 scope = "died"; reference = "unit"; return true;
             }
+            // ③b 🆕 2026-10-27（B88 · 波 3 · `E2` · 账 77 的 `210 TargetExcessDamage`）：
+            //   **`for each excess damage`**（池内 1 张 `Beautiful Death`）—— 原版这一位是
+            //   `ChooseValueOptions.TargetExcessDamage = 210`（`ChooseValueOptions.cs:28`），
+            //   读的是**上一次伤害的超额量**（点数超过目标当前血的那部分）。
+            //   ⚠️ 必须排在 ④ 盘面之前：落进 ④ 会按「本方全体单位」兜底（改前就是这样：
+            //      日志印「按 own|any|all 计 4 遍」，那个 4 毫无语义 = 假绿）。
+            if (c.Contains("excess damage"))
+            {
+                scope = "excess";
+                reference = "excess";
+                return true;
+            }
             // ③ 本局打出过的：`for each Secret you played this game`
             if (c.Contains("played this game") || c.Contains("you played"))
             {
@@ -5219,12 +5295,22 @@ namespace RuleEngine
             // ④ 盘面：`for each enemy in play` / `for each friendly unit` / `for each damaged enemy`
             bool own = c.Contains("friendly") || c.Contains("friendly unit") || c.Contains("your");
             bool foe = c.Contains("enemy");
+            bool damaged = c.Contains("damaged");
+            bool hasKindWord = false;
+            foreach (string w in new[] { "troop", "vehicle", "infantry", "daemon", "beast", "drone", "unit" })
+                if (c.Contains(w)) { hasKindWord = true; break; }
+            // 🆕 2026-10-27（B88 · 波 3 · `E2` · **假绿修复**）：**判「这一格是纯靠默认值猜的」** ——
+            //   短语里**一个信号都没有**（无阵营词 `friendly/your/enemy` · 无兵种词 · 无 `damaged` ·
+            //   也没写 `in play`）⇒ 落进 ④ 只可能靠「没写谁 ⇒ 本方 / 没写什么 ⇒ any」这两条默认值。
+            //   正例（本版认不出）：`for each excess damage`（`Beautiful Death`）· `for each counter` 那类。
+            //   ⚠️ **不改返回值**（改成 false 会让今天能跑的卡一起哑掉 = 更大的回归），
+            //      只把「猜的」这件事记到 `EffectOp.CountFallback`，由结算层（`TryComputeRepeats`）**出声**。
+            guessed = !own && !foe && !damaged && !hasKindWord && !c.Contains("in play");
             if (!own && !foe)
             {
                 // 没写谁 —— 原版 `_fe_count` 默认**本方**（`:1347` 起那段 `board_p := p`）
                 own = true;
             }
-            bool damaged = c.Contains("damaged");
             string kind = "any";
             // ⚠️ **`unit` 要单列成 `"unit"`，不能落到 `"any"`、更不能归成 `"troop"`**：
             //    `any` 与 `unit` 在本仓的 `CountFor` 里**行为相同**（都只对 `troop` 排督军），
@@ -8532,6 +8618,24 @@ namespace RuleEngine
         /// 判据 → `ReEqualResource` 上面那段注释。</summary>
         static readonly Regex ReEqualEnemyHandCount = new Regex(
             @"\s+equal\s+to\s+the\s+number\s+of\s+cards\s+in\s+the\s+enemy\s+hand\s*[.!]?\s*$",
+            RegexOptions.Compiled | RegexOptions.IgnoreCase);
+
+        /// <summary>🆕 2026-10-27（B88 · 波 1 · `E2` · 账 77）：`… equal to your Warlord's Melee`（句尾）
+        /// —— 原版 `ChooseValueOptions.OwnWarlordAttack = 140`。全池 1 张：`Exquisite Swordsmanship`
+        /// （`Deal damage to all enemies equal to your Warlord's Melee`，中文「对所有敌人造成等同于你的战将近战的伤害」）。
+        /// ⚠️ 取的是**当前**近战（那张卡自己前半句给 +1 `[Attack]`，这句要吃它）⇒ 结算层读 `Warlord.Attack`。</summary>
+        static readonly Regex ReEqualOwnWarlordMelee = new Regex(
+            @"\s+equal\s+to\s+your\s+warlord'?s?\s+(?:melee|\[attack\])\s*[.!]?\s*$",
+            RegexOptions.Compiled | RegexOptions.IgnoreCase);
+
+        /// <summary>🆕 2026-10-27（B88 · 波 1 · `E2` · 账 77）：`… equal to its [Attack]`（句尾）
+        /// —— 原版 `ChooseValueOptions.BaseRefCardMAttack = 101`。全池 1 张：`Indomitus Crusade`
+        /// 的 Oath 句（**参照卡** = 同一条 ability 刚部署出来的那个单位）。
+        /// ⚠️ 名字里的 `Base` ⇒ 取 `AttackBase`（不含 `addStats`）；⛔ 别用 `Attack`（那是 100 `RefCardAttack`）。
+        /// ⚠️ **不许**吞 `equal to its shuriken`（`Sudden Assault` 有专用路）与 `equal to its health`
+        /// （`Scarab Swarm` 是持续性换算）—— 正则只认 `[attack]` / `melee` 两个词形。</summary>
+        static readonly Regex ReEqualItsBaseAttack = new Regex(
+            @"\s+equal\s+to\s+its\s+(?:\[?attack\]?|melee(?:\s+attack)?)\s*[.!]?\s*$",
             RegexOptions.Compiled | RegexOptions.IgnoreCase);
 
         /// <summary>`Refill N Energy` / `Refill Energy` —— `rule_core.gd:2952`、`:2956`。</summary>

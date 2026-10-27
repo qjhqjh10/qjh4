@@ -471,7 +471,7 @@ namespace CardPresentation
             // #230：整条链停掉（完成 / 跳过 / 关教程）⇒ **允许表必须清掉**，否则整层菜单从此点不动。
             //   放在 `!_active` 这一支上：`FinishAll` / `SkipAll` / `ToggleTutorial(false)` 三条路各自最后都把
             //   `_active` 置 false 且**没有**再调 `RefreshPointer` 的机会 ⇒ 这里是它们在运行期唯一的收口。
-            if (!_active) { RaycastFilter.ClearRaycastFilters(); return; }
+            if (!_active) { RaycastFilter.ClearRaycastFilters(); RestoreMenuScroll(); return; }
             // 🔴 本对象**跨场景存活**（`DontDestroyOnLoad`，为的是 `PlayRanked` 那条观测）——
             //   离开主菜单之后 `_menu` 会被销毁（Unity 假 null）⇒ 这里直接停手。
             //   ⛔ **不能省这一句**：下面第一件事就是 `WindowsManager.Get()`，而它会在**没有宿主**的场景里
@@ -481,7 +481,14 @@ namespace CardPresentation
             {
                 _wantMessage = false;
                 var d = MenuTutorialStages.At(_index);
-                if (d != null) ShowMessage(d.TitleKey, d.BodyKey);
+                // 🔴 **2026-10-27（B88-E7）**：`TutorialStageGetCampaignNode` 的第一条简报**带战役点数抽屉**
+                //   （判据 = `TutorialStageGetCampaignNode__DoMenuActions.c`：`ShowTutorialMessageWindow` 之后
+                //   `set_enabled(warlordImage, 0)` + `campaignPointDrawer.SetActive(1)` + `DrawForArmy(当前阵营)`；
+                //   当前阵营 = `CampaignHandler.SelectedArmy` ≈ 我们的 `CampaignData.Selected`）。
+                //   ⚠️ 原版**只有这一支**（`alreadyShown == false` 那条）挂抽屉，第二条简报（`explain…`）不挂。
+                if (d != null)
+                    ShowMessage(d.TitleKey, d.BodyKey,
+                                d.Id == MenuTutorialStageId.GetCampaignNode);
             }
             var wm = WindowsManager.Get();
             var top = wm != null ? wm.TopWindow : null;
@@ -533,6 +540,7 @@ namespace CardPresentation
             // #230：指针被收 ⇒ 允许表同拍清掉（原版 `SceneHasChanged` 那条链也是「清指针」+ `ClearRaycastFilters`）。
             //   ⛔ 不清的话表里指着**上一个场景**的件 ⇒ 新场景里一颗都判不中 ⇒ 整层点不动。
             RaycastFilter.ClearRaycastFilters();
+            RestoreMenuScroll();
             if (!_active) return;
 
             // 原版：`TutorialStagePlayRanked.CheckForCompletion` 读 `PlayerData` 的排位计数（服务器）。
@@ -578,7 +586,14 @@ namespace CardPresentation
                     // 原版：`PlayerData` 排位计数 Sum > 0 **且当前窗是 `MainMenuWindow`** 才 `Complete()`
                     //   （`TutorialStagePlayRanked__CheckForCompletion.c` 的 `DAT_1842365f8` = `MainMenuWindow_TypeInfo`）
                     // ⇒ 打完那一局回到主菜单才置完成（⛔ 不是「一离开主菜单就算」）。
-                    return _rankedPlayed && topIsMainMenu;
+                    if (!(_rankedPlayed && topIsMainMenu)) return false;
+                    // 🔴 **2026-10-27（B88-E7）**：原版在 `Complete()` **之前**那一句是
+                    //   `MainMenuWindow.ToggleScroll(true)`（`…__CheckForCompletion.c`，typeinfo 检查通过之后）
+                    //   —— 与 `ShowCursor` 的 `ToggleScroll(false)` 是一对（指针挂上去时禁滚、阶段结束恢复）。
+                    //   ⚠️ 原版那一句在**类型检查通过**时才调 ⇒ 我们只在顶窗真是 `MainMenuWindow` 时调
+                    //   （`topIsMainMenu` 把 `null` 也算主菜单，那是我们这条分支的宽松口径，别拿它当类型判据）。
+                    if (TopWindowOrNull() is MainMenuWindow) RestoreMenuScroll();
+                    return true;
 
                 case MenuTutorialStageId.LevelUpCard:
                     // 原版：任一卡 `CardTier > 1`，或 `HasNoCardToUpgrade()`（所有卡都不可升级）。
@@ -763,6 +778,10 @@ namespace CardPresentation
             //   别让玩家面对一个只有聚光灯的空屏（如实标注为偏离）。
             string bubble = CardArt.MenuUi(TutorialPointerUi.ArtPointer) == null ? Official(def.BodyKey) : null;
             _pointer.Show(p, bubble, true);
+            // 🔴 **2026-10-27（B88-E7）**：原版 `TutorialStagePlayRanked__ShowCursor.c` 的主菜单那一支 =
+            //   `AddPointer(模式卡)` **之后紧接** `MainMenuWindow.ToggleScroll(false)`（禁滚，逼玩家点那颗模式卡）。
+            //   与 `CheckCompletion` 里那句 `ToggleScroll(true)` 配对。
+            if (usedKind == MenuTutorialTargetKind.ModeCardRanked) LockMenuScroll();
             ApplyCampaignPointerFade(top);
             if (_highlight != null) _highlight.ShowAt(p.x, p.y);
         }
@@ -809,12 +828,21 @@ namespace CardPresentation
         /// <summary>弹一扇整屏简报（= 原版 `TutorialManager.ShowTutorialMessageWindow`）。
         /// <para>⚠️ `TutorialMessagePopup` 的 `Event image` 会**空着**（原版优先用 `TutorialMessageData.image`、
         /// 退化到活动督军的 `fullHeroSprite`；那两个 AssetReference 都在远端）—— 该窗自己会出声一次。</para></summary>
-        static void ShowMessage(string titleKey, string bodyKey)
+        static void ShowMessage(string titleKey, string bodyKey, bool campaignPoints = false)
         {
             if (string.IsNullOrEmpty(titleKey) && string.IsNullOrEmpty(bodyKey)) return;
             var ctx = TutorialMessagePopup.DefContext();
             ctx.TitleTerm = titleKey;
             ctx.DescTerm = bodyKey;
+            if (campaignPoints)
+            {
+                // = 原版 `ShowCampaignPointsDrawer(army)`：关 `Event image`、开点数抽屉、画当前阵营徽记
+                //   （`TutorialMessagePopup.Build` 里 `PointsMode` 那一支：`imageOn = !PointsMode && …`）。
+                ctx.PointsMode = true;
+                ctx.ArmyIcon = CardArt.MenuUi(DeckRuntime.FactionIcon(CampaignData.Selected));
+                Debug.Log("[MenuTutorial] 整屏简报走**战役点数抽屉**那一支（原版 `ShowCampaignPointsDrawer`）"
+                        + "· 阵营 = " + CampaignData.Selected);
+            }
             WindowsManager.OpenTutorialMessage(ctx);
             Debug.Log("[MenuTutorial] 整屏简报：`" + (titleKey ?? "-") + "` / `" + (bodyKey ?? "-") + "`");
         }
@@ -856,7 +884,21 @@ namespace CardPresentation
                     var w = top as GameWindowWithTabs;
                     if (w == null || w.CurrentTab != WindowTabType.Forge) return null;
                     var tab = TabOfType<ForgeTab>(w);
-                    return tab != null ? tab.TutorialClaimButton : null;
+                    if (tab == null) return null;
+                    // 🔴 **2026-10-27（B88-E7）**：原版在取那颗钮**之前**先切阵营 ——
+                    //   `TutorialStageClaimForgeFirstLevel__DoMenuActions.c`：
+                    //   `LiveOps.Forge.items → First(...)` → `Forge.GetArmy(item)` → **`ForgeWindowTab.SelectArmy(army)`**
+                    //   → `GetForgeItem(...)` → `AddPointer(item, 鼠标位置, filterRaycast: 1)`。
+                    //   ⚠️ 我们原来只读 `ForgeData.Selected`（缺省 = 第 2 个阵营、正好可领 ⇒ 平时看不出），
+                    //   玩家若先切到别的阵营再触发本阶段 ⇒ 指针会指回页签、而**原版会切回可领那个阵营**。
+                    string first = FirstClaimableForgeArmy();
+                    if (first != null && first != ForgeData.Selected)
+                    {
+                        tab.SelectArmy(first);
+                        Debug.Log("[MenuTutorial] 锻造阶段：`ForgeData.Selected` 切到**第一个可领**的阵营 `"
+                                + first + "`（原版 `ForgeWindowTab.SelectArmy` 同一步）");
+                    }
+                    return tab.TutorialClaimButton;
                 }
                 case MenuTutorialTargetKind.CampaignClaimButton:
                 {
@@ -1006,6 +1048,42 @@ namespace CardPresentation
                     return kind == MenuTutorialTargetKind.ForgeClaimButton;   // `:299` filterRaycast: true
             }
             return false;
+        }
+
+        // ============================================================ 🆕 2026-10-27（B88-E7）主菜单滚动锁
+        /// <summary>禁滚（= 原版 `TutorialStagePlayRanked.ShowCursor` 主菜单那一支的 `ToggleScroll(false)`）。
+        /// ⚠️ 只在**本链真的改过**之后才置位 ⇒ <see cref="RestoreMenuScroll"/> 不会每帧去写一次。</summary>
+        internal bool ScrollLockedByUs { get { return _scrollLocked; } }
+        bool _scrollLocked;
+
+        void LockMenuScroll()
+        {
+            if (_scrollLocked) return;
+            _scrollLocked = true;
+            if (_menu != null) _menu.ToggleScroll(false);
+        }
+
+        /// <summary>恢复滚动的**唯一收口** —— 阶段完成（`CheckCompletion`）· 教程停掉（`Tick` 的空闲支）·
+        /// 换场景（`OnSceneLoaded`）三条路都走这里。
+        /// <para>🔶 自己设计（非原版）：原版**只有** `CheckForCompletion` 那一处恢复，
+        /// 「跳过 / 整链关闭 / 换场景」三路不恢复 ⇒ 玩家会留在「主菜单滚不动」且**没有任何提示**。
+        /// 我们补这一句只为防软锁（同 `#230`「教程停掉必须把副作用清干净」）。调度台 2026-10-27 裁定。</para></summary>
+        void RestoreMenuScroll()
+        {
+            if (!_scrollLocked) return;
+            _scrollLocked = false;
+            if (_menu != null) _menu.ToggleScroll(true);
+        }
+
+        /// <summary>第一个「有可领奖励」的锻造阵营 —— 原版 `TutorialStageClaimForgeFirstLevel.DoMenuActions`
+        /// 里 `LiveOps.Forge.items → First(...) → ForgeWindowTab.SelectArmy(army)` 那一步的等价物
+        /// （`ForgeData.HasToCollect` = `GetLevelState == ToCollect` 那一支）。没有 ⇒ null（原版那一刻不挂指针）。</summary>
+        public static string FirstClaimableForgeArmy()
+        {
+            var armies = ForgeData.Armies;
+            for (int i = 0; i < armies.Length; i++)
+                if (ForgeData.HasToCollect(armies[i])) return armies[i];
+            return null;
         }
     }
 }

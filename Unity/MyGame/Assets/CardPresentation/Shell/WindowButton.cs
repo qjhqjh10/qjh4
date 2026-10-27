@@ -862,9 +862,22 @@ namespace CardPresentation
         /// <summary>原版 `EverguildButton.SoftDisable(bool)`。</summary>
         public void SetSoftDisabled(bool on) { SoftDisabled = on; RefreshGray(); }
 
+        /// <summary>原版 `EverguildButton.colorTintGreyOnDisable`（**字段 `+0x17A`**；`EverguildToggle` 那份是 **`+0x148`**，
+        /// 体同形）。它是「这颗钮到底会不会变灰」的**前置闸**：`SoftDisable` / `SwitchMaterial` 的第一句都是
+        /// `if (*(char*)(this + 0x17a) != '\0')`（判据 → 本文件上面那段 A65② 的长注释）。
+        /// <para>🔴 **2026-10-27（E9b · 账 179/231）**：原来我们**无条件**灰 —— 而原版 prefab 普查
+        /// （`EverguildButton` 880 颗 / `EverguildToggle` 153 颗）里有一批 `colorTintGreyOnDisable = 0`
+        /// （Button **34** 颗 grey=0；Toggle **95** 颗）⇒ 那些**原版根本不灰**。
+        /// 默认 `true` 保住本仓既有各站点的可见态（`Edit Deck` / 12 颗 `Collect` 真包实读全是 `grey=1`），
+        /// 需要对齐原版 grey=0 的站点**显式置 `false`**（逐颗对应关系还没普查出来，见账里「还差什么」）。</para>
+        /// <para>⚠️ 原版那颗方法的另一半（`disabledColor.a = colorTintGreyOnDisableAlpha`(`+0x17C`/`+0x14C`)
+        /// 再 `set_colors`）我们**没有对应物**：那颗 `ColorBlock` 是 uGUI `Selectable` 的字段，
+        /// 而我们的禁用观感走的是**材质换 Greyscale**（同一族、另一条路）⇒ 这一半记在账 179/231 的「还差什么」。</para></summary>
+        public bool ColorTintGreyOnDisable = true;
+
         /// <summary>该灰了吗（原版那两条路在 `DoStateTransition` 里合成的那一个布尔：
-        /// `bVar4 = state != 4 &amp;&amp; !softDisabled`，取反即「灰」）。</summary>
-        bool WantGray { get { return SoftDisabled || !_interactable; } }
+        /// `bVar4 = state != 4 &amp;&amp; !softDisabled`，取反即「灰」，**再与 `colorTintGreyOnDisable` 相与**）。</summary>
+        bool WantGray { get { return ColorTintGreyOnDisable && (SoftDisabled || !_interactable); } }
 
         /// <summary>自检用：现在**真的**灰着吗（不是「想灰」—— 取不到 shader 时这里仍是 `false`）。</summary>
         public bool GrayedForTest { get; private set; }

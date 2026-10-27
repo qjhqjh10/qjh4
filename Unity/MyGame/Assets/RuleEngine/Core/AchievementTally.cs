@@ -271,5 +271,47 @@ namespace RuleEngine
 
         /// <summary>`AbilityTrigger.TriggeredSynapse = 630`（`0x276`）—— 同上，原版不记。</summary>
         public const int TriggeredSynapse = 630;
+
+        // ================================================================================================
+        //  🆕 2026-10-28（B88 · 波 2 · 执行代理 `A2`）—— **挑战/成就缺的两格发射端**（追加在类尾）
+        //  判据 = `资料/完全复刻/判据/B88_R5_挑战计数发射点_施工单.md` §4·1（原版 `ChallengeLogMgr` 10 个
+        //  计数口里，我们**缺发射**的只有「击杀」与「治疗」两条；其余 8 条早有等价格子）。
+        //  ⚠️ 与 `Shell/ChallengeData.cs` 那五格的关系：**这里才是唯一正本**（引擎侧），
+        //     表现层在**结算处**读出喂 `ChallengeData`（照既有 `DailyData.OnBattleEnd` / `AwardAchievements`
+        //     的先例）—— ⛔ 别在 `RuleEngine/` 里插 `CardPresentation.ChallengeEngine.*`（反向依赖）。
+        // ================================================================================================
+
+        /// <summary>`[凶手座位]` —— **击杀的部队数**（原版 `PlayerBattleStats.enemyTroopsDied`，`+0x10`）。
+        /// <para>写点 = `RuleCore.TryCreditKillCore`（`RuleCore.cs` 的 `return true;` 之前那一句）。
+        /// 归属 = **凶手**（`kOwner`）—— 原版 `TroopsKilled` 按**死者**选边写进**凶手那侧**的 stats
+        /// （`ChallengeLogMgr__TroopKilled.c` 尾：`deadCard+0x40 == 0` ⇒ `PlayerBattleStats`），
+        /// 而消费者 `TroopsKilledCount` 只看 `killer.isPlayer` ⇒ 两条口径**同值**。</para>
+        /// <para>⚠️ 覆盖差（如实记）：原版 `ResolveMinionDeath` 每个小兵死都发信号，无凶手时
+        /// 消费者自身会在 `null.isPlayer` 上抛 NRE ⇒ **原版那一路也不计数**；我们只数「有凶手且凶手
+        /// 是当前行动方」那一档（与消费者等价，但不是逐字等价的信号流）。</para></summary>
+        public readonly int[] TroopsKilled = new int[2];
+
+        /// <summary>`[被治疗方座位]` —— **实际治疗量**（原版 `ChallengeVariable`/`HealAmount` 那一格）。
+        /// <para>写点 = `RuleCore.HealUnit`（`ctx.Emit(EvtKind.Heal)` 之后）。量 = 该方法算出的 `healed`
+        /// （= `u.Health - before`，天生就是 `min(请求, MaxHealth−Health)` 的净量，与
+        /// `HealAmount.cs:100-160` 的消费者公式逐字对上）。阵营过滤在消费者里，我们这里
+        /// 用 `owner`（被治疗方的座位）承载 `t.isPlayer`。</para></summary>
+        public readonly int[] HealDone = new int[2];
+
+        /// <summary>记一次**击杀部队**（`TroopsKilledOf` 的对写口）。</summary>
+        public void AddTroopKilled(int killerSeat) { if (SeatOk(killerSeat)) TroopsKilled[killerSeat]++; }
+
+        /// <summary>某一方击杀过几个部队。</summary>
+        public int TroopsKilledOf(int seat) { return SeatOk(seat) ? TroopsKilled[seat] : 0; }
+
+        /// <summary>记一笔**实际治疗量**（`amount` ≤ 0 不记 —— 与 `AddDamage` 同一条闸）。</summary>
+        public void AddHealDone(int ownerSeat, int amount)
+        {
+            if (!SeatOk(ownerSeat) || amount <= 0) return;
+            HealDone[ownerSeat] += amount;
+        }
+
+        /// <summary>某一方（作为被治疗方）累计吃到过多少实际治疗量。</summary>
+        public int HealDoneOf(int seat) { return SeatOk(seat) ? HealDone[seat] : 0; }
     }
 }

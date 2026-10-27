@@ -1029,6 +1029,12 @@ namespace CardPresentation
         public override void Close()
         {
             MainMenuRuntime.SetNavPanelVisible(true, true);
+            // = 原版 `DraftModeMenuPayStateDemo.OnClose` 第一句 `ResourcesBarController.ToggleOverlay(false)`
+            //   （`out_cpp2il_dev_ilspy/DraftModeMenuPayStateDemo.cs:153`）。关窗时**必须**还原，
+            //   否则资源条会一直压在别的窗上（`TopBar.ToggleOverlay` 是幂等的，重复调无副作用）。
+            //   ⚠️ 原版紧跟的第二句 `LiveOpsAssetUtility.Unload(fgImage)` **我们没有对应物** ——
+            //   本仓的窗体图走 `Resources`（常驻、无 Addressables 引用计数），没有「卸载」这一步可做。
+            TopBar.ToggleOverlay(TopBar.LastBuilt, false);
             base.Close();
         }
 
@@ -1136,6 +1142,9 @@ namespace CardPresentation
             _warlordContBtn = null;
             _rerollPrice = null;
             _deckInfoHolder = null; _deckEnergyLabel = null;
+            // 🆕 2026-10-27（B88-E7）：右栏扫光那一层也是这次重建里新建的 ⇒ 旧引用作废
+            //   （`WildcardShineLayer` 自己会在 quad 全没了之后被 `StepAll` 回收，见它的文件头）。
+            _deckShine = null; _deckFlash = null;
             // 🆕 D5：Card List 页的常驻件也是**这次重建里新建的** ⇒ 旧引用全部作废（滚动区随宿主一起重建）
             _deckListName = null; _deckWarlordHit = null; _deckListSep = null;
             _deckListScrollView = null; _deckListViewport = null; _deckListContent = null;
@@ -1852,13 +1861,32 @@ namespace CardPresentation
                              ToggleArtOnOff[0], ToggleArtOnOff[0], clickCue: WindowSounds.SelectToggleCue);
             }
             // `Generic Window Red Background Small`：原版**初始 act=off**（`UIEffectTweener` 只在
-            // 「选包成功」那一下 Play 闪一次，S3 §2.9 末行）⇒ 节点照建、**默认关着**；
-            // 本轮不做那一下闪光（动画时长常量只在 `DAT_*` 里）—— 见 `PickPack` 那条出声。
+            // 「选包成功」那一下 Play 闪一次，S3 §2.9 末行）⇒ 节点照建、**默认关着**。
+            // 🆕 **2026-10-27（B88-E7 · 铁律 5）就地订正**：本行原来写「本轮不做那一下闪光（动画时长常量只在
+            //   `DAT_*` 里）」——**不成立**：那一下的配置**已逐字段读全**（账 `轮抽.tsv` 行 131 的判据段），
+            //   而且 Coffee `UIEffect` 的 **Shiny 变体早就有忠实移植** = `WildcardShine.shader` +
+            //   `WildcardShineLayer`（用于收藏窗野牌底板 / 卡组编辑 Done 钮）⇒ 这里直接挂那一层。
+            //   逐字段（`_probe_deckinfo.py` 现读）：`UIEffect` TransitionFilter **4 (Shiny)** · rotation **120** ·
+            //   width **0.25** · softness **0.5** · range 0…1 · colorFilter **6** · color (1,1,1,1) · keepAspect 1 ·
+            //   blend 1/1/10；`UIEffectTweener` duration **1.0 s** · delay 0 · **线性** · wrap **0 (Once)** ·
+            //   `resetTimeOnEnable 1` · `playOnEnable 0`。
             var flash = MenuDraw.Nine(panel, Tex("UI_Deck_Selection_Back"),
                                       new PxRect(1500f, 215.30f, 1900f, 911.76f),
                                       new Vector4(0f, 325f, 0f, 35f), 439f, 664f, QPanel, null, true,
                                       "Generic Window Red Background Small");
-            if (flash != null) flash.SetActive(false);
+            if (flash != null)
+            {
+                flash.SetActive(false);
+                _deckFlash = flash.transform;
+                // 参数取自 `Params.Icon`（= 同一组 120 / 0.25 / 0.5 / 白 / filter 6 / Once），**只把时长改成 1.0**
+                var shineParams = WildcardShineLayer.Params.Icon;
+                shineParams.duration = DeckInfoShineDuration;
+                _deckShine = WildcardShineLayer.AttachNine(flash.transform, shineParams);
+                if (_deckShine == null)
+                    Debug.LogWarning("[Draft] 右栏 `Generic Window Red Background Small` 的扫光层没挂上"
+                                   + "（`WildcardShineLayer.AttachNine` 返回 null：shader `CardPresentation/WildcardShine`"
+                                   + " 取不到，或这棵树里没有 `ImageQuad`）⇒ 选包成功那一下**只有 Punch、没有扫光**");
+            }
             // `content` 里只有三页；本批建两页（Deck Info / Card List），第三页（Alliance）**留空 + 出声**
             _deckTitle = MenuDraw.Text(panel, DeckTitleR, Loc.T("MenuDeck/HUD/DeckDescription/DeckInfo"), Color.white,
                                        "Title", 36f, QText, DeckTitleR.W, 18f, 36f, 36f,
@@ -2134,6 +2162,12 @@ namespace CardPresentation
             SetOn(_pageWarlord, page == _pageWarlord);
             SetOn(_pagePacks, page == _pagePacks);
             SetOn(_pageOngoing, page == _pageOngoing);
+            // 🔴 **2026-10-27（B88-E7）**：资源条的 overlay 档 —— 原版在 **`DraftModeMenuPayStateDemo.ToFocus`**
+            //   里 `ResourcesBarController.ToggleOverlay(**true**)`、在 `OnClose` 里 `ToggleOverlay(**false**)`
+            //   （`out_cpp2il_dev_ilspy/DraftModeMenuPayStateDemo.cs:143/153`；⛔ 不是 `OnOpen`，是**页签获得焦点**
+            //   那一刻）。我们的等价物 = `TopBar.ToggleOverlay(TopBar.LastBuilt, …)`（同一份实现，
+            //   判据 → `TopBar.QBarOverlayBase`）：**付费页是当前页 ⇒ 抬到窗上，换页/关窗 ⇒ 逐件还原**。
+            TopBar.ToggleOverlay(TopBar.LastBuilt, page == _pagePay);
 
             bool showDeckPanel = (s == DraftModeState.SelectPack || s == DraftModeState.OngoingRun);
             SetOn(_deckPanelRoot, showDeckPanel);
@@ -2163,20 +2197,33 @@ namespace CardPresentation
 
         static void SetOn(Transform t, bool on) { if (t != null) t.gameObject.SetActive(on); }
 
-        /// <summary>`Quote End` 的本地化键 —— 按**胜场**分档（五个键的名字本身就是档位：
-        /// `Demo/DraftMode/Quote{0,1-4,5-8,9-11,12}Victories`，官方本地化表现读）。
-        /// ⚠️ 原版 `DraftRunDisplay.ChooseQuote` 算的是 `wins / data.matches.Length` 归一值再比
-        /// `DraftEndQuote.normalizedVictoriesRange`，而 `matches.Length` 是**服务端值、本地 0 命中**
-        /// （S3 §五）⇒ 归一值算不出来；本地**唯一**能用的判据就是那五个键名 ⇒ 按胜场取档。
-        /// 🔶 自己设计（非原版）：「按胜场取档」代替原版归一算法 · 原版要 `matches.Length`（服务端），本地唯一判据是五个键名 · TODO(谁定的)｜原注：🔴 这一条是「用键名反推档位」，⛔ 不是原版的归一算法。</summary>
+        /// <summary>`Quote End` 的本地化键 —— **原版算法**（`DraftEndQuote.TryGetQuote` +
+        /// `DraftRunDisplay.ChooseQuote`）：`progress = wins / matches.Length` →
+        /// **取第一条 `normalizedVictoriesRange >= progress` 的引文**。
+        /// <para>🔴 **2026-10-27（B88-E7 · 铁律 5）：原文那句「原版要 `matches.Length`（服务端）⇒ 归一值算不出来」
+        /// 已作废** —— 分母用我们自己的 <see cref="MatchesToFinish"/>（= 4，用户 2026-10-24 拍板「打满 4 场」）；
+        /// 五个阈值**本地实读**：`bundle_menus_assets_all/MonoBehaviour/MonoBehaviour_-785129507668524194.json`
+        /// 的 `quotes[]` = **0.0 / 0.33399999 / 0.66699999 / 0.92000002 / 1.0**
+        /// （从左到右 = `Quote0Victories` / `Quote1-4` / `Quote5-8` / `Quote9-11` / `Quote12`）。
+        /// `TryGetQuote` 的判据（`DraftEndQuote__TryGetQuote.c`）就是一句 `if (range &lt; progress) return null;`。</para>
+        /// <para>⚠️ 4 场制下的映射（逐胜场）：0→`Quote0` · 1→`1-4` · 2→`5-8` · 3→`9-11` · 4→`12`
+        /// —— 旧实现「按胜场 0/1-4/5-8/9-11/12 直接取档」会让**后三句永远出不来**（真缺陷）。</para></summary>
         public static string QuoteTermForWins(int wins)
         {
-            if (wins <= 0) return "Demo/DraftMode/Quote0Victories";
-            if (wins <= 4) return "Demo/DraftMode/Quote1-4Victories";
-            if (wins <= 8) return "Demo/DraftMode/Quote5-8Victories";
-            if (wins <= 11) return "Demo/DraftMode/Quote9-11Victories";
-            return "Demo/DraftMode/Quote12Victories";
+            float progress = MatchesToFinish > 0 ? (float)wins / MatchesToFinish : 0f;
+            for (int i = 0; i < QuoteTerms.Length; i++) if (QuoteRanges[i] >= progress) return QuoteTerms[i];
+            return QuoteTerms[QuoteTerms.Length - 1];
         }
+
+        /// <summary>五个引文键（**顺序 = 原版 `quotes[]` 的数组序**，判据见 <see cref="QuoteTermForWins"/>）。</summary>
+        static readonly string[] QuoteTerms =
+        {
+            "Demo/DraftMode/Quote0Victories", "Demo/DraftMode/Quote1-4Victories",
+            "Demo/DraftMode/Quote5-8Victories", "Demo/DraftMode/Quote9-11Victories",
+            "Demo/DraftMode/Quote12Victories",
+        };
+        /// <summary>五档阈值 —— **MB 实读原值**（`normalizedVictoriesRange`；浮点逐位照抄，⛔ 别改成 1/3、2/3）。</summary>
+        static readonly float[] QuoteRanges = { 0f, 0.33399999141693115f, 0.6669999957084656f, 0.9200000166893005f, 1f };
 
 
         // ============================================================ 状态机（原版 `DraftEventBase.UpdateState`）
@@ -2582,8 +2629,43 @@ namespace CardPresentation
                 else { if (BuildPackCloseTween(n) != null) any = true; }
             }
             if (BuildPanelPunchTween(_deckPanelRoot) != null) any = true;
+            // = 原版 `DraftModeSelectPacksStateDemo.UpdateDeckInfoPanelAnimSync` 的另一半：
+            //   `deckInfoShineEffect.Play(true)`（Punch 之后再扫一次光）。见 `PlayDeckInfoShine`。
+            PlayDeckInfoShine();
             return any;
         }
+
+        // ============================================================ 🆕 2026-10-27（B88-E7）
+        //  `DraftModeSelectPacksStateDemo.UpdateDeckInfoPanelAnimSync` = PunchScale + **扫光 Play(true)**
+        //  （原版那两半是**同一句**里前后两句；判据 → 账 `轮抽.tsv` 行 131 的「判据要点/差异」两列）。
+        /// <summary>`UIEffectTweener.m_Duration` = **1.0 s**（`_probe_deckinfo.py` 现读；与收藏窗那颗 0.75 不同 ——
+        /// 铁律 5·c：一个值 ≠ 全部情况）。</summary>
+        public const float DeckInfoShineDuration = 1f;
+
+        WildcardShineLayer _deckShine;
+        Transform _deckFlash;
+
+        /// <summary>右栏底板扫一次光（原版 `deckInfoShineEffect.Play(true)`）。
+        /// <para>⭐ **可直调**（自检用同一份实现；产品路径 = `PlayPickPackAnims` 里 Punch 之后那一句）。</para>
+        /// <para>⚠️ 原版那个节点 `m_IsActive = 0` + `playOnEnable = 0` ⇒ **Play 之前要先亮起来**；
+        /// 播完（Once）扫光自己淡到不可见（`_TransitionRate` 归 1）⇒ 节点留在亮着的状态不碍事，
+        /// 而 `ResetTimeOnEnable` 那格由 `Play(resetTime: true)` 承担。</para>
+        /// <returns>真的播了没有（层没挂上 / 批处理 ⇒ false，且**出声**）。</returns></summary>
+        public bool PlayDeckInfoShine()
+        {
+            if (_deckShine == null)
+            {
+                Debug.LogWarning("[Draft] 右栏扫光层不存在 ⇒ `UpdateDeckInfoPanelAnimSync` 的扫光那半**没播**"
+                               + "（Punch 那半不受影响）");
+                return false;
+            }
+            if (_deckFlash != null && !_deckFlash.gameObject.activeSelf) _deckFlash.gameObject.SetActive(true);
+            _deckShine.Play(true);
+            return true;
+        }
+
+        /// <summary>自检读口：扫光层（null = 没挂上）。</summary>
+        public WildcardShineLayer DeckInfoShine { get { return _deckShine; } }
 
         // ------------------------------------------------------------ 胜/败徽章（原版 `PerformBadgeAnimations` + `DoToggleAnim`）
         // 判据 = `D:/2/tools/cpp2il/out_cpp2il_dev_ilspy/DraftRunDisplay.cs:288-341`（`PerformBadgeAnimations`）

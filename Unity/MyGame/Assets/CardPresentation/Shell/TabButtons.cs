@@ -23,8 +23,11 @@
 //      ③ `firstTime`：原版由「group 归一化触发的初始 toggle 事件」消费掉。我们没有 toggle 事件 ⇒
 //         **`Initialize` 末尾直接把它消费掉**（否则用户第一次真点击会被吞）。依据：原版 `Toggle` 的
 //         `firstTime` 闸只在 `Initialize` 之后有实际意义（:269-282），而它是为初始化那一跳准备的。
-//      ④ `AddTabButton` 原版收 `Sprite icon` 并设 `image.sprite`；我们这边图是**按名字**取（`CardArt.Ui(...)`），
-//         所以本轮只提供 `AddTabButton(string tabName)`；**图标那一半没做**（见报告「差什么」）。
+//      ④ ~~`AddTabButton` 原版收 `Sprite icon` 并设 `image.sprite`；我们这边图是**按名字**取（`CardArt.Ui(...)`），
+//         所以本轮只提供 `AddTabButton(string tabName)`；**图标那一半没做**~~
+//         🔴 **2026-10-27（第三批 · E9c）就地订正（铁律 5）：已补上** —— 形参改成
+//         `AddTabButton(string tabName, Texture2D tabIcon = null)`，取到 `ImageQuad` 就 `SetTexture`；
+//         取不到就**出声**。`Toggle.group` 那一跳换载体（`options` + `ChangeTab`），⛔ 不是缺。
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -152,9 +155,19 @@ namespace CardPresentation
             CurrentVisualIndex = window.visualTypes != null ? window.visualTypes.IndexOf(tab.Type) : -1;
         }
 
-        /// <summary>原版 `AddTabButton(string tabName, Sprite tabIcon)`（:314-407）的**名字那一半**。
-        /// `name = tabName`、文字 = tabName；图标那一半没做（见文件头差异④）。返回新建那颗的 `WindowButton`。</summary>
-        public WindowButton AddTabButton(string tabName)
+        /// <summary>= 原版 `TabButtons.AddTabButton(string tabName, Sprite tabIcon)`（**逐句**，判据
+        /// `TabButtons__AddTabButton.c` 全文 = `out_cpp2il_dev_ilspy/TabButtons.cs:314-407`）：
+        /// ① `Instantiate(tabPrefab, tabHolder.transform)` → ② `SetActive(true)` → ③ `SetSiblingIndex(0)`
+        /// → ④ `name = tabName` → ⑤ **`image.sprite = tabIcon`**（`GetComponentInChildren&lt;Image&gt;`，取不到就跳过）
+        /// → ⑥ `toggle.group = tabHolder` → ⑦ 子件 TMP `SetText(tabName)` → ⑧ 返回那颗 toggle。
+        /// <para>🔴 **2026-10-27（第三批 · E9c）补齐 ⑤**（原来只有名字那一半，见文件头差异④）：形参改成
+        /// `Texture2D tabIcon` —— 我们这一栈的「Image」是 `ImageQuad`（`Image.sprite` 在我们这儿就是
+        /// `SetTexture`），**图仍按名字取**（`CardArt.Ui(...)`）只是**取到之后从这里喂进去**。
+        /// ⚠️ 母版里没有 `ImageQuad` 而调用方又给了图标 ⇒ **出声**（⛔ 不静默吞掉一张图）。</para>
+        /// <para>⑥ 的等价物：我们没有 uGUI `Toggle`/`ToggleGroup` ⇒ **互斥选中**由 `options` 表 +
+        /// `window.ChangeTab` 那条路实现（`Toggle(state, tab)` 已按原版实现，`firstTime` 闸见文件头差异③）
+        /// ⇒ 这一跳不是缺，是换了载体。</para></summary>
+        public WindowButton AddTabButton(string tabName, Texture2D tabIcon = null)
         {
             if (tabButtonPrefab == null)
             {
@@ -165,6 +178,14 @@ namespace CardPresentation
             go.SetActive(true);
             go.transform.SetSiblingIndex(0);       // 原版 :339 `SetSiblingIndex(0)`
             go.name = tabName;                     // 原版 :340 `everguildToggle.name = tabName`
+            // ⑤ `image.sprite = tabIcon`（原版 `UnityEngine_UI_Image__set_sprite(plVar8, param_3)`）
+            if (tabIcon != null)
+            {
+                var icon = go.GetComponentInChildren<ImageQuad>(true);
+                if (icon != null) icon.SetTexture(tabIcon);
+                else Debug.LogWarning("[Tabs] `AddTabButton(" + tabName + ")`：母版里没有 `ImageQuad`"
+                                    + " ⇒ **图标那一跳没落**（原版 `image.sprite = tabIcon`；出声，不静默）");
+            }
             var label = go.GetComponentInChildren<Label>(true);
             if (label != null) label.SetText(tabName);
             else Debug.LogWarning("[Tabs] `AddTabButton(" + tabName + ")`：母版里没有 `Label` ⇒ 键上没有文字（出声，不静默）");

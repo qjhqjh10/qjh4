@@ -668,17 +668,52 @@ namespace CardPresentation
         /// 再 `ReferralManager.SetReferrer(input.text, 成功→Refresh / 失败→&lt;OnSetReferrer>b__13_0)`。
         /// <para>🔴 **本地没有 `ReferralManager`**（服务端）⇒ 这一跳**没有真结果**：如实出声、
         /// 并把按钮**恢复成可用**（不留下一个「按了就死」的钮）。⛔ 不假装提交成功。</para></summary>
+        // ---------------------------------------------------------- 🆕 2026-10-27（第四批 · E9d · 账 563）
+        /// <summary>🔶 自己设计（非原版）：原版 `OnSetReferrer` 把 `input.text` 交给
+        /// `ReferralManager.SetReferrer(text, onComplete: Refresh, onError: &lt;OnSetReferrer&gt;b__13_0)`，
+        /// 而 `ReferralManager` 走 PlayFab **服务端**（P3，本地没有任何入口）。这里留一个**同形状的注入口**：
+        /// `(text, onComplete, onError) =&gt; 是否接单`。**没人接**（默认 null）⇒ 走下面那条「如实出声」的老路。
+        /// 真数据来了把它接上即可，⛔ 不改本窗的 UI 状态机。</summary>
+        public static System.Func<string, System.Action, System.Action<string>, bool> SetReferrerHandler;
+
+        /// <summary>= 原版 `&lt;OnSetReferrer&gt;b__13_0(string err)`（**逐句**，判据
+        /// `out_cpp2il_dev_ilspy/ReferralPopupWindow.cs:183-196`）：`term = "CustomErrors/" + err` →
+        /// `errorMessage.text = GetTranslation(term)` → `referButton.interactable = true`。
+        /// <para>⚠️ 词条缺键时**回落** `CustomErrors/UnhandledError` 并出声（本地化表里 `CustomErrors/*` 27/30 命中，
+        /// 缺 `Undefined`/`CouponCodeNotFound`/`CouponAlreadyRedeemed`）—— ⛔ 不把 `CustomErrors/xxx` 印到屏幕上。</para></summary>
+        public void ShowReferralError(string err)
+        {
+            string term = "CustomErrors/" + (err ?? "");
+            string text;
+            if (Loc.HasEntry(term)) text = Loc.T(term);
+            else
+            {
+                Debug.LogWarning("[Referral] 错误词条 `" + term + "` 不在本地化表里 ⇒ 回落 `CustomErrors/UnhandledError`");
+                text = Loc.HasEntry("CustomErrors/UnhandledError") ? Loc.T("CustomErrors/UnhandledError") : "";
+            }
+            if (_error != null) _error.SetText(text);
+            else Debug.LogWarning("[Referral] `Input View/error` 那颗字没建出来 ⇒ 错误串只进日志：`" + text + "`");
+            SetReferButtonInteractable(true);      // 原版失败回调的最后一句
+        }
+
         public void SubmitReferrer()
         {
             string who = _inputText != null ? _inputText.Text : "";
             if (string.IsNullOrEmpty(who) || who == TxtInputEmpty)
                 who = _view.InputText ?? "";
-            SetReferButtonInteractable(false);
+            SetReferButtonInteractable(false);      // 原版 `OnSetReferrer()` 第一句
+            if (SetReferrerHandler != null)
+            {
+                // 真源接上了：成功 ⇒ `Refresh()`、失败 ⇒ `ShowReferralError(err)`（原版两条回调）
+                bool accepted = SetReferrerHandler(who, Apply, ShowReferralError);
+                if (accepted) return;
+                Debug.LogWarning("[Referral] 注入的 `SetReferrerHandler` 拒接了这次提交 ⇒ 走本地那条出声路");
+            }
             Debug.LogWarning("[Referral] 按了确认（原版 `OnSetReferrer()` → `ReferralManager.SetReferrer(\"" + who + "\", …)`）。"
                     + "🔴 **本地没有 `ReferralManager`**（PlayFab 服务端）⇒ 没有真结果可报；"
-                    + "原版两条回调的对应物：成功 ⇒ `Refresh()` · 失败 ⇒ "
-                    + "`errorMessage = GetTranslation(\"CustomErrors/\" + err)`。我们**只出声、不假装成功**，"
-                    + "并把按钮恢复成可用。");
+                    + "原版两条回调已各自落地：成功 ⇒ `Refresh()`（= `Apply(_view)`）· 失败 ⇒ "
+                    + "`ShowReferralError(err)`（= `errorMessage = GetTranslation(\"CustomErrors/\" + err)` + 钮恢复可用）。"
+                    + "我们**只出声、不假装成功**，并把按钮恢复成可用。");
             SetReferButtonInteractable(true);
         }
 

@@ -934,7 +934,15 @@ namespace CardPresentation
                 // 🔴 **2026-10-16（`T09` 批 3）：这两颗字要判空** —— 画布档的 `HudCanvas.MakeText`
                 //    在**拿不到 TMP 字体**时返 `null`（世界档的 `Label.Create` 会退回点阵、不返 null）
                 //    ⇒ 不判空就是一句 NRE（`MakeText` 自己已经出声，别在这儿再喊一遍）。
-                if (_tipText != null) _tipText.SetText(text ?? "");
+                // 🔴 **2026-10-27（B88-E7）**：喂进来的正文是**官方模板原串**（`TutorialData/<textReference>`），
+                //   原版在调用点过一道 `SupportMethods.ModifyLocalization`（`AiScripted.cs:1436-1439`：
+                //   `GetLocalizedText()` → `ModifyLocalization(...)` → 再交给 `ShowTutorialTip`）。
+                //   我们这一侧**没有**那一步 ⇒ `[[tide]]` / `((...))` / `$$…$$` / `(N)` 会**原样印到屏幕上**。
+                //   实测：`TutorialData/*` 204 条里 **26 条带 `[[…]]`**（如 `Tutorial2/Turn2/Tip1`
+                //   「The [[tide]] trait lets you …」）⇒ 一进第 2 关就会看到方括号。
+                //   `CardIcons.RewriteMarks` = 我们那份「按原版四支渲染」的实现（见它的 doc）⇒ 在这里过一道。
+                //   ⚠️ 只在**提示正文**这一处过；纯文本（无标记）逐字节不变。
+                if (_tipText != null) _tipText.SetText(TipRichText(text));
                 // 🔴 **2026-10-18（双语③ 波 1·P4）改**：原来这里写死英文 `"Continue"`。
                 //   键 = **原版词条** `Battle/Tips/Continue`（`Core/Loc.cs` 表里早有：EN 逐字 `Continue` /
                 //   ZH「继续」，出处 = 原版 `ContinueText` 那颗 TMP + `zh_CN.csv:84`）⇒ 英文档**零变化**。
@@ -968,6 +976,7 @@ namespace CardPresentation
             SetArrow(_arrowL, ArrowLPos, on && showLeftArrow);
             SetArrow(_arrowR, ArrowRPos, on && showRightArrow);
             _wantVisible = on; _shownFor = 0f;
+            _tipContinueRequested = false;      // 每换一条提示 ⇒ 上一颗 Continue 的请求位作废
             if (_tipBg != null) _tipBg.SetTint(new Color(1f, 1f, 1f, 0.92f));
         }
 
@@ -1148,6 +1157,43 @@ namespace CardPresentation
         }
         /// <summary>自检用：把「已经显示了多久」直接拨过去（批处理里 `Tick` 是被显式喂的）。</summary>
         public void SetShownForTest(float secs) { _shownFor = secs; }
+
+        // ============================================================ 🆕 2026-10-27（B88-E7）
+        //  ① `ModifyLocalization` 的等价物（提示正文那一道）；② `TutorialTipScript.ClickContinue` 的动作半边。
+        /// <summary>提示正文的富文本化 = 原版 `SupportMethods.ModifyLocalization(translation)` 那一步
+        /// （判据 → `AiScripted.cs` 的两个 `ShowTutorialTip` 调用点都是 `GetLocalizedText()` 之后紧接它）。
+        /// 我们走 <see cref="CardIcons.RewriteMarks"/>（本仓「按原版四支渲染」的唯一一份实现）。
+        /// ⚠️ 取不到 / 空串 ⇒ 原样返回（不抛）。</summary>
+        public static string TipRichText(string text)
+        {
+            if (string.IsNullOrEmpty(text)) return text ?? "";
+            return CardIcons.RewriteMarks(text, Loc.Current == AvailableLanguages.Chinese);
+        }
+
+        /// <summary>`Continue` 那一行现在亮着没有（= <see cref="TipContinueGo"/> 的 activeSelf）。</summary>
+        public bool TipContinueVisible { get { return _tipContinue != null && _tipContinue.gameObject.activeSelf; } }
+
+        /// <summary>玩家点了 `Continue` —— 原版 `TutorialTipScript.ClickContinue()`：
+        /// **收掉 Continue 钮 + `StopTip()` + `ContinuePlayerScriptedTurn()`** 三句。
+        /// <para>本方法只做**本层能做的两句**（收钮 + 置请求位）；后两句的落点在 `BattleDriver`
+        /// （`DismissTutorialTip(force: true)` + `ContinueTutorialScript()`）—— 那个文件本波有别的写手，
+        /// ⛔ 不在这里跨文件调。</para>
+        /// <para>返回 false = 这一刻没有 Continue 钮（或已收）⇒ 调用方不该把它当成「这一下被吃掉」。</para></summary>
+        public bool ClickTipContinue()
+        {
+            if (!TipContinueVisible) return false;
+            if (_tipContinue != null) _tipContinue.gameObject.SetActive(false);
+            _tipContinueRequested = true;
+            Debug.Log("[Tutorial] 点了 `Continue`（原版 `TutorialTipScript.ClickContinue`）：Continue 钮已收；"
+                    + "提示本身与脚本推进由 `BattleDriver.DismissTutorialTip(force:true)` + `ContinueTutorialScript()` 接");
+            return true;
+        }
+
+        bool _tipContinueRequested;
+        /// <summary>自检读口：`ClickTipContinue()` 被点过没有（`BattleDriver` 消费后请自己清，或按 `DismissTutorialTip` 的时机清）。</summary>
+        public bool TipContinueRequested { get { return _tipContinueRequested; } }
+        /// <summary>清掉请求位（`BattleDriver` 真把提示消掉之后调一次；重复调无害）。</summary>
+        public void ClearTipContinueRequest() { _tipContinueRequested = false; }
 
         // ==================================================================
         //  每帧：淡入 / 淡出（原版 `fadeDuration = 0.2`）

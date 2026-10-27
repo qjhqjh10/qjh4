@@ -2829,6 +2829,17 @@
    "timeToPlayAgain": 0.0
   },
   {
+   "name": "Match Found",
+   "clips": [
+    "Multiplayer Match Found 3"
+   ],
+   "minPitch": 0.8,
+   "maxPitch": 1.1,
+   "minVolume": 0.8,
+   "maxVolume": 0.8,
+   "timeToPlayAgain": 0.1
+  },
+  {
    "name": "Maulerfiend Roar",
    "clips": [
     "Maulerfiend Roar"

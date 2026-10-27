@@ -15,7 +15,7 @@ using System.Collections.Generic;
 
 namespace RuleEngine
 {
-    public class UnitState
+    public partial class UnitState
     {
         /// <summary>
         /// **场上这一个单位是哪一份牌**（待办第 7 行「卡实例身份」第 1 步，2026-09-18）。
@@ -1634,7 +1634,7 @@ namespace RuleEngine
         //   · `this turn`            → **本回合结束时**撤（不管谁的回合）
         //   · `until your next turn` → **施放者自己的下个回合开始时**撤
         // 出处：`_resolve_text:3018-3019`。
-        public class TempBuff
+        public partial class TempBuff
         {
             public bool IsKeyword;
             public string Name;              // 属性名（attack/health/armour/ranged）或关键词名
@@ -3186,5 +3186,68 @@ namespace RuleEngine
         /// 与 <see cref="UsedActiveAbilityThisTurn"/> 的分工：那一位**每回合重置**（原版 `+0x50` 那一族），本字段不重置。</para>
         /// </summary>
         public bool ActiveAbilityUsed;
+
+        // ==================================================================
+        //  🆕 2026-10-27（B88_E4 · 引擎·小件 · 账 637）：**「移出游戏」这一态（引擎半边）**
+        // ==================================================================
+        //
+        //  **原版**：`CardScript.cardState(+0x228)` 的 `CardStateOptions.removedFromGame = 11`
+        //  （`d:/2/tools/il2cpp_out/dump.cs:45480`）。
+        //    · **置位只发生在** `CardScript.RemoveFromGameCard(removedCard)` 的 `removedCard == this` 支
+        //      （`cpp2il/out_cpp2il_dev_ilspy/CardScript.cs:16012`：`cardState = 11` +
+        //      `SetColliderNotInHand(11)` + `StopAnimsInPlay` + `SetObjectVisibility(11)`）；
+        //    · 清除 = 通用裸 setter `SetCardState(newState)`（`cpp2il CardScript.cs:9521`，
+        //      **未找到** `removedFromGame → 其它` 的专用转移）；
+        //    · 广播那一半（`BroadcastRemoveFromGame`，`decomp_full/BattleManagerSupport__BroadcastRemoveFromGame.c:20-136`）
+        //      对场上 + 双方手牌逐张调 `RemoveFromGameCard(那张, 被移出那张)`，而**跳过** `unitRemoved` / `unitRemoved2` 自身
+        //      ⇒ 它只走 `ReactToUnitJammed` 的 else 支（= 按来源撤 extrinsic，见 `RemoveExtrinsicEffectsFrom`）。
+        //
+        //  🔴 **今天是休眠机制**：state 11 的置位支**无调用点**（`T4/C3T4` 2026-10-27 现核），
+        //    我们 `UnitState` / `PlayerState` 都没有这一态 ⇒ 本字段是 B9 施工单 637 的**步骤①（引擎状态）**。
+        //    ⛔ **别只加这个字段就称为「做完了」**：还差
+        //      ② `RuleCore.BroadcastRemoveFromGame(a,b)` 三跳（场上 / 当前方手牌 / 另一侧手牌）；
+        //      ③ 视图侧 `SetObjectVisibility(11)` 等价物（隐藏 + 摘碰撞，`BattleDriver`，非本批白名单）。
+        //    ⇒ 这三半凑齐才算「移出游戏」落地；本字段只是让 RuleCore 那一半有地方落。
+        //
+        //  ⚠️ **与「残骸（`IsRemnant`）」是两回事**：残骸是 `cardState 3/17`（死亡后留在场上的那一个），
+        //    本字段是 `cardState 11`（**离开棋盘、不参与任何结算**）。⛔ 别合并。
+        public bool RemovedFromGame;
+
+        // ==================================================================
+        //  🆕 2026-10-27（B88_E4c · 解账 783 `HideWarlordActiveAbilityForTutorial` 的锁）
+        //  **实例级「主动能力被隐藏」**（教程关闸：只隐藏**这一张实例**）
+        // ==================================================================
+        //
+        //  **原版**：`CardScript__HideWarlordActiveAbilityForTutorial.c:1-8` —— 只写
+        //    `hasActiveAbility(+0x220) = 0`（教程关闸；无画面、无广播）。
+        //
+        //  🔴 **为什么落成【实例位】而不是写 `CardDef.HasActiveAbility`**：`CardDef` 是**共享不可变**的
+        //    （全池同 id 卡共用一份；`EffectResolver.DoLowerCost` 的注释也在提醒「改它会污染整个卡池」）
+        //    ⇒ 写 `CardDef` 会**把所有副本一起关掉**。原版写在 `CardScript`（= 一个实例）上，所以
+        //    我们的等价物必须在 `UnitState`（实例）。
+        //
+        //  🔶 表示法差异（非原版的数据形状）：原版把「这一实例没有主动能力」编码在
+        //    `hasActiveAbility(+0x220)` 这一个 int 上（写 0）；我们把它拆成第二个实例位
+        //    `ActiveAbilityHidden`，读点 = `HasActiveAbility && !ActiveAbilityHidden`。
+        //    理由：`CardDef.HasActiveAbility` 是**卡面印的**（不可变定义），不能承载「这一局这张被关掉」。
+        //    派生物 = `ActiveAbilityAvailable`（见下）。调度台 2026-10-27 裁定。
+        //
+        //  ⚠️ **⛔ 别与 <see cref="ActiveAbilitySuppressed"/> 合并**：那个是 **jam** 那条语义
+        //    （`ApplyJam` ①：非督军被 jam ⇒ 抑制），本字段是 **教程/关卡显式关闸**。两条来源不同、
+        //    将来要分开读（合并成一个位以后分不开）。
+        //
+        //  **读点（本批不动）**：`RuleCore.CanStartActiveAbility`（E1）—— 建议判
+        //    `if (!u.Card.HasActiveAbility可判 || u.ActiveAbilityHidden) return RuleCodes.ErrNoAbility;`
+        //    具体接法由 E1 定；本处只提供字段 + 一个方便的合并属性 <see cref="ActiveAbilityAvailable"/>。
+        public bool ActiveAbilityHidden;
+
+        /// <summary>「这一实例的主动能力现在能不能用」的合并只读视图 =
+        /// `CardDef.HasActiveAbility == 1 且 !ActiveAbilityHidden`。
+        /// <para>⚠️ `NullCard`（<see cref="Card"/> == null）⇒ `false`（没有卡就没有能力）。
+        /// ⚠️ 它**不**读 <see cref="ActiveAbilitySuppressed"/>（jam 那条另算，见本文件上面那段）。</para></summary>
+        public bool ActiveAbilityAvailable
+        {
+            get { return Card != null && Card.HasActiveAbility == 1 && !ActiveAbilityHidden; }
+        }
     }
 }

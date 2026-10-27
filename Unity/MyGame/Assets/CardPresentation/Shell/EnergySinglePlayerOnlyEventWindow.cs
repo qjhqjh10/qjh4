@@ -295,7 +295,7 @@ namespace CardPresentation
         public override void Open()
         {
             LastOpened = this;
-            Build();
+            Build(); ApplyTimerVisibility();   // 原版 `TryOpen`：`activationType == Permanent ⇒ timerDisplay.SetActive(false)`
             if (_warned) return;
             _warned = true;
             Debug.Log("[Energy] 本窗的**活动数据全在远端**（`SinglePlayerScoringEvent` 是 LiveOps 事件）："
@@ -328,7 +328,7 @@ namespace CardPresentation
         {
             MenuDraw.ClearChildren(transform);
             MissingArt.Clear();
-            _levels.Clear();
+            _levels.Clear(); _scoreLabels.Clear(); _crateHi.Clear(); _chests.Clear();
 
             _root = transform;
             BuildBackdrop(transform);
@@ -476,7 +476,7 @@ namespace CardPresentation
             if (ct != null) ct.SetWrapping(false);
             // 原版这颗钮 → `CollectClicked()`：要向 LiveOps 领奖 ⇒ **要服务器**。
             //（本工程边界③：入口照做、点了如实说，⛔ 不静默。）
-            MenuDraw.Hit(_collect, "CollectHit", CollectR, QHit, OnCollectClick, cb, ArtMulligan,
+            MenuDraw.Hit(_collect, "CollectHit", CollectR, QHit, CollectClicked, cb, ArtMulligan,
                          ArtMulligan + "_hover", ArtMulligan + "_Pressed",
                          clickCue: WindowSounds.PositiveCue);
         }
@@ -554,9 +554,9 @@ namespace CardPresentation
                 float dy = -i * LvlStep;      // `Level 1` 那一档 = 基准，往上每档减 LvlStep
                 // `Highlight Crate`（自带 scl **0.796** ⇒ 框取**视觉尺寸**）
                 //   原版 tint = **不透明金** `(0.98,0.801,0.0588,1)`；运行时只在「这一档可领」时点亮。
-                MenuDraw.Rect(row, Art(ArtCrateHi),
+                _crateHi.Add(MenuDraw.Rect(row, Art(ArtCrateHi),
                               CenterRect(CrateHiCx, CrateHiCy + dy, CrateHiW, CrateHiH),
-                              "Highlight Crate", QArt1, CrateHiTint);
+                              "Highlight Crate", QArt1, CrateHiTint));
                 // `Chest`（自带 scl **0.8696**）· `Skull`（同）—— 中心随行一起走
                 // 🔴 **2026-10-18（音效线转来的界面缺口）：补命中区 + 点击音**（原来**只有视觉**，点了什么都不发生）。
                 //   判据（原版 prefab 逐字段现读 + 反编译）：
@@ -569,7 +569,7 @@ namespace CardPresentation
                 //   ⚠️ **本地没有“奖励预览”的窗口/数据**（`RewardService` 走远端 LiveOps 奖励对象）⇒
                 //     命中区与音照原版接，动作**留空并出声**（同本窗 `Collect` 的口径：边界③不静默）。
                 var chestRect = CenterRect(ChestCx, ChestCy + dy, ChestW, ChestH);
-                MenuDraw.Rect(row, Art(CrateArt[i]), chestRect, "Chest", QArt);
+                _chests.Add(MenuDraw.Rect(row, Art(CrateArt[i]), chestRect, "Chest", QArt));
                 //   原版这颗是 **`m_Transition = 1 (ColorTint)`**（不是 SpriteSwap）⇒ **不传 `target`**：
                 //   `WindowButton.Bind` 在 `art == null` 时会把 `" → "` 记进 `MissingSwapArt`（假缺口），
                 //   而这里没有图要换 —— 命中 quad 自己那颗透明件就够（同 `MissionsTab.AddInfoTooltip` 的写法）。
@@ -596,7 +596,7 @@ namespace CardPresentation
                 //   判据全文（含「TMP 在本地单位里二分」那两条包源码行号）→ 上面常量声明处那一段。
                 //   ⚠️ 那颗 `0.8696` 长在 **`Skull`** 身上、`Score` 是 `Skull` 的**子件**（现读链，⛔ 别记到行节点头上）。
                 //   ⛔ 框不动（`sr` = `CenterRect(…, ScoreW, ScoreH)`，本来就是乘过刻度的屏值）。
-                MenuDraw.AlignRight(sc, sr);
+                MenuDraw.AlignRight(sc, sr); _scoreLabels.Add(sc);
             }
             Debug.Log("[Energy] 5 行 `Score` 照的是 **prefab 出厂原文 `1256`**、`Highlight Crate` 照出厂"
                     + "（原版是**不透明金**）—— 原版 `MilestoneScoreBar.Initialize(currentScore, milestones)` "
@@ -1059,5 +1059,241 @@ namespace CardPresentation
 
         /// <summary>`Window Title` 的 `Label`（自检量字距 / 自适应用）。</summary>
         public Label WindowTitleLabel { get { return _titleLabel; } }
+
+        // ============================================================ 🆕 2026-10-27（B88 · E11）
+        //   **第二态：分数 / 里程碑 / 领取**（原版 `RefreshScore` / `CollectClicked` / `TryCollect`）
+        //
+        // 判据（逐句，本地都可读 —— ⛔ 别去别处找第二份）：
+        //  · `decomp_full/SinglePlayerOnlyEnergyEventWindow__RefreshScore.c`（无参那支 = 转调有参那支的入口）
+        //    ＋ `SinglePlayerOnlyEnergyEventWindow.__c__DisplayClass13_0___RefreshScore_b__0.c`（状态机）
+        //  · `cpp2il/out_cpp2il_dev_ilspy/MilestoneScoreBar.cs`（`SetProgressBar`：`maxValue = 末档` ·
+        //    `normalizedValue = InterpolateMilestones(score, [0, 阈值…])`）
+        //  · `cpp2il/out_cpp2il_dev_ilspy/RewardProgressBarPanel.cs`（`Initialize`）：
+        //    `collectButton.interactable = 任一 state == Unlocked` · `scoreBar.Initialize(...)` ·
+        //    `scoreText.text = currentScore` · `scoringImage.sprite/enabled` · `scoringTitleText.text`
+        //  · `cpp2il/out_cpp2il_dev_ilspy/GenericScoreBarLine.cs`（`Initialize`）：
+        //    分数格 = `milestone.score`；**state 决定开箱图与「可领高亮」**：
+        //      `Locked`    ⇒ 闭箱 + 高亮关
+        //      `Unlocked`  ⇒ 闭箱 + **高亮开**（`readyToCollect.SetActive(true)`）
+        //      `Collected` ⇒ **开箱**（`chestOpen`）+ 高亮关
+        //
+        // 🔴 状态机（`_.c` 里 `iVar1 = (param_3 < collectedRewards) + 1`）逐字是：
+        //      `currentScore < r.scoreToUnlock` ⇒ **Locked(0)**
+        //      否则 ⇒ **`i < collectedRewards` ? Collected(2) : Unlocked(1)**
+        //    ⚠️ 判「已领」用的是**序号**（`i < collectedRewards`），**不是**逐档布尔表。
+        //
+        // 🔶 我们自己定的两处（都按铁律 18 标在这里，因为原版那两半不可离线复刻）：
+        //  ① **分数/已领数的来源** —— 原版读 `SinglePlayerScoringEvent`（LiveOps 事件实例 + 服务器存档）；
+        //     本机 13 份活动 SO **全部过期**、没有在期事件实例 ⇒ `ScoreSource` 默认 **null**，
+        //     `RefreshScore()` 走「没有数据源」那支（出声一次，界面保持 prefab 出厂值）。
+        //     自检/将来接上本地存档时，给它一个委托即可（判据形状 = `EnergyScoreState`）。
+        //  ② **领取事务**（`SinglePlayerScoringEvent.TryColllect`）—— 原版是服务器事务；本地等价口径
+        //     （线与 `B9_日常C_施工单.tsv` 第 706/716/717 行已定：服务器事务 → 本地存档 + 出声）：
+        //     走 `TryCollect`，没有数据源 ⇒ `onError`；**奖励表本机没有**（`RewardService.Collect` 那一层
+        //     未复刻）⇒ 成功路只推进「已领档位」并出声，⛔ 不编奖励、不假装发了东西。
+        public struct EnergyScoreState
+        {
+            /// <summary>当前分（原版 `RefreshScore` 里那句 `currentScore`）。</summary>
+            public int CurrentScore;
+            /// <summary>5 档解锁分（原版 `ScoringMilestones[i].scoreToUnlock`）。</summary>
+            public int[] Thresholds;
+            /// <summary>**已领档数**（原版 `collectedRewards`；状态机按「序号 &lt; 它」判已领）。</summary>
+            public int CollectedRewards;
+        }
+
+        /// <summary>活动分数来源（原版 = `SinglePlayerScoringEvent` 的存档读口）。默认 null = 本机没有。 🔶 自己设计</summary>
+        public static System.Func<EnergyScoreState> ScoreSource;
+
+        // 建树时留下的那三组件（`BuildMilestones` 里 Add；`Build()` 开头清空）
+        readonly List<Label> _scoreLabels = new List<Label>();
+        readonly List<ImageQuad> _crateHi = new List<ImageQuad>();
+        readonly List<ImageQuad> _chests = new List<ImageQuad>();
+        readonly List<int> _thresholds = new List<int>();
+        WindowButton _collectBtn;
+        int _currentScore;
+        int _collectedRewards;
+        bool _warnedNoScoreSource;
+
+        /// <summary>当前分（原版 `RefreshScore` 读到的那个数；出厂 0 = 没喂过）。</summary>
+        public int CurrentScore { get { return _currentScore; } }
+        /// <summary>已领档数（状态机的第二个输入）。</summary>
+        public int CollectedRewards { get { return _collectedRewards; } }
+        /// <summary>有没有「已达未领」的档（原版 `RewardProgressBarPanel.HasMilestoneToCollect`）——
+        /// 它决定 `Collect` 钮的 `interactable`。</summary>
+        public bool HasMilestoneToCollect
+        {
+            get
+            {
+                for (int i = 0; i < _thresholds.Count && i < _scoreLabels.Count; i++)
+                    if (_currentScore >= _thresholds[i] && i >= _collectedRewards) return true;
+                return false;
+            }
+        }
+
+        // ------------------------------------------------------------ 倒计时的显隐（原版 `TryOpen` 那两行）
+        /// <summary>原版 `SinglePlayerOnlyEnergyEventWindow.TryOpen(object, GameWindowOptions)` 的两句：
+        /// `timerDisplay.gameObject.SetActive(!(baseData.activationType == Permanent));`
+        /// 且**只有非 Permanent** 才 `timerDisplay.Initialize(结束时刻)`。
+        /// <para>判据 = `cpp2il/out_cpp2il_dev_ilspy/SinglePlayerOnlyEnergyEventWindow.cs` 的 `TryOpen`。
+        /// ⚠️ `activationType` 来自 **LiveOps 事件实例**（服务器数据）；本机 13 份 SO 全过期、没有在期实例
+        /// ⇒ 由宿主设 <see cref="PermanentEvent"/>；**默认 false**（= 非 Permanent ⇒ 计时器照显，
+        /// 与改前完全一致，⛔ 不改变今天的行为）。</para></summary>
+        public bool PermanentEvent;
+
+        /// <summary>把 <see cref="PermanentEvent"/> 落到界面上：Permanent ⇒ `Timer` 整件关掉。
+        /// ⛔ 不碰 `Timer` 里的文字（原版也是整件 `SetActive`）。</summary>
+        public void ApplyTimerVisibility()
+        {
+            // `Timer` 是 `BuildTimer` 建在本窗根下的**直接子件**（`MenuDraw.Node(root, "Timer", TimerR)`）。
+            var t = transform.Find("Timer");
+            if (t == null)
+            {
+                if (PermanentEvent)
+                    Debug.LogWarning("[Energy] `PermanentEvent = true` 但没找到 `Timer` 节点 ⇒ 计时器没藏（出声，⛔ 不静默）");
+                return;
+            }
+            t.gameObject.SetActive(!PermanentEvent);
+        }
+
+        /// <summary>原版 `private void RefreshScore()`：读事件分数 → 投射成 `GenericScoringMilestone[]` →
+        /// `rewardsBarPanel.Initialize(...)`。**没有数据源 ⇒ 出声一次并把界面留在出厂态**（⛔ 不编分数）。</summary>
+        public void RefreshScore()
+        {
+            if (ScoreSource == null)
+            {
+                if (!_warnedNoScoreSource)
+                {
+                    _warnedNoScoreSource = true;
+                    Debug.Log("[Energy] `RefreshScore()` 没有数据源（原版读 `SinglePlayerScoringEvent` 的服务器存档；"
+                            + "本机 13 份活动 SO 全过期、没有在期事件实例）⇒ 界面保持 prefab 出厂值（出声一次）。");
+                }
+                return;
+            }
+            var st = ScoreSource();
+            SetScore(st.CurrentScore, st.Thresholds, st.CollectedRewards);
+        }
+
+        /// <summary>把 `RefreshScore` 那个投射**落地**（= `MilestoneScoreBar.Initialize` ＋ `RewardProgressBarPanel.Initialize`
+        /// 的净效果）：分数格换成阈值、箱子闭/开、可领高亮、进度条、`Collect` 钮 `interactable`。
+        /// <param name="thresholds">5 档解锁分（原版 `ScoringMilestones[i].scoreToUnlock`）。</param>
+        /// <param name="collectedRewards">已领档数（状态机第二个输入）。</param></summary>
+        public void SetScore(int currentScore, IList<int> thresholds, int collectedRewards)
+        {
+            _currentScore = currentScore;
+            _collectedRewards = collectedRewards < 0 ? 0 : collectedRewards;
+            _thresholds.Clear();
+            int n = thresholds == null ? 0 : Mathf.Min(thresholds.Count, _scoreLabels.Count);
+            var ths = new int[n];
+            for (int i = 0; i < n; i++) { ths[i] = thresholds[i]; _thresholds.Add(thresholds[i]); }
+
+            bool anyClaimable = false;
+            for (int i = 0; i < _scoreLabels.Count; i++)
+            {
+                if (i >= n)
+                {
+                    // 原版 `MilestoneScoreBar` 在这里只打一条
+                    // `[ERROR] Alliances scoring bar: There are more scoring lines that thresholds` 然后**停**
+                    // ⇒ 我们没有阈值的那几行**不动**（保持出厂），下面那条出声一次。
+                    break;
+                }
+                // 状态机（判据逐字 → 本段头部）
+                int state = currentScore < ths[i] ? 0 : (_collectedRewards > i ? 2 : 1);
+                if (state == 1) anyClaimable = true;
+
+                if (_scoreLabels[i] != null) _scoreLabels[i].SetText(ths[i].ToString());
+                if (i < _crateHi.Count && _crateHi[i] != null)
+                    _crateHi[i].transform.gameObject.SetActive(state == 1);
+                if (i < _chests.Count && _chests[i] != null)
+                {
+                    // `Collected` ⇒ 开箱图 `<Tier>_open`（五张开箱图都在 `Resources/Art/ui_menu/`）；
+                    // 另两档 ⇒ 闭箱图（就是建树时那一张）。
+                    var tex = Art(state == 2 ? CrateArt[i] + "_open" : CrateArt[i]);
+                    if (tex != null) _chests[i].SetTexture(tex, true);
+                }
+            }
+            if (n < _scoreLabels.Count)
+                Debug.LogWarning("[Energy] 里程碑阈值只有 " + n + " 档、记分条有 " + _scoreLabels.Count
+                        + " 行（原版 `MilestoneScoreBar` 同一处只报错并停止）⇒ 余下几行保持出厂值。");
+
+            // 进度：原版 `slider.maxValue = 末档` · `normalizedValue = InterpolateMilestones(score, [0, 阈值…])`。
+            // ⚠️ **共用那份实现**（`AllianceEventScoreInfo.InterpolateMilestones`，判据与出处写在它头上）——
+            //    ⛔ 别在本窗再写一份（CLAUDE.md §三：两处写同一条规则 = 迟早不一致）。
+            SetProgress(AllianceEventScoreInfo.InterpolateMilestones(currentScore, ths));
+
+            if (_collectBtn == null && _collect != null)
+                _collectBtn = _collect.GetComponentInChildren<WindowButton>(true);
+            if (_collectBtn != null) _collectBtn.Interactable = anyClaimable;
+        }
+
+        /// <summary>原版 `private void RefreshScore(RewardInfo[] obj)`：**只是转发**到无参那支
+        /// （`SinglePlayerOnlyEnergyEventWindow__RefreshScore.c` = 一句 `RefreshScore()`）——
+        /// 它是 `TryColllect` 的成功回调。奖励表在这里**不用**（原版也不用）。</summary>
+        public void RefreshScoreCallback(CampaignData.RewardSpec[] rewards) { RefreshScore(); }
+
+        /// <summary>原版 `private void CollectClicked()`：`TryColllect(onComplete: RefreshScore)`。
+        /// 失败/没有数据源 ⇒ `onError` ⇒ 沿用本窗原来的「暂无服务器」那条如实提示（`OnCollectClick`）。</summary>
+        public void CollectClicked()
+        {
+            TryCollect(RefreshScoreCallback,
+                       why => { Debug.LogWarning("[Energy] `TryCollect` 失败：" + why); OnCollectClick(); });
+        }
+
+        /// <summary>= 原版 `SinglePlayerScoringEvent.TryColllect(Action&lt;RewardInfo[]&gt; onComplete, Action&lt;string&gt; onError)`。
+        /// <para>原版 = **服务器事务**（`ScoringEvent&lt;…&gt;` 的云脚本，本地无后端）。🔶 本地等价口径（见本段头部）：
+        /// 没有数据源 ⇒ `onError`；有数据源 ⇒ 领**第一档已达未领**、把「已领档数」推进 1，再 `onComplete(空表)`。</para>
+        /// <para>⚠️ **奖励表本机没有**（`RewardService.Collect` / `ItemDrawer` 那条发放链未复刻）⇒ 成功路给**空表**
+        /// 并出声，⛔ 不编奖励条目、⛔ 不假装「已发到背包」。</para></summary>
+        public void TryCollect(System.Action<CampaignData.RewardSpec[]> onComplete,
+                               System.Action<string> onError)
+        {
+            if (ScoreSource == null)
+            {
+                string why = "本机没有活动分数来源（原版 `TryColllect` 走 LiveOps 后端；"
+                           + "13 份活动 SO 全过期 ⇒ 没有在期事件实例）";
+                if (onError != null) onError(why); else Debug.LogWarning("[Energy] TryCollect 失败：" + why);
+                return;
+            }
+            var st = ScoreSource();
+            int idx = st.CollectedRewards;
+            if (st.Thresholds == null || idx >= st.Thresholds.Length || st.CurrentScore < st.Thresholds[idx])
+            {
+                string why = "没有可领的里程碑（当前分 " + st.CurrentScore + "、已领 " + st.CollectedRewards + " 档）";
+                if (onError != null) onError(why); else Debug.LogWarning("[Energy] TryCollect 失败：" + why);
+                return;
+            }
+            Debug.Log("[Energy] `TryCollect` 本地等价：领取第 " + (idx + 1) + " 档（分数 " + st.Thresholds[idx]
+                    + "）—— 奖励发放链（`RewardService.Collect`）本机没有 ⇒ 只推进已领档位、奖励表给空表。");
+            SetScore(st.CurrentScore, st.Thresholds, idx + 1);
+            if (onComplete != null) onComplete(new CampaignData.RewardSpec[0]);
+        }
+
+        /// <summary>= 原版 `SinglePlayerScoringEvent.PurchaseMilestone(int, Action&lt;RewardInfo[]&gt;, Action&lt;string&gt;)`：
+        /// 单档领取（`TryColllect` 是「领下一档」的一次性入口）。本地口径同 `TryCollect`。</summary>
+        public void PurchaseMilestone(int milestoneIndex, System.Action<CampaignData.RewardSpec[]> onComplete,
+                                      System.Action<string> onError)
+        {
+            if (ScoreSource == null)
+            {
+                string why = "本机没有活动分数来源（服务器事务）";
+                if (onError != null) onError(why); else Debug.LogWarning("[Energy] PurchaseMilestone 失败：" + why);
+                return;
+            }
+            var st = ScoreSource();
+            if (st.Thresholds == null || milestoneIndex < 0 || milestoneIndex >= st.Thresholds.Length)
+            {
+                string why = "里程碑下标 " + milestoneIndex + " 越界";
+                if (onError != null) onError(why); else Debug.LogWarning("[Energy] PurchaseMilestone 失败：" + why);
+                return;
+            }
+            if (st.CurrentScore < st.Thresholds[milestoneIndex] || milestoneIndex < st.CollectedRewards)
+            {
+                string why = "里程碑 " + milestoneIndex + " 不可领（分 " + st.CurrentScore
+                           + " / 阈值 " + st.Thresholds[milestoneIndex] + " / 已领 " + st.CollectedRewards + " 档）";
+                if (onError != null) onError(why); else Debug.LogWarning("[Energy] PurchaseMilestone 失败：" + why);
+                return;
+            }
+            SetScore(st.CurrentScore, st.Thresholds, Mathf.Max(st.CollectedRewards, milestoneIndex + 1));
+            if (onComplete != null) onComplete(new CampaignData.RewardSpec[0]);
+        }
     }
 }

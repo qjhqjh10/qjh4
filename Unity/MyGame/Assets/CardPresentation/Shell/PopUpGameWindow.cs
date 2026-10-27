@@ -390,6 +390,9 @@ namespace CardPresentation
             // 多余的钮：= 原版那个循环里「超出给定按钮数的 `SetActive(false)`」那一支。
             // ⚠️ 藏/显的是**按钮节点**（连它的文字一起），⛔ 不是底图那块 quad —— 见 `_secondaryNode`。
             if (_secondaryNode != null) _secondaryNode.gameObject.SetActive(HasSecondary);
+            // 🆕 0 颗钮那一档（= 原版 `ConfigurePopUp(3 参)` 把 `LiveButtons` 全 `SetActive(false)`）：
+            //   与 `Build()` 第 8b 步同一句，两处必须一致（否则刷新一次那颗钮会自己冒出来）。
+            if (_primaryNode != null) _primaryNode.gameObject.SetActive(!string.IsNullOrEmpty(_primaryKey));
             else if (HasSecondary)
                 // 🔴 出声（红线「不许静默失败」）：调用方这次**给了**第二颗钮，而这扇实例是 1 按钮版 prefab
                 //    ⇒ 那颗钮**画不出来**、它的回调也永远走不到。⚠️ **原版这里同样是静默的**
@@ -498,7 +501,7 @@ namespace CardPresentation
                 // 🔴 A454：`out` 那两颗引用（点击件 + 按钮节点）**存下来** —— 复用这扇窗时 `RefreshLiveContent`
                 //    要靠它们改回调/藏钮（`Open()` 不会再跑，见 `Configure`）。
                 _primaryLb = MakeButton(btnsNode, "ButtonLeft", BtnL2R, Btn2FontPx, 0f, 0f,
-                                        _primaryKey, _onPrimary, true, out _primaryHit, out _,
+                                        _primaryKey, _onPrimary, true, out _primaryHit, out _primaryNode,
                                         clickCue: WindowSounds.NegativeCue);
                 _secondaryLb = MakeButton(btnsNode, "ButtonRight", BtnR2R, Btn2FontPx, 0f, 0f,
                                           _secondaryKey, _onSecondary, true, out _secondaryHit, out _secondaryNode,
@@ -516,12 +519,22 @@ namespace CardPresentation
             {
                 _primaryLb = MakeButton(btnsNode, "Generic UI Button", Btn1R, Btn1FontPx,
                                         Btn1TextAposX, Btn1TextAposY, _primaryKey, _onPrimary, false,
-                                        out _primaryHit, out _,
+                                        out _primaryHit, out _primaryNode,
                                         clickCue: WindowSounds.PositiveCue);
                 // A454：1 按钮版**没有**第二颗 ⇒ 这三样必须显式清掉（否则重建后 `RefreshLiveContent`
                 // 会去动上一辈子的对象 —— 那是本类唯一会「静默改到别人身上」的地方）
                 _secondaryLb = null; _secondaryHit = null; _secondaryNode = null;
             }
+
+            // ---- 8b) 🆕 **0 颗钮那一档** = 原版 `PopUpGameWindow__ConfigurePopUp(3 参)`（VA `0x18083A570`）
+            //   末尾那个循环 `foreach (var b in LiveButtons) b.gameObject.SetActive(false);`。
+            //   触发口 = `WindowsManager.ShowPopUp(text, localizeTexts, closeOnEsc, null, null)`
+            //   —— 4 参版（`0x18083A6E0`）在 `buttons == null || buttons.Length == 0` 时**转调 3 参版**。
+            //   🔴 我们这一侧判据 = **主钮的键为空**（`ShowMessagePopUp` 的 `primaryKey` 是必填实参，
+            //   原版传 `null` ⇒ 我们收到 `null` ⇒ `Configure` 里落成 `""`）。
+            //   ⛔ 别按「回调为 null」判：关窗款弹窗（`ShowPopUp(text)`）也常常给 null 回调，但**有钮**。
+            //   判据全文 → `资料/完全复刻/判据/B88_R6_ShopStore购买链_VA判定.md` §2·3。
+            if (_primaryNode != null) _primaryNode.gameObject.SetActive(!string.IsNullOrEmpty(_primaryKey));
         }
 
         // ============================================================ 正文里的链接（原版 `CheckLinkText`）
@@ -626,5 +639,25 @@ namespace CardPresentation
                 Debug.LogWarning("[PopUp] 取不到原版图 `" + name + "`（这一层不画）—— 导入器：`工具/import_original_art.py`");
             return t;
         }
+
+        // ------------------------------------------------------- 🆕 0 颗钮那一档（类尾，⛔ 别往中间挪）
+        /// <summary>**主钮那个节点**（`Generic UI Button` / `ButtonLeft`）。与 `_secondaryNode` 同一族：
+        /// `WindowButton` 挂在按钮**底图那块 quad** 上，而原版 `SetActive` 作用于**按钮节点**。
+        /// 🔴 判据 = 原版 `PopUpGameWindow__ConfigurePopUp(3 参)`（VA `0x18083A570`）在处理完按钮后
+        /// 对**每一颗** `LiveButtons` 调 `SetActive(false)` ⇒ 「0 颗钮」档；
+        /// 4 参版（`0x18083A6E0`）在 `buttons == null || buttons.Length == 0` 时转调 3 参版
+        /// （判据全文 → `资料/完全复刻/判据/B88_R6_ShopStore购买链_VA判定.md` §2·3）。
+        /// <para>消费者 = 商店的「正在处理您的购买…」等待框（`ShopTabPage.DoBuy`，
+        /// 原版 `ShopStore.TryPurchase` 第一句 `ShowPopUp("MenuShop/WaitingPopup", …, null, null)`）。</para>
+        /// <para>⚠️ 取图失败时 `MakeButton` 仍会给节点（`node` 出参在所有路径上都赋过值）⇒ 本字段只在
+        /// `MenuDraw.Node` 本身失败时才为 null。</para></summary>
+        Transform _primaryNode;
+
+        /// <summary>主钮节点（自检读口：核「0 颗钮那一档 == 那颗钮被 `SetActive(false)`」）。</summary>
+        public Transform PrimaryNode { get { return _primaryNode; } }
+
+        /// <summary>主钮**此刻**是否可见（自检读口）。⚠️ 读的是 `activeSelf`（本窗自身没有父级关着的问题，
+        /// 玩家看到与否由它决定）。</summary>
+        public bool PrimaryVisible { get { return _primaryNode != null && _primaryNode.gameObject.activeSelf; } }
     }
 }

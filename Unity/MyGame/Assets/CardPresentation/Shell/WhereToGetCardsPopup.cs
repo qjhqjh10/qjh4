@@ -678,5 +678,28 @@ namespace CardPresentation
                  + " scrollMax=" + (_scroll != null ? _scroll.MaxOffset.ToString("F2") : "-")
                  + " missingArt=" + _missArt.Count;
         }
+
+        /// <summary>关窗收尾 = 原版那一条**逐项放句柄**的链（账 `收藏:343` `WhereToGetCardsSection.Release`）。
+        /// <para>判据（逐跳）：`WhereToGetCardsWindow.Close()` → 每个来源段 `WhereToGetCardsSection.Release()`
+        /// → `foreach (CardDrawer d in currentCards(+0x48)) d.Release()`
+        /// （`decomp_full/WhereToGetCardsSection__Release.c` 现读 + ilspy `WhereToGetCardsSection.cs:192-208` 同形）。
+        /// 我们这扇**不建 `ItemDrawer`**（卡片格直接 `CardView.Create`，`:583` 那一带）⇒ 等价物 =
+        /// `MenuDraw.ClearChildren(transform)`（它逐个子件走 `MenuDraw.ReleaseArtUnder`，把所有逐项美术放掉，
+        /// 判据 → `Shell/MenuDraw.cs:143`）。</para>
+        /// <para>🔴 **为什么放在 `base.Close()` 之后**：基类首句是「本来就没开 ⇒ 直接 return」（含那条脏现场出声），
+        /// 先调基类才能保住那两档语义；之后清子件只是**提前**做 `Build()` 下次开窗反正要做的事（幂等）。
+        /// ⚠️ 三条读口/登记跟着归零（`SectionsShown` / `_sectionNodes` / `_views` / 指针层登记）——
+        /// 不清的话「节点已经销毁、读口还数得出段 / 死命中去处还在」= 静默说谎。</para>
+        /// <para>🧨 改坏法：把本方法删掉 ⇒ 反复开关这扇窗后 `CardArt` 的句柄数单调上涨
+        /// （关窗只 `SetActive(false)`、既不销毁也不放）。</para></summary>
+        public override void Close()
+        {
+            base.Close();
+            PointerLayer.UnregisterOwnedBy(gameObject);      // 同 `Build()` 首句：旧滚动条目是死条目
+            MenuDraw.ClearChildren(transform);               // = ReleaseArtUnder + 销毁（原版那串 `Release()`）
+            SectionsShown = 0;
+            _sectionNodes.Clear();
+            _views.Clear();
+        }
     }
 }

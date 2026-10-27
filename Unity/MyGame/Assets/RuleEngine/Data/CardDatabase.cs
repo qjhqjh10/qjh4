@@ -406,6 +406,18 @@ namespace RuleEngine
             /// ⚠️ `-1` = 缺键/坏值；`0` = **原版明确「不乘」**（合法取值）。</summary>
             public AbilityMultiplierDto[] abilityMultipliers;
 
+            /// <summary>🆕 v36（2026-10-28 · 执行代理 `A1c`）：**逐行 `abilityLogic[].damageCriteria`**
+            /// （`minDamage` / `maxDamage` / `valueOptions` / `damageType`）。
+            ///
+            /// <para>为什么新增：`valueOptions == 90 (RandomizedOnResolution)` 的**逐目标掷**只能靠这一位分流，
+            /// 而 `CardDef.ConditionSpec` 的十种 role 里**没有** `damage`（`CardDef.cs:3579-3583`）。
+            /// 判据 → `资料/完全复刻/判据/B88_R1_90档_逐卡施工单.md` §二·3 / §三·4。</para>
+            ///
+            /// <para>形状 = `[{"ab":i,"lg":j,"min":…,"max":…,"opt":…,"type":…}]`（行类型 →
+            /// <see cref="AbilityDamageRowDto"/>）。🔴 **每张卡都落**（没有 ability = `[]`）；
+            /// 缺列（v35 及更早）= **未知**。⚠️ 只有 damage 族（`chosenAbility` ∈ 10/12/13/15）才被消费。</para></summary>
+            public AbilityDamageRowDto[] abilityDamage;
+
             /// <summary>🆕 v23（2026-10-24 · 引擎线 `G12`）：**主动能力整条链** ——
             /// 原版 `activeAbility` / `alternativeAbility` 两个对象里 `activeAbilityLogic[]`
             /// **逐行**的 `targetsAffected` / `furtherMultiplier`（形状 → <see cref="ActiveAbilityLogicDto"/>）。
@@ -665,6 +677,28 @@ namespace RuleEngine
             public int trigger = -1;
             /// <summary>逐 `abilityLogic` 的 `furtherMultiplier`；`-1` = 该格坏值/缺键。</summary>
             public int[] fm;
+        }
+
+        /// <summary>🆕 v36（2026-10-28 · 执行代理 `A1c`）：`abilityDamage` 的一行
+        /// （= 原版 `AbilityLogic.damageCriteria`）。字段名与 JSON 键名**逐字一致**。
+        /// <para>⚠️ 四格都用 `-1` 当「坏值/缺键」哨兵 —— `0` 是**合法取值**
+        /// （`valueOptions = Normal` / `damageType = Normal` / `minDamage = 0`）⇒ ⛔ 别把缺键读成 0。</para>
+        /// <para>语义 → <see cref="CardDef.AbilityDamageSpec"/>；判据 → `判据/B88_R1_90档_逐卡施工单.md`。</para></summary>
+        [System.Serializable]
+        public class AbilityDamageRowDto
+        {
+            /// <summary>`cardAbilities` 下标（`-1` = 缺键）。</summary>
+            public int ab = -1;
+            /// <summary>`abilityLogic` 下标（`-1` = 缺键）。</summary>
+            public int lg = -1;
+            /// <summary>原版 `damageCriteria.minDamage`。</summary>
+            public int min = -1;
+            /// <summary>原版 `damageCriteria.maxDamage`。</summary>
+            public int max = -1;
+            /// <summary>原版 `damageCriteria.valueOptions`（`0` = 固定 / `80` = `min+max×mult` / `90` = 区间逐目标）。</summary>
+            public int opt = -1;
+            /// <summary>原版 `damageCriteria.damageType`（`5/10/12` = 随机三档）。</summary>
+            public int type = -1;
         }
 
         /// <summary>🆕 v23（2026-10-24 · 引擎线 `G12`）：`activeAbilityLogic` 的一行
@@ -1709,6 +1743,10 @@ namespace RuleEngine
                 //   语义 / 三跳表 / 45-56 张督军的实测口径 → `Core/CardDefActiveAbility.cs` 文件头。
                 def.AttachActiveAbilityCost(c.activeAbilityManaCost, c.activeAbilityPsychicCost,
                                             c.activeAbilityPlasmaCost, c.activeAbilityTargeted);
+                // 🆕 v36（2026-10-28 · 执行代理 `A1c`）：逐行 `damageCriteria`（`abilityDamage` 列）——
+                //   同样**构造后挂载**。缺列（< 36）⇒ 传 `null` = **整列未知** ⇒ 消费端一律不逐目标掷
+                //   （与加这一列之前**逐字相同**）。消费点 = `RuleCore.StampRollPerTarget`。
+                def.AttachAbilityDamage(MapAbilityDamage(c));
                 list.Add(def);
             }
             // 🆕 v23（2026-10-24 · 引擎线 `G12`）：`activeAbilityLogic` 的**挂载读数**（一行，⛔ 不逐卡刷屏）。
@@ -2110,6 +2148,40 @@ namespace RuleEngine
                 list.Add(fm);
             }
             return list;
+        }
+
+        /// <summary>🆕 v36（2026-10-28 · 执行代理 `A1c`）：`abilityDamage` 列 →
+        /// <see cref="CardDef.AbilityDamageSpec"/>（**逐行 `damageCriteria`**）。
+        /// <para>⚠️ 行级的坏值口径与 `abilityMultipliers` 同族：缺 `ab`/`lg`、四格非整数 ⇒ 出声并按 `-1`；
+        /// **同一 `(ab,lg)` 撞键 ⇒ 出声丢弃后一条**（⛔ 谁赢都说不清）。</para></summary>
+        static CardDef.AbilityDamageSpec[] MapAbilityDamage(CardDto c)
+        {
+            if (c == null || c.abilityDamage == null) return null;   // 缺列 = 未知（⛔ 不是「没有行」）
+            var list = new List<CardDef.AbilityDamageSpec>(c.abilityDamage.Length);
+            var seen = new HashSet<long>();
+            foreach (var r in c.abilityDamage)
+            {
+                if (r == null) continue;
+                if (r.ab < 0 || r.lg < 0)
+                {
+                    Debug.LogError($"[RuleEngine] 卡「{c.name}」（{c.id}）的 `abilityDamage` 有一行缺 `ab`/`lg`"
+                                 + $"（ab={r.ab}, lg={r.lg}）—— **该行丢弃**。重跑 工具/gen_cards_engine.py。");
+                    continue;
+                }
+                long k = ((long)r.ab << 32) ^ (uint)r.lg;
+                if (!seen.Add(k))
+                {
+                    Debug.LogError($"[RuleEngine] 卡「{c.name}」（{c.id}）的 `abilityDamage` 有**重复的 "
+                                 + $"(ab={r.ab}, lg={r.lg})** —— 后一条已丢弃（⛔ 撞键 = 谁赢都说不清）。"
+                                 + "重跑 工具/gen_cards_engine.py。");
+                    continue;
+                }
+                list.Add(new CardDef.AbilityDamageSpec
+                {
+                    Ab = r.ab, Lg = r.lg, Min = r.min, Max = r.max, ValueOptions = r.opt, Type = r.type,
+                });
+            }
+            return list.ToArray();
         }
 
         /// <summary>🆕 v23（2026-10-24 · 引擎线 `G12`）：`activeAbilityLogic` 列 →

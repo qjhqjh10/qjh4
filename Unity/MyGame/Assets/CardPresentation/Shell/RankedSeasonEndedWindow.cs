@@ -177,9 +177,9 @@ namespace CardPresentation
             _canvasGroup.interactable = true;
             _canvasGroup.blocksRaycasts = true;
 
-            // ---- 1) `Menu Dark Background`（`BackgroundCloseButton.window = 0` ⇒ 点暗底**不**关窗）----
+            // ---- 1) `Menu Dark Background` —— 🔴 2026-10-27（B88_E6）就地订正（铁律 5）：原写「点暗底**不**关窗」不成立 —— `window=0` 只关基类那条自动关窗；派生窗自己加了监听（`RankedEventSeasonEndedWindow[Old]__OnEnable.c:15-22` = `backgroundCloseButton.onClick.AddListener(CloseButton)`；`…__CloseButton.c:9` 首句 = 虚表 `+0x1b8` = `Close()`）⇒ **点暗底会关窗**。
             _dark = MenuDraw.Node(transform, "Menu Dark Background", DarkR);
-            MenuDraw.Rect(_dark, CardArt.Solid(), DarkR, "Image", QShade, ShadeTint);
+            MenuDraw.Rect(_dark, CardArt.Solid(), DarkR, "Image", QShade, ShadeTint); MenuDraw.ShadeHit(_dark, DarkR, QShade, QDivision, () => Close(), "BackgroundCloseButton");
 
             // ---- 2) `Division Image`（服务端段位图；`m_Sprite = 0` ⇒ 不画）----
             _division = MenuDraw.Node(transform, "Division Image", DivisionR);

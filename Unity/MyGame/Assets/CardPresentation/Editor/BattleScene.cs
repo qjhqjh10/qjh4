@@ -9713,13 +9713,13 @@ public static class BattleScene
                               "★ A1316②（**判别式**）：恒中文的 `KeywordZh` 在那一格给的是「先锋」"
                             + " ⇒ 新口径下**必不等于**它（老实现写回来时这条当场红）");
                     }
-                    // ⚠️ **数值 0 那一档**：原版 `GetEffectDesc` 在同类字段全 0 时直接回**空串**，
-                    //   我们**故意多说一个词**（印属性名、不印 `{0}`）—— 这条把它钉住，
-                    //   免得 `{0}` 被原样印到界面上（那是最难看的静默失败）。
+                    // 🔴 **数值 0 那一档**（🆕 2026-10-27 `B88_E6` 就地改口径，铁律 5）：原版 `GameStaticData.GetEffectDesc` 在同类字段全 0 时**直接回空串**（`case 1`）⇒ 那一行**占槽但不画** = `EnableCardEffectSlots.c:46-60`「空文本也占一槽」；旧「印属性名」是**我们的**偏差，已撤。
+                    //    这条断言同时挡两面：改回「印属性名」⇒ 红 · 把 `{0}` 原样印到界面上 ⇒ 也红（那是最难看的静默失败）。
                     Check(CardDisplayWindow.RowsOf(new[] { new UnitState.TempBuff
                               { Name = "attack", Value = 0, Src = "战术卡", SourceCard = "Blind Librarian" } })[0].What
-                          == "Get Melee Attack one turn",
-                          "★ 数值 0 ⇒ 只印属性名（不是把 `{0}` 原样印出来）");
+                          == "",
+                          "★ 数值 0 ⇒ 「给了什么」= **空串**（原版 `GetEffectDesc` 同类字段全 0 回空串；该行照样吃一个槽号但不画）"
+                        + "｜🧨 改回「印属性名」⇒ 红；把 `{0}` 原样印出来 ⇒ 也红");
                     Loc.RestoreForTest(effLangWas);
                     driver.SimulateTapUnit(0, mine);      // 关
                     driver.SimulateTapUnit(0, mine);      // 再开 ⇒ 语档放回，下面那几条量几何时窗口是开的
@@ -29955,6 +29955,108 @@ public static class BattleScene
                 Check(drawn, $"★ 引擎按面板选的把 `{wantId}` **从牌库抽上了手**（那一条真的结算了）");
                 Check(ctx.ChoosePicks.Count == 0 && ctx.ChooseCardIds.Count == 0,
                       "★ A904 清队：答案被这一手用掉了，队列空");
+                ClearEffects();
+                Step(0.1f);
+            }
+
+            // ---- 21-e-②·b 🆕 2026-10-28（B88 · `A1`）：**战术卡 `Oath N:` 的「平 / 誓二选一」** ----
+            //   判据 → `资料/完全复刻/判据/B88_R3_oath二选一_判据.md`：
+            //     §二 = 原版 `ChooseCardMenu` 一排卡 + 每张一颗 `Select` + 标题 `Choose one card`
+            //          （= 我们的 `ChoosePanel`，**不重建**）· §三 = 基础费在选择之前扣、誓约费在选择之后扣。
+            //   🔶 我们池里是**一张合并卡** ⇒ 摆两张合成卡（平版 / 誓约版），答案是一个**布尔**。
+            //   被测 = 真卡 `Adaptive Strategy`（1 费 + `Oath 1`：平版只 +1 攻击；誓约版再 +1 生命）。
+            var adaptive = CardDatabase.Find(pool, "Adaptive Strategy");
+            Check(adaptive != null, "卡池里有 `Adaptive Strategy`（`UM109`，1 费 + `Oath 1`）");
+            if (driver != null && panel != null && adaptive != null)
+            {
+                ctx = driver.Ctx;   int me88 = driver.MyIndex;   // 本场景里操作方 = 本机座位（别写死 0）
+                Check(RuleCore.OathChoiceNeeded(adaptive),
+                          "★ B88 判据：`Adaptive Strategy` = ta180 + oath + 两个变体 ⇒ 要问二选一");
+
+                // (a) 付得起（卡费 1 + 誓约 1 ≤ 法力）⇒ 面板摆 **2 张**、标题是原版那条词条
+                ctx.Players[me88].Energy = 9;
+                var addInst1 = ctx.NewInstance(adaptive);
+                ctx.Players[me88].Hand.Add(addInst1);
+                driver.RefreshAll();
+                Step(0.05f);
+                int a1 = -1;
+                for (int i = 0; i < ctx.Players[me88].Hand.Count; i++)
+                    if (ReferenceEquals(ctx.Players[me88].Hand[i], addInst1)) { a1 = i; break; }
+                Check(a1 >= 0, "夹具：`Adaptive Strategy` 在手牌里");
+                int eBefore1 = ctx.Players[me88].Energy;
+                Check(driver.SimulatePlayViaPanel(a1, SimpleAI.FirstFreeSlot(ctx.Players[me88])),
+                      "走**面板那条路**打出 `Adaptive Strategy`（付得起誓约）");
+                Step(0.05f);
+                Check(panel.Visible,
+                      "★ B88：oath 战术牌打出时**弹面板**（原版 `BattleManager__ChoiceOfCardPlayer` 那条链）"
+                    + "｜🧨 改坏法：删掉 `RuleCore.PlayerChooseOps(ctx,…)` 里那条 `chooseoath` 注入 ⇒ 面板不弹");
+                Check(driver.ChooseOptionCount == 2,
+                      $"★ B88-6：**摆 2 张**（平版 / 誓约版；实得 {driver.ChooseOptionCount} 张）"
+                    + "｜判据 = 原版 `maxTargets = 2` · 池 = `filterSpecificCards` 的两个变体");
+                Check(panel.TitleText == ChoosePanel.DefaultTitle,
+                      $"★ B88-7：标题「{panel.TitleText}」= 原版那条**无后缀**词条"
+                    + $"（`{ChoosePanel.TitleTerm}`）—— 带后缀那条在远端 I2 表里，原版自己就回落到这一条");
+                CheckPick(driver, 1, "点第 2 张（**誓约版**）");
+                Check(driver.SimulateChooseDone(), "点「继续」");
+                Check(!panel.Visible, "★ 选完面板关掉了");
+                Check(ctx.Players[me88].Energy == eBefore1 - 1 - 1,
+                      $"★ B88-8a：点了誓约版 ⇒ 扣**卡费 1 + 誓约 1**（{eBefore1} → {ctx.Players[me88].Energy}）"
+                    + "｜判据 = 誓约费在**选择之后**扣（`AbilityLogic__PlayAbility.c:2031`）");
+                Check(ctx.ChoosePicks.Count == 0 && ctx.ChooseCardIds.Count == 0,
+                      $"★ B88 清队：这一格答案**不进** `ChoosePicks`（实得 {ctx.ChoosePicks.Count}"
+                    + $"+{ctx.ChooseCardIds.Count}）—— 塞进去会让后面每一处选择错位");
+                Check(!ctx.HasOathAnswer, "★ 答案被 `PlayTacticCore` 取走了（一次一取）");
+                ClearEffects();
+                Step(0.1f);
+
+                // (b) 点第 1 张（**平版**）⇒ 只扣卡费
+                ctx.Players[me88].Energy = 9;
+                var addInst2 = ctx.NewInstance(adaptive);
+                ctx.Players[me88].Hand.Add(addInst2);
+                driver.RefreshAll();
+                Step(0.05f);
+                int a2 = -1;
+                for (int i = 0; i < ctx.Players[me88].Hand.Count; i++)
+                    if (ReferenceEquals(ctx.Players[me88].Hand[i], addInst2)) { a2 = i; break; }
+                Check(a2 >= 0, "夹具：第二张 `Adaptive Strategy` 在手牌里");
+                int eBefore2 = ctx.Players[me88].Energy;
+                Check(driver.SimulatePlayViaPanel(a2, SimpleAI.FirstFreeSlot(ctx.Players[me88])),
+                      "打出第二张 `Adaptive Strategy`（这次点平版）");
+                Step(0.05f);
+                Check(panel.Visible && driver.ChooseOptionCount == 2,
+                      $"★ B88：平版那一支**同样摆 2 张**（实得 {driver.ChooseOptionCount} 张）");
+                CheckPick(driver, 0, "点第 1 张（**平版**）");
+                Check(driver.SimulateChooseDone(), "点「继续」");
+                Check(!panel.Visible, "★ 选完面板关掉了");
+                Check(ctx.Players[me88].Energy == eBefore2 - 1,
+                      $"★ B88-8b：点了平版 ⇒ **只扣卡费 1**（{eBefore2} → {ctx.Players[me88].Energy}）"
+                    + " —— 誓约那 1 点**没扣**（`Oath N:` 付费组被整组摘掉）");
+                ClearEffects();
+                Step(0.1f);
+
+                // (c) **付不起誓约** ⇒ 原版**根本不问**（`NeedsToChooseFromPool.c:142-147` 判否）
+                ctx.Players[me88].Energy = 1;                     // 只够卡费
+                var addInst3 = ctx.NewInstance(adaptive);
+                ctx.Players[me88].Hand.Add(addInst3);
+                driver.RefreshAll();
+                Step(0.05f);
+                int a3 = -1;
+                for (int i = 0; i < ctx.Players[me88].Hand.Count; i++)
+                    if (ReferenceEquals(ctx.Players[me88].Hand[i], addInst3)) { a3 = i; break; }
+                Check(a3 >= 0, "夹具：第三张 `Adaptive Strategy` 在手牌里");
+                int eBefore3 = ctx.Players[me88].Energy;
+                Check(driver.SimulatePlayViaPanel(a3, SimpleAI.FirstFreeSlot(ctx.Players[me88])),
+                      "余额只够卡费时照样打得出去");
+                Step(0.05f);
+                Check(!panel.Visible,
+                      "★ B88：**付不起誓约 ⇒ 面板不弹**（原版这时不问池，直接按平版结算）"
+                    + " —— 摆一个付不起的选项会让玩家点了才被引擎拒（`ErrCost`）");
+                Check(ctx.Players[me88].Energy == eBefore3 - 1,
+                      $"★ 而且只扣了卡费 1（{eBefore3} → {ctx.Players[me88].Energy}）");
+                bool saidWhyNoOath = false;
+                foreach (string e in ctx.Events)
+                    if (e != null && e.Contains("付不起誓约")) saidWhyNoOath = true;
+                Check(saidWhyNoOath, "★ 而且**说出了为什么**（战斗日志里有「付不起誓约」那一句 —— 红线：不许静默）");
                 ClearEffects();
                 Step(0.1f);
             }

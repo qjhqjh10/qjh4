@@ -787,7 +787,7 @@ namespace CardPresentation
                 eventId = local.EventId,
                 enabled = local.Enabled,
                 uploadToLive = local.UploadToLive,
-                activationType = LiveOpsActivationType.OnDate,
+                activationType = local.ActivationType,
                 // 🆕 R14：排序键（`SetupEvents` 的 `OrderByDescending(priority)`）与主菜单角标都读这三格。
                 priority = local.Priority,
                 showInMainMenu = local.ShowInMainMenu,
@@ -823,7 +823,7 @@ namespace CardPresentation
                     endDate = local.EndMs,
                     expirable = local.Expirable,
                     expireDate = local.ExpireMs,
-                    previewable = false,          // 本地 13 份 SO 没有 previewDate（字段表里就没抄到）
+                    previewable = local.Previewable, previewDate = local.PreviewDateMs,   // 13 份 SO 实测 previewable 全 0
                 },
             };
         }
@@ -892,7 +892,7 @@ namespace CardPresentation
         /// <summary>自检收尾用：丢掉默认实例（下一次 `Default` 会新建，事件列表是空的）。</summary>
         public static void ResetForTest() { _default = null; }
 
-        /// <summary>按离线数据装出全部事件实例（**含已过期的** —— 原版 `events` 也含过期，只是不可开）。
+        /// <summary>⚠️ 2026-10-27 更正：原来写「按离线数据装出全部事件实例（含已过期的 —— 原版 `events` 也含过期）」。实际**装载口要过滤**：原版客户端拿到的 `events` 是**服务端下发的「当前有效」集合**，客户端自己不过滤（`ScheduleEventPopups` 也证明它不查日期）⇒ 我们替代服务端，就必须在**装载口**（不是判定支）把 `Expired` / `NotAvailable` 滤掉。判据与逐条理由 → 类尾 `LiveOpsLocalBoot.ShouldLoadEvent`。
         /// 返回装了几个。</summary>
         public int LoadFromCatalog(DateTime utc, LiveOpsJson sharedData = null)
         {
@@ -901,15 +901,15 @@ namespace CardPresentation
             for (int i = 0; i < table.Count; i++)
             {
                 var local = table[i];
-                if (local == null) continue;
+                if (local == null || !LiveOpsLocalBoot.ShouldLoadEvent(local, utc)) continue;   // 🔶 自己设计（非原版）：原版由服务端下发「当前有效活动」集合，本地用 `GetState` 过滤替代 · 判据 = `LiveOpsEventData.GetState`/`IsActive` + `ScheduleEventPopups` 不查日期 · 调度台 2026-10-27 裁定
                 var save = LiveOpsSaveStore.Load(local.EventId, typeof(LiveOpsSave)) as LiveOpsSave;
                 var ev = LocalLiveOpsEvent.Create(local, save, this);
                 if (ev != null) ops.Add(ev);
             }
             // 三参入口同步走一遍（内部已经 await 完，但因为全是同步分支，这里可以直接 Wait）
             SetupEvents(ops, new List<ILiveOps>(), sharedData).GetAwaiter().GetResult();
-            Debug.Log("[LiveOps] LoadFromCatalog：本地装了 " + ops.Count + " 个活动实例（含过期；blocked = "
-                    + blockedEvents.Count + "）");
+            Debug.Log("[LiveOps] LoadFromCatalog：本地装了 " + ops.Count + " 个活动实例（**已按状态过滤**："
+                    + "滤掉 Expired/NotAvailable；判据 LiveOpsLocalBoot.ShouldLoadEvent；blocked = " + blockedEvents.Count + "）");
             return ops.Count;
         }
 
@@ -917,12 +917,12 @@ namespace CardPresentation
         static bool IsSelectable(LiveOpsLocalEvent e) { return e != null && e.Selectable; }
 
         /// <summary>🔴 **唯一的挑选规则**（原口径 = `LiveOpsLocalCatalog.TryPickEventIn` 那段，逐条搬过来）：
-        /// ① 类型在 `kinds` 里 ② `IsInPeriod(utc)` ③ 额外条件 `has` ④ 不在 `blockedIds` 里
-        /// ⑤ `Selectable`（`enabled &amp;&amp; uploadToLive`）⑥ 多个满足取 `StartMs` 最大者。
-        /// **⛔ 过期事件永不入选**（`IsInPeriod` 那道闸）。
-        /// <para>⚠️ 与**原版**的差异（如实记）：原版挑事件走 `GetState` 的 6 档 + `EventFilter`；
-        /// 我们用 `IsInPeriod`（`start ≤ now &lt; end`）⇒ **`Finished`/`Expired` 的边界与原版不同**
-        /// （原版 `IsActive` 连 `Finished` 都算 true，见 `LiveOpsEventData.IsActive` 的注释）。</para></summary>
+        /// ① 类型在 `kinds` 里 ② **`GetState(utc) == Active`** ③ 额外条件 `has` ④ 不在 `blockedIds` 里 ⑤ `Selectable` ⑥ `StartMs` 最大者。
+        /// **⛔ `Finished`/`Expired`/`Planned`/`OnPreview`/`NotAvailable` 一律不入选**（= 原版建按钮那一档）。
+        /// ⚠️ 本表 13 份事件的 `activationType` 全是 `OnDate`（`Shell/LiveOpsState.cs` 的字段注释有逐份判据）。
+        /// <para>🆕 **2026-10-27（B88_J3）改口径**：原为 `IsInPeriod`（`start ≤ now &lt; end`），缺 `activationType` 短路 / `Expired` 档 / 严格小于边界。
+        /// 判据 = `decomp_full/Everguild.LiveOps.LiveOpsEventData__GetState.c` + `out_cpp2il_dev_ilspy/NavigationPanelController.cs:433`（`!= Active` ⇒ 不建按钮）。
+        /// ⚠️ 别换成 `IsActive()` —— 它连 `Finished` 也算 true（那是「该刷新/该收尾」的口径）。</para></summary>
         public static bool SelectInTable(IReadOnlyList<LiveOpsLocalEvent> table, LiveOpsLocalKind[] kinds, DateTime utc,
                                          Func<LiveOpsLocalEvent, bool> has, ICollection<string> blockedIds,
                                          out LiveOpsLocalEvent ev, out string why)
@@ -937,7 +937,7 @@ namespace CardPresentation
                     var e = table[i];
                     if (e == null) continue;
                     if (!LiveOpsLocalCatalog.KindIn(e.Kind, kinds)) continue;
-                    if (!e.IsInPeriod(utc)) continue;
+                    if (!e.IsCurrentlyActive(utc)) continue;   // 原版：只有 EventState == Active 才建按钮/入选
                     if (has != null && !has(e)) continue;
                     if (blockedIds != null && blockedIds.Contains(e.EventId)) { blockedByServer = e.EventId; continue; }
                     if (!IsSelectable(e)) { blocked = e.EventId; continue; }   // 在期但 SO 说没启用/没上过 live
@@ -1371,10 +1371,10 @@ namespace CardPresentation
     // ============================================================ 弹窗呈现缝（原版 `LiveOpsAssetUtility.GetComponentReference` + `WindowsManager.OpenWindow`）
     /// <summary>把「事件 + `PopupOptions.PopupLabel`」解析成**要开的窗**（原版
     /// `WindowsManager.OpenWindow(LiveOpsAssetUtility.GetComponentReference(ev, label), ev, closeAll:false, default)`）。
-    /// <para>🔴 **离线缺口**：`LiveOpsAssetUtility.GetComponentReference` 需要「事件 → 弹窗 prefab」的资产引用；
-    /// 本地只解到 `EventComponents` 的 **GUID**、没解到 prefab 名（判据 → R12/R14 报告的「没查清」）。
-    /// ⇒ 这一跳做成可注入的缝：**钩子为空时 `ShowTriggerEventPopup` / `ExpireEvent` 出声、不出窗，但排期链照走**
-    /// （原版拿不到窗会 NRE，我们不让整条刷新链卡死）。</para>
+    /// <para>⚠️ **2026-10-27 更正**：原写「本地只解到 `EventComponents` 的 GUID、没解到 prefab 名」——**不成立**；GUID→prefab 名本地**可解**：`bundle_menus_assets_all/AssetBundle/AssetBundle_1.json` 的 `m_Container` 给 GUID→`m_PathID`，再按 `GameObject/*.json` 的 `m_Component` 反查根名（实读表 → 类尾 `LiveOpsLocalBoot` 的 doc + `判据/B88_P1两条判据.md` §3.3）。
+    /// 真正的离线差异只剩「原版由 Addressables 在**那次调用**里异步加载 prefab，我们同步建窗」。
+    /// ⇒ 这一跳仍然是可注入的缝：**钩子为空时 `ShowTriggerEventPopup` / `ExpireEvent` 出声、不出窗，但排期链照走**
+    /// （原版拿不到窗会 NRE，我们不让整条刷新链卡死）；生产装配点 = 类尾 `LiveOpsLocalBoot.BootLocalLiveOps`。</para>
     /// <para>装上真实解析器时：返回一个**已 Open 的 `GameWindow`**（`ShowTriggerEventPopup` 会给它挂 `OnCloseWindow += MarkAsSeen`）。</para></summary>
     public static class LiveOpsPopupPresenter
     {
@@ -1403,5 +1403,126 @@ namespace CardPresentation
             }
         }
         public static void ResetForTest() { EventExpired = null; Verbose = true; }
+    }
+
+    // ============================================================ 生产装配（2026-10-27 · B88 · 判据 J4）
+    /// <summary>把「本地活动目录 → handler 装载 → 弹窗呈现」这条链**在生产里装起来**。
+    ///
+    /// <para>**为什么需要它**（2026-10-27 现查，两处缺口、缺一不可）：
+    /// ① `LiveOpsPopupPresenter.Open` 全仓**只有自检赋值**（`Shell/LiveOpsFilter.cs:1206/1420/1461/1545`）
+    ///    ⇒ `ShowTriggerEventPopup`(`Shell/LiveOpsHandler.cs:387`) 与 `ExpireEvent`(`:440`) 两个分支永远走「出声、不出窗」；
+    /// ② 上游 `LiveOpsLocalHandler.LoadFromCatalog`（`Shell/LiveOpsHandler.cs:897`）**0 调用者** ⇒ `events` 空
+    ///    ⇒ `ScheduleEventPopups` 排 0 条 ⇒ 连 `ShowTriggerEventPopup` 的 `ContainsKey` 都过不去。</para>
+    ///
+    /// <para>判据链（原版）：`SetupEvents` 尾 → `ScheduleEventPopups`
+    /// （`decomp_full/LiveOpsHandler._SetupEvents_d__18_object___MoveNext.c:170-171`）→ `QueueEventPopup`
+    /// → `MenuActions` 协程（`MenuActions__CheckActiveMenus.c:30,35` + `MenuActions__TryTriggerAction.c:37-60`）
+    /// → `ShowTriggerEventPopup`（`decomp_generic_trial/out/LiveOpsHandler_object___ShowTriggerEventPopup__1019560.c:39-47`：
+    /// `LiveOpsAssetUtility.GetComponentReference(ev, options.PopupLabel(+0x10))` → `WindowsManager.OpenWindow(…)`）
+    /// → `GetComponentReference` = `ev.Components(+0x38)` 里 `FirstOrDefault(c => c.Label == label)`，
+    /// **找不到 ⇒ `CustomDebug.LogWarning` + 返回 null**（`decomp_full/Everguild.LiveOps.LiveOpsAssetUtility__GetComponentReference.c`
+    /// + `…__GetReference_Int32Enum__object_.c`）。</para>
+    ///
+    /// <para>🔴 **GUID → prefab 名本地可解**（⚠️ 2026-10-27 更正：原记录写「只解到 GUID、没解到 prefab 名」）：
+    /// `bundle_menus_assets_all/AssetBundle/AssetBundle_1.json` 的 **`m_Container`** 直接给「AssetReference GUID → `m_PathID`」，
+    /// 再按 `GameObject/*.json` 的 `m_Component` 反查根名（`m_Name`）。实读：
+    /// `e4c251967ff1a79468e8bd25b86b15b8 = Base Event Popup` ·
+    /// `44c1eb3a347b840fd9e2e67ba85b7d02 = Full Screen Event Announcement Variant` ·
+    /// `be526b22c0924f54991b776d86261fed = Base Expiration Popup` ·
+    /// `2d7ec1a46a19245798bf28a5d1a030bb = Event Help Popup Variant`（label 30，**不经本缝**，走 `LiveOpsEventWindow.OpenHelp`）。
+    /// 逐条 → `资料/完全复刻/判据/B88_P1两条判据.md` §3.3。</para></summary>
+    public static class LiveOpsLocalBoot
+    {
+        /// <summary>已装过（`LoadFromCatalog` 的幂等闸）。编辑器里 `RuntimeInitializeOnLoadMethod` 每次 Play 都会跑一次。</summary>
+        static bool _booted;
+
+        /// <summary>启动装配（= 原版「服务端下发 payload → `LiveOpsManager.BuildHandler` → `SetupEvents`」那一跳的离线等价）。
+        /// <para>时机 = `AfterSceneLoad`（同形先例 `Shell/SettingsWindow.cs:6413`）；**只跑一次**，不接帧泵 ——
+        /// 菜单队列的每帧重试由同文件的 `LiveOpsPump`（`:1044` 那个 `BeforeSceneLoad` 安装）负责，⛔ 别在这里再装一条泵。</para></summary>
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
+        static void BootLocalLiveOps()
+        {
+            if (_booted) return;
+            _booted = true;
+            LiveOpsPopupPresenter.Open = OpenEventPopup;                        // ① 弹窗呈现缝（原版 `GetComponentReference` + `WindowsManager.OpenWindow`）
+            LiveOpsLocalHandler.Default.LoadFromCatalog(LiveOpsClock.NowUtc);   // ② 装载（内部含 ③ 状态过滤，见 ShouldLoadEvent）
+        }
+
+        /// <summary>自检 / 诊断用：允许下一次重新装配。</summary>
+        public static void ResetForTest() { _booted = false; }
+
+        // 🔶 自己设计（非原版）：装载口的**状态过滤**（原版客户端不做这件事）· 为什么必须自己定：原版 `events` 是**服务端下发的「当前有效」集合**，客户端不筛（`ScheduleEventPopups` 只读 `ShowWindowOnTrigger`/`WasSeen`/已排/`EventState`），我们替代服务端就必须在**投喂口**滤掉无效活动 —— 改判定支会造出原版没有的行为 · 调度台 2026-10-27 裁定（「日期过滤放在数据装载口，⛔ 不许改 `ScheduleEventPopups` 的判定支」）
+        /// <summary>装载口的状态过滤：**滤掉 `Expired(4)` 与 `NotAvailable(-1)`**，其余照原版保留。
+        ///
+        /// <para>**为什么滤这两档**：
+        /// · `Expired(4)` —— `GetState` 的过期边界是 `expirable ? expireDate : endDate`
+        ///   （`decomp_full/Everguild.LiveOps.LiveOpsEventData__GetState.c:20-38`）；已经彻底结束的活动原版根本收不到。
+        /// · `NotAvailable(-1)` = **`enabled == false`** —— `GetState` 第一句就是
+        ///   `if (*(char *)(this + 0x22) == '\0') return -1;`（同上 `:16-18`），`IsActive` 也读同一个 `+0x22`
+        ///   （`…__IsActive.c:7-10`）⇒ 客户端把它当「不可激活」。而 `ScheduleEventPopups` **不查 `enabled`**
+        ///   ⇒ 真让它进 `events`，`Dark Zealots`（`enabled=0` 且 `ShowWindowOnTrigger=1`）会**弹一个原版不会弹的公告**。
+        /// ⇒ 按「不可激活 ⇒ 服务端不下发」在装载口排除。</para>
+        ///
+        /// <para>**保留**：`Finished(3)`（过期弹窗是原版行为：`ScheduleEventPopups` 的过期支只在 `EventState == Finished` 排，
+        /// 判据 `…__ScheduleEventPopups__1018d60.c:57`）；`Planned(0)` / `OnPreview(1)` 也照原版保留（本机没有这种数据，
+        /// ⛔ 不额外发明筛法）。</para>
+        ///
+        /// <para>⚠️ **还没查清**：`enabled=false` 在**服务端**那一侧到底「下不下发」，本地**没有判据**（那是服务端逻辑，反编译里没有）。
+        /// 上面能证的只有客户端侧（`GetState`/`IsActive` 一律当不可激活 + `ScheduleEventPopups` 不查它）。</para></summary>
+        public static bool ShouldLoadEvent(LiveOpsLocalEvent local, DateTime utc)
+        {
+            if (local == null) return false;
+            var data = LocalLiveOpsEvent.MapData(local);          // 纯 POCO：不建存档、不登记 handler
+            var state = data == null ? LiveOpState.NotAvailable : data.GetState(utc);
+            return state != LiveOpState.Expired && state != LiveOpState.NotAvailable;
+        }
+
+        /// <summary>GUID → 我们已建的弹窗变体（值 = 2026-10-27 实读的 prefab 根名，见类注释那张表）。</summary>
+        static readonly Dictionary<string, EventPopupVariant> _popupVariantByGuid = new Dictionary<string, EventPopupVariant>
+        {
+            { "e4c251967ff1a79468e8bd25b86b15b8", EventPopupVariant.BaseEvent },               // Base Event Popup
+            { "44c1eb3a347b840fd9e2e67ba85b7d02", EventPopupVariant.FullScreenAnnouncement },  // Full Screen Event Announcement Variant
+            { "be526b22c0924f54991b776d86261fed", EventPopupVariant.BaseExpiration },          // Base Expiration Popup
+        };
+
+        // 🔶 自己设计（非原版）：原版 `GetComponentReference` 返回 `AssetReference`，由 Addressables 在**那次调用**里异步加载 prefab；我们没有 Addressables ⇒ 同步按 GUID 建我们自己的 `BaseEventPopup` · 为什么必须自己定：GUID↔prefab 名已实测（类注释），但「实例化路径」本地没有原版实现可抄 · 调度台 2026-10-27 裁定（施工清单 → `资料/完全复刻/判据/B88_P1两条判据.md` §3.5）
+        /// <summary>= 原版 `LiveOpsAssetUtility.GetComponentReference(ev, label)` + `WindowsManager.OpenWindow(reference, ev, false, default)`。
+        /// 返回**已经 Open** 的窗（`ShowTriggerEventPopup` 会往上挂 `OnCloseWindow += MarkAsSeen`；没开就挂 = 永不触发）。
+        /// <para>词条从**这个事件自己的 `Labels`** 取（tag = 0/1，过期变体 10/11）——
+        /// ⛔ 别用 `LiveOpsLocalCatalog.TryResolvePopupLabels`：它挑的是「当前在期的那个事件」，会把 A 事件的文案贴到 B 事件上。</para></summary>
+        public static GameWindow OpenEventPopup(ILiveOps ev, PopupOptions opts)
+        {
+            if (ev == null || opts == null) { Debug.LogError("[LiveOps] OpenEventPopup(null) —— 原版这里会 NRE"); return null; }
+
+            // 第 8 步等价：ev.Components 里按 PopupLabel 找 GUID（原版 FirstOrDefault(c => c.Label == label)）
+            var local = (ev as LocalLiveOpsEvent)?.Local;
+            string guid = null;
+            if (local != null && local.Components != null)
+                for (int i = 0; i < local.Components.Length; i++)
+                    if (local.Components[i].Key == opts.PopupLabel) { guid = local.Components[i].Value; break; }
+
+            EventPopupVariant variant;
+            if (string.IsNullOrEmpty(guid) || !_popupVariantByGuid.TryGetValue(guid, out variant))
+            {
+                // 原版同形：找不到组件 ⇒ LogWarning + 返回 null（不开窗）
+                Debug.LogWarning("[LiveOps] 事件 '" + ev.GetID() + "' 没有 label=" + opts.PopupLabel + " 的组件"
+                               + "（或它的 prefab 不在本地表里）⇒ 不开窗（原版 `GetComponentReference` 找不到时 LogWarning + 返回 null）");
+                return null;
+            }
+
+            int titleTag = variant == EventPopupVariant.BaseExpiration ? (int)LiveOpsLabelRef.EndTitle : (int)LiveOpsLabelRef.Title;
+            int descTag = variant == EventPopupVariant.BaseExpiration ? (int)LiveOpsLabelRef.EndDescription : (int)LiveOpsLabelRef.Description;
+            string tTerm = null, dTerm = null; string[] tArgs = null, dArgs = null;
+            LiveOpsLocalLabel tl, dl;
+            if (local != null && local.TryGetLabel(titleTag, out tl)) { tTerm = tl.Term; tArgs = LiveOpsLocalCatalog.ResolveArgs(tl.Args); }
+            if (local != null && local.TryGetLabel(descTag, out dl)) { dTerm = dl.Term; dArgs = LiveOpsLocalCatalog.ResolveArgs(dl.Args); }
+
+            var wm = WindowsManager.Get();     // ⛔ 别直读 `Instance`：切到主菜单之后它是 null（见 `WindowsManager.Get` 的 doc）
+            if (wm == null) { Debug.LogError("[LiveOps] 没有 WindowsManager ⇒ 开不了事件弹窗（原版走 `WindowsManager.Instance.OpenWindow`）"); return null; }
+            var win = BaseEventPopup.Create(wm, variant, tTerm, dTerm, ev.GetID(), tArgs, dArgs);
+            wm.OpenWindow(win);                // 同族先例：`LiveOpsEventWindow.OpenHelp` 那一跳
+            Debug.Log("[LiveOps] 事件弹窗 ⇒ `" + BaseEventPopup.RootNameOf(variant) + "`（事件 " + ev.GetID() + " · label " + opts.PopupLabel + "）");
+            return win;
+        }
     }
 }

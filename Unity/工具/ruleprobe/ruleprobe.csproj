@@ -57,6 +57,10 @@
          ＋ [`RuntimeInitializeOnLoadMethod`]（`SimpleAI.cs:1940`）—— 全部在 `Stub.cs` 里。
          ⛔ `Data/` 下**别的文件别顺手加**（`DeckStore` 要 `persistentDataPath`，探针没有）。 -->
     <Compile Include="../../MyGame/Assets/RuleEngine/Data/SimpleAI.cs" />
+    <!-- 🆕 2026-10-27（`B88_E3`）：`SimpleAI` 的兄弟分册（第 ④ 档主动能力的 AI 候选枚举）。
+         🔴 必须显式列 —— 本 csproj 关了 `EnableDefaultCompileItems`，漏了就是构建期
+         `CS0103 名称"AddActiveAbilityEntry"`（`SimpleAI.cs:421` 调用它）。 -->
+    <Compile Include="../../MyGame/Assets/RuleEngine/Data/SimpleAI.ActiveEntry.cs" />
     <Compile Include="../../MyGame/Assets/RuleEngine/Data/AiScoring.cs" />
     <Compile Include="../../MyGame/Assets/RuleEngine/Data/AiTargets.cs" />
     <Compile Include="../../MyGame/Assets/RuleEngine/Data/AiScoringData.cs" />

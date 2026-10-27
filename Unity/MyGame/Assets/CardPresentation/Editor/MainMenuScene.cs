@@ -6218,16 +6218,16 @@ public static class MainMenuScene
                 //    是**右列**那份；`SelectStage` 拆掉 `TutorialInfo` 重建后新节点**追加到窗根末尾** ⇒ 随后翻面。
                 //    ⇒ 同一处一起改（`TutorialInfo` 全窗唯一；`TutorialWarlordTitle` / `TutorialDescription`
                 //      在名单格里**没有**同名件 ⇒ 那两条不用改）。
-                CheckText(TextOf(FindChild(FindChild(tut.transform, "TutorialInfo"), "TutorialTitle")), "TUTORIAL 01",
-                          "★ 关号那行（原版 = `ToUpper(词条) + 关号`，prefab 出厂原文就是 `TUTORIAL 01`）");
-                CheckText(TextOf(FindChild(FindChild(tut.transform, "TutorialInfo"), "TutorialSubTitle")), "The Basics",
-                          "★ 第 1 关副标题 = prefab 出厂原文 `The Basics`");
+                CheckText(TextOf(FindChild(FindChild(tut.transform, "TutorialInfo"), "TutorialTitle")), Loc.T("Demo/Tutorial").ToUpperInvariant() + " 01",
+                          "★ 关号那行 = ToUpper(词条 Demo/Tutorial) + 空格 + 0n（en `TUTORIAL 01` / zh `教程 01`；⛔ 别写死英文）");
+                CheckText(TextOf(FindChild(FindChild(tut.transform, "TutorialInfo"), "TutorialSubTitle")), Loc.T("Demo/UMTutorialTitle"),
+                          "★ 第 1 关副标题 = 词条 `Demo/UMTutorialTitle`（en `The Basics` / zh `基础知识`；⛔ 别写死英文）");
                 CheckText(TextOf(FindChild(tut.transform, "TutorialWarlordTitle")),
-                          "Warlord: <color=orange>Uriel Ventris</color>",
-                          "★ 督军那行 = prefab 出厂原文（格式串就是 `Warlord: <color=orange>{0}</color>`）");
+                          string.Format(Loc.T("MainMenu/Tutorial/Warlord"), "Uriel Ventris"),
+                          "★ 督军那行 = 词条 `MainMenu/Tutorial/Warlord` + 督军名（en `Warlord: …` / zh `战将：…`）");
                 CheckText(TextOf(FindChild(tut.transform, "TutorialDescription")),
-                          "Start here! Spar with your Chapter Master to learn the teachings of the Codex before heading out into battle.",
-                          "★ 第 1 关描述 = prefab 出厂原文");
+                          Loc.T("Demo/UMTutorial"),
+                          "★ 第 1 关描述 = 词条 `Demo/UMTutorial`（en 与 prefab 出厂原文逐字相同 / zh 官方中文）");
                 // 🔴 进度：原版 = `Format(词条, 已完成, 总关数)`，而**进度在 PlayFab 云脚本里**
                 //    （`PlayerDataManager.RecordTutorialPassed` / `UploadTutorialV2SaveData`，原版已关服、本地无存档字段）
                 //    ⇒ 按 **0** 印（新号的真实值），格式照原版。⛔ 不编一个假进度。
@@ -6324,20 +6324,31 @@ public static class MainMenuScene
                 //    ⇒ 再拿 `FindChild(tut.transform, "TutorialTitle")` 深搜，第一个命中的是**第 1 格**里的同名件
                 //    （实测印出 `TUTORIAL 01`）。**右列本身是对的**（上面 `StageIndex == 2` 绿、督军那行是唯一名也绿、
                 //    `StageTitle(2)` 就是 `TUTORIAL 03`）⇒ 只是取件口要限定到 `TutorialInfo` 子树。
-                CheckText(TextOf(FindChild(FindChild(tut.transform, "TutorialInfo"), "TutorialTitle")), "TUTORIAL 03",
+                CheckText(TextOf(FindChild(FindChild(tut.transform, "TutorialInfo"), "TutorialTitle")), Loc.T("Demo/Tutorial").ToUpperInvariant() + " 03",
                           "★ 右列的关号跟着换（取件口限定到 `TutorialInfo` —— 名单格里有同名件，见上面那条注）");
                 // 第 3 关 = Sautekh 的 `Nemesor Zahndrekh` —— 推导链 = 原版资产名
                 // `Sautekh_Deck0_Tutorial3_Zahndrekh` → 卡表里同阵营**唯一**名字含该短名的 hero 卡 `SAU3`。
                 // 🟢 这套推导在第 1 关上有独立交叉验证：推出来是 `Uriel Ventris`，与上面那条 prefab 出厂原文**逐字吻合**。
+                // 🔴 **2026-10-28（B88_F2 · 铁律 5 就地订正）**：这一条原来写死**英文**字面量
+                //   `"Warlord: <color=orange>Nemesor Zahndrekh</color>"`，2026-10-27 的 B88-E7 把
+                //   `TutorialModePopup.WarlordLine` 从「写死英文格式串」改成「取词条
+                //   `MainMenu/Tutorial/Warlord`」（zh = `战将：<color=orange>{0}</color>`）⇒ 中文档下屏上是
+                //   `战将：…`，而期望还是英文 ⇒ **断言过期**（不是 UI 缺陷：上一条同族断言
+                //   `★ 督军那行 = 词条 …` 用的是 `string.Format(Loc.T(同一个键), …)`、一直是绿的）。
+                //   改法 = 与那一条**同一条取法**（期望值走词条表 + 这里硬写的督军名，
+                //   ⛔ 不调被测窗的 `WarlordLine`/常量 —— 那是自证）；督军名仍然是**独立**的卡表推导结论
+                //   `Sautekh_Deck0_Tutorial3_Zahndrekh → SAU3`，名字写错/换错关照样红。
                 CheckText(TextOf(FindChild(tut.transform, "TutorialWarlordTitle")),
-                          "Warlord: <color=orange>Nemesor Zahndrekh</color>", "★ 督军那行也跟着换");
+                          string.Format(Loc.T("MainMenu/Tutorial/Warlord"), "Nemesor Zahndrekh"),
+                          "★ 督军那行也跟着换 = 词条 `MainMenu/Tutorial/Warlord` + 第 3 关督军名"
+                        + "（en `Warlord: …` / zh `战将：…`，⛔ 别写死某一语档）");
                 // 🔴 第 2..6 关的**副标题/描述本地查不到**（原版走远端词条表 `Demo/<阵营>DeckTutorial`，
                 //    原版客户端连 TextAsset 目录都没有）⇒ 印占位。这条钉的是「**没编文案**」（铁律 11 第 ① 种）。
                 // 🔴 **2026-10-17（F3 · D3 红⑩）**：与上一条**同一真因** —— 实测印出 `The Basics`
                 //    正是**第 1 格**的 `SubOf(0)`（`Shell/TutorialModePopup.cs`），而实现侧 `SubOf(2)` 确实
                 //    返回占位 `—`（`CardPresentation/Shell/TutorialModePopup.cs`）。⇒ 同样把取件口限定到 `TutorialInfo` 子树。
-                CheckText(TextOf(FindChild(FindChild(tut.transform, "TutorialInfo"), "TutorialSubTitle")), "—",
-                          "★ 第 3 关副标题印的是**占位**（原版的字在远端词条表里、本地没有 ⇒ 查明文案那天要连本条一起改）");
+                CheckText(TextOf(FindChild(FindChild(tut.transform, "TutorialInfo"), "TutorialSubTitle")), Loc.T("Demo/SautekhDeckTutorialTitle"),
+                          "★ 第 3 关副标题 = 词条 `Demo/SautekhDeckTutorialTitle`（en `Remnant & Artifice` / zh `残余与工匠`）");
 
                 // ---- `Play` 钮：**真开局**（2026-10-17 B29 起）----
                 //  原版 `TutorialModePopup.BattleButtonOnClick` → `MatchMakerManager.StartMatch(…,
@@ -12469,6 +12480,118 @@ public static class MainMenuScene
                     sw.PageFriends.RebuildForTest();
                     CheckTrue(FindChild(FindChild(FindChild(fcont, "Viewport"), "Content"), "Friend Info Item") == null,
                               "清空数据 ⇒ 行又没了（原版 `OnOpen` 清空重填）");
+
+                    // ============================================================
+                    // 🆕 2026-10-27（B88 · 判据 J4）：`FriendUIElementWarpforge.ApplyStatus` 的**在线两支**。
+                    //   判据 = `decomp_full/FriendUIElementWarpforge__Initialize.c:21-41`（`…__UpdateStatusColor.c:13-35` 分支逐句相同）：
+                    //     · status **2 Away**      ⇒ `ToggleConnectionSprites(true)` + `connectedImage.color = awayColor`
+                    //     · status **3 Connected** ⇒ `ToggleConnectionSprites(true)` + `connectedImage.color = connectedColor`
+                    //     · status **0/1**         ⇒ 在线图关、离线图开、**不改色**（原版**只写在线图**，离线图恒为 prefab 出厂色）
+                    //   两色实读 = prefab `bundle_menus_assets_all/MonoBehaviour/MonoBehaviour_-842203043721886928.json`：
+                    //     `connectedColor = (0.3093532621860504, 0.6415094137191772, 0.2572089731693268, 1)`
+                    //     `awayColor      = (0.9960784912109375, 0.5960784554481506, 0.11764706671237946, 1)`
+                    //   离线图出厂色 = `(0.84, 0.494, 0.44, 1)`（`menu_dump.py bundle_menus_assets_all "Friend Info Item"` 实读）。
+                    //   ⛔ 断言里**写字面量**、不引用 `FriendsTab` 的私有常量（那会变成自证）。
+                    // 🔴 纪律：每条结论前**单独 Check 前提**；结论用 `x != null && …` / `q == null ? -1f : …` 短路，
+                    //   ⛔ 绝不写 `if (x != null) Check(…)`（前提塌了会**静默跳过**，这个项目一天内撞过 3 次）。
+                    // ⚠️ 已知无能区：两颗 sprite 的**名字**本地解不出（Image 组件没导出）⇒ 这条只断 active + 颜色，
+                    //   「在线图被换成离线图那张」这类**换图错误抓不到**（真机看图那一档）。
+                    // ------------------------------------------------------------
+                    {
+                        var AWAY_C = new Color(0.9960784912109375f, 0.5960784554481506f, 0.11764706671237946f, 1f);
+                        var CONNECTED_C = new Color(0.3093532621860504f, 0.6415094137191772f, 0.2572089731693268f, 1f);
+                        var OFFLINE_C = new Color(0.84f, 0.494f, 0.44f, 1f);
+
+                        // ---- 3 Connected ----
+                        SocialData.Friends.Clear();
+                        SocialData.Friends.Add(new SocialData.Friend { Name = "Connected Friend", Status = 3 });
+                        sw.PageFriends.RebuildForTest();
+                        var rCn = FindChild(FindChild(FindChild(fcont, "Viewport"), "Content"), "Friend Info Item");
+                        CheckTrue(rCn != null, "（前提）喂 status=3 的好友 ⇒ **建出一行**");
+                        var rCnSt = rCn == null ? null : FindChild(rCn, "Connection Status");
+                        CheckTrue(rCnSt != null, "（前提）行里有 `Connection Status`");
+                        var rCnOn = rCnSt == null ? null : FindChild(rCnSt, "Connected Image");
+                        var rCnOff = rCnSt == null ? null : FindChild(rCnSt, "Disconnected");
+                        CheckTrue(rCnOn != null && rCnOff != null,
+                                  "（前提）两个状态点**都建了**（原版从不解构，`Initialize` 只切 active —— 判据 `Initialize.c:22/34/44-51`）");
+                        var rCnQ = rCnOn == null ? null : rCnOn.GetComponent<ImageQuad>();
+                        var rCnQo = rCnOff == null ? null : rCnOff.GetComponent<ImageQuad>();
+                        CheckTrue(rCnQ != null && rCnQo != null, "（前提）两颗都带 `ImageQuad`（读色用）");
+                        CheckTrue(rCnOn != null && rCnOn.gameObject.activeSelf,
+                                  "Connected(3) ⇒ 在线图 **active**（`Initialize.c:34` `ToggleConnectionSprites(true)`）");
+                        CheckTrue(rCnOff != null && !rCnOff.gameObject.activeSelf,
+                                  "Connected(3) ⇒ 离线图 **inactive**（`ToggleConnectionSprites` 的 `opt ^ 1`）");
+                        CheckNear(rCnQ == null ? -1f : rCnQ.Tint.r, CONNECTED_C.r, 1e-3f,
+                                  "Connected(3) ⇒ 在线图色.r = prefab `connectedColor.r`（`Initialize.c:37-40`）");
+                        CheckNear(rCnQ == null ? -1f : rCnQ.Tint.g, CONNECTED_C.g, 1e-3f, "Connected(3) ⇒ 在线图色.g");
+                        CheckNear(rCnQ == null ? -1f : rCnQ.Tint.b, CONNECTED_C.b, 1e-3f, "Connected(3) ⇒ 在线图色.b");
+
+                        // ---- 2 Away ----
+                        SocialData.Friends.Clear();
+                        SocialData.Friends.Add(new SocialData.Friend { Name = "Away Friend", Status = 2 });
+                        sw.PageFriends.RebuildForTest();
+                        var rAw = FindChild(FindChild(FindChild(fcont, "Viewport"), "Content"), "Friend Info Item");
+                        CheckTrue(rAw != null, "（前提）喂 status=2 的好友 ⇒ **建出一行**");
+                        var rAwSt = rAw == null ? null : FindChild(rAw, "Connection Status");
+                        CheckTrue(rAwSt != null, "（前提）行里有 `Connection Status`");
+                        var rAwOn = rAwSt == null ? null : FindChild(rAwSt, "Connected Image");
+                        var rAwOff = rAwSt == null ? null : FindChild(rAwSt, "Disconnected");
+                        CheckTrue(rAwOn != null && rAwOff != null, "（前提）两个状态点**都建了**");
+                        var rAwQ = rAwOn == null ? null : rAwOn.GetComponent<ImageQuad>();
+                        var rAwQo = rAwOff == null ? null : rAwOff.GetComponent<ImageQuad>();
+                        CheckTrue(rAwQ != null && rAwQo != null, "（前提）两颗都带 `ImageQuad`");
+                        CheckTrue(rAwOn != null && rAwOn.gameObject.activeSelf,
+                                  "Away(2) ⇒ 在线图 **active**（`Initialize.c:22` —— Away 不是离线支！）");
+                        CheckTrue(rAwOff != null && !rAwOff.gameObject.activeSelf, "Away(2) ⇒ 离线图 **inactive**");
+                        CheckNear(rAwQ == null ? -1f : rAwQ.Tint.r, AWAY_C.r, 1e-3f,
+                                  "Away(2) ⇒ 在线图色.r = prefab `awayColor.r`（`Initialize.c:25-30`）");
+                        CheckNear(rAwQ == null ? -1f : rAwQ.Tint.g, AWAY_C.g, 1e-3f, "Away(2) ⇒ 在线图色.g");
+                        CheckNear(rAwQ == null ? -1f : rAwQ.Tint.b, AWAY_C.b, 1e-3f, "Away(2) ⇒ 在线图色.b");
+                        // 原版**只写在线图**：离线图永远是 prefab 出厂色（`Initialize.c` 全文没有第二处 set_color）
+                        CheckNear(rAwQo == null ? -1f : rAwQo.Tint.r, OFFLINE_C.r, 1e-3f,
+                                  "Away(2) ⇒ **离线图颜色原版从不写** = prefab 出厂 `(0.84,0.494,0.44,1)`（⛔ 别断言它变）");
+                        // 🔴 灭自证：两档颜色必须真的不同，否则「换档换色」整族可以两边一起改成同一个值还全绿
+                        CheckTrue(Mathf.Abs(AWAY_C.r - CONNECTED_C.r) > 0.3f || Mathf.Abs(AWAY_C.g - CONNECTED_C.g) > 0.2f,
+                                  "（灭自证）prefab `awayColor` ≠ `connectedColor`（两档确实是两种色）");
+
+                        // ---- 0 Default / 1 Disconnected：在线图关、离线图开（与现有那条离线断言同形，但按 status 走）----
+                        for (int sOff = 0; sOff <= 1; sOff++)
+                        {
+                            SocialData.Friends.Clear();
+                            SocialData.Friends.Add(new SocialData.Friend { Name = "Off" + sOff, Status = sOff });
+                            sw.PageFriends.RebuildForTest();
+                            var rOf = FindChild(FindChild(FindChild(fcont, "Viewport"), "Content"), "Friend Info Item");
+                            CheckTrue(rOf != null, "（前提）喂 status=" + sOff + " 的好友 ⇒ **建出一行**");
+                            var rOfSt = rOf == null ? null : FindChild(rOf, "Connection Status");
+                            var rOfOn = rOfSt == null ? null : FindChild(rOfSt, "Connected Image");
+                            var rOfOff = rOfSt == null ? null : FindChild(rOfSt, "Disconnected");
+                            CheckTrue(rOfOn != null && rOfOff != null, "（前提）status=" + sOff + " 的两个状态点都建了");
+                            CheckTrue(rOfOn != null && !rOfOn.gameObject.activeSelf && rOfOff != null && rOfOff.gameObject.activeSelf,
+                                      "status=" + sOff + " ⇒ 在线图关、离线图开（`Initialize.c:44-51`；`Upd.c:38-45` 同形）");
+                        }
+
+                        // ---- 3 → 1 翻转（= 原版 `UpdateStatusColor` 的语义；我们走 `RefreshStatuses` 整表重建，等价）----
+                        SocialData.Friends.Clear();
+                        SocialData.Friends.Add(new SocialData.Friend { Name = "Flip Friend", Status = 3 });
+                        sw.PageFriends.RebuildForTest();
+                        var rFl = FindChild(FindChild(FindChild(fcont, "Viewport"), "Content"), "Friend Info Item");
+                        CheckTrue(rFl != null, "（前提）先建一行 status=3");
+                        SocialData.Friends[0].Status = 1;
+                        sw.PageFriends.RefreshStatuses();
+                        var rFl2 = FindChild(FindChild(FindChild(fcont, "Viewport"), "Content"), "Friend Info Item");
+                        CheckTrue(rFl2 != null, "（前提）刷新后行还在");
+                        var rFl2St = rFl2 == null ? null : FindChild(rFl2, "Connection Status");
+                        var rFl2On = rFl2St == null ? null : FindChild(rFl2St, "Connected Image");
+                        var rFl2Off = rFl2St == null ? null : FindChild(rFl2St, "Disconnected");
+                        CheckTrue(rFl2On != null && rFl2Off != null, "（前提）翻转后两个状态点都在");
+                        CheckTrue(rFl2On != null && !rFl2On.gameObject.activeSelf && rFl2Off != null && rFl2Off.gameObject.activeSelf,
+                                  "3→1 翻转 ⇒ 在线图关、离线图开（`UpdateStatusColor` 的等价结果）");
+
+                        // 收尾：把好友表还给下面那几段（它们假设「好友表已清空」）
+                        SocialData.ResetForTest();
+                        sw.PageFriends.RebuildForTest();
+                    }
+
                     sw.tabButtons.Click(0);
 
                     // ---- 🆕 2026-10-03（A25①）：`SocialPage` 那四处转发**真的带电吗** ----
@@ -17183,13 +17306,30 @@ public static class MainMenuScene
                       && a1853Ev == null,
                       "停用报价不选：`ExpansionOrks1_Premium_Item_Offer`（`enabled=0`）在自己的日期上**选不中**");
 
-            // 右开区间：结束前 1 分钟在期、结束那一刻起**不在期**（灭自证：把 `<` 改成 `<=` 时后半条红）
+            // 🔴 **2026-10-28（B88_F2 · 铁律 5 就地订正）**：这一段原来按**右开区间**写
+            //   （`endDate` 那一刻就「不在期」），2026-10-27 的 B88_J3 把挑选闸从旧 `IsInPeriod`
+            //   （`start ≤ now < end`）换成 `GetState(utc) == Active`（原版六档，**全部严格小于**）
+            //   ⇒ **`now == endDate` 那一刻原版仍是 `Active`（在期）**，出期在它之后 1 毫秒。
+            //   判据 = `decomp_full/Everguild.LiveOps.LiveOpsEventData__GetState.c:36-47`
+            //          （`endDate < now ⇒ Finished`，`DateTime.op_LessThan`，⛔ 不是 `≤`）·
+            //          `Shell/LiveOpsHandler.cs` 的 `SelectInTable`（`!IsCurrentlyActive` ⇒ 不入选）·
+            //          报告 `资料/完全复刻/报告/B88_J3_活动线判据.md` §2·1 第 63/64 行。
+            //   `expireDate` 那一档一并核过：本承载面（`Scoring` 类）落到 `ExpansionOrks1Scoring`
+            //   （`expirable = 1` · `expire = 1748768400000` = 2025-06-01 09:00 UTC）⇒
+            //   `FinalDate = expirable ? expireDate : endDate` = **06-01 09:00**，与 `endDate`（05-01 09:00）不同 ⇒
+            //   `endDate` 那一刻卡在 `Expired` 之前（`FinalDate < now` 假）⇒ 落到 `startDate < now` ⇒ **Active**。
+            //   ⛔ 别改成写死中文/英文，也⛔ 别把 `<` 放宽成 `≤`（那样下面第一条立刻红）。
             CheckTrue(LiveOpsLocalCatalog.TryResolveSurface(LiveOpsLocalCatalog.Surface.ScoringHelpTitle,
                                                             Utc(2025, 5, 1, 8, 59), out sv, out sWhy),
                       "在期边界：Orks1 结束前 1 分钟（2025-05-01 08:59 UTC）仍解析得出");
+            CheckTrue(LiveOpsLocalCatalog.TryResolveSurface(LiveOpsLocalCatalog.Surface.ScoringHelpTitle,
+                                                            Utc(2025, 5, 1, 9, 0), out sv, out sWhy),
+                      "在期边界：Orks1 `endDate` 那一刻（2025-05-01 09:00 UTC）**仍在期**"
+                    + "（原版 `endDate < now` 严格小于才 `Finished`；把 `<` 改成 `≤` 时本条红）");
             CheckTrue(!LiveOpsLocalCatalog.TryResolveSurface(LiveOpsLocalCatalog.Surface.ScoringHelpTitle,
-                                                             Utc(2025, 5, 1, 9, 0), out sv, out sWhy),
-                      "在期边界：Orks1 `endDate` 那一刻（2025-05-01 09:00 UTC）**不在期**（右开；`expireDate` 不参与）");
+                                                             Utc(2025, 5, 1, 9, 1), out sv, out sWhy),
+                      "在期边界：`endDate` 之后 1 分钟（2025-05-01 09:01 UTC）**不在期**"
+                    + "（`Finished` 档不建按钮；灭自证 —— 与上一条配对，把边界写成 `≤` 或 `≥` 必有一条红）");
 
             // 报价三栏真的接到 `BaseOfferPopup` 的出厂值上：**今天（数据已全部过期）⇒ 仍是 prefab 出厂英文**
             // （= 用户边界：过期活动不做；接上之后也不会拿过期报价的文案顶上去）

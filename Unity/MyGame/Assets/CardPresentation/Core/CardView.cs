@@ -4409,7 +4409,7 @@ namespace CardPresentation
                     //    小图档 = `clipWindow: !d.isUnit` + 小图档硬矩形）—— 原来这里那个三元就是它的两支，
                     //    收进函数后「建出来」与「状态轴变了重烘」走的是**同一个判据**（⛔ 别再在这儿拼一遍）。
                     _artFront = AddLayer("artFront", frameTex, -0.008f, artTex, artFrontMesh);
-                if (!board) _frame = AddLayer("frame", frameTex, 0f, null);
+                if (!board) { _frame = AddLayer("frame", frameTex, 0f, null); ApplyFrameMaskFade(bigState ? 1f : 0f); }   // ← 出生即按状态 1 淡出（见类尾 ApplyFrameMaskFade）
                 // 🆕 2026-10-24（`E5`）：**出生这一趟把状态记账**（原版 `CardImageController.currentState`）。
                 //   两条 overDraw 轴现在可以经 `Create(..., artOverdraw:, useOverDraw:)` 在建卡**之前**给定，
                 //   所以这里记下的就是 `Build` 真正烘进网格的那一档；之后 setter 拿它判「状态变没变」
@@ -4436,7 +4436,7 @@ namespace CardPresentation
                                        hasDesc ? TextBgQuad("textBg", TextBgAt, TextBgW, TextBgH)
                                                : TextBgQuad("textBgSmall", TextBgSmallAt,
                                                             TextBgSmallW, TextBgSmallH));
-                    _textBg.sharedMaterial.color = new Color(0f, 0f, 0f, TextBgAlpha);
+                    _textBg.sharedMaterial.color = new Color(0f, 0f, 0f, TextBgAlpha); ApplyFrameMaskFade(bigState ? 1f : 0f);   // ← 同上（文字底板也在原版那条 `textBackground.material = maskMaterial` 里）
                 }
                 else
                 {
@@ -7232,14 +7232,14 @@ namespace CardPresentation
                     _ambushStashArmour = _armourIcon != null && _armourIcon.gameObject.activeSelf;
                     _ambushHidden = true;
                 }
-                // 🔴 2026-10-26（B8_N）：原版 `HideStat` **一个东西都不关** —— `hiddenStat=1` + 逐件 `text="?"`
-                SetStatsHidden(true);
-                Show(_info, false);              // 场上这张本来全透明；「字形表不在」兜底档靠它挡住烘进去的数字
+                // 🔴 2026-10-26（B8_N）：原版 `HideStat` **一个东西都不关** —— `hiddenStat=1` + 逐件 `text="?"` ｜ 🆕 2026-10-27（B88_E6）就地补齐 `CardScript__UpdateHealthText.c:127-140` 那一支：`HasCurrentTrait(0x4B0 ambush) && !(+0x40 isPlayer)` ⇒ `armourCounters(+0xc0).Toggle(false)` + `armourFrame(+0x150).SetActive(false)` ⇒ **护甲整格关掉（连 `?` 都不印）**；我们这侧 `ambush ⇔ FaceDown`（`RuleCore` 两个翻开出口都 `RemoveAll(Ambush)`）⇒ `_ambushHideStats` 恒等于「敌方 + 带 ambush」，故把 `ToggleStats(false,false)`（印 `?`）与 `UpdateHealthText`（关护甲格）两次原版调用**合并在这一处**（同一张卡、同一道 `isPlayer==0` 闸；原版两次调用之间没有可观测帧）
+                SetStatsHidden(true, hideArmourCell: true);
+                Show(_info, false); Show(_armourIcon, false);   // 场上这张本来全透明；「字形表不在」兜底档靠它挡住烘进去的数字。🆕 盾牌也关：它 = 原版 `Armour Container/Image`，而 `armourCounters.Toggle(false)` 关的是那个 **counter 容器**（含盾 + 数字）⇒ 敌方面朝下时护甲**整个不出现**（`armourFrame` 那个独立框我们没有，见 `SetStatsHidden` 的 doc）
                 return;
             }
             if (!_ambushHidden) return;              // 没藏过 ⇒ 什么都不动（别把正常态刷掉）
             _ambushHidden = false;
-            SetStatsHidden(false);                   // 原版 `ResetHide` 只清闸；值由下面 `SyncStatLayers` 重刷（盾牌全程不藏，见 `SetStatsHidden`）
+            SetStatsHidden(false);                   // 原版 `ResetHide` 只清闸；值由下面 `SyncStatLayers` 重刷（盾牌/护甲格由下面那两句 `Show` 还原 —— ⚠️ 2026-10-27（B88_E6）起 `SetAmbush` 那一档护甲格也关，见上）
             if (_ambushStashValid)
             {
                 Show(_info, _ambushStashInfo);
@@ -7990,7 +7990,7 @@ namespace CardPresentation
             // 🆕 2026-09-29 / 🔴 2026-10-27（执行代理 `B9_W4NFG`）：**按组根广播 alpha**（原版 9 个 `NestedFadeGroup`，
             // 组根 α 广播给子树 SR/TMP，见类尾 `FadeGroup`）。⚠️ **必须在 `ApplyStatFlashes()` 之后** —— 那一步会把
             // `_stats[]` 刷回「状态色 × 闪现色」，组 α 提前乘会被它抹掉（「只淡一组」就静默失效）。
-            ApplyBadgeAlpha();
+            ApplyBadgeAlpha(); ApplyFrameMaskFade(_frameMaskM);   // ← 第三样（`frameMask` 0↔1）：整卡着色会重刷这两层的 `_Color`，必须最后再贴一次
         }
 
         /// <summary>整组徽标的不透明度（原版 `BoardTraitIcon.fadeGroup` 那个 `NestedFadeGroup.alpha`）。
@@ -12255,7 +12255,7 @@ namespace CardPresentation
         /// <para>⛔ 只在**轴真的变了**时调（两个 setter 的 `if (value == _field) return;` 已经挡住重复赋值）。</para></summary>
         void RebakeBigStateMeshes()
         {
-            if (!_bigImage) return;
+            if (!_bigImage) return; ApplyFrameMaskFade(BigImageState ? 1f : 0f);   // ← 收口/瞬时切换时把第三样（frameMask 0↔1）落到终态
             RebakeArtMeshes();
         }
 
@@ -12360,7 +12360,7 @@ namespace CardPresentation
         /// 同一档只建一次网格。</summary>
         void ApplyBigStateTweenAt(float k, bool fromBig, bool toBig)
         {
-            BigStateTweenProgress = k;
+            BigStateTweenProgress = k; ApplyFrameMaskFade(fromBig ? 1f - k : k);   // ← 第三样跟着同一条时间轴（原版 DoChange 是三个兄弟，不是 Sequence）
             if (_artFront == null || _artTexBuilt == null) return;
             var mf = _artFront.GetComponent<MeshFilter>();
             if (mf == null) return;
@@ -14222,14 +14222,14 @@ namespace CardPresentation
         // 调用链（**不是死代码**，两个入口都现读过）：
         //   · 场上：`CardScript.SetAmbush(true)`（`decomp_full/CardScript__SetAmbush.c:21-41`）
         //     → `BattleCardUI.ToggleStats(false,false)`（`decomp_full/BattleCardUI__ToggleStats.c:13-63`）
-        //     → **五个 counter 各 `HideStat()`**（血/甲/近战/远程/**费用**），另加
-        //     `armourFrame.SetActive(false)` —— 那是护甲**词条框**（`dump.cs` 的 `BattleCardUI.armourFrame // 0x150`），
-        //     **不是** `Armour Container/Image`（我们那面盾 `_armourIcon`）⇒ **盾牌全程不藏**。
+        //     → **五个 counter 各 `HideStat()`**（血/甲/近战/远程/**费用**），另加 `armourFrame.SetActive(false)`
+        //     （护甲**词条框**，`dump.cs` 的 `BattleCardUI.armourFrame // 0x150`）⇒ 那一跳**盾牌不藏**（`HideStat` 只写 `"?"`）；
+        //     🔴 2026-10-27（B88_E6）补第二跳 `CardScript.UpdateHealthText`（`CardScript__UpdateHealthText.c:127-140`：
+        //     敌方 + ambush ⇒ `armourCounters(+0xc0).Toggle(false)` + `armourFrame.SetActive(false)`）⇒ **稳态下护甲整格不出现、盾也没有**。
         //   · 2D 展示窗：`CardDisplayWindow.ShowBattleCard`（🥈 `CardDisplayWindow.cs:657-708`）里那条
         //     `IsInPlay && !isPlayer && HasCurrentTrait(ambush)` 支 → `BasicCardUI.ToggleStats(false)`
         //     （`cpp2il/out_cpp2il_dev_ilspy/BasicCardUI.cs:383-408`）：同样五个 `HideStat()`，但**护甲那件多一次
-        //     `armourCountersController.Toggle(false)`**（= 整格关掉，连 `?` 都不印）⇒ 本类 `hideArmourCell` 形参
-        //     就是这两支的唯一差别。
+        //     `armourCountersController.Toggle(false)`**（= 整格关掉，连 `?` 都不印）⇒ 两处观感一致（场上稳态也走这档，见 `ApplyAmbush`）。
         // ⚠️ **载体是我们自己的选择**（原版那五件全是真 TMP）：
         //   · 场上我们那四个数是**烘出来的字形网格**（`PragatiDigits` 的表里**只有 0–9**，没有 `?`）
         //     ⇒ 场上这一档**另建四件 TMP** 印 `?`（`_ambushMark`）：字体 = 原版同一份 `Pragati-Regular`，
@@ -15173,5 +15173,59 @@ namespace CardPresentation
             c.a *= _alpha * _alpha2D;
             m.color = c;
         }
+
+        // ==================================================================
+        //  🆕 2026-10-27（B88-E8b）原版 `ChangeState(ImageInFrameSize.Big)` 那三样里的**第三样**
+        // ==================================================================
+        //
+        // 🔴 判据（一手，逐句读 `d:/2/tools/decomp_full/` ＋ 解包资产）：
+        //  1. 原版状态 1 改三样（`CardImageController__ChangeState.c:84-113`）：
+        //     ① `_Clamp_Range` → BIG ② 立绘 `originalImageScale × bigSizeMultiplier`（×1.27）
+        //     ③ **`frameMask.enabled = true` + `textBackground.material = frameMask.maskMaterial`**
+        //     （`CardImageController.cs:286-303`；`:323-364` 是 `_MaskEffectStrength` 那条 tween）。
+        //     我们①②早就在（烘进顶点，判据见 `BigImageState` / `ArtScaleFor`），**③ 直到本笔都没有**。
+        //  2. ③ 的**可见效果**：那条 SoftMask 的片元是 `a_out = a_obj · (1 − M · α_mask)`
+        //     （`UI Extensions/SoftMaskShader` 反编译体，判据全文在 `ArtVisibleThroughFrame` 的 doc §③），
+        //     而 `AlphaMask` 的序列化值**恒 null**（151/153 个实例；白 ⇒ `α_mask = 1`）
+        //     ⇒ `a_out = a_obj · (1 − M)`，`M` = `_MaskEffectStrength` 由 0 补到 1。
+        //  3. ⇒ **等价物 = 把这两层的 alpha 乘 `(1 − M)`**，⛔ **不需要搬** `UnityEngine.UI.Extensions.SoftMaskScript`：
+        //     · `_frame`（原版 CardFrame，`a_obj` = 1）
+        //     · `_textBg`（原版 Textbackgrounds，`a_obj` = 写死的 0.647 = `TextBgAlpha`）
+        //     ⚠️ 它**不碰立绘**（立绘与卡框是兄弟，且 `AlphaMask` 为空）⇒ 别把这条乘到 `_art` 上。
+        //  4. 时长/缓动 = 与另两样**同一条时间轴**（`DoChange` 里是三个兄弟、没有 Sequence）：
+        //     `BigStateTweenDuration` 0.3 s · `Ease.OutBack`。
+        //
+        // 🔑 **我们怎么落**：一个标量 `_frameMaskM`（0 = 框原样 · 1 = 完全淡出）＋ `ApplyFrameMaskFade(m)`。
+        //   逐帧：`ApplyBigStateTweenAt` 里跟着补间推（`fromBig ? 1−k : k`）；
+        //   收口/瞬时：`RebakeBigStateMeshes`（补间完成、被杀、不可补间那一档都走它）；
+        //   出生：`Build` 建完 `_frame` / `_textBg` 各贴一次。
+        //   🔴 **必须在 `ApplyTint()` 末尾再贴一次**：`ApplyTint` 会把 `_layers` 里每一层的 `_Color`
+        //   按整卡着色重刷（`_frame` 就是其中一员）⇒ 不重贴的话，任何一次 `SetAlpha`/`SetTint`
+        //   都会把卡框**刷回不透明**（= 静默失效，而且只在被着色时才现形）。这就是那条老坑
+        //   「加一层之前先 grep 谁会遍历 `_layers`」在这里的另一面。
+
+        /// <summary>原版 `_MaskEffectStrength`（0 = 卡框/文字底板原样 · 1 = 完全淡出）。</summary>
+        float _frameMaskM;
+
+        /// <summary>这两层现在还剩多少可见份额（= 原版片元里的 `1 − M·α_mask`，`α_mask` 恒 1）。</summary>
+        float FrameMaskAlpha { get { return 1f - Mathf.Clamp01(_frameMaskM); } }
+
+        /// <summary>把「第三样」落到两层材质上（口径见上面那一段）。幂等：写成绝对值，⛔ 不是叠乘。
+        /// <para>⚠️ 卡框那份材质若是**溶解材质**（`SetFrameDissolve` 换上去的那份，`_Color` 是原版
+        /// Border Color）⇒ **不碰**（同 `ApplyTint` 里那条守卫的理由：那份不吃整卡着色）。</para></summary>
+        void ApplyFrameMaskFade(float m)
+        {
+            _frameMaskM = Mathf.Clamp01(m);
+            float vis = FrameMaskAlpha;
+            var fm = _frame != null ? _frame.sharedMaterial : null;
+            if (fm != null && fm != _frameDissolveMat && fm.HasProperty("_Color"))
+                fm.color = new Color(_tint.r, _tint.g, _tint.b, _tint.a * _alpha * _alpha2D * vis);
+            if (_textBg != null && _textBg.sharedMaterial != null && _textBg.sharedMaterial.HasProperty("_Color"))
+                _textBg.sharedMaterial.color = new Color(0f, 0f, 0f, TextBgAlpha * _alpha * _alpha2D * vis);
+        }
+
+        /// <summary>自检读口：卡框那层现在的不透明度（= `_tint.a · _alpha · _alpha2D · FrameMaskAlpha`）。
+        /// 小图档应当 ≈ `_alpha`；**状态 1（Big）下必须是 0**。</summary>
+        public float FrameMaskAlphaNow { get { return FrameMaskAlpha; } }
     }
 }

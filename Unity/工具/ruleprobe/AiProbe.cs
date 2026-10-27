@@ -50,9 +50,14 @@ class AiProbe
         // 🆕 `B8_AV`（2026-10-26）：`ai actions <卡id>` —— 动作表那一档（见 `RunActions`）。
         //   只有第一参**字面量**等于 `actions` 才切档 ⇒ 老用法（`ai <卡id|卡名>`）一字不动。
         if (string.Equals(spec, "actions", StringComparison.OrdinalIgnoreCase)) return RunActions(spec2);
+        // 🆕 `B88_E3`（2026-10-27）：`ai board <卡id>` —— **被测卡摆上棋盘**那一档（见 `RunBoard`）。
+        //   🔴 为什么需要：`ai actions` 把被测卡放**手牌** ⇒ 任何「**只有上场的单位才产**」的候选
+        //   （第 ④ 档主动能力 = 原版通用 `activeAbilityLogic`；以及任何「盘上单位才枚举」的支）
+        //   在那个口上**结构上不可观测**。本档直接把卡摆上盘，并把「AI 挑不挑它 / 结算成不成」打出来。
+        if (string.Equals(spec, "board", StringComparison.OrdinalIgnoreCase)) return RunBoard(spec2);
         if (string.IsNullOrWhiteSpace(spec))
         {
-            Console.Error.WriteLine("!! 用法：ai <卡id|卡名>    |    ai actions <卡id|卡名>");
+            Console.Error.WriteLine("!! 用法：ai <卡id|卡名>    |    ai actions <卡id|卡名>    |    ai board <卡id|卡名>");
             return 1;
         }
 
@@ -449,6 +454,317 @@ class AiProbe
         }
         Console.WriteLine("=== 结束（本模式只读、不返回红绿；判据在卡面与 `判据/AI打分与动作选择_第2轮.md`）===");
         return 0;
+    }
+
+    // ==================================================================
+    //  🆕 `ai board <卡id>`（`B88_E3` · 2026-10-27）：**被测卡摆上棋盘**
+    //
+    //  🔴 它修的是哪一类【结构性失明】：`ai actions` 的夹具把被测卡放**手牌** ⇒ 只有上场单位才产的候选
+    //  （第 ④ 档主动能力 = 原版通用 `activeAbilityLogic`）在那个口上**一条都看不见** ——
+    //  实测 `ai actions SOR66` 改前改后都是 17 条、`[按 Kind 计数]` 里没有 `activeAbility`，
+    //  而那一档恰恰是**盘上单位**的入口。
+    //
+    //  本档做三件事（⛔ 只调引擎接口，不改引擎、不写基线）：
+    //    ① 把被测卡**直接摆上棋盘**，打动作表 + 逐条 `ScoreAction`（同 `actions` 口径）；
+    //    ② 单独把**第 ④ 档候选**挑出来，用 `AiScoring.TraceCriteria` 打它**打分逐条贡献**
+    //       （`ability.nonTarget[i] option=… ⇒ v`，判据 = 原版 `AI.GetActionScore` case 5）；
+    //    ③ **实打一次**：在**同 seed 的第二份夹具**上强制 `SimpleAI.ExecuteAction` 那条 ④ 档候选，
+    //       打 `True/False` ＋ 前后局面（能量 / 攻击 / `Exhausted` / 事件数）⇒ 「结算真的成功」有读数。
+    //       ⚠️ 必须用第二份夹具：「被执行的那一下」会改局面，而 ①② 要在**未执行**的局面上量。
+    //
+    //  ⚠️ `card.Type != "unit"`（战术 / 督军 / 防御）时**不摆盘**（那不是这个档的用法），照旧放手里并出声。
+    //  ⛔ 判读仍归人 / 调度台：本档只摆数，不返回红绿（与 `ai` / `actions` 同口径）。
+    // ==================================================================
+    public static int RunBoard(string spec)
+    {
+        if (string.IsNullOrWhiteSpace(spec))
+        {
+            Console.Error.WriteLine("!! 用法：ai board <卡id|卡名>");
+            return 1;
+        }
+        var pool = Program.PoolList;
+        var card = Find(pool, spec);
+        if (card == null)
+        {
+            Console.Error.WriteLine("!! 卡池里找不到：" + spec);
+            return 1;
+        }
+
+        BattleContext ctx;
+        UnitState placed;
+        try { ctx = BuildBoardFixture(pool, card, out placed); }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine("!! 建夹具时引擎抛异常：" + ex.GetType().Name + ": " + ex.Message);
+            return 1;
+        }
+        int me = ctx.Active;
+        int slot = placed != null ? BoardSlotOf(ctx, me, placed) : -1;
+
+        Console.WriteLine("=== ai board " + card.Id + " \"" + card.Name + "\" · 卡在**盘上**（`B88_E3`）===");
+        Console.WriteLine("[夹具] ctx.Active=" + me
+                          + " · 被测卡 " + (placed != null ? "P" + me + "[" + slot + "]" : "**没摆盘**（不是 `unit`）")
+                          + " · 友方小兵 1 张（5 号格）· 敌方 2 张（3 / 5 号格）· 能量 "
+                          + ctx.Players[me].Energy + "/" + ctx.Players[me].MaxEnergy);
+        if (placed != null)
+        {
+            Console.WriteLine("[④ 档五道读数] `HasActiveAbility`=" + card.HasActiveAbility
+                              + " · `HasAbility`=" + (placed.HasAbility ? 1 : 0)
+                              + " · 替代行动=" + (RuleCore.AlternativeActionKeyword(placed) ?? "-")
+                              + " · 誓约 ops=" + card.OathOps.Count
+                              + " · `CanStartActiveAbility`=" + RuleCore.CanStartActiveAbility(ctx, me, slot)
+                              + " · `CanUseActiveAbility(-1)`=" + RuleCore.CanUseActiveAbility(ctx, me, slot, -1));
+        }
+
+        // ---- ① 动作表 + 逐条分数 ----
+        var list = SimpleAI.EnumerateActions(ctx);
+        Console.WriteLine("[① 动作表] 共 **" + list.Count + "** 条");
+        var byKind = new Dictionary<string, int>();
+        var entry = new List<AiAction>();
+        for (int i = 0; i < list.Count; i++)
+        {
+            var a = list[i];
+            a.Score = SimpleAI.ScoreAction(ctx, a);       // 产品自己也这么写回（见 `RunActions` 的注释）
+            string kn = KindName(a.Kind);
+            byKind[kn] = (byKind.TryGetValue(kn, out int c0) ? c0 : 0) + 1;
+            if (a.Kind == AiActionKind.ActiveAbility && a.AltKeyword == SimpleAI.AltActiveAbility) entry.Add(a);
+            Console.WriteLine("  [" + i.ToString().PadLeft(3) + "] " + Pad(kn, 15)
+                            + " slot=" + (a.Slot >= 0 ? a.Slot.ToString() : "-").PadLeft(2)
+                            + " →P" + (a.TargetP >= 0 ? a.TargetP.ToString() : "-")
+                            + "@" + (a.TargetSlot >= 0 ? a.TargetSlot.ToString() : "-").PadLeft(2)
+                            + " score=" + F(a.Score)
+                            + (a.AltKeyword != null ? "  alt=" + a.AltKeyword : ""));
+        }
+        Console.WriteLine("[按 Kind 计数] " + string.Join(" · ",
+            byKind.OrderByDescending(kv => kv.Value).Select(kv => kv.Key + " " + kv.Value)));
+
+        // ---- ② 第 ④ 档候选 + 打分的逐条贡献 ----
+        Console.WriteLine("[② 第 ④ 档候选] 共 **" + entry.Count + "** 条"
+                          + (entry.Count == 0 ? "（🔴 0 条 = 这一档**没进动作表**）" : ""));
+        for (int i = 0; i < entry.Count; i++)
+        {
+            var lines = new List<string>();
+            AiScoring.TraceCriteria = lines.Add;
+            float sc;
+            try { sc = SimpleAI.ScoreAbility(ctx, entry[i]); }
+            finally { AiScoring.TraceCriteria = null; }
+            Console.WriteLine("  [④-" + i + "] slot=" + entry[i].Slot
+                              + " →P" + entry[i].TargetP + "@" + entry[i].TargetSlot
+                              + " score=" + F(sc));
+            foreach (var l in lines) Console.WriteLine("        " + l);
+            if (lines.Count == 0)
+                Console.WriteLine("        （`TraceCriteria` 没有输出 ⇒ 这张卡**没有 `ai_scoring` 的 `activeAbility` 条目**："
+                                  + "原版那一支也只打 warning + 0 分，⛔ 别当成「分算错了」）");
+            // 🔴 **离屏桩的口径差（如实标）**：`SimpleAI.ScoreAbility` 走 `AiScoringData.Get(card)`，而
+            //   `AiScoringData.EnsureLoaded` 用的是 `Resources.Load<TextAsset>` —— 离屏是**桩、恒 null**
+            //   ⇒ 产品那条路在这里退化成 `ScoreOps(TriggerOps("active"))` = **恒 0**（不是打分错了）。
+            //   下面这一行**显式把同一份 dto 喂给同一个函数** `AiScoring.ScoreActiveAbility`（产品在 Unity 里
+            //   走的就是这一支，只是它自己从 `Resources/ai_scoring.json` 里取 dto）⇒ 这才是**真实分数**的读数。
+            var pdto = LoadScoring(card.Id);
+            if (pdto != null && pdto.activeAbility != null && placed != null)
+            {
+                UnitState tgt = null;
+                if (entry[i].TargetSlot >= 0 && entry[i].TargetP >= 0 && entry[i].TargetP <= 1)
+                    tgt = ctx.Players[entry[i].TargetP].Board[entry[i].TargetSlot];
+                var lines2 = new List<string>();
+                AiScoring.TraceCriteria = lines2.Add;
+                float sc2;
+                try { sc2 = AiScoring.ScoreActiveAbility(ctx, card, placed.Instance, me, tgt, pdto.activeAbility); }
+                finally { AiScoring.TraceCriteria = null; }
+                Console.WriteLine("        [显式喂 dto] `AiScoring.ScoreActiveAbility` = " + F(sc2)
+                                  + "  ← **Unity 里 AI 真正看见的那个分**（同一个函数、同一份 `ai_scoring.json`）");
+                foreach (var l in lines2) Console.WriteLine("          " + l);
+                Console.WriteLine("        ⚠️ 上面那行 `SimpleAI.ScoreAbility` 的值是 **0** 属**离屏桩口径**："
+                                  + "`AiScoringData` 靠 `Resources.Load` 装载，离屏恒 null ⇒ 退化成 `ScoreOps` 兜底（恒 0）");
+            }
+        }
+
+        // ---- ③ AI 自己挑哪条 ----
+        try
+        {
+            var best = SimpleAI.SelectBestAction(ctx, new List<AiAction>(list));
+            Console.WriteLine("[③ SelectBestAction] " + (best == null ? "（null）"
+                : KindName(best.Kind) + " slot=" + best.Slot
+                  + (best.TargetSlot >= 0 ? " →P" + best.TargetP + "@" + best.TargetSlot : "")
+                  + (best.AltKeyword != null ? " alt=" + best.AltKeyword : "")
+                  + " = " + F(SimpleAI.ScoreAction(ctx, best))));
+            Console.WriteLine("     " + (best != null && best.AltKeyword == SimpleAI.AltActiveAbility
+                ? "✅ **AI 挑的就是第 ④ 档**（这条就是「AI 会不会用它」的直接读数）"
+                : "（AI 挑了别的一条 —— 那不是缺陷：④ 档只是**在表里可选**；它的结算由 ③b 单独验）"));
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine("[③ SelectBestAction] 🔴 抛异常：" + ex.GetType().Name + ": " + ex.Message);
+        }
+
+        // ---- ③c 若 `AiScoringData` 在位（= Unity 里），④ 档会不会赢过其余动作 ----
+        //   ⚠️ 这一行是**由读数推出来**的比较，⛔ 不是离屏跑了一遍 AI 决策：`SelectBestAction` 在离屏用的是
+        //   `SimpleAI.ScoreAction`，而那条路因为 `AiScoringData` 恒 null 会把 ④ 档算成 0。
+        {
+            float bestOther = float.NegativeInfinity;
+            string bestOtherName = "（无）";
+            foreach (var a in list)
+            {
+                if (a.Kind == AiActionKind.EndTurn) continue;
+                if (a.Kind == AiActionKind.ActiveAbility && a.AltKeyword == SimpleAI.AltActiveAbility) continue;
+                if (a.Score > bestOther) { bestOther = a.Score; bestOtherName = KindName(a.Kind); }
+            }
+            var pd = LoadScoring(card.Id);
+            if (pd != null && pd.activeAbility != null && placed != null && entry.Count > 0)
+            {
+                float bestE = float.NegativeInfinity;
+                int bestEt = -1;
+                for (int i = 0; i < entry.Count; i++)
+                {
+                    UnitState t = null;
+                    if (entry[i].TargetSlot >= 0 && entry[i].TargetP >= 0 && entry[i].TargetP <= 1)
+                        t = ctx.Players[entry[i].TargetP].Board[entry[i].TargetSlot];
+                    float v = AiScoring.ScoreActiveAbility(ctx, card, placed.Instance, me, t, pd.activeAbility);
+                    if (v > bestE) { bestE = v; bestEt = entry[i].TargetSlot; }
+                }
+                Console.WriteLine("[③c 若 dto 在位（= Unity 里）] ④ 档最高 = " + F(bestE) + "（目标格 " + bestEt
+                                  + "） vs 其余动作最高 = " + F(bestOther) + "（" + bestOtherName + "）"
+                                  + " ⇒ " + (bestE > bestOther
+                                      ? "**AI 会挑 ④ 档**（在同样这份局面上）"
+                                      : "其余动作更高 ⇒ AI 不挑它（**不是缺陷**：它只是可选）"));
+            }
+        }
+
+        // ---- ③b 强制结算最高分的 ④ 档候选（**另一份同 seed 夹具**，局面逐位相同）----
+        if (entry.Count == 0)
+        {
+            Console.WriteLine("[③b 实打] 跳过（动作表里没有第 ④ 档候选）");
+        }
+        else
+        {
+            BattleContext c2;
+            UnitState u2;
+            try { c2 = BuildBoardFixture(pool, card, out u2); }
+            catch (Exception ex)
+            {
+                Console.WriteLine("[③b 实打] 🔴 建第二份夹具抛异常：" + ex.GetType().Name + ": " + ex.Message);
+                return 0;
+            }
+            int slot2 = u2 != null ? BoardSlotOf(c2, c2.Active, u2) : -1;
+            AiAction pick = null;
+            float bestSc = float.NegativeInfinity;
+            foreach (var a in SimpleAI.EnumerateActions(c2))
+            {
+                if (a.Kind != AiActionKind.ActiveAbility || a.AltKeyword != SimpleAI.AltActiveAbility) continue;
+                float sc = SimpleAI.ScoreAction(c2, a);
+                if (sc > bestSc) { bestSc = sc; pick = a; }
+            }
+            if (pick == null)
+            {
+                Console.WriteLine("[③b 实打] 🔴 第二份夹具里没有 ④ 档候选（**不稳定**，如实报出来）");
+                return 0;
+            }
+            Console.WriteLine("[③b 实打] 强制 `SimpleAI.ExecuteAction` 最高分那条 ④ 档：slot=" + pick.Slot
+                              + " →P" + pick.TargetP + "@" + pick.TargetSlot + " score=" + F(bestSc));
+            Console.WriteLine("   前：" + BoardLine(c2, pick.Slot));
+            bool ok;
+            try { ok = SimpleAI.ExecuteAction(c2, pick); }
+            catch (Exception ex)
+            {
+                Console.WriteLine("   🔴 抛异常：" + ex.GetType().Name + ": " + ex.Message);
+                return 0;
+            }
+            Console.WriteLine("   ⇒ `ExecuteAction` = **" + (ok ? "True" : "False") + "**");
+            Console.WriteLine("   后：" + BoardLine(c2, pick.Slot));
+            Console.WriteLine("   事件数 ctx.Events = " + c2.Events.Count);
+            Console.WriteLine("   " + (ok
+                ? "✅ 读数：结算**成功**（`RuleCore.UseActiveAbility` 回 `OK`）"
+                : "🔴 读数：结算**失败** —— 看上面 `CanUseActiveAbility` 的码与引擎那侧出声（⛔ 不猜原因）"));
+        }
+        Console.WriteLine("=== 结束（本模式只读、不返回红绿；判据 `判据/AI打分与动作选择_第2轮.md` ＋ `报告/A9_主动能力按钮.md`）===");
+        return 0;
+    }
+
+    static int BoardSlotOf(BattleContext ctx, int p, UnitState u)
+    {
+        for (int i = 0; i < BoardSpec.Size; i++)
+            if (ReferenceEquals(ctx.Players[p].Board[i], u)) return i;
+        return -1;
+    }
+
+    /// <summary>一行局面读数（能量 / 手牌数 / 双方场上单位）—— 用来对「执行前 vs 执行后」。</summary>
+    static string BoardLine(BattleContext ctx, int slot)
+    {
+        int me = ctx.Active;
+        var sb = new System.Text.StringBuilder();
+        sb.Append("能量 P").Append(me).Append('=').Append(ctx.Players[me].Energy)
+          .Append(" · 手牌 P").Append(me).Append('=').Append(ctx.Players[me].Hand.Count);
+        for (int p = 0; p < 2; p++)
+        {
+            sb.Append(" · P").Append(p).Append(": ");
+            bool first = true;
+            for (int i = 0; i < BoardSpec.Size; i++)
+            {
+                var u = ctx.Players[p].Board[i];
+                if (u == null) continue;
+                if (!first) sb.Append(" | ");
+                first = false;
+                sb.Append('[').Append(i).Append(']').Append(u.Name)
+                  .Append(' ').Append(u.Attack).Append('/').Append(u.RangedAttack)
+                  .Append('/').Append(u.Health).Append(u.Exhausted ? " 已行动" : "");
+                if (ReferenceEquals(u, ctx.Players[me].Board[slot])) sb.Append(" ←被测");
+            }
+        }
+        return sb.ToString();
+    }
+
+    /// <summary>`ai board` 的夹具：**被测卡直接摆上棋盘**（不走部署链，与 `BuildActionsFixture` 同一口径）。
+    /// <para>槽位：被测卡 = `ProbeSlot`(3)；友方小兵 = 5；敌方 = 3(无甲) / 5(2 甲)；督军在 4。</para>
+    /// <para>⚠️ `Exhausted = false` 是**故意**的：直接摆上去的单位默认「本回合已行动」⇒ 第 ④ 档与攻击行都会消失
+    /// （那是量具的错，不是引擎）。</para></summary>
+    static BattleContext BuildBoardFixture(List<CardDef> pool, CardDef card, out UnitState placed)
+    {
+        var heroP0 = new CardDef("AVBHERO0", "AVBHERO0", "hero", "", "common", "Test", 0, 2, 30, 0, null);
+        var heroP1 = new CardDef("AVBHERO1", "AVBHERO1", "hero", "", "common", "Test", 0, 2, 30, 0, null);
+        var filler = new CardDef("AVBFILL", "AVBFILL", "unit", "", "common", "Test", 1, 0, 1, 0, null);
+        var mate = new CardDef("AVBMATE", "AVBMATE", "unit", "", "common", "Test", 2, 2, 5, 0, null);
+        var foeCard = new CardDef("AVBFOE", "AVBFOE", "unit", "", "common", "Test", 3, 2, 8, 0, null);
+        var armCard = new CardDef("AVBFOE_ARM", "AVBFOE_ARM", "unit", "", "common", "Test", 3, 2, 8, 0,
+                                  new[] { "Armour 2" });
+
+        var d0 = new List<CardDef> { heroP0 };
+        var d1 = new List<CardDef> { heroP1 };
+        for (int i = 0; i < 12; i++) { d0.Add(filler); d1.Add(filler); }
+
+        var vars = GameplayVariables.Classic.Clone();
+        var ctx = RuleCore.NewBattle(d0, d1, seed: 0, shuffle: false, cardPool: pool, vars: vars);
+        int me = ctx.Active;
+        ctx.Players[me].Energy = 20;
+        ctx.Players[me].MaxEnergy = 20;
+
+        placed = null;
+        if (card.Type == "unit")
+        {
+            placed = new UnitState(ctx.NewInstance(card), false) { Exhausted = false };
+            placed.DeployedTurn = ctx.Turn;
+            placed.PlayOrder = ctx.TakePlayOrder();
+            ctx.Players[me].Board[ProbeSlot] = placed;
+        }
+        else
+        {
+            // 非 unit（战术 / 督军 / 防御）：照旧放手里，让动作表至少能看见它自己的出牌行。
+            var inst = ctx.NewInstance(card);
+            ctx.Players[me].Hand.Add(inst);
+            RuleCore.SetupCardInHand(ctx, me, inst);
+        }
+
+        var m1 = new UnitState(ctx.NewInstance(mate), false) { Exhausted = false };
+        m1.PlayOrder = ctx.TakePlayOrder();
+        ctx.Players[me].Board[FoeArmSlot] = m1;            // 5 号格（友方小兵，给「友方目标」用）
+
+        int foe = 1 - me;
+        var f1 = new UnitState(ctx.NewInstance(foeCard), false);
+        var f2 = new UnitState(ctx.NewInstance(armCard), false);
+        f1.PlayOrder = ctx.TakePlayOrder();
+        f2.PlayOrder = ctx.TakePlayOrder();
+        ctx.Players[foe].Board[FoePlainSlot] = f1;
+        ctx.Players[foe].Board[FoeArmSlot] = f2;
+        return ctx;
     }
 
     /// <summary>`AiActionKind` 的**原版名字**（取值照 `PlayerActions`，见 `AiActionKind` 的 doc）。

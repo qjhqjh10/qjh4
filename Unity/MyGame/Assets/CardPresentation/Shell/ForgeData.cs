@@ -144,17 +144,36 @@ namespace CardPresentation
         /// <summary>累计经验（原版 `currentPoints`）。</summary>
         public static int PointsOf(string army) { int v; return _points.TryGetValue(army, out v) ? v : 0; }
 
-        /// <summary>第 `level` 格（0 基）的状态。**照原版 `ForgeRewardItemContainer.GetLevelState` 的公式**。</summary>
+        /// <summary>第 `level` 格（0 基）的状态 —— **逐句照原版**
+        /// `ForgeRewardItemContainer__GetLevelState.c`（签名 = `dump.cs:68144`：
+        /// `GetLevelState(int previousNeededPoints, int currentPoints, int currentLevelPointsToLevelUp,
+        /// int numberOfCollectedRewards, int currentRewardIndex)`）：
+        /// <code>
+        /// if (collected >= index + 1)                              return Collected;                            // 4
+        /// if (previousNeeded &lt;= points) {
+        ///     if (thisLevelNeeded &lt;= points) return (collected != index) ? ToCollectButFirstRedeemThePrevious : ToCollect;  // 3 / 2
+        ///     return InProgress;                                                                                    // 1
+        /// }
+        /// return Locked;                                                                                            // 0
+        /// </code>
+        /// 🔴 **2026-10-27（B88-E7 · 铁律 5）**：原来这一格只有**四态**，把「经验够到某格、但前面还有没领的」
+        /// 那一档当成 `Locked` —— 原版那一档是 **`3 = ToCollectButFirstRedeemThePrevious`**（真差异）。</summary>
         public static int StateAt(string army, int level)
         {
             int collected = LevelOf(army), points = PointsOf(army);
-            if (level < collected) return Collected;
-            if (level == collected) return points >= NeededAt(level) ? ToCollect : InProgress;
+            int prev = level <= 0 ? 0 : NeededAt(level - 1);          // `previousNeededPoints`
+            if (level + 1 <= collected) return Collected;
+            if (prev <= points)
+            {
+                if (NeededAt(level) <= points)
+                    return collected != level ? ToCollectButFirstRedeemThePrevious : ToCollect;
+                return InProgress;
+            }
             return Locked;
         }
 
-        /// <summary>四态（**值照原版** `ForgeRewardItemContainer.LevelState`，见 `dump.cs:68148-68157`）。</summary>
-        public const int Locked = 0, InProgress = 1, ToCollect = 2, Collected = 4;
+        /// <summary>五态（**值照原版** `ForgeRewardItemContainer.LevelState`，`dump.cs:68096-68104`）。</summary>
+        public const int Locked = 0, InProgress = 1, ToCollect = 2, ToCollectButFirstRedeemThePrevious = 3, Collected = 4;
 
         /// <summary>现在有没有「可领」的格子（原版 `ForgeRewardSelector.hasToCollectReward`）——
         /// **`Ready for level up` 那团光效的判据就是它**（出处 `ForgeRewardSelector__CreateRewards.c:83-87`
@@ -176,6 +195,7 @@ namespace CardPresentation
             if (st == Locked) { why = "前面还有没领的格"; return false; }
             if (st == InProgress) { why = "经验还不够"; return false; }
             _level[army] = level + 1;
+            RaiseRewardsCollected(army);   // = 原版 `Signal.Raise(UpgradeForgeSignal)`（见 `RewardsCollected` 的 doc）
             return true;
         }
 
@@ -189,23 +209,23 @@ namespace CardPresentation
         /// 两族图各自的映射**各留一份**，别互相抄。</summary>
         public static string ForgePointIcon(string army)
         {
-            switch (army)
-            {
-                case "Ultramarines": return "40K_general_icon_Forge_points_Ultramarines";
-                case "Goff": return "40K_general_icon_Forge_points_Goff";
-                case "SaimHann": return "40K_general_icon_Forge_points_SaimHann";
-                case "BlackLegion": return "40K_general_icon_Forge_points_BlackLegion";
-                case "DarkAngels": return "40K_general_icon_Forge_points_Dark_Angels";
-                case "Genestealers": return "40K_general_icon_Forge_points_Genestealers";
-                case "TauEmpire": return "40K_general_icon_Forge_points_TauEmpire";
-                case "Sautekh": return "40K_general_icon_Forge_points_Sautekh";
-                case "AstraMilitarum": return "40K_general_icon_Forge_points_AstraMilitarum";
-                case "Leviathan": return "40K_general_icon_Forge_points_Leviathan";
-                case "Sororitas": return "40K_general_icon_Forge_points_Sororitas";
-                case "EmperorsChildren": return "40K_general_icon_Forge_points_Emperors_Children";
-                case "SpaceWolves": return "40K_general_icon_Forge_points_SpaceWolves";
-                default: return "40K_general_icon_Forge_points";   // 不带阵营后缀的那张（兜底）
-            }
+            // 🔴 **2026-10-28（B88_B2）：收口到 `Core/ArmyIcons.ForgeIconName`** ——
+            //   原来这里内联了一张 13 条的 `case` 表，与 `Core/ArmyIcons.cs` 的 `ForgeTable` **是同一份映射**
+            //   （两张表逐条相同：`Ultramarines→…_Ultramarines` … `SpaceWolves→…_SpaceWolves`）。
+            //   铁律「两处写同一条规则 = 迟早不一致」＋用户 2026-10-28 点名 ⇒ **只留 `ArmyIcons` 那一份**。
+            //
+            // 🔴 **同时删掉原来那条兜底** `default: return "40K_general_icon_Forge_points";`
+            //   （= 不带阵营后缀的那张通用图标）：
+            //   原版 `ArmyUtilities.GetForgeIconForArmy` **查不到就返回 null sprite**（判据 → `ArmyIcons.ForgeIconName`
+            //   的 doc：`ArmyIconsSO.TryGetItem` 没命中 ⇒ null），**没有**「退回通用图标」这一档；
+            //   那条兜底是**我们自己加的**，而且当时**没打 `🔶 自己设计`** ⇒ 按「一切照原版复刻」的口径删掉。
+            //   ⇒ 认不出的阵营现在返回 **null**：调用方（`ForgeTab` 的 `Points/Army` 那一格）按「取不到图就不画」处理
+            //     —— 原版那一档也是「没有图」，⛔ 不拿别的阵营的图标顶替（同 `ArmyIcons` 里那几条 doc 的口径）。
+            //
+            // ⚠️ `Neutral(0)` / 空串 / 未知名 ⇒ 一律 `null`（原版同形）；本方法的 13 个生产调用点传的都是
+            //   `ForgeData.Armies` 里的合法阵营名 ⇒ 生产路径**逐像素不变**（13 条映射与旧表逐条相同）。
+            //   ⚠️ 行号纪律（§18·b）：本块与旧块**同为 19 行** —— `AddPoints` 的账落点 `:300` 才不漂。
+            return ArmyIcons.ForgeIconName(army);
         }
 
         /// <summary>一格的经验文案。**照原版** `"{currentPoints}/{neededPoints}"`（`ForgeRewardItemContainer__Initialize.c:200-202`）。</summary>
@@ -228,6 +248,60 @@ namespace CardPresentation
             _level.Clear(); _points.Clear();
             for (int i = 0; i < Armies.Length; i++) Init(Armies[i], i);
             Selected = Armies[1];
+        }
+
+        // ============================================================ 🆕 2026-10-27（B88-E7）
+        /// <summary>**一次领掉全部可领的格子** —— 原版 `Forge.CollectRewards` 的等价物
+        /// （`out_cpp2il_dev_ilspy/Everguild/LiveOps/Forge.cs:54-61`：
+        ///  `GetRewardsToCollect() = rewards.Skip(rewardsCollected).Where(r =&gt; currentPoints &gt;= r.Points)`
+        ///  ⇒ **经验够几档就一次领几档**，⛔ 不是「一次只领一格」）。
+        /// <para>我们这一版每格的门槛是**累计值**（`NeededAt`，判据见文件头），而 `rewardsCollected` 就是
+        /// <see cref="LevelOf"/> ⇒ 那条 `Skip(collected).Where(points &gt;= 本格 Points)` 等价于
+        /// 「从 `collected` 起，只要够门槛就连续领」—— 逐格调 <see cref="Claim"/> 走同一个状态闸（不另写一套）。</para>
+        /// <para>返回**真的领到几格**；一格都领不到时 <paramref name="why"/> 说明原因（⛔ 不静默）。</para></summary>
+        public static int ClaimAll(string army, out string why)
+        {
+            why = null;
+            int n = 0;
+            while (true)
+            {
+                int lv = LevelOf(army);
+                if (lv >= MaxLevel) { why = "已经满级"; break; }
+                if (PointsOf(army) < NeededAt(lv)) { why = "经验还不够下一格"; break; }
+                string cellWhy;
+                if (!Claim(army, lv, out cellWhy)) { why = cellWhy; break; }
+                n++;
+            }
+            if (n == 0 && why == null) why = "没有可领的格";
+            return n;
+        }
+
+        /// <summary>**领奖成功的信号** —— 原版 `UpgradeForgeSignal` 的等价物：
+        /// `Forge.CollectRewards` 的成功回调 `Signal.Raise(new UpgradeForgeSignal { army })`
+        /// （`Everguild/LiveOps/Forge.cs:121-122`，全树唯一 Raise 点），消费者 = `UpgradeForgeLevel.OnTrigger`
+        /// （`MissionChallenge.UpdateProgress(this, 1, false)` ⇒ **成就「锻造升级」进度 +1**）。
+        /// <para>⚠️ **消费者还没接**：`UpgradeForgeLevel` 这个组件在本地 build 里**0 实例**
+        /// （`grep -rl UpgradeForgeLevel assets_full` 只命中 `MonoScript_4027.json`），
+        /// 102 条成就里也**没有锻造相关的那条**（判据 → `Resources/profile_cosmetics.json` 的 `c` 列全表）
+        /// ⇒ 拿不到 `Ach_&lt;锻造升级&gt;` 的 id 与阈值 ⇒ **不编一个 id 去写进度**（铁律 2）。
+        /// 接线条件：拿到那条成就的 id 后，在这里挂一个 `AddAchievementValue(id, 1)` 即可。</para></summary>
+        public static event System.Action<string> RewardsCollected;
+        static void RaiseRewardsCollected(string army)
+        {
+            var h = RewardsCollected;
+            if (h != null) h(army);
+        }
+
+        /// <summary>战斗/任务给锻造点（原版 `ForgeHandler.CollectPoints(Points point, int amount)`，
+        /// `Everguild/LiveOps/ForgeHandler.cs:324` —— 原版是**服务端**加点）。
+        /// 🔴 **2026-10-27（B88-E7）**：本仓原来**没有生产侧的加点入口**（只有 `SetLevelForTest` 改数）
+        /// ⇒ 补这一格。⚠️ **生产调用点还欠**：`BattleDriver` 的结算那一拍（本波那文件有别的写手，
+        /// 见 `资料/完全复刻/调度台日志.md` 的文件所有权表）⇒ 现在**谁都不会调它**，如实记在这里。</summary>
+        public static void AddPoints(string army, int amount)
+        {
+            if (string.IsNullOrEmpty(army) || amount == 0) return;
+            int cur = PointsOf(army);
+            _points[army] = System.Math.Max(0, cur + amount);   // 原版是累计加，不封顶（封的是显示档）
         }
     }
 }

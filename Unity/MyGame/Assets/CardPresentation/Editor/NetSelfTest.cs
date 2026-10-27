@@ -1154,6 +1154,13 @@ public static class NetSelfTest
             d1.CardIds.Add("UM46");
             Ok(NetMatchmaking.TryStart(d1, "Classic", "Ultramarines", out string _), "M④ 主机点 `Battle!` ⇒ 进匹配");
             Ok(NetMatchmaking.Waiting, "M⑤ 主机在等对面交卡组（`Waiting`）");
+            // 🔴 **2026-10-28（B88-E8c）**：真 Play 里 `NetRuntime.Update` **每帧** Pump 两台会话 ⇒ 客机在掉线
+            //   之前就已经观察到「本机在匹配中」（`NetSession.Pump` 那句粘性观察，`_wasInLobbyMatch`）。
+            //   批处理夹具没有帧循环 —— 不补这一下，客机上一次 Pump 还停在 M② 的握手（那时还没匹配），
+            //   于是掉线时粘性标志是假 ⇒ 下面的自动重连**一次都不会发生**（M⑪ 就是这么红的，日志里一条
+            //   「正在重连」都没有）。⇒ 这里照生产的每帧节拍补一次 Pump，**不是**为了让它绿而造假：
+            //   匹配账是 M④ `TryStart` 真开出来的。
+            host.Pump(); cli.Pump();
             NetRuntime.DrainNoticesForTest();
 
             // ---- ① 对面**掉线**（心跳超时 / 连接断）⇒ 必须出声 ----
@@ -1205,7 +1212,10 @@ public static class NetSelfTest
 
             // ---- ② 对面**回来** ⇒ 撤销（撤窗 + 提示行改口）----
             int hide0 = NetRuntime.HidePopupCallsForTest;
-            cli.CheckConnection(Cfg(port, ""));      // 大厅阶段**没有**自动重连退避（`NetSession.Pump` 那条要 `_wasInBattle`）⇒ 手动重连
+            // 🆕 2026-10-27（账 `联机:81`）：大厅阶段现在**也自动重连**（`NetSession.Pump` 的退避闸在
+            // `_wasInLobbyMatch` 快照为真时放行）⇒ 这里**不再手动 `CheckConnection`**，让下面那 6 秒的
+            // `PumpUntil` 自己去等它连回来（退避首跳是**立刻**一次、之后每 2 s；首跳会被主机当「候选」拒掉
+            // —— 那一刻主机还没判出旧连接已死 —— 第二跳才通）。⛔ 改回手动重连 = 这条就不测新路径了。
             Ok(PumpUntil(host, cli, () => host.State == NetState.Lobby && cli.State == NetState.Lobby, 6000),
                "M⑪ 对面回来了（两边都回到 `Lobby`）");
             rt.AttachForTest(host);
@@ -1773,7 +1783,11 @@ public static class NetSelfTest
         cli.Transport.ClosePeer();
         Ok(PumpUntil(host, cli, () => !host.Transport.IsConnected, 4000), "N⑭ 对面掐断 ⇒ 连接位清掉");
         Eq(host.Transport.AcceptedCount, 1, "N⑮ 掉线**不动**计数");
-        cli.Close(false);     // 停掉这一头（它进不了自动重连：没 `EnterBattle` ⇒ `_wasInBattle` 是假）
+        // 🆕 2026-10-27（账 `联机:81`）：大厅阶段现在**也自动重连** ⇒ 这一头还进不进自动退避，
+        //   判据从 `_wasInBattle` 变成了 `_wasInLobbyMatch`（掉线那一刻 `NetMatchmaking.InLobbyMatch` 的快照）。
+        //   本段没有匹配账 ⇒ 先显式 `Reset()` 把 `_myDeck` 清掉，`cli` 才不会自己连回来（否则 N⑯ 的计数会变 3）。
+        NetMatchmaking.Reset();
+        cli.Close(false);     // 停掉这一头（`InLobbyMatch` 为假 ⇒ 它不进自动重连）
 
         var cli2 = NetSession.NewTcp();
         cli2.CheckConnection(Cfg(port, ""));

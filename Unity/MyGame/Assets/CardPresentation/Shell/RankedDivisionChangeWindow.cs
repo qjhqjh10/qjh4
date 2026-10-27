@@ -256,9 +256,9 @@ namespace CardPresentation
             _baseQuad.Clear();
             _nodeCache.Clear();
 
-            // ---- 1) `Menu Dark Background`（`BackgroundCloseButton.window = 0` ⇒ 点暗底**不**关窗）----
+            // ---- 1) `Menu Dark Background` —— 🔴 2026-10-27（B88_E6）就地订正（铁律 5）：原写「`BackgroundCloseButton.window = 0` ⇒ 点暗底**不**关窗」不成立 —— `window=0` 只关**基类**那条自动关窗，派生窗自己加了监听（`RankedEventDivisionChangeWindow[NewSystem]__OnEnable.c:15-22` = `backgroundCloseButton(+0x78/+0x70).onClick.AddListener(CloseButton)`；`…__CloseButton.c:9` 首句 = 虚表 `+0x1b8` = `Close()`）⇒ **点暗底会关窗**。
             _dark = MenuDraw.Node(transform, "Menu Dark Background", DarkR);
-            MenuDraw.Rect(_dark, CardArt.Solid(), DarkR, "Image", QShade, ShadeTint);
+            MenuDraw.Rect(_dark, CardArt.Solid(), DarkR, "Image", QShade, ShadeTint); MenuDraw.ShadeHit(_dark, DarkR, QShade, QTitle, () => Close(), "BackgroundCloseButton");
 
             // ---- 2) `Title`（PROMOTED! + 左右两颗模式图标）----
             _title = MenuDraw.Node(transform, "Title", TitleR);
@@ -272,20 +272,20 @@ namespace CardPresentation
             MenuDraw.Node(_title, "Game Mode Icon Right", ModeIconRightR);
             NoteNoArt("Game Mode Icon Left/Right", "`gameModeIcons` 两颗的 `Image.m_Sprite` 都是 0（运行期由服务端图标喂）");
 
-            // ---- 3) `Division Image`（段位大图；原版 `sprite = 0` ⇒ 不画）----
+            // ---- 3) `Division Image`（段位大图）----
             _division = BuildDivisionImage();
-            if (string.IsNullOrEmpty(_ctx.DivisionLabel))
+            DivisionArtUsed = DivisionArtOf();     // 段位号 → 图名（表 = `RankedDivisionInfo.DivisionArt`，7 条字节证据）
+            if (string.IsNullOrEmpty(DivisionArtUsed))
             {
                 DivisionArtBlank = true;
-                NoteNoArt("Division Image", "段位大图 = 服务端 `RankedDivisions.GetDivisionData(...).AssetReferenceTyped`，"
-                                          + "本机没有「段位号→图名」对照表");
+                // 🔴 2026-10-27（B88_E10）就地订正（铁律 5）：原写「本机没有段位号→图名对照表」**已过期** ——
+                //   表就在 `RankedDivisionInfo.DivisionArt`（判据 → 那份文件的 doc：`RankedDivisionsSO.asset` 7 条 + Sprite GUID 逐条相等）。
+                //   现在只剩这一种情况不画：**本窗没拿到段位号**（原版由服务端 `RankedDivisions.GetDivisionData` 给）。
+                NoteNoArt("Division Image", "本窗没拿到段位号（`Context.DivisionLabel` 为空且 `DivisionNumber` 未设）"
+                                          + "⇒ 段位大图不画（节点照建，`_Blend` 挂载点保留）");
             }
-            else
-            {
-                // 给了段位名也没图（判据仍缺）—— 节点照建、仍不画，出声说明。
-                DivisionArtBlank = true;
-                NoteNoArt("Division Image", "给了段位名 `" + _ctx.DivisionLabel + "`，但**段位图名对照表本地没有**");
-            }
+            // ⚠️ 原版同一处（`ChangeParticleEffectAndSpriteRank`）还换 `ParticleSystem` —— 粒子那半归特效线（容器 `Particles DivisionUp`/`Rank Up` 仍是空壳）。
+            DivisionArtBlank = string.IsNullOrEmpty(DivisionArtUsed);
 
             // ---- 4) `Division Image/Rank Icon`（+ 出厂关着的 `Rank Icon Glow`）----
             //   原版：`Rank Icon` 布局 67.418²、`m_LocalScale = 1.090329` ⇒ 视觉 73.51²。
@@ -1258,8 +1258,17 @@ namespace CardPresentation
         /// <summary>建 `Division Image`（+ 挂载载体 + 材质组件）。失败时退回空节点并**出声**。</summary>
         Transform BuildDivisionImage()
         {
-            var quad = MenuDraw.Rect(transform, CardArt.Solid(), DivisionR, "Division Image", QDivision,
-                                     new Color(1f, 1f, 1f, 0f));
+            // 🆕 2026-10-27（B88_E10 · 账 `个人资料_成就_排行:221`）：段位大图**真的画出来**。
+            //   判据 = 原版 `ChangeParticleEffectAndSpriteRank(Image, ParticleSystem, Sprite)` 的**第一件事**
+            //   （`decomp_full/RankedEventDivisionChangeWindowNewSystem__ChangeParticleEffectAndSpriteRank.c`：
+            //    `if (rankSprite != 0) Image.set_sprite(rankSprite)`）—— 我们这一侧 = 把 `MenuDraw.Rect` 的
+            //    **纹理**从纯色换成那张段位图、**alpha 从 0 提到 1**（原来那两格是「没有图」的占位）。
+            //   ⚠️ 图名来自 `RankedDivisionInfo.DivisionArtName`（7 条字节证据，⛔ 不在这里另编一张表）。
+            string art = DivisionArtOf();
+            var tex = string.IsNullOrEmpty(art) ? null : Tex(art, "`Division Image` 的段位大图");
+            bool drawn = tex != null;
+            var quad = MenuDraw.Rect(transform, drawn ? tex : CardArt.Solid(), DivisionR, "Division Image", QDivision,
+                                     new Color(1f, 1f, 1f, drawn ? 1f : 0f));
             if (quad == null)
             {
                 // `MenuDraw.Rect` 整块落在裁切框外 ⇒ 不建（既有语义）。这一档丢的是**材质挂载点**，不是图。
@@ -1272,6 +1281,34 @@ namespace CardPresentation
                 quad.GetComponent<MeshRenderer>(),
                 WarpforgeVFX.AnimateUIMaterialProperty.Slot("_Blend", 0f));
             return quad.transform;
+        }
+
+        // ============================================================ 段位大图（2026-10-27 · B88_E10 · 账 `221`）
+        /// <summary>`Division Image` 上现在画的是哪张图（= `RankedDivisionInfo.DivisionArtName` 的返回值；
+        /// 空串 = 没画）。自检读口。</summary>
+        public string DivisionArtUsed { get; private set; }
+
+        /// <summary>段位号（原版由服务端 `RankedDivisions.GetDivisionData` 给；本地没有 ⇒ 调用方自己设）。
+        /// ⚠️ 追加在本窗**类尾之后**（`Build()` 之前不动）—— `Context` 是 struct，往里加字段会让
+        /// 本文件 `:475/:753/:764/:774/:823/:1163` 那几条账落点整体下移，按铁律 18·b 一律不动它。</summary>
+        public int? DivisionNumber;
+
+        /// <summary>段位号 → 图名：`DivisionNumber` 给了就用它；否则拿 `Context.DivisionLabel` 在
+        /// `RankedDivisionInfo` 的官方段位名表里**反查**（`Ranked/Division/1..7` = Iron..Legendary，现读全在
+        /// `official_loc_13lang.json`）。两路都取不到 ⇒ 空串（调用方 `NoteNoArt` 出声、不画）。
+        /// ⛔ 这里**不编**段位号、也不退回演示值 —— 那会画出一张原版此刻不会画的图。</summary>
+        string DivisionArtOf()
+        {
+            if (DivisionNumber.HasValue) return RankedDivisionInfo.DivisionArtName(DivisionNumber.Value) ?? "";
+            if (!string.IsNullOrEmpty(_ctx.DivisionLabel))
+                for (int n = 1; n <= RankedDivisionInfo.DivisionArtCount; n++)
+                {
+                    string key = "Ranked/Division/" + n;
+                    string nm = Loc.T(key);
+                    if (!string.IsNullOrEmpty(nm) && nm != key && nm == _ctx.DivisionLabel)
+                        return RankedDivisionInfo.DivisionArtName(n) ?? "";
+                }
+            return "";
         }
 
         /// <summary>建 `Rank Icon`（+ 挂载载体 + 材质组件）。失败时退回空节点并**出声**。</summary>

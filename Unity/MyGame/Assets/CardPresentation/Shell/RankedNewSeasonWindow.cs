@@ -9,13 +9,13 @@
 //     `type = 1`(Popup) · `windowsPlacement = 15`(Popup) · `closeOnESC = 1` · `updateNavPanel = 0` ·
 //     `extraScaleSmallScreen = 1.0` · `openSound` / `closeSound` = 空 PPtr · `useDefaultCloseSoundIfNull = 1`
 //   ⇒ 关窗音走家族默认（`GameWindow.Close()` 的既有实现），本窗**不赋任何 clip**。
-//   字段 PPtr 实读：`backgroundCloseButton.window = 0`（**点暗底不关窗**）· `timeToEnd` → `Timer` 那颗 TMP。
+//   字段 PPtr 实读：`backgroundCloseButton.window = 0` · `timeToEnd` → `Timer` 那颗 TMP（🔴 点暗底**会**关窗，见下行订正）。
 // · 行为（第一权威 = 反编译 `d:/2/tools/decomp_full/RankedEventStartSeasonWindow__Initialize.c`）：
 //   `timeToEnd - PlayerDataManager.CurrentServerDateTime()` → `SupportMethods.GetTimeString(span, 1)` →
 //   `string.Format(I2("Ends in: {0}" 那一族), timeString)` → 写进 `timeToEnd.setText(...)`。
 //   ⇒ **截止时间是服务端数据**（本地没有）⇒ 出厂显示 `--` + 出声一次，⛔ 不编一个日期。
-//   `OnEnable` / `OnDisable` 只是给 `backgroundCloseButton.onClick` 挂/摘监听（那颗的 `window` PPtr 是 0，
-//   ⇒ 原版那一刻点暗底也**不**关窗 —— 与 `backgroundCloseButton.window == 0` 自洽）。
+//   `OnEnable` / `OnDisable` 只是给 `backgroundCloseButton.onClick` 挂/摘监听（`RankedEventStartSeasonWindow__OnEnable.c:15-22`）。
+//   🔴 **2026-10-27（B88_E10）就地订正（铁律 5）**：原写「`window == 0` ⇒ 点暗底也**不**关窗」**不成立** —— `window = 0` 只关掉**基类**那条自动关窗，派生窗在 `OnEnable` 里**自挂**了监听 ⇒ **点暗底会关窗**。
 //
 // ============================ 我们侧的对位（逐件写清，不冒充原版）============================
 // · **文案**：标题走 `Localize.mTerm = MainMenu/RankedWindow/NewRankedSeason`；倒计时走
@@ -141,9 +141,9 @@ namespace CardPresentation
             _back = _title = _timer = _timerIcon = null;
             _titleLabel = _timerLabel = null;
 
-            // ---- 1) `Back Background`（`BackgroundCloseButton.window = 0` ⇒ 点暗底**不**关窗）----
+            // ---- 1) `Back Background`（🔴 2026-10-27 B88_E10 订正：`window = 0` 只关基类那条 ⇒ 派生窗自挂监听，**点暗底会关窗**，判据 `RankedEventStartSeasonWindow__OnEnable.c:15-22`）----
             _back = MenuDraw.Node(transform, "Back Background", BackR);
-            MenuDraw.Rect(_back, CardArt.Solid(), BackR, "Image", QShade, ShadeTint);
+            MenuDraw.Rect(_back, CardArt.Solid(), BackR, "Image", QShade, ShadeTint); MenuDraw.ShadeHit(_back, BackR, QShade, QTitle, () => Close(), "BackgroundCloseButton");
 
             // ---- 2) `Title`：fs 87.01 · base 87.01 · **AUTO=0**（min18/max72 是死字段）· Center/Middle ----
             // 🔴 `autoMinPx` 传 **0** ⇒ **不开自适应**（`MenuDraw.TextCore` 的闸 = `autoMinPx > 0 && fontPx > autoMinPx`），

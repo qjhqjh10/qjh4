@@ -1751,6 +1751,43 @@ def ability_multipliers_of(cid, name, trow, report):
     return out
 
 
+def ability_damage_of(cid, name, trow, report):
+    """一张卡 → `[{"ab":…, "lg":…, "min":…, "max":…, "opt":…, "type":…}]`（按 `cardAbilities` × `abilityLogic` 顺序）。
+
+    🆕 2026-10-28（B88 · 执行代理 `A1c`）：原版 `AbilityLogic.damageCriteria` 的四个字段
+    （`minDamage` / `maxDamage` / `valueOptions` / `damageType`）。**为什么新增这一列**：
+    `valueOptions == 90 (RandomizedOnResolution)` 的**逐目标掷**只能靠这一位分流；
+    而 `CardDef.ConditionSpec` 的十种 role 里**没有** `damage` ⇒ 运行期拿不到
+    （判据 → `资料/完全复刻/判据/B88_R1_90档_逐卡施工单.md` §三·4）。
+    ⚠️ **只有 damage 族（`chosenAbility` ∈ 10/12/13/15）才被消费**；其余行的 damageCriteria
+    是 SO 序列化默认值（`R1` §一·b 那 7 张 / 22 行），消费端会按 op 的 verb 自然跳过。
+
+    真值快照里没有这张卡 ⇒ `None`（调用方**不落列** = 未知）。
+    缺键 / 非整数 ⇒ 该格落 `-1` 并出声（⛔ 不猜成 0 —— `0` 是合法的 `valueOptions = Normal`）。
+    """
+    if trow is None:
+        report["no_truth"] += 1
+        return None
+    out = []
+    for i, ab in enumerate(trow.get("cardAbilities") or []):
+        for j, lg in enumerate(ab.get("abilityLogic") or []):
+            dc = lg.get("damageCriteria") or {}
+            def _g(key, _dc=dc, _i=i, _j=j):
+                v = _dc.get(key)
+                if isinstance(v, bool) or not isinstance(v, int):
+                    report["bad"].append((cid, name, _i, f"lg{_j}.damageCriteria.{key}", v))
+                    return -1
+                return v
+            out.append({"ab": i, "lg": j, "min": _g("minDamage"), "max": _g("maxDamage"),
+                        "opt": _g("valueOptions"), "type": _g("damageType")})
+            report["rows"] += 1
+    report["cards"] += 1
+    return out
+
+
+ABILITY_DAMAGE_REPORT = {"cards": 0, "rows": 0, "no_truth": 0, "bad": []}
+
+
 # ==========================================================================================
 #  🆕 2026-10-24（卡表数据 `D11` · 战斗审计 `D10` §6·1）：主动能力**整条链**
 #    → 逐卡 `activeAbilityLogic` 列
@@ -4340,6 +4377,9 @@ def build_enchantment_entries(truth_cards, raw, cards, truth_by_path=None,
         _atc = ability_target_criteria_of(uid, name, r, truth_by_path or {},
                                           ABILITY_TARGET_CRITERIA_REPORT)
         if _atc is not None: entry["abilityTargetCriteria"] = _atc
+        # 🆕 v36（`A1c`）：`damageCriteria` 四格（判据 → `判据/B88_R1_90档_逐卡施工单.md` §三·4）
+        _admg = ability_damage_of(uid, name, r, ABILITY_DAMAGE_REPORT)
+        if _admg is not None: entry["abilityDamage"] = _admg
         _alc = ability_level_criteria_of(uid, name, r, truth_by_path or {},
                                          ABILITY_LEVEL_CRITERIA_REPORT)
         if _alc is not None: entry["abilityLevelCriteria"] = _alc
@@ -5052,6 +5092,10 @@ def build():
         _atc = ability_target_criteria_of(cid, name, trow, truth_by_path, ABILITY_TARGET_CRITERIA_REPORT)
         if _atc is not None:
             entry["abilityTargetCriteria"] = _atc
+        # 🆕 v36（`A1c`）：`damageCriteria` 四格（判据 → `判据/B88_R1_90档_逐卡施工单.md` §三·4）
+        _admg = ability_damage_of(cid, name, trow, ABILITY_DAMAGE_REPORT)
+        if _admg is not None:
+            entry["abilityDamage"] = _admg
         # ---- 🆕 v26（执行代理 `E2` · `A3-2`）：**ability 级** `targetCriteria`（36 格）------------
         # 判据 / 形状 / 为什么带 `ab`、为什么不落 `lg` → `ability_level_criteria_of` 上面那段长注释。
         # ⚠️ **每张卡都落**（没有行 = `[]`；真值里没有这张卡才不落列）。
@@ -5616,7 +5660,8 @@ def build():
     talent_name_ids = build_talent_name_ids(truth_cards, truth_by_path, cards, talent_name_report)
 
     return {
-        "version": 35,         # v35（2026-10-27 · 第八十七会话 · 执行代理 `G1` · 批次 A）= 加三列
+        "version": 36,         # v36（2026-10-28 · 第八十八会话 · 执行代理 `A1c`）= 加 `abilityDamage`（`damageCriteria` 四格）
+                               #     ⚠️ 加列【必须】bump（`CardDatabase.cs` 的 version 守卫靠它出声）。
                                #     `cardDescriptionTextReferenceId` / `activeAbilityTextReferenceId` /
                                #     `targetingTextReferenceId`（原版 6 个 `*ReferenceId` 里的三个，
                                #     剩三个池内各 0 张 ⇒ 无对象、不落列：`cardRaceTextReferenceId` /

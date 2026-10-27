@@ -761,6 +761,30 @@ namespace RuleEngine
         /// ⚠️ 它**不进录像 / 联机**（同 <see cref="CardNames"/>：`BattleEvent` 不进 `.json`）。</para>
         /// </summary>
         public System.Collections.Generic.List<BattleEventTarget> AbilityTargetList;
+
+        /// <summary>
+        /// 🆕 **`EvtKind.Ability` 专用：这条能力的原版 `priority`**（`CardAbility.priority(+0x18)`，
+        /// 即 `ActionPriority`：`0 Player / 1 Instant / 2 Interrupt / 3 DelayedInstant`）。
+        ///
+        /// <para>判据（逐条）：
+        /// ① 原版 `BattleManager.AddCardAnim(…, int priority, …)` 的两处 `AbilityLogic.PlayAnim` 调用点
+        ///    传的是 **`AbilityData.priority`**（`decomp_full/AbilityLogic__PlayAnim.c:223` 的
+        ///    `*(undefined4 *)(param_3 + 0x44)`，`param_3 = AbilityData`）；
+        /// ② `AbilityData.priority` 由 `RawCardScript.TriggerAbility` 从 **`CardAbility.priority`** 灌入
+        ///    （`decomp_full/RawCardScript__TriggerAbility.c:32` 的 `uVar11 = *(uint *)(param_2 + 0x18)`）；
+        ///    主动技那一支是**固定 1**（`RawCardScript__ResolveActiveAbility.c:47` 的 `CONCAT44(uVar7,1)`）；
+        /// ③ 缺省 = `1`（`CardAbility__ctor.c:5` 写 `+0x18 = 1`）—— 所以**填 1 与不填在语义上不等价**
+        ///    （不填 = 0 = `Player` 道 = 消费序**最后**），但**在本字段接入之前**所有事件都不填 ⇒
+        ///    表现层看到的**仍然是 0**，与改动前逐字等价（零回归是硬要求）。</para>
+        ///
+        /// <para>消费端 = `BattleDriver` 把 `PlaySignals` 的每条信号排进时间线时带
+        /// `PendingSignal.lane = e.Priority` ⇒ 同一时刻多条时按 `AnimLaneRank`
+        /// （`2→1→3→0`）定先后；`at` 不同时仍是绝对时刻优先（我们本来就比原版细）。</para>
+        ///
+        /// <para>⚠️ **纯表现提示位，不进录像 / 联机**（同 <see cref="CardNames"/> / <see cref="AbilityTargetList"/>：
+        /// `BattleEvent` 不进 `.json`）。⚠️ 别的 `EvtKind` 不填这一位（保持 0）。</para>
+        /// </summary>
+        public int Priority;
     }
 
     /// <summary>

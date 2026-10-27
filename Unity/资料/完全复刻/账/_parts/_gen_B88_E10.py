@@ -1,0 +1,200 @@
+# -*- coding: utf-8 -*-
+"""生成 B88_E10.tsv（只读主表 + 写补丁，⛔ 不动主表）。"""
+import io, sys
+
+SRC = 'd:/4/Unity/资料/完全复刻/账/个人资料_成就_排行.tsv'
+OUT = 'd:/4/Unity/资料/完全复刻/账/_parts/B88_E10.tsv'
+
+ROWS = [2, 29, 48, 56, 57, 75, 76, 77, 97, 98, 141, 197, 198, 219, 221,
+        241, 244, 270, 271, 289, 301, 315, 328, 332, 337]
+
+# key = (原版类, 方法)；value = dict(状态=, 落点=, 差异=, 等级=, 备注=)
+U = {}
+
+U[('AccountTab', 'DisplayDeleteAccountMessage(string confirmationText, string confirmationPopupButtonString, string cancelPopupButtonString, Action<bool> OnConfirm)')] = dict(
+    **{'状态': 'B',
+       '落点': 'Shell/SettingsDeleteAccountFlow.cs:67（DisplayDeleteAccountMessage）（等价实现 = 两钮消息弹窗：走 WindowsManager.ShowPopUp，三个键全用官方词条）',
+       '差异': '**已复刻（B88_E10 2026-10-27）**：判据 `AccountTab__DisplayDeleteAccountMessage.c` —— 确认钮文案 = I2(`MainMenu/Settings/ButtonLabel/DeleteAccount`)、取消钮 = I2(`MainMenu/Settings/ButtonLabel/Back`)、`IsNullOrEmpty(取消键)` ⇒ 取消钮传 null（单钮那一档）、收尾 `WindowsManager.ShowPopUp(文案, …, 确认钮, 取消钮)`；调用方 `InactivateAccount()` 的文案 = `string.Format(I2("MainMenu/Notifications…DeleteAccountConfirm"), 玩家名)`（🥈 `out_cpp2il_dev_ilspy/AccountTab.cs:540-606`）。三个键现读全在 `Resources/official_loc_13lang.json`。**Delete 钮已接线**（`SettingsWindow.cs` 那一颗的回调改成 `() => SettingsDeleteAccountFlow.InactivateAccount(this)`）。**未做 = `ok == true` 之后那一段**：原版 `ShowPopUp("MainMenu/Notification/DeleteAccountWait")` → `PlayerDataManager.DeactivateAccountProcess` → PlayFab CloudScript → 清档退出 —— **整条在服务器（P3）**，本地**不假装**「正在删除」（那两句是服务器给的结局）⇒ 只出一句本地模拟说明（`SettingsWindow.AcLocalNote`，只有一份）。｜B88-E10 2026-10-27 C⇒B',
+       '备注': '逻辑放**新文件**（`SettingsWindow` 类里的账落点 `:6218/:6329/:6344` 排在文件后半段，往那个类里加行会整体漂移）+ `SettingsWindow.cs` 里那颗钮的回调**原地换成一行**（零行数变化）；`const AcLocalNote` 改成 `internal`（0 行变化）。验收口 = 点 `Delete Button` ⇒ 出现带「Delete account / Cancel」两钮的弹窗；点 Cancel ⇒ 窗关、什么都不发生；点 Delete account ⇒ 出一句本地模拟说明（⛔ 不出现「Account deletion in progress」）。'})
+
+U[('Achievement', 'OnReachMilestone(ChallengeMilestone currentChallenge)')] = dict(
+    **{'状态': 'B',
+       '落点': 'Shell/AchievementMilestoneToast.cs:56（OnValueChanged）（等价实现 = 跨档 Toast：每跨一档弹一条，文字三件套照抄原版）',
+       '差异': '**已复刻（B88_E10 2026-10-27）**：判据 🥇 `Everguild.LiveOps.Achievement__OnReachMilestone.c` / 🥈 `out_cpp2il_dev_ilspy/Everguild.LiveOps/Achievement.cs:658-719`。① `tier = rewards.IndexOf(milestone) + 1`；② 文案 = `string.Format(I2("Achievements/NewAchievementMessage"), I2("Achievements/Title/" + GetID()) + " " + tier)`；③ 称号键取不到 ⇒ **空串**；④ 每跨一档弹一条。**触发点** = `ProfileData.AddAchievementValue`（本仓成就进度**唯一**的累加写口，`BattleDriver` 的战果链走它）—— 在那一行末尾追加 `AchievementMilestoneToast.OnValueChanged(id, before, after)`（**零行数变化**）。⑥ `CurrentPoints += Quantity` = **等价**：我们的分不是可变字段，而是 `AchievementPointsOf` 按已达档求和 ⇒ 跨档后自然 +该档 `Quantity`。**未做**：⑤ 的**勋章图**（原版 `GetIconByTier(tier)` → `ToastNotificationContext(text, Sprite, …)`；我们的 `Shell/MessageToast.cs` **只有文字、没有图位**）⇒ 判 **B** 不是 A；⑦ Steam `SetAchievement`/`StoreStats` = **P3**。｜B88-E10 2026-10-27 C⇒B',
+       '备注': '图名口径已备：`40k_Achievements_icon_medal{档}`（`Shell/AchievementsMenu.cs` 的 `ArtMedalPrefix`；⚠️ 那边已标「档↔图 是推断不是证据」）。要升 A 就给 `MessageToast` 加图位（那份文件不在本件白名单）。自检读口 = `AchievementMilestoneToast.FiredCount` / `LastText` / `ResetForTest()`；验收口 = 把某条成就推过第 1 档 ⇒ 屏上出现一条转瞬即逝的提示，文字形如「New achievement unlocked!\\n<称号> 1.」。'})
+
+U[('AchievementsMenu', 'OnOpen()')] = dict(
+    **{'状态': 'A',
+       '落点': 'Shell/AchievementsMenu.cs:634（OnOpen）（等价实现 = OnOpen：体就一句 RebuildCells()）',
+       '差异': '**已复刻（B88_E10 2026-10-27）**：判据 `AchievementsMenu__OnOpen.c:5-8` —— 体**只有一句** `Refresh()` ⇒ 每次切到成就页**重画**。我们的等价物 = `RebuildCells()`（「清空 + 逐条重画」= 原版 `Refresh()` 的形状），已覆写 `public override void OnOpen() { RebuildCells(); }`（追加在**类尾**，`:320`/`:356` 那两条落点零漂移）。｜B88-E10 2026-10-27 C⇒A',
+       '备注': '验收口 = 打一局涨成就后切回成就页，格子的进度条当帧就变（改前要点分类或滚动才重画）。'})
+
+U[('RankedEventDivisionChangeWindowNewSystem', 'ChangeParticleEffectAndSpriteRank(Image targetImage, ParticleSystem targetParticleSystem, Sprite rankSprite)')] = dict(
+    **{'状态': 'B',
+       '落点': 'Shell/RankedDivisionChangeWindow.cs:1259（BuildDivisionImage）（等价实现 = DivisionArtOf() + BuildDivisionImage()：段位图名走 RankedDivisionInfo.DivisionArtName）',
+       '差异': '**已复刻「换图」那一半（B88_E10 2026-10-27）**：判据 = 该方法**第一件事** `if (rankSprite != 0) Image.set_sprite(rankSprite)`。原来 `Division Image` 的 quad 是 `CardArt.Solid()` + **alpha 0**（不画），理由是「本机没有段位号→图名对照表」—— 🔴 **那条理由已过期**：表就在 `RankedDivisionInfo.DivisionArt`（7 条字节证据，判据 → 那份文件的 doc：`RankedDivisionsSO.asset` 的 7 条 `divisionNumber+image.m_AssetGUID` 与每张 Sprite 的 `m_RenderDataKey.guid` 逐条相等）。现在：`DivisionArtOf()` 取图名（`DivisionNumber` 给了就直接查；否则拿 `Context.DivisionLabel` 在官方段位名表 `Ranked/Division/1..7`（Iron..Legendary，现读全在）里**反查**），`BuildDivisionImage()` 用真图 + alpha 1。**未做 = 粒子那一半**（`targetParticleSystem` = `Particles DivisionUp`/`Rank Up`，仍只是空壳容器）—— 归**特效线**，不是本窗能单独关掉的。｜B88-E10 2026-10-27 C⇒B',
+       '备注': '⚠️ 段位号**不编**：`Context` 是 struct，往里加字段会让本文件 `:475/:753/:764/:774/:823/:1163` 几条落点整体下移 ⇒ 改成类尾的 `public int? DivisionNumber;`（`Context` 不动）。两路都取不到 ⇒ `NoteNoArt` 出声、不画（⛔ 不退回演示值，那会画出原版此刻不会画的图）。自检读口 = `DivisionArtUsed`。验收口 = 设 `DivisionNumber = 4` 再开窗 ⇒ `DivisionArtUsed == "04-Admiral"` 且 `Division Image` 那颗 quad 的 alpha = 1。'})
+
+U[('RankedEventStartSeasonWindow', 'CloseButton()')] = dict(
+    **{'状态': 'B',
+       '落点': 'Shell/RankedNewSeasonWindow.cs:136（Build）',
+       '差异': '**已复刻关窗（B88_E10 2026-10-27）**：判据 `RankedEventStartSeasonWindow__CloseButton.c`（⚠️ 该 `.c` **首行函数名是 `TutorialTipScript__StopTipPermanent`** = ICF 折叠，体 = 虚表 `+0x1b8` ⇒ 按 `Close()` 判，⛔ 别当解错）。落地 = `MenuDraw.ShadeHit(_back, BackR, QShade, QTitle, () => Close(), "BackgroundCloseButton")`（与另两扇排位弹窗**同形**；`QShade 3420 < QTitle 3421` 满足公共件的不变量）。**未做 = 原版第二句 `ChatPreviewMessage.Enable(true)`**（解禁聊天预览）—— 那是**横切链**（同一族 5 扇窗 + 其它弹窗都调），我们还没有那条设施 ⇒ 行 `219` 记着。｜B88-E10 2026-10-27 C⇒B',
+       '备注': '🔴 同刻订正了一处既有记录（铁律 5）：文件头/注释原写「`backgroundCloseButton.window = 0` ⇒ **点暗底不关窗**」**不成立** —— `window = 0` 只关掉**基类**那条自动关窗，派生窗在 `OnEnable` 里自挂监听 ⇒ **点暗底会关窗**。三处注释已就地改写（行数守恒）。验收口 = 开窗后点暗底 ⇒ 窗关。'})
+
+U[('RankedEventStartSeasonWindow', 'OnEnable()')] = dict(
+    **{'状态': 'A',
+       '落点': 'Shell/RankedNewSeasonWindow.cs:136（Build）',
+       '差异': '**已复刻（B88_E10 2026-10-27）**：判据 `RankedEventStartSeasonWindow__OnEnable.c:15-22` —— 体**就一句** `backgroundCloseButton.onClick.AddListener(CloseButton)`。我们没有那颗 uGUI 钮（压暗层是自绘 quad）⇒ 等价物 = `MenuDraw.ShadeHit(...)` 在 `Build()` 里一次挂上（树重建即重挂，语义 = 「进场时挂、离场时随树销毁」）。｜B88-E10 2026-10-27 C⇒A',
+       '备注': '与原版「旧 / NewSystem 两套」共用同一扇窗 —— 原版那五份 `OnEnable` 体**逐字同形**，本窗一份覆盖。'})
+
+U[('UIRankingListController', 'ChangeSeasonRankingView(bool optionShowCurrent)')] = dict(
+    **{'状态': 'B',
+       '落点': 'Shell/LeaderboardWindow.cs:931（SetSeasonView）（等价实现 = 五步：写 showCurrent / 切 Last Season Text / 换钮文案 / 重建行）',
+       '差异': '**已复刻 4/5 步（B88_E10 2026-10-27）**：判据 🥇 `UIRankingListController__ChangeSeasonRankingView.c` / 🥈 `out_cpp2il_dev_ilspy/UIRankingListController.cs:238-269`。① `showCurrent = 入参`（`ShowCurrent`，出厂 **true** = `ctor` 那句）；② `timerCounter.SetActive(showCurrent && showTimer)` —— 🔴 **无载体**：本窗 `Timer` 那一块**整块没建**（`BuildSeasonPieces` 头注就写着）；③ `lastSeasonText.SetActive(!showCurrent)` ✅；④ 钮文案 = `!showCurrent ? "MainMenu/RankedWindow/CurrentSeasonButton" : "…/LastSeasonButton"`（⚠️ **看着像反的、其实不是**：正看着上一赛季时那颗钮写「当前赛季」）✅ 原来**写死英文 `"Last season"`**，已改成走官方词条；⑤ `Refresh(!showCurrent)` —— 切「上一赛季」数据源**本地没有**（服务器 P3）⇒ 只重建同一条数据源。**未做**：②（无 Timer 节点）+ ⑤ 的数据源；⚠️ 生产路径**不可达**：原版那颗钮由 `AllowChangeSeason(上一赛季榜 key 非空)` 控制，我们恒 false ⇒ 只在自检里调。｜B88-E10 2026-10-27 C⇒B',
+       '备注': '自检读口 = `ShowCurrent`。验收口 = 建窗 → `SetSeasonView(false)` ⇒ `Last Season Text` 亮、钮文案变成官方「当前赛季」词条；再 `SetSeasonView(true)` ⇒ 两样还原。⛔ 不编一个「上一赛季榜」。'})
+
+U[('UIRankingListController', 'SetHighlightedRow(RankingRowData rowData)')] = dict(
+    **{'状态': 'B',
+       '落点': 'Shell/LeaderboardWindow.cs:901（RefreshHighlightedRow）（等价实现 = 在 Highlight Mount Point 下建一行 LeaderboardRow）',
+       '差异': '**机制已复刻（B88_E10 2026-10-27）**：判据 `UIRankingListController__SetHighlightedRow.c` —— `Instantiate(rankingRowPrefab, highlightMountPoint.transform)` → `Config(rowData)` → 改名 `Highlighted Row`。落地 = `Highlight Mount Point` 节点（几何 **prefab 现读** `254.9, 806.9 → 1624.2, 906.9` = 1369.33×100.00，出厂 **INACT**；嵌入版 `Ranked Leaderboard Display` **逐位相同**）+ `RefreshHighlightedRow()` 在每次重建行之后，把当前页里 `IsSelf` 那一行**钉一份**在挂点上。**未做 = 数据源**：原版那一行的 `rowData` 由调用方从「自己的名次」服务端数据给（自己不在前 N 时另取一次）；我们**没有那个来源**（`LeaderboardData` 的 `LocalScore` 缓存只被 `RaidEvent` 用过一条、与本窗 `Kind/Tab` 无映射）⇒ 只认「当前页里有没有自己」这一档，⛔ **不伪造**一条「我的名次」。｜B88-E10 2026-10-27 C⇒B',
+       '备注': '自检读口 = `HighlightMount` / `HighlightedRowShown` / `BuiltHighlightRows`。验收口 = 注入一批行、其中一条 `IsSelf = true` ⇒ `HighlightMount` 下恰好 1 行且名字是 `Highlighted Row`；注入的行里没有自己 ⇒ 挂点 `SetActive(false)`。'})
+
+U[('UIRankingListController', 'ShowHighlightedRow(bool state)')] = dict(
+    **{'状态': 'A',
+       '落点': 'Shell/LeaderboardWindow.cs:889（ShowHighlightedRow）（等价实现 = 对 Highlight Mount Point 做 SetActive）',
+       '差异': '**已复刻（B88_E10 2026-10-27）**：判据 `UIRankingListController__ShowHighlightedRow.c` —— **对 `highlightMountPoint` 的 GameObject 做 `SetActive(state)`**（⚠️ 账里原写「那颗**行**的 SetActive」是错的，按反编译订正为**挂点**）。落地 = `public void ShowHighlightedRow(bool)`，由 `RefreshHighlightedRow()` 按「有没有自己那一行」调用。｜B88-E10 2026-10-27 C⇒A',
+       '备注': '与 `SetHighlightedRow` 同一笔账（那一半的数据源缺，见上一行）。'})
+
+U[('RankedV2Event', 'OpenSeasonChangePopup(Action onComplete)')] = dict(
+    **{'状态': 'D',
+       '落点': 'Shell/WindowsManager.cs:1218（OpenRankedNewSeason）（等价实现 = 窗与入口都在，缺的只是服务端触发）',
+       '差异': '**判 D（B88_E10 2026-10-27）—— 客户端那一半早就做完了，剩下的是 P3。** 判据 🥇 `Everguild.LiveOps.RankedV2Event__OpenSeasonChangePopup.c`：① `WindowsManager.OpenWindow(LiveOpsAssetUtility.GetComponentReference(this, 0x15))`（= 开窗，我们 = `WindowsManager.OpenRankedNewSeason`）；② 紧接着 `PlayfabWrapper.GenericCloudScriptHandler(0x423, …)` 回调。**唯一调用方** = `RankedV3Event.<Expire>b__0`（活动到期回调，`Everguild.LiveOps.RankedV3Event.__c__DisplayClass12_0___Expire_b__0.c`）⇒ 整条触发链 = **LiveOps 活动生命周期 + PlayFab CloudScript**。我们**没有活动态状态机**（活动线 P1 未做）⇒ 生产调用点无处可挂（且 `Documents` 明确 ⛔ 不伪造调用点）。⇒ 按 P3（原版服务器/云后端）判 D。⏳**时间限定**：一旦活动线建出「事件到期」状态机，**本判必须重跑**（那时客户端只差一行 `OpenRankedNewSeason`）。｜B88-E10 2026-10-27 C⇒D',
+       '备注': '同 V3 那条一行（两行一起在同一个接线处收口）。'})
+
+U[('RankedV3Event', 'OpenSeasonChangePopup(Action onComplete)')] = dict(
+    **{'状态': 'D',
+       '落点': 'Shell/WindowsManager.cs:1218（OpenRankedNewSeason）（同 V2：窗与入口都在）',
+       '差异': '**判 D（B88_E10 2026-10-27）**：判据 🥇 `Everguild.LiveOps.RankedV3Event__OpenSeasonChangePopup.c`，与 V2 那份**同形**（开窗 + PlayFab CloudScript）；调用方 = `RankedV3Event.Expire` 的续体。⇒ 同 V2：触发链在 LiveOps + PlayFab（P3），本地没有活动状态机。⏳ 时间限定同 V2。｜B88-E10 2026-10-27 C⇒D',
+       '备注': '同一笔账（V2/V3 一起）。'})
+
+# ---------------------------------------------------------------- 维持 C / 只更新证据的 14 条
+BORDER_NOTE = ('🔴 **2026-10-27（B88_E10）现查订正（铁律 5）：原来那句「`Resources/profile_cosmetics.json` **无 `borders` 键** ⇒ 无边框物品清单」的**根因不是「本地没有」，是生成器只抽了 `Avatar_`/`Title_`/`ACH*` 三类、从没抽过 `Avatar Border*`**。'
+               '清单**一直在本地**：`素材/Warpforge原版/装饰品/定义数据/MonoBehaviour/Avatar Border*.json` 现读 **5 条** —— `Default` / `EC Release` / `Expansion pass` / `Expansion pass UM Guilliman` / `SW Release`；'
+               '字段（逐条实读）：`uniqueId` · `imageReference.m_AssetGUID` · **`autoAssign`（Default=0，另四条=1）** · **`parentEvent.targetId`**（`ECReleaseScoring`/`ExpansionOrks1Scoring`/`ExpansionUM1Scoring`/`SWReleaseScoring`）· `inInventory=1` · `inDropTables=1` · `showInCollectionOptions=5`。'
+               '**图只有两张**（5 条共用，GUID→图名都是查表直读）：`9d34f925…`→`Player Profile Border`（Default）· `d93f2c13…`→`Player Profile Border Gold`（四条活动边框**共用同一张**）。'
+               '⇒ 本笔**已把清单补进数据侧**：`工具/gen_profile_cosmetics.py` 新增 `load_borders()`，重新生成后 `Resources/profile_cosmetics.json` 多了 `borders` 键（5 条：`id`/`n`/`art`/`g`/`aa`/`pe`），**avatars/titles/achievements 三张表逐字节未变**（469/462/102）。')
+
+U[('AvatarBorderController', 'Initialize()')] = dict(**{
+    '状态': 'C',
+    '落点': 'Shell/AvatarTab.cs:443（BuildRows）',
+    '差异': BORDER_NOTE + ' **本条仍 C**：要真做还差三步 —— ① `Player Profile Border Gold` 这张 Sprite **还没进美术树**（`素材/…/装饰品/头像/Sprite/` 只有 `Player Profile Border`）⇒ 要过导入器（`工具/import_original_art.py`）；② 「玩家**拥有**哪几条边框」在服务器（`PlayerAvatarDataManager` / `fullCosmeticCollection`），本地只有**定义**；③ 装备/切换那套（`PlayerAvatarDataManager.SetCurrentItem`）没有落点。｜B88-E10 2026-10-27 证据更新（仍 C）',
+    '备注': '数据侧已备齐（见 `差异` 列）。下一步 = 导入 Gold 图 → `ProfileData` 加 `Borders`/`EquippedBorder`（读新 `borders` 键）→ `AvatarTab`/`ProfileTab` 的 `Border` 层改读它（今天两处都写死常量 `AvatarTab.ArtBorder = "Player_Profile_Border"`）。⛔ 别在 `AvatarTab` 里硬编一个边框清单。'})
+
+U[('AvatarBorderController', 'Initialize(PlayerInfo playerInfo)')] = dict(**{
+    '状态': 'C',
+    '落点': 'Shell/ProfileTab.cs:608（BuildPlayerInfo）',
+    '差异': '同上（`Initialize(PlayerInfo)` 重载）：按传入玩家取已装备边框并设 sprite；我们只有默认边框一张 ⇒ 无『取哪一件』这一步。' + BORDER_NOTE + '｜B88-E10 2026-10-27 证据更新（仍 C）',
+    '备注': '与上一行同一笔账（见那一行的三步）。'})
+
+U[('AvatarTab', 'CheckEnableAvatarBorder()')] = dict(**{
+    '状态': 'C',
+    '落点': 'Shell/AvatarTab.cs:613（Refresh）',
+    '差异': '原版 `CheckEnableAvatarBorder` = 按 `FindActiveAvatarBorder() != null` 决定**那颗钮能不能点**；我们**简化成「开关边框那一层」**（`:626-628` 已自陈「这是我们的做法」）⇒ 行为不同（原版没有可用边框时那颗钮是灰的/不可点）。' + BORDER_NOTE + ' ⚠️ **在今天的数据模型下这条差别的可观测值为 0**：默认边框恒在（`autoAssign=0` 但它就是兜底那一条）⇒ `FindActiveAvatarBorder()` 恒非 null ⇒ 钮恒可点，与我们的现状一致。⇒ **要做这条必须先有「装备/拥有」那一层**（见上一行的 ②③）。｜B88-E10 2026-10-27 证据更新（仍 C）',
+    '备注': '与边框清单那笔账合并做：有清单+装备层后按「是否存在非默认且活动中的边框」置 `_btnHit.Interactable`。'})
+
+U[('AvatarTab', 'DoBorderRefresh()')] = dict(**{
+    '状态': 'C',
+    '落点': 'Shell/AvatarTab.cs:613（Refresh）',
+    '差异': '原版 `DoBorderRefresh` = **只在活动期间**才重刷边框（活动态在 LiveOps）；我们**没有活动态查询层**（活动线 P1 未做）、也没有装备层 ⇒ 这一支无实现。' + BORDER_NOTE + '｜B88-E10 2026-10-27 证据更新（仍 C）',
+    '备注': '卡在**活动线**（LiveOps 活动态查询层）：`parentEvent.targetId` 四个 key 已经在数据里（`borders[].pe`），差的是「这个活动此刻开不开」那一层。'})
+
+U[('AvatarTab', 'FindActiveAvatarBorder()')] = dict(**{
+    '状态': 'C',
+    '落点': 'Shell/AvatarTab.cs:613（Refresh）',
+    '差异': '原版在**背包**里找当前装备的边框（`Inventory` 扫描）；我们的 `profile_cosmetics.json` 现在有**定义清单**（5 条）但**没有背包**（哪几条是「我的」在服务器）⇒ 无此查找。' + BORDER_NOTE + '｜B88-E10 2026-10-27 证据更新（仍 C）',
+    '备注': '同边框清单那笔账。'})
+
+U[('CosmeticItemAvatarBorder', 'HandleOnCollect(int rewardQuantity)')] = dict(**{
+    '状态': 'C',
+    '落点': 'Shell/ProfileData.cs:1024（AvatarBorderOn）',
+    '差异': '原版 `HandleOnCollect`：收到边框奖励后**自动装备**它（`PlayerAvatarDataManager.SetCurrentItem(this,…)`，`CosmeticItemAvatarBorder__HandleOnCollect.c:12-20`）；我们**没有背包/领奖链**（`borders[].aa=1` 那四条就是「拿到即自动装备」的标记，但没有「拿到」这个动作）⇒ 这条链无处落地。' + BORDER_NOTE + '｜B88-E10 2026-10-27 证据更新（仍 C）',
+    '备注': '与边框清单那笔账合并；验收口 = 活动奖励发一个边框 → 自动变成当前边框。'})
+
+U[('CosmeticItemAvatarBorder', 'IsParentEventActive()')] = dict(**{
+    '状态': 'C',
+    '落点': 'Shell/ProfileData.cs:1024（AvatarBorderOn）',
+    '差异': '原版查**所属活动**是否还开（`LiveOpsManager.GetEvent(父活动)` → 取某一标志）；我们**没有活动态查询层**（活动线 P1 未做）。' + BORDER_NOTE + '（`borders[].pe` 四个 targetId 已在数据里，差的是活动状态本身）｜B88-E10 2026-10-27 证据更新（仍 C）',
+    '备注': '与活动线联动：活动态查询层做好后，边框可用性由它判。'})
+
+U[('PlayerAvatarDataManager', 'RefreshExpiredBorders()')] = dict(**{
+    '状态': 'C',
+    '落点': 'Shell/ProfileData.cs（`AvatarBorderOn` / 5 条 `borders` 定义）',
+    '差异': '缺：限时边框到期自动卸下。' + BORDER_NOTE + ' ⇒ **过期语义所需的原料已有**（`borders[].pe` = 父活动 key），**缺的是** ① 活动的起止时刻（服务器）② 装备层。｜B88-E10 2026-10-27 证据更新（仍 C）',
+    '备注': 'P2 —— 卡在活动线 + 装备层。'})
+
+U[('RankedArmyBonusContainer', 'Clean()')] = dict(**{
+    '状态': 'C',
+    '落点': 'Shell/RankedTab.cs:263（Build）',
+    '差异': '我们**没有**『阵营加成』容器：`RankedTab.Build` 只建 `Profile Player Info` / `Top4` / `AllFactions`（`:263-269`），全文件无 `Bonus` 相关节点/字（`grep Bonus` = 0）；原版 `Clean()` 只清该容器的子件 ⇒ 容器本身缺失。🔴 **2026-10-27（B88_E10）补一条现场证据**：`工具/menu_dump.py bundle_menus_assets_all "Ranking Tab" --depth 3` 的树里**也没有** `Bonus` / `Legendary` 节点（只有 `Top4` / `AllFactions`）⇒ `RankedArmyBonusContainer` / `RankedMenuContainer` 是**另一份 prefab（排位模式选择那个容器）**的类，不是 `Ranking Tab` 的 —— 那份 prefab 在 `bundle_menus_assets_all` 里**按 `Ranked Menu Container` 这个名字找不到**（`menu_dump` 报「或它没有 RectTransform」）⇒ **几何判据仍缺**。⚠️ 本条落点文件 `Shell/RankedTab.cs` **不在本件白名单** ⇒ 本笔只做判定，未改一行。｜B88-E10 2026-10-27 证据更新（仍 C）',
+    '备注': '还差：① 找到 `RankedArmyBonusContainer` 所属 prefab（换个名字/换包再搜）；② 加成数据在服务器 ⇒ 有了结构也只能空态出声。⛔ 别在 `RankedTab` 里自造几何。'})
+
+U[('RankedArmyBonusContainer', 'OnInitialize(LiveOpsEvent evt)')] = dict(**{
+    '状态': 'C',
+    '落点': 'Shell/RankedTab.cs:263（Build）',
+    '差异': '同上：原版 `OnInitialize(LiveOpsEvent)` 按该事件的加成数据建条目（数据在服务器）；我们连容器都没有，且所属 prefab 未定位（见上一行的现场证据）。⚠️ 落点文件不在本件白名单。｜B88-E10 2026-10-27 证据更新（仍 C）',
+    '备注': '与上一行同一笔账。'})
+
+U[('RankedEventDivisionChangeWindow', 'SafetyInputEnabler()')] = dict(**{
+    '状态': 'C',
+    '落点': 'Shell/RankedDivisionChangeWindow.cs:243（Build）',
+    '差异': '原版 `SafetyInputEnabler()`（无参重载）= 起一个协程，等 `delay + 常数` 后 `ChatPreviewMessage.Enable(true)`（动画期间先关、播完再开）—— 判据 `RankedEventDivisionChangeWindowNewSystem__SafetyInputEnabler.c` 现读**体只是协程构造器**（`*(+0x20) = delay; *(+0x10) = 0; return`），真正的开关在 `…__CloseButton.c:10-14` 那句 `Enable(true)`。⇒ **这一族的真语义 = 「弹窗期间封禁聊天预览、播完解禁」，是一条【横切】设施**（同一族 5 扇排位弹窗 + 其它弹窗都调它），本窗**不是唯一宿主**。我们**根本没有 `ChatPreviewMessage.Enable` 这条设施**（全仓只有注释提到 `ChatPreviewMessage`；聊天预览行在 `Shell/MainMenuRuntime.cs:3708-3725`）⇒ 本窗单独实现只会造出「只有这一扇窗会封禁」的假一致。⚠️ 落点在 `Shell/MainMenuRuntime.cs`，**不在本件白名单**。｜B88-E10 2026-10-27 证据更新（仍 C）',
+    '备注': '要做 = 在 `Shell/MainMenuRuntime.cs` 建 `ChatPreviewMessage.SetEnabled(bool)` 那一层（原版是 `Enable(bool)`），然后所有弹窗的 `OnEnable`/`OnDisable` 各挂一次；本窗与另 4 扇排位窗、以及 `ChatPreviewMessage.Enable(true)` 的其它调用点**同批接**。⛔ 别只在本窗接一半。'})
+
+U[('RankedMenuContainer', 'ToggleLegendaryRankInfo(bool option)')] = dict(**{
+    '状态': 'C',
+    '落点': 'Shell/RankedTab.cs:263（Build）',
+    '差异': '原版 `ToggleLegendaryRankInfo(bool)` 显隐『传说段位说明』那一块；我们这页**没有这个节点**（`grep -i Legendary Shell/RankedTab.cs` = 0）。🔴 **2026-10-27（B88_E10）现场证据**：`menu_dump "Ranking Tab" --depth 3` 的树里**没有** `Legendary` 节点 ⇒ 该节点属于**另一份 prefab**（`RankedMenuContainer`，与 `RankedArmyBonusContainer` 同一份），而那份 prefab 按 `Ranked Menu Container` 在 `bundle_menus_assets_all` **找不到** ⇒ **几何判据仍缺**。⚠️ 落点文件不在本件白名单。｜B88-E10 2026-10-27 证据更新（仍 C）',
+    '备注': '还差：找到 `RankedMenuContainer` 的 prefab（换名字/换包再搜）。拿到后：按原版 prefab 建 `Legendary Rank Info` 节点 + 由 `RankedData.HasReachedLegendaryDivision` 决定显隐（⚠️ 那句判据也要重新核）。'})
+
+U[('RankedMenuContainer', 'TogglePositionDisplay(bool option)')] = dict(**{
+    '状态': 'C',
+    '落点': 'Shell/RankedTab.cs:263（Build）',
+    '差异': '原版 `TogglePositionDisplay(bool)` 对该组『名次』节点逐个 SetActive（`RankedMenuContainer__TogglePositionDisplay.c` 起头是 `List` 遍历）；我们只有一颗 `RankImage` 且**恒关**（`:539`，无名次数据）⇒ 这个开关没有等价物。**数据（名次）在服务器**（`LeaderboardManager`）⇒ 属 P3 侧的数据；⚠️ 落点文件不在本件白名单。｜B88-E10 2026-10-27 证据更新（仍 C）',
+    '备注': '有了名次数据再接这个开关。'})
+
+U[('RankedTab', 'InitializeFactionScores(LeaderboardResult result)')] = dict(**{
+    '状态': 'C',
+    '落点': 'Shell/RankedTab.cs:610（BuildRows）',
+    '差异': '原版 `InitializeFactionScores(LeaderboardResult)`（🥇 `RankedTab__InitializeFactionScores.c`）= ① `DivisionImageDisplay.Initialize` ② `AllianceRatingDisplay.Initialize` ③ `SupportMethods.DestroyAllChildren(factionListHolder)` 后**按 `FeatureConfig.GetValidArmies()` 逐阵营 `Instantiate(factionScorePrefab)` 并 `FactionScore.Initialize(armyId, score, …)`**；我们 `BuildRows`/`BuildRow` 建了**固定 4 行空壳**（分数恒 `------`、阵营图不画）、`Top4Data` 恒空。🔴 **2026-10-27（B88_E10）补两条现场证据**：① 行数差是真的 —— 原版按**有效阵营数**建行（我们 13 个：`CampaignData.Armies`），我们写死 4；② **分数没有来源**：原版那两格来自 `LeaderboardResult` 里 `(armyId, score, …)` 的 12 字节元组，而本地 `LeaderboardData.LocalScore` **全仓只有一个调用点**（`Shell/RaidEvent.cs` 的 `LocalScore(key, qty, null)`），**没有 per-army 的 key 体系** ⇒ 「用 `LocalScore` 灌 `Top4Data`」缺的正是**这张 key 映射表**（原版在 `LeaderboardConfig`，服务器下发）。⛔ 自己编一套 key 会造出「分数看着有、其实是我们编的」。⚠️ 落点文件 `Shell/RankedTab.cs` **不在本件白名单** ⇒ 本笔未改一行。｜B88-E10 2026-10-27 证据更新（仍 C）',
+    '备注': '两半分开做：**结构**（4 行 → 按 `CampaignData.Armies` 建行 + 画阵营徽记）只要 `Shell/RankedTab.cs` 的写权限，**判据齐**（`RankedTab__InitializeFactionScores.c` + prefab 的 `FactionScoreSmall` 四件样板）；**分数**卡在 per-army leaderboard key（服务器 `LeaderboardConfig`）。⚠️ 改行数会动 `AllFactions` 滚动区的内容高，**必须**同批核 `Editor/MainMenuScene.cs` 里按 4 行量的那几条断言。'})
+
+for k, v in U.items():
+    assert set(v) >= {'状态', '落点', '差异', '备注'}, k
+
+lines = io.open(SRC, encoding='utf-8').read().split('\n')
+hdr = lines[0]
+out = [hdr]
+seen = set()
+for n in ROWS:
+    c = lines[n - 1].split('\t')
+    assert len(c) == 11, (n, len(c))
+    key = (c[1], c[2])
+    if key in U:
+        u = U[key]
+        c[5] = u['状态']
+        c[6] = u['落点']
+        c[7] = u['差异']
+        if '等级' in u:
+            c[8] = u['等级']
+        c[9] = 'B88-E10'
+        c[10] = u['备注']
+        seen.add(key)
+    out.append('\t'.join(c))
+
+miss = set(U) - seen
+if miss:
+    print('!! 未命中的 key:', miss)
+    sys.exit(1)
+
+io.open(OUT, 'w', encoding='utf-8', newline='\r\n').write('\n'.join(out) + '\n')
+print('写好 %s：%d 条（含表头）' % (OUT, len(out)))

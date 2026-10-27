@@ -982,7 +982,30 @@ namespace CardPresentation
             //    而且批处理自检里手动喂 dt 时推不到位（踩过）。
             var t = _dragging.transform;
             var target = world + _grabOffset + new Vector3(0f, 0f, -dragLiftZ);
-            t.position = Vector3.Lerp(t.position, target, 1f - Mathf.Exp(-20f * dt));
+            var prevPos = t.position;
+            t.position = Vector3.Lerp(prevPos, target, 1f - Mathf.Exp(-20f * dt));
+            // 账 767/768（第二批）：**拖卡倾斜**（原版 `CardScript__SetCardMovement.c:69-96`，每帧写）。
+            //   原版：`rotationTarget.x = (max.x − min.x) × clamp01(Δy / movingRotationReduction + 0.5) + min.x`；
+            //         `rotationTarget.y` 用 **|Δx|**（原文对 Δx 做了清符号位）；
+            //         `transform.rotation = Quaternion.Euler((rotationTarget + forcedExtraRotation) × Deg2Rad)`；
+            //         另有「距离过小 / 过大 ⇒ position 直接吸附、rotationTarget 归零」那一支（我们不抄 ——
+            //         我们的跟手是平滑，没有那条硬吸附，见下面 🔶）。
+            //   数值判据 = `CardScript` **构造函数默认值**（`decomp_full/CardScript__.ctor.c:41-45`：
+            //     0x41A00000 = 20 · 0xC1A00000 = −20 · 0x41200000 = 10）—— 这三个字段
+            //     （`maxCardRotation` / `minCardRotation` / `movingRotationReduction`）在
+            //     `CardScript.cs:1437-1443` 里**没有 `[SerializeField]`** ⇒ 预制体不会覆盖，ctor 值就是真值。
+            //   🔶 自己设计（非原版）：原版写**世界**四元数（3D 卡的 X/Y 俯仰）；我们是 2D 卡 ⇒ 只写**局部 X/Y**、
+            //      **保留原 Z 角**（否则手牌扇形那点倾角会被抹平），`forcedExtraRotation` 取零（手牌路径的
+            //      原版实参我们没有对应物）。
+            //   ⚠️ 收手时 `CardView.SetPose` 会把 `localRotation` 整体写成 `Euler(0,0,rotZ)` ⇒ 倾斜**自动复位**，
+            //      所以这里不需要另写「松手复原」（那是 SetPose 的既有语义，⛔ 别在这儿再抄一份）。
+            {
+                float dy = target.y - prevPos.y;
+                float dx = Mathf.Abs(target.x - prevPos.x);
+                float rx = (DragTiltMaxDeg - DragTiltMinDeg) * Mathf.Clamp01(dy / DragTiltReduction + 0.5f) + DragTiltMinDeg;
+                float ry = (DragTiltMaxDeg - DragTiltMinDeg) * Mathf.Clamp01(dx / DragTiltReduction + 0.5f) + DragTiltMinDeg;
+                t.localRotation = Quaternion.Euler(rx, ry, t.localEulerAngles.z);
+            }
 
             // 记下这一拖最远走到哪 —— 松手时用它区分「轻点」和「真拖」（只有前者开关展示窗）
             float d = Vector3.Distance(world, _pressWorld);
@@ -2128,5 +2151,13 @@ namespace CardPresentation
             for (int i = 0; i < board.Length; i++) if (ReferenceEquals(board[i], u)) return true;
             return false;
         }
+
+        // ── 账 767/768（第二批）：拖卡倾斜的三个常量 ──
+        //  判据 = `decomp_full/CardScript__.ctor.c:41-45`（`0x41A00000` / `0xC1A00000` / `0x41200000`）。
+        //  ⚠️ 它们对应的三个字段在 `CardScript` 里**没有 `[SerializeField]`** ⇒ 预制体不覆盖 ⇒ ctor 值即真值
+        //     （与 `chargeAttackAngle` 那三个**不同** —— 那几个有 `[SerializeField]`，取预制体值）。
+        const float DragTiltMaxDeg = 20f;        // maxCardRotation（Vector2 两轴同值）
+        const float DragTiltMinDeg = -20f;       // minCardRotation
+        const float DragTiltReduction = 10f;     // movingRotationReduction
     }
 }

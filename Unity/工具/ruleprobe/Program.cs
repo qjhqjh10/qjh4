@@ -282,7 +282,7 @@ class Program
     //   的**后半句**原来被静默吃掉）。判据 → `资料/任务线/引擎线/任务总表.md` `T02` 行 ＋ 卡面中文
     //   「如果目标死亡或为友方单位」＋ `cards_1195_2022时代.json` 的 `targetCriteria(friendlyUnits=1/enemyUnits=1)`。
     //   ⇒ 按「先修好解析器，再跑 `scan` 定为新基线」重生成，⛔ 不是把红抹平。
-    public const string PinnedBaselineMd5 = "ce3faf91f9634053e00f0c97e602bb54";  // 🔴 2026-10-26 重钉（第八十四会话同步点）：**有意重生成基线** —— 解析器真改对了（`EffectText` 新增「名词在前」加法型反向正则，`BL47` 的目标短语不再吞掉 `, and an additional armour 1`）。旧（_bak_1026/out_baseline.txt）↔ 新基线 `diff` = **恰好 1 张卡 `BL47`**（逐字节核对过）。上一版 = 5fb45aec… ｜ 🔴 2026-10-26 重钉（第八十二会话同步点）：基线重生成（Ethereal Supreme 的 `warlord`→`unit`） ｜ 2026-10-24 重钉（Z71 · G10）：GSC75 一行解析变化后重生成基线
+    public const string PinnedBaselineMd5 = "ed2edeabc340c5899940bcda9eda7e66";  // 🔴 2026-10-28 重钉（第八十八会话 · F5 重同步点）：**有意重生成基线** —— 本波三项有意改动（`EC42` 超额伤害接上 · `EC47`/`UM118` 的 `equal to …` 正则），由调度台逐项归因；旧基线（_bak_1028/out_baseline.txt）↔ 新基线 `diff` = **恰好 3 张**（`EC42`/`EC47`/`UM118`，ID 列完全一致、行数 1121 不变）。上一版 = ce3faf91… ｜ 🔴 2026-10-26 重钉（第八十四会话同步点）：**有意重生成基线** —— 解析器真改对了（`EffectText` 新增「名词在前」加法型反向正则，`BL47` 的目标短语不再吞掉 `, and an additional armour 1`）。旧（_bak_1026/out_baseline.txt）↔ 新基线 `diff` = **恰好 1 张卡 `BL47`**（逐字节核对过）。上一版 = 5fb45aec… ｜ 🔴 2026-10-26 重钉（第八十二会话同步点）：基线重生成（Ethereal Supreme 的 `warlord`→`unit`） ｜ 2026-10-24 重钉（Z71 · G10）：GSC75 一行解析变化后重生成基线
 
     /// <summary>🆕 **解析输出指纹**（`A1382` **一般情形**的堵法，2026-10-12 第二十一会话 · 写手 `E5`）
     /// —— 「`check` 的判据是『与**基线文件**比』，而**基线文件同一个工具就能重写**」这条洞的机器级补丁。
@@ -347,7 +347,7 @@ class Program
     //   🔴 **2026-10-21（第五十九会话 · 引擎线 `T02`）重钉** —— 唯一变化 = `SOR31|Dogmata` 的条件种类
     //   （`targetdies` → `targetdiesorfriendly`）。行为侧另有三条新断言（友方活着 +1 / 敌方活着 +0 /
     //   敌方被打死 +1）钉住它，见 `Assets/RuleEngine/Editor/RuleEngineTest_T02.cs`。
-    public const string PinnedParseMd5 = "c9a647982fad19bb65896011c281c93e";  // 🔴 2026-10-26 重钉（第八十四会话同步点）：唯一解析差异 = `BL47 Disgustingly Resilient`（`EffectText` 新增「名词在前」加法型反向正则 ⇒ 不再被误判成「重复型」）⇒ 上一版 = 18439d96… ｜ 🔴 2026-10-26 重钉（第八十二会话同步点）：解析输出随基线同步 ｜ 2026-10-24 重钉（Z71 · G10）：`in your hand` 计数从句（全池只 GSC75 一张）；归因 → 资料/普查产出_1024/G10_GSC75解析缺陷.md
+    public const string PinnedParseMd5 = "136cbb6731e1d6a6ed171462fdb3de00";  // 🔴 2026-10-28 重钉（第八十八会话 · F5 重同步点）：解析输出随基线同步 —— 唯一差异 = `EC42`/`EC47`/`UM118` 三张（调度台已逐项归因：超额伤害接上 · 两条 `equal to …` 正则）。上一版 = c9a64798… ｜ 🔴 2026-10-26 重钉（第八十四会话同步点）：唯一解析差异 = `BL47 Disgustingly Resilient`（`EffectText` 新增「名词在前」加法型反向正则 ⇒ 不再被误判成「重复型」）⇒ 上一版 = 18439d96… ｜ 🔴 2026-10-26 重钉（第八十二会话同步点）：解析输出随基线同步 ｜ 2026-10-24 重钉（Z71 · G10）：`in your hand` 计数从句（全池只 GSC75 一张）；归因 → 资料/普查产出_1024/G10_GSC75解析缺陷.md
 
     /// <summary>一个文件的 md5（按字节；读不到返回 `null` —— ⛔ 不静默当成空串）。</summary>
     public static string Md5File(string path)
@@ -1190,7 +1190,46 @@ class Program
                 if (caList.Count > 0) { ForcedAttackRefund.Install(S("id"), caList.ToArray()); nRefundRows++; }
             }
             else nRefundUnknown++;
-            list.Add(new CardDef(S("id"), S("name"), S("type"), S("desc"), S("rarity"), S("faction"),
+            // 🆕 2026-10-28（B88 · `A1d`）：**`abilityDamage`（原版 `damageCriteria` 四格）也要传进 `CardDef`。**
+            //   为什么必须补：本探针 `LoadPool` 是**手读 JSON**、不走 `Data/CardDatabase.cs` ⇒
+            //   漏这一列 = `CardDef.AbilityDamageAt(...)` 恒 `null` ⇒ 90 档「逐目标掷」
+            //   在探针里**永远不触发** ⇒ `play all dump` / `play check` 会给出**盲绿**
+            //   （与 `A1911` / `animTimes` / `A1959` 是同一族坑：探针 DTO 与生产 DTO 不同步）。
+            //   口径与引擎 `CardDatabase.MapAbilityDamage` **逐字相同**（缺列 ⇒ `null` = 未知；
+            //   缺 `ab/lg` / 撞键 ⇒ 出声丢弃）。
+            CardDef.AbilityDamageSpec[] __adRows = null;
+            if (c.TryGetProperty("abilityDamage", out var __adEl) && __adEl.ValueKind == JsonValueKind.Array)
+            {
+                var __adTmp = new List<CardDef.AbilityDamageSpec>();
+                var __adSeen = new HashSet<long>();
+                foreach (var __r in __adEl.EnumerateArray())
+                {
+                    if (__r.ValueKind != JsonValueKind.Object) continue;
+                    int __ab = __r.TryGetProperty("ab", out var __abe) && __abe.ValueKind == JsonValueKind.Number ? __abe.GetInt32() : -1;
+                    int __lg = __r.TryGetProperty("lg", out var __lge) && __lge.ValueKind == JsonValueKind.Number ? __lge.GetInt32() : -1;
+                    if (__ab < 0 || __lg < 0)
+                    {
+                        Console.WriteLine("⚠️ `abilityDamage` 有一行缺 ab/lg（" + S("id") + "）—— 丢弃");
+                        continue;
+                    }
+                    long __k = ((long)__ab << 32) ^ (uint)__lg;
+                    if (!__adSeen.Add(__k))
+                    {
+                        Console.WriteLine("⚠️ `abilityDamage` 撞键（" + S("id") + " ab=" + __ab + " lg=" + __lg + "）—— 丢弃后一条");
+                        continue;
+                    }
+                    __adTmp.Add(new CardDef.AbilityDamageSpec
+                    {
+                        Ab = __ab, Lg = __lg,
+                        Min = __r.TryGetProperty("min", out var __mn) && __mn.ValueKind == JsonValueKind.Number ? __mn.GetInt32() : -1,
+                        Max = __r.TryGetProperty("max", out var __mx) && __mx.ValueKind == JsonValueKind.Number ? __mx.GetInt32() : -1,
+                        ValueOptions = __r.TryGetProperty("opt", out var __op) && __op.ValueKind == JsonValueKind.Number ? __op.GetInt32() : -1,
+                        Type = __r.TryGetProperty("type", out var __ty) && __ty.ValueKind == JsonValueKind.Number ? __ty.GetInt32() : -1,
+                    });
+                }
+                __adRows = __adTmp.ToArray();
+            }
+            var __def = new CardDef(S("id"), S("name"), S("type"), S("desc"), S("rarity"), S("faction"),
                                  I("cost"), I("attack"), I("health"), I("ranged"), kws,
                                  S("nameZh"), S("descZh"), true, S("subtype"), S("goesSecond"),
                                  inventoryOptions: hasInv ? invEl.GetInt32() : -1,
@@ -1251,7 +1290,10 @@ class Program
                                  //   （见上面那一段长注释；⛔ 缺列一律 `-1` / `null` = 未知，不是「没有」）。
                                  hasActiveAbility: a3HasAA,
                                  activeAbilityLogic: a3AaRows,
-                                 activeAbilityLogicVersioned: poolVersion >= 23));
+                                 activeAbilityLogicVersioned: poolVersion >= 23);
+            // 🆕 2026-10-28（B88 · `A1d`）：构造后挂载（与引擎 `CardDatabase.Parse` 同一口径）。
+            __def.AttachAbilityDamage(__adRows);
+            list.Add(__def);
         rawKw.Add(kws);
         }
         // 🔴 **缺列一律出声**（铁律「不许静默失败」）：缺了就是缺了，⛔ 不让它静默变成「某张卡的值是 X」。

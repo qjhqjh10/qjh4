@@ -1,0 +1,105 @@
+---- 失败明细（文件 | 类.方法 | 落点 | 失败原因）----
+个人资料_成就_排行.tsv         | RankedEventDivisionChangeWindow.OnEnable()           | （等价实现 = `MenuDraw.ShadeHit(_dark, DarkR, QShade, QTitle, () => Close() | 落点里没有 `文件:行`
+个人资料_成就_排行.tsv         | RankedEventDivisionChangeWindowNewSystem.OnEnable()  | （等价实现 = `MenuDraw.ShadeHit(_dark, DarkR, QShade, QDivision, () => Clos | 落点里没有 `文件:行`
+个人资料_成就_排行.tsv         | RankedEventSeasonEndedWindow.OnEnable()              | （等价实现 = `MenuDraw.ShadeHit(_dark, DarkR, QShade, QDivision, () => Clos | 落点里没有 `文件:行`
+个人资料_成就_排行.tsv         | RankedEventSeasonEndedWindowOld.OnEnable()           | （等价实现 = `MenuDraw.ShadeHit(_dark, DarkR, QShade, QDivision, () => Clos | 落点里没有 `文件:行`
+其他_基础设施.tsv            | Extensions.AlmostEquals(Quaternion target, Quaternio | （等价实现 = 各调用点内联）CardPresentation/Battle/BattleDriver.cs:22788（d.sqrMagn | 只有括号/分隔符（不是声明）：`});`
+其他_基础设施.tsv            | Extensions.AlmostEquals(Vector2 target, Vector2 seco | （等价实现 = 各调用点内联）同上：BattleDriver.cs:16025 / :22766 / :23802 / :26906     | 文件不存在（试过 原样 / Assets / Assets/CardPresentation / Unity）：BattleDriver.cs
+其他_基础设施.tsv            | Extensions.AlmostEquals(Vector3 target, Vector3 seco | （等价实现 = 各调用点内联）同上                                                      | 落点里没有 `文件:行`
+卡牌面_渲染.tsv             | TextTooltipController.OnDisable()                    | CardPresentation/Battle/BattleDriver.cs:32473（TickTooltipAt：逐帧谓词扫描） +  | 既无 `(` 也无 `=>`/`{`（不像声明）：`int faithGained, GameMode mode, string faction,`
+卡牌面_渲染.tsv             | TextTooltipController.OnEnable()                     | CardPresentation/Battle/BattleDriver.cs:32473（TickTooltipAt：逐帧谓词扫描） +  | 既无 `(` 也无 `=>`/`{`（不像声明）：`int faithGained, GameMode mode, string faction,`
+卡牌面_渲染.tsv             | TextTooltipController.OnPointerEnter(PointerEventDat | CardPresentation/Battle/BattleDriver.cs:32473（TickTooltipAt：逐帧谓词扫描） +  | 既无 `(` 也无 `=>`/`{`（不像声明）：`int faithGained, GameMode mode, string faction,`
+卡牌面_渲染.tsv             | TextTooltipController.OnPointerExit(PointerEventData | CardPresentation/Battle/BattleDriver.cs:32473（TickTooltipAt：逐帧谓词扫描） +  | 既无 `(` 也无 `=>`/`{`（不像声明）：`int faithGained, GameMode mode, string faction,`
+卡牌面_渲染.tsv             | TextTooltipController.Toggle(bool option)            | CardPresentation/Battle/BattleDriver.cs:32473（TickTooltipAt：逐帧谓词扫描） +  | 既无 `(` 也无 `=>`/`{`（不像声明）：`int faithGained, GameMode mode, string faction,`
+卡组编辑.tsv               | HasDeckCondition.Validate(ILiveOps liveOps)          | Shell/LiveOpsState.cs:253（HasDeckCondition）＋ :260（Validate）            | 括号里写了声明名 `HasDeckCondition`，但文件里找不到这份声明
+商店.tsv                 | CampaignPremiumPointsPanel.OnDisable()               | Shell/CampaignTab.cs:1476（TogglePremiumState）· 退订随窗关闭                  | 括号里写了声明名 `TogglePremiumState`，但文件里找不到这份声明
+商店.tsv                 | CampaignPremiumPointsPanel.OnEnable()                | Shell/CampaignTab.cs:1476（TogglePremiumState）                          | 括号里写了声明名 `TogglePremiumState`，但文件里找不到这份声明
+战役.tsv                 | ArmySelector.ClearListeners()                        | CardPresentation/Shell/CampaignTab.cs:252（`Build`：按钮走直接方法调用，无事件表）（等价实现 | 括号里写的是 `Build`，但那一行声明的是 `_premActionText`（名字对不上）
+战役.tsv                 | CampaignNode.SetLineColors(Color lineColor)          | CardPresentation/Shell/CampaignTab.cs:693（`BuildLine` 末句按源节点状态上色）（等价实现 | `)` 后接的是语句（像函数中间的一行）：`st.NodeName = ItemDrawer.PickDrawer(item, DrawerOverride.Ico`
+战役.tsv                 | CampaignTrack.CalculateRatio(List<CampaignNodeInfo>  | Shell/CampaignTab.cs:458（BuildTrack 的 Ratio）（等价实现 = Ratio = (vpH − Tra | 注释行：`//    而那个高是 prefab 静态链算出来的（= 视口高 − 100，不是 `SetTrackSize` 运行时`
+战役.tsv                 | CampaignWindowTab.OnClose()                          | Shell/CampaignTab.cs:1136（`public override void OnClose() { CloseBackg | 只有括号/分隔符（不是声明）：`{`
+战役.tsv                 | CampaignWindowTab.OnSetup()                          | CardPresentation/Shell/CampaignTab.cs:121（Setup → Build :252）          | 注释行：`/// 该组件挂在 `Campaign Track` 这颗 GO 上（prefab 实读 `MonoBehaviour_`
+战斗界面_HUD.tsv           | ManaBuff.DeepCopy()                                  | RuleEngine/Core/EffectText.cs:857（`public EffectOp Clone()` = `Memberw | 注释行：`/// <summary>`
+战斗界面_HUD.tsv           | BattleManager.ResolveDisplayFromHand(BattleAction ba | CardPresentation/Battle/BattleDriver.cs:12112（`case EvtKind.Draw` 里 `e | 既无 `(` 也无 `=>`/`{`（不像声明）：`line = e.Player == _me`
+战斗界面_HUD.tsv           | CardScript.OrientToTargetingDirection()              | CardPresentation/Battle/BattleDriver.cs:16041（TickTargetingLean 的**旋转半 | 括号里写的是 `TickTargetingLean`，但那一行声明的是 `wantRot`（名字对不上）
+战斗界面_HUD.tsv           | CardScript.SetCardMovement(Vector3 targetPoint, Vect | CardPresentation/Hand/CardInteraction.cs:987（`UpdateDrag` 的**倾斜半**）· : | 注释行：`// 账 767/768（第二批）：**拖卡倾斜**（原版 `CardScript__SetCardMovement.c`
+战斗界面_HUD.tsv           | CardScript.Update()                                  | CardPresentation/Battle/BattleDriver.cs:16041（`TickTargetingLean` = 原版 | 既无 `(` 也无 `=>`/`{`（不像声明）：`Quaternion wantRot = _leanHomeRot;`
+战斗逻辑驱动.tsv             | AbilityLogic.GetValueFromCriteria(BattleManager mana | RuleEngine/Data/EffectText.cs:3471-3494（三条数值来源的剥句：`equal to your Warlo | 文件不存在（试过 原样 / Assets / Assets/CardPresentation / Unity）：RuleEngine/Data/EffectText.cs
+战斗逻辑驱动.tsv             | BattleManager.ConnectionStatusChanged(ConnectionStat | CardPresentation/Net/NetSession.cs:1122（等价实现 = SetState）· CardPresenta | `)` 后接的是语句（像函数中间的一行）：`if (!_wasInBattle) return;                 // 幂等：本来就没在重连 ⇒ 不`
+战斗逻辑驱动.tsv             | BattleManager.FailedToReconnectAfterDisconnect()     | CardPresentation/Net/NetSession.cs:1113（等价实现 = StopReconnecting）· Card | 注释行：`///`
+战斗逻辑驱动.tsv             | BattleManager.ResolveRemoveEffect(CardScript targetC | RuleEngine/Core/Enchantment.cs（成功分支发 `EvtKind.EnchantmentRemoved`）+ Ca | 既无 `(` 也无 `=>`/`{`（不像声明）：`int beatPt = 0, bool beatTail = false,`
+战斗逻辑驱动.tsv             | BattleManagerSupport.BroadcastCollectSpiritStone(Bat | RuleEngine/Core/RuleCore.cs:12403（CollectWaystoneCore·预调那颗残骸）+ :12404（ | `)` 后接的是语句（像函数中间的一行）：`if (u.Card != null) PreCallBoardListener(ctx, u, WhenEventKi`
+战斗逻辑驱动.tsv             | CardScript.CheckAndApplyCurrentPack()                | RuleEngine/Core/RuleCore.cs:5034（FieldAttack 的 pack 支）（等价实现 = FieldAtt | `)` 后接的是语句（像函数中间的一行）：`if (!u.IsWarlord) n--; baseAtk += n;   // 🔴 2026-10-27（B88-E`
+战斗逻辑驱动.tsv             | CardScript.RemoveDuplicitous()                       | RuleEngine/Core/RuleCore.cs:6641（DeclareAttackExecute 结算段开头）+ RuleEngi | `)` 后接的是语句（像函数中间的一行）：`if (!forced) TryRedirectAttackToBodyguard(ctx, p, atkSlot, t`
+战斗逻辑驱动.tsv             | RawCardScript.GetLocalizedCardDesc()                 | CardPresentation/Battle/BattleDriver.cs:36119（OfficialDescKey = 生产侧唯一一 | 注释行：`// 与「引擎发了一条 `Death`」走**同一个**演出口（⛔ 不另写一份消散）`
+收藏.tsv                 | InventoryCondition.Validate(ILiveOps liveOps)        | Shell/LiveOpsState.cs:234（InventoryCondition）＋ :241（Validate）          | 括号里写了声明名 `InventoryCondition`，但文件里找不到这份声明
+教程_引导.tsv              | TutorialArmySelectionButton.Awake()                  | Shell/TutorialModePopup.cs:635（MenuDraw.Hit(node,"Hit",hitR,QHit,() => | 注释行：`//   ⚠️ 是 `d6c4111`（第六会话收尾那次 `A1053`「命中区 = 可射线件的并集」）改出来的 ——`
+教程_引导.tsv              | TutorialModePopup.Awake()                            | Shell/TutorialModePopup.cs:428（`OnBack = () => Close()`，走 WindowHeader | 注释行：`//   干涉：一个只动横向、一个只动纵向）—— 与 `DailyStreakPopup` 原来的次序逐句相同。`
+教程_引导.tsv              | TutorialModePopup.Close()                            | Shell/TutorialModePopup.cs:320（等价实现 = Close）                           | 括号里写的是 `Close`，但那一行声明的是 `Open`（名字对不上）
+教程_引导.tsv              | TutorialModePopup.Open()                             | Shell/TutorialModePopup.cs:311（等价实现 = Open）                            | 既无 `(` 也无 `=>`/`{`（不像声明）：`win.type = WindowType.Popup;                 // 实证 type = 1`
+教程_引导.tsv              | TutorialPointer.ShowStartingPointer(Vector3 clickPos | Shell/TutorialPointerUi.cs:243（ApplyPhase：scale=1 / light alpha=0）+ 28 | 既无 `(` 也无 `=>`/`{`（不像声明）：`_phase = 3f; _dragWait = 0.1f;   // DAT_1834b2dc4 = 0.1`
+教程_引导.tsv              | TutorialPointer.StartPointer(TutorialPointerActions  | Shell/TutorialPointerUi.cs:140（Show：置 action/起点/终点 + 显示）+ 200（TickDrag | 既无 `(` 也无 `=>`/`{`（不像声明）：`float _phaseT;`
+教程_引导.tsv              | TutorialStageClaimForgeFirstLevel.DoMenuActions()    | Shell/MenuTutorialFlow.cs:894（Resolve 的 ForgeClaimButton 支）（等价实现 = Tut | `)` 后接的是语句（像函数中间的一行）：`string first = FirstClaimableForgeArmy();`
+教程_引导.tsv              | TutorialStageGetMission.CheckForCompletion()         | Shell/MenuTutorialFlow.cs:549 `case GetMission:`（563-568）              | 只有括号/分隔符（不是声明）：`{`
+教程_引导.tsv              | TutorialStageLevelUpCard.CheckForCompletion()        | Shell/MenuTutorialFlow.cs:549 `case LevelUpCard:`（583-587）             | 只有括号/分隔符（不是声明）：`{`
+教程_引导.tsv              | TutorialStageLevelUpCard.DoMenuActions()             | Shell/MenuTutorialFlow.cs:659 + Shell/MenuTutorialStageDef.cs:278-296（ | 只有括号/分隔符（不是声明）：`{`
+教程_引导.tsv              | TutorialStageLevelUpCard.DoingUpgrade()              | Shell/MenuTutorialFlow.cs:659（指针每 0.2s 重算，目标消失自动收）+ 549（完成条件轮询）        | 只有括号/分隔符（不是声明）：`{`
+教程_引导.tsv              | TutorialStageLevelUpCard.HasNoCardToUpgrade()        | Shell/MenuTutorialFlow.cs:549 `case LevelUpCard:`（583-587，无独立分支）       | 只有括号/分隔符（不是声明）：`{`
+教程_引导.tsv              | TutorialStagePlayRanked.CheckForCompletion()         | Shell/MenuTutorialFlow.cs:595（CheckCompletion 的 PlayRanked 支）（等价实现 = T | `)` 后接的是语句（像函数中间的一行）：`if (TopWindowOrNull() is MainMenuWindow) RestoreMenuScroll()`
+教程_引导.tsv              | TutorialStagePlayRanked.ShowCursor()                 | Shell/MenuTutorialFlow.cs:784（RefreshPointer，模式卡那一档之后）（等价实现 = Tutorial | `)` 后接的是语句（像函数中间的一行）：`if (usedKind == MenuTutorialTargetKind.ModeCardRanked) LockM`
+教程_引导.tsv              | TutorialStageSelectArmy.CheckForCompletion()         | Shell/MenuTutorialFlow.cs:549 `case SelectArmy:`（555-561）+ :102（MarkSt | 只有括号/分隔符（不是声明）：`{`
+教程_引导.tsv              | TutorialStageTutorialFinished.CheckForCompletion()   | Shell/MenuTutorialFlow.cs:549 `case TutorialFinished:`（596-600）        | 只有括号/分隔符（不是声明）：`{`
+教程_引导.tsv              | TutorialTip.GetLocalizedText()                       | Battle/TutorialOverlay.cs:945（SetTip 里对正文过一道 TipRichText）（等价实现 = Tutor | `)` 后接的是语句（像函数中间的一行）：`if (_tipText != null) _tipText.SetText(TipRichText(text));`
+日常_奖励.tsv              | BaseEventProgressRewardDrawerController.OverridePrem | Shell/ItemDrawer.cs:1568 OverridePremiumBadge（等价实现 = OverridePremiumBa | 空行：``
+未分类_其他.tsv             | AttributeCondition.Validate(ILiveOps liveOps)        | Shell/LiveOpsState.cs:314（AttributeCondition）＋ :331（Validate）          | 括号里写了声明名 `AttributeCondition`，但文件里找不到这份声明
+未分类_其他.tsv             | LevelCondition.Validate(ILiveOps liveOps)            | Shell/LiveOpsState.cs:212（LevelCondition）＋ :217（Validate）              | 括号里写了声明名 `LevelCondition`，但文件里找不到这份声明
+未分类_其他.tsv             | TagCondition.Validate(ILiveOps liveOps)              | Shell/LiveOpsState.cs:272（TagCondition）＋ :290（Validate）                | 括号里写了声明名 `TagCondition`，但文件里找不到这份声明
+泛型与启动链_补读.tsv          | ItemDrawer<T>.Refresh()                              | Shell/ItemDrawer.cs:1480（DrawView；等价实现）                                | 空行：``
+泛型与启动链_补读.tsv          | ItemDrawer<T>.ToggleClaimedWarning(bool toggle)      | Shell/ItemDrawer.cs:1530（等价实现 = ToggleClaimedWarning）                  | 注释行：`//        item 为空 ⇒ `LogError("[ERROR] We are trying to open`
+泛型与启动链_补读.tsv          | ItemDrawer<T>.OverridePremiumBadge(Sprite sprite)    | Shell/ItemDrawer.cs:1568（等价实现 = OverridePremiumBadge）                  | 空行：``
+泛型与启动链_补读.tsv          | ItemDrawer<T>.TogglePremiumHighlight(bool toggle)    | Shell/ItemDrawer.cs:1551（等价实现 = TogglePremiumHighlight）                | `)` 后接的是语句（像函数中间的一行）：`if (r.Node == null) return null;`
+泛型与启动链_补读.tsv          | ItemDrawer<T>.ToggleShowInfoOnClick(bool option)     | Shell/ItemDrawer.cs:1585（等价实现 = ToggleShowInfoOnClick）                 | 括号里写的是 `ToggleShowInfoOnClick`，但那一行声明的是 `ClaimedVisible`（名字对不上）
+泛型与启动链_补读.tsv          | ItemDrawer<T>.OverrideOnClickAction(Action onClick)  | Shell/ItemDrawer.cs:1588（等价实现 = OverrideOnClickAction）                 | 只有括号/分隔符（不是声明）：`{`
+泛型与启动链_补读.tsv          | ItemDrawer<T>.ToggleHighlight(bool toggle)           | Shell/ItemDrawer.cs:1561（等价实现 = ToggleHighlight）                       | 注释行：`/// </summary>`
+泛型与启动链_补读.tsv          | ItemDrawer<T>.ToggleLock(bool toggle)                | Shell/ItemDrawer.cs:1564（等价实现 = ToggleLock）                            | 括号里写的是 `ToggleLock`，但那一行声明的是 `Node`（名字对不上）
+泛型与启动链_补读.tsv          | ItemDrawer<T>.OnPointerClick(PointerEventData eventD | Shell/ItemDrawer.cs:1592（等价实现 = OnPointerClick）                        | 既无 `(` 也无 `=>`/`{`（不像声明）：`return t != null && t.gameObject.activeSelf;`
+泛型与启动链_补读.tsv          | ItemDrawer<T>.HandlePointerClick()                   | Shell/ItemDrawer.cs:1605（等价实现 = HandlePointerClick）                    | 注释行：`// ⚠️ 本壳**没有 uGUI 运行时**（`MenuDraw.Node` 的注释：锚点一律写死成重合、矩形只由`
+特效动画.tsv               | CardEffectItem.Disable()                             | CardPresentation/Battle/CardDisplayWindow.cs:915（SetEffectRows：`on = i | 注释行：`/// 🔴 **2026-10-27（B88_E6）补齐「空文本占槽」**（原来写「我们按 buff 铸行、空的根本不铸`
+特效动画.tsv               | CardEffectItem.Enable()                              | CardPresentation/Battle/CardDisplayWindow.cs:915（SetEffectRows：`i < n` | 注释行：`/// 🔴 **2026-10-27（B88_E6）补齐「空文本占槽」**（原来写「我们按 buff 铸行、空的根本不铸`
+特效动画.tsv               | CardEffectsService.DisableLeftoverSlots()            | CardPresentation/Battle/CardDisplayWindow.cs:915（SetEffectRows 的 `for  | 注释行：`/// 🔴 **2026-10-27（B88_E6）补齐「空文本占槽」**（原来写「我们按 buff 铸行、空的根本不铸`
+特效动画.tsv               | CardEffectsService.EnableCardEffectSlots(bool isPlay | CardPresentation/Battle/CardDisplayWindow.cs:915-943（等价实现 = SetEffectR | 注释行：`/// 🔴 **2026-10-27（B88_E6）补齐「空文本占槽」**（原来写「我们按 buff 铸行、空的根本不铸`
+特效动画.tsv               | HandEffect.DeepCopy()                                | RuleEngine/Core/EffectText.cs:857（EffectOp.Clone）                      | 注释行：`/// <summary>`
+特效动画.tsv               | BattleManager.ReplaySkipAnims()                      | CardPresentation/Battle/BattleDriver.cs:23646（PlayBucketOffsetOf：`_rep | 既无 `(` 也无 `=>`/`{`（不像声明）：`place.Value.Mnz, place.Value.Mxz)`
+社交_聊天.tsv              | AllianceMemberOptionsPopup.Open()                    | Shell/AllianceMemberOptionsPopup.cs:261（等价实现 = Open）                   | 只有括号/分隔符（不是声明）：`}`
+社交_聊天.tsv              | AllianceSearchTab.HandleDisplayAlliance(Group allian | Shell/AllianceSearchTab.cs:309（等价实现 = HandleDisplayAlliance）           | 注释行：`/// （静默、只在切页签时现形）⇒ 必须每次现取。⛔ 别改回 `const`。</para></summary>`
+菜单_外壳.tsv              | CardAlternateArtDrawer.GetItemName(AlternateArtCard  | CardPresentation/Shell/ItemDrawer.cs:1480（DrawView（名字层在这里画））（等价实现 = Dr | 空行：``
+菜单_外壳.tsv              | CardDrawer.GetItemName(RawCardScript item)           | CardPresentation/Shell/ItemDrawer.cs:1480（DrawView（名字层在这里画））（等价实现 = Dr | 空行：``
+菜单_外壳.tsv              | CardbackDrawer.GetItemName(CosmeticItemCardback item | CardPresentation/Shell/ItemDrawer.cs:1480（DrawView（名字层在这里画））（等价实现 = Dr | 空行：``
+菜单_外壳.tsv              | ContainerDrawer.GetItemName(ShopContainerBase item)  | CardPresentation/Shell/ItemDrawer.cs:1480（DrawView（名字层在这里画））（等价实现 = Dr | 空行：``
+菜单_外壳.tsv              | CosmeticDrawer.GetItemName(CosmeticItem item)        | CardPresentation/Shell/ItemDrawer.cs:1480（DrawView（名字层在这里画））（等价实现 = Dr | 空行：``
+菜单_外壳.tsv              | EverguildButton.OnEnable()                           | CardPresentation/Shell/WindowButton.cs:933（RefreshGray 实现）（等价实现 = Refr | 只有括号/分隔符（不是声明）：`{`
+菜单_外壳.tsv              | EverguildButton.SwitchMaterial(bool interactable)    | CardPresentation/Shell/WindowButton.cs:933（RefreshGray 实现）（等价实现 = Refr | 只有括号/分隔符（不是声明）：`{`
+菜单_外壳.tsv              | EverguildButtonHelper.DoMaterialRefresh(List<Evergui | CardPresentation/Shell/WindowButton.cs:933（RefreshGray 实现）（等价实现 = Refr | 只有括号/分隔符（不是声明）：`{`
+菜单_外壳.tsv              | EverguildButtonStateFollower.Disabled()              | CardPresentation/Shell/WindowButton.cs:933（RefreshGray 实现）（等价实现 = Refr | 只有括号/分隔符（不是声明）：`{`
+菜单_外壳.tsv              | EverguildButtonStateFollower.Enabled()               | CardPresentation/Shell/WindowButton.cs:933（RefreshGray 实现）（等价实现 = Refr | 只有括号/分隔符（不是声明）：`{`
+菜单_外壳.tsv              | EverguildToggle.ToggleGreyscale(bool enabled)        | CardPresentation/Shell/WindowButton.cs:933（RefreshGray 实现）（等价实现 = Refr | 只有括号/分隔符（不是声明）：`{`
+菜单_外壳.tsv              | EverguildTooltipTrigger.OnPointerClick(PointerEventD | （等价实现 = `CardPresentation/PointerLayer` 的选中模型：点面板/空白 ⇒ 清选中；tooltip 自己不 | 落点里没有 `文件:行`
+菜单_外壳.tsv              | ExpansionPassPointDrawer.GetItemName(ExpansionPassPo | CardPresentation/Shell/ItemDrawer.cs:1480（DrawView（名字层在这里画））（等价实现 = Dr | 空行：``
+菜单_外壳.tsv              | RandomCardDrawer.GetItemName(DropTableItem item)     | CardPresentation/Shell/ItemDrawer.cs:1480（DrawView（名字层在这里画））（等价实现 = Dr | 空行：``
+菜单_外壳.tsv              | RandomCardIconDrawer.GetItemName(DropTableItem item) | CardPresentation/Shell/ItemDrawer.cs:1480（DrawView（名字层在这里画））（等价实现 = Dr | 空行：``
+菜单_外壳.tsv              | ResourcesBarController.GetCounter(GameCurrency curre | CardPresentation/Shell/TopBar.cs:748（BuildResourcesBar 建表）（等价实现 = Buil | 注释行：`// ---- 逐格几何（原版 prefab 逐字段实读；出处 → `MainMenuRuntime` 那一份的长注释）`
+菜单_外壳.tsv              | ResourcesBarController.Initialize(GameCurrency[] cur | CardPresentation/Shell/TopBar.cs:748（BuildResourcesBar 建表）（等价实现 = Buil | 注释行：`// ---- 逐格几何（原版 prefab 逐字段实读；出处 → `MainMenuRuntime` 那一份的长注释）`
+菜单_外壳.tsv              | ResourcesBarController.ToggleOverlay(bool toggle)    | CardPresentation/Shell/TopBar.cs:592（ToggleOverlay：资源条子树队列整体 +134）+ Sh | 既无 `(` 也无 `=>`/`{`（不像声明）：`c.Target = owned;`
+菜单_外壳.tsv              | WildcardDrawer.GetItemName(Wildcard item)            | CardPresentation/Shell/ItemDrawer.cs:1480（DrawView（名字层在这里画））（等价实现 = Dr | 空行：``
+菜单_外壳.tsv              | WildcardIconDrawer.GetItemName(Wildcard item)        | CardPresentation/Shell/ItemDrawer.cs:1480（DrawView（名字层在这里画））（等价实现 = Dr | 空行：``
+轮抽.tsv                 | DraftEventBase.OnMatchWon()                          | CardPresentation/Shell/DraftModeWindow.cs:2294（`DraftOutcomes`：胜负记账）（等 | `)` 后接的是语句（像函数中间的一行）：`GoToState(intro ? DraftModeState.Intro : DraftModeState.Sele`
+轮抽.tsv                 | DraftModeMenuPayStateDemo.OnClose()                  | Shell/DraftModeWindow.cs:2170（ApplyState 换页处）（等价实现 = DraftModeMenuPayS | `)` 后接的是语句（像函数中间的一行）：`TopBar.ToggleOverlay(TopBar.LastBuilt, page == _pagePay);`
+轮抽.tsv                 | DraftModeSelectPacksStateDemo.UpdateDeckInfoPanelAni | Shell/DraftModeWindow.cs:1884（WildcardShineLayer.AttachNine 挂到 Generic | `)` 后接的是语句（像函数中间的一行）：`_deckShine = WildcardShineLayer.AttachNine(flash.transform, `
+锻造.tsv                 | ForgeHandler.HasRewardToCollect(CardArmy army)       | CardPresentation/Shell/ForgeData.cs:162（HasToCollect 方法）（等价实现 = HasToC | 只有括号/分隔符（不是声明）：`{`
+锻造.tsv                 | ForgePointDrawer.DrawForArmy(CardArmy army)          | CardPresentation/Shell/ForgeData.cs:190（ForgePointIcon 方法）（等价实现 = Forg | 只有括号/分隔符（不是声明）：`{`
+锻造.tsv                 | ForgePointDrawer.GetItemName(ForgePoints item)       | CardPresentation/Shell/ItemDrawer.cs:1480（DrawView 名字层）（等价实现 = DrawVie | 空行：``
+锻造.tsv                 | ForgePointIconDrawer.DrawForArmy(CardArmy army)      | CardPresentation/Shell/ForgeData.cs:190（ForgePointIcon 方法）（等价实现 = Forg | 只有括号/分隔符（不是声明）：`{`
+锻造.tsv                 | ForgePointIconDrawer.GetItemName(ForgePoints item)   | CardPresentation/Shell/ItemDrawer.cs:1480（DrawView 名字层）（等价实现 = DrawVie | 空行：``
+锻造.tsv                 | ForgeRewardItemContainer.GetLevelState(int previousN | Shell/ForgeData.cs:148 StateAt（Locked/InProgress/ToCollect/Collected）（ | 注释行：`/// `ForgeRewardItemContainer__GetLevelState.c`（签名 = `dump.c`
+
+合计：A 4569 条 · 通过 4388（其中告警 269 条）· 漂移 79 · 失败 102

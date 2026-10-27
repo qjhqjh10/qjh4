@@ -36,6 +36,7 @@ public static partial class RuleEngineTest
     {
         Section("🆕 引擎线 F8：`AiTargets` 遍历序 —— 未取号（-1）不许抢在已取号之前");
         F8LowestHealthMinusOneOrder();
+        F8ActiveAbilityEntryEnumerated();   // 🆕 2026-10-27（`B88_E3`）：AI 动作表的第 ④ 档
     }
 
     /// <summary>
@@ -95,5 +96,151 @@ public static partial class RuleEngineTest
             + "｜🧨 退回 `order.Sort((a,b) => a.PlayOrder.CompareTo(b.PlayOrder))` ⇒ `-1` 排最前 ⇒ "
             + "实得 `F7OrdLate` ⇒ 红；"
             + "🧨 遍历序改成**格号序**（5 < 6 < 7）⇒ 实得 `F7OrdLate` ⇒ 红");
+    }
+
+    // ==================================================================
+    //  🆕 2026-10-27（`B88_E3` · 账 B03 · 第八十八会话波 1）：
+    //  **第 ④ 档主动能力（原版通用 `activeAbilityLogic`）必须进 AI 动作表**
+    //
+    //  判据（⛔ 不要重新论证）：
+    //    · 原版 `AI.GetAvailableActions` 对 `activeAbility`(5) 产一条候选；打分只读 `ActiveAbility`
+    //      自己的两列（`nonTargetScoringCriteria(+0x58)` → 再 `cardTargetScoringCriteria(+0x50)`）
+    //      → `资料/完全复刻/判据/AI打分与动作选择_第2轮.md` §2·1（`activeAbility` 支）。
+    //    · 枚举口原来只有 `oath` / 替代行动 / `Ability:` 自定文法三条 ⇒ 池内唯一「五缺」的
+    //      第 ④ 档卡 `SOR66 Armorium Cherub` 在 AI 手里永远不发动
+    //      （基线读数 `ruleprobe ai actions SOR66` = 0 条 `activeAbility`）。
+    //    · 新口 = `SimpleAI.AddActiveAbilityEntry`（兄弟分册 `Data/SimpleAI.ActiveEntry.cs`），
+    //      从 `Data/SimpleAI.cs:421` 的「`u.Ability == null`」分叉点调用。
+    //
+    //  ⚠️ 这里**不新建 `Test*` 方法**：`Run()` 的 `RunCaseNames` ↔ 反射对账要求「每个 `Test*` 各有一条
+    //     `Step`」，而 `RuleEngineTest.cs` 不在本批白名单 ⇒ 只能挂在既有用例 `TestF8EnginePlayOrder` 里
+    //     （本文件独有的是 AI 侧引擎判据，故挂这里）。
+    // ==================================================================
+
+    /// <summary>④ 档进动作表 · 目标在**己方** · 两个负对照（`hasActiveAbility=0` / 已有替代行动入口）。</summary>
+    static void F8ActiveAbilityEntryEnumerated()
+    {
+        // 夹具形状照 `SOR66`：`hasActiveAbility=1` ∧ `Ability:` 正文 / 替代行动 / 誓约三条口都没有，
+        // `activeAbilityLogic` = 两行（`chosenAbility` = `buffOthers(30)` / `triggerPray(462)`），
+        // 第 0 行 `targetsAffected = 30`（= `target`，要调用方点一个目标）。
+        CardDef AaCard(int hasActive)
+        {
+            return new CardDef("F8AACard" + hasActive, "F8AACard" + hasActive, "unit", "", "common", "Test",
+                               1, 1, 3, 0, null,
+                               subtype: "Infantry",
+                               hasActiveAbility: hasActive,
+                               hasAlternativeAbility: 0,
+                               activeAbilityLogic: new[]
+                               {
+                                   new CardDef.ActiveAbilityLogicSpec
+                                   {
+                                       Ability = CardDef.ActiveAbilityObject,
+                                       Gate = 1,
+                                       TargetsAffected = new[] { 30, 20 },
+                                       ChosenAbility = new[] { 30, 462 },
+                                   },
+                               },
+                               activeAbilityLogicVersioned: true);
+        }
+
+        var ctx = Battle(new CardDef[0], new CardDef[0]);
+        ToP1Turn(ctx, 1);
+        var u = Place(ctx, 0, 3, AaCard(1), exhausted: false);
+
+        // ---- 前提（硬检查，⛔ 不写 `if (前提) Check(结论)`）----
+        CheckTrue(u != null && ctx.Active == 0,
+                  "④ （前提）第 0 号玩家是当前行动方、且载体已摆上 3 号格"
+                + "｜🧨 `ToP1Turn` / `Place` 的夹具口径变了 ⇒ 本条红，下面几条就不算证据");
+        Check(u.Card.HasActiveAbility, 1,
+              "④ （前提）夹具的 `hasActiveAbility = 1`（`CardScript.hasActiveAbility` `+0x220` 那一格）"
+            + "｜🧨 构造口把这一格吞掉（`CardDef` 的 `hasActiveAbility` 形参没接上）⇒ 红");
+        CheckTrue(!u.HasAbility && RuleCore.AlternativeActionKeyword(u) == null && u.Card.OathOps.Count == 0,
+                  "④ （前提）**前三条等价入口在数据上都不存在**（`Ability:` 正文 / 替代行动 / 誓约）"
+                + "—— 这正是「第 ④ 档」的定义（判据 = `BattleDriver.IsActiveAbilityEntry` 的 doc）"
+                + "｜🧨 夹具里混进 `Duty`/`Oath` 之类的关键词 ⇒ 红；那时下面的「进表」会由别的那一口产出，"
+                + "本断言就不再是这个意思");
+        CheckCode(RuleCore.CanStartActiveAbility(ctx, 0, 3), RuleCodes.OK,
+                  "④ （前提）引擎说这一格**能开始**主动能力（`BattleManager__CanUseActiveAbility` 的六道闸全过）"
+                + "｜🧨 费用闸 / `Exhausted` 夹具变了 ⇒ 红");
+
+        // ---- ① 正面：动作表里有一条 `activeAbility` 且带第 ④ 档哨兵 ----
+        int nActive = 0, nOnSlot3 = 0;
+        bool targetOnSelf = true;      // 只要出现过一条「目标侧不是己方」就翻假
+        foreach (var a in SimpleAI.EnumerateActions(ctx))
+        {
+            if (a.Kind != AiActionKind.ActiveAbility) continue;
+            if (a.AltKeyword != SimpleAI.AltActiveAbility) continue;
+            nActive++;
+            if (a.Slot != 3) continue;
+            nOnSlot3++;
+            if (a.TargetP != 0) targetOnSelf = false;      // `-1`（不用点目标）与 `0`（己方格）都算己方
+        }
+        CheckTrue(nActive > 0,
+                  "★★ ④ **第 ④ 档主动能力进了 AI 动作表**（`Kind = activeAbility(5)` ∧ `AltKeyword = \"active\"`）"
+                + "｜🧨 把 `Data/SimpleAI.cs:421` 那一句改回 `if (spec == null) continue;` ⇒ 动作表里 0 条 ⇒ 红"
+                + "（= 改前：`SOR66` 在 AI 手里永远不会发动，且没有任何报错）");
+        CheckTrue(nOnSlot3 > 0 && targetOnSelf,
+                  "★★ ④ 候选落在**这个载体**上、目标侧 = **己方**（`TargetP == 0`）"
+                + "—— 原版 `SOR66` 的 `targetCriteria` 是 `friendlyUnits=1`，而引擎那一口 "
+                + "`RuleCore.CanUseActiveAbility` 的 `targetOwner` 写死成施放者那一侧"
+                + "｜🧨 照「普通主动技」那一支扫**敌方**棋盘（`foeBoard`）⇒ 一条候选都产不出来 ⇒ 红；"
+                + "🧨 把 `TargetP` 填成 `1 - me` ⇒ 红");
+
+        // ---- ② 负对照 A：`hasActiveAbility = 0` ⇒ 不进表（灭自证：谓词那一位真的在起作用）----
+        {
+            var c2 = Battle(new CardDef[0], new CardDef[0]);
+            ToP1Turn(c2, 1);
+            Place(c2, 0, 3, AaCard(0), exhausted: false);
+            int cnt = 0;
+            foreach (var a in SimpleAI.EnumerateActions(c2))
+                if (a.Kind == AiActionKind.ActiveAbility && a.AltKeyword == SimpleAI.AltActiveAbility) cnt++;
+            Check(cnt, 0,
+                  "★★ ④ **负对照：`hasActiveAbility = 0` ⇒ 动作表里 0 条**"
+                + "（原版 `CardScript.SetBaseCardTraits` 是**无条件**从数据灌这一格 ⇒ `0` 就是「这张卡没有」）"
+                + "｜🧨 这一条的判别力来自**两道闸的合取**（`AddActiveAbilityEntry` 的谓词 ∧ "
+                + "`RuleCore.CanStartActiveAbility` 的 `HasActiveAbility != 1 ⇒ ErrNoAbility`）⇒ "
+                + "**只删谓词那一行它仍是 0（不红）**，⛔ 别把它写成「删谓词就红」；"
+                + "真能让它红的是「两道闸一起放宽」（删谓词 **且** 把引擎那道闸也去掉）"
+                + "—— 那时 AI 会给一张**没有这颗钮**的卡产候选 ⇒ 实得 > 0 ⇒ 红");
+        }
+
+        // ---- ③ 负对照 B：已有**替代行动**入口 ⇒ 由那一口产出，⛔ 不许再产一条第 ④ 档 ----
+        //    现池 87 张 `hasActiveAbility == 1`，其中 86 张同时带 `duty`/`pray`/`agenda`/`ferocity`/`oath`
+        //    ⇒ 少了这道排除，那 86 张会被**多产一条动作**（重复动作 + 打分口径不同）。
+        {
+            var c3 = Battle(new CardDef[0], new CardDef[0]);
+            ToP1Turn(c3, 1);
+            var duty = new CardDef("F8AADuty", "F8AADuty", "unit", "Duty: Deal 3 damage to an enemy troop",
+                                   "common", "Test", 2, 2, 3, 0, new[] { KeywordTable.Duty },
+                                   subtype: "Infantry",
+                                   hasActiveAbility: 1,
+                                   hasAlternativeAbility: 0,
+                                   activeAbilityLogic: new[]
+                                   {
+                                       new CardDef.ActiveAbilityLogicSpec
+                                       {
+                                           Ability = CardDef.ActiveAbilityObject, Gate = 1,
+                                           TargetsAffected = new[] { 30, 20 },
+                                           ChosenAbility = new[] { 30, 462 },
+                                       },
+                                   },
+                                   activeAbilityLogicVersioned: true);
+            Place(c3, 0, 3, duty, exhausted: false);
+            Place(c3, 1, 3, Unit("F8AAPrey", 1, 1, 3), exhausted: true);   // 替代行动要有目标
+            int alt = 0, act = 0;
+            foreach (var a in SimpleAI.EnumerateActions(c3))
+            {
+                if (a.Kind != AiActionKind.ActiveAbility) continue;
+                if (a.AltKeyword == KeywordTable.Duty) alt++;
+                else if (a.AltKeyword == SimpleAI.AltActiveAbility) act++;
+            }
+            CheckTrue(alt > 0,
+                      "④ （前提）`duty` 那一口**确实**产出了候选（否则下面那条的 0 可能只是「两条都没产」）"
+                    + "｜🧨 `duty` 夹具失效 ⇒ 红");
+            Check(act, 0,
+                  "★★ ④ **负对照：有替代行动入口的卡不产第 ④ 档的重复候选**"
+                + "｜🧨 把 `RuleCore.AlternativeActionKeyword(u) != null` 那一条排除删掉 ⇒ 实得 > 0 ⇒ 红"
+                + "（现池 86 张卡会各多一条重复动作）");
+        }
     }
 }

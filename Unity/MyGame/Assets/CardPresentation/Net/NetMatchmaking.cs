@@ -58,6 +58,15 @@ namespace CardPresentation.Net
         /// <summary>本机是不是正在等对面交卡组（界面可以据此显示「等待对手…」）。</summary>
         public static bool Waiting { get { return _myDeck != null && !Started && _foeDeck == null; } }
 
+        /// <summary>🆕 **2026-10-27（B88-E8b · 联机:81）**：本机在这一局匹配的**整个大厅阶段**
+        /// （= 已经交出我的卡组、**还没开局**）。与 <see cref="Waiting"/> 的差别只有一个：`Waiting` 到
+        /// 「对面交卡组那一刻」为止（`_foeDeck == null`），而「两边都交了、还没收到 `MsgStart`」那段
+        /// **也是大厅阶段**（原版照样重连）⇒ 本格**不收 `_foeDeck` 那一项**。
+        /// <para>唯一读点 = `NetSession` 两处掉线边沿（**在 `OnPeerLost()` 之前**取快照，之后就不作数了）。</para>
+        /// <para>⚠️ 大厅**空闲**（没在匹配）时本格为假 ⇒ 不自动重连：我们不是 Photon 房间模型、空闲时
+        /// 没有任何可恢复的对局；这一格差异已记在账 `联机:81` 的差异列。</para></summary>
+        public static bool InLobbyMatch { get { return _myDeck != null && !Started; } }
+
         // ==================================================================
         //  🆕 2026-10-03：**取消这一局的匹配**（`项目任务.md` §三 第 29 条 **A1**）
         //
@@ -899,16 +908,26 @@ namespace CardPresentation.Net
             //     → `SoundManager.Play2D(matchFoundSFX, MixerType)`。
             //   ⇒ 我们的等价弹窗口 = `NetRuntime.Notice`（落 `WindowsManager.ShowPopUp(text, OK, null)`，
             //     见 `NetRuntime.DrainNotices`）。⚠️ 三条**如实差异**：
-            //     ① 原版那句文案是 I2 词条（本地无 value）⇒ 用原版 `Debug.Log` 那句字面串 `Match found!`；
+            //     ① 原版那句文案是 I2 词条 `Battle/Prebattle/CasualString`（🔴 2026-10-28 `B88_B1` 订正：本地**有** value，是原版自己填脏的 `Loading...`/`加载中...`）⇒ 仍用原版 `Debug.Log` 的字面串 `Match found!`；
             //     ② 原版那两颗钮是 prefab 上的（`closeOnEsc:false`），我们走通用 OK 钮；
-            //     ③ 🔴 **音效 `matchFoundSFX` 没接**：那一格是 `MatchMakerManager` 上的 `AudioCue` 序列化字段
-            //        （`dump.cs:122502`，偏移 `0xA0`），而本机**没有任何 bundle 的 MB JSON 带这个字段名**
-            //        （`assets_full` 全树 grep `matchFoundSFX` = 0 命中 ⇒ 那份实例没有 type tree）
-            //        ⇒ **cue 名读不到 ⇒ 音频先不接**（⛔ 不猜一个 cue 名当替身）。账 74 记着这一半。
+            //     ③ ✅ **音效 `matchFoundSFX` 已接（2026-10-28 · `B88_B1`）**：cue = **`Match Found`**，
+            //        判据 = AssetRipper 导出的 `Intro.unity:7299-7307`（`matchFoundSFX` 那个 GUID
+            //        `779042f4…`）→ `MonoBehaviour/Match Found.asset` → clip `Multiplayer Match Found 3`；
+            //        消费点逐字对 `MatchMakerManager__MatchMakingMatchFound.c:43`（`Play2D(cue, 0 = FX)`）。
             //   ⚠️ `GoToBattle` 在 `Application.isBatchMode` 已经 return 过 ⇒ 自检的通知队列计数不受影响。
             NetRuntime.Notice("Match found!");
-            Debug.Log("[Net] 找到对手 ⇒ 弹「Match found!」（原版 `MatchMakerManager.MatchMakingMatchFound` 的 ShowPopUp；"
-                    + "音效 `matchFoundSFX` 的 cue 名本地读不到 ⇒ 这一半没接，见账 74）");
+            // 🆕 2026-10-28（`B88_B1` · 联机账 74 收尾）：原版最后那一跳 `SoundManager.Play2D(matchFoundSFX, 0 = FX)`。
+            //   我们的等价口 = `WFSoundPlayer.Play(cue, …, is2d:true)`（挂 **FX** 组、按 cue 的 pitch/vol 区间随机）。
+            //   ⛔ 别改成 `WarpforgeAudio.PlayJingle` —— 那条挂的是 **Jingles** 组（原版这里是 FX，见上面 ③）。
+            const string mfCue = "Match Found";
+            WarpforgeVFX.WFSoundCue mfCueData;
+            if (WarpforgeVFX.WFSoundBank.TryGetCue(mfCue, out mfCueData))
+                WarpforgeVFX.WFSoundPlayer.Play(mfCueData, Vector3.zero, true);   // is2d ⇒ 原版 `Play2D`
+            else
+                Debug.LogWarning("[Net] cue `" + mfCue + "` 在 `WFSoundBank` 里取不到 ⇒ 「找到对手」这一声**不出声**"
+                               + "（不是静默：cue 与 clip 都已解出，缺的只是表里那一行 —— 跑 `工具/import_original_sfx.py`）");
+            Debug.Log("[Net] 找到对手 ⇒ 弹「Match found!」+ 播 `Match Found`（原版 `MatchMakerManager.MatchMakingMatchFound`"
+                    + " 的 ShowPopUp + `Play2D(matchFoundSFX, MixerType 0 = FX)`）");
             // 🆕 切场景之前给界面一口气：把「找到对手」那一态显示出来（**只有注册过的界面才拦**）。
             //    未注册 / 批处理 ⇒ 照旧立刻切（**单机与三个战斗入口窗的行为一字不改**）。
             if (HoldForPresentation != null && HoldForPresentation(st))

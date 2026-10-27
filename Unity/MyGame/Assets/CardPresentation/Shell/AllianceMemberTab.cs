@@ -419,11 +419,46 @@ namespace CardPresentation
             return n;              // 2026-10-18：返**节点**（九宫格底图挂在它下面），⛔ 不是 `ImageQuad` 了
         }
 
+        // ---------------------------------------------------------- 🆕 2026-10-27（E9 · 账 53）
+        /// <summary>原版 `AllianceMemberTab.onTrophyTab` —— **上次停在哪一支**（`Initialize` 按它恢复：
+        /// 假 ⇒ `General`、真 ⇒ `Trophies`）。三个写点逐句照原版（`out_cpp2il_dev_ilspy/AllianceMemberTab.cs:28-105`）：
+        /// `Initialize` 的两个分支各写一次 · `ShowGeneralView` ⇒ false · `ShowTrophiesView` ⇒ true。</summary>
+        bool _onTrophyTab;
+
+        /// <summary>自检读口：现在停在奖杯支吗。</summary>
+        public bool OnTrophyTab { get { return _onTrophyTab; } }
+
+        /// <summary>= 原版 `AllianceMemberTab.Initialize()`（**逐句**，判据
+        /// `AllianceMemberTab__Initialize.c` ＋ `out_cpp2il_dev_ilspy/AllianceMemberTab.cs:28-72`）：
+        /// ① `gameObject.SetActive(true)`；② 按 `onTrophyTab` 点亮对应那一支、关掉另一支、`isOn` 置位、
+        /// `onTrophyTab` 写回；③ `AlliancesManager.GetCurrentGroup(view.Draw)` —— **重拉数据再重画**。
+        /// <para>本地等价物：③ 换成「按当前 `SocialData` 重填那一列」（`General` ⇒ 成员列、
+        /// `Trophies` ⇒ 奖杯格），见 `ShowGeneral` / `ShowTrophies` 的末句。</para>
+        /// <para>🔴 **谁调它**：原版是 `AlliancesTab.ToFocus/Refresh`（每次进联盟页都重跑）。我们挂
+        /// <see cref="OnEnable"/> —— 同一件事（联盟页/本支被点亮时），只是钩子不同
+        /// （`AlliancesTab.cs` 不在本批白名单内）。**这就是「页签态记忆」的落地点**（账 53①）。</para>
+        /// <para>⚠️ `AddComponent` 那一刻 GameObject 已激活 ⇒ `OnEnable` 会**先跑一次**，
+        /// 那时 `_general` 还是 null ⇒ 直接返回（否则会对着 null 切显隐）。</para></summary>
+        public void Initialize()
+        {
+            if (_general == null) return;        // 还没 `Build()`
+            gameObject.SetActive(true);
+            if (!_onTrophyTab) ShowGeneral();    // 原版：`generalButton.isOn = true` + 显示 General + `onTrophyTab = false`
+            else ShowTrophies();                 // 原版：`trophiesButton.isOn = true` + 显示 Trophies + `onTrophyTab = true`
+        }
+
+        /// <summary>见 <see cref="Initialize"/>。幂等（只切显隐 + 重填一次）。</summary>
+        void OnEnable() { Initialize(); }
+
         public void ShowGeneral()
         {
             if (_general != null) _general.gameObject.SetActive(true);
             if (_trophies != null) _trophies.gameObject.SetActive(false);
             SwapTabArt(false);
+            _onTrophyTab = false;                // 原版 `ShowGeneralView`
+            // 原版这一支末尾 `instance.GetCurrentGroup(generalView.Draw)` = 重拉数据 → 重画。
+            // 本地等价物 = 按当前 `SocialData.Members` 清空重填成员列（同一条「清空重填」路）。
+            if (_memberContent != null) AllianceMemberRow.BuildAll(this, _memberContent, MemberScroll);
         }
 
         public void ShowTrophies()
@@ -431,6 +466,8 @@ namespace CardPresentation
             if (_general != null) _general.gameObject.SetActive(false);
             if (_trophies != null) _trophies.gameObject.SetActive(true);
             SwapTabArt(true);
+            _onTrophyTab = true;                 // 原版 `ShowTrophiesView`
+            if (_trophyContent != null) BuildTrophyRows(_trophyContent);   // 原版 `GetCurrentGroup(trophiesView.Draw)`
         }
 
         void SwapTabArt(bool trophiesOn)
@@ -461,9 +498,31 @@ namespace CardPresentation
                            new PxRect(597.94f, 267.62f, 1504.44f, 318.73f));
             Text(cnt, new PxRect(597.94f, 267.62f, 1504.44f, 318.73f), TrophyCountText(),
                  Color.white, "Text", 40f, L_Text, 12f, wrap: false, alignLeft: true);   // A319 #3（原版 `Left`(1)）· 原版 `折行=0`（同上）
-            // `CurrentActiveBadge`：那一枚大徽标（`AllianceBadgeDrawer`）—— 徽标图在**服务器**上（盟自己没有存档）
-            var badge = Node(root, "CurrentActiveBadge", new PxRect(414.00f, 204.89f, 579.95f, 360.62f));
-            Node(badge, "Frame", new PxRect(414.00f, 204.89f, 579.95f, 360.62f));
+            // `CurrentActiveBadge`：那一枚大徽标（`AllianceBadgeDrawer`）—— 图 = `featuredTrophy.reward` 那一枚
+            //   （2026-10-28 B88-B7 起画真图；`AllianceBadgeArt` 的 id→图 表，判据 R8 §二）
+            var badgeR = new PxRect(414.00f, 204.89f, 579.95f, 360.62f);
+            var badge = Node(root, "CurrentActiveBadge", badgeR);
+            // 🔴 **2026-10-27（E9 · 账 73③ 的「可画那一半」）**：原版 `selectedBadgeDisplay.Draw(...)` 会先
+            //   `SetTierFrame(tier)`（`AllianceBadgeDrawer__SetTierFrame` → `LoadTierFrame`，下标
+            //   `Math.Max(0, tier-1)`）再画那一枚徽记。**档位框的图本地有**（`Alliance_Trophies_TIER1..4`
+            //   在 `Resources/Art/ui_menu/`，`AllianceTrophyArt.GetTierFrame` 已能用；同一格奖杯在
+            //   `BuildTrophyCell` 里早就在这么画）⇒ 这一半**照画**。
+            //   ⚠️ 徽记本身（`Badge`）：**2026-10-28（B88-B7）已接上** —— 16 份 `AllianceBadge` SO 的 id→图 全解出
+            //   （判据 `B88_R8_安卓包徽章挖掘.md` §二）；下面 522 行起画的就是它。旧注「判据空」已作废。
+            var fDef = FeaturedTrophyDef();
+            var fTier = fDef != null
+                ? Mathf.Max(1, AllianceTrophyModel.CurrentTier(fDef, AllianceTrophyModel.StateOf(fDef))) : 0;
+            // 🔴 **2026-10-28（B88-B7 · 顺手修，铁律 14）**：这一句原来传的是 `L_Art`（= 2）**直接给 `MenuDraw.Rect`**
+            //   —— 那个口的第 5 实参是**绝对渲染队列**（别处一律 `Page.Q + QOff + …`，见 `NineSoft` / `TextSoft`），
+            //   队列 2 = 整页最底 ⇒ 框会被页底压住（画了看不见）。这里补上页带基址。
+            if (fDef == null || AllianceBadgeArt.DrawTierFrame(badge, badgeR, fTier, "Frame", Page.Q + QOff + L_Art) == null)
+                Node(badge, "Frame", badgeR);
+            // 🔴 **2026-10-28（B88-B7 · 账 73③ 的**徽记**那一半）**：原版 `selectedBadgeDisplay.Draw(...)` 画的就是
+            //   `featuredTrophy.reward`（`AllianceBadge`）那张图 —— 判据此前记成「判据空」，**已被 B88 资源挖掘推翻**
+            //   （16 份 SO 的 id→图 全解出，见 `AllianceBadgeArt`）。这里按 featured 那一枚的 `RewardBadgeId` 画。
+            if (fDef == null) Node(badge, "Badge", badgeR);       // 无定义表 ⇒ 不知道是哪一枚：只建结构（⛔ 不拿默认徽章冒充）
+            else if (AllianceBadgeArt.Draw(badge, badgeR, fDef.RewardBadgeId, "Badge", Page.Q + QOff + L_Art + 1) == null)
+                Node(badge, "Badge", badgeR);
             Nine(root, "40k_Separator_Fade_Sides_Horizontal", new PxRect(331.07f, 376.71f, 1920.10f, 380.39f),
                  new Vector4(63f, 0f, 63f, 0f), "Divisor line Trophies", L_Line,
                  new Color(0.875f, 0.552f, 0.286f, 1f));
@@ -678,23 +737,26 @@ namespace CardPresentation
             //   进度槽在格底），同档不冲突（严格兄弟序要 7 号/格，见 `LC_*` 那段说明）。
             // 🔴 **2026-10-25（N9 · 账 10①）**：原版下标是 `Math.Max(0, tier - 1)` ⇒ **tier == 0 也取 TIER1**；
             //   我们原来 `trophyTier > 0` 才画 ⇒ tier 0 一档框都没有（和原版差一档）。
-            var frameTex = trophyDef != null ? AllianceTrophyArt.GetTierFrame(Mathf.Max(1, trophyTier)) : null;
-            if (frameTex != null)
-                MenuDraw.Rect(bd, frameTex, bdr, "Frame", CellQ(LC_Slot), null, true);
-            else
+            // 🔴 **2026-10-28（B88-B7 · 顺手修，铁律 14）**：`CellQ(...)` 吐的是**页内偏移**（`CellQueue − (Page.Q+QOff)`），
+            //   只对 `NineSoft`/`TextSoft` 那些**会自己加 `Page.Q + QOff`** 的助手成立。这两层原来直接喂给
+            //   `MenuDraw.Rect`（那口收**绝对**队列）⇒ 实际队列只有 `5+6i`，**比格子底板（3210+6i）低 3200 号** = 框与徽记
+            //   全被 `bg` 压住（画了看不见）。这里补上页带基址。
+            if (trophyDef == null || AllianceBadgeArt.DrawTierFrame(bd, bdr, Mathf.Max(1, trophyTier), "Frame",
+                                                                  Page.Q + QOff + CellQ(LC_Slot)) == null)
                 Node(bd, "Frame", bdr);
             // 🔴 **2026-10-25（N9 · 账 88③ / 8）**：徽记 = 原版 `badgeDrawer.Draw(GetCurrentStatus())`，
             //   `GroupBadge` 那两个字段就是 `CurrentStatus` 吐的 `(trophyId, tierLevel)`。
-            //   ⚠️ **图仍取不到**：原版那一枚来自 `AllianceTrophyData.reward`（`LoadableReference<AllianceBadge>`），
-            //   本地没有那张 SO、也没有 id→图 的映射（判据空）⇒ 按 `RewardBadgeId` 当图名试一次，
-            //   取不到就**保持空节点 + 出声一次**（⛔ 不拿别的图顶上）。
-            var badgeTex = trophyDef != null ? CardArt.MenuUi(trophyDef.RewardBadgeId) : null;
-            if (badgeTex != null)
-                MenuDraw.Rect(bd, badgeTex, bdr, "Badge", CellQ(LC_Slot), null, true);
-            else
-            {
+            // 🔴 **2026-10-28（B88-B7 · 账 88 的最后一枚，判据已齐）**：那张 SO **找到了** ——
+            //   16 份 `AllianceBadge` 在 `bundle_cosmeticsso_assets_all`，`uniqueId → Sprite` 16/16 已解出
+            //   （判据 `B88_R8_安卓包徽章挖掘.md` §二，映射落成 `AllianceBadgeArt`）⇒ 按 `reward` 的 id 取真图。
+            //   ⚠️ 旧注释说「判据空 / 拿 id 当图名试一次」**已作废**（`AM_Forge_Badge` 这种 id 从来不是图名）。
+            //   ⚠️ 无定义表（本地默认）⇒ 不知道该画哪一枚，**只建结构**（⛔ 不拿默认徽章冒充这一格的奖励）。
+            if (trophyDef == null)
                 Node(bd, "Badge", bdr);
-                if (trophyDef != null) WarnNoBadgeArtOnce(trophyDef.RewardBadgeId);
+            else if (AllianceBadgeArt.Draw(bd, bdr, trophyDef.RewardBadgeId, "Badge",
+                                           Page.Q + QOff + CellQ(LC_Slot) + 1) == null)
+            {
+                Node(bd, "Badge", bdr); WarnNoBadgeArtOnce(trophyDef.RewardBadgeId);
             }
 
             // `title`（奖杯名）—— 原版 `Center/Middle` · 字号 38 auto[12,38] · 折行 1（普查 `:364`）
@@ -1045,8 +1107,8 @@ namespace CardPresentation
 
         /// <summary>当前 featured 的那一枚（原版 `AllianceTrophiesView.Draw` 里那个 `allianceTrophy`）。
         /// 本地：`AllianceTrophyModel.Defs` 里 `IsFeatured` 且**可见**的第一枚；没有 ⇒ null。
-        /// ⚠️ 那个大徽标（`CurrentActiveBadge>Frame`）**仍然空着** —— 徽标图本地无 id→图 映射
-        /// （同 `BuildTrophyCell` 里 `WarnNoBadgeArtOnce` 那条），账 73③ 的图画那一半记着。</summary>
+        /// ✅ **2026-10-28（B88-B7 · 账 73③）**：那个大徽标的**两层都画了**（档位框 `Alliance_Trophies_TIER1..4`
+        /// ＋ 徽记 `featuredTrophy.reward` 那张图）—— id→图 见 `AllianceBadgeArt`（旧注「本地无映射」已作废）。</summary>
         static AllianceTrophyDef FeaturedTrophyDef()
         {
             var defs = AllianceTrophyModel.Defs;
@@ -1124,9 +1186,11 @@ namespace CardPresentation
         {
             string key = id ?? "";
             if (!_noBadgeWarned.Add(key)) return;
+            // 🔴 2026-10-28（B88-B7）：原文说「本地没有 SO、没有 id→图 映射 ⇒ 判据空」—— **已作废**
+            //   （16 份 SO 找到、映射见 `AllianceBadgeArt`）。现在这一句只在**图取不到**时出现。
             Debug.Log("[Alliance] 奖杯徽记图取不到：`" + key + "` ⇒ 这一格**不画徽记**"
-                    + "（原版那一枚来自 `AllianceTrophyData.reward` 的 `LoadableReference<AllianceBadge>`，"
-                    + "本地没有那张 SO、也没有 id→图 的映射 ⇒ 判据空）");
+                    + "（原版那一枚 = `AllianceTrophyData.reward` 的 `AllianceBadge.badgeImage`；"
+                    + "id→图 表见 `AllianceBadgeArt.Entries`，图在 `Resources/Art/ui_menu/Alliance_Trophies_*`）");
         }
     }
 
@@ -1603,6 +1667,14 @@ namespace CardPresentation
         public const float CellW = 750f, CellH = 100f, CellGapX = 10f, CellGapY = 7.22f;
         public const float PadL = 0f, PadR = 0f, PadT = 9f, PadB = 75f;
 
+        /// <summary>原版 `AllianceMemberEntry.isPlayerEntryColor` —— **`IsPlayer` 那一行的换色**（账 26③）。
+        /// <para>判据（**prefab 序列化字段实读，不是我们挑的**）：`(0.15258681774139404, 0.48235294222831726, 0.0, 1.0)`，
+        /// `bundle_menus_assets_all/MonoBehaviour_-4586463415933622350.json:44-49`；另两份实例
+        /// `…_-2068273713529560925.json` / `…_4905926295992066211.json` **同值**。
+        /// 作用对象 = `graphicsToChangeColorIfIsPlayer` 那两颗 PPtr 反查出的 `background` 与 `Image`
+        /// （`GameObject/background_5687845496662894514.json` · `GameObject/Image_-2532075377729034318.json`）。</para></summary>
+        static readonly Color IsPlayerEntryColor = new Color(0.15258681774139404f, 0.48235294222831726f, 0f, 1f);
+
         /// <summary>按数据条数逐格建（原版 `AllianceMemberList` 用 `entryPrefab` 逐条 Instantiate）。
         /// 格位按 `GridLayoutGroup`（cell **750×100** · spacing **(10, 7.22)** · pad (0,0,9,75) ·
         /// `m_Constraint 0` Flexible）推。
@@ -1703,11 +1775,19 @@ namespace CardPresentation
         public static void Build(SocialView v, Transform content, SocialData.Member m, PxRect r, int rowNumber = -1)
         {
             var row = MenuDraw.Node(content, "Alliance Member Entry", r);
-            v.Nine(row, "40K_dropdown_bg", r, new Vector4(23f, 20f, 23f, 20f), "background", 0,
-                   new Color(1f, 0.36f, 0f, 1f));
+            // 🔴 **2026-10-27（E9 · 账 26③）**：原版 `AllianceMemberEntry.Initialize` 末尾
+            //   `if (member.IsPlayer) foreach (var g in graphicsToChangeColorIfIsPlayer) g.color = isPlayerEntryColor;`
+            //   （判据 `out_cpp2il_dev_ilspy/AllianceMemberEntry.cs:280-295`：那是个 `Graphic[]` 的 `color` 赋值）。
+            //   ① 色值 = **prefab 序列化字段实读** `(0.15258681774139404, 0.48235294222831726, 0.0, 1.0)`
+            //      （`bundle_menus_assets_all/MonoBehaviour_-4586463415933622350.json:44-49`；另两份实例同值）；
+            //   ② 作用对象 = 那两颗 PPtr 反查出来的 `background` 与 `Image`（本函数建的同名两颗）。
+            //   ⇒ `IsPlayer` 时这两颗的 tint 换成它，否则维持原色。⛔ 别把颜色乘一层（原版是 `=` 覆盖）。
+            var bgTint = m.IsPlayer ? IsPlayerEntryColor : new Color(1f, 0.36f, 0f, 1f);
+            var stripTint = m.IsPlayer ? IsPlayerEntryColor : new Color(0.481f, 0.182f, 0f, 1f);
+            v.Nine(row, "40K_dropdown_bg", r, new Vector4(23f, 20f, 23f, 20f), "background", 0, bgTint);
             // `background/Image`（左侧那条深色竖带）+ 名次数字
             v.Rect(row, null, new PxRect(r.x1 + 2.24f, r.y1 + 2.52f, r.x1 + 47.54f, r.y1 + 97.59f),
-                   "Image", 0, new Color(0.481f, 0.182f, 0f, 1f));
+                   "Image", 0, stripTint);
             var idxR = new PxRect(r.x1 + 2.52f, r.y1 + 2.56f, r.x1 + 47.04f, r.y1 + 97.34f);
             // 🆕 **2026-10-17（`A1024③`）**：原版 `member index` = **Asar**（`R_A1024_字体按用途普查.md` §2·5·1）
             var lbIdx = v.Text(row, idxR,
@@ -1757,24 +1837,36 @@ namespace CardPresentation
         /// <para>🔴 **2026-10-25（N9 · 账 30/99）**：那扇窗（22 节点）与入口
         /// `WindowsManager.OpenAllianceMemberOptions` **早就建好了**，但**游戏内一直没有调用点**
         /// —— 成员行点击只 `Say` ⇒ 那扇窗永远打不开。本轮接上。</para>
-        /// <para>⚠️ 三处**本地拿不到**（如实记，⛔ 不编）：
-        /// ① `MemberView.Role` 是 int（`Member=0 / Moderator=1 / Admin=2 / Leader=3`），
-        ///    我们的 `SocialData.Member.Role` 只有**显示串**（原版样例 `Alliance Master`）⇒ 传 `0`；
-        /// ② `IsFriend` 没有数据源（见账 373）⇒ 传 `false`；
+        /// <para>⚠️ **两处本地拿不到**（如实记，⛔ 不编）：
+        /// ① ~~`MemberView.Role` 是 int、我们的 `Member.Role` 只有显示串 ⇒ 传 0~~ ——
+        ///    🔴 **2026-10-27（E9 · 账 30①）已补**：`SocialData.Member` 新增 **`RoleId`**（int，
+        ///    `GroupRole` 0..3）⇒ 这里传 `m.RoleId`；`MyRole` 走 `SocialData.SelfRoleId()`
+        ///    （原版 `CurrentPlayerCache.role`；没数据时 0 = 最低档，与原版「无数据」等价）；
+        /// ② ~~`IsFriend` 没有数据源~~ —— 🔴 **同日已接**：`SocialData.IsFriend(m.Id)`
+        ///    （全仓唯一一份，`ChatPanel.IsFriend` 也转调它）；`Member.Id` 早在 C5 批就有了；
         /// ③ 原版还会把窗**摆到那一行旁边**（`memberTransform.position` + 一次 `anchoredPosition` 重算）——
-        ///    我们的窗只有 `RootRect(anchor)` 那条算式、**没有「已建好后按锚点重排」的口** ⇒ 本轮仍居中。</para>
+        ///    我们的窗只有 `RootRect(anchor)` 那条算式、**没有「已建好后按锚点重排」的口**
+        ///    （那口在 `AllianceMemberOptionsPopup.cs` / `WindowsManager.cs`，**不在本批白名单内**）⇒ 仍居中。</para>
         /// <para>⇒ 因此 `Promote / Demote / Kick` 三颗（要 `outrank = SameGroup &amp;&amp; Role &lt; MyRole`）
-        /// **恒不出**；`Quit` 只在「点的是自己」时出。这是「只知道这些」时的诚实子集。</para></summary>
+        /// 只在**真有 role 数据**时才出现；`Quit` 只在「点的是自己」时出。这是「只知道这些」时的诚实子集。</para></summary>
         static void OpenMemberOptions(SocialData.Member m)
         {
             var mv = new AllianceMemberOptionsPopup.MemberView
             {
                 Name = m != null ? (m.Name ?? "") : "",
-                Role = 0,                       // ⚠️ 本地没有数值 role（见上面 ①）
+                // 🆕 2026-10-27（E9 · 账 30①）：`Role` 改吃 **数值** `Member.RoleId`
+                //   （原版 `AllianceMemberOptionsPopup.MemberView.Role` = `GroupMember.role`，int）。
+                //   原来恒传 0 ⇒ `outrank = SameGroup && Role < MyRole` 恒假 ⇒ Promote/Demote/Kick 永远不出。
+                Role = m != null ? m.RoleId : 0,
                 IsSelf = m != null && m.IsPlayer,
-                IsFriend = false,               // ⚠️ 没有好友态数据源（见上面 ②）
+                // 🆕 2026-10-27（E9 · 账 30②）：`IsFriend` 接上**唯一那份**好友判定
+                //   （`SocialData.IsFriend(id)`，原版 `FriendsData.IsFriend(playerId)`；`ChatPanel` 也转调这里）。
+                //   ⚠️ 本地好友表恒空 ⇒ 判据恒「查不到 ⇒ Add as a friend 可点」；真数据来了自己生效。
+                IsFriend = m != null && SocialData.IsFriend(m.Id),
                 SameGroup = true,
-                MyRole = 0,
+                // 🆕 2026-10-27（E9 · 账 30①）：`MyRole` 见 `SocialData.SelfRoleId()`（原版
+                //   `AlliancesManager.controller.CurrentPlayerCache.role`）。默认 0 ⇒ 与原版「无数据」等价。
+                MyRole = SocialData.SelfRoleId(),
             };
             var win = WindowsManager.OpenAllianceMemberOptions(mv);
             Debug.Log("[Alliance] 点成员行 ⇒ 开 `AllianceMemberOptionsPopup`（原版 `AllianceView.OnMemberClicked`）；"

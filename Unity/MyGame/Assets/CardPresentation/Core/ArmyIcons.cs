@@ -289,5 +289,174 @@ namespace CardPresentation
             var n = ActiveAbilityIconName(army);
             return string.IsNullOrEmpty(n) ? null : CardArt.Ui(n);
         }
+
+        // ══════════════════════════════════════════════════════════════════════════════════
+        //  🆕 2026-10-28（`A4`）· **锻造点图标**（原版 `ArmyUtilities.GetForgeIconForArmy`）
+        //
+        //  ============================ 判据链（逐字节现读，2026-10-28） ============================
+        //  ① 反编译：`ArmyUtilities__GetForgeIconForArmy.c:2-8` =
+        //     `if (this+0x38 == null) throw; return ArmyIconsSO__GetArmyIcon(this+0x38, army);`
+        //     —— `+0x38` 就是 `forgeIcons`（本文件头 ② a) 那 6 个 PPtr 里 `0x44 forgeIcons → {2, 421}`）。
+        //  ② 原始字节（同一套手工切）：`sharedassets0.assets` 对象 **421**：
+        //     `m_Name = "ForgeIconsByArmySO"` · `m_Script = {1, 660}`（= `ArmyIconsSO`，与本文件头同一个
+        //     MonoScript）· 总长 **264 B** · 首字段偏移 **52**（`m_Name` 17 字符对齐后）→ `[int32 count = 13]` +
+        //     13 × `[int32 army][PPtr{m_FileID:0, m_PathID:i64}]`，**尾 0 字节**（`consumed 212 / 212`）。
+        //     13 个 PPtr 全 `m_FileID = 0`（同文件）⇒ 按 pathID 读那 13 个 Sprite 的 `m_Name`（见下表）。
+        //  ③ 交叉印证：`bundle_atlasgroup_assets_all` 的 `SpriteAtlas` 名 = **`Forge Icons`**、`m_PackedSprites`
+        //     = **13**，与这张表一一对应；另 `bundle_atlasindividual_assets_0_mainmenu` 里那张**不带阵营后缀**的
+        //     `40K_general_icon_Forge points` 是另一张（`Shell/ForgeData` 的兜底用的就是它，⛔ 别混进本表）。
+        //  ④ 我们的图：13 张**全部已导入** `Resources/Art/ui_menu/40K_general_icon_Forge_points_*.png`
+        //     （2026-10-28 现数 13/13 + 1 张通用），`CardArt.MenuUi` 直接取得到。
+        //
+        //  ⚠️ 本族的 sprite 名与 `armyIcons`（`40k_DeckSelection_icon_*`）、`activeAbilityIcons`
+        //     （`Attack type button *`）**三族互不同名**，⛔ 别把三张表混用。
+        // ══════════════════════════════════════════════════════════════════════════════════
+
+        public struct ForgeEntry
+        {
+            /// <summary>`CardArmy` 枚举值。</summary>
+            public int Army;
+            /// <summary>原版 Sprite 名（`ForgeIconsByArmySO` 逐条解出，**带空格**，如 `Dark Angels`）。</summary>
+            public string Sprite;
+        }
+
+        /// <summary>13 条，**顺序 = `ForgeIconsByArmySO` 的序列化顺序**（army 10…130，**没有 Neutral**）。</summary>
+        static readonly ForgeEntry[] ForgeTable =
+        {
+            new ForgeEntry { Army =  10, Sprite = "40K_general_icon_Forge points_Ultramarines"     },
+            new ForgeEntry { Army =  20, Sprite = "40K_general_icon_Forge points_Goff"             },
+            new ForgeEntry { Army =  30, Sprite = "40K_general_icon_Forge points_SaimHann"         },
+            new ForgeEntry { Army =  40, Sprite = "40K_general_icon_Forge points_Sautekh"          },
+            new ForgeEntry { Army =  50, Sprite = "40K_general_icon_Forge points_BlackLegion"      },
+            new ForgeEntry { Army =  60, Sprite = "40K_general_icon_Forge points_Leviathan"        },
+            new ForgeEntry { Army =  70, Sprite = "40K_general_icon_Forge points_TauEmpire"        },
+            new ForgeEntry { Army =  80, Sprite = "40K_general_icon_Forge points_Sororitas"        },
+            new ForgeEntry { Army =  90, Sprite = "40K_general_icon_Forge points_Genestealers"     },
+            new ForgeEntry { Army = 100, Sprite = "40K_general_icon_Forge points_AstraMilitarum"   },
+            new ForgeEntry { Army = 110, Sprite = "40K_general_icon_Forge points_Dark Angels"      },
+            new ForgeEntry { Army = 120, Sprite = "40K_general_icon_Forge points_Emperors Children"},
+            new ForgeEntry { Army = 130, Sprite = "40K_general_icon_Forge points_SpaceWolves"      },
+        };
+
+        /// <summary>13 条（自检读口）。</summary>
+        public static ForgeEntry[] AllForge { get { return (ForgeEntry[])ForgeTable.Clone(); } }
+
+        /// <summary>`CardArmy` 值 → 原版 Sprite 名；`Neutral(0)` / 认不出 ⇒ **`null`**
+        /// （= 原版 `ArmyIconsSO.TryGetItem` 没命中，那时返回 null sprite）。</summary>
+        public static string ForgeSpriteName(int army)
+        {
+            for (int i = 0; i < ForgeTable.Length; i++)
+                if (ForgeTable[i].Army == army) return ForgeTable[i].Sprite;
+            return null;
+        }
+
+        /// <summary>阵营名（`CardDef.Faction`）→ 原版 Sprite 名；认不出 ⇒ `null`。</summary>
+        public static string ForgeSpriteName(string faction)
+        {
+            int a = Id(faction);
+            return a < 0 ? null : ForgeSpriteName(a);
+        }
+
+        /// <summary>`CardArmy` 值 → **我们工程里的图名**（`Resources/Art/ui_menu/` 下的名字：空格换下划线）；
+        /// 认不出 ⇒ `null`（调用方必须自己出声，⛔ 别拿通用那张兜底 —— 那是 `Shell/ForgeData` 自己的兜底口径）。</summary>
+        public static string ForgeIconName(int army) { return ResourceNameOf(ForgeSpriteName(army)); }
+
+        /// <summary>阵营名 → 我们工程里的图名；认不出 ⇒ `null`。</summary>
+        public static string ForgeIconName(string faction) { return ResourceNameOf(ForgeSpriteName(faction)); }
+
+        /// <summary>`CardArmy` 值 → 贴图（`CardArt.MenuUi` 三级兜底）；认不出 ⇒ `null`。</summary>
+        public static Texture2D ForgeTexture(int army)
+        {
+            var n = ForgeIconName(army);
+            return string.IsNullOrEmpty(n) ? null : CardArt.MenuUi(n);
+        }
+
+        // ══════════════════════════════════════════════════════════════════════════════════
+        //  🆕 2026-10-28（`A4`）· **阵营中号底图**（原版 `ArmyUtilities.GetArmyMediumBackGround`）
+        //
+        //  ============================ 判据链（逐字节现读，2026-10-28） ============================
+        //  ① 反编译：`ArmyUtilities__GetArmyMediumBackGround.c:2-8` =
+        //     `if (this+0x30 == null) throw; return ArmyBackgroundsSO__GetMediumBackground(this+0x30, army);`
+        //     —— `+0x30` 就是 `armyBackgrounds`（本文件头 ② a) 那 6 个 PPtr 里 `0x38 armyBackgrounds → {2, 417}`）。
+        //  ② `ArmyBackgroundsSO__GetMediumBackground.c`：遍历 `+0x18` 那个数组，逐条
+        //     `AlternateArtStyleItem.TryGetItem(army, out item)`；命中后 `AssetReferenceTyped.Load(item)` 取 Sprite；
+        //     **扫完没命中 ⇒ `return 0`（null 图）**（.c:21-24 `if (count <= i) return 0;`）。⛔ 别兜底。
+        //  ③ 原始字节：`sharedassets0.assets` 对象 **417**：`m_Name = "ArmyBackgroundsSO"` ·
+        //     `m_Script = {1, 1100}`（= **`ArmyBackgroundsSO`**，⚠️ **不是** 660/`ArmyIconsSO`）· 总长 **2608 B** ·
+        //     首字段偏移 **52** → `[int32 count = 14]` + 14 ×
+        //     `[int32 army][string guid][string subObjectName][string type]`，**尾 0 字节**（`consumed 2608 / 2608`）。
+        //     🔴 **每条的 item 不是 PPtr，是 AssetReference 的三段串**（`ArmyItem<SpriteAtlasReference>`；
+        //        `ArmyBackgroundsSO.cs` 的字段名 = `mediumBackgroundAddressables`）—— 本文件头 ② b) 那套
+        //        「`[int32][PPtr]`」recipe **只对 422/421/416 成立**，⛔ 别套到 417 上（套了会切出一串垃圾）。
+        //     14 条的 guid **全是** `7387d095d1aa043c5a3c25f972f4a8ce`（= `bundle_atlasgroup_assets_all`），
+        //     只有 `subObjectName` 不同（见下表）。`type` 全是 `UnityEngine.Sprite, UnityEngine.CoreModule, …`。
+        //     ⚠️ **是 14 条不是 13**：第 0 条 `army = 0 (Neutral)` 与 `army = 10` **指向同一张 `…_UM`**
+        //        （旧账 `其他_基础设施.tsv:35` 写「13 条」，**已在此订正**）。
+        //  ④ 我们的图：13 张**全部已导入** `Resources/Art/ui_menu/40K_profile_campaign_bg_*.png`
+        //     （2026-10-28 现数 13/13；`0` 与 `10` 共用 `…_UM` 那一张）。原版 sprite `m_Rect` = **631×194**。
+        //     ⚠️ **⛔ 别拿 `Campaign_Faction_Bck_*`（1024² 整屏战役底）顶替** —— 那是另一族。
+        //  ⚠️ 尾缀**不服从本仓阵营名**：`Goff→Orks` · `BlackLegion→Black Legion` · `TauEmpire→Tau Empire` ·
+        //     `Genestealers→GenestealerCults` · `SpaceWolves→SW` ⇒ **必须查表，⛔ 别拼前缀**。
+        // ══════════════════════════════════════════════════════════════════════════════════
+
+        public struct MediumBackgroundEntry
+        {
+            /// <summary>`CardArmy` 枚举值（表里第一条是 `0`）。</summary>
+            public int Army;
+            /// <summary>原版 AssetReference 的 `m_SubObjectName`（**带空格**，如 `Black Legion`）。</summary>
+            public string Sprite;
+        }
+
+        /// <summary>14 条（`0` + 13 阵营），**顺序 = `ArmyBackgroundsSO` 的序列化顺序**。</summary>
+        static readonly MediumBackgroundEntry[] MediumBackgroundTable =
+        {
+            new MediumBackgroundEntry { Army =   0, Sprite = "40K_profile_campaign_bg_UM"               },
+            new MediumBackgroundEntry { Army =  10, Sprite = "40K_profile_campaign_bg_UM"               },
+            new MediumBackgroundEntry { Army =  20, Sprite = "40K_profile_campaign_bg_Orks"             },
+            new MediumBackgroundEntry { Army =  30, Sprite = "40K_profile_campaign_bg_SaimHann"         },
+            new MediumBackgroundEntry { Army =  40, Sprite = "40K_profile_campaign_bg_Sautekh"          },
+            new MediumBackgroundEntry { Army =  50, Sprite = "40K_profile_campaign_bg_Black Legion"     },
+            new MediumBackgroundEntry { Army =  60, Sprite = "40K_profile_campaign_bg_Leviathan"        },
+            new MediumBackgroundEntry { Army =  70, Sprite = "40K_profile_campaign_bg_Tau Empire"       },
+            new MediumBackgroundEntry { Army =  80, Sprite = "40K_profile_campaign_bg_Sororitas"        },
+            new MediumBackgroundEntry { Army =  90, Sprite = "40K_profile_campaign_bg_GenestealerCults" },
+            new MediumBackgroundEntry { Army = 100, Sprite = "40K_profile_campaign_bg_AstraMilitarum"   },
+            new MediumBackgroundEntry { Army = 110, Sprite = "40K_profile_campaign_bg_DarkAngels"       },
+            new MediumBackgroundEntry { Army = 120, Sprite = "40K_profile_campaign_bg_Emperors Children"},
+            new MediumBackgroundEntry { Army = 130, Sprite = "40K_profile_campaign_bg_SW"               },
+        };
+
+        /// <summary>14 条（自检读口）。</summary>
+        public static MediumBackgroundEntry[] AllMediumBackground { get { return (MediumBackgroundEntry[])MediumBackgroundTable.Clone(); } }
+
+        /// <summary>`CardArmy` 值 → 原版 `m_SubObjectName`（带空格）；认不出 ⇒ `null`
+        /// （= 原版 `GetMediumBackground` 扫完没命中时 `return 0`）。⚠️ `0` **是**合法值（→ `…_UM`）。</summary>
+        public static string MediumBackgroundSpriteName(int army)
+        {
+            for (int i = 0; i < MediumBackgroundTable.Length; i++)
+                if (MediumBackgroundTable[i].Army == army) return MediumBackgroundTable[i].Sprite;
+            return null;
+        }
+
+        /// <summary>阵营名（`CardDef.Faction`）→ 原版 `m_SubObjectName`；认不出 / 传 `Neutral` 的阵营名外壳 ⇒ `null`。</summary>
+        public static string MediumBackgroundSpriteName(string faction)
+        {
+            int a = Id(faction);
+            return a < 0 ? null : MediumBackgroundSpriteName(a);
+        }
+
+        /// <summary>`CardArmy` 值 → **我们工程里的图名**（`Resources/Art/ui_menu/` 下的名字：空格换下划线）；
+        /// 认不出 ⇒ `null`（⛔ 不顶图 —— 原版那一档也是 null）。</summary>
+        public static string MediumBackgroundName(int army) { return ResourceNameOf(MediumBackgroundSpriteName(army)); }
+
+        /// <summary>阵营名 → 我们工程里的图名；认不出 ⇒ `null`。</summary>
+        public static string MediumBackgroundName(string faction) { return ResourceNameOf(MediumBackgroundSpriteName(faction)); }
+
+        /// <summary>`CardArmy` 值 → 贴图（`CardArt.MenuUi`）；认不出 ⇒ `null`。</summary>
+        public static Texture2D MediumBackgroundTexture(int army)
+        {
+            var n = MediumBackgroundName(army);
+            return string.IsNullOrEmpty(n) ? null : CardArt.MenuUi(n);
+        }
     }
 }

@@ -631,15 +631,54 @@ namespace RuleEngine
                 return count;
             }
 
-            // ---- ③ 手牌 / 牌库 / 手牌+场上：**本版未实现**（池内 `count` 行 0 条用到）----
+            // ---- ③a 🆕 2026-10-28（B88 · `A1b`）：**手牌（`50 inHandFiltered`）** ----
+            //  判据 = 原版 `AbilityLogic__GetTargets` 的 `ta == 0x32(50)` 支 ⇒ 候选池 = **某一侧的 `PlayerHand`**，
+            //  再按 `TargetCriteria` 的卡种 / 其余筛过一遍（`FilterMethods__CheckIfMeetsCriteria`）。
+            //  ⚠️ **唯一现池消费者** = `GSC35 Benefictus` / `GSC59 Day of Ascension` 的 `multiplier`
+            //     （`abilities[0].logic[0].multiplierSet`：`enemyUnits=1 · includeMinions=1 · includeSpells=1`）
+            //     ⇒ 这里只实现**这一种形状**；其余维度（keyword/trait/四组 stat / filterSpecificCards / cond /
+            //     maxTargets 截断 / 自他 / 英雄·武器·密语·残骸档）**一律如实判不了**（`null` + `gap`），
+            //     绝不按「大概是」补（铁律 2）。
+            //  🔴 判据文件 → `资料/完全复刻/判据/B88_R2_80档_VA判定.md` §二 / §四·3。
+            if (ta == 50)
+            {
+                if (SideEmpty(set)) return 0;
+                string handGap;
+                if (!HandSetSupported(set, cond, out handGap)) { gap = handGap; return null; }
+                for (int p = 0; p < 2; p++)
+                {
+                    if (!SideMatches(owner, p, set)) continue;
+                    var ps = ctx.Players[p];
+                    if (ps == null) continue;
+                    for (int i = 0; i < ps.Hand.Count; i++)
+                    {
+                        var inst = ps.Hand[i];
+                        var c = inst != null ? inst.Card : null;
+                        if (c == null) continue;
+                        // 卡种：`includeMinions` = 单位 · `includeSpells` = 战术（`HandSetSupported` 已保证
+                        // 其余卡种档位全是 0 ⇒ 这里只需判这两档）。
+                        // ⚠️ **防御卡（`defence`）算不算 `includeSpells` 未核**（判据 §五·1）—— 本支按
+                        //    「战术」字面**不算**，并在报告里标着；现池这两张卡的对手手牌没有防御卡时无影响。
+                        bool isMinion = c.Type == "unit";
+                        bool isSpell = c.Type == "tactic";
+                        if (!((isMinion && set.IncludeMinions > 0) || (isSpell && set.IncludeSpells > 0))) continue;
+                        // 手牌候选**没有 `UnitState`** ⇒ 收集档只记个数（同一形状见上面墓地那一支）。
+                        if (candSides != null) count += 1;
+                        else count += Weight(owner, p, countOption);
+                    }
+                }
+                return count;
+            }
+
+            // ---- ③b 牌库 / 手牌+场上：**本版未实现**（池内 `count` 行 0 条用到）----
             //  🔴 2026-10-23：原来这里按 50/51/52 写了一版「最小档」，其中 **52（inHandAndPlayFiltered）
             //     少数了场上那一半**（注释说「场上那半已在 ① 数过」，可 ① 与本支互斥、永远走不到）。
             //     池内 `count` 行现读 **6 条 / 4 张，全部是 10 或 60** ⇒ 与其留一个静默少数的分支，
             //     不如**如实判不了**（铁律 2/11：判据不足 ⇒ null + 出声），等真有卡用到再按
             //     `filterSpecificCards` / `includeSpells` 那一整段一起补。
-            if (ta == 50 || ta == 51 || ta == 52 || ta == 65)
+            if (ta == 51 || ta == 52 || ta == 65)
             {
-                gap = $"targetsAffected={ta}（手牌/牌库族）本版未实现";
+                gap = $"targetsAffected={ta}（牌库族）本版未实现";
                 return null;
             }
 
@@ -1001,6 +1040,46 @@ namespace RuleEngine
             if (u == null) return int.MinValue;
             int melee = u.CurrentMeleeAttack, ranged = u.CurrentRangeAttack;
             return melee >= ranged ? melee : ranged;
+        }
+
+        /// <summary>🆕 2026-10-28（B88 · `A1b`）：<see cref="CountSet"/> 的 `ta == 50`（手牌）那一支的
+        /// **支持面闸** —— 只认「卡种两档（`includeMinions` / `includeSpells`）＋ 阵营」这一种形状，
+        /// 其余维度一律 `false` + `why`（调用方据此 `null` + `gap`，⛔ 不按「大概是」补，铁律 2）。
+        ///
+        /// <para>现池唯一消费者 = `GSC35 Benefictus` / `GSC59 Day of Ascension` 的 `multiplier`
+        /// （`abilities[0].logic[0].multiplierSet`：`enemyUnits=1 · includeMinions=1 · includeSpells=1`，
+        /// 其余全 0，见 `cards_engine.json` 现读）。判据 → `资料/完全复刻/判据/B88_R2_80档_VA判定.md` §二/§四·3。</para>
+        /// <para>⚠️ **`playerTurn` 不在这道闸里**：原版它是 `BoardCriteria` 那一层的整条闸，不是候选筛
+        /// （同 <see cref="SideEmpty"/> 的 doc）。这两张卡的 `playerTurn = -1`（缺列）⇒ 若这里要求它已知就整支废掉。</para>
+        /// </summary>
+        static bool HandSetSupported(CardDef.CountSetSpec set, int cond, out string why)
+        {
+            why = null;
+            const int U = CardDef.CountSetSpec.Unknown;
+            if (cond != CardDef.ConditionNone)
+            { why = "ta=50：这条乘数带条件（`cond != none`）—— 手牌候选的条件判定本版未实现"; return false; }
+            if (set.IncludeMinions == U || set.IncludeSpells == U
+                || set.FriendlyUnits == U || set.EnemyUnits == U)
+            { why = "ta=50：卡种（`includeMinions/includeSpells`）或阵营（`friendlyUnits/enemyUnits`）**未知（没落）**"; return false; }
+            if (set.IncludeMinions == 0 && set.IncludeSpells == 0)
+            { why = "ta=50：`includeMinions` 与 `includeSpells` 都为 0 ⇒ 原版一个候选都不留（这一档本版未核）"; return false; }
+            if (set.IncludeHero != 0 || set.IncludeWhispers != 0 || set.IncludeWeapons != 0
+                || set.IncludeRemnants != 0 || set.IncludeHeroParts != 0)
+            { why = "ta=50：`includeHero/Whispers/Weapons/Remnants/HeroParts` 非 0 —— 这些卡种本版未建模"; return false; }
+            if (set.IncludeSelf != 0 || set.ExcludeNotSelf != 0 || set.ExcludeSimilarCards != 0
+                || set.ExcludeTargetted != 0 || set.ExcludeFriendlyHero != 0 || set.ExcludeEnemyHero != 0
+                || set.ExcludeRace != 0 || set.ExcludeTrait != 0 || set.SelectFromChooseResolution != 0)
+            { why = "ta=50：`includeSelf` / `exclude*` / `selectFromChooseResolution` 非 0 —— 本版未实现"; return false; }
+            if (set.FilterSpecificCardIds != null && set.FilterSpecificCardIds.Length > 0)
+            { why = "ta=50：`filterSpecificCards` 非空 —— 本版未实现"; return false; }
+            if (set.KeywordFilter != 0 || set.TraitsFilter != 0 || set.ArmyFilter != 0 || set.ChosenArmy != 0)
+            { why = "ta=50：`keywordFilter` / `traitsFilter` / `armyFilter` / `chosenArmy` 非 0 —— 本版未实现"; return false; }
+            if (set.AttackFilter != 0 || set.CurrentHealthFilter != 0 || set.ManaCostFilter != 0
+                || set.RarityFilter != 0 || set.SpellType != 0)
+            { why = "ta=50：四组 stat / 稀有度 / `spellType` 筛非 0 —— 本版未实现"; return false; }
+            if (set.MaxTargets > 0)
+            { why = "ta=50：`maxTargets > 0`（原版要先截断再数）—— 本版未实现"; return false; }
+            return true;
         }
     }
 }

@@ -58,6 +58,10 @@ namespace CardPresentation
             public string Region;        // `regionText`（原版静态样例是 `Global`）
             public int Members, MemberMax;   // `memberCountText`（显示成 `17/20`）
             public string Rating;        // `ratingText`（段位图标旁的数字，本地没有段位系统 ⇒ 空串）
+            /// <summary>🆕 2026-10-28（B88-B7 · 账 14①）：原版 `Group.badge`（`GroupBadge` → `featuredTrophy.reward`）拆成的两格 ——
+            /// `BadgeId` = `AllianceBadge.uniqueId`（映射见 `AllianceBadgeArt`）· `BadgeTier` = `GroupBadge.tierLevel`
+            /// （画档位框 `Max(0,tier-1)`）。默认 null/0 ⇒ 默认徽章 + TIER1（= 原版 `DefaultTrophy` 回落支）。⚠️ 本地无写入方。</summary>
+            public string BadgeId; public int BadgeTier;
         }
 
         static readonly List<Invitation> _invitations = new List<Invitation>();
@@ -70,6 +74,17 @@ namespace CardPresentation
         {
             public string Name, Region, Rating;
             public int Members, MemberMax;
+            /// <summary>🆕 **2026-10-27（E9 · 账 21）**：原版 `Group.privacy`（`GroupPrivacy`：**0 = Open / 1 = Private**，
+            /// 判据 = `out_cpp2il_dev_ilspy/GroupPrivacy.cs` 的枚举序）。两个消费者都在
+            /// `AllianceListEntry.Initialize`（`GroupPrivacy.cs` 同批实读）：
+            /// ① `joinButton.interactable = privacy == Open &amp;&amp; MemberCount &lt; maxMemberCount`；
+            /// ② `privacy == Private` ⇒ `joinButton.text` 换成词条 `SocialMenu/Alliances/Privacy/Private`。
+            /// 默认 0（Open）= 「公开」是这一列的本义，也保住既有夹具（不写这个字段）的可见态不变。</summary>
+            public int Privacy;
+            /// <summary>🆕 2026-10-28（B88-B7 · 账 21①）：同 `Invitation.BadgeId / BadgeTier` —— 原版
+            /// `AllianceListEntry.Initialize` 里 `badgeDrawer.Draw(Group__get_Badge(group))`（`AllianceListEntry__Initialize.c:80-81`）
+            /// 要的那两格。默认 null/0 ⇒ 默认徽章 + TIER1（原版 `DefaultTrophy` 回落支）。⚠️ 本地无写入方。</summary>
+            public string BadgeId; public int BadgeTier;
         }
 
         static readonly List<AllianceListing> _openAlliances = new List<AllianceListing>();
@@ -100,6 +115,15 @@ namespace CardPresentation
             /// 两个消费者：`SetCurrentGroupCached` 的**按 id 去重**，以及 `AllianceMemberOptionsPopup` 的
             /// `IsFriend`（那一半归账 30）。⚠️ 本地没有写入方（联盟成员表恒空）。</summary>
             public string Id;
+            /// <summary>🆕 **2026-10-27（E9 · 账 30①）**：成员角色的**数值**（原版 `GroupMember.role`，
+            /// `GroupRole`：`0 Member / 1 Moderator / 2 Admin / 3 Leader`，判据 = `out_cpp2il_dev_ilspy/GroupRole.cs`
+            /// ＋ `AllianceMemberEntry.Initialize` 把 `((Enum)role).ToString()` 拼成词条键 `SocialMenu/Alliances/Role/{名}`）。
+            /// <para>🔴 **与 <see cref="Role"/> 不是一回事**：那个是**显示串**（原版样例 `Alliance Master`），
+            /// 只用于行里的字；这一格才是 `AllianceMemberOptionsPopup.MemberView.Role` 要的 **int**
+            /// （`outrank = SameGroup &amp;&amp; Role &lt; MyRole` ⇒ Promote/Demote/Kick 三颗的显隐判据）。</para>
+            /// <para>⚠️ 本地没有写入方（联盟成员表恒空）⇒ 默认 0；填真数据时**两格要一起填**
+            /// （`RoleText(RoleId)` 能直接算出 <see cref="Role"/>，见 `SocialData.RoleText`）。</para></summary>
+            public int RoleId;
         }
 
         static readonly List<Member> _members = new List<Member>();
@@ -172,6 +196,7 @@ namespace CardPresentation
             _friends.Clear(); _invitations.Clear(); _openAlliances.Clear(); _members.Clear(); _chat.Clear();
             AllianceName = null;
             AllianceTrophies = 0;
+            MyRoleId = 0;                 // 🆕 2026-10-27（E9 · 账 30）：静态标量，同上面两颗一起清
         }
 
         /// <summary>联盟人数上限（原版 `AlliancesConfig.maxMemberCount`，`Members: {n}/{cap}` 的那个 `cap`）。
@@ -377,6 +402,52 @@ namespace CardPresentation
         static void WarnOnce(string key, string msg)
         {
             if (_warned.Add(key)) UnityEngine.Debug.LogWarning(msg);
+        }
+
+        // ============================================================ 🆕 2026-10-27（E9 批）
+        // 🔴 纪律：这一整段**追加在类尾**（本文件被账按行号引用）。
+
+        /// <summary>= 原版 `GameStaticData.GroupLanguages`（**两个下拉的选项表之一**，账 101）。
+        /// <para>判据（**实读，不是我们编的**）= `out_cpp2il_dev_ilspy/GameStaticData.cs:2476-2507` 的静态构造：
+        /// `GroupLanguages = new string[14] { "Global", "English", "Chinese", "Czech", "French", "German",
+        /// "Italian", "Japanese", "Korean", "Polish", "Portuguese", "Russian", "Spanish", "Turkish" }`
+        /// （原版那一段是逐槽逐字面量赋值，槽序即此序）。</para>
+        /// <para>消费者 = 原版 `AllianceView.OnToggleEditClicked`：
+        /// `languageDropdown.value = Array.IndexOf(GroupLanguages, alliance.region)` ——
+        /// 那一跳是 `AllianceInvitationEntry` / `AllianceListEntry` 里
+        /// `regionText = GetTranslation("SocialMenu/Alliances/Language/" + region)` 的**同一份词根**。</para>
+        /// <para>⚠️ **我们建不出来的是「展开后的那一面」**：原版 `TMP_Dropdown` 的 `Template` 是
+        /// **Unity 内置模板**（`Item Label = 'Option A'`，普查 §B·13 口径「不建」）⇒ 本表目前只用两处：
+        /// ① 算「选中第几项」② 行里 `region` 的**词条键**（`Language/{region}`）。⛔ 别为了「看着能用」自造模板。</para></summary>
+        public static readonly string[] GroupLanguages =
+        {
+            "Global", "English", "Chinese", "Czech", "French", "German", "Italian",
+            "Japanese", "Korean", "Polish", "Portuguese", "Russian", "Spanish", "Turkish",
+        };
+
+        /// <summary>= 原版 `GroupPrivacy` 枚举的**选项表**（第二个下拉，账 101）：
+        /// 判据 = `out_cpp2il_dev_ilspy/GroupPrivacy.cs`（`Open = 0 / Private = 1`，只有两个值）。
+        /// <para>消费者 = 原版 `AllianceView.OnToggleEditClicked` 的 `privacyDropdown.value = (int)alliance.privacy`。
+        /// ⚠️ 与 <see cref="GroupLanguages"/> 同一条边界：展开模板是 Unity 内置 ⇒ 不建。</para></summary>
+        public static readonly string[] GroupPrivacyNames = { "Open", "Private" };
+
+        /// <summary>本机玩家自己在当前盟里的 `GroupRole` 数值（原版
+        /// `AlliancesManager.controller.CurrentPlayerCache.role`，`AllianceView.OnToggleEditClicked`
+        /// 与 `AllianceMemberOptionsPopup.MemberView.MyRole` 都用它算 `outrank`）。
+        /// <para>⚠️ 本地没有写入方（联盟成员表恒空）⇒ 默认 0；那一格决定
+        /// `outrank = SameGroup &amp;&amp; Role &lt; MyRole` ⇒ 默认态下 Promote/Demote/Kick 恒不出（如实，不编）。</para></summary>
+        public static int MyRoleId;
+
+        /// <summary>`outrank` 要的「我的角色」：先取 <see cref="MyRoleId"/>（真数据来了就生效），
+        /// 没设过就退到**成员表里标了 `IsPlayer` 那一行**的 <see cref="Member.RoleId"/>
+        /// （原版这两个是同一个量：`CurrentPlayerCache.role` 就是「我」在 `g.members` 里的那一项的 role）。
+        /// 两处都没有 ⇒ 0（= 最低档，与原版「无数据」等价）。</summary>
+        public static int SelfRoleId()
+        {
+            if (MyRoleId > 0) return MyRoleId;
+            for (int i = 0; i < _members.Count; i++)
+                if (_members[i] != null && _members[i].IsPlayer) return _members[i].RoleId;
+            return 0;
         }
     }
 }

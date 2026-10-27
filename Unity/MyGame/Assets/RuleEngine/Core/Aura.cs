@@ -1015,5 +1015,50 @@ namespace RuleEngine
                         if (ctx.Players[p].Board[s] != null) ctx.Players[p].Board[s].EndAuraRecompute();
             }
         }
+
+        // ==================================================================
+        //  🆕 2026-10-27（B88_E4 · 引擎·小件 · 账 482 / 636）：
+        //      **「把某个施放者挂上来的 extrinsic 效果整份摘掉」的统一入口**
+        // ==================================================================
+        //  原版两处（第一权威 = `d:/2/tools/decomp_full/`）：
+        //    · `BattleManager.RemoveExtrinsicEffectsFrom(actingCard, priority)`（150 行；
+        //      `BattleManager__RemoveExtrinsicEffectsFrom.c`）—— 棋盘（两侧）+ 双方手牌，
+        //      逐卡 `ContainsExtrinsicEffectFrom(card, actingCard)` 命中就摘；
+        //    · `BattleManagerSupport.BroadcastRemoveEffectsFrom(manager, actingCard)`（动作类型 47 的一拍；
+        //      `BattleManagerSupport__BroadcastRemoveEffectsFrom.c`）—— 对棋盘 + 双方手牌全量广播上一句。
+        //
+        //  🔴 **我们只能覆盖到「棋盘上的单位」这一半，如实标着**（判据 = 账 482 / 636 的「差异」列）：
+        //    · `UnitState.RemoveExtrinsicEffectsFrom(string)` 只到「限时增益（`TempBuff.SourceCard`）
+        //      + 记了来源的数值修饰（`_statMods.Source`）」两本账（`UnitState.cs` 那方法头注已写明）；
+        //    · **手牌那一半做不到** —— 手牌是 `CardInstance`（没有 `UnitState`），它的常驻修饰住在
+        //      `ctx.CostMods`（`Key`/`Criteria`），与「extrinsic 效果」不是同一份模型。
+        //    ⇒ 返回值只反映**棋盘上摘掉几条**；手牌那一半仍缺（与 636 的「差异」列同一口径）。
+        //
+        //  ⚠️ **为什么不做成 `Recompose` 的替身**：`Recompose` 是「先整份清、再加回」（会重登记费用 / 授誓约），
+        //    `E1` 2026-10-25 实测把它挂动作边界会改掉 `BL18`/`UM18` 的结算读数 ⇒ 本口**只摘不重挂**，
+        //    调用方要重算常驻请另走 <see cref="RefreshInPlayNumericAndKeywords"/>（零副作用那一档）。
+        //    ⚠️ 它**也不是「真移除」**那一档：这里的摘只影响 `_statMods` / 限时增益两本账，
+        //    生命上限的夹取由 `UnitState` 内部处理（`ClampHealthToMax`），不经过 `BeginAuraRecompute`。
+        //
+        //  **调用方（本批不动）**：动作类型 47 那一拍在 `RuleCore` / `EffectResolver`（E1 / E2 的文件）；
+        //    `BroadcastWhileInPlay` 的场上半已在 `ActionPump.cs:143` 接好（E3 的文件）。
+        //    本处只提供**统一入口**，谁接谁调用即可（⛔ 别在别处再写一遍遍历）。
+        public static int RemoveExtrinsicBySource(BattleContext ctx, string sourceCardName)
+        {
+            if (ctx == null || string.IsNullOrEmpty(sourceCardName)) return 0;
+            int n = 0;
+            for (int p = 0; p < 2; p++)
+            {
+                var ps = ctx.Players[p];
+                if (ps == null) continue;
+                for (int s = 0; s < BoardSpec.Size; s++)
+                {
+                    var u = ps.Board[s];
+                    if (u == null) continue;
+                    n += u.RemoveExtrinsicEffectsFrom(sourceCardName);
+                }
+            }
+            return n;
+        }
     }
 }

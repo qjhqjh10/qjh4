@@ -410,7 +410,7 @@ namespace CardPresentation
             _scroll.Owner = gameObject;
             _scroll.OnChanged = () => RebuildRows();
             PointerLayer.RegisterScroll(_scroll);
-            _listContent = Node(vp, "Content", new PxRect(ListL, ScrollR.y1, ListR, ScrollR.y1));
+            _listContent = Node(vp, "Content", new PxRect(ListL, ScrollR.y1, ListR, ScrollR.y1)); BuildHighlightMount();   // 原版 `Highlight Mount Point` 是 `Content/Scroll View` 的**兄弟**（不随滚动）
             RebuildRows();
 
             BuildSeasonPieces(false);
@@ -629,7 +629,7 @@ namespace CardPresentation
             _scroll.Owner = gameObject;
             _scroll.OnChanged = () => RebuildRows();
             PointerLayer.RegisterScroll(_scroll);
-            _listContent = Node(vp, "Content", new PxRect(ListL, EmbListR.y1, ListR, EmbListR.y1));
+            _listContent = Node(vp, "Content", new PxRect(ListL, EmbListR.y1, ListR, EmbListR.y1)); BuildHighlightMount();   // 同 `BuildPopup`：嵌入版 prefab 也有同名同几何的 `Highlight Mount Point`（`254.9,806.9 → 1624.2,906.9` · INACT）
             RebuildRows();
         }
 
@@ -743,7 +743,7 @@ namespace CardPresentation
             var seasonBg = Nine(btn, ArtSeasonBtn, btnR, SeasonBtnBorder, "Image", QBg);
             // 🆕 **2026-10-12（A336③）**：`…/Generic Simplified UI Button_updated/Button Text` 实读
             //    = `fs 36.0 · auto[10~36] · base **12.0**` · 折行 0（上限 = 标称 ⇒ A333 本来就对）。
-            MenuDraw.Text(btn, txR, "Last season", Color.white, "Button Text", 36f, QText, txR.W, 10f, 36f, 12f, face: TmpFont.Face.LatinCardBody);
+            _seasonBtnLabel = MenuDraw.Text(btn, txR, SeasonButtonText(ShowCurrent), Color.white, "Button Text", 36f, QText, txR.W, 10f, 36f, 12f, face: TmpFont.Face.LatinCardBody);
             // 🆕 A17：原版这一颗是 SpriteSwap（普查 §块 5 第 2 行）；底图是**九宫格** ⇒ 九张一起换
             var seasonHit = MenuDraw.Hit(btn, "Hit", btnR, QHit, OnSeasonButton,
                                          clickCue: WindowSounds.PositiveCue);
@@ -758,7 +758,7 @@ namespace CardPresentation
             var lb = MenuDraw.Text(st, textR, "Last season", Color.white, "Last Season Text", 40f, QText,
                                    textR.W, 18f, 40f, 50f, face: TmpFont.Face.LatinCardBody);
             if (lb != null) MenuDraw.AlignRight(lb, textR);
-            st.gameObject.SetActive(false);     // 原版 `ChangeSeasonRankingView(true)` 把它关掉
+            _lastSeasonText = st; st.gameObject.SetActive(!ShowCurrent);   // 原版 `ChangeSeasonRankingView` 的 `lastSeasonText.SetActive(!showCurrent)`（`showCurrent` 默认 true ⇒ 出厂关着）
         }
 
         void OnSeasonButton()
@@ -801,6 +801,7 @@ namespace CardPresentation
                 Debug.Log("[Leaderboard] `" + NameOf(Kind) + "` / `" + CurrentTab + "` —— 本地**没有榜单数据**"
                           + "（原版读服务器：`LeaderboardManager` / 各 `RankingDataProvider`）⇒ **照原版留空**"
                           + "（四棵榜都没有空态节点，我们**不自己造**）。");
+                RefreshHighlightedRow(rows);   // 空表 ⇒ 没有自己那一行 ⇒ `ShowHighlightedRow(false)`
                 return;
             }
 
@@ -829,6 +830,110 @@ namespace CardPresentation
                 LeaderboardRow.Build(_rowCtx, _listContent, rr, rows[i], fam);
                 BuiltRows++;                     // 现在 = **真建出来几行**（滚出视口的不算；断言用）
             }
+            RefreshHighlightedRow(rows);         // 原版 `SetRanking` 之后由调用方补 `SetHighlightedRow` / `ShowHighlightedRow`
+        }
+
+        // ============================================================ 类尾追加（B88_E10 2026-10-27 · 账 `个人资料_成就_排行:328/332/337`）
+        // 🔴 追加在**类尾**（本文件账落点最大 = `:779`，⛔ 不许插中间 —— 会连带漂移）。
+
+        Transform _highlightMount;
+        Label _seasonBtnLabel;
+        Transform _lastSeasonText;
+
+        /// <summary>当前看的是不是**本**赛季的榜。原版字段 `showCurrent`（`UIRankingListController.cs:56` 附近），出厂 `true`
+        /// （🥈 `UIRankingListController..ctor` 里 `showCurrent = true`，且 `Start()` 首句就是 `ChangeSeasonRankingView(true)`）。</summary>
+        bool _showCurrent = true;
+        public bool ShowCurrent { get { return _showCurrent; } }
+        /// <summary>`Highlight Mount Point` 现在开着吗（= 原版 `ShowHighlightedRow` 的入参，自检用）。</summary>
+        public bool HighlightedRowShown { get; private set; }
+        /// <summary>`Highlighted Row` 那一行真建出来了吗（自检用）。</summary>
+        public int BuiltHighlightRows { get; private set; }
+        /// <summary>`Highlight Mount Point` 节点（自检用）。</summary>
+        public Transform HighlightMount { get { return _highlightMount; } }
+
+        /// <summary>原版 `Highlight Mount Point` 的矩形（`menu_dump.py bundle_menus_assets_all
+        /// "RankedSkirmishLeaderboardPopup" --depth 4` 实读 `254.9, 806.9 → 1624.2, 906.9` = 1369.33×100.00，
+        /// **出厂 INACT**；嵌入版 `Ranked Leaderboard Display` **逐位相同**）。高 100 = 行高（`LeaderboardRow.RowH`）。</summary>
+        static readonly PxRect HighlightMountR = new PxRect(254.9f, 806.9f, 1624.2f, 906.9f);
+
+        // 官方词条（`Resources/official_loc_13lang.json` 现读 10,862 键里两个都在）
+        public const string TermLastSeason = "MainMenu/RankedWindow/LastSeasonButton";
+        public const string TermCurrentSeason = "MainMenu/RankedWindow/CurrentSeasonButton";
+        const string LastSeasonEn = "Last season", CurrentSeasonEn = "Current season";
+        const string LastSeasonZh = "上一赛季", CurrentSeasonZh = "当前赛季";
+
+        /// <summary>原版 `ChangeSeasonRankingView` 那一步取词：
+        /// `term = !showCurrent ? "MainMenu/RankedWindow/CurrentSeasonButton" : "…/LastSeasonButton"`
+        /// （🥇 `out_cpp2il_dev_ilspy/UIRankingListController.cs:238-269`）——
+        /// ⚠️ **看着像反的、其实不是**：正看着**上一赛季**时那颗钮写「当前赛季」（点一下切回来）。
+        /// 取词统一走 `TutorialMessagePopup.OfficialTerm`（全工程唯一一份取法）。</summary>
+        static string SeasonButtonText(bool showCurrent)
+        {
+            return showCurrent
+                ? TutorialMessagePopup.OfficialTerm(TermLastSeason, LastSeasonEn, LastSeasonZh)
+                : TutorialMessagePopup.OfficialTerm(TermCurrentSeason, CurrentSeasonEn, CurrentSeasonZh);
+        }
+
+        /// <summary>建 `Highlight Mount Point`（原版字段 `highlightMountPoint`；出厂 **INACT** = `SetActive(false)`）。</summary>
+        void BuildHighlightMount()
+        {
+            _highlightMount = Node(transform, "Highlight Mount Point", HighlightMountR);
+            if (_highlightMount != null) _highlightMount.gameObject.SetActive(false);
+            HighlightedRowShown = false;
+            BuiltHighlightRows = 0;
+        }
+
+        /// <summary>原版 `ShowHighlightedRow(bool state)`（🥇 `UIRankingListController__ShowHighlightedRow.c`）=
+        /// **对 `highlightMountPoint` 的 GameObject 做 `SetActive(state)`**（⚠️ 不是那行本身 —— 账里原写「那颗行的 SetActive」，
+        /// 按反编译订正）。</summary>
+        public void ShowHighlightedRow(bool state)
+        {
+            HighlightedRowShown = state;
+            if (_highlightMount != null) _highlightMount.gameObject.SetActive(state);
+        }
+
+        /// <summary>原版 `SetHighlightedRow(RankingRowData)`（🥇 `UIRankingListController__SetHighlightedRow.c`）
+        /// = 在 `highlightMountPoint` 下 `Instantiate(rankingRowPrefab)` → `Config(rowData)` → 改名 `Highlighted Row`。
+        /// <para>🔴 **我们的数据缺口（如实记）**：原版这一行的 `rowData` 由调用方从「自己的名次」那条服务端数据给
+        /// （自己不在前 N 时另取一次）。我们**没有那个数据源**（`LeaderboardData` 只有 `LocalScore` 缓存，
+        /// 而它只被 `RaidEvent` 用过一条、与本窗的 `Kind/Tab` 无映射）⇒ 本方法只认**当前页里 `IsSelf` 那一行**：
+        /// 有就钉一份在挂点上，没有就 `ShowHighlightedRow(false)`。⛔ 别自己伪造一条「我的名次」。</summary>
+        void RefreshHighlightedRow(List<LeaderboardRowData> rows)
+        {
+            if (_highlightMount == null) return;
+            MenuDraw.ClearChildren(_highlightMount);
+            BuiltHighlightRows = 0;
+
+            LeaderboardRowData self = default(LeaderboardRowData);
+            bool found = false;
+            if (rows != null)
+                for (int i = 0; i < rows.Count; i++)
+                    if (rows[i].IsSelf) { self = rows[i]; found = true; break; }
+
+            ShowHighlightedRow(found);
+            if (!found) return;
+
+            _rowCtx.Art = Art;
+            _rowCtx.Q = QRow;
+            LeaderboardRow.Build(_rowCtx, _highlightMount, HighlightMountR, self, FamilyOf(Kind, CurrentTab));
+            BuiltHighlightRows = 1;
+        }
+
+        /// <summary>原版 `ChangeSeasonRankingView(bool optionShowCurrent)`（🥇 `UIRankingListController__ChangeSeasonRankingView.c` /
+        /// 🥈 `out_cpp2il_dev_ilspy/UIRankingListController.cs:238-269`，逐句四步）：
+        /// ① `showCurrent = optionShowCurrent`；② `timerCounter.SetActive(showCurrent &amp;&amp; showTimer)`；
+        /// ③ `lastSeasonText.SetActive(!showCurrent)`；④ 钮文案 = `SeasonButtonText(showCurrent)`；
+        /// ⑤ `Refresh((RankingType)(showCurrent ? 0 : 1))`（切数据源）。
+        /// <para>🔴 **三步如实记缺**：(a) 原版 `Timer` 那一块我们**整块没建**（`BuildSeasonPieces` 头注：「`Timer` 整块不建」），
+        /// ⇒ ② 无载体；(b) ⑤ 的「上一赛季数据源」本地没有（服务器 P3）⇒ 只保留**同一条**数据源；
+        /// (c) 原版那颗钮由 `AllowChangeSeason(previousSeasonLeaderboardKey 非空)` 控制显隐，我们恒 false ⇒
+        /// 本方法生产路径**不可达**（只在自检里调），如实记，⛔ 不编一个「上一赛季榜」。</para></summary>
+        public void SetSeasonView(bool showCurrent)
+        {
+            _showCurrent = showCurrent;
+            if (_lastSeasonText != null) _lastSeasonText.gameObject.SetActive(!showCurrent);
+            if (_seasonBtnLabel != null) _seasonBtnLabel.SetText(SeasonButtonText(showCurrent));
+            RebuildRows();
         }
     }
 }

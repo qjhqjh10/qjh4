@@ -1188,9 +1188,16 @@ namespace CardPresentation
                 else MenuDraw.Rect(node, fatex, Square(box, st.ArmyFill),
                                    NodeArmyIcon, st.QArt, null, true, st.Clip, st.ClipSoftness);
             }
-            // `armyText`：⚠️ 原版过一道 I2 本地化（`GameStaticData__CardArmyToString.c`：`Enum.ToString`
-            //   拼词条 key → `I2_Loc.GetTranslation`），而**词条表在远端 CCD、本地没有**
-            //   ⇒ 我们画的是**枚举名**（`Ultramarines`），**不是原版屏幕上那串**（同 `Claim`/`Claimed` 那两处的口径）
+            // `armyText`：原版 = `GameStaticData.CardArmyToString(cardArmy)`
+            //   = `I2_Loc.GetTranslation("Armies/" + CardArmy枚举名)`（判据：`GameStaticData__CardArmyToString.c`
+            //   现读 —— 前缀字面量 = `stringliteral.json` 的 `0x426cfa8 = "Armies/"`，`Concat(前缀, Enum.ToString)`）。
+            //   🔴 **2026-10-27（B88-E8 · 收藏:269）就地订正（铁律 5）**：本行原来写
+            //   「**词条表在远端 CCD、本地没有** ⇒ 我们画的是枚举名」—— **已过期**：官方 I2 表 2026-10-18 已并入
+            //   （`Resources/official_loc_13lang.json` / `数据/游戏数据/官方本地化_en+zh-CN.json`），
+            //   `Armies/*` 13 个阵营逐个现读都有（`Ultramarines→极限战士` / `Goff→欧克蛮人` …）
+            //   ⇒ 现在走 `Loc.T`（≈ 原版 `GetTranslation`，按当前语言取）。⚠️ 字体随之换回 `Cjk`
+            //   （`LatinCardBody` 渲不出汉字），这是「画对了原文」的必要一步。
+            float k = box.H / DecorRefH;      // 原版字号三格的刻度（`box.H / 1080`）—— 阵营名与 `Name` 两条共用
             if (st.NamePx > 0f && fac != null)
             {
                 // 🆕 **2026-10-10（A1212 块 11）接上自适应**：原版那一颗
@@ -1202,7 +1209,6 @@ namespace CardPresentation
                 //   调用方自己按该族的**刻度**换算（见 `AlreadyOwned` 那一处）」，而同族已接的那一站
                 //   （`本文件`）用的正是 `k = box.H / DecorRefH`（`DecorRefH = 1080` = 抽屉的参考高）
                 //   ⇒ 照抄同族写法，⛔ 不自己发明系数。
-                float k = box.H / DecorRefH;
                 // 🆕 **2026-10-10（`A1242③`）：`wrapPx = box.W − 20f` 的【量纲】已查实 —— 它是「我们这一档的
                 //   **框 px**」，⛔ 不是设计 px、**不需要乘 `k`**，本处与 `:1280` 用的是【同一把尺】**不存在混用**：
                 //   · `wrapPx` 必须与本行的 `r` 同量纲 —— `ClippedText` 把 `r` 与 `wrapPx` **原样**交给
@@ -1219,11 +1225,54 @@ namespace CardPresentation
                 //     ⇒ 折到 200×300 的格子应当是 `75k = 20.83` ⇒ 现在 `fontPx(26) > autoMaxPx(20.83)`，
                 //     自适应会把它压到 20.83（画面大致对，但 nominal 是死数）。要改得连 `QuantityPx = 34`
                 //     与那两个调用方（`CampaignRewardWindow` / `RewardWindow`）一起定，属另一笔账。
-                ClippedText(node, NameStrip(box, st.NamePx), fac, Color.white, NodeArmyName,
-                            st.NamePx, st.QText, box.W - 20f, st, 0, 12f * k, 75f * k, 36f * k,
-                            face: TmpFont.Face.LatinCardBody);
+                ClippedText(node, NameStrip(box, st.NamePx), Loc.T("Armies/" + fac), Color.white, NodeArmyName,
+                            st.NamePx, st.QText, box.W - 20f, st, 0, 12f * k, 75f * k, 36f * k);
             }
+            // 🆕 **2026-10-27（B88-E8 · 收藏:269）：补回原版那格 `Name`（稀有度档名）**。
+            //   判据三处：① `WildcardDrawer.GetItemName` = `string.Format(wildcardKey, CardRarityToString(rarity))`
+            //   （`判据/ItemDrawer泛型族_判据.md` §二 #14 + `decomp_full/WildcardDrawer__GetItemName.c`）；
+            //   ② `wildcardKey` = prefab 上那条 I2 字段，`mTerm = "MenuShop/RarityWildcard"`（字面 `{0} Wildcard` / `{0}通用牌`）；
+            //   ③ `CardRarityToString` = `I2("Card_Rarity/" + 1..4→Common/Rare/Epic/Legendary · 其余→Special)`
+            //   （`GameStaticData__CardRarityToString.c` + `stringliteral.json` 的 `0x423d4c8/0x42a75e8/0x429dd78/0x42a7e50/0x425a9b0`
+            //   + 前缀 `0x42ce140 = "Card_Rarity/"`），→ prefab `Content/Label/Name` 那颗 TMP 的出厂文本正好是
+            //   **`"Legendary Wildcard"`**（= 该式 rarity=4 的结果）⇒ 三条互证。
+            //   ⚠️ **字号/对齐照 prefab**：`Name` 那颗 = `m_fontSizeMax 75 / base 36 / auto[12..75]`、
+            //   `m_HorizontalAlignment = 1`（左）、`m_VerticalAlignment = 512`（中）。折行 = **1**（不还原）。
+            //   🔶 自己设计（非原版）：**这一格的矩形**（`NameStripAt` 给的条位 = 阵营名那一条**下面**再起一条）
+            //   —— 原版那颗由 `Content/Label` 的 `HorizontalLayoutGroup`（padding L/R 25 · spacing 10 · 两项各占一半）
+            //   与 `Quantity` 排在**同一行**；我们的 `Quantity` 沿用战役奖励窗的底边位、没有那条 layout group
+            //   ⇒ 只能另给一条；必须自己定：prefab 的 0×0 rect 是 VLG 跑之前的模板位、照抄会压在一起。
+            //   执行代理 E8 2026-10-27 定（本批简报授权的范围内）。
+            if (st.NamePx > 0f)
+                ClippedText(node, NameStripAt(box, st.NamePx, 1),
+                            WildcardName(item), Color.white, "Name",   // 节点名照 prefab 逐字（`Content/Label/Name` = 原版 `label` 那一格）；⛔ 别与 `NodeItemName`（我们起的名字）合并
+                            st.NamePx, st.QText, box.W - 20f, st, 1, 12f * k, 75f * k, 36f * k);
             if (st.QuantityPx > 0f) Quantity(node, box, qty, st);
+        }
+
+        /// <summary>野牌那格 `Name` 的**文本**：原版 `WildcardDrawer.GetItemName(item)`
+        /// = `string.Format(I2("MenuShop/RarityWildcard"), I2("Card_Rarity/" + CardRarityToString(rarity)))`。
+        /// 判据逐条见 `Wildcard` 里那一段注释（三条互证）。
+        /// ⚠️ 缺词条时 `Loc.T` 会退回键名并**出声**（不静默）；`string.Format` 对不含 `{0}` 的串是恒等 ⇒ 不会抛。</summary>
+        static string WildcardName(ItemSpec item)
+        {
+            return string.Format(Loc.T("MenuShop/RarityWildcard"), Loc.T("Card_Rarity/" + RarityName(item.Rarity)));
+        }
+
+        /// <summary>`cardRarity` → 原版 `CardRarityToString` 里那个名字（`GameStaticData__CardRarityToString.c` 现读：
+        /// `1→Common · 2→Rare · 3→Epic · 4→Legendary`，**其余一律 `Special`**）。
+        /// ⚠️ 与本文件 `WildcardArtName` 的四档（`common/rare/epic/legendary`，**没有 special**）**不是同一张表**：
+        /// 那张只服务图名，rarity 越界时它返 `null`（⇒ 取不到图、走兜底），这里照原版落 `Special`。</summary>
+        static string RarityName(int rarity)
+        {
+            switch (rarity)
+            {
+                case 1: return "Common";
+                case 2: return "Rare";
+                case 3: return "Epic";
+                case 4: return "Legendary";
+                default: return "Special";
+            }
         }
 
         /// <summary>**照 `WildcardIconDrawer__Draw.c`**：只写 `image` = `iconsByRarity[cardRarity−1]`
@@ -1290,8 +1339,21 @@ namespace CardPresentation
         /// 放顶部是因为底边已被数量占着（`Quantity` 沿用战役奖励窗原来的位置）。</summary>
         static PxRect NameStrip(PxRect box, float px)
         {
-            const float side = 10f, top = 10f;
-            return new PxRect(box.x1 + side, box.y1 + top, box.x2 - side, box.y1 + top + px * 1.4f);
+            return NameStripAt(box, px, 0);
+        }
+
+        /// <summary>同 <see cref="NameStrip"/>，但可以落在**第 `row` 条**（0 = 顶边第一条）。
+        /// 🔶 自己设计（非原版）：**行距 `2px` 与「往下堆」这个排法是我们的** —— 原版 `Content/Label`
+        /// 用一个 `HorizontalLayoutGroup`（padding `L/R 25` · spacing `10` · `forceExpandWidth=1`）
+        /// 把 `Name` 与 `Quantity` 摊在**同一行**；我们的 `Quantity` 走战役奖励窗的底边位（自己的版式），
+        /// ⇒ 只能另起一条。必须自己定：prefab 里 `Name`/`Quantity` 的 rect 是 `0×0`（VLG 跑之前的模板位），
+        /// 照抄会把两段字压在同一个点上。执行代理 E8 2026-10-27 定（本批简报授权的范围内）。</summary>
+        static PxRect NameStripAt(PxRect box, float px, int row)
+        {
+            const float side = 10f, top = 10f, gap = 2f;
+            float band = px * 1.4f;
+            float y1 = box.y1 + top + row * (band + gap);
+            return new PxRect(box.x1 + side, y1, box.x2 - side, y1 + band);
         }
 
         /// <summary>数量：钉在抽屉框**底边**上、右对齐（值沿用战役奖励窗原来那一套）。
@@ -1315,7 +1377,12 @@ namespace CardPresentation
             //   而这句还原在 `ClippedText` 体内、`ClipText` **之前**做 —— 调用方拿到返回值再关就晚了，
             //   见那个形参自己的 doc）。⚠️ 三格乘 `k` 的理由同 `Army Name` 那一处。
             float k = box.H / DecorRefH;
-            ClippedText(node, qr, "x" + qty, Color.white, NodeQuantity, st.QuantityPx, st.QText, qr.W, st, 2,
+            // 🔴 **2026-10-27（B88-E8 · 收藏:265）去掉 `x` 前缀**：原版基类 `Draw` 第 ③ 步是
+            //   `label.setText(amount.ToString())`（**裸数字**）—— 判据两处互证：
+            //   ① Ghidra 泛型产物 `decomp_generic_trial/out/ItemDrawer_object___Draw__1ae9cc0.c`（155 行 · 0 NoteDecompilerIssue）；
+            //   ② `Wildcard Drawer.prefab` 的 `Content/Label/Quantity` 那颗 TMP 的 `m_text` 出厂值 = **`"2"`**（没有 `x`）。
+            //   ⚠️ `"x"+n` 是**别的**组件（`UICardInfoItem.SetCount` / 卡组列表份数 / 骷髅数）的写法，⛔ 别往抽屉上套。
+            ClippedText(node, qr, qty.ToString(), Color.white, NodeQuantity, st.QuantityPx, st.QText, qr.W, st, 2,
                         12f * k, 75f * k, 36f * k, true, TmpFont.Face.LatinCardBody);
         }
 

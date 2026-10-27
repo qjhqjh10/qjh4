@@ -904,4 +904,130 @@ namespace RuleEngine
             return ResolveEntry(prefixed, lookup, out _) != null ? prefixed : null;
         }
     }
+
+    // ================================================================================================
+    //  账 `卡组:49` / `卡组:50` —— 原版 `SerializedPlayerDeckData`（**DTO + 序列化出口的客户端侧那一半**）
+    //
+    //  判据（三条互证，⚠️ 其中第 ② 条【不能照抄】，理由见下）：
+    //   ① `cpp2il/out_cpp2il_dev_ilspy/SerializedPlayerDeckData.cs` —— **字段名与声明序逐字**（本类照它写）；
+    //   ② `decomp_full/DeckAndWarlordData__GetSerializedDeckData.c` **全文**（偏移表）—— 每格从哪个源字段来；
+    //      🔴 该文件明确写着「⛔ 别照 ILSpy 那份碎的：`Cpp2ILHelpers.NoteDecompilerIssue` 一大片」，
+    //      但 ILSpy 的**字段清单**本身是完整的（`.c` 里那些 `+0xNN` 与它一一对上，逐格核过）。
+    //   ③ `DeckAndWarlordData__GetSerializedData.c`（`卡组:49`）：`JsonWrapper.SerializeObject(GetSerializedDeckData())`
+    //      ⇒ 出口只是一个 JSON 串；**本类只到 DTO 为止**，JSON 那一步在 Unity 侧
+    //      （`CardPresentation/Deck/DeckSerializedData.cs`，因为 `JsonUtility` 不能进 `RuleEngine/Core`）。
+    //
+    //  🔴 **边界（P3）**：原版这份 DTO 是**往服务器/对局包发的**（`PlayerBattleData` 那条链）。
+    //  我们**只建对象、不发送**（`卡组:49` 的改动请求就是这么写的：「只做客户端侧，⛔ 不接网络发送」）。
+    //  ⇒ `eloRating` / `alliance*` / `warcry` / `currentDeckId` / `draftVictories` 这些**只有服务器有**的格子，
+    //  调用方拿不到就留默认值并**出声**（⛔ 不静默造一个数）。
+    // ================================================================================================
+
+    /// <summary>原版 `SerializedPlayerDeckData`（`Assembly-CSharp/SerializedPlayerDeckData.cs:5-52`）。
+    /// <para>**字段名与声明序逐字照原版**（JSON 是**按声明序**写的，且原版 ctor 会把两个默认 id 写进
+    /// `playerAvatar` / `playerAvatarBorder`）⇒ ⛔ 别改名、别插在中间。</para>
+    /// <para>⚠️ 与 `PlayerDeck`（我们的存档 DTO）**不是一个东西**：`PlayerDeck` 存「卡组编辑器要的东西」
+    /// （含 `GameMode` 这种我们自己的派生），本类存「原版要发给服务器的那一份」。
+    /// 两者**同名不同义**的只有 `Name` vs `deckName` ⇒ 转换只此一处（<see cref="From"/>）。</para></summary>
+    [Serializable]
+    public class SerializedPlayerDeckData
+    {
+        /// <summary>卡 + 它的升级档（原版 `SerializedPlayerDeckData.SerializedCard`）。</summary>
+        [Serializable]
+        public class SerializableCard
+        {
+            /// <summary>卡 id。原版 = 那张卡 SO 的 `m_Name`（`GetSerializedDeckData.c` 的 `+0x38` 取法）。
+            /// ⚠️ 我们这边**原样写 `PlayerDeck` 里那串**（含异画副本的 `#HB_xx` 形态 —— `BattleDriver`
+            /// 那条注释记的正是「原版 clone id 形如 `#HB_SW1`」⇒ `#` 不是我们的发明，⛔ 别剥它）。</summary>
+            public string id;
+            /// <summary>**0 基**（原版 `CardTier`：Tier1 = 0 … Tier4 = 3；`RawCardScript.get_CardTier()` 原值）。
+            /// ⚠️ 我们的 `CardProgress.Level` 是 **1 基** ⇒ 转换在 Unity 侧那一份（`DeckSerializedData.Build`），
+            /// 本类收**已经是 0 基**的值。</summary>
+            public int tier;
+        }
+
+        public string deckName;
+        public SerializableCard deckWarlord;
+        public string defensiveCard;
+        public List<SerializableCard> cardLibrary;
+        public int eloRating;
+        /// <summary>原版 ctor 的出厂值 = **服务器目录里的默认头像 / 头像框 id**
+        /// （`SerializedPlayerDeckData.cs:55-64` 两句字面量；`.c` 的 `+0x38/+0x40` 初值同）。
+        /// `From` 会用本地档案覆盖它们 —— 留这两个常量只是为了「没覆盖时也不是空串」与原版一致。</summary>
+        public string playerAvatar = "d151b0956783643be93696e46e711de6";
+        /// <summary>同上（出厂头像框 id）。</summary>
+        public string playerAvatarBorder = "36ae26bb6bd304e79bd17fe02fbd3725";
+        public string titleId;
+        public string cardback;
+        public string warcry;
+        public string allianceName;
+        public int allianceRating;
+        public string allianceBadgeId;
+        public int allianceBadgeLevel;
+        public string currentDeckId;
+        public int draftVictories;
+
+        /// <summary>
+        /// 原版 `DeckAndWarlordData.GetSerializedDeckData()` 的等价物：**从一副卡组取那 11 组字段**
+        /// （判据 = `decomp_full/DeckAndWarlordData__GetSerializedDeckData.c` 的偏移表，逐格对应见下）。
+        /// <para>偏移 → 本字段（`.c` 右侧的 `param_1` = `DeckAndWarlordData` 的 `this`）：
+        /// `+0x10`→`deckName` · `+0x18{+0x10 id, +0x18 CardTier}`→`deckWarlord` ·
+        /// `+0x20(+0x38)`→`defensiveCard` · `+0x28`(LINQ `Select`→`ToList`)→`cardLibrary` ·
+        /// `+0x38`→`eloRating` · `+0x40/+0x48/+0x50`→`playerAvatar/playerAvatarBorder/titleId` ·
+        /// `+0x58/+0x60/+0x68`→`cardback/warcry/allianceName` · `+0x7c`→`allianceRating` ·
+        /// `+0x80(FeaturedTrophy→+0x188)`→`allianceBadgeId` · `+0x80(+0x18)`→`allianceBadgeLevel` ·
+        /// `+0x70`→`currentDeckId` · `+0x88`→`draftVictories`。</para>
+        /// <para>⚠️ 原版那句 `if (this+0x18 == null) throw`（`.c` 末尾 `FUN_1803f47a0` = 抛）
+        /// ⇒ **没有督军的卡组在原版里根本走不到这里**（上层保证）。我们**不抛**（批处理里抛一下整条就没了），
+        /// 改成返回 `null` 让调用方出声 —— 这是我们这边唯一的行为差异，**已在此写明**。</para>
+        /// </summary>
+        /// <param name="deck">要序列化的那副（`null` ⇒ 返回 `null`，⛔ 不造空壳）。</param>
+        /// <param name="tierOf">卡 id → **0 基**升级档（Unity 侧传 `CardProgress.Level(id) − 1`）。
+        /// `null` ⇒ 全部写 0（= Tier1）并**由调用方出声**。</param>
+        /// <param name="extras">调用方填好的「服务器那半」模板（elo / 联盟 / warcry / currentDeckId /
+        /// 头像 / 称号 / draftVictories）。摘要字段一律**被 deck 覆盖**；`null` ⇒ 全部留默认（= 离线档）。</param>
+        public static SerializedPlayerDeckData From(PlayerDeck deck, Func<string, int> tierOf,
+                                                   SerializedPlayerDeckData extras = null)
+        {
+            if (deck == null) return null;
+            int Tier(string id)
+            {
+                if (tierOf == null || string.IsNullOrEmpty(id)) return 0;
+                int t = tierOf(id);
+                return t < 0 ? 0 : t;
+            }
+            var dto = new SerializedPlayerDeckData
+            {
+                deckName = deck.Name,
+                deckWarlord = string.IsNullOrEmpty(deck.WarlordId) ? null
+                           : new SerializableCard { id = deck.WarlordId, tier = Tier(deck.WarlordId) },
+                defensiveCard = deck.DefensiveId,
+                cardLibrary = new List<SerializableCard>(),
+                // 「服务器那半」：有模板就照抄，没有就留出厂值（⛔ 不编数）
+                eloRating = extras != null ? extras.eloRating : 0,
+                playerAvatar = extras != null && !string.IsNullOrEmpty(extras.playerAvatar)
+                             ? extras.playerAvatar : "d151b0956783643be93696e46e711de6",
+                playerAvatarBorder = extras != null && !string.IsNullOrEmpty(extras.playerAvatarBorder)
+                             ? extras.playerAvatarBorder : "36ae26bb6bd304e79bd17fe02fbd3725",
+                titleId = extras != null ? extras.titleId : null,
+                warcry = extras != null ? extras.warcry : null,
+                allianceName = extras != null ? extras.allianceName : null,
+                allianceRating = extras != null ? extras.allianceRating : 0,
+                allianceBadgeId = extras != null ? extras.allianceBadgeId : null,
+                allianceBadgeLevel = extras != null ? extras.allianceBadgeLevel : 0,
+                currentDeckId = extras != null ? extras.currentDeckId : null,
+                draftVictories = extras != null ? extras.draftVictories : 0,
+                // `cardback` 是**卡组自己的**属性（`CardDeck.cardbackId`），不是服务器那半 ⇒ 从 deck 取
+                cardback = deck.CardbackId,
+            };
+            if (deck.CardIds != null)
+                for (int i = 0; i < deck.CardIds.Count; i++)
+                {
+                    string id = deck.CardIds[i];
+                    if (string.IsNullOrEmpty(id)) continue;
+                    dto.cardLibrary.Add(new SerializableCard { id = id, tier = Tier(id) });
+                }
+            return dto;
+        }
+    }
 }

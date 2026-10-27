@@ -496,5 +496,41 @@ public static partial class RuleEngineTest
                       "★★ ⑤ **活着的 `Strike` 载体照常回手** —— 残骸闸只挡「已翻成残骸」那一档"
                     + "｜🧨 把闸写成「只要场上找不到同实例就取消」/把 `IsAlive` 那半也改严 ⇒ 红");
         }
+
+        // ---- 🆕 2026-10-27（`B88_E3` · 账 679）：`abilityContext` 的**非法值支**必须 fail-closed ----
+        //  判据（第一权威）= `d:/2/tools/decomp_full/CardAbility__IsRightContext.c:84-90`：
+        //  六档 `0 / 10 / 20 / 30 / 40 / 50` 之外的值（含负数）⇒ `CustomDebug.LogWarning` + `return 0`。
+        //  账 679（`A6` 2026-10-27）已把我们的 `default:` 支从 `LogError` + `return true`（fail-open）
+        //  改成 `LogWarning` + `return false`；`-1`（`AbilityContextUnknown`）**保留 true**
+        //  （🔶 自己设计（非原版）：那是「我们没落这一列」的数据缺口，不是原版某一档 —— 保护
+        //    `Core/Enchantment.cs:906` 那条不过闸的调用点；调度台 2026-10-27 裁定「保留 + 打标」）。
+        //  ⚠️ 下面这组只钉**返回值**：`LogWarning` 那条出声口没法在批处理里稳定取证（⛔ 别加「日志里有那句」的断言）。
+        {
+            var cb = Battle(new CardDef[0], new CardDef[0]);
+            var ub = Place(cb, 0, 3, Unit("A1CtxBadUnit", 1, 2, 3));
+            // 前提（硬检查，不是 `if (前提) Check(结论)`）：同一份夹具下合法档必须是 true，
+            // 否则下面的 false 可能是「格子空了 / 载体认错」造成的，断言就是在错误理由下变绿。
+            CheckTrue(RuleCore.IsRightContext(cb, 0, 3, CardDef.AbilityContextPlay, ub.Instance),
+                      "⑤ （前提）同一份夹具下 `Play(0)` = **true** —— 下面几条 fail-closed 不是「一律 false」"
+                    + "｜🧨 `Place` 没把单位摆上 / 传错 `Instance` ⇒ 本条红，后面的 false 也就不算证据");
+            CheckTrue(!RuleCore.IsRightContext(cb, 0, 3, 999, ub.Instance),
+                      "★★ ⑤ **非法 `abilityContext = 999` ⇒ `false`（原版 fail-closed）**"
+                    + "（`CardAbility__IsRightContext.c:84-90`：其余值 ⇒ `LogWarning` + `return 0`）"
+                    + "｜🧨 把 `ActionPump.IsRightContext` 的 `default:` 支改回 `return true`（= 账 679 之前那一版）"
+                    + " ⇒ 实得 true ⇒ 红。**这条今天零可达**（现池没有 `abilityContext = 999` 的行）"
+                    + " ⇒ 没有它，那个 fail-open 改回去没有任何断言能看见");
+            CheckTrue(!RuleCore.IsRightContext(cb, 0, 3, 7, ub.Instance),
+                      "★ ⑤ 同样 fail-closed 的还有 `7`（六档之间的空洞值，不是「四舍五入到 10」）"
+                    + "｜🧨 把 `default:` 改成「按区间就近归类」⇒ 实得 true ⇒ 红");
+            CheckTrue(!RuleCore.IsRightContext(cb, 0, 3, -2, ub.Instance),
+                      "★ ⑤ **负数**（`-2`）也 fail-closed —— 原版那一支只有「`-1` = 未知」是**我们自己的**约定，"
+                    + "⛔ 别把「负数」整段当未知"
+                    + "｜🧨 把早退条件从 `context == -1` 放宽成 `context < 0` ⇒ 实得 true ⇒ 红");
+            CheckTrue(RuleCore.IsRightContext(cb, 0, 3, CardDef.AbilityContextUnknown, ub.Instance),
+                      "★ ⑤ 对照：`-1`（`AbilityContextUnknown`）**仍然 true**（🔶 自己设计：回退旧关键词表，"
+                    + "保护 `Core/Enchantment.cs:906` 那条不过闸的调用点；调度台 2026-10-27 裁定保留）"
+                    + "｜🧨 把 `-1` 也一起 fail-closed ⇒ 那批附魔的 `AboutToAttack` 不再取消攻击"
+                    + "（= 把「缺数据」变成「行为改动」，方向是改坏）⇒ 红");
+        }
     }
 }

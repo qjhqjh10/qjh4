@@ -5724,9 +5724,17 @@ public static class RewardsScene
                                             new Vector2(0f, -114.53f), new Vector2(0.34009f, 709.06f));
                 var vpR = UguiRect.Child(trackR, UguiRect.A00, UguiRect.A11, UguiRect.P01,
                                          new Vector2(0f, 50f), new Vector2(0f, 50f));
-                CheckNear(128f * cTab.Ratio, (vpR.H - 100f) / (2f * 392f) * 128f, 1.0f,
+                // 🔴 **2026-10-28 就地订正（第八十八会话 · `B88_E13`，判定 = α 断言过期）**：
+                //   原版 `CalculateRatio` 的分子 = `trackHolder.height − nodePrefab.rect.height` 两跳：
+                //   ① `trackHolder` = `Content`（anchors (0,0)-(0,1) + `sizeDelta.y = **−100**`）⇒ 高 = `vpR.H − 100`；
+                //   ② 节点高 = **100** ⇒ 分子 = `vpR.H − 200`（= 559.06）；分母 = `2 × 384`（相对根节点的最大绝对偏差）。
+                //   ⚠️ 原来写的是 `(vpR.H − 100f)`：那一 100 被当成**节点高**，`Content` 那 100 整个漏了 ⇒ 期望 109.84 / 实得 93.18。
+                //   历史：这条期望值是照着**旧实现**（`(vpH − 节点高)/(2×392)` = 659.06/784）写的，两者同值 ⇒ 一直是「自证式绿」；
+                //   `B88_J4b` 把分子改成 `vpH − 200` 之后它就已经脱节（当时应为 91.27 而期望 107.6）⇒ **不是本批弄坏的**。
+                float contentH = vpR.H - 100f;          // = `Content` 的高（prefab 实读 `sizeDelta.y = −100`）
+                CheckNear(128f * cTab.Ratio, (contentH - 100f) / (2f * 384f) * 128f, 1.0f,
                           "**行距** = 128（SO 里两行差）× ratio；ratio 照原版 `CalculateRatio` 的结构"
-                          + "（视口高 − 节点高）/（2 × |y| 最大）—— **小于节点高 100 就会上下叠**");
+                          + "（(视口高 − `Content` 的 100) − 节点高 100）/（2 × 384）—— **小于节点高 100 就会上下叠**");
                 float top = float.MaxValue, bot = float.MinValue;
                 for (int t = 0; t < CampaignData.NodeCount; t++)
                 {
@@ -7595,20 +7603,30 @@ public static class RewardsScene
             Check(qLabels, qByGeometry,
                   $"★ …**相对断言**：建了数量文字的格数（{qLabels}）= 按**量出来的格心**数出来的视口内格数"
                   + $"（{qByGeometry} / 共 {drawers} 个抽屉节点）—— ⛔ 这一条不写死任何数");
+            // 🔴 **2026-10-28（B88-F3 · 账 `收藏:265` 的连带）**：「有斜坡」原来写死 `Δα > 0.05`，而数量文字从
+            //   `"x3"` 变成 `"3"`（原版 `amount.ToString()`，见 `Shell/ItemDrawer.cs` 的 `Quantity`）之后整条带里
+            //   **只剩一个窄字形**（实测 x 跨度 8.1px）⇒ 按剖面最多摊出 8.1/200 = 0.0405 ⇒ 会因「少了一个字符」而红。
+            //   **换不到更宽的被测文本**：本夹具 12 格全是 `Booster Pack Ultramarines`（`Kind = Generic` ⇒ `Icon` 那条路
+            //   只建「图 + `Quantity` 一颗字」，没有名字 Label；再左一格 `x ≈ 1650` 已出带）⇒ 改量**斜率**：期望
+            //   `Δα = clamp01((1920−xMin)/200) − clamp01((1920−xMax)/200)`（= 带内 `S/200`，随实测跨度走）。**判别力**：抹平 ⇒ Δα = 0 ≠ 0.041 ⇒ 红。
+            //   ⚠️ **写成 `(0,200)` 时本行不保证红**（诚实记）：y 剖面在 `y ≤ 732.5` 饱和、本格数量条 y = 696.25..741.25（`cy = 606.25` · `box.y2−60…−15`）⇒ 纵向只剩 0.956~1 ⇒ Δα ≤ 0.044 ≈ 期望 0.041 ⇒ **轴写反的判别归上面那条逐顶点剖面**（err ≥ 0.77 ⇒ `nBad > 0`），⛔ 别删它。⛔ 阈值没放宽（0.05 → 与跨度成比例的 0.02 容差）。
             Label bandLb = null; float bandMax = -1f;
+            Label spanLb = null; float spanMax = -1f;
             for (int i = 0; i < rw.ListHolder.childCount; i++)
             {
                 var lb = QuantityLabelOf(rw.ListHolder.GetChild(i));
                 if (lb == null) continue;
                 var vs = TmpVertPx(lb);
                 if (vs == null) continue;
-                float mx = float.MinValue;
-                for (int k = 0; k < vs.Length; k++) mx = Mathf.Max(mx, vs[k].x);
+                float mx = float.MinValue, mn = float.MaxValue;
+                for (int k = 0; k < vs.Length; k++) { mx = Mathf.Max(mx, vs[k].x); mn = Mathf.Min(mn, vs[k].x); }
                 if (mx > bandMax) { bandMax = mx; bandLb = lb; }
+                if (mx > 1725f && mx <= 1920.5f && mx - mn > spanMax) { spanMax = mx - mn; spanLb = lb; }
             }
+            if (spanLb != null) bandLb = spanLb;      // 有更合适的就换它（没找到 ⇒ 仍用最右那颗，前提照旧会判）
             CheckTrue(bandLb != null && bandMax > 1725f,
                       $"（A302 前提）找得到一格的**数量文字伸进渐隐带**（带内沿 = 1920 − 200 = 1720；"
-                      + $"实测最右顶点 {bandMax:F1}）—— 找不到 ⇒ 下面三条等于没验");
+                      + $"实测最右顶点 {bandMax:F1} · 选中那颗的 x 跨度 {spanMax:F1}）—— 找不到 ⇒ 下面三条等于没验");
             if (bandLb != null)
             {
                 var vpx = new List<Vector2>(); var val = new List<float>();
@@ -7616,7 +7634,7 @@ public static class RewardsScene
                 CheckTrue(nv > 0, "（A302 前提）那段数量文字的 TMP 顶点量得到（点阵兜底 / 未激活 ⇒ −1）");
                 if (nv > 0)
                 {
-                    int nBad = 0; float worst = 0f, minA = 1f, maxA = 0f, xMax = -1e9f;
+                    int nBad = 0; float worst = 0f, minA = 1f, maxA = 0f, xMax = -1e9f, xMin = 1e9f;
                     for (int k = 0; k < nv; k++)
                     {
                         // 期望值 = **原版剖面** `clamp01((1920 − x) / 200)` —— 右沿 1920 与 `m_Softness.x = 200`
@@ -7625,15 +7643,15 @@ public static class RewardsScene
                         float err = Mathf.Abs(val[k] - want);
                         if (err > 0.02f) nBad++;
                         worst = Mathf.Max(worst, err);
-                        minA = Mathf.Min(minA, val[k]); maxA = Mathf.Max(maxA, val[k]);
+                        minA = Mathf.Min(minA, val[k]); maxA = Mathf.Max(maxA, val[k]); xMin = Mathf.Min(xMin, vpx[k].x);
                         xMax = Mathf.Max(xMax, vpx[k].x);
                     }
                     Check(nBad, 0, "★ **文字吃了与旁边图同一份 (200,0) 软边** —— 每个顶点都落在原版剖面上"
                           + $"（最差偏差 {worst:F3}）");
                     CheckTrue(minA < 0.999f,
                               $"★ …最暗那个角 {minA:F3} < 1（裸 `MenuDraw.Text` 那条路 ⇒ 全 1 ⇒ 红）");
-                    CheckTrue(maxA > minA + 0.05f,
-                              "…而且**有斜坡**（左边比右边亮；写成 (0,200) 会去削上下 ⇒ 这里左右相等）");
+                    CheckTrue(Mathf.Abs((maxA - minA) - (Mathf.Clamp01((1920f - xMin) / 200f) - Mathf.Clamp01((1920f - xMax) / 200f))) <= 0.02f,
+                              $"…而且**有斜坡**、**斜率 = 原版剖面的 1/200**（抹平 ⇒ Δα = 0 ≠ 期望 ⇒ 红；轴写反的判别见上面那条逐顶点剖面）；实测 Δα {maxA - minA:F4} · 期望 {(Mathf.Clamp01((1920f - xMin) / 200f) - Mathf.Clamp01((1920f - xMax) / 200f)):F4} · 跨度 {xMax - xMin:F1}px");
                     CheckTrue(xMax <= 1920.5f, $"…**没有一个顶点画到视口右沿之外**（实测最右 {xMax:F1}）");
                 }
             }
@@ -9628,14 +9646,21 @@ public static class RewardsScene
                           $"★ …而且**出声**：一条 `[ItemDrawer]` 警告（实测 {stackWarns} 条"
                           + (stackLast.Length > 0 ? "，末条：" + stackLast : "") + "）"
                           + " —— 判据空那一支改成静默返回 ⇒ 红");
-                // 窗口层的**反例**：第 ④ 格 `quantity = 3` 但类型可堆叠 ⇒ **还是一格**（数量画成 `x3`）。
+                // 窗口层的**反例**：第 ④ 格 `quantity = 3` 但类型可堆叠 ⇒ **还是一格**（数量画成 `3`）。
+                //   🔴 **2026-10-27 更正（第八十八会话 · `B88_E8b` 现核）**：原来这里写「画成 `x3`」并断 `"x3"`，
+                //   **那是编码了我们自己的偏离**。原版 `ItemDrawer<T>.Draw` 里那一步是
+                //   `System_Int32__ToString(n, 0)` 直接喂 `set_text`（`ItemDrawer_object___Draw__1ae9cc0.c:58`），
+                //   全篇 **0 条 `String__Concat`**；字面量 `"x"` 全库只被 `CardListItemScript__UpdateDisplayData`
+                //   与 `SupportMethods__GetShortString` 用过，**抽屉族 0 命中** ⇒ **不带 `x`，也没有分档**。
+                //   （prefab 里那 31 条 `^x\d+$` 全是 `Count`/`skullCounter`/`counter` 等**别的节点**，不是抽屉数量槽。）
                 Check(CountByPrefix(rwJ.ListHolder, "Item_"), 4,
                       "★（**第 4 跳的反例**）四条奖励 ⇒ **四个**抽屉节点"
                       + "（第 4 条 `quantity = 3` 但类型可堆叠 ⇒ **不展开**；"
                       + "无条件按数量展开的实现这里得 **6** ⇒ 红）");
                 var fourD = FindChild(rwJ.ListHolder, "Item_Booster Pack Legendary Ultramarines");
-                Check(fourD != null ? TextOf(FindChild(fourD, ItemDrawer.NodeQuantity)) : null, "x3",
-                      "…而且那一格的数量就画成 **x3**（不展开 ⇒ 数量留在同一格上）");
+                Check(fourD != null ? TextOf(FindChild(fourD, ItemDrawer.NodeQuantity)) : null, "3",
+                      "…而且那一格的数量就画成 **3**（不展开 ⇒ 数量留在同一格上；"
+                      + "原版无 `x` 前缀、无分档 ⇒ 改回 `\"x\"+qty` 会红）");
                 wm2.CloseAllWindows();
             }
 

@@ -279,6 +279,25 @@ EXTRA_CUES = ["Reward open item by item", "CardStartDrag",
               #     参数：`Loss Jingle` pitch 1.0 / vol 1.0 / ttp 0.1；`Warlord Appear` pitch 0.8–1.199 · vol 0.8 · ttp **0**。
               #   ⇒ 这两条是「我们有名字、原版资产在本地、表里没有」= 真缺（属轮抽线）。
               "Draft Mode Loss Jingle", "Draft Mode Warlord Appear",
+              # —— 🆕 **2026-10-28（执行代理 `B88_B1`）：联机「找到对手」那一声** ——
+              #   判据（逐条亲读，不靠猜）：
+              #   · 引用者 = `MatchMakerManager.matchFoundSFX`（`dump.cs` 偏移 `0xA0`；账 = `联机.tsv` 第 74 行）。
+              #     那份 MB **没有 type tree**（`assets_full` 全树按字段名 grep `matchFoundSFX` = 0 命中）⇒
+              #     旧结论「cue 名读不到」是**读法不对**，不是本地没有：改从 **AssetRipper 导出的工程**读，
+              #     `d:/2/tools/assetripper_out/ExportedProject/Assets/Data/Scenes/Intro.unity:7299-7307`
+              #     逐字给出 `MatchFound: mTerm: Battle/Prebattle/CasualString` +
+              #     `matchFoundSFX: {fileID: 11400000, guid: 779042f41bd3d1d4d80c1c4efc9022c5}`。
+              #     guid 落到 `Assets/MonoBehaviour/Match Found.asset`（`m_Name = "Match Found"`）。
+              #   · cue→clip：`Match Found.asset` 的 `clipList` 唯一一条 guid `05719552c32650b42abd0d45539582a0`
+              #     → `Assets/AudioClip/Multiplayer Match Found 3.wav`（同名文件也在
+              #     `assets_full/bundle_soundcollection_assets_all/AudioClip/` 里）。
+              #   · 参数（资产实读；`assets_full/.../MonoBehaviour/Match Found.json` 与 AssetRipper 版**逐值一致**）：
+              #     单 clip · `minPitch 0.8 / maxPitch 1.1` · `minVolume = maxVolume = 0.8` · `timeToPlayAgain 0.1`。
+              #   · 消费点 = `MatchMakerManager__MatchMakingMatchFound.c:43`：
+              #     `SoundManager__Play2D(<SoundManager 单例>, *(param_1 + 0xa0) /* matchFoundSFX */, 0, 0)`
+              #     —— 第 4 实参 `0` = **MixerType.FX**（`SoundManager.cs:176` 的默认值）。
+              #     我们的落点 = `Net/NetMatchmaking.cs` 的 `GoToBattle`（`NetRuntime.Notice("Match found!")` 之后）。
+              "Match Found",
               ]
 
 # 🔴 **2026-10-16（A828）第三来源 —— `collisionEvent` 上的 `PlaySound`。**

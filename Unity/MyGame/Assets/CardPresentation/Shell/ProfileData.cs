@@ -1194,7 +1194,7 @@ namespace CardPresentation
             EnsureSave();
             int cur;
             if (!_achProgress.TryGetValue(id, out cur)) cur = 0;
-            _achProgress[id] = Mathf.Max(0, cur) + delta;
+            _achProgress[id] = Mathf.Max(0, cur) + delta; AchievementMilestoneToast.OnValueChanged(id, Mathf.Max(0, cur), _achProgress[id]);   // 原版 `Achievement.OnReachMilestone`（账 `个人资料_成就_排行:29`；实现在 `Shell/AchievementMilestoneToast.cs`）
             SaveIfAuto();
         }
 
@@ -1267,6 +1267,108 @@ namespace CardPresentation
             if (_titleIndex >= 0) return;          // 已有装备 ⇒ 一个字节都不动
             EnsureLoad();                          // 清单是懒加载的（`_titles` 可能还没读）
             if (_titles != null && _titles.Count > 0) _titleIndex = 0;
+        }
+
+        // ============================================================ 头像边框（`borders` 键）
+        //
+        // 【判据链】原版 `Avatar Border*.json`（`素材/Warpforge原版/装饰品/定义数据/MonoBehaviour/`，现读 5 条）
+        //   → `工具/gen_profile_cosmetics.py` 的 `load_borders()` → `Resources/profile_cosmetics.json` 的
+        //   `borders[]`（字段 `id`/`n`/`art`/`g`/`aa`/`pe`）。
+        // · 运行期消费者 = `AvatarTab`（大图那一层）与 `ProfileTab`（`Player Info` 那一层）——
+        //   原来是写死常量 `AvatarTab.ArtBorder`；现在读「已装备的那一条」。
+        // · 🔴 **「哪几条是我的」在原版是服务器背包**（`PlayerAvatarDataManager` / `FullCosmeticCollection`）；
+        //   本工程按用户 **2026-09-17「卡池/锻造厂/卡牌/头像全解锁」** 的口径 ⇒ 5 条**全视为已拥有**
+        //   （与 `Avatars`/`Titles` 同一条口径，⛔ 别为边框单开一套）。
+        // · `pe` = 父活动 id（`ECReleaseScoring` 等）：活动态那一层（活动线 P1）没做 ⇒ 见 `FindActiveAvatarBorder`。
+
+        /// <summary>一条头像边框。**字段名必须与 JSON 键逐字一致**（`JsonUtility` 按字段名映射）。</summary>
+        [Serializable]
+        public class BorderItem
+        {
+            /// <summary>`uniqueId`（32 位 hex）。</summary>
+            public string id;
+            /// <summary>显示名（资产名去掉 `Avatar Border ` 前缀）。</summary>
+            public string n;
+            /// <summary>图名（**含空格**，原版 Sprite 名）：`Player Profile Border` / `Player Profile Border Gold`。</summary>
+            public string art;
+            /// <summary>`imageReference` 的 AssetGUID（复查用，运行期不读）。</summary>
+            public string g;
+            /// <summary>`autoAssign`（1 = 拿到即自动装备；`Default` 那条 = 0）。</summary>
+            public int aa;
+            /// <summary>`parentEvent.targetId`（**空串 = 无父活动 = 恒可用**）。</summary>
+            public string pe;
+            public override string ToString() { return n; }
+        }
+
+        /// <summary>`borders` 键那一份（⛔ **不塞进 `FileDto`**：那个类在文件中部，加字段会让本文件下游账落点整体下移）。</summary>
+        [Serializable]
+        public class BorderFileDto { public BorderItem[] borders; }
+
+        static List<BorderItem> _borders;
+
+        /// <summary>全部 5 条边框定义（懒加载；与 `Avatars`/`Titles` 同一份 `profile_cosmetics.json`）。</summary>
+        public static List<BorderItem> Borders { get { EnsureBorders(); return _borders; } }
+
+        static void EnsureBorders()
+        {
+            if (_borders != null) return;
+            _borders = new List<BorderItem>();
+            var ta = Resources.Load<TextAsset>(ResourcePath);
+            if (ta == null) return;      // `EnsureLoad` 那边已经为同一个文件出过声（⛔ 不重复刷屏）
+            try
+            {
+                var d = JsonUtility.FromJson<BorderFileDto>(ta.text);
+                if (d != null && d.borders != null)
+                    for (int i = 0; i < d.borders.Length; i++)
+                        if (d.borders[i] != null) _borders.Add(d.borders[i]);
+            }
+            catch (Exception e) { Debug.LogError("[Profile] `profile_cosmetics.json` 的 `borders` 解析失败：" + e.Message); }
+            if (_borders.Count == 0)
+                Debug.LogWarning("[Profile] `profile_cosmetics.json` 里没有 `borders` ⇒ 边框层回落写死常量。"
+                               + "生成器：`工具/gen_profile_cosmetics.py` 的 `load_borders()`");
+        }
+
+        /// <summary>已装备边框的下标（0 = `Default`）。
+        /// <para>🔶 自己设计（非原版）：原版「当前边框」在**服务器背包**里（`PlayerAvatarDataManager.SetCurrentItem`，
+        /// 判据 → `CosmeticItemAvatarBorder__HandleOnCollect.c:12-20`），本地**没有「获得边框」这个动作**
+        /// （领奖/活动链未做）⇒ 只留一个内存下标、**不落盘**（`SaveDto` 在文件中部，加字段会让下游账落点整体下移）。
+        /// 谁的默认值是 0：原版那条 `Default`（`autoAssign=0`、无父活动）· 调度台 2026-10-28 裁定。</para></summary>
+        public static int EquippedBorderIndex;
+
+        /// <summary>已装备的那一条（越界/清单空 ⇒ `null`，调用方回落常量）。</summary>
+        public static BorderItem EquippedBorder
+        {
+            get
+            {
+                var list = Borders;
+                if (list == null || list.Count == 0) return null;
+                int i = EquippedBorderIndex;
+                if (i < 0 || i >= list.Count) i = 0;
+                return list[i];
+            }
+        }
+
+        /// <summary>边框图名（**已归一成资源文件名**：空格 → 下划线；取不到 ⇒ `null`）。</summary>
+        public static string EquippedBorderArtName
+        {
+            get
+            {
+                var b = EquippedBorder;
+                if (b == null || string.IsNullOrEmpty(b.art)) return null;
+                return b.art.Replace(' ', '_');
+            }
+        }
+
+        /// <summary>原版 `AvatarTab.FindActiveAvatarBorder()` 的等价物。
+        /// <para>原版 = 遍历**背包**里所有 `CosmeticItemAvatarBorder`，返回第一条
+        /// `IsParentEventActive()` 为真的（判据 → `AvatarTab.cs` 的 `FindActiveAvatarBorder`，ILSpy `:4937` 那段）。</para>
+        /// <para>🔶 自己设计（非原版）：我们没有「背包拥有态」也没有**活动态查询层**（活动线 P1 未做）⇒
+        /// 等价物 = **已装备的那一条**（`EquippedBorder`）；`aa` 四条活动边框在活动没开时本就不该出现，
+        /// 我们这边它们永远选不中（`EquippedBorderIndex` 恒 0）· 调度台 2026-10-28 裁定。
+        /// ⚠️ 可观测差别：原版「有活动边框在开」时这里返回事件边框，我们恒返回 `Default` —— 那一条要等活动线。</para></summary>
+        public static BorderItem FindActiveAvatarBorder()
+        {
+            return EquippedBorder;
         }
     }
 }

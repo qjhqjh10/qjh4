@@ -867,7 +867,7 @@ namespace CardPresentation
                 //   只有「显示口」才换（⛔ 别把两件事合成一件）。
                 if (b.IsKeyword) what = CardText.KeywordDisplay(b.Name);   // 关键词：跟语档；⛔ 不是 `Battle/Effect/*`
                 else what = AttrText(b.Name, b.Value);
-                if (string.IsNullOrEmpty(what)) what = b.Name;      // 认不出来就**原样打出来**（不静默、不自造）
+                if (what == null) what = b.Name;      // 认不出来才**原样打出来**（不静默、不自造）；⚠️ **空串不回退** —— 原版「空文本占一槽」就是这一档（`AttrText` 数值 0 ⇒ `""`）
                 string who = b.SourceCard;
                 if (string.IsNullOrEmpty(who)) who = b.Src;         // 兜底；两个都空才留白（上面那半句还在）
                 rows.Add(new EffectRow(who, what));
@@ -895,35 +895,35 @@ namespace CardPresentation
             return null;
         }
 
-        /// <summary>属性那半句 = 原版词条 + 把 `{0}` 换成**带符号的数值**（正值带 `+`）。
-        /// 属性名认不出 ⇒ 返回 `null`（调用方原样打名字）。
-        /// <para>⚠️ **数值为 0 时只印属性名、不印 `{0}`**：原版 `GetEffectDesc` 在同类字段全 0 时
-        /// 直接回**空串**（`case 1` 那条 `return DAT_1842b80e0`），我们**故意比原版多说一个词**
-        /// （印属性名比印空白对玩家有用）—— 如实标，⛔ 别当成原版行为。</para></summary>
+        /// <summary>属性那半句 = 原版词条 + 把 `{0}` 换成**带符号的数值**（正值带 `+`）；属性名认不出 ⇒ `null`（调用方原样打名字）。
+        /// <para>🔴 **2026-10-27（B88_E6）就地改口径（铁律 5/11）**：原来「数值 0 时只印属性名」并标成故意 —— **已改成照原版回空串**：
+        /// 判据 = 原版 `GameStaticData.GetEffectDesc` 在同类字段全 0 时 `return DAT_1842b80e0`（**空串**，`case 1`）；
+        /// 而空串正是原版 `EnableEffects` 里「**文本空的也占一槽**」那一档的触发条件
+        /// ⇒ 两件事是同一条规则、不能只留一半（消费面 = 本类 `RowsOf` / `SetEffectRows`）。</para></summary>
         static string AttrText(string name, int value)
         {
             string term = AttrTerm(name);
             if (term == null) return null;
             string s = Loc.T(term);
             if (s.IndexOf("{0}", System.StringComparison.Ordinal) < 0) return s;   // 表里那条没带占位符 ⇒ 原样
-            if (value == 0) return s.Replace("{0} ", "").Replace(" {0}", "").Replace("{0}", "").Trim();
+            if (value == 0) return "";                                             // 原版 `GetEffectDesc`：同类字段全 0 ⇒ 空串
             return s.Replace("{0}", (value > 0 ? "+" : "") + value);
         }
 
-        /// <summary>摆/收这块（`rows` 为空 = 整组不出现 —— 原版就是「有 buff 才露」）；**槽数上限 5 = 原版 `cardEffectSlots.Length`**（🥈 `CardEffectsService.cs:91-132`：逐条 `LoadEffect`、**文本空的也占一槽**（`Disable` 但槽号 +1 ⇒ 留空洞）、非空才计数、槽用完静默截断；`EnableEffects` = 它 + `DisableLeftoverSlots`、返回「非空条数 > 0」；**13 场序列化实测该数组长恒 = 5**，`B8_U` 2026-10-26 现读；⚠️ 差异：我们按 buff 铸行、空的根本不铸 ⇒ **中间不留空洞**）。
-        /// 🔴 **先把根亮起来再改字**：TMP 在**未激活**的对象里量不出尺寸（`SetAutoFitBox` 那条踩过）。</summary>
+        /// <summary>摆/收这块（**非空条数 = 0 ⇒ 整组不出现** —— 原版 `DisplayCardEffects.c:118-135` 就是拿 `EnableEffects` 的「非空条数 > 0」当 `root.SetActive` 的入参）；**槽数上限 5 = 原版 `cardEffectSlots.Length`**（🥈 `CardEffectsService.cs:91-132`：逐条 `LoadEffect`、**文本空的也占一槽**（`Disable` 但槽号 +1 ⇒ 留空洞）、非空才计数、槽用完静默截断；**13 场序列化实测该数组长恒 = 5**，`B8_U` 2026-10-26 现读）。
+        /// 🔴 **先把根亮起来再改字**：TMP 在**未激活**的对象里量不出尺寸（`SetAutoFitBox` 那条踩过）。
+        /// 🔴 **2026-10-27（B88_E6）补齐「空文本占槽」**（原来写「我们按 buff 铸行、空的根本不铸 ⇒ 中间不留空洞」，是差异）：现在**空行照样吃一个槽号、但那一格不画** —— 判据 = `EnableCardEffectSlots.c:46-60`（`IsTextEmpty ⇒ CloseButtonClick(item)` 即 `Disable()`，而 **`cursor += 1` 那两句在两支里都有**）⇒ 中间留空洞、后面的行不往前补。</summary>
         void SetEffectRows(IReadOnlyList<EffectRow> rows)
         {
             if (_fxRoot == null) return;
             int n = rows == null ? 0 : Mathf.Min(rows.Count, CardWinBox.EffSlots);
             if (rows != null && rows.Count > CardWinBox.EffSlots)
                 Debug.LogWarning($"[展示窗] 效果清单有 {rows.Count} 条，原版只有 {CardWinBox.EffSlots} 个槽 ⇒ **只画前 {CardWinBox.EffSlots} 条**（不静默）");
-            EffectRowCount = n;
-            _fxRoot.gameObject.SetActive(n > 0);
-            if (_fxTitle != null) _fxTitle.gameObject.SetActive(n > 0);
+            EffectRowCount = NonEmptyRowsOf(rows, n); bool any = EffectRowCount > 0;   // 原版 `EnableEffects` 返回 = **非空**条数（不是吃的槽数）；`DisplayCardEffects.c:127-131`：非空 > 0 才亮根
+            _fxRoot.gameObject.SetActive(any); if (_fxTitle != null) _fxTitle.gameObject.SetActive(any);
             for (int i = 0; i < CardWinBox.EffSlots; i++)
             {
-                bool on = i < n;
+                bool on = i < n && !IsEmptyRow(rows[i]);    // 空文本 ⇒ 占槽但不画（原版 `Disable`，⛔ 后面的行不往前补）
                 if (_fxBg[i] != null) _fxBg[i].gameObject.SetActive(on);
                 if (_fxWho[i] != null)
                 {
@@ -1913,6 +1913,29 @@ namespace CardPresentation
         Transform _fx;
         /// <summary>自检读口：光效层在不在（`null` = 没建起来）。⛔ 不拿它当"画得对不对"的判据。</summary>
         public Transform EffectsRoot { get { return _fx; } }
+
+        // ============================================================ 🆕 2026-10-27（B88_E6）：「空文本占一槽」
+        //  ⚠️ **追加在类尾**（插进中间会让本文件 50+ 条 `文件:行号` 账落点整体漂移，见 CLAUDE.md 铁律 18·b）。
+        /// <summary>这一行算不算**空**（原版 `CardEffectItem.IsTextEmpty` 的等价物：两半**都没有字**）。
+        /// <para>判据链：原版 `EnableCardEffectSlots.c:46-60` —— `LoadEffect` 之后 `IsTextEmpty ⇒ Disable()`
+        /// **但槽号照样 `+1`**（两支都有那句）⇒ 空行**吃掉一个槽位、自己不画**，后面的行**不往前补**
+        /// （所以视觉上是一个**空洞**）。空文本的来源 = `GameStaticData.GetEffectDesc` 在同类字段全 0 时回空串，
+        /// 落到我们这侧 = `TempBuff.Value == 0`（见 `AttrText`）。</para></summary>
+        static bool IsEmptyRow(EffectRow r)
+        {
+            return string.IsNullOrEmpty(r.Who) && string.IsNullOrEmpty(r.What);
+        }
+
+        /// <summary>前 <paramref name="n"/> 行里**非空**的有几行 —— 原版 `EnableEffects` 的返回值
+        /// （`EnableCardEffectSlots.c` 里那个 `iVar6`，每次「非空」才 `+1`），也是 `DisplayCardEffects.c:127-131`
+        /// 决定整块 `root.SetActive` 的入参。⚠️ **不是**吃的槽数：`[空, 空, 有字]` ⇒ 返回 **1**。</summary>
+        static int NonEmptyRowsOf(IReadOnlyList<EffectRow> rows, int n)
+        {
+            if (rows == null) return 0;
+            int c = 0;
+            for (int i = 0; i < n && i < rows.Count; i++) if (!IsEmptyRow(rows[i])) c++;
+            return c;
+        }
 
     }
 }

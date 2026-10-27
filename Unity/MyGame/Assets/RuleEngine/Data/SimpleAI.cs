@@ -120,7 +120,7 @@ namespace RuleEngine
         }
     }
 
-    public static class SimpleAI
+    public static partial class SimpleAI   // 🆕 2026-10-27（`B88_E3`）：改 `partial` —— 第 ④ 档候选枚举在兄弟分册 `Data/SimpleAI.ActiveEntry.cs`（本文件被账按行号引用 41 处 ⇒ 那里改 `partial` 是 1→1、**本文件零行数变化**）
     {
         // ==================================================================
         //  常量（照原版：`资料/AI_原版反编译_0917.md` §五·一）
@@ -418,7 +418,7 @@ namespace RuleEngine
 
                 // 普通主动技能
                 var spec = u.Ability;
-                if (spec == null) continue;
+                if (spec == null) { AddActiveAbilityEntry(ctx, me, s, list); continue; }   // 🆕 2026-10-27 `B88_E3`：第 ④ 档（原版通用 `activeAbilityLogic`）走这一个口
                 if (EffectTargets.NeedsPick(spec.Target))
                 {
                     for (int t = 0; t < BoardSpec.Size; t++)

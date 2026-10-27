@@ -3320,4 +3320,162 @@ namespace CardPresentation
             fx.myAnimation = anim;
         }
     }
+
+    // ============================================================ 卖多余副本（原版 `PlayerDataManager.SellSpareCards` 一族）
+    //
+    // 判据（🥇 反编译真体）：
+    //   `SellSpareCards(Dictionary<string,int> cardsToSell, bool fromInit)`
+    //     → cpp2il dev `PlayerDataManager.cs:13776-13799` · `decomp_full/PlayerDataManager__SellSpareCards.c`
+    //   `SellSpareCardsRecursive()`（工厂）
+    //     → cpp2il dev `PlayerDataManager.cs:13801-13805` · 真体 = `_SellSpareCardsRecursive_d__602__MoveNext.c`
+    //   `ShouldSellCardsFromCrate()`
+    //     → cpp2il dev `PlayerDataManager.cs:9982-10000` · `decomp_full/PlayerDataManager__ShouldSellCardsFromCrate.c`
+    //   `<SellSpareCardsRecursive>b__602_0`（完成回调）
+    //     → `decomp_full/PlayerDataManager___SellSpareCardsRecursive_b__602_0.c`
+    //
+    // 🔴 **三个原版事实（照抄，别按名字猜）**：
+    //   ① `SellSpareCards` 的形参 `cardsToSell` **一次都没被读**（`.c` 里只出现 `this`；ILSpy 同一档）——
+    //      它读的是字段 `pendingCardsToSell`。我们的等价物 = **把「待卖表」交进来**（见下面的差异 ②）。
+    //   ② `ShouldSellCardsFromCrate` = `GetOwnedCount(GameCurrency.crystals) < 1601`
+    //      （`.c`：`GetOwnedCount(_, 10)`，`10` = `GameCurrency.crystals`；`0x641` = **1601**）。
+    //   ③ 递归体 = 「冷却节流 → 调云端卖卡 → 完成回调清 `isSellingCards` / 计数++ / 再递归」。
+    //      `_003C…b__602_0` 那一条就是**完成回调**：`if (result != null) { isSellingCards=false; … OpsSession++ ; lastTime=Now; 再起递归 }`。
+    //
+    // 🔶 自己设计（非原版）：① 卖卡单价表 ② 「本地扣副本 + 记金币」替代云端 `sellSpareCards` 云函数
+    //   ③ 批处理下没有帧循环 ⇒ 把「冷却 → 再递归」的异步节流压成一次同步 drain
+    //   · 原版单价在服务端（PlayFab CloudScript），本机无判据 · 调度台 2026-10-27 裁定（B88_J2 批次）
+    //   · 为什么必须自己定：判据为空（服务端），不是我们没找到；且工程边界②「不做真实经济」⇒ 金币只记账。
+    //   · 差异 ②：原版「全库扫一遍多余副本」，我们**只卖调用方交进来的那张表** —— 因为我们的
+    //     `CardProgress.Owned` 缺省是「给足」（= 卡组上限 + 9），全库扫会把**升级所需的冗余**一起卖掉
+    //     （`CanUpgrade` 靠 `Spares`）。这是**行为等价下的安全收窄**，⛔ 不是「原版就这么做」。
+    public static class CardSell
+    {
+        /// <summary>原版 `.c` 里的那个常量：`GetOwnedCount(crystals) &lt; 1601`。</summary>
+        public const int CrystalThreshold = 1601;
+
+        /// <summary>🔶 自己设计（非原版）：**卖一张**给多少金币（按稀有度；下标对齐 <see cref="CardProgress.NeedGold"/> 的量级）。
+        /// 原版单价在服务端 CloudScript，本机四条取证全负 ⇒ 调度台 2026-10-27 裁定自拟。
+        /// ⛔ 别拿它当原版数；将来远端真配置出现只改这一个方法。</summary>
+        public static int GoldFor(string rarity)
+        {
+            switch ((rarity ?? "").ToLowerInvariant())
+            {
+                case "common": return 5;
+                case "rare": return 10;
+                case "epic": return 25;
+                case "legendary": return 50;
+                default: return 0;                 // `special` / 未知档：不出价（原版服务端同样按 rarity 定档）
+            }
+        }
+
+        /// <summary>原版 `initialDuplicatesAlreadyProcessed`（`+0x41c`）。`fromInit` 那一支的**一次性闸**。</summary>
+        public static bool InitialDuplicatesAlreadyProcessed;
+        /// <summary>原版 `isSellingCards`（`+0x378`）—— 正本在 <see cref="PlayerInventoryOps"/>，
+        /// 这里只是**同一格的转发**（⛔ 不写第二份状态）。</summary>
+        public static bool IsSellingCards
+        {
+            get { return PlayerInventoryOps.IsSellingCards; }
+            set { PlayerInventoryOps.IsSellingCards = value; }
+        }
+        /// <summary>原版 `waitingSellCardCooldown`（`+0x440`）—— 同上，转发到 <see cref="PlayerInventoryOps"/>。</summary>
+        public static bool WaitingSellCardCooldown
+        {
+            get { return PlayerInventoryOps.WaitingSellCardCooldown; }
+            set { PlayerInventoryOps.WaitingSellCardCooldown = value; }
+        }
+        /// <summary>本次 `SellSpareCardsRecursive` 卖掉的副本数 / 换到的金币（观测口，自检用）。</summary>
+        public static int LastSoldCopies, LastSoldGold;
+
+        /// <summary>≡ 原版 `ShouldSellCardsFromCrate()`：`GetOwnedCount(crystals) &lt; 1601`
+        /// （判据见上面那一段；`crystals = 10` 是 `GameCurrency` 的枚举值）。</summary>
+        public static bool ShouldSellCardsFromCrate()
+        {
+            return CurrencyExtensions.GetOwnedCount(GameCurrency.crystals) < CrystalThreshold;
+        }
+
+        /// <summary>≡ 原版 `SellSpareCards(Dictionary&lt;string,int&gt; cardsToSell, bool fromInit)`：
+        /// 打一句 `Sell All Spare` →（`fromInit` 时走一次性闸）→ 在「没有待卖 ∧ 不在卖 ∧ 无冷却」时起一次 drain。
+        /// <para>⚠️ 原版形参 `cardsToSell` 在体里没被读（读的是字段 `pendingCardsToSell`）；我们**把它当待卖表**用
+        /// （见上面「差异 ②」）。</para></summary>
+        public static void SellSpareCards(IDictionary<string, int> cardsToSell, bool fromInit = false)
+        {
+            Debug.Log("[CardSell] Sell All Spare");
+            if (fromInit)
+            {
+                if (InitialDuplicatesAlreadyProcessed)
+                {
+                    Debug.LogWarning("[CardSell] initialDuplicatesAlreadyProcessed");
+                    return;
+                }
+                InitialDuplicatesAlreadyProcessed = true;
+            }
+            int pending = cardsToSell != null ? cardsToSell.Count : 0;
+            PlayerInventoryOps.PendingCardsToSell = pending;
+            if (pending == 0 && !IsSellingCards && !WaitingSellCardCooldown)
+            {
+                if (cardsToSell == null)
+                {
+                    Debug.LogWarning("[CardSell] 待卖表为空（原版那一支读 `pendingCardsToSell.Keys.Count == 0` ⇒ 仍会起 drain，"
+                                     + "但全库扫会把升级冗余一起卖光 ⇒ 我们**不出声地空转**，⛔ 不是原版行为）");
+                    return;
+                }
+                SellSpareCardsRecursive(cardsToSell);
+            }
+        }
+
+        /// <summary>≡ 原版 `SellSpareCardsRecursive()`：**同步** drain 一遍待卖表（原版是协程，批处理下没有帧循环）。
+        /// 每张卡：`spares = CardProgress.Spares(id, rarity)`；卖 `min(spares, 表中要卖数)` 张 →
+        /// `CardProgress.AddOwned(…, -n)`（真扣）→ 金币按 <see cref="GoldFor"/> 记账 → 完成回调。</summary>
+        public static void SellSpareCardsRecursive(IDictionary<string, int> cardsToSell)
+        {
+            LastSoldCopies = 0; LastSoldGold = 0;
+            if (cardsToSell == null || cardsToSell.Count == 0) { OnSellSpareCardsRecursiveCompleted(); return; }
+            if (IsSellingCards) return;                       // 原版同一档：已在卖就不再起一条
+            IsSellingCards = true;
+            var pool = CardDatabase.Load();
+            foreach (var kv in cardsToSell)
+            {
+                string id = kv.Key;
+                if (string.IsNullOrEmpty(id)) continue;
+                string rarity = RarityOf(pool, id);
+                int spares = CardProgress.Spares(id, rarity);
+                int want = kv.Value <= 0 ? spares : System.Math.Min(kv.Value, spares);
+                if (want <= 0) continue;
+                CardProgress.AddOwned(id, rarity, -want);       // 真扣副本
+                int gold = GoldFor(rarity) * want;
+                if (gold > 0) Wallet.Grant("gold", gold);       // 本地记账（边界②：不做真实经济）
+                LastSoldCopies += want; LastSoldGold += gold;
+            }
+            Debug.Log("[CardSell] 卖掉 " + LastSoldCopies + " 张多余副本，记 " + LastSoldGold + " 金币");
+            OnSellSpareCardsRecursiveCompleted();
+        }
+
+        /// <summary>≡ 原版 `_003CSellSpareCardsRecursive_003Eb__602_0`（完成回调）：清 `isSellingCards`、
+        /// 背包操作计数 +1、记时间戳，然后（原版）再起一次递归 —— 我们已一次性 drain 完 ⇒ **不再递归**
+        /// （🔶 异步节流被压平，见上面「自己设计 ③」）。</summary>
+        public static void OnSellSpareCardsRecursiveCompleted()
+        {
+            IsSellingCards = false;
+            PlayerInventoryOps.PendingCardsToSell = 0;
+            PlayerInventoryOps.LastInventoryOperationTime =
+                (long)(System.DateTime.UtcNow - new System.DateTime(1970, 1, 1, 0, 0, 0, System.DateTimeKind.Utc)).TotalMilliseconds;
+        }
+
+        /// <summary>按 id 取稀有度（卡池里查不到 ⇒ `common` 档 0 金币，⛔ 不猜一个贵的）。</summary>
+        static string RarityOf(IList<CardDef> pool, string id)
+        {
+            if (pool != null)
+                for (int i = 0; i < pool.Count; i++)
+                    if (pool[i] != null && pool[i].Id == id) return pool[i].Rarity;
+            return "common";
+        }
+
+        /// <summary>自检用：清状态（⛔ 不碰玩家存档，`CardProgress.ResetForTest` 管那一半）。</summary>
+        public static void ResetForTest()
+        {
+            InitialDuplicatesAlreadyProcessed = false;
+            LastSoldCopies = 0; LastSoldGold = 0;
+            PlayerInventoryOps.ResetForTest();
+        }
+    }
 }

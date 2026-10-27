@@ -56,7 +56,7 @@
 |---|---|---|
 | **430** | `MainMenuMission.TrySchedulePopup` | 原版**进主菜单有可领挑战就自动弹每日奖励/连登窗**，我们恒不弹（玩家每天都会碰到） |
 | **548** | `OpenEventButton.SetButtonInfo` | 主菜单常显件：标题仍硬编码 `EVENT`（SO 标题键已有）、倒计时恒 `--` |
-| **297** | `LiveOpsAssetUtility.GetComponentReference` | **活动弹窗的唯一前置**（GUID→prefab 未解 ⇒ 弹窗永不开） |
+| **297** | `LiveOpsAssetUtility.GetComponentReference` | **活动弹窗的唯一前置**（~~GUID→prefab 未解 ⇒ 弹窗永不开~~）⚠️ **2026-10-27 更正**：GUID→prefab **本地可解** —— `bundle_menus_assets_all/AssetBundle/AssetBundle_1.json` 的 `m_Container` 给 GUID→`m_PathID`，再按 `GameObject/*.json` 的 `m_Component` 反查根名；缝已在 `Shell/LiveOpsHandler.cs` 的 `LiveOpsLocalBoot.OpenEventPopup` 装好。今天仍开不出窗的真因**不是**「解不出名字」，而是 13 份 SO 全部 `Expired`、被装载口 `LiveOpsLocalBoot.ShouldLoadEvent` 滤掉（用户边界「过期活动不做」的正确结果） |
 | 176 / 179 | `EventImageSelectorController.{Initialize,TryDraw}` | 活动图标/背景**留空** |
 | 422 / 423 | `LiveopUIDrawer_EventAssetSprites` 内外两层 | 同上 |
 | **518** | `Missions.TryShowToastNotification` | 任务 toast **一次都不弹**（`ShowMission` 已写但全仓 0 调用点） |

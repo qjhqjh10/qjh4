@@ -642,7 +642,7 @@ namespace RuleEngine
                 p.Warlord.MaxHealthBase = System.Math.Max(1, p.Warlord.MaxHealthBase + ctx.Vars.warlordLifeChange);
                 p.Warlord.Health = p.Warlord.MaxHealth;
             }
-            p.Board[BoardSpec.WarlordSlot] = p.Warlord;
+            p.Board[BoardSpec.WarlordSlot] = p.Warlord; ActivateTraitsOnSummonOrEnchantment(p.Warlord);   // 🔴 2026-10-27（B88-E1 · 账行 `SetPlayerDataAndWarlord` / `SetupFullHero`）：原版 `SetPlayerDataAndWarlord` = `SetupFullHero(deckData)` + `heroCard.ActivateTraitsOnSummonOrEnchantment(onSummon:true, playSound:false)`（`out_cpp2il_dev_ilspy/BattleManager.cs:15842` / `:16459`）⇒ 常规开局对督军也要走这一跳（改前只有教程摆兵那一处调）
 
             // 🔴 2026-10-21（引擎线 `T03·c` 批 A · `W59`）：**督军也占一个进场序号**。
             //   判据 = 原版开场先放 P0 督军、再放 P1 督军（`BattleManager__SetupBoardPhase.c:120/:145`
@@ -1024,7 +1024,7 @@ namespace RuleEngine
             //    这张卡永远不会便宜（静默失效，和 `CostIfControls` 当初踩的是同一个坑）。
             if (c.CostPerEnemyHandCard > 0 && ctx != null && owner >= 0 && owner <= 1
                 && ctx.Players[1 - owner] != null)
-                v -= c.CostPerEnemyHandCard * ctx.Players[1 - owner].Hand.Count;
+                v -= c.CostPerEnemyHandCard * ctx.Players[1 - owner].Hand.Count; if (ctx != null) { var _cpk = c.CostPerKeywords; for (int _i = 0; _i < _cpk.Count; _i++) { var _r = _cpk[_i]; v += _r.Delta * _r.Count(ctx, owner); } }   // 🔴 2026-10-27（B88-E1b · 账 669 的 `CostOf` 那一半）：后一句 = **每有 1 层 <关键词> 就自降 N 费**（`v += Delta * Count(ctx, owner)`，`Delta` 为负，⛔ 别自己再取负）。判据/形状 = `CardDef.CostPerKeyword`（E4 交付，`CardDefCostPerKeyword.cs`，卡面自解析：`BL52 darkpact/own/units` · `SW58 huntmark/enemy/troops`）。⚠️ 它**接在本行末** = `if (CostPerEnemyHandCard …)` 那条 if 的**作用域之外**（C#：`if (x) A(); B();` 的 B 是无条件语句），零净行数（源文件被账按行号引用），位置**仍在 `CostMods.Count == 0` 早退之前**（与 `CostIfControls` / `CostPerEnemyHandCard` 同一条纪律：每次现算、不登记 `CostMods`）
 
             if (ctx == null || ctx.CostMods.Count == 0) return System.Math.Max(0, v);
 
@@ -1962,7 +1962,7 @@ namespace RuleEngine
             //     判据与差别见 <see cref="CurrentTurnScriptedData"/> 的注释。
             //  ⚠️ **数据非零**（2026-10-19 现读 `tutorial_stages.json`）：**S1 有 9 个回合**为真
             //     （含第 1 回合 `Player 1`）、**S2 第 1 回合**为真 ⇒ 接上之后那些回合**一张都不抽**。
-            var turnScript = CurrentTurnScriptedData(ctx);
+            var turnScript = CurrentTurnScriptedData(ctx); ResolveAtTurn(ctx, "turn_setup");   // 🔴 2026-10-27（B88-E1 · 账行 `BattleManagerSupport.BroadcastTurnSetup`）：原版 `OnTurnSetup` 这一相位我们**从来没有发射口**（`grep turn_setup` 全仓只有注释）⇒ 在这里补上钩子；位置 = 抽牌三道闸之前（原版 `_NextTurn`：TurnStart → BroadcastTurnSetup → 抽牌）。⚠️ 已知边界：`EffectText.SplitAtTurn` 今天只产出 `turn_start` / `turn_end` ⇒ 这条相位**暂时没有消费者**（池内 abilityTriggers 155 = 0 张，休眠机制照 铁律 11 建）
             bool dontDraw = turnScript != null && turnScript.dontDrawCard;
             // ---- 🔴 2026-10-20（`W58-TURN-B`）：抽牌的三道闸，次序照原版 ----
             //  原版 `BattleManager__TurnStartCardDraw.c`（全文 60 行，逐句）：
@@ -5031,7 +5031,7 @@ namespace RuleEngine
                     var tu = board[s];
                     if (tu != null && !tu.IsWarlord) n++;
                 }
-                baseAtk += n;
+                if (!u.IsWarlord) n--; baseAtk += n;   // 🔴 2026-10-27（B88-E1 · 账行 `CardScript.CheckAndApplyCurrentPack`）：原版部队取 `unitList.Count - 1`（排掉自己）、督军取 `Count`（`out_cpp2il_dev_ilspy/CardScript.cs:16040-16076` 的 `UpdateWhileInPlay` 内联体）⇒ 我们改前对带 pack 的**部队多算 1**（池内 10 张带 pack）。⚠️ `HasPackBuffTrait` 那一行（账 R22）三源 0 调用点（`.c`/ILSpy/二进制 E8 扫描）⇒ 原版死代码（铁律 11 例外①），我们的闸 = `Has(pack)` ∧ 在场，与那里真正的闸同形
             }
             return baseAtk;
         }
@@ -6236,7 +6236,7 @@ namespace RuleEngine
             // （`this unit …` 的自指判据问的是它）—— 两个槽不能混，见 `WhenEvent`。
             // `who` = 死者的阵营：极性（`kills an enemy` = 敌方）靠它判。
             BroadcastWhen(ctx, WhenEventKind.Kills, victimP, victim.Card, victim, actor: killer);
-            return true;
+            ctx.Tally.AddTroopKilled(kOwner); return true;   // 🆕 2026-10-28（B88·A2 · 挑战/成就计数 ① 击杀）：原版 `ChallengeLogMgr.TroopKilled` → `TroopsKilledCount` —— 消费者**只看凶手**（`if (killer.isPlayer) UpdateProgress(1)`，`TroopsKilledCount.cs:22-27`），不看死者 ⇒ 记给 `kOwner`（凶手座位；上面那道「凶手 = `ctx.Active`」闸已过）。⛔ 别挪到 `MinionDeathBookkeepingDeferred`（那里的 `killer` 形参已降级成 `PendingDeath.Killer` 诊断留痕，**没有凶手**，见 `RuleCore.cs:8977-8980`）。⚠️ 覆盖差如实记：只数「有凶手」那一档，原版无凶手时消费者自身会 NRE（`判据/B88_R5_挑战计数发射点_施工单.md` §4·1①）。
         }
 
         /// <summary>
@@ -6638,7 +6638,7 @@ namespace RuleEngine
             //     `_ResolveForceAttack_d__504` 结算，**全库只有 `_ResolveAttack` 调
             //     `CheckUnitsCancellingAttack`** ⇒ 那条路根本不经过替身。判据写在 `DeclareAttack` 的
             //     `forced` 形参上（含 `grep -rln` 的出处）。
-            if (!forced) TryRedirectAttackToBodyguard(ctx, p, atkSlot, tgtP, ref tgtSlot, ref target);
+            if (!forced) TryRedirectAttackToBodyguard(ctx, p, atkSlot, tgtP, ref tgtSlot, ref target); RemoveDuplicitousTrait(ctx, target);   // 🔴 2026-10-27（B88-E1 · 账行 `CardScript.RemoveDuplicitous()`）：原版 `_ResolveAttack_d__438__MoveNext.c:512-519` 在结算段开头判**被打者** `HasCurrentTrait(0xa0 tainted)` ⇒ `RemoveDuplicitous`（摘一次，这一记照常结算，不是取消攻击）
 
             // 🔴🔴 **2026-10-20（`W58-REVIEWFIX-B2` · 审查 `P2-2` · D9）：`Attack` 宣言/广播的【位置】。**
             //   **原来那两句（`Emit(Attack)` + `BroadcastWhen(Attack)`）就摆在这儿** ——
@@ -6996,14 +6996,14 @@ namespace RuleEngine
                     int tgtWho = target != null ? OwnerOf(ctx, target) : -1;
                     PreCallBoardListener(ctx, target, WhenEventKind.Attack, p, attacker.Card,
                                          attacker, attacker, target, tgtWho);
-                    if (!ReferenceEquals(target, attacker))
+                    if (true)   // 🔴 2026-10-27（B88-E1 · 账行 `BattleManagerSupport.BroadcastUnitAttacked` 缺口①）：原版 `:29` **无条件**预调攻击者（`!ReferenceEquals` 那道闸是我们加的）⇒ 自打自己时原版发**两次**预调、我们只发一次；已按原版去掉闸
                         PreCallBoardListener(ctx, attacker, WhenEventKind.Attack, p, attacker.Card,
                                              attacker, attacker, target, tgtWho,
                                              allowPendingDeath: true);
                 }
                 BroadcastWhen(ctx, WhenEventKind.Attack, p, attacker.Card, attacker,
                               actor: attacker, target: target,
-                              preCalled: attacker, preCalled2: target);
+                              preCalled: attacker, preCalled2: target); FlipAmbushOnAttacked(ctx, target);   // 🔴 2026-10-27（B88-E1 · 账行 `CardScript.ResolveUnitAttacked` 缺口②）：原版第三条 `SetAmbush(false)` 出口 = 被打者那条 `ResolveUnitAttacked.c:104-115`（带 `ambush` ∧ cardState∈{2,15,3,17} ⇒ 翻开），**读伤害之前** ⇒ 0 伤害（盾挡/无敌）也翻；我们改前只在 `ApplyDamageCore` 真掉血那一支翻
 
                 hpBefore = target.Health;      // 践踏要算「溢出多少」，所以得记打之前那一下
                 if (!targetDied)
@@ -9317,7 +9317,7 @@ namespace RuleEngine
                 HealSyphon = syphon,
             });
             // 原版治疗协程**收尾**：`pendingHealing(+0x100)` 整表清空（`_Heal_d__468__MoveNext.c:73-81`）
-            ClearPendingHealingEntry(ctx, u);
+            ctx.Tally.AddHealDone(owner, healed); ClearPendingHealingEntry(ctx, u);   // 🆕 2026-10-28（B88·A2 · 挑战/成就计数 ② 治疗）：原版 `ChallengeLogMgr.LogHeal` → `HealAmount` —— 消费端公式 = `Σ over targets where t.isPlayer && Health < MaxHealth` of `min(healValue, MaxHealth−Health)`（`HealAmount.cs:100-160`），`t.isPlayer` 的等价物 = `owner`（被治疗方的座位）、`min(...)` 的等价物 = `healed`（本行上面 `u.Health - before`，本身就是净量）⇒ 两者逐字对上。⚠️ 落点在 `HealUnit`（而不是 `DoHeal`）= 「一份规则一处」：`heal` 能力 / 回合末再生 / 猎杀标记三条**都**进本方法（`EvtKind.Heal` 的 doc 已写明）。⛔ 别新增行（这一句接在已有行上）。
             return healed;
         }
 
@@ -9856,7 +9856,7 @@ namespace RuleEngine
             ctx.DiedThisTurn++;      // `For each one that dies …` 按它计数（回合开始清零，见 `BeginTurn`）
             bool leftPlay = false;
             if ((u.Has(KeywordTable.Remnant) || u.Has(KeywordTable.Waystone)) && !u.IsRemnant)
-            {
+            { BroadcastRemoveFromGame(ctx, u, null); RemoveHandEffectsCastBy(ctx, u.Instance);   // 🔴 2026-10-28（B88·A2 · 账 637 #3 残骸翻面，55 张）：原版 `ResolveTransformIntoRemnant` 三跳 = ① `BroadcastRemoveFromGame(bm, targetCard, null)`（`IL:BattleManager.cs:39259`）→ ②③ 两手 `RemoveEffectsFromCard(target)`（`:39261/:39262`）。① 的接收端 = `CardScript.ReactToUnitJammed` 的 **else 支** = 「按来源撤 extrinsic（`UnitState.RemoveExtrinsicEffectsFrom`）+ `UpdateWhileInPlay(false)`」，**不是**置 `cardState=11`；②③ 的等价口 = `RemoveHandEffectsCastBy`（`EffectResolver.cs` 是同一个 `partial class RuleCore`，一次扫两方手牌）。⛔ 不调 `MarkRemovedFromGame`（原版这 4 条路一次都不置 11，三源合判见 `判据/B88_R4_637三族_施工单.md` §三）。⛔ 别顺手挂 `Auras.Recompose`（`UpdateWhileInPlay(false)` 那半已由 `ActionPump.cs:143` 的窄口在**每个动作边界**跑，再挂一次 = 快照重折两次）。⛔ 别新增行 —— 这一句就写在 `{` 行上（铁律 18·b：`RuleCore.cs` 有 365 处账落点）
                 // 🔴 第 7 行第 1 步：**沿用同一个实例** —— 翻面成残骸**没有换牌**，
                 //    所以从残骸再被摧毁时，进弃牌堆的还得是原来那一份（第 2 步之后才有意义）。
                 var rem = new UnitState(u.Instance, false)
@@ -11623,7 +11623,7 @@ namespace RuleEngine
                      targetPlayer: chosen != null ? targetOwner : -1,
                      targetSlot:   chosen != null ? targetSlot : -1,
                      targetCardId: chosen != null ? chosen.Name : null,
-                     instanceId: u.InstanceId);
+                     instanceId: u.InstanceId, priority: 1);   // 🆕 2026-10-27（`B88-E14`）主动技那一支**固定 1**（判据 `decomp_full/RawCardScript__ResolveActiveAbility.c:47`，施工单 §二 ①）—— 走 `BattleContextPartial_B88E14.cs` 那个带 `priority` 的重载
             // 🆕 2026-10-27（`B9_W54ENG2`）：把目标列表挂到**刚发的那一条**上（判据/为什么不用两处各拼一份 → `AttachAbilityTargets`）
             AttachAbilityTargets(ctx, p, u, spec, chosen);
             ctx.Log($"{ctx.Players[p].Name} 的 {u.Name} 发动技能「{spec.Source}」");
@@ -11788,7 +11788,7 @@ namespace RuleEngine
             // ---- 到这里 = **付费成功、正文也跑过了** ⇒ 现在才宣布「能力发动了」----
             ctx.Emit(EvtKind.Ability, p, slot, u.Name,
                      keyword: "oath", effect: "Oath " + u.Card.OathCost, amount: u.Card.OathCost,
-                     instanceId: u.InstanceId);
+                     instanceId: u.InstanceId, priority: 1);   // 🆕 2026-10-27（`B88-E14`）誓约与主动技**同走** `ResolveActiveAbility` 那一支 ⇒ 固定 1（施工单 §二 ②）
             ctx.Log($"{ctx.Players[p].Name} 的 {u.Name} 激活誓约能力（Oath {u.Card.OathCost}）");
 
             u.OathUsesThisTurn++;
@@ -12051,7 +12051,7 @@ namespace RuleEngine
                      targetPlayer: chosen != null ? (pickedEnemySide ? 1 - p : p) : -1,
                      targetSlot:   chosen != null ? targetSlot : -1,
                      targetCardId: chosen != null ? chosen.Name : null,
-                     instanceId: u.InstanceId);
+                     instanceId: u.InstanceId, priority: AlternativeAbilityTriggerPriority(ctx, u.Card, keyword));   // 🆕 2026-10-27（`B88-E14`）替代行动：查这张卡 `AbilityTrigger` 名（Duty/Pray/Ferocity/Agenda）的 `CardAbility.priority`（施工单 §二 ③；缺键 = `CardDef.DefaultTriggerPriority` = 1）
             // 🆕 2026-10-27（`B9_W54ENG2`）：同 `UseAbilityCore`。⚠️ 这一支 `ops != null` 时没有 `EffectSpec`
             //   ⇒ `AttachAbilityTargets` 回落「就把 `chosen` 当唯一目标」（⛔ 不猜第二个）。
             AttachAbilityTargets(ctx, p, u, spec, chosen);
@@ -12400,8 +12400,8 @@ namespace RuleEngine
             //      我们这里 `card` / `subject` 都传 `null` ⇒ **少了这一条预调**。
             //      ⛔ 没顺手改：`card` 还喂「代词 `it`」与 `WhenEvent` 的卡级筛选，
             //      影响面没查清（今天 4 张监听卡卡面都不用代词 ⇒ 无可观测差）。
-            BroadcastWhen(ctx, WhenEventKind.GainSpirit, p, null, null,
-                          boardAndPersistentOnly: true);
+            if (u.Card != null) PreCallBoardListener(ctx, u, WhenEventKind.GainSpirit, p, u.Card, u, null, null, -1, allowPendingDeath: true);   // 🔴 2026-10-27（B88-E1 · 账行 `BroadcastCollectSpiritStone`）：原版是**两跳** —— `BroadcastCollectSpiritStone.c:22` 先给**被收的那颗残骸卡自己**预调一次（调用点 `_ResolveUseWaystone_d__480__MoveNext.c:131` 传的就是它）；改前我们 `card`/`subject` 全传 `null` ⇒ 少这一跳
+            BroadcastWhen(ctx, WhenEventKind.GainSpirit, p, u.Card, u, preCalled: u, boardAndPersistentOnly: true);   // 同上：`:23-42` 棋盘循环用 `op_Inequality` 排除自己（无 IsInPlay、无手牌跳）⇒ 预调 + `preCalled: u` 正好同形
 
             // ① 玩家资源那一条 —— **`Slot` 按 `GainFaith` 那族的约定写 -1**（那条链上三个事件
             //    都是「给玩家的、不属于任何格位」，见 `BattleEvent.GainFaith` 的注释）。
@@ -15301,7 +15301,7 @@ namespace RuleEngine
 
             var u = ctx.Players[p].Board[slot];
             if (u == null || u.Card == null) return RuleCodes.ErrNotUnit;
-            if (u.Card.HasActiveAbility != 1) return RuleCodes.ErrNoAbility;
+            if (!u.ActiveAbilityAvailable) return RuleCodes.ErrNoAbility;   // 🔴 2026-10-27（B88-E1c · 账 783 `HideWarlordActiveAbilityForTutorial`）：原来只读 `u.Card.HasActiveAbility != 1` —— 而 `CardDef` 是**共享不可变模板**，写它等于污染全池 ⇒ 改成读 `UnitState.ActiveAbilityAvailable`（= `Card != null && Card.HasActiveAbility == 1 && !ActiveAbilityHidden`，E4 2026-10-27 交付；**实例级**，⛔ 与 jam 的 `ActiveAbilitySuppressed` 不是一回事）。⚠️ 写点（教程关闸那一跳）还没接 —— 见报告 §八
             // 原版 `cardState == 2 (inPlay)` 才查费用、别的状态直接 Log + 返回 0
             // （`CanUseActiveAbility.c:60-70`；残骸是 3 / 17，不在那一档）。
             if (u.IsRemnant) return RuleCodes.ErrNotUnit;
@@ -15394,7 +15394,7 @@ namespace RuleEngine
                         plan.Add(new[] { ca, ta });
                     }
                     else if (ca == 462) plan.Add(new[] { ca, ta });
-                    else unimplemented.Add($"chosenAbility={ca}（ta={ta}）");
+                    else if (ActiveRowHasOps(u, j)) plan.Add(new[] { ca, ta, j }); else unimplemented.Add($"chosenAbility={ca}（ta={ta}）");   // 🔴 2026-10-27（B88-E1 · 账行 `RawCardScript.ResolveActiveAbility`）：`CardDef.AttachByAbilityKind` 已把这一行配到正文 op（种类族 ↔ 动词族对得上、同族 ta/fm 一致）⇒ 这一行**能跑**，不再是 `ErrUnimplemented`；`plan` 的第 3 格 = 行号
                 }
             }
             if (plan.Count == 0)
@@ -15429,7 +15429,7 @@ namespace RuleEngine
                      targetPlayer: chosen != null ? p : -1,
                      targetSlot:   chosen != null ? targetSlot : -1,
                      targetCardId: chosen != null ? chosen.Name : null,
-                     instanceId: u.InstanceId);
+                     instanceId: u.InstanceId, priority: 1);   // 🆕 2026-10-27（`B88-E14`）这一支 = 主动能力执行（`ResolveActiveAbilityRows` / `effect: activeAbility`）⇒ 与 ① 同一支、**固定 1**（施工单 §二 ④，判据 `decomp_full/RawCardScript__ResolveActiveAbility.c:47`）
             // ⚠️ 必须紧跟上一句（中间⛔ 不许再发别的事件），见 `AttachAbilityTargets` 的 doc。
             AttachAbilityTargets(ctx, p, u, null, chosen);
             ctx.Log($"{ctx.Players[p].Name} 的 {u.Name} 发动主动能力");
@@ -15463,7 +15463,7 @@ namespace RuleEngine
                     u.Prayed = true;
                     BroadcastWhen(ctx, WhenEventKind.Prays, p, u.Card, u);
                     executed++;
-                }
+                } else { executed += RunActiveRowOps(ctx, p, u, step.Length > 2 ? step[2] : -1, ta, chosen); }   // 🔴 2026-10-27（B88-E1 · 账行 `RawCardScript.ResolveActiveAbility`）：其余 `chosenAbility` 走「执行该行配到的正文 op」（`CardDef.AttachByAbilityKind` 挂在 `EffectOp.ActiveAbilityRow` 上的那一批）—— 判据与「为什么不按 ca 数字自己造数值」见 `RunActiveRowOps` 的 doc
             }
 
             if (unimplemented.Count > 0)

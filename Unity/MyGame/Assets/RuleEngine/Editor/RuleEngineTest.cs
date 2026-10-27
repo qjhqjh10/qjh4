@@ -145,6 +145,15 @@ public static partial class RuleEngineTest
         Section("誓约能力（`Oath N: …`，单位卡那一支）+ 三条修饰句（2026-09-16）");
         Step(TestOathAbility);
 
+        Section("🆕 2026-10-28（B88 · `A1`）：战术卡 `Oath N:` 的「平 / 誓二选一」（合并卡 + 布尔答案）");
+        Step(TestTacticOathChoice);
+
+        Section("🆕 2026-10-28（B88 · `A1b`）：`ta=50` 敌方手牌计数 + 原版 80 档「乘数折进数值、不当遍数」");
+        Step(TestB88PlayerHandMultiplier);
+
+        Section("🆕 2026-10-28（B88 · `A1c`）：原版 90 档「逐目标掷」（`valueOptions == 90` ∧ `damageType ∈ {5,10,12}`）");
+        Step(TestB88PerTargetRoll);
+
         Section("信仰能力（`N ☀: …` / `N [faith]: …`，索罗丽塔斯那一族）：门槛是**阈值**、信仰**不扣除**（2026-10-11）");
         Step(TestFaithAbility);
 
@@ -6616,17 +6625,41 @@ public static partial class RuleEngineTest
             // 🔴 2026-10-19（S2 · 有洞棋盘普查）：Beast 先摆**贴督军那格（3）**，Buddy / Buddy2 往外补 2 → 1；
             //    原来摆 1 号格 ⇒ 第一条 `FieldAttack` 那一刻 3 号格是洞（= 非原版语义）。
             var beast = Place(ctx, 0, 3, Unit("Beast", 1, 2, 9, "Pack"));
-            Check(RuleCore.FieldAttack(ctx, 0, beast, false), 3, "场上 1 个友方部队 → 近战 2+1=3");
+            // 🔴 **2026-10-28（`B88-F4`）就地订正（铁律 5）：这三条原来期望 `[3]/[5]/[3]`**（= 旧口径
+            //   「场上每有 1 个友方部队」、**把源自己算进去**；出处是**粉丝实体规则书** `Warbook:195`
+            //   与我们上一版 Godot 复刻 —— ⚠️ **那份规则书自己写着 `Not official`**，见 `CLAUDE.md` 铁律 2）。
+            //   **原版判据（两份反编译完全一致）**：
+            //     · `decomp_full/CardScript__CheckAndApplyCurrentPack.c:15-38`
+            //       （`CardScript__UpdateWhileInPlay.c:36-52` 是同一段的内联体）：
+            //       **`cardType == 10 (Hero)` ⇒ `GetUnitList().Count`；其余 ⇒ `GetUnitList().Count - 1`**
+            //     · `MinionManager__GetUnitList.c`（ILSpy `MinionManager.cs:3397`）= `leftMinions + rightMinions`
+            //       且逐条过 `CardScript.IsInPlay` ⇒ **督军不在列表里、源自己【在】**
+            //       （`InsertMinion` 只由 `PlayMinionFromHand` / `SummonMinion` / `MoveMinionIntoSlot` 调用 ——
+            //        ILSpy `MinionManager.cs:673`；督军不从手牌打出 ⇒ 不进这两条 List）
+            //     · `CheckAndApplyCurrentPack` 把 `num` 同时写进 `meleeAttackChange` 与 `rangeAttackChange`
+            //       （ILSpy `CardScript.cs:16105-16108`）⇒ 近战/远程同一个数
+            //   ⇒ **原版部队的 Pack = 「其他友方部队」的个数（自己不算）**；带 Pack 的督军才数「全部友方部队」。
+            //   两个分支在「**每个其他友方部队**」这一读法下正好自洽（督军不是部队，故不减 1）——
+            //   反证「列表不含督军、含自己」这条口径。
+            //   ⛔ **别把这 3 条改回 `[3]/[5]/[3]`**：那是拿粉丝规则书当判据（自证）。
+            Check(RuleCore.FieldAttack(ctx, 0, beast, false), 2, "只有自己 1 个部队 → 近战 2+0=2（原版部队取 Count−1、排掉自己）");
             Place(ctx, 0, 2, Unit("Buddy", 1, 1, 5));
             Place(ctx, 0, 1, Unit("Buddy2", 1, 1, 5));
             string whyS2a;
             CheckTrue(BoardSlots.IsContiguous(ctx.Players[0], out whyS2a), "（前提）S2 有洞棋盘普查：Beast/Buddy/Buddy2 从贴督军那格起连续 —— " + (whyS2a ?? "无洞"));
-            Check(RuleCore.FieldAttack(ctx, 0, beast, false), 5, "3 个友方部队 → 2+3=5");
-            Check(RuleCore.FieldAttack(ctx, 0, beast, true), 3, "远程也 +3（基础 0）");
-            Check(ctx.Players[0].Warlord.KwValue("pack"), 0, "督军不参与计数（原版过滤条件）");
-            // 督军自己带 Pack 时，数的还是**非督军**的友方部队
+            Check(RuleCore.FieldAttack(ctx, 0, beast, false), 4, "3 个部队（自己 + 2 个其他）→ 近战 2+2=4");
+            Check(RuleCore.FieldAttack(ctx, 0, beast, true), 2, "远程同样 +2（基础 0）");
+            Check(ctx.Players[0].Warlord.KwValue("pack"), 0, "督军默认不带 Pack");
+            // 督军自己带 Pack 时，走的是原版**另一条分支**（`cardType == 10` ⇒ `GetUnitList().Count`、**不减 1**）
+            // ⇒ 数场上**全部 3 个部队**，而不是像部队那样排掉自己。判据同上一段（`CardScript__CheckAndApplyCurrentPack.c:22-38`）。
             Check(RuleCore.FieldAttack(ctx, 0, ctx.Players[0].Warlord, false),
                   ctx.Players[0].Warlord.Attack, "督军不带 Pack 时不加成");
+            var wl = ctx.Players[0].Warlord;
+            wl.AddKeyword("pack", 1);
+            Check(RuleCore.FieldAttack(ctx, 0, wl, false), wl.Attack + 3,
+                  "督军带 Pack → 近战 +3（原版督军分支取 Count、不排自己）");
+            Check(RuleCore.FieldAttack(ctx, 0, wl, true), wl.RangedAttack + 3,
+                  "督军带 Pack → 远程也 +3");
         }
 
         // ③ 哨戒 X：被攻击时对**攻击者**先造成 X 伤害，「然后照常结算攻击」（规则书 :205；我们上一版复刻 `:4280`，旁证）
@@ -7608,6 +7641,276 @@ public static partial class RuleEngineTest
             CheckTrue(codex > 0, $"卡池里真的有 `Codex:` 的战术卡（{codex} 条）");
             CheckTrue(rep > 0, $"卡池里真的有 `repeat` 的战术卡（{rep} 条）");
         }
+    }
+
+    /// <summary>
+    /// 🆕 **2026-10-28（第八十八会话 · 执行代理 `A1`）：战术卡 `Oath N:` 的「平 / 誓二选一」**
+    /// （判据 → `资料/完全复刻/判据/B88_R3_oath二选一_判据.md` · 施工面 §五·0「口径 A」）。
+    ///
+    /// 原版是**两个变体 SO**（`choicesDefinition.filterSpecificCards` = 平 / 誓两版，
+    /// `targetsAffected = 180` · `maxTargets = 2`）⇒ 摆两张、玩家选哪张就结算哪张。
+    /// 🔶 我们池里是**一张合并卡**（oath 效果并进 `desc`）⇒ 做成**一个布尔**「付不付誓约」，
+    /// 引擎侧在正文那一层把 `Oath N:` 付费组**整组摘掉**（`WithoutOathPaidGroup`）。
+    ///
+    /// 用**真卡** `Adaptive Strategy`（UM109，1 费 + `Oath 1`）当被测：
+    ///   · 平版 = `Give +1 [Attack] to all friendly troops.`（只付 1）
+    ///   · 誓约版 = 再加 `Give +1 Health to all friendly troops`（总共付 2）
+    /// </summary>
+    static void TestTacticOathChoice()
+    {
+        var pool = CardDatabase.Load();
+        var um109 = CardDatabase.Find(pool, "Adaptive Strategy");
+        var um110 = CardDatabase.Find(pool, "Fall Back");
+        var fang = CardDatabase.Find(pool, "The Fang");
+        CheckTrue(um109 != null, "卡池里有 `Adaptive Strategy`（`UM109`，1 费 + `Oath 1`）");
+        CheckTrue(um110 != null, "卡池里有 `Fall Back`（`UM110`，1 费 + `Oath 2`）");
+        CheckTrue(fang != null, "卡池里有 `The Fang`（`SW48`：`targetsAffected = 180` 但**没有** oath）");
+        if (um109 == null) return;
+
+        // ---- ① 判据：哪几张算「平 / 誓二选一」----
+        CheckTrue(RuleCore.OathChoiceNeeded(um109),
+                  "★ 判据：`Adaptive Strategy`（ta180 + oath1 + 两个变体 id）⇒ **要问二选一**");
+        CheckTrue(RuleCore.OathChoiceNeeded(um110), "★ 判据：`Fall Back` 同上");
+        if (fang != null)
+            CheckTrue(!RuleCore.OathChoiceNeeded(fang),
+                      "★ 反例：`The Fang`（ta180 但**没有** oath）⇒ **不问**（回归面不扩大）");
+        CheckTrue(!RuleCore.OathChoiceNeeded(null), "★ 反例：null ⇒ false（不炸）");
+
+        // ---- ② 「平版」到底摘掉了什么（纯函数） ----
+        {
+            var opsAll = EffectText.Parse(um109.Desc, out _, out _, card: um109);
+            var opsPlain = RuleCore.WithoutOathPaidGroup(opsAll);
+            CheckTrue(opsPlain.Count < opsAll.Count,
+                      $"★ `WithoutOathPaidGroup` 真摘了东西（{opsAll.Count} → {opsPlain.Count}）");
+            bool anyOathLeft = false;
+            foreach (var o in opsPlain)
+                if (o != null && o.Cost > 0 && EffectText.CostKindOf(o.CostKind) == "oath") anyOathLeft = true;
+            CheckTrue(!anyOathLeft, "★ 摘**干净**了：剩下的 op 里没有 `CostKind == oath` 的付费组");
+            Check(RuleCore.OathPlainText(um109), "Give +1 [Attack] to all friendly troops.",
+                  "★ 面板上「平版」那张卡的正文 = 整条 desc **去掉 `Oath 1:` 及其后半句**");
+        }
+
+        // ---- ③ 答「誓约」⇒ 卡费 + 誓约都扣、oath 效果真的生效 ----
+        {
+            var ctx = BattlePool(new[] { um109 }, new CardDef[0], pool);   // 带 20 张垫牌 ⇒ ToP1Turn 不会因为牌库空而摸到疲劳
+            ToP1Turn(ctx, 1);
+            ctx.Players[0].Energy = 2;                       // 卡费 1 + 誓约 1
+            var ally = Place(ctx, 0, 3, Unit("Ally", 1, 1, 5));
+            int atk0 = ally.Attack, hp0 = ally.Health;
+            ctx.SetOathAnswer(0, true);
+            CheckCode(RuleCore.PlayTactic(ctx, 0, HandIdx(ctx, 0, "Adaptive Strategy"), -1),
+                      RuleCodes.OK, "打出 `Adaptive Strategy`（玩家答：**付誓约**）");
+            Check(ctx.Players[0].Energy, 0, "★ 付了**卡费 1 + 誓约 1**（2 → 0；原版誓约费在选择之后扣）");
+            Check(ally.Attack, atk0 + 1, "★ 基础效果照旧结算（友军 +1 攻击）");
+            Check(ally.Health, hp0 + 1, "★ **oath 效果真的生效**（友军 +1 生命 —— 平版不会有这一条）");
+            CheckTrue(!ctx.HasOathAnswer, "★ 那格答案被**取走**了（一次一取，不会留到下一手）");
+        }
+
+        // ---- ④ 答「平版」⇒ 只扣卡费、oath 效果**不生效** ----
+        {
+            var ctx = BattlePool(new[] { um109 }, new CardDef[0], pool);   // 带 20 张垫牌 ⇒ ToP1Turn 不会因为牌库空而摸到疲劳
+            ToP1Turn(ctx, 1);
+            ctx.Players[0].Energy = 2;
+            var ally = Place(ctx, 0, 3, Unit("Ally", 1, 1, 5));
+            int atk0 = ally.Attack, hp0 = ally.Health;
+            ctx.SetOathAnswer(0, false);
+            CheckCode(RuleCore.PlayTactic(ctx, 0, HandIdx(ctx, 0, "Adaptive Strategy"), -1),
+                      RuleCodes.OK, "打出 `Adaptive Strategy`（玩家答：**平版**）");
+            Check(ctx.Players[0].Energy, 1, "★ **只付卡费 1**（2 → 1；誓约那 1 点没扣）");
+            Check(ally.Attack, atk0 + 1, "★ 基础效果照旧结算（友军 +1 攻击）");
+            Check(ally.Health, hp0, "★ **oath 效果不生效**（生命没动 —— 那条 `Oath N:` 已被整组摘掉）");
+        }
+
+        // ---- ⑤ 没人回答（AI / 不走面板的入口）⇒ **付得起就付**（= 加这一条之前的旧行为） ----
+        {
+            var ctx = BattlePool(new[] { um109 }, new CardDef[0], pool);   // 带 20 张垫牌 ⇒ ToP1Turn 不会因为牌库空而摸到疲劳
+            ToP1Turn(ctx, 1);
+            ctx.Players[0].Energy = 2;
+            var ally = Place(ctx, 0, 3, Unit("Ally", 1, 1, 5));
+            int hp0 = ally.Health;
+            CheckCode(RuleCore.PlayTactic(ctx, 0, HandIdx(ctx, 0, "Adaptive Strategy"), -1),
+                      RuleCodes.OK, "没人回答时也打得出去（不会卡住）");
+            Check(ctx.Players[0].Energy, 0, "★ 没人答 ⇒ 照旧**付得起就付**（2 → 0）—— ruleprobe / 录像回放不变");
+            Check(ally.Health, hp0 + 1, "★ 誓约效果照旧生效（与改前逐字一致）");
+        }
+
+        // ---- ⑥ 余额只够卡费 ⇒ 只结算平版（原版这时**根本不问**） ----
+        {
+            var ctx = BattlePool(new[] { um109 }, new CardDef[0], pool);   // 带 20 张垫牌 ⇒ ToP1Turn 不会因为牌库空而摸到疲劳
+            ToP1Turn(ctx, 1);
+            ctx.Players[0].Energy = 1;                       // = 卡费，付不起誓约
+            var ally = Place(ctx, 0, 3, Unit("Ally", 1, 1, 5));
+            int hp0 = ally.Health;
+            int hi = HandIdx(ctx, 0, "Adaptive Strategy");
+            if (hi < 0) { CheckTrue(false, "夹具：`Adaptive Strategy` 不在手牌里 ⇒ 下面两条验不了"); return; }
+            CheckTrue(!RuleCore.CanPayOathChoice(ctx, 0, um109, ctx.Players[0].Hand[hi]),
+                      "★ 判据：余额 = 卡费 ⇒ **付不起誓约**（`CanPayWithOathNowInHand` 的那一句）");
+            ctx.SetOathAnswer(0, true);                      // 残答（不该被读到）
+            CheckCode(RuleCore.PlayTactic(ctx, 0, hi, -1), RuleCodes.OK,
+                      "★ 付不起誓约 ⇒ **照样打得出去**（平版），不是 `ErrCost`");
+            Check(ctx.Players[0].Energy, 0, "★ 只扣了卡费 1");
+            Check(ally.Health, hp0, "★ 誓约效果没结算（付不起那 1 点）");
+            CheckTrue(!ctx.HasOathAnswer, "★ 付不起时那格残答**被作废**（原版这时根本不问）");
+        }
+
+        // ---- ⑦ `CanPlayTactic`：答了誓约就要把**卡费 + 誓约**一起判够 ----
+        {
+            var ctx = BattlePool(new[] { um109 }, new CardDef[0], pool);   // 带 20 张垫牌 ⇒ ToP1Turn 不会因为牌库空而摸到疲劳
+            ToP1Turn(ctx, 1);
+            ctx.Players[0].Energy = 1;                       // 只够卡费
+            int hi = HandIdx(ctx, 0, "Adaptive Strategy");
+            if (hi < 0) { CheckTrue(false, "夹具：`Adaptive Strategy` 不在手牌里 ⇒ 下面四条验不了"); return; }
+            CheckCode(RuleCore.CanPlayTactic(ctx, 0, hi, -1, null, true), RuleCodes.ErrCost,
+                      "★ 答「付誓约」但余额只够卡费 ⇒ `ErrCost`（原版 `CanPlayWithOathNowInHand`）");
+            CheckCode(RuleCore.CanPlayTactic(ctx, 0, hi, -1, null, false), RuleCodes.OK,
+                      "★ 同一个余额、答「平版」⇒ `OK`（平版永远打得出去）");
+            CheckCode(RuleCore.CanPlayTactic(ctx, 0, hi, -1), RuleCodes.OK,
+                      "★ 查询口（`oathChosen = null`）⇒ 只判卡费 = `OK`（拖拽高亮不该因为誓约变红）");
+            ctx.Players[0].Energy = 2;
+            CheckCode(RuleCore.CanPlayTactic(ctx, 0, hi, -1, null, true), RuleCodes.OK,
+                      "★ 余额够卡费 + 誓约 ⇒ 答誓约也 `OK`");
+        }
+
+        // ---- ⑧ 注入那一条 ask：只在「原版会问」的条件下出现 ----
+        {
+            var ctx = BattlePool(new[] { um109 }, new CardDef[0], pool);   // 带 20 张垫牌 ⇒ ToP1Turn 不会因为牌库空而摸到疲劳
+            ToP1Turn(ctx, 1);
+            var asks = RuleCore.PlayerChooseOps(ctx, 0, um109);
+            Check(asks.Count, 1, "★ 「这一侧的回合」⇒ 注入**正好 1** 条 ask");
+            if (asks.Count == 1) Check(asks[0].Verb, "chooseoath", "★ 那条就是 `chooseoath`");
+            Check(RuleCore.PlayerChooseOps(um109).Count, 0,
+                  "★ **一参版** `PlayerChooseOps(card)` 一个字都没动（它拿不到回合/法力）");
+            var asksNotTurn = RuleCore.PlayerChooseOps(ctx, 1, um109);
+            Check(asksNotTurn.Count, 0,
+                  "★ **不是这一侧的回合** ⇒ 原版 `NeedsToChooseFromPool` 判否 ⇒ **不注入**");
+            if (fang != null)
+            {
+                var asksFang = RuleCore.PlayerChooseOps(ctx, 0, fang);
+                Check(asksFang.Count, 1, "★ 非 oath 的 `choicesDefinition` 卡（`The Fang`）⇒ ask 表**不变**（还是 1 条）");
+                if (asksFang.Count == 1) Check(asksFang[0].Verb, "chooseone",
+                                               "★ 而且那条还是它原来的 `chooseone`（没被 chooseoath 顶掉）");
+            }
+        }
+
+        // ---- ⑨ 真卡池：这 10 张 oath 战术卡全都认得出（普查，防漏/防误扩） ----
+        {
+            int oathChoice = 0, oathTactic = 0;
+            foreach (var c in pool)
+            {
+                if (c == null || c.IsUnit) continue;
+                bool hasOath = RuleCore.HasOathTrait(c, out _);
+                if (hasOath) oathTactic++;
+                if (RuleCore.OathChoiceNeeded(c)) oathChoice++;
+            }
+            Debug.Log(P + $"   平/誓二选一实测：{oathChoice} 张（带 oath 的非单位卡 {oathTactic} 张）");
+            CheckTrue(oathChoice > 0, $"★ 卡池里真的有「平 / 誓二选一」的战术卡（{oathChoice} 张）");
+            CheckTrue(oathChoice <= oathTactic,
+                      $"★ 判据没有误扩：二选一 {oathChoice} 张 ≤ 带 oath 的非单位卡 {oathTactic} 张");
+        }
+    }
+
+    /// <summary>
+    /// 🆕 **2026-10-28（第八十八会话 · 执行代理 `A1b`）：`ta = 50`（敌方手牌）计数 + 原版 80 档
+    /// `MinPlusMaxTimesMultiplier` 的「乘数只折进数值、⛔ 不当循环遍数」。**
+    ///
+    /// 判据 → `资料/完全复刻/判据/B88_R2_80档_VA判定.md`：
+    ///   · 公式 = `minValue + maxValue × multiplierFactor`（VA `0x18081b728 imul` / `0x18081b731 lea`）；
+    ///   · `multiplierFactor` = `multiplier` 那条 TargetCriteria 筛出的目标数（这两张卡 = **敌方手牌的
+    ///     「单位 + 战术」张数**，`enemyUnits=1 · includeMinions=1 · includeSpells=1`）；
+    ///   · 伤害**只结算 1 次**（`AbilityLogic__PlayAbility.c:1504`）。
+    ///
+    /// 🔴 **这条断言的判别力**：补上 `ta=50` 计数之后，若那个乘数**同时**被当循环遍数，
+    /// `GSC35`（卡面「等同于敌方手牌数量的伤害」）会变成 **N × N**（夹具 N=3 时 9 点）。
+    /// ⇒ 断言「掉血 == N」既钉住计数、也钉住「没有平方」。
+    /// </summary>
+    static void TestB88PlayerHandMultiplier()
+    {
+        var pool = CardDatabase.Load();
+        var gsc35 = CardDatabase.Find(pool, "Benefictus");
+        CheckTrue(gsc35 != null, "卡池里有 `GSC35 Benefictus`（`Deal damage … equal to the number of cards in the enemy hand`）");
+        if (gsc35 == null) return;
+
+        var ctx = BattlePool(new[] { gsc35 }, new CardDef[0], pool);
+        ToP1Turn(ctx, 1);
+        ctx.Players[0].Energy = 20;                                  // GSC35 = 7 费
+        // 夹具：**直接**往敌方（P1）手牌里放「2 单位 + 1 战术 + 1 附魔模板」——
+        //   附魔**不该被数**（`includeSpells` 只认战术）。⚠️ 不用开局抽牌凑，免得手牌张数随开局规则漂。
+        ctx.Players[1].Hand.Add(ctx.NewInstance(Unit("EHandUnit1", 1, 0, 9)));
+        ctx.Players[1].Hand.Add(ctx.NewInstance(Unit("EHandUnit2", 1, 0, 9)));
+        ctx.Players[1].Hand.Add(ctx.NewInstance(Tactic("EHandTactic", 1, "Draw a card")));
+        ctx.Players[1].Hand.Add(ctx.NewInstance(
+            new CardDef("EHandEnchant", "EHandEnchant", "enchantment", "", null, "Test", 0, 0, 0, 0, null)));
+        var foe = Place(ctx, 1, 3, Unit("BigFoe", 1, 0, 20));        // 唯一的敌方**部队**（督军不算）⇒ 目标确定
+        int hp0 = foe.Health;
+
+        // 期望值现算：敌方手牌里 `unit` + `tactic` 的张数（⛔ 不用 `Hand.Count` —— 附魔不算）
+        int expect = 0; bool sawEnchant = false;
+        foreach (var inst in ctx.Players[1].Hand)
+        {
+            if (inst == null || inst.Card == null) continue;
+            if (inst.Card.Type == "enchantment") sawEnchant = true;
+            if (inst.Card.Type == "unit" || inst.Card.Type == "tactic") expect++;
+        }
+        CheckTrue(sawEnchant, "夹具（前提）：敌方手里**有**一张 `enchantment` ⇒ 下面那条「不计它」才被验到");
+        CheckTrue(expect >= 2, $"夹具（前提）：敌方手牌里 **单位+战术 = {expect}** 张（≥2 才分得出「平方」）");
+
+        int slot = SimpleAI.FirstFreeSlot(ctx.Players[0]);
+        CheckTrue(slot >= 0, "夹具：本方有空位放 `Benefictus`");
+        CheckCode(RuleCore.PlayCard(ctx, 0, HandIdx(ctx, 0, "Benefictus"), slot), RuleCodes.OK,
+                  "打出 `Benefictus`（Rally 立刻结算）");
+
+        Check(foe.Health, hp0 - expect,
+              $"★ 80 档：伤害 = `min + max × 敌方手牌(单位+战术)` = {expect}（{hp0} → {foe.Health}）"
+            + $"｜🧨 若那个乘数**又被当循环遍数**会打 {expect * expect} 点（= 平方）；"
+            + "若按 `Hand.Count` 数（把附魔也算进去）会多 1");
+        bool guardSaid = false;
+        foreach (string e in ctx.Events)
+            if (e != null && e.Contains("80 档") && e.Contains("计数 = " + expect)) guardSaid = true;
+        CheckTrue(guardSaid,
+                  $"★ 而且**说出了计数**（日志里有「80 档 … 计数 = {expect}」—— 证明 `ta=50` 真的数了、"
+                + "不是「数不出来就退回 1 遍」；红线：不许静默）");
+    }
+
+    /// <summary>
+    /// 🆕 **2026-10-28（第八十八会话 · 执行代理 `A1c`）：原版 `valueOptions == 90
+    /// (RandomizedOnResolution)` 的【逐目标掷】。**
+    ///
+    /// 判据 → `资料/完全复刻/判据/B88_R1_90档_逐卡施工单.md` §二·3：
+    /// 掷点 = `CardScript__GetAdjustedDamage.c:23-30`（`damageType ∈ {5,10,12}`），
+    /// 由 `BattleManager._ResolveMultiDamage_d__456__MoveNext.c:136` 在**逐目标循环**里调
+    /// ⇒ 打 N 个目标消费 **N** 个随机数（`Normal(0)` 的区间才是「循环外一次、多目标共用」）。
+    ///
+    /// 被测 = 真卡 `AM53 Artillery Strike`（`Deal 3-5 damage to two random enemies`，
+    /// `damageCriteria = {opt 90, min 3, max 5, type 5}`）。
+    /// 🔴 **判别力**：若实现退回「共用一掷」，随机数游标只走 **1** 格 ⇒ 断言红；
+    /// 若有人用「有区间就逐目标」的近似，`Normal` 区间卡会被误伤（本件另有 `StampRollPerTarget` 的
+    /// 三条禁令注释兜着，见报告「没查清」）。
+    /// </summary>
+    static void TestB88PerTargetRoll()
+    {
+        var pool = CardDatabase.Load();
+        var am53 = CardDatabase.Find(pool, "Artillery Strike");
+        CheckTrue(am53 != null, "卡池里有 `AM53 Artillery Strike`（`Deal 3-5 damage to two random enemies`）");
+        if (am53 == null) return;
+
+        var ctx = BattlePool(new[] { am53 }, new CardDef[0], pool);
+        ToP1Turn(ctx, 1);
+        ctx.Players[0].Energy = 20;
+        // 敌方场上**1 个 20 血单位 + 督军**（`ta=10` 的 `includeHero=1` ⇒ 候选**恰好 2 个**，一口 3-5 打不死）；⛔ 别摆 3 个候选
+        Place(ctx, 1, 3, Unit("EFoe1", 1, 0, 20));
+        // ⚠️ 候选 **3 个**时「two random enemies」的**目标挑选**本身也掷随机数（`ResolveTargets` 的 `spec.Random && Count < pool` 支）⇒ `RandomNumbersIndex` 差值就混进了别的随机消费；候选 2 个 ⇒ 挑目标不掷骰
+        int foeHp0 = SumHealth(ctx, 1);
+        int idx0 = ctx.RandomNumbersIndex;
+
+        CheckCode(RuleCore.PlayTactic(ctx, 0, HandIdx(ctx, 0, "Artillery Strike"), -1), RuleCodes.OK,
+                  "打出 `Artillery Strike`");
+
+        int used = ctx.RandomNumbersIndex - idx0;
+        int drop = foeHp0 - SumHealth(ctx, 1);
+        Check(used, 2, $"★ 90 档打 **2** 个目标 ⇒ 消费 **2** 个随机数（纯伤害掷骰；实得 {used}）"
+                     + "｜🧨 共用一掷 = **1**；改前循环外多**预掷**一次 = **3**（原版 `_ResolveMultiDamage…:136` 只在循环里调 `GetAdjustedDamage`）");
+        CheckTrue(drop >= 6 && drop <= 10,
+                  $"★ 两个目标各挨 3-5 点（合计 {drop}，应在 6..10）—— 逐目标各用自己的那一掷");
     }
 
     /// <summary>

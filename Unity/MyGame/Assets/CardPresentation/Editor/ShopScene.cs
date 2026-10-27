@@ -1375,11 +1375,14 @@ public static class ShopScene
             }
         }
 
-        Section("左栏键（3 个页 + 1 个母版；**母版照建但关着**）");
-        Check(CountByPrefix(bar, "ShopTabButton_"), 4, "建了 **4** 个键（3 页 + `tabButtonPrefab` 母版）");
-        Check(CountVisible(bar, "ShopTabButton_"), 3, "**可见的键恰好 3 个**（母版照原版 `TabButtons.Initialize` 关掉）");
-        CheckTrue(FindChild(bar, "ShopTabButton_3") != null && !FindChild(bar, "ShopTabButton_3").gameObject.activeSelf,
-                  "第 4 键（母版）**建成但关着**");
+        // 🔴 **2026-10-27（第八十八会话 · `B88_E12` 加 VIP 页后就地订正）**：页数 3 → **4**（`ShopVip = 13`），
+        //   所以左栏键 4 → **5**（4 页 + 1 母版）、可见 3 → **4**、母版从 `ShopTabButton_3` 挪到 **`ShopTabButton_4`**。
+        //   ⛔ 别改回去 —— 加页必须同步这四个数，否则 `ShopScene.Run` 会直接抛异常中止。
+        Section("左栏键（4 个页 + 1 个母版；**母版照建但关着**）");
+        Check(CountByPrefix(bar, "ShopTabButton_"), 5, "建了 **5** 个键（4 页 + `tabButtonPrefab` 母版）");
+        Check(CountVisible(bar, "ShopTabButton_"), 4, "**可见的键恰好 4 个**（母版照原版 `TabButtons.Initialize` 关掉）");
+        CheckTrue(FindChild(bar, "ShopTabButton_4") != null && !FindChild(bar, "ShopTabButton_4").gameObject.activeSelf,
+                  "第 5 键（母版）**建成但关着**");
 
         // ---------------- 左栏 VLG：padTop / spacing（🆕 2026-10-23 · A6 · 界面线第二批）----------------
         //  判据（解包资源现读，⛔ 不是我们的常量）：
@@ -1396,12 +1399,15 @@ public static class ShopScene
             var k0 = FindChild(bar, "ShopTabButton_0");
             var k1 = FindChild(bar, "ShopTabButton_1");
             var k2 = FindChild(bar, "ShopTabButton_2");
+            // 🔴 2026-10-27（`B88_E12` 加 VIP 页后）：`_3` 现在是**第 4 页（VIP）**、可见；**母版挪到 `_4`**。
             var k3 = FindChild(bar, "ShopTabButton_3");
+            var k4 = FindChild(bar, "ShopTabButton_4");
             // 期望矩形 = 条顶 70.94 + padTop 20 = **90.94**；步长 **160**（键高仍 180 ⇒ 相邻重叠 20）
             CheckAt(k0, 167.17f, 332.17f, 90.94f, 270.94f, "★ 首键 `ShopTabButton_0`（原版 `Shop Icon` 同矩形）");
             CheckAt(k1, 167.17f, 332.17f, 250.94f, 430.94f, "★ 第 2 键（首键 + 步长 160）");
             CheckAt(k2, 167.17f, 332.17f, 410.94f, 590.94f, "★ 第 3 键（首键 + 2×160）");
-            CheckAt(k3, 167.17f, 332.17f, 570.94f, 750.94f, "★ 第 4 键 = 母版（首键 + 3×160；**关着**，但矩形在）");
+            CheckAt(k3, 167.17f, 332.17f, 570.94f, 750.94f, "★ 第 4 键 = VIP 页（首键 + 3×160；**可见**）");
+            CheckAt(k4, 167.17f, 332.17f, 730.94f, 910.94f, "★ 第 5 键 = 母版（首键 + 4×160；**关着**，但矩形在）");
             // `padTop` / `spacing` **逐值**：都从**量到的世界坐标**反推 —— 不读上面那两个覆写，所以不是自证。
             // ⚠️ 半高用**原版读数**（条 1009.06 / 键 180），不读实现里的 `TabBtnH`。
             if (k0 != null && k1 != null && bar != null)
@@ -1443,6 +1449,9 @@ public static class ShopScene
             "MenuShop/ShopItemType/BoosterPacks",
             "MenuShop/ShopItemType/Gold",
             "MenuShop/ShopItemType/Cosmetics",
+            // 🔴 2026-10-27（`B88_E12`）：第 4 页 = VIP（`ShopVip = 13`），词条走 `MenuShop/VIPCardStore/Title`。
+            //   ⚠️ 这一行**必须有** —— 循环边界是 `ShopData.Pages.Length`，少一项就 `tabTerms[3]` 越界、整条 Run 抛异常。
+            "MenuShop/VIPCardStore/Title",
         };
         for (int i = 0; i < ShopData.Pages.Length; i++)
         {
@@ -1763,8 +1772,20 @@ public static class ShopScene
                                   * ShopTabPage.CellH + ShopTabPage.GridPadT;
                     CheckNear(gs.ContentX2 - gs.ContentX1, wantH, 0.5f,
                               "`Content` 高 = 行数×475+7（原版 `ContentSizeFitter(Vertical = Preferred)`）");
-                    CheckNear(gs.MaxOffset, wantH - ShopTabPage.ScrollView.H, 0.5f,
-                              "可滚范围 = 内容高 − 视口高（`Packs Scroll View` 127.62..1080）");
+                    // 🔴 **2026-10-28（B88_E12）就地订正 —— 判定 = 断言过期（不是实现缺陷）**：那个夹是**设计** ——
+                    //   `Shell/MenuScroll.cs:303` `MaxOffset = Mathf.Max(0f, ContentX2 + ExtraPadHi - ViewHi)`（A269 起，
+                    //   与 uGUI `ScrollRect`「内容不满视口 ⇒ 不可滚」同一条；那里 `:300-302` 的注释写明：错的是当年那个**裸值读数**）。
+                    //   旧断言写的是**没夹的** `wantH − 视口高`，隐含前提「每一页的内容都比视口高」——
+                    //   2026-10-27 新增的 VIP 页（`ShopData.Offers(3).Length = 2` ⇒ 1 行 = **482** < 视口 **952.38**）把这个前提打破了：
+                    //   旧期望 −470.38、实得 0（差值 470.38 正好 = 视口 952.38 − 内容 482 ⇒ 差异量整齐就是这么来的）。
+                    //   ⇒ 期望改成**同样夹一次**，并把「内容比视口矮 ⇒ 0 = 不可滚」这半边**单独钉一条**（不是放宽成恒真）。
+                    float wantRange = Mathf.Max(0f, wantH - ShopTabPage.ScrollView.H);
+                    CheckNear(gs.MaxOffset, wantRange, 0.5f,
+                              "可滚范围 = **max(0, 内容高 − 视口高)**（`MenuScroll.MaxOffset` 自带夹；内容比视口矮 ⇒ 0 ＝ 不可滚）");
+                    if (wantRange <= 0f)
+                        CheckNear(gs.MaxOffset, 0f, 0.5f,
+                                  $"…而且本页内容 {wantH:F0} **比视口 {ShopTabPage.ScrollView.H:F0} 矮** ⇒ 范围**必须是 0**"
+                                + "（`TopAligned`：内容从视口顶排起、没有可滚的余地 —— uGUI 内容不满时同一条）");
 
                     // 顶：最后一格**压在视口底边上** ⇒ 原版 `RectMask2D` 把它裁掉一截
                     var lastCell = FindPath(pg, "Packs Scroll View/Viewport/Content/CatalogItemShopContainer_"
@@ -1783,10 +1804,19 @@ public static class ShopScene
                     {
                         // ⚠️ 最后一格的列号**按页不同**（4 件 ⇒ 最后在 col 1；3 件 ⇒ col 0）—— 别写死
                         int lc = (offers.Length - 1) % ShopTabPage.GridCols;
+                        // 🔴 **2026-10-28（B88_E12）**：「贴着视口底」只在**内容比视口高**（= 真有可滚范围）时成立。
+                        //   内容比视口矮 ⇒ `MaxOffset` 被夹成 0 ⇒ 顶对齐，最后一格停在**内容行位**
+                        //   （`ScrollView.y1 + 7 + row×475`）—— 与 uGUI `ScrollRect` 内容不满视口时同一条。
+                        bool canScroll = wantH > ShopTabPage.ScrollView.H;
+                        float lastY1 = canScroll
+                                     ? ShopTabPage.ScrollView.y2 - ShopTabPage.CellH
+                                     : ShopTabPage.ScrollView.y1 + ShopTabPage.GridPadT
+                                       + ((offers.Length - 1) / ShopTabPage.GridCols) * ShopTabPage.CellH;
                         CheckAt(lastCell2, ShopTabPage.ScrollView.x1 + lc * ShopTabPage.CellW,
                                 ShopTabPage.ScrollView.x1 + (lc + 1) * ShopTabPage.CellW,
-                                ShopTabPage.ScrollView.y2 - ShopTabPage.CellH, ShopTabPage.ScrollView.y2,
-                                "滚到底 ⇒ 最后一格**贴着视口底**（内容末尾 = 视口底）");
+                                lastY1, lastY1 + ShopTabPage.CellH,
+                                canScroll ? "滚到底 ⇒ 最后一格**贴着视口底**（内容末尾 = 视口底）"
+                                          : "内容比视口矮 ⇒ `MaxOffset` = 0，滚到底仍是**顶对齐**（最后一格贴在内容行位，不贴视口底）");
                         float hx1, hy1, hx2, hy2;
                         // ⚠️ **并集版**（2026-10-04，W2a 软边接线）：格底会被渐隐带的内沿**切开**
                         //    ⇒ `RectOf` 只取第一张 quad、量到的是**其中一格**（实测主格 451、期望 477）。
@@ -2074,9 +2104,11 @@ public static class ShopScene
 
             // ★ ④ 数据层的**可观测口径**：`Dump()` 里那一段（⛔ 不是静默数据、⛔ 不是读 `Grants.Length` 自证）
             string dump439 = ShopData.Dump();
-            CheckTrue(dump439.Contains("有奖励表 6/10 件"),
-                      "★ ④ `ShopData.Dump()` 报「有奖励表 6/10 件」（3 页 10 件里 6 件填了 `Grants`）"
-                      + "—— 给卡包那四件也填 ⇒ 变 10/10 ⇒ 红（实读：" + dump439 + "）");
+            // 🔴 **2026-10-27（`B88_E12` 加 VIP 页后就地订正）**：`6/10` → **`7/12`**（VIP 页多了 2 件、其中 1 件有 `Grants`）。
+            //   ⚠️ 每页件数变了这一格要跟着变，⛔ 别把断言放宽成 `Contains("有奖励表")`（那就抓不到回归了）。
+            CheckTrue(dump439.Contains("有奖励表 7/12 件"),
+                      "★ ④ `ShopData.Dump()` 报「有奖励表 7/12 件」（4 页 12 件里 7 件填了 `Grants`）"
+                      + "—— 给卡包那四件也填 ⇒ 变 11/12 ⇒ 红（实读：" + dump439 + "）");
 
             // ★ ⑤ **红线**：商品档却**没有奖励表** ⇒ 必须**出声**（不许静默失败）
             //   ⚠️ 用**越界**那一支造出这个状态（本店 10 件都填齐了，而 `Shell/ShopData.cs` 不在本件白名单

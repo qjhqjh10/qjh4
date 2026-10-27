@@ -27,6 +27,7 @@
 // `Skirmish` / `Classic` 都是**开一局好友对决**（原版 `ChallengeManager` → 各自那个 `IPlayEvent`）——
 // 要**对手在线 + 服务器** ⇒ 我们**出声**，不静默。
 using UnityEngine;
+using RuleEngine;          // 🆕 2026-10-27（第四批）：`CanPlay` 要 `GameMode`（`RuleEngine/Core/GameplayVariables.cs:32`）
 
 namespace CardPresentation
 {
@@ -297,10 +298,37 @@ namespace CardPresentation
                          clickCue: clickCue);
         }
 
+        /// <summary>= 原版 `DuelPopupWindow.CanPlay(IPlayEvent playEvent)`（**逐句**，判据
+        /// `out_cpp2il_dev_ilspy/DuelPopupWindow.cs:187-204`）：
+        /// ① `playEvent == null` ⇒ 走不到「能打」那一支；② 取**该模式的卡组**（`GetDeckForGameMode(playEvent)`），
+        /// 拿得到 ⇒ `true`；③ 拿不到 ⇒ `UIMessageController.ShowError("MainMenu/General/DontHaveDeckForGameMode", true)`
+        /// 并 `false`（原版这一句的文本就是我们那句「没有这个模式的卡组」词条，官方表现读命中）。
+        /// <para>⚠️ **本地等价物**：原版那个 `GetDeckForGameMode` 读的是**服务器上的玩家卡组**（P3）；
+        /// 我们这边「某模式有没有卡组」= **预组卡组表**（`PrebuiltDecks.All` 里 `gameMode` 匹配且 `complete` 的）
+        /// —— 本仓的模式卡组本来就只从预组数据来（见 `Shell/PrebuiltDecks.cs` 文件头）。</para>
+        /// <para>⚠️ 原版错误那一步是**内联错误条**（`UIMessageController`，5 条轮转的 toast），我们没有那套组件
+        /// ⇒ 交给 `ErrorPopupWindowController.ShowError`（同一条消息弹窗，口径写在那个方法的 doc 里）。</para></summary>
+        static bool CanPlay(GameMode mode)
+        {
+            var all = PrebuiltDecks.All;
+            for (int i = 0; i < all.Count; i++)
+            {
+                var d = all[i];
+                if (d != null && d.complete && d.gameMode == (int)mode) return true;
+            }
+            ErrorPopupWindowController.ShowError("MainMenu/General/DontHaveDeckForGameMode", true);
+            return false;
+        }
+
         /// <summary>原版 `OnSkirmishButtonPressed` / `OnClassicButtonPressed` —— 两个方法**逐行同构**，
-        /// 只差取的那个 `IPlayEvent`（普查 §③「好友挑战」那一条）。它们要的是**对手在线 + 服务器**。</summary>
+        /// 只差取的那个 `IPlayEvent`（普查 §③「好友挑战」那一条）。它们要的是**对手在线 + 服务器**。
+        /// <para>🔴 **2026-10-27（第四批 · E9d · 账 134）**：两个方法的第一句都是 `if (CanPlay(activeEvent))`
+        /// （`DuelPopupWindow.cs:163` / `:177`）—— 我们原来**没有这道闸** ⇒ 没卡组也照弹「要服务器」。
+        /// 现在补上：`CanPlay` 为假 ⇒ 只弹「没有这个模式的卡组」、不再往下走。</para></summary>
         void OnMode(string mode)
         {
+            var gm = mode == "Skirmish" ? GameMode.Skirmish : GameMode.Classic;
+            if (!CanPlay(gm)) return;          // 原版两条 `OnXxxButtonPressed` 的第一句
             Debug.Log("[Duel] `" + mode + "`：原版 `ChallengeManager.OpenDuel` 拿「对手 + 模式」去开一局 —— "
                     + "要**服务器**（对手得在线）⇒ 本地开不了。**没有静默**，点了就报这一句。"
                     + "（对面名字：`" + (OpponentName ?? "") + "`）");

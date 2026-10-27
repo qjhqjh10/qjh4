@@ -1151,13 +1151,25 @@ namespace CardPresentation
             //      而通用 `Main Menu Navigation Button/Image` 是 **(1,1,1,1) 白**；`SetButtonInfo` **只设 sprite、
             //      不写 color** ⇒ 原版事件图标**天生比五颗暗 26%**。照它传 `iconTint`（`WindowButton` 的色偏是
             //      「基准色 × 状态键」，见 `WindowButton.Collect()` ⇒ 悬停/按下也在灰底上乘，与原版 `CrossFadeColor` 同义）。
+            // 🆕 **2026-10-27（B88_J2）**：按原版 `OpenEventButton.SetButtonInfo` 补 **title + 倒计时** 两件。
+            //   判据 = `menu_dump bundle_menus_assets_all "Event Navigation Button" --depth 6`（本轮现读）：
+            //     · `Text (TMP)`（= title 那一行）fs24 / base24 / auto[18~33] / Center·Capline / 色 (0.996,0.929,0.71)
+            //     · `Timer`（`TimerDisplay`）**局部** 848.3−876.9 = −28.6 … 1069.8−876.9 = 192.9 /
+            //       236.7−80.1 = 156.6 … 261.7−80.1 = 181.6（221.56 × 25.00）
+            //     · 其子 `Timer Text`（prefab 出厂 INACT）fs **26.35** / base **30** / auto[18~28] / Center·Capline / 白
+            //       prefab 样例串 = **`5d 20h 15m`**（⇒ 显示格式 `Xd Yh Zm`）
+            //   title 取值 = 原版 `TryGetLabel(ev,4) ?? TryGetLabel(ev,0)`（4 = NavigationBarTitle）；
+            //   取不到 ⇒ 保留原来的 `EVENT` 兜底（**我们挑的**，原版是空态）。
+            string evNavTitle; System.DateTime? evNavEnd;
+            TryGetEventNavInfo(out evNavTitle, out evNavEnd);
             NavButton(holder, 5, "Event", "40k_main_bt_event",
                       910.0f, 1079.7f, null,
                       140.0f, 12.8f, 152.8f, 911.7f, 24f,
                       nodeName: "Event Navigation Button",
-                      label: "EVENT",
+                      label: string.IsNullOrEmpty(evNavTitle) ? "EVENT" : evNavTitle,
                       hiTint: new Color(0.67f, 0.132f, 0.0853f, 1f),
-                      iconTint: new Color(0.7358490f, 0.7358490f, 0.7358490f, 1f));
+                      iconTint: new Color(0.7358490f, 0.7358490f, 0.7358490f, 1f),
+                      timerEndUtc: evNavEnd);
             Debug.Log("[Menu] 第 6 颗「事件钮」的图标已接：`40k_main_bt_event`（135²，PPU 100，Simple）"
                     + " · 染色照原版插槽 `m_Color` = 0.7358490 灰（比五颗导航钮的白图标暗 26%）"
                     + " —— 判据 = `bundle_liveopsicons_assets_all/Sprite/40k_main_bt_event.json` + "
@@ -1191,7 +1203,7 @@ namespace CardPresentation
         void NavButton(Transform parent, int idx, string name, string art, float y1, float y2, string locKey,
                        float ih, float ix1, float ix2, float iy1, float fontPx,
                        string nodeName = null, string label = null, Color? hiTint = null,
-                       Color? iconTint = null)
+                       Color? iconTint = null, System.DateTime? timerEndUtc = null)
         {
             var b = New(parent, nodeName ?? ("Main Menu Navigation Button - " + name), NavBtnW, NavBtnH);
             // 🆕 **2026-10-11（`A1522④`）：把「这一颗 + 它的 (顶,底)」记进表** —— `SelectNav` 换高亮时
@@ -1263,6 +1275,10 @@ namespace CardPresentation
                                //       差 0.01px —— 两条边分别来自文案条与 TMP 两个节点，这里不拆第二颗节点）。
                                wrapPx: 146.92f, autoMinPx: 18f, autoMaxPx: 33f, autoBasePx: 24f,
                                face: TmpFont.Face.LatinCardBody);
+
+            // 🆕 **2026-10-27（B88_J2）**：`Timer` 那一格（原版 `OpenEventButton.timer` = `TimerDisplay`）。
+            //   几何/字号判据见 EVENT 那颗调用点上面那段（`menu_dump … "Event Navigation Button"` 本轮现读）。
+            if (timerEndUtc.HasValue) BuildNavEventTimer(b, timerEndUtc.Value);
             // 🔴 **2026-10-11（A305①）**：上面第 5 个数据实参 = 原版这一颗的 `m_fontSizeBase` **原文**。
             //    判据（本轮自己扫的原版场景 `bundle_scenes_scenes_mainmenuwarpforge`，逐颗现读）：
             //    五个导航钮的 `Text (TMP)`（`'PLAY'`/`'REWARDS'`/`'SHOP'`/`'COLLECTION'`/`'SOCIAL'`，
@@ -3724,5 +3740,114 @@ namespace CardPresentation
             }
             if (lb.gameObject.activeSelf != has) lb.gameObject.SetActive(has);
         }
+
+        // ============================================================ 活动钮：title + 倒计时（原版 `OpenEventButton.SetButtonInfo`）
+        //
+        // 判据（🥇 `menu_dump bundle_menus_assets_all "Event Navigation Button" --depth 6` · 2026-10-27 现读）：
+        //   · 根 `Event Navigation Button` 字段表：`badgeNotification, button, buttonIcon, closeOnToggleChangeToFalse,
+        //     closeOtherMenus, label, labelHolder, **overIcon**, **timer**, **timerHolder**` —— 即原版这一颗
+        //     有 **title(label)** / **overIcon** / **timer+timerHolder** 三件由 `SetButtonInfo` 运行期灌值。
+        //   · `Timer`（`TimerDisplay`）局部 **−28.6,156.6 → 192.9,181.6**（221.56 × 25.00）
+        //   · 其子 `Timer Text`（出厂 INACT）fs **26.35** / base **30** / auto[18~28] / Center·Capline / 白，
+        //     prefab 样例串 **`5d 20h 15m`**
+        //   · `Over Image`（= overIcon 的落点）901.1,92.9 → 1018.9,210.8（117.86²）—— **本机无该 sprite 资产**
+        //
+        // 🔶 自己设计（非原版）：① 剩余时间的**格式串**（`Xd Yh Zm`）· 原版走 `TimeHelper.FormatTimeSpan`，
+        //   而 ILSpy 那一跳是 `NoteDecompilerIssue("Method not found @181F58920")`（体没解出）·
+        //   判据只有 prefab 的样例串 `'5d 20h 15m'` ⇒ 按它定形 · 调度台 2026-10-27 授权（B88_J2 第 3 批）
+        //   ② 倒计时**只在建树那一刻算一次**（本壳没有按秒刷新的泵；原版 `TimerDisplay.Update` 每
+        //   `targetFrameRate` 帧刷一次）⇒ 会话跨过整分钟时屏上会停旧值 —— 已在下面出声。
+        // ⚠️ 追加在**类尾**（上面那些行号被账引用）。
+
+        /// <summary>读「当前在期 Parent 活动」的 **title** 与 **结束时刻**（原版 `SetButtonInfo` 的输入）。
+        /// 没有在期活动 ⇒ `title = null` / `endUtc = null`（调用点保留 `EVENT` 兜底，与原版空态同义）。</summary>
+        internal static void TryGetEventNavInfo(out string title, out System.DateTime? endUtc)
+        {
+            title = null;
+            endUtc = null;
+            var now = System.DateTime.UtcNow;
+            LiveOpsLocalEvent ev; string why;
+            if (!LiveOpsLocalCatalog.TrySelectActive(LiveOpsLocalKind.Parent, now, out ev, out why))
+            {
+                Debug.Log("[Menu] 活动钮 title/倒计时：**没有在期 Parent 活动**（" + why
+                        + "）⇒ title 保留 `EVENT` 兜底、不建倒计时（⛔ 不编活动文案）");
+                return;
+            }
+            // 原版 `TryGetLabel(ev,4) ?? TryGetLabel(ev,0)`（4 = NavigationBarTitle、0 = Title）。
+            LiveOpsLocalLabel l;
+            string term = null;
+            if (ev.TryGetLabel(4, out l)) term = l.Term;
+            else if (ev.TryGetLabel(0, out l)) term = l.Term;
+            if (!string.IsNullOrEmpty(term)) title = LiveOpsLocalCatalog.TermText(term);
+            if (string.IsNullOrEmpty(title))
+                Debug.LogWarning("[Menu] 活动钮 title：在期活动 `" + (ev != null ? ev.EventId : "?")
+                               + "` 的 label 4/0 都取不到词条 ⇒ 保留 `EVENT` 兜底（原版是空态）");
+            if (ev != null && ev.EndUtc > now) endUtc = ev.EndUtc;
+            // overIcon：原版 `LoadAsset(ev, 9)` → `Over Image`（117.86² @901.1,92.9）。本机没有这批活动图 ⇒ 出声、**留 C**。
+            Debug.LogWarning("[Menu] 活动钮 **overIcon 未建**（原版 `SetButtonInfo` 的另一半 = `LoadAsset(ev,9)` → "
+                           + "`Over Image` 117.86² @901.1,92.9）：本机 liveops 图标集里没有 over-icon 那一张 ⇒ "
+                           + "**如实出声、不拿 Icon 顶上**（这一格仍记 C）");
+        }
+
+        /// <summary>建 `Timer`（`TimerDisplay`）那一格 + `Timer Text`。判据见本节头。
+        /// <para>⚠️ 我们**不建 `Timer` 容器节点**，直接把这颗字摆在按钮的同一坐标空间里
+        /// （原版是 `Timer` 容器 + `Timer Text` 子件；本壳的建树是扁平 quad ⇒ 少一层不影响画面，
+        /// 但 `Timer` 那层若将来要挂 `TimerDisplay` 组件再补）。</para></summary>
+        void BuildNavEventTimer(Transform button, System.DateTime endUtc)
+        {
+            const float Tx1 = -28.6f, Tx2 = 192.9f, Ty1 = 156.6f, Ty2 = 181.6f;   // = 绝对 − 根 (876.9, 80.1)
+            Text(button, NavTimerText(endUtc), Tx1, Tx2, Ty1, Ty2, 6, Color.white, "Timer Text",
+                 26.35f, wrapPx: Tx2 - Tx1, autoMinPx: 18f, autoMaxPx: 28f, autoBasePx: 30f,
+                 face: TmpFont.Face.LatinCardBody);
+            Debug.Log("[Menu] 活动钮倒计时已建：到期 = " + endUtc.ToString("u") + " ⇒ 屏上 `"
+                    + NavTimerText(endUtc) + "`（🔶 建树时算一次，本壳没有按秒刷新的泵）");
+        }
+
+        /// <summary>剩余时间串（格式来自 prefab 样例 `5d 20h 15m`；🔶 见本节头「自己设计 ①」）。</summary>
+        internal static string NavTimerText(System.DateTime endUtc)
+        {
+            var left = endUtc - System.DateTime.UtcNow;
+            if (left.TotalSeconds <= 0) return "0m";
+            int d = (int)left.TotalDays, h = left.Hours, m = left.Minutes;
+            if (d > 0) return d + "d " + h + "h " + m + "m";
+            if (h > 0) return h + "h " + m + "m";
+            return m + "m";
+        }
+
+        // ============================================================ 类尾：`AdaptFlexibleGridLayoutByAspectRatio`
+        //   **在我们的空间模型里是恒等变换** —— 为什么**不建**这个组件（B88-A3 · 2026-10-28）
+        //
+        // 原版那个组件（`mainmenuwarpforge` 场景 **唯一 1 处**挂接 = MB 1962，宿主 GameObject pathID **28** =
+        // `GameModes/Content`，其 `FlexibleGridLayout` = MB 1961：`rows=2 columns=20 itemSize 535×414.4
+        // spacing (20,20)` —— 与本文件 `CardCol0/CardColStep/CardW/CardH` 那一组**逐字段相同**）
+        // 四个方法体的**全部效果**是一句话：
+        //     `itemSize = 原始 itemSize × s`，其中 `s = max(1, (16/9) / (Screen.width/Screen.height))`
+        //     （`Transition…` 不适用；判据 = `decomp_full/AdaptFlexibleGridLayoutByAspectRatio__{OnEnable,
+        //     ResolutionHasChanged,ModifyFlexibleLayout,OnDisable}.c` 四个体逐句；常量 `1.7777778` / `1.0`
+        //     读自 `GameAssembly.dll` 的 `0x1834b32d0` / `0x1834b2bb8`，重建阈值 `1e-4` = `0x1834b32f8`（8 字节 double））。
+        //     `OnEnable` 另外做三件：① `originalItemSize == Vector2.zero`（Unity `Vector2==` 的 1e-5² 判据）时
+        //     把当前 `itemSize` 缓存成原始值；② `Signal.Register<ScreenResolutionChangeSignal>`；
+        //     ③ 立刻算一次。`OnDisable` 只退订。⇒ **没有任何跟「分辨率无关」之外的语义**。
+        //
+        // 为什么在我们这儿是恒等：
+        //   · 原版画布是 uGUI `CanvasScaler(1920×1080, **Expand**)` ⇒ 参考空间 = `1920 × 1080·s`（s<1 的窄屏变高）
+        //     ⇒ 它必须把 itemSize 也乘 s，**才能让卡占屏幕高度的比例恒定**（16:9: 414.4/1080 = 0.3837；
+        //     aspect 1.62: 454.9/1185 = 0.3837 —— 同一个数）；
+        //   · 我们的设计空间是 **高度钉死 1080 设计 px**（`Core/LayoutSpace.cs`：可见高恒 = `DesignHeight`，
+        //     可见宽 = `DesignHeight × 屏幕宽高比`）⇒ 设计 px → 物理 px 的斜率**两轴都是 `Screen.height/1080`**，
+        //     与宽高比无关 ⇒ `CardH = 414.4` **已经是**「占屏高 0.3837」那一档，**再乘 s 就多乘了一次**；
+        //   · 宽度同理：原版卡宽占**画布宽**的比例 = `535·s / (1080·s·aspect)` = `535/(1080·aspect)`，
+        //     而我们是 `535 / (1080·aspect)` —— **同一个式子**；21:9 那侧（s 被 max 夹成 1）也一致
+        //     （原版画布此时长在宽上：`1080·aspect × 1080`）。
+        //   ⇒ 4 条（`OnEnable` / `ResolutionHasChanged` / `ModifyFlexibleLayout` / `OnDisable`）的**等价实现
+        //     = `CardW/CardH/CardHTall/CardRow0Top` 那组常量本身**（`CardRow0Top` 的 doc 已用用户实拍
+        //     aspect≈1.62 逐项复核过：预测 148.5 / 卡底 844.6 vs 实测 149 / ≈845）。
+        //
+        // ⚠️ **残留的那一格不属于这个组件**：窄屏时我们的**可见宽度**变窄（4:3 ⇒ 只看得到 1920 设计 px 里的
+        //   1440），右边那两列要滚才看得到；原版同一时刻画布宽仍是 1920、整排都在屏上。那是
+        //   `Core/LayoutSpace.cs` 里 `A2092/A2098` 记着的**全局画布模型差**（钉高 vs 钉宽），与本组件无关。
+        // ⛔ **别为了「照原版多个组件」再建一个每次都乘 s 的适配器** —— 那会在窄屏把卡放大 1/s 倍、
+        //   与 `Editor/MainMenuScene.cs` 的 5 条 `CheckCard`（`205 + 555c / 535 / 414.4 / 848.8 / 182.8`）冲突，
+        //   而**画面反而更不像原版**。
     }
 }

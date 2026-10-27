@@ -27,8 +27,10 @@
 // 我们：`Shell/MainMenuRuntime.cs` 的 `OpenMode("tutorial")` 直接建本窗（那张映射在服务端，本地没有
 //   ⇒ 入口是**我们接的**，同 A789 的 `draft` 先例）。
 // ⚠️ **教程事件那份数据本地任何形态都没有**（随 PlayFab userInfo 下发）⇒ 原版关服时这张卡根本不存在。
-//   受影响的只有两处，各自在下面标了「**查不到**」：① 标题栏的字（`WindowHeaderWithBackButton.Initialize`
-//   从事件数据取标签）· ② 各关的副标题/描述（远端词条表）。
+//   受影响的**只剩一处**：① 标题栏的字（`WindowHeaderWithBackButton.Initialize` 从事件数据取标签）。
+//   🔴 **2026-10-27（B88-E7 · 铁律 5）就地订正**：原来这里还列了「② 各关的副标题/描述（远端词条表）」——
+//   **已不成立**：6 关的 `loreLocalizationKey` 与 `…Title` 两条**全在本地官方 13 语言表**里
+//   （6/6 命中），现在由 `SubOf`/`DescOf` 逐关查表。
 //
 // ============================================================ 进教程战斗那一条
 // ✅ **2026-10-17（B29）起 `Play` 钮真开局** —— 原版 `TutorialModePopup.BattleButtonOnClick` →
@@ -222,9 +224,13 @@ namespace CardPresentation
         public const string ArtItemHL = "UI_Army_Selection_Back_Pressed"; // 172×172（出厂 act **F**，选中才开）
         public const string ArtItemBar = "UI_Army_Selection_Back_Progression"; // 48×18 九宫 (20,0,20,0)
         public static readonly Vector4 ItemBarBorder = new Vector4(20f, 0f, 20f, 0f);
-        /// <summary>`TutorialComplete` 的文案 —— 原版 prefab 出厂 `m_text = 'Complete!'`
-        /// （`TutorialArmySelectionButton.Initialize` 里那一行是词条，本地没有 ⇒ 照出厂原文印）。</summary>
-        public const string ItemDoneText = "Complete!";
+        /// <summary>`TutorialComplete` 的文案 —— 原版 prefab 出厂 `m_text = 'Complete!'`，而
+        /// `TutorialArmySelectionButton.Initialize` 运行时把它换成**词条** `MainMenu/Tutorial/CompletedItem`
+        /// （🔴 **2026-10-27（B88-E7）就地订正**：原文写「那一行是词条，本地没有 ⇒ 照出厂原文印」——
+        /// **不成立**：官方 13 语言表里这条**在**：en = `Completed!` / zh = `已完成!`）⇒ 走 <see cref="ItemDoneLabel"/>。
+        /// ⚠️ 出厂原文与 en 词条**只差一个字母**（`Complete!` vs `Completed!`）—— 肉眼几乎分不出，
+        /// 所以这条**必须由词条取**，⛔ 别再把出厂串当运行时文案。</summary>
+        public const string ItemDoneText = "Complete!";   // 仅作出厂原文留痕；运行时文案见 `ItemDoneLabel()`
 
         // ============================================================ 6 关的表
         /// <summary>6 关 —— **一行一关**，四列都有出处：
@@ -240,11 +246,13 @@ namespace CardPresentation
         ///    即「督军卡自己的名字」——本表这一列就是照这条链取的。）</para>
         /// <para>· `Fac` = 阵营（喂 `Warlord Image` 的立绘 + 名单格的徽记）；取的是**督军卡自己的阵营**
         ///   （= `DeckRuntime.FactionIcon` 的键）。</para>
-        /// <para>⚠️ **原版还有两列本地取不到**（`loreLocalizationKey`：`Demo/UMTutorial` · `Demo/GoffDeckTutorial` ·
-        ///   `Demo/NecronsDeckTutorial` · `Demo/BlackLegionDeckTutorial` · `Demo/AeldariDeckTutorial` ·
-        ///   `Demo/LeviathanDeckTutorial`）—— **正文在远端 CCD 的词条表里**（原版客户端连 TextAsset 目录都没有）
-        ///   ⇒ 副标题/描述那两行**只有第 0 关有出厂原文**（`Stage1Subtitle`/`Stage1Description`），
-        ///   其余 5 关**查不到**，见 `SubOf/DescOf` 那两条。</para></summary>
+        /// <para>⚠️ **原版还读两列 `loreLocalizationKey`**（`Demo/UMTutorial` · `Demo/GoffDeckTutorial` ·
+        ///   `Demo/SautekhDeckTutorial` · **`Demo/BLTutorial`** · `Demo/AeldariDeckTutorial` ·
+        ///   `Demo/LeviathanDeckTutorial`；逐份 SO 的 `loreLocalizationKey` 字段**实读**，见 <see cref="LoreKeys"/>）。
+        ///   🔴 **2026-10-27（B88-E7 · 铁律 5）就地订正**：本文原来写「正文在远端 CCD 的词条表里，本地取不到
+        ///   ⇒ 只有第 0 关有出厂原文，其余 5 关查不到」——**不成立**：6 关的 `…TutorialTitle` / `…Tutorial`
+        ///   **两条全在**本地官方 13 语言表（`Resources/official_loc_13lang.json`，6/6 命中）⇒ `SubOf`/`DescOf`
+        ///   现在**逐关查表**（键 = `loreLocalizationKey` 与 `loreLocalizationKey + "Title"`）。</para></summary>
         public struct StageRow
         {
             public string So, Deck, Hero, Fac;
@@ -262,10 +270,11 @@ namespace CardPresentation
         };
 
         /// <summary>第 0 关（Ultramarines）的副标题 —— **prefab 出厂原文**（`TutorialSubTitle.m_text`）。
-        /// 🔴 **只这一关有**：其余 5 关的字在远端词条表里（原版 `TutorialSpecificInfo.Setup` 走
-        /// `Loc(loreLocalizationKey + 后缀)`），本地**查不到** ⇒ `SubOf()` 会出声并给「查不到」的占位。</summary>
+        /// 🔴 **2026-10-27（B88-E7）起它只是「出厂留痕」**：运行时文案走 `SubOf()` → 官方词条
+        /// `Demo/UMTutorialTitle`（en 与这条逐字相同），⛔ 别再当唯一来源。</summary>
         public const string Stage1Subtitle = "The Basics";
-        /// <summary>第 0 关的描述 —— 同上，prefab 出厂原文（`TutorialDescription.m_text`）。</summary>
+        /// <summary>第 0 关的描述 —— 同上，prefab 出厂原文（`TutorialDescription.m_text`）；
+        /// 运行时走 `DescOf()` → `Demo/UMTutorial`。</summary>
         public const string Stage1Description =
             "Start here! Spar with your Chapter Master to learn the teachings of the Codex before heading out into battle.";
         /// <summary>本地没有那两行字时印什么。🔴 **不许编文案**（铁律 11 第 ① 种：判据是空的）——
@@ -591,11 +600,11 @@ namespace CardPresentation
             MenuDraw.Rect(node, Tex(DeckRuntime.FactionIcon(row.Fac)), InCell(cell, ItemIcon), "Icon", QArt4, null, true);
 
             // 三行字（fs 36 · auto[18,36] · hAlign Left）—— 文案见表头那两条说明
-            var a = MenuDraw.Text(node, InCell(cell, ItemTi), StageTitle(i), Color.white, "TutorialTitle", 36f, QText, face: TmpFont.Face.LatinUi);
+            var a = MenuDraw.Text(node, InCell(cell, ItemTi), StageCellTitle(i), Color.white, "TutorialTitle", 36f, QText, face: TmpFont.Face.LatinUi);
             if (a != null) { a.SetAutoFitBox(LayoutSpace.Px(ItemTi.W), LayoutSpace.Px(ItemTi.H), 18f, 36f, 36f); MenuDraw.AlignLeft(a, InCell(cell, ItemTi)); }
             var b = MenuDraw.Text(node, InCell(cell, ItemSu), SubOf(i), Color.white, "TutorialSubTitle", 36f, QText, face: TmpFont.Face.LatinCardBody);
             if (b != null) { b.SetAutoFitBox(LayoutSpace.Px(ItemSu.W), LayoutSpace.Px(ItemSu.H), 18f, 36f, 36f); MenuDraw.AlignLeft(b, InCell(cell, ItemSu)); }
-            var c = MenuDraw.Text(node, InCell(cell, ItemDone), ItemDoneText, Color.white, "TutorialComplete", 36f, QText, face: TmpFont.Face.LatinUi);
+            var c = MenuDraw.Text(node, InCell(cell, ItemDone), ItemDoneLabel(), Color.white, "TutorialComplete", 36f, QText, face: TmpFont.Face.LatinUi);
             if (c != null)
             {
                 c.SetAutoFitBox(LayoutSpace.Px(ItemDone.W), LayoutSpace.Px(ItemDone.H), 18f, 36f, 36f);
@@ -739,37 +748,106 @@ namespace CardPresentation
         }
 
         // ============================================================ 文案
-        /// <summary>关号那一行 —— 原版算式 = `ToUpper(词条) + 关号`，出厂原文 `TUTORIAL 01`
-        /// （`TutorialSpecificInfo.Setup` 与 `TutorialArmySelectionButton.Initialize` **同一句**；
-        /// 两处都拼 `局部词条("Tutorial 0"?) + (index+1)`，prefab 上那三处出厂字 = `TUTORIAL 01` /
-        /// `Tutorial 1` / `'TUTORIAL 01'`）。我们按**可见结果**印：`TUTORIAL 0n`（n = 1..6）。</summary>
-        public static string StageTitle(int i) { return "TUTORIAL 0" + (i + 1); }
+        /// <summary>右列 `TutorialTitle`（关号那一行）—— 原版 = `ToUpper(词条 "Demo/Tutorial") + " 0" + n`，
+        /// 出厂原文 `TUTORIAL 01`。**这一档确实带 `ToUpper`**（`TutorialSpecificInfo.Setup` 的算式）；
+        /// ⚠️ 名单**格子里**那一行**不带**（不同算式）⇒ 见 `StageCellTitle`。</summary>
+        public static string StageTitle(int i) { return Upper(LocOr("Demo/Tutorial", "Tutorial")) + " 0" + (i + 1); }
 
-        /// <summary>副标题。原版 = `Loc(deck.loreLocalizationKey + 后缀)` —— **在远端词条表**。
-        /// 🔴 **只有第 0 关有 prefab 出厂原文**（`The Basics`）；其余 5 关本地**查不到** ⇒ 给占位 + 出声。</summary>
+        /// <summary>名单格里的 `TutorialTitle` —— 原版 = `Loc("Demo/Tutorial") + " 0" + n`（**无 ToUpper**）
+        /// ⇒ en 印 `Tutorial 01`、zh 印 `教程 01`（`TutorialArmySelectionButton.Initialize` 那一句）。
+        /// 🔴 **2026-10-27（B88-E7）**：原来这一格直接复用 `StageTitle`（= 右列那一档，带 `ToUpper`）
+        /// ⇒ 格子上印成 `TUTORIAL 01`，与原版**逐字不同**。</summary>
+        public static string StageCellTitle(int i) { return LocOr("Demo/Tutorial", "Tutorial") + " 0" + (i + 1); }
+
+        /// <summary>每关的 `loreLocalizationKey`（**逐份 SO 字段实读**，2026-10-27 B88-E7）：
+        /// `bundle_menus_assets_all`（Aeldari / BlackLegion / Leviathan / Sautekh）+
+        /// `bundle_duplicateassetisolationso_assets_all`（UM / Orks）里 6 份 `Demo DeckInfo * Tutorial` 的
+        /// `loreLocalizationKey` 原值。顺序 = `Rows` 的下标序。
+        /// ⚠️ 黑军团那条**不叫** `BlackLegionDeckTutorial`（那份键官方表里没有），真值是 **`Demo/BLTutorial`**。</summary>
+        public static readonly string[] LoreKeys =
+        {
+            "Demo/UMTutorial", "Demo/GoffDeckTutorial", "Demo/SautekhDeckTutorial",
+            "Demo/BLTutorial", "Demo/AeldariDeckTutorial", "Demo/LeviathanDeckTutorial",
+        };
+
+        /// <summary>`TutorialComplete` 的运行时文案 —— 词条 `MainMenu/Tutorial/CompletedItem`
+        /// （en `Completed!` / zh `已完成!`；判据 = `TutorialArmySelectionButton.Initialize`）。</summary>
+        public static string ItemDoneLabel() { return LocOr("MainMenu/Tutorial/CompletedItem", "Completed!"); }
+
+        /// <summary>取一条官方词条；取不到（表里没有）⇒ 用调用方给的**出厂原文**兜底并出声一次。
+        /// ⚠️ `Loc.T` 对缺键**返回键名本身** ⇒ 判据是「返回值 == 键」。</summary>
+        static string LocOr(string key, string fallback)
+        {
+            string v = Loc.T(key);
+            if (!string.IsNullOrEmpty(v) && v != key) return v;
+            MissingKeyOnce(key);
+            return fallback;
+        }
+
+        static void MissingKeyOnce(string key)
+        {
+            if (_missingText.Contains(key)) return;
+            _missingText.Add(key);
+            Debug.LogWarning("[Tutorial] 词条 `" + key + "` **本地取不到** ⇒ 用 prefab 出厂原文兜底（⛔ 不编文案）。");
+        }
+
+        /// <summary>`ToUpper` 的等价物 —— 只对**拉丁**串生效（汉字没有大小写，`string.ToUpper` 不改变它，
+        /// 但会走一次分配；这里按「有没有 ASCII 小写字母」判，保持与可见结果一致）。</summary>
+        static string Upper(string s)
+        {
+            if (string.IsNullOrEmpty(s)) return s;
+            for (int i = 0; i < s.Length; i++) if (s[i] >= 'a' && s[i] <= 'z') return s.ToUpperInvariant();
+            return s;
+        }
+
+        /// <summary>副标题。原版 = `Loc(deck.loreLocalizationKey + "Title")`
+        /// （`TutorialSpecificInfo__Setup.c` 那一句）—— 🔴 **6 关全在**本地官方表里
+        /// （`Demo/UMTutorialTitle` `The Basics` / `Demo/GoffDeckTutorialTitle` `Tides &amp; Mobs` /
+        /// `Demo/SautekhDeckTutorialTitle` / `Demo/BLTutorialTitle` / `Demo/AeldariDeckTutorialTitle` /
+        /// `Demo/LeviathanDeckTutorialTitle`），查不到才印占位 + 出声。</summary>
         public static string SubOf(int i)
         {
-            if (i == 0) return Stage1Subtitle;
+            string key = LoreKeyOf(i);
+            if (key == null) { MissingTextOnce(i, "副标题"); return TextMissing; }
+            string v = Loc.T(key + "Title");
+            if (!string.IsNullOrEmpty(v) && v != key + "Title") return v;
+            if (i == 0) return Stage1Subtitle;      // 出厂原文兜底（en 与词条逐字相同）
             MissingTextOnce(i, "副标题");
             return TextMissing;
         }
 
-        /// <summary>描述。原版 = `Loc(deck.loreLocalizationKey)` —— 同上，只有第 0 关有出厂原文。</summary>
+        /// <summary>描述。原版 = `Loc(deck.loreLocalizationKey)` —— 同上，6 关全在本地官方表里。</summary>
         public static string DescOf(int i)
         {
-            if (i == 0) return Stage1Description;
+            string key = LoreKeyOf(i);
+            if (key == null) { MissingTextOnce(i, "描述"); return TextMissing; }
+            string v = Loc.T(key);
+            if (!string.IsNullOrEmpty(v) && v != key) return v;
+            if (i == 0) return Stage1Description;   // 出厂原文兜底
             MissingTextOnce(i, "描述");
             return TextMissing;
         }
 
-        /// <summary>`Warlord: &lt;color=orange&gt;{督军}&lt;/color&gt;` —— **格式串就是 prefab 出厂原文**
-        /// （`TutorialWarlordTitle.m_text = 'Warlord: &lt;color=orange&gt;Uriel Ventris&lt;/color&gt;'`），
+        /// <summary>第 `i` 关的 `loreLocalizationKey`（越界 ⇒ null）。</summary>
+        public static string LoreKeyOf(int i) { return (i >= 0 && i < LoreKeys.Length) ? LoreKeys[i] : null; }
+
+        /// <summary>督军那一行 —— 原版 = `String.Format(Loc("MainMenu/Tutorial/Warlord"), GetWarlordName())`
+        /// （`TutorialSpecificInfo__Setup.c`）；词条值 **en = `Warlord: &lt;color=orange&gt;{0}&lt;/color&gt;` ·
+        /// zh = `战将：&lt;color=orange&gt;{0}&lt;/color&gt;`**（官方表实读）。
+        /// 🔴 **2026-10-27（B88-E7）**：原来在代码里写死英文格式串 ⇒ 中文档下仍印 `Warlord:`（真差异）。
         /// 名字取 `DemoDeckInfoSO.GetWarlordName()` = 督军卡自己的名字（见 `Rows` 那段的推导）。</summary>
         public static string WarlordLine(int i)
         {
             var d = HeroDef(i);
             string nm = d != null ? d.Name : "?";
-            return "Warlord: <color=orange>" + nm + "</color>";
+            string fmt = LocOr("MainMenu/Tutorial/Warlord", "Warlord: <color=orange>{0}</color>");
+            try { return string.Format(fmt, nm); }
+            catch (System.FormatException)
+            {
+                // 词条里没有 `{0}` ⇒ 原版那一刻会抛；我们退回出厂格式并出声（⛔ 不静默印半句）。
+                Debug.LogWarning("[Tutorial] 词条 `MainMenu/Tutorial/Warlord` 里没有 `{0}` 占位符 ⇒ 用出厂格式兜底");
+                return "Warlord: <color=orange>" + nm + "</color>";
+            }
         }
 
         /// <summary>督军卡（`CollectionData.Card` = 引擎卡表）。取不到时出声（红线：不许静默）。</summary>
@@ -792,10 +870,13 @@ namespace CardPresentation
         {
             if (_missingText.Contains(i + what)) return;
             _missingText.Add(i + what);
-            Debug.Log("[Tutorial] 第 " + (i + 1) + " 关的**" + what + "文案本地查不到** —— 原版走远端词条表"
-                    + "（`TutorialSpecificInfo.Setup` / `TutorialArmySelectionButton.Initialize` 里的 `Loc(...)`；"
-                    + "原版客户端连 TextAsset 目录都没有）⇒ 印占位 `" + TextMissing + "`。"
-                    + " 🔴 **不编文案**（铁律 11 第 ① 种：判据是空的）。");
+            // 🔴 **2026-10-27（B88-E7 · 铁律 5）**：这条告警原来写「原版客户端连 TextAsset 目录都没有」——
+            //   **已过期**：官方 13 语言表早就在本地（`Resources/official_loc_13lang.json`），6 关的
+            //   `…TutorialTitle` / `…Tutorial` 六条**全在**。⇒ 现在走到这里只能说明**取表失败**（不是「没有」）。
+            Debug.LogWarning("[Tutorial] 第 " + (i + 1) + " 关的**" + what + "文案取不到** —— 词条键 = `"
+                    + LoreKeyOf(i) + "`（原版 `TutorialSpecificInfo.Setup` 的 `Loc(...)`）；"
+                    + "官方 13 语言表 6/6 命中 ⇒ 走到这里说明**取表失败**，不是「本地没有」"
+                    + "⇒ 印占位 `" + TextMissing + "`（⛔ 不编文案）。");
         }
 
         // ============================================================ 工具

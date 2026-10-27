@@ -217,7 +217,7 @@ namespace RuleEngine
         /// 后手取 `startingManaSecond`，用 `playerGoesFirst` 那个标志 XOR 选）。
         /// · 经典 (1,1,1)：第 1 个自己的回合 = **2** ——**与改造前逐字一致**
         /// · 遭遇 (1,**2**,2)：P1 第 1 回合 = 1+2 = **3** · P2 = 2+2 = **4**
-        ///   —— 正好是原版文案那句 `P1 3 Energy P2 4 Energy`</summary>
+        ///   —— 原版文案**原文** = `Player 1 starts at 3 Energy, Player 2 at 3+1 Energy`（🔴 2026-10-27 铁律 5 订正：旧引文写成 `P1 3 Energy P2 4 Energy`，把那个 `+1` 抹掉了；中文键同文「玩家2开始时有3+1点能量」。判据 → `资料/完全复刻/报告/B88_J1_两条悬案裁定.md` §悬案1）</summary>
         public int startingMana = ClassicStartingMana;
         /// <summary>【推断】**后手方**的起始能量基数：经典 1（⇒ 后手第 1 回合也是 2 点）·
         /// 遭遇 **2**（⇒ 后手第 1 回合 4 点，比先手多那 1 点）。
@@ -232,7 +232,7 @@ namespace RuleEngine
         /// ⇒ 我们的落点 = `RuleCore.BeginTurn` 里「维护费之后」那一段：
         ///   条件 `p == Players[SecondSeat] && p.TurnCount == 1`（后手第一次自己的回合）；
         ///   `p.Energy += addedManaSecond`，**绝不加进 `MaxEnergy`**（加了会每回合都多出这份补贴）。
-        /// ⚠️ 值是**服务器真值，本地没有** ⇒ 两个模式都是 **0**（今天恒不触发；机制照铁律 11 先做完）。</summary>
+        /// 🔶 自己设计（非原版）：服务端 `PlayEventData.gameplayVariables` 本地取不到 ⇒ 这里只能填值。**本条 2026-10-27 就地订正（铁律 5）：原来写「两个模式都是 0」—— 不成立**，因为 `0 &lt; addedManaSecond` 是「能量累积」整组 HUD 的**唯一显隐闸**（`SetupBoardPhase.c:179-196`），而散战/教程的官方文案都卖这个机制（`Event_Description/Skirmish/Help` · `TutorialData/Tutorial1/Turn6/Tip2fast`）⇒ 至少一个模式非 0。**散战那一格本批【暂不动】**（加 1 会让后手首回合能量变成 5，与官方 `3+1`＝4 和用户实况「后手首回合上限 4」都冲突，见报告 §悬案1 的「算术矛盾」）；**教程那一格已填 1**（见 `Tutorial` 实例）。判据 → `资料/完全复刻/报告/B88_J1_两条悬案裁定.md`。</summary>
         public int addedManaSecond = 0;
         /// <summary>【文案】每回合最大能量增长：经典 1 · 遭遇 **2**（`Gain +2 Maximum Energy each turn`）。</summary>
         public int manaPerTurn = ClassicManaPerTurn;
@@ -462,10 +462,10 @@ namespace RuleEngine
                 v.startingHand = TutorialStartingHand;         // 【TutorialScenario】startingHand 3
                 v.secondExtraCards = TutorialSecondExtraCards; // 【TutorialScenario】secondExtraCards 0
                 v.handLimit = TutorialMaxCardsInHand;          // 【TutorialScenario】maxCardsInHand 10
-                v.showMulligan = false;                        // 【反编译】教程不跑换牌阶段（见上面那段）
+                v.showMulligan = false; v.manaAccumulation = 1; v.addedManaSecond = 1;   // 【反编译】教程不跑换牌阶段 ＋ 🔶 累积两格（判据见下行）
                 // ⚠️ **没动的**（原版值在服务器、本地查不到）：startingMana / startingManaSecond /
                 //    manaPerTurn / overtimeTurn / shouldReshuffle —— 一律沿用经典值。
-                //    判据只到这里为止，⛔ 别按「教程大概应该……」去改。
+                //    判据只到这里为止，⛔ 别按「教程大概应该……」去改（**这两个累积格是例外，有官方判据**）：🔶 自己设计（非原版）——服务端 `gameplayVariables` 取不到，`manaAccumulation = 1` ＋ `addedManaSecond = 1` 是按**官方教学文案**补的（`TutorialData/Tutorial1/Turn6/Tip2fast`「You can accumulate 1 Energy per turn… You will get 1 more your next turn」教的就是这条）；`addedManaSecond` 非 0 同时是「累积」那组 HUD 的唯一显隐闸（`SetupBoardPhase.c:179-196`），否则教程里的教学点永远演示不出来。判据全文 → `资料/完全复刻/报告/B88_J1_两条悬案裁定.md` §悬案1。调度台 2026-10-27 裁定。
                 _tutorial = v;
                 return _tutorial;
             }

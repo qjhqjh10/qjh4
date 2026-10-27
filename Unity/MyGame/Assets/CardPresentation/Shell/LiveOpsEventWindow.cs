@@ -565,7 +565,7 @@ namespace CardPresentation
             //    ⇒ 推进交给常驻 `SearchOpponentManager`（判据 = 原版 `SearchingOpponentWindow` 没有 `Update`，
             //    倒计时在 `SearchOpponentManager._WaitForHumanOpponent` 的协程上）。
             _search = SearchingMatchPopup.Attach(transform, "Searching Oponent Popup (1)", false);
-            _search.OnCancel = CancelSearch;
+            _search.OnCancel = CancelSearch; ScheduleExpiryRefresh();   // 原版 OnRefresh 的本地触发点（事件到期）
         }
 
         /// <summary>关窗时**顺手把匹配停掉** —— 原版那个弹窗 `ESCPressed()` 就是 `Close()` **+ `CancelSearch()`**
@@ -573,7 +573,7 @@ namespace CardPresentation
         /// （宿主 GO 关掉 `Update` 会停，但状态没清、窗口再开还能看到旧进度）。</summary>
         public override void Close()
         {
-            if (_search != null) _search.Cancel();
+            if (_search != null) _search.Cancel(); ReleaseExpiryRefresh();   // 到期刷新那一班要跟着撤（同 `_search` 的口径）
             base.Close();
         }
 
@@ -1989,5 +1989,84 @@ namespace CardPresentation
         /// 基类在这里干任何事，都是**平白给排位窗加行为**。</para>
         /// <para>⛔ 也别把 `RefreshDeckColumn` 改成 `protected virtual` —— 那会动到所有子类的可见性契约。</para></summary>
         protected virtual void OnDeckColumnChanged() { }
+
+        // ============================================================ 🆕 2026-10-27（B88 · E11，追加在类尾）
+        //   **原版 `LiveOpsEventWindow<T>.OnRefresh()` 的等价实现**
+        //
+        // 判据（逐句 → `d:/2/tools/cpp2il/out_cpp2il_dev_ilspy/LiveOpsEventWindow.cs` 的 `OnRefresh`）：
+        //   `var handler = <本窗的 ILiveOpsHandler>;  var ev = handler.GetEvent(<事件 id>);`
+        //   `if (ev 取不到)  Close();  else if (窗不在顶层) ToFocus();`  —— 并把事件进度刷进界面。
+        //   ⚠️ 它是在 `InitializeWindow(ILiveOps)` 里挂到「事件刷新」回调上的（同一个方法末尾 `new Action(this, …)`）。
+        //   ⚠️ 本类的基类型是**泛型**，`decomp_full/` 里没有它的产物（`grep LiveOpsEventWindow` 只有
+        //      `__.ctor` / `__InitializeWindow`）⇒ 上面这份形状来自 ILSpy 版 + 账本
+        //      `日常_奖励.tsv` 第 374 行的 `差异` 列（两处一致）。
+        //
+        // 🔶 本地等价（原版两半都不可离线复刻，理由逐条写在这里）：
+        //   ① **「重取事件」的替代** = 查离线目录 `LiveOpsLocalCatalog.Find(EventId)`：查不到，或
+        //      「不可选 / 不在期」⇒ 视同原版的「取不到」⇒ `Close()`。判据来源 = `LiveOpsLocalEvent.Selectable`
+        //      （`enabled && uploadToLive`）+ `IsInPeriod`，两者都在 `Shell/LiveOpsLocalCatalog.cs` 里。
+        //   ② **「刷进度」的替代** = 重建整棵树（`Build()`）。我们的窗没有「进度对象引用」这一层，
+        //      重建是唯一能把面板刷到当前数据的路（`Build()` 本来就会先清空自己名下所有子件）。
+        //   ③ **触发点** = `LiveOpsScheduler.Schedule(EventEndUtc, OnRefresh)`（原版由服务器推刷新；
+        //      本地唯一能定的时刻就是**事件截止**）—— `Open()` 末尾挂、`Close()` 撤（与 `_search` 同口径）。
+        //
+        // ⚠️ **今天这条链是休眠的**：13 份活动 SO **全部过期** ⇒ 没有任何窗拿到事件实例 ⇒
+        //    `EventId` 一直是 null ⇒ 既不排期、也不重建（`ScheduleExpiryRefresh` 直接返回）。
+        //    ⛔ 这不是「写死 false」：宿主/子类一旦把 `EventId` 填上（或将来 SO 在期），它立刻按上面跑。
+
+        /// <summary>本窗绑定的事件 id（原版 `LiveOpsEventWindow&lt;T&gt;.LiveOp.GetID()` 的等价物）。
+        /// ⚠️ **由打开它的那一侧填**（`ParentEventWindow` 的页签 / 活动弹窗那一族）；
+        /// 没填 = 本窗不是由事件实例开的（今天就全是这种）⇒ 到期刷新不排期。</summary>
+        public string EventId;
+
+        LiveOpsScheduledRefresh _expiryRefresh;
+
+        /// <summary>原版 `protected virtual void OnRefresh()`。
+        /// <list type="bullet">
+        /// <item>取不到（`Find` 空 / 不可选 / 不在期）⇒ `Close()`（**并出声**，⛔ 不静默关窗）。</item>
+        /// <item>取到 ⇒ 重建界面（= 原版「把进度刷进界面」的等价物），不在顶层则 `ToFocus()`。</item>
+        /// </list></summary>
+        public virtual void OnRefresh()
+        {
+            if (string.IsNullOrEmpty(EventId))
+            {
+                // 没有事件实例 ⇒ 原版这一刻**根本不会收到**这个回调（`InitializeWindow` 没挂上）。
+                // ⇒ 我们也不做任何事（不关窗、不重建），行为与「回调没发生」一致。
+                return;
+            }
+            var now = LiveOpsLocalCatalog.NowUtc;
+            var ev = LiveOpsLocalCatalog.Find(EventId);
+            bool usable = ev != null && ev.Selectable && ev.IsInPeriod(now);
+            if (!usable)
+            {
+                Debug.Log("[Event] `OnRefresh`：事件 `" + EventId + "` 取不到"
+                        + (ev == null ? "（离线目录里没有这个 id）" : "（不可选或已不在期）")
+                        + " ⇒ 照原版关窗。");
+                Close();
+                return;
+            }
+            Build();                                   // ② 刷进度 = 重建（见上）
+            var mgr = WindowsManager.Instance;
+            if (mgr != null && mgr.TopWindow != this) ToFocus();   // 原版 `base.ToFocus()`
+        }
+
+        /// <summary>排一次「事件截止 ⇒ `OnRefresh`」（原版由服务器推刷新，本地唯一能定的时刻就是截止）。
+        /// 没有 <see cref="EventId"/> 或目录里查不到 ⇒ 不排（返回）。</summary>
+        void ScheduleExpiryRefresh()
+        {
+            ReleaseExpiryRefresh();
+            if (string.IsNullOrEmpty(EventId)) return;
+            var ev = LiveOpsLocalCatalog.Find(EventId);
+            if (ev == null || !ev.Selectable) return;
+            _expiryRefresh = LiveOpsScheduler.Schedule(ev.EndUtc, OnRefresh);
+        }
+
+        /// <summary>撤掉那一班（关窗时调；`LiveOpsScheduler.Release` 幂等）。</summary>
+        void ReleaseExpiryRefresh()
+        {
+            if (_expiryRefresh == null) return;
+            LiveOpsScheduler.Release(_expiryRefresh);
+            _expiryRefresh = null;
+        }
     }
 }

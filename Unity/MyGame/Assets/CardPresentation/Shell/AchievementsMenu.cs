@@ -623,5 +623,14 @@ namespace CardPresentation
             if (string.IsNullOrEmpty(fmt) || fmt == PointsTerm || fmt.IndexOf("{0}") < 0) fmt = PointsFallback;
             return string.Format(fmt, reward);
         }
+
+        // ============================================================ 类尾追加（B88_E10 2026-10-27 · 账 `个人资料_成就_排行:48`）
+        /// <summary>原版 `AchievementsMenu.OnOpen()`（`AchievementsMenu.cs:298`）体**就一句** `Refresh()`
+        /// （🥇 `decomp_full/AchievementsMenu__OnOpen.c:5-8` = 转调 `Refresh`）⇒ **每次切到成就页重画**。
+        /// 我们原来没覆写（`WindowTabBase.OnOpen` 是空实现，`TryOpenTab` = `SetActive(true); OnOpen();`）
+        /// ⇒ 切回本页**不重画**，只有切分类或滚动才重建。
+        /// 🔑 我们的等价物 = `RebuildCells()`（「清空 + 逐条重画」= 原版 `Refresh()` 的形状）。
+        /// ⚠️ 追加在**类尾**（⛔ 不插中间：本文件账落点 `:320` 在它之前，插中间会漂）。</summary>
+        public override void OnOpen() { RebuildCells(); }
     }
 }

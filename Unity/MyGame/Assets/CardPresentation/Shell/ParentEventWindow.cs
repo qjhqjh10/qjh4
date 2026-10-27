@@ -1176,12 +1176,13 @@ namespace CardPresentation
                                        P1TeamFont, P1TeamMin, QPageText, P1TeamMax, P1TeamBase, face: TmpFont.Face.LatinCardBody);
             if (cap != null) MenuDraw.SetVAlign(cap, Label.VAlign.Capline, Scr(captainR));
 
-            // 整张队伍卡是 `EverguildButton` —— 选阵营要走服务器（`PlayfabWrapper.GenericCloudScriptHandler(0x45b, …)`）
-            // ⇒ 本地**点了只出声**（⛔ 不假装选中）。
+            // 整张队伍卡是 `EverguildButton` —— 原版选阵营 = `TwoSidesEvent_ChooseSideTab.TeamSelected`
+            //   → `PlayfabWrapper.GenericCloudScriptHandler(0x45b, …)`（服务端写存档）。
+            // ✅ 2026-10-27（B88_J2）：本机等价物 = `ContainerButtonClick` → `TeamSelected` → `SelectTeam`
+            //   （只记本进程的 `SelectedTeamId` 并回调 `OnTeamSelectionCompleted` → `CheckAndOpenTab`）。
+            //   🔶 teamId 原版来自 `TwoSidesEventData.TeamInfo`（远端数据，本机没有）⇒ 用位置标识 `A`/`B`。
             MenuDraw.Hit(bg, "Hit", Scr(card), QHit,
-                         () => Debug.LogWarning("[ParentEvent] 选择阵营（" + (isA ? "A" : "B") + "）需要服务器："
-                                              + "原版走 `TwoSidesEvent_ChooseSideTab.TeamSelected` → "
-                                              + "`GenericCloudScriptHandler(0x45b, …)`；本地没有 LiveOps 后端 ⇒ **不假装选中**。"),
+                         () => ContainerButtonClick(isA ? "A" : "B"),
                          null, null, null, null, null, clickCue: WindowSounds.DefaultButtonCue);
         }
 
@@ -1452,5 +1453,80 @@ namespace CardPresentation
             }
             return t;
         }
+
+        // ============================================================ 双阵营「选边」（原版 `TwoSidesEvent` 一族）
+        //
+        // 判据（🥇 decomp_full 真体，四条一一对应）：
+        //   TwoSidesEvent.SelectTeam(string teamId, Action onComplete)
+        //     → `decomp_full/TwoSidesEvent__SelectTeam.c`：若事件非空 → 判 id 空白则 `CustomDebug.LogError`，
+        //       否则 `PlayfabWrapper.GenericCloudScriptHandler(0x45b, payload, onComplete)`（**唯一动作 = 调云函数**）
+        //   TwoSidesEvent_ChooseSideTab.TeamSelected(TeamInfo)
+        //     → `decomp_full/TwoSidesEvent_ChooseSideTab__TeamSelected.c`：与 SelectTeam **同一段**云调用（0x45b），
+        //       回调 = `UIGenericEventCatcher.SourceDelegate`（转发给事件）
+        //   TwoSidesEvent_ChooseSideTab.OnTeamSelectionCompleted()
+        //     → `decomp_full/TwoSidesEvent_ChooseSideTab__OnTeamSelectionCompleted.c`：`TwoSidesEventWindow.CheckAndOpenTab(window)`
+        //   TwoSidesEventSelectTeamContainer.ContainerButtonClick()
+        //     → `decomp_full/TwoSidesEventSelectTeamContainer__ContainerButtonClick.c`：转发给容器的 `onTeamSelected(teamInfo)`
+        //
+        // 🔶 自己设计（非原版）：**选边结果的落地方式** —— 原版只把 teamId 交给 PlayFab 云函数 0x45b
+        //   （服务端写玩家存档），本机没有 LiveOps 后端（P3）· 调度台 2026-10-27 裁定（B88_J2 批次）
+        //   为什么必须自己定：判据里的**唯一动作是那次云调用**，而云函数在远端、返回值/落库都不在本地；
+        //   本机等价物 = 「记下本机选中的 teamId」+ 立刻回调（与云函数成功回调同形）。
+        //   ⛔ 这不是「假装服务端成功了」：`SelectTeam` 里**没有**任何写玩家存档的动作，
+        //   只有 <see cref="SelectedTeamId"/> 这一个**本进程**字段，且未选中时 `CheckAndOpenTab` 照旧停在选边页。
+        // ⚠️ 追加在**类尾**（上面那些行号被账引用，插在中间会造成漂移）。
+
+        /// <summary>本机记住的「我选了哪一边」（空 = 还没选）。原版这个值只在服务端存档里
+        /// （`TwoSidesEvent` 的选边结果），我们这边**只活在本进程**（见上面「自己设计」）。</summary>
+        public static string SelectedTeamId { get; private set; }
+
+        /// <summary>≡ 原版 `TwoSidesEvent.SelectTeam(string teamId, Action onComplete)`：
+        /// id 为空/空白 ⇒ `Debug.LogError` 并**不回调**（原版那一支走的是 `CustomDebug.LogError` 后 return）；
+        /// 否则记下 teamId → 回调 `onComplete`（原版 = 云函数成功回调，本机 = 立即）。
+        /// <para>⚠️ 原版还先判「事件非空」；我们没有那个事件对象 ⇒ 该闸恒真（记为等价）。</para></summary>
+        public static void SelectTeam(string teamId, System.Action onComplete)
+        {
+            if (string.IsNullOrEmpty(teamId) || teamId.Trim().Length == 0)
+            {
+                Debug.LogError("[ParentEvent] SelectTeam 收到空 teamId（原版同一档 `CustomDebug.LogError` 后不回调）");
+                return;
+            }
+            SelectedTeamId = teamId;
+            Debug.Log("[ParentEvent] 选边 = " + teamId + "（🔶 本机记账；原版走 `GenericCloudScriptHandler(0x45b, …)`）");
+            if (onComplete != null) onComplete();
+        }
+
+        /// <summary>≡ 原版 `TwoSidesEvent_ChooseSideTab.TeamSelected(TeamInfo teamInfo)`：
+        /// 取 `teamInfo` 的 id → 同一段选边调用，回调 = <see cref="OnTeamSelectionCompleted"/>。
+        /// 原版的回调是 `UIGenericEventCatcher.SourceDelegate`（转发给事件）⇒ 这里直接调完成口。</summary>
+        public void TeamSelected(string teamId)
+        {
+            SelectTeam(teamId, OnTeamSelectionCompleted);
+        }
+
+        /// <summary>≡ 原版 `TwoSidesEvent_ChooseSideTab.OnTeamSelectionCompleted()`：
+        /// `TwoSidesEventWindow.CheckAndOpenTab(window)`。我们等价物 = <see cref="CheckAndOpenTab"/>。</summary>
+        public void OnTeamSelectionCompleted()
+        {
+            CheckAndOpenTab();
+        }
+
+        /// <summary>≡ 原版 `TwoSidesEventSelectTeamContainer.ContainerButtonClick()`：
+        /// 把点击转发给容器的 `onTeamSelected(teamInfo)` —— 即 <see cref="TeamSelected"/>。</summary>
+        public void ContainerButtonClick(string teamId)
+        {
+            TeamSelected(teamId);
+        }
+
+        /// <summary>≡ 原版 `TwoSidesEventWindow.CheckAndOpenTab(window)`（判据 = 本文件头 `:30-31` 那一行）：
+        /// 「玩家已选阵营 ⇒ 开进行中页；否则留在选边页」。原版读服务端存档，我们读 <see cref="SelectedTeamId"/>。</summary>
+        public void CheckAndOpenTab()
+        {
+            if (!string.IsNullOrEmpty(SelectedTeamId)) OpenPage(Page.OnGoing);
+            else OpenPage(Page.ChooseSide);
+        }
+
+        /// <summary>自检用：把本机选边状态清掉。</summary>
+        public static void ResetTeamSelectionForTest() { SelectedTeamId = null; }
     }
 }

@@ -797,5 +797,135 @@ namespace CardPresentation
                     if (cid != null && hiddenCardIds.Contains(cid)) return false;
             return true;
         }
+
+        // ============================================================ 活动卡组表（原版 `PlayerDataManager.fullEventAvailableDecks`）
+        //
+        // 判据（🥇 反编译真体，六段一一对应）：
+        //   GetClosedDeckById      → cpp2il dev PlayerDataManager.cs:12242-12271 · decomp_full/PlayerDataManager__GetClosedDeckById.c
+        //   GetClosedDeckByPackIds → cpp2il dev PlayerDataManager.cs:12272-12380 · decomp_full/PlayerDataManager__GetClosedDeckByPackIds.c
+        //   GetDeckIdWithPacks     → cpp2il dev PlayerDataManager.cs:12382-12406 · decomp_full/PlayerDataManager__GetDeckIdWithPacks.c
+        //   GetPackById            → cpp2il dev PlayerDataManager.cs:12407-12440 · decomp_full/PlayerDataManager__GetPackById.c
+        //   GetClosedDeckByCards   → cpp2il dev PlayerDataManager.cs:12441-12520 · decomp_full/PlayerDataManager__GetClosedDeckByCards.c
+        //   IsEventDeckFromWarlord → cpp2il dev PlayerDataManager.cs:8209-8260  · decomp_full/PlayerDataManager__IsEventDeckFromWarlord.c
+        // 六条的共同形状 = **纯客户端查表**（`Enumerable.Where` + `FirstOrDefault`），没有一处服务器调用。
+        // 唯一的外部依赖 = `fullEventAvailableDecks` 那张活动卡组表（PlayFab 下发，P3 数据）。
+        //
+        // 🔶 自己设计（非原版）：活动卡组表 `fullEventAvailableDecks` 的本地替身 · 原版那张表由 PlayFab 下发，
+        //   本机 0 命中（P3 数据，按方案 §五边界②「数据本地模拟 + 出声」）· 调度台 2026-10-27 裁定（B88_J2 批次）
+        //   为什么必须自己定：函数体是纯客户端查表（判据在、数据不在）；空表 = 与「云端没有活动卡组」等价。
+        //   接口留在这里是为了 ① 负例造得出来（`SetEventDecksForTest`）② 将来接回远端只改装载那一行。
+        // ⚠️ 追加在**类尾**（上面那些行号被账引用，插在中间会造成漂移）。
+
+        static List<Deck> _eventDecks;
+
+        /// <summary>原版 `fullEventAvailableDecks` 的本地替身（默认空表 = 云端没有活动卡组）。
+        /// 元素只用到 `deckId` / `heroId` / `cardIds` 三格；`Deck` 的其余字段不影响这六个方法。</summary>
+        public static IList<Deck> EventDecks
+        {
+            get { if (_eventDecks == null) _eventDecks = new List<Deck>(); return _eventDecks; }
+        }
+
+        /// <summary>自检 / 将来远端装载用：整表替换。传 null = 清空。</summary>
+        public static void SetEventDecksForTest(IList<Deck> decks)
+        {
+            _eventDecks = new List<Deck>();
+            if (decks != null) foreach (var d in decks) if (d != null) _eventDecks.Add(d);
+        }
+
+        /// <summary>≡ 原版 `PlayerDataManager.GetClosedDeckById(string deckId)`（判据见上面那一段）：
+        /// `fullEventAvailableDecks.Where(x =&gt; x != null &amp;&amp; x.deckId == deckId).FirstOrDefault()`。
+        /// 查不到给 null（原版 `FirstOrDefault` 同一档）。</summary>
+        public static Deck GetClosedDeckById(string deckId)
+        {
+            if (string.IsNullOrEmpty(deckId)) return null;
+            var all = EventDecks;
+            for (int i = 0; i < all.Count; i++)
+            {
+                var d = all[i];
+                if (d != null && d.deckId == deckId) return d;
+            }
+            return null;
+        }
+
+        /// <summary>≡ 原版 `GetClosedDeckByCards(RawCardScript warlord, List&lt;RawCardScript&gt; cards)`：
+        /// 在活动卡组里找**督军相同的**每一副 → 拷一份它的 `cardLibraryIds` → 逐张 `Remove(card.uniqueId)` →
+        /// **一张不剩**的那一副就是答案（第一副命中的）。没有 ⇒ null。
+        /// <para>原版 `DeckHero` 是 PPtr 比引用；我们比 `Deck.heroId == warlordHeroId`（同一条「按 id 认牌」）。</para></summary>
+        public static Deck GetClosedDeckByCards(string warlordHeroId, IList<string> cardIds)
+        {
+            var all = EventDecks;
+            for (int i = 0; i < all.Count; i++)
+            {
+                var d = all[i];
+                if (d == null || d.heroId != warlordHeroId) continue;
+                var rest = new List<string>(d.cardIds != null ? d.cardIds : new string[0]);
+                if (cardIds != null)
+                    for (int k = 0; k < cardIds.Count; k++)
+                        if (cardIds[k] != null) rest.Remove(cardIds[k]);
+                if (rest.Count == 0) return d;
+            }
+            return null;
+        }
+
+        /// <summary>≡ 原版 `IsEventDeckFromWarlord(string warlordId, string deckId)`：
+        /// 按 `deckId` 取活动卡组 → 有、且它的督军 == `warlordId` ⇒ true；
+        /// **取不到 / 没有督军** ⇒ 原版 `CustomDebug.LogError("Can't find deckFaction")` + false（照抄，含那句日志）。</summary>
+        public static bool IsEventDeckFromWarlord(string warlordId, string deckId)
+        {
+            var d = GetClosedDeckById(deckId);
+            if (d != null && !string.IsNullOrEmpty(d.heroId))
+                return d.heroId == warlordId;
+            Debug.LogError("[Prebuilt] Can't find deckFaction（IsEventDeckFromWarlord deckId=" + deckId + "）");
+            return false;
+        }
+
+        /// <summary>≡ 原版 `GetPackById(string packId)`：在全部 `PrebuiltPack` 里按 `packId` 取第一张。
+        /// 落点 = <see cref="DraftPacks.Resolve"/>（**同一份数据、同一张表**：882 个包）。
+        /// <para>⚠️ 类型差异（如实标）：原版返回 `PrebuiltPack` SO；我们返回 <see cref="DraftPacks.PackDto"/>。</para></summary>
+        public static DraftPacks.PackDto GetPackById(string packId)
+        {
+            return DraftPacks.Resolve(packId);
+        }
+
+        /// <summary>≡ 原版 `GetDeckIdWithPacks(List&lt;string&gt; prebuiltPacks)`：逐个 `GetPackById`，
+        /// 取到的就把 **`pack.packId + ";"`** 追加（**查不到的包静默跳过** —— 原版那句 `if (packById != null)`）；
+        /// 入参 null ⇒ 返回空串。</summary>
+        public static string GetDeckIdWithPacks(IList<string> prebuiltPacks)
+        {
+            if (prebuiltPacks == null) return "";
+            var sb = new System.Text.StringBuilder();
+            for (int i = 0; i < prebuiltPacks.Count; i++)
+            {
+                var p = GetPackById(prebuiltPacks[i]);
+                if (p != null) sb.Append(p.packId).Append(';');
+            }
+            return sb.ToString();
+        }
+
+        /// <summary>≡ 原版 `GetClosedDeckByPackIds(string warlordId, List&lt;string&gt; packIds)`：
+        /// 督军存在 ⇒ 每个 packId 取包 ⇒ 组一副 ClosedDeck；`packIds == null` ⇒ 出声 + 空牌组；
+        /// **督军不存在** ⇒ 原版 `CustomDebug.LogError("GetClosedDeckByPackIds hero null")` + null。
+        /// <para>落点 = <see cref="DraftPacks.BuildClosedDeck"/>（同一段「包 → 12 张」的逻辑，⛔ 不另写一份）。</para>
+        /// <para>⚠️ 差异（如实标）：① 原版按 `uniqueId` 在 `FullHeroCollection` 里找督军 SO，我们只判
+        /// <paramref name="warlordId"/> 非空（本地没有「英雄总表」）；② 原版 warlordId 是 **string**，
+        /// `DraftPacks.ClosedDeck.warlordId` 是 **int**（那一格的类型差异已在 DraftPacks 文件头记录）
+        /// ⇒ 这里填 **0** 并保留原版的空/缺判据，⛔ 不猜一个阵营号。</para></summary>
+        public static DraftPacks.ClosedDeck GetClosedDeckByPackIds(string warlordId, IList<string> packIds)
+        {
+            if (string.IsNullOrEmpty(warlordId))
+            {
+                Debug.LogError("[Prebuilt] GetClosedDeckByPackIds hero null（未给 warlordId）");
+                return null;
+            }
+            if (packIds == null)
+            {
+                Debug.Log("[Prebuilt] GetClosedDeckByPackIds packIds null ⇒ 空牌组");
+                return new DraftPacks.ClosedDeck
+                {
+                    warlordId = 0, cardIds = new string[0], packKeys = new string[0], packIds = new string[0],
+                };
+            }
+            return DraftPacks.BuildClosedDeck(0, packIds);
+        }
     }
 }

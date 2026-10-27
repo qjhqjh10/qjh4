@@ -2032,6 +2032,48 @@ namespace RuleEngine
             if (inst != null && inst.Id >= 0) InitialDeckInstanceIds.Add(inst.Id);
             return inst;
         }
+
+        // ==================================================================
+        //  🆕 2026-10-28（第八十八会话 · 执行代理 `A1`）：**战术卡 oath「平 / 誓二选一」的答案格**
+        // ==================================================================
+        //  判据 → `资料/完全复刻/判据/B88_R3_oath二选一_判据.md` §一（两个变体 SO）/ §三（时机）。
+        //  🔶 自己设计（非原版）：这里存的是一个**布尔答案**（`true` = 付誓约、走完整效果），
+        //  不是原版的「选哪一个 `RawCardScript` 变体」。为什么必须自己定：我们池里是**一张合并卡**
+        //  （oath 效果并进 `desc`，两个变体 id 只是元数据、都不在池内）⇒ 照原版「选变体 SO」落地
+        //  会动 `cards_engine` / 卡号 / 池口径（判据 §5·0 口径 B：不推荐、面广）。调度台 2026-10-28 裁定。
+        //  ⚠️ **带座位号**：单机对局里两边共用这一个 `BattleContext` ⇒ 不带座位的话，
+        //     玩家答的那一格会被**对手（AI / 远端）**的下一次 oath 出牌吃掉（静默错结算）。
+        //  ⚠️ **一次一取**（`TakeOathAnswer` 取完即清）：一格答案只对应「那一次出牌」。
+        //  ⚠️ 表现层**只在真的要问的时候**写它（`BattleDriver.ShowAsk` 的 `chooseoath` 分支）；
+        //     引擎**只在原版那道闸成立时**读它（`RuleCore.DecideOathChoice`）⇒ 两边同条件。
+        int _oathAnswerSeat = -1;
+        bool _oathAnswerPay;
+        bool _oathAnswerHas;
+
+        /// <summary>表现层：玩家在「平 / 誓」面板上答了一条。`seat` = 答话的那个座位。</summary>
+        public void SetOathAnswer(int seat, bool pay)
+        {
+            _oathAnswerSeat = seat; _oathAnswerPay = pay; _oathAnswerHas = true;
+        }
+
+        /// <summary>引擎：取这一次出牌的答案（**只有座位对得上才算**，取完即清）。没有答案 ⇒ false。</summary>
+        public bool TakeOathAnswer(int seat, out bool pay)
+        {
+            pay = false;
+            if (!_oathAnswerHas || _oathAnswerSeat != seat) return false;
+            pay = _oathAnswerPay;
+            ClearOathAnswer();
+            return true;
+        }
+
+        /// <summary>还有没有没人取的答案（自检 / 防守性清理用）。</summary>
+        public bool HasOathAnswer { get { return _oathAnswerHas; } }
+
+        /// <summary>清掉这一格（表现层每次出牌前 / 判「付不起」时作废用）。</summary>
+        public void ClearOathAnswer()
+        {
+            _oathAnswerHas = false; _oathAnswerSeat = -1; _oathAnswerPay = false;
+        }
     }
 
     /// <summary>对局**类型** = 原版 `MatchType`（`d:/2/tools/il2cpp_out/dump.cs:27369-27391`，

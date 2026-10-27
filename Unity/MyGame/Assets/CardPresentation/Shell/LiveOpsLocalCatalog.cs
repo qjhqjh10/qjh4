@@ -35,7 +35,7 @@
 // （例 `d:/2/新解包资源/assets_full/bundle_cosmeticsso_assets_all/MonoBehaviour/Expansion Orks1 Scoring Event.json`）。
 // `EventAssets` 的 bundle 名来自 `Unity/数据/索引/guid_map.tsv`（GUID → bundle）；
 // 取不到 bundle 的照实写 `"?"`（⛔ 不猜；例 `ba6b95f7…` = EC Parent 的 `OpenSound`）。
-// ⚠️ **本轮没有解**「`EventComponents` 的 GUID → 具体 prefab 名」—— 只存 GUID（见报告「没查清」）。
+// ⚠️ 2026-10-27 更正：原来写「本轮没有解 `EventComponents` 的 GUID → 具体 prefab 名」——**不成立，本地能解**：`bundle_menus_assets_all/AssetBundle/AssetBundle_1.json` 的 `m_Container` 给 GUID→`m_PathID`，再按 `GameObject/*.json` 的 `m_Component` 反查根名（实读表 → `判据/B88_P1两条判据.md` §3.3；装配 → `Shell/LiveOpsHandler.cs` 的 `LiveOpsLocalBoot`）。本类仍只存 GUID（够用：解析在消费端按 label 现查）。
 //
 // ============================ 16 个键 / 12 个承载面 ============================
 // 16 个 `Event_Description/*` 键里：
@@ -161,7 +161,7 @@ namespace CardPresentation
     }
 
     /// <summary>一个活动实例（= 一份 SO 的离线等价物）。</summary>
-    public sealed class LiveOpsLocalEvent
+    public sealed partial class LiveOpsLocalEvent
     {
         public string EventId;
         /// <summary>SO 的 `m_Name`（= 文件名去掉 `.json`，可复查坐标）。</summary>
@@ -187,14 +187,14 @@ namespace CardPresentation
         /// <summary>可被选中 = SO 自己说「启用且上过 live」。</summary>
         public bool Selectable { get { return Enabled && UploadToLive; } }
 
-        /// <summary>在期判据 = `start ≤ now < end`（右开）。⚠️ `expireDate` **不参与**「在期」——
-        /// 那是结束**之后**的过期弹窗窗口，按用户边界不做。</summary>
+        /// <summary>🔴 **旧口径（保留兼容，⛔ 别再拿它判「现在开不开」）**：`start ≤ now < end`（含等号），与原版
+        /// `GetState` 六档不等价 ⇒ 判「当前活动」用 <see cref="GetState"/> / <see cref="IsCurrentlyActive"/>（`Shell/LiveOpsState.cs`）。</summary>
         public bool IsInPeriod(DateTime utc)
         {
             return utc >= StartUtc && utc < EndUtc;
         }
 
-        /// <summary>`now ≥ end` = 已过期（用户边界：不显示、不拿它顶空态）。</summary>
+        /// <summary>🔴 旧口径（同上）。原版「过期」= `GetState(now) == Expired`（用 `FinalDate`，不是 `endDate`）。</summary>
         public bool IsExpired(DateTime utc) { return utc >= EndUtc; }
 
         public bool TryGetLabel(int key, out LiveOpsLocalLabel label)

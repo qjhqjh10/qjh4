@@ -237,14 +237,24 @@ namespace CardPresentation
             return button;
         }
 
-        /// <summary>原版 `DestroyTab`（:553-568）。</summary>
+        /// <summary>原版 `DestroyTab`（:553-568）。判据 = `GameWindowWithTabs__DestroyTab.c` 全文（四句 + 一个 `try-get`）：
+        /// ① `tabs.Remove(tab)`；② `tabButtons.RemoveTabButton(tab)`；③ **「缓存里那一条就是这一页」才摘键**
+        /// （`Dictionary.TryGetValue(type, &cached)` 命中 **且** `Object.op_Equality(cached, tab)` 才 `Remove(type)`）；
+        /// ④ `Destroy(tab.gameObject)`。
+        /// <para>🔴 **2026-10-27（E9b · 账 318）就地订正（铁律 5）**，本轮改掉两处与原文不符的地方：
+        /// · ③ 原来**无条件** `_cachedTabs.Remove(tab.GetType())` —— 若同类型的缓存条目是**另一个实例**
+        ///   （重建过的那种），原版**不摘**、我们会把活的那条也摘掉 ⇒ 改成「命中且同引用」才摘。
+        /// · ⑤ 原版 **不清 `CurrentTab` / `CurrentTabView`**（留悬空 —— 靠 Unity 的「已销毁对象 == null」语义自然失效）；
+        ///   我们原来主动置 `null` / `None` ⇒ 「销毁当前页之后读 `CurrentTab`」两侧值不一样。已按原版删掉。</para></summary>
         public void DestroyTab(WindowTabBase tab)
         {
             if (tab == null) return;
             tabs.Remove(tab);
-            _cachedTabs.Remove(tab.GetType());
+            WindowTabBase cached;
+            if (_cachedTabs.TryGetValue(tab.GetType(), out cached) && ReferenceEquals(cached, tab))
+                _cachedTabs.Remove(tab.GetType());      // ③ 只有「就是这一页」才摘键
             if (tabButtons != null) tabButtons.RemoveTabButton(tab);
-            if (CurrentTabView == tab) { CurrentTabView = null; CurrentTab = WindowTabType.None; }
+            // ⑤ 原版**不清** `CurrentTab` / `CurrentTabView`（见 doc）—— ⛔ 别再加回来
             if (Application.isPlaying) Destroy(tab.gameObject);
             else DestroyImmediate(tab.gameObject);
         }

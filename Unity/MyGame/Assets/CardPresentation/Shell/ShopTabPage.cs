@@ -7,7 +7,7 @@ namespace CardPresentation
     // ============================================================ 一页
 
     /// <summary>商店的一页。原版 `ShopTab : WindowTabBase`（`CardShopTab` / `ItemShopTab` 都继承它）。
-    /// **三个页共用这一份 View**（实测三页逐节点同构，只差时间条的第一个子件）。</summary>
+    /// **四个页共用这一份 View**（🆕 2026-10-27：第 4 页 = VIP，原版 `VIPCardShopTab : CardShopTab`；前三页逐节点同构、只差时间条的第一个子件，VIP 页多一行 `VIP Status` 与一块非 VIP 遮罩 —— 见类尾）。</summary>
     public class ShopTabPage : WindowTabBase
     {
         public override WindowTabType Type
@@ -18,7 +18,7 @@ namespace CardPresentation
                 {
                     case 0: return WindowTabType.ShopCards;
                     case 1: return WindowTabType.ShopDaily;
-                    default: return WindowTabType.ShopItems;
+                    default: return _page == VipPage ? WindowTabType.ShopVip : WindowTabType.ShopItems;   // 第 4 页 = VIP（见类尾那一段）
                 }
             }
         }
@@ -244,7 +244,7 @@ namespace CardPresentation
 
             // ---- ① `daily shop header`（`Line` 出厂 INACT ⇒ 不建）----
             var hdr = MainMenuSubmenuWindow.Node(_root, "daily shop header", Header);
-            BuildTimeCounter(hdr, spec.TimerAsText);
+            BuildTimeCounter(hdr, spec.TimerAsText); if (_page == VipPage && ShopData.IsVip) BuildVipStatus(hdr);   // VIP 页多一行（原版 `daily shop header/VIP Status`；非 VIP 时整行 `SetActive(false)` ⇒ 不建，见类尾那一段）
 
             // ---- ② `Packs Scroll View` → `Viewport` → `Content`（GridLayoutGroup）----
             var sv = MainMenuSubmenuWindow.Node(_root, "Packs Scroll View", ScrollView);
@@ -270,7 +270,7 @@ namespace CardPresentation
             //   里那句 `vc.SetBaseRect(r)` 的位置理由（`CardPresentation/Shell/ViewportClip.cs`）。⛔ 别改成 `OnEnable` 里自动抓（文件头 `CardPresentation/Shell/ViewportClip.cs` 明令）。
             _gridVp.CaptureNow();
             var content = MainMenuSubmenuWindow.Node(vp, "Content", ScrollView);
-            BuildGrid(content);
+            BuildGrid(content); if (_page == VipPage && !ShopData.IsVip) BuildVipBlock(sv);   // 非 VIP ⇒ 原版把 `playerIsNotVIPObject`（`Packs Scroll View/No VIP` 整块遮罩）打开，见类尾那一段
 
             // ---- ③ `Empty Collection Warning`（出厂 INACT；原版在列表为空时显示）----
             var ew = MainMenuSubmenuWindow.Node(_root, "Empty Collection Warning", EmptyWarn);
@@ -347,14 +347,14 @@ namespace CardPresentation
                 _refreshTime = tm;
                 // 🆕 **2026-10-17（W_A_TimerDisplay）**：真倒计时 —— 原版这一格就是 `TimerDisplay`
                 //   （`ShopTab.Setup` → `TimerDisplay.Initialize(CheckTimer(...), "")`）。
-                //   · 目标 = **Cards 页的 9 点规则**（`CardShopTab.CheckTimer`；`<9 点取当天、否则次日` + 9h）；
-                //     ⚠️ Items 页原版走 `ItemShopTab.CheckTimer` 的 `IsTimedEvent`，我们**没有 store 数据**
-                //     ⇒ 三页统一按 9 点规则（**我们挑的**，已在报告里记账）。
+                //   🔴 **2026-10-27（B88_J1）就地订正（铁律 5）**：原来写「三页统一按 9 点规则（我们挑的）」——
+                //     原版 `SetStore` 第 ① 步是**按页问 `CheckTimer`**、假就**整块隐藏**，只有
+                //     `CardShopTab`/`CosmeticsShopTab` 返回 true ⇒ 现在按页分档（见方法 `PageShowsTimer`）。
                 //   · 本机时钟（无服务器 —— 本项目允许的偏离）。
-                //   · 原版这一颗 `useLastMinutesText = 1` ⇒ 最后 5 分钟描述串换成 `MainMenu/LastMinutes`
-                //     （`MonoBehaviour_-5363483528564307958.json` 实读；常量 `DAT_1834b3380` = 5.0）。
-                TimerDisplay.Attach(tm, () => TimerDisplay.ShopRefreshAt(System.DateTime.Now),
-                                    "", "商店 TimeCounter", null, TimerDisplay.LastMinutesText());
+                //   · 原版这一颗 `useLastMinutesText = 1` ⇒ 最后 5 分钟描述串换成 `MainMenu/LastMinutes`（`MonoBehaviour_-5363483528564307958.json` 实读；常量 `DAT_1834b3380` = 5.0）。
+                if (PageShowsTimer(out System.DateTime _timerDue))
+                    TimerDisplay.Attach(tm, () => TimerDisplay.ShopRefreshAt(System.DateTime.Now), "", "商店 TimeCounter", null, TimerDisplay.LastMinutesText());
+                else tc.gameObject.SetActive(false);   // 原版 `SetStore()` ②：`CheckTimer` 假 ⇒ 整块 `SetActive(false)`
             }
 
             // 居中排：总宽 = Σ + spacing×(n−1)，从容器中心往两边分
@@ -362,7 +362,7 @@ namespace CardPresentation
             for (int i = 0; i < widths.Count; i++) total += widths[i];
             total += 5f * (widths.Count - 1);
             float x = TimeCounter.CX - total * 0.5f;
-            for (int i = 0; i < parts.Count; i++)
+            for (int i = 0; i < parts.Count && tc.gameObject.activeSelf; i++)   // 整块被 `SetStore` 藏掉时不再量/摆（TMP 在未激活件上量不出尺寸）
             {
                 float w = widths[i];
                 float cx = x + w * 0.5f;
@@ -763,7 +763,38 @@ namespace CardPresentation
         /// <para>🆕 **2026-10-12（A439）：买到手 ⇒ 弹领奖窗**（非容器档那几件）。判据见下面那一段注释。</para></summary>
         string DoBuy(int idx)
         {
+            // ---- 🆕 2026-10-28（B88_B5）：**原版那一扇「正在处理您的购买…」等待框** ----
+            // 判据（🥇 VA 级反汇编 + 源码级还原 + 官方词条，三源一致）→
+            //   `资料/完全复刻/判据/B88_R6_ShopStore购买链_VA判定.md` §一/§二。
+            // 原版 `ShopStore.TryPurchase`（泛型实例 RVA `0x1253FA0`）的**第一句、早于任何分支**：
+            //   `WindowsManager.Instance.ShowPopUp("MenuShop/WaitingPopup", localizeTexts: true,
+            //                                     closeOnEsc: false, primaryButton: null, secondButton: null)`
+            // ⇒ **0 颗钮 · Esc 关不掉 · 只能等回包后由回调收掉**。
+            // 文案键现成（`official_loc_13lang.json`：EN `Processing your purchase...` · ZH `正在处理您的购买...`）
+            // ⇒ ⛔ 不用编文案。
+            // 🔴 **照原版结构原样接、⛔ 不加延迟**（调度台 2026-10-28 裁定）：我们的购买是**同步**的
+            //   ⇒ 这两句会在**同一帧内**开窗又关窗、玩家看不见 —— 那是**原版结构落在同步购买链上的副产品，
+            //   不是缺陷**（原版看得见是因为中间隔着一次网络往返）。⇒ 自检**只断结构**
+            //   （弹过 / 0 颗钮 / 随后被收掉），⛔ **不断「可见时长」**。
+            var wm = _win != null ? _win.Manager : null;
+            if (wm != null)
+            {
+                LastWaitingPopup = wm.ShowMessagePopUp(WaitingPopupTerm, null, null, null, null, closeOnEsc: false);
+                // 自检读口：弹起那一刻主钮是否已被藏掉（= 原版 0 颗钮那一档真的落地了）
+                LastWaitingPopupHadNoButton = LastWaitingPopup != null && !LastWaitingPopup.PrimaryVisible;
+            }
+            else
+            {
+                LastWaitingPopup = null;
+                LastWaitingPopupHadNoButton = false;
+                Debug.LogWarning("[Shop] 没有 `WindowsManager` ⇒ 弹不出原版那句「正在处理您的购买…」"
+                               + "（原版 `ShopStore.TryPurchase` 第一句：0 颗钮、Esc 关不掉）");
+            }
             string got = ShopData.Buy(_page, idx);
+            // = 原版三条回调的**共用第一句** `WindowsManager.HidePopUp(forceHide: true)`：
+            //   `ShopStore…TryPurchase_b__0.c:17` · `…HandlePurchaseComplete_1.c:13` · `…HandlePurchaseError_2.c:13`。
+            // ⚠️ 时序照原版：**先关等待框，再 `Setup()` / 开下一扇窗**（⛔ 别反过来 —— 两扇窗会抢栈顶）。
+            if (wm != null) wm.HidePopUp(true);
             Debug.Log("[Shop] 买了 " + got + "（**不做真实经济**：资源固定 2000（用户 2026-10-24 从 9999 改）、不扣钱 —— 用户 2026-09-17 边界②）");
             // 拥有数变了 ⇒ 重建这一页（**卡变了就重建视图**，同卡池那条纪律）
             Setup();
@@ -865,5 +896,272 @@ namespace CardPresentation
         {
             return "ShopPage[" + ShopData.PageLabel(_page) + "] 商品 " + ShopData.Offers(_page).Length + " 件";
         }
+
+        // ============================================================ 原版 `ShopTab.SetStore()` 的第 ① 步
+        // 🔶 自己设计（非原版）：三页 ↔ 原版类的**对应关系**本地没有判据（prefab 只给节点名），
+        //   而 `ItemShopTab.CheckTimer` 要的是 LiveOps store 事件数据（本机没有）；`DailyShopTab` 这个类
+        //   **原版根本不存在**（`grep "class .*ShopTab" dump.cs`：ShopTab / ItemShopTab / CardShopTab /
+        //   CosmeticsShopTab / GoldShopTab / BoosterShopTab / VIPCardShopTab）。⇒ **只有 Cards 页**
+        //   按 `CardShopTab` 的 9 点规则返回 true（🆕 VIP 页同理：`VIPCardShopTab : CardShopTab` **不 override `CheckTimer`** ⇒ 也是 true）；**Daily / Items 返回 false（整块隐藏）**。
+        //   依据 / 反证 / 还差什么 → `资料/完全复刻/报告/B88_J1_两条悬案裁定.md`「第二批」。调度台 2026-10-27 裁定。
+
+        /// <summary>原版 `ShopTab.SetStore()` 的第 ① 步：**先问本页「要不要显示刷新计时器」**
+        /// （虚方法 `CheckTimer(out DateTime timer)`；`decomp_full/ShopTab__SetStore.c:22-40`：
+        /// 假 ⇒ 整个 `TimeCounter` 块 `SetActive(false)`；真 ⇒ `SetActive(true)` ＋ `TimerDisplay.Initialize(timer, "")`）。
+        /// <para>四个 override（`dump.cs:91035 / 91086 / 91193 / 91733` 现读 ＋ 各自 `.c`）：
+        /// · 基类 `ShopTab.CheckTimer` = **恒 false**（`ShopTab__CheckTimer.c` 全文 = `out = DateTime.Now; return false;`）；
+        /// · `CardShopTab` / `CosmeticsShopTab` = **9 点规则**（`<9 点取当天、否则次日` ＋ 9h），返回 `0 &lt; (target−now).TotalMinutes`；
+        /// · `ItemShopTab` = `LiveOpsUtility.IsTimedEvent(store, out millis)`；
+        /// · `GoldShopTab` / `BoosterShopTab` **不 override** ⇒ 走基类 = false。</para></summary>
+        public bool PageShowsTimer(out System.DateTime due)
+        {
+            if (_page == 0 || _page == VipPage)   // Cards = 原版 `CardShopTab`（9 点规则）；VIP = 原版 `VIPCardShopTab : CardShopTab`，**它不 override `CheckTimer`** ⇒ 同一条 9 点规则
+            {
+                due = TimerDisplay.ShopRefreshAt(System.DateTime.Now);
+                return (due - System.DateTime.Now).TotalMinutes > 0.0;
+            }
+            due = System.DateTime.Now;   // 基类 `ShopTab.CheckTimer` 就是 `out = Now; return false;`
+            return false;
+        }
+
+        // ============================================================ VIP 页（第 4 页 · 原版 `VIPCardShopTab : CardShopTab`）
+        //
+        // ---- 判据（全部从解包资源 / 反编译字段读，⛔ 不是截图估的）----
+        // 几何：`工具/menu_dump.py bundle_menus_assets_all "Card Shop VIP Tab Variant"`
+        //   ＋ `工具/menu_rect.py bundle_menus_assets_all "Card Shop VIP Tab Variant" --size 1752.83x1009.06 --relative --cs`
+        //   （本页 prefab 的 `m_Father = 0` ⇒ 量法与另外三页**同一套**：相对 `Tabs` 左上角量，再统一 +(167.17, 70.94)）
+        // 生命周期（`d:/2/tools/decomp_full/VIPCardShopTab__{OnOpen,OnClose,ToFocus,VipTimerOnOnRunOutOfTime,CheckVIPState}.c` 逐方法）：
+        //   · `OnOpen`   = `RefreshOffers(); CheckVIPState();` ＋ 调试钮闸 ＋ `vipTimer.OnRunOutOfTime += VipTimerOnOnRunOutOfTime`
+        //   · `OnClose`  = `vipTimer.OnRunOutOfTime -= VipTimerOnOnRunOutOfTime;`（就这一句）
+        //   · `ToFocus`  = `RefreshOffers(); CheckVIPState();`
+        //   · `VipTimerOnOnRunOutOfTime` = `CheckVIPState();`
+        //   · `CheckVIPState` = `bool can = Store.CanPurchase;`（**本地逻辑**：`DailyStore.get_CanPurchase` RVA `0x8CC740` = `requiredItem == null || 背包里有它`；⛔ 不是服务端。铁律 5 订正 2026-10-28 B88_B5）⇒ `playerIsVIPObject.SetActive(can);`
+        //                       `playerIsNotVIPObject.SetActive(!can);` ＋（`can` 时）`vipTimer.Initialize(GetExpirationDate(RequiredItem))`
+        // 🔴 **那两个 GameObject 是谁，是现解 prefab 的 PPtr 定的**（⛔ 不是按名字猜 —— 树里有两个同名 `No VIP`）：
+        //   `playerIsVIPObject`    = PPtr `-8306817185179266151` = **`daily shop header/VIP Status/Yes VIP`**
+        //   `playerIsNotVIPObject` = PPtr `-252537654527552615` = **`Packs Scroll View/No VIP` 那整块遮罩**
+        //   ⛔ 头部那个同名 `No VIP`（`VIP Status/No VIP`）**不是它**：那个出厂 `m_IsActive = 0`，
+        //      而且全包**没有任何 MonoBehaviour 引用它** ⇒ 原版自己也不画 ⇒ 我们不建。
+        // ⚠️ 页头那颗 `Reset`（文案 `Grant VIP (1 day)`）就是 `DebugGrantVIPButton` 所在件
+        //   （PPtr `-5385996312866024551` → GO `Reset`）：`OnOpen` 里那道闸
+        //   `!EnvironmentHelper.IsPlayerFacingEnv && SettingsDebugButtons.DebugUIEnabledUI && Store.RequiredItem != null`
+        //   在**玩家面恒假** ⇒ 原版玩家看不到它 ⇒ **不建**（账 330 已按 debug-only 判 D）。
+
+        /// <summary>VIP 页在 `ShopData.Pages` 里的下标（第 4 页）。</summary>
+        public const int VipPage = 3;
+
+        /// <summary>页头那三颗字的官方词条（= 原版 prefab 里 `Localize.mTerm` 实读；EN/ZH 两列都在
+        /// `CardPresentation/Resources/official_loc_13lang.json`：`You are VIP. Time Remaining:` / `您是 VIP。剩余时间：`、
+        /// `You have to become VIP to access this store` / `您必须成为 VIP 才能访问此商店`、
+        /// `Stay consistent with your daily streak and you’ll gain VIP status.` / `坚持每日连胜，您将获得 VIP 身份。`）。</summary>
+        public const string VipHeaderTerm = "MenuShop/VIPCardStore/YouAreVIPHeader",
+                            VipNotTerm = "MenuShop/VIPCardStore/YouAreNotVIP",
+                            VipTooltipTerm = "MenuShop/VIPCardStore/YouAreNotVIPTooltip";
+
+        /// <summary>`VIP Status`（原版 `daily shop header/VIP Status`）：相对值 **720.72,12.10 → 1032.11,60.99**
+        /// （311.40 × 48.89 · 锚 `(0.5,1)-(0.5,1)` · `pos (0,−12.1)` ⇒ 挂在页头**顶边**、水平居中）
+        /// ＋ `Tabs` 左上角 **(167.17, 70.94)** ⇒ 绝对 **887.89,83.04 → 1199.28,131.93**。</summary>
+        public static readonly PxRect VipStatus = new PxRect(887.89f, 83.04f, 1199.28f, 131.93f);
+        /// <summary>`VIP Icon`（`40K_icon_card_VIP` 512²、`Simple + preserveAspect` ⇒ 画出来 68.353²）：
+        /// 锚 `(0,0.5)` of `Yes VIP` · `pos (−34.176,0)` ⇒ **右边缘贴着 `Yes VIP` 的左边缘**（= `VIP Status` 的左边）
+        /// ⇒ 绝对 **819.54,73.31 → 887.89,141.66**。</summary>
+        public static readonly PxRect VipIcon = new PxRect(819.54f, 73.31f, 887.89f, 141.66f);
+        /// <summary>`VIP Timer`（221.56 × 48.889 · 锚 `(1,0.5)` of `Yes VIP` · `pos (+6.8999,0)`）
+        /// ⇒ 位置**随 `Yes VIP` 的宽度走**，而那颗字的宽在原版是 `ContentSizeFitter(h = PreferredSize)` 量出来的
+        /// ⇒ 我们**先建字、量渲染宽、再摆**（与 `BuildTimeCounter` 那条同一口径）。</summary>
+        public const float VipTimerGap = 6.9f, VipTimerW = 221.56f, VipTimerH = 48.889f;
+        /// <summary>非 VIP 遮罩：整块 = `Packs Scroll View` 同矩形（`No VIP` 与 `Block Input` 都是 `a(0,0)-(1,1)`）。</summary>
+        public static readonly PxRect VipBlock = ScrollView;
+        /// <summary>`Shadow drop`：`a(0,0)-(1,1)` ＋ `sizeDelta (−716.733,−798.19)` ⇒ 居中 873.51 × 154.19；
+        /// 绝对 = **688.12,526.72 → 1561.63,680.90**（图 `40k_Smooth shadow background` 102² · 九宫 50,50,50,50 ·
+        /// `m_Type = 1 Sliced` · 色 `(0,0,0,0.7647)` · `m_PixelsPerUnitMultiplier = 1`）。</summary>
+        public static readonly PxRect VipShadow = new PxRect(688.12f, 526.72f, 1561.63f, 680.90f);
+        /// <summary>遮罩上那行字（原版 `Packs Scroll View/No VIP/No VIP`：锚与轴心都居中 · `sizeDelta (0,112.064)`
+        /// ⇒ **宽也是 CSF 量出来的**）。⚠️ 宽度本地量不出 ⇒ 我们给一个**以遮罩中心为中心**的 800 宽框
+        /// （`Label` 出厂按框中心摆 ⇒ 视觉等价）；**高 112.064 与 y 是原版值**：547.78 → 659.84。</summary>
+        public static readonly PxRect VipBlockText = new PxRect(724.88f, 547.78f, 1524.88f, 659.84f);
+        /// <summary>遮罩上那颗 `tooltip trigger`（`40k_generic_bt_info` · 51.014 × 48.48 ·
+        /// `m_RaycastPadding = (−15,−15,−15,−15)`（**负 = 外扩**））。绝对 = **1136.98,579.57 → 1187.99,628.05**。</summary>
+        public static readonly PxRect VipTipIcon = new PxRect(1136.98f, 579.57f, 1187.99f, 628.05f);
+
+        /// <summary>VIP 页的渲染队列：**整块压在格子里最高的那一档（`QCellInfoHit = 3031`）之上**
+        /// —— 遮罩要同时挡住**视线与点击**（原版 `Block Input` 的 `m_RaycastTarget = 1`）。</summary>
+        public const int QVipBlock = 3033, QVipShadow = 3034, QVipText = 3035,
+                         QVipAbsorb = 3036, QVipTipHit = 3037;
+
+        /// <summary>VIP 页的到期倒计时（`OnClose` 要退订 ⇒ 留一份；节点被 `Setup()` 重建后 Unity 的 `!= null` 判假）。</summary>
+        TimerDisplay _vipTimer;
+        Transform _vipStatusNode, _vipBlockNode;
+
+        /// <summary>自检/诊断读口：VIP 状态行建了没有（= 原版 `playerIsVIPObject` 开着）。</summary>
+        public bool VipStatusShown { get { return _vipStatusNode != null; } }
+        /// <summary>自检/诊断读口：非 VIP 遮罩建了没有（= 原版 `playerIsNotVIPObject` 开着）。</summary>
+        public bool VipBlockShown { get { return _vipBlockNode != null; } }
+        /// <summary>自检/诊断读口：遮罩那颗「吃点击」的命中区（`PointerLayer` 取队列最高那颗 ⇒ 点价签不该买得到）。</summary>
+        public WindowButton VipBlockHit { get; private set; }
+
+        /// <summary>原版 `VIPCardShopTab.OnOpen` = `RefreshOffers(); CheckVIPState();`
+        /// ＋ 调试钮闸（玩家面恒假 ⇒ 不建，见本节头）＋ `vipTimer.OnRunOutOfTime += VipTimerOnOnRunOutOfTime`。
+        /// ⚠️ 我们这两步都落在 `Setup()` 里（`RefreshOffers` = 重建货架；`CheckVIPState` = 按 VIP 态建状态行 / 遮罩），
+        /// 订阅在 <see cref="BuildVipStatus"/> 里挂 —— ⛔ 别在别处再造一套（两处写同一条规则 = 迟早不一致）。</summary>
+        public override void OnOpen()
+        {
+            if (_page == VipPage) Setup();
+        }
+
+        /// <summary>原版 `VIPCardShopTab.OnClose` 全文一句：`vipTimer.OnRunOutOfTime -= VipTimerOnOnRunOutOfTime;`</summary>
+        public override void OnClose()
+        {
+            if (_vipTimer != null) _vipTimer.OnRunOutOfTime -= OnVipTimerRunOutOfTime;
+        }
+
+        /// <summary>原版 `VIPCardShopTab.ToFocus` = `RefreshOffers(); CheckVIPState();`</summary>
+        public override void ToFocus()
+        {
+            if (_page == VipPage) Setup();
+        }
+
+        /// <summary>原版 `VIPCardShopTab.VipTimerOnOnRunOutOfTime()` = `CheckVIPState();`
+        /// ⚠️ 本机的 VIP 到期时刻**机制在本地**（`InventoryManager.GetExpirationDate(Store.RequiredItem)` = 背包里那条实例的 `EphemeralEndTime`），缺的只是**输入** `RequiredItem`（那份 store SO 未导出）⇒ 取不到
+        /// ⇒ 计时器恒 `--`、这个回调**今天不会被触发**（如实记；⛔ 别为了「看起来会动」编一个到期时刻）。</summary>
+        void OnVipTimerRunOutOfTime()
+        {
+            if (_page == VipPage) Setup();
+        }
+
+        /// <summary>VIP 状态行（原版 `daily shop header/VIP Status`）—— **只有 VIP 态才建**
+        /// （原版 `playerIsVIPObject.SetActive(canPurchase)`；非 VIP 时整行不画）。</summary>
+        void BuildVipStatus(Transform hdr)
+        {
+            var status = MainMenuSubmenuWindow.Node(hdr, "VIP Status", VipStatus);
+            _vipStatusNode = status;
+
+            // `Yes VIP`：原版这颗 TMP `m_HorizontalAlignment = 1 (Left)` · `m_VerticalAlignment = 8192 (Capline)` ·
+            //   `fs 36` · 宽由 `ContentSizeFitter(h = PreferredSize)` 量（prefab 里 `sizeDelta.x = 0`）。
+            var yes = _win.Text(status, Loc.T(VipHeaderTerm), VipStatus.x1, VipStatus.x2,
+                                VipStatus.y1, VipStatus.y2, 5, Color.white, "Yes VIP", 36f,
+                                wrapPx: VipStatus.W, face: TmpFont.Face.LatinCardBody);
+            float textW = 0f;
+            if (yes != null)
+            {
+                // 原版那颗的宽 = 内容宽 ⇒ 不折行（`Text` 里那句 `SetWrapWidth` 会开 `Normal` ⇒ 这里显式还原，同 `RefreshText`）
+                yes.SetWrapping(false);
+                yes.SetRenderQueue(QVipText);
+                MenuDraw.AlignLeft(yes, VipStatus);                       // 原版 h = Left：字从 `VIP Status` 左边起
+                MenuDraw.SetVAlign(yes, Label.VAlign.Capline, VipStatus); // 原版 v = Capline (8192)
+                textW = yes.WorldW * 108f;
+            }
+
+            // `VIP Icon`：右边缘贴着 `Yes VIP` 的左边缘（见 `VipIcon` 的注释）
+            _win.Rect(status, "40K_icon_card_VIP", VipIcon, "VIP Icon", QVipText, null, true);
+
+            // `VIP Timer`：锚 `(1,0.5)` of `Yes VIP` + `pos (+6.8999,0)` ⇒ 起点 = 字宽之右
+            float tx1 = VipStatus.x1 + textW + VipTimerGap;
+            var timerR = new PxRect(tx1, VipStatus.y1, tx1 + VipTimerW, VipStatus.y1 + VipTimerH);
+            var timerNode = MainMenuSubmenuWindow.Node(status, "VIP Timer", timerR);
+            {
+                // `Icon`：`sizeDelta.x = 30` · `preserveAspect` ⇒ 画出来 30×30，竖向居中（同 `BuildTimeCounter` 那颗钟）
+                const float side = 30f;
+                var tex = _win.Art("WF_icon_clock");
+                if (tex != null)
+                {
+                    var ic = MainMenuSubmenuWindow.Node(timerNode, "Icon",
+                        new PxRect(timerR.x1, timerR.CY - side * 0.5f, timerR.x1 + side, timerR.CY + side * 0.5f));
+                    var q = ImageQuad.Create(ic, tex,
+                                             MainMenuSubmenuWindow.Local(ic, timerR.x1 + side * 0.5f, timerR.CY),
+                                             LayoutSpace.Px(side), new Vector2(0.5f, 0.5f), "Icon");
+                    if (q != null) { q.SetAspect((float)tex.width / tex.height); q.SetRenderQueue(QVipText); }
+                }
+            }
+            // `Timer Text`：`fs 32` · h = Left · v = Capline（8192）；从图标右边 30 起
+            var tt = _win.Text(timerNode, "--", timerR.x1 + 30f, timerR.x2, timerR.y1, timerR.y2, 5,
+                               Color.white, "Timer Text", 32f, wrapPx: timerR.W - 30f,
+                               face: TmpFont.Face.LatinCardBody);
+            if (tt != null)
+            {
+                tt.SetWrapping(false);
+                tt.SetRenderQueue(QVipText);
+                MenuDraw.SetVAlign(tt, Label.VAlign.Capline, timerR);
+                // 原版 `CheckVIPState`（can 那一支）：`vipTimer.Initialize(InventoryManager.GetExpirationDate(RequiredItem))`
+                // 🔴 那个到期时刻**机制在本地**（`InventoryManager__GetExpirationDate_object_.c` 逐句：背包里那条实例的 `EphemeralState.EphemeralEndTime`），缺的只是输入 `RequiredItem`（来自 LiveOps 的 `DailyStoreData`，那份 store SO 本地没有）
+                //    ⇒ 取不到 ⇒ 显示 `--` 并**出声一次**（`TimerDisplay` 的 `unknownReason`；⛔ 不编日期）。
+                _vipTimer = TimerDisplay.Attach(tt, () => ShopData.VipExpiresAt, "", "VIP 到期时间",
+                                               ShopData.VipExpiryUnknownReason, TimerDisplay.LastMinutesText());
+                // 原版 `OnOpen` 那一句 `vipTimer.OnRunOutOfTime += VipTimerOnOnRunOutOfTime`
+                if (_vipTimer != null) _vipTimer.OnRunOutOfTime += OnVipTimerRunOutOfTime;
+            }
+        }
+
+        /// <summary>非 VIP 时那块遮罩（原版 `Packs Scroll View/No VIP`）：
+        /// `Block Input`（黑 α 0.2196 整块吃点击）＋ `Shadow drop`（`40k_Smooth shadow background`）
+        /// ＋ 一行提示字 ＋ 一颗信息 `tooltip trigger`。</summary>
+        void BuildVipBlock(Transform sv)
+        {
+            var blk = MainMenuSubmenuWindow.Node(sv, "No VIP", VipBlock);
+            _vipBlockNode = blk;
+
+            // `Block Input`：prefab 里**没有 sprite**、色 `(0,0,0,0.2196)`、`m_RaycastTarget = 1`
+            //   ⇒ 原版就是「一整块黑 + 吃掉这一下」（面板上没有任何 `IPointerClickHandler` ⇒ 点了什么都不发生）。
+            _win.Rect(blk, null, VipBlock, "Block Input", QVipBlock, new Color(0f, 0f, 0f, 0.2196f));
+            // 命中区：**档必须高于格子里所有命中区**（`QCellInfoHit = 3031`），否则遮罩只挡视线、点价签照样买得到。
+            //   走 `MenuDraw.Absorb`（= 原版「面板自己吃射线、什么都不做」的等价物：`absorbOnly` 不悬停变色、
+            //   点击记录里也不会被误报成「忘了绑动作」）。⚠️ 它内部算 `q = qContentMin − 1` ⇒ 传 `QVipAbsorb + 1`。
+            var hit = MenuDraw.Absorb(blk, "BlockInputHit", VipBlock, QCellInfoHit, QVipAbsorb + 1);
+            VipBlockHit = hit != null ? hit.GetComponent<WindowButton>() : null;
+
+            // `Shadow drop`：`m_Type = 1 (Sliced)` · 九宫 50,50,50,50（贴图 102²）· 色 `(0,0,0,0.7647)`
+            _win.Nine(blk, "40k_Smooth_shadow_background", VipShadow, new Vector4(50f, 50f, 50f, 50f),
+                      QVipShadow, new Color(0f, 0f, 0f, 0.7647f), true, "Shadow drop", null, 102f, 102f);
+
+            // 那行字：色白 · `fs 51.11` · 折行 1 · h = Left / v = Midline (4096)（判据 = prefab 字段）；
+            //   框是**以遮罩中心为中心**的 800 宽（原版宽是 CSF 量的，见 `VipBlockText`），`Label` 出厂按框中心摆。
+            var txt = _win.Text(blk, Loc.T(VipNotTerm), VipBlockText.x1, VipBlockText.x2,
+                                VipBlockText.y1, VipBlockText.y2, 5, Color.white, "No VIP", 51.11f,
+                                wrapPx: VipBlockText.W, face: TmpFont.Face.LatinCardBody);
+            if (txt != null)
+            {
+                txt.SetRenderQueue(QVipText);
+                MenuDraw.SetVAlign(txt, Label.VAlign.Midline, VipBlockText);
+            }
+
+            // `tooltip trigger`（`40k_generic_bt_info`）：触发器字段原样 —— `text` 见 `VipTooltipTerm` · `localize = 1` ·
+            //   `title = ""` · `tooltipAnchor = 17 (TopCenter)` · `offset = (0, −52.06, 0)` · `registerEvents = 1` ·
+            //   `preventPassingClickEventToParent = 0`（⇒ 点它什么都不做）· `m_RaycastPadding = (−15,−15,−15,−15)`。
+            _win.Rect(blk, "40k_generic_bt_info", VipTipIcon, "tooltip trigger", QVipText, null, true);
+            var tipHit = MenuDraw.Hit(blk, "Hit",
+                                      new PxRect(VipTipIcon.x1 - 15f, VipTipIcon.y1 - 15f,
+                                                 VipTipIcon.x2 + 15f, VipTipIcon.y2 + 15f),
+                                      QVipTipHit, null);
+            var wb = tipHit != null ? tipHit.GetComponent<WindowButton>() : null;
+            if (wb != null)
+            {
+                // ⚠️ 用 `tipTextFunc`（不是 `tipText`）：`Loc.T` 是每次现取，静态字段会把建窗那一刻的语言冻住
+                wb.tipTextFunc = () => Loc.T(VipTooltipTerm);
+                wb.tipAnchor = 17;                          // 原版 `tooltipAnchor = 17`（TopCenter）
+                wb.tipOffset = new Vector3(0f, -52.06f, 0f); // 原版 `offset = (0, −52.06, 0)`
+            }
+        }
+
+        // ============================================================ 购买等待框（类尾 · 原版 `ShopStore.TryPurchase` 第一句）
+        // ⚠️ 一律追加在**类尾**：本文件有 3 条 A 档落点钉在 `:827`（`OpenBoosterPack`），
+        //    往它前面插成员会整段漂移（2026-10-25 N9 那次的原形）。
+        /// <summary>原版购买开始那一刻那扇等待框的**文案键**（不是明文 —— 原版传的
+        /// `localizeTexts: true`，`PopUpGameWindow.SetText` 会拿它过 `LocalizationManager.GetTranslation`）。
+        /// <para>出处：① 反汇编 `0x1812540BB` → `rdx = [rip+0x307EB1E]` → VA `0x1842D2BE0`；
+        /// `script.json` 的 `ScriptString` 表在该地址的值 = **`MenuShop/WaitingPopup`**；
+        /// ② `out_cpp2il_dev_ilspy/Everguild.LiveOps/ShopStore.cs:518` 同句；
+        /// ③ 词条真值在 `Resources/official_loc_13lang.json`：EN `Processing your purchase...` ·
+        /// ZH `正在处理您的购买...`（其余 11 语也在）。⇒ **⛔ 不用编文案**。</para></summary>
+        public const string WaitingPopupTerm = "MenuShop/WaitingPopup";
+
+        /// <summary>最近一次购买弹出来的那扇等待框（自检读口）。
+        /// ⚠️ 购买返回时它**已经被收掉**（`HidePopUp(true)` = 原版三条回调的共用第一句）⇒
+        /// 想看「当时弹没弹、几颗钮」要读这个引用 + <see cref="LastWaitingPopupHadNoButton"/>。</summary>
+        public static PopUpGameWindow LastWaitingPopup;
+
+        /// <summary>那次等待框弹起时，**主钮是否已被藏掉**（= 原版「0 颗钮」那一档真的落地）。
+        /// 判据 = `PopUpGameWindow__ConfigurePopUp(3 参)` 对每颗 `LiveButtons` 调 `SetActive(false)`；
+        /// 详见 <see cref="PopUpGameWindow.PrimaryVisible"/>。</summary>
+        public static bool LastWaitingPopupHadNoButton;
     }
 }

@@ -2345,7 +2345,7 @@ namespace CardPresentation
         //   `PlayerDataManager.SendAccountConfirmationEmail` / `InactivateAccount`），而**服务器已关**
         //   ⇒ 我们本地模拟（`AccountState`），并且**每一次都在页内错误行 + 日志里明说**（`AcLocalNote`）。
         //   ⛔ **不假装登录成功**、⛔ **不静默**。
-        const string AcLocalNote = "(local simulation: the original calls the live backend here, "
+        internal const string AcLocalNote = "(local simulation: the original calls the live backend here, "
                                  + "and that backend is gone - nothing was sent)";
 
         /// <summary>本页那批原版词条键里、`Core/Loc.cs` **表里还没有**的那些（第一次用到时记一条 + 出声）。
@@ -2666,7 +2666,7 @@ namespace CardPresentation
                     .gameObject.SetActive(false);            // 出厂 `m_IsActive=0`（`Refresh` 不碰 ⇒ 原版恒关）
                 _acDeleteBtn = AccountBigButton(btns, "Delete Button", AcDeleteL, AcDeleteT, AcDeleteR, AcDeleteB,
                                                 AcDeleteTint, lkAcDeleteAcc, "Delete account", AcBtnText[3],
-                                                () => AccountLocalNote("Delete account", AcLocalNote), null, 40f);
+                                                () => SettingsDeleteAccountFlow.InactivateAccount(this), null, 40f);   // 原版 = `InactivateAccount` → `DisplayDeleteAccountMessage`（账 `个人资料_成就_排行:2`；实现在 `Shell/SettingsDeleteAccountFlow.cs`）
 
                 // `Registered Buttons`（HLG · 660×90 · 内含 300×90 两颗）
                 var regd = Node(btns, "Registered Buttons", AcRegdL, AcRegdT, AcRegdR, AcRegdB);

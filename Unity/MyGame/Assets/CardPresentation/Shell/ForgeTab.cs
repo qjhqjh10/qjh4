@@ -1001,6 +1001,13 @@ namespace CardPresentation
             string a = ForgeData.Selected;
             int st = ForgeData.StateAt(a, i);
             bool claimed = st == ForgeData.Collected;
+            // 🆕 **2026-10-27（B88-E7b）**：第 3 态 `ToCollectButFirstRedeemThePrevious`（经验够到本格、
+            //   但前面还有没领的）**不单独造视觉** —— 判据 = `ForgeRewardItemContainer__Initialize.c`：
+            //   状态 3 与 4 **走同一条分支**（`if ((cVar8 != '\x03') && (cVar8 != '\x04')) goto …`），
+            //   两者把 `ProgressionBar` 打开、里程碑图换「on」档、**都不建 Claim 钮**；
+            //   差别只在返回值（`return cVar8 == '\x02'` ⇒ 只有 2 可领）。
+            //   ⇒ `achieved` = 「这一格已经算达成」（3 与 4 合一），⛔ 别再把它当 Locked/InProgress。
+            bool achieved = claimed || st == ForgeData.ToCollectButFirstRedeemThePrevious;
             bool open = st != ForgeData.Locked;      // `Locked` 时进度条与点数**整段不显示**（原版 cVar8 分支）
 
             // ---- `RewardTransform`：奖励物品的**运行时挂点**（出厂空节点，pivot (0.5,**0.7**)）----
@@ -1027,7 +1034,7 @@ namespace CardPresentation
                 tw.targetPosition = rt.anchoredPosition + new Vector2(0f, LayoutSpace.Px(217.5f - 207f));
             }
             if (st == ForgeData.ToCollect) tw.DoDefaultAnim();
-            else if (claimed) tw.BackToDefault();
+            else if (achieved) tw.BackToDefault();   // 状态 3 与 4 同一条原版分支 ⇒ 都回默认位
 
             // 🆕 2026-10-25（F 组件接线）：`Collect Highlight Effect`（原版 `UIBorderGlow`，Forge 那 3 个会呼吸的之一）。
             //   几何 = 原版 RT：stretch 0..1 · pivot .5 · anchoredPos (-1.65004, 131.7) · sizeDelta (-82.8999, -146.2)
@@ -1057,7 +1064,7 @@ namespace CardPresentation
             var lv = UguiRect.Child(r, UguiRect.P50c, UguiRect.P50c, UguiRect.P50c,
                                     new Vector2(-0.59652f, -267.2f), new Vector2(85f, 88f));
             // 纪律⑤：**只有两张 sprite**
-            _win.Rect(cell, (st == ForgeData.ToCollect || claimed) ? "40k_ArmyTrack_milestone_on"
+            _win.Rect(cell, (st == ForgeData.ToCollect || achieved) ? "40k_ArmyTrack_milestone_on"
                                                                   : "40k_ArmyTrack_milestone_off",
                       lv, "LevelBg", QCellLevelBg);
             var lvLab = _win.TextBox(cell, lv, (i + 1).ToString(), Color.white, "LevelLabel", 45f, 0f, face: TmpFont.Face.LatinCardBody);
@@ -1072,7 +1079,7 @@ namespace CardPresentation
                 _win.Rect(bars, "40K_ArmyTrack_bar", bar, "ProgressionBG", QCellBarsBg);
                 // `ProgressionBar` N(2, .5,.5, .5,.5, 0,.5, −154.964,0, 309.933,19.598)
                 // ⚠️ 原版是**改它的 `sizeDelta.x`** 来表达进度（不是缩放）⇒ 这里直接把矩形右边缘缩到 f01
-                float f01 = claimed ? 1f : ForgeData.Bar01(a, i);
+                float f01 = achieved ? 1f : ForgeData.Bar01(a, i);
                 var barFull = UguiRect.Child(bar, UguiRect.P50c, UguiRect.P50c, new Vector2(0f, 0.5f),
                                              new Vector2(-154.964f, 0f), new Vector2(309.933f, 19.598f));
                 var fill = new PxRect(barFull.x1, barFull.y1, barFull.x1 + barFull.W * f01, barFull.y2);
@@ -1233,14 +1240,25 @@ namespace CardPresentation
         /// 这里平时是恒等操作 —— 领奖时本页已经 `Refresh()` 过，重开一遍不留残留，见 `Refresh` 的注释）。</para></summary>
         void ClaimCell(int i)
         {
+            // 🔴 **2026-10-27（B88-E7b · 铁律 5）**：原来是 `ForgeData.Claim(Selected, i)`（**只领这一格**）——
+            //   而原版 `ForgeRewardItemContainer__ClickClaim.c:28` 调的是
+            //   `Everguild_LiveOps_Forge__CollectRewards(...)`，那一支的口径是
+            //   `rewards.Skip(rewardsCollected).Where(r => currentPoints >= r.Points)` ⇒
+            //   **点任意一格 = 一次领掉全部可领格**（⛔ 不是「点哪格领哪格」）。
+            string a = ForgeData.Selected;
+            int start = ForgeData.LevelOf(a);          // 领之前的已领格数 = 本批奖励的起点
             string why;
-            if (!ForgeData.Claim(ForgeData.Selected, i, out why))
+            int n = ForgeData.ClaimAll(a, out why);
+            if (n <= 0)
             {
                 // 红线：**不许静默失败** —— 领不到时说清为什么
-                Debug.Log("[Forge] 第 " + (i + 1) + " 格领不了：" + why);
+                Debug.Log("[Forge] 第 " + (i + 1) + " 格领不了（`ClaimAll` 一格都没领到）：" + why);
                 return;
             }
-            _claimedGlowLevel = i;          // 重建后也保持亮（见字段注释）
+            Debug.Log("[Forge] `ClaimAll` 一次领了 **" + n + "** 格（第 " + (start + 1) + ".." + (start + n)
+                    + " 格）—— 原版 `ClickClaim` → `Forge.CollectRewards` 的口径就是「一次全领」；"
+                    + "本次点的是第 " + (i + 1) + " 格");
+            _claimedGlowLevel = i;          // 重建后也保持亮（见字段注释）—— 亮在**点的那一格**上（原版同）
             Refresh();
             // 🆕 2026-10-25（F 组件接线）：原版 `ForgeRewardItemContainer.ClickClaim` 尾句 = 把
             //   `Collect Highlight Effect` **SetActive(true)**（`ForgeRewardItemContainer__ClickClaim.c:35-37`）；
@@ -1251,10 +1269,15 @@ namespace CardPresentation
             if (glowNode != null) glowNode.gameObject.SetActive(true);
             else Debug.LogWarning("[Forge] 领到第 " + (i + 1) + " 格后找不到 `Collect Highlight Effect` 节点 ⇒ "
                                 + "紫边呼吸没播（出声，不静默）");
-            var rw = ForgeData.RewardAt(i);
-            RewardWindow.ShowCollected(
-                new[] { new CampaignData.RewardSpec(rw.Art, rw.Qty, CampaignData.TierBasic) },
-                collected => Refresh());
+            // 领奖窗一次铺**本批全部**奖励（原版 `RewardService.Collect(rewards, showAnimation:1, …)`
+            // 收到的是 `CollectRewards` 的回包**数组**，不是单个）。
+            var rewards = new CampaignData.RewardSpec[n];
+            for (int k = 0; k < n; k++)
+            {
+                var rw = ForgeData.RewardAt(start + k);
+                rewards[k] = new CampaignData.RewardSpec(rw.Art, rw.Qty, CampaignData.TierBasic);
+            }
+            RewardWindow.ShowCollected(rewards, collected => Refresh());
         }
 
         public string Dump()

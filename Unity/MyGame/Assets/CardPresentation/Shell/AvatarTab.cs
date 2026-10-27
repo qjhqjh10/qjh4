@@ -332,7 +332,7 @@ namespace CardPresentation
             WarnIfAvatarMissing(Avatars.Count > 0 ? Avatars[PreviewIndex].Art : null);
             _bigArt = CosmeticRect(ic, Avatars.Count > 0 ? Avatars[PreviewIndex].Art : null,
                                    ScaleAboutCenter(new PxRect(ImL, ImT, ImR, ImB), ScaleImage), "Image", 6);
-            Rect(ic, ArtBorder, ScaleAboutCenter(new PxRect(BdL, BdT, BdR, BdB), ScaleBorder), "Border", 5, null, true);
+            Rect(ic, BorderArtName(), ScaleAboutCenter(new PxRect(BdL, BdT, BdR, BdB), ScaleBorder), "Border", 5, null, true);
             // 🔴 **2026-10-07（A62 子表 A · A28）**：原版 `Avatar Tab > Selected Item Panel > Avatar Name`
             //   （`'TEST NAME'`）是 **`折行=0 auto[15~35]`**（判据 = `md "Player Profile Window" --depth 25 --md`）
             //   ⇒ `SetAutoFitBox` 内部会无条件开折行 ⇒ 显式关掉（A205：关这一下顺带把版面推下去）。
@@ -370,7 +370,7 @@ namespace CardPresentation
                 clickCue: WindowSounds.SelectAvatarCue);
             _btnHit = selHit != null ? selHit.GetComponent<WindowButton>() : null;
 
-            var tbn = Node(sel, "Toggle borde", new PxRect(TbL, TbT, TbR, TbB));
+            var tbn = _toggleBorderNode = Node(sel, "Toggle borde", new PxRect(TbL, TbT, TbR, TbB));
             var tbQ = Rect(tbn, ArtButton, new PxRect(TbL, TbT, TbR, TbB), "Image", 7);
             // 🔴 **A62 · A30**：原版 `Toggle borde > Button Text`（`'Toggle Border'`）**`折行=0 auto[10~36]`** ⇒ 关掉。
             // 🔴 **A406**：`Avatar Tab/Selected Item Panel/Toggle borde/Button Text`
@@ -623,9 +623,9 @@ namespace CardPresentation
             if (_bigHighlight != null) _bigHighlight.gameObject.SetActive(false);   // 大图那份恒关（见常量注释）
             for (int k = 0; k < _cellHl.Count; k++)
                 if (_cellHl[k] != null) _cellHl[k].gameObject.SetActive(k < _cellIdx.Count && _cellIdx[k] == PreviewIndex);
-            // 边框：`Toggle borde` 那个钮管的（`AvatarTab.CheckEnableAvatarBorder`）。
-            // ⚠️ 原版是按 `FindActiveAvatarBorder() != null` 决定**这个钮能不能点**，不是直接藏边框图；
-            //    我们这里**简化为「开关边框那一层」** —— 这是**我们的做法**，如实标着。
+            // 边框：`Toggle borde` 那颗**钮**的显隐（原版 `AvatarTab.CheckEnableAvatarBorder`）。
+            //   ⚠️ 下面那个 `BorderOn` 循环**仍然是我们简化出来的**（开关边框图那一层）；钮的显隐已按原版补上。
+            ApplyBorderLayer();   // 判据：ILSpy `AvatarTab.CheckEnableAvatarBorder` ⇒ `SetActive(FindActiveAvatarBorder() != null)`
             for (int k = 0; k < _grid.childCount; k++)
             {
                 var bd = _grid.GetChild(k).Find("Image Container/Border");
@@ -647,5 +647,34 @@ namespace CardPresentation
         }
 
         void OnSelectClicked() { ConfirmSelect(); }
+
+        // ============================================================ 头像边框层（2026-10-28 · B88_B3）
+        // 判据：`AvatarTab.CheckEnableAvatarBorder`（ILSpy `AvatarTab.cs:17755`）＝
+        //   `toggleAvatarBorderIcon.gameObject.SetActive(FindActiveAvatarBorder() != null)`；
+        // `AvatarBorderController.Initialize()` / `Initialize(PlayerInfo)`（ILSpy `AvatarBorderController.cs`）
+        //   两句**逐字相同**：`if (goldenAvatarBorder.IsUnlocked) borderImage.sprite = ….imageReference.Load()`。
+        // ⇒ 本页的等价物 = ① 边框图读「已装备的那一条」（`ProfileData.EquippedBorderArtName`）
+        //                 ② 那颗钮的显隐读 `ProfileData.FindActiveAvatarBorder() != null`。
+        // ⚠️ **新成员一律在类尾**（`CLAUDE.md` §三）：本页 `:443`/`:613` 两条账落点行号不动。
+
+        /// <summary>`Toggle borde` 那一整颗（原版 `AvatarTab.toggleAvatarBorderIcon`）。
+        /// 声明在**类尾**：插在字段区会让本页两条账落点整体下移。</summary>
+        Transform _toggleBorderNode;
+
+        /// <summary>边框层当前该画哪张图 —— 已装备边框（`borders[].art` 归一空格后的资源名），
+        /// 取不到回落写死常量 <see cref="ArtBorder"/>。</summary>
+        public static string BorderArtName()
+        {
+            var a = ProfileData.EquippedBorderArtName;
+            return string.IsNullOrEmpty(a) ? ArtBorder : a;
+        }
+
+        /// <summary>原版 `AvatarTab.CheckEnableAvatarBorder`：按「有没有可用边框」决定**那颗钮**显不显示。</summary>
+        public void ApplyBorderLayer()
+        {
+            if (_toggleBorderNode == null) return;
+            var active = ProfileData.FindActiveAvatarBorder();
+            _toggleBorderNode.gameObject.SetActive(active != null);
+        }
     }
 }

@@ -53,7 +53,9 @@
 //    —— 它是一条**全局栈**（`OnEnable` 把栈顶那颗 `Image` 置 `enabled = false`、自己入栈；
 //    `OnDisable` 出栈并恢复），管的只是「同一时刻只画最上面那一个整屏底」。
 //    **它不写 `m_Color`**（`BackgroundOverDrawController__{OnEnable,OnDisable}.c` 里只 `Behaviour.set_enabled`）
-//    ⇒ 透明仍然是透明。我们**没有**那条栈（本仓窗与窗不叠整屏底）⇒ 如实记，不实现。
+//    ⇒ 透明仍然是透明。🔴 **2026-10-27（B88-E7c）就地订正**：原写「我们**没有**那条栈 ⇒ 如实记，不实现」——
+//    **已实现**：`Shell/BackgroundOverDrawController.cs`（显式 `Push`/`Pop` 版，见那里文件头的「为什么不是 OnEnable」）
+//    ⇒ 本扇在 `Build()` 里 `Push`、`Close()` 里 `Pop`。可见差仍 **0**（本仓窗与窗不叠整屏底），接上它是把规则落成代码。
 //    ⇒ **布局上的差**：`GenericOptionsPanel` 靠 `Start()` 关掉 `Template` ⇒ 根高 61.6；本扇**没有那一件**
 //      ⇒ 根高 = `10 + 36.6 + 5 + 515 + 10 = 576.6`（dump 实测 576.6 ✓，**两档同值** —— 这扇没有那个歧义）。
 using UnityEngine;
@@ -270,6 +272,18 @@ namespace CardPresentation
                     + "· 标题 = prefab 出厂原文（原版是 `Member.Name`）。");
         }
 
+        /// <summary>整屏底那颗 quad（栈里那一颗；`Build()` 每次重建都换新的）。</summary>
+        ImageQuad _shade;
+
+        /// <summary>关窗 ⇒ 把整屏底出栈（= 原版 `OnDisable` 那一路，判据见 `BackgroundOverDrawController` 文件头）。
+        /// ⚠️ 必须在 `base.Close()` **之前** Pop：基类会把窗 `SetActive(false)`。</summary>
+        public override void Close()
+        {
+            BackgroundOverDrawController.Pop(_shade);
+            _shade = null;
+            base.Close();
+        }
+
         /// <summary>铺一份数据（**自检用**，也是数据路唯一的入口；产品路径上那份数据来自服务器）。</summary>
         public void SetMember(MemberView v) { _view = v; HasData = true; Apply(); }
 
@@ -348,7 +362,12 @@ namespace CardPresentation
             var S = ShadeRect(R);
 
             // ---- 1) `Menu Dark Background`（**a = 0** 的整屏底，只吃点击）----
-            MenuDraw.Rect(root, CardArt.Solid(), S, "Menu Dark Background", QShade, ShadeTint);
+            _shade = MenuDraw.Rect(root, CardArt.Solid(), S, "Menu Dark Background", QShade, ShadeTint);
+            // 🔴 **2026-10-27（B88-E7c）**：本扇的 `BackgroundOverDrawController` 在原版里是**启用**的
+            //   （同族 `GenericOptionsPanel` 那颗被禁 —— 判据见文件头 ③）⇒ 把整屏底送进那条**全局栈**：
+            //   同一时刻只画最上面那一个整屏底。等价实现与「为什么不照 `OnEnable` 写」→
+            //   `Shell/BackgroundOverDrawController.cs` 的文件头。
+            BackgroundOverDrawController.Push(_shade);
             MenuDraw.ShadeHit(root, S, QShade, QHit, () => Close(), "BackgroundHit");
 
             // ---- 2) `bg shadow` → 3) `bg` ----

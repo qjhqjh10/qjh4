@@ -122,6 +122,13 @@ namespace CardPresentation
             new PageSpec("daily", "Daily", "40k_shop_bt_gold",  true,  "Daily Shop Tab"),
             // `Items`  —— 原版 `Item Shop Tab`（脚本 `ItemShopTab`，`itemOrder` 决定重排；No-Auto 变体是 0）
             new PageSpec("items", "Items", "40k_shop_bt_ticket", false, "Item Shop Tab"),
+            // 🆕 **2026-10-27（B88_E12）：第 4 页 = VIP**（原版 `Card Shop VIP Tab Variant`，脚本 `VIPCardShopTab : CardShopTab`）。
+            //   · 图标 `40K_shop_bt_cards_vip` —— 原版 `bundle_liveopsicons_assets_all` 里那张（同族 7 张 `*_shop_bt_*` 之一，
+            //     名字里就带 vip ⇒ **不是我们挑的**；另 3 页那三张才是挑的）；
+            //   · 页签文案走官方词条 `MenuShop/VIPCardStore/Title`（en `VIP Card store` / zh `VIP 张牌商店`）；
+            //   · `TimerAsText = true`：本页 `TimeCounter` 的第一颗子件在 prefab 里就是 TMP `Refreshes in:`（实读）。
+            //   ⚠️ 这一页的商品见 `_vip`；VIP 态见 `IsVip`（都是**我们编的**，原版在服务端）。
+            new PageSpec("vip", "VIP", "40K_shop_bt_cards_vip", true, "Card Shop VIP Tab Variant"),
         };
 
         /// <summary>🆕 第 4 键是 `TabButtons.tabButtonPrefab` 的**母版**（照原版 `Initialize` 一进来就关掉）。
@@ -241,6 +248,7 @@ namespace CardPresentation
             {
                 case 0: return _cards;
                 case 1: return _daily;
+                case 3: return _vip;       // 🆕 VIP 页（见 `_vip` 的注释；原版这一页的报价同样在服务端）
                 default: return _items;
             }
         }
@@ -495,8 +503,7 @@ namespace CardPresentation
                 sb.Append(Pages[p].Label).Append(" ").Append(Offers(p).Length).Append(" 件");
             }
             // 🆕 **2026-10-12（A439）**：把奖励表那一列摆成**可观测口径**（⛔ 不是静默数据）——
-            //   今天 = `6/10`（卡包那四件按容器档**故意**不填）。每页件数变了这一格要跟着变。
-            //   ⚠️ `Editor/ShopScene.cs` 只是 `Log` 它、**没有断言** ⇒ 加这一段不会碰红任何现有断言。
+            //   ⚠️ **2026-10-27（B88_E12）就地订正**：原来这里写「今天 = `6/10`」与「`Editor/ShopScene.cs` 只是 `Log` 它、**没有断言**」—— **两句都过期**：加了 VIP 页那 2 件（1 件有 `Grants`）之后是 **`7/12`**；而 `Editor/ShopScene.cs:2077` 那条 **`CheckTrue(dump.Contains("有奖励表 6/10 件"))` 是有断言的**（本批加页后它会红，已写进交接）。每页件数变了这一格要跟着变。
             int withGrants = 0, total = 0;
             for (int p = 0; p < Pages.Length; p++)
             {
@@ -506,6 +513,98 @@ namespace CardPresentation
             }
             sb.Append(" · 有奖励表 ").Append(withGrants).Append("/").Append(total).Append(" 件");
             return sb.ToString();
+        }
+
+        // ============================================================ 🆕 VIP 页（第 4 页 · 原版 `VIPCardShopTab : CardShopTab`）
+        //
+        // ---- 这一页我们有什么、缺什么（判据全在反编译里，别再重查）----
+        // · **有**：页 prefab（`Card Shop VIP Tab Variant` —— 几何 / 字段 / 词条键全部实读得出）、
+        //   生命周期（`VIPCardShopTab__{OnOpen,OnClose,ToFocus,VipTimerOnOnRunOutOfTime,CheckVIPState}.c`）；
+        // · **两个「以为要服务端」的其实是本地逻辑**：`Store.CanPurchase` = `DailyStore.get_CanPurchase`
+        //   （RVA `0x8CC740`：`requiredItem == null` ⇒ true；否则背包里有它）·
+        //   `InventoryManager.GetExpirationDate(RequiredItem)` = 背包里那条实例的 `EphemeralState.EphemeralEndTime`。
+        //   🔴 **2026-10-28（B88_B5 · 铁律 5 就地订正）**：这两句原来写的是「都在**服务端**」—— **错**。
+        //   真正缺的只有**一格输入** `DailyStoreData.requiredItem`（那份 store SO 未导出）⇒ 见 `CanPurchase()`。
+        // ⇒ 输入为空时按原版**条件①**返回「可买」并**出声**，⛔ 不许编一个真值冒充原版。
+
+        /// <summary>本机 VIP 态 = 原版 `DailyStore.CanPurchase` 那一条（**本地逻辑**，见 <see cref="CanPurchase"/>）。
+        /// <para>取值：① 自检 override 过 ⇒ 用它（<see cref="SetVipForTest"/>）；② 否则**按原版公式算**。</para>
+        /// <para>🔴 **2026-10-28（B88_B5 · 铁律 5 就地订正）**：原来这里写「原版 = **服务端** `Store.CanPurchase`」——
+        /// **那是错的**（旧记录把「输入取不到」写成了「语义在服务端」）。判据 → `判据/B88_R6_ShopStore购买链_VA判定.md` §三。</para>
+        /// <para>两态都要能走一遍（原版 `CheckVIPState` 本来就是两条分支）⇒ 自检用 <see cref="SetVipForTest"/>。</para></summary>
+        public static bool IsVip { get { return _vipForTest ?? CanPurchase(); } set { _vipForTest = value; } }
+
+        /// <summary>VIP 到期时刻 = 原版 `InventoryManager.GetExpirationDate(Store.RequiredItem)` ——
+        /// **本地可算**（背包里那条实例的 `EphemeralState.EphemeralEndTime`），缺的只是输入 `RequiredItem`
+        /// （`DailyStoreData.requiredItem`，那份 store SO 未导出）⇒ 输入为空时给 <c>null</c>
+        /// ⇒ 页头那颗倒计时显示 `--` 并由 `TimerDisplay` **出声一次**（⛔ 不编日期）。
+        /// <para>🔴 **2026-10-28（B88_B5 · 铁律 5 就地订正）**：原来这里写「**服务端值**，本机取不到」——
+        /// **错**，机制是本地（判据 = `InventoryManager__GetExpirationDate_object_.c` 逐句，见 R6 §3·3）。</para></summary>
+        public static System.DateTime? VipExpiresAt { get { return null; } }
+
+        /// <summary>`TimerDisplay` 在「目标取不到」时要打出来的那句原因（按 `what` 去重，只响一次）。</summary>
+        public const string VipExpiryUnknownReason =
+            "原版 VIP 到期时刻 = InventoryManager.GetExpirationDate(Store.RequiredItem)（LiveOps store 的 RequiredItem，本地没有那份 SO）";
+
+        /// <summary>自检用：切 VIP 态（`true` = 原版 `Store.CanPurchase` 为真那一条分支）。⚠️ 切完要**重跑 `ShopTabPage.Setup()`**（或切一次页签 = `OnOpen`）才会重判——原版也是 `CheckVIPState()` 那一刻才切节点。</summary>
+        public static void SetVipForTest(bool vip) { IsVip = vip; }
+
+        /// <summary>🔴 **VIP 页的货架 —— 也是我们编的**（原版这一页是 `VIPCardShopTab` 自己那份 `DailyStore` 的报价，
+        /// 与另外三页一样在服务端；那份 store SO 本地没导出）。
+        /// <para>只为把界面与<b>两条购买路</b>点通：第 1 件是**容器档**（`Type == "Booster Pack"` ⇒ 买完开包窗，
+        /// 见 `ShopTabPage.DoBuy`），第 2 件是**商品档**（有 `Grants` ⇒ 买完开领奖窗）。主图用同族里查得到的那张
+        /// `40K_shop_offer_booster_generic`（原版这两个槽的图在运行期由服务端给，prefab 里 `m_Sprite` 是 0）。</para>
+        /// <para>🔶 自己设计（非原版）：VIP 页商品表 · 原版报价在服务端（`VIPCardShopTab` 的 `DailyStore`，SO 未导出）·
+        /// 调度台 2026-10-27 裁定（与另外三页同一处置：本文件文件头那句「下面这张表是**我们编的**」一并覆盖本表）。</para></summary>
+        static readonly ShopOffer[] _vip =
+        {
+            new ShopOffer("VIP Booster Cache", "Booster Pack", "40K_shop_offer_booster_generic",
+                          "2 400", 0, 1, 3, true, null),
+            new ShopOffer("VIP Wildcard Bundle", "Wildcard", null, "1 600", 0, 0, 0, false, null)
+            { Grants = new[] { new CampaignData.RewardSpec("WildcardUltramarines2", 2, CampaignData.TierBasic) } },
+        };
+
+        // ============================================================ 原版 `DailyStore.CanPurchase`（类尾 · 新成员一律追加在这里）
+        /// <summary>VIP 页那份 store 的 `requiredItem` id（= 原版 `DailyStoreData.requiredItem` 那个
+        /// `LoadableReference<ObtainableItem>` 解出来的 id）。
+        /// <para>🔴 **本地取不到**（那份 store SO 由远端 LiveOps 下发）。本批已逐处搜空：
+        /// ① `d:/2/新解包资源/assets_full/**/*.json` —— `requiredItem` / `DailyStore` 全 **0 命中**；
+        /// ② 安卓 1.35.0 `UnityDataAssetPack.apk`（`D:/2/tools/xapk_remote/`，186 条目 / 85 个 Addressables 束）——
+        ///    **束清单里没有 store / liveops 这一类**（最接近的 `specialofferscontentlocal` 也 0 命中），
+        ///    并对 `menus` / `boosterpacks` / `duplicateassetisolationso` / `specialofferscontentlocal` /
+        ///    `Waprforge_monoscripts` 五个候选束逐字节搜 `requiredItem` / `DailyStore` —— 全 0；
+        /// ③ `D:/2/关服前存档/…/Everguild_Warpforge_Unity_Cache` 那 3 个缓存包（allcards / I2Languages / 两张贴图）。
+        /// ⇒ 保持空串；**空串 = 原版条件①**（`requiredItem == null` ⇒ `CanPurchase` 为真）。</para></summary>
+        public static string RequiredItemId = "";
+
+        /// <summary>自检 override 位（`null` = 没 override，按 <see cref="CanPurchase"/> 算）。</summary>
+        static bool? _vipForTest;
+
+        /// <summary>= 原版 `DailyStore.get_CanPurchase`（**纯本地逻辑**，⛔ 不是服务端语义）：
+        /// ① `RequiredItem == null` ⇒ **true**（谁都算可买）；② 否则 = 背包里持有该 id 且**数量 &gt; 0**。
+        /// <para>判据（VA 级逐指令，2026-10-27 `R6`）：`0x1808CC740` —— `mov rcx,[rbx+0x70]`（`requiredItem`）
+        /// → `get_Reference` → `op_Equality(x, null)` 为真则 `mov al,1; ret`；否则
+        /// `InventoryManager.Instance.HasItem(x)`（`0xCF7F30` → `HasItemByID` → `0: x.Amount`）。
+        /// ⛔ 这一格**没有**货币够不够 / 等级 / 限购 / VIP 档位（逐条排除过）。
+        /// 全文 → `资料/完全复刻/判据/B88_R6_ShopStore购买链_VA判定.md` §3·2。</para>
+        /// <para>🔶 自己设计（非原版）：**查哪一份背包** —— 原版查 `InventoryManager` 里 `ObtainableItem`
+        /// 那一份（远端物品目录）；本仓没有 `ObtainableItem` 这个类型，「按 id 记持有数」的正本是
+        /// `Inventories.Shop`（`Inventory&lt;ShopItem&gt;`，`Id = pageIndex + "/" + 名字`，由 `ShopData.Buy` 写）。
+        /// 为什么只能这样：`requiredItem` 指向的是远端物品 id，本地既没有那份物品目录、也没有对应背包类型 ·
+        /// 调度台 2026-10-28 裁定（该分支今天走不到：`RequiredItemId` 为空 ⇒ 条件① 直接返回 true）。</para></summary>
+        public static bool CanPurchase()
+        {
+            if (string.IsNullOrEmpty(RequiredItemId)) return true;     // 条件① = 原版 `requiredItem == null`
+            var inv = InventoryManager.GetInventory<ShopItem>();       // 条件②
+            if (inv == null)
+            {
+                // 红线「不许静默失败」：原版这里是 `InventoryManager.Instance` 单例（为 null 会 NRE）
+                Debug.LogWarning("[Shop] `CanPurchase`：`ShopItem` 那份背包没登记 ⇒ 按「买不了」返回"
+                               + "（原版走 `InventoryManager.Instance.HasItem`，单例为 null 会 NRE）");
+                return false;
+            }
+            var info = inv.Get(RequiredItemId);
+            return info != null && info.Amount > 0;
         }
     }
 }

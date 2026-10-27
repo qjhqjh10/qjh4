@@ -86,6 +86,39 @@ namespace CardPresentation
         string _text, _okText, _cancelText;
         System.Action _onOk, _onCancel;
 
+        // ---------------------------------------------------------- 🆕 2026-10-27（E9b · 账 545）Error Message 行
+        /// <summary>原版 `GenericPromptWindow/Window/Error Message` 的**实测**矩形（`menu_dump.py`
+        /// `bundle_menus_assets_all "GenericPromptWindow" --depth 12 --md` 现读）：
+        /// `510.00,730.00→1410.00,820.00` = **900 × 90**（VLG 里紧跟 `MessageText` 之后、`Buttons` 之前）。
+        /// TMP 实读：`'INVALID PASSWORD ERROR'` · 字号 **40** · 基准 **40** · **无自适应** · `Center/Middle` · `折行=1`。</summary>
+        public const float ErrRowH = 90f, ErrFontPx = 40f;
+        /// <summary>原版 `PromptPopup.errorColor`（**prefab 序列化字段**，`MonoBehaviour_-8455344173513121409.json` 实读
+        /// = **`(1, 0, 0, 1)`**）。⚠️ 别拿 `Error Message` 那颗 TMP 自己作者填的 `(0.84,0,0.127,1)` 当判据 ——
+        /// `SetError` 每次都会用 `errorColor` **覆盖**它（`PromptPopup__SetError.c` 头四句读 `this+0xa8..0xb4` 再
+        /// `set_color`；那四格就是 `errorColor` 的四个分量 —— 与 `AlliancePanelWindow` 里 `errorColor` 同族的布局）。</summary>
+        public static readonly Color ErrColor = new Color(1f, 0f, 0f, 1f);
+
+        /// <summary>当前错误串（空 = 没有错误行）。</summary>
+        string _error;
+        /// <summary>自检读口：现在有没有错误行。</summary>
+        public bool HasError { get { return !string.IsNullOrEmpty(_error); } }
+
+        /// <summary>= 原版 `PromptPopup.SetError(string error, bool localize)`（**逐句**，判据
+        /// `PromptPopup__SetError.c` 全 38 行）：① 把 `errorColor` 写进 `Error Message` 那颗 TMP 的 `color`；
+        /// ② `localize` 为真 ⇒ `error` 先过 `LocalizationManager.GetTranslation`；③ `SetText`。
+        /// <para>我们这扇窗的版面是**建时算好**的（没有 VLG）⇒ 错误行出现/消失会改面板高，
+        /// 所以这里改完状态**重建一次**（`Build()` 本来就是「先清空再建」，幂等）。</para>
+        /// <para>⚠️ 原版错误行在 prefab 里 `act=T`（出厂就亮、内容是样例串 `INVALID PASSWORD ERROR`）；
+        /// 我们**没有错误时整行不建** —— 那是同一件事的另一种表达（原版由脚本在 `Open` 前把内容清空/关掉，
+        /// 静态查不到是哪一种），⛔ 别把样例串画出来。</para></summary>
+        public void SetError(string error, bool localize)
+        {
+            string s = error;
+            if (localize && !string.IsNullOrEmpty(s)) s = Loc.T(s);
+            _error = string.IsNullOrEmpty(s) ? null : s;
+            Build();                      // 面板高变了 ⇒ 重建（幂等：Build 首句清空所有子件）
+        }
+
         /// <summary>面板最后算出来的高（自检用）。</summary>
         public float PanelH { get; private set; }
         public bool TwoButtons { get; private set; }
@@ -173,7 +206,10 @@ namespace CardPresentation
                 msgH = Mathf.Max(MsgMinH, msgLb.WorldH * 108f);
             }
 
-            PanelH = msgH + BtnRowH;
+            // 🆕 2026-10-27（E9b · 账 545）：有错误串时 VLG 里多一行 `Error Message`（900×90）
+            //   ⇒ 面板高 +90（原版那个 `ContentSizeFitter(V=PreferredSize)` 就是这么涨的）。
+            float errH = HasError ? ErrRowH : 0f;
+            PanelH = msgH + errH + BtnRowH;
             float px1 = cx - PanelW * 0.5f, px2 = cx + PanelW * 0.5f;
             float py1 = cy - PanelH * 0.5f, py2 = cy + PanelH * 0.5f;
 
@@ -236,6 +272,25 @@ namespace CardPresentation
             {
                 float mTop = py1, mBot = py1 + msgH;
                 msgLb.transform.localPosition = Local(root, cx - msgW * 0.5f, mTop, cx + msgW * 0.5f, mBot);
+            }
+
+            // 5·b) 🆕 2026-10-27（E9b · 账 545）`Error Message` 行：紧跟正文之后、占 90 高（原版 VLG 的第 3 个子件；
+            //   第 2 个是 `inputs`，我们**不建**输入层 —— 见文件头 ③ 与账 541）。
+            //   四格照 prefab 实读：宽吃满 900 · 字号 40/**无自适应** · `Center/Middle` · 折行 1 · 色 = `errorColor`。
+            if (HasError)
+            {
+                var errR = new PxRect(cx - PanelW * 0.5f, py1 + msgH, cx + PanelW * 0.5f, py1 + msgH + ErrRowH);
+                var errLb = Label.Create(root, _error, Vector3.zero, 6, ErrColor,
+                                         new Vector2(0.5f, 0.5f), "Error Message");
+                if (errLb != null)
+                {
+                    errLb.SetFace(TmpFont.Face.LatinCardBody);      // 同 `MessageText`（Pragati）
+                    errLb.SetRenderQueue(QText);
+                    errLb.SetGlyphHeight(LayoutSpace.Px(ErrFontPx));
+                    // 原版 `m_enableAutoSizing = 0` ⇒ ⛔ 不调 `SetAutoFitBox`；折行 1 ⇒ 只给框宽。
+                    errLb.SetWrapWidth(LayoutSpace.Px(PanelW));
+                    errLb.transform.localPosition = Local(root, errR.x1, errR.y1, errR.x2, errR.y2);
+                }
             }
 
             // 6) 按钮：`Buttons` 行 110 高、**LowerCenter**（align=7）⇒ 按钮贴行底；HLG spacing 40、**等分**

@@ -389,7 +389,7 @@ namespace CardPresentation
             // ⚠️ 原版 prefab 的 act = 在线 **F** / 离线 **T**（`Initialize` 才把它们摆正）⇒ 建完立刻 `ApplyStatus`。
             var st = Node(row, "Connection Status", new PxRect(r.x1 + 13.30f, r.y1 + 16.63f, r.x1 + 38.50f, r.y1 + 41.83f));
             Rect(st, "40K_icon_status_online", new PxRect(r.x1 + 13.30f, r.y1 + 16.63f, r.x1 + 38.50f, r.y1 + 41.83f),
-                 "Connected Image", L_Art, new Color(0f, 1f, 0.0736f, 1f), true);
+                 "Connected Image", L_Art, new Color(1f, 1f, 1f, 1f), true);   // ⚠️ 2026-10-27 更正：原来传 (0,1,0.0736,1)「看着像在线绿」，prefab 实读 `Connected Image` 的 `m_Color` = **(1,1,1,1)**（`menu_dump.py bundle_menus_assets_all "Friend Info Item"`）；真正的颜色由 `ApplyStatus` 在 2/3 档写 `awayColor`/`connectedColor`，0/1 档这颗不可见 ⇒ 原值只决定「万一没染色时」的底色
             Rect(st, "40K_icon_status_offline", new PxRect(r.x1 + 13.30f, r.y1 + 16.63f, r.x1 + 38.50f, r.y1 + 41.83f),
                  "Disconnected", L_Art, new Color(0.84f, 0.494f, 0.44f, 1f), true);
             ApplyStatus(row, StatusOf(f));

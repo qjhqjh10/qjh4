@@ -111,6 +111,16 @@ namespace CardPresentation
         const float NodeSize = 100f;
         /// <summary>`Collectable Highlight` 的尺寸（原版 `N(1, .5,.5, .5,.5, .5,.5, 0,0, 178.915,178.915)`）。</summary>
         const float HighlightSize = 178.915f;
+        /// <summary>🆕 2026-10-27（B88·E13 · 账 row 76）：原版 `CampaignTrack.startingOffset.x`。
+        /// **两份 prefab 实例实读都是 (330, 0)** —— `bundle_menus_assets_all/MonoBehaviour/MonoBehaviour_4404165622776507789.json`
+        /// 与 `MonoBehaviour_6717216724501337855.json`（`startingOffset: {x: 330, y: 0}`）。
+        /// 用途（`decomp_full/CampaignTrack__GetNodesOffset.c:52`）：`offset = (minX − startingOffset.x, rootY − startingOffset.y)`
+        /// ⇒ 最左节点落在内容左缘内 `330 × Ratio` 处（**原版没有「让出一个光圈半径」那道补偿**）。</summary>
+        const float StartingOffsetX = 330f;
+        /// <summary>🆕 2026-10-27（B88·E13 · 账 row 78）：`TransformScalerBySmallScreenUI.menuScale`。
+        /// 该组件挂在 `Campaign Track` 这颗 GO 上（prefab 实读 `MonoBehaviour_-6243382103206324481.json`，`menuScale = 1.125`）。
+        /// 原版 `SetTrackSize` 第二段：`width += 节点宽 × menuScale × DAT_1834b3250(=2.5)`。</summary>
+        const float ScalerMenuScale = 1.125f;
         /// <summary>连线的粗细（原版 `Node Line` 的 `sizeDelta = 290.6 × 10`）。</summary>
         const float LineH = 10f;
         /// <summary>连线起点离节点中心的距离系数。原版是全局常量 `DAT_1834b2bb4`，
@@ -442,21 +452,45 @@ namespace CardPresentation
         /// <summary>建整条轨道：**先从 SO 抄出来的 47 个节点**（`CampaignData.Nodes`）+ 连线。</summary>
         void BuildTrack()
         {
-            int minX, maxX, maxAbsY;
-            CampaignData.Span(out minX, out maxX, out maxAbsY);
+            int minX, maxX, maxAbsDevY;
+            CampaignData.Span(out minX, out maxX, out maxAbsDevY);
             // ⚠️ 用 **Viewport 的高**（759.06）算 —— 原版用的是 `trackHolder`（= `Content`）的高，
-            //    而那个高是 `SetTrackSize` 运行时定的、本地读不到。
+            //    而那个高是 prefab 静态链算出来的（= 视口高 − 100，不是 `SetTrackSize` 运行时定的）。
             float vpH = _vpR.H;
-            Ratio = maxAbsY <= 0 ? 1f : (vpH - NodeSize) / (2f * maxAbsY);
+            // 🆕 2026-10-27（B88 · J4b · 账 row 69）：原版分子 = `trackHolder.height − nodePrefab.rect.rect.height`
+            //   （`decomp_full/CampaignTrack__CalculateRatio.c:56-71`：`height(get_rect(this+0x20)) − height(rect(this+0x28 → +0x40))`，
+            //    `rect+0xc` = height；`this+0x20` = `trackHolder`、`this+0x28` = `nodePrefab`、
+            //    `+0x40` = **`CampaignNode.rect`**（字段序实证：+0x20 `OnNodeClicked` / +0x28 `Data` / +0x30 `ConnectedNodes`
+            //    / +0x38+0x3c 两个 int / **+0x40 `rect`**；+0x28=`Data` 由 `Initialize.c:149-153` 反证）。
+            //    该 RectTransform 实读 `sizeDelta = 100×100`（`RectTransform_6791446287889289095.json`）。
+            //   两个高**都静态可定**：`trackHolder` = prefab GO `Content`（anchors (0,0)-(0,1) + `sizeDelta.y = −100`）
+            //   ⇒ 高 = 视口高 − 100；节点 = `NodeSize`（100）。
+            //   ⇒ 分子 = (vpH − 100) − NodeSize = **vpH − 200**。原来我们的分子是 `vpH − NodeSize`（= 659.06），**多了 100**。
+            const float TrackHolderInset = 100f;   // = `Content` 的 `sizeDelta.y` 绝对值（prefab 实读）
+            // 🆕 2026-10-27（B88·E13 · 账 row 69 分母）：原版分母 = **2 × max(|maxY − offset.y|, |minY − offset.y|)**
+            //   —— `offset.y` = 根节点 Y（`GetNodesOffset.c:52`），**不是 0**。
+            //   判据：`CalculateRatio.c:40-65` 两个 lambda **都取 `+0x3c` = Y**（`__c___CalculateRatio_b__12_{0,1}.c:6`）、
+            //   减 `param_3` 的高半（= `offset.y`）、`& DAT_1834b2e60`（`read_literal` 现读 = `2147483647` = 绝对值掩码）、取大。
+            //   ⇒ 我们原来用 `max|Y|`（= 392）当分母的那一半，原版是 `384`（= max(|376−(−8)|, |−392−(−8)|)）⇒ 行距差 2%。
+            Ratio = maxAbsDevY <= 0 ? 1f : (vpH - TrackHolderInset - NodeSize) / (2f * maxAbsDevY);
             // 🔴 **2026-10-03：`_shiftX` 现在算出的是「偏移 0 时的屏幕坐标」**（内容坐标系 = 偏移 0 时的
             //    屏幕坐标系，这样 `MenuScroll` 的两个极值天然就是「两端各差多少」）。
-            //    它仍然是「把最左节点往右让出一个**光圈半径**」那道补偿
-            //    （否则最左那个节点的 `Collectable Highlight`（178.915² 的圆环）会压到左栏四键上；
-            //     2026-09-23 实测白圈压住了 FORGE 那个键）。**相对位置与缩放比照原版。**
-            _shiftX = _vpR.x1 + HighlightSize * 0.5f - minX * Ratio;
+            // 🔴🆕 **2026-10-27（B88·E13 · 账 row 76）：那道「让出一个光圈半径」的补偿【删掉了】——
+            //    原版没有它，原版是把最左节点定在内容左缘内 `startingOffset.x(330) × Ratio` 处。**
+            //    算式（`CampaignTrack__Initialize.c:208-209` 与 `GetNodePosition.c:12-14` 同一式）：
+            //      `anchoredPosition.x = (node.X − offset.x) × ratio`，`offset.x = minX − 330`
+            //      ⇒ 屏幕 x = 视口左缘 + `(node.X − minX + 330) × Ratio`（内容 anchorMin/Max.x = 0、pivot.x = 0、
+            //        anchoredPosition.x = 0 ⇒ **起手滚动偏移 = 0 时内容左缘就贴视口左缘**）。
+            //    **「起手滚动初值 = 0」的判据**：全量反编译里**没有任何一处**写 `horizontalNormalizedPosition`
+            //      （`grep -r "horizontalNormalizedPosition|m_HorizontalNormalizedPosition" out_cpp2il_dev_ilspy` = **0 命中**），
+            //      而 `CampaignTrack` / `CampaignWindowTab` 都**不碰**那颗 `ScrollRect`（只碰 `trackHolder`/`nodePrefab`/`startingOffset`）
+            //      ⇒ 初值 = `ScrollRect` 默认 0 = 最左。
+            //    最左节点落在 330×0.7279 ≈ **240px**（设计 px）处 ⇒ 光圈半径 89.46 < 240 ⇒ **白圈本来就压不到左栏四键**
+            //      （2026-09-23 那次压住 FORGE，是因为当时没有视口、整体右移的补偿写错了位置 —— 现在不需要补偿）。
+            _shiftX = _vpR.x1 + (StartingOffsetX - minX) * Ratio;
             _centerY = _vpR.CY;
 
-            // 🆕 滚动区：内容两端 = 节点位置 ∓ 光圈半径（把最外那圈高亮也算进去）
+            // 🆕 滚动区：内容两端（原版 `SetTrackSize` 定的那个 `trackHolder.sizeDelta.x`）
             float cx1, cx2;
             ContentSpan(out cx1, out cx2);
             if (_trackScroll == null)
@@ -531,29 +565,43 @@ namespace CardPresentation
         /// ⛔ 生产路径一次都不调它（`Setup` → `Build` 那条链一个字没改）。</summary>
         public void BuildTrackForTest() { ClearTrackContent(); BuildTrack(); }
 
-        /// <summary>轨道的**内容坐标**两端（= 所有节点中心的极值 ∓ 光圈半径）。</summary>
+        /// <summary>轨道的**内容两端**（= 原版 `CampaignTrack.SetTrackSize` 定的 `trackHolder.sizeDelta.x`）。
+        /// 判据（`decomp_full/CampaignTrack__SetTrackSize.c:52-71` + `out_cpp2il_dev_ilspy/CampaignTrack.cs:1009-1024`）：
+        /// ① `width = Max(nodes, n => n.rect.anchoredPosition.x) + nodeRect.width × 1.5`（`DAT_1834b3090` = 1.5，`read_literal` 现读）
+        /// ② 若 `GetComponent<TransformScalerBySmallScreenUI>()` 非空 ⇒ `width += nodeRect.width × menuScale × 2.5`
+        ///    （`DAT_1834b3250` = 2.5；`menuScale` = **1.125**，prefab 实读）⇒ 再 **+281.25**。
+        /// ⚠️ 原账 row 78 写的「`视口宽 × 1.5`」**是错的**：那个乘数是**节点宽 100**（`+0x28 → +0x40` 已由 row 69 证明
+        /// 是 `CampaignNode.rect`，实读 100×100），不是视口宽 1589.65 —— 两者差 15.9 倍。
+        /// 左端 = 内容左缘（`content` anchorMin/Max.x = 0 · pivot.x = 0 · anchoredPosition.x = 0 ⇒ 贴视口左缘）。
+        /// ⚠️ 我们**不做** `Max(...)`：节点位置是纯算式（`_shiftX + X·Ratio`，`Ratio > 0`）⇒ 极值必在 `maxX` 那个节点上。</summary>
         void ContentSpan(out float cx1, out float cx2)
         {
-            float lo = float.MaxValue, hi = float.MinValue;
+            float hi = float.MinValue;
             for (int i = 0; i < CampaignData.NodeCount; i++)
             {
                 float x = _shiftX + CampaignData.At(i).X * Ratio;
-                if (x < lo) lo = x;
                 if (x > hi) hi = x;
             }
-            if (lo > hi) { lo = 0f; hi = 0f; }                      // 没有节点 ⇒ 零宽
-            float pad = HighlightSize * 0.5f;
-            cx1 = lo - pad; cx2 = hi + pad;
+            if (hi == float.MinValue) hi = 0f;                       // 没有节点 ⇒ 零宽
+            cx1 = _vpR.x1;
+            cx2 = hi + NodeSize * 1.5f + NodeSize * ScalerMenuScale * 2.5f;
         }
 
         float _shiftX, _centerY;
 
-        /// <summary>节点在 `Content` 里的中心（原版 `GetNodePosition`：`(Position − offset) * ratio`，**y 取反**）。
-        /// ⚠️ **这是内容坐标**（偏移 0 时的那一套）—— 屏幕坐标要再过 `NodeScreen`。</summary>
+        /// <summary>节点在 `Content` 里的中心（原版 `GetNodePosition`：`(Position − offset) * ratio`）。
+        /// ⚠️ **这是内容坐标**（偏移 0 时的那一套）—— 屏幕坐标要再过 `NodeScreen`。
+        /// 🔴🆕 **2026-10-27（B88·E13）就地订正（铁律 5）—— 原来这里写的是 `_centerY − n.Y * Ratio`，那是【双重取反】后的错式**：
+        /// 原版 `GetNodePosition.c:12-14` / `Initialize.c:208-209` 的 y 项 = `(node.Y − offset.y) × DAT_1834b2bc8(−1.0f) × ratio`，
+        /// 而那是 **Unity 的 y 向上坐标**（`anchoredPosition.y` 为正 = 向上）；我们的 `PxRect` 是 **y 向下**（`Core/UguiRect.cs:51`
+        /// 「`pos.y` 向上为正」⇒ `py = refY − pos.y`）⇒ 换到我们这套里 **两个负号相消**：
+        /// `screenY = _vpR.CY − anchoredPosition.y = _vpR.CY + (n.Y − 根节点Y) × Ratio`。
+        /// 原来那版少了两处：① 符号反了（**整个地图上下镜像**）② 少了「减根节点 Y」那一跳（`GetNodesOffset` 的 `offset.y = 根节点 Y`）。
+        /// 判据链：`CalculateRatio` 的 Max/Min 两个 lambda **都取 `+0x3c` = Y**；`GetNodesOffset` 的高半 = `根节点.Y − startingOffset.y(0)`。</summary>
         Vector2 NodePos(int i)
         {
             var n = CampaignData.At(i);
-            return new Vector2(_shiftX + n.X * Ratio, _centerY - n.Y * Ratio);
+            return new Vector2(_shiftX + n.X * Ratio, _centerY + (n.Y - CampaignData.RootY) * Ratio);
         }
 
         /// <summary>内容坐标 → **屏幕坐标**（把 `MenuScroll` 的偏移加上去）。</summary>
@@ -820,7 +868,7 @@ namespace CardPresentation
         /// <para>① `CheckFillColor()` = 重算滑条填充比例与**满档换绿**（`当前 == 最大 ∧ 最大 ≥ 1`）——
         /// 我们这一半就是 <see cref="BuildArmyItems"/>（它逐格调 <see cref="BuildArmySlider"/>，
         /// 而后者本来就按当前值算比例与颜色）⇒ **重建即等价**，不另写一份算色。</para>
-        /// <para>② `shinyEffect.Play(true)` = 见 <see cref="PlayArmyIconShine"/>（那一层**还没有**，如实出声）。</para>
+        /// <para>② `shinyEffect.Play(true)` = 见 <see cref="PlayArmyIconShine"/>（等价层 `WildcardShineLayer`，**2026-10-27 已落地**；上面 ✅ 那条是本句的就地订正）。</para>
         /// <para>⚠️ **为什么要它**：我们的阵营滑条原来只在 `Build()` / `SelectArmy()` 里建，
         /// 领完一个节点滑条**不会动**（要关窗重开才对）—— 原版靠这条回调就地重刷。
         /// 现在由 `ClaimForTest` / `Refresh()` 各喊一次；**幂等**（点数没变 ⇒ 立刻返回，不重建）。</para></summary>
@@ -998,7 +1046,12 @@ namespace CardPresentation
             if (_armyScroll == null) return;
             int i = System.Array.IndexOf(CampaignData.Armies, CampaignData.Selected);
             if (i < 0) return;
-            _armyScroll.FocusOn(_armyContentR.x1 + i * (ArmyItemW + ArmySpacing) + ArmyItemW * 0.5f);
+            // 🆕 2026-10-27（B88 · J4b · 账 row 3）：原版 `ArmySelector.FocusOnArmy` 是**协程补间**（`_FocusOnArmy_d__11`，
+            // 走 `ScrollViewFocusFunctions`），我们原来用 `FocusOn` = **瞬跳**。改走 `FocusOnAnimated`（同一类里
+            // `SnapTo/SnapToItem` 那一路的等价物，`ForgeRewardSelector` 用的是同一支）。
+            // ✅ 可用前提已核：`_armyScroll` 在 `:309` 已 `PointerLayer.RegisterScroll` ⇒ 生产里每帧被 `MenuScroll.Tick(dt)` 推进
+            //   （`MenuScroll.Tick` 的 doc：真跑由 `PointerLayer.Update` 调）；⛔ 没注册的 scroll 用它是**永不结束的补间**。
+            _armyScroll.FocusOnAnimated(_armyContentR.x1 + i * (ArmyItemW + ArmySpacing) + ArmyItemW * 0.5f);
         }
 
         /// <summary>换阵营。**照原版 `CampaignWindowTab.ClickChangeArmy`**：不同才换 → `SetActiveCampaign` → `handler.SetSelectedArmy`。

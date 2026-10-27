@@ -174,8 +174,13 @@ events.Clear(); blockedEvents.Clear(); handlerActions.Clear();           // ④ 
 1. **本地 13 份 SO 没有这 5 类事件**：`LiveOpsLocalCatalog.Events` 的全是 `Parent` / `Scoring` / `PremiumItemOffer`
    （`Kind ∈ {Parent=0, Scoring=1, PremiumItemOffer=2}`；`FastMode=3` 的 `FastModeEvents` 表**空**）。
    ⇒ 排位 / 遭遇 / Raid / ExpansionPass / Energy 这 5 类**一个本地实例都没有**（判据 → `LiveOpsLocalCatalog.cs` 的 `LiveOpsLocalKind` 注释 + `FastModeEvents` 空表）。
-2. **`EventComponents` 只解到 GUID，没解到 prefab 名**：`LiveOpsLocalEvent.Components` = `key(EventComponentReferenceType) → GUID`，
-   而 `LiveOpsAssetUtility.GetComponentReference` 要把 (ev, label) 解析成 **prefab 引用**。GUID→prefab 名这一步**没做**（R12/R14「没查清」）。
+2. ⚠️ **2026-10-27 更正：原来写「`EventComponents` 只解到 GUID，没解到 prefab 名」——不成立，本地【能解】。**
+   （错因 = 只在 `Unity/数据/索引/guid_map.tsv` 里查到 bundle 就下了结论，没往 `m_Container` 里再追一跳。）
+   解法两跳：① `bundle_menus_assets_all/AssetBundle/AssetBundle_1.json` 的 **`m_Container`** 给「AssetReference GUID → `m_PathID`」；
+   ② 拿 `m_PathID` 反查 `GameObject/*.json`（该 pid 是 GameObject 本体，按其 `m_Component` 反查组件文件名后缀）⇒ 读 `m_Name`。
+   实读：`e4c251967ff1a79468e8bd25b86b15b8 = Base Event Popup` · `44c1eb3a347b840fd9e2e67ba85b7d02 = Full Screen Event Announcement Variant` ·
+   `be526b22c0924f54991b776d86261fed = Base Expiration Popup` · `2d7ec1a46a19245798bf28a5d1a030bb = Event Help Popup Variant`。
+   逐份 SO / 逐 label → `判据/B88_P1两条判据.md` §3.3；装配落点 → `Shell/LiveOpsHandler.cs` 的 `LiveOpsLocalBoot`。
 3. `GetComponentReference(ev, 10)` 的 `10 = MainWindow` 已核（`OpenEventHub` 头注），但**没有**「事件 → 哪扇窗类」的静态表可查 ——
    原版靠 prefab 引用，我们只能按 `Kind` 猜。⛔ 不猜（铁律 2）。
 
