@@ -628,11 +628,14 @@ namespace CardPresentation
         /// 按**被点的那条消息**填面板并摆出来。判据逐句现读（`ChatPanel.cs:561-563` ·
         /// `ChatPlayerOptionsPanel.cs:74-112`）：① `title.text = messageData.playerName`；
         /// ② `AddButton.interactable = 好友表里查不到该 playerId`。
-        /// <para>⚠️ **按行定位那一跳不在本件**（原版把面板摆到被点消息旁边）—— 账 328 单独记着。</para>
+        /// <para>🆕 **2026-10-27（C5 · 账 328）**：**按行定位这一跳已接** —— 原版
+        /// `ChatPlayerOptionsPanel.ShowOptionsFor` 里那句「x/z 取面板自己的、y 取被点消息的 `transform.position.y`」
+        /// （判据 `decomp_full/ChatPlayerOptionsPanel__ShowOptionsFor.c:52-66` + `…__SetPositionInScreen.c`）：
+        /// 我们全是画布 px ⇒ 等价 = **保持面板自身矩形的高与 x，把中心 y 平移到被点那一行**（⛔ 不夹边界，原版也不夹）。</para>
         /// <para>⚠️ 本地**没有** `playerId` 的写入方：`SocialData.ChatMessage.PlayerId` 是本轮新加的字段，
         /// 默认 null ⇒ ② 退化成「一律可点」（与改前同观感），但**链路已经通了**：真数据填上 id 与好友表
         /// 之后这两条自己就生效（⛔ 不编一个假 id）。</para></summary>
-        public void ShowOptionsFor(SocialData.ChatMessage m)
+        public void ShowOptionsFor(SocialData.ChatMessage m, float rowCenterY = float.NaN)
         {
             if (_options == null) { Debug.LogWarning("[Chat] 选项面板没建起来（`_options == null`）—— 点不开"); return; }
             OptionsFor = m;
@@ -643,7 +646,7 @@ namespace CardPresentation
                 bool alreadyFriend = m != null && IsFriend(m.PlayerId);
                 _optAddFriend.Interactable = !alreadyFriend;
             }
-            _options.gameObject.SetActive(true);
+            _options.gameObject.SetActive(true); if (!float.IsNaN(rowCenterY)) { float dy = rowCenterY - (OptPanelR.y1 + OptPanelR.y2) * 0.5f; MenuDraw.ApplyPxRect(_options, _options.parent, new PxRect(OptPanelR.x1, OptPanelR.y1 + dy, OptPanelR.x2, OptPanelR.y2 + dy)); }
             Debug.Log("[Chat] 开选项面板：对着「" + (m != null ? m.Sender : "?") + "」"
                     + "（原版 `ChatPanel.ShowOptionsPanel → ChatPlayerOptionsPanel.ShowOptionsFor(message)`；"
                     + "5 个钮的落地仍要服务器）");
@@ -653,11 +656,11 @@ namespace CardPresentation
         /// ⚠️ `SocialData.Friend.Id` 是本轮新加的字段；空 id 一律当「查不到」。</summary>
         public static bool IsFriend(string playerId)
         {
-            if (string.IsNullOrEmpty(playerId)) return false;
-            var list = SocialData.Friends;
-            for (int i = 0; i < list.Count; i++)
-                if (list[i] != null && list[i].Id == playerId) return true;
-            return false;
+            // ✅ 2026-10-27（C5 · 账 373）：规则**收口**到 `SocialData.IsFriend`（全仓唯一一份实现）。
+            //    两处写同一规则 = 迟早不一致；这里保留同名包装，免破既有调用点。
+            //    判据 = 原版 `FriendsData.IsFriend(string playerId)`（`FriendsData.cs:40`），按 id 查好友表。
+            //    空 id 一律 false；好友表恒空 ⇒ 生产侧今天恒 false。
+            return SocialData.IsFriend(playerId);
         }
 
         /// <summary>= 原版 `ChatPanel.OnTabChange()`（判据 `ChatPanel.cs:462-470`，逐句）：
@@ -819,7 +822,7 @@ namespace CardPresentation
             var sR = new PxRect(headR.x1, headR.y1, headR.x2, headR.y1 + 24.38f);
             Text(head, sR, m.Sender ?? "", new Color(0.337f, 0.843f, 0.4f, 1f), "Sender", 18f, ChatPanel.QHead, clip,
                  clipSoft, alignLeft: !m.Mine, alignRight: m.Mine, face: TmpFont.Face.LatinCardBody);
-            Text(head, sR, m.Time ?? "", new Color(0.84f, 0.84f, 0.84f, 1f), "Time", 18f, ChatPanel.QHead, clip,
+            Text(head, sR, SocialData.TimeText(m), new Color(0.84f, 0.84f, 0.84f, 1f), "Time", 18f, ChatPanel.QHead, clip,
                  clipSoft, alignLeft: m.Mine, alignRight: !m.Mine, face: TmpFont.Face.LatinCardBody);
 
             // 头像框（`Profile border` + 里面的立绘）：自己发贴**右沿**（+45）、别人发贴**左沿**（−45），
@@ -844,7 +847,7 @@ namespace CardPresentation
             //     `| ·1 | Message | … | 'This is the message' 字号=22.0 基准=22.0 对齐=Left/Top 折行=1 色=(1,1,1,1) |`
             //   ⇒ 改法一行 = 补 `alignLeft: true`（⛔ 别改成右对齐 —— 原版是 `Left/Top`）。
             Text(row, new PxRect(r.x1 + padL, r.y1 + MsgTop, r.x2 - padR, r.y1 + MsgTop + 30f),
-                 m.Text ?? "", Color.white, "Message", 22f, ChatPanel.QText, clip, clipSoft, alignLeft: true,
+                 SocialData.Text(m), Color.white, "Message", 22f, ChatPanel.QText, clip, clipSoft, alignLeft: true,
                  face: TmpFont.Face.LatinCardBody);
 
             // 点头像 ⇒ 开玩家选项面板（原版 `ChatMessageUI.OnMessageClicked` / `ChatPlayerOptionsPanel`）
@@ -857,7 +860,12 @@ namespace CardPresentation
             //     三行就一句 `optionsPanel.ShowOptionsFor(message)`）→
             //     `ChatPlayerOptionsPanel.ShowOptionsFor(ChatMessageUI message)`（`:74-112`）。
             //   ⇒ 现在把 `m` 原样传下去（`ShowOptionsFor` 是唯一消费口）。
-            MenuDraw.Hit(pb, "Hit", pbr, ChatPanel.QHit, () => win.ShowOptionsFor(m), clip: clip);
+            // 🔴 **2026-10-27（C5 · 账 296/299/328）**：① 头像命中区**只给「别人」那一侧**（原版 `portraitButton`
+            //   只挂在 `Friend Header` 的 `Profile border` 上 —— 自己发的头像点不到，我们原来两侧都建）；
+            //   ② **整行命中**挂在那颗 `MessageHit` 上 ⇒ 原版 `messageButton → OnMessageClicked`；
+            //   ③ 队列：整行 = `QHit`（**必须高于 `Absorb` 那层 `QHit−1`**，否则聊天框底的吸收层先吃掉），
+            //   头像 = `QHit+1`（高于整行 ⇒ **点头像优先**，不然点谁都退化成「点行翻译」）。
+            if (!m.Mine) MenuDraw.Hit(pb, "Hit", pbr, ChatPanel.QHit + 1, () => win.ShowOptionsFor(m, (r.y1 + r.y2) * 0.5f), clip: clip); MenuDraw.Hit(row, "MessageHit", r, ChatPanel.QHit, () => OnRowClicked(win, m), clip: clip);
         }
 
         // ============================================================ 分侧参数（2026-10-25 · 账 300/301）
@@ -884,5 +892,73 @@ namespace CardPresentation
         public static float RowPadRight(bool mine) { return mine ? PadX + PadSwap : PadX; }
         /// <summary>两个 padding 的差（60 − 25）。原版 `namePadding = 60` · `timePadding = 25`。</summary>
         public const float PadSwap = 35f;
+
+        // ============================================================ 🆕 2026-10-27（C5 批 · 账 299）
+        // 🔴 纪律：这一段**追加在类尾**（本文件被账按行号引用 ⇒ 只允许末尾追加）。
+        static readonly HashSet<string> _saidOnce = new HashSet<string>();
+
+        /// <summary>= 原版 `ChatMessageUI.OnMessageClicked()`（**逐句**，判据
+        /// `out_cpp2il_dev_ilspy/ChatMessageUI.cs:280-315`）：① `type ∈ {Announcement(100), Message(50)}`
+        /// ⇒ `TranslateMessage()`（走远端 `TranslationService`）；② `type == DeckShare(150)`
+        /// ⇒ 取 `data` 的末行 → `CardDeck.DeserializeDeckString` → 开 `DeckInfoPopup`（**Import** 态）。
+        /// <para>⚠️ **两处如实差异**：① 翻译走远端 ⇒ 本地**只出声一次、保持原文**
+        /// （⛔ 不假装翻译过；`TranslationStatus` 三态字段留在 `SocialData.ChatMessage` 上给账 302 消费）；
+        /// ② 卡组串用本仓的 `DeckLibrary.ImportString`（= 原版 `DeserializeDeckString` 的等价件，
+        /// 与 `Shell/CollectionData.ImportDeck` 同一条链，⛔ 不另写一份解析）。</para></summary>
+        static void OnRowClicked(ChatPanel win, SocialData.ChatMessage m)
+        {
+            if (win == null || m == null) return;
+            if (m.Type == SocialData.ChatMessage.TypeMessage || m.Type == SocialData.ChatMessage.TypeAnnouncement)
+            {
+                if (_saidOnce.Add("translate"))
+                    Debug.LogWarning("[Chat] 点消息行 = 原版 `TranslateMessage()` —— 它走**远端 `TranslationService`**，"
+                                   + "本地没有对等物 ⇒ **不翻译、保持原文**（⛔ 不假装翻译过；三态字段 `TranslationStatus` 已留）。");
+                return;
+            }
+            if (m.Type != SocialData.ChatMessage.TypeDeckShare)
+            {
+                if (_saidOnce.Add("type" + m.Type))
+                    Debug.Log("[Chat] 点消息行：类型 " + m.Type + " 在原版 `OnMessageClicked` 里**没有分支**（只有 50/100/150 三档）⇒ 什么都不做。");
+                return;
+            }
+            // ---- DeckShare：`data` 的**末行**才是卡组串（原版 `data.Split("\n")` → `Enumerable.Last`）
+            string data = m.LocData;
+            if (string.IsNullOrEmpty(data))
+            {
+                Debug.LogWarning("[Chat] `DeckShare` 消息没有 `LocData`（原版 `data`）⇒ 打不开卡组详情（⛔ 不编一个空卡组）。");
+                return;
+            }
+            int cut = data.LastIndexOf('\n');
+            string deckString = cut >= 0 ? data.Substring(cut + 1) : data;
+            var deck = RuleEngine.DeckLibrary.ImportString(deckString, CollectionData.Card);
+            if (deck == null)
+            {
+                Debug.LogWarning("[Chat] `DeckShare` 的卡组串**解析不出来** ⇒ 打不开卡组详情（⛔ 不静默）。");
+                return;
+            }
+            var mgr = win.Manager;
+            if (mgr == null)
+            {
+                Debug.LogWarning("[Chat] 没有 `WindowsManager` ⇒ `DeckShare` 的卡组详情开不了。");
+                return;
+            }
+            var info = new CollectionData.DeckInfo
+            {
+                Name = deck.Name ?? "",
+                WarlordId = deck.WarlordId,
+                Count = deck.CardIds != null ? deck.CardIds.Count : 0,
+                CardbackId = deck.CardbackId,
+                GameMode = deck.GameMode,
+            };
+            var hero = CollectionData.Card(deck.WarlordId);
+            info.Faction = hero != null ? hero.Faction : "";
+            // 原版 = `new DeckInfoContext(deck, Import, selectButton: null, checkOwnership, editButtonAction: null)`
+            // ⇒ 我们的等价构造 = `CreateForPicked(…, State=Import, isPlayerDeck:false（别人的分享）, 无选卡组钮)`
+            var popup = DeckInfoPopup.CreateForPicked(mgr, -1, deck, info,
+                                                      DeckInfoPopup.DeckInfoState.Import, false, null, null);
+            mgr.OpenWindow(popup);
+            Debug.Log("[Chat] `DeckShare` ⇒ 开 `Deck info Popup`（**Import** 态）· 卡组「" + info.Name + "」"
+                    + "（原版 `ChatMessageUI.OnMessageClicked` → `WindowsManager.OpenWindow<DeckInfoPopup>(context)`）");
+        }
     }
 }

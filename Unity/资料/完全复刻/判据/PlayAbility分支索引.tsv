@@ -1,0 +1,87 @@
+分支号	常量值(decimal/hex)	语义一句话	原版行号区间	我们的落点（文件:行号，现读）	判定	缺什么
+B01	0/0x00 drawCard	抽牌：按 playersAffected(+0x20) 分己方/敌方两档各调一次 AddDrawCard	1439-1453	RuleEngine/Core/EffectResolver.cs:3566（DoDraw）	A	无缺口（抽牌已实现；owner 参数覆盖己/敌两档）
+B02	3/0x03 doOnlyVfx	只打一条 Log、无任何效果	1456-1458	无对应（结构上不需要）	A	原版就是空操作，不需要实现
+B03	10/0x0a doDamage	造 DamageInfo（GetValueFromCriteria 取值）+ DealMultiDamage(isFast=false)	1461-1510	RuleEngine/Core/EffectResolver.cs:2950（DoDeal）	A	无缺口
+B04	13/0x0d doDamageFast	同 10，DealMultiDamage 第 8 参 isFast=true	1461-1510	RuleEngine/Core/EffectResolver.cs:2950（DoDeal）	B	需核 DoDeal 是否消费「fast」标志（原版把 chosenAbility==0x0d 当 isFast 传下去）
+B05	12/0x0c doDamageMultiRandom	多变体：逐目标 GetTargets 后 DealMultiDamageVariable（同一目标多段、变体累加）	1511-1628	RuleEngine/Core/EffectResolver.cs:3462（DoEachUnitDeal）/2950（DoDeal）	B	多变体/多段伤害语义需核 DoDeal 与 DoEachUnitDeal 是否逐条覆盖
+B06	15/0x0f doDamageAndDestroySelf	造 DamageInfo + DealMultiDamageAndDestroySelf（打完自毁）	1629-1674	RuleEngine/Core/EffectResolver.cs:2950（DoDeal）	B	「自毁」那一半需核
+B07	20/0x14 doHeal	GetValueFromCriteria 取值 + HealOneCharacter / HealMultipleCharacters	1262-1308	RuleEngine/Core/EffectResolver.cs:3540（DoHeal）	A	无缺口
+B08	30/0x1e buffOthers	造 CardEffect 副本 + AddEffect（带 AlreadyContainsEffect 去重、0x41 出 ItemDrawerOptions）	1182-1260	RuleEngine/Core/EffectResolver.cs:11548（DoGive）	A	无缺口（去重/选项细节随 DoGive）
+B09	31/0x1f buffOthersNotResetPool	同 30 的「不重置 pool」变体	1182-1260	RuleEngine/Core/EffectResolver.cs:11548（DoGive）	B	「不重置 pool」这一档需核
+B10	40/0x28 buffSelf	造 CardEffect 副本（写 0x30/0x31/0x98/0xa4）+ AddEffect 给自己	1310-1375	RuleEngine/Core/EffectResolver.cs:11548（DoGive）	A	无缺口
+B11	50/0x32 buffHand	HandEffect 副本 + AddHandEffect（英雄/单位两档 by +0x18）	1377-1437	RuleEngine/Core/EffectResolver.cs:11548（DoGive 手牌加成支）	B	手牌加成登记的落点需核（HandOnly / GrantHandBuffForTargets）
+B12	60/0x3c buffMana	造 ManaBuff（倍率 ×local_178）+ AddManaBuff	685-721	RuleEngine/Core/EffectResolver.cs:12690（DoEnergy）/12736（DoFactionResource）	A	无缺口
+B13	70/0x46 summonUnit	GetCardToSummon + GetNextSlotWithoutDisplacing + AddSummonUnit（含槽位选择四支）	722-878	RuleEngine/Core/EffectResolver.cs:3620（DoDeploy→DoDeployOnce）	B	原版走 AddSummonUnit（占位/槽选择），我们走 deploy 链 ⇒ 槽位与「召唤 vs 部署」语义需核
+B14	71/0x47 summonUnitAndSetRef	同 70，且写 `+0x280`（refCard）	722-878	RuleEngine/Core/EffectResolver.cs:3620（DoDeploy）	B	SetRef（+0x280）无对应，需核
+B15	72/0x48 summonUnitAndTriggerEffect	同 70（触发效果由 AddSummonUnit 的该档处理）	722-878	RuleEngine/Core/EffectResolver.cs:3620（DoDeploy）	B	同上（召唤链整体形状）
+B16	75/0x4b summonBuffedUnit	同 70 + buffEffect 副本（AdjustCardEffect/write ref）	722-878	RuleEngine/Core/EffectResolver.cs:3620（DoDeploy）	B	buff 副本参数需核
+B17	77/0x4d summonUnitDelayed	同 70，priority 固定 3（延迟上场）	722-878	RuleEngine/Core/EffectResolver.cs:3620（DoDeploy）	B	延迟 priority=3 需核
+B18	73/74/76/78/79 (0x49-0x4f)	未定义枚举空档，直接 return（无操作）	879-884	无对应（结构上不需要）	A	原版空操作
+B19	80/0x50 transformSelf	GetCardToSummon + AddTransformCard（自己变身，带 keepEffects +0x2a）	885-906	未找到对应	C	我们无「变身」机制（grep transform/TransformCard/TransformUnit 0 命中；只有 transformToRemnant）。账 L172 判 C
+B20	85/0x55 transformSelfWithBuff	GetCardToSummon + AddTransformCardWithBuff	908-946	未找到对应	C	同上（账 L172 C）
+B21	90/0x5a transformUnit	遍历目标 AddTransformCard	950-984	未找到对应	C	同上
+B22	100/0x64 createCardInHand	GetCardToSummon + GetPos + AddNewCardToHand	986-1037	RuleEngine/Core/EffectResolver.cs:3987（DoCreate）/4706（DoChooseCard）	B	「造卡进手」落点/位置参数需核
+B23	101/0x65 createCardInHandAndKeepEffects	GetCardScriptToSummon + AddNewCardToHand + 逐个 AddEffect（保留旧效果）	1107-1173	RuleEngine/Core/EffectResolver.cs:3987（DoCreate）	B	「保留效果」那一半需核
+B24	110/0x6e destroy	判 spell/unit（trait 0x136 闸）→ DestroyUnit	1040-1105	RuleEngine/Core/EffectResolver.cs:4150（DoDestroy）	A	无缺口
+B25	120/0x78 jam	遍历目标 JamUnit	625-640	RuleEngine/Core/EffectResolver.cs:15863（DoJam）	A	无缺口
+B26	130/0x82 stun	遍历目标 AddStun	642-657	RuleEngine/Core/EffectResolver.cs:4191（DoStun）	A	无缺口
+B27	135/0x87 stunMultiplier	Shuffle 候选后按 local_178 次数 AddStun（随机多次眩晕）	659-681	RuleEngine/Core/EffectResolver.cs:4191（DoStun）	B	随机多次眩晕（Shuffle + 次数）需核
+B28	140/0x8c recallToOwnerHand	遍历目标 AddRecallToHand（带回 owner 判断 +0x40）	541-566	RuleEngine/Core/EffectResolver.cs:6520（DoReturn）	B	owner vs caster 回手归属需核
+B29	150/0x96 recallToCasterHand	同上（回 caster 的 hand）	568-586	RuleEngine/Core/EffectResolver.cs:6520（DoReturn）	B	同上
+B30	160/0xa0 discardFromHand	遍历目标 AddDiscardFromHand	588-603	未找到对应	C	无 discard-from-hand 动词/落点（EffectDispatch 无 discard；"discard" 仅出现在 CardDef token 白名单）
+B31	162/0xa2 disappearFromHand	遍历目标 AddDisappearFromHand	605-622	未找到对应	C	无对应（disappear 仅 TutorialScript 枚举）
+B32	165/0xa5 discardWholeHand	取敌方手牌整批 AddDiscardFromHand（含 IsPlayerAffected 双档）	293-347	未找到对应	C	无对应（"whole hand" 0 命中）
+B33	170/0xaa stealFromHand	遍历目标 AddStealFromHand	349-366	未找到对应	C	无对应（唯一 "steal" 命中是 stealth 误配）
+B34	175/0xaf stealFromDeck	遍历目标 AddStealFromDeck	368-383	未找到对应	C	无对应
+B35	180/0xb4 stealMinion	遍历目标 AddStealMinion	385-402	RuleEngine/Core/EffectResolver.cs:9281（DoTakeControl）	B	DoTakeControl 目前覆盖「本回合临时」；永久偷单位需核
+B36	185/0xb9 stealMinionSelf	单张 AddStealMinion（+0x18）	406-413	RuleEngine/Core/EffectResolver.cs:9281（DoTakeControl）	B	同上
+B37	190/0xbe exchangeSelfForMinion	临时造 criteria 调 GetTargets + AddExchangeMinions（五跳：换主/替换/清除召唤病/更新 whileInPlay/重组）	415-536	未找到对应	C	整条 exchangeMinion 无对应（账 L136 判 C）
+B38	200/0xc8 exchangeRandomFriendlyMinion	GetTargets 随机友方 + AddStealMinion / AddExchangeMinions	462-536	未找到对应	C	同上（exchangeMinion 族）
+B39	210/0xd2 copyUnitInCemetery	遍历目标 CopyUnitInCemetery（复制一份、原卡留墓地）	442-460	未找到对应	C	无 CopyUnit（账 L270 判 C；⛔ 别拿 ReturnFromCemetery 当等价）
+B40	220/0xdc resetActions	遍历目标 AddResetActions	2623-2638	RuleEngine/Core/RuleCore.cs:14515（ResetActions 相关）	B	完整 ResetActions 语义需核
+B41	230/0xe6 forceAttack	遍历目标 AddForceAttack(dontCount=0)	2641-2658	RuleEngine/Core/EffectResolver.cs:3123（DoForceAttack）	A	无缺口
+B42	231/0xe7 forceAttackDontCountAttack	AddForceAttack(dontCount=1)	2659-2674	RuleEngine/Core/EffectResolver.cs:3123（DoForceAttack）	B	dontCount 标志需核
+B43	233/0xe9 forceAttackFriendly	AddForceAttackFriendlyUnits	2679-2694	RuleEngine/Core/EffectResolver.cs:3123（DoForceAttack）	B	友方强制攻击支需核
+B44	235/0xeb scriptedSelfAttack	AddScriptedAttack（自己作为攻击方）	2695-2715	RuleEngine/Core/EffectResolver.cs:3123（DoForceAttack）	B	scripted 攻击需核
+B45	236/0xec scriptedActingCardAttack	AddRedirectedAttack（重定向攻击）	2716-2747	未找到对应	B	redirected attack 需核（可能落在 RuleCore 攻击重定向）
+B46	237/0xed scriptedTargetCardAttackDontCount	AddScriptedForceAttack(actor=+0x20)	2748-2763	未找到对应	B	需核
+B47	238/0xee scriptedSelfCardAttackDontCount	AddScriptedForceAttack(actor=+0x10)	2764-2779	未找到对应	B	需核
+B48	240/0xf0 disappearUnit	遍历目标 AddDisappearUnit	2780-2795	未找到对应	C	无对应（disappearUnit 仅 TutorialScript 枚举）
+B49	250/0xfa autoPlayFromHand	遍历目标 AddAutoPlayFromHand（自动从手牌打出）	2796-2814	EffectResolver.cs:3896（op.AutoPlay）+ RuleCore.cs:4869（DeploySource.AutoPlayFromHand）	A	已实现
+B50	260/0x104 triggerEffectInCard	收集目标后 TriggerOtherCardAbility（每个目标触发它自己的 ability）	2534-2555 + 2851-2877	RuleEngine/Core/EffectResolver.cs:14897（DoTriggerAbility）	A	无缺口
+B51	270/0x10e createCardInDeck	GetCardToSummon + GetPos + AddNewCardToDeck	2557-2622	未找到对应	C	无 add-new-card-to-deck（AddNewCardToDeck 0 命中）
+B52	280/0x118 revealOrder	AddRevealOrders + SpendEnchantment	2483-2512	RuleEngine/Core/RuleCore.cs:8149（ResolveRevealOrders 相关）	B	需核
+B53	290/0x122 missAction	遍历目标 AddMissAction	2514-2532	RuleEngine/Core/RuleCore.cs:14975（MissActions）	A	无缺口
+B54	300/0x12c recallToDeck	AddRecallToDeck(setItOnTop=0)	2164-2192	RuleEngine/Core/EffectResolver.cs:6520（DoReturn dest=deck）	B	回牌库支需核
+B55	301/0x12d recallToDeckToTop	AddRecallToDeck(setItOnTop=1)	2194-2224	RuleEngine/Core/EffectResolver.cs:6520（DoReturn dest=decktop）	B	同上
+B56	310/0x136 displayFromHand	遍历目标 AddDisplayFromHand	2227-2242	未找到对应	C	无对应（DisplayFromHand 0 命中）
+B57	320/0x140 followAfterResolution	AddFollowAfterResolution（跟随上一条结算）	2444-2479	RuleEngine/Core/EffectResolver.cs（FollowUpSchedulerOf）	B	需核跟进调度
+B58	325/0x145 followResolutionIfPreviousMeetsCriteria	取 refCard + 打印序号 + PlayAnim（上一条满足则跟随）	2419-2470	未找到对应	B	需核
+B59	330/0x14a drawUntilEqual	比较双方手牌差 → AddDrawCard 补齐到与对手相等	2373-2418	RuleEngine/Core/EffectResolver.cs:3566（DoDraw）	B	「抽到与对手相等」需核（可能在 DoDraw 之外另实现）
+B60	340/0x154 removeThisEnchantment	只摘指定那一个附魔（trigger 15/16 匹配 enchantCardId）	2250-2295	RuleEngine/Core/Enchantment.cs（EnchantmentRemoved 机制）	B	需核
+B61	345/0x159 removeEnchantment	遍历目标 AddRemoveEnchantment（按 enchantCardId 匹配）	2297-2371	RuleEngine/Core/Enchantment.cs	B	需核
+B62	350/0x15e removeFromCemetery	遍历目标 AddRemoveFromCemetery	1977-1992	未找到对应	C	无对应（RemoveFromCemetery 0 命中）
+B63	360/0x168 playChosenCardAbility	PayCardPlayedCostOath + OnTriggerAlt + double-oath 循环（誓约重放）	1994-2070	OathOps（BattleDriver，部分）	C	战术卡 oath 整支无出口（R4 L455 判 C）
+B64	370/0x172 triggerRelentless	遍历目标 AddTriggerRelentless	1995-2012	EffectResolver.cs:14897（DoTriggerAbility，部分）	B	缺 relentless 关键词常量/op 分派（R4 L183）
+B65	375/0x177 triggerSacrifice	AddTriggerSacrifice	2111-2126	EffectResolver.cs:14897（DoTriggerAbility，sacrifice 支）	B	需核
+B66	380/0x17c setReferenceCard	给 actingCard.referencedCards 换新表并填本条目标（覆盖）	2128-2160	EffectResolver.cs:1307（SetReferenceCards）	A	结构已实现（无生产调用点，见其 doc）
+B67	390/0x186 triggerRequiem	AddTriggerRequiem	2073-2089	EffectResolver.cs:14897（DoTriggerAbility，requiem 支）	B	需核
+B68	400/0x190 triggerCourtesy	AddTriggerCourtesy	2091-2109	EffectResolver.cs:14897（DoTriggerAbility，部分）	B	缺 courtesy 关键词常量/op 分派（R4 L178）
+B69	410/0x19a triggerCodex	AddTriggerCodex	1685-1700	EffectResolver.cs:14897（DoTriggerAbility，codex 支）	B	需核
+B70	411/0x19b triggerRegiment	AddTriggerRegiment	1702-1719	EffectResolver.cs:14897（DoTriggerAbility，regiment 支）	B	需核
+B71	420/0x1a4 setCardDeckToTop	AddSetCardToTop	1721-1735	未找到对应	C	无对应（SetCardToTop 0 命中）
+B72	430/0x1ae reanimate	AddTransformFromRemnant（从残骸复活）	1738-1763	RuleEngine/Core/EffectResolver.cs:15379（DoReanimate）	A	无缺口
+B73	440/0x1b8 triggerSpiritStone	AddTriggerSpiritStone	1767-1781	EffectResolver.cs:14897（DoTriggerAbility，SpiritStone 支）	A	无缺口
+B74	450/0x1c2 triggerSynapse	AddTriggerSynapse	1784-1800	EffectResolver.cs:14897（DoTriggerAbility，synapse 支）	B	需核
+B75	460/0x1cc triggerMob	AddTriggerMob(additional=0)	1805-1821	EffectResolver.cs:14897（DoTriggerAbility，mob 支）	B	需核
+B76	461/0x1cd triggerMobAdditional	AddTriggerMob(additional=1)	1822-1837	EffectResolver.cs:14897（DoTriggerAbility，mob 支）	B	需核
+B77	462/0x1ce triggerPray	AddTriggerPray	1838-1853	EffectResolver.cs:14897（DoTriggerAbility，pray 支）	B	需核
+B78	463/464/469/471/472/473/474 (0x1cf/0x1d0/0x1d5/0x1d7-0x1da)	未定义/未处理枚举空档，return（无操作）	1854-1861	无对应（结构上不需要）	A	原版空操作
+B79	465/0x1d1 triggerAmbush	AddTriggerAmbush	1862-1877	EffectResolver.cs:14897（DoTriggerAbility，ambush 支）	B	需核
+B80	466/0x1d2 triggerUprising	AddTriggerUprising	1878-1893	EffectResolver.cs:14897（DoTriggerAbility，uprising 支）	B	需核
+B81	467/0x1d3 triggerSlay	AddTriggerSlay	1894-1909	EffectResolver.cs:14897（DoTriggerAbility，slay 支）	B	需核
+B82	468/0x1d4 triggerTeleport	AddTriggerTeleport	1910-1925	EffectResolver.cs:14897（DoTriggerAbility，teleport 支）	B	需核
+B83	470/0x1d6 showCardsWindow	AddShowCardsWindowAction	1926-1933	ShowCardsWindow（表现层，7 处命中）	B	需核（是表现层，规则侧是否已闭环）
+B84	475/0x1db resetDuty	AddResetDuty	1934-1959	未找到对应	C	无对应（ResetDuty 0 命中）
+B85	480/0x1e0 highlightBloodThirst	SendHighlightBloodThirstAction（高亮嗜血）	1960-1972	未找到对应	C	表现层，无对应
+B86	其它（未列常量）	树外的值一律 return（未处理）	全树 default	无对应（结构上不需要）	A	原版无操作

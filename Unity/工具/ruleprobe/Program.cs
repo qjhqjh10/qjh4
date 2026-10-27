@@ -248,7 +248,7 @@ class Program
     //   ⇒ **只重钉这一颗**，`PinnedBaselineMd5` / `PinnedParseMd5` 原样不动。
     //   卡池 md5：`5a17f6af…` → `0397005d…`（3,119,176 → 3,235,327 B，+116,151 B 全部来自新列）。
     //   归因 → `资料/普查产出_1025/E4_trigger目标与activeAbility目标池.md` §二·2 / §四。
-    public const string PinnedPoolMd5 = "c2ee753d96ad11ea548843c861fd8890";  // 🔴 2026-10-27 重钉（第八十五会话）：卡表 v33→**v34**，新增 `enchantTrait`（v33，532 的附魔 trait 列）与 `cardType`（v34，traps 判据用的卡型列）两列；两次重生成前后 `play all dump` 逐行 **0 行不同** ⇒ 纯数据面扩展、无行为变化。上一版 = 8aa3747… ｜ 🔴 2026-10-26 重钉（第八十二会话同步点）：卡表 v30→v31（新增 `keyword` 列） ｜ 2026-10-25 重钉（执行代理 E4）：卡表 v27→v28，新增主动能力目标闸 `ActiveAbility.targetCriteria` 一列（`activeAbilityPickCriteria` 107 行）。卡的内容没变；解析差异 0 行 · 输出指纹仍 af836aa0… · 结算零差异 ⇒ 只重钉这一颗。归因 → 资料/普查产出_1025/E4_trigger目标与activeAbility目标池.md｜🔴 2026-10-25 再重钉（执行代理 X6）：卡表 v28→v29，`abilityLevelCriteria[]` 新增 `ca` 列（族别）85 行；卡内容一字未改、count 1127 不变，解析差异 0 行 · 输出指纹仍 af836aa0… · `play check` 基线 fc591fb3… 未变 ⇒ 只重钉这一颗。归因 → 资料/普查产出_1025/X6_口径乙ca列_执行报告.md｜🔴 2026-10-25 再重钉（执行代理 X20）：卡表 v29→v30，新增 1 张隐藏附魔 `Pray Enchantment`（`cardType 20`/`type=enchantment`）；既有卡改动 0 张。归因 → 资料/普查产出_1025/X20_PrayEnchantment入池_执行报告.md
+    public const string PinnedPoolMd5 = "7a79ef8d097573532b6716e7a6efedf4";  // 🔴 2026-10-27 重钉（第八十七会话 · 批 A + `A1a`）：卡表 v34→**v35**（`A1799_FIELDS` 新增 `cardDescriptionTextReferenceId` 15 行 · `activeAbilityTextReferenceId` 2 行 · `targetingTextReferenceId` 51 行）+ **池 1,128→1,129**（DA42 附魔模板入池）。新值是 `cards_engine.json` 的**文件 md5**（`md5sum` 现读核对过）。解析器零影响：`PinnedParseMd5` 仍是 `c9a64798…`、`PinnedBaselineMd5` `ce3faf91…` 都没动。上一版 = c2ee753d… ｜ 🔴 2026-10-27 重钉（第八十五会话）：卡表 v33→**v34**，新增 `enchantTrait`（v33，532 的附魔 trait 列）与 `cardType`（v34，traps 判据用的卡型列）两列；两次重生成前后 `play all dump` 逐行 **0 行不同** ⇒ 纯数据面扩展、无行为变化。上一版 = 8aa3747… ｜ 🔴 2026-10-26 重钉（第八十二会话同步点）：卡表 v30→v31（新增 `keyword` 列） ｜ 2026-10-25 重钉（执行代理 E4）：卡表 v27→v28，新增主动能力目标闸 `ActiveAbility.targetCriteria` 一列（`activeAbilityPickCriteria` 107 行）。卡的内容没变；解析差异 0 行 · 输出指纹仍 af836aa0… · 结算零差异 ⇒ 只重钉这一颗。归因 → 资料/普查产出_1025/E4_trigger目标与activeAbility目标池.md｜🔴 2026-10-25 再重钉（执行代理 X6）：卡表 v28→v29，`abilityLevelCriteria[]` 新增 `ca` 列（族别）85 行；卡内容一字未改、count 1127 不变，解析差异 0 行 · 输出指纹仍 af836aa0… · `play check` 基线 fc591fb3… 未变 ⇒ 只重钉这一颗。归因 → 资料/普查产出_1025/X6_口径乙ca列_执行报告.md｜🔴 2026-10-25 再重钉（执行代理 X20）：卡表 v29→v30，新增 1 张隐藏附魔 `Pray Enchantment`（`cardType 20`/`type=enchantment`）；既有卡改动 0 张。归因 → 资料/普查产出_1025/X20_PrayEnchantment入池_执行报告.md
 
     /// <summary>钉住的基线内容指纹（`工具/ruleprobe/基线/out_baseline.txt` 的 md5，**按字节**）。
     /// 与上面那个配对使用 —— 判据见上面那段长注释。</summary>
@@ -1103,6 +1103,85 @@ class Program
             //   🔴 判定规则**不在这里抄第二份**：只调 `Core/ForcedAttackRefund.Install`
             //     （`{231,237,238}` 退 / `{230,233,235,236}` 不退 / 都没有 ⇒ 不落键保持 `Unknown`）。
             //   🔴 数据来源 = 本函数**已经在读**的同一个 `cards_engine.json` ⇒ 不多读一次文件。
+            // ==========================================================================================
+            //  🆕 2026-10-27（执行代理 `B87_A3`）：v21 `hasActiveAbility` ＋ v23 `activeAbilityLogic`
+            // ==========================================================================================
+            //  🔴 **它治的是哪一条**：这两列**探针原来一个都没往 `CardDef` 传**（现读：池里每张卡的
+            //     `CardDef.HasActiveAbility` 恒 `-1 = 未知`、`ActiveAbilityLogic` 恒 `null`）⇒
+            //     `RuleCore.CanStartActiveAbility` 在探针里**恒 `ErrNoAbility(14)`**
+            //     ⇒ 2026-10-27 新接的「原版通用那一格主动能力」（`RuleCore.UseActiveAbility`）
+            //     **结构上量不到**（`play SOR66 preset aa=1` 读到 `rc=14`、三条断言全 ❌）。
+            //     这与 `A1911` / `A1959` / v13 / v14 / v17 那几笔**逐字同族**（探针与引擎口径不同）。
+            //  ✅ **不传的后果不是「中性」**：`hasActiveAbility=-1` 会让 `ConditionEval` 的 190/280
+            //     退回文本近似 / 返回「判不了」，而引擎侧 `CardDatabase.Parse` 从 v21 起就读真值。
+            //  ⚠️ 形状口径与 `CardDatabase.MapActiveAbilityLogic` 一致：坏 `ab`/`gate` 行丢弃、
+            //     `ta`/`fm` 长度不一致 ⇒ 两格都按未知（`null`）、坏格落 `-1`；⛔ 不压缩、不猜。
+            //  ⚠️ 局部名一律 `a3` 前缀（同族坑：同一个卡循环的子作用域里 `hasTrig` / `e` 已经用过）。
+            int a3HasAA = -1;
+            if (poolVersion >= 21 && c.TryGetProperty("hasActiveAbility", out var a3HaaEl)
+                && a3HaaEl.ValueKind == JsonValueKind.Number)
+                a3HasAA = a3HaaEl.GetInt32();
+            else if (poolVersion >= 21)
+                // 🔴 **缺键 ⇒ `0`，⛔ 不是 `-1`** —— 这里**故意**与「缺列 = 未知」那条总规矩不同，
+                //   理由是**要跟引擎的实际读数一致**：`CardDatabase.CardDto.hasActiveAbility` 是
+                //   裸 `public int`（默认 `0`），JsonUtility 缺键就给 `0` ⇒ 引擎侧这张卡
+                //   `HasActiveAbility == 0` = **明确没有主动能力**。生成器今天只在**非 0** 时才写这个键
+                //   （现读 v35：1129 张里只有 `SOR66` 带这一格），所以探针若按 `-1` 读，
+                //   两边对「同一份表」的结论会**正好相反**（探针「未知」/ 引擎「没有」）。
+                //   ⚠️ 表 < 21 时仍是 `-1`（那一版**整列都不存在**，引擎侧 `dto.version < 21` 也落 `-1`）。
+                a3HasAA = 0;
+            List<CardDef.ActiveAbilityLogicSpec> a3AaRows = null;   // `null` = 这一列没落（未知，⛔ 不是空表）
+            if (poolVersion >= 23 && c.TryGetProperty("activeAbilityLogic", out var a3AalEl)
+                && a3AalEl.ValueKind == JsonValueKind.Array)
+            {
+                a3AaRows = new List<CardDef.ActiveAbilityLogicSpec>();
+                foreach (var a3Row in a3AalEl.EnumerateArray())
+                {
+                    if (a3Row.ValueKind != JsonValueKind.Object) continue;
+                    if (!a3Row.TryGetProperty("ab", out var a3AbEl) || a3AbEl.ValueKind != JsonValueKind.Number) continue;
+                    int a3Ab = a3AbEl.GetInt32();
+                    if (a3Ab != CardDef.ActiveAbilityObject && a3Ab != CardDef.AlternativeAbilityObject) continue;
+                    int a3Gate = -1, a3Trig = -1, a3Nl = -1;
+                    if (a3Row.TryGetProperty("gate", out var a3GEl) && a3GEl.ValueKind == JsonValueKind.Number) a3Gate = a3GEl.GetInt32();
+                    if (a3Gate != 1 && a3Gate != 0 && a3Gate != -1) continue;      // 坏 `gate` ⇒ 丢这一行（同引擎）
+                    if (a3Row.TryGetProperty("trigger", out var a3TgEl) && a3TgEl.ValueKind == JsonValueKind.Number) a3Trig = a3TgEl.GetInt32();
+                    if (a3Row.TryGetProperty("needsLoading", out var a3NlEl) && a3NlEl.ValueKind == JsonValueKind.Number) a3Nl = a3NlEl.GetInt32();
+
+                    int[] a3Ta = A3IntArray(a3Row, "ta"), a3Fm = A3IntArray(a3Row, "fm");
+                    if (a3Ta != null && a3Fm != null && a3Ta.Length != a3Fm.Length) { a3Ta = null; a3Fm = null; }
+                    CardDef.ActiveAbilityDamageSpec[] a3Dmg = null;
+                    if (a3Row.TryGetProperty("dmg", out var a3DEl) && a3DEl.ValueKind == JsonValueKind.Array)
+                    {
+                        a3Dmg = new CardDef.ActiveAbilityDamageSpec[a3DEl.GetArrayLength()];
+                        int a3Di = 0;
+                        foreach (var a3De in a3DEl.EnumerateArray())
+                        {
+                            var a3Sp = new CardDef.ActiveAbilityDamageSpec();
+                            if (a3De.ValueKind == JsonValueKind.Object)
+                            {
+                                if (a3De.TryGetProperty("min",  out var a3V) && a3V.ValueKind == JsonValueKind.Number) a3Sp.Min = a3V.GetInt32();
+                                if (a3De.TryGetProperty("max",  out var a3V2) && a3V2.ValueKind == JsonValueKind.Number) a3Sp.Max = a3V2.GetInt32();
+                                if (a3De.TryGetProperty("opt",  out var a3V3) && a3V3.ValueKind == JsonValueKind.Number) a3Sp.ValueOptions = a3V3.GetInt32();
+                                if (a3De.TryGetProperty("type", out var a3V4) && a3V4.ValueKind == JsonValueKind.Number) a3Sp.Type = a3V4.GetInt32();
+                            }
+                            a3Dmg[a3Di++] = a3Sp;
+                        }
+                    }
+                    a3AaRows.Add(new CardDef.ActiveAbilityLogicSpec
+                    {
+                        Ability = a3Ab,
+                        Gate = a3Gate,
+                        Trigger = a3Trig,
+                        NeedsLoading = a3Nl,
+                        TargetsAffected = a3Ta,
+                        FurtherMultiplier = a3Fm,
+                        ChosenAbility = A3IntArray(a3Row, "ca"),
+                        PlayersAffected = A3IntArray(a3Row, "pa"),
+                        Damage = a3Dmg,
+                    });
+                }
+            }
+
             if (c.TryGetProperty("chosenAbility", out var caEl) && caEl.ValueKind == JsonValueKind.Array)
             {
                 var caList = new List<int>();
@@ -1167,7 +1246,12 @@ class Program
                                  abilityTargetCriteria: atcRows,
                                  abilityTargetCriteriaVersioned: poolVersion >= 25,
                                  activeAbilityTargetCriteria: aatRows,
-                                 activeAbilityTargetCriteriaVersioned: poolVersion >= 25));
+                                 activeAbilityTargetCriteriaVersioned: poolVersion >= 25,
+                                 // 🆕 2026-10-27（`B87_A3`）：v21 主动能力闸 ＋ v23 `activeAbilityLogic`
+                                 //   （见上面那一段长注释；⛔ 缺列一律 `-1` / `null` = 未知，不是「没有」）。
+                                 hasActiveAbility: a3HasAA,
+                                 activeAbilityLogic: a3AaRows,
+                                 activeAbilityLogicVersioned: poolVersion >= 23));
         rawKw.Add(kws);
         }
         // 🔴 **缺列一律出声**（铁律「不许静默失败」）：缺了就是缺了，⛔ 不让它静默变成「某张卡的值是 X」。
@@ -1954,6 +2038,24 @@ class Program
     {
         return RuleCore.PlayerChooseOps(c);
     }
+
+    /// <summary>🆕 2026-10-27（`B87_A3`）：`activeAbilityLogic` 的逐行整型数组（`ta` / `fm` / `ca` / `pa`）。
+    /// <para>口径同 `CardDatabase.MapActiveAbilityLogic`：缺键 / 不是数组 ⇒ **`null`（未知）**；
+    /// 单格不是整数 / `&lt; -1` ⇒ 该格落 **`-1`**（`0` 是合法值，⛔ 别拿它当缺值）。</para>
+    /// <para>⚠️ 放在类尾（本文件没有按行号被账引用，但同一条纪律：新成员追加在末尾）。</para></summary>
+    static int[] A3IntArray(JsonElement row, string key)
+    {
+        if (!row.TryGetProperty(key, out var el) || el.ValueKind != JsonValueKind.Array) return null;
+        var outp = new int[el.GetArrayLength()];
+        int i = 0;
+        foreach (var cell in el.EnumerateArray())
+        {
+            if (cell.ValueKind != JsonValueKind.Number) { outp[i++] = -1; continue; }
+            int v = cell.GetInt32();
+            outp[i++] = v < -1 ? -1 : v;
+        }
+        return outp;
+    }
 }
 
 /// <summary>
@@ -2440,4 +2542,5 @@ class CheckMain
         //   退出码把两者合并，免得「基线绿、哨兵红」被当成绿。
         return (parseDiff > 0 || sentFail > 0) ? 1 : 0;
     }
+
 }

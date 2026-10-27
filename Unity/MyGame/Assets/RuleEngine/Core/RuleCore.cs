@@ -4948,6 +4948,24 @@ namespace RuleEngine
                 // `CardScript__ResolveUnitSummoned.c:51`，而那条函数在再造链上**根本没被调**
                 // （判据 = 上面 `reanimated` 那一段的长注释：`ResolveTransformFromRemnant` 的回调清单里没有它）。
                 if (!reanimated) ResolveFaithAbility(ctx, owner, unit);
+                // ---- 🆕 2026-10-27（执行代理 `B87_A3` · 账 `CardScript.ResolveUnitSummoned` · L875）：
+                //      **起义（`Uprising` 680）在【召唤】这条入口上也要发** ----
+                //  判据（`decomp_full/CardScript__ResolveUnitSummoned.c:82-105`，本笔亲读全文）：
+                //    `:71-79` 两跳之后，`:82` `iVar4 = 播放者的 playedIntoFieldTurnCounter(+0x2E0)`、
+                //    `iVar5 = BattleManager.turnCounter(+0x3F8)`，**`:83` `if (iVar4 == iVar5)`** ⇒
+                //    `:86` `op_Inequality(刚落地那张, 我)` · `:88` `isPlayer 相同` · `:89` `cardType == 0 (unit)`
+                //    ⇒ `:90` `OnTrigger(0x2a8 = 680 = Uprising)`。
+                //  🔑 **它在 `ResolveUnitSummoned` 里是【无条件】的**（在 `cardState != 5` 那三层 if **之外**、
+                //    也**不受** `shouldTriggerSummon` 影响）—— 而 `ResolveUnitSummoned` 恰恰是
+                //    **两条召唤协程都会调**的那一个（195 / 605 已经在上面两行接好了，就是同一条函数）⇒
+                //    **效果召唤 / 复制 / 凭空造出来的部队同样要叫醒本回合在场的起义监听者**。
+                //    ⛔ 改前只有 `PlayCard`（手牌打出链）发过它（`FireTriggerOnSide(…Uprising…)` 全仓一处）
+                //    ⇒ 池内 `Uprising` 10 张里，靠效果召唤进场的那一路**一条都不响**（静默）。
+                //  ⚠️ 与 `Rally`（195）**不同**：Rally 受 `shouldTriggerSummon` 管（两条协程传的实参不同），
+                //    起义不受 ⇒ **别把这一句挪进 `if (fromHand)`**。
+                //  ⚠️ 再造不问（`reanimated`）—— 理由与上面 195 / 605 同一条（那条链根本不调本函数）。
+                if (!reanimated)
+                    FireTriggerOnSide(ctx, owner, KeywordTable.Uprising, unit, requireDeployedThisTurn: true);
                 return true;
             }
         }
@@ -14435,11 +14453,14 @@ namespace RuleEngine
         //  🔴 **2026-10-27（`B9_E5ENG` · 账 `RemoveAttackThisTurn` · R2T3B 现核）就地改：**
         //    原来这里写的是「两条并成一句 —— 只在 `wasFree` 时打后 -1」，**漏了预扣** ⇒ 「攻击前 `>0`」
         //    那一格变成 `n → n+1`（**多给玩家 1 次攻击**：实测 `1→2`，原版 `1→1`）。现在照原版**先预扣**。
-        //  ⚠️ **唯一不照抄的一格**：原版「预扣了、但目标不合法 ⇒ 白扣一点行动」是**它自己的 bug**
-        //    （`_ResolveForceAttack…:34-60` 不合法就直接 `goto LAB_1809b42e5` → `FinishResolvingAction`，
-        //     补偿那一跳永远排不上）；`TryAttackOnce` 还会对**每个候选**各调一次本方法
-        //    （`EffectResolver.cs:3243-3255` 的 `foreach`）⇒ 照抄会在多候选时连扣多次。
-        //    **我们改为「失败就把预扣原样退回」**，`OK` 那条路与原版逐字同形；这一格如实记在账的「差异」列。
+        //  🔴 **2026-10-27（执行代理 `B87_A3`）就地订正（铁律 5）—— 这一格现在【照抄】**：
+        //    原来这里写「原版『预扣了、但目标不合法 ⇒ 白扣一点行动』是**它自己的 bug** ⇒
+        //    **我们改为失败就把预扣原样退回**」。**那句作废**：CLAUDE.md 现行口径是
+        //    **原版自己有 bug 就照抄**（2026-10-26 `G14` 定：修好反而与玩家在原版里看到的不一致）。
+        //    判据 = `_ResolveForceAttack…:34-60` 判不过就直接 `goto` 收尾 ⇒ `:73` 那条补偿排不上；
+        //    `TryAttackOnce` 对**每个候选**各调一次本方法（`EffectResolver.cs` 那个 `foreach`）
+        //    ⇒ 多候选时**连扣多次** —— 那也是照抄（原版对每个候选各 `AddForceAttack` 一次）。
+        //    当前实现见 `DeclareAttackRefundingForced` 里那一行「**不再**把预扣退回」的注释。
         //
         //  **池内可达性**（`cards_truth.json` 1,351 张现扫，取 `abilities[].logic[].chosenAbility`）：
         //    · ❌ **不退还**：`0xe6`(230) / `0xe9`(233) 池内 **0 张**；`0xeb`(235，池内 **2** 张 =
@@ -14466,13 +14487,23 @@ namespace RuleEngine
             // `wasFree` 取的时刻 = **入队那一刻**（`AddForceAttack.c:41`）⇒ 必须在攻击之前取。
             UnitState atkUnit = (ctx != null && p >= 0 && p <= 1 && BoardSpec.IsValid(atkSlot))
                                 ? ctx.Players[p].Board[atkSlot] : null;
-            int countBefore = atkUnit != null ? atkUnit.AttacksThisTurn : 0;      // 预扣前那一格（失败要**原样退回**）
-            bool wasFree = atkUnit != null && countBefore == 0, refunds = ForcedAttackRefunds(ctx);  // `wasFree` 与退还判据都在**入队那一刻**取
+            bool wasFree = atkUnit != null && atkUnit.AttacksThisTurn == 0, refunds = ForcedAttackRefunds(ctx);  // `wasFree` 与退还判据都在**入队那一刻**取
             if (refunds) RemoveAttackThisTurn(atkUnit);                           // ① **入队即预扣**（`AddForceAttack.c:42`；只有 `dontCountAttack` 那三族）
             int code = DeclareAttackCore(ctx, p, atkSlot, tgtP, tgtSlot, ranged, true);
-            // 候选不合法 ⇒ 预扣**原样退回**（原版在这里白扣一点 = 它自己的 bug，⛔ 不照抄；见上方注释）
-            if (code != RuleCodes.OK) { if (refunds && atkUnit != null) atkUnit.AttacksThisTurn = countBefore; return code; }
-            if (wasFree && refunds)
+            // 🔴🆕 **2026-10-27（执行代理 `B87_A3` · 调度台口径 `G14` 2026-10-26）就地改：候选不合法时
+            //   **不再**把预扣原样退回 —— 原版在这里**白扣一点行动**，我们**照抄**。
+            //   判据（`decomp_full/BattleManager._ResolveForceAttack_d__504__MoveNext.c`，本笔复核）：
+            //     · `:34` 让 AI 挑目标 / `:61` `ChangeAttackType` —— 这两步判不过就**直接** `goto` 收尾
+            //       （`FinishResolvingAction`），**`:73` 那条 `if (extraValue /* wasFree */) 排 ResetActions`
+            //       永远排不上** ⇒ 入队时 `RemoveAttackThisTurn` 扣掉的那一点**没人还回来**；
+            //     · 而 `RemoveAttackThisTurn` 自己只在 `>0` 时 `--`（`CardScript__RemoveAttackThisTurn.c:5-7`）
+            //       ⇒ 「攻击前 0 次」那一档预扣是空操作、白扣不可见；**`>0` 那一档真丢 1 次**。
+            //   ⚠️ 改前的写法是 `if (code != OK) { atkUnit.AttacksThisTurn = countBefore; return code; }`
+            //      ＋注释「原版在这里白扣 = 它自己的 bug，⛔ 不照抄」—— 那是**主动偏离原版**，与
+            //      CLAUDE.md 现行口径（**原版自己有 bug ⇒ 照抄**，靠它结算的卡在原版里本来就是这样）相反。
+            //   ⚠️ 多候选时会**连扣多次** —— 那也是照抄（原版对每个候选各 `AddForceAttack` 一次）。
+            //   🔶 这一条的取舍**不是**「我们挑的」：判据 = 上面两行 `.c`，只是与旧注释的取舍相反。
+            if (code == RuleCodes.OK && wasFree && refunds)
                 RefundForcedAttackAction(ctx, p, atkSlot, atkUnit);
             return code;
         }
@@ -15216,6 +15247,341 @@ namespace RuleEngine
                 ctx.Log($"{name} 离场 ⇒ 场上摘掉 **{stripped}** 条它给出的外来效果"
                       + "（原版 `ResolveDeadCard.c:242` → `RemoveExtrinsicEffectsFrom(观察者, 死者)`）");
             return stripped;
+        }
+
+        // ==========================================================================================
+        //  🔴🆕 2026-10-27（执行代理 `B87_A3`）：原版**通用那一格主动能力**（`activeAbilityLogic`）
+        //
+        //  ⚠️ **位置 = 类尾**：本文件被账按 `文件:行号` 引用 ⇒ 新成员一律追加在这里（⛔ 别插进中间）。
+        //
+        //  **判据**（全文 → `资料/完全复刻/判据/SOR66主动能力_判定.md`；第一权威 = `d:/2/tools/decomp_full/`）：
+        //   · **入口是通用一格**：`BattleManager__CanUseActiveAbility.c` 里**没有任何卡型 / 关键词要求**
+        //     （`duty`(1220) / `oath`(1275) 只**额外收紧**）。⇒ ⛔ 别在这里加「必须带某个 trait」的闸 ——
+        //     我们原来那三条等价入口（`Ability:` 自定文法 / 替代行动 / 誓约）**全部以那五个 trait 之一为载体**，
+        //     所以「五缺」的卡落不到任何一条上（这就是 SOR66 没有入口的唯一原因）。
+        //   · **逐行执行** = `RawCardScript__ResolveActiveAbility.c:58-67`：每行调
+        //     `AbilityLogic__PlayAbility(logic, bm, abilityData, 400, 0)`，行内用**它自己的** `targetCriteria`。
+        //   · **动作经济** = `CardScript__ResolveActiveAbilityPlayed.c:31-32`（`+0x50 += 1` 本回合 · `+0x4C = 1` 本局）
+        //     ⇒ 与我们 `UseAbilityCore` / `UseAlternativeCore` 那两处**同一套三位**
+        //     （`Exhausted` · `AttacksThisTurn` · `UsedActiveAbilityThisTurn`/`ActiveAbilityUsed`）。
+        //   · **费用** = `BattleManager__CanUseActiveAbility.c:60-70` 的
+        //     `PlayerManager.HasEnoughMana(玩家, 卡, AbilityUsesPsychicEnergy, AbilityUsesPlasmaEnergy)`。
+        //
+        //  🔴 **今天只有 `SOR66 Armorium Cherub` 会走进来**：全池 87 张 `hasActiveAbility == 1`，
+        //     其余 86 张各自有替代行动关键词或 `Oath` 入口（`CardDefActiveAbility.cs` 文件头那张实测表）。
+        //     SOR66 的两行 = `buffOthers(30)` ＋ `triggerPray(462)`；下面**只实现这两个 op**，
+        //     别的 `chosenAbility` 一律**出声 + `ErrUnimplemented`**（⛔ 不许静默什么都不做）。
+        //
+        //  ⛔ **别走「给它造一条 `Pray:` 正文、复用 `UseAlternative(…, "pray")`」那条捷径**：
+        //     那一支在 `keyword == pray` 时**无条件** `Enchantments.AttachPray`（`RuleCore.cs` 的
+        //     `UseAlternativeCore`），而原版那张 `Pray Enchantment` 是**卡自己的 `cardAbilities[trigger=655]`**
+        //     挂的 —— `AbilityLogic__PlayAbility.c:1838-1853` 的 `AddTriggerPray` / `ResolveTriggerPray`
+        //     **不含挂附魔那一跳**。SOR66 没有 655 行 ⇒ 走捷径会**多挂一张原版不会挂的附魔**（静默做多）。
+        // ==========================================================================================
+
+        /// <summary>
+        /// 这个单位现在**能不能开始**主动能力 —— 只看它自己，**不判目标**
+        /// （对应 <see cref="CanStartAbility"/> 那一档：要选目标的技能得先「进入选目标状态」）。
+        ///
+        /// <para>**闸**（照 `BattleManager__CanUseActiveAbility.c:36-105` 逐条，⛔ 一条都不多）：
+        /// `HasActiveAbility == 1` · 自己回合 · 在场（`cardState == 2 inPlay`；残骸不在那一档）·
+        /// `!Exhausted`（原版 `card+0x230 canAct`）· `!IsStunned` ·
+        /// 有 `duty` 且本回合已经用过 ⇒ 拒（`+0x4C4` 那一支）·
+        /// 有 `oath` ⇒ **还要** <see cref="CanUseOathAbility"/> 放行（`+0x4FB` 那一支）·
+        /// 费用够（见上面注释块最后一条）。</para>
+        ///
+        /// <para>⚠️ **没有「卡型」闸**：原版 `SetBaseCardTraits()` 里 `hasActiveAbility` 是**无条件**从卡数据灌的
+        /// （`out_cpp2il_dev_ilspy/CardScript.cs:11436`），`Jam` 那一支才是「被 Jam 的非督军卡丢掉它」。
+        /// ⇒ 部队卡（池内 76 张）同样能发动，⛔ 别按 `IsWarlord` 挡。</para>
+        /// </summary>
+        public static int CanStartActiveAbility(BattleContext ctx, int p, int slot)
+        {
+            if (ctx == null || ctx.IsOver || p != ctx.Active) return RuleCodes.ErrNotTurn;
+            if (!BoardSpec.IsValid(slot)) return RuleCodes.ErrNotUnit;
+
+            var u = ctx.Players[p].Board[slot];
+            if (u == null || u.Card == null) return RuleCodes.ErrNotUnit;
+            if (u.Card.HasActiveAbility != 1) return RuleCodes.ErrNoAbility;
+            // 原版 `cardState == 2 (inPlay)` 才查费用、别的状态直接 Log + 返回 0
+            // （`CanUseActiveAbility.c:60-70`；残骸是 3 / 17，不在那一档）。
+            if (u.IsRemnant) return RuleCodes.ErrNotUnit;
+            if (u.IsStunned) return RuleCodes.ErrStunned;
+            if (u.Exhausted) return RuleCodes.ErrExhausted;
+            // `duty` 那一支：本局一次（`CardScript__ResolveActiveAbilityPlayed.c` 的 `duty` 分支 ⇒ 我们的 `DutyUsed`）
+            if (u.HasFx(KeywordTable.Duty) && u.DutyUsed) return RuleCodes.ErrDutyUsed;
+            // `oath` 那一支：原版在 `CanUseActiveAbility` 里**再调一次** `CanUseOathAbility`
+            // （`dump.cs:45854` 的 `oath = 1275`；我们的等价物 = 卡上有 `OathOps`）。
+            if (u.Card.OathOps.Count > 0)
+            {
+                int oc = CanUseOathAbility(ctx, p, slot);
+                if (oc != RuleCodes.OK) return oc;
+            }
+            // 费用：`-1 = 未知`（旧卡表 / 真值里没这张卡）⇒ **不收费、不拦**，由结算侧出声一次
+            // （⛔ 不拿「未知」当「免费」，见 `CardDef.ActiveAbilityManaCost` 的 doc）。
+            if (u.Card.ActiveAbilityCostKnown && u.Card.ActiveAbilityManaCost > 0
+                && ctx.Players[p].Energy < u.Card.ActiveAbilityManaCost)
+                return RuleCodes.ErrCost;
+            return RuleCodes.OK;
+        }
+
+        /// <summary>
+        /// 能不能发动主动能力，**并且**打中 <paramref name="targetSlot"/>
+        /// （只有「这一行要的是调用方给的那个目标」时才查 —— 判据见 <see cref="ActiveAbilityNeedsPick"/>）。
+        /// </summary>
+        public static int CanUseActiveAbility(BattleContext ctx, int p, int slot, int targetSlot = -1)
+        {
+            int code = CanStartActiveAbility(ctx, p, slot);
+            if (code != RuleCodes.OK) return code;
+            var u = ctx.Players[p].Board[slot];
+            string why;
+            var rows = ResolveActiveAbilityRows(ctx, p, u, out why);
+            // 判不出走哪一支 ⇒ 不猜（`ResolveActiveAbilityRows` 的三态）；**但目标闸不因此挡死** ——
+            // 结算侧会 `ErrUnimplemented` 并出声，这里放行让「能不能点」与「点下去会怎样」不打架。
+            if (rows == null) return RuleCodes.OK;
+            if (!ActiveAbilityNeedsPick(rows)) return RuleCodes.OK;
+
+            if (!BoardSpec.IsValid(targetSlot)) return RuleCodes.ErrTarget;
+            // 候选合法性走**既有那一份**判据（潜行 / ward / summonRift / tainted 那几道；⛔ 不另写一份）。
+            // ⚠️ `targetOwner = p` = 自己那一侧 —— SOR66 的 `targetCriteria` = `friendlyUnits 1 /
+            //    includeHero 1 / includeMinions 1 / includeSelf 1`（`friendlyUnits` 那两格见 `AbilityPickSideOf`）。
+            return CanUseAbilityTarget(ctx, p, u, p, targetSlot);
+        }
+
+        /// <summary>发动一次主动能力（`activeAbilityLogic` 那一格）。
+        /// <para>⚠️ 走 <see cref="BeginAction"/>（与原版「一次动作」同形，与 `UseAbility` / `UseOathAbility` 一致）。</para></summary>
+        public static int UseActiveAbility(BattleContext ctx, int p, int slot, int targetSlot = -1)
+        {
+            using (BeginAction(ctx)) return UseActiveAbilityCore(ctx, p, slot, targetSlot);
+        }
+
+        /// <summary><see cref="RuleCore.UseActiveAbility"/> 包住的原文。</summary>
+        static int UseActiveAbilityCore(BattleContext ctx, int p, int slot, int targetSlot)
+        {
+            int code = CanUseActiveAbility(ctx, p, slot, targetSlot);
+            if (code != RuleCodes.OK) return code;
+
+            var u = ctx.Players[p].Board[slot];
+            string whyRows;
+            var rows = ResolveActiveAbilityRows(ctx, p, u, out whyRows);
+            if (rows == null)
+            {
+                ctx.Log($"⚠️ {u.Name} 的主动能力**取不到能力行**：{whyRows} ⇒ 本版**不猜**，这次不发动");
+                return RuleCodes.ErrUnimplemented;
+            }
+
+            // ---- 先算「这一次要跑哪几行」（**⛔ 先别动状态**）----
+            //  理由：一条能跑的行都没有时，我们**不能**先置 `Exhausted` / 先发 `EvtKind.Ability` 再发现
+            //  什么都做不了 —— 那正是 `UseOathAbility` 2026-10-17 修过的那一类「花掉行动 / 宣布发动了、
+            //  却没结算」的静默错（判据见那个方法的 doc：原版顺序 = 闸 → 付费 → 结算 → 宣布）。
+            var bodyOps = ActiveAbilityBodyOps(u);      // 正文层那几条 op（`ActiveAbilityRow >= 0`）
+            var plan = new List<int[]>();               // `[0] = chosenAbility` · `[1] = targetsAffected`
+            var unimplemented = new List<string>();
+            foreach (var row in rows)
+            {
+                if (row == null || row.Gate != 1) continue;      // `gate = 0` = 本 build 死数据
+                if (row.ChosenAbility == null) { unimplemented.Add("chosenAbility 列没落"); continue; }
+                for (int j = 0; j < row.ChosenAbility.Length; j++)
+                {
+                    int ca = row.ChosenAbility[j];
+                    int ta = ActiveRowIntOf(row.TargetsAffected, j);
+                    if (ca == 30 || ca == 31)
+                    {
+                        // `buffOthers`（原版 `AbilityLogic__PlayAbility.c:1179-1234`：对**每个 target** 各复制
+                        // 一份 `logic.buffEffect` 再 `AddEffect`）。我们**不另写一份数值**，而是复用这张卡
+                        // 正文层那几条 op（SOR66 = `Rally:` 的 `give +2 Ranged / this turn`，
+                        // 判据：这两行在 SO 里**逐字段相同**，见判定文件 §2·2 的注）。
+                        if (bodyOps.Count == 0) { unimplemented.Add($"buffOthers(ca={ca}) 找不到正文 op"); continue; }
+                        plan.Add(new[] { ca, ta });
+                    }
+                    else if (ca == 462) plan.Add(new[] { ca, ta });
+                    else unimplemented.Add($"chosenAbility={ca}（ta={ta}）");
+                }
+            }
+            if (plan.Count == 0)
+            {
+                ctx.Log($"⚠️ {u.Name} 的主动能力**这一版一条都跑不了**（{string.Join(" · ", unimplemented)}）"
+                      + " ⇒ **行动没有花掉、也没有宣布发动**（如实的「本版未实现」，⛔ 不是静默失败）");
+                return RuleCodes.ErrUnimplemented;
+            }
+
+            // ---- 费用（原版 `CanUseActiveAbility.c:60-70` 的 `HasEnoughMana` → `UseMana`）----
+            if (u.Card.ActiveAbilityCostKnown)
+            {
+                int cost = u.Card.ActiveAbilityManaCost;
+                if (cost > 0) SpendNormalMana(ctx, p, cost, u.Name + " 的主动能力");
+            }
+            else NoteActiveAbilityCostUnknown(u.Card);
+
+            var chosen = BoardSpec.IsValid(targetSlot) ? ctx.Players[p].Board[targetSlot] : null;
+
+            // ---- 动作经济（原版 `ResolveActiveAbilityPlayed.c:31-32`）—— **先置位，再结算** ----
+            u.LastAttackType = 4;   // 表现用：主动能力那一档（原版 `currentAttackType = Active`）
+            u.Exhausted = true;
+            u.AttacksThisTurn++;                                   // 算「本回合已行动」
+            EmitBloodThirst(ctx, p, slot, u);                      // 嗜血「亮一下」（同 `UseAbility`）
+            u.UsedActiveAbilityThisTurn = u.ActiveAbilityUsed = true;   // `+0x50`（本回合）/ `+0x4C`（本局）
+            RecomputeAttackTypeAfterActiveAbility(u);              // 带 duty/ferocity/oath 的重挑攻击型（同 `UseAbility`）
+
+            ctx.Emit(EvtKind.Ability, p, slot, u.Name,
+                     keyword: KeywordTable.Ability,
+                     effect: "activeAbility",
+                     amount: 0,
+                     targetPlayer: chosen != null ? p : -1,
+                     targetSlot:   chosen != null ? targetSlot : -1,
+                     targetCardId: chosen != null ? chosen.Name : null,
+                     instanceId: u.InstanceId);
+            // ⚠️ 必须紧跟上一句（中间⛔ 不许再发别的事件），见 `AttachAbilityTargets` 的 doc。
+            AttachAbilityTargets(ctx, p, u, null, chosen);
+            ctx.Log($"{ctx.Players[p].Name} 的 {u.Name} 发动主动能力");
+
+            // ---- 逐行执行（`RawCardScript__ResolveActiveAbility.c:58-67`，顺序 = `activeAbilityLogic` 的次序）----
+            int executed = 0;
+            foreach (var step in plan)
+            {
+                int ca = step[0], ta = step[1];
+                if (ca == 30 || ca == 31)
+                {
+                    // ⚠️ `ta == 20 (self)` 的行不吃调用方给的目标（原版 `GetTargets` 对 `self` 直接放 thisCard）
+                    //    ⇒ 传 `null` 让它落到施放者自己。
+                    var useTgt = ta == 20 ? null : chosen;
+                    List<string> un;
+                    ctx.EffectChain++;
+                    try { ResolveOps(ctx, p, u, bodyOps, useTgt, out un); }
+                    finally { ctx.EffectChain--; }
+                    ReportUnresolved(ctx, $"「{u.Name}」的主动能力（buffOthers）", un);
+                    executed++;
+                }
+                else if (ca == 462)
+                {
+                    // `triggerPray`（原版 `AbilityLogic__PlayAbility.c:1838-1853` → `BattleManager__ResolveTriggerPray.c`）。
+                    // 三件事、顺序固定（判据 = `ResolveTriggerPray.c:217 / :266 / :314`）：
+                    //   ① `OnTrigger(655 = Pray)` → 触发**它自己**的 `Pray:` 被动（SOR66 没有 655 行 ⇒ 空转）
+                    //   ② `set_isPraying(1)` → 进入祈祷状态（我们那面 flag）
+                    //   ③ `BroadcastUnitPray` → 广播「有单位祈祷」（`When a friendly unit prays`）
+                    // ⛔ **不调 `Enchantments.AttachPray`**（理由见上面那段：那张附魔是卡自己 655 行挂的）。
+                    FireTriggerAt(ctx, u, KeywordTable.Pray, p, slot);
+                    u.Prayed = true;
+                    BroadcastWhen(ctx, WhenEventKind.Prays, p, u.Card, u);
+                    executed++;
+                }
+            }
+
+            if (unimplemented.Count > 0)
+                ctx.Log($"⚠️ {u.Name} 的主动能力里有 **{unimplemented.Count}** 行本版**没实现**："
+                      + string.Join(" · ", unimplemented) + "（如实报出来，⛔ 不假装做过了）");
+
+            CheckWinner(ctx);
+            return executed > 0 ? RuleCodes.OK : RuleCodes.ErrUnimplemented;
+        }
+
+        /// <summary>这一次该用哪一组 `activeAbilityLogic` 行。
+        /// <para>**原版的选支**（`RawCardScript__ResolveActiveAbility.c:16-38`）是**运行期闸**：
+        /// `hasAlternativeAbility(+0x2AA)` 假 ⇒ 取 `activeAbility`；真 ⇒ 再看
+        /// `BoardAnalysis.MeetsCriteria(normalAbilityBoardCriteria +0x2B0)` 决定取哪一个。</para>
+        /// <para>🔴 **但这两格在我们的卡表里今天读不到**（现读 `cards_engine.json` v35：
+        /// `hasAlternativeAbility` **整列都不存在**、`normalAbilityBoardCriteria` 同理）⇒
+        /// `UsesAlternativeAbility` 恒 `null`。硬按「判不出就拒」会把这条路径**整体做死**（实测：
+        /// 直接 `ErrUnimplemented`，`SOR66` 三条断言全 ❌）。</para>
+        /// <para>✅ **改成数据侧优先**（⛔ 仍然不猜）：`ab` 那一列**本身就是**「这条行属于哪个能力对象」
+        /// （`-1` active / `-2` alternative）⇒
+        /// · **只有一组有行** ⇒ 就是它（不需要跑那个运行期闸，结构上没有第二种可能）；
+        /// · **两组都有行** ⇒ 这时才必须问运行期闸；它读不到 ⇒ `null` = **不猜**（返回 `null` + `why`）。</para></summary>
+        static IReadOnlyList<CardDef.ActiveAbilityLogicSpec> ResolveActiveAbilityRows(
+            BattleContext ctx, int p, UnitState u, out string why)
+        {
+            why = null;
+            if (u == null || u.Card == null) { why = "没有卡数据"; return null; }
+            var rowsAct = u.Card.ActiveAbilityLogicGroup(CardDef.ActiveAbilityObject);
+            var rowsAlt = u.Card.ActiveAbilityLogicGroup(CardDef.AlternativeAbilityObject);
+            bool hasAct = rowsAct != null && rowsAct.Count > 0;
+            bool hasAlt = rowsAlt != null && rowsAlt.Count > 0;
+            if (!hasAct && !hasAlt)
+            {
+                why = u.Card.ActiveAbilityLogic == null
+                    ? "`activeAbilityLogic` 列**没落**（旧卡表 < v23）"
+                    : "`activeAbilityLogic` 是空表（这张卡**明确没有**主动能力行）";
+                return null;
+            }
+            if (hasAct != hasAlt) return hasAct ? rowsAct : rowsAlt;
+            bool? alt = u.Card.UsesAlternativeAbility(ctx, p, u);
+            if (alt == null)
+            {
+                why = "两组都有行，而运行期闸（`hasAlternativeAbility` / `normalAbilityBoardCriteria`）"
+                    + "读不到 ⇒ **不猜**取哪一组";
+                return null;
+            }
+            return alt.Value ? rowsAlt : rowsAct;
+        }
+
+        /// <summary>这一支主动能力**要不要调用方先点一个目标**（原版 = 某一行 `targetsAffected == 30 target`
+        /// 或 `220`；判据 `AbilityLogic__GetTargets.c:192-207`：整张函数里**只有**这两档会读 `param_5`
+        /// = `targetCard`）。
+        /// <para>⚠️ 判不出来（`chosenAbility` / `ta` 有一格没落）⇒ **回 `false`**（不拦）——
+        /// 结算侧会把「没实现的行 / 找不到正文」如实报出来，⛔ 不用一个猜出来的闸把卡挡死。</para></summary>
+        static bool ActiveAbilityNeedsPick(IReadOnlyList<CardDef.ActiveAbilityLogicSpec> rows)
+        {
+            if (rows == null) return false;
+            foreach (var row in rows)
+            {
+                if (row == null || row.Gate != 1 || row.ChosenAbility == null) continue;
+                for (int j = 0; j < row.ChosenAbility.Length; j++)
+                {
+                    int ca = row.ChosenAbility[j];
+                    if (ca != 30 && ca != 31) continue;          // 只认 `buffOthers`（今天唯一读 `chosen` 的那一族）
+                    int ta = ActiveRowIntOf(row.TargetsAffected, j);
+                    if (ta == 30 || ta == 220) return true;
+                }
+            }
+            return false;
+        }
+
+        /// <summary>这一支主动能力的**正文 op**（`ApplyActiveAbilityLogic` 挂过的那些 —— 标记 =
+        /// `EffectOp.ActiveAbilityRow >= 0`，见 `CardDef.AttachByAbilityKind`）。
+        /// <para>⚠️ 按 `CardDef.RoutableTriggers` 逐个关键词取（`_triggerOps` 是私有的，没有「整表」公开口）；
+        /// `oath` 跳过（它走 `OathOps` / `UseOathAbility`，不是这条正文）。</para>
+        /// <para>⚠️ 返回的是**同一批 op 对象**（`UnitState.FxOps` 不克隆）⇒ ⛔ 别在这里改它们的字段。</para></summary>
+        static List<EffectOp> ActiveAbilityBodyOps(UnitState u)
+        {
+            var outs = new List<EffectOp>();
+            if (u == null || u.Card == null) return outs;
+            foreach (string kw in CardDef.RoutableTriggers)
+            {
+                if (string.IsNullOrEmpty(kw) || kw == KeywordTable.Oath) continue;
+                var ops = u.FxOps(kw);
+                if (ops == null) continue;
+                for (int i = 0; i < ops.Count; i++)
+                {
+                    var op = ops[i];
+                    if (op == null || op.ActiveAbilityRow < 0) continue;
+                    if (!outs.Contains(op)) outs.Add(op);
+                }
+            }
+            return outs;
+        }
+
+        /// <summary>逐行数组取一格（越界 / `null` ⇒ `-1` = 未知）。与 `CardDef.ActiveRowInt` 同形
+        /// —— 那一份是 `CardDef` 的私有静态方法，本文件取不到。</summary>
+        static int ActiveRowIntOf(int[] arr, int j)
+        {
+            return (arr != null && j >= 0 && j < arr.Length) ? arr[j] : -1;
+        }
+
+        static readonly HashSet<string> _activeAbilityCostNoted = new HashSet<string>();
+
+        /// <summary>「主动能力费用**未知**」的出声口（同一张卡只喊一次；走 `Debug.LogWarning`
+        /// —— ⛔ 不进 `ctx.Log`，那会改 `ctx.Events.Count` ⇒ 动到 `Fingerprint`，同 `NoteAbilityPickOwnerGap`）。
+        /// <para>为什么必须出声：`CardDef.ActiveAbilityManaCost` 今天（卡表 v35 也**还没**出这四列，
+        /// 现读 `cards_engine.json` 无该键）是 `-1`，而**原版是要收费的**（`CanUseActiveAbility.c:60-70`）——
+        /// 静默按 0 收费等于「白送一次能力」，且没人看得出来。</para></summary>
+        static void NoteActiveAbilityCostUnknown(CardDef card)
+        {
+            string k = card != null ? card.Id : "?";
+            if (_activeAbilityCostNoted.Count > 512) _activeAbilityCostNoted.Clear();
+            if (!_activeAbilityCostNoted.Add(k)) return;
+            UnityEngine.Debug.LogWarning($"[RuleEngine] 主动能力费用**未知**：「{card?.Name}」的 "
+                + "`activeAbilityManaCost/PsychicCost/PlasmaCost` 这一格没落（卡表要 v35 的四列，"
+                + "生成器 `工具/gen_cards_engine.py` 还没出）⇒ 本次**不收费**。"
+                + "⛔ 不是「原版免费」，补齐数据前这一格如实记在账上。");
         }
     }
 }

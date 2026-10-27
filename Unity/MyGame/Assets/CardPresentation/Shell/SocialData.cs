@@ -39,8 +39,10 @@ namespace CardPresentation
             /// 里 `AddButton.interactable = 好友表里查不到该 playerId` 的**必要输入**（原版 `FriendInfo.playFabId`）。
             /// ⚠️ 本地没有写入方（好友表恒空）⇒ 填上真数据之前这条判据恒为「查不到 ⇒ 可点」。</summary>
             public string Id;
-            /// <summary>在线 ⇒ 建 `Connected Image`（原版 act F，运行时才开）；离线 ⇒ `Disconnected`。</summary>
-            public bool Online;
+            /// <summary>在线 ⇒ 建 `Connected Image`（原版 act F，运行时才开）；离线 ⇒ `Disconnected`。
+            /// 🆕 **2026-10-27（C5 · 账 369）**：四档另有 <see cref="Status"/>（原版 `ChatPlayerStatus`：0 Default /
+            /// 1 Disconnected / 2 Away / 3 Connected）。**`Status &gt; 0` 时以它为准**，否则回落到 `Online`。</summary>
+            public bool Online; public int Status;
         }
 
         static readonly List<Friend> _friends = new List<Friend>();
@@ -94,6 +96,10 @@ namespace CardPresentation
             /// 行号取**排序后序号**（判据 → `AllianceMemberList.cs` 的两个排序 lambda `b__6_0` / `b__6_1`）。
             /// ⚠️ 与 `DraftRating` / `RankedRating`（**显示串**）不是一回事：那两个只是行里印出来的字。</summary>
             public int Rating;
+            /// <summary>🆕 **2026-10-27（C5 · 账 373④ / 123）**：成员的原版 id（`GroupMember.id`）。
+            /// 两个消费者：`SetCurrentGroupCached` 的**按 id 去重**，以及 `AllianceMemberOptionsPopup` 的
+            /// `IsFriend`（那一半归账 30）。⚠️ 本地没有写入方（联盟成员表恒空）。</summary>
+            public string Id;
         }
 
         static readonly List<Member> _members = new List<Member>();
@@ -105,9 +111,37 @@ namespace CardPresentation
         /// ⚠️ 频道只有两个值：`Global` / `Alliance`（`ChatRoom` 枚举）—— **字符串就是它俩**。</summary>
         public class ChatMessage
         {
-            public string Channel;       // "Global" / "Alliance"
+            // 原版 `ChatMessageType` 的 17 个值（判据 = `out_cpp2il_dev_ilspy/ChatMessageType.cs`，逐个照抄）。
+            // ⚠️ 只有下面标了「有模板」的 6 个会在 `Text()` 里出正文；其余原版一律 `return ""`。
+            public const int TypePractice = 0, TypeDeletePractice = 10, TypeJoin = 20, TypeLeave = 30,
+                             TypeAskLeadership = 40, TypeMessage = 50, TypeKickPlayer = 60, TypeInvitePlayer = 70,
+                             TypePromoted = 80, TypeDemoted = 90, TypeAnnouncement = 100,
+                             TypePracticeMatchStarted = 110, TypePracticeMatchEnd = 120, TypeRally = 130,
+                             TypeReplayShare = 140, TypeDeckShare = 150, TypeRewardShare = 160;
+            /// <summary>原版 `ChatMessageType` 的数值（判据 = `d:/2/tools/cpp2il/out_cpp2il_dev_ilspy/ChatMessageType.cs`，
+            /// 17 个值逐个照抄）。🆕 **2026-10-27（C5 · 账 291/302）**：`GetMessage()` 就是按它分支的。
+            /// <para>🔴 **默认 = `Message(50)`（字段初始化器）**：本仓既有的聊天夹具（`Editor/MainMenuScene.cs`
+            /// 那一条 `ChatMessages.Add(new …{ Channel, Sender, Time, Text … })`）不写 `Type`
+            /// ⇒ 若默认是 0（`Practice`）那一档 `GetMessage()` 返回空串，**既有断言会一夜变红**。
+            /// 原版没有「缺省类型」这一说（服务端每条都带类型）⇒ 这个缺省是**我们的**、只服务本地夹具。</para>
+            public int Type = 50;        // ChatMessageType.Message
+            /// <summary>🔴 **2026-10-27 恢复（调度台）**：C5 重写本类时把这格删了，而 `ChatTab.cs:156/176`
+            /// 与 `MainMenuRuntime.cs:3700` 都在读它 ⇒ 全仓 CS1061。原语义不变：频道名（<c>"Global"</c> / <c>"Alliance"</c>）。</summary>
+            public string Channel;
             public string Sender;
-            public string Time;          // 原版样例 `1d 6h`（相对时间，服务器给）
+            public string Time;          // 原版样例 `1d 6h`（相对时间，服务器给；**没有 TimestampMs 时用它**）
+            /// <summary>🆕 **2026-10-27（C5 · 账 305）**：原版 `ChatMessageData.timestamp`（Unix 毫秒）。
+            /// 原版 `ChatMessageUI.UpdateTimer` = `FromUnixTimeMilliseconds(timestamp)` 与 `UtcNow` 求差
+            /// ⇒ `GetTimeStringWithSingleDigit(ts, eventTimer:true)`。**&gt;0 才现算**，否则回落到 <see cref="Time"/>。</summary>
+            public long TimestampMs;
+            /// <summary>原版 `ChatMessageData.data`：Join/Leave/KickPlayer 时是**词条键**；
+            /// Promoted/Demoted 时是**角色**（int 或 `a/b/Role` 这种串）；DeckShare 时是**多行文本，末行才是卡组串**。</summary>
+            public string LocData;
+            /// <summary>原版 `ChatMessageData.targetPlayerName`（`{targetPlayer}` 那个占位符）。</summary>
+            public string TargetPlayer;
+            /// <summary>原版 `ChatMessageTranslation`：0 Normal / 1 Translating / 2 Translated。
+            /// 本地**没有翻译服务**（`TranslationService` 走远端）⇒ 恒 0（见 `ChatMessageRow` 正文那一段）。</summary>
+            public int TranslationStatus;
             public string Text;
             /// <summary>自己发的 ⇒ 走 `Player Header`（头像靠右）；别人的 ⇒ `Friend Header`（头像靠左）。</summary>
             public bool Mine;
@@ -146,5 +180,203 @@ namespace CardPresentation
         /// （`MonoBehaviour_5317387791711264931.json` / `…_6451041557333008547.json` 的 `m_text` 实读）
         /// 里印的那个数。⚠️ **这是「prefab 样例值」，不是从配置读到的真值**（本地无该配置）。</summary>
         public static int MemberCap = 20;
+
+        // ============================================================ 🆕 2026-10-27（C5 批）
+        // 🔴 纪律：这一整段**追加在类尾**（本文件被账按行号引用 —— 行号只在上面的 `Member.Id`
+        //    那一处 +1，其余改动全是「末尾追加」）。
+
+        /// <summary>本盟缓存的写入时刻（原版 `AlliancesManager.currentGroupCachedAt`；原版存的是
+        /// **服务器时间** `ServerDateTime`，本地没有服务器时钟 ⇒ 用 `DateTime.UtcNow`）。
+        /// 判据 = `AlliancesController__SetCurrentGroupCached.c` 与 `…__InvalidateLocalGroup.c`。</summary>
+        public static System.DateTime CachedAt;
+
+        /// <summary>= 原版 `AlliancesController.InvalidateLocalGroup()`（**逐句**，判据
+        /// `d:/2/tools/decomp_full/AlliancesController__InvalidateLocalGroup.c`）：
+        /// ① `currentGroupCached = null` ⇒ 本仓 = <see cref="AllianceName"/> 置空
+        /// ② 成员表清空 ③ `currentGroupCachedAt = default` ⇒ <see cref="CachedAt"/> 归零。
+        /// <para>⚠️ **调用点**：原版谁调它本代理**没查到**（`grep InvalidateLocalGroup` 在 ILSpy 全树只有
+        /// 定义本身 —— 与「ILSpy 会丢异步状态机体 / 会内联」同族，**没查到 ≠ 不存在**）⇒ 本仓**不接线**，
+        /// 只提供 API 并出声（⛔ 不自己发明触发源）。</para></summary>
+        public static void InvalidateLocalGroup()
+        {
+            AllianceName = null;
+            _members.Clear();
+            CachedAt = default(System.DateTime);
+            UnityEngine.Debug.Log("[SocialData] `InvalidateLocalGroup()` ⇒ 盟名清空 / 成员表清空 / 缓存时刻归零"
+                                + "（原版 `AlliancesController.InvalidateLocalGroup`；本地没有触发源，只留 API）");
+        }
+
+        /// <summary>= 原版 `AlliancesController.SetCurrentGroupCached(Group g)`（**逐句**，判据
+        /// `AlliancesController__SetCurrentGroupCached.c`）：写盟名 + 把 `g.members` 并入成员表 + 记缓存时刻。
+        /// <para>① **按 id 去重替换**（原版是整表替换语义：先从 `members` 里删掉同 id 的旧条目、再追加）；
+        /// ② **同名不同 id 都保留**（判据只看 id）；③ `CachedAt = DateTime.UtcNow`（原版是 ServerDateTime）。</para></summary>
+        public static void SetCurrentGroupCached(string name, IList<Member> members)
+        {
+            AllianceName = name;
+            if (members != null)
+            {
+                for (int i = 0; i < members.Count; i++)
+                {
+                    var m = members[i];
+                    if (m == null) continue;
+                    int at = -1;
+                    if (!string.IsNullOrEmpty(m.Id))
+                        for (int k = 0; k < _members.Count; k++)
+                            if (_members[k] != null && _members[k].Id == m.Id) { at = k; break; }
+                    if (at >= 0) _members[at] = m; else _members.Add(m);
+                }
+            }
+            CachedAt = System.DateTime.UtcNow;
+        }
+
+        /// <summary>= 原版 `FriendsData.IsFriend(string playerId)`（判据 `FriendsData.cs:40`）：
+        /// 好友表里有没有这个 id。**✅ 全仓唯一一份** —— `ChatPanel.IsFriend` 转调这里
+        /// （两处写同一规则 = 迟早不一致）。空 id 一律 false（原版没有 id 的 `Friend` 也匹配不上）。</summary>
+        public static bool IsFriend(string playerId)
+        {
+            if (string.IsNullOrEmpty(playerId)) return false;
+            for (int i = 0; i < _friends.Count; i++)
+                if (_friends[i] != null && _friends[i].Id == playerId) return true;
+            return false;
+        }
+
+        // ============================================================ 聊天气泡正文（账 291 / 302）
+        /// <summary>= 原版 `ChatMessageData.GetMessage()`（**逐句**，判据 `decomp_full/ChatMessageData__GetMessage.c`
+        /// ＋ `out_cpp2il_dev_ilspy/ChatMessageData.cs:138-266`）。
+        /// <para>**原版只有 6 条模板 + 2 条直通**（′15 种′ 那个旧口径是错的，见 `B9_社交C_派活包.md` §0·2③）：</para>
+        /// <list type="bullet">
+        /// <item>`Message(50)` / `Announcement(100)` ⇒ `translatedMessage ?? msg`（本地无翻译服务 ⇒ 恒 `msg`）。</item>
+        /// <item>`Join(20)` / `Leave(30)` / `KickPlayer(60)` ⇒ 键 `SocialMenu/Alliances/Messages/{类型名}`，
+        ///       替换 `{playerName}` `{targetPlayer}`，再替换 `{locData}` = `GetTranslation(data)`。</item>
+        /// <item>`Promoted(80)` / `Demoted(90)` ⇒ 同上，但 `{locData}` = **角色词条**
+        ///       （`data` 先 TryParse 成 int、否则按 `'/'` 切末段 Enum.TryParse；解析失败 ⇒ 空串）。</item>
+        /// <item>`DeckShare(150)` ⇒ 键 `…/Message/DeckShare`，`string.Format(键, playerName, deck.deckName)`；
+        ///       卡组串 = `data.Split('\n')` 的**最后一行**（原版走 `CardDeck.DeserializeDeckString`）。</item>
+        /// <item>其余（0/10/40/70/110/120/130/140/160）⇒ **空串**（原版就是 `return ""`）。</item>
+        /// </list>
+        /// <para>⚠️ **两处与原版的差异（如实记）**：① 原版 `data == null` / 卡组串解析不出时**抛 NRE**
+        /// （`LAB_18065509f` 是 noreturn；服务端不会发坏数据）⇒ 我们回空串 + 出声一次，**不复刻崩溃**；
+        /// ② 原版 `GetTranslation` 拿不到键时回空、我们走 `Loc.T` —— 这 6 条键**官方表全有**（已逐条现读）。</para></summary>
+        public static string Text(ChatMessage m)
+        {
+            if (m == null) return "";
+            string sender = m.Sender ?? "";
+            switch (m.Type)
+            {
+                case ChatMessage.TypeMessage:
+                case ChatMessage.TypeAnnouncement:
+                    return m.Text ?? "";
+                case ChatMessage.TypeJoin:
+                case ChatMessage.TypeLeave:
+                case ChatMessage.TypeKickPlayer:
+                {
+                    string t = Loc.T("SocialMenu/Alliances/Messages/" + TypeName(m.Type));
+                    t = t.Replace("{playerName}", sender).Replace("{targetPlayer}", m.TargetPlayer ?? "");
+                    return t.Replace("{locData}", string.IsNullOrEmpty(m.LocData) ? "" : Loc.T(m.LocData));
+                }
+                case ChatMessage.TypePromoted:
+                case ChatMessage.TypeDemoted:
+                {
+                    string t = Loc.T("SocialMenu/Alliances/Messages/" + TypeName(m.Type));
+                    t = t.Replace("{playerName}", sender).Replace("{targetPlayer}", m.TargetPlayer ?? "");
+                    return t.Replace("{locData}", RoleText(ParseRole(m.LocData)));
+                }
+                case ChatMessage.TypeDeckShare:
+                {
+                    string data = m.LocData;
+                    if (!string.IsNullOrEmpty(data))
+                    {
+                        int cut = data.LastIndexOf('\n');
+                        string deckString = cut >= 0 ? data.Substring(cut + 1) : data;
+                        var deck = RuleEngine.DeckLibrary.ImportString(deckString, CollectionData.Card);
+                        if (deck != null)
+                            return string.Format(Loc.T("SocialMenu/Alliances/Messages/DeckShare"), sender, deck.Name ?? "");
+                    }
+                    WarnOnce("deckshare", "[SocialData] `DeckShare` 消息的卡组串**解析不出来**"
+                                       + "（原版这里会因空引用崩；我们回空串、不崩）");
+                    return "";
+                }
+                default:
+                    return "";       // 原版：其余类型一律 `return ""`
+            }
+        }
+
+        /// <summary>= 原版 `ChatMessageUI.UpdateTimer()` 那一跳的**文本**：`DateTimeOffset.FromUnixTimeMilliseconds(timestamp)`
+        /// 与 `UtcNow` 求差 ⇒ `SupportMethods.GetTimeStringWithSingleDigit(ts, eventTimer: true)`。
+        /// <para>🆕 **2026-10-27（C5 · 账 305 / 298）**：`TimestampMs &gt; 0` 才现算；否则回落 <see cref="ChatMessage.Time"/>
+        /// （预置串 —— 既有的夹具不写 timestamp，删了它会把自检打光）。</para>
+        /// <para>判据（逐句） = `decomp_full/SupportMethods__GetTimeStringWithSingleDigit.c` +
+        /// `out_cpp2il_dev_ilspy/SupportMethods.cs:1897-1945`：<b>Days &gt; 0 且 eventTimer</b> ⇒
+        /// `MainMenu/Time/D`；否则 Hours ≥ 1 ⇒ `MainMenu/Time/H`；否则 Minutes &lt; 1 ⇒
+        /// `MainMenu/Time/FewSeconds`（**无参**）；否则 `MainMenu/Time/M`。
+        /// ⚠️ 用的是 `TimeSpan.Days/Hours/Minutes`（**分量**、不是 `TotalX`）—— 与 `TimerDisplay.FormatTimeString`
+        /// 那条「严格大于 1 天」的口径**不是同一个函数**，⛔ 别互相顶替。</para></summary>
+        public static string TimeText(ChatMessage m)
+        {
+            if (m == null) return "";
+            if (m.TimestampMs <= 0) return m.Time ?? "";
+            var then = System.DateTimeOffset.FromUnixTimeMilliseconds(m.TimestampMs).UtcDateTime;
+            var ts = System.DateTime.UtcNow - then;
+            if (ts < System.TimeSpan.Zero) ts = System.TimeSpan.Zero;      // 原版没有 clamp；本地时钟偏差保底
+            if (ts.Days > 0) return string.Format(Loc.T("MainMenu/Time/D"), ts.Days);
+            if (ts.Hours >= 1) return string.Format(Loc.T("MainMenu/Time/H"), ts.Hours);
+            if (ts.Minutes < 1) return Loc.T("MainMenu/Time/FewSeconds");
+            return string.Format(Loc.T("MainMenu/Time/M"), ts.Minutes);
+        }
+
+        /// <summary>原版 `ChatMessageType` 的枚举名（拼模板键用；只有 5 个值会用到）。</summary>
+        static string TypeName(int t)
+        {
+            switch (t)
+            {
+                case ChatMessage.TypeJoin: return "Join";
+                case ChatMessage.TypeLeave: return "Leave";
+                case ChatMessage.TypeKickPlayer: return "KickPlayer";
+                case ChatMessage.TypePromoted: return "Promoted";
+                case ChatMessage.TypeDemoted: return "Demoted";
+                default: return "";
+            }
+        }
+
+        /// <summary>原版 `GroupRole`（0..3 = Member/Moderator/Admin/Leader）→ 词条
+        /// `SocialMenu/Alliances/Role/{枚举名}`（官方表 4 条全有）。-1 = 解析失败 ⇒ 空串。</summary>
+        public static string RoleText(int role)
+        {
+            if (role < 0 || role > 3) return "";
+            return Loc.T("SocialMenu/Alliances/Role/" + RoleName(role));
+        }
+
+        static string RoleName(int role)
+        {
+            switch (role)
+            {
+                case 0: return "Member";
+                case 1: return "Moderator";
+                case 2: return "Admin";
+                case 3: return "Leader";
+                default: return "Member";
+            }
+        }
+
+        /// <summary>原版 `GetMessage` 里 Promoted/Demoted 的 `data` → `GroupRole`：先 `int.TryParse`，
+        /// 否则按 `'/'` 切**末段** `Enum.TryParse`。两者都失败 ⇒ -1（原版那一步会落进
+        /// `GetTranslation("")`，等价于「角色一格是空」）。</summary>
+        static int ParseRole(string data)
+        {
+            if (string.IsNullOrEmpty(data)) return -1;
+            int v;
+            if (int.TryParse(data, out v)) return v;
+            int cut = data.LastIndexOf('/');
+            string tail = cut >= 0 ? data.Substring(cut + 1) : data;
+            for (int i = 0; i < 4; i++) if (RoleName(i) == tail) return i;
+            return -1;
+        }
+
+        static readonly HashSet<string> _warned = new HashSet<string>();
+        /// <summary>出声一次（按 key 去重；红线 = 不许静默失败、也不许每行刷屏）。</summary>
+        static void WarnOnce(string key, string msg)
+        {
+            if (_warned.Add(key)) UnityEngine.Debug.LogWarning(msg);
+        }
     }
 }

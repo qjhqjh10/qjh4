@@ -70,6 +70,8 @@ namespace RuleEngine
             /// `null` = 整行**没有这个键**（旧表 / 夹具直建）⇒ 「判不了」；
             /// `[]` = 表里**明确说了这张卡没有异画**。`CardDatabase.Parse` 原样把两者分开传下去。</para></summary>
             public string[] alternateArts;
+            public string targetingTextReferenceId;   // 🆕 2026-10-27（`A4`）：原版 `RawCardScript.targetingTextReferenceId`（v35 起；语义/三态 → `CardDef.AttachTargetingTextReference` 的 doc，⛔ 不抄第二份）
+            public string cardDescriptionTextReferenceId;   // 🆕 2026-10-27（`A8` · §12·94）：原版 `RawCardScript.cardDescriptionTextReferenceId`（v35 起；语义/三态 → `CardDef.AttachCardDescriptionTextReference` 的 doc，⛔ 不抄第二份）。消费点 = `BattleDriver.OfficialDescKey` → `FaceTextFull` 那 4 处取键。
             /// <summary>中文名（可选 —— 没翻译的卡没有这两个字段）。来自 `数据/卡牌翻译/zh_cards.json`</summary>
             public string nameZh;
             public string descZh;
@@ -1425,6 +1427,18 @@ namespace RuleEngine
                                + "⇒ `IsTrapCard` 回 `null`（判不了）、`CardInstance.ArmedTrap = -1`。"
                                + "跑一下 gen_cards_engine.py 重生成。");
 
+            // 🆕 v35（2026-10-27 · 执行代理 `A8` · `调度台日志.md` §12·94）：**`cardDescriptionTextReferenceId` 列**
+            //   （原版 `RawCardScript.cardDescriptionTextReferenceId`；消费点 = `BattleDriver.OfficialDescKey`
+            //   → `FaceTextFull` 那 4 处取键）。缺列（v34 及更早）⇒ `CardDto.cardDescriptionTextReferenceId`
+            //   是 `null` = **判不了** ⇒ 取键退回 `Card_Description/` + 自己 id（= 改前行为：那 15 张印官方**旧**正文）。
+            //   ⛔ 旧表**不许**被读成「原版说这 15 张都没有 ref」。
+            if (dto.version < 35)
+                Debug.LogWarning($"[RuleEngine] 卡表 version={dto.version} < 35 —— 没有 `cardDescriptionTextReferenceId` 列"
+                               + "（原版 `RawCardScript.cardDescriptionTextReferenceId`；消费点 = `BattleDriver.OfficialDescKey`）。"
+                               + "`CardDef.CardDescriptionTextReferenceId` 会是 **null = 判不了** ⇒ 卡面正文取键退回"
+                               + " `Card_Description/` + 自己 id（= 改前行为；那 15 张印官方**旧**正文）。"
+                               + "跑一下 gen_cards_engine.py 重生成。");
+
             int noId = 0;
 
             // 🆕 2026-10-22（卡牌线 `T04`）：`useOverDraw` 一列的**缺列兜底** —— v9 才有这一列，
@@ -1684,6 +1698,12 @@ namespace RuleEngine
                 //   否则「缺列」会被静默读成「这张卡没有异画」→ 收紧口径会把全部异画判死。
                 //   消费点 = `CardDef.HasAlternateArt` / `CardDatabase.ResolveDeckEntry`。
                 def.AttachAlternateArts(c.alternateArts);
+                // 🆕 2026-10-27（执行代理 `A4`）：选目标提示的文案引用 id（v35 列；`null` = 列缺席 ⇒ 判不了）。
+                //   消费点 = `BattleDriver.ShowPlayTargetPrompt` → `Loc.TargetedKey(uniqueId, refId)`（原版 :2450 三元）。
+                def.AttachTargetingTextReference(c.targetingTextReferenceId);
+                // 🆕 2026-10-27（执行代理 `A8` · §12·94）：**卡面正文的文案引用 id**（v35 列；`null` = 列缺席 ⇒ 判不了）。
+                //   消费点 = `BattleDriver.OfficialDescKey` → `FaceTextFull` 的 4 处取键（逐字照原版三元）。
+                def.AttachCardDescriptionTextReference(c.cardDescriptionTextReferenceId);
                 // 🆕 v35（待生成器落列；2026-10-27 · `B9_W65ABIL`）：`ActiveAbility` 对象自己的四个标量 ——
                 //   同样**构造后挂载**（理由同上）。缺键 ⇒ DTO 初值 `-1` = 未知。今天零行为变化。
                 //   语义 / 三跳表 / 45-56 张督军的实测口径 → `Core/CardDefActiveAbility.cs` 文件头。

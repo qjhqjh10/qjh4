@@ -59,17 +59,17 @@ namespace CardPresentation
 
         /// <summary>原版 `ItemInfo.Add(int amount, string instanceId)`：加数量（可换实例 id）。
         /// ⚠️ 原版里 `amount` 可以为负（扣数量）；负数把 `Amount` 压到 0 为止（不出现负库存）。</summary>
-        public void Add(int amount, string instanceId = null)
+        public virtual void Add(int amount, string instanceId = null)   // 原版 `ItemInfo.Add` 就是 `virtual`（`QuantityBoundItemInfo` 要 override 成空方法）
         {
             Amount = Math.Max(0, Amount + amount);
-            if (instanceId != null) InstanceId = instanceId;
+            if (!string.IsNullOrWhiteSpace(instanceId)) InstanceId = instanceId;   // 原版 `ItemInfo.Add`：`IsNullOrWhiteSpace` ⇒ 传 "" / " " **不会**抹掉实例 id（原来写 `!= null` 会抹，2026-10-27 B26 改）
         }
 
         /// <summary>原版 `ItemInfo.SetAmount(int)`：直接设数量。</summary>
         public void SetAmount(int amount) { Amount = Math.Max(0, amount); }
 
-        /// <summary>原版 `ItemInfo.AssignEphemeralState(EphemeralState)`：标注临时态。</summary>
-        public void AssignEphemeralState(EphemeralState state) { EphemeralState = state; }
+        /// <summary>原版 `ItemInfo.AssignEphemeralState`：**未到期就叠加时长**（`ItemInfo.cs:252-270` 逐句：当前态 `HasExpiration` ∧ `EphemeralEndTime >= 服务器时间` ⇒ `AddDuration(新时长)` 并 return；否则整体替换）。2026-10-27 B26 前这里是无条件替换（真差异）。</summary>
+        public void AssignEphemeralState(EphemeralState state) { if (state == null) return; EphemeralState cur = EphemeralState; if (cur != null && cur.HasExpiration && !(cur.EphemeralEndTime < DateTime.UtcNow)) { if (cur.EphemeralDuration > 0) cur.AddDuration(state.EphemeralDuration); return; } EphemeralState = state; }
 
         public override string ToString() { return (Item != null ? Item.ToString() : "<null>") + " ×" + Amount; }
     }
@@ -138,7 +138,7 @@ namespace CardPresentation
         }
 
         /// <summary>原版 `Inventory.Get(IIdentifiable item, bool autoCreate)`：按物品取条目；
-        /// `autoCreate = true` 且还没有时**建一条数量 0 的**（原版就是这样）。</summary>
+        /// `autoCreate = true` 且还没有时走 **`Add(item, 0, null, null, false)`**（判据 `Inventory.cs:1619-1680`：不是 `Create` ⇒ 会照常发一次数量变化事件）。</summary>
         public ItemInfo<T> Get(T item, bool autoCreate = false)
         {
             if (item == null) return null;
@@ -146,7 +146,7 @@ namespace CardPresentation
             if (string.IsNullOrEmpty(id)) return null;
             ItemInfo<T> info;
             if (_byId.TryGetValue(id, out info)) return info;
-            return autoCreate ? Create(item) : null;
+            return autoCreate ? Add(item, 0, null, null, false) : null;
         }
 
         /// <summary>原版 `Inventory.Get(string id)`（内部转字典；查不到给 null）。</summary>
@@ -183,16 +183,16 @@ namespace CardPresentation
         /// <summary>原版 `Inventory.GetItems()`：全部条目（**含数量为 0 的**）。</summary>
         public IEnumerable<ItemInfo<T>> GetItems() { return _byId.Values; }
 
-        /// <summary>原版 `Inventory.GetItemInstances(bool useQuantity = true)`：展开成「实例序列」
-        /// —— `useQuantity = true` 时数量 &gt; 1 的那一条**重复出现 N 次**（原版就这么用，例如奖励逐一飞出）。</summary>
-        public IEnumerable<ItemInfo<T>> GetItemInstances(bool useQuantity = true)
+        /// <summary>原版 `Inventory.GetItemInstances(bool useQuantity)`：**返回物品本身（`IEnumerable&lt;T&gt;`，不是条目）**，次数 = `useQuantity ? Quantity : Math.Min(Quantity,1)`。
+        /// 判据 = `decomp_full/Inventory.__c__DisplayClass22_0_object____GetItemInstances_b__0.c`（`Enumerable.Repeat(item.Item, 次数)`）。🔴 2026-10-27 B26 改两处真差异：① 返回类型原为 `ItemInfo&lt;T&gt;`；② 次数原 `Math.Max(1,Amount)` ⇒ 数量 0 的条目也会飞 1 个（原版 0 个）。</summary>
+        public IEnumerable<T> GetItemInstances(bool useQuantity = true)
         {
             foreach (var kv in _byId)
             {
                 var info = kv.Value;
-                if (info == null) continue;
-                int n = useQuantity ? Math.Max(1, info.Amount) : 1;
-                for (int i = 0; i < n; i++) yield return info;
+                if (info == null || info.Item == null) continue;
+                int n = useQuantity ? info.Amount : Math.Min(info.Amount, 1);
+                for (int i = 0; i < n; i++) yield return info.Item;
             }
         }
 
@@ -242,18 +242,18 @@ namespace CardPresentation
             for (int i = 0; i < _subsets.Count; i++) _subsets[i].OnSourceChanged(info);
         }
 
-        /// <summary>原版 `Inventory.UpdateItemCollection()`：把「实例列表」重建成 `id → 条目` 字典。
-        /// ⚠️ 我们是**字典即正本**（没有另一份实例列表）⇒ 本方法**没有活可干**；
-        /// 留着它是为了让「原版的调用点」有一个同名落点（⛔ 别把调用点改成空语句）。
-        /// 📌 将来若真的引入「实例列表 + 重建」那一套（原版那样），**改这一个方法**即可，调用点不动。</summary>
-        public virtual void UpdateItemCollection() { }
+        /// <summary>原版 `Inventory.UpdateItemCollection()`：`items = subSets.SelectMany(kv =&gt; kv.Value.InternalDictionary).ToDictionary(k =&gt; k.Key, k =&gt; (IItemInfo&lt;T&gt;)k.Value)`
+        /// （判据 = 三个编译器 lambda：`decomp_full/Inventory.__c_object____UpdateItemCollection_b__12_0/1/2.c`）。2026-10-27 B26 补齐真体。
+        /// ⚠️ **没有登记子集时不动字典**（🔶 自己设计：原版 `subSets` 是服务器下发的那份上游字典，我们没那层 ⇒ 照抄会把本地种子数据清空 ⇒ 只在「有子集」时重建）。调度台 2026-10-27 裁定（B26）。
+        /// 真体重建那一段在文件尾的 `partial` 第二部（`RebuildFromSubsets`）。</summary>
+        public virtual void UpdateItemCollection() { if (_subsets.Count == 0) return; RebuildFromSubsets(); }
 
-        /// <summary>原版 `Inventory.RegisterSubset(Type, InventorySubset)`：登记一个子集视图。</summary>
-        public void RegisterSubset(InventorySubset<T> set)
+        /// <summary>原版 `Inventory.RegisterSubset(Type, InventorySubset)`：`subSets[type] = set` + `set.OnUpdate += UpdateItemCollection`（`Inventory.cs:1126-1134`）。2026-10-27 B26 补了第二句（原来只登记不发订阅）⇒ `type` 传 null = 按 `T` 记。</summary>
+        public void RegisterSubset(Type type, InventorySubset<T> set)
         {
-            if (set == null || _subsets.Contains(set)) return;
-            _subsets.Add(set);
-            set.Rebind(this);
+            if (set == null) return;
+            if (!_subsets.Contains(set)) { _subsets.Add(set); set.OnUpdate += UpdateItemCollection; }
+            _subsetsByType[type != null ? type : typeof(T)] = set; set.Rebind(this);
         }
 
         // ---------------------------------------------------------- 存档口（框架自己的持久化）
@@ -293,7 +293,7 @@ namespace CardPresentation
     // ============================================================ 子集
     /// <summary>背包的一个**视图**（原版 `InventorySubset`）：只装某个 id 集合的那几条 + 自身的更新事件。
     /// 用于「某一类物品单独一栏」的场景（原版用它给界面做局部刷新）。</summary>
-    public sealed class InventorySubset<T> where T : class
+    public sealed partial class InventorySubset<T> where T : class
     {
         readonly Dictionary<string, ItemInfo<T>> _sub = new Dictionary<string, ItemInfo<T>>();
         Inventory<T> _src;
@@ -674,7 +674,7 @@ namespace CardPresentation
     /// 判据：`d:/2/tools/cpp2il/out_cpp2il_dev_ilspy/CardInventory.cs:158-176`
     /// （`new QuantityBoundItemInfo<RawCardScript>(item, boundItem, instanceId)`，`boundItem = Get(originalCard, autoCreate:true)`）。
     /// 用途 = **异画卡的数量跟着原卡走**（异画不是独立份数）。</summary>
-    public sealed class QuantityBoundItemInfo<T> : ItemInfo<T> where T : class
+    public sealed partial class QuantityBoundItemInfo<T> : ItemInfo<T> where T : class
     {
         public QuantityBoundItemInfo(T item, ItemInfo<T> boundItem, string instanceId)
             : base(item, boundItem != null ? boundItem.Amount : 0, instanceId)
@@ -1536,4 +1536,407 @@ namespace CardPresentation
             if (Updated != null) Updated();
         }
     }
+
+    // ============================================================ 追加区 · 2026-10-27（B26 · 基础设施 Inventory 背包层/徽记）
+    //
+    // 【这一段补的是什么】`判据/C档施工批次表.tsv` 的 **B26「基础设施·Inventory 背包层/徽记」37 行**
+    //   （账行：泛型与启动链 22 · 商店 8 · 未分类_其他 3 · 社交_聊天 3 · 其他_基础设施 1）。
+    //   落点 = 本文件 + 同目录 `BadgeNotifications.cs`（3 个 record）+ 新建 `Shell/Points.cs`（积分基类）。
+    //   ⛔ 本段**不往上面插行**：账的 A 档落点钉着行号（`Shell/Inventory.cs:46/103/127/…/1456`），
+    //     插一行就让 `工具/check_ledger_points.py` 逐条报漂移（`CLAUDE.md` 铁律 18·b · N9 那次的原形）。
+    // 【判据一律先找真方法体】非泛型方法 → `d:/2/tools/decomp_full/<类>__<方法>.c`；
+    //   泛型方法（`Inventory<T>` / `ItemInfo<T>` / `QuantityBoundItemInfo<T>` / `Points<T>`）→
+    //   `d:/2/tools/cpp2il/out_cpp2il_dev_ilspy/*.cs`（**只有这一份有真体**）+ `dump.cs` 的 `GenericInstMethod` RVA → VA 反汇编（`工具/disasm_va.py`）。
+    // ---------------------------------------------------------- ① `ItemInfo<T>.Convert<TOut>()`
+        public partial class ItemInfo<T> where T : class
+        {
+            /// <summary>原版 `ItemInfo&lt;T&gt;.Convert&lt;TOut&gt;()`（`ItemInfo.cs:144-211` 真体）：把本条**按另一个物品类型再包一条**
+            /// —— `new ItemInfo&lt;TOut&gt;(new LoadableReference&lt;TOut&gt;((TOut)(object)Item), Quantity, InstanceID)`。
+            /// ⇒ 数量 / 实例 id **照抄**；`customData` / `ephemeralState` **不搬**（原版 3 参 ctor 只设这三样，`ephemeralState` 是新对象）。
+            /// <para>⚠️ 原版 cast 失败（`Item` 不是 `TOut`）会抛 `InvalidCastException`；我们**给 null**（⛔ 不静默，由调用方判 —— 原版唯一消费者是
+            /// `ShopContainerInventory`「把 `ItemInfo&lt;T&gt;` 转成 `IItemInfo&lt;ShopContainerBase&gt;`」，那也是本批的落点）。</para></summary>
+            public ItemInfo<TOut> Convert<TOut>() where TOut : class
+            {
+                TOut v = Item as TOut;
+                if (v == null) return null;
+                return new ItemInfo<TOut>(v, Amount, InstanceId);
+            }
+        }
+
+        // ---------------------------------------------------------- ② `Inventory<T>`：子集字典 + 重建真体
+        public partial class Inventory<T> where T : class
+        {
+            /// <summary>原版 `Inventory.subSets`（`Dictionary&lt;Type, InventorySubset&gt;`，`Inventory.cs:345`，`protected readonly`）—— 2026-10-27 B26 补。
+            /// ⚠️ 我们另有一份 `List&lt;InventorySubset&lt;T&gt;&gt; _subsets`（按登记顺序通知），两份**同源不互替**：字典按 `Type` 认，列表按登记序发通知。</summary>
+            readonly Dictionary<Type, InventorySubset<T>> _subsetsByType = new Dictionary<Type, InventorySubset<T>>();
+
+            /// <summary>已登记的子集（原版 `subSets` 的只读视图）。</summary>
+            public IReadOnlyDictionary<Type, InventorySubset<T>> Subsets { get { return _subsetsByType; } }
+
+            /// <summary>`UpdateItemCollection()` 的真体（原版 `Inventory.cs:685-1050` 那句
+            /// `items = subSets.SelectMany(kv =&gt; kv.Value.InternalDictionary).ToDictionary(k =&gt; k.Key, k =&gt; (IItemInfo&lt;T&gt;)k.Value)`；
+            /// 三个编译器 lambda 的真体在 `decomp_full/Inventory.__c_object____UpdateItemCollection_b__12_{0,1,2}.c`）。
+            /// ⚠️ 我们**只在有子集时**重建（理由写在 `UpdateItemCollection` 的注释里）。</summary>
+            internal void RebuildFromSubsets()
+            {
+                var merged = new Dictionary<string, ItemInfo<T>>();
+                foreach (var kv in _subsetsByType)
+                {
+                    if (kv.Value == null) continue;
+                    foreach (var e in kv.Value.InternalDictionary) if (e.Value != null) merged[e.Key] = e.Value;
+                }
+                _byId.Clear();
+                foreach (var kv in merged) _byId[kv.Key] = kv.Value;
+            }
+        }
+
+        // ---------------------------------------------------------- ③ `InventorySubset<T>`：上游字典
+        public sealed partial class InventorySubset<T> where T : class
+        {
+            /// <summary>原版 `InventorySubset.InternalDictionary`（`IReadOnlyDictionary&lt;string, IItemInfo&lt;IIdentifiable&gt;&gt;`，`InventorySubset.cs:41`）——
+            /// `UpdateItemCollection` 扁平化的**唯一输入**。</summary>
+            public IReadOnlyDictionary<string, ItemInfo<T>> InternalDictionary { get { return _sub; } }
+        }
+
+        // ---------------------------------------------------------- ④ `QuantityBoundItemInfo<T>.Add`（原版是空方法）
+        public sealed partial class QuantityBoundItemInfo<T> : ItemInfo<T> where T : class
+        {
+            /// <summary>原版 `QuantityBoundItemInfo&lt;T&gt;.Add(int, string)` 的**真身 = 空方法**：`il2cpp_out/dump.cs:70479-70485` 把
+            /// `QuantityBoundItemInfo&lt;object&gt;.Add` 的 RVA 指到 **0x4B33B0** = 全局共享空桩（机器码 `c2 00 00 00` = `ret 0`）。
+            /// ⇒ 数量**只由被绑那条决定**，这里什么都不做。
+            /// <para>🔴 账原来把这一条写成「加数量但夹在 quantity 上限内」—— **与二进制不符**，2026-10-27 B26 就地订正（铁律 5）。</para></summary>
+            public override void Add(int amount, string instanceId = null) { }
+        }
+
+        // ---------------------------------------------------------- ⑤ `IdentifiableWrapper` 族（账 `泛型与启动链:626/627`）
+        /// <summary>原版 `abstract class IdentifiableWrapper : IdentifiableSO`（`IdentifiableWrapper.cs`）。
+        /// ⚠️ **落点差异（如实标）**：判据文件把它放在 `Core/Identifiable.cs`；本批白名单只到 `Shell/` 这 5 个文件 ⇒ 落本文件。
+        /// 它是普通类（原版是 ScriptableObject）⇒ 这里**不涉**「类名 == 文件名」那条 Unity 存盘约束。</summary>
+        public abstract class IdentifiableWrapper
+        {
+            public abstract object RawData { get; }
+            public abstract string GetID();
+        }
+
+        /// <summary>原版 `IdentifiableWrapper&lt;T&gt; where T : IIdentifiable`。
+        /// <para>`GetID()`（`IdentifiableWrapper.cs:149`）逐句 = **先 `Data.GetID()`**（对 T 的虚调用）。我们没有 `IIdentifiable`
+        /// ⇒ 三档：显式 `Id` → 注入的 `IdSource` → `"wrapper_" + GetHashCode()`。
+        /// 🔶 自己设计（非原版）：第三档原版不存在（它靠 `IdentifiableSO` 的资产名）；调度台 2026-10-27 裁定（B26）。谁有真 id 就设 `IdSource`（一行）。</para>
+        /// <para>`op_Implicit`（`il2cpp_out/dump.cs:51181`）= `return instanceRef.Data;`（null ⇒ 原版 NRE，我们给 null）。</para></summary>
+        public abstract class IdentifiableWrapper<T> : IdentifiableWrapper where T : class
+        {
+            public abstract T Data { get; }
+            /// <summary>显式 id（原版 `IdentifiableSO` 的资产身份）。空 = 走 `IdSource`。</summary>
+            public string Id;
+            /// <summary>🔶 自己设计（非原版）：从 `Data` 取 id 的口（原版 `T : IIdentifiable.GetID()`）。调度台 2026-10-27 裁定（B26）。</summary>
+            public Func<T, string> IdSource;
+
+            public override object RawData { get { return Data; } }
+
+            public override string GetID()
+            {
+                if (!string.IsNullOrEmpty(Id)) return Id;
+                T d = Data;
+                if (d == null) return null;
+                if (IdSource != null) return IdSource(d);
+                return "wrapper_" + d.GetHashCode().ToString(System.Globalization.CultureInfo.InvariantCulture);
+            }
+
+            public static implicit operator T(IdentifiableWrapper<T> instanceRef)
+            {
+                return instanceRef != null ? instanceRef.Data : null;
+            }
+        }
+
+        // ---------------------------------------------------------- ⑥ 货币（账 `商店:54/59/60/61/62`）
+        /// <summary>原版 `GameCurrency` 枚举（`il2cpp_out/dump.cs:46139-46153`，TypeDefIndex 957）—— **值照抄**（不是 0..n 连号，别重排）。</summary>
+        public enum GameCurrency
+        {
+            gold = 0, crystals = 10, blackStones = 20, realMoney = 30, free = 40,
+            unavailable = 50, raidMedals = 60, gachaTickets = 70, campaignPoints = 71, energy = 72,
+        }
+
+        /// <summary>原版 `ICurrency : IIdentifiable`（`il2cpp_out/dump.cs:45051-45071`）：`Type` / `Code` / `MaxAmount` / `GetID()`。
+        /// <para>`MaxAmount` 的**默认实现 = -1（不封顶）**：真身 `ICurrency.get_MaxAmount` @ VA **0x18065CCB0** 只有两条指令
+        /// `mov eax,0xffffffff; ret`（`工具/disasm_va.py` 现读）。⇒ 每个实现类自己给 `-1`。</para>
+        /// <para>⚠️ 原版还有 `Sprite GetIcon(IconSize)` —— 这一层没有 sprite（图标在 `CardArt`/徽记那一族）⇒ 不建空壳。</para></summary>
+        public interface ICurrency
+        {
+            GameCurrency Type { get; }
+            string Code { get; }
+            int MaxAmount { get; }
+            string GetID();
+        }
+
+        /// <summary>原版 `Currency : ObtainableItem, ICurrency, IIdentifiable`（`Currency.cs`）：`code` + `type`（+ `maxAmount`，`ObtainableItem` 侧）。
+        /// `GetID()` = `code`（`Currency.cs:128-131` 真体逐字 `return code;`）。</summary>
+        public class Currency : ICurrency
+        {
+            public string code;
+            public GameCurrency type;
+            /// <summary>上限；`-1` = 不封顶（`ICurrency.MaxAmount` 的默认值）。</summary>
+            public int maxAmount = -1;
+
+            public Currency() { }
+            public Currency(string code, GameCurrency type, int maxAmount = -1)
+            { this.code = code; this.type = type; this.maxAmount = maxAmount; }
+
+            public GameCurrency Type { get { return type; } }
+            public string Code { get { return code; } }
+            public int MaxAmount { get { return maxAmount; } }
+            public string GetID() { return code; }
+            public override string ToString() { return string.IsNullOrEmpty(code) ? type.ToString() : code; }
+        }
+
+        /// <summary>🔶 自己设计（非原版）：本地「货币名册」= 原版 `ConfigManager.GetConfig&lt;CurrencyConfig&gt;().currencies` 的等价物
+        /// （判据 `decomp_full/CurrencyExtensions__ToCurrency.c`：`ConfigManager.GetConfig&lt;object&gt;()` → `+0x10` 那张表 → `FirstOrDefault(c =&gt; c.type == 目标)`）。
+        /// 我们**没有 ConfigManager / 货币 SO** ⇒ 用一张可注册的名册；B12/B25 接入真配置后把 `Register` 换成从 SO 播种即可（调用点不动）。
+        /// 谁定的：调度台 2026-10-27（B26 批次）。</summary>
+        public static class CurrencyCatalog
+        {
+            static readonly List<ICurrency> _all = new List<ICurrency>();
+            public static IReadOnlyList<ICurrency> All { get { return _all; } }
+
+            public static void Register(ICurrency c) { if (c != null && !_all.Contains(c)) _all.Add(c); }
+            public static void ClearForTest() { _all.Clear(); }
+
+            /// <summary>原版那一句是 `FirstOrDefault(c =&gt; c.type == currencyType)` ⇒ 查不到给 **null**（⛔ 不造一个假货币）。</summary>
+            public static ICurrency Find(GameCurrency type)
+            {
+                for (int i = 0; i < _all.Count; i++) if (_all[i] != null && _all[i].Type == type) return _all[i];
+                return null;
+            }
+        }
+
+        /// <summary>原版 `static class CurrencyExtensions`（4 个方法；判据 = `decomp_full/CurrencyExtensions__{ToCurrency,GetOwnedCount,CanGetMore,AddCurrency}.c`，**四份都是真体**）。
+        /// <para>⚠️ **签名差异（如实标）**：原版前三条的第一个形参是 `InventoryManager manager`（`SingletonBehaviour` 实例）；我们的 `InventoryManager`
+        /// 是**静态门面**（见上面「追加区 · 2026-10-26」头的差异 ①）⇒ 形参去掉，行为照旧。</para>
+        /// <para>⚠️ `campaignPoints` / `energy` 两条在原版分别读 `LiveOpsManager.GetHandler&lt;CampaignHandler&gt;()[+0x78]`（`NeutralPoints`）与
+        /// `SharedEventDataManager.GetContext&lt;EnergyContext&gt;().GetCurrentEnergy()` —— **这两个件本地都还没有** ⇒ 走可注入钩子
+        /// （`CampaignPointsOf` / `EnergyOf` / `SpendEnergyOf`）；没注入时**出声 + 给 0**（⛔ 不静默假装「够」）。</para></summary>
+        public static class CurrencyExtensions
+        {
+            /// <summary>原版 `CampaignHandler.NeutralPoints`（`+0x78`）的替身。</summary>
+            public static Func<int> CampaignPointsOf;
+            /// <summary>原版 `EnergyContext.GetCurrentEnergy()` 的替身。</summary>
+            public static Func<int> EnergyOf;
+            /// <summary>原版 `EnergyContext.SpendEnergy(int)` 的替身。</summary>
+            public static Action<int> SpendEnergyOf;
+
+            /// <summary>原版 `ToCurrency(GameCurrency)`：`campaignPoints` ⇒ `PointsConfig.points.OfType&lt;CampaignPoints&gt;().FirstOrDefault(p =&gt; p.cardArmy == 0)`
+            /// （中立那份；`== 0` 是 `CardArmy` 的 0 值）；其余 ⇒ `CurrencyConfig.currencies.FirstOrDefault(c =&gt; c.type == type)`。</summary>
+            public static ICurrency ToCurrency(GameCurrency currencyType)
+            {
+                if (currencyType == GameCurrency.campaignPoints) return PointsCatalog.NeutralCampaignPoints();
+                return CurrencyCatalog.Find(currencyType);
+            }
+
+            /// <summary>原版 `GetOwnedCount(manager, GameCurrency)`（`CurrencyExtensions__GetOwnedCount.c` 三段分支）。</summary>
+            public static int GetOwnedCount(GameCurrency currencyType)
+            {
+                if (currencyType == GameCurrency.campaignPoints)
+                {
+                    if (CampaignPointsOf != null) return CampaignPointsOf();
+                    return NoSource("campaignPoints（原版读 `CampaignHandler.NeutralPoints`）");
+                }
+                if (currencyType == GameCurrency.energy)
+                {
+                    if (EnergyOf != null) return EnergyOf();
+                    return NoSource("energy（原版读 `EnergyContext.GetCurrentEnergy()`）");
+                }
+                ICurrency c = ToCurrency(currencyType);
+                if (c == null)
+                {
+                    InventoryManager.Note("cur-nocatalog:" + currencyType,
+                        "`ToCurrency(" + currencyType + ")` 查不到货币（名册里没注册这一种）⇒ 拥有数按 0 算；原版同一情形 `FirstOrDefault` 也给 null");
+                    return 0;
+                }
+                if (InventoryManager.GetInventory<ICurrency>() == null)
+                {
+                    InventoryManager.Note("cur-noinv",
+                        "没有登记 `Inventory<ICurrency>` ⇒ 货币拥有数恒 0（原版那条走 `InventoryManager.GetOwnedCount(ICurrency)`）");
+                    return 0;
+                }
+                return InventoryManager.GetOwnedCount<ICurrency>(c);
+            }
+
+            /// <summary>原版 `CanGetMore(ICurrency)`：① `MaxAmount &lt; 0` ⇒ **true**（不封顶）；② 否则 `owned &lt; MaxAmount`
+            /// （`CurrencyExtensions__CanGetMore.c` 末句 `return iVar2 &lt; iVar3;`，`iVar3` = 虚属性槽 3 = `MaxAmount`）。</summary>
+            public static bool CanGetMore(ICurrency currency)
+            {
+                if (currency == null) return false;
+                if (currency.MaxAmount < 0) return true;
+                return GetOwnedCount(currency.Type) < currency.MaxAmount;
+            }
+
+            /// <summary>原版 `AddCurrency(manager, ICurrency, int)`（`CurrencyExtensions__AddCurrency.c`）：
+            /// `energy` ⇒ **`EnergyContext.SpendEnergy(amount)`**（⚠️ **原版就是 Spend，不是 Add** —— 照抄，⛔ 别「顺手修好」）；
+            /// 其余 ⇒ `InventoryManager.Add(currency, amount)`。</summary>
+            public static void AddCurrency(ICurrency currency, int amount)
+            {
+                if (currency == null)
+                {
+                    InventoryManager.Note("cur-add:null", "`AddCurrency` 收到 null 货币 ⇒ 不加（原版同一档会 NRE）");
+                    return;
+                }
+                if (currency.Type == GameCurrency.energy)
+                {
+                    if (SpendEnergyOf != null) { SpendEnergyOf(amount); return; }
+                    NoSource("energy 的 `SpendEnergy`（`AddCurrency` 那一支）");
+                    return;
+                }
+                if (InventoryManager.GetInventory<ICurrency>() == null)
+                {
+                    InventoryManager.Note("cur-add:noinv", "没有登记 `Inventory<ICurrency>` ⇒ `AddCurrency(" + currency.GetID() + ", " + amount + ")` 无处可加");
+                    return;
+                }
+                InventoryManager.Add<ICurrency>(currency, amount);
+            }
+
+            static int NoSource(string what)
+            {
+                InventoryManager.Note("cur-nosrc:" + what,
+                    "货币数据源缺失：" + what + " —— 本地没有这个件 ⇒ 给 0（⛔ 不是「原版也返回 0」）");
+                return 0;
+            }
+        }
+
+        /// <summary>原版 `CurrencyCondition : EventCondition`（`CurrencyCondition.cs` 全文；真体 `decomp_full/CurrencyCondition__Validate.c`）：
+        /// `return InventoryManager.Instance.HasEnough(targetCurrency, minimumAmount);` —— **只调本地背包，0 处 PlayFab / 云脚本**
+        /// （这正是 2026-10-27 调度台驳回「判 D」的那条依据）。⚠️ 我们用静态门面 ⇒ 去掉 `.Instance`。
+        /// `targetCurrency.targetId` 为空时 `HasEnough` **出声 + false**（⛔ 不许静默 true）。</summary>
+        [Serializable]
+        public class CurrencyCondition : EventCondition
+        {
+            public LoadableRef<Currency> targetCurrency;
+            public int minimumAmount;
+
+            public override bool Validate(ILiveOps liveOps)
+            {
+                return InventoryManager.HasEnough<Currency>(targetCurrency, minimumAmount);
+            }
+        }
+
+        // ---------------------------------------------------------- ⑦ 商店容器库存 + 开包徽记（账 `商店:239/240/241`）
+        /// <summary>原版 `abstract class ShopContainerBase : ObtainableItem`（`ShopContainerBase.cs:7-36`）：`containerType` + 抽象 `Open(...)`。
+        /// ⚠️ **本批只建门面两格**（`containerType` / `GetID()`）：本地没有容器 SO 层（`ContainerDrawer` 那一族只有**名字映射**，
+        /// 判据 `Editor/ShopScene.cs:315-362`）⇒ 其余 4 个成员（`VisualPrefab` / `LegendaryContainer` / `PreviewImage` / `CrateCounterKey`）不建空壳。</summary>
+        public abstract class ShopContainerBase
+        {
+            /// <summary>容器 id（原版 `IdentifiableSO.GetID()` 的资产身份）。</summary>
+            public string Id;
+            /// <summary>原版 `ContainerType containerType`（枚举；我们用**名字串**，与 `ShopScene` 的 drawer 映射同一套写法）。</summary>
+            public string ContainerType;
+
+            public virtual string GetID() { return Id; }
+            public override string ToString() { return Id; }
+        }
+
+        /// <summary>落点用的最小具体容器（原版是 `ShopContainer` / `DropTableContainer` / `DlcBundle` 那一族 **SO**）。</summary>
+        public sealed class ShopContainer : ShopContainerBase
+        {
+            public ShopContainer(string id) { Id = id; }
+            public ShopContainer(string id, string containerType) { Id = id; ContainerType = containerType; }
+        }
+
+        /// <summary>原版 `ShopContainerInventory : Inventory&lt;ShopContainerBase&gt;, INotificationProvider&lt;BoosterPackBadge&gt;`（`ShopContainerInventory.cs`，**真体**）。
+        /// 三条：① `OnFinishUnpack()` ⇒ `UiBadgeNotificationManager.Refresh&lt;BoosterPackBadge&gt;()`；
+        /// ② `OnItemCountModify`：id **含 `"Booster"`（忽略大小写）** ⇒ 同一次刷新；
+        /// ③ `CheckNotification()` ⇒ `Repeat(new BoosterPackBadge(), GetItems().Where(id 含 Booster).Sum(Quantity))`
+        /// （判据 = 该文件的 `_003CCheckNotification_003Eb__2_0` / `__2_1` 两个 lambda 真体）。
+        /// <para>⚠️ 原版 `Refresh&lt;T&gt;()` 就是 `Refresh(typeof(T))` ⇒ 我们同一个口（`UiBadgeNotificationManager.Refresh(Type)`）。</para>
+        /// <para>🔴 **可达性（如实记）**：今天没有任何生产者把卡包塞进这份背包 —— 原版「买卡包」那条链是**买完直接开包**
+        /// （`Shell/ShopTabPage.cs:772-801` 的注释逐行记着），不进库存。⇒ 这份背包**恒空 ⇒ 徽记恒 0**；
+        /// 一旦活动/奖励开始发卡包，它立刻有数据（账 `商店:239-241` 的备注写了同一条）。</para></summary>
+        public sealed class ShopContainerInventory : Inventory<ShopContainerBase>, INotificationProvider
+        {
+            public ShopContainerInventory() : base(c => c != null ? c.GetID() : null) { }
+
+            public Type NotificationType { get { return typeof(BoosterPackBadge); } }
+            public IEnumerable<INotificationProvider> ChildProviders { get { return null; } }
+
+            public override void OnFinishUnpack()
+            {
+                base.OnFinishUnpack();
+                UiBadgeNotificationManager.Refresh(typeof(BoosterPackBadge));
+            }
+
+            protected override void OnItemCountModified(ShopContainerBase item, int amountChanged)
+            {
+                base.OnItemCountModified(item, amountChanged);
+                if (item == null) return;
+                string id = item.GetID();
+                if (id != null && id.IndexOf("Booster", StringComparison.InvariantCultureIgnoreCase) >= 0)
+                    UiBadgeNotificationManager.Refresh(typeof(BoosterPackBadge));
+            }
+
+            public IEnumerable<BadgeNotification> CheckNotification()
+            {
+                int n = 0;
+                foreach (ItemInfo<ShopContainerBase> info in GetItems())
+                {
+                    if (info == null || info.Item == null) continue;
+                    string id = info.Item.GetID();
+                    if (id == null || id.IndexOf("Booster", StringComparison.InvariantCultureIgnoreCase) < 0) continue;
+                    n += info.Amount;                      // 原版 `Enumerable.Sum(x =&gt; x.Quantity)`
+                }
+                BoosterPackBadge one = new BoosterPackBadge();
+                for (int i = 0; i < n; i++) yield return one;  // 原版 `Enumerable.Repeat(element, count)`
+            }
+        }
+
+        // ---------------------------------------------------------- ⑧ 发奖批次（账 `其他_基础设施:414`）
+        /// <summary>原版 `PlayerDataManager.GrantItemsCrate(List&lt;string&gt; itemsGranted)` 的等价物（`PlayerDataManager.cs:10000-10038`，**真体**；
+        /// 交叉核对 `decomp_full/PlayerDataManager__GrantItemsCrate.c`）。
+        /// <para>🔴 **逐句照抄的三个事实**（都是原文读出来的，⛔ 别按方法名猜）：
+        /// ① 形参 `itemsGranted` **在方法体里一次都没被读**（`.c` 里只出现 `this`；ILSpy 那份也没有）—— 原版的「发奖」其实不在这里；
+        /// ② 返回值**恒为空 `List`**（`new List&lt;ObtainableItemReward&gt;()` 建完直接 return）；
+        /// ③ 真正做的两件事 = 记两个计数（`inventoryOpsThisSession++` / `lastInventoryOperationTime = CurrentMillis()`）
+        /// ＋ 在「无待卖卡 ∧ 不在卖 ∧ 无冷却」时起一次 `SellSpareCardsRecursive()`。</para>
+        /// <para>⚠️ **我们只落 ①②③ 的计数与「该卖卡了」这一跳**：`SellSpareCardsRecursive` 属收藏/卖卡域（不在本批白名单）⇒ 用
+        /// <see cref="SellSpareCardsRequested"/> 事件代替（谁做卖卡谁订阅）。⚠️ 原版那句 `new Dictionary&lt;string,int&gt;()` 一建就是空
+        /// ⇒ `Keys.Count == 0` 恒真 ⇒ `CustomDebug.Log("Sell All Spare")` **每次都打**（原版自己的一处死结，照抄成一条 Note）。</para>
+        /// <para>⚠️ **落点差异**：原版这是 `PlayerDataManager`（`Shell/ProfileData.cs`，归 B27）的实例方法；我们落在背包层旁，
+        /// B27 接手时一行转调即可。</para></summary>
+        public static class PlayerInventoryOps
+        {
+            /// <summary>原版 `inventoryOpsThisSession`（`+0x430`）。</summary>
+            public static int InventoryOpsThisSession { get; private set; }
+            /// <summary>原版 `lastInventoryOperationTime`（`+0x438`，Unix 毫秒）。</summary>
+            public static long LastInventoryOperationTime;
+            /// <summary>原版 `Dictionary&lt;string,int&gt; pendingCardsToSell` —— 本方法**只用到 `Keys.Count`** ⇒ 我们只留条数。</summary>
+            public static int PendingCardsToSell;
+            /// <summary>原版 `isSellingCards`（`+0x378`）。</summary>
+            public static bool IsSellingCards;
+            /// <summary>原版 `waitingSellCardCooldown`（`+0x440`）。</summary>
+            public static bool WaitingSellCardCooldown;
+
+            /// <summary>原版 `SellSpareCardsRecursive()` 的起跑口（原版是 `StartCoroutine`）。</summary>
+            public static event Action SellSpareCardsRequested;
+
+            public static List<string> GrantItemsCrate(List<string> itemsGranted)
+            {
+                var result = new List<string>();                 // 原版 `List<ObtainableItemReward>`，**恒空**
+                InventoryOpsThisSession = InventoryOpsThisSession + 1;
+                LastInventoryOperationTime = NowMillis();
+                InventoryManager.Note("crate-grant",
+                    "`GrantItemsCrate` 收到 " + (itemsGranted != null ? itemsGranted.Count : 0) + " 个 id —— **原版体里一个都没读**（照抄：本方法只记计数 + 可能触发卖多余卡）");
+                if (PendingCardsToSell == 0 && !IsSellingCards && !WaitingSellCardCooldown)
+                {
+                    if (SellSpareCardsRequested != null) SellSpareCardsRequested();
+                }
+                return result;
+            }
+
+            public static void ResetForTest()
+            {
+                InventoryOpsThisSession = 0; LastInventoryOperationTime = 0; PendingCardsToSell = 0;
+                IsSellingCards = false; WaitingSellCardCooldown = false; SellSpareCardsRequested = null;
+            }
+
+            static long NowMillis()
+            {
+                return (long)(DateTime.UtcNow - new DateTime(1970, 1, 1, 0, 0, 0, DateTimeKind.Utc)).TotalMilliseconds;
+            }
+        }
 }

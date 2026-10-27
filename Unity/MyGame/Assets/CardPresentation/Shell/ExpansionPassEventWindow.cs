@@ -963,7 +963,7 @@ namespace CardPresentation
             // ⚠️ 没有里程碑数据 ⇒ **建出来、关着**（⛔ 不拿 prefab 里的示例值当真实奖励）。
             _container = MenuDraw.Node(_content, RewardContainerName, ContainerR);
             BuildRewardContainer(_container);
-            _container.gameObject.SetActive(false);
+            _container.gameObject.SetActive(false); InitializeEventTab();
         }
 
         // ------------------------------------------------------------ `Header`（= `RaidHeaderController`）
@@ -1095,11 +1095,11 @@ namespace CardPresentation
                 MenuDraw.AlignRight(lvText, LevelUpTextR);
                 MenuDraw.SetVAlign(lvText, Label.VAlign.Middle, LevelUpTextR);
             }
-            // 升级 = `ExpansionPassEvent.PurchaseLevelUp`（服务器）⇒ 点击只出声
-            MenuDraw.Hit(lvBtn, "Hit", LevelUpBtnR, QHit, () =>
-                Debug.LogWarning("[ExpansionPass] **升级**需要服务器：原版 `ExpansionPassEvent.PurchaseLevelUp`"
-                               + "（`ExpansionPassRewardItemContainer.levelUpPriceDisplay.OnClick`）；"
-                               + "本地没有后端 ⇒ **不假装升级**。"),
+            // 原版 `levelUpPriceDisplay.OnClick` → `Initialize` 里挂的 lambda → `onLevelUp(milestoneIndex)`
+            // → `ExpansionPassRewardSelector.OnLevelUp` → `scoringEvent.PurchaseLevelUp(...)`。
+            // 索引按节点反查（`MilestoneIndexOfTransform`：本容器在 `_containers` 里的下标）；
+            // 模板那一份不在 `_containers` 里 ⇒ 下标 -1 ⇒ 出声、不假装升级。
+            MenuDraw.Hit(lvBtn, "Hit", LevelUpBtnR, QHit, () => OnLevelUpClick(lvBtn),
                 null, null, null, null, null, clickCue: WindowSounds.PositiveCue);
 
             // ---- `Premium Glow`（`40k_Rewards_icon_base card SDF` · 视觉框 408.90×506.71）----
@@ -1178,10 +1178,10 @@ namespace CardPresentation
             MenuDraw.Nine(cb, Tex(ArtOctagon2, "领取钮高亮框"), ClaimHiR,
                           new Vector4(53f, 53f, 53f, 53f), 128f, 128f, QCardHi, Color.white, true,
                           "Highlight button claim");
-            // 领奖 = `ExpansionPassEvent.OnRewardCollected`（服务器）⇒ 点击只出声
-            MenuDraw.Hit(cb, "Hit", ClaimBtnR, QHit, () =>
-                Debug.LogWarning("[ExpansionPass] **领奖**需要服务器：原版 `ExpansionPassProgressClaimButtonController`"
-                               + " → `ExpansionPassEvent.OnRewardCollected`（LiveOps）；本地没有后端 ⇒ **不假装领取**。"),
+            // 原版 `ExpansionPassProgressClaimButtonController.CollectionClick` → base（发 `onCollect` = 容器的 `OnCollect`）
+            // → `RewardSelector.CollectRewardClicked(index)` → `PurchaseMilestone`。
+            // 索引按节点反查（见类尾 `CollectionClickOn` 的 doc）；无数据时只出声。
+            MenuDraw.Hit(cb, "Hit", ClaimBtnR, QHit, () => CollectionClickOn(cb),
                 null, null, null, null, null, clickCue: WindowSounds.PositiveCue);
 
             // `Buy premium`（出厂 INACT；`stateDefinitions` 的 state 1 才显示，点击弹 `BuyPremiumToClaim` 报错）
@@ -1190,8 +1190,8 @@ namespace CardPresentation
             var bpt = MenuDraw.TextBox(bp, ClaimBtnTextR, Loc.T(TermClaim), Color.white, "Button Text",
                                        38f, 12f, QCardText, 38f, 12f, face: TmpFont.Face.LatinCardBody);
             if (bpt != null) MenuDraw.SetVAlign(bpt, Label.VAlign.Midline, ClaimBtnTextR);
-            MenuDraw.Hit(bp, "Hit", ClaimBtnR, QHit, () =>
-                Debug.LogWarning("[ExpansionPass] " + Loc.T(TermBuyPremiumToClaim)), null, null, null, null, null,
+            // 原版 `ExpansionPassProgressClaimButtonController.BuyPremiumClick` = `UIMessageController.ShowError(词条, localize:true)`
+            MenuDraw.Hit(bp, "Hit", ClaimBtnR, QHit, BuyPremiumClick, null, null, null, null, null,
                 clickCue: WindowSounds.DefaultButtonCue);
             bp.gameObject.SetActive(false);
 
@@ -1216,7 +1216,7 @@ namespace CardPresentation
 
             BuildMissionsHeader(page);
             BuildDailyMissions(page);
-            BuildDailySkulls(page);
+            BuildDailySkulls(page); RefreshMissionsLocal();
         }
 
         // ------------------------------------------------------------ Missions 页 `Header`（= `RaidHeaderController`）
@@ -1791,6 +1791,813 @@ namespace CardPresentation
             Debug.Log("[ExpansionPass] 里程碑档 ⇒ 当前 " + currentState + " · 上一档 " + previousState
                     + " · level " + level + " ⇒ 个人进度条矩形 = " + PersonalBarRect(PersonalBarRootR,
                         currentState, previousState, level));
+        }
+
+        // ════════════════════════════════════════════════════════════════════════════════════════════
+        //  B15（2026-10-27）：`ExpansionPassEvent` 一族（51 条 C 行）的视图侧接线
+        //
+        //  【为什么追加在类尾】账里按 `文件:行号` 记落点（`:491` `:509` `:572` `:950` `:1026` `:1070`
+        //    `:1134` `:1203` `:1210` `:1271` …）⇒ **新成员一律追加到类尾**，插在中间会让下游行号整体漂移
+        //    （CLAUDE.md §三 那条「新成员追加到类尾」的实测代价：+6 行 ⇒ 10 条漂移 + 2 条失败）。
+        //    类尾之后没有落点 ⇒ 加多少行都不动老账。
+        //  【方法 ↔ 原版】逐条写在各自 doc 上；本块**只做视图/回调**，数据与状态机在 `Shell/ExpansionPassEvent.cs`。
+        // ════════════════════════════════════════════════════════════════════════════════════════════
+
+        /// <summary>= 原版 `ExpansionPassRewardSelector.contentAnchor` 的 HLG 参数（prefab `Rewards Content` 实读）：
+        /// `m_Padding.left = 122` · `m_Spacing = -130` · `m_ChildAlignment = 3`(MiddleLeft)。
+        /// <para>逐档的位置 = `ContainerR.x1 + 122 + i * (ContainerW + ContainerSpacing)`（HLG 的排布式）。</para></summary>
+        public const float ContainerSpacing = -130f;
+
+        /// <summary>本窗当前的事件（= 原版 `ExpansionPassEventTab.currentEvent` / `ExpansionPassRewardSelector.scoringEvent`）。
+        /// 本地常态是 `null`（里程碑 / 分数 / HasPremium 全在远端 LiveOps）。</summary>
+        ExpansionPassEvent _event;
+
+        /// <summary>= 原版 `ExpansionPassRewardSelector.currentRewardItemContainers`（运行时逐档 `Instantiate` 出来的那些）。</summary>
+        readonly List<Transform> _containers = new List<Transform>();
+        /// <summary>容器 → 档位下标（原版靠闭包里的 `milestoneIndex`；我们的命中回调只能拿到节点 ⇒ 反查这张表）。</summary>
+        readonly Dictionary<Transform, int> _containerIndex = new Dictionary<Transform, int>();
+        /// <summary>= 原版 `ExpansionPassRewardItemContainer.preparedForDelayedInit` + 那五个 `forLateInit_*` 字段。</summary>
+        bool _lateInitPending;
+        readonly List<int> _lateInitIndices = new List<int>();
+
+        /// <summary>当前挂上的事件（自检读口；`null` = 没有数据 = 出厂态）。</summary>
+        public ExpansionPassEvent CurrentEvent { get { return _event; } }
+        /// <summary>当前奖励容器个数（= 原版 `currentRewardItemContainers.Count`；无数据时恒 0）。</summary>
+        public int RewardContainerCount { get { return _containers.Count; } }
+
+        /// <summary>Missions 页的任务源。**本地恒 `null`**（原版 `LiveOpsManager.GetHandler&lt;Missions&gt;()`）——
+        /// 注意「源不存在」≠「源在但 0 条」：原版 `RefreshMissions` 对前者**整段跳过**（`if (!(handler == null))`），
+        /// 只有后者才 `CloseTab()`。所以本地没有源时**不关页签**，那是复刻不是偏离。</summary>
+        public MissionSource MissionsSource;
+
+        /// <summary>`Missions` handler 的替身：一列任务（`ParentEventId` / `Active` / `Title`）。
+        /// 原版 `IMission` 的其余成员（挑战进度 / 奖励 / 计时）本工程没有数据源。</summary>
+        public sealed class MissionSource
+        {
+            public List<Mission> Missions = new List<Mission>();
+        }
+
+        /// <summary>`IMission` 的最小替身（只有 `RefreshMissions` 真读到的那两格 + 显示用的标题）。</summary>
+        public sealed class Mission
+        {
+            public string ParentEventId;
+            public bool Active = true;
+            public string Title;
+        }
+
+        bool _noDataSaid, _missionsNoSourceSaid, _missionsClosed;
+
+        // ------------------------------------------------------------ 数据入口
+
+        /// <summary>= 原版 `ExpansionPassEventTab.SetEventTab(ILiveOps)` ＋ `ExpansionPassMissionsTab.SetEventTab(ILiveOps)`。
+        /// <para>原版两句：① `currentEvent = liveOps`（含类型转换）② 空事件 ⇒ 清空。本窗是「一窗一类」硬绑
+        /// （`Create` 直接 `AddComponent`）⇒ 这是**唯一**的数据入口。</para>
+        /// <para>事件非空且树已建 ⇒ 立刻按新数据重建（= 原版 `SetEventTab` 之后由 `OnOpen` 调的 `Initialize`）。</para></summary>
+        public void SetEventTab(ExpansionPassEvent ev)
+        {
+            _event = ev;
+            if (_event == null)
+            {
+                ResetRewards();
+                Note("[ExpansionPass] `SetEventTab(null)`：事件被清空 ⇒ 奖励容器全销毁（原版 `SetEventTab` 的「空事件时清空」那一支）");
+                return;
+            }
+            if (_content != null) { InitializeEventTab(); RefreshMissionsLocal(); }
+        }
+
+        /// <summary>= 原版 `ExpansionPassEventTab.Initialize()`（`ExpansionPassEventTab__Initialize.c` 的五跳）：
+        /// ① `rewardSelector.Initialize(currentEvent)` → ② `backgroundImage.sprite = LoadAsset(事件,1)` + `enabled = (sprite != null)`
+        /// → ③ `premiumPanel.Initialize(currentEvent, onClosePurchasePopup)` → ④ `headerController.Initialize(currentEvent)`
+        /// → ⑤ `getCardsButton.onClick += GetCardsClick` + 按远端配置显隐。
+        /// <para>本地等价：①= <see cref="CreateRewards"/>；②本地没有 liveops 图（`LoadAsset` 走远端 Addressables）⇒ 节点在、不出图并出声；
+        /// ③= <see cref="ApplyPremiumPanel"/>；④header 的 Title / Army Icon / 计时全在远端 ⇒ 只出声（⛔ 不覆盖 prefab 原文）；
+        /// ⑤已在 `BuildWhereGetCardsButton` 里挂好（同一跳 `WindowsManager.OpenWhereToGetCards`）。</para>
+        /// <para>🔴 `_event == null`（本地常态）⇒ 出声一次并返回，窗口保持「出厂结构 + 数值 `--`」—— 与改这一批之前逐像素相同。</para></summary>
+        public void InitializeEventTab()
+        {
+            if (_content == null) return;                 // 还没建树（`Build()` 未跑）
+            if (_event == null)
+            {
+                if (!_noDataSaid)
+                {
+                    _noDataSaid = true;
+                    Debug.Log("[ExpansionPass] `ExpansionPassEventTab.Initialize`：`currentEvent` 为空（里程碑 / 分数 /"
+                            + " `HasPremium` / 背景图全在远端 LiveOps，本机没有）⇒ 结构照建、数值 `--`、奖励容器 0 件。"
+                            + "要验机制请先 `SetEventTab(<注入的事件>)`。");
+                }
+                return;
+            }
+            CreateRewards(false);
+            ApplyPremiumPanel();
+        }
+
+        // ------------------------------------------------------------ ① `ExpansionPassRewardSelector`
+
+        /// <summary>= 原版 `ExpansionPassRewardSelector.CreateRewards(bool refreshAllRewards)`（`ExpansionPassRewardSelector.cs:205-300`）：
+        /// ① 旧容器非空 ⇒ `Reset()` ② 按 `Milestones` 逐件 `Instantiate(rewardItemContainer, contentAnchor)` 并塞进列表
+        /// ③ **第 7 档起**（`index &gt;= 7`）且 `!refreshAllRewards` ⇒ `PrepareForLateInitialization`，否则直接 `Initialize`
+        /// （判据 = ILSpy `:246-262` 的 `flag3 = num2 &gt;= 7` 与 `flag4 = refreshAllRewards` 的或）。
+        /// <para>⚠️ 里程碑为空 ⇒ **一件都不建**（原版同款）。所以没有数据时容器数 = 0（改之前是「1 份模板」，
+        /// 模板 `_container` 现在仍然在树上、仍然关着，见 `BuildRewardsScroll`）。</para></summary>
+        public void CreateRewards(bool refreshAllRewards = false)
+        {
+            if (_content == null) return;
+            if (_containers.Count > 0) ResetRewards();
+            if (_event == null || _event.Milestones == null || _event.Milestones.Count == 0) return;
+            int n = _event.Milestones.Count;
+            for (int i = 0; i < n; i++)
+            {
+                var node = MenuDraw.Node(_content, RewardContainerName, ContainerRectFor(i));
+                BuildRewardContainer(node);
+                node.gameObject.SetActive(true);
+                _containers.Add(node);
+                _containerIndex[node] = i;
+                bool late = (i >= 7) && !refreshAllRewards;
+                if (late) PrepareForLateInitialization(i);
+                else ApplyRewardItemContainer(i, node, null);
+            }
+            // 原版的迟到初始化由 `UICulling` 的可见性回调调 `DelayedInit` 触发；本壳没有 UICulling
+            // ⇒ 建完立刻补一次（等价于「这批格子当场就可见」），如实记在这里。
+            if (_lateInitIndices.Count > 0) DelayedInit();
+        }
+
+        /// <summary>= 原版 `ExpansionPassRewardSelector.RefreshData(bool)`：纯转发 `CreateRewards(refreshAllRewards)`。</summary>
+        public void RefreshData(bool refreshAllRewards = false) { CreateRewards(refreshAllRewards); }
+
+        /// <summary>= 原版 `ExpansionPassEventTab.RefreshRewards()` = `rewardSelector.CreateRewards(false)`。</summary>
+        public void RefreshRewards() { CreateRewards(false); }
+
+        /// <summary>= 原版 `ExpansionPassEventTab.RefreshTestEditorOnly()`：编辑器专用钩子（`Reset()` + `Initialize()` 重跑）。
+        /// 原版**正式版不调用**；对应物是自检宿主 `Editor/ShellScene.cs` 的重建断言 ⇒ 这里只在编辑器下生效。</summary>
+        public void RefreshTestEditorOnly()
+        {
+#if UNITY_EDITOR
+            Build();
+            InitializeEventTab();
+            RefreshMissionsLocal();
+#else
+            Debug.LogWarning("[ExpansionPass] `RefreshTestEditorOnly` 只给编辑器自检用（原版同样只在编辑器里生效）");
+#endif
+        }
+
+        /// <summary>= 原版 `ExpansionPassRewardSelector.Reset()`：① `CustomDebug.LogWarning("[TODO] We have to clear the addressables …")`
+        /// ② 逐个 `Destroy(container.gameObject)` ③ 清表。
+        /// <para>⚠️ 原版自己标了 TODO（地址ables 没释放）；我们这边 `MenuDraw.ClearChildren` 会连带放掉逐项美术
+        /// （那是本工程 `AssetReference.Release` 的等价那一跳）⇒ 比原版多做一步，如实记。</para></summary>
+        public void ResetRewards()
+        {
+            Debug.LogWarning("[TODO] We have to clear the addressables when closing this window");
+            for (int i = 0; i < _containers.Count; i++)
+            {
+                var t = _containers[i];
+                if (t == null) continue;
+                MenuDraw.ClearChildren(t);
+                var go = t.gameObject;
+#if UNITY_EDITOR
+                if (!Application.isPlaying) { UnityEngine.Object.DestroyImmediate(go); continue; }
+#endif
+                UnityEngine.Object.Destroy(go);
+            }
+            _containers.Clear();
+            _containerIndex.Clear();
+            _lateInitIndices.Clear();
+            _lateInitPending = false;
+        }
+
+        /// <summary>= 原版 `ExpansionPassRewardSelector.Initialize(IScoringEvent evt)`：
+        /// 存事件（类型不是 `ExpansionPassEvent` ⇒ `CustomDebug.LogError("[ERROR] ExpansionPassRewardSelector is not receiving an ExpansionPassEvent")`）
+        /// → 清旧 → 按里程碑建满。本类的 `SetEventTab` 已含这一跳（见它的 doc），这里是同一入口的别名。</summary>
+        public void InitializeSelector(ExpansionPassEvent evt)
+        {
+            if (evt == null)
+            {
+                Debug.LogError("[ERROR] ExpansionPassRewardSelector is not receiving an ExpansionPassEvent");
+                return;
+            }
+            SetEventTab(evt);
+        }
+
+        /// <summary>= 原版 `ExpansionPassRewardSelector.CollectRewardClicked(int rewardToClaim)`（`:163-184`）：
+        /// ① `EventSystemController.Toggle(false)`（本壳没有 `EventSystemController` ⇒ 无对应物，如实记）
+        /// ② `scoringEvent.PurchaseMilestone(index, onComplete, onError)`
+        /// ③ 成功回调 = 恢复事件系统 + 播 `rewardClaimedSound` + `CreateRewards(true)`；失败 = 恢复 + `CreateRewards(true)`。</summary>
+        public void CollectRewardClicked(int rewardToClaim)
+        {
+            if (_event == null)
+            {
+                Debug.LogWarning("[ExpansionPass] `CollectRewardClicked(" + rewardToClaim + ")`：没有事件数据 ⇒ 不假装领取");
+                return;
+            }
+            _event.PurchaseMilestone(rewardToClaim, OnRewardCollectComplete, OnRewardCollectError);
+        }
+
+        void OnRewardCollectComplete(CampaignData.RewardSpec[] rewards)
+        {
+            WindowSounds.PlayFx(WindowSounds.PositiveCue, "ExpansionPass/Claim");
+            CreateRewards(true);
+            // 原版这一步是 `RewardService.Collect(rewards, showAnimation:true)` 自己弹领奖窗；本工程没有 `RewardService`
+            // ⇒ 等价物 = `RewardWindow.ShowCollected`（同一扇 `Reward Window`，`isPremiumLocked` 按「已领」那档给 false）。
+            if (rewards != null && rewards.Length > 0 && WindowsManager.Instance != null)
+                RewardWindow.ShowCollected(rewards, null, false, null);
+        }
+
+        void OnRewardCollectError(string error)
+        {
+            MessageToast.ShowError(error);
+            CreateRewards(true);
+        }
+
+        /// <summary>视图侧的升级入口：从点到的 `Level up` 按钮反查档位（= 原版闭包里的 `milestoneIndex`）。</summary>
+        void OnLevelUpClick(Transform levelUpButton)
+        {
+            int idx = MilestoneIndexOfTransform(levelUpButton);
+            if (idx < 0)
+            {
+                Debug.LogWarning("[ExpansionPass] 升级钮点击：找不到它属于哪一档（模板那一份不在 `_containers` 里，"
+                               + "或本地没有里程碑数据）⇒ **不假装升级**。");
+                return;
+            }
+            OnLevelUp(idx);
+        }
+
+        /// <summary>= 原版 `ExpansionPassRewardSelector.OnLevelUp(int level)`（`:186-203`）：同样的「关/恢复事件系统 +
+        /// `PurchaseLevelUp` + 成功/失败都 `CreateRewards(true)`」三跳。</summary>
+        public void OnLevelUp(int level)
+        {
+            if (_event == null)
+            {
+                Debug.LogWarning("[ExpansionPass] `OnLevelUp(" + level + ")`：没有事件数据 ⇒ 不假装升级");
+                return;
+            }
+            _event.PurchaseLevelUp(level, OnLevelUpComplete, OnLevelUpError);
+        }
+
+        void OnLevelUpComplete() { CreateRewards(true); }
+        void OnLevelUpError(string error) { MessageToast.ShowError(error); CreateRewards(true); }
+
+        // ------------------------------------------------------------ ② `ExpansionPassRewardItemContainer`
+
+        /// <summary>= 原版 `ExpansionPassRewardItemContainer.Initialize(liveOps, milestoneIndex, onCollect, onLevelUp, overrideCurrentScore)`
+        /// （`d:/2/tools/decomp_full/ExpansionPassRewardItemContainer__Initialize.c`，逐句）：
+        /// <list type="number">
+        /// <item>进度条：`ScoringDataInfo(current = override ?? PlayerScore, previous = prev?.scoreToUnlock ?? 0, next = cur.scoreToUnlock)`
+        ///   → `personalProgressBarScaleAndPositionController.Initialize(state, prevState, index)`
+        ///   → `personalProgressBar.Initialize(info, scoringItem, isLast)` → `rectMask2D.enabled = (index == 0)`</item>
+        /// <item>领奖钮：`claimButtonController.Initialize(state, CurrencyValue(free, 0), OnCollect)`</item>
+        /// <item>抽屉：`rewardDrawerController.Initialize(cur.Rewards, cur.isPremium, state)` + `OverridePremiumBadge(...)`</item>
+        /// <item>`premiumGlow.enabled = cur.isPremium` · `highlightReward.SetActive(false)`</item>
+        /// <item>升级条：**仅当 `prevState != Locked &amp;&amp; state == Locked`** 才评估；`SetActive(0 &lt; cost.Amount)`
+        ///   + `levelUpPriceDisplay.Setup(cost)` + 重挂 `OnClick`（Ghidra `:172-190`：`iVar7 == 0 || iVar6 != 0` 走关掉那支）</item>
+        /// </list>
+        /// <para>⚠️ 我们逐档容器是**同一份 `BuildRewardContainer` 建出来的**（= 原版 prefab 的 Instantiate），
+        /// 这个函数只负责「按这一档的数据把件改成本档该有的样子」。</para></summary>
+        void ApplyRewardItemContainer(int index, Transform node, int? overrideCurrentScore)
+        {
+            if (_event == null || _event.Milestones == null) return;
+            if (index < 0 || index >= _event.Milestones.Count || node == null) return;
+            var ms = _event.Milestones;
+            ExpansionMilestone m = ms[index];
+            if (m == null) return;
+            ExpansionMilestone prev = index > 0 ? ms[index - 1] : null;
+            int curScore = overrideCurrentScore ?? _event.PlayerScore;
+            ScoringMilestoneState state = _event.GetState(m);
+            ScoringMilestoneState prevState = _event.GetState(prev);
+            bool isFirst = index == 0;
+            bool isLast = index == ms.Count - 1;
+
+            var bar = FindDeep(node, "Expansion Pass Progress Bar");
+            if (bar != null)
+            {
+                var info = new ScoringDataInfo(curScore, prev != null ? prev.ScoreToUnlock : 0, m.ScoreToUnlock);
+                ApplyProgressBar(bar, info, isFirst, isLast, (int)state, (int)prevState, index);
+            }
+
+            ApplyClaimButtonState(node, (int)state);
+            ApplyRewardDrawer(node, m);
+
+            var glow = FindDeep(node, "Premium Glow");
+            if (glow != null) glow.gameObject.SetActive(m.IsPremium);
+            var hi = FindDeep(node, "Collect Highlight Effect");
+            if (hi != null) hi.gameObject.SetActive(false);
+
+            var lv = FindDeep(node, "Level up");
+            if (lv != null)
+            {
+                bool gate = prevState != ScoringMilestoneState.Locked && state == ScoringMilestoneState.Locked;
+                int cost = gate ? _event.GetCostToLevelUp(m) : 0;
+                bool show = gate && cost > 0;
+                lv.gameObject.SetActive(show);
+                if (show)
+                {
+                    var price = FindDeep(lv, "Price Display");
+                    var txt = price != null ? FindDeep(price, "text") : null;
+                    var lb = txt != null ? txt.GetComponent<Label>() : null;
+                    if (lb != null) lb.SetText(cost.ToString());
+                }
+            }
+        }
+
+        /// <summary>= 原版 `EventProgressBarController.Initialize(ScoringDataInfo, ObtainableItem, bool isLastMilestone)`
+        /// + `ScoreObject.Initialize` + `PercentageToNextLevel`（`cpp2il/EventProgressBarController.cs`）：
+        /// <code>
+        /// gameObject.SetActive(info.NextLevelScore != 0);
+        /// show = ((isLast || cur &lt; next) &amp;&amp; cur &gt;= prev) || (cur == 0 &amp;&amp; prev == 0);
+        ///   → scoreText.enabled = show · iconHolder.SetActive(show) · text = $"{cur}/{next}"
+        /// p = max(cur - prev, 0) / (next - prev);  fill.value = p;  tipSprite.enabled = (0 &lt; p &lt; 1)
+        /// ## 调用方那一跳：rectMask2D.enabled = (index == 0)
+        /// </code>
+        /// <para>⚠️ 本壳的进度条是**绝对设计 px**（不是 uGUI `Slider`）⇒ 填充分 = 把 `Bar/ProgressionBar` 的
+        /// **宽**按 `p` 缩，端帽 `BarEnd` 跟着走（它的矩形本来就相对填充右缘）。
+        /// ⚠️ `rectMask2D` / `tipSprite` 这两件本壳没有对应组件（裁切走 `ViewportClip`、端帽就是 `BarEnd` 那张图）
+        /// ⇒ 前者的等价物是「什么都不做」（建树即裁，没有开关口，账 row 187 已记），后者 = `BarEnd` 的显隐。</para></summary>
+        void ApplyProgressBar(Transform barRoot, ScoringDataInfo info, bool isFirst, bool isLast,
+                              int state, int prevState, int level)
+        {
+            // ① 位置/缩放：`BaseProgressBarScaleAndPositionController.Initialize` 那三句的等价（见 `PersonalBarRect` 的 doc）
+            MenuDraw.ApplyPxRect(barRoot, barRoot.parent, PersonalBarRect(PersonalBarRootR, state, prevState, level));
+
+            // ② 整条显隐
+            barRoot.gameObject.SetActive(info.NextLevelScore != 0);
+
+            // ③ `ScoreObject.Initialize`
+            bool show = ((isLast || info.CurrentScore < info.NextLevelScore) && info.CurrentScore >= info.PreviousLevelScore)
+                        || (info.CurrentScore == 0 && info.PreviousLevelScore == 0);
+            var pts = FindDeep(barRoot, "Points");
+            if (pts != null)
+            {
+                var txt = FindDeep(pts, "text");
+                var icon = FindDeep(pts, "icon");
+                var lb = txt != null ? txt.GetComponent<Label>() : null;
+                if (lb != null) { lb.enabled = show; lb.SetText(info.CurrentScore + "/" + info.NextLevelScore); }
+                if (icon != null) icon.gameObject.SetActive(show);
+            }
+
+            // ④ 填充比例
+            float p = PercentageToNextLevel(info);
+            var bar = FindDeep(barRoot, "Bar");
+            var fill = bar != null ? FindDeep(bar, "ProgressionBar") : null;
+            if (fill != null)
+            {
+                float w = PersonalBarR.W * Mathf.Clamp01(p);
+                MenuDraw.ApplyPxRect(fill, fill.parent,
+                    new PxRect(PersonalBarR.x1, PersonalBarR.y1, PersonalBarR.x1 + w, PersonalBarR.y2));
+                var end = FindDeep(fill, "BarEnd");
+                if (end != null) end.gameObject.SetActive(p > 0f && p < 1f);
+            }
+        }
+
+        /// <summary>= 原版 `EventProgressBarController.PercentageToNextLevel(ScoringDataInfo)`：
+        /// `t = cur - prev; if (t &lt;= 0) t = 0; return t / (next - prev);`
+        /// <para>⚠️ 分母 0 ⇒ 原版得 `Infinity`/`NaN`（uGUI `Slider` 会夹住）。本壳返回 0 并出声一次 ——
+        /// 那只会发生在 `next == prev` 的坏数据上（正常里程碑 `next &gt; prev`）。</para></summary>
+        public float PercentageToNextLevel(ScoringDataInfo info)
+        {
+            if (info == null) return 0f;
+            float t = info.CurrentScore - info.PreviousLevelScore;
+            if (t <= 0f) t = 0f;
+            float d = info.NextLevelScore - info.PreviousLevelScore;
+            if (d == 0f) return 0f;
+            return t / d;
+        }
+
+        /// <summary>= 原版 `ExpansionPassProgressClaimButtonController.Initialize(currentState, normalPrice, onCollect)` 的**状态那一半**
+        /// （`BaseEventProgressClaimButtonController&lt;TState&gt;.Initialize` 只做一件事：挑出 `state == currentState`
+        /// 的那条 `stateDefinitions` 并 `ApplyState()`）。
+        /// <para>`stateDefinitions` 四档的 target 显隐表 = **prefab MB 实读**（文件头 ③ 那张表），逐档照抄：</para>
+        /// <code>
+        /// state 0 Locked                  → Claim ✗ · Level ✓(Lock ✓) · BuyPremium ✗
+        /// state 1 LockedBecauseNotPremium → Claim ✓(Highlight ✓) · Level ✗ · BuyPremium ✓
+        /// state 2 Unlocked                → Claim ✓ · Level ✗ · BuyPremium ✗
+        /// state 3 Collected               → Claim ✗ · Level ✓(Lock ✗) · BuyPremium ✗
+        /// </code>
+        /// <para>⚠️ 那份 `stateDefinitions` 里还有 `enableLevelHighlight` / `forceInteractableState` / 每档的
+        /// `priceDisplayButton` 三格 —— **本地没读到它们的值**（MB 里只有 target 列表被逐个解成节点名）
+        /// ⇒ 这三件**不实现**并如实记（⛔ 不按「大概」补）。</para></summary>
+        public void ApplyClaimButtonState(Transform container, int currentState)
+        {
+            var cbc = FindDeep(container, "Claim Button Container");
+            if (cbc == null) return;
+            var claim = FindDeep(cbc, "Claim Button");
+            var buyPremium = FindDeep(cbc, "Buy premium");
+            var level = FindDeep(cbc, "Level");
+            var hl = claim != null ? FindDeep(claim, "Highlight button claim") : null;
+
+            bool claimOn, levelOn, lockOn, buyOn, hlOn;
+            switch (currentState)
+            {
+                case MsStateLocked:
+                    claimOn = false; levelOn = true; lockOn = true; buyOn = false; hlOn = false; break;
+                case MsStateLockedBecauseNotPremium:
+                    claimOn = true; levelOn = false; lockOn = false; buyOn = true; hlOn = true; break;
+                case MsStateUnlocked:
+                    claimOn = true; levelOn = false; lockOn = false; buyOn = false; hlOn = false; break;
+                case MsStateCollected:
+                    claimOn = false; levelOn = true; lockOn = false; buyOn = false; hlOn = false; break;
+                default:
+                    // 原版 `stateDefinitions` 里没有匹配项 ⇒ 一件都不动（`foreach` 落空）。我们按出厂态兜底并出声。
+                    Debug.LogWarning("[ExpansionPass] ApplyClaimButtonState：未知档位 " + currentState
+                                   + "（原版 `stateDefinitions` 只有 0..3）⇒ 按出厂态（state 0）显示");
+                    claimOn = false; levelOn = true; lockOn = true; buyOn = false; hlOn = false; break;
+            }
+            if (claim != null) claim.gameObject.SetActive(claimOn);
+            if (buyPremium != null) buyPremium.gameObject.SetActive(buyOn);
+            if (level != null) level.gameObject.SetActive(levelOn);
+            var lockNode = level != null ? FindDeep(level, "Lock") : null;
+            if (lockNode != null) lockNode.gameObject.SetActive(lockOn);
+            if (hl != null) hl.gameObject.SetActive(hlOn);
+        }
+
+        /// <summary>= 原版 `ExpansionPassProgressClaimButtonController.ToggleCollectButtonInteractable(bool)`：`actionButton.enabled = option`。
+        /// <para>⚠️ 本壳的按钮没有 `Selectable.enabled`（`WindowButton` 只有 `onClick`）⇒ 等价做法 = 整颗
+        /// `Claim Button` 节点的 `SetActive`（关掉 = 点不到）。⛔ 不是「删掉回调」那种假禁用。</para></summary>
+        public void ToggleCollectButtonInteractable(Transform container, bool option)
+        {
+            var cbc = FindDeep(container, "Claim Button Container");
+            var claim = cbc != null ? FindDeep(cbc, "Claim Button") : null;
+            if (claim != null) claim.gameObject.SetActive(option);
+        }
+
+        /// <summary>= 原版 `ExpansionPassProgressClaimButtonController.ToggleCollectButtonInteractable(bool)` 的**无参容器版**
+        /// （原版靠闭包指向自己那一格；我们对**全部**容器生效 —— 原版这个口也只被单格用过）。</summary>
+        public void ToggleCollectButtonInteractable(bool option)
+        {
+            for (int i = 0; i < _containers.Count; i++) ToggleCollectButtonInteractable(_containers[i], option);
+        }
+
+        /// <summary>= 原版 `ExpansionPassProgressClaimButtonController.CollectionClick()`（`:44-49`）：
+        /// `base.CollectionClick()`（→ `onCollect?.Invoke()`）→ `actionButton.enabled = false`。
+        /// <para>无参版本；原版靠闭包知道「哪一格」，我们只能反查 ⇒ 只有一个容器时用它，多容器请用
+        /// <see cref="CollectionClickOn"/>（视图侧挂的就是那个）。</para></summary>
+        public void CollectionClick() { CollectionClickOn(_containers.Count == 1 ? _containers[0] : null); }
+
+        /// <summary>视图侧的入口：从点到的那个 `Claim Button` 节点反查档位（= 原版闭包里的 `milestoneIndex`）。</summary>
+        public void CollectionClickOn(Transform claimButton)
+        {
+            int idx = MilestoneIndexOfTransform(claimButton);
+            if (idx < 0)
+            {
+                Debug.LogWarning("[ExpansionPass] 领奖钮点击：找不到它属于哪一档（模板那一份不在 `_containers` 里，"
+                               + "或本地没有里程碑数据）⇒ **不假装领取**。");
+                return;
+            }
+            OnCollect(idx);
+        }
+
+        /// <summary>= 原版 `ExpansionPassRewardItemContainer.OnCollect()`（`:291-299`）：
+        /// `onCollectCallback?.Invoke()`（= `onCollect(milestoneIndex)`）→ `ToggleHighlightEffect(true)`。</summary>
+        void OnCollect(int index)
+        {
+            CollectRewardClicked(index);
+            ToggleHighlightEffect(index, true);
+        }
+
+        /// <summary>= 原版 `ExpansionPassRewardItemContainer.ToggleHighlightEffect(bool)`（`:306-320`）：
+        /// `highlightReward.SetActive(option)`；`option` 时再 `SoundManager.Play2D(soundOnCollect)` + `highlightEffect.Play()`。
+        /// <para>⚠️ `soundOnCollect` / `rewardClaimedSound` 那两个 `AudioCue` 是 prefab 引用、本地拿不到具体 cue
+        /// ⇒ 用本工程的通用正向 cue 代（`WindowSounds.PositiveCue`，与各窗按钮同一份口径），如实记。</para>
+        /// <para>⚠️ `UIBorderGlow` 本壳没挂（`Collect Highlight Effect` 是九宫图、图本身 alpha 实读 = 0）
+        /// ⇒ `Play()` 那跳无对应物，出声一次。</para></summary>
+        public void ToggleHighlightEffect(int index, bool option)
+        {
+            var node = (index >= 0 && index < _containers.Count) ? _containers[index] : null;
+            if (node == null) return;
+            var hi = FindDeep(node, "Collect Highlight Effect");
+            if (hi != null) hi.gameObject.SetActive(option);
+            if (!option) return;
+            WindowSounds.PlayFx(WindowSounds.PositiveCue, "ExpansionPass/Highlight");
+            var glow = hi != null ? hi.GetComponent<UIBorderGlow>() : null;
+            if (glow != null) glow.Play();
+            else Note("`Collect Highlight Effect` 上没有 `UIBorderGlow`（本壳没挂那个组件；九宫图本身 alpha = 0）"
+                    + " ⇒ `highlightEffect.Play()` 这一跳没有对应物");
+        }
+
+        /// <summary>= 原版 `ExpansionPassRewardItemContainer.TestHighlighOn()`（`:301-304`，调试钩子）= `ToggleHighlightEffect(true)`。
+        /// 原版带 `Test` 前缀 ⇒ 正式路不调用；我们的对应物落在第 0 个容器上（原版是「自己那一格」）。</summary>
+        public void TestHighlighOn() { ToggleHighlightEffect(0, true); }
+
+        /// <summary>= 原版 `ExpansionPassRewardItemContainer.PrepareForLateInitialization(viewport, liveOps, milestoneIndex,
+        /// onCollect, onLevelUp, overrideCurrentScore)`（`:255-280`）：**只暂存六参** + 置 `preparedForDelayedInit`，
+        /// 真正 `Initialize` 留到 `DelayedInit()`。原版的触发者是 `UICulling` 的可见性回调（`culling.viewport = viewport`）。
+        /// <para>我们暂存的只有档位下标与「当前分 override」（另四参由本类成员直接可取）。</para></summary>
+        public void PrepareForLateInitialization(int milestoneIndex)
+        {
+            _lateInitPending = true;
+            _lateInitIndices.Add(milestoneIndex);
+            Debug.Log("[ExpansionPass] `PrepareForLateInitialization(#" + milestoneIndex + ")`：等 `DelayedInit()`"
+                    + "（原版由 `UICulling` 可见性回调触发；本壳没有 UICulling ⇒ `CreateRewards` 末尾立刻补一次）");
+        }
+
+        /// <summary>= 原版 `ExpansionPassRewardItemContainer.DelayedInit()`（`:281-289`）：
+        /// `if (preparedForDelayedInit) Initialize(暂存那六个参)`（跑完**不**清标志 —— 原版也是不清）。</summary>
+        public void DelayedInit()
+        {
+            if (!_lateInitPending) return;
+            _lateInitPending = false;
+            for (int i = 0; i < _lateInitIndices.Count; i++)
+            {
+                int idx = _lateInitIndices[i];
+                if (idx < 0 || idx >= _containers.Count) continue;
+                ApplyRewardItemContainer(idx, _containers[idx], null);
+            }
+            _lateInitIndices.Clear();
+        }
+
+        // ------------------------------------------------------------ ③ `ExpansionPassRewardDrawerController`
+
+        /// <summary>= 原版 `ExpansionPassRewardDrawerController.Initialize(rewards, isPremium, currentState)`（`:15-50`）：
+        /// `flag = (rewards.Count - 1) &gt;= 1`（= **`rewards.Count &gt;= 2`**，ILSpy `:26-31` 那个 `a - 1 &gt;= 1` 惯用式）
+        /// → `extraReward.enabled = flag` → `extraReward.GetComponentInChildren&lt;RectTransform&gt;().SetAsLastSibling()`
+        /// → `allRewardsInfoButton.gameObject.SetActive(flag)` → `flag` 时把 `ShowAllRewards` 挂上去。
+        /// <para>⚠️ `allRewardsInfoButton` 到底挂在哪个节点，prefab 的字段 PPtr 我们**没逐个解**；本工程里唯一带
+        /// `UIGenericEventCatcher` 的兄弟节点是 `CollisionButton` ⇒ 用它，并在这里如实标成**推断**。</para></summary>
+        void ApplyRewardDrawer(Transform container, ExpansionMilestone m)
+        {
+            var rt = FindDeep(container, "RewardTransform");
+            if (rt == null) return;
+            int count = (m != null && m.RewardArray != null) ? m.RewardArray.Length : 0;
+            bool extra = count >= 2;
+
+            var extraIcon = FindDeep(rt, "Icon Extra rewards");
+            if (extraIcon != null)
+            {
+                extraIcon.gameObject.SetActive(extra);
+                if (extra) extraIcon.SetAsLastSibling();
+            }
+
+            var allBtn = FindDeep(container, "CollisionButton");
+            if (allBtn == null) return;
+            allBtn.gameObject.SetActive(extra);
+            if (extra && FindDeep(allBtn, "AllRewardsHit") == null)
+            {
+                MenuDraw.Hit(allBtn, "AllRewardsHit", CollisionR, QHit, () => ShowAllRewards(allBtn),
+                             null, null, null, null, null, clickCue: WindowSounds.DefaultButtonCue);
+            }
+        }
+
+        /// <summary>= 原版 `ExpansionPassRewardDrawerController.ShowAllRewards()`（`:52-60`）：
+        /// `RewardService.Preview(该档全部奖励, isPremiumLocked: **true**)`。
+        /// 等价物 = `RewardWindow.ShowPreview`（同一扇 `Reward Window` 的预览态）。</summary>
+        public void ShowAllRewards(Transform container)
+        {
+            int idx = MilestoneIndexOfTransform(container);
+            if (idx < 0 || _event == null)
+            {
+                Debug.LogWarning("[ExpansionPass] `ShowAllRewards`：找不到档位 / 没有事件数据 ⇒ 不开预览窗");
+                return;
+            }
+            var rewards = _event.Milestones[idx].RewardArray ?? new CampaignData.RewardSpec[0];
+            if (WindowsManager.Instance == null)
+            {
+                Debug.LogWarning("[ExpansionPass] `ShowAllRewards`：没有 `WindowsManager` ⇒ 开不了奖励预览窗");
+                return;
+            }
+            RewardWindow.ShowPreview(rewards, null, true, null);
+        }
+
+        // ------------------------------------------------------------ ④ `ExpansionPassPurchasePremiumPanel`
+
+        /// <summary>= 原版 `ExpansionPassPurchasePremiumPanel.Initialize(currentEvent, onClosePurchasePopup)`（`:92-215`）：
+        /// <list type="number">
+        /// <item>`playerIsNotPremiumObjects.SetActive(!HasPremium)` · `playerIsPremiumObjects.SetActive(HasPremium)`</item>
+        /// <item>`DestroyAllChildren(initialPremiumRewardAnchor / lastPremiumRewardAnchor)`</item>
+        /// <item>已买 ⇒ 关掉 First 锚点那一组、只在 Last 锚点画 `Last(IsPremium).Rewards.First()`、把
+        ///   `ExtraPercentaje` 按 `PremiumPercentageBonus` 填进 `extraPointsText`、再 `expansionPassPointDrawer.DrawForArmy(army)`</item>
+        /// <item>未买 ⇒ 两个锚点都开，各画 `First(IsPremium)` / `Last(IsPremium)` 的**第一条**奖励</item>
+        /// </list>
+        /// <para>⚠️ `LoadAsset` / `DrawForArmy(army)` 要远端数据与玩家阵营 ⇒ 本地没有：图不画、**出声**。
+        /// 两条 `ItemDrawer.Draw` 只在真有里程碑数据时才跑（`Rewards.First()` 空表会抛）。</para></summary>
+        public void ApplyPremiumPanel()
+        {
+            if (_premiumPanel == null || _event == null) return;
+            bool premium = _event.HasPremium;
+            var notPremium = FindDeep(_premiumPanel, "IsNotPremium");
+            var isPremium = FindDeep(_premiumPanel, "Is Premium");
+            if (notPremium != null) notPremium.gameObject.SetActive(!premium);
+            if (isPremium != null) isPremium.gameObject.SetActive(premium);
+
+            var firstAnchor = FindDeep(_premiumPanel, "Fisrt Premium Reward");
+            var lastAnchor = FindDeep(_premiumPanel, "Last Premium Reward");
+            ResetPremiumCardAnchor(firstAnchor);
+            ResetPremiumCardAnchor(lastAnchor);
+
+            if (premium)
+            {
+                if (firstAnchor != null) firstAnchor.gameObject.SetActive(false);
+                if (lastAnchor != null) lastAnchor.gameObject.SetActive(true);
+                DrawPremiumReward(lastAnchor, LastPremiumByPremium());
+                if (_extraPoints != null)
+                    _extraPoints.SetText(string.Format(Loc.T(TermExtraPercentaje), _event.Data != null
+                        ? _event.Data.PremiumPercentageBonus.ToString() : NoData));
+                Note("`expansionPassPointDrawer.DrawForArmy(army)`：玩家阵营在本地存档里（`ProfileData`），"
+                   + "本窗没有读它 ⇒ 那颗点数图**不画**（⛔ 不拿 prefab 出厂的 Orks 示例冒充）");
+            }
+            else
+            {
+                if (firstAnchor != null) firstAnchor.gameObject.SetActive(true);
+                if (lastAnchor != null) lastAnchor.gameObject.SetActive(true);
+                DrawPremiumReward(firstAnchor, FirstPremiumByPremium());
+                DrawPremiumReward(lastAnchor, LastPremiumByPremium());
+            }
+        }
+
+        ExpansionMilestone FirstPremiumByPremium()
+        {
+            for (int i = 0; i < _event.Milestones.Count; i++)
+                if (_event.Milestones[i] != null && _event.Milestones[i].IsPremium) return _event.Milestones[i];
+            return null;
+        }
+
+        ExpansionMilestone LastPremiumByPremium()
+        {
+            for (int i = _event.Milestones.Count - 1; i >= 0; i--)
+                if (_event.Milestones[i] != null && _event.Milestones[i].IsPremium) return _event.Milestones[i];
+            return null;
+        }
+
+        /// <summary>= 原版 `SupportMethods.DestroyAllChildren(anchor)`：把锚点下已经画过的抽屉清掉
+        /// （⚠️ **不是**连锚点本身一起清 —— 原版保留 `Card Drawer` 那层容器）。</summary>
+        static void ResetPremiumCardAnchor(Transform anchor)
+        {
+            if (anchor == null) return;
+            MenuDraw.ClearChildren(anchor);
+        }
+
+        /// <summary>= 原版 `ItemDrawer.Draw(anchor, milestones.First/Last(IsPremium).Rewards.First())`。
+        /// 空表 / 空里程碑 ⇒ **不画**并出声（原版会 `Enumerable.First()` 抛异常，我们出声退回）。</summary>
+        void DrawPremiumReward(Transform anchor, ExpansionMilestone m)
+        {
+            if (anchor == null) return;
+            if (m == null || m.RewardArray == null || m.RewardArray.Length == 0)
+            {
+                Note("premium 卡预览：该侧没有 premium 里程碑奖励（本地没有里程碑数据 / 该侧奖励为空）⇒ 只留空 `Card Drawer`");
+                return;
+            }
+            var spec = ItemDrawer.Spec(m.RewardArray[0].Id, null, m.RewardArray[0].Id);
+            ItemDrawer.Draw(anchor, LastCardDrawerR, spec, Mathf.Max(1, m.RewardArray[0].Quantity),
+                            DrawerOverride.Default, ItemDrawerStyle.Default(QCardReward, QCardReward, QCardText));
+        }
+
+        /// <summary>= 原版 `ExpansionPassPurchasePremiumPanel.Start()`（`:85-90`）：`purchasePremiumButton.onClick += PurchasePremiumClick`。
+        /// <para>本壳的按钮回调在建树时就挂好了（`BuildNotPremiumBranch` 的 `MenuDraw.Hit`）⇒ 这里只做等价记账。</para></summary>
+        public void StartPurchasePremiumPanel()
+        {
+            Note("`ExpansionPassPurchasePremiumPanel.Start`：原版给 `purchasePremiumButton` 挂 `PurchasePremiumClick`；"
+               + "本壳在 `BuildNotPremiumBranch` 建树时就挂了同一个回调（等价）");
+        }
+
+        /// <summary>= 原版 `ExpansionPassProgressClaimButtonController.BuyPremiumClick()`（`:29-37`）：
+        /// `UIMessageController.Instance.ShowError("Event_Description/ExpansionPass/BuyPremiumToClaim", localize: true)`
+        /// —— **玩家能看见**的报错。我们的等价物 = `MessageToast.ShowError`（`UIMessageController` 本工程没有那一扇）
+        /// ⇒ 由原来的「只 `Debug.LogWarning`」改成**可见**提示（这正是账 row 236 指出的缺口）。</summary>
+        public void BuyPremiumClick()
+        {
+            string msg = Loc.T(TermBuyPremiumToClaim);
+            if (!MessageToast.ShowError(msg))
+                Debug.LogWarning("[ExpansionPass] " + msg);
+        }
+
+        // ------------------------------------------------------------ ⑤ 第二页 `ExpansionPassMissionsTab`
+
+        /// <summary>= 原版 `ExpansionPassMissionsTab.OnOpen()` / `ToFocus()`（两者反编译出来是同一段）：
+        /// `base.OnOpen()` + `RefreshMissions()`。</summary>
+        public void OnMissionsTabOpen() { RefreshMissionsLocal(); }
+
+        /// <summary>= 原版 `ExpansionPassMissionsTab.ToFocus()` —— 与 `OnOpen` **逐句相同**（反编译实证），转发同一个口。</summary>
+        public void ToFocus() { RefreshMissionsLocal(); }
+
+        /// <summary>= 原版 `ExpansionPassMissionsTab.RefreshMissions()`（`ExpansionPassMissionsTab.cs:186-530`）：
+        /// <list type="number">
+        /// <item>`handler = Missions`（`UiContainer&lt;IMission&gt;`）；**`handler == null` ⇒ 整段跳过**（`if (!(handler == null))` 那道闸）</item>
+        /// <item>`Where(x =&gt; x.ParentEventId == LiveOps.GetID())` → `ToList()`</item>
+        /// <item>一条都没有 ⇒ `WindowTabBase.CloseTab()` 并 return</item>
+        /// <item>`dailyTickets.Initialize(第一条)` + `SetChallenge(...)`</item>
+        /// <item>再筛一遍（`x =&gt; x.&lt;某旗标&gt; != -1`）、`SelectMany(挑战)` → `ToArray()`</item>
+        /// <item>`n = Math.Min(3, array.Length)`；按 `containers` 缓存复用（尺寸变了先 `Destroy` 旧的再重建），
+        ///   缺的 `Instantiate(missionContainerReference, dailyMissionAnchor)` → `Initialize(mission)` + `SetChallenge(progress)`</item>
+        /// <item>末尾 `missionContainerReference.gameObject.SetActive(false)`（模板关掉）</item>
+        /// </list>
+        /// <para>🔴 本地常态 `MissionsSource == null`（原版 `GetHandler&lt;Missions&gt;` 返回 null）⇒ **跳过、不关页签** ——
+        /// 这与「源在但 0 条」是两种情形，原版也只在后者 `CloseTab()`（这条是本批最容易做错的地方）。</para>
+        /// <para>⚠️ 第 5 步那个旗标名反编译没解出（`+0x74` 与 `-1` 比）；`MissionChallengeProgress` 本工程也没有 ⇒
+        /// 本地等价物 = **不过滤、只按 `Active` 筛**，并把「每条的挑战进度」略过（出声一次）。</para></summary>
+        public void RefreshMissionsLocal()
+        {
+            if (_missionsPage == null) return;
+            if (MissionsSource == null)
+            {
+                if (!_missionsNoSourceSaid)
+                {
+                    _missionsNoSourceSaid = true;
+                    Debug.Log("[ExpansionPass] `RefreshMissions`：`Missions` handler 为 null（原版 `LiveOpsManager.GetHandler<Missions>()`）"
+                            + " ⇒ 原版这一整段**跳过**（不 `CloseTab`）⇒ 本窗也保留 Missions 页与它那颗页签。");
+                }
+                return;
+            }
+
+            var active = new List<Mission>();
+            string evId = _event != null ? _event.Id : null;
+            for (int i = 0; i < MissionsSource.Missions.Count; i++)
+            {
+                var mm = MissionsSource.Missions[i];
+                if (mm == null || !mm.Active) continue;
+                if (!string.IsNullOrEmpty(mm.ParentEventId) && !string.IsNullOrEmpty(evId)
+                    && mm.ParentEventId != evId) continue;
+                active.Add(mm);
+            }
+            if (active.Count == 0) { CloseMissionsTab(); return; }
+
+            _missionsClosed = false;
+            var tpl = FindDeep(_missionsPage, "Daily Mission Container Ref");
+            if (tpl == null)
+            {
+                Debug.LogWarning("[ExpansionPass] `RefreshMissions`：找不到模板 `Daily Mission Container Ref` ⇒ 不建任务卡");
+                return;
+            }
+            var anchor = tpl.parent;
+            // 重跑前先清上一批（原版靠 `containers[]` 缓存复用；我们每次重建 ⇒ 先删同名前缀的旧节点，⛔ 不叠两批）
+            for (int i = anchor.childCount - 1; i >= 0; i--)
+            {
+                var ch = anchor.GetChild(i);
+                if (ch == null || !ch.name.StartsWith("Mission Container ")) continue;
+                MenuDraw.ClearChildren(ch);
+#if UNITY_EDITOR
+                if (!Application.isPlaying) { UnityEngine.Object.DestroyImmediate(ch.gameObject); continue; }
+#endif
+                UnityEngine.Object.Destroy(ch.gameObject);
+            }
+            int n = Mathf.Min(3, active.Count);
+            for (int i = 0; i < n; i++)
+            {
+                var card = MenuDraw.Node(anchor, "Mission Container " + i, CardRectFor(i));
+                BuildWeeklyMissionCard(card);
+                card.gameObject.SetActive(true);
+                var title = FindDeep(card, "title");
+                var lb = title != null ? title.GetComponent<Label>() : null;
+                if (lb != null && !string.IsNullOrEmpty(active[i].Title)) lb.SetText(active[i].Title);
+            }
+            tpl.gameObject.SetActive(false);   // 原版末尾也把模板关掉
+            Note("`RefreshMissions`：`MissionChallengeProgress` / `dailyTickets`（每日票）本工程没有数据源 ⇒ 那两跳略过（出声）");
+        }
+
+        /// <summary>= 原版 `WindowTabBase.CloseTab()`：把这一页从页签栏摘掉。
+        /// <para>本壳的页签是自建扁平列表 ⇒ 等价做法 = 把 Missions 那颗钮与这一页都 `SetActive(false)`。
+        /// ⚠️ 已知限制：`ShowPage(1)` 仍会把页面重新打开（那一句在既有方法里、本批不许改行数）⇒ 记在这里，
+        /// 真接上任务数据时再补一道「已关闭就不许 ShowPage」的闸。</para></summary>
+        public void CloseMissionsTab()
+        {
+            if (_missionsClosed) return;
+            _missionsClosed = true;
+            if (_missionsPage != null) _missionsPage.gameObject.SetActive(false);
+            if (_tabButtonsList.Count > 1 && _tabButtonsList[1] != null) _tabButtonsList[1].gameObject.SetActive(false);
+            if (_activePage == 1) ShowPage(0);
+            Debug.Log("[ExpansionPass] `RefreshMissions` 一条可做任务都没有 ⇒ `WindowTabBase.CloseTab()`（本壳等价物：关掉 Missions 页与它的页签）");
+        }
+
+        /// <summary>Missions 页是否已被 `CloseMissionsTab` 关掉（自检读口）。</summary>
+        public bool MissionsTabClosed { get { return _missionsClosed; } }
+
+        // ------------------------------------------------------------ 小工具
+
+        /// <summary>HLG 排布：第 i 个容器的矩形（判据 = `Rewards Content` 的 `m_Padding.left` 122 / `m_Spacing` −130 / MiddleLeft）。</summary>
+        static PxRect ContainerRectFor(int index)
+        {
+            float dx = 122f + index * (ContainerW + ContainerSpacing);
+            return new PxRect(ContainerR.x1 + dx, ContainerR.y1, ContainerR.x2 + dx, ContainerR.y2);
+        }
+
+        /// <summary>Missions 卡在 `Daily Missions Holder` 里的排布：首张矩形 = 模板矩形，逐张下移一格高度。
+        /// ⚠️ 原版 VLG 的 spacing 我们没逐字段读 ⇒ 这里用「模板高度」当步长（**我们挑的**，⛔ 不写成原版）。</summary>
+        static PxRect CardRectFor(int index)
+        {
+            var r = R(55.8f, 511.3f, 887.1f, 668.7f);
+            float dy = index * r.H;
+            return new PxRect(r.x1, r.y1 + dy, r.x2, r.y2 + dy);
+        }
+
+        /// <summary>按名字深度优先找第一个节点（本壳没有 `transform.Find("a/b")` 之外的寻路工具，
+        /// 而容器内层级有同名兄弟风险 ⇒ 自己走一遍，**只取第一个**）。</summary>
+        static Transform FindDeep(Transform root, string name)
+        {
+            if (root == null) return null;
+            if (root.name == name) return root;
+            for (int i = 0; i < root.childCount; i++)
+            {
+                var hit = FindDeep(root.GetChild(i), name);
+                if (hit != null) return hit;
+            }
+            return null;
+        }
+
+        /// <summary>从点到的节点往上找它属于哪一档（= 原版闭包里的 `milestoneIndex`）。找不到 ⇒ −1。</summary>
+        public int MilestoneIndexOfTransform(Transform t)
+        {
+            for (var cur = t; cur != null; cur = cur.parent)
+            {
+                int idx;
+                if (_containerIndex.TryGetValue(cur, out idx)) return idx;
+                if (cur == transform) break;
+            }
+            return -1;
         }
     }
 }

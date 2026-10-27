@@ -182,7 +182,7 @@ namespace CardPresentation
                          clickCue: WindowSounds.PositiveCue);
 
             // 出厂那一档 = `In Alliance` 开 / `No Alliance` 关（= prefab 实测值）
-            SetInAlliance(true);
+            SetInAlliance(true); SetLeaderboardId(null);
         }
 
         // ============================================================ 状态 → 参数（两态）
@@ -265,7 +265,9 @@ namespace CardPresentation
         {
             Debug.Log("[Alliance] `Leaderboard Button` ⇒ 开**轮抽榜**"
                     + "（原版 `LeaderboardButtonClick()` = `OpenWindow(leaderboardPopup)`，"
-                    + "窗 id = `leaderboardToOpen`）。");
+                    + "窗 id = `leaderboardToOpen` = `" + (_leaderboardToOpen ?? "null") + "`"
+                    + " ⇒ ⚠️ 本仓没有「id → 榜窗」的映射表（那份表在 LiveOps 下发数据里）"
+                    + "⇒ 只按本仓已有的**轮抽榜**开（如实记，⛔ 不凭空造映射）。");
             var rt = MainMenuRuntime.InstanceOrFind();
             if (rt == null)
             {
@@ -275,6 +277,32 @@ namespace CardPresentation
             // ⚠️ 原版这一步之前还有 `ResourcesBarController.ToggleOverlay(false)`；
             //   本仓没有「资源栏展开遮罩」这一层 ⇒ 没有可关的东西（如实记，⛔ 不假装关过）。
             rt.OpenLeaderboard(LeaderboardKind.Draft);
+        }
+
+        // ============================================================ 🆕 2026-10-27（C5 批 · 账 128）
+        // 🔴 纪律：这一段**追加在类尾**（本文件被账按行号引用 ⇒ 只允许末尾追加）。
+
+        /// <summary>原版 `AlliancesEventScorePanel.leaderboardToOpen`（字段 `+0x60`）：**要开哪张榜**的 id 串。
+        /// 空 = 原版 `Initialize` 里那条「两颗榜钮都 `SetActive(false)`」。**出厂 = null（= 两钮关）**。</summary>
+        public string LeaderboardToOpen { get { return _leaderboardToOpen; } }
+        string _leaderboardToOpen;
+
+        /// <summary>= 原版 `AlliancesEventScorePanel.Initialize(…, string leaderBoardID)` 的**那一支**
+        /// （逐句，判据 `decomp_full/AlliancesEventScorePanel__Initialize.c:103-140`）：
+        /// `leaderBoardID` **空** ⇒ `Leaderboard Button` 与 `View Leaderboard Button` **两颗都 `SetActive(false)`**；
+        /// **非空** ⇒ 两颗开 + 把串存进 `leaderboardToOpen` + 点击时用它开榜窗。
+        /// <para>⚠️ 原版空/非空两支都**先 `RemoveAllListeners`**（监听是运行时挂的）；我们两颗钮是
+        /// `MenuDraw.Hit` 建死的同一条回调，只按 id 判显隐与目标 ⇒ 不需要摘挂。
+        /// ⚠️ **出厂 `null`**：本地没有活动数据（`leaderboardId` 由 LiveOps 下发）⇒ **两钮关**
+        /// （改前是「恒亮」，与原版相反 —— 断言已在 `Editor/MainMenuScene.cs` 按目标态改好）。</para></summary>
+        public void SetLeaderboardId(string leaderboardId)
+        {
+            _leaderboardToOpen = string.IsNullOrEmpty(leaderboardId) ? null : leaderboardId;
+            bool on = _leaderboardToOpen != null;
+            if (_viewLb != null && _viewLb.gameObject.activeSelf != on) _viewLb.gameObject.SetActive(on);
+            if (_noLb != null && _noLb.gameObject.activeSelf != on) _noLb.gameObject.SetActive(on);
+            Debug.Log("[Alliance] `SetLeaderboardId(" + (leaderboardId ?? "null") + ")` ⇒ 两颗 `Leaderboard Button` "
+                    + (on ? "**开**（点击开 id = " + _leaderboardToOpen + " 那张榜）" : "**都关**（原版：id 空 ⇒ 两钮 SetActive(false)）"));
         }
 
         // ============================================================ 助手

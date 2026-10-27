@@ -1125,6 +1125,23 @@ namespace RuleEngine
             { "lowercost",  (c, o, b, op, ch, un) => DoLowerCost(c, o, b, op, un) },
             { "repeat",     (c, o, b, op, ch, un) => DoRepeat(c, o, b, op, ch, un) },
             { "reanimate",  (c, o, b, op, ch, un) => DoReanimate(c, o, b, op, un) },
+            // ==================================================================
+            // 🆕 **2026-10-27（第八十七会话 · 执行代理 `A1`）：四个【休眠动词】**
+            //   判据 = `资料/完全复刻/判据/引擎真缺口_施工判据.md` §二 的 G01 / G03 / G04·G05。
+            //   原版对应的方法体逐个读过（`decomp_full/` 里那四份 `.c`），逐句落成下面四个 Do*。
+            //
+            // 🔴 **今天一张卡都用不到**（现读，2026-10-27，别当「我们漏接了」）：
+            //   · `cards_truth.json` **1,351 张**逐张扫 `abilities[].logic[].chosenAbility`
+            //     ⇒ `170/175/190/200/210` **一处命中都没有**；
+            //   · `cards_engine.json`（池 1,129 张）的 `desc` / `descZh` 里
+            //     `\b(steal|swap|exchange|cemetery|graveyard)\b` **0 命中**。
+            //   ⇒ 它们**没有解析层生产者**（`EffectText` 里没有、也⛔ 不该凭空编一条英文句式出来）：
+            //     原版这五档也是靠 `chosenAbility` 数据驱动的，数据里没有 ⇒ 休眠。**等数据**。
+            //   铁律 11：休眠机制照样做，只是排在后面。
+            { "exchange",     (c, o, b, op, ch, un) => DoExchange(c, o, b, op, ch, un) },
+            { "copycemetery", (c, o, b, op, ch, un) => DoCopyUnitInCemetery(c, o, b, op, ch, un) },
+            { "stealdeck",    (c, o, b, op, ch, un) => DoStealFromDeck(c, o, b, op, ch, un) },
+            { "stealhand",    (c, o, b, op, ch, un) => DoStealFromHand(c, o, b, op, ch, un) },
         };
 
         /// <summary>
@@ -16803,6 +16820,742 @@ namespace RuleEngine
                 Target = new EffectTargetSpec { Raw = "enemy", Side = "enemy", Kind = "any", Count = 1 },
             };
             return DoFactionResource(ctx, carrierOwner, source, op, "quest", new List<string>());
+        }
+
+        // ==========================================================================================
+        //  🆕 2026-10-27（第八十七会话 · 执行代理 `A1`）—— **四个休眠动词**
+        //  （施工单 = `资料/完全复刻/判据/引擎真缺口_施工判据.md` §二 G01 / G03 / G04·G05；
+        //    账行 136 / 514 / 270 / 504 / 539 / 540）
+        //
+        //  🔴 **为什么它们今天一张卡都用不到**（现读，2026-10-27）：
+        //    · `cards_truth.json` **1,351 张**逐张扫 `abilities[].logic[].chosenAbility`
+        //      （`activeAbility` / `alternativeAbility` 两棵子树一并扫）⇒ `170/175/190/200/210`
+        //      **一处命中都没有**；
+        //    · `cards_engine.json`（池 1,129 张）的 `desc` / `descZh` 里
+        //      `\b(steal|steals|swap|swaps|exchange|exchanges|cemetery|graveyard)\b` **0 命中**。
+        //    ⇒ **解析层没有生产者**，⛔ 别在 `EffectText` 里凭想象编英文句式
+        //      （铁律 2「没查到就说没查到」；发明一条句式 = 🔴「自己发明的口径」）。
+        //      将来真有卡带这几个 `chosenAbility` ⇒ 只在 `EffectText` 补「卡面句式 → Verb」一条即可，
+        //      下面四个 `Do*` 的结算语义**不用动**。
+        //
+        //  ⚠️ 整段**追加在类尾**（铁律 18·b）：上面那些行号是账里 `A` 行的落点，
+        //     插在中间会让它们整体漂移。
+        // ==========================================================================================
+
+        /// <summary>
+        /// `exchange` —— **两个单位互换归属与格位**（原版 `chosenAbility 190 exchangeSelfForMinion` /
+        /// `200 exchangeRandomFriendlyMinion` → `BattleManager.AddExchangeMinions` →
+        /// `_ResolveExchangeMinion_d__552`）。
+        ///
+        /// <para>**判据（第一权威，`.c` 全文 357 行逐句读过 ·
+        /// `decomp_full/BattleManager._ResolveExchangeMinion_d__552__MoveNext.c`）**：
+        /// <list type="number">
+        /// <item>`:40-61` **三条闸**（全过才换）：① `multiTargetCard.Count > 1`；
+        ///   ② `card[0].isPlayer(+0x40) != card[1].isPlayer`（**必须异主**）；
+        ///   ③ `!IsWarlordEquivalent(card0) ∧ !IsWarlordEquivalent(card1)`（**任一为督军等价 ⇒ 不换**）。
+        ///   不过闸 ⇒ `LogError` + `FinishResolvingAction`（`:304-308`）—— **棋盘一格都不动**。</item>
+        /// <item>`:64-78` `BroadcastRemoveFromGame(bm, card0, card1)`，紧跟 **4 次**
+        ///   `PlayerHand.RemoveFromGameCard(hand, card)`（两手 × 两卡）。</item>
+        /// <item>`:104-149` `MinionManager.ReplaceUnit(area, 新卡, 旧卡)` **两次**（两个 area 各一次）。
+        ///   ⚠️ `ReplaceUnit`（`MinionManager__ReplaceUnit.c` 亲读）**不是「删了再插」**：
+        ///   它在 `leftMinions(+0x60)` / `rightMinions(+0x68)` 里找到旧卡那一格，
+        ///   然后 `List.set_Item(那一格, 新卡)` —— **同位替换、不补位、不留洞**。
+        ///   ⇒ 我们这边落成 `pA.Board[sa] = b; pB.Board[sb] = a;`（**直接对调，不走
+        ///   `BoardSlots.RemoveAt`** —— 那个会补位，原版这条路不补位）。</item>
+        /// <item>`:154` / `:159` `CardScript.ChangeOwner(card0)` / `(card1)` —— 方法体全文只有一句
+        ///   `*(bool*)(card + 0x40) = !*(bool*)(card + 0x40)`（`CardScript__ChangeOwner.c`）
+        ///   ⇒ 在我们模型里**归属 = 待在谁的 `Board[]` 里**，所以上面那次对调**就是**这一步。</item>
+        /// <item>`:160-288` 两个 `Transform` 的 position / localScale 互换 + `DOMove`/`DOScale`
+        ///   ⇒ **纯表现**，我们没有那一层（`CardPresentation` 的 `SyncBoard` 按格号重认视图）。</item>
+        /// <item>`:316-349`（**state 1**，动画之后）：`ResetSummonSickness(card0)` · `(card1)`
+        ///   → `ReassembleMinions(两个 area)`（摆位，表现层）→ `UpdateWhileInPlay(card, true)` ×2
+        ///   → `BroadcastWhileInPlay(bm, false, card0, card1)` → `UpdateCardEffects(两手)` → Finish。</item>
+        /// </list></para>
+        ///
+        /// <para>**逐条落到我们这边**：
+        ///   · 闸 ⇒ 三条照抄，不满足**只出声 + 不动棋盘**（⛔ 不复制原版 `LogError` 之后
+        ///     `FinishResolvingAction` 那个崩溃形状 —— 我们的泵点自己收尾）；
+        ///   · `BroadcastRemoveFromGame` ＋ 4 次 `RemoveFromGameCard` ⇒ **结构上不适用**：
+        ///     我们的在场单位**不在任何 `Hand` 列表里**（原版那两张卡是「场上的 CardScript」，
+        ///     而那 4 次调用是把它从两张手牌表里摘出去 —— 本来就不会在里面）。
+        ///     ⇒ 落成一条 `ctx.Log` 说明，⛔ **不假装调用**（我们也没有 `removedFromGame` 那一族广播）；
+        ///   · `ResetSummonSickness` ×2 ⇒ `RuleCore.ResetSummonSickness`（**无条件**，判据 `:319/:323`）；
+        ///   · `UpdateWhileInPlay ×2 + BroadcastWhileInPlay` ⇒ `Auras.RefreshInPlayNumericAndKeywords`
+        ///     （= 「240 那一档」的快照刷新；⛔ 别换成 `Auras.Recompose` —— 它会重放夹血 / 费用重登记 /
+        ///     誓约授予，见 `ActionPump` 那段注释）；
+        ///   · `UpdateCardEffects(两手)` ⇒ `ExpireHandBuffs(ctx, endOfTurn: false)`
+        ///     （原版传的就是 `0`，= 只跑 `extrinsic` 那几条无条件支线）。</para>
+        ///
+        /// <para>🔴 **两个目标怎么来**：原版是从 `multiTargetCard` 那**两条**取，而它的生产者是
+        ///   「施放者 + 准则选出的那一个」（190）或「随机一个友方 + 目标」（200）。我们按同一个形状取：
+        ///   ① 有 `chosen`（玩家点的那一个）且施放者 `ctx.ActingUnit` 在场上 ⇒ 这一对；
+        ///   ② 否则取目标表的前两个；③ 目标只有一个、施放者在场 ⇒ 施放者与它。
+        ///   都凑不出「两个在场的单位」⇒ 出声 + `unresolved`（⛔ 不猜）。</para>
+        /// </summary>
+        static bool DoExchange(BattleContext ctx, int owner, string by, EffectOp op,
+                               UnitState chosen, List<string> unresolved)
+        {
+            var targets = ResolveTargets(ctx, owner, op.Target, null, chosen, op.TargetCondition, op);
+
+            // ---- ① 凑出那一对（规则见上面 summary 最后一段）----
+            //   把「施放者以外」的候选按 [玩家点的那一个, 目标表…] 的次序收进 `others`：
+            //     ⑴ 施放者在场上 ∧ others ≥ 1 ⇒ (施放者, others[0])   —— 原版 190 那一支的形状
+            //     ⑵ 否则 others ≥ 2 ⇒ (others[0], others[1])          —— 原版 200 / 纯「两个目标」的形状
+            //     ⑶ 都不成立 ⇒ 出声 + `unresolved`（⛔ 不猜）
+            UnitState a = null, b = null;
+            int actingP, actingS;
+            bool actingOnBoard = ctx.ActingUnit != null
+                              && FindSlot(ctx, ctx.ActingUnit, out actingP, out actingS);
+            var others = new List<UnitState>();
+            if (chosen != null && !ReferenceEquals(chosen, ctx.ActingUnit)) others.Add(chosen);
+            foreach (var t in targets)
+            {
+                if (t == null || ReferenceEquals(t, ctx.ActingUnit)) continue;
+                if (others.Contains(t)) continue;
+                others.Add(t);
+            }
+            if (actingOnBoard && others.Count >= 1) { a = ctx.ActingUnit; b = others[0]; }
+            else if (others.Count >= 2) { a = others[0]; b = others[1]; }
+            if (a == null || b == null || ReferenceEquals(a, b))
+            {
+                ctx.Log($"{by}：「{op.Source}」要换位，但凑不出**两个**单位（施放者不在场 / 目标不足 2 个）"
+                      + " —— **这条没生效**（原版 `_ResolveExchangeMinion:40` 的 `Count > 1` 闸）");
+                unresolved.Add(op.Source + "（exchange 凑不出两个单位）");
+                return false;
+            }
+
+            // ---- ② 三条闸（`:40-61`）----
+            int pa, sa, pb, sb;
+            bool aOnBoard = FindSlot(ctx, a, out pa, out sa);
+            bool bOnBoard = FindSlot(ctx, b, out pb, out sb);
+            if (!aOnBoard || !bOnBoard)
+            {
+                ctx.Log($"{by}：「{op.Source}」要换位，但 "
+                      + (aOnBoard ? b.Name : a.Name) + " 不在场上 —— **这条没生效**");
+                unresolved.Add(op.Source + "（exchange 有单位不在场上）");
+                return false;
+            }
+            if (pa == pb)
+            {
+                ctx.Log($"{by}：「{op.Source}」要换位，但 {a.Name} 与 {b.Name} **同属 {ctx.Players[pa].Name}**"
+                      + " —— 原版要求**异主**（`:49` `isPlayer` 不等）⇒ **这条没生效**");
+                unresolved.Add(op.Source + "（exchange 两个单位同主）");
+                return false;
+            }
+            if (a.IsWarlord || b.IsWarlord)
+            {
+                ctx.Log($"{by}：「{op.Source}」要换位，但 {a.Name} / {b.Name} 里**有督军**"
+                      + "（原版 `IsWarlordEquivalent` = `cardType == 10`，`:54/:60` 两道闸）⇒ **这条没生效**");
+                unresolved.Add(op.Source + "（exchange 目标里有督军）");
+                return false;
+            }
+
+            // ---- ③ 台词差异：我们的在场单位不在任何 hand 列表里（原版那 4 次 RemoveFromGameCard 无对象）----
+            ctx.Log($"{by}：「{op.Source}」—— 原版 `BroadcastRemoveFromGame` 与 4 次 "
+                  + "`PlayerHand.RemoveFromGameCard` 在我们模型里**没有对象**"
+                  + "（在场单位本来就不在 `Hand` 列表里）⇒ 跳过，只做换位与刷新");
+
+            // ---- ④ 换位：两个格位**直接对调**（原版 `ReplaceUnit` = 同位替换、不补位）----
+            ctx.Players[pa].Board[sa] = b;
+            ctx.Players[pb].Board[sb] = a;
+
+            // ---- ⑤ 入场两步里的前一步：**无条件**置召唤病（`:319` / `:323`，与 `takecontrol` 同一份判据）----
+            RuleCore.ResetSummonSickness(a);
+            RuleCore.ResetSummonSickness(b);
+
+            // ---- ⑥ 两侧棋盘都变了 ⇒ 光环重算（本仓 9 个棋盘写入点同一条纪律）----
+            Auras.Recompose(ctx);
+            // ---- ⑦ `UpdateWhileInPlay ×2` + `BroadcastWhileInPlay`（`:332-344`）----
+            Auras.RefreshInPlayNumericAndKeywords(ctx);
+            // ---- ⑧ `UpdateCardEffects(两手)`（`:346/:348`，原版传 `0` = 只跑 extrinsic 支线）----
+            ExpireHandBuffs(ctx, endOfTurn: false);
+
+            ctx.Log($"{by}：「{op.Source}」**把 {a.Name}（{ctx.Players[pb].Name} 的 {sb} 号格）"
+                  + $"与 {b.Name}（{ctx.Players[pa].Name} 的 {sa} 号格）换了位**"
+                  + " —— 归属与格位一起对调，两个都重新吃到召唤病");
+            return true;
+        }
+
+        /// <summary>
+        /// `copycemetery` —— **复制一份墓地里的单位**（原版 `chosenAbility 210 copyUnitInCemetery` →
+        /// `BattleManager.CopyUnitInCemetery` → `_ResolveCopyUnitInCemetery_d__541`）。
+        ///
+        /// <para>**判据（`.c` 全文 146 行逐句读过 ·
+        /// `decomp_full/BattleManager._ResolveCopyUnitInCemetery_d__541__MoveNext.c`）**：
+        /// <list type="number">
+        /// <item>`:41-51` 取目标卡的 `rawCardData(+0x28)`；`GetPlayerHand(bm, targetCard.isPlayer(+0x40))`
+        ///   —— **只用来拿一个 `Transform`（飞牌的起点）**；
+        ///   `GetHero(bm, param_1+0x2c)` = **另一个 bool** 那一方的英雄（不是目标卡的主人）。</item>
+        /// <item>`:52-59` `BattleCardManager.CreateCard(bcm, 目标的 rawCardData, 那只手, 目标的 isPlayer,
+        ///   英雄卡的 cardArmy, …, 0)` —— **造一张全新的卡**（`BattleCardManager__CreateCard.c`：
+        ///   `Object.Instantiate` 一个 CardScript 出来，不是复用原件）。</item>
+        /// <item>`:60-124` `StartCoroutine(CreateCardInGame(新卡, …))`
+        ///   （`CardScript._CreateCardInGame_d__250__MoveNext.c`：写 `cardState = 0xc(12)` →
+        ///   `ShowCardInHandLayer` → tween 位置/旋转/缩放 → 等 `param+0x34` 秒 → `SetStateInHand`）
+        ///   ⇒ **整段是「飞一张牌给你看」的演出**。</item>
+        /// <item>`:31-36`（**state 1**，演出回来之后）：`CardScript.SendToCemetery(那张【新造的】卡)`
+        ///   → `FinishResolvingAction`。`SendToCemetery` → `GoToCemetery(card)`：
+        ///   `cardState = 6` · 是单位 ⇒ `ResetToValuesInHand(card, 1)` · **没有 trait 5（ephemeral）
+        ///   ⇒ `BattleManager.AddToCemetery(bm, card)`**，有 ⇒ 只 `SetActive(false)`。</item>
+        /// </list>
+        /// ⇒ **净语义 = 那一方的墓地里多出一张同名单位的副本**（原件留在墓地不动）。
+        ///   ⚠️ 施工单 §G03 的 ① 写「原件随后 `SendToCemetery`（= 原件留在墓地，复制品进场）」——
+        ///   **那半句与 `.c` 冲突**：`SendToCemetery` 的实参是 `*(param_1+0x128)` = **`CreateCard`
+        ///   刚造出来的那一张**（`:52-58` 存进 `+0x128`；`:34` 读的就是它），
+        ///   原件从头到尾**只被读过 `rawCardData`**。⇒ **以 `.c` 为准**：复制品**进墓地**、不进场。
+        ///   （已写进报告 §③，铁律「判据与 `.c` 冲突时以 `.c` 为准」。）</para>
+        ///
+        /// <para>🔴 **目标从哪来**：原版是靠 `GetTargets` 选出的**墓地里的那一张**；
+        ///   我们的 `ResolveTargets` 只产出 `UnitState`（棋盘上的人），够不着墓地
+        ///   ⇒ 取 `ctx.LastChosenCard`（= 同一张卡里前一句 `choosecard`（`dead` 域）刚选中的那一份），
+        ///   并用 `PlayerState.IsInCemetery` 复核它真在墓地。**认不出就出声、不猜**
+        ///   （⛔ 不随手挑墓地里第一张 —— 那是「静默换目标」）。</para>
+        /// </summary>
+        static bool DoCopyUnitInCemetery(BattleContext ctx, int owner, string by, EffectOp op,
+                                         UnitState chosen, List<string> unresolved)
+        {
+            // ---- ① 找目标那一份（必须在墓地里）----
+            CardInstance src = ctx.LastChosenCard;
+            int seat = -1;
+            if (src != null)
+            {
+                for (int p = 0; p < 2; p++)
+                    if (ctx.Players[p].IsInCemetery(src)) { seat = p; break; }
+                if (seat < 0)
+                {
+                    ctx.Log($"{by}：「{op.Source}」上一条选中的「{src.Card?.Name}」**不在墓地里**"
+                          + " ⇒ **这条没生效**（原版 `_ResolveCopyUnitInCemetery` 复制的是墓地那张）");
+                    unresolved.Add(op.Source + "（copycemetery 的目标不在墓地）");
+                    return false;
+                }
+            }
+            if (src == null || src.Card == null)
+            {
+                ctx.Log($"{by}：「{op.Source}」要复制墓地里的单位，但**指不到是哪一张**"
+                      + "（本引擎的墓地目标要靠同一张卡里前一句 `choosecard`（`dead` 域）选中那一份）"
+                      + " —— **这条没生效**，⛔ 不随手挑一张");
+                unresolved.Add(op.Source + "（copycemetery 没有目标）");
+                return false;
+            }
+
+            // ---- ② 造一张**新的**（原版 `BattleCardManager.CreateCard` = `Instantiate` 一份新 CardScript）----
+            var copy = ctx.NewInstance(src.Card);
+            ctx.Log($"{by}：「{op.Source}」复制墓地里的「{src.Card.Name}」"
+                  + $"（原版会先把它飞出来演一遍：`CreateCardInGame` 的 tween + 等待）");
+
+            // ---- ③ `GoToCemetery` 那三句（判据见 summary 第 4 条）----
+            //    ③-1 `ResetToValuesInHand(card, 1)`：新造的实例**本来就是卡面值**
+            //         （`NewInstance` 发的是干净的一份）⇒ 这一步逐项等价、不用再写一遍；
+            //    ③-2 `HasCurrentTrait(5)`（= `DefinedTrait.ephemeral`，`DefinedTrait.cs`）
+            //         ⇒ **跳过 `AddToCemetery`**、只关掉那张卡 ⇒ 我们这边 = 这一份**不进墓地**；
+            //    ③-3 否则 `AddToCemetery`（唯一写点 = `RuleCore.AddToCemetery`）。
+            if (ctx.IsEphemeral(copy))
+            {
+                ctx.Log($"{by}：复制品带 `ephemeral`（trait 5）⇒ 原版跳过 `AddToCemetery`、只关掉那张卡"
+                      + " ⇒ 我们**不把它放进墓地**（这一份就到此为止）");
+                return true;
+            }
+            AddToCemetery(ctx.Players[seat], copy);
+            ctx.Log($"{by}：「{src.Card.Name}」的复制品进了 {ctx.Players[seat].Name} 的墓地"
+                  + "（原件仍在墓地、没被取走 —— ⛔ 不是 `reanimate`）");
+            return true;
+        }
+
+        /// <summary>
+        /// `stealhand` —— **从对手手牌偷一张**（原版 `chosenAbility 170 stealFromHand` →
+        /// `BattleManager.AddStealFromHand` → `_ResolveStealFromHand_d__546`）。
+        ///
+        /// <para>**判据（`.c` 全文 244 行逐句读过 ·
+        /// `decomp_full/BattleManager._ResolveStealFromHand_d__546__MoveNext.c`）**：
+        /// <list type="number">
+        /// <item>`:34` `CardScript.IsInHand(目标卡)` —— 否 ⇒ `LogWarning` + `Finish`（不偷）。</item>
+        /// <item>`:128` `CardScript.IsWarlordEquivalent(目标卡)` —— 真 ⇒ `LogWarning` + `Finish`
+        ///   （**督军等价不偷**）。⚠️ **只有 hand 这一半有这道闸**，deck 那一半没有
+        ///   （见 <see cref="DoStealFromDeck"/>）—— ⛔ **别把两边统一**。</item>
+        /// <item>`:151/:155` `PlayerHand.RemoveEffectsFromCard(原主手牌, 卡)` ＋ `(对方手牌, 卡)`
+        ///   —— 摘的是「**这张卡当施放者**挂出去的那些 extrinsic 手牌效果」，
+        ///   判据 = `PlayerHand__RemoveEffectsFromCard.c`：遍历 `activeEffects(+0x48)`，
+        ///   **`extrinsic(+0x30)` 为真且 `enchantingCard(+0x18) == 这张卡`** 才 `RemoveHandEffectAt`。</item>
+        /// <item>`:159` `ResetToValuesInHand(卡, 1)`。</item>
+        /// <item>`:162` `ShowCardInCenter(卡, 常量)` + 等一段时间（**演出**）。</item>
+        /// <item>`:203` `PlayerHand.RemoveCardFromHand(原主手牌, 卡)` → `:207` `GetHero(卡.isPlayer == 0)`
+        ///   → `:209` `SetAsPlayer(卡, 卡.isPlayer == 0, 新主英雄的 cardArmy)` → `:212`
+        ///   `PlayerHand.AddCardNotDrawnToHand(对方手牌, 卡)` → `:229` `SetStateInHand(卡)` →
+        ///   `:230` Finish → `:232/:234` `UpdateCardEffects(两手)`。</item>
+        /// </list></para>
+        ///
+        /// <para>**逐条落到我们这边**：`IsInHand` ⇒ 候选本来就取自对手 `Hand`（找不到就出声）；
+        ///   督军闸 ⇒ 挑出来之后再判（原版也是**选完才判**，⛔ 不是「候选里先剔掉」）；
+        ///   `RemoveEffectsFromCard` ⇒ <see cref="RemoveHandEffectsCastBy"/>；
+        ///   `ResetToValuesInHand` ⇒ <see cref="ResetHandCardToValuesInHand"/>；
+        ///   `ShowCardInCenter` ⇒ 只有一条日志（我们没有那张「中间亮牌」的演出层，
+        ///   表现层自己按 `EvtKind.Draw … effect:"display"` 那一族演 —— 见 `DoChooseCard` 的 ①b）；
+        ///   `SetAsPlayer` ⇒ **在我们模型里 = 把这一份实例从对手的 `Hand` 挪进我们的 `Hand`**；
+        ///   `AddCardNotDrawnToHand` ⇒ `RuleCore.AddCardToHandWithinLimit`（**不置 `DrawnThisTurn`、
+        ///   不发抽牌广播**，超上限就进弃牌堆 —— 与原版 `_AddCardNotDrawnToHand_d__39` 同形）；
+        ///   `UpdateCardEffects(两手)` ⇒ `ExpireHandBuffs(ctx, endOfTurn: false)`。</para>
+        /// </summary>
+        static bool DoStealFromHand(BattleContext ctx, int owner, string by, EffectOp op,
+                                    UnitState chosen, List<string> unresolved)
+        {
+            var foe = ctx.Players[1 - owner];
+            var inst = PickStealTarget(ctx, foe.Hand, ctx.LastChosenCard, by, op.Source, "对手手牌", unresolved);
+            if (inst == null) return false;
+
+            // `:128` 督军等价闸（**只有 hand 这一半有**）
+            if (inst.Card != null && inst.Card.IsWarlordEquivalent)
+            {
+                ctx.Log($"{by}：「{op.Source}」挑中的「{inst.Card.Name}」是**督军等价卡**"
+                      + "（`cardType == 10`）—— 原版 `_ResolveStealFromHand:128` 这一支 "
+                      + "`LogWarning` + `Finish`，**偷不过来**");
+                unresolved.Add(op.Source + "（stealhand 目标是督军等价卡）");
+                return false;
+            }
+            return StealCardAcrossSides(ctx, owner, by, op.Source, inst, fromHand: true, unresolved: unresolved);
+        }
+
+        /// <summary>
+        /// `stealdeck` —— **从对手牌库偷一张**（原版 `chosenAbility 175 stealFromDeck` →
+        /// `BattleManager.AddStealFromDeck` → `_ResolveStealFromDeck_d__547`）。
+        ///
+        /// <para>**判据（`.c` 全文 271 行逐句读过 ·
+        /// `decomp_full/BattleManager._ResolveStealFromDeck_d__547__MoveNext.c`）**：
+        /// <list type="number">
+        /// <item>`:128` `CardScript.IsInDeck(目标卡)` —— 否 ⇒ `LogWarning` + `Finish`。</item>
+        /// <item>`:186` `BattleManager.DrawCardFromDeck(...)` 把它抽出来 → `:226` Log →
+        ///   `:239` `ResetToValuesInHand(卡, 1)` → `:243` `ShowCardBeingDrawn(卡, 常量)`（演出）。</item>
+        /// <item>`:81` `RemoveCardFromDeck` → `:85` `GetHero(isPlayer)` → `:87` `SetAsPlayer(...)` →
+        ///   `:90` `AddCardNotDrawnToHand(新主手牌)` → `:107` `SetStateInHand` → `:108` Finish →
+        ///   `:110` `UpdateCardEffects(新主手牌)`（**只那一手**，不是两手）。</item>
+        /// </list>
+        /// 🔴 **这一半【没有】`IsWarlordEquivalent` 闸、【也没有】`RemoveEffectsFromCard`**
+        ///   —— 与 hand 那半的差别是原版写死的，⛔ 别「顺手统一」。</para>
+        ///
+        /// <para>⚠️ **一处结构性差异（如实标）**：原版那两条 `UpdateCardEffects` 的实参是**一手**，
+        ///   我们的清扫口 `ExpireHandBuffs` 是**两手一起扫**（它没有单手的形参）。
+        ///   多扫那一手在我们这边**不会多摘**：extrinsic 记录的两个真实摘除点
+        ///   （回合末 `EndTurn` 一趟、单位离场 `SweepHandEffectsOnRemoval` 一趟）本来就已经覆盖，
+        ///   这里再扫一次是空过。⇒ 采纳、并在此写明（不是「原版也这样」）。</para>
+        /// </summary>
+        static bool DoStealFromDeck(BattleContext ctx, int owner, string by, EffectOp op,
+                                    UnitState chosen, List<string> unresolved)
+        {
+            var foe = ctx.Players[1 - owner];
+            var inst = PickStealTarget(ctx, foe.Deck, ctx.LastChosenCard, by, op.Source, "对手牌库", unresolved);
+            if (inst == null) return false;
+            // ⛔ 这一半**没有**督军等价闸（判据 = 上面那 4 行里的最后一句）
+            return StealCardAcrossSides(ctx, owner, by, op.Source, inst, fromHand: false, unresolved: unresolved);
+        }
+
+        /// <summary>
+        /// **偷牌的两半共用的那一段**（`_ResolveStealFromHand:151-234` 与
+        /// `_ResolveStealFromDeck:186-110` 的重合部分）。
+        ///
+        /// <para>顺序照原版：**摘效果（只有 hand 那半）→ `ResetToValuesInHand(1)` → 换主 → 进新手牌
+        /// → `UpdateCardEffects`**。</para>
+        /// <para>⚠️ `fromHand == false` 时**故意不摘效果**（判据同上）—— 由调用方那只传进来的
+        ///   `fromHand` 决定，⛔ 别在这里补一句「顺手也摘一下」。</para>
+        /// </summary>
+        static bool StealCardAcrossSides(BattleContext ctx, int owner, string by, string source,
+                                         CardInstance inst, bool fromHand, List<string> unresolved)
+        {
+            if (inst == null || inst.Card == null) return false;
+            int fromSeat = 1 - owner;
+            var from = ctx.Players[fromSeat];
+            var to = ctx.Players[owner];
+
+            // ---- ① `RemoveEffectsFromCard(两手, 卡)`（只有 hand 那半，`:151/:155`）----
+            if (fromHand)
+            {
+                int cut = RemoveHandEffectsCastBy(ctx, inst);
+                if (cut == 0)
+                    ctx.Log($"{by}：（`RemoveEffectsFromCard` 这一跳**0 命中** —— 我们手牌效果记录里的施放者是 "
+                          + "`UnitState`（`HandEffect.ActingUnit`），而这张卡在**手牌**里没有 `UnitState` "
+                          + "⇒ 本引擎产不出「手牌里的牌当 extrinsic 施放者」那种记录。如实记，⛔ 不是静默跳过）");
+            }
+
+            // ---- ② `ResetToValuesInHand(card, 1)`（`:159` / `:239`）----
+            ResetHandCardToValuesInHand(ctx, inst, by, source);
+
+            // ---- ③ 从原主那边摘掉（`RemoveCardFromHand` `:203` / `RemoveCardFromDeck` `:81`）----
+            bool removed = fromHand ? from.Hand.Remove(inst) : from.Deck.Remove(inst);
+            if (!removed)
+            {
+                ctx.Log($"{by}：「{source}」要偷「{inst.Card.Name}」，但它已经不在"
+                      + $"{(fromHand ? "对手手牌" : "对手牌库")}里了 —— **这条没生效**"
+                      + $"（原版 `IsIn{(fromHand ? "Hand" : "Deck")}` 那一闸）");
+                unresolved.Add(source + "（偷牌目标已不在原区域）");
+                return false;
+            }
+            ctx.Log($"{by}：原版 `ShowCard{(fromHand ? "InCenter" : "BeingDrawn")}` 的演出"
+                  + "（我们没有那张中间亮牌的层）—— 跳过，只做结算");
+
+            // ---- ④ `SetAsPlayer` + `AddCardNotDrawnToHand`（`:209`/`:212`、`:87`/`:90`）----
+            //   在我们模型里「换主」就是**把这一份实例挪进另一方的 `Hand`**（`CardInstance.Id` 不变
+            //   —— 原版也是同一个 `CardScript` 对象换了 `isPlayer`）。
+            bool landed = RuleCore.AddCardToHandWithinLimit(ctx, owner, inst);
+            ctx.Log($"{by}：**{inst.Card.Name} 从 {from.Name} 的{(fromHand ? "手牌" : "牌库")}"
+                  + $"偷到了 {to.Name} 的手里**"
+                  + (landed ? "（原版 `AddCardNotDrawnToHand`：**不算抽牌**，不置「本回合抽到的」）"
+                            : "（手牌已满 ⇒ 按原版同形 `SendToCemetery` 进弃牌堆）"));
+
+            // ---- ⑤ `UpdateCardEffects`（`:232/:234` 两手 · `:110` 新主那一手）----
+            //    判据与「多扫一手也不会多摘」的说明 → `DoStealFromDeck` 的 summary。
+            ExpireHandBuffs(ctx, endOfTurn: false);
+            return true;
+        }
+
+        /// <summary>
+        /// **偷牌/复制那两族要「从某个区域表里挑一份实例」** —— 与 <see cref="TakePickCard"/>
+        /// **同一条口径**（面板给了就按面板、否则等概率随机），但**认的是实例**：
+        /// `TakePickCard` 返回的是 `CardDef`，而牌库里同名两张是**两份不同的实例**
+        /// （第 7 行「区域里存的是实例」），拿卡模板回查会挑错那一份。
+        ///
+        /// <para>⚠️ 原版的候选是 `GetTargets` 按 `targetCriteria` 筛出来的；我们这一层
+        /// **只做到「区域全集里挑一份」** —— 结构化筛选（`op.Target` 的兵种/关键词那一族）
+        /// **没接**（`CardCriteria` 对实例级筛选今天没有收口口）。判据不全 ⇒ **如实出声**，⛔ 不假装筛过。</para>
+        /// </summary>
+        static CardInstance PickStealTarget(BattleContext ctx, List<CardInstance> zone,
+                                            CardInstance preferred, string by,
+                                            string source, string zoneName, List<string> unresolved)
+        {
+            if (zone == null || zone.Count == 0)
+            {
+                ctx.Log($"{by}：「{source}」要偷牌，但 {zoneName} 是**空的** —— **这条没生效**");
+                unresolved.Add(source + "（" + zoneName + "为空）");
+                return null;
+            }
+            // ---- ⓪ **同一张卡里前一句 `choosecard` 选中的那一份优先** ----
+            //   原版的目标就是 `GetTargets` 选出来的**那一张**（`_ResolveStealFromHand:34` /
+            //   `_ResolveStealFromDeck:128` 的 `IsInHand` / `IsInDeck` 闸判的就是它）。
+            //   我们的选牌口 = `DoChooseCard`（`enemyhand` / `deck` 两档），它把选中的那一份写进
+            //   `ctx.LastChosenCard`（按**一张卡一个窗口**清，见 `ResolveOps` 入口）⇒ 就取它。
+            if (preferred != null && zone.Contains(preferred))
+            {
+                ctx.Log($"{by}：「{source}」的目标 = 上一条选中的「{preferred.Card?.Name}」"
+                      + $"（在{zoneName}里 ✅）");
+                return preferred;
+            }
+            // 🔶 自己设计（非原版）：**「选中的那张已经不在这个区域」时退回「区域全集里挑一份」**。
+            //   为什么必须自己定：原版目标来自 `targetCriteria` 对**这个区域**当场筛选
+            //   （`AbilityLogic.GetTargets`），我们这一层**没有实例级的 criteria 收口口**
+            //   （见下一条出声），所以拿不到「原版会选谁」；而硬失败又会让这条效果在
+            //   `LastChosenCard` 恰好指的是别处时**整个变成空放**。⇒ 取「退回全集挑」这条，
+            //   **必出声**（不静默换目标）。判据出处：本文件 G04/G05 的 `Do*` doc。
+            //   谁定的 + 日期：执行代理 A1 · 2026-10-27（施工判据 §二 G04/G05 只写了「新动词」，没写目标怎么来）。
+            if (preferred != null)
+                ctx.Log($"{by}：「{source}」上一条选中的「{preferred.Card?.Name}」**不在{zoneName}里**"
+                      + " ⇒ 退回「区域全集里挑一份」（原版是按 criteria 当场筛，见下一条）");
+            ctx.Log($"{by}：「{source}」的候选 = {zoneName}全部 {zone.Count} 张"
+                  + "（⚠️ 原版按 `targetCriteria` 筛过才挑；我们这一层**只做区域全集**，筛选没接 —— 如实标）");
+
+            ctx.ChooseSites++;
+            // ① 面板给了具体卡号 ⇒ 按 `Id` 认（与 `TakePickCard` 的 `ChooseCardIds` 同口径）
+            if (ctx.ChooseCardIds.Count > 0)
+            {
+                string wantId = ctx.ChooseCardIds.Dequeue();
+                if (ctx.ChoosePicks.Count > 0) ctx.ChoosePicks.Dequeue();     // 对齐（同 TakePickCard）
+                foreach (var c in zone)
+                    if (c != null && c.Card != null
+                        && string.Equals(c.Card.Id, wantId, System.StringComparison.Ordinal))
+                    {
+                        ctx.ChooseAnswered++;
+                        ctx.Log($"{by}：按**面板抽出的候选**挑了「{c.Card.Name}」");
+                        return c;
+                    }
+                ctx.Log($"{by}：面板报回来的那张（id={wantId}）**不在{zoneName}里** ⇒ 改由引擎等概率挑");
+                unresolved.Add(source + "（面板报的卡不在候选里）");
+            }
+            else if (ctx.ChoosePicks.Count > 0)
+            {
+                int i = ctx.ChoosePicks.Dequeue();
+                if (i >= 0 && i < zone.Count)
+                {
+                    ctx.ChooseAnswered++;
+                    ctx.Log($"{by}：按**面板上的选择**取第 {i + 1} 项");
+                    return zone[i];
+                }
+                ctx.Log($"{by}：面板给的下标 {i} **越界**（候选只有 {zone.Count} 个）⇒ 改由引擎等概率挑");
+                unresolved.Add(source + "（面板下标越界）");
+            }
+            int k = ctx.GetRandomInt(0, zone.Count);
+            return zone[k];
+        }
+
+        /// <summary>
+        /// 原版 `PlayerHand.RemoveEffectsFromCard(hand, card)` 的引擎侧等价物
+        /// （`decomp_full/PlayerHand__RemoveEffectsFromCard.c`，逐句读过）。
+        ///
+        /// <para>**它摘的是什么**（容易读反，写清楚）：遍历那只手的 `activeEffects(+0x48)`，
+        /// 只摘 **`cardEffect.extrinsic(+0x30)` 为真** 且 **`enchantingCard(+0x18) == 传入的那张卡`**
+        /// 的条目 —— 即「**这张卡当施放者**挂出去的手牌效果」，**不是**「挂在这张卡身上的效果」。
+        /// ⇒ 我们这边对应：`HandEffect.Extrinsic` 且 `HandEffect.ActingUnit.Instance == 这张实例`。</para>
+        ///
+        /// <para>⚠️ 原版调用点传的是**两手各一次**（`_ResolveStealFromHand:151/:155`）⇒ 本方法扫两方。</para>
+        /// </summary>
+        static int RemoveHandEffectsCastBy(BattleContext ctx, CardInstance caster)
+        {
+            if (ctx == null || caster == null) return 0;
+            int n = 0;
+            for (int seat = 0; seat < 2; seat++)
+            {
+                var recs = ctx.Players[seat].HandEffectRecords;
+                var deadIds = new List<int>();
+                for (int k = recs.Count - 1; k >= 0; k--)
+                {
+                    var r = recs[k];
+                    if (r == null || !r.Extrinsic || r.ActingUnit == null) continue;
+                    if (!ReferenceEquals(r.ActingUnit.Instance, caster)) continue;
+                    deadIds.Add(r.RecordId);
+                    recs.RemoveAt(k);
+                }
+                if (deadIds.Count == 0) continue;
+                var hand = ctx.Players[seat].Hand;
+                for (int i = 0; i < hand.Count; i++)
+                {
+                    var inst = hand[i];
+                    if (inst == null || inst.HandEffects.Count == 0) continue;
+                    int cut = inst.HandEffects.RemoveAll(e => e != null && deadIds.Contains(e.RecordId));
+                    if (cut > 0) n++;
+                }
+                ctx.Log($"{ctx.Players[seat].Name} 的手牌记录表上摘掉 {deadIds.Count} 条"
+                      + $"「由 {caster.Card?.Name} 施放」的 extrinsic 效果");
+            }
+            return n;
+        }
+
+        /// <summary>
+        /// 原版 `CardScript.ResetToValuesInHand(bool clearBacklash)` 在**「这张卡在手牌里」**这一档的
+        /// 等价物（`decomp_full/CardScript__ResetToValuesInHand.c:1-176`）。
+        ///
+        /// <para>逐句对照见 `UnitState.ResetToValuesInHand` 的 doc（①–⑩）。在一个**手牌实例**上只有
+        /// 前三句有对象：
+        ///   ① `activeEffects.Clear()` ⇒ `CardInstance.ActiveEffects.Clear()`；
+        ///   ② `activeEnchantments.Clear()` ⇒ `CardInstance.ActiveEnchantments.Clear()`
+        ///      （同 `ReanimateRemnantInPlace` 里那两句 —— 这两本挂在 `CardInstance` 上）；</para>
+        /// <para>③ `questCounter(+0x270) = 0` ⇒ `CardInstance.QuestCounter = 0`；
+        /// ④–⑨ 是**单位在场上**那几本账（`currentMaxHealth` / 攻击 / 护甲 / `attacksThisTurn` /
+        /// jam·stun·blind·stealth / 残骸两位 / 卡面 trait 重挂）—— 它们全在 `UnitState` 上，
+        /// 而手牌里这一份**没有 `UnitState`** ⇒ 无对象（数值本来就来自 `CardDef`）。
+        /// ⚠️ 手牌效果（`HandEffect`）**不在**这一句的范围里 —— 那是上一跳
+        /// `RemoveEffectsFromCard` 的事（原版也是两条不同的清法）。</para>
+        /// </summary>
+        static void ResetHandCardToValuesInHand(BattleContext ctx, CardInstance inst, string by, string source)
+        {
+            if (inst == null) return;
+            inst.ActiveEffects.Clear();
+            inst.ActiveEnchantments.Clear();
+            inst.QuestCounter = 0;
+            ctx.Log($"{by}：「{inst.Card?.Name}」按原版 `ResetToValuesInHand(card,1)` 重置"
+                  + "（手牌这一档只有 ①②③ 有对象：清两份效果账 + 任务点计数归零；"
+                  + "④–⑨ 是场上单位那几本账，这一份没有 `UnitState`）");
+        }
+        // ==================================================================================
+        //  🔴 2026-10-27（第八十七会话 · 执行代理 `A10`）：
+        //    **原版 `CardScript.NeedsToChooseFromPool` = 「打这张卡要不要开『选池』面板」**
+        // ==================================================================================
+        //  判据（两份独立产物，逐句读过）：
+        //    · `d:/2/tools/decomp_full/CardScript__NeedsToChooseFromPool.c`（153 行 · Ghidra）
+        //    · `d:/2/tools/cpp2il/out_il2csharp/Assembly-CSharp/CardScript.cs:10211-10371`（ILSpy）
+        //  两个调用点（`.c` 亲读，**都在这条链上**）：
+        //    `BattleManager._ResolvePlayCardFromHand_d__447__MoveNext.c` 三处（非指向性战术卡 :498 ·
+        //    小人落地 :728 · 指向性法术 :1248）＋ `_ResolvePlayActiveAbility_d__479__MoveNext.c:249`
+        //    —— `true` ⇒ `StartCoroutine(ChooseCardMethod(...))`（先弹池面板再结算）；
+        //    `false` ⇒ 直接 `NonTargetSpellPlayed` / `TargetedSpellPlayed`。
+        //
+        //  五道闸（顺序照原版；返回值 = 「这次要不要问玩家」）：
+        //    ① `rawCardData.choicesDefinition == null` 或它的 `targetsAffected == any(0)` ⇒ false
+        //       🔴 **就地订正（铁律 5）**：`资料/完全复刻/报告/A3_RuleCore四件.md` 把这一格写成
+        //          「`activeAbility(+0x2A0)`」是**错的** —— `+0x2A0` 是 `RawCardScript.choicesDefinition`
+        //          （`d:/2/tools/il2cpp_out/dump.cs:23341`；ILSpy `CardScript.cs:10215/10219` 逐字可读）。
+        //    ② 英雄（`cardType == 10`）且 `hasChangedActiveAbility(+0x221)` ⇒ false
+        //       ⚠️ **我们没建模这一格**（`+0x221` 的写点没查到）⇒ 本实现**不减这一条**；
+        //          「还没查清」已经记在报告 `资料/完全复刻/报告/A10_oath付费闸.md` §四。
+        //    ③ 给了点选目标（`targetCard != null`）⇒ 先走**特例**：扫 `cardAbilities[trigger==0
+        //       ThisCardPlayed].abilityLogic[j]`，若 `targetCriteria.targetsAffected == 90
+        //       (targetIfMeetsCriteria)` **且这张卡没有 oath** ⇒ **返回**
+        //       `FilterMethods.CheckIfMeetsCriteria(this, target, target, 那条 criteria)`
+        //       （= 「点中的那个目标满不满足那条 criteria」决定要不要问；`CardCriteria.cs` 文件头
+        //       早就把 `CardScript__NeedsToChooseFromPool.c:89` 列成该函数的第 4 个调用点）。
+        //       ⚠️ 这一支**不再看 oath**（原版 `HasDefaultTrait(oath)` 为真时整段被跳过）。
+        //    ④ `!HasDefaultTrait(oath = 1275)` ⇒ **true**（没有誓约的卡：只要有 choicesDefinition 就问）
+        //    ⑤ 有 oath 时：先要求**轮到自己这一侧**（原版 `isPlayer` 的卡要
+        //       `IsPlayerTurn() && allowPlayerActionsFlag`；AI 的卡要 `!IsPlayerTurn()`
+        //       ⇒ 合起来 = 「必须是这张卡那一侧的回合」；`allowPlayerActionsFlag` 我们**没有**这一格）；
+        //       然后 `HasCurrentTrait(jam = 130)` ⇒ **false**；最后
+        //       `BoardAnalysis.GetManaLeft(owner) >= GetDefaultTraitValue(oath)` ⇒ true / false。
+        //
+        //  🔴 **`0x82 = 130` 是什么**（本次的第一件事）：`DefinedTrait.jam = 130`
+        //     （`d:/2/Warpforge_code/Scripts/Assembly-CSharp/DefinedTrait.cs:13`），
+        //     即「**干扰**」那条 debuff（我们 `KeywordTable.Jam`）。ILSpy 那份控制流把它写成了
+        //     名字 `DefinedTrait.jam`（`CardScript.cs:10245`），与 `.c` 的裸常量 `0x82` 同一句。
+        //     ⇒ 语义 = **带 jam 的卡不需要选池**（它的能力本来就被压住了）。
+        //
+        //  🔴 **为什么落点不是 `ChooseCardCandidates`**：那是**纯读**的候选表（回答「能选哪些」），
+        //     而本方法回答的是「**要不要问**」⇒ 落点 = 表现层决定开不开面板的那一带
+        //     （`PlayerChooseOps`；表现层那边叫 `PlayAsks` / `AbilityAsks`）。
+        //  🔴 **这条闸今天为什么还改不了 `ruleprobe play` 的读数**：`PlayerChooseOps(card)` 那一版
+        //     **没有 ctx**（拿不到法力 / 回合 / jam）⇒ 保留原样（`BattleDriver.PlayAsks` 现在调的就是
+        //     它）。带 ctx 的重载在下面；**把 `BattleDriver.PlayAsks` / `AbilityAsks` 的两处调用换成
+        //     带 ctx 的重载**才会真的生效 —— 那两处在别的代理的独占文件 `BattleDriver.cs` 里。
+        // ==================================================================================
+
+        /// <summary>这张卡**有没有 `oath`（1275）默认 trait** —— 原版 `RawCardScript.HasDefaultTrait(oath)`。
+        /// <para>数据列 = `cards_engine.json` 的 `cardTraits`（形如 `"oath 2"`，`TraitKeyOf` 归一成 `oath`）。
+        /// 没喂（旧表 / `CardTraitsKnown == false`）⇒ 返回 `false` **且 `why` 非空**（⛔ 不许当「真的没有」）。</para></summary>
+        public static bool HasOathTrait(CardDef card, out string why)
+        {
+            why = null;
+            if (card == null) { why = "没有卡对象"; return false; }
+            return card.HasDefaultTrait(KeywordTable.Oath, out why);
+        }
+
+        /// <summary>
+        /// 原版 **`CardScript.NeedsToChooseFromPool(CardScript targetCard)`**
+        /// （`decomp_full/CardScript__NeedsToChooseFromPool.c` 全文 153 行）——
+        /// **「打这张卡要不要开『选池』面板」**。门级/顺序见上方那段判据块。
+        ///
+        /// <para><b>参数</b>：`owner` = 这张卡属于哪一侧（原版 `thisCard.isPlayer(+0x40)`）；
+        /// `targetCard` = 玩家点选的那个目标（原版同名形参；**只有指向性那一支才会给** —— 现读 4 处调用
+        /// （`.c`：`_ResolvePlayCardFromHand:498/:728` · `_ResolvePlayActiveAbility:249/:258`），
+        /// 其中**只有一处**传 `battleAction.targetCard`（ILSpy `BattleManager.cs:36969`），其余传 `0`）；
+        /// `thisCard` = 这张卡在**场上**的实例
+        /// （没有就 `null`；只用来判 `HasCurrentTrait(jam)` 与 `CheckIfMeetsCriteria` 的 `thisCard`）。</para>
+        ///
+        /// <para><b>三态</b>：`true` = 要问 · `false` = **不问**（既含「原版判否」，也含「本版判不了
+        /// 所以不问」）—— 「判不了」的那几处**一定 `ctx.Log` 出声**（不许静默）。</para>
+        ///
+        /// <para>⚠️ **还没查清的（如实记，⛔ 别当无事）**：
+        /// ① 英雄那一格 `hasChangedActiveAbility(+0x221)` 我们没建模；
+        /// ② `allowPlayerActionsFlag(+0x244)` 我们没有等价位 ⇒ 用「是不是这一侧的回合」代替；
+        /// ③ 门③ 的 `CheckIfMeetsCriteria` 走 `TargetCriteriaEval.Matches`（三态）——
+        ///    判不了时**返回 false**（宁可不开面板，也不凭空多问一次）。</para>
+        /// </summary>
+        public static bool NeedsToChooseFromPool(BattleContext ctx, int owner, CardDef card,
+                                                 UnitState targetCard = null, UnitState thisCard = null)
+        {
+            if (card == null) return false;
+
+            // ---- ① choicesDefinition 存在、且不是 any(0) -----------------------------
+            //   `ChoicesTargetsAffected`：`0` = `any`（原版直接 return 0）·
+            //   `-1` = 真值快照里没这张卡（= 原版 `choicesDefinition == null` 那一档）⇒ 同判否。
+            if (card.ChoicesTargetsAffected <= 0) return false;
+
+            // ---- ② 英雄 + hasChangedActiveAbility(+0x221)：本版没建模，不在此减 ----
+
+            // ---- ③ 给了点选目标 ⇒ 先走 `ta == 90 (targetIfMeetsCriteria)` 特例 ------
+            if (targetCard != null)
+            {
+                var abil = card.AbilityTargets;
+                for (int a = 0; abil != null && a < abil.Count; a++)
+                {
+                    var spec = abil[a];
+                    if (spec == null || spec.Trigger != 0 /* ThisCardPlayed */) continue;
+                    if (spec.TargetsAffected == null) continue;
+                    for (int j = 0; j < spec.TargetsAffected.Length; j++)
+                    {
+                        if (spec.TargetsAffected[j] != 90) continue;
+
+                        // 原版：这段 ta==90 的扫描是**包在 `!HasDefaultTrait(oath)` 里**的
+                        // ⇒ 有 oath 的卡整段跳过、直接落到 ⑤ 的誓约闸。
+                        string oathWhy;
+                        if (HasOathTrait(card, out oathWhy)) return FallThroughOathGate();
+
+                        var set = card.AbilityTargetCriteriaAt(a, j);
+                        CardDef.ConditionSpec cond;
+                        card.TryGetCondition(a, j, "target", out cond);
+                        string gap;
+                        bool? verdict = TargetCriteriaEval.Matches(ctx, owner, set, targetCard, cond,
+                                                                   thisCard, targetCard, out gap);
+                        if (verdict.HasValue) return verdict.Value;
+                        if (ctx != null)
+                            ctx.Log($"（选池闸：原版 `NeedsToChooseFromPool` 门③ 要拿「{card.Name}」"
+                                  + $"第 {a} 条 ability 第 {j} 条 logic 的 criteria 比目标，本版判不了"
+                                  + $"（{gap ?? "原因没给"}）⇒ **按不问处理**，这一处交给引擎兜底挑）");
+                        return false;
+                    }
+                }
+            }
+
+            return FallThroughOathGate();
+
+            // ④⑤ 那两段（原版 `LAB_1805f1e2c` 起）抽成本地函数：门③ 命中 oath 时也要落到这里。
+            bool FallThroughOathGate()
+            {
+                // ---- ④ 没有 oath ⇒ 一定需要选池 -----------------------------------
+                string why;
+                bool hasOath = HasOathTrait(card, out why);
+                if (why != null && ctx != null)
+                    ctx.Log($"（选池闸：「{card.Name}」的 `cardTraits` 没喂（{why}）⇒ `oath` 那一档按「没有」判"
+                          + " —— 见 `CardDef.HasDefaultTrait` 的三态口径）");
+                if (!hasOath) return true;
+
+                // ---- ⑤ 有 oath：必须是这一侧的回合 --------------------------------
+                if (ctx == null || owner < 0 || owner > 1)
+                {
+                    if (ctx != null)
+                        ctx.Log($"（选池闸：「{card.Name}」带 oath，但没给 ctx / 座位号 ⇒ 判不了，**按不问处理**）");
+                    return false;
+                }
+                // 原版：`isPlayer` 的卡要 `IsPlayerTurn() && allowPlayerActionsFlag`；
+                //      AI 的卡要 `!IsPlayerTurn()`。合起来 = 「必须是这张卡那一侧的回合」。
+                // ⚠️ `allowPlayerActionsFlag(+0x244)`（等对手/等弹出窗时不许操作）我们**没有**等价位。
+                if (ctx.Active != owner) return false;
+
+                // ---- jam（130）：被干扰的卡**不问** ------------------------------
+                //   原版 `EntityScript.HasCurrentTrait(jam)` 读的是**运行期** trait
+                //   ⇒ 场上实例优先（`UnitState._keywords`），没有实例才退回卡的默认 trait。
+                bool jammed = (thisCard != null && thisCard.Has(KeywordTable.Jam))
+                           || (thisCard == null && card.HasDefaultTrait(KeywordTable.Jam, out _));
+                if (jammed)
+                {
+                    ctx.Log($"（选池闸：「{card.Name}」带 **jam（干扰，130）** ⇒ 这次**不问选池**"
+                          + " —— 原版 `CardScript__NeedsToChooseFromPool.c` 的 `HasCurrentTrait(0x82)` 那一档）");
+                    return false;
+                }
+
+                // ---- 法力够不够付誓约 --------------------------------------------
+                int left = ctx.Players[owner].Energy;
+                int need = card.GetDefaultTraitValue(KeywordTable.Oath, out _);
+                return left >= need;
+            }
+        }
+
+        // ==================================================================================
+        //  🆕 2026-10-27（执行代理 `A10`）：**带 ctx 的 `PlayerChooseOps`** ——
+        //    「这一次出牌该问的那几处」＋ 原版那道 `NeedsToChooseFromPool` 闸。
+        // ==================================================================================
+        //  ⚠️ **旧的一参版本 `PlayerChooseOps(CardDef)` 一个字都没动**（`BattleDriver.PlayAsks` /
+        //     `AbilityAsks` / 自检现在调的都是它）—— 它拿不到法力/回合/jam，所以**判不了**这道闸。
+        //     要真生效：把 `BattleDriver.PlayAsks` 里那一处改成调这个带 ctx 的重载（一行；**只这一处**）。
+        //
+        //  🔴 **闸只对「原版真有这道闸」的卡开**：`choicesDefinition` 存在且 `targetsAffected != any`
+        //     （= `ChoicesTargetsAffected > 0`）。正文里自带的 `choosecard` / `chooseone` /
+        //     `chooseeffect`（卡面明写 `choose`）**不归这道闸管** —— 原版 `NeedsToChooseFromPool`
+        //     在那些卡上返回什么，跟「卡面让不让玩家选」是两件事；照抄成「一律不问」会把
+        //     73 张**非 oath** 的 `choicesDefinition` 卡（现读 84 − 11）的正文选择一起吞掉（真回归）。
+        //
+        //  ⚠️⚠️ **只许接在「出牌这一批」（`BattleDriver.PlayAsks`）上，⛔ 别接 `AbilityAsks`**：
+        //     `PlayerChooseOps` 返回的是**整张卡**的 ask（含 `Oath:` / `Duty:` 那几段正文里的），
+        //     `AskOwners` 再按名额把它们分到 `play` / `oath` / `alt:x` 几档。原版这道闸只管
+        //     **打出/落地那一刻**（两个调用点：`_ResolvePlayCardFromHand` / `_ResolvePlayActiveAbility`）；
+        //     把闸套到 `AbilityAsks` 上会**连誓约正文里的选择一起吞掉**（现池实证：`UM97 Suppressor`
+        //     唯一那处 ask 就在 `Oath 1:` 正文里 ⇒ 会被误吞）。
+        // ==================================================================================
+        public static List<EffectOp> PlayerChooseOps(BattleContext ctx, int owner, CardDef card)
+        {
+            var r = PlayerChooseOps(card);                      // 旧那一份（判据只此一处）
+            if (r == null || r.Count == 0) return r ?? new List<EffectOp>();
+            if (card == null || card.ChoicesTargetsAffected <= 0) return r;   // 原版没有这道闸
+
+            if (NeedsToChooseFromPool(ctx, owner, card, null)) return r;
+
+            if (ctx != null)
+                ctx.Log($"（选牌面板：「{card.Name}」这次**不开选池面板**（原版 `NeedsToChooseFromPool` 判否："
+                      + "不是这一侧的回合 / 带 jam / 法力不够付誓约 "
+                      + $"{card.GetDefaultTraitValue(KeywordTable.Oath, out _)}）—— 这一批 {r.Count} 处 ask "
+                      + "交回引擎按兜底挑（⛔ 不是「没实现」，是原版这次也不会问）");
+            return new List<EffectOp>();
         }
     }
 }

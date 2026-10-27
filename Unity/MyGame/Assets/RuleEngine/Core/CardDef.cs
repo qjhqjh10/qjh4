@@ -6724,6 +6724,63 @@ namespace RuleEngine
             return false;
         }
 
+        // ==================================================================
+        //  🆕 2026-10-27（执行代理 `A4` · 第八十七会话）：**选目标提示的文案引用 id**
+        // ==================================================================
+        //  判据 = 原版 `RawCardScript.targetingTextReferenceId`（`EntityScript`/卡 SO 上的那个字段），
+        //  消费点 = `RawCardScript.GetLocalizedTargetted()`（`RawCardScript.cs:2450-2451`，逐字）：
+        //    `"Card_Targeted/" + (targetingTextReferenceId 非空 ? 它 : uniqueId)`。
+        //  数据 = `cards_engine.json` 的 `targetingTextReferenceId` 列（**v35 起**；现读 1,129 张全有该键，
+        //    其中 **51 张非空** —— 池内「单位卡 ∧ targeted」50 张）；生成器 → `工具/gen_cards_engine.py`。
+        //  🔴 **属性 + 构造后挂载**（同 `AttachAlternateArts` 那一族）：⛔ 不新增构造参数 ——
+        //    构造函数那 40 处是账的落点，加一格会让它们整体漂移。
+        //  ⚠️ 三态：`null` = **表里没有这一列 / 夹具直建**（判不了）；`""` = 表里**明确写了空**
+        //    （⇒ 原版回退到 `uniqueId` 那一支）。消费端两者同样落到「回退」，但**别把它当成同一个事实**。
+
+        /// <summary>原版 `RawCardScript.targetingTextReferenceId` —— 选目标提示词条的引用 id
+        /// （`null` = 判不了 / `""` = 没有 ref、回退 `uniqueId`）。
+        /// <para>由 <see cref="CardDatabase.Parse"/> 建完卡之后挂上（<see cref="AttachTargetingTextReference"/>）。</para></summary>
+        public string TargetingTextReferenceId { get; private set; }
+
+        /// <summary>构造后挂载口（**只许 `CardDatabase.Parse` 调**；夹具直建时保持 `null` = 判不了）。
+        /// <para>⛔ **不要在这里把 `null` 归一成空串** —— 三态要分开（见上面那段注）。</para></summary>
+        public void AttachTargetingTextReference(string refId)
+        {
+            TargetingTextReferenceId = refId;
+        }
+
+
+        // ==================================================================
+        //  🆕 2026-10-27（执行代理 `A8` · 第八十七会话 · `调度台日志.md` §12·94）：**卡面正文的文案引用 id**
+        // ==================================================================
+        //  判据 = 原版 `RawCardScript.cardDescriptionTextReferenceId`（卡 SO 上的那个字段）：
+        //    `RawCardScript.GetLocalizedCardDesc()` —— `cpp2il/out_cpp2il_dev_ilspy/RawCardScript.cs:2334-2349`
+        //    （逐句；`.c` = `decomp_full/RawCardScript__GetLocalizedCardDesc.c`）：
+        //      ref 非空 ⇒ 键 = `"Card_Description/" + ref`
+        //      ref 为空 ⇒ 键 = `"Card_Description/" + uniqueId`（= 我们这颗 `Id`）
+        //    ⛔ **没有**「ref 缺键 ⇒ 退回自己 id」这一支（§12·94 明令）。
+        //  ⚠️ 原版还有一支「ref 含 `((" ⇒ 正文就是 ref 本身、不走本地化键」—— **我们没实现**：
+        //    现池 15 张 ref 全是 `ASH48_new` 这种形状、0 例含 `(("`（`A8` 报告 §④）。
+        //  数据 = `cards_engine.json` 的 `cardDescriptionTextReferenceId` 列（**v35 起**；现读 1,129 张
+        //    全有该键、**15 张非空**）；生成器 → `工具/gen_cards_engine.py`。
+        //  消费点 = `BattleDriver.FaceTextFull` 的 4 处取键 → `BattleDriver.OfficialDescKey(id, ref)`。
+        //  🔴 **属性 + 构造后挂载**（同 `AttachTargetingTextReference` 那一族）：⛔ 不新增构造参数 ——
+        //    构造函数那 40 处是账的落点，加一格会让它们整体漂移。
+        //  ⚠️ 三态：`null` = 表里没有这一列 / 夹具直建（判不了）；`""` = 表里**明确写了空**
+        //    （⇒ 原版回退 `uniqueId` 那一支）。消费端两者同样落到「回退」，但别把它们当成同一个事实。
+
+        /// <summary>原版 `RawCardScript.cardDescriptionTextReferenceId` —— 卡面正文的文案引用 id
+        /// （`null` = 判不了 / `""` = 没有 ref、回退 `Id`）。
+        /// <para>由 <see cref="CardDatabase.Parse"/> 建完卡之后挂上（<see cref="AttachCardDescriptionTextReference"/>）。</para></summary>
+        public string CardDescriptionTextReferenceId { get; private set; }
+
+        /// <summary>构造后挂载口（**只许 `CardDatabase.Parse` 调**；夹具直建时保持 `null` = 判不了）。
+        /// <para>⛔ **不要在这里把 `null` 归一成空串** —— 三态要分开（见上面那段注）。</para></summary>
+        public void AttachCardDescriptionTextReference(string refId)
+        {
+            CardDescriptionTextReferenceId = refId;
+        }
+
     }
 
     /// <summary>

@@ -12455,8 +12455,8 @@ public static class MainMenuScene
                         //    不含好友行：好友行喂一条就能建）。
                         CheckFontBase(FindChild(frow, "Friend name"), 36f,
                                       "★ A414（表 #4）好友行 `Friend name` 的 `m_fontSizeBase` = 原版 **36.0**");
-                        CheckTrue(FindChild(frow, "Disconnected") != null && FindChild(frow, "Connected Image") == null,
-                                  "离线 ⇒ **只有 `Disconnected`** 那个点（在线才建 `Connected Image`）");
+                        CheckTrue(FindChild(frow, "Connected Image") != null && !FindChild(frow, "Connected Image").gameObject.activeSelf && FindChild(frow, "Disconnected") != null && FindChild(frow, "Disconnected").gameObject.activeSelf,
+                                  "离线 ⇒ 两个状态点**都建**、**亮的那个是 `Disconnected`**（⛔ 旧断言「在线才建 `Connected Image`」= 我们过去的偏离：原版 prefab 两个点都在，`FriendUIElementWarpforge.Initialize` 只切 active —— 判据 `decomp_full/FriendUIElementWarpforge__Initialize.c:27-49`；实现在 `Shell/FriendsTab.cs` 的 `BuildFriendRow` + `ApplyStatus`，2026-10-27 `C5`）");
                         // 三颗右对齐的图标钮（`a=(1,.5) pos=(-224.771/-133.8/-42.829,0)`，各 68.644×69.315）
                         var rowR2 = new PxRect(348.15f, 334.80f, 1069.45f, 419.62f);
                         float cy = (rowR2.y1 + rowR2.y2) * 0.5f;

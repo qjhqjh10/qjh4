@@ -41,9 +41,9 @@ namespace RuleEngine
     /// 动作种类。**取值照原版 `PlayerActions`**（`dump.cs:45579`）：
     /// `playCard=0 / attackMelee=1 / attackRanged=2 / useHeroPower=3 / endTurn=4 / activeAbility=5 / clickWaystone=6`。
     ///
-    /// ⚠️ 原版把**主动技能 / 誓约能力 / 替代行动**（`duty` / `pray` / `ferocity` / `agenda`）**都归在
-    ///    `activeAbility`(5) 一类**里（判据是 `CardScript.hasActiveAbility`）。我们引擎里这三条是
-    ///    三条不同的入口（`RuleCore.CanUseAbility` / `CanUseOathAbility` / `CanUseAlternative`），
+    /// ⚠️ 原版把**主动技能 / 誓约能力 / 替代行动 / 通用主动能力**（`activeAbilityLogic`；关键词 `duty` / `pray` / `ferocity` / `agenda`）**都归在
+    ///    `activeAbility`(5) 一类**里（判据是 `CardScript.hasActiveAbility`）。我们引擎里这几条是
+    ///    各自的入口（`RuleCore.CanUseAbility` / `CanUseOathAbility` / `CanUseAlternative` / `UseActiveAbility`），
     ///    所以动作上带一个 <see cref="AiAction.AltKeyword"/> 区分，**类型值照旧用 5**。
     ///
     /// ⚠️ `useHeroPower`(3) 原版**从不产出**（`GetAvailableActions` 里没有这一支）；我们同样不产出。
@@ -95,7 +95,7 @@ namespace RuleEngine
         /// <summary>这一刀用近战还是远程（只有攻击动作有意义）</summary>
         public bool Ranged;
         /// <summary>`ActiveAbility` 的子类：`null` = 普通主动技能 · `"oath"` = 誓约能力 ·
-        /// 其余 = 替代行动的关键词（`duty` / `pray` / `ferocity` / `agenda`）</summary>
+        /// 其余 = 替代行动的关键词（`duty` / `pray` / `ferocity` / `agenda`）· 另有 `AltActiveAbility`（= `"active"`）</summary>
         public string AltKeyword;
 
         /// <summary>🆕 2026-09-27：**执行前**从 `ctx.ChoosePicks` / `ChooseCardIds` 快照下来的面板答案。
@@ -1688,10 +1688,10 @@ namespace RuleEngine
                 case AiActionKind.ActiveAbility:
                     if (a.AltKeyword == "oath")
                         return RuleCore.UseOathAbility(ctx, me, a.Slot) == RuleCodes.OK;
-                    if (a.AltKeyword != null)
+                    if (a.AltKeyword != null && a.AltKeyword != AltActiveAbility)
                         return RuleCore.UseAlternative(ctx, me, a.Slot, a.AltKeyword,
                                                        a.TargetSlot >= 0 ? a.TargetSlot : -1) == RuleCodes.OK;
-                    return RuleCore.UseAbility(ctx, me, a.Slot, a.TargetSlot >= 0 ? a.TargetSlot : -1) == RuleCodes.OK;
+                    return UseAbilityOrActive(ctx, me, a) == RuleCodes.OK;
                 case AiActionKind.CollectWaystone:
                     return RuleCore.CollectWaystone(ctx, me, a.Slot) == RuleCodes.OK;
                 default:
@@ -2195,6 +2195,34 @@ namespace RuleEngine
             if (!AiTargets.MightAct(ctx, t)) return false;      // `.c:10`
             if (u.Attack + meleeDelta >= 1) return true;        // `.c:12-16`（近战那支过闸）
             return u.RangedAttack + rangedDelta >= 1;           // `.c:17-20`（近战不行再看远程）
+        }
+
+        // ── ⑫ `ActiveAbility` 的第 ④ 类：原版通用那一格主动能力（🆕 2026-10-27 · `B87_A11`）──────
+        //  原版把「主动技能 / 誓约 / 替代行动 / 通用主动能力（`activeAbilityLogic`）」都归在
+        //  `activeAbility`(5) 一类里；我们靠 `AiAction.AltKeyword` 分档（见 `AiActionKind` 的 doc）。
+        //  ⇒ 第 ④ 类需要**自己的一个哨兵值**，否则两条 apply 路（`ExecuteActionCore` / `NetApply.Apply`）
+        //  会把它当「普通主动技」路由到 `RuleCore.UseAbility`（`ErrNoAbility`）⇒ P2P 两端指纹静默分叉。
+        //  🔴 哨兵**只此一份**：`BattleDriver.DoResolve` 打它、两条 apply 路读它，⛔ 别在别处写 `"active"` 字面量。
+
+        /// <summary>第 ④ 类主动能力的 `AiAction.AltKeyword` 哨兵值。
+        /// <para>由 `BattleDriver.DoResolve` 在 `RuleCore.UseActiveAbility` 回 `OK` 时打上
+        /// （`UseSkillAbilityOr(…, act)` 重载）；⛔ **不是** `TriggerOps` 的键 ——
+        /// 拿它去 `UseAlternative` 只会 `ErrNoAbility`。</para>
+        /// <para>⚠️ 放在文件末尾（`SimpleAI` 类尾）是**故意的**：本文件被账按 `文件:行号` 引用 40+ 处，
+        /// 往中间插一行就是一片漂移。</para></summary>
+        public const string AltActiveAbility = "active";
+
+        /// <summary>`ActiveAbility` 那一格的**兜底两支**：哨兵 ⇒ `RuleCore.UseActiveAbility`（原版通用那一格）；
+        /// `null` ⇒ `RuleCore.UseAbility`（普通主动技）。`oath` / 替代行动在调用点先分流，⛔ 不在这里重判。
+        /// <para>⚠️ 「跑不了就不改状态」由**引擎**保证（`UseActiveAbility` 在一条行都跑不了时直接
+        /// `ErrUnimplemented`、不置 `Exhausted` / 不发 `EvtKind.Ability`）⇒ 两条 apply 路调**同一个函数**、
+        /// 得**同一个码**，两端同形。</para></summary>
+        static int UseAbilityOrActive(BattleContext ctx, int me, AiAction a)
+        {
+            int tgt = a.TargetSlot >= 0 ? a.TargetSlot : -1;
+            return a.AltKeyword == AltActiveAbility
+                 ? RuleCore.UseActiveAbility(ctx, me, a.Slot, tgt)
+                 : RuleCore.UseAbility(ctx, me, a.Slot, tgt);
         }
     }
 }

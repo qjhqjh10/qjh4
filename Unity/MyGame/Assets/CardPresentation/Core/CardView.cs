@@ -2408,9 +2408,9 @@ namespace CardPresentation
             //   场上 = 四个网格层（`_stats`）、非场上 = 四件 TMP（`_faceStatText`）。
             //   两个方向都要刷：手牌 → 场上要把 TMP 收起来，反之要放出来并重排一次。
             BuildFaceStatTexts();
-            SyncFaceStatTexts();
             BuildFaceCostText();      // 🆕 2026-10-25（K4 D3）：费用 = 第五件真 TMP
-            SyncFaceCostText();
+            UpdateFigures();          // 原版 `CardScript.UpdateFigures`：血/攻 + 费 + 徽标 **一次刷完**
+            // ↑ 徽标（原版第④件 `UpdateTraitIcons`）由 `UpdateFigures` 里的 `SetBadges(Data.badges)` 负责。
             // 🆕 2026-10-25（`CF`）：**换形态入口**（铁律 10 第 5 条）—— 攻击类型高亮的倍数按
             //   「卡 prefab 族」取（`AttackScaleModifier` ← `ArtUsesFightFamily`），而族跟着形态走。
             //   今天唯一的迁移是 Hand → Board（同族 ⇒ 倍数不变），仍然在这里显式补一次：
@@ -3374,9 +3374,9 @@ namespace CardPresentation
             // 🆕 2026-10-25（`CF-3`）：**每刷新一次都要刷**（掉血 / 加 buff / 换卡都走这条路）——
             //   四件 TMP 的值、护甲那一格的显隐、以及「手牌 ⇄ 场上」换载体，全由它一处收口。
             BuildFaceStatTexts();
-            SyncFaceStatTexts();
             BuildFaceCostText();      // 🆕 2026-10-25（K4 D3）：费用 = 第五件真 TMP
-            SyncFaceCostText();
+            UpdateFigures();          // 原版 `CardScript.UpdateFigures` 的原子入口（**每刷新一次都要刷**）
+            // ↑ 血/攻 + 费 + 徽标三件同刷；「哪两件不在它的范围里」见 `UpdateFigures` 的文件头。
             // 🆕 2026-10-08（A181）：**重裁一次**（换卡 = 换网格/换文字 ⇒ 上一次那一刀作废）。
             //    ⚠️ 只在**已经裁过一次**时走（`_clipOn`）—— 没设过裁切的调用点（战斗/手牌那一族）一个字节都不动。
             //    🔴 2026-10-13（A435 辛 · A774）：判据是 `Clipping`（显式矩形**或**跟随节点），
@@ -4603,9 +4603,9 @@ namespace CardPresentation
             // 🆕 2026-10-25（`CF-3`）：出生入口（`Create` → `Build`）—— 2D 那四件 TMP 也在这里建/刷。
             //   场上档建出来是**关着**的（`SyncFaceStatTexts` 里 `face = false`），只有手牌/详情窗才显示。
             BuildFaceStatTexts();
-            SyncFaceStatTexts();
             BuildFaceCostText();      // 🆕 2026-10-25（K4 D3）：费用 = 第五件真 TMP
-            SyncFaceCostText();
+            UpdateFigures();          // 出生入口也走原子总入口（原版 `CardScript.UpdateFigures`）
+            // ↑ 与上面 `SetBadges(d.badges)` 那一句**不冲突**：本类是「从 `Data` 重新派生」，幂等。
 
             // 🆕 **2026-10-17（T09 第 2 步）**：分段计时只在真 Play 出声；批处理/自检零影响。
             if (bt)
@@ -7928,7 +7928,7 @@ namespace CardPresentation
             //    而底板比图标大、位置又贴着卡框左缘，**白底板**在真机上就是用户报的那个白方块。
             //    ⚠️ 位置放在 `ApplyBadgeAlpha()` 之前：那一步会在这个底色上**再乘** `_badgeAlpha`。
             for (int i = 0; i < _badgePlates.Count; i++) SetBadgePlateInk(_badgePlates[i], _alpha);
-
+            ApplyNewBadgeInk();      // 新卡角标同理（暗红是原版 Image 的写死色，只乘 α —— 见那个方法）
             // 🔴 **同理（2026-09-19）**：软光/影那层的颜色**是它自己说了算**的
             //    （原版 shader 用的是 `_ShadowColor` / `_Outline`，没有 `_Color`）——
             //    上面那个 foreach 只会给它设一个它没有的 `_Color`（no-op）。
@@ -15011,5 +15011,167 @@ namespace CardPresentation
         /// —— `RaceText` 有读口、卡名/描述有 `TitleText` / `KeywordsText`，阵营行原来**没有读口**。
         /// ⚠️ 只是读口，不参与任何逻辑（⛔ 别在别处按它分支）。</para></summary>
         public string ArmyText { get { return _army != null ? _army.text : null; } }
+
+        // ==================================================================
+        //  🆕 2026-10-27（B87-A7 · 账 `战斗逻辑驱动:976`）
+        //     **原版 `CardScript.UpdateFigures()` —— 一个原子总入口**
+        // ==================================================================
+        //
+        // 判据（🥇 亲读 `decomp_full/CardScript__UpdateFigures.c` 全文 26 行）：
+        // <code>
+        //   UpdateHealthText(card, true) ;
+        //   UpdateAttackText(card) ;  UpdateCostText(card) ;
+        //   if (battleCardUI != null) { CleanStatusAnims(battleCardUI, false) ;
+        //                               UpdateTraitIcons(battleCardUI) ;
+        //                               if (IsUnit(rawCard)) CheckIfDead(card) ; }   // ← 规则侧
+        // </code>
+        // ⇒ 原版**五件同刷 + 尾部判死**，调用点不可能只刷一半。
+        // 我们原来只有三个分口（`SyncFaceStatTexts` / `SyncFaceCostText` / `SetBadges`），
+        // 调用点自己拼顺序 ⇒ 「只刷一部分」时**静默不同步**（账里 `ResolveResetDuty`(B) /
+        // `AddResetDuty`(B) 两条升 A 就卡在这上面）。
+        //
+        // 🔴 **五件 → 我们的落点（逐条对得上）**：
+        //   ① `UpdateHealthText` ② `UpdateAttackText` ⇒ **同一个口** `SyncFaceStatTexts`
+        //      （我们四个数值是一组 TMP，近战/远程/生命/护甲一起刷 —— 原版是两条方法，但读的是同一份
+        //       `RawCardScript` 的四个 counter，拆不开也不需要拆）；
+        //   ③ `UpdateCostText` ⇒ `SyncFaceCostText`（第五件真 TMP，见 `K4 D3`）；
+        //   ④ `UpdateTraitIcons` ⇒ `SetBadges(Data.badges)`（**重新从数据派生**，与 `SetData` 同一口）。
+        //
+        // 🔴 **④ `CleanStatusAnims(false)` 故意不在本方法里做**（如实记，⛔ 别当漏掉）：
+        //   它的等价物是 `TraitFrames.Clean(stillHas, false)`，判据 = 「清掉**这张卡已经不再持有**的 trait
+        //   的框」。那个「当前持有的全部 trait」**只有引擎侧知道**（`BattleDriver.SyncKeywords` 每轮
+        //   拿 `UnitState.Keywords` 全表进来、并且**已经**在那里调了 `Clean(now, false)` —— 见
+        //   `Core/TraitFrames.cs:782`）。而本类手上的 `Data.badges` 是 **`Badges.For` 收窄过的**
+        //   （`hasIcon && isInPlayIcon` + 7 格上限）⇒ 从这里再清一遍会**把第 8+ 个词条的框误清掉**，
+        //   而且与 `SyncKeywords` 成「两处写同一条规则」。⇒ 这一步的活路在它该在的地方，本方法不重复。
+        //
+        // 🔴 **尾部 `CheckIfDead` 属规则侧**（我们的 `RuleCore.CheckWinner` / 死亡结算），
+        //   表现层**不发**判死信号 —— 原版那一句只是「顺手在 UI 刷新后追一次判定」，
+        //   我们引擎那边每一拍动作结算后都会判，不存在漏判。
+        /// <summary>原版 `CardScript.UpdateFigures()`：**五件同刷的原子入口**（判据与「哪两件不在本方法里」见本节文件头）。
+        /// 调用点**应当只走这一个口**（⛔ 别再自己拼 `SyncFaceStatTexts` + `SyncFaceCostText` + `SetBadges`）。
+        /// 幂等：重复调用与调一次等价（三件都是「按当前 `Data` 重刷」）。</summary>
+        public void UpdateFigures()
+        {
+            SyncFaceStatTexts();                                   // ①+② 血/攻（含近战/远程/护甲）
+            SyncFaceCostText();                                    // ③ 费用
+            // ⑤ 词条徽标（= 原版 `UpdateTraitIcons`）：**从 `Data` 重新派生**（与 `SetData` 同一口）。
+            // ⚠️ `CardData` 是 **struct**（本文件 `:29`）⇒ `Data` 永不为 null，空卡的 `badges` 自然是 null
+            //    ⇒ `SetBadges(null)` 把 7 格全关，正是要的那一档。
+            SetBadges(Data.badges);
+        }
+
+        // ==================================================================
+        //  🆕 2026-10-27（B87-A7 · 账 `菜单_外壳:54` / `:60`）
+        //     **新卡角标** —— 原版 `CardDrawer.ToggleNewCardBadge` /
+        //     `CardAlternateArtDrawer.ToggleNewCardBadge` → `BasicCardUI.ToggleNewCardBadge`
+        // ==================================================================
+        //
+        // 判据 ①（调用链，两份 `.c` **内容完全相同**）：
+        //   `decomp_full/CardDrawer__ToggleNewCardBadge.c` 与
+        //   `decomp_full/CardAlternateArtDrawer__ToggleNewCardBadge.c` **逐字节同体**，都只有两句：
+        //   `if (basicCardUI(+0x58) != null) BasicCardUI__ToggleNewCardBadge(); else throw`
+        //   ⚠️ 这是 CLAUDE.md 记的「文件名与内容不符」的一种良性形态（ICF 折叠 / 同一段体），
+        //   ⛔ **别据此判「解错」** —— 两份体都指向同一个真实现，行为一致。
+        //
+        // 判据 ②（真实现，🥇 `cpp2il/out_cpp2il_dev_ilspy/BasicCardUI.cs:713-727`；`.c` 同体）：
+        // <code>
+        //   if (newCardBadge != null) {
+        //       newCardBadge.SetActive(option);
+        //       if (withAnimation &amp; option) {
+        //           newCardBadge.transform.DOScale(1.1f, 0.35f).SetEase(Ease.OutBounce);
+        //       }
+        //   }
+        // </code>
+        //   🔴 **弹完停在 1.1 倍**（原版只有这一条补间、没有回弹到 1）—— 照抄，⛔ 别「修正」成 1.0。
+        //
+        // 判据 ③（几何/贴图，🥇 UnityPy 现读 `menus_assets_all.bundle` 的 `Card Drawer` prefab）：
+        //   节点 `New Card Badge`：`anchorMin/Max = (0, 0.5)` · `pivot = (0, 0.5)` ·
+        //   `m_AnchoredPosition = (0.317, 1.142)` · `m_SizeDelta = (1.2101, 0.392)` · `m_LocalScale = 1`。
+        //   父 `CardUI` = 2.5437 × 3.3686，**兄弟 `2DCard` = 2.0927 × 3.3313 = 我们的卡体**（同一中心）
+        //   ⇒ 角标在卡体坐标里的中心 = `(0.317 − 2.5437/2 + 1.2101/2, 1.142)` = **(−0.3498, +1.142)**。
+        //   Image：sprite = **`WF_Special offer_Value`**（324×87）· `m_Color = (0.5472, 0.0876, 0.0542, 1)` ·
+        //   `m_Type = 1 (Sliced)` · **`m_PreserveAspect = 0`**（⇒ 原版**不保等比**，3.087 的框套 3.724 的图）·
+        //   `m_RaycastTarget = 0`。我们工程里那张图 = `Resources/Art/ui_menu/WF_Special_offer_Value.png`。
+
+        /// <summary>角标宽度（卡体单位 = 原版 `m_SizeDelta.x` 1.2101）。</summary>
+        public const float NewBadgeW = 1.2101f;
+        /// <summary>角标高度（卡体单位 = 原版 `m_SizeDelta.y` 0.392）。</summary>
+        public const float NewBadgeH = 0.392f;
+        /// <summary>角标中心（卡面归一化坐标，x 从左、y 从**顶部** —— 与 `SpriteQuad` 同一口径）。
+        /// 由原版 `anchorPos (0.317, 1.142)` 换算：见本节文件头判据③。</summary>
+        public static readonly Vector2 NewBadgeAt01 = new Vector2(0.33285f, 0.15719f);
+        /// <summary>角标底色（原版 Image 的 `m_Color` —— 图上叠的是这张白图 × 这个暗红）。</summary>
+        public static readonly Color NewBadgeInk = new Color(0.5471698f, 0.08759907f, 0.05420078f, 1f);
+        /// <summary>弹出补间的终点缩放（原版 `DOScale(1.1f, 0.35f)`，**停在这里不回弹**）。</summary>
+        public const float NewBadgePopScale = 1.1f;
+        /// <summary>弹出补间时长（原版 0.35 s）。</summary>
+        public const float NewBadgePopSeconds = 0.35f;
+        /// <summary>角标那一层的 z：在**文字层（−0.03）之前**（原版它是 `CardUI` 的子件、压在整张卡上面）。</summary>
+        const float NewBadgeZ = -0.032f;
+
+        /// <summary>新卡角标那一层（懒建；`null` = 还没建 / 取不到图）。</summary>
+        MeshRenderer _newBadge;
+
+        /// <summary>建角标那一层（幂等）。取不到图 ⇒ 出声 + 不画（⛔ 不拿别的图顶替）。</summary>
+        void BuildNewCardBadge()
+        {
+            if (_newBadge != null) return;
+            var tex = CardArt.MenuUi("WF_Special_offer_Value");
+            if (tex == null)
+            {
+                Debug.LogWarning("[CardView] `New Card Badge` 的图取不到"
+                               + "（期望 `Resources/Art/ui_menu/WF_Special_offer_Value.png`，原版 sprite = "
+                               + "`WF_Special offer_Value`）⇒ 这张卡**不画**新卡角标（⛔ 不拿别的图顶替）。");
+                return;
+            }
+            _newBadge = AddLayer("newCardBadge", tex, NewBadgeZ, tex,
+                                SpriteQuad("newCardBadge", NewBadgeAt01, NewBadgeW, NewBadgeH));
+            if (_newBadge.sharedMaterial != null && _newBadge.sharedMaterial.HasProperty("_Color"))
+                _newBadge.sharedMaterial.color = NewBadgeInk;
+            _newBadge.gameObject.SetActive(false);      // 原版那颗的显隐只由 `ToggleNewCardBadge` 控
+        }
+
+        /// <summary>原版 `BasicCardUI.ToggleNewCardBadge(bool option, bool withAnimation = false)`
+        /// （判据/几何/贴图 → 本节文件头）。<paramref name="isNewCard"/> = 原版 `option`。
+        /// <para>⚠️ 「这张卡是不是新卡」的**数据**不在本类手里（原版是 `CardProgress` 上的 new 标记，
+        /// 我们那层还没有该字段 —— 收藏线的工作项）⇒ 本类只负责**画/收 + 那一下弹出**。</para></summary>
+        public void ToggleNewCardBadge(bool isNewCard, bool withAnimation = false)
+        {
+            if (isNewCard && _newBadge == null) BuildNewCardBadge();
+            if (_newBadge == null) return;              // 取不到图 ⇒ BuildNewCardBadge 已经出过声
+            _newBadge.gameObject.SetActive(isNewCard);
+            if (withAnimation && isNewCard)
+            {
+                var tr = _newBadge.transform;
+                tr.DOKill();
+                tr.localScale = Vector3.one;
+                tr.DOScale(Vector3.one * NewBadgePopScale, NewBadgePopSeconds)
+                  .SetEase(Ease.OutBounce)
+                  .SetUpdate(CardTween.Mode);
+            }
+        }
+
+        /// <summary>自检读口：角标那一层建出来了没有（`false` = 没建：从没要求过 / 图取不到）。</summary>
+        public bool NewCardBadgeBuilt { get { return _newBadge != null; } }
+
+        /// <summary>自检读口：角标现在**显示着**没有（`GetActive` 而不是自报的 bool —— 读的就是场上那一态）。</summary>
+        public bool NewCardBadgeShown
+        {
+            get { return _newBadge != null && _newBadge.gameObject.activeSelf; }
+        }
+
+        /// <summary>角标那一层的底色（只跟「整卡 α × 2D α」，⛔ 不跟状态色 —— 理由同 `_textBg` / 徽标底板：
+        /// 那个暗红是原版 Image 上写死的 `m_Color`，被整卡着色刷成白/状态色就不是原版了）。
+        /// <para>由 `ApplyTint()` 在整卡循环之后调用（一处写口）。</para></summary>
+        void ApplyNewBadgeInk()
+        {
+            if (_newBadge == null || _newBadge.sharedMaterial == null) return;
+            var m = _newBadge.sharedMaterial;
+            if (!m.HasProperty("_Color")) return;
+            var c = NewBadgeInk;
+            c.a *= _alpha * _alpha2D;
+            m.color = c;
+        }
     }
 }

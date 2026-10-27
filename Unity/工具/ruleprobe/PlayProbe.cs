@@ -243,6 +243,8 @@ class PlayProbe
         if (preset != null && preset.HandListenMode) return RunHandListen(pool, hit, preset);
         // 🆕 `B9_A3`（2026-10-26）：**面朝下 + 带 `ambush` 的出手**那一档（见 `PresetSpec.Face`）。
         if (preset != null && preset.FaceAmbushMode) return RunFaceAmbush(pool, hit, preset);
+        // 🆕 `B87_A3`（2026-10-27）：**主动能力**那一档（见 `PresetSpec.ActiveAbility`）。
+        if (preset != null && preset.ActiveAbilityMode) return RunActiveAbility(pool, hit, preset);
         var r = Measure(pool, hit, preset);
         Print(r);
         // 🆕 `A1431` 第三笔：**单卡也要能看事件电池**（否则「这一张到底有没有被验到」得整池跑一遍才知道）。
@@ -488,6 +490,24 @@ class PlayProbe
         public bool FaceAmbushMode { get { return Face != null; } }
 
         // ==================================================================
+        //  🆕 `B87_A3`（2026-10-27）：**原版通用那一格主动能力**夹具（`aa=1`）
+        // ==================================================================
+        //
+        // 🔴 **它治的是哪一条**：`RuleCore.UseActiveAbility`（`activeAbilityLogic` 那一格）是
+        //   2026-10-27 才有的引擎口，**默认电池结构上到不了** —— 电池的第 ④ 步按**原始格号**回读
+        //   被测单位，而被测卡可能已经换格 / 回手（`SOR66` 的「回合开始回到手牌」就会这样）⇒
+        //   那一格读到的是别人。本夹具**单独建一场**：打出被测卡 → 过一个来回清掉「部署当回合不能行动」
+        //   → 直接调 `UseActiveAbility`，把三条硬断言原样打出来。
+        //
+        // **形状**：`play <卡id|卡名> preset aa=1`（见 <see cref="RunActiveAbility"/>）。
+        // ⚠️ 这是量具干预（与 `preset face=` / `dead=` 同一档）；⛔ 不传 `aa=` 时一条都跑不到，
+        //   全池基线与 `PinnedPlayMd5` **完全不受影响**。
+        /// <summary>`aa=1` —— 单独跑一次「主动能力」夹具（见上面整段注释）。</summary>
+        public int ActiveAbility;
+
+        public bool ActiveAbilityMode { get { return ActiveAbility > 0; } }
+
+        // ==================================================================
         //  🆕 `B9_W32S3`（2026-10-27）：**「打得动的靶子」夹具**（`big=1`）
         // ==================================================================
         //
@@ -692,6 +712,11 @@ class PlayProbe
                     case "legacy":
                         ps.Legacy = (string.IsNullOrEmpty(val) || val != "0");
                         break;
+                    // 🆕 `B87_A3`（2026-10-27）：`aa=1` —— 单独跑一次「主动能力」夹具
+                    //   （见 `PresetSpec.ActiveAbility` 上面那一整段注释；⛔ 不动默认夹具）。
+                    case "aa":
+                        ps.ActiveAbility = string.IsNullOrEmpty(val) ? 1 : int.Parse(val);
+                        break;
                     // 🆕 `B9_A3`（2026-10-26）：`face=ambush` —— 面朝下 + 带 `ambush` 的出手夹具
                     //   （见 `PresetSpec.Face` 上面那一整段注释；⛔ 认不出就抛，不静默忽略）。
                     case "face":
@@ -702,7 +727,7 @@ class PlayProbe
                         break;
                     default:
                         throw new ArgumentException("不认识的预置项 `" + raw + "`（只认 dead / enemyhand / chipenemy / sub / legal"
-                                                  + " / pick / tpick / big / selfdies / hero"
+                                                  + " / pick / tpick / big / selfdies / hero / aa"
                                                   + " / hand / handn / event / amount / legacy / face）"
                                                   + "　⚠️ `preset` 是用**逗号**分项的 ⇒ 卡名里带逗号的两张"
                                                   + "（`Varius, Lord Kakophonist` / `Xarahan, Daemon Prince`）"
@@ -1149,6 +1174,141 @@ class PlayProbe
         Console.WriteLine("    · ⇒ 读数为「揭开 + 撤 ambush」**且**「敌目标掉血 / 对敌伤害累计 > 0」= 与判据一致；");
         Console.WriteLine("      若只有前半句、伤害仍是 0 ⇒ **续攻那一半没落地**（`B9 A1` 修的就是这一条）。");
         Console.WriteLine("    ⚠️ 伤害为 0 也可能是「这一记被别的闸挡了」（看上面的 rc 与日志），⛔ 别单看伤害一个数。");
+        return 0;
+    }
+
+    // ==========================================================================================
+    //  🆕 `B87_A3`（2026-10-27）：**原版通用那一格主动能力**（`activeAbilityLogic`）夹具
+    //
+    //  🔴 为什么单开一档：`RuleCore.UseActiveAbility` 是 2026-10-27 才有的引擎口，而**默认电池**
+    //     第 ④ 步是按**原始格号**回读被测单位的 —— 被测卡换格 / 回手之后那一格是别人
+    //     （实测 `SOR66`：「回合开始 → 回手」，于是 `abil=14` / `atkM=21` 其实打在夹具部队身上）。
+    //     ⇒ 本档**单独建一场**、不复用电池，只回答三个问题：
+    //        ① 目标单位的 `RangedAttack` 变了多少（SOR66 的 `buffOthers` = **+2，到回合结束**）
+    //        ② 发动者 `Prayed` 是不是真了（`triggerPray` 那一行）
+    //        ③ 发动者 `Exhausted` 是不是真了（一次发动**要花掉本回合那次行动**）
+    //
+    //  ⚠️ 这是**量具干预**（与 `preset face=` / `dead=` 同一档）：它不声称原版开局是这样摆的。
+    //  ⛔ 不传 `aa=1` 时本函数一行都跑不到 ⇒ 全池基线与 `PinnedPlayMd5` 不受影响。
+    // ==========================================================================================
+    static int RunActiveAbility(List<CardDef> pool, CardDef card, PresetSpec ps)
+    {
+        if (card.Type != "unit")
+        {
+            Console.Error.WriteLine("!! `aa=1` 只对 `type=unit` 有意义（现读 `" + card.Id + "` type=" + card.Type + "）");
+            return 2;
+        }
+        int handIdx; bool injected;
+        var ctx = BuildFixture(pool, card, null, out handIdx, out injected, ps);
+        if (handIdx < 0)
+        {
+            Console.Error.WriteLine("!! 夹具没接住：`" + card.Id + "` 打出时不在手牌里");
+            return 2;
+        }
+        int slot;
+        int rcPlay = RuleCore.PlayCard(ctx, 0, handIdx, FreeSlot(ctx, 0), out slot);
+        if (rcPlay != RuleCodes.OK)
+        {
+            Console.Error.WriteLine("!! 被测卡打不出去 rc=" + CodeName(rcPlay) + " ⇒ 本档无从起步");
+            return 2;
+        }
+        // 清掉「部署当回合不能行动」（`Exhausted` / `AttacksThisTurn`）—— 否则
+        // `CanStartActiveAbility` 会先被 `ErrExhausted` 挡住，读数变成「被闸挡下」而不是
+        // 「主动能力那一支跑没跑」。
+        //
+        // 🔴 **为什么不用「过两个回合」那套（`RunFaceAmbush` 是那么做的）**：实测 `SOR66`
+        //   的卡面自带「**在你的回合开始时，获得 1☀ 并回到手牌**」⇒ 过完来回它就**不在场上**了，
+        //   而 `UseActiveAbility` 要求 `cardState = inPlay`（原版 `CanUseActiveAbility.c:60-70`）
+        //   ⇒ 那一套对本档的被测卡**结构上跑不起来**。
+        // ⚠️ 改用 `UnitState.RefreshForNewTurn()` —— 它就是 `RuleCore.BeginTurn` 里**对每一张牌**
+        //   调的那同一个原语（`UnitState.cs` 的「每回合开始时调用」），这里只对**被测单位**用一次。
+        //   这是**量具干预**（与 `preset face=` / `dead=` 同一档）：它不声称原版有一个「只刷一张牌」
+        //   的时机，⛔ 产品代码里别照抄。副作用 = 不推进 `ctx.Turn`（`DeployedTurn` 仍是本回合）。
+        SetEnergy(ctx, 0);
+        SetFaction(ctx, 0);
+
+        int nowSlot = -1;
+        for (int s = 0; s < BoardSpec.Size && nowSlot < 0; s++)
+        {
+            var u = ctx.Players[0].Board[s];
+            if (u != null && u.Card != null && u.Card.Id == card.Id && !u.IsRemnant) nowSlot = s;
+        }
+        if (nowSlot < 0)
+        {
+            Console.Error.WriteLine("!! 打出之后被测卡**不在场上**（翻成残骸 / 被移除？）⇒ 本档无从起步");
+            return 2;
+        }
+        var me = ctx.Players[0].Board[nowSlot];
+        me.RefreshForNewTurn();
+
+        Console.WriteLine("=== play " + card.Id + " · " + card.Name + " [" + card.Type + "] ‖ 主动能力夹具（`B87_A3`）===");
+        Console.WriteLine("  被测单位    : " + card.Id + " · " + card.Name + "（打出落在第 " + slot + " 格，过完来回在第 " + nowSlot + " 格）");
+        Console.WriteLine("  数据        : `hasActiveAbility`=" + card.HasActiveAbility
+                          + " · `activeAbilityLogic` 行数=" + (card.ActiveAbilityLogic == null ? "（列没落）"
+                              : card.ActiveAbilityLogic.Count.ToString())
+                          + " · `ActiveAbilityMap`=" + (string.IsNullOrEmpty(card.ActiveAbilityMap) ? "（空）" : card.ActiveAbilityMap));
+        Console.WriteLine("  闸          : `CanStartActiveAbility`=" + RuleCore.CanStartActiveAbility(ctx, 0, nowSlot)
+                                            + "（" + CodeName(RuleCore.CanStartActiveAbility(ctx, 0, nowSlot)) + "）"
+                          + " · `CanUseActiveAbility(tgt=self)`=" + RuleCore.CanUseActiveAbility(ctx, 0, nowSlot, nowSlot)
+                                            + "（" + CodeName(RuleCore.CanUseActiveAbility(ctx, 0, nowSlot, nowSlot)) + "）");
+        Console.WriteLine();
+
+        int rngBefore = me.RangedAttack, atkBefore = me.Attack;
+        bool prayBefore = me.Prayed, exhBefore = me.Exhausted;
+        int actsBefore = me.AttacksThisTurn;
+        // 目标：`aa=1`（默认）= 被测单位自己；`aa=2` = **另一个**友方单位（己方督军）——
+        //   用来验证「玩家点的那个人」真的被尊重（原版 `ta=30` 那一支读 `param_5`，
+        //   `AbilityLogic__GetTargets.c:192-207`；⛔ 不是「总是打自己」）。
+        int tgtSlot = nowSlot;
+        if (ps.ActiveAbility >= 2)
+        {
+            int heroSlot = BoardSpec.WarlordSlot;
+            var hero = ctx.Players[0].Board[heroSlot];
+            if (hero == null) { Console.Error.WriteLine("!! `aa=2` 要一个「别的友方单位」，但己方督军不在场"); return 2; }
+            tgtSlot = heroSlot;
+        }
+        var tgtUnit = ctx.Players[0].Board[tgtSlot];
+        int tgtRngBefore = tgtUnit.RangedAttack;
+        var before = Capture(ctx);
+        int rc = RuleCore.UseActiveAbility(ctx, 0, nowSlot, tgtSlot);
+        var after = Capture(ctx);
+        var changes = new List<string>();
+        Diff(before, after, changes);
+
+        // ⚠️ 状态读数都在 `me` 上就地取（主动能力**不会**把载体移出棋盘 —— 与伏击那一档不同）。
+        int rngDelta = me.RangedAttack - rngBefore, atkDelta = me.Attack - atkBefore;
+
+        Console.WriteLine("  ── 三条硬断言（这一档要回答的就是这三行）──");
+        Console.WriteLine("   ① 目标远程（第 " + tgtSlot + " 格 " + (tgtUnit != null ? tgtUnit.Name : "?") + "）："
+                          + "`RangedAttack` " + tgtRngBefore + " → "
+                          + (ctx.Players[0].Board[tgtSlot] != null ? ctx.Players[0].Board[tgtSlot].RangedAttack.ToString() : "（不在场）")
+                          + "（净 " + (tgtUnit != null && (tgtUnit.RangedAttack - tgtRngBefore) >= 0 ? "+" : "")
+                          + (tgtUnit != null ? (tgtUnit.RangedAttack - tgtRngBefore).ToString() : "?") + "）"
+                          + (tgtUnit != null && tgtUnit.RangedAttack - tgtRngBefore == 2 ? "  **✅ +2**" : "  **❌ 不是 +2**")
+                          + (tgtSlot != nowSlot ? "　⚠️ 目标是**别人**（`aa=2`）⇒ 这一行同时验「点谁打谁」" : ""));
+        Console.WriteLine("   ② 发动者祈祷：`Prayed` " + (prayBefore ? "真" : "假") + " → " + (me.Prayed ? "真" : "假")
+                          + (me.Prayed ? "  **✅**" : "  **❌**"));
+        Console.WriteLine("   ③ 发动者已行动：`Exhausted` " + (exhBefore ? "真" : "假") + " → " + (me.Exhausted ? "真" : "假")
+                          + " · `AttacksThisTurn` " + actsBefore + " → " + me.AttacksThisTurn
+                          + (me.Exhausted ? "  **✅**" : "  **❌**"));
+        Console.WriteLine("   附：`Attack` 净 " + (atkDelta >= 0 ? "+" : "") + atkDelta
+                          + " · `UseActiveAbility` rc=" + rc + "（" + CodeName(rc) + "）");
+        Console.WriteLine();
+        Console.WriteLine("  ── 变化逐条（" + changes.Count + " 条）──");
+        if (changes.Count == 0) Console.WriteLine("     （局面一个字段都没动）");
+        foreach (var ch in changes) Console.WriteLine("     " + ch);
+        Console.WriteLine();
+        Console.WriteLine("  ── 引擎自己的事件日志（末尾 16 条）──");
+        var tail = ctx.Events.Skip(Math.Max(0, ctx.Events.Count - 16)).ToList();
+        if (tail.Count == 0) Console.WriteLine("     （一条都没有）");
+        foreach (var l in tail) Console.WriteLine("     " + Clip(l, 150));
+        Console.WriteLine();
+        Console.WriteLine("  ── 怎么读这一档（⛔ 本工具不判对错）──");
+        Console.WriteLine("    · 判据 → `资料/完全复刻/判据/SOR66主动能力_判定.md`：SOR66 的两行 =");
+        Console.WriteLine("      `buffOthers(30)`（给**玩家点中的那个友方单位** +2 远程、到回合结束）＋ `triggerPray(462)`（自己进祈祷）。");
+        Console.WriteLine("    · 三条**都要**：① +2 ② Prayed 真 ③ Exhausted 真。少一条 = 那一行没接上（`steps`/日志里会点名）。");
+        Console.WriteLine("    · `rc=13(ErrUnimplemented)` = 这张卡的 `chosenAbility` 本版**没实现**（日志会逐行点名）——");
+        Console.WriteLine("      那是**如实读数**，⛔ 别把它读成「卡坏了」。");
         return 0;
     }
 
@@ -1994,7 +2154,8 @@ class PlayProbe
         //     （两份迟早不一致，而它们的净差要能横向比）。步骤顺序、快照顺序**逐字未动**。
         var snaps = new List<Snap>();
         if (sPre != null) snaps.Add(sPre);      // 变体：把「打出那一拍」也纳入（见上面 `sPre` 的说明）
-        RunBatterySteps(ctx, slot, preset, ep, snaps);
+        RunBatterySteps(ctx, slot, preset, ep, snaps, card);   // `card` = 被测卡定义 ⇒ ④b 那一格要用（`B87_A3`）
+
 
         // 🔴 **逐段 diff，顺序 = 上面捕获的顺序**（⛔ 别只留首尾：中途被改回去的那一段会自己抵消）。
         for (int i = 1; i < snaps.Count; i++) Diff(snaps[i - 1], snaps[i], ep.Changes);
@@ -2007,7 +2168,12 @@ class PlayProbe
     /// 参数：`slot` = 被测单位那一格（单位档 = 落入的格；督军档 = `BoardSpec.WarlordSlot`）。
     /// `snaps` 由调用方建好（变体要先把「打出那一拍」那个 `sPre` 塞进去），本方法**按序追加**。
     /// `preset` 只用于 `selfdies=1` 那一步（⛔ 缺省 null ⇒ 与改前逐字相同）。</summary>
-    static void RunBatterySteps(BattleContext ctx, int slot, PresetSpec preset, EventPass ep, List<Snap> snaps)
+    //  🆕 2026-10-27（`B87_A3`）：`tested` = **被测卡的定义**（只用来做两件事：判 `hasActiveAbility`、
+    //  按**实例**把它找回来 —— 见下面 ④b 那一段）。`null` = 不跑主动能力那一格（督军档就是这样传的：
+    //  它自己有一段「③ 主动能力 / 替代行动（最后用）」，在这里再塞一格会先把行动花掉、
+    //  静默改掉那 56 行督军的既有读数）。
+    static void RunBatterySteps(BattleContext ctx, int slot, PresetSpec preset, EventPass ep, List<Snap> snaps,
+                                CardDef tested = null)
     {
         var s0 = Capture(ctx);
 
@@ -2179,6 +2345,45 @@ class PlayProbe
             var alt = RuleCore.AvailableAlternative(ctx, 0, slot);
             if (alt != null)
                 ep.Steps.Add("alt(" + alt + ")=" + RuleCore.UseAlternative(ctx, 0, slot, alt, tgt));
+        }
+        // ---- ④b 🆕 2026-10-27（执行代理 `B87_A3`）：原版**通用那一格**主动能力（`activeAbilityLogic`）----
+        //   判据 → `资料/完全复刻/判据/SOR66主动能力_判定.md`：原版技能钮是**通用一格**（不限卡型/关键词），
+        //   我们原来那三条入口（`Ability:` / 替代行动 / 誓约）**都以五个 trait 之一为载体**
+        //   ⇒ 五缺的 `SOR66` 一条都落不到。这一格就是补它的。
+        //   ⚠️ **只在 `hasActiveAbility == 1` 的卡上打这一格**（= 原版真有这一格的 87 张）——
+        //      没有这一格的卡打出来只是噪音，⛔ 不是「静默吞掉返回码」（`abil=` / `oath=` 两格照旧每张都打）。
+        //   ⚠️ **排在 `abil=` / `alt(...)` 之后**：那两格会先花掉本回合那次行动 ⇒ 这里多半得到
+        //      `ErrExhausted(6)`。那是**如实读数**（原版同一个按钮也只给一次），⛔ 别为了「好看」调序
+        //      —— 调了会让那 86 张卡的 `alt(...)` 读数从 0 变成 6（覆盖面倒退）。
+        //   目标 = **被测单位自己**（SOR66 的 `targetCriteria` = `friendlyUnits 1 / includeSelf 1`
+        //   ⇒ 自己一定是合法候选）；三条硬断言直接打在 `steps` 里：
+        //      `rng+/-N`   = 目标 `RangedAttack` 的净变化（**+2** 才是对）
+        //      `pray0/1`   = 发动者 `Prayed`
+        //      `exh0/1`    = 发动者 `Exhausted`
+        //   🔴 **按【实例】找格号，⛔ 不按 `slot`**（2026-10-27 `B87_A3` 实测的坑）：被测卡可能在
+        //      走到这一步之前就换了格 / 回手（`SOR66` 的「回合开始 → 回到手牌」就会这样，实测
+        //      这时 `Board[slot]` 已经换成夹具部队 ⇒ 原来那几格 `abil=` / `atkM` 量到的是**别人**）。
+        //      找不到 = `aa=notinplay`（如实打出来，⛔ 不假装跑过）。
+        if (slot >= 0 && slot < BoardSpec.Size && tested != null && tested.HasActiveAbility == 1)
+        {
+            int aaSlot = -1;
+            for (int q = 0; q < BoardSpec.Size && aaSlot < 0; q++)
+            {
+                var cand = ctx.Players[0].Board[q];
+                if (cand != null && cand.Card != null && cand.Card.Id == tested.Id && !cand.IsRemnant) aaSlot = q;
+            }
+            if (aaSlot < 0) ep.Steps.Add("aa=notinplay");
+            else
+            {
+                var me = ctx.Players[0].Board[aaSlot];
+                int rngBefore = me.RangedAttack;
+                int aaRc = RuleCore.UseActiveAbility(ctx, 0, aaSlot, aaSlot);
+                int rngDelta = me.RangedAttack - rngBefore;
+                ep.Steps.Add("aa=" + aaRc + "@tgt" + aaSlot
+                           + "/rng" + (rngDelta >= 0 ? "+" : "") + rngDelta
+                           + "/pray" + (me.Prayed ? 1 : 0)
+                           + "/exh" + (me.Exhausted ? 1 : 0));
+            }
         }
         var s4 = Capture(ctx);
 
@@ -3849,7 +4054,7 @@ class PlayProbe
     //    ⛔ **另外三颗指纹原样不动**：`PinnedPoolMd5`（卡池没改）· `PinnedParseMd5`（`check` 现跑
     //      解析差异仍 0 行、输出指纹 ✓）· `PinnedBaselineMd5`（`基线/out_baseline.txt` 没重生成）。
     //    判据全文 → `资料/普查产出_1025/E6_十三行接闸.md` §五·2 / §六。
-    public const string PinnedPlayMd5 = "e7f1de8f96f9e7a255ae72534cf263de";   // 🆕 2026-10-27（第八十六会话 · 重同步点）差异卡 2 张：BL64（ta 短路闸：原 playRc=18 打不出去 → 现在能打）· DA42（A7 结算层闸：不再「打出当刻 +3」）。⚠️ DA42 的完整链等 A1a（模板入池 1,128→1,129）会再钉一次 play + 一次池指纹，那时不是新回归。上一版 = 0766fbe1…  // 🔴 2026-10-27 重钉（第八十五会话同步点 · 两笔探针口径改动）：① 新增 `atkCount`/`exhausted` 两列（原先对「计数类偏离」**全盲**，`E5ENG` 用 ON/OFF 对照实验实测坐实）；② `Program.LoadPool` 在逐卡循环里给 `Core/ForcedAttackRefund.Install` 灌 `chosenAbility`（原先探针里那份 `Data/` partial 走 `Resources.Load`、恒 null ⇒ **一律退还** ⇒ 计数必然回 0，是**量具失真**）。②的影响面**恰好 1 张**：`GOF93`（235 不退还族）`atkCount` 由空变 `P0[2]=1`，其余 1127 张逐列全等、电池 586 张逐字节一致。⚠️ **`atkCount` 只是「退款 / 行动额度记账」的哨兵，⛔ 不是「攻击发生没发生」的读数**。上一版 = 79057e33… ｜ 🔴 2026-10-27 重钉（第八十五会话 · `E1RNG` P-04 随机源）：结算随机改成**原版形状** = 开局预烧 100 个整数 + 游标按下标取（`MatchData__GenerateRandomNumbers.c:1-40` / `MatchData__GetRandomInt.c:8-40`），洗牌也从 Fisher–Yates 改成**原版「按名次挑选」**（`SupportMethods__GetRandomOrder.c:1-98`）⇒ 全池 `ctx.Rng.Next` 清零，结算路径只剩烧表那一行。差异面 = **主档 100 张 / 电池 76 张**，逐族归因与完整 id 清单见 `资料/完全复刻/报告/B9_E1RNG_随机源P04.md` §5.2/§5.3（`dmg` 变值 15 张，其余是「随机挑到哪一张」变了）。上一版 = 1b40f42a… ｜ 🔴 2026-10-26 重钉（第八十四会话同步点）：本会话引擎改动 = BL47 解析修正（`EffectText` 加法型反向正则）· 附魔摘除改排队摘（`481`）· `pendingHealing` 治疗收尾清（含满血/溢疗支）· 残骸原地翻回（`DoReanimate`）· P-06 接 `Aura.RefreshInPlayNumericAndKeywords`（`BL18`/`UM18` 各 +4）· P-05 残骸 `Has` 闸（`SW25`）⇒ 主档 1 张（`BL47`）· 电池 3 张（`BL18`/`SW25`/`UM18`）；每条已由各写手做 A/B 隔离归因。上一版 = af8e8178… ｜ 🔴 2026-10-26 重钉（第八十三会话同步点）：伏击/landing **续打一记**（`A1`/`A3` 查实原版两支都压一条 `BattleActionType=1` 续攻、出队后再进 `_ResolveAttack` ⇒ 12 张 `ambush` 卡从「**零次攻击**」变成「一次」）。电池段 **5 张变**（GSC11/GSC15/GSC25/GSC69/GSC7），`A3` 做过 A/B 实证：**不是卡行为变了**，是控制臂 `Blank(card)` 保留了 `ambush` 关键词、现在也面朝下，与真卡逐字相同被净差减掉（插桩证明两版 a/b 条数完全相同 45/43，只 `b` 里一行内容变了）。主档 1128 张**逐字节一致**。上一版 = 6e888bbe… ｜ 🔴 2026-10-26 重钉（第八十二会话同步点）：本会话引擎改动（残骸清 trait / 灵魂石按阵营 / 相邻目标 / 5 条广播收窄 / 强制攻击退还 / 探针夹具阵营改 SaimHann） ｜ 🔴 2026-10-26 重钉（第八十一会话 · 调度台收尾同步点）：**G14 的「死后相邻单位」效果修好** —— 那 5 张卡原本「卡面写着、我们不打」，现在照卡面生效 ⇒ 主档 **5 张变**（ASH54 dmg 8→12 · ASH73 伤害累计 8→13 且督军 28→26 · SAU56 dmg 0→3 · Particle Whip · None Must Know 眩晕督军 1），**事件电池 586 张逐字节一致**（零外溢）。逐条核对过「都是这 5 张、无新回归」。⚠️ 探针对**归一化内容**算的（文件原始 md5 另算，别混）。上一版 = 39c4f77e…
+    public const string PinnedPlayMd5 = "03b6591f93dd9bf6f8649624553d6666";   // 🔴 2026-10-27 重钉（第八十七会话 · `.cs` 攻坚波收口）：本会话引擎侧改动 = `EffectResolver` 四休眠动词（exchange/copycemetery/stealhand/stealdeck，池内 0 张 ⇒ 主档 0 变）· **`SOR66` 主动能力入口**（`UseActiveAbility`，探针新增 `aa=` 一列）· `NeedsToChooseFromPool` oath 池闸 · 召唤路径发起义广播 · **「强制攻击白扣」改回照抄** · `IsRightContext` fail-open→fail-closed · `BattleContextPlayedThisTurn` 新 partial。差异面 = **电池 76 张**（55 张只多 `aa=6`（ErrExhausted，alt 已花行动）+ 21 张在 `V3` 变体里**真的发动了能力**），①-a 主档逐字节一致。上一版 = 139e1046… ｜ 🔴 2026-10-27 重钉（第八十七会话 · `A1a` 模板入池）：池 **1,128→1,129**（DA42 的附魔模板 `Reconnaissance Mission` 入池）。差异面：**主档 ①-a = 0 张变**（新增 1 行 = 模板自己）· **事件电池 ①-b = 1 张 = `DA71`**（`Watcher in the Dark`「从 DarkAngels 池随机加一张」⇒ 摇号 `DA61`→`DA58`；已用 `WFPROBE_POOL` 指改前那份池做 A/B **复现** ⇒ **池成分变化，⛔ 不是引擎行为改变**）。基线文件已同步重生成（`基线/_bak_1027c/` 留上一版）。⚠️ 这条不是新回归。上一版 = e7f1de8f… ｜ 🆕 2026-10-27（第八十六会话 · 重同步点）差异卡 2 张：BL64（ta 短路闸：原 playRc=18 打不出去 → 现在能打）· DA42（A7 结算层闸：不再「打出当刻 +3」）。⚠️ DA42 的完整链等 A1a（模板入池 1,128→1,129）会再钉一次 play + 一次池指纹，那时不是新回归。上一版 = 0766fbe1…  // 🔴 2026-10-27 重钉（第八十五会话同步点 · 两笔探针口径改动）：① 新增 `atkCount`/`exhausted` 两列（原先对「计数类偏离」**全盲**，`E5ENG` 用 ON/OFF 对照实验实测坐实）；② `Program.LoadPool` 在逐卡循环里给 `Core/ForcedAttackRefund.Install` 灌 `chosenAbility`（原先探针里那份 `Data/` partial 走 `Resources.Load`、恒 null ⇒ **一律退还** ⇒ 计数必然回 0，是**量具失真**）。②的影响面**恰好 1 张**：`GOF93`（235 不退还族）`atkCount` 由空变 `P0[2]=1`，其余 1127 张逐列全等、电池 586 张逐字节一致。⚠️ **`atkCount` 只是「退款 / 行动额度记账」的哨兵，⛔ 不是「攻击发生没发生」的读数**。上一版 = 79057e33… ｜ 🔴 2026-10-27 重钉（第八十五会话 · `E1RNG` P-04 随机源）：结算随机改成**原版形状** = 开局预烧 100 个整数 + 游标按下标取（`MatchData__GenerateRandomNumbers.c:1-40` / `MatchData__GetRandomInt.c:8-40`），洗牌也从 Fisher–Yates 改成**原版「按名次挑选」**（`SupportMethods__GetRandomOrder.c:1-98`）⇒ 全池 `ctx.Rng.Next` 清零，结算路径只剩烧表那一行。差异面 = **主档 100 张 / 电池 76 张**，逐族归因与完整 id 清单见 `资料/完全复刻/报告/B9_E1RNG_随机源P04.md` §5.2/§5.3（`dmg` 变值 15 张，其余是「随机挑到哪一张」变了）。上一版 = 1b40f42a… ｜ 🔴 2026-10-26 重钉（第八十四会话同步点）：本会话引擎改动 = BL47 解析修正（`EffectText` 加法型反向正则）· 附魔摘除改排队摘（`481`）· `pendingHealing` 治疗收尾清（含满血/溢疗支）· 残骸原地翻回（`DoReanimate`）· P-06 接 `Aura.RefreshInPlayNumericAndKeywords`（`BL18`/`UM18` 各 +4）· P-05 残骸 `Has` 闸（`SW25`）⇒ 主档 1 张（`BL47`）· 电池 3 张（`BL18`/`SW25`/`UM18`）；每条已由各写手做 A/B 隔离归因。上一版 = af8e8178… ｜ 🔴 2026-10-26 重钉（第八十三会话同步点）：伏击/landing **续打一记**（`A1`/`A3` 查实原版两支都压一条 `BattleActionType=1` 续攻、出队后再进 `_ResolveAttack` ⇒ 12 张 `ambush` 卡从「**零次攻击**」变成「一次」）。电池段 **5 张变**（GSC11/GSC15/GSC25/GSC69/GSC7），`A3` 做过 A/B 实证：**不是卡行为变了**，是控制臂 `Blank(card)` 保留了 `ambush` 关键词、现在也面朝下，与真卡逐字相同被净差减掉（插桩证明两版 a/b 条数完全相同 45/43，只 `b` 里一行内容变了）。主档 1128 张**逐字节一致**。上一版 = 6e888bbe… ｜ 🔴 2026-10-26 重钉（第八十二会话同步点）：本会话引擎改动（残骸清 trait / 灵魂石按阵营 / 相邻目标 / 5 条广播收窄 / 强制攻击退还 / 探针夹具阵营改 SaimHann） ｜ 🔴 2026-10-26 重钉（第八十一会话 · 调度台收尾同步点）：**G14 的「死后相邻单位」效果修好** —— 那 5 张卡原本「卡面写着、我们不打」，现在照卡面生效 ⇒ 主档 **5 张变**（ASH54 dmg 8→12 · ASH73 伤害累计 8→13 且督军 28→26 · SAU56 dmg 0→3 · Particle Whip · None Must Know 眩晕督军 1），**事件电池 586 张逐字节一致**（零外溢）。逐条核对过「都是这 5 张、无新回归」。⚠️ 探针对**归一化内容**算的（文件原始 md5 另算，别混）。上一版 = 39c4f77e…
 
 
     /// <summary>`play check` 的缺省基线 —— **按名字往上找**（形状照 `Program.CheckMain.DefaultBaseline`，

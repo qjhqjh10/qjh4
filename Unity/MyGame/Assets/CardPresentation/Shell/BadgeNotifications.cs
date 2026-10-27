@@ -68,8 +68,8 @@ namespace CardPresentation
 
     public sealed class InboxBadge : BadgeNotification { }
     public sealed class CollectionBadge : BadgeNotification { }
-    public sealed class ShopBadge : BadgeNotification { }
-    public sealed class InventoryBadge : BadgeNotification { }
+    public class ShopBadge : BadgeNotification { }          // 2026-10-27 B26：去 sealed —— 原版 `OfferBadge : ShopBadge`
+    public class InventoryBadge : BadgeNotification { }     // 2026-10-27 B26：去 sealed —— 原版 `BoosterPackBadge : InventoryBadge`
     public sealed class SocialBadge : BadgeNotification { }
     /// <summary>锻造红点。原版是 `record ForgeBadge(CardArmy army)` —— **带阵营**，`army` 进 record 相等性
     /// ⇒ `Validate` 只认同阵营那一条（判据 = `decomp_full/Everguild.LiveOps.ForgeHandler.__c___CheckNotification_b__9_0.c`：
@@ -505,4 +505,49 @@ namespace CardPresentation
             return comp;
         }
     }
+
+    // ============================================================ 追加区 · 2026-10-27（B26 · 徽记 record 补 3 个）
+    //
+    // 【补的是哪三个 / 为什么会缺】原版 `Everguild.UI.Notifications` 共 **16 种**徽记，我们原来只有 12 种
+    //   （判据 = `判据/其他与基础设施.md` 那一轮的类清单 + `il2cpp_out/dump.cs:123419-124100`）：
+    //   `BoosterPackBadge`（卡包未开）/ `OfferBadge`（某货架有可领报价）/ `ChallengeMatch`（有人约战）。
+    //   ⛔ 三个都是**本地数据模型**（不是服务器件）⇒ 用户 2026-10-25 的「只跳过服务器/账户/云后端」裁定不覆盖它们。
+    //   ⛔ 本段**不往上面插行**：账的落点钉在 `BadgeNotifications.cs:79/97/139/…/469` 上（铁律 18·b）。
+    //
+    // 【三个类的形状都是「C# record 的编译器产物」，判据 = `dump.cs` 的成员表】：
+    //   · `BoosterPackBadge : InventoryBadge`（`dump.cs:123483`）—— **零字段**（只有 `EqualityContract` / `Equals` / `GetHashCode` /
+    //     `PrintMembers` / `<Clone>$` 那一套）。⇒ 一个空派生类就够了，相等性由「同类型」判定（`BadgeNotification.Validate` 的默认实现）。
+    //   · `OfferBadge : ShopBadge`（`dump.cs:123884-123930`）—— **有一个 `public string storeId`（+0x10）+ 单参 ctor**
+    //     （`[Serializable]`）。⇒ `storeId` 进相等性（record 语义）= 同类型 ∧ 同 storeId。
+    //   · `ChallengeMatch : Notification`（`dump.cs:124081`）—— **零字段**（直接派生 `Notification`）。
+    //
+    // ⚠️ 命名：原版基类叫 `Notification`，我们叫 `BadgeNotification`（上一轮就这么落的地，别为了对齐改名 —— 会牵动 12 个类与全部调用点）。
+
+    /// <summary>原版 `BoosterPackBadge : InventoryBadge, IEquatable&lt;BoosterPackBadge&gt;`（`il2cpp_out/dump.cs:123483-123520`，**零字段**）。
+    /// 用途 = 商店页签那颗红点：`ShopContainerInventory.CheckNotification()` 按「未开的卡包袋数」发 N 条。</summary>
+    public sealed class BoosterPackBadge : InventoryBadge { }
+
+    /// <summary>原版 `OfferBadge : ShopBadge, IEquatable&lt;OfferBadge&gt;`（`dump.cs:123884-123935`）：**`public string storeId`（+0x10）+ 单参 ctor**。
+    /// <para>⚠️ 2026-10-26（`J9SC`）已就地订正过一句「9 个编译器样板方法」—— **它有真字段**，不是纯样板。</para>
+    /// <para>相等性（record 语义）= 同类型 ∧ 同 `storeId` ⇒ 用 `Validate` 表达（与 `ForgeBadge` / `CampaignBadge` 同一写法）。</para></summary>
+    [Serializable]
+    public class OfferBadge : ShopBadge
+    {
+        /// <summary>这一条报价属于哪个货架（原版 `storeId`）。</summary>
+        public string storeId;
+
+        public OfferBadge() { }
+        public OfferBadge(string storeId) { this.storeId = storeId; }
+
+        public override bool Validate(BadgeNotification other)
+        {
+            var b = other as OfferBadge;
+            if (b == null) return false;
+            return string.Equals(b.storeId, storeId, StringComparison.Ordinal);
+        }
+    }
+
+    /// <summary>原版 `ChallengeMatch : Notification, IEquatable&lt;ChallengeMatch&gt;`（`dump.cs:124081-124140`，**零字段**）。
+    /// 用途 = 社交页签：有人向你发起约战。⚠️ 本地 P2P 约战（`Net/*`）目前不发这条通知 ⇒ 今天 0 实例（如实记，不是「已接」）。</summary>
+    public sealed class ChallengeMatch : BadgeNotification { }
 }

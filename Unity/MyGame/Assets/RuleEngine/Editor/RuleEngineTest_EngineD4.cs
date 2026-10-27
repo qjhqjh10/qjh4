@@ -17,12 +17,13 @@
 //   ③ 判据总表 → `资料/普查产出_1024c/A2_引擎战斗判据总表.md` 的 **Q7**；
 //      本批的报告 → `资料/普查产出_1024c/E9_卡表v25_logic级判据列.md`。
 //
-// 🔴 **期望值一律写死字面量**（1127 / 193 / 1616 / 132 / 1008 / 13 / 390 …），
+// 🔴 **期望值一律写死字面量**（1129 / 193 / 1621 / 1010 / 287 / 132 / 13 / 390 …；⚠️ 2026-10-27 现读），
 //   全部来自**生成器现读的产物**（`gen_cards_engine.py` 的 v25 摘要）与原版真值快照，
 //   ⛔ 不从被测实现里反算（那就是自证）。每条都带 `🧨`（什么改动能让它红）。
 //
-// ⚠️ **本文件还没接线**：`RuleEngineTest.cs` 的 `Run()` 里要由主对话加一行
-//   `Step(TestEngineD4);`（那一份不在本代理白名单）；`RuleEngineTest_Diag.cs` 同理（工具重生成）。
+// ⚠️ **接线已补（2026-10-27 现读）：`RuleEngineTest.cs:1084` 有 `Step(TestEngineD4);`** ——
+//   原来那句「本文件还没接线 / 要由主对话加一行」写于接线之前，已过期（铁律 5 就地订正）。
+//   `RuleEngineTest_Diag.cs` 同理（工具重生成）。
 //   补之前覆盖闸会红并点名 `TestEngineD4` —— 那是**设计如此**（宁红，也不要「文件在、从没跑过」）。
 using System;
 using System.Collections.Generic;
@@ -95,16 +96,20 @@ public static partial class RuleEngineTest
         //   归因 → `资料/完全复刻/报告/B8_BM_强制攻击退还数据化.md`。
         // 🔴 2026-10-27（批次 9 · 执行代理 `E7ENG` · 铁律 5 就地订正）：又加了两列 ⇒ 表 bump 到 **34** ——
         //   **v33 = 加 `enchantTrait` 一列** · **v34 = 加 `cardType` 一列**（消费点 `CardDef.IsTrapCard` → `CardInstance.ArmedTrap`）。
-        //   归因 → `工具/gen_cards_engine.py:5572`（`"version": 34`）与同处 `:5580` 的 v33 注。
-        Check(dto.version, 34,
-              "★ A1 卡表 `version` = **34**（v34 = 加 `cardType` 一列 · v33 = 加 `enchantTrait` 一列；"
+        //   归因 → `工具/gen_cards_engine.py:5619`（`"version": 35`；⚠️ 2026-10-27 现读，v33/v34 的注就在它下面几行）
+        //   —— 原来这里写的 `:5572`/`:5580` 是 v34 那一版的行号，加列之后整体下移（铁律 5 就地订正）。
+        Check(dto.version, 35,
+              "★ A1 卡表 `version` = **35**（🔴 2026-10-27 批次 A（执行代理 `G1`）= 加三列 "
+            + "`cardDescriptionTextReferenceId` / `activeAbilityTextReferenceId` / `targetingTextReferenceId`"
+            + "（池内非空 15 / 2 / 51；⚠️ 本版**只加数据列、零引擎行为**，消费端是批次 B）；"
+            + "v34 = 加 `cardType` 一列 · v33 = 加 `enchantTrait` 一列；"
             + "v32 = 加 `chosenAbility` 一列（「强制攻击退不退还行动额度」的判据来源 = `ForcedAttackRefund`）；"
             + "v31 = 加 `keyword` 一列；"
             + "v30 = **加卡不加列**：池内新增隐藏附魔模板 `Pray Enchantment`；"
             + "v29 `abilityLevelCriteria` 的 `ca` 一格 / v28 `activeAbilityPickCriteria` / v27 "
             + "`abilityActingCriteria` / v26 / v25 各列照旧；"
             + "⛔ 不 bump 的话卡池/新列的变更没有版本可认）"
-            + "｜🧨 生成器 return 里改回 33（或忘了 bump）⇒ 红");
+            + "｜🧨 生成器 return 里改回 34（或忘了 bump）⇒ 红");
 
         // ---- A2 · 两列「每张卡都落」：`null` 与空数组必须分得开 ----
         int aatNull = 0, atcNull = 0;
@@ -178,8 +183,15 @@ public static partial class RuleEngineTest
         }
         // 🔴 2026-10-25（`X20`）：1616 → **1619**（池内新增的附魔卡自己带 2 条 ability / 3 条 logic，
         //   它们的 `targetCriteria` 各落 1 行 ⇒ +3 行；`abilityTargets` 的 logic 数同步 1616→1619）。
-        Check(atcRows, 1619,
-              "★ A4a `abilityTargetCriteria` 共 **1619 行**（= `abilityTargets` 的 1619 个 logic，逐一对应）"
+        // 🔴 **2026-10-27（`A1a` · 铁律 5 就地订正）：池 1128 → 1129** —— 收进 `DA42` 的附魔模板
+        //   `Reconnaissance Mission`（`e8cf1eb55ca41534abe38efc90b302e9`）。它自己带 1 条 `abilityTargets`
+        //   （`ta = [0, 20]` ⇒ **2 个 logic**）+ 2 行 `abilityTargetCriteria`（`targetsAffected` = 0 / 20）
+        //   ⇒ 本文件的字面量跟着动三处：**A4a 1619→1621 · B2 1009→1010 · B4 286→287**。
+        //   ✅ 复算方式（可复查）：拿 `cards_engine.json` 按本节同一套判据现数，**改前池逐格复现旧值
+        //   （1619/1009/286/13/117/60/391/556/336/729/28/51/50/163/79/10/21/2/193/132/1128）**
+        //   ⇒ 同一份脚本对新池给 1621/1010/287，差额只有上面那 2 行 / 1 张 / 1 行。
+        Check(atcRows, 1621,
+              "★ A4a `abilityTargetCriteria` 共 **1621 行**（= `abilityTargets` 的 1621 个 logic，逐一对应）"
             + "｜🧨 漏落某条 ability 的 logic / 把 ability 级的 `targetCriteria` 也塞进来 ⇒ 红");
         Check(nBadAb, 0, "★ A4b `ab` 全部 ≥ 0（= `cardAbilities` 下标）｜🧨 写成 -1 ⇒ 红");
         Check(nBadLg, 0, "★ A4c `lg` 全部 ≥ 0｜🧨 漏写 ⇒ 红");
@@ -250,15 +262,15 @@ public static partial class RuleEngineTest
               "★ B1 `activeAbilityTargets` **有行的 132 张**（= `activeAbilityLogic` 有行的 132 张，逐卡同集）"
             + "｜🧨 生成器把这一列写成「只给 `hasActiveAbility=1` 的 87 张」⇒ 红（死数据也要落，见 `gate:0` 口径）");
         // 🔴 2026-10-25（`X20`）：1008 → **1009**（新增的附魔卡自己就有 `abilityLogic.targetCriteria` 行）。
-        Check(atcCards, 1009,
-              "★ B2 `abilityTargetCriteria` **有行的 1009 张**（其余 119 张没有 `abilityLogic` ⇒ `[]`）"
+        Check(atcCards, 1010,
+              "★ B2 `abilityTargetCriteria` **有行的 1010 张**（其余 119 张没有 `abilityLogic` ⇒ `[]`）"
             + "｜🧨 只给带 `abilityTargets` 非空的卡落 ⇒ 红");
         Check(aatTa0, 17,
               "★ B3 `activeAbilityTargets` 里 `targetsAffected == 0`（`any`）的 **17 行** ——"
             + " 这些行的其余 35 格在原版里**全部失效**（`GetTargets.c:190-192`），但**仍然照落**"
             + "（消费端要能看见「原版说 any」）｜🧨 生成器按 `criteria_carries_targets` 那套把 0 行丢掉 ⇒ 红");
-        Check(atcTa0, 286,
-              "★ B4 `abilityTargetCriteria` 里 `targetsAffected == 0` 的 **286 行**（同上，照落）"
+        Check(atcTa0, 287,
+              "★ B4 `abilityTargetCriteria` 里 `targetsAffected == 0` 的 **287 行**（同上，照落）"
             + "｜🧨 丢掉 `any` 行 ⇒ 红");
 
         // ---- B5 · 36 格里「真正有内容」的格（每一格 = 一条独立判据；数量少 ⇒ 说明整块没落对）----
@@ -348,7 +360,8 @@ public static partial class RuleEngineTest
         }
         // 🔴 2026-10-25（`X20`）就地改期望值：1127 → 1128（池内新增隐藏附魔模板 `Pray Enchantment`；
         //    它没有 `abilityTargets`/`activeAbilityLogic` 行 ⇒ 只把「逐卡对账」的卡数 +1，不增任何行）。
-        Check(cards, 1128, "★ C0 对账覆盖 1128 张卡｜🧨 池子换了 ⇒ 提醒改这批字面量（不是缺陷，是过期）");
+        Check(cards, 1129, "★ C0 对账覆盖 1129 张卡（2026-10-27 `A1a`：1128 → 1129）"
+            + "｜🧨 池子换了 ⇒ 提醒改这批字面量（不是缺陷，是过期）");
         Check(countMismatch, 0,
               "★ C1a 每张卡 `abilityTargetCriteria` 的**行数** = 该卡 `abilityTargets[].ta` 的长度和"
             + "（1616 个 logic ⇒ 1616 行）｜🧨 漏一条 logic ⇒ 红");

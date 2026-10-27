@@ -1649,5 +1649,44 @@ namespace CardPresentation
         /// <summary>🆕 **2026-10-26（批次 4 · F7 · 任务 ④）**：本页 `Player Level Text` 那颗字。
         /// ⚠️ 声明在**类尾**（`CLAUDE.md` §三「新成员追加到类尾」）—— 本页既有成员的行号一个不动。</summary>
         Label _levelLabel;
+
+        // ============================================================ 🆕 2026-10-27（C5 批 · 账 438）
+        // 🔴 纪律：这一段**追加在类尾**（本页既有成员的行号一个不动）。
+
+        /// <summary>= 原版 `ProfileAllianceDisplay.Initialize(ProfileAllianceInfo info)` 的**那一支** ——
+        /// 🔴 **按真跑的那一份施工**：`ProfileAllianceDisplay.Initialize` 全库**零调用点**，真正在跑的是
+        /// `ProfileNameTitleSection` 里那段内联同款（判据 `out_cpp2il_dev_ilspy/ProfileNameTitleSection.cs:126-146`）：
+        /// **`AllianceName` 非空** ⇒ `AllianceRatingDisplay.Initialize(Rating, null, disableIfZero: false, …)`
+        /// （**零值也显示、不隐藏**）；**空** ⇒ 只把那个 rating 显示件 `SetActive(false)`。
+        /// <para>⚠️ 本地没有联盟 ⇒ 出厂走「空」那一支（`Alliance Name` 保持 prefab 占位串 `Alliance Name`）。
+        /// 数据源 = `SocialData.AllianceName`（与账 93/95 **同一份**，⛔ 别各写一份）；
+        /// 评级文本本地无源 ⇒ 保持 `------`（原版 `RateEmpty`）。</para></summary>
+        public void SetAllianceInfo(string name, string ratingText)
+        {
+            Transform al = null;
+            foreach (var t in GetComponentsInChildren<Transform>(true))
+                if (t.name == "Alliance Info") { al = t; break; }
+            if (al == null)
+            {
+                Debug.LogWarning("[Profile] 找不到 `Alliance Info` 节点 ⇒ `SetAllianceInfo` 什么都没做（⛔ 不静默）");
+                return;
+            }
+            var nm = al.Find("Alliance Name");
+            var nmLb = nm != null ? nm.GetComponent<Label>() : null;
+            if (nmLb != null) nmLb.SetText(string.IsNullOrEmpty(name) ? PlaceholderAlliance : name);
+
+            var rt = al.Find("Alliance Rating Display");
+            bool hasName = !string.IsNullOrEmpty(name);
+            if (rt != null && rt.gameObject.activeSelf != hasName) rt.gameObject.SetActive(hasName);
+            if (hasName && rt != null && !string.IsNullOrEmpty(ratingText))
+            {
+                var v = rt.Find("Individual rating value");
+                var lb = v != null ? v.GetComponent<Label>() : null;
+                if (lb != null) lb.SetText(ratingText);
+            }
+            Debug.Log("[Profile] `SetAllianceInfo(" + (name ?? "null") + ")` ⇒ "
+                    + (hasName ? "联盟名 + 评级段**开**（原版内联版：非空才 `AllianceRatingDisplay.Initialize`）"
+                               : "评级段**关**、联盟名回占位串（原版内联版：空 ⇒ `SetActive(false)`）"));
+        }
     }
 }

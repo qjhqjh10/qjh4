@@ -1257,8 +1257,8 @@ namespace RuleEngine
         /// （`CleanupDeaths` 当场把死者从棋盘摘下 ⇒ `cell` 恒 null；原版那一刻卡状态是 `waitingToDie(5)`）。
         /// ⛔ **50 档不加** —— 原版 50 支读的是 `IsInCemetery || IsInPlay`，**不含** state 5。
         ///
-        /// 🔴 **`-1`（未知）⇒ 返回 `true`**（= 不拦）：让调用方**回退旧关键词表**
-        /// （`UnitInPlay` / `QueuedAction.RequireActorInPlay` 那一套）。⛔ 别把「未知」读成 `Play(0)`。
+        /// 🔶 自己设计（非原版）：`-1`（未知）⇒ 返回 `true`（= 不拦）· 原版没有「未知」这一档（一切非法值都 fail-closed）
+        /// （`IsRightContext.c:84-90` = `LogWarning` + `return 0`），而我们的 `-1` 是**数据缺口**（旧卡表 / 该行没落 / 认不出 trigger 名）⇒ 只能回退旧关键词表（`UnitInPlay` / `QueuedAction.RequireActorInPlay` 那一套）；调度台 2026-10-27 裁定「保留 + 打本标记」（账 679）。⛔ 别把「未知」读成 `Play(0)`。
         ///
         /// ⚠️ **`slot` 只对 0/40/50 有意义**（棋盘格号）；10/20/30 是**按 `Instance` 查三个区域**。
         /// 所以多出 `carrier` 一参：载体离开棋盘之后（死亡 / 回手 / 洗回牌库）格子上就找不到它了，
@@ -1268,13 +1268,13 @@ namespace RuleEngine
         /// ⚠️ **`owner`/`slot` 对不上 `carrier`** ⇒ 那一格**已经换人** ⇒ 按「不在棋盘」处理
         /// （⛔ 别只看「格子非空」就放行）。
         ///
-        /// 其它值（数据坏）⇒ **出声**（`LogError`）后按未知处理（返回 `true`）。
+        /// 其它值（数据坏）⇒ **出声**（`LogWarning`）后 **`return false`**（原版 `IsRightContext.c:84-90` 的 fail-closed；账 679）。
         /// </summary>
         public static bool IsRightContext(BattleContext ctx, int owner, int slot, int context,
                                           CardInstance carrier = null)
         {
             if (ctx == null) return true;                              // 没有 ctx ⇒ 不拦（与 UnitInPlay 同口径）
-            if (context == CardDef.AbilityContextUnknown) return true; // `-1` 契约：回退旧表
+            if (context == CardDef.AbilityContextUnknown) return true; // 🔶 自己设计（非原版）：`-1` 契约 = 回退旧表（见本方法 doc）
 
             UnitState cell = null;
             if (owner >= 0 && owner < ctx.Players.Length && slot >= 0 && slot < BoardSpec.Size)
@@ -1318,10 +1318,10 @@ namespace RuleEngine
                 case CardDef.AbilityContextDeck:     return InZone(ctx, owner, inst, Zone.Deck);
                 case CardDef.AbilityContextCemetery: return InZone(ctx, owner, inst, Zone.Discard);
                 default:
-                    UnityEngine.Debug.LogError(
-                        $"[ActionPump] 非法 `abilityContext={context}`（合法 0/10/20/30/40/50 或 -1）—— "
-                        + "按「未知」处置（放行）；判据 → Core/ActionPump.cs 的 IsRightContext doc");
-                    return true;
+                    UnityEngine.Debug.LogWarning(
+                        $"[ActionPump] 非法 `abilityContext={context}`（合法 0/10/20/30/40/50 或 -1）—— 原版 fail-closed："
+                        + "`CardAbility__IsRightContext.c:84-90` 其余值 ⇒ LogWarning + `return 0`（这条就是出声口）");
+                    return false;
             }
         }
 
@@ -1959,9 +1959,9 @@ namespace RuleEngine
         //       但没人登记 ⇒ 永远不触发（那正是改前的形状）。
         //
         //  ── 三、⏭ 还差什么（都在别的写手的文件里，⛔ 本件不动）────────────────────────────────
-        //    · **数据侧「认得出」**：`CardDef.KeywordTable` 没有 `Courtesy` / `Relentless` 常量、
-        //      `Prefixes` 也没有这两个前缀 ⇒ 卡面/卡数据真写这两个词会被 `Normalize` **静默丢弃**
-        //      （同 `summonrift` / `requiem` 那两格的形状）—— 落点 = `Core/CardDef.cs`（P-07）。
+        //    · **数据侧「认得出」**：`CardDef.KeywordTable` 仍没有 `Courtesy` / `Relentless` 常量；`Prefixes`
+        //      **`relentless` 2026-10-26 `B8_D` 已登记**（原文 = `new[]{"relentless","relentless"}`），**`courtesy` 仍缺**
+        //      ⇒ 卡数据真写 `courtesy` 会被 `Normalize` **静默丢弃** —— 落点 = `Core/CardDef.cs`（P-07，⛔ 本件不动）。
         //    · **调用点**：`chosenAbility 370 / 400` 的 op 分派在 `EffectResolver`（P-02）。
         //      今天池内这两档 **0 张卡**（`cards_truth.json` 1,351 张逐张扫 `chosenAbility`
         //      = 370/375/390/400 **各 0**；`cards_engine.json` v32 的 1,128 张同）

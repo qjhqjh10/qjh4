@@ -383,16 +383,16 @@ namespace CardPresentation
             Nine(bg, "40K_dropdown_bg", r, new Vector4(23f, 20f, 23f, 20f), "Bg", L_Panel,
                  new Color(0.981f, 0.469f, 0.356f, 1f));
 
-            // `Connection Status`（25.9 从左边起 · 25.2²）—— 里面两个状态点**只有一个亮**：
-            // 在线 `Connected Image`（原版 act F ⇒ 我们按「在线才建」）、离线 `Disconnected`（act T）
+            // `Connection Status`（25.9 从左边起 · 25.2²）—— 两个状态点**都建**、由 `ApplyStatus` 摆四档：
+            // 原版 `FriendUIElementWarpforge.Initialize` 的四档（判据 `decomp_full/…__Initialize.c:27-49`）=
+            // `3 Connected` 在线图+connectedColor · `2 Away` 在线图+awayColor · `1/0` 离线图（不改色）。判据全文 → 类尾 `ApplyStatus`。
+            // ⚠️ 原版 prefab 的 act = 在线 **F** / 离线 **T**（`Initialize` 才把它们摆正）⇒ 建完立刻 `ApplyStatus`。
             var st = Node(row, "Connection Status", new PxRect(r.x1 + 13.30f, r.y1 + 16.63f, r.x1 + 38.50f, r.y1 + 41.83f));
-            bool online = f != null && f.Online;
-            if (online)
-                Rect(st, "40K_icon_status_online", new PxRect(r.x1 + 13.30f, r.y1 + 16.63f, r.x1 + 38.50f, r.y1 + 41.83f),
-                     "Connected Image", L_Art, new Color(0f, 1f, 0.0736f, 1f), true);
-            else
-                Rect(st, "40K_icon_status_offline", new PxRect(r.x1 + 13.30f, r.y1 + 16.63f, r.x1 + 38.50f, r.y1 + 41.83f),
-                     "Disconnected", L_Art, new Color(0.84f, 0.494f, 0.44f, 1f), true);
+            Rect(st, "40K_icon_status_online", new PxRect(r.x1 + 13.30f, r.y1 + 16.63f, r.x1 + 38.50f, r.y1 + 41.83f),
+                 "Connected Image", L_Art, new Color(0f, 1f, 0.0736f, 1f), true);
+            Rect(st, "40K_icon_status_offline", new PxRect(r.x1 + 13.30f, r.y1 + 16.63f, r.x1 + 38.50f, r.y1 + 41.83f),
+                 "Disconnected", L_Art, new Color(0.84f, 0.494f, 0.44f, 1f), true);
+            ApplyStatus(row, StatusOf(f));
 
             // `Friend name`：`a=(0.072,0)-(1,1) p=(0,.5) pos=(0.5,0) sz=(−264.559,−4.96)` ⇒ 从 x=0.072W 拉到右边 −264.56
             float nl = r.x1 + r.W * 0.072f + 0.5f, nr = r.x2 - 264.559f;
@@ -478,5 +478,64 @@ namespace CardPresentation
             Rect(n, art, br, "Image", L_Art, new Color(0.906f, 0.906f, 0.906f, 1f), true);
             Hit(n, "Hit", br, L_Hit, onClick);
         }
+
+        // ============================================================ 🆕 2026-10-27（C5 批 · 账 369/372/388）
+        // 🔴 纪律：这一段**追加在类尾**（本文件被账按行号引用 ⇒ 只允许末尾追加）。
+
+        /// <summary>`Connected` 那一档的点颜色 —— prefab 序列化字段**实读**
+        /// `bundle_menus_assets_all/MonoBehaviour/MonoBehaviour_-842203043721886928.json`
+        /// 的 `connectedColor = (0.3093532621860504, 0.6415094137191772, 0.2572089731693268, 1)`。</summary>
+        static readonly Color ConnectedColor = new Color(0.3093533f, 0.6415094f, 0.2572090f, 1f);
+        /// <summary>`Away` 那一档的点颜色 —— 同一份 prefab 的
+        /// `awayColor = (0.9960784912109375, 0.5960784554481506, 0.11764706671237946, 1)`。</summary>
+        static readonly Color AwayColor = new Color(0.9960785f, 0.5960785f, 0.1176471f, 1f);
+
+        /// <summary>好友 → 原版 `ChatPlayerStatus`（0 Default / 1 Disconnected / 2 Away / 3 Connected）。
+        /// 判据 = `out_cpp2il_dev_ilspy/ChatPlayerStatus.cs`；本仓 `SocialData.Friend.Status` 优先，
+        /// **`Status == 0` 回落到旧的 `Online`**（`Online` 是两个旧夹具/生产写入方唯一的字段 ⇒ 删了会把它们打光）。</summary>
+        public static int StatusOf(SocialData.Friend f)
+        {
+            if (f == null) return 1;                 // 没有数据 ⇒ 原版 Default 那一支（离线图、不改色）
+            if (f.Status > 0) return f.Status;
+            return f.Online ? 3 : 1;
+        }
+
+        /// <summary>= 原版 `FriendUIElementWarpforge.Initialize` / `UpdateStatusColor` 的**同一段四档**
+        /// （判据 `decomp_full/FriendUIElementWarpforge__Initialize.c:27-49` 与 `…__UpdateStatusColor.c`）：
+        /// <list type="bullet">
+        /// <item>`3 Connected` ⇒ `ToggleConnectionSprites(true)` + `connectedImage.color = connectedColor`</item>
+        /// <item>`2 Away` ⇒ `ToggleConnectionSprites(true)` + `connectedImage.color = awayColor`</item>
+        /// <item>`1 Disconnected` / `0 Default` / 其它 ⇒ 在线点关、离线点开、**不改色**</item>
+        /// </list>
+        /// <para>✅ **全仓唯一一份**（账 369 与 372 共用，⛔ 别在 `BuildFriendRow` 里再写一遍判据）。</para></summary>
+        public static void ApplyStatus(Transform row, int status)
+        {
+            if (row == null) return;
+            var st = row.Find("Connection Status");
+            if (st == null) return;
+            var on = st.Find("Connected Image");
+            var off = st.Find("Disconnected");
+            bool connected = status == 2 || status == 3;
+            if (on != null && on.gameObject.activeSelf != connected) on.gameObject.SetActive(connected);
+            if (off != null && off.gameObject.activeSelf != !connected) off.gameObject.SetActive(!connected);
+            if (!connected || on == null) return;
+            var q = on.GetComponent<ImageQuad>();
+            if (q != null) q.SetTint(status == 3 ? ConnectedColor : AwayColor);
+        }
+
+        /// <summary>= 原版 `FriendUIElementWarpforge.UpdateStatusColor(ChatPlayerStatus)`（账 372）：
+        /// **已存在的行按新状态刷一遍**。
+        /// <para>⚠️ **等价实现（如实记）**：本仓的行是**纯 builder**（没有持久视图状态、滚出视口就连节点都不建）
+        /// ⇒ 「逐行原地刷」与「整表重建」的可观测结果相同，而重建天然覆盖**视口裁剪**那一档
+        /// （原地刷只能刷到当前建出来的那几行）⇒ 这里走重建。原版的**触发源**
+        /// （`ChatGlobalManager.GetPlayerStatus` 走 Photon，已关服）不可判、全库 `UpdateStatusColor` **0 处调用**
+        /// ⇒ ⛔ 不自己发明触发源，只接到 `ToFocus` 与自检的显式调用两处。</para></summary>
+        public void RefreshStatuses() { BuildRows(); }
+
+        /// <summary>= 原版 `FriendsTab.ToFocus()` = `FillInFriendsContainer()`（判据
+        /// `out_cpp2il_dev_ilspy/FriendsTab.cs`）。派发链 = `GameWindowWithTabs.ToFocus()` →
+        /// `CurrentTabView.ToFocus()`（`Shell/WindowTabBase.cs` 的虚方法，原为空实现）⇒ 窗口回前台那一刻重刷。
+        /// ⚠️ 本地好友表恒空、状态不会变 ⇒ 今天画面上看不出差别（链路已通）。</summary>
+        public override void ToFocus() { BuildRows(); }
     }
 }

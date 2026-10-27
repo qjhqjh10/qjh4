@@ -25116,9 +25116,11 @@ public static class BattleScene
             //   落点只有一处 = `BattleDriver.FaceTextFull`（手牌/场上/卡组编辑/收藏/两扇详情窗/相关卡
             //   全都经 `ToCardData` 或 `FaceTextFull` 到它）。
             //   判据与逐条清单 → `资料/普查产出_1019/W_卡牌线_A1945官方显示_1019b.md`。
-            //   白名单（非缺陷，6 个）= `ASH48`（官方截断）· `SAU58`（官方截断，PnP 亲读）· `SAU15`（官方缺 Rally 句）
-            //   · `TAU65`（官方缺 Strike 行）· `AM72`（官方把 Strike 写成 slay）· `SOR25`（官方缺 +1/+1；
-            //   2026-10-21 亲读 PnP 已裁「我们是对的」）。
+            //   键 = `Card_Description/` + (`cardDescriptionTextReferenceId` 非空 ? 它 : 自己 id) —— 逐字照原版
+            //   `RawCardScript` 那个三元（判据 → `资料/完全复刻/判据/卡面描述引用id_判据.md`）。
+            //   白名单（非缺陷，🔴 **2026-10-27 起只剩 1 个**）= `AM72`（官方把 Strike 写成 slay）。
+            //   ⚠️ 2026-10-27（§12·94 裁定）摘掉了原来那 5 个（`ASH48`/`SAU58`/`SAU15`/`TAU65`/`SOR25`）
+            //   —— 它们的官方 `<id>_new` 正文正好补上「官方缺」的那半句 ⇒ 白名单是创可贴、`descRef` 才是根因。
             {
                 var langWasA1945 = Loc.Current;
                 var poolA1945 = RuleEngine.CardDatabase.Load();
@@ -25140,7 +25142,13 @@ public static class BattleScene
                         new[] { "TL69", "When you play a", "官方 `When you play a` vs 我们 `Whenever you play a`" },
                         new[] { "af98d423c7279a14c84c0d0382c53541", "non-Legendary Astra Militarum", "官方多了 `non-Legendary`" },
                         new[] { "b3735ef3d1408d544b0947e31f898e20", "until your next turn", "官方 `until your next turn` vs 我们 `this turn`" },
-                        new[] { "TL24", "dies, deploy another one", "官方 `When a friendly … dies…` vs 我们 `When an enemy attacks…`" },
+                        // 🔴 2026-10-27（§12·94）：这一行原来是 `TL24` —— **换掉**，因为我们的 `Desc`
+                        //   已经写成新版（`Flying. When an enemy attacks, deploy a Spore Mine`），
+                        //   官方 `_new` 正文也是新版 ⇒ **它当不了「官方 vs 我们」的判别式样本**。
+                        //    换成 `GOF48`：官方 `…random Ork **troops** that cost 4…` vs 我们
+                        //   `…random Ork **Infantry** that cost 4…` ⇒ 判别式与断言都落在同一处差值上，
+                        //   而且这张 `descRef` 为空（键恒 = 卡 id）⇒ 换键前后都成立。
+                        new[] { "GOF48", "random Ork troops that cost 4", "官方 `Ork troops` vs 我们 `Ork Infantry`" },
                     };
                     int enHit = 0, enDiff = 0;
                     foreach (var row in enRows)
@@ -25198,86 +25206,47 @@ public static class BattleScene
                               $"★ ② 字面量抽查：{zhHit}/{zhDiff} 张中文卡面走官方 ZH");
                     }
 
-                    // ---------- ③ 白名单三条：官方优先**不生效**（照旧用我们的） ----------
-                    //    判别式选的是「官方里没有、我们文本里有的」片段 —— 三条都结构上不可能自证。
+                    // ---------- ③ 原白名单 5 张：**已摘掉**，改走官方 `cardDescriptionTextReferenceId` 正文 ----------
+                    //    🔴 2026-10-27（判据 `W64DESC` → 裁定 `资料/完全复刻/调度台日志.md` §12·94）：
+                    //    那 5 张（`ASH48`/`SAU58`/`SAU15`/`TAU65`/`SOR25`）的官方 **`<descRef>` 正文**
+                    //    （现读 = `<id>_new`）**正好补上**白名单注释里写着「官方缺」的那半句
+                    //    ⇒ 白名单是创可贴、`descRef` 才是根因 ⇒ 摘白名单 + 换键（铁律 11：做根因、不做凑合）。
+                    //    ⛔ **不许为了让下面 ⑤/⑥ 两条全池断言绿而把这 5 张塞回白名单**。
+                    //    判别式：`want` 从 `Card_Description/<descRef>` 现算、且**与旧键**（`Card_Description/<id>`）
+                    //    的渲染结果**不相等** —— 生产若仍按卡 id 取键，`want` 不会出现在正文里 ⇒ 红。
                     {
-                        var ash48 = FindA1945("ASH48");
-                        Check(ash48 != null, "（前提 ③）卡池里有白名单 `ASH48`");
-                        if (ash48 != null)
+                        var a1945Demoted = new[] { "ASH48", "SAU58", "SAU15", "TAU65", "SOR25" };
+                        foreach (var pid in a1945Demoted)
                         {
+                            var pc = FindA1945(pid);
+                            if (pc == null) { Check(false, $"（前提 ③）卡池里有 `{pid}`"); continue; }
+                            Check(!BattleDriver.IsOfficialFaceTextWhitelisted(pid),
+                                  $"★ ③ `{pid}`：**已从** `OfficialFaceTextWhitelist` 摘掉（现在只剩 `AM72` 一条）");
+                            string keyNew = A1945DescKeyOf(pid);
+                            Check(keyNew != "Card_Description/" + pid,
+                                  $"（前提 ③）`{pid}` 的 `cardDescriptionTextReferenceId` 非空（现取键 `{keyNew}`）");
                             Loc.RestoreForTest(AvailableLanguages.English);
-                            Check((BattleDriver.FaceTextFull(ash48).body ?? "").IndexOf("Repeat this effect", System.StringComparison.Ordinal) >= 0,
-                                  "★ ③ 白名单 `ASH48`（官方后半句截断）：英文卡面仍含我们 `desc` 的 `Repeat this effect`");
-                            Check((Loc.OfficialEnglish("Card_Description/ASH48") ?? "").IndexOf("Repeat this effect", System.StringComparison.Ordinal) < 0,
-                                  "…（判别式）官方 EN 确实没有这句 ⇒ 上面那条不是空转");
+                            string rawEn = Loc.OfficialEnglish(keyNew) ?? "";
+                            string oldEn = Loc.OfficialEnglish("Card_Description/" + pid) ?? "";
+                            string wantEn = CardIcons.Rewrite(pid, "desc", rawEn);
+                            string oldRwEn = CardIcons.Rewrite(pid, "desc", oldEn);
+                            Check(wantEn.Length > 0 && wantEn != oldRwEn,
+                                  $"（前提 ③）`{pid}` 的 `_new` 官方正文存在且**与旧键渲染结果不同**（`{keyNew}`）");
+                            string bodyEn = BattleDriver.FaceTextFull(pc).body ?? "";
+                            Check(bodyEn.IndexOf(wantEn, System.StringComparison.Ordinal) >= 0,
+                                  $"★ ③ 英文档 `{pid}`：卡面正文 = **官方 `_new`**（`{keyNew}` 渲染后）｜实得「{bodyEn}」");
                             Loc.RestoreForTest(AvailableLanguages.Chinese);
-                            if (CardText.Zh)
+                            // ⚠️ 闸与生产逐字一致：`FaceTextFull` 只有在「中文档 **且** 这张卡有 `descZh`」时才取
+                            //    官方 zh 列；没有 `descZh` 的那一档它取的是**官方英文列**（本支不测，另立账）。
+                            if (CardText.Zh && !string.IsNullOrEmpty(pc.DescZh))
                             {
-                                Check((BattleDriver.FaceTextFull(ash48).body ?? "").IndexOf("重复此效果", System.StringComparison.Ordinal) >= 0,
-                                      "★ ③ 白名单 `ASH48`：中文卡面仍含我们的「重复此效果」");
-                                Check((Loc.OfficialCurrent("Card_Description/ASH48") ?? "").IndexOf("重复此效果", System.StringComparison.Ordinal) < 0,
-                                      "…（判别式）官方 ZH 确实没有这句");
-                            }
-                        }
-
-                        var sau58 = FindA1945("SAU58");
-                        Check(sau58 != null, "（前提 ③）卡池里有白名单 `SAU58`");
-                        if (sau58 != null)
-                        {
-                            Loc.RestoreForTest(AvailableLanguages.English);
-                            Check((BattleDriver.FaceTextFull(sau58).body ?? "").IndexOf("Draw a troop", System.StringComparison.Ordinal) >= 0,
-                                  "★ ③ 白名单 `SAU58`（官方截断，PnP `Warpforge_58_Implacable-Conqueror.png` 印着这句）："
-                                + "英文卡面仍含我们 `desc` 的 `Draw a troop`");
-                            Check((Loc.OfficialEnglish("Card_Description/SAU58") ?? "").IndexOf("Draw a troop", System.StringComparison.Ordinal) < 0,
-                                  "…（判别式）官方 EN 确实没有这句");
-                            Loc.RestoreForTest(AvailableLanguages.Chinese);
-                            if (CardText.Zh)
-                            {
-                                Check((BattleDriver.FaceTextFull(sau58).body ?? "").IndexOf("抽一张军队牌", System.StringComparison.Ordinal) >= 0,
-                                      "★ ③ 白名单 `SAU58`：中文卡面仍含我们的「抽一张军队牌」");
-                                Check((Loc.OfficialCurrent("Card_Description/SAU58") ?? "").IndexOf("抽一张军队牌", System.StringComparison.Ordinal) < 0,
-                                      "…（判别式）官方 ZH 确实没有这句");
-                            }
-                        }
-
-                        // 🆕 2026-10-19 写手现核新发现 3 张（官方截断/换关键词，全部 PnP 亲读裁定）
-                        var sau15 = FindA1945("SAU15");
-                        Check(sau15 != null, "（前提 ③）卡池里有白名单 `SAU15`");
-                        if (sau15 != null)
-                        {
-                            Loc.RestoreForTest(AvailableLanguages.English);
-                            Check((BattleDriver.FaceTextFull(sau15).body ?? "").IndexOf("If you control no other troops", System.StringComparison.Ordinal) >= 0,
-                                  "★ ③ 白名单 `SAU15`（官方缺整句，PnP `Warpforge_21_Deathmark.png` 印着 Rally 那句）："
-                                + "英文卡面仍含我们的 `If you control no other troops`");
-                            Check((Loc.OfficialEnglish("Card_Description/SAU15") ?? "").IndexOf("If you control no other troops", System.StringComparison.Ordinal) < 0,
-                                  "…（判别式）官方 EN 确实没有这句");
-                            Loc.RestoreForTest(AvailableLanguages.Chinese);
-                            if (CardText.Zh)
-                            {
-                                Check((BattleDriver.FaceTextFull(sau15).body ?? "").IndexOf("如果你没有控制其他军队", System.StringComparison.Ordinal) >= 0,
-                                      "★ ③ 白名单 `SAU15`：中文卡面仍含我们的「如果你没有控制其他军队」");
-                                Check((Loc.OfficialCurrent("Card_Description/SAU15") ?? "").IndexOf("如果你没有控制其他军队", System.StringComparison.Ordinal) < 0,
-                                      "…（判别式）官方 ZH 确实没有这句");
-                            }
-                        }
-
-                        var tau65 = FindA1945("TAU65");
-                        Check(tau65 != null, "（前提 ③）卡池里有白名单 `TAU65`");
-                        if (tau65 != null)
-                        {
-                            Loc.RestoreForTest(AvailableLanguages.English);
-                            Check((BattleDriver.FaceTextFull(tau65).body ?? "").IndexOf("Heals 1", System.StringComparison.Ordinal) >= 0,
-                                  "★ ③ 白名单 `TAU65`（官方缺 `Strike: Heals 1`，PnP `Warpforge_01_War-Shaper.png` 印着）："
-                                + "英文卡面仍含我们的 `Heals 1`");
-                            Check((Loc.OfficialEnglish("Card_Description/TAU65") ?? "").IndexOf("Heals 1", System.StringComparison.Ordinal) < 0,
-                                  "…（判别式）官方 EN 确实没有这句");
-                            Loc.RestoreForTest(AvailableLanguages.Chinese);
-                            if (CardText.Zh)
-                            {
-                                Check((BattleDriver.FaceTextFull(tau65).body ?? "").IndexOf("恢复 1 点生命值", System.StringComparison.Ordinal) >= 0,
-                                      "★ ③ 白名单 `TAU65`：中文卡面仍含我们的「恢复 1 点生命值」");
-                                Check((Loc.OfficialCurrent("Card_Description/TAU65") ?? "").IndexOf("Heal_1", System.StringComparison.Ordinal) < 0,
-                                      "…（判别式）官方 ZH 确实没有 `Heal_1` 那一支");
+                                string rawZh = Loc.OfficialCurrent(keyNew) ?? "";
+                                string wantZh = CardIcons.Rewrite(pid, CardIcons.DescZhField, rawZh);
+                                Check(wantZh.Length > 0,
+                                      $"（前提 ③）`{pid}` 中文档官方正文非空（`{keyNew}` 的 zh 列，空则回退 en 列）");
+                                string bodyZh = BattleDriver.FaceTextFull(pc).body ?? "";
+                                Check(bodyZh.IndexOf(wantZh, System.StringComparison.Ordinal) >= 0,
+                                      $"★ ③ 中文档 `{pid}`：卡面正文 = **官方 `_new`**（`{keyNew}` 渲染后）｜实得「{bodyZh}」");
                             }
                         }
 
@@ -25307,27 +25276,6 @@ public static class BattleScene
                                       "…（判别式）官方 ZH 确实是 `[[slay]]`");
                             }
                         }
-
-                        var sor25 = FindA1945("SOR25");
-                        Check(sor25 != null, "（前提 ③）卡池里有白名单 `SOR25`");
-                        if (sor25 != null)
-                        {
-                            Loc.RestoreForTest(AvailableLanguages.English);
-                            string b25 = BattleDriver.FaceTextFull(sor25).body ?? "";
-                            Check(b25.IndexOf("+1", System.StringComparison.Ordinal) >= 0,
-                                  "★ ③ 白名单 `SOR25`（内容分歧待 PnP 裁）：英文卡面仍含我们的 `+1`（官方只写 flank）");
-                            Check(b25.IndexOf("another friendly troop", System.StringComparison.Ordinal) < 0,
-                                  "…（判别式）官方那句 `another friendly troop` 没有被用上");
-                            Loc.RestoreForTest(AvailableLanguages.Chinese);
-                            if (CardText.Zh)
-                            {
-                                string bz25 = BattleDriver.FaceTextFull(sor25).body ?? "";
-                                Check(bz25.IndexOf("1 个友方部队", System.StringComparison.Ordinal) >= 0,
-                                      "★ ③ 白名单 `SOR25`：中文卡面仍含我们的「1 个友方部队」");
-                                Check(bz25.IndexOf("另一支友方军队", System.StringComparison.Ordinal) < 0,
-                                      "…（判别式）官方那句「另一支友方军队」没有被用上");
-                            }
-                        }
                     }
 
                     // ---------- ④ `desc`/`descZh` 数据 hash 改前 == 改后（FNV-1a 32 · UTF-8） ----------
@@ -25352,11 +25300,13 @@ public static class BattleScene
                             foreach (byte bt in System.Text.Encoding.UTF8.GetBytes(s)) { h ^= bt; h *= 16777619u; }
                             n++;
                         }
-                        Check(n == 1128, $"④（前提）卡池张数 = 1128（实得 {n}）｜🔴 2026-10-25：卡表 v30 新增 1 张隐藏附魔 `Pray Enchantment`（`X20`）");
-                        Check(h == 0x152CA48Fu,
-                              "★ ④ `desc`/`descZh` 数据 hash 与上一次有意更新后逐字节相同（FNV-1a 32 = `0x152CA48F`；🔴 2026-10-25 由 `0xE85616DA` 更新 —— 池 +1 张附魔卡，其 `desc`/`descZh` 为空但参与 hash）"
+                        Check(n == 1129, $"④（前提）卡池张数 = 1129（实得 {n}）｜🔴 2026-10-27：卡表 v35（加三列 `*TextReferenceId`）+ `A1a` 把 `DA42` 的附魔模板 `Reconnaissance Mission`（`e8cf1eb5…`）收进池（1,128 → 1,129；v30 那张 `Pray Enchantment` 仍在）");
+                        Check(h == 0xE59A576Eu,
+                              "★ ④ `desc`/`descZh` 数据 hash 与上一次有意更新后逐字节相同（FNV-1a 32 = `0xE59A576E`；🔴 2026-10-27 由 `0x152CA48F` 更新 —— 池 +1 张附魔模板，其 `desc`/`descZh` 为空但参与 hash）"
                             + $"｜实得 `0x{h:X8}` —— 显示层只换渲染串、⛔ 没动数据（`A1945` 方案 A）"
-                            + "（期望值的来源：第五十七会话 + `SAU28`/`UM80` 两张 desc + 2026-10-23 `ASH83` 补 `路标石。`）");
+                            + "（期望值的来源：第五十七会话 + `SAU28`/`UM80` 两张 desc + 2026-10-23 `ASH83` 补 `路标石。`"
+                            + " + 2026-10-27 `A1a` 入池那张；⚠️ 复算方式：`id\\x01desc\\x01descZh\\x01` 逐卡拼、"
+                            + "按 `cards_engine.json` 序做 FNV-1a 32 —— 拿**改前**卡表复算得 `0x152CA48F`（与旧期望逐字相同）⇒ 算法可信）");
                     }
 
                     // ---------- ⑤ 全池覆盖：官方文本真的进了卡面（不是只在那几张抽查上成立） ----------
@@ -25364,14 +25314,22 @@ public static class BattleScene
                     //    `FaceTextFull` 的实现**）⇒ 「换了源却没接上 / 漏了某一张」都会红。
                     {
                         Loc.RestoreForTest(AvailableLanguages.English);
-                        int total = 0, covered = 0, residual = 0;
+                        int total = 0, covered = 0, residual = 0, refKeyMissing = 0;
                         string firstMiss = null;
                         foreach (var c in poolA1945)
                         {
                             if (c == null || !c.FromOriginalPool || string.IsNullOrEmpty(c.Id)) continue;
                             if (BattleDriver.IsOfficialFaceTextWhitelisted(c.Id)) continue;
-                            string raw = Loc.OfficialEnglish("Card_Description/" + c.Id);
-                            if (string.IsNullOrEmpty(raw)) continue;          // 官方缺条目（现读 2 张）
+                            // 🔴 2026-10-27（§12·94）：键走 **`descRef` 优先**（与生产同一口径，逐字照原版那个三元）
+                            string refId = A1945DescRefOf(c.Id);
+                            string raw = Loc.OfficialEnglish(A1945DescKeyOf(c.Id));
+                            if (string.IsNullOrEmpty(raw))
+                            {
+                                // 官方缺条目（现读 2 张，这两张 `descRef` 都为空）。**但 `descRef` 非空却查不到键**
+                                // 是**数据缺陷** ⇒ ⛔ 不许静默跳过（跳过只会让 ⑤ 的覆盖率悄悄变好看）。
+                                if (!string.IsNullOrEmpty(refId)) refKeyMissing++;
+                                continue;
+                            }
                             total++;
                             string want = CardIcons.Rewrite(c.Id, "desc", raw);
                             string body = BattleDriver.FaceTextFull(c).body ?? "";
@@ -25385,6 +25343,9 @@ public static class BattleScene
                             + (firstMiss == null ? "）" : $"，首例 {firstMiss}）"));
                         Check(residual == 0,
                               $"⑤ 卡面正文不许残留 `[[`/`((`/`$$` 原始记号（实得 {residual} 张）");
+                        Check(refKeyMissing == 0,
+                              "⑤（前提）`cardDescriptionTextReferenceId` 非空的卡，官方 `<ref>` 键**必须存在**"
+                            + $"（⛔ 不是静默跳过）｜实得缺键 {refKeyMissing} 张");
                     }
 
                     // ---------- ⑥ 中文档全池覆盖（官方 zh 列） ----------
@@ -25392,15 +25353,21 @@ public static class BattleScene
                         Loc.RestoreForTest(AvailableLanguages.Chinese);
                         if (CardText.Zh)
                         {
-                            int total = 0, covered = 0, residual = 0;
+                            int total = 0, covered = 0, residual = 0, refKeyMissing = 0;
                             string firstMiss = null;
                             foreach (var c in poolA1945)
                             {
                                 if (c == null || !c.FromOriginalPool || string.IsNullOrEmpty(c.Id)) continue;
                                 if (string.IsNullOrEmpty(c.DescZh)) continue;    // `zh` 判据里那一条（现读 1 张）
                                 if (BattleDriver.IsOfficialFaceTextWhitelisted(c.Id)) continue;
-                                string raw = Loc.OfficialCurrent("Card_Description/" + c.Id);
-                                if (string.IsNullOrEmpty(raw)) continue;
+                                // 🔴 2026-10-27（§12·94）：键走 **`descRef` 优先**（与生产同一口径）
+                                string refId = A1945DescRefOf(c.Id);
+                                string raw = Loc.OfficialCurrent(A1945DescKeyOf(c.Id));
+                                if (string.IsNullOrEmpty(raw))
+                                {
+                                    if (!string.IsNullOrEmpty(refId)) refKeyMissing++;
+                                    continue;
+                                }
                                 total++;
                                 string want = CardIcons.Rewrite(c.Id, CardIcons.DescZhField, raw);
                                 string body = BattleDriver.FaceTextFull(c).body ?? "";
@@ -25424,6 +25391,9 @@ public static class BattleScene
                                 + (firstMiss == null ? "）" : $"，首例 {firstMiss}）"));
                             Check(residual == 0,
                                   $"⑥ 中文档卡面正文不许残留 `[[`/`((`/`$$` 原始记号（实得 {residual} 张）");
+                            Check(refKeyMissing == 0,
+                                  "⑥（前提）`cardDescriptionTextReferenceId` 非空的卡，官方 `<ref>` 键**必须存在**"
+                                + $"（⛔ 不是静默跳过）｜实得缺键 {refKeyMissing} 张");
                         }
                     }
                     // ---------- ⑦ 别名记号不重复印：`[[frenzied]]`→`Destroyer` / `[[rage]]`→`Penitence` ----------
@@ -49093,5 +49063,53 @@ public static class BattleScene
             check(v == null, $"（前提·W67·{tag}）演完**已收摊**（临时 `CardView` 已销毁，不留孤儿卡）");
             return p1;
         }
+    }
+
+    // ══════════════════════════════════════════════════════════════════════════════════════════════
+    //  `A1945` 官方卡面正文的**键**（`cardDescriptionTextReferenceId` 优先）—— 2026-10-27（§12·94 裁定）
+    //  · 键 = `Card_Description/` + (`cardDescriptionTextReferenceId` 非空 ? 它 : 自己 id)
+    //    —— 逐字照原版 `RawCardScript` 那个三元；⛔ **没有**「ref 缺键 ⇒ 退回自己 id」那一支。
+    //  · 读数口 = **卡表原文**（`Resources/cards_engine.json`；v35 起有这三列），⛔ 不经 `CardDef`：
+    //    ① 期望值不从被测实现里取（灭自证）；② `CardDef` 上那三个属性落地之前这里也能跑。
+    //  · ⚠️ 生产侧同一口径的**唯一一份**应当是 `BattleDriver.OfficialDescKey(id, descRef)` ——
+    //    它落地之后把下面两个函数改成转发（⛔ 别让两套规则各写各的，迟早不一致）。
+    [System.Serializable] sealed class A1945RawRefRow
+    {
+        public string id;
+        public string cardDescriptionTextReferenceId;
+    }
+    [System.Serializable] sealed class A1945RawRefFile { public A1945RawRefRow[] cards; }
+
+    static Dictionary<string, string> _a1945DescRefCache;
+
+    /// <summary>`id → cardDescriptionTextReferenceId`（卡表原文）。读不到 ⇒ 空表 ⇒ 用到它的每条前提都会红（⛔ 不静默）。</summary>
+    static Dictionary<string, string> A1945DescRefMap()
+    {
+        if (_a1945DescRefCache != null) return _a1945DescRefCache;
+        var map = new Dictionary<string, string>();
+        var ta = Resources.Load<TextAsset>(RuleEngine.CardDatabase.ResourcePath);
+        if (ta == null) return map;
+        var f = JsonUtility.FromJson<A1945RawRefFile>(ta.text);
+        if (f == null || f.cards == null) return map;
+        foreach (var r in f.cards)
+            if (r != null && !string.IsNullOrEmpty(r.id))
+                map[r.id] = r.cardDescriptionTextReferenceId;
+        // 只在**读成功**时缓存：读失败（资源还没刷新 / 名字写错）⇒ 不钉死空表，下次调用重试。
+        if (map.Count > 0) _a1945DescRefCache = map;
+        return map;
+    }
+
+    /// <summary>这张卡的 `cardDescriptionTextReferenceId`（空/null = 原版没有 ref ⇒ 键回落到自己 id）。</summary>
+    static string A1945DescRefOf(string id)
+    {
+        string r;
+        return (!string.IsNullOrEmpty(id) && A1945DescRefMap().TryGetValue(id, out r)) ? r : null;
+    }
+
+    /// <summary>官方卡面正文的键（`descRef` 优先，逐字照原版那个三元）。</summary>
+    static string A1945DescKeyOf(string id)
+    {
+        string r = A1945DescRefOf(id);
+        return "Card_Description/" + (string.IsNullOrEmpty(r) ? id : r);
     }
 }

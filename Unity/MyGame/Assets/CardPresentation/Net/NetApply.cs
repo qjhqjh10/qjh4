@@ -150,9 +150,9 @@ namespace CardPresentation.Net
                     break;
                 case AiActionKind.ActiveAbility:
                     if (m.altKeyword == "oath") code = RuleCore.UseOathAbility(ctx, actorSeat, m.slot);
-                    else if (!string.IsNullOrEmpty(m.altKeyword))
+                    else if (!string.IsNullOrEmpty(m.altKeyword) && m.altKeyword != SimpleAI.AltActiveAbility)
                         code = RuleCore.UseAlternative(ctx, actorSeat, m.slot, m.altKeyword, m.targetSlot);
-                    else code = RuleCore.UseAbility(ctx, actorSeat, m.slot, m.targetSlot);
+                    else code = UseAbilityOrActive(ctx, actorSeat, m);
                     break;
                 case AiActionKind.CollectWaystone:
                     code = RuleCore.CollectWaystone(ctx, actorSeat, m.slot);
@@ -282,6 +282,23 @@ namespace CardPresentation.Net
             for (int i = 0; i < ctx.CardPool.Count; i++)
                 if (ctx.CardPool[i] != null && ctx.CardPool[i].Id == id) return ctx.CardPool[i];
             return null;
+        }
+
+        // ── ⑪ 主动技能那一格的**兜底两支**（🆕 2026-10-27 · 执行代理 `B87_A11`）──────────────
+        //  `oath` / 替代行动在调用点先分流；剩下两支：哨兵 `SimpleAI.AltActiveAbility` = 原版通用那一格
+        //  主动能力（`activeAbilityLogic`）· `null` = 普通主动技。
+        //  🔴 **为什么必须认这个哨兵**：不认 ⇒ 对面 / 回放方把 ④ 档那一手路由成 `UseAbility`
+        //  （`ErrNoAbility`）⇒ **P2P 两端指纹静默分叉**（单机看不出来）。判据同 `SimpleAI.UseAbilityOrActive`。
+
+        /// <summary>线上 `ActiveAbility` 动作的兜底落地：哨兵 ⇒ `RuleCore.UseActiveAbility`，否则 ⇒ `RuleCore.UseAbility`。
+        /// <para>⚠️ 「跑不了就不改状态」是**引擎侧**保证的（`UseActiveAbility` 在一条行都跑不了时
+        /// 直接 `ErrUnimplemented`、不置 `Exhausted` / 不发 `EvtKind.Ability`）⇒ 两端走**同一个函数**、
+        /// 得到**同一个码**，⛔ 别在这里补任何「先改再回滚」的分支。</para></summary>
+        static int UseAbilityOrActive(BattleContext ctx, int actorSeat, MsgAction m)
+        {
+            return m.altKeyword == SimpleAI.AltActiveAbility
+                 ? RuleCore.UseActiveAbility(ctx, actorSeat, m.slot, m.targetSlot)
+                 : RuleCore.UseAbility(ctx, actorSeat, m.slot, m.targetSlot);
         }
     }
 }

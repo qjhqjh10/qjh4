@@ -3464,6 +3464,31 @@ A1799_FIELDS = (
     ("targeted",                "targeted",                             -1,
      "这张牌**要选目标**（0/1；218 张 = 1）。⚠️ 我们**从效果解析推**（`SimpleAI` 引 "
      "`EntityScript__get_targeted`）—— 两者是否等价**未核**，所以本笔只落值、⛔ 不替换现有推断"),
+    #   🔴🆕 **v35（2026-10-27 · 第八十七会话 · 执行代理 `G1` · 批次 A）**：三个 `*ReferenceId` 列。
+    #      原版 6 个 `*ReferenceId` 的**逐字段**规模与消费点 → `资料/完全复刻/判据/卡面描述引用id_判据.md` §五·1
+    #      ＋ `判据/activeAbilityTextReferenceId_真值.md` §1·3。**本笔只落值**（消费端是批次 B，`CardDef`/`CardDatabase` 那侧）。
+    #      ⚠️ 三列的「缺值」都是 `""`（string），⛔ 不是 `-1` —— `""` 与原版「没有 ref」**同义**
+    #         （原版那 3 条链全部是 `(ref ?? uniqueId)`，没有「ref 缺键 ⇒ 退回自己 id」这一支）。
+    ("cardDescriptionTextReferenceId", "cardDescriptionTextReferenceId",  "",
+     "卡面正文取键的 id 那一半：键 = `Card_Description/` + (本列 ?: id)"
+     "（`RawCardScript.GetLocalizedCardDesc` `cpp2il/out_cpp2il_dev_ilspy/RawCardScript.cs:2317-2350`；"
+     "字段 `dump.cs:23330 @+0x250`）。**还兼任** `Card_Name/<ref>` / `Card_FullName/<ref>` 的名字回退"
+     "（`:2135-2156` / `:2211-2240`），但那是**主名字键取不到才走**、且池内 0 张会触发（判据 §二）。"
+     "非空 44（全快照）/ **池内 15**（全部形如 `<自己 id>_new`；旧新正文 15/15 实质不同，"
+     "其中 5 张靠 `OfficialFaceTextWhitelist` 遮着才没印旧版）。"
+     "判据 → 资料/完全复刻/判据/卡面描述引用id_判据.md"),
+    ("activeAbilityTextReferenceId", "activeAbilityTextReferenceId",       "",
+     "技能面板取键的 id 那一半：`Card_Abilities/` + (本列 ?: id) + suffix"
+     "（`RawCardScript.cs:2362-2364` / `:2374-2405` / `:2408-2445` / `:2259-2311`；字段 `dump.cs:23329 @+0x248`）。"
+     "现读 1,351 张**只有 3 张非空**（`SOR30`→`SOR30_new` · `SOR25`→`SOR25_new` · 一张**不在池**的 GUID 卡→`AM68`）"
+     "⇒ **池内命中 2**。判据 → 资料/完全复刻/判据/activeAbilityTextReferenceId_真值.md §二"),
+    ("targetingTextReferenceId", "targetingTextReferenceId",               "",
+     "「选目标」提示语的取键：`Card_Targeted/` + (本列 ?: id)"
+     "（`RawCardScript.GetLocalizedTargetted` `:2448-2456`；字段 `dump.cs:23335 @+0x278`）。"
+     "现读非空 **51 张，51 张全在池**（取值是 `chooseTarget` / `deal3Dmg` / `heal2` 这类短键，"
+     "官方表 `Card_Targeted/*` 共 31 键）。⚠️ **我们今天 0 调用点** —— 本列只先把真值带进卡表，"
+     "接线是批次 C（判据 §5·2 · `B9_W61TARG_卡牌目标文本.md`）。"
+     "判据 → 资料/完全复刻/判据/卡面描述引用id_判据.md §五·1"),
 )
 
 
@@ -3936,7 +3961,7 @@ def norm_list(v):
 
 
 # ==========================================================================================
-#  🆕 2026-10-25（引擎线 `X20`）：**隐藏附魔模板入池**（判据驱动，现读入池 1 张）
+#  🆕 2026-10-25（引擎线 `X20`）：**隐藏附魔模板入池**（判据驱动，现读入池 2 张）
 # ==========================================================================================
 # 判据 / 能力表 / 逐张缺口 → `资料/普查产出_1025/X20_PrayEnchantment入池_执行报告.md`
 #                            ＋ `资料/普查产出_1025/X20_附魔能力表.tsv`。
@@ -3952,24 +3977,24 @@ def norm_list(v):
 #      （`Wurrboy` / `Sergeant Gadriel`，`cardType 0`、SO 名尾也带 `_enchantment`，**本体是部队卡**、
 #      两张都不在我们池里）；
 #    · 🔴 **`cardType 20` 是 `Tactic`（`CardTypeOptions`：`Minion 0 / Hero 10 / Tactic 20 / Whispers 40`），
-#      ⛔ 不是「附魔专用型」** —— 真值全表 **680** 张都是 20（含普通战术卡），池内 **486** 张
-#      （= `tactic` 446 + `defence` 39 + `enchantment` 1；2026-10-27 `E7ENG` 现读）。
-#      ⇒ 判「附魔模板」永远是 **`cardType == 20` ∧ 名字含 `enchant`** 两条合取，⛔ 单用 cardType 会多筛 486 张；
+#      ⛔ 不是「附魔专用型」** —— 真值全表 **680** 张都是 20（含普通战术卡），池内 **487** 张
+#      （= `tactic` 446 + `defence` 39 + `enchantment` 2；2026-10-27 `G1` 现读）。
+#      ⇒ 判「附魔模板」永远是 **`cardType == 20` ∧ 名字含 `enchant`** 两条合取，⛔ 单用 cardType 会多筛 487 张；
 #    · `buffEffect.enchantment` 的非零 PPtr 引用 **260 条 / 114 张父卡**（其中 **63 张父卡在池内**）；
 #      `buffType == 15` 的父卡 **39 张**（36 张在池内）。
 #      ⚠️ 「`enchantment` 字段」那个键在**每个 `buffEffect` 对象里都有**（13012 处 / 1351 张卡）——
 #        **键存在 ≠ 引用**：要判「引用了哪张附魔」只看 `enchantment.m_PathID != 0`。
 #
-# 🔴 **为什么现读只入池 1 张**（⛔ 不是「按名字挑的」）：
+# 🔴 **为什么现读只入池 2 张**（⛔ 不是「按名字挑的」）：
 #    判据 = ① 被**池内卡**以 `buffEffect{buffType 12/15/16, enchantment}` 引用到（否则没人挂它 = 死卡）
 #          ∧ ② 它自己 `cardAbilities[].abilityLogic[]` 的 `(trigger, chosenAbility)` 形状
 #               **逐条命中**一个**已实现**的附魔执行点（`ENCHANTMENT_EXECUTORS`，逐条给代码位置）。
-#    现读：有池内挂载者的模板 **32** 张，其中只有 `Pray Enchantment` 命中执行点
-#    （它的两跳在 `RuleCore`/`Enchantments` 里是手接的）⇒ 入池 1 张；
-#    31 张**有池内挂载者但形状不支持**（逐张缺口 → 那张 TSV），**87 张没有池内挂载者**。
+#    现读：有池内挂载者的模板 **32** 张，其中 `Pray Enchantment` ＋ `DA42` 的附魔模板命中执行点
+#    （两根都在 `RuleCore`/`Enchantments`/`EffectResolver` 里是手接的）⇒ 入池 2 张；
+#    30 张**有池内挂载者但形状不支持**（逐张缺口 → 那张 TSV），**86 张没有池内挂载者**。
 #    ⛔ **共同缺的那一跳是同一个**：引擎**没有**「被动 `cardAbilities[].abilityLogic[]`」的解释器
 #      （`EffectResolver` 只解释 `activeAbility` / `alternativeAbility` 的 `chosenAbility`，v23/v24）。
-#      ⇒ 把这 31 张收进来 = 有数据没人用，而且会改掉 `create` / 开包按阵营摇号的确定性结果。
+#      ⇒ 把这 30 张收进来 = 有数据没人用，而且会改掉 `create` / 开包按阵营摇号的确定性结果。
 #
 # ⚠️ 这一层的条目**故意只落「它需要的列」**：下面列出的那些没落的列（`animTimes` / `abilityTargets` /
 #    `abilities` 各类 criteria …）在 `CardDef` 里读出来是「未知」，而这张卡
@@ -3999,6 +4024,28 @@ ENCHANTMENT_EXECUTORS = (
         "why": "挂 = RuleCore.UseAlternativeCore 的 Pray 支 → Enchantments.AttachPray；"
                "结算 = RuleCore.BeginTurn → GrantPrayEnchantmentFaith（+1 信仰后 RemovePray）；"
                "中断 = RuleCore.ApplyDamage / 疲劳支 → Enchantments.RemovePray",
+    },
+    {
+        # 🆕 2026-10-27（第八十七会话 · 执行代理 `G1` · 账 1287 / `B9_W43DA42` 的 A1a）：**池 1,128 → 1,129**
+        # 判据 → `资料/完全复刻/判据/DA42与BroadcastHandWhen剩余_判定.md` §一·2 P0 + §三 A1a
+        #        ＋ `资料/完全复刻/报告/B9_W43DA42_附魔全链.md`（7 跳全链已接完，只剩「模板入池」这一格）。
+        # 形状现读（`cards_raw.json` 逐卡核，2026-10-27）= `((0, 60), (0, 340))` —— 两条 ability 都挂
+        #   `trigger 0 = ThisCardPlayed`：① `chosenAbility 60 buffMana{3, enemyPlayer 1, questPoints 1}`
+        #   ② `chosenAbility 340 removeThisEnchantment`。与 `B9_W43DA42` 报告 §「7 跳」⑥⑦ 逐格对应。
+        # 挂载者现读 **1 条且全在池**：`DA42`（`buffType 15 singleUseEnchantment`，`trigger 0`）⇒ 判据 ① 满足。
+        # 隐藏位现读 `inventoryOptions=10 (NotInInventory)` ∧ `showInCollectionOptions=0 (Hide)`
+        #   ⇒ 不会出现在卡组编辑器 / 收藏 / 开包里（下面 ③ 那两条硬校验会当场炸）。
+        # ⚠️ **它与战术卡 `DA42` 同名**（两句 `cardName` 都是 `Reconnaissance Mission`）——
+        #   消费端按 **id** 认（`Enchantments.DA42EnchantmentCardId`），名字兜底必须带
+        #   `CardDef.IsEnchantment` 闸（`B9_W43DA42` 顺手发现 ④，已接）。
+        "name": "Reconnaissance Mission（DA42 的附魔模板）",
+        "ids": ("e8cf1eb55ca41534abe38efc90b302e9",),   # Z-NC DarkAngels-Reconnaissance Mission_enchantment
+        "pairs": ((0, 60), (0, 340)),
+        "why": "挂 = EffectResolver.DoChooseCard 的 case \"\"（enemyhand）→ "
+               "Enchantments.AttachDA42ToChosenHandCard；"
+               "结算 = EffectResolver.PlayTacticCore / RuleCore.PlayCardCore 的 BroadcastWhen(Play) 之后 → "
+               "Enchantments.OnCarrierPlayed（+3 任务点给载体属主的对手）→ Enchantments.EnqueueRemove；"
+               "无关卡面正文 ⇒ 认它走 id 白名单（`Enchantments.IsDA42Enchantment` + `MatchingForInstance`）。",
     },
 )
 ENCHANTMENT_ATTACH_BUFFTYPES = (12, 15, 16)     # `CardEffect__IsEnchantment.c:9-12`
@@ -5569,7 +5616,19 @@ def build():
     talent_name_ids = build_talent_name_ids(truth_cards, truth_by_path, cards, talent_name_report)
 
     return {
-        "version": 34,         # v34（2026-10-27 · 批次 9 · 执行代理 `E7ENG`）= 加 `cardType` 一列
+        "version": 35,         # v35（2026-10-27 · 第八十七会话 · 执行代理 `G1` · 批次 A）= 加三列
+                               #     `cardDescriptionTextReferenceId` / `activeAbilityTextReferenceId` /
+                               #     `targetingTextReferenceId`（原版 6 个 `*ReferenceId` 里的三个，
+                               #     剩三个池内各 0 张 ⇒ 无对象、不落列：`cardRaceTextReferenceId` /
+                               #     `chatMessagesReferenceId` / `customIntroReferenceId`）。
+                               #     三列都是 string、缺值 `""`（与「原版没有 ref」同义，⛔ 不是 `-1`）。
+                               #     池内非空：15 / 2 / 51。取值链 = `(ref ?? uniqueId)` 拼键，
+                               #     ⛔ **没有**「ref 缺键 ⇒ 退回自己 id」那一支（`RawCardScript.cs:2317-2350`）。
+                               #     🔴 **本版只加数据列、零引擎行为变化** —— 消费端（`CardDef` 三个属性 +
+                               #     `CardDatabase` DTO + `FaceTextFull` 4 处换键 + `SkillPanel`）是**批次 B**，
+                               #     本版落完之前它们仍按卡 id 取键（= 今天的行为）。
+                               #     判据 → `判据/卡面描述引用id_判据.md` §4·1 · `判据/activeAbilityTextReferenceId_真值.md` §5·1
+                               # v34（2026-10-27 · 批次 9 · 执行代理 `E7ENG`）= 加 `cardType` 一列
                                #    （原版 `RawCardScript.cardType` `int @+0x94`；`CardTypeOptions` =
                                #     `Minion 0 / Hero 10 / Tactic 20 / Whispers 40`）。
                                #     消费点 = `CardDef.IsTrapCard`（原版 `EntityScript__get_isTrapCard.c` =

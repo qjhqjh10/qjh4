@@ -497,11 +497,16 @@ public static partial class RuleEngineTest
                       "Q4(a) 前提：卡表 ≥ v25（`AbilityTargetCriteriaVersioned` 为真）");
             // 🔴 2026-10-25（`X20`）：1616/1008 → **1619/1009**（池内新增的附魔卡自带 2 条 ability / 3 条
             //   logic，`targetCriteria` 各落 1 行 ⇒ +3 行 / +1 张）。
-            Check(atcRows, 1619,
-                  $"★ Q4(a) `abilityTargetCriteria` 进 `CardDef` 的行数 = **1619**（现读 {atcRows}；"
-                + "`C5`/`E9` 口径：1009 张 / 1619 行）｜🧨 少一行 = 某个 `(ab,lg)` 键被合并/丢了");
-            Check(atcCards, 1009,
-                  $"★ Q4(a) 带行的卡数 = **1009**（现读 {atcCards}）"
+            // 🔴 **2026-10-27（`A1a` · 铁律 5 就地订正）：1619/1009 → 1621/1010** —— 池 1,128 → 1,129，
+            //   收进的是 `DA42` 的附魔模板 `Reconnaissance Mission`（`e8cf1eb55ca41534abe38efc90b302e9`），
+            //   它自己带 1 条 `abilityTargets`（`ta = [0, 20]` ⇒ 2 个 logic）+ 2 行 `abilityTargetCriteria`。
+            //   ⚠️ **同一批数字在 `RuleEngineTest_EngineD4.cs`（`A4a`/`B2`）已由 `A5` 改成 1621/1010**，
+            //   本文件是**第二份**同源读数 ⇒ 两处必须同步改（判据与复算方式写在那份的注释里）。
+            Check(atcRows, 1621,
+                  $"★ Q4(a) `abilityTargetCriteria` 进 `CardDef` 的行数 = **1621**（现读 {atcRows}；"
+                + "`C5`/`E9` 口径：1010 张 / 1621 行）｜🧨 少一行 = 某个 `(ab,lg)` 键被合并/丢了");
+            Check(atcCards, 1010,
+                  $"★ Q4(a) 带行的卡数 = **1010**（现读 {atcCards}）"
                 + "｜🧨 `MapTargetCriteriaRows` 把某批行整批丢掉（比如 `lg` 校验写反）⇒ 红");
             Check(aatRows, 193,
                   $"★ Q4(a) `activeAbilityTargets` 行数 = **193**（现读 {aatRows}；132 张）"

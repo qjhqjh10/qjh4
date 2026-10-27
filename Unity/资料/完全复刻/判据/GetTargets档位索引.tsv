@@ -1,0 +1,42 @@
+ta值	枚举名	语义一句话	原版行号区间	我们的落点（文件:行号，现读）	判定	缺什么
+0	any	场上全部单位（GetUnitsInPlayList 全开），随后过条件筛	884-891（+1081-1100 筛）	RuleEngine/Core/EffectResolver.cs:1419（ResolveTargetsCore，subject=any 支）	A	无缺口
+10	allFiltered	场上全部单位 + CheckIfMeetsCriteria 逐条筛	972-989（+1081-1100）	RuleEngine/Core/EffectResolver.cs:1419 + CardCriteria/ConditionEval	B	条件筛（conditionsFilter）覆盖度需核
+20	self	加 thisCard（param_3）	184-190	RuleEngine/Core/EffectResolver.cs:1419（self 支）	A	无缺口
+30	target	加玩家点定的目标（param_5）	192-206	RuleEngine/Core/EffectResolver.cs:1419（target 支）	A	无缺口
+40	attacker	加 param_4（actingCard）	761-768	RuleEngine/Core/EffectResolver.cs:1419（attacker 支）	A	无缺口
+50	inHandFiltered	手牌 + 筛	893-904	RuleEngine/Core/EffectResolver.cs:1419（手牌/HandOnly 支）	B	手牌目标池需核
+51	inHandAndDeckFiltered	手牌 + 牌库	905-922	RuleEngine/Core/EffectResolver.cs:1419	B	同上
+52	inHandAndPlayFiltered	手牌 + 场上单位	924-948	RuleEngine/Core/EffectResolver.cs:1419	B	同上
+55	inPlayOrDyingFiltered	场上 + 将死（GetUnitsInPlayList 带 dying）	991-1000	RuleEngine/Core/EffectResolver.cs:1419（IsUnitInPlayOrDying）	B	需核
+60	inCemeteryFiltered	墓地 + 筛	949-960	RuleEngine/Core/EffectResolver.cs:1419	B	墓地目标池需核
+65	inDeckFiltered	牌库 + 筛	961-971	RuleEngine/Core/EffectResolver.cs:1419	B	牌库目标池需核
+70	abilityOwner	原版此档只打 LogError 并当成 actingCard（param_4）	845-848 → 762	RuleEngine/Core/EffectResolver.cs:1419（actingCard 支）	B	原版是错误路径，无需精确复刻；需核我们是否也当 actingCard
+80	actingCard	加 param_4	761-768	RuleEngine/Core/EffectResolver.cs:1419（actingCard 支）	A	无缺口
+90	targetIfMeetsCriteria	加 param_5（若满足条件）	747-759	RuleEngine/Core/EffectResolver.cs:1419（target 支）	B	条件判需核
+100	adjacentToSelfIfMeetsCriteria	GetAdjacentUnits(thisCard)	1001-1009	EffectResolver.cs:16138（ResolveAdjacentAnchorFromPool）/ AdjacentAnchor.Self	A	无缺口
+105	adjacentToPreviousTarget	GetAdjacentUnits(上一条目标)	1010-1036	EffectResolver.cs:16138 / AdjacentAnchor.PreviousTarget	A	无缺口
+106	adjacentToActingCard	GetAdjacentUnits(param_4)	1037-1045	EffectResolver.cs:16138 / AdjacentAnchor.ActingCard	A	无缺口
+110	adjacentToTargetIfMeetsCriteria	GetAdjacentUnits(param_5)	1046-1060	EffectResolver.cs:16138 / AdjacentAnchor.TargetIfMeetsCriteria	A	无缺口
+113	adjacentToFriendlyWarlordIfMeetsCriteria	GetAdjacentUnits(己方英雄)	1061-1070	EffectResolver.cs:16138 / AdjacentAnchor.FriendlyWarlord	A	无缺口
+115	adjacentToEnemyWarlordIfMeetsCriteria	GetAdjacentUnits(敌方英雄)	1071-1080	EffectResolver.cs:16138 / AdjacentAnchor.EnemyWarlord	A	无缺口
+120	friendlyHero	加本侧 hero	721-737	EffectResolver.cs:1419 + :1634（ta120 支）	A	无缺口
+130	enemyHero	加敌方 hero	738-746	EffectResolver.cs:1419（enemyHero 支）	A	无缺口
+140	previousAbilityTargets	AddRange(静态 PreviousAbilityTargets)	849-866	RuleEngine/Core/BattleContext.cs:1132（PreviousAbilityTargets）/ CountEval.cs:606	B	目标侧（非 count 侧）消费需核
+150	previousAbilityFiltered	同 140 + 后续条件筛	867-883	BattleContext.cs:1132 + CountEval.cs:606	B	同上
+160	currentMana	按 GetUnusedMana 把 hero 重复加入（数量=剩余法力）	220-319	EffectResolver.cs:12690（DoEnergy）/ PlayerState.cs:433（GetUnusedMana）	B	「把 hero 重复 N 次当目标表」的目标侧语义需核
+161	currentSpiritStone	按玩家 SpiritStone 计数重复 hero	321-421	EffectResolver.cs:12736（DoFactionResource spirit）/13224（DoSpendSpirit）	B	同上
+162	currentFaith	按信仰计数重复 hero	422-522	EffectResolver.cs:12736（DoFactionResource faith）	B	同上
+170	maxMana	按 GetTotalMana 重复 hero	624-720	PlayerState.cs:425（GetTotalMana）/ EffectResolver.cs:12690（DoEnergy）	B	同上
+180	choiceResolution	特殊：先看 choices 表，不够用 param_4 兜底	89-172	EffectResolver.cs:4706（DoChooseCard）/4471（DoChooseOne）	B	选择解析链需核
+190	lastPlayedIfMeetsCriteria	CemeteryManager.GetCardsPlayed（本局打出过的卡）	173-182	未找到对应	C	缺「本局打出过」的**目标侧消费**。⚠️ 2026-10-27 订正（R16）：表**有**（`RuleEngine/Core/BattleContext.cs:1323` PlayedCards，其 doc 自引 `GetTargets.c:173`），缺的只是目标侧消费 ⇒ 结论 C 不变、理由已改。
+200	referencedCardInThisCard	AddRange(thisCard.referencedCards) 整表（不筛）	770-781	EffectResolver.cs:1467（ResolveTargetsCore ta200 支）	A	结构已实现
+201	referencedInPlayCardInThisCard	同上，只留 IsInPlay 的	784-806	EffectResolver.cs:1467（ta201 支）	A	无缺口
+210	allFilteredCountTraits	场上全部（同 allFiltered，计 trait 用）	972-989	EffectResolver.cs:1419	B	计 trait 侧需核
+220	targetCountTraits	同 target（计 trait 用）	192-206	EffectResolver.cs:1419（target 支）	B	计 trait 侧需核
+230	highestHealthWarlord	GetHighestHealthWarlord；若为空则兜底加敌 hero	809-833	未找到对应	C	目标侧无对应（仅 AI 侧 AiTargets.cs:472 AddLowestHealthUnit）
+235	warlordsTalent	**未分派** → 走 default（空表 + 筛，实际得空）	(无此分支)	RuleEngine/Core/EffectResolver.cs:1419（不需专门分支）	A	⚠️ 2026-10-27 订正（R16）：原版**自己没分派**（走 default 空表）⇒ 与空操作等价 = **A**，⛔ 不是缺口。
+240	lowestHealth	GetLowestHealthUnit	835-843	RuleEngine/Core/EffectResolver.cs:1842-1862（-health 支）	A	⚠️ 2026-10-27 订正（R16）：**已实现**，`-health` 支逐句对上；池内可达 2 张（SAU70 / SAU73 卡面都写 lowest Health）⇒ 无缺口。
+245	secretsPlayed	按 GetSecretsPlayed 重复 hero（已打出秘术数）	523-623	EffectResolver.cs:11283（读 PlayerState.SecretsPlayed）	B	目标侧「重复 hero」语义需核
+-	(条件筛尾)	候选逐个 FilterMethods.CheckIfMeetsCriteria	1081-1100	EffectResolver.cs（CardCriteria / ConditionEval）	A	n/a（这是所有 filtered 档共用的一步）
+-	(param_2+0x80 额外过滤)	额外字符串/trait 过滤	1101-…	EffectResolver.cs（CardCriteria）	B	需核
+-	(checkMaxTargets)	按 maxTargets 裁剪结果	函数尾	EffectResolver.cs（ResolveTargetsCore 尾部）	B	需核上限裁剪

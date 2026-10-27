@@ -788,8 +788,8 @@ namespace CardPresentation
                 if (useExtraSpaceOnSelectedCard && hoveredIndex >= 0 && selSlot < slots
                     && slot != selSlot && IsCompressed(slots))
                 {
-                    if (slot < selSlot) pos.x -= selectedCardExtra;
-                    else pos.x += selectedCardExtra;
+                    if (slot < selSlot) pos.x -= SelectedExtraFor(slots);
+                    else pos.x += SelectedExtraFor(slots);
                 }
 
                 // 悬停（= 原版 `ShowCardInHand` 的「亮出来」态）：抬起 `cardInHandShownYOffset` px + 放大 1.3
@@ -927,6 +927,99 @@ namespace CardPresentation
                  + $"  跨度 {SpanWorld(count):F2} / 上限 {MaxLayoutWorld():F2}"
                  + $"  满弧 {ArcHeightFull * 100f * LayoutSpace.Scale:F2} 归一化×100"
                  + $"  张角修正 {rotationModifierByCount.Evaluate(CountFraction(count)):F2}";
+        }
+
+        // ==================================================================
+        //  🆕 2026-10-27（B87-A7 · 账 `菜单_外壳:63`，判据由 `B87-R12` 读体给出）
+        //     原版 `CardsHorizontalLayout.GetCardsInHandNumberWhereDistanceBetweenThemMustBeReduced(
+        //            float adjustedDistanceBetweenCards)`
+        // ==================================================================
+        //
+        // 判据（🥇 亲读 `decomp_full/CardsHorizontalLayout__GetCardsInHandNumberWhereDistanceBetweenThemMustBeReduced.c`
+        // 全文 40 行；**同形内联副本**在 `CardsHorizontalLayout__GetPosition.c:163-200` —— 本方法自身
+        // 0 调用点，但那段内联副本是活的 ⇒ 行为在线，不能判 D）：
+        // <code>
+        //   for (n = 0; n &lt; BattleManager.MaxCardsInHand(); n++) {
+        //       if (m_maxLayoutSize(+0x2c) &lt;= n * adjustedDistanceBetweenCards
+        //           &amp;&amp; n * adjustedDistanceBetweenCards != m_maxLayoutSize) return n;
+        //   }
+        //   return 0;
+        // </code>
+        // 返回 = 「**从第几张开始必须压缩间距**」的临界张数 n。
+        //
+        // ⚠️ **两处「看着像错」，但原版就这样，照抄**（铁律 11：与原版不符要记录，别顺手「修好」）：
+        //   ① 门槛用的是**裸 `m_maxLayoutSize` 字段**（+0x2c）——**不含** `aspectRatioModifier`、
+        //      **不乘**可见宽（`GetPosition` 主压缩那一段用的 `cap` 才是那一套）⇒ 它和
+        //      `IsCompressed`（`N × 自然间距 &gt; 上限`，上限带 aspectMod 与可见宽）**不是同一个量纲**；
+        //   ② 循环跑满（`n &gt;= MaxCardsInHand`）⇒ 返回 **0**（= 「从第 0 张起就该压」，调用方照 0 处理）。
+        //
+        // ⚠️ **量纲桥（必须做，否则 n 会从 1 变成 3）**：原版那两处比的都是**原版世界单位**（1 单位 =
+        //   14.835 px，且 x 那一路还乘了手牌父级的 `lossyScale`），我们的 `betweenElementsSpacing`
+        //   是 **108 px 单位** ⇒ 门槛也要过同一个桥 `OurUnitsPerWorldUnit`（= 14.835/108）。
+        //   实测：16:9 下 `n*1.45` vs `0.59 × 0.13736 = 0.081` ⇒ **n = 1**（与原版逐位同）。
+
+        /// <summary>`BattleManager.MaxCardsInHand()` 的等价物（= `GameplayVariablesData.handLimit`）。
+        /// <para>⚠️ 原版读的是**这一局**的 `globalVars.handLimit`（经典 10 / 遭遇局 8 / 教程 10，
+        /// 见 `BattleManager__MaxCardsInHand.c`）；`HandLayout` 拿不到 `BattleContext`（它是纯表现件），
+        /// 所以给两个口：① 本字段非 0 就用它（调用方 —— 例如 `BattleDriver` —— 可以按本局写进来）；
+        /// ② 0（出厂）= `RuleEngine.RuleCore.HandMax`（经典 10）。</para>
+        /// <para>⚠️ **今天这个差异不可观察**：`CompressStartIndex` 在 10 与 8 两档下都算出 **n = 1**，
+        /// 而让位曲线在桌面档是**平线 2.0**（`VarsDesktop.extraSpaceOnSelectedCard`）⇒ 比值那一步
+        /// 不改变任何像素。如实记，别当成「已经逐局对齐」。</para></summary>
+        public int maxCardsInHand = 0;
+
+        /// <summary>本局手牌上限（见 <see cref="maxCardsInHand"/>）。</summary>
+        public int MaxCardsInHand()
+        {
+            return maxCardsInHand > 0 ? maxCardsInHand : RuleEngine.RuleCore.HandMax;
+        }
+
+        /// <summary>原版 `GetCardsInHandNumberWhereDistanceBetweenThemMustBeReduced`（判据/两处 ⚠️ 见本节文件头）。
+        /// <param name="maxCardsInHand">循环上限 = 原版 `BattleManager.MaxCardsInHand()`。
+        /// 传 `&lt;= 0` ⇒ 用 <see cref="MaxCardsInHand()"/>。</param>
+        /// <returns>临界张数 n（0 = 「从第 0 张起就该压」/ 循环跑满）。</returns></summary>
+        public int CompressStartIndex(int maxCardsInHand = 0)
+        {
+            int max = maxCardsInHand > 0 ? maxCardsInHand : MaxCardsInHand();
+            float adj = betweenElementsSpacing * LayoutSpace.Scale;       // adjustedDistanceBetweenCards
+            float threshold = this.maxLayoutSize * OurUnitsPerWorldUnit;   // 裸 m_maxLayoutSize，过量纲桥
+            for (int n = 0; n < max; n++)
+            {
+                float len = n * adj;
+                // 原版是 `<=` 判 break、再排掉浮点相等 ⇒ 等价的「严格大于」+ 相等不算命中
+                if (threshold <= len && len != threshold) return n;
+            }
+            return 0;
+        }
+
+        /// <summary>原版 `extraSpaceOnSelectedCard` 那条**曲线**（`VarsDevice` 的字段，不是常量）。
+        /// <para>判据（解包实读，两份 SO）：
+        /// `bundle_duplicateassetisolationso_assets_all/MonoBehaviour/VarsDesktop.json` ⇒ **平线 2.0**
+        /// （两个关键帧都是 2.0、切线 0）；`VarsMobile.json` ⇒ **(0, 2.0) → (1, 5.0)**，两帧切线 3.0。
+        /// 原版取哪一份由平台决定（`BattleManager.globalVars` 是 `VarsDesktop` 还是 `VarsMobile`），
+        /// 我们是桌面档 ⇒ 默认平线 2.0（与改前的常量 `selectedCardExtra` **逐位相同**）。</para>
+        /// <para>⚠️ 声明在类尾（不是和别的字段排在一起）：`HandLayout.cs` 在账里有 `文件:行号` 落点，
+        /// 往字段区插行会让下游整段漂移（`CLAUDE.md` 铁律 18·b）—— C# 允许字段声明在类体任意处。</para></summary>
+        public AnimationCurve selectedExtraByCount = new AnimationCurve(
+            new Keyframe(0f, 2.0f, 0f, 0f), new Keyframe(1f, 2.0f, 0f, 0f));
+
+        /// <summary>选中一张牌时，**两侧各让多少**（我们的世界单位，×108 = px）——
+        /// 原版 = `extraSpaceOnSelectedCard.Evaluate((count − n) / (MaxCards − n))`，
+        /// 其中 `n` = <see cref="CompressStartIndex"/>（判据 = `GetPosition.c:163-200` 那段内联副本：
+        /// `fVar16 = (float)(param_4 - iVar9)` 钳 ≥0、再喂
+        /// `curve.Evaluate(fVar16 / (float)(MaxCardsInHand - iVar9))`）。</summary>
+        public float SelectedExtraFor(int count)
+        {
+            if (!useExtraSpaceOnSelectedCard) return 0f;      // 敌方/选牌/换牌那三份 = 0（MB 4053 实读）
+            // ⚠️ **新加的公字段在老场景的反序列化里可能是 null/空曲线**（同 `queueTop` 那条踩过的坑：
+            //    已存的 `Battle.unity` 里没有这个字段）⇒ 缺档时回**原版桌面平线 2.0**，
+            //    ⛔ 不回落到 `selectedCardExtra`（那个字段已是「我们的单位」，再乘一次桥就小 7.28 倍）。
+            if (selectedExtraByCount == null || selectedExtraByCount.length == 0) return selectedCardExtra;
+            int max = MaxCardsInHand();
+            int n = CompressStartIndex(max);
+            int denom = max - n;
+            float t = denom <= 0 ? 0f : Mathf.Clamp01((count - n) / (float)denom);
+            return selectedExtraByCount.Evaluate(t) * OurUnitsPerWorldUnit;
         }
     }
 }

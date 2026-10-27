@@ -54,7 +54,7 @@ public static partial class RuleEngineTest
     static void G12DataReadings(List<CardDef> pool)
     {
         // 🔴 2026-10-25（`X20`）就地改期望值：1127 → 1128（池内新增隐藏附魔模板 `Pray Enchantment`）。
-        Check(pool.Count, 1128, "(前提) 卡池 1128 张");
+        Check(pool.Count, 1129, "(前提) 卡池 1129 张｜2026-10-27 `A1a` 收 `DA42` 附魔模板 `Reconnaissance Mission`（v35）");
 
         int notVersioned = 0, nullColumn = 0, cardsWith = 0, cardsEmpty = 0;
         int objects = 0, logicRows = 0, gate0Cards = 0, gate0Rows = 0, fmPositive = 0;
@@ -100,8 +100,10 @@ public static partial class RuleEngineTest
             + "｜🧨 生成器的 `active_ability_logic_of()` 少扫一个能力对象 / 生成器换了数据源 ⇒ 红");
         // 🔴 2026-10-25（`X20`）：995 → **996**（池内新增的附魔卡没有 active/alt 行 ⇒ `[]`；
         //    1128 − 132 = 996）。
-        Check(cardsEmpty, 996,
-              "★ 明确没有行的卡 = **996 张**（1128 − 132）"
+        // 🔴 2026-10-27（`A1a`）：996 → **997**（池 1,128→1,129，新模板 `Reconnaissance Mission`
+        //    同样没有 active/alt 行 ⇒ 1129 − 132 = 997）。
+        Check(cardsEmpty, 997,
+              "★ 明确没有行的卡 = **997 张**（1129 − 132）"
             + "｜🧨 把「没有行」写成不落列 ⇒ 这个数掉、上面 `nullColumn` 涨 ⇒ 两条一起红");
         Check(objects, 133,
               "★ 能力对象总数 = **133**（132 个 `activeAbility` ＋ `SW21` 的 1 个 `alternativeAbility`）"

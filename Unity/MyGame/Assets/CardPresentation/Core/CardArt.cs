@@ -1308,5 +1308,73 @@ namespace CardPresentation
             }
             return CardBackSdf(faction);
         }
+
+        // ==================================================================
+        //  🆕 2026-10-27（B87-A7 · 账 `战斗逻辑驱动:1280`）
+        //     原版 `RawCardScript.ReleaseFullHeroSprite()` —— **放掉督军整身立绘**
+        // ==================================================================
+        //
+        // 判据（🥇 亲读 `decomp_full/RawCardScript__ReleaseFullHeroSprite.c` 全文 45 行）：
+        // <code>
+        //   if (alternateArtCard(+0x110) != null) {
+        //       ref = alternateArtCard.fullHeroSprite(+0x210);
+        //       if (ref != null &amp;&amp; ref.RuntimeKeyIsValid()) { ref.Release(); return; }
+        //   }
+        //   ref = fullHeroSprite(+0x210);
+        //   if (ref != null &amp;&amp; ref.RuntimeKeyIsValid()) ref.Release();
+        //   else return;                       // ← **句柄无效 ⇒ 直接返回、不出声**
+        // </code>
+        // ⇒ 语义两条：① **异画优先**（异画那张自己有 `fullHeroSprite` 且句柄有效 ⇒ 放它，不放本体）；
+        //   ② **放且只放一个**，无效句柄是**静默空操作**（原版没有 warning）。
+        //
+        // 原版 4 个活调用点（`grep -rl RawCardScript__ReleaseFullHeroSprite decomp_full`）：
+        //   `DeckInfoPopup__Close` · `DraftModeMenuDemo__ReleaseMenuWarlordImage` ·
+        //   `DraftRunDisplay__OnDestroy` · `PlayerDeckDemoDeckInfoWrapper`。
+        //   ⚠️ 我们这侧对应窗件（`Shell/DeckInfoPopup.cs` · `Shell/DraftModeWindow.cs` · `Shell/ItemDrawer.cs`）
+        //   **不在本批白名单** ⇒ 本笔只落**被调用的那一端**（接线工单已写进报告）。
+        //
+        // ⚠️ **与 `ReleaseModeIcon` 同一处结构性差异**（如实记）：原版每持有者一个 Addressables 句柄，
+        //   N 个格销毁 = N 次 Release（引用计数减 N）；我们的 `_cache` 里**一张图只有一条登记** ⇒
+        //   放一次就没了；**本来就没缓存**时**不出声**（那是载体差异下的等价空操作，不是失败）。
+        //   要数「真放掉几次」看 `ReleasedCount`。
+
+        /// <summary>原版 `RawCardScript.ReleaseFullHeroSprite()`：放掉**督军整身立绘**那条资产登记。
+        /// <para>`warlordId` = 督军 id（= `_deckArtById` 的键，例如 `AM1`）；
+        /// `alternateArtFile` = 异画那张的立绘文件名（原版 `alternateArtCard.fullHeroSprite`）——
+        /// 非空且**在缓存里** ⇒ 优先放它（原版那一条 `if`），空 ⇒ 直接放本体。</para>
+        /// <para>返回 `true` = 真从 `_cache` 里放掉了一条。**没缓存过 ⇒ false、不出声**（见上面那段 ⚠️）。</para>
+        /// <para>⚠️ 与 <see cref="TryDeckHero"/> 用的是**同一条取图链**（`MenuUi` 的 `ui_menu → ui_deck → ui`
+        /// 三级兜底）—— 这里按「哪一级命中就放哪一级」找登记，⛔ 别另拼目录。</para></summary>
+        public static bool ReleaseFullHeroSprite(string warlordId, string alternateArtFile = null)
+        {
+            // ① 异画优先（原版第一条 `if`）：只有它那份**真在缓存里**才顶替本体
+            if (!string.IsNullOrEmpty(alternateArtFile))
+            {
+                string alt = CachedMenuUiPath(alternateArtFile);
+                if (alt != null) return Release(alt);
+            }
+            // ② 本体（原版第二条 `if`）
+            string art;
+            if (string.IsNullOrEmpty(warlordId)
+                || !_deckArtById.TryGetValue(warlordId, out art) || string.IsNullOrEmpty(art))
+                return false;          // 表里没有这一位 ⇒ 没有句柄可放（原版同档静默返回）
+            string path = CachedMenuUiPath(art);
+            if (path == null) return false;
+            return Release(path);
+        }
+
+        /// <summary>`MenuUi` 那三级兜底里**已经缓存并且有图**的那一条路径；一条都没有 ⇒ `null`。
+        /// （`MenuUi` 取图时是「新 → 旧 → 战斗那批」三级 `??`，这里按同一个次序找登记。）</summary>
+        static string CachedMenuUiPath(string artName)
+        {
+            if (string.IsNullOrEmpty(artName)) return null;
+            string file = artName.Replace(' ', '_');
+            string p = Root + "ui_menu/" + file;
+            if (IsCached(p)) return p;
+            p = Root + "ui_deck/" + file;
+            if (IsCached(p)) return p;
+            p = Root + "ui/" + file;
+            return IsCached(p) ? p : null;
+        }
     }
 }

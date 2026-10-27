@@ -2253,7 +2253,7 @@ namespace CardPresentation
             // 🆕 2026-10-25：资源数字滚动（原版 `UIResourceCounter.SetQuantity(..., animated=1)` 的 0.5 s 递增）
             TopBar.StepCounters(_topBar, Time.deltaTime);
             TickNavPanelTween();
-            RefreshDraftModeCard();
+            RefreshDraftModeCard(); TickChatPreviewTween();
         }
 
         /// <summary>自检用：顶栏那块立绘（**一张头像图都加载不到时会是 null** —— 那种情况按出厂态处理：只剩盾）。</summary>
@@ -2264,7 +2264,7 @@ namespace CardPresentation
         {
             // A332：原版 `ChatPreview` = 400 × 60（`anchor (1,1)` + `sizeDelta (400,60)` ⇒ 1475,85→1875,145）
             var p = New(root, "ChatPreview", 400f, 60f);
-            Rect(p, "Closed-Chat_background", 1474.7f, 1847.0f, 85f, 145f, "Container", QBarPanel);
+            _chatPreviewContainer = Rect(p, "Closed-Chat_background", 1474.7f, 1847.0f, 85f, 145f, "Container", QBarPanel);
             // 两条消息：位置**按 Container 的 VLG 算**（pad T/B=3 · L=15，两行等高 27）；
             // 字号照 §七 表二：`fontSize` **18**（**`auto=0`，不是自适应** —— 这一处别开 autosize）、`m_fontColor` 白
             var m1 = Text(p, "<color=#00FF20>Player Name:</color> Message", 1489.7f, 1817.0f, 88f, 115f, 5,
@@ -2275,12 +2275,12 @@ namespace CardPresentation
             //   ⚠️ **订正（铁律 5）**：这行原来写「原版 **auto=0**，**只给折行宽**、不给自适应」—— 前半句对、
             //   **后半句错**：原版**没给**折行宽（它连折行都是关的），`SetWrapWidth` 是**我们主动加的**。
             //   现在留着的 `SetWrapWidth` 只为那一份**框宽**（327.3 与原版那个节点的宽一致），模式按原版关掉。
-            if (m1 != null) { m1.SetWrapWidth(327.3f / 108f); m1.SetWrapping(false); }
+            if (m1 != null) { m1.SetWrapWidth(327.3f / 108f); m1.SetWrapping(false); _chatPreviewRow1 = m1; }
             var m2 = Text(p, "<color=#00FF20>Player Name:</color> Message", 1489.7f, 1817.0f, 115f, 142f, 5,
                           Color.white, "Message Preview (1)", 18f, QBarText, face: TmpFont.Face.LatinCardBody);
             // 第 2 行同上（判据 = `MonoBehaviour_1814.json`，同值）。
-            if (m2 != null) { m2.SetWrapWidth(327.3f / 108f); m2.SetWrapping(false); }
-            Rect(p, "40K_icon_menu_chat", 1811.0f, 1879.0f, 81.8f, 148.3f, "Button", QBarContent);
+            if (m2 != null) { m2.SetWrapWidth(327.3f / 108f); m2.SetWrapping(false); _chatPreviewRow2 = m2; }
+            var chatIcon = Rect(p, "40K_icon_menu_chat", 1811.0f, 1879.0f, 81.8f, 148.3f, "Button", QBarContent); _chatPreviewIcon = chatIcon != null ? chatIcon.transform : null;
             // 🆕 2026-09-27：这颗钮**原来没接点击**（红线：不许静默失败）—— 接上，开聊天窗。
             // 原版那条链：`ChatPreview.Initialize` 把 `chatButton.onClick` 挂 `OpenChat` →
             // `WindowsManager.OpenWindow(chatWindow)`（判据 → `多人界面_入口与调用.md` §②）。
@@ -2329,7 +2329,7 @@ namespace CardPresentation
             //   （禁组件在画面上什么都不做）。
             // 🔴 **唯一能把它点回来的口 = `SetChatPreviewVisible(bool)`**（紧跟本方法的那一个）——
             //   ⛔ 别在别处再写一句 `SetActive`（两处写同一条规则 = 迟早不一致）。
-            SetChatPreviewVisible(false);
+            SetChatPreviewVisible(false); UpdateChatPreviews();
         }
 
         /// <summary>点了那块聊天预览 —— 本仓的 `ChatPreview.OpenChat()`。
@@ -3618,6 +3618,111 @@ namespace CardPresentation
             foreach (var c in t.GetComponentsInChildren<Transform>(true))
                 if (c.name == name) return c;
             return null;
+        }
+
+        // ============================================================ 🆕 2026-10-27（C5 批 · 账 347/348/352）
+        // 🔴 纪律：这一段**追加在类尾**（本文件被账按行号引用 ⇒ 只允许末尾追加）。
+        Label _chatPreviewRow1, _chatPreviewRow2;
+        Transform _chatPreviewIcon;
+        ImageQuad _chatPreviewContainer;
+        float _cpT;                 // `Show()` 已经跑了多久（秒）
+        bool _cpTween;
+
+        /// <summary>= 原版 `ChatPreview.Show()`（**逐句**，判据 `out_cpp2il_dev_ilspy/ChatPreview.cs`）：
+        /// `SetActive(true)` → `DOScale(icon, 1, 0.6).From(0).SetEase(OutBack)` ·
+        /// `DOFillAmount(container, 1, 0.4)` · `DOFade(container, 1, 0.2).From(0).SetDelay(0.2)`。
+        /// <para>🆕 **2026-10-27（C5 · 账 347）**：本仓没有 DOTween ⇒ 用 `Update` 里的帧插值
+        /// （同 `TickNavPanelTween` 那一套；`TickChatPreviewTween` 每帧调 <see cref="StepChatPreview"/>）。
+        /// ⚠️ **两处如实差异**：① `DOFillAmount` 在本仓**没有对等物**（`ImageQuad` 不是 `Image`、没有
+        /// `fillAmount` 那一档）⇒ 那一跳**不做**、只出声一次；② `Ease.OutBack` 的 overshoot 用 DOTween
+        /// 库默认值 **1.70158**（那是库常量，不是这张 prefab 的字段）。</para>
+        /// <para>⚠️ **批处理里没有帧循环** ⇒ 自检要手动步进：`StepChatPreview(dt)`（先例：粒子要手动 `Simulate`）。</para></summary>
+        public void ShowChatPreview()
+        {
+            SetChatPreviewVisible(true);
+            _cpT = 0f; _cpTween = true;
+            if (_chatPreviewIcon != null) _chatPreviewIcon.localScale = Vector3.zero;      // `From(0)`
+            if (_chatPreviewContainer != null) SetQuadTint(_chatPreviewContainer, 0f);      // `From(0)` 的 alpha
+            if (_saidChatFill == false)
+            {
+                _saidChatFill = true;
+                Debug.LogWarning("[ChatPreview] `DOFillAmount(container, 1, 0.4)` **没有对等物** —— 本仓 `ImageQuad` "
+                               + "不是 `Image`、没有 `fillAmount` 那一档 ⇒ 这一条 tween 不做（缩放与淡入照做；⛔ 不假装做了）。");
+            }
+        }
+
+        /// <summary>预览出场动画的**手动步进**口（`Update` 每帧调；自检也调它 —— 批处理没有帧循环）。</summary>
+        public void StepChatPreview(float dt)
+        {
+            if (!_cpTween) return;
+            _cpT += dt <= 0f ? 0f : dt;
+            const float scaleDur = 0.6f, fadeDur = 0.2f, fadeDelay = 0.2f;
+            float ts = Mathf.Clamp01(_cpT / scaleDur);
+            if (_chatPreviewIcon != null) _chatPreviewIcon.localScale = Vector3.one * EaseOutBack(ts);
+            float ta = _cpT <= fadeDelay ? 0f : Mathf.Clamp01((_cpT - fadeDelay) / fadeDur);
+            if (_chatPreviewContainer != null) SetQuadTint(_chatPreviewContainer, ta);
+            if (_cpT >= scaleDur) { _cpTween = false; if (_chatPreviewIcon != null) _chatPreviewIcon.localScale = Vector3.one; if (_chatPreviewContainer != null) SetQuadTint(_chatPreviewContainer, 1f); }
+        }
+
+        /// <summary>出场动画还在跑吗（自检读口）。</summary>
+        public bool ChatPreviewTweening { get { return _cpTween; } }
+
+        void TickChatPreviewTween() { if (_cpTween) StepChatPreview(Time.deltaTime); }
+
+        bool _saidChatFill;
+        /// <summary>DOTween `Ease.OutBack`（overshoot 1.70158 = 库默认值）：`1 + c3·(t−1)³ + c1·(t−1)²`。</summary>
+        static float EaseOutBack(float t)
+        {
+            const float c1 = 1.70158f, c3 = c1 + 1f;
+            float u = t - 1f;
+            return 1f + c3 * u * u * u + c1 * u * u;
+        }
+
+        /// <summary>`ImageQuad` 的 alpha 档（保留原 tint 的 RGB）。本仓没有 `DOFade`，这是它的终态写法。</summary>
+        static void SetQuadTint(ImageQuad q, float a)
+        {
+            if (q == null) return;
+            var c = q.Tint; c.a = a; q.SetTint(c);
+        }
+
+        /// <summary>= 原版 `ChatPreview.UpdatePreviews(string channel, List&lt;ChatMessageData&gt; messages)`
+        /// （**逐句**，判据 `out_cpp2il_dev_ilspy/ChatPreview.cs` 的 `UpdatePreviews`）：
+        /// ① 频道必须等于本组件那个频道（本仓 = `Global`）；② `messages.Count &lt; 1` ⇒ **什么都不做**
+        /// （连 `Show()` 都走不到 —— 所以预览保持出厂不可见）；③ `TakeLast(previews.Count)` 取最后 2 条，
+        /// 逐条 `ChatPreviewMessage.Set(playerName, GetMessage())`。
+        /// <para>⚠️ **调用点**：原版挂在 `ChatGlobalManager` 的 `OnChatUpdate`（服务器推送；本地没有）
+        /// ⇒ 我们的等价时机 = **每次打开主菜单建完预览之后一次**（`BuildChatPreview` 末尾那句）。</para></summary>
+        public void UpdateChatPreviews()
+        {
+            var all = SocialData.ChatMessages;
+            var picked = new List<SocialData.ChatMessage>();
+            for (int i = all.Count - 1; i >= 0 && picked.Count < 2; i--)
+                if (all[i] != null && all[i].Channel == "Global") picked.Insert(0, all[i]);
+            if (picked.Count == 0) return;      // 原版：没有消息 ⇒ 永远走不到 `Show()`
+            if (_chatPreviewRow1 != null) SetPreviewRow(_chatPreviewRow1, picked[0].Sender, SocialData.Text(picked[0]));
+            if (picked.Count > 1 && _chatPreviewRow2 != null)
+                SetPreviewRow(_chatPreviewRow2, picked[1].Sender, SocialData.Text(picked[1]));
+            ShowChatPreview();      // = 原版 `Show()`（显出 + 出场动画；⚠️ 既有自检用的 `SetChatPreviewVisible` 语义不变）
+        }
+
+        /// <summary>= 原版 `ChatPreviewMessage.Set(string player, string message)`（**逐句**，
+        /// 判据 `out_cpp2il_dev_ilspy/ChatPreviewMessage.cs`）：
+        /// `message.enabled = !IsNullOrEmpty(message)`；文本 =
+        /// `"&lt;color=#" + ToHtmlStringRGB(nameColor) + "&gt;" + player + ":&lt;/color&gt; " + message`。
+        /// <para>⚠️ **两处如实差异**：① 原版 `nameColor` 是 prefab 序列化字段（实读 `(0,1,0.1254902,1)`
+        /// ⇒ `#00FF20`），本仓拿不到那个字段 ⇒ **常量照抄实读值**；② 本仓 `Label` 没有 `enabled` 这一档
+        /// （同 `SetQuadVisible` 那条注释）⇒ `message.enabled` 等价 = **节点 `activeSelf`**。
+        /// ⚠️ 顺序：**先写字再开节点**（TMP 在未激活时量不出尺寸 —— 与 `Shell/ChatPanel.cs` 那条同族坑）。</para></summary>
+        public static void SetPreviewRow(Label lb, string player, string message)
+        {
+            if (lb == null) return;
+            bool has = !string.IsNullOrEmpty(message);
+            if (has)
+            {
+                string rgb = ColorUtility.ToHtmlStringRGB(new Color(0f, 1f, 0.1254902f, 1f));
+                lb.SetText("<color=#" + rgb + ">" + (player ?? "") + ":</color> " + message);
+            }
+            if (lb.gameObject.activeSelf != has) lb.gameObject.SetActive(has);
         }
     }
 }

@@ -1080,7 +1080,8 @@ public static partial class RuleEngineTest
         Step(TestEngineP3);
 
         // 🆕 2026-10-24（执行代理 `E9`）：卡表 v25 的 logic/op 级 `targetCriteria` 两列
-        //   （`activeAbilityTargets` 193 行 / `abilityTargetCriteria` 1616 行，消费端另批）。
+        //   （`activeAbilityTargets` 193 行 / `abilityTargetCriteria` **1,621 行**，消费端另批；
+        //    ⚠️ 2026-10-27 现读：原写 1616，`A1a` 收进 `DA42` 附魔模板那 2 个 logic 之后 = 1621）。
         Step(TestEngineD4);
 
         // 🆕 2026-10-24（执行代理 `W2` · `C5` 剩余三件）：
@@ -22255,7 +22256,12 @@ public static partial class RuleEngineTest
                 //    `uniqueId 9218576fd3e26554db5b4c239a36dbc7`）—— 用户 2026-10-25 拍板「允许加入」，
                 //    判据 → `资料/普查产出_1025/X20_PrayEnchantment入池_执行报告.md`。
                 //    ⚠️ 与上面 `A1763` 那条同一性质：**前提检查**，不是卡池合法性的判据。
-                CheckTrue(pool.Count == 1128,
+                // 🔴 **2026-10-27（`A1a`）就地改期望值（铁律 5）：1128 → 1129。**
+                //    多的是 `DA42` 的附魔模板 **`Reconnaissance Mission`**（`e8cf1eb55ca41534abe38efc90b302e9`，
+                //    `cardType = 20` / `type = "enchantment"`）—— `gen_cards_engine.py` 的
+                //    `ENCHANTMENT_EXECUTORS` 加第 2 条。判据 → `资料/完全复刻/调度台日志.md` §13·5。
+                //    ⚠️ 与上面两条同一性质：**前提检查**，不是卡池合法性的判据。
+                CheckTrue(pool.Count == 1129,
                           $"（前提）卡池张数（判据只写在 `资料/阵营推进_清单与交接.md` §一，这里只做前提检查）：{pool.Count}");
                 // 🔴 **2026-10-15（P3 相 · `A1763` 数据层）就地改期望值（铁律 5）：82 / 33 → 60 / 32。**
                 //    **成因查实**：本轮把 `descZh` 全池换成**官方模板**（`Card_Description/*`）——
@@ -33117,12 +33123,12 @@ public static partial class RuleEngineTest
             // 🔴 **2026-10-14 就地改期望值 2 → 3（铁律 5 · 账 `A1888`）**：`W15` 按原版
             //   `ResolveActiveAbilityPlayed` 给 **`UseAlternative`（`Duty`/`Ferocity`/`Pray`/`Agenda`）**
             //   也补发了 `EvtKind.Ability` ⇒ 发出点从 2 处变 3 处。
-            Check(CountOf(two, "EvtKind.Ability"), 3,
-                  "★ ⑦ ……`EvtKind.Ability` 恰好 **3 处** = `UseAbility` + `UseOathAbility` + **`UseAlternative`**"
-                + "（2026-10-14 按原版补的第 3 个发出点）"
-                + "｜🧨 新增第 4 个发出点（且不在这里登记）⇒ 本行红");
+            Check(CountOf(two, "EvtKind.Ability"), 4,
+                  "★ ⑦ ……`EvtKind.Ability` 恰好 **4 处** = `UseAbility` + `UseOathAbility` + **`UseAlternative`** + **`UseActiveAbility`**"
+                + "（2026-10-27 `B87_A3` 按原版 `ResolveActiveAbilityPlayed` 补的第 4 个发出点）"
+                + "｜🧨 新增第 5 个发出点（且不在这里登记）⇒ 本行红");
 
-            // 全目录合计：`Play` **4** / `Ability` **4**（= 上面 `Play` **2 个**、`Ability` **3 个**发出点
+            // 全目录合计：`Play` **4** / `Ability` **5**（= 上面 `Play` **2 个**、`Ability` **4 个**发出点
             //   + `Play` **2 处**、`Ability` **1 处**消费：
             //   `BattleContext.AppendLog` 的 `last.Kind == EvtKind.Play`（出单位卡时把 Play+Deploy
             //   合并成一行）· **`RuleCore.CardsPlayedString` 的 `e.Kind == EvtKind.Play`**
@@ -33138,10 +33144,10 @@ public static partial class RuleEngineTest
                   "★ ⑦ 整个 `Core/` 里 `EvtKind.Play` 合计 **4** = **2 个发出点** + **2 处消费**"
                 + "（`BattleContext.AppendLog` 那 1 处 Play+Deploy 合并 · `RuleCore.CardsPlayedString` 那 1 处读点）"
                 + "｜🧨 任何地方多一处 ⇒ 红");
-            Check(CountOf(sbAll.ToString(), "EvtKind.Ability"), 4,
-                  "★ ⑦ ……`EvtKind.Ability` 全目录合计 **4** = **3 个发出点**（`UseAbility`/`UseOathAbility`/`UseAlternative`）"
+            Check(CountOf(sbAll.ToString(), "EvtKind.Ability"), 5,
+                  "★ ⑦ ……`EvtKind.Ability` 全目录合计 **5** = **4 个发出点**（`UseAbility`/`UseOathAbility`/`UseAlternative`/`UseActiveAbility`）"
                 + " + `BattleEvent.ToString()` 里 `case EvtKind.Ability:` 那 1 处**消费**（显示用，不是发出点）"
-                + "（🔴 **2026-10-14 就地改期望值 3→4**，同上面那条）｜🧨 同上");
+                + "（🔴 **2026-10-27 `B87_A3` 就地改期望值 4→5**，同上面那条）｜🧨 同上");
         }
 
         // ==============================================================
@@ -38383,11 +38389,11 @@ public static partial class RuleEngineTest
     //     （`PlayProbe.Capture` 只收 攻/远/甲/血/关键词）。2026-10-27 实测：把预扣那一句注掉再跑，
     //     结算指纹 `517be27d…` **逐字节相同**、逐卡差异也相同 ⇒ 探针对这一族全盲。
     //
-    //  ⚠️ **我们刻意不照抄原版的一格**：原版「预扣了、但目标不合法 ⇒ 白扣一点行动」是**它自己的 bug**
+    //  🔴 **原版自己有 bug 的地方我们照抄（不修）**：原版「预扣了、但目标不合法 ⇒ 白扣一点行动」
     //     （`_ResolveForceAttack…:34-60` 不合法就直接 `goto LAB_1809b42e5` → `FinishResolvingAction`，
     //      补偿那一跳永远排不上）；而 `EffectResolver.TryAttackOnce` 会对**每个候选**各调一次
-    //      `DeclareAttack`（`EffectResolver.cs:3310-3323` 的 `foreach`）⇒ 照抄会在多候选时连扣多次。
-    //     ⇒ 我们改成「**失败就把预扣原样退回**」，见下面 (B)。
+    //      `DeclareAttack`（`EffectResolver.cs:3310-3323` 的 `foreach`）⇒ 多候选时**连扣多次**，那也照抄。
+    //     ⇒ 见下面 (B)：失败**不退**（2026-10-27 `B87_A3` 改回照抄；口径 = CLAUDE.md「原版有 bug 就照抄」）。
     // ==================================================================
     static void TestB9EngForcedAttackAndShuffleGate()
     {
@@ -38453,7 +38459,7 @@ public static partial class RuleEngineTest
                 + "（同样的净计数、不同的时序 —— 这条能把两者分开）");
         }
 
-        // ---- (B) 候选不合法 ⇒ 预扣**原样退回**（原版会白扣一点行动，我们刻意不照抄）----
+        // ---- (B) 候选不合法 ⇒ 预扣**不退**（原版在这里**白扣一点行动**；我们**照抄**，⛔ 别修）----
         {
             var ctx = ProbeBattle(new[] { Unit("E5Hand0", 1, 0, 1) }, new[] { Unit("E5FoeB0", 1, 0, 9) });
             ToP1Turn(ctx, 3);
@@ -38464,9 +38470,9 @@ public static partial class RuleEngineTest
             int code = RuleCore.DeclareAttack(ctx, 0, 2, 1, 1, ranged: false, forced: true);
             CheckTrue(code != RuleCodes.OK,
                       "（前提）打空格 ⇒ 返回码非 OK（" + RuleCodes.Describe(code) + "）");
-            Check(atk.AttacksThisTurn, 1,
-                  "★ 失败的强制攻击**不扣**行动额度（预扣**原样退回**）"
-                + "｜🧨 只加预扣、忘了退回 ⇒ 这里变 **0**（那正是原版白扣一点的那一格，我们刻意不照抄）");
+            Check(atk.AttacksThisTurn, 0,
+                  "★ 失败的强制攻击**照样扣掉**那一点行动（预扣**不退** —— **原版白扣，我们照抄，⛔ 别修**）"
+                + "｜判据 `BattleManager._ResolveForceAttack_d__504__MoveNext.c`：判不过直接 `goto` 收尾 ⇒ `:73` 那条 `if (wasFree) 排 ResetActions` 永远排不上｜🧨 把「失败就退回」加回来（2026-10-27 之前我们的偏离写法）⇒ 这里变 **1**");
         }
 
         // ---- (B2) 反例：**不退还那几族**（230/233/235/236）**不许**预扣 ----

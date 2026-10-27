@@ -67,6 +67,18 @@
 
 ## 二、还剩没解的
 
-- **`VarsDevice`**（`VarsDesktop` / `VarsMobile`）在 `解包整理/09_游戏数据/去重定义/MonoBehaviour/` 里 —— 那是**另一张表**
-  （分端参数），没跟 `VarsGlobal` 一起读。要用再读一次（同一个办法）。
+- ~~**`VarsDevice`**（`VarsDesktop` / `VarsMobile`）……没跟 `VarsGlobal` 一起读。要用再读一次。~~
+  🔴 **2026-10-27 就地订正（铁律 5 · `R8` 现读 + 调度台复核）**：**已经读到了**，别再说「取不到 / 只能自定」。
+  位置 = `d:/2/新解包资源/assets_full/bundle_duplicateassetisolationso_assets_all/MonoBehaviour/VarsDesktop.json` / `VarsMobile.json`（各 13 个键）。
+  现读值（Desktop / Mobile）：
+
+  | 键 | Desktop | Mobile |
+  |---|---:|---:|
+  | `targetYOffset` | **0.0** | **0.2** |
+  | `moveCardYOffset` | **0.2** | **0.7** |
+  | `cardInHandShownScale` | **1.3** | **1.7** |
+  | `cardInHandShownYOffset` | **30.0** | **25.0** |
+  | `warlordStartSizeFactor` | **1.3** | **1.5** |
+
+  ⇒ 凡「这两份 SO 未导入 / 值只能自定」的记录（含 `判据/B9_剩余C_施工单`、`报告/B9_C2_剩余C施工单` 等）**均已过期**，引用前先按上表核。
 - 本表**只有一份来源**（两份安装副本内容相同）。改动前照旧先跑 `工具/read_varsglobal.py` 复核。

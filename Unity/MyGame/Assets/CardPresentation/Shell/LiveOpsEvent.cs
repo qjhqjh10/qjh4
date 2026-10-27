@@ -199,7 +199,7 @@ namespace CardPresentation
     /// ⇒ **C1-W2 接弹窗时从那里读，⛔ 别新建第二份表。**
     /// `filter` 只建了「`Initialize` 用得到的两格」那个最小等价物（见 <see cref="LiveOpsEventFilter"/>）。</para></summary>
     [Serializable]
-    public class LiveOpsEventData
+    public partial class LiveOpsEventData
     {
         public string eventId;
         public bool uploadToLive = true;
@@ -300,7 +300,7 @@ namespace CardPresentation
     /// <summary>原版 `ILiveOps` 里**本批（C1-W1）用得到的那部分**。
     /// ⚠️ 原版还有 `Expire` / `SelectEvent` / `GetMainMenuData` / `OpenWindow` / `GetTimeDescriptionText` 等 ——
     /// 那些属 C1-W2（弹窗/过期）· C1-W4（主菜单容器）· C1-W5（倒计时文案），**本批不假装已实现**。</summary>
-    public interface ILiveOps
+    public partial interface ILiveOps
     {
         Type SaveType { get; }
         Type DataType { get; }
@@ -353,7 +353,7 @@ namespace CardPresentation
     // ============================================================ 非泛型基类（原版 `LiveOpsEvent`）
     /// <summary>原版 `LiveOpsEvent`（非泛型那半：`Handler` 回指 + `EventState` / `ShowInMainMenu` / `Priority`
     /// 三个从 data 派生的读口 + 抽象契约）。</summary>
-    public abstract class LiveOpsEvent : ILiveOps
+    public abstract partial class LiveOpsEvent : ILiveOps
     {
         /// <summary>原版 `LiveOpsEvent.Handler`（`ILiveOpsHandler Handler { get; protected set; }`，字段 +0x10）。
         /// 事件靠它喊「我要刷新」（`Initialize` → `Handler.TryScheduleHandlerRefresh`）。</summary>
@@ -1010,6 +1010,270 @@ namespace CardPresentation
         {
             LastError = null;
             SaveCenter.Delete(Key);
+        }
+    }
+}
+
+// ============================================================ 活动基类 · 主菜单 / 容器 / 倒计时（B87-C1 · 2026-10-27）
+// 🔴 本段是 `LiveOpsEvent` / `ILiveOps` 的**第二个 partial 段**，追加在文件末尾：
+//    **不改上半段任何行号**（账按 `文件:行号` 引用，插在类中间会让下游整体漂移 —— CLAUDE.md 那条纪律）。
+//
+// 判据（唯一来源）：
+//   · `资料/完全复刻/判据/泛型与启动链.md` §四 `LiveOpsEvent<TSave,`（存档层那 9 条住在上半段，本段不含）
+//   · `资料/完全复刻/判据/B9_日常C_施工单.tsv` —— 日常_奖励里属于本类的另外 6 条：
+//     `GetContainer` / `ReleaseContainer` / `GetEventPriorityForMainMenu` / `GetMainMenuData` /
+//     `GetTimeDescriptionText` / `GetTimeDescriptionTextKey`
+//   · 原版真身：`d:/2/tools/cpp2il/out_cpp2il_dev_ilspy/Everguild.LiveOps/LiveOpsEvent.cs`
+//     `:97`(GetMainMenuData) `:169`(GetContainer) `:179`(ReleaseContainer) `:444`(GetTimeDescriptionText)
+//     `:480`(GetTimeDescriptionTextKey) `:508`(GetEventPriorityForMainMenu)
+//   · `GetTimeDescriptionTextKey` 的 switch 三档 = `d:/2/tools/decomp_full/Everguild.LiveOps.LiveOpsEvent__GetTimeDescriptionTextKey.c`
+//     （`case 1 ⇒ DAT_1842aaa88` / `case 2 ⇒ DAT_1842aa898` / `case 3 ⇒ DAT_1842aa990` / 其余 ⇒ 空串）
+namespace CardPresentation
+{
+    /// <summary>原版 `LiveopsMainMenuData`（`GetMainMenuData()` 的产物）—— 只装三格：
+    /// 事件本体 / `priority` / 组件引用类型（`EventComponentReferenceType.MainMenuContainer = 35`）。
+    /// <para>判据 = `LiveOpsEvent.cs:97`：`new LiveopsMainMenuData(this, baseData.priority, EventComponentReferenceType.MainMenuContainer)`。
+    /// 原版消费方 = `WindowsManager.OpenWindow(reference, this, …, data.mainMenuOptions)`（`OpenWindow()` 那一跳）。</para>
+    /// <para>⚠️ 差异：原版这一格还牵着「主菜单容器 prefab 引用」（`MainMenuContainer` = 35 号的
+    /// `EventComponents` 引用）；我们**只解到 GUID、没解到 prefab 名**（`LiveOpsLocalCatalog.cs:38` 记的就是这条）
+    /// ⇒ 这里只留**引用类型号**，没有可解析的 prefab。
+    /// 🔶 自己设计（非原版）：把「引用类型号」存成 `int ComponentKey` 而不是 `EventComponentReferenceType` 枚举，
+    /// 是因为那个枚举在我们仓库里叫 `LiveOpsComponentRef`（`LiveOpsLocalCatalog.cs:136`，逐值照官方枚举）
+    /// 且它在 `Shell/LiveOpsLocalCatalog.cs` 里 —— 本批的独占文件不含它，⛔ 不跨文件加依赖。
+    /// 调度台 C1 2026-10-27 定。</para></summary>
+    public sealed class LiveopsMainMenuData
+    {
+        public ILiveOps Event;
+        public int Priority;
+        /// <summary>`LiveOpsComponentRef.MainMenuContainer` = **35**。</summary>
+        public int ComponentKey;
+        public LiveopsMainMenuData(ILiveOps ev, int priority, int componentKey)
+        {
+            Event = ev; Priority = priority; ComponentKey = componentKey;
+        }
+    }
+
+    /// <summary>原版 `IUiContainer`（`GetContainer()` 的返回类型）。
+    /// 🔶 自己设计（非原版）：`UiContainer` 整族（`IUiContainer` / `UiContainer&lt;T&gt;` / `ContainerBuilder&lt;T&gt;`）
+    /// 在我们仓库里**还是 C**（属别的批：*容器/窗口*线），本批的独占文件里没有它们 ⇒
+    /// 这里只留一个「拿到的是什么」的最小读口（`ComponentId` = `EventComponents` 的 GUID）。
+    /// ⛔ 别把它当掉 `IUiContainer` 的复刻。调度台 C1 2026-10-27 定。</summary>
+    public interface IUiContainer
+    {
+        /// <summary>这个容器的来源引用（原版 `LoadableReference.targetId`；我们 = `EventComponents` 的 GUID）。</summary>
+        string ComponentId { get; }
+    }
+
+    /// <summary>「按 `Container`（组件引用类型 0）装载/卸载 UiContainer」那两条原版调用
+    /// （`LiveOpsAssetUtility.LoadComponent&lt;UiContainer&gt;(data, Container)` / `LiveOpsAssetUtility.Unload(data, Container)`）
+    /// 的注入点。
+    /// <para>🔶 自己设计（非原版）：`LiveOpsAssetUtility` 在原生仓库里没有等价物（我们只有
+    /// `LiveOpsPopupPresenter` 那一个开窗口），而容器线不属本批 ⇒ 留注入点 + **没装就出声**。
+    /// 调度台 C1 2026-10-27 定。</para></summary>
+    public static class LiveOpsContainers
+    {
+        /// <summary>参数 = (事件, 组件引用类型)。返回 null = 装载失败（原版 `LoadComponent` 拿不到引用时也返回 null）。</summary>
+        public static Func<ILiveOps, int, IUiContainer> Load;
+        /// <summary>参数 = (事件, 组件引用类型)。原版 `Unload` 在没装过时是 no-op。</summary>
+        public static Action<ILiveOps, int> Unload;
+
+        /// <summary>`LiveOpsEventData` 那一层的那一对（原版两层各有一份，见 `LiveOpsEventData.cs:162-170`）。</summary>
+        public static Func<LiveOpsEventData, int, IUiContainer> LoadForData;
+        public static Action<LiveOpsEventData, int> UnloadForData;
+
+        /// <summary>`LiveOpsComponentRef.Container`（判据 `LiveOpsLocalCatalog.cs:139`：`Container = 0`）。</summary>
+        public const int ComponentContainer = 0;
+        /// <summary>`LiveOpsComponentRef.MainMenuContainer`（同上：**35**）。</summary>
+        public const int ComponentMainMenuContainer = 35;
+
+        /// <summary>自检口（⚠️ 只给断言用）。</summary>
+        public static void ResetForTest()
+        {
+            Load = null; Unload = null; LoadForData = null; UnloadForData = null;
+        }
+    }
+
+    // ── 接口那半：原版 `ILiveOps` 有这 6 个槽，本段补齐（抽象类给虚实现 ⇒ 现有实现者零改动）
+    public partial interface ILiveOps
+    {
+        /// <summary>原版 `ILiveOps.GetMainMenuData()`（槽 17 一族）。</summary>
+        LiveopsMainMenuData GetMainMenuData();
+        /// <summary>原版 `ILiveOps.GetEventPriorityForMainMenu()`。</summary>
+        int GetEventPriorityForMainMenu();
+        /// <summary>原版 `ILiveOps.GetContainer()`。</summary>
+        IUiContainer GetContainer();
+        /// <summary>原版 `ILiveOps.ReleaseContainer()`。</summary>
+        void ReleaseContainer();
+        /// <summary>原版 `ILiveOps.GetTimeDescriptionText()`：状态 → 已本地化的倒计时文案。</summary>
+        string GetTimeDescriptionText();
+        /// <summary>原版 `ILiveOps.GetTimeDescriptionTextKey()`：状态 → 词条键（空串 = 这一档不显示）。</summary>
+        string GetTimeDescriptionTextKey();
+    }
+
+    // ── 类那半：6 个方法的实现
+    public abstract partial class LiveOpsEvent
+    {
+        /// <summary>原版 `GetEventPriorityForMainMenu()`（`LiveOpsEvent.cs:508`）：
+        /// <code>return GetBaseData().priority;</code>
+        /// （`data == null` ⇒ 原版 NRE；我们出声 + 返回 0。）
+        /// <para>⚠️ 与上半段的 <see cref="Priority"/> 属性**同一格**（都读 `data.priority`）—— 保留两个名字是因为
+        /// 原版就有这两个入口（`Priority` 属性 / `GetEventPriorityForMainMenu()` 方法）。⛔ 别让它们读不同的字段。</para></summary>
+        public int GetEventPriorityForMainMenu()
+        {
+            var d = GetBaseData();
+            if (d == null)
+            {
+                Debug.LogError("[LiveOps] GetEventPriorityForMainMenu：活动 '" + (GetID() ?? "<null>")
+                             + "' 没有 data（原版 NRE）⇒ 返回 0");
+                return 0;
+            }
+            return d.priority;
+        }
+
+        /// <summary>原版 `GetMainMenuData()`（`LiveOpsEvent.cs:97`）：
+        /// <code>var d = GetBaseData(); return new LiveopsMainMenuData(this, d.priority, MainMenuContainer(35));</code>
+        /// <para>⚠️ 差异：原版这一跳还把 `data.mainMenuOptions`（`PopupOptions` 一族）带出去，供
+        /// `WindowsManager.OpenWindow` 用；我们的 `OpenWindow()` 走 `LiveOpsPopupPresenter` 那条缝
+        /// （见上半段 `OpenWindow()` 的注释），这一格**没搬**。</para></summary>
+        public virtual LiveopsMainMenuData GetMainMenuData()
+        {
+            var d = GetBaseData();
+            if (d == null)
+            {
+                Debug.LogError("[LiveOps] GetMainMenuData：活动 '" + (GetID() ?? "<null>") + "' 没有 data（原版 NRE）⇒ 返回 null");
+                return null;
+            }
+            return new LiveopsMainMenuData(this, d.priority, LiveOpsContainers.ComponentMainMenuContainer);
+        }
+
+        /// <summary>原版 `GetContainer()`（`LiveOpsEvent.cs:169`）：
+        /// <code>return LiveOpsAssetUtility.LoadComponent&lt;UiContainer&gt;(GetBaseData(), Container /*0*/);</code>
+        /// <para>⚠️ 差异：`LiveOpsAssetUtility` 我们没有 ⇒ 走 <see cref="LiveOpsContainers.Load"/> 注入点；
+        /// 没装 ⇒ **出声并返回 null**（原版拿不到引用时也是 null，但**不**打这条日志 —— 我们的更吵，如实记）。</para></summary>
+        public virtual IUiContainer GetContainer()
+        {
+            var d = GetBaseData();
+            if (d == null)
+            {
+                Debug.LogError("[LiveOps] GetContainer：活动 '" + (GetID() ?? "<null>") + "' 没有 data（原版 NRE）⇒ null");
+                return null;
+            }
+            if (LiveOpsContainers.Load == null)
+            {
+                Debug.LogError("[LiveOps] GetContainer：没有接 LiveOpsContainers.Load（原版 = "
+                             + "LiveOpsAssetUtility.LoadComponent<UiContainer>(data, Container)）⇒ 返回 null。"
+                             + " eventId = " + (GetID() ?? "<null>"));
+                return null;
+            }
+            return LiveOpsContainers.Load(this, LiveOpsContainers.ComponentContainer);
+        }
+
+        /// <summary>原版 `ReleaseContainer()`（`LiveOpsEvent.cs:179`）：
+        /// <code>LiveOpsAssetUtility.Unload(GetBaseData(), Container);</code>
+        /// ⚠️ 差异同 <see cref="GetContainer"/>（注入点）；没装时**只记日志**（原版没装过时本来就是 no-op）。</summary>
+        public virtual void ReleaseContainer()
+        {
+            var d = GetBaseData();
+            if (d == null) return;                       // 原版这一跳对 null data 调 Unload（内部判空），语义等价
+            if (LiveOpsContainers.Unload == null)
+            {
+                Debug.Log("[LiveOps] ReleaseContainer：没有接 LiveOpsContainers.Unload ⇒ 无容器可卸"
+                        + "（原版 = LiveOpsAssetUtility.Unload(data, Container)，没装过时同样是 no-op）");
+                return;
+            }
+            LiveOpsContainers.Unload(this, LiveOpsContainers.ComponentContainer);
+        }
+
+        /// <summary>原版 `GetTimeDescriptionTextKey()`（`LiveOpsEvent.cs:480`；switch 三档的**机器码**见
+        /// `decomp_full/Everguild.LiveOps.LiveOpsEvent__GetTimeDescriptionTextKey.c`）：
+        /// <code>
+        /// var d = GetBaseData();
+        /// switch (d.GetState(TimeHelper.ServerDateTime)) {
+        ///     case OnPreview(1): return &lt;键 A&gt;;      // DAT_1842aaa88
+        ///     case Active(2):    return &lt;键 B&gt;;      // DAT_1842aa898
+        ///     case Finished(3):  return &lt;键 C&gt;;      // DAT_1842aa990
+        ///     default:           return "";           // DAT_1842b80e0（空串）
+        /// }
+        /// </code>
+        /// <para>🔴 **三个键名是按语义对位出来的，不是从字面量读出来的**（那四个是**类静态字符串字段**，
+        /// 值只在运行时才有）。判据链：① 官方本地化表（`Unity/数据/游戏数据/官方本地化_en+zh-CN.json`）
+        /// 的 `Event_Description/General/` 下**恰好**有一组 `Time*` 三兄弟 —— `TimeStartsIn` / `TimeEndsIn` /
+        /// `TimeFinished`；② 它们与 `OnPreview / Active / Finished` 三档**一一对应**；③ 其余候选
+        /// （`EndsIn` / `EndsInPlusTime` / `EndsInPlusOrangeTime` / `GracePeriod`…）是**另一族**
+        /// （「还有多久结束」的三种写法，缺 `StartsIn`/`Finished`，凑不出三档）。
+        /// ⇒ ⚠️ **仍标「推断」**：将来能跑起原版时，读一次那三个静态字段即可坐实。</para>
+        /// <para>⚠️ 我们这条不变量仍在：**本地 13 份 SO 没有在期事件** ⇒ 这条今天看不到效果
+        /// （`判据/日常与活动.md` 那一段「Timer 前缀在调用点写死」同样成立：`ParentEventWindow` /
+        /// `RankedEventWindow` 的 `TimerDisplay` 调用点传的仍是 `null` target）。</para></summary>
+        public string GetTimeDescriptionTextKey()
+        {
+            var d = GetBaseData();
+            if (d == null)
+            {
+                Debug.LogError("[LiveOps] GetTimeDescriptionTextKey：活动 '" + (GetID() ?? "<null>")
+                             + "' 没有 data（原版 NRE）⇒ 返回空串");
+                return "";
+            }
+            switch (d.GetState(LiveOpsClock.NowUtc))
+            {
+                case LiveOpState.OnPreview: return "Event_Description/General/TimeStartsIn";
+                case LiveOpState.Active: return "Event_Description/General/TimeEndsIn";
+                case LiveOpState.Finished: return "Event_Description/General/TimeFinished";
+                default: return "";                    // Planned / Expired / NotAvailable 都不显示
+            }
+        }
+
+        /// <summary>原版 `GetTimeDescriptionText()`（`LiveOpsEvent.cs:444`）：
+        /// 算 key（同一个 switch），key 非空 ⇒ `LocalizationManager.GetTranslation(key, FixForRTL:true, …)`，否则 `""`。
+        /// <para>我们这一跳走 <see cref="Loc.T"/>（工程里唯一的取词口；它自带官方全表 + 缺键档，
+        /// 判据见 CLAUDE.md「判会不会把键名印到屏幕上必须三档一起算」那条）。</para>
+        /// ⚠️ 差异：原版 `GetTranslation` 那几个 `FixForRTL` / `applyParameters` 参数我们没有对应开关
+        /// （RTL 支持本工程未做）⇒ 如实记。</summary>
+        public string GetTimeDescriptionText()
+        {
+            string key = GetTimeDescriptionTextKey();
+            if (string.IsNullOrEmpty(key)) return "";
+            return Loc.T(key);
+        }
+    }
+}
+
+// ============================================================ 活动**数据**的容器两跳（B87-C1 · 2026-10-27）
+// 判据：原版 `Everguild.LiveOps/LiveOpsEventData.cs:162-170`
+//   `GetContainer()`  = `LiveOpsAssetUtility.LoadComponent<UiContainer>(this, EventComponentReferenceType.Container)`
+//   `ReleaseContainer()` = `LiveOpsAssetUtility.Unload(this, EventComponentReferenceType.Container)`
+// 🔴 与上面 `LiveOpsEvent` 那两个同名方法**是一对**（原版两层各有一份）：事件层那份传 `this`（ILiveOps），
+//    data 层这份传 `this`（LiveOpsEventData）。⛔ 别只做一边。
+// 🔴 又是**文件末尾的 partial 段**：不插进上面任何类体，避免行号漂移（账按 `文件:行号` 引用）。
+namespace CardPresentation
+{
+    public partial class LiveOpsEventData
+    {
+        /// <summary>原版 `LiveOpsEventData.GetContainer()`（`LiveOpsEventData.cs:162`）。
+        /// ⚠️ 差异：`LiveOpsAssetUtility` 我们没有 ⇒ 走 <see cref="LiveOpsContainers.LoadForData"/> 注入点，
+        /// 没装 ⇒ 出声 + null（原版拿不到引用时也是 null）。</summary>
+        public IUiContainer GetContainer()
+        {
+            if (LiveOpsContainers.LoadForData == null)
+            {
+                Debug.LogError("[LiveOps] LiveOpsEventData.GetContainer：没有接 LiveOpsContainers.LoadForData"
+                             + "（原版 = LiveOpsAssetUtility.LoadComponent<UiContainer>(data, Container)）⇒ null。"
+                             + " eventId = " + (eventId ?? "<null>"));
+                return null;
+            }
+            return LiveOpsContainers.LoadForData(this, LiveOpsContainers.ComponentContainer);
+        }
+
+        /// <summary>原版 `LiveOpsEventData.ReleaseContainer()`（`LiveOpsEventData.cs:167`）。
+        /// ⚠️ 差异同 <see cref="GetContainer"/>；没装时只记日志（原版没装过时同样是 no-op）。</summary>
+        public void ReleaseContainer()
+        {
+            if (LiveOpsContainers.UnloadForData == null)
+            {
+                Debug.Log("[LiveOps] LiveOpsEventData.ReleaseContainer：没有接 LiveOpsContainers.UnloadForData ⇒ 无容器可卸");
+                return;
+            }
+            LiveOpsContainers.UnloadForData(this, LiveOpsContainers.ComponentContainer);
         }
     }
 }
