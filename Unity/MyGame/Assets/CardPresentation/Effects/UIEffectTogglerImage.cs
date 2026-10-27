@@ -6,7 +6,9 @@
 //     ① 它淡的是**这一层自己的那几个 `Image`**（`images[]`，挂在同一个 GameObject 上），**不是整棵子树**；
 //     ② 写的是每张图的 `color`（含 RGB 原值、只改 α），不是 `CanvasGroup.alpha` 这个独立乘子。
 //   · `Toggle(option, duration=0.3f)`：记目标态；`duration<=0` 直接切，否则先 `SetActive(true)`
-//   · `DoUpdate(currentTime, normalizedTime)`：`fade = from + (to-from)*clamp01(n)`（from/to 同 CanvasGroup 那版），逐个写 `color`
+//   · `DoUpdate(currentTime, normalizedTime)`：`from = 1 − to` · `to = targetStateEnabled ? 1 : 0` ·
+//     `n = Clamp01(normalizedTime)`，逐图 `c = image.color; c.a = (to − from) × n + from; image.color = c`
+//     ⇒ **α 绝对值覆盖、RGB 取当前值**（原版没有「基线 α」这个概念，⛔ 不是乘性）
 //   · `AnimationFinished()`：`deactivateOnDisable && !targetStateEnabled ⇒ ToggleGameObjects(false)`
 //   · `ToggleGameObjects(option)`：逐个 `gameObject.SetActive(option)`
 //
@@ -26,7 +28,7 @@ namespace CardPresentation
         /// <summary>显式指定；空 = 自动取**本 GameObject 上**的 `ImageQuad` / `Label` / `Graphic`。</summary>
         public List<GameObject> fadeTargets = new List<GameObject>();
 
-        /// <summary>上一次算出的 fade（0..1 乘子）。自检读它。</summary>
+        /// <summary>上一次算出的 fade（0..1）。**原版口径 = 直接写进那张图的 α（绝对值）**，不是乘子 —— 见 <see cref="DoUpdate"/>。</summary>
         public float CurrentFade { get; private set; }
         public int UpdateCount { get; private set; }
         public int FinishedCount { get; private set; }
@@ -34,6 +36,8 @@ namespace CardPresentation
         readonly List<ImageQuad> _quads = new List<ImageQuad>();
         readonly List<Label> _labels = new List<Label>();
         readonly List<Graphic> _graphics = new List<Graphic>();
+        // ⚠️ 2026-10-27（`B9_E2UDW`）：这三份基线**不再参与 α 的写入**（原版是绝对值覆盖，见 `DoUpdate`）——
+        //   留着是因为它们记的是「接管前那一帧」的原值，自检/诊断要用（⛔ 别拿它当 α 的乘数）。
         readonly List<float> _quadBase = new List<float>();
         readonly List<Color> _labelBase = new List<Color>();
         readonly List<Color> _graphicBase = new List<Color>();
@@ -86,23 +90,31 @@ namespace CardPresentation
             float to = targetStateEnabled ? 1f : 0f;
             CurrentFade = from + (to - from) * Mathf.Clamp01(normalizedTime);
 
+            // 🔴 **2026-10-27（`B9_E2UDW`）修：α 是【绝对值覆盖】，不是「基线 × fade」**。
+            //   判据（🥇 `decomp_full/UIEffectTogglerImage__DoUpdate.c:17-45` 逐句）：
+            //     `to = targetStateEnabled(+0x21) ? 1 : 0` · `from = 1 − to` · `n = Clamp01(param_3)`；
+            //     逐图：`c = image.color`（**每帧取当前值**）→ `c.a = (to − from) × n + from` → `image.color = c`
+            //     ⇒ 只改 α、RGB 取当前值、**与原 α 无关**（原版根本没有「基线」这个概念）。
+            //   ⚠️ 与同族的 `UIEffectCanvasGroupToggler` **不同**：那个淡的是 `CanvasGroup.alpha`（本身是**乘子**）
+            //     ⇒ 我们映射到分层 α 时乘基线才对（那边保持原样，⛔ 别一起改）。
+            //   灭自证：基线 α=0.5 的图在 `n=1, to=1` 时要读到 **1.0**（乘性写法只会给 0.5）。
             for (int i = 0; i < _quads.Count; i++)
             {
                 var q = _quads[i];
                 if (q == null) continue;
-                var c = q.Tint; c.a = _quadBase[i] * CurrentFade; q.SetTint(c);
+                var c = q.Tint; c.a = CurrentFade; q.SetTint(c);
             }
             for (int i = 0; i < _labels.Count; i++)
             {
                 var l = _labels[i];
                 if (l == null) continue;
-                var c = _labelBase[i]; c.a = _labelBase[i].a * CurrentFade; l.SetColor(c);
+                var c = l.color; c.a = CurrentFade; l.SetColor(c);
             }
             for (int i = 0; i < _graphics.Count; i++)
             {
                 var g = _graphics[i];
                 if (g == null) continue;
-                var c = _graphicBase[i]; c.a = _graphicBase[i].a * CurrentFade; g.color = c;
+                var c = g.color; c.a = CurrentFade; g.color = c;
             }
         }
 

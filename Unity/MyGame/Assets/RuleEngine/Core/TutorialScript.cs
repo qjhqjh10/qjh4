@@ -707,8 +707,17 @@ namespace RuleEngine
             ActionCounter = 0;
         }
 
-        /// <summary>原版 `AiScripted.ResetActionCounter()`（`*(param_1 + 0x10) = 0`）。</summary>
-        public void ResetActionCounter() { ActionCounter = 0; }
+        /// <summary>原版 `AiScripted.ResetActionCounter()` = `*(long long *)(this + 0x10) = 0`
+        /// —— **一次写 8 字节** ⇒ `actionCounter(+0x10)` 与 `actionCampaignCounter(+0x14)` **一起**清零
+        /// （判据 `decomp_full/AiScripted__ResetActionCounter.c`；⛔ 不是只清教程那一格）。
+        /// 战役那一格不在本类（在 `CardPresentation/Battle/CampaignScriptRunner`）⇒ 归零口从
+        /// <see cref="ResetCampaignActionCounter"/> 转出去；**没接时与「只清一格」逐字等价**（今天没有战役局）。</summary>
+        public void ResetActionCounter() { ActionCounter = 0; ResetCampaignActionCounter?.Invoke(); }
+
+        /// <summary>上面那次 8 字节写的**另一半**（原版 `actionCampaignCounter @+0x14`）：
+        /// 接线处把 `CampaignScriptRunner.ActionCampaignCounter = 0` 挂上来即可（原版是同一个实例上的两个 int，
+        /// 我们分在两层 ⇒ 用这一个口把它们重新绑成「一次清两格」）。</summary>
+        public System.Action ResetCampaignActionCounter;
 
         /// <summary>原版 `AiScripted.FinishedScriptedActionsInTurn`：
         /// `turn.actions.Count &lt;= actionCounter`。⚠️ 没有回合脚本时原版会**抛**（那条路走不到）——
@@ -924,11 +933,7 @@ namespace RuleEngine
                     return RunChangeAttackType(ctx, a, ref done);
 
                 case ScriptedActionType.ActiveAbility:
-                    // 🔴 **6 关数据里这一档是 0 条**（`tutorial_stages.json` 逐条 dump 过）⇒ **只留桩**。
-                    //    原版那一支（`ExecuteAction.c:388-609`）走 `AddAutoActionToQueue(playActiveAbility)`，
-                    //    我们对应 `RuleCore.UseAbility` —— 现在**没有数据能验**，⛔ 不凭空造一套出来。
-                    Stub(ctx, a.Kind, "6 关数据里这一档 **0 条**，本轮只留桩");
-                    return false;
+                    return RunActiveAbility(ctx, a, ref done);
 
                 case ScriptedActionType.PlayerChoice:
                     // 原版 `AiScripted.PlayerChoiceAction()` = **只有 `actionCounter++`**，
@@ -1049,6 +1054,41 @@ namespace RuleEngine
             if (!RuleCore.SetCurrentAttackType(ctx, side, slot, type))
             { Fail(ctx, a.Kind, "那一格上没有单位（`SetCurrentAttackType` 返回 false）"); return false; }
             done.Kind = a.Kind; done.Seat = side; done.Slot = slot; done.AttackType = type;
+            return true;
+        }
+
+        /// <summary>`ActiveAbility(40)` —— 原版 `AiScripted.ExecuteAction` 那一支
+        /// （🥈 ILSpy `AiScripted.cs:2422-2610` 是 acting 解析、`:2644` 起的 `IL_0f85` 是 target 解析；
+        /// 🥇 落盘的 `.c` 的 `switch` 里**没有** `case 0x28` ⇒ 那一支在 `.c` 的 if/else 链上，按 ILSpy 逐句读）。
+        /// 逐句：`acting.SetupActiveAbility()` → **`data[0].targetUnitType != None(0)` 才解析目标**
+        /// （同一套六档：督军 / 玩家部队 30·31·32 / 敌方部队 / 两侧手牌）→ 入队 `playActiveAbility`。
+        /// 我们 = `RuleCore.UseAbility(ctx, side, slot, targetSlot)`（当场结算 —— 同 `RunPlayCard` 的
+        /// 「本条链上没有动作队列」口径）。`SetupActiveAbility()` 那一跳我们引擎没有对应物（它只备演出/选目标
+        /// 形态，`UseAbility` 里 `RecomputeAttackTypeAfterActiveAbility` 已覆盖引擎侧那半边）。
+        /// <para>⚠️ **6 关数据里这一档 0 条**（`tutorial_stages.json` 逐条 dump 过）⇒ 今天**零可观测行为**；
+        /// 本条把「只会出声的桩」换成**照原版接通的链**，将来有数据不用再改。</para>
+        /// <para>⚠️ 手牌目标（`PlayerCardInHand` / `EnemyCardInHand`）**不自己造**：`UseAbility` 的第 4 个实参是
+        /// **棋盘格号**、手牌没有格号 ⇒ 认不出就 `Fail` 出声，⛔ 不猜一个格子塞进去。</para>
+        bool RunActiveAbility(BattleContext ctx, TutorialAction a, ref ScriptedActionDone done)
+        {
+            var d = First(a);
+            if (ctx == null || d == null) { Fail(ctx, a.Kind, "这条动作没有 `data[0]`"); return false; }
+            string why;
+            int side, slot;
+            if (!TutorialRules.FindBoardUnit(ctx, d.acting, out side, out slot, out why))
+            { Fail(ctx, a.Kind, "认不出**要放技能的那张卡**：" + why); return false; }
+            int tP = -1, targetSlot = -1;
+            if (TutUnitType(d.target) != 0)
+            {
+                int tSlot;
+                if (!TutorialRules.FindBoardUnit(ctx, d.target, out tP, out tSlot, out why))
+                { Fail(ctx, a.Kind, "认不出**技能目标**（手牌/认不出都没有格号）：" + why); return false; }
+                targetSlot = tSlot;
+            }
+            int rc = RuleCore.UseAbility(ctx, side, slot, targetSlot);
+            if (rc != RuleCodes.OK) { Fail(ctx, a.Kind, "`RuleCore.UseAbility` 返回 " + rc); return false; }
+            done.Kind = a.Kind; done.Seat = side; done.Slot = slot;
+            done.TargetP = tP; done.TargetSlot = targetSlot;
             return true;
         }
 

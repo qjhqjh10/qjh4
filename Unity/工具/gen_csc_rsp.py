@@ -56,6 +56,10 @@ with _out(out) as f:
     for r in sorted(refs):
         f.write('-r:"' + r + '"' + chr(10))
     for c in compiles:
+        # 🔴 2026-10-27（D5SH）：csproj 是**上次 Unity 生成**的 —— **已删 / 已挪走**的 .cs 还留在里面。
+        #   不跳过就会报 `CS2001 找不到源文件` ⇒ 编辑器/运行时程序集**整趟编译没跑起来**
+        #   （看着像「源码错了」，其实只是源清单没跟上；与上面「新建文件不在 csproj 里」是同一族的镜像面）。
+        if not os.path.exists(MG + '/' + c.replace(BS, '/')): continue
         f.write('"' + MG + '/' + c.replace(BS, '/') + '"' + chr(10))
     # ---- 新增文件：csproj 是**上次 Unity 生成**的，之后新建的 .cs 不在里面 ----
     #  2026-09-29 改成**自动扫**（原来是一串手写名单，每加一个文件就得改这里，
@@ -95,6 +99,8 @@ with _out(TMP + '/wf_csc_editor.rsp') as f:
     for r in sorted(refs2):
         f.write('-r:"' + r + '"' + chr(10))
     for c in compiles2:
+        # 🔴 2026-10-27（D5SH）：同第 1 份 —— 已删/已挪的 `Editor/*.cs` 还会留在 csproj 里 ⇒ `CS2001`。
+        if not os.path.exists(MG + '/' + c.replace(BS, '/')): continue
         f.write('"' + MG + '/' + c.replace(BS, '/') + '"' + chr(10))
     # ---- 🔴 2026-09-30 补：**编辑器程序集也要自动扫新文件** ----
     #   原来只有第 1 份（运行时）会扫（见上面的说明），第 2 份**只认 csproj** ——

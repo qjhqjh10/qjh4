@@ -1,0 +1,120 @@
+域	方法	原等级	建议等级	判据出处	我们的落点(文件:行)	一句结论	还差什么
+菜单/外壳	GetCardsInHandNumberWhereDistanceBetweenThemMustBeReduced(float adjustedDistanceBetweenCards)	B	B	out_cpp2il_dev_ilspy/CardsHorizontalLayout.cs:669-690（🥈 真方法体）· decomp_full/CardsHorizontalLayout__GetCardsInHandNumberWhereDistanceBetweenThemMustBeReduced.c	CardPresentation/Hand/HandLayout.cs:545-549（IsCompressed = 同一判据的布尔形式：`count × betweenElementsSpacing × Scale > MaxLayoutWorld()`）· :529-538（SpacingFor）	落点非方法级（类级/散写/裸文件/描述），按 §4.1 不能升 A：我们只有等价的**谓词**（IsCompressed）、没有『返回临界张数』这一支	精确到方法级的落点 + 逐句核
+菜单/外壳	ToggleChangeFree(bool option)	B	B	ChangeNameWindow.cs:147	Shell/ProfileTab.cs（恒走首次免费那条）	落点非方法级（类级/散写/裸文件/描述），按 §4.1 不能升 A：等价（无改名次数，服务器不可达） 	精确到方法级的落点 + 逐句核
+菜单/外壳	DelaySizeFix()	B	B	ChooseNamePopup.cs:247	Shell/ProfileTab.cs 改名窗排版（ForceRelayout 口径）	落点非方法级（类级/散写/裸文件/描述），按 §4.1 不能升 A：等价（同一 TMP 未激活坑的处置） 	精确到方法级的落点 + 逐句核
+菜单/外壳	ResetCanClick()	B	B	ChooseNamePopup.cs:403	Shell/ProfileTab.cs 改名钮可点闸	落点非方法级（类级/散写/裸文件/描述），按 §4.1 不能升 A：一致 	精确到方法级的落点 + 逐句核
+菜单/外壳	Setup(Action<string> doneAction, Action closeAction)	B	A	ChooseNamePopup.cs:165	Shell/ProfileTab.cs 改名窗 Open/Commit/Cancel 回调	等价：改名窗 Open/Commit/Cancel 回调 = ProfileTab.CommitNameWindow(:1491)/CancelNameWindow(:1499)	—
+菜单/外壳	GetID()	B	B	DropTableContainer.cs:125	Shell/ShopData.cs（本地商品数据）	落点非方法级（类级/散写/裸文件/描述），按 §4.1 不能升 A：一致 	精确到方法级的落点 + 逐句核
+菜单/外壳	OnAfterPurchase(IShopOffer offer, IReadOnlyList<RewardInfo> rewards, Action<IReadOnlyList<RewardInfo>> onComplete, Action onError, bool showAnimation)	B	B	DropTableContainer.cs:130	Shell/ShopData.cs + BoosterPackOpenWindow	落点非方法级（类级/散写/裸文件/描述），按 §4.1 不能升 A：差：掉落表来自服务器（本地只模拟）	精确到方法级的落点 + 逐句核
+菜单/外壳	Open(string instanceId, Action<IReadOnlyList<RewardInfo>> onComplete, Action<string> onError)	B	B	DropTableContainer.cs:157	Shell/ShopData.cs（单机模拟）	落点非方法级（类级/散写/裸文件/描述），按 §4.1 不能升 A：差：服务器掉落表不可达	精确到方法级的落点 + 逐句核
+菜单/外壳	DragDelegate(GameObject source, Vector2 delta)	B	B	EverguildButton.cs:16	Shell/PointerLayer.cs:RegisterDrag / UnregisterDrag / 拖拽派发（onDrag/onDrop，设计 px）	落点非方法级（类级/散写/裸文件/描述），按 §4.1 不能升 A：已建**输入层**（2026-10-25 纯加法，可拖件优先于滚动区）	精确到方法级的落点 + 逐句核
+菜单/外壳	RemoveClickListeners()	B	B	EverguildButton.cs:1101	Shell/WindowButton.cs:17 public System.Action onClick（置 null 即清）	落点非方法级（类级/散写/裸文件/描述），按 §4.1 不能升 A：等价（单委托 vs Listeners 列表） 	精确到方法级的落点 + 逐句核
+菜单/外壳	SetUpButtonColors()	B	B	EverguildButton.cs:1071	Shell/WindowButton.cs（未做该分支）	落点非方法级（类级/散写/裸文件/描述），按 §4.1 不能升 A：差：逐颗 m_Transition/colorTintGreyOnDisable 未普查	精确到方法级的落点 + 逐句核
+菜单/外壳	ChangeCanvasColor(Color colorToUse)	B	B	EverguildButtonMaterialModifier.cs:130	Shell/WindowButton.cs RefreshGray	落点非方法级（类级/散写/裸文件/描述），按 §4.1 不能升 A：差：只换固定灰材质、不支持按色改（灰度材质本身无参）	精确到方法级的落点 + 逐句核
+菜单/外壳	GetKey(KeyCode key, bool ignoreInputField)	B	B	EverguildInput.cs:46	Shell/PointerLayer.cs 键盘入口	落点非方法级（类级/散写/裸文件/描述），按 §4.1 不能升 A：一致（我们的输入框态 = PointerLayer.TextEditing） 	精确到方法级的落点 + 逐句核
+菜单/外壳	GetKeyDown(KeyCode key, bool ignoreInputField)	B	B	EverguildInput.cs:55	CardPresentation/Shell/PointerLayer.cs:630（HitLines）	维持 B：一致	逐句核
+菜单/外壳	GetKeyUp(KeyCode key, bool ignoreInputField)	B	B	EverguildInput.cs:64	Shell/PointerLayer.cs 键盘入口	落点非方法级（类级/散写/裸文件/描述），按 §4.1 不能升 A：一致 	精确到方法级的落点 + 逐句核
+菜单/外壳	IsPointerOverUIObject(int pointerId)	B	B	EverguildInput.cs:99	Shell/PointerLayer.cs 命中表	落点非方法级（类级/散写/裸文件/描述），按 §4.1 不能升 A：等价（几何命中 = 可射线件并集 + padding） 	精确到方法级的落点 + 逐句核
+菜单/外壳	CalculateSpacing()	B	B	EverguildLayoutGroup.cs:49	各窗写死原版 spacing（例：导航 VLG spacing −16.35）	落点非方法级（类级/散写/裸文件/描述），按 §4.1 不能升 A：差：无通用算法（逐窗常量，未逐窗核该公式）	精确到方法级的落点 + 逐句核
+菜单/外壳	CheckFOntInPreset()	B	B	EverguildTextMeshPro.cs:445	Core/TmpFont.cs 字体资产表	落点非方法级（类级/散写/裸文件/描述），按 §4.1 不能升 A：等价 	精确到方法级的落点 + 逐句核
+菜单/外壳	UpdateTextSizeSmallScreen()	B	B	EverguildTextMeshPro.cs:420	Shell/TransformScalerBySmallScreenUI.cs（整窗缩放）+ Core/TmpFont	落点非方法级（类级/散写/裸文件/描述），按 §4.1 不能升 A：等价 	精确到方法级的落点 + 逐句核
+菜单/外壳	PlayButtonSound()	B	B	EverguildToggle.cs:322	Shell/WindowButton.cs:924	落点非方法级（类级/散写/裸文件/描述），按 §4.1 不能升 A：一致 	精确到方法级的落点 + 逐句核
+菜单/外壳	SetUpButtonColors()	B	B	EverguildToggle.cs:175	Shell/WindowButton.cs:166 KeyOf（默认族）	落点非方法级（类级/散写/裸文件/描述），按 §4.1 不能升 A：差：Toggle 族逐颗 m_Colors 未普查	精确到方法级的落点 + 逐句核
+菜单/外壳	OnDeselect(BaseEventData eventData)	B	B	EverguildTooltipTrigger.cs:107	Shell/WindowButton.cs:141（SetSelected）（等价实现 = SetSelected(false) → HideTip：原版 `EverguildTooltipTrigger.OnDeselect` 在 `registerEvents` 为真时调全局 `Hide()`；我们的选中派发唯一出口 = `PointerLayer.Select` → `WindowButton.SetSelected`，`HideTip()` 落在那里，`registerEvents` 对应 `tipRegisterEvents`）	维持 B：**能力已落、接线数 0**：`tipText` 目前没有任何站点赋值 ⇒ 今天零行为变化（默认空 ⇒ 全空做）。⚠️ 一处如实标注的偏离：原版**没配 tooltip 的触发器** `OnPointerExit/OnDeselect` 也会全局 `Hide()`	逐句核
+菜单/外壳	OnSelect(BaseEventData eventData)	B	B	EverguildTooltipTrigger.cs:78	Shell/WindowButton.cs:141（SetSelected）（等价实现 = SetSelected(true) → ShowTip：原版 `OnSelect` 在 `registerEvents` 为真时 `Show()`（位 = 触发器节点 `transform.position` + `offset`）；我们的选中唯一派发口 = `PointerLayer.Select` → `SetSelected(true)`，锚点取本颗可见图形件的位置）	维持 B：**能力已落、接线数 0**（`tipText` 无站点赋值 ⇒ 今天零行为变化）	逐句核
+菜单/外壳	DrawForArmy(CardArmy army)	B	B	ExpansionPassPointDrawer.cs:14	Shell/ItemDrawer.cs + Core/CardArt.FlavorBg	落点非方法级（类级/散写/裸文件/描述），按 §4.1 不能升 A：一致 	精确到方法级的落点 + 逐句核
+菜单/外壳	Initialize()	B	B	FlareScenarioToggler.cs:27	Battle/FlareScenarioToggler.cs	落点非方法级（类级/散写/裸文件/描述），按 §4.1 不能升 A：一致 	精确到方法级的落点 + 逐句核
+菜单/外壳	DoesItemFit(int x, int y, FlexibleLayoutSizeOption layoutSizeOption)	B	B	FlexibleGridLayout.cs:434	各窗按固定列手算（卡池/收藏）	落点非方法级（类级/散写/裸文件/描述），按 §4.1 不能升 A：差：不跨格	精确到方法级的落点 + 逐句核
+菜单/外壳	GenerateGrid()	B	B	FlexibleGridLayout.cs:56	各窗按原版格宽/间距逐窗生成	落点非方法级（类级/散写/裸文件/描述），按 §4.1 不能升 A：差：无通用生成器（逐窗写死）	精确到方法级的落点 + 逐句核
+菜单/外壳	ToggleESC(bool option)	B	B	GameWindow.cs:339	Shell/GameWindow.cs:85 public bool closeOnEsc（调用点直接赋值）	落点非方法级（类级/散写/裸文件/描述），按 §4.1 不能升 A：等价（同一字段、同一语义；无独立方法） 	精确到方法级的落点 + 逐句核
+菜单/外壳	CreateTabButton(WindowTabBase tabInstance, string tabName, Sprite icon)	B	B	GameWindowWithTabs.cs:443	Shell/GameWindowWithTabs.cs:CreateTabButton + TabButtons.AddTabButton(name) / AssignTabButton	落点非方法级（类级/散写/裸文件/描述），按 §4.1 不能升 A：已建（名字半边）	精确到方法级的落点 + 逐句核
+菜单/外壳	DestroyTab(WindowTabBase tab)	B	B	cpp2il/out_cpp2il_dev_ilspy/GameWindowWithTabs.cs:553-568（🥈）· decomp_full/GameWindowWithTabs__DestroyTab.c（🥇）	Shell/GameWindowWithTabs.cs:241-250（DestroyTab）	落点非方法级（类级/散写/裸文件/描述），按 §4.1 不能升 A：**行为差异（本轮新查，原账只写了「无生产调用点」）**：销毁**当前页**时，原版留着悬空的 `CurrentTab`（之后再 `OpenTabs` 会 `CurrentTab.TryOpenTab()` 打到已销毁对象上）	精确到方法级的落点 + 逐句核
+菜单/外壳	ShowHighlightDelay(RectTransform objRectTransform, float delay)	B	B	GeneralMenuController.cs:536	Shell/TutorialPointerUi.cs + 调用方时序	落点非方法级（类级/散写/裸文件/描述），按 §4.1 不能升 A：差：无内建 delay 形参（由流程按时间线推迟）	精确到方法级的落点 + 逐句核
+菜单/外壳	OnSetup()	B	B	GeneralTab.cs:85	Shell/SettingsWindow.cs General 页	落点非方法级（类级/散写/裸文件/描述），按 §4.1 不能升 A：一致 	精确到方法级的落点 + 逐句核
+菜单/外壳	TouchInputToggle(bool value)	B	B	GeneralTab.cs:136	Shell/SettingsWindow.cs（设置项）+ Battle/TouchInputManager	落点非方法级（类级/散写/裸文件/描述），按 §4.1 不能升 A：一致 	精确到方法级的落点 + 逐句核
+菜单/外壳	SetPosition(Transform targetPosition)	B	B	GenericOptionsPanel.cs:838	Shell/GenericOptionsPanel.cs	落点非方法级（类级/散写/裸文件/描述），按 §4.1 不能升 A：一致 	精确到方法级的落点 + 逐句核
+菜单/外壳	SetTitle(string text, bool localizeText)	B	B	GenericOptionsPanel.cs:822	Shell/GenericOptionsPanel.cs	落点非方法级（类级/散写/裸文件/描述），按 §4.1 不能升 A：一致 	精确到方法级的落点 + 逐句核
+菜单/外壳	Start()	B	B	GenericOptionsPanel.cs:553	Shell/GenericOptionsPanel.cs:240 Create（建件）	落点非方法级（类级/散写/裸文件/描述），按 §4.1 不能升 A：等价 	精确到方法级的落点 + 逐句核
+菜单/外壳	CardsTextInHandDropdownChange(int chosenCardTextsInHand)	B	B	GraphicsTab.cs:209	Shell/SettingsWindow.cs 图像页（CardsTextInHand 项）	落点非方法级（类级/散写/裸文件/描述），按 §4.1 不能升 A：一致 	精确到方法级的落点 + 逐句核
+菜单/外壳	FPSLimitValueChanged(float fpsValue)	B	B	GraphicsTab.cs:139	Shell/SettingsWindow.cs 图像页 FPS 滑块	落点非方法级（类级/散写/裸文件/描述），按 §4.1 不能升 A：一致 	精确到方法级的落点 + 逐句核
+菜单/外壳	GraphicsQualityDropdownChange(int chosenQuality)	B	B	GraphicsTab.cs:150	Shell/SettingsWindow.cs Quality Selector	落点非方法级（类级/散写/裸文件/描述），按 §4.1 不能升 A：一致 	精确到方法级的落点 + 逐句核
+菜单/外壳	OnEnable()	B	B	GraphicsTab.cs:31	Shell/SettingsWindow.cs 页签切换刷新	落点非方法级（类级/散写/裸文件/描述），按 §4.1 不能升 A：一致 	精确到方法级的落点 + 逐句核
+菜单/外壳	OnSetup()	B	B	GraphicsTab.cs:253	Shell/SettingsWindow.cs 建件 + 行显隐	落点非方法级（类级/散写/裸文件/描述），按 §4.1 不能升 A：一致 	精确到方法级的落点 + 逐句核
+菜单/外壳	VSyncToggleClick(bool option)	B	B	GraphicsTab.cs:130	Shell/SettingsWindow.cs 图像页	落点非方法级（类级/散写/裸文件/描述），按 §4.1 不能升 A：一致 	精确到方法级的落点 + 逐句核
+菜单/外壳	ClickChooseName(string newName)	B	A	MainMenuWindow.cs:837	Shell/ProfileTab.cs 改名链（内嵌改名窗 L_NameHit）+ Shell/ProfileData.PlayerName	等价：ClickChooseName 写名字 = ProfileTab.CommitNameWindow/ApplyName(:1491，全工程唯一写名点)	—
+菜单/外壳	Initialize()	B	B	MainMenuWindow.cs:159	CardPresentation/Shell/MainMenuRuntime.cs:401（MainMenuRuntime.Build）	维持 B：一致	逐句核
+菜单/外壳	OpenChooseNameMenu()	B	B	MainMenuWindow.cs:842	Shell/ProfileTab.cs 改名窗开/关链	落点非方法级（类级/散写/裸文件/描述），按 §4.1 不能升 A：等价（同一扇改名窗，内嵌在档案页） 	精确到方法级的落点 + 逐句核
+菜单/外壳	SetupChat()	B	B	MainMenuWindow.cs:722	Shell/ChatPanel.cs + Shell/MainMenuRuntime 聊天预览	落点非方法级（类级/散写/裸文件/描述），按 §4.1 不能升 A：等价 	精确到方法级的落点 + 逐句核
+菜单/外壳	ToggleScroll(bool option)	B	B	MainMenuWindow.cs:388	Shell/MainMenuRuntime.cs:ToggleScroll + MenuScroll.Enabled + PointerLayer 的命中/滚轮/惯性三处闸	落点非方法级（类级/散写/裸文件/描述），按 §4.1 不能升 A：已建（原版 `scrollList.enabled = option` 的等价物）	精确到方法级的落点 + 逐句核
+菜单/外壳	CanTrigger(Action action)	B	A	decomp_full/MenuActions__CanTrigger.c	Shell/LiveOpsHandler.cs:1312（CanTriggerNow）（等价实现 = MenuActions.CanTriggerNow）	等价：CanTrigger = LiveOpsHandler.CanTriggerNow(:1312，组去重/currentWindow/MenuFilter/onboarding 合并)	—
+菜单/外壳	CheckActiveMenus(bool isTapChange, GameWindow gameWindow, WindowTabBase tab)	B	B	MenuActions.cs:941	Shell/WindowsManager.TopWindow + TabButtons	落点非方法级（类级/散写/裸文件/描述），按 §4.1 不能升 A：差：无该判定函数	精确到方法级的落点 + 逐句核
+菜单/外壳	QueueAction(System.Action action, [Optional][DefaultParameterValue(0)	B	B	MenuActions.cs:967	—	无落点（—），按 §4.1 记 B	我方无对应实现/概念
+菜单/外壳	QueueActionWithCallback(Action<System.Action> action, [Optional][DefaultParameterValue(0)	B	B	MenuActions.cs:1097	—	无落点（—），按 §4.1 记 B	我方无对应实现/概念
+菜单/外壳	ResumeMenuActions(string scene)	B	B	MenuActions.cs:873	—	无落点（—），按 §4.1 记 B	我方无对应实现/概念
+菜单/外壳	Routine()	B	A	decomp_full/MenuActions._Routine_d__10__MoveNext.c	Shell/LiveOpsHandler.cs:1284（TryDrain）（等价实现 = MenuActions.TryDrain）	等价：Routine = LiveOpsHandler.TryDrain(:1284，Priority 降序稳定 drain)	—
+菜单/外壳	StopMenuActions(string sceneTarget)	B	B	MenuActions.cs:821	—	无落点（—），按 §4.1 记 B	我方无对应实现/概念
+菜单/外壳	TryTriggerAction(Action action, GameWindow currentWindow, Action<bool> onComplete)	B	A	decomp_full/MenuActions__TryTriggerAction.c	Shell/LiveOpsHandler.cs:1328（Trigger）（等价实现 = MenuActions.Trigger + Complete）	等价：TryTriggerAction = LiveOpsHandler.Trigger(:1328)+Complete(摘除+ActionRule)	—
+菜单/外壳	OnInitializationComplete()	B	B	NavigationPanelController.cs:96	Shell/SceneInitializer.cs（层已就绪）但 MainMenuRuntime 未实现接口	落点非方法级（类级/散写/裸文件/描述），按 §4.1 不能升 A：差：`MainMenuRuntime` 未实现 `IInitializationComplete`	精确到方法级的落点 + 逐句核
+菜单/外壳	Awake()	B	B	ParentConstraint.cs:42	—	无落点（—），按 §4.1 记 B	我方无对应实现/概念
+菜单/外壳	Init(Transform target)	B	B	ParentConstraint.cs:75	—	无落点（—），按 §4.1 记 B	我方无对应实现/概念
+菜单/外壳	LateUpdate()	B	B	ParentConstraint.cs:62	—	无落点（—），按 §4.1 记 B	我方无对应实现/概念
+菜单/外壳	Sync()	B	B	ParentConstraint.cs:175	—	无落点（—），按 §4.1 记 B	我方无对应实现/概念
+菜单/外壳	ToggleParentingOptions(bool position, bool rotation, bool scale)	B	B	ParentConstraint.cs:168	—	无落点（—），按 §4.1 记 B	我方无对应实现/概念
+菜单/外壳	Update()	B	B	ParentConstraint.cs:50	—	无落点（—），按 §4.1 记 B	我方无对应实现/概念
+菜单/外壳	InstantiateInput(PromptContext.InputData data)	B	B	PromptPopup.cs:318	Shell/PromptPopup.cs:97 Create（输入框形态建一次）	落点非方法级（类级/散写/裸文件/描述），按 §4.1 不能升 A：差：无「按 PromptContext 数据实例化」的通用口	精确到方法级的落点 + 逐句核
+菜单/外壳	SetError(string error, bool localize)	B	B	PromptPopup.cs:481	Shell/PromptPopup.cs 错误行（是否支持未逐句核）	落点非方法级（类级/散写/裸文件/描述），按 §4.1 不能升 A：差：错误行刷新未逐句核	精确到方法级的落点 + 逐句核
+菜单/外壳	SetMessage(string error, bool localize)	B	B	PromptPopup.cs:500	Shell/PromptPopup.cs 正文	落点非方法级（类级/散写/裸文件/描述），按 §4.1 不能升 A：一致 	精确到方法级的落点 + 逐句核
+菜单/外壳	Refresh()	B	B	ReferralPopupWindow.cs:82	Shell/ReferralPopupWindow.cs Refresh	落点非方法级（类级/散写/裸文件/描述），按 §4.1 不能升 A：差：内容源（服务器推荐计数）本地为空	精确到方法级的落点 + 逐句核
+菜单/外壳	Start()	B	B	ReferralPopupWindow.cs:58	Shell/ReferralPopupWindow.cs（打开时建内容）	落点非方法级（类级/散写/裸文件/描述），按 §4.1 不能升 A：差：同上	精确到方法级的落点 + 逐句核
+菜单/外壳	OnCurrencyChange(ICurrency currency, int amountChanged)	B	B	ResourcesBarController.cs:222	CardPresentation/Shell/TopBar.cs:529（RefreshCountersIfChanged）+ :592（StepCounters，0.5 s 数字滚动）（等价实现 = RefreshCountersIfChanged：原版按币种取那件计数器 SetQuantity(新值, true) 再 FixLayout；我们的 RefreshCountersIfChanged + StepCounters（:592，0.5s 数字滚动）覆盖同一件事）	维持 B：等价：滚动已补（原版 `UIResourceCounter.SetQuantity(..., animated=1)`：0.5 s、每帧 ceil 写文本）；差：仍无 `+N` 飘字（原版 amountChanged 用于提示，我们没有那条提示） 	仍无 `+N` 飘字（原版 amountChanged 用于提示，我们没有那条提示） ｜ 🔴 2026-10-25 N5：差异原文自己写着「**差：仍无 `+N` 飘字**」⇒ 这一条**是真缺口**（原版 `amountChanged` 
+菜单/外壳	SetTargetFade(float targetValue, float blendTime)	B	B	ScenarioGenericObjectToggler.cs:77	Battle/ScenarioGenericObjectToggler.cs	落点非方法级（类级/散写/裸文件/描述），按 §4.1 不能升 A：一致 	精确到方法级的落点 + 逐句核
+菜单/外壳	Start()	B	B	ScenarioGenericObjectToggler.cs:17	Battle/ScenarioGenericObjectToggler.cs	落点非方法级（类级/散写/裸文件/描述），按 §4.1 不能升 A：一致 	精确到方法级的落点 + 逐句核
+菜单/外壳	Update()	B	B	ScenarioGenericObjectToggler.cs:26	Battle/ScenarioGenericObjectToggler.cs	落点非方法级（类级/散写/裸文件/描述），按 §4.1 不能升 A：一致 	精确到方法级的落点 + 逐句核
+菜单/外壳	Awake()	B	B	Everguild.Scenes/SceneTransition.cs:270	Shell/ShellRuntime.cs:119（无独立转场场景）	落点非方法级（类级/散写/裸文件/描述），按 §4.1 不能升 A：差：无转场组件（淡入淡出直接写在 ShellRuntime）	精确到方法级的落点 + 逐句核
+菜单/外壳	GetTransition(string fromScene, string toScene)	B	B	Everguild.Scenes/SceneTransitionList.cs:54	Shell/ShellRuntime 的单一淡入淡出	落点非方法级（类级/散写/裸文件/描述），按 §4.1 不能升 A：差：我们只有一条转场（不按起止场景查表）	精确到方法级的落点 + 逐句核
+菜单/外壳	RenderPipelineManagerOnbeginCameraRendering(ScriptableRenderContext arg1, Camera arg2)	B	B	ScreenAspectRatioController.cs:35	Battle/ScreenAspectRatioController.cs 的 URP 钩子	落点非方法级（类级/散写/裸文件/描述），按 §4.1 不能升 A：一致 	精确到方法级的落点 + 逐句核
+菜单/外壳	GetDiagonalSizeReferenceValue()	B	A	ScreenUtilities.cs:39	Core/ScreenUtilities.cs:60（GetDiagonalSizeReferenceValue）	等价：GetDiagonalSizeReferenceValue = Core/ScreenUtilities.cs(:60) clamp01((phys−4.7)/0.9000001)	—
+菜单/外壳	GetScreenDPI()	B	A	ScreenUtilities.cs:73	Core/ScreenUtilities.cs:44（GetScreenDPI）	等价：GetScreenDPI = Core/ScreenUtilities.cs(:44) max(100,Screen.dpi)	—
+菜单/外壳	GetScreenPhysicalSize()	B	A	ScreenUtilities.cs:6	Core/ScreenUtilities.cs:51（GetScreenPhysicalSize）	等价：GetScreenPhysicalSize = Core/ScreenUtilities.cs(:51) sqrt(w²+h²)/DPI	—
+菜单/外壳	CalculateFocusedScrollPosition(ScrollRect scrollView, Vector2 focusPoint)	B	B	ScrollViewFocusFunctions.cs:263	Shell/MenuScroll.cs:315 FocusOn	落点非方法级（类级/散写/裸文件/描述），按 §4.1 不能升 A：差：只收内容坐标（不收归一化点）	精确到方法级的落点 + 逐句核
+菜单/外壳	ESCPressed()	B	B	SearchingMatchWindowDemo.cs:288	Shell/PointerLayer ESC + SearchingMatchPopup	落点非方法级（类级/散写/裸文件/描述），按 §4.1 不能升 A：差：无窗级 ESC 覆写	精确到方法级的落点 + 逐句核
+菜单/外壳	CancelMatchMatchmaking()	B	B	SearchingOpponentWindow.cs:54	Shell/SearchOpponentManager.cs Cancel	落点非方法级（类级/散写/裸文件/描述），按 §4.1 不能升 A：一致 	精确到方法级的落点 + 逐句核
+菜单/外壳	OnEnable()	B	B	SearchingOpponentWindow.cs:13	Shell/SearchingOpponentWindow.cs（内容在 Open 建）	落点非方法级（类级/散写/裸文件/描述），按 §4.1 不能升 A：差：无 OnEnable 钩子（生命周期由 Open/Close 驱动）	精确到方法级的落点 + 逐句核
+菜单/外壳	finish()	B	B	Shade.cs:87	CardPresentation/Shell/Shade.cs:40（SetAlpha）（等价实现 = SetAlpha：原版 finish 的方法体在本地反编译里是 NotImplementedException（产物缺失），按 CIL 推断是「补间结束贴终值」；我们的等价 = FadeTo 末尾那句 SetAlpha(target)（协程走完直接落终值））	维持 B：一致 	逐句核
+菜单/外壳	Awake()	B	B	TMProWarpText.cs:56	—	无落点（—），按 §4.1 记 B	我方无对应实现/概念
+菜单/外壳	OnDisable()	B	B	TMProWarpText.cs:73	—	无落点（—），按 §4.1 记 B	我方无对应实现/概念
+菜单/外壳	OnEnable()	B	B	TMProWarpText.cs:66	—	无落点（—），按 §4.1 记 B	我方无对应实现/概念
+菜单/外壳	ReactToTextChanged(UnityEngine.Object obj)	B	B	TMProWarpText.cs:80	—	无落点（—），按 §4.1 记 B	我方无对应实现/概念
+菜单/外壳	Reset()	B	B	TMProWarpText.cs:25	—	无落点（—），按 §4.1 记 B	我方无对应实现/概念
+菜单/外壳	WarpText()	B	B	TMProWarpText.cs:130	—	无落点（—），按 §4.1 记 B	我方无对应实现/概念
+菜单/外壳	AddTabButton(string tabName, Sprite tabIcon)	B	B	TabButtons.cs:314	Shell/TabButtons.cs:AddTabButton(string tabName)（克隆母版 → 激活 → SetSiblingIndex(0) → name/文字）	落点非方法级（类级/散写/裸文件/描述），按 §4.1 不能升 A：已建（名字半边）	精确到方法级的落点 + 逐句核
+菜单/外壳	Draw(CosmeticItemTitle item, int quantity)	B	B	TitleDrawer.cs:23	Shell/ItemDrawer.cs（装饰档）	落点非方法级（类级/散写/裸文件/描述），按 §4.1 不能升 A：差：称号牌的画法未单独核（随称号页一起）	精确到方法级的落点 + 逐句核
+菜单/外壳	GetItemName(CosmeticItemTitle item)	B	B	TitleDrawer.cs:16	Shell/ItemDrawer.cs 名字层	落点非方法级（类级/散写/裸文件/描述），按 §4.1 不能升 A：差：同上	精确到方法级的落点 + 逐句核
+菜单/外壳	Draw(CosmeticItemTitle item, int quantity)	B	B	TitleIconDrawer.cs:5	Shell/ItemDrawer.cs（装饰图标档）	落点非方法级（类级/散写/裸文件/描述），按 §4.1 不能升 A：差：称号图标档画法未单独核	精确到方法级的落点 + 逐句核
+菜单/外壳	GetItemName(CosmeticItemTitle item)	B	B	TitleIconDrawer.cs:9	Shell/ItemDrawer.cs 名字层	落点非方法级（类级/散写/裸文件/描述），按 §4.1 不能升 A：差：同上	精确到方法级的落点 + 逐句核
+菜单/外壳	SetTitle(CosmeticItemTitle item)	B	B	TitleTab.cs:713	CardPresentation/Shell/ProfileData.cs:263（Titles 称号表；SetTitle 从中选）	落点非方法级（类级/散写/裸文件/描述），按 §4.1 不能升 A：等价（只覆盖「显示当前称号」）	精确到方法级的落点 + 逐句核
+菜单/外壳	ForceUpdateLayout()	B	A	cpp2il/out_cpp2il_dev_ilspy/ToastNotification.cs:87-97（🥈）	Shell/ToastNotifications.cs:1063-1083（ToastRootHeight，`Label.ForceRelayout()` 在 `:1071`）	机制不同意图等价(铁律18我们接受)：改文案后重量高 = ToastNotifications ForceRelayout/Label.ForceRelayout	—
+菜单/外壳	ShowNotificationInternal(ToastNotificationContext context)	B	A	cpp2il/out_cpp2il_dev_ilspy/ToastNotificationController.cs:278-518（🥈）· decomp_full/ToastNotificationController__ShowNotificationInternal.c	Shell/ToastNotifications.cs:842-1055（ShowInternal）（等价实现 = ① `:852-853` · ② `:863` `Fill` · ③ 换成 `ToastRootHeight`+`ApplyMeasuredHeight` `:865-876` · ④ `:877+`）	机制不同意图等价：ShowNotificationInternal = ToastNotifications.ShowInternal(:842) ①②④同形、③换 Label.ForceRelayout 量高	—
+菜单/外壳	Setup(bool toggled, string textTerm, Sprite sprite)	B	A	ToggleDisplay.cs:17	CardPresentation/Shell/WindowButton.cs:465（SetNormalTex）	等价：ToggleDisplay.Setup = WindowButton SetSelected+SetNormalTex(:465)+Label 三跳	—
+菜单/外壳	Start()	B	B	UIBakeScreen.cs:20	Shell/UIBakeScreen.cs	落点非方法级（类级/散写/裸文件/描述），按 §4.1 不能升 A：一致 	精确到方法级的落点 + 逐句核
+菜单/外壳	GetWorldRect(RectTransform rectTransform)	B	B	UICulling.cs:352	Core/LayoutSpace / MenuDraw PxRect 体系	落点非方法级（类级/散写/裸文件/描述），按 §4.1 不能升 A：等价（我们直接持有设计矩形） 	精确到方法级的落点 + 逐句核
+菜单/外壳	LayoutRefresh()	B	A	UIErrorMessageItem.cs:94	Battle/ErrorMessageBanner.cs（错误横幅）	等价：LayoutRefresh = ErrorMessageBanner.RelayoutActive(:806)	—
+菜单/外壳	Show(string textToShow, Color color, bool localize)	B	A	UIErrorMessageItem.cs:31	Battle/ErrorMessageBanner.cs Show + Shell/MessageToast.cs:212 ShowErro…	等价：Show = ErrorMessageBanner.ShowError(:642)/ShowMessage(:648)	—
+菜单/外壳	Toggle(bool option)	B	B	UIErrorMessageItem.cs:99	Battle/ErrorMessageBanner.cs / MessageToast	落点非方法级（类级/散写/裸文件/描述），按 §4.1 不能升 A：一致 	精确到方法级的落点 + 逐句核
+菜单/外壳	InverseLerp(float a, float b, float v)	B	B	UIGradientUtils.cs:127	Core/CardArt.cs:766 渐变算式内联	落点非方法级（类级/散写/裸文件/描述），按 §4.1 不能升 A：差：内联、无独立助手（数学等价）	精确到方法级的落点 + 逐句核
+菜单/外壳	LocalPositionMatrix(Rect rect, Vector2 dir)	B	B	UIGradientUtils.cs:45	Core/CardArt.cs:766 Gradient(angleDeg)	落点非方法级（类级/散写/裸文件/描述），按 §4.1 不能升 A：差：无矩阵形态（按角度直接算，等价）	精确到方法级的落点 + 逐句核
+菜单/外壳	OnDisable()	B	B	cpp2il/out_cpp2il_dev_ilspy/UIScaleToFit.cs:60-66（🥈；体是 `DrivenRectTransformTracker.Clear()`，ILSpy 显示为 `Method not found @1804B33B0`）· decomp_full/UIScaleToFit__OnDisable.c:1-6（🥇；体里只有 `NetworkingPeer__OnMessage(+0x48, 0)` = ICF 折叠的 `tracker.Clear()`）	—（无对应实现：`Shell/UIScaleToFit.cs` 全文无 `OnDisable`，本件无 `DrivenRectTransformTracker`）	落点非方法级（类级/散写/裸文件/描述），按 §4.1 不能升 A：方法级落点不存在（G1 ✗）	精确到方法级的落点 + 逐句核
+菜单/外壳	Initialize(string url)	B	B	UrlButton.cs:28	CardPresentation/Shell/SettingsWindow.cs:2728（AccountOpenUrl 方法，唯一对外动作 OpenURL）	落点非方法级（类级/散写/裸文件/描述），按 §4.1 不能升 A：等价 	精确到方法级的落点 + 逐句核
+菜单/外壳	Close()	B	B	WelcomePopup.cs:146	Shell/WelcomePopup.cs Close	落点非方法级（类级/散写/裸文件/描述），按 §4.1 不能升 A：一致 	精确到方法级的落点 + 逐句核
+菜单/外壳	OnClose()	B	B	WelcomePopup.cs:154	Shell/WelcomePopup.cs 关闭链	落点非方法级（类级/散写/裸文件/描述），按 §4.1 不能升 A：一致 	精确到方法级的落点 + 逐句核
+菜单/外壳	Close()	B	B	cpp2il/out_cpp2il_dev_ilspy/WhereToGetCardsWindow.cs:178-200（🥈）· decomp_full/WhereToGetCardsWindow__Close.c	Shell/WhereToGetCardsPopup.cs:288-379（Build）（等价实现 = 关窗走 `GameWindow.Close()`；段的清理由下次 `Build()`→`BuildSections` 的 `ClearChildren` 做）	落点非方法级（类级/散写/裸文件/描述），按 §4.1 不能升 A：结构性差异：原版每张来源卡是池化件 `Card Drawer`（`ItemDrawer`），关窗就**还池**	精确到方法级的落点 + 逐句核
+菜单/外壳	RefreshLayout()	B	B	WhereToGetCardsWindow.cs:133	Shell/WhereToGetCardsPopup.cs（内容按需重建）	落点非方法级（类级/散写/裸文件/描述），按 §4.1 不能升 A：差：无独立重排（uGUI 布局修复那一步我们手算）	精确到方法级的落点 + 逐句核
+菜单/外壳	Initialize(ILiveOps liveopEvent, Action OnBackButtonPressed)	B	B	WindowHeaderWithBackButton.cs:47	Shell/CampaignRewardWindow 等窗的标题（按上下文）	落点非方法级（类级/散写/裸文件/描述），按 §4.1 不能升 A：差：无 liveops 活动版标题初始化口	精确到方法级的落点 + 逐句核
+菜单/外壳	Initialize(string title, Action OnBackButtonPressed)	B	B	WindowHeaderWithBackButton.cs:41	各窗标题 + ShowPreviousWindow 回调	落点非方法级（类级/散写/裸文件/描述），按 §4.1 不能升 A：一致 	精确到方法级的落点 + 逐句核
+菜单/外壳	OnEnable()	B	B	WindowHeaderWithBackButton.cs:18	各窗标题件（Build 时建）	落点非方法级（类级/散写/裸文件/描述），按 §4.1 不能升 A：差：无 OnEnable 钩子	精确到方法级的落点 + 逐句核
+菜单/外壳	Awake()	B	A	WindowTabBase.cs:60	CardPresentation/Shell/WindowTabBase.cs:55（TryOpenTab）	等价：原版 Awake 为空实现，我们未写 Awake = 空对空	—
+菜单/外壳	OnSetup()	B	B	WindowTabBase.cs:70	Shell/WindowTabBase.cs:OnSetup（protected virtual）	落点非方法级（类级/散写/裸文件/描述），按 §4.1 不能升 A：已建	精确到方法级的落点 + 逐句核
+菜单/外壳	Toggle(bool option)	B	B	WindowTabBase.cs:101	Shell/WindowTabBase.cs:Toggle（private，`SetActive(option)`，不调 OnOpen/OnClose）	落点非方法级（类级/散写/裸文件/描述），按 §4.1 不能升 A：已建（与原版同形 private）	精确到方法级的落点 + 逐句核
+菜单/外壳	CloseWindow<T>()	B	A	WindowsManager.cs:1529	Shell/WindowsManager.cs:CloseWindow<T>（GetOpenWindow 后 Close）	等价：CloseWindow<T> = WindowsManager.cs(:374) GetOpenWindow<T>() 非空才 Close	—
+菜单/外壳	GetOpenWindow<T>()	B	A	WindowsManager.cs:1104	Shell/WindowsManager.cs:GetOpenWindow<T>（扫 `openWindows` 取第一扇 `is T`）	等价：GetOpenWindow<T> = WindowsManager.cs(:360) openWindows 首个 is T	—
+菜单/外壳	RefreshWindow<T>()	B	A	WindowsManager.cs:1014	Shell/WindowsManager.cs:RefreshWindow<T>（只认 currentWindow，`is T` 才 `TryOpen()` 回前台）	等价：RefreshWindow<T> = WindowsManager.cs(:381) 只认 currentWindow 是 T 才 TryOpen	—

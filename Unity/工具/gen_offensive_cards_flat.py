@@ -28,6 +28,9 @@ DRY = "--dry" in sys.argv[1:]
 
 SRC = "d:/4/Unity/数据/游戏数据/offensive_cards.json"
 DST = "d:/4/Unity/MyGame/Assets/CardPresentation/Resources/OffensiveCards.json"
+# 🆕 2026-10-27（`B9_E2UDW`）：防御卡（原版 `EnviromentalEffectCardsSO.enviromentalEffects[].defensiveCards`）
+#   —— 由 `工具/gen_defensive_cards.py` 解出。**文件不在就照旧不并**（老行为不变）。
+DEF = "d:/4/Unity/数据/游戏数据/defensive_cards.json"
 
 
 def main():
@@ -53,15 +56,36 @@ def main():
             "emptyName": e.get("cardName_candidate") or "",
             "emptyFace": e.get("face_texture") or "",
             "cards": cards,
+            # 🆕 2026-10-27（`B9_E2UDW`）：防御卡槽（账 208 `GetEnvCardListDraft` 的防御半边）。
+            #   判据 = `工具/gen_defensive_cards.py` 的产物；卡名**解不出**（`m_FileID: 4` 外部文件 +
+            #   防御卡没有配套卡面贴图）⇒ `name` 恒空、只留 `cardRefPathID` 供以后解名。
+            "defensiveCards": [],
         })
+
+    # 把防御卡并进来（**没有那个文件就照旧**）。
+    if os.path.exists(DEF):
+        dd = json.load(io.open(DEF, encoding="utf-8"))
+        by = {k: (v.get("defensiveCards") or []) for k, v in (dd.get("armies") or {}).items()}
+        for a in out["armies"]:
+            a["defensiveCards"] = [
+                {
+                    "idx": c.get("idx", i),
+                    "name": "",
+                    "forgeLevel": c.get("forgeLevel") or 0,
+                    "cardRefPathID": (c.get("cardRef") or {}).get("m_PathID") or 0,
+                }
+                for i, c in enumerate(by.get(a["army"]) or [])
+            ]
     if DRY:
-        print("干跑（未写盘）%s：FLAT 阵营 %d · 卡槽 %d" %
-              (DST, len(out["armies"]), sum(len(a["cards"]) for a in out["armies"])))
+        print("干跑（未写盘）%s：FLAT 阵营 %d · 卡槽 %d · 防御槽 %d" %
+              (DST, len(out["armies"]), sum(len(a["cards"]) for a in out["armies"]),
+               sum(len(a["defensiveCards"]) for a in out["armies"])))
         return
     io.open(DST, "w", encoding="utf-8", newline="\n").write(
         json.dumps(out, ensure_ascii=False, indent=1))
-    print("FLAT 阵营 %d · 卡槽 %d → %s" %
-          (len(out["armies"]), sum(len(a["cards"]) for a in out["armies"]), DST))
+    print("FLAT 阵营 %d · 卡槽 %d · 防御槽 %d → %s" %
+          (len(out["armies"]), sum(len(a["cards"]) for a in out["armies"]),
+           sum(len(a["defensiveCards"]) for a in out["armies"]), DST))
 
 
 if __name__ == "__main__":

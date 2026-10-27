@@ -145,7 +145,7 @@ namespace RuleEngine
         /// （`-1` = 这局没有电脑 —— 双方都按真人算，**老调用方一个字都不用改**）。
         /// 它只喂 <see cref="BattleContext.BotSeat"/> 这一格，而那一格**唯一**的用处是
         /// 「后手那张防御卡」——原版给电脑时**不从电脑卡组取**（判据见 <see cref="GoesSecondCard"/>）。
-        /// 单机时座位 1 由 `SimpleAI` 驱动、联机时座位 1 是真人 ⇒ **引擎自己判不出来，必须由入口窗给**。</param>
+        /// 单机时座位 1 由 `SimpleAI` 驱动、联机时座位 1 是真人 ⇒ **引擎自己判不出来，必须由入口窗给**。</param> <param name="matchType">🔴 2026-10-27（`B9_E5ENG`）：**本局模式号** —— **只喂两条洗牌闸**（玩家侧 `MatchData.ShouldShuffleDeck(matchType)`、对手侧 `SetBotOpponentDeck` 内联 `!(matchType∈{100,140})`）。不传 ⇒ 由 <paramref name="tutorial"/> 推（`null` ⇒ `Undefined` = 照原版默认「洗」）。⚠️ 入口窗现在落 `Ctx.PlayMode` 在 `NewBattle` **之后** ⇒ 想让它看见真实模式，入口窗必须**显式传**这一格。</param>
         public static BattleContext NewBattle(IList<CardDef> deckA, IList<CardDef> deckB,
                                               int seed = 0, bool shuffle = true,
                                               IList<CardDef> cardPool = null,
@@ -153,7 +153,7 @@ namespace RuleEngine
                                               GameplayVariables vars = null,
                                               int firstSeat = 0,
                                               TutorialScript tutorial = null,
-                                              int botSeat = -1)
+                                              int botSeat = -1, MatchType matchType = MatchType.Undefined)
         {
             // 🔴 **2026-10-23（引擎线 `新账-89` ③）**：`EffectResolver` 的静态旁表
             //    `_keywordsPact`（键 = `UnitState`）**只在本局内有意义**；不清的话，长会话里
@@ -180,17 +180,17 @@ namespace RuleEngine
             // 🆕 2026-10-17（B29）：**教程局的先手由关卡说了算**（原版 `BattleManager.GetPlayerGoesFirst`
             //   的 `matchType == 100` 那一支 ⇒ 取 `PlayerDataManager.currentTutorialStage.playerStarts`）。
             //   判据与另外两条开关一起收在 `TutorialRules` 里，⛔ 别在这里再展开写一遍。
+            // 🔴 2026-10-27（`B9_E5ENG` · 账 `CreatePlayerDeck` / `SetBotOpponentDeck`）：洗牌闸 = 原版**两条独立的闸**（玩家侧 `BattleManager.CreatePlayerDeck` → `MatchData.ShouldShuffleDeck(matchType)`；对手侧 `MatchData.SetBotOpponentDeck` 内联 `!(matchType∈{100,140})`）。两者今天同一个 pair ⇒ 净结果恒等，但**两侧分开判**、⛔ 别再并回一个布尔（将来两侧判据分化时不会互相牵连）。
+            MatchType shuffleMt = matchType != MatchType.Undefined ? matchType : (tutorial != null ? MatchType.Tutorial : MatchType.Undefined);
+            bool shuffleP1Deck = shuffle && TutorialRules.ShouldShuffleDeck(shuffleMt), shuffleP2Deck = shuffle && TutorialRules.ShouldShuffleDeck(shuffleMt);
             if (tutorial != null)
             {
                 var st = tutorial.Stage;
-                // ① **不洗牌**（原版 `MatchData.ShouldShuffleDeck(100) == false`；它唯一调用点 =
-                //    `BattleManager.CreatePlayerDeck` —— 洗完再插起手卡，所以「不洗」这件事**必须在建牌库之前**）。
-                if (shuffle && !TutorialRules.ShouldShuffleDeck(MatchType.Tutorial))
-                {
-                    shuffle = false;
+                // ① **不洗牌**（原版 `MatchData.ShouldShuffleDeck(100) == false`；唯一调用点 =
+                //    `BattleManager.CreatePlayerDeck` —— 洗完再插起手卡，所以「不洗」必须**在建牌库之前**；闸在 `shuffleP1Deck/P2`）
+                if (shuffle && !shuffleP1Deck)
                     ctx.Log("教程局：**不洗牌**（原版 `MatchData.ShouldShuffleDeck(Tutorial 100)` = false）"
                           + " —— 牌库保持关卡给的顺序");
-                }
                 // ② **先手照关卡**（S3 是 AI 先手 —— 关卡数据实测 `playerStarts = false`）。
                 firstSeat = TutorialRules.PlayerStarts(st) ? 0 : 1;
                 // ③ **没有换牌阶段**（教程走 `_TutorialStartSequence` → 直接 `StartBattlePhase`）。
@@ -219,9 +219,9 @@ namespace RuleEngine
             //   ⇒ 要「玩家也能看到它」，正确做法是**让先手真的会换人**（见下面的 `firstSeat`），
             //     而不是两边都发。用户 2026-09-26 指出这一点。
             CardDef defP0, defP1;
-            ctx.Players[0] = BuildPlayer(ctx, deckA, "P1", shuffle, getsDefenceCard: ctx.FirstSeat == 1,
+            ctx.Players[0] = BuildPlayer(ctx, deckA, "P1", shuffleP1Deck, getsDefenceCard: ctx.FirstSeat == 1,
                                          out defP0);
-            ctx.Players[1] = BuildPlayer(ctx, deckB, "P2", shuffle, getsDefenceCard: ctx.FirstSeat == 0,
+            ctx.Players[1] = BuildPlayer(ctx, deckB, "P2", shuffleP2Deck, getsDefenceCard: ctx.FirstSeat == 0,
                                          out defP1);
             // 🆕 2026-10-26（`E11RC` · 账行 590 `SetupWarlordsLifeAndEnchantment` 的 ② 半）：
             //   两位督军都建好之后，按原版那道 matchType 闸落「上限覆盖」（判据见方法自己的注释块）。
@@ -439,7 +439,7 @@ namespace RuleEngine
         /// 换掉第 `player` 方手里的 `handIndices` 那几张牌：**弃回牌库 → 洗牌 → 补抽同样张数**。
         /// 返回真正换掉的张数（-1 = 不在换牌阶段，调用方该把它报出来，别当成功）。
         ///
-        /// ⚠️ 用 `ctx.Rng`（种子化）—— 对局必须可复现（本工程的铁律）。
+        /// ⚠️ 用 `ctx.GetRandomInt`（原版预烧表）—— 2026-10-27 `E1RNG` 起结算不再走 `ctx.Rng`。
         /// </summary>
         public static int Mulligan(BattleContext ctx, int player, IList<int> handIndices)
         {
@@ -484,7 +484,7 @@ namespace RuleEngine
 
             // 重洗：换回去的牌要**洗匀**，不然对手能从牌库顺序推出你换掉了什么
             //（原版是 `FinishMulliganFinalPhase` 里统一 `ShuffleDeck`，我们在这里洗同一件事）
-            Shuffle(ps.Deck, ctx.Rng);
+            Shuffle(ps.Deck, ctx);
 
             // 补抽同样张数
             for (int i = 0; i < idx.Count; i++) Draw(ctx, player);
@@ -605,7 +605,7 @@ namespace RuleEngine
         static PlayerState BuildPlayer(BattleContext ctx, IList<CardDef> deck, string name, bool shuffle,
                                        bool getsDefenceCard, out CardDef defenceCardOut)
         {
-            Random rng = ctx.Rng;
+            // ⚠️ 2026-10-27（`E1RNG`）：这里原来有一句 `Random rng = ctx.Rng;` —— 已删（洗牌改走 `ctx.GetRandomInt`，见 `Shuffle`）。本行留注释只为保持行号不变。
             var p = new PlayerState { Name = name };
             CardDef warlordCard = null;
             CardDef defenceCard = null;      // 防御卡 —— 进**手牌**（由调用方发），不进牌库（见下）
@@ -623,7 +623,7 @@ namespace RuleEngine
                 }
             }
 
-            if (shuffle) Shuffle(p.Deck, rng);
+            if (shuffle) Shuffle(p.Deck, ctx);
 
             // 督军也是「一份」：实例由对局计数器发（第 7 行第 1 步）。
             // ⚠️ 督军**不进**手牌/牌库/弃牌堆（阵亡时 `CleanupDeaths` 直接 return），
@@ -889,7 +889,7 @@ namespace RuleEngine
         /// （`LiveOpsManager.GetHandler&lt;ForgeHandler&gt;` 找不到本阵营那一档就返回空表、一张都不给）——
         /// 我们**没有这条**（查不到就不编）⇒ 池空时**出声、不给卡**。
         ///
-        /// ⚠️ 随机源 = **`ctx.Rng`**（工程红线：引擎里只用 `System.Random`，⛔ 不用 `UnityEngine.Random`）。
+        /// ⚠️ 随机源 = **`ctx.GetRandomInt`**（原版预烧表；2026-10-27 `E1RNG`）—— ⛔ 不用 `ctx.Rng.Next` / `UnityEngine.Random`。
         /// ⚠️ 先按 `Id` 排序再抽 —— 与 `DeckBuilder.PickRandomDefence` 同一条「可复现」纪律
         ///    （卡池顺序哪天变了，同一副牌也不会抽到另一张）。
         /// </summary>
@@ -912,7 +912,7 @@ namespace RuleEngine
                 return null;
             }
             pool.Sort((a, b) => string.CompareOrdinal(a.Id, b.Id));
-            var pick = pool[ctx.Rng.Next(pool.Count)];
+            var pick = pool[ctx.GetRandomInt(0, pool.Count)];
             UnityEngine.Debug.Log($"[RuleEngine] 电脑（P{seat + 1}）的防御卡：**不从卡组取** ⇒ 照原版从"
                                 + $"「{faction}」阵营防御池（{pool.Count} 张）随机抽到「{pick.Name}」"
                                 + $"（`matchType = {(int)t}` ∈ {{50,80,110,120}}；"
@@ -1184,14 +1184,14 @@ namespace RuleEngine
             }
         }
 
-        /// <summary>Fisher–Yates。用 ctx 的种子化随机源，对局才可复现</summary>
-        static void Shuffle<T>(IList<T> list, Random rng)
+        /// <summary>原版 `SupportMethods.GetRandomOrder`（`decomp_full/SupportMethods__GetRandomOrder.c:1-98`）：
+        /// **按名次挑选**的排列 —— 逐个位置 `GetRandomInt(0, 剩余)` 取「未用表里第 r 个空位」，末位不再掷。
+        /// ⚠️ 原实现是 Fisher–Yates（逐个交换）：两者都是均匀排列，但**同一条随机流给出的排列不同**；
+        /// 换成本形是为了和原版**逐格对齐**（账 `战斗逻辑驱动` 的 `SupportMethods.GetRandomOrder` 一行）。
+        /// ⚠️ 实现在类尾 <see cref="ShuffleByRandomOrder"/>（⛔ 别在这里再写一份）。</summary>
+        static void Shuffle<T>(IList<T> list, BattleContext ctx)
         {
-            for (int i = list.Count - 1; i > 0; i--)
-            {
-                int j = rng.Next(i + 1);
-                var t = list[i]; list[i] = list[j]; list[j] = t;
-            }
+            ShuffleByRandomOrder(list, ctx);
         }
 
         // ==================================================================
@@ -1645,9 +1645,9 @@ namespace RuleEngine
             //   `Pray Enchantment` 的 `buffMana{faithMana:1}` → `BattleManager__ProcessManaBuff.c:91`
             //   → `BattleManagerSupport__BroadcastCollectFaith`，而那份 `.c` 全文 `GetCardsInHandRef` = 0
             //   （🥇 `decomp_full/`）⇒ 与另两处信仰广播同一条、同样没有手牌跳。
-            if (u.Card != null)
-                BroadcastWhen(ctx, WhenEventKind.GainFaith, p, u.Card, u,
-                              boardAndPersistentOnly: true);
+            if (u.Card != null) PreCallBoardListener(ctx, u, WhenEventKind.GainFaith, p, u.Card, u, null, null, -1, allowPendingDeath: true);
+            if (u.Card != null) BroadcastWhen(ctx, WhenEventKind.GainFaith, p, u.Card, u, preCalled: u, boardAndPersistentOnly: true);
+            // ↑ 账 631 的第三处口（2026-10-27 `E6ENG`）：**预调 + `preCalled` 必须成对** —— 判据 `BattleManagerSupport__BroadcastCollectFaith.c:22`（先 `ReactToCollectFaith(unitCollected, unitCollected)`）+ `:29-38`（棋盘循环 `op_Inequality(u, unitCollected)` 排除它），与 `EffectResolver` 那两处逐句同形。
             // 表现层一条（与 `DoFactionResource` 的信仰支 / `FinishActiveAbility` 同形：同一个 `EvtKind`、`Slot = -1`）
             ctx.Signals.Add(new BattleEvent
             {
@@ -7072,7 +7072,7 @@ namespace RuleEngine
                 //     ⇒ 我们走 `ctx.Rng`（同一局可复现）。
                 if (targetDied && attacker.Has("stomp") && dealt > hpBefore && adjUnits.Count > 0)
                 {
-                    int pickSlot = adjUnits[ctx.Rng.Next(adjUnits.Count)];
+                    int pickSlot = adjUnits[ctx.GetRandomInt(0, adjUnits.Count)];
                     var au = ctx.Players[tgtP].Board[pickSlot];
                     if (au != null)
                     {
@@ -11074,6 +11074,7 @@ namespace RuleEngine
             if (!u.HasAbility) return RuleCodes.ErrNoAbility;
             if (u.Exhausted) return RuleCodes.ErrExhausted;
             if (u.IsStunned) return RuleCodes.ErrStunned;
+            { int pay = AbilityCostGate(ctx, p, u.Card.TriggerOps(KeywordTable.Ability)); if (pay != RuleCodes.OK) return pay; }   // 🔴 余额闸：同上（原版 `CanUseActiveAbility.c:70-80` 的 `HasEnoughMana` 那一跳；代价 = `Ability:` 那条关键词的 op 上、与付费支同一份判据 → `AbilityCostGate` 的 doc）
             return RuleCodes.OK;
         }
 
@@ -11663,6 +11664,7 @@ namespace RuleEngine
             if (u.IsStunned) return RuleCodes.ErrStunned;
             if (u.OathUsesThisTurn >= OathActivationCap(ctx, p, slot)) return RuleCodes.ErrExhausted;
             if (!OathAllTurns(ctx, p, slot) && u.DeployedTurn != ctx.Turn) return RuleCodes.ErrExhausted;
+            { int pay = AbilityCostGate(ctx, p, u.Card.OathOps); if (pay != RuleCodes.OK) return pay; }   // 🔴 余额闸：原版 `CanUseActiveAbility` 先 `HasEnoughMana` 再放行（判据 → `AbilityCostGate` 的 doc）
             return RuleCodes.OK;
         }
 
@@ -11720,7 +11722,7 @@ namespace RuleEngine
                 // 这里**不消耗次数、也不当成激活过**，玩家再点一次仍然可以。
                 // 🔴 **而且一条 `EvtKind.Ability` 都不发**（见上面那段 —— 发在付费之前是本条要修的缺陷）。
                 ctx.Log($"（这次激活没有生效 —— 次数没有消耗）");
-                return RuleCodes.ErrUnimplemented;
+                return RuleCodes.ErrAbilityRejected;   // 账（第六批）：`ResolveOathAbility` 返 false = **结算条件不成立 / 付费被拒**，⛔ 不是「本版未实现」
             }
 
             // ---- 到这里 = **付费成功、正文也跑过了** ⇒ 现在才宣布「能力发动了」----
@@ -11901,7 +11903,7 @@ namespace RuleEngine
         /// 这一个才是原版的四个关键词。两者**并存**（有的卡用前者），但**不再互相冒充**。
         ///
         /// ⚠️ **狂暴用完洗回牌库**（规则书 `:186`「执行时触发效果，**然后洗回牌库**」）——
-        ///    我们照做：离场 → 卡回**牌库**（不是弃牌堆）→ 洗牌（走 `ctx.Rng`，同一局可复现）。
+        ///    我们照做：离场 → 卡回**牌库**（不是弃牌堆）→ 洗牌（走 `ctx.GetRandomInt`；2026-10-27 `E1RNG` 前是 `ctx.Rng`）。
         /// </summary>
         public static int UseAlternative(BattleContext ctx, int p, int slot, string keyword,
                                          int targetSlot = -1)
@@ -12080,7 +12082,7 @@ namespace RuleEngine
                             // 🔴 2026-10-01：离场要**补位**（原版 `_ResolveRecallToDeck` 同样走 `RemoveMinion`）
                             BoardSlots.RemoveAt(ctx.Players[ro], rs);
                             ctx.Players[ro].Deck.Add(u.Instance);   // 第 7 行第 2 步：**同一份**洗回牌库（不新发）
-                            Shuffle(ctx.Players[ro].Deck, ctx.Rng);
+                            Shuffle(ctx.Players[ro].Deck, ctx);
                             Auras.Recompose(ctx);  // 🆕 A7：棋盘变动 ⇒ 光环重算
                             // 🔴 2026-10-14（账 `A1666`）：句里原来带「（**规则书 :186**）」—— 那份是**粉丝实体版**
                             //    （`Not official. Fan project.`，见 `CLAUDE.md` §一·2）⇒ ⛔ 不当出处，已删；
@@ -13356,7 +13358,7 @@ namespace RuleEngine
         /// **不稳定**（`Unstable`）：本单位死亡时，对**场上随机一个单位（含双方）**造成 **1-3** 伤害。
         /// 规则书 `:221`；目标池与伤害范围照我们自己的 `rule_core.gd:4578 _unstable_blast`（旁证、非权威）。
         ///
-        /// ⚠️ **随机源必须是 `ctx.Rng`** —— 同一局必须可复现（工程铁律，不许用 `UnityEngine.Random`）。
+        /// ⚠️ **随机源必须是 `ctx.GetRandomInt`** —— 2026-10-27 `E1RNG`（原写 `ctx.Rng`）；⛔ 不用 `UnityEngine.Random`。
         /// ⚠️ 打死了会**再走一遍 `CleanupDeaths`**（链式自爆），靠 `ctx.EffectChain` 截断 ——
         ///    调用点那道 `ctx.EffectChain &lt; MaxEffectChain` 守卫**是连锁保护，别删**。
         /// </summary>
@@ -13400,9 +13402,9 @@ namespace RuleEngine
                 }
             if (cands.Count == 0) return;
 
-            int pick = cands[ctx.Rng.Next(cands.Count)];
+            int pick = cands[ctx.GetRandomInt(0, cands.Count)];
             var target = ctx.Players[pick / BoardSpec.Size].Board[pick % BoardSpec.Size];
-            int dmg = 1 + ctx.Rng.Next(3);                 // 1..3
+            int dmg = ctx.GetRandomInt(1, 4);               // 1..3（原 `1 + Rng.Next(3)` 同区间）
 
             ctx.EffectChain++;
             int dealt = Hurt(ctx, target, dmg, "Unstable");
@@ -13440,7 +13442,7 @@ namespace RuleEngine
         ///
         /// ⚠️ **解池子复用 `CreatePool.FilterChoose`**（阵营词/兵种词/`non-legendary`/费用那套判定**只此一处**）
         /// —— 别在这儿另写一份筛选（CLAUDE.md §三：两处写同一条规则 = 迟早不一致）。
-        /// ⚠️ **抽哪一张用 `ctx.Rng`**（只用 `System.Random(seed)` ⇒ 对局可复现）。
+        /// ⚠️ **抽哪一张用 `ctx.GetRandomInt`**（原版预烧表；2026-10-27 `E1RNG` 前是 `ctx.Rng`）。
         /// ⚠️ **只认 `random …` 这一种写法**：其余查不到同名卡的仍走原来那条「如实打日志」的路 ——
         /// 乱兜底会把「真查不到」变成「悄悄抽了一张」。
         /// </summary>
@@ -13454,7 +13456,7 @@ namespace RuleEngine
             //    （那是另一条链 `EffectResolver.TakePickCard`）。
             var list = CreatePool.PoolFromPhrase(ctx.CardPool, talentName, true, out string what, out why);
             if (list == null) return null;
-            var pick = list[ctx.Rng.Next(list.Count)];
+            var pick = list[ctx.GetRandomInt(0, list.Count)];
             ctx.Log($"天赋池「{talentName}」（筛选词 `{what}`）解出 {list.Count} 张 ⇒ 按种子抽中「{pick.Name}」");
             return pick;
         }
@@ -13472,7 +13474,7 @@ namespace RuleEngine
                 //    原版造哪一张是**一条对象引用**（`cardAbilities[trigger==46].abilityLogic[0]
                 //    .summonCriteria.unitsToSummon[*]`，见 `CardScript__GetTalentCard.c`），
                 //    不是卡面文本里那串名字。`N > 1` 时原版**随机挑一张**
-                //    （`AbilityLogic__GetCardToSummon.c` 那支 `GetRandomInt`）⇒ 候选表**整份**交给 `Rng`。
+                //    （`AbilityLogic__GetCardToSummon.c` 那支 `GetRandomInt`）⇒ 候选表**整份**交给 `ctx.GetRandomInt`（2026-10-27 `E1RNG`）
                 //    ⚠️ 原来只按名字查 ⇒ 实测**有一批查不到**（池子里那几张的名字带
                 //       ` (某督军的 Talent)` 后缀）⇒ 天赋**静默不生成**，只有一行日志。
                 //    ⚠️ 表里没有这张卡（本卡或那张天赋落不进我们池子）⇒ 才退回下面那条按名字的老路。
@@ -13500,7 +13502,7 @@ namespace RuleEngine
 
                 if (cands.Count > 0)
                 {
-                    var pick = cands[ctx.Rng.Next(cands.Count)];
+                    var pick = cands[ctx.GetRandomInt(0, cands.Count)];
                     var t0 = ctx.NewInstance(pick);   // 天赋生成 = **新造一张**（第 7 行第 2 步）
                     t0.EphemeralMarked = true;
                     // 🔴 **2026-10-20（`W58-REVIEWFIX-B2` · 审查 `P2-5`）**：先判上限再 Add
@@ -14046,9 +14048,9 @@ namespace RuleEngine
         /// 见 `MoveDeckTopToHand` 那一大段注释）⇒ 原版插到下标 `i` ⇒ 我们插到 `Count - i`
         /// （两者的「它上面还有几张」相等）。</para>
         ///
-        /// <para>⚠️ **随机流的口径差（如实标，别当成对齐）**：原版 `GetRandomInt` 是「开局预烧 100 个整数 +
-        /// 按下标取」（`CLAUDE.md` §三），我们是 `System.Random` 流式 ⇒ 同一次调用拿到的**值不一样**。
-        /// 这属于全引擎级 `RandomizedOnResolution` 那条待办，**不在本行范围**；本函数只照「消费一次」的形状写。</para>
+        /// <para>✅ **2026-10-27（`E1RNG`）已对齐**：随机源 = `ctx.GetRandomInt`（开局预烧 100 个整数 +
+        /// 按下标取，见 `BattleContext.GetRandomInt`）—— 本条原来标的「我们 `System.Random` 流式」**口径差已消除**。
+        /// （唯一残留：烧表数源用 `System.Random(seed)`，原版用全局 `UnityEngine.Random` —— 见 `InitRandomNumbers` 的 🔶。）</para>
         ///
         /// <para>⚠️ **表现层没接**：原版这一趟还有 `UndissolveToDeck` / `ShowBoardObjects` /
         /// `SetCardObjectVisibility` / `MoveToDeck` 一串动画，我们**没有对应的 `EvtKind`**
@@ -14076,7 +14078,7 @@ namespace RuleEngine
                 if (!ctx.InitialDeckInstanceIds.Contains(inst.Id)) continue;
                 // 原版 `AddCardInPlayToDeck.c:36-38`：牌库非空才掷；空则 index = 0（**不消耗随机数**）。
                 int at = 0;
-                if (ps.Deck.Count > 0) at = ctx.Rng.Next(0, ps.Deck.Count + 1);
+                if (ps.Deck.Count > 0) at = ctx.GetRandomInt(0, ps.Deck.Count + 1);
                 // 镜像：原版「下标 0 = 顶」，我们「末尾 = 顶」⇒ 插到 `Count - at`。
                 ps.Deck.Insert(ps.Deck.Count - at, inst);
             }
@@ -14376,19 +14378,19 @@ namespace RuleEngine
         //       **什么都不做** ⇒ `:29-31` `if (0 < attacksThisTurn) attacksThisTurn--`
         //       ⇒ `:34` `ActivateMinion(card, IsPlayerTurn() == card.isPlayer)` = **重算 canAct / canAttack**。
         //
-        //  **净语义（两条合起来才是完整语义）**
-        //    · 攻击前 `attacksThisTurn == 0` ⇒ `wasFree = true`：①的预扣是空操作（下限 0），
-        //      ③的真打 `+1`，④ 再 `-1` 并重算两位 ⇒ **这一次强制攻击不消耗单位的行动**。
-        //    · 攻击前 `attacksThisTurn > 0` ⇒ `wasFree = false`：预扣 `-1`、真打 `+1` 互相抵消，
-        //      **不排 ④** ⇒ 计数不变、`Exhausted` 不变 ⇒ 同样是「不额外消耗」。
-        //  ⇒ 我们这套**同步**引擎里两条并成一句：**只在「攻击前计数 == 0」时，攻击成功之后
-        //    把计数减回去并重算两位**（`wasFree == false` 那一支的预扣与自增在这里天然抵消）。
-        //
-        //  ⚠️ **⛔ 不能真的照 ① 在入口处预扣**：`EffectResolver.TryAttackOnce` 会对**每个候选**
-        //    各调一次 `DeclareAttack`（`EffectResolver.cs:3243-3255` 的 `foreach`）⇒ 预扣一次就多扣一次；
-        //     而原版那个「预扣了、但目标不合法 ⇒ 白扣一点行动」是**它自己的 bug**
-        //     （`_ResolveForceAttack…:34-60` 不合法就直接 `goto LAB_1809b42e5` → `FinishResolvingAction`，
-        //      补偿那一跳永远排不上）—— 我们不照抄这一条，如实记在账的「差异」列。
+        //  **净语义（照原版两条都照抄：入队预扣 + 按 `wasFree` 退还）**
+        //    · ① **预扣**在「入队那一刻」就做（`>0` 才减，下限 0）；`wasFree` 取的是**预扣之前**是否 0。
+        //    · ④ **退还**在真打之后**只有 `wasFree`** 才做（再 -1 + `ActivateMinion` 重算两位）。
+        //    ⇒ 攻击前 `== 0`：`0 →（预扣空操作）0 →（真打）+1 →（退还）-1` = **净 0**（不消耗行动）。
+        //    ⇒ 攻击前 `> 0` ：`n →（预扣）n-1 →（真打）+1` = **净不变**（不排 ④ ⇒ `Exhausted` 也不动）。
+        //  🔴 **2026-10-27（`B9_E5ENG` · 账 `RemoveAttackThisTurn` · R2T3B 现核）就地改：**
+        //    原来这里写的是「两条并成一句 —— 只在 `wasFree` 时打后 -1」，**漏了预扣** ⇒ 「攻击前 `>0`」
+        //    那一格变成 `n → n+1`（**多给玩家 1 次攻击**：实测 `1→2`，原版 `1→1`）。现在照原版**先预扣**。
+        //  ⚠️ **唯一不照抄的一格**：原版「预扣了、但目标不合法 ⇒ 白扣一点行动」是**它自己的 bug**
+        //    （`_ResolveForceAttack…:34-60` 不合法就直接 `goto LAB_1809b42e5` → `FinishResolvingAction`，
+        //     补偿那一跳永远排不上）；`TryAttackOnce` 还会对**每个候选**各调一次本方法
+        //    （`EffectResolver.cs:3243-3255` 的 `foreach`）⇒ 照抄会在多候选时连扣多次。
+        //    **我们改为「失败就把预扣原样退回」**，`OK` 那条路与原版逐字同形；这一格如实记在账的「差异」列。
         //
         //  **池内可达性**（`cards_truth.json` 1,351 张现扫，取 `abilities[].logic[].chosenAbility`）：
         //    · ❌ **不退还**：`0xe6`(230) / `0xe9`(233) 池内 **0 张**；`0xeb`(235，池内 **2** 张 =
@@ -14403,7 +14405,7 @@ namespace RuleEngine
         // ==================================================================
 
         /// <summary>`DeclareAttack` 外面那一层：**按原版判据决定强制攻击退还一次行动额度**
-        /// （`ForcedAttackRefunds`：`chosenAbility ∈ {231,237,238}` 才退）；判据/净语义/为什么不在入口预扣 → 上方注释块。
+        /// （`ForcedAttackRefunds`：`chosenAbility ∈ {231,237,238}` 才退）；判据/净语义/**入队预扣** → 上方注释块。
         /// ⚠️ 全仓只有 `EffectResolver.TryAttackOnce` 传 `forced: true`（`grep` 现核）。</summary>
         static int DeclareAttackRefundingForced(BattleContext ctx, int p, int atkSlot,
                                                 int tgtP, int tgtSlot, bool ranged, bool forced)
@@ -14415,10 +14417,13 @@ namespace RuleEngine
             // `wasFree` 取的时刻 = **入队那一刻**（`AddForceAttack.c:41`）⇒ 必须在攻击之前取。
             UnitState atkUnit = (ctx != null && p >= 0 && p <= 1 && BoardSpec.IsValid(atkSlot))
                                 ? ctx.Players[p].Board[atkSlot] : null;
-            bool wasFree = atkUnit != null && atkUnit.AttacksThisTurn == 0;
-
+            int countBefore = atkUnit != null ? atkUnit.AttacksThisTurn : 0;      // 预扣前那一格（失败要**原样退回**）
+            bool wasFree = atkUnit != null && countBefore == 0, refunds = ForcedAttackRefunds(ctx);  // `wasFree` 与退还判据都在**入队那一刻**取
+            if (refunds) RemoveAttackThisTurn(atkUnit);                           // ① **入队即预扣**（`AddForceAttack.c:42`；只有 `dontCountAttack` 那三族）
             int code = DeclareAttackCore(ctx, p, atkSlot, tgtP, tgtSlot, ranged, true);
-            if (code == RuleCodes.OK && wasFree && ForcedAttackRefunds(ctx))
+            // 候选不合法 ⇒ 预扣**原样退回**（原版在这里白扣一点 = 它自己的 bug，⛔ 不照抄；见上方注释）
+            if (code != RuleCodes.OK) { if (refunds && atkUnit != null) atkUnit.AttacksThisTurn = countBefore; return code; }
+            if (wasFree && refunds)
                 RefundForcedAttackAction(ctx, p, atkSlot, atkUnit);
             return code;
         }
@@ -14966,6 +14971,81 @@ namespace RuleEngine
             // 🔴 两个字典都要摘（`CountByInstance` 只给日志/排查用，⛔ 不参与判据）
             aux.SumByInstance.Remove(u.InstanceId);
             aux.CountByInstance.Remove(u.InstanceId);
+        }
+
+        // ==========================================================================================
+        //  🔴 2026-10-27（执行代理 `E1RNG`）· **一律追加在类尾**
+        //  （本文件被账按行号引用；往中间插成员会让下游落点整体下移）
+        // ==========================================================================================
+
+        /// <summary>原版 `SupportMethods.GetRandomOrder(int numElements, MatchData, List&lt;int&gt; stratagemList)`
+        /// （`decomp_full/SupportMethods__GetRandomOrder.c:1-98` 逐句）—— 原地重排 `list`（整表，不钉位）。
+        ///
+        /// <para>算法（照原版）：① `used` 全 false；② 逐位置 `i`：`r = ctx.GetRandomInt(0, n - i)`；
+        /// ③ 在 `used` 里数第 `r` 个**未用**下标 `j`；④ `tmp[i] = list[j]`、`used[j] = true`；
+        /// ⑤ 最后写回。⇒ 末位 `n-i == 1` ⇒ `GetRandomInt` 早退、**不消耗随机数**（与原版一致）。</para>
+        ///
+        /// <para>⚠️ `stratagemList`（钉位）那一支原版只在轮抽/战术起手用；我们的调用点都传空 ⇒ 不实现 ——
+        /// 真要用时**加在这里**（⛔ 别在调用点散写）。</para>
+        /// </summary>
+        public static void ShuffleByRandomOrder<T>(IList<T> list, BattleContext ctx)
+        {
+            if (list == null || ctx == null) return;
+            int n = list.Count;
+            if (n <= 1) return;                       // 0/1 张：同原版（不消耗随机数）
+            var used = new bool[n];
+            var tmp = new T[n];
+            for (int i = 0; i < n; i++)
+            {
+                int r = ctx.GetRandomInt(0, n - i);   // r ∈ [0, n-i)
+                int j = 0, seen = 0;
+                while (true)
+                {
+                    while (used[j]) j++;
+                    if (seen == r) break;
+                    seen++; j++;
+                }
+                used[j] = true;
+                tmp[i] = list[j];
+            }
+            for (int i = 0; i < n; i++) list[i] = tmp[i];
+        }
+
+        /// <summary>
+        /// 🆕 **2026-10-27（B9 · 第六批 · `E6ENG`）：主动技能 / 誓约能力的【余额闸】** ——
+        /// 「这条 ability 现在付得起吗」。
+        ///
+        /// <para>**判据（🥇 `decomp_full/BattleManager__CanUseActiveAbility.c` + `PlayerManager__HasEnoughMana.c` 全文，本批亲读）**：
+        /// 原版激活前先 `PlayerManager.HasEnoughMana(cost, psychic, plasma, spiritStone)`；那方法按
+        /// (psychic, plasma, spiritStone) 从**四组**里挑一组，读该组的**第一个** `ObscuredInt`：
+        /// `+0x4C` = **`unusedMana`**（psychic `+0x74` · plasma `+0x88` · spiritStone `+0x9C`，
+        /// 字段表 `dump.cs:40507-40517` 逐格对上），最后 `return cost <= 那个量;`
+        /// ⇒ **「未用余额 ≥ 费用」**。⛔ **不是**「能量 − 已预留」—— 原版根本没有「预留」这一层
+        /// （`unusedMana` 就是**没花掉的那一池**；我们这一侧等价物 = `PlayerState.Energy`：
+        /// 每回合重置成 `MaxEnergy`、结转走 `ManaCarry`/`SetSavedMana`，见 `BeginTurnCore`）。</para>
+        ///
+        /// <para>🔑 **余额判据只此一份**：逐 op 转调 `EffectResolver`（同一个 `partial class RuleCore`）里的
+        /// `CostPrefixPayable` —— **付费那一支用的就是它**。它同时管：货币 kind（`normal` / `spirit` /
+        /// `faith`＝**阈值**不是余额）、以及 `ctx.SuppressCostDepth > 0` ⇒ **触发式激活免付**。
+        /// ⛔ 别在这里另写一个 `ps.Energy < cost` 比较 —— 那会和付费路径形成**两份判据**（迟早不一致）。</para>
+        ///
+        /// <para>📌 **本闸今天改变什么**：付不起的主动技能/誓约，**以前会被放行**（点得出来）——
+        /// 誓约那条一直走到 `ResolveOathAbility` 才发现，而且回的是 `ErrUnimplemented`（错上加错）；
+        /// 主动技能那条则会在结算层逐 op 撞 `CostPrefixPayable`。现在两者都在 `Can*` 阶段就回
+        /// `RuleCodes.ErrCost`（= 原版 `CanUseActiveAbility` 的位置：**先判钱、再放行**）。</para>
+        /// </summary>
+        /// <returns><see cref="RuleCodes.OK"/> = 付得起（或这条 ability 没有付费前缀）；否则 <see cref="RuleCodes.ErrCost"/>。</returns>
+        static int AbilityCostGate(BattleContext ctx, int owner, IReadOnlyList<EffectOp> ops)
+        {
+            if (ctx == null || ops == null || owner < 0 || owner >= ctx.Players.Length) return RuleCodes.OK;
+            for (int i = 0; i < ops.Count; i++)
+            {
+                var op = ops[i];
+                if (op == null || op.Cost <= 0) continue;
+                string kind = EffectText.CostKindOf(op.CostKind);   // 与付费支同一个 kind 判据（`EffectResolver.cs:817`）
+                if (!CostPrefixPayable(ctx, owner, op, kind)) return RuleCodes.ErrCost;
+            }
+            return RuleCodes.OK;
         }
     }
 }

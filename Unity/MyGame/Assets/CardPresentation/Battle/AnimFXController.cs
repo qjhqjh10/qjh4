@@ -203,6 +203,13 @@ namespace CardPresentation
         /// <summary>把 cue 名交给**那条线唯一的那份实现**（`WarpforgeVFX.WFSoundPlayer` 播、
         /// `WFSoundBank` 解 cue 与随机化）。⛔ 别在这里另写一套挑 clip / 随机的逻辑。</summary>
         void Play(Vector3 worldPos, bool is2d) { AnimFXController.PlayCue(sound, worldPos, is2d); }
+
+        /// <summary>🆕 **2026-10-27（音频线 `B9` 第五批 · 账 82/83 的断言口）**：已经播过几次
+        /// （= 原版那个 `private int numberOfTimesPlayed`，**只读**）。
+        /// <para>为什么要它：`UIEffectTogglerPlaySound` 的两条验收断言（「`AnimationFinished()` 后两槽归零」/
+        /// 「`DoUpdate` 推过之后计数 &gt; 0」）**读不到私有字段**；**只加这一格读口、⛔ 不改任何行为**
+        /// （追加在类尾 = 不动上面的行号，见 `CLAUDE.md`「新成员追加到类尾」）。</para></summary>
+        public int PlayedCountForTest { get { return numberOfTimesPlayed; } }
     }
 
     /// <summary>原版 `AnimFXController` —— **战场场景侧**的那个控制器（与 `WarpforgeEffectPlayer`

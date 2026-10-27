@@ -1,0 +1,33 @@
+域	方法	原等级	建议等级	判据出处	我们的落点(文件:行)	一句结论	还差什么
+个人资料/成就/排行	DisplayDeleteAccountMessage(string confirmationText, string confirmationPopupButtonString, string cancelPopupButtonString, Action<bool> OnConfirm)	B	B	AccountTab.cs:608	Shell/SettingsWindow.cs:932（字段表实读）	账户删除提示：原版走账户服务（PlayFab 删号），落点 SettingsWindow 未定位到方法	账户删除属服务器 P3；落点需定位
+个人资料/成就/排行	OnOpen()	B	B	AccountTab.cs:337	Shell/SettingsWindow.cs:932（字段表实读）	AccountTab.OnOpen：落点 SettingsWindow 账户页，类级命中、方法级未定位	定位到方法 + 逐句核
+个人资料/成就/排行	OnSetup()	B	B	AccountTab.cs:246	Shell/SettingsWindow.cs:932（字段表实读）	AccountTab.OnSetup：同上未定位	定位到方法 + 逐句核
+个人资料/成就/排行	CleanUp()	B	B	Everguild.LiveOps/Achievement.cs:425	Shell/ProfileData.cs	Achievement.CleanUp：ProfileData 无 CleanUp 方法	我方无对应方法
+个人资料/成就/排行	GetID()	B	B	Everguild.LiveOps/Achievement.cs:319	Shell/ProfileData.cs	Achievement.GetID：等价值在我方 `Achievement.Id` 字段（非方法，按§4.1记B）	字段等价（无方法级落点）
+个人资料/成就/排行	Initialize()	B	B	Everguild.LiveOps/Achievement.cs:337	Shell/ProfileData.cs	Achievement.Initialize：落点 ProfileData 类级命中、方法级未定位	定位到方法 + 逐句核
+个人资料/成就/排行	OnChallengeUpdate(ChallengeUpdatePayload payload)	B	B	Everguild.LiveOps/Achievement.cs:431	Shell/ProfileData.cs	Achievement.OnChallengeUpdate：进度累加在我方 AddAchievementValue，事件处理未逐句核	定位到事件处理 + 逐句核
+个人资料/成就/排行	OnDestroy()	B	B	Everguild.LiveOps/Achievement.cs:419	Shell/ProfileData.cs	Achievement.OnDestroy：未定位	定位到方法
+个人资料/成就/排行	OnReachMilestone(ChallengeMilestone currentChallenge)	B	B	Everguild.LiveOps/Achievement.cs:658	Shell/ProfileData.cs	Achievement.OnReachMilestone：未定位	定位到方法 + 逐句核
+个人资料/成就/排行	OnInitialize(Achievement achievement)	B	B	AchievementContainer.cs:23	—	AchievementContainer.OnInitialize：无落点（—）	我方无对应（页面 builder 内建节点）
+个人资料/成就/排行	GetAchievement(string id)	B	B	AchievementsManager.cs:651	Shell/ProfileData.cs	AchievementsManager.GetAchievement：ProfileData 无同名方法	定位/异名核对
+个人资料/成就/排行	GetHighestValue(Achievement ach)	B	B	AchievementsManager.cs:637	Shell/ProfileData.cs	AchievementsManager.GetHighestValue：我方 AchievementTierOf 给「当前第几档」，不是「最高值」	需 highest-value 语义的方法
+个人资料/成就/排行	GetIconByTier(int tier)	B	B	AchievementsManager.cs:229	Shell/ProfileData.cs	AchievementsManager.GetIconByTier：图名规则 `40k_Achievements_icon_medal{tier}` 内联在 AchievementsMenu:438，无独立方法	无独立取值口（内联）
+个人资料/成就/排行	GetSave(Achievement ach)	B	B	AchievementsManager.cs:606	Shell/ProfileData.cs	AchievementsManager.GetSave：未定位	定位到方法
+个人资料/成就/排行	GetValue(Achievement ach)	B	A	AchievementsManager.cs:588	Shell/ProfileData.cs	等价：GetValue = ProfileData.AchievementValue(id)（读 _achProgress 当前值，逐字等价）	—
+个人资料/成就/排行	OnDestroy()	B	B	AchievementsManager.cs:558	Shell/ProfileData.cs	AchievementsManager.OnDestroy：未定位	定位到方法
+个人资料/成就/排行	TryUpdateSave(Achievement ach)	B	B	AchievementsManager.cs:738	Shell/ProfileData.cs	AchievementsManager.TryUpdateSave：未定位	定位到方法
+个人资料/成就/排行	UpdateSave(Achievement ach, AchievementPersistence newSave)	B	B	AchievementsManager.cs:718	Shell/ProfileData.cs	UpdateSave(ach)：本地值/档位/奖励/点数/存档都有（SetAchievementValue/AddAchievementValue+SaveIfAuto）；**缺上传与 Steam 同步（服务器/P3）**	上传/Steam=服务器 P3（本地等价）
+个人资料/成就/排行	UpdateSave(string achievementId, AchievementPersistence persistence)	B	B	AchievementsManager.cs:680	Shell/ProfileData.cs	UpdateSave(string)：同上（本地等价；上传/Steam=服务器 P3）	上传/Steam=服务器 P3（本地等价）
+个人资料/成就/排行	Awake()	B	B	AchievementsMenu.cs:44	Shell/AchievementsMenu.cs	AchievementsMenu.Awake：落点 AchievementsMenu.cs 类级命中，方法级未定位	定位到方法
+个人资料/成就/排行	OnOpen()	B	B	AchievementsMenu.cs:298	Shell/AchievementsMenu.cs	AchievementsMenu.OnOpen：同上	定位到方法
+个人资料/成就/排行	Refresh()	B	B	AchievementsMenu.cs:303	Shell/AchievementsMenu.cs	AchievementsMenu.Refresh：同上	定位到方法
+个人资料/成就/排行	Setup(GameWindow window)	B	B	AchievementsMenu.cs:280	Shell/AchievementsMenu.cs	AchievementsMenu.Setup(GameWindow)：同上	定位到方法
+个人资料/成就/排行	OnChoseAvatar()	B	A	AvatarTab.cs:528	Shell/AvatarTab.cs	等价：OnChoseAvatar = AvatarTab 装备预览那一跳（AvatarTab.cs:576 注释=原版 OnChoseAvatar/SetAvatar；本地保存等价；上传=服务器P3）	—
+个人资料/成就/排行	SetCurrentItem(CosmeticItem cosmeticItem, Action callback, Action onError)	B	B	PlayerAvatarDataManager.cs:1224	Shell/ProfileData.cs	SetCurrentItem：ProfileData / AvatarTab 未找到同名方法（本地保存那条链在，但方法未定位）	定位到方法 + 逐句核
+个人资料/成就/排行	ClearCache()	B	B	PlayerProfileMenu.cs:102	Shell/PlayerProfileWindow.cs	PlayerProfileMenu.ClearCache：PlayerProfileWindow 未找到该方法	定位到方法
+个人资料/成就/排行	ClearCache(string playerId)	B	B	PlayerProfileMenu.cs:107	Shell/PlayerProfileWindow.cs	ClearCache(string playerId)：同上未找到	定位到方法
+个人资料/成就/排行	OnCollectorLevelUpdate(CollectorLevelChangeSignal sig)	B	A	out_cpp2il_dev_ilspy/PlayerProfileUIController.cs:106-109 + decomp_full/PlayerProfileUIController__OnCollectorLevelUpdate.c:1-13	Shell/TopBar.cs:966-976（RefreshPlayerLevelIfChanged）· Shell/ProfileTab.cs:1624（RefreshIdentity）· Shell/RankedTab.cs:659（RefreshIdentity）· Shell/ToastNotifications.cs:1002-1008（Fill 的 CollectionLevelUp 支）	等价：OnCollectorLevelUpdate = TopBar.RefreshPlayerLevelIfChanged(:966) + ProfileTab(:1624) 刷新玩家等级/身份	—
+个人资料/成就/排行	SetDivision()	B	B	RankedEventWindowV2.cs:308	Shell/RankedEventWindow.cs	RankedEventWindowV2.SetDivision：RankedEventWindow/RankedData 未定位到该方法	定位到方法
+个人资料/成就/排行	GetCurrentRankedDivision()	B	A	RankedFastMode.cs:311	Shell/RankedData.cs	等价：GetCurrentRankedDivision = RankedData「当前段位」= DivisionOf(CurrentScore)（:289 注释逐字）	—
+个人资料/成就/排行	GetDivisionByPoints(long points)	B	A	RankedFastMode.cs:319	Shell/RankedData.cs	等价：GetDivisionByPoints = RankedData.DivisionOf（:228 「逐步对应」注释，方法体可读）	—
+个人资料/成就/排行	GetArmyState(CardArmy army, IReadOnlyList<RankedScoreBoostEvent> extraBoosts)	B	A	Everguild.LiveOps/RankedV3Event.cs:825	Shell/RankedData.cs ArmyState	等价：GetArmyState = RankedData:469 GetArmyState（注释 = 原版 GetArmyState(army, extraBoosts)）	—

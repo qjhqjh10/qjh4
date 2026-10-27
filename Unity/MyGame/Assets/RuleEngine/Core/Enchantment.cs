@@ -50,10 +50,14 @@
 //    这条拆分是**我们模型的选择**（原版是同一条 list），已如实记在这里。
 //  · **存续宿主** = `CardInstance`（原版 `EntityScript` 的对应物：手牌 → 场上 → 弃牌堆是同一份）。
 //    理由与 `CardInstance.HandEffects` 逐字相同（见那个字段的注释）。
-//  · **可达性**：今天卡池 **0 张**卡会挂附魔（`cards_engine.json` 里没有附魔列，
-//    全池 `desc`/`keywords` 搜 `enchant` / `secret order` 各 0 命中）
-//    ⇒ 本层**不会改变任何现有对局**；它存在是为了「原版有、我们缺」的补课（铁律 11）。
-//    ⚠️ 断言必须**人造夹具**才算数（否则恒真）。
+//  · **可达性**：⚠️ **2026-10-27 就地订正（铁律 5）** —— 下面这段「0 张卡会挂附魔」**已过期**：
+//    ① v30（2026-10-25 `X20`）起池里有**隐藏附魔模板** `Pray Enchantment`（`type = "enchantment"`）；
+//    ② v33（2026-10-27 `E7ENG`，账 532）起池里多了 `enchantTrait` 列 ⇒ 23 张 SOR 卡祈祷时真会挂上它
+//       （`buffEffect{buffType 15, trait 1185 pray, enchantment → PE}`）。
+//    ⇒ 「本层不会改变任何现有对局」**只对自由对战里的非祈祷路径成立**；`HasPray` / `AttachPray` 那条链
+//    在池内 23 张 SOR 卡上是**活的**。断言仍然必须**人造夹具**（那 23 张的祈祷时机要自己摆）。
+//    原文（2026-10-19 语境）：当时卡池 0 张会挂附魔（`cards_engine.json` 没有附魔列，
+//    全池 `desc`/`keywords` 搜 `enchant` / `secret order` 各 0 命中）。
 using System.Collections.Generic;
 
 namespace RuleEngine
@@ -97,6 +101,22 @@ namespace RuleEngine
                  + "#" + (Enchantment != null ? Enchantment.EnchantmentCardId : 0)
                  + (Used ? "（已花）" : "");
         }
+
+        /// <summary>
+        /// 🆕 **2026-10-27（批次 9 · 执行代理 `E7ENG` · 账 532 的 1a）：原版 `CardEffect.trait`（`+0x3C`）**
+        /// —— 这条附魔**效果**自带的 `DefinedTrait` **关键词名**（`"pray"` / `"vulnerable"`）。
+        ///
+        /// <para>**原版唯一消费点** = `BattleManager__RemoveDestroyableAnims.c`（内联进
+        /// `ResolveAction` case 0x10）：`buffType ∈ {15,16}` 时拿本格当键，去
+        /// `BattleCardUI.TraitFrameEffectsPlay(+0x2d0)` / `TraitFrameEffectsTrigger(+0x2d8)`
+        /// 两本字典里找那件状态框、`DoDestroy()` 并摘字典。**不参与任何数值结算。**</para>
+        ///
+        /// <para>⚠️ **`null` = 未知**（卡表 &lt; v33 没这一列 / 调用方没给）· **`""` = 明确没有**
+        /// —— ⛔ 别把两者混成一种（`CardDef.EnchantTrait` 的 doc 同一条契约）。</para>
+        /// <para>数据源 = `cards_engine.json` 的 `enchantTrait` 列 → `CardDef.EnchantTrait`
+        /// （由 <see cref="Enchantments.Attach"/> 按「载体卡 → 附魔卡」的次序取）。</para>
+        /// </summary>
+        public string Trait;
     }
 
     /// <summary>
@@ -208,7 +228,8 @@ namespace RuleEngine
         public static ActiveCardEffect Attach(BattleContext ctx, CardInstance carrier,
                                               CardDef enchantmentCard, int buffType = BuffTypeEnchantment,
                                               int spellType = -1, string source = null,
-                                              UnitState acting = null, int whileInPlayAnim = UnknownWhileInPlayAnim)
+                                              UnitState acting = null, int whileInPlayAnim = UnknownWhileInPlayAnim,
+                                              string trait = null)
         {
             if (enchantmentCard == null)
             {
@@ -242,6 +263,15 @@ namespace RuleEngine
             //   ⇒ 绝大多数附魔的 `SpellType` 停在 `-1`，密令/任务两条判定永远「未知」。
             //   ⚠️ 卡表还是 `< v19`（没这一列）时 `CardDef.SpellType == -1` ⇒ 原样保持未知（⛔ 不猜 0）。
             int _st = spellType >= 0 ? spellType : enchantmentCard.SpellType;
+            // 🆕 2026-10-27（批次 9 · `E7ENG` · 账 532 的 1a）：`CardEffect.trait(+0x3C)` 的数据源。
+            //   ① 调用方显式给的优先；② 否则读**载体卡**的 `CardDef.EnchantTrait`
+            //      （原版这个值写在「挂它的那条 buff」上，而那条 buff 在**载体卡**的 ability 里 ——
+            //       `Pray Enchantment` 模板自己 `cardTraits = []`，⛔ 别只读模板）；
+            //   ③ 模板自己有值时兜底（将来真有「模板自带 trait」的附魔）。
+            //   `null` = 未知（卡表 < v33 / 这张卡不在真值快照里）· `""` = 明确没有。
+            string _tr = trait;
+            if (_tr == null && carrier != null && carrier.Card != null) _tr = carrier.Card.EnchantTrait;
+            if (_tr == null && enchantmentCard != null) _tr = enchantmentCard.EnchantTrait;
             var ench = new ActiveEnchantment { Card = enchantmentCard, EnchantmentCardId = id, SpellType = _st, WhileInPlayAnim = whileInPlayAnim };
             var eff = new ActiveCardEffect
             {
@@ -250,6 +280,7 @@ namespace RuleEngine
                 Source = source,
                 ActingUnit = acting,
                 Enchantment = ench,
+                Trait = _tr,
             };
             ench.Effect = eff;
 
@@ -270,6 +301,14 @@ namespace RuleEngine
                     //   再走到这里只剩「这张附魔卡不在真值快照里」或「卡表还是旧的」两种原因。
                     ctx.Log("  ⚠️ spellType 未知 ⇒ **密令（SecretOrder）/ 任务（Quest）检测看不到这一件**"
                           + "（`CardDef.SpellType == -1`：卡表 < v19，或这张附魔卡不在真值快照里）");
+                }
+                if (_tr == null)
+                {
+                    // 红线：不许静默。原版 `RemoveDestroyableAnims` 靠 `cardEffect.trait` 找两件状态框
+                    // ⇒ 未知时**摘效果那一下状态框不会被销毁**，后果当场说清（判据 → `Trait` 的 doc）。
+                    ctx.Log("  ⚠️ 这条附魔的 `trait` **未知**（`CardDef.EnchantTrait == null`：卡表 < v33，"
+                          + "或这张卡不在真值快照里）⇒ 摘效果时状态框不会被销毁"
+                          + "（原版 `BattleManager__RemoveDestroyableAnims` 靠它当键）");
                 }
             }
             ActivateTraitsAfterEnchant(ctx, carrier); return eff;   // 原版 `:91`（判据/取舍见方法头 2026-10-26 那一段与 `ActivateTraitsAfterEnchant` 的 doc）
@@ -306,6 +345,23 @@ namespace RuleEngine
                 else
                     ctx.Log($"附魔层：「{NameOf(effect.EnchantmentCard)}」本来就不在「{NameOf(carrier.Card)}」身上"
                           + "（已摘 / 载体变残骸时整表清过）—— 这条 `removeEffect` **空过**");
+            }
+            // 🆕 **2026-10-27（批次 9 · `E7ENG` · 账 532 的 1b）：摘成功 ⇒ 发一条
+            //   `EvtKind.EnchantmentRemoved`**（本类是四个生产落点的**唯一汇合处**：
+            //   `EnqueueRemove` 的出队体 / `RemovePray` / `RemoveByCard`（今天 0 生产调用点）/ 直调）。
+            //   字段约定 → `EvtKind.EnchantmentRemoved` 的 doc（`CardId` = trait 名 · `Amount` = buffType）。
+            //   ⚠️ **`EffectResolver` 残骸支那两条整表 `Clear()` 不走这里** —— 原版那条也不走
+            //   `ResolveRemoveEffect`（判据 → `判据/T4_532与PremiumCampaign_判据.md` §1b 表），⛔ 不该发。
+            //   ⚠️ 不在棋盘上（挂到手里 / 墓地）⇒ `Slot = -1`（原版那两件状态框本来也不在屏上）。
+            if (wasThere && ctx != null)
+            {
+                int _o, _s;
+                BoardOwnerSlotOf(ctx, carrier, out _o, out _s);
+                ctx.Emit(EvtKind.EnchantmentRemoved, _o, _s,
+                         cardId: effect.Trait,
+                         amount: effect.BuffType,
+                         effect: NameOf(effect.EnchantmentCard),
+                         instanceId: carrier.Id);
             }
             return wasThere;
         }

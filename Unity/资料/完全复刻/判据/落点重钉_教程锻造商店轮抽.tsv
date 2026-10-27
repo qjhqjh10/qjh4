@@ -1,0 +1,160 @@
+域	方法	旧落点	新落点	该行原文	是否等价
+教程/引导	BattleTutorialManager	Battle/BattleDriver.cs:15836/17321	Shell/CardPresentation/Battle/TutorialOverlay.cs:1138（TrySkip）（等价实现 = 战斗内跳过点击：TrySkip 管按下沿 + 「按早了不算」闸；原版 Update 只在 +0x24==2 时调）	public bool TrySkip()	部分等价
+教程/引导	BattleTutorialManager	Battle/BattleDriver.cs:15838	Shell/CardPresentation/Battle/TutorialOverlay.cs:1126（SetSkip）（等价实现 = SetSkip(bool) 置可跳过并归零计时起点（原版 ToggleCanSkipAction））	public void SetSkip(bool on)	等价
+教程/引导	BattleTutorialManager	Battle/TutorialOverlay.cs:1129	Shell/CardPresentation/Battle/TutorialOverlay.cs:1157（Tick）（等价实现 = 提示/跳过计时每帧推进在 Tick（原版 Update））	public void Tick(float dt)	部分等价
+教程/引导	FTUESelectDeckContainer	Shell/FTUESelectDeckContainer.cs:159 Create	Shell/FTUESelectDeckContainer.cs:159（Create）（等价实现 = Create 内含原版 Initialize 七步：glow a=0 / ToggleSelected(false) / 点击 lambda / 阵营徽记 / 立绘 / 描述）	public static FTUESelectDeckContainer Create(Transform parent, PxRect card,	等价
+教程/引导	FTUESelectDeckContainer	Shell/FTUESelectDeckContainer.cs:276	（不改）Shell/FTUESelectDeckContainer.cs:276	—	无落点：原版 OnDisable = Addressables.Release(deck)；我们没有 Addressables（资源 Resources 直取）⇒ 无可释放项
+教程/引导	FlowTutorialStage	Shell/MenuTutorialStageDef.cs（alreadyShown 按阶段记）	（不改）Shell/MenuTutorialStageDef.cs（alreadyShown 按阶段记）	—	无落点：原版只清 TutorialMessageData.alreadyShown 数据；我们是 stage 表里的持久字段，无方法
+教程/引导	MainTutorialManager	Shell/MenuTutorialManager.cs:488	Shell/MenuTutorialManager.cs:488（AddPointer）（等价实现 = 菜单指针（按钮）静态 AddPointer；与原版按按钮加指针同义）	static void AddPointer(MainTutorialButton button)	部分等价
+教程/引导	MainTutorialManager	Shell/MenuTutorialFlow.cs:474 OnWindowChanged	Shell/MenuTutorialManager.cs:362（ChangedWindowState）（等价实现 = 同名方法：窗口状态变化重算 GetState）	void ChangedWindowState()	等价
+教程/引导	MainTutorialManager	Shell/MenuTutorialStageDef.cs（CampaignTrackNode/CampaignClaimButton）	（不改）Shell/MenuTutorialStageDef.cs（CampaignTrackNode/CampaignClaimButton）	—	无落点：campaign 兑换节点 id 在 stage 表里是数据字段（CampaignTrackNode/CampaignClaimButton），无方法
+教程/引导	TutorialArmySelectionButton	Shell/TutorialModePopup.cs:495	Shell/TutorialModePopup.cs:502（BuildArmySelector）（等价实现 = 阵营选择按钮在 BuildArmySelector 里建（原版 Awake 初始化按钮））	void BuildArmySelector(Transform root)	部分等价
+教程/引导	TutorialArmySelectionButton	Shell/TutorialModePopup.cs:196 ItemHL	Shell/TutorialModePopup.cs:502（BuildArmySelector）（等价实现 = 高亮层 ItemHL 在 BuildArmySelector 里逐格画）	void BuildArmySelector(Transform root)	部分等价
+教程/引导	TutorialArmySelectionButton	Shell/TutorialModePopup.cs:433	Shell/TutorialModePopup.cs:502（BuildArmySelector）（等价实现 = 按钮数据（阵营/序号/卡组）在 BuildArmySelector 喂，无逐按钮 Initialize）	void BuildArmySelector(Transform root)	部分等价
+教程/引导	TutorialHidePointerInCampaign	Shell/MenuTutorialFlow.ApplyCampaignPointerFade + TutorialPointerUi.SetFade	Shell/MenuTutorialFlow.cs:784（ApplyCampaignPointerFade）（等价实现 = 等价实现 = ApplyCampaignPointerFade（alpha=1−clamp01(norm×12.5)）+ TutorialPointerUi.SetFade(:302)；原版 OnDestroy）	void ApplyCampaignPointerFade(GameWindow top)	等价
+教程/引导	TutorialHidePointerInCampaign	Shell/MenuTutorialFlow.ApplyCampaignPointerFade + TutorialPointerUi.SetFade	Shell/MenuTutorialFlow.cs:784（ApplyCampaignPointerFade）（等价实现 = 同 12（原版 Start））	void ApplyCampaignPointerFade(GameWindow top)	等价
+教程/引导	TutorialHidePointerInCampaign	Shell/MenuTutorialFlow.ApplyCampaignPointerFade + TutorialPointerUi.SetFade	Shell/MenuTutorialFlow.cs:784（ApplyCampaignPointerFade）（等价实现 = 同 12（原版 Update））	void ApplyCampaignPointerFade(GameWindow top)	等价
+教程/引导	TutorialManager	Shell/MenuTutorialFlow.cs:620 RefreshPointer	Shell/MenuTutorialFlow.cs:659（RefreshPointer）（等价实现 = 指针刷新在 RefreshPointer；原版 AddPointer 的数据结构在 stage 表）	void RefreshPointer()	部分等价
+教程/引导	TutorialManager	Shell/MenuTutorialFlow.cs:620	Shell/MenuTutorialFlow.cs:832（Resolve）（等价实现 = 指针目标解析在 Resolve（kind → 节点）；原版 AddPointerAction(target,offset)）	Transform Resolve(MenuTutorialTargetKind kind, GameWindow top)	部分等价
+教程/引导	TutorialManager	Shell/MenuTutorialFlow.cs:620	Shell/MenuTutorialFlow.cs:659（RefreshPointer）（等价实现 = 无延迟参数（原版 AddPointerWithDelay）；由 Tick/Enter 时机承担）	void RefreshPointer()	部分等价
+教程/引导	TutorialManager	Shell/MenuTutorialFlow.cs:620	Shell/MenuTutorialFlow.cs:659（RefreshPointer）（等价实现 = 同 17（TutorialPointerData 重载））	void RefreshPointer()	部分等价
+教程/引导	TutorialManager	Shell/MenuTutorialFlow.cs:253	Shell/MenuTutorialFlow.cs:72（IsCompleted）（等价实现 = 逐 stage 完成位 IsCompleted；原版 AreAllTutorialsCompleted 需调用方遍历）	static bool IsCompleted(int i)	部分等价
+教程/引导	TutorialManager	Shell/MenuTutorialFlow.cs:726	Shell/MenuTutorialFlow.cs:784（ApplyCampaignPointerFade）（等价实现 = 等价实现（不是加组件，而是每次刷新按当前滚动算 alpha））	void ApplyCampaignPointerFade(GameWindow top)	等价
+教程/引导	TutorialManager	Shell/TutorialPointerUi.cs:148 Hide	Shell/TutorialPointerUi.cs:171（Hide）（等价实现 = DisablePointer = Hide）	public void Hide()	等价
+教程/引导	TutorialManager	Shell/MenuTutorialFlow.cs:223	Shell/MenuTutorialFlow.cs:223（StartFlow）（等价实现 = PlayTutorial = StartFlow（菜单链入口））	public void StartFlow()	部分等价
+教程/引导	TutorialManager	Shell/MenuTutorialFlow.cs:79 + PrefSkip	Shell/MenuTutorialFlow.cs:102（MarkStageDone）（等价实现 = SaveAllStages = 逐 stage 写完成位（MarkStageDone/MarkCompleted））	public static bool MarkStageDone(MenuTutorialStageId id)	部分等价
+教程/引导	TutorialManager	Shell/MenuTutorialFlow.cs:269 _index	Shell/MenuTutorialFlow.cs:300（Enter）（等价实现 = SetActiveStage = Enter(i) 设置 _index）	void Enter(int i)	部分等价
+教程/引导	TutorialManager	Shell/MenuTutorialFlow.cs:314 Advance	Shell/MenuTutorialFlow.cs:347（Advance）（等价实现 = StageCompleted = Advance（推进到下一 stage））	public void Advance()	等价
+教程/引导	TutorialManager	Shell/MenuTutorialFlow.cs:474 OnWindowChanged	Shell/MenuTutorialFlow.cs:510（OnWindowChanged）（等价实现 = WindowChange = OnWindowChanged（先 DisablePointer 再按当前 stage 刷新））	void OnWindowChanged(GameWindow top, WindowTabType tab)	等价
+教程/引导	TutorialMessageData	Shell/MenuTutorialStageDef.cs alreadyShown	（不改）Shell/MenuTutorialStageDef.cs alreadyShown	—	无落点：TutorialMessageData.Reset 清的是数据字段 alreadyShown，无方法
+教程/引导	TutorialMessageWindowPopUp	Shell/TutorialMessagePopup.cs:223	Shell/GameWindow.cs:714（Close）（等价实现 = OnClose = GameWindow.Close（我们无 listener 可移除，见备注））	public virtual void Close()	部分等价
+教程/引导	TutorialMessageWindowPopUp	Shell/TutorialMessagePopup.cs:223	Shell/GameWindow.cs:714（Close）（等价实现 = Close = GameWindow.Close（同上））	public virtual void Close()	部分等价
+教程/引导	TutorialModePopup	Shell/TutorialModePopup.cs:311 Open	Shell/TutorialModePopup.cs:311（Open）（等价实现 = Awake 的初值/绑定在 Open（Build 在 Open 内））	public override void Open()	部分等价
+教程/引导	TutorialModePopup	Shell/TutorialModePopup.cs:495 头注 + Build	Shell/TutorialModePopup.cs:502（BuildArmySelector）（等价实现 = ConfigureArmyFilterButtons = BuildArmySelector 建 6 格按钮）	void BuildArmySelector(Transform root)	部分等价
+教程/引导	TutorialModePopup	Shell/TutorialModePopup.cs:320 Close	Shell/TutorialModePopup.cs:320（Close）（等价实现 = OnDestroy 收尾走 Close）	public override void Close()	部分等价
+教程/引导	TutorialModePopup	Shell/TutorialModePopup.cs:314 Open 初值	Shell/TutorialModePopup.cs:311（Open）（等价实现 = ResetContent 的初值在 Open）	public override void Open()	部分等价
+教程/引导	TutorialModePopup	Shell/TutorialModePopup.cs:433/495	Shell/TutorialModePopup.cs:502（BuildArmySelector）（等价实现 = SetArmyButtons = BuildArmySelector 喂阵营）	void BuildArmySelector(Transform root)	部分等价
+教程/引导	TutorialPointer	Shell/TutorialPointerUi.cs PointerAction.ClickAndHold	Shell/TutorialPointerUi.cs:243（ApplyPhase）（等价实现 = ClickAndHold 的相位动画在 ApplyPhase）	void ApplyPhase()	部分等价
+教程/引导	TutorialPointer	Shell/TutorialPointerUi.cs:125 + Flow 偏移取反	Shell/TutorialPointerUi.cs:230（MoveTo）（等价实现 = GetAdjustedPos 的落点在 MoveTo/Centered）	void MoveTo(Vector2 px)	部分等价
+教程/引导	TutorialPointer	Shell/TutorialPointerUi.cs:148 Hide	Shell/TutorialPointerUi.cs:171（Hide）（等价实现 = OnDisable = Hide）	public void Hide()	等价
+教程/引导	TutorialPointer	Shell/TutorialPointerUi.cs:170 ApplyPhase	Shell/TutorialPointerUi.cs:243（ApplyPhase）（等价实现 = ShowStartingPointer 的起始相位 = ApplyPhase）	void ApplyPhase()	部分等价
+教程/引导	TutorialPointer	Shell/TutorialPointerUi.cs:125 Show	Shell/TutorialPointerUi.cs:253（Rebuild）（等价实现 = StartPointer = Rebuild(pos,text)）	void Rebuild(Vector2 pos, string text)	部分等价
+教程/引导	TutorialPointer	Shell/TutorialPointerUi.cs:148 Hide	Shell/TutorialPointerUi.cs:171（Hide）（等价实现 = StopAnim = Hide）	public void Hide()	等价
+教程/引导	TutorialSpecificInfo	Shell/TutorialMessagePopup.cs:223/173	Shell/TutorialMessagePopup.cs:232（Show）（等价实现 = TutorialSpecificInfo.Setup = TutorialMessagePopup.Show（Context 数据驱动））	public void Show(Context? ctx = null)	部分等价
+教程/引导	TutorialStageClaimForgeFirstLevel	Shell/MenuTutorialFlow.cs:550 + ForgeData	Shell/MenuTutorialFlow.cs:549（CheckCompletion）（等价实现 = 完成判据统一在 CheckCompletion（Forge 支 = ForgeClaimedSinceEnter））	bool CheckCompletion(int i)	等价
+教程/引导	TutorialStageClaimForgeFirstLevel	Shell/MenuTutorialStageDef.cs（第 6 条）+ MenuTutorialFlow.cs:267/474	Shell/MenuTutorialFlow.cs:300（Enter）（等价实现 = DoMenuActions 的指针/文案动作由 Enter 按 stage 表执行）	void Enter(int i)	部分等价
+教程/引导	TutorialStageClaimForgeFirstLevel	Shell/MenuTutorialStageDef.cs（第 6 条）+ MenuTutorialFlow.cs:267/474	Shell/MenuTutorialFlow.cs:300（Enter）（等价实现 = Execute = Enter（通用 stage 执行器））	void Enter(int i)	部分等价
+教程/引导	TutorialStageClaimForgeFirstLevel	Shell/MenuTutorialStageDef.cs（第 6 条）+ MenuTutorialFlow.cs:267/474	Shell/MenuTutorialFlow.cs:510（OnWindowChanged）（等价实现 = WindowsChange = OnWindowChanged）	void OnWindowChanged(GameWindow top, WindowTabType tab)	等价
+教程/引导	TutorialStageGetCampaignNode	Shell/MenuTutorialStageDef.cs + Shell/MenuTutorialFlow.cs:267/474/510	Shell/MenuTutorialFlow.cs:549（CheckCompletion）（等价实现 = CheckForCompletion = CheckCompletion（Campaign 分支））	bool CheckCompletion(int i)	部分等价
+教程/引导	TutorialStageGetCampaignNode	Shell/MenuTutorialStageDef.cs + Shell/MenuTutorialFlow.cs:267/474/510	Shell/MenuTutorialFlow.cs:300（Enter）（等价实现 = DoMenuActions = Enter）	void Enter(int i)	部分等价
+教程/引导	TutorialStageGetCampaignNode	Shell/MenuTutorialStageDef.cs + Shell/MenuTutorialFlow.cs:267/474/510	Shell/MenuTutorialFlow.cs:300（Enter）（等价实现 = Execute = Enter）	void Enter(int i)	部分等价
+教程/引导	TutorialStageGetCampaignNode	Shell/MenuTutorialStageDef.cs + Shell/MenuTutorialFlow.cs:267/474/510	（不改）Shell/MenuTutorialStageDef.cs + Shell/MenuTutorialFlow.cs:267/474/510	—	无落点：HasTwoNodesCompleted 是 campaign 节点完成谓词；我们是 CampaignData 数据判据，无独立方法
+教程/引导	TutorialStageGetCampaignNode	Shell/MenuTutorialStageDef.cs + Shell/MenuTutorialFlow.cs:267/474/510	Shell/MenuTutorialFlow.cs:510（OnWindowChanged）（等价实现 = WindowsChange = OnWindowChanged）	void OnWindowChanged(GameWindow top, WindowTabType tab)	部分等价
+教程/引导	TutorialStageGetMission	Shell/MenuTutorialStageDef.cs + Shell/MenuTutorialFlow.cs:267/474/510	Shell/MenuTutorialFlow.cs:549（CheckCompletion）（等价实现 = CheckForCompletion = CheckCompletion（Mission 分支））	bool CheckCompletion(int i)	部分等价
+教程/引导	TutorialStageGetMission	Shell/MenuTutorialStageDef.cs + Shell/MenuTutorialFlow.cs:267/474/510	Shell/MenuTutorialFlow.cs:300（Enter）（等价实现 = DoMenuActions = Enter）	void Enter(int i)	部分等价
+教程/引导	TutorialStageGetMission	Shell/MenuTutorialStageDef.cs + Shell/MenuTutorialFlow.cs:267/474/510	Shell/MenuTutorialFlow.cs:300（Enter）（等价实现 = Execute = Enter）	void Enter(int i)	部分等价
+教程/引导	TutorialStageGetMission	Shell/MenuTutorialStageDef.cs + Shell/MenuTutorialFlow.cs:267/474/510	（不改）Shell/MenuTutorialStageDef.cs + Shell/MenuTutorialFlow.cs:267/474/510	—	无落点：HasCampaignPoints 是 CampaignData 数据判据，无独立方法
+教程/引导	TutorialStageGetMission	Shell/MenuTutorialStageDef.cs + Shell/MenuTutorialFlow.cs:267/474/510	Shell/MenuTutorialFlow.cs:510（OnWindowChanged）（等价实现 = WindowsChange = OnWindowChanged）	void OnWindowChanged(GameWindow top, WindowTabType tab)	部分等价
+教程/引导	TutorialStageLevelUpCard	Shell/MenuTutorialStageDef.cs（第 5 条）+ MenuTutorialFlow.cs:267/474/510	Shell/MenuTutorialFlow.cs:549（CheckCompletion）（等价实现 = CheckForCompletion = CheckCompletion（LevelUpCard 支：本工程升级链关闭））	bool CheckCompletion(int i)	部分等价
+教程/引导	TutorialStageLevelUpCard	Shell/MenuTutorialStageDef.cs（第 5 条）+ MenuTutorialFlow.cs:267/474/510	Shell/MenuTutorialFlow.cs:300（Enter）（等价实现 = DoMenuActions = Enter）	void Enter(int i)	部分等价
+教程/引导	TutorialStageLevelUpCard	Shell/MenuTutorialStageDef.cs（第 5 条）+ MenuTutorialFlow.cs:267/474/510	（不改）Shell/MenuTutorialStageDef.cs（第 5 条）+ MenuTutorialFlow.cs:267/474/510	—	无落点：DoingUpgrade 检测 UpgradePanel；本工程升级钮停用（CardTier>1 链不存在）⇒ 判据不可及
+教程/引导	TutorialStageLevelUpCard	Shell/MenuTutorialStageDef.cs（第 5 条）+ MenuTutorialFlow.cs:267/474/510	Shell/MenuTutorialFlow.cs:300（Enter）（等价实现 = Execute = Enter）	void Enter(int i)	部分等价
+教程/引导	TutorialStageLevelUpCard	Shell/MenuTutorialStageDef.cs（第 5 条）+ MenuTutorialFlow.cs:267/474/510	（不改）Shell/MenuTutorialStageDef.cs（第 5 条）+ MenuTutorialFlow.cs:267/474/510	—	无落点：HasAlreadyUpgradedCard：升级链停用 ⇒ 判据不可及
+教程/引导	TutorialStageLevelUpCard	Shell/MenuTutorialStageDef.cs（第 5 条）+ MenuTutorialFlow.cs:267/474/510	（不改）Shell/MenuTutorialStageDef.cs（第 5 条）+ MenuTutorialFlow.cs:267/474/510	—	无落点：HasNoCardToUpgrade：升级链停用 ⇒ 判据不可及
+教程/引导	TutorialStageLevelUpCard	Shell/MenuTutorialStageDef.cs（第 5 条）+ MenuTutorialFlow.cs:267/474/510	Shell/MenuTutorialFlow.cs:510（OnWindowChanged）（等价实现 = WindowsChange = OnWindowChanged）	void OnWindowChanged(GameWindow top, WindowTabType tab)	部分等价
+教程/引导	TutorialStagePlayRanked	Shell/MenuTutorialStageDef.cs + Shell/MenuTutorialFlow.cs:267/474/510	Shell/MenuTutorialFlow.cs:549（CheckCompletion）（等价实现 = CheckForCompletion = CheckCompletion（PlayRanked 支））	bool CheckCompletion(int i)	部分等价
+教程/引导	TutorialStagePlayRanked	Shell/MenuTutorialStageDef.cs + Shell/MenuTutorialFlow.cs:267/474/510	Shell/MenuTutorialFlow.cs:300（Enter）（等价实现 = Execute = Enter）	void Enter(int i)	部分等价
+教程/引导	TutorialStagePlayRanked	Shell/MenuTutorialStageDef.cs + Shell/MenuTutorialFlow.cs:267/474/510	Shell/MenuTutorialFlow.cs:659（RefreshPointer）（等价实现 = ShowCursor 的指针点亮 = RefreshPointer）	void RefreshPointer()	部分等价
+教程/引导	TutorialStagePlayRanked	Shell/MenuTutorialStageDef.cs + Shell/MenuTutorialFlow.cs:267/474/510	Shell/MenuTutorialFlow.cs:510（OnWindowChanged）（等价实现 = WindowsChange = OnWindowChanged）	void OnWindowChanged(GameWindow top, WindowTabType tab)	部分等价
+教程/引导	TutorialStageSelectArmy	Shell/MenuTutorialStageDef.cs + Shell/MenuTutorialFlow.cs:267/474/510	Shell/MenuTutorialFlow.cs:549（CheckCompletion）（等价实现 = CheckForCompletion = CheckCompletion（SelectArmy 支））	bool CheckCompletion(int i)	部分等价
+教程/引导	TutorialStageSelectArmy	Shell/MenuTutorialStageDef.cs + Shell/MenuTutorialFlow.cs:267/474/510	Shell/MenuTutorialFlow.cs:347（Advance）（等价实现 = Complete = Advance）	public void Advance()	部分等价
+教程/引导	TutorialStageSelectArmy	Shell/MenuTutorialStageDef.cs + Shell/MenuTutorialFlow.cs:267/474/510	Shell/MenuTutorialFlow.cs:300（Enter）（等价实现 = Execute = Enter）	void Enter(int i)	部分等价
+教程/引导	TutorialStageTutorialFinished	Shell/MenuTutorialStageDef.cs + Shell/MenuTutorialFlow.cs:267/474/510	Shell/MenuTutorialFlow.cs:549（CheckCompletion）（等价实现 = CheckForCompletion = CheckCompletion（TutorialFinished 支））	bool CheckCompletion(int i)	部分等价
+教程/引导	TutorialStageTutorialFinished	Shell/MenuTutorialStageDef.cs + Shell/MenuTutorialFlow.cs:267/474/510	Shell/MenuTutorialFlow.cs:347（Advance）（等价实现 = Complete = Advance）	public void Advance()	部分等价
+教程/引导	TutorialStageTutorialFinished	Shell/MenuTutorialStageDef.cs + Shell/MenuTutorialFlow.cs:267/474/510	Shell/MenuTutorialFlow.cs:300（Enter）（等价实现 = DoActions = Enter）	void Enter(int i)	部分等价
+教程/引导	TutorialStageTutorialFinished	Shell/MenuTutorialStageDef.cs + Shell/MenuTutorialFlow.cs:267/474/510	Shell/MenuTutorialFlow.cs:300（Enter）（等价实现 = Execute = Enter）	void Enter(int i)	部分等价
+教程/引导	TutorialTipScript	Battle/TutorialOverlay.cs:925 withContinue	（不改）Battle/TutorialOverlay.cs:925 withContinue	—	无落点：ClickContinue 无独立方法：Continue 点击由 SetTip 的 withContinue + 外部点击路由承担
+教程/引导	TutorialTipScript	Battle/TutorialOverlay.cs:891	Shell/CardPresentation/Battle/TutorialOverlay.cs:891（HideAll）（等价实现 = FinishTutorialTip = HideAll）	public void HideAll()	部分等价
+教程/引导	TutorialTipScript	Battle/TutorialOverlay.cs:925	Shell/CardPresentation/Battle/TutorialOverlay.cs:925（SetTip）（等价实现 = SetupTip = SetTip(on,text,withContinue,center,...)）	public void SetTip(bool on, string text, bool withContinue, Vector3 center, floa	等价
+教程/引导	TutorialTipScript	Battle/TutorialOverlay.cs:925	Shell/CardPresentation/Battle/TutorialOverlay.cs:925（SetTip）（等价实现 = SetupTipData = SetTip（SmallTipData 映射到形参））	public void SetTip(bool on, string text, bool withContinue, Vector3 center, floa	等价
+教程/引导	TutorialTipScript	Battle/TutorialOverlay.cs:925	Shell/CardPresentation/Battle/TutorialOverlay.cs:925（SetTip）（等价实现 = ShowTipPermanent = SetTip（常驻档））	public void SetTip(bool on, string text, bool withContinue, Vector3 center, floa	等价
+教程/引导	TutorialTipScript	Battle/TutorialOverlay.cs:891	Shell/CardPresentation/Battle/TutorialOverlay.cs:891（HideAll）（等价实现 = StopAnims = HideAll）	public void HideAll()	等价
+教程/引导	TutorialTipScript	Battle/TutorialOverlay.cs:925	Shell/CardPresentation/Battle/TutorialOverlay.cs:891（HideAll）（等价实现 = StopTip = HideAll）	public void HideAll()	等价
+教程/引导	TutorialTipScript	Battle/TutorialOverlay.cs:1162 Tick 族	Shell/CardPresentation/Battle/TutorialOverlay.cs:1157（Tick）（等价实现 = Update = Tick（提示/箭头/跳过计时））	public void Tick(float dt)	部分等价
+教程/引导	TutorialV2SaveData	Shell/MenuTutorialFlow.cs:72/79	Shell/MenuTutorialFlow.cs:72（IsCompleted）（等价实现 = LoadAllStages = 逐 stage 读完成位（IsCompleted））	static bool IsCompleted(int i)	部分等价
+教程/引导	TutorialV2SaveData	Shell/MenuTutorialFlow.cs:72/79	Shell/MenuTutorialFlow.cs:72（IsCompleted）（等价实现 = LoadStage = IsCompleted(i)）	static bool IsCompleted(int i)	部分等价
+教程/引导	TutorialV2SaveData	Shell/MenuTutorialFlow.cs:72/79	Shell/MenuTutorialFlow.cs:102（MarkStageDone）（等价实现 = SaveAllStages = 逐 stage MarkStageDone）	public static bool MarkStageDone(MenuTutorialStageId id)	部分等价
+教程/引导	TutorialV2SaveData	Shell/MenuTutorialFlow.cs:72/79	Shell/MenuTutorialFlow.cs:102（MarkStageDone）（等价实现 = SaveStage = MarkStageDone）	public static bool MarkStageDone(MenuTutorialStageId id)	部分等价
+教程/引导	WildcardTutorialManager	Shell/WildcardTutorial.cs + Shell/CollectionWindow.cs:1197	Shell/WildcardTutorial.cs:206（ShowPointerFor）（等价实现 = AddPointer(objButton) = ShowPointerFor(step)）	void ShowPointerFor(WildcardTutorialStep step)	部分等价
+教程/引导	WildcardTutorialManager	Shell/WildcardTutorial.cs + Shell/CollectionWindow.cs:1197	Shell/WildcardTutorial.cs:206（ShowPointerFor）（等价实现 = AddPointerWithDelay = ShowPointerFor）	void ShowPointerFor(WildcardTutorialStep step)	部分等价
+教程/引导	WildcardTutorialManager	Shell/WildcardTutorial.cs + Shell/CollectionWindow.cs:1197	Shell/WildcardTutorial.cs:166（NotifyCardDisplayOpened）（等价实现 = 同名语义：打开卡详情推进一步）	public static void NotifyCardDisplayOpened()	等价
+教程/引导	WildcardTutorialManager	Shell/WildcardTutorial.cs + Shell/CollectionWindow.cs:1197	（不改）Shell/WildcardTutorial.cs + Shell/CollectionWindow.cs:1197	—	无落点：GetPointerOffset 是按钮 offset 数据，无方法
+教程/引导	WildcardTutorialManager	Shell/WildcardTutorial.cs + Shell/CollectionWindow.cs:1197	Shell/WildcardTutorial.cs:125（TryStart）（等价实现 = Initialize = TryStart（已做过返回 null））	public static WildcardTutorial TryStart(Transform root, IWildcardTutorialBinding	部分等价
+教程/引导	WildcardTutorialManager	Shell/WildcardTutorial.cs + Shell/CollectionWindow.cs:1197	Shell/WildcardTutorial.cs:136（ForceStart）（等价实现 = StartWildcardTutorial = ForceStart）	public static WildcardTutorial ForceStart(Transform root, IWildcardTutorialBindi	部分等价
+教程/引导	WildcardTutorialManager	Shell/WildcardTutorial.cs + Shell/CollectionWindow.cs:1197	Shell/WildcardTutorial.cs:69（OnOwnedToggled）（等价实现 = ToggleOwned = OnOwnedToggled）	public bool OnOwnedToggled(bool owned)	等价
+锻造	BoosterInfoPopup	Shell/BoosterInfoPopup.cs（刷新由调用点直连）	（不改）Shell/BoosterInfoPopup.cs（刷新由调用点直连）	—	无落点：SetRefreshCallback：无回调注册口（打开时直接建内容）
+锻造	BoosterPackBackground	Shell/BoosterPackOpenWindow.cs Build（背景按卡包档）	Shell/BoosterPackOpenWindow.cs:433（Build）（等价实现 = BoosterPackBackground.Initialize = Build 里按卡包档画背景（legendary 未单独核））	public void Build()	部分等价
+锻造	BoosterPackOpenWindow	Shell/BoosterPackOpenWindow.cs:900 Advance / StepCard（时间线推进）	Shell/BoosterPackOpenWindow.cs:900（Advance）（等价实现 = AnimationEndEvent = Advance 的显式时间线（不用动画事件））	public void Advance(float dt)	部分等价
+锻造	BoosterPackOpenWindow	Shell/BoosterPackOpenWindow.cs:860 FinishFlip	Shell/BoosterPackOpenWindow.cs:860（FinishFlip）（等价实现 = CardOpened = FinishFlip）	void FinishFlip(int i)	部分等价
+锻造	BoosterPackOpenWindow	Shell/BoosterPackOpenWindow.cs:425 CloseFromTap	Shell/BoosterPackOpenWindow.cs:425（CloseFromTap）（等价实现 = CloseAnimaFinishEvent = CloseFromTap 的关闭收尾）	public void CloseFromTap()	部分等价
+锻造	BoosterPackOpenWindow	Shell/BoosterPackOpenWindow.cs:384 Create / :433 Build	Shell/BoosterPackOpenWindow.cs:433（Build）（等价实现 = Initialize = Build/Create（卡表按本地数据））	public void Build()	部分等价
+锻造	BoosterPackOpenWindow	Shell/BoosterPackOpenWindow.cs:756 OnSlotClick / Reveal（逐张）	Shell/BoosterPackOpenWindow.cs:756（OnSlotClick）（等价实现 = ToggleCardOpening = OnSlotClick/Reveal 逐张翻）	public void OnSlotClick(int i)	部分等价
+锻造	BoosterPackOpenWindow	Shell/BoosterPackOpenWindow.cs:199 DiscoverText/:202 CloseText + Tick 切	（不改）Shell/BoosterPackOpenWindow.cs:199 DiscoverText/:202 CloseText + Tick 切	—	无落点：ToggleTextHelper：只有 DiscoverText/CloseText 两个词条属性，无切换方法
+锻造	BoosterPackOpenWindow	Shell/BoosterPackOpenWindow.cs CloseFromTap 的时间闸	Shell/BoosterPackOpenWindow.cs:425（CloseFromTap）（等价实现 = WaitAnimationForClose = CloseFromTap 的时间闸）	public void CloseFromTap()	部分等价
+锻造	BoosterPackVisualItem	Shell/BoosterPackOpenWindow.cs Build（内联建视觉件）	Shell/BoosterPackOpenWindow.cs:566（BuildSlot）（等价实现 = BoosterPackVisualItem.Initialize = BuildSlot 内联建视觉件）	void BuildSlot(Transform parent, int i)	部分等价
+锻造	BoosterPackVisualItem	Shell/BoosterPackOpenWindow.cs 时间线（StepCard）	Shell/BoosterPackOpenWindow.cs:932（StepCard）（等价实现 = StartCardAnimationEvent = StepCard 时间线）	void StepCard(int i, float dt)	部分等价
+锻造	BoosterShopTab	Shell/ShopTabPage.cs（商店线文件）	Shell/ShopTabPage.cs:238（Setup）（等价实现 = BoosterShopTab.OnOpen = ShopTabPage.Setup（商店线））	public override void Setup()	部分等价
+锻造	BoosterShopTab	Shell/ShopTabPage.cs / ShopWindow（商店线）	Shell/ShopTabPage.cs:238（Setup）（等价实现 = TryOpenContainerArmy = ShopTabPage.Setup（商店线））	public override void Setup()	部分等价
+锻造	CardInBoosterPack	Shell/BoosterPackOpenWindow.cs:769 OpenCardDetail + GameWindow.OnCloseWindow（本轮补的事件口）	Shell/BoosterPackOpenWindow.cs:769（OpenCardDetail）（等价实现 = CardDisplayWindowOnCloseWindow = OpenCardDetail（无回灌状态））	void OpenCardDetail(int i)	部分等价
+锻造	CardInBoosterPack	Shell/BoosterPackOpenWindow.cs 时间线	Shell/BoosterPackOpenWindow.cs:813（BeginFlip）（等价实现 = EnableCardBackAnimEvent = BeginFlip）	void BeginFlip(int i)	部分等价
+锻造	CardInBoosterPack	Shell/BoosterPackOpenWindow.cs 时间线	Shell/BoosterPackOpenWindow.cs:860（FinishFlip）（等价实现 = FinishedOpeningAnimEvent = FinishFlip）	void FinishFlip(int i)	部分等价
+锻造	CardInBoosterPack	Shell/BoosterPackOpenWindow.cs:887 StartShakes(rarity) + 卡背表	Shell/BoosterPackOpenWindow.cs:887（StartShakes）（等价实现 = GetContentByRarity = StartShakes(rarity) + 卡背表）	void StartShakes(int rarity)	部分等价
+锻造	CardInBoosterPack	Shell/BoosterPackOpenWindow.cs 卡背资源（Core/CardbackFace）	（不改）Shell/BoosterPackOpenWindow.cs 卡背资源（Core/CardbackFace）	—	无落点：RelaseCardback：卡背资源由 CardbackFace 缓存管理，无逐卡释放方法
+锻造	CardInBoosterPack	Shell/BoosterPackOpenWindow.cs SlotHits 闸（翻牌中关命中）	（不改）Shell/BoosterPackOpenWindow.cs SlotHits 闸（翻牌中关命中）	—	无落点：ToggleInteractions：翻牌期交互闸内联在事件处理里，无独立方法
+锻造	CardInBoosterPack	Shell/BoosterPackOpenWindow.cs 卡背/稀有度表	（不改）Shell/BoosterPackOpenWindow.cs 卡背/稀有度表	—	无落点：TryGetContentByRarity：稀有度→内容表是数据，无方法
+锻造	CardInBoosterPack	Shell/BoosterPackOpenWindow.cs BindBlink（提示闪烁）	Shell/BoosterPackOpenWindow.cs:360（BindBlink）（等价实现 = TryHighlightCardback = BindBlink 提示闪烁）	void BindBlink(Label lb)	部分等价
+锻造	CardInBoosterPack	Shell/BoosterPackOpenWindow.cs（悬停反馈）	Shell/BoosterPackOpenWindow.cs:1082（Hover）（等价实现 = UiColliderOnEnter = Hover(i,true)）	public void Hover(int i, bool on)	部分等价
+锻造	CardInBoosterPack	Shell/BoosterPackOpenWindow.cs	Shell/BoosterPackOpenWindow.cs:1082（Hover）（等价实现 = UiColliderOnExit = Hover(i,false)）	public void Hover(int i, bool on)	部分等价
+锻造	CardInBoosterPack	Shell/BoosterPackOpenWindow.cs 时间线 StepCard	Shell/BoosterPackOpenWindow.cs:932（StepCard）（等价实现 = WaitForSpinAnimationEnd = StepCard 时间线）	void StepCard(int i, float dt)	部分等价
+锻造	CraftingPanel	Shell/CardDetailPopup.cs:2380-2413（TryCraft）+ :2479-2513（DoCraft）+ :2431-2476（PlayCraftVfx）	Shell/CardDetailPopup.cs:2254（CraftNow）（等价实现 = CraftingPanel.TryCraftingInternal = CraftNow（DoVFX 时机见差异））	void CraftNow()	部分等价
+锻造	Forge	Shell/ForgeData.cs:170 Claim(army,level)（逐级领）	Shell/ForgeData.cs:170（Claim）（等价实现 = Forge.CollectRewards = ForgeData.Claim 逐级领（无一次全领））	public static bool Claim(string army, int level, out string why)	部分等价
+锻造	ForgeHandler	Shell/ForgeData.cs:34 MaxLevel=50	（不改）Shell/ForgeData.cs:34 MaxLevel=50	—	无落点：GetMaxLevelForge：实现是 ForgeData.MaxLevel 常量（字段不能当方法落点）
+锻造	ForgeHandler	Shell/ForgeData.cs:100 静态构造 Init(army,i)	Shell/ForgeData.cs:100（ForgeData）（等价实现 = SetupEvents = ForgeData 静态构造 + Init 建表（不接收服务器事件））	static ForgeData()	部分等价
+锻造	ForgeRewardSelector	CardPresentation/Shell/ForgeTab.cs:764（Refresh）	Shell/ForgeTab.cs:801（Refresh）（等价实现 = ForgeRewardSelector.Initialize = Refresh（同时承载 4 个原版方法））	public void Refresh()	部分等价
+锻造	ForgeRewardSelector	CardPresentation/Shell/ForgeTab.cs:764（Refresh）	Shell/ForgeTab.cs:801（Refresh）（等价实现 = RewardCollected = Refresh）	public void Refresh()	部分等价
+锻造	ForgeRewardSelector	Shell/ForgeTab.cs BindBlink/:771 _readyRoot（可领才亮）	Shell/ForgeTab.cs:834（BuildRewardCells）（等价实现 = ToggleCollectReward = BuildRewardCells/_readyRoot（特效位置不同））	void BuildRewardCells()	部分等价
+锻造	ForgeWindowTab	—	Shell/WindowTabBase.cs:72（OnClose）（等价实现 = ForgeWindowTab.OnClose = WindowTabBase.OnClose 钩子（无事件订阅可解绑））	public virtual void OnClose() { }	部分等价
+锻造	UpgradeForgeLevel	Shell/ForgeTab.cs Refresh（每次重算可领态）	Shell/ForgeTab.cs:801（Refresh）（等价实现 = UpgradeForgeLevel.OnReset = Refresh（每次重算可领态））	public void Refresh()	部分等价
+锻造	UpgradeForgeLevel	Shell/ForgeTab.cs BindBlink/_blink.Tick（可领脉冲）	Shell/ForgeTab.cs:352（Tick）（等价实现 = UpgradeForgeLevel.OnTrigger = Tick 的可领脉冲（非信号驱动））	public void Tick(float dt)	部分等价
+商店	BaseOfferPopup	Shell/BaseOfferPopup.cs:668（等价实现 = Open：原版 ToFocus = 报价详情弹窗（奖励抽屉 / 倒计时 / 限购文案 / 购买流程）；我们这一份唯一实现就是它）	Shell/BaseOfferPopup.cs:668（Open）（等价实现 = ToFocus = Open（WindowsManager 打开即置顶，无单独置前行））	public override void Open()	部分等价
+商店	CurrencyDrawer	Shell/ItemDrawer.cs（共用件）	Shell/ItemDrawer.cs:840（Draw）（等价实现 = CurrencyDrawer.Draw = ItemDrawer.Draw（共用件））	public static ItemDrawResult Draw(Transform parent, PxRect box, ItemSpec item, i	等价
+商店	CurrencyDrawer	Shell/ItemDrawer.cs（共用件）	（不改）Shell/ItemDrawer.cs（共用件）	—	无落点：GetItemName：名称来自 ItemSpec.Label 数据，无方法
+商店	GeneralOfferPopupDrawer	Shell/ItemDrawer.cs:840	（不改）Shell/ItemDrawer.cs:840	—	无落点：DoReset：ItemDrawer 无 DoReset 方法
+商店	GeneralOfferPopupDrawerBase	Shell/BaseOfferPopup.cs（奖励区）	（不改）Shell/BaseOfferPopup.cs（奖励区）	—	无落点：ReleaseAssets：奖励区无资产释放方法（Resources 直取）
+商店	PremiumDrawer	Shell/ItemDrawer.cs（共用件）	Shell/ItemDrawer.cs:840（Draw）（等价实现 = PremiumDrawer.Draw = ItemDrawer.Draw）	public static ItemDrawResult Draw(Transform parent, PxRect box, ItemSpec item, i	等价
+商店	PremiumDrawer	Shell/ItemDrawer.cs（共用件）	（不改）Shell/ItemDrawer.cs（共用件）	—	无落点：GetItemName：名称来自 ItemSpec.Label 数据，无方法
+商店	PremiumIconDrawer	Shell/ItemDrawer.cs	Shell/ItemDrawer.cs:840（Draw）（等价实现 = PremiumIconDrawer.Draw = ItemDrawer.Draw）	public static ItemDrawResult Draw(Transform parent, PxRect box, ItemSpec item, i	等价
+商店	ShopContainer	Shell/ShopData.cs:238	（不改）Shell/ShopData.cs:238	—	无落点：GetCustomData：静态 ShopData.Pages 数据，无容器方法
+商店	ShopContainer	Shell/ShopData.cs:238	（不改）Shell/ShopData.cs:238	—	无落点：GetID：静态 ShopData.Pages 数据，无容器 id 方法
+商店	ShopContainerV2	Shell/ShopData.cs:238	（不改）Shell/ShopData.cs:238	—	无落点：GetID：同 9
+商店	ShopItemContainer	Shell/ShopWindow.cs:254（等价实现 = RefreshHighlights：原版 SetRefreshCallback = 商店里一件商品的容器（Initialize / 买 / 刷新回调）；我们这一份唯一实现就是它）	（不改）Shell/ShopWindow.cs:254（等价实现 = RefreshHighlights：原版 SetRefreshCallback = 商店里一件商品的容器（Initialize / 买 / 刷新回调）；我们这一份唯一实现就是它）	—	无落点：SetRefreshCallback：无回调注册口（页面 Setup 重建）
+商店	ShopOfferContainer	Shell/OfferContainer.cs（1424 行）	（不改）Shell/OfferContainer.cs（1424 行）	—	无落点：ShopOfferContainer.OnDestroy：无逐容器销毁方法（随窗销毁）
+商店	ShopOfferContainer	Shell/ShopWindow.cs:254（等价实现 = RefreshHighlights：原版 SetRefreshCallback = 报价容器（OnInitialize / Refresh / OnClick / 刷新回调）；我们这一份唯一实现就是它）	（不改）Shell/ShopWindow.cs:254（等价实现 = RefreshHighlights：原版 SetRefreshCallback = 报价容器（OnInitialize / Refresh / OnClick / 刷新回调）；我们这一份唯一实现就是它）	—	无落点：SetRefreshCallback：无回调注册口
+商店	ShopStore	Shell/ShopData.cs:238	（不改）Shell/ShopData.cs:238	—	无落点：RemoveFinishedOffer：静态报价表，无「移除已完成报价」方法
+商店	ShopTab	Shell/ShopData.cs:238	Shell/ShopTabPage.cs:238（Setup）（等价实现 = ShopTab.SetStore = ShopTabPage.Setup（建页/报价列表））	public override void Setup()	部分等价
+商店	ShopTab	Shell/ShopWindow.cs:254（等价实现 = RefreshHighlights：原版 ToFocus = 一个商店页签：报价列表 / 刷新 / 排序 / 买；我们这一份唯一实现就是它）	Shell/ShopWindow.cs:254（RefreshHighlights）（等价实现 = ShopTab.ToFocus = RefreshHighlights（页签选中态））	public override void RefreshHighlights()	部分等价
+轮抽	DraftEndQuote	DraftModeWindow `_quoteEnd` + `QuoteTermForWins(Victories)`	Shell/DraftModeWindow.cs:2160（QuoteTermForWins）（等价实现 = TryGetQuote = QuoteTermForWins（按胜场档取词条，非归一算法））	public static string QuoteTermForWins(int wins)	部分等价
+轮抽	DraftEventBase	DraftModeWindow（存档校验）	Shell/DraftModeWindow.cs:781（LoadRunFromDisk）（等价实现 = Validate = LoadRunFromDisk（只校验版本+数组非 null））	static void LoadRunFromDisk()	部分等价
+轮抽	DraftMenuContainer	—（无逐方法对应）	（不改）—（无逐方法对应）	—	无落点：DraftMenuContainer.OnDestroy：菜单卡每帧轮询 RefreshDraftModeCard，无绑定可解
+轮抽	DraftModeMenuDemo	CardPresentation/Shell/DraftModeWindow.cs:1121（Build）	Shell/DraftModeWindow.cs:1121（Build）（等价实现 = DraftModeMenuDemo.Awake = Build 建整窗（非专指绑 closeButton））	void Build()	部分等价
+轮抽	DraftModeMenuDemo	CardPresentation/Shell/DraftModeWindow.cs:1024（Close）	Shell/DraftModeWindow.cs:1024（Close）（等价实现 = OnDestroy = Close（节点随窗销毁，无 RemoveAllListeners））	public override void Close()	部分等价
+轮抽	DraftModeMenuPayStateDemo	DraftModeWindow 免费按钮可点判据	（不改）DraftModeWindow 免费按钮可点判据	—	无落点：GetFreeButtonInteractable：活动时间窗数据在服务端，本地恒可点，无方法
+轮抽	DraftModeMenuPayStateDemo	CardPresentation/Shell/DraftModeWindow.cs:1024（Close）	Shell/DraftModeWindow.cs:1024（Close）（等价实现 = OnClose = Close）	public override void Close()	部分等价
+轮抽	DraftModeMenuPayStateDemo	CardPresentation/Shell/DraftModeWindow.cs:1024（Close）	Shell/DraftModeWindow.cs:1024（Close）（等价实现 = OnDisable = Close）	public override void Close()	部分等价
+轮抽	DraftModeSelectPacksStateDemo	CardPresentation/Shell/DraftModeWindow.cs:1024（Close）	Shell/DraftModeWindow.cs:2361（RefreshPacksPage）（等价实现 = SelectPacks.OnDestroy = RefreshPacksPage（清包容器在 Build/RefreshPacksPage））	void RefreshPacksPage()	部分等价
+轮抽	DraftModeWarlordSelectionStateDemo	CardPresentation/Shell/DraftModeWindow.cs:1024（Close）	（不改）CardPresentation/Shell/DraftModeWindow.cs:1024（Close）	—	无落点：WarlordSelection.OnDestroy：无 listener 可移除（按钮 AddHit 直调，随节点销毁）
+轮抽	DraftRunDisplay	DraftModeWindow `QuoteTermForWins`	Shell/DraftModeWindow.cs:2160（QuoteTermForWins）（等价实现 = ChooseQuote = QuoteTermForWins）	public static string QuoteTermForWins(int wins)	部分等价
+轮抽	DraftRunDisplay	CardPresentation/Shell/DraftModeWindow.cs:1024（Close）	Shell/DraftModeWindow.cs:1024（Close）（等价实现 = OnDestroy = Close）	public override void Close()	部分等价
+轮抽	DraftRunDisplay	CardPresentation/Shell/DraftModeWindow.cs:2625（PerformBadgeAnimations）（等价实现 = PerformBadgeAnimations：胜/败各只动**新增那一格**（`BuildStageMarkToggleTween`）+ 胜场计数数字 `BuildBadgeCountTween`（0→1 · 0.5s · **OutBounce**）+ 音效；调用点 = `RefreshOngoingPage`（原版是 `DraftRunDisplay.Setup` 末尾那句 `:172`））	Shell/DraftModeWindow.cs:2628（PerformBadgeAnimations）（等价实现 = 同名方法；败场 Jingle 不在音效表 ⇒ 那一声不响）	void PerformBadgeAnimations()	部分等价
+轮抽	DraftWins	—	（不改）—	—	无落点：DraftWins.OnInitialize：无信号总线（Signal<DraftRunFinished>）⇒ 无可注册对象，组件生命周期碰不到
+轮抽	DraftWins	—	（不改）—	—	无落点：DraftWins.OnReset：无信号总线 ⇒ 无可反注册对象

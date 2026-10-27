@@ -314,7 +314,7 @@ namespace RuleEngine
         }
     }
 
-    public class BattleContext
+    public partial class BattleContext
     {
         public readonly PlayerState[] Players = new PlayerState[2];
 
@@ -374,7 +374,7 @@ namespace RuleEngine
         /// 结算面板要按它换一句话 —— 原版 `BattleResult.Forfeit` 和「督军倒下」是两种结局。</summary>
         public int ForfeitedBy = -1;
 
-        /// <summary>种子化的随机源。洗牌用它 —— 引擎里**只有这一处**随机</summary>
+        /// <summary>种子流 —— **只用来烧随机表**（`InitRandomNumbers`，见 `BattleContextRandom.cs`）；结算随机一律走 `ctx.GetRandomInt`。⚠️ 2026-10-27（`E1RNG`）：原 doc 写「洗牌用它、引擎里只有这一处随机」—— 已过期。</summary>
         public readonly Random Rng;
 
         /// <summary>
@@ -678,7 +678,7 @@ namespace RuleEngine
             //    （`ShowRng` 花掉多少个数都不会挪动 `Rng` 的序列）。
             ShowRng = new Random(seed ^ 0x5EED5EED);
             // 🆕 2026-09-17：AI 掷骰那一路（见 `AiRng` 的注释）—— 同样派生、同样可复现、同样互不干扰
-            AiRng = new Random(seed ^ 0x0A1A1A1A);
+            AiRng = new Random(seed ^ 0x0A1A1A1A); InitRandomNumbers();   // 🔴 2026-10-27（`E1RNG`）原版开局预烧 100 个整数 —— 见类尾 `InitRandomNumbers`（同一条语句，⛔ 别拆成新行：本文件被账按行号引用）
         }
 
         // ---- 卡实例身份（待办第 7 行，2026-09-18 第 1 步）---------------------------
@@ -1450,7 +1450,7 @@ namespace RuleEngine
         //
         // ⚠️ **队列里是「相对于各自候选表的下标」** ⇒ **顺序必须和结算顺序一致**，
         //   否则会**选错一张**（而且不报错）。表现层那边靠 `RuleCore.PlayerChooseOps` 保证同序。
-        // ⚠️ **空队列 = 没人问过** ⇒ 退回 `ctx.Rng`（既有行为，同一局可复现）。
+        // ⚠️ **空队列 = 没人问过** ⇒ 退回 `ctx.GetRandomInt`（2026-10-27 `E1RNG`：原写 `ctx.Rng`，已随随机表落地改口）。
         // ⚠️ **`ChooseSites` / `ChooseAnswered` 两个数都要看**：前者是「引擎本该问几次」，
         //   后者是「其中几次真的用了面板的答案」—— 差着就说明**有几次是引擎替玩家挑的**，
         //   而那种事**不报错**（本工程的静默失败红线）。

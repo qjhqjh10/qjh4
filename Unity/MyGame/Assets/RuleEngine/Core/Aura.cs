@@ -880,7 +880,7 @@ namespace RuleEngine
 
             ForEachTarget(ctx, a, srcOwner, srcSlot, delegate (int tgtOwner, int tgtSlot, UnitState t)
             {
-                if (!a.Filter.Matches(t)) return;
+                if (t.IsRemnant) return; if (!a.Filter.Matches(t)) return;   // 🔴 残骸整条不施加（判据 → 判据/T7_引擎三条_判据.md ①：目标池 includeRemnants=0 / FilterMethods__CheckIfMeetsCriteria.c:273-278 ＋ extrinsic 残骸门 CardScript__AddEffect.c:159-170）—— ⛔ 别改成往 _remnantTraits 补写（那与 HasCurrentTrait 的残骸支相反）
                 hits++;
                 if (!done.Add(PairKey(srcOwner, srcSlot, auraIdx, tgtOwner, tgtSlot))) return;
                 added = true;

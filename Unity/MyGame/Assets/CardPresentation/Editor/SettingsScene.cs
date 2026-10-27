@@ -1624,7 +1624,7 @@ public static class SettingsScene
                          "`Redeem Code` 钮");
                 CheckAtS(FindChild(gtab, "Close Game Button"), SettingsWindow.GenBtn2L, SettingsWindow.GenBtnT,
                          SettingsWindow.GenBtn2L + SettingsWindow.GenBtnW, SettingsWindow.GenBtnT + SettingsWindow.GenBtnH,
-                         "`Close Game Button` 钮（原版 `Exit Game`）");
+                         "`Close Game Button` 钮（原版 `Exit Game`）"); AssertBottomHits(gtab);
                 Check(TextOf(FindChild(gtab, "Redeem Code")), Loc.T("Settings/General/RedeemCode"),
                       "`Redeem Code` 上那行字 = 词条 `Settings/General/RedeemCode`");
                 Check(TextOf(FindChild(gtab, "Close Game Button")), Loc.T("MainMenu/Settings/ButtonLabel/Exit_Game"),
@@ -5699,5 +5699,31 @@ public static class SettingsScene
         double s = 0;
         for (int i = 0; i < px.Length; i += 7) s += (px[i].r + px[i].g + px[i].b) / 3.0;
         return (float)(s / (px.Length / 7.0));
+    }
+
+    /// <summary>🆕 **2026-10-27（B1UI）**：设置窗**底部那几颗钮的命中区必须真的在**。
+    /// <para>为什么要有它：真机实测点 `Redeem Code` / `Close Game Button` 会落到**窗内吸收层** `AbsorbHit`
+    /// （`_tmp_view/click_log.txt:13414-13426` 的候选表里**只有** `q=3134 AbsorbHit` + `q=3130 BackgroundHit`，
+    /// 钮的 `Hit` 根本不在）⇒ 队列假说与坐标假说都已排除，只剩「命中区没建出来」这一支
+    /// （`MenuDraw.Hit` 在「整块在视口外」时**返回 null、连节点都不建**）。</para>
+    /// <para>⛔ **前提断言先写、再写结论**（本项目踩过 `if (x != null) Check(...)` 静默跳过）；本方法两条都是硬 `CheckTrue`。</para>
+    /// <para>⚠️ 判据只到「`Hit` 挂上了 `WindowButton`」这一层 —— **画出来的位置对不对**仍要靠并排比/真机点。</para></summary>
+    static void AssertBottomHits(Transform page)
+    {
+        var all = Object.FindObjectsByType<WindowButton>(FindObjectsSortMode.None);
+        CheckTrue(all != null && all.Length > 0,
+                  "（前提）场景里找得到 `WindowButton`（否则下面两条是同义反复）");
+        string[] names = { "Redeem Code", "Close Game Button" };
+        for (int i = 0; i < names.Length; i++)
+        {
+            var node = page != null ? FindChild(page, names[i]) : null;
+            CheckTrue(node != null, "（前提）钮 `" + names[i] + "` 的节点在");
+            bool found = false;
+            if (node != null && all != null)
+                for (int k = 0; k < all.Length; k++)
+                    if (all[k] != null && all[k].transform.parent == node) { found = true; break; }
+            CheckTrue(found, "🔴 `" + names[i] + "` 的命中区**挂上了 `WindowButton`**"
+                             + "（红 = `Hit` 被 `ClipRect` 丢掉了 ⇒ 玩家点这颗钮会落到吸收层）");
+        }
     }
 }

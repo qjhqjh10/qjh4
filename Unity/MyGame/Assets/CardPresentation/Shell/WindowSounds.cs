@@ -217,5 +217,41 @@ namespace CardPresentation
             Played++;
             return true;
         }
+
+        // ══════════════════════════════════════════════════════════════════════════════════════
+        //  🆕 **2026-10-27（音频线 `B9` · 执行代理 `B2AU`）：cue→WindowSounds 映射表里那 20 条 UI 缺口的 key**
+        //  判据 → `资料/完全复刻/报告/B9_B2AU6_cue映射补缺.md`（① 逐条归类 ② 证据 ③ 待接线）。
+        //  这批原来**连 cue 都没有**（不是没接线）：本轮已把它们收进 `工具/import_original_sfx.py` 的
+        //  `EXTRA_CUES` ⇒ 音频拷进 `Resources/Art/audio/sfx/`（含 `.meta`）+ `animfx_sounds.json` 重生
+        //  （473 → 510 条 cue）。参数（pitch/vol/ttp）由生成器**从原版 cue 资产实读**，⛔ 别在这里再抄一份。
+        //  ⚠️ **本段只是 key 注册表**：谁去播由各自的窗决定（本类 `Play(cue)` 是唯一播放口）。
+        //  ⚠️ **7 条 `Booster Open *`** 的消费者**已经写在文件头那张表里**（`WindowSounds.cs:28`：
+        //     `BoosterPackVisualItem.openBoosterPack`）⇒ 接线时不用再翻 prefab。
+        //  ⚠️ cue 名 ≠ clip 名（`Booster Open Orks` → `Open_Cardpack_Goff` 等 8 处）⇒ 见报告 §① 那张表。
+        // ══════════════════════════════════════════════════════════════════════════════════════
+
+        // ---- 抽卡开包（7 条；消费者 = `BoosterPackVisualItem.openBoosterPack`）----
+        public const string BoosterOpenAstraMilitarumCue = "Booster Open AstraMilitarum";   // clip: Open_Cardpack_AstraMilitarum
+        public const string BoosterOpenBlackLegionCue = "Booster Open BlackLegion";         // clip: Open_Cardpack_BlackLegion
+        public const string BoosterOpenEmperorsChildrenCue = "Booster Open Emperors Children"; // clip: Open_Cardpack_EmperorsChildren
+        public const string BoosterOpenOrksCue = "Booster Open Orks";                       // clip: Open_Cardpack_Goff（⚠️ 名字不同）
+        public const string BoosterOpenSaimHannCue = "Booster Open SaimHann";               // clip: Open_Cardpack_SaimHann
+        public const string BoosterOpenSororitasCue = "Booster Open Sororitas";             // clip: Open_Cardpack_Sororitas
+        public const string BoosterOpenTauCue = "Booster Open Tau";                         // clip: Open_Cardpack_Tau
+
+        // ---- 其余 UI（13 条）----
+        public const string ButtonClick1Cue = "ButtonClick 1";                    // clip: UI Click 1（⚠️ 与 `ButtonClick` 的 `UI Select Toggle` **不是同一个 clip**）
+        public const string DeckEditingValidDeckCue = "Deck Editing Valid Deck";  // clip: Progress Jingle（`.ogg`）
+        public const string DraftPackAppearCue = "Draft Pack Appear";             // clip: CardMove
+        public const string DraftPackFinishAnimCue = "Draft Pack Finish Animation"; // clip: UI Click Card 3（⚠️ 与下一条**共用同一个 clip**）
+        public const string DraftPackSelectedMovingCue = "Draft Pack Selected Moving"; // clip: CardDraw
+        public const string DraftPrebuiltPackPreviewCue = "Draft Prebuilt Pack preview"; // clip: UI Click Card 3（同上，共用）
+        public const string EnergyAccumulatedCue = "Energy Accumulated";          // clip: Energy 1
+        public const string EnergyAccumulatedUsedCue = "Energy Accumulated Used"; // clip: Energy 2
+        public const string ForgeCardCue = "Forge Card";                          // clip: Forge Card
+        public const string GachaVaultOpenCue = "Gacha vault open";               // clip: Vault Crate Open Full（`.ogg`）
+        public const string RankedSealCue = "Ranked Seal SFX";                    // clip: UI Click 6
+        public const string RaidClaimChingCue = "UI Raid Claim Reward Ching";     // clip: UI RaidClaimRewardChing
+        public const string RaidClaimWaitCue = "UI Raid Claim Reward Wait";       // clip: UI RaidClaimRewardWait
     }
 }

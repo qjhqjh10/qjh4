@@ -643,7 +643,7 @@ namespace CardPresentation
                                                 new PxRect(CardWinBox.CardL, CardWinBox.CardT, CardWinBox.CardR, CardWinBox.CardB));
                 _cards = MenuDraw.Node(cardsHolder, "Cards",
                                        new PxRect(CardWinBox.CardsCx - CardWinBox.CardsS * 0.5f, CardWinBox.CardsCy - CardWinBox.CardsS * 0.5f,
-                                                  CardWinBox.CardsCx + CardWinBox.CardsS * 0.5f, CardWinBox.CardsCy + CardWinBox.CardsS * 0.5f));
+                                                  CardWinBox.CardsCx + CardWinBox.CardsS * 0.5f, CardWinBox.CardsCy + CardWinBox.CardsS * 0.5f)); _fx = CardDisplayEffects.Build(_cards, CardWinBox.CardsS);
             }
             else Debug.LogError("[展示窗] 世界壳（装卡体那一层）没建出来 ⇒ **卡体建不了**（本窗只剩字）");
 
@@ -1905,6 +1905,14 @@ namespace CardPresentation
                 return v != null && amb != null && v.ArtLayerTexture == amb;
             }
         }
+
+        // ============================================================ 🆕 2026-10-27（B1UI · 界面线 R2 续）：光效层
+        //  ⚠️ 这两格**追加在类尾**（插在中间会让本文件 52 条账落点整体漂移，见 CLAUDE.md 铁律 18·b）。
+        /// <summary>原版 `Card Displayer Menu For Menu ▸ Card Display ▸ …` 那 10 颗粒子 + 3 条图件的根节点
+        /// （判据/换算/没做的两条 → `Shell/CardDisplayEffects.cs` 文件头）。`null` = 判据或材质取不到。</summary>
+        Transform _fx;
+        /// <summary>自检读口：光效层在不在（`null` = 没建起来）。⛔ 不拿它当"画得对不对"的判据。</summary>
+        public Transform EffectsRoot { get { return _fx; } }
 
     }
 }

@@ -1244,11 +1244,18 @@ namespace CardPresentation.Net
         public void OnLocalChat(int chatId)
         {
             if (_aborted) return;
-            // 只发「6 颗钮」那一档：0/1 是开幕台词（原版 `:65` 那两道闸），其余越界值一律不发（出声）。
-            if (!NetChat.IsButtonLine(chatId) || !NetChat.IsRelayable(chatId))
+            // 只发「可以转发」那一档：0/1 是开幕台词（原版 `:65` 那两道闸），其余越界值一律不发（出声）。
+            // 🔴 **2026-10-27（音频线 `B9` 第五批 · A-06）就地改（铁律 5）**：闸从
+            // `IsButtonLine` **收窄成只用 `IsRelayable`**（`chatId != 0 && chatId != 1`）。
+            //   判据 = 原版 `DisplayWarlordChatMessage.c:65` 的发送闸**只有那两道**（0/1），
+            //   并没有「必须落在 5…10」这一条；而 `IsButtonLine(5…10)` 会把 **`4`（Concede）** 一起挡掉
+            //   ⇒ 认输那一句**发不出去**（`BattleDriver` 侧 `OnLocalChat(4)` 已经接了，就等这一句放行）。
+            //   ⚠️ **收侧仍然保留 `IsButtonLine`**（见下面 `case NetKind.Chat` 那一支）—— 那一道是
+            //   防伪造越界，两侧的闸**本来就不是同一条**，⛔ 别把两边改成一样。
+            if (!NetChat.IsRelayable(chatId))
             {
                 Debug.LogWarning($"[Net] 本机督军那句 `chatId={chatId}` **没有发给对面**："
-                               + $"它不在「6 颗台词钮」那一档（{NetChat.FirstButtonChatId}…{NetChat.LastButtonChatId}）"
+                               + "它是 `0`/`1`（开幕台词，原版只在本地演）"
                                + " —— 判据 = 原版 `SendChatMessage` 之前那两道闸（`DisplayWarlordChatMessage.c:65`）");
                 return;
             }

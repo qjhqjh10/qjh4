@@ -155,6 +155,19 @@ namespace RuleEngine
         /// （位置照原版：排在 Flying 之后、召唤病之前）。⚠️ 池内 **0 张**卡带该 trait。</summary>
         public const int ErrAttackGiantKiller = 28;
 
+        /// <summary>**能力结算被拒 / 条件不成立** —— 加了闸之后「点得出来、结不成」的那一档。
+        ///
+        /// 🔴 **2026-10-27（B9 · 第六批 · `E6ENG`）新开**：`RuleCore.ActivateOathAbility` 原来对
+        /// `ResolveOathAbility` 返 false 一律回 <see cref="ErrUnimplemented"/> —— 但那个 false 的成因是
+        /// 「**付费被拒 / 正文条件不成立**」，说成「该功能本版未实现」会**骗人**（真机上就踩到了）。
+        /// ⚠️ **不复用 <see cref="ErrCost"/>**：余额那一档已由 `CanUseOathAbility` 的
+        /// `AbilityCostGate` 提前判成 `ErrCost`；走到本码的是**余额之外**的失败（条件 / 施放者不在场 /
+        /// 目标失效），两者对玩家的话不一样（「攒够费就能用」vs「这会儿条件不成立」）。
+        /// **谁返回它**：`RuleCore.ActivateOathAbility` 一处。⚠️ 改成新码**不会**让别处断言变红
+        /// —— 全仓 `<c>ErrUnimplemented</c>` 的另外两处（`EffectResolver` 的 `CanPlayTactic` 一族）
+        /// 语义本来就是「本版未实现」，与这档无关。</summary>
+        public const int ErrAbilityRejected = 29;
+
         static readonly Dictionary<int, string> Names = new Dictionary<int, string>
         {
             { OK,             "OK" },
@@ -204,6 +217,7 @@ namespace RuleEngine
             { ErrNoTargetAvailable, "这张战术卡没有可选的合法目标" },
             { ErrNotEnoughRoom,     "棋盘上已经放不下了" },
             { ErrNotPlayable,       "这张卡不能直接打出" },
+            { ErrAbilityRejected,   "这个能力此刻结算不了（条件不成立或付费被拒）" },
             // 🆕 2026-10-23（`B-31` 拆码的配套）：21..27 **必须有中文名** ——
             //   漏了就走 `Describe` 的 fallback，吐「**未知错误码 21**」（同 18/19 那两条的教训）。
             { ErrNoMeleeAttack,       "这个单位不能进行近战攻击" },

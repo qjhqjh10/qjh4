@@ -6551,6 +6551,107 @@ namespace RuleEngine
         /// </summary>
         public bool IsWarlordEquivalent { get { return Type == "hero"; } }
 
+        // ================================================================================================
+        //  🆕 2026-10-27（批次 9 · 执行代理 `E7ENG` · 账 532 的 1a）—— **追加在类尾**
+        //  （⛔ 别插到中间的成员之间：`账/*.tsv` 按 `文件:行号` 引，插一行就漂；
+        //   同 `AttachKeywordId` / `AttachCardTraits` 那两条「构造后挂载」的口径 —— 见类尾【一】）
+        // ================================================================================================
+
+        string _enchantTrait;
+
+        /// <summary>
+        /// 🆕 **原版 `CardEffect.trait`（`+0x3C`）的数据来源** —— 这张卡**附带魔效果**
+        /// （`buffEffect{buffType ∈ {12 enchantment, 15 singleUse, 16 choice}}`）自带的
+        /// `DefinedTrait` **关键词名**（今天只有 `"pray"` / `"vulnerable"`）。
+        ///
+        /// <para>🔴 **不是附魔卡自己的 trait**：`Pray Enchantment` 模板 `cardTraits = []`，
+        /// 而 `trait 1185` 写在**挂它的那张卡**（23 张 SOR 卡）的 buff 上 ⇒ 本列落在**载体卡**身上，
+        /// `Enchantments.Attach` 先读载体卡、再退附魔卡（判据 →
+        /// `判据/T4_532与PremiumCampaign_判据.md` §1a；生成器 → `工具/gen_cards_engine.py` 的
+        /// `enchant_trait_of`，数字→名字只认 `DefinedTrait.cs`）。</para>
+        ///
+        /// <para>三态（本仓既有契约）：`null` = **未知**（卡表 &lt; v33 整列没落 / 这张卡不在真值快照里）·
+        /// `""` = **明确没有** · 其它 = 关键词名。⛔ 别把前两者混成一档。</para>
+        ///
+        /// <para>消费链：`Enchantments.Attach` → `ActiveCardEffect.Trait`
+        /// → `EvtKind.EnchantmentRemoved`（`CardId` 放 trait 名、`Amount` 放 buffType）
+        /// → 表现层 `BattleDriver.RemoveDestroyableAnims`（原版 `BattleManager__RemoveDestroyableAnims`）。</para>
+        /// </summary>
+        public string EnchantTrait { get { return _enchantTrait; } }
+
+        /// <summary>构造后挂载（`cards_engine.json` 的 `enchantTrait` 列，v33 起）。
+        /// `null` = 没喂（= 未知）—— ⛔ 别在这里把 `null` 补成 `""`（那是「明确没有」）。</summary>
+        public void AttachEnchantTrait(string enchantTrait) { _enchantTrait = enchantTrait; }
+
+        // ================================================================================================
+        //  🆕 2026-10-27（批次 9 · 执行代理 `E7ENG` · 第三批：`OnTrapDrawn(250)` 的两格数据位之一）
+        //  —— **追加在类尾**（同 `AttachKeywordId` / `AttachEnchantTrait` 那条「构造后挂载」的口径）
+        // ================================================================================================
+
+        /// <summary>`CardTypeOptions`（`d:/2/Warpforge_code/Scripts/Assembly-CSharp/CardTypeOptions.cs` 现读）：
+        /// **`Minion = 0` · `Hero = 10` · `Tactic = 20` · `Whispers = 40`**。
+        /// ⚠️ **它和我们卡表的 `Type` 字符串不是一回事**：`Type` 是 `unit/tactic/hero/defence/enchantment`
+        /// 那套**我们自己的**映射（`Pray Enchantment` 真值 `cardType = 20` 而我们的 `type = "enchantment"`
+        /// ⇒ 反推会错）⇒ 判 cardType 只认本格。</summary>
+        public const int CardTypeMinion = 0;
+        /// <inheritdoc cref="CardTypeMinion"/>
+        public const int CardTypeHero = 10;
+        /// <inheritdoc cref="CardTypeMinion"/>
+        public const int CardTypeTactic = 20;
+        /// <inheritdoc cref="CardTypeMinion"/>
+        public const int CardTypeWhispers = 40;
+
+        /// <summary>`SpellType.Trap = 70`（`SpellType.cs` 现读）。</summary>
+        public const int SpellTypeTrap = 70;
+
+        int _cardType = GateUnknown;
+
+        /// <summary>🆕 原版 `RawCardScript.cardType`（`int @+0x94`，`CardTypeOptions`）。
+        /// `-1` = **未知**（卡表 &lt; v34 整列没落 / 这张卡不在真值快照里）—— ⛔ 别当成 `Minion(0)`。
+        /// 今天唯一的消费者 = <see cref="IsTrapCard"/>（原版 `EntityScript__get_isTrapCard.c` 读的正是这一格）。</summary>
+        public int CardType { get { return _cardType; } }
+
+        /// <summary>构造后挂载（`cards_engine.json` 的 `cardType` 列，v34 起）。
+        /// `-1` = 没喂（= 未知）—— ⛔ 别在这里补 0。</summary>
+        public void AttachCardType(int cardType) { _cardType = cardType; }
+
+        /// <summary>
+        /// 🆕 **原版 `EntityScript.get_isTrapCard()`**（`decomp_full/EntityScript__get_isTrapCard.c`，全文 11 行亲读）：
+        /// ```csharp
+        /// RawCardScript raw = self.rawCard(+0x28);
+        /// return raw.cardType(+0x94) == 0x14 /*20 = Tactic*/ && raw.spellType(+0x90) == 0x46 /*70 = Trap*/;
+        /// ```
+        /// ⇒ **`isTrapCard` = 战术卡里 `spellType == Trap(70)` 的那些**（⚠️ `cardType 20` 是 `Tactic`，
+        /// **不是** Whispers(40)：`gen_cards_engine.py:3954` 自己写着「`cardType 20` 不是附魔专用型，
+        /// 全表 680 张都是 20」）。
+        ///
+        /// <para>返回值三态（本仓既有口径）：`true` = 是陷阱卡 · `false` = **判得出不是** ·
+        /// `null` = **判不了**（`why` 给出为什么 —— `cardType` 或 `spellType` 未知）。</para>
+        ///
+        /// <para>⚠️ **原版那一格是纯函数**（每次现算，不缓存）：本方法也是现算，⛔ 别在别处再存一份
+        /// （两处写同一条规则 = 迟早不一致）。</para>
+        /// <para>⚠️ **原版靠 `rawCard == null` 会 NRE**（`FUN_1803f47a0`）⇒ 我们不复制崩溃语义。</para>
+        /// <para>📌 **今天全池 0 张命中**（`cards_raw.json` 1,351 张 `spellType == 70` = **0 张**）⇒ 这是**休眠机制**；
+        /// 但它不是「原版没有」（原版有活调用点 `BroadcastCardDrawn` → `CardScript.CardDrawn:23`）
+        /// ⇒ 按铁律 11 要做，只是排在陷阱机制出现之后。</para>
+        /// </summary>
+        public bool? IsTrapCard(out string why)
+        {
+            why = null;
+            if (_cardType < 0)
+            {
+                why = "`cardType`（原版 `RawCardScript +0x94`）**没挂到 CardDef 上**（卡表 < v34 / 这张卡不在真值快照里）"
+                    + " ⇒ `isTrapCard` **判不了**";
+                return null;
+            }
+            if (SpellType < 0)
+            {
+                why = "`spellType` 未知（卡表 < v19 / 真值里没这张卡）⇒ `isTrapCard` **判不了**";
+                return null;
+            }
+            return _cardType == CardTypeTactic && SpellType == SpellTypeTrap;
+        }
+
     }
 
     /// <summary>

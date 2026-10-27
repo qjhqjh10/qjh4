@@ -1,0 +1,1503 @@
+{
+ "_schema": "env_shake_sounds/1",
+ "_source": "d:/2/新解包资源/assets_full/bundle_battleprefabs_vfxandmisc_assets_all（ShakeAndSoundObject，m_Script pid 8184164905518033017）",
+ "_note": "旁挂表：prefab 上的进场震屏 + 定时环境音。⛔ 别并进 env_blendables.json（那是 blendable 专用表）。判据 → 资料/完全复刻/判据/环境音17条_载体定位.md",
+ "_stats": {
+  "components": 35,
+  "prefabs": 35,
+  "sounds": 25,
+  "shakes": 9,
+  "unresolvedCue": 1,
+  "unresolvedOwner": 0,
+  "unresolvedPreset": 9
+ },
+ "prefabs": {
+  "EnvironmentalCondition Sororitas Raging Storm": [
+   {
+    "cls": "ShakeAndSoundObject",
+    "componentFile": "MonoBehaviour_-121278834949507237.json",
+    "kind": "environment",
+    "sounds": [],
+    "onEnableShakes": []
+   }
+  ],
+  "EnvironmentalCondition Saim Hann Webway Rift": [
+   {
+    "cls": "ShakeAndSoundObject",
+    "componentFile": "MonoBehaviour_-123650712261992429.json",
+    "kind": "environment",
+    "sounds": [
+     {
+      "time": 0.0,
+      "sound": "Webway Rift",
+      "soundPid": 165753871913135722,
+      "is2d": true,
+      "repeat": false,
+      "loops": 0,
+      "timeInterval": 0.0
+     }
+    ],
+    "onEnableShakes": []
+   }
+  ],
+  "Environmental Condition Dark Angels Asteroid Zone": [
+   {
+    "cls": "ShakeAndSoundObject",
+    "componentFile": "MonoBehaviour_-147466137670212988.json",
+    "kind": "environment",
+    "sounds": [
+     {
+      "time": 0.0,
+      "sound": "Asteroid Zone",
+      "soundPid": 2076751965472574616,
+      "is2d": false,
+      "repeat": false,
+      "loops": 0,
+      "timeInterval": 0.0
+     }
+    ],
+    "onEnableShakes": [
+     {
+      "preset": "PID:-8043713765525655674",
+      "presetPid": -8043713765525655674,
+      "delay": 0.0,
+      "sustainTime": 3.0,
+      "overwriteSustainTime": 0,
+      "amplitude": 0.10000000149011612,
+      "overwriteAmplitude": 1,
+      "frequency": 1.0,
+      "overwriteFrequency": 1,
+      "direction": {
+       "x": 0.0,
+       "y": 0.0,
+       "z": 0.0
+      },
+      "overwriteDirection": 0,
+      "attackTime": 0.0,
+      "overwriteAttackTime": 0,
+      "decayTime": 3.0,
+      "overwriteDecayTime": 1
+     }
+    ]
+   }
+  ],
+  "Environmental Condition Necrons Earthquake": [
+   {
+    "cls": "ShakeAndSoundObject",
+    "componentFile": "MonoBehaviour_-1862442053205683411.json",
+    "kind": "environment",
+    "sounds": [
+     {
+      "time": 0.0,
+      "sound": "Mining Tremors",
+      "soundPid": -5877265655380819390,
+      "is2d": false,
+      "repeat": false,
+      "loops": 0,
+      "timeInterval": 0.0
+     }
+    ],
+    "onEnableShakes": []
+   }
+  ],
+  "EnvironmentalCondition Ultramarines Thunderstorm": [
+   {
+    "cls": "ShakeAndSoundObject",
+    "componentFile": "MonoBehaviour_-2858756150043663047.json",
+    "kind": "environment",
+    "sounds": [],
+    "onEnableShakes": []
+   }
+  ],
+  "Environmental Condition Space Wolves Full Moon": [
+   {
+    "cls": "ShakeAndSoundObject",
+    "componentFile": "MonoBehaviour_-3053380746057160738.json",
+    "kind": "environment",
+    "sounds": [
+     {
+      "time": 0.0,
+      "sound": "Full Moon",
+      "soundPid": -2043529631028593154,
+      "is2d": true,
+      "repeat": false,
+      "loops": 0,
+      "timeInterval": 0.0
+     }
+    ],
+    "onEnableShakes": []
+   }
+  ],
+  "Ork Environmental Condition Spore Clouds": [
+   {
+    "cls": "ShakeAndSoundObject",
+    "componentFile": "MonoBehaviour_-3197563246059249439.json",
+    "kind": "environment",
+    "sounds": [],
+    "onEnableShakes": []
+   }
+  ],
+  "Environmental Condition Necrons Solar Storm": [
+   {
+    "cls": "ShakeAndSoundObject",
+    "componentFile": "MonoBehaviour_-3361632299650125935.json",
+    "kind": "environment",
+    "sounds": [
+     {
+      "time": 0.0,
+      "sound": "Star Orbit",
+      "soundPid": -3819335262797368526,
+      "is2d": false,
+      "repeat": false,
+      "loops": 0,
+      "timeInterval": 0.0
+     }
+    ],
+    "onEnableShakes": []
+   }
+  ],
+  "Environmental Condition Astra Militarum Planetary Invasion": [
+   {
+    "cls": "ShakeAndSoundObject",
+    "componentFile": "MonoBehaviour_-3456741993900530059.json",
+    "kind": "environment",
+    "sounds": [
+     {
+      "time": 0.0,
+      "sound": "Factory Overdrive",
+      "soundPid": 7758829246773958931,
+      "is2d": true,
+      "repeat": false,
+      "loops": 0,
+      "timeInterval": 0.0
+     }
+    ],
+    "onEnableShakes": []
+   }
+  ],
+  "EnvironmentalCondition Tau Electro-Static Interference": [
+   {
+    "cls": "ShakeAndSoundObject",
+    "componentFile": "MonoBehaviour_-4431462062045255759.json",
+    "kind": "environment",
+    "sounds": [
+     {
+      "time": 0.0,
+      "sound": "Tau Electro-Static Interference",
+      "soundPid": -895455500301147291,
+      "is2d": true,
+      "repeat": false,
+      "loops": 0,
+      "timeInterval": 0.0
+     }
+    ],
+    "onEnableShakes": [
+     {
+      "preset": "PID:-4556152188679786237",
+      "presetPid": -4556152188679786237,
+      "delay": 0.0,
+      "sustainTime": 0.5,
+      "overwriteSustainTime": 0,
+      "amplitude": 0.0,
+      "overwriteAmplitude": 0,
+      "frequency": 0.0,
+      "overwriteFrequency": 0,
+      "direction": {
+       "x": 0.0,
+       "y": 0.0,
+       "z": 0.0
+      },
+      "overwriteDirection": 0,
+      "attackTime": 0.0,
+      "overwriteAttackTime": 0,
+      "decayTime": 0.699999988079071,
+      "overwriteDecayTime": 0
+     }
+    ]
+   }
+  ],
+  "EnvironmentalCondition Leviathan Blazing Biomatter": [
+   {
+    "cls": "ShakeAndSoundObject",
+    "componentFile": "MonoBehaviour_-5052700009880121444.json",
+    "kind": "environment",
+    "sounds": [
+     {
+      "time": 0.0,
+      "sound": "Firestorm Start",
+      "soundPid": -6232738114596080938,
+      "is2d": false,
+      "repeat": false,
+      "loops": 0,
+      "timeInterval": 0.0
+     }
+    ],
+    "onEnableShakes": []
+   }
+  ],
+  "EnvironmentalCondition Leviathan Sweeping Infestation": [
+   {
+    "cls": "ShakeAndSoundObject",
+    "componentFile": "MonoBehaviour_-5417358138418159934.json",
+    "kind": "environment",
+    "sounds": [
+     {
+      "time": 0.0,
+      "sound": "Toxic Fumes Start",
+      "soundPid": 9033423146207745146,
+      "is2d": false,
+      "repeat": false,
+      "loops": 0,
+      "timeInterval": 0.0
+     }
+    ],
+    "onEnableShakes": []
+   }
+  ],
+  "Environmental Condition Astra Militarum Factory Overdrive": [
+   {
+    "cls": "ShakeAndSoundObject",
+    "componentFile": "MonoBehaviour_-5489657316863698205.json",
+    "kind": "environment",
+    "sounds": [
+     {
+      "time": 0.0,
+      "sound": "Factory Overdrive",
+      "soundPid": 7758829246773958931,
+      "is2d": true,
+      "repeat": false,
+      "loops": 0,
+      "timeInterval": 0.0
+     }
+    ],
+    "onEnableShakes": []
+   }
+  ],
+  "Environmental Condition Space Wolves First Light": [
+   {
+    "cls": "ShakeAndSoundObject",
+    "componentFile": "MonoBehaviour_-6203148498290487414.json",
+    "kind": "environment",
+    "sounds": [
+     {
+      "time": 0.0,
+      "sound": "First Light",
+      "soundPid": 1210299923766823312,
+      "is2d": true,
+      "repeat": false,
+      "loops": 0,
+      "timeInterval": 0.0
+     }
+    ],
+    "onEnableShakes": []
+   }
+  ],
+  "EnvironmentalCondition Ultramarines Aerial Clash": [
+   {
+    "cls": "ShakeAndSoundObject",
+    "componentFile": "MonoBehaviour_-6615419578930050066.json",
+    "kind": "environment",
+    "sounds": [],
+    "onEnableShakes": []
+   }
+  ],
+  "Environmental Condition Black Legion Helfire Outburst": [
+   {
+    "cls": "ShakeAndSoundObject",
+    "componentFile": "MonoBehaviour_-8122998054769121558.json",
+    "kind": "environment",
+    "sounds": [],
+    "onEnableShakes": []
+   }
+  ],
+  "Environmental Condition Black Legion Warp Storm": [
+   {
+    "cls": "ShakeAndSoundObject",
+    "componentFile": "MonoBehaviour_-8389605308484142882.json",
+    "kind": "environment",
+    "sounds": [
+     {
+      "time": 0.0,
+      "sound": "Warp Storm",
+      "soundPid": 404106094856904824,
+      "is2d": true,
+      "repeat": false,
+      "loops": 0,
+      "timeInterval": 0.0
+     }
+    ],
+    "onEnableShakes": []
+   }
+  ],
+  "Environmental Condition GSC Toxic Fumes": [
+   {
+    "cls": "ShakeAndSoundObject",
+    "componentFile": "MonoBehaviour_-8527852838950854796.json",
+    "kind": "environment",
+    "sounds": [
+     {
+      "time": 0.0,
+      "sound": "Toxic Fumes Start",
+      "soundPid": 9033423146207745146,
+      "is2d": true,
+      "repeat": false,
+      "loops": 0,
+      "timeInterval": 0.0
+     }
+    ],
+    "onEnableShakes": []
+   }
+  ],
+  "EnvironmentalCondition Ultramarines Bombardment": [
+   {
+    "cls": "ShakeAndSoundObject",
+    "componentFile": "MonoBehaviour_-8940324439209517681.json",
+    "kind": "environment",
+    "sounds": [
+     {
+      "time": 0.0,
+      "sound": "Orbital Initial",
+      "soundPid": -3888569816479931127,
+      "is2d": false,
+      "repeat": false,
+      "loops": 0,
+      "timeInterval": 0.0
+     }
+    ],
+    "onEnableShakes": [
+     {
+      "preset": "PID:-8043713765525655674",
+      "presetPid": -8043713765525655674,
+      "delay": 0.0,
+      "sustainTime": 2.0,
+      "overwriteSustainTime": 1,
+      "amplitude": 0.15000000596046448,
+      "overwriteAmplitude": 1,
+      "frequency": 0.0,
+      "overwriteFrequency": 0,
+      "direction": {
+       "x": 0.0,
+       "y": 0.0,
+       "z": 0.0
+      },
+      "overwriteDirection": 0,
+      "attackTime": 0.0,
+      "overwriteAttackTime": 0,
+      "decayTime": 0.0,
+      "overwriteDecayTime": 0
+     },
+     {
+      "preset": "PID:-8043713765525655674",
+      "presetPid": -8043713765525655674,
+      "delay": 2.0,
+      "sustainTime": 0.699999988079071,
+      "overwriteSustainTime": 1,
+      "amplitude": 1.0,
+      "overwriteAmplitude": 1,
+      "frequency": 0.20000000298023224,
+      "overwriteFrequency": 1,
+      "direction": {
+       "x": 0.0,
+       "y": 0.0,
+       "z": 0.0
+      },
+      "overwriteDirection": 0,
+      "attackTime": 0.0,
+      "overwriteAttackTime": 0,
+      "decayTime": 0.0,
+      "overwriteDecayTime": 0
+     }
+    ]
+   }
+  ],
+  "Environmental Condition Black Legion Daemonic Feast": [
+   {
+    "cls": "ShakeAndSoundObject",
+    "componentFile": "MonoBehaviour_1120738079306386448.json",
+    "kind": "environment",
+    "sounds": [
+     {
+      "time": 0.0,
+      "sound": "Daemonic Feast",
+      "soundPid": 7869957202292150956,
+      "is2d": true,
+      "repeat": false,
+      "loops": 0,
+      "timeInterval": 0.0
+     }
+    ],
+    "onEnableShakes": []
+   }
+  ],
+  "Environmental Condition GSC Sump Overspill": [
+   {
+    "cls": "ShakeAndSoundObject",
+    "componentFile": "MonoBehaviour_2909568355852927222.json",
+    "kind": "environment",
+    "sounds": [
+     {
+      "time": 0.0,
+      "sound": "Sump Overspill",
+      "soundPid": 3287416670577984858,
+      "is2d": true,
+      "repeat": false,
+      "loops": 0,
+      "timeInterval": 0.0
+     }
+    ],
+    "onEnableShakes": [
+     {
+      "preset": "PID:-8043713765525655674",
+      "presetPid": -8043713765525655674,
+      "delay": 0.0,
+      "sustainTime": 3.0,
+      "overwriteSustainTime": 1,
+      "amplitude": 0.5,
+      "overwriteAmplitude": 1,
+      "frequency": 4.0,
+      "overwriteFrequency": 1,
+      "direction": {
+       "x": 0.0,
+       "y": 0.0,
+       "z": 0.0
+      },
+      "overwriteDirection": 0,
+      "attackTime": 0.0,
+      "overwriteAttackTime": 0,
+      "decayTime": 2.0,
+      "overwriteDecayTime": 1
+     }
+    ]
+   }
+  ],
+  "Ork Environmental Condition Dust": [
+   {
+    "cls": "ShakeAndSoundObject",
+    "componentFile": "MonoBehaviour_3545334214658408379.json",
+    "kind": "environment",
+    "sounds": [
+     {
+      "time": 0.0,
+      "sound": "Orks Dust Storm Start",
+      "soundPid": 874716759609316447,
+      "is2d": true,
+      "repeat": false,
+      "loops": 0,
+      "timeInterval": 0.0
+     }
+    ],
+    "onEnableShakes": [
+     {
+      "preset": "PID:-8043713765525655674",
+      "presetPid": -8043713765525655674,
+      "delay": 0.0,
+      "sustainTime": 0.5,
+      "overwriteSustainTime": 1,
+      "amplitude": 1.0,
+      "overwriteAmplitude": 1,
+      "frequency": 1.0,
+      "overwriteFrequency": 1,
+      "direction": {
+       "x": 0.0,
+       "y": 0.0,
+       "z": 0.0
+      },
+      "overwriteDirection": 0,
+      "attackTime": 1.0,
+      "overwriteAttackTime": 1,
+      "decayTime": 1.0,
+      "overwriteDecayTime": 1
+     },
+     {
+      "preset": "PID:-8043713765525655674",
+      "presetPid": -8043713765525655674,
+      "delay": 1.350000023841858,
+      "sustainTime": 0.30000001192092896,
+      "overwriteSustainTime": 1,
+      "amplitude": 5.0,
+      "overwriteAmplitude": 1,
+      "frequency": 0.0,
+      "overwriteFrequency": 0,
+      "direction": {
+       "x": 0.0,
+       "y": 0.0,
+       "z": 0.0
+      },
+      "overwriteDirection": 0,
+      "attackTime": 0.25,
+      "overwriteAttackTime": 1,
+      "decayTime": 1.0,
+      "overwriteDecayTime": 1
+     }
+    ]
+   }
+  ],
+  "Environmental Condition GSC Sump Overspill OLD": [
+   {
+    "cls": "ShakeAndSoundObject",
+    "componentFile": "MonoBehaviour_4680122288818828123.json",
+    "kind": "environment",
+    "sounds": [],
+    "onEnableShakes": []
+   }
+  ],
+  "Environmental Condition GSC Mining Tremors": [
+   {
+    "cls": "ShakeAndSoundObject",
+    "componentFile": "MonoBehaviour_530303543262857052.json",
+    "kind": "environment",
+    "sounds": [
+     {
+      "time": 0.0,
+      "sound": "Mining Tremors",
+      "soundPid": -5877265655380819390,
+      "is2d": true,
+      "repeat": false,
+      "loops": 0,
+      "timeInterval": 0.0
+     }
+    ],
+    "onEnableShakes": []
+   }
+  ],
+  "Environmental Condition Emperor's Children 2 Fumes": [
+   {
+    "cls": "ShakeAndSoundObject",
+    "componentFile": "MonoBehaviour_5558789105635608676.json",
+    "kind": "environment",
+    "sounds": [],
+    "onEnableShakes": []
+   }
+  ],
+  "EnvironmentalCondition Sororitas Disrupted Ceremony": [
+   {
+    "cls": "ShakeAndSoundObject",
+    "componentFile": "MonoBehaviour_5620250906333444739.json",
+    "kind": "environment",
+    "sounds": [],
+    "onEnableShakes": []
+   }
+  ],
+  "EnvironmentalCondition Leviathan Acid Rain": [
+   {
+    "cls": "ShakeAndSoundObject",
+    "componentFile": "MonoBehaviour_5972487805505080895.json",
+    "kind": "environment",
+    "sounds": [
+     {
+      "time": 0.0,
+      "sound": "PID:0",
+      "soundPid": 0,
+      "is2d": false,
+      "repeat": false,
+      "loops": 0,
+      "timeInterval": 0.0
+     }
+    ],
+    "onEnableShakes": []
+   }
+  ],
+  "EnvironmentalCondition Tau Radiation Storm": [
+   {
+    "cls": "ShakeAndSoundObject",
+    "componentFile": "MonoBehaviour_6115132746584211042.json",
+    "kind": "environment",
+    "sounds": [
+     {
+      "time": 0.0,
+      "sound": "Firestorm Start",
+      "soundPid": -6232738114596080938,
+      "is2d": true,
+      "repeat": false,
+      "loops": 0,
+      "timeInterval": 0.0
+     },
+     {
+      "time": 0.0,
+      "sound": "Firestorm Loop",
+      "soundPid": -5993767068827573205,
+      "is2d": true,
+      "repeat": false,
+      "loops": 0,
+      "timeInterval": 0.0
+     }
+    ],
+    "onEnableShakes": [
+     {
+      "preset": "PID:-8043713765525655674",
+      "presetPid": -8043713765525655674,
+      "delay": 0.0,
+      "sustainTime": 2.0,
+      "overwriteSustainTime": 1,
+      "amplitude": 0.0,
+      "overwriteAmplitude": 0,
+      "frequency": 0.0,
+      "overwriteFrequency": 0,
+      "direction": {
+       "x": 0.0,
+       "y": 0.0,
+       "z": 0.0
+      },
+      "overwriteDirection": 0,
+      "attackTime": 0.0,
+      "overwriteAttackTime": 0,
+      "decayTime": 1.0,
+      "overwriteDecayTime": 1
+     }
+    ]
+   }
+  ],
+  "EnvironmentalCondition Sororitas Shrine Bombardment": [
+   {
+    "cls": "ShakeAndSoundObject",
+    "componentFile": "MonoBehaviour_6743699347877583215.json",
+    "kind": "environment",
+    "sounds": [],
+    "onEnableShakes": []
+   }
+  ],
+  "Environmental Condition Emperor's Children 1 Green": [
+   {
+    "cls": "ShakeAndSoundObject",
+    "componentFile": "MonoBehaviour_6744128474513881754.json",
+    "kind": "environment",
+    "sounds": [],
+    "onEnableShakes": []
+   }
+  ],
+  "Environmental Condition Emperor's Children 1 Pink REJECTED": [
+   {
+    "cls": "ShakeAndSoundObject",
+    "componentFile": "MonoBehaviour_6885164095233323427.json",
+    "kind": "environment",
+    "sounds": [],
+    "onEnableShakes": []
+   }
+  ],
+  "Environmental Condition Space Wolves Everstorm": [
+   {
+    "cls": "ShakeAndSoundObject",
+    "componentFile": "MonoBehaviour_6927682770757828708.json",
+    "kind": "environment",
+    "sounds": [
+     {
+      "time": 0.0,
+      "sound": "Everstorm",
+      "soundPid": -594538407514888180,
+      "is2d": true,
+      "repeat": false,
+      "loops": 0,
+      "timeInterval": 0.0
+     }
+    ],
+    "onEnableShakes": [
+     {
+      "preset": "PID:-8043713765525655674",
+      "presetPid": -8043713765525655674,
+      "delay": 0.0,
+      "sustainTime": 1.0,
+      "overwriteSustainTime": 1,
+      "amplitude": 0.0,
+      "overwriteAmplitude": 0,
+      "frequency": 0.0,
+      "overwriteFrequency": 0,
+      "direction": {
+       "x": 0.0,
+       "y": 0.0,
+       "z": 0.0
+      },
+      "overwriteDirection": 0,
+      "attackTime": 0.0,
+      "overwriteAttackTime": 0,
+      "decayTime": 2.0,
+      "overwriteDecayTime": 1
+     }
+    ]
+   }
+  ],
+  "Environmental Condition Necrons Immortal Beams": [
+   {
+    "cls": "ShakeAndSoundObject",
+    "componentFile": "MonoBehaviour_7709385406679583499.json",
+    "kind": "environment",
+    "sounds": [
+     {
+      "time": 0.0,
+      "sound": "Immortal Beams",
+      "soundPid": -42160604713367801,
+      "is2d": false,
+      "repeat": false,
+      "loops": 0,
+      "timeInterval": 0.0
+     }
+    ],
+    "onEnableShakes": []
+   }
+  ],
+  "Environmental Condition Astra Militarum Dawn Attack": [
+   {
+    "cls": "ShakeAndSoundObject",
+    "componentFile": "MonoBehaviour_7964408226216882434.json",
+    "kind": "environment",
+    "sounds": [
+     {
+      "time": 0.0,
+      "sound": "Dawn Attack",
+      "soundPid": 8147575272355607868,
+      "is2d": false,
+      "repeat": false,
+      "loops": 0,
+      "timeInterval": 0.0
+     }
+    ],
+    "onEnableShakes": []
+   }
+  ],
+  "EnvironmentalCondition Saim Hann Blackout": [
+   {
+    "cls": "ShakeAndSoundObject",
+    "componentFile": "MonoBehaviour_9031176634359415475.json",
+    "kind": "environment",
+    "sounds": [
+     {
+      "time": 0.0,
+      "sound": "Blackout",
+      "soundPid": -8352762669946992964,
+      "is2d": true,
+      "repeat": false,
+      "loops": 0,
+      "timeInterval": 0.0
+     }
+    ],
+    "onEnableShakes": []
+   }
+  ]
+ },
+ "entries": [
+  {
+   "prefab": "Environmental Condition Astra Militarum Dawn Attack",
+   "cls": "ShakeAndSoundObject",
+   "kind": "environment",
+   "sounds": [
+    {
+     "time": 0.0,
+     "sound": "Dawn Attack",
+     "soundPid": 8147575272355607868,
+     "is2d": false,
+     "repeat": false,
+     "loops": 0,
+     "timeInterval": 0.0
+    }
+   ],
+   "onEnableShakes": [],
+   "componentFile": "MonoBehaviour_7964408226216882434.json"
+  },
+  {
+   "prefab": "Environmental Condition Astra Militarum Factory Overdrive",
+   "cls": "ShakeAndSoundObject",
+   "kind": "environment",
+   "sounds": [
+    {
+     "time": 0.0,
+     "sound": "Factory Overdrive",
+     "soundPid": 7758829246773958931,
+     "is2d": true,
+     "repeat": false,
+     "loops": 0,
+     "timeInterval": 0.0
+    }
+   ],
+   "onEnableShakes": [],
+   "componentFile": "MonoBehaviour_-5489657316863698205.json"
+  },
+  {
+   "prefab": "Environmental Condition Astra Militarum Planetary Invasion",
+   "cls": "ShakeAndSoundObject",
+   "kind": "environment",
+   "sounds": [
+    {
+     "time": 0.0,
+     "sound": "Factory Overdrive",
+     "soundPid": 7758829246773958931,
+     "is2d": true,
+     "repeat": false,
+     "loops": 0,
+     "timeInterval": 0.0
+    }
+   ],
+   "onEnableShakes": [],
+   "componentFile": "MonoBehaviour_-3456741993900530059.json"
+  },
+  {
+   "prefab": "Environmental Condition Black Legion Daemonic Feast",
+   "cls": "ShakeAndSoundObject",
+   "kind": "environment",
+   "sounds": [
+    {
+     "time": 0.0,
+     "sound": "Daemonic Feast",
+     "soundPid": 7869957202292150956,
+     "is2d": true,
+     "repeat": false,
+     "loops": 0,
+     "timeInterval": 0.0
+    }
+   ],
+   "onEnableShakes": [],
+   "componentFile": "MonoBehaviour_1120738079306386448.json"
+  },
+  {
+   "prefab": "Environmental Condition Black Legion Helfire Outburst",
+   "cls": "ShakeAndSoundObject",
+   "kind": "environment",
+   "sounds": [],
+   "onEnableShakes": [],
+   "componentFile": "MonoBehaviour_-8122998054769121558.json"
+  },
+  {
+   "prefab": "Environmental Condition Black Legion Warp Storm",
+   "cls": "ShakeAndSoundObject",
+   "kind": "environment",
+   "sounds": [
+    {
+     "time": 0.0,
+     "sound": "Warp Storm",
+     "soundPid": 404106094856904824,
+     "is2d": true,
+     "repeat": false,
+     "loops": 0,
+     "timeInterval": 0.0
+    }
+   ],
+   "onEnableShakes": [],
+   "componentFile": "MonoBehaviour_-8389605308484142882.json"
+  },
+  {
+   "prefab": "Environmental Condition Dark Angels Asteroid Zone",
+   "cls": "ShakeAndSoundObject",
+   "kind": "environment",
+   "sounds": [
+    {
+     "time": 0.0,
+     "sound": "Asteroid Zone",
+     "soundPid": 2076751965472574616,
+     "is2d": false,
+     "repeat": false,
+     "loops": 0,
+     "timeInterval": 0.0
+    }
+   ],
+   "onEnableShakes": [
+    {
+     "preset": "PID:-8043713765525655674",
+     "presetPid": -8043713765525655674,
+     "delay": 0.0,
+     "sustainTime": 3.0,
+     "overwriteSustainTime": 0,
+     "amplitude": 0.10000000149011612,
+     "overwriteAmplitude": 1,
+     "frequency": 1.0,
+     "overwriteFrequency": 1,
+     "direction": {
+      "x": 0.0,
+      "y": 0.0,
+      "z": 0.0
+     },
+     "overwriteDirection": 0,
+     "attackTime": 0.0,
+     "overwriteAttackTime": 0,
+     "decayTime": 3.0,
+     "overwriteDecayTime": 1
+    }
+   ],
+   "componentFile": "MonoBehaviour_-147466137670212988.json"
+  },
+  {
+   "prefab": "Environmental Condition Emperor's Children 1 Green",
+   "cls": "ShakeAndSoundObject",
+   "kind": "environment",
+   "sounds": [],
+   "onEnableShakes": [],
+   "componentFile": "MonoBehaviour_6744128474513881754.json"
+  },
+  {
+   "prefab": "Environmental Condition Emperor's Children 1 Pink REJECTED",
+   "cls": "ShakeAndSoundObject",
+   "kind": "environment",
+   "sounds": [],
+   "onEnableShakes": [],
+   "componentFile": "MonoBehaviour_6885164095233323427.json"
+  },
+  {
+   "prefab": "Environmental Condition Emperor's Children 2 Fumes",
+   "cls": "ShakeAndSoundObject",
+   "kind": "environment",
+   "sounds": [],
+   "onEnableShakes": [],
+   "componentFile": "MonoBehaviour_5558789105635608676.json"
+  },
+  {
+   "prefab": "Environmental Condition GSC Mining Tremors",
+   "cls": "ShakeAndSoundObject",
+   "kind": "environment",
+   "sounds": [
+    {
+     "time": 0.0,
+     "sound": "Mining Tremors",
+     "soundPid": -5877265655380819390,
+     "is2d": true,
+     "repeat": false,
+     "loops": 0,
+     "timeInterval": 0.0
+    }
+   ],
+   "onEnableShakes": [],
+   "componentFile": "MonoBehaviour_530303543262857052.json"
+  },
+  {
+   "prefab": "Environmental Condition GSC Sump Overspill",
+   "cls": "ShakeAndSoundObject",
+   "kind": "environment",
+   "sounds": [
+    {
+     "time": 0.0,
+     "sound": "Sump Overspill",
+     "soundPid": 3287416670577984858,
+     "is2d": true,
+     "repeat": false,
+     "loops": 0,
+     "timeInterval": 0.0
+    }
+   ],
+   "onEnableShakes": [
+    {
+     "preset": "PID:-8043713765525655674",
+     "presetPid": -8043713765525655674,
+     "delay": 0.0,
+     "sustainTime": 3.0,
+     "overwriteSustainTime": 1,
+     "amplitude": 0.5,
+     "overwriteAmplitude": 1,
+     "frequency": 4.0,
+     "overwriteFrequency": 1,
+     "direction": {
+      "x": 0.0,
+      "y": 0.0,
+      "z": 0.0
+     },
+     "overwriteDirection": 0,
+     "attackTime": 0.0,
+     "overwriteAttackTime": 0,
+     "decayTime": 2.0,
+     "overwriteDecayTime": 1
+    }
+   ],
+   "componentFile": "MonoBehaviour_2909568355852927222.json"
+  },
+  {
+   "prefab": "Environmental Condition GSC Sump Overspill OLD",
+   "cls": "ShakeAndSoundObject",
+   "kind": "environment",
+   "sounds": [],
+   "onEnableShakes": [],
+   "componentFile": "MonoBehaviour_4680122288818828123.json"
+  },
+  {
+   "prefab": "Environmental Condition GSC Toxic Fumes",
+   "cls": "ShakeAndSoundObject",
+   "kind": "environment",
+   "sounds": [
+    {
+     "time": 0.0,
+     "sound": "Toxic Fumes Start",
+     "soundPid": 9033423146207745146,
+     "is2d": true,
+     "repeat": false,
+     "loops": 0,
+     "timeInterval": 0.0
+    }
+   ],
+   "onEnableShakes": [],
+   "componentFile": "MonoBehaviour_-8527852838950854796.json"
+  },
+  {
+   "prefab": "Environmental Condition Necrons Earthquake",
+   "cls": "ShakeAndSoundObject",
+   "kind": "environment",
+   "sounds": [
+    {
+     "time": 0.0,
+     "sound": "Mining Tremors",
+     "soundPid": -5877265655380819390,
+     "is2d": false,
+     "repeat": false,
+     "loops": 0,
+     "timeInterval": 0.0
+    }
+   ],
+   "onEnableShakes": [],
+   "componentFile": "MonoBehaviour_-1862442053205683411.json"
+  },
+  {
+   "prefab": "Environmental Condition Necrons Immortal Beams",
+   "cls": "ShakeAndSoundObject",
+   "kind": "environment",
+   "sounds": [
+    {
+     "time": 0.0,
+     "sound": "Immortal Beams",
+     "soundPid": -42160604713367801,
+     "is2d": false,
+     "repeat": false,
+     "loops": 0,
+     "timeInterval": 0.0
+    }
+   ],
+   "onEnableShakes": [],
+   "componentFile": "MonoBehaviour_7709385406679583499.json"
+  },
+  {
+   "prefab": "Environmental Condition Necrons Solar Storm",
+   "cls": "ShakeAndSoundObject",
+   "kind": "environment",
+   "sounds": [
+    {
+     "time": 0.0,
+     "sound": "Star Orbit",
+     "soundPid": -3819335262797368526,
+     "is2d": false,
+     "repeat": false,
+     "loops": 0,
+     "timeInterval": 0.0
+    }
+   ],
+   "onEnableShakes": [],
+   "componentFile": "MonoBehaviour_-3361632299650125935.json"
+  },
+  {
+   "prefab": "Environmental Condition Space Wolves Everstorm",
+   "cls": "ShakeAndSoundObject",
+   "kind": "environment",
+   "sounds": [
+    {
+     "time": 0.0,
+     "sound": "Everstorm",
+     "soundPid": -594538407514888180,
+     "is2d": true,
+     "repeat": false,
+     "loops": 0,
+     "timeInterval": 0.0
+    }
+   ],
+   "onEnableShakes": [
+    {
+     "preset": "PID:-8043713765525655674",
+     "presetPid": -8043713765525655674,
+     "delay": 0.0,
+     "sustainTime": 1.0,
+     "overwriteSustainTime": 1,
+     "amplitude": 0.0,
+     "overwriteAmplitude": 0,
+     "frequency": 0.0,
+     "overwriteFrequency": 0,
+     "direction": {
+      "x": 0.0,
+      "y": 0.0,
+      "z": 0.0
+     },
+     "overwriteDirection": 0,
+     "attackTime": 0.0,
+     "overwriteAttackTime": 0,
+     "decayTime": 2.0,
+     "overwriteDecayTime": 1
+    }
+   ],
+   "componentFile": "MonoBehaviour_6927682770757828708.json"
+  },
+  {
+   "prefab": "Environmental Condition Space Wolves First Light",
+   "cls": "ShakeAndSoundObject",
+   "kind": "environment",
+   "sounds": [
+    {
+     "time": 0.0,
+     "sound": "First Light",
+     "soundPid": 1210299923766823312,
+     "is2d": true,
+     "repeat": false,
+     "loops": 0,
+     "timeInterval": 0.0
+    }
+   ],
+   "onEnableShakes": [],
+   "componentFile": "MonoBehaviour_-6203148498290487414.json"
+  },
+  {
+   "prefab": "Environmental Condition Space Wolves Full Moon",
+   "cls": "ShakeAndSoundObject",
+   "kind": "environment",
+   "sounds": [
+    {
+     "time": 0.0,
+     "sound": "Full Moon",
+     "soundPid": -2043529631028593154,
+     "is2d": true,
+     "repeat": false,
+     "loops": 0,
+     "timeInterval": 0.0
+    }
+   ],
+   "onEnableShakes": [],
+   "componentFile": "MonoBehaviour_-3053380746057160738.json"
+  },
+  {
+   "prefab": "EnvironmentalCondition Leviathan Acid Rain",
+   "cls": "ShakeAndSoundObject",
+   "kind": "environment",
+   "sounds": [
+    {
+     "time": 0.0,
+     "sound": "PID:0",
+     "soundPid": 0,
+     "is2d": false,
+     "repeat": false,
+     "loops": 0,
+     "timeInterval": 0.0
+    }
+   ],
+   "onEnableShakes": [],
+   "componentFile": "MonoBehaviour_5972487805505080895.json"
+  },
+  {
+   "prefab": "EnvironmentalCondition Leviathan Blazing Biomatter",
+   "cls": "ShakeAndSoundObject",
+   "kind": "environment",
+   "sounds": [
+    {
+     "time": 0.0,
+     "sound": "Firestorm Start",
+     "soundPid": -6232738114596080938,
+     "is2d": false,
+     "repeat": false,
+     "loops": 0,
+     "timeInterval": 0.0
+    }
+   ],
+   "onEnableShakes": [],
+   "componentFile": "MonoBehaviour_-5052700009880121444.json"
+  },
+  {
+   "prefab": "EnvironmentalCondition Leviathan Sweeping Infestation",
+   "cls": "ShakeAndSoundObject",
+   "kind": "environment",
+   "sounds": [
+    {
+     "time": 0.0,
+     "sound": "Toxic Fumes Start",
+     "soundPid": 9033423146207745146,
+     "is2d": false,
+     "repeat": false,
+     "loops": 0,
+     "timeInterval": 0.0
+    }
+   ],
+   "onEnableShakes": [],
+   "componentFile": "MonoBehaviour_-5417358138418159934.json"
+  },
+  {
+   "prefab": "EnvironmentalCondition Saim Hann Blackout",
+   "cls": "ShakeAndSoundObject",
+   "kind": "environment",
+   "sounds": [
+    {
+     "time": 0.0,
+     "sound": "Blackout",
+     "soundPid": -8352762669946992964,
+     "is2d": true,
+     "repeat": false,
+     "loops": 0,
+     "timeInterval": 0.0
+    }
+   ],
+   "onEnableShakes": [],
+   "componentFile": "MonoBehaviour_9031176634359415475.json"
+  },
+  {
+   "prefab": "EnvironmentalCondition Saim Hann Webway Rift",
+   "cls": "ShakeAndSoundObject",
+   "kind": "environment",
+   "sounds": [
+    {
+     "time": 0.0,
+     "sound": "Webway Rift",
+     "soundPid": 165753871913135722,
+     "is2d": true,
+     "repeat": false,
+     "loops": 0,
+     "timeInterval": 0.0
+    }
+   ],
+   "onEnableShakes": [],
+   "componentFile": "MonoBehaviour_-123650712261992429.json"
+  },
+  {
+   "prefab": "EnvironmentalCondition Sororitas Disrupted Ceremony",
+   "cls": "ShakeAndSoundObject",
+   "kind": "environment",
+   "sounds": [],
+   "onEnableShakes": [],
+   "componentFile": "MonoBehaviour_5620250906333444739.json"
+  },
+  {
+   "prefab": "EnvironmentalCondition Sororitas Raging Storm",
+   "cls": "ShakeAndSoundObject",
+   "kind": "environment",
+   "sounds": [],
+   "onEnableShakes": [],
+   "componentFile": "MonoBehaviour_-121278834949507237.json"
+  },
+  {
+   "prefab": "EnvironmentalCondition Sororitas Shrine Bombardment",
+   "cls": "ShakeAndSoundObject",
+   "kind": "environment",
+   "sounds": [],
+   "onEnableShakes": [],
+   "componentFile": "MonoBehaviour_6743699347877583215.json"
+  },
+  {
+   "prefab": "EnvironmentalCondition Tau Electro-Static Interference",
+   "cls": "ShakeAndSoundObject",
+   "kind": "environment",
+   "sounds": [
+    {
+     "time": 0.0,
+     "sound": "Tau Electro-Static Interference",
+     "soundPid": -895455500301147291,
+     "is2d": true,
+     "repeat": false,
+     "loops": 0,
+     "timeInterval": 0.0
+    }
+   ],
+   "onEnableShakes": [
+    {
+     "preset": "PID:-4556152188679786237",
+     "presetPid": -4556152188679786237,
+     "delay": 0.0,
+     "sustainTime": 0.5,
+     "overwriteSustainTime": 0,
+     "amplitude": 0.0,
+     "overwriteAmplitude": 0,
+     "frequency": 0.0,
+     "overwriteFrequency": 0,
+     "direction": {
+      "x": 0.0,
+      "y": 0.0,
+      "z": 0.0
+     },
+     "overwriteDirection": 0,
+     "attackTime": 0.0,
+     "overwriteAttackTime": 0,
+     "decayTime": 0.699999988079071,
+     "overwriteDecayTime": 0
+    }
+   ],
+   "componentFile": "MonoBehaviour_-4431462062045255759.json"
+  },
+  {
+   "prefab": "EnvironmentalCondition Tau Radiation Storm",
+   "cls": "ShakeAndSoundObject",
+   "kind": "environment",
+   "sounds": [
+    {
+     "time": 0.0,
+     "sound": "Firestorm Start",
+     "soundPid": -6232738114596080938,
+     "is2d": true,
+     "repeat": false,
+     "loops": 0,
+     "timeInterval": 0.0
+    },
+    {
+     "time": 0.0,
+     "sound": "Firestorm Loop",
+     "soundPid": -5993767068827573205,
+     "is2d": true,
+     "repeat": false,
+     "loops": 0,
+     "timeInterval": 0.0
+    }
+   ],
+   "onEnableShakes": [
+    {
+     "preset": "PID:-8043713765525655674",
+     "presetPid": -8043713765525655674,
+     "delay": 0.0,
+     "sustainTime": 2.0,
+     "overwriteSustainTime": 1,
+     "amplitude": 0.0,
+     "overwriteAmplitude": 0,
+     "frequency": 0.0,
+     "overwriteFrequency": 0,
+     "direction": {
+      "x": 0.0,
+      "y": 0.0,
+      "z": 0.0
+     },
+     "overwriteDirection": 0,
+     "attackTime": 0.0,
+     "overwriteAttackTime": 0,
+     "decayTime": 1.0,
+     "overwriteDecayTime": 1
+    }
+   ],
+   "componentFile": "MonoBehaviour_6115132746584211042.json"
+  },
+  {
+   "prefab": "EnvironmentalCondition Ultramarines Aerial Clash",
+   "cls": "ShakeAndSoundObject",
+   "kind": "environment",
+   "sounds": [],
+   "onEnableShakes": [],
+   "componentFile": "MonoBehaviour_-6615419578930050066.json"
+  },
+  {
+   "prefab": "EnvironmentalCondition Ultramarines Bombardment",
+   "cls": "ShakeAndSoundObject",
+   "kind": "environment",
+   "sounds": [
+    {
+     "time": 0.0,
+     "sound": "Orbital Initial",
+     "soundPid": -3888569816479931127,
+     "is2d": false,
+     "repeat": false,
+     "loops": 0,
+     "timeInterval": 0.0
+    }
+   ],
+   "onEnableShakes": [
+    {
+     "preset": "PID:-8043713765525655674",
+     "presetPid": -8043713765525655674,
+     "delay": 0.0,
+     "sustainTime": 2.0,
+     "overwriteSustainTime": 1,
+     "amplitude": 0.15000000596046448,
+     "overwriteAmplitude": 1,
+     "frequency": 0.0,
+     "overwriteFrequency": 0,
+     "direction": {
+      "x": 0.0,
+      "y": 0.0,
+      "z": 0.0
+     },
+     "overwriteDirection": 0,
+     "attackTime": 0.0,
+     "overwriteAttackTime": 0,
+     "decayTime": 0.0,
+     "overwriteDecayTime": 0
+    },
+    {
+     "preset": "PID:-8043713765525655674",
+     "presetPid": -8043713765525655674,
+     "delay": 2.0,
+     "sustainTime": 0.699999988079071,
+     "overwriteSustainTime": 1,
+     "amplitude": 1.0,
+     "overwriteAmplitude": 1,
+     "frequency": 0.20000000298023224,
+     "overwriteFrequency": 1,
+     "direction": {
+      "x": 0.0,
+      "y": 0.0,
+      "z": 0.0
+     },
+     "overwriteDirection": 0,
+     "attackTime": 0.0,
+     "overwriteAttackTime": 0,
+     "decayTime": 0.0,
+     "overwriteDecayTime": 0
+    }
+   ],
+   "componentFile": "MonoBehaviour_-8940324439209517681.json"
+  },
+  {
+   "prefab": "EnvironmentalCondition Ultramarines Thunderstorm",
+   "cls": "ShakeAndSoundObject",
+   "kind": "environment",
+   "sounds": [],
+   "onEnableShakes": [],
+   "componentFile": "MonoBehaviour_-2858756150043663047.json"
+  },
+  {
+   "prefab": "Ork Environmental Condition Dust",
+   "cls": "ShakeAndSoundObject",
+   "kind": "environment",
+   "sounds": [
+    {
+     "time": 0.0,
+     "sound": "Orks Dust Storm Start",
+     "soundPid": 874716759609316447,
+     "is2d": true,
+     "repeat": false,
+     "loops": 0,
+     "timeInterval": 0.0
+    }
+   ],
+   "onEnableShakes": [
+    {
+     "preset": "PID:-8043713765525655674",
+     "presetPid": -8043713765525655674,
+     "delay": 0.0,
+     "sustainTime": 0.5,
+     "overwriteSustainTime": 1,
+     "amplitude": 1.0,
+     "overwriteAmplitude": 1,
+     "frequency": 1.0,
+     "overwriteFrequency": 1,
+     "direction": {
+      "x": 0.0,
+      "y": 0.0,
+      "z": 0.0
+     },
+     "overwriteDirection": 0,
+     "attackTime": 1.0,
+     "overwriteAttackTime": 1,
+     "decayTime": 1.0,
+     "overwriteDecayTime": 1
+    },
+    {
+     "preset": "PID:-8043713765525655674",
+     "presetPid": -8043713765525655674,
+     "delay": 1.350000023841858,
+     "sustainTime": 0.30000001192092896,
+     "overwriteSustainTime": 1,
+     "amplitude": 5.0,
+     "overwriteAmplitude": 1,
+     "frequency": 0.0,
+     "overwriteFrequency": 0,
+     "direction": {
+      "x": 0.0,
+      "y": 0.0,
+      "z": 0.0
+     },
+     "overwriteDirection": 0,
+     "attackTime": 0.25,
+     "overwriteAttackTime": 1,
+     "decayTime": 1.0,
+     "overwriteDecayTime": 1
+    }
+   ],
+   "componentFile": "MonoBehaviour_3545334214658408379.json"
+  },
+  {
+   "prefab": "Ork Environmental Condition Spore Clouds",
+   "cls": "ShakeAndSoundObject",
+   "kind": "environment",
+   "sounds": [],
+   "onEnableShakes": [],
+   "componentFile": "MonoBehaviour_-3197563246059249439.json"
+  }
+ ]
+}

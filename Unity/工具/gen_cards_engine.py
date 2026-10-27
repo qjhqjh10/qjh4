@@ -887,6 +887,10 @@ ABILITY_TRIGGER_STUB = r"d:/2/Warpforge_code/Scripts/Assembly-CSharp/AbilityTrig
 # 🆕 2026-10-22（引擎线 `W64` · 战斗审计 `B-16`）：`UnitConditions` 枚举桩 ——
 #   本列 `unitConditions` 的 `name` 字段从它反查（⛔ 不在脚本里抄一份枚举表：两份迟早不一致）。
 UNIT_CONDITIONS_STUB = r"d:/2/Warpforge_code/Scripts/Assembly-CSharp/UnitConditions.cs"
+# 🆕 2026-10-27（批次 9 · 执行代理 `E7ENG` · 账 532 的 1a）：`DefinedTrait` 枚举桩 ——
+#   新列 `enchantTrait` 的**数字 → 关键词名**只认它（⛔ 不拿真值 `CardTraits[].name` 兜底：
+#   `vulnerable = 480` 在真值 `CardTraits` 里 **0 命中**，见 `判据/T4_532与PremiumCampaign_判据.md` §1·2）。
+DEFINED_TRAIT_STUB = r"d:/2/Warpforge_code/Scripts/Assembly-CSharp/DefinedTrait.cs"
 
 # id 前缀 → 我们卡表里的阵营名。**来源是 decklists.json 的实测统计**（见上面那张表）。
 # 别的阵营名一律不许出现在这里 —— 加阵营要连证据一起补。
@@ -1239,8 +1243,26 @@ def load_unit_conditions_names():
 
 
 # ==========================================================================================
-#  🆕 2026-10-21（引擎线 `T03·c` 批 B · 第 0 步 · 数据层）：`CardAbility.priority` → 逐卡 `triggerPriority`
+#  🆕 2026-10-27（批次 9 · 执行代理 `E7ENG` · 账 532 的 1a）：`DefinedTrait` 枚举名
 # ==========================================================================================
+def load_defined_trait_names():
+    """`DefinedTrait.cs` 签名桩 → `{枚举数: 名字}`。读不到返回 `{}`（**不猜**）。
+
+    判据：`d:/2/Warpforge_code/Scripts/Assembly-CSharp/DefinedTrait.cs`
+    （`vulnerable = 480` 在 `:48`、`pray = 1185` 在 `:117`；138 行全表亲读）。
+    🔴 **为什么不用真值 `CardTraits[].name` 兜底**：`480` 在 1,351 张真值 `CardTraits` 里
+    **0 命中**（那两张 `Spreading Corruption` 的 `CardTraits = null`）⇒ 名字的唯一判据就是本文件。
+    ⚠️ 与 `load_ability_trigger_names()` 同形：只读枚举成员名，⛔ 别拿名字猜语义。
+    """
+    if not os.path.isfile(DEFINED_TRAIT_STUB):
+        return {}
+    body = re.search(r"\benum\s+DefinedTrait\s*\{(.*?)\n\}",
+                     open(DEFINED_TRAIT_STUB, encoding="utf-8", errors="replace").read(), re.S)
+    if not body:
+        return {}
+    return {int(m.group(2)): m.group(1)
+            for m in re.finditer(r"^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(-?\d+)\s*,?",
+                                 body.group(1), re.M)}
 # 判据：`资料/普查产出_1021/W61_引擎线_T03c批B判据.md` §2.1 / §2.2 / §2.6（第一权威 = 全量反编译
 #   `d:/2/tools/decomp_full/`）：
 #   · 原版 `CardAbility.priority`（`ActionPriority`）**默认 1 = Instant**
@@ -3929,7 +3951,10 @@ def norm_list(v):
 #    · 名字含 `enchant` 的 **120** 张：`cardType == 20` 的附魔模板 **118** 张 ＋ 2 张兄弟卡
 #      （`Wurrboy` / `Sergeant Gadriel`，`cardType 0`、SO 名尾也带 `_enchantment`，**本体是部队卡**、
 #      两张都不在我们池里）；
-#    · `cardType 20` **不是附魔专用型** —— 全表 680 张都是 20（含普通战术卡）；
+#    · 🔴 **`cardType 20` 是 `Tactic`（`CardTypeOptions`：`Minion 0 / Hero 10 / Tactic 20 / Whispers 40`），
+#      ⛔ 不是「附魔专用型」** —— 真值全表 **680** 张都是 20（含普通战术卡），池内 **486** 张
+#      （= `tactic` 446 + `defence` 39 + `enchantment` 1；2026-10-27 `E7ENG` 现读）。
+#      ⇒ 判「附魔模板」永远是 **`cardType == 20` ∧ 名字含 `enchant`** 两条合取，⛔ 单用 cardType 会多筛 486 张；
 #    · `buffEffect.enchantment` 的非零 PPtr 引用 **260 条 / 114 张父卡**（其中 **63 张父卡在池内**）；
 #      `buffType == 15` 的父卡 **39 张**（36 张在池内）。
 #      ⚠️ 「`enchantment` 字段」那个键在**每个 `buffEffect` 对象里都有**（13012 处 / 1351 张卡）——
@@ -3978,6 +4003,76 @@ ENCHANTMENT_EXECUTORS = (
 )
 ENCHANTMENT_ATTACH_BUFFTYPES = (12, 15, 16)     # `CardEffect__IsEnchantment.c:9-12`
 
+# ==========================================================================================
+#  🆕 2026-10-27（批次 9 · 执行代理 `E7ENG` · 账 532 的 1a）：`enchantTrait` 列
+# ==========================================================================================
+#  **这是什么**：原版 `CardEffect.trait`（`+0x3C`）—— 附魔**效果**自带的那个 `DefinedTrait` 数值。
+#   ⚠️ **不是附魔卡自己的 trait**：`Pray Enchantment` 模板本身 `cardTraits = []`，
+#   `trait 1185` 写在**挂它的那张卡**（23 张 SOR 卡）的 `buffEffect` 上
+#   ⇒ 所以本列落在**挂载方（载体卡）**身上，`Enchantments.Attach` 挂载时从载体卡读。
+#
+#  原版唯一消费点 = `BattleManager__RemoveDestroyableAnims.c`（内联进 `ResolveAction` case 0x10）：
+#   `buffType ∈ {15,16}` 时拿 `cardEffect.trait` 当键，去 `BattleCardUI.TraitFrameEffectsPlay(+0x2d0)` /
+#   `TraitFrameEffectsTrigger(+0x2d8)` 两本字典里找那件状态框、`DoDestroy()` 并摘字典。
+#  ⇒ 我们这条链的两半（引擎侧 `ActiveCardEffect.Trait` + 表现层 `RemoveDestroyableAnims`）都靠本列。
+#
+#  **现读规模**（`cards_raw.json` 1,351 张全表扫，2026-10-27）：
+#    `buffEffect{buffType ∈ 12/15/16}` 且带 `trait` 键的行 **132 条**，其中 `trait != 0` 的 **28 条**
+#    （= 24 条 `pray 1185`（23 张 SOR 卡，`SOR29` 两条）+ 4 条 `vulnerable 480`）
+#    ⇒ 落值后的卡数 = **24 张**（23 张 SOR + `BL74`；`480` 那 4 条里 3 条属于一张**不在池**的
+#    `Spreading Corruption`（`875eedc9…`），只有 `BL74` 在池）。
+#  🔴 **`trait == 0`（= `DefinedTrait.none`）一律落 `""`**：那是「**明确没有** trait」，
+#    与「**未知**」（真值里没这张卡 / 旧表 ⇒ 列缺席 = `null`）**必须分得开**（`CardDef` 的既有契约）。
+ENCHANT_TRAIT_BUFFTYPES = ENCHANTMENT_ATTACH_BUFFTYPES   # 同一族三个 buffType，⛔ 别另写一张表
+
+
+def enchant_trait_of(trow, trait_names, report):
+    """真值行 → 这张卡**附带魔效果**自带的 trait 名（`buffEffect{buffType∈{12,15,16}}.trait`）。
+
+    返回：
+      · `""`  —— 这张卡**没有**带 trait 的附魔效果（= 明确没有）；
+      · `名字` —— 有（今天只有 `pray` / `vulnerable` 两种）；
+      · `None` —— **未知**（真值里没有这张卡 ⇒ 调用方**不落这一列**，⛔ 别拿 `""` 顶）。
+
+    🔴 **同一张卡两个不同的 trait ⇒ 当场炸**：本列一卡一格、表达不出两条；原版 `CardEffect.trait`
+       是**逐效果**的，而我们今天只有「挂载方」这一层。出现即说明数据变了、判据要重核
+       （⛔ 不挑一个、不取并集 —— 那是静默编口径）。现读 0 张。
+    """
+    if trow is None:
+        return None
+    if not trait_names:
+        # 枚举桩读不到（`DEFINED_TRAIT_STUB` 不存在 / 解析失败）⇒ **未知**（列缺席），
+        # 由 `main()` 打一条出声。⛔ 不猜名字、也不拿真值 `CardTraits` 兜。
+        report["missing_stub"] = report.get("missing_stub", 0) + 1
+        return None
+    row_vals = []
+    for a in (trow.get("cardAbilities") or []):
+        for lg in (a.get("abilityLogic") or []):
+            be = lg.get("buffEffect") or {}
+            if be.get("buffType") not in ENCHANT_TRAIT_BUFFTYPES:
+                continue
+            v = be.get("trait")
+            if not isinstance(v, int) or isinstance(v, bool) or v == 0:
+                continue          # 缺键 / 0 = none ⇒ 明确没有
+            row_vals.append(v)
+    vals = set(row_vals)
+    if not vals:
+        return ""
+    if len(vals) > 1:
+        sys.exit(f"❌ {trow.get('uniqueId')} {trow.get('cardName')} 的附魔 buff 带了 "
+                 f"{sorted(vals)} 多个不同的 trait —— `enchantTrait` 一卡一格表达不出。"
+                 "先核判据（原版 `CardEffect.trait` 是逐效果的），⛔ 别在这里挑一个。")
+    v = next(iter(vals))
+    name = trait_names.get(v)
+    if not name:
+        sys.exit(f"❌ 附魔 trait 值 {v}（{trow.get('uniqueId')} {trow.get('cardName')}）在 "
+                 f"`DefinedTrait` 枚举里查不到（桩 = {DEFINED_TRAIT_STUB}）—— "
+                 "⛔ 不猜名字、也不用真值 `CardTraits` 兜（480 在那边 0 命中）。")
+    report["cards"].add(trow.get("uniqueId"))
+    report["rows"] += len(row_vals)                       # 按**行**数（同卡两条就记 2）
+    report["dist"][name] = report["dist"].get(name, 0) + len(row_vals)
+    return name
+
 
 def _enchant_shape(r):
     """模板自己的 `cardAbilities[].abilityLogic[]` → `[(trigger, chosenAbility), …]`（**保序、保留重复**）。"""
@@ -3990,7 +4085,8 @@ def _enchant_shape(r):
 
 def build_enchantment_entries(truth_cards, raw, cards, truth_by_path=None,
                               anim_idx=None, anim_cache=None, anim_trig_names=None,
-                              anim_report=None):
+                              anim_report=None, trait_names=None,
+                              enchant_trait_report=None):
     """从真值快照造「隐藏附魔模板」的卡池条目 → `(entries, report)`。
 
     **判据**（不是名字清单 —— 见 `ENCHANTMENT_EXECUTORS` 顶上那段）：
@@ -4008,6 +4104,10 @@ def build_enchantment_entries(truth_cards, raw, cards, truth_by_path=None,
     report = {"mname_hits": 0, "templates": 0, "siblings": [], "pooled": [],
               "pending": [], "skipped_reason": [], "no_pool_attach": [], "shape_mismatch": [],
               "attach_rows": 0, "attach_cards_in_pool": 0}
+    if trait_names is None:
+        trait_names = load_defined_trait_names()      # 调用方没传 ⇒ 自己读（⛔ 不落一个假的空串）
+    if enchant_trait_report is None:
+        enchant_trait_report = {"rows": 0, "cards": set(), "dist": {}}
     # 真值 `cardArmy`（数值）→ 我们的阵营名：从**源表**那对 `(faction, factionId)` 现建，
     # ⛔ 不写死 80 = Sororitas（那是判据的复制，迟早漂）。
     army2fac = {}
@@ -4037,7 +4137,10 @@ def build_enchantment_entries(truth_cards, raw, cards, truth_by_path=None,
     report["attach_rows"] = sum(len(v) for v in attach.values())
     report["attach_cards_in_pool"] = len({r[1] for v in attach.values() for r in v if r[2]})
 
-    # ---- ② 全表普查（只记账）：名字含 `enchant` 的分「`cardType 20` 模板」与「兄弟卡」----
+    # ---- ② 全表普查（只记账）：名字含 `enchant` 的再按「`Tactic(20)`（= 模板那一档）」与「兄弟卡」二分 ----
+    #   ⚠️ 二分里的 20 是 `Tactic`（`Minion 0 / Hero 10 / Tactic 20 / Whispers 40`），**不是「附魔型」** ——
+    #   真正的附魔模板判据是 **`cardType == 20` ∧ 名字含 `enchant`** 两条合取（见 §③ 的入池闸）。
+    #   现读：名字含 `enchant` 120 张 = 20 的 118（模板）+ 0 的 2（`Wurrboy` / `Sergeant Gadriel`，本体是部队卡）。
     for r in truth_cards.values():
         if "enchant" not in norm_str(r.get("m_Name")).lower():
             continue
@@ -4066,6 +4169,10 @@ def build_enchantment_entries(truth_cards, raw, cards, truth_by_path=None,
     entries = []
     have = {c.get("id") for c in cards}
     for r in truth_cards.values():
+        # 🔴 入池闸 = **两条合取**：`Tactic(20)` **∧** 名字含 `enchant`。
+        #   ⚠️ 20 = `Tactic`（`Minion 0 / Hero 10 / Tactic 20 / Whispers 40`），⛔ 不是「附魔专用型」
+        #   （真值全表 680 张、池内 486 张都是 20）；单用 cardType 会多筛 486 张 ⇒ 名字那一条**不能去掉**。
+        #   本批（2026-10-27 `E7ENG`）**只改注释、⛔ 没动这一行的判定**（已实测 0 漏 / 0 误收）。
         if r.get("cardType") != 20 or "enchant" not in norm_str(r.get("m_Name")).lower():
             continue
         uid = r.get("uniqueId")
@@ -4129,11 +4236,18 @@ def build_enchantment_entries(truth_cards, raw, cards, truth_by_path=None,
             # 🆕 v31（`B8_AH`）：与主循环同形（本卡真值 `keyword = 0` ⇒ 落 `0` = `none`，不是「未知」）
             "keyword": truth_int(r, "keyword", -1),
             "spellType": truth_int(r, "spellType", -1),
+            # 🆕 v34（2026-10-27 · `E7ENG`）：与原版一致地落 `cardType`（判 `isTrapCard` 用，见主循环那条）。
+            #   附魔模板真值 `cardType = 20`（Tactic）、`spellType = 0` ⇒ `IsTrapCard` 判得出 **false**。
+            "cardType": truth_int(r, "cardType", -1),
             # 🆕 2026-10-25（P3 · 账 3 条 C）：原版 `RawCardScript.specialAttackScoringCriteria`（bool）。
             #   语义 / 判据 / 消费点 → `CardDef.SpecialAttackScoring` 的 doc（⛔ 别在这里抄第二份）。
             #   真值 1,351 张**全 0** ⇒ 本列今天不改变任何行为，只把「原版有这一维」带进卡表。
             #   ⚠️ bool ⇒ 缺键即 0（没有「未知」档），⛔ 不设 -1。
             "specialAttackScoring": truth_int(r, "specialAttackScoringCriteria", 0),
+            # 🆕 2026-10-27（`E7ENG` · 账 532 的 1a）：附魔**效果**自带的 trait（见 `enchant_trait_of`）。
+            #   附魔模板自己 `cardTraits = []`（`pray` 是**挂它的那张卡**的 buff 上写的）
+            #   ⇒ 本卡这一列照实落 `""`（明确没有），⛔ 不是「未知」。
+            "enchantTrait": enchant_trait_of(r, trait_names, enchant_trait_report),
             "inventoryOptions": inv,
             "showInCollectionOptions": show,
             "initiative": truth_int(r, "initiative", -1),
@@ -4250,6 +4364,10 @@ def build():
     anim_idx = load_anim_guid_index(anim_report)
     anim_cache = {}
     anim_trig_names = load_ability_trigger_names()
+    # 🆕 2026-10-27（`E7ENG` · 账 532 的 1a）：`enchantTrait` 的读数 ——
+    #   枚举桩（`DefinedTrait.cs`）+ 落值统计（`rows` / `cards` / `dist`；`missing_stub` = 桩读不到的次数）。
+    trait_names = load_defined_trait_names()
+    ENCHANT_TRAIT_REPORT = {"rows": 0, "cards": set(), "dist": {}}
     # 🆕 2026-10-19（`E12` · `A2142`）：天赋名 → id 表的跑完读数
     talent_name_report = {"keys": 0, "conflicts": 0, "conflict_rows": []}
     # 🆕 2026-10-21（引擎线 `T03·c` 批 B）：`triggerPriority` 的跑完读数 ——
@@ -4726,6 +4844,14 @@ def build():
             #      那两类附魔卡不在 `cards_raw.json` 里 ⇒ 这两条条件**仍然判不了**（`ConditionEval`
             #      返回 `null`），本列只是把「附魔卡是什么类型」这一层补上，⛔ 不是凭空造 60/120。
             "spellType": (truth_int(trow, "spellType", -1) if trow is not None else -1),
+            # ---- 🆕 v34（2026-10-27 · `E7ENG` · 账：`OnTrapDrawn(250)` 的第一格数据位）------------------
+            # 原版 `RawCardScript.cardType`（`int @+0x94`，`CardTypeOptions` = `Minion 0 / Hero 10 /
+            #   Tactic 20 / Whispers 40`）。**真值直搬**，`-1` = 快照里没这张卡（未知）。
+            # 🔴 **为什么必须单落一列**：`CardDef.IsTrapCard` = 原版 `EntityScript__get_isTrapCard.c`
+            #   = `cardType == 20 (Tactic)` ∧ `spellType == 70 (Trap)` —— 而我们卡表的 `type` 字符串
+            #   （`unit/tactic/hero/defence/enchantment`）**不是** cardType 的忠实映射
+            #   （`Pray Enchantment` 真值 `cardType = 20` 而我们的 `type = "enchantment"`）⇒ ⛔ 别拿 `Type` 反推。
+            "cardType": (truth_int(trow, "cardType", -1) if trow is not None else -1),
             # 🆕 2026-10-25（P3 · 账 3 条 C）：原版 `RawCardScript.specialAttackScoringCriteria`（bool）。
             #   语义 / 判据 / 消费点 → `CardDef.SpecialAttackScoring` 的 doc（⛔ 别在这里抄第二份）。
             #   真值 1,351 张**全 0**（`cards_raw.json` 的 `full_raw` 现读；与 `AUD_T06` §二 同结论）
@@ -4733,6 +4859,12 @@ def build():
             #   ⚠️ bool ⇒ 缺键即 0（没有「未知」档），⛔ 不设 -1。
             "specialAttackScoring": (truth_int(trow, "specialAttackScoringCriteria", 0)
                                      if trow is not None else 0),
+            # ---- 🆕 2026-10-27（`E7ENG` · 账 532 的 1a）：`enchantTrait` --------------------------------
+            # 原版 `CardEffect.trait`（`+0x3C`）—— 附魔**效果**自带的 trait（**不是**附魔卡自己的 trait）。
+            #   语义 / 判据 / 现读规模 / `""` 与 `null` 的区别 → `enchant_trait_of` 的 docstring
+            #   （⛔ 别在这里抄第二份）。消费端 = `CardDef.EnchantTrait` → `Enchantments.Attach` →
+            #   `ActiveCardEffect.Trait` → 表现层 `RemoveDestroyableAnims`。
+            "enchantTrait": enchant_trait_of(trow, trait_names, ENCHANT_TRAIT_REPORT),
             # ---- 🆕 2026-10-25（资源审查 F · 数据侧落地）：`alternateArts` ----------------------------
             # 原版 `RawCardScript.alternateArts`（PPtr 数组）→ 异画 id 列表（`#HB_<卡id>`）。
             # 真值链与判据 → `资料/完全复刻/资源/R6_补核.md` §3；索引 → `数据/索引/altart_index.json`（7 条）。
@@ -5064,12 +5196,13 @@ def build():
     _ench_entries, _ench_report = build_enchantment_entries(
         truth_cards, raw, cards, truth_by_path=truth_by_path,
         anim_idx=anim_idx, anim_cache=anim_cache, anim_trig_names=anim_trig_names,
-        anim_report=anim_report)
+        anim_report=anim_report, trait_names=trait_names,
+        enchant_trait_report=ENCHANT_TRAIT_REPORT)
     for _e in _ench_entries:
         cards.append(_e)
     print(f"\n隐藏附魔模板   名字含 `enchant` **{_ench_report['mname_hits']}** 张 —— "
-          f"`cardType 20` 模板 **{_ench_report['templates']}** 张 · "
-          f"兄弟卡（`cardType != 20`）**{len(_ench_report['siblings'])}** 张"
+          f"其中 `Tactic(20)` **{_ench_report['templates']}** 张（= 附魔模板那一档） · "
+          f"非 20 的兄弟卡 **{len(_ench_report['siblings'])}** 张"
           f"（{' · '.join(f'{n}({t})' for n, t, _ in _ench_report['siblings'])}）")
     print(f"              挂载引用：`buffEffect{{buffType 12/15/16, enchantment}}` 共 "
           f"**{_ench_report['attach_rows']}** 条 · 落在**池内卡**上的 **{_ench_report['attach_cards_in_pool']}** 张父卡")
@@ -5436,7 +5569,22 @@ def build():
     talent_name_ids = build_talent_name_ids(truth_cards, truth_by_path, cards, talent_name_report)
 
     return {
-        "version": 32,         # v32（2026-10-26 · 执行代理 `B8_BM`）= 加 `chosenAbility` 一列
+        "version": 34,         # v34（2026-10-27 · 批次 9 · 执行代理 `E7ENG`）= 加 `cardType` 一列
+                               #    （原版 `RawCardScript.cardType` `int @+0x94`；`CardTypeOptions` =
+                               #     `Minion 0 / Hero 10 / Tactic 20 / Whispers 40`）。
+                               #     消费点 = `CardDef.IsTrapCard`（原版 `EntityScript__get_isTrapCard.c` =
+                               #     `cardType == 20` ∧ `spellType == 70`）→ `CardInstance.ArmedTrap`。
+                               #     🔴 **为什么不能拿 `type` 字符串反推**：`Pray Enchantment` 真值
+                               #     `cardType = 20` 而我们的 `type = "enchantment"`。
+                               #     `-1` = 真值里没这张卡（未知；`CardDatabase` 有 `< 34` 守卫）。
+                               # v33（2026-10-27 · 批次 9 · 执行代理 `E7ENG`）= 加 `enchantTrait` 一列
+                               #    （原版 `CardEffect.trait +0x3C`：附魔**效果**自带的 trait，
+                               #     **不是**附魔卡自己的 trait；判据 / 现读规模 → `enchant_trait_of` 的 doc。
+                               #     消费链 = `CardDef.EnchantTrait` → `Enchantments.Attach` →
+                               #     `ActiveCardEffect.Trait` → `EvtKind.EnchantmentRemoved.Amount/CardId`
+                               #     → 表现层 `BattleDriver.RemoveDestroyableAnims`（账 532）。
+                               #     `""` = 明确没有 · 缺列/缺键 = **未知**（`CardDatabase` 有 `< 33` 守卫）。
+                               # v32（2026-10-26 · 执行代理 `B8_BM`）= 加 `chosenAbility` 一列
                                #    （= 这张卡**所有 ability** 的 `abilityLogic[].chosenAbility` 去重集；
                                #    源 `cards_truth.json` 的 `abilities[].logic[]` + 主动能力两条支）；
                                #    形状与 `abilityTriggers` 同口径（`[int,…]` 升序、每张卡都落、
@@ -5804,7 +5952,7 @@ def build():
        choices_report, anim_report, talent_name_report, trigger_priority_report, \
        ability_trigger_priority_report, \
        ability_context_report, initial_modifier_report, skip_draw_report, \
-       unit_conditions_report
+       unit_conditions_report, ENCHANT_TRAIT_REPORT
 
 
 def fix_own_armour(entry):
@@ -5869,7 +6017,8 @@ def main():
      inv, init, truth, rarity_guard, offname, choices_report, anim_report,
      talent_name_report, trigger_priority_report, ability_trigger_priority_report,
      ability_context_report,
-     initial_modifier_report, skip_draw_report, unit_conditions_report) = build()
+     initial_modifier_report, skip_draw_report, unit_conditions_report,
+     enchant_trait_report) = build()
     offname_hit, offname_same, offname_miss, off_names_stats = offname
     id_direct, id_cascade, id_cross_mismatch, direct_ambiguous = id_new
     def_report, _gs_n, _gs_hero, _gs_missing_fac = goes_second
@@ -6914,6 +7063,24 @@ def main():
             print(f"  ⚠️ `spellType == {_need}`（{_nm}）**池内 0 张** ⇒ `UnitConditions` 的 "
                   f"{240 if _need == 60 else 250} 仍判不了（`ConditionEval` 返回 null，⛔ 不拿 false 顶）")
 
+    # 🆕 2026-10-27（v34 · `E7ENG`）：`cardType` 的读数 + `IsTrapCard` 的可达性
+    #   （判据 = 原版 `EntityScript__get_isTrapCard.c`：`cardType == 20 (Tactic)` ∧ `spellType == 70 (Trap)`）。
+    _ct_cnt = {}
+    _ct_unknown = 0
+    for _c in doc["cards"]:
+        _v = _c.get("cardType", -1)
+        if not isinstance(_v, int) or _v < 0:
+            _ct_unknown += 1
+            continue
+        _ct_cnt[_v] = _ct_cnt.get(_v, 0) + 1
+    _trap_n = sum(1 for _c in doc["cards"]
+                  if _c.get("cardType") == 20 and _c.get("spellType") == 70)
+    print(f"卡牌类型     `cardType` 落值 **{doc['count'] - _ct_unknown}/{doc['count']}** 张 · 未知 {_ct_unknown} 张"
+          f"（原版 `RawCardScript.cardType` `+0x94`；分布 "
+          + (" · ".join(f"{_v}:{_n}" for _v, _n in sorted(_ct_cnt.items())) or "空") + "）")
+    print(f"             `IsTrapCard`（= `cardType 20` ∧ `spellType 70`）池内命中 **{_trap_n}** 张"
+          + ("（⇒ 陷阱机制今天**恒不可达**，`CardInstance.ArmedTrap` 全池为 0）" if _trap_n == 0 else ""))
+
     # 🆕 2026-10-24（v21 · 引擎线 `A20` · 第三批 ①/②）：主动能力分支闸 / 装填位 / 任务位的读数。
     #   🔴 六列全是「只在非默认时才落」⇒ 这条摘要就是「今天有没有卡走到」的唯一凭据：
     #      这几个数**恒为 0 不是 bug**（`needsLoading` / `_quest` / `questTimes` 真值全 0）。
@@ -6945,6 +7112,16 @@ def main():
     for _cid, _nm, _u, _i, _j in _sdr["bad_uses"]:
         print(f"  ⚠️ `numberOfUses` 非法：{_cid} {_nm} 第 {_i} 条 ability 第 {_j} 条 logic "
               f"uses={_u!r} ⇒ 按 **1** 收")
+
+    # 🆕 2026-10-27（`E7ENG` · 账 532 的 1a）：`enchantTrait` 的读数
+    _etr = enchant_trait_report
+    print(f"附魔 trait   `enchantTrait` 落值 **{len(_etr['cards'])}/{doc['count']}** 张 · {_etr['rows']} 条"
+          f"（原版 `CardEffect.trait +0x3C`；分布 "
+          + (" · ".join(f"`{k}` {v}" for k, v in sorted(_etr["dist"].items())) or "空")
+          + "；`480 vulnerable` 那 4 条里只有 `BL74` 在池 ⇒ 今天实际可命中的只有 `pray`）")
+    if _etr.get("missing_stub"):
+        print(f"  ⚠️ `DefinedTrait` 枚举桩读不到（{DEFINED_TRAIT_STUB}）⇒ 这 "
+              f"{_etr['missing_stub']} 次查询一律**未知**（列缺席；⛔ 不猜名字）")
 
     if args.check:
         if os.path.exists(DST):

@@ -34,6 +34,26 @@
      "face": "AstraMilitarum_offensive_Factories Overdrive",
      "forgeLevel": 45
     }
+   ],
+   "defensiveCards": [
+    {
+     "idx": 0,
+     "name": "",
+     "forgeLevel": 1,
+     "cardRefPathID": -4746945346912271324
+    },
+    {
+     "idx": 1,
+     "name": "",
+     "forgeLevel": 20,
+     "cardRefPathID": -1203947754677875073
+    },
+    {
+     "idx": 2,
+     "name": "",
+     "forgeLevel": 40,
+     "cardRefPathID": 4425220424789877073
+    }
    ]
   },
   {
@@ -69,6 +89,26 @@
      "prefab": "Environmental Condition Black Legion Daemonic Feast",
      "face": "CSM_BlackLegion_offensive_Daemonic Feast",
      "forgeLevel": 45
+    }
+   ],
+   "defensiveCards": [
+    {
+     "idx": 0,
+     "name": "",
+     "forgeLevel": 1,
+     "cardRefPathID": 726401712468797192
+    },
+    {
+     "idx": 1,
+     "name": "",
+     "forgeLevel": 20,
+     "cardRefPathID": -8300753216792591889
+    },
+    {
+     "idx": 2,
+     "name": "",
+     "forgeLevel": 40,
+     "cardRefPathID": -8148864392582892330
     }
    ]
   },
@@ -106,6 +146,26 @@
      "face": "DarkAngels_strat_Star Orbiting",
      "forgeLevel": 45
     }
+   ],
+   "defensiveCards": [
+    {
+     "idx": 0,
+     "name": "",
+     "forgeLevel": 1,
+     "cardRefPathID": 2592907021442336310
+    },
+    {
+     "idx": 1,
+     "name": "",
+     "forgeLevel": 20,
+     "cardRefPathID": 3062095409958736801
+    },
+    {
+     "idx": 2,
+     "name": "",
+     "forgeLevel": 40,
+     "cardRefPathID": -7338547493207901965
+    }
    ]
   },
   {
@@ -141,6 +201,26 @@
      "prefab": "Environmental Condition Emperor's Children Empyric Rift",
      "face": "CSM_EmperorsChildren_offensive_Empyric Rift",
      "forgeLevel": 45
+    }
+   ],
+   "defensiveCards": [
+    {
+     "idx": 0,
+     "name": "",
+     "forgeLevel": 1,
+     "cardRefPathID": 8888490285459141610
+    },
+    {
+     "idx": 1,
+     "name": "",
+     "forgeLevel": 20,
+     "cardRefPathID": 1098326787689816615
+    },
+    {
+     "idx": 2,
+     "name": "",
+     "forgeLevel": 40,
+     "cardRefPathID": -6981760289184659279
     }
    ]
   },
@@ -178,6 +258,26 @@
      "face": "GenestealerCults_offensive_Toxic Fumes",
      "forgeLevel": 45
     }
+   ],
+   "defensiveCards": [
+    {
+     "idx": 0,
+     "name": "",
+     "forgeLevel": 1,
+     "cardRefPathID": -2803751938100883087
+    },
+    {
+     "idx": 1,
+     "name": "",
+     "forgeLevel": 20,
+     "cardRefPathID": 2558378311468841206
+    },
+    {
+     "idx": 2,
+     "name": "",
+     "forgeLevel": 40,
+     "cardRefPathID": -3165476310366622903
+    }
    ]
   },
   {
@@ -213,6 +313,26 @@
      "prefab": "Ork Environmental Condition Spore Clouds",
      "face": "Ork_Goff_offensive_Spore Cloud",
      "forgeLevel": 45
+    }
+   ],
+   "defensiveCards": [
+    {
+     "idx": 0,
+     "name": "",
+     "forgeLevel": 1,
+     "cardRefPathID": -3657453750895575722
+    },
+    {
+     "idx": 1,
+     "name": "",
+     "forgeLevel": 20,
+     "cardRefPathID": 2410491771790864158
+    },
+    {
+     "idx": 2,
+     "name": "",
+     "forgeLevel": 40,
+     "cardRefPathID": 8748071027470114965
     }
    ]
   },
@@ -250,6 +370,26 @@
      "face": "Tyranid_Leviathan_offensive_Blazing Biomass",
      "forgeLevel": 45
     }
+   ],
+   "defensiveCards": [
+    {
+     "idx": 0,
+     "name": "",
+     "forgeLevel": 1,
+     "cardRefPathID": 8478187699603271748
+    },
+    {
+     "idx": 1,
+     "name": "",
+     "forgeLevel": 20,
+     "cardRefPathID": -5935928194465272175
+    },
+    {
+     "idx": 2,
+     "name": "",
+     "forgeLevel": 40,
+     "cardRefPathID": -1664046742618046419
+    }
    ]
   },
   {
@@ -285,6 +425,26 @@
      "prefab": "EnvironmentalCondition Saim Hann Webway Rift",
      "face": "Craftworld_SaimHann_offensive_Webway Rift",
      "forgeLevel": 45
+    }
+   ],
+   "defensiveCards": [
+    {
+     "idx": 0,
+     "name": "",
+     "forgeLevel": 1,
+     "cardRefPathID": -5824047125878716242
+    },
+    {
+     "idx": 1,
+     "name": "",
+     "forgeLevel": 20,
+     "cardRefPathID": -5799810006920665369
+    },
+    {
+     "idx": 2,
+     "name": "",
+     "forgeLevel": 40,
+     "cardRefPathID": 1570476766598405917
     }
    ]
   },
@@ -322,6 +482,26 @@
      "face": "Necron_Sautekh_offensive_Immortal Beams",
      "forgeLevel": 45
     }
+   ],
+   "defensiveCards": [
+    {
+     "idx": 0,
+     "name": "",
+     "forgeLevel": 1,
+     "cardRefPathID": 7612301102834351429
+    },
+    {
+     "idx": 1,
+     "name": "",
+     "forgeLevel": 20,
+     "cardRefPathID": 8411874236883884249
+    },
+    {
+     "idx": 2,
+     "name": "",
+     "forgeLevel": 40,
+     "cardRefPathID": 5274634487025495476
+    }
    ]
   },
   {
@@ -357,6 +537,26 @@
      "prefab": "EnvironmentalCondition Sororitas Disrupted Ceremony",
      "face": "Sororitas_strat_Disrupted Sanctuary",
      "forgeLevel": 45
+    }
+   ],
+   "defensiveCards": [
+    {
+     "idx": 0,
+     "name": "",
+     "forgeLevel": 1,
+     "cardRefPathID": 4352411865371368986
+    },
+    {
+     "idx": 1,
+     "name": "",
+     "forgeLevel": 20,
+     "cardRefPathID": 2800393045464849927
+    },
+    {
+     "idx": 2,
+     "name": "",
+     "forgeLevel": 40,
+     "cardRefPathID": 2460601663639201448
     }
    ]
   },
@@ -394,6 +594,26 @@
      "face": "SM_SpaceWolves_offensive_Everstorm",
      "forgeLevel": 45
     }
+   ],
+   "defensiveCards": [
+    {
+     "idx": 0,
+     "name": "",
+     "forgeLevel": 1,
+     "cardRefPathID": -6738157117769915668
+    },
+    {
+     "idx": 1,
+     "name": "",
+     "forgeLevel": 20,
+     "cardRefPathID": -3744554201759630073
+    },
+    {
+     "idx": 2,
+     "name": "",
+     "forgeLevel": 40,
+     "cardRefPathID": 1308992881989939518
+    }
    ]
   },
   {
@@ -430,6 +650,26 @@
      "face": "Tau_Empire_offensive_Electro-Static Interference",
      "forgeLevel": 45
     }
+   ],
+   "defensiveCards": [
+    {
+     "idx": 0,
+     "name": "",
+     "forgeLevel": 1,
+     "cardRefPathID": 8895982159512585270
+    },
+    {
+     "idx": 1,
+     "name": "",
+     "forgeLevel": 20,
+     "cardRefPathID": 5581537712832613915
+    },
+    {
+     "idx": 2,
+     "name": "",
+     "forgeLevel": 40,
+     "cardRefPathID": -3794992254593455976
+    }
    ]
   },
   {
@@ -465,6 +705,26 @@
      "prefab": "EnvironmentalCondition Ultramarines Aerial Clash",
      "face": "SM_UM_offensive_Fleet Support",
      "forgeLevel": 40
+    }
+   ],
+   "defensiveCards": [
+    {
+     "idx": 0,
+     "name": "",
+     "forgeLevel": 1,
+     "cardRefPathID": -3737713110196949625
+    },
+    {
+     "idx": 1,
+     "name": "",
+     "forgeLevel": 20,
+     "cardRefPathID": -3783665465856998668
+    },
+    {
+     "idx": 2,
+     "name": "",
+     "forgeLevel": 40,
+     "cardRefPathID": 271802346863807352
     }
    ]
   }

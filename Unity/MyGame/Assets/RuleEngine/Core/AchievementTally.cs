@@ -180,6 +180,21 @@ namespace RuleEngine
                 }
                 return;
             }
+            // 🆕 **2026-10-27（批次 9 · 执行代理 `E7ENG`）：原版 `ChallengeLogMgr.LogTriggerAbility`
+            //   对这三档**根本不发信号** ⇒ 我们的成就触发计数也不该记。**
+            //   判据（🥇 `d:/2/tools/decomp_full/ChallengeLogMgr__LogTriggerAbility.c`，全文 19 行亲读）：
+            //   ```
+            //   if (((param_3 != 0x14) && (param_3 != 0xf0)) && (param_3 != 0x276)) {
+            //       TriggerAbilitySignal ctor(...); Signal.Raise(...);      // ← 只有非这三档才发
+            //   }
+            //   ```
+            //   ⇒ `0x14(20) WhileInPlay` / `0xf0(240) WhileInPlayVariable` / `0x276(630) TriggeredSynapse`
+            //   这三档**整段跳过**。它们是「常驻 / 派生」触发（每次结算都要问一次），
+            //   原版主动把它们摘出挑战计数 ⇒ 我们照抄，**这是「成就口径 = 挑战口径」的对齐、不是新发明**。
+            //   ⚠️ 以前我们照单全记 ⇒ 把原版**永远不数**的那三条也计进去了（账 532 的 ③）。
+            if (ability == TriggerWhileInPlay
+                || ability == TriggerWhileInPlayVariable
+                || ability == TriggeredSynapse) return;
             TriggerByAbility[seat * AbilityMax + ability]++;
         }
         static bool _abilityOverflowWarned;
@@ -241,5 +256,20 @@ namespace RuleEngine
 
         /// <summary>某一方虫群合并过几次。</summary>
         public int SwarmMergesOf(int seat) { return SeatOk(seat) ? SwarmMerges[seat] : 0; }
+
+        // ================================================================================================
+        //  🆕 2026-10-27（批次 9 · 执行代理 `E7ENG`）—— **原版 `LogTriggerAbility` 不发信号的三档**
+        //  （追加在类尾；判据与后果 → `AddTrigger` 里那一跳的注释，⛔ 别在这里抄第二份）
+        // ================================================================================================
+
+        /// <summary>`AbilityTrigger.WhileInPlay = 20`（常驻）—— 原版 `ChallengeLogMgr.LogTriggerAbility`
+        /// 用 `param_3 != 0x14` 把它**挡在信号之外** ⇒ 成就不记它。</summary>
+        public const int TriggerWhileInPlay = 20;
+
+        /// <summary>`AbilityTrigger.WhileInPlayVariable = 240`（`0xf0`）—— 同上，原版不记。</summary>
+        public const int TriggerWhileInPlayVariable = 240;
+
+        /// <summary>`AbilityTrigger.TriggeredSynapse = 630`（`0x276`）—— 同上，原版不记。</summary>
+        public const int TriggeredSynapse = 630;
     }
 }

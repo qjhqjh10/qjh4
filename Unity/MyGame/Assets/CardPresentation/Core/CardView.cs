@@ -14479,7 +14479,7 @@ namespace CardPresentation
         ///    （静默、且不回滚）。原版那 10 个调用点全在离场侧，所以按「离场 / 重置」用是对的。</para></summary>
         public void StopInPlayAnims()
         {
-            var trs = GetComponentsInChildren<Transform>(true);
+            CleanStatusAnimsClearAll(); var trs = GetComponentsInChildren<Transform>(true);   // ① 原版 `CleanStatusAnims(clearAll: true)`（判据/边界见类尾那个方法）
             for (int i = 0; i < trs.Length; i++)
                 if (trs[i] != null) trs[i].DOKill();
 
@@ -14751,5 +14751,29 @@ namespace CardPresentation
         }
 
         RuleEngine.CardDef _locSource;
+
+        /// <summary>原版 `BattleCardUI.StopAnimsInPlay()` 的**第 ① 步** `CleanStatusAnims(clearAll: true)`
+        /// （🥇 `decomp_full/BattleCardUI__StopAnimsInPlay.c:20` 第一句；`TraitFrames.Clean` 的判据在它自己的 doc）。
+        /// 清掉这张卡身上**所有**状态动画框：两本字典 `PlayFrames` / `TriggerFrames` 全清，
+        /// 收尾走 `AnimFXController.Exit()`（没有它才 `Destroy`）= 我们的 `WarpforgeEffectPlayer.Exit()/Kill()`。
+        /// <para>⚠️ **只清已经挂着的那一套** —— 用 `GetComponent`，⛔ **不用 `TraitFrames.Attach`**：那个会
+        /// **顺手建出组件 + 一个 `effectsAnchor` 子节点**，等于给一张干净的卡加东西（`Attach` 的 doc 写着它是建）。
+        /// </para>
+        /// <para>🔴 **原版同方法里另两步【无落点】（如实记，⛔ 别造一个等价的空壳）**：
+        /// ② 倒序 `DestroyImmediate(activeAnimsInPlay[i])` —— 原版那批「过渡对象」在我们这边
+        /// **就是 DOTween 补间本身**（没有可 Destroy 的临时件；`StopInPlayAnims` 的 `DOKill` 已覆盖，
+        /// 并把它那条「没有 target 的 `To` 杀不掉」的边界写在那个方法上）；
+        /// ③ 尾巴那句 `Destroy(summonSicknessFrame)` —— `BattleAnims.summonSickness` 是**空 AssetReference**
+        /// （`d:/2/新解包资源/assets_full/bundle_battleprefabs_vfxandmisc_assets_all/MonoBehaviour/BattleAnims.json`：
+        /// `summonSickness = {"m_AssetGUID":"","m_SubObjectName":"","m_SubObjectType":""}`）⇒
+        /// `StartSummonSicknessAnim` 的 `RuntimeKeyIsValid()` 恒假（`out_cpp2il_dev_ilspy/BattleCardUI.cs:2448`）
+        /// ⇒ 那个 frame **永远不会被创建** ⇒ 销毁它是**恒 no-op**（铁律 11 例外①：原版本身没有）。</para>
+        /// <para>📌 为什么单独一个方法：`StopInPlayAnims` 那句要**行数中性**地插进去（账在 `CardView.cs` 里
+        /// 引用到 14706 行，插行会让 14571/14607/14706 三条漂移）⇒ 判据放在类尾，调用点只占一行。</para></summary>
+        void CleanStatusAnimsClearAll()
+        {
+            var tf = GetComponent<TraitFrames>();
+            if (tf != null) tf.Clean(null, true);
+        }
     }
 }

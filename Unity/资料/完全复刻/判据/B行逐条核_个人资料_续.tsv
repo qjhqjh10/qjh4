@@ -1,0 +1,187 @@
+域	方法	原等级	建议等级	判据出处	我们的落点(文件:行)	一句结论	还差什么
+个人资料/成就/排行	FocusOnArmy(RankedArmySelectorContainer armyItemContainer)	B	B	ArmySelectorRanked.cs:710	Shell/RankedTab.cs	UI 回调类（Awake/OnEnable/Draw/Click 等），我方以 Build/Refresh/Select 承接，方法级未逐句核：类级命中；方法级对应未核	建精确映射 + 逐句核
+个人资料/成就/排行	Initialize(IOwnDeckPlayEvent liveOp)	B	B	ArmySelectorRanked.cs:258	Shell/RankedTab.cs	UI 回调类（Awake/OnEnable/Draw/Click 等），我方以 Build/Refresh/Select 承接，方法级未逐句核：类级命中；方法级对应未核	建精确映射 + 逐句核
+个人资料/成就/排行	OnDestroy()	B	B	ArmySelectorRanked.cs:740	Shell/RankedTab.cs	UI 回调类（Awake/OnEnable/Draw/Click 等），我方以 Build/Refresh/Select 承接，方法级未逐句核：类级命中；方法级对应未核	建精确映射 + 逐句核
+个人资料/成就/排行	Refresh()	B	B	ArmySelectorRanked.cs:755	Shell/RankedTab.cs	UI 回调类（Awake/OnEnable/Draw/Click 等），我方以 Build/Refresh/Select 承接，方法级未逐句核：类级命中；方法级对应未核	建精确映射 + 逐句核
+个人资料/成就/排行	SelectArmy(CardArmy army)	B	B	ArmySelectorRanked.cs:728	Shell/RankedTab.cs	UI 回调类（Awake/OnEnable/Draw/Click 等），我方以 Build/Refresh/Select 承接，方法级未逐句核：类级命中；方法级对应未核	建精确映射 + 逐句核
+个人资料/成就/排行	Initialize()	B	B	AvatarBorderController.cs:22	Shell/ProfileData.cs（边框装备/清单）	数据层无同名方法（我方换名未定位）：类级命中；方法级对应未核	定位到我方方法 + 逐句核
+个人资料/成就/排行	Initialize(PlayerInfo playerInfo)	B	B	AvatarBorderController.cs:32	Shell/ProfileData.cs（边框装备/清单）	数据层无同名方法（我方换名未定位）：类级命中；方法级对应未核	定位到我方方法 + 逐句核
+个人资料/成就/排行	OnEnable()	B	B	AvatarBorderController.cs:12	Shell/ProfileData.cs（边框装备/清单）	数据层无同名方法（我方换名未定位）：类级命中；方法级对应未核	定位到我方方法 + 逐句核
+个人资料/成就/排行	Awake()	B	B	AvatarDisplay.cs:149	Shell/AvatarTab.cs	UI 回调类（Awake/OnEnable/Draw/Click 等），我方以 Build/Refresh/Select 承接，方法级未逐句核：类级命中；方法级对应未核	建精确映射 + 逐句核
+个人资料/成就/排行	ChangeAvatar(PlayerAvatar avatar)	B	B	AvatarDisplay.cs:232	Shell/AvatarTab.cs	UI 回调类（Awake/OnEnable/Draw/Click 等），我方以 Build/Refresh/Select 承接，方法级未逐句核：类级命中；方法级对应未核	建精确映射 + 逐句核
+个人资料/成就/排行	ChangeBorder(CosmeticItemAvatarBorder border)	B	B	AvatarDisplay.cs:262	Shell/AvatarTab.cs	UI 回调类（Awake/OnEnable/Draw/Click 等），我方以 Build/Refresh/Select 承接，方法级未逐句核：类级命中；方法级对应未核	建精确映射 + 逐句核
+个人资料/成就/排行	Draw(PlayerAvatar avatar, int quantity)	B	B	AvatarDisplay.cs:225	Shell/AvatarTab.cs	UI 回调类（Awake/OnEnable/Draw/Click 等），我方以 Build/Refresh/Select 承接，方法级未逐句核：类级命中；方法级对应未核	建精确映射 + 逐句核
+个人资料/成就/排行	HandleOnClick()	B	B	AvatarDisplay.cs:191	Shell/AvatarTab.cs	UI 回调类（Awake/OnEnable/Draw/Click 等），我方以 Build/Refresh/Select 承接，方法级未逐句核：类级命中；方法级对应未核	建精确映射 + 逐句核
+个人资料/成就/排行	Initialize(PlayerAvatar avatar, CosmeticItemAvatarBorder border, bool highlight, bool isLocked)	B	B	AvatarDisplay.cs:168	Shell/AvatarTab.cs	UI 回调类（Awake/OnEnable/Draw/Click 等），我方以 Build/Refresh/Select 承接，方法级未逐句核：类级命中；方法级对应未核	建精确映射 + 逐句核
+个人资料/成就/排行	OnDestroy()	B	B	AvatarDisplay.cs:162	Shell/AvatarTab.cs	UI 回调类（Awake/OnEnable/Draw/Click 等），我方以 Build/Refresh/Select 承接，方法级未逐句核：类级命中；方法级对应未核	建精确映射 + 逐句核
+个人资料/成就/排行	OnDisable()	B	B	AvatarDisplay.cs:284	Shell/AvatarTab.cs	UI 回调类（Awake/OnEnable/Draw/Click 等），我方以 Build/Refresh/Select 承接，方法级未逐句核：类级命中；方法级对应未核	建精确映射 + 逐句核
+个人资料/成就/排行	ToggleHighlight(bool value)	B	B	AvatarDisplay.cs:177	Shell/AvatarTab.cs	UI 回调类（Awake/OnEnable/Draw/Click 等），我方以 Build/Refresh/Select 承接，方法级未逐句核：类级命中；方法级对应未核	建精确映射 + 逐句核
+个人资料/成就/排行	ToggleLock(bool value)	B	B	AvatarDisplay.cs:186	Shell/AvatarTab.cs	UI 回调类（Awake/OnEnable/Draw/Click 等），我方以 Build/Refresh/Select 承接，方法级未逐句核：类级命中；方法级对应未核	建精确映射 + 逐句核
+个人资料/成就/排行	GetItemName(PlayerAvatar item)	B	B	AvatarDrawer.cs:24	Shell/ItemDrawer.cs Spec/ItemSpec.Label	UI 回调类（Awake/OnEnable/Draw/Click 等），我方以 Build/Refresh/Select 承接，方法级未逐句核：类级命中；方法级对应未核	建精确映射 + 逐句核
+个人资料/成就/排行	Awake()	B	B	AvatarTab.cs:192	Shell/AvatarTab.cs	UI 回调类（Awake/OnEnable/Draw/Click 等），我方以 Build/Refresh/Select 承接，方法级未逐句核：类级命中；方法级对应未核	建精确映射 + 逐句核
+个人资料/成就/排行	CheckEnableAvatarBorder()	B	B	AvatarTab.cs:552	Shell/AvatarTab.cs	UI 回调类（Awake/OnEnable/Draw/Click 等），我方以 Build/Refresh/Select 承接，方法级未逐句核：类级命中；方法级对应未核	建精确映射 + 逐句核
+个人资料/成就/排行	DoBorderRefresh()	B	B	AvatarTab.cs:665	Shell/AvatarTab.cs	UI 回调类（Awake/OnEnable/Draw/Click 等），我方以 Build/Refresh/Select 承接，方法级未逐句核：类级命中；方法级对应未核	建精确映射 + 逐句核
+个人资料/成就/排行	FindActiveAvatarBorder()	B	B	AvatarTab.cs:560	Shell/AvatarTab.cs	UI 回调类（Awake/OnEnable/Draw/Click 等），我方以 Build/Refresh/Select 承接，方法级未逐句核：类级命中；方法级对应未核	建精确映射 + 逐句核
+个人资料/成就/排行	Initialize()	B	B	AvatarTab.cs:220	Shell/AvatarTab.cs	UI 回调类（Awake/OnEnable/Draw/Click 等），我方以 Build/Refresh/Select 承接，方法级未逐句核：类级命中；方法级对应未核	建精确映射 + 逐句核
+个人资料/成就/排行	InitializeGameObjects()	B	B	AvatarTab.cs:226	Shell/AvatarTab.cs	UI 回调类（Awake/OnEnable/Draw/Click 等），我方以 Build/Refresh/Select 承接，方法级未逐句核：类级命中；方法级对应未核	建精确映射 + 逐句核
+个人资料/成就/排行	OnAvatarClick(AvatarDisplay avatar)	B	B	AvatarTab.cs:460	Shell/AvatarTab.cs	UI 回调类（Awake/OnEnable/Draw/Click 等），我方以 Build/Refresh/Select 承接，方法级未逐句核：类级命中；方法级对应未核	建精确映射 + 逐句核
+个人资料/成就/排行	OnDestroy()	B	B	AvatarTab.cs:206	Shell/AvatarTab.cs	UI 回调类（Awake/OnEnable/Draw/Click 等），我方以 Build/Refresh/Select 承接，方法级未逐句核：类级命中；方法级对应未核	建精确映射 + 逐句核
+个人资料/成就/排行	RefreshDisplays()	B	B	AvatarTab.cs:404	Shell/AvatarTab.cs	UI 回调类（Awake/OnEnable/Draw/Click 等），我方以 Build/Refresh/Select 承接，方法级未逐句核：类级命中；方法级对应未核	建精确映射 + 逐句核
+个人资料/成就/排行	SetAvatar(PlayerAvatar avatar)	B	B	AvatarTab.cs:476	Shell/AvatarTab.cs	UI 回调类（Awake/OnEnable/Draw/Click 等），我方以 Build/Refresh/Select 承接，方法级未逐句核：类级命中；方法级对应未核	建精确映射 + 逐句核
+个人资料/成就/排行	ToggleAvatarBorder()	B	B	AvatarTab.cs:634	Shell/AvatarTab.cs	UI 回调类（Awake/OnEnable/Draw/Click 等），我方以 Build/Refresh/Select 承接，方法级未逐句核：类级命中；方法级对应未核	建精确映射 + 逐句核
+个人资料/成就/排行	ToggleSelectButton(PlayerAvatar avatar)	B	B	AvatarTab.cs:493	Shell/AvatarTab.cs	UI 回调类（Awake/OnEnable/Draw/Click 等），我方以 Build/Refresh/Select 承接，方法级未逐句核：类级命中；方法级对应未核	建精确映射 + 逐句核
+个人资料/成就/排行	OnDestroy()	B	B	CampaignProfileContainer.cs:87	—	无落点（—），按 §4.1 记 B	我方无对应（页面 builder 内建节点）
+个人资料/成就/排行	OnInitialize(PlayerInfo context)	B	B	CampaignProfileContainer.cs:11	—	无落点（—），按 §4.1 记 B	我方无对应（页面 builder 内建节点）
+个人资料/成就/排行	Clicked()	B	B	ChangeRankedModeToggle.cs:47	Shell/RankedEventWindow.cs	UI 回调类（Awake/OnEnable/Draw/Click 等），我方以 Build/Refresh/Select 承接，方法级未逐句核：类级命中；方法级对应未核	建精确映射 + 逐句核
+个人资料/成就/排行	Initialize(IRankedEvent rankedEvent)	B	B	ChangeRankedModeToggle.cs:33	Shell/RankedEventWindow.cs	UI 回调类（Awake/OnEnable/Draw/Click 等），我方以 Build/Refresh/Select 承接，方法级未逐句核：类级命中；方法级对应未核	建精确映射 + 逐句核
+个人资料/成就/排行	OnDisable()	B	B	ChangeRankedModeToggle.cs:26	Shell/RankedEventWindow.cs	UI 回调类（Awake/OnEnable/Draw/Click 等），我方以 Build/Refresh/Select 承接，方法级未逐句核：类级命中；方法级对应未核	建精确映射 + 逐句核
+个人资料/成就/排行	OnEnable()	B	B	ChangeRankedModeToggle.cs:19	Shell/RankedEventWindow.cs	UI 回调类（Awake/OnEnable/Draw/Click 等），我方以 Build/Refresh/Select 承接，方法级未逐句核：类级命中；方法级对应未核	建精确映射 + 逐句核
+个人资料/成就/排行	SetState(bool state)	B	B	ChangeRankedModeToggle.cs:64	Shell/RankedEventWindow.cs	UI 回调类（Awake/OnEnable/Draw/Click 等），我方以 Build/Refresh/Select 承接，方法级未逐句核：类级命中；方法级对应未核	建精确映射 + 逐句核
+个人资料/成就/排行	HandleOnCollect(int rewardQuantity)	B	B	CosmeticItemAvatarBorder.cs:26	Shell/ProfileData.cs	数据层无同名方法（我方换名未定位）：类级命中；方法级对应未核	定位到我方方法 + 逐句核
+个人资料/成就/排行	IsParentEventActive()	B	B	CosmeticItemAvatarBorder.cs:36	Shell/ProfileData.cs	数据层无同名方法（我方换名未定位）：类级命中；方法级对应未核	定位到我方方法 + 逐句核
+个人资料/成就/排行	Awake()	B	B	DeckGeneralInfoRanked.cs:38	Shell/DeckInfoPopup.cs	UI 回调类（Awake/OnEnable/Draw/Click 等），我方以 Build/Refresh/Select 承接，方法级未逐句核：类级命中；方法级对应未核	建精确映射 + 逐句核
+个人资料/成就/排行	CardInDeckInfoButtonOnClick()	B	B	DeckGeneralInfoRanked.cs:143	Shell/DeckInfoPopup.cs	UI 回调类（Awake/OnEnable/Draw/Click 等），我方以 Build/Refresh/Select 承接，方法级未逐句核：类级命中；方法级对应未核	建精确映射 + 逐句核
+个人资料/成就/排行	CloseDeckView()	B	B	DeckGeneralInfoRanked.cs:167	Shell/DeckInfoPopup.cs	UI 回调类（Awake/OnEnable/Draw/Click 等），我方以 Build/Refresh/Select 承接，方法级未逐句核：类级命中；方法级对应未核	建精确映射 + 逐句核
+个人资料/成就/排行	DeckGeneralInfoButtonOnClick()	B	B	DeckGeneralInfoRanked.cs:150	Shell/DeckInfoPopup.cs	UI 回调类（Awake/OnEnable/Draw/Click 等），我方以 Build/Refresh/Select 承接，方法级未逐句核：类级命中；方法级对应未核	建精确映射 + 逐句核
+个人资料/成就/排行	OnDestroy()	B	B	DeckGeneralInfoRanked.cs:51	Shell/DeckInfoPopup.cs	UI 回调类（Awake/OnEnable/Draw/Click 等），我方以 Build/Refresh/Select 承接，方法级未逐句核：类级命中；方法级对应未核	建精确映射 + 逐句核
+个人资料/成就/排行	SetContent(CardDeck deckInfo)	B	B	DeckGeneralInfoRanked.cs:63	Shell/DeckInfoPopup.cs	UI 回调类（Awake/OnEnable/Draw/Click 等），我方以 Build/Refresh/Select 承接，方法级未逐句核：类级命中；方法级对应未核	建精确映射 + 逐句核
+个人资料/成就/排行	Toggle(bool option)	B	B	DeckGeneralInfoRanked.cs:135	Shell/DeckInfoPopup.cs	UI 回调类（Awake/OnEnable/Draw/Click 等），我方以 Build/Refresh/Select 承接，方法级未逐句核：类级命中；方法级对应未核	建精确映射 + 逐句核
+个人资料/成就/排行	WarlordInfoButtonClick()	B	B	DeckGeneralInfoRanked.cs:157	Shell/DeckInfoPopup.cs	UI 回调类（Awake/OnEnable/Draw/Click 等），我方以 Build/Refresh/Select 承接，方法级未逐句核：类级命中；方法级对应未核	建精确映射 + 逐句核
+个人资料/成就/排行	CleanUp()	B	B	DivisionImageDisplay.cs:83	Shell/RankedDivisionInfo.cs	UI 回调类（Awake/OnEnable/Draw/Click 等），我方以 Build/Refresh/Select 承接，方法级未逐句核：类级命中；方法级对应未核	建精确映射 + 逐句核
+个人资料/成就/排行	Initialize(RankedDivision divisionData)	B	B	DivisionImageDisplay.cs:17	Shell/RankedDivisionInfo.cs	UI 回调类（Awake/OnEnable/Draw/Click 等），我方以 Build/Refresh/Select 承接，方法级未逐句核：类级命中；方法级对应未核	建精确映射 + 逐句核
+个人资料/成就/排行	GetLeaderboardDefinition(string key)	B	B	Everguild.LiveOps/LeaderboardConfig.cs:105	Shell/LeaderboardData.cs LeaderboardDef	数据层无同名方法（我方换名未定位）：类级命中；方法级对应未核	定位到我方方法 + 逐句核
+个人资料/成就/排行	Initialize(int gold, int silver, int bronze, int legendaryScore)	B	B	LegendaryRankAllTrophiesDisplay.cs:13	—	无落点（—），按 §4.1 记 B	我方无对应（页面 builder 内建节点）
+个人资料/成就/排行	GetAllItems<T>()	B	B	PlayerAvatarDataManager.cs:1129	Shell/ProfileData.cs	数据层无同名方法（我方换名未定位）：类级命中；方法级对应未核	定位到我方方法 + 逐句核
+个人资料/成就/排行	GetItemImageWithId<T>(string avatarId)	B	B	PlayerAvatarDataManager.cs:731	Shell/ProfileData.cs	数据层无同名方法（我方换名未定位）：类级命中；方法级对应未核	定位到我方方法 + 逐句核
+个人资料/成就/排行	GetItemWithId<T>(string cosmeticId)	B	B	PlayerAvatarDataManager.cs:751	Shell/ProfileData.cs	数据层无同名方法（我方换名未定位）：类级命中；方法级对应未核	定位到我方方法 + 逐句核
+个人资料/成就/排行	IsDefaultBorderEquipped()	B	B	PlayerAvatarDataManager.cs:1800	Shell/ProfileData.cs	数据层无同名方法（我方换名未定位）：类级命中；方法级对应未核	定位到我方方法 + 逐句核
+个人资料/成就/排行	SetCurrentItem<T>(string cosmeticItemId, Action callback, Action onError)	B	B	PlayerAvatarDataManager.cs:1561	Shell/ProfileData.cs	数据层无同名方法（我方换名未定位）：类级命中；方法级对应未核	定位到我方方法 + 逐句核
+个人资料/成就/排行	SetCurrentItemNoSave(CosmeticItem cosmeticItem)	B	B	PlayerAvatarDataManager.cs:1154	Shell/ProfileData.cs	数据层无同名方法（我方换名未定位）：类级命中；方法级对应未核	定位到我方方法 + 逐句核
+个人资料/成就/排行	SetCurrentItemNoSave<T>(string id)	B	B	PlayerAvatarDataManager.cs:1144	Shell/ProfileData.cs	数据层无同名方法（我方换名未定位）：类级命中；方法级对应未核	定位到我方方法 + 逐句核
+个人资料/成就/排行	Awake()	B	B	PlayerProfileMenu.cs:115	Shell/PlayerProfileWindow.cs	UI 回调类（Awake/OnEnable/Draw/Click 等），我方以 Build/Refresh/Select 承接，方法级未逐句核：类级命中；方法级对应未核	建精确映射 + 逐句核
+个人资料/成就/排行	OnComplete(PlayerInfo info)	B	B	PlayerProfileMenu.cs:226	Shell/PlayerProfileWindow.cs	UI 回调类（Awake/OnEnable/Draw/Click 等），我方以 Build/Refresh/Select 承接，方法级未逐句核：类级命中；方法级对应未核	建精确映射 + 逐句核
+个人资料/成就/排行	OnDestroy()	B	B	PlayerProfileMenu.cs:131	Shell/PlayerProfileWindow.cs	UI 回调类（Awake/OnEnable/Draw/Click 等），我方以 Build/Refresh/Select 承接，方法级未逐句核：类级命中；方法级对应未核	建精确映射 + 逐句核
+个人资料/成就/排行	OnError(string obj)	B	B	PlayerProfileMenu.cs:281	Shell/PlayerProfileWindow.cs	UI 回调类（Awake/OnEnable/Draw/Click 等），我方以 Build/Refresh/Select 承接，方法级未逐句核：类级命中；方法级对应未核	建精确映射 + 逐句核
+个人资料/成就/排行	ToFocus()	B	B	PlayerProfileMenu.cs:141	Shell/PlayerProfileWindow.cs	UI 回调类（Awake/OnEnable/Draw/Click 等），我方以 Build/Refresh/Select 承接，方法级未逐句核：类级命中；方法级对应未核	建精确映射 + 逐句核
+个人资料/成就/排行	Initialize(int trophyCount)	B	B	PlayerProfileTrophiesDisplay.cs:7	—	无落点（—），按 §4.1 记 B	我方无对应（页面 builder 内建节点）
+个人资料/成就/排行	Awake()	B	B	PlayerProfileUIController.cs:25	Shell/ProfileTab.cs	UI 回调类（Awake/OnEnable/Draw/Click 等），我方以 Build/Refresh/Select 承接，方法级未逐句核：类级命中；方法级对应未核	建精确映射 + 逐句核
+个人资料/成就/排行	Initialize()	B	B	PlayerProfileUIController.cs:33	Shell/ProfileTab.cs	UI 回调类（Awake/OnEnable/Draw/Click 等），我方以 Build/Refresh/Select 承接，方法级未逐句核：类级命中；方法级对应未核	建精确映射 + 逐句核
+个人资料/成就/排行	OnDestroy()	B	B	PlayerProfileUIController.cs:111	Shell/ProfileTab.cs	UI 回调类（Awake/OnEnable/Draw/Click 等），我方以 Build/Refresh/Select 承接，方法级未逐句核：类级命中；方法级对应未核	建精确映射 + 逐句核
+个人资料/成就/排行	SetProfileAvatar(PlayerAvatar newAvatar)	B	B	PlayerProfileUIController.cs:146	Shell/ProfileTab.cs	UI 回调类（Awake/OnEnable/Draw/Click 等），我方以 Build/Refresh/Select 承接，方法级未逐句核：类级命中；方法级对应未核	建精确映射 + 逐句核
+个人资料/成就/排行	SetProfileAvatarBorder(CosmeticItemAvatarBorder newBorder)	B	B	PlayerProfileUIController.cs:170	Shell/ProfileTab.cs	UI 回调类（Awake/OnEnable/Draw/Click 等），我方以 Build/Refresh/Select 承接，方法级未逐句核：类级命中；方法级对应未核	建精确映射 + 逐句核
+个人资料/成就/排行	SetProfileName(string playerName)	B	B	PlayerProfileUIController.cs:129	Shell/ProfileTab.cs	UI 回调类（Awake/OnEnable/Draw/Click 等），我方以 Build/Refresh/Select 承接，方法级未逐句核：类级命中；方法级对应未核	建精确映射 + 逐句核
+个人资料/成就/排行	SetProfileTitle(string title)	B	B	PlayerProfileUIController.cs:121	Shell/ProfileTab.cs	UI 回调类（Awake/OnEnable/Draw/Click 等），我方以 Build/Refresh/Select 承接，方法级未逐句核：类级命中；方法级对应未核	建精确映射 + 逐句核
+个人资料/成就/排行	CheckProfile()	B	B	PlayerUIRankingRow.cs:133	Shell/LeaderboardRow.cs	UI 回调类（Awake/OnEnable/Draw/Click 等），我方以 Build/Refresh/Select 承接，方法级未逐句核：类级命中；方法级对应未核	建精确映射 + 逐句核
+个人资料/成就/排行	Config(RankingRowData rowData)	B	B	PlayerUIRankingRow.cs:21	Shell/LeaderboardRow.cs	UI 回调类（Awake/OnEnable/Draw/Click 等），我方以 Build/Refresh/Select 承接，方法级未逐句核：类级命中；方法级对应未核	建精确映射 + 逐句核
+个人资料/成就/排行	OnDisable()	B	B	PlayerUIRankingRow.cs:126	Shell/LeaderboardRow.cs	UI 回调类（Awake/OnEnable/Draw/Click 等），我方以 Build/Refresh/Select 承接，方法级未逐句核：类级命中；方法级对应未核	建精确映射 + 逐句核
+个人资料/成就/排行	OnEnable()	B	B	PlayerUIRankingRow.cs:119	Shell/LeaderboardRow.cs	UI 回调类（Awake/OnEnable/Draw/Click 等），我方以 Build/Refresh/Select 承接，方法级未逐句核：类级命中；方法级对应未核	建精确映射 + 逐句核
+个人资料/成就/排行	ToggleComponents(bool value)	B	B	PlayerUIRankingRow.cs:141	Shell/LeaderboardRow.cs	UI 回调类（Awake/OnEnable/Draw/Click 等），我方以 Build/Refresh/Select 承接，方法级未逐句核：类级命中；方法级对应未核	建精确映射 + 逐句核
+个人资料/成就/排行	Awake()	B	B	ProfileContainer.cs:5	—	无落点（—），按 §4.1 记 B	我方无对应（页面 builder 内建节点）
+个人资料/成就/排行	Initialize(PlayerInfo context)	B	B	ProfileEventSection.cs:11	—	无落点（—），按 §4.1 记 B	我方无对应（页面 builder 内建节点）
+个人资料/成就/排行	GetItem<T>()	B	B	ProfileItemDisplay.cs:84	Shell/ProfileTab.cs	UI 回调类（Awake/OnEnable/Draw/Click 等），我方以 Build/Refresh/Select 承接，方法级未逐句核：类级命中；方法级对应未核	建精确映射 + 逐句核
+个人资料/成就/排行	Initialize(CosmeticItemTitle item)	B	B	ProfileItemDisplay.cs:50	Shell/ProfileTab.cs	UI 回调类（Awake/OnEnable/Draw/Click 等），我方以 Build/Refresh/Select 承接，方法级未逐句核：类级命中；方法级对应未核	建精确映射 + 逐句核
+个人资料/成就/排行	ToggleButton(CosmeticItemTitle item)	B	B	ProfileItemDisplay.cs:105	Shell/ProfileTab.cs	UI 回调类（Awake/OnEnable/Draw/Click 等），我方以 Build/Refresh/Select 承接，方法级未逐句核：类级命中；方法级对应未核	建精确映射 + 逐句核
+个人资料/成就/排行	Awake()	B	B	ProfileNameTitleSection.cs:37	Shell/ProfileTab.cs	UI 回调类（Awake/OnEnable/Draw/Click 等），我方以 Build/Refresh/Select 承接，方法级未逐句核：类级命中；方法级对应未核	建精确映射 + 逐句核
+个人资料/成就/排行	Initialize(PlayerInfo context)	B	B	ProfileNameTitleSection.cs:51	Shell/ProfileTab.cs	UI 回调类（Awake/OnEnable/Draw/Click 等），我方以 Build/Refresh/Select 承接，方法级未逐句核：类级命中；方法级对应未核	建精确映射 + 逐句核
+个人资料/成就/排行	OnDestroy()	B	B	ProfileNameTitleSection.cs:166	Shell/ProfileTab.cs	UI 回调类（Awake/OnEnable/Draw/Click 等），我方以 Build/Refresh/Select 承接，方法级未逐句核：类级命中；方法级对应未核	建精确映射 + 逐句核
+个人资料/成就/排行	Initialize(PlayerInfo context)	B	B	ProfileRankingSection.cs:50	Shell/ProfileTab.cs	UI 回调类（Awake/OnEnable/Draw/Click 等），我方以 Build/Refresh/Select 承接，方法级未逐句核：类级命中；方法级对应未核	建精确映射 + 逐句核
+个人资料/成就/排行	Initialize()	B	B	ProfileTab.cs:100	Shell/ProfileTab.cs	UI 回调类（Awake/OnEnable/Draw/Click 等），我方以 Build/Refresh/Select 承接，方法级未逐句核：类级命中；方法级对应未核	建精确映射 + 逐句核
+个人资料/成就/排行	OnChangePlayerNameButtonClick()	B	B	ProfileTab.cs:184	Shell/ProfileTab.cs	UI 回调类（Awake/OnEnable/Draw/Click 等），我方以 Build/Refresh/Select 承接，方法级未逐句核：类级命中；方法级对应未核	建精确映射 + 逐句核
+个人资料/成就/排行	Start()	B	B	ProfileTab.cs:62	Shell/ProfileTab.cs	UI 回调类（Awake/OnEnable/Draw/Click 等），我方以 Build/Refresh/Select 承接，方法级未逐句核：类级命中；方法级对应未核	建精确映射 + 逐句核
+个人资料/成就/排行	ToFocus()	B	B	ProfileTab.cs:88	Shell/ProfileTab.cs	UI 回调类（Awake/OnEnable/Draw/Click 等），我方以 Build/Refresh/Select 承接，方法级未逐句核：类级命中；方法级对应未核	建精确映射 + 逐句核
+个人资料/成就/排行	Clean()	B	B	RankedArmyBonusContainer.cs:166	—	无落点（—），按 §4.1 记 B	我方无对应（页面 builder 内建节点）
+个人资料/成就/排行	OnInitialize(LiveOpsEvent evt)	B	B	RankedArmyBonusContainer.cs:21	—	无落点（—），按 §4.1 记 B	我方无对应（页面 builder 内建节点）
+个人资料/成就/排行	Click(bool isOn)	B	B	RankedArmySelectorContainer.cs:257	Shell/RankedTab.cs	UI 回调类（Awake/OnEnable/Draw/Click 等），我方以 Build/Refresh/Select 承接，方法级未逐句核：类级命中；方法级对应未核	建精确映射 + 逐句核
+个人资料/成就/排行	Initialize(RuntimeArmyStats stats, int currentVictories, int maxNumberOfVictoriesWithBonus, bool isLegendary, ToggleGroup toggleGroup)	B	B	RankedArmySelectorContainer.cs:204	Shell/RankedTab.cs	UI 回调类（Awake/OnEnable/Draw/Click 等），我方以 Build/Refresh/Select 承接，方法级未逐句核：类级命中；方法级对应未核	建精确映射 + 逐句核
+个人资料/成就/排行	OnDestroy()	B	B	RankedArmySelectorContainer.cs:293	Shell/RankedTab.cs	UI 回调类（Awake/OnEnable/Draw/Click 等），我方以 Build/Refresh/Select 承接，方法级未逐句核：类级命中；方法级对应未核	建精确映射 + 逐句核
+个人资料/成就/排行	Refresh()	B	B	RankedArmySelectorContainer.cs:279	Shell/RankedTab.cs	UI 回调类（Awake/OnEnable/Draw/Click 等），我方以 Build/Refresh/Select 承接，方法级未逐句核：类级命中；方法级对应未核	建精确映射 + 逐句核
+个人资料/成就/排行	SetManualToggle(bool option)	B	B	RankedArmySelectorContainer.cs:274	Shell/RankedTab.cs	UI 回调类（Awake/OnEnable/Draw/Click 等），我方以 Build/Refresh/Select 承接，方法级未逐句核：类级命中；方法级对应未核	建精确映射 + 逐句核
+个人资料/成就/排行	ToggleInteractable(bool option)	B	B	RankedArmySelectorContainer.cs:288	Shell/RankedTab.cs	UI 回调类（Awake/OnEnable/Draw/Click 等），我方以 Build/Refresh/Select 承接，方法级未逐句核：类级命中；方法级对应未核	建精确映射 + 逐句核
+个人资料/成就/排行	GetDivisionData(int number)	B	B	RankedDivisions.cs:48	Shell/RankedDivisionInfo.cs	UI 回调类（Awake/OnEnable/Draw/Click 等），我方以 Build/Refresh/Select 承接，方法级未逐句核：缺：运行时 SO 模型（本地只有 AssetRipper 导出，未导工程）	建精确映射 + 逐句核
+个人资料/成就/排行	GetRankData(int number)	B	B	RankedDivisions.cs:81	Shell/RankedDivisionInfo.cs	UI 回调类（Awake/OnEnable/Draw/Click 等），我方以 Build/Refresh/Select 承接，方法级未逐句核：缺：运行时 SO 模型（本地只有 AssetRipper 导出，未导工程）	建精确映射 + 逐句核
+个人资料/成就/排行	GetBaseData()	B	B	Everguild.LiveOps/RankedEventBase.cs:221	Shell/RankedData.cs（点数/赛季/模式即数据）	数据层无同名方法（我方换名未定位）：类级命中；方法级对应未核	定位到我方方法 + 逐句核
+个人资料/成就/排行	AnimationFinished()	B	B	RankedEventDivisionChangeWindow.cs:193	Shell/RankedDivisionChangeWindow.cs	UI 回调类（Awake/OnEnable/Draw/Click 等），我方以 Build/Refresh/Select 承接，方法级未逐句核：类级命中；方法级对应未核	建精确映射 + 逐句核
+个人资料/成就/排行	CloseButton()	B	B	RankedEventDivisionChangeWindow.cs:232	Shell/RankedDivisionChangeWindow.cs	UI 回调类（Awake/OnEnable/Draw/Click 等），我方以 Build/Refresh/Select 承接，方法级未逐句核：类级命中；方法级对应未核	建精确映射 + 逐句核
+个人资料/成就/排行	OnDisable()	B	B	RankedEventDivisionChangeWindow.cs:210	Shell/RankedDivisionChangeWindow.cs	UI 回调类（Awake/OnEnable/Draw/Click 等），我方以 Build/Refresh/Select 承接，方法级未逐句核：类级命中；方法级对应未核	建精确映射 + 逐句核
+个人资料/成就/排行	OnEnable()	B	B	RankedEventDivisionChangeWindow.cs:199	Shell/RankedDivisionChangeWindow.cs	UI 回调类（Awake/OnEnable/Draw/Click 等），我方以 Build/Refresh/Select 承接，方法级未逐句核：类级命中；方法级对应未核	建精确映射 + 逐句核
+个人资料/成就/排行	SafetyInputEnabler()	B	B	RankedEventDivisionChangeWindow.cs:225	Shell/RankedDivisionChangeWindow.cs	UI 回调类（Awake/OnEnable/Draw/Click 等），我方以 Build/Refresh/Select 承接，方法级未逐句核：类级命中；方法级对应未核	建精确映射 + 逐句核
+个人资料/成就/排行	AnimationFinished()	B	B	RankedEventDivisionChangeWindowNewSystem.cs:532	Shell/RankedDivisionChangeWindow.cs	UI 回调类（Awake/OnEnable/Draw/Click 等），我方以 Build/Refresh/Select 承接，方法级未逐句核：类级命中；方法级对应未核	建精确映射 + 逐句核
+个人资料/成就/排行	ChangeParticleEffectAndSpriteRank(Image targetImage, ParticleSystem targetParticleSystem, Sprite rankSprite)	B	B	RankedEventDivisionChangeWindowNewSystem.cs:516	Shell/RankedDivisionChangeWindow.cs	UI 回调类（Awake/OnEnable/Draw/Click 等），我方以 Build/Refresh/Select 承接，方法级未逐句核：类级命中；方法级对应未核	建精确映射 + 逐句核
+个人资料/成就/排行	CloseButton()	B	B	RankedEventDivisionChangeWindowNewSystem.cs:570	Shell/RankedDivisionChangeWindow.cs	UI 回调类（Awake/OnEnable/Draw/Click 等），我方以 Build/Refresh/Select 承接，方法级未逐句核：类级命中；方法级对应未核	建精确映射 + 逐句核
+个人资料/成就/排行	DoDivisionChangeAnimations(int playerDivision)	B	B	RankedEventDivisionChangeWindowNewSystem.cs:466	Shell/RankedDivisionChangeWindow.cs	UI 回调类（Awake/OnEnable/Draw/Click 等），我方以 Build/Refresh/Select 承接，方法级未逐句核：类级命中；方法级对应未核	建精确映射 + 逐句核
+个人资料/成就/排行	DoPromoteAnimations(float delay, bool isDivisionChange, RankedRank previousDivision)	B	B	RankedEventDivisionChangeWindowNewSystem.cs:449	Shell/RankedDivisionChangeWindow.cs	UI 回调类（Awake/OnEnable/Draw/Click 等），我方以 Build/Refresh/Select 承接，方法级未逐句核：类级命中；方法级对应未核	建精确映射 + 逐句核
+个人资料/成就/排行	DoRankChangeAnimations(int playerRank)	B	B	RankedEventDivisionChangeWindowNewSystem.cs:491	Shell/RankedDivisionChangeWindow.cs	UI 回调类（Awake/OnEnable/Draw/Click 等），我方以 Build/Refresh/Select 承接，方法级未逐句核：类级命中；方法级对应未核	建精确映射 + 逐句核
+个人资料/成就/排行	OnDisable()	B	B	RankedEventDivisionChangeWindowNewSystem.cs:545	Shell/RankedDivisionChangeWindow.cs	UI 回调类（Awake/OnEnable/Draw/Click 等），我方以 Build/Refresh/Select 承接，方法级未逐句核：类级命中；方法级对应未核	建精确映射 + 逐句核
+个人资料/成就/排行	OnEnable()	B	B	RankedEventDivisionChangeWindowNewSystem.cs:538	Shell/RankedDivisionChangeWindow.cs	UI 回调类（Awake/OnEnable/Draw/Click 等），我方以 Build/Refresh/Select 承接，方法级未逐句核：类级命中；方法级对应未核	建精确映射 + 逐句核
+个人资料/成就/排行	SafetyInputEnabler(float additionalDelay)	B	B	RankedEventDivisionChangeWindowNewSystem.cs:562	Shell/RankedDivisionChangeWindow.cs	UI 回调类（Awake/OnEnable/Draw/Click 等），我方以 Build/Refresh/Select 承接，方法级未逐句核：类级命中；方法级对应未核	建精确映射 + 逐句核
+个人资料/成就/排行	CloseButton()	B	B	RankedEventSeasonEndedWindow.cs:402	Shell/RankedSeasonEndedWindow.cs	UI 回调类（Awake/OnEnable/Draw/Click 等），我方以 Build/Refresh/Select 承接，方法级未逐句核：类级命中；方法级对应未核	建精确映射 + 逐句核
+个人资料/成就/排行	OnDisable()	B	B	RankedEventSeasonEndedWindow.cs:387	Shell/RankedSeasonEndedWindow.cs	UI 回调类（Awake/OnEnable/Draw/Click 等），我方以 Build/Refresh/Select 承接，方法级未逐句核：类级命中；方法级对应未核	建精确映射 + 逐句核
+个人资料/成就/排行	OnEnable()	B	B	RankedEventSeasonEndedWindow.cs:380	Shell/RankedSeasonEndedWindow.cs	UI 回调类（Awake/OnEnable/Draw/Click 等），我方以 Build/Refresh/Select 承接，方法级未逐句核：类级命中；方法级对应未核	建精确映射 + 逐句核
+个人资料/成就/排行	CloseButton()	B	B	RankedEventSeasonEndedWindowOld.cs:219	Shell/RankedSeasonEndedWindow.cs	UI 回调类（Awake/OnEnable/Draw/Click 等），我方以 Build/Refresh/Select 承接，方法级未逐句核：类级命中；方法级对应未核	建精确映射 + 逐句核
+个人资料/成就/排行	Draw(LeaderboardResult result)	B	B	RankedEventSeasonEndedWindowOld.cs:114	Shell/RankedSeasonEndedWindow.cs	UI 回调类（Awake/OnEnable/Draw/Click 等），我方以 Build/Refresh/Select 承接，方法级未逐句核：类级命中；方法级对应未核	建精确映射 + 逐句核
+个人资料/成就/排行	OnDisable()	B	B	RankedEventSeasonEndedWindowOld.cs:208	Shell/RankedSeasonEndedWindow.cs	UI 回调类（Awake/OnEnable/Draw/Click 等），我方以 Build/Refresh/Select 承接，方法级未逐句核：类级命中；方法级对应未核	建精确映射 + 逐句核
+个人资料/成就/排行	OnEnable()	B	B	RankedEventSeasonEndedWindowOld.cs:201	Shell/RankedSeasonEndedWindow.cs	UI 回调类（Awake/OnEnable/Draw/Click 等），我方以 Build/Refresh/Select 承接，方法级未逐句核：类级命中；方法级对应未核	建精确映射 + 逐句核
+个人资料/成就/排行	CloseButton()	B	B	RankedEventStartSeasonWindow.cs:42	Shell/RankedNewSeasonWindow.cs	UI 回调类（Awake/OnEnable/Draw/Click 等），我方以 Build/Refresh/Select 承接，方法级未逐句核：类级命中；方法级对应未核	建精确映射 + 逐句核
+个人资料/成就/排行	OnDisable()	B	B	RankedEventStartSeasonWindow.cs:35	Shell/RankedNewSeasonWindow.cs	UI 回调类（Awake/OnEnable/Draw/Click 等），我方以 Build/Refresh/Select 承接，方法级未逐句核：类级命中；方法级对应未核	建精确映射 + 逐句核
+个人资料/成就/排行	OnEnable()	B	B	RankedEventStartSeasonWindow.cs:28	Shell/RankedNewSeasonWindow.cs	UI 回调类（Awake/OnEnable/Draw/Click 等），我方以 Build/Refresh/Select 承接，方法级未逐句核：类级命中；方法级对应未核	建精确映射 + 逐句核
+个人资料/成就/排行	ArmySelectedOnSelectArmy(CardArmy selectedArmy)	B	B	RankedEventWindowV2.cs:151	Shell/RankedEventWindow.cs	UI 回调类（Awake/OnEnable/Draw/Click 等），我方以 Build/Refresh/Select 承接，方法级未逐句核：类级命中；方法级对应未核	建精确映射 + 逐句核
+个人资料/成就/排行	BattleButtonClick()	B	B	RankedEventWindowV2.cs:255	Shell/RankedEventWindow.cs	UI 回调类（Awake/OnEnable/Draw/Click 等），我方以 Build/Refresh/Select 承接，方法级未逐句核：类级命中；方法级对应未核	建精确映射 + 逐句核
+个人资料/成就/排行	CloseButtonClick()	B	B	RankedEventWindowV2.cs:263	Shell/RankedEventWindow.cs	UI 回调类（Awake/OnEnable/Draw/Click 等），我方以 Build/Refresh/Select 承接，方法级未逐句核：类级命中；方法级对应未核	建精确映射 + 逐句核
+个人资料/成就/排行	HelpButtonClick()	B	B	RankedEventWindowV2.cs:280	Shell/RankedEventWindow.cs	UI 回调类（Awake/OnEnable/Draw/Click 等），我方以 Build/Refresh/Select 承接，方法级未逐句核：类级命中；方法级对应未核	建精确映射 + 逐句核
+个人资料/成就/排行	LeaderboardButtonClick()	B	B	RankedEventWindowV2.cs:268	Shell/RankedEventWindow.cs	UI 回调类（Awake/OnEnable/Draw/Click 等），我方以 Build/Refresh/Select 承接，方法级未逐句核：类级命中；方法级对应未核	建精确映射 + 逐句核
+个人资料/成就/排行	OnDisable()	B	B	RankedEventWindowV2.cs:67	Shell/RankedEventWindow.cs	UI 回调类（Awake/OnEnable/Draw/Click 等），我方以 Build/Refresh/Select 承接，方法级未逐句核：类级命中；方法级对应未核	建精确映射 + 逐句核
+个人资料/成就/排行	OnEnable()	B	B	RankedEventWindowV2.cs:48	Shell/RankedEventWindow.cs	UI 回调类（Awake/OnEnable/Draw/Click 等），我方以 Build/Refresh/Select 承接，方法级未逐句核：类级命中；方法级对应未核	建精确映射 + 逐句核
+个人资料/成就/排行	StartBattle()	B	B	RankedEventWindowV2.cs:300	Shell/RankedEventWindow.cs	UI 回调类（Awake/OnEnable/Draw/Click 等），我方以 Build/Refresh/Select 承接，方法级未逐句核：类级命中；方法级对应未核	建精确映射 + 逐句核
+个人资料/成就/排行	TryOpen(object data, GameWindowOptions options)	B	B	RankedEventWindowV2.cs:86	Shell/RankedEventWindow.cs	UI 回调类（Awake/OnEnable/Draw/Click 等），我方以 Build/Refresh/Select 承接，方法级未逐句核：类级命中；方法级对应未核	建精确映射 + 逐句核
+个人资料/成就/排行	GetArmyState(CardArmy army, IReadOnlyList<RankedScoreBoostEvent> extraBoosts)	B	A	RankedFastMode.cs:656	Shell/RankedData.cs ArmyState	等价：GetArmyState = RankedData.ArmyState（注释=原版 GetArmyState(army, extraBoosts)）	—
+个人资料/成就/排行	GetBaseData()	B	B	RankedFastMode.cs:288	Shell/RankedData.cs	数据层无同名方法（我方换名未定位）：类级命中；方法级对应未核	定位到我方方法 + 逐句核
+个人资料/成就/排行	GetWinner()	B	B	RankedMatchResult.cs:88	RuleEngine/Core/BattleContext.cs:353 Winner	数据层无同名方法（我方换名未定位）：类级命中；方法级对应未核	定位到我方方法 + 逐句核
+个人资料/成就/排行	SetBattleResult(BattleResult battleResult, BattleWinner battleWinner)	B	B	RankedMatchResult.cs:82	RuleEngine/Core/BattleContext.cs:353 Winner	数据层无同名方法（我方换名未定位）：类级命中；方法级对应未核	定位到我方方法 + 逐句核
+个人资料/成就/排行	OnInitialize(LiveOpsEvent playEvent)	B	B	RankedMenuContainer.cs:27	Shell/RankedTab.cs（Top4/center/传说支）	UI 回调类（Awake/OnEnable/Draw/Click 等），我方以 Build/Refresh/Select 承接，方法级未逐句核：类级命中；方法级对应未核	建精确映射 + 逐句核
+个人资料/成就/排行	Refresh()	B	B	RankedMenuContainer.cs:33	Shell/RankedTab.cs（Top4/center/传说支）	UI 回调类（Awake/OnEnable/Draw/Click 等），我方以 Build/Refresh/Select 承接，方法级未逐句核：类级命中；方法级对应未核	建精确映射 + 逐句核
+个人资料/成就/排行	RefreshContentDisplay(ILiveOps playEvent)	B	B	RankedMenuContainer.cs:92	Shell/RankedTab.cs（Top4/center/传说支）	UI 回调类（Awake/OnEnable/Draw/Click 等），我方以 Build/Refresh/Select 承接，方法级未逐句核：类级命中；方法级对应未核	建精确映射 + 逐句核
+个人资料/成就/排行	ToggleLegendaryRankInfo(bool option)	B	B	RankedMenuContainer.cs:206	Shell/RankedTab.cs（Top4/center/传说支）	UI 回调类（Awake/OnEnable/Draw/Click 等），我方以 Build/Refresh/Select 承接，方法级未逐句核：类级命中；方法级对应未核	建精确映射 + 逐句核
+个人资料/成就/排行	TogglePositionDisplay(bool option)	B	B	RankedMenuContainer.cs:225	Shell/RankedTab.cs（Top4/center/传说支）	UI 回调类（Awake/OnEnable/Draw/Click 等），我方以 Build/Refresh/Select 承接，方法级未逐句核：类级命中；方法级对应未核	建精确映射 + 逐句核
+个人资料/成就/排行	CloseButtonClick()	B	B	RankedRankingWindow.cs:278	Shell/LeaderboardWindow.cs	UI 回调类（Awake/OnEnable/Draw/Click 等），我方以 Build/Refresh/Select 承接，方法级未逐句核：类级命中；方法级对应未核	建精确映射 + 逐句核
+个人资料/成就/排行	Start()	B	B	RankedRankingWindow.cs:53	Shell/LeaderboardWindow.cs	UI 回调类（Awake/OnEnable/Draw/Click 等），我方以 Build/Refresh/Select 承接，方法级未逐句核：类级命中；方法级对应未核	建精确映射 + 逐句核
+个人资料/成就/排行	ToggleTab(LeaderboardTab tab, bool state)	B	B	RankedRankingWindow.cs:95	Shell/LeaderboardWindow.cs	UI 回调类（Awake/OnEnable/Draw/Click 等），我方以 Build/Refresh/Select 承接，方法级未逐句核：类级命中；方法级对应未核	建精确映射 + 逐句核
+个人资料/成就/排行	Awake()	B	B	RankedRewardEventWindow.cs:65	Shell/RankedRewardEventWindow.cs	UI 回调类（Awake/OnEnable/Draw/Click 等），我方以 Build/Refresh/Select 承接，方法级未逐句核：类级命中；方法级对应未核	建精确映射 + 逐句核
+个人资料/成就/排行	CloseButtonClick()	B	B	RankedRewardEventWindow.cs:85	Shell/RankedRewardEventWindow.cs	UI 回调类（Awake/OnEnable/Draw/Click 等），我方以 Build/Refresh/Select 承接，方法级未逐句核：类级命中；方法级对应未核	建精确映射 + 逐句核
+个人资料/成就/排行	OnDestroy()	B	B	RankedRewardEventWindow.cs:75	Shell/RankedRewardEventWindow.cs	UI 回调类（Awake/OnEnable/Draw/Click 等），我方以 Build/Refresh/Select 承接，方法级未逐句核：类级命中；方法级对应未核	建精确映射 + 逐句核
+个人资料/成就/排行	IsArmyAffectedAndHasBoostsLeft(CardArmy army)	B	A	Everguild.LiveOps/RankedScoreBoostEvent.cs:119	Shell/RankedData.cs RankedBoostEvent（Affects/BoostsLeftFor/WinsFor/Includes）	等价：IsArmyAffectedAndHasBoostsLeft = RankedBoostEvent.Affects + BoostsLeftFor（IsArmyAffected && BoostsLeft>0 两访问器合成）	—
+个人资料/成就/排行	GetWins(CardArmy army)	B	A	Everguild.LiveOps/RankedScoreBoostSave.cs:11	Shell/RankedData.cs RankedBoostEvent.WinsFor	等价：GetWins = RankedBoostEvent.WinsFor（= WinsByArmy[IndexOf(army)]）	—
+个人资料/成就/排行	Initialize()	B	B	RankedTab.cs:164	Shell/RankedTab.cs	UI 回调类（Awake/OnEnable/Draw/Click 等），我方以 Build/Refresh/Select 承接，方法级未逐句核：类级命中；方法级对应未核	建精确映射 + 逐句核
+个人资料/成就/排行	InitializeFactionScores(LeaderboardResult result)	B	B	RankedTab.cs:195	Shell/RankedTab.cs	UI 回调类（Awake/OnEnable/Draw/Click 等），我方以 Build/Refresh/Select 承接，方法级未逐句核：类级命中；方法级对应未核	建精确映射 + 逐句核
+个人资料/成就/排行	Setup(GameWindow window)	B	B	RankedTab.cs:118	Shell/RankedTab.cs	UI 回调类（Awake/OnEnable/Draw/Click 等），我方以 Build/Refresh/Select 承接，方法级未逐句核：类级命中；方法级对应未核	建精确映射 + 逐句核
+个人资料/成就/排行	Expire(Action onComplete)	B	B	Everguild.LiveOps/RankedV2Event.cs:1527	Shell/RankedData.cs（V2 传奇线写死 2500）+ Shell/RankedNewSeasonWindow.cs	数据层无同名方法（我方换名未定位）：类级命中；方法级对应未核	定位到我方方法 + 逐句核
+个人资料/成就/排行	MatchFoundCallback(string otherPlayerName)	B	B	Everguild.LiveOps/RankedV2Event.cs:878	Shell/RankedData.cs（V2 传奇线写死 2500）+ Shell/RankedNewSeasonWindow.cs	数据层无同名方法（我方换名未定位）：类级命中；方法级对应未核	定位到我方方法 + 逐句核
+个人资料/成就/排行	OnMatchFinished(float matchWon, RankedMatchResult result, Action<OnlineMatchResult> callback)	B	B	Everguild.LiveOps/RankedV2Event.cs:953	Shell/RankedData.cs（V2 传奇线写死 2500）+ Shell/RankedNewSeasonWindow.cs	数据层无同名方法（我方换名未定位）：类级命中；方法级对应未核	定位到我方方法 + 逐句核
+个人资料/成就/排行	OnMatchProcessSuccess(OnlineMatchResult result)	B	B	Everguild.LiveOps/RankedV2Event.cs:1162	Shell/RankedData.cs（V2 传奇线写死 2500）+ Shell/RankedNewSeasonWindow.cs	数据层无同名方法（我方换名未定位）：类级命中；方法级对应未核	定位到我方方法 + 逐句核
+个人资料/成就/排行	OnSeasonCollected(CollectedRewardsResult result)	B	B	Everguild.LiveOps/RankedV2Event.cs:1631	Shell/RankedData.cs（V2 传奇线写死 2500）+ Shell/RankedNewSeasonWindow.cs	数据层无同名方法（我方换名未定位）：类级命中；方法级对应未核	定位到我方方法 + 逐句核
+个人资料/成就/排行	OpenSeasonChangePopup(Action onComplete)	B	B	Everguild.LiveOps/RankedV2Event.cs:1598	Shell/RankedNewSeasonWindow.cs	UI 回调类（Awake/OnEnable/Draw/Click 等），我方以 Build/Refresh/Select 承接，方法级未逐句核：类级命中；方法级对应未核	建精确映射 + 逐句核
+个人资料/成就/排行	RecordMatchFinished(int matchWon, int targetMilestone, int enemyMilestone, Action<OnlineMatchResult> callbackOnSuccess)	B	B	Everguild.LiveOps/RankedV2Event.cs:1064	Shell/RankedData.cs（V2 传奇线写死 2500）+ Shell/RankedNewSeasonWindow.cs	数据层无同名方法（我方换名未定位）：类级命中；方法级对应未核	定位到我方方法 + 逐句核
+个人资料/成就/排行	StartMatch()	B	B	Everguild.LiveOps/RankedV2Event.cs:855	Shell/RankedData.cs（V2 传奇线写死 2500）+ Shell/RankedNewSeasonWindow.cs	数据层无同名方法（我方换名未定位）：类级命中；方法级对应未核	定位到我方方法 + 逐句核
+个人资料/成就/排行	GetCurrentRankedDivision()	B	A	Everguild.LiveOps/RankedV3Event.cs:1171	Shell/RankedData.cs CurrentDivision	等价：GetCurrentRankedDivision = RankedData.CurrentDivision（= DivisionOf(Points)，属性承接）	—
+个人资料/成就/排行	OnMatchFinished(float matchWon, RankedMatchResult result, Action<OnlineMatchResult> callback)	B	B	Everguild.LiveOps/RankedV3Event.cs:1275	Shell/RankedData.cs（ShouldShowSeasonChange/MarkSeasonCollected/ApplyMatchResult）+ BattleDriver 接线	数据层无同名方法（我方换名未定位）：类级命中；方法级对应未核	定位到我方方法 + 逐句核
+个人资料/成就/排行	OnMatchProcessSuccess(OnlineMatchResult result)	B	B	Everguild.LiveOps/RankedV3Event.cs:1386	Shell/RankedData.cs ApplyMatchResult	数据层无同名方法（我方换名未定位）：类级命中；方法级对应未核	定位到我方方法 + 逐句核
+个人资料/成就/排行	OnSeasonCollected(CollectedRewardsResult result)	B	B	Everguild.LiveOps/RankedV3Event.cs:2050	Shell/RankedData.cs（ShouldShowSeasonChange/MarkSeasonCollected/ApplyMatchResult）+ BattleDriver 接线	数据层无同名方法（我方换名未定位）：类级命中；方法级对应未核	定位到我方方法 + 逐句核
+个人资料/成就/排行	OpenSeasonChangePopup(Action onComplete)	B	B	Everguild.LiveOps/RankedV3Event.cs:2021	Shell/RankedNewSeasonWindow.cs	UI 回调类（Awake/OnEnable/Draw/Click 等），我方以 Build/Refresh/Select 承接，方法级未逐句核：类级命中；方法级对应未核	建精确映射 + 逐句核
+个人资料/成就/排行	RecordMatchFinished(int matchWon, int targetMilestone, int enemyMilestone, Action<OnlineMatchResult> callbackOnSuccess)	B	B	Everguild.LiveOps/RankedV3Event.cs:1880	Shell/RankedData.cs ApplyMatchResult	数据层无同名方法（我方换名未定位）：类级命中；方法级对应未核	定位到我方方法 + 逐句核
+个人资料/成就/排行	Initialize(int points, int seasonNumber, DateTime? endDate, int? position, bool isPlayer, PlayModes playMode)	B	B	RankingDisplay.cs:30	Shell/RankedDivisionInfo.cs	UI 回调类（Awake/OnEnable/Draw/Click 等），我方以 Build/Refresh/Select 承接，方法级未逐句核：类级命中；方法级对应未核	建精确映射 + 逐句核
+个人资料/成就/排行	Start()	B	B	TrophyInfoPopup.cs:58	Shell/TrophyInfoPopup.cs	UI 回调类（Awake/OnEnable/Draw/Click 等），我方以 Build/Refresh/Select 承接，方法级未逐句核：类级命中；方法级对应未核	建精确映射 + 逐句核
+个人资料/成就/排行	AllowChangeSeason(bool val)	B	B	UIRankingListController.cs:232	Shell/LeaderboardWindow.cs	UI 回调类（Awake/OnEnable/Draw/Click 等），我方以 Build/Refresh/Select 承接，方法级未逐句核：类级命中；方法级对应未核	建精确映射 + 逐句核
+个人资料/成就/排行	ChangeSeasonButtonClick()	B	B	UIRankingListController.cs:227	Shell/LeaderboardWindow.cs	UI 回调类（Awake/OnEnable/Draw/Click 等），我方以 Build/Refresh/Select 承接，方法级未逐句核：类级命中；方法级对应未核	建精确映射 + 逐句核
+个人资料/成就/排行	ChangeSeasonRankingView(bool optionShowCurrent)	B	B	UIRankingListController.cs:238	Shell/LeaderboardWindow.cs	UI 回调类（Awake/OnEnable/Draw/Click 等），我方以 Build/Refresh/Select 承接，方法级未逐句核：类级命中；方法级对应未核	建精确映射 + 逐句核
+个人资料/成就/排行	Initialize(RankingListDataProvider dataProvider)	B	B	UIRankingListController.cs:80	Shell/LeaderboardWindow.cs	UI 回调类（Awake/OnEnable/Draw/Click 等），我方以 Build/Refresh/Select 承接，方法级未逐句核：类级命中；方法级对应未核	建精确映射 + 逐句核
+个人资料/成就/排行	OnDestroy()	B	B	UIRankingListController.cs:73	Shell/LeaderboardWindow.cs	UI 回调类（Awake/OnEnable/Draw/Click 等），我方以 Build/Refresh/Select 承接，方法级未逐句核：类级命中；方法级对应未核	建精确映射 + 逐句核
+个人资料/成就/排行	Refresh(RankingListDataProvider.RankingType type)	B	B	UIRankingListController.cs:146	Shell/LeaderboardWindow.cs	UI 回调类（Awake/OnEnable/Draw/Click 等），我方以 Build/Refresh/Select 承接，方法级未逐句核：类级命中；方法级对应未核	建精确映射 + 逐句核
+个人资料/成就/排行	SetHighlightedRow(RankingRowData rowData)	B	B	UIRankingListController.cs:174	Shell/LeaderboardWindow.cs	UI 回调类（Awake/OnEnable/Draw/Click 等），我方以 Build/Refresh/Select 承接，方法级未逐句核：类级命中；方法级对应未核	建精确映射 + 逐句核
+个人资料/成就/排行	SetRanking(List<RankingRowData> rankingRowData)	B	B	UIRankingListController.cs:184	Shell/LeaderboardWindow.cs	UI 回调类（Awake/OnEnable/Draw/Click 等），我方以 Build/Refresh/Select 承接，方法级未逐句核：类级命中；方法级对应未核	建精确映射 + 逐句核
+个人资料/成就/排行	SetSubMenu(bool state, IReadOnlyList<CardArmy> armies, Action<CardArmy> onClick)	B	B	UIRankingListController.cs:102	Shell/LeaderboardWindow.cs	UI 回调类（Awake/OnEnable/Draw/Click 等），我方以 Build/Refresh/Select 承接，方法级未逐句核：类级命中；方法级对应未核	建精确映射 + 逐句核
+个人资料/成就/排行	SetTimer(DateTime? time)	B	B	UIRankingListController.cs:112	Shell/LeaderboardWindow.cs	UI 回调类（Awake/OnEnable/Draw/Click 等），我方以 Build/Refresh/Select 承接，方法级未逐句核：类级命中；方法级对应未核	建精确映射 + 逐句核
+个人资料/成就/排行	SetTitle(LocalizedString text)	B	B	UIRankingListController.cs:138	Shell/LeaderboardWindow.cs	UI 回调类（Awake/OnEnable/Draw/Click 等），我方以 Build/Refresh/Select 承接，方法级未逐句核：类级命中；方法级对应未核	建精确映射 + 逐句核
+个人资料/成就/排行	ShowHighlightedRow(bool state)	B	B	UIRankingListController.cs:168	Shell/LeaderboardWindow.cs	UI 回调类（Awake/OnEnable/Draw/Click 等），我方以 Build/Refresh/Select 承接，方法级未逐句核：类级命中；方法级对应未核	建精确映射 + 逐句核
+个人资料/成就/排行	Start()	B	B	UIRankingListController.cs:66	Shell/LeaderboardWindow.cs	UI 回调类（Awake/OnEnable/Draw/Click 等），我方以 Build/Refresh/Select 承接，方法级未逐句核：类级命中；方法级对应未核	建精确映射 + 逐句核
+个人资料/成就/排行	Config(RankingRowData data)	B	B	UIRankingRow.cs:22	Shell/LeaderboardRow.cs	UI 回调类（Awake/OnEnable/Draw/Click 等），我方以 Build/Refresh/Select 承接，方法级未逐句核：类级命中；方法级对应未核	建精确映射 + 逐句核
+个人资料/成就/排行	Hide()	B	B	UIRankingRow.cs:52	Shell/LeaderboardRow.cs	UI 回调类（Awake/OnEnable/Draw/Click 等），我方以 Build/Refresh/Select 承接，方法级未逐句核：类级命中；方法级对应未核	建精确映射 + 逐句核
+个人资料/成就/排行	ToggleComponents(bool value)	B	B	UIRankingRow.cs:59	Shell/LeaderboardRow.cs	UI 回调类（Awake/OnEnable/Draw/Click 等），我方以 Build/Refresh/Select 承接，方法级未逐句核：类级命中；方法级对应未核	建精确映射 + 逐句核

@@ -153,6 +153,12 @@ class PlayProbe
         /// （空串 = 这一张没走 pick / 目标池是空的 ⇒ 没点）。见 <see cref="PresetSpec.Pick"/>。
         /// ⚠️ 它**不进** `Fingerprint` / `FingerprintRow`（同 `PlayOrder`），只作 dump 的**附加列**。</summary>
         public string PickTarget = "";
+        /// <summary>🆕 **2026-10-27（`B9_E5ENG`）**：终局棋盘每格的 `AttacksThisTurn` / `Exhausted`
+        /// （形状见 <see cref="Snap.ActCnt"/> / <see cref="UnitNumCol"/>；`P0… ‖ P1…`）。
+        /// 🔴 **进** `FingerprintRow`（= 进结算指纹，会改 `PinnedPlayMd5`）——
+        /// 它们原来是**结构性盲区**：实测把强制攻击的入队预扣注掉，指纹逐字节不变。
+        /// ⚠️ 与 `PlayOrder` / `PickTarget` **相反**：那两列刻意**不进**指纹，这两列**必须进**。</summary>
+        public string AtkCount = "", Exh = "";
         public int EnergyDelta;              // 能量净变动（读数用）
         public int HandCostDelta;            // 手牌总价净变动（读数用）
         /// <summary>打出去之后**引擎自己的事件日志**末尾几行 —— 🔴 少了它，「什么都没发生」就只能靠猜；
@@ -180,6 +186,15 @@ class PlayProbe
         public readonly int[] Quest = new int[2];
         public readonly int[] Dmg = new int[2];
         public readonly int[] Troops = new int[2];
+        /// <summary>🆕 **2026-10-27（`B9_E5ENG`）：棋盘每格的 `AttacksThisTurn` / `Exhausted` 读数。**
+        /// 形状见 <see cref="UnitNumCol"/>（`P0[3]=1 P0[5]=2`；只收**有人那格 · 非 0 值** ⇒
+        /// 空串 = 全员 0 / 全员未疲劳，这样「0→1」「1→2」都看得见而 dump 不被刷屏）。
+        /// 🔴 **为什么必须加**：这两格**从来不在任何指纹里**（<see cref="Cell"/> 只打 攻/远/甲/血/关键词）
+        /// ⇒ `play check` 对「强制攻击少扣/多扣一次行动额度」「疲劳位算错」这一整族**结构性失明**。
+        /// **实测实证**（2026-10-27）：把 `RuleCore.DeclareAttackRefundingForced` 的**入队预扣**注掉再跑，
+        /// 结算指纹 `517be27d…` **逐字节相同**、逐卡差异也相同 —— 那就是这个盲区的证明。</summary>
+        public readonly string[] ActCnt = new string[2];
+        public readonly string[] Exh = new string[2];
     }
 
     // ==================================================================
@@ -1197,6 +1212,9 @@ class PlayProbe
 
         var after = Capture(ctx);
         r.PlayOrder = PlayOrderCol(ctx);
+        // 🆕 2026-10-27（`B9_E5ENG`）：计数类两格（进结算指纹 —— 见 `Reading.AtkCount` 的 doc）
+        r.AtkCount = after.ActCnt[0] + " ‖ " + after.ActCnt[1];
+        r.Exh = after.Exh[0] + " ‖ " + after.Exh[1];
         Diff(before, after, r.Changes);
         r.LogTail = ctx.Events.Skip(Math.Max(0, ctx.Events.Count - 14)).ToList();
         r.Before = Fingerprint(before);
@@ -1291,6 +1309,9 @@ class PlayProbe
             r.Changes.Insert(0, "★ 督军格（本卡在场）" + wa + "  ‖ 对照局（空督军）" + wb);
         r.Before = "";
         r.After = Fingerprint(a.End);
+        // 🆕 2026-10-27（`B9_E5ENG`）：督军档同样收计数两格（否则这一档仍是盲区）
+        r.AtkCount = a.End.ActCnt[0] + " ‖ " + a.End.ActCnt[1];
+        r.Exh = a.End.Exh[0] + " ‖ " + a.End.Exh[1];
         r.Played = true;
         r.Other = r.Changes.Count;      // 督军档不分类（付费/落场那套不适用），全部算「净变化」
     }
@@ -1491,6 +1512,11 @@ class PlayProbe
         public int NetDmg;               // 净伤害（两边 `DamageToEnemy[0]` 之差）
         public string Crash;
         public string Note = "";
+        /// <summary>🆕 **2026-10-27（`B9_E5ENG`）**：电池局**终局**棋盘的 `AttacksThisTurn` / `Exhausted`
+        /// （`P0… ‖ P1…`，形状见 `UnitNumCol`）。🔴 **进** `FingerprintERow`（= 进电池指纹）。
+        /// ⚠️ 它**不是**「电池净差」的一部分（那一条走 `Net`）—— 它只回答「终局那两个位是什么」，
+        /// 用来让「行动计数 / 疲劳位」这一族在电池档也照得到（原来两档都全盲）。</summary>
+        public string AtkCount = "", Exh = "";
     }
 
     /// <summary>空正文替身 —— **同 id / 同卡名 / 同类型 / 同印数 / 同兵种 / 同关键词标记，
@@ -2115,6 +2141,8 @@ class PlayProbe
             r.PlayRc = a.PlayRc;
             r.Played = a.Played;
             r.Raw = a.Changes.Count;
+            // 🆕 2026-10-27（`B9_E5ENG`）：计数两格（放进电池指纹；早退那几条也带上）
+            if (a.End != null) { r.AtkCount = a.End.ActCnt[0] + " ‖ " + a.End.ActCnt[1]; r.Exh = a.End.Exh[0] + " ‖ " + a.End.Exh[1]; }
             if (!a.Played) { r.Note = "电池没起步（出牌 rc=" + CodeName(a.PlayRc) + "）"; return r; }
             var b = RunEventPass(pool, Blank(card), preset);
             r.CtrlPlayed = b.Played;
@@ -2203,6 +2231,9 @@ class PlayProbe
             s.Quest[p] = ps.QuestPoints;
             s.Dmg[p] = ctx.DamageToEnemy[p];
             s.Troops[p] = ctx.TroopsPlayed[p];
+            // 🆕 2026-10-27（`B9_E5ENG`）：计数类两格（见 `Snap.ActCnt` / `Snap.Exh` 的 doc）
+            s.ActCnt[p] = UnitNumCol(ctx, p, false);
+            s.Exh[p] = UnitNumCol(ctx, p, true);
         }
         return s;
     }
@@ -2280,10 +2311,35 @@ class PlayProbe
              + "\n     P0 棋盘 " + Board(s.Cells[0])
              + "\n     P1 棋盘 " + Board(s.Cells[1])
              + "   （P1 能=" + s.Energy[1] + " 手=" + List(s.HandIds[1]) + " 库=" + s.DeckIds[1].Count
-             + " 弃=" + List(s.DiscIds[1]) + " 伤害=" + s.Dmg[1] + "）";
+             + " 弃=" + List(s.DiscIds[1]) + " 伤害=" + s.Dmg[1] + "）"
+             // 🆕 2026-10-27（`B9_E5ENG`）：计数类两格（`AttacksThisTurn` / `Exhausted`）—— 原来**全盲**
+             + "\n     行动计数 " + s.ActCnt[0] + " ‖ " + s.ActCnt[1]
+             + "   疲劳位 " + s.Exh[0] + " ‖ " + s.Exh[1];
     }
 
     static string List(List<string> l) { return l.Count == 0 ? "(空)" : "[" + string.Join(",", l) + "]"; }
+
+    /// <summary>🆕 **2026-10-27（`B9_E5ENG`）**：棋盘上每格的 `AttacksThisTurn`（`exhausted:false`）
+    /// 或 `Exhausted`（`exhausted:true`）摊成一串，供 <see cref="Snap"/> 收进指纹。
+    /// 形状 = `P0[3]=1 P0[5]=2`（**只收有人那格 · 只打非 0 值** ⇒ 空串 = 全员 0 / 全员未疲劳；
+    /// 这样 dump 不会被每个单位刷一格、而「0→1」「1→2」照样看得见）；
+    /// 顺序 = **格号升序**（确定性，不依赖任何遍历序）。
+    /// ⚠️ `ctx == null` ⇒ 空串（⛔ 不编一个假读数出来，同 `PlayOrderCol`）。</summary>
+    static string UnitNumCol(BattleContext ctx, int p, bool exhausted)
+    {
+        if (ctx == null) return "";
+        var sb = new StringBuilder();
+        for (int s = 0; s < BoardSpec.Size; s++)
+        {
+            var u = ctx.Players[p].Board[s];
+            if (u == null) continue;
+            int v = exhausted ? (u.Exhausted ? 1 : 0) : u.AttacksThisTurn;
+            if (v == 0) continue;                 // 0 = 默认值 ⇒ 不打（空列 = 全员 0 / 未疲劳）
+            if (sb.Length > 0) sb.Append(' ');
+            sb.Append('P').Append(p).Append('[').Append(s).Append("]=").Append(v);
+        }
+        return sb.ToString();
+    }
 
     /// <summary>手牌里一张牌的读数键 —— 🔴 **带上它的手牌增益条数**：
     /// 手牌加成（`Give +1 [Attack] to a random troop in your hand`，`GOF100`）**不改卡的定义、也不改棋盘**，
@@ -2672,7 +2728,11 @@ class PlayProbe
                   + "\tplayOrder"
                   // 🆕 `P3`（2026-10-26）：`preset pick=1` 实际点定的那个目标（空 = 没走 pick / 目标池空）。
                   //   同样**只加在末尾**、同样**不进**结算指纹。
-                  + "\tpickTarget\n");
+                  + "\tpickTarget"
+                  // 🆕 2026-10-27（`B9_E5ENG`）：计数类两列 —— **只加在末尾**（前面的列一个字没动）。
+                  //   形如 `P0[3]=1 P0[5]=2 ‖ P1[3]=1`（`UnitNumCol`；空 = 全员 0 / 未疲劳）。🔴 与 `playOrder` / `pickTarget`
+                  //   **相反**：这两列**进**结算指纹（`FingerprintRow`）⇒ 加它们**一定要重钉** `PinnedPlayMd5`。
+                  + "\tatkCount\texhausted\n");
         var pfRows = new List<string>();      // 🆕 `A1431` 第二笔：**结算指纹**（逐卡一行，见 `FingerprintRow`）
         var ecRows = new List<string>();      // 🆕 `A1431` 第三笔：**事件电池**（`E|` 前缀那一套，见 `FingerprintERow`）
         var ecReads = new List<EventReading>();   // 电池档的读数（末尾那两节要按档统计）
@@ -2746,6 +2806,9 @@ class PlayProbe
               .Append('\t').Append(r.PlayOrder)
               // 🆕 `P3`：`pickTarget` 列（`preset pick=1` 实际点定的目标；空 = 没走 pick / 目标池空）
               .Append('\t').Append(r.PickTarget.Replace('\t', ' ').Replace('\n', ' '))
+              // 🆕 2026-10-27（`B9_E5ENG`）：计数两列（末尾；见 `Snap.ActCnt` / `UnitNumCol`）
+              .Append('\t').Append(r.AtkCount)
+              .Append('\t').Append(r.Exh)
               .Append('\n');
         }
 
@@ -3404,7 +3467,7 @@ class PlayProbe
     //    ⛔ **另外三颗指纹原样不动**：`PinnedPoolMd5`（卡池没改）· `PinnedParseMd5`（`check` 现跑
     //      解析差异仍 0 行、输出指纹 ✓）· `PinnedBaselineMd5`（`基线/out_baseline.txt` 没重生成）。
     //    判据全文 → `资料/普查产出_1025/E6_十三行接闸.md` §五·2 / §六。
-    public const string PinnedPlayMd5 = "1b40f42ab010e623e908fcd4a236205f";  // 🔴 2026-10-26 重钉（第八十四会话同步点）：本会话引擎改动 = BL47 解析修正（`EffectText` 加法型反向正则）· 附魔摘除改排队摘（`481`）· `pendingHealing` 治疗收尾清（含满血/溢疗支）· 残骸原地翻回（`DoReanimate`）· P-06 接 `Aura.RefreshInPlayNumericAndKeywords`（`BL18`/`UM18` 各 +4）· P-05 残骸 `Has` 闸（`SW25`）⇒ 主档 1 张（`BL47`）· 电池 3 张（`BL18`/`SW25`/`UM18`）；每条已由各写手做 A/B 隔离归因。上一版 = af8e8178… ｜ 🔴 2026-10-26 重钉（第八十三会话同步点）：伏击/landing **续打一记**（`A1`/`A3` 查实原版两支都压一条 `BattleActionType=1` 续攻、出队后再进 `_ResolveAttack` ⇒ 12 张 `ambush` 卡从「**零次攻击**」变成「一次」）。电池段 **5 张变**（GSC11/GSC15/GSC25/GSC69/GSC7），`A3` 做过 A/B 实证：**不是卡行为变了**，是控制臂 `Blank(card)` 保留了 `ambush` 关键词、现在也面朝下，与真卡逐字相同被净差减掉（插桩证明两版 a/b 条数完全相同 45/43，只 `b` 里一行内容变了）。主档 1128 张**逐字节一致**。上一版 = 6e888bbe… ｜ 🔴 2026-10-26 重钉（第八十二会话同步点）：本会话引擎改动（残骸清 trait / 灵魂石按阵营 / 相邻目标 / 5 条广播收窄 / 强制攻击退还 / 探针夹具阵营改 SaimHann） ｜ 🔴 2026-10-26 重钉（第八十一会话 · 调度台收尾同步点）：**G14 的「死后相邻单位」效果修好** —— 那 5 张卡原本「卡面写着、我们不打」，现在照卡面生效 ⇒ 主档 **5 张变**（ASH54 dmg 8→12 · ASH73 伤害累计 8→13 且督军 28→26 · SAU56 dmg 0→3 · Particle Whip · None Must Know 眩晕督军 1），**事件电池 586 张逐字节一致**（零外溢）。逐条核对过「都是这 5 张、无新回归」。⚠️ 探针对**归一化内容**算的（文件原始 md5 另算，别混）。上一版 = 39c4f77e…
+    public const string PinnedPlayMd5 = "0766fbe1f712696f4e57d2b7cfeb8f38";  // 🔴 2026-10-27 重钉（第八十五会话同步点 · 两笔探针口径改动）：① 新增 `atkCount`/`exhausted` 两列（原先对「计数类偏离」**全盲**，`E5ENG` 用 ON/OFF 对照实验实测坐实）；② `Program.LoadPool` 在逐卡循环里给 `Core/ForcedAttackRefund.Install` 灌 `chosenAbility`（原先探针里那份 `Data/` partial 走 `Resources.Load`、恒 null ⇒ **一律退还** ⇒ 计数必然回 0，是**量具失真**）。②的影响面**恰好 1 张**：`GOF93`（235 不退还族）`atkCount` 由空变 `P0[2]=1`，其余 1127 张逐列全等、电池 586 张逐字节一致。⚠️ **`atkCount` 只是「退款 / 行动额度记账」的哨兵，⛔ 不是「攻击发生没发生」的读数**。上一版 = 79057e33… ｜ 🔴 2026-10-27 重钉（第八十五会话 · `E1RNG` P-04 随机源）：结算随机改成**原版形状** = 开局预烧 100 个整数 + 游标按下标取（`MatchData__GenerateRandomNumbers.c:1-40` / `MatchData__GetRandomInt.c:8-40`），洗牌也从 Fisher–Yates 改成**原版「按名次挑选」**（`SupportMethods__GetRandomOrder.c:1-98`）⇒ 全池 `ctx.Rng.Next` 清零，结算路径只剩烧表那一行。差异面 = **主档 100 张 / 电池 76 张**，逐族归因与完整 id 清单见 `资料/完全复刻/报告/B9_E1RNG_随机源P04.md` §5.2/§5.3（`dmg` 变值 15 张，其余是「随机挑到哪一张」变了）。上一版 = 1b40f42a… ｜ 🔴 2026-10-26 重钉（第八十四会话同步点）：本会话引擎改动 = BL47 解析修正（`EffectText` 加法型反向正则）· 附魔摘除改排队摘（`481`）· `pendingHealing` 治疗收尾清（含满血/溢疗支）· 残骸原地翻回（`DoReanimate`）· P-06 接 `Aura.RefreshInPlayNumericAndKeywords`（`BL18`/`UM18` 各 +4）· P-05 残骸 `Has` 闸（`SW25`）⇒ 主档 1 张（`BL47`）· 电池 3 张（`BL18`/`SW25`/`UM18`）；每条已由各写手做 A/B 隔离归因。上一版 = af8e8178… ｜ 🔴 2026-10-26 重钉（第八十三会话同步点）：伏击/landing **续打一记**（`A1`/`A3` 查实原版两支都压一条 `BattleActionType=1` 续攻、出队后再进 `_ResolveAttack` ⇒ 12 张 `ambush` 卡从「**零次攻击**」变成「一次」）。电池段 **5 张变**（GSC11/GSC15/GSC25/GSC69/GSC7），`A3` 做过 A/B 实证：**不是卡行为变了**，是控制臂 `Blank(card)` 保留了 `ambush` 关键词、现在也面朝下，与真卡逐字相同被净差减掉（插桩证明两版 a/b 条数完全相同 45/43，只 `b` 里一行内容变了）。主档 1128 张**逐字节一致**。上一版 = 6e888bbe… ｜ 🔴 2026-10-26 重钉（第八十二会话同步点）：本会话引擎改动（残骸清 trait / 灵魂石按阵营 / 相邻目标 / 5 条广播收窄 / 强制攻击退还 / 探针夹具阵营改 SaimHann） ｜ 🔴 2026-10-26 重钉（第八十一会话 · 调度台收尾同步点）：**G14 的「死后相邻单位」效果修好** —— 那 5 张卡原本「卡面写着、我们不打」，现在照卡面生效 ⇒ 主档 **5 张变**（ASH54 dmg 8→12 · ASH73 伤害累计 8→13 且督军 28→26 · SAU56 dmg 0→3 · Particle Whip · None Must Know 眩晕督军 1），**事件电池 586 张逐字节一致**（零外溢）。逐条核对过「都是这 5 张、无新回归」。⚠️ 探针对**归一化内容**算的（文件原始 md5 另算，别混）。上一版 = 39c4f77e…
 
 
     /// <summary>`play check` 的缺省基线 —— **按名字往上找**（形状照 `Program.CheckMain.DefaultBaseline`，
@@ -3431,6 +3494,9 @@ class PlayProbe
         "id", "type", "warlord", "playRc", "played", "faceOps", "selfPlace", "mech", "other",
         "expectedPay", "energyDelta", "handCostDelta", "dmg", "changes", "crash", "bucket",
         "fixtureFit", "injected", "changesFull",
+        // 🆕 2026-10-27（`B9_E5ENG`）：计数类两列（**只加在末尾**）。
+        //   🔴 它们**进**指纹（不是 `PlayOrder` 那种附加列）—— 那正是本笔的目的。
+        "atkCount", "exhausted",
     };
 
     /// <summary>一张卡的**结算指纹行**（`A1431` 第二笔）。列见 <see cref="PfCols"/>。
@@ -3449,6 +3515,8 @@ class PlayProbe
             r.Changes.Count.ToString(), One(r.Crash), r.Bucket,
             One(FitTag(c)), r.Injected ? "1" : "0",
             One(string.Join(";", r.Changes)),
+            // 🆕 2026-10-27（`B9_E5ENG`）：计数两列（末尾；见 `PfCols`）
+            One(r.AtkCount), One(r.Exh),
         });
     }
 
@@ -3485,6 +3553,9 @@ class PlayProbe
     {
         "id", "type", "bucket", "cand", "playRc", "played", "ctrlPlayed", "steps", "raw", "ctrl",
         "net", "netDmg", "note", "netFull",
+        // 🆕 2026-10-27（`B9_E5ENG`）：计数两列（**只加在末尾**；取值 = 电池局**终局**那两格，
+        //   见 `EventReading.AtkCount`）。电池档原来对「行动计数 / 疲劳位」同样全盲。
+        "atkCount", "exhausted",
     };
 
     /// <summary>一张卡的**事件电池指纹行**（`A1431` 第三笔）。列见 <see cref="PfECols"/>。
@@ -3500,6 +3571,8 @@ class PlayProbe
             r.Raw.ToString(), r.Ctrl.ToString(), r.Net.Count.ToString(),
             r.NetDmg.ToString(), One(r.Note),
             One(string.Join(";", r.Net)),
+            // 🆕 2026-10-27（`B9_E5ENG`）：计数两列（末尾；见 `PfECols`）
+            One(r.AtkCount), One(r.Exh),
         });
     }
 

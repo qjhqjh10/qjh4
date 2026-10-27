@@ -232,7 +232,54 @@ EXTRA_CUES = ["Reward open item by item", "CardStartDrag",
               #      所以本 cue 是「登记 + 重跑导入」才真的会响。
               #   · 参数（资产实读）：`CardClick 1` pitch 0.8–1.1 / vol 1–1 / ttp 0.1；
               #     `DeckClick 1` pitch 1.0 / vol 1–1 / ttp 0.1。
-              "CardClick 1", "DeckClick 1"]
+              "CardClick 1", "DeckClick 1",
+              # —— 🆕 **2026-10-27（音频线 `B9` · 执行代理 `B2AU6`）：cue→WindowSounds 映射表里那 37 条缺口的 35 条**
+              #   判据 → `资料/完全复刻/报告/B9_B2AU6_cue映射补缺.md` ①/②：
+              #   · 逐条核过 `d:/2/新解包资源/assets_full/bundle_soundcollection_assets_all/AudioClip/` **37/37 全在**
+              #     （35 `.wav` + 2 `.ogg`）；我们 `Resources/Art/audio/**` 里 35 条**一个都没有**（模糊匹配也 0）。
+              #   · **本脚本推不出它们**：这 35 条既不是 AnimFX `sounds/exitSounds` 的、也不是 `collisionEvent`
+              #     的 PlaySound（它们分别来自战场环境事件、抽卡开包、能量累积、锻造、排位印章、Raid 领奖 …）
+              #     ⇒ 只能在这里声明。⚠️ 反向查漏本来就点到了其中 3 条（`Asteroid Zone` / `ButtonClick 1` / `Dawn Attack`，
+              #     出处 = `WarpforgeArena1/Editor/AnimFXCheck.cs` 与 `Shell/ItemDrawer.cs`）⇒ 我们**代码侧已经在按名字播**。
+              #   · ⚠️ **`Draft Pack Finish Animation`（148）与 `Draft Prebuilt Pack preview`（150）是两条 cue
+              #     但共用同一个 clip `UI Click Card 3`** ⇒ 导入 1 个文件、建 2 条条目（别导两遍）。
+              #   · ⚠️ cue 名 ≠ clip 名：`Booster Open Orks` → `Open_Cardpack_Goff.wav`、
+              #     `Star Orbit` → `Dark Angels Sun Orbit.wav`、`Webway Rift` → `Aeldari Blackout.wav`、
+              #     `Orbital Initial` → `Orbital Initial ringing.wav`、`Daemonic Feast` → `Black Legion Daemonic Feast.wav`
+              #     ⇒ ⛔ 别拿 cue 名去 `Resources/` 找文件。
+              #   —— UI 侧（18 条）——
+              "Booster Open AstraMilitarum", "Booster Open BlackLegion",
+              "Booster Open Emperors Children", "Booster Open Orks",
+              "Booster Open SaimHann", "Booster Open Sororitas", "Booster Open Tau",
+              "ButtonClick 1", "Deck Editing Valid Deck",
+              "Draft Pack Appear", "Draft Pack Finish Animation",
+              "Draft Pack Selected Moving", "Draft Prebuilt Pack preview",
+              "Energy Accumulated", "Energy Accumulated Used",
+              "Forge Card", "Gacha vault open", "Ranked Seal SFX",
+              "UI Raid Claim Reward Ching", "UI Raid Claim Reward Wait",
+              #   —— 战场环境侧（17 条；⚠️ 11 条是**环境事件音**，不是一次性 UI 音）——
+              "Asteroid Zone", "Daemonic Feast", "Dawn Attack", "Everstorm", "Factory Overdrive",
+              "Firestorm Loop", "First Light", "Full Moon", "Immortal Beams", "Orbital Initial",
+              "Orks Dust Storm Start", "Star Orbit", "Sump Overspill",
+              "Tau Electro-Static Interference", "Toxic Fumes Start", "Warp Storm", "Webway Rift",
+              # —— 🆕 **2026-10-27（`B2AU` 第九批 → 第十四批订正）：反向查漏剩下的 3 个**
+              #   🔴 **`Cardmove` 已被本批【撤销】（2026-10-27，铁律 5 就地订正）**：我第九批把它当「真 cue」收进来了，**错**。
+              #     · 判据（`D3OT` 现核 + 我复核）：真正的换位 cue 是 **`CardMove`（大写 M）**，它**本来就在**
+              #       `EXTRA_CUES` 里（见上面那一段 191-192 行早就写明的「小写 `Cardmove` 是另一个 1-clip cue、**本笔不要它**」）。
+              #     ② 我给的依据 `Editor/SoundCueAssertT.cs:77` **读反了** —— 那一行恰恰是**禁止** `Cardmove` 的断言文案。
+              #     ③ **全仓零生产消费点**（`grep` 现核：只有断言/注释提到，没有任何播放口按这个名字播）。
+              #     · `Cardmove.json` 确实是个**独立资产**（`m_Name = Cardmove`，1 个 clip = pid `-6740773956303463874`，
+              #       pitch 1.0 / ttp 0.1；与 `Draft Mode Warlord Appear` **共用同一个 clip**），
+              #       但**没人引用** ⇒ 它属于「反向查漏的报表」那一档，⛔ **不该塞进 cue 表**（塞进来会让
+              #       `CardFaceAssertE5` 的一条断言红：表里多了个现代码里不存在的名字）。
+              #     ⚠️ 坑：本机**文件名大小写不敏感** —— 我第九批打开 `CardMove.json` 实际读到的是 `Cardmove.json`
+              #       （Windows 上 `CardMove.json` 不存在、被解析到 `Cardmove.json`），这就是当时误判的直接原因。
+              #   · `Draft Mode Loss Jingle` / `Draft Mode Warlord Appear` —— 包里有同名 cue 包装；
+              #     消费点 = `Shell/DraftModeWindow.cs:2648` / `:3536`（我们代码**已经在按名字播**，只是表里没有 ⇒ 静音）。
+              #     参数：`Loss Jingle` pitch 1.0 / vol 1.0 / ttp 0.1；`Warlord Appear` pitch 0.8–1.199 · vol 0.8 · ttp **0**。
+              #   ⇒ 这两条是「我们有名字、原版资产在本地、表里没有」= 真缺（属轮抽线）。
+              "Draft Mode Loss Jingle", "Draft Mode Warlord Appear",
+              ]
 
 # 🔴 **2026-10-16（A828）第三来源 —— `collisionEvent` 上的 `PlaySound`。**
 #   `AnimFXModuleCollisions` 的 `collisionAndParticles[i].particleSystemsDefinition[j].collisionEvent`
@@ -428,6 +475,13 @@ CODE_ONLY_KNOWN = {
     "CardShatter": "同上（残骸线）",
     "NecronsCardReanimate": "同上（残骸线）",
     "RemnantsDestroyed": "同上（残骸线）",
+    # 🆕 **2026-10-27（`B2AU` 第十四批）：`Cardmove`（小写 m）—— ⛔ 不入 cue 表，登记在这里**
+    "Cardmove": "**独立资产但零生产消费点**（`bundle_soundcollection_assets_all/MonoBehaviour/Cardmove.json`，"
+                "`m_Name = Cardmove`，1 个 clip = pid `-6740773956303463874`，pitch 1.0 / ttp 0.1；"
+                "与 `Draft Mode Warlord Appear` **共用同一个 clip**）。真正的换位 cue 是 **`CardMove`（大写 M）**，"
+                "它**已在 `EXTRA_CUES`**。反向查漏点到的那 5 处里，`Editor/SoundCueAssertT.cs:77` 恰恰是"
+                "**禁止**这条 cue 的断言文案 ⇒ **误报**。⚠️ 本机**文件名大小写不敏感**（`CardMove.json` 会被解析到"
+                "`Cardmove.json`）—— 这是 2026-10-27 误把它收进 `EXTRA_CUES` 的直接原因（已撤销）。",
 }
 
 

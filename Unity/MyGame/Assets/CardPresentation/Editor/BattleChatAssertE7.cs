@@ -206,7 +206,10 @@ public static class BattleChatAssertE7
 
             // 开场独白期间 `CanAiChat` 是关的（我们加的本地护栏）⇒ 先把它播完
             for (float t = 0f; t < 40f && driver.IntroStage >= 0; t += 0.1f) driver.AdvanceTimeline(0.1f);
-            if (!Ok(driver.CanAiChatForTest, $"B0（前提）AI 发言闸开着（`IntroStage`={driver.IntroStage}）")) return;
+            if (!Ok(driver.CanAiChatForTest, $"B0（前提）AI 发言闸开着（`IntroStage`={driver.IntroStage}；"
+                                           + $"`ChatPopUpDisabled`={driver.ChatPopUpDisabledForTest}；"
+                                           + $"`ChatPopUpBlocked`={driver.ChatPopUpBlockedForTest}；"
+                                           + $"`ChatMuted`={driver.ChatMuted}）")) return;
 
             // ---- B1 · 自发发言**先排期**，到点才说（原版 `WaitForSeconds(delay + 0.3)`）----
             driver.ResetAiEmoteForTest();

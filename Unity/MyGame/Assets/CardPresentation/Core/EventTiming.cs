@@ -498,7 +498,7 @@ namespace CardPresentation
             //     都在**同步结算里**，`BattleDriver` 侧今天**没有任何消费者**（纯表现信号）。
             //   ⇒ 与 `StatusApplied` 同档口径。⛔ 别改成 `TimedKinds`：那要在 `DurationOf` / `SourceOf`
             //   各补一个 `case`，而我们**没有**任何「这一拍演多久」的判据。
-            EvtKind.TraitRemoved,
+            EvtKind.TraitRemoved, EvtKind.EnchantmentRemoved,   // 🆕 2026-10-27（`E7ENG` · 账 532 的 1b）：摘附魔效果那一拍**不占时间线** —— 原版 `ResolveRemoveEffect`（内联进 `ResolveAction` case 0x10）是同步方法、不 `yield`，与 `StatusApplied` / `TraitRemoved` 同档；成员 doc 见 `BattleEvent.cs`。⚠️ 写在同一行 = **刻意零行数变化**（本文件下游有账按行号引，见铁律 18·b）
         };
 
         /// <summary>🆕 2026-10-24（`A2`）：**在 `DurationOf(EvtKind)` 里【有值】的事件种类**

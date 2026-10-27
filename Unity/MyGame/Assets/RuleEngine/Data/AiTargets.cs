@@ -770,16 +770,33 @@ namespace RuleEngine
         }
 
         /// <summary>`RawCardScript.cardType`（`CardTypeOptions`：Minion=0 / Hero=10 / Tactic=20 / Whispers=40）。
-        /// 优先用真值（`ai_scoring.json` 的 `cardType`）；表里没有就按 `CardDef.Type` 映射。</summary>
+        /// 🔴 **2026-10-27（批次 9 · `E7ENG` · 普查 `判据/cardType判据点普查.md` §3·3）就地改口径**：
+        /// **真值卡表优先**（`CardDef.CardType`，卡表 v34 起有 `cardType` 列，`-1` = 未知）→
+        /// 其次 `ai_scoring.json` 的真值（1,351 张快照，与本列同源）→ 最后才按 `CardDef.Type` 映射兜底。
+        /// 改前只有后两条：`ai_scoring` 里没有这张卡时一律 `else ⇒ 20`，会把将来的 `Whispers(40)` 判成 Tactic
+        /// （今天 0 张，但那是**猜**）。兜底那一支**出声一次**（同一次装载只喊一次）。
+        /// ⚠️ `Type` 映射今天与真值**逐值等价**（池内双射：`unit↔0` · `hero↔10` ·
+        /// `{tactic,defence,enchantment}↔20` · `whispers↔40`=0 张）⇒ 兜底不改任何现有行为。</summary>
         static int CardTypeOf(CardDef card)
         {
             if (card == null) return -1;
+            if (card.CardType >= 0) return card.CardType;          // ① 真值卡表（v34 起）
             var dto = AiScoringData.Get(card.Id);
-            if (dto != null) return dto.cardType;
+            if (dto != null) return dto.cardType;                  // ② ai_scoring 真值
+            if (!_cardTypeFallbackWarned)                          // ③ 兜底（猜）—— 出声一次
+            {
+                _cardTypeFallbackWarned = true;
+                UnityEngine.Debug.LogWarning("[AiTargets] `cardType` 真值拿不到（卡表 < v34 且 `ai_scoring.json` "
+                    + $"里也没有这张卡）⇒ 按 `CardDef.Type` 兜底（首例 = `{card.Id} {card.Name}`）；"
+                    + "同一次装载只喊这一次。");
+            }
             if (card.Type == "unit") return 0;
             if (card.Type == "hero") return 10;
-            return 20;  // tactic / defence（原版两个都是 `cardType=20`）
+            return 20;  // tactic / defence / enchantment —— 真值这三个都是 `cardType = 20`
         }
+
+        /// <summary><see cref="CardTypeOf"/> 第 ③ 支（按 `Type` 猜）的「只喊一次」闩。</summary>
+        static bool _cardTypeFallbackWarned;
 
         /// <summary>`filterSpecificCards` / `excludeEnchantments` 的元素是 `RawCardScript`；
         /// 真值里落的是 `uniqueId`。按 id 全等比（⛔ 不按名字模糊）。</summary>

@@ -19,11 +19,13 @@ namespace CardPresentation
     ///   · `Update` 里按 `currentBlendTime` 把每个 renderer 的**材质 `color.a`** 往 `targetValue` 推
     ///   · 完成时：`(restoreOriginalMaterialsOnFadeOut &amp;&amp; !direction) || (restoreOriginalMaterialsOnFadeIN &amp;&amp; direction)`
     ///     ⇒ 还原原材质（销毁我们实例化的那份）· `disableOnFadeOut &amp;&amp; !direction` ⇒ `renderer.enabled = false`
-    /// ⚠️ **仍未抄的一条**：原版两个分支末尾都有 `doFade = !doFade`（**取反开关**；`.c:96` / `:124`，
-    ///   ctor 的 `ScenarioMaterialFader__.ctor.c` 只在 `0x2a/0x2b/0x2c` 写 1 ⇒ `doFade(0x40)` 出厂是 false）
-    ///   ⇒ 原版**每调一次就翻转**：首调开始淡、二调把进行中的淡**取消**（`Update` 首句 `if(!doFade) return`）。
-    ///   我们没抄 —— 抄它之前必须先确认「每条环境到底调几次 `DoScenarioBlend`」，
-    ///   否则会把该淡的那一次取消掉（比现在更糟）。**只记录**（P2，判据已写全）。</summary>
+    /// ✅ **2026-10-27（`B9_E2UDW` · 施工单 362/367）：`doFade` 取反开关已抄上** —— 原版两个分支末尾各有一次
+    ///   `doFade = !doFade`（`ScenarioMaterialFader__DoScenarioBlend.c:78` / `:110`；ctor 不写 `0x40` ⇒ 出厂 false），
+    ///   `Update` 首句 `if(!doFade) return;`（`ScenarioMaterialFader__Update.c:15`）⇒ 原版**每调一次就翻转**：
+    ///   首调开始淡、二调把进行中的淡**冻住**。我们同形实现（字段 `_doFade` / `Advance` 首句闸）。
+    ///   🔴 **仍需实测**：若同一次环境变更把 `DoScenarioBlend` 落在同一件上**两次**，这次翻转会把该淡的那次冻掉
+    ///   —— 那时要改的是**调用方次数**（`EnvironmentApplier.cs:216/288`），⛔ 不是把开关撤掉。读数口 =
+    ///   `BlendCalls` / `BlendCallsForward`（本类静态计数）。</summary>
     public class ScenarioMaterialFader : ScenarioBlendable
     {
         public Renderer[] renderers;
@@ -44,6 +46,13 @@ namespace CardPresentation
         float _fromA = 1f;
         float _toA = 1f;
 
+        /// <summary>原版 `doFade`（`+0x40`）—— **取反开关**，ctor 不写它 ⇒ 出厂 `false`。
+        /// <para>判据（🥇 `decomp_full/ScenarioMaterialFader__DoScenarioBlend.c:78` 与 `:110` 两处：
+        /// `*(bool *)(this+0x40) = *(char *)(this+0x40) == '\0';`；`ScenarioMaterialFader__Update.c:15`
+        /// 首句 `if (*(char *)(this+0x40) == '\0') return;`）⇒ **每调一次 `DoScenarioBlend` 就翻转**：
+        /// 首调开始淡、二调把进行中的淡**冻住**（`Advance` 首句直接 return，不推进也不结算）。</para></summary>
+        bool _doFade;
+
         /// <summary>`DoScenarioBlend` 被调的总次数（累计）。**只给「`doFade` 取反开关能不能抄」那次实测用**，
         /// 不参与任何行为（见方法里那段注释）。</summary>
         public static int BlendCalls { get; private set; }
@@ -53,14 +62,17 @@ namespace CardPresentation
 
         public override void DoScenarioBlend(ScenarioBlendOptions o)
         {
-            // 🆕 2026-10-25（完全复刻第 1 轮 · D 域）**计数探针**：原版两个分支末尾都有
-            //    `doFade = !doFade`（取反开关，`ScenarioMaterialFader__DoScenarioBlend.c:96/124`；
-            //    ctor 只写 `0x2a/0x2b/0x2c` ⇒ `doFade(0x40)` 出厂 false）⇒ 原版**每调一次就翻转**：
-            //    首调开始淡、二调把进行中的淡**取消**（`Update` 首句 `if(!doFade) return`）。
-            //    ⛔ 我们**没有**抄它 —— 抄之前必须先知道「每条环境到底调几次 `DoScenarioBlend`」
-            //    （我们这边：`AttachBlendables` 每件 1 次 + `_sceneBlendables` 每次 `Apply` 1 次 + 卸载时 1 次，
-            //      见 `EnvironmentApplier.cs:216/288`；若同一次变更落在同一件上两次，抄了就会把淡入取消掉）。
-            //    ⇒ 这两个计数就是给那次实测用的（自检读增量即可，不改任何行为）。
+            // 计数探针（2026-10-25 起）：见下面 `_doFade` 那段 —— 抄完 `doFade` 开关之后，这两个计数
+            // 用来**实测**「每条环境一次变更到底调几次」，不是行为的一部分。
+            // 🆕 2026-10-27（`B9_E2UDW` · 施工单 362/367）：**原版那两句已经抄上了** ——
+            //    ① `doFade = !doFade`：两个分支末尾各一次（`ScenarioMaterialFader__DoScenarioBlend.c:78`（`fadeOnEnable && direction` 支）
+            //       与 `:110`（另一支），两处都是 `*(bool*)(this+0x40) = *(char*)(this+0x40) == '\0'`）
+            //       ⇒ 原版**每调一次就翻转**：首调开始淡、二调把进行中的淡**冻住**；
+            //    ② `Update` 首句 `if(!doFade) return;`（`ScenarioMaterialFader__Update.c:15`）⇒ 我们 `Advance` 首句同形。
+            //    🔴 **抄完必须读数**：原版「每条环境一次变更 = **1 次** `DoScenarioBlend`」。我们这边
+            //    `AttachBlendables` 每件 1 次 + `_sceneBlendables` 每次 `Apply` 1 次 + 卸载时 1 次
+            //    （`EnvironmentApplier.cs:216/288`）⇒ 若**同一次变更落在同一件上两次**，翻转会把该淡的那次冻掉。
+            //    那时要修的是**调用方次数**（⛔ 不是把开关撤掉）。下面的 `BlendCalls/BlendCallsForward` 就是给这次读数用的。
             BlendCalls++;
             if (o.direction) BlendCallsForward++;   // `ScenarioBlendOptions` 是 struct ⇒ 不能判 null
 
@@ -94,6 +106,9 @@ namespace CardPresentation
                 _fromA = CurrentAlpha();
                 _toA = o.targetValue;
             }
+            // ① `doFade = !doFade`（原版两支末尾各一次：`.c:78` 与 `:110`）—— **必须在 `_left = o.duration` 之前**，
+            //    否则本帧就会先进 `Advance` 再被冻住（原版是先写 `0x40` 再写 `0x44/0x48/0x4c`）。
+            _doFade = !_doFade;
             _opts = o;
             _busy = true;
             if (o.duration <= 0f) { ApplyFade(1f); Complete(); return; }
@@ -102,6 +117,9 @@ namespace CardPresentation
 
         public override void Advance(float dt)
         {
+            // ② 原版 `Update` 首句 `if(!doFade) return;`（`ScenarioMaterialFader__Update.c:15`）——
+            //    被冻住的那一次**既不推进 α、也不结算**（`disableOnFadeOut` / 还原材质都不会发生）。
+            if (!_doFade) return;
             if (!_busy) return;
             base.Advance(dt);                       // 到点会调 Complete()
             if (_busy) ApplyFade(_opts.duration <= 0f ? 1f : Mathf.Clamp01(1f - _left / _opts.duration));

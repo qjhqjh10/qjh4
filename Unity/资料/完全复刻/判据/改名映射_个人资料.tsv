@@ -1,0 +1,5 @@
+原版方法	我方方法	文件:行	依据
+GetArmyState	RankedData.ArmyState	Shell/RankedData.cs:474	注释=原版 GetArmyState(army, extraBoosts)
+IsArmyAffectedAndHasBoostsLeft	RankedBoostEvent.Affects + BoostsLeftFor	Shell/RankedData.cs:97 / :100	IsArmyAffected && BoostsLeft>0 两访问器合成
+GetWins	RankedBoostEvent.WinsFor	Shell/RankedData.cs:99	= WinsByArmy[IndexOf(army)]
+GetCurrentRankedDivision	RankedData.CurrentDivision	Shell/RankedData.cs:290	= DivisionOf(Points)，属性承接

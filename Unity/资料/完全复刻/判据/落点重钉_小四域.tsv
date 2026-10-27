@@ -1,0 +1,38 @@
+域	方法	旧落点	新落点	该行原文	是否等价
+收藏	OnCollectionUpdate(CardCollectionUpdatedSignal signal)	Shell/CollectionWindow.cs:2262（RebuildCardsPage）/ :2476（RefreshStylesAfterFilter）—— 整页重建	保持：Shell/CollectionWindow.cs:2262（RebuildCardsPage）/ :2476（RefreshStylesAfterFilter）—— 整页重建	—	部分
+收藏	ToFocus()	Shell/CollectionTabPage.cs:86-92（ToFocus 覆写，追加在类尾）→ Shell/CollectionWindow.cs:6358-6381（RefillCollectionForFocus：页 0 = RebuildDeckListNow / 页 1 = RebuildCardsCells + RefreshCardsEmpty）	保持：Shell/CollectionTabPage.cs:86-92（ToFocus 覆写，追加在类尾）→ Shell/CollectionWindow.cs:6358-6381（RefillCollectionForFocus：页 0 = RebuildDeckListNow / 页 1 = RebuildCardsCells + RefreshCardsEmpty）	—	部分
+收藏	OnDestroy()	—（我们的收藏卡格不是组件，装配内联在 `RebuildCardsCell`；无 DOTween Sequence 句柄）	无落点：收藏卡格不是组件、无 DOTween Sequence 句柄（装配内联在 RebuildCardsCell）	—	—
+收藏	Start()	—（收藏卡格没有 card2DController 高亮层，出厂态天然不高亮）	无落点：收藏卡格无 card2DController 高亮层（出厂天然不高亮）	—	—
+收藏	_003CToggle_003Eb__9_0()	—（语义并入 CollectionFilterController.Toggle 那一行；这是它的 lambda 体，无方法级落点）	无落点：lambda 体并入 Toggle，无独立方法	—	—
+收藏	Release(PlayModes? playMode)	CardPresentation/Core/CardArt.cs:1268（ReleaseModeIcon）（等价实现 = 同一处：`ReleaseModeIcon(int?)` + 窄判据 `IsModeIconArt`(`:1255`) **同时覆盖 `Release()` / `Release(PlayModes?)` / `ReleaseAll()`**；差一跳接线 = `MenuDraw.ReleaseArtUnder` 里补一行）	保持：CardPresentation/Core/CardArt.cs:1268（ReleaseModeIcon）（等价实现 = 同一处：`ReleaseModeIcon(int?)` + 窄判据 `IsModeIconArt`(`:1255`) **同时覆盖 `Release()` / `Release(PlayModes?)` / `ReleaseAll()`**；差一跳接线 = `MenuDraw.ReleaseArtUnder` 里补一行）	—	部分
+收藏	ReleaseAll()	CardPresentation/Core/CardArt.cs:1268（ReleaseModeIcon）（等价实现 = 同一处：`ReleaseModeIcon(int?)` + 窄判据 `IsModeIconArt`(`:1255`) **同时覆盖 `Release()` / `Release(PlayModes?)` / `ReleaseAll()`**；差一跳接线 = `MenuDraw.ReleaseArtUnder` 里补一行）	保持：CardPresentation/Core/CardArt.cs:1268（ReleaseModeIcon）（等价实现 = 同一处：`ReleaseModeIcon(int?)` + 窄判据 `IsModeIconArt`(`:1255`) **同时覆盖 `Release()` / `Release(PlayModes?)` / `ReleaseAll()`**；差一跳接线 = `MenuDraw.ReleaseArtUnder` 里补一行）	—	部分
+收藏	TryRelease(PlayModes playModeToCheck)	—（同上，无句柄层）	无落点：无句柄层；GetIcon 内联同一循环不调它	—	—
+收藏	Draw(ObtainableItem item, int amount, ItemDrawerOptions options)	Shell/ItemDrawer.cs:840（Draw）+ 1849（Dispatch）—— 结构对得上，但**逐跳对不上**	判据缺：sealed override 体有 20+ 处 NoteDecompilerIssue（quantity/label/image 几跳读不到）	—	—
+收藏	Draw(ObtainableItem item, int quantity, ItemDrawerOptions options)	—（真体 = `ItemDrawer<T>` 的 sealed override `:356`）	无落点：基类抽象声明；真体=ItemDrawer<T> sealed override :356（见 Draw(ObtainableItem,int amount,…) 行）	—	—
+收藏	Draw(T item, int quantity)	—（真体在 23 个具体抽屉子类）	无落点：泛型抽象声明；实现在 23 个具体抽屉子类	—	—
+收藏	GetItemName(T item)	Shell/ItemDrawer.cs:123（ItemSpec）（我们走数据层给 `Label`，不是逐子类 override）	判据缺：基类体=间接跳转(vtable)，真值在 23 个子类 override（已解 2 条）	—	—
+收藏	OnDestroy()	Shell/ItemDrawerLeash.cs:20-50（挂在抽屉根节点上的薄 MonoBehaviour，OnDestroy → ItemDrawer.Release）· 登记处 Shell/ItemDrawer.cs:1871（同行追加 ItemDrawerLeash.Attach(v)，零行数变化）	保持：Shell/ItemDrawerLeash.cs:20-50（挂在抽屉根节点上的薄 MonoBehaviour，OnDestroy → ItemDrawer.Release）· 登记处 Shell/ItemDrawer.cs:1871（同行追加 ItemDrawerLeash.Attach(v)，零行数变化）	—	部分
+收藏	ToggleShowInfoOnClick(bool toggle)	—（唯一实现 `:876-878` **是空体**；F7 已把 `(bool option)` 那条判 A）	无落点：abstract；行为由序列化字段 showItemInfoOnClick 决定，非方法	—	—
+收藏	OnDestroy()	Shell/WhereToGetCardsPopup.cs —— **全文件无 OnDestroy / Release**（窗树销毁即释放）	无落点：WhereToGetCardsPopup 无 OnDestroy/Release（窗树销毁即释放）	—	—
+收藏	Release()	Shell/WhereToGetCardsPopup.cs —— **没有这个方法**	无落点：该窗不建抽屉、无 Release 方法	—	—
+卡牌面/渲染	SetColliderNotInHand(CardStateOptions cardState)	CardPresentation/Battle/BattleDriver.cs:24811（PlayDeathFeel）（等价实现 = `CardView.SetHitEnabled(false)`：在「真进墓地」那一刻关掉那张视图的判定区）	保持：CardPresentation/Battle/BattleDriver.cs:24811（PlayDeathFeel）（等价实现 = `CardView.SetHitEnabled(false)`：在「真进墓地」那一刻关掉那张视图的判定区）	—	部分
+卡牌面/渲染	OnDeselect(BaseEventData eventData)	CardPresentation/Core/Tooltip.cs（EverguildTooltipItem 族；无逐方法入口）	无落点：Tooltip 族无逐方法入口（悬停/显隐/链接判定混在一处）	—	—
+卡牌面/渲染	OnDisable()	CardPresentation/Core/Tooltip.cs（EverguildTooltipItem 族；无逐方法入口）	无落点：Tooltip 族无逐方法入口	—	—
+卡牌面/渲染	OnEnable()	CardPresentation/Core/Tooltip.cs（EverguildTooltipItem 族；无逐方法入口）	无落点：Tooltip 族无逐方法入口	—	—
+卡牌面/渲染	OnPointerEnter(PointerEventData eventData)	CardPresentation/Core/Tooltip.cs（EverguildTooltipItem 族；无逐方法入口）	无落点：Tooltip 族无逐方法入口	—	—
+卡牌面/渲染	OnPointerExit(PointerEventData eventData)	CardPresentation/Core/Tooltip.cs（EverguildTooltipItem 族；无逐方法入口）	无落点：Tooltip 族无逐方法入口	—	—
+卡牌面/渲染	OnSelect(BaseEventData eventData)	CardPresentation/Core/Tooltip.cs（EverguildTooltipItem 族；无逐方法入口）	无落点：Tooltip 族无逐方法入口	—	—
+卡牌面/渲染	Toggle(bool option)	CardPresentation/Core/Tooltip.cs（EverguildTooltipItem 族；无逐方法入口）	无落点：Tooltip 族无逐方法入口	—	—
+卡组编辑	SetPlayerData(PlayerBattleData playerBattleData)	CardPresentation/Battle/BattleDriver.cs:34237（MetaOf）（等价实现 = MetaOf(deck, cards, who)：建 `PlayerBattleMeta` 并按同一份偏移表灌；头像/头像框/称号取本地档案 `Shell/ProfileData`（来源不同、语义同））	保持：CardPresentation/Battle/BattleDriver.cs:34237（MetaOf）（等价实现 = MetaOf(deck, cards, who)：建 `PlayerBattleMeta` 并按同一份偏移表灌；头像/头像框/称号取本地档案 `Shell/ProfileData`（来源不同、语义同））	—	部分
+卡组编辑	SetupSerializedData(SerializedPlayerDeckData serializedData, PlayerDataManager playerData)	CardPresentation/Battle/BattleDriver.cs:34089（TierOfCard）（等价实现 = TierOfCard / BuildOpeningDeckData：③ 由 `ResolveDeck` 按 id 还原（卡 id 已是真 id，⛔ 不走名字匹配）；④ `_cardTiers` 由 `CardProgress.Level − 1` 建 + 督军单独补；⑤ 见 `MetaOf`）	保持：CardPresentation/Battle/BattleDriver.cs:34089（TierOfCard）（等价实现 = TierOfCard / BuildOpeningDeckData：③ 由 `ResolveDeck` 按 id 还原（卡 id 已是真 id，⛔ 不走名字匹配）；④ `_cardTiers` 由 `CardProgress.Level − 1` 建 + 督军单独补；⑤ 见 `MetaOf`）	—	部分
+卡组编辑	ConfigPrefab(UICardInfoItem cardInfo)	Shell/PracticeModePopup.cs:2423（BuildCardRows）	无落点：行是代码直接建、无模板 prefab	—	—
+卡组编辑	OnDestroy()	Shell/PracticeModePopup.cs:1922（RebuildDeckRows）	无落点：格随重建整棵销毁、无独立退订	—	—
+卡组编辑	SetTutorialIndex(int index)	—（字段级：`CardPresentation/Shell/TutorialModePopup.cs:251（Idx）`）	无落点：字段级（TutorialModePopup.StageRow.Idx 常量表；运行期写 vs 静态表）	—	—
+卡组编辑	GetCardLibrary(List<RawCardScript> fullCardCollection)	Shell/PrebuiltDecks.cs:419（ToPlayerDeck）	保持：Shell/PrebuiltDecks.cs:419（ToPlayerDeck）	—	部分
+卡组编辑	IsIncompleteLibrary()	—（字段级：`CardPresentation/Shell/PrebuiltDecks.cs:98（complete）/ :99（missing）`）	无落点：字段级（PrebuiltDecks.Deck.complete/missing，生成期写）	—	—
+卡组编辑	SetHero(RawCardScript card)	—（字段级：`CardPresentation/Shell/PrebuiltDecks.cs` 的 `Deck.heroId`）	无落点：字段级（Deck.heroId 生成期定死）	—	—
+本地化	GetTranslationWithParameters(string localizationKey, string param1, string param2, string param3)	Core/Loc.cs	CardPresentation/Core/Loc.cs:3421（T）（等价实现 = 参数替换走调用点 string.Format(Loc.T(键), …)）	public static string T(string key)	是
+本地化	Initialize()	Shell/SettingsWindow.cs	CardPresentation/Shell/SettingsWindow.cs:3478（BuildLangTemplate）（等价实现 = 建语言下拉模板）	void BuildLangTemplate(Transform fld)	部分
+本地化	OnDestroy()	Shell/SettingsWindow.cs	无落点：SettingsWindow 语言下拉无监听可退订	—	—
+本地化	OnLanguageChanged(int option)	CardPresentation/Battle/SettingsPanel.cs:1889-1912（等价实现 = ChooseLanguage：行号 → Loc.Languages[i] → Loc.SetLanguage → RefreshTexts/RefreshLangRows → BattleHudLanguage.Notify）+ CardPresentation/Core/Loc.cs:3685-3697（SetLanguage = 写当前语言 + 落盘）	保持：CardPresentation/Battle/SettingsPanel.cs:1889-1912（等价实现 = ChooseLanguage：行号 → Loc.Languages[i] → Loc.SetLanguage → RefreshTexts/RefreshLangRows → BattleHudLanguage.Notify）+ CardPresentation/Core/Loc.cs:3685-3697（SetLanguage = 写当前语言 + 落盘）	—	部分
+本地化	ResetLanguagesDropdown()	Shell/SettingsWindow.cs	CardPresentation/Shell/SettingsWindow.cs:3490（BuildLangListSubtree）（等价实现 = 重建语言下拉子树）	void BuildLangListSubtree(Transform listRoot, bool withRows)	部分

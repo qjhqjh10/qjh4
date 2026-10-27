@@ -10330,7 +10330,7 @@ public static class ShellScene
                           "③ 没有目标框 ⇒ **不写**并出声（原版 :180 `Trying to scale ui without target`；🧨 静默写 1 ⇒ 红）");
             }
 
-            // ---------------- ④ 页签生命周期（GameWindowWithTabs / WindowTabBase / TabButtons）
+            // ---------------- ④ 页签生命周期（GameWindowWithTabs / WindowTabBase / TabButtons）· 夹具页 `ProbeTab` 住 `Shell/ProbeTab.cs`（⚙ 必须在**非 `Editor/`** 目录：编辑器程序集里的 MonoBehaviour `AddComponent` 恒返 null，2026-10-27 修）
             // 判据：`WindowTabBase.cs:54-110` · `GameWindowWithTabs.cs:85-470` · `TabButtons.cs:83-492`。
             {
                 var wgo = new GameObject("TabsWin");

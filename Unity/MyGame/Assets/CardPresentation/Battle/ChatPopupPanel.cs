@@ -268,6 +268,13 @@ namespace CardPresentation
             public HudPiece hit;
             public Label text;
             public Rect rect;                 // 绝对矩形（每次 RefreshLayout 重算）
+            /// <summary>🆕 **2026-10-27（音频线 `B9` A-03 · 账 145/146/152）**：这一颗现在**收不收点击**
+            /// —— 等价原版 `Selectable.interactable`（`SetupChatOptions.c:112` 那一句
+            /// `UnityEngine_UI_Selectable__set_interactable`）。
+            /// <para>⚠️ 原版只在**越界那一支**（`i+5 &gt;= ChatMessage 枚举长`）才真算它，其余一律 `true`；
+            /// 当前数据（6 颗钮 / 枚举 11 个）**永远走 `true`** ⇒ 这一格今天恒 `true`，是**照原版留的闸**。
+            /// 我们没有去改 `BattleHudButton`（共用件）—— 改为**在收下点击时判这一格**，语义等价。</para>
+            public bool interactable = true;
         }
 
         readonly List<Btn> _btns = new List<Btn>();
@@ -476,6 +483,11 @@ namespace CardPresentation
             //    世界档不建（世界档的命中仍走 `Hit` 的手搓矩形，⛔ `ImageQuad` 没有 `raycastTarget` 这个概念）。
             if (_ugui) SetupUguiInput();
 
+            // 🆕 **2026-10-27（音频线 `B9` A-03 · 账 134/150/152/153）**：原版 `VoiceLinesPopupSelector.SetupChatOptions`
+            //   在建完钮之后把**该督军的 6 句台词全文**写进钮（`SetupChatOptions.c:102-110`）⇒ 我们建完也刷一次。
+            //   没有督军上下文时它退回 `LabelFor(i)`（分类词）—— 与改之前逐字相同、并**出声**（见 `RefreshChatLines`）。
+            RefreshChatLines();
+
             HideImmediate();
             RefreshLayout();
         }
@@ -650,6 +662,9 @@ namespace CardPresentation
         void OnUguiButtonClicked(int i)
         {
             if (!Interactable) return;
+            // 🆕 2026-10-27（账 145/146/152）：这一颗自己**收不收点击**（等价原版 `Selectable.interactable`；
+            //   当前数据恒 `true`，见 `Btn.interactable` 的 doc —— 留着这道闸是因为它写的是**原版行为**）。
+            if (i < 0 || i >= _btns.Count || !_btns[i].interactable) return;
             _uguiButtonClicks++;
             _lastUguiButton = i;
             if (ButtonClicked != null) ButtonClicked(i);
@@ -912,6 +927,13 @@ namespace CardPresentation
             _fadingOut = false;
             gameObject.SetActive(true);
             RefreshLayout();
+            // 🆕 **2026-10-27（音频线 `B9` A-03 · 账 150/153）**：原版 `VoiceLinesPopupSelector.Show`
+            //   **每次展开都重刷那 6 颗钮的字**（`__Show.c:15` 在 `SetActive(true)` + `interactable=true` 之后、
+            //   开补间之前调 `RefreshChatLines()`）⇒ 我们照这个次序。
+            RefreshChatLines();
+            // 🆕 **2026-10-27（账 144/153）**：淡入曲线从「线性」改 **OutCubic**（原版 `SetEase(9)`），
+            //   进度口径从 `MoveTowards` 换成「0→1 的时间比」（`Advance` 里缓动）。
+            _fadeFrom = _alpha; _fadeT = 0f;
             _fading = true; _fadeTarget = 1f;
         }
 
@@ -929,6 +951,8 @@ namespace CardPresentation
             //   `T09-FIX5` 按原版回滚（审查 `W57_战斗线_T09_审查.md` §一 P2-8）。
             ResetButtonFeedback();            // 🆕 2026-10-20（A3-e1）：收起时清掉悬停/按下态
             if (!gameObject.activeSelf) { _fading = false; _fadingOut = false; SetAlpha(0f); return; }
+            // 🆕 **2026-10-27（账 144）**：淡出也走 OutCubic（原版 `Hide()` 的 `SetEase(9)` 与 `Show()` 同一条）。
+            _fadeFrom = _alpha; _fadeT = 0f;
             _fading = true; _fadeTarget = 0f;
         }
 
@@ -938,6 +962,7 @@ namespace CardPresentation
             _open = false;
             _fadingOut = false;
             _fading = false;
+            _fadeT = 0f;                      // 🆕 2026-10-27（账 144）：硬收不留进度（`Advance` 的缓动口径）
             ResetButtonFeedback();            // 🆕 2026-10-20（A3-e1）：同上
             gameObject.SetActive(false);
             SetAlpha(0f);
@@ -945,6 +970,18 @@ namespace CardPresentation
 
         float _fadeTarget;
         bool _fading;
+        /// <summary>🆕 **2026-10-27（音频线 `B9` A-03 · 账 144/153）**：淡变起点（`Show`/`Hide` 那一刻的 `_alpha`）。</summary>
+        float _fadeFrom;
+        /// <summary>🆕 同上：淡变的**线性时间比** 0→1（`Advance` 里再过 OutCubic ⇒ 与原版 `SetEase(9)` 同一形状）。</summary>
+        float _fadeT;
+        /// <summary>🔴 **OutCubic 缓动**（判据 = 原版 `_TweenSettingsExtensions.SetEase(tween, 9)`，
+        /// `SetEase(9)` = `Ease.OutCubic`；`VoiceLinesPopupSelector__Show.c` / `__Hide.c` 两处各一次）。
+        /// <para>`ease = 1 − (1 − t)³` ⇒ `t = 0.5` 时 **0.875**（线性只有 0.5）；`t=0/1` 端点仍是 0/1。</para></summary>
+        static float OutCubic(float t)
+        {
+            float u = 1f - Mathf.Clamp01(t);
+            return 1f - u * u * u;
+        }
 
         void SetAlpha(float a)
         {
@@ -1007,9 +1044,25 @@ namespace CardPresentation
         public void Advance(float dt)
         {
             if (!_fading) return;
-            float next = Mathf.MoveTowards(_alpha, _fadeTarget, dt / FadeTime);
+            // 🔴 **2026-10-27（音频线 `B9` A-03 · 账 144/153）就地改（铁律 5/11）**：原来是
+            //   `Mathf.MoveTowards(_alpha, _fadeTarget, dt / FadeTime)` = **线性**。
+            //   原版两条都不线性：`VoiceLinesPopupSelector__Show.c:31-34` / `__Hide.c:34-37` 的
+            //   `DOFade(canvasGroup, …, 时长)` 挂在同一个 `Sequence` 里，那条 tween 上是
+            //   **`SetEase(9)`**（= `Ease.OutCubic`）⇒ α 曲线 = `1 − (1 − t)³`。
+            //   ⚠️ `HideImmediate`（批处理那一档）**不走这里** —— 那里没有帧循环。
+            float next;
+            if (FadeTime > 0f)
+            {
+                _fadeT = Mathf.Clamp01(_fadeT + dt / FadeTime);
+                next = Mathf.LerpUnclamped(_fadeFrom, _fadeTarget, OutCubic(_fadeT));
+            }
+            else
+            {
+                _fadeT = 1f;
+                next = _fadeTarget;
+            }
             SetAlpha(next);
-            if (Mathf.Abs(next - _fadeTarget) < 0.0001f)
+            if (_fadeT >= 1f)
             {
                 _fading = false;
                 if (_fadeTarget <= 0f)
@@ -1178,7 +1231,7 @@ namespace CardPresentation
         {
             if (!Interactable) { LastClicked = -1; return -1; }
             LastHit = ButtonAt(world);
-            if (LastHit < 0) { LastClicked = -1; return -1; }
+            if (LastHit < 0 || !_btns[LastHit].interactable) { LastClicked = -1; return -1; }
             LastClicked = LastHit;
             return LastHit;
         }
@@ -1317,6 +1370,222 @@ namespace CardPresentation
             // ⚠️ `?:` **不能直接写进字符串插值**（`:` 会被当成格式分隔符，CS8361）—— 先取出来
             string r0 = _btns.Count > 0 ? _btns[0].rect.ToString() : "-";
             return $"ChatPopup 可见={Visible} alpha={_alpha:F2} 钮={_btns.Count} 第1钮矩形=({r0})";
+        }
+
+        // ══════════════════════════════════════════════════════════════════════════════════════
+        //  🆕 **2026-10-27（音频线 `B9` 派活包 A-03 · 账 116/134/145/146/147/150/151/152/153）**
+        //  本段 = 原版 `VoiceLinesPopupSelector.SetupChatOptions / RefreshChatLines /
+        //  SetTransformedWarlordNewChats / IsAvailable / IsMatchOneOfCollection /
+        //  IsIndexOutOfEnumBounds` + `VoiceLinesController.ForcePopUpClose` 的等价物。
+        //  ⚠️ **全部追加在类尾**（CLAUDE.md「新成员追加到类尾」—— 插在中间会让下游账的 `文件:行号` 漂移）。
+        // ══════════════════════════════════════════════════════════════════════════════════════
+
+        /// <summary>🆕 **2026-10-27（账 134/150/152/153）**：本局我方督军的卡 id（`null` = 还没喂过）。
+        /// <para>由 <see cref="SetChatContext"/> 喂；喂进来之后 6 颗钮印的就是**该督军那 6 句台词全文**
+        /// （原版 `RawCardScript.GetLocalizedChatMsg(warlord, 5+i)`），喂之前退回分类词 `LabelFor(i)`。</para></summary>
+        string _warlordCardId;
+        /// <summary>🆕 同上：本局 `MatchType`（原版 `matchData + 0x1c`）——只给 `<see cref="IsAvailable"/>` 用。</summary>
+        RuleEngine.MatchType _matchType = RuleEngine.MatchType.Undefined;
+        /// <summary>🆕 「没有督军上下文 / 官方台词典缺键」这条警告只喊一次（⛔ 不静默、也不刷屏）。</summary>
+        bool _warnedNoLine;
+
+        /// <summary>🆕 **2026-10-27（账 146）**：原版 `ChatMessage` 枚举长 = **11**
+        /// （`Intro=0 · MirrorMatch=1 · Bored=2 · ICantDoThat=3 · Concede=4 · Greet=5 · Threat=6 ·
+        /// WellPlayed=7 · Taunt=8 · Sorry=9 · Oops=10`；判据 = `Warpforge_code/Scripts/Assembly-CSharp/ChatMessage.cs`，
+        /// 与 `UnitChatPanel.ChatTermSuffix` 逐条一致）。
+        /// <para>⚠️ 我们**没有**这个枚举类型（全仓 `grep "enum ChatMessage"` = 0）⇒ 用常量。
+        /// ⛔ **别拿 `ChatTerms.Length` 顶替它**（那是我们的词条数组长 —— 将来枚举加值时它会静默错位）。</para></summary>
+        public const int ChatMessageEnumCount = 11;
+
+        /// <summary>🆕 **2026-10-27（账 152）**：钮下标 `i` 对应的原版 `ChatMessage` 枚举号 —— **起点写死 5**
+        /// （判据 = `VoiceLinesPopupSelector__SetupChatOptions.c:54,112` 与 `__RefreshChatLines.c:71` 两处独立证实）。</summary>
+        public static int ChatMessageIndex(int i) { return 5 + i; }
+
+        /// <summary>🆕 **2026-10-27（账 152）**：`SetupChatOptions` 那张 **3 元素** matchType 表
+        /// `{ 110 ClosedDeck, 120 ClosedDeckBot, 80 EventAI }`
+        /// （判据 = `VoiceLinesPopupSelector__SetupChatOptions.c:49-50` 的 `RuntimeHelpers.InitializeArray(…, 3)`）。</summary>
+        public static readonly RuleEngine.MatchType[] SetupChatOptionTypes =
+        {
+            RuleEngine.MatchType.ClosedDeck,      // 110
+            RuleEngine.MatchType.ClosedDeckBot,   // 120
+            RuleEngine.MatchType.EventAI,         // 80
+        };
+
+        /// <summary>🆕 **2026-10-27（账 151）**：`SetTransformedWarlordNewChats` 那张 **2 元素** matchType 表
+        /// `{ 110, 120 }`（判据 = `VoiceLinesPopupSelector__SetTransformedWarlordNewChats.c` 写死的 `0x6e` / `0x78`）。
+        /// <para>🔴 **与 <see cref="SetupChatOptionTypes"/> 不一致是【原版如此】** ——
+        /// 原版两处各写各的（这里 2 元素、Setup 3 元素）⇒ **照抄、⛔ 别统一**（铁律 11）。</para></summary>
+        public static readonly RuleEngine.MatchType[] TransformedWarlordTypes =
+        {
+            RuleEngine.MatchType.ClosedDeck,      // 0x6e = 110
+            RuleEngine.MatchType.ClosedDeckBot,   // 0x78 = 120
+        };
+
+        /// <summary>本局我方督军（`null` = 还没喂过，钮上印分类词）。</summary>
+        public string WarlordCardId { get { return _warlordCardId; } }
+        /// <summary>本局 `MatchType`（`IsAvailable` 的输入）。</summary>
+        public RuleEngine.MatchType MatchTypeOf { get { return _matchType; } }
+
+        /// <summary>🆕 **2026-10-27（账 134/150/152/153）**：喂「本局我方督军 + 模式」并立刻刷一次钮上的字。
+        /// <para>🔴 **判据** = 原版 `VoiceLinesController__SetUpChatOptions.c:5-7`（控制器层一句转发）→
+        /// `VoiceLinesPopupSelector__SetupChatOptions.c:26-123`（真逻辑：取督军 → 3 元素表 → 逐颗写字）。</para>
+        /// <para>📌 **调用点（本波没接）**：应由 `BattleDriver` 在建完面板之后调一次
+        /// `_chatPopup.SetChatContext(myDeck?.WarlordId, Ctx.MatchType)`（一行）。
+        /// 本波 `BattleDriver.cs` 归 `E3CMP` 独占 ⇒ **本文件只把口开出来**，接线留给它。
+        /// 不接也不会坏：没喂过时钮上印的仍是分类词（= 改之前的行为），并且**出声**一次。</para></summary>
+        public void SetChatContext(string warlordCardId, RuleEngine.MatchType matchType)
+        {
+            _warlordCardId = warlordCardId;
+            _matchType = matchType;
+            _warnedNoLine = false;
+            RefreshChatLines();
+        }
+
+        /// <summary>🆕 **2026-10-27（账 150/153）**：把 6 颗钮的字刷成**本局我方督军那 6 句台词全文**。
+        /// <para>原版 `VoiceLinesPopupSelector__RefreshChatLines.c:31-86`：对每颗钮
+        /// `text = RawCardScript.GetLocalizedChatMsg(warlord, i+5)`；**调用点 = `Show()`（`__Show.c:15`）**
+        /// ⇒ 每次展开都重刷。我们在 `Show()` 与 `Build()` 里各调一次（`Build` 对应 `SetupChatOptions` 那一跳）。</para>
+        /// <para>取值链：官方台词典 `Chat_Messages/&lt;战将 id&gt;-Chat&lt;5+i&gt;`（= <see cref="LineTermFor"/>）
+        /// → 缺键/没督军 ⇒ **退回分类词** <see cref="LabelFor"/>(i) 并**出声一次**（⛔ 不静默）。</para></summary>
+        public void RefreshChatLines()
+        {
+            ApplyChatLines(SetupChatOptionTypes, true);
+        }
+
+        /// <summary>🆕 **2026-10-27（账 151）**：原版 `VoiceLinesPopupSelector.SetTransformedWarlordNewChats`
+        /// —— 督军**变身**之后把 6 句换成新督军的，并按 `{110,120}` 重算 `interactable`。
+        /// <para>判据 = `VoiceLinesPopupSelector__SetTransformedWarlordNewChats.c:22-84`：
+        /// ① 取新督军；② 2 元素表；③ 逐颗 `text = GetLocalizedChatMsg(newWarlord, i+5)`、
+        /// `interactable = IsAvailable(...)`（仅越界那支真算）。</para>
+        /// <para>⚠️ `updateAvailable == false` ⇒ **只换字、不动 `interactable`**（原版 `param_4` 只当闸用）。
+        /// 📌 上游「督军换卡」那条链还没复刻 ⇒ 本方法**今天没有生产调用者**（夹具可直调），
+        /// 接线与 `BattleDriver` 的 133 同一处（归 A-05）。</para></summary>
+        public void SetTransformedWarlordNewChats(string warlordCardId, bool updateAvailable)
+        {
+            if (string.IsNullOrEmpty(warlordCardId))
+            {
+                Debug.LogWarning("[Chat] `SetTransformedWarlordNewChats` 收到空督军 id ⇒ **这一次不换**"
+                               + "（⛔ 不拿旧督军的句子冒充新督军）");
+                return;
+            }
+            _warlordCardId = warlordCardId;
+            _warnedNoLine = false;
+            ApplyChatLines(TransformedWarlordTypes, updateAvailable);
+        }
+
+        /// <summary>逐颗写字（+ 按需重算 `interactable`）。**唯一实现处** —— `RefreshChatLines` 与
+        /// `SetTransformedWarlordNewChats` 都走它（⛔ 别在两处各写一遍）。</summary>
+        void ApplyChatLines(RuleEngine.MatchType[] possibleTypes, bool updateAvailable)
+        {
+            for (int i = 0; i < ButtonCount && i < _btns.Count; i++)
+            {
+                if (_btns[i].text != null) _btns[i].text.SetText(ChatLineText(i));
+                if (!updateAvailable) continue;
+                // 原版**只在越界那一支**才真调 `IsAvailable`（`SetupChatOptions.c:87-111` /
+                // `SetTransformedWarlordNewChats.c:62-75` 同一个形状）⇒ 我们也只在那里算。
+                bool avail = true;
+                if (IsIndexOutOfEnumBounds(ChatMessageIndex(i)))
+                    avail = IsAvailable(_matchType, possibleTypes);
+                _btns[i].interactable = avail;
+            }
+        }
+
+        /// <summary>第 `i` 颗钮该印的那串字（官方台词优先 → 分类词兜底，缺键出声一次）。</summary>
+        string ChatLineText(int i)
+        {
+            if (i < 0 || i >= ButtonCount) return "";
+            if (IsIndexOutOfEnumBounds(ChatMessageIndex(i)))
+            {
+                // 原版越界档走 `<前缀> + 原始 chatMsg` 兜底（`RefreshChatLines.c:73-77`）——我们没有那份前缀数据，
+                // 且**当前数据永不越界**（6 颗钮 = 枚举 5…10）⇒ 不写字。
+                return "";
+            }
+            if (!string.IsNullOrEmpty(_warlordCardId))
+            {
+                string key = LineTermFor(_warlordCardId, i);
+                // 🔴 **⛔ 别用 `Loc.HasEntry` 判这一族键**（2026-10-27 本批自查抓到的坑）：
+                //   `HasEntry` **只认手写 `Table`**（现读 754 条，见 `Loc.cs:3572-3607` 那段「只认手写表」），
+                //   而 `Chat_Messages/*` 这一族（1,736 条）**全在官方全表那一档**
+                //   （`Resources/official_loc_13lang.json` / 10,862 键）⇒ 拿 `HasEntry` 会**恒 false**、
+                //   6 颗钮每次都退回分类词（而画面看着「有字」，静默）。
+                //   口径照 `UnitChatPanel.OfficialChatTextOfTerm`：`T()` 缺键会把**键名本身**返回来 ⇒ 拿它比。
+                string v = string.IsNullOrEmpty(key) ? null : Loc.T(key);
+                if (!string.IsNullOrEmpty(v) && v != key) return v;
+                if (!_warnedNoLine)
+                {
+                    _warnedNoLine = true;
+                    Debug.LogWarning("[Chat] 聊天钮的**官方台词典缺键**（`" + (key ?? "-") + "`）⇒ 这一档退回分类词"
+                                   + "（⛔ 不自译；判据 = 官方 I2 表 `Chat_Messages/<战将 id>-Chat<5..10>`）");
+                }
+            }
+            else if (!_warnedNoLine)
+            {
+                _warnedNoLine = true;
+                Debug.LogWarning("[Chat] 还没有喂本局我方督军（`ChatPopupPanel.SetChatContext`）⇒ "
+                               + "6 颗钮先印**分类词**（原版印的是该督军那 6 句台词全文，"
+                               + "判据 `VoiceLinesPopupSelector__RefreshChatLines.c:71`）");
+            }
+            return LabelFor(i);
+        }
+
+        /// <summary>🆕 **2026-10-27（账 146）**：原版 `VoiceLinesPopupSelector.IsIndexOutOfEnumBounds`。
+        /// <para>判据 = `VoiceLinesPopupSelector__IsIndexOutOfEnumBounds.c:13-24`：
+        /// `Enum.GetValues(ChatMessage).Length &lt;= idx` ⇒ 越界。常量 = <see cref="ChatMessageEnumCount"/>。</para>
+        /// <para>⚠️ 原版这个方法**本体没有任何调用者**（`SetupChatOptions` 里是**内联**的同一句）——
+        /// 我们把它落成真函数并**真的用上**（`ApplyChatLines` / `ChatLineText`），语义一致、且比内联更难写错。</para></summary>
+        public static bool IsIndexOutOfEnumBounds(int chatMessageIndex)
+        {
+            return ChatMessageEnumCount <= chatMessageIndex;
+        }
+
+        /// <summary>🆕 **2026-10-27（账 145）**：原版 `VoiceLinesPopupSelector.IsAvailable(matchData, …)`
+        /// —— 本局 `MatchType` 在不在允许集合里。
+        /// <para>判据 = `VoiceLinesPopupSelector__IsAvailable.c:11-28`：取 `matchData + 0x1c` 当 `matchType`，
+        /// 再 `Enumerable.Any(possibleTypes, x =&gt; x == matchType)`。⚠️ 形参 `warlordId` / `chatMessageIndex`
+        /// **方法体里一次都没用** ⇒ 我们的签名也不用它们。</para>
+        /// <para>⚠️ **原版当前不可达**：调用点在 `i + 5 &gt;= 枚举长` 那一支，而钮恒 6 颗、枚举 11 个 ⇒
+        /// 6 颗钮**永远 `interactable = true`**。这一档留成真函数 + 夹具可测（⛔ 别当成「今天没有的实现」删掉）。</para></summary>
+        public static bool IsAvailable(RuleEngine.MatchType matchType, RuleEngine.MatchType[] possibleTypes)
+        {
+            return IsMatchOneOfCollection(matchType, possibleTypes);
+        }
+
+        /// <summary>🆕 **2026-10-27（账 147）**：原版 `VoiceLinesPopupSelector.IsMatchOneOfCollection`
+        /// = `Enumerable.Any(possibleTypes, p)`（判据 = `__IsMatchOneOfCollection.c:16-23`）。
+        /// <para>LINQ `Any` 语义：集合为 `null` / 空 ⇒ **false**（⛔ 别写成「没限制就放行」）。</para>
+        /// <para>⚠️ 原版是两个函数、但一个只被另一个调用 ⇒ 我们保持两层（别合并成一个——
+        /// 账里两条各要一个判据口）。</para></summary>
+        public static bool IsMatchOneOfCollection(RuleEngine.MatchType matchType,
+                                                 RuleEngine.MatchType[] possibleTypes)
+        {
+            if (possibleTypes == null) return false;
+            for (int i = 0; i < possibleTypes.Length; i++)
+                if (possibleTypes[i] == matchType) return true;
+            return false;
+        }
+
+        /// <summary>🆕 **2026-10-27（账 116）**：原版 `VoiceLinesController.ForcePopUpClose`
+        /// —— **弹窗开着就关掉**，关不掉就算了。
+        /// <para>判据 = `VoiceLinesController__ForcePopUpClose.c:5-9`：
+        /// `if (+0x78 == 0) return;`（`+0x78` 已定案 = `PopUpShowed(0) / PopUpHid(1)` ⇒ **0 = 弹窗正开着**），
+        /// 然后 `VoiceLinesPopupSelector.Hide()`。三个调用点：`StopBattleAfterBattleEnd` ·
+        /// `ClosePopupsAfterBattleEnd`（我们已接，见 `BattleDriver:31078` 那一处）· **`ChoiceOfCardPlayer`（开选牌面板之前，还没接）**。</para>
+        /// <para>返回 `true` = 这一次真的关了（`false` = 本来就没开 ⇒ 原版那一句提前 return）。</para>
+        /// <param name="immediate">`true` = 不播淡出直接收（批处理 / 自检那一档；原版是协程外的 `Hide()`，
+        /// 而批处理里没有帧去推淡出）。</param></summary>
+        public bool ForcePopUpClose(bool immediate = false)
+        {
+            if (!Visible) return false;             // 原版 `+0x78 != 0`（无弹窗）⇒ 直接 return
+            if (immediate || !Application.isPlaying) HideImmediate();
+            else Hide();
+            return true;
+        }
+
+        /// <summary>自检用：第 `i` 颗钮现在收不收点击（原版 `Selectable.interactable`）。
+        /// 越界 / 那件没建出来 ⇒ `false`。</summary>
+        public bool ButtonInteractableOf(int i)
+        {
+            return i >= 0 && i < _btns.Count && _btns[i].interactable;
         }
     }
 }

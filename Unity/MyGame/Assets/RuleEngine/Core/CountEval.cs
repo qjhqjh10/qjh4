@@ -226,9 +226,9 @@ namespace RuleEngine
         //     **`(ignoreRandom == 0) && triggerIf == 8 && referenceValue > 0`**。
         //     ⇒ `ignoreRandom == true` 时**整段跳过随机支**，落到 `:104` 的「数个数再比」
         //     （⚠️ 那一支对 `triggerIf == 8` **不比较、也不 LogError** —— 原版 `else if (local_28 != 8)`）。
-        //     ⚠️ 随机**掷法本身**本版仍未实现（原版走 `BattleManager.GetRandomInt`
-        //     = `MatchData` 的「开局预烧 100 + 按下标取」那张表，见 `CLAUDE.md` 那条红线）⇒
-        //     `ignoreRandom == false` 且真命中这一档时 **返回 null 并出声**（⛔ 不猜、不拿 `ctx.Rng.Next` 顶）。
+        //     ✅ **2026-10-27（`E1RNG`）已实现掷法**：`ctx.GetRandomInt(0,100) < referenceValue`（见下方那一支）；
+        //     本条原来写「掷法未实现 ⇒ 返回 null 并出声」——随机表落地后不再成立；
+        //     ⛔ 也别再写「不拿 `ctx.Rng.Next` 顶」那种话：现在**有**正主可用了（`ctx.GetRandomInt`）。
         //     现读全库**没有**卡的 criteria 用到 8（`normalAbilityBoardCriteria` 2 张都是 1；
         //     v30 的 `role="count"` 行 99 条 `op ∈ {0,1,2,3}` · 见 `cards_engine.json`）⇒ 今天零影响。
 
@@ -310,12 +310,12 @@ namespace RuleEngine
                 if (gate.ReferenceValue == 0) return true;
                 if (!ignoreRandom)
                 {
-                    // 本版**掷法未实现**（原版走 `BattleManager.GetRandomInt` = `MatchData` 的
-                    // 「开局预烧 100 + 按下标取」那张表）⇒ 判不了 + 出声，⛔ 不拿 `ctx.Rng.Next` 顶。
-                    gap = "`triggerIf = RandomChance(8)` 的**掷法**本版未实现"
-                        + "（原版 `BattleManager.GetRandomInt` = `MatchData` 预烧 100 + 下标）"
-                        + " ⇒ 判不了；传 `ignoreRandom: true` 可跳过这一支（原版第 6 实参）";
-                    return null;
+                    // 🔴 2026-10-27（`E1RNG`）：原版这一步 = 预烧表取一格 —— `BoardAnalysis__MeetsCriteria.c:55`
+                    //   `rand = GetRandomInt(0,100)`（上界开区间 ⇒ `[0,100)`），`:89` `return rand < referenceValue`。
+                    //   `referenceValue` = `criteria + 0x28`（`gate.ReferenceValue`），方向是**严格小于**。
+                    //   ⚠️ 原版还打一条 `CustomDebug.Log`（带卡名/阈值/掷值）—— 我们不接调试日志。
+                    if (ctx == null) { gap = "`RandomChance(8)` 要 `ctx` 才能掷（预烧表挂在 ctx 上）"; return null; }
+                    return ctx.GetRandomInt(0, 100) < gate.ReferenceValue;
                 }
                 // `ignoreRandom == true` ⇒ 原版整段跳过随机支，落下面「数个数」那一半。
             }
@@ -973,8 +973,8 @@ namespace RuleEngine
                     // `0 random` / `4 cardTarget` / `2,3 valueInPlay` / `6 lowestHealth` / 未知值。
                     gap = method switch
                     {
-                        0 => "`targetSelectMethod = random(0)` 要随机源（原版 `BattleManager.GetRandomInt` = "
-                           + "`MatchData` 开局预烧 100 + 按下标取，P-04 随机源尚未落地）⇒ 判不了",
+                        0 => "`targetSelectMethod = random(0)` 的**选择链**本版未建模（随机源**已落地** = `ctx.GetRandomInt`，"
+                           + "原版 `MatchData` 预烧 100 + 按下标取；缺的是这条选择链自己的逐句判据）⇒ 判不了",
                         4 => "`targetSelectMethod = cardTarget(4)` 在本版没有建模（原版 `:1252-1273` 的 `default` 支"
                            + "走的是随机抽；`cardTarget` 的真实口径判据未取到）⇒ 判不了",
                         2 or 3 => "`targetSelectMethod = highest/lowestValueInPlay` 要 `CardScript.GetValueInPlay()`，"

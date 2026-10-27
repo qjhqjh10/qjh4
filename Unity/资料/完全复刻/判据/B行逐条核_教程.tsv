@@ -1,0 +1,94 @@
+域	方法	原等级	建议等级	判据出处	我们的落点(文件:行)	一句结论	还差什么
+教程/引导	DetectClickToSkip()	B	B	BattleTutorialManager.cs:43	Battle/BattleDriver.cs:15836/17321	类级命中；方法级未逐句核	定位到方法 + 逐句核
+教程/引导	ToggleCanSkipAction(bool status)	B	B	BattleTutorialManager.cs:30	Battle/BattleDriver.cs:15838	类级命中；方法级未逐句核	定位到方法 + 逐句核
+教程/引导	Update()	B	B	BattleTutorialManager.cs:35	Battle/TutorialOverlay.cs:1129	类级命中；方法级未逐句核	定位到方法 + 逐句核
+教程/引导	Initialize(FTUESelectDeckWindow.StarterDeckFTUEInfo deckFTUEInfo, Action<FTUESelectDeckContainer> onDeckSelected)	B	B	FTUESelectDeckContainer.cs:59	Shell/FTUESelectDeckContainer.cs:159 Create	Shell/FTUESelectDeckContainer Create/ToggleSelected 承接（未逐句核）	定位到方法 + 逐句核
+教程/引导	OnDisable()	B	B	FTUESelectDeckContainer.cs:170	Shell/FTUESelectDeckContainer.cs:276	Shell/FTUESelectDeckContainer Create/ToggleSelected 承接（未逐句核）	定位到方法 + 逐句核
+教程/引导	ResetTutorialMessageData()	B	B	FlowTutorialStage.cs:210	Shell/MenuTutorialStageDef.cs（alreadyShown 按阶段记）	MenuTutorialStageDef/Flow 承接	定位
+教程/引导	AddPointerWithDelay(MainTutorialButtons objButton)	B	B	MainTutorialManager.cs:463	Shell/MenuTutorialManager.cs:488	MenuTutorialFlow/MenuTutorialManager 承接（类级命中，方法级未逐句核）	定位到方法 + 逐句核
+教程/引导	ChangedWindowState()	B	B	MainTutorialManager.cs:672	Shell/MenuTutorialFlow.cs:474 OnWindowChanged	MenuTutorialFlow/MenuTutorialManager 承接（类级命中，方法级未逐句核）	定位到方法 + 逐句核
+教程/引导	GetCampaignRedeemNodeId()	B	B	MainTutorialManager.cs:482	Shell/MenuTutorialStageDef.cs（CampaignTrackNode/CampaignClaimButton）	MenuTutorialFlow/MenuTutorialManager 承接（类级命中，方法级未逐句核）	定位到方法 + 逐句核
+教程/引导	Awake()	B	B	TutorialArmySelectionButton.cs:33	Shell/TutorialModePopup.cs:495	Shell/TutorialModePopup / TutorialMessagePopup 承接（类级命中，未逐句核）	定位到方法 + 逐句核
+教程/引导	Highlight(bool state)	B	B	TutorialArmySelectionButton.cs:100	Shell/TutorialModePopup.cs:196 ItemHL	Shell/TutorialModePopup / TutorialMessagePopup 承接（类级命中，未逐句核）	定位到方法 + 逐句核
+教程/引导	Initialize(CardArmy army, int indexNumber, DemoDeckInfoSO deck, TutorialModePopup selectionMenu, TutorialEvent tutEvent)	B	B	TutorialArmySelectionButton.cs:42	Shell/TutorialModePopup.cs:433	Shell/TutorialModePopup / TutorialMessagePopup 承接（类级命中，未逐句核）	定位到方法 + 逐句核
+教程/引导	OnDestroy()	B	A	TutorialHidePointerInCampaign.cs:61	Shell/MenuTutorialFlow.ApplyCampaignPointerFade + TutorialPointerUi.SetFade	等价：MenuTutorialFlow.ApplyCampaignPointerFade（同上）	—
+教程/引导	Start()	B	A	TutorialHidePointerInCampaign.cs:12	Shell/MenuTutorialFlow.ApplyCampaignPointerFade + TutorialPointerUi.SetFade	等价：MenuTutorialFlow.ApplyCampaignPointerFade（:784 alpha=clamp01(1-clamp01(norm*12.5))，常量12.5 逐字）	—
+教程/引导	Update()	B	A	TutorialHidePointerInCampaign.cs:26	Shell/MenuTutorialFlow.ApplyCampaignPointerFade + TutorialPointerUi.SetFade	等价：MenuTutorialFlow.ApplyCampaignPointerFade（同上）	—
+教程/引导	AddPointer(TutorialPointerData pointerData)	B	B	TutorialManager.cs:1242	Shell/MenuTutorialFlow.cs:620 RefreshPointer	MenuTutorialFlow/MenuTutorialManager 承接（类级命中，方法级未逐句核）	定位到方法 + 逐句核
+教程/引导	AddPointerAction(GameObject target, Vector2 offset, bool filterRaycast)	B	B	TutorialManager.cs:1371	Shell/MenuTutorialFlow.cs:620	MenuTutorialFlow/MenuTutorialManager 承接（类级命中，方法级未逐句核）	定位到方法 + 逐句核
+教程/引导	AddPointerWithDelay(GameObject target, Vector2 offset, bool filterRaycast)	B	B	TutorialManager.cs:1339	Shell/MenuTutorialFlow.cs:620	MenuTutorialFlow/MenuTutorialManager 承接（类级命中，方法级未逐句核）	定位到方法 + 逐句核
+教程/引导	AddPointerWithDelay(TutorialPointerData pointerData)	B	B	TutorialManager.cs:1356	Shell/MenuTutorialFlow.cs:620	MenuTutorialFlow/MenuTutorialManager 承接（类级命中，方法级未逐句核）	定位到方法 + 逐句核
+教程/引导	AreAllTutorialsCompleted()	B	B	TutorialManager.cs:1209	Shell/MenuTutorialFlow.cs:253	MenuTutorialFlow/MenuTutorialManager 承接（类级命中，方法级未逐句核）	定位到方法 + 逐句核
+教程/引导	DelayedAddPointerHideInCampaign()	B	A	TutorialManager.cs:1438	Shell/MenuTutorialFlow.cs:726	等价：MenuTutorialFlow.ApplyCampaignPointerFade（每次刷新按当前滚动算 alpha（等价实现））	—
+教程/引导	DisablePointer()	B	B	TutorialManager.cs:1329	Shell/TutorialPointerUi.cs:148 Hide	MenuTutorialFlow/MenuTutorialManager 承接（类级命中，方法级未逐句核）	定位到方法 + 逐句核
+教程/引导	PlayTutorial()	B	B	TutorialManager.cs:878	Shell/MenuTutorialFlow.cs:223	MenuTutorialFlow/MenuTutorialManager 承接（类级命中，方法级未逐句核）	定位到方法 + 逐句核
+教程/引导	SaveAllStages()	B	B	TutorialManager.cs:1203	Shell/MenuTutorialFlow.cs:79 + PrefSkip	MenuTutorialFlow/MenuTutorialManager 承接（类级命中，方法级未逐句核）	定位到方法 + 逐句核
+教程/引导	SetActiveStage(FlowTutorialStage activeStage)	B	B	TutorialManager.cs:1052	Shell/MenuTutorialFlow.cs:269 _index	MenuTutorialFlow/MenuTutorialManager 承接（类级命中，方法级未逐句核）	定位到方法 + 逐句核
+教程/引导	StageCompleted(FlowTutorialStage stageCompleted)	B	B	TutorialManager.cs:1060	Shell/MenuTutorialFlow.cs:314 Advance	MenuTutorialFlow/MenuTutorialManager 承接（类级命中，方法级未逐句核）	定位到方法 + 逐句核
+教程/引导	WindowChange(bool isTab, GameWindow gameWindow, WindowTabBase tab)	B	B	TutorialManager.cs:1185	Shell/MenuTutorialFlow.cs:474 OnWindowChanged	MenuTutorialFlow/MenuTutorialManager 承接（类级命中，方法级未逐句核）	定位到方法 + 逐句核
+教程/引导	Reset()	B	B	TutorialMessageData.cs:16	Shell/MenuTutorialStageDef.cs alreadyShown	TutorialMessageData.Reset ↔ MenuTutorialStageDef alreadyShown 位	定位到方法 + 逐句核
+教程/引导	Close()	B	B	TutorialMessageWindowPopUp.cs:144	Shell/TutorialMessagePopup.cs:223	Shell/TutorialModePopup / TutorialMessagePopup 承接（类级命中，未逐句核）	定位到方法 + 逐句核
+教程/引导	OnClose()	B	B	TutorialMessageWindowPopUp.cs:156	Shell/TutorialMessagePopup.cs:223	Shell/TutorialModePopup / TutorialMessagePopup 承接（类级命中，未逐句核）	定位到方法 + 逐句核
+教程/引导	Awake()	B	B	TutorialModePopup.cs:47	Shell/TutorialModePopup.cs:311 Open	Shell/TutorialModePopup / TutorialMessagePopup 承接（类级命中，未逐句核）	定位到方法 + 逐句核
+教程/引导	ConfigureArmyFilterButtons()	B	B	TutorialModePopup.cs:114	Shell/TutorialModePopup.cs:495 头注 + Build	Shell/TutorialModePopup / TutorialMessagePopup 承接（类级命中，未逐句核）	定位到方法 + 逐句核
+教程/引导	OnDestroy()	B	B	TutorialModePopup.cs:54	Shell/TutorialModePopup.cs:320 Close	Shell/TutorialModePopup / TutorialMessagePopup 承接（类级命中，未逐句核）	定位到方法 + 逐句核
+教程/引导	ResetContent()	B	B	TutorialModePopup.cs:406	Shell/TutorialModePopup.cs:314 Open 初值	Shell/TutorialModePopup / TutorialMessagePopup 承接（类级命中，未逐句核）	定位到方法 + 逐句核
+教程/引导	SetArmyButtons(CardArmy cardArmy)	B	B	TutorialModePopup.cs:251	Shell/TutorialModePopup.cs:433/495	Shell/TutorialModePopup / TutorialMessagePopup 承接（类级命中，未逐句核）	定位到方法 + 逐句核
+教程/引导	ClickAndHold(Vector3 clickPos, PointerRelativePos pointerOrientation)	B	B	TutorialPointer.cs:661	Shell/TutorialPointerUi.cs PointerAction.ClickAndHold	TutorialPointerUi Show/Hide/SetText 承接（类级命中，未逐句核）	定位到方法 + 逐句核
+教程/引导	GetAdjustedPos(Vector2 pos, PointerRelativePos pointerOrientation)	B	B	TutorialPointer.cs:836	Shell/TutorialPointerUi.cs:125 + Flow 偏移取反	TutorialPointerUi Show/Hide/SetText 承接（类级命中，未逐句核）	定位到方法 + 逐句核
+教程/引导	OnDisable()	B	B	TutorialPointer.cs:516	Shell/TutorialPointerUi.cs:148 Hide	TutorialPointerUi Show/Hide/SetText 承接（类级命中，未逐句核）	定位到方法 + 逐句核
+教程/引导	ShowStartingPointer(Vector3 clickPos, PointerRelativePos pointerOrientation)	B	B	TutorialPointer.cs:692	Shell/TutorialPointerUi.cs:170 ApplyPhase	TutorialPointerUi Show/Hide/SetText 承接（类级命中，未逐句核）	定位到方法 + 逐句核
+教程/引导	StartPointer(TutorialPointerActions pointerAction, Vector3 startPos, Vector2 endPos, PointerRelativePos pointerOrientation)	B	B	TutorialPointer.cs:575	Shell/TutorialPointerUi.cs:125 Show	TutorialPointerUi Show/Hide/SetText 承接（类级命中，未逐句核）	定位到方法 + 逐句核
+教程/引导	StopAnim()	B	B	TutorialPointer.cs:632	Shell/TutorialPointerUi.cs:148 Hide	TutorialPointerUi Show/Hide/SetText 承接（类级命中，未逐句核）	定位到方法 + 逐句核
+教程/引导	Setup(int tutorialNumber, DemoDeckInfoSO deckInfo)	B	B	TutorialSpecificInfo.cs:15	Shell/TutorialMessagePopup.cs:223/173	Shell/TutorialModePopup / TutorialMessagePopup 承接（类级命中，未逐句核）	定位到方法 + 逐句核
+教程/引导	CheckForCompletion()	B	A	TutorialStageClaimForgeFirstLevel.cs:308	Shell/MenuTutorialFlow.cs:550 + ForgeData	等价：MenuTutorialFlow 进阶段 ForgeData.LevelOf 快照(:335/:589)（完成判据=ForgeData.LevelOf 变化（初值故意非零，靠变化判））	—
+教程/引导	DoMenuActions()	B	B	TutorialStageClaimForgeFirstLevel.cs:104	Shell/MenuTutorialStageDef.cs（第 6 条）+ MenuTutorialFlow.cs:267/474	原版每阶段一个 MonoBehaviour；我方=MenuTutorialStageDef 数据表 + MenuTutorialFlow 通用流，无同名方法（架构差异）	需逐阶段比可见行为（非改名能解）
+教程/引导	Execute()	B	B	TutorialStageClaimForgeFirstLevel.cs:58	Shell/MenuTutorialStageDef.cs（第 6 条）+ MenuTutorialFlow.cs:267/474	原版每阶段一个 MonoBehaviour；我方=MenuTutorialStageDef 数据表 + MenuTutorialFlow 通用流，无同名方法（架构差异）	需逐阶段比可见行为（非改名能解）
+教程/引导	WindowsChange(bool isTab, GameWindow gameWindow, WindowTabBase tab)	B	B	TutorialStageClaimForgeFirstLevel.cs:64	Shell/MenuTutorialStageDef.cs（第 6 条）+ MenuTutorialFlow.cs:267/474	原版每阶段一个 MonoBehaviour；我方=MenuTutorialStageDef 数据表 + MenuTutorialFlow 通用流，无同名方法（架构差异）	需逐阶段比可见行为（非改名能解）
+教程/引导	CheckForCompletion()	B	B	TutorialStageGetCampaignNode.cs:626	Shell/MenuTutorialStageDef.cs + Shell/MenuTutorialFlow.cs:267/474/510	原版每阶段一个 MonoBehaviour；我方=MenuTutorialStageDef 数据表 + MenuTutorialFlow 通用流，无同名方法（架构差异）	需逐阶段比可见行为（非改名能解）
+教程/引导	DoMenuActions()	B	B	TutorialStageGetCampaignNode.cs:148	Shell/MenuTutorialStageDef.cs + Shell/MenuTutorialFlow.cs:267/474/510	原版每阶段一个 MonoBehaviour；我方=MenuTutorialStageDef 数据表 + MenuTutorialFlow 通用流，无同名方法（架构差异）	需逐阶段比可见行为（非改名能解）
+教程/引导	Execute()	B	B	TutorialStageGetCampaignNode.cs:77	Shell/MenuTutorialStageDef.cs + Shell/MenuTutorialFlow.cs:267/474/510	原版每阶段一个 MonoBehaviour；我方=MenuTutorialStageDef 数据表 + MenuTutorialFlow 通用流，无同名方法（架构差异）	需逐阶段比可见行为（非改名能解）
+教程/引导	HasTwoNodesCompleted()	B	B	TutorialStageGetCampaignNode.cs:745	Shell/MenuTutorialStageDef.cs + Shell/MenuTutorialFlow.cs:267/474/510	原版每阶段一个 MonoBehaviour；我方=MenuTutorialStageDef 数据表 + MenuTutorialFlow 通用流，无同名方法（架构差异）	需逐阶段比可见行为（非改名能解）
+教程/引导	WindowsChange(bool isTab, GameWindow gameWindow, WindowTabBase tab)	B	B	TutorialStageGetCampaignNode.cs:83	Shell/MenuTutorialStageDef.cs + Shell/MenuTutorialFlow.cs:267/474/510	原版每阶段一个 MonoBehaviour；我方=MenuTutorialStageDef 数据表 + MenuTutorialFlow 通用流，无同名方法（架构差异）	需逐阶段比可见行为（非改名能解）
+教程/引导	CheckForCompletion()	B	B	TutorialStageGetMission.cs:301	Shell/MenuTutorialStageDef.cs + Shell/MenuTutorialFlow.cs:267/474/510	原版每阶段一个 MonoBehaviour；我方=MenuTutorialStageDef 数据表 + MenuTutorialFlow 通用流，无同名方法（架构差异）	需逐阶段比可见行为（非改名能解）
+教程/引导	DoMenuActions()	B	B	TutorialStageGetMission.cs:101	Shell/MenuTutorialStageDef.cs + Shell/MenuTutorialFlow.cs:267/474/510	原版每阶段一个 MonoBehaviour；我方=MenuTutorialStageDef 数据表 + MenuTutorialFlow 通用流，无同名方法（架构差异）	需逐阶段比可见行为（非改名能解）
+教程/引导	Execute()	B	B	TutorialStageGetMission.cs:55	Shell/MenuTutorialStageDef.cs + Shell/MenuTutorialFlow.cs:267/474/510	原版每阶段一个 MonoBehaviour；我方=MenuTutorialStageDef 数据表 + MenuTutorialFlow 通用流，无同名方法（架构差异）	需逐阶段比可见行为（非改名能解）
+教程/引导	HasCampaignPoints()	B	B	TutorialStageGetMission.cs:397	Shell/MenuTutorialStageDef.cs + Shell/MenuTutorialFlow.cs:267/474/510	原版每阶段一个 MonoBehaviour；我方=MenuTutorialStageDef 数据表 + MenuTutorialFlow 通用流，无同名方法（架构差异）	需逐阶段比可见行为（非改名能解）
+教程/引导	WindowsChange(bool isTab, GameWindow gameWindow, WindowTabBase tab)	B	B	TutorialStageGetMission.cs:61	Shell/MenuTutorialStageDef.cs + Shell/MenuTutorialFlow.cs:267/474/510	原版每阶段一个 MonoBehaviour；我方=MenuTutorialStageDef 数据表 + MenuTutorialFlow 通用流，无同名方法（架构差异）	需逐阶段比可见行为（非改名能解）
+教程/引导	CheckForCompletion()	B	B	TutorialStageLevelUpCard.cs:642	Shell/MenuTutorialStageDef.cs（第 5 条）+ MenuTutorialFlow.cs:267/474/510	原版每阶段一个 MonoBehaviour；我方=MenuTutorialStageDef 数据表 + MenuTutorialFlow 通用流，无同名方法（架构差异）	需逐阶段比可见行为（非改名能解）
+教程/引导	DoMenuActions()	B	B	TutorialStageLevelUpCard.cs:122	Shell/MenuTutorialStageDef.cs（第 5 条）+ MenuTutorialFlow.cs:267/474/510	原版每阶段一个 MonoBehaviour；我方=MenuTutorialStageDef 数据表 + MenuTutorialFlow 通用流，无同名方法（架构差异）	需逐阶段比可见行为（非改名能解）
+教程/引导	DoingUpgrade()	B	B	TutorialStageLevelUpCard.cs:558	Shell/MenuTutorialStageDef.cs（第 5 条）+ MenuTutorialFlow.cs:267/474/510	原版每阶段一个 MonoBehaviour；我方=MenuTutorialStageDef 数据表 + MenuTutorialFlow 通用流，无同名方法（架构差异）	需逐阶段比可见行为（非改名能解）
+教程/引导	Execute()	B	B	TutorialStageLevelUpCard.cs:76	Shell/MenuTutorialStageDef.cs（第 5 条）+ MenuTutorialFlow.cs:267/474/510	原版每阶段一个 MonoBehaviour；我方=MenuTutorialStageDef 数据表 + MenuTutorialFlow 通用流，无同名方法（架构差异）	需逐阶段比可见行为（非改名能解）
+教程/引导	HasAlreadyUpgradedCard()	B	B	TutorialStageLevelUpCard.cs:727	Shell/MenuTutorialStageDef.cs（第 5 条）+ MenuTutorialFlow.cs:267/474/510	原版每阶段一个 MonoBehaviour；我方=MenuTutorialStageDef 数据表 + MenuTutorialFlow 通用流，无同名方法（架构差异）	需逐阶段比可见行为（非改名能解）
+教程/引导	HasNoCardToUpgrade()	B	B	TutorialStageLevelUpCard.cs:774	Shell/MenuTutorialStageDef.cs（第 5 条）+ MenuTutorialFlow.cs:267/474/510	原版每阶段一个 MonoBehaviour；我方=MenuTutorialStageDef 数据表 + MenuTutorialFlow 通用流，无同名方法（架构差异）	需逐阶段比可见行为（非改名能解）
+教程/引导	WindowsChange(bool isTab, GameWindow gameWindow, WindowTabBase tab)	B	B	TutorialStageLevelUpCard.cs:82	Shell/MenuTutorialStageDef.cs（第 5 条）+ MenuTutorialFlow.cs:267/474/510	原版每阶段一个 MonoBehaviour；我方=MenuTutorialStageDef 数据表 + MenuTutorialFlow 通用流，无同名方法（架构差异）	需逐阶段比可见行为（非改名能解）
+教程/引导	CheckForCompletion()	B	B	TutorialStagePlayRanked.cs:170	Shell/MenuTutorialStageDef.cs + Shell/MenuTutorialFlow.cs:267/474/510	原版每阶段一个 MonoBehaviour；我方=MenuTutorialStageDef 数据表 + MenuTutorialFlow 通用流，无同名方法（架构差异）	需逐阶段比可见行为（非改名能解）
+教程/引导	Execute()	B	B	TutorialStagePlayRanked.cs:40	Shell/MenuTutorialStageDef.cs + Shell/MenuTutorialFlow.cs:267/474/510	原版每阶段一个 MonoBehaviour；我方=MenuTutorialStageDef 数据表 + MenuTutorialFlow 通用流，无同名方法（架构差异）	需逐阶段比可见行为（非改名能解）
+教程/引导	ShowCursor()	B	B	TutorialStagePlayRanked.cs:59	Shell/MenuTutorialStageDef.cs + Shell/MenuTutorialFlow.cs:267/474/510	原版每阶段一个 MonoBehaviour；我方=MenuTutorialStageDef 数据表 + MenuTutorialFlow 通用流，无同名方法（架构差异）	需逐阶段比可见行为（非改名能解）
+教程/引导	WindowsChange(bool isTab, GameWindow gameWindow, WindowTabBase tab)	B	B	TutorialStagePlayRanked.cs:46	Shell/MenuTutorialStageDef.cs + Shell/MenuTutorialFlow.cs:267/474/510	原版每阶段一个 MonoBehaviour；我方=MenuTutorialStageDef 数据表 + MenuTutorialFlow 通用流，无同名方法（架构差异）	需逐阶段比可见行为（非改名能解）
+教程/引导	CheckForCompletion()	B	B	TutorialStageSelectArmy.cs:89	Shell/MenuTutorialStageDef.cs + Shell/MenuTutorialFlow.cs:267/474/510	原版每阶段一个 MonoBehaviour；我方=MenuTutorialStageDef 数据表 + MenuTutorialFlow 通用流，无同名方法（架构差异）	需逐阶段比可见行为（非改名能解）
+教程/引导	Complete()	B	B	TutorialStageSelectArmy.cs:110	Shell/MenuTutorialStageDef.cs + Shell/MenuTutorialFlow.cs:267/474/510	原版每阶段一个 MonoBehaviour；我方=MenuTutorialStageDef 数据表 + MenuTutorialFlow 通用流，无同名方法（架构差异）	需逐阶段比可见行为（非改名能解）
+教程/引导	Execute()	B	B	TutorialStageSelectArmy.cs:12	Shell/MenuTutorialStageDef.cs + Shell/MenuTutorialFlow.cs:267/474/510	原版每阶段一个 MonoBehaviour；我方=MenuTutorialStageDef 数据表 + MenuTutorialFlow 通用流，无同名方法（架构差异）	需逐阶段比可见行为（非改名能解）
+教程/引导	CheckForCompletion()	B	B	TutorialStageTutorialFinished.cs:85	Shell/MenuTutorialStageDef.cs + Shell/MenuTutorialFlow.cs:267/474/510	原版每阶段一个 MonoBehaviour；我方=MenuTutorialStageDef 数据表 + MenuTutorialFlow 通用流，无同名方法（架构差异）	需逐阶段比可见行为（非改名能解）
+教程/引导	Complete()	B	B	TutorialStageTutorialFinished.cs:78	Shell/MenuTutorialStageDef.cs + Shell/MenuTutorialFlow.cs:267/474/510	原版每阶段一个 MonoBehaviour；我方=MenuTutorialStageDef 数据表 + MenuTutorialFlow 通用流，无同名方法（架构差异）	需逐阶段比可见行为（非改名能解）
+教程/引导	DoActions()	B	B	TutorialStageTutorialFinished.cs:66	Shell/MenuTutorialStageDef.cs + Shell/MenuTutorialFlow.cs:267/474/510	原版每阶段一个 MonoBehaviour；我方=MenuTutorialStageDef 数据表 + MenuTutorialFlow 通用流，无同名方法（架构差异）	需逐阶段比可见行为（非改名能解）
+教程/引导	Execute()	B	B	TutorialStageTutorialFinished.cs:11	Shell/MenuTutorialStageDef.cs + Shell/MenuTutorialFlow.cs:267/474/510	原版每阶段一个 MonoBehaviour；我方=MenuTutorialStageDef 数据表 + MenuTutorialFlow 通用流，无同名方法（架构差异）	需逐阶段比可见行为（非改名能解）
+教程/引导	ClickContinue()	B	B	TutorialTipScript.cs:299	Battle/TutorialOverlay.cs:925 withContinue	Battle/TutorialOverlay SetTip/Tick 承接（类级命中，未逐句核）	定位到方法 + 逐句核
+教程/引导	FinishTutorialTip()	B	B	TutorialTipScript.cs:354	Battle/TutorialOverlay.cs:891	Battle/TutorialOverlay SetTip/Tick 承接（类级命中，未逐句核）	定位到方法 + 逐句核
+教程/引导	SetupTip(SmallTipData smallTipData)	B	B	TutorialTipScript.cs:308	Battle/TutorialOverlay.cs:925	Battle/TutorialOverlay SetTip/Tick 承接（类级命中，未逐句核）	定位到方法 + 逐句核
+教程/引导	SetupTipData(SmallTipData smallTipData)	B	B	TutorialTipScript.cs:326	Battle/TutorialOverlay.cs:925	Battle/TutorialOverlay SetTip/Tick 承接（类级命中，未逐句核）	定位到方法 + 逐句核
+教程/引导	ShowTipPermanent(SmallTipData smallTipData)	B	B	TutorialTipScript.cs:282	Battle/TutorialOverlay.cs:925	Battle/TutorialOverlay SetTip/Tick 承接（类级命中，未逐句核）	定位到方法 + 逐句核
+教程/引导	StopAnims()	B	B	TutorialTipScript.cs:391	Battle/TutorialOverlay.cs:891	Battle/TutorialOverlay SetTip/Tick 承接（类级命中，未逐句核）	定位到方法 + 逐句核
+教程/引导	StopTip(float timeToWait)	B	B	TutorialTipScript.cs:417	Battle/TutorialOverlay.cs:925	Battle/TutorialOverlay SetTip/Tick 承接（类级命中，未逐句核）	定位到方法 + 逐句核
+教程/引导	Update()	B	B	TutorialTipScript.cs:432	Battle/TutorialOverlay.cs:1162 Tick 族	Battle/TutorialOverlay SetTip/Tick 承接（类级命中，未逐句核）	定位到方法 + 逐句核
+教程/引导	LoadAllStages(FlowTutorialStage[] stagesToLoad)	B	A	TutorialV2SaveData.cs:107	Shell/MenuTutorialFlow.cs:72/79	等价：MenuTutorialFlow.IsCompleted(:72)+DoneKey(:66)（按 stageId 逐阶段 PlayerPrefs 读（等价））	—
+教程/引导	LoadStage(FlowTutorialStage stage)	B	A	TutorialV2SaveData.cs:59	Shell/MenuTutorialFlow.cs:72/79	等价：MenuTutorialFlow.IsCompleted(:72)（按 stageId 读完成位（等价））	—
+教程/引导	SaveAllStages(FlowTutorialStage[] stagesToSave)	B	A	TutorialV2SaveData.cs:341	Shell/MenuTutorialFlow.cs:72/79	等价：MenuTutorialFlow.MarkCompleted(:79)（逐阶段 PlayerPrefs 写（等价））	—
+教程/引导	SaveStage(FlowTutorialStage stageToSave, bool isPartOfBatchSave)	B	A	TutorialV2SaveData.cs:149	Shell/MenuTutorialFlow.cs:72/79	等价：MenuTutorialFlow.MarkCompleted(:79)（按 stageId 写完成位（等价））	—
+教程/引导	AddPointer(WildcardTutorialButtons objButton, string tutorialText, bool showPointer)	B	B	WildcardTutorialManager.cs:533	Shell/WildcardTutorial.cs + Shell/CollectionWindow.cs:1197	Shell/WildcardTutorial 承接（类级命中，未逐句核）	定位到方法 + 逐句核
+教程/引导	AddPointerWithDelay(WildcardTutorialButtons objButton, string tutorialText, bool showPointer)	B	B	WildcardTutorialManager.cs:550	Shell/WildcardTutorial.cs + Shell/CollectionWindow.cs:1197	Shell/WildcardTutorial 承接（类级命中，未逐句核）	定位到方法 + 逐句核
+教程/引导	CardDisplayOpened()	B	B	WildcardTutorialManager.cs:523	Shell/WildcardTutorial.cs + Shell/CollectionWindow.cs:1197	Shell/WildcardTutorial 承接（类级命中，未逐句核）	定位到方法 + 逐句核
+教程/引导	GetPointerOffset(WildcardTutorialButtons objButton)	B	B	WildcardTutorialManager.cs:567	Shell/WildcardTutorial.cs + Shell/CollectionWindow.cs:1197	Shell/WildcardTutorial 承接（类级命中，未逐句核）	定位到方法 + 逐句核
+教程/引导	Initialize()	B	B	WildcardTutorialManager.cs:285	Shell/WildcardTutorial.cs + Shell/CollectionWindow.cs:1197	Shell/WildcardTutorial 承接（类级命中，未逐句核）	定位到方法 + 逐句核
+教程/引导	StartWildcardTutorial(EverguildToggle filterToggle, EverguildToggle ownedToggle)	B	B	WildcardTutorialManager.cs:289	Shell/WildcardTutorial.cs + Shell/CollectionWindow.cs:1197	Shell/WildcardTutorial 承接（类级命中，未逐句核）	定位到方法 + 逐句核
+教程/引导	ToggleOwned(bool ownedValue)	B	B	WildcardTutorialManager.cs:351	Shell/WildcardTutorial.cs + Shell/CollectionWindow.cs:1197	Shell/WildcardTutorial 承接（类级命中，未逐句核）	定位到方法 + 逐句核

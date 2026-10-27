@@ -431,9 +431,9 @@ namespace CardPresentation
         /// </list></para>
         /// <para>⛔ **原版还会把 `framer.originalSensorSize`/`originalLensShift` 写回相机**（`:141-147`），
         /// 并在结尾把进函数时那个 `sensorSize` 还原（`:231-234`）；**我们只做「量之前换、量完还原」**
-        /// （见 <see cref="MeasureCardAreaGapWorld"/>），**不**照抄「把缓存值写进相机」那一半 —— 它的消费者是
-        /// `CombatCameraZoom` 对 vcam 的回写，而我们那份（`virtualCameraLensShift`）从不读相机的 `lensShift`
-        /// ⇒ 那一半在我们这一档**没有可观测效果**（如实记，不是「做了」）。</para>
+        /// （见 <see cref="MeasureCardAreaGapWorld"/>）。🔴 **2026-10-27（`B9_E2UDW`）就地订正**：本行原写「我们那份从不读相机的
+        /// `lensShift`」—— **不成立**：`CalculateFraming` 现读 `boardCamera.lensShift` / `sensorSize` 只为保住 `.x` / `.y` 不动
+        /// （见下面 `lsCur` / `ssCur`）；与「把**缓存值**写进相机」真正差的只是「取当前值 vs 取缓存值」，现读两者相等 ⇒ 无可观测差（如实记）。</para>
         /// <para>返回 `false` = 没有 3D 战场相机（已出声一次）；调用方**别落点**。</para></summary>
         public bool CalculateFraming(float zoom, out Vector2 newSensorSize, out Vector2 desiredLensShift)
         {

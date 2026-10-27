@@ -11,6 +11,7 @@
 //
 // mixer 本体：`Resources/Audio/Main Mixer`（自己建的，见 `Assets/CardPresentation/Editor/AudioSetup.cs`
 // 与 `工具/setup_audio_mixer.py` 的三步说明）。组名 `Master/FX/Music/Voices/Jingles` 与原版一致。
+using System.Collections.Generic;   // 🆕 2026-10-27（账 12/80）：`HashSet` 给快照缺件的出声去重
 using UnityEngine;
 using UnityEngine.Audio;
 using WarpforgeVFX;
@@ -226,6 +227,90 @@ namespace CardPresentation
             bool okJ = _mixer.GetFloat("VolumeJingles", out j);
             return $"Music={Music:F2}{(okM ? $"({m:F1}dB)" : "(**)")} · FX={SoundFx:F2}{(okF ? $"({f:F1}dB)" : "(**)")}"
                  + $" · Jingles{(okJ ? $"({j:F1}dB)" : "(**)")} · Voices={VoiceOver:F2}{(okV ? $"({v:F1}dB)" : "(**)")}";
+        }
+
+        // ══════════════════════════════════════════════════════════════════════════════════════
+        //  🆕 **2026-10-27（音频线 `B9` 第四批 · 账 12 / 80）：mixer 快照**
+        //  判据（第一权威 = `d:/2/tools/cpp2il/out_cpp2il_dev_ilspy/`，逐方法实读）：
+        //   · `AudioMixerAddresableReferences.GetSnapshot(SnapshotsType)`（`:90` 起）：
+        //     遍历 `AudioMixerReference<SnapshotsType, AudioMixerSnapshot>[] snapshots`，
+        //     取**第一个类型对得上的**并返回那个 `AudioMixerSnapshot`；一个都不匹配 ⇒ **返回 null**（不抛）。
+        //   · `SoundManager.ToggleSFX(bool option, bool instant = false)`（`:596-602`）：
+        //       `snap = option ? sfxOnSnapshot : sfxOffSnapshot;`
+        //       `timeToReach = ((instant ? 1 : 0) ^ 1) * 2f;`   ⇒ **instant ⇒ 0 s · 否则 2 s**
+        //       `snap.TransitionTo(timeToReach);`
+        //   · `SnapshotsType`（`il2cpp_out/dump.cs:17953-17962`）六个值**逐字照抄**：
+        //       `FxNormal=0 · FxNoVolume=1 · MusicBattleMusicLow=2 · MusicBattleMusicMedium=3 ·
+        //        MusicBattleMusicHigh=4 · MusicBattleMusicNoMusic=5`
+        //  🔴 **资产侧还没做**（所以本段今天取不到任何快照、只会出声）：
+        //     `Resources/Audio/Main Mixer.mixer` 里**一个 `m_Snapshots` 条目都没有**（现读 `grep -c` = 1 = 只有默认块），
+        //     也没有 `BattleGroup Low/Medium/High` 三个组。那一步**必须跑编辑器脚本**（`Editor/AudioSetup.cs` /
+        //     `工具/setup_audio_mixer.py`）⇒ 只有主对话能跑 Unity。派活包 §A-02 原话：
+        //     「写手可以先把 `.cs` 侧写好（取不到快照就**出声**），等主对话补资产后再验收」。
+        //  🔶 自己设计（非原版）：**六个快照的字符串名**。原版那个映射活在 `AudioMixerAddresableReferences`
+        //     这个 SO 资产里（本机没有导出/未解出），而我们建快照必须有个名字 ⇒ 取 `SFX On` / `SFX Off` /
+        //     `Music Low` / `Music Medium` / `Music High` / `Music None`（= 派活包 §A-02 步骤 ① 点名的四个 +
+        //     另外两档的中文序命名）· 调度台 2026-10-27 派活 · 主对话建快照时**必须用这同一组名字**，
+        //     否则这里一律取不到（会出声）。
+        // ══════════════════════════════════════════════════════════════════════════════════════
+
+        /// <summary>原版 `SnapshotsType`（六个值逐字照抄 `dump.cs:17953-17962`）。</summary>
+        public enum SnapshotsType
+        {
+            FxNormal = 0,
+            FxNoVolume = 1,
+            MusicBattleMusicLow = 2,
+            MusicBattleMusicMedium = 3,
+            MusicBattleMusicHigh = 4,
+            MusicBattleMusicNoMusic = 5,
+        }
+
+        /// <summary>六个快照在**我们 mixer 里的名字**（🔶 自己设计，见上「🔶」那一段 —— 主对话建资产要用这同一组）。
+        /// 顺序与 <see cref="SnapshotsType"/> 的**枚举值**一一对应（下标 = 枚举值）。</summary>
+        public static readonly string[] SnapshotNames =
+        {
+            "SFX On",       // FxNormal       = 0
+            "SFX Off",      // FxNoVolume     = 1
+            "Music Low",    // MusicBattleMusicLow    = 2
+            "Music Medium", // MusicBattleMusicMedium = 3
+            "Music High",   // MusicBattleMusicHigh   = 4
+            "Music None",   // MusicBattleMusicNoMusic= 5
+        };
+
+        static readonly HashSet<string> _warnedSnapshot = new HashSet<string>();
+        /// <summary>自检用：`GetSnapshot` 取不到而**出声**过几次（按快照名去重）。</summary>
+        public static int SnapshotMisses { get; private set; }
+
+        /// <summary>原版 `AudioMixerAddresableReferences.GetSnapshot(SnapshotsType)` 的等价物。
+        /// 取不到 ⇒ `null` + **出声一次**（按名字去重；⛔ 不静默 —— 静默的后果是「切 SFX 开关没反应」）。</summary>
+        public static AudioMixerSnapshot GetSnapshot(SnapshotsType snapshotType)
+        {
+            Ensure();
+            int i = (int)snapshotType;
+            if (_mixer == null || i < 0 || i >= SnapshotNames.Length) return null;
+            string name = SnapshotNames[i];
+            var s = _mixer.FindSnapshot(name);
+            if (s == null)
+            {
+                if (_warnedSnapshot.Add(name))
+                {
+                    SnapshotMisses++;
+                    Debug.LogWarning($"[Audio] mixer 里找不到快照 `{name}`（`SnapshotsType.{snapshotType}`）—— "
+                                   + "跑一次 `Editor/AudioSetup.cs` / `工具/setup_audio_mixer.py` 建那 4~6 个快照"
+                                   + "（名字必须与 `WarpforgeAudio.SnapshotNames` 一致）。本条之后不再重复。");
+                }
+            }
+            return s;
+        }
+
+        /// <summary>原版 `SoundManager.ToggleSFX(bool option, bool instant)`：切到 `SFX On` / `SFX Off` 快照。
+        /// <para>过渡时长 = `instant ? 0 : 2`（判据 = ILSpy `SoundManager.cs:601-602` 的
+        /// `((instant ? 1 : 0) ^ 1) * 2f`）。⚠️ 快照取不到 ⇒ **什么都不做**（`GetSnapshot` 已出声）。</para></summary>
+        public static void ToggleSFX(bool option, bool instant = false)
+        {
+            var snap = GetSnapshot(option ? SnapshotsType.FxNormal : SnapshotsType.FxNoVolume);
+            if (snap == null) return;
+            snap.TransitionTo(instant ? 0f : 2f);
         }
     }
 }

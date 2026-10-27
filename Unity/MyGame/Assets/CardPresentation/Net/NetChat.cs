@@ -104,8 +104,10 @@ namespace CardPresentation.Net
         /// <summary>原版记动作流水的那道闸（`DisplayWarlordChatMessage.c:138`）：
         /// **回放（`matchType == 0xA0`）不记** · **`chatId == 0` 不记** · **`chatId == 4` 不记**。
         ///
-        /// <para>⚠️ `chatId == 4` 那一格原版**没有解释**（枚举里 4 是 `HurryUp`，那句由
-        /// `BattleManager__DisplayHurryUpChatMessage` 走另一条路驱动）—— 我们**照抄那个数**，
+        /// <para>⚠️ `chatId == 4` 那一格原版**没有解释**（🔴 **2026-10-27 就地订正：`4` 是 `Concede`，不是 `HurryUp`** ——
+        /// 枚举实读 `0 Intro · 1 MirrorMatch · 2 Bored · 3 ICantDoThat · 4 Concede · 5…10 Greet/Threat/
+        /// WellPlayed/Taunt/Sorry/Oops`；原文「`4` 是 `HurryUp`」是错的，`HurryUp` 那一档在本工程里是
+        /// `VoiceLines.ForHurry` 的 `Bored(2)`）。原版对「认输那句记不记流水」没写理由 —— 我们**照抄那个数**，
         /// 不替它编理由。判据全或不写的两档都记在 `VoiceLinesController__DisplayWarlordChatMessage.c:138`。</para>
         ///
         /// <para>🔴 调用方（宿主）必须在**录制那一刻**问它，⛔ 别把结果缓存 —— `isReplay` 是**这一局**的属性。</para></summary>
@@ -113,7 +115,7 @@ namespace CardPresentation.Net
         {
             if (isReplay) return false;      // matchType == 0xA0
             if (chatId == 0) return false;
-            if (chatId == 4) return false;   // HurryUp：原版那一格没有理由，照抄数字
+            if (chatId == 4) return false;   // Concede（2026-10-27 订正：不是 HurryUp）：原版那一格没有理由，照抄数字
             return true;
         }
     }

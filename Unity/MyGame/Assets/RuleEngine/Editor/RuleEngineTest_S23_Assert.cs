@@ -610,21 +610,32 @@ public static partial class RuleEngineTest
             CheckTrue(uShort != null && ctxShort != null, "（前提）反控夹具摆上了场");
             if (uShort != null)
             {
+                int evBefore = ctxShort.Events.Count;
                 int rc = RuleCore.UseOathAbility(ctxShort, 0, 3);
-                CheckTrue(rc != RuleCodes.OK,
-                          "★★【`A1413` ②】余额 1 < `Oath 2` ⇒ 激活**没生效**"
+                CheckCode(rc, RuleCodes.ErrCost,
+                          "★★【`A1413` ②】余额 1 < `Oath 2` ⇒ 激活**没生效**，且**判定阶段就回 `ErrCost`**"
                           + "（判据 = `CanUseActiveAbility.c:68-71`：余额对**整条** ability 判一次、"
-                          + "不够就 `return 0` ⇒ **整条不激活**）"
-                          + $"（实测 rc = 13 = `RuleCodes.ErrUnimplemented`；本句只断 `!= OK`，"
-                          + "⛔ 不锁具体码值 —— 那是另一笔账）");
+                          + "不够就 `return 0` ⇒ **整条不激活**；余额那一跳 = `HasEnoughMana` 读 `unusedMana(+0x4C)`，"
+                          + "⛔ **不是「能量 − 已预留」**）"
+                          + "（🔴 2026-10-27：原来这句只断 `!= OK`、文案记「实测 rc = 13 = `ErrUnimplemented`」——"
+                          + " 余额闸落地后码值定下来了 ⇒ **锁成 `ErrCost`**）");
                 Check(ctxShort.Players[0].Energy, 1, "★ 付不起 ⇒ **一分钱都不扣**");
                 CheckTrue(!uShort.Has("flank"),
                           "★★★【`A1413` ② 的**判别式**】**标着 `CostShared` 的后半句也不许落地**"
                           + "（🧨 改前：付费逐 op 判、后半句不查余额 ⇒ **白给 `flank`**，本行实得 true；"
                           + "`A1412` 之后由 `ChargePaidGroups` 的 `ok[]` 一并拦下）");
                 Check(uShort.OathUsesThisTurn, 0, "★ ……激活次数也不涨（这次不算激活过）");
-                CheckTrue(S14Log(ctxShort, "一并跳过"),
-                          "★ ……而且**出声**：日志里要有一行「其余效果一并跳过」（⛔ 不静默）");
+                // 🔴 **2026-10-27（`B9_E5ENG` · 第九批）：「一声出声」的载体换了。**
+                //   这条原来断结算层那句 `ctx.Log("…其余效果一并跳过…")`（`EffectResolver.cs:727`）——
+                //   余额闸现在在 `CanUseOathAbility` 就拒 ⇒ **走不到那一层**，且**刻意不在闸里写 `ctx.Log`**：
+                //   ① 没有任何效果「开始过」，说「一并跳过」是假话；② 写日志会把 `ctx.Events` 加长，
+                //   而 `NetProtocol.Fingerprint` 含 `Events.Count` ⇒ 一次「本地被拒」就让联机两端差 N 行（`D6NB` 55 vs 51）。
+                //   ⇒ 判据 = **返回码可区分**（`ErrCost` 的人话 ≠ `ErrUnimplemented`）＋ **诊断流一行不加**。
+                CheckTrue(RuleCodes.Describe(RuleCodes.ErrCost) != RuleCodes.Describe(RuleCodes.ErrUnimplemented),
+                          "★ ……而且**不静默**：拒的载体是可区分的返回码（`ErrCost` =「" + RuleCodes.Describe(RuleCodes.ErrCost)
+                        + "」）；玩家可见的那一声在表现层 `BattleDriver` 的 `code != OK` 分支（本宿主够不到）");
+                Check(ctxShort.Events.Count, evBefore,
+                      "★ ……**一行诊断都不写**（`ctx.Events` 不增）—— 写了的话 `Fingerprint`（含 `Events.Count`）会让联机两端分叉");
             }
         }
     }

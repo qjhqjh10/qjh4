@@ -308,7 +308,11 @@ namespace CardPresentation
         /// ⚠️ **传 0 与 1 是同一档**（`GetUnitSize` 永不返回 1 —— 见 `UnitSizeOf`）。</summary>
         public static float ShakeAmplitudeForUnitSize(int unitSize)
         {
-            return unitSize >= 3 ? ShakeAmpUnitSize3
+            // 🔴 2026-10-27（`B9_E2UDW`）：判据逐格复核 —— `CardScript__ResolveAttackAnimationEffects.c:32-52`：
+            //   `GetUnitSize` ∈ {0,1} ⇒ `DAT_1834b2bbc`（**实读 2.0**）· `== 2` ⇒ `DAT_1834b2df0`（**4.0**）·
+            //   `== 3` ⇒ `DAT_1834b2e00`（**8.0**）；`else { if (iVar2 != 3) goto LAB_1805f8b18; … }`
+            //   ⇒ **非 0/1/2/3 落回 2.0 那一支**。原来写 `unitSize >= 3` 会把它推进 3 档 ⇒ 已改成 `== 3`（照原版分支形状）。
+            return unitSize == 3 ? ShakeAmpUnitSize3
                  : unitSize == 2 ? ShakeAmpUnitSize2
                                  : ShakeAmpUnitSize1;
         }
@@ -3569,8 +3573,8 @@ namespace CardPresentation
         /// <para>⚠️ **与 <see cref="ReturnToHand"/> 的分工（两者方向相反，⛔ 别互相顶替）**：
         /// 那条 = 出战时间轴**倒放**（3D 体 0→1 溶出 + 2D 淡入）＝「场上 → 手牌」；
         /// 本条 = **3D 体 1→0 溶回来 + 2D 淡出**＝「本来该在场上、只是被溶掉了」那一族
-        /// （用户侧入口 = `HideHeroAtStart` / `UndissolveToDeck`，判据 `CardScript__HideHeroAtStart.c:14`、
-        /// `CardScript._UndissolveToDeck…`）。</para>
+        /// （⚠️ 本机**两个原版入口都不是活路**：`HideHeroAtStart` 全库 **0 调用点**（账 401 判 D）；
+        /// `UndissolveToDeck` 的五步前提是「同一张卡停在半溶态」，我们离场即销毁（账 973 判 C））。</para>
         ///
         /// <para>跑完：`_DissolveAmount == 0`（**不是 −1** —— 这里照 `HandToBoard` 的收尾写法
         /// `SetDissolveAmount(0)` + `RestoreOriginalMaterial()`，**不用** `EndDissolve()`
@@ -3642,9 +3646,9 @@ namespace CardPresentation
         /// ③ 碰撞体（`+0x140` 那条组件）的虚方法 `+0x1f8(true)` ⇒ **启用碰撞**。
         /// ⇒ 顺序 = 「淡入 0.2 s」与「等 200 ms」**并行**，200 ms 到点就开碰撞（≈ 淡入结束那一拍）。</para>
         ///
-        /// <para>我们的等价物：① `CardView.SetAlpha`（整卡 α；TMP 走顶点色，`ApplyTint` 里已一并乘齐）；
-        /// ② 补间本身就到那一刻 ⇒ ③ 挂 `OnComplete`；③ `CardView.SetHitEnabled(true)`
-        /// （= 原版 `CardCollider2D.Toggle`，见那个方法的 doc）。</para>
+        /// <para>我们的等价物：① `CardView.SetAlpha2D`（= 原版 `2DCard` 那个 CanvasGroup 的 α，亦即 `fadeGroup`；
+        /// **⛔ 不是整卡 `SetAlpha`** —— 那会把 3D 卡体一起淡，原版这一步只动 2D 那一层）；② 补间本身就到那一刻
+        /// ⇒ 挂 `OnComplete` 再 `CardView.SetHitEnabled(true)`（= 原版 `CardCollider2D.Toggle`，见那个方法的 doc）。</para>
         /// <para>⚠️ 原版这一族**不换材质、不碰 `_DissolveAmount`**（`DissolveWholeCard` 也一样，它只
         /// `StopShowingCodex` / `StopReflected` / `ToggleHighlight(false)` / `FadeCardItems(0, t)`）——
         /// ⛔ 别在这里加溶解。调用点：`MoveBackToHand.c:23-27`（战术/附魔且 `targeted`）、
@@ -3654,15 +3658,15 @@ namespace CardPresentation
         {
             if (card == null) return null;
             float dur = Mathf.Max(seconds, 1e-3f);
-            var seq = DOTween.Sequence();
-            seq.Append(DOTween.To(() => card.Alpha, a => card.SetAlpha(a), 1f, dur)
-                             .SetEase(Ease.Linear).SetUpdate(CardTween.Mode));
-            var t = CardTween.Use(seq, Ease.Linear, card.transform);
+            // 淡 **2D 卡面那一套**（原版 `fadeGroup` 的 CanvasGroup ⇒ 我们的 `SetAlpha2D`；⛔ 不是整卡 `SetAlpha`：那会把 3D 卡体也淡）；缓动 = DOTween 默认 `OutQuad`（原版 `FadeCard` 无 `SetEase`，见 `BasicCardUI.cs:761-770`）
+            var t = CardTween.Use(DOTween.To(() => card.Alpha2D, a => card.SetAlpha2D(a), 1f, dur),
+                                  Ease.OutQuad, card.transform);
             t.OnComplete(() =>
             {
-                card.SetHitEnabled(true);      // 原版第③步：200 ms（≈ 淡入末尾）才开碰撞
+                card.SetHitEnabled(true);   // 原版第③步：`Task.Delay(200)` 到点才开碰撞（≈ 淡入末尾）
                 if (onDone != null) onDone();
             });
+            t.OnKill(() => { if (card != null) { card.SetAlpha2D(1f); card.SetHitEnabled(true); } });   // 原版 200 ms 不受补间打断影响；α 复位成 1 是安全侧（同 `HandToBoard`）
             return t;
         }
 
@@ -3678,9 +3682,9 @@ namespace CardPresentation
         /// <para>其中 `DissolveMinionCard(false)`（`CardScript__DissolveMinionCard.c:15-49` 逐句）=
         /// `FadeCardItems(**1**, timeToDissolveCard 0.2)`（= `BasicCardUI.FadeCard` → `DOTween.To(fadeGroup.alpha)`
         /// ⇒ **CanvasGroup α → 1**，**不是材质溶解**）+ `ActivateCard(true)` +
-        /// `body3D.SetActive(false)`（`+0x158` = `BattleCardUI.body3D`，`il2cpp_out/dump.cs` 字段表实读）
-        /// + 另一颗组件 `+0x2e0` 的虚方法 `+0x1b8(false, 1)`
-        /// （**查不到是哪颗**：`dump.cs` 的字段表在 `0x298` 就断了 ⇒ 那一条只记「疑似某个 Toggle」，⛔ 别猜）。</para>
+        /// `body3D.SetActive(false)`（`+0x158` = `BattleCardUI.body3D`）+ `RemnantBody3D.Toggle(false, true, null)`
+        /// （ILSpy 逐句：`cpp2il/out_cpp2il_dev_ilspy/CardScript.cs:11643-11646`；`+0x2e0` = `BattleCardUI.RemnantBody3D`
+        /// —— 原账「字段表到 `0x298` 就断了、查不到是哪颗」**已被 `dump.cs:26237` 推翻**）。</para>
         ///
         /// <para>🔴 **这条路与 <see cref="ReturnToHand"/> **不是同一条**（两者原版都常驻，⛔ 别合并）**：
         /// `ReturnToHand` 实现的是 `CardScript._TransformUnitInPlayToCard_d__256`（= 反向 clip
@@ -3708,13 +3712,22 @@ namespace CardPresentation
             {
                 // `FadeCardItems(1, 0.2)` = CanvasGroup α → 1：整卡那一档**当场**落到终点（原版这一步
                 // 在卡刚从场上回来时 α 本来就是 1 ⇒ 无观感），**看得见的那一半是 2D 卡面淡回来**
-                // （它在 `HandToBoard` 里被那条 clip 送到了 0）⇒ 补间走 `ArtAlpha` 0→1。
+                // （它在 `HandToBoard` 里被那条 clip 送到了 0）⇒ 补间走 `ArtAlpha` 0→1；缓动 `OutQuad`
+                // = 原版 `FadeCard` 没写 `SetEase` ⇒ DOTween 默认（`CardTween` 类尾那条：单条补间直接传）。
                 card.SetAlpha(1f);
                 var seq = DOTween.Sequence();
                 seq.Append(DOTween.To(() => card.ArtAlpha, a => card.SetArtAlpha(a), 1f, DissolveCardTime)
-                                 .SetEase(Ease.Linear).SetUpdate(CardTween.Mode));
+                                 .SetEase(Ease.OutQuad).SetUpdate(CardTween.Mode));
                 var t = CardTween.Use(seq, Ease.Linear, card.transform);
                 card.SetBody3DVisible(false);   // ⑥-1 `body3D.SetActive(false)`（原版是**当场**关，不等那 0.2 s）
+                // ⑥-2 `RemnantBody3D.Toggle(false, withAnimation: true, null)`。🥇 判据 = ILSpy 逐句：
+                //    `cpp2il/out_cpp2il_dev_ilspy/CardScript.cs:11643-11646`
+                //    （`if (battleCardUI3.RemnantBody3D__BackingField) …Toggle(option: false)`，后两个实参是
+                //    编译期补的默认值 `withAnimation: true` / `onComplete: null` ⇒ 撤残骸体**带消失动画**）。
+                //    `+0x2e0` = `BattleCardUI.RemnantBody3D`（`il2cpp_out/dump.cs:26237` 字段偏移实读）⇒ 原账
+                //    「字段表到 `0x298` 就断了、查不到是哪颗」已被推翻。我们的等价物 = `SetRemnantBody(false, …)`
+                //    （内部按 `RemnantBodyPrefabName` 选 `From Remnant` 片段 / 灵族直接撤，判据在它的 doc）。
+                if (card.RemnantBodyRoot != null) card.SetRemnantBody(false, card.RemnantBodyPrefabName);
                 t.OnComplete(() => { if (onDone != null) onDone(); });
                 return t;
             }

@@ -1,0 +1,521 @@
+{
+ "_schema": "defensive_cards/v1 —— 防御卡数据表（原版 `EnviromentalEffectCardsSO.enviromentalEffects[].defensiveCards`），每阵营一组。由 d:/4/Unity/工具/gen_defensive_cards.py 生成，可重跑。",
+ "_sources": {
+  "SO": "d:/4/Unity/素材/Warpforge原版/游戏数据/去重定义/MonoBehaviour/EnvironmentalEffectCardsSO.json（= assets_full/bundle_duplicateassetisolationso_assets_all/…；资产名 `Environmental…` 比类名 `Enviromental…` 多一个 n）",
+  "阵营号→阵营名": "d:/4/Unity/数据/游戏数据/offensive_cards.json 的 `armyId`（判据只留一处）"
+ },
+ "_fields": {
+  "cardRef": "原版字段 `defensiveCard` 的原始 PPtr（`m_FileID` 恒 4 = 外部文件）",
+  "forgeLevel": "原版字段（解锁档；13 个阵营现读全是 [1, 20, 40]）",
+  "idx": "槽序（= `defensiveCards` 数组下标，⛔ 不代表卡名顺序）",
+  "cardName": "**一律 null** —— 见 _unresolved"
+ },
+ "_unresolved": {
+  "cardName": "`defensiveCard` 的 `m_FileID` 恒 4 = 外部文件，解包 JSON 没有 externals 表；卡数据在原版远端 CCD ⇒ PathID 解不出名字",
+  "卡面贴图 / 候选卡名": "`offensive_cards.json` 抽到的 52 张贴图（39 张进攻卡面 + 13 个默认）是**进攻那一套**；防御卡是**普通卡**（`defensiveCard` 指向 RawCardScript），它们的卡面混在同阵营卡图里（每个 cardassets 包 91–112 张）⇒ **按 PathID 定位不到具体哪张** ⇒ 进攻侧那条「按贴图名反推候选卡名」的路在防御侧**走不通**（🔴 2026-10-27 就地订正：本行原先写「没有防御卡那一份贴图」，那是从 52 = 13×4 推的，**证据只够说「进攻表里没抽到」，不够说「资产里没有」**）"
+ },
+ "armies": {
+  "Ultramarines": {
+   "armyId": 10,
+   "defensiveCards": [
+    {
+     "idx": 0,
+     "cardRef": {
+      "m_FileID": 4,
+      "m_PathID": -3737713110196949625
+     },
+     "forgeLevel": 1,
+     "cardName": null
+    },
+    {
+     "idx": 1,
+     "cardRef": {
+      "m_FileID": 4,
+      "m_PathID": -3783665465856998668
+     },
+     "forgeLevel": 20,
+     "cardName": null
+    },
+    {
+     "idx": 2,
+     "cardRef": {
+      "m_FileID": 4,
+      "m_PathID": 271802346863807352
+     },
+     "forgeLevel": 40,
+     "cardName": null
+    }
+   ]
+  },
+  "Goff": {
+   "armyId": 20,
+   "defensiveCards": [
+    {
+     "idx": 0,
+     "cardRef": {
+      "m_FileID": 4,
+      "m_PathID": -3657453750895575722
+     },
+     "forgeLevel": 1,
+     "cardName": null
+    },
+    {
+     "idx": 1,
+     "cardRef": {
+      "m_FileID": 4,
+      "m_PathID": 2410491771790864158
+     },
+     "forgeLevel": 20,
+     "cardName": null
+    },
+    {
+     "idx": 2,
+     "cardRef": {
+      "m_FileID": 4,
+      "m_PathID": 8748071027470114965
+     },
+     "forgeLevel": 40,
+     "cardName": null
+    }
+   ]
+  },
+  "Sautekh": {
+   "armyId": 40,
+   "defensiveCards": [
+    {
+     "idx": 0,
+     "cardRef": {
+      "m_FileID": 4,
+      "m_PathID": 7612301102834351429
+     },
+     "forgeLevel": 1,
+     "cardName": null
+    },
+    {
+     "idx": 1,
+     "cardRef": {
+      "m_FileID": 4,
+      "m_PathID": 8411874236883884249
+     },
+     "forgeLevel": 20,
+     "cardName": null
+    },
+    {
+     "idx": 2,
+     "cardRef": {
+      "m_FileID": 4,
+      "m_PathID": 5274634487025495476
+     },
+     "forgeLevel": 40,
+     "cardName": null
+    }
+   ]
+  },
+  "BlackLegion": {
+   "armyId": 50,
+   "defensiveCards": [
+    {
+     "idx": 0,
+     "cardRef": {
+      "m_FileID": 4,
+      "m_PathID": 726401712468797192
+     },
+     "forgeLevel": 1,
+     "cardName": null
+    },
+    {
+     "idx": 1,
+     "cardRef": {
+      "m_FileID": 4,
+      "m_PathID": -8300753216792591889
+     },
+     "forgeLevel": 20,
+     "cardName": null
+    },
+    {
+     "idx": 2,
+     "cardRef": {
+      "m_FileID": 4,
+      "m_PathID": -8148864392582892330
+     },
+     "forgeLevel": 40,
+     "cardName": null
+    }
+   ]
+  },
+  "SaimHann": {
+   "armyId": 30,
+   "defensiveCards": [
+    {
+     "idx": 0,
+     "cardRef": {
+      "m_FileID": 4,
+      "m_PathID": -5824047125878716242
+     },
+     "forgeLevel": 1,
+     "cardName": null
+    },
+    {
+     "idx": 1,
+     "cardRef": {
+      "m_FileID": 4,
+      "m_PathID": -5799810006920665369
+     },
+     "forgeLevel": 20,
+     "cardName": null
+    },
+    {
+     "idx": 2,
+     "cardRef": {
+      "m_FileID": 4,
+      "m_PathID": 1570476766598405917
+     },
+     "forgeLevel": 40,
+     "cardName": null
+    }
+   ]
+  },
+  "Leviathan": {
+   "armyId": 60,
+   "defensiveCards": [
+    {
+     "idx": 0,
+     "cardRef": {
+      "m_FileID": 4,
+      "m_PathID": 8478187699603271748
+     },
+     "forgeLevel": 1,
+     "cardName": null
+    },
+    {
+     "idx": 1,
+     "cardRef": {
+      "m_FileID": 4,
+      "m_PathID": -5935928194465272175
+     },
+     "forgeLevel": 20,
+     "cardName": null
+    },
+    {
+     "idx": 2,
+     "cardRef": {
+      "m_FileID": 4,
+      "m_PathID": -1664046742618046419
+     },
+     "forgeLevel": 40,
+     "cardName": null
+    }
+   ]
+  },
+  "TauEmpire": {
+   "armyId": 70,
+   "defensiveCards": [
+    {
+     "idx": 0,
+     "cardRef": {
+      "m_FileID": 4,
+      "m_PathID": 8895982159512585270
+     },
+     "forgeLevel": 1,
+     "cardName": null
+    },
+    {
+     "idx": 1,
+     "cardRef": {
+      "m_FileID": 4,
+      "m_PathID": 5581537712832613915
+     },
+     "forgeLevel": 20,
+     "cardName": null
+    },
+    {
+     "idx": 2,
+     "cardRef": {
+      "m_FileID": 4,
+      "m_PathID": -3794992254593455976
+     },
+     "forgeLevel": 40,
+     "cardName": null
+    }
+   ]
+  },
+  "Sororitas": {
+   "armyId": 80,
+   "defensiveCards": [
+    {
+     "idx": 0,
+     "cardRef": {
+      "m_FileID": 4,
+      "m_PathID": 4352411865371368986
+     },
+     "forgeLevel": 1,
+     "cardName": null
+    },
+    {
+     "idx": 1,
+     "cardRef": {
+      "m_FileID": 4,
+      "m_PathID": 2800393045464849927
+     },
+     "forgeLevel": 20,
+     "cardName": null
+    },
+    {
+     "idx": 2,
+     "cardRef": {
+      "m_FileID": 4,
+      "m_PathID": 2460601663639201448
+     },
+     "forgeLevel": 40,
+     "cardName": null
+    }
+   ]
+  },
+  "Genestealers": {
+   "armyId": 90,
+   "defensiveCards": [
+    {
+     "idx": 0,
+     "cardRef": {
+      "m_FileID": 4,
+      "m_PathID": -2803751938100883087
+     },
+     "forgeLevel": 1,
+     "cardName": null
+    },
+    {
+     "idx": 1,
+     "cardRef": {
+      "m_FileID": 4,
+      "m_PathID": 2558378311468841206
+     },
+     "forgeLevel": 20,
+     "cardName": null
+    },
+    {
+     "idx": 2,
+     "cardRef": {
+      "m_FileID": 4,
+      "m_PathID": -3165476310366622903
+     },
+     "forgeLevel": 40,
+     "cardName": null
+    }
+   ]
+  },
+  "AstraMilitarum": {
+   "armyId": 100,
+   "defensiveCards": [
+    {
+     "idx": 0,
+     "cardRef": {
+      "m_FileID": 4,
+      "m_PathID": -4746945346912271324
+     },
+     "forgeLevel": 1,
+     "cardName": null
+    },
+    {
+     "idx": 1,
+     "cardRef": {
+      "m_FileID": 4,
+      "m_PathID": -1203947754677875073
+     },
+     "forgeLevel": 20,
+     "cardName": null
+    },
+    {
+     "idx": 2,
+     "cardRef": {
+      "m_FileID": 4,
+      "m_PathID": 4425220424789877073
+     },
+     "forgeLevel": 40,
+     "cardName": null
+    }
+   ]
+  },
+  "DarkAngels": {
+   "armyId": 110,
+   "defensiveCards": [
+    {
+     "idx": 0,
+     "cardRef": {
+      "m_FileID": 4,
+      "m_PathID": 2592907021442336310
+     },
+     "forgeLevel": 1,
+     "cardName": null
+    },
+    {
+     "idx": 1,
+     "cardRef": {
+      "m_FileID": 4,
+      "m_PathID": 3062095409958736801
+     },
+     "forgeLevel": 20,
+     "cardName": null
+    },
+    {
+     "idx": 2,
+     "cardRef": {
+      "m_FileID": 4,
+      "m_PathID": -7338547493207901965
+     },
+     "forgeLevel": 40,
+     "cardName": null
+    }
+   ]
+  },
+  "EmperorsChildren": {
+   "armyId": 120,
+   "defensiveCards": [
+    {
+     "idx": 0,
+     "cardRef": {
+      "m_FileID": 4,
+      "m_PathID": 8888490285459141610
+     },
+     "forgeLevel": 1,
+     "cardName": null
+    },
+    {
+     "idx": 1,
+     "cardRef": {
+      "m_FileID": 4,
+      "m_PathID": 1098326787689816615
+     },
+     "forgeLevel": 20,
+     "cardName": null
+    },
+    {
+     "idx": 2,
+     "cardRef": {
+      "m_FileID": 4,
+      "m_PathID": -6981760289184659279
+     },
+     "forgeLevel": 40,
+     "cardName": null
+    }
+   ]
+  },
+  "SpaceWolves": {
+   "armyId": 130,
+   "defensiveCards": [
+    {
+     "idx": 0,
+     "cardRef": {
+      "m_FileID": 4,
+      "m_PathID": -6738157117769915668
+     },
+     "forgeLevel": 1,
+     "cardName": null
+    },
+    {
+     "idx": 1,
+     "cardRef": {
+      "m_FileID": 4,
+      "m_PathID": -3744554201759630073
+     },
+     "forgeLevel": 20,
+     "cardName": null
+    },
+    {
+     "idx": 2,
+     "cardRef": {
+      "m_FileID": 4,
+      "m_PathID": 1308992881989939518
+     },
+     "forgeLevel": 40,
+     "cardName": null
+    }
+   ]
+  }
+ },
+ "stats": {
+  "armies": 13,
+  "cards": 39,
+  "per_army": {
+   "AstraMilitarum": 3,
+   "BlackLegion": 3,
+   "DarkAngels": 3,
+   "EmperorsChildren": 3,
+   "Genestealers": 3,
+   "Goff": 3,
+   "Leviathan": 3,
+   "SaimHann": 3,
+   "Sautekh": 3,
+   "Sororitas": 3,
+   "SpaceWolves": 3,
+   "TauEmpire": 3,
+   "Ultramarines": 3
+  },
+  "forgeLevels_per_army": {
+   "AstraMilitarum": [
+    1,
+    20,
+    40
+   ],
+   "BlackLegion": [
+    1,
+    20,
+    40
+   ],
+   "DarkAngels": [
+    1,
+    20,
+    40
+   ],
+   "EmperorsChildren": [
+    1,
+    20,
+    40
+   ],
+   "Genestealers": [
+    1,
+    20,
+    40
+   ],
+   "Goff": [
+    1,
+    20,
+    40
+   ],
+   "Leviathan": [
+    1,
+    20,
+    40
+   ],
+   "SaimHann": [
+    1,
+    20,
+    40
+   ],
+   "Sautekh": [
+    1,
+    20,
+    40
+   ],
+   "Sororitas": [
+    1,
+    20,
+    40
+   ],
+   "SpaceWolves": [
+    1,
+    20,
+    40
+   ],
+   "TauEmpire": [
+    1,
+    20,
+    40
+   ],
+   "Ultramarines": [
+    1,
+    20,
+    40
+   ]
+  }
+ }
+}

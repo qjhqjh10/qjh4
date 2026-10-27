@@ -396,6 +396,7 @@ namespace RuleEngine
         {
             Card = card;
             Id = id;
+            ArmedTrap = TrapArmedOf(card);   // 🆕 2026-10-27（`E7ENG` · 第三批）：原版 `armedTrap(+0x54)` 的唯一写点 = 造牌那一刻（见 `ArmedTrap` 的 doc）
         }
 
         /// <summary>是不是某张卡（按**定义**比，不是按份）。</summary>
@@ -426,6 +427,53 @@ namespace RuleEngine
         public override string ToString()
         {
             return (Card != null ? Card.Name : "?") + "#" + Id;
+        }
+
+        // ================================================================================================
+        //  🆕 2026-10-27（批次 9 · 执行代理 `E7ENG` · 第三批：`OnTrapDrawn(250)` 的两格数据位之二）
+        //  —— **追加在类尾**（⛔ 别插到中间：`账/*.tsv` 按 `文件:行号` 引，插一行就漂）
+        // ================================================================================================
+
+        /// <summary>`armedTrap` 三态的「未知」（见 <see cref="ArmedTrap"/>）。</summary>
+        public const int ArmedTrapUnknown = -1;
+
+        /// <summary>
+        /// 🆕 **原版 `CardScript.armedTrap`（`+0x54`）** —— 「这张牌是**已布设的陷阱**」。
+        ///
+        /// <para>**判据（🥇 全量反编译，本批亲读）**：
+        /// · **唯一写点** = `CardScript__SetAsActiveTrap.c:16`（`*(undefined1 *)(param_1 + 0x54) = 1;`，
+        ///   外加一句 `CustomDebug.Log`），**唯一调用者** = `BattleCardManager__CreateCard`（VA 直调 `0x18099185B`）
+        ///   ⇒ **陷阱卡一被造出来就是「已布设」**，原版没有单独的「布设动作」；
+        /// · **没有任何清零点**：`EntityScript__set_armedTrap` 在 `decomp_full/` 里**无按名调用点**
+        ///   （全树只有 `CardScript__CardDrawn.c` 的读 `*(char*)(param_1 + 0x54) != 0` 与上面那一处内联写）；
+        /// · 读点两处：`CardScript__CardDrawn.c:23`（⇒ `OnTrapDrawn` = trigger 250）与
+        ///   `BattleManager._ResolveDrawCard_d__432__MoveNext.c:288`（⇒ `BroadcastTrapResolved` + 战斗日志）。</para>
+        ///
+        /// <para>🔴 **我们的落法 = 实例**出生那一刻**一次算定**，⛔ 不在「搬牌」的入口再置一次。
+        /// 原因：原版那唯一写点就在 `CreateCard`（造牌），而**造牌入口我们全仓只有一处构造点**
+        /// （`CardInstance(CardDef, int)`；两个工厂 = `BattleContext.NewInstance` 真对局发正号 /
+        /// `CardInstance.Detached` 无对局发负号）—— `RuleCore.PlayCard` / `DeployFree` /
+        /// `EffectResolver.DoCreate` / `RuleCore.Draw` / `EffectResolver.DoReanimate` /
+        /// 教程 `SetupInitialHand` 全都是**搬同一份实例**、不是新建 ⇒ 在那里再置位会在
+        /// 「同一张陷阱被造一次、抽多次」时与原版不一致（原版只在造牌时置一次）。</para>
+        ///
+        /// <para>取值（三态）：`1` = 已布设 · `0` = **判得出不是** · `-1` = **未知**
+        /// （<see cref="CardDef.IsTrapCard"/> 判不了：卡表 &lt; v34 没 `cardType` 列 / 这张卡不在真值快照里）。
+        /// ⚠️ `-1` 时**消费端必须出声、不许当 0**（否则「表是旧的」会被静默读成「这张不是陷阱」）。</para>
+        /// <para>📌 今天可达性 = 0：`cards_raw.json` 1,351 张 `spellType == 70` **0 张** ⇒ 全池
+        /// `ArmedTrap` 恒 `0`（判得出，不是未知）。</para>
+        /// </summary>
+        public int ArmedTrap { get; private set; } = ArmedTrapUnknown;
+
+        /// <summary>`CardDef.IsTrapCard` → `armedTrap` 三态（唯一调用点 = 构造函数）。
+        /// 判不了 ⇒ 出声一次类的日志（由 `CardDef.IsTrapCard` 的 `why` 说明原因），并落 `-1`（⛔ 不猜 0）。</summary>
+        static int TrapArmedOf(CardDef card)
+        {
+            if (card == null) return ArmedTrapUnknown;
+            string why;
+            bool? trap = card.IsTrapCard(out why);
+            if (trap == null) return ArmedTrapUnknown;
+            return trap.Value ? 1 : 0;
         }
     }
 }

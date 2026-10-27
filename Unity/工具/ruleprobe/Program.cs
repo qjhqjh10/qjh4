@@ -248,7 +248,7 @@ class Program
     //   ⇒ **只重钉这一颗**，`PinnedBaselineMd5` / `PinnedParseMd5` 原样不动。
     //   卡池 md5：`5a17f6af…` → `0397005d…`（3,119,176 → 3,235,327 B，+116,151 B 全部来自新列）。
     //   归因 → `资料/普查产出_1025/E4_trigger目标与activeAbility目标池.md` §二·2 / §四。
-    public const string PinnedPoolMd5 = "8aa37475268b685929c113e925f613ad";  // 🔴 2026-10-26 重钉（第八十二会话同步点）：卡表 v30→v31（新增 `keyword` 列） ｜ 2026-10-25 重钉（执行代理 E4）：卡表 v27→v28，新增主动能力目标闸 `ActiveAbility.targetCriteria` 一列（`activeAbilityPickCriteria` 107 行）。卡的内容没变；解析差异 0 行 · 输出指纹仍 af836aa0… · 结算零差异 ⇒ 只重钉这一颗。归因 → 资料/普查产出_1025/E4_trigger目标与activeAbility目标池.md｜🔴 2026-10-25 再重钉（执行代理 X6）：卡表 v28→v29，`abilityLevelCriteria[]` 新增 `ca` 列（族别）85 行；卡内容一字未改、count 1127 不变，解析差异 0 行 · 输出指纹仍 af836aa0… · `play check` 基线 fc591fb3… 未变 ⇒ 只重钉这一颗。归因 → 资料/普查产出_1025/X6_口径乙ca列_执行报告.md｜🔴 2026-10-25 再重钉（执行代理 X20）：卡表 v29→v30，新增 1 张隐藏附魔 `Pray Enchantment`（`cardType 20`/`type=enchantment`）；既有卡改动 0 张。归因 → 资料/普查产出_1025/X20_PrayEnchantment入池_执行报告.md
+    public const string PinnedPoolMd5 = "c2ee753d96ad11ea548843c861fd8890";  // 🔴 2026-10-27 重钉（第八十五会话）：卡表 v33→**v34**，新增 `enchantTrait`（v33，532 的附魔 trait 列）与 `cardType`（v34，traps 判据用的卡型列）两列；两次重生成前后 `play all dump` 逐行 **0 行不同** ⇒ 纯数据面扩展、无行为变化。上一版 = 8aa3747… ｜ 🔴 2026-10-26 重钉（第八十二会话同步点）：卡表 v30→v31（新增 `keyword` 列） ｜ 2026-10-25 重钉（执行代理 E4）：卡表 v27→v28，新增主动能力目标闸 `ActiveAbility.targetCriteria` 一列（`activeAbilityPickCriteria` 107 行）。卡的内容没变；解析差异 0 行 · 输出指纹仍 af836aa0… · 结算零差异 ⇒ 只重钉这一颗。归因 → 资料/普查产出_1025/E4_trigger目标与activeAbility目标池.md｜🔴 2026-10-25 再重钉（执行代理 X6）：卡表 v28→v29，`abilityLevelCriteria[]` 新增 `ca` 列（族别）85 行；卡内容一字未改、count 1127 不变，解析差异 0 行 · 输出指纹仍 af836aa0… · `play check` 基线 fc591fb3… 未变 ⇒ 只重钉这一颗。归因 → 资料/普查产出_1025/X6_口径乙ca列_执行报告.md｜🔴 2026-10-25 再重钉（执行代理 X20）：卡表 v29→v30，新增 1 张隐藏附魔 `Pray Enchantment`（`cardType 20`/`type=enchantment`）；既有卡改动 0 张。归因 → 资料/普查产出_1025/X20_PrayEnchantment入池_执行报告.md
 
     /// <summary>钉住的基线内容指纹（`工具/ruleprobe/基线/out_baseline.txt` 的 md5，**按字节**）。
     /// 与上面那个配对使用 —— 判据见上面那段长注释。</summary>
@@ -712,6 +712,8 @@ class Program
         //   对账期望（2026-10-24 现读卡池 v25）= **1008 张卡带 `abilityTargetCriteria`**（`activeAbilityTargets`
         //   只有主动能力卡有）· 行数见装载时打的那一行 —— 判据 → 资料/普查产出_1024c/E9_卡表v25_logic级判据列.md。
         int nTcCards = 0, nTcRows = 0, nBadTc = 0;
+        // 🆕 2026-10-27（`B9_E5ENG` · 第五批）：灌进 `ForcedAttackRefund` 的条数（读数口，见下面那段注释）。
+        int nRefundRows = 0, nRefundUnknown = 0;
         foreach (var c in doc.RootElement.GetProperty("cards").EnumerateArray())
         {
             string S(string k) => c.TryGetProperty(k, out var v) && v.ValueKind == JsonValueKind.String ? v.GetString() : null;
@@ -1089,6 +1091,26 @@ class Program
             if (atcRows != null && atcRows.Count > 0) nTcCards++;
             if (aatRows != null && aatRows.Count > 0) nTcCards++;
             nTcRows += (atcRows == null ? 0 : atcRows.Count) + (aatRows == null ? 0 : aatRows.Count);
+            // 🆕 **2026-10-27（`B9_E5ENG` · 第五批）：把 `chosenAbility` 灌进 `ForcedAttackRefund`。**
+            //   🔴 为什么要这一笔：`Data/ForcedAttackRefundMap.cs`（那半个 partial，走 `Resources.Load`）
+            //   **不在本 csproj 的编译集** ⇒ `LoadFromUnity` 是空声明、调用点被抹掉 ⇒ 表恒 `null`
+            //   ⇒ `ForcedAttackRefund.Of()` 恒 `Unknown` ⇒ 调用点按设计**一律退还**
+            //   ⇒ 235/236 那两族（原版**不退还**）在探针里被错退、终局 `AttacksThisTurn` 必然回 0。
+            //   实测证据（补这一笔之前）：`play GOF93`（`chosenAbility=235`）日志出现
+            //   「Hunta Rig 重置行动：本回合攻击次数 1 → 0」—— 真值里 235 不退。
+            //   ⇒ 这与 `A1911` / `A1959` / v13 `triggerPriority` / v14 `abilityContext` **同一族**
+            //     （**探针与引擎口径不同** ⇒ 靠探针量出来的读数被静默钉成错口径）。
+            //   🔴 判定规则**不在这里抄第二份**：只调 `Core/ForcedAttackRefund.Install`
+            //     （`{231,237,238}` 退 / `{230,233,235,236}` 不退 / 都没有 ⇒ 不落键保持 `Unknown`）。
+            //   🔴 数据来源 = 本函数**已经在读**的同一个 `cards_engine.json` ⇒ 不多读一次文件。
+            if (c.TryGetProperty("chosenAbility", out var caEl) && caEl.ValueKind == JsonValueKind.Array)
+            {
+                var caList = new List<int>();
+                foreach (var e in caEl.EnumerateArray())
+                    if (e.ValueKind == JsonValueKind.Number) caList.Add(e.GetInt32());
+                if (caList.Count > 0) { ForcedAttackRefund.Install(S("id"), caList.ToArray()); nRefundRows++; }
+            }
+            else nRefundUnknown++;
             list.Add(new CardDef(S("id"), S("name"), S("type"), S("desc"), S("rarity"), S("faction"),
                                  I("cost"), I("attack"), I("health"), I("ranged"), kws,
                                  S("nameZh"), S("descZh"), true, S("subtype"), S("goesSecond"),
@@ -1182,6 +1204,21 @@ class Program
                               + "`priority` 不在 0..3）"
                               + "—— 已跳过（⛔ 没当成默认值 1、也没当成 0 悄悄收下）。"
                               + "引擎侧 `CardDatabase.MapTriggerPriority` / `CardDef` 构造函数是同口径（出声 + 丢弃）。");
+        // 🆕 2026-10-27（`B9_E5ENG` · 第五批）：`ForcedAttackRefund` 表的装载读数。
+        //   🔴 这三格**必须打出来**：装载一旦没做（或缺 `chosenAbility` 一列），`play` 里 235/236 会
+        //   **静默**退回「一律退还」（`Of` ⇒ `Unknown` ⇒ 下游按设计退还），读数看着正常、口径却错了。
+        //   期望（卡表 v32 现读）：**退还 9 / 不退还 3 / Unknown 1116**。
+        int nRefund = 0, nNoRefund = 0, nRefundUnk = 0;
+        foreach (var c0 in list)
+        {
+            var vd = ForcedAttackRefund.Of(c0.Id);
+            if (vd == ForcedAttackRefund.Verdict.Refund) nRefund++;
+            else if (vd == ForcedAttackRefund.Verdict.NoRefund) nNoRefund++;
+            else nRefundUnk++;
+        }
+        Console.WriteLine("  ForcedAttackRefund: 灌入 " + nRefundRows + " 条（缺 `chosenAbility` 列 = " + nRefundUnknown
+                          + " 张）⇒ 实得 退还 " + nRefund + " / 不退还 " + nNoRefund + " / Unknown " + nRefundUnk
+                          + "（判据 `{231,237,238}` 退 · `{230,233,235,236}` 不退 · 都没有 ⇒ Unknown ⇒ 下游退回「退还」）");
         Console.WriteLine("  triggerPriority: 带非默认值的卡 = " + nTpCards
                           + "（缺键 = 1 = Instant；判据 `CardAbility__.ctor.c:5`）");
         // 🆕 2026-10-22（引擎线 `W63` · `T03·c/d`）：`abilityContext` 的读数（旧表 / 形状不对**都出声**）。

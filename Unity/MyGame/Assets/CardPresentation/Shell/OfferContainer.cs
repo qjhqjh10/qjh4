@@ -211,7 +211,7 @@ namespace CardPresentation
     /// <summary>「商品条目容器」族（原版 `General Basic Offer Container *` **19 个 prefab**）的共用骨架构造器。
     /// <para>🔴 **这一族本期只建构造器 + 变体表 + 断言，没有入口** —— 原版它是**服务端 LiveOps 报价**的载体
     /// （`ContainerService.OpenOfferContainer`），本地没有报价数据源（见文件头）。</para></summary>
-    public static class OfferContainer
+    public static partial class OfferContainer
     {
         // ============================================================ 节点名（照 prefab · 逐字 · 断言按它找）
 
@@ -1016,7 +1016,7 @@ namespace CardPresentation
 
         /// <summary>一个容器要显示的内容。原版这些**全由服务端报价给**（本地没有）。
         /// 空字符串 ⇒ 那一段**不画**（不是画个空框）。</summary>
-        public struct Content
+        public partial struct Content
         {
             /// <summary>抽屉要画的东西（`ItemDrawer.Spec(...)` 组）。`Kind == None` ⇒ 抽屉**不画**（原版第②步）。</summary>
             public ItemSpec Item;
@@ -1094,15 +1094,15 @@ namespace CardPresentation
             // ---- 根 ----
             b.Root = MenuDraw.Node(parent, v.Prefab, new PxRect(x, y, x + g.W, y + g.H));
 
-            // ---- `background` / `foreground`：**只在该份的 `Image.m_Enabled = 1` 时画**（无图 ⇒ 纯色块）----
-            var bg = MenuDraw.Node(b.Root, NBackground, R(0f, 0f, g.W, g.H));
-            if (g.BgOn)
-                MenuDraw.Rect(bg, CardArt.Solid(), R(0f, 0f, g.W, g.H), NBackground + " Gfx", qBase + QoBg,
+            // ---- `background` / `foreground`：`LoadAsset(offer,1/2)` 灌图、**有图才 enabled**（`PurchaseableOfferContainer__OnInitialize.c`）----
+            var bg = MenuDraw.Node(b.Root, NBackground, R(0f, 0f, g.W, g.H)); var bgTex = ArtOf(c.BgArt);
+            if (g.BgOn || bgTex != null)
+                MenuDraw.Rect(bg, bgTex != null ? bgTex : CardArt.Solid(), R(0f, 0f, g.W, g.H), NBackground + " Gfx", qBase + QoBg,
                               new Color(1f, 1f, 1f, 1f));
-            var fg = MenuDraw.Node(bg, NForeground, R(0f, 0f, g.W, g.H));
-            if (g.FgOn)
-                MenuDraw.Rect(fg, CardArt.Solid(), R(0f, 0f, g.W, g.H), NForeground + " Gfx", qBase + QoBg,
-                              new Color(1f, 1f, 1f, 1f));
+            var fg = MenuDraw.Node(bg, NForeground, R(0f, 0f, g.W, g.H)); var fgTex = ArtOf(c.FgArt);
+            if (g.FgOn || fgTex != null)
+                MenuDraw.Rect(fg, fgTex != null ? fgTex : CardArt.Solid(), R(0f, 0f, g.W, g.H), NForeground + " Gfx", qBase + QoBg,
+                              new Color(1f, 1f, 1f, 1f), keepAspect: fgTex != null);
 
             // ---- `Dynamic Content`：**锚框**（原版无脚本无 Graphic）+ 抽屉槽 ----
             b.Dynamic = MenuDraw.Node(bg, NDynamic, R(v.Dyn.x1, v.Dyn.y1, v.Dyn.x2, v.Dyn.y2));

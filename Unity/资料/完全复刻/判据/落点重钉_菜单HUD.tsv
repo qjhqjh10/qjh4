@@ -1,0 +1,87 @@
+域	方法	旧落点	新落点	该行原文	是否等价
+菜单/外壳	GetCardsInHandNumberWhereDistanceBetweenThemMustBeReduced(float adjustedDistanceBetweenCards)	CardPresentation/Hand/HandLayout.cs:545-549（IsCompressed = 同一判据的布尔形式：`count × betweenElementsSpacing × Scale > MaxLayoutWorld()`）· :529-538（SpacingFor）	CardPresentation/Hand/HandLayout.cs:545（IsCompressed）（等价实现 = 同一判据的布尔形式（无『返回临界张数』这一支））	public bool IsCompressed(int count)	部分
+菜单/外壳	ToggleChangeFree(bool option)	Shell/ProfileTab.cs（恒走首次免费那条）	无落点：ProfileTab 无 ToggleChangeFree；『首次免费』是逻辑非方法	—	—
+菜单/外壳	DelaySizeFix()	Shell/ProfileTab.cs 改名窗排版（ForceRelayout 口径）	无落点：ProfileTab 无 DelaySizeFix；排版走 Label.ForceRelayout（不同类）	—	—
+菜单/外壳	ResetCanClick()	Shell/ProfileTab.cs 改名钮可点闸	无落点：ProfileTab 无 ResetCanClick；可点闸为逻辑非方法	—	—
+菜单/外壳	GetID()	Shell/ShopData.cs（本地商品数据）	无落点：ShopData 无 GetID；商品为 ShopOffer 数据（无 id 方法）	—	—
+菜单/外壳	OnAfterPurchase(IShopOffer offer, IReadOnlyList<RewardInfo> rewards, Action<IReadOnlyList<RewardInfo>> onComplete, Action onError, bool showAnimation)	Shell/ShopData.cs + BoosterPackOpenWindow	无落点：ShopData 无 OnAfterPurchase；开包走 BoosterPackOpenWindow	—	—
+菜单/外壳	Open(string instanceId, Action<IReadOnlyList<RewardInfo>> onComplete, Action<string> onError)	Shell/ShopData.cs（单机模拟）	无落点：ShopData 无 Open(instanceId…)；单机模拟无此入口	—	—
+菜单/外壳	DragDelegate(GameObject source, Vector2 delta)	Shell/PointerLayer.cs:RegisterDrag / UnregisterDrag / 拖拽派发（onDrag/onDrop，设计 px）	CardPresentation/Shell/PointerLayer.cs:313（RegisterDrag）（等价实现 = 拖拽注册/派发（另有 UnregisterDrag:333））	public static void RegisterDrag(WindowButton b, System.Action<Vector2> onDrag, S	部分
+菜单/外壳	RemoveClickListeners()	Shell/WindowButton.cs:17 public System.Action onClick（置 null 即清）	无落点：WindowButton.onClick 是字段；无 RemoveClickListeners 方法	—	—
+菜单/外壳	SetUpButtonColors()	Shell/WindowButton.cs（未做该分支）	无落点：WindowButton 未做 SetUpButtonColors 分支	—	—
+菜单/外壳	ChangeCanvasColor(Color colorToUse)	Shell/WindowButton.cs RefreshGray	CardPresentation/Shell/WindowButton.cs:933（RefreshGray）（等价实现 = 整钮着色刷新）	void RefreshGray()	部分
+菜单/外壳	GetKey(KeyCode key, bool ignoreInputField)	Shell/PointerLayer.cs 键盘入口	无落点：PointerLayer 无 GetKey 方法（键盘入口为逻辑）	—	—
+菜单/外壳	GetKeyUp(KeyCode key, bool ignoreInputField)	Shell/PointerLayer.cs 键盘入口	无落点：PointerLayer 无 GetKeyUp 方法	—	—
+菜单/外壳	IsPointerOverUIObject(int pointerId)	Shell/PointerLayer.cs 命中表	无落点：PointerLayer 无 IsPointerOverUIObject 方法（命中表为逻辑；仅注释提及）	—	—
+菜单/外壳	CalculateSpacing()	各窗写死原版 spacing（例：导航 VLG spacing −16.35）	无落点：CalculateSpacing 无对应方法（各窗写死 spacing）	—	—
+菜单/外壳	CheckFOntInPreset()	Core/TmpFont.cs 字体资产表	无落点：TmpFont 无 CheckFOntInPreset（字体资产表）	—	—
+菜单/外壳	UpdateTextSizeSmallScreen()	Shell/TransformScalerBySmallScreenUI.cs（整窗缩放）+ Core/TmpFont	无落点：TransformScalerBySmallScreenUI/TmpFont 无 UpdateTextSizeSmallScreen	—	—
+菜单/外壳	PlayButtonSound()	Shell/WindowButton.cs:924	无落点：WindowButton 无 PlayButtonSound 方法	—	—
+菜单/外壳	SetUpButtonColors()	Shell/WindowButton.cs:166 KeyOf（默认族）	CardPresentation/Shell/WindowButton.cs:166（KeyOf）（等价实现 = 按钮态→色键（SetUpButtonColors 的色键那一半））	Color KeyOf(BtnState st)	部分
+菜单/外壳	DrawForArmy(CardArmy army)	Shell/ItemDrawer.cs + Core/CardArt.FlavorBg	CardPresentation/Core/CardArt.cs:731（FlavorBg）（等价实现 = 阵营背景图）	public static Texture2D FlavorBg(string faction)	部分
+菜单/外壳	Initialize()	Battle/FlareScenarioToggler.cs	无落点：FlareScenarioToggler 无 Initialize 方法	—	—
+菜单/外壳	DoesItemFit(int x, int y, FlexibleLayoutSizeOption layoutSizeOption)	各窗按固定列手算（卡池/收藏）	无落点：DoesItemFit 无对应方法（各窗手算列）	—	—
+菜单/外壳	GenerateGrid()	各窗按原版格宽/间距逐窗生成	无落点：GenerateGrid 无对应方法（逐窗生成）	—	—
+菜单/外壳	ToggleESC(bool option)	Shell/GameWindow.cs:85 public bool closeOnEsc（调用点直接赋值）	无落点：GameWindow.closeOnEsc 是字段；无 ToggleESC 方法	—	—
+菜单/外壳	CreateTabButton(WindowTabBase tabInstance, string tabName, Sprite icon)	Shell/GameWindowWithTabs.cs:CreateTabButton + TabButtons.AddTabButton(name) / AssignTabButton	CardPresentation/Shell/GameWindowWithTabs.cs:228（CreateTabButton）（等价实现 = 建页签钮）	public WindowButton CreateTabButton(WindowTabBase tabInstance, string tabName)	是
+菜单/外壳	DestroyTab(WindowTabBase tab)	Shell/GameWindowWithTabs.cs:241-250（DestroyTab）	CardPresentation/Shell/GameWindowWithTabs.cs:241（DestroyTab）（等价实现 = 销毁页签）	public void DestroyTab(WindowTabBase tab)	是
+菜单/外壳	ShowHighlightDelay(RectTransform objRectTransform, float delay)	Shell/TutorialPointerUi.cs + 调用方时序	无落点：TutorialPointerUi 无 ShowHighlightDelay（时序散在调用方）	—	—
+菜单/外壳	OnSetup()	Shell/SettingsWindow.cs General 页	无落点：SettingsWindow General 页无独立 OnSetup 方法	—	—
+菜单/外壳	TouchInputToggle(bool value)	Shell/SettingsWindow.cs（设置项）+ Battle/TouchInputManager	无落点：SettingsWindow/TouchInputManager 无 TouchInputToggle 方法	—	—
+菜单/外壳	SetPosition(Transform targetPosition)	Shell/GenericOptionsPanel.cs	无落点：GenericOptionsPanel 无 SetPosition 方法（锚点属性）	—	—
+菜单/外壳	SetTitle(string text, bool localizeText)	Shell/GenericOptionsPanel.cs	无落点：GenericOptionsPanel 无 SetTitle 方法	—	—
+菜单/外壳	Start()	Shell/GenericOptionsPanel.cs:240 Create（建件）	CardPresentation/Shell/GenericOptionsPanel.cs:240（Create）（等价实现 = 建件（Start 的等价建树））	public static GenericOptionsPanel Create(WindowsManager mgr, Context? ctx = null	部分
+菜单/外壳	CardsTextInHandDropdownChange(int chosenCardTextsInHand)	Shell/SettingsWindow.cs 图像页（CardsTextInHand 项）	无落点：SettingsWindow 无 CardsTextInHandDropdownChange 方法	—	—
+菜单/外壳	FPSLimitValueChanged(float fpsValue)	Shell/SettingsWindow.cs 图像页 FPS 滑块	无落点：SettingsWindow 无 FPSLimitValueChanged 方法	—	—
+菜单/外壳	GraphicsQualityDropdownChange(int chosenQuality)	Shell/SettingsWindow.cs Quality Selector	无落点：SettingsWindow 无 GraphicsQualityDropdownChange 方法	—	—
+菜单/外壳	OnEnable()	Shell/SettingsWindow.cs 页签切换刷新	无落点：SettingsWindow 无 OnEnable（页签刷新为逻辑）	—	—
+菜单/外壳	OnSetup()	Shell/SettingsWindow.cs 建件 + 行显隐	无落点：SettingsWindow 无 OnSetup 方法（建件为逻辑）	—	—
+菜单/外壳	VSyncToggleClick(bool option)	Shell/SettingsWindow.cs 图像页	无落点：SettingsWindow 无 VSyncToggleClick 方法	—	—
+菜单/外壳	OpenChooseNameMenu()	Shell/ProfileTab.cs 改名窗开/关链	无落点：ProfileTab 无 OpenChooseNameMenu 方法	—	—
+菜单/外壳	SetupChat()	Shell/ChatPanel.cs + Shell/MainMenuRuntime 聊天预览	无落点：ChatPanel/MainMenuRuntime 无 SetupChat 方法	—	—
+菜单/外壳	ToggleScroll(bool option)	Shell/MainMenuRuntime.cs:ToggleScroll + MenuScroll.Enabled + PointerLayer 的命中/滚轮/惯性三处闸	CardPresentation/Shell/MainMenuRuntime.cs:2640（ToggleScroll）（等价实现 = 滚动开关）	public void ToggleScroll(bool option)	是
+菜单/外壳	CheckActiveMenus(bool isTapChange, GameWindow gameWindow, WindowTabBase tab)	Shell/WindowsManager.TopWindow + TabButtons	无落点：WindowsManager.TopWindow 是属性；无 CheckActiveMenus 方法	—	—
+菜单/外壳	OnInitializationComplete()	Shell/SceneInitializer.cs（层已就绪）但 MainMenuRuntime 未实现接口	CardPresentation/Shell/SceneInitializer.cs:75（OnInitializationComplete）（等价实现 = 接口声明（MainMenuRuntime 未实现））	public interface IInitializationComplete { void OnInitializationComplete(); }	部分
+菜单/外壳	InstantiateInput(PromptContext.InputData data)	Shell/PromptPopup.cs:97 Create（输入框形态建一次）	CardPresentation/Shell/PromptPopup.cs:97（Create）（等价实现 = 建输入框（InstantiateInput 的等价建树））	public static PromptPopup Create(WindowsManager mgr, string text, string okText,	部分
+菜单/外壳	SetError(string error, bool localize)	Shell/PromptPopup.cs 错误行（是否支持未逐句核）	无落点：PromptPopup 无 SetError 方法（仅注释提及）	—	—
+菜单/外壳	SetMessage(string error, bool localize)	Shell/PromptPopup.cs 正文	无落点：PromptPopup 无 SetMessage 方法	—	—
+菜单/外壳	Refresh()	Shell/ReferralPopupWindow.cs Refresh	无落点：ReferralPopupWindow 无 Refresh 方法（内容在 Open 建）	—	—
+菜单/外壳	Start()	Shell/ReferralPopupWindow.cs（打开时建内容）	无落点：ReferralPopupWindow 无 Start 方法	—	—
+菜单/外壳	SetTargetFade(float targetValue, float blendTime)	Battle/ScenarioGenericObjectToggler.cs	无落点：ScenarioGenericObjectToggler 无 SetTargetFade 方法	—	—
+菜单/外壳	Start()	Battle/ScenarioGenericObjectToggler.cs	无落点：ScenarioGenericObjectToggler 无 Start 方法	—	—
+菜单/外壳	Update()	Battle/ScenarioGenericObjectToggler.cs	无落点：ScenarioGenericObjectToggler 无 Update 方法	—	—
+菜单/外壳	Awake()	Shell/ShellRuntime.cs:119（无独立转场场景）	CardPresentation/Shell/ShellRuntime.cs:341（Awake）（等价实现 = 壳转场 Awake）	void Awake()	部分
+菜单/外壳	GetTransition(string fromScene, string toScene)	Shell/ShellRuntime 的单一淡入淡出	无落点：ShellRuntime 无 GetTransition 方法（单一淡入淡出）	—	—
+菜单/外壳	RenderPipelineManagerOnbeginCameraRendering(ScriptableRenderContext arg1, Camera arg2)	Battle/ScreenAspectRatioController.cs 的 URP 钩子	无落点：ScreenAspectRatioController 无 RenderPipelineManager… 同名方法	—	—
+菜单/外壳	CalculateFocusedScrollPosition(ScrollRect scrollView, Vector2 focusPoint)	Shell/MenuScroll.cs:315 FocusOn	CardPresentation/Shell/MenuScroll.cs:370（FocusOn）（等价实现 = 焦点滚动位置）	public void FocusOn(float contentCenter)	部分
+菜单/外壳	ESCPressed()	Shell/PointerLayer ESC + SearchingMatchPopup	无落点：PointerLayer 无 ESCPressed 方法（ESC 为逻辑）	—	—
+菜单/外壳	CancelMatchMatchmaking()	Shell/SearchOpponentManager.cs Cancel	无落点：SearchOpponentManager 无 CancelMatchMatchmaking 方法	—	—
+菜单/外壳	OnEnable()	Shell/SearchingOpponentWindow.cs（内容在 Open 建）	CardPresentation/Shell/SearchingOpponentWindow.cs:147（OnEnable）（等价实现 = OnHint 订阅）	void OnEnable() { NetMatchmaking.OnHint += ShowHint; }	部分
+菜单/外壳	AddTabButton(string tabName, Sprite tabIcon)	Shell/TabButtons.cs:AddTabButton(string tabName)（克隆母版 → 激活 → SetSiblingIndex(0) → name/文字）	CardPresentation/Shell/TabButtons.cs:157（AddTabButton）（等价实现 = 建页签钮（克隆母版））	public WindowButton AddTabButton(string tabName)	是
+菜单/外壳	Draw(CosmeticItemTitle item, int quantity)	Shell/ItemDrawer.cs（装饰档）	CardPresentation/Shell/ItemDrawer.cs:840（Draw）（等价实现 = 物品抽屉整层绘制）	public static ItemDrawResult Draw(Transform parent, PxRect box, ItemSpec item, i	部分
+菜单/外壳	GetItemName(CosmeticItemTitle item)	Shell/ItemDrawer.cs 名字层	无落点：ItemDrawer 无 GetItemName 方法（名字层内联）	—	—
+菜单/外壳	Draw(CosmeticItemTitle item, int quantity)	Shell/ItemDrawer.cs（装饰图标档）	CardPresentation/Shell/ItemDrawer.cs:840（Draw）（等价实现 = 物品抽屉整层绘制（图标档））	public static ItemDrawResult Draw(Transform parent, PxRect box, ItemSpec item, i	部分
+菜单/外壳	GetItemName(CosmeticItemTitle item)	Shell/ItemDrawer.cs 名字层	无落点：ItemDrawer 无 GetItemName 方法（名字层内联）	—	—
+菜单/外壳	SetTitle(CosmeticItemTitle item)	CardPresentation/Shell/ProfileData.cs:263（Titles 称号表；SetTitle 从中选）	无落点：ProfileData 无 SetTitle 方法（称号表 Titles 为数据）	—	—
+菜单/外壳	Start()	Shell/UIBakeScreen.cs	无落点：UIBakeScreen 无 Start 方法	—	—
+菜单/外壳	GetWorldRect(RectTransform rectTransform)	Core/LayoutSpace / MenuDraw PxRect 体系	无落点：LayoutSpace/MenuDraw 无 GetWorldRect 方法（PxRect 体系）	—	—
+菜单/外壳	Toggle(bool option)	Battle/ErrorMessageBanner.cs / MessageToast	无落点：ErrorMessageBanner/MessageToast 无 Toggle 方法	—	—
+菜单/外壳	InverseLerp(float a, float b, float v)	Core/CardArt.cs:766 渐变算式内联	无落点：CardArt 无 InverseLerp 方法（渐变算式内联）	—	—
+菜单/外壳	LocalPositionMatrix(Rect rect, Vector2 dir)	Core/CardArt.cs:766 Gradient(angleDeg)	CardPresentation/Core/CardArt.cs:776（Gradient）（等价实现 = 渐变角度→纹理（LocalPositionMatrix 的等价内联））	public static Texture2D Gradient(Color c1, Color c2, float angleDeg, float aspec	部分
+菜单/外壳	OnDisable()	—（无对应实现：`Shell/UIScaleToFit.cs` 全文无 `OnDisable`，本件无 `DrivenRectTransformTracker`）	无落点：UIScaleToFit 无 OnDisable（本件无 DrivenRectTransformTracker）	—	—
+菜单/外壳	Initialize(string url)	CardPresentation/Shell/SettingsWindow.cs:2728（AccountOpenUrl 方法，唯一对外动作 OpenURL）	CardPresentation/Shell/SettingsWindow.cs:2728（AccountOpenUrl）（等价实现 = 打开 URL 的唯一对外动作）	void AccountOpenUrl(string what, string url)	部分
+菜单/外壳	Close()	Shell/WelcomePopup.cs Close	CardPresentation/Shell/GameWindow.cs:714（Close）（等价实现 = WelcomePopup 走基类 GameWindow.Close）	public virtual void Close()	是
+菜单/外壳	OnClose()	Shell/WelcomePopup.cs 关闭链	无落点：WelcomePopup 无 OnClose 方法（走基类）	—	—
+菜单/外壳	Close()	Shell/WhereToGetCardsPopup.cs:288-379（Build）（等价实现 = 关窗走 `GameWindow.Close()`；段的清理由下次 `Build()`→`BuildSections` 的 `ClearChildren` 做）	CardPresentation/Shell/GameWindow.cs:714（Close）（等价实现 = 关窗走基类 GameWindow.Close（段清理下次 Build））	public virtual void Close()	是
+菜单/外壳	RefreshLayout()	Shell/WhereToGetCardsPopup.cs（内容按需重建）	无落点：WhereToGetCardsPopup 无 RefreshLayout 方法	—	—
+菜单/外壳	Initialize(ILiveOps liveopEvent, Action OnBackButtonPressed)	Shell/CampaignRewardWindow 等窗的标题（按上下文）	无落点：各窗标题无 Initialize(ILiveOps…) 方法	—	—
+菜单/外壳	Initialize(string title, Action OnBackButtonPressed)	各窗标题 + ShowPreviousWindow 回调	无落点：各窗标题无 Initialize(string title…) 方法	—	—
+菜单/外壳	OnEnable()	各窗标题件（Build 时建）	无落点：各窗标题件无 OnEnable 方法	—	—
+菜单/外壳	OnSetup()	Shell/WindowTabBase.cs:OnSetup（protected virtual）	CardPresentation/Shell/WindowTabBase.cs:52（OnSetup）（等价实现 = 页签 Setup 钩子（空实现））	protected virtual void OnSetup() { }	部分
+菜单/外壳	Toggle(bool option)	Shell/WindowTabBase.cs:Toggle（private，`SetActive(option)`，不调 OnOpen/OnClose）	CardPresentation/Shell/WindowTabBase.cs:76（Toggle）（等价实现 = SetActive(option)，不调 OnOpen/OnClose）	void Toggle(bool option)	是
+战斗界面/HUD	GetParentCard()	CardPresentation/Hand/CardInteraction.cs:757（BeginPressCandidate）〔等价实现 = 卡引用是显式形参〔原版组件反查 GetComponentInParent〕〕	无落点：CardInteraction 无 GetParentCard（父卡由视图/HitTest 持有）	—	—
+战斗界面/HUD	Start()	CardPresentation/Hand/CardInteraction.cs:757（BeginPressCandidate）〔等价实现 = 建视图时显式绑定卡引用，比 Awake/Start 更早〕	无落点：CardInteraction 无独立 Start	—	—
+战斗界面/HUD	BasicBattleEndSequence()	CardPresentation/Battle/BattleDriver.cs:31214（ShowEndPanelAndFreezeInput）〔等价实现 = 收局演出总入口〔开门 + 结算面板〕〕	无落点：BattleDriver 无 BasicBattleEndSequence 同名方法（结束流程散在 ShowEndPanel…）	—	—
+战斗界面/HUD	CloseBattleDoors(MatchResultData matchResultData)	CardPresentation/Battle/BattleDoors.cs:434（Play）〔等价实现 = 收局开门演出〔含 HUD 收、触摸闸〕〕	CardPresentation/Battle/BattleDoors.cs:434（Play）（等价实现 = 关门演出）	public void Play()	部分
+战斗界面/HUD	GetUnitSizeRatio(bool isPlayer)	CardPresentation/Board/ArenaSlots.cs:90（CardScale）〔等价实现 = 我方 0.36 / 敌 0.69 两套格位缩放〔比例已折进〕〕	CardPresentation/Board/ArenaSlots.cs:90（CardScale）（等价实现 = 单位尺寸比）	public static float CardScale(bool enemy) { return enemy ? EnemyCardScale : Play	部分
+战斗界面/HUD	ResolveDisplayFromHand(BattleAction battleAction)	—	无落点：BattleDriver 无 ResolveDisplayFromHand 同名方法	—	—

@@ -1274,6 +1274,12 @@ public static class ShopScene
         ShopData.ResetForTest();
         Debug.Log(P + "=== 「商店」自检 开始 ===");
 
+        // 🔴 **2026-10-27（B9_D7SH）**：三页 `TimeCounter/Time` 那颗字是 `Build()` 里
+        //    `ShopWindow.EnsureTabsSetup → ShopTabPage.Setup()` 写下的**快照**（批处理没有帧循环 ⇒
+        //    `TimerDisplay.Update` 一次都不跑 ⇒ 它停在 `Attach` 那一下）。下面「倒计时文本」那条断言要拿它
+        //    跟**活值**比 ⇒ 必须先知道「这个快照是什么时候写的」。这里记一个**不晚于**那个瞬间的时刻
+        //    （取在 `Build()` **之前** ⇒ 窗口只会算宽、不会算窄 ⇒ 不会造成新的假红）。
+        var tPagesBuilt = System.DateTime.Now;
         var win = Build(out var root);
 
         // ---------------- 窗口参数（`MonoBehaviour_6184803956894681212.json` 原文）----------------
@@ -1586,28 +1592,54 @@ public static class ShopScene
             // 🔴 **2026-10-17（界面线 U2-1 就地订正）**：上一句的说明里「值是我们挑的」**已过期** ——
             //    现在 `ShopData.RefreshTime` 由 `TimerDisplay` 按「9 点规则 + 本机时钟」算（那两条仍是我们挑的），
             //    而屏上那颗 `TimeText` 是同一个 `TimerDisplay` 实例每秒写出来的活值。
-            //    ⚠️ 仍是「同一瞬间的两个读数」：批处理没有帧循环、组件只在 `Attach` 时写过一次，
-            //    跨**分钟**边界时两边会差一分钟（极小概率 flake，如实记；不为此放宽成「像时间就行」——
-            //    那会让「换回死串」这一类改坏法照样绿）。
-            // 🔴 **2026-10-18（第五十二会话）实测这条 flake 不是「极小概率」**：2335 条跑几分钟，
-            //    后半段 4 条里有 3 条差正好 1 分钟（`19小时 59分钟` vs `19小时 58分钟`）。
-            //    ⇒ 断言改成「两个读数解析成分钟后相差 ≤1 分钟」；**死串仍然咬得住**（解析不出分钟 ⇒ 红）。
+            // 🔴 **2026-10-27（B9_D7SH）**：这条在 2026-10-18 之后又抖了两次（标签 `45分钟 52秒` vs 活值
+            //    `45分钟 50秒` / `45分钟 48秒`）—— **根因不是容差太小，是容差根本没生效**：
+            //    ① 标签是**页面建成那一刻**写下的**快照**（批处理没有帧循环 ⇒ `TimerDisplay.Update` 一次都不跑）；
+            //    ② 2026-10-18 那个兜底只解析 `X小时 Y分钟` 这一档（正则要求**小时段 + 分钟段都在**），
+            //       而剩余 < 1 小时时 `GetTimeString` 走的是 `MS` 档 = **`45分钟 52秒`（没有小时段）**
+            //       ⇒ 解析失败 ⇒ 退回**逐字相等** ⇒ 秒数一动就红；
+            //    ③ 三页的字是**同一次 `Build()`** 写下的，而三页的断言分别跑到 +0s / +2s / +4s
+            //       ⇒ 后两页**必然**差几秒 ⇒ 红（实测那两条正是「差 2 秒 / 差 4 秒」）。
+            //    ⇒ 改成**不要求两个读数落在同一秒**，而是各自反解成「剩余 ∈ [下界, 下界+最细单位)」，
+            //       再要求 ① **标签**能用「页面建成 → 现在」这段**实测窗口**解释得通（剩余只会往下走 ⇒
+            //       标签的剩余 ≥ 活值的剩余，且不会比窗口更旧）；② **活值**对得上**现在这一刻的时钟**
+            //       （时钟那一边独立于 `ShopData.RefreshTime` 自己的读数 ⇒ 「换回死串」必红）。
+            //    ⚠️ 判别力**没有被削弱**：空串 / `--` / 任何死串**都解析不出**（`ParseTimerText` 返回 false）；
+            //       旧值要么比活值「新」（剩余更大 ⇒ 第二条不等式红），要么老出窗口 ⇒ 红。
+            //       ⛔ 没有退化成「非空就算过」。
             {
                 string tLabel = TextOf(FindChild(tc, "Time"));
                 string tNow = ShopData.RefreshTime;
-                var rx = new System.Text.RegularExpressions.Regex(@"(\d+)\s*(?:小时|h|H)\s*(\d+)\s*(?:分钟|m|M)");
-                var mLabel = rx.Match(tLabel ?? "");
-                var mNow = rx.Match(tNow ?? "");
-                bool timerOk = tLabel == tNow;
-                if (!timerOk && mLabel.Success && mNow.Success)
-                {
-                    int a = int.Parse(mLabel.Groups[1].Value) * 60 + int.Parse(mLabel.Groups[2].Value);
-                    int b2 = int.Parse(mNow.Groups[1].Value) * 60 + int.Parse(mNow.Groups[2].Value);
-                    timerOk = System.Math.Abs(a - b2) <= 1;      // 跨分钟边界：差 1 分钟算同一读数
-                }
-                CheckTrue(timerOk,
-                          $"倒计时文本 = `{ShopData.RefreshTime}`（`TimerDisplay` 的活值；9 点规则/本机时钟是我们挑的；"
-                        + $"实际标签「{tLabel}」，允许跨分钟差 1 分钟）");
+
+                int lLow, lFine, nLow, nFine;
+                bool lOk = ParseTimerText(tLabel, out lLow, out lFine);   // 标签 = 页面建成那一刻的快照
+                bool nOk = ParseTimerText(tNow, out nLow, out nFine);     // 活值 = 读它的这一刻
+                var nowClock = System.DateTime.Now;
+                // 时钟自己算的剩余（**不经过 `ShopData.RefreshTime`** ⇒ 两个读数互不印证、才是真鉴别式）
+                int cLow = (int)((TimerDisplay.ShopRefreshAt(nowClock) - nowClock).TotalSeconds);
+                // 漂移窗口 = 「三页的字被写下的那一刻」→「现在」（`tPagesBuilt` 取在建场之前 ⇒ 只会算宽）
+                double driftSec = (nowClock - tPagesBuilt).TotalSeconds;
+                int driftTol = 2 + (int)System.Math.Ceiling(driftSec);     // +2 = 两次读数之间那点秒级偏斜
+                // 窗口里正好跨过 9 点（= 重置那一拍）：目标时刻整个滚到次日 ⇒ 标签与活值本来就该差一天。
+                // ⚠️ 这是**如实放行**、不是放宽（`rolled` 由两个时刻各自的 9 点规则算出来，不是「像时间就行」）。
+                bool rolled = TimerDisplay.ShopRefreshAt(tPagesBuilt) != TimerDisplay.ShopRefreshAt(nowClock);
+
+                // ★ 一致性：**两侧都带自己那一档的宽度**（格式化只截断不四舍 ⇒ 被丢掉的那一段就是 `…Fine`）。
+                //   ① `lLow + lFine > nLow`：标签的剩余**不低**于活值的剩余（剩余只会往下走 ⇒ 倒着来必红）；
+                //   ② `lLow <= nLow + nFine + driftTol`：标签的剩余**不老过**「活值 + 实测漂移」
+                //      —— 上界必须取**活值那一侧的区间上确界**（`nLow + nFine`）。⚠️ 只拿秒级读数当上界
+                //      会误杀「标签落在分钟档上沿、活值已经跨进下一分钟」这种**合法**情形
+                //      （`19小时 59分钟` vs `19小时 58分钟` 差 1 分钟、实际只过了 2 秒 —— 2026-10-18 那批就是这么红的）。
+                bool labelOk = lOk && (rolled || (lLow + lFine > nLow && lLow <= nLow + nFine + driftTol));
+                // ★ 活值必须对得上**现在这一刻的时钟**（这一半不拿 `ShopData.RefreshTime` 自己当判据）
+                bool liveOk = nOk && nLow <= cLow + 1 && nLow + nFine > cLow - 1;
+                CheckTrue(labelOk && liveOk,
+                          $"倒计时文本 = `{tNow}`（`TimerDisplay` 的活值；9 点规则/本机时钟是我们挑的；"
+                        + $"实际标签「{tLabel}」，须能用「页面建成 → 现在」那 {driftSec:F1}s 的窗口解释"
+                        + (rolled ? "；⚠️ 本窗口内跨了 9 点重置那一拍" : "") + "）"
+                        + $"｜标签 {(lOk ? $"[{lLow},{lLow + lFine})s" : "**解析不出**")} · "
+                        + $"活值 {(nOk ? $"[{nLow},{nLow + nFine})s" : "**解析不出**")} · "
+                        + $"时钟 {cLow}s · 漂移余量 {driftTol}s");
             }
 
             // ---- 栅格：`GridLayoutGroup cell 335.6×475 · spacing 0 · padding.top 7 · 2 列 · UpperLeft` ----
@@ -5787,5 +5819,45 @@ public static class ShopScene
     {
         int n = CountByPrefix(root, prefix);
         CheckTrue(n == want, $"{msg}（实测 {n}）");
+    }
+
+    /// <summary>🔴 **2026-10-27（B9_D7SH）**：把 `TimerDisplay.FormatTimeString` 的一条输出**反解**成
+    /// 「剩余时间 ∈ [<paramref name="lowSecs"/>, <paramref name="lowSecs"/> + <paramref name="fineSecs"/>)」——
+    /// **下界** = 各项「数字 × 单位秒数」之和；**区间宽** = 这串里**最细**那一档单位的秒数
+    /// （格式化**只截断不四舍**：`ts.Seconds` / `ts.Minutes` / `ts.Days` 都是截断 ⇒ 被丢掉的那一段就是宽度）。
+    /// <para>六档全认：官方三档 `D天 H小时` / `H小时 M分钟` / `M分钟 S秒` + 我们拼的三档 `_Only`（天 · 小时 · 分钟），
+    /// 以及 en 三档 `d h` / `h m` / `m s`；前缀（`最后时刻` / `Last Minutes`）先剥掉。</para>
+    /// <para>**解析不出 ⇒ 返回 <c>false</c>**（空串 / `--` / 别的形状都算）—— 这正是那条断言要咬的：
+    /// ⛔ 不许退回「非空就算过」那种没有鉴别力的写法。</para>
+    /// <para>⚠️ 为什么需要它：`RunCore` 那条「倒计时文本」原来只解析 `X小时 Y分钟` 一档，
+    /// 剩余 &lt; 1 小时时（`45分钟 52秒`）**解析失败 ⇒ 退回逐字相等** ⇒ 秒数一动就红（B9_D7SH 那两条红）。</para></summary>
+    static bool ParseTimerText(string text, out int lowSecs, out int fineSecs)
+    {
+        lowSecs = 0; fineSecs = 0;
+        if (string.IsNullOrEmpty(text)) return false;
+        string body = text;
+        string lm = TimerDisplay.LastMinutesText();
+        if (!string.IsNullOrEmpty(lm) && body.StartsWith(lm, System.StringComparison.Ordinal))
+            body = body.Substring(lm.Length);
+        int total = 0, finest = 0, n = 0;
+        foreach (System.Text.RegularExpressions.Match m in
+                 System.Text.RegularExpressions.Regex.Matches(body, @"(\d+)\s*(天|小时|分钟|秒|d|h|m|s)"))
+        {
+            int v = int.Parse(m.Groups[1].Value);
+            int unitSec;
+            switch (m.Groups[2].Value)
+            {
+                case "天": case "d": unitSec = 86400; break;
+                case "小时": case "h": unitSec = 3600; break;
+                case "分钟": case "m": unitSec = 60; break;
+                default: unitSec = 1; break;                     // `秒` / `s`
+            }
+            total += v * unitSec;
+            if (finest == 0 || unitSec < finest) finest = unitSec;
+            n++;
+        }
+        if (n == 0) return false;
+        lowSecs = total; fineSecs = finest;
+        return true;
     }
 }

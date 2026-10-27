@@ -224,10 +224,15 @@ namespace CardPresentation
                 if (wave != null) wave.gameObject.SetActive(on);
                 if (text != null) text.gameObject.SetActive(on);
             }
-            /// <summary>把这一颗的「本句状态」清干净（**不碰音频** —— 与 `HideAll` 的既有口径一致，见 `StopVoice`）。</summary>
+            /// <summary>把这一颗的「本句状态」清干净（**本方法不碰音频** —— `AudioSource.Stop()` 在 <c>HideBubble</c> 里，
+            /// 口径见那一条；2026-10-27 起收起一颗就停音，原版 `VoiceLineBox__HideChat.c:9` 同形）。
+            /// <para>🆕 **2026-10-27（音频线 `B9` A-04 · 账 87/94/97）**：`isPlaying` / `delay` 也在这里清 ——
+            /// 它们是「这一句的生命周期」的一部分，与 `left` / `typing` 同一族。</para></summary>
             public void ResetState()
             {
                 left = 0f;
+                isPlaying = false;
+                delay = 0f;
                 typing = false;
                 typeTotal = 0;
                 typeElapsed = 0f;
@@ -239,6 +244,25 @@ namespace CardPresentation
                 warnedVoiceMissing = false;
                 warnedZeroSpectrum = false;
             }
+
+            // ---- 🆕 **2026-10-27（音频线 `B9` A-04 · 账 87/94/97/124）** ----------------------------
+            /// <summary>🔴 **这一颗盒子「算不算还在说」** —— 原版 `VoiceLineBox` 的 **`+0x40`**。
+            /// <para>**判据（逐条实读）**：`VoiceLineBox.<ShowChat>d__18__MoveNext.c:17` 在 `ShowChat` 被调用的
+            /// **那一刻**就置 `1`；`<FinishChat>d__21__MoveNext.c:32`（`WaitForSeconds(max(2, len+0.3))` 到点）
+            /// 与 `VoiceLineBox__HideChat.c:10` / `UnitsVoiceLinesPanel__HideChatBox.c:12` /
+            /// `__SetUpChatBox.c:10` / `__Initialize.c` 置 `0`。</para>
+            /// <para>⚠️ **它与 `AudioSource.isPlaying` 不是一回事**（账 87/124 的根因）：音频一播完就 false，
+            /// 而这个标志要撑到 `max(2, len+0.3)`；而且**纯文字气泡（clip = null）在原版也算「在说」**。
+            /// ⇒ `IsSpeaking` 一律读这一格（⛔ 别再读 `audio.isPlaying`）。</para>
+            public bool isPlaying;
+
+            /// <summary>🆕 **起播前那一拍等待**（秒）。原版 `VoiceLineBox.<ShowChat>d__19__MoveNext.c:60-67`：
+            /// `SetActive(true)` 之后 `if (0 &lt; +0x44) { StopCoroutine(AnimateText); yield return WaitForSeconds(0.1f); }`
+            /// ⇒ 那一拍**同时**推迟 `AnimateText` 与 `FinishChat`（`:77-82` 两句都排在它后面）。
+            /// <para>🔑 **条件已查清**：`+0x44` 是**打字机已显字数**（`<AnimateText>d__22__MoveNext.c:21` 清零、
+            /// `:56-57` 自增、`:52-53` 打完再清零）⇒ `0 &lt; +0x44` ⇔ **上一句还在打字时就被新的一句顶掉了**。
+            /// 常量 `0x1834b2dc4` = **0.1f**（`工具/read_literal.py` 已读）。</para></summary>
+            public float delay;
         }
 
         Bubble _player, _enemy;
@@ -370,14 +394,23 @@ namespace CardPresentation
         {
             get
             {
-                // 🆕 2026-10-24（`A13`）：三颗**各自**有 `AudioSource`，原版这个名字本来就是
-                //   `IsAnyVoiceLinePlaying()`（「**任意一条**在播」）⇒ 改成三颗任一在播。
-                if (_player != null && _player.audio != null && _player.audio.isPlaying) return true;
-                if (_enemy != null && _enemy.audio != null && _enemy.audio.isPlaying) return true;
-                if (_radio != null && _radio.audio != null && _radio.audio.isPlaying) return true;
-                return false;
+                // 🆕 2026-10-24（`A13`）：三颗**各自**有一份状态，原版这个名字本来就是
+                //   `IsAnyVoiceLinePlaying()`（「**任意一条**在播」）⇒ 改成三颗任一在说。
+                // 🔴 **2026-10-27（音频线 `B9` A-04 · 账 87/124）就地改（铁律 5/11）**：判据从
+                //   `audio.isPlaying` 换成**每颗自己的 `isPlaying`**（= 原版 `VoiceLineBox +0x40`）。
+                //   判据 = `UnitsVoiceLinesPanel__IsAnyVoiceLinePlaying.c:5-12` / `VoiceLinesController__IsAnyVoiceLinePlaying.c:7-12`：
+                //   `box3+0x40 || box2+0x40 || box1+0x40`，而那个标志由 `FinishChat` 在
+                //   `WaitForSeconds(max(2, len+0.3))` 到点才清 0（`<FinishChat>d__21__MoveNext.c:32`）。
+                //   ⚠️ 改前那半句「用 `audio.isPlaying` 而不是气泡还在不在」的注释**理由已反**：
+                //     · 音频一播完就 false，而原版要撑到 `max(2, len+0.3)`（本工程语音中位数 0.41 s ⇒ 差 ≈1.6 s）；
+                //     · 纯文字气泡（`clip == null`）原版算「在说」、我们原来不算。
+                //   ⚠️ ⛔ **别拿 `AnyShown`（气泡在场）替代** —— 那是「气泡还亮着」，不是「语音在播」那一档。
+                return (_player != null && _player.isPlaying)
+                    || (_enemy != null && _enemy.isPlaying)
+                    || (_radio != null && _radio.isPlaying);
             }
         }
+
         /// <summary>自检用：还剩几秒（**最近说的那一颗**的剩余寿命；没在说 = 0）。
         /// 🆕 2026-10-24（`A13`）：改前读的是面板级 `_left`（三颗共用一份），现在读 `_current.left`。</summary>
         public float TimeLeft { get { return _current != null ? _current.left : 0f; } }
@@ -709,7 +742,19 @@ namespace CardPresentation
                 else Debug.LogWarning("[UnitChat] 台词 TMP 取不到 ⇒ 它不吃射线（原版 = 1；无处理器、无视觉差）");
             }
 
-            b.audio = gameObject.AddComponent<AudioSource>();
+            // 🔴 **2026-10-27（音频线 `B9` A-04 · 账 94）就地改（铁律 5/11）**：`AudioSource` 原来
+            //   `AddComponent` 在**面板根**（三颗共用宿主）⇒ 「关一颗气泡」与「停它的音」是两件事。
+            //   原版是**每颗 `VoiceLineBox` 自己挂一颗**：`VoiceLineBox__HideChat.c:8-15` 里
+            //   `AudioSource.Stop()` → `+0x40 = 0` → 波形件关 → **`SetActive(false)`** 五步在同一个方法里，
+            //   面板侧 `UnitsVoiceLinesPanel__HideChatBox.c:9-25` 同形 ⇒ **`SetActive(false)` 顺带把音停掉**。
+            //   我们现在挂到**这一颗气泡自己的底图 GameObject** 上（`SetActive(false)` 天然停音、与原版同构）。
+            //   ⚠️ 底图没建出来（贴图缺失）时退回面板根并**出声** —— ⛔ 不静默（那一档「关气泡不停音」会复现）。
+            var audioHost = b.bg != null ? b.bg.gameObject : null;
+            if (audioHost == null)
+                Debug.LogWarning("[UnitChat] 气泡 `" + name + "` 的底图没建出来 ⇒ `AudioSource` 退回**面板根**"
+                               + "（这一颗「关气泡」不会顺带停音 —— 原版是同构的，见 `VoiceLineBox__HideChat.c:8-15`）");
+            b.audio = audioHost != null ? audioHost.AddComponent<AudioSource>()
+                                        : gameObject.AddComponent<AudioSource>();
             b.audio.playOnAwake = false;
             b.audio.spatialBlend = 0f;            // 2D（原版也挂在 UI 上）
             b.audio.volume = 0.85f;   // 🔶 自己设计（非原版）：台词音量系数 0.85 · 原版逐 source 的音量没查到（原版判据拿不到） · TODO(谁定的)｜原注：⚠️ 这个系数是**我们自己定的**（原版逐 source 的音量没查到）
@@ -982,6 +1027,12 @@ namespace CardPresentation
             //   原版三颗盒子各自独立：**同一个盒子**再说一句 = 同盒替换（`DisplayChatBox` 覆盖本盒），
             //   **别的盒子**在说**不影响**（`DisplaySummonMessage.c:22-30` 的并发闸是它存在的证据）。
             //   ⇒ 只收**这一颗**，其余两颗各走各的寿命 / 打字机。
+            // 🆕 **2026-10-27（音频线 `B9` A-04 · 账 97）**：先记下「上一句是不是**打字打到一半就被顶掉**」
+            //   —— 原版 `VoiceLineBox.<ShowChat>d__19__MoveNext.c:60-67` 的 `0 < +0x44` 判的就是它
+            //   （`+0x44` = 打字机已显字数，打完会自己清零 ⇒ **只有被中途打断时才 > 0**）。
+            //   ⚠️ 必须在 `HideBubble` **之前**读（它走 `ResetState` 把 `typing` 清掉）。
+            bool interruptedTyping = b.typing
+                                  && TypewriterVisibleAt(b.typeTotal, b.typeElapsed) > 0;
             HideBubble(b);
             // 🔴 **2026-10-24（审查修复代理 `F3` · 审 `P1-5` 订正 · 铁律 5 / 11）**：这里原来只有一句
             //   `b.expectsVoice = expectVoice && clip != null;` —— **把两种 `false` 合成了一种**：
@@ -1001,6 +1052,14 @@ namespace CardPresentation
             // 🔴 2026-10-24（`F3` · 审 `P1-5`）：真缺口**当场出声一次**（按 `卡|事件` 去重，⛔ 不每帧刷）。
             WarnVoiceMissing(b, side, cardId, evt, clipFile);
             b.left = Duration(clip);
+            // 🆕 **2026-10-27（音频线 `B9` A-04 · 账 87/94/97/124）**：
+            //   · `isPlaying` = 原版 `VoiceLineBox +0x40`，**`ShowChat` 一调用就置 1**
+            //     （`<ShowChat>d__18__MoveNext.c:17`）、到点/收起置 0 ⇒ 这就是 `IsSpeaking` 的唯一判据。
+            //   · `delay` = 上一句**打字打到一半被顶掉**时那一拍 0.1 s（`<ShowChat>d__19__MoveNext.c:60-67`）。
+            //     原版那一拍把 `AnimateText` **和** `FinishChat` 一起推后 ⇒ 寿命也从那一拍之后才起算
+            //     （`TickBubble` 在 `delay` 期间不扣 `left`）。
+            b.isPlaying = true;
+            b.delay = interruptedTyping ? ChatRestartDelay : 0f;
             b.seq = ++_speakSeq;                        // 最近说的那颗（`ShownSide` 的判据）
             _current = b;
             LastCardId = cardId; LastEvent = evt; LastClipName = clipFile;
@@ -1147,22 +1206,54 @@ namespace CardPresentation
         /// <summary>三颗**全收**（`BattleDriver.Begin` 新局 / 自检清场走它；到点那一颗走 <see cref="HideBubble"/>）。
         /// <para>🆕 **2026-10-24（执行代理 `A13`）**：三槽状态机之后还要把**每一颗自己的**本句状态
         /// （寿命 / 打字机 / 诊断闩）一起清掉 —— 改前这些是面板级单份，一处清就够。</para>
-        /// <para>⚠️ **仍然不碰音频**（既有口径 → <see cref="StopVoice"/> 的 doc）。</para></summary>
+        /// <para>⚠️ **（历史口径，2026-10-27 已订正 —— 见下一条）**「仍然不碰音频」。</para>
+        /// <para>🔴 **2026-10-27（音频线 `B9` A-04 · 账 85/94）就地订正（铁律 5）**：上面那半句
+        /// 「仍然不碰音频」**已不成立** —— 原版 `HideChat` / `HideChatBox` 的**第①步就是 `AudioSource.Stop()`**
+        /// （`VoiceLineBox__HideChat.c:9` · `UnitsVoiceLinesPanel__HideChatBox.c:11`）⇒ `HideBubble` 现在照原版停音。
+        /// 本条改成**走按颗的那个口**（<see cref="HideBox"/>），语义仍是「三颗全关」。
+        /// ⚠️ <see cref="StopVoice"/> 仍**保留**：它是「连气泡状态一起不管、只掐声音」那一档，
+        /// `BattleDriver.Begin`（跨局清场）要它，⛔ 别拿 `HideAll` 去替它。</para></summary>
         public void HideAll()
         {
-            HideBubble(_player);
-            HideBubble(_enemy);
-            HideBubble(_radio);
+            // 🔴 2026-10-27（账 85）：原版面板侧就是 `HideChatBox(type)` 按序号关一颗 ⇒ 三颗各调一次。
+            HideBox(0);
+            HideBox(1);
+            HideBox(2);
             _current = null;
         }
 
         /// <summary>收起**一颗**（连同它自己的本句状态）。多颗共存之后「只收一颗」是常态：
-        /// 那一颗到点了 / 同一颗又说了一句（原版 `DisplayChatBox` 是**同盒替换**）。</summary>
+        /// 那一颗到点了 / 同一颗又说了一句（原版 `DisplayChatBox` 是**同盒替换**）。
+        /// <para>🔴 **2026-10-27（音频线 `B9` A-04 · 账 85/94）就地改（铁律 5/11）**：改前这里**不碰音频、
+        /// 也不清 `maxVisibleCharacters`** —— 而原版那两步是**同一个方法里的**：
+        /// `VoiceLineBox__HideChat.c:8-28` = ① `AudioSource.Stop()` ② `+0x40 = 0` ③ 波形件关
+        /// ④ `SetActive(false)` ⑤ `maxVisibleCharacters = 0`（**五步在一个方法里，没有「只关画面不停音」这一档**）。
+        /// 面板侧 `UnitsVoiceLinesPanel__HideChatBox.c:9-25` 逐句同形（先 `GetChatBox(type)` 只取那一颗）。
+        /// ⇒ 现在补齐 ①②⑤，并把「三颗全关」改走 <see cref="HideBox"/>（按颗的那个口）。</para></summary>
         void HideBubble(Bubble b)
         {
             if (b == null) return;
-            b.SetActive(false);
-            b.ResetState();
+            if (b.audio != null) b.audio.Stop();                       // 原版 ①（.c:9）
+            if (b.text != null) b.text.SetMaxVisibleCharacters(0);     // 原版 ⑤（.c:22）
+            b.SetActive(false);                                        // 原版 ④（.c:15）
+            b.ResetState();                                            // 原版 ②（.c:10，`isPlaying` 在 ResetState 里清）
+        }
+
+        /// <summary>🆕 **2026-10-27（音频线 `B9` A-04 · 账 85 · P1）**：原版
+        /// `UnitsVoiceLinesPanel.HideChatBox(VoiceLinesOnSceneType type)` —— **按序号只关那一颗**。
+        /// <para>判据 = `UnitsVoiceLinesPanel__HideChatBox.c:9-25`：`box = GetChatBox(type)`（**只取那一颗**）、
+        /// `AudioSource.Stop()`、`+0x40 = 0`、波形件关、`SetActive(false)`、`maxVisibleCharacters = 0`。
+        /// 那五步全在 <see cref="HideBubble"/> 里（同一个口，⛔ 别在两处各写一遍）。</para>
+        /// <para>`side`：`0` 我方 / `1` 敌方 / `2` `RadioChat`（编号判据 → <see cref="BubbleFor"/>）。
+        /// 认不出的序号 ⇒ `false` + 出声（`BubbleFor` 自己会喊）。</para>
+        /// <returns>`true` = 确实关了一颗。</returns></summary>
+        public bool HideBox(int side)
+        {
+            var b = BubbleFor(side);
+            if (b == null) return false;
+            HideBubble(b);
+            if (_current == b) _current = NewestVisible();     // 读口挪到「还亮着的最新那颗」（同 `TickBubble` 收尾）
+            return true;
         }
 
         /// <summary>🆕 2026-10-20（W58 · G 组）：把三颗气泡挂的语音也**停掉**。
@@ -1216,23 +1307,31 @@ namespace CardPresentation
         void TickBubble(Bubble b, float dt)
         {
             if (b == null || !b.Visible) return;
-            // 🆕 2026-10-24（`B1` · 战斗线「对手聊天」④）：**打字机** —— 每字 +1（原版 `AnimateText`），
-            //   **打完才开始扣气泡寿命**（原版 `FinishChat(duration)` 排在 `AnimateText` 之后）。
-            //   ⚠️ 打字期间直接 return ⇒ 频谱/音波那一半这段不刷新（音频本来自顾自播，不影响）；
-            //      换来的是「寿命与打字时长不叠算」这一条与原版同形。
+            // 🆕 **2026-10-27（音频线 `B9` A-04 · 账 97）**：起播前那一拍（原版 `ShowChat d__19:60-67` 的
+            //   `WaitForSeconds(0.1)`）—— 那一拍里**既不打字、也不起寿命**（原版把 `AnimateText` 与
+            //   `FinishChat` 一起排在它后面）。`frameDt` = 本帧真实时间（音波那一半仍用它）。
+            float frameDt = dt;
+            if (b.delay > 0f)
+            {
+                b.delay -= dt;
+                if (b.delay > 0f) dt = 0f;                 // 还在等：本帧不进打字机、不扣寿命
+                else { dt = -b.delay; b.delay = 0f; }      // 剩下的那一小段归本帧（通常 ≈0）
+            }
+            // 🔴 **2026-10-27（音频线 `B9` A-04 · 账 93）就地改（铁律 5/11）**：**打字机与寿命是【并发】的**。
+            //   改前这里写「打完才开始扣气泡寿命（原版 `FinishChat(duration)` 排在 `AnimateText` 之后）」——
+            //   **判据读反了**：`VoiceLineBox.<ShowChat>d__19__MoveNext.c:77-82` 是**两句并排**
+            //   `StartCoroutine(AnimateText)` + `StartCoroutine(FinishChat(duration))`，
+            //   而 `FinishChat` 体内只是 `WaitForSeconds(duration)`（`<FinishChat>d__21__MoveNext.c:17-18`）
+            //   ⇒ 寿命从**起播那一刻**算，与打字打多久无关（我们每字多停 0.01 s ⇒ 40 字多 0.4 s、150 字多 1.5 s）。
+            //   ⚠️ 因此也删掉了原来那句「把多出来的 dt 还给寿命」的补偿 —— 寿命现在一直是「全量扣 dt」，
+            //     `Advance(10f)` 这种一大步照样能收（不再需要补偿）。
             if (b.typing)
             {
                 b.typeElapsed += dt;
                 int n = TypewriterVisibleAt(b.typeTotal, b.typeElapsed);
                 if (b.text != null)
                     b.text.SetMaxVisibleCharacters(n >= b.typeTotal ? -1 : n);
-                if (n < b.typeTotal) return;
-                b.typing = false;
-                // 打字打完（**先等一拍再显第 1 字** ⇒ 全程 = `total × 节拍`，原版
-                // `AnimateText` 的总时长同此）——
-                // **把多出来的那一段 dt 还给气泡寿命**：自检里会有 `Advance(10f)` 这种一大步调用，
-                // 直接 return 会让那一步整段作废、气泡永远收不起来（2026-10-24 起的那条断言就是这么断的）。
-                dt = Mathf.Max(0f, dt - TypewriterSecondsFor(b.typeTotal));
+                if (n >= b.typeTotal) b.typing = false;
             }
             // 🔴 2026-10-21（`新账-63` · 第三层诊断）：每 **0.08 s** 打一次「气泡在场时的真实状态」——
             //   原来 0.4 s 太稀：本工程语音中位数只有 **0.41 s**，0.4 s 的采样点**整个落在播放窗口之外**
@@ -1282,7 +1381,7 @@ namespace CardPresentation
                     Debug.LogWarning("[UnitChat] 语音在播（`isPlaying=1`）但 `GetSpectrumData` 前 16 bin 全 0"
                                      + " ⇒ 音波线不会动。查：AudioSource 是否被 mixer 组静音 / 平台是否禁了频谱。");
                 }
-                b.waveAmp = Mathf.Lerp(b.waveAmp, target, Mathf.Clamp01(10f * dt));
+                b.waveAmp = Mathf.Lerp(b.waveAmp, target, Mathf.Clamp01(10f * frameDt));
                 // 🔴 属性名 = **原版那个 `_MovementRange`**（名字来自 `DAT_184235590` 的字符串，
                 //   RVA 0x4235590；材质默认值 0.00591）。我们原来起名 `_Amplitude` 并在这里乘 0.22 ——
                 //   现在量纲收进 shader 的 `_WaveScale`，这里写的是**原版 0..1 的原值**。
@@ -1310,6 +1409,10 @@ namespace CardPresentation
             }
             b.left -= dt;
             if (b.left > 0f) return;
+            // 🆕 **2026-10-27（音频线 `B9` A-04 · 账 87/94/124）**：到点那一跳 = 原版
+            //   `<FinishChat>d__21__MoveNext.c:30-32`（波形件关 → `Disable()` → **`+0x40 = 0`**）
+            //   ⇒ 先清 `isPlaying` 再收（`HideBubble` → `ResetState` 也会清一次，这里显式写是为可读性）。
+            b.isPlaying = false;
             if (b.audio != null && b.audio.isPlaying) b.audio.Stop();
             HideBubble(b);
             // 到点的是「最近说的那颗」而**别人还在说** ⇒ 读口挪到还亮着的最新那颗（`ShownText`/`TimeLeft`
@@ -1389,6 +1492,50 @@ namespace CardPresentation
         {
             _voiceMissingLogged.Clear();
             _voiceMissingWarns = 0;
+        }
+
+        // ---- 🆕 **2026-10-27（音频线 `B9` A-04 · 账 85/87/94/97）自检只读口** ----------------
+        //  全部**只读**（不改状态）⇒ 断言侧可以直接拿去比，⛔ 别在断言里重算一遍我们的实现。
+
+        /// <summary>🆕 **2026-10-27（音频线 `B9` A-04 · 账 97）**：起播前那一拍等待 = **0.1 s**。
+        /// <para>判据 = `VoiceLineBox.<ShowChat>d__19__MoveNext.c:60-67` 的 `WaitForSeconds(DAT_1834b2dc4)`，
+        /// 而 `0x1834b2dc4` 这个 float 常量用 `工具/read_literal.py` 读出来 = **0.1f**
+        /// （与 `GetCurrentClipLength` 那两个 `2.0` / `0.3` 同一套读法，见 `资料/战斗规则与数值_出处.md` §三）。</para>
+        /// <para>触发条件 = **上一句打字打到一半被顶掉**（`+0x44 &gt; 0`，见 `Bubble.delay` 的 doc）——
+        /// ⛔ 不是「有语音就等」，也不是「无条件等」。</para></summary>
+        public const float ChatRestartDelay = 0.1f;
+
+        /// <summary>自检用：某一颗的 **`isPlaying`**（= 原版 `VoiceLineBox +0x40`）。
+        /// 认不出的序号 ⇒ `false`。</summary>
+        public bool BubbleIsPlayingForTest(int side)
+        {
+            var b = BubbleFor(side);
+            return b != null && b.isPlaying;
+        }
+
+        /// <summary>自检用：某一颗的 `AudioSource.isPlaying`（**灭自证**：改回「读音频」那一档时
+        /// 它会在短语音播完后先落 false，而 <see cref="BubbleIsPlayingForTest"/> 仍是 true ⇒ 两条一比就露）。</summary>
+        public bool BubbleAudioPlayingForTest(int side)
+        {
+            var b = BubbleFor(side);
+            return b != null && b.audio != null && b.audio.isPlaying;
+        }
+
+        /// <summary>自检用：某一颗的 `AudioSource` **是不是挂在它自己的底图 GameObject 上**
+        /// （账 94 的判据：原版每颗 `VoiceLineBox` 自己一颗组件 ⇒ `SetActive(false)` 顺带停音）。
+        /// 没有音频 / 没有底图 ⇒ `false`。</summary>
+        public bool BubbleAudioOnOwnObjectForTest(int side)
+        {
+            var b = BubbleFor(side);
+            return b != null && b.audio != null && b.bg != null && b.bg.gameObject != null
+                && b.audio.gameObject == b.bg.gameObject;
+        }
+
+        /// <summary>自检用：某一颗**起播前那一拍**还剩多少秒（账 97；`0` = 没有等待）。</summary>
+        public float BubbleDelayForTest(int side)
+        {
+            var b = BubbleFor(side);
+            return b != null ? b.delay : 0f;
         }
     }
 

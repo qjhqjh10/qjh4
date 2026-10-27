@@ -1032,8 +1032,8 @@ namespace CardPresentation
             if (clip == null)
             {
                 // 不静默失败：资产不在（`Resources/Art/videos/` 是 gitignore 的）就说清怎么补
-                Debug.LogWarning("[Shell] ⚠️ 找不到开场动画 `Resources/Art/videos/intro.mp4` —— " +
-                                 "从 `d:/2/新解包资源/assets_full/sharedassets0/VideoClip/Warpforge Intro.mp4` 拷过来即可。" +
+                Debug.LogWarning("[Shell] ⚠️ 找不到开场动画 `Resources/Art/videos/intro.webm` —— " +
+                                 "原版在 `d:/2/新解包资源/assets_full/sharedassets0/VideoClip/Warpforge Intro.mp4`；工程里这一份存成同名 `.webm`（2026-10-27 订正：原写 `.mp4`）。" +
                                  "本次**跳过开场**直接进主菜单");
                 Current = Phase.Menu;
                 LoadMainMenu();
@@ -1136,7 +1136,7 @@ namespace CardPresentation
             if (Shade != null)
             {
                 Shade.SetAlpha(1f);
-                yield return Shade.FadeTo(0f, 0.5f);
+                yield return Shade.FadeTo(0f, 1f);   // 时长照原版 `DOTweenModuleUI.DOFade(canvasGroup, 1f, 1f)` = **1.0 秒**（2026-10-27 B1UI 订正：原为 0.5，无判据）
             }
             Current = Phase.Menu;
             LoadMainMenu();

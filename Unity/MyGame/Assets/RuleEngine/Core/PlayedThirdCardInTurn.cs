@@ -183,14 +183,14 @@ namespace RuleEngine
             }
 
             // `TargetSelectMethod.random = 0`（`TargetSelectMethod.cs:3`）—— 超上限就随机挑。
-            // ⚠️ 随机源**只许 `ctx.Rng`**（不用 `UnityEngine.Random`：对局必须可复现）。
+            // ⚠️ 随机源**只许 `ctx.GetRandomInt`**（原版预烧表；2026-10-27 `E1RNG` 前是 `ctx.Rng`）。
             if (lg.maxTargets > 0 && pool.Count > lg.maxTargets)
             {
-                for (int i = pool.Count - 1; i > 0; i--)
-                {
-                    int j = ctx.Rng.Next(i + 1);
-                    var tmp = pool[i]; pool[i] = pool[j]; pool[j] = tmp;
-                }
+                // 原版同一条 `GetRandomOrder`（按名次挑选）：实现在 `RuleCore.ShuffleByRandomOrder`。
+                // ⚠️ 2026-10-27（`E1RNG`）：原为就地 Fisher–Yates（`ctx.Rng.Next(i+1)`）—— 换公共实现 +
+                //   预烧表随机源（`ctx.GetRandomInt`）；整表重排后下面照旧取前 `maxTargets`。
+                //   ⚠️ 目标集合的分布两者相同，区别只在「同一条随机流给哪个排列」（与原版逐格对齐靠这里）。
+                ShuffleByRandomOrder(pool, ctx);
                 pool.RemoveRange(lg.maxTargets, pool.Count - lg.maxTargets);
             }
             return pool;
@@ -205,7 +205,7 @@ namespace RuleEngine
             if (lg.maxDamage > lg.minDamage
                 && (string.Equals(lg.damageType, "Random", StringComparison.Ordinal)
                     || string.Equals(lg.valueOptions, "RandomizedOnResolution", StringComparison.Ordinal)))
-                return lg.minDamage + ctx.Rng.Next(lg.maxDamage - lg.minDamage + 1);
+                return ctx.GetRandomInt(lg.minDamage, lg.maxDamage + 1);
             return lg.minDamage;
         }
 

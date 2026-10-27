@@ -52,6 +52,17 @@
    "timeToPlayAgain": 0.0
   },
   {
+   "name": "Asteroid Zone",
+   "clips": [
+    "Dark Angels Asteroid Zone"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.5
+  },
+  {
    "name": "Attack Buff 1",
    "clips": [
     "Attack_Buff_1"
@@ -371,9 +382,75 @@
    "timeToPlayAgain": 0.0
   },
   {
+   "name": "Booster Open AstraMilitarum",
+   "clips": [
+    "Open_Cardpack_AstraMilitarum"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 0.75,
+   "maxVolume": 0.75,
+   "timeToPlayAgain": 1.0
+  },
+  {
+   "name": "Booster Open BlackLegion",
+   "clips": [
+    "Open_Cardpack_BlackLegion"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 0.75,
+   "maxVolume": 0.75,
+   "timeToPlayAgain": 1.0
+  },
+  {
+   "name": "Booster Open Emperors Children",
+   "clips": [
+    "Open_Cardpack_EmperorsChildren"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 0.75,
+   "maxVolume": 0.75,
+   "timeToPlayAgain": 1.0
+  },
+  {
+   "name": "Booster Open Orks",
+   "clips": [
+    "Open_Cardpack_Goff"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 0.75,
+   "maxVolume": 0.75,
+   "timeToPlayAgain": 1.0
+  },
+  {
+   "name": "Booster Open SaimHann",
+   "clips": [
+    "Open_Cardpack_SaimHann"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 0.75,
+   "maxVolume": 0.75,
+   "timeToPlayAgain": 1.0
+  },
+  {
    "name": "Booster Open Sautekh",
    "clips": [
     "Open_Cardpack_Sautekh"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 0.75,
+   "maxVolume": 0.75,
+   "timeToPlayAgain": 1.0
+  },
+  {
+   "name": "Booster Open Sororitas",
+   "clips": [
+    "Open_Cardpack_Sororitas"
    ],
    "minPitch": 1.0,
    "maxPitch": 1.0,
@@ -396,6 +473,17 @@
    "name": "Booster Open Standard",
    "clips": [
     "Open_Cardpack_Generic"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 0.75,
+   "maxVolume": 0.75,
+   "timeToPlayAgain": 0.1
+  },
+  {
+   "name": "Booster Open Tau",
+   "clips": [
+    "Open_Cardpack_Tau"
    ],
    "minPitch": 1.0,
    "maxPitch": 1.0,
@@ -655,6 +743,17 @@
    "name": "ButtonClick",
    "clips": [
     "UI Select Toggle"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.1
+  },
+  {
+   "name": "ButtonClick 1",
+   "clips": [
+    "UI Click 1"
    ],
    "minPitch": 1.0,
    "maxPitch": 1.0,
@@ -974,6 +1073,17 @@
    "timeToPlayAgain": 0.0
   },
   {
+   "name": "Daemonic Feast",
+   "clips": [
+    "Black Legion Daemonic Feast"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.5
+  },
+  {
    "name": "Daemonic Pact",
    "clips": [
     "DaemonicPact"
@@ -1018,6 +1128,17 @@
    "timeToPlayAgain": 0.2
   },
   {
+   "name": "Dawn Attack",
+   "clips": [
+    "Astra Militarum Dawn Attack"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 0.5,
+   "maxVolume": 0.5,
+   "timeToPlayAgain": 0.5
+  },
+  {
    "name": "Deadliest Killer",
    "clips": [
     "Deadliest Killer"
@@ -1060,6 +1181,17 @@
    "minVolume": 0.5,
    "maxVolume": 0.5,
    "timeToPlayAgain": 0.0
+  },
+  {
+   "name": "Deck Editing Valid Deck",
+   "clips": [
+    "Progress Jingle"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.1
   },
   {
    "name": "DeckClick 1",
@@ -1150,9 +1282,75 @@
    "timeToPlayAgain": 0.0
   },
   {
+   "name": "Draft Mode Loss Jingle",
+   "clips": [
+    "Draft Mode Loss Jingle"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.1
+  },
+  {
    "name": "Draft Mode Progress Jingle",
    "clips": [
     "Draft Mode GainSkull"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.1
+  },
+  {
+   "name": "Draft Mode Warlord Appear",
+   "clips": [
+    "CardMove"
+   ],
+   "minPitch": 0.8,
+   "maxPitch": 1.199,
+   "minVolume": 0.8,
+   "maxVolume": 0.8,
+   "timeToPlayAgain": 0.0
+  },
+  {
+   "name": "Draft Pack Appear",
+   "clips": [
+    "CardMove"
+   ],
+   "minPitch": 0.8,
+   "maxPitch": 1.199,
+   "minVolume": 0.8,
+   "maxVolume": 0.8,
+   "timeToPlayAgain": 0.0
+  },
+  {
+   "name": "Draft Pack Finish Animation",
+   "clips": [
+    "UI Click Card 3"
+   ],
+   "minPitch": 0.8,
+   "maxPitch": 1.199,
+   "minVolume": 0.8,
+   "maxVolume": 0.8,
+   "timeToPlayAgain": 0.0
+  },
+  {
+   "name": "Draft Pack Selected Moving",
+   "clips": [
+    "CardDraw"
+   ],
+   "minPitch": 0.8,
+   "maxPitch": 1.199,
+   "minVolume": 0.8,
+   "maxVolume": 0.8,
+   "timeToPlayAgain": 0.0
+  },
+  {
+   "name": "Draft Prebuilt Pack preview",
+   "clips": [
+    "UI Click Card 3"
    ],
    "minPitch": 1.0,
    "maxPitch": 1.0,
@@ -1297,6 +1495,39 @@
    "minVolume": 1.0,
    "maxVolume": 1.0,
    "timeToPlayAgain": 0.0
+  },
+  {
+   "name": "Energy Accumulated",
+   "clips": [
+    "Energy 1"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 0.8,
+   "maxVolume": 0.8,
+   "timeToPlayAgain": 0.1
+  },
+  {
+   "name": "Energy Accumulated Used",
+   "clips": [
+    "Energy 2"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 0.8,
+   "maxVolume": 0.8,
+   "timeToPlayAgain": 0.1
+  },
+  {
+   "name": "Everstorm",
+   "clips": [
+    "Everstorm"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 0.5,
+   "maxVolume": 0.5,
+   "timeToPlayAgain": 0.5
   },
   {
    "name": "Execution",
@@ -1489,6 +1720,17 @@
    "timeToPlayAgain": 0.1
   },
   {
+   "name": "Factory Overdrive",
+   "clips": [
+    "Astra Militarum Factory Overdrive"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.5
+  },
+  {
    "name": "FeedingFrenzy",
    "clips": [
     "FeedingFrenzy"
@@ -1547,6 +1789,17 @@
    "timeToPlayAgain": 0.0
   },
   {
+   "name": "Firestorm Loop",
+   "clips": [
+    "Firestorm Long"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.1
+  },
+  {
    "name": "Firestorm Start",
    "clips": [
     "Firestorm Start"
@@ -1556,6 +1809,17 @@
    "minVolume": 1.0,
    "maxVolume": 1.0,
    "timeToPlayAgain": 0.1
+  },
+  {
+   "name": "First Light",
+   "clips": [
+    "First Light"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 0.5,
+   "maxVolume": 0.5,
+   "timeToPlayAgain": 0.5
   },
   {
    "name": "Flame Celestine",
@@ -1613,6 +1877,17 @@
    "timeToPlayAgain": 0.0
   },
   {
+   "name": "Forge Card",
+   "clips": [
+    "Forge Card"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.1
+  },
+  {
    "name": "FrenziedEffect",
    "clips": [
     "FrenziedEffect"
@@ -1622,6 +1897,17 @@
    "minVolume": 1.0,
    "maxVolume": 1.0,
    "timeToPlayAgain": 0.1
+  },
+  {
+   "name": "Full Moon",
+   "clips": [
+    "Full Moon"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 0.5,
+   "maxVolume": 0.5,
+   "timeToPlayAgain": 0.5
   },
   {
    "name": "Fusion Blaster",
@@ -1682,6 +1968,17 @@
    "name": "GSC Recall",
    "clips": [
     "GSC Recall"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.1
+  },
+  {
+   "name": "Gacha vault open",
+   "clips": [
+    "Vault Crate Open Full"
    ],
    "minPitch": 1.0,
    "maxPitch": 1.0,
@@ -2117,6 +2414,17 @@
    "minVolume": 1.0,
    "maxVolume": 1.0,
    "timeToPlayAgain": 0.1
+  },
+  {
+   "name": "Immortal Beams",
+   "clips": [
+    "Necrons Immortal Beams"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.5
   },
   {
    "name": "Immortal Beams Target",
@@ -2808,6 +3116,17 @@
    "timeToPlayAgain": 0.1
   },
   {
+   "name": "Orbital Initial",
+   "clips": [
+    "Orbital Initial ringing"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.1
+  },
+  {
    "name": "Ork Blast Long",
    "clips": [
     "Ork_Blast_2s"
@@ -2937,6 +3256,17 @@
    "maxPitch": 1.02,
    "minVolume": 0.5,
    "maxVolume": 0.6,
+   "timeToPlayAgain": 0.1
+  },
+  {
+   "name": "Orks Dust Storm Start",
+   "clips": [
+    "Orks Dust Storm Start"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
    "timeToPlayAgain": 0.1
   },
   {
@@ -3326,6 +3656,17 @@
    "minVolume": 1.0,
    "maxVolume": 1.0,
    "timeToPlayAgain": 0.0
+  },
+  {
+   "name": "Ranked Seal SFX",
+   "clips": [
+    "UI Click 6"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 0.7,
+   "maxVolume": 0.7,
+   "timeToPlayAgain": 0.01
   },
   {
    "name": "Rapturous Ruination",
@@ -4061,6 +4402,17 @@
    "timeToPlayAgain": 0.0
   },
   {
+   "name": "Star Orbit",
+   "clips": [
+    "Dark Angels Sun Orbit"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.5
+  },
+  {
    "name": "Stealth Break",
    "clips": [
     "trait_stealth_break"
@@ -4169,6 +4521,17 @@
    "minVolume": 1.0,
    "maxVolume": 1.0,
    "timeToPlayAgain": 0.1
+  },
+  {
+   "name": "Sump Overspill",
+   "clips": [
+    "Sump Overspill"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.5
   },
   {
    "name": "Sun Shark Bomber",
@@ -4437,6 +4800,17 @@
    "timeToPlayAgain": 0.0
   },
   {
+   "name": "Tau Electro-Static Interference",
+   "clips": [
+    "Tau Electro-Static Interference Initial"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.0
+  },
+  {
    "name": "Tau Summon",
    "clips": [
     "Tau Summon"
@@ -4526,6 +4900,17 @@
    "maxPitch": 1.02,
    "minVolume": 1.0,
    "maxVolume": 1.0,
+   "timeToPlayAgain": 0.5
+  },
+  {
+   "name": "Toxic Fumes Start",
+   "clips": [
+    "Toxic Fumes Start"
+   ],
+   "minPitch": 0.95,
+   "maxPitch": 1.05,
+   "minVolume": 0.7,
+   "maxVolume": 0.7,
    "timeToPlayAgain": 0.5
   },
   {
@@ -5112,6 +5497,28 @@
    "timeToPlayAgain": 0.1
   },
   {
+   "name": "UI Raid Claim Reward Ching",
+   "clips": [
+    "UI RaidClaimRewardChing"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.1
+  },
+  {
+   "name": "UI Raid Claim Reward Wait",
+   "clips": [
+    "UI RaidClaimRewardWait"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.1
+  },
+  {
    "name": "UI Send Message",
    "clips": [
     "UI Send Message"
@@ -5189,6 +5596,17 @@
    "timeToPlayAgain": 0.1
   },
   {
+   "name": "Warp Storm",
+   "clips": [
+    "Black Legion Warp Storm"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.5
+  },
+  {
    "name": "Waystone Trigger",
    "clips": [
     "Waystone Trigger"
@@ -5209,6 +5627,17 @@
    "minVolume": 0.5,
    "maxVolume": 1.0,
    "timeToPlayAgain": 0.0
+  },
+  {
+   "name": "Webway Rift",
+   "clips": [
+    "Aeldari Blackout"
+   ],
+   "minPitch": 0.8,
+   "maxPitch": 0.8,
+   "minVolume": 0.5,
+   "maxVolume": 0.5,
+   "timeToPlayAgain": 0.5
   },
   {
    "name": "Whip Attack",

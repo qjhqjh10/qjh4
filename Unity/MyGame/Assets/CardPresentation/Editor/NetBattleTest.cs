@@ -382,15 +382,46 @@ public static class NetBattleTest
                 bool hostActs = hostCtx.Active == 0;      // 绝对座位：0 = 主机那一手
                 var ctx = hostActs ? hostCtx : cliCtx;
                 var nb = hostActs ? hNB : cNB;
-                var act = PickAction(ctx);
                 // 🔴 **先按「面板答案已经在队列里」把线上包装配好**（与驱动 `LocalAct` 同一个顺序：
                 //    抓答案 → 落地 → 上报）。第一版这里给 `ToWire` 传了 `null` ⇒ 本地那条没有答案、
                 //    引擎回落 `ctx.Rng`，而对面收到的是带答案的那份 ⇒ **第 40 步就分叉了**。
-                var wire = NetProtocol.ToWire(act, ctx, 0);
-                wire.actor = nb.MySeat;      // 🔴 绝对座位（与驱动 `NetBattle.OnLocalAction` 同一件事）
-                nb.CaptureLocalAnswers(ctx, act);
-                int code = NetApply.Apply(ctx, wire, nb.MySeat);
-                if (code != RuleCodes.OK) { Debug.LogWarning(P + " 本机这条被拒了：" + RuleCodes.Describe(code) + " " + act); }
+                // 🔴 **2026-10-27（`B9_E5ENG` · `D4NT` 报告）：取一条 → 应用 → **不是 OK 就换下一条**。**
+                //   本地被拒的那条**一个字节都不许广播** —— 生产口径 = `BattleDriver.cs:308`
+                //   `if (_net != null && code == RuleCodes.OK) _net.OnLocalAction(act);`。
+                //   原来是无条件 `nb.OnLocalAction(act)` ⇒ 对端读到 `code != OK` ⇒ **打岔判负** ⇒
+                //   live 两端 `Winner` 被置；而重放只走 `NetApply.Apply`、没有 NetBattle 那一层
+                //   ⇒ `Fingerprint`（含 `Winner` + `Events.Count`）对不上。
+                AiAction act = null; int code = RuleCodes.ErrTarget;
+                // 🔴 **2026-10-27（`B9_E5ENG` · `D6NB` 报告）：被拒那条会往 `ctx.Events` 写诊断行 ⇒ 这里撤回。**
+                //   `ctx.Events` 是**诊断流、从不清空**，而 `NetProtocol.Fingerprint` 把 `Events.Count` 算进去；
+                //   被拒的动作**不广播** ⇒ 对端没有那几行 ⇒ 两端差 N 行 ⇒ 分叉（实测 55 vs 51，差 `4×31²=3844`，
+                //   而两端 `PlayerHash` 其实完全相同）。⇒ **每次「试」失败就把这次追加的行截掉**。
+                //   🔴 **只截 `Events`、⛔ 别截 `Signals`**：`Signals` 是表现层要抽的（`PlaySignals→DrainSignals`），
+                //     `Events` 才是诊断流 —— 两者的消费者完全不同，截错了会把演示/高亮吞掉。
+                //   ⛔ **别在这里另写一份「余额够不够」的预筛**：判据只许在引擎里一份（两处写同一条规则 = 迟早不一致）。
+                int evBefore = ctx.Events.Count;
+                foreach (var cand in PickActions(ctx))
+                {
+                    var w = NetProtocol.ToWire(cand, ctx, 0);
+                    w.actor = nb.MySeat;     // 🔴 绝对座位（与驱动 `NetBattle.OnLocalAction` 同一件事）
+                    nb.CaptureLocalAnswers(ctx, cand);
+                    int rc = NetApply.Apply(ctx, w, nb.MySeat);
+                    if (rc == RuleCodes.OK) { act = cand; code = rc; break; }
+                    // 撤回这一次（含之前几次失败）往诊断流追加的行 —— 失败的动作一个字节都不广播，
+                    // 所以它写下的诊断行也**不能留在本地账上**（否则两端 `Fingerprint` 必分叉）。
+                    if (ctx.Events.Count > evBefore)
+                        ctx.Events.RemoveRange(evBefore, ctx.Events.Count - evBefore);
+                    Debug.Log(P + " 本机这条被拒了（换下一条）：" + RuleCodes.Describe(rc) + " " + cand);
+                }
+                if (act == null)          // 一条都不行 ⇒ 收手（`EndTurn` 恒可执行；它也被拒才是真错）
+                {
+                    act = new AiAction { Kind = AiActionKind.EndTurn };
+                    var w = NetProtocol.ToWire(act, ctx, 0); w.actor = nb.MySeat;
+                    nb.CaptureLocalAnswers(ctx, act);
+                    code = NetApply.Apply(ctx, w, nb.MySeat);
+                    if (code != RuleCodes.OK)
+                    { Fail($"第 {steps + 1} 步：连 `EndTurn` 都被拒（{RuleCodes.Describe(code)}）"); break; }
+                }
                 nb.OnLocalAction(act);
                 PumpBoth(hs, cs, hNB, cNB, 12);
                 steps++;
@@ -1774,13 +1805,24 @@ public static class NetBattleTest
     // ==================================================================
 
     /// <summary>挑一条**合法**动作（引擎自己枚举 —— 不手写「什么能出」，那样测的是我而不是引擎）。</summary>
-    static AiAction PickAction(BattleContext ctx)
+    /// <summary>取**候选表**（口径同原来的 `PickAction`：`EndTurn` 不进候选，其余按引擎枚举序）。
+    ///
+    /// 🔴 **2026-10-27（`B9_E5ENG` · `报告/B9_D4NT_NetBattle重放不确定.md`）：为什么必须整表。**
+    ///   本批洗牌换源 ⇒ 开局牌序变 ⇒ 第 9 步枚举到「誓约能力 @5」，那个单位**付不起誓约费**
+    ///   ⇒ `ResolveOathAbility` 返 false ⇒ 翻成 `ErrUnimplemented`。
+    ///   夹具原来「只取第一条」：被拒之后**照样** `nb.OnLocalAction(act)` 广播 ⇒ 对端读到
+    ///   `code != OK` ⇒ **打岔判负** ⇒ live 两端 `Winner` 被置上；而重放只走 `NetApply.Apply`、
+    ///   没有 NetBattle 那一层 ⇒ `Fingerprint`（含 `Winner` + `Events.Count`）对不上。
+    ///   ⚠️ **生产路径不是这样**：`BattleDriver.cs:308` = `if (_net != null && code == RuleCodes.OK) _net.OnLocalAction(act);`
+    ///   ⇒ 夹具必须**本地被拒就不广播**，并且**换下一条**（否则反复挑同一条、空转到 guard）。</summary>
+    static List<AiAction> PickActions(BattleContext ctx)
     {
-        var list = SimpleAI.EnumerateActions(ctx);
-        if (list != null)
-            foreach (var a in list)
-                if (a.Kind != AiActionKind.EndTurn) return a;
-        return new AiAction { Kind = AiActionKind.EndTurn };
+        var list = new List<AiAction>();
+        var all = SimpleAI.EnumerateActions(ctx);
+        if (all != null)
+            foreach (var a in all)
+                if (a.Kind != AiActionKind.EndTurn) list.Add(a);
+        return list;
     }
 
     static List<CardDef> Shuffle(List<CardDef> src, int seed)

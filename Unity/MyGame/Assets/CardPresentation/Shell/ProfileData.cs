@@ -362,7 +362,7 @@ namespace CardPresentation
         /// ⛔ 语义不变（setter 仍**不夹取**，越界由读口 `TitleName` 挡）。</para></summary>
         public static int TitleIndex
         {
-            get { EnsureSave(); return _titleIndex; }
+            get { EnsureSave(); return _titleIndex; }   // ⛔ 纯读、无副作用（2026-10-27 B1UI 改回）—— 「默认称号」那条兜底已挪到装载期（`EnsureSave` 里 `LoadFromDisk()` 之后，只跑一次）
             set { _titleIndex = value; SaveIfAuto(); }
         }
         static int _titleIndex = -1;
@@ -1035,7 +1035,7 @@ namespace CardPresentation
             _save = new SaveDto();
             _achProgress = new Dictionary<string, int>();
             if (Application.isBatchMode) return;      // 自检不碰真存档
-            LoadFromDisk();
+            LoadFromDisk(); EnsureLocalDefaultTitleOnce();   // 🔶 自己设计（非原版）：未装备时默认装「清单第 1 条」· 原版称号来自服务器 `PlayerDataManager.get_PlayerTitle`、本地拿不到 · 调度台 2026-10-27 裁定。⚠️ 只在**非批处理**装载期跑一次（自检那一路在同一行前面 return ⇒「没选」这个状态对断言仍可达）
             // 🆕 **2026-10-25（执行代理 `X18`）**：`Ach_24` 的**唯一写点** —— 真实档案加载完之后
             //   把「卡池张数」记一次（幂等，见 `RecordCardPoolCollectedOnce`）。
             //   ⚠️ **只在这一支（非批处理）调**：自检不碰真存档、也不该被这个「全解锁口径」污染
@@ -1253,6 +1253,20 @@ namespace CardPresentation
             if (target <= from) return 1f;
             int v = AchievementValue(a.Id);
             return Mathf.Clamp01((float)(v - from) / (target - from));
+        }
+
+        /// <summary>🔶 自己设计（非原版）：**装载期一次性**兜底 —— 从没选过称号（`_titleIndex &lt; 0`）时默认装**清单第 1 条**。
+        /// <para>为什么必须自己定：原版那条「已装备称号」是**服务器下发**（`PlayerDataManager.get_PlayerTitle`），
+        /// 本地拿不到；不兜底则玩家**没开过档案窗就进战斗**时 HUD 名牌是空的（假空态）。
+        /// 判据 → `资料/普查产出_1024c/U2_账户窗多余按钮复查.md` §5·2 V1 · 调度台 2026-10-27 裁定。</para>
+        /// <para>⚠️ **只在装载期跑一次**（`EnsureSave` 的非批处理支），⛔ 读口保持纯读 —— 否则「没选」这个状态**外部不可达**：
+        /// 2026-10-27 第一版把兜底写在 `TitleIndex` 的 getter 里，就把 `BattleScene` 两条「没选 ⇒ 整块关」的断言吃红了。</para>
+        /// <para>⚠️ 内存内兜底（⛔ 不走 setter ⇒ 不写盘）；与 `ProfileTab.EnsureLocalDefaultTitle()` 并存不冲突（那边会顺手落盘）。</para></summary>
+        static void EnsureLocalDefaultTitleOnce()
+        {
+            if (_titleIndex >= 0) return;          // 已有装备 ⇒ 一个字节都不动
+            EnsureLoad();                          // 清单是懒加载的（`_titles` 可能还没读）
+            if (_titles != null && _titles.Count > 0) _titleIndex = 0;
         }
     }
 }

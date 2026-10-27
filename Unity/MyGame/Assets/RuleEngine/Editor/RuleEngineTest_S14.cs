@@ -1677,12 +1677,32 @@ public static partial class RuleEngineTest
             ToP1Turn(ctx, 2);
             var u = Place(ctx, 0, 3, oathProbe, exhausted: false);
             ctx.Players[0].Energy = 1;                        // ⚠️ 差 1 点付不起（`Oath 2`）
-            CheckCode(RuleCore.UseOathAbility(ctx, 0, 3), RuleCodes.ErrUnimplemented, "★ 能量 1 < `Oath 2` ⇒ 没生效");
-            Check(ctx.Players[0].Energy, 1, "★ 付不起 ⇒ 一分钱都不扣"); Check(u.OathUsesThisTurn, 0, "★ ……次数也不涨");
+            // 🔴 **2026-10-27（`B9_E5ENG` · 第九批 · `E6ENG` 的余额闸）：期望码 `13 → 2`，且「出声」换了载体。**
+            //   判据（🥇 原版亲读）：`PlayerManager__HasEnoughMana.c` 读该组第一个 `ObscuredInt`
+            //   = `unusedMana(+0x4C)`，`return cost <= 那个量` —— **「未用余额 ≥ 费用」**，
+            //   ⛔ **不是「能量 − 已预留」**（原版根本没有「预留」这一层）。
+            //   闸的落点 = `RuleCore.CanUseOathAbility`（`RuleCore.cs:11667` → `AbilityCostGate`）⇒ **判定阶段就拒**。
+            int evBefore = ctx.Events.Count;
+            CheckCode(RuleCore.CanUseOathAbility(ctx, 0, 3), RuleCodes.ErrCost,
+                      "★ **判定阶段**（`CanUseOathAbility`）就回 `ErrCost` —— 原版 `CanUseActiveAbility` 的位置：**先判钱、再放行**");
+            CheckCode(RuleCore.UseOathAbility(ctx, 0, 3), RuleCodes.ErrCost, "★ 结算入口同样拒（`ErrCost`）");
+            Check(ctx.Players[0].Energy, 1, "★ 付不起 ⇒ 一分钱都不扣");
+            Check(u.OathUsesThisTurn, 0, "★ ……次数也不涨");
             CheckTrue(!u.Has("flank"),
                       "★★ 判别式（`A1412`）：**标着 `CostShared` 的后半句也不许落地**"
                     + "（🧨 改前：付费逐 op 判、后半句不查余额 ⇒ **白给 `Flank`** ⇒ 本行实得 true）");
-            CheckTrue(HasLog(ctx, "一并跳过"), "★ 而且**出声**：付不了 ⇒ 其余效果一并跳过（⛔ 不静默）");
+            // 🔴 **「一声出声」的载体换了**：这条原来断结算层那句 `ctx.Log("…其余效果一并跳过…")`（`EffectResolver.cs:727`），
+            //   而闸现在在 `Can*` 阶段就拒 ⇒ **走不到那一层**，且**刻意不在闸里写 `ctx.Log`**：
+            //     ① 没有任何效果「开始过」，说「一并跳过」是假话；
+            //     ② 写 `ctx.Log` 会往 `ctx.Events` 加行，而 `NetProtocol.Fingerprint` 把 `Events.Count` 算进去
+            //        ⇒ 一次「本地被拒」就让联机两端指纹差 N 行（`D6NB` 实测 55 vs 51 就是这么来的）。
+            //   ⇒ 现在的判据 = **返回码可区分**（`ErrCost` 的人话 ≠ 那个误导人的 `ErrUnimplemented`）
+            //     ＋ **诊断流一行不加**；**玩家可见的那一声**在表现层 `BattleDriver` 的 `code != OK` 分支（本宿主够不到）。
+            CheckTrue(RuleCodes.Describe(RuleCodes.ErrCost) != RuleCodes.Describe(RuleCodes.ErrUnimplemented),
+                      "★ **不静默**：拒的载体是**可区分**的返回码（`ErrCost` =「" + RuleCodes.Describe(RuleCodes.ErrCost)
+                    + "」，不再是「" + RuleCodes.Describe(RuleCodes.ErrUnimplemented) + "」）");
+            Check(ctx.Events.Count, evBefore,
+                  "★ 而且**一行诊断都不写**（`ctx.Events` 不增）—— 写了的话 `Fingerprint`（含 `Events.Count`）会让联机两端分叉（`D6NB`）");
         }
         // ---- 🆕 `A1597`：落点只能从这个口拿，⛔ 别拿请求格断言 ----
         {

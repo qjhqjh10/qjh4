@@ -290,7 +290,7 @@ namespace CardPresentation
         //    我们暂时**寄存在同一份文件**的 `extra` 那一格（`InventoryStore.Save(..., extras)`），
         //    等 store 的存档落地时搬回去。⛔ 别把 `Available` 塞进 `ItemInfo`（那会污染框架层）。
 
-        /// <summary>每个商品一个**稳定实例**（背包按 id 认条目 ⇒ 同一个 key 必须恒给同一个 `ShopItem`）。</summary>
+        /// <summary>每个商品一个**稳定实例**（背包按 id 认条目 ⇒ 同一个 key 必须恒给同一个 `ShopItem`）。🔴 2026-10-27（B1UI）：**这本字典不承担顺序职责** —— 全仓只有 `TryGetValue`/`Add`/`Clear` 三处用法、**没有一处 `foreach`**；货架画出来的顺序 = `Offers(pageIndex)` 那三个**定长数组的字面量次序**（⇒ 账上「字典 ⇒ 丢顺序」那条**前提不成立**）。⚠️ 但原版 `FixedStoreData.get_Items`「`items` 在前 + `offerLists` 按列表序展开」那一层我们本来就没有（那三份 store SO **没导出**）⇒ **数组次序本身的对错仍无判据**，⛔ 别把这条当「顺序已验证」。</summary>
         static readonly Dictionary<string, ShopItem> _shopItems = new Dictionary<string, ShopItem>();
 
         static string KeyOf(int pageIndex, string name) { return pageIndex + "/" + name; }

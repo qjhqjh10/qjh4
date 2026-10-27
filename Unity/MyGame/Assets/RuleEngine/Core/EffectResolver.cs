@@ -1129,7 +1129,7 @@ namespace RuleEngine
         ///   ① 从**牌库顶往下翻**（= 从列表末尾往前，和 `Draw` 同一边），
         ///      **翻过去的牌留在牌库**（不是「抽出来再看」，是「找」）；
         ///   ② 找到 N 张就停；**一张都没找到就什么都不发生**（只写日志）；
-        ///   ③ 找到了才**洗牌**（「then shuffle your deck」）—— 用 `ctx.Rng`，同一局可复现。
+        ///   ③ 找到了才**洗牌**（「then shuffle your deck」）—— 走 `ctx.GetRandomInt`（原版预烧表；2026-10-27 `E1RNG` 前是 `ctx.Rng`）。
         /// </summary>
         static bool DoDrawType(BattleContext ctx, int owner, string by, EffectOp op)
         {
@@ -1180,7 +1180,7 @@ namespace RuleEngine
                 ctx.Log($"{by}：「{op.Source}」翻遍了牌库也没找到「{kind}」—— 什么都没抽到");
                 return true;                       // 找不到是**正常空过**，不是失败
             }
-            Shuffle(ps.Deck, ctx.Rng);             // 规则书：「then shuffle your deck」
+            Shuffle(ps.Deck, ctx);             // 规则书：「then shuffle your deck」
             ctx.Log($"{by}：「{op.Source}」定向翻找「{kind}」拿到 {got} 张（{Names(taken)}），牌库已洗");
             return true;
         }
@@ -1261,7 +1261,7 @@ namespace RuleEngine
         /// 目标短语 → 单位列表。**规则来自 `rule_core.gd:_collect_tactic_targets`（`:2439`）**。
         ///
         /// ⚠️ 两条铁律（本工程反复强调）：
-        ///   ① **不许掷骰**：`random` 的选择用 `ctx.Rng`（种子定死、同一局可复现），
+        ///   ① **不许掷骰**：`random` 的选择用 `ctx.GetRandomInt`（原版预烧表；2026-10-27 `E1RNG` 前是 `ctx.Rng`），
         ///      绝不用 `UnityEngine.Random`；
         ///   ② **目标找不到就空过**，不自动改打别的（那是替玩家做决定）。
         /// </summary>
@@ -1758,7 +1758,7 @@ namespace RuleEngine
                     {
                         if (spec.Random)
                         {
-                            while (list.Count > keep) list.RemoveAt(ctx.Rng.Next(list.Count));
+                            while (list.Count > keep) list.RemoveAt(ctx.GetRandomInt(0, list.Count));
                         }
                         else list.RemoveRange(keep, list.Count - keep);
                     }
@@ -1861,7 +1861,7 @@ namespace RuleEngine
                 var copy = new List<UnitState>(pool);
                 for (int i = 0; i < spec.Count && copy.Count > 0; i++)
                 {
-                    int k = ctx.Rng.Next(copy.Count);
+                    int k = ctx.GetRandomInt(0, copy.Count);
                     list.Add(copy[k]);
                     copy.RemoveAt(k);
                 }
@@ -2925,7 +2925,7 @@ namespace RuleEngine
                 return true;                                   // 没目标 = 正常空过，不是失败
             }
             // `1-3` 区间：原版是 `randi_range`（`:2677`）—— 用 ctx.Rng 保证可复现
-            int dmg = op.AmountMax > op.Amount ? ctx.Rng.Next(op.Amount, op.AmountMax + 1) : op.Amount;
+            int dmg = op.AmountMax > op.Amount ? ctx.GetRandomInt(op.Amount, op.AmountMax + 1) : op.Amount;
 
             int dealt = 0;
             bool altUsed = false;
@@ -3404,7 +3404,7 @@ namespace RuleEngine
                 // 🔴 **2026-10-24（`C1` §7 · `SW18`）：逐张**各掷一次**（判据见函数头 ②）。
                 //   ⚠️ 掷的位置必须在这里：**先掷、后判「是不是已经同名」** —— 原版
                 //   `PlayAbility.c:958` 先 `GetCardToSummon`（掷），`:974` 才 `AddTransformCard`。
-                var pick = names.Count <= 1 ? names[0] : names[ctx.Rng.Next(names.Count)];
+                var pick = names.Count <= 1 ? names[0] : names[ctx.GetRandomInt(0, names.Count)];
                 if (ReferenceEquals(pick, cur.Card))
                 {
                     ctx.Log($"{ps.Name} 的手牌「{cur.Card.Name}」掷到**同名** ⇒ 不变（原版也照掷一次）");
@@ -3468,12 +3468,12 @@ namespace RuleEngine
                 if (op.OtherThanSelf && u == ctx.ActingUnit) { filtered++; continue; }
 
                 int n = fixedDmg
-                      ? (op.AmountMax > op.Amount ? ctx.Rng.Next(op.Amount, op.AmountMax + 1) : op.Amount)
+                      ? (op.AmountMax > op.Amount ? ctx.GetRandomInt(op.Amount, op.AmountMax + 1) : op.Amount)
                       : u.KwValue(kw);
                 if (n <= 0) { skipped++; continue; }      // 没有这个关键词 / 值是 0 ⇒ 它本来就不打
                 pool.RemoveAll(t => t == null || !t.IsAlive);
                 if (pool.Count == 0) break;               // 打空了就停（后面的单位没目标）
-                var t = pool[ctx.Rng.Next(pool.Count)];
+                var t = pool[ctx.GetRandomInt(0, pool.Count)];
                 // 🔴 **2026-10-10（`A1250`）**：效果击杀也要记一次 —— 凶手是**开火的这个单位 `u`**，
                 // 不是 `ctx.ActingUnit`：卡面写的是「**its** Shuriken / deals 1-2 damage」，
                 // 这一下是**它自己**打的（`for each friendly unit` 逐个数出来）。
@@ -3507,7 +3507,7 @@ namespace RuleEngine
         static bool DoHeal(BattleContext ctx, int owner, string by, EffectOp op,
                            UnitState chosen, List<string> unresolved)        {
             // `1-5` 区间：和 `Deal` 一样走 `ctx.Rng`（我们自己的 `rule_core.gd:2677`（旁证、非权威）的 `randi_range`）
-            int heal = op.AmountMax > op.Amount ? ctx.Rng.Next(op.Amount, op.AmountMax + 1) : op.Amount;
+            int heal = op.AmountMax > op.Amount ? ctx.GetRandomInt(op.Amount, op.AmountMax + 1) : op.Amount;
 
             // 🆕 2026-10-20（战斗线 `W58`）：**逐目标走 `HealUnit`** —— 它负责「实际量 = min(请求, 缺失)」
             // 与「`healed > 0` 才发 `EvtKind.Heal`」这两个原版闸（判据 → `HealUnit` 的 doc）。
@@ -3910,7 +3910,7 @@ namespace RuleEngine
         /// （例：`3 个极限战士载具（18 种，各 3 张）`）。
         /// `upTo = true` 时**不循环**：有几张算几张。
         ///
-        /// ⚠️ 一律走 `ctx.Rng`（种子化）—— 同一局必须永远可复现，不用 `UnityEngine.Random`。
+        /// ⚠️ 一律走 `ctx.GetRandomInt`（原版预烧表）—— ⛔ 不用 `ctx.Rng.Next` / `UnityEngine.Random`（2026-10-27 `E1RNG`）。
         /// </summary>
         static List<CardDef> PickN(BattleContext ctx, List<CardDef> pool, int n, bool upTo)
         {
@@ -3925,7 +3925,7 @@ namespace RuleEngine
                     if (upTo) break;                       // 「至多 N」——不够就不再凑
                     remaining.AddRange(pool);
                 }
-                int k = ctx.Rng.Next(remaining.Count);
+                int k = ctx.GetRandomInt(0, remaining.Count);
                 picked.Add(remaining[k]);
                 remaining.RemoveAt(k);
             }
@@ -3942,7 +3942,7 @@ namespace RuleEngine
         ///
         /// 三件事：
         ///   ① 算候选池（具名卡 / 按阵营+兵种筛 / 名单里挑）；
-        ///   ② 用 `ctx.Rng` 从这里抽 N 张（**同一局必须可复现**，不用 `UnityEngine.Random`）；
+        ///   ② 用 `ctx.GetRandomInt` 从这里抽 N 张（原版预烧表；2026-10-27 `E1RNG` 前是 `ctx.Rng`）；
         ///   ③ 放进目的地（自己手牌 / 对手手牌 / 自己牌库顶），手牌超上限按抽牌那条同样的规则丢。
         ///
         /// ⚠️ **选法**：附录 B 的「几种、各 N 张、上限多少」是一副**有限的牌堆** ——
@@ -4371,7 +4371,7 @@ namespace RuleEngine
                       + " ⇒ 改由引擎等概率挑");
                 if (unresolved != null) unresolved.Add(what + "（面板下标越界）");
             }
-            return ctx.Rng.Next(count);
+            return ctx.GetRandomInt(0, count);
         }
 
         /// <summary>三选一的**选项文本**（`op.Payload` 里 `|` 分隔；表现层开面板要用）。</summary>
@@ -4417,7 +4417,7 @@ namespace RuleEngine
                 ctx.Log($"{by}：「{what}」面板报回来的那张（id={wantId}）**不在候选里**"
                       + " ⇒ 改由引擎等概率挑");
                 if (unresolved != null) unresolved.Add(what + "（面板报的卡不在候选里）");
-                return cands[ctx.Rng.Next(cands.Count)];
+                return cands[ctx.GetRandomInt(0, cands.Count)];
             }
             if (ctx.ChoosePicks.Count > 0)
             {
@@ -4432,7 +4432,7 @@ namespace RuleEngine
                       + " ⇒ 改由引擎等概率挑");
                 if (unresolved != null) unresolved.Add(what + "（面板下标越界）");
             }
-            return cands[ctx.Rng.Next(cands.Count)];
+            return cands[ctx.GetRandomInt(0, cands.Count)];
         }
 
         static bool DoChooseOne(BattleContext ctx, int owner, string by, EffectOp op,
@@ -4448,7 +4448,7 @@ namespace RuleEngine
             int pick;
             if (op.RandomPick)
             {
-                pick = opts.Length <= 1 ? 0 : ctx.Rng.Next(opts.Length);
+                pick = opts.Length <= 1 ? 0 : ctx.GetRandomInt(0, opts.Length);
                 ctx.Log($"{by}：「{op.Source}」随机择一（{opts.Length} 项）→ 第 {pick + 1} 项（{opts[pick]}）"
                       + " —— 卡面**没有** `choose` 字样，按用户口径该随机、不该问玩家");
             }
@@ -4730,7 +4730,7 @@ namespace RuleEngine
             // 单机自动选 1 时，「从全集等概率取 1」与「洗牌取前 3 再选 1」**分布相同**，
             // 但「牌库被洗过」是**可观察结果**，不能省掉。
             // ⚠️ 只在**来源是牌库**时洗 —— 那半句的限定词正是 `drawn **from your deck**`。
-            if (op.ChooseSrc == "deck") Shuffle(ps.Deck, ctx.Rng);
+            if (op.ChooseSrc == "deck") Shuffle(ps.Deck, ctx);
 
             string act = op.ChooseAct ?? "";
             string what = string.IsNullOrEmpty(op.ChooseWhat) ? "任意卡" : op.ChooseWhat;
@@ -4934,7 +4934,7 @@ namespace RuleEngine
                     // 但 `ChooseSrc` 已经把它记成 `hand` 了，所以取走这一步两者同路。
                     var moved = RemoveFromSource(ctx, owner, op.ChooseSrc, pick) ?? pickedInst;
                     ps.Deck.Add(moved);
-                    Shuffle(ps.Deck, ctx.Rng);   // B11「洗回牌库」—— 规则书那族都要求洗
+                    Shuffle(ps.Deck, ctx);   // B11「洗回牌库」—— 规则书那族都要求洗
                     ctx.Log($"{by}：「{op.Source}」把「{pick.Name}」洗回自己牌库（{what}）");
                     return true;
                 }
@@ -4945,7 +4945,7 @@ namespace RuleEngine
                     // —— 洗进的是**对手的**牌库（`their`）。第 7 行第 2 步：按实例摘一份。
                     var moved = TakeFromZone(foe.Hand, pick) ?? pickedInst;
                     foe.Deck.Add(moved);
-                    Shuffle(foe.Deck, ctx.Rng);
+                    Shuffle(foe.Deck, ctx);
                     ctx.Log($"{by}：「{op.Source}」把对手手里的「{pick.Name}」洗回对手牌库（{what}）");
                     return true;
                 }
@@ -5497,11 +5497,12 @@ namespace RuleEngine
             //    手上一个符合条件的都没有时，**记录照样要进表**，后来进手牌的牌才吃得上
             //    （真卡：`GOF81 Beast Snagga Nob`）。见 `RegisterHandEffectRecord`。
 
-            // ---- ① 去重（原版 `CardScript.AlreadyContainsEffect`）----
+            // ---- ① 去重（账 690：原版 `CardScript.AlreadyContainsEffect` → `CardEffect.IsSameEffect` **逐字段比**，见 `IsSameHandEffect`；⛔ 别退回「来源 + 载荷」字符串 —— 那会把不同施放者 / 不同到期档的两条压成一条）----
             if (inst != null && dedupSamePayload)
-                foreach (var e0 in inst.HandEffects)
-                    if (e0 != null && e0.Op != null && e0.Op.Verb == "give"
-                        && e0.Source == source && e0.Op.Payload == payload) return false;
+            {
+                var cand = new CardInstance.HandEffect { Op = new EffectOp { Verb = "give", Source = source, Payload = payload }, Extrinsic = extrinsic, ActingUnit = ctx.ActingUnit, Target = criteria, OnlyInstanceId = onlyInstanceId, Expire = HandExpireOf(duration), ExpireTurn = ctx.Turn };
+                foreach (var e0 in inst.HandEffects) if (IsSameHandEffect(e0, cand)) return false;
+            }
 
             // ---- ② 载荷合成一条 `give`，目标走 `Subjectless`（兑现时以**刚上场的那个单位**为准）----
             var self = new EffectTargetSpec
@@ -5650,7 +5651,7 @@ namespace RuleEngine
         /// <list type="table">
         ///   <item><term>buffType</term><description>`Op.Verb`（我们这一层 verb 就是 buff 的种类）</description></item>
         ///   <item><term>enchantingCard（+heroCheck）</term><description>`ActingUnit`（同一施放者**实例**）</description></item>
-        ///   <item><term>enchantmentCardId</term><description>**我们没有这一格**（两侧恒 -1 ⇒ 恒等）；如实标着</description></item>
+        ///   <item><term>enchantmentCardId</term><description>**我们没有这一格 ⇒ 两侧恒等**。🔴 2026-10-27（账 690）**这条现在有据、不再只是「如实标着」**：原版那一格是 `AbilityData.enchantmentCardId (+0x4c)` 抄进 `CardEffect (+0xa4)`（`AbilityLogic__PlayAbility.c:1222` `*(undefined4 *)(uVar23 + 0xa4) = *(undefined4 *)(param_3 + 0x4c)`），而**我们的附魔族根本不写 `HandEffects`** —— `Enchantment.cs:46-49` 白纸黑字「附魔的 `CardEffect` **绝不放进** `HandEffects`」（手牌那族「打出即摘」、附魔「跟着牌在场不摘」，语义相反）⇒ 两条手牌效果**不可能**带不同的 `enchantmentCardId` ⇒ 这一维在本仓恒等，比不比都一样</description></item>
         ///   <item><term>extrinsic / extrinsicVariable</term><description>`Extrinsic`（`extrinsicVariable` 这一维我们没建 ⇒ 恒等）</description></item>
         ///   <item><term>until* 五档</term><description>`Expire`（枚举就是这五档）+ `ExpireTurn`（`Never` 时那一格无意义 ⇒ 不比）</description></item>
         ///   <item><term>*Change / *ValueOptions（近战/远程/血/费/随机）</term><description>`Op.Amount` + `Op.AmountMax` + `Op.CostSetTo` + `Op.Payload` / `Payload2`</description></item>
@@ -5947,12 +5948,12 @@ namespace RuleEngine
             {
                 if (spec.Random)
                 {
-                    // 洗牌取前 N 张 —— **用 `ctx.Rng`**（本工程的对局必须可复现）
-                    for (int i = cands.Count - 1; i > 0; i--)
-                    {
-                        int j = ctx.Rng.Next(i + 1);
-                        var tmp = cands[i]; cands[i] = cands[j]; cands[j] = tmp;
-                    }
+                    // 洗牌取前 N 张 —— 原版 `SupportMethods.GetRandomOrder` 那条（按名次挑选）；
+                    // 实现在 `RuleCore.ShuffleByRandomOrder`（⛔ 别在这儿再写一份）。
+                    ShuffleByRandomOrder(cands, ctx);
+                    // ⚠️ 2026-10-27（`E1RNG`）：原来这里是就地 Fisher–Yates（`ctx.Rng.Next(i+1)`）——
+                    // 两者都是均匀排列，但原版是「按名次挑选」⇒ 换成公共实现、随机源也变成预烧表。
+                    // （`cands` 长度不变；下面 `RemoveRange` 取的仍是前 N。）
                 }
                 cands.RemoveRange(spec.Count, cands.Count - spec.Count);
             }
@@ -6152,8 +6153,8 @@ namespace RuleEngine
         ///
         /// ⚠️ **载荷在这一刻不解析**（三条路同一条纪律）：只留原文，兑现时交给 `give` 那条路 ——
         ///    载荷词表**只有 `GivePayload` 一份判据**，别在这儿再写一遍。
-        /// ⚠️ **同一份不再重复挂「同来源 + 同载荷」的那一条**（原版 `CardScript.AlreadyContainsEffect`
-        ///    就是挡这个的：`PlayerHand__SetupCardInHand.c:65` · `CheckEffectsOnNewCard.c:37`）——
+        /// ⚠️ **同一份不再重复挂「同一条效果」**（原版 `CardScript.AlreadyContainsEffect` → `CardEffect.IsSameEffect`
+        ///    **逐字段比**：`PlayerHand__SetupCardInHand.c:65` · `CheckEffectsOnNewCard.c:37`；我们的等价判据 = `IsSameHandEffect`，账 690）。
         ///    载荷**不同**就各记各的（那是两件事，`GrantHandBuffForTargets` 同一条口径）。
         ///    `dedupSamePayload = true` 就是这一条；⛔ **别在登记点改这条纪律**（改了 `Beast Snagga Nob`
         ///    那族的「三回合叠三份」会静默少算）。
@@ -6626,7 +6627,7 @@ namespace RuleEngine
                             break;
                         default:                     // `deck` —— 规则书 :455「shuffled in」
                             ps2.Deck.Add(inst);
-                            Shuffle(ps2.Deck, ctx.Rng);
+                            Shuffle(ps2.Deck, ctx);
                             break;
                     }
                     ctx.Emit(new BattleEvent { Kind = EvtKind.Return, Player = p, Slot = slot, CardId = inst.Card.Name,
@@ -6755,7 +6756,7 @@ namespace RuleEngine
                         break;
                     default:                     // `deck` —— 规则书 :455「shuffled in」
                         ps2.Deck.Add(inst);
-                        Shuffle(ps2.Deck, ctx.Rng);
+                        Shuffle(ps2.Deck, ctx);
                         break;
                 }
                 // 事件：这一格**不在场**（`Slot = -1`）⇒ 表现层不该去棋盘上找它
@@ -9879,7 +9880,7 @@ namespace RuleEngine
             //   `Jammed Communications`（Genestealers 的破坏卡）—— 它是一张躺在持有者手牌里的**非单位卡**，
             //   所以棋盘那一跳**永远收不到它**（`CardDef.CanListenForEvents => IsUnit` 挡的正是这一族）。
             if (!boardAndPersistentOnly)
-                BroadcastHandTrapWhen(ctx, kind, who, card, subject, actor, target, targetWho);
+                BroadcastHandTrapWhen(ctx, kind, who, card, subject, actor, target, targetWho, kind == WhenEventKind.Draw, DrawnNow(ctx, kind));
 
             //   ⓪-d **手牌里的单位卡监听器**（`A887`，2026-10-18）。
             //   卡面 `When <事件>, …`（`CardDef.WhenTriggers`），监听者是**一张躺在手牌里的单位卡**
@@ -9887,7 +9888,7 @@ namespace RuleEngine
             //   那一族是**非单位卡**的 `HandTrapWhens`（两边互斥，见 `BroadcastHandWhen` 的注释）。
             //   原版次序 = `:43-52`（当前回合方手牌）→ `:53-70`（另一方手牌），本函数按这个顺序遍历。
             if (!boardAndPersistentOnly)
-                BroadcastHandWhen(ctx, kind, who, card, subject, actor, target, targetWho);
+                BroadcastHandWhen(ctx, kind, who, card, subject, actor, target, targetWho, kind == WhenEventKind.Draw, DrawnNow(ctx, kind));
         }
 
         /// <summary>
@@ -10543,15 +10544,15 @@ namespace RuleEngine
         /// </summary>
         static void BroadcastHandTrapWhen(BattleContext ctx, string kind, int who, CardDef card,
                                           UnitState subject, UnitState actor, UnitState target,
-                                          int targetWho)
+                                          int targetWho, bool drawMode = false, CardInstance drawnCard = null)
         {
-            for (int p = 0; p < 2; p++)
+            for (int hop = 0; hop < 2; hop++)
             {
-                var hand = ctx.Players[p].Hand;
+                int p = drawMode ? (ctx.Active == 1 ? 1 : 0) : hop; var hand = ctx.Players[p].Hand;
                 for (int i = 0; i < hand.Count; i++)
                 {
                     var c = hand[i].Card;          // 第 7 行第 2 步：手牌存实例，这里只要模板
-                    if (c == null || c.HandTrapWhens.Count == 0) continue;
+                    if (c == null || c.HandTrapWhens.Count == 0 || (drawMode && ReferenceEquals(hand[i], drawnCard))) continue;
 
                     // ⚠️ **先快照 ops 再结算** —— 触发会改手牌（能抽牌、能把牌拿走），
                     //    边遍历边读 `hand` 是未定义行为（和 `ResolveDeploy` 同一条教训）。
@@ -10645,7 +10646,7 @@ namespace RuleEngine
         /// </summary>
         static void BroadcastHandWhen(BattleContext ctx, string kind, int who, CardDef card,
                                       UnitState subject, UnitState actor, UnitState target,
-                                      int targetWho)
+                                      int targetWho, bool drawMode = false, CardInstance drawnCard = null)
         {
             // ---- ⓪ 廉价的预扫：两边手牌里一张「会听的单位卡」都没有就一个字节都不动 ----
             //   （和 `BroadcastPersistentWhen` 那句「没人听 ⇒ 一个字节都不动」同一条纪律：
@@ -10657,7 +10658,7 @@ namespace RuleEngine
                 for (int i = 0; i < h.Count; i++)
                 {
                     var c0 = h[i] != null ? h[i].Card : null;
-                    if (c0 != null && c0.CanListenForEvents && c0.WhenTriggers.Count > 0) { any = true; break; }
+                    if ((c0 != null && c0.CanListenForEvents && c0.WhenTriggers.Count > 0) || (drawMode && h[i] != null && h[i].ArmedTrap != 0)) { any = true; break; }   // 后半截 = 账 250（第三批）：被抽的**武装陷阱**自己那一跳与「有没有单位卡会听」无关，别被这里的早退吞掉
                 }
             }
             if (!any) return;
@@ -10668,10 +10669,11 @@ namespace RuleEngine
             using (EventSlotsScope.TargetAndCard(ctx, target, card))
             {
                 // ---- ① 两跳：先当前回合方的手牌，再另一方（原版 `:43-52` / `:53-70`）----
-                int active = ctx.Active == 1 ? 1 : 0;
-                for (int hop = 0; hop < 2; hop++)
+                // `drawMode`（= 账 627 `BroadcastCardDrawn`）走**三趟**，见 `DrawHandHopTakes` 的 doc
+                int active = ctx.Active == 1 ? 1 : 0; int hops = drawMode ? 3 : 2;
+                for (int hop = 0; hop < hops; hop++)
                 {
-                    int p = hop == 0 ? active : 1 - active;
+                    int p = drawMode ? active : (hop == 0 ? active : 1 - active);
                     var hand = ctx.Players[p].Hand;
                     // ⚠️ **遍历取下标的实时 `hand.Count`**：触发会改手牌（能抽牌、能把牌拿走）。
                     //    **每张卡先快照 ops 再结算**（下面 `ResolveOps` 用的 `ops` 已经是快照），
@@ -10680,7 +10682,8 @@ namespace RuleEngine
                     {
                         var inst = hand[i];
                         var c = inst != null ? inst.Card : null;
-                        if (c == null || !c.CanListenForEvents || c.WhenTriggers.Count == 0) continue;
+                        if (drawMode && hop == 0 && drawnCard != null && ReferenceEquals(inst, drawnCard) && EmitTrapDrawnInsteadOfCardDrawn(ctx, inst, p)) continue;   // 账 250（第三批）：被抽的**武装陷阱**发 250 并**取代它的 260**（判据 `CardScript__CardDrawn.c:16-31`；⛔ 只有这一跳能走到 —— 棋盘跳与两趟手牌跳都只传 `!= drawnCard`）
+                        if (c == null || !c.CanListenForEvents || c.WhenTriggers.Count == 0 || (drawMode && !DrawHandHopTakes(hop, inst, drawnCard))) continue;
 
                         // ⚠️ `listener` 传 `p`（**手牌属于谁**）· `listenerUnit` 传 `null`
                         //    （手里的牌没有 `UnitState` ⇒ `SelfOnly` / `ActorSelf` 那两族
@@ -12169,7 +12172,7 @@ namespace RuleEngine
         ///   ④ 契约自身的效果（<see cref="DarkPactFx"/>）**永久**给它加上
         ///
         /// ⚠️ 和原版的两处**有意的不同**，都写在注释里免得下一个会话当成 bug 改回去：
-        ///   · 随机种类走 `ctx.Rng`（种子化）而不是 `randi()` —— 本工程要求**同一局永远可复现**
+        ///   · 随机种类走 `ctx.GetRandomInt`（原版预烧表）而不是 `randi()` —— 2026-10-27 `E1RNG` 前是 `ctx.Rng`
         ///     （见 `RuleCore` 文件头）。
         ///   · 原版提取效果文字时拿的是**小写副本**，于是 `EffectSpec.Parse` 永远失配（等于这一步没生效）。
         ///     我们保留原始大小写。**这是补原版的漏，不是抄错。**
@@ -12204,7 +12207,7 @@ namespace RuleEngine
                 }
                 else
                 {
-                    k = DarkPactFx[ctx.Rng.Next(DarkPactFx.Length)][0];
+                    k = DarkPactFx[ctx.GetRandomInt(0, DarkPactFx.Length)][0];
                 }
             }
 
@@ -12798,8 +12801,8 @@ namespace RuleEngine
                     //   （事件型降费 / 手牌陷阱 / 手牌单位）⇒ `DA5` / `DA12` / `DA6` 躺在手里
                     //   也会被叫醒并**真的 `ResolveOps`**。⛔ 别改回默认四跳。
                     for (int k = 0; k < n; k++)
-                        BroadcastWhen(ctx, WhenEventKind.GainQuest, gainOwner, srcCard, subj,
-                                      boardAndPersistentOnly: true);
+                    {   PreCallBoardListener(ctx, subj, WhenEventKind.GainQuest, gainOwner, srcCard, subj, null, null, -1, allowPendingDeath: true);
+                        BroadcastWhen(ctx, WhenEventKind.GainQuest, gainOwner, srcCard, subj, preCalled: subj, boardAndPersistentOnly: true); }   // 账 631 同族（2026-10-27 `E6ENG`）：`BroadcastCollectQuestPoints.c:22` 也是预调、`:29-38` 排除主体 ⇒ 与信仰支同形，逐点配对（原版 `ProcessManaBuff.c:53-73` 每 1 点走一遍）
                 }
             }
             else if (faith)
@@ -12811,9 +12814,12 @@ namespace RuleEngine
                 //   通用四跳的「手牌单位」那一跳会对手牌里的单位卡**真的 `ResolveOps`**
                 //   ⇒ `SOR38 Paragon Warsuit`（`When you gain Faith, deal 4 damage to the enemy Warlord`）
                 //   躺在手里、你获得 1 点信仰，我们就会对敌督军造成 4 点伤害 —— 原版不会。
+                // 🔴 账 631：原版**先预调收集者自己**（`BattleManagerSupport__BroadcastCollectFaith.c:22` `ReactToCollectFaith(unitCollected, unitCollected)`）、
+                //   棋盘循环 `:29-38` 再 `op_Inequality(u, unitCollected)` 把它**排除** ⇒ 「预调 + 排除」必须成对（只排不预 = 它整个人漏掉；只预不排 = 双响）。
+                PreCallBoardListener(ctx, wl, WhenEventKind.GainFaith, gainOwner, wl != null ? wl.Card : null, wl, null, null, -1, allowPendingDeath: true);
                 BroadcastWhen(ctx, WhenEventKind.GainFaith, gainOwner,
                               wl != null ? wl.Card : null, wl,
-                              boardAndPersistentOnly: true);
+                              preCalled: wl, boardAndPersistentOnly: true);
             }
             return true;
         }
@@ -12878,8 +12884,10 @@ namespace RuleEngine
             // 🔴 **2026-10-26（批次 8 · `B8_AE`）：只跑棋盘跳** —— `BattleManager__BroadcastCollectedFaith.c`
             //   是 `BattleManagerSupport__BroadcastCollectFaith` 的**纯转调**（全文 2 行，🥇 `decomp_full/`），
             //   而后者 `GetCardsInHandRef` = 0 ⇒ 与 `DoFactionResource` 的信仰支同一条广播、同样不该有手牌跳。
+            // 账 631：同上 —— 先预调这张祈祷卡自己（`BroadcastCollectFaith.c:22`），棋盘跳再排除它（`:29-38` 的 `op_Inequality`）。
+            PreCallBoardListener(ctx, unit, WhenEventKind.GainFaith, owner, unit.Card, unit, null, null, -1, allowPendingDeath: true);
             BroadcastWhen(ctx, WhenEventKind.GainFaith, owner, unit.Card, unit,
-                          boardAndPersistentOnly: true);
+                          preCalled: unit, boardAndPersistentOnly: true);
             // 表现层那一条（与 `DoFactionResource` 的信仰支同形 —— 同一个 `EvtKind`、`Slot = -1`）
             ctx.Signals.Add(new BattleEvent
             {
@@ -12930,22 +12938,22 @@ namespace RuleEngine
         }
 
         /// <summary>
-        /// 任务点这条链的**每局附属状态**：随机插入位用的独立随机源 + 一次性提示的记账。
+        /// 任务点这条链的**每局附属状态**：一次性提示的记账（随机插入位**已并回引擎随机表**）。
         ///
-        /// 🔴 **为什么不直接用 `ctx.Rng`**：原版这条链走 `BattleManager.GetRandomInt`
-        /// （`BattleManager__AddCardInPlayToDeck.c:37`）—— 那是 `MatchData` 自己的随机表，
-        /// **不从洗牌/抽牌那条流里拿数**。我们若往 `ctx.Rng` 里再塞一次 `Next`，
-        /// 所有按种子写死期望值的自检会整体漂移（`ShowRng` / `AiRng` 的注释里记着同一个教训）。
-        /// ⇒ 每局另开一条派生流，**互不干扰**。
+        /// ✅ **2026-10-27（`E1RNG`）已改**：原来这里另开一条派生 `System.Random` 当插入位随机源，
+        /// 理由是「原版走 `MatchData` 自己的随机表、不从洗牌流里拿数」。现在引擎随机源本身就是
+        /// **原版那张表**（`ctx.GetRandomInt` = 开局预烧 100 个整数 + 按下标取）⇒ 直接用它，
+        /// 与原版 `BattleManager__AddCardInPlayToDeck.c:37` **同一个来源**（「一条表 = 一个来源」）。
+        /// ⚠️ 下面 `InsertRng` / `QuestInsertSeed` / `QuestHashMix` 已**停用**（保留只为不动行号，
+        /// 下一次可以安全动行号时删掉 —— ⛔ 别再把它们接回随机路径）。
         ///
-        /// ⚠️ `BattleContext` **没有把开局种子存成字段**（只拿去构造 `Rng` / `ShowRng` / `AiRng`），
-        /// 且本批文件所有权不含 `BattleContext.cs` ⇒ 用**首次触发那一刻的确定性快照**当种子
-        /// （先手座 + 双方督军卡 id + 双方牌库/手牌每一份实例的 `Id`）。
-        /// 这些全是「种子 + 动作序列」的函数 ⇒ **同一局面重放，插入位逐位相同**（红线：可复现）。
+        /// ⚠️ 仍然成立的一条：`ctx.Rng` **不是**结算随机源（它现在只当烧表用的种子流），
+        /// 结算路径⛔ 别再直接 `Rng.Next`。
+        /// 判据：`BattleContext.GetRandomInt` 的 doc（`MatchData__GetRandomInt.c` 逐句）。
         /// </summary>
         sealed class QuestAux
         {
-            public System.Random InsertRng;
+            // （已停用）public System.Random InsertRng;  —— 随机源 = `ctx.GetRandomInt`（见类 doc）
             public bool AltNoticeDone;
             public bool NonFactionNoticeDone;
         }
@@ -12957,19 +12965,19 @@ namespace RuleEngine
         {
             QuestAux aux;
             if (QuestAuxByCtx.TryGetValue(ctx, out aux)) return aux;
-            aux = new QuestAux { InsertRng = new System.Random(QuestInsertSeed(ctx)) };
+            aux = new QuestAux();               // ⚠️ 2026-10-27（`E1RNG`）：原为 `new QuestAux { InsertRng = new System.Random(QuestInsertSeed(ctx)) }` —— 随机源已并回 `ctx.GetRandomInt`，不再建独立流
             QuestAuxByCtx.Remove(ctx);          // `Add` 对同键会抛 ⇒ 先删（正常路径上本来就没有）
             QuestAuxByCtx.Add(ctx, aux);
             return aux;
         }
 
-        /// <summary>FNV-1a —— **不能用 `string.GetHashCode`**（.NET 里按进程随机化，同一局面两次跑会不同）。</summary>
+        /// <summary>FNV-1a —— **不能用 `string.GetHashCode`**（.NET 里按进程随机化，同一局面两次跑会不同）。⚠️ 2026-10-27（`E1RNG`）**已停用**（原只服务 `QuestAux.InsertRng`，随机源已并回 `ctx.GetRandomInt`）—— 保留只为不动行号。</summary>
         static void QuestHashMix(ref uint h, int v)
         {
             unchecked { h ^= (uint)v; h *= 16777619u; }
         }
 
-        static int QuestInsertSeed(BattleContext ctx)
+        static int QuestInsertSeed(BattleContext ctx)   // ⚠️ 2026-10-27（`E1RNG`）：**已停用**（随机源并回 `ctx.GetRandomInt`）—— 保留只为不动行号，⛔ 别再接线
         {
             unchecked
             {
@@ -13006,14 +13014,14 @@ namespace RuleEngine
         /// ① 任务点满阈值造隐秘（`QuestPointThreshold`）；
         /// ② `DA44 Secret Agenda` 的 `add it to your deck`（原版 SO `chosenAbility = 270
         /// = createCardInDeck`，与 ① **同一个 `AddNewCardToDeck`** —— `PlayAbility.c:2607`）。
-        /// ⇒ 用同一条 `QuestAux.InsertRng`（⛔ 别一处用 `ctx.Rng`、一处另开）。</para>
+        /// ⇒ 用同一条 `ctx.GetRandomInt`（= 原版那张预烧表；⛔ 别一处用预烧表、一处另开流）—— 2026-10-27（`E1RNG`）已把独立的 `QuestAux.InsertRng` 并回这张表。</para>
         /// </summary>
         static void InsertIntoDeckRandom(BattleContext ctx, int owner, CardInstance inst)
         {
             if (ctx == null || inst == null) return;
             var ps = ctx.Players[owner];
-            var aux = QuestAuxOf(ctx);
-            int origIndex = ps.Deck.Count > 0 ? aux.InsertRng.Next(ps.Deck.Count + 1) : 0;
+            var aux = QuestAuxOf(ctx);   // ⚠️ 2026-10-27（`E1RNG`）：随机源改走共用的原版表（下一行 `ctx.GetRandomInt`，= 原版 `BattleManager.GetRandomInt`）—— 本行已不掷骰，留着只为不动行号
+            int origIndex = ps.Deck.Count > 0 ? ctx.GetRandomInt(0, ps.Deck.Count + 1) : 0;
             ps.Deck.Insert(ps.Deck.Count - origIndex, inst);
         }
 
@@ -13118,7 +13126,7 @@ namespace RuleEngine
                 return;
             }
 
-            var card = pick.Cards[ctx.Rng.Next(pick.Cards.Count)];
+            var card = pick.Cards[ctx.GetRandomInt(0, pick.Cards.Count)];
             var inst = ctx.NewInstance(card);                 // 第 7 行第 2 步：加进去的是**新造的一份**
 
             // 入牌库 = **随机下标 Insert**，**不洗整副** —— 判据与算法只在 `InsertIntoDeckRandom` 一处
@@ -15199,7 +15207,7 @@ namespace RuleEngine
                     //       整个换掉时四份要一起换，不然会和 `keys` 错位。
                     if (op.PickOne && keys.Count > 1)
                     {
-                        int k = ctx.Rng.Next(keys.Count);
+                        int k = ctx.GetRandomInt(0, keys.Count);
                         string keepId = keys[k], keepName = shown[k];
                         var keepCard = cardRefs[k];
                         var keepPin = pins[k];
@@ -15313,7 +15321,7 @@ namespace RuleEngine
             // ---- 候选 ① = **自己场上的残骸**（2026-09-13 A2 起走这条）----
             // 规则书 `:203` 的「翻面」：残骸**留在场上**（原版场上是一个 3D 体，
             // `BattleCardUI.CreateRemnantBody`），而卡面**全写** `Reanimate a friendly Remnant`
-            // （那 16 张里 15 张是这个写法）⇒ 从场上翻回来才对。「随机」走 `ctx.Rng`（可复现）。
+            // （那 16 张里 15 张是这个写法）⇒ 从场上翻回来才对。「随机」走 `ctx.GetRandomInt`（2026-10-27 `E1RNG`；原 `ctx.Rng`）。
             var remSlots = new List<int>();
             for (int s = 0; s < BoardSpec.Size; s++)
             {
@@ -15326,7 +15334,7 @@ namespace RuleEngine
                 if (!all)
                 {
                     // `a random friendly Remnant` —— 用**种子定死**的随机源（工程铁律）
-                    int k = ctx.Rng.Next(order.Count);
+                    int k = ctx.GetRandomInt(0, order.Count);
                     int pick = order[k];
                     order.Clear();
                     order.Add(pick);
@@ -16200,9 +16208,12 @@ namespace RuleEngine
         static bool BoardJumpIncludesPendingDeath(string kind)
         {
             if (kind == null) return false;
-            // `WhenEventKind.Triggers("sacrifice")` —— 唯一那一族（现读 `cards_engine.json` 里
+            // `WhenEventKind.Triggers("sacrifice")` —— 棋盘那一跳没有 `IsInPlay` 的那一族之一（现读 `cards_engine.json` 里
             // 提到 `sacrifice` 的卡 **0 张**，所以今天**不可观测**；本节是口径对齐）。
-            return kind == WhenEventKind.Triggers(KeywordTable.Sacrifice);
+            // 🆕 2026-10-27（B9 · `E6ENG` · 账 627 / 631）：`Draw` / `GainFaith` / `GainQuest` 三族**同样没有** `IsInPlay` 闸
+            //   —— `BattleManagerSupport__BroadcastCardDrawn.c`（棋盘循环全文只判非 null，`Ghidra` 第 30-33 行）·
+            //   `…__BroadcastCollectFaith.c:29-38` · `…__BroadcastCollectQuestPoints.c:29-38`（后两者逐句同形：预调 + 棋盘循环，循环体只有 `op_Inequality(u, subject)`）。
+            return kind == WhenEventKind.Triggers(KeywordTable.Sacrifice) || kind == WhenEventKind.Draw || kind == WhenEventKind.GainFaith || kind == WhenEventKind.GainQuest;
         }
 
         /// <summary>
@@ -16415,6 +16426,143 @@ namespace RuleEngine
             //    （`questCounter = 0` 在 `ResetToValuesInHand` 的 ③ 里 —— `Instance.QuestCounter = 0`）
             rem.TransformBackFromRemnant();
             return rem;
+        }
+
+        // ==================================================================
+        //  🆕 2026-10-27（B9 · 执行代理 `E6ENG` · 账 627 / 690）—— 三个小口，**追加在类尾**
+        //  （⛔ 别插到中间：`账/*.tsv` 大量按 `文件:行号` 落点，插中间会成片漂移）
+        // ==================================================================
+
+        /// <summary>
+        /// **账 627（`BroadcastCardDrawn`）的手牌趟数判据** —— 第 `hop` 趟该不该处理这一份手牌实例。
+        ///
+        /// <para>**判据（逐句现读 ILSpy `out_cpp2il_dev_ilspy/BattleManagerSupport.cs:704-744`；
+        /// Ghidra `BattleManagerSupport__BroadcastCardDrawn.c` 交叉核过同一形状）**：
+        /// <list type="number">
+        /// <item>`:709` **预调**：`drawnCard.CardDrawn(drawnCard)` —— 被抽那张**先给自己响一次**；</item>
+        /// <item>`:710-717` 棋盘 `unitsInPlay` 逐个 `CardDrawn(drawnCard)`（**无 `IsInPlay` 闸**，
+        ///   见 `BoardJumpIncludesPendingDeath`）；</item>
+        /// <item>`:718-730` `GetCardsInHandRef(IsPlayerTurn())` 逐个、**`!= drawnCard` 才响**；</item>
+        /// <item>`:731-743` **又** `GetCardsInHandRef(IsPlayerTurn())`（🔴 本意应是 `!IsPlayerTurn()`）
+        ///   ⇒ 当前回合方手牌**再响一遍**、对手手牌 **0 遍**。
+        ///   **原版这里漏一个 `!`，我们照抄，⛔ 别修**（修了 = 与原版玩家看到的不一致）。</item>
+        /// </list></para>
+        ///
+        /// <para>⇒ 我们这边三趟：**hop 0 = 只处理被抽那张**（= 原版 ① 的预调）、
+        /// **hop 1 / hop 2 = 当前回合方整手、两趟都排除被抽那张**（= 原版 ③ ④）。
+        /// 合计：被抽那张 **1 次** · 当前手牌其余各 **2 次** · 对手手牌 **0 次**。</para>
+        ///
+        /// <para>⚠️ **已知次序偏差（如实标）**：原版那条预调发生在**棋盘跳之前**，我们这一跳排在棋盘之后
+        ///   （`BroadcastHandWhen` / `BroadcastHandTrapWhen` 都在 `BroadcastWhen` 的 ③ 段）
+        ///   ⇒ 只影响「被抽那张自己的监听器」与棋盘监听器之间的先后。现读池内**0 张场上卡监听 `draw`**
+        ///   （监听者只有 `BL15` / `DA31` 两张**手牌单位卡**）⇒ 今天无可观察差异；
+        ///   **池内出现场上卡监听 `draw` 时必须重判**。
+        /// ⚠️ 被抽的**陷阱卡**走原版另一条钩子（`CardScript__CardDrawn.c:23` → `OnTrapDrawn`
+        ///   → `OnTrigger(0xfa = 250)`），本实现只有 260 那条 ⇒ **250 那条未实现**（已记进报告）。</para>
+        /// </summary>
+        static bool DrawHandHopTakes(int hop, CardInstance inst, CardInstance drawnCard)
+        {
+            bool isDrawn = drawnCard != null && ReferenceEquals(inst, drawnCard);
+            return hop == 0 ? isDrawn : !isDrawn;
+        }
+
+        /// <summary>**账 627**：本次「抽到了」的那一份实例（`hop 0` 的预调用它）。取自
+        /// <see cref="BattleContext.DrawnThisResolve"/> —— `RuleCore.Draw` 用 `DrawReferentScope`
+        /// 把窗口种成**恰好 [刚抽到的那一份]**（见那个 scope 的 doc）。
+        /// 不是 `draw` 事件、或槽里不是恰好一份 ⇒ `null`（= 不预调、也不排除 ⇒ 退化成「整手各两遍」）。</summary>
+        static CardInstance DrawnNow(BattleContext ctx, string kind)
+        {
+            if (ctx == null || kind != WhenEventKind.Draw) return null;
+            var d = ctx.DrawnThisResolve;
+            return d != null && d.Count == 1 ? d[0] : null;
+        }
+
+        /// <summary>**账 690** 用：`duration` → 原版那几档 `until*` 的等价枚举。
+        /// 逐档与 `AttachHandEffect` 里的 `switch (duration)` 相同（⛔ 两处别写岔；
+        /// 这里只给**去重比较**用，不写回 entry）。</summary>
+        static CardInstance.HandBuffExpiry HandExpireOf(string duration)
+        {
+            if (duration == "turn") return CardInstance.HandBuffExpiry.EndOfTurn;
+            if (duration == "nextturn") return CardInstance.HandBuffExpiry.OwnerTurnStart;
+            return CardInstance.HandBuffExpiry.Never;
+        }
+
+        /// <summary>
+        /// 🆕 **2026-10-27（B9 · 第三批 · `E6ENG` · 账 703 / 1272）：`CardScript.CardDrawn` 的
+        /// 「被抽到的那张**自己**」那一跳里的 `trap + armed ⇒ 250` 分支。**
+        ///
+        /// <para>**判据（🥇 Ghidra `CardScript__CardDrawn.c:16-31`；ILSpy `CardScript.cs` 交叉核过同一形状）**：
+        /// `CardDrawn(this, drawnCard)` 两条路**互斥** ——
+        /// · `drawnCard != this` ⇒ `OnCardDrawn` ⇒ trigger **260** `OtherCardDrawn`（`actingCard = drawnCard`）；
+        /// · `drawnCard == this` 且 `isTrapCard(this)` 且 `armedTrap(+0x54)` ⇒ `OnTrapDrawn`
+        ///   ⇒ trigger **250** `ThisCardDrawnAsTrap`（`actingCard` / `targetCard` **都是 `default`**；
+        ///   `RawCardScript__OnTrapDrawn.c` 全文 = `OnTrigger(0xfa = 250, …, this, default, default)`），
+        ///   然后**直接 `return`** ⇒ **这一发取代它的 260**。</para>
+        ///
+        /// <para>⛔ **只有预调那一跳能走到 250**：棋盘跳与两趟手牌跳都只把事件传给 `!= drawnCard` 的接收者
+        /// （`BattleManagerSupport__BroadcastCardDrawn.c:27-76` / ILSpy `:710-743`）⇒ 调用方只允许在
+        /// `hop 0` 且 `inst == drawnCard` 时调本方法。</para>
+        ///
+        /// <para>**三态（`CardInstance.ArmedTrap`：`1` 已布设 / `0` 判得出不是 / `-1` 判不了）**：
+        /// `-1` ⇒ **出声**（⛔ 不当 0）并落回 260 那条保守路；`ArmedTrap == 1` 而 `CardDef.IsTrapCard` 不成
+        /// `true` ⇒ 也出声（理论上不该发生 —— `ArmedTrap` 就是由 `IsTrapCard` 算出来的，两处打架就是数据坏了）。</para>
+        ///
+        /// <para>🔴 **效果层今天没有判据**：池内 / 全 SO（`cards_truth.json` 1,351 张）里
+        /// `abilities[].trigger == 250` 的 **0 行**（对照值：260 = 2 行 · 665 = 1 行 · 695 = 3 行 ⇒ 扫描有效），
+        /// `spellType == 70`（`SpellType.Trap`）**0 张** ⇒ 本方法**只发事件 + 出声**，
+        /// ⛔ **不发明效果**（`chosenAbility` 挂的是什么、打谁 —— 一律无据）。
+        /// 事件那一层走 <see cref="EmitCardTrigger"/>：它的 presence 闸读
+        /// `CardDef.AbilityTriggerNumericNames` 里**已有**的 `{"ThisCardDrawnAsTrap", 250}`，开箱可用；
+        /// ⛔ **不为它新建 `WhenEventKind` 词形** —— 250 是**结构化 trigger**，不是卡面写法
+        /// （判据 + 理由 → `报告/B9_E6ENG_广播四件与光环残骸.md` §⑪）。</para>
+        /// </summary>
+        /// <returns>`true` = **已按 250 处理** ⇒ 调用方必须 `continue`（这一张**不再走** 260 那条路）。</returns>
+        static bool EmitTrapDrawnInsteadOfCardDrawn(BattleContext ctx, CardInstance inst, int owner)
+        {
+            if (ctx == null || inst == null || inst.Card == null) return false;
+            int armed = inst.ArmedTrap;
+            if (armed == CardInstance.ArmedTrapUnknown)
+            {
+                NoteTrapDrawnOnce(inst.Card, "armedTrap 判不了", ($"[RuleEngine] 「{inst.Card.Name}」被抽到时的 `armedTrap` **判不了**"
+                    + "（`CardInstance.ArmedTrap == -1`：卡表缺 `cardType` 列 / 这张卡不在真值快照里）"
+                    + " ⇒ 按 **260** 走、**没有**按 250 处理（⛔ 未知不当 0；这里选保守那一支并出声）。"));
+                return false;
+            }
+            if (armed != 1) return false;
+            string why;
+            if (inst.Card.IsTrapCard(out why) != true)
+            {
+                NoteTrapDrawnOnce(inst.Card, "armedTrap 与 isTrapCard 打架", ($"[RuleEngine] 「{inst.Card.Name}」的 `ArmedTrap == 1` 但 `IsTrapCard` 不成 true"
+                    + $"（{why ?? "判得出是 false"}）—— 两处判据打架（`ArmedTrap` 本来就由 `IsTrapCard` 算出）⇒ 按 260 走。"));
+                return false;
+            }
+            bool emitted = EmitCardTrigger(ctx, inst.Card, owner, null, "ThisCardDrawnAsTrap", "trapDrawn");
+            NoteTrapDrawnOnce(inst.Card, "武装陷阱被抽到", ($"[RuleEngine] 「{inst.Card.Name}」是**被抽到的武装陷阱** ⇒ 原版这一跳发 trigger"
+                + " **250 `ThisCardDrawnAsTrap`**（`CardScript__CardDrawn.c:16-31`），并**取代**它的 260。"
+                + $"⚠️ 事件{(emitted ? "已发" : "**没发**（这张卡的卡表里没有 250 那条 ability）")}；"
+                + "**效果层本仓无判据**（池内 / 全 SO 里 trigger 250 的 ability = 0 条）⇒ **不执行效果**，⛔ 不发明。"));
+            return true;
+        }
+
+        /// <summary>
+        /// 🆕 **2026-10-27（B9 · 第五批 · `E6ENG` · F2）：`EmitTrapDrawnInsteadOfCardDrawn` 三条告警的「每张卡一次」闩。**
+        ///
+        /// <para>**为什么需要**：那三条告警都**按抽牌次数**触发 —— `ArmedTrap == -1` 那一态在卡表旧一档时会对
+        /// **每一张**卡的**每一次**抽牌各喊一遍（`E7ENG` 报的噪音）。而这三条话术的**信息量是「每张卡」级的**
+        /// （「这张卡判不了」/「这张卡两处判据打架」/「这张卡是武装陷阱、效果层没判据」），不是「每一次」级的。</para>
+        ///
+        /// <para>⛔ **只闩日志，不闩事件** —— `EmitCardTrigger` 那一发每次都照发（账 703 的验收读数
+        /// 就是数「250 事件几条」，闩了它等于把机制关掉）。形状与 <see cref="NoteAbilityWithoutAnimRow"/> 同族
+        /// （同一 `(卡, 原因)` 只喊一次；⛔ 别加回 `ctx.Log`，那会动 `ctx.Events.Count` / 联机 Fingerprint）。</para>
+        /// </summary>
+        static readonly HashSet<string> _trapDrawnNoted = new HashSet<string>(System.StringComparer.Ordinal);
+
+        /// <summary>见 <see cref="_trapDrawnNoted"/>：同一张卡的同一类告警只喊一次。</summary>
+        static void NoteTrapDrawnOnce(CardDef card, string reason, string message)
+        {
+            string id = card != null ? (card.Id ?? card.Name) : null;
+            if (!_trapDrawnNoted.Add((id ?? "?") + "|" + reason)) return;
+            UnityEngine.Debug.LogWarning(message);
         }
     }
 }

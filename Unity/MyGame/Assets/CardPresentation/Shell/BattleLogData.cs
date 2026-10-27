@@ -101,6 +101,35 @@ namespace CardPresentation
             /// <para>用途：分辨「真打过的记录」与「只剩录像文件的行」（后者没骷髅数/没玩家名，
             /// 钉住它也没有意义）。⚠️ 它**不落盘**是没意义的担心 —— 兜底行本来就只在内存里活一帧。</para></summary>
             public bool FromDisk;
+
+            /// <summary>🆕 **2026-10-27（音频线 `B9` 下一批 · 账 440）**：这一局**触发级流水**（按
+            /// `(哪一方, trigger id)` 累计；空 = 这一局一条都没触发）。
+            /// <para>🔴 **判据链**：原版 `BattleManager.LogActivatedTrigger(bool isPlayer, AbilityTrigger trigger)`
+            /// （ILSpy `BattleManager.cs:48762-48765`）= **一句转发**给
+            /// `ChallengeLogMgr.LogTriggerAbility(isPlayer, trigger)`，而后者
+            /// （ILSpy `ChallengeLogMgr.cs:578-585`）**不落盘、不写表** —— 它只是
+            /// `Signal.Raise(new TriggerAbilitySignal(trigger, isPlayer))`，并且**跳过三个 trigger**
+            /// （`WhileInPlay(20)` / `WhileInPlayVariable(240)` / `TriggeredSynapse(630)`）。
+            /// ⇒ 「信号」那一半由 <see cref="TriggerAbility"/> 事件 1:1 复刻；
+            /// 这一格是 **🔶 自己设计（非原版）**：把同一份信号**按局累计下来**（原版只发信号、不存任何东西，
+            /// 消费者是挑战/任务的进度追踪，我们那条线还没建）· 调度台 2026-10-27 派活 ·
+            /// 目的 = 让「一局触发 N 次」可断言、可在战报里看。⛔ 别把它当成原版字段。</para></summary>
+            public TriggerStat[] Triggers;
+        }
+
+        /// <summary>🆕 **2026-10-27（账 440）**：一种触发的累计（见 <see cref="Match.Triggers"/> 的 doc）。
+        /// ⚠️ `[System.Serializable]` 是**落盘要的**（`JsonUtility` 只认标了它的自定义类）。</summary>
+        [System.Serializable]
+        public class TriggerStat
+        {
+            /// <summary>原版 `AbilityTrigger` 枚举号（例如 `Landing = 440`）。</summary>
+            public int Trigger;
+            /// <summary>枚举名（**🔶 我们多出来的一格** —— 原版信号里只有枚举值；存名字只为战报里人读得懂）。</summary>
+            public string Name;
+            /// <summary>`true` = 我方触发 · `false` = 敌方触发（原版 `LogTriggerAbility(bool isPlayer, …)`）。</summary>
+            public bool IsPlayer;
+            /// <summary>这一局累计几次。</summary>
+            public int Count;
         }
 
         static readonly List<Match> _all = new List<Match>();
@@ -121,6 +150,10 @@ namespace CardPresentation
             EnsureLoaded();
             if (m.Army == 0 && !string.IsNullOrEmpty(m.OwnHeroName)) m.Army = ResolveArmy(m.OwnHeroName);
             if (m.EnemyArmy == 0 && !string.IsNullOrEmpty(m.EnemyHeroName)) m.EnemyArmy = ResolveArmy(m.EnemyHeroName);
+            // 🆕 2026-10-27（账 440）：把本局的**触发级累计**挂进这条记录，然后清空内存 buffer
+            //   （原版不存这条；这一格为什么是我们加的 → `Match.Triggers` 的 doc）。⚠️ 调用方**已经填了**
+            //   `m.Triggers` 时以调用方为准（`AttachPendingTriggers` 只在 buffer 非空时覆盖）。
+            if (_pendingTriggers.Count > 0) AttachPendingTriggers(m);
             _all.Insert(0, m);
             Trim();
             SaveIfAuto();
@@ -421,5 +454,142 @@ namespace CardPresentation
         public static readonly UnityEngine.Color PinOff = new UnityEngine.Color(1f, 1f, 1f, 1f);
         /// <summary>已钉：`(0,1,0,1)`（绿）—— 原版 `BattleLogItem.SetPinState` 直接写 `pinButton.image.color`。</summary>
         public static readonly UnityEngine.Color PinOn = new UnityEngine.Color(0f, 1f, 0f, 1f);
+
+        // ══════════════════════════════════════════════════════════════════════════════════════
+        //  🆕 **2026-10-27（音频线 `B9` 下一批 · 账 440）：触发级流水**
+        //  原版 `BattleManager.LogActivatedTrigger(bool isPlayer, AbilityTrigger trigger)`
+        //  （`d:/2/tools/decomp_full/BattleManager__LogActivatedTrigger.c` = 一句转发；
+        //   参数被反编译器整条丢掉 ⇒ 签名与体内那一跳取自 **ILSpy** `out_cpp2il_dev_ilspy/BattleManager.cs:48762-48765`）：
+        //    `challengeLog.LogTriggerAbility(isPlayer, trigger);`
+        //  真逻辑 = `ChallengeLogMgr.LogTriggerAbility`（ILSpy `ChallengeLogMgr.cs:578-585`）：
+        //    ```
+        //    if (trigger != WhileInPlay && trigger != WhileInPlayVariable && trigger != TriggeredSynapse)
+        //        Signal.Raise(new TriggerAbilitySignal(trigger, isPlayer));
+        //    ```
+        //  🔴 **它不是「日志」**（施工单原来猜「加 LogTriggerAbility…记账…落盘」，**实读不是**）：
+        //    原版**一个字节都不写**，只发一条进程内信号；消费者（挑战/任务进度）由挑战线负责。
+        //  ⇒ 本段拆成两半，各自标明来源：
+        //    · **复刻的那一半** = 三条过滤 + <see cref="TriggerAbility"/> 事件（= 原版 `Signal.Raise`）；
+        //    · **🔶 自设计的那一半** = 按局累计（`Match.Triggers`）+ 读口 —— 原版没有，见那一格的 doc。
+        //  ⚠️ 热路径：`LogTriggerAbility` 只做「查一次 + 计数一次」，**不碰磁盘**；
+        //    落盘仍走 `Add()` 那条既有路（`SaveIfAuto`），⛔ 别在这里每触发写一次盘。
+        //
+        //  🔴 **与引擎侧 `AchievementTally` 的分工（2026-10-27 现核，⛔ 别当成两套重复实现）**：
+        //    · `RuleEngine/Core/AchievementTally.AddTrigger(seat, ability)` 是**引擎内**的按座位计数，
+        //      它由 `BattleContext.Emit` → `CountTriggerForAchievements` 单口喂（2026-10-25 `X2`）；
+        //      ⚠️ **它不过滤那三条**（现读 `AchievementTally.cs:169-184` 只判边界）⇒ 与原版
+        //      `LogTriggerAbility` 的「20/240/630 不发」**有偏差**（会多计，写在报告里，改动在 `RuleEngine/**`，
+        //      本轮不在白名单）。
+        //    · 本段是**表现层/挑战日志**那一侧（原版 `ChallengeLogMgr` 的等价物）：带三条过滤 + 发信号。
+        //    · **为什么不让 `RuleEngine` 直接调本类**：现核 `grep CardPresentation RuleEngine/` = 只有注释、
+        //      **零代码依赖** ⇒ 引擎不许反向依赖表现层。接线点在**表现层消费 `EvtKind.Trigger` 的那一处**
+        //      （`BattleDriver.PlaySignal`），具体一行见报告 §第三批·440。
+        // ══════════════════════════════════════════════════════════════════════════════════════
+
+        /// <summary>原版 `AbilityTrigger.WhileInPlay` = **20**（`il2cpp_out/dump.cs:20242`）。**不发信号**。</summary>
+        public const int TriggerWhileInPlay = 20;
+        /// <summary>原版 `AbilityTrigger.WhileInPlayVariable` = **240**（`dump.cs:20275`）。**不发信号**。</summary>
+        public const int TriggerWhileInPlayVariable = 240;
+        /// <summary>原版 `AbilityTrigger.TriggeredSynapse` = **630**（`dump.cs:20311`）。**不发信号**。</summary>
+        public const int TriggerTriggeredSynapse = 630;
+
+        /// <summary>原版那条 `Signal.Raise(new TriggerAbilitySignal(trigger, isPlayer))` 的等价物
+        /// （参数 = `isPlayer`, `trigger`）。⚠️ 已经过掉那三条过滤 —— 订阅者拿到的**每一条都该算数**。</summary>
+        public static event System.Action<bool, int> TriggerAbility;
+
+        /// <summary>本局累计（按 `(IsPlayer, Trigger)` 去重后计数）。**唯一写点** = <see cref="LogTriggerAbility"/>；
+        /// 由 <see cref="Add"/> 拷进 <see cref="Match.Triggers"/> 后清空。🔶 自设计（原版不存）。</summary>
+        static readonly List<TriggerStat> _pendingTriggers = new List<TriggerStat>();
+
+        /// <summary>自检用：过滤之后**真的发出去**的信号条数（含没有订阅者的）。</summary>
+        public static int TriggerSignals { get; private set; }
+        /// <summary>自检用：被那三条过滤挡掉的次数（原版同样挡，**不是错**）。</summary>
+        public static int TriggerFiltered { get; private set; }
+        /// <summary>本局累计表（只读口；`Add` 之后会清空）。</summary>
+        public static List<TriggerStat> CurrentMatchTriggers { get { return _pendingTriggers; } }
+
+        /// <summary>原版 `BattleManager.LogActivatedTrigger(isPlayer, trigger)`
+        /// → `ChallengeLogMgr.LogTriggerAbility(isPlayer, trigger)` 的等价物。
+        /// <param name="triggerName">🔶 可选：枚举名（只用于战报里人读；原版信号里没有这一格）。</param>
+        /// <returns>`true` = 这一条**发了信号**（`false` = 被那三条过滤挡掉）。</returns>
+        public static bool LogTriggerAbility(bool isPlayer, int trigger, string triggerName = null)
+        {
+            // ① 原版那三条过滤（ILSpy `ChallengeLogMgr.cs:580`）—— 逐字照抄，⛔ 别「顺手放开」。
+            if (trigger == TriggerWhileInPlay || trigger == TriggerWhileInPlayVariable
+                || trigger == TriggerTriggeredSynapse)
+            {
+                TriggerFiltered++;
+                return false;
+            }
+
+            // ② 原版 `Signal.Raise`。⚠️ 订阅者抛异常不能把整条结算链带崩 ⇒ 逐个 try（我们自己加的保护，
+            //    原版 Signal 的行为未查到 ⇒ 按「不许静默炸掉战斗」这条项目红线处理，并出声）。
+            TriggerSignals++;
+            var h = TriggerAbility;
+            if (h != null)
+            {
+                var subs = h.GetInvocationList();
+                for (int i = 0; i < subs.Length; i++)
+                {
+                    try { ((System.Action<bool, int>)subs[i])(isPlayer, trigger); }
+                    catch (System.Exception e)
+                    {
+                        UnityEngine.Debug.LogError("[BattleLog] `TriggerAbility` 订阅者抛异常（trigger="
+                                                 + trigger + " isPlayer=" + isPlayer + "）：" + e);
+                    }
+                }
+            }
+
+            // ③ 🔶 自设计：按局累计（同一 `(方, trigger)` 合一条）。
+            for (int i = 0; i < _pendingTriggers.Count; i++)
+            {
+                var t = _pendingTriggers[i];
+                if (t.Trigger == trigger && t.IsPlayer == isPlayer)
+                {
+                    t.Count++;
+                    if (!string.IsNullOrEmpty(triggerName)) t.Name = triggerName;
+                    return true;
+                }
+            }
+            _pendingTriggers.Add(new TriggerStat
+            {
+                Trigger = trigger,
+                Name = triggerName,
+                IsPlayer = isPlayer,
+                Count = 1,
+            });
+            return true;
+        }
+
+        /// <summary>清掉本局累计与两个计数（自检 / 新一局之前调）。⛔ 不发信号、不碰盘。</summary>
+        public static void ResetTriggerLogForTest()
+        {
+            _pendingTriggers.Clear();
+            TriggerSignals = 0;
+            TriggerFiltered = 0;
+        }
+
+        /// <summary>本局累计的**总次数**（各条 `Count` 之和）—— 自检「触发 N 次 ⇒ 条数 = N」用它。</summary>
+        public static int TriggerTotal
+        {
+            get
+            {
+                int n = 0;
+                for (int i = 0; i < _pendingTriggers.Count; i++) n += _pendingTriggers[i].Count;
+                return n;
+            }
+        }
+
+        /// <summary>把本局累计挂到一条对局记录上（`Add` 调；也可由宿主显式调）。
+        /// 返回拷进去的条数（0 = 这一局一条都没触发 ⇒ `Triggers` 保持 `null`，与老存档同形）。</summary>
+        public static int AttachPendingTriggers(Match m)
+        {
+            if (m == null) return 0;
+            int n = _pendingTriggers.Count;
+            if (n == 0) return 0;
+            m.Triggers = _pendingTriggers.ToArray();
+            _pendingTriggers.Clear();
+            return n;
+        }
     }
 }

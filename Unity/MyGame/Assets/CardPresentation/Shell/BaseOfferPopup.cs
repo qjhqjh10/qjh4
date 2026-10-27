@@ -92,10 +92,10 @@
 //      只作用于**位置**，不作用于节点自己的坐标系。）
 //      ⚠️ **本件没跑 Unity ⇒ 没有实拍复核**，结论**只到「静态推导成立」这一层**（真 Play 时重点看这一条，
 //      已记进报告 §八）。
-//   ② **两张图工程里没有** —— `40k_shop_popup_info_bg`（`Artwork/background` 的 prefab sprite）与
-//      `40k_OfferBadge`：`Resources/Art/{ui_menu,ui_deck,ui}/` 三个目录逐个 `ls` 过，**两张都 MISSING**
-//      （`40k_OfferBadge.png` 只躺在 `Art/原版/0_mainmenu/` 下、**没进 `Resources/`**）。
-//      ⇒ 那两处**只建节点、不画**（节点照建，保证树的形状对），并记进 `MissingArt` + **出声**。
+//   ② 🔴 **2026-10-27（B1UI · 铁律 5）就地订正：原来是「两张图工程里没有」，现在两张都在了** ——
+//      `40k_shop_popup_info_bg` 与 `40k_OfferBadge` **都已在 `Resources/Art/ui_menu/`**（`ls` 实测；10-24 批量导入）。
+//      ⚠️ `Resources/Art/` **在 `.gitignore` 里** ⇒ 换机 / 清库后要重跑 `工具/import_offer_backgrounds.py`（两格含它）。
+//      ⇒ 下面两处**照常画**（`Art()` 取不到时仍只建节点 + 出声，那条兜底不删）；`MissingArt` 今天应当是空的。
 //      ⛔ **别拿别的图顶上**（红线：不许静默用别的东西冒充）。
 //   ③ **`Descripton` 那一栏** —— 原版由 `GetLabel(offer, 1)` 运行期覆盖。
 //      🔴 **2026-10-19（`A1853②`）就地订正**：原来这里写「本地没有报价 ⇒ 恒用出厂原文」——
@@ -183,8 +183,8 @@ namespace CardPresentation
         /// 算式**只有一份**（`MenuDraw.PaddedRect`），⛔ 别在这儿再写一遍。口径 → `资料/普查产出_第四会话/
         /// 普查_全仓命中区与关闭键族.md` §〇-1。⚠️ 同族先例（写法照它）：`Shell/LeaderboardWindow.cs`。</summary>
         static readonly Vector4 ClosePad = new Vector4(-20f, -20f, -20f, -20f);
-        const string ArtArtworkBg = "40k_shop_popup_info_bg";          // 🔴 **没进 Resources/** —— 见文件头 ②
-        const string ArtOfferBadge = "40k_OfferBadge";                  // 🔴 **没进 Resources/** —— 见文件头 ②
+        const string ArtArtworkBg = "40k_shop_popup_info_bg";          // ✅ 2026-10-27 起在 Resources（见文件头 ②）
+        const string ArtOfferBadge = "40k_OfferBadge";                  // ✅ 2026-10-27 起在 Resources（见文件头 ②）
         const string ArtBtn = "40K_button";
         const string ArtBtnHi = "40K_button_hover";
         const string ArtGlow = "OctagonUI_Filled_Fade_SDF";             // 原版名 `OctagonUI Filled Fade SDF`
@@ -792,11 +792,11 @@ namespace CardPresentation
             var artQ = bgTex != null ? MenuDraw.Rect(ArtworkNode, bgTex, G.ArtBg, "background", QArt) : null;
             ArtBgNode = artQ != null ? artQ.transform : MenuDraw.Node(ArtworkNode, "background", G.ArtBg);
             if (artQ == null)
-                Debug.Log("[BaseOffer] `Artwork/background` 的 sprite `" + ArtArtworkBg + "` **工程里没有**"
-                          + "（`Resources/Art/{ui_menu,ui_deck,ui}/` 三个目录逐个 ls 过）⇒ 节点照样建、**这一格空着不画**"
-                          + "（⛔ 不拿别的图顶上）。导入入口 = `工具/import_original_art.py` 的 `MENU_IMAGES`。");
+                Debug.Log("[BaseOffer] `Artwork/background` 的 sprite `" + ArtArtworkBg + "` **取不到**"
+                          + "（`Resources/Art/{ui_menu,ui_deck,ui}/` 三个目录都查过）⇒ 节点照样建、**这一格空着不画**"
+                          + "（⛔ 不拿别的图顶上）。导入入口 = `工具/import_offer_backgrounds.py --apply`。");
             BindBlink(artQ);   // 原版这一格挂 `BlinkGraphic`（21 份的组件列里都有它）
-            ArtFgNode = MenuDraw.Node(ArtworkNode, "foreground", G.ArtFg);
+            ArtFgNode = OfferContainer.BuildForeground(ArtworkNode, G.ArtFg, C.FgArt, QArt);
             // 那颗 `Image` 的 `m_Sprite` 出厂是**空**（运行期 `LoadAsset(offer, 2)` 灌）⇒ 只建节点、不画。
             ArtworkNode.gameObject.SetActive(v.ArtworkOn);
             ArtFgNode.gameObject.SetActive(v.ForegroundOn);
@@ -923,7 +923,7 @@ namespace CardPresentation
         /// 关掉，而它就是 `Offer Badge` 下那颗 TMP ⇒ 关的是 `Offer Badge`。</summary>
         void BuildBadge()
         {
-            var t = Art(ArtOfferBadge);
+            var t = Art(OfferContainer.BadgeArt);   // 🔴 2026-10-27（B1UI）订正：原来是 `Art(ArtOfferBadge)`=**错图**（见下）
             if (t != null)
             {
                 var bg = MenuDraw.Nine(TextNode, t, G.Badge, BadgeBorder, t.width, t.height, QBadge, BadgeTint,
@@ -933,8 +933,8 @@ namespace CardPresentation
             else
             {
                 BadgeNode = MenuDraw.Node(TextNode, "Offer Badge", G.Badge);
-                Debug.Log("[BaseOffer] `Offer Badge` 的 sprite `" + ArtOfferBadge + "` **没进 `Resources/`**"
-                          + "（只在 `Art/原版/0_mainmenu/` 下躺着）⇒ 节点照样建、**这一格空着不画**"
+                Debug.Log("[BaseOffer] `Offer Badge` 的 sprite `" + OfferContainer.BadgeArt + "` **取不到**"
+                          + "（`Resources/Art/{ui_menu,ui_deck,ui}/` 三个目录都查过）⇒ 节点照样建、**这一格空着不画**"
                           + "（⛔ 不拿别的图顶上）。");
             }
             var bt = MenuDraw.Text(BadgeNode, G.BadgeText, C.BadgeText, Color.white, "Text (TMP)", 38f, QBadgeText, face: TmpFont.Face.LatinCardBody);
@@ -1016,7 +1016,7 @@ namespace CardPresentation
             var disc = dq != null ? dq.transform : MenuDraw.Node(row, "Offer Price Discount Badge", G.Discount);
             if (dq == null)
                 Debug.Log("[BaseOffer] `Offer Price Discount Badge` 的 sprite `" + ArtOfferBadge
-                          + "` **没进 `Resources/`** ⇒ 节点照样建、**这一格空着不画**（同上，⛔ 不拿别的图顶上）。");
+                          + "` **取不到** ⇒ 节点照样建、**这一格空着不画**（同上，⛔ 不拿别的图顶上）。");
             disc.localRotation = Quaternion.Euler(0f, 0f, DiscountRotDeg);
             var dt = MenuDraw.Text(disc, G.DiscTitle, DefPrevPriceTitle, Color.white, "Discount Title", 28.15f, QBtn, face: TmpFont.Face.LatinCardBody);
             if (dt != null) dt.SetAutoFitBox(LayoutSpace.Px(G.DiscTitle.W), LayoutSpace.Px(G.DiscTitle.H), 18f, 72f, 36f);

@@ -29,6 +29,7 @@ namespace CardPresentation
             public string prefab;       // 环境 prefab 名（43 件那批）
             public string face;         // 卡面插画在原版贴图表里的名字（我们用同名的 PNG，见 `CardArt.OffensiveFace`）
             public int forgeLevel;      // 原版按锻造等级解锁（**我们全解锁**，只作记录）
+            public long cardRefPathID;  // 🆕 2026-10-27（B9_E2UDW）**防御卡**的原始 PPtr PathID（**64 位**，⛔ 别用 `int`：`JsonUtility` 会静默给错值）；进攻卡不收这个字段（恒 0）
         }
 
         [Serializable]
@@ -40,6 +41,7 @@ namespace CardPresentation
             public string emptyName;    // 「不使用进攻卡」那张的卡名（`Normal Conditions` 一族）
             public string emptyFace;
             public Card[] cards;
+            public Card[] defensiveCards; // 🆕 2026-10-27（B9_E2UDW）**防御卡槽**（原版 `defensiveCards(+0x30)`；账 208 的防御半边）。⚠️ `name` 恒空串（卡名解不出，见 `数据/游戏数据/defensive_cards.json` 的 `_unresolved`）
         }
 
         [Serializable] class File { public Army[] armies; }
@@ -149,6 +151,111 @@ namespace CardPresentation
             int n = 0;
             if (_armies != null) foreach (var a in _armies) n += a.cards != null ? a.cards.Length : 0;
             return n;
+        }
+
+        // ==================================================================
+        //  🆕 2026-10-27（`B9_E2UDW`）：**轮抽**那一档的环境卡可用集合（账 208 / J-11）
+        // ==================================================================
+
+        /// <summary>
+        /// 原版 **`EnviromentalEffectCardsSO.GetEnvCardListDraft(CardArmy useArmy, bool shouldUseOffensive, int currentDraftVictories)`**
+        /// —— 轮抽模式下「这一轮能拿到哪几张环境卡」。
+        ///
+        /// <para>判据（🥇 `decomp_full/EnviromentalEffectCardsSO__GetEnvCardListDraft.c:1-120`；逐条整理见
+        /// `判据/B9_特效C_施工单.tsv` 行 208）：
+        /// ① 新建空表；② **`currentDraftVictories < 3 && shouldUseOffensive` ⇒ 直接返回空表**；
+        /// ③ 在 `enviromentalEffects(+0x18)` 里找 `army(+0x10) == useArmy` 那条（找不到 ⇒ 空表）；
+        /// ④ **防御**（`shouldUseOffensive == 0`）：`defensiveCards(+0x30)` —— **恒加 `[0]`**、`> 5` 加 `[1]`、`> 8` 加 `[2]`；
+        /// ⑤ **进攻**（`shouldUseOffensive != 0`）：`offensiveCards(+0x28)` —— `> 2` 加 `[0]`、`> 5` 加 `[1]`、`> 8` 加 `[2]`；
+        /// ⑥ 返回。</para>
+        ///
+        /// <para>⚠️ **阈值逐格照抄（`>5` / `>8` 是严格大于，⛔ 别改成 `>=`）**；也 ⛔ **别复用
+        /// <see cref="ChoicesOwnedAt"/>** —— 那个按**锻造等级**筛（= `GetEnvCardList` 的语义），
+        /// 与本方法按**轮抽胜场**筛是两套闸。</para>
+        ///
+        /// <para>观测口径（施工单 208 的验收口）：`victories = 0/2/3/6/9` ⇒ 防御可用卡数 **1/1/1/2/3**、
+        /// 进攻 **0/0/1/2/3**（数据现读 = 每阵营 3 槽，13 阵营全一致）。</para>
+        ///
+        /// <para>@return 可用卡（**不含**「不使用进攻卡」那张：原版 `…Draft` 只往表里加 `offensiveCards` /
+        /// `defensiveCards` 两个数组的元素）；取不到阵营 / 未解锁 ⇒ **空表**（不是 null）。</para>
+        /// </summary>
+        public static List<Card> ChoicesForDraft(string faction, bool offensive, int victories)
+        {
+            var outp = new List<Card>();
+            if (offensive && victories < 3) return outp;        // ②
+            var a = For(faction);                               // ③
+            if (a == null) return outp;
+            if (!offensive)
+            {
+                // ④ 防御：恒给 [0]，>5 给 [1]，>8 给 [2]
+                if (a.defensiveCards == null)
+                {
+                    if (!_warnedNoDefensive)
+                    {
+                        _warnedNoDefensive = true;
+                        Debug.LogWarning("[OffensiveCards] `OffensiveCards.json` 里这个阵营**没有 `defensiveCards`**"
+                                       + "（旧版产物）⇒ 轮抽的防御卡集合恒空。修法：重跑 "
+                                       + "`工具/gen_defensive_cards.py --apply` 再跑 `工具/gen_offensive_cards_flat.py`。");
+                    }
+                    return outp;
+                }
+                AddSlot(outp, a.defensiveCards, 0);
+                if (victories > 5) AddSlot(outp, a.defensiveCards, 1);
+                if (victories > 8) AddSlot(outp, a.defensiveCards, 2);
+                return outp;
+            }
+            // ⑤ 进攻：>2 给 [0]，>5 给 [1]，>8 给 [2]
+            if (victories > 2) AddSlot(outp, a.cards, 0);
+            if (victories > 5) AddSlot(outp, a.cards, 1);
+            if (victories > 8) AddSlot(outp, a.cards, 2);
+            return outp;
+        }
+
+        static void AddSlot(List<Card> outp, Card[] arr, int i)
+        {
+            if (arr == null || i < 0 || i >= arr.Length || arr[i] == null) return;
+            outp.Add(arr[i]);
+        }
+
+        static bool _warnedNoDefensive;
+
+        /// <summary>自检口：把「阵营 × 胜场」的可用卡数打成一张表（供自检宿主断言）。
+        /// <para>口径 = <see cref="ChoicesForDraft"/> **同一份**规则（⛔ 别在自检里另写阈值）。
+        /// 期望（施工单 208）：防御 `victories = 0/2/3/6/9` ⇒ **1/1/1/2/3**、进攻 ⇒ **0/0/1/2/3**。</para>
+        /// <para>⚠️ 本工程**无 asmdef** ⇒ 自检宿主（`Editor/*.cs`）直接 `OffensiveCards.DumpDraftAvailabilityForTest()`。</para></summary>
+        public static string DumpDraftAvailabilityForTest()
+        {
+            var sb = new System.Text.StringBuilder();
+            var armies = All;
+            if (armies == null) return "[OffensiveCards] `OffensiveCards.json` 没读到（见上面的日志）⇒ 无法出表";
+            int[] vs = { 0, 2, 3, 6, 9 };
+            int bad = 0;
+            foreach (var a in armies)
+            {
+                if (a == null || string.IsNullOrEmpty(a.army)) continue;
+                sb.Append(a.army).Append(": ");
+                for (int i = 0; i < vs.Length; i++)
+                {
+                    int d = ChoicesForDraft(a.army, false, vs[i]).Count;
+                    int o = ChoicesForDraft(a.army, true, vs[i]).Count;
+                    sb.Append("v").Append(vs[i]).Append("=防").Append(d).Append("/攻").Append(o)
+                      .Append(i + 1 < vs.Length ? " " : "");
+                    int wantD = 1 + (vs[i] > 5 ? 1 : 0) + (vs[i] > 8 ? 1 : 0);
+                    int wantO = (vs[i] > 2 ? 1 : 0) + (vs[i] > 5 ? 1 : 0) + (vs[i] > 8 ? 1 : 0);
+                    if (!DefensiveSlotsShort(a) && d != wantD) bad++;
+                    if (o != wantO) bad++;
+                }
+                sb.AppendLine();
+            }
+            sb.Append("期望：防 1/1/1/2/3 · 攻 0/0/1/2/3 ；不符格数 = ").Append(bad);
+            return sb.ToString();
+        }
+
+        /// <summary>该阵营的防御槽少于 3 条（数据本身就凑不满那三档）⇒ 上面那张表按「数据的实际槽数」判，
+        /// ⛔ 不把数据缺口记成逻辑错。现读 13 个阵营都是 3 槽 ⇒ 恒 false。</summary>
+        static bool DefensiveSlotsShort(Army a)
+        {
+            return a.defensiveCards == null || a.defensiveCards.Length < 3;
         }
     }
 }

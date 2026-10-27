@@ -20,7 +20,9 @@ using System.Collections.Generic;
 
 namespace CardPresentation
 {
-    /// <summary>战役的**本地**状态。**纯内存 + 可复现**（不用 `UnityEngine.Random`）。</summary>
+    /// <summary>战役的**本地**状态。**可复现**（不用 `UnityEngine.Random`）。
+    /// <para>🆕 2026-10-27（`E3CMP`）：进度**不再是纯内存** —— `_base` / `_prem` / `Selected` 落
+    /// `SaveKeys.ActiveCampaign`（见文件尾「进度存档」那段）；批处理自检仍拿到干净起手态（读档被 `SaveCenter.StoreOn` 挡住）。</para></summary>
     public static class CampaignData
     {
         // ============================================================ 原版常量
@@ -147,6 +149,7 @@ namespace CardPresentation
         {
             BuildPrev();
             ResetForTest();
+            LoadFromSave();   // 🆕 2026-10-27（E3CMP）：进度落 `SaveKeys.ActiveCampaign`（见文件尾「进度存档」那段）
         }
 
         static void BuildPrev()
@@ -211,12 +214,14 @@ namespace CardPresentation
                 if (!_base[i]) _base[i] = true;            // 原版 `Collect(Premium)` 直接把 State 推到 30（基础+高级都算领了）
                 // 🆕 **2026-10-25（执行代理 `X18`）**：`Ach_16`（完成战役）的唯一写点（判据 §B-3 #8）。
                 NotifyCampaignCompletionIfAllClaimed();
+                SaveToSave();                              // 🆕 2026-10-27（E3CMP）：进度落盘
                 return true;
             }
             if (_base[i]) { why = "基础档已经领过了"; return false; }
             _base[i] = true;
             // 🆕 同上：这一格领完可能就是**最后一格** ⇒ 每次成功领取都问一次（幂等，见那个方法）。
             NotifyCampaignCompletionIfAllClaimed();
+            SaveToSave();                                  // 🆕 2026-10-27（E3CMP）：进度落盘
             return true;
         }
 
@@ -248,7 +253,9 @@ namespace CardPresentation
             return true;
         }
 
-        /// <summary>自检用：把进度推回初值（只解锁根节点）。</summary>
+        /// <summary>自检用：把进度推回初值（只解锁根节点）。
+        /// ⚠️ **只清内存、不动盘上的档**（批处理里 `SaveCenter.StoreOn == false` ⇒ 本来也没读进来；
+        /// 真机里调它 = 内存清空，下一次 `Claim`/`Select` 才把清空后的状态写回去）。</summary>
         public static void ResetForTest()
         {
             for (int i = 0; i < Nodes.Length; i++) { _base[i] = false; _prem[i] = false; }
@@ -304,7 +311,7 @@ namespace CardPresentation
         public static void Select(string army)
         {
             if (string.IsNullOrEmpty(army)) return;
-            foreach (var a in Armies) if (a == army) { Selected = a; return; }
+            foreach (var a in Armies) if (a == army) { Selected = a; SaveToSave(); return; }   // 🆕 2026-10-27（E3CMP）：选中的阵营也落盘
         }
 
         /// <summary>节点图上某一格的**显示名**（我们只有 `NodeId`；原版节点上也不印名字，这里给 tooltip/诊断用）。</summary>
@@ -525,6 +532,121 @@ namespace CardPresentation
                 if (!ok) return false;
             }
             return true;
+        }
+
+        // ============================================================ Premium 战役（13 阵营，本地全在）
+        //
+        //  🆕 2026-10-27（`E3CMP` · 界面线任务表「`Premium Campaign` 15 个 SO 只抄了 UM 一套」）：
+        //  原版**每个阵营一份 `PremiumItem` SO** —— `bundle_menus_assets_all/MonoBehaviour/Premium Campaign <X>.json`
+        //  （逐份实读：`id` · `cardArmy` · `itemIcon` · `localizationKey` 全是 `MenuShop/PremiumCampaign`）。
+        //  🔴 **是 14 份不是 15**：13 阵营 `PremiumItem` + **1 份 `Premium Campaign Store`**
+        //  （`eventId PremiumCampaignStore` = LiveOps 商店定义，**不是** `PremiumItem`，归 `ShopData`）。
+        //  判据 → `判据/T4_532与PremiumCampaign_判据.md` §「摘要」第 2 条（那里就地订正过「15」这个数）。
+        //  ⚠️ 文件头「本地只有 UM 这一套」说的是**节点表**（`Campaign Node Data*.json` 只有 `UM` 前缀）；
+        //     **premium 定义 13 个阵营本地全在** —— 两件事别混。
+        //  ⚠️ 图标**不另存一份**：那 13 张就是 `ArmyIcons` 那一族的 `40k_DeckSelection_icon_Faction*`
+        //     （逐条比对过：GOF→`…FactionOrks` / GSC→`…Genestealers` / SW→`…SpaceWolves` …）⇒ 走 `ArmyIcons.IconName`。
+
+        /// <summary>一个阵营的 premium 战役定义（= 原版 `PremiumItem` SO 里我们真正用到的那三格）。</summary>
+        public struct PremiumItem
+        {
+            /// <summary>`CardArmy` 值（10…130；= SO 的 `cardArmy`）。</summary>
+            public int Army;
+            /// <summary>SO 的 `id`（= 商店 `items[].targetId`，`premium_campaign_xx`）。</summary>
+            public string Id;
+            /// <summary>SO 名（= `m_Name`，只给诊断/tooltip 用）。</summary>
+            public string SoName;
+        }
+
+        /// <summary>13 条，`Army` / `Id` / `SoName` **逐份从 SO 实读**（见上那段判据）。顺序 = `ArmyIcons` 的序列化顺序。</summary>
+        static readonly PremiumItem[] PremiumTable =
+        {
+            new PremiumItem { Army =  10, Id = "premium_campaign_um",  SoName = "Premium Campaign UM"  },
+            new PremiumItem { Army =  20, Id = "premium_campaign_gof", SoName = "Premium Campaign GOF" },
+            new PremiumItem { Army =  30, Id = "premium_campaign_ash", SoName = "Premium Campaign ASH" },
+            new PremiumItem { Army =  40, Id = "premium_campaign_sau", SoName = "Premium Campaign SAU" },
+            new PremiumItem { Army =  50, Id = "premium_campaign_bl",  SoName = "Premium Campaign BL"  },
+            new PremiumItem { Army =  60, Id = "premium_campaign_tl",  SoName = "Premium Campaign TL"  },
+            new PremiumItem { Army =  70, Id = "premium_campaign_tau", SoName = "Premium Campaign TAU" },
+            new PremiumItem { Army =  80, Id = "premium_campaign_sor", SoName = "Premium Campaign SOR" },
+            new PremiumItem { Army =  90, Id = "premium_campaign_gsc", SoName = "Premium Campaign GSC" },
+            new PremiumItem { Army = 100, Id = "premium_campaign_am",  SoName = "Premium Campaign AM"  },
+            new PremiumItem { Army = 110, Id = "premium_campaign_da",  SoName = "Premium Campaign DA"  },
+            new PremiumItem { Army = 120, Id = "premium_campaign_ec",  SoName = "Premium Campaign EC"  },
+            new PremiumItem { Army = 130, Id = "premium_campaign_sw",  SoName = "Premium Campaign SW"  },
+        };
+
+        /// <summary>13 条（自检读口）。</summary>
+        public static PremiumItem[] PremiumAll { get { return (PremiumItem[])PremiumTable.Clone(); } }
+
+        /// <summary>阵营名（`CardDef.Faction` 口径）→ premium 定义；认不出 ⇒ `false`（`out` = `default`，⛔ 别拿它当查到了）。</summary>
+        public static bool TryPremium(string army, out PremiumItem it)
+        {
+            it = default(PremiumItem);
+            if (string.IsNullOrEmpty(army)) return false;
+            for (int i = 0; i < PremiumTable.Length; i++)
+            {
+                ArmyIcons.Entry e;
+                if (!ArmyIcons.TryGet(PremiumTable[i].Army, out e)) continue;
+                if (e.Faction == army) { it = PremiumTable[i]; return true; }
+            }
+            return false;
+        }
+
+        /// <summary>阵营名 → premium 那条的**图标** sprite 名（`ArmyIcons` 那一族）；认不出 ⇒ **`null`**
+        /// （⛔ 别兜底成某个阵营的图 —— 那会把「这一格没有」画成别人的徽记）。</summary>
+        public static string PremiumIcon(string army)
+        {
+            PremiumItem it;
+            return TryPremium(army, out it) ? ArmyIcons.IconName(it.Army) : null;
+        }
+
+        // ============================================================ 进度存档（`SaveKeys.ActiveCampaign`）
+        //
+        //  🆕 2026-10-27（`E3CMP`）：原来 `_base/_prem` **只在内存**（静态构造里 `ResetForTest()`）⇒
+        //  退出即丢，`Ach_16`（完成战役）也永远只是「这一趟领完了」。现在落到 `SaveKeys.ActiveCampaign`
+        //  （那个键早就登记着、**全仓零使用**，判据 `SaveKeys.cs:68`/`:254`）。
+        //  🔴 **按节点 id 存、不按下标**：节点表将来加一格不会把旧档错位。
+        //  🔴 **读档只在「会写盘的那一趟」**（`SaveCenter.StoreOn`）：批处理自检 / 探针保持**干净起手态**
+        //     —— 与 `SaveCenter.StoreOn` 自己的那条 doc（「② 否则只有真在一局里才允许」）同源。
+
+        /// <summary>`SaveKeys.ActiveCampaign` 的 payload。字段名即 JSON 键（`JsonUtility`）。</summary>
+        [Serializable]
+        public sealed class SaveBlob
+        {
+            public int ver = 1;
+            /// <summary>选中的阵营（`Selected`）。</summary>
+            public string selected;
+            /// <summary>领过**基础档**的节点 id。</summary>
+            public List<string> baseClaimed = new List<string>();
+            /// <summary>领过**高级档**的节点 id。</summary>
+            public List<string> premClaimed = new List<string>();
+        }
+
+        /// <summary>把盘上的进度并进来（静态构造的最后一步）。**认不出的 id 跳过**（表变过也不炸）。</summary>
+        static void LoadFromSave()
+        {
+            if (!SaveCenter.StoreOn) return;
+            SaveBlob b = SaveCenter.Get<SaveBlob>(SaveKeys.ActiveCampaign);
+            if (b == null) return;
+            if (!string.IsNullOrEmpty(b.selected))
+                foreach (var a in Armies) if (a == b.selected) { Selected = a; break; }
+            if (b.baseClaimed != null)
+                for (int k = 0; k < b.baseClaimed.Count; k++) { int i = IndexOf(b.baseClaimed[k]); if (i >= 0) _base[i] = true; }
+            if (b.premClaimed != null)
+                for (int k = 0; k < b.premClaimed.Count; k++) { int i = IndexOf(b.premClaimed[k]); if (i >= 0) _prem[i] = true; }
+        }
+
+        /// <summary>把当前进度写回盘（`Claim` 成功 / `Select` 之后）。`StoreOn == false` 时它自己会丢弃并出声。</summary>
+        static void SaveToSave()
+        {
+            var b = new SaveBlob { selected = Selected };
+            for (int i = 0; i < Nodes.Length; i++)
+            {
+                if (_base[i]) b.baseClaimed.Add(Nodes[i].Id);
+                if (_prem[i]) b.premClaimed.Add(Nodes[i].Id);
+            }
+            SaveCenter.Set(SaveKeys.ActiveCampaign, b);
         }
     }
 }

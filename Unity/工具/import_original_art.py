@@ -97,7 +97,10 @@ def frame_src(prefix: str) -> str:
 #
 # ⚠️ 原版卡框是**按 tier 分四张**的（tier1..4），稀有度说了算 —— 每档都导。
 #    `CardArt.Frame(阵营, 稀有度)` 按稀有度取；取不到退回 tier1。
-# ⚠️ 新解包里每个阵营还有一套 `_SDF` 变体（SoftMask 用的软边版），**我们没用**。
+# ⚠️ 新解包里每个阵营还有一套 `_SDF` 变体（距离场软光/影版）—— 它**由另一个脚本导入**：
+#    `工具/import_original_card_sdf.py`（13 阵营 × 4 tier × 2 类型 = 104 张 → `Resources/Art/card_sdf/<阵营>_tier<N>.png`，
+#    消费口 `CardArt.Sdf`）。本脚本（import_original_art.py）**不导 SDF**，只导下面这两套主框。
+#    🔴 2026-10-27 C2T7 就地订正：原句写「**我们没用**」已过期（SDF 早已导入 104 张并在用）。
 # ⚠️ `ember` / `tide` 是我们自己设计的两套卡，**借**了原版两个阵营的框（配色对得上）；
 #    其余 11 个是原版阵营本身、用它们自己的框。
 # 原版每个阵营有**两套**框：`troop`（部队/单位/督军）和 `stratagem`（战术/计策卡），各 4 档。

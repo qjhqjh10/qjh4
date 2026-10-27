@@ -1709,10 +1709,10 @@ namespace CardPresentation
                 MenuDraw.ShadeHit(root, sr, QShade, QOverlay, () => Close(), "BackgroundHit");
             }
 
-            // 2) 弹窗本体
+            // 2) 弹窗本体 🔴 2026-10-27（B1UI）补 `m_PixelsPerUnitMultiplier = 0.75`（`menu_dump` 现读）⇒ 端帽 169/0.75 = 225.33 而非 169；改前按 1.0 画（角块小一圈，**并排比才看得出**）
             var area = Node(root, "Menu Area", PopL, PopT, PopR, PopB);
-            Nine(area, "Generic Popup Background", PopL, PopT, PopR, PopB, ArtPopup, PopupTexW, PopupTexH,
-                 PopupBorder, QPanel, Color.white);
+            NineOut(area, "Generic Popup Background", PopL, PopT, PopR, PopB, ArtPopup, PopupTexW, PopupTexH, PopupBorder,
+                    new Vector4(PopupBorder.x / 0.75f, PopupBorder.y / 0.75f, PopupBorder.z / 0.75f, PopupBorder.w / 0.75f), QPanel);
             // 🆕 **2026-10-06（A94）：弹窗面板底图吸收点击**。判据 = 原版 prefab
             //   `Main Menu Settings Window > Menu Area > Generic Popup Background` 那颗 `Image` 的
             //   **`m_RaycastTarget = 1`**（2026-10-06 `rayscan` 实读），原版 rect = 391.3,164.8→1538.2,923.6。
@@ -3257,8 +3257,8 @@ namespace CardPresentation
                           null, 0f, 12f, fs, 12f);
             if (lb != null) _genLabels.Add(new Keyed(lb, key));
             // 悬停换图与联机页那几颗同一条路（`40K_button` → `40K_button_hover`，`WindowButton` 的表里有）
-            Hit(n, "Hit", x1, GenBtnT, x2, y2, QOverlay, () => { Debug.Log($"[Settings] 点了 `{Loc.T(key)}`"); onClick(); },
-                aq, ArtButton);
+            var hitNode = Hit(n, "Hit", x1, GenBtnT, x2, y2, QOverlay, () => { Debug.Log($"[Settings] 点了 `{Loc.T(key)}`"); onClick(); },
+                aq, ArtButton); if (hitNode == null) { var vp = ViewportClip.FindAbove(n); Debug.LogError("[Settings] 钮 `" + name + "` 的命中区**没建出来**（rect " + new PxRect(x1, GenBtnT, x2, y2) + " · 最近视口 " + (vp == null ? "<无>" : (vp.ClipPx.HasValue ? vp.ClipPx.Value.ToString() : "<无>")) + "）⇒ 点它只会落到吸收层 `AbsorbHit`（2026-10-27 真机实测；⛔ 不许静默）"); }
         }
 
         /// <summary>🆕 **2026-10-19（`A1186` 裁定 ②）**：`General` 页上那颗 **`Online` 入口钮**

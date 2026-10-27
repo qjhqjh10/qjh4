@@ -2454,8 +2454,8 @@ namespace CardPresentation
             {
                 var d = State.Find(id);
                 if (d == null) continue;
-                if (d.Type == "unit") troops++;          // 原版 `cardType == 0`（`CardTypeOptions.Minion`）
-                else if (d.Type == "tactic") stratagems++;   // 原版 `cardType == 0x14`（`Tactic`）
+                if (d.Type == "unit") troops++;          // 原版 `cardType == 0`（`CardTypeOptions.Minion`）。⚠️ 2026-10-27（批次 9 · `E7ENG` · 普查 `判据/cardType判据点普查.md` §3·5）：**两格就够，⛔ 别补 `defence`/`enchantment` 格子** —— 真值里那两种 `type` 也是 `cardType 20`（按原版口径本应计入 stratagems），但它们**结构上进不了 `CardIds`**：`defence` 走 `PlayerDeck.DefensiveId` 独立字段（`DeckRules.cs:299` 也拦住了），`enchantment` 是 `inventoryOptions = 10 NotInInventory`；`DeckInfoPopup.cs:1885` 也是同一句「防御卡不在 `CardIds` 里」⇒ 补那两个格子 = 永远走不到的死分支。
+                else if (d.Type == "tactic") stratagems++;   // 原版 `cardType == 0x14`（`Tactic`）—— `defence`/`enchantment` 为什么不算见上一行（同一理由：进不了 `CardIds`，补格子 = 死代码）
             }
             SetTypeCounter(_tcTroops, TcTermTroops, troops);
             SetTypeCounter(_tcStratagems, TcTermStratagems, stratagems);

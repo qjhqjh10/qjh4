@@ -399,12 +399,12 @@ namespace CardPresentation
         /// <para>⚠️ 放在非泛型基类上（原版也是这样）：`ResetEventProgress` 的三跳里最后一跳就是它。</para></summary>
         public virtual void SaveEventProgress(Action onSuccess, Action onFail) { }
 
-        /// <summary>原版 `LiveOpsEvent.IsActive()`（virtual，无参版）：按**当前时间**问 data。
-        /// 判据 = `LiveOpsEvent.cs:150`；语义 = `GetBaseData().IsActive(now)`（`includePlanned = false`）。</summary>
+        /// <summary>原版 `LiveOpsEvent.IsActive()`（virtual，无参版）：**读存档位** `save.IsActive`。
+        /// 判据 = `Everguild.LiveOps.LiveOpsEvent__IsActive.c` / `LiveOpsEvent.cs:150-165`：`OneTime && save.IsCompleted ⇒ false`，否则 `return save.IsActive`（⚠️**不是**日期窗）。</summary>
         public virtual bool IsActive()
         {
-            var d = GetBaseData();
-            return d != null && d.IsActive(LiveOpsClock.NowUtc, false);
+            var d = GetBaseData(); var s = GetBaseSave();
+            if (d == null || s == null) { Debug.LogError("[LiveOps] 活动 '" + GetID() + "' 的 IsActive()：没有 data 或 save（原版会 NRE）⇒ 返回 false"); return false; } else return s.IsActive && !(d.activationType == LiveOpsActivationType.OneTime && s.IsCompleted);
         }
 
         /// <summary>原版 `LiveOpsEvent.Dispose()`（`Everguild.LiveOps.LiveOpsEvent__Dispose.c`，**逐句**）：

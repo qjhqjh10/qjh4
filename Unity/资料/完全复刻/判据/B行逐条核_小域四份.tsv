@@ -1,0 +1,50 @@
+域	方法	原等级	建议等级	判据出处	我们的落点(文件:行)	一句结论	还差什么
+卡组编辑	SetPlayerData(PlayerBattleData playerBattleData)	B	B	decomp_full/DeckAndWarlordData__SetPlayerData.c 全文 + cpp2il dev :680-747（ILSpy 偏移是碎的，以 .c 为准）	CardPresentation/Battle/BattleDriver.cs:34237（MetaOf）（等价实现 = MetaOf(deck, cards, who)：建 `PlayerBattleMeta` 并按同一份偏移表灌；头像/头像框/称号取本地档案 `Shell/ProfileData`（来源不同、语义同））	P3：能拿到的七格已灌(deckName/cardback/avatar/border/title+…)，服务器那几格离线无数据源且每次开局出声列出	P3 服务端 PlayerBattleData 字段
+卡组编辑	SetupSerializedData(SerializedPlayerDeckData serializedData, PlayerDataManager playerData)	B	B	decomp_full/DeckAndWarlordData__SetupSerializedData.c 全文 + cpp2il dev :235-	CardPresentation/Battle/BattleDriver.cs:34089（TierOfCard）（等价实现 = TierOfCard / BuildOpeningDeckData：③ 由 `ResolveDeck` 按 id 还原（卡 id 已是真 id，⛔ 不走名字匹配）；④ `_cardTiers` 由 `CardProgress.Level − 1` 建 + 督军单独补；⑤ 见 `MetaOf`）	③④已接（督军 tier 也按原版步骤④补）；①②⑤的 DTO 反序列化在 DeckRules（别的包）	DTO 反序列化入口(DeckRules)
+卡组编辑	ConfigPrefab(UICardInfoItem cardInfo)	B	B	out_cpp2il_dev_ilspy/DeckListDrawer.cs:550-561（🥈）	Shell/PracticeModePopup.cs:2423（BuildCardRows）	原版只把行模板 SetActive(false)；我们代码直接建行、无模板 prefab ⇒ 无独立实现行(§4.1)	行模板/独立落点
+卡组编辑	OnDestroy()	B	B	out_cpp2il_dev_ilspy/DeckSelectorMenuItemDemo.cs:41-46（🥈）	Shell/PracticeModePopup.cs:1922（RebuildDeckRows）	原版只退订 button 监听；我们的格随重建整棵销毁、无独立退订(§4.1)	独立退订
+卡组编辑	SetTutorialIndex(int index)	B	B	out_cpp2il_dev_ilspy/DemoDeckInfoSO.cs:104-107（🥈）+ decomp_full/DemoDeckInfoSO__SetTutorialIndex.c（🥇）	—（字段级：`CardPresentation/Shell/TutorialModePopup.cs:251（Idx）`）	运行期写 SO 的 tutorialIndex(0调用点) vs 我们静态 Idx 常量表；落点为字段(§4.1)	方法级落点
+卡组编辑	GetCardLibrary(List<RawCardScript> fullCardCollection)	B	B	out_cpp2il_dev_ilspy/PrebuiltDeck.cs:129-254（🥈）	Shell/PrebuiltDecks.cs:419（ToPlayerDeck）	生成期做同一件事(逐id Find/缺失/Reverse)；运行期方法未逐条核	逐方法核
+卡组编辑	IsIncompleteLibrary()	B	B	out_cpp2il_dev_ilspy/PrebuiltDeck.cs:403-441（🥈）+ decomp_full/PrebuiltDeck__IsIncompleteLibrary.c（🥇）	—（字段级：`CardPresentation/Shell/PrebuiltDecks.cs:98（complete）/ :99（missing）`）	生成期写 complete/missing vs 原版运行期查询(0调用点)；落点为字段(§4.1)	方法级落点
+卡组编辑	SetHero(RawCardScript card)	B	B	out_cpp2il_dev_ilspy/PrebuiltDeck.cs:448-460（🥈）+ decomp_full/PrebuiltDeck__SetHero.c（🥇）	—（字段级：`CardPresentation/Shell/PrebuiltDecks.cs` 的 `Deck.heroId`）	生成期由 heroId 定死 vs 原版运行期改 deckHero/runTimeDeckHero(0调用点)；落点为字段(§4.1)	方法级落点
+收藏	OnCollectionUpdate(CardCollectionUpdatedSignal signal)	B	B	CardCollectionDisplay.cs:96	Shell/CollectionWindow.cs:2262（RebuildCardsPage）/ :2476（RefreshStylesAfterFilter）—— 整页重建	原版信号⇒逐格 UpdateCardVisuals(不重建)；我们整页重建、无信号层	信号层或证明『窗开着集合不会变』
+收藏	ToFocus()	B	B	cpp2il/out_cpp2il_dev_ilspy/CardCollectionTab.cs:186-194（🥈）+ DeckCollectionTab.cs:158-165（🥈，同形）+ decomp_full/CardCollectionTab__ToFocus.c:2-17（🥇，体 = base + 对 [this+0x30] 调 UpdateCollection）	Shell/CollectionTabPage.cs:86-92（ToFocus 覆写，追加在类尾）→ Shell/CollectionWindow.cs:6358-6381（RefillCollectionForFocus：页 0 = RebuildDeckListNow / 页 1 = RebuildCardsCells + RefreshCardsEmpty）	回前台重灌已接(页0/1)；页2/3 不重灌(原版也没有 ToFocus 覆写)；G3 需真开窗观测	真开窗切后台观测
+收藏	OnDestroy()	B	B	CollectionCard.cs:164	—（我们的收藏卡格不是组件，装配内联在 `RebuildCardsCell`；无 DOTween Sequence 句柄）	原版 OnDestroy 只 Kill 一条 DOTween Sequence；我们无卡格组件/Sequence 句柄(§4.1)	卡格组件+Sequence
+收藏	Start()	B	B	CollectionCard.cs:29	—（收藏卡格没有 card2DController 高亮层，出厂态天然不高亮）	原版 Start 复位/关闭收藏卡格高亮；我们没有这个量(§4.1)	卡格高亮层
+收藏	_003CToggle_003Eb__9_0()	B	B	CollectionFilterController.cs:819	—（语义并入 CollectionFilterController.Toggle 那一行；这是它的 lambda 体，无方法级落点）	Toggle 的匿名闭包体；无方法级落点(§4.1)，随 Toggle 一起核	方法级落点
+收藏	Release(PlayModes? playMode)	B	B	GameModesIconCollection.cs:110	CardPresentation/Core/CardArt.cs:1268（ReleaseModeIcon）（等价实现 = 同一处：`ReleaseModeIcon(int?)` + 窄判据 `IsModeIconArt`(`:1255`) **同时覆盖 `Release()` / `Release(PlayModes?)` / `ReleaseAll()`**；差一跳接线 = `MenuDraw.ReleaseArtUnder` 里补一行）	CardArt.ReleaseModeIcon 已覆盖 Release/Release(PlayModes?)/ReleaseAll；差一跳接线 MenuDraw.ReleaseArtUnder	接线一跳
+收藏	ReleaseAll()	B	B	GameModesIconCollection.cs:91	CardPresentation/Core/CardArt.cs:1268（ReleaseModeIcon）（等价实现 = 同一处：`ReleaseModeIcon(int?)` + 窄判据 `IsModeIconArt`(`:1255`) **同时覆盖 `Release()` / `Release(PlayModes?)` / `ReleaseAll()`**；差一跳接线 = `MenuDraw.ReleaseArtUnder` 里补一行）	同上（同一处 ReleaseModeIcon 覆盖；『无句柄层』旧说法已订正为过期）	接线一跳
+收藏	TryRelease(PlayModes playModeToCheck)	B	B	GameModesIconCollection.cs:32	—（同上，无句柄层）	GetIcon 自身内联同一循环、全库 0 调用；无方法级落点(§4.1)	方法级落点
+收藏	Draw(ObtainableItem item, int amount, ItemDrawerOptions options)	B	判据缺	ItemDrawer.cs:356	Shell/ItemDrawer.cs:840（Draw）+ 1849（Dispatch）—— 结构对得上，但**逐跳对不上**	sealed override 体有 20+ 处 NoteDecompilerIssue（quantity/label/image 几跳读不到）	VA 反汇编那几跳 + 接 options 真值
+收藏	Draw(ObtainableItem item, int quantity, ItemDrawerOptions options)	B	B	ItemDrawer.cs:114	—（真体 = `ItemDrawer<T>` 的 sealed override `:356`）	基类 abstract 声明、无体；真体=sealed override(:356)	方法级落点
+收藏	Draw(T item, int quantity)	B	B	ItemDrawer.cs:905	—（真体在 23 个具体抽屉子类）	泛型 abstract 声明；真体散在 23 个抽屉子类	逐子类核 Draw
+收藏	GetItemName(T item)	B	判据缺	ItemDrawer.cs:888	Shell/ItemDrawer.cs:123（ItemSpec）（我们走数据层给 `Label`，不是逐子类 override）	基类体=间接跳转(vtable)，真值在 23 个子类 override（已解 2 条：DeckDrawer 等）	23 个子类 GetItemName 逐个解
+收藏	OnDestroy()	B	B	cpp2il/out_cpp2il_dev_ilspy/ItemDrawer.cs:134-141（🥈）：OnRelease() + if (drawerReferences.TryGetValue(this, out ref)) ref.Release(General)	Shell/ItemDrawerLeash.cs:20-50（挂在抽屉根节点上的薄 MonoBehaviour，OnDestroy → ItemDrawer.Release）· 登记处 Shell/ItemDrawer.cs:1871（同行追加 ItemDrawerLeash.Attach(v)，零行数变化）	ItemDrawerLeash 挂节点、随销毁→Release 的等价物已接；G3 需运行时读 HandleCount	运行时观测
+收藏	ToggleShowInfoOnClick(bool toggle)	B	B	ItemDrawer.cs:128	—（唯一实现 `:876-878` **是空体**；F7 已把 `(bool option)` 那条判 A）	abstract 无体；决定行为的是序列化字段 showItemInfoOnClick（已接 ShowInfoOnClickOf）；落点为字段	方法级落点
+收藏	OnDestroy()	B	B	WhereToGetCardsSection.cs:214	Shell/WhereToGetCardsPopup.cs —— **全文件无 OnDestroy / Release**（窗树销毁即释放）	该窗不建抽屉、无 OnDestroy/Release ⇒ 无句柄可释放	若将来改用 ItemDrawer 建格则重开
+收藏	Release()	B	B	WhereToGetCardsSection.cs:192	Shell/WhereToGetCardsPopup.cs —— **没有这个方法**	同上（全文件没有这个方法）	同上
+卡牌面/渲染	SetColliderNotInHand(CardStateOptions cardState)	B	B	CardCollider2D.cs:89 + 调用点 CardScript.cs:8379/8430/8457/8482/9080/16438 与 CardScript__RemoveFromGameCard.c:22-30（显式传 0xb）	CardPresentation/Battle/BattleDriver.cs:24811（PlayDeathFeel）（等价实现 = `CardView.SetHitEnabled(false)`：在「真进墓地」那一刻关掉那张视图的判定区）	进墓地半已接(SetHitEnabled(false))；removedFromGame(11) 无落点（RuleCore 该状态链未建）	removedFromGame 状态链
+卡牌面/渲染	OnDeselect(BaseEventData eventData)	B	B	TextTooltipController.cs:146	CardPresentation/Core/Tooltip.cs（EverguildTooltipItem 族；无逐方法入口）	等价闸在 Tooltip 族一处、无逐方法入口(§4.1)；同族真差异=C 行 L120(tooltip锚关键词不跟鼠标，与本条无关)	逐方法入口
+卡牌面/渲染	OnDisable()	B	B	TextTooltipController.cs:155	CardPresentation/Core/Tooltip.cs（EverguildTooltipItem 族；无逐方法入口）	同 OnDeselect：等价闸在 Tooltip 族、无逐方法入口(§4.1)	逐方法入口
+卡牌面/渲染	OnEnable()	B	B	TextTooltipController.cs:100	CardPresentation/Core/Tooltip.cs（EverguildTooltipItem 族；无逐方法入口）	同族：isHovering=false 的等价闸在 Tooltip 族、无逐方法入口(§4.1)	逐方法入口
+卡牌面/渲染	OnPointerEnter(PointerEventData eventData)	B	B	TextTooltipController.cs:124	CardPresentation/Core/Tooltip.cs（EverguildTooltipItem 族；无逐方法入口）	同族：悬停+链接碰撞判定混在 Tooltip 族一处、无逐方法入口(§4.1)	逐方法入口
+卡牌面/渲染	OnPointerExit(PointerEventData eventData)	B	B	TextTooltipController.cs:168	CardPresentation/Core/Tooltip.cs（EverguildTooltipItem 族；无逐方法入口）	同族：等价闸在 Tooltip 族、无逐方法入口(§4.1)	逐方法入口
+卡牌面/渲染	OnSelect(BaseEventData eventData)	B	B	TextTooltipController.cs:137	CardPresentation/Core/Tooltip.cs（EverguildTooltipItem 族；无逐方法入口）	同 OnPointerEnter：无逐方法入口(§4.1)	逐方法入口
+卡牌面/渲染	Toggle(bool option)	B	B	TextTooltipController.cs:113	CardPresentation/Core/Tooltip.cs（EverguildTooltipItem 族；无逐方法入口）	同族：Toggle 的等价闸在 Tooltip 族、无逐方法入口(§4.1)	逐方法入口
+战役	FocusOnArmy(ArmyItemContainer armyItemContainer)	B	B	ArmySelector.cs:519	Shell/CampaignTab.cs `FocusSelectedArmy`	原版协程把条目滚到视口中心；我们直接置中心(无补间)	补间
+战役	OnDestroy()	B	B	ArmySelector.cs:577	—（无逐方法对应）	原版 OnDestroy 清 OnArmySelected；我们直接方法调用、无订阅可解绑(§4.1)	方法级落点
+战役	OnDisable()	B	B	CampaignHeaderDisplay.cs:38	—（无逐方法对应）	原版 OnDisable 解绑页头按钮+释放 purchase 窗引用；我们按钮随窗建/毁、无绑定(§4.1)	方法级落点
+战役	OnEnable()	B	B	CampaignHeaderDisplay.cs:31	—（无逐方法对应）	原版 OnEnable 每次开窗重绑；我们只建一次、无重绑路径(§4.1)	方法级落点
+战役	OnDisable()	B	B	CampaignRewardsWindow.cs:123	—（无逐方法对应）	原版 OnDisable 解绑奖励窗按钮；我们按钮随窗建/毁、无订阅(§4.1)	方法级落点
+战役	OnEnable()	B	B	CampaignRewardsWindow.cs:113	—（无逐方法对应）	原版 OnEnable 重绑背景关闭钮；我们只建一次(§4.1)	方法级落点
+战役	CalculateRatio(List<CampaignNodeInfo> nodes, Vector2 offset)	B	B	CampaignTrack.cs:921	CampaignTab `Ratio`（同式复刻）	照结构复刻(视口高代 Content 高)；原版常量(DAT_1834b2bc8 等)未解出	常量
+战役	GetNodesOffset(List<CampaignNodeInfo> nodes)	B	B	CampaignTrack.cs:874	CampaignTab `Span(out minX,maxX,maxAbsY)`	口径不同：原版=根节点y/全表minX−自身field，我们=span(minX,max|y|)；需与滚动初值联立	offset 消费点联立
+战役	SetTrackSize()	B	B	CampaignTrack.cs:990	CampaignTab（用视口高定滚动跨度）	原版按最右节点+矩形宽×常量定 Content sizeDelta；我们用视口高、常量 DAT_1834b3090 未解	常量
+战役	OnDisable()	B	B	CampaignUnlockButton.cs:55	—（无逐方法对应）	原版 OnDisable 解绑领取钮；我们无订阅(§4.1)	方法级落点
+战役	OnEnable()	B	B	CampaignUnlockButton.cs:48	—（无逐方法对应）	原版 OnEnable 重绑；我们只建一次(§4.1)	方法级落点
+战役	OnClose()	B	B	CampaignWindowTab.cs:493	CampaignTab（无订阅/无背景淡出）	原版 OnClose=存选中+退订+background.Close()；我们只有存选中阵营的内存版(§4.1)	退订/背景淡出
+战役	OnSetup()	B	B	CampaignWindowTab.cs:175	CardPresentation/Shell/CampaignTab.cs:121（Setup）	『隐藏 debug 点按钮』已核清(按纪律一律不建)；『取战役列表』退化成唯一 ArmiesWithContent、无方法级落点	取战役列表方法级落点
+战役	OnReset()	B	B	CompleteCampaign.cs:110	—（无逐方法对应）	原版 OnReset 反注册成就监听；我们直接写成就、无注册总线(§4.1)	方法级落点
+战役	_003CChangeDeck_003Eb__36_0(IItemInfo<RawCardScript> c)	B	B	RankedDeckSelector.cs:725	含在 109	ChangeDeck 的 lambda；父行为 `ChangeDeck`(109) 是 C ⇒ 仍缺	父行为 C
+战役	_003COnSelectDeckButtonClick_003Eb__32_0(CardDeck d)	B	B	RankedDeckSelector.cs:705	含在 117	OnSelectDeckButtonClick 的 lambda；父行为(117) 是 C	父行为 C
+战役	_003COnSelectDeckButtonClick_003Eb__32_1(CardDeck d)	B	B	RankedDeckSelector.cs:711	含在 117	过滤谓词 lambda；属 117（父行为 C）	父行为 C

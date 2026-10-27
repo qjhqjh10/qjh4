@@ -20,8 +20,10 @@
 //
 // ⚠️ `CreateMixer` **不覆盖已存在的文件**（覆盖会把第 ② 步的补丁抹掉）。要重建就先删。
 using System;
+using System.Collections.Generic;   // 🆕 2026-10-27：`VerifySnapshots` 的 `List<string>`
 using System.IO;
 using System.Reflection;
+using CardPresentation;             // 🆕 `WarpforgeAudio.SnapshotNames`（快照名只此一份）
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.Audio;
@@ -245,6 +247,123 @@ public static class AudioSetup
         {
             var t = asm.GetType("UnityEditor.Audio.AudioMixerController", false);
             if (t != null) return t;
+        }
+        return null;
+    }
+
+    // ══════════════════════════════════════════════════════════════════════════════════════════
+    //  🆕 **2026-10-27（音频线 `B9` · 执行代理 `B2AU`）：6 个**快照**（A-02 的前置）
+    //  背景：`Resources/Audio/Main Mixer.mixer` 现读 **只有 1 条默认快照**、也没有 `BattleGroup *`
+    //        ⇒ `WarpforgeAudio.GetSnapshot()` **恒 null**（已实现且会出声）。本入口把「建快照」这步变成一键。
+    //  名字**只此一份** = `Core/WarpforgeAudio.SnapshotNames`（⛔ 别在这里再抄一次）：
+    //        `SFX On` / `SFX Off` / `Music Low` / `Music Medium` / `Music High` / `Music None`
+    //  🔴 **数值判据没查清**（派活包 A-02 只给了「哪 4~6 个快照 + 3 个组」，**没给 dB 值**；
+    //     原版 `SoundManager.ToggleSFX` 只做 `snapshot.TransitionTo(instant?0:2)`，值在 SO/资产里）。
+    //     ⇒ 本入口**只建快照壳、不动任何组音量**（⛔ 不编数值）。数值要么由主对话在 Mixer 窗口手工调一次，
+    //       要么等「原版 mixer 各快照的 dB」被解出来再补一版。
+    //  ⚠️ **幂等**：已存在的同名快照**不重建、不改任何值**。
+    //  入口：
+    //    -executeMethod AudioSetup.VerifySnapshots   ← **只读**：现在有哪些快照、6 个名字各缺哪些（先看这条）
+    //    -executeMethod AudioSetup.CreateSnapshots   ← 建缺的那些（已存在的跳过）
+    // ══════════════════════════════════════════════════════════════════════════════════════════
+
+    /// <summary>只读校验：打印 mixer 里**现在有哪些快照** + 逐个查 <see cref="WarpforgeAudio.SnapshotNames"/>。
+    /// 不写盘、不改任何值（先跑这一条看现状）。</summary>
+    public static void VerifySnapshots()
+    {
+        var mixer = Resources.Load<AudioMixer>(MixerResource);
+        if (mixer == null) { Debug.LogError("AUD 快照校验：`Resources.Load<AudioMixer>` 取不到 `" + MixerResource + "`"); return; }
+
+        var names = ListingSnapshotNames();
+        Debug.Log($"AUD 快照校验：mixer 里现有 **{names.Count}** 条 —— [{string.Join(", ", names.ToArray())}]");
+
+        int ok = 0;
+        foreach (var want in WarpforgeAudio.SnapshotNames)
+        {
+            var s = mixer.FindSnapshot(want);
+            if (s != null) { ok++; Debug.Log($"AUD   ✅ `{want}` 找得到"); }
+            else Debug.Log($"AUD   ❌ `{want}` **缺**（跑 `-executeMethod AudioSetup.CreateSnapshots`）");
+        }
+        Debug.Log($"AUD 快照校验：**{ok}/{WarpforgeAudio.SnapshotNames.Length}** 命中"
+                + (ok == WarpforgeAudio.SnapshotNames.Length ? " ⇒ A-02 的前置已就绪（数值另说）" : " ⇒ 还缺快照"));
+    }
+
+    /// <summary>建**缺的**快照（幂等；已存在的跳过、不改值）。用 `AudioMixerController` 的内部 API，
+    /// 走与 <see cref="CreateMixer"/> 同一套反射；内部 API 改名 ⇒ **出声**并打印手工做法（⛔ 不静默）。</summary>
+    public static void CreateSnapshots()
+    {
+        var path = AssetDatabase.GetAssetPath(Resources.Load<AudioMixer>(MixerResource));
+        if (string.IsNullOrEmpty(path)) { Debug.LogError("AUD 建快照：先跑 `AudioSetup.CreateMixer`（mixer 不存在）"); return; }
+        Type ctl = FindControllerType();
+        if (ctl == null) { Debug.LogError("AUD 建快照：找不到 `UnityEditor.Audio.AudioMixerController`（内部 API 改名）"); return; }
+
+        var mixer = AssetDatabase.LoadAssetAtPath<AudioMixer>(path);
+        if (mixer == null) { Debug.LogError("AUD 建快照：`LoadAssetAtPath<AudioMixer>` 失败：" + path); return; }
+
+        // 找一个「加快照」的实例方法（不同 Unity 版本名字不同 —— 先按名字近似匹配，匹配不到就出声）
+        MethodInfo add = null;
+        foreach (var m in ctl.GetMethods(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance))
+        {
+            if (m.Name.IndexOf("Snapshot", StringComparison.OrdinalIgnoreCase) < 0) continue;
+            if (m.Name.IndexOf("Add", StringComparison.OrdinalIgnoreCase) < 0) continue;
+            if (m.GetParameters().Length != 0) continue;      // 无参那一版 = 「新建一条并返回它」
+            add = m; break;
+        }
+
+        int made = 0, skipped = 0;
+        foreach (var want in WarpforgeAudio.SnapshotNames)
+        {
+            if (mixer.FindSnapshot(want) != null) { skipped++; Debug.Log($"AUD   跳过（已存在）`{want}`"); continue; }
+            if (add == null) continue;
+            object snap = null;
+            try
+            {
+                // AudioMixerController 挂在 mixer 资产上；先按 `AudioMixerController` 拿实例
+                var ctrl = FindControllerInstance(path);
+                if (ctrl != null) snap = add.Invoke(ctrl, null);
+            }
+            catch (Exception e) { Debug.LogWarning("AUD   建 `" + want + "` 抛异常：" + e.Message); }
+            if (snap is UnityEngine.Object so)
+            {
+                so.name = want;
+                EditorUtility.SetDirty(so);
+                made++;
+                Debug.Log($"AUD   建快照 `{want}` → 好（**值为默认/未设** —— 见本段红字：数值判据没查清）");
+            }
+            else Debug.LogWarning($"AUD   建 `{want}` **失败**（内部 API 形态不符）—— 见下面的手工做法");
+        }
+
+        AssetDatabase.SaveAssets();
+        AssetDatabase.Refresh();
+        Debug.Log($"AUD 建快照结束：新建 {made} · 跳过 {skipped}");
+        if (add == null || made < WarpforgeAudio.SnapshotNames.Length - skipped)
+        {
+            Debug.LogWarning("AUD **没全建成**。手工做法（1 分钟）：Window → Audio → Audio Mixer 打开 `Main Mixer`，"
+                           + "在 Snapshots 列表点 `+` 六次，逐个改名成：" + string.Join(" / ", WarpforgeAudio.SnapshotNames)
+                           + "；然后重跑 `-executeMethod AudioSetup.VerifySnapshots` 确认 6/6。");
+        }
+        VerifySnapshots();
+    }
+
+    /// <summary>列出 mixer 资产里**现有快照名**（只读：顺 `m_Snapshots` 的序列化名取）。取不到 ⇒ 空列表。</summary>
+    static List<string> ListingSnapshotNames()
+    {
+        var list = new List<string>();
+        var path = AssetDatabase.GetAssetPath(Resources.Load<AudioMixer>(MixerResource));
+        if (string.IsNullOrEmpty(path)) return list;
+        foreach (var o in AssetDatabase.LoadAllAssetsAtPath(path))
+        {
+            if (o is AudioMixerSnapshot s && !string.IsNullOrEmpty(s.name)) list.Add(s.name);
+        }
+        return list;
+    }
+
+    /// <summary>从 mixer 资产上取 `AudioMixerController` 实例（内部类型；取不到 ⇒ null）。</summary>
+    static object FindControllerInstance(string path)
+    {
+        foreach (var o in AssetDatabase.LoadAllAssetsAtPath(path))
+        {
+            if (o != null && o.GetType().FullName == "UnityEditor.Audio.AudioMixerController") return o;
         }
         return null;
     }

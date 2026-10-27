@@ -598,6 +598,25 @@ namespace RuleEngine
             /// `ConditionEval` 的条件 **275 / 276 / 277**（`isWarlordOrVehicle` /
             /// `isBattlesuitOrVehicle` / `isInfrantryOrBeast`）。</para></summary>
             public int keyword = -1;
+
+            /// <summary>🆕 v33（2026-10-27 · 批次 9 · 执行代理 `E7ENG` · 账 532 的 1a）：
+            /// 原版 `CardEffect.trait`（`+0x3C`）的**数据来源** —— 这张卡**附带魔效果**自带的
+            /// `DefinedTrait` 关键词名（今天只有 `pray` / `vulnerable`）。
+            /// 🔴 **不是附魔卡自己的 trait**（`Pray Enchantment` 模板 `cardTraits = []`，
+            /// `1185` 写在**挂它的那张卡**的 buff 上）⇒ 所以列在**载体卡**身上。
+            /// 三态：`null` = **未知**（旧表 &lt; v33 整列没落）· `""` = **明确没有** · 其它 = 名字。
+            /// 语义 / 判据 / 消费链 → `CardDef.EnchantTrait` 的 doc（⛔ 别在这里抄第二份）。</summary>
+            public string enchantTrait;
+
+            /// <summary>🆕 v34（2026-10-27 · 批次 9 · 执行代理 `E7ENG` · 第三批）：
+            /// 原版 `RawCardScript.cardType`（`int @+0x94`；`CardTypeOptions` =
+            /// `Minion 0 / Hero 10 / Tactic 20 / Whispers 40`）。
+            /// 消费点 = `CardDef.IsTrapCard`（原版 `EntityScript__get_isTrapCard.c` =
+            /// `cardType == 20` ∧ `spellType == 70`）→ `CardInstance.ArmedTrap`。
+            /// `-1` = **未知**（旧表 &lt; v34 整列没落 / 这张卡不在真值快照里）—— ⛔ 别当成 `Minion(0)`；
+            /// 🔴 **别拿 `type` 字符串反推**（`Pray Enchantment` 真值 `cardType = 20` 而 `type = "enchantment"`）。
+            /// 语义 → `CardDef.CardType` 的 doc（⛔ 别在这里抄第二份）。</summary>
+            public int cardType = -1;
         }
 
         /// <summary>🆕 v21（2026-10-24 · 引擎线 `A20`）：`normalAbilityBoardCriteria` 的传输形状
@@ -1362,6 +1381,33 @@ namespace RuleEngine
                                + "消费端 `ConditionEval` 的条件 275/276/277 会**退回 `Subtype` 口径并出声**"
                                + "（旧行为 = 改前行为）。跑一下 gen_cards_engine.py 重生成。");
 
+            // 🆕 v33（2026-10-27 · `E7ENG` · 账 532 的 1a）：**`enchantTrait` 列**
+            //   （原版 `CardEffect.trait` `+0x3C`；判据 → `CardDef.EnchantTrait` 的 doc）。
+            //   缺列（v32 及更早）⇒ `CardDto.enchantTrait` 是 `null` = **未知**
+            //   ⇒ `ActiveCardEffect.Trait` 也是 `null` ⇒ 摘附魔那一下**状态框不会被销毁**
+            //   （原版 `RemoveDestroyableAnims` 靠它当键），而且 `Enchantments.Attach` 会**出声**。
+            //   ⛔ 旧表**不许**被读成 `""`（= 「明确没有」，那会静默吞掉 `pray` 那 23 张）。
+            if (dto.version < 33)
+                Debug.LogWarning($"[RuleEngine] 卡表 version={dto.version} < 33 —— 没有 `enchantTrait` 列"
+                               + "（原版 `CardEffect.trait` `+0x3C`：附魔效果自带的关键词）。"
+                               + "`CardDef.EnchantTrait` 会是 **null = 未知**（⛔ 不是 `\"\"` = 没有）"
+                               + "⇒ 摘附魔时 `RemoveDestroyableAnims` 找不到件（状态框留着）。"
+                               + "跑一下 gen_cards_engine.py 重生成。");
+
+            // 🆕 v34（2026-10-27 · `E7ENG` · 第三批）：**`cardType` 列**
+            //   （原版 `RawCardScript.cardType` `+0x94`；消费点 = `CardDef.IsTrapCard` → `CardInstance.ArmedTrap`）。
+            //   缺列（v33 及更早）⇒ `CardDto.cardType` 是 `-1` = **未知**（⛔ 不是 `Minion(0)`）
+            //   ⇒ `CardDef.IsTrapCard` 回 `null`（**判不了**）⇒ `CardInstance.ArmedTrap = -1`。
+            //   ⚠️ 今天全池本来就是 0 张陷阱（`spellType == 70` = 0）⇒ **无可观察差异**；
+            //      这条守卫存在的意义是「将来数据出现时，旧表不会被静默读成『这些都不是陷阱』」。
+            if (dto.version < 34)
+                Debug.LogWarning($"[RuleEngine] 卡表 version={dto.version} < 34 —— 没有 `cardType` 列"
+                               + "（原版 `RawCardScript.cardType` `+0x94`；陷阱判定 `isTrapCard` = "
+                               + "`cardType 20 (Tactic)` ∧ `spellType 70 (Trap)`）。"
+                               + "`CardDef.CardType` 会是 **-1 = 未知**（⛔ 不是 `Minion(0)`）"
+                               + "⇒ `IsTrapCard` 回 `null`（判不了）、`CardInstance.ArmedTrap = -1`。"
+                               + "跑一下 gen_cards_engine.py 重生成。");
+
             int noId = 0;
 
             // 🆕 2026-10-22（卡牌线 `T04`）：`useOverDraw` 一列的**缺列兜底** —— v9 才有这一列，
@@ -1609,6 +1655,12 @@ namespace RuleEngine
                 //     `HasDefaultTrait()` 一致去补数据（判据 → `B8_Q` 报告 §⑤-1 + 调度台裁定）。
                 def.AttachCardTraits(c.cardTraits);
                 def.AttachKeywordId(c.keyword);
+                // 🆕 v33（2026-10-27 · `E7ENG` · 账 532）：附魔效果自带的 trait —— 同样是**构造后挂载**
+                //   （理由同上：`CardDef` 构造函数那 40 处账落点）。`null` = 旧表 / 没喂（未知）。
+                def.AttachEnchantTrait(c.enchantTrait);
+                // 🆕 v34（2026-10-27 · `E7ENG` · 第三批）：原版 `RawCardScript.cardType` —— 同样**构造后挂载**。
+                //   消费者 = `CardDef.IsTrapCard` → `CardInstance.ArmedTrap`（陷阱那两格）。
+                def.AttachCardType(c.cardType);
                 list.Add(def);
             }
             // 🆕 v23（2026-10-24 · 引擎线 `G12`）：`activeAbilityLogic` 的**挂载读数**（一行，⛔ 不逐卡刷屏）。
