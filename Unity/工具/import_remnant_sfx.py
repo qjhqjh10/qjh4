@@ -167,8 +167,26 @@ def main():
         return 1
 
     if a.check:
-        print("\n（--check：只报告，没写盘）")
-        return 0
+        # 🔴 2026-10-27（执行代理 B9_W35CHECK）：`--check` 必须**连产物一起查** ——
+        #   原来只报「五条真 clip」源在不在，产物缺失/过期一律静默绿
+        #   （脚本**早退**在拷贝循环之前，那段 `os.path.exists(dst)` 根本不跑）。
+        #   判据同 工具/import_original_art.py `--only-altart`（`:1714-1721`）。
+        lack_files = []
+        for clip, src in sorted(uniq.items()):
+            dst = os.path.join(DEST, clip + os.path.splitext(src)[1])
+            if not os.path.exists(dst):
+                lack_files.append(os.path.basename(dst))
+            elif os.path.getsize(dst) != os.path.getsize(src):
+                lack_files.append(os.path.basename(dst) + "（尺寸不符）")
+        if lack_files:
+            print(f"\n🔴 产物缺失 {len(lack_files)}/{len(uniq)} 个（{DEST}）—— 重跑不带 --check 落盘：")
+            for b in lack_files:
+                print("   缺:", b)
+        else:
+            print(f"\n✅ 产物齐全：{len(uniq)}/{len(uniq)} 个音频（{DEST}）")
+            print("   ⚠️ `remnant_cue_props.json` 本 check 未比对内容（脚本早退在写表之前）—— 见报告")
+        print("（--check：只报告，没写盘）")
+        return 0 if not lack_files else 1
 
     os.makedirs(DEST, exist_ok=True)
     guids = _sfx_meta.known_guids()      # 2026-10-24（G4）：全工程 meta 扫一次，别每条都扫

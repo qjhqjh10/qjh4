@@ -260,10 +260,21 @@ namespace RuleEngine
             //     卡池查表口用**这个函数自己的 `index`**（按 id；本函数的 `Lookup` 本来就不认卡名）。
             //     ⚠️ 于是「按卡名」的旧存档在这里会走到 `MigrateDefensive` 的**无法判定 ⇒ 原样保留**那一支
             //     （⛔ 不因为查不到就清空 —— 清空是不可逆的）。
-            LegacyCardIds.MigrateDeckVerified(deck, id => Lookup(index, id),
+            // 🔴 账 `HUD:92` / `HUD:93`（卡组层那一半）：这里的查卡口必须是**异画感知**的
+            //   —— `#HB_SW1` 这种「异画副本」条目要解析成原卡那张（判据 / 口径 → `PlayerDeck` 类尾那段注）。
+            //   ⛔ 别退回裸 `Lookup`：那样异画督军会被当成「查不到」、`MigrateDefensive` 还会把
+            //   异画防御卡当垃圾 id 清空（`LegacyCardIds` 那一趟）。
+            LegacyCardIds.MigrateDeckVerified(deck, id => LookupAny(index, id),
                                               "卡组「" + deck.Name + "」(DeckBuilder.FromDeck)");
 
-            var warlord = Lookup(index, deck.WarlordId);
+            bool warlordAltArt;
+            var warlord = PlayerDeck.ResolveEntry(deck.WarlordId, id => Lookup(index, id), out warlordAltArt);
+            // ⚠️ **7 张异画全是督军**（`cards_engine.json.alternateArts` 现读 7 条：AM2/BL34/DA1/
+            //    SAU35/GOF28/SW1/UM76 全是 hero）⇒ 生产路径上异画基本都落在这个槽里。
+            //    引擎按**原卡**建督军（规则、数值、阵营一个都不变），异画只影响立绘。
+            if (warlordAltArt)
+                UnityEngine.Debug.Log("[RuleEngine] 卡组「" + deck.Name + "」的督军 `" + deck.WarlordId
+                        + "` 是**异画副本** ⇒ 按原卡 `" + warlord.Id + "` 建督军（只换立绘；账 `HUD:92/93`）");
             if (warlord == null || warlord.Type != "hero")
                 UnityEngine.Debug.LogError($"[RuleEngine] 卡组的督军 `{deck.WarlordId}` 在卡池里找不到"
                                          + "（或不是 hero）—— 引擎会退回默认督军，这局打得不是你要的那套");
@@ -276,7 +287,7 @@ namespace RuleEngine
             //    分流判据在 `RuleCore.BuildPlayer`（按 `Type == "defence"`，**只此一处**）。
             if (!string.IsNullOrEmpty(deck.DefensiveId))
             {
-                var dfc = Lookup(index, deck.DefensiveId);
+                var dfc = LookupAny(index, deck.DefensiveId);   // 异画感知（同上）
                 if (dfc == null)
                     UnityEngine.Debug.LogError($"[RuleEngine] 卡组的防御卡 `{deck.DefensiveId}` "
                                              + "在卡池里找不到 —— 这张牌被丢了");
@@ -322,14 +333,19 @@ namespace RuleEngine
                 }
             }
 
+            int altCopies = 0;
             foreach (var id in deck.CardIds)
             {
-                var c = Lookup(index, id);
+                // 🔴 账 `HUD:92` / `HUD:93`（卡组层那一半）：`#HB_SW1` = 「这一份是异画副本」，
+                //   **解析成原卡那张**（张数不变、规则不变），只是不进 `skipped`、单独记一笔。
+                bool isAltArt;
+                var c = PlayerDeck.ResolveEntry(id, x => Lookup(index, x), out isAltArt);
                 if (c == null)
                 {
                     UnityEngine.Debug.LogError($"[RuleEngine] 卡组里的 `{id}` 在卡池里找不到 —— 这张牌被丢了");
                     continue;
                 }
+                if (isAltArt) altCopies++;
                 if (c.Type == "tactic")
                 {
                     // 战术卡：**能完整解析的才收**。解析不了的放进来就是「打不出的死牌」——
@@ -342,6 +358,9 @@ namespace RuleEngine
                 if (c.Type != "unit") { Note(skipped, id, c.Type); continue; }
                 list.Add(c);
             }
+            if (altCopies > 0)
+                UnityEngine.Debug.Log("[RuleEngine] 卡组「" + deck.Name + "」里有 " + altCopies
+                        + " 份**异画副本**（`#` 开头那些）⇒ 按原卡展开、立绘走异画（账 `HUD:92/93`）");
             return list;
         }
 
@@ -374,6 +393,13 @@ namespace RuleEngine
         {
             CardDef c;
             return (id != null && index.TryGetValue(id, out c)) ? c : null;
+        }
+
+        /// <summary>**异画感知**的查卡口：`#HB_SW1` → 原卡那张（判据 / 口径 → `PlayerDeck` 类尾那段注）。
+        /// <para>⛔ 剥前缀的实现在 `PlayerDeck` 一处，这里只是「拿本函数的 `index` 去查」的那一层皮。</para></summary>
+        static CardDef LookupAny(Dictionary<string, CardDef> index, string id)
+        {
+            return PlayerDeck.ResolveEntry(id, x => Lookup(index, x), out _);
         }
 
         /// <summary>

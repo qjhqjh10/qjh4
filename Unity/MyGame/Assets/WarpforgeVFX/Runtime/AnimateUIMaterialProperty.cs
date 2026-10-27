@@ -72,7 +72,7 @@
 //                                                                                                             **vector4 (0.02, −0.1, 8.17, 0)**
 //  驱动它们的 legacy clip（5 条，`m_FloatCurves` 的 `attribute` 就是 `floatProperty1.value`）：
 //   `Card Hand To Board`（已导入）· `Booster Window - Background Shake On Open`（已导入）
-//   · `Rank Up` / `Division Up` / `Level Up Card`（**工程里没有，要导入** —— 见报告 §三）。
+//   · `Rank Up` / `Division Up` / `Level Up Card`（**已在** `WarpforgeVFX/Animations/`，且有运行时副本 `Resources/Animations/` —— 见 `报告/B9_W37CLIP_升级clip时长与路径.md`）。
 //   ⚠️ **`CardFrame` 那个实例原版是 `m_Enabled: 0`** ⇒ 它的 `_DissolveAmount` 走的是别处
 //      （我们这边 `CardView`/`CardFeel` 硬编码驱动）⇒ **⛔ 别再给它挂本组件**（否则一路写两遍）。
 //
@@ -202,6 +202,13 @@ namespace WarpforgeVFX
             c.floatProperty1 = slot1;
             c.floatProperty2 = slot2;
             c.changeMaterialOnAnimation = changeMaterial;
+            // 🔶 自己设计（非原版）：`AddComponent` 会**当场**触发 `OnEnable → CreateInstanceMaterial()`，
+            //   那一刻 `changeMaterialOnAnimation` 还是 null ⇒ 克隆源退化成 `originalMaterial`。
+            //   原版这一格是 **Inspector 序列化**的（`OnEnable` 之前就有值）⇒ 原版不存在这个时序问题。
+            //   ⇒ 传了 `changeMaterial` 就必须按新源**重建**一次（否则 `Level Up Effect` 那两处 ——
+            //   原版 `changeMaterialOnAnimation` 非空 —— 克隆的是错的底材，画面上「改了但不对」）。
+            //   谁定的 + 日期：调度台 2026-10-27（B9_W14FX）。
+            if (changeMaterial != null) c.RebuildOwnInstanceMaterial();
             return c;
         }
 
@@ -330,6 +337,25 @@ namespace WarpforgeVFX
             if (slot.IsDefault) return;                 // 原版 `floatPropertyX.Equals(default)` ⇒ 整槽跳过
             if (string.IsNullOrEmpty(slot.materialProperty)) return;   // 🔶 自己设计①：`SetFloat("")` 是 no-op
             slot.Update(_instancedMaterial);
+        }
+
+        /// <summary>🔶 自己设计（非原版）：按当前的 <see cref="changeMaterialOnAnimation"/> **重克隆**一份实例材质。
+        /// <para>只服务 <see cref="Attach"/> —— 那是「运行时挂载」才有的时序问题（`AddComponent` 先触发
+        /// `OnEnable`、槽与 `changeMaterialOnAnimation` 后赋值）。原版靠 Inspector 序列化，不存在这一步。</para>
+        /// <para>⚠️ 重建前必须先把**真原件**贴回去：`CreateInstanceMaterial()` 是从当前
+        /// `sharedMaterial` 读「原材质」的，若此刻贴的还是上一份克隆，`_originalMaterial` 就会
+        /// 记成那份克隆（`OnDisable` 之后还原到克隆 ⇒ 材质泄漏 + 名字多一层 `(Instanced)`）。</para>
+        /// <para>谁定的 + 日期：调度台 2026-10-27（B9_W14FX）。</para></summary>
+        void RebuildOwnInstanceMaterial()
+        {
+            if (_instancedMaterial == null || !_ownInstancedMaterial) return;
+            var old = _instancedMaterial;
+            var trueOriginal = _originalMaterial;
+            _instancedMaterial = null;
+            _ownInstancedMaterial = false;
+            if (trueOriginal != null) SetTargetMaterial(trueOriginal);   // 让 `TargetMaterial()` 读到真原件
+            if (Application.isPlaying) Destroy(old); else DestroyImmediate(old);
+            CreateInstanceMaterial();                                    // 这次 source = changeMaterialOnAnimation
         }
     }
 }

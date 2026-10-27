@@ -544,10 +544,16 @@ namespace RuleEngine
 
                 // ---------------------------------------------------------------- 341 canUseDuty
                 // 原版 `:170-174`：`bool usedActiveAbility(+0x4c) == 0`。
-                // 我们：`UnitState.DutyUsed`（B-18 已核 `+0x4c` 就是它；`resetDuty` opcode 475 清的就是这一位）。
+                // 🔴🆕 2026-10-27 就地订正（铁律 5 · `B9_W27ENG`）：原来这里写「B-18 已核 `+0x4c` 就是 `DutyUsed`」
+                //   —— **不成立**。`+0x4c` 在**任何主动能力**发动时置 1（duty/oath/ferocity/agenda 四族
+                //   `CardScript__UsedActiveAbility.c:29/34/41/50`），且**不随回合重置**
+                //   （`CardScript__OnTurnEnd.c:209-210` 只清 `+0x48`/`+0x50`）⇒ 我们的 `UnitState.ActiveAbilityUsed`。
+                //   `DutyUsed` 只覆盖 23 张 duty 卡（池内会置 `+0x4c` 的 63 张）⇒ 另 40 张漏记。
+                //   判据全文 → `资料/完全复刻/判据/cond341_canUseDuty_ex语义.md` §1.4/§1.6-B。
+                // ⚠️ 本行返回的是**未取反**的 match；`ex` 的取反仍由 `Meets`（`:169-175`）统一做一次，⛔ 别在这里再取反。
                 case 341:
                     if (u == null) return null;
-                    return !u.DutyUsed;
+                    return !u.ActiveAbilityUsed;
 
                 // ---------------------------------------------------------------- 342 summonSickness
                 // 原版 `:175-179`：读 `bool summonSickness(+0x58)` = 我们的 `UnitState.SummonSickness`。

@@ -102,6 +102,42 @@ ARENAS = os.path.join(ROOT, 'MyGame/Assets/WarpforgeArena1/arenas')
 BLEND = os.path.join(ROOT, '数据/游戏数据/env_blendables.json')
 
 
+## 🆕 2026-10-27（B9_W45ARENA）`--check` 的**产物校验**（只读，不写盘）。
+#  原来这一族的 `--check` 是「只扫不写」（`if not args.check:` 才写）—— 盘上缺产物也恒 rc0，
+#  属「看着有 check、其实啥都没查」。口径照 `工具/import_original_art.py:1714-1721`：
+#  把**重算出来的内容**与盘上那份**逐字节比**；缺 = 缺产物 · 不一致 = 过期，末尾点名 + rc=1。
+def wf_check_artifact(dst, text, lack, stale):
+    if not os.path.isfile(dst):
+        lack.append(dst)
+        return
+    try:
+        old = io.open(dst, encoding='utf-8').read()
+    except Exception as e:
+        stale.append((dst, '读不出：%s' % e))
+        return
+    if old == text:
+        return
+    try:                     # 只差缩进/键序 ⇒ 语义一致，**不算过期**（`JsonUtility` 本来就不看键序）
+        if json.loads(old) == json.loads(text):
+            return
+    except Exception:
+        pass
+    stale.append((dst, '内容与重算结果不同'))
+
+
+def wf_report_artifacts(check, lack, stale, script):
+    """`--check` 收尾：有缺/过期就点名并让 main 返回 1。→ 该返回的 rc（无问题 = 0）。"""
+    if not check or not (lack or stale):
+        return 0
+    print('')
+    for p in lack:
+        print('  🔴 缺产物：%s' % p)
+    for p, why in stale:
+        print('  🔴 产物过期（%s）：%s' % (why, p))
+    print('  ⇒ 重跑一次 `python 工具/%s` 生成（`--check` 只读、不写盘）。' % script)
+    return 1
+
+
 def norm(s):
     """按名比之前先归一化：原版真有带**尾随空格**的名字（`'Railgun Turret 1 Target '`）。
     ⚠️ 这是**比法**上的归一化，不是「把原版名字改好」—— 产物里那份仍是原样留档的判据。"""
@@ -725,6 +761,7 @@ def main():
     print('要补的场（%d 场）：%s' % (len(arenas), ', '.join(arenas)))
 
     out_n = 0
+    lack, stale = [], []
     tot = {'nodes': 0, 'targets': 0, 'adds': 0, 'animation': 0,
            'manifestRows': 0, 'manifestBuilt': 0, 'sidecarPaths': 0,
            'skipWorldBaked': 0, 'unmatched': 0, 'suspect': 0, 'parentPosMissed': 0,
@@ -771,9 +808,11 @@ def main():
                       % (t['name'], t['parent'], t['animation'], t['pos']))
             for t in g['adds']:
                 print('   [add] %-34s anim=%d pos=%s' % (t['name'], t['animation'], t['pos']))
-        if not args.check:
-            p = os.path.join(ARENAS, arena, arena + '_groups.json')
-            txt = json.dumps(g, ensure_ascii=False, indent=1) + '\n'   # ← 先把内容算完再开文件写
+        p = os.path.join(ARENAS, arena, arena + '_groups.json')
+        txt = json.dumps(g, ensure_ascii=False, indent=1) + '\n'   # ← 先把内容算完再开文件写
+        if args.check:
+            wf_check_artifact(p, txt, lack, stale)
+        else:
             with io.open(p, 'wb') as f:
                 f.write(txt.encode('utf-8'))
             print('   → %s' % p)
@@ -800,7 +839,7 @@ def main():
         for w in warn:
             print('   ⚠️ %s' % w)
     print('写出 %d 份%s' % (out_n, '（--check：没写盘）' if args.check else ''))
-    return 0
+    return wf_report_artifacts(args.check, lack, stale, 'gen_arena_groups.py')
 
 
 if __name__ == '__main__':

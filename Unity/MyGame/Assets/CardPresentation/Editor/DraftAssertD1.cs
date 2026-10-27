@@ -9,7 +9,7 @@
 // 或者单独跑：`-executeMethod DraftAssertD1.Run`
 //
 // ==================================================================
-//  六条（= 本批的验收标准）＋ 一条额外交叉校验
+//  六条（= 本批的验收标准）＋ 两条额外交叉校验（⑦ `armyName` 列 · ⑧ `PackIsValid` 负例，2026-10-27 `B9_W34FEED` 补）
 // ------------------------------------------------------------------
 //  ① 数据形状：包总数 882 · enabled 872 · 每包恒 3 张 · 阵营 13 个
 //  ② 卡 id 全命中：904 个唯一 `cardIds` 全在 `cards_engine.json` 里
@@ -81,7 +81,7 @@ public static class DraftAssertD1
             A4_NoRepeatPerRound();
             A5_ClosedDeck();
             A6_ArmyFilter();
-            A7_ArmyNameColumn(packs);
+            A7_ArmyNameColumn(packs); A8_PackIsValidNegative(packs);   // ⑧ 与 ⑦ 同一行（零行数变化 ⇒ 不动账里 `DraftAssertD1.cs:153` 那条引用）
         }
         catch (Exception e)
         {
@@ -468,5 +468,84 @@ public static class DraftAssertD1
            "⑦ 882 个包的 `armyName` 与 `ArmyIcons.Faction(army)` 逐条一致" + ex
          + " 🧨 怎么改会红：改了 `ArmyIcons` 的阵营名（或改了生成器里的 `ARMIES`）而没同步另一处"
          + " —— 运行期用 `ArmyIcons`、数据列只是副本，所以这条专门抓「两处写同一条规则」");
+    }
+
+    // ==================================================================
+    //  ⑧（负例 · 2026-10-27 `B9_W34FEED`）`PrebuiltPack.IsValid()` 两条件 + `RollRound` 的过滤调用点
+    // ==================================================================
+    // 🔴 现池 882/882 全 valid ⇒ 不**自己造负例**就验不出这条过滤（它在生产数据上恒 true）。
+    // 口径 = `报告/B9_W23DRAFT_轮抽接线与预组校验.md` §三·1（可直接粘的四条）。
+    // 期望值来源：原版 `PrebuiltPack.IsValid()` 的两条件（`PrebuiltPack__IsValid.c`）——
+    //   ① `GetCardLibrary().Count != cardIds.Count` ⇒ false（查不到的 id 原版跳过）
+    //   ② 逐张 `IsHidden()` 任一为真 ⇒ false
+    static void A8_PackIsValidNegative(List<DraftPacks.PackDto> packs)
+    {
+        Debug.Log(P + "--- ⑧（负例）PackIsValid 两条件 + RollRound 的过滤调用点 ---");
+
+        var pool = CardDatabase.Load();
+        if (!Ok(pool != null && pool.Count >= 3, "⑧ 前提：卡池读得到（≥3 张）")) return;
+
+        // 找一条「3 张卡互不相同、且都在卡池里」的 enabled 真包当夹具（包内可能自重 ⇒ 必须挑 3 张不同的）。
+        DraftPacks.PackDto bp = null;
+        for (int i = 0; i < packs.Count; i++)
+        {
+            var p = packs[i];
+            if (p == null || !p.enabled || p.cardIds == null || p.cardIds.Length != DraftPacks.CardsPerPack) continue;
+            if (string.IsNullOrEmpty(p.packId)) continue;
+            if (p.cardIds[0] == p.cardIds[1] || p.cardIds[1] == p.cardIds[2] || p.cardIds[0] == p.cardIds[2]) continue;
+            if (CardDatabase.FindById(pool, p.cardIds[0]) == null) continue;
+            if (CardDatabase.FindById(pool, p.cardIds[1]) == null) continue;
+            if (CardDatabase.FindById(pool, p.cardIds[2]) == null) continue;
+            bp = p; break;
+        }
+        if (!Ok(bp != null, "⑧ 前提：找得到一条 3 张卡互不相同、且都查得到的 enabled 真包")) return;
+
+        var three = bp.cardIds;
+
+        // ① 正常包 ⇒ resolved == 3 且 valid（先断「好包不会被误伤」）
+        Eq(DraftPacks.ResolvedCardCount(three), 3, "⑧① 三张都查得到（resolved = 3）");
+        Ok(PrebuiltDecks.PackIsValid(three, 3, null), "⑧① 正常包 valid"
+           + " 🧨 怎么改会红：`ResolvedCardCount` 或 `PackIsValid` 把好包判坏");
+
+        // ② 少一张（塞一个不存在的 id）⇒ resolved == 2 且 invalid（条件①）
+        var twoBad = new[] { three[0], three[1], "NO_SUCH_CARD_ID__D1" };
+        Eq(DraftPacks.ResolvedCardCount(twoBad), 2, "⑧② 查不到的 id 不计入（resolved = 2）");
+        Ok(!PrebuiltDecks.PackIsValid(twoBad, 2, null), "⑧② 少一张 ⇒ invalid（条件①：有 id 解析不出）"
+           + " 🧨 怎么改会红：`resolvedCount != cardIds.Length` 那条被删/被取反");
+
+        // ③ hidden 命中包内任一张 ⇒ invalid（条件②）
+        Ok(!PrebuiltDecks.PackIsValid(three, 3, new[] { three[1] }), "⑧③ hidden 命中 ⇒ invalid（条件②：IsHidden）"
+           + " 🧨 怎么改会红：`hiddenCardIds` 那一半被删（判据在远端，接口就是给我们造负例用的）");
+
+        // ④ 端到端：`RollRound` 真的调用了这条过滤。
+        //    真表 882 条 ⇒「抽中哪 3 个」不可控，所以临时把包表换成**只有这一条包**，让结果确定：
+        //      全池          ⇒ 这一条包被给出（前提：过滤没误伤它）
+        //      只含 2 张卡的池 ⇒ 它解析出 2 < 3 ⇒ 被过滤、候选池空（`RollRound` 返回 0 个）
+        var onlyTwo = new List<CardDef>();
+        var d0 = CardDatabase.FindById(pool, three[0]);
+        var d1 = CardDatabase.FindById(pool, three[1]);
+        if (d0 != null) onlyTwo.Add(d0);
+        if (d1 != null) onlyTwo.Add(d1);
+        if (!Ok(onlyTwo.Count == 2, "⑧④ 前提：拿到 2 张真卡造「只含 2 张的池」")) return;
+
+        var real = new List<DraftPacks.PackDto>(packs);
+        try
+        {
+            DraftPacks.SetPacksForTest(new List<DraftPacks.PackDto> { bp });
+
+            var withFull = DraftPacks.RollRound(12345, 0, bp.army, 1);
+            Ok(withFull.Count == 1 && withFull[0].key == bp.key,
+               "⑧④ 全池 ⇒ 这一条包被给出（前提：过滤没误伤好包）"
+             + " 🧨 怎么改会红：过滤条件把好包也判坏");
+
+            var withTwo = DraftPacks.RollRound(12345, 0, bp.army, 1, null, onlyTwo);
+            Ok(withTwo.Count == 0,
+               "⑧④ 只含 2 张卡的池 ⇒ 这条 3 张卡的包被过滤、不进候选池（`RollRound` 真调了 `PackIsValid`）"
+             + $" 🧨 怎么改会红：`RollRound` 里那句 `PackIsValid` 被删/被注释 ⇒ 候选池又会放进坏包（实得 {withTwo.Count} 个）");
+        }
+        finally
+        {
+            DraftPacks.SetPacksForTest(real);   // 还原真表（`Run()` 的 finally 还会 `InvalidateCache()`）
+        }
     }
 }

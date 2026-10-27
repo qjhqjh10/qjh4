@@ -565,4 +565,131 @@ namespace RuleEngine
             return (GameplayVariables)MemberwiseClone();
         }
     }
+
+    // ==============================================================================================
+    //  🆕 2026-10-27（批次 9 · 执行代理 `B9_W13CDW` · 账 `HUD:750` / `HUD:756` / `HUD:758`）：
+    //  原版 **`VarsGlobal`** 里「打出的卡摆到哪」那一组 —— **两条展示位公式的唯一出处**。
+    //
+    //  🔴 **为什么住在本文件 / 为什么单开一个类**：施工单 K-15 写的是「补进 `GameplayVariables`」，
+    //     但**原版那 8 个值不在 `GameplayVariablesData` 里**（那是本文件上面那个 18 字段的按模式参数表），
+    //     而在**另一个类** `VarsGlobal`（资产 `m_Name = GlobalVariables`，PathID 451，
+    //     在 `Warpforge_Data/sharedassets0.assets`，**48 个字段**，**不按模式变**）。
+    //     ⇒ 这里**单开一个类**、与 `GameplayVariables` 并列；⛔ 别把那 8 个值塞进 `GameplayVariables` 的字段里 ——
+    //     那会重演 `slotsPerSide` 那次「同名不同义」的错（按名字对字段对出来的静默错）。
+    //
+    //  📌 **这些值不是我们挑的、也不是猜的**：`工具/read_varsglobal.py` 从上面那个 .assets 的原始字节
+    //     按**声明顺序**解出来（整表 → `资料/VarsGlobal_原版数值.md` §一）；
+    //     偏移 → 字段名的对应由两条**独立锚点**反证（`minionInPlayScale(+0x68) = 0.75` ·
+    //     `cardInHandMovingScale(+0x44) = 1.1`）—— 判据 → `资料/普查产出_1024/D6_进攻卡展示缩放.md` §二。
+    // ==============================================================================================
+    /// <summary>原版 `VarsGlobal`（全局显示参数）中与「打出的卡展示位 / 展示缩放」有关的 8 个值。
+    ///
+    /// <para>消费点（原版，两处**逐字同一套式子**）：
+    /// `CardScript.GetEnemyCardPlayedDisplayPosition()`（`HUD:756`）与
+    /// `CardScript.GetOffensiveCardPlayedDisplayPosition()`（`HUD:758`）；
+    /// 缩放那条 = `CardScript.GetEnemyCardPlayedDisplayScale()`。</para>
+    ///
+    /// <para>⚠️ **本类今天没有调用者**（施工单 K-15 的落点 = `CardPresentation/Battle/BattleDriver.cs`
+    /// 的 reveal 链 / `DisplayEnemyCardInCenter`，那是**另一个写手**的文件 ⇒ 本代理只备好判据与唯一公式，
+    /// 接线在那边做）。见 `资料/完全复刻/报告/B9_W13CDW_展示位与加载态.md` 的「改动请求」。</para>
+    /// </summary>
+    public static class VarsGlobal
+    {
+        // ---- 展示缩放（`HUD:750` / `HUD:756` 共用同一条原版函数）------------------------
+        /// <summary>【原版实读】`VarsGlobal.enemyCardDisplayScale`（`+0x48`）= **1.4** ——
+        /// 打出的卡居中展示时的**绝对 `localScale`**（不是「手牌缩放 × 倍率」）。</summary>
+        public const float EnemyCardDisplayScale = 1.4f;
+        /// <summary>【原版实读】`VarsGlobal.enemyCardScaleMobileMultiplier`（`+0x4c`）= **1.3** ——
+        /// 小屏档（`GameStaticData.smallScreenUI(+0x11c)` 为真）再乘一次 ⇒ 合 **1.82**。</summary>
+        public const float EnemyCardScaleMobileMultiplier = 1.3f;
+
+        // ---- 敌方牌展示位偏移（`HUD:756`）----------------------------------------------
+        /// <summary>【原版实读】`VarsGlobal.enemyCardDisplayYoffset`（`+0x50`）= **24** —— 公式里是**减**（往下）。</summary>
+        public const float EnemyCardDisplayYOffset = 24f;
+        /// <summary>【原版实读】`VarsGlobal.enemyCardDisplayXoffset`（`+0x54`）= **−26** —— 桌面档。</summary>
+        public const float EnemyCardDisplayXOffset = -26f;
+        /// <summary>【原版实读】`VarsGlobal.enemyCardDisplayMobileXoffset`（`+0x58`）= **25** —— 小屏档换掉上一格
+        /// （⚠️ **符号与桌面档相反**，不是笔误：原版两支各自读一个字段）。</summary>
+        public const float EnemyCardDisplayMobileXOffset = 25f;
+
+        // ---- 进攻（战术）牌展示位偏移（`HUD:758` / `HUD:750`）---------------------------
+        /// <summary>【原版实读】`VarsGlobal.offensiveCardDisplayYoffset`（`+0x5c`）= **30**。</summary>
+        public const float OffensiveCardDisplayYOffset = 30f;
+        /// <summary>【原版实读】`VarsGlobal.offensiveCardDisplayXoffset`（`+0x60`）= **−25** —— 桌面档。</summary>
+        public const float OffensiveCardDisplayXOffset = -25f;
+        /// <summary>【原版实读】`VarsGlobal.offensiveCardDisplayMobileXoffset`（`+0x64`）= **−25**
+        /// （与桌面档**同值**，但**是另一个字段**：`CardScript__GetOffensiveCardPlayedDisplayPosition.c:36` 读 `+0x64`
+        /// —— 写成「移动档沿用桌面值」在**今天**看不出差别，将来服务端改一侧就静默错）。</summary>
+        public const float OffensiveCardDisplayMobileXOffset = -25f;
+
+        // ---- 两条展示位公式（唯一一份）------------------------------------------------
+        /// <summary>**「打出的卡展示位」= 手牌锚的世界坐标 + `right × Xoffset` − `up × Yoffset`。**
+        ///
+        /// <para>原版两个方法（`HUD:756` 敌方牌 / `HUD:758` 进攻牌）**除了读哪三个偏移字段之外逐行相同**
+        /// ⇒ 只写这一份（施工单 K-15 明写「⛔ 别写两份」）。
+        /// 判据：`decomp_full/CardScript__GetEnemyCardPlayedDisplayPosition.c:60-75` 与
+        /// `decomp_full/CardScript__GetOffensiveCardPlayedDisplayPosition.c:60-75`。</para>
+        ///
+        /// <para>🔴 **`right` / `up` 不是数据，是引擎常量**：那两处读的是 `DAT_1842da2a8` 的
+        /// static_fields `+0x3c` / `+0x18`，而 `DAT_1842da2a8` **就是 `UnityEngine.Vector3` 的 Il2CppClass**
+        /// （静态字段表 `zero 0x0 / one 0xC / up 0x18 / right 0x3C` —— `d:/2/tools/il2cpp_out/dump.cs:537034-537039`；
+        /// 类身份三条独立反证 → `资料/普查产出_1011/审查_W1.md:113`）
+        /// ⇒ 值 = `(1,0,0)` / `(0,1,0)`，**不需要从任何解包实例里读**
+        /// （派活包那句「6 个展示偏移要先从解包实例取」把这 6 个 float 也算成了待读数据）。</para>
+        ///
+        /// <para>⚠️ **基线 `handAnchorWorld` = 原版 `BattleManager.enemyHand`（`+0xD8`）的 `transform.position`**
+        /// —— 敌方牌与**进攻牌共用同一个敌方手牌锚**（原版代码就是这么写的；
+        /// 字段表 `dump.cs:30739-30741`：`playerHand // 0xD0` / `enemyHand // 0xD8`）。
+        /// 揭示卡本身也是 `battleCards.CreateCard(card, enemyHand.transform, …)` 建的 ⇒ 同一个父。</para>
+        ///
+        /// <para>⚠️ **两档 y 别写成同一个**（施工单 K-15 的原话）：敌方牌是 `−24`、进攻牌是 `−30`。</para>
+        /// </summary>
+        /// <param name="handAnchorWorld">敌方手牌锚的**世界坐标**（原版 `BattleManager.enemyHand.transform.position`）。</param>
+        /// <param name="offensive">true ⇒ 进攻/战术牌那一套偏移（`HUD:758`）；false ⇒ 敌方牌那一套（`HUD:756`）。</param>
+        /// <param name="smallScreen">原版 `GameStaticData.smallScreenUI(+0x11c)`（我们这边没有这一档 ⇒ 恒传 false）。</param>
+        public static WorldPoint PlayedCardDisplayPosition(
+            WorldPoint handAnchorWorld, bool offensive, bool smallScreen)
+        {
+            float x = offensive
+                ? (smallScreen ? OffensiveCardDisplayMobileXOffset : OffensiveCardDisplayXOffset)
+                : (smallScreen ? EnemyCardDisplayMobileXOffset : EnemyCardDisplayXOffset);
+            float y = offensive ? OffensiveCardDisplayYOffset : EnemyCardDisplayYOffset;
+            // 原版逐项：x = 手牌锚.x + right.x·X − up.x·Y（right.x = 1、up.x = 0）
+            //           y = 手牌锚.y + right.y·X − up.y·Y（right.y = 0、up.y = 1）⇒ 减 Y
+            //           z = 手牌锚.z（right/up 的 z 分量都是 0）
+            return new WorldPoint(handAnchorWorld.x + x, handAnchorWorld.y - y, handAnchorWorld.z);
+        }
+
+        /// <summary>把上面那条公式的世界偏移换成**屏幕 px**（@1080p）。
+        ///
+        /// <para>【派生】换算系数 = **14.835 px / 世界单位** @1080p：战斗 HUD 那台 `Canvas` 是
+        /// **Screen Space - Camera**（`m_RenderMode = 1`，⚠️ 枚举 `Overlay=0 / ScreenSpaceCamera=1 / WorldSpace=2`）、
+        /// `m_PlaneDistance = 100`、UI 相机 FOV 40 ⇒ `1080 / (2 × 100 × tan20°) = 14.835`；
+        /// 连带 `lossyScale(HandArea) = 108 × 1/14.835 = 7.28`。
+        /// 判据 → `资料/手牌布局_原版算法与参数.md` §四（单位桥）＋
+        /// `C:/Users/qjh36/.claude/projects/d--4/memory/warpforge-original-3d-size-bridge.md`。</para>
+        ///
+        /// <para>✅ **坐标系 = 原版 UGUI 那一套：左上为原点、`y 向下为正`**（与本仓 `LayoutSpace.FromPixel`
+        /// 同一个约定，`Core/LayoutSpace.cs:214` 头注：「原版是 UGUI，参数都是 1920×1080 设计像素、左上为原点、
+        /// y 向下」）⇒ 世界里的「**减 `up × Y`**」（往下）在屏幕上就是 **`y` 增大**，所以本函数**原样返回 `+Y`**
+        /// （⛔ 别在这里再翻一次符号 —— 那会和 `RevealStartPx/EndPx` 那一套口径打架）。</para>
+        ///
+        /// <para>⚠️ **这是「偏移量」的换算，不是「绝对位置」** —— 绝对位置还要加手牌锚自己在屏幕上的落点，
+        /// 而 `enemyHand` 的锚点是**整条链里今天唯一还缺的那一格**（见报告「没查清的部分」）。</para>
+        /// </summary>
+        /// <param name="screenHeightPx">目标屏高（1080 ⇒ 系数原样；其它分辨率按比例）。</param>
+        /// <returns>(dx, dy) 设计像素，**y 向下为正**（可直接加到 `LayoutSpace.FromPixel` 的入参上）。</returns>
+        public static PxOffset PlayedCardDisplayOffsetPx(
+            bool offensive, bool smallScreen, float screenHeightPx)
+        {
+            const float pxPerUnitAt1080 = 14.835f;
+            float k = pxPerUnitAt1080 * (screenHeightPx / 1080f);
+            float x = offensive
+                ? (smallScreen ? OffensiveCardDisplayMobileXOffset : OffensiveCardDisplayXOffset)
+                : (smallScreen ? EnemyCardDisplayMobileXOffset : EnemyCardDisplayXOffset);
+            float y = offensive ? OffensiveCardDisplayYOffset : EnemyCardDisplayYOffset;
+            // y 向下为正（同 `LayoutSpace.FromPixel`）⇒ 世界里的「减 up·Y」（往下）= 屏幕上 +Y
+            return new PxOffset(x * k, y * k);
+        }
+    }
 }

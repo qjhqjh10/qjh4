@@ -1,0 +1,95 @@
+脚本	有没有--check	查源?	查产物?	查过期?	本波改了没	验证结果	备注
+gen_cards_engine.py	--check	✅	✅	✅	—	未跑	盘上不存在→"不存在"rc1；过期→比对 count/version/cards/talentNameIds
+gen_cards_truth.py	--check	✅	✅(隐式)	✅	—	未跑	old=""时→"不同 ❌"（缺失报红但不单列"缺产物"）
+gen_cardface_fixes.py	--check	✅	✅(隐式)	✅	—	未跑	OUT缺失→disk=None→全算"增"→rc1
+gen_draft_packs.py	--check	✅	✅	✅	—	未跑	缺失→"不存在"；过期→"已过期 ❌"
+gen_related_cards.py	--check	✅	✅(隐式)	✅	—	未跑	old=""→"不同 ❌"
+gen_trait_effect_bindings.py	--check	✅	✅	✅	—	未跑	显式"产物不存在"+rc1（本族最佳范式之一）
+gen_official_loc.py	--check	✅	✅	✅	—	未跑	缺失→"不存在"
+gen_official_loc_13lang.py	--check	✅	✅	✅	—	未跑	缺失→"不存在"
+gen_cardanim_clips.py	--check	✅	✅	✅	—	未跑	两份都读盘比对，缺失→bad
+gen_anim_clips.py	--check	✅	✅	✅	—	未跑	缺失→"🔴 CHECK 失败（缺失或过期）"
+gen_card_anim_order.py	--check	✅	✅(隐式)	✅	—	未跑	old=""→same=False→rc1
+gen_ability_anim_durations.py	--check	✅	✅	✅	—	未跑	缺失→"✗ 缺文件"；两份都比
+gen_battlehud_clips.py	--check	✅	✅	✅	—	未跑	缺失→"✗ 不存在"；两份都比
+gen_misc_clips.py	--check	✅	✅(隐式)	✅	—	未跑	old=None→"✗ 不一致"
+gen_division_clips.py	--check	✅	✅(隐式)	✅	—	未跑	old=None→"✗ 不一致"
+gen_camera_intro_clips.py	--check	✅	✅(隐式)	✅	—	未跑	old=None→"✗ 不一致"
+gen_arena_scene_clips.py	--check	✅	✅(隐式)	✅	—	未跑	old=None→不一致
+gen_adjacent_vfx_animinfo.py	--check	✅	✅	✅	—	未跑	缺失→"✗ 缺文件"rc1
+gen_card_chat_intro.py	--check	✅	✅(隐式)	✅	—	未跑	old=""→不同❌
+gen_remnant_body_table.py	--check	✅	✅	✅	—	未跑	缺失→"✗ 缺文件"
+gen_card_initiative.py	--check	✅	✅	✅	—	未跑	缺失→"❌ 不存在"SystemExit1
+gen_card_vfx_by_card.py	--check	✅	✅	✅	—	未跑	_wf_run_check 比对两份产物
+gen_ai_scoring.py	--check	✅	✅	✅	—	未跑	缺失→CHECK FAIL rc1
+gen_demo_deck_pairs.py	--check	✅	✅	✅	—	未跑	缺失→"产物还不存在"rc1
+gen_diag_runner.py	--check	✅	✅	✅	—	未跑	缺失→diff 全行→rc1
+gen_effect_extras.py	--check	✅	✅(隐式)	✅	—	未跑	old=""→不一致❌
+gen_env_shake_sounds.py	--check	✅	✅	✅	—	未跑	OUT+OUT_RESOURCES 都比
+gen_pragati_digits.py	--check	✅	✅	✅	—	未跑	bad计数→sys.exit
+gen_practice_decks_extra.py	--check	✅	✅	✅	—	未跑	MISSING/STALE→bad→rc1
+gen_prebuilt_bot_decks.py	--check	✅	✅	✅	—	未跑	MISSING/DIFF→bad→rc1
+gen_warlord_goes_second.py	--check	✅	✅(隐式)	✅	—	未跑	old={}→same=False→rc1
+gen_icon_plan.py	--check	✅	✅	✅	—	未跑	两份产物内容比对
+gen_shader_defaults.py	--check	✅	✅(隐式)	✅	—	未跑	write_or_check 缺失→DIFF→rc1
+gen_defensive_cards.py	--check	✅	✅(隐式)	✅	—	未跑	have=None→不一致→rc1
+import_original_art.py	--check	✅	✅	✅	W30已改	—	--only-altart 已补产物存在性(:1714-1721,:1739) 7/7
+import_deck_warlord_art.py	--check	✅	✅	❌	—	未跑	逐 dst exists→"WOULD"（缺失可见，但不报红/不查过期）
+import_original_luts.py	--check	✅	✅(弱)	❌	—	未跑	state="已存在"/"--check" 可见但不报红
+gen_module_events.py	--check	⚠️	✅(C#表+json)	✅	✅改了	绿+红双验(齐全→rc0；藏 module_events.json→🔴rc1)	原 check() 只比对 WFModuleEvent.cs 生成区；本波补 OUT json 侧逐字节比（缺失/过期→🔴rc1）
+gen_vfx_texture_mips.py	--check	✅	✅	✅	✅改了	绿+红双验(2984行一致→rc0；缺→🔴rc1；**行数相同但内容改了→🔴rc1+点名行**)	原「只比行数、恒 rc0」→ 改逐字节比内容；输出末尾那句「🔴 1 张同名贴图 wrap/filter 不一致」是扫描诊断、不影响 rc
+gen_tutorial_stages.py	--check	✅	❌	❌	—	未跑	tutorial_audio_check() 只查音频；产物 json 不查（Type B）
+gen_animator_controllers.py	--check	✅	❌	❌	—	未跑	B: 只体检 missing/guid_bad，不查 OUT 产物
+gen_card_inventory_options.py	--check	✅	❌	❌	—	未跑	B: "只对账"后直接 return，不碰产物
+gen_effect_index.py	--check	✅	❌	❌	—	未跑	B: "--check：不写文件" return 0
+gen_env_blendables.py	--check	✅	❌	❌	—	未跑	B: "if a.check: return 0"（最简，啥都不查）
+gen_profile_cosmetics.py	--check	✅	❌	❌	—	未跑	B: "if args.check: return 0"
+gen_arena_groups.py	--check	✅	✅	✅	✅改了	绿(rc0)；藏产物→🔴rc1	本波补（13 场逐份比对，13/13 一致）
+gen_arena_meshkeywords.py	--check	✅	✅	✅	✅改了	12 场绿 / **astramilitarum 真过期→🔴rc1**；藏产物→🔴rc1	本波补；🔴 现读 astramilitarum 的 meshkeywords.json 是 2026-10-09 的旧产物，比 2026-10-26 的清单少 2 条（`Bunker Gun ` / `Generator `，**名字带尾随空格**）⇒ 需重跑一次（本波不许写 Assets）
+gen_arena_mirror.py	--check	✅	✅	✅	✅改了	绿(rc0)；藏产物→🔴rc1	同上；本波补 8 场逐份比对
+gen_arena_negscale.py	--check	✅	✅	✅	✅改了	绿(rc0)；藏产物→🔴rc1	本波补（13 场逐份比对，13/13 一致）
+gen_arena_psmesh.py	--check	✅	✅	✅	✅改了	绿(rc0)；藏产物→🔴rc1	本波补；原版无 renderMode=4 粒子的场若残留产物→🔴多余
+gen_arena_quality_toggle.py	--check	✅	✅	✅	✅改了	绿(rc0)；藏产物→🔴rc1	本波补：缺→🔴点名+rc1；内容不一致→🔴过期；原版无该组件的场若残留产物→🔴多余
+gen_arena_shadowflags.py	--check	✅	✅	✅	✅改了	绿(rc0)；藏产物→🔴rc1	本波补（13 场逐份比对，13/13 一致）
+gen_arena_sprites.py	--check	✅	✅	✅	✅改了	**11 场缺产物 + astramilitarum 过期 ⇒ 🔴rc1**；藏产物/藏 PNG→🔴rc1	本波补（json + `Sprites/<tex>.png` 双查）；🔴 巡检结果见报告：11 场根本没有 `<场>_sprites.json`、astra 那份是旧格式（缺 `active` 键 ⇒ `BuildSprites` 把 10 个 sprite 全当「原版关着」跳过）
+gen_arena_texslots.py	--check	✅	✅	✅	✅改了	绿(rc0；13/13 槽集合一致、47 张 PNG 全在)；藏 json / 藏 slot PNG→🔴rc1	本波补（json 存在性 + 逐条 texFile 的 PNG 存在性 + 槽集合「盘上多出来」方向）；**不比 json 逐字节**（keep_list 依赖导出成功，静态重算会假红，已写进注释）
+gen_arena_vertexcolors.py	--check	✅	✅	✅	✅改了	绿(rc0)；藏产物→🔴rc1	本波补（13 场逐份比对，13/13 一致）
+gen_frame_uv.py	--check	✅	✅	✅	✅改了	合成夹具绿+红(write0/green0/red1)	原"只打不写盘 return0"→补内容比对(缺失/过期→❌rc1)；真实150图重算分钟级
+gen_simple_animation_clips.py	--check	✅	✅	✅	✅改了	合成夹具绿+红(write0/green0/red1)	原"只打存在/不存在 rc0"→补内容比对；真实全bundle加载分钟级
+import_original_3dcard.py	--check	✅	✅	✅	✅改了	绿+红双验	原只查源→补产物存在性(10/10 绿；缺1→🔴rc1)
+import_original_card_sdf.py	--check	✅	✅	✅	✅改了	绿+红双验	原只查源+meta(已存在)→补产物PNG存在性(106 绿；缺1→🔴rc1)
+import_original_sfx.py	--check	✅	✅	✅	✅改了	绿+红双验	原只查源→补JSON比对+音频文件存在性(543 绿；缺JSON→🔴rc1)
+import_original_audio.py	--check	✅	✅	✅	✅改了	未跑	原只查源→补JSON比对+vo文件存在性（同 sfx 形）
+import_battle_sfx.py	--check	✅	✅	✅	✅改了	绿+红双验	原只算"要拷N"→补JSON比对+缺失点名(29 绿；缺JSON→🔴rc1)
+import_battle_bgm.py	--check	✅	✅	✅	✅改了	绿+红双验(含幂等)	原只算"要拷N"→补JSON比对+缺失点名(25 绿；缺JSON→🔴rc1；写两遍 sha256 相同)
+import_remnant_sfx.py	--check	✅	✅(音频)	✅(音频)	✅改了	绿+红双验	原早退在拷贝前→补5个音频产物存在性/尺寸；remnant_cue_props.json 未比对(见报告)
+=== --dry/--verify 干跑族（无 --check；本波未逐条深读）===	=== --dry/--verify 干跑族（无 --check；本波未逐条深读）===	=== --dry/--verify 干跑族（无 --check；本波未逐条深读）===	=== --dry/--verify 干跑族（无 --check；本波未逐条深读）===	=== --dry/--verify 干跑族（无 --check；本波未逐条深读）===	=== --dry/--verify 干跑族（无 --check；本波未逐条深读）===	=== --dry/--verify 干跑族（无 --check；本波未逐条深读）===	=== --dry/--verify 干跑族（无 --check；本波未逐条深读）===
+gen_anim_address_map.py	--dry(干跑)	✅	未深读	未深读	—	未跑	--dry/--verify 语义=算完不写盘，**不比对盘上产物**（W30 同型风险，本波未逐条核查没查产物）
+gen_animfx_modules.py	--dry(干跑)	✅	未深读	未深读	—	未跑	--dry/--verify 语义=算完不写盘，**不比对盘上产物**（W30 同型风险，本波未逐条核查没查产物）
+gen_arena_camera.py	--dry(干跑)	✅	未深读	未深读	—	未跑	--dry/--verify 语义=算完不写盘，**不比对盘上产物**（W30 同型风险，本波未逐条核查没查产物）
+gen_arena_particle_colorspace.py	--dry(干跑)	✅	未深读	未深读	—	未跑	--dry/--verify 语义=算完不写盘，**不比对盘上产物**（W30 同型风险，本波未逐条核查没查产物）
+gen_arena_particle_streams.py	--dry(干跑)	✅	未深读	未深读	—	未跑	--dry/--verify 语义=算完不写盘，**不比对盘上产物**（W30 同型风险，本波未逐条核查没查产物）
+gen_arena_particlepivot.py	--dry(干跑)	✅	未深读	未深读	—	未跑	--dry/--verify 语义=算完不写盘，**不比对盘上产物**（W30 同型风险，本波未逐条核查没查产物）
+gen_cardbacks.py	--dry(干跑)	✅	未深读	未深读	—	未跑	--dry/--verify 语义=算完不写盘，**不比对盘上产物**（W30 同型风险，本波未逐条核查没查产物）
+gen_csc_rsp.py	--dry(干跑)	✅	未深读	未深读	—	未跑	--dry/--verify 语义=算完不写盘，**不比对盘上产物**（W30 同型风险，本波未逐条核查没查产物）
+gen_environment_conditions.py	--dry(干跑)	✅	未深读	未深读	—	未跑	--dry/--verify 语义=算完不写盘，**不比对盘上产物**（W30 同型风险，本波未逐条核查没查产物）
+gen_fallback_audit.py	--dry(干跑)	✅	未深读	未深读	—	未跑	--dry/--verify 语义=算完不写盘，**不比对盘上产物**（W30 同型风险，本波未逐条核查没查产物）
+gen_feature_index.py	--dry(干跑)	✅	未深读	未深读	—	未跑	--dry/--verify 语义=算完不写盘，**不比对盘上产物**（W30 同型风险，本波未逐条核查没查产物）
+gen_flicker_cs.py	--dry(干跑)	✅	未深读	未深读	—	未跑	--dry/--verify 语义=算完不写盘，**不比对盘上产物**（W30 同型风险，本波未逐条核查没查产物）
+gen_ghidra_lists.py	--dry(干跑)	✅	未深读	未深读	—	未跑	--dry/--verify 语义=算完不写盘，**不比对盘上产物**（W30 同型风险，本波未逐条核查没查产物）
+gen_guid_map_from_bundles.py	--dry(干跑)	✅	未深读	未深读	—	未跑	--dry/--verify 语义=算完不写盘，**不比对盘上产物**（W30 同型风险，本波未逐条核查没查产物）
+gen_icon_doc.py	--dry(干跑)	✅	未深读	未深读	—	未跑	--dry/--verify 语义=算完不写盘，**不比对盘上产物**（W30 同型风险，本波未逐条核查没查产物）
+gen_mat_renderqueue.py	--dry(干跑)	✅	未深读	未深读	—	未跑	--dry/--verify 语义=算完不写盘，**不比对盘上产物**（W30 同型风险，本波未逐条核查没查产物）
+gen_module_material_sources.py	--dry(干跑)	✅	未深读	未深读	—	未跑	--dry/--verify 语义=算完不写盘，**不比对盘上产物**（W30 同型风险，本波未逐条核查没查产物）
+gen_offensive_cards.py	--dry(干跑)	✅	未深读	未深读	—	未跑	--dry/--verify 语义=算完不写盘，**不比对盘上产物**（W30 同型风险，本波未逐条核查没查产物）
+gen_offensive_cards_flat.py	--dry(干跑)	✅	未深读	未深读	—	未跑	--dry/--verify 语义=算完不写盘，**不比对盘上产物**（W30 同型风险，本波未逐条核查没查产物）
+gen_prebuilt_decks.py	--dry(干跑)	✅	未深读	未深读	—	未跑	--dry/--verify 语义=算完不写盘，**不比对盘上产物**（W30 同型风险，本波未逐条核查没查产物）
+gen_renderqueue_truth.py	--dry(干跑)	✅	未深读	未深读	—	未跑	--dry/--verify 语义=算完不写盘，**不比对盘上产物**（W30 同型风险，本波未逐条核查没查产物）
+gen_replica_ledger.py	--dry(干跑)	✅	未深读	未深读	—	未跑	--dry/--verify 语义=算完不写盘，**不比对盘上产物**（W30 同型风险，本波未逐条核查没查产物）
+gen_shader_blend.py	--dry(干跑)	✅	未深读	未深读	—	未跑	--dry/--verify 语义=算完不写盘，**不比对盘上产物**（W30 同型风险，本波未逐条核查没查产物）
+gen_shake_presets.py	--dry(干跑)	✅	未深读	未深读	—	未跑	--dry/--verify 语义=算完不写盘，**不比对盘上产物**（W30 同型风险，本波未逐条核查没查产物）
+gen_skybox_cubemap.py	--dry(干跑)	✅	未深读	未深读	—	未跑	--dry/--verify 语义=算完不写盘，**不比对盘上产物**（W30 同型风险，本波未逐条核查没查产物）
+gen_sunflare_cs.py	--dry(干跑)	✅	未深读	未深读	—	未跑	--dry/--verify 语义=算完不写盘，**不比对盘上产物**（W30 同型风险，本波未逐条核查没查产物）
+gen_talent_cards.py	--dry(干跑)	✅	未深读	未深读	—	未跑	--dry/--verify 语义=算完不写盘，**不比对盘上产物**（W30 同型风险，本波未逐条核查没查产物）
+gen_trait_dict.py	--dry(干跑)	✅	未深读	未深读	—	未跑	--dry/--verify 语义=算完不写盘，**不比对盘上产物**（W30 同型风险，本波未逐条核查没查产物）
+gen_tmp_font_assets.py	--verify(干跑)	✅	未深读	未深读	—	未跑	--dry/--verify 语义=算完不写盘，**不比对盘上产物**（W30 同型风险，本波未逐条核查没查产物）

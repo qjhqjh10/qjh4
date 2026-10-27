@@ -47,6 +47,42 @@ ARENAS = ['battlearena1', 'battlearena2', 'battlearena3', 'battlearenaaeldari',
 QUALITY = 2                    # 原版实跑档（注册表实读）
 
 
+## 🆕 2026-10-27（B9_W45ARENA）`--check` 的**产物校验**（只读，不写盘）。
+#  原来这一族的 `--check` 是「只扫不写」（`if check: continue`）—— 盘上缺产物也恒 rc0，
+#  属「看着有 check、其实啥都没查」。口径照 `工具/import_original_art.py:1714-1721`：
+#  把**重算出来的内容**与盘上那份**逐字节比**；缺 = 缺产物 · 不一致 = 过期，末尾点名 + rc=1。
+def wf_check_artifact(dst, text, lack, stale):
+    if not os.path.isfile(dst):
+        lack.append(dst)
+        return
+    try:
+        old = io.open(dst, encoding='utf-8').read()
+    except Exception as e:
+        stale.append((dst, '读不出：%s' % e))
+        return
+    if old == text:
+        return
+    try:                     # 只差缩进/键序 ⇒ 语义一致，**不算过期**（`JsonUtility` 本来就不看键序）
+        if json.loads(old) == json.loads(text):
+            return
+    except Exception:
+        pass
+    stale.append((dst, '内容与重算结果不同'))
+
+
+def wf_report_artifacts(check, lack, stale, script):
+    """`--check` 收尾：有缺/过期就点名并让 main 返回 1。→ 该返回的 rc（无问题 = 0）。"""
+    if not check or not (lack or stale):
+        return 0
+    print('')
+    for p in lack:
+        print('  🔴 缺产物：%s' % p)
+    for p, why in stale:
+        print('  🔴 产物过期（%s）：%s' % (why, p))
+    print('  ⇒ 重跑一次 `python 工具/%s` 生成（`--check` 只读、不写盘）。' % script)
+    return 1
+
+
 def qmul(a, b):
     ax, ay, az, aw = a
     bx, by, bz, bw = b
@@ -114,6 +150,7 @@ def main():
     aa = next((d for d in AA_DIRS if os.path.isdir(d)), None)
 
     n_hit = 0
+    lack, stale = [], []
     for arena in arenas:
         path = os.path.join(aa, 'scenes_scenes_%s.bundle' % arena)
         if not os.path.isfile(path):
@@ -133,6 +170,13 @@ def main():
             except Exception:
                 continue
         if not mb:
+            # `--check`：原版这一场**没有**平面反射相机 ⇒ 不该有产物；盘上还留着就是**多余**
+            # （`ArenaBuilder` 会照旧表建一台原版没有的反射相机）。
+            if check:
+                p = os.path.join(ROOT, 'MyGame/Assets/WarpforgeArena1/arenas', arena,
+                                 arena + '_mirror.json')
+                if os.path.isfile(p):
+                    stale.append((p, '原版这一场没有 Mirror ⇒ 产物多余'))
             continue
         for pid, d in mb.items():
             gid = (d.get('m_GameObject') or {}).get('m_PathID')
@@ -214,13 +258,15 @@ def main():
                       out['grainy'], out['depthFadeBottom'], out['depthFadeTop'],
                       out['shaderIterations'], out['blurRadius'], out['scope'], out['rendererCount']))
             n_hit += 1
-            if check:
-                continue
             dst = os.path.join(ROOT, 'MyGame/Assets/WarpforgeArena1/arenas', arena, arena + '_mirror.json')
+            text = json.dumps(out, ensure_ascii=False, indent=2)
+            if check:
+                wf_check_artifact(dst, text, lack, stale)
+                continue
             os.makedirs(os.path.dirname(dst), exist_ok=True)
-            io.open(dst, 'w', encoding='utf-8', newline='\n').write(json.dumps(out, ensure_ascii=False, indent=2))
+            io.open(dst, 'w', encoding='utf-8', newline='\n').write(text)
     print('合计：%d 场有平面反射相机' % n_hit)
-    return 0
+    return wf_report_artifacts(check, lack, stale, 'gen_arena_mirror.py')
 
 
 if __name__ == '__main__':

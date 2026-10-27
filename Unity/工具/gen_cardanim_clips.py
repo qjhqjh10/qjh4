@@ -40,6 +40,10 @@ CardAnim 名 → prefab 名（GUID → 资产名）这一跳**不在本脚本里
   `ao/ont/ofx/ofy/ofz/mn*/mx*` 只写 `ao==1` 的行（其余行缺省 = 0 / 空）—— 与
   `Resources/card_anim_order.json` 的 `CardAnimBeat` 同一套短名与同一份曲线格式。
   🆕 2026-10-25（执行代理 `TL`）：**`minionMovementInfo` 12 列 + `screenShake` 6 列**（见下一条）。
+  🆕 2026-10-27（执行代理 `B9_W12USHK`）：**`unitsShake` → `ush`（数组列，259 行 / 273 条）** 与
+  **`minionAnimationClipInfo` → `mac*`（2 行，`enable` 全 0 / clip 全 null）**。两族原来**一整片零数据**；
+  `unitsShake` 那一路的运行期消费口（`CardFeel.ResolveUnitShake`）早就在、一直是 0 调用点。
+  判据与本列语义见 `_unit_shake_block` / `_minion_clip_block` 的 doc。
 
 🆕 2026-10-25（执行代理 `TL` · 消费端 `AU1` 已接、只差数据列）：**两族的「运行期投影」列名**
 --------------------------------------------------------------------------
@@ -354,6 +358,102 @@ def _minion_move_block(ai):
     return out
 
 
+def _unit_shake_block(ai):
+    """`animInfo.unitsShake`（`AnimInfo +0x78`，`List<UnitShake.UnitShakeInfo>`）→ `ush` 数组列。
+
+    🆕 2026-10-27（执行代理 `B9_W12USHK`）：这一族**原来整条没有数据链**（运行期 `CardFeel.ResolveUnitShake`
+    已经实现、0 调用点）。判据（🥇 逐句）：
+      · 字段表 `d:/2/tools/il2cpp_out/dump.cs:25242`（`public List<UnitShake.UnitShakeInfo> unitsShake; // 0x78`）
+        + `:25498-25511`（`UnitShake.UnitShakeInfo` 五个字段：`targetUnit 0x10` · `awayFromUnit 0x14` ·
+        `shakeSize 0x18` · `shakeDuration 0x1C` · `shakeDelay 0x20`）；
+      · 消费点 `decomp_full/BattleManager._ResolveAnimInfoRangeAttack_d__468__MoveNext.c:64-108`
+        （`unitsShake` 非空 ⇒ **逐条** `ResolveUnitShake(new UnitShake(info, actingCard, targetCard))`，
+        **否则**才走 `tweenAnim(+0x80)` —— 是 if/else）与 `BattleManager._ResolveAnim_d__466__MoveNext.c:108-125`
+        （**同一段代码**，即 `play`/`ability`/`trigger`/`attack_melee` 那些桶也吃这张表 ⇒ 本列**与事件桶无关**）；
+      · `decomp_full/UnitShake__.ctor.c:8-18`（`+0x20 = info+0x18` · `+0x24 = info+0x1c` · `+0x28 = info+0x20` ·
+        `+0x10/+0x18 = GetTargetUnit(info+0x10 / info+0x14, actingCard, targetCard)`）。
+
+    短名（**运行期 `CardAnimClips.RtUnitShake` 的列名，逐个对应，⛔ 别改名**）：
+        `t`  ← `targetUnit`（`TargetUnit` 枚举**原样搬**：0 undefined · 10 self · 20 cardTarget ·
+              30 abilityTarget · 40 friendlyHero · 50 enemyHero —— 判据 `dump.cs:45603-45613`）
+        `aw` ← `awayFromUnit`（同上枚举）—— **只有 `aw` 非 0 且解出的卡 ≠ `t` 解出的卡时才走击退支**
+        `sz` ← `shakeSize`（`UnitSize` 枚举：0 small · 2 medium · 3 big —— `dump.cs:101810-101817`；
+              ⚠️ **不是 0/1/2**）
+        `du` ← `shakeDuration`（**秒**；只对抖动支有意义，击退支原版把 `DoPushBack` 的 duration 写死 0.4）
+        `dl` ← `shakeDelay`（**秒**；>0 时 `WaitForSeconds` 之后再判 `IsInPlay` 与二选一）
+
+    🔴 **`t == 0`（undefined）原版是「解不出目标」**：`BattleManagerSupport__GetTargetUnit.c` 对
+    0/其它值一律 `return 0` ⇒ 协程在 `:51-54` 直接 `return 0`（**什么都不做**，只白等 `dl`）。
+    现读 273 条里 **237 条是 `t = 0`** ⇒ 真正有效的只有 **36 条 / 35 个 CardAnim**。
+    ⛔ 别把「有这一条」当成「一定会抖」—— 运行期必须照 `GetTargetUnit` 判，⛔ 不许拿 `targetCard` 顶 `t=0`。
+
+    ⛔ **只在 `unitsShake` 非空时写**（其余行缺省 = 空数组 = 原版这一拍没有 unit shake）。
+    返回 `None` 表示不写。
+    """
+    us = ai.get("unitsShake") or []
+    if not us:
+        return None
+    out = []
+    for e in us:
+        out.append({
+            "t": int(e.get("targetUnit") or 0),
+            "aw": int(e.get("awayFromUnit") or 0),
+            "sz": int(e.get("shakeSize") or 0),
+            "du": round(float(e.get("shakeDuration") or 0.0), 6),
+            "dl": round(float(e.get("shakeDelay") or 0.0), 6),
+        })
+    return out
+
+
+def _minion_clip_block(ai):
+    """`animInfo.minionAnimationClipInfo`（`AnimInfo +0x68`）→ `mac*` 列（**只在非默认时**写）。
+
+    🆕 2026-10-27（执行代理 `B9_W12USHK`）：**只补列定义与读数口** —— 本 build 的数据现状是
+    **2 件非空且 `animationClip` 全是 null**（见下），所以**今天没有可观测差**，⛔ 不假装有。
+
+    判据（🥇 逐句）：`d:/2/tools/il2cpp_out/dump.cs:25239`（`minionAnimationClipInfo // 0x68`）·
+    `:25310-25340`（`MinionAnimClipInfo{enable 0x10, delay 0x14, minionClips 0x18[]}`）·
+    `:25259-25305`（`MinionAnimClipInfoDefinition{target 0x10, animationClip 0x18, delay 0x20,
+    waitForCompletion 0x24, toggleFlyOff 0x25, safeResetOnEnd 0x26}`）·
+    消费点 `BattleManager._ResolveAnim_d__466__MoveNext.c:166-171`：**`enable == 0` ⇒ 根本不调**
+    `ResolveAnimAnimationClip`（⇒ 本 build 那两个件的 `minionClips` 是**死数据**）。
+
+    短名（**运行期 `CardAnimClips.RtMinionClip` / `CardAnimBodyClip` 的列名**）：
+        `macEn` ← `enable`（**0 = 这条链整段不执行**）· `macD` ← 外层 `delay`（秒）
+        `macs`  ← `minionClips[]`：`t`(target，`TargetUnit` 枚举) · `clip`(`animationClip.m_PathID`
+                  **十进制字符串**，`"0"` = **null 引用**/解不出 —— ⛔ 不猜名字)
+                  `d`(delay 秒) · `wc`(waitForCompletion) · `tf`(toggleFlyOff) · `sr`(safeResetOnEnd)
+
+    现读（1,099 个 CardAnim 全扫）：**2 行** = `Atk_Gauss_Tesla` / `Atk_Gauss_Tesla_Annihilator`，
+    两行都是 `macEn = 0`、各一条 `macs` 且 `clip = "0"`（null）、`t = 10(self)`、`tf = sr = 1`。
+    ⇒ 与 `CardAnimClips.BodyClipOf` 那段「本 build 卡体 clip 一次都不会播」的结论**互相印证**。
+    """
+    m = ai.get("minionAnimationClipInfo") or {}
+    if not m:
+        return {}
+    en = int(m.get("enable") or 0)
+    dly = float(m.get("delay") or 0.0)
+    clips = m.get("minionClips") or []
+    if not en and not dly and not clips:
+        return {}
+    out = {"macEn": en, "macD": round(dly, 6)}
+    if clips:
+        arr = []
+        for c in clips:
+            clip = c.get("animationClip") or {}
+            pid = clip.get("m_PathID") or 0
+            arr.append({
+                "t": int(c.get("target") or 0),
+                "clip": str(pid),
+                "d": round(float(c.get("delay") or 0.0), 6),
+                "wc": int(c.get("waitForCompletion") or 0),
+                "tf": int(c.get("toggleFlyOff") or 0),
+                "sr": int(c.get("safeResetOnEnd") or 0),
+            })
+        out["macs"] = arr
+    return out
+
+
 def build():
     am = json.load(io.open(ADDR_MAP, encoding="utf-8"))
     c2a = am["cardanim_to_asset"]
@@ -440,6 +540,17 @@ def build():
         mmb = _minion_move_block(ai)
         if mmb:
             row.update(mmb)
+        # ── 🆕 2026-10-27（执行代理 `B9_W12USHK`）：两族原来**一整片零数据**的字段 ──
+        #   ④ `unitsShake`（`+0x78`；现读 **259 个 CardAnim / 273 条**）—— 见 `_unit_shake_block`。
+        #      运行期消费口 = `CardFeel.ResolveUnitShake`（已实现、0 调用点，等调用方接）。
+        #   ⑤ `minionAnimationClipInfo`（`+0x68`；现读 **2 行**且 `enable` 全 0、clip 全 null）
+        #      —— 见 `_minion_clip_block`。**只落数据，今天无观测差**（⛔ 不假装有）。
+        usb = _unit_shake_block(ai)
+        if usb:
+            row["ush"] = usb
+        macb = _minion_clip_block(ai)
+        if macb:
+            row.update(macb)
         # 🔴 键 = **CardAnim 名**（`a`）。同一 prefab 名可以有多张 CardAnim、参数不同 ⇒ 各存各的。
         if ca in rows:                       # 理论上 c2a 的键唯一（现读 1,099/1,099）
             conflicts.append((ca, rows[ca]["n"], n))
@@ -494,6 +605,17 @@ def main():
           % (_ss, _ssn, _shk))
     print("🆕 R13 minionMovement (`mm*`): %d 行（运行期 `mvt` %d 行，其中 `mvt==1` **%d 行**；`mva>0` %d 行）"
           % (_mm, _mvt, _mvt_on, _mva))
+    # 🆕 2026-10-27（`B9_W12USHK`）：`unitsShake` / `minionAnimationClipInfo` 两族
+    _ush = [r for r in out["rows"] if r.get("ush")]
+    _ush_n = sum(len(r["ush"]) for r in _ush)
+    _ush_eff = sum(1 for r in _ush for e in r["ush"] if e["t"])
+    _mac = [r for r in out["rows"] if "macEn" in r]
+    _mac_on = sum(1 for r in _mac if r["macEn"])
+    _mac_clip = sum(1 for r in _mac for c in (r.get("macs") or []) if c["clip"] != "0")
+    print("🆕 unitsShake (`ush`)      : %d 行 / %d 条（`t != 0` 真正有效的 **%d 条**；"
+          "`t==0` 原版解不出目标 ⇒ 空转）" % (len(_ush), _ush_n, _ush_eff))
+    print("🆕 minionAnimationClip (`mac*`): %d 行（`macEn==1` **%d 行**；`clip` 非 null 的 **%d 条**）"
+          % (len(_mac), _mac_on, _mac_clip))
     if _PRESET_IDX_RENAMED:
         print("   ⚠️ 索引里 `m_Name` 与文件名不一致（已按 `m_Name`）：%s" % _PRESET_IDX_RENAMED[:5])
     if _PRESET_IDX_BAD:

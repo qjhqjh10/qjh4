@@ -1,0 +1,112 @@
+{
+  "scene": "battlearenaspacewolves",
+  "sprites": [
+    {
+      "go": "Crosshair",
+      "chain": "Crosshair ← Attack Target Reticle ← NoCanvas2D ← BattlePrefab",
+      "pos": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "rot": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        4.829999923706055,
+        4.829999923706055,
+        4.829999923706055
+      ],
+      "world": [
+        -47.79999923706055,
+        0.0,
+        81.48148345947266
+      ],
+      "sprite": "Atack_Icon BW",
+      "ptu": 100.0,
+      "rect": [
+        0.0,
+        0.0,
+        180.0,
+        182.0
+      ],
+      "pivot": [
+        0.5,
+        0.5,
+        0.0
+      ],
+      "tex": "Atack_Icon BW",
+      "texPathId": 847053337670984062,
+      "color": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "drawMode": 0,
+      "size": [
+        1.0,
+        1.0,
+        0.0
+      ],
+      "flipX": false,
+      "flipY": false,
+      "sortOrder": 0,
+      "sortLayer": 0,
+      "active": false,
+      "mats": [
+        {
+          "name": "Sprites-Default",
+          "shader": "Sprites/Default",
+          "shaderPathId": 3262840161956400972,
+          "queue": -1,
+          "props": [
+            {
+              "k": "PixelSnap",
+              "t": "f",
+              "f": 0.0
+            },
+            {
+              "k": "_EnableExternalAlpha",
+              "t": "f",
+              "f": 0.0
+            },
+            {
+              "k": "_Color",
+              "t": "c",
+              "c": [
+                1.0,
+                1.0,
+                1.0,
+                1.0
+              ]
+            },
+            {
+              "k": "_Flip",
+              "t": "c",
+              "c": [
+                1.0,
+                1.0,
+                1.0,
+                1.0
+              ]
+            },
+            {
+              "k": "_RendererColor",
+              "t": "c",
+              "c": [
+                1.0,
+                1.0,
+                1.0,
+                1.0
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

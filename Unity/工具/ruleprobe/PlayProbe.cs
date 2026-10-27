@@ -247,7 +247,16 @@ class PlayProbe
         Print(r);
         // 🆕 `A1431` 第三笔：**单卡也要能看事件电池**（否则「这一张到底有没有被验到」得整池跑一遍才知道）。
         EventReading er = null;
-        if (hit.Type == "unit") { er = MeasureEvents(pool, hit); PrintEvents(hit, er); }
+        // 🔴 🆕 `B9_W32S3`（2026-10-27）：这里原来**丢掉了 `preset`**（`MeasureEvents(pool, hit)`）——
+        //   而 `play all` 那条路（`Sweep`）是**带着** `preset` 的。
+        //   ⇒ 同一个 `preset` 在「单卡读数」和「全池读数」上给出**两套不同的电池读数**，
+        //   而且**一声不响**（`play AM4 preset big=1` 的电池照样按默认夹具跑）。
+        //   实测：`big=1` 加上之后单卡仍打 `softAtk=skip(would-kill)`，全池那一份才有靶子。
+        //   ⛔ 不传 `preset` 时 `MeasureEvents(pool, hit, null)` 与改前**逐字节相同**。
+        if (hit.Type == "unit") { er = MeasureEvents(pool, hit, preset); PrintEvents(hit, er); }
+        // 🆕 `B9_W41S3B`（2026-10-27）：**督军档电池**（只在 `preset hero=1` 时；⛔ 不传时一行都跑不到）
+        else if (hit.Type == "hero" && preset != null && preset.HeroBattery > 0)
+        { er = MeasureHeroBattery(pool, hit, preset); PrintEvents(hit, er); }
         // 🔴 退出码只认**硬失败**（⛔ 不拿「候选」当失败 —— 那会把「红了不用管」训练成习惯）：
         //   · 崩了（引擎抛异常）= 缺陷，必须红；
         //   · `ErrUnimplemented` = 这张卡**根本打不出去**（`CanPlayTactic` 要求
@@ -349,6 +358,12 @@ class PlayProbe
     /// <summary>摆场：两边各 3 张固定部队，落在 3 / 6 / 7 三格（**贴着督军格 4、且有相邻对 6-7**）——
     /// 这样「相邻」族与「督军旁边的」族都有活目标。</summary>
     static readonly int[] DeploySlots = { 3, 6, 7 };
+
+    /// <summary>🆕 `B9_W32S3`（2026-10-27）：`preset big=1` 那个「打得动的靶子」落在哪一格。
+    /// 取 **8**：可部署格 = `0..3 / 5..8`（督军格 4），既有的三张占 3/6/7 ⇒ 8 空着、且仍与 7 相邻
+    /// （「相邻」族在 `big` 档里也仍有一对相邻格）。⛔ 不与 `DeploySlots` 合并 —— 那条数组的
+    /// 三个下标被 P0/P1 摆场共用，动它会改掉**默认夹具**。</summary>
+    const int BigSlot = 8;
 
     // ==================================================================
     //  🆕 `A2009`：夹具「预置局面」（默认关闭 —— 只有 `play <id> preset …` 才生效）
@@ -472,11 +487,104 @@ class PlayProbe
 
         public bool FaceAmbushMode { get { return Face != null; } }
 
+        // ==================================================================
+        //  🆕 `B9_W32S3`（2026-10-27）：**「打得动的靶子」夹具**（`big=1`）
+        // ==================================================================
+        //
+        // 🔴 **它治的是哪一条**（`B9_W32S3` 现读）：`play all dump` 的 `steps` 列里，
+        //   **28 行 / 22 张卡**的 `softAtk` 一律是 `skip(would-kill)` ⇒ 电池那一发
+        //   「**非致命**攻击」结构上打不出去（见 `RunEventPass` 里 `softAtk` 那一段）。
+        //
+        //   **两条互相独立的挡法，都被同一个靶子解决**（判据 = 那一段的两个 `continue`）：
+        //     ① `t.Health <= dmg` —— 夹具敌人全是 **6 血**；`BL31`(近战 9) / `SAU33`(近战 10) /
+        //        `DA66`(远程 9) / `GOF17`(7/7) / `AM31`(6/6) 这一批**一发就把三张全打死**。
+        //     ② `me.Health <= t.Attack && !me.Has("longrange")` —— 被测单位先被 `selfChip`
+        //        削到 1 血（`AM4` 只有 2 血 ⇒ 削到 1），而三张夹具敌人的攻击是 2/3/1
+        //        ⇒ **1 ≤ 2/3/1 恒真** ⇒ 一律跳过（怕它被反击打死）。
+        //   ⇒ 一个 **0 攻 / 30 血**的靶子同时满足两条：血够厚（打得动打不死）、攻击为 0（不会被反击）。
+        //
+        // ⚠️ **这是量具干预**（与 `preset dead=` / `pick=` / `hand=` 同一档）：它**不**声称原版有这样一个单位；
+        //   它只回答「给这一族一个**挨得住、也打不回来**的靶子，那一发非致命攻击会不会把事件叫醒」。
+        // ⛔ **不传 `big=1` 时夹具一个字节都不变** —— 全池基准读数与 `play check` 的基线**完全不受影响**
+        //   （与 `dead=` / `pick=` 不同：那两个进了第二/第三套扫描，`big` 目前**没有**进任何自动扫描，
+        //    只在 `play <id> preset big=1` 这一条路上生效 ⇒ 零基线影响、零重钉）。
+        /// <summary>`big=1` —— 往 P1 摆一个 **0 攻 / 30 血**的合成部队当「打得动的靶子」（见上面整段注释）。</summary>
+        public int Big;
+
+        // ==================================================================
+        //  🆕 `B9_W41S3B`（2026-10-27）：**把被测单位自己打死**（`selfDies=1`）
+        // ==================================================================
+        //
+        // 🔴 **它治的是哪一条**（`B9_W32S3` 分族表 §三·3.2 的 D 族 **81 Unstable**，17 行 / 17 张）：
+        //   引擎的 `Unstable` 挂在「**本单位死亡**」那一拍上（`RuleCore.cs` 的
+        //   `if (u.Has(KeywordTable.Unstable)) EnqueueAbility(… UnstableBlastDeferred …)`，
+        //   位置在 `CleanupDeaths` 的死亡族里、Backlash(80) 之后）。
+        //   而现有电池的 `friendDies` **只杀 P0 那颗路标石**（`FIX_WAY`），被测单位自己**从不死**
+        //   ⇒ 「本单位死亡」这个事件**结构上造不出来** ⇒ 整族永远净差 0。
+        //
+        // ⚠️ **为什么不用 `ApplyDamage(999)`**（设计稿原话）：`RuleCore.ApplyDamage` **不处理死亡**
+        //   （它只扣血/发事件；离场在 `Hurt` → `RemoveIfDead` → `CleanupDeaths`）
+        //   ⇒ 999 之后棋盘上留下的是**负血活单位**、一条死亡触发都不响（这正是 `friendDies`
+        //   当年踩过的坑，见那里的一整段注释）。所以这里走**引擎自己的伤害/死亡入口**
+        //   `RuleCore.HurtWithSourceForTest`（= `Hurt` 的公开包装，`RuleCore.cs:9131`）。
+        //
+        // ⚠️ **这是量具干预**（与 `dead=` / `pick=` / `big=` 同一档）：它不声称原版有这样一个事件顺序；
+        //   它只回答「让这一张**自己死一次**，挂在本单位死亡上的那一族会不会响」。
+        // ⛔ **不传 `selfdies=1` 时 `steps` 与读数一个字节都不变** —— 这一步**不进**默认电池，
+        //   所以全池 `play check` 的 `PinnedPlayMd5` **不受影响**（⛔ 别把它加成无条件的一步）。
+        /// <summary>`selfdies=1` —— 电池末尾把**被测单位自己**打死（走 `Hurt`，治 `Unstable 81`）。</summary>
+        public int SelfDies;
+
+        // ==================================================================
+        //  🆕 `B9_W41S3B`（2026-10-27）：**督军档的电池宿主**（`hero=1`）
+        // ==================================================================
+        //
+        // 🔴 **它治的是哪一条**（分族表 §一 的 **A1 族 = 144 行 / 56 张**，本表最大的夹具形状缺口）：
+        //   现有 `MeasureHero` 只跑「**在场 + 一个来回**」的对照局 ⇒ 督军那 144 行里
+        //   「**主动能力**（trigger=None，61 行）」与「**Talent**（trigger=46，56 行）」两档
+        //   **从来没有被主动用过**：
+        //     · `activeAbility` 要有人调 `RuleCore.UseAbility`；
+        //     · `Talent` 是**回合开始时造一张临时卡进手**（`RuleCore.SpawnTalents`），
+        //       而夹具**从不把那张卡打出去** ⇒ 那张卡的效果一条都没结算过
+        //       （实测 `play BL34`：手上确实有 `Chosen of the Four`，但「变化逐条」里只有手牌总价那一行噪声）。
+        //   ⇒ 本档 = **一条新的电池宿主**：以被测卡为 **P0 督军**建场 → ① 打出手里那张天赋卡
+        //   ② 用主动能力 → 再把**同一套电池步**跑一遍（与单位档**共用** `RunBatterySteps`）。
+        //
+        // ⚠️ **这不是 preset 能给单位档加的一步**（⛔ 别把督军塞进 `if (c.Type == "unit")` 那条）：
+        //   督军既不能「打出」（`PlayCard` 只处理非 hero），也不在 `Sweep` 的 unit 电池里。
+        // ⛔ **不传 `hero=1` 时一个字节都不变**：`MeasureHero` / `MeasurePlay` 的既有读数、
+        //   `play check` 的两套指纹行**完全不经过这里**（本档只在 `Sweep` 末尾**追加** `H|` 行，
+        //   而 `BothFingerprintRows`（`play check` 用的那一路）**不调**它）。
+        /// <summary>`hero=1` —— 督军档跑**新的电池宿主**（被测卡当 P0 督军 → 打天赋 → 用主动能力 → 走电池步）。</summary>
+        public int HeroBattery;
+
+        // ==================================================================
+        //  🆕 `B9_W41S3B`（2026-10-27）：**对照局要剥掉的关键词**（`strip=unstable`）
+        // ==================================================================
+        //
+        // 🔴 **它治的是哪一条（本批第二个量具缺陷，比 `selfdies` 更根本）**：
+        //   电池的对照局 = `Blank(card)`，它**逐字保留 `keywords`**（那是**故意的**：`Armour` /
+        //   `Flank` / `Fast` 会改战斗算术，两局必须逐位相同，见 <see cref="Blank"/> 的 doc）。
+        //   可是有一批效果**根本不是 `desc` 里的正文，而是【关键词本身】的硬编码分支** ——
+        //   典型 = **`Unstable`**：`RuleCore.cs` 的死亡族里 `if (u.Has(KeywordTable.Unstable)) EnqueueAbility(…)`，
+        //   `desc` 里那行 `Unstable.` 只是**印字**、`KeywordTable.EffectText` 对它返回 null。
+        //   ⇒ 对照局**也带着 `unstable`** ⇒ 两局都自爆、自爆的那点伤害**相减抵消**
+        //   ⇒ 这一族**结构上永远净差 0**（实测 `GOF10 Grot Tank`：电池局 49 条、对照局 49 条、净差 0）。
+        //
+        // **做法**：只在**显式传 `strip=`** 时，把列出的关键词从**对照局那张替身**上剥掉
+        //   （⛔ 不动被测卡那一局；⛔ 缺省 null ⇒ `Blank` 一个字节都不变）。
+        //   ⚠️ **只能剥「纯效果型」关键词**（`unstable` 这种：它只喂死亡触发、不参与任何算术）；
+        //      `armour`/`flank`/`fast`/`shield`/`dodge` 一剥就会让两局**算术不同** ⇒ 净差变噪声。
+        //   ⚠️ 这是**量具干预**，读数里必须能看见（`ApplyPreset` 那行日志会打出来）。
+        /// <summary>`strip=unstable` —— 对照局替身要剥掉的关键词（逗号分隔；见上面整段注释）。</summary>
+        public string StripKw;
+
         public bool HandListenMode { get { return Hand != null || Event != null; } }
 
         public bool Any { get { return Dead > 0 || EnemyHand > 0 || ChipEnemy > 0
                                     || !string.IsNullOrEmpty(Substitute) || Legal > 0
-                                    || HandListenMode; } }
+                                    || HandListenMode || Big > 0 || SelfDies > 0 || HeroBattery > 0
+                                    || !string.IsNullOrEmpty(StripKw); } }
 
         /// <summary>`dead[=N][:Subtype][,enemyhand=N][,chipenemy=1]`。⛔ 认不出的 token 一律**抛错**（不静默忽略 ——
         /// 静默忽略会让你以为预置了、其实没有，正是本仓红线里「静默失败」那一类）。</summary>
@@ -516,6 +624,28 @@ class PlayProbe
                         break;
                     case "chipenemy":
                         ps.ChipEnemy = string.IsNullOrEmpty(val) ? 1 : int.Parse(val);
+                        break;
+                    // 🆕 `B9_W32S3`（2026-10-27）：`big=1` —— 往 P1 摆一个「打得动的靶子」
+                    //   （0 攻 / 30 血）。见 `PresetSpec.Big` 那一整段注释（⛔ 不动默认夹具）。
+                    case "big":
+                        ps.Big = string.IsNullOrEmpty(val) ? 1 : int.Parse(val);
+                        break;
+                    // 🆕 `B9_W41S3B`（2026-10-27）：`selfdies=1` —— 电池末尾把**被测单位自己**打死
+                    //   （治 `Unstable 81`；见 `PresetSpec.SelfDies` 的整段注释）。
+                    case "selfdies":
+                        ps.SelfDies = string.IsNullOrEmpty(val) ? 1 : int.Parse(val);
+                        break;
+                    // 🆕 `B9_W41S3B`（2026-10-27）：`hero=1` —— 督军档的**电池宿主**
+                    //   （治 A1 族；见 `PresetSpec.HeroBattery` 的整段注释）。
+                    case "hero":
+                        ps.HeroBattery = string.IsNullOrEmpty(val) ? 1 : int.Parse(val);
+                        break;
+                    // 🆕 `B9_W41S3B`（2026-10-27）：`strip=unstable` —— 对照局替身要剥掉的关键词
+                    //   （见 `PresetSpec.StripKw` 的整段注释；⛔ 只认「纯效果型」关键词）。
+                    case "strip":
+                        ps.StripKw = string.IsNullOrEmpty(rest) ? null : rest.Trim();
+                        if (string.IsNullOrEmpty(ps.StripKw))
+                            throw new ArgumentException("`strip=` 后面要写关键词（例：`strip=unstable`）");
                         break;
                     // 🆕 `B8_AH`（2026-10-26）：`sub=<卡id|卡名>` —— 把夹具的 `FIX_A` 换成池内一张**真卡**
                     //   （见 `PresetSpec.Substitute` 的 doc；⛔ 认不出就抛错，不静默忽略）。
@@ -572,7 +702,8 @@ class PlayProbe
                         break;
                     default:
                         throw new ArgumentException("不认识的预置项 `" + raw + "`（只认 dead / enemyhand / chipenemy / sub / legal"
-                                                  + " / pick / hand / handn / event / amount / legacy / face）"
+                                                  + " / pick / tpick / big / selfdies / hero"
+                                                  + " / hand / handn / event / amount / legacy / face）"
                                                   + "　⚠️ `preset` 是用**逗号**分项的 ⇒ 卡名里带逗号的两张"
                                                   + "（`Varius, Lord Kakophonist` / `Xarahan, Daemon Prince`）"
                                                   + "在 `hand=` / `sub=` 里会被切碎，请改用**卡 id**");
@@ -612,15 +743,25 @@ class PlayProbe
             }
         ctx.Log($"[夹具预置] 墓地 P0 +{ps.Dead} 张（{(ps.DeadSubtype ?? "Infantry")}）"
               + $" · 手牌 P1 +{ps.EnemyHand} 张 · 敌方扣血 {(ps.ChipEnemy > 0 ? "开" : "关")}"
+              + $" · 靶子(0攻/30血) {(ps.Big > 0 ? "有" : "无")}"
+              + $" · 电池末尾自毁 {(ps.SelfDies > 0 ? "开" : "关")}"
+              + $" · 督军电池宿主 {(ps.HeroBattery > 0 ? "开" : "关")}"
               + (string.IsNullOrEmpty(ps.Substitute) ? "" : $" · `FIX_A` 换成真卡 `{ps.Substitute}`"));
     }
 
     /// <summary>建一局夹具对战。`warlordOverride` 非 null 时用它当 P0 督军（督军档的对照局用）。
     /// 🔴 `injected`（`A1572`）：被测卡**是**靠补手牌才进得了手牌的那种（= 量具干预过）——
     ///    两族：临时卡 / 防御卡，见下面那一段注释。
-    /// 🆕 `A2009`：`preset` 非 null 时在建场末尾**预置墓地 / 敌方手牌**（见 <see cref="PresetSpec"/>）。</summary>
+    /// 🆕 `A2009`：`preset` 非 null 时在建场末尾**预置墓地 / 敌方手牌**（见 <see cref="PresetSpec"/>）。
+    /// 🆕 `B9_W41S3B`（2026-10-27）：`factionOverride` —— 夹具双方的阵营。
+    ///   缺省 `null` ⇒ 逐字沿用旧规则（`target?.Faction ?? "P0"/"P1"`），⛔ 一个字节都不变。
+    ///   为什么要有它：**督军档**（`target == null`）原来恒用 `"P0"`/`"P1"` 这种**池里不存在的阵营**，
+    ///   而「造牌不写阵营 ⇒ 按施放者阵营」读的是 `ps.Warlord.Card.Faction`（见下面 `p0Fac` 那一段注释）
+    ///   ⇒ 督军电池里「按阵营造牌 / 按阵营筛」那一族会**一张都筛不到**（假读数）。
+    ///   ⚠️ 只在新宿主（`RunHeroBattery`）里传它；既有两条路的调用点**一个字都没改**。</summary>
     static BattleContext BuildFixture(List<CardDef> pool, CardDef target, CardDef warlordOverride,
-                                      out int handIdx, out bool injected, PresetSpec preset = null)
+                                      out int handIdx, out bool injected, PresetSpec preset = null,
+                                      string factionOverride = null)
     {
         var vars = GameplayVariables.Classic.Clone();
         vars.startingHand = FixtureHand;      // ⚠️ 只改「发几张」—— 别的一律照 `Classic`
@@ -669,10 +810,16 @@ class PlayProbe
         //   ⚠️ 它会让「按阵营造牌」那一族**开始真的造出牌** ⇒ 全池电池读数会变（与 `A1965` 同批重钉）。
         string p0Fac = target != null && !string.IsNullOrEmpty(target.Faction) ? target.Faction : "P0";
         string p1Fac = target != null && !string.IsNullOrEmpty(target.Faction) ? target.Faction : "P1";
+        // 🆕 `B9_W41S3B`：督军电池宿主显式给阵营（见函数头 `factionOverride` 那一段）。缺省 null ⇒ 逐字不变。
+        if (!string.IsNullOrEmpty(factionOverride)) { p0Fac = factionOverride; p1Fac = factionOverride; }
         var d0 = Deck(p0Fac, hand);
         // 督军档的**对照局**：只把 P0 督军换成指定的那一张，别的逐字不变。
         if (warlordOverride != null) { d0.RemoveAt(0); d0.Insert(0, warlordOverride); }
-        var d1 = Deck(p1Fac, e1, e2, e3);
+        // 🆕 `B9_W32S3`（2026-10-27）：`preset big=1` ⇒ P1 多一张 **0 攻 / 30 血**的合成部队
+        //   （见 `PresetSpec.Big` 的整段注释）。**只在这一档**加 —— 默认夹具一个字节都不变。
+        bool bigOn = preset != null && preset.Big > 0;
+        var eBig = bigOn ? Fix("FIX_BIG", 0, 30, 0, "Infantry") : null;
+        var d1 = bigOn ? Deck(p1Fac, e1, e2, e3, eBig) : Deck(p1Fac, e1, e2, e3);
 
         var ctx = RuleCore.NewBattle(d0, d1, seed: 0, shuffle: false, cardPool: pool, vars: vars);
 
@@ -689,6 +836,8 @@ class PlayProbe
         RuleCore.PlayCard(ctx, 1, HandIdx(ctx, 1, e1), DeploySlots[0]);
         RuleCore.PlayCard(ctx, 1, HandIdx(ctx, 1, e2), DeploySlots[1]);
         RuleCore.PlayCard(ctx, 1, HandIdx(ctx, 1, e3), DeploySlots[2]);
+        // 🆕 `B9_W32S3`：靶子落在**第 9 格（下标 8）** —— 与既有三张（3/6/7）不撞、仍在督军右侧序列里。
+        if (bigOn) RuleCore.PlayCard(ctx, 1, HandIdx(ctx, 1, eBig), BigSlot);
         RuleCore.EndTurn(ctx); RuleCore.BeginTurn(ctx);      // → P0（被测卡这一手）
 
         SetEnergy(ctx, 0);
@@ -1336,6 +1485,157 @@ class PlayProbe
     }
 
     // ==================================================================
+    //  🆕 `B9_W41S3B`（2026-10-27）：**督军档的电池宿主**（`preset hero=1`）
+    // ==================================================================
+    //
+    // 🔴 **它治的是哪一条**（分族表 §一 的 **A1 族 = 144 行 / 56 张**，本表最大的夹具形状缺口）：
+    //   现有 `MeasureHero` 只跑「**在场 + 一个来回**」的对照局 ⇒ 督军那 144 行里
+    //   「**主动能力**（trigger=None，61 行）」与「**Talent**（trigger=46，56 行）」两档
+    //   **从来没有被主动用过**：
+    //     · `activeAbility` 要有人调 `RuleCore.UseAbility`（现有夹具一次都没调过）；
+    //     · `Talent` 是**回合开始时造一张临时卡进手**（`RuleCore.SpawnTalents` ⇒
+    //       `AddCardToHandWithinLimit`），而夹具**从不把那张卡打出去**
+    //       ⇒ 那张卡的效果一条都没结算过（实测 `play BL34`：「变化逐条」里只有手牌总价那一行噪声，
+    //       而 `Chosen of the Four` **确实就在手上**）。
+    //
+    // **步骤**（都在引擎自己的公开面上，⛔ 不手改任何状态）：
+    //   ① 打出手里那张**天赋卡**（`PlayCard`；失败时用 `<see cref="PickPlayTarget"/>` 补一个目标重试一次）
+    //   ② 走**同一套电池步**（`RunBatterySteps` —— 与单位档共用的那一份）
+    //   ③ 用**主动能力**（`UseAbility`）/ 替代行动（`AvailableAlternative`+`UseAlternative`）
+    //   ⚠️ ③ 排在最后是**故意的**：`UseAbility` 会把督军置 `Exhausted`，
+    //      而电池⑤那两发攻击里**只有第二发带 `forced:true`**（第一发会吃 `ErrExhausted`）
+    //      ⇒ 先放技能会把「另一种攻击型」那一发挤掉（`Mob` / `Regiment` 就只剩一半）。
+    //
+    // **对照局** = **同一个夹具 + 同一张卡的【空正文替身】**（`Blank(hero)`，与单位档同一条契约：
+    //   同 id / 同印数 / 同兵种 / 同关键词标记，只清正文），**而且不打天赋**（`useTalent: false`）。
+    //   🔴 为什么不能用 `FIXWarlord_P0`（`HeroPass` 用的那个）：它是**另一张卡**（2/0/0/30、无兵种），
+    //      与督军的攻/血/兵种全不同 ⇒ 两局的战斗算术天然不同 ⇒ 净差全是噪声。
+    //   🔴 为什么对照局**不打天赋**：`SpawnTalents` 的真值表那一支**按卡 id 查**（`TalentCardData.Resolve`），
+    //      空正文替身**同 id** ⇒ 它照样会在回合开始造出同一张天赋卡。若两局都把它打出去，
+    //      那张卡的效果**逐条相消** ⇒ 56 行 Talent 仍然净差 0（本批实测：改前那一档就是这么哑的）。
+    //      ⇒ 对照局里那张卡**留在手上**，A 局把它打出去 ⇒ 净差 = 「打这张天赋卡到底做了什么」。
+    // ⚠️ 这是量具干预（与 `dead=` / `big=` 同一档）；只在 `preset hero=1` 时跑，
+    //   `play check` 的两套指纹行**不经过这里**（`BothFingerprintRows` 不调它）。
+    /// <summary>督军电池的**一趟**（被测卡当 P0 督军）。`useTalent: false` ⇒ 不打手里那张天赋卡
+    /// （对照局用；见上面那两段判据）。`hero == null` ⇒ 空督军（只是兜底，正常宿主走 `Blank`）。</summary>
+    static EventPass RunHeroBattery(List<CardDef> pool, CardDef hero, PresetSpec preset = null,
+                                    bool useTalent = true)
+    {
+        var ep = new EventPass();
+        var wl = hero ?? HeroOf("FIXWarlord_P0", "Fixture");
+        int handIdx;
+        bool injected;
+        // 🆕 阵营显式给（`factionOverride`）：督军档 `target == null` ⇒ 否则双方阵营退成 "P0"/"P1"
+        //   （池里不存在）⇒「按施放者阵营造牌」那一族一张都筛不到（假读数）。
+        //   对照局**用同一个阵营**（它是夹具的起始条件，不是被测卡的一部分）。
+        var ctx = BuildFixture(pool, null, wl, out handIdx, out injected, preset,
+                               factionOverride: string.IsNullOrEmpty(wl.Faction) ? null : wl.Faction);
+        const int slot = BoardSpec.WarlordSlot;
+        ep.Played = true;          // 督军在场 = 起步成功（与 `MeasureHero` 同口径：没有「打出」这一步）
+        ep.PlayRc = RuleCodes.OK;
+        ep.Steps.Add("hero=" + wl.Id);
+
+        var snaps = new List<Snap>();
+        snaps.Add(Capture(ctx));   // ⓪ 之前
+
+        // ---- ① 打出手里那张天赋卡（`Talent:` ⇒ `RuleCore.SpawnTalents` 造的临时卡）----
+        if (hero != null && useTalent)
+        {
+            var cands = TalentCardData.Resolve(pool, hero.Id);      // 真值表（可能为 null）
+            int ti = -1;
+            var hand = ctx.Players[0].Hand;
+            for (int i = 0; i < hand.Count; i++)
+            {
+                var h = hand[i];
+                if (h == null || h.Card == null) continue;
+                bool match = cands != null && cands.Any(t => t != null && t.Id == h.Card.Id);
+                // 兜底：回合开始造的那张临时卡（`SpawnTalents` 一律 `EphemeralMarked = true`）
+                if (!match) match = h.EphemeralMarked;
+                if (match) { ti = i; break; }
+            }
+            if (ti < 0) ep.Steps.Add("talent=none");
+            else
+            {
+                var tname = ctx.Players[0].Hand[ti].Card.Id;
+                int tslot;
+                int rc = RuleCore.PlayCard(ctx, 0, ti, FreeSlot(ctx, 0), out tslot);
+                // ⚠️ 带目标的战术卡在没有 `chosen` 时会 `ErrNoTargetAvailable`
+                //    （原版 `targeted` 那一支：没有目标整段跳过）⇒ **补一个目标重试一次**。
+                //    重试前手牌没被动过（失败的 `PlayCard` 不扣牌/不改局面）⇒ 下标仍然有效。
+                if (rc != RuleCodes.OK)
+                {
+                    var chosen = PickPlayTarget(ctx, 0, ctx.Players[0].Hand[ti].Card);
+                    if (chosen != null)
+                    {
+                        int rc2 = RuleCore.PlayCard(ctx, 0, ti, FreeSlot(ctx, 0), out tslot, chosen);
+                        ep.Steps.Add("talent=" + rc + "→" + rc2 + "@" + tname + "/tgt" + SlotOf(ctx, 0, chosen));
+                        rc = rc2;
+                    }
+                    else ep.Steps.Add("talent=" + rc + "@" + tname);
+                }
+                else ep.Steps.Add("talent=" + rc + "@" + tname + "/slot" + tslot);
+            }
+        }
+        else ep.Steps.Add("talent=-");
+        snaps.Add(Capture(ctx));   // ① 之后
+
+        // ---- ② 同一套电池步（与单位档**共用** `RunBatterySteps`）----
+        RunBatterySteps(ctx, slot, preset, ep, snaps);
+
+        // ---- ③ 主动能力 / 替代行动（**最后**用；理由见上面整段注释）----
+        int tgt = PickAnyEnemy(ctx, 0);
+        if (ctx.Players[0].Board[slot] != null)
+        {
+            ep.Steps.Add("abil=" + RuleCore.UseAbility(ctx, 0, slot, tgt));
+            var alt = RuleCore.AvailableAlternative(ctx, 0, slot);
+            if (alt != null)
+                ep.Steps.Add("alt(" + alt + ")=" + RuleCore.UseAlternative(ctx, 0, slot, alt, tgt));
+        }
+        snaps.Add(Capture(ctx));   // ③ 之后
+
+        for (int i = 1; i < snaps.Count; i++) Diff(snaps[i - 1], snaps[i], ep.Changes);
+        return ep;
+    }
+
+    /// <summary>督军电池的**读数**：净差 = 电池局 − 空督军对照局（形状与 `MeasureEvents` 一致，
+    /// 但**不跑三个变体** —— 变体是「打出那一拍」的三族，督军没有「打出」；如实标着）。</summary>
+    static EventReading MeasureHeroBattery(List<CardDef> pool, CardDef card, PresetSpec preset = null)
+    {
+        var r = new EventReading { C = card };
+        try
+        {
+            r.Bucket = Bucket(card);
+            var a = RunHeroBattery(pool, card, preset, useTalent: true);
+            r.Steps = string.Join(",", a.Steps);
+            r.PlayRc = a.PlayRc;
+            r.Played = a.Played;
+            r.Raw = a.Changes.Count;
+            if (a.End != null) { r.AtkCount = a.End.ActCnt[0] + " ‖ " + a.End.ActCnt[1]; r.Exh = a.End.Exh[0] + " ‖ " + a.End.Exh[1]; }
+            // 对照局 = 同卡的**空正文替身**（同印数/同关键词，只清正文 ⇒ 主动能力与天赋正文都没了），
+            //   且**不打天赋**（判据见 `RunHeroBattery` 头注那两段）⇒ 净差 = 「主动能力 + 打天赋」这两件事。
+            var b = RunHeroBattery(pool, Blank(card, preset == null ? null : preset.StripKw), preset,
+                                   useTalent: false);
+            r.CtrlPlayed = b.Played;
+            r.Ctrl = b.Changes.Count;
+            if (!b.Played)
+            {
+                r.Note = "**对照局没起步**（空督军 rc=" + CodeName(b.PlayRc) + "）⇒ 本行净差不可信";
+                r.Net = a.Changes;
+            }
+            else
+            {
+                r.Net = a.Changes.Where(x => !b.Changes.Contains(x)).ToList();
+                if (a.End != null && b.End != null) r.NetDmg = a.End.Dmg[0] - b.End.Dmg[0];
+            }
+        }
+        catch (Exception ex)
+        {
+            r.Crash = ex.GetType().Name + ": " + ex.Message;
+        }
+        return r;
+    }
+
+    // ==================================================================
     //  🆕 `A1431` 第三笔：**事件电池** —— 治「档 B」那一档的【结构性失明】
     // ==================================================================
     //
@@ -1534,12 +1834,23 @@ class PlayProbe
     ///     净差立刻变成噪声。
     /// ⚠️ 还原写法时用 `NumericKeywords` 判「原来印没印数字」—— 规范化字典只存值，
     ///   分不出 `Armour 1`（印了）与 `Armour`（没印），而那一分影响卡面角标那一层。</summary>
-    static CardDef Blank(CardDef c)
+    static CardDef Blank(CardDef c, string stripKw = null)
     {
+        // 🆕 `B9_W41S3B`（2026-10-27）：`stripKw`（逗号分隔）—— **只从对照局替身上剥掉**这些关键词。
+        //   判据 / 为什么必须有它 → `PresetSpec.StripKw` 的整段注释（`Unstable` 那类
+        //   「效果在关键词的硬编码分支里、不在 desc 里」的族，否则两局一起自爆、净差恒 0）。
+        //   ⛔ `stripKw == null`（缺省）⇒ 与改前**逐字相同**。
+        HashSet<string> strip = null;
+        if (!string.IsNullOrEmpty(stripKw))
+        {
+            strip = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var t in stripKw.Split(',')) if (t.Trim().Length > 0) strip.Add(t.Trim());
+        }
         var kw = new List<string>();
         if (c.Keywords != null)
             foreach (var kv in c.Keywords)
             {
+                if (strip != null && strip.Contains(kv.Key)) continue;
                 bool printed = c.NumericKeywords != null && c.NumericKeywords.Contains(kv.Key);
                 kw.Add(printed ? kv.Key + " " + kv.Value : kv.Key);
             }
@@ -1677,6 +1988,27 @@ class PlayProbe
 
         // 🔴 逐段累积差异（⛔ 不是「末态减初态」）：中间态被改回去的（打伤又治好）那一种
         //    在「末态减初态」里**会自己抵消掉** ⇒ 那一段就白测了。与主档 `Diff(before,after)` 同形。
+        //    ⚠️ 快照点全部在 `RunBatterySteps` 里（本方法只负责 diff 顺序 = 快照顺序）。
+        // ---- ⓪ 之后**全部步骤**抽成 `RunBatterySteps`（🆕 `B9_W41S3B`）----
+        //   🔴 单位档与督军档（`RunHeroBattery`）**共用同一份步骤序列** —— ⛔ 别各写一份
+        //     （两份迟早不一致，而它们的净差要能横向比）。步骤顺序、快照顺序**逐字未动**。
+        var snaps = new List<Snap>();
+        if (sPre != null) snaps.Add(sPre);      // 变体：把「打出那一拍」也纳入（见上面 `sPre` 的说明）
+        RunBatterySteps(ctx, slot, preset, ep, snaps);
+
+        // 🔴 **逐段 diff，顺序 = 上面捕获的顺序**（⛔ 别只留首尾：中途被改回去的那一段会自己抵消）。
+        for (int i = 1; i < snaps.Count; i++) Diff(snaps[i - 1], snaps[i], ep.Changes);
+        return ep;
+    }
+
+    /// <summary>🆕 `B9_W41S3B`（2026-10-27）：**电池的步骤序列**（⓪ 出牌之后的一切）。
+    /// 从 `RunEventPass` **逐字抽出**（顺序 / 快照点 / `steps` 文案一个字都没改），
+    /// 为的是让**督军档**（<see cref="RunHeroBattery"/>）能复用同一份步骤 —— ⛔ 别复制第二份。
+    /// 参数：`slot` = 被测单位那一格（单位档 = 落入的格；督军档 = `BoardSpec.WarlordSlot`）。
+    /// `snaps` 由调用方建好（变体要先把「打出那一拍」那个 `sPre` 塞进去），本方法**按序追加**。
+    /// `preset` 只用于 `selfdies=1` 那一步（⛔ 缺省 null ⇒ 与改前逐字相同）。</summary>
+    static void RunBatterySteps(BattleContext ctx, int slot, PresetSpec preset, EventPass ep, List<Snap> snaps)
+    {
         var s0 = Capture(ctx);
 
         // ---- ① 誓约（`Oath N:`）—— 🔴 **必须赶在回合电池【之前】、同一回合里用** ----
@@ -1928,13 +2260,35 @@ class PlayProbe
         ep.Steps.Add("kill=" + killStep);
         var s7 = Capture(ctx);
 
-        // 🔴 **逐段 diff，顺序 = 上面捕获的顺序**（⛔ 别只留首尾：中途被改回去的那一段会自己抵消）。
-        var snaps = new List<Snap>();
-        if (sPre != null) snaps.Add(sPre);      // 变体：把「打出那一拍」也纳入（见上面 `sPre` 的说明）
-        snaps.AddRange(new[] { s0, s1, sc1, ss1, sc2, sc3, sc4, se0, sd1, s2, sd2, s3, s4, s5, s6, s7 });
-        for (int i = 1; i < snaps.Count; i++) Diff(snaps[i - 1], snaps[i], ep.Changes);
-        ep.End = s7;
-        return ep;
+        // ---- ⑦ 🆕 `B9_W41S3B`（2026-10-27）：`preset selfdies=1` ⇒ **把被测单位自己打死** ----
+        //   治 **81 `Unstable`**（17 行 / 17 张）：引擎那一支挂在「**本单位死亡**」那一拍上
+        //   （`RuleCore.cs` 的 `if (u.Has(KeywordTable.Unstable)) EnqueueAbility(… UnstableBlastDeferred …)`，
+        //   位置在 `CleanupDeaths` 的死亡族里、Backlash(80) 之后），而本电池**从不杀被测单位**
+        //   （`friendDies` 只杀 P0 那颗路标石）⇒ 这个事件**结构上造不出来**。
+        //   🔴 **必须走引擎的死亡入口**：`RuleCore.ApplyDamage` **不处理死亡**（只扣血/发事件），
+        //     999 之后棋盘上留下的是**负血活单位**、一条死亡触发都不响
+        //     （`friendDies` 那一整段注释就是踩这个坑写的）。⇒ 用 `HurtWithSourceForTest`（= `Hurt` 的公开包装）。
+        //   ⚠️ 被测单位**已经死了**（被 `selfChip` / 反击 / `Solo` 变体打死）⇒ 如实打 `selfDies=skip`，
+        //     ⛔ 不假装测过。⛔ 不传 `selfdies=1` 时这一步**一行都不执行**（`steps` 一个字节都不变）。
+        var s8 = s7;
+        if (preset != null && preset.SelfDies > 0)
+        {
+            var me = (slot >= 0 && BoardSpec.IsValid(slot)) ? ctx.Players[0].Board[slot] : null;
+            if (me == null)
+                ep.Steps.Add("selfDies=skip(dead)");
+            else
+            {
+                // 🔶 自己设计（非原版）：「打 999 点把它打死」是**量具**挑的数值（原版没有这个事件），
+                //    判据 = 只要必死即可；选 999 与电池别处（`friendDies`/`kill`）同一口径 · 调度台 2026-10-27 裁定
+                int rc = RuleCore.HurtWithSourceForTest(ctx, me, 999, "夹具事件电池（自毁）");
+                ep.Steps.Add("selfDies=" + rc + "/" + Aftermath(ctx, 0, me));
+                // ⚠️ `Aftermath` 只在棋盘上取那一格 ⇒ 死了就报 `gone`/`rem`，活着报 `live`。
+            }
+            s8 = Capture(ctx);
+        }
+
+        snaps.AddRange(new[] { s0, s1, sc1, ss1, sc2, sc3, sc4, se0, sd1, s2, sd2, s3, s4, s5, s6, s7, s8 });
+        ep.End = s8;
     }
 
     // ==================================================================
@@ -2144,7 +2498,7 @@ class PlayProbe
             // 🆕 2026-10-27（`B9_E5ENG`）：计数两格（放进电池指纹；早退那几条也带上）
             if (a.End != null) { r.AtkCount = a.End.ActCnt[0] + " ‖ " + a.End.ActCnt[1]; r.Exh = a.End.Exh[0] + " ‖ " + a.End.Exh[1]; }
             if (!a.Played) { r.Note = "电池没起步（出牌 rc=" + CodeName(a.PlayRc) + "）"; return r; }
-            var b = RunEventPass(pool, Blank(card), preset);
+            var b = RunEventPass(pool, Blank(card, preset == null ? null : preset.StripKw), preset);
             r.CtrlPlayed = b.Played;
             r.Ctrl = b.Changes.Count;
             if (!b.Played)
@@ -2191,7 +2545,7 @@ class PlayProbe
         // 🔴 **不许静默**：变体没起步 ⇒ `steps` 里**点名**（否则「这一遍没救回任何东西」
         //   和「这一遍压根没跑」在读数上长得一模一样 —— 正是本笔要治的那一类）。
         if (!a.Played) { r.Steps += " | " + tag + ":miss(rc=" + a.PlayRc + ")"; return; }
-        var b = RunEventPass(pool, Blank(card), v, preset);
+        var b = RunEventPass(pool, Blank(card, preset == null ? null : preset.StripKw), v, preset);
         if (!b.Played) { r.Steps += " | " + tag + ":ctrlMiss(rc=" + b.PlayRc + ")"; return; }
         if (a.Changes.Count == b.Changes.Count && a.Changes.SequenceEqual(b.Changes))
             return;                                  // 两局逐条相同 ⇒ 没有可归因的净差（也挡 RNG 分叉）
@@ -2736,6 +3090,9 @@ class PlayProbe
         var pfRows = new List<string>();      // 🆕 `A1431` 第二笔：**结算指纹**（逐卡一行，见 `FingerprintRow`）
         var ecRows = new List<string>();      // 🆕 `A1431` 第三笔：**事件电池**（`E|` 前缀那一套，见 `FingerprintERow`）
         var ecReads = new List<EventReading>();   // 电池档的读数（末尾那两节要按档统计）
+        // 🆕 `B9_W41S3B`（2026-10-27）：**督军档电池**（`H|` 前缀；只 `preset hero=1` 时有内容）
+        var heroRows = new List<string>();
+        var heroReads = new List<EventReading>();
 
         int played = 0, cand = 0, crash = 0, unimpl = 0, cantPlay = 0, heroCnt = 0;
         int naTotal = 0, naInjected = 0;                 // `A1572`：结构上不适用的两族 / 其中靠补手牌的
@@ -2779,6 +3136,15 @@ class PlayProbe
                 er.Cand = r.Played && r.FaceHasOps && r.Other == 0;   // 见 `EventReading.Cand`
                 ecRows.Add(FingerprintERow(c, er));
                 ecReads.Add(er);
+            }
+            // 🆕 `B9_W41S3B`（2026-10-27）：**督军档电池**（只在 `preset hero=1` 时跑）
+            //   ⛔ 不是 `E|` 行、也不进 `ecReads`（覆盖面那一节的分母是 unit 档，混进来会灌水）。
+            //   ⚠️ 它**不进** `play check` 的基线（`BothFingerprintRows` 那条路不调它）。
+            else if (c.Type == "hero" && preset != null && preset.HeroBattery > 0)
+            {
+                var hr = MeasureHeroBattery(pool, c, preset);
+                heroRows.Add(FingerprintERow(c, hr, HeroPrefix));
+                heroReads.Add(hr);
             }
 
             sb.Append(c.Id).Append('\t').Append(c.Name).Append('\t').Append(c.Type)
@@ -2943,8 +3309,9 @@ class PlayProbe
         {
             var pdir = Path.GetDirectoryName(Path.GetFullPath(pfPath));
             if (!string.IsNullOrEmpty(pdir)) Directory.CreateDirectory(pdir);
-            File.WriteAllText(pfPath, FingerprintFileText(pfRows, ecRows));
-            Console.WriteLine("     wrote " + pfPath + " lines=" + (pfRows.Count + ecRows.Count + 1));
+            File.WriteAllText(pfPath, FingerprintFileText(pfRows, ecRows, heroRows));
+            Console.WriteLine("     wrote " + pfPath + " lines="
+                              + (pfRows.Count + ecRows.Count + heroRows.Count + 1));
         }
         else
         {
@@ -2997,6 +3364,21 @@ class PlayProbe
 
         Console.WriteLine();
         Console.WriteLine("  判据：**抛异常 = 0 张** ⇒ rc=0；否则 rc=1。");
+        // 🆕 `B9_W41S3B`（2026-10-27）：**督军档电池**的覆盖面（只 `preset hero=1` 时有内容；⛔ 不许静默）
+        if (preset != null && preset.HeroBattery > 0)
+        {
+            Console.WriteLine();
+            Console.WriteLine("  --- ⑦ 🆕 督军档电池（`preset hero=1`：被测卡当 P0 督军 → 打天赋 → 电池步 → 主动能力）---");
+            Console.WriteLine("     督军 **" + heroReads.Count + " 张** · **净差 > 0 的 "
+                              + heroReads.Count(r => r.Net.Count > 0) + " 张** · 抛异常 "
+                              + heroReads.Count(r => r.Crash != null) + " 张 · 对照局没起步 "
+                              + heroReads.Count(r => r.Note.Length > 0) + " 张");
+            foreach (var r in heroReads.Where(r => r.Net.Count == 0).Take(60))
+                Console.WriteLine("       净差 0：" + Pad(r.C.Id, 10) + Pad(r.C.Name, 28)
+                                  + " steps=" + Clip(r.Steps, 110));
+            foreach (var r in heroReads.Where(r => r.Crash != null || r.Note.Length > 0).Take(20))
+                Console.WriteLine("       🔴 " + Pad(r.C.Id, 10) + Clip(r.Crash ?? r.Note, 130));
+        }
         Console.WriteLine("  ⚠️「候选」与「打不出去」**都不计入 rc** —— 它们要**对着卡面**逐张判，"
                           + "本工具不代替判决（⛔ 也不许静默：两栏都在上面逐条打了出来）。");
 
@@ -3467,7 +3849,7 @@ class PlayProbe
     //    ⛔ **另外三颗指纹原样不动**：`PinnedPoolMd5`（卡池没改）· `PinnedParseMd5`（`check` 现跑
     //      解析差异仍 0 行、输出指纹 ✓）· `PinnedBaselineMd5`（`基线/out_baseline.txt` 没重生成）。
     //    判据全文 → `资料/普查产出_1025/E6_十三行接闸.md` §五·2 / §六。
-    public const string PinnedPlayMd5 = "0766fbe1f712696f4e57d2b7cfeb8f38";  // 🔴 2026-10-27 重钉（第八十五会话同步点 · 两笔探针口径改动）：① 新增 `atkCount`/`exhausted` 两列（原先对「计数类偏离」**全盲**，`E5ENG` 用 ON/OFF 对照实验实测坐实）；② `Program.LoadPool` 在逐卡循环里给 `Core/ForcedAttackRefund.Install` 灌 `chosenAbility`（原先探针里那份 `Data/` partial 走 `Resources.Load`、恒 null ⇒ **一律退还** ⇒ 计数必然回 0，是**量具失真**）。②的影响面**恰好 1 张**：`GOF93`（235 不退还族）`atkCount` 由空变 `P0[2]=1`，其余 1127 张逐列全等、电池 586 张逐字节一致。⚠️ **`atkCount` 只是「退款 / 行动额度记账」的哨兵，⛔ 不是「攻击发生没发生」的读数**。上一版 = 79057e33… ｜ 🔴 2026-10-27 重钉（第八十五会话 · `E1RNG` P-04 随机源）：结算随机改成**原版形状** = 开局预烧 100 个整数 + 游标按下标取（`MatchData__GenerateRandomNumbers.c:1-40` / `MatchData__GetRandomInt.c:8-40`），洗牌也从 Fisher–Yates 改成**原版「按名次挑选」**（`SupportMethods__GetRandomOrder.c:1-98`）⇒ 全池 `ctx.Rng.Next` 清零，结算路径只剩烧表那一行。差异面 = **主档 100 张 / 电池 76 张**，逐族归因与完整 id 清单见 `资料/完全复刻/报告/B9_E1RNG_随机源P04.md` §5.2/§5.3（`dmg` 变值 15 张，其余是「随机挑到哪一张」变了）。上一版 = 1b40f42a… ｜ 🔴 2026-10-26 重钉（第八十四会话同步点）：本会话引擎改动 = BL47 解析修正（`EffectText` 加法型反向正则）· 附魔摘除改排队摘（`481`）· `pendingHealing` 治疗收尾清（含满血/溢疗支）· 残骸原地翻回（`DoReanimate`）· P-06 接 `Aura.RefreshInPlayNumericAndKeywords`（`BL18`/`UM18` 各 +4）· P-05 残骸 `Has` 闸（`SW25`）⇒ 主档 1 张（`BL47`）· 电池 3 张（`BL18`/`SW25`/`UM18`）；每条已由各写手做 A/B 隔离归因。上一版 = af8e8178… ｜ 🔴 2026-10-26 重钉（第八十三会话同步点）：伏击/landing **续打一记**（`A1`/`A3` 查实原版两支都压一条 `BattleActionType=1` 续攻、出队后再进 `_ResolveAttack` ⇒ 12 张 `ambush` 卡从「**零次攻击**」变成「一次」）。电池段 **5 张变**（GSC11/GSC15/GSC25/GSC69/GSC7），`A3` 做过 A/B 实证：**不是卡行为变了**，是控制臂 `Blank(card)` 保留了 `ambush` 关键词、现在也面朝下，与真卡逐字相同被净差减掉（插桩证明两版 a/b 条数完全相同 45/43，只 `b` 里一行内容变了）。主档 1128 张**逐字节一致**。上一版 = 6e888bbe… ｜ 🔴 2026-10-26 重钉（第八十二会话同步点）：本会话引擎改动（残骸清 trait / 灵魂石按阵营 / 相邻目标 / 5 条广播收窄 / 强制攻击退还 / 探针夹具阵营改 SaimHann） ｜ 🔴 2026-10-26 重钉（第八十一会话 · 调度台收尾同步点）：**G14 的「死后相邻单位」效果修好** —— 那 5 张卡原本「卡面写着、我们不打」，现在照卡面生效 ⇒ 主档 **5 张变**（ASH54 dmg 8→12 · ASH73 伤害累计 8→13 且督军 28→26 · SAU56 dmg 0→3 · Particle Whip · None Must Know 眩晕督军 1），**事件电池 586 张逐字节一致**（零外溢）。逐条核对过「都是这 5 张、无新回归」。⚠️ 探针对**归一化内容**算的（文件原始 md5 另算，别混）。上一版 = 39c4f77e…
+    public const string PinnedPlayMd5 = "e7f1de8f96f9e7a255ae72534cf263de";   // 🆕 2026-10-27（第八十六会话 · 重同步点）差异卡 2 张：BL64（ta 短路闸：原 playRc=18 打不出去 → 现在能打）· DA42（A7 结算层闸：不再「打出当刻 +3」）。⚠️ DA42 的完整链等 A1a（模板入池 1,128→1,129）会再钉一次 play + 一次池指纹，那时不是新回归。上一版 = 0766fbe1…  // 🔴 2026-10-27 重钉（第八十五会话同步点 · 两笔探针口径改动）：① 新增 `atkCount`/`exhausted` 两列（原先对「计数类偏离」**全盲**，`E5ENG` 用 ON/OFF 对照实验实测坐实）；② `Program.LoadPool` 在逐卡循环里给 `Core/ForcedAttackRefund.Install` 灌 `chosenAbility`（原先探针里那份 `Data/` partial 走 `Resources.Load`、恒 null ⇒ **一律退还** ⇒ 计数必然回 0，是**量具失真**）。②的影响面**恰好 1 张**：`GOF93`（235 不退还族）`atkCount` 由空变 `P0[2]=1`，其余 1127 张逐列全等、电池 586 张逐字节一致。⚠️ **`atkCount` 只是「退款 / 行动额度记账」的哨兵，⛔ 不是「攻击发生没发生」的读数**。上一版 = 79057e33… ｜ 🔴 2026-10-27 重钉（第八十五会话 · `E1RNG` P-04 随机源）：结算随机改成**原版形状** = 开局预烧 100 个整数 + 游标按下标取（`MatchData__GenerateRandomNumbers.c:1-40` / `MatchData__GetRandomInt.c:8-40`），洗牌也从 Fisher–Yates 改成**原版「按名次挑选」**（`SupportMethods__GetRandomOrder.c:1-98`）⇒ 全池 `ctx.Rng.Next` 清零，结算路径只剩烧表那一行。差异面 = **主档 100 张 / 电池 76 张**，逐族归因与完整 id 清单见 `资料/完全复刻/报告/B9_E1RNG_随机源P04.md` §5.2/§5.3（`dmg` 变值 15 张，其余是「随机挑到哪一张」变了）。上一版 = 1b40f42a… ｜ 🔴 2026-10-26 重钉（第八十四会话同步点）：本会话引擎改动 = BL47 解析修正（`EffectText` 加法型反向正则）· 附魔摘除改排队摘（`481`）· `pendingHealing` 治疗收尾清（含满血/溢疗支）· 残骸原地翻回（`DoReanimate`）· P-06 接 `Aura.RefreshInPlayNumericAndKeywords`（`BL18`/`UM18` 各 +4）· P-05 残骸 `Has` 闸（`SW25`）⇒ 主档 1 张（`BL47`）· 电池 3 张（`BL18`/`SW25`/`UM18`）；每条已由各写手做 A/B 隔离归因。上一版 = af8e8178… ｜ 🔴 2026-10-26 重钉（第八十三会话同步点）：伏击/landing **续打一记**（`A1`/`A3` 查实原版两支都压一条 `BattleActionType=1` 续攻、出队后再进 `_ResolveAttack` ⇒ 12 张 `ambush` 卡从「**零次攻击**」变成「一次」）。电池段 **5 张变**（GSC11/GSC15/GSC25/GSC69/GSC7），`A3` 做过 A/B 实证：**不是卡行为变了**，是控制臂 `Blank(card)` 保留了 `ambush` 关键词、现在也面朝下，与真卡逐字相同被净差减掉（插桩证明两版 a/b 条数完全相同 45/43，只 `b` 里一行内容变了）。主档 1128 张**逐字节一致**。上一版 = 6e888bbe… ｜ 🔴 2026-10-26 重钉（第八十二会话同步点）：本会话引擎改动（残骸清 trait / 灵魂石按阵营 / 相邻目标 / 5 条广播收窄 / 强制攻击退还 / 探针夹具阵营改 SaimHann） ｜ 🔴 2026-10-26 重钉（第八十一会话 · 调度台收尾同步点）：**G14 的「死后相邻单位」效果修好** —— 那 5 张卡原本「卡面写着、我们不打」，现在照卡面生效 ⇒ 主档 **5 张变**（ASH54 dmg 8→12 · ASH73 伤害累计 8→13 且督军 28→26 · SAU56 dmg 0→3 · Particle Whip · None Must Know 眩晕督军 1），**事件电池 586 张逐字节一致**（零外溢）。逐条核对过「都是这 5 张、无新回归」。⚠️ 探针对**归一化内容**算的（文件原始 md5 另算，别混）。上一版 = 39c4f77e…
 
 
     /// <summary>`play check` 的缺省基线 —— **按名字往上找**（形状照 `Program.CheckMain.DefaultBaseline`，
@@ -3537,6 +3919,13 @@ class PlayProbe
     /// <summary>事件电池行的**第一列前缀** —— 同一个基线文件里区分两套行的**唯一**判据。</summary>
     public const string ECPrefix = "E|";
 
+    /// <summary>🆕 `B9_W41S3B`（2026-10-27）：**督军档电池**行的前缀。
+    /// 形状与 `E|` 行**逐列相同**（同一份 <see cref="PfECols"/>），只是服务的那一族不同
+    /// （`E|` 只覆盖 `type=unit`，督军档走 <see cref="MeasureHeroBattery"/>）。
+    /// ⚠️ **只在 `preset hero=1` 时写出**（`Sweep` 末尾那一段）⇒ `play check` 的基线里**没有它**。
+    /// ⛔ 别把它当第二份 `E|`：两者**不能混读**（夹具不是同一套）。</summary>
+    public const string HeroPrefix = "H|";
+
     /// <summary>这一行是不是事件电池行（判据 = 第一列以 <see cref="ECPrefix"/> 开头）。</summary>
     static bool IsEcRow(string row) { return row != null && row.StartsWith(ECPrefix, StringComparison.Ordinal); }
 
@@ -3561,12 +3950,14 @@ class PlayProbe
     /// <summary>一张卡的**事件电池指纹行**（`A1431` 第三笔）。列见 <see cref="PfECols"/>。
     /// 🔴 **含**最后一列 `netFull` = 净差**逐条全文**（缺了它「条数一样而内容变了」照不到）。
     /// ⛔ **不含**引擎日志（措辞会变 ⇒ 会天天红）。⚠️ `note` 是**口径散文**，但它今天只有
-    /// 「对照局没起步」那一种取值（= 出声标记），留着它比丢了强 —— 一旦出现，就是要人看的。</summary>
-    static string FingerprintERow(CardDef c, EventReading r)
+    /// 「对照局没起步」那一种取值（= 出声标记），留着它比丢了强 —— 一旦出现，就是要人看的。
+    /// 🆕 `B9_W41S3B`（2026-10-27）：`prefix` —— 默认 `E|`（单位电池）；督军档电池传 `H|`
+    ///   （`HeroPrefix`）。⛔ **列一个都不许改**（两边共用同一份 `PfECols` 读法）。</summary>
+    static string FingerprintERow(CardDef c, EventReading r, string prefix = null)
     {
         return string.Join("\t", new[]
         {
-            ECPrefix + c.Id, c.Type, r.Bucket, r.Cand ? "1" : "0", r.PlayRc.ToString(),
+            (prefix ?? ECPrefix) + c.Id, c.Type, r.Bucket, r.Cand ? "1" : "0", r.PlayRc.ToString(),
             r.Played ? "1" : "0", r.CtrlPlayed ? "1" : "0", One(r.Steps),
             r.Raw.ToString(), r.Ctrl.ToString(), r.Net.Count.ToString(),
             r.NetDmg.ToString(), One(r.Note),
@@ -3637,7 +4028,8 @@ class PlayProbe
 
     /// <summary>写盘用的文本（头几行是 `#` 注释 —— 读的时候**整行丢掉**，⛔ 不参与 md5）。
     /// 🆕 `A1431` 第三笔：**两套行**（主档 ＋ 事件电池 `E|` 前缀那一套）写进同一个文件。</summary>
-    static string FingerprintFileText(IEnumerable<string> rows, IEnumerable<string> ecRows = null)
+    static string FingerprintFileText(IEnumerable<string> rows, IEnumerable<string> ecRows = null,
+                                      IEnumerable<string> heroRows = null)
     {
         var sb = new StringBuilder();
         sb.Append("# ruleprobe `play` 结算指纹（`A1431` 第二笔）—— 一行一张卡；`play all pf <out>` 生成，`play check` 拿它逐卡对拍。\n");
@@ -3654,6 +4046,14 @@ class PlayProbe
         {
             sb.Append("# --- 事件电池（打出去之后那一段）---\n");
             foreach (var r in ecRows.Where(x => !string.IsNullOrEmpty(x)).OrderBy(x => x, StringComparer.Ordinal))
+                sb.Append(r).Append('\n');
+        }
+        // 🆕 `B9_W41S3B`（2026-10-27）：**督军档电池**（只 `preset hero=1` 时有行；同一份列定义）。
+        if (heroRows != null)
+        {
+            sb.Append("# --- 督军档电池（被测卡当 P0 督军 → 打天赋 → 走电池步 → 用主动能力）---\n");
+            sb.Append("# 列（TAB 分隔）：" + string.Join("/", PfECols) + "\n");
+            foreach (var r in heroRows.Where(x => !string.IsNullOrEmpty(x)).OrderBy(x => x, StringComparer.Ordinal))
                 sb.Append(r).Append('\n');
         }
         return sb.ToString();

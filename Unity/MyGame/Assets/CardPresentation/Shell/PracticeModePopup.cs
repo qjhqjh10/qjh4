@@ -829,7 +829,7 @@ namespace CardPresentation
             _txtWarlord = Txt(_info, WarlordNameOf(wl), WnL, WnR, WnT, WnB, 35f,
                               Align.Left, "Warlord Name", QPrText,
                               wrapPx: WnR - WnL, autoMinPx: 1f, autoMaxPx: 35f, autoBasePx: 24.3f,
-                              face: TmpFont.Face.LatinCardBody);
+                              face: TmpFont.Face.LatinCardBody); BuildWarlordHit(wl);   // 原版第 4 颗钮（账 卡组:134），见方法头
             _armyIcon = Img(_info, DeckRuntime.FactionIcon(d.Faction), ArmImgL, ArmImgT, ArmImgR, ArmImgB,
                             "Army Image", QPrFront, true);   // 🆕 2026-10-22（M2）：`QPrRow`→`QPrFront`（要压在立绘之上，见 `QPrFront` doc）
         }
@@ -880,8 +880,8 @@ namespace CardPresentation
                 RefreshCostRows();
             }
 
-            _cardback = ImgTex(_general, CardArt.DeckCardback(d.CardbackId, d.Faction), "Cardback(这副牌的卡背)", CbL, CbT, CbR, CbB,
-                               "Cardback", QPrFront, true);   // 🆕 2026-10-22（M2）：同上（`Deck info` 自己的图整组上调）
+            // 卡背是 **两层**（`Cardback` + `Cardback Front`）+ 一条 0.25 s 入场 —— 判据/几何/动画见 `BuildCardbacks` 的方法头
+            BuildCardbacks(d);
 
             // ⚠️ 图标那层用**原版 `Icon` 子件自己的矩形**（1737.68,246.46→1785.07,293.12 = 47.39×46.66），
             //    不是父件的 64.24×63.24（用父的会把图标放大 1.36 倍、而且不居中）
@@ -2678,7 +2678,7 @@ namespace CardPresentation
             if (_txtWarlord != null) _txtWarlord.SetText(WarlordNameOf(wl));
             if (_txtArmy != null) _txtArmy.SetText(SelectedArmyName());
             if (_armyIcon != null) _armyIcon.SetTexture(CardArt.MenuUi(DeckRuntime.FactionIcon(info.Faction)));
-            if (_cardback != null) _cardback.SetTexture(CardArt.DeckCardback(info.CardbackId, info.Faction));
+            SetCardbackTexture(CardArt.DeckCardback(info.CardbackId, info.Faction));   // 两层一起换 + 重播入场（账 卡组:138）
             // 🆕 2026-10-22（M2）：督军整身立绘跟着换（判源 = `CurrentDeck`，与上面那几件同一批）。
             RefreshCharacterImage();
             // 🆕 **2026-10-19（界面线 P05）**：玩家自己的卡组**没有 lore**（原版这份数据挂在
@@ -2776,7 +2776,7 @@ namespace CardPresentation
             //   `_deckHolder == null`（没建出来）那一档也不留旧字（同 `PickDeck` 的写法）。
             if (_txtArmy != null) _txtArmy.SetText(SelectedArmyName());
             if (_armyIcon != null) _armyIcon.SetTexture(CardArt.MenuUi(d.FactionIcon));
-            if (_cardback != null) _cardback.SetTexture(d.Cardback);
+            SetCardbackTexture(d.Cardback);   // 两层一起换 + 重播入场（账 卡组:138）
             // 🆕 2026-10-22（M2）：督军整身立绘跟着换 —— 预组那一副自己的督军（`d.heroId`）。
             //   🧨 改坏法：漏这一句 ⇒ 从左列换一对之后，立绘停在上一次那副的督军（断言量两次纹理名会红）。
             RefreshCharacterImage();
@@ -3573,5 +3573,171 @@ namespace CardPresentation
         /// 「有 RankedV3 活动才显示」的闸要用它（判据见 <see cref="HasActiveRankedEvent"/>）。
         /// 🔴 隐藏时**开关四件一起藏**（它们都是这颗的子件，同原版 `SetActive` 打在 `gameModeSelector` 上）。</summary>
         Transform _gmToggle;
+
+        // ============================================================ 🆕 2026-10-27（B9_W8PREB · 账 卡组:134 / 卡组:138）
+        //  本窗两条原版行为的等价物。判据全部实读，逐条写在各自的方法头里。
+        //  ⚠️ **为什么都追加在类尾**：账里本文件的落点最远到 `:2445`（`ShowInfoHit`），往下加不动它们；
+        //     上面那 4 处改动（`:832` / `:883-884` / `:2681` / `:2779`）已逐处保持在**原有行数**上（见各条行尾注释）。
+
+        /// <summary>`Cardback` 的**第二层** —— 原版 `DeckGeneralInfoDemo.cardBacks[1]`，节点名 `Cardback Front`
+        /// （它是 `Cardback` 的子件；我们平铺在 `General container` 下，靠队列 + 旋转复现同样的层次，见
+        /// <see cref="BuildCardbacks"/>）。</summary>
+        ImageQuad _cardbackFront;
+        /// <summary>卡背入场补间（原版 `DeckGeneralInfoDemo.cardbacksAnimation` 那条 `OpenCardbacks` clip 的等价物）。</summary>
+        DG.Tweening.Tween _cardbacksTween;
+        /// <summary>两层卡背**当前**喂的那张图（原版 `ConfigPanel` 里那句「`image.m_Sprite == cosmeticSprite` ⇒ 直接 break」
+        /// 的判据就是它：同图再来一次**什么都不做**，换图才 `Rewind + Play`）。</summary>
+        Texture2D _cardbackTex;
+        /// <summary>`Cardback Front` 建出来时的**静止** `localPosition`（入场动画的终位；起点 = 它 + <see cref="CbFrontSlide"/>）。</summary>
+        Vector3 _cardbackFrontRestPos;
+        /// <summary>入场动画「内层相对外层」的位移量（原版 clip 的 `anchoredPosition` 关键帧：`(0.3,0.3)` → `(11.2012,4.9016)`），
+        /// 已按外层 `1.60°` 旋到**世界方向**（px，y 向上）。换算：`R(1.6°)·(−10.9012,−4.6016) = (−10.7684,−4.9042)`。</summary>
+        static readonly Vector2 CbFrontSlide = new Vector2(-10.7684f, -4.9042f);
+        /// <summary>`OpenCardbacks` clip 的时长（`AnimationClip_7721407185759151047.m_SampleRate = 60`、末键 `t = 0.25`）。</summary>
+        public const float CardbacksAnimDuration = 0.25f;
+        /// <summary>`Cardback`（外层）的静止 z 旋转 —— 现读 `RectTransform_-3917913493052829892.m_LocalRotation.z = 0.0139622`
+        /// ⇒ `2·asin(0.0139622) = 1.60°`。</summary>
+        public const float CbRot = 1.60f;
+        /// <summary>`Cardback Front` 的静止 z 旋转（**相对外层**）—— 现读 `RectTransform_8791577597720547132.m_LocalRotation.z = −0.0299279`
+        /// ⇒ `2·asin(−0.0299279) = −3.43°`。⇒ 平铺之后它的**世界角** = `CbRot + CbFrontLocalRot = −1.83°`。</summary>
+        public const float CbFrontLocalRot = -3.43f;
+
+        /// <summary>`Cardback Front` 的静止矩形（现读：外层矩形 + 内层 `anchoredPosition` 差 `(11.2012, +4.9016§)` 换到左上原点 y 向下）。
+        /// ⚠️ 差值由 `RectTransform_8791577597720547132.m_AnchoredPosition` 与 `RectTransform_-3917913493052829892` 相减得出，
+        /// 与 `menu_dump.py … "Practice Mode Menu" --depth 8` 那一行（`Cardback Front 1553.6 324.7 1763.1 627.1`）逐值吻合。</summary>
+        public const float CbFrontL = 1553.55f, CbFrontT = 324.73f, CbFrontR = 1763.11f, CbFrontB = 627.06f;
+
+        /// <summary>≡ 原版 `DeckGeneralInfoDemo.Awake()` 给 `warlordTextButton` 挂的那一颗（账 `卡组:134`）。
+        /// <para>判据（🥇 = `decomp_full/DeckGeneralInfoDemo__Awake.c`：四颗钮里第 4 个 `AddListener` 指向
+        /// `WarlordInfoButtonClick`；🥈 = `cpp2il/out_cpp2il_dev_ilspy/DeckGeneralInfoDemo.cs:59-61`：
+        /// `Button button = warlordTextButton; button.m_OnClick.AddListener(WarlordInfoButtonClick)`）。</para>
+        /// <para>🔴 **可点区域 = 可射线件的并集 + 各自的 `m_RaycastPadding`**（本工程口径）。逐字段现读：
+        /// 那颗 `Button` 的 GameObject（`MonoBehaviour_-4747125247262437572.m_GameObject`）上只挂一颗吃射线的
+        /// Graphic = `warlordName` 那颗 TMP（`MonoBehaviour_3676532614230396732`：`m_RaycastTarget = 1`、
+        /// **`m_RaycastPadding = (0,0,0,0)`**，同时就是 `Button.m_TargetGraphic`）⇒ 并集 = **那颗 TMP 自己的矩形**、
+        /// 不外扩。它的 RectTransform（`RectTransform_-2158633528951091396`）= `sizeDelta (0, 34)` · `pivot (0, 0.5)`
+        /// · **`ContentSizeFitter` 横向 PreferredSize** ⇒ **宽 = 文字实测宽**（`menu_dump` 现读 `0×34`：未撑开那一帧）。
+        /// ⇒ ⛔ **不能拿我们那个固定框 `WnL..WnR`（宽 352.86）当命中区** —— 原版只有文字那么宽，
+        /// 多出来的空白在原版点不中（本工程踩过「不重叠但过大」那一类）。这里按 `Label.WorldW` 量出来再夹右沿；
+        /// **量不到（`WorldW` 是哨兵/天文数字）就退回固定框并出声一次**，⛔ 不静默变成 0 宽（那会「点不着」）。</para></summary>
+        void BuildWarlordHit(RuleEngine.CardDef wl)
+        {
+            if (_info == null) return;
+            float w = WnR - WnL;
+            if (_txtWarlord != null)
+            {
+                float measured = _txtWarlord.WorldW * LayoutSpace.PxPerWorldX;   // 世界单位 → 设计 px
+                if (measured >= 8f && measured <= w) w = measured;
+                else if (!_warlordHitWidthWarned)
+                {
+                    _warlordHitWidthWarned = true;
+                    Debug.Log("[Practice] 督军名实测宽 " + measured.ToString("R")
+                            + "px 不在 [8, " + w + "] ⇒ 命中区退回固定框（原版那颗 TMP 是 `ContentSizeFitter`"
+                            + " 贴合文字宽；量不到时宁可宽一点，也比 0 宽「点不着」好）");
+                }
+            }
+            // `pad` 传零 = 原版 `m_RaycastPadding = (0,0,0,0)`（上面那段逐字段现读）⇒ `PaddedRect` 原样返回。
+            HitOn(_info, _info, "WarlordNameHit",
+                  MenuDraw.PaddedRect(new PxRect(WnL, WnT, WnL + w, WnB), Vector4.zero),
+                  () => OpenWarlordDetail());
+        }
+        bool _warlordHitWidthWarned;
+
+        /// <summary>≡ 原版 `DeckGeneralInfoDemo.WarlordInfoButtonClick()`（账 `卡组:148` 的调用面）：
+        /// `CardDisplayWindow.Instance.ShowCard(deckHero, tier: null, showOptions: false, …)`。
+        /// <para>判据（🥇 `decomp_full/DeckGeneralInfoDemo__WarlordInfoButtonClick.c`：取 `currentDeck` 的
+        /// `classicDeck`/`skirmishDeck`（按 `currentSelectedPlayMode`）→ `PrebuiltDeck.get_DeckHero` →
+        /// `CardDisplayWindow.ShowCard(hero, 0,0,0,0,0)`；🥈 `cpp2il…/DeckGeneralInfoDemo.cs:417-427` 同形）。</para>
+        /// <para>🔴 **我们的等价物 = 菜单侧那扇卡片详情窗**（`Shell/CardDetailPopup` = 原版菜单版 `CardDisplayWindow`，
+        /// 见它自己的文件头）。**判据只此一处**：与 `DeckInfoPopup.OpenWarlordDetail` 同一个写法，⛔ 别再写第二份。</para></summary>
+        void OpenWarlordDetail()
+        {
+            var wl = CollectionData.Warlord(DeckIndex);
+            if (wl == null) { Debug.LogWarning("[Practice] 这副没有督军 ⇒ 开不了详情窗"); return; }
+            if (Manager == null) { Debug.LogWarning("[Practice] 没有 `WindowsManager` ⇒ 开不了详情窗"); return; }
+            var w = CardDetailPopup.Create(Manager);
+            Manager.OpenWindow(w);
+            w.ShowCard(wl);
+            Debug.Log("[Practice] 点督军名 ⇒ 开卡片详情窗（「" + wl.Name + "」；原版 `WarlordInfoButtonClick`）");
+        }
+
+        /// <summary>≡ 原版 `DeckGeneralInfoDemo.ConfigPanel(...)` 的**卡背那一段**（账 `卡组:138`）。
+        /// <para>判据（🥇 `decomp_full/DeckGeneralInfoDemo__ConfigPanel.c`：
+        /// ① 收尾处 `currentCardback = param_7`；`currentCardback` 为空 ⇒ 直接 return；
+        /// ② `sprite = currentCardback.CosmeticSprite`；③ `foreach (Image img in cardBacks)`：
+        ///   `img.sprite != null && img.sprite == sprite` ⇒ **break**（同图什么都不做）；
+        ///   否则 `img.sprite = sprite; img.enabled = true; cardbacksAnimation.Rewind(); cardbacksAnimation.Play();`）。
+        /// 🥈 `cpp2il/out_cpp2il_dev_ilspy/DeckGeneralInfoDemo.cs:280-319` 同形。</para>
+        /// <para>🔴 **「5 连轮播」是错的 —— 现读是 2 层**（派活包/施工单写「5 连」，**与 prefab 不符**，就地订正）：
+        /// `MonoBehaviour_-3841077181908889796.cardBacks` 数组长度 = **2**，两个 PPtr 分别落到
+        /// `Cardback`（`RectTransform_-3917913493052829892`）与它的子件 `Cardback Front`（`RectTransform_8791577597720547132`）。
+        /// `menu_dump` 那棵树也只有一个 `Cardback` ▸ 一个 `Cardback Front`。</para>
+        /// <para>🔴 **那条「轮播」动画 = `OpenCardbacks` clip（0.25 s，`m_WrapMode = 1 = Once`）**，不是循环：
+        /// 现读 `AnimationClip_7721407185759151047` —— 两条 `m_RotationCurves` 都从**单位四元数**
+        /// （`z = 0`，即 0°）走到各自 prefab 的静止角（外层 `+1.60°`、内层 `−3.43°`）；
+        /// `Cardback Front` 的 `m_FloatCurves` 是 `anchoredPosition (0.3,0.3) → (11.2012,4.9016)`；
+        /// 外层那两条 `anchoredPosition` 曲线只有一个 `t=0.25` 的键 = **自己不动**（只当常量保持）。
+        /// ⇒ 视觉 = 「两张卡背从正着的位置扇开成静态那个倾角，正面那张顺带滑 11px」。
+        /// ⚠️ 插值方式：原版是 Unity 的 Hermite 自动切线（两端 `inSlope/outSlope = 0`），我们用 `InOutQuad` 近似
+        /// —— 关键帧是原版值，只有**帧间**那一档是退化写法（同 `Shell/BoosterPackAnim.cs` 的口径）。</para>
+        /// <para>⚠️ 原版 `cardbacksAnimation` 挂在**外层 `Cardback` 那个 GameObject** 上（`Animation_-3822919705446428868.m_GameObject`），
+        /// 而它的曲线同时驱动子件 ⇒ 我们用一条 `DOTween.To` 同时写两层的 `localRotation` 与内层的 `localPosition`。</para></summary>
+        void BuildCardbacks(CollectionData.DeckInfo d)
+        {
+            var tex = CardArt.DeckCardback(d.CardbackId, d.Faction);
+            if (tex == null) { Debug.LogWarning("[Practice] 卡背图取不到，两层都没建"); return; }
+            // 外层 `Cardback`：矩形/队列/图都与建窗前一致（⚠️ 行数与原来那一条相等，账的落点不漂）
+            _cardback = ImgTex(_general, tex, "Cardback(这副牌的卡背)", CbL, CbT, CbR, CbB,
+                               "Cardback", QPrFront, true);
+            // 内层 `Cardback Front`：原版是外层子件 ⇒ 平铺后世界角 = 外层 + 内层，队列排在外层之上
+            _cardbackFront = ImgTex(_general, tex, "Cardback Front(卡背正面)", CbFrontL, CbFrontT, CbFrontR, CbFrontB,
+                                    "Cardback Front", QPrText, true);
+            _cardbackTex = tex;
+            if (_cardbackFront != null) _cardbackFrontRestPos = _cardbackFront.transform.localPosition;
+            ApplyCardbacksPose(1f);      // 先落静止态（批处理/编辑器里就是终态）
+            _cardbacksTween = null;
+            if (Application.isPlaying) PlayCardbacksAnim();   // 原版第一次 `ConfigPanel` 会 Rewind + Play
+        }
+
+        /// <summary>换卡背图（两个刷新点共用：`PickDeck` 的玩家卡组 / `PickPrebuilt` 的预组）。原版 `ConfigPanel` 的同图守卫照抄。
+        /// ⚠️ 与原来那两句 `_cardback.SetTexture(...)` **行数相等**（账的落点不漂）。</summary>
+        void SetCardbackTexture(Texture2D tex)
+        {
+            if (tex == null) { Debug.LogWarning("[Practice] 卡背图取不到 ⇒ 不换（原版 `currentCardback` 为空时整段 return）"); return; }
+            bool same = _cardbackTex == tex;      // 原版：`img.sprite == cosmeticSprite` ⇒ break（连 Rewind 都不做）
+            if (_cardback != null) _cardback.SetTexture(tex);
+            if (_cardbackFront != null) _cardbackFront.SetTexture(tex);
+            _cardbackTex = tex;
+            if (!same) PlayCardbacksAnim();
+        }
+
+        /// <summary>把两层卡背摆到动画的第 <paramref name="t"/>（0 = 正着、1 = 静止倾角）那一帧。
+        /// `t = 1` 与 prefab 的静止态逐值一致（外层 `1.60°` · 内层世界 `−1.83°` · 内层在自己的静止位上）。</summary>
+        void ApplyCardbacksPose(float t)
+        {
+            if (_cardback != null)
+                _cardback.transform.localRotation = Quaternion.Euler(0f, 0f, CbRot * t);
+            if (_cardbackFront == null) return;
+            _cardbackFront.transform.localRotation = Quaternion.Euler(0f, 0f, (CbRot + CbFrontLocalRot) * t);
+            float k = 1f - t;      // 起点 = 静止位 + `CbFrontSlide`（原版 clip 的 `(0.3,0.3)` 相对 `(11.2012,4.9016)`）
+            _cardbackFront.transform.localPosition = _cardbackFrontRestPos
+                + new Vector3(LayoutSpace.Px(CbFrontSlide.x) * k, LayoutSpace.Px(CbFrontSlide.y) * k, 0f);
+        }
+
+        /// <summary>从第 0 帧重播卡背入场（原版 `cardbacksAnimation.Rewind(); cardbacksAnimation.Play();`）。
+        /// ⛔ 只在真 Play 起补间：批处理没有帧循环 ⇒ 起了会永久停在「正着」那一帧（同 `PlayPackOpenAnim` 那道闸）。</summary>
+        void PlayCardbacksAnim()
+        {
+            ApplyCardbacksPose(1f);
+            if (!Application.isPlaying) return;
+            if (_cardbacksTween != null) { DG.Tweening.TweenExtensions.Kill(_cardbacksTween); _cardbacksTween = null; }
+            float t = 0f;
+            ApplyCardbacksPose(0f);
+            var tw = DG.Tweening.DOTween.To(() => t, v => { t = v; ApplyCardbacksPose(v); }, 1f, CardbacksAnimDuration);
+            DG.Tweening.TweenSettingsExtensions.OnComplete(tw, () => { ApplyCardbacksPose(1f); _cardbacksTween = null; });
+            DG.Tweening.TweenSettingsExtensions.OnKill(tw, () => ApplyCardbacksPose(1f));
+            // ⚠️ 缓动只能挂在**数值补间自己**身上（Sequence 上挂非 Linear 会整条时间轴再弯一次）。
+            _cardbacksTween = CardTween.Use(tw, DG.Tweening.Ease.InOutQuad, this);
+        }
     }
 }

@@ -8748,9 +8748,9 @@ namespace RuleEngine
         /// ⚠️ **`When played, …` 天然被第 ② 道闸挡在外面**（`played` 省主语 ⇒ 认不出）——
         ///    **那正是我们要的**：原版「打出一张牌」这条路的语义就是「**结算我自己的正文**」
         ///    （`WhenEvent.cs` 的 `SelfOnly` 那段，2026-10-17 查实），
-        ///    ⇒ 战术卡 `DA47 Reconnaissance Mission` 的 `When played, gain 3 Quest Points`
+        ///    ⇒ 战术卡 `DA42 Reconnaissance Mission` 的 `When played, gain 3 Quest Points`
         ///      **必须继续由主解析器照常解成 `gainquest 3`**，⛔ 不许被这里拦掉（改前/改后 `scan`
-        ///      里那一行逐字不变就是这条的读数）。
+        ///      里那一行逐字不变就是这条的读数）。（🔴 2026-10-27 `B9_W43DA42` 铁律 5：原写作 `DA47`，`DA47` 实为 `Blacksword Missiles`。）
         ///
         /// ⚠️ **为何排在 8c-ter（`TryCostWhenStub`/`TryWhenSuffixStub` 之后、`TryGive`/`TryGain` 之前）**：
         ///    改前的垃圾全部由 `TryGive`/`TryGain`/`TryLose`/`TryHeal` 这一族产出，
@@ -8762,7 +8762,7 @@ namespace RuleEngine
             // 🔴 **`recordUnknown: false`**（2026-10-12 `F1`）—— 这里是**解析层的一次试探**
             //    （「这句话认不认得」），**不是**在登记监听器 ⇒ **不许**有副作用：
             //    认不出的事件短语**不许**被灌进全局报表桶（`WhenEvents.UnknownPhrases`）。
-            //    实测病象：战术卡 `DA47 Reconnaissance Mission` 的 `When played`（`played` 省主语、
+            //    实测病象：战术卡 `DA42 Reconnaissance Mission` 的 `When played`（`played` 省主语、
             //    本来就【应该】认不出）被这里灌进桶 ⇒ 报表又按「不分卡类地数卡面文字」算了一遍
             //    （`RuleEngineTest.TestListenerCardType` 红；出处 → `资料/普查产出_第二十三会话/DIAG_五条红.md` 红 4）。
             //    ⚠️ **注册层**（`CardDef.AddWhenTrigger` / `CollectHandTrapWhens`）**保持缺省 `true`** ——

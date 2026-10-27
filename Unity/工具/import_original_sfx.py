@@ -683,12 +683,44 @@ def main():
             json.dumps(out, ensure_ascii=False, indent=1))
 
     if args.check:
+        # 🔴 2026-10-27（执行代理 B9_W35CHECK）：`--check` 必须**连产物一起查** ——
+        #   原来只报「cue 解析 + 源 clip 在不在」（上面 `missing_cue`/`missing_clip`），
+        #   而拷贝循环整段被 `if not args.check` 跳过 ⇒ **产物（音频 + 这张表）缺失/过期一律静默绿**。
+        #   判据同 工具/import_original_art.py `--only-altart`（`:1714-1721`）。
+        lack_json = None
+        if not os.path.exists(DST_JSON):
+            lack_json = f"{DST_JSON} 不存在"
+        else:
+            old = io.open(DST_JSON, encoding="utf-8", newline="").read()
+            if old != json.dumps(out, ensure_ascii=False, indent=1):
+                lack_json = f"{DST_JSON} 已过期（与现生成不一致）"
+        lack_files = []
+        for cl in need_files:
+            src = files[cl]
+            ext = os.path.splitext(src)[1].lower()
+            dst = os.path.join(DST_AUDIO, cl + ext)
+            if not os.path.exists(dst):
+                lack_files.append(cl + ext)
+            elif os.path.getsize(dst) != os.path.getsize(src):
+                lack_files.append(cl + ext + "（尺寸不符）")
+        if lack_json:
+            print("🔴 产物缺失/过期：" + lack_json)
+        if lack_files:
+            print(f"🔴 音频产物缺失 {len(lack_files)}/{len(need_files)} 个（{DST_AUDIO}）—— "
+                  f"重跑不带 --check 落盘：")
+            for b in lack_files[:50]:
+                print("   缺:", b)
+            if len(lack_files) > 50:
+                print(f"   …共 {len(lack_files)} 个")
+        if not lack_json and not lack_files:
+            print(f"✅ --check：产物齐全（表 {DST_JSON} · 音频 {len(need_files)} 个）")
         print("（--check：没有写盘）")
-    else:
-        print(f"已拷 {copied} 条 · 已存在跳过 {skipped} 条 · 补 meta {n_meta} 条 → {DST_AUDIO}"
-              f"（扩展名分布 {exts}）")
-        print(f"表已写：{DST_JSON}")
+        return 0 if (not lack_json and not lack_files) else 1
+    print(f"已拷 {copied} 条 · 已存在跳过 {skipped} 条 · 补 meta {n_meta} 条 → {DST_AUDIO}"
+          f"（扩展名分布 {exts}）")
+    print(f"表已写：{DST_JSON}")
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())

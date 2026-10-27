@@ -62,6 +62,14 @@ namespace RuleEngine
             /// 与 `spellType` 的 `-1` 口径**不同**，⛔ 别照抄那一条。
             /// 真值现读 1,351 张**全 0**（`cards_raw.json` 的 `full_raw`；与 `AUD_T06` §二 同结论）。</summary>
             public int specialAttackScoring;
+            /// <summary>🆕 2026-10-27（完全复刻 · 执行代理 `W46ALTD`）：原版 `RawCardScript.alternateArts`
+            /// （**PPtr 数组** `AlternateArtCard[]`，`+0x80`）落到我们卡表的**异画副本 id 列表**
+            /// （形如 `["#HB_SW1"]`）。语义 / 三态口径 / 7 条真值 → `CardDef.AttachAlternateArts` 上面那段注
+            /// （⛔ 别在这里抄第二份）。
+            /// <para>🔴 **`null` ≠ `[]`**（生成器契约 `工具/gen_cards_engine.py:1193`）：
+            /// `null` = 整行**没有这个键**（旧表 / 夹具直建）⇒ 「判不了」；
+            /// `[]` = 表里**明确说了这张卡没有异画**。`CardDatabase.Parse` 原样把两者分开传下去。</para></summary>
+            public string[] alternateArts;
             /// <summary>中文名（可选 —— 没翻译的卡没有这两个字段）。来自 `数据/卡牌翻译/zh_cards.json`</summary>
             public string nameZh;
             public string descZh;
@@ -617,6 +625,15 @@ namespace RuleEngine
             /// 🔴 **别拿 `type` 字符串反推**（`Pray Enchantment` 真值 `cardType = 20` 而 `type = "enchantment"`）。
             /// 语义 → `CardDef.CardType` 的 doc（⛔ 别在这里抄第二份）。</summary>
             public int cardType = -1;
+
+            /// <summary>🆕 v35（待生成器落列；2026-10-27 · `B9_W65ABIL`）：原版 `ActiveAbility` 对象自己的四个标量
+            /// `manaCost` / `psychicCost` / `plasmaCost` / `targeted`（`Assembly-CSharp/ActiveAbility.cs`）。
+            /// ⚠️ 本列今天**还不存在**（卡表 v34）⇒ 停在缺键初值 `-1` = **未知**（与 `cardType` 同一写法）；
+            /// `0` 是合法值（`SOR66` 的 `manaCost` 真值 = 0）⇒ ⛔ 别把缺键读成 0。语义 → `CardDef.ActiveAbilityManaCost` 那一族。</summary>
+            public int activeAbilityManaCost = -1;
+            public int activeAbilityPsychicCost = -1;
+            public int activeAbilityPlasmaCost = -1;
+            public int activeAbilityTargeted = -1;
         }
 
         /// <summary>🆕 v21（2026-10-24 · 引擎线 `A20`）：`normalAbilityBoardCriteria` 的传输形状
@@ -1661,6 +1678,17 @@ namespace RuleEngine
                 // 🆕 v34（2026-10-27 · `E7ENG` · 第三批）：原版 `RawCardScript.cardType` —— 同样**构造后挂载**。
                 //   消费者 = `CardDef.IsTrapCard` → `CardInstance.ArmedTrap`（陷阱那两格）。
                 def.AttachCardType(c.cardType);
+                // 🆕 v34+（2026-10-27 · 执行代理 `W46ALTD` · 账 `HUD:92`/`HUD:93`）：异画副本 id 列表
+                //   —— 同样**构造后挂载**（理由同上：`CardDef` 构造函数那 40 处账落点）。
+                //   🔴 `null`（整行没这个键 = 旧表）与 `[]`（明确没有异画）**必须分开传**，
+                //   否则「缺列」会被静默读成「这张卡没有异画」→ 收紧口径会把全部异画判死。
+                //   消费点 = `CardDef.HasAlternateArt` / `CardDatabase.ResolveDeckEntry`。
+                def.AttachAlternateArts(c.alternateArts);
+                // 🆕 v35（待生成器落列；2026-10-27 · `B9_W65ABIL`）：`ActiveAbility` 对象自己的四个标量 ——
+                //   同样**构造后挂载**（理由同上）。缺键 ⇒ DTO 初值 `-1` = 未知。今天零行为变化。
+                //   语义 / 三跳表 / 45-56 张督军的实测口径 → `Core/CardDefActiveAbility.cs` 文件头。
+                def.AttachActiveAbilityCost(c.activeAbilityManaCost, c.activeAbilityPsychicCost,
+                                            c.activeAbilityPlasmaCost, c.activeAbilityTargeted);
                 list.Add(def);
             }
             // 🆕 v23（2026-10-24 · 引擎线 `G12`）：`activeAbilityLogic` 的**挂载读数**（一行，⛔ 不逐卡刷屏）。
@@ -3266,6 +3294,33 @@ namespace RuleEngine
                 if (byId.TryGetValue(key, out c)) return c;   // ① 稳定 id
                 return Find(pool, key, faction);              // ② 卡名（旧存档）
             };
+        }
+
+        /// <summary>把**卡组里的一条条目**解析成引擎那张卡 —— 异画感知 + 「**异画必须在卡表里**」收紧。
+        ///
+        /// <para>这是**显示侧**（`Shell/DeckInfoPopup.cs` 的督军位与卡表行、`Core/CostCurveDrawer.cs` 的
+        /// 费用曲线）按 id 查卡时该走的那一个口：那三处原来是裸查 `CollectionData.Card(id)`
+        /// ⇒ `#HB_SW1` 这种异画条目**查不到** ⇒ 督军立绘位空着 / 卡表少一行 / 费用曲线少 1 张
+        /// （账 `HUD:92`/`HUD:93` 的显示侧那一半）。</para>
+        ///
+        /// <para>🔴 **「必须在卡表里」这条收紧的【唯一实现】= `PlayerDeck.ResolveEntry`**（判据 = `CardDef.AlternateArtsKnown`
+        /// + `CardDef.HasAlternateArt`）：卡表里没登记的那一条由它返回 `null`，调用方按「查不到」处置
+        /// （= 原版「资产里没有这张卡」同义）；卡表**没有这一列**（旧表 / 夹具直接 `new CardDef(...)`）⇒ 判不了 ⇒
+        /// 按「接受」处置，⛔ 不许把「缺列」静默读成「这张卡没有异画」（三态口径 → `CardDef.AttachAlternateArts` 那段注）。</para>
+        ///
+        /// <para>⚠️ 🔴 2026-10-27（执行代理 `B9_W62FIX`）：本方法已**退化成纯转发** —— 原来这里还留着收紧的第二份半句，
+        /// 收紧搬进 `ResolveEntry` 之后那半句**永远走不到**；两处写同一条规则迟早不一致 ⇒ 已收口到一处。</para>
+        ///
+        /// <para>📌 今天 **7 张异画全是督军** ⇒ 实际生效的是 `WarlordId` 位的 `#HB_SW1` 一类；
+        /// `CardIds` 里今天不存在「合法的」异画条目（没有非督军的异画）。</para>
+        /// </summary>
+        public static CardDef ResolveDeckEntry(string id, Func<string, CardDef> lookup)
+        {
+            // 只转发：剥前缀 / 份数口径 / 「异画必须在卡表里」的**唯一实现都在 `PlayerDeck`**
+            //   （`ResolveEntry` / `SameCardKey`，见 `RuleEngine/Core/DeckRules.cs`）⇒ ⛔ 这里不另写一套判断
+            //   （本项目铁律：两处写同一条规则 = 迟早不一致）。收口后**行为逐条等价**：原来那半句
+            //   `if (AlternateArtsKnown && !HasAlternateArt(id)) return null;` 现在**永远走不到**（收紧已在 `:890`）。
+            return PlayerDeck.ResolveEntry(id, lookup, out _);
         }
 
         /// <summary>

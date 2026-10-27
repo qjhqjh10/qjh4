@@ -46,6 +46,16 @@ if any(_wf_help_sys.argv[_i] in ("-h", "--help") for _i in range(1, len(_wf_help
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import gen_arena_texslots as T          # 复用它的 build_index（判据只留一处）
 
+## 🔴 2026-10-27（B9_W59ARENA）`--check` 的**红行以 `🔴` 开头**，而本机控制台是 **GBK**
+#  ⇒ `print('  🔴 产物过期…')` 抛 `UnicodeEncodeError`，**整个 `--check` 红路径打成 traceback**
+#  （实测：`wf_report_artifacts` 第 106 行崩、点名一行没印出来）。
+#  照 `gen_arena_groups.py:96` 的写法**无条件**把 stdout 设成 utf-8（`errors='replace'` 兜底，不因编码再崩）。
+try:
+    sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+except Exception:
+    pass
+
+
 ROOT = 'd:/4/Unity'
 
 # 🔴 **已知「我们这一侧还不具备、先滤掉」的关键字**（每条都要写清为什么 + 复刻它的前提）：
@@ -72,6 +82,42 @@ ROOT = 'd:/4/Unity'
 #     ② 因此它实测仍是 `battlearena3` **1.012 → 1.023**（在原版里那处是**亮光柱**、
 #     我们这边是**暗的**）—— 真因**还没查**（另立一条，与顶点色无关）。
 SKIP_KEYWORDS = set()
+
+
+## 🆕 2026-10-27（B9_W45ARENA）`--check` 的**产物校验**（只读，不写盘）。
+#  原来这一族的 `--check` 是「只扫不写」（`if check: continue`）—— 盘上缺产物也恒 rc0，
+#  属「看着有 check、其实啥都没查」。口径照 `工具/import_original_art.py:1714-1721`：
+#  把**重算出来的内容**与盘上那份**逐字节比**；缺 = 缺产物 · 不一致 = 过期，末尾点名 + rc=1。
+def wf_check_artifact(dst, text, lack, stale):
+    if not os.path.isfile(dst):
+        lack.append(dst)
+        return
+    try:
+        old = io.open(dst, encoding='utf-8').read()
+    except Exception as e:
+        stale.append((dst, '读不出：%s' % e))
+        return
+    if old == text:
+        return
+    try:                     # 只差缩进/键序 ⇒ 语义一致，**不算过期**（`JsonUtility` 本来就不看键序）
+        if json.loads(old) == json.loads(text):
+            return
+    except Exception:
+        pass
+    stale.append((dst, '内容与重算结果不同'))
+
+
+def wf_report_artifacts(check, lack, stale, script):
+    """`--check` 收尾：有缺/过期就点名并让 main 返回 1。→ 该返回的 rc（无问题 = 0）。"""
+    if not check or not (lack or stale):
+        return 0
+    print('')
+    for p in lack:
+        print('  🔴 缺产物：%s' % p)
+    for p, why in stale:
+        print('  🔴 产物过期（%s）：%s' % (why, p))
+    print('  ⇒ 重跑一次 `python 工具/%s` 生成（`--check` 只读、不写盘）。' % script)
+    return 1
 
 
 def scan_arena(UnityPy, aa, idx, arena):
@@ -168,6 +214,7 @@ def main():
         return 1
     idx = T.build_index(UnityPy, aa)
     total = 0
+    lack, stale = [], []
     for arena in arenas:
         entries, warns = scan_arena(UnityPy, aa, idx, arena)
         if entries is None:
@@ -182,14 +229,15 @@ def main():
         if len(entries) > 4:
             print('    …（另 %d 条）' % (len(entries) - 4))
         total += len(entries)
-        if check:
-            continue
         dst = os.path.join(ROOT, 'MyGame/Assets/WarpforgeArena1/arenas', arena, arena + '_meshkeywords.json')
-        io.open(dst, 'w', encoding='utf-8', newline='\n').write(
-            json.dumps({'scene': arena, 'meshes': entries}, ensure_ascii=False, indent=2))
+        text = json.dumps({'scene': arena, 'meshes': entries}, ensure_ascii=False, indent=2)
+        if check:
+            wf_check_artifact(dst, text, lack, stale)
+            continue
+        io.open(dst, 'w', encoding='utf-8', newline='\n').write(text)
         print('    → 写 %s' % dst)
     print('合计：%d 个网格带原版关键字' % total)
-    return 0
+    return wf_report_artifacts(check, lack, stale, 'gen_arena_meshkeywords.py')
 
 
 if __name__ == '__main__':

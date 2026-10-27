@@ -86,7 +86,7 @@ namespace CardPresentation
         public static float PushBackMagnitude(int attackerMeleeAttack)
         {
             int size = attackerMeleeAttack <= 3 ? 0 : (attackerMeleeAttack <= 7 ? 2 : 3);
-            return size == 2 ? 1.0f : (size == 3 ? 1.5f : 0.5f);
+            return PushBackFactorOfSize(size);   // 判据只此一处（2026-10-27 `B9_W2FEEL` 收口）
         }
 
         /// <summary>`SupportMethods.GetUnitSize` 本身（只有 0/2/3 三档）。
@@ -1207,23 +1207,23 @@ namespace CardPresentation
         //  原版判据（逐句，`d:/2/tools/decomp_full/CardScript__ReceiveAttackAnim.c`）：
         //    `dx = 受击方.position.x − 攻击方.position.x` · `dz = 受击方.z − 攻击方.z` ·
         //    `len = sqrt(dx² + dz²)`；`len > DAT_1834b2f44(=**1e-5**)` 时
-        //    `dir = (dx/len, **0**, dz/len)`；否则取一条**静态常量向量**（`DAT_1842da2a8 + 0xb8` 那一格，
-        //    反编译里读不出名字）⇒ 然后 `DOPunchPosition(dir × GetPushBackFactor(GetUnitSize(攻方)), 0.4, 8, 0.3)`。
+        //    `dir = (dx/len, **0**, dz/len)`；否则取一条**静态常量向量**（`DAT_1842da2a8 + 0xb8` 那一格 = **`Vector3.zero`**）
+        //    ⇒ 然后 `DOPunchPosition(dir × GetPushBackFactor(GetUnitSize(攻方)), 0.4, 8, 0.3)`。
         //  🔴 **我们换了一条轴**：原版棋盘是 XZ 地面（y 是高度），我们的棋盘画在 **XY**（z 是景深）
         //    ⇒ `dir` 取 `(dx, dy, 0)`（与 `Flat` 同一个平面）。这是**换算**，不是原版原样，如实记。
-        //  ⚠️ 退路那一档：原版的静态常量读出不来（见上），沿用本文件 `Flat` 既有的 `Vector3.up`。
+        //  🔴 2026-10-27（`B9_W11SHAKE`）订正：那一格**不是「读不出名字」**——`dump.cs` 里 `Vector3.zeroVector // 0x0`、`upVector // 0x18`，而 `+0xb8` 正是那块静态存储的首地址（ILSpy 在 `GetBoardPosOfCard` 同一格直接写出名字）⇒ 退路 = `Vector3.zero`（本文件 `:3234` 一直这么写），旧注释「沿用 `Vector3.up`」作废。
         /// <summary>原版那个「两点重合」阈值（`DAT_1834b2f44`，**4 字节 float 实读 = 1e-5**）——
         /// 比的是**长度**（不是平方），判据见 `ReceiveAttackAnim.c` 那一句 `if (DAT < len)`。</summary>
         public const float PushBackDegenEpsilon = 1e-5f;
 
         /// <summary>原版 `normalize(受击方 − 攻击方)`（屏幕平面版，见上面那段换算说明）。
-        /// 两点距离 ≤ <see cref="PushBackDegenEpsilon"/> ⇒ 返回 `Vector3.up`（原版那一档取常量向量）。</summary>
+        /// 两点距离 ≤ <see cref="PushBackDegenEpsilon"/> ⇒ 返回 **`Vector3.zero`**（原版那一档取 `Vector3.zeroVector`，判据见上面第 1210 行那条注释）。</summary>
         public static Vector3 PushBackDir(Vector3 victimPos, Vector3 attackerPos)
         {
             Vector3 d = victimPos - attackerPos;
             d.z = 0f;                                  // 原版 y 恒 0（XZ 地面）；我们 z 恒 0（XY 平面）
             float len = d.magnitude;
-            if (len <= PushBackDegenEpsilon) return Vector3.up;
+            if (len <= PushBackDegenEpsilon) return Vector3.zero;   // 原版那一档 = `Vector3.zeroVector`（`DAT_1842da2a8+0xb8` 首格）
             return d / len;
         }
 
@@ -1279,9 +1279,9 @@ namespace CardPresentation
                 : (heavy ? HitPunchUnitsHeavy : HitPunchUnitsLight);     // 退路：`Impact *` 顶替值（A06）
 
             // 位置：DoPushBack 的**形状**（0.4 / vib 8 / 弹性 0.3）+ 上面的幅度。**近战只有这一条。**
-            return CardTween.Use(
-                tr.DOPunchPosition(d * ToOurs(mag), PushBackDuration, PushBackVibrato, PushBackElasticity)
-                  .SetDelay(delay), Ease.OutQuad, tr);
+            // 🔴 2026-10-27（`B9_W2FEEL`）：形状收口到 `PushBackByFactor` —— 挨打支与 `ResolveUnitShake`
+            // 的**击退支**（原版 `_ResolveUnitShake_d__472:139-147`）共用同一份，⛔ 别两处各写一遍。
+            return PushBackByFactor(tr, d, mag, delay);
         }
 
         /// <summary>最近一次震镜头。**自检要拿它核对「有没有把相机放回去」** ——
@@ -1426,12 +1426,12 @@ namespace CardPresentation
             Quaternion extraHomeRot = extraTr != null ? extraTr.rotation : Quaternion.identity;
             // 🔴 **2026-10-23（R9 尾账）原版方向链 —— `verticalSign` 那一档已删掉。**
             //   `LegacySignalSource::GetSignal`（RVA 0xA2B350）：`pos = FromToRotation(Vector3.down, velocity) * pos`。
-            //   我们 2D 只采 PositionNoise 的 Y ⇒ raw pos = (0, s, 0) ⇒ 屏幕竖直 = `s × ShakeScreenUpOf(direction)`。
+            //   我们 2D 采 PositionNoise 的 Y ⇒ raw pos = (0, s, 0) ⇒ 屏幕位移 = `s × ShakeScreenDirOf(direction)`（x=水平 · y=竖直）。
             //   ⚠️ 该值**自带 |vy|**（`worldAmp` 里不再乘竖直比例）且**自带符号**：
             //     挨打 `(0,+0.2,0.2)` ⇒ **−0.7071（相机朝下）**；落地 `(0,−1,0)` ⇒ **+1（朝上）**。
             if (direction.sqrMagnitude < 1e-12f) direction = ShakeHitDirection;   // 默认 = `Shake Hit Small` 那件
-            float screenUp = ShakeScreenUpOf(direction);
-            LastShakeVertical = screenUp;
+            Vector3 screenDir = ShakeScreenDirOf(direction);
+            LastShakeVertical = (LastShakeScreenDir = screenDir).y;   // 两格读数都留（水平通道 🆕 B9_W11SHAKE）
 
             // 🆕 2026-10-14（`A1767` / #10）：**每次震的起播时刻不同**（原版 `m_Randomize = 1`，
             //   见 `ShakeWorldAmplitude` 的注释）。⚠️ 种子必须**可复现** —— 一律 `System.Random`
@@ -1449,8 +1449,8 @@ namespace CardPresentation
             System.Action<float> apply = t =>
             {
                 float env = ShakeEnvelope(t, attackTime, sustainTime, decayTime);
-                // ---- 平移（PositionNoise 的 Y，经原版 `FromToRotation` 投影到屏幕竖直）----
-                Vector3 d = Vector3.up * (worldAmp * env * ShakeNoise01(t, phase, frequencyGain, signal) * screenUp);
+                // ---- 平移（PositionNoise 的 Y，经原版 `FromToRotation` 投到**屏幕两轴**：x=水平 / y=竖直）----
+                Vector3 d = screenDir * (worldAmp * env * ShakeNoise01(t, phase, frequencyGain, signal));
                 if (camTr != null) camTr.position = camHome + d;
 
                 // ---- 旋转（OrientationNoise —— 🆕 2026-10-23（R9 尾账）接上）----
@@ -1644,7 +1644,7 @@ namespace CardPresentation
             LastShakeSeed = 0;                // ④ 诊断那些格别留着上一局的读数（同 `ResetShakePhases`）
             LastShakePhase = 0f;
             LastShakeSignalName = ""; LastShakeFrequencyGain = 0f; LastShakeDuration = 0f;
-            LastShakeVertical = 0f; LastShakeRotation = Quaternion.identity;
+            LastShakeVertical = 0f; LastShakeRotation = Quaternion.identity; LastShakeScreenDir = Vector3.zero;
         }
 
         /// <summary>起播时刻的取值范围（秒，**信号时间轴**上的量，不是真实秒）——
@@ -1683,7 +1683,7 @@ namespace CardPresentation
         {
             _shakeSeq = 0; LastShakeSeed = 0; LastShakePhase = 0f;
             LastShakeSignalName = ""; LastShakeFrequencyGain = 0f; LastShakeDuration = 0f;   // R9 的三格读数
-            LastShakeVertical = 0f; LastShakeRotation = Quaternion.identity;                 // R9 尾账的两格读数
+            LastShakeVertical = 0f; LastShakeRotation = Quaternion.identity; LastShakeScreenDir = Vector3.zero;   // R9 尾账两格 + 🆕 水平通道
         }
 
         /// <summary>一个种子 → 该次震动的**起播时刻**（秒，信号时间轴）。
@@ -3782,7 +3782,7 @@ namespace CardPresentation
         /// ⛔ 判据只此一处，别在调用点再写一遍 `2/4/8`。</summary>
         public static int ShakeScaleOfUnitSize(int unitSize)
         {
-            return unitSize >= 3 ? 8 : unitSize == 2 ? 4 : 2;
+            return unitSize == 3 ? 8 : unitSize == 2 ? 4 : 2;   // 🔴 2026-10-27 改 `>=`→`==`（理由见本方法 doc 的「其余落回 2」）
         }
 
         /// <summary>
@@ -3819,6 +3819,370 @@ namespace CardPresentation
             var tw = card.transform.DOShakePosition(duration, strength, UnitShakeVibrato,
                                                     UnitShakeRandomness, snapping: false, fadeOut: true);
             return CardTween.Use(tw, Ease.Linear, card.transform).SetDelay(delay);
+        }
+
+        // ==================================================================
+        //  🆕 2026-10-27（`B9_W2FEEL`）：「特效施工单」#14 / #15 / #16 三件的落点
+        //    ① `PushBackFactorOfSize` / `PushBackByFactor` —— 被判据收口出来的两个共用件
+        //    ② `ResolveUnitShake`     —— 原版 `BattleManager.<ResolveUnitShake>d__472`（#14）
+        //    ③ `ReturnToDeck`         —— 原版 `CardScript.ReturnToDeckAnim`（#15，**原来整条没实现**）
+        //    #16（`ResolveAttackAnimationEffects` 的三档幅度）**逐格核过、值本来就对**，见下面那条注记。
+        // ==================================================================
+
+        /// <summary>原版 **`SupportMethods.GetPushBackFactor(int size)`**：`2 ⇒ 1.0` · `3 ⇒ 1.5` · 其余 `0.5`
+        /// （🥇 `decomp_full/SupportMethods__GetPushBackFactor.c:5-11` 全文；三个字面量在 `GameAssembly.dll`
+        /// 的 `.rdata`：`0x1834b2bb8 = 1.0` · `0x1834b3090 = 1.5` · `0x1834b2bb4 = 0.5`）。
+        ///
+        /// <para>🔴 **为什么抽出来**：原版有**两个**入口吃它 ——
+        /// ① 挨打后坐（<see cref="PushBackMagnitude"/>：输入是**近战攻击**，先过 `UnitSizeOf` 换成尺寸档）；
+        /// ② <see cref="ResolveUnitShake"/> 的**击退支**（输入**直接就是** `shakeSize`：
+        /// `_ResolveUnitShake_d__472:139-147` 那一句 `GetPushBackFactor(*(data+0x20))`）。
+        /// ⛔ 别在两处各写一遍 1.0 / 1.5 / 0.5（那正是「两处写同一条规则 = 迟早不一致」）。</para></summary>
+        internal static float PushBackFactorOfSize(int unitSize)
+        {
+            return unitSize == 2 ? 1.0f : (unitSize == 3 ? 1.5f : 0.5f);
+        }
+
+        /// <summary>`CardScript.DoPushBack` 的**本体**（判据 🥇 `decomp_full/CardScript__DoPushBack.c:20-31` 全文）：
+        /// `DOPunchPosition(dir × factor, 0.4, vibrato 8, elasticity 0.3)` + `SetDelay(delay)` + `OnComplete`。
+        ///
+        /// <para>⚠️ **原版那个 `duration` 形参是死值**（照抄，⛔ 别「修」）：C# 签名是
+        /// `DoPushBack(float pushBackFactor, Vector3 attackDirection, float duration, float delay = 0f)`，
+        /// 而方法体里的 `DOPunchPosition` 第 3 参**写死 0.4**（`DAT_1834b3158`）、形参 `param_4` 从头到尾没用过。
+        /// ⇒ 本方法也**只收 factor + delay**，时长恒 <see cref="PushBackDuration"/>。</para>
+        /// <para>我们这侧的两处迁移（不是原版数值）：`dir` 取**屏幕平面**方向（`(dx, dy, 0)`，见 `PushBackDir`），
+        /// 幅度 ×<see cref="ToOurs"/>（原版单位 → 我们的世界单位，见 `PushBackMagnitude` 的注释）。</para></summary>
+        internal static Tween PushBackByFactor(Transform tr, Vector3 dir, float factor, float delay)
+        {
+            if (tr == null) return null;
+            return CardTween.Use(
+                tr.DOPunchPosition(dir * ToOurs(factor), PushBackDuration, PushBackVibrato, PushBackElasticity)
+                  .SetDelay(delay), Ease.OutQuad, tr);
+        }
+
+        /// <summary>原版 **`BattleManager.<ResolveUnitShake>d__472`** —— 一拍里**两张单位卡之间**的
+        /// 「抖一下 / 弹开」二选一（🥇 真体 `decomp_full/BattleManager._ResolveUnitShake_d__472__MoveNext.c:1-181`
+        /// 全文，2026-10-27 亲读）。协程的完整次序：
+        /// <list type="number">
+        /// <item>① `if (0 &lt; data.shakeDelay) yield return new WaitForSeconds(data.shakeDelay)`（`:39-44`，读 `data+0x28`）；</item>
+        /// <item>② 非空检查（协程自身那一格 + `data.target`，`:48-70`）；</item>
+        /// <item>③ **`IsInPlay(data.target)`**（`:72-75` → `CardScript__IsInPlay.c`：`cardState ∈
+        ///   {2 inPlay · 3 inPlayAttacking · 15 inPlayTransforming · 17 inPlayAminingAttack}`）
+        ///   —— **不在场上就整拍不播**；</item>
+        /// <item>④ **二选一**（`:77-160`）：
+        ///   · `data.awayFrom != null &amp;&amp; data.awayFrom != data.target` ⇒ **击退支**：
+        ///     `dir = normalize(target.pos − awayFrom.pos)`（`|dir| ≤ 1e-5` 时取一条静态常量向量
+        ///     —— `DAT_1842da2a8 + 0xb8` 是 `UnityEngine.Vector3` 的静态块首格，ILSpy 在
+        ///     `BattleManager.GetBoardPosOfCard` 的 null 支把同一格标成 `Vector3.zeroVector`
+        ///     ⇒ **`Vector3.zero`**），`DoPushBack(target, GetPushBackFactor(data.shakeSize), dir, …)`；
+        ///   · 否则 ⇒ **抖动支**：`DoUnitShake(target, ShakeScaleOfUnitSize(data.shakeSize), data.shakeDuration)`。</item>
+        /// </list>
+        ///
+        /// <para>判据里的 `data` = 原版 `UnitShake`（`decomp_full/UnitShake__.ctor.c` 逐句：
+        /// `+0x10` = `GetTargetUnit(info+0x10)` · `+0x18` = `GetTargetUnit(info+0x14)` ·
+        /// `+0x20` = `info+0x18` shakeSize · `+0x24` = `info+0x1c` shakeDuration ·
+        /// `+0x28` = `info+0x20` shakeDelay`）⇒ 与本地那份 `unitsShake[{ targetUnit, awayFromUnit,
+        /// shakeSize, shakeDuration, shakeDelay }]` 的 schema **逐字段同形**。</para>
+        ///
+        /// <para>🔴 **两处如实记、⛔ 不装成原版**：
+        /// ① 第 ③ 步原版读 `cardState`，而**我们视图侧没有这一列**（`CardView` 里 `CardStateOptions`
+        ///    只拿来选卡面层）⇒ 本方法收一个 `stillInPlay` 谓词；`null` 时的回退 = `GameObject.activeSelf`。
+        ///    🔶 自己设计（非原版）：`IsInPlay` 的等价近似 · 判据拿不到「视图的 cardState」这一格 ·
+        ///    调度台 2026-10-27 裁定。
+        /// ② 求值**时刻**：原版是「延迟到点之后」才判 ②③④，所以带 delay 时本方法**也在延迟到点那一刻**才求值
+        ///    （`DOVirtual.DelayedCall`），⛔ 别改成「调用时先判、再 `SetDelay`」—— 那会早一拍，
+        ///    单位在这段延迟里死了照样抖一下。</para>
+        ///
+        /// <para>✅ **2026-10-27 已接上（原写「它现在没有调用者」＋「`card_anim_order.json` 没有 `unitsShake` 字段」两半都已过期）**：
+        /// 数据在 `Resources/cardanim_clips.json` 的 `ush` 列（`CardAnimClips.UnitShakes`，现读 257 行 / 271 条）；调用点 =
+        /// `BattleDriver.SchedulePieceUnitShakes`（攻击件循环）/ `ScheduleUnitShakes`（`PlayPlacedOne`），只在 `animateFeel` 开时排（🔶 自己设计·本文件手感口径·调度台 2026-10-27 裁定）。</para>
+        /// <param name="target">原版 `data.target`（`+0x10`）—— 要抖、或被弹开的那一张。</param>
+        /// <param name="awayFrom">原版 `data.awayFrom`（`+0x18`）—— `null` **或等于 <paramref name="target"/>** ⇒ 走抖动支。</param>
+        /// <param name="shakeSize">原版 `data.shakeSize`（`+0x20`）= `SupportMethods.GetUnitSize` 那三档（0/2/3）。</param>
+        /// <param name="shakeDuration">原版 `data.shakeDuration`（`+0x24`）—— 抖动支的时长（击退支不用它）。</param>
+        /// <param name="shakeDelay">原版 `data.shakeDelay`（`+0x28`）—— 先等这么久，**再**做 ②③④。</param>
+        /// <param name="stillInPlay">原版第 ③ 步的 `IsInPlay(target)` 判据；`null` ⇒ 见上面 ①。</param>
+        /// <returns>抖动 / 击退那条补间；**`null` = 这一拍本来就不该播**（不在场上 / 目标没了），不是失败。</returns>
+        public static Tween ResolveUnitShake(CardView target, CardView awayFrom, int shakeSize,
+                                             float shakeDuration, float shakeDelay = 0f,
+                                             System.Func<bool> stillInPlay = null)
+        {
+            if (target == null) return null;
+            if (shakeDelay <= 0f)
+                return ResolveUnitShakeNow(target, awayFrom, shakeSize, shakeDuration, stillInPlay);
+            // 原版 ①：`WaitForSeconds(shakeDelay)`，**等到了点**才做 ②③④（判据 `.c:39-44`）。
+            //   `SetLink` 挂在卡身上 ⇒ 卡在这段延迟里被销毁（离场即 `Kill`）时这条等待一起收掉。
+            var wait = DOVirtual.DelayedCall(shakeDelay,
+                () => ResolveUnitShakeNow(target, awayFrom, shakeSize, shakeDuration, stillInPlay));
+            return CardTween.Use(wait, Ease.Linear, target.transform);
+        }
+
+        /// <summary>`ResolveUnitShake` 的第 ②③④ 步（延迟已经过去）—— 判据与取舍见上面那条的 doc。</summary>
+        static Tween ResolveUnitShakeNow(CardView target, CardView awayFrom, int shakeSize,
+                                         float shakeDuration, System.Func<bool> stillInPlay)
+        {
+            if (target == null || target.gameObject == null) return null;          // ② 非空
+            bool inPlay = stillInPlay != null
+                ? stillInPlay()
+                : target.gameObject.activeSelf;                                    // ③（🔶 近似，见 doc ①）
+            if (!inPlay) return null;
+            if (awayFrom != null && awayFrom != target)                            // ④ 击退支
+            {
+                Vector3 dir = PushBackDir(target.transform.position, awayFrom.transform.position);
+                return PushBackByFactor(target.transform, dir, PushBackFactorOfSize(shakeSize), 0f);
+            }
+            return ShakeUnit(target, ShakeScaleOfUnitSize(shakeSize), shakeDuration, 0f);   // ④ 抖动支
+        }
+
+        /// <summary>原版 **`CardScript.ReturnToDeckAnim(float timeToMove)`** —— **换牌被换掉的牌回牌库**
+        /// 那条补间（🥇 真体 `decomp_full/CardScript._ReturnToDeckAnim_d__248__MoveNext.c:1-142` 全文，
+        /// 2026-10-27 亲读；工厂 `CardScript__ReturnToDeckAnim.c`）。
+        ///
+        /// <para>**原版唯一的调用点** = `PlayerHand._FinishMulligan_d__52__MoveNext.c:121`
+        /// —— `cardState == 14`（`inMulliganDiscarded`，被换掉的那些）逐张播，
+        /// `timeToMove` 传的是 `globalVars + 0xAC` = `VarsGlobal.timeToDrawEnemyCard` = **0.15**
+        /// （字段偏移 `il2cpp_out/dump.cs:120113`；值见 `资料/VarsGlobal_原版数值.md`
+        /// ⇒ 就是本文件的 <see cref="DealDurationFoe"/>）。</para>
+        ///
+        /// <para>原版逐句（`.c` 行号）：
+        /// <list type="number">
+        /// <item>① `cardState == inDeck(0)` ⇒ `CustomDebug.LogError("Trying to return to deck, but it's already
+        ///   there " + cardName)` 并整段退出；否则 `cardState = inDeck(0)`（`:62-72`）；</item>
+        /// <item>② `if (!isPlayer) CardUI.SetObjectVisibility(inDeck)` / `else TurnCardAround(timeToMove)`（`:73-78`）；</item>
+        /// <item>③ 取牌库参考件（`BattleManager.GetDeckManager(card+0x258, isPlayer)` → `DeckManager.DeckReferenceObject`）：
+        ///   `GetReferencePosition()` = 那个 transform 的 **world position**（`DeckManager__GetReferencePosition.c`）；
+        ///   `GetReferenceScale()` = (它的 **localScale**, 它的 **localRotation**)（`DeckManager__GetReferenceScale.c`）；</item>
+        /// <item>④ 三条**同长同缓动**（`Ease.OutQuart` = DOTween 枚举 0xC，`:93/96/101`）的补间：
+        ///   `DOScale(scale)` / `DOLocalRotateQuaternion(rot)` / `DOMove(pos)` —— 只有 `DOMove` 挂了
+        ///   `OnComplete(SetInDeckPosition)`（`:104-110`）；</item>
+        /// <item>⑤ `yield return new WaitForSeconds(timeToMove)`（`:113-118`）；</item>
+        /// <item>⑥ `if (CanContinueAnim()) { SetSortingLayer("Background"); gameObject.SetActive(false); }`（`:38-52`），
+        ///   其中 `CanContinueAnim()` = `this != null &amp;&amp; gameObject != null &amp;&amp; gameObject.activeSelf`
+        ///   （`CardScript__CanContinueAnim.c`），`SetInDeckPosition()` = 把 `localPosition / localRotation /
+        ///   localScale` **照抄参考件的那三项**（`CardScript__SetInDeckPosition.c:14-40`）。</item>
+        /// </list></para>
+        ///
+        /// <para>🔴 **原版自己有一处不一致 —— 照抄，⛔ 别「修」（铁律 9）**：`DOMove` 取的是参考件的
+        /// **世界坐标**，而收尾 `SetInDeckPosition` 取的是同一个件的**局部坐标** —— 卡的父级不是 identity 时
+        /// 两者不同。我们逐字照抄（补间用 `DOMove` 世界坐标、收尾写 `local*`）。</para>
+        ///
+        /// <para>🔴 **我们这侧的三处如实记**：
+        /// ① ① 那一步（「已经在牌库里 ⇒ LogError」）**判不了** —— 我们视图侧不存 `cardState`
+        ///    （同 `ResolveUnitShake` 第 ③ 步那条）⇒ 由**调用方**保证，本方法**不发明**一个状态位；
+        ///    能查的只有「这张卡的 GameObject 还开着吗」，关着就出声退出（⛔ 不静默播一个看不见的动画）。
+        /// ② ② 的敌方支：`SetObjectVisibility(inDeck)` 在原版 = **换成卡背那一套子件**
+        ///    （`EventTiming.cs` 那条 `ShouldShowCardback` 真值表：`inDeck(0)  ⇒ 1`）⇒ 我们的等价物 =
+        ///    `CardView.SetBackVisible(true, 卡背贴图)`。⚠️ 卡背贴图**必须由调用方给**
+        ///    （`CardView.SetBackVisible` 拿到 null 只会告警、不造白块）—— 传 null 时本方法出声。
+        /// ③ ⑥ 的 `SetSortingLayer("Background")`：我们的排序模型是「一张卡一段 renderQueue」，
+        ///    **没有 `Background` 这个层**（见 `CardView.QCard` 那段的号段约束）⇒ 这一句**没有等价物**；
+        ///    紧接着的 `SetActive(false)` 才是可观察的那一半，已照做。要不要给「牌库档」留一个号段
+        ///    —— 见报告「没查清的部分」。</para>
+        /// <param name="card">要回牌库的那张视图。</param>
+        /// <param name="deckRef">原版 `DeckManager.DeckReferenceObject` 的等价件（**牌库里那张卡的静止位姿**）。
+        /// 我们目前**没有这个件**（牌堆是 HUD 上的一张图，不是带位姿的参考卡）⇒ 由调用方给；
+        /// 传 null ⇒ 出声并返回 null（⛔ 不拿牌堆图的位置瞎凑）。</param>
+        /// <param name="timeToMove">补间时长 = 等待时长。原版那唯一一处调用传 <see cref="DealDurationFoe"/>（0.15）。</param>
+        /// <param name="isPlayer">原版 `EntityScript.isPlayer`（`+0x40`）：真 ⇒ `TurnCardAround`，假 ⇒ 换卡背。</param>
+        /// <param name="cardBack">`isPlayer == false` 时用的卡背贴图（原版 `SetObjectVisibility(inDeck)` 那一支）；
+        /// 我方那一支不用它。</param>
+        /// <param name="onDone">补间收尾之后（原版那两条收尾动作之后）回调。</param>
+        public static Tween ReturnToDeck(CardView card, Transform deckRef, float timeToMove,
+                                         bool isPlayer = true, Texture2D cardBack = null,
+                                         System.Action onDone = null)
+        {
+            if (card == null) return null;
+            if (deckRef == null)
+            {
+                Debug.LogWarning("[CardFeel] `ReturnToDeck` 拿不到牌库参考件（原版 `DeckManager.DeckReferenceObject`）"
+                               + " ⇒ 不播（❌ 不用牌堆图的位置/缩放瞎凑）");
+                return null;
+            }
+            if (card.gameObject == null || !card.gameObject.activeSelf)
+            {
+                // 原版 ① 的另一半（`cardState == inDeck ⇒ LogError 并退出`）在我们这边的可查近似。
+                Debug.LogWarning("[CardFeel] `ReturnToDeck`：这张卡已经不在场上（`activeSelf == false`）"
+                               + " ⇒ 不播（原版这一档是 `cardState == inDeck` 的 `LogError`）");
+                return null;
+            }
+
+            var tr = card.transform;
+            float dur = Mathf.Max(timeToMove, 1e-4f);
+
+            // ② 前置支（原版 `.c:73-78`）
+            if (!isPlayer)
+            {
+                if (cardBack == null)
+                    Debug.LogWarning("[CardFeel] `ReturnToDeck`（敌方支）没有给卡背贴图 ⇒ 不换件"
+                                   + "（原版这一步是 `SetObjectVisibility(inDeck)`）");
+                else card.SetBackVisible(true, cardBack);
+            }
+            else
+            {
+                // 我方：原版 `TurnCardAround(this, timeToMove)`（两参重载 ⇒ delay 取默认 0；终点 z 角 = 0）
+                TurnCardAround(tr, 0f, dur, 0f);
+            }
+
+            // ③④ 三条同长同缓动（OutQuart）的补间；只有移动那条挂收尾
+            Vector3 toPos = deckRef.position;              // `GetReferencePosition`：**世界**坐标（照抄）
+            Vector3 toScale = deckRef.localScale;          // `GetReferenceScale` 两项：**局部**
+            Quaternion toRot = deckRef.localRotation;
+            var seq = DOTween.Sequence();
+            seq.Append(tr.DOMove(toPos, dur).SetEase(Ease.OutQuart).SetUpdate(CardTween.Mode));
+            seq.Join(tr.DOScale(toScale, dur).SetEase(Ease.OutQuart).SetUpdate(CardTween.Mode));
+            seq.Join(tr.DOLocalRotateQuaternion(toRot, dur).SetEase(Ease.OutQuart).SetUpdate(CardTween.Mode));
+            var tw = CardTween.Use(seq, Ease.Linear, tr);
+            tw.OnComplete(() =>
+            {
+                if (card == null || deckRef == null) return;
+                // ⑤⑥ 收尾 = `SetInDeckPosition()`（三项照抄参考件的**局部**值）+ 关掉这张卡
+                tr.localPosition = deckRef.localPosition;
+                tr.localRotation = deckRef.localRotation;
+                tr.localScale = deckRef.localScale;
+                if (card.gameObject != null && card.gameObject.activeSelf) card.gameObject.SetActive(false);
+                if (onDone != null) onDone();
+            });
+            return tw;
+        }
+
+        // ==================================================================
+        //  #16 注记（`CardScript.ResolveAttackAnimationEffects` 的三档幅度）
+        // ------------------------------------------------------------------
+        //  🥇 判据 `decomp_full/CardScript__ResolveAttackAnimationEffects.c:30-58`（全文 123 行，2026-10-27 亲读）：
+        //    `GetUnitSize()` ⇒ `0/1` 取 `DAT_1834b2bbc` · `== 2` 取 `DAT_1834b2df0` · `== 3` 取 `DAT_1834b2e00` ·
+        //    其余（`!= 3` 的其它值）`goto LAB_1805f8b18` = 与 `0/1` 同一支；三个 `_DAT_` 用
+        //    `工具/read_literal.py` 从 `d:/2/unity_run_ref/GameAssembly.dll` **4 字节 float 实读** =
+        //    **2.0 / 4.0 / 8.0**（8 字节那档分别是 1.39e17 / 2048 / 2.20e13 —— 只有 2048「像字面量」，
+        //    而调用点 `SetAmplitude(preset, undefined4)` 实参是 4 字节 ⇒ 取 4 字节那一档）。
+        //  ⇒ **`ShakeAmpUnitSize1/2/3 = 2.0 / 4.0 / 8.0` 逐格对得上**，`ShakeAmplitudeForUnitSize` 的
+        //    `== 3`（非 `>= 3`）分支形状也对得上 ⇒ **本条不做数值改动**（施工单里那句「2/4/8 是错的」不成立）。
+        //  🔴 **同一方法的另一半（`SetDirection`）：2026-10-27（`B9_W11SHAKE`）已接上** —— 它收到的是**目标的棋盘坐标**
+        //    （`CardScript.__c__DisplayClass357_0___AttackMeleeAnim_b__1.c:14-16` 把 `_ResolveAttack` 从
+        //    `BattleManager__GetBoardPosOfCard` 拿到的那个 Vector3 原样转进来），而不是一个方向向量。
+        //    🔴 就地订正（铁律 5）：`GetBoardPosOfCard` **不是** `(pos.x, 0, pos.z)` —— VA 级反汇编
+        //    （`0x180965BC0`：`movsd xmm0,[rax]` + `mov eax,[rax+8]` ⇒ **12 字节整抄**）证明三个分量都在；
+        //    ILSpy 那版只写 x/z 是它丢 store 的老毛病。它在 `_DoShake_d__33__MoveNext.c:69-79` 的两处后果：
+        //    `m_Velocity = normalize(direction)`、`m_AmplitudeGain = |direction| × amplitude`。
+        //    ⇒ 我们原来 `ShakeCamera` 只建模「屏幕竖直」一个通道，照抄会让画面**完全不震**（y ≈ 0）；
+        //      本件已补**屏幕水平**通道（`ShakeScreenDirOf`）并加了原版那一路的入口 `ShakeCameraForAttack`。
+        //    ⚠️ 幅度后果（`|棋盘坐标| ≈ 100.2~101.1` 原版单位 ⇒ gain ≈ 200/400/800）见那个方法的 doc。
+        // ==================================================================
+
+        // ==================================================================
+        //  🆕 2026-10-27（`B9_W11SHAKE`）：震屏的**屏幕水平通道** + 原版挨打那一路的入口
+        // ------------------------------------------------------------------
+        //  判据（三条，全部机器码 / 资产级，逐条可复核）：
+        //   ① `CardScript__ResolveAttackAnimationEffects.c:51-58`：`SetDirection(preset, *param_3)` ——
+        //      喂进去的是**目标的棋盘坐标**（`BattleManager__GetBoardPosOfCard.c` 全文 44 行，VA 级反汇编
+        //      `0x180965BC0` 实核：`movsd xmm0,[rax]` + `mov eax,[rax+8]` ⇒ 三个分量**整抄**）。
+        //   ② `CameraShakerManager._DoShake_d__33__MoveNext.c:69-79`：**两样都要** ——
+        //      `m_Velocity = normalize(direction)`（末尾 `GenerateImpulseWithVelocity` 收它）·
+        //      `m_AmplitudeGain = |direction| × amplitude`（`fVar11 × *(float*)(param_1+0x3c)`）。
+        //   ③ `LegacySignalSource::GetSignal`（R9 已坐实）：`pos *= |m_Velocity| × m_AmplitudeGain`、
+        //      `pos = FromToRotation(Vector3.down, m_Velocity) × pos` ⇒ raw +Y 经这个旋转落到**世界三轴**，
+        //      其中 **x = 屏幕水平**、**y = 屏幕竖直**、z = 景深（2D 正交相机下屏幕上不动）。
+        //  ⇒ 原来我们只取了 `.y`（`ShakeScreenUpOf`）；棋盘坐标那一格的 y ≈ 0 ⇒ 竖直 = 0 ⇒ 画面**完全不震**。
+        //  坐标系（逐格出处见报告「屏幕通道映射表」）：原版战场 `x`=屏幕水平 · `y`=屏幕竖直 · `z`=景深；
+        //    我们重建 Arena3D 时整体平移 −100（`Editor/BattleScene.cs` 的 `ArenaOriginX`）⇒ **只有 x 换轴**，
+        //    y/z 与原版**同值同向**；⇒ 原版坐标 = 我们的 + (`ArenaOriginX`, 0, 0)（见 `OrigBoardPosOf`）。
+        // ==================================================================
+
+        /// <summary>🆕 2026-10-27（`B9_W11SHAKE`）**屏幕方向向量** —— 原版方向链在 2D 里的**完整**投影：
+        /// `x` = 屏幕水平、`y` = 屏幕竖直、`z` 恒 0（世界 z 是景深，屏幕上看不见）。
+        ///
+        /// 判据：`LegacySignalSource::GetSignal`（RVA 0xA2B350）的
+        /// `pos = Quaternion.FromToRotation(Vector3.down, m_Velocity) × pos`，而我们的 2D 模型只采
+        /// `PositionNoise` 的 Y 轴 ⇒ raw pos = `(0, s, 0)` ⇒ 旋转后 = `s × (本方法返回值)`。
+        /// ⇒ <see cref="ShakeScreenUpOf"/> 就是它的 `.y`（**同一个旋转的两条投影**，不是两套判据）；
+        ///   本方法多给的 `.x` 就是**水平通道**（棋盘坐标那一路的竖直分量恒 0，全在这个通道上）。
+        /// ⚠️ 世界 z 分量**丢掉**是 2D 折算，不是原版原样：原版把它变成「朝/背镜头」的位移，正交相机下不可见。
+        /// ⛔ 别改成「取 `direction.x` 的符号」—— 符号来自 `FromToRotation` 那个旋转（棋盘在 +x ⇒ 屏幕 −x）。</summary>
+        public static Vector3 ShakeScreenDirOf(Vector3 direction)
+        {
+            Vector3 v = direction.sqrMagnitude > 1e-12f ? direction.normalized : ShakeHitDirection.normalized;
+            Vector3 r = Quaternion.FromToRotation(Vector3.down, v) * Vector3.up;
+            return new Vector3(r.x, r.y, 0f);
+        }
+
+        /// <summary>原版战场根的世界 x（`Editor/BattleScene.cs:46667` 的 `const float ArenaOriginX = 100f`）。
+        /// <para>为什么这里要再写一份：`ArenaOriginX` 在 **Editor 程序集**（`BattleScene`）里，运行时程序集
+        /// 引用不到；而「原版坐标 = 我们的 + 100」这条换算是**运行期**（震屏方向）要用的。
+        /// ⇒ 两处同值由 `Editor/BattleScene.cs` 的一条断言盯着（`CardFeel.OriginalArenaOriginX == ArenaOriginX`），
+        /// 改一处不改另一处 ⇒ 那条断言红，不会静默。</para>
+        /// <para>判据：`资料/普查产出_1012/H8_取景x半与设置面板行.md:33` —— 原版代码里把 **100.0** 当「场地根 x」
+        /// 用（`DAT_1834b2e08` 直读）；场景侧 `Transform_1301`（`BattleBoardElements`）`localPosition = (100,0,0)`、
+        /// 相机 / 两片 `MinionArea`（1309/1314）全挂它下面 ⇒ 场上卡的世界 x ≈ 100。</para>
+        /// <para>⚠️ 刻意写成 `static readonly` 而不是 `const`：`Unclassified()`（本文件 `:830`）会把**未登记进
+        /// `Catalog` 的 `public const float/int`** 判红，而往 `Catalog` 里插一行会让下游账的 `文件:行号` 全漂
+        /// （先例见 `DissolveCardTime` 那段注释）。语义一样，只是不给自检添一条假红。</para></summary>
+        public static readonly float OriginalArenaOriginX = 100f;
+
+        /// <summary>🆕 **我们世界坐标 → 原版棋盘坐标**（给「用坐标当方向」的原版路径用）。
+        /// <para>换轴只有 x：我们的 Arena3D 整体平移了 −100（`Editor/BattleScene.cs:46875`
+        /// `arenaGo.transform.localPosition = new Vector3(-ArenaOriginX, 0f, 0f)`），**y / z 平移量都是 0**
+        /// ⇒ `orig = our + (100, 0, 0)`。</para>
+        /// <para>⚠️ **y 我们传 0**：原版场上卡的卡根就在地面（`MinionManager__FillMinionPositions.c` 把 y
+        /// **显式写成 0**，督军走 `GetHeroBoardPos` = 局部位 + `Vector3.zeroVector`）⇒ 原版
+        /// `GetBoardPosOfCard` 拿到的 y ≈ 0；而我们的卡根是「卡中心」（`ArenaSlots.RootPosition` 补了半个卡高，
+        /// 约 +0.38）⇒ **照抄我们的 y 会凭空多出一个竖直分量**，所以这里按原版地面写 0。</para></summary>
+        public static Vector3 OrigBoardPosOf(Vector3 ourBoardPos)
+        {
+            return new Vector3(ourBoardPos.x + OriginalArenaOriginX, 0f, ourBoardPos.z);
+        }
+
+        /// <summary>最近一次震屏用的**屏幕方向**（`x` = 水平、`y` = 竖直；自检用）。
+        /// 与 <see cref="LastShakeVertical"/> 同一个来源（`ShakeScreenDirOf`），后者留着是因为既有断言在读它。</summary>
+        public static Vector3 LastShakeScreenDir { get; private set; }
+
+        /// <summary>🆕 2026-10-27（`B9_W11SHAKE`）**原版挨打那一档的世界单位峰值幅度**（我们的单位，**旋转前**）。
+        ///
+        /// 与 <see cref="ShakeWorldAmplitudeFor"/> 逐项同形，只把「preset 自带的 |direction|」换成
+        /// **目标棋盘坐标的模长**：
+        /// <code>= |origBoardPos| × ShakeAmplitudeForUnitSize(size) × ShakeBandPeak
+        ///    × (ShakeOriginalPxPerUnit ÷ OurPxPerUnit)</code>
+        /// 判据链：`m_AmplitudeGain = |direction| × amplitude`（`_DoShake_d__33__MoveNext.c:69-79`）
+        /// · `amplitude` = 2/4/8（`ResolveAttackAnimationEffects.c:30-52`，见本文件 `:4051-4058` 的实测）。
+        ///
+        /// 🔴 **量级要心里有数**（这是原版数值，不是我们放大）：|棋盘坐标| ≈ **100.2 ~ 101.1** 原版单位
+        /// （`BattleBoardElements` 在 x=100）⇒ `m_AmplitudeGain ≈ 200 / 400 / 800`，而 `Shake Hit Small`
+        /// 自带的那一版只有 `2.0 × 0.28284 = 0.566` ⇒ **约 353 倍**。折算到我们这套单位（屏高 = 10）：
+        /// 峰值位移 ≈ **10.2 / 20.4 / 40.8** 世界单位（= 1 / 2 / 4 个屏高）。
+        /// ⚠️ 这个数**只由机器码与场景数据算出**，没有真机对照过；真机验收若发现镜头「飞出去」，
+        /// 判据缺口在「原版运行期棋盘是不是真在 x≈100」—— 本地唯一的证据是场景 JSON 与
+        /// `H8` 那条 `100.0` 字面量（都说在）。**要改只改 `OrigBoardPosOf` 一行**，⛔ 别动幅度表 2/4/8。</summary>
+        public static float ShakeWorldAmplitudeForAttack(Vector3 origBoardPos, int unitSize)
+        {
+            float ampGain = origBoardPos.magnitude * ShakeAmplitudeForUnitSize(unitSize);
+            float origUnits = ampGain * ShakeBandPeak;
+            return origUnits * (ShakeOriginalPxPerUnit / OurPxPerUnit);
+        }
+
+        /// <summary>🆕 2026-10-27（`B9_W11SHAKE`）**原版挨打震屏的完整一档** ——
+        /// `CardScript.ResolveAttackAnimationEffects` 真正走的那条路（`meleeHitCameraShakePreset`）。
+        ///
+        /// 与 <see cref="ShakeCameraForHit"/> 的差别：那个喂的是 **preset 自带的** `direction = (0,0.2,0.2)`
+        /// （**不是原版挨打那一档** —— 原版在 `Play()` 之前用 `SetDirection` 把它覆盖成目标棋盘坐标）。
+        ///
+        /// 本方法逐句照原版：
+        ///   · `direction` = <see cref="OrigBoardPosOf"/>(目标坐标)（原版是**完整 3 分量**，含 y；我们的 y 已归到地面 0）；
+        ///   · 方向在屏幕上的落点 = `ShakeScreenDirOf(direction)`（**水平 + 竖直两个通道**）；
+        ///   · 幅度增益 = `|direction| × amplitude(2/4/8)`（→ <see cref="ShakeWorldAmplitudeForAttack"/>）；
+        ///   · 旋转 gain 与位置**共用**同一个增益（`LegacySignalSource` 里 `rot = SlerpUnclamped(identity, rot, gain)`）。
+        /// **时间轴 / 信号 / 频率**仍走 `Shake Hit Small` 那套默认值（原版这一档只覆盖 direction 与 amplitude，
+        /// `OverwriteCameraShakePreset__GetModifiedPreset.c:76-119` 逐格核过：其余五项都取 preset 自带值）。</summary>
+        /// <param name="ourBoardPos">目标卡在**我们**世界坐标里的位置（`CardView.transform.position` 即可；
+        /// y 会被忽略，理由见 <see cref="OrigBoardPosOf"/>）。</param>
+        /// <param name="attackerMeleeAttack">攻击方的当前近战（`GetUnitSize` 的判据）；
+        /// `&lt; 0` = 不知道攻击方 ⇒ 第 1 档，与原版「尺寸 0」同档。</param>
+        public static Tween ShakeCameraForAttack(Camera cam, Transform hudRoot, Vector3 ourBoardPos,
+                                                 int attackerMeleeAttack, float delay = 0f,
+                                                 Camera extraCam = null, int phaseSeed = -1)
+        {
+            int size = ShakeUnitSizeOf(attackerMeleeAttack);
+            Vector3 dir = OrigBoardPosOf(ourBoardPos);
+            return ShakeCamera(cam, hudRoot, ShakeWorldAmplitudeForAttack(dir, size), delay, extraCam, phaseSeed,
+                               direction: dir,
+                               rotationGain: dir.magnitude * ShakeAmplitudeForUnitSize(size));
         }
     }
 }

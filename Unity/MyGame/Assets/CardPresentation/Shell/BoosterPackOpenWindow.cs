@@ -90,9 +90,9 @@
 //     `_WaitForSpinAnimationEnd` 收尾时给 `uiCollider.onClick` **再加**一个 `CardClicked` 监听，
 //     `CardDisplayWindow.ShowCard(card, …, true, …)`。我们的卡翻开后把命中区关掉了（`SlotHits` 失效）——
 //     ⇒ 这一条**没复刻**（缺口），要接得先决定用哪扇详情窗（`Shell/CardDetailPopup` 还是战斗那扇）。
-//   · **`OpenCardbacks` 那条 clip 不接** —— 判据弱（见 `BoosterPackExporter.ClipNames` 的最后一条），用途未查清。
-//   · **背景 `Booster Window - Background Shake On Open`（0.9167 s）没做**：它只动
-//     `floatProperty1/2`（`AnimateUIMaterialProperty` 的**材质属性**，原版 shader 的逻辑本地没有）⇒ 我们没有等价物可依。
+//   · ✅ **`OpenCardbacks` 那条 clip 不接是【对的】** —— 已查清（2026-10-27 `B9_W34FEED` 订正「用途未查清」）= `DeckGeneralInfoDemo.cardbacksAnimation`（0.25 s · Once · 卡背两层入场），消费者 = `Shell/PracticeModePopup.BuildCardbacks`（⛔ 与开包窗无关）。
+//   · ✅ **背景 `Booster Window - Background Shake On Open`（0.9167 s）已接（2026-10-27 `B9_W20WIRE`）** —— 🔴 就地订正（铁律 5）：
+//     原写「只动 `floatProperty1/2`、原版 shader 逻辑本地没有 ⇒ 没有等价物可依」**不成立**（`B8_AS` 已解出 `Shader Graphs/Nebula` 的 `_Distort_*`）。
 //   · ✅ **垂直对齐已落（2026-10-16 · A712 阶段 2）**：`Tap to discover` / `Tap to close` 两条 TMP 原版是
 //     `m_VerticalAlignment = **8192 (Capline)**` + `m_HorizontalAlignment = 4 (Right)`
 //     ⇒ 两条都调 `MenuDraw.SetVAlign(…, Label.VAlign.Capline, HintR)`（横向那半走 `AlignRight`，本来就有）。
@@ -446,7 +446,7 @@ namespace CardPresentation
             WindowOpenDone = false;
             ProtectionDelay = 0f;
             QuickOpens = 0;
-            _openT = 0f;
+            _openT = 0f; _bgShakeT = 0f;
             _fxClock = 0f;
             _bursts.Clear();
             _anchorNode = null;
@@ -503,7 +503,7 @@ namespace CardPresentation
             //    而 `MenuDraw.Local` 是「世界坐标 − 父节点位置」（**没除父级缩放**）⇒ 父级一带缩放，
             //    子件的 localPosition 就不再等于那个差值，整排卡会一起错位。
             //    ⇒ 0.87626 **已经折进 `CardK`**（`CardX[i] * AnchorScale` 那一处），节点保持 scale 1。
-            var anchor = MenuDraw.Node(transform, "Booster Animation Parent", AnchorR);
+            AttachBgDistort(); var anchor = MenuDraw.Node(transform, "Booster Animation Parent", AnchorR);
             var cards = MenuDraw.Node(anchor, "Cards", AnchorR);
             _anchorNode = anchor;
             _anchorBase = anchor != null ? anchor.localPosition : Vector3.zero;
@@ -900,7 +900,7 @@ namespace CardPresentation
         public void Advance(float dt)
         {
             if (dt <= 0f || Cards == null) return;
-            _fxClock += dt;
+            _fxClock += dt; StepBgShake(dt);
 
             // ---- ① 开包 clip（`Booster Window Open`，0.6167 s）：卡的缩放 157.58151 → 151 ----
             if (!WindowOpenDone)
@@ -1252,9 +1252,9 @@ namespace CardPresentation
                       + "传奇第一条的幅度取 preset 缺省值、本地查不到 ⇒ 不抖）；"
                       + "④ **防连开（60 s 内连开）已实现**（`BoosterPackAnim.StepProtection`）；"
                       + "⑤ **快速开包只有内部 API `QuickOpenAll()`** —— 原版 prefab 里没有这个入口；"
-                      + "⑥ `OpenCardbacks` clip 不接（用途未查清）；"
-                      + "⑦ 背景那条 `Booster Window - Background Shake On Open` 只动 `floatProperty1/2`"
-                      + "（原版 shader 的材质属性，逻辑本地没有）⇒ **没做**。"
+                      + "⑥ `OpenCardbacks` clip 不接（已查清 = `DeckGeneralInfoDemo.cardbacksAnimation`，0.25 s · Once · 消费者 `PracticeModePopup.BuildCardbacks`，与开包窗无关）；"
+                      + "⑦ 背景那条 `Booster Window - Background Shake On Open` **已接**（`_Distort_Scale` / `_Distort_Strength`；"
+                      + "`Shader Graphs/Nebula` 已解出，但我们的图仍用 `Sprites/Default` ⇒ 今天无观感，两属性静默 no-op）。"
                       + "✅ 音效已接（2026-10-17 `W_G`；cue 本地都有）。详见 `Shell/BoosterPackOpenWindow.cs` 文件头"
                       + " 与 `Shell/BoosterPackAnim.cs` 文件头");
         }
@@ -1270,6 +1270,76 @@ namespace CardPresentation
                    + " · 快速开包 " + QuickOpens + " 次"
                    + " · 粒子 " + PlayedFx.Count + " 次"
                    + " · 取不到的图 " + MissingArt.Count + " 张";
+        }
+
+        // ═══════════ 2026-10-27（B9_W20WIRE）：背景 `AnimateUIMaterialProperty` 接线 ═══════════
+        // 判据：原版 `Booster pack Background` 上挂 `AnimateUIMaterialProperty`
+        //   （`floatProperty1 = _Distort_Scale 0` · `floatProperty2 = _Distort_Strength 0`，两个属性都在
+        //    `Shader Graphs/Nebula` 的 `m_Floats` 里 —— `B8_AS_特效侧施工单.md` §3·3 表 #2）。
+        // 驱动 = `Booster Window - Background Shake On Open`（0.9167 s · `m_Legacy: 1` · 60 fps）的两条
+        //   `floatProperty1.value` / `floatProperty2.value` 曲线，键值**现读**自
+        //   `WarpforgeVFX/Animations/Booster Window - Background Shake On Open.anim`（逐键含 in/outSlope，见 `BgCurve1/2`）。
+        // 🔴 为什么不是「挂 `Animation` 组件播那条 clip」：那份 `.anim` **不在任何 `Resources/` 下** ⇒ 运行期
+        //   `Resources.Load<AnimationClip>` 取不到；而 legacy clip 里的 MonoBehaviour 曲线又只有 `Animation`
+        //   组件推得动（本工程的 `AnimationClip` 运行期重建口 `BuildClip` 只绑 Transform/GameObject 两族）。
+        //   ⇒ 走本工程既有做法（同 `BoosterPackAnim` 的「采样表 + 代码补间」）逐帧写 `floatPropertyX.value`。
+        WarpforgeVFX.AnimateUIMaterialProperty _bgAnim;
+        float _bgShakeT;
+        static AnimationCurve _bgC1, _bgC2;
+
+        /// <summary>把背景那张图挂上 `AnimateUIMaterialProperty`（两槽 = 原版那两个属性）。</summary>
+        void AttachBgDistort()
+        {
+            if (BgQuad == null) return;
+            var mr = BgQuad.GetComponent<MeshRenderer>();
+            if (mr == null)
+            {
+                Debug.LogWarning("[BoosterPack] 背景 quad 上没有 `MeshRenderer` ⇒ `AnimateUIMaterialProperty` **挂不上**"
+                                 + "（`_Distort_*` 那条曲线不会走；⛔ 不静默）");
+                return;
+            }
+            _bgAnim = WarpforgeVFX.AnimateUIMaterialProperty.Attach(mr,
+                WarpforgeVFX.AnimateUIMaterialProperty.Slot("_Distort_Scale", 0f),
+                WarpforgeVFX.AnimateUIMaterialProperty.Slot("_Distort_Strength", 0f));
+        }
+
+        /// <summary>`floatProperty1.value`（`_Distort_Scale`）的那条曲线 —— 键与切线逐字现读自那份 `.anim`。
+        /// 🔴 切线必须逐键写回（端点相同、中段斜率不同 ⇒ 只比端点抓不到）。</summary>
+        static AnimationCurve BgCurve1()
+        {
+            if (_bgC1 != null) return _bgC1;
+            _bgC1 = new AnimationCurve(
+                new Keyframe(0f, -2f, 0f, 0f),
+                new Keyframe(0.5833333f, 0.2f, 0.8727274f, 0.8727274f),
+                new Keyframe(0.9166667f, 0.4f, 0f, 0f));
+            return _bgC1;
+        }
+
+        /// <summary>`floatProperty2.value`（`_Distort_Strength`）的那条曲线（同上，逐键现读）。</summary>
+        static AnimationCurve BgCurve2()
+        {
+            if (_bgC2 != null) return _bgC2;
+            _bgC2 = new AnimationCurve(
+                new Keyframe(0f, 0f, 0f, 0f),
+                new Keyframe(0.2166667f, 0.35f, 0f, 0f),
+                new Keyframe(0.5833333f, 0.35f, 0f, 0f),
+                new Keyframe(0.9166667f, 0f, 0f, 0f));
+            return _bgC2;
+        }
+
+        /// <summary>逐帧把两条曲线的当前值写回 `AnimateUIMaterialProperty` 的两个槽。
+        /// 播一次、**停在末键**（= legacy clip `m_WrapMode 0` / `m_StopTime 1` 播完后的行为）。</summary>
+        void StepBgShake(float dt)
+        {
+            if (_bgAnim == null) return;                 // 没接上 / 背景被重建过（Unity 的伪 null）
+            const float len = 0.9166667f;                // clip 末键时刻（60 fps × 55 帧）
+            if (_bgShakeT < len) _bgShakeT = Mathf.Min(len, _bgShakeT + dt);
+            var s1 = _bgAnim.floatProperty1;
+            s1.value = BgCurve1().Evaluate(_bgShakeT);
+            _bgAnim.floatProperty1 = s1;
+            var s2 = _bgAnim.floatProperty2;
+            s2.value = BgCurve2().Evaluate(_bgShakeT);
+            _bgAnim.floatProperty2 = s2;
         }
     }
 }

@@ -1823,7 +1823,7 @@ public static class BattleScene
                             for (int i = lamStart; i <= lamEnd; i++)
                             {
                                 string t = linesR10[i];
-                                if (iShake < 0 && t.IndexOf("PlayHitFrameShake();", System.StringComparison.Ordinal) >= 0) iShake = i;
+                                if (iShake < 0 && t.IndexOf("PlayHitFrameShake(tgtView);", System.StringComparison.Ordinal) >= 0) iShake = i;
                                 if (iSfx < 0 && t.IndexOf("BattleSfx.Play(BattleSfx.MeleeAttackHitSmall)", System.StringComparison.Ordinal) >= 0) iSfx = i;
                                 if (iHitVfx < 0 && t.IndexOf("FireAttackVfxWithCtx(VfxMap.Resolve(VfxMap.Hit)", System.StringComparison.Ordinal) >= 0) iHitVfx = i;
                                 if (iRecoil < 0 && t.IndexOf("PlayHitFrameRecoil(", System.StringComparison.Ordinal) >= 0) iRecoil = i;
@@ -1836,8 +1836,7 @@ public static class BattleScene
                               "★ R10③：命中帧同帧次序 = **震屏 → 命中音 → 粒子 → 后坐**"
                             + "（原版 `<AttackMeleeAnim>b__1.c:16-27` + `ResolveAttackAnimationEffects.c:51-107`）"
                             + "｜🧨 改回「粒子 → 音 → 后坐 → 震屏」（改前那版）⇒ 红");
-                        // 震屏不依赖受击视图：那一行只受 `if (feel)` 管，且方法体里没有 `target` 判空；
-                        // 而后坐那一半**必须**保留 `if (target == null) return;`。
+                        // 震屏不依赖「受击方视图还在不在」：调用行照旧只受 `if (feel)` 管，方法体对 `target == null` 是**三元空转容忍**（`target != null ? … : Vector3.zero`）、没有早退；后坐那一半**必须**保留 `if (target == null) return;`。
                         string shakeLine = iShake > 0 ? linesR10[iShake] : "";
                         var shakeBody = new List<string>();
                         int shakeDecl = -1, recoilDecl = -1;
@@ -1847,30 +1846,31 @@ public static class BattleScene
                             if (shakeDecl < 0 && t.StartsWith("void PlayHitFrameShake(", System.StringComparison.Ordinal)) shakeDecl = i;
                             if (recoilDecl < 0 && t.StartsWith("void PlayHitFrameRecoil(", System.StringComparison.Ordinal)) recoilDecl = i;
                         }
-                        bool shakeHasGuard = false, shakeCallsShake = false;
+                        bool shakeEarlyReturn = false, shakeNullTolerant = false, shakeCallsShake = false;
                         if (shakeDecl >= 0)
                             for (int i = shakeDecl; i < linesR10.Length; i++)
                             {
                                 string t = linesR10[i];
                                 if (i > shakeDecl && t.Length > 0 && (linesR10[i].Length - t.TrimStart().Length) == 8
                                     && t.TrimStart().EndsWith(")", System.StringComparison.Ordinal)) break;   // 下一个成员
-                                if (t.IndexOf("target ==", System.StringComparison.Ordinal) >= 0
-                                    || t.IndexOf("target == null", System.StringComparison.Ordinal) >= 0) shakeHasGuard = true;
-                                if (t.IndexOf("ShakeCameraForHit", System.StringComparison.Ordinal) >= 0) shakeCallsShake = true;
+                                if (t.IndexOf("if (target == null) return;", System.StringComparison.Ordinal) >= 0) shakeEarlyReturn = true;
+                                if (t.IndexOf("target != null", System.StringComparison.Ordinal) >= 0
+                                    && t.IndexOf("Vector3.zero", System.StringComparison.Ordinal) >= 0) shakeNullTolerant = true;
+                                if (t.IndexOf("ShakeCameraForAttack", System.StringComparison.Ordinal) >= 0) shakeCallsShake = true;
                             }
                         bool recoilHasGuard = false;
                         if (recoilDecl >= 0)
                             for (int i = recoilDecl; i < System.Math.Min(linesR10.Length, recoilDecl + 12); i++)
                                 if (linesR10[i].IndexOf("if (target == null) return;", System.StringComparison.Ordinal) >= 0)
                                     recoilHasGuard = true;
-                        Check(shakeLine.IndexOf("PlayHitFrameShake();", System.StringComparison.Ordinal) >= 0
-                              && shakeLine.IndexOf("tgtView", System.StringComparison.Ordinal) < 0
-                              && shakeLine.IndexOf("target", System.StringComparison.Ordinal) < 0
-                              && !shakeHasGuard && shakeCallsShake && recoilHasGuard,
-                              "★ R10③：**震屏不依赖受击视图**（调用行只受 `if (feel)` 管；`PlayHitFrameShake` 体里没有"
-                            + " `target` 判空）· 而后坐那一半**保留** `if (target == null) return;`"
-                            + " ⇒ 受击方视图为空时**震屏仍 +1**、只有后坐跳过"
-                            + "｜🧨 把两半合回一个 `target == null ⇒ return`（改前）⇒ 震屏跟着没了 ⇒ 红");
+                        Check(shakeLine.IndexOf("PlayHitFrameShake(tgtView);", System.StringComparison.Ordinal) >= 0
+                              && !shakeEarlyReturn && shakeNullTolerant && shakeCallsShake && recoilHasGuard,
+                              "★ R10③：**震屏不依赖「受击方视图还在不在」**（调用行照旧只受 `if (feel)` 管；`PlayHitFrameShake(target)`"
+                            + " 体里是 `target != null ? target.transform.position : Vector3.zero` 的空转容忍、**没有** `if (target == null) return;` 早退）"
+                            + " · 而后坐那一半**保留** `if (target == null) return;` ⇒ 受击方视图为空时**震屏仍播**、只有后坐跳过"
+                            + "｜🧨 给 `PlayHitFrameShake` 加回 `if (target == null) return;`（或把两半合回一个早退）⇒ 红"
+                            + "｜⚠️ 这条判的是**语义**（三元判空容忍 + 无早退），⛔ 不按「调用行不含 `tgtView`」那种字面串判"
+                            + " —— 接 `ShakeCameraForAttack` 后那串必假红（`B9_W38ASSERT2` 2026-10-27 订正）");
                     }
 
                     // ---- ④ `duringBattleFlag` 等价物（`CardHoldPeek` 头一道闸；**源级**）----
@@ -3593,7 +3593,7 @@ public static class BattleScene
                 // ⚠️ 这一刻**可能一张带关键词的卡都没有**（测试脚本刚开局）—— 所以这条只记数不判死，
                 //    真渲染那条路由上面第 ⑤ 步的探针卡 + 整局截图盯着（`28a_徽标_四枚.png`）。
                 Debug.Log(P + (withBadges > 0 ? "   本刻场上有带徽标的卡 ✓" : "   本刻场上没有带徽标的卡（不是失败）"));
-                CheckCardViewState(driver, Check);      // 2026-10-26（B8_AA）：视图态可观察量，见文件尾那个方法
+                CheckCardViewState(driver, Check); K4HoldAssert.Check(driver.transform, Check);      // 2026-10-26（B8_AA）：视图态可观察量，见文件尾那个方法 ／ 🆕 2026-10-27（B9_W24ASSERT · 账 HUD:682/683/684/686/687）：K-04 长按/轻点/按住弹卡面五条口径，断言体在**文件尾**的 `K4HoldAssert`（追加在同一行 ⇒ 本文件**行数不变**、下游账零漂移）
                 // ---- 🆕 2026-10-26（`B8_AL`）：表现层读数口 —— 近战序列总长 / 锚点比 / 抬牌成对开关 /
                 //      手牌悬停缩放 / 场上视图形态 / 起拖两道闸（账升 A 的 G3 观测量）。
                 //  ⛔ 期望值一律来自原版判据（反编译方法体 / prefab 序列化字段 / `.rdata` 常量），
@@ -7230,7 +7230,7 @@ public static class BattleScene
             //      ⇒ 按【表里到底有没有】自动选期望值，两态都有话说。
             //      （有键态下 `hCostWant` 那条是**定义式**、不作主判据；主判据是下面「不许含前缀」那条。）
             bool costInTable = Loc.HasEntry(keyCost);
-            int missBefore = Loc.MissingCount;
+            int missBefore = Loc.MissingCount; foreach (var bad in Loc.CheckTargetedText()) Check(false, bad);   // 🆕 2026-10-27（调度台接线 · `B9_W61TARG` §4·4）：`Card_Targeted/*` 31 条键此前**零覆盖**（`CheckTargetedText()` 全仓 0 调用点）；追加在本行 ⇒ 行数不变
             string hCost = BattleDriver.HintForCode(RuleCodes.ErrCost);
             string hCostWant = costInTable ? Loc.T(keyCost) : RuleCodes.Describe(RuleCodes.ErrCost);
             Check(hCost == hCostWant && !string.IsNullOrEmpty(hCost),
@@ -10848,6 +10848,18 @@ public static class BattleScene
                 var tf3 = tv3 != null ? tv3.GetComponent<TraitFrames>() : null;
                 Check(tf3 != null, "（前提）视图还在、状态框那一套还挂着");
                 int btPlays0 = tf3 != null ? tf3.TriggerPlayCount : -1;
+                // 🔴 **2026-10-27（`F3BAT` · D2 ①②）夹具修正**：下面两条事件把 `Player` 写死成 `1`，而本局的
+                //   `ctx.Active` 是 `PinFirstSeat(driver, 0)`（`BattleScene.cs` 建场那一处）钉出来的 **0**
+                //   ⇒ 那是一个**真机不可能出现的状态**：原版里血渴只由**正在行动那一方**的单位触发
+                //   （`isPlayer == IsPlayerTurn()` 恒真）。本会话新加的表演闸（`BattleDriver.PlayTraitPulse` 里
+                //   `e.Player != Ctx.Active` 的早退，判据 `CardScript__ActivateBloodThirst.c:15-21`）因此把它挡住
+                //   —— **闸是对的，错的是夹具**。⇒ 这一段临时把行动方拨到事件那一侧（做法同 `:10480-10481`
+                //   那个先例），用完还原。
+                //   🧨 不拨（或把那道闸去掉）⇒ 下面「第 1 次触发」变成 `(0 张 / 演过 N 次)` ⇒ 红。
+                int btSide = 1;                        // = 上面两条事件里写死的 `Player`
+                int btActiveWas = ctx.Active;
+                Check(btActiveWas >= 0, $"（前提）本局有行动方（`ctx.Active` = {btActiveWas}）⇒ 下面「行动侧」那两条才有意义");
+                ctx.Active = btSide;
                 ctx.Signals.Add(new BattleEvent
                 { Kind = EvtKind.Trigger, Player = 1, Slot = tfSlot, Keyword = KeywordTable.BloodThirst });
                 driver.RefreshAll();
@@ -10866,6 +10878,31 @@ public static class BattleScene
                 Check(tf3 != null && tf3.TriggerCount == 1 && tf3.TriggerPlayCount == btPlays0 + 2,
                       "★ 「bloodthirst」第 2 次触发 ⇒ **不再演**（原版守卫：去重表里已有这个 trait；"
                     + $"累计仍演过 {(tf3 != null ? tf3.TriggerPlayCount : -1)} 次）");
+                // 🔴 **2026-10-27（`F3BAT` · D2 ①②）反向断言：触发点不在行动侧 ⇒ 一次都不演**（铁律 11：
+                //   新行为要配断言 —— 这道闸是本会话新加的，必须能被单独钉住）。
+                //   判据 `CardScript__ActivateBloodThirst.c:15-21` 的 `isPlayer == IsPlayerTurn()`：
+                //   原版在**结算那一刻**重跑它、为假就整条不演（`ResolveBloodThirstAnim.c:21-24`）。
+                //   ⚠️ 必须先把去重表清掉（`TraitFrames.Remove` = 原版 `RemoveStatusAnim`）—— 否则第三条会被
+                //      `DisplayTrigger` 自己的「已有 ⇒ 一条都不播」守卫挡住，断言就**空转**了（那是另一道闸）。
+                //      `Remove` 不动 `TriggerPlayCount`（累计量），所以下面的基线是有效的。
+                if (tf3 != null)          // 前提已在上面硬断过（`Check(tf3 != null, …)`）；这里只是不让它 NRE
+                {
+                    tf3.Remove(KeywordTable.BloodThirst);
+                    int btPlays1 = tf3.TriggerPlayCount, btCount1 = tf3.TriggerCount;
+                    Check(btCount1 == 0, $"（前提）去重表已清空（`TriggerCount` = {btCount1}）⇒ 下面那条不是被去重守卫挡下的");
+                    ctx.Active = 1 - btSide;                     // 拨到**事件另一侧**
+                    Check(ctx.Active != btSide,
+                          $"（前提）此刻行动方在**事件另一侧**（`ctx.Active` = {ctx.Active} / 事件 `Player` = {btSide}）");
+                    ctx.Signals.Add(new BattleEvent
+                    { Kind = EvtKind.Trigger, Player = btSide, Slot = tfSlot, Keyword = KeywordTable.BloodThirst });
+                    driver.RefreshAll();
+                    Step(0.6f);
+                    Check(tf3.TriggerCount == btCount1 && tf3.TriggerPlayCount == btPlays1,
+                          "★ 「bloodthirst」的触发点**不在行动侧** ⇒ 原版 `ActivateBloodThirst` 为假、这一下**一次都不演**"
+                        + $"（现在 {tf3.TriggerCount} 张 / 演过 {tf3.TriggerPlayCount} 次，应为 {btCount1} / {btPlays1}）"
+                        + "｜🧨 去掉 `PlayTraitPulse` 里那道 `e.Player != Ctx.Active` 闸 ⇒ 这里演 2 次、建 1 张框 ⇒ 红");
+                }
+                ctx.Active = btActiveWas;                          // 还原夹具（前提不成立时也不把行动方留在歪着的位置）
                 ctx.Players[1].Board[tfSlot].RemoveKeyword(KeywordTable.BloodThirst, 1);
                 driver.RefreshAll();
 
@@ -13436,8 +13473,8 @@ public static class BattleScene
                             + $"{Vector3.Distance(dirL, dirU):F3} / dirL.z={dirL.z:F6}）"
                             + "—— 🧨 退回「恒定上/下」（`Vector3.up`/`down`）⇒ 两个方向距离 = 0 或只差一个分量"
                             + "、且与上一条的 dot 对不上 ⇒ 本条红（这两条一起才排除「换了个固定方向」）");
-                        Check(CardFeel.PushBackDir(new Vector3(1f, 2f, 3f), new Vector3(1f, 2f, 3f)) == Vector3.up,
-                              "★ W63/后坐：两点重合（|dir| ≤ 1e-5）⇒ 原版取常量向量，我们沿用 `Vector3.up`（`Flat` 的既有退路）");
+                        Check(CardFeel.PushBackDir(new Vector3(1f, 2f, 3f), new Vector3(1f, 2f, 3f)) == Vector3.zero,
+                              "★ W63/后坐：两点重合（|dir| ≤ 1e-5）⇒ 原版取 `Vector3.zeroVector`（`DAT_1842da2a8+0xb8` 首格 = `dump.cs` 的 `zeroVector // 0x0`）⇒ 我们**照抄 `Vector3.zero`**｜🧨 退回 `Vector3.up`（2026-10-27 前的退路）⇒ 这条红");
 
                         // **生产路径真的用了它**：造两个探针对象，走 `HitReactFrom`（= 生产同一个口）
                         var victimGo = new GameObject("W63_HitVictim");
@@ -15407,7 +15444,7 @@ public static class BattleScene
                             Check(carrier == null, "★ 演出收尾后载体**已销毁**（不留孤儿卡）");
                         }
                     }
-                }
+                W67CenterAssert.Check(driver, Check); }   // 🆕 2026-10-27（`B9_W67CENTER`）：中央展示**落点**两条结构断言（断言体在**文件尾**的 `W67CenterAssert`；本行 1:1 替换 ⇒ 本文件行数不变、下游账零漂移）
 
                 // 把窗恢复成「开着」—— 下面那一下 `Tap()` 要靠它验「再轻点一次 → 关掉」
                 cdw.Show(BattleDriver.ToCardData(h0, h0.Faction), h0);
@@ -24172,7 +24209,7 @@ public static class BattleScene
                             + $"前后推(0,0,2)→{CardFeel.ShakeScreenUpOf(new Vector3(0f, 0f, 2f)):F4}（**0**：屏幕上不上下晃）"
                             + "｜🧨 退回 `sign(direction.y)` ⇒ 第一项变正、第三项变 ±1 ⇒ 红");
                         DG.Tweening.TweenExtensions.Kill(hitShake, false);
-                        SettleShake();
+                        SettleShake(); W11ShakeAssert.Check(cam, hudRootT, ArenaOriginX, Check);   // 🆕 2026-10-27（B9_W11SHAKE）：水平通道 + 原版「棋盘坐标当方向」那一路（断言体在**文件尾**的 `W11ShakeAssert`，本行 1:1 替换 ⇒ 下游账零漂移）
                     }
 
                     // 🔴 **2026-10-14（`A1767` / #10）就地改掉的那一条**：旧断言拿「t=0.18 那条带落到谷底」
@@ -43285,7 +43322,7 @@ public static class BattleScene
                 if (sSwarm >= 0 && vSwarm != null)
                 {
                     bool swarmWas = vSwarm.SwarmVisible;
-                    bool bodyWasSwarm = vSwarm.Body3DVisible;      // 🆕 账 403：合并**之前**的 3D 体状态（验完要还原成它）
+                    Check(vSwarm.Body3DVisible, "（前提）虫群合并**之前**那张卡的 3D 体是显示着的 ⇒ 下面「仍然显示」那条才有鉴别力（若这里红 ⇒ 本节视图没有 3D 体（`use3DBoard` 档不同）⇒ 账 403 要换到 3D 档验）");
                     int swBefore = driver.SwarmMergeFeelCount;
 
                     // ① 不该响时不响：别的关键词触发**不走**虫群合并
@@ -43317,21 +43354,21 @@ public static class BattleScene
                         + "｜🧨 删掉 `WFSoundBank.TryGetCue` 那一段（`WarpforgeEffectPlayer` 不会替它播，"
                         + "该 prefab 没有 `AnimFXController`）⇒ 红");
 
-                    // ⑤ 🆕 2026-10-27（`B9` E4BDR · 账 403）：**合并期间把那具 3D 卡体藏掉**
-                    //   判据 = `SwarmVFXController__Initialize.c:22` 的 `CardUI.ToggleBody3D(false, null)`。
-                    //   ⚠️ 起点 `bodyWasSwarm` 是**合并之前**取的（与 `swarmWas` 同一处）——
-                    //      在这里现读拿到的是「已经被藏掉」的值，拿它当复原值 = 复原成 false（静默污染后面的断言）。
-                    //   ⚠️ **前提必须先断**（本仓踩过「`if (前提) Check(结论)` 前提不成立就静默跳过」）：
-                    //      合并**之前**那具 3D 体得是显示着的，下面那条才有鉴别力。
-                    Check(bodyWasSwarm,
-                          "（前提）虫群合并前那张卡的 **3D 体是显示着的** ⇒ 下面那条「被藏掉」才有鉴别力"
-                        + "（若这里红 ⇒ 说明这一节的视图没有 3D 体（`use3DBoard` 档不同），账 403 那条要换到 3D 档去验）");
-                    Check(!vSwarm.Body3DVisible,
-                          "★ 虫群合并⑤：合并期间**那具 3D 卡体被藏掉**（原版 `ToggleBody3D(false)`；"
-                        + $"实得 Body3DVisible={vSwarm.Body3DVisible}）"
-                        + "｜🧨 删掉 `PlaySwarmMergeFeel` 里那句 `v.SetBody3DVisible(false)` ⇒ 红");
+                    // ⑤ 🔴 2026-10-27（`B9_W38ASSERT2` 订正 `B9` E4BDR 那条）：**存活那张的 3D 卡体在合并期间仍然显示**。
+                    //   原版 `SwarmVFXController__Initialize.c:22` 的 `CardUI.ToggleBody3D(false, null)` 作用对象是
+                    //   **被并掉那张**（`CardScript__ExecuteSwarm.c:39-80` 的 `this`），⛔ 不是存活那张 ——
+                    //   `PlaySwarmMergeFeel` 里那句 `v.SetBody3DVisible(false)` 藏错了对象，已删（`B9_W29BDR2`）。
+                    //   ⚠️ 这条断言原先是**反的**：断「被藏掉」+ 断完立刻 `SetBody3DVisible(旧值)` 还原 ⇒ 正好把上面
+                    //      那个真缺陷掩盖掉（自检绿 ≠ 口径对 —— `CLAUDE.md` 铁律里已两例，这是第三例）。
+                    //   ⚠️ 「藏**被并掉那张**的体」今天**没有载体**：事件只带存活那格的 `Player/Slot`（`BoardSlots.RemoveAt`
+                    //      在本跳之前就摘了那张）⇒ 它离场时的体由离场/阵亡链整件收回；如实记为未复刻的一小段（账 403）。
+                    //   ⚠️ 前提已在合并**之前**断（不要写成 `if (前提) Check(结论)` —— 前提不成立就静默跳过，本仓踩过 3 次）。
+                    //   ⚠️ 非 3D 档下 `_body3D == null` ⇒ `Body3DVisible` 恒 **false** ⇒ 前提那条会红（如实记，不是缺陷）。判据全文 + 「藏不了被并掉那张」的三条取证 → 报告 `B9_W29BDR2_三处接线.md` §三·1。
+                    Check(vSwarm.Body3DVisible,
+                          "★ 虫群合并⑤：合并期间**存活那张的 3D 卡体仍然显示**"
+                        + $"（原版藏的是被并掉那张；实得 Body3DVisible={vSwarm.Body3DVisible}）"
+                        + "｜🧨 把 `PlaySwarmMergeFeel` 里 `v.SetBody3DVisible(false)` 加回去 ⇒ 红");
                     if (!swarmWas) vSwarm.SetSwarm(false);      // 还原（别把图标留在场上影响后面的断言）
-                    vSwarm.SetBody3DVisible(bodyWasSwarm);       // 还原 3D 体（同上；用**合并前**那一档）
                 }
             }
             else
@@ -48483,6 +48520,578 @@ public static class BattleScene
                 + "原版 `CardHighlight` 缓存的是 `CardBodyToScale` 初始 scale、状态环只乘系数，两者不打架"
                 + "；这也是 `TweenPose` 每帧必须回写 `SetPose` 的原因｜🧨 直接写 `localScale` ⇒ 红");
             Object.DestroyImmediate(pv.gameObject);
+        }
+    }
+
+    // =====================================================================
+    //  🆕 2026-10-27（`B9_W11SHAKE`）：震屏**方向链的两个通道** + 原版「拿棋盘坐标当方向」那一路
+    // ---------------------------------------------------------------------
+    //  为什么单开一个类：`Run` 里那个 `Check` 是**局部函数**，新断言只有两条路 —— 塞在 `Run` 中间
+    //    （下游账的 `文件:行号` 整体漂）或把 `Check` 当委托传出来。取后者：本类在**文件尾**、
+    //    调用点是 1:1 行内替换 ⇒ **零行号漂移**（账里有 ~26 条指着本文件）。
+    //  判据（三条，机器码级；逐条 doc 在 `Core/CardFeel.cs` 的 `ShakeScreenDirOf` / `OrigBoardPosOf`
+    //    / `ShakeWorldAmplitudeForAttack` 上）：
+    //    ① `CardScript__ResolveAttackAnimationEffects.c:51-58` —— `SetDirection(preset, 目标棋盘坐标)`
+    //       （`GetBoardPosOfCard` 经 VA 级反汇编 `0x180965BC0` 实核 = **完整 3 分量**，不是 `(x,0,z)`）；
+    //    ② `CameraShakerManager._DoShake_d__33__MoveNext.c:69-79` —— `m_Velocity = normalize(dir)`、
+    //       `m_AmplitudeGain = |dir| × amplitude`（amplitude = 2 / 4 / 8）；
+    //    ③ `LegacySignalSource::GetSignal`（RVA 0xA2B350）—— `pos *= |v| × gain`、
+    //       `pos = FromToRotation(down, v) · pos` ⇒ 屏幕水平 = 旋转后 up 的 `.x`、竖直 = `.y`。
+    //  ⛔ 期望值一律由**原版资产 / 机器码的字面量**独立算出（0.70711 · 1 · 0 · 100 · 2 · 0.149 · 73.1 · 108），
+    //    一个都不从被测实现里读回。
+    // =====================================================================
+    static class W11ShakeAssert
+    {
+        /// <param name="cam">战场相机（`HomeCam`）。</param>
+        /// <param name="hudRoot">HUD 根（与相机同向等量平移那一半要用；可为 null）。</param>
+        /// <param name="arenaOriginX">`BattleScene.ArenaOriginX`（Editor 那一份，用来钉「两处同值」）。</param>
+        /// <param name="check">`Run` 的局部 `Check(bool, string)`（传进来才用得上它的计数与日志前缀）。</param>
+        public static void Check(Camera cam, Transform hudRoot, float arenaOriginX,
+                                 System.Action<bool, string> check)
+        {
+            // ---- ① 前提（硬检查，先跑）：两处 `ArenaOriginX` 必须同值 ----
+            //   `CardFeel.OriginalArenaOriginX` 是**运行时**那一份（震屏方向要用），本文件的 `ArenaOriginX`
+            //   是 Editor 那一份。改一处不改另一处 ⇒ 下面所有「原版坐标 = 我们的 + 100」都算错。
+            check(Mathf.Abs(CardFeel.OriginalArenaOriginX - arenaOriginX) < 1e-6f
+                  && Mathf.Abs(arenaOriginX - 100f) < 1e-6f,
+                  $"★ W11/坐标系前提：`CardFeel.OriginalArenaOriginX`({CardFeel.OriginalArenaOriginX}) == "
+                + $"`BattleScene.ArenaOriginX`({arenaOriginX}) == 100（= 原版 `BattleBoardElements` 的 x）"
+                + "｜🧨 只改一处 ⇒ 本条红（否则震屏方向会静默差 100 个单位）");
+
+            // ---- ② 换轴（纯函数）：x + 100 · y **归 0** · z 不动 ----
+            Vector3 ourPos = new Vector3(0.82f, 0.38f, -6.655f);   // 我方 5 号槽 + 我们「卡根=卡心」的 y（≈0.38）
+            Vector3 origPos = new Vector3(100.82f, 0f, -6.655f);   // 原版：根在 x=100、y = 地面 0
+            check((CardFeel.OrigBoardPosOf(ourPos) - origPos).magnitude < 1e-4f,
+                  $"★ W11/换轴：`OrigBoardPosOf({ourPos})` = {CardFeel.OrigBoardPosOf(ourPos)}"
+                + $"（原版 `(100.82, 0, −6.655)`：x + 100 · y **归 0**（原版卡根在地面，`FillMinionPositions` 显式写 0）· z 不动）"
+                + "｜🧨 漏了 +100（幅度差 ~353 倍）或照抄我们的 y（多出竖直分量）⇒ 红");
+
+            // ---- ③ 方向的两条投影：既有三档的**竖直期望值一字不动**，且它们的水平分量必须恒 0 ----
+            Vector3 sdHit = CardFeel.ShakeScreenDirOf(new Vector3(0f, 0.2f, 0.2f));    // preset `Shake Hit Small`
+            Vector3 sdLand = CardFeel.ShakeScreenDirOf(new Vector3(0f, -1f, 0f));      // preset `Shake Land on ground`
+            Vector3 sdFwd = CardFeel.ShakeScreenDirOf(new Vector3(0f, 0f, 2f));        // preset `Shake Forward Pull`
+            Vector3 sdBoard = CardFeel.ShakeScreenDirOf(origPos);                     // 原版挨打那一路的方向
+            check(Mathf.Abs(sdHit.y + 0.70711f) < 1e-3f && Mathf.Abs(sdLand.y - 1f) < 1e-4f
+                  && Mathf.Abs(sdFwd.y) < 1e-4f
+                  && Mathf.Abs(sdHit.x) < 1e-4f && Mathf.Abs(sdLand.x) < 1e-4f && Mathf.Abs(sdFwd.x) < 1e-4f,
+                  $"★ W11/方向两通道（既有三档）：竖直 {sdHit.y:F4}（**负**）/ {sdLand.y:F4} / {sdFwd.y:F4}（0）——"
+                + "与原版 `FromToRotation(down, velocity)·up` 逐位一致；而这三档的**水平分量必须恒 0**"
+                + $"（{sdHit.x:E1} / {sdLand.x:E1} / {sdFwd.x:E1}）"
+                + "｜🧨 把方向写成 `direction.normalized` 直用（跳过旋转）⇒ 竖直全变 ⇒ 红");
+
+            // 棋盘坐标那一路：`v = (100.82, 0, −6.655)/|·|` ⇒ `R·up = (−vx, 0, −vz)` ⇒ **纯水平、竖直恒 0**。
+            check(Mathf.Abs(sdBoard.y) < 1e-5f && Mathf.Abs(sdBoard.x + 0.997832f) < 1e-4f,
+                  $"★ W11/方向两通道（原版挨打那一路）：棋盘坐标 (100.82,0,−6.655) ⇒ 屏幕方向 "
+                + $"({sdBoard.x:F5}, {sdBoard.y:F5})—— **水平 ≈ −1、竖直恒 0**（`vy = 0` ⇒ 旋转后 up 的 y = 0）"
+                + "｜🧨 `ShakeCamera` 只取 `.y`（2026-10-27 前）⇒ 原版这一档**完全不震**；本条会红在 `.x` 上");
+
+            // ---- ④ 幅度律：`|dir| × amplitude(2/4/8) × 带峰 × (73.1 ÷ 108)` ----
+            float dirMag = Mathf.Sqrt(100.82f * 100.82f + 6.655f * 6.655f);     // 101.0394（原版字面量算）
+            float amp2 = dirMag * 2f * 0.149f * (73.1f / 108f);                 // 尺寸 0/1
+            float amp4 = dirMag * 4f * 0.149f * (73.1f / 108f);                 // 尺寸 2
+            check(Mathf.Abs(CardFeel.ShakeWorldAmplitudeForAttack(origPos, 0) - amp2) < 1e-3f
+                  && Mathf.Abs(CardFeel.ShakeWorldAmplitudeForAttack(origPos, 2) - amp4) < 1e-3f
+                  && Mathf.Abs(CardFeel.ShakeWorldAmplitudeForAttack(origPos, 3) - dirMag * 8f * 0.149f * (73.1f / 108f)) < 1e-3f,
+                  $"★ W11/幅度律：`ShakeWorldAmplitudeForAttack` 三档 = "
+                + $"{CardFeel.ShakeWorldAmplitudeForAttack(origPos, 0):F4} / {CardFeel.ShakeWorldAmplitudeForAttack(origPos, 2):F4} / "
+                + $"{CardFeel.ShakeWorldAmplitudeForAttack(origPos, 3):F4}（期望 {amp2:F4} / {amp4:F4} / {dirMag * 8f * 0.149f * (73.1f / 108f):F4}）"
+                + " = `|棋盘坐标| × 2/4/8 × 0.149 × (73.1÷108)`"
+                + "｜🧨 把 `|dir|` 换成 preset 那个 0.28284 ⇒ 小 ~357 倍 ⇒ 红");
+            check(CardFeel.ShakeWorldAmplitudeForAttack(origPos, 0) / CardFeel.ShakeWorldAmplitudeFor(0) > 300f,
+                  $"★ W11/**灭自证**：棋盘坐标那一路的增益是 preset 自带方向的 "
+                + $"{CardFeel.ShakeWorldAmplitudeForAttack(origPos, 0) / CardFeel.ShakeWorldAmplitudeFor(0):F1} 倍"
+                + $"（{CardFeel.ShakeWorldAmplitudeForAttack(origPos, 0):F3} vs {CardFeel.ShakeWorldAmplitudeFor(0):F4}）"
+                + "—— 原版 `BattleBoardElements` 在 x=100 ⇒ `|direction| ≈ 101` 而不是 `0.283`"
+                + "｜🧨 悄悄把 preset 的方向顶回去 ⇒ 这里变成 1.0 ⇒ 红");
+
+            if (cam == null)
+            {
+                check(false, "★ W11/震屏端到端：（**前提不成立**）拿不到 `cam` ⇒ 下面几条**一条都没跑过**（⛔ 不算通过）");
+                return;
+            }
+
+            // ---- ⑤ 真接一遍：原版那一路 ⇒ 相机**只在屏幕上横着抖**、竖直 = 0、景深 = 0 ----
+            CardFeel.SettleShake();
+            Vector3 home = cam.transform.position;
+            Quaternion homeRot = cam.transform.rotation;
+            // 🔴 **2026-10-27（`F3BAT` · D2 ④）HUD 那一条改断【屏空间不变式】**：
+            //   原写法 `hudRoot.position ≈ home + dA` **漏了一整项** —— 实现（`CardFeel.cs:1473`）是
+            //   绕**相机位置**的刚体变换 `X' = C + d + M·(X − C)`（`M = R·q·R⁻¹`），原断言把它当成纯平移
+            //   ⇒ 丢了 `M·(hudHome − camHome)`。本场景 `hudHome = (0,0,0)`、`cam = (0,0,−20)`
+            //   ⇒ 恒差 ≈ **20 世界单位**（阈值 1e-4 ⇒ 差 5 个数量级）—— 必红，而接线其实是好的
+            //   （同意图的老断言 `BattleScene.cs:24099-24113` 一直绿）。
+            //   ✅ 改断「HUD 上钉一个点，震前 / 震后的**屏幕坐标相同**」= 文案本身（屏幕上纹丝不动），
+            //      而且不必再手抄内部那个 `M`（照抄 `:24099-24113` 也做得到，但那里能用是因为它就在
+            //      `Run` 里、拿得到 `camHomeRot` 与 `ShakeOrientationRef`；本文件尾的静态类拿不到，
+            //      而把实现的算式再抄一遍 = 与实现**同源** = 自证）。
+            //   ⚠️ 钉子点必须**离开相机光轴**（否则旋转分量在屏上看不出来）⇒ 取 HUD 局部 (1,1,0)。
+            //   断两条：① **像素**（`WorldToScreenPoint`，字面意义上的屏空间）；
+            //          ② **相机空间**（与①等价，且不依赖批处理下 `pixelWidth/Height` 的取值 ⇒ ① 万一退化也不会空转）。
+            Vector3 pinLocal = new Vector3(1f, 1f, 0f);
+            bool hudOk = hudRoot != null;
+            Vector3 pinBeforeScreen = Vector3.zero, pinBeforeCam = Vector3.zero;
+            if (hudOk)
+            {
+                Vector3 pin0 = hudRoot.TransformPoint(pinLocal);
+                pinBeforeScreen = cam.WorldToScreenPoint(pin0);
+                pinBeforeCam = Quaternion.Inverse(homeRot) * (pin0 - home);      // 震前**相机空间**坐标
+            }
+            var twA = CardFeel.ShakeCameraForAttack(cam, hudRoot, ourPos, 5, 0f, null, 4242);   // 近战 5 ⇒ 尺寸 2 ⇒ amp 4
+            Vector3 dA = cam.transform.position - home;
+            float nS = CardFeel.ShakeNoise01(0f, CardFeel.LastShakePhase);
+            check(Mathf.Abs(nS) > 0.05f,
+                  $"（前提）该种子下 t=0 的噪声不接近 0（|n0| = {Mathf.Abs(nS):F3}）⇒ 下面两条不是空转");
+            check(Mathf.Abs(dA.x + 0.997832f * amp4 * nS) < 2e-3f && Mathf.Abs(dA.y) < 1e-5f && Mathf.Abs(dA.z) < 1e-5f,
+                  $"★ W11/端到端：`ShakeCameraForAttack` 当场位移 Δ = ({dA.x:F4}, {dA.y:F6}, {dA.z:F6})"
+                + $" = 期望 (−0.997832 × {amp4:F4} × 噪声 {nS:F3} = {-0.997832f * amp4 * nS:F4})"
+                + " ⇒ **只有屏幕水平**（竖直/景深都是 0，因为原版喂的是棋盘坐标、y = 0）"
+                + "｜🧨 相机位移仍只乘 `Vector3.up` ⇒ Δx 恒 0 ⇒ 红（旧实现就是「完全不震」）");
+            // ---- ⑤b HUD：屏空间不变式（前提**硬断**，⛔ 不写 `if (前提) Check(结论)` 那种静默跳过）----
+            check(hudOk,
+                  "★ W11/端到端：（**前提不成立**）场景里没有 HUD 根 ⇒ 下面「HUD 在屏幕上纹丝不动」"
+                + "那两条**一次都没跑过**（⛔ 不算通过）");
+            if (hudOk)
+            {
+                Vector3 pin1 = hudRoot.TransformPoint(pinLocal);
+                Vector3 pinAfterScreen = cam.WorldToScreenPoint(pin1);
+                Vector3 pinAfterCam = Quaternion.Inverse(cam.transform.rotation) * (pin1 - cam.transform.position);
+                // 前提（防空转）：① 相机**真的**横着动了（否则 HUD 跟不跟都看不出来）；
+                //                ② 钉子点在光轴外（否则旋转那一半投影不出来）。
+                float pinLateral = new Vector2(pinBeforeCam.x, pinBeforeCam.y).magnitude;
+                check(Mathf.Abs(dA.x) > 1f && pinLateral > 0.1f,
+                      $"★ W11/端到端：（前提）这两条不是空转 —— 相机横向位移 {dA.x:F3} 世界单位、"
+                    + $"钉子点在相机空间里的横向分量 {pinLateral:F3}");
+                float dScreen = ((Vector2)(pinAfterScreen - pinBeforeScreen)).magnitude;
+                float dCam = (pinAfterCam - pinBeforeCam).magnitude;
+                check(dScreen < 0.1f && dCam < 1e-3f,
+                      "★ W11/端到端：HUD 根与相机做**同一个刚体变换** ⇒ HUD 上那个钉子点**屏幕上纹丝不动**"
+                    + $"（屏幕残差 {dScreen:F4} px / 相机空间残差 {dCam:E2}；钉子点 = HUD 局部 (1,1,0)）"
+                    + $"｜🧨 HUD 只跟竖直分量（或干脆不跟）⇒ 相机横着抖 {dA.x:F3} 世界单位时 HUD 跟着飞 ⇒ 两条残差都爆表 ⇒ 红");
+            }
+            DG.Tweening.TweenExtensions.Kill(twA, false);
+            CardFeel.SettleShake();
+
+            // ---- ⑥ 灭自证：**既有那一档**（preset 自带 `direction = (0,0.2,0.2)`）不许凭空多出水平分量 ----
+            Vector3 home2 = cam.transform.position;
+            var twB = CardFeel.ShakeCameraForHit(cam, hudRoot, 5, 0f, null, 4242);
+            Vector3 dB = cam.transform.position - home2;
+            float nB = Mathf.Abs(CardFeel.ShakeNoise01(0f, CardFeel.LastShakePhase));
+            check(Mathf.Abs(dB.x) < 1e-5f && nB > 0.05f && Mathf.Abs(dB.y) > 1e-3f,
+                  $"★ W11/**灭自证**：既有 `ShakeCameraForHit`（preset 方向 (0,0.2,0.2)）的水平分量 = {dB.x:E1}（必须 0），"
+                + $"竖直 = {dB.y:F4} ≠ 0 ⇒ 两个通道**互不串**、加水平通道**没有改变既有那一档**"
+                + "｜🧨 把 `ShakeScreenDirOf` 改成「不做 FromToRotation」或取绝对值 ⇒ 这里多出水平分量 ⇒ 红");
+            DG.Tweening.TweenExtensions.Kill(twB, false);
+            CardFeel.SettleShake();
+            check((cam.transform.position - home).magnitude < 1e-4f,
+                  "（收尾）相机放回原位 —— 后面「跑完复位」那几条依赖它（本断言不把镜头留在歪着的位置）");
+        }
+    }
+
+    // =====================================================================
+    //  🆕 2026-10-27（`B9_W24ASSERT` · 账 `战斗界面_HUD:682 / 683 / 684 / 686 / 687`）
+    //  K-04「长按 / 轻点 / 按住弹卡面」五条口径的**断言组**。
+    // ---------------------------------------------------------------------
+    //  为什么单开一个类：`Run` 里那个 `Check` 是**局部函数**（本文件 `:636`）；新断言若塞进 `Run`
+    //    中间，本文件下游几十条 `账/*.tsv` 的 `文件:行号` 会整体漂 ⇒ 走 `B9_W11SHAKE` 那一套
+    //    「**委托外传 + 文件尾类**」（调用点在同一行内追加 ⇒ 本文件**行数不变**）。
+    //
+    //  判据（🥇 全量反编译 `d:/2/tools/decomp_full/`，逐份亲读；⛔ **一个期望值都不从被测实现读回**）：
+    //    · `ActiveWarlordAbility__.ctor.c:1-8`               `+0x40 = 0x3e99999a` = **0.3f**（`cardShowTime`）
+    //    · `ActiveWarlordAbility__OnTouchDown.c:1-14`        `+0x3c = Time.time`；`+0x38 = 1`（全文两句）
+    //    · `ActiveWarlordAbility__OnTouchExit.c:1-7`         `+0x38 = 0`（全文一句）
+    //    · `ActiveWarlordAbility__Update.c:1-26`             `cardShowTime <= elapsed && elapsed != cardShowTime`
+    //        ⇒ 浮点上 = **严格大于**；命中后对 `+0x38` 写**两字节** `0x100`（= flag 清 0 + displayingCardFlag 置 1）
+    //    · `ActiveWarlordAbility__OnTouchUpAsButton.c:1-72`   isPlayer 闸 → `SetupActiveSkill`（**先填面板**）→
+    //        `TryUsingActiveAbilityOfCard(forceSelectCard: 1)` → 真 **且** `PressedBtn != null` ⇒
+    //        `SetActive(true)` + `DOVirtual.DelayedCall(0.4f, b__12_0)`；`PressedBtn == null` ⇒ **什么都不做**
+    //    · `ActiveWarlordAbility___OnTouchUpAsButton_b__12_0.c:1-9`  `PressedBtn.SetActive(false)`
+    //    · `CardScript__OnTouchUpAsButton.c:30-44`           **手牌那档** `0.2 <= elapsed ⇒ 不开窗`
+    //        （`DAT_1834b2bb0` = `0.2f`，读数在 `:37`、比较在 `:38`）—— 🔴 **另一个类、方向相反**，⛔ 与上面 0.3 / 0.4 合并
+    //    · `CardScript__OnTouchUpAsButton.c:63-88`           **棋盘 inPlay / inPlayAttacking / inPlayAimingAttack
+    //        那一档【不量时长】**（`:70` `IsAeldariRemnant` ⇒ 收集 / 其余 ⇒ `displayingCardFlag=1` + `DisplayCard(1, …)`，全文没有时间量）
+    //  ⚠️ 批处理没有帧循环 ⇒ 时间一律**手动推时钟**（`ActiveWarlordAbilityTouch.Clock` /
+    //     `CardInteraction.SetPressElapsedForTest`），本类里没有一句「等 0.4 秒」。
+    //  ⚠️ 前提一律**写成硬检查**（红），⛔ 不用 `if (前提) check(结论)` 那种静默跳过。
+    // =====================================================================
+    static class K4HoldAssert
+    {
+        /// <param name="parent">建探针卡视图用的父节点（`BattleDriver.transform`）；可为 null。</param>
+        /// <param name="check">`Run` 的局部 `Check(bool, string)`（传进来才用得上它的计数与日志前缀）。</param>
+        public static void Check(Transform parent, System.Action<bool, string> check)
+        {
+            // ---------- ① 前提：三条常量必须是原版字面量（三条量**不许合并**） ----------
+            float cardShow = CardHighlight.ActiveWarlordAbilityTouch.CardShowTime;
+            float btnDelay = CardHighlight.ActiveWarlordAbilityTouch.PressedBtnHideDelay;
+            float handGate = CardInteraction.LongPressNoDisplaySeconds;
+            check(Mathf.Abs(cardShow - 0.3f) < 1e-7f && Mathf.Abs(btnDelay - 0.4f) < 1e-7f
+                  && Mathf.Abs(handGate - 0.2f) < 1e-7f,
+                  $"★ K4/前提·三条常量 = 原版字面量：`cardShowTime` **0.3**（`__ctor` 的 `0x3e99999a`）、"
+                + $"PressedBtn 亮 **0.4**（`.rdata DAT_1834b3158`）、手牌长按门 **0.2**（`DAT_1834b2bb0`）"
+                + $" —— 实得 {cardShow} / {btnDelay} / {handGate}"
+                + "｜🧨 改任何一个常量、或把三条并成一条 ⇒ 红（下面几条也会跟着红，但这条先指出来）");
+
+            // ---------- ② 686 `Update`：0.3 s 那道门是【严格大于】 ----------
+            var wa = new CardHighlight.ActiveWarlordAbilityTouch();
+            float now = 0f;
+            wa.Clock = () => now;
+            int shown = 0;
+            wa.ForceDisplayCard = () => shown++;
+            wa.OnTouchDown();                                   // `+0x3c = Clock()`（= 0）、`+0x38 = 1`
+            bool flagAfterDown = wa.InPlayClickFlag;
+            now = 0.3f;                                         // 正好 == cardShowTime
+            bool atExact = wa.Tick();                           // 原版 `elapsed != cardShowTime` ⇒ 这一帧**不**弹
+            now = 0.3001f;                                      // 严格大于
+            bool justAfter = wa.Tick();                         // ⇒ 弹
+            check(flagAfterDown && !atExact && justAfter && shown == 1,
+                  $"★ K4/682+686 的 0.3 s 门是**严格大于**：按下置标志（{flagAfterDown}）、elapsed 正好 = 0.3 时"
+                + $"**不弹**（{atExact}）、0.3001 时弹（{justAfter}）⇒ `ForceDisplayCard` 共 {shown} 次（期望 1）"
+                + " —— 原版 `cardShowTime <= elapsed && elapsed != cardShowTime`（浮点上 = 严格大于）"
+                + "｜🧨 写成 `>=` ⇒ 正好 0.3 那一下就弹 ⇒ 第二格变真 ⇒ 红；写成 `> 0.5` 之类的粗门 ⇒ 第三格变假 ⇒ 红");
+
+            // ---------- ③ 683 `OnTouchExit`：真的清掉按下标志（与 ② 构成灭自证） ----------
+            var waExit = new CardHighlight.ActiveWarlordAbilityTouch();
+            float nowE = 0f;
+            waExit.Clock = () => nowE;
+            int shownE = 0;
+            waExit.ForceDisplayCard = () => shownE++;
+            waExit.OnTouchDown();
+            waExit.OnTouchExit();                               // 原版 `.c:1-7` 全文一句：`+0x38 = 0`
+            nowE = 100f;                                        // 远大于 0.3
+            bool firedE = waExit.Tick();
+            check(!firedE && shownE == 0 && !waExit.InPlayClickFlag,
+                  $"★ K4/683 离开（`OnTouchExit`）真的把 `inPlayClickFlag` 清了：松手之后哪怕等到 100 s 也**不弹**"
+                + $"（fired={firedE}、调用 {shownE} 次、flag={waExit.InPlayClickFlag}）"
+                + " —— 与上一条【同一个 `Tick`、同样「远大于 0.3」】，只差一次 `OnTouchExit()`"
+                + "｜🧨 把 `OnTouchExit` 写成空方法、或 `Tick` 不看 flag ⇒ 这里弹了 ⇒ 红"
+                + "（**灭自证**：「一松手还弹」与「一次都不弹」不可能同时满足 —— 后者会让上一条红）");
+
+            // ---------- ④ 686 命中后的状态迁移 + 不会重复弹 + 下一按重新武装 ----------
+            bool repeat1 = wa.Tick();                           // now 还是 0.3001
+            now = 50f;
+            bool repeat2 = wa.Tick();
+            check(!repeat1 && !repeat2 && shown == 1 && !wa.InPlayClickFlag
+                  && wa.DisplayingCardFlag && wa.HoldDisplayedThisPress,
+                  $"★ K4/686 命中后对 `+0x38` 写**两字节** `0x100`：`inPlayClickFlag` 清 0、`displayingCardFlag` 置 1"
+                + $"（实得 flag={wa.InPlayClickFlag} · displaying={wa.DisplayingCardFlag} · "
+                + $"holdDisplayed={wa.HoldDisplayedThisPress}），且**不会重复弹**（再 Tick 两次仍是 {shown} 次）"
+                + "｜🧨 漏掉 `_inPlayClickFlag = false` ⇒ 每帧都弹（计数变 3）⇒ 红；漏掉 `_displayingCardFlag = true` ⇒ 红；"
+                + "漏掉 `_holdDisplayedThisPress = true` ⇒ 红（宿主松手那支会再 toggle 一次窗）");
+            wa.OnTouchDown();                                   // 下一按：重新武装
+            check(wa.InPlayClickFlag && !wa.HoldDisplayedThisPress,
+                  "★ K4/682 下一按**重新武装**：`OnTouchDown` 之后 flag = 1、`holdDisplayed` 归 0"
+                + "（原版 `OnTouchDown` 全文两句只写 `+0x3c` 与 `+0x38`）"
+                + "｜🧨 漏清 `HoldDisplayedThisPress` ⇒ 第二次长按弹不出卡面（静默少一次开窗）⇒ 红");
+
+            // ---------- ⑤ 684 + 687：PressedBtn 的顺序 / 点亮 / 0.4 s 熄灭 ----------
+            var waTap = new CardHighlight.ActiveWarlordAbilityTouch();
+            float nowT = 0f;
+            waTap.Clock = () => nowT;
+            waTap.IsPlayer = true;
+            var seq = new List<string>();
+            bool btnOn = false;
+            waTap.SetupActiveSkill = () => seq.Add("setup");
+            waTap.TryUseActiveAbility = () => { seq.Add("use"); return true; };
+            waTap.PressedBtnSetActive = on => { btnOn = on; seq.Add(on ? "btn:on" : "btn:off"); };
+            bool tapRet = waTap.OnTouchUpAsButton();             // 这一刻 clock 还是 0
+            bool litNow = btnOn && waTap.PressedBtnVisible && waTap.PressedBtnHidePending;
+            nowT = 0.3f; waTap.Tick();                          // 0.3 s 这一刻（= 卡面那道的时长）还该亮着
+            bool stillAt03 = btnOn && waTap.PressedBtnVisible;
+            nowT = 0.4f; waTap.Tick();                          // 0.4 s 到点 ⇒ 熄灭
+            bool offAt04 = !btnOn && !waTap.PressedBtnVisible && !waTap.PressedBtnHidePending;
+            string seqStr = string.Join(">", seq.ToArray());
+            check(tapRet && litNow && seqStr == "setup>use>btn:on>btn:off",
+                  $"★ K4/684+687 PressedBtn 那一路：`OnTouchUpAsButton` ⇒ **先填面板、再试放、再点灯、最后熄灭**"
+                + $"（实际顺序 `{seqStr}`）—— 原版 `.c:60-70` 先 `SetupActiveSkill` 再 `TryUsingActiveAbilityOfCard`，"
+                + "返回真且 `PressedBtn != null` 才 `SetActive(true)` + `DelayedCall(0.4f)`"
+                + "｜🧨 两行的先后互换、或删掉 `PressedBtn(true)` ⇒ 红");
+            check(stillAt03 && offAt04,
+                  $"★ K4/**灭自证**（0.4 与 0.3 是两个量）：0.3 s 那一刻 PressedBtn **还亮着**（{stillAt03}）、"
+                + $"正好 0.4 s 到点**熄灭**（{offAt04}）—— 点亮时长是 `DOVirtual.DelayedCall(0.4f)`，"
+                + "而 0.3 是**另一个字段**（`cardShowTime`，管的是「按住弹卡面」）"
+                + "｜🧨 把 0.4 合并成 0.3 ⇒ 第一格变假 ⇒ 红；把 `>=` 写成 `>` ⇒ 正好 0.4 不熄 ⇒ 第二格变假 ⇒ 红；"
+                + "根本不挂 0.4 s 收尾 ⇒ 第二格也红");
+
+            // ---------- ⑥ 684 的 isPlayer 闸 + 真/假两条支（灭自证：与上一条成对） ----------
+            var waFoe = new CardHighlight.ActiveWarlordAbilityTouch();
+            waFoe.Clock = () => 0f;
+            waFoe.IsPlayer = false;                             // 原版 `parentCard.isPlayer(+0x40) == 0`
+            int setupFoe = 0, useFoe = 0;
+            bool btnFoe = false;
+            waFoe.SetupActiveSkill = () => setupFoe++;
+            waFoe.TryUseActiveAbility = () => { useFoe++; return true; };
+            waFoe.PressedBtnSetActive = on => btnFoe = on;
+            bool foeRet = waFoe.OnTouchUpAsButton();
+            check(!foeRet && setupFoe == 0 && useFoe == 0 && !btnFoe,
+                  "★ K4/684 的 isPlayer 闸：**敌方卡**整条早退（原版 `.c:55-58`：`isPlayer == 0` ⇒ return）"
+                + $" —— 面板没填（{setupFoe}）、没试放（{useFoe}）、没点灯（{btnFoe}）"
+                + "｜🧨 删掉那道闸 ⇒ 点敌方单位也会填面板并试放（原版不会）⇒ 红");
+
+            var waCant = new CardHighlight.ActiveWarlordAbilityTouch();
+            waCant.Clock = () => 0f;
+            waCant.IsPlayer = true;
+            int setupCant = 0;
+            bool btnCant = false;
+            waCant.SetupActiveSkill = () => setupCant++;
+            waCant.TryUseActiveAbility = () => false;           // 打不了 / 需要选目标（原版这两档都 return 0）
+            waCant.PressedBtnSetActive = on => btnCant = on;
+            bool cantRet = waCant.OnTouchUpAsButton();
+            check(cantRet && setupCant == 1 && !btnCant && !waCant.PressedBtnHidePending,
+                  "★ K4/**灭自证**（真 / 假两条支的判别）：`TryUsingActiveAbilityOfCard` 返回 **0**"
+                + "（打不了，或「需要选目标、已进入选目标态」—— 原版这两档都 return 0）⇒ **不点亮** PressedBtn"
+                + $"（点亮={btnCant}），但**面板照填**（`SetupActiveSkill` 调了 {setupCant} 次）"
+                + "｜🧨 把 `if (!used) return` 删掉（或把「进入选目标」也返回真）⇒ 这里点亮 ⇒ 红；"
+                + "把 `SetupActiveSkill` 挪到 `used` 判断之后 ⇒ 这里 = 0 ⇒ 红"
+                + "（与上一条「返回真 ⇒ 亮」**结构上不可能同时满足**）");
+
+            // ---------- ⑦ 687：钩子没接时**出声一次**；接上之后**不再出声**（灭自证） ----------
+            int sentinel = 0, warnNoHook = 0, warnHooked = 0;
+            bool countingHooked = false;
+            Application.LogCallback h = (cond, stack, type) =>
+            {
+                if (cond == null) return;
+                if (cond.Contains("K4-SENTINEL")) { sentinel++; return; }
+                if (type != LogType.Warning || !cond.Contains("PressedBtnSetActive")) return;
+                if (countingHooked) warnHooked++; else warnNoHook++;
+            };
+            var waNoHook = new CardHighlight.ActiveWarlordAbilityTouch();
+            waNoHook.Clock = () => 0f;
+            waNoHook.IsPlayer = true;
+            waNoHook.SetupActiveSkill = () => { };
+            waNoHook.TryUseActiveAbility = () => true;
+            waNoHook.PressedBtnSetActive = null;                // 原版 `PressedBtn == null`
+            var waHooked = new CardHighlight.ActiveWarlordAbilityTouch();
+            waHooked.Clock = () => 0f;
+            waHooked.IsPlayer = true;
+            waHooked.SetupActiveSkill = () => { };
+            waHooked.TryUseActiveAbility = () => true;
+            waHooked.PressedBtnSetActive = on => { };
+            bool noHookRet = false, hookedRet = false;
+            Application.logMessageReceived += h;
+            try
+            {
+                Debug.LogWarning("K4-SENTINEL");                // 前提：捕获器本身有效（否则下面「听到 0 条」是假绿）
+                noHookRet = waNoHook.OnTouchUpAsButton();
+                countingHooked = true;
+                hookedRet = waHooked.OnTouchUpAsButton();
+            }
+            finally { Application.logMessageReceived -= h; }
+            check(sentinel == 1,
+                  $"（前提）日志捕获器有效（哨兵命中 {sentinel} 次）—— 否则下面那条「听到警告」是空转");
+            check(noHookRet && warnNoHook == 1 && !waNoHook.PressedBtnVisible && !waNoHook.PressedBtnHidePending,
+                  $"★ K4/687 钩子没接（原版 `PressedBtn == null`）：**出声一次、且不假装**"
+                + $"（听到 {warnNoHook} 条含 `PressedBtnSetActive` 的警告；按钮亮={waNoHook.PressedBtnVisible}、"
+                + $"熄灭挂起={waNoHook.PressedBtnHidePending}）—— 原版 `.c:70-72` 那一支「什么都不做」，"
+                + "我们按项目红线**出声、不静默**"
+                + "｜🧨 把 `WarnOnce` 那条删成静默 ⇒ 听到 0 条 ⇒ 红；把这一支改成也点灯 ⇒ 按钮变亮 ⇒ 红");
+            check(hookedRet && warnHooked == 0 && waHooked.PressedBtnVisible,
+                  $"★ K4/**灭自证**（出声的两侧）：钩子**接上**之后**一条警告都不该有**（{warnHooked} 条）、"
+                + "且按钮**亮了**（原版 `.c:73-80` 那一支 = `SetActive(true)` + `DelayedCall(0.4f)`）"
+                + "｜🧨 「一律出声」⇒ 这里听到 1 条 ⇒ 红；「一律不出声」⇒ 上一条 0 条 ⇒ 红 —— 两侧不可能同时满足");
+
+            // ---------- ⑧ 手牌那道 0.2 s 门（另一个类、方向相反） ----------
+            var itGo = new GameObject("K4_PressProbe");
+            try
+            {
+                var it = itGo.AddComponent<CardInteraction>();
+                it.SetPressElapsedForTest(0.19f); bool handShort = it.PressShortEnoughForTest;
+                it.SetPressElapsedForTest(0.20f); bool handLongExact = it.PressShortEnoughForTest;
+                it.SetPressElapsedForTest(9.00f); bool handLong = it.PressShortEnoughForTest;
+                check(handShort && !handLongExact && !handLong,
+                      $"★ K4/684-手牌那道门：0.19 s ⇒ 算轻点（{handShort}）、**正好 0.20 s ⇒ 已经算长按**"
+                    + $"（`PressShortEnough` = {handLongExact}）、9 s ⇒ 长按（{handLong}）"
+                    + " —— 原版 `0.2 <= elapsed ⇒ 不开窗`（`CardScript__OnTouchUpAsButton.c:37-44`）"
+                    + "｜🧨 把 0.2 改成 0.3（和棋盘那条合并）⇒ 0.20 那格变真 ⇒ 红；把 `<` 写成 `<=` ⇒ 0.20 那格也红");
+
+                // ---------- ⑨ 棋盘那个类：inHand 档**不归它**、inPlay 档**不量时长** ----------
+                var k4d = CardData.Simple("K4Probe", 1, 1, 1);
+                k4d.isUnit = true;
+                var pv = CardView.Create(parent, k4d, "K4Probe");
+                try
+                {
+                    check(pv != null, "（前提）K-04 探针卡视图建出来了（否则下面两条是空转）");
+                    int dispCalls = 0; bool dispShow = false;
+                    pv.BoardHighlight.DisplayCard = show => { dispCalls++; dispShow = show; };
+
+                    var tHand = new CardHighlight.TouchInput
+                    {
+                        CardState = CardHighlight.CardStateId.inHand, IsPlayer = true, PressSeconds = 0.01f
+                    };
+                    bool retHand = pv.BoardHighlight.OnTouchUpAsButton(tHand);
+                    int afterHand = dispCalls;
+                    check(!retHand && afterHand == 0,
+                          "★ K4/棋盘那个类**不接**手牌那一档：`CardState == inHand` ⇒ 返回假、且**没开窗**"
+                        + $"（`DisplayCard` 调用 {afterHand} 次）—— 手牌那道 0.2 s 门在 `CardScript`（另一个类）里，"
+                        + "`CardHighlight` 这一档只管 inPlay 三档（`CardScript__OnTouchUpAsButton.c:63-88`）"
+                        + "｜🧨 把 0.2 s 门搬进棋盘类（inHand 支返回真 / 又开一次窗）⇒ 红（那会变成一次点开两次窗）");
+
+                    var tPlay = new CardHighlight.TouchInput
+                    {
+                        CardState = CardHighlight.CardStateId.inPlay, IsPlayer = true, PressSeconds = 9f
+                    };
+                    bool retPlay = pv.BoardHighlight.OnTouchUpAsButton(tPlay);
+                    check(retPlay && dispCalls - afterHand == 1 && dispShow,
+                          "★ K4/**灭自证**（棋盘 inPlay 档**不量时长**）：喂 `PressSeconds = 9 s`（远大于手牌那道 0.2）"
+                        + $"⇒ inPlay 档**照样**开窗（`DisplayCard(true)` 调 {dispCalls - afterHand} 次、返回 {retPlay}）"
+                        + " —— 原版 inPlay / inPlayAttacking / inPlayAimingAttack 那三档不量时长（`.c:63-88`）"
+                        + "｜🧨 把 0.2 s 门挪到 inPlay 支 ⇒ 9 s 那一档不开窗 ⇒ 红"
+                        + "（与上一条「inHand 档不归它」是成对的：两条都塞门会让上一条红、两条都不塞会让手牌那条红）");
+                }
+                finally { if (pv != null) Object.DestroyImmediate(pv.gameObject); }
+
+                // ---------- ⑩ 灭自证：同一时刻 0.2 s，两条门的结论**相反**（⛔ 不许合并常量） ----------
+                var waCmp = new CardHighlight.ActiveWarlordAbilityTouch();
+                float nowCmp = 0f;
+                waCmp.Clock = () => nowCmp;
+                int shownCmp = 0;
+                waCmp.ForceDisplayCard = () => shownCmp++;
+                waCmp.OnTouchDown();                            // 按下（clock = 0）
+                nowCmp = 0.2f;
+                bool firedAt02 = waCmp.Tick();
+                it.SetPressElapsedForTest(0.2f);
+                bool handAlreadyLong = !it.PressShortEnoughForTest;
+                check(!firedAt02 && shownCmp == 0 && handAlreadyLong && cardShow > handGate,
+                      $"★ K4/**灭自证**（⛔ 两条量不许合并）：同一个时刻 **0.2 s** —— 手牌那道门**已经算长按**"
+                    + $"（`PressShortEnough` = {!handAlreadyLong}），而棋盘「按住弹卡面」**还没到**"
+                    + $"（`Tick` fired = {firedAt02}、`ForceDisplayCard` = {shownCmp} 次、`cardShowTime` = {cardShow}）"
+                    + "｜🧨 两条合成一个常量：都取 0.2 ⇒ 这里弹出 ⇒ 红；都取 0.3 ⇒ 0.2 s 时手牌不算长按 ⇒ 红");
+            }
+            finally { Object.DestroyImmediate(itGo); }
+        }
+    }
+
+    // =====================================================================
+    //  🆕 2026-10-27（`B9_W67CENTER` · 上一路 `B9_W57BDR4` 报告 §五·5 的建议）
+    //  敌方打出卡「中央展示」**终点**的两条结构断言（此前本文件**一条都没有**：
+    //  现读只有 `:15390`「载体建出来了」⇒ 「终点放回屏幕正中」这类错**不会红**）。
+    // ---------------------------------------------------------------------
+    //  判据（⛔ 期望值一个都不从被测实现里读回 —— 锚点是**文档字面量**、偏移是**原版字段值**）：
+    //    · 落点公式 `decomp_full/CardScript__GetEnemyCardPlayedDisplayPosition.c:60-75`：
+    //        `enemyHand.position + Vector3.right·X − Vector3.up·Y`；
+    //        桌面 X = `+0x54 = −26` · 小屏 X = `+0x58 = +25`（**两个字段、符号相反**）· Y = `+0x50 = 24`。
+    //    · `enemyHand` 的屏幕锚点 = **(960, 50) @1080p**（`UpperAnchor/EnemyArea/HandArea`）
+    //        → `资料/完全复刻/判据/enemyHand屏幕锚点_判定.md` §一·1。
+    //    · px 换算 **14.835 px / 世界单位 @1080p** · **y 向下为正**（与 `LayoutSpace.FromPixel` 同约定）
+    //        → `RuleEngine/Core/GameplayVariables.cs:663-693`。
+    //    ⇒ 两档落点 = **(574, 406)**（桌面） / **(1331, 406)**（小屏）。
+    // ---------------------------------------------------------------------
+    //  量法：走**真演出** —— `DisplayEnemyCardInCenter` 建的那张临时 `CardView`，把补间手动推过
+    //    `DOMove(0.15 s)` 之后读它的**世界坐标**，再用 `LayoutSpace.ToDesignPixel`（`FromPixel` 的逆）
+    //    读回**设计 px**。⚠️ 批处理下没有帧循环 ⇒ 时间一律手动推（`CardTween.Advance`）。
+    //    🔴 **别拿 `VarsGlobal.PlayedCardDisplayPosition`（世界版）算期望**：它的偏移单位是原版 UI 画布
+    //       的世界单位（1 单位 = 14.835 px），而 `LayoutSpace` 的 1 世界单位 = **108 px**
+    //       ⇒ 直接用会把偏移放大 **7.28 倍**（判据 → `BattleDriver.EnemyCardPlayedDisplayPointWorld` 头注）。
+    // ---------------------------------------------------------------------
+    //  前提一律**硬检查**（红），⛔ 不用 `if (前提) check(结论)` 那种静默跳过 —— 那会让
+    //    「前提不成立」伪装成「通过」（CLAUDE.md §三，2026-10-26 一天撞到三次）。
+    // =====================================================================
+    static class W67CenterAssert
+    {
+        /// <summary>`enemyHand` 的屏幕锚点（**设计 px**，左上原点 / y 向下）—— 判据文档的字面量，
+        /// ⛔ 不读 `BattleDriver` 的私有常量（那是「拿实现证明实现」）。</summary>
+        const float AnchorPxX = 960f, AnchorPxY = 50f;
+        /// <summary>屏幕正中（1920×1080 设计 px）。「不是正中」那一条拿它当反例。</summary>
+        const float CenterPxX = 960f, CenterPxY = 540f;
+
+        /// <param name="driver">对局驱动（要它的 `hudRoot` / 卡池 / `MyIndex`）。</param>
+        /// <param name="check">`Run` 的局部 `Check(bool, string)`（借它的计数与日志前缀）。</param>
+        public static void Check(BattleDriver driver, System.Action<bool, string> check)
+        {
+            // ---------- ① 前提（硬检查，先跑）----------
+            check(driver != null && driver.Ctx != null && driver.Ctx.CardPool != null,
+                  "（前提·W67）拿得到对局驱动 / `Ctx` / 卡池 —— 拿不到的话下面两条**一条都没跑过**（⛔ 不算通过）");
+            if (driver == null || driver.Ctx == null || driver.Ctx.CardPool == null) return;
+            CardDef spell = null;
+            foreach (var c in driver.Ctx.CardPool)
+                if (c != null && !c.IsUnit) { spell = c; break; }
+            check(spell != null, "（前提·W67）卡池里有一张**非单位卡**（原版 `cardType != 0` 才走中央展示）");
+            if (spell == null) return;
+            check(!SmallScreenUI.Enabled,
+                  "（前提·W67）第一态 = **桌面档**（`SmallScreenUI.Enabled == false`；`Run` 开头已压）"
+                + " —— 两态若同值，下面那条「X 反号」判别式就是空转");
+            var data = BattleDriver.ToCardData(spell, spell.Faction);
+            int enemySeat = 1 - driver.MyIndex;
+
+            // ---------- ② 桌面档：落点**不是屏幕正中**，而且明确偏左 ----------
+            Vector2 desk = Measure(driver, data, spell, enemySeat, "桌面档", check);
+
+            float dist = Vector2.Distance(desk, new Vector2(CenterPxX, CenterPxY));
+            check(dist > 100f,
+                  $"★ W67/中央展示落点：桌面档 ({desk.x:F1}, {desk.y:F1}) 距屏幕正中 ({CenterPxX}, {CenterPxY}) "
+                + $"{dist:F1} px > 100 —— 原版 = `enemyHand`(960,50) + 偏移(−26,+24)×14.835 = **(574, 406)**"
+                + "（`CardScript__GetEnemyCardPlayedDisplayPosition.c:60-75`）"
+                + "｜🧨 终点改回 `LayoutSpace.ToWorld(0.5f, 0.5f)`（= 正中 960,540）⇒ 距离 0 ⇒ 本条红");
+            check(desk.x < CenterPxX - 100f,
+                  $"★ W67/中央展示落点：桌面档 X = **{desk.x:F1} < 860**（明确在屏幕中线**左侧**；原版 `+0x54 = −26`）"
+                + "｜🧨 X 偏移写成 `+26`、或整项漏掉 ⇒ 落回 960 或跑到右侧 ⇒ 本条红");
+            // 身份（不只是「不在正中」）：**两维**都等于「原版锚点 + 原版偏移」。
+            // 期望值只由 ① 判据文档的锚点字面量 ② `VarsGlobal` 里那六个**原版字段值** 构成，
+            // ⛔ 不读 `BattleDriver` 那一侧的常量（被测的是「接线对不对」，不是「常数抄得对不对」）。
+            var wantOffDesk = VarsGlobal.PlayedCardDisplayOffsetPx(false, false, 1080f);
+            float wantDeskX = AnchorPxX + wantOffDesk.x;      // 574.29
+            float wantDeskY = AnchorPxY + wantOffDesk.y;      // 406.04
+            check(Mathf.Abs(desk.x - wantDeskX) <= 2f && Mathf.Abs(desk.y - wantDeskY) <= 2f,
+                  $"★ W67/中央展示落点：桌面档 = ({desk.x:F1}, {desk.y:F1})，期望 ({wantDeskX:F1}, {wantDeskY:F1})"
+                + " = 锚(960,50) + 原版偏移(−26,+24)×14.835，±2 px"
+                + "｜🧨 只挪 X 不挪 Y（落点变成 (574,540)）⇒ 上面那条「>100」照样绿、**本条红**");
+
+            // ---------- ③ 小屏档：X **反号**（结构上不可能由同一个错误值同时满足）----------
+            bool keepPersist = SmallScreenUI.PersistOverride;
+            bool wasOn = SmallScreenUI.Enabled;
+            Vector2 small;
+            try
+            {
+                SmallScreenUI.PersistOverride = true;      // 只改内存、不写玩家的 PlayerPrefs
+                SmallScreenUI.Set(true);
+                check(SmallScreenUI.Enabled,
+                      "（前提·W67）第二态 = **小屏档**（`SmallScreenUI.Enabled == true`）—— 没打开 ⇒ 两态其实是同一态 ⇒ 下条空转");
+                small = Measure(driver, data, spell, enemySeat, "小屏档", check);
+            }
+            finally
+            {
+                SmallScreenUI.Set(wasOn);                  // 本场恒 false；照样按原值放回（`Run` 收尾还会整体复原）
+                SmallScreenUI.PersistOverride = keepPersist;
+            }
+
+            check(small.x > CenterPxX && desk.x < CenterPxX,
+                  $"★ W67/**X 反号判别式**：小屏档 X = {small.x:F1} **> 960**，桌面档 X = {desk.x:F1} **< 960**"
+                + " —— 原版两个字段符号相反（桌面 `+0x54 = −26` / 小屏 `+0x58 = +25`）⇒ 两档分居屏幕中线两侧"
+                + "｜🧨 终点改回 `ToWorld(0.5f, 0.5f)`（两档都 = 960，两个 `>` / `<` 一个都不成立）、"
+                + "或小屏档仍读桌面那个字段（同号 ⇒ 同侧）⇒ 本条红。"
+                + "**一个错误值不可能同时落在 960 的左边和右边**（这就是它结构上互斥的原因）");
+            var wantOffSmall = VarsGlobal.PlayedCardDisplayOffsetPx(false, true, 1080f);
+            check(Mathf.Abs(small.x - (AnchorPxX + wantOffSmall.x)) <= 2f
+                  && Mathf.Abs(small.x - desk.x) > 500f,
+                  $"★ W67/X 反号：小屏档 = {small.x:F1}（期望 960 + 25×14.835 = 1330.9，±2）"
+                + $"；与桌面档差 **{Mathf.Abs(small.x - desk.x):F1} px > 500**（原版 51×14.835 ≈ 756.6）"
+                + "｜🧨 小屏档忘了换字段（仍读 −26）⇒ 两档同值、差 0 ⇒ 本条红");
+        }
+
+        /// <summary>走一遍真演出、把补间推过 `DOMove(0.15 s)`，读回**落点（设计 px）**。
+        /// 任一步前提不成立 ⇒ 返回 `NaN`（让调用点每一条比较都变红，⛔ 不返回一个「看起来合理」的 0）。</summary>
+        static Vector2 Measure(BattleDriver driver, CardData d, CardDef def, int seat,
+                               string tag, System.Action<bool, string> check)
+        {
+            var v = driver.DisplayEnemyCardInCenter(d, def, seat, false, 0.12f * 0.6f, 0.12f);
+            check(v != null, $"（前提·W67·{tag}）中央展示载体建出来了（读数口非退化：⛔ 不是恒 null 的空转）");
+            if (v == null) return new Vector2(float.NaN, float.NaN);
+            Vector2 p0 = LayoutSpace.ToDesignPixel(v.transform.position);   // 起点 = 那一侧手牌末位
+            CardTween.Advance(0.2f);      // > `DOMove` 0.15 s；仍在收摊（tailAt ≈ 0.49 s）之前
+            check(v != null, $"（前提·W67·{tag}）推 0.2 s 后载体还在（没被提前收掉 ⇒ 下面读到的是落点而不是起点）");
+            if (v == null) return new Vector2(float.NaN, float.NaN);
+            Vector2 p1 = LayoutSpace.ToDesignPixel(v.transform.position);
+            CardTween.Advance(0.15f);     // t ≈ 0.35 —— 位置应当**不再变化**
+            check(v != null, $"（前提·W67·{tag}）再推 0.15 s 载体仍在（t ≈ 0.35 < 收摊 0.49）");
+            if (v == null) return new Vector2(float.NaN, float.NaN);
+            Vector2 p2 = LayoutSpace.ToDesignPixel(v.transform.position);
+            // 硬前提①：**真的移动过** —— 否则读到的是起点（补间没推进时，后面「不在正中」会**假绿**）。
+            check(Vector2.Distance(p1, p0) > 50f,
+                  $"（前提·W67·{tag}）卡片**真的从手牌末位飞到了落点**（位移 {Vector2.Distance(p1, p0):F1} px > 50）");
+            // 硬前提②：读的是**停稳之后**的落点（两次采样一致）⇒ 排除「`DOMove` 时长被改长、读到半路」。
+            check(Vector2.Distance(p2, p1) < 0.5f,
+                  $"（前提·W67·{tag}）两次采样一致（{Vector2.Distance(p2, p1):F3} px < 0.5）⇒ 读到的是**停稳的落点**");
+            CardTween.Advance(0.8f);      // 走完（tail 0.49）+ 收摊 —— 别把临时卡留给后面的用例
+            check(v == null, $"（前提·W67·{tag}）演完**已收摊**（临时 `CardView` 已销毁，不留孤儿卡）");
+            return p1;
         }
     }
 }

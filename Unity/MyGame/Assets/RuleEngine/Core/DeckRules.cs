@@ -411,7 +411,7 @@ namespace RuleEngine
             // ---- ① 督军位（原版 `TryRemoveInvalidHero.c:26-27`）----
             //   ⚠️ 原版摘的是**那张卡**；我们的督军是**一个槽**（`WarlordId`）⇒ 摘 = 清空该槽。
             //     清空之后卡组就没有督军了（`Validate` 会报 `NoWarlord`），与原版一致。
-            var warlord = string.IsNullOrEmpty(deck.WarlordId) ? null : lookup(deck.WarlordId);
+            var warlord = string.IsNullOrEmpty(deck.WarlordId) ? null : PlayerDeck.ResolveEntry(deck.WarlordId, lookup, out _);
             if (!string.IsNullOrEmpty(deck.WarlordId) && (warlord == null || warlord.Type != "hero"))
             {
                 removed.Add(new RemovedCard
@@ -432,7 +432,7 @@ namespace RuleEngine
             for (int i = deck.CardIds.Count - 1; i >= 0; i--)
             {
                 string id = deck.CardIds[i];
-                var c = string.IsNullOrEmpty(id) ? null : lookup(id);
+                var c = string.IsNullOrEmpty(id) ? null : PlayerDeck.ResolveEntry(id, lookup, out _);
                 DeckError why;
                 if (c == null) why = DeckError.UnknownCard;                       // 我们加的（见上文）
                 else if (c.Type != "unit" && c.Type != "tactic") why = DeckError.WarlordInCards;   // a：卡型
@@ -453,12 +453,12 @@ namespace RuleEngine
             if (lookup == null) throw new ArgumentNullException(nameof(lookup));
 
             // ① 全部 id 都要能在卡池里找到
-            var warlord = deck.WarlordId == null ? null : lookup(deck.WarlordId);
-            var defensive = deck.DefensiveId == null ? null : lookup(deck.DefensiveId);
+            var warlord = deck.WarlordId == null ? null : PlayerDeck.ResolveEntry(deck.WarlordId, lookup, out _);
+            var defensive = deck.DefensiveId == null ? null : PlayerDeck.ResolveEntry(deck.DefensiveId, lookup, out _);
             var cards = new List<CardDef>();
             foreach (var id in deck.CardIds)
             {
-                var c = lookup(id);
+                var c = PlayerDeck.ResolveEntry(id, lookup, out _);
                 if (c == null) return DeckError.UnknownCard;
                 cards.Add(c);
             }
@@ -784,7 +784,7 @@ namespace RuleEngine
 
         public bool RemoveCard(string id)
         {
-            int i = CardIds.LastIndexOf(id);
+            string key = SameCardKey(id); int i = CardIds.FindLastIndex(c => SameCardKey(c) == key);
             if (i < 0) return false;
             CardIds.RemoveAt(i);
             return true;
@@ -792,9 +792,116 @@ namespace RuleEngine
 
         public int CountOf(string id)
         {
-            int n = 0;
-            foreach (var c in CardIds) if (c == id) n++;
+            int n = 0; string key = SameCardKey(id);
+            foreach (var c in CardIds) if (SameCardKey(c) == key) n++;
             return n;
+        }
+
+        // ============================================================ 异画副本（Alternate Art）
+        //
+        //  账 `HUD:92` / `HUD:93` 的【卡组层】一半 —— 视图侧早就接好了
+        //  （`BattleDriver.AltArtOverrideOf` 在两处建视图都往 `CardData.artOverride` 里填），
+        //  缺的只是「卡组里怎么表示这一份是异画」。
+        //
+        //  【原版怎么表示】（判据现读，⛔ 别按我们的 `#` 口径反推原版）：
+        //    · `RawCardScript` 有两格：`alternateArts : AlternateArtCard[]`（+0x80）与
+        //      `currentAlternateArt : AlternateArtCard`（+0x88）
+        //      （`d:/2/tools/il2cpp_out/dump.cs:23244-23310`）。
+        //    · **异画副本是另一张 RawCardScript 资产**：它 `currentAlternateArt != null`、
+        //      `altArtFromId`（+0x178）= 原卡 id。于是
+        //        `IsAlternateArt()` = `currentAlternateArt != null`
+        //          （ILSpy `cpp2il/out_cpp2il_dev_ilspy/RawCardScript.cs:473-476`；Ghidra 同族
+        //           `decomp_full/RawCardScript__IsAlternateArt.c` 读的正是 +0x88）；
+        //        `GetOriginalId()` = **原卡 id**（`decomp_full/RawCardScript__GetOriginalId.c`：
+        //          currentAlternateArt 为空 ⇒ 自己的 id，否则 ⇒ 它的 `originalCard`（+0x48）的 id；
+        //          与 ILSpy 里 `altArtFromId ?? uniqueId` 那几处同源 —— `RawCardScript.cs:2353`）。
+        //    · 卡组 `CardDeck.cardLibrary` 是 `List<RawCardScript>`（+0x58）⇒ **存的是对象引用**，
+        //      「这一份是异画」天然带着，**没有额外的列**。
+        //    · 「同一张卡」的判据一律是 `GetOriginalId()`：份数 `CardDeck__CardCopiesInDeck.c`
+        //      （督军那一支 + 列表 `Enumerable.Count` 的谓词 `b__0`，逐句现读）与「在不在卡组里」
+        //      `CardDeck__Has` 都拿它比 ⇒ **异画副本与普通那张算同一张卡**，不额外占份数上限。
+        //    · 背包里那件物品是 `AlternateArtCard`，`uniqueId = "#HB_<原卡 id>"`（本地 7 条真值 →
+        //      `数据/索引/altart_index.json`；卡表那一列 = `cards_engine.json` 的 `alternateArts`）。
+        //      「物品 id → 卡资产 id」= `AlternateArtCard.GetIdForClonedCard()` =
+        //      `uniqueId.Replace("#", "")`（`decomp_full/AlternateArtCard__GetIdForClonedCard.c` +
+        //      ILSpy `AlternateArtCard.cs:80-90`）= `HB_<原卡 id>`。
+        //
+        //  【我们的表示】🔶 自己设计（非原版）· 形式 = `#` 前缀 · 调度台 2026-10-27 裁定：
+        //    我们的卡组存的是**字符串 id**（`CardIds`），没有对象引用可用 ⇒「这一份是异画副本」
+        //    写成**以 `#` 开头的条目**，取 `AlternateArtCard.uniqueId` 那一套（`#HB_SW1`）。两条理由：
+        //      ① 那是**我们唯一有真值的表**（`cards_engine.json.alternateArts`，现读 7 条）；
+        //      ② 视图侧 `BattleDriver.CollectAltArtCopies` 现成只认 `#` 开头（那是它的口径，⛔ 别为这条改它）。
+        //    剥原卡 id 的规则：去 `#` → 取**最后一个 `_` 之后**那段（`#HB_SW1` → `SW1`；`#SW1` → `SW1`）。
+        //    ⚠️ 这条字符串口径是**我们的**：原版卡组里存对象，原版**分享串**里写的是克隆 id `HB_SW1`
+        //      （`CardDeck__DeserializeDeckString` 拿那条 id 去 `AssetLocator.GetAsset<RawCardScript>`）。
+        //      分享串进出时由 `DeckLibrary.ExportString` / `SplitByType` 换写一次（`HB_SW1` ⇄ `#HB_SW1`）。
+        //      ⚠️ **没查清**：clone 资产（`HB_<id>`）不在我们 allcards 快照的 1,351 条里
+        //      （那里 `altArtFromId` 全空）⇒「分享串里是 `HB_SW1`」是**两条反汇编推出来的**，
+        //      不是直接读到一条真的卡组串。⛔ 别拿它当硬判据，也别为它改卡表。
+        //    ⚠️ 语义与判据一致的部分：**解析之后一律当原卡那张** —— 校验、份数上限、阵营、张数、
+        //      引擎里那张 `CardDef` 全是原卡（= 原版各处都在比 `GetOriginalId()`）；
+        //      「它是异画那一份」**只影响立绘**，不影响任何规则。
+        //    📌 调用点（都走下面这一个口，⛔ 别在别处另写一套剥前缀）：
+        //      `DeckRules.Validate` ①② / `DeckRules.RemoveInvalidCards` /
+        //      `DeckBuilder.FromDeck` / `DeckLibrary.SplitByType`+`ExportString` /
+        //      `DeckEditorState.Find` · 份数口径 `PlayerDeck.CountOf`/`RemoveCard`。
+
+        /// <summary>异画条目的前缀。判据 / 我们为什么用 `#` → 本类尾那段注（「我们的表示」）。</summary>
+        public const char AltArtPrefix = '#';
+
+        /// <summary>这一条卡组条目是不是**异画副本**（`#HB_SW1` / `#SW1`）。</summary>
+        public static bool IsAltArtEntry(string id)
+        {
+            return !string.IsNullOrEmpty(id) && id[0] == AltArtPrefix;
+        }
+
+        /// <summary>`#HB_SW1` → `SW1`；**普通条目 / null ⇒ null**（⛔ 别拿它当「取原卡 id」的通用口）。
+        /// <para>⚠️ 纯字符串、不查卡池 —— 池内 1,128 个 id **一个都不含 `_`**（2026-10-27 现读）
+        /// ⇒「最后一个 `_` 之后」不会把两张不同的卡认成一张。</para></summary>
+        public static string AltArtBaseIdOf(string id)
+        {
+            if (!IsAltArtEntry(id)) return null;
+            string body = id.Substring(1);
+            int k = body.LastIndexOf('_');
+            return (k >= 0 && k + 1 < body.Length) ? body.Substring(k + 1) : body;
+        }
+
+        /// <summary>「**同一张卡**」的键（份数 / 在不在卡组里都用它）：异画条目 → 原卡 id，其余原样。
+        /// 判据 = 原版 `CardDeck.CardCopiesInDeck` / `Has` 比的是 `GetOriginalId()`（见本类尾那段注）。</summary>
+        public static string SameCardKey(string id)
+        {
+            if (!IsAltArtEntry(id)) return id;
+            return AltArtBaseIdOf(id) ?? id;
+        }
+
+        /// <summary>把一条卡组条目解析成**引擎那张卡**；`isAltArt` = 这一份是异画副本。
+        /// <para>先按**整串**查（普通卡；也兼容万一哪天池里真有 `#` 开头的卡），查不到才按异画条目剥出原卡 id 再查 ⇒ **普通 id 一个字没变**。
+        /// 🔴 **异画必须在卡表里**（2026-10-27 收紧）：剥出原卡后看 `AlternateArtsKnown &amp;&amp; !HasAlternateArt(id)` ⇒ **返回 null**（调用方照旧按 `UnknownCard` 报、⛔ 不猜）；
+        /// 缺列 = 判不了 ⇒ 按认处置（三态 → `CardDef` 类尾注）。⚠️ 短写法 `#SW1` 不在表里 ⇒ 也不认（真值只有 `#HB_&lt;id&gt;` 这一种）。</para></summary>
+        public static CardDef ResolveEntry(string id, Func<string, CardDef> lookup, out bool isAltArt)
+        {
+            isAltArt = false;
+            if (string.IsNullOrEmpty(id) || lookup == null) return null;
+            var c = lookup(id);
+            if (c != null) return c;
+            string b = AltArtBaseIdOf(id);
+            if (b == null) return null;
+            c = lookup(b);
+            if (c == null || (c.AlternateArtsKnown && !c.HasAlternateArt(id))) return null;   // 收紧（2026-10-27）：**异画必须在卡表里**（判据 → `CardDef.HasAlternateArt`；缺列 = 判不了 ⇒ 按认）
+            isAltArt = true;
+            return c;
+        }
+
+        /// <summary>把**外来的一条 id** 归一成我们卡组里的写法：普通卡原样返回；异画副本
+        /// （`#HB_SW1`，或原版分享串里的克隆 id `HB_SW1`）⇒ `#` 开头那一条；两边都认不出 ⇒ null。
+        /// <para>唯一用途 = `DeckLibrary.SplitByType`（导入原版分享串时那一条是 `HB_SW1`，
+        /// 得换成我们的写法，否则视图侧 `CollectAltArtCopies` 不认它）。</para></summary>
+        public static string NormalizeEntryId(string id, Func<string, CardDef> lookup)
+        {
+            if (string.IsNullOrEmpty(id) || lookup == null) return null;
+            if (lookup(id) != null) return id;
+            string prefixed = IsAltArtEntry(id) ? id : "#" + id;
+            return ResolveEntry(prefixed, lookup, out _) != null ? prefixed : null;
         }
     }
 }

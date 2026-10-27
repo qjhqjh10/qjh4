@@ -1604,7 +1604,7 @@ namespace CardPresentation
         /// <summary>原版 `HandlePointerClick()`：开物品详情窗（`ItemDisplayWindowContext(item, 0)`）。</summary>
         public void HandlePointerClick()
         {
-            if (string.IsNullOrEmpty(Id))
+            if (DeckClick()) return; if (string.IsNullOrEmpty(Id))
             {
                 Debug.LogError("[ERROR] We are trying to open a item display window without an item. "
                              + "Mat check this out, Probably we are abusing the use of ItemDrawer");
@@ -1815,8 +1815,8 @@ namespace CardPresentation
     // 【判据 ②（点击音）】`inspectSound` 的 PPtr = `{m_FileID:6, m_PathID:-5758964851120979674}`（374 份 MB 同值）。
     //   2026-10-26 用 UnityPy 读**真包**（`d:/2/unity_run_ref/.../soundcollection_assets_all.bundle`）解出：
     //   `m_Name = "ButtonClick 1"` · `clipList = [AudioClip "UI Click 1"]` · pitch/volume 全 1.0 · 节流 0.1s。
-    //   🔴 本工程 `Resources/Art/audio/sfx/` **没有 `UI Click 1.wav`**（导入器只收了被组件引用的那批）
-    //      ⇒ 这一格**不出声 + 出一次声说明**（⛔ 不拿别的 clip 顶）。补法 = 用 `工具/import_original_sfx.py` 收这条 cue。
+    //   ✅ **2026-10-27 订正（铁律 5；本行原来写「工程没有 `UI Click 1.wav` ⇒ 不出声」）**：现在**有了** ——
+    //      cue 已进 `工具/import_original_sfx.py` 的 `EXTRA_CUES`、clip 已拷进 `Resources/Art/audio/sfx/` ⇒ 真播（见下）。
     //
     // 【判据 ③（句柄表）】`ItemDrawer.cs:36-68` 静态 `Draw` 末段 = `drawerReferences.Add(itemDrawer, ref)`；
     //   `:98-112` 两个 `Release` = `dict.TryGetValue ⇒ ref.Release(General)`；`:134-141` `OnDestroy` = `OnRelease()` + 同一次 Release；
@@ -1904,14 +1904,14 @@ namespace CardPresentation
                      + "`dict.TryGetValue` 落空（什么都不做）⇒ 我们同样不动");
         }
 
-        /// <summary>原版 `inspectSound.Play2D()`（`ItemDrawer.cs:944-947`）—— cue 名与 clip 都已解出，
-        /// 但 clip 本地缺 ⇒ 只出一次声（判据 = 追加区头注 ②）。</summary>
+        /// <summary>原版 `inspectSound.Play2D()`（`ItemDrawer.cs:944-947`）—— **cue 表里查不到时**才走这里
+        /// （正常那一支见 `PlayInspectCue`；⛔ 本方法只出声说明、不拿别的 clip 顶）。</summary>
         internal static void NoteInspectCueMissing()
         {
-            Note("inspectSound", "原版抽屉点击音 = AudioCue `ButtonClick 1`（clip `UI Click 1`；"
-                 + "`soundcollection_assets_all.bundle` 2026-10-26 现读）；本工程 `Resources/Art/audio/sfx/` "
-                 + "**没有 `UI Click 1.wav`** ⇒ 这一格不出声（⛔ 不拿别的 clip 顶）。"
-                 + "补法 = 用 `工具/import_original_sfx.py` 收这条 cue");
+            Note("inspectSound", "抽屉点击音那条 cue `" + WindowSounds.ButtonClick1Cue + "` 在表里查不到"
+                 + "（表 = `Resources/animfx_sounds.json`，产出方 = `工具/import_original_sfx.py` 的 `EXTRA_CUES`）；"
+                 + "原版这一跳 = `inspectSound.Play2D()`，clip `UI Click 1`（2026-10-26 读真包现核）。"
+                 + "⇒ 这一格**不出声**（⛔ 不拿别的 clip 顶），跑一次那个导入器即可");
         }
     }
 
@@ -1968,6 +1968,118 @@ namespace CardPresentation
         public void Release() { ItemDrawer.Release(this); }
 
         /// <summary>原版 `inspectSound.Play2D()`（`ItemDrawer.cs:944-947`）—— 见追加区头注 ②。</summary>
-        void PlayInspectSound() { ItemDrawer.NoteInspectCueMissing(); }
+        void PlayInspectSound() { ItemDrawer.PlayInspectCue(); }
+    }
+
+    // ============================================================ 追加区 · 2026-10-27（B9_W6DECK · 账 `卡组:75` + `收藏:273`）
+    //
+    // 【这一段补的两件】
+    //   ① `卡组:75`：原版 `DeckDrawer : ItemDrawer<PrebuiltDeck>` **覆写了 `HandlePointerClick`**
+    //      （`cpp2il/out_cpp2il_dev_ilspy/DeckDrawer.cs:17-28`；交叉核对 `decomp_full/DeckDrawer__HandlePointerClick.c` 逐句）：
+    //        `new CardDeck(item)` → `new DeckInfoContext(deck, **View(2)**, selectButton = null,
+    //        checkOwnership = *(this+0x70)（`[SerializeField] bool shouldCheckOwnership`，初值 **true**）,
+    //        editButtonAction = null)` → `WindowsManager.OpenWindow<DeckInfoPopup>(ctx)`。
+    //      ⇒ 点「一副卡组」那格抽屉 = **开卡组详情窗（View 态）**，不是基类那条「开物品详情窗」。
+    //      🔴 `.c` 的六个实参里有**两个 0**，含义不同：第 3 个 = 「没有 `selectButton`」、
+    //         第 5 个 = 「没有 `editButtonAction`」；第 4 个是 `uVar1 = *(param_1+0x70)`（那个字段）。
+    //      ⚠️ **不走 `DeckInfoPopup.CreateForPicked`**：那一支强制 `SelectButtonProvided = true`（会多一颗
+    //         `Select Deck`），而原版这里 `selectButton = null`。同口径先例 = `Shell/LiveOpsEventWindow.cs`
+    //         的 `OpenDeckInfo`（它引的 `.c` 是 `DeckInfoContext___ctor(ctx, deck, 0, 0, 1, 0, 0)`）。
+    //      ⚠️ `DeckDrawer.SetShowOwnership(bool)`（`DeckDrawer.cs:30-33`）只写那个字段，**反编译全库 0 调用点**
+    //         ⇒ 我们只提供方法、不接任何调用点（与原版一致）。
+    //      🔴 **时间限定（与施工单同批读）**：`PrebuiltDeck` 实例 225 个里只有 2 个被 Demo `DeckInfo` SO、
+    //         1 个被 `Intro.unity:7792 starterDeck` 引用，**没有任何商店/奖励 SO 以 `ObtainableItem` 形式发放它**
+    //         （原版走远端目录）⇒ **本 build 的玩家在游戏里看不到这一格**，只有自检夹具造得出来。
+    //         远端目录一旦回来，这一跳**不用再改代码**就可见。
+    //
+    //   ② `收藏:273`：原版 `ItemDrawer.OnPointerClick` 末句 `inspectSound.Play2D()` ——
+    //      `inspectSound` 的 PPtr 解开 = AudioCue **`ButtonClick 1`** → clip **`UI Click 1`**
+    //      （pitch/vol 1.0 · 节流 0.1 s；2026-10-26 用 UnityPy 读 `soundcollection_assets_all.bundle` 现核）。
+    //      这条 cue 与 clip **现在已经都在工程里**（`工具/import_original_sfx.py` 的 `EXTRA_CUES` 收了
+    //      `ButtonClick 1`、`UI Click 1.wav` 已拷进 `Resources/Art/audio/sfx/`）⇒ `PlayInspectSound()`
+    //      从「只出声说明」改成**真播**，走壳侧唯一播放口 `WindowSounds.PlayFx`。
+    //      ⛔ 别在别处再写一遍 cue 名：名字的唯一来源 = `WindowSounds.ButtonClick1Cue`。
+    //
+    // 🔴 **行号守恒**：本段只往**文件尾**加东西；对上面那两处生产代码的改动都是**同一行内替换**
+    //   （`HandlePointerClick` 的第一句、`PlayInspectSound` 的方法体）⇒ 账里钉在
+    //   `Shell/ItemDrawer.cs:427…1968` 的那批 A 落点**零漂移**。⛔ 别把这些新成员挪进上面。
+
+    public static partial class ItemDrawer
+    {
+        /// <summary>最后一次由**卡组抽屉**开出来的 `Deck info Popup`（自检读口；`null` = 还没开过 / 已收尾）。
+        /// 同族先例 = `Shell/LiveOpsEventWindow.LastDeckInfo`。</summary>
+        public static DeckInfoPopup LastDeckInfo;
+
+        /// <summary>原版 `inspectSound.Play2D()`（`ItemDrawer.cs:944-947`）—— cue `ButtonClick 1` / clip `UI Click 1`，
+        /// **FX 组**。判据与「这条 cue 怎么进的工程」见追加区头注 ②。
+        /// <para>表里查不到 ⇒ 退回原来那条**出声说明**（⛔ 不静默、也⛔ 不拿别的 clip 顶）。
+        /// ⚠️ **不看 `PlayFx` 的返回值**：它返回 false 还有「被 `timeToPlayAgain` 节流」那一支
+        /// （原版同一句 `AudioCue.CanPlay` 的行为，不是失败）⇒ 按返回值判缺失会**误报**。</para></summary>
+        internal static void PlayInspectCue()
+        {
+            if (WarpforgeVFX.WFSoundBank.HasCue(WindowSounds.ButtonClick1Cue))
+                WindowSounds.PlayFx(WindowSounds.ButtonClick1Cue, "ItemDrawer.OnPointerClick");
+            else
+                NoteInspectCueMissing();
+        }
+
+        /// <summary>原版 `DeckDrawer.HandlePointerClick()`（`DeckDrawer.cs:17-28` + `.c` 逐句）——
+        /// 点「一副卡组」那格 ⇒ 开 `Deck info Popup`：`State = View` · `selectButton = null` ·
+        /// `CheckOwnership = shouldCheckOwnership` · `editButtonAction = null` · `IsPlayerDeck = false`。
+        /// <para>返回 `false` = 这一格不是卡组抽屉 / 没有卡组数据 ⇒ 调用方继续走基类那条「开物品详情窗」。</para>
+        /// <para>🔴 `IsPlayerDeck = false` = 原版 `InventoryManager.HasItem(预组)` 为假（预组不在玩家卡组库里）
+        /// ⇒ `Share` / `Delete` / `Duplicate` / `Practice` 按判据藏；`Edit Deck` 另由
+        /// `DeckInfoPopup.EditDeckShown()` 那半个合取项藏（判据与回退条件钉在那个方法上，⛔ 别在这里再写一遍）。</para>
+        /// <para>⚠️ `DeckIndex` 传 **−1**：预组**不在 `DeckLibrary` 里**（同 `LiveOpsEventWindow.OpenDeckInfo` 的先例）。</para></summary>
+        public static bool ShowDeckInfo(ItemSpec item, bool checkOwnership)
+        {
+            var deck = item.Deck;
+            if (deck == null)
+            {
+                // 判据空那一档（与 `Deck()` 画占位板同一条）：出声，但**不要把点击吞掉**
+                // —— 基类那条「开物品详情窗」还能给出一个东西可看（原版这一格根本不会有 null）。
+                Note("deckinfo|" + (item.Id ?? "<空>"),
+                     "物品 `" + (item.Id ?? "<空>") + "` 走的是卡组抽屉，但 `ItemSpec.Deck` 是 null ⇒ 开不了卡组详情"
+                     + "（调用方要在 `ItemSpec.Deck` 里填 `PrebuiltDecks.Deck`）");
+                return false;
+            }
+            var mgr = WindowsManager.Get();
+            if (mgr == null)                       // `Get()` 理论上不给 null；留一道**出声**的闸（不许静默失败）
+            {
+                Debug.LogWarning("[ItemDrawer] 没有 `WindowsManager` ⇒ 卡组抽屉点不开卡组详情（"
+                               + deck.deckId + "）");
+                return false;
+            }
+            var w = DeckInfoPopup.Create(mgr, -1, DeckInfoPopup.DeckInfoState.View);
+            w.OverrideDeck = PrebuiltDecks.ToPlayerDeck(deck);
+            w.OverrideInfo = DeckSelectionPopup.InfoOf(deck);
+            w.IsPlayerDeck = false;
+            w.CheckOwnership = checkOwnership;     // 原版 `*(param_1 + 0x70)`
+            mgr.OpenWindow(w);
+            LastDeckInfo = w;
+            return true;
+        }
+    }
+
+    public sealed partial class ItemDrawerView
+    {
+        /// <summary>原版 `DeckDrawer.shouldCheckOwnership`（`[SerializeField]`，字段初值 **true** ——
+        /// `cpp2il/out_cpp2il_dev_ilspy/DeckDrawer.cs:15`）。只在「开卡组详情」那一条路上被读。</summary>
+        bool _showOwnership = true;
+
+        /// <summary>这一格现在会把 `shouldCheckOwnership` 传成什么（自检读口）。</summary>
+        public bool ShowOwnership { get { return _showOwnership; } }
+
+        /// <summary>原版 `DeckDrawer.SetShowOwnership(bool)`（`DeckDrawer.cs:30-33`，**只写字段**；
+        /// 反编译全库 **0 调用点** ⇒ 我们也不接调用点）。</summary>
+        public void SetShowOwnership(bool showOwnership) { _showOwnership = showOwnership; }
+
+        /// <summary>`HandlePointerClick()` 里那一跳：卡组抽屉 ⇒ 开卡组详情窗（= 原版 `DeckDrawer` 的重写）。
+        /// 返回 `true` = 这一跳已吃掉，别再走基类的「开物品详情窗」。</summary>
+        internal bool DeckClick()
+        {
+            if (Drawer != ItemDrawer.DrawerDeck && Drawer != ItemDrawer.DrawerDeckAndCardback) return false;
+            return ItemDrawer.ShowDeckInfo(Spec, _showOwnership);
+        }
     }
 }

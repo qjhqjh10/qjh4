@@ -531,7 +531,7 @@ namespace CardPresentation
                                + "` 的通配符 0 张（原版同一支：`TryGetItem` 找不到 ⇒ 直接 return，不发奖励）");
                 return false;
             }
-            Inventories.AltArts.Add(new AltArtUnlock { CardId = cardId, Style = style }, 1);
+            Inventories.AltArts.Add(new AltArtUnlock { CardId = cardId, Style = style }, 1); Inventories.Wildcards.UpdateItemCollection();   // 🔴 2026-10-27（`B9_W63WC` 改动请求 1）：扣成功才发刷新信号（原版 `WildcardInventory.UpdateItemCollection` 里 `Signal.Raise` 的等价物）；不发 ⇒ 扫光只在自检里亮
             Debug.Log("[CardProgress] 合成异画：「" + cardId + "」（风格 " + style + "）已解锁；"
                     + "扣 1 张「" + (army ?? "?") + "/" + rarity + "」通配符（剩 "
                     + Wildcards(army, rarity) + "）—— 原版 `CardServices.CraftAlternateArt`");
@@ -980,7 +980,7 @@ namespace CardPresentation
                 v.transform.DOKill();                       // 位姿补间（`CardView.TweenPose` 那条的 target = Transform，见 `SetTarget`）
                 DOTween.Kill(v);                            // 着色补间（`CardFan.TweenTint` 的 target = CardView）
             }
-            _swapping = false;
+            _swapping = false; SettleLevelUpAnimation();     // 升级动画也是「关窗要收干净的临时状态」（见那边的 doc）
             // ⚠️ **窗口本来就不活 ⇒ 不出声**（照 `GameWindow.Close` / `Hide` 首句那道守卫的口径：
             //    `CloseAllWindows()` 逐扇 `Close()` 撞上已藏起来的窗是**正常路径**，原版那一刻也静默早退）。
             if (!wasUp) return;
@@ -1628,7 +1628,7 @@ namespace CardPresentation
 
             // ② **升级**：`SetLevel(level+1)`（上限 4）⇒ 重画 ⇒ 卡框升一档；**等级 = 4 时置灰**（用户口径）。
             var upBg = MenuDraw.Rect(content, CardArt.MenuUi("UI_Button_Mulligan"), bu, "Upgrade Bg", QCdRow);
-            var upHit = Hit(content, "UpgradeHit", bu, () => { DoUpgrade(); }, QCdHit, upBg,
+            var upHit = Hit(content, "UpgradeHit", bu, () => { if (UpgradeAnimLocked) { Debug.Log("[CardDetail] 升级动画在播（`InputBlocked` + `AnimationWillRun`）⇒ 这一次点「升级」不处理（判据 → `UpgradeAnimLocked` 的 doc）"); return; } DoUpgrade(); }, QCdHit, upBg,
                             "UI_Button_Mulligan", clickCue: WindowSounds.PositiveCue);
             MenuDraw.Text(upHit, bu, "升级", Color.white, "Upgrade Text", 36f, QCdText);
             var upWb = upHit != null ? upHit.GetComponent<WindowButton>() : null;
@@ -2502,7 +2502,7 @@ namespace CardPresentation
                                + "」现有 " + CardProgress.Wildcards(Card.Faction, Card.Rarity) + " 张）⇒ 不做后面的 +1、不播特效");
                 return false;
             }
-            CardProgress.AddOwned(Card.Id, Card.Rarity, 1);
+            CardProgress.AddOwned(Card.Id, Card.Rarity, 1); Inventories.Wildcards.UpdateItemCollection();   // 🔴 2026-10-27（`B9_W63WC` 改动请求 1）：扣成功才发刷新信号（原版 `UpdateItemCollection` 里 `Signal.Raise` 的等价物）
             Debug.Log("[CardDetail] 创建副本：「" + Card.Name + "」拥有数 → "
                       + CardProgress.Owned(Card.Id, Card.Rarity)
                       + "；扣 1 张「" + Card.Faction + "/" + Card.Rarity + "」通配符（剩 "
@@ -2596,7 +2596,7 @@ namespace CardPresentation
             // 原版 `UpgradePanel.TryUpgrade` 在这里那一声 `options.ResetDisplayOrder()` 的等价物 = 下面这次整窗重建
             //（`Build()` 的槽 0 恒是主卡 ⇒ 展示顺序必然复位）。⛔ 别在这儿补一句 `ResetDisplayOrder()` ——
             //  理由（会留下一条晚到的换位 `OnComplete` 去对调新一次的槽）见 `ResetDisplayOrder` 的 doc §②。
-            RebuildKeepingState();
+            RebuildKeepingState(); PlayUpgradeAnimation(after);
             return true;
         }
 
@@ -2811,6 +2811,513 @@ namespace CardPresentation
             Debug.Log("[CardDetail] 复位展示顺序：主卡「" + Card.Name + "」在第 " + idx + " 格 ⇒ 换回前台"
                     + "（= 原版 `CardDisplayOptions.ResetDisplayOrder` → `CardDisplayWindow.ResetOrder`）");
             SwapToFront(idx);        // 闸① `swappingCards` 与换位本身都在那一条里
+        }
+
+        // ============================================================ 升级庆祝动画（账 `特效动画` 177–185 的**挂点**）
+        //
+        // 【这一段是什么】原版 `UpgradePanel.TryUpgrade` 在升级成功之后拉起 `CardDisplayLevelUpAnimationController`
+        //   （那一族的方法体 = `Effects/CardDisplayLevelUp.cs`，`B9_W17FX2` 2026-10-27 建好；⛔ 本段只**调用**、不改它的语义）。
+        //   本段只回答四件事：谁实例化它 · 三格「可淡图」指向谁 · `ChangeFrame` 的换框回调落到哪 · 「在锁着」怎么算。
+        //
+        // 【判据（本笔现读）】
+        //   · **驱动源 = 原版 clip 的动画事件**：`bundle_scenes_scenes_mainmenuwarpforge/AnimationClip/AnimationClip_10.json`
+        //     = `Level Up Card`，`m_Events` = `ChangeFrame` @**1.45 s** · `AnimationFinished` @**3.4833 s**
+        //     ⇒ 那两跳由 `Animation` 组件按事件回调同名方法（⛔ 不要另造 MonoBehaviour —— 施工单 184 明文）。
+        //     ⚠️ **订正 2026-10-27（B9_W66MID）**：原来写「3 条 clip 还没导进工程 ⇒ `myAnimation == null`」——**「文件在不在」与「加载点取不取得到」是两件事**：
+        //       ① 文件：三份 `.anim`（`Level Up Card` / `Rank Up` / `Division Up`）**都已在** `Resources/Animations/`（各带 `.meta`）。
+        //       ② 加载点（全仓只有一处 `Resources.Load<AnimationClip>`）：`Level Up Card` → `EnsureUpgradeAnimation()`（本文件 `:3300`，常量名 `:3289`）→ `myAnimation`；
+        //          `Rank Up` / `Division Up` **没有** `Resources.Load` 加载点 —— 段位窗 `Shell/RankedDivisionChangeWindow.cs` 走 `division_clips.json`（曲线数据），**不经这两份 `.anim`**。
+        //       ③ ⇒ `myAnimation == null` **只在 `Resources.Load` 取不到时**成立（`:3301-3311` 会出声并把 `myAnimation` 置 null）；文件在 ≠ 加载点取得到，**本代理没跑 Unity、这一条未实测**。
+        //   · 我们这棵树上**没有** `levelUpEffect1` / `levelUpEffect2` / `fadeBackground` 那三格
+        //     （`Level Up Effect` / `… Down` 只存在于 `Shell/CardDisplayEffects.cs` 的主菜单展示窗那棵）
+        //     ⇒ 按名去接，接不上就留 null（组件的 `FadeOutImage` **出声一次**）。
+        //   · 原版 `UpgradePanel.TryUpgrade` 的**方法体没有产物**（`decomp_full` 0 命中；四份 cpp2il 里只有
+        //     `out_cpp2il_dev_ilspy` 有真方法体这条口径，而它那一份是签名壳）⇒「动画期间关输入」这一层是
+        //     **结构性等价**，⛔ 别写成「原版就是这样」。
+        //
+        // 【为什么组件挂在**窗根**、而不是 `Build()` 建出来的子件上】
+        //   `RebuildKeepingState()` → `Build()` 首句把**窗根的所有子件**销毁重建（`CollectionWindow.DestroySafe`），
+        //   而 `ChangeFrame`（1.45 s）**正好会再触发一次重建** ⇒ 挂子件的组件会在动画播到一半时被一起销毁
+        //   （静默消失，日志里只少一条）。
+
+        /// <summary>本窗的升级动画组件（**懒建**：`DoUpgrade` 第一次成功才 `AddComponent`）。
+        /// 「为什么两件原版组件合成一件」→ `Effects/CardDisplayLevelUp.cs` 的文件头。null = 还没升过级。</summary>
+        public CardDisplayLevelUp LevelUpEffect { get; private set; }
+
+        /// <summary>「升级动画在播、**并且那次动画真的会跑**」= 「这一次点『升级』要不要被挡掉」。
+        /// <para>🔶 自己设计（非原版）：**输入锁的消费点** · 为什么必须自己定：原版 `UpgradePanel.TryUpgrade`
+        /// 没有方法体产物（读不到它到底是关 `EventSystem` 还是关钮），组件只把「上锁 / 解锁」放在
+        /// `DoAnim` / `AnimationFinished`（判据 → `Effects/CardDisplayLevelUp.cs` 文件头 ④）· 谁定的 + 日期：
+        /// 调度台 2026-10-27（本波任务书第 2 条）。</para>
+        /// <para>🔴 **判据 = `CardDisplayLevelUp.AnimationWillRun`（「真在播」），⛔ 不是 `myAnimation != null`**：
+        /// 空壳 `Animation`（没挂 clip）永远不会发动画事件 ⇒ 拿它当锁会让升级钮**永久点不动**；而挂了真 clip
+        /// 但已经播完（`isPlaying == false`）时也必须放行。理由与证据 → `报告/B9_W37CLIP_升级clip时长与路径.md`。</para></summary>
+        public bool UpgradeAnimLocked
+        {
+            get
+            {
+                var fx = LevelUpEffect;
+                return fx != null && fx.InputBlocked && fx.AnimationWillRun;
+            }
+        }
+
+        /// <summary>升级成功之后的挂点（= 原版 `UpgradePanel.TryUpgrade` 里 `levelUpAnimationController.DoAnim()` 那一跳）：
+        /// 实例化/复用组件 → 接线 → `DoAnim()`。**唯一调用点 = `DoUpgrade()` 末尾**（与 `RebuildKeepingState()` 同一行）。
+        /// <para>⚠️ 顺序是「**先重建、再这一句**」：升级要**立刻**看得见新卡框（2026-10-18 用户口径）+ 面板计数刷新；
+        /// 原版是 1.45 s 的 `ChangeFrame` 才换框 ⇒ 我们**在 0 s 就换了那一次**（如实标注：同档位多重建一次，
+        /// 画面无跳变 —— `Build()` 幂等，且 `ChangeFrame` 那一次也同样重建）。</para></summary>
+        void PlayUpgradeAnimation(int afterLevel)
+        {
+            if (Card == null) return;
+            bool created = false;
+            if (LevelUpEffect == null)
+            {
+                LevelUpEffect = GetComponent<CardDisplayLevelUp>();
+                if (LevelUpEffect == null) { LevelUpEffect = gameObject.AddComponent<CardDisplayLevelUp>(); created = true; }
+            }
+            // 抖**窗根**：菜单层没有相机（施工单 178 风险栏）⇒ 等价物 = 抖窗容器（先例 `BoosterPackOpenWindow.StepBursts`）。
+            // 量纲安全：窗根挂在 `WindowHolder`（`ShellRuntime` 的 `Shell` 根下、`localScale = 1`）
+            // ⇒ `LayoutSpace.Px` 的 108 px/世界单位成立；抖完组件会把 `localPosition` 还原（自检里有一条断言钉它）。
+            LevelUpEffect.shakeTarget = transform;
+            LevelUpEffect.upgradePanel = transform;                                // 只当标识（组件不碰它的内部状态）
+            LevelUpEffect.cameraShake = CardDisplayLevelUp.ShakeParams.Original;   // 20 / 0.15 / 1（原版覆盖值）
+            LevelUpEffect.onChangeFrame = OnLevelUpChangeFrame;
+            EnsureUpgradeAnimation();   // `Level Up Card`（`Resources/Animations/`）挂到 `myAnimation`；缺 clip 时保持空并出声
+            RewireLevelUpTargets();
+            // 原版组件那条 `OnEnable`（三张图 α 归零）在这一档必须**显式补**：
+            //   ① 组件的 GO 一直是活的（= 窗根），`AddComponent` 那一下三格**还没接线** ⇒ `FadeOutImages` 什么都没淡；
+            //   ② 编辑模式/批处理下 `AddComponent` **根本不触发** OnEnable（本工程踩过）。
+            // 只在**建出来那一次**补（= 原版「每次启用一次」的口径）；顺手让 `FadeOutImage` 的「没接线」警告**响一次**。
+            if (created) LevelUpEffect.FadeOutImages();
+            if (LevelUpEffect.sound == null && !_warnedNoLevelUpSound)
+            {
+                _warnedNoLevelUpSound = true;
+                // 原版 ⑥ = `SoundManager.Play2D(sound(+0x58), MixerType 3)`。那一格的 AudioCue **本代理没查到**：
+                //   MB `bundle_scenes_scenes_mainmenuwarpforge/MonoBehaviour/MonoBehaviour_2522.json` 的
+                //   `sound = {m_FileID 12, m_PathID -4696912684080399316}`，该外部资产在 `assets_full` 全树
+                //   **按文件名 0 命中**（不在我们能按 pathID 反查的那批包里）⇒ 出声，别静默。
+                Debug.Log("[CardDetail] 升级动画的 2D cue **没接**（原版 `sound` 那格是 AudioCue，cue 名没查到）"
+                        + " ⇒ 这一声不会响");
+            }
+            Debug.Log("[CardDetail] 升级动画：拉起 `CardDisplayLevelUp`（Lv" + afterLevel + "）· "
+                    + (LevelUpEffect.myAnimation == null
+                        ? "**clip 没导**（`Level Up Card`，events @1.45 / 3.4833 s）⇒ 这两跳不会自己到，本次只有窗抖 + 换框"
+                        : "clip 已挂 ⇒ 动画事件会回调 `ChangeFrame` / `AnimationFinished`"));
+            LevelUpEffect.DoAnim();
+        }
+
+        /// <summary>`ChangeFrame` 的换框落点（原版 ② `upgradePanel.ChangeFrameOnLevelUp()`）。
+        /// 卡框档 = `CardProgress.Level`（`CardView.Build` 里取）⇒ **重建即换档**，⛔ 不在这里另算 tier。</summary>
+        void OnLevelUpChangeFrame()
+        {
+            RebuildKeepingState();
+            // 🔴 重建把子件换掉了 ⇒ 三格「可淡图」必须**重指**：不重指的话下面 ③ 的背景淡出会落在一批
+            //    已销毁的引用上 = `FadeImage.Valid` 为假 ⇒ SetAlpha 直接 return（**静默什么都不做**）。
+            RewireLevelUpTargets();
+        }
+
+        /// <summary>把三格「可淡图」指到**最新那棵**子树上的节点（每次重建之后都要重来一次）。</summary>
+        void RewireLevelUpTargets()
+        {
+            if (LevelUpEffect == null) return;
+            LevelUpEffect.levelUpEffect1 = FadeImageOf("Level Up Effect");
+            LevelUpEffect.levelUpEffect2 = FadeImageOf("Level Up Effect Down");
+            // `fadeBackground`：**我们这棵树上没有那一格**，也**没有等价物** —— `Menu Dark Background` 是
+            // 「点它关窗」的常驻遮罩（alpha 0.773、且带命中区）。拿它当 `fadeBackground` 会在 `ChangeFrame` 收尾
+            // 把它 `SetActive(false)` ⇒ **整个窗背后不再变暗**（画面错，且玩家看不到「点空白关窗」那块）。
+            // ⇒ 保持空：组件 `FadeOutImage` 会出声一次（不静默），`DoAnim` ⑤ / `ChangeFrame` ③ 无效果。
+            LevelUpEffect.fadeBackground = default(CardDisplayLevelUp.FadeImage);
+        }
+
+        /// <summary>按名在**最新那棵**子树里取一格「可淡图」（`ImageQuad` 优先、任意 `Renderer` 兜底 ——
+        /// 与 `CardDisplayLevelUp.FadeImage` 那两个字段的取用顺序一致）。找不到 ⇒ 返回 `Valid == false` 的空格。</summary>
+        CardDisplayLevelUp.FadeImage FadeImageOf(string nodeName)
+        {
+            var fi = default(CardDisplayLevelUp.FadeImage);
+            var t = FindNewest(nodeName);
+            if (t == null) return fi;
+            fi.quad = t.GetComponentInChildren<ImageQuad>(true);
+            if (fi.quad == null) fi.renderer = t.GetComponentInChildren<Renderer>(true);
+            return fi;
+        }
+
+        /// <summary>关窗 / 藏窗那一拍把升级动画**收干净**（与 `ResetFanState` 同一个理由，唯一调用点也在那里）。
+        /// <para>🔴 **为什么必须收**：组件那条时钟只在它自己的 `Update` 里推进（`CardDisplayLevelUp.Tick`），
+        /// **窗一关（`SetActive(false)`）`Update` 就停** ⇒ 抖动那 1 s 的 `localPosition` 位移会**永久留在窗根上**
+        /// （再开窗也是偏的 —— 静默画面缺陷，量 ≤20 px）。这里把时钟一次性推到终点，`StepShake` 到点会把
+        /// `localPosition` 还原成抖动前的基准。</para>
+        /// <para>🔶 自己设计（非原版）：**「动画被关窗打断」这一档的收尾** · 为什么必须自己定：
+        /// 判据侧只读到 `AnimationFinished` 的语义（重新开输入），**「窗被关掉时原版怎么收尾」没有方法体产物**
+        /// （`UpgradePanel.TryUpgrade` 0 命中）· 谁定的 + 日期：调度台 2026-10-27（不这样收就必然留上面那个位移缺陷）。</para></summary>
+        void SettleLevelUpAnimation()
+        {
+            var fx = LevelUpEffect;
+            if (fx == null) return;
+            bool wasLocked = fx.InputBlocked;
+            fx.Tick(1000f);                        // 淡变 + 抖动一次性推到终点（都幂等）
+            if (wasLocked) fx.AnimationFinished(); // 窗都没了 ⇒ 那一支动画不会再有事件 ⇒ 把输入锁放掉（否则 clip 导入后升级钮会永久灰）
+            if (wasLocked) Debug.Log("[CardDetail] 关窗时升级动画还没播完 ⇒ 已把它推到终点并放掉输入锁（`InputBlocked`）");
+        }
+
+        // ------------------------------------------------------------ 自检（⛔ 本代理不跑 Unity；给**同步点**用）
+        //
+        // 三段都是「**返回失败清单**」（空 = 全绿），由宿主 `foreach (var f in …) Check(true, false, f);`
+        // 逐条落成断言。⚠️ 全部**只在批处理/编辑模式**调（用 `DestroyImmediate`；
+        // `CardProgress` 一侧要求宿主先 `CardProgress.ResetForTest()` —— 那是它既有的自检保护口）。
+        //
+        // 为什么落在**这个文件**：本波白名单只有 `Shell/CardDetailPopup.cs`（`Editor/ShellScene.cs` /
+        // `Editor/BattleScene.cs` / `Battle/ScenarioMaterialFader.cs` 都是别人的文件）⇒ 调度台可把后两段
+        // 挪到各自宿主的对应节里（③ 与卡片详情窗**无关**，只是没别处可写）。
+
+        /// <summary>自检 ① · 组件本身（`Effects/CardDisplayLevelUp.cs` 六跳 + 三条**灭自证**）。
+        /// <para>夹具自带 GameObject + 三个 `MeshRenderer` + `Sprites/Default` 材质，**不依赖本窗、不碰存档**
+        /// ⇒ 放哪个宿主都能调（建议 `Editor/ShellScene.cs` 与 ② 一起）。</para>
+        /// <para>🔴 **灭自证**（改坏法都会让它红）：</para>
+        /// <list type="bullet">
+        /// <item>`InputBlocked` 断的是「**锁过**」（`DoAnim` 之后必须是 `true`）—— ⛔ 不是断「现在 false」；
+        ///   删掉上锁 ⇒ 红；删掉解锁 ⇒ `AnimationFinished` 那条红。</item>
+        /// <item>`FadeOutImage` 断 **RGB 逐值不变、只有 α 归零** —— 写成 `color = new Color(0,0,0,0)` 的实现会红。</item>
+        /// <item>第二次 `DoAnim` 必须**重新上锁** ⇒ 断「锁不是个常量」。</item>
+        /// </list></summary>
+        public static List<string> SelfCheckCardDisplayLevelUp()
+        {
+            var fails = new List<string>();
+            var sh = Shader.Find("Sprites/Default");
+            if (sh == null)
+            {
+                fails.Add("前提：`Shader.Find(\"Sprites/Default\")` 取不到 ⇒ 夹具建不出来，本节其余断言**未执行**");
+                return fails;
+            }
+            var go = new GameObject("B9_W25UPGR 自检 · CardDisplayLevelUp");
+            var mats = new Material[3];
+            var mrs = new MeshRenderer[3];
+            for (int i = 0; i < 3; i++)
+            {
+                var child = new GameObject("fade" + i);
+                child.transform.SetParent(go.transform, false);
+                mrs[i] = child.AddComponent<MeshRenderer>();
+                mats[i] = new Material(sh) { name = "B9_W25UPGR fade source " + i, color = new Color(0.25f, 0.5f, 0.75f, 0.9f) };
+                mrs[i].sharedMaterial = mats[i];
+            }
+            var c = go.AddComponent<CardDisplayLevelUp>();
+            if (c == null)
+            {
+                fails.Add("前提：`AddComponent<CardDisplayLevelUp>()` 失败 ⇒ 本节其余断言**未执行**");
+                Object.DestroyImmediate(go);
+                for (int i = 0; i < 3; i++) Object.DestroyImmediate(mats[i]);
+                return fails;
+            }
+            Vector3 baseLocal = go.transform.localPosition;
+            c.levelUpEffect1 = new CardDisplayLevelUp.FadeImage { renderer = mrs[0] };
+            c.levelUpEffect2 = new CardDisplayLevelUp.FadeImage { renderer = mrs[1] };
+            c.fadeBackground = new CardDisplayLevelUp.FadeImage { renderer = mrs[2] };
+            c.shakeTarget = go.transform;
+            c.cameraShake = CardDisplayLevelUp.ShakeParams.Original;
+
+            // ---- 182/181/180：OnEnable = FadeOutImages（三格各一次）；只清 α、RGB 原样
+            int fadeBefore = c.FadeOutCount;
+            c.OnEnable();     // ⚠️ 编辑模式下 AddComponent **不触发** OnEnable（本工程踩过）⇒ 显式
+            if (c.FadeOutCount != fadeBefore + 3)
+                fails.Add("`OnEnable`/`FadeOutImages` 应把三格各淡一次（+3），实得 +" + (c.FadeOutCount - fadeBefore)
+                        + " —— 改坏法：`OnEnable` 不再转 `FadeOutImages`，或 `FadeOutImages` 少淡一格");
+            for (int i = 0; i < 3; i++)
+            {
+                var col = mats[i].color;
+                if (Mathf.Abs(col.a) > 1e-5f)
+                    fails.Add("`FadeOutImage` 没把第 " + i + " 格的 α 清零（实得 " + col.a.ToString("F4") + "）");
+                if (Mathf.Abs(col.r - 0.25f) > 1e-4f || Mathf.Abs(col.g - 0.5f) > 1e-4f || Mathf.Abs(col.b - 0.75f) > 1e-4f)
+                    fails.Add("`FadeOutImage` **把 RGB 也改了**（第 " + i + " 格实得 " + col.r.ToString("F3") + "/"
+                            + col.g.ToString("F3") + "/" + col.b.ToString("F3")
+                            + "）—— 原版 `local_18._0_12_ = 原 12 字节`（`.c:1-19`）⇒ **只清 α**");
+            }
+
+            // ---- 179：DoAnim 六跳 + 灭自证「锁过」
+            c.DoAnim();
+            if (c.DoAnimCount != 1) fails.Add("`DoAnim` 的计数应为 1（实得 " + c.DoAnimCount + "）");
+            if (!c.InputBlocked)
+                fails.Add("灭自证：`DoAnim` 之后 `InputBlocked` 必须是 **true**（原义 = 动画期间不许再点）"
+                        + " —— ⛔ 别把这条断成「现在为 false」（那样删掉上锁照样绿）");
+            if (c.ShakeCount != 1) fails.Add("`DoAnim` ③ 应抖一次（`cameraShakePreset.Play()`），实得 " + c.ShakeCount);
+            if (Mathf.Abs(c.cameraShake.amplitude - 20f) > 1e-3f || Mathf.Abs(c.cameraShake.frequency - 0.15f) > 1e-3f
+                || Mathf.Abs(c.cameraShake.decayTime - 1f) > 1e-3f)
+                fails.Add("`cameraShake` 必须是原版覆盖值 20 / 0.15 / 1（实得 " + c.cameraShake.amplitude.ToString("F3")
+                        + " / " + c.cameraShake.frequency.ToString("F3") + " / " + c.cameraShake.decayTime.ToString("F3") + "）");
+            c.Tick(CardDisplayLevelUp.DoAnimFadeTime);        // 0.3 s
+            if (Mathf.Abs(c.BackgroundAlpha - CardDisplayLevelUp.DoAnimFadeTo) > 1e-3f)
+                fails.Add("`DoAnim` ⑤：背景应在 " + CardDisplayLevelUp.DoAnimFadeTime.ToString("F2")
+                        + " s 内淡到 " + CardDisplayLevelUp.DoAnimFadeTo.ToString("F2")
+                        + "（实得 " + c.BackgroundAlpha.ToString("F4") + "）");
+
+            // ---- 178：ChangeFrame（换框回调 ② + 背景淡到 0 ③ + 收尾关背景 ④）
+            int fired = 0;
+            c.onChangeFrame = () => { fired++; };
+            c.ChangeFrame();
+            if (c.ChangeFrameCount != 1) fails.Add("`ChangeFrame` 的计数应为 1（实得 " + c.ChangeFrameCount + "）");
+            if (fired != 1)
+                fails.Add("`ChangeFrame` ②：`onChangeFrame`（= 原版 `upgradePanel.ChangeFrameOnLevelUp()` 的落点）"
+                        + "**没有被回调**（实得 " + fired + " 次）");
+            c.Tick(CardDisplayLevelUp.ChangeFrameFadeTime);   // 0.7 s
+            if (Mathf.Abs(c.BackgroundAlpha) > 1e-3f)
+                fails.Add("`ChangeFrame` ③：背景应淡到 0（实得 " + c.BackgroundAlpha.ToString("F4") + "）");
+            if (mrs[2].gameObject.activeSelf)
+                fails.Add("`ChangeFrame` ④：淡完之后 `fadeBackground` 的物体应 `SetActive(false)`（原版 `b__12_0` 闭包）");
+
+            // ---- 177/184/185：AnimationFinished（控制器路）＋ 通知者路（同一份实现、分开计数）
+            bool lockedBefore = c.InputBlocked;
+            c.NotifierAnimationFinished();
+            if (!lockedBefore)
+                fails.Add("前提：`AnimationFinished` 之前本应处于上锁态 ⇒ 下面那条「解锁」是空转（**未证明**）");
+            if (c.InputBlocked) fails.Add("`AnimationFinished` 必须**解锁**（原义 = 重新开输入）");
+            if (c.FinishedCount != 1) fails.Add("`FinishedCount` 应为 1（实得 " + c.FinishedCount + "）");
+            if (c.NotifierFinishedCount != 1) fails.Add("`NotifierFinishedCount` 应为 1（实得 " + c.NotifierFinishedCount + "）");
+
+            // ---- 灭自证：第二轮必须**重新上锁**（锁不是恒 false 的常量）
+            c.DoAnim();
+            if (!c.InputBlocked)
+                fails.Add("灭自证：第二次 `DoAnim` 之后 `InputBlocked` 必须**又是** true —— 否则「上锁」是个假状态");
+            c.AnimationFinished();                            // 收尾（不留上锁态）
+
+            // ---- 抖动收尾必须回原位（否则整窗永久偏 px = 静默画面缺陷）
+            c.Tick(5f);
+            if (Vector3.Distance(go.transform.localPosition, baseLocal) > 1e-4f)
+                fails.Add("窗抖动收尾没回原位（实得 " + go.transform.localPosition + "，基准 " + baseLocal
+                        + "）—— `StepShake` 的还原那一条断了");
+
+            Object.DestroyImmediate(go);
+            for (int i = 0; i < 3; i++) Object.DestroyImmediate(mats[i]);
+            return fails;
+        }
+
+        /// <summary>自检 ② · **本窗的挂点**（`DoUpgrade` → 拉起动画 → 两条动画事件 → 解锁 → 抖完回原位）。
+        /// <para>⚠️ 宿主必须先 `CardProgress.ResetForTest()`（否则本段会去动玩家的等级/成就进度）。</para>
+        /// <para>⚠️ 前置：本窗已 `ShowCard(一张能升级的卡)`（`Spares` 给足 ⇒ `CanUpgrade` 恒真）。</para>
+        /// <para>🔴 **灭自证**：① `InputBlocked` 断「**锁过**」；② 动画在播 + clip 已挂时再点「升级」**必须不生效**
+        /// （临时挂一个空 `Animation` 打开那一档 —— 现在 `myAnimation` 恒 null，锁按设计不生效）；
+        /// ③ `ChangeFrame` 必须真的触发**整窗重建**（`UpgradeHit` 换成新节点），不是把回调接上就算完。</para></summary>
+        public List<string> SelfCheckUpgradeAnimationWiring()
+        {
+            var fails = new List<string>();
+            if (!HasCard || Card == null)
+            {
+                fails.Add("前提：窗上没有卡（先 `ShowCard`）⇒ 本节断言**未执行**");
+                return fails;
+            }
+            int lv0 = CardProgress.Level(Card.Id);
+            Vector3 pos0 = transform.localPosition;
+            // 🔴 计数一律读**增量**：本窗可能被同一宿主复用（`ShowCard` 换卡不销毁窗），
+            //    而 `LevelUpEffect` 是懒建后一直留着的 ⇒ 绝对值会被上一次自检/上一次升级污染。
+            int doAnim0 = LevelUpEffect != null ? LevelUpEffect.DoAnimCount : 0;
+            int changeFrame0 = LevelUpEffect != null ? LevelUpEffect.ChangeFrameCount : 0;
+            int finished0 = LevelUpEffect != null ? LevelUpEffect.FinishedCount : 0;
+            int ntfFinished0 = LevelUpEffect != null ? LevelUpEffect.NotifierFinishedCount : 0;
+            CardProgress.SetLevel(Card.Id, 1);              // 摆到可升级档（⚠️ 只在自检里）
+            bool ok;
+            try { ok = DoUpgrade(); }
+            catch (System.Exception ex)
+            {
+                CardProgress.SetLevel(Card.Id, lv0);
+                fails.Add("前提：`DoUpgrade` 抛异常（" + ex.Message + "）⇒ 本节其余断言**未执行**");
+                return fails;
+            }
+            if (!ok)
+            {
+                CardProgress.SetLevel(Card.Id, lv0);
+                fails.Add("前提：`DoUpgrade` 没成功（等级 1 时 `CanUpgrade` 应恒真）⇒ 本节其余断言**未执行**");
+                return fails;
+            }
+            var fx = LevelUpEffect;
+            if (fx == null)
+            {
+                CardProgress.SetLevel(Card.Id, lv0);
+                RebuildKeepingState();
+                fails.Add("**挂点**：`DoUpgrade` 之后 `LevelUpEffect` 仍是 null ⇒ 升级动画**根本没被实例化**"
+                        + "（玩家看不到；改坏法 = 删掉 `DoUpgrade` 末尾那句 `PlayUpgradeAnimation(after)`）");
+                return fails;
+            }
+            if (fx.gameObject != gameObject)
+                fails.Add("**挂点**：动画组件必须挂在**窗根**上（`Build()` 只销毁子件 ⇒ 挂子件会在 1.45 s 那次"
+                        + " `ChangeFrame` 重建时被一起销毁、动画中断）");
+            if (fx.DoAnimCount != doAnim0 + 1)
+                fails.Add("`DoUpgrade` 应恰好拉起**一次** `DoAnim`（增量 " + (fx.DoAnimCount - doAnim0) + "，期望 1）");
+            if (!fx.InputBlocked)
+                fails.Add("灭自证：`DoUpgrade` 之后必须处于**上锁**态（`InputBlocked == true`）"
+                        + " —— 断「锁过」，⛔ 不是断「现在 false」");
+            if (fx.onChangeFrame == null)
+                fails.Add("`onChangeFrame` 没接（原版 = `upgradePanel.ChangeFrameOnLevelUp()`，落点应是 `RebuildKeepingState`）");
+            if (fx.shakeTarget == null)
+                fails.Add("`shakeTarget` 没接（菜单层没有相机 ⇒ 抖窗根）");
+
+            // ---- 灭自证：动画在播 + clip 已挂 ⇒ 再点「升级」必须**不生效**
+            //   判据 = `AnimationWillRun`（有 `Animation` **且挂着真 clip**），⛔ 不再是「有个 `Animation` 组件」。
+            if (fx.myAnimation == null || fx.myAnimation.clip == null)
+                fails.Add("**产品接线**：`DoUpgrade` 之后 `myAnimation` 应已挂上 `Level Up Card`（实得 "
+                        + (fx.myAnimation == null ? "null" : "有组件但 clip 为空") + "）"
+                        + " —— 改坏法 = 删掉 `PlayUpgradeAnimation` 里的 `EnsureUpgradeAnimation()`");
+            else if (!UpgradeAnimLocked)
+                fails.Add("灭自证：`InputBlocked` 为真且 clip 已挂（`AnimationWillRun`） ⇒ `UpgradeAnimLocked` 必须是 true");
+            else
+            {
+                int lvLock = CardProgress.Level(Card.Id);
+                var upHit0 = FindNewest("UpgradeHit");
+                var wb = upHit0 != null ? upHit0.GetComponent<WindowButton>() : null;
+                if (wb == null || wb.onClick == null)
+                    fails.Add("前提：`UpgradeHit` 上没有 `WindowButton.onClick` ⇒ 下面那条「点升级被挡」**未执行**");
+                else
+                {
+                    wb.onClick();
+                    if (CardProgress.Level(Card.Id) != lvLock)
+                        fails.Add("灭自证：动画在播时点「升级」**升级成功了**（Lv" + lvLock + " → Lv"
+                                + CardProgress.Level(Card.Id) + "）⇒ 输入锁没生效");
+                }
+            }
+
+            // ---- 反向灭自证：**空壳 `Animation`（没挂 clip）**⇒ 锁必须 false（否则 clip 一缺，升级钮就永久点不动）
+            {
+                var prevAnim = fx.myAnimation;
+                var shell = new GameObject("B9_W37CLIP 空壳 Animation").AddComponent<Animation>();
+                try
+                {
+                    fx.myAnimation = shell;
+                    if (UpgradeAnimLocked)
+                        fails.Add("灭自证：空壳 `Animation`（没挂 clip）时 `UpgradeAnimLocked` 必须是 **false**"
+                                + " —— 否则 clip 一缺，升级钮就永久点不动（比「没锁」更糟）");
+                }
+                finally
+                {
+                    fx.myAnimation = prevAnim;
+                    Object.DestroyImmediate(shell.gameObject);
+                }
+            }
+
+            // ---- clip 的两条动画事件（手动打 = 等价于 clip @1.45 / @3.4833 s 到点）
+            var hitBefore = FindNewest("UpgradeHit");
+            fx.NotifierChangeFrame();
+            var hitAfter = FindNewest("UpgradeHit");
+            if (fx.ChangeFrameCount != changeFrame0 + 1)
+                fails.Add("`ChangeFrame` 的增量应为 1（实得 " + (fx.ChangeFrameCount - changeFrame0) + "）");
+            if (hitBefore == null)
+                fails.Add("前提：事件之前找不到 `UpgradeHit` ⇒ 「换框触发重建」那条**未执行**");
+            else if (object.ReferenceEquals(hitBefore, hitAfter) || hitAfter == null)
+                fails.Add("`ChangeFrame` ②：换框回调**没有触发整窗重建**（`UpgradeHit` 还是同一颗节点）"
+                        + " —— 原版这一跳 = `upgradePanel.ChangeFrameOnLevelUp()`，落点 = `RebuildKeepingState()`");
+            fx.Tick(CardDisplayLevelUp.ChangeFrameFadeTime);
+
+            fx.NotifierAnimationFinished();
+            if (fx.InputBlocked) fails.Add("`AnimationFinished` 之后必须**解锁**（原义 = 重新开输入）");
+            if (fx.NotifierFinishedCount != ntfFinished0 + 1)
+                fails.Add("`NotifierFinishedCount` 的增量应为 1（实得 " + (fx.NotifierFinishedCount - ntfFinished0) + "）");
+            if (fx.FinishedCount != finished0 + 1)
+                fails.Add("`FinishedCount` 的增量应为 1（实得 " + (fx.FinishedCount - finished0) + "）");
+
+            // ---- 抖完必须回原位
+            fx.Tick(5f);
+            if (Vector3.Distance(transform.localPosition, pos0) > 1e-3f)
+                fails.Add("窗抖动收尾没回原位（实得 " + transform.localPosition + "，基准 " + pos0
+                        + "）⇒ 整窗会永久偏 px（静默画面缺陷）");
+
+            CardProgress.SetLevel(Card.Id, lv0);            // 还原摆过的等级
+            RebuildKeepingState();                          // 画面回到自检前的档（卡框 = 等级）
+            return fails;
+        }
+
+        /// <summary>自检 ③ · `Battle/ScenarioMaterialFader.cs` 的 `doFade` 开关（**灭自证**，与卡片详情窗**无关**）。
+        /// <para>⚠️ 本段放在这里只因为本波白名单只有这个文件（`Battle/ScenarioMaterialFader.cs` 是 `B9_W17FX2` 的产物、
+        /// `Editor/BattleScene.cs` 归 W24）⇒ **建议调度台把它挪到 `Editor/BattleScene.cs`** 的 `A1967 残尾` 那一节旁边。</para>
+        /// <para>判据：`doFade` 是**取反开关**（两次 `DoScenarioBlend` 各翻一次，`DoScenarioBlend.c:78/:110`）+ `Update` 首句
+        /// `if(!doFade) return`（`:15`）**且完成时归零**（`:75`）。`_doFade` 是私有字段、没有读数口 ⇒
+        /// 这里用**黑盒**判：**第一次淡跑完之后再调一次，α 必须还会动**。改前（`Complete()` 里没有 `_doFade = false`）
+        /// 第二次会被整条冻住 ⇒ 这条**必红**。</para></summary>
+        public static List<string> SelfCheckScenarioFaderDoFade()
+        {
+            var fails = new List<string>();
+            var sh = Shader.Find("Sprites/Default");
+            if (sh == null)
+            {
+                fails.Add("前提：`Shader.Find(\"Sprites/Default\")` 取不到 ⇒ 夹具建不出来，本节断言**未执行**");
+                return fails;
+            }
+            var go = new GameObject("B9_W25UPGR 自检 · ScenarioMaterialFader doFade");
+            var mr = go.AddComponent<MeshRenderer>();
+            var src = new Material(sh) { name = "B9_W25UPGR fader source", color = new Color(1f, 1f, 1f, 1f) };
+            mr.sharedMaterial = src;
+            var f = go.AddComponent<ScenarioMaterialFader>();
+            f.renderers = new Renderer[] { mr };
+
+            f.DoScenarioBlend(new ScenarioBlendOptions
+            {
+                duration = 1f, direction = true, targetValue = 0.5f,
+                filterOptions = new ScenarioBlendOptions.BlendFilterOptions(),
+            });
+            f.Advance(0.5f);
+            float mid = mr.sharedMaterial != null ? mr.sharedMaterial.color.a : -1f;
+            if (Mathf.Abs(mid - 0.75f) > 0.02f)
+                fails.Add("前提：第一次淡没按恒定速率推进（半程应 ≈0.75，实得 " + mid.ToString("F4")
+                        + "）⇒ 下面那条「第二次还会动」**未被证明**");
+            f.Advance(0.6f);                                  // 越过终点 ⇒ Complete()
+            float afterFirst = mr.sharedMaterial != null ? mr.sharedMaterial.color.a : -1f;
+
+            f.DoScenarioBlend(new ScenarioBlendOptions
+            {
+                duration = 1f, direction = false, targetValue = 0f,
+                filterOptions = new ScenarioBlendOptions.BlendFilterOptions(),
+            });
+            f.Advance(0.5f);
+            float afterSecond = mr.sharedMaterial != null ? mr.sharedMaterial.color.a : -1f;
+            if (Mathf.Abs(afterSecond - afterFirst) <= 1e-3f)
+                fails.Add("灭自证：淡**跑完之后** `doFade` 没归零 ⇒ 第二次 `DoScenarioBlend` 被整条冻住"
+                        + "（α 停在 " + afterFirst.ToString("F4") + "、一秒没动）"
+                        + " —— 改坏法 = 删掉 `ScenarioMaterialFader.Complete()` 里的 `_doFade = false`"
+                        + "（原版 `ScenarioMaterialFader__Update.c:75`）");
+
+            var inst = mr.sharedMaterial;
+            Object.DestroyImmediate(go);
+            Object.DestroyImmediate(src);
+            if (inst != null && inst != src) Object.DestroyImmediate(inst);
+            return fails;
+        }
+
+        /// <summary>升级动画的 2D cue 只出声一次（见 `PlayUpgradeAnimation` 里那一段：cue 名本代理没查到）。</summary>
+        bool _warnedNoLevelUpSound;
+
+        // ============================================================ 升级 clip 的运行时路径（2026-10-27 `B9_W37CLIP`）
+        // 判据：原版 `DoAnim` 第 ② 跳是 `myAnimation.Play()`（无参 ⇒ 播组件上的默认 clip），而 `myAnimation`
+        //   是原版序列化字段（`CardDisplayLevelUpAnimationController.myAnimation`）⇒ 我们这侧等价物 =
+        //   给**窗根**挂 `Animation` 并把 `Level Up Card` 设成默认 clip（事件由 `SendMessage` 回调同名方法）。
+        // 🔴 **`m_AnimationClipSettings.m_StopTime = 1` 不是 legacy clip 的 length**（本波已证：原版 66/66 条
+        //   `m_Legacy: 1` 全都是 1；该字段只在 `UnityEditor.CoreModule.dll` 里存在、`UnityEngine.CoreModule.dll` 里 0 命中）。
+        //   length = **曲线最晚键** ⇒ `Level Up Card` 的 3.4833 s，两条事件（1.45 / 3.4833）都在跨度之内。
+        //   ⇒ ⛔ 别为了「够到事件」去改 `m_StopTime`（证据 → `报告/B9_W37CLIP_升级clip时长与路径.md`）。
+        const string UpgradeAnimClipName = "Level Up Card";
+        const string UpgradeAnimResourcePath = "Animations/Level Up Card";
+        bool _warnedNoUpgradeClip;
+
+        /// <summary>把 `Level Up Card` 从 `Resources` 取来挂到 `LevelUpEffect.myAnimation`（幂等；缺 clip 出声不静默）。</summary>
+        void EnsureUpgradeAnimation()
+        {
+            var fx = LevelUpEffect;
+            if (fx == null) return;
+            if (fx.myAnimation != null && fx.myAnimation.clip != null) return;   // 已经接过
+            var anim = fx.myAnimation != null ? fx.myAnimation : GetComponent<Animation>();
+            if (anim == null) anim = gameObject.AddComponent<Animation>();
+            var clip = Resources.Load<AnimationClip>(UpgradeAnimResourcePath);
+            if (clip == null)
+            {
+                fx.myAnimation = null;   // ⛔ 不挂「有组件没 clip」的空壳：那会让 `AnimationWillRun` 判错
+                if (!_warnedNoUpgradeClip)
+                {
+                    _warnedNoUpgradeClip = true;
+                    Debug.LogWarning("[CardDetail] 取不到 `Resources/" + UpgradeAnimResourcePath + "` ⇒ 升级动画的"
+                                   + " `ChangeFrame`(1.45 s) / `AnimationFinished`(3.4833 s) 两条事件**不会到**"
+                                   + "（重生成：`python -I -X utf8 工具/gen_anim_clips.py --write`）");
+                }
+                return;
+            }
+            anim.playAutomatically = false;      // 原版是 `DoAnim` 里显式 `Play()`（prefab 上 `m_PlayAutomatically` 也关着）
+            anim.wrapMode = WrapMode.Once;       // clip 非循环（`m_LoopTime: 0`）⇒ 播完停，事件只发一次
+            anim.enabled = true;
+            if (anim.GetClip(UpgradeAnimClipName) == null) anim.AddClip(clip, UpgradeAnimClipName);
+            anim.clip = anim.GetClip(UpgradeAnimClipName);   // `Play()` 无参时报的就是它
+            fx.myAnimation = anim;
         }
     }
 }

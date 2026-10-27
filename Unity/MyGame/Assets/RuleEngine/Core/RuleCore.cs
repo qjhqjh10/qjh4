@@ -4085,6 +4085,14 @@ namespace RuleEngine
             // ⚠️ 单位**已经放进棋盘**了才广播 —— 监听器的效果要能看见刚打出的这张
             //    （`give it Flank` 那种自指）。
             BroadcastWhen(ctx, WhenEventKind.Play, p, card, unit);
+            // 🆕 **2026-10-27（批次 9 · 执行代理 `B9_W43DA42` · 判据件 §三 A4）：承载卡被打出 ⇒ 派发它身上的附魔。**
+            //   与战术那条路（`EffectResolver.PlayTacticCore` 的 `BroadcastWhen(Play)` 之后）**同一句、同一个口径**；
+            //   判据 = 原版 `RawCardScript__OnCardPlayedWithTarget.c:43`（`thisCard == cardPlayed` 支
+            //   → `TriggerAbilities(trigger 0, includeEnchantments: 1)` → `RawCardScript__TriggerAbilities.c:202`
+            //   的共享尾块扫 `activeEnchantments(+0x110)`）。
+            //   ⚠️ 这里 `inst` 已经落场（`BoardSlots.Insert` 之后），但**同一份 `CardInstance`**
+            //   ⇒ `inst.ActiveEnchantments` 就是它手牌时挂上的那几条（实例随牌走，见 `CardInstance` 的 doc）。
+            Enchantments.OnCarrierPlayed(ctx, inst, p);
 
             // 🔴 **2026-10-18（`A974`）：这一笔从上面（`BoardSlots.Insert` 之后）**下移到广播之后**。
             //    判据 = 原版同链的先后：`BroadcastCardPlayed`（`:1426`）**在**
@@ -7873,6 +7881,11 @@ namespace RuleEngine
             if (!u.Has(KeywordTable.DropPod)) return false;
             int left = u.KwValue(KeywordTable.DropPod);
             u.RemoveAll(KeywordTable.DropPod);
+            // 🔴🆕 **2026-10-27（执行代理 `B9_W54ENG2`）：开舱要发结构化事件 + 震屏判据位。**
+            //   判据 = 原版 `CardScript__RemoveDropPod.c:9-18`：`param_2 == 0` ⇒ `DoSimpleShake(0.5)`。
+            //   本函数是 `OnTurnStart.c:107` / `_ResolveAttack…:359` 那两处 `RemoveDropPod(card, 0)` 的等价位
+            //   ⇒ `effect = "droppod-open"`（消费端 `BattleDriver.OnTraitRemovedShake` 据此挑 0.5）。
+            EmitTraitRemoved(ctx, u, KeywordTable.DropPod, left, "droppod-open");
             ctx.Log($"{u.Name} 的空投舱打开（开舱）—— 血池 {left} 撤掉"
                   + "（原版 `CardScript__RemoveDropPod`；触发 `Landing`）");
             if (fireLanding) FireTriggerAlways(ctx, u, KeywordTable.Landing, p, slot);
@@ -8601,6 +8614,7 @@ namespace RuleEngine
                 ctx.Log($"{u.Name} 的 Drop Pod 吃掉 {source} 的 {dmg} 点伤害"
                       + $"（血池 {pod} → {System.Math.Max(0, after)}，生命 {u.Health} 不动）");
                 if (after < 1)
+                {
                     // 原版 `CheckIfDead.c:94` `RemoveDropPod(card, true)` = 摘 trait + 状态框 + `UpdateFigures`。
                     // ⚠️ **本条【不发】`Landing`（`AbilityTrigger.Landing = 440`）—— 这一半是照原版的**
                     //    （原版只在另外两处发它：`_ResolveAttack…:339-379` 本单位出手时、
@@ -8613,6 +8627,10 @@ namespace RuleEngine
                     //      `E1P01`（2026-10-26）补的续攻（声明层/执行层劈开后入队）。
                     //      判据与理由写在 `DeclareAttackCore` 那一段的注释里。
                     ctx.Log($"{u.Name} 的 Drop Pod 被打空 ⇒ 移除（原版 `CheckIfDead.c:94` `RemoveDropPod`）");
+                    // 🔴🆕 **2026-10-27（`B9_W54ENG2`）：被打空 = 原版 `RemoveDropPod(card, 1)` ⇒ 震屏 3.0**
+                    //   （`CardScript__RemoveDropPod.c:12-15`）。`Amount` 记摘之前的池量（`pod`）。
+                    EmitTraitRemoved(ctx, u, KeywordTable.DropPod, pod, "droppod-destroyed");
+                }
 
                 // 🔴 **2026-10-14（账 `A1335①`）：易伤那一发（第二发）也要照原版再路由一遍。**
                 //   原版 `_ReceiveDamage…:252-254` 把第二发交给 `BattleManager__DealMultiDamage`，
@@ -8657,6 +8675,12 @@ namespace RuleEngine
                         int after2 = after - podVulnRaw;
                         u.RemoveAll(KeywordTable.DropPod);
                         if (after2 > 0) u.AddKeyword(KeywordTable.DropPod, after2);
+                        // 🔴🆕 **2026-10-27（`B9_W54ENG2`）：易伤第二发把池打空 = 同一处 `RemoveDropPod(card, 1)`
+                        //   ⇒ 震屏 3.0。**⚠️ **只在 `after2 < 1` 时发** —— 原版那条只在池 < 1 时调
+                        //   （`CardScript__CheckIfDead.c:76-95` 的闸），池还留着时上面那次 `RemoveAll` 只是
+                        //   「改数值」的表示法、**不是摘 trait**（⛔ 别无条件发：那会多震一下）。
+                        //   `Amount` 记摘之前的池量（`after`）。
+                        if (after2 < 1) EmitTraitRemoved(ctx, u, KeywordTable.DropPod, after, "droppod-destroyed");
                         ctx.Log($"{u.Name} 的 Drop Pod **也吃掉易伤那一发** {podVulnRaw} 点"
                               + $"（血池 {after} → {System.Math.Max(0, after2)}"
                               + (after2 < 1 ? "，池空 ⇒ 移除；原版 `CheckIfDead.c:94` `RemoveDropPod`" : "")
@@ -10045,6 +10069,21 @@ namespace RuleEngine
                     break;
                 // 其余（0 / 15 / 30 / 50）**一条都不发** —— 原版白名单只有上面三条。
             }
+
+            // ---- 🔴🆕 **2026-10-27（执行代理 `B9_W69ENG4` · 判据 G22②）：死者的「外来增益」由场上每张牌各自摘掉** ----
+            //  判据 = `d:/2/tools/decomp_full/CardScript__ResolveDeadCard.c:231-244`（逐句现读）：
+            //    每个观察者的 `ResolveDeadCard` 里 **先** `TriggerOnMinionDeath(观察者, …)`（`:236`）
+            //    **再** `if (死者 != 观察者) CardScript__RemoveExtrinsicEffectsFrom(观察者, 死者)`
+            //    （`:242-244`）—— 而 `BattleManagerSupport__BroadcastDeadUnit` 是**遍历
+            //    `allCardsInPlay` 逐张调 `ResolveDeadCard`**（`EffectResolver.cs:7902` 那段注释已记）⇒
+            //    净效果 = 「**每个观察者都摘掉『来源是死者』的那些效果**」。
+            //  ⇒ 本行因此排在 `BroadcastWhen(Die)` 与死因三族**之后**（= 观察者的死亡触发跑完）、
+            //    `FlushDeathWatches` 之前。⛔ 别挪到 `RemoveAt` 那一刻：那是「死者的死亡族之前」，
+            //    次序与原版相反（`:88` 早于 `:144`，见上面 D4/D5 那段）。
+            //  ⚠️ 只在**真离场**（`leftPlay`）时跑：变成残骸那一支死者**还在场上**
+            //    （`IsInPlay` 仍真 ⇒ 原版那条 extrinsic 撤除不成立）；那一档的判据没闭合，
+            //    如实标着（见 `资料/完全复刻/报告/B9_W69ENG4_第三批三条.md` §没查清）。
+            if (leftPlay) SweepExtrinsicEffectsOnSourceDeath(ctx, u);
 
             // 🆕 2026-09-16 「它本回合内死了就把这条效果转给另一个」（`BL74 Spreading Corruption`）——
             //    登记在 `EffectResolver.DoGive`，这里消费。**排在死亡广播之后**：
@@ -11530,7 +11569,8 @@ namespace RuleEngine
             EmitBloodThirst(ctx, p, slot, u);
             // 🆕 2026-09-29 原版 `EntityScript.usedActiveAbility`（`+0x4C`）在这里置 1
             // （`CardScript__ResolveActiveAbilityPlayed.c:31-32`）—— 读它的是 `Duty` 徽标的未激活态。
-            u.UsedActiveAbilityThisTurn = true;
+            // 🔴🆕 2026-10-27（`B9_W27ENG`）：真正对应 `+0x4C` 的是 `ActiveAbilityUsed`（**本局一次、不随回合重置**），`UsedActiveAbilityThisTurn` 是 `+0x50` 那一族（每回合）—— 两格一起置（原版就挨着）。
+            u.UsedActiveAbilityThisTurn = u.ActiveAbilityUsed = true;
             // ⚠️ 技能**不解除 Stealth**：规则书 :211 说的是「**攻击**前不能被选中」，
             //    放技能不是攻击。v1 里没有既带 Stealth 又带技能的单位，这条先按原文来。
 
@@ -11566,6 +11606,8 @@ namespace RuleEngine
                      targetSlot:   chosen != null ? targetSlot : -1,
                      targetCardId: chosen != null ? chosen.Name : null,
                      instanceId: u.InstanceId);
+            // 🆕 2026-10-27（`B9_W54ENG2`）：把目标列表挂到**刚发的那一条**上（判据/为什么不用两处各拼一份 → `AttachAbilityTargets`）
+            AttachAbilityTargets(ctx, p, u, spec, chosen);
             ctx.Log($"{ctx.Players[p].Name} 的 {u.Name} 发动技能「{spec.Source}」");
 
             // ⚠️ **2026-09-13 A2 更正**：这里原来还发一条 `When a friendly unit prays`（`Prays`）——
@@ -11734,7 +11776,7 @@ namespace RuleEngine
             u.OathUsesThisTurn++;
             // 🆕 2026-09-29 誓约走的是**同一条** `ResolveActiveAbilityPlayed`
             // ⇒ 原版那一处把 `+0x4C` 也置 1（我们的 `OathUsesThisTurn` 就是 `+0x50`）。
-            u.UsedActiveAbilityThisTurn = true;
+            u.UsedActiveAbilityThisTurn = u.ActiveAbilityUsed = true;   // 🔴 2026-10-27（`B9_W27ENG`）：`+0x4C` = `ActiveAbilityUsed`
             CheckWinner(ctx);
             return RuleCodes.OK;
         }
@@ -11957,6 +11999,10 @@ namespace RuleEngine
             // 🆕 2026-09-30：嗜血的「亮一下」—— 替代行动（Duty/Pray/Ferocity/Agenda）也走「激活主动能力」那条路
             //   （原版那一位同样是 `UsedActiveAbility` 里 `+0x48` 那一档；判据 → `EmitBloodThirst`）
             EmitBloodThirst(ctx, p, slot, u);
+            // 🔴🆕 2026-10-27（`B9_W27ENG`）：原版 `+0x4C` 在**四族**（duty/ferocity/agenda/oath）发动时都置 1
+            // （`CardScript__UsedActiveAbility.c:29/34/41/50` 同一个方法里分支）—— **`pray` 不置**
+            // （它走 `ResolveTriggerPray` 那条链，`decomp_full/BattleManager__ResolveTriggerPray.c` 里 `+0x4c` 0 命中）。
+            u.ActiveAbilityUsed |= keyword != KeywordTable.Pray;
             if (keyword == KeywordTable.Duty) u.DutyUsed = true;
             // 🆕 2026-09-29 替代行动（Duty / Pray / Ferocity / Agenda）同样走
             // 「激活一个主动能力」这条路 ⇒ 原版那一处置的是同一个 `+0x4C`。
@@ -11988,6 +12034,9 @@ namespace RuleEngine
                      targetSlot:   chosen != null ? targetSlot : -1,
                      targetCardId: chosen != null ? chosen.Name : null,
                      instanceId: u.InstanceId);
+            // 🆕 2026-10-27（`B9_W54ENG2`）：同 `UseAbilityCore`。⚠️ 这一支 `ops != null` 时没有 `EffectSpec`
+            //   ⇒ `AttachAbilityTargets` 回落「就把 `chosen` 当唯一目标」（⛔ 不猜第二个）。
+            AttachAbilityTargets(ctx, p, u, spec, chosen);
             // 「正在祈祷」= **状态**，真值区间 = 「**祈祷那一刻**」→「**下一个回合开始（不分敌我）**」
             //   或 「**自己挨一次伤害**」，**以先到者为准**
             //   ✅ **2026-10-14（账 `A1155②`）时长【已核】—— 原来这一行写的是「一直挂到
@@ -15046,6 +15095,127 @@ namespace RuleEngine
                 if (!CostPrefixPayable(ctx, owner, op, kind)) return RuleCodes.ErrCost;
             }
             return RuleCodes.OK;
+        }
+
+        // ============================================================================================
+        //  🆕 2026-10-27（执行代理 `B9_W54ENG2`）：`EvtKind.Ability` 的**目标列表**（原版 `abilityTargets`）
+        //  ⚠️ 位置 = **类尾**（本文件被账按 `文件:行号` 大量引用 ⇒ 新成员一律追加在这里，不插进既有成员之间）
+        // ============================================================================================
+
+        /// <summary>
+        /// 🔴🆕 **2026-10-27（执行代理 `B9_W54ENG2`）：把能力目标列表挂到【刚发的那一条】`EvtKind.Ability` 上**
+        /// （= 原版 `AbilityLogic.PlayAbility` 的 `abilityTargets`，判据 `AbilityLogic__PlayAbility.c:262`）。
+        ///
+        /// <para>**为什么是「发完再挂」而不是改造那个 `Emit`**：① `BattleContext.Emit(EvtKind, …)` 的参数表
+        /// 已经 13 个、且 `BattleContext.cs` 不在本次改动的白名单里；② 全仓它只有**两个**调用点
+        /// （`UseAbilityCore` / `UseAlternativeCore`），而 `RuleEngineTest` 有一对**按 `EvtKind.Ability`
+        /// 字面量出现次数**做的结构断言（`Editor/RuleEngineTest.cs:33120` 期望 3、`:33141` 期望 4）——
+        /// 把两处 `ctx.Emit(EvtKind.Ability, …)` 改写成别的形状会**改变那个计数**、把两条断言弄红。
+        /// ⇒ 保持那两行**逐字不变**，在这里补一格（**零行号漂移**之外的好处：断言不动）。</para>
+        ///
+        /// <para>**依赖的唯一事实**：`BattleContext.Emit(BattleEvent)` 是同步的一句
+        /// `Signals.Add(e)`（`BattleContext.cs:1880`，无队列、无去重、无异步）⇒ 发完那一刻
+        /// **列表末尾就是刚发的那条**。⚠️ 因此本方法**必须紧跟在自己的 `ctx.Emit(…Ability…)` 之后**调、
+        /// 中间**⛔ 不许再发别的事件**（那两个调用点就是这样：同一条语句块里相邻两行）。
+        /// ⚠️ 这里**不再按 `Kind` 复核**（那会让 `EvtKind.Ability` 的字面量在 `Core/` 里多出一处，
+        /// 把 `Editor/RuleEngineTest.cs:33120/33141` 那对结构断言的计数顶破；见上一段）——
+        /// 代价是「调用点纪律」替代「运行时自检」，两个调用点都写在相邻行。</para>
+        /// </summary>
+        static void AttachAbilityTargets(BattleContext ctx, int owner, UnitState source, EffectSpec spec, UnitState chosen)
+        {
+            if (ctx == null || ctx.Signals == null || ctx.Signals.Count == 0) return;
+            var e = ctx.Signals[ctx.Signals.Count - 1];
+            if (e == null) return;
+            e.AbilityTargetList = AbilityTargetsFor(ctx, owner, source, spec, chosen);
+        }
+
+        /// <summary>
+        /// 🔴🆕 **2026-10-27（`B9_W54ENG2`）：这一条能力【实际会落到】哪些牌** —— 原版
+        /// `AbilityLogic.PlayAbility.c:262` 的 `abilityTargets = GetTargets(...)`。
+        ///
+        /// <para>⚠️ **判据只此一份**：这里**不**另写一套目标判定，而是转调 <see cref="ResolveTarget"/>
+        /// （= `ResolveEffect` 结算时用的**同一个**方法）⇒「事件里记的目标」与「真结算到的目标」
+        /// 结构上不可能不一致。</para>
+        ///
+        /// <para>⚠️ **与 `TargetPlayer/TargetSlot/TargetCardId` 的分工**：那三位 = 「玩家点没点目标」
+        /// （原版 `CemeteryManager.GetActionText` case `0xF` 的判别式）；本列表 = 「`GetTargets` 自己
+        /// 选出来的实际目标」—— 玩家**没点**时 `ResolveTarget` 按定死规则取「敌方槽号最小的活部队」，
+        /// 那一份**也算进来**。两份见的区别 → <see cref="BattleEvent.AbilityTargetList"/> 的 doc。</para>
+        ///
+        /// <para>⚠️ **今天的长度只有 0 或 1**：封闭文法（`EffectSpec` / `EffectTargets`）每条能力
+        /// 至多一个目标 ⇒ 多目标档要等文法扩档。本方法已经是 `List`，扩档时**只改这一处**
+        /// （⛔ 别在调用点各拼一份）。</para>
+        /// </summary>
+        static System.Collections.Generic.List<BattleEventTarget> AbilityTargetsFor(
+            BattleContext ctx, int owner, UnitState source, EffectSpec spec, UnitState chosen)
+        {
+            var list = new System.Collections.Generic.List<BattleEventTarget>(1);
+            UnitState t = null;
+            if (spec != null && !string.IsNullOrEmpty(spec.Target))
+                t = ResolveTarget(ctx, owner, source, spec.Target, chosen);   // 唯一判据（同 `ResolveEffect`）
+            else if (chosen != null && chosen.IsAlive)
+                t = chosen;                                                   // `ops` 那一支（没有 `EffectSpec`）：玩家点的那个
+            if (t == null) return list;
+            int tp, tslot;
+            if (!FindSlot(ctx, t, out tp, out tslot)) return list;            // 认不出（不在棋盘上）⇒ 空表、⛔ 不猜
+            list.Add(new BattleEventTarget { Player = tp, Slot = tslot, CardId = t.Name, InstanceId = t.InstanceId });
+            return list;
+        }
+
+        // ==========================================================================================
+        //  🔴 2026-10-27（执行代理 `B9_W69ENG4` · 判据 G22②）· **一律追加在类尾**
+        //  （本文件被账按 `文件:行号` 引用；往中间插成员会让下游落点整体下移）
+        // ==========================================================================================
+
+        /// <summary>
+        /// **一张牌真的离场时，场上每一张牌各自摘掉「来源是它」的外来效果** —— 原版
+        /// `CardScript__ResolveDeadCard.c:242-244` 的 `CardScript__RemoveExtrinsicEffectsFrom(观察者, 死者)`
+        /// （`BattleManagerSupport__BroadcastDeadUnit` 遍历 `allCardsInPlay` 逐张调 `ResolveDeadCard`
+        /// ⇒ 每个观察者各一次；**死者的死亡触发族跑到之后**才轮到它，`:236` → `:242`）。
+        ///
+        /// <para>**原版语义**（`CardScript__RemoveExtrinsicEffectsFrom.c:28-63` 全文）：遍历**观察者自己**的
+        /// 效果表（`+0x108`），**从后往前**，只摘 `extrinsic(+0x30)` 为真且 `enchantingCard(+0x18) == 死者`
+        /// 的那几条（`RemoveEffect(观察者, 那一条, 0, 0)`）⇒「**来源卡不在了，它给别人的东西跟着失效**」。
+        /// `CardScript__AddEffect.c:93` 那条路（挂新效果前先摘同源的旧的）用的是同一个方法、同一个实参。</para>
+        ///
+        /// <para>⚠️ **我们只能做到一半，如实标着**（与 <see cref="UnitState.RemoveExtrinsicEffectsFrom"/> 的
+        /// doc 同一条限制）：我们的原语按**卡名**匹配 `TempBuff.SourceCard` / `_statMods.Source`，
+        /// 而原版比的是**对象引用** ⇒ 同名两张牌里死掉一张时，我们会把「另一张同名牌给的」也一起摘掉。
+        /// 根因是写入侧只存了名字（`EffectResolver.cs` 三处 `SourceCard = ctx.PlayingCard?.Name`）——
+        /// 这一档要等那三处改存实例 id，⛔ **别在这里另写一套匹配**。</para>
+        ///
+        /// <para>⚠️ **不调 `Auras.Recompose`**（本方法不改棋盘）：死者的光环由死亡收尾那条
+        /// <see cref="MinionDeathBookkeepingDeferred"/> 里的 `Auras.Recompose` 统一收；而 `Recompose`
+        /// 会重放夹血 / 费用登记 / 誓约授予（`CLAUDE.md §三` 那条「幂等 ≠ 无副作用」）⇒ ⛔ 别顺手加。</para>
+        ///
+        /// <para>⚠️ **只扫棋盘（含督军）**：手牌那一份是 `CardInstance.HandEffects` ＋ 惰性判
+        /// `IsInPlay(施放者)`（<see cref="HandEffectExpired"/> 的 extrinsic 支线），由
+        /// `SweepHandEffectsOnRemoval` 在离场那一跳已经跑过 —— 两条路别混（原版也是两套代码：
+        /// `PlayerHand__UpdateCardEffects.c` 与 `CardScript__RemoveExtrinsicEffectsFrom.c`）。</para>
+        /// </summary>
+        /// <returns>摘掉了几条（日志/断言用）</returns>
+        static int SweepExtrinsicEffectsOnSourceDeath(BattleContext ctx, UnitState dead)
+        {
+            if (ctx == null || dead == null) return 0;
+            string name = dead.Name;
+            if (string.IsNullOrEmpty(name)) return 0;
+            int stripped = 0;
+            for (int q = 0; q < 2; q++)
+            {
+                var board = ctx.Players[q].Board;
+                if (board == null) continue;
+                for (int s = 0; s < BoardSpec.Size; s++)
+                {
+                    var t = board[s];
+                    // 原版 `:242` 的 `死者 != 观察者` —— 死者自己不摘（它已经离场）
+                    if (t == null || ReferenceEquals(t, dead) || t.Card == null) continue;
+                    stripped += t.RemoveExtrinsicEffectsFrom(name);
+                }
+            }
+            if (stripped > 0)
+                ctx.Log($"{name} 离场 ⇒ 场上摘掉 **{stripped}** 条它给出的外来效果"
+                      + "（原版 `ResolveDeadCard.c:242` → `RemoveExtrinsicEffectsFrom(观察者, 死者)`）");
+            return stripped;
         }
     }
 }

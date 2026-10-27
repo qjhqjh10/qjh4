@@ -2181,5 +2181,97 @@ namespace RuleEngine
                 || t == MatchType.ClosedDeck           // 110
                 || t == MatchType.ClosedDeckBot;       // 120
         }
+
+        // ============================================================================================
+        //  🆕 2026-10-27（执行代理 B9_W68ENG3 · 引擎真缺口第一批 G08–G12）
+        //  原版 `BattleManager` 的五个 `matchType` / 对局态谓词
+        //  （判据 → `资料/完全复刻/判据/引擎真缺口_施工判据.md` §二 G08–G12 + §三 第一批）。
+        //  ⚠️ 全部 `static` 纯函数（⛔ 不读 `BattleManager` 单例 —— 原版那个单例只是取值渠道），可完全单测。
+        //  ⚠️ 加在本类尾部 ⇒ 不动上面任何已引用行号（账里引用到 `UsesDefencePool` 那一行）。
+        // ============================================================================================
+
+        /// <summary>原版 `BattleManager.IsAgainstAI`（`decomp_full/BattleManager__IsAgainstAI.c`，43 行，
+        /// `matchType = matchData+0x1c`）。二进制是一串位测试，**逐值还原**后为真集：
+        /// `{20 RankedBot, 50 PracticeOffline, 80 EventAI, 100 Tutorial, 120 ClosedDeckBot, 130 Campaign,
+        /// 140 TutorialReplay, 180 UnrankedBot, 190 Scene, 210 FastModeBot}`。
+        /// <para>⚠️ 这是**白名单**（⛔ 别改写成「!= Ranked」那类黑名单）—— 原版对
+        /// `Undefined / Practice(90) / ClosedDeck(110) / Duel(150) / Replay(160) / Unranked(170) /
+        /// FastMode(200) / FastModeRanked(211)` **一律为假**。
+        /// 逐值还原见 `资料/完全复刻/判据/引擎真缺口_施工判据.md` §二 G08。</para></summary>
+        public static bool IsAgainstAI(MatchType t)
+        {
+            switch (t)
+            {
+                case MatchType.RankedBot:       //  20
+                case MatchType.PracticeOffline: //  50
+                case MatchType.EventAI:         //  80
+                case MatchType.Tutorial:        // 100
+                case MatchType.ClosedDeckBot:   // 120
+                case MatchType.Campaign:        // 130
+                case MatchType.TutorialReplay:  // 140
+                case MatchType.UnrankedBot:     // 180
+                case MatchType.Scene:           // 190
+                case MatchType.FastModeBot:     // 210
+                    return true;
+                default:
+                    return false;
+            }
+        }
+
+        /// <summary>原版 `BattleManager.IsAgainstHuman`（`out_cpp2il_dev_ilspy/BattleManager.cs`，全文 2 行）=
+        /// `return !IsAgainstAI();`。⛔ 别复制一份白名单（两处写同一条规则 = 迟早不一致）。</summary>
+        public static bool IsAgainstHuman(MatchType t) { return !IsAgainstAI(t); }
+
+        /// <summary>原版 `BattleManager.IsAgainstOnlineBot(bm, 0)`（`decomp_full/BattleManager__IsAgainstOnlineBot.c`，
+        /// 45 行）：先判「bot 候选集」，再 `return !IsNetworkedGame()`。
+        /// <para>bot 候选集（逐值还原）= `{10 Ranked, 20 RankedBot, 90 Practice, 110 ClosedDeck, 120 ClosedDeckBot,
+        /// 150 Duel, 170 Unranked, 180 UnrankedBot, 200 FastMode, 210 FastModeBot, 211 FastModeRanked}`。</para>
+        /// <para>🔴 **`IsNetworkedGame` 是第二个输入** —— 原版从 `BattleManager` 现取；我们引擎层**今天没有这个权威位**
+        /// （`§四·D` 未闭合：唯一来源是表现层 `BattleDriver._net != null`）⇒ 这里把它**作为形参 `isNetworkedGame` 传入**，
+        /// 由调用方（表现层）提供，⛔ 不在引擎里凭单例/静态猜。`isNetworkedGame == true` ⇒ 一律 `false`（联机局不叫 bot）。</para></summary>
+        public static bool IsAgainstOnlineBot(MatchType t, bool isNetworkedGame)
+        {
+            if (isNetworkedGame) return false;   // 原版 `return !IsNetworkedGame()`
+            switch (t)
+            {
+                case MatchType.Ranked:          //  10
+                case MatchType.RankedBot:       //  20
+                case MatchType.Practice:        //  90
+                case MatchType.ClosedDeck:      // 110
+                case MatchType.ClosedDeckBot:   // 120
+                case MatchType.Duel:            // 150
+                case MatchType.Unranked:        // 170
+                case MatchType.UnrankedBot:     // 180
+                case MatchType.FastMode:        // 200
+                case MatchType.FastModeBot:     // 210
+                case MatchType.FastModeRanked:  // 211
+                    return true;
+                default:
+                    return false;
+            }
+        }
+
+        /// <summary>原版 `BattleManager.IsDuringBattle(bool includeMulligan)`（`decomp_full/BattleManager__IsDuringBattle.c`，
+        /// 19 行，`UIstate = +0x290`）：
+        /// `UIstate == 0` ⇒ false · `UIstate ∈ {7 finishBattleSequence, 8 postBattle}` ⇒ false ·
+        /// `UIstate ∈ {11 mulligan, 12 mulliganFinished}` ⇒ **`includeMulligan`** · 其余 ⇒ true。
+        /// <para>我们没有单一 `UIstate` 枚举 ⇒ 按判据文件给的映射落到两个字段：
+        /// `!isOver &amp;&amp; (includeMulligan || !mulliganOpen)`（`isOver` = `Winner != 0`、`mulliganOpen` = `ctx.MulliganOpen`）。
+        /// 15 档对应：`{7,8}` → `isOver`；`{11,12}` → `mulliganOpen`；其余战斗态 → 两者皆假 ⇒ true。</para>
+        /// <para>⚠️ **已知近似（如实标注）**：`UIstate == 0`（inactive，**开打前**）与「正常战斗态」在
+        /// `isOver/mulliganOpen` 两字段下**不可区分**（都不是 `isOver`）⇒ 本式对 `UIstate==0` 会判 true
+        /// （原版判 false）。今天**0 消费者**、且开打前没人问这个谓词 ⇒ 先按判据映射实现并标注；
+        /// 真用到 `0` 那一档时再补一个 `started` 位（别在这里凭空加字段猜）。</para></summary>
+        public static bool IsDuringBattle(bool isOver, bool mulliganOpen, bool includeMulligan)
+        {
+            return !isOver && (includeMulligan || !mulliganOpen);
+        }
+
+        /// <summary>原版 `BattleManager.IsReplayMatch(bm, 0)`（`decomp_full/BattleManager__IsReplayMatch.c`，28 行）=
+        /// `matchType == 140 TutorialReplay || matchType == 160 Replay`。</summary>
+        public static bool IsReplayMatch(MatchType t)
+        {
+            return t == MatchType.TutorialReplay || t == MatchType.Replay;
+        }
     }
 }

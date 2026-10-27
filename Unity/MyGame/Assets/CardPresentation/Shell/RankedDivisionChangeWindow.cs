@@ -273,7 +273,7 @@ namespace CardPresentation
             NoteNoArt("Game Mode Icon Left/Right", "`gameModeIcons` 两颗的 `Image.m_Sprite` 都是 0（运行期由服务端图标喂）");
 
             // ---- 3) `Division Image`（段位大图；原版 `sprite = 0` ⇒ 不画）----
-            _division = MenuDraw.Node(transform, "Division Image", DivisionR);
+            _division = BuildDivisionImage();
             if (string.IsNullOrEmpty(_ctx.DivisionLabel))
             {
                 DivisionArtBlank = true;
@@ -290,8 +290,8 @@ namespace CardPresentation
             // ---- 4) `Division Image/Rank Icon`（+ 出厂关着的 `Rank Icon Glow`）----
             //   原版：`Rank Icon` 布局 67.418²、`m_LocalScale = 1.090329` ⇒ 视觉 73.51²。
             //   🔴 这里按**视觉框**建、`localScale` 保持 1（理由见 `RankIconR` 的注释）。
-            _rankIcon = MenuDraw.Node(_division, "Rank Icon", RankIconR);
-            _rankGlow = MenuDraw.Node(_rankIcon, "Rank Icon Glow", RankIconGlowR);
+            _rankIcon = BuildRankIcon();
+            _rankGlow = BuildRankIconGlow();
             _rankGlow.gameObject.SetActive(false);   // 出厂 `m_IsActive = false`
             NoteNoArt("Rank Icon", "`rankIcon.m_Sprite = 0`（运行期 `RankedDivisions.GetRankData(...)`）");
 
@@ -447,7 +447,7 @@ namespace CardPresentation
         //      Unity 自己绑得上的只有 `Transform`（缩放）与 `GameObject.m_IsActive` 两族。
         //   ② **手动通道**（`ApplyChannels`）：原版另外那些曲线绑在 `Image.m_Color.a` / `CanvasGroup.m_Alpha` /
         //      TMP `m_fontColor.a` / `ParticleSystem.ShapeModule.m_Scale` /
-        //      `AnimateUIMaterialProperty.floatProperty1` 上 —— **我们这套世界空间 UI 一个这样的组件都没有**
+        //      `AnimateUIMaterialProperty.floatProperty1` 上 —— 🔴 逐帧求值后写 `WarpforgeVFX.AnimateUIMaterialProperty`（2026-10-27 真驱动）
         //      （画图是 `ImageQuad`、画字是 `Label`）⇒ 逐帧 `AnimationCurve.Evaluate` 求值后写我们自己的件。
         //      ⛔ 别把这一半删掉换成 `SetCurve`：那只会得到一条**静默空转**的曲线。
         //   ③ **每帧仍然 `SampleAnimation` 一次**（两个模式都做）：万一原生 `Play` 没起来（`Open` 时还没激活等），
@@ -626,7 +626,7 @@ namespace CardPresentation
             public GroupTrack[] groups;
             public ActiveTrack[] actives;
             public ParticleTrack[] particles;
-            public string[] materialPaths;
+            public MatTrack[] materialPaths;
         }
         struct ScaleTrack { public string path; public AnimationCurve x, y, z; }
         struct AlphaTrack { public string path; public AnimationCurve a; }
@@ -659,7 +659,7 @@ namespace CardPresentation
             var activeList = new List<ActiveTrack>();
             var partOrder = new List<string>();
             var partMap = new Dictionary<string, AnimationCurve[]>();
-            var matList = new List<string>();
+            var matList = new List<MatTrack>();
 
             for (int i = 0; i < d.curves.Length; i++)
             {
@@ -690,7 +690,7 @@ namespace CardPresentation
                         partMap[c.path][c.property != null && c.property.EndsWith(".y", StringComparison.Ordinal) ? 1 : 0] = BuildCurve(c);
                         break;
                     }
-                    case "materialFloat": matList.Add(c.path); break;
+                    case "materialFloat": matList.Add(new MatTrack { path = c.path, a = BuildCurve(c) }); break;
                     default:
                         WarnChannel("chan:" + c.channel,
                                     "未知通道 `" + c.channel + "`（path=`" + c.path + "` property=`" + c.property
@@ -944,16 +944,16 @@ namespace CardPresentation
                                            g.y != null ? g.y.Evaluate(t) : sc.y, sc.z);
                 }
 
-            // ⑥ `AnimateUIMaterialProperty.floatProperty1`（原版那是一个改材质 shader 浮点的组件）
+            // ⑥ `AnimateUIMaterialProperty.floatProperty1`（原版那是一个改材质 shader 浮点的组件；2026-10-27 起真驱动）
             if (_rt.materialPaths != null)
                 for (int i = 0; i < _rt.materialPaths.Length; i++)
                 {
-                    var p = _rt.materialPaths[i];
-                    if (NodeAt(p) == null) continue;
-                    WarnChannel("mat:" + p,
-                                "`" + p + "` 的 `AnimateUIMaterialProperty.floatProperty1` **没接** ——"
-                              + "那个组件我们工程里没有（`grep class AnimateUIMaterialProperty` 零命中），"
-                              + "而且它驱动的是服务端喂的那张段位图的材质。");
+                    var m = _rt.materialPaths[i];
+                    var n = NodeAt(m.path);
+                    if (n == null) continue;
+                    var amp = n.GetComponent<WarpforgeVFX.AnimateUIMaterialProperty>();
+                    if (amp == null) { WarnNoMaterialTarget(m.path); continue; }
+                    var s1 = amp.floatProperty1; s1.value = m.a != null ? m.a.Evaluate(t) : s1.value; amp.floatProperty1 = s1;
                 }
         }
 
@@ -1206,6 +1206,128 @@ namespace CardPresentation
             DG.Tweening.TweenSettingsExtensions.OnComplete(tw, () => { if (tr != null) tr.localScale = Vector3.one; });
             DG.Tweening.TweenSettingsExtensions.OnKill(tw, () => { if (tr != null) tr.localScale = Vector3.one; });
             return CardTween.Use(tw, DG.Tweening.Ease.OutElastic, fill);
+        }
+
+        /// <summary>`materialFloat` 通道的曲线（`floatProperty1.value`，即原版喂给材质的那一个浮点）。
+        /// 🔴 2026-10-27（`B9_W20WIRE`）由「一条没接的 `string[]`」升级成「路径 + 曲线」——
+        /// 原来那一版只存 path、只无条件出声，等于这一族曲线**从来没被驱动过**。</summary>
+        struct MatTrack { public string path; public AnimationCurve a; }
+
+        /// <summary>本窗那两个节点上**还没有** `AnimateUIMaterialProperty` 时出声（每个 path 只说一次）。
+        /// <para>🔴 2026-10-27 就地订正（铁律 5）：这里原来写「那个组件我们工程里没有」—— **过期**。
+        /// 组件 **2026-10-26 就建好了**：`WarpforgeVFX/Runtime/AnimateUIMaterialProperty.cs`
+        /// （逐句对齐原版，`B8_AS` 建的）。现在缺的是**挂载目标**：`Division Image` / `Rank Icon` 这两颗
+        /// 我们**没有画**（原版 `m_Sprite = 0`，图由服务端喂；见本文件 `Build()` 第 3/4 段与 `NoteNoArt`）
+        /// ⇒ 它们身上没有 `MeshRenderer`，`Attach(Renderer, …)` 无处可挂。</para>
+        /// <para>还差什么：等这两颗有图（有 `ImageQuad`）时，在 `Build()` 里补
+        /// `WarpforgeVFX.AnimateUIMaterialProperty.Attach(quad.GetComponent<MeshRenderer>(), Slot("_Blend", 0f))`
+        /// 即可 —— 本方法这段驱动会自动接上（它只认组件在不在）。</para></summary>
+        void WarnNoMaterialTarget(string path)
+        {
+            WarnChannel("mat:" + path,
+                        "`" + path + "` 上没有 `AnimateUIMaterialProperty` ⇒ 原版 `floatProperty1.value`（`_Blend`）"
+                      + "那条曲线**没接**：组件早就在 `WarpforgeVFX/Runtime/AnimateUIMaterialProperty.cs`，"
+                      + "🔴 2026-10-27 就地订正：`Division Image`/`Rank Icon` 已由 `BuildDivisionImage`/`BuildRankIcon` 补上载体；走到这里说明该 path 的节点上没有 `ImageQuad`。");
+        }
+
+        // ============================================================ 材质挂载载体（2026-10-27 · B9_W28MOUNT）
+        //
+        // 判据（现读 `bundle_menus_assets_all`，逐字段）：
+        //   · `GameObject/Division Image.json` 的 `m_Component` 序 =
+        //       `RectTransform → CanvasRenderer → Image(pid -7044926665261084338) →
+        //        AnimateUIMaterialProperty(pid 4555674787176354126) → Canvas`
+        //   · `GameObject/Rank Icon.json` 同形（Image pid -691165018575761074 · AMP pid -6557930150585593522）
+        //   · 两个 AMP 的字段逐字相同：`image` PPtr 指向**同一个 GameObject** 上的 `Image` ·
+        //     `initializeOnEnable = 1` · `floatProperty1 = { _Blend, 0 }` · `floatProperty2` 空槽 ·
+        //     `changeMaterialOnAnimation = null`
+        // ⇒ AMP 的挂载目标是「这颗节点自己的 `Image`」。我们这边那颗 `Image` 的等价物 =
+        //   同一个 GameObject 上的 `ImageQuad`（它自带 `MeshFilter/MeshRenderer`，见 `Battle/ImageQuad.cs:127-137`）。
+        //
+        // ⚠️ **图仍然是空的、这是对的**：原版两颗 `Image.m_Sprite = 0`（本机没有「段位号→图名」对照表），
+        //   图由服务端 `RankedDivisions.GetDivisionData/GetRankData` 的 `AssetReferenceTyped` 在运行期喂，
+        //   而 `Open()` 在 `sprite == null` 时 `SetActive(false)` ⇒ 屏幕上什么都没有。
+        //   `m_Sprite = 0` 在 uGUI 里本来是「全白贴图 × `m_Color`」的**纯白块**，照画会是一块 851×851 的白板
+        //   ⇒ 载体 quad 的 tint **α = 0**：画不出东西，但材质通道挂得上（⛔ 不是 `MenuDraw.Node` 那种空节点）。
+        //   服务端那一半 = P3（`资料/完全复刻/判据/服务器与账户_不复刻清单_第2轮.md`），⛔ 本机不编图。
+        //
+        // ⚠️ 这两颗**没有** `UIBorderGlow`（与卡片展示窗那两件不同）⇒ 不存在「两个组件抢材质」。
+        //
+        // 🔴 账里 `RankedDivisionChangeWindow.cs` 的落点是 `:475` / `:1163` ⇒ 所以这两件只在 `Build()` 里
+        //   占**一行**（原来是 `MenuDraw.Node(...)` 那一行），实现全部追加在类尾，行号零漂。
+
+        /// <summary>建 `Division Image`（+ 挂载载体 + 材质组件）。失败时退回空节点并**出声**。</summary>
+        Transform BuildDivisionImage()
+        {
+            var quad = MenuDraw.Rect(transform, CardArt.Solid(), DivisionR, "Division Image", QDivision,
+                                     new Color(1f, 1f, 1f, 0f));
+            if (quad == null)
+            {
+                // `MenuDraw.Rect` 整块落在裁切框外 ⇒ 不建（既有语义）。这一档丢的是**材质挂载点**，不是图。
+                WarnChannel("carrier:Division Image",
+                            "`Division Image` 的载体 quad 没建出来（整块落在裁切框外）⇒ 原版挂在它上面的 "
+                          + "`AnimateUIMaterialProperty`（`_Blend`）**没有挂载目标**");
+                return MenuDraw.Node(transform, "Division Image", DivisionR);
+            }
+            WarpforgeVFX.AnimateUIMaterialProperty.Attach(
+                quad.GetComponent<MeshRenderer>(),
+                WarpforgeVFX.AnimateUIMaterialProperty.Slot("_Blend", 0f));
+            return quad.transform;
+        }
+
+        /// <summary>建 `Rank Icon`（+ 挂载载体 + 材质组件）。失败时退回空节点并**出声**。</summary>
+        Transform BuildRankIcon()
+        {
+            var quad = MenuDraw.Rect(_division, CardArt.Solid(), RankIconR, "Rank Icon", QRank,
+                                     new Color(1f, 1f, 1f, 0f));
+            if (quad == null)
+            {
+                WarnChannel("carrier:Rank Icon",
+                            "`Rank Icon` 的载体 quad 没建出来（整块落在裁切框外）⇒ 原版挂在它上面的 "
+                          + "`AnimateUIMaterialProperty`（`_Blend`）**没有挂载目标**");
+                return MenuDraw.Node(_division, "Rank Icon", RankIconR);
+            }
+            WarpforgeVFX.AnimateUIMaterialProperty.Attach(
+                quad.GetComponent<MeshRenderer>(),
+                WarpforgeVFX.AnimateUIMaterialProperty.Slot("_Blend", 0f));
+            return quad.transform;
+        }
+
+        // ============================================================ Rank Icon Glow 载体（2026-10-27 · B9_W39MAT）
+        /// <summary>建 `Rank Icon Glow` 的载体（原版是一颗 uGUI `Image`，不是纯节点）。
+        /// 判据（`bundle_menus_assets_all/MonoBehaviour/MonoBehaviour_-8635674026998525618.json` 实读）：
+        /// `m_Script` = uGUI `Image` · `m_Sprite = 0`（白图）· `m_Color = GlowTint`（黄 (1,0.9168,0,1)）·
+        /// `m_Material` = `Material_-8464978790139598553.json`（`m_Name = UI Additive`，shader `Everguild/UI/Additive` = **加法**）。
+        /// 🔴 就地订正（铁律 5 · 推翻 W28 的猜测）：那张材质 `m_SavedProperties` 里的 `_ColorMain 337.79…` /
+        ///   `_Reveal 0.723` / `_Noise_Strength_X_Speed_Y_Scale_Z` **是上一颗 shader 的残留**
+        ///   （`Everguild/UI/Additive` 的 `m_PropInfo` 只有 `_MainTex/_Color/_Stencil*`）⇒ 它**不是**
+        ///   「靠 `_Reveal` 揭开的黄辉光」，而是「白图 × 黄 `m_Color` × 加法」的**加色块**，动画走
+        ///   `Image.m_Color.a`（= 本文件 `ApplyChannels` 的 `alpha` 通道，已驱动 `ImageQuad.SetTint`）。
+        /// 载体 = `ImageQuad` + 加法材质（`Resources/Art/vfx/UI Additive.mat`；工程等价 shader
+        ///   `WarpforgeVFX/Sprites/Additive`，原版 `Everguild/UI/Additive` 本机未单独重建 —— 无 mask 的纯色块两者一致）。
+        /// 出厂 `m_IsActive = false` 由调用点关（见 `Build()` 紧接的一行）。取不到材质 ⇒ 退回 `Sprites/Default` 并**出声**（⛔ 不静默）。</summary>
+        Transform BuildRankIconGlow()
+        {
+            var quad = MenuDraw.Rect(_rankIcon, CardArt.Solid(), RankIconGlowR, "Rank Icon Glow", QRank, GlowTint);
+            if (quad == null)
+            {
+                WarnChannel("carrier:Rank Icon Glow",
+                            "`Rank Icon Glow` 的载体 quad 没建出来（整块落在裁切框外）⇒ 退回空节点；"
+                          + "原版 `Image.m_Color.a` 那条曲线**没有挂载目标**");
+                return MenuDraw.Node(_rankIcon, "Rank Icon Glow", RankIconGlowR);
+            }
+            var srcMat = Resources.Load<Material>("Art/vfx/UI Additive");
+            if (srcMat == null)
+            {
+                WarnChannel("mat:Rank Icon Glow",
+                            "取不到 `Resources/Art/vfx/UI Additive` 材质 ⇒ `Rank Icon Glow` 走 `Sprites/Default`（**非加法**）。"
+                          + " 导入入口 = `工具/import_mainmenu_effect_mats.py --apply`");
+            }
+            else
+            {
+                quad.SetMaterial(new Material(srcMat));   // 每窗一份（SetTint/AMP 会改 `_Color`，别污染共享资产）
+                quad.SetTint(GlowTint);                    // `SetMaterial` 不复制色 ⇒ 重设成黄
+            }
+            return quad.transform;
         }
     }
 }

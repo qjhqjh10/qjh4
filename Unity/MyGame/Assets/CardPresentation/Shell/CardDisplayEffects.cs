@@ -8,8 +8,11 @@
 // 【原版这 15 条挂在哪 / 什么时候出现（复算过，**不是猜**）】
 //   · 父件 = `Card Displayer Menu For Menu`（原版类 **`CardDisplayWindow`**），它 `m_IsActive = false`
 //     ⇒ 主菜单静止时**一个都不跑**；它们只在**展示窗打开时**才播（`playOnAwake = 1` 但父件关着）。
-//   · 层级：`Card Displayer Menu For Menu ▸ Card Display ▸ CardUI ▸ Cards ▸ Card Display ▸ 2DCard ▸ {Glow Explosion, Lighting Rays, …}`
+//   · 层级（2026-10-27 现核）：`Card Displayer Menu For Menu ▸ Card Display ▸ Cards ▸ CardUI ▸ {2DCard ▸ {Glow Explosion, Level Up Effect, …}, Lighting Rays}` —— ⚠️ `Lighting Rays`（tran `&1574`，`m_Father = &1516`）是 **`CardUI` 的直接子件、不在 `2DCard` 下**；原注释把 `Cards`/`CardUI` 的次序写反了、并多写了一段 `Card Display`。
 //   · 10 颗粒子都挂在 `2DCard`（那张大卡）下面；`Level Up Effect Down` 挂在 `Level Up Effect`（默认关）。
+//   · 🆕 2026-10-27（B9_W28MOUNT）：图件从 3 条变 **4 条** —— 补上了容器 `Level Up Effect`
+//     （`2DCard/Level Up Effect`，`m_IsActive = false`，它自己是 `…Down` 的父件）。判据原来就漏了这一级，
+//     后果三条：子件的 stretch rect 算不出来 / clip 的 `m_IsActive` 没落点 / 材质组件没载体。
 //
 // 【我们怎么摆（坐标换算，唯一一处）】
 //   原版这些节点的父件 `2DCard` 的 `m_SizeDelta = 2.0927 × 3.3313`（**原版画布单位**），
@@ -34,11 +37,15 @@ using UnityEngine;
 
 namespace CardPresentation
 {
-    /// <summary>`CardDisplayWindow` 的光效层：从判据 JSON 建 10 颗粒子 + 3 条图件，可整层开关。</summary>
+    /// <summary>`CardDisplayWindow` 的光效层：从判据 JSON 建 10 颗粒子 + 4 条图件，可整层开关。</summary>
     public static class CardDisplayEffects
     {
         public const string DtoPath = "Art/card_display_effects";
         public const string MatDir = "Art/vfx/";
+        /// <summary>「原版 `Image.m_Sprite` 非空、但我们没有那张贴图」只出声一次。</summary>
+        static bool _warnedNoSprite;
+        /// <summary>「判据里的父件不在本层名单里 ⇒ 只能挂层根」只出声一次（每次 `Build()` 都会走一遍）。</summary>
+        static bool _warnedParent;
 
         /// <summary>建一层，挂到卡体容器下。返回那层根节点（取不到判据/材质时返回 null 并**出声**）。</summary>
         /// <param name="cardParent">卡体容器（本窗是 `Cards`；局部单位 = **世界单位**）。</param>
@@ -96,11 +103,27 @@ namespace CardPresentation
                 built++;
             }
 
+            // 🔴 **父件必须先建**（判据数组的顺序由生成器保证：`Level Up Effect` 排在 `…Down` 之前）。
+            //    只有「父件也在本层名单里」时才真的嵌套；父件是 `2DCard`（或空）⇒ 挂层根（原版如此）。
+            var imgNodes = new Dictionary<string, Transform>();
             for (int i = 0; i < (doc.images == null ? 0 : doc.images.Length); i++)
             {
                 var im = doc.images[i];
                 if (im == null || string.IsNullOrEmpty(im.name)) continue;
-                BuildImage(root, im, s);
+                Transform parent = root;
+                if (!string.IsNullOrEmpty(im.parent) && im.parent != "2DCard")
+                {
+                    Transform p;
+                    if (imgNodes.TryGetValue(im.parent, out p) && p != null) parent = p;
+                    else if (!_warnedParent)
+                    {
+                        _warnedParent = true;
+                        Debug.LogWarning("[CardDisplayEffects] 判据里 `" + im.name + "` 的父件 `" + im.parent
+                                       + "` 不在本层名单里 ⇒ 这一件挂到层根（位置/尺寸仍用判据值，只是层级不同）");
+                    }
+                }
+                var imgGo = BuildImage(parent, im, s);
+                if (imgGo != null) imgNodes[im.name] = imgGo.transform;
                 built++;
             }
 
@@ -211,30 +234,52 @@ namespace CardPresentation
         }
 
         // ============================================================ 图件（Level Up / 左右黑边）
-        static void BuildImage(Transform root, CdeImage im, float s)
+        static GameObject BuildImage(Transform root, CdeImage im, float s)
         {
-            // 🔴 原版这 3 条挂在**默认关闭**的父件下（`Level Up Effect` / `Borders`）⇒ 我们建出来**也是关的**，
-            //    由调用方 `SetOn(true)` 显式打开（⛔ 别默认开：那会让展示窗一打开就多出三条原版不画的东西）。
+            // 🔴 原版这几条挂在**默认关闭**的父件下（`Level Up Effect` / `Borders`；`…Down` 自己 `m_IsActive = true`
+            //    但被父件关着）⇒ 我们建出来**也是关的**，由调用方 `SetOn(true)` 显式打开
+            //    （⛔ 别默认开：那会让展示窗一打开就多出原版不画的东西）。
+            //    ⚠️ 为什么**不**按判据里的 `m_IsActive` 逐件设：`Side Border*` 的父件 `Borders` 原版是关的、
+            //    而我们把这一层摊平挂在层根上 ⇒ 照抄 `active=true` 会让那两条**真的画出来**（黑边横穿整窗）。
             var go = new GameObject(im.name);
             go.transform.SetParent(root, false);
             go.transform.localPosition = new Vector3(im.posX * s, im.posY * s, 0f);
-            // 尺寸：`sizeDelta` 是 px（原版画布 px），按 `unitToPx` 折成世界单位 —— 与粒子同一把尺
+            // 尺寸：判据里已经是「本层最外层单位」（生成器把 `m_LocalScale` 逐级折进去了），
+            // 按 `unitToPx` 折成世界单位 —— 与粒子同一把尺。
             float w = Mathf.Abs(im.sizeX) * s, h = Mathf.Abs(im.sizeY) * s;
+            ImageQuad quad = null;
             if (w > 0.0001f && h > 0.0001f)
             {
-                var quad = ImageQuad.Create(go.transform, CardArt.Solid(), Vector3.zero, LayoutSpace.DesignHeight,
-                                            new Vector2(0.5f, 0.5f), im.name + " Gfx");
+                quad = ImageQuad.Create(go.transform, CardArt.Solid(), Vector3.zero, LayoutSpace.DesignHeight,
+                                        new Vector2(0.5f, 0.5f), im.name + " Gfx");
                 if (quad != null)
                 {
                     quad.SetWorldHeight(h);
                     quad.SetAspect(w / h);
-                    quad.SetTint(new Color(im.colorR, im.colorG, im.colorB, im.colorA));
+                    // ⭐ 两种情形**必须分开**（判据 = 原版 `Image.m_Sprite` 的 PPtr，生成器逐件读出来）：
+                    //   · `m_Sprite = 0` ⇒ uGUI 画的是「全白贴图 × `m_Color`」= **纯色块**
+                    //     （`Side Border Left/Right` 的黑边就是这么来的：color 黑、无 sprite）⇒ 照画。
+                    //   · `m_Sprite ≠ 0` ⇒ 画的是**那张贴图**。我们这条链一条 sprite 都没有
+                    //     ⇒ **载体照建（材质通道要挂），但 α 置 0 不画错图** + 出声一次（⛔ 不静默）。
+                    bool noTex = im.hasSprite;
+                    quad.SetTint(noTex
+                        ? new Color(im.colorR, im.colorG, im.colorB, 0f)
+                        : new Color(im.colorR, im.colorG, im.colorB, im.colorA));
+                    if (noTex && !_warnedNoSprite)
+                    {
+                        _warnedNoSprite = true;
+                        Debug.LogWarning("[CardDisplayEffects] `" + im.name + "` 的原版 `Image.m_Sprite` **不是空**"
+                                       + "（画的是那张贴图），而本链没有 sprite 表 ⇒ 这一件的**图不画**（α = 0），"
+                                       + "只保留载体（原版挂在这颗 `Image` 上的组件要它）。"
+                                       + "判据 → `Resources/Art/card_display_effects.json` 的 `hasSprite`");
+                    }
                 }
             }
             go.SetActive(false);
-            // 原版 `Level Up Effect Down` 挂 `UIBorderGlow`（`animTime 1 / animDelay 0 / playOnEnable 0`）。
-            // ⚠️ 它靠材质的 `_Reveal` 属性做"从中间往两边揭开"；本工程**没有带 `_Reveal` 的 shader**
-            //    （`grep -rl _Reveal --include=*.shader` = 0）⇒ 参数**照原版灌**，画面效果**待那个 shader 到位**；
+            // 原版 `Level Up Effect`（`animTime 2`）/ `Level Up Effect Down`（`animTime 1`）都挂 `UIBorderGlow`
+            // （`animDelay 0 / playOnEnable 0`；判据 = 生成器读 `UIBorderGlow` 的三个序列化字段）。
+            // ⚠️ 它靠材质的 `_Reveal` 属性做"从中间往两边揭开"。🔴 2026-10-27 就地订正（铁律 5）：「本工程没有带 `_Reveal` 的 shader」
+            //    **不成立** —— `WarpforgeVFX/Shaders/WFUIBorderHighlight.shader` 就有（`_Reveal` + `_Noise_Strength_X_Speed_Y_Scale_Z`）；缺的是**这块图用的材质**（仍是 `Sprites/Default`）：
             //    `UIBorderGlow` 自己会出声（`[UIBorderGlow] 材质上没有 _Reveal`），⛔ 不是静默失败。
             if (im.hasGlow)
             {
@@ -245,6 +290,39 @@ namespace CardPresentation
                 glow.revealFrom = -0.5f;   // 原版 `AnimateUIMaterialProperty.floatProperty1.value = -0.5`（判据 = 判据 JSON 的 fields）
                 glow.revealTo = 1f;
             }
+            // 🔴 2026-10-27（B9_W28MOUNT）：`AnimateUIMaterialProperty` —— 原版这两件**同时**挂着
+            //   `UIBorderGlow` 与它，**组件次序** = `Image → UIBorderGlow → [CinemachineIndependentImpulseListener] →
+            //   AnimateUIMaterialProperty`（判据 = `bundle_scenes_scenes_mainmenuwarpforge/GameObject/
+            //   Level Up Effect.json` / `Level Up Effect Down.json` 的 `m_Component` 序）⇒ **照原版次序挂**。
+            // ⚠️ 两者**不抢材质**：`UIBorderGlow.playOnEnable` 两件都是 **0** ⇒ 它只在**显式 `Play()`** 时才
+            //   `CacheMaterial()` 并 `sharedMaterial = _inst`（`Shell/UIBorderGlow.cs:167-187`）；本层没有任何
+            //   地方调 `Play()`（原版那条 legacy clip `Level Up Card` 的曲线/事件里也没有它）
+            //   ⇒ 静止时渲染件一直是 AMP 克隆的那一份，`Update` 写得进去（**不是**写进空气）。
+            if (im.hasAmp)
+            {
+                if (quad == null)
+                {
+                    Debug.LogWarning("[CardDisplayEffects] `" + im.name + "` 原版挂着 `AnimateUIMaterialProperty`，"
+                                   + "但这一件的尺寸为 0 ⇒ 载体没建、**材质通道挂不上**（⛔ 不是静默）");
+                }
+                else
+                {
+                    var s1 = WarpforgeVFX.AnimateUIMaterialProperty.Slot(im.ampFloat1Property, im.ampFloat1Value);
+                    var s2 = im.ampFloat2UseV4
+                           ? WarpforgeVFX.AnimateUIMaterialProperty.SlotV4(im.ampFloat2Property,
+                                 new Vector4(im.ampFloat2X, im.ampFloat2Y, im.ampFloat2Z, im.ampFloat2W))
+                           : WarpforgeVFX.AnimateUIMaterialProperty.Slot(im.ampFloat2Property, im.ampFloat2Value);
+                    // `changeMaterialOnAnimation` 原版 = `Border Effect For Level up`
+                    // （`bundle_scenes_scenes_mainmenuwarpforge/Material/Material_4.json`；
+                    //  `_Reveal -0.5` · `_Noise_Strength_X_Speed_Y_Scale_Z (0.02, −0.1, 8.17, 0)`；
+                    //  shader = `Everguild/UI/UI Border Highlight Appear Pulsating Scale`）。
+                    // ✅ 2026-10-27（B9_W39MAT）：那张材质已由 `工具/import_mainmenu_effect_mats.py --apply` 导成
+                    //  `Resources/Art/vfx/Border Effect For Level up.mat`（shader = 工程等价 `WarpforgeVFX/UI/UI Border Highlight`）。
+                    //  AMP 会 `new Material(source)` 克隆它、逐帧写 `_Reveal` ⇒ 升级动画有观感了（⛔ 别再传 null）。
+                    WarpforgeVFX.AnimateUIMaterialProperty.Attach(quad.GetComponent<MeshRenderer>(), s1, s2, BorderLevelUpMaterial());
+                }
+            }
+            return go;
         }
 
         // ============================================================ 曲线 / 渐变 换算
@@ -354,13 +432,47 @@ namespace CardPresentation
         public class CdeImage
         {
             public string name;
+            /// <summary>父节点的**原版名字**（`""` / `"2DCard"` = 本层根）。同一层内的父件才会真的嵌套。</summary>
+            public string parent;
             public float posX, posY, sizeX, sizeY;
             public float anchorMinX, anchorMinY, anchorMaxX, anchorMaxY;
             public float colorR, colorG, colorB, colorA;
             public float glowTime, glowDelay; public int glowPlayOnEnable;
             /// <summary>这一件原版**有没有** `UIBorderGlow`（★ 别用 `glowTime` 猜：缺组件时默认值也是 1.0）。</summary>
             public bool hasGlow;
+            /// <summary>原版 `Image.m_Sprite` 是不是**非空**。⭐ `false` ⇒ uGUI 画的是「全白贴图 × `m_Color`」
+            /// （纯色块）；`true` ⇒ 画的是那张贴图（我们手里没有 ⇒ 只建载体、不画）。见 `BuildImage`。</summary>
+            public bool hasSprite;
+            /// <summary>这一件原版**有没有** `AnimateUIMaterialProperty`（`Division Image` / `Level Up Effect` 一族）。
+            /// ★ 别用 `ampFloat1Property` 非空来猜 —— 空槽在出厂数据里是常态。</summary>
+            public bool hasAmp;
+            public string ampFloat1Property; public float ampFloat1Value;
+            public string ampFloat2Property; public float ampFloat2Value;
+            public bool ampFloat2UseV4;
+            public float ampFloat2X, ampFloat2Y, ampFloat2Z, ampFloat2W;
         }
         [Serializable] public class CdeDoc { public CdeParticle[] particles; public CdeImage[] images; }
+
+        // ============================================================ 材质（2026-10-27 · B9_W39MAT）
+        /// <summary>`Level Up Effect`（`…Down`）的 `changeMaterialOnAnimation`——
+        /// 原版 `Border Effect For Level up`（`Material_4.json`，shader `Everguild/UI/UI Border Highlight Appear Pulsating Scale`）。
+        /// 我们那份 = `Resources/Art/vfx/Border Effect For Level up.mat`（生成器 `工具/import_mainmenu_effect_mats.py --apply`；
+        /// shader 用工程等价 `WarpforgeVFX/UI/UI Border Highlight`，同名属性 `_Reveal` / `_Noise_Strength_X_Speed_Y_Scale_Z`）。
+        /// 取不到 ⇒ 退回传 null（AMP 克隆 `Sprites/Default` ⇒ `_Reveal` 写进空气）并**出声一次**（⛔ 不静默）。</summary>
+        static Material _borderLevelUpMat;
+        static bool _warnedNoBorderMat;
+        static Material BorderLevelUpMaterial()
+        {
+            if (_borderLevelUpMat != null) return _borderLevelUpMat;
+            _borderLevelUpMat = Resources.Load<Material>(MatDir + "Border Effect For Level up");
+            if (_borderLevelUpMat == null && !_warnedNoBorderMat)
+            {
+                _warnedNoBorderMat = true;
+                Debug.LogWarning("[CardDisplayEffects] 取不到 `Resources/" + MatDir + "Border Effect For Level up` 材质 ⇒ "
+                               + "`Level Up Effect` 的 `_Reveal` 动画会写进 `Sprites/Default`（静默 no-op）。"
+                               + " 导入入口 = `工具/import_mainmenu_effect_mats.py --apply`（⛔ 别传 null）");
+            }
+            return _borderLevelUpMat;
+        }
     }
 }

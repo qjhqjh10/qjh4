@@ -55,4 +55,10 @@ namespace UnityEngine
         BeforeSplashScreen = 3,
         SubsystemRegistration = 4,
     }
+
+    // 🔴 2026-10-27 撤回了这里的 `Vector2` / `Vector3` 两个桩（第八十六会话曾临时补过）：
+    //    `GameplayVariables.VarsGlobal` 那两条展示位公式已改成返回 `Core/VarsGlobalTypes.cs` 的
+    //    `PxOffset` / `WorldPoint` ⇒ `Core/*.cs` 不再需要任何向量类型。
+    //    ⛔ 别再补回来 —— 桩里每多一个 Unity 值类型，都是在给「`Core` 悄悄引 Unity」开后门
+    //    （那条架构断言 `RuleEngineTest.TestCoreLayerPurity` 就该在 Unity 侧当场红，而不是被桩盖过去）。
 }

@@ -1,0 +1,433 @@
+{
+  "scene": "battlearenasororitas",
+  "sprites": [
+    {
+      "go": "Bottom Filler Left",
+      "chain": "Bottom Filler Left ← Scenario Fillers ← Scenario",
+      "pos": [
+        78.01280212402344,
+        -2.759999990463257,
+        37.84000015258789
+      ],
+      "rot": [
+        -0.0,
+        -0.0,
+        -0.0,
+        1.0
+      ],
+      "scale": [
+        10.83340835571289,
+        30.95017433166504,
+        14.399999618530273
+      ],
+      "world": [
+        78.01280212402344,
+        -2.759999990463257,
+        37.84000015258789
+      ],
+      "sprite": "Card Text smooth background",
+      "ptu": 100.0,
+      "rect": [
+        0.0,
+        0.0,
+        32.0,
+        32.0
+      ],
+      "pivot": [
+        0.5,
+        0.5,
+        0.0
+      ],
+      "tex": "Card Text smooth background",
+      "texPathId": 752901063573619990,
+      "color": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "drawMode": 2,
+      "size": [
+        2.7291979789733887,
+        0.35097670555114746,
+        0.0
+      ],
+      "flipX": false,
+      "flipY": false,
+      "sortOrder": 0,
+      "sortLayer": 0,
+      "active": true,
+      "mats": [
+        {
+          "name": "Sprites-Default",
+          "shader": "Sprites/Default",
+          "shaderPathId": 3262840161956400972,
+          "queue": -1,
+          "props": [
+            {
+              "k": "PixelSnap",
+              "t": "f",
+              "f": 0.0
+            },
+            {
+              "k": "_EnableExternalAlpha",
+              "t": "f",
+              "f": 0.0
+            },
+            {
+              "k": "_Color",
+              "t": "c",
+              "c": [
+                1.0,
+                1.0,
+                1.0,
+                1.0
+              ]
+            },
+            {
+              "k": "_Flip",
+              "t": "c",
+              "c": [
+                1.0,
+                1.0,
+                1.0,
+                1.0
+              ]
+            },
+            {
+              "k": "_RendererColor",
+              "t": "c",
+              "c": [
+                1.0,
+                1.0,
+                1.0,
+                1.0
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "go": "Bottom Filler Right (1)",
+      "chain": "Bottom Filler Right (1) ← Scenario Fillers ← Scenario",
+      "pos": [
+        124.84049987792969,
+        5.5040998458862305,
+        46.39400100708008
+      ],
+      "rot": [
+        0.17538465559482574,
+        -0.1753845363855362,
+        0.6850113272666931,
+        0.6850109696388245
+      ],
+      "scale": [
+        5.45202112197876,
+        30.95017433166504,
+        14.399999618530273
+      ],
+      "world": [
+        124.84049987792969,
+        5.5040998458862305,
+        46.39400100708008
+      ],
+      "sprite": "Card Text smooth background",
+      "ptu": 100.0,
+      "rect": [
+        0.0,
+        0.0,
+        32.0,
+        32.0
+      ],
+      "pivot": [
+        0.5,
+        0.5,
+        0.0
+      ],
+      "tex": "Card Text smooth background",
+      "texPathId": 752901063573619990,
+      "color": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "drawMode": 2,
+      "size": [
+        1.739900827407837,
+        0.19556771218776703,
+        0.0
+      ],
+      "flipX": false,
+      "flipY": false,
+      "sortOrder": 0,
+      "sortLayer": 0,
+      "active": true,
+      "mats": [
+        {
+          "name": "Sprites-Default",
+          "shader": "Sprites/Default",
+          "shaderPathId": 3262840161956400972,
+          "queue": -1,
+          "props": [
+            {
+              "k": "PixelSnap",
+              "t": "f",
+              "f": 0.0
+            },
+            {
+              "k": "_EnableExternalAlpha",
+              "t": "f",
+              "f": 0.0
+            },
+            {
+              "k": "_Color",
+              "t": "c",
+              "c": [
+                1.0,
+                1.0,
+                1.0,
+                1.0
+              ]
+            },
+            {
+              "k": "_Flip",
+              "t": "c",
+              "c": [
+                1.0,
+                1.0,
+                1.0,
+                1.0
+              ]
+            },
+            {
+              "k": "_RendererColor",
+              "t": "c",
+              "c": [
+                1.0,
+                1.0,
+                1.0,
+                1.0
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "go": "Bottom Filler Right",
+      "chain": "Bottom Filler Right ← Scenario Fillers ← Scenario",
+      "pos": [
+        117.55000305175781,
+        -2.809999942779541,
+        37.84000015258789
+      ],
+      "rot": [
+        -0.0,
+        -0.0,
+        -0.0,
+        1.0
+      ],
+      "scale": [
+        10.83340835571289,
+        30.95017433166504,
+        14.399999618530273
+      ],
+      "world": [
+        117.55000305175781,
+        -2.809999942779541,
+        37.84000015258789
+      ],
+      "sprite": "Card Text smooth background",
+      "ptu": 100.0,
+      "rect": [
+        0.0,
+        0.0,
+        32.0,
+        32.0
+      ],
+      "pivot": [
+        0.5,
+        0.5,
+        0.0
+      ],
+      "tex": "Card Text smooth background",
+      "texPathId": 752901063573619990,
+      "color": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "drawMode": 2,
+      "size": [
+        2.7291979789733887,
+        0.35097670555114746,
+        0.0
+      ],
+      "flipX": false,
+      "flipY": false,
+      "sortOrder": 0,
+      "sortLayer": 0,
+      "active": true,
+      "mats": [
+        {
+          "name": "Sprites-Default",
+          "shader": "Sprites/Default",
+          "shaderPathId": 3262840161956400972,
+          "queue": -1,
+          "props": [
+            {
+              "k": "PixelSnap",
+              "t": "f",
+              "f": 0.0
+            },
+            {
+              "k": "_EnableExternalAlpha",
+              "t": "f",
+              "f": 0.0
+            },
+            {
+              "k": "_Color",
+              "t": "c",
+              "c": [
+                1.0,
+                1.0,
+                1.0,
+                1.0
+              ]
+            },
+            {
+              "k": "_Flip",
+              "t": "c",
+              "c": [
+                1.0,
+                1.0,
+                1.0,
+                1.0
+              ]
+            },
+            {
+              "k": "_RendererColor",
+              "t": "c",
+              "c": [
+                1.0,
+                1.0,
+                1.0,
+                1.0
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "go": "Crosshair",
+      "chain": "Crosshair ← Attack Target Reticle ← NoCanvas2D ← BattlePrefab",
+      "pos": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "rot": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        4.829999923706055,
+        4.829999923706055,
+        4.829999923706055
+      ],
+      "world": [
+        -47.79999923706055,
+        0.0,
+        81.48148345947266
+      ],
+      "sprite": "Atack_Icon BW",
+      "ptu": 100.0,
+      "rect": [
+        0.0,
+        0.0,
+        180.0,
+        182.0
+      ],
+      "pivot": [
+        0.5,
+        0.5,
+        0.0
+      ],
+      "tex": "Atack_Icon BW",
+      "texPathId": 847053337670984062,
+      "color": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "drawMode": 0,
+      "size": [
+        1.0,
+        1.0,
+        0.0
+      ],
+      "flipX": false,
+      "flipY": false,
+      "sortOrder": 0,
+      "sortLayer": 0,
+      "active": false,
+      "mats": [
+        {
+          "name": "Sprites-Default",
+          "shader": "Sprites/Default",
+          "shaderPathId": 3262840161956400972,
+          "queue": -1,
+          "props": [
+            {
+              "k": "PixelSnap",
+              "t": "f",
+              "f": 0.0
+            },
+            {
+              "k": "_EnableExternalAlpha",
+              "t": "f",
+              "f": 0.0
+            },
+            {
+              "k": "_Color",
+              "t": "c",
+              "c": [
+                1.0,
+                1.0,
+                1.0,
+                1.0
+              ]
+            },
+            {
+              "k": "_Flip",
+              "t": "c",
+              "c": [
+                1.0,
+                1.0,
+                1.0,
+                1.0
+              ]
+            },
+            {
+              "k": "_RendererColor",
+              "t": "c",
+              "c": [
+                1.0,
+                1.0,
+                1.0,
+                1.0
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -55,6 +55,42 @@ ALL_ARENAS = [
 ]
 
 
+## 🆕 2026-10-27（B9_W45ARENA）`--check` 的**产物校验**（只读，不写盘）。
+#  原来这一族的 `--check` 是「只扫不写」（`if not a.check:` 才写）—— 盘上缺产物也恒 rc0，
+#  属「看着有 check、其实啥都没查」。口径照 `工具/import_original_art.py:1714-1721`：
+#  把**重算出来的内容**与盘上那份**逐字节比**；缺 = 缺产物 · 不一致 = 过期，末尾点名 + rc=1。
+def wf_check_artifact(dst, text, lack, stale):
+    if not os.path.isfile(dst):
+        lack.append(dst)
+        return
+    try:
+        old = io.open(dst, encoding='utf-8').read()
+    except Exception as e:
+        stale.append((dst, '读不出：%s' % e))
+        return
+    if old == text:
+        return
+    try:                     # 只差缩进/键序 ⇒ 语义一致，**不算过期**（`JsonUtility` 本来就不看键序）
+        if json.loads(old) == json.loads(text):
+            return
+    except Exception:
+        pass
+    stale.append((dst, '内容与重算结果不同'))
+
+
+def wf_report_artifacts(check, lack, stale, script):
+    """`--check` 收尾：有缺/过期就点名并让 main 返回 1。→ 该返回的 rc（无问题 = 0）。"""
+    if not check or not (lack or stale):
+        return 0
+    print('')
+    for p in lack:
+        print('  🔴 缺产物：%s' % p)
+    for p, why in stale:
+        print('  🔴 产物过期（%s）：%s' % (why, p))
+    print('  ⇒ 重跑一次 `python 工具/%s` 生成（`--check` 只读、不写盘）。' % script)
+    return 1
+
+
 def bundle_dir(arena):
     return f'{ASSETS}/bundle_scenes_scenes_{arena}'
 
@@ -334,6 +370,7 @@ def main():
 
     arenas = [a.arena] if a.arena else ALL_ARENAS
     total, gtotal, mtotal = 0, 0, 0
+    lack, stale = [], []
     for arena in arenas:
         r = scan_arena(arena)
         if r[0] is None:
@@ -349,14 +386,17 @@ def main():
             print(f'      {it["go"]:<40} scale={it["scale"]}')
         for w in warns:
             print(f'      ⚠️ {w}')
-        if not a.check:
-            p = f'{ARENAS_ROOT}/{arena}/{arena}_negscale.json'
-            # 🔴 行尾：这一份是**新产物**，统一 LF（工程里既有文件是 LF / CRLF 混的）。
-            io.open(p, 'w', encoding='utf-8', newline='\n').write(
-                json.dumps({'arena': arena, 'items': items}, ensure_ascii=False, indent=1))
-            print(f'      → {p}')
+        p = f'{ARENAS_ROOT}/{arena}/{arena}_negscale.json'
+        # 🔴 行尾：这一份是**新产物**，统一 LF（工程里既有文件是 LF / CRLF 混的）。
+        text = json.dumps({'arena': arena, 'items': items}, ensure_ascii=False, indent=1)
+        if a.check:
+            wf_check_artifact(p, text, lack, stale)
+            continue
+        io.open(p, 'w', encoding='utf-8', newline='\n').write(text)
+        print(f'      → {p}')
     print(f'=== 13 场：写出 {total} 条 · 场上镜像对象共 {mtotal} 个 · 判不出 {gtotal} 个 ===')
+    return wf_report_artifacts(a.check, lack, stale, 'gen_arena_negscale.py')
 
 
 if __name__ == '__main__':
-    main()
+    sys.exit(main())

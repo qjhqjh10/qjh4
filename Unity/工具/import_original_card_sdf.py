@@ -351,10 +351,28 @@ def main():
     if args.check:
         # 🔴 这里**绝不写盘**：不建目录、不拷 PNG、不动 meta（本脚本会覆盖 assets，check 必须纯读）
         n_meta_bad, _ = meta_pass(dry=True)
+        # 🔴 2026-10-27（执行代理 B9_W35CHECK）：`--check` 必须**连产物一起查** ——
+        #   上面 `miss` 是「源能不能解析出来」，`meta_pass` 只扫**已存在**的 PNG
+        #   ⇒ 产物 PNG 被删/没导过时，两者都看不见（`meta_pass` 根本进不了那个文件）。
+        #   判据同 工具/import_original_art.py `--only-altart`（`:1714-1721`）。
+        expected = {name for _s, name in jobs}
+        if os.path.exists(GENERIC):
+            expected.add("generic.png")
+        if os.path.exists(CARDBACK_NOISE):
+            expected.add("cardback_noise.png")
+        lack_prod = sorted(n for n in expected
+                           if not os.path.isfile(os.path.join(DEST_DIR, n)))
+        if lack_prod:
+            print(f"🔴 产物缺失 {len(lack_prod)}/{len(expected)}（{DEST_DIR}）—— 重跑不带 --check 落盘：")
+            for n in lack_prod[:40]:
+                print("   缺:", n)
+            if len(lack_prod) > 40:
+                print(f"   …共 {len(lack_prod)} 个")
         print("\n--check：只体检，未写文件")
-        ok = not (unknown or miss or n_meta_bad)
+        ok = not (unknown or miss or n_meta_bad or lack_prod)
         if not ok:
-            print(f"--check 不通过：解析不出 {len(unknown)} · 缺图 {len(miss)} · meta/字符串 {n_meta_bad}")
+            print(f"--check 不通过：解析不出 {len(unknown)} · 缺图 {len(miss)} · "
+                  f"meta/字符串 {n_meta_bad} · 产物缺失 {len(lack_prod)}")
         return 0 if ok else 1
 
     os.makedirs(DEST_DIR, exist_ok=True)

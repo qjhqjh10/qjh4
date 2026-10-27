@@ -1028,8 +1028,15 @@ MENU_FROM_ART = [
 #
 # **本机只有这 7 张 · 只覆盖 2 种风格**：`AA_HB`（6 张）+ `v2`（Azrael 那张）。
 #   其余风格在**远端 CCD 的 `alternateartstyles` 包**（本机从未下载）。
-# 目标目录 `Resources/Art/altarts/alt_<卡 id 小写>.png` —— **按 id 命名**（同 `art_<id>.png` 的理由：
+# 目标目录 `Resources/Art/altarts/alt_<卡 id>.png` —— **按 id 命名**（同 `art_<id>.png` 的理由：
 #   卡名跨阵营会撞车）。源图与普通立绘**同一裁法**（`Sprite/textureRect` = x176.5 y0 w670.5 h1024）。
+#
+# 🔴 **命名规则只有一处**：用本文件的 `slug()`（它自己写明「和 C# 的 `CardArt.Slug` 保持一致」），
+#   ⛔ **别再写 `.lower()`** —— 2026-10-27 实测：DA1 这一行原来用 `cid.lower()`，而 `CardArt.AltArt`
+#   走 `Slug()`；两者对当前 7 个纯字母数字 id 结果相同，但一旦 id 带 `-`/`.` 就会分叉（静默取不到图）。
+#   真正的历史事故是**另一件事**：这一行 id 改过 `DA3` → `DA_Azrael` → `DA1`，改完没重跑本脚本
+#   ⇒ 盘上留着 `alt_da_azrael.png`，而 `CardArt.AltArt("DA1")` 要 `alt_da1` ⇒ **DA1 异画恒 null**。
+#   ⇒ `--check` 现在会点名「产物不在」（见下面 `altart_jobs()` 那段），改完 id 忘了重跑就会当场暴露。
 ALT_OUT = 'd:/4/Unity/MyGame/Assets/CardPresentation/Resources/Art/altarts'
 ALT_ART = [
     # (引擎卡 id, 风格, assets_full 下的相对路径)
@@ -1044,7 +1051,10 @@ ALT_ART = [
 
 
 def altart_jobs():
-    """7 张督军异画 → `altarts/alt_<id>.png`。**只取真实存在的那几张**，缺哪张打出来（不静默）。"""
+    """7 张督军异画 → `altarts/alt_<id>.png`。**只取真实存在的那几张**，缺哪张打出来（不静默）。
+
+    ⚠️ 文件名用 `slug(cid)`（= C# `CardArt.Slug`）—— ⛔ **别再写 `cid.lower()`**，见上面那段命名说明。
+    """
     out = []
     for cid, _style, rel in ALT_ART:
         # 🔴 **必须用 `os.path.join` 拼**，不能直接把带 `/` 的 rel 交给 `os.path.join(UNPACK, rel)`：
@@ -1056,7 +1066,7 @@ def altart_jobs():
         if not os.path.exists(src):
             print(f'⚠️ 异画源文件不在（跳过）：{rel}')
             continue
-        out.append((src, os.path.join(ALT_OUT, f'alt_{cid.lower()}.png'), True))
+        out.append((src, os.path.join(ALT_OUT, f'alt_{slug(cid)}.png'), True))
     return out
 
 
@@ -1697,11 +1707,17 @@ def main() -> int:
               f'（ALT_ART 表里共 {len(ALT_ART)} 条）')
         if not args.check:
             os.makedirs(ALT_OUT, exist_ok=True)
-        ok, miss, cuts = 0, [], []
+        ok, miss, cuts, lack = 0, [], [], []
         for src, dst, _crop in aj:
             if not os.path.exists(src):
                 miss.append(src); continue
-            if not args.check:
+            if args.check:
+                # 🔴 `--check` 要连**产物**一起查：`CardArt.AltArt()` 是按 `alt_<slug(id)>` 取图的
+                #    ⇒ id 改过名 / 命名规则改过而脚本没重跑时，源还在、产物却是旧名字，图**静默恒 null**
+                #    （2026-10-27 实测：DA1 要 `alt_da1.png`，盘上只有 `alt_da_azrael.png`）。这里点名。
+                if not os.path.exists(dst):
+                    lack.append(os.path.basename(dst)); continue
+            else:
                 # 返回「这张有没有角色抠图 alpha」⇒ 写一份**只属于异画**的清单
                 # （**不能并进 `card_cutouts.json`** —— 那是全量产物，半量跑会把它清空）
                 if write_portrait(src, dst):
@@ -1712,15 +1728,18 @@ def main() -> int:
             import json as _json
             man = os.path.join(ALT_OUT, 'alt_cutouts.json')
             with open(man, 'w', encoding='utf-8') as f:
-                _json.dump({'note': '有「角色抠图 alpha」的异画（文件名 = alt_<卡 id 小写>）。'
+                _json.dump({'note': '有「角色抠图 alpha」的异画（文件名 = alt_<卡 id>，id 走 slug 归一化）。'
                                     '由 工具/import_original_art.py --only-altart 生成，不要手改。',
                             'count': len(cuts), 'cards': sorted(cuts)},
                            f, ensure_ascii=False, indent=0)
             print(f'异画抠图清单：{len(cuts)} 张 → {man}')
         for m in miss:
-            print('  缺:', m)
+            print('  缺源:', m)
+        for m in lack:
+            print('  🔴 缺产物（取图规则对不上，重跑一次 `--only-altart`）：', m)
         print('⚠️ 这一模式**不碰** `card_cutouts.json`（那是全量产物，半量跑会把它清空）')
-        print('⚠️ 导完记得跑 `ArtBaker.ApplyImportSettings`（否则新 PNG 没开 Read/Write）')
+        print('⚠️ 导完记得跑 `ArtBaker.ApplyImportSettings`（它统一压缩/关 NPOT 缩放；'
+              '⚠️ **异画不需要 Read/Write** —— 只有 `cards/frame_*` 要，`Editor/ArtBaker.cs:443/476`）')
         return 0
 
     jobs = []                                   # (源路径, 目标文件名, 要不要裁成 sprite)

@@ -71,8 +71,41 @@ namespace CardPresentation
     public sealed class ShopBadge : BadgeNotification { }
     public sealed class InventoryBadge : BadgeNotification { }
     public sealed class SocialBadge : BadgeNotification { }
-    public sealed class ForgeBadge : BadgeNotification { }
-    public sealed class CampaignBadge : BadgeNotification { }
+    /// <summary>锻造红点。原版是 `record ForgeBadge(CardArmy army)` —— **带阵营**，`army` 进 record 相等性
+    /// ⇒ `Validate` 只认同阵营那一条（判据 = `decomp_full/Everguild.LiveOps.ForgeHandler.__c___CheckNotification_b__9_0.c`：
+    /// `new CampaignBadge(army)`（反编译器把类名印成 CampaignBadge，实参是**该 forge 的 army**）+ `Repeat(…, Count(rewards))`）。
+    /// <para>⚠️ 我们的阵营身份一律是**名字串**（`ForgeData.Armies` / `CampaignData.Armies`），原版是 `CardArmy` 枚举
+    /// —— 表示法不同、语义一致（同 `RewardsBadge.parentId` 用 string 那条先例），所以这里存 `string`。</para></summary>
+    public sealed class ForgeBadge : BadgeNotification
+    {
+        /// <summary>这一条属于哪个阵营（`null`/空 = 不带过滤，等同「任意阵营」—— 只有老调用点会那样）。</summary>
+        public string army;
+
+        /// <summary>= record 的 `Equals`：**同类型 ∧ 同 `army`**。原版 `RewardsBadge.Validate` 同型那一支就落到它。</summary>
+        public override bool Validate(BadgeNotification other)
+        {
+            var b = other as ForgeBadge;
+            return b != null && string.Equals(b.army, army, StringComparison.Ordinal);
+        }
+    }
+
+    /// <summary>战役红点。原版是 `record CampaignBadge(CardArmy army)` —— 同样**带阵营**
+    /// （判据 = `decomp_full/Everguild.LiveOps.CampaignHandler._CheckNotification_d__21__MoveNext.c`：
+    /// `new CampaignBadge(*(int*)(handler + 0x7c))`，+0x7c 就是 `SelectedArmy`）。
+    /// <para>⚠️ 那一支取战役时是 `GetCampaign(SelectedArmy) ?? GetCampaign(10)`（回退 Ultramarines），
+    /// 但**徽记身上的 army 恒等于 `SelectedArmy`** —— 这里照抄（provider 只发这一条）。</para></summary>
+    public sealed class CampaignBadge : BadgeNotification
+    {
+        /// <summary>这一条属于哪个阵营（同上：`null`/空 = 不过滤）。</summary>
+        public string army;
+
+        /// <summary>= record 的 `Equals`：**同类型 ∧ 同 `army`**。</summary>
+        public override bool Validate(BadgeNotification other)
+        {
+            var b = other as CampaignBadge;
+            return b != null && string.Equals(b.army, army, StringComparison.Ordinal);
+        }
+    }
     public sealed class FriendsBadge : BadgeNotification { }
     public sealed class AlliancesBadge : BadgeNotification { }
     public sealed class SupportBadge : BadgeNotification { }
@@ -310,7 +343,9 @@ namespace CardPresentation
             {
                 if (CampaignData.Claimable(i))
                 {
-                    yield return new CampaignBadge();
+                    // 🔴 原版带 `army`（= `CampaignHandler.SelectedArmy`，`_CheckNotification_d__21__MoveNext.c`）
+                    //    ⇒ 13 颗阵营格各自用自己的 `CampaignBadge{army}` 过滤，只有选中那格会亮。
+                    yield return new CampaignBadge { army = CampaignData.Selected };
                     yield break;                 // 原版：一个战役只发一条
                 }
             }
@@ -333,7 +368,9 @@ namespace CardPresentation
                 string army = armies[a];
                 for (int lv = 0; lv < ForgeData.MaxLevel; lv++)
                     if (ForgeData.StateAt(army, lv) == ForgeData.ToCollect)
-                        yield return new ForgeBadge();
+                        // 🔴 原版逐阵营：`Repeat(new ForgeBadge(f.GetArmy()), Count(f.GetRewardsToCollect()))`
+                        //    （`…__c___CheckNotification_b__9_0.c`）⇒ 每一条都带**该阵营**。
+                        yield return new ForgeBadge { army = army };
             }
         }
     }

@@ -12626,6 +12626,161 @@ public static class CollectionScene
                         + " ⇒ 读到 `2 × 设计宽` ⇒ **本条红**；两帧一起改回同一帧 ⇒ 本条照样红");
             }
 
+            // ============================================================ 🆕 2026-10-27（`B9_W36SHINEA`）
+            //   账 `收藏:348`：`WIldcard Display ▸ Background` 的 **Shiny 扫光**（原版 `WildcardDisplay.OnEnable`
+            //   → `shinyEffect.Play(resetTime:true)`）。判据 / 参数 / 「9 块共用一份材质」的理由 →
+            //   `资料/完全复刻/报告/B9_W16SHINE_扫光统一.md` §三·1 ＋ `Resources/Shaders/WildcardShine.shader` 文件头。
+            //   🔴 三道**前提各写一条硬断言**（shader 取不到 / 层没建出来 / 材质没挂上，**当场红**）
+            //      —— ⛔ 不写 `if (前提) Check(结论)`（那条形状会让前提不成立时静默跳过，铁律：自检里最贵的坑）。
+            //   🧨 灭自证：① 「9 块共用**同一个**材质对象」+「shader 名对」并排 —— 退回「每块各一份」红、
+            //      退回 `Sprites/Default`（根本没挂）红；② `_ShineRot`/`_ShineFrame` 的期望值一半来自
+            //      **原版参数**（120° ⇒ `(cos,sin)=(-0.5,0.8660)`）、一半来自**本段独立算的世界并集**
+            //      （⛔ 不回读 `WildcardShineLayer.FrameBounds` 那个被测口）；③ `Neutral ⇒ 不播` 与
+            //      「非 Neutral ⇒ 播」**两条并排** —— 把闸写成恒关/恒开都只能对一半。
+            Section("B9 `收藏:348`：万能卡 `Background` 的 Shiny 扫光（参数 / 一份材质 / 播放进度 / Neutral 闸）");
+            {
+                // ---- 前提 ①：我们自己的 shader 取得到（只有 `Resources/` 下的才随包）----
+                var shineShader = Shader.Find("CardPresentation/WildcardShine");
+                CheckTrue(shineShader != null,
+                          "（前提·不静默）`Shader.Find(\"CardPresentation/WildcardShine\")` 取得到"
+                        + " —— 它不在 `Resources/` 下时 player 包里返回 null ⇒ 扫光**静默不出现**"
+                        + "（`WildcardShineLayer.Attach` 会打一条 warning）");
+                // ---- 前提 ②：层建出来了（`-1` = 没建；⛔ 不能当成「没播」）----
+                CheckTrue(win.WildcardShineRate >= 0f,
+                          $"（前提·不静默）扫光层建出来了（`WildcardShineRate` 现读 {win.WildcardShineRate:F3}；"
+                        + "-1 = `WildcardShineLayer.AttachNine` 返回了 null）");
+
+                // 那颗 `Background` 按**直接子件**取（同本文件上面那节 `WIldcard Display` 的取法，⛔ 不用递归的 FindChild：
+                //   整页里叫 `Background` 的件不止一颗，递归会拿错）
+                var hdrB = win.PageRoot(1) != null ? win.PageRoot(1).Find("Header Filters") : null;
+                var wdB = hdrB != null ? hdrB.Find("WIldcard Display") : null;
+                var bgRootT = wdB != null ? wdB.Find("Background") : null;
+                CheckTrue(bgRootT != null, "（前提）`Header Filters ▸ WIldcard Display ▸ Background` 取得到");
+                var bgQuads = bgRootT != null ? bgRootT.GetComponentsInChildren<ImageQuad>(true) : null;
+                Check(bgQuads != null ? bgQuads.Length : 0, 9,
+                      "★ 那颗 `Background` 是**九宫格 9 块**（= 原版「一颗 Image、一张 9 格网格」的等价物；"
+                    + "🧨 改成单块/改成 `MenuDraw.Rect` 拉伸 ⇒ 红）");
+
+                // ---- ③ 材质的同一性 + 身份 + 参数（灭自证的第一半）----
+                Material m0 = null; int sameMat = 0, wrongShader = 0, noMr = 0;
+                if (bgQuads != null)
+                    for (int i = 0; i < bgQuads.Length; i++)
+                    {
+                        var q = bgQuads[i];
+                        var mr = q != null ? q.GetComponent<MeshRenderer>() : null;
+                        var mm = mr != null ? mr.sharedMaterial : null;
+                        if (mm == null) { noMr++; continue; }
+                        if (m0 == null) m0 = mm;
+                        if (ReferenceEquals(mm, m0)) sameMat++;
+                        if (mm.shader == null || mm.shader.name != "CardPresentation/WildcardShine") wrongShader++;
+                    }
+                Check(noMr, 0, "（前提）9 块都拿得到材质（`MeshRenderer.sharedMaterial` 不为 null）");
+                Check(sameMat, 9, "★ 9 块 quad **共用同一个材质对象** —— 掩码按**顶点世界位置**算 ⇒ 一份就连续"
+                                 + "（🧨 退回上一版「每块各算一份 uv 仿射 / 各自一份材质」⇒ 本格红）");
+                Check(wrongShader, 0, "★ 9 块的材质 shader 名**全是** `CardPresentation/WildcardShine`"
+                                     + "（🧨 没挂上 / 退回 `Sprites/Default` ⇒ 本格红）");
+                CheckTrue(m0 != null, "（前提）拿到那份扫光材质");
+                if (m0 != null)
+                {
+                    // ---- ④ 参数（原版现读值，⛔ 不是我们挑的）----
+                    CheckTrue(m0.HasProperty("_TransitionWidth"),
+                              "（前提）材质有 `_TransitionWidth`（shader 编不过时 `HasProperty` 会是 false）");
+                    if (m0.HasProperty("_TransitionWidth"))
+                    {
+                        CheckNear(m0.GetFloat("_TransitionWidth"), 0.25f, 1e-5f, "★ 带宽 = **0.25**（原版 `m_TransitionWidth`）");
+                        CheckNear(m0.GetFloat("_TransitionSoftness"), 0.5f, 1e-5f, "★ 软边 = **0.5**（原版 `m_TransitionSoftness`）");
+                        CheckNear(m0.GetFloat("_TransitionColorFilter"), 6f, 1e-5f, "★ 颜色滤镜 = **6**（MultiplyAdditive）");
+                        var sc = m0.GetColor("_TransitionColor");
+                        CheckNear(sc.r, 1f, 1e-3f, "★ 带色 = **白**（收藏窗这颗是白的；🧨 套成 Deck 那颗 (3.4822,…) ⇒ 红）");
+                        CheckNear(sc.g, 1f, 1e-3f, "……g 也是 1");
+                        CheckNear(sc.b, 1f, 1e-3f, "……b 也是 1");
+                    }
+                    // ---- ⑤ 框 / 角度：一半原版参数、一半本段独立算的世界并集 ----
+                    CheckTrue(m0.HasProperty("_ShineFrame"),
+                              "（前提）材质有 `_ShineFrame`（掩码按世界位置算的那两个 uniform 之一）");
+                    if (m0.HasProperty("_ShineFrame") && bgQuads != null)
+                    {
+                        // 独立算 9 块的世界并集（用 `MeshFilter.sharedMesh.bounds` 逐角变换 —— 与渲染器无关、确定性；
+                        //   ⛔ 不回读 `WildcardShineLayer.FrameBounds`，那是被测实现自己的答案）
+                        bool any = false; Vector3 bmin = Vector3.zero, bmax = Vector3.zero;
+                        for (int i = 0; i < bgQuads.Length; i++)
+                        {
+                            var q = bgQuads[i];
+                            if (q == null) continue;
+                            var mf = q.GetComponent<MeshFilter>();
+                            if (mf == null || mf.sharedMesh == null) continue;
+                            var lb = mf.sharedMesh.bounds;
+                            for (int c = 0; c < 4; c++)
+                            {
+                                var p = q.transform.TransformPoint(new Vector3(
+                                    (c & 1) == 0 ? lb.min.x : lb.max.x,
+                                    (c & 2) == 0 ? lb.min.y : lb.max.y, lb.center.z));
+                                if (!any) { bmin = p; bmax = p; any = true; }
+                                else { bmin = Vector3.Min(bmin, p); bmax = Vector3.Max(bmax, p); }
+                            }
+                        }
+                        CheckTrue(any, "（前提）9 块里有 `MeshFilter + sharedMesh`（不然并集算不出来）");
+                        if (any)
+                        {
+                            var ctr = (bmin + bmax) * 0.5f; var size = bmax - bmin;
+                            var fr = m0.GetVector("_ShineFrame");
+                            CheckNear(fr.x, ctr.x, 0.02f, $"★ `_ShineFrame.xy` = 那 9 块的**世界中心** x（实得 {fr.x:F4} vs 独立算 {ctr.x:F4}）"
+                                                        + "｜🧨 `Reframe()` 没被调用 ⇒ 读到默认 (0,0) ⇒ 红");
+                            CheckNear(fr.y, ctr.y, 0.02f, $"…… 中心 y（{fr.y:F4} vs {ctr.y:F4}）");
+                            CheckNear(fr.z, size.x, 0.02f, $"★ `_ShineFrame.zw` = 世界**宽/高**（{fr.z:F4}×{fr.w:F4} vs 独立算 {size.x:F4}×{size.y:F4}）");
+                            CheckNear(fr.w, size.y, 0.02f, "…… 高");
+                            var rot = m0.GetVector("_ShineRot");
+                            CheckNear(rot.x, -0.5f, 2e-3f, "★ `_ShineRot.x` = cos(**120°**) = **−0.5**（原版 `m_TransitionRotation = 120`）");
+                            CheckNear(rot.y, 0.8660254f, 2e-3f, "★ `_ShineRot.y` = sin(**120°**) = **0.8660**");
+                            CheckNear(rot.z, 1f / Mathf.Max(size.x, size.y), 2e-3f,
+                                      "★ `_ShineRot.z` = **1/max(宽,高)**（🔶 自己设计那一档归一；判据见 `.shader` 文件头 ④）");
+                        }
+                    }
+                }
+
+                // ---- ⑥ 播放进度：建页那一拍 = 原版 `OnEnable` 的 `Play(resetTime:true)` ⇒ 从 0 起 ----
+                bool pOn0 = win.WildcardShinePlayingForTest;
+                CheckNear(win.WildcardShineRate, 0f, 1e-4f,
+                          $"★ 建页那一拍 rate = **0**（= 原版 `OnEnable` 的 `Play(resetTime:true)` 把时间清零；现读 {win.WildcardShineRate:F4}）"
+                        + "｜🧨 把 `BuildWildcardShine` 里那句 `Play(true)` 删掉 ⇒ rate 停在初值 1 ⇒ 红");
+                CheckTrue(pOn0, "★ …而且**在播**（`Playing` = true；`Rate` 单独看分不出「没播」与「播完了」，两条必须并排）");
+                win.StepWildcardShineForTest(0.5f);
+                CheckNear(win.WildcardShineRate, 0.5f / 0.75f, 2e-3f,
+                          $"★ 推进 0.5 s ⇒ rate ≈ **0.6667**（0.5 ÷ 0.75；实得 {win.WildcardShineRate:F4}）"
+                        + "｜🧨 时长套成 1.0 s（Deck 那颗的）⇒ 读到 0.5 ⇒ 红");
+                win.StepWildcardShineForTest(0.25f);
+                CheckNear(win.WildcardShineRate, 1f, 1e-4f, "★ 再推进 0.25 s（累计 0.75 s）⇒ rate = **1**（扫完）");
+                CheckTrue(!win.WildcardShinePlayingForTest,
+                          "★ …**而且自己停了**（`m_WrapMode 0 (Once)`；🧨 把它接成 Loop ⇒ 仍在播 ⇒ 红）");
+
+                // ---- ⑦ Neutral 闸（原版 `if (currentArmy != CardArmy.Neutral)`）----
+                int armyWas = win.WildcardArmyForTest;
+                win.RebuildCardsPageWithArmyForTest(ArmyIcons.Neutral);
+                // （前提）断的是 `BuildWildcardShine` **那一刻**的阵营快照 —— ⛔ 不是重建**之后**的 `_wcArmy`：
+                //   重建链尾句 `CheckFocusedArmy()` 会按 `WcRef` 命中的第一格把它重算回去（原版行为），
+                //   读晚了只能读到那个重算值（判据 → `报告/D3_deck_rewards_collection.md` ②）。
+                Check(win.WildcardArmyAtShineBuildForTest, ArmyIcons.Neutral,
+                      "（前提）`BuildWildcardShine` **那一刻**读到的 `_wcArmy` 真的是 Neutral(0) —— 这是「下面那道闸真的被跑到」的直接证据"
+                    + $"（重建**之后**的 `_wcArmy` 现读 {win.WildcardArmyForTest} = `CheckFocusedArmy` 按命中的第一格重算的结果，原版行为）"
+                    + $"；快照实得 {win.WildcardArmyAtShineBuildForTest}（-2147483648 = `BuildWildcardShine` 一次都没跑到）"
+                    + "｜🧨 删掉 `BuildWildcardShine` 里那句快照 ⇒ 读到哨兵 ⇒ 红；"
+                    + "把 `BuildWildcardShine` 挪到 `RebuildCardsCells` **之后**（`_wcArmy` 已被重算）⇒ 红；"
+                    + "⛔ 别改回读 `WildcardArmyForTest`（那是在断重建**之后**的值，恒不是 0 ⇒ 假红）");
+                CheckTrue(!win.WildcardShinePlayingForTest,
+                          "★ **Neutral ⇒ 不播**（原版 `WildcardDisplay.OnEnable` 的 `currentArmy != Neutral` 闸）"
+                        + "｜🧨 把 `BuildWildcardShine` 里那道闸删掉 ⇒ 本条红");
+                CheckNear(win.WildcardShineRate, 1f, 1e-4f, "★ ……而且 rate 停在 **1**（不亮）");
+                win.StepWildcardShineForTest(0.2f);
+                CheckNear(win.WildcardShineRate, 1f, 1e-4f,
+                          "★ ……**推进 0.2 s 也不动**（真没在播；🧨 若只是在「播完」那一侧，rate 会变成 0.267 ⇒ 红）");
+                // 反证：闸不是恒关（换回一个有脸的阵营 ⇒ 又播）
+                win.RebuildCardsPageWithArmyForTest(armyWas);
+                CheckTrue(win.WildcardArmyForTest == armyWas, "（收尾）阵营换回去了");
+                CheckTrue(win.WildcardShinePlayingForTest,
+                          "★ **非 Neutral ⇒ 又播了**（闸不是恒关；与上一条并排 ⇒ 恒开/恒关都只能对一半）");
+                CheckNear(win.WildcardShineRate, 0f, 1e-4f, "（收尾）重开又从 **0** 起");
+            }
+
             int total = _sink.Pass + _sink.Fail;
             if (_sink.Fail == 0) Debug.Log(P + $"=== 结束：{_sink.Pass}/{total} 全过 ✅ ===");
             else

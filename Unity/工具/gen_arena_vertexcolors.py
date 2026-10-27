@@ -72,6 +72,42 @@ FMT_SIZE = {0: 4, 1: 2, 2: 1, 3: 1}      # 0=Float32 1=Float16 2=UNorm8 3=SNorm8
 STREAM_STAT = collections.Counter()
 
 
+## 🆕 2026-10-27（B9_W45ARENA）`--check` 的**产物校验**（只读，不写盘）。
+#  原来这一族的 `--check` 是「只扫不写」（`if a.check: continue`）—— 盘上缺产物也恒 rc0，
+#  属「看着有 check、其实啥都没查」。口径照 `工具/import_original_art.py:1714-1721`：
+#  把**重算出来的内容**与盘上那份**逐字节比**；缺 = 缺产物 · 不一致 = 过期，末尾点名 + rc=1。
+def wf_check_artifact(dst, text, lack, stale):
+    if not os.path.isfile(dst):
+        lack.append(dst)
+        return
+    try:
+        old = io.open(dst, encoding='utf-8').read()
+    except Exception as e:
+        stale.append((dst, '读不出：%s' % e))
+        return
+    if old == text:
+        return
+    try:                     # 只差缩进/键序 ⇒ 语义一致，**不算过期**（`JsonUtility` 本来就不看键序）
+        if json.loads(old) == json.loads(text):
+            return
+    except Exception:
+        pass
+    stale.append((dst, '内容与重算结果不同'))
+
+
+def wf_report_artifacts(check, lack, stale, script):
+    """`--check` 收尾：有缺/过期就点名并让 main 返回 1。→ 该返回的 rc（无问题 = 0）。"""
+    if not check or not (lack or stale):
+        return 0
+    print('')
+    for p in lack:
+        print('  🔴 缺产物：%s' % p)
+    for p, why in stale:
+        print('  🔴 产物过期（%s）：%s' % (why, p))
+    print('  ⇒ 重跑一次 `python 工具/%s` 生成（`--check` 只读、不写盘）。' % script)
+    return 1
+
+
 def _dim(c):
     """`ChannelInfo.dimension` —— **只有低 4 位是维度**。
 
@@ -748,6 +784,7 @@ def main():
         print('  ⚠️ 「没有读取器」非 0 = 有流式网格**没被尝试读** —— 这是静默漏账的前兆，查一下调用处')
 
     arenas = [a.arena] if a.arena else [b.replace('scenes_scenes_', '') for b in BUNDLES[1:]]
+    lack, stale = [], []
     for arena in arenas:
         mdir = MODELS % arena
         if not os.path.isdir(mdir):
@@ -859,8 +896,6 @@ def main():
                  ('（另有 %d 个 OBJ 的原网格本来就没顶点色，跳过）' % nocount) if nocount else '',
                  ('  ✅ 静态合批接上 %d 个' % len(sb_done)) if sb_done else '',
                  ('  ⚠️ 本场有顶点色但没建出来的网格 %d 个' % len(unmatched)) if unmatched else ''))
-        if a.check:
-            continue
         out = {'arena': arena,
                '_schema': 'arena_vcol/1 —— 原版网格的顶点色（positions **保留原版空间、没有取反** —— 我们的 OBJ 是取反过的、而 Unity 的 OBJ 导入器会再取反一次 ⇒ **Unity 网格的 X ≈ 原版**，按原样比即可）；'
                           '运行时按**位置**匹配到 Unity 顶点，别按索引（OBJ 被按组拆过、Unity 还会 weldVertices）',
@@ -870,9 +905,13 @@ def main():
                '_missItems': miss_items,
                'unmatched': unmatched}
         dst = os.path.join('d:/4/Unity/MyGame/Assets/WarpforgeArena1/arenas', arena, arena + '_vcol.json')
-        io.open(dst, 'w', encoding='utf-8', newline='\n').write(json.dumps(out, ensure_ascii=False))
+        text = json.dumps(out, ensure_ascii=False)
+        if a.check:
+            wf_check_artifact(dst, text, lack, stale)
+            continue
+        io.open(dst, 'w', encoding='utf-8', newline='\n').write(text)
         print('   写出 %s（%.1f KB）' % (dst, os.path.getsize(dst) / 1024.0))
-    return 0
+    return wf_report_artifacts(a.check, lack, stale, 'gen_arena_vertexcolors.py')
 
 
 if __name__ == '__main__':

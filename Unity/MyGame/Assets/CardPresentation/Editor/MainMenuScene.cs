@@ -16872,9 +16872,9 @@ public static class MainMenuScene
                           "升段窗 `Title` = 词条 `Event_Description/Ranked/Promoted`");
                 CheckText(dc.ReachedLabel != null ? dc.ReachedLabel.Text : null, "--",
                           "升段窗段位名缺失（服务端数据）⇒ `New division reached Text` = **`--`**（⛔ 不编段位）");
-                CheckTrue(dc.DivisionArtBlank && dc.DivisionNode != null
-                          && dc.DivisionNode.GetComponentsInChildren<ImageQuad>(true).Length == 0,
-                          "升段窗段位大图**不画**（`divisionIcon.m_Sprite = 0`，段位图名对照表本地没有）");
+                var dq = dc.DivisionNode == null ? null : dc.DivisionNode.GetComponentsInChildren<ImageQuad>(true);
+                int dqLit = dq == null ? -1 : System.Array.FindAll(dq, q => q != null && q.Tint.a > 0f && q.gameObject.activeInHierarchy).Length;
+                CheckTrue(dc.DivisionArtBlank && dq != null && dq.Length == 3 && dqLit == 0, "升段窗段位大图**不画**（`divisionIcon.m_Sprite = 0`，段位图名对照表本地没有）—— 目标态 = 三颗载体都在、但**每一颗都画不出东西**（`Tint.a <= 0` 或节点不自激活）；现读 quad 数 = " + (dq == null ? -1 : dq.Length) + "（期望 **3**：`Division Image` / `Rank Icon` / `Rank Icon Glow`，判据 = 原版那三份 `GameObject/*.json` 各带一颗 `Image`）、亮着且 α>0 的 = " + dqLit + "、DivisionArtBlank = " + dc.DivisionArtBlank + "｜🧨 把 `BuildDivisionImage`/`BuildRankIcon`/`BuildRankIconGlow` 退回 `MenuDraw.Node` ⇒ quad 数 < 3 ⇒ 红（材质挂载点又没了）；把两颗载体的 tint α 从 0 改回 1、或让 `Rank Icon Glow` 出厂就激活 ⇒ 「亮着且 α>0 的」> 0 ⇒ 红；⛔ 别改回 `ImageQuad 数 == 0`（载体已按原版组件序合法存在，那条只会假红）");
                 CheckTrue(dc.SealStepsNode != null && dc.SealStepsNode.childCount == 4,
                           "升段窗 `Mission Milestones Progress/steps` = **4 颗** `RankedSealStep`（prefab 实读）");
                 dc.Close();

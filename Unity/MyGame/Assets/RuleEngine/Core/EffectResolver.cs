@@ -545,6 +545,21 @@ namespace RuleEngine
             {
                 if (skip[i] || !paidOk[i]) continue;
                 var op = ops[i];
+                // 🔴 **2026-10-27（批次 9 · 执行代理 `B9_W43DA42` · 判据件 §三 A7）：附魔族的触发条件句不在「打出当刻」结算。**
+                //   `DA42` 卡面那句 `When played, gain 3 Quest Points` 是**承载卡被打出时**才生效的
+                //   附魔触发条件（原版：挂在 `cardAbilities[trigger 0].abilityLogic[].buffEffect{enchantment}`
+                //   上，由 `AddEffect → AddEnchantment` 挂进**承载卡**的 `+0x110`，构建时**不结算**）。
+                //   今天主解析器照常把它解成 `gainquest 3` ⇒ **打出 DA42 当刻就 +3**（错时机）。
+                //   ⛔ **不许改成「解析器不产这条 op」** —— `ruleprobe check` 的【输出指纹】哨兵
+                //   （`Program.PinnedParseMd5`）钉死整池解析 md5，动解析 = `check` 永久 `rc=1`；
+                //   闸门的全部理由与取舍 → `Enchantments.IsEnchantTriggerClause` 的 doc。
+                if (Enchantments.IsEnchantTriggerClause(sourceCard, op))
+                {
+                    ctx.Log($"{by}：「{op.Source}」属于**附魔族**（承载卡被打出时才结算，不是这张卡打出时的正文）"
+                          + " ⇒ **打出当刻不结算**（原版 `AddEffect → AddEnchantment` 只挂不跑）");
+                    NotePreviousAbilityTargets(ctx);
+                    continue;
+                }
                 // 🆕 2026-10-23（`A12`）：`instead` 的条件已由 `InsteadSkips` 在**动手之前**判过
                 //    ⇒ 这里不再判第二次（详见 `InsteadSkips` 的 doc「条件只判一次」）。
                 if (plan.Judged[i]) op = WithoutCondition(op);
@@ -1700,7 +1715,7 @@ namespace RuleEngine
             //    两边口径不一致 ⇒ **拖拽时高亮说能选、松手打出去却空过**
             //    （`CanPlayTactic` 的注释点名过这个毛病：「另写一份会出现…」）。
             //    ⇒ 两处现在都读这一份。
-            ApplyTargetFilters(ctx, pool, spec, structuredCondition: structuredCondition);
+            ApplyTargetFilters(ctx, pool, spec, structuredCondition: structuredCondition, targetsAffected: TargetsAffectedOf(op));
             // 🆕 v25（2026-10-24 · 执行代理 `W2` · `C5` Q4）：再按原版 `(ab,lg)` 那条 logic 的
             //   **其余 36 格** criteria 筛一遍（`op.TargetCriteriaSet` + `op.TargetCondition` 拼回一个对象）。
             //   ⚠️ 排在 `Adjacent` **之前** —— 原版相邻目标的候选也要过同一份 criteria
@@ -1996,7 +2011,7 @@ namespace RuleEngine
                 if (chosen != null) u = chosen;
                 else if (targetSlot < 0 || !BoardSpec.IsValid(targetSlot)) return RuleCodes.ErrNoTargetAvailable;
                 else u = PickedBySlot(ctx, p, spec, targetSlot);
-                if (u == null || !IsLegalPick(ctx, p, spec, u, pickCond, card)) return RuleCodes.ErrNoTargetAvailable;
+                if (u == null || !IsLegalPick(ctx, p, spec, u, pickCond, TargetsAffectedForOp(ops, spec), card)) return RuleCodes.ErrNoTargetAvailable;
             }
             return RuleCodes.OK;
         }
@@ -2006,6 +2021,9 @@ namespace RuleEngine
                                 // 🆕 2026-10-22（`W64` · `B-16`）：**和结算那一侧同一行**结构化条件 ——
                                 //   不传就是「高亮说能选、打出去空过」（`CanPlayTactic` 注释点名的老毛病）。
                                 CardDef.ConditionSpec structuredCondition = null,
+                                // 🔴🆕 2026-10-27（`B9_W27ENG`）：这条 op 的 `targetsAffected`（必须与结算那一侧同一个值 ——
+                                //   ⛔ 别在这里另算一份，否则「高亮说能选、打出去空过」那类分叉会回来）。
+                                int targetsAffected = CardDef.CountSetSpec.Unknown,
                                 // 🔴 **2026-10-26（批次 9 · 执行代理 `E9ER`）**：这次选目标的那张牌 ——
                                 //   只服务 `camouflage` 那一格（原版 `RawCardScript__IsValidTarget.c:16-40`
                                 //   要求施放者 `cardType == 0x14`）。`null` ⇒ 按「非战术卡」处理（老口径里
@@ -2024,7 +2042,7 @@ namespace RuleEngine
             //    以前只筛阵营 + 「排不排除督军」，兵种 / 已受伤 / 正在祈祷 三道筛漏在这儿
             //    ⇒ **拖拽时高亮说能选、松手打出去却空过**（那正是 `CanPlayTactic` 注释点名的毛病）。
             //    现在两边都调 `ApplyTargetFilters`，**只此一处**。
-            ApplyTargetFilters(ctx, pool, spec, quiet: true, structuredCondition: structuredCondition);
+            ApplyTargetFilters(ctx, pool, spec, quiet: true, structuredCondition: structuredCondition, targetsAffected: targetsAffected);
             return pool.Contains(u);
         }
 
@@ -2088,12 +2106,12 @@ namespace RuleEngine
             // ⚠️ **先筛「棋盘上那批」**（老口径逐字不变），预览单位**单独跑一次同样的筛**再并进来 ——
             //    ⛔ 别把预览塞进 `pool` 再统一筛：`ApplyStructuredConditionFilter` 遇到「判不了」
             //    是**整条不筛**（它 `return` 掉整轮），预览若被判不了会把**棋盘那批的筛也一起废掉**。
-            ApplyTargetFilters(ctx, pool, spec, quiet: true, structuredCondition: pickCond);
+            ApplyTargetFilters(ctx, pool, spec, quiet: true, structuredCondition: pickCond, targetsAffected: TargetsAffectedForOp(ops, spec));
             if (asIfOnBoard != null && asIfOnBoard.IsAlive && !(troopOnly && asIfOnBoard.IsWarlord)
                 && !pool.Contains(asIfOnBoard))
             {
                 var probe = new List<UnitState> { asIfOnBoard };
-                try { ApplyTargetFilters(ctx, probe, spec, quiet: true, structuredCondition: pickCond); }
+                try { ApplyTargetFilters(ctx, probe, spec, quiet: true, structuredCondition: pickCond, targetsAffected: TargetsAffectedForOp(ops, spec)); }
                 catch (System.Exception e)
                 {
                     // ⛔ 不许把一条「高亮候选算不出来」升级成「这张牌打不出去」的崩溃：
@@ -2159,7 +2177,10 @@ namespace RuleEngine
         static void ApplyTargetFilters(BattleContext ctx, List<UnitState> pool, EffectTargetSpec spec,
                                        bool quiet = false,
                                        // 🆕 2026-10-22（`W64` · `B-16`）：结构化条件行（见 `ApplyStructuredConditionFilter`）
-                                       CardDef.ConditionSpec structuredCondition = null)
+                                       CardDef.ConditionSpec structuredCondition = null,
+                                       // 🔴🆕 2026-10-27（`B9_W27ENG`）：这条 op 的 `targetsAffected`（`CardDef.CountSetSpec.Unknown` = 读不到）。
+                                       //   原版**不是每一档 `ta` 都求值 `cond`/`ex`** ⇒ 门在 `CondDeadByTa`（判据见 `TargetCriteriaEval.ConditionIsDeadByTargetsAffected`）。
+                                       int targetsAffected = CardDef.CountSetSpec.Unknown)
         {
             if (spec == null) return;
 
@@ -2246,7 +2267,7 @@ namespace RuleEngine
             }
 
             // ---- 🆕 2026-10-22（`W64` · `B-16`）：原版 `TargetCriteria.conditionsFilter` ----
-            ApplyStructuredConditionFilter(ctx, pool, structuredCondition, quiet);
+            ApplyStructuredConditionFilter(ctx, pool, structuredCondition, quiet, targetsAffected);
         }
 
         /// <summary>
@@ -2346,9 +2367,12 @@ namespace RuleEngine
         /// `MeetsUnitCondition` 判不了的值返回 `null` ⇒ 这里**不筛**（⛔ 不猜）。</para>
         /// </summary>
         static void ApplyStructuredConditionFilter(BattleContext ctx, List<UnitState> pool,
-                                                   CardDef.ConditionSpec row, bool quiet)
+                                                   CardDef.ConditionSpec row, bool quiet,
+                                                   // 🔴🆕 2026-10-27（`B9_W27ENG`）：见 `CondDeadByTa` 的 doc
+                                                   int targetsAffected = CardDef.CountSetSpec.Unknown)
         {
             if (row == null || pool == null || pool.Count == 0) return;
+            if (CondDeadByTa(ctx, row, targetsAffected, quiet)) return;   // 🔴 原版这一档**不求值** cond/ex（判据 → `CondDeadByTa`）
             if (!RoleTakesTargetSubject(row.Role)) return;      // 不是「一个目标」的形状 ⇒ 不接
             int before = pool.Count;
             var kept = new List<UnitState>(pool.Count);
@@ -2573,6 +2597,15 @@ namespace RuleEngine
             // （2026-09-13 第三十三轮）。**排在 `Emit` 之后、结算之前** ——
             // 「打出了」这个事实发生在效果结算之前；监听方看到的就是「对面刚打了一张计策」。
             BroadcastWhen(ctx, WhenEventKind.Play, p, card, null);
+            // 🆕 **2026-10-27（批次 9 · 执行代理 `B9_W43DA42` · 判据件 §三 A4）：承载卡被打出 ⇒ 派发它身上的附魔。**
+            //   原版同一跳：`BroadcastCardPlayed` → 逐张手牌 `ResolveCardPlayed` → `thisCard == cardPlayed`
+            //   那一支 `TriggerAbilities(trigger 0, includeEnchantments: 1)`（`RawCardScript__OnCardPlayedWithTarget.c:43`
+            //   → `RawCardScript__TriggerAbilities.c:202` 的共享尾块扫 `+0x110`）。
+            //   ⚠️ **必须在这里、不能塞进 `BroadcastWhen`** —— 那个函数只拿到 `CardDef` + `UnitState`，
+            //   拿不到「被打出的那一份实例」（手牌/刚出牌那一份）。
+            //   ⚠️ 位置 = `BroadcastWhen(Play)` **之后**（监听方先看到「有人打出了这张牌」）、
+            //   `EnqueueAbility(tactic-body)` **之前**（与判据件 A4 的字面口径一致）。
+            Enchantments.OnCarrierPlayed(ctx, inst, p);
 
             // 🔴 **2026-10-18（`A974`）：这一笔**下移到广播之后**。**
             //    判据 = 原版同链：`BroadcastCardPlayed`（`BattleManager._ResolvePlayCardFromHand_d__447
@@ -4744,15 +4777,23 @@ namespace RuleEngine
                           + $"（{what}；{detail}）—— 后续句接着结算");
                     // 🆕 2026-10-17（B14）：**从对手手牌挑一张、卡面又没有后续动作**的
                     //   （`Reconnaissance Mission`：`Choose a card in your opponent's hand.`
-                    //    + `When played, gain 3 Quest Points`）—— 本版**只挑出来**，什么都不改。
-                    //   ⚠️ **原版语义仍【未查到】**（成品卡图上门就只有那一句 + `gain 3`；
-                    //      原版卡效果数据在远端 CCD，本地没有）—— 所以这里**只出声、不发明语义**：
-                    //      上一句日志说的「后续句接着结算」在这张卡上是**假的**（后一句是 `gain 3`，
-                    //      跟挑出来那张牌无关），不说清楚下一个会话会以为挑完有事发生。
+                    //    + `When played, gain 3 Quest Points`）—— 挑出来本身不改局面。
+                    //   ✅ **2026-10-27 就地订正（铁律 5）：`DA42` 的原版语义【已查到】**——
+                    //      挑出来之后要**给那一份手牌挂附魔**（`chosenAbility 30 buffOthers` →
+                    //      `AddEffect case 15 → AddEnchantment`），全链见
+                    //      `资料/完全复刻/判据/DA42与BroadcastHandWhen剩余_判定.md` §一（已完成接线）；
+                    //      其余「只挑不做」的卡仍然**什么都不改**。
                     if (op.ChooseSrc == "enemyhand")
-                        ctx.Log($"{by}：「{op.Source}」—— **本版只挑出来了，没做任何动作**"
-                              + "（原版语义未查到：卡面只有这一句，没有后续动作；见"
-                              + "`资料/选牌_数据与规格.md` §甲·七）");
+                        ctx.Log($"{by}：「{op.Source}」—— **这一句只负责挑出来**"
+                              + "（`DA42 Reconnaissance Mission` 会顺手挂附魔，见下一行；其余卡没有后续动作；"
+                              + "判据 → `资料/选牌_数据与规格.md` §甲·七）");
+                    // 🆕 **2026-10-27（批次 9 · 执行代理 `B9_W43DA42` · 判据件 §一·2 P1 / §三 A2/A5 的【挂载端】）**：
+                    //   `DA42 Reconnaissance Mission` 挑出那张手牌之后**要给它挂附魔**
+                    //   （原版 `chosenAbility 30 buffOthers` → `CardScript__AddEffect` `case 0xf(15) → AddEnchantment`，
+                    //   **无区域闸** ⇒ 手牌实例照挂）。⚠️ 闸门在这个方法里：**只有「这次出牌结算的卡 = DA42」**
+                    //   才动手，别的「从对手手牌选一张」的卡一个字都不改（它们今天仍是「只挑出来」）。
+                    //   ⚠️ 模板不在池里（A1a 之前）⇒ 不挂 + 如实出声（见 `AttachDA42ToChosenHandCard`）。
+                    Enchantments.AttachDA42ToChosenHandCard(ctx, pickedInst);
                     return true;
 
                 // 🆕 2026-10-17（B14）：`Choose a card in your opponent's hand and increase its
@@ -7842,16 +7883,16 @@ namespace RuleEngine
         /// 🆕 **2026-10-25（`E1` · 第四段 · W9）：一个 trait 被摘掉的**结构化发射口**。**
         /// 与 <see cref="EmitStatusApplied"/> 成对（那条管「挂上」）。判据与「为什么要单开一种」→
         /// <see cref="EvtKind.TraitRemoved"/> 的 doc（`Expiring State` 那一支需要它）。
-        /// ⚠️ **必须在摘除【之后】调**（`Amount` 记的是摘之前的层级）。
+        /// ⚠️ **必须在摘除【之后】调**（`Amount` 记的是摘之前的层级）。🔴 **2026-10-27（`B9_W54ENG2`）加可选形参 `effect`**：它是原版 `CardScript.RemoveDropPod` 的**震屏判据位**（`CardScript__RemoveDropPod.c:9-18`：`param_2 == 0` ⇒ `DAT_1834b2bb4` = 0.5、`param_2 != 0` ⇒ `DAT_1834b2e8c` = 3.0）—— 我们把它编码成 `"droppod-open"`（正常开舱）/ `"droppod-destroyed"`（血池被打空，`CheckIfDead.c:94` 的 `RemoveDropPod(card, 1)`）；别的关键词 / 别的路**留 `null`**（= 没写），消费端 `BattleDriver.OnTraitRemovedShake` 读它。
         /// ⚠️ 只对**在场**单位发（`FindSlot` 失败 = 已经不在棋盘上 ⇒ 表现层也没东西可演）。
         /// </summary>
-        public static void EmitTraitRemoved(BattleContext ctx, UnitState u, string keyword, int amountBefore)
+        public static void EmitTraitRemoved(BattleContext ctx, UnitState u, string keyword, int amountBefore, string effect = null)
         {
             if (ctx == null || u == null || string.IsNullOrEmpty(keyword)) return;
             int p, slot;
             if (!FindSlot(ctx, u, out p, out slot)) return;
             ctx.Emit(EvtKind.TraitRemoved, p, slot, keyword,
-                     amount: amountBefore, instanceId: u.InstanceId);
+                     amount: amountBefore, instanceId: u.InstanceId, effect: effect);
         }
 
         /// <summary>
@@ -11836,6 +11877,9 @@ namespace RuleEngine
             //   非关键词条目建好后交给下面「限时 → 记一条」那一段（那边把它挂到 `TempBuff.Mod` 上，
             //   到期**摘格**而不是「减回去」）。`armour` 走关键词、不进修饰表 ⇒ 恒 `null`。
             UnitState.StatMod appliedMod = null;
+            // 🆕 2026-10-27（B9 · S0-①）：本项若是关键词，这里留下 `ApplyTraitEffect` 落的那条记录 ——
+            //   限时档要把它挂到下面那条 `TempBuff` 上（`TraitRec`），到期由 `UnitState.ExpireTraitEffect` 扣掉。
+            UnitState.TraitEffectRecord appliedTrait = null;
             if (p.IsKeyword)
             {
                 if (val >= 0)
@@ -11855,24 +11899,31 @@ namespace RuleEngine
                     //   `UnitState.ApplyTraitEffect` 就是那条记录的等价物：合并语义（add 累加 / replace 取 Max /
                     //   count 每次 +1 且新建强置 1）**加上**把增量落到 `_keywords` ⇒ 净读数与「N 次 `AddKeyword`」
                     //   逐字相同（本笔**不改任何数值**，只补「实例」：能回答「这是哪条、谁给的」、可被按记录摘）。
-                    //   ⚠️ **只切「无限期」那一档**：
-                    //     · `duration` 非空（`this turn` / `until your next turn`）= 限时路（下面 `AddTempBuff`），
-                    //       到期由 `RevertBuffs` → `RemoveKeyword` 摘词条、**不会**摘记录 ⇒ 切过去会留下一本
-                    //       永不清理的记录账 ⇒ **保持 `AddKeyword`**（如实记：原版连限时那条也建记录）；
+                    //   ✅ **2026-10-27（B9 · S0-①）**：下面那行「只切无限期那一档」**已过期**（就地订正，铁律 5）。
+                    //      旧理由 = 「限时那条到期只 `RemoveKeyword`、不会摘记录 ⇒ 会留下一本永不清理的记录账」。
+                    //      现在那条理由**已消掉**：`TempBuff.TraitRec` 记下这条记录，三处撤法
+                    //      （`RevertBuffs` / `RemoveBuffsFromCard` / `RemoveAllAppliedEffectsForJam`）都走
+                    //      `UnitState.ExpireTraitEffect` 把它扣掉 ⇒ 记录账跟着到期一起收。
+                    //      ⚠️ **`timingBits` 必须一起传**（`TimingBitsOfDuration`）—— 否则限时那条会与永久那条
+                    //      **合并成一条**（`FindTraitEffect` 比的就是它），于是「一回合」的增益被并进永久记录、
+                    //      既撤不掉又永远显示成永久（原版连限时那条也留一条 `CardEffect`）。
                     //     · `val == 0`（空给）原版连记录都不建 ⇒ 保持 `AddKeyword`（**零行为变化**）。
                     //   ⚠️ `extrinsic` 恒 `false`：本仓 `extrinsic` 只有两个载体（`CardInstance.HandEffect.Extrinsic`
                     //     与光环 `Auras.GrantTag` → `UnitState.IsExtrinsicSource`），**都不经过本函数**
                     //     （光环那条走 `Auras` 的 `RecordGrant`）⇒ 这里判不到「来自 trigger 20/240」，见报告 §五·4。
                     //   ⚠️ `markOfChaosType` / `daemonHostType`：解析层没有这两列（`PayloadOp` 不带）⇒ 恒 0。
                     bool added;
-                    if (val > 0 && string.IsNullOrEmpty(duration))
-                        added = u.ApplyTraitEffect(p.Keyword, val,
+                    // 🔴🆕 2026-10-27（B9 · S0-①）：**限时档也切到记录原语**（原来只切了永久那一档）——
+                    //   `timingBits` 一起传，限时那条才**不会**与永久那条合并。
+                    if (val > 0)
+                        added = (appliedTrait = u.ApplyTraitEffect(p.Keyword, val,
                                    // `buffType 90 addTraitRemnant` 与 `3 addTrait` **共用同一个合并循环**
                                    //（`.c:558-566`）⇒ 只差这一个入参（投递类型由解析期置位，见上面那个形参）。
                                    buffType: viaAddTraitRemnant ? UnitState.BuffTypeAddTraitRemnant
                                                                 : UnitState.BuffTypeAddTrait,
                                    stackType: -1,          // -1 = 按 `CardTrait._stackable` 真值现查（只有 markOfChaos = count）
-                                   source: by, extrinsic: false, timingBits: 0) != null;
+                                   source: by, extrinsic: false,
+                                   timingBits: TimingBitsOfDuration(duration))) != null;
                     else
                         added = u.AddKeyword(p.Keyword, val);
                     if (!added)
@@ -12106,6 +12157,8 @@ namespace RuleEngine
                     SourceCard = ctx.PlayingCard != null ? ctx.PlayingCard.Name : by,
                     // 带来源那条路（`RecordGrant`）已经建好了修饰 ⇒ 复用它，⛔ 别再建一条。
                     Mod = appliedMod,
+                    // 🆕 2026-10-27（B9 · S0-①）：限时关键词那条记录（`null` = 非关键词 / 空给 / 没挂上）。
+                    TraitRec = appliedTrait,
                 });
             }
 
@@ -12371,7 +12424,15 @@ namespace RuleEngine
             if (ctx == null || u == null) return;
 
             // ① + ②（同一次写入，两个表示都要）
-            u.AddKeyword(KeywordTable.MarkOfChaos, 1);
+            // 🔴🆕 2026-10-27（B9 · S0-②）：trait 那一半改走【记录原语】并按**四神分行** ——
+            //   `UnitState.FindTraitEffect` 的合并键里本来就有 `MarkOfChaosType` ⇒ 天然按神分行；
+            //   `EntityScript.GetCardEffectsToShow` 的 mark 聚合（四神各一行、`traitValue` 累加）
+            //   靠的就是这一格。⛔ 别改回裸 `AddKeyword` —— 那样记录账里没有来源、四神分不开。
+            //   `markofchaos` 是 `count(20)` 档 ⇒ 每次仍只 +1（与改前的 `AddKeyword(…, 1)` 逐字等价）。
+            u.ApplyTraitEffect(KeywordTable.MarkOfChaos, 1,
+                               buffType: UnitState.BuffTypeAddTrait,
+                               stackType: -1, source: by, extrinsic: false,
+                               markOfChaosType: MarkOfChaosTypeOf(k));
             u.AddKeyword(KeywordTable.DarkPact, 1);
             // 🆕 **2026-10-25（执行代理 `X18` · 第二批）**：成就 `Ach_6`（`GiveMarkOfChaos`）计数 ——
             //   判据 = 原版 `GiveMarkOfChaos__OnAddCardEffect.c`：`isKeyword && buffType == 0x14a`
@@ -15036,6 +15097,10 @@ namespace RuleEngine
             int n = 0;
             foreach (var u in targets)
             {
+                // 🔴🆕 2026-10-27（`B9_W27ENG`）：原版 `BattleManager__ResolveResetDuty.c:6` 对**传进来的那张卡**
+                //   **无条件**写 `+0x4c = 0`（不看 trait、也不看这一位原来是不是 true）⇒ 这里也**无条件**清，
+                //   ⛔ **别挪到下面那个 `DutyUsed` 的 `continue` 之后**（那样「用过 `Ability:` 但没用 duty」的单位会漏清）。
+                u.ActiveAbilityUsed = false;
                 if (!u.DutyUsed) continue;              // 本来就能用，不用报
                 u.DutyUsed = false;
                 n++;
@@ -16120,7 +16185,7 @@ namespace RuleEngine
             if (!AnchorOnSpecSide(spec, anchorPlayer, owner)) return false;   // ③ 死邻居：同一套筛
             if (spec.Kind == "troop" && u.IsWarlord) return false;      // `AddSide` 的 `troopOnly` 那一道
             var one = new List<UnitState> { u };
-            ApplyTargetFilters(ctx, one, spec, quiet: true, structuredCondition: structuredCondition);
+            ApplyTargetFilters(ctx, one, spec, quiet: true, structuredCondition: structuredCondition, targetsAffected: TargetsAffectedOf(op));
             if (one.Count == 0) return false;
             ApplyTargetCriteriaFilter(ctx, one, op, owner, source, chosen, quiet: true);
             return one.Count > 0;
@@ -16563,6 +16628,181 @@ namespace RuleEngine
             string id = card != null ? (card.Id ?? card.Name) : null;
             if (!_trapDrawnNoted.Add((id ?? "?") + "|" + reason)) return;
             UnityEngine.Debug.LogWarning(message);
+        }
+
+        // ==================================================================
+        //  🆕 2026-10-27（B9 · S0）：`GetCardEffectsToShow` 项源统一的两个前置小件
+        //  （**追加在类尾** —— `EffectResolver.cs` 在 `账/*.tsv` 的 `文件:行号` 引用里，
+        //    插在中间会让下游行号整体漂移、账闸报一堆假漂移）
+        // ==================================================================
+
+        /// <summary>
+        /// **解析层那两个时长档 → 原版 `CardEffect` 的 `until*` 位掩码**
+        /// （语义与位序见 <see cref="UnitState.TraitEffectRecord.TimingBits"/> 的 doc：
+        /// bit0..4 = `untilEndOfTurn / untilPlayerTurnStart / untilEnemyTurnStart /
+        /// untilFollowingPlayerTurnStart / untilNextAttack`）。
+        ///
+        /// <para>`""`（无时长）⇒ `0`（永久，四个位全假）；`"turn"`（`this turn`）⇒ `bit0`；
+        /// `"nextturn"`（`until your next turn`）⇒ `bit1`。</para>
+        ///
+        /// <para>⚠️ **`nextturn` 只取 bit1**：原版 `until your next turn` 在 IL 里落在 `+0x33`
+        /// （`untilPlayerTurnStart`）**或** `+0x35`（`untilFollowingPlayerTurnStart`）——
+        /// 我们解析层只产出**一个** `nextturn` 档、分不出这两者（判据缺口已记在
+        /// `资料/完全复刻/判据/GetCardEffectsToShow_施工细则.md` §六）。
+        /// 这里取 bit1 是**记录侧的合并键口径**（同一档要能并、不同档不能并），
+        /// ⛔ 别把它当成「原版到底是哪一位」的结论。</para>
+        /// </summary>
+        static int TimingBitsOfDuration(string duration)
+        {
+            if (string.IsNullOrEmpty(duration)) return 0;      // 永久
+            if (duration == "nextturn") return 0x02;           // bit1 untilPlayerTurnStart
+            return 0x01;                                       // "turn" ⇒ bit0 untilEndOfTurn
+        }
+
+        /// <summary>
+        /// **黑暗契约种类 → 原版 `MarkOfChaosType`**（`CardEffect.markOfChaosType // +0x78`）。
+        ///
+        /// <para>映射（**三重已证**：`DarkPactFx` 的载荷文本 × 四张附魔卡 500 能力的属性项 ×
+        /// 官方 `Card_Trait/markOf*` 的中文名）：`blood → 10 Khorne` · `resilience → 20 Nurgle` ·
+        /// `excess → 30 Slaanesh` · `fate → 40 Tzeentch`。判据全文 →
+        /// `资料/完全复刻/判据/GetCardEffectsToShow_施工细则.md` §三 S3-b。</para>
+        ///
+        /// <para>⚠️ `0` = `none`：正常路径到不了（`GrantDarkPactCore` 上游已把 `random` / 空值
+        /// 落成四种之一）⇒ 这是个兜底，不是「随机」那一档（`Random = 50` 也不在解析层产出）。</para>
+        /// </summary>
+        static int MarkOfChaosTypeOf(string kind)
+        {
+            switch (kind)
+            {
+                case "blood": return 10;       // Khorne
+                case "resilience": return 20;  // Nurgle
+                case "excess": return 30;      // Slaanesh
+                case "fate": return 40;        // Tzeentch
+            }
+            return 0;                          // none
+        }
+
+        // ==============================================================================================
+        //  🆕 2026-10-27（完全复刻批次 9 · 执行代理 `B9_W27ENG`）：`cond`/`ex` 的 **`targetsAffected` 门**
+        // ==============================================================================================
+        //  判据正本 = `资料/完全复刻/判据/cond341_canUseDuty_ex语义.md`（§1.6-A / §四 改动 A）。
+        //  一句话：原版 `FilterMethods__CheckIfMeetsCriteria.c` **先按 `targetsAffected` 短路**，
+        //  有一批 `ta` 根本走不到第 ⑧ 步（`cond`/`ex` 那两格）⇒ 那两格对它们是**死字段**。
+        //  我们另有一条只按 cond 筛、不看 `ta` 的旁路（`ApplyStructuredConditionFilter`），
+        //  把死字段当活字段用 ⇒ 真病灶 = `BL64 Murderous Desires` 的友方目标池被 `ex=1` 筛空（打不出去）。
+        //
+        //  🔴 三条纪律：
+        //   ① **短路集合只此一份** = `TargetCriteriaEval.ConditionIsDeadByTargetsAffected`（⛔ 别在这里再写一张数字表）；
+        //   ② **判不了就不闸**（`ta == Unknown`）—— 但**必须出声**，否则玩家看不出「这条条件本版没生效」；
+        //   ③ **只跳过 cond/ex 那一步**，其余筛（阵营 / 兵种 / 已受伤 / 祈祷 / 36 格）一字不动。
+        //      `BL64` 之所以还有合法目标，是因为原版真正的「合法目标」在**卡级** `cardTargetCriteria`
+        //      （`{ta:10, friendly, conditionsFilter:40 damaged, ex:0}`），我们由正文解析出的
+        //      `EffectTargetSpec.DamagedOnly` ＋ 阵营顶那一层（报告 §三·2 记着「卡级消费面没查清」，不属本件）。
+
+        /// <summary>这条 op 的 `targetsAffected`（`op.TargetCriteriaSet` 的 `TargetsAffected`）。
+        /// `op` / `set` 为空 ⇒ <see cref="CardDef.CountSetSpec.Unknown"/>（= **判不了**，由 <see cref="CondDeadByTa"/> 出声不闸）。</summary>
+        static int TargetsAffectedOf(EffectOp op)
+        {
+            return op != null && op.TargetCriteriaSet != null
+                 ? op.TargetCriteriaSet.TargetsAffected
+                 : CardDef.CountSetSpec.Unknown;
+        }
+
+        /// <summary>在 `ops` 里找回「`Target` 就是 <paramref name="spec"/>」的那一条 op，取它的
+        /// <see cref="TargetsAffectedOf(EffectOp)"/>。找回口径与 `CanPlayTactic` / `PlayTargetPool`
+        /// 找 `pickCond` 的那两个循环**逐字相同**（`ReferenceEquals(ops[i].Target, spec)`）——
+        /// 高亮与结算必须读**同一条 op**，⛔ 别各用一套（那正是「高亮说能选、打出去空过」的来源）。
+        /// 找不到 ⇒ `Unknown`（判不了 ⇒ 不闸 + 出声）。</summary>
+        static int TargetsAffectedForOp(IReadOnlyList<EffectOp> ops, EffectTargetSpec spec)
+        {
+            if (ops == null || spec == null) return CardDef.CountSetSpec.Unknown;
+            for (int i = 0; i < ops.Count; i++)
+                if (ops[i] != null && ReferenceEquals(ops[i].Target, spec)) return TargetsAffectedOf(ops[i]);
+            return CardDef.CountSetSpec.Unknown;
+        }
+
+        /// <summary>
+        /// 这一条结构化条件行**要不要跳过**（= 原版在它那档 `targetsAffected` 上根本不求值 `cond`/`ex`）。
+        ///
+        /// <para>`true` = **不筛**（原版就没筛）· `false` = **照旧筛**（要么这一档确实要求值，要么**判不了**）。</para>
+        ///
+        /// <para>🔴 **`false` 有两种含义，⛔ 别混**：`ta` 在表外 = 「原版要求值」；`ta == Unknown` = 「本版判不了 ⇒
+        /// 维持旧行为（照旧筛）」。后者**必出声**（同一 `(role, ab, lg, cond)` 只喊一次）。</para>
+        ///
+        /// <para>⚠️ `quiet` = 表现层拖拽时的高频路径（`PlayTargetPool` / `IsLegalPick`）—— 那一路不打 `ctx.Log`，
+        /// 但**判不了那一条仍然走 `StructuredConditionNotice`**（它自己去重，不刷屏）：那是「本版没接上」的告知，
+        /// 不是每次筛池的流水账。</para>
+        /// </summary>
+        static bool CondDeadByTa(BattleContext ctx, CardDef.ConditionSpec row, int targetsAffected, bool quiet)
+        {
+            if (row == null) return false;
+            if (targetsAffected == CardDef.CountSetSpec.Unknown)
+            {
+                StructuredConditionNotice(
+                    "cond-ta-unknown|" + (row.Role ?? "?") + "|" + row.Ability + "|" + row.Logic + "|" + row.Condition,
+                    $"结构化**目标**条件 `cond={row.Condition}`（ex={(row.Exclude ? 1 : 0)}，"
+                  + $"role=`{row.Role ?? "?"}` ab={row.Ability} lg={row.Logic}）所在的 `targetsAffected` **读不到**"
+                  + "（这条 op 上没有 36 格 criteria）⇒ **判不了原版会不会求值它** ⇒ 这一条**照旧筛**目标池"
+                  + "（= 维持旧行为，⛔ 没当成「原版要求值」也没当成「死字段」）。"
+                  + "判据 = `FilterMethods__CheckIfMeetsCriteria.c:57-157` 的早返 switch。");
+                return false;
+            }
+            if (!TargetCriteriaEval.ConditionIsDeadByTargetsAffected(targetsAffected)) return false;
+            if (!quiet)
+                StructuredConditionNotice("cond-ta-dead|" + targetsAffected + "|" + row.Condition,
+                    $"结构化**目标**条件 `cond={row.Condition}`（ex={(row.Exclude ? 1 : 0)}）**按原版不该筛**："
+                  + $"它那档 `targetsAffected = {targetsAffected}` 在 `FilterMethods__CheckIfMeetsCriteria.c:57-157`"
+                  + " 里**早返**（/ 或建池侧根本不筛，见 `AbilityLogic__GetTargets.c`）⇒ 走不到第 ⑧ 步，"
+                  + "`conditionsFilter`/`excludeCondition` 是**死字段** ⇒ 这一条**不筛目标池**（照原版）。"
+                  + "判据全文 → `资料/完全复刻/判据/cond341_canUseDuty_ex语义.md` §1.6-A。");
+            return true;
+        }
+
+        // ==================================================================
+        //  🆕 2026-10-27（批次 9 · 执行代理 `B9_W43DA42`）—— **DA42 附魔链的 +3 任务点落点**
+        //  —— 追加在 `EffectResolver.cs` 的**文件末尾**（= 本 partial 的类尾；⛔ 别插到中间：
+        //     `账/*.tsv` 按 `文件:行号` 引，插一行整篇下游都漂）。
+        // ==================================================================
+
+        /// <summary>
+        /// **给「载体属主的对手」加 N 点任务点**（`DA42 Reconnaissance Mission` 附魔的 `trigger 0` 结算）。
+        ///
+        /// <para>**判据（第一权威 = 全量反编译，判据件 §一·1 ⑥）**：附魔卡 `e8cf1eb5…` 的
+        /// `chosenAbility 60 buffMana{manaAmount 3, enemyPlayer 1, questPoints 1}`：
+        /// `AddManaBuff(…, thisCard.isPlayer, …)`（`thisCard` = **载体**）→ `ResolveManaBuff`
+        /// 对 `enemyPlayer` 非零**把那一格取反** → `ProcessManaBuff` 选
+        /// `param_2 == 0 ? enemyManager(+0xC8) : playerManager(+0xC0)` → `AddQuestPoints(那一方, 3)`。
+        /// ⇒ **收点数那一方 = `1 - 载体属主`**，与「谁施放 DA42」无关（只是本卡的设计使得两者重合）。</para>
+        ///
+        /// <para>🔴 **为什么走 `DoFactionResource` 而不是另写一份加值**：任务点的整条语义
+        /// （阈值 `QuestPointThreshold` · 每 1 点广播一次 `When … obtains Quest Point` · 表现层 `Signals`）
+        /// **只此一处**（`DoFactionResource` 的 quest 支）。⚠️ 两个纪律：
+        ///  ① **⛔ 不改 `DoFactionResource` 的既有行为**（判据件 §三 A5：抽函数必须零行为变化）——
+        ///     本方法只是把 `owner` 传成**载体属主**、把 `op.Target.Side` 写成 `"enemy"`，
+        ///     走的就是那条原本就有的「`your opponent gains …`」换边分支 ⇒ **既有调用点一个字节都不动**。
+        ///  ② 换边的**广播 subject** 正好落在原版那一支：来源卡（载体）属于**另一方** ⇒
+        ///     `sourceOwnedByGainer` 为假 ⇒ subject = **收点数那方的督军卡**
+        ///     （`ProcessManaBuff.c` 的第二条支；判据见 `DoFactionResource` 那段长注释）。</para>
+        /// </summary>
+        /// <param name="carrierOwner">**载体属主**（承载附魔的那张牌是谁的）。落点 = `1 - carrierOwner`。</param>
+        public static bool GrantQuestPointsToOpponentOfCarrier(BattleContext ctx, int carrierOwner,
+                                                               int amount, string source)
+        {
+            if (ctx == null || carrierOwner < 0 || carrierOwner >= ctx.Players.Length) return false;
+            if (amount <= 0)
+            {
+                ctx.Log($"{source}：要给任务点，但数量是 {amount} —— **这条没生效**");
+                return false;
+            }
+            var op = new EffectOp
+            {
+                Verb = "gainquest",
+                Source = source,
+                Amount = amount,
+                // `DoFactionResource` 的换边只认这一格（`op.Target.Side == "enemy"`，相对传进去的 owner 取反）
+                Target = new EffectTargetSpec { Raw = "enemy", Side = "enemy", Kind = "any", Count = 1 },
+            };
+            return DoFactionResource(ctx, carrierOwner, source, op, "quest", new List<string>());
         }
     }
 }

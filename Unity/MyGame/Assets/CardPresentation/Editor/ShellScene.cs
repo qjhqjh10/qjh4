@@ -9543,6 +9543,54 @@ public static class ShellScene
                     CheckTrue(winRank.IsPlaying, "`Rank Up` 正在播（自己的计数器）");
                     CheckTrue(winRank.NativeAnimation != null, "窗上挂着 `Animation` 组件，三条 clip 都 `AddClip` 进去了");
 
+                    // 🧨🧨 **中段峰值断言 —— 判别式：它与下面 ④ 的末帧 1.0「结构上不可能由同一个静态值同时满足」**
+                    //   为什么必须补：④ 那两条（`Division Image` 1.0 / `Rank Icon` 1.0）**都只断末值**，而
+                    //   `TickAnimation` 播完会调 `_anim.Stop()`（`Shell/RankedDivisionChangeWindow.cs:851`）——
+                    //   若当前 Unity 版本让 `Animation.Stop()` 把 `localScale` 复位到**出厂 1.0**，那两条会**碰巧绿**：
+                    //   「静态出厂值 1.0」正好同时满足它们，失去抓「播完永久大 9.02%」的能力。
+                    //   **判别式**：峰值那一刻是 **2.043**、末帧是 **1.0** —— **同一个静态值不可能同时是这两个数**
+                    //   ⇒ 只有「本条绿 **且** 末帧绿」才证明**动画真的在推进**、并且停在正确末帧（单靠末帧证明不了）。
+                    //   期望值 **2.043 = 原版判据**：原版 clip 峰值 `2.2275424` ÷ 原版 prefab 静止 `1.0903292`
+                    //   （判据 → `报告/B9_W53DIV_段位clip缩放修正.md` §二那张四键表；⛔ **不拿本 JSON 的峰值反算**，那是自证）。
+                    //   ⛔ **时刻**按 `division_clips.json` 的键读（现读 t=2.5999999 s），**不写死**。
+                    float peakT = -1f, peakV = 0f;
+                    if (dRank != null && dRank.curves != null)
+                        for (int ci = 0; ci < dRank.curves.Length; ci++)
+                        {
+                            var cu = dRank.curves[ci];
+                            if (cu.path != "Division Image/Rank Icon" || cu.property != "localScale.x" || cu.keys == null) continue;
+                            for (int ki = 0; ki < cu.keys.Length; ki++)
+                                if (cu.keys[ki].v > peakV) { peakV = cu.keys[ki].v; peakT = cu.keys[ki].t; }
+                        }
+                    CheckTrue(peakT > 0f && peakV > 1.5f,
+                              "（前提）从 `division_clips.json` 的 `Rank Up` → `Division Image/Rank Icon` → `localScale.x` 读到峰值键 "
+                            + "t=" + peakT.ToString("F4") + " s · v=" + peakV.ToString("F4")
+                            + "（⛔ 时刻不写死；读不到 / 峰值还是个静态 1.0 ⇒ 数据表本身就不对）");
+                    // 数据侧再钉一次峰值键（期望值 = 原版 2.2275424 ÷ 1.0903292，⛔ 不是本 JSON 自己的值）：
+                    //   它挡「有人直接手改 `Resources/division_clips.json`、没重跑生成器」这一档。
+                    CheckNear(peakV, 2.043f, 0.005f,
+                              "★ 数据侧：`division_clips.json` 的峰值键 = **2.043**（原版 2.2275424 ÷ 1.0903292；"
+                            + "🧨 撤掉 `gen_division_clips.py` 的 ÷1.0903292 ⇒ 峰值回 2.2275 ⇒ 差 0.18 ⇒ 红）");
+                    // 批处理没有帧循环 ⇒ 动画只能**手动推**（`TickForTest` 累加 `_animT`，不是「设到」）：推到峰值那一拍再读。
+                    float dtToPeak = peakT - winRank.AnimationTime;
+                    CheckTrue(dtToPeak > 0f && winRank.IsPlaying,
+                              "（前提）峰值那一拍还在当前进度**之后**（现 AnimationTime=" + winRank.AnimationTime.ToString("F3")
+                            + " s < 峰值 " + peakT.ToString("F3") + " s）—— 否则推不到峰值，下面那条就是空转");
+                    winRank.TickForTest(Mathf.Max(0f, dtToPeak));
+                    CheckNear(winRank.AnimationTime, peakT, 0.001f,
+                              "（前提）手动推到峰值时刻了（推不到 ⇒ 下一条读数无意义）");
+                    var rankIconPeakS = winRank.NodeScaleForTest("Division Image/Rank Icon");
+                    CheckTrue(winRank.NodeForTest("Division Image/Rank Icon") != null && rankIconPeakS != Vector3.zero,
+                              "（前提）峰值那一帧 `Division Image/Rank Icon` 找得到、`NodeScaleForTest` 给出真实缩放（不是「找不到」时退回的 (0,0,0)）");
+                    // 容忍 0.02 ≈ 峰值 2.043 的 **1%**：上升段斜率 ≈ 0.47/s（1.0 → 2.043 跨 2.217 s）⇒ 相当于 ≈ 43 ms 的进度差，
+                    //   远大于 float 累加误差（`_animT += dt` 的 ~1e-7 s），又小到能抓住「整段缩放没被驱动」。
+                    CheckNear(rankIconPeakS.x, 2.043f, 0.02f,
+                              "★★ 中段峰值（判别式）：`Rank Icon` 在峰值键 t=" + peakT.ToString("F3") + " s 放大到 **2.043**"
+                            + "（= 原版静止 1.0 的 2.043 倍 · 现读 " + rankIconPeakS.x.ToString("F4") + "）"
+                            + "｜🧨 删掉 `ApplyChannels` 的缩放段（`:863-874`）/ 让节点全程停在静态 1.0 ⇒ 本条红；"
+                            + "与末帧 1.0 **结构上不可能同时**由一个静态值满足 ⇒ 两条一起绿才算动画真在播"
+                            + "（⛔ 不是「`Stop()` 复位到 1.0 也绿」那种假绿）");
+
                     // ④ 播完停在 clip 末帧（⛔ 不是 Build 时的出厂值）
                     winRank.TickForTest(winRank.AnimationLength + 1f);
                     CheckTrue(!winRank.IsPlaying, "★ 播完 `IsPlaying` 变假（不会一直挂着）");
@@ -9556,6 +9604,16 @@ public static class ShellScene
                               "`Rank Up` 末帧 `Particles Rank Up` = 开着（`m_IsActive` 在 0.3833 s 拨到 1）");
                     CheckTrue(!winRank.NodeActiveForTest("Particles DivisionUp"),
                               "同一帧 `Particles DivisionUp` = 关着（另一条 `m_IsActive` 曲线）");
+
+                    // 🧨 灭自证：`Rank Up` 播完 `Rank Icon` 必须回到**静止缩放 1.0**（旧数据末键 1.0903292 ⇒ 播完永久大 9.02%）。
+                    //   原版该节点静止 `localScale = 1.0903292`（prefab tran `224743393880019028`），那 9.02% 已烘进 `RankIconR` 的
+                    //   73.51 px 视觉框 ⇒ 本窗节点静止缩放 = 1；数据侧也按同一因子 ÷1.0903292（`工具/gen_division_clips.py`）。
+                    var rankIconS = winRank.NodeScaleForTest("Division Image/Rank Icon");
+                    CheckTrue(winRank.NodeForTest("Division Image/Rank Icon") != null && rankIconS != Vector3.zero,
+                              "（前提）`Division Image/Rank Icon` 找得到、`NodeScaleForTest` 给出真实缩放（不是「找不到」时退回的 (0,0,0)）");
+                    CheckNear(rankIconS.x, 1.0f, 0.005f,
+                              "★ 播完停在末帧：`Rank Icon` 缩放 = 1.0（原版静止 1.0903292 已烘进 73.51 px 矩形 ⇒ 节点静止 1；"
+                            + "🧨 撤掉 `gen_division_clips.py` 的 ÷1.0903292 ⇒ 末键回 1.0903292 ⇒ 差 0.09 ⇒ 红）");
                 }
 
                 var winDiv = RankedDivisionChangeWindow.Create(shell.Windows,

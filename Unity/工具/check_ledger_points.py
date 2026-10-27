@@ -27,6 +27,11 @@
      （`void SetHint(string s) { SetHint(s, false); }`）⇒ 那是转发口，不是实现。
    · **PROSE**：括号是纯散文（提不出标识符）/ 含多个标识符 / 该行声明名取不出来
      ⇒ 名字**没法对**，只提示、⛔ 不判失败。
+   · **MEMBER**（🆕 2026-10-27 · B9_W52LAND · 方案 §4.1 例外）：落点是 **字段 / 属性 / 嵌套类型**
+     声明（纯取值器等价 / 结构等价 —— 不是「没复刻」，是「复刻成字段直读」）⇒ **合法但只报告警**，
+     ⛔ **不计失败**。理由：为了过闸去加一个无行为的转发方法 = 「为工具写代码」，比一条告警更糟。
+     防滥用两道（见 `member_decl_kind`）：① 必须以访问修饰符开头（局部变量语句没有 ⇒ 仍失败）；
+     ② `decl_name_at` 必须解析得到名字（拿不准 ⇒ 不判，⛔ 不猜）。注释/空行/纯括号/语句中间仍失败。
    ⚠️ **「告警」是「通过」之下的子集**：合计里的 **通过数包含告警行**
      （告警只说明「这条通过得可疑」，不改变通过/失败的判法）。
 4) **通过** —— 上面三条都不沾。
@@ -70,7 +75,7 @@
 
 `--warn-getters`（2026-10-25 加，**只报、不算失败、退出码不变**）
 ------------------------------------------------------------------
-把四类告警（GETTER / FORTEST / SELFREF / PROSE）的**明细**打出来（默认只在合计行给计数 + 按账分布）。
+把五类告警（GETTER / FORTEST / SELFREF / PROSE / MEMBER）的**明细**打出来（默认只在合计行给计数 + 按账分布）。
 名字保留是为了兼容旧命令行。
 
 **为什么单开一档**：形态闸原有判据把「一行式成员」当合法声明，于是
@@ -106,17 +111,25 @@ STMT = ("return ", "var ", "new ", "if ", "while ", "for ", "foreach ", "switch 
         "else ", "else{", "using ", "lock ", "try", "catch", "finally", "throw ", "await ",
         "yield ")
 
-# 告警的四种形态（**都只报、不算失败**）
+# 告警的形态（**都只报、不算失败**）
 WARN_GETTER = "GETTER"
 WARN_FORTEST = "FORTEST"
 WARN_SELFREF = "SELFREF"
 WARN_PROSE = "PROSE"
+# 🔴 2026-10-27（B9_W52LAND · 方案 §4.1 例外）：落点是**字段 / 属性 / 嵌套类型**声明
+#   （纯取值器等价 / 结构等价）⇒ 合法但只报告警、⛔ 不计失败。理由：为了过闸去加一个
+#   无行为的转发方法 = 「为工具写代码」，比一条告警更糟。防滥用两条见 `member_decl_kind`。
+WARN_MEMBER = "MEMBER"
 WARN_TITLE = {
     WARN_GETTER: "落点那一行是属性 getter（原版可能就是属性 ⇒ 人读）",
     WARN_FORTEST: "落点是 `*ForTest` 自检 / 转发口（不是实现）",
     WARN_SELFREF: "那一行既声明又调用了同名方法（转发口，不是实现）",
     WARN_PROSE: "括号是散文 ⇒ 名字没法对（只提示、不判失败）",
+    WARN_MEMBER: "落点是字段/属性/嵌套类型声明（纯取值器/结构等价 ⇒ 只报、不算失败）",
 }
+# 告警打印顺序里 `MEMBER` 排在 `PROSE` 之前（结构性问题，人复核时先看它）。
+_WARN_PRINT_ORDER = (WARN_MEMBER, WARN_PROSE, WARN_GETTER, WARN_FORTEST, WARN_SELFREF)
+_MEMBER_KIND_CN = {"field": "字段", "property": "属性", "type": "嵌套类型"}
 
 _IDENT = re.compile(r"[A-Za-z_]\w*")
 # 🔴 2026-10-26：`decl_name_at` 取「紧贴 `(` 的第一个标识符」时要排除这些——它们不是声明名。
@@ -217,6 +230,52 @@ def decl_name_at(line):
     return m.group(1) if m else None
 
 
+# 🔴 2026-10-27（B9_W52LAND · 方案 §4.1 例外）：「成员级落点」的识别
+#   落点不一定是方法 —— **纯取值器（getter 等价 / 直接读字段）** / **结构等价** 的等价物
+#   在我们侧可以是**字段 / 属性 / 嵌套类型**声明。这类允许当落点，但只报告警、⛔ 不算失败。
+#   ⚠️ 防滥用（两道，缺一不可）：
+#     ① 必须以**访问修饰符**开头（`public/private/protected/internal`）—— 方法体内的局部变量
+#        语句（`int x = 5;`）没有访问修饰符 ⇒ 仍按「语句中间」判失败；注释/空行/纯括号行
+#        也不会有访问修饰符 ⇒ 仍失败（本函数返回 None，由 `looks_like_decl` 判失败）。
+#     ② `decl_name_at` 必须能解析出名字（拿不准 ⇒ None，⛔ 不猜）。
+_MEMBER_MOD = re.compile(r"^(?:public|private|protected|internal)\b")
+_TYPE_DECL = re.compile(r"\b(class|struct|interface|enum|record)\s+\w+")
+_STMT_HEAD = re.compile(
+    r"^(?:return|throw|var|new|if|else|for|foreach|while|do|switch|case|default|"
+    r"break|continue|goto|yield|await|using|lock|try|catch|finally|get|set|add|remove)\b")
+_PROP_TAIL = re.compile(
+    r"^(?:public|private|protected|internal)"
+    r"(?:\s+(?:static|readonly|const|sealed|virtual|override|abstract|new|unsafe|extern|volatile|partial))*"
+    r"\s+[\w<>\[\],\.\?]+\s+\w+$")
+
+
+def member_decl_kind(line):
+    """落在「成员级声明」时的种类：`'field'` / `'property'` / `'type'`；不是成员声明 ⇒ `None`。
+
+    ⛔ 只管**非方法**成员（方法由 `looks_like_decl` 正常判通过、不加这条告警）。
+    ⛔ 不负责注释行 / 空行 / 语句 —— 那三类在下面都返回 `None`（仍由 `looks_like_decl` 判失败）。
+    """
+    s = line.strip()
+    if not s or s.startswith("//") or s.startswith("*") or s.startswith("/*") or s.startswith("#"):
+        return None
+    s = re.split(r"\s//", s)[0].strip()           # 行尾注释（与 decl_name_at 同口径）
+    if not s or not _MEMBER_MOD.match(s):
+        return None                                # 局部变量 / 语句没有访问修饰符 ⇒ 不是成员
+    if "(" in s:
+        return None                                # 方法 / 表达式体 —— 交给 looks_like_decl
+    if _STMT_HEAD.match(s):
+        return None
+    if _TYPE_DECL.search(s):
+        return "type"                              # `public sealed class Foo`（`{` 常在下一行）
+    if decl_name_at(line) is None:
+        return None                                # 拿不准就不判（⛔ 不猜）
+    if s.endswith(";"):
+        return "field"                             # `public int X;` / `… X = …;`
+    if _PROP_TAIL.fullmatch(s):
+        return "property"                          # `public int Count`（`{` 在下一行）
+    return None
+
+
 def paren_idents(land):
     """取落点里**第一个**括号组，返回 `(names, mode)`。
 
@@ -270,7 +329,9 @@ def find_decl_candidates(lines, name):
     """
     if not name:
         return []
-    pat = re.compile(r"\b" + re.escape(name) + r"\s*(?:\(|<|\{|;|=)")
+    # `$` 收尾：字段/属性块的名字可能**就在行尾**（`public int Count` 的 `{` 在下一行）——
+    #   2026-10-27（B9_W52LAND）补，否则 `（Count）`/`（Board）` 这类成员落点永远「找不到声明」。
+    pat = re.compile(r"\b" + re.escape(name) + r"\s*(?:\(|<|\{|;|=|$)")
     out = []
     for i, l in enumerate(lines, 1):
         t = l.strip()
@@ -280,7 +341,9 @@ def find_decl_candidates(lines, name):
         if not mm:
             continue
         ok, _why = looks_like_decl(l)
-        if not ok:
+        # 🔴 2026-10-27（方案 §4.1 例外）：字段 / 属性 / 嵌套类型声明也算候选（--fix 仍不自动改，
+        #   见 `fix_block_reason` 的 `dn_at_name` 闸 —— 非方法行解析不出 ⇒ NEED-HUMAN）。
+        if not ok and member_decl_kind(l) is None:
             continue
         before = l[:mm.start()]
         # ① 声明语境：名字前面不能是「使用」的引导符
@@ -527,14 +590,22 @@ def check_file(path, roots, show_pass=False, do_fix=False):
         if is_cs:
             ok, why = looks_like_decl(lines[ln - 1])
             if not ok:
-                fails.append((base, who, land, "%s：`%s`" % (why, lines[ln - 1].strip()[:60])))
-                continue
-            dn = decl_name_at(lines[ln - 1])
-            if dn:
-                if self_reference(lines[ln - 1], dn):
-                    warn(WARN_SELFREF, "`%s` 这一行既声明又调用了同名方法 ⇒ 转发口，不是实现" % dn)
-                if dn.endswith("ForTest"):
-                    warn(WARN_FORTEST, "落点声明的就是 `%s`（自检/转发口，不是实现）" % dn)
+                # 🔴 2026-10-27（B9_W52LAND · 方案 §4.1 例外）：纯取值器 / 结构等价的落点
+                #   可以是**字段 / 属性 / 嵌套类型**声明 ⇒ **合法但只报告警**（⛔ 不计失败）。
+                #   ⚠️ 注释行 / 空行 / 语句行 / 纯括号行在这条路里仍返回 None ⇒ 仍然失败。
+                kind = member_decl_kind(lines[ln - 1])
+                if kind is None:
+                    fails.append((base, who, land, "%s：`%s`" % (why, lines[ln - 1].strip()[:60])))
+                    continue
+                warn(WARN_MEMBER, "落点是%s声明（纯取值器/结构等价 ⇒ 只报、不算失败；方案 §4.1 例外）"
+                     % _MEMBER_KIND_CN.get(kind, kind))
+            else:
+                dn = decl_name_at(lines[ln - 1])
+                if dn:
+                    if self_reference(lines[ln - 1], dn):
+                        warn(WARN_SELFREF, "`%s` 这一行既声明又调用了同名方法 ⇒ 转发口，不是实现" % dn)
+                    if dn.endswith("ForTest"):
+                        warn(WARN_FORTEST, "落点声明的就是 `%s`（自检/转发口，不是实现）" % dn)
         elif not lines[ln - 1].strip():
             fails.append((base, who, land, "数据文件那一行是空的"))
             continue
@@ -674,7 +745,7 @@ def main():
         if not all_w:
             print("（无）")
         else:
-            for kind in (WARN_PROSE, WARN_GETTER, WARN_FORTEST, WARN_SELFREF):
+            for kind in _WARN_PRINT_ORDER:
                 rows_k = [w for w in all_w if w[3] == kind]
                 if not rows_k:
                     continue

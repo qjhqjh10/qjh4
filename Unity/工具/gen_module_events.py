@@ -390,7 +390,8 @@ ROW_RE = re.compile(
     r'ArgMode\.(\w+)\s*,\s*(true|false)\s*,\s*(-?\d+)\s*\)')
 
 
-def check(records):
+def check(records, stats):
+    rc = 0
     if not os.path.isfile(CS):
         print("!! 找不到 %s" % CS)
         return 1
@@ -416,8 +417,33 @@ def check(records):
             print("!! 第 %d 行不一致：\n   json: %r\n   C#  : %r" % (n, exp[n], got[n]))
     if len(got) == len(exp) and not bad:
         print("== C# 生成区与 json 一致（%d 条）" % len(exp))
-        return 0
-    return 1
+    else:
+        rc = 1
+
+    # 🔴 2026-10-27（B9_W45ARENA）：**json 那一侧也要查**。
+    #   原来 `--check` 只比对 `WFModuleEvent.cs` 的生成区，`数据/游戏数据/module_events.json`
+    #   缺失/过期时**一个字节都不报**（B 型：看着有 check、其实只查了一半）。
+    #   口径同 `工具/import_original_art.py:1714-1721`：缺 = 缺产物、不一致 = 过期，点名 + rc=1。
+    want = json.dumps(build_doc(records, stats), ensure_ascii=False, indent=1) + "\n"
+    if not os.path.isfile(OUT):
+        print("!! 🔴 缺产物 %s（重跑一次 `python -I 工具/gen_module_events.py`）" % OUT)
+        rc = 1
+    else:
+        old = io.open(OUT, "r", encoding="utf-8").read()
+        if old != want:
+            same = False
+            try:                       # 只差缩进/键序 ⇒ 语义一致，不算过期
+                same = json.loads(old) == json.loads(want)
+            except Exception:
+                pass
+            if same:
+                print("== json 侧一致（只差缩进/键序）：%s" % OUT)
+            else:
+                print("!! 🔴 产物过期（内容与重算结果不同）：%s" % OUT)
+                rc = 1
+        else:
+            print("== json 侧一致（%d 条）：%s" % (len(records), OUT))
+    return rc
 
 
 def main(argv):
@@ -427,7 +453,7 @@ def main(argv):
         print("stats:", stats)
         return 0
     if "--check" in argv:
-        return check(records)
+        return check(records, stats)
     if "--print-cs" in argv:
         # 打印可直接贴进 `WFModuleEvent.cs` 生成区的行（⛔ 脚本不改 .cs —— 那一行由人贴，
         # 然后 `--check` 负责「贴的和 json 是否一致」）

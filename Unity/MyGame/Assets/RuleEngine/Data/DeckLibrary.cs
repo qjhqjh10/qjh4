@@ -432,10 +432,10 @@ namespace RuleEngine
             var sb = new StringBuilder();
             sb.Append((d.Name ?? "").Replace(":", ColonEscape));
             // 卡序照原版 `GetLibraryInFull()`：防御卡 → 督军 → 其余
-            if (!string.IsNullOrEmpty(d.DefensiveId)) sb.Append(':').Append(d.DefensiveId);
-            if (!string.IsNullOrEmpty(d.WarlordId)) sb.Append(':').Append(d.WarlordId);
+            if (!string.IsNullOrEmpty(d.DefensiveId)) sb.Append(':').Append(RawEntry(d.DefensiveId));
+            if (!string.IsNullOrEmpty(d.WarlordId)) sb.Append(':').Append(RawEntry(d.WarlordId));
             foreach (var id in d.CardIds ?? new List<string>())
-                if (!string.IsNullOrEmpty(id)) sb.Append(':').Append(id);
+                if (!string.IsNullOrEmpty(id)) sb.Append(':').Append(RawEntry(id));
             sb.Append(';').Append(d.GameMode);   // gameMode：照原版 `CardDeck__Serialize.c:68-75`（null 写 0）
             return Convert.ToBase64String(Encoding.UTF8.GetBytes(sb.ToString()));
         }
@@ -530,11 +530,15 @@ namespace RuleEngine
             dropped = new List<string>();
             string hero = null, def = null;
             var rest = new List<string>();
-            foreach (var id in ids)
+            foreach (var rawId in ids)
             {
-                if (string.IsNullOrEmpty(id)) continue;
-                var c = lookup(id);
-                if (c == null) { dropped.Add(id); continue; }
+                if (string.IsNullOrEmpty(rawId)) continue;
+                // 🔴 账 `HUD:92` / `HUD:93`（卡组层那一半）：异画副本（`#HB_SW1`，或**原版分享串**里的
+                //   克隆 id `HB_SW1`）先归一成我们卡组里的写法、再按**原卡**分类
+                //   （判据 / 口径 → `PlayerDeck` 类尾那段注）。认不出才算 dropped。
+                string id = PlayerDeck.NormalizeEntryId(rawId, lookup);
+                var c = id == null ? null : PlayerDeck.ResolveEntry(id, lookup, out _);
+                if (c == null) { dropped.Add(rawId); continue; }
                 if (c.Type == "defence") { if (def == null) def = id; else rest.Add(id); }
                 else if (c.Type == "hero") { if (hero == null) hero = id; else rest.Add(id); }
                 else rest.Add(id);
@@ -568,6 +572,20 @@ namespace RuleEngine
                 if (!Taken(n)) return n;
             }
             return want + " " + Guid.NewGuid().ToString("N").Substring(0, 4);
+        }
+
+        /// <summary>我们卡组里的条目 → **原版分享串里那一份的写法**：异画副本 `#HB_SW1` ⇒ 克隆 id `HB_SW1`
+        /// （`AlternateArtCard.GetIdForClonedCard()` = `uniqueId.Replace("#", "")`），其余原样返回。
+        /// <para>为什么：原版 `CardDeck.DeserializeDeckString` 拿串里那一条去
+        /// `AssetLocator.GetAsset&lt;RawCardScript&gt;` 找的是**克隆卡资产**（`HB_…`），不是背包物品 id
+        /// （`#HB_…`）⇒ 把 `#HB_…` 写进分享串，原版读不回来。</para>
+        /// <para>⚠️ **没查清**：clone 资产（`HB_&lt;id&gt;`）不在我们 allcards 快照的 1,351 条里
+        /// （那里 `altArtFromId` 全空）⇒「分享串里是 `HB_SW1`」是**两条反汇编推出来的**
+        /// （`GetIdForClonedCard` + `DeserializeDeckString`），不是直接读到一条真的卡组串。
+        /// 详见 `PlayerDeck` 类尾那段注的「没查清」。</para></summary>
+        static string RawEntry(string id)
+        {
+            return PlayerDeck.IsAltArtEntry(id) ? id.Substring(1) : id;
         }
     }
 }

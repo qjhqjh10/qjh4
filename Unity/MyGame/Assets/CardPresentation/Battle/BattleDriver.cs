@@ -5445,9 +5445,9 @@ namespace CardPresentation
             //   **必须复现同一个先手**（工程红线）。现数据下两者等价（必然平局）；将来若 ② 真能判，这一处的先后要重裁。
             int? byInitiative = FirstSeatRules.ByInitiative(
                 FirstSeatRules.WarlordInitiative(CardDatabase.DeckLookup(pool, _myFaction),
-                                                 myDeck == null ? null : myDeck.WarlordId),
+                                                 myDeck == null ? null : PlayerDeck.SameCardKey(myDeck.WarlordId)),
                 FirstSeatRules.WarlordInitiative(CardDatabase.DeckLookup(pool, _foeFaction),
-                                                 foeDeck == null ? null : foeDeck.WarlordId));
+                                                 foeDeck == null ? null : PlayerDeck.SameCardKey(foeDeck.WarlordId)));
             int firstSeat = firstSeatOverride ?? _forceFirstSeatTest ?? byInitiative ?? FirstSeatForSeed(seed);
             // 🆕 2026-10-17（B29）：**教程局的先手由关卡说了算** —— 原版 `BattleManager.GetPlayerGoesFirst`
             //   的 `matchType == 100` 那一支就是取 `PlayerDataManager.currentTutorialStage.playerStarts`
@@ -5912,11 +5912,11 @@ namespace CardPresentation
                 return;
             }
             // 🆕 2026-10-15（`T06` · 战斗音响）：**聊天气泡弹出**那一拍（原版 `ChatShow` cue）。
-            //   判据 = `BattleManager__VoiceLinesPopUpShowedUp.c:16` —— 那是 `VoiceLinesController`
-            //   的**弹出回调**（它开头先写 `+0x298 = 1`，再播 `SoundAssetCollection.ChatShow`）
-            //   ⇒ 与本处「气泡真的弹出来了」同义。⚠️ **全场只此一个入口**。
-            BattleSfx.Play(BattleSfx.ChatShow);
+            //   判据 = `BattleManager__VoiceLinesPopUpShowedUp.c:16` —— 它是 `VoiceLinesController` 的**弹出回调**
+            //   （开头先写 `+0x298 = 1`，再播 `SoundAssetCollection.ChatShow`；回调由 `Show()` 末尾的 `OnShow`
+            //   → `PopUpShowed` 触发，`.c` 全树 `VoiceLinesPopupSelector__Show` **无第二个调用者**）⇒ 先 `Show()` 再播音。
             _chatPopup.Show();
+            BattleSfx.Play(BattleSfx.ChatShow);
             UpdateHud();
         }
 
@@ -7956,9 +7956,9 @@ namespace CardPresentation
         //       差别是「落位」与「选目标」的**先后**：原版先落位、我们点完才落位。
         //       为什么不照抄：原版取消要 `RemoveMinion + 回手到原索引`，那是让一个**活单位**走一遍
         //       移除路径（本仓红线：不许自己发明撤回语义），风险远大于收益。
-        //    ② **tooltip 省略**：原版的文案来自 `RawCardScript.targetedText`，**我们卡表没有这一列**
-        //       （`cards_engine.json` 的键里没有 `targetedText`）⇒ 不编一句自造文案（本仓红线），
-        //       改为在战斗日志里明说「现在在等点目标」。
+        //    ② **tooltip**（🆕 2026-10-27 `B9_W72TIP` 已接，落点 = `ShowPlayTargetPrompt`）：文案 = 原版
+        //       `RawCardScript.targetingTextReferenceId` → `Card_Targeted/*`（数据在 `cards_raw.json` 的
+        //       `full_raw` 里；⛔ 旧注释「没有这一列」是**查错了文件** —— 它不在 `cards_engine.json`，但在）。
         //    ⚠️ 回放局（`_replaySession` = 原版 `matchType == 0xA0`）**不进**这两段式。
         //    ⚠️ 联机局：目标由本机玩家点，动作仍走 `LocalAct`（`RuleCore.PlayCard` 在那一层），
         //       录进去的是一条「带目标的出牌」⇒ 回放/重连能复现。
@@ -8134,7 +8134,7 @@ namespace CardPresentation
                     + "（原版 `playingTargetedSpell` 那一支 `Update.c:626-684`；"
                     + "⚠️ 原版这一支**不点亮**潜在目标 ⇒ 屏幕上没有任何提示，这是原版行为）"
                     + "；点空白/点非法目标 = 取消（这张牌留在手里，并给 `DragToTarget` 提示）");
-            return true;
+            if (unitCard) ShowPlayTargetPrompt(def, card); return true;
         }
 
         /// <summary>非单位卡的「目标规格」是哪一侧（`"enemy"` / `"own"` / `"any"`；**`""` = 这张卡根本不需要目标**）。
@@ -8228,7 +8228,7 @@ namespace CardPresentation
                 Debug.LogWarning("[Battle] 「等点目标」期间回合已易主 / 对局结束 ⇒ 取消这一手（原版 `CancelActionStates`）");
                 // 🆕 2026-10-27（账「出对半」）：这一支也要把溶掉的 2D 层淡回来，否则那张牌回手后**一直是透明的**
                 UndissolveFieldCard(_awaitPlayTargetCard);
-                _awaitPlayTargetCard = null; _awaitPlayTargetDef = null;
+                _awaitPlayTargetCard = null; _awaitPlayTargetDef = null; Tooltip.Hide();
                 _awaitPlayTargetIdx = -1; _awaitPlayTargetSlot = -1;
                 _chosenTargetForNextPlay = null;
                 ClearPlayTargetHighlight();
@@ -8251,7 +8251,7 @@ namespace CardPresentation
                 _awaitPlayTargetCard = null; _awaitPlayTargetDef = null;
                 _awaitPlayTargetIdx = -1; _awaitPlayTargetSlot = -1;
                 ClearPlayTargetHighlight();
-                _chosenTargetForNextPlay = hit;
+                _chosenTargetForNextPlay = hit; Tooltip.Hide();
                 // 🔴 **2026-10-26（`A2`）**：**非单位卡**把 `slot` 换成「玩家点定的那一格」——
                 //   战术卡的 `slot` 本来就是「效果打谁」（`RuleCore.PlayCard` 的 doc），而
                 //   **本地录像/联机动作**只带 `AiAction.Slot`（`AiAction` 没有出牌目标字段）⇒
@@ -8279,7 +8279,7 @@ namespace CardPresentation
                   + "这张牌留在手里（原版 `:903-970` 是把它从场上撤回手牌）");
             _awaitPlayTargetCard = null; _awaitPlayTargetDef = null;
             _awaitPlayTargetIdx = -1; _awaitPlayTargetSlot = -1;
-            ClearPlayTargetHighlight();
+            ClearPlayTargetHighlight(); Tooltip.Hide();
             // 🆕 2026-10-27（账「出对半」）：**撤销 `DissolveWholeCard`** —— 原版取消这一跳是
             //   `MoveBackToHand` 的第③步：`cardType ∈ {20, 40}` 且 `targeted` ⇒ `UnDissolveWholeCard()`
             //   （2D α 0→1 / 0.2 s / OutQuad / 到点开碰撞）。只有「确实被我们溶过的卡」才动
@@ -9336,7 +9336,7 @@ namespace CardPresentation
         /// 但它落在原版那个**问法**上（「本机的锻造进度」）。</para></summary>
         public List<OffensiveCards.Card> OffensiveChoicesOwned(string faction)
         {
-            return OffensiveCards.ChoicesOwnedAt(faction, ForgeData.LevelOf(faction));
+            return OffensiveChoicesOwnedCore(faction);   // 🆕 2026-10-27（B9_W40WIRE2）：轮抽 ClosedDeck 分派；其余模式 = ChoicesOwnedAt(faction, ForgeData.LevelOf(faction))（本体追加在类尾，见它的 doc）
         }
 
         /// <summary>本阵营的**防御卡那 3 张**（原版 `EnviromentalEffectCardsSO.defensiveCards` 那一族）。
@@ -9801,10 +9801,10 @@ namespace CardPresentation
         //         移动档 X 换成 `+0x64 = −25`。偏移按字段声明顺序定位、`minionInPlayScale(+0x68)` 回证）。
         //         `BattleManager+0xd8` = **`enemyHand`**（`dump.cs:30739-30741` 字段表：`playerHand // 0xD0` /
         //         `enemyHand // 0xD8`），揭示卡就是 `battleCards.CreateCard(card, enemyHand.transform, …)` 建的。
-        //         ⛔ **仍解不出**：那 25/30 个偏移在**我们的世界**里是多少 px、`enemyHand` 那台 transform
-        //         对应我们哪个点 —— 所以 `RevealStartPx / RevealEndPx` **仍然是我们挑的**，不是原版推算值。
+        //         ✅ **2026-10-27（`B9_W49BDR3`）终点已解出**：`enemyHand` = `UpperAnchor/EnemyArea/HandArea`，锚点 (960,50)@1080p，
+        //         那 25/30 偏移 ×14.8364 ⇒ `RevealEndPx` = **(589,495)**（原版推算值；判据 `判据/enemyHand屏幕锚点_判定.md` §一·3）。
         //       · **起始位置** = `Vector3.zero`（世界零；`BattleManager__DisplayRevealedCard.c:61-63`）——
-        //         同一层未知（「原版世界零」落在屏幕哪一处）⇒ `RevealStartPx` 亦然。
+        //         世界零在 UI 相机下不在 UI 平面上（z=0 vs 画布前 100）⇒ 正交布局不可表示 ⇒ `RevealStartPx` **仍是我们挑的（🔶）**。
         //       · **起始缩放** = `Vector3.one × 0.01`（同文件 `:47-53`）—— 见 `RevealStartScale`。
         //    ② **1.0 s 那一段的目标 = HUD 那颗进攻卡钮的位置**（原版 `BattleHud.OffensiveButtonTransform()`），
         //       **不是墓地** —— 2026-09-30 亲读反编译订正（文档里原来写的「DOMove(墓地)」是错的）。
@@ -9853,11 +9853,11 @@ namespace CardPresentation
         const float RevealInnerState3At = RevealWait1 + RevealScaleHold + RevealWait2;
         const float RevealStartScale = 0.01f; // 原版 = **`Vector3.one` × 0.01**（`BattleManager__DisplayRevealedCard.c:47-53` 实读：基准向量取 `Vector3` 静态块 `+0xc` = `oneVector`，再乘 `DAT_1834b2dbc` = 0.01）—— 是**绝对值**，不是「场上值 × 0.01」（见下面 `RevealEndScale` 的订正）
 
-        /// <summary>🔴 **我们挑的**：起始「场中央」与落到展示位的屏幕像素坐标。
-        /// 原版的基准位 = `BattleManager+0xd8` 那个 transform + 两个静态向量 × `VarsGlobal` 的偏移
-        /// ⇒ **那三个东西本地都没解出来**（见上面 ① ）。</summary>
-        static readonly Vector2 RevealStartPx = new Vector2(960f, 660f);
-        static readonly Vector2 RevealEndPx   = new Vector2(960f, 520f);
+        /// <summary>reveal 两端的屏幕像素坐标（x 从左边、y 从**上**算）。`RevealEndPx` = **原版推算值**（`enemyHand` 锚点 (960,50)
+        /// + `−right×25 − up×30` ×14.8364 ⇒ (589.1,495.1)）；`RevealStartPx` **仍是 🔶**（原版起点 = 世界零，z=0 不在 UI 平面 ⇒
+        /// 投屏约 (28440,540) 远在屏外，正交布局不可表示）。判据 → `资料/完全复刻/判据/enemyHand屏幕锚点_判定.md` §一·3 / §五。</summary>
+        static readonly Vector2 RevealStartPx = new Vector2(960f, 660f);   // 🔶 自己设计（非原版）：世界零在 UI 相机下不可表示 · 调度台 2026-10-27 裁定
+        static readonly Vector2 RevealEndPx   = new Vector2(589f, 495f);   // 原版推算：见上面 summary（(589.1, 495.1) 取整）
 
         /// <summary>reveal 的**终点缩放** = 原版 `GetEnemyCardPlayedDisplayScale()` 的返回值
         /// （`DOScale(那个值, param_2 = 0.3)`，`CardScript._DisplayOffensiveCardInCenter_d__264__MoveNext.c:58-61`）。
@@ -9999,7 +9999,7 @@ namespace CardPresentation
             _revealFromWorld = LayoutSpace.FromPixel(RevealStartPx.x, RevealStartPx.y);
             _revealToWorld = LayoutSpace.FromPixel(RevealEndPx.x, RevealEndPx.y);
             _revealCard.transform.position = _revealFromWorld;
-            _revealCard.transform.localRotation = Quaternion.identity;   // 原版那个目标旋转**没解出来**（见 ① ）
+            _revealCard.transform.localRotation = Quaternion.identity;   // 原版目标旋转 = `zeroVector`（`_d__264__MoveNext.c:41-44` 读 `Vector3` 静态块 `+0x0`；🔴 2026-10-24 已解出，见上方 ①）⇒ 我们 identity = 终态等价
             _revealCard.transform.localScale = Vector3.one * RevealStartScale;
             _revealStage = 0;
             _revealT = 0f;
@@ -13029,7 +13029,7 @@ namespace CardPresentation
         static string WarlordFaction(PlayerDeck d, List<CardDef> pool)
         {
             if (d == null || string.IsNullOrEmpty(d.WarlordId)) return null;
-            var w = CardDatabase.DeckLookup(pool)(d.WarlordId);
+            var w = CardDatabase.DeckLookup(pool)(PlayerDeck.SameCardKey(d.WarlordId));   // 🔴 2026-10-27 `B9_W49BDR3`：异画督军条目是 `#HB_xx` ⇒ 按「同一张卡」键查原卡（否则阵营查不到）
             return (w != null && !string.IsNullOrEmpty(w.Faction)) ? w.Faction : null;
         }
 
@@ -14946,29 +14946,32 @@ namespace CardPresentation
             int s = _pressSlot, side = _pressSide;
             if (!held)
             {
-                // 松手 ⇒ 轻点：开/关大卡窗（**拖过的松手不算轻点** —— 原版拖拽起手就把卡面收了）
+                // 松手 ⇒ 「点」：两条链见下面 ③（**拖过的松手不算轻点** —— 原版拖拽起手就把卡面收了）
                 // 🆕 2026-10-26（W9K01 · 账 `HUD:683/684/686` · 接线请求来自 `W3K04`）：
                 //   ① 松手 ⇒ `OnTouchExit()`（原版 `OnTouchExit.c`，清按下标志）
                 //   ② **按住那 0.3 s 已经弹过卡面 ⇒ 这次松手不再 toggle**：原版 `BattleManager.DisplayCard`
                 //      对同一张卡重复开窗是**幂等**的，而我们的 `CardDisplayWindow.Toggle` 是**真 toggle**
                 //      ⇒ 缺这一道就会「按住弹窗 → 松手立刻关掉」（画面自己闪一下，**且不报错**）。
-                //   ③ 没拖过 且 没弹过 ⇒ 轻点：**先走主动技那条链**（`OnTouchUpAsButton`），
-                //      它自己第一句就是 `isPlayer` 闸 ⇒ 敌方返回假、继续走老的 `TapBoardCard`。
-                //      🔶 自己设计（非原版）：原版那颗组件挂在 `CardPrefab` 的**子节点**上（有自己的命中矩形），
-                //      而那个 rect / pressed 按钮**本地拿不到**（W3K04 §五·1）⇒ 我们只能按「**这张卡有没有主动技**」
-                //      分派：有 ⇒ 走本链（⌛ 不开大卡窗）；没有 ⇒ 照旧开窗。调度台 2026-10-26 按 W3 的请求接线。
+                //   ③ 没拖过（松手这一下是「点」）⇒ **两条链都跑** —— 原版是**两颗组件各收一次** touch 事件：
+                //      链 A = `ActiveWarlordAbility.OnTouchUpAsButton`（填技能面板 + 试放主动技，`.c:1-72`，
+                //      类内自带 `isPlayer` 闸 ⇒ 敌方返回假）；链 B = `CardScript.OnTouchUpAsButton` 的
+                //      inPlay 档（残骸⇒收集 / 其余⇒开大卡窗），我们的等价实现 = `TapBoardCard`
+                //      （`ToggleUnitCard` 那条**保留**，⛔ 别删）。
+                //      🔴 2026-10-27（B9 W19BDR · W3ANIM §4.3-1）：**撤掉**原来「`tapU.HasAbility` 有才走 A、
+                //         否则走 B」的二选一互斥（那是 🔶 自己设计，原版两条链互不引用）。
+                //      ⚠️ `CardBoardHighlight.DisplayCard` / `CollectWaystone` 两个钩子**仍不接** —— 宿主已经有
+                //         这两处的等价实现（`_cardWinSource` / `TapBoardCard`），再接一次 = 一次点开两次窗。
+                //      ⚠️ 长按那 0.3 s 已经弹过卡面时：链 A **照样触发**（原版这颗组件没有时长门）；链 B 的
+                //         「开/关窗」那半按原版 `DisplayCard` 的幂等语义**跳过**（否则画面自己闪一下、且不报错）。
                 var wa = WarlordAbilityOf(side, s);
                 bool heldDisplayed = wa != null && wa.HoldDisplayedThisPress;
                 if (wa != null) wa.OnTouchExit();
                 _pressSlot = -1; _pressSide = -1;
-                if (!dragged && !heldDisplayed)
+                if (!dragged)
                 {
-                    var tapU = (Ctx != null && Ctx.Players != null && BoardSpec.IsValid(s))
-                             ? Ctx.Players[side].Board[s] : null;
-                    bool tapHasAbility = tapU != null && tapU.HasAbility;      // 🔶 见上：判据拿不到 ⇒ 按有没有主动技分派
                     if (wa != null) _waPressedBtn = wa;   // PressedBtn 那 0.4 s 要跨过松手 ⇒ 交给 TickBoardHold 收尾
-                    if (tapHasAbility && wa != null && wa.OnTouchUpAsButton()) return true;
-                    TapBoardCard(side, s);   // 2026-10-26（F5·P0）：灵族灵魂石轻点=收集（判据见该方法）
+                    if (wa != null) wa.OnTouchUpAsButton();   // 链 A（原版 `.c:55-58` 的 isPlayer 闸在类内）
+                    TapBoardCard(side, s, windowAlreadyShown: heldDisplayed);   // 链 B（残骸收集 / 开关窗）
                 }
                 return true;
             }
@@ -15600,7 +15603,7 @@ namespace CardPresentation
                                 && !reloadRemoved
                                 && u.Card.ActiveAbilityNeedsLoading == 1;
             // 卡名当技能名 —— 原版有独立的技能名（`NameText` = "Fire Arrow"），我们还没那个字段
-            skillPanel.Show(CardDisplayName(u.Card, u.Name), u.Ability, targets, 0, null,
+            skillPanel.Show(CardDisplayName(u.Card, u.Name), u.Ability, targets, SkillPanelMaxTargets(u), SkillPanelSingleTargetName(targets),   // 🆕 2026-10-27（`B9_W57BDR4` · 报告 `B9_W44HUD` §六·④）：原来是写死的 `0, null` ⇒ 单目标 `(卡名)` 那一支结构上不可达。现在 `maxTargets` = 该能力的目标上限（`SkillPanelMaxTargets`：我们 `Ability:` 文法单槽 ⇒ 1 / 不用点目标 ⇒ 0）、`firstTargetName` = **恰好一个**合法目标时它的卡名（`SkillPanelSingleTargetName`，候选口与点亮/准星同一个 `LegalTargetCode`）。⛔ 费用格没动（那要引擎先有 `currentAbilityCost`）
                             !ShouldShowAbilityTargetsCounter(u.Card),
                             cardId: u.Card != null ? u.Card.Id : null,
                             requiresLoading: requiresLoading,
@@ -16526,7 +16529,15 @@ namespace CardPresentation
             //   ⚠️ 谓词只此一处：`RuleCore.HasPendingBerzerkAttack`（引擎侧已经写好的那三句）。
             if (fromUi && !timeOut && RuleCore.HasPendingBerzerkAttack(Ctx))
             {
+                // 原版 `EndTurnClick.c:69-91` 这一支是**四件**（我们原来只有第 ② 件）：
+                //   ① `battleCardUi.DisplayTriggerAnim(berzerk, 1)`（= 那只单位的状态框）
+                //   ② `NotifyCantDoAction(Battle/Tips/PendingBerzerk)`（`0x428A8C8`）✅ 已有
+                //   ③ `tutorialPointerBattle.StartPointer(clickAndDrag, Get2DPosOfCard(狂暴单位), Get2DPosOfCard(目标), 1)`
+                //   ④ `<StopHandAnim>d__405(2.0f)` = **2.0 s 后** `TutorialPointer.StopAnim()`（熄指针）
+                // 🔴 2026-10-27（B9 W19BDR · W3ANIM §4.3-2）：补 ①③④（③只做 `from` 那一半，见方法 doc）。
+                PlayPendingBerzerkTriggerAnim();
                 NotifyCantDoAction(Loc.T(PendingBerzerkTerm));
+                ShowPendingBerzerkPointer();
                 return;
             }
             // 🆕 2026-09-26（N4）：联机局要把「我结束回合」发对面（对面收到后照样 `EndTurn` + `BeginTurn`）
@@ -17785,7 +17796,8 @@ namespace CardPresentation
                 return;                            // 小提示是**独占**的一拍（原版 `waitForTip` 会等它）
             }
 
-            // ---- ② 教学标注四块（`ActivateHandCards 170` 前后；原版 `CardScript.ShowWarlordActiveAbilityForTutorial`）----
+            // ---- ② 教学标注四块（`ActivateHandCards 170` 前后）----
+            // ⚠️ 2026-10-27（`B9` W10BDR · 施工单 #8 顺带订正 · 铁律 5）：这里原来把出处写成 `CardScript.ShowWarlordActiveAbilityForTutorial` —— **引错了**：那个方法只有 12 行、做的是 `CardScript+0x220(hasActiveAbility) = rawCardData+0x2A9`（= 让手上那张督军卡**显示主动技图标**），由 `ShowPlayerActionAnim.c:606` 在 `TapCard(120)` 档调；与本处这四块标注无关。这四块真正的显示时机在 `decomp_full` 里**查不到**（`UnitObjs` / `MeleeText` 全库 0 命中）⇒ **170 这个时机与那四根箭头的位置都是我们挑的**。🔶 自己设计（非原版）：标注四块的出现时机（`ActivateHandCards`）与箭头的相对位置 · 原版判据查不到（`decomp_full` 0 命中 `UnitObjs`/`MeleeText`） · 调度台 2026-10-27 裁定
             //     ⚠️ 「前后」= 这一档**出现的那一段**；换到别的档就收掉（原版有 `Hide…` 那一支）。
             if (a.Kind == ScriptedActionType.ActivateHandCards)
             {
@@ -17816,11 +17828,12 @@ namespace CardPresentation
             else ov.SetHighlight(false, Vector3.zero, Vector2.zero);
 
             // ---- ④ 指点光标（原版 `CheckForTutorialPointer`，只在 `playerAction == 1` 时走）----
+            //   🔴 2026-10-27（`B9` W10BDR · 施工单 #8）：锚点改按**动作大类**取（逐档出处 → 类尾
+            //   `TutorialPointerAnchorFor` 的 doc）。旧写法按 `unitType` 猜 ⇒ 36 条 `EndTurn` 指针落在屏幕中心。
             if (waiting)
             {
                 Vector3 c; Vector2 sz;
-                int pref = TutorialAnchorFromAction(d0);
-                if (TutorialAnchor(pref, out c, out sz)) ov.SetPointer(true, c);
+                if (TutorialPointerAnchorFor(a, d0, out c, out sz)) ov.SetPointer(true, c);
                 else ov.SetPointer(false, Vector3.zero);
             }
             else ov.SetPointer(false, Vector3.zero);
@@ -20468,6 +20481,10 @@ namespace CardPresentation
             //   批处理没有帧循环 ⇒ 挂错地方就成了「只在一种环境下活」的实现（同上面那几条）。
             TickAbilityVfxMoves(dt);
 
+            // 账 `特效动画:497` 的 ④：**2.0 s 后熄掉「狂暴」拦截那颗指针**（原版 `_d__405` 的 `WaitForSeconds(2.0)`）。
+            // 同上面几族一样必须挂这个泵：批处理没有帧循环，挂 `Update` 就成了「只在一种环境下活」。
+            TickPendingBerzerkPointer();
+
             // 🆕 2026-10-19（T05 · `A2081`）：**飞行单位的抬升与上下浮动**也走这个泵 ——
             //   原版 `FlyingCardController` 是 `MonoBehaviour`、靠 `Update` 每帧推；批处理没有帧循环
             //   ⇒ 挂 `Update` 就成了「只在一种环境下活」的实现（同上面那几条，本线准则 §六·6）。
@@ -22193,6 +22210,26 @@ namespace CardPresentation
                 Vector3 enPos = ap.EndPos;
                 ScheduleAction(vfxAt + Mathf.Max(0f, items[i].T),
                                () => FireAttackVfxWithCtx(nm, an, st, stPos, enPos, capCtx, capEvt));
+
+                // 🔴 **2026-10-27（`B9` W1BDR · 施工单 #10）**：远程那一拍**还带一个 `screenShake`** —— 原版 `_d__468__MoveNext.c:46-67`：
+                //   `StartCoroutine(DelayedVFXPlay(...))` 之后**同帧** `if (preset.CanPlay()) preset.Play();`（`CanPlay` = `presetSO != null`，
+                //   `__CanPlay.c:14-17`）；`Play()` 走 `GetModifiedPreset`（`:22-27`：`modified.delay = this.delay`，其余按 `overwrite*` 逐位覆盖）。
+                //   时刻 = `ResolveAnimInfoRangeAttack` 进 state 1 那一刻 = **`vfxAt + startDelay`**（`:29-31`），⛔ 不是 `items[i].T`
+                //   （那是 `vfxDelayTime`，在 `DelayedVFXPlay` **里面**等，`:17-27`）。⚠️ 只对**远程**：近战震屏来自
+                //   `ResolveAttackAnimationEffects`（`PlayHitFrameShake` 已覆盖）；`attack_melee` 12 件**没有一个**带 `shk`、`attack_ranged` **13 个**带。
+                if (e.Ranged)
+                {
+                    var shk = CardAnimClips.PlacementOf(an);
+                    if (shk.HasValue && !string.IsNullOrEmpty(shk.Value.ShakePreset))
+                    {
+                        var shkPlace = shk.Value;
+                        ScheduleAction(vfxAt + Mathf.Max(0f, shkPlace.StartDelay),
+                                       () => PlayBeatShake(shkPlace));
+                    }
+                }
+                // 🔴 **2026-10-27（`B9_W29BDR2` · 接 `unitsShake`）**：同一件 `AnimInfo` 那一族（判据 `_d__468:62-77` / `_d__466:110-125`：
+                //   两条路都是「`shk` preset 之后紧接一层 `ush` 循环」，**不带 `e.Ranged` 闸**）⇒ 目标/远离方由 `ResolveUnitShakeTargetUnit` 解。
+                SchedulePieceUnitShakes(an, atkView, tgtView, e.Player, vfxAt);
             }
             // 队尾：整条链按原版**演完**才算完（`CardAnimClips.RangedChainDuration` 用逐件
             // `AnimInfo.GetAnimDuration()` 真值 —— 逐卡 `AnimTimes` → 共享件表 → **按 CardAnim 名查表**；
@@ -22224,7 +22261,7 @@ namespace CardPresentation
                     //   ⇒ **震屏 → 命中音 → 命中粒子 → 后坐**。改前我们的次序是「粒子 → 音 → 后坐 → 震屏」（反的）。
                     //   ⚠️ **震屏不挂在「受击视图还在不在」上**（原版那条由**攻方**的 `CardScript` 触发，
                     //      见上面 `PlayHitFeel` 里同一条判据的注释）—— 改前它跟后坐一起被 `target == null` 挡掉了。
-                    if (feel) PlayHitFrameShake();
+                    if (feel) PlayHitFrameShake(tgtView);
                     if (cue) BattleSfx.Play(BattleSfx.MeleeAttackHitSmall);
                     // `AttackHitSmall`：位置 = **攻方 effectsAnchor**、朝向 = 目标−攻方、缩放 = 攻方卡
                     // （`ResolveAttackAnimationEffects.c:82-106`：`Instantiate(…, effectsAnchor.position, LookRotation(dir))`
@@ -22614,19 +22651,19 @@ namespace CardPresentation
         }
 
         /// <summary>命中帧那一拍的**震屏**（只有近战）。
-        /// <para>🔴 **2026-10-25（`AU1` · `新账 N5`）：命中帧拆成「震屏」+「后坐」两个口** —— 原版它们之间
-        /// 还夹着命中音与命中粒子，而且**震屏不依赖受击方视图是否存在**。判据 =
-        /// `CardScript.__c__DisplayClass357_0___AttackMeleeAnim_b__1.c:16-27`（先
-        /// `ResolveAttackAnimationEffects`、再 `ReceiveAttackAnim`）＋
-        /// `CardScript__ResolveAttackAnimationEffects.c:51-107`（`SetDirection` → `SetAmplitude` →
-        /// **`Play()` 震屏** → `Play2D(命中音)` → `Instantiate(命中粒子)`）。</para>
-        /// <para>🔴 改前它与**后坐**共用一个 `if (target == null) return;` ⇒ 受击方视图不在
-        /// （那一格已经空了 / 还没建）时**连震屏也一起没播**；而原版这条是**攻方**的 `CardScript` 触发的、
-        /// 与「被打的视图还在不在」无关（同一条判据 → `PlayHitFeel` 里「震镜头放在 `v != null` 外面」那段）。</para>
+        /// <para>🔴 **2026-10-25（`AU1` · `新账 N5`）：命中帧拆成「震屏」+「后坐」两个口** —— 原版它们之间还夹着命中音与命中粒子，
+        /// 而且**震屏不依赖受击方视图是否存在**。判据 = `CardScript.__c__DisplayClass357_0___AttackMeleeAnim_b__1.c:16-27`（先
+        /// `ResolveAttackAnimationEffects`、再 `ReceiveAttackAnim`）＋ `CardScript__ResolveAttackAnimationEffects.c:51-107`
+        /// （`SetDirection` → `SetAmplitude` → **`Play()` 震屏** → `Play2D(命中音)` → `Instantiate(命中粒子)`）。</para>
+        /// <para>🔴 改前它与**后坐**共用一个 `if (target == null) return;` ⇒ 受击方视图不在（那一格已经空了 / 还没建）时**连震屏也一起没播**；
+        /// 而原版这条是**攻方**的 `CardScript` 触发的、与「被打的视图还在不在」无关（同一条判据 → `PlayHitFeel` 里「震镜头放在 `v != null` 外面」那段）。
+        /// 🆕 **2026-10-27（`B9_W29BDR2` · 接 `B9_W11SHAKE` 的 `ShakeCameraForAttack`）**：原版喂进 `SetDirection` 的是**目标的棋盘坐标**
+        /// （`GetBoardPosOfCard`，场地根 x=100），⛔ 不是 preset 自带的 `(0,0.2,0.2)` ⇒ 现在走 `ShakeCameraForAttack`（方向 = 受击视图
+        /// `transform.position`；视图不在 ⇒ 退 `Vector3.zero`，换算后是 `(100,0,0)`，与原版坐标同向同量级、y 恒 0 ⇒ 屏幕上只横抖）。</para>
         /// <para>⚠️ 只在 `animateFeel` 开着时排（批处理自检要**当场**精确坐标 —— 与 `PlayFeel` 同一条口径）。</para></summary>
-        void PlayHitFrameShake()
+        void PlayHitFrameShake(CardView target)
         {
-            CardFeel.ShakeCameraForHit(cam, hudRoot, _lastAttackerMelee, 0f, boardCam);
+            CardFeel.ShakeCameraForAttack(cam, hudRoot, target != null ? target.transform.position : Vector3.zero, _lastAttackerMelee, 0f, boardCam);
         }
 
         /// <summary>命中帧那一拍的**后坐**（只有近战）—— 原版 `ReceiveAttackAnim`，
@@ -22790,7 +22827,7 @@ namespace CardPresentation
             //   · 「`IsPlayerTurn` 才开窗」那道闸 + 「卡名 → `CardData`」全在 `OpenShowCardsWindow` 里。
             //   · 🔴 **非阻塞**：这一拍**不加时长**（`EventTiming.DurationOf` 的 `default` = 0f 恰好与原版一致，
             //     原版 `FinishResolvingAction` 紧跟其后、无 `yield`）—— ⛔ 别往 `EventTiming` 补。
-            if (e.Kind == EvtKind.ShowCardsWindow) OpenShowCardsWindow(e);
+            if (e.Kind == EvtKind.ShowCardsWindow) OpenShowCardsWindow(e); else if (e.Kind == EvtKind.TraitRemoved) OnTraitRemovedShake(e);   // 🆕 2026-10-27（B9_W40WIRE2）：掉舱震屏（判据/口径见 OnTraitRemovedShake 的 doc；挂成 else-if = 零行数变化，避免下游行号漂移）
 
             // 🆕 2026-10-19（`W57` · `T04` #1）：**非单位卡打出 → 中央展示 + 卡背翻面**
             //   （原版 `CardScript._PlayEnemyCard/_PlayPlayerCard` 的 `cardType != 0` 那支 →
@@ -23559,7 +23596,10 @@ namespace CardPresentation
         ///
         /// <para>**逐句算式**（`TL` §1·4，`:` 后是 `_d__358` 的行号）：</para>
         /// <list type="number">
-        /// <item>`delay > 0 ⇒ WaitForSeconds(delay)`（`:71-79`）⇒ 这里用 `SetDelay`。</item>
+        /// <item>`delay > 0 ⇒ WaitForSeconds(delay)`（`:71-79`）⇒ 这里用 `SetDelay`。
+        ///   ⚠️ 2026-10-27（`B9` W10BDR）补读：`:154` 还有一句 `BattleCardUI.StopSummonSicknessAnim`
+        ///   （只 `Destroy(cardUI+0x260)`）—— 本 build 的 `BattleAnims.summonSickness` 是**空 AssetReference**
+        ///   （`Core/CardView.cs:14791-14793`）⇒ 那颗 anim 从没建出来 ⇒ **空操作，我们不做**。</item>
         /// <item>`start = transform.TransformPoint(originalLocalPosInPlay)`（`:81-87`）——
         ///   我们**没有** `originalLocalPosInPlay`（那是原版在场静止位的一份缓存）⇒ 等价物 = **这一拍起播时卡的当前位置**
         ///   （让位/瞄准补间与它同帧结束，正常就是格位）。⚠️ 如实记。</item>
@@ -23674,11 +23714,19 @@ namespace CardPresentation
             var rotX = MinionCurve(p.RotXCurve);
             var rotY = MinionCurve(p.RotYCurve);
             var rotZ = MinionCurve(p.RotZCurve);
-            if (p.RotXOn || p.RotYOn || p.RotZOn)
+            // ⑪ 🆕 2026-10-27（`B9` W10BDR · 施工单 #12）：位移期间**逐帧按战场深度重算缩放**
+            //   —— 原版这条协程给三条 tween 挂的 `OnUpdate` = `DisplayClass358_0.b__1`/`b__4`
+            //   （`_d__358__MoveNext.c:166-171/180-190/197-203/218-224`，体 = `GetScale(...)` → `localScale`）。
+            //   等价物 = `CardFeel.ApplyDepthScale`（同一个口；判据与逐句还原 → 报告 `B9_W10BDR_施工单8-9-12.md` §3）。
+            float depthBase = self.BaseScale;                    // 只抓一次（逐帧改的是它乘出来的值）
+            bool depthOn = CardFeel.IsArenaCard(self);           // 2D 兜底布局没有「深度」可言
+            if (p.RotXOn || p.RotYOn || p.RotZOn || depthOn)
             {
                 move.OnUpdate(() =>
                 {
                     if (self == null) return;
+                    if (depthOn) CardFeel.ApplyDepthScale(self, isPlayer, depthBase);
+                    if (!(p.RotXOn || p.RotYOn || p.RotZOn)) return;
                     float t01 = dur > 1e-6f ? move.Elapsed(false) / dur : 1f;   // 不 Clamp：原版曲线的 pre/post 本身就是 Clamp
                     Quaternion qx = MinionAxisRot(p.RotXOn, p.RotXDeg, Vector3.right, rotX, startRot, t01);
                     Quaternion qy = MinionAxisRot(p.RotYOn, p.RotYDeg, Vector3.up, rotY, startRot, t01);
@@ -23809,10 +23857,10 @@ namespace CardPresentation
             // （原版 `PlayAnim.c:191-219` 对 `2` 会退到 `thisCard` ⇒ 朝自己 = 不转）⇒ 按「不朝向」播。
             if (target == null && pt >= (int)PositionOption.cardTarget && pt <= (int)PositionOption.abilityTarget)
                 pt = 0;
-            // 🆕 2026-10-25（`AU1` · `J1` §9/§10）：起播同帧的屏震 + 卡本体位移那一档
-            //   （两条都缺数据时零调用；判据见各自的方法 doc）。
+            // 🆕 2026-10-25（`AU1` · `J1` §9/§10）+ 2026-10-27（`B9_W29BDR2`）接上的 `unitsShake`：起播同帧的屏震 / 卡本体位移 / 单位抖-弹三档
             PlayBeatShake(p);
             PlayMinionMovement(self != null ? self : ViewAt(e.Player, e.Slot), target, p, e.Player == _me);
+            ScheduleUnitShakes(p.UnitShakes, self, target, e.Player, 0f);   // 判据 `_d__466:110-125` / `_d__465:130-145`，缺数据零调用
             PlayAbilityBeat(e, vfx, sp, p.EndPos, pt,
                             p.Move, p.OrientToVelocity, p.Ts, p.Tm, p.Ease,
                             null, place, self, target);
@@ -24594,6 +24642,24 @@ namespace CardPresentation
             //   ⇒ 先拆掉 `#i` 后缀（`KeywordForDisplay`，判据只此一处）。不拆的话状态框/徽标都会**查不到**
             //   （而 miss 日志还会印一句「这个词条本来就没有图标」= **误导**）。
             string kw = KeywordForDisplay(e.Keyword) ?? "";
+            // 🔴 **2026-10-27（`B9` W1BDR · 特效施工单 #13）**：`bloodthirst` 这一格**比通用触发多一道闸** ——
+            //   原版 `BattleManager__ResolveBloodThirstAnim.c:21-29` 在**结算那一刻**重跑
+            //   `CardScript.ActivateBloodThirst`（`CardScript__ActivateBloodThirst.c:11-22`）：
+            //   `HasCurrentTrait(0xdc)` && `+0x48 == 1`（本回合第 1 次）&& **`isPlayer(+0x40) == IsPlayerTurn()`**
+            //   && `cardState(+0x228) != 5`；为假 ⇒ 只 `FinishResolvingAction`，**一行都不演**。
+            //   ① 前两条引擎侧已挡（`RuleCore.EmitBloodThirst` 的 `AttacksThisTurn != 1` 早退）；
+            //   ② `state == 5 (waitingToDie)` 我们没有等价物（濒死在引擎里已离场，见那条的 doc）；
+            //   ③ **`isPlayer == IsPlayerTurn`（= 卡属于当前行动侧）两边都没挡** ⇒ 在此补上
+            //      （原版两个都是**相对本机**的说法，换成绝对座位就是 `e.Player == Ctx.Active`）。
+            //   ⚠️ 只是**表演**闸：引擎事件与 `BroadcastWhen(Triggers(BloodThirst))` 仍照发
+            //      （后者本来就是我们自设计的 —— 原版 bloodthirst 那一跳**不广播**，见 `EmitBloodThirst`）。
+            if (Ctx != null && Ctx.Active >= 0 && e.Player != Ctx.Active
+                && string.Equals(kw, KeywordTable.BloodThirst, System.StringComparison.OrdinalIgnoreCase))
+            {
+                Debug.Log($"[Battle] 「血渴」的触发点不在行动侧（player={e.Player} / Active={Ctx.Active}）"
+                        + " ⇒ 原版 `ActivateBloodThirst` 为假、这一下**不演**（`CardScript__ActivateBloodThirst.c:15-21`）");
+                return;
+            }
             var tf = v.GetComponent<TraitFrames>();
             // 🆕 2026-10-23（新账-70 第 3 条）：**`playIfWarlord` 门**（原版 `DisplayTriggerAnim.c:62-68`）
             //   要问「这张卡是不是督军」—— 判据 = `UnitState.IsWarlord`（引擎侧唯一的督军身份位；
@@ -24610,13 +24676,14 @@ namespace CardPresentation
                 isWarlord = u != null && u.IsWarlord;
                 if (u != null && kw.Length > 0) traitValue = u.KwValue(kw);
             }
+            // 🔴 2026-10-27（B9 W19BDR · W3ANIM §4.3-3）：原版**先 `HighlightTraitIcon` 再 `DisplayTriggerAnim`**
+            //   （`CardScript__ActivateTriggerTraitAnim.c` 的调用序）⇒ 徽标脉动提到状态框之前；`pulsed` 接住原来的早退语义。
+            bool pulsed = v.PulseBadgeByKeyword(kw);
             if (tf != null && tf.DisplayTrigger(kw, isWarlord, traitValue))
                 Debug.Log($"[Battle] 「{kw}」触发 ⇒ 状态框上场（原版 `DisplayTriggerAnim`）");
             else if (tf != null && isWarlord && TraitFrames.BlocksForWarlord(kw))
                 Debug.Log($"[Battle] 「{kw}」触发但卡是督军、该 effect 的 `playIfWarlord = 0` ⇒ 原版不播（`DisplayTriggerAnim.c:62-68`）");
-
-            if (v.PulseBadgeByKeyword(kw)) return;
-
+            if (pulsed) return;
             if (_pulseMissWarned.Add(kw))
                 Debug.Log($"[BattleDriver] 「{kw}」触发时卡上没有对应的徽标位 ⇒ 不脉冲（该词条本来就没有图标，属正常）");
         }
@@ -24747,18 +24814,18 @@ namespace CardPresentation
             // ② 合并件（挂在存活那格；⚠️ 偏离 ① —— 原版挂在被并掉那张）
             WarpforgeVFX.WarpforgeEffectPlayer.Play(SwarmMergeVfxName, v.transform, Vector3.zero, 1f, -1f);
 
-            // ②·b 🆕 2026-10-27（`B9` E4BDR · 账 403）：原版 `SwarmVFXController.Initialize.c:22` 的
-            //   `CardUI(+0x290).ToggleBody3D(false, null)` —— **合并期间把那具 3D 卡体藏掉**（存活那张）。
-            //   我们等价物 = `CardView.SetBody3DVisible(false)`（`Show(_body3D, false)`）。
-            //   ⚠️ 原版那一跳还连带 `effectsAnchor` 的显隐（`ToggleBody3D` 内部；我们的 `Show` 只管 `_body3D`）
-            //      —— `effectsAnchor` 那一半在我们这侧**没有消费者**（特效都挂 `CardView.transform`），如实记。
-            //   ⚠️ 材质交接（`Initialize.c:20-21` 的 `CardMaterialHelper.ConfigureMaterial(mat, card)`）：
-            //      **不换**。判据 = 原版那两句写的就是**两格贴图**（`_CardImage` = 卡面立绘纹理 ·
-            //      `_MatCap` = 按 `CardTier` 取的 matcap；见 `Core/CardView.ConfigureRemnantMaterials` 的 doc
-            //      逐行读过的那份），而它作用的对象是 **`SwarmVFXController` 自己的 renderer(+0x20)**（那件
-            //      VFX 预制体的材质）；我们的 `WarpforgeEffectPlayer` **没有**「按卡改写特效材质」这条路
-            //      （特效材质来自效果库原件），要接得先有「VFX 渲染器 → 两格贴图」的判据 ⇒ **查不到，不换**。
-            v.SetBody3DVisible(false);
+            // ②·b 🔴 **2026-10-27（`B9_W29BDR2` · 订正 `E4BDR`/账 403 落点）**：原版 `SwarmVFXController.Initialize.c:22` 的
+            //   `CardUI(+0x290).ToggleBody3D(false, null)` 作用的是 **`param_2` = 被并掉那张**，⛔ 不是存活那张：
+            //   `CardScript__ExecuteSwarm.c:39-80` 在 `this.transform.position` 实例化 VFX 并 `Initialize(this, …)`，闭包
+            //   `…ExecuteSwarm_b__0.c:23-55` 从 `+0x10`(=this) 读攻/远、`DestroyUnitSilent(+0x10)` ⇒ 三处是同一张。
+            //   我们的 `v` 是**存活那张**（`RuleCore.SwarmMergeNow` 传 `host`/`hostSlot`）⇒ 藏它**没人复原**（3D 档下存活小兵
+            //   一直没体，直到下一次 `SetFace(Board)` 重刷）⇒ **这句已删**。⚠️「改藏被并掉那张」做不到：事件只带存活那格的
+            //   `Player/Slot`、那张早已离场（`BoardSlots.RemoveAt` 在本跳之前）⇒ 它的体由离场/阵亡链整件收回
+            //   （`Kill`/`PendingExitFor`）；原版「藏体 1.2 s 再销毁」那半拍**没有等价载体** ⇒ 如实记为未复刻的一小段（见报告）。
+            //   ⚠️ 原版那一跳还连带 `effectsAnchor` 的显隐（`ToggleBody3D` 内部；我们的 `Show` 只管 `_body3D`）—— 那一半在我们这侧
+            //      **没有消费者**（特效都挂 `CardView.transform`）。⚠️ 材质交接（`Initialize.c:20-21` 的 `ConfigureMaterial(mat, card)`）
+            //      **不换**：那两句写的是**两格贴图**（`_CardImage` 立绘 · `_MatCap` 按 `CardTier`），而对象是 `SwarmVFXController`
+            //      自己的 renderer(+0x20)；`WarpforgeEffectPlayer` 没有「按卡改写特效材质」这条路 ⇒ **查不到判据，不换**。
             if (!_swarmMergeMaterialWarned)
             {
                 _swarmMergeMaterialWarned = true;
@@ -24957,6 +25024,19 @@ namespace CardPresentation
             //    「飘在挨打那张卡上」的断言**必须跟着换同一个口**（两处一起改，否则那条先红）。
             //    🧨 **改坏法**：换回 `layout.SlotPosition(e.Slot)` ⇒ 飘字回落到 2D 行线（低 51~72 px）
             //    ⇒ `BattleScene.cs` 那条飘字位置断言当场红；在 2D 兜底布局下两种写法**完全等价**（不报错）。
+            // 🔴 **2026-10-27（`F3BAT` · D2 ③）锚点不许吃相机的【瞬态位姿】**：
+            //    `DropTargetWorld` 是 `boardCam.WorldToScreenPoint(ArenaSlots.CardCenter(...))`（`BoardLayout.cs:523-535`）
+            //    —— **实况相机投影**。而这一刻 `boardCam` 正被**命中帧震屏**推着：总时长 `0.1 + 0.3 = 0.4 s`
+            //    （`CardFeel.cs:214-218`）、起于 `EventTiming.HitFrameLag`，而伤害 `Hit` 在
+            //    `Attack + MeleeDamageLag = 0.4 s`（`Core/EventTiming.cs:804`）⇒ **取锚点这一拍正好是那条震屏的
+            //    最后一帧**，残余位移（实测 x 向 0.1453 世界单位）被烘进飘字；而断言侧是在震动**复位之后**再投一次影
+            //    ⇒ 两边对不上（`BattleScene.cs` 那条「飘在挨打那张卡上」红，且偏差**随震屏幅度线性缩放**）。
+            //    ⇒ 先把这一记震屏收尾（`SettleShake` → tween `OnKill`：相机 / `boardCam`(extraCam) / HudRoot 各自归位），
+            //      再取锚点。**视觉无损** —— 此刻它本来就只剩最后一帧（收尾时那一下归位与下一帧的 `OnKill` 同拍）。
+            //    ⚠️ 长期正解 = 让飘字**跟着那条震屏位移走**（原版那颗 `DamageCounter` 是 3D 卡的子件，真机上跟着卡晃），
+            //      ⛔ 本波不做（记在 `资料/完全复刻/报告/F3_battle四红.md` 的「还欠」）。
+            //    🧨 删掉这一句 ⇒ 只要震屏幅度不是 0，飘字就会沿**震屏方向**偏掉（现档位是纯水平 20.38 世界单位）⇒ 那条断言红。
+            CardFeel.SettleShake();
             Vector3 at = layout.DropTargetWorld(e.Slot);
 
             // 🔴 **2026-10-14（`A1767` · 写手 `W11`）**：这一档**提到 `if` 之前** —— 因为**震镜头**那一条在
@@ -25834,14 +25914,14 @@ namespace CardPresentation
             // 🆕 2026-10-23（D · `F6`）：**居中展示那一档 = 原版 `HandMoving` 排序层**
             //   （判据 `CardScript__ShowCardInCenter.c` → `SetSortingLayer(<HandMoving>)`）。
             //   我们的等价物 = `CardView.QHandMoving`（3001，手牌段顶号的上一格）——
-            //   不抬这一格的话，「打出的牌在屏幕正中展示」会与手牌最上面那张**同号**
+            //   不抬这一格的话，「打出的牌在展示位（enemyHand 锚 + 偏移，**不是屏幕正中**）」会与手牌最上面那张**同号**
             //   （都是 3000）⇒ 谁压谁退回按距离，画面下方那排手牌可能盖住中间这张。
             v.SetQueue(CardView.QHandMoving);
 
             // 起点 = 那一侧手牌**末位**（原版从手牌里飞出来）；口径与抽牌落点同一个口（`HandRow01`）
             Vector2 start01 = HandRow01(owner == _me, 1);
             Vector3 startWorld = LayoutSpace.ToWorld(start01.x, start01.y);
-            Vector3 centerWorld = LayoutSpace.ToWorld(0.5f, 0.5f);
+            Vector3 centerWorld = EnemyCardPlayedDisplayPointWorld();   // 原版 `GetEnemyCardPlayedDisplayPosition()`：enemyHand 锚 (960,50) + 敌方档偏移 (−26,+24)×14.835 ⇒ **(574,406)**（小屏档 X 反号 ⇒ (1331,406)）；⛔ 别在这里再写一份 ×14.835（公式只一份 = `VarsGlobal.PlayedCardDisplayOffsetPx`）
             Vector3 startLocal = hudRoot.InverseTransformPoint(startWorld);
             Vector3 centerLocal = hudRoot.InverseTransformPoint(centerWorld);
 
@@ -27783,8 +27863,8 @@ namespace CardPresentation
         ///
         /// 🔴 **原版只有两个子类覆写了它**（`d:/2/tools/decomp_full/`，逐个读过）：
         /// · `CardTraitDuty__IsActive.c:19` = `return *(char *)(card + 0x4c) == 0;`
-        ///   —— `0x4C` = `EntityScript.usedActiveAbility`（`dump.cs` 字段表）
-        ///   ⇒ **本回合用过主动能力 ⇒ Duty 变灰**。
+        ///   —— `0x4C` = `ActiveAbilityUsed`（**本局一次、不随回合重置**；`+0x50` 才是每回合那格，见 `UnitState`）
+        ///   ⇒ **这一局用过主动能力 ⇒ Duty 变灰（不会下回合亮回来）**。
         /// · `CardTraitOath__IsActive.c:26` = `CardScript.CanUseOathAbility(card)`
         ///   ⇒ **当前激活不了誓约（次数用完 / 不是本回合上场 / 付不起那 N 点能量）⇒ Oath 变灰**。
         /// · 其余**全部恒 true** —— `CardTrait__IsActive.c` 的符号被 Ghidra 撞到了别的函数上
@@ -27796,7 +27876,7 @@ namespace CardPresentation
         /// </summary>
         bool KeywordActive(UnitState u, string key)
         {
-            if (key == KeywordTable.Duty) return !u.UsedActiveAbilityThisTurn;
+            if (key == KeywordTable.Duty) return !u.ActiveAbilityUsed;   // 🔴 2026-10-27（`B9_W49BDR3`）：原版 `CardTraitDuty__IsActive.c:19` 读 `+0x4c`（本局一次、不随回合重置），原来是 `+0x50` 那族 ⇒ 徽标每回合会亮回来
             if (key == "oath")
             {
                 int ow, sl;
@@ -32300,8 +32380,8 @@ namespace CardPresentation
             if (HitTip(_myFaithIcon, wp, TipText.Faith) || HitTip(_foeFaithIcon, wp, TipText.FoeFaith)) return true;
             if (HitTip(_myStoneIcon, wp, TipText.SpiritStone) || HitTip(_foeStoneIcon, wp, TipText.FoeSpiritStone)) return true;
 
-            Tooltip.Hide();
-            return false;
+            if (!AwaitingPlayTarget) { Tooltip.Hide(); return false; }   // 等点目标期间这条提示是原版「钉住」的那一条（`StartTrackingFrom`）：⛔ 别让每帧 hover 扫描把它收掉（`ShowPlayTargetPrompt` 的 doc）
+            return Tooltip.Visible;
         }
 
         /// <summary>
@@ -33502,7 +33582,10 @@ namespace CardPresentation
         //     `isPlayer(+0x40) == isPlayerAsking` 挡掉 —— **连卡窗都不开**。我们照抄这一条：
         //     点敌方的灵魂石什么都不发生（⛔ 别顺手给它开窗）。
         //  ⚠️ 回放局：原版没有这个概念；我们这侧收集会改局面 ⇒ 与 `BoardPress` 的拖拽那一支同口径（只读）。
-        void TapBoardCard(int side, int slot)
+        /// <param name="windowAlreadyShown">原版 `BattleManager.DisplayCard(show:1)` 对**同一张卡重复开窗是幂等的**
+        /// （`BattleManager__DisplayCard.c:1-40`：`card == +0x588` ⇒ 只清指针就 return）⇒ 长按那 0.3 s 已经把
+        /// 这张卡弹出来时，松手这一下**不再 toggle**（我们 `CardDisplayWindow.Toggle` 是真 toggle）。</param>
+        void TapBoardCard(int side, int slot, bool windowAlreadyShown = false)
         {
             // 🔴 2026-10-26（B9/E2P11 · 施工单 89，与 `RuleEngine/Core/TutorialScript.cs:1282-1291` 同一段判据）：
             //   **原版那个谓词 `AiScripted.CheckIfWaitingToClickCard(manager, turnData, cardClicked)` 在我们这里
@@ -33538,7 +33621,9 @@ namespace CardPresentation
                              + " —— 原版 `BattleManager.TryUsingWaystone` 也是只记一句日志、不改局面。");
                 return;
             }
-            ToggleUnitCard(side, slot);
+            // 原版同卡重复开窗幂等（见 `windowAlreadyShown` 的 doc）；⛔ 别把 `ToggleUnitCard` 删掉 ——
+            // 它是「关窗」与所有既有断言唯一的实现点。
+            if (!windowAlreadyShown) ToggleUnitCard(side, slot);
         }
 
         // ================================================================
@@ -34452,10 +34537,11 @@ namespace CardPresentation
         /// <para>🔶 我们的等价物：`PlayerDeck.CardIds` 里以 **`#`** 开头的条目 = 「这一份是异画副本」。
         /// 剥前缀取回原卡 id（`#HB_SW1` → `SW1`；直接 `#SW1` 也认），立绘走 `CardArt.AltArt(原卡 id)`。
         /// 只看 id、不看卡在谁手上 —— 双方卡组都扫（原版两副牌各扫自己那份）。</para>
-        /// <para>🔴 **今天生产路径恒不触发**（两件都在别的包）：① `工具/gen_cards_engine.py` 还没把
-        /// `card→altArt[]`（原版双向 PPtr 7 张）烘进卡表；② `RuleEngine/Core/DeckRules.cs` 的
-        /// `PlayerDeck.CardIds` 还没有「这一份是异画副本」这一格 ⇒ **没人会放进 `#` 条目**。
-        /// 那两件一落地，这条链**自动生效**（视图侧不用再改）。</para></summary>
+        /// <para>🔴 **生产路径仍不触发（只差一件，在别的包）**：① ✅ **2026-10-27 现核已落地** ——
+        /// `工具/gen_cards_engine.py` 已把 `card→altArt[]` 烘进卡表（`cards_engine.json` 现读 **7 张**带
+        /// `alternateArts`，如 `UM76 → ['#HB_UM76']`）；② **仍缺**：`RuleEngine/Core/DeckRules.cs` 的
+        /// `PlayerDeck.CardIds` 没有「这一份是异画副本」这一格、解析口还会把 `#` 条目当查不到的 id 丢掉。
+        /// ②一落地，这条链**自动生效**（视图侧不用再改）。</para></summary>
         readonly HashSet<string> _altArtCopyIds = new HashSet<string>();
         readonly HashSet<string> _altArtWarned = new HashSet<string>();
 
@@ -34470,13 +34556,13 @@ namespace CardPresentation
             return t;
         }
 
-        /// <summary>扫一副牌的 `CardIds`，把以 `#` 开头的那些登记成异画副本（判据见 <see cref="_altArtCopyIds"/>）。</summary>
+        /// <summary>扫 `CardIds` **+ 督军/防御那两格**，把以 `#` 开头的登记成异画副本（本地 7 张异画全是督军 ⇒ 住 `WarlordId`，⛔ 不在 `CardIds`）；判据见 <see cref="_altArtCopyIds"/>。</summary>
         void CollectAltArtCopies(PlayerDeck d)
         {
-            if (d == null || d.CardIds == null || _pool == null) return;
-            for (int i = 0; i < d.CardIds.Count; i++)
-            {
-                var raw = d.CardIds[i];
+            if (d == null || _pool == null) return;
+            var all = new List<string>(d.CardIds ?? new List<string>()); all.Add(d.WarlordId); all.Add(d.DefensiveId);
+            for (int i = 0; i < all.Count; i++)
+            { var raw = all[i];
                 if (string.IsNullOrEmpty(raw) || raw[0] != '#') continue;
                 string body = raw.Substring(1);
                 string baseId = body;
@@ -34490,7 +34576,7 @@ namespace CardPresentation
                 if (CardDatabase.FindById(_pool, baseId) == null)
                 {
                     if (_altArtWarned.Add(raw))
-                        Debug.LogWarning("[Battle] `CardIds` 里有一条异画副本 id 剥不出原卡：「" + raw
+                        Debug.LogWarning("[Battle] 卡组里（`CardIds`/督军/防御卡）有一条异画副本 id 剥不出原卡：「" + raw
                                 + "」⇒ 这张按普通卡的立绘走（⛔ 不猜它对应哪张卡）。");
                     continue;
                 }
@@ -34551,7 +34637,7 @@ namespace CardPresentation
             {
                 // 督军的本地化名：`CardDatabase.FindById` 是全仓唯一「按 id 查卡」的口（⛔ 不另写一条查表路）。
                 var wdef = (myDeck != null && _pool != null)
-                         ? CardDatabase.FindById(_pool, myDeck.WarlordId) : null;
+                         ? CardDatabase.FindById(_pool, PlayerDeck.SameCardKey(myDeck.WarlordId)) : null;   // 🔴 `B9_W49BDR3`：异画督军按原卡查名
                 Debug.Log("[Battle] deckName: " + (myDeck != null ? myDeck.Name : "")
                         + "\n[Battle] deckWarlord: " + (wdef != null ? CardText.Name(wdef) : "")
                         + "\n[Battle] cardback: " + (myDeck != null ? myDeck.CardbackId : "")
@@ -34573,7 +34659,7 @@ namespace CardPresentation
         void AddTierOfDeckWarlord(PlayerDeck d)
         {
             if (d == null) return;
-            AddTierOf(d.WarlordId);
+            AddTierOf(PlayerDeck.SameCardKey(d.WarlordId));   // 🔴 `B9_W49BDR3`：异画督军 `#HB_xx` ⇒ 表键必须是引擎卡 id（`TierOfCard` 按它查）
         }
         void AddTierOf(string cardId)
         {
@@ -34678,21 +34764,21 @@ namespace CardPresentation
         /// <summary>自检口：`ReleaseCardbacks` **真正放掉**的张数（被租约挡下的不算）。</summary>
         public int ReleasedCardbackCount { get; private set; }
 
-        /// <summary>账 `卡组:194` / `732`（`CardAnimOrder` 的 `unitsShake` 那一拍 / `MoveToDeck` 的返回时长）
-        /// —— **本局缺的两样表现数据**，开局出声一次（⛔ 别静默跳过；数据重烘不归本件）。
-        /// <para>① `Resources/card_anim_order.json` **没有 `unitsShake` 字段**（全量
-        /// `数据/游戏数据/card_anim_order.json` 有 **110 条**）⇒ `CardFeel.ShakeUnit` 今天**零消费者**；
-        /// ② 我们**没有「卡还没离牌库就回牌库」这条路**（`EventTiming` 明写没有这一档）⇒
+        /// <summary>账 `卡组:194`（`MoveToDeck` 的返回时长）—— **本局还缺的表现数据**，开局出声一次（⛔ 别静默跳过）。
+        /// ⚠️ 2026-10-27（`B9_W49BDR3`）**就地订正（铁律 5）**：本段原来还报「① `unitsShake` 零消费者」——**已过期**：
+        /// 数据改由 `Resources/cardanim_clips.json` 的 `ush` 列供（现读 **257 拍非空**），消费链
+        /// `ScheduleUnitShakes` → `CardFeel.ResolveUnitShake` → `ResolveUnitShakeNow`（④ 抖动支）→ `ShakeUnit`（账 `732` 已消）。
+        /// <para>② 仍然成立：我们**没有「卡还没离牌库就回牌库」这条路**（`EventTiming` 明写没有这一档）⇒
         /// `DeckManager.AddCardNotDrawnToDeck` 那条「等 `MoveToDeck` 返回时长再 `SetupInDeck`」无落点。</para></summary>
         static bool _warnedMissingPresentationData;
         void WarnMissingPresentationData()
         {
             if (_warnedMissingPresentationData) return;
             _warnedMissingPresentationData = true;
-            Debug.LogWarning("[Battle] 两样表现数据本地缺：① `Resources/card_anim_order.json` 无 `unitsShake` 字段"
-                    + "（全量有 110 条）⇒ `CardFeel.ShakeUnit` 无消费者（账 `732`）；"
-                    + "② 无「未抽到的卡回牌库」这条路 ⇒ `CardFeel.MoveBackToHand` 的时长来源 `MoveToDeck` 无落点（账 `卡组:194`）。"
-                    + " 数据重烘 / 引擎事件由别的包做，本件只出声。");
+            Debug.LogWarning("[Battle] 表现数据还差一样：无「未抽到的卡回牌库」这条路 ⇒ `CardFeel.MoveBackToHand`"
+                    + " 的时长来源 `MoveToDeck` 无落点（账 `卡组:194`）。原先报的 `unitsShake` **已接上**（账 `732` 已消）："
+                    + "`Resources/cardanim_clips.json` 的 `ush` 列（现读 257 拍）⇒ `ScheduleUnitShakes` → `CardFeel.ResolveUnitShake` → `ShakeUnit`。"
+                    + " 引擎事件由别的包做，本件只出声。");
         }
 
         // ==================================================================
@@ -35087,5 +35173,523 @@ namespace CardPresentation
         }
         /// <summary>自检口：累计**撤回**过多少行事件（只读；= 0 表示一次都没触发过那条路）。</summary>
         public int DiscardedEventLineCountForTest { get; private set; }
+
+        // ==================================================================
+        //  🆕 2026-10-27（`B9` 执行代理 W10BDR · 特效施工单 #8）
+        //  **教程指点光标 `from` 锚点 —— 按【动作大类】选**（原版 `AiScripted.ShowPlayerActionAnim`）
+        // ==================================================================
+        //  判据（第一权威，逐句读完 638 行）：`d:/2/tools/decomp_full/AiScripted__ShowPlayerActionAnim.c`
+        //    `:159  iVar1 = *(int *)(lVar11 + 0x10)` → 拿 `ScriptedAction.data[0].type`
+        //                              （**不是** `unitType`，`unitType` 在 `+0x14`）后分档；
+        //    每档最后都落 `TutorialPointer.StartPointer(pointer, 类型, &from, to, 标志)`（`:183/:191/:295/:502/:525/:629`）。
+        //  `StartPointer`（`TutorialPointer__StartPointer.c:1-68`）按 **类型** 选三个协程：
+        //    `0` = `ClickInPosition`（指针停在 **`from`**）· `1` = `ClickAndHold`（同上）·
+        //    `2` = `ClickAndDrag`（`from` → `to` 拖拽）。
+        //  ⇒ **`from` 才是「指针摆在哪」`（`_d__23__MoveNext` 用 `+0x28` 那个点）。
+        //  ⚠️ **我们只做得了 `from` 那一半**：`TutorialOverlay.SetPointer(bool, Vector3)` 只收一个点
+        //     （那个文件本批不是我的写手）⇒ **拖拽方向（`to`）这一半如实未做**，见报告「没查清/做不了」。
+        //
+        //  逐档（`data[0].type` → `from`）：
+        //    · `PlayCard(20)` `:298-415` · `Attack(30)/AttackFreeMode(31)` `:416-503`
+        //      · `ChangeToRanged(35)/ChangeToMelee(36)` `:160-197` · `ActiveAbility(40)` `:198-296`
+        //      · `ClickCard(110)` `:505-531` · `TapCard(120)` `:598-627`
+        //      ⇒ **`Get2DPosOfCard(acting)`** = 那条动作的 **acting 那张卡**的位置
+        //        （`:164/:200/:300/:390/:476/:509/:600` 全是 `lVar7` = `GetChosenCard(acting …)`）。
+        //    · `EndTurn(100)` `:533-551` ⇒ **`bm.clockManager(+0x118).clockButton(+0x28)` 的 position
+        //      减去 `(DAT_1834b2bbc, DAT_1834b2bb8) = (2.0, 1.0)`**
+        //      （字段表 `dump.cs:37699-37705`：`+0x118` = `BattleManager.clockManager`、
+        //        `ClockManager +0x28` = `clockButton`；两个常量用 `工具/read_literal.py` 现读 =
+        //        `0x1834b2bbc` → **2.0**、`0x1834b2bb8` → **1.0**，4 字节 float）。
+        //      ⚠️ 我们**没有单独的时钟控件** —— 秒数画在 `_endTurnLabel` 上、底图是 `_endTurnBg`
+        //        （判据 → 本文件 `:2933-2937` 那段）⇒ 等价物 = `EndTurnWorldPos`。
+        //    · `ContinueSmallTip(150)` `:552-583` ⇒ 只 `ShowTutorialTip`，**不画指针**；
+        //      其余档（`PlayerChat/AiChat/SmallTip/DrawCard/…`）落 `:584-597` 的
+        //      `LogWarning("… no pointer …")` ⇒ **也不画**。
+        //  ⚠️ 与旧写法的一处**行为变化（有意的）**：旧写法对**任何** `waiting` 动作都画指针（认不出
+        //     锚点时退屏幕中心）；原版只对这 7+1 档画 ⇒ 现在聊天/小提示/`PlayerChoice` 那几档**不画**。
+        // ⛔ 别把 `TutorialAnchorFromAction` 删掉 —— 高亮那半边（③）还在用它。
+        // ==================================================================
+
+        /// <summary>`EndTurn` 档那两个写死偏移（`ShowPlayerActionAnim.c:540/542` 的
+        /// `DAT_1834b2bbc` / `DAT_1834b2bb8`，`工具/read_literal.py` 现读 **2.0 / 1.0**，4 字节 float）。
+        /// ⚠️ **这是原版的数，不是我们挑的** —— 别按「指针该压在钮正中」去改。</summary>
+        const float TutPointerEndTurnOffX = 2.0f;
+        /// <summary>见 <see cref="TutPointerEndTurnOffX"/>（同一对常量里的 y）。</summary>
+        const float TutPointerEndTurnOffY = 1.0f;
+
+        /// <summary>原版 `ShowPlayerActionAnim` 里**画指针**的八个动作大类（其余档原版只打警告）。
+        /// 判据见上面那段的 `:159` 分档表。</summary>
+        static bool TutorialKindHasPointer(ScriptedActionType k)
+        {
+            switch (k)
+            {
+                case ScriptedActionType.PlayCard:        // 20
+                case ScriptedActionType.Attack:          // 30
+                case ScriptedActionType.AttackFreeMode:  // 31
+                case ScriptedActionType.ChangeToRanged:  // 35
+                case ScriptedActionType.ChangeToMelee:   // 36
+                case ScriptedActionType.ActiveAbility:   // 40
+                case ScriptedActionType.ClickCard:       // 110
+                case ScriptedActionType.TapCard:         // 120
+                case ScriptedActionType.EndTurn:         // 100（位置来源不同，见下）
+                    return true;
+                default:
+                    return false;
+            }
+        }
+
+        /// <summary>`playerAction` 那一条的**指针 `from` 点**（判据与逐档出处 → 本段开头的长注释）。
+        /// 返回 `false` = **这一档原版不画指针**（聊天 / 小提示 / 认不出的档），调用方要把它关掉。</summary>
+        bool TutorialPointerAnchorFor(TutorialAction a, TutorialActionData d0,
+                                      out Vector3 center, out Vector2 size)
+        {
+            center = Vector3.zero;
+            size = new Vector2(0.4f, 0.4f);
+            var kind = a != null ? a.Kind : ScriptedActionType.None;
+            if (!TutorialKindHasPointer(kind)) return false;      // `.c:584-597` 的 LogWarning 那一支
+
+            if (kind == ScriptedActionType.EndTurn)               // `.c:533-551`
+            {
+                if (_endTurnBg == null) return false;             // HUD 还没建 ⇒ 不画（⛔ 不退回屏幕中心）
+                center = EndTurnWorldPos + new Vector3(-TutPointerEndTurnOffX, -TutPointerEndTurnOffY, 0f);
+                size = new Vector2(_endTurnBg.WorldW, _endTurnBg.WorldH);
+                return true;
+            }
+
+            // 其余八档：`from` = **acting** 那张卡的位姿（`.c` 里那句 `Get2DPosOfCard(acting)`）。
+            // ⚠️ **只认 `acting`**（⛔ 别退回 `target` —— 回退会画出原版没有的指针）。
+            //    原版 `lVar7` 取不到时自己会 NRE（数据保证有），我们**出声 + 不画**。
+            var acting = d0 != null ? d0.acting : null;
+            if (acting == null || acting.unitType == 0)
+            {
+                if (_tutPointerNoActingWarned.Add(kind.ToString()))
+                    Debug.Log($"[Tutorial] `{kind}` 这条玩家动作的 `acting` 是空的 —— 原版这一档"
+                            + " `Get2DPosOfCard(acting)` 会直接 NRE（数据里不该出现）⇒ 我们**不画指针**。");
+                return false;
+            }
+            // `acting` 已确认真实存在 ⇒ `TutorialAnchorFromAction` 的首选分支取的就是它
+            // （那个方法「有 acting 就优先 acting」，⛔ 别在这里再写一份 unitType→TutAnchor 的映射）。
+            return TutorialAnchor(TutorialAnchorFromAction(d0), out center, out size);
+        }
+
+        /// <summary>「`acting` 空 ⇒ 没指针」那条只出声一次的键（⛔ 别刷屏）。</summary>
+        readonly HashSet<string> _tutPointerNoActingWarned = new HashSet<string>();
+
+        /// <summary>自检口（施工单 #8 的验收读数）：这条脚本动作**该不该画指针**、画在哪个点。
+        /// 走的正是产品那条 <see cref="TutorialPointerAnchorFor"/>（⛔ 不另写一份判定）。</summary>
+        public bool TutorialPointerAnchorForTest(TutorialAction a, out Vector3 center)
+        {
+            Vector2 sz;
+            return TutorialPointerAnchorFor(a, a != null && a.data != null && a.data.Length > 0 ? a.data[0] : null,
+                                            out center, out sz);
+        }
+
+        // ==================================================================
+        //  🆕 2026-10-27（`B9` 执行代理 W19BDR · 账 `特效动画:497`）
+        //  **「结束回合被狂暴拦下」那一下的三件表现**（原版 `BattleManager__EndTurnClick.c:69-91` 四件里的 ①③④）
+        // ==================================================================
+        //  原版逐句（`d:/2/tools/cpp2il/out_il2csharp/Assembly-CSharp/BattleManager.cs:5313-5340`）：
+        //    ① `battleCardUi.DisplayTriggerAnim(berzerk, 1)` —— 那只单位的**状态框**演一下；
+        //    ③ `tutorialPointerBattle.StartPointer(clickAndDrag, Get2DPosOfCard(狂暴单位), Get2DPosOfCard(目标), 1)`；
+        //    ④ `<StopHandAnim>d__405(2.0f)` = `yield WaitForSeconds(delay)` → `tutorialPointerBattle.OnDisable()`
+        //       （与 `TutorialPointer.StopAnim` 同址 `0x854B20` = ICF 折叠）⇒ **2.0 s 后熄指针**。
+        //  ⚠️ **只做得了 `from` 那一半**：我们的 `TutorialOverlay.SetPointer(bool, Vector3)` 是**单点口**
+        //     ⇒ 拖拽终点（`to`）如实未做（口缺 + 判据缺，见 W3ANIM §4.3-2 与本件报告）。
+        //  ⚠️ **非教程局画不出来**：`EnsureTutorialOverlay()` 只在这局有 `Ctx.Tutorial` 时才建
+        //     ⇒ 原版那颗 `TutorialPointer` 恒在、这一档在**所有**对局都会亮，我们只在教程局亮。
+        //     **已知偏离**，出声一次（⛔ 不静默），并记进账 `特效动画:497`。
+        //  ⛔ 三件都**不改引擎状态** ⇒ 不走 `LocalAct`（本地录像只录「会改局面」的动作）。
+
+        /// <summary>原版 `WaitForSeconds(delay)` 的 `delay` —— **2.0f**（`_d__405` 的唯一调用点实参，逐字读）。</summary>
+        const float PendingBerzerkPointerSeconds = 2.0f;
+
+        /// <summary>熄指针的时刻（`_clock` 口径）；`&lt; 0` = 现在没有挂着的那一格。
+        /// ⚠️ 用 `_clock` 而不是 `Time.time`：批处理没有帧循环，`_clock` 才是 `AdvanceTimeline` 推得动的那个泵
+        /// （与 `_loadingFadeT` / `TickLoadingFade` 同一族理由）。</summary>
+        float _berzerkPointerOffAt = -1f;
+        bool _warnedBerzerkPointer;
+
+        /// <summary>「待攻击的狂暴单位」在哪一格 —— 原版 `GetPendingBerzerkUnit(1)` 的返回值（**只取第一个**，
+        /// 与 `RuleCore.HasPendingBerzerkAttack` 同一口径）。⛔ 别在这里另写一份候选过滤（判据只此一处）。</summary>
+        bool PendingBerzerkUnitSlot(out int side, out int slot)
+        {
+            side = -1; slot = -1;
+            if (Ctx == null || Ctx.Players == null || Ctx.IsOver) return false;
+            if (Ctx.Active != 0 && Ctx.Active != 1) return false;
+            var list = RuleCore.PendingBerzerkUnits(Ctx, Ctx.Active);
+            if (list == null || list.Count == 0) return false;
+            var want = list[0];
+            var b = Ctx.Players[Ctx.Active].Board;
+            for (int i = 0; i < b.Length; i++)
+                if (ReferenceEquals(b[i], want)) { side = Ctx.Active; slot = i; return true; }
+            return false;
+        }
+
+        /// <summary>① 原版 `battleCardUi.DisplayTriggerAnim(berzerk, 1)` —— 那只单位的**状态框**演一下。
+        /// 走的是 `TraitFrames.DisplayTrigger`（与 `PlayTraitPulse` 同一个口；`playIfWarlord` 门与去重都在
+        /// `TraitFrames` 里，⛔ 别在这里另判一遍）。</summary>
+        void PlayPendingBerzerkTriggerAnim()
+        {
+            int side, slot;
+            if (!PendingBerzerkUnitSlot(out side, out slot)) return;
+            var v = BoardViewAt(slot, side == _me);
+            if (v == null) return;
+            var tf = v.GetComponent<TraitFrames>();
+            if (tf == null) return;
+            var u = Ctx.Players[side].Board[slot];
+            bool isWarlord = u != null && u.IsWarlord;
+            int val = u != null ? u.KwValue(RuleCore.Berzerk) : TraitFrames.NoTraitValue;
+            if (tf.DisplayTrigger(RuleCore.Berzerk, isWarlord, val))
+                Debug.Log("[Battle] 结束回合被「狂暴」拦下 ⇒ 那只单位的 `berzerk` 状态框演一次"
+                        + "（原版 `EndTurnClick` 那一段的第 ① 件 `DisplayTriggerAnim(berzerk, 1)`）");
+        }
+
+        /// <summary>③ + ④：原版 `StartPointer(clickAndDrag, 狂暴单位, 目标, 1)` 的**起点**那一半，
+        /// 以及 `StopHandAnim(2.0f)` = **2.0 s 后**熄指针。
+        /// 位置口径 = `Get2DPosOfCard(狂暴单位)`（`BattleManager__Get2DPosOfCard.c`：取 `transform.position`、
+        /// 再投到 UI 画布平面）⇒ 我们取 `v.transform.position`（世界档 HUD 与画布同平面，与 `TutorialAnchor` 同口径）。</summary>
+        void ShowPendingBerzerkPointer()
+        {
+            int side, slot;
+            if (!PendingBerzerkUnitSlot(out side, out slot)) return;
+            var v = BoardViewAt(slot, side == _me);
+            var ov = EnsureTutorialOverlay();      // 非教程局 = null（它只在这局有 `Ctx.Tutorial` 时建）
+            if (v == null || ov == null)
+            {
+                if (!_warnedBerzerkPointer)
+                {
+                    _warnedBerzerkPointer = true;
+                    Debug.LogWarning("[Battle] 「狂暴」拦截的教程指针画不出来："
+                            + (v == null ? "那只单位的视图不在棋盘上" : "这一局没有 `Ctx.Tutorial`（非教程局）")
+                            + " ⇒ 原版那颗 `TutorialPointer` 恒在、这一档在**所有**对局都会亮"
+                            + "，我们只在教程局亮 —— 账 `特效动画:497` 的已知偏离，⛔ 不是「原版没有」。");
+                }
+                return;
+            }
+            ov.SetPointer(true, v.transform.position);
+            _berzerkPointerOffAt = _clock + PendingBerzerkPointerSeconds;
+        }
+
+        /// <summary>④ 到点熄指针（原版 `_d__405` 的 `WaitForSeconds(2.0)` → `TutorialPointer.StopAnim()`）。
+        /// 由 <see cref="AdvanceTimeline"/> 每帧推（批处理里由 `BattleScene.Step` 推，同一个泵）。</summary>
+        void TickPendingBerzerkPointer()
+        {
+            if (_berzerkPointerOffAt < 0f || _clock < _berzerkPointerOffAt) return;
+            _berzerkPointerOffAt = -1f;
+            if (_tutOverlay != null) _tutOverlay.SetPointer(false, Vector3.zero);
+        }
+
+        /// <summary>自检读口：那一格熄灯还挂着吗（`&lt; 0` = 没挂）。</summary>
+        public bool PendingBerzerkPointerArmedForTest { get { return _berzerkPointerOffAt >= 0f; } }
+        /// <summary>自检读口：原版的 `delay`（**2.0 s**）—— 断言拿它比，⛔ 别在断言里再抄一个 2.0。</summary>
+        public float PendingBerzerkPointerSecondsForTest { get { return PendingBerzerkPointerSeconds; } }
+        /// <summary>自检口：推进一次熄灯检查（批处理没有帧循环）。</summary>
+        public void TickPendingBerzerkPointerForTest() { TickPendingBerzerkPointer(); }
+
+        // ==================================================================
+        //  🆕 2026-10-27（`B9_W29BDR2`）：「单位抖 / 弹开」那一条的接线（`AnimInfo.unitsShake`）
+        // ==================================================================
+        //  判据（第一权威 = 反编译真身，2026-10-27 现读）：
+        //   · **三个原版调用点，形状一致**（`shk` preset 之后**紧接**一层 `ush` 循环、**不带 ranged/melee 闸**）：
+        //     `_ResolveAnim_d__466__MoveNext.c:110-125`（通用动画）· `_ResolveAnimInfoRangeAttack_d__468__MoveNext.c:62-77`（远程攻击）·
+        //     `_ResolveTraitAnim_d__465__MoveNext.c:130-145`（特性动画）—— 三处都是 `new UnitShake(info_i, actingCard, targetCard)`
+        //     之后 `StartCoroutine(ResolveUnitShake(...))`（`BattleManager__ResolveUnitShake.c` = 那个协程的工厂）。
+        //   · **枚举 → 卡**那一跳 = `BattleManagerSupport__GetTargetUnit.c:13-50`（⛔ 别兜底）：
+        //     `10 ⇒ actingCard` · `20`(cardTarget) 与 `30`(abilityTarget) ⇒ **target**（原版两个分支都 `return param_3`）·
+        //     `40 ⇒ 同阵营督军` · `50 ⇒ 敌方督军` · **`0`/其它 ⇒ null**（原版 `return 0` ⇒ 协程第一道非空检查当场退出）。
+        //   · 数据 = `Resources/cardanim_clips.json` 的 `ush` 列（`CardAnimClips.CardAnimPlacement.UnitShakes`，现读 271 条）。
+        //     ⚠️ **验收口径**：271 条里 **235 条 `targetUnit==0`**（原版同样空转）；今天可达的 28 条**全部**是 `(t=30, aw=10)`
+        //     ⇒ 按 `_d__472:77-160` 走的是**击退支**（`DoPushBack`）⇒ 玩家看到的是「被弹开 / 后坐」，⛔ 按「抖」验收会误判。
+        //  🔶 自己设计（非原版）：只在 `animateFeel` 开着时排 · 原版无条件 `StartCoroutine`，而本文件的手感补间一律受这个档控制
+        //     （批处理自检要当场精确坐标，与 `PlayHitFrameShake` 同一条口径）· 执行代理 B9_W29BDR2 2026-10-27。
+
+        /// <summary>按**这一件 `AnimInfo`**（`CardAnim` 名）排它的 `unitsShake` —— 时间 = 这一件的起播时刻 + `startDelay`
+        /// （原版那一跳 = `ResolveAnimInfoRangeAttack` 进 state 1 那一刻，与同件 `shk` preset 同一时刻）。</summary>
+        void SchedulePieceUnitShakes(string cardAnim, CardView actor, CardView target, int actorSeat, float at)
+        {
+            var p = CardAnimClips.PlacementOf(cardAnim);
+            if (!p.HasValue) return;
+            ScheduleUnitShakes(p.Value.UnitShakes, actor, target, actorSeat, at + Mathf.Max(0f, p.Value.StartDelay));
+        }
+
+        /// <summary>排一组 `unitsShake`（判据见上面那一段）。`at` = 相对 `_clock` 的起播偏移；`≤ 1e-3` ⇒ 当场求值。
+        /// <para>⚠️ 延迟那一半**不在这里**做 —— `CardFeel.ResolveUnitShake` 自己按 `shakeDelay` 等到点**之后**才判
+        /// `IsInPlay` 与二选一（原版 `_d__472:39-44`，⛔ 别改成 `SetDelay`）。</para></summary>
+        void ScheduleUnitShakes(CardAnimUnitShake[] shakes, CardView actor, CardView target, int actorSeat, float at)
+        {
+            if (shakes == null || shakes.Length == 0) return;
+            if (!animateFeel) return;                       // 🔶 见上（本文件手感统一口径）
+            for (int i = 0; i < shakes.Length; i++)
+            {
+                var s = shakes[i];
+                var tgt = ResolveUnitShakeTargetUnit(s.TargetUnit, actor, target, actorSeat);
+                if (tgt == null) continue;                  // 原版 GetTargetUnit 对 0/其它返 null ⇒ 整条空转（⛔ 不兜底成 target）
+                var away = ResolveUnitShakeTargetUnit(s.AwayFromUnit, actor, target, actorSeat);
+                var one = s;
+                if (at <= VfxTimeEpsilon)
+                    CardFeel.ResolveUnitShake(tgt, away, one.ShakeSize, one.ShakeDuration, one.ShakeDelay, null);
+                else
+                    ScheduleAction(at, () => CardFeel.ResolveUnitShake(tgt, away, one.ShakeSize, one.ShakeDuration, one.ShakeDelay, null));
+            }
+        }
+
+        /// <summary>原版 `BattleManagerSupport.GetTargetUnit(int kind, CardScript acting, CardScript target)` 的逐字等价物
+        /// （判据 `decomp_full/BattleManagerSupport__GetTargetUnit.c:13-50`）：
+        /// `10` ⇒ `actor` · `20`/`30` ⇒ `target` · `40` ⇒ 同阵营督军 · `50` ⇒ 敌方督军 · **`0`/其它 ⇒ `null`**。
+        /// <para>⚠️ `40`/`50` 原版是从**行动方卡**的 `+0x40`（`isPlayer`）取阵营再 `GetHero(...)`（`40` 用同一侧、`50` 取反）
+        /// ⇒ 我们按 `actorSeat` 取 `BoardSpec.WarlordSlot` 那一格的视图，语义等价。</para>
+        /// <para>⚠️ `20`(cardTarget) 与 `30`(abilityTarget) **同解**，⛔ 别按枚举名猜成两张不同的卡。</para></summary>
+        CardView ResolveUnitShakeTargetUnit(int kind, CardView actor, CardView target, int actorSeat)
+        {
+            switch (kind)
+            {
+                case 10: return actor;                                                  // self
+                case 20: case 30: return target;                                        // cardTarget / abilityTarget（原版同解）
+                case 40: return ViewAt(actorSeat, BoardSpec.WarlordSlot);               // friendlyHero
+                case 50: return ViewAt(actorSeat == 0 ? 1 : 0, BoardSpec.WarlordSlot);  // enemyHero
+                default: return null;                                                   // undefined / 其它
+            }
+        }
+
+        // ==================================================================
+        //  🆕 2026-10-27（执行代理 `B9_W40WIRE2`）—— 两条转派单的接线（`BattleDriver` 这一侧）
+        //  ① 账 `战斗逻辑驱动:351/352` · `特效动画:208` 转派单 ⑦⑧ —— 轮抽（`GameMode.ClosedDeck`）的进攻卡分派
+        //  ② 账 `战斗逻辑驱动:851` · `特效动画:130` 转派单 ⑤ —— 掉舱震屏的事件消费端
+        //  两条**都追加在类尾**（本文件非 partial：插进中间会让下游行号整体漂移，见铁律）。
+        //  报告 = `资料/完全复刻/报告/B9_W40WIRE2_掉舱震屏与轮抽分派.md`
+        // ==================================================================
+
+        /// <summary>`OffensiveChoicesOwned` 的实现体（wrapper 保留原签名与账落点，本体追加在类尾 = **零行号漂移**）。
+        ///
+        /// <para>🆕 **2026-10-27（`B9_W40WIRE2` · 账 351/352 · `特效动画:208` 转派单 ⑦）**：
+        /// **轮抽（`GameMode.ClosedDeck = 7`）那一档**照原版走
+        /// `EnviromentalEffectCardsSO.GetEnvCardListDraft(army, shouldUseOffensive, currentDraftVictories)`；
+        /// 其余模式保持 `ChoicesOwnedAt`（按锻造等级筛）。判据：
+        /// `decomp_full/BattleManager__GetEnviromentalCardList.c:20-51`（`if (mode(+0x18) == 7) ⇒ GetEnvCardListDraft(...)`，
+        /// 否则 `GetEnvCardList(...)`）· `BattleManager__GetEnvEffectCards.c:105-129`
+        /// （原版形状 = **先 `Add(空卡)` 再 `AddRange(list)`**）。</para>
+        ///
+        /// <para>🔴 **空卡（「不使用进攻卡」）仍由 `OffensiveCards.Choices` 的下标 0 提供** ——
+        /// `ChoicesForDraft` 按原版**不含**它（`.c` 只往表里加 `offensiveCards[..]`）⇒ ⛔ 别让
+        /// `ChoicesForDraft` 自己加（那会变成两张空卡）。</para>
+        ///
+        /// <para>⚠️ **胜场只接了本机一侧** —— 见 <see cref="DraftVictoriesLocalForEnvCards"/>
+        /// （原版取两端 min，对面那一半本地拿不到 ⇒ 待裁定）。</para>
+        ///
+        /// <para>⚠️ **本方法只覆盖「进攻」那一半**：防御那一半（`ChoicesForDraft(offensive: false, …)`）
+        /// 仍走 `DefensiveChoices` / `DefensiveChoicesOwnedAt`（数据是卡池 `CardDef`、不是
+        /// `OffensiveCards.Card`）⇒ 如实记在账 351/352 的备注里，未接。</para>
+        /// </summary>
+        List<OffensiveCards.Card> OffensiveChoicesOwnedCore(string faction)
+        {
+            if (Ctx != null && Ctx.PlayMode == GameMode.ClosedDeck)
+            {
+                var outp = new List<OffensiveCards.Card>();
+                var all = OffensiveCards.Choices(faction);          // 下标 0 = 原版 `emptyOffensiveCard`（恒在最前、恒不过闸）
+                if (all.Count > 0) outp.Add(all[0]);
+                outp.AddRange(OffensiveCards.ChoicesForDraft(faction, offensive: true, victories: DraftVictoriesLocalForEnvCards));
+                return outp;
+            }
+            return OffensiveCards.ChoicesOwnedAt(faction, ForgeData.LevelOf(faction));
+        }
+
+        /// <summary>轮抽那一档的胜场入参（原版 `GetEnvCardListDraft` 的 `currentDraftVictories`）。
+        ///
+        /// <para>原版取**两端**胜场（`+0x88`）的 **min**（`decomp_full/BattleManager__GetEnviromentalCardList.c:36-51`，
+        /// `:47-50` 那句 `iVar1 = iVar2`）；我们打 bot，本地**拿不到对面**那一半。</para>
+        ///
+        /// <para>🔶 自己设计（非原版）：对面胜场缺失，暂用本机值 · 调度台 2026-10-27 裁定 ——
+        /// 本机值 = `CardPresentation.DraftModeWindow` 静态 `_run.matchesWon`
+        /// （原版 `DraftEventSaveGame.numberOfMatchesWon` +0x48；静态 `_run` 活过「关窗 → 进对局 → 回壳」）。</para>
+        ///
+        /// <para>⚠️ 读的是 `DraftModeWindow.RunForTest` —— 它是 `Shell/DraftModeWindow.cs` 今天**唯一**的公开
+        /// 只读口（那一行自己的 doc 写「自检/入口读这一局存档」）⇒ 建议界面线补一个正式只读口
+        /// （`DraftVictories` 一类），届时**只改这一处**。**待裁定项**见
+        /// `资料/完全复刻/报告/B9_W40WIRE2_掉舱震屏与轮抽分派.md` §三·2。</para></summary>
+        int DraftVictoriesLocalForEnvCards
+        {
+            get
+            {
+                var run = DraftModeWindow.RunForTest;
+                return run != null ? run.matchesWon : 0;
+            }
+        }
+
+        /// <summary>掉舱震屏的事件消费端（原版唯一调用点 = `CardScript.RemoveDropPod`）。
+        ///
+        /// <para>判据：`decomp_full/CardScript__RemoveDropPod.c:9-18` ——
+        /// `strength = isDestroyed ? 3.0 : 0.5` → `CameraShakerManager.DoSimpleShake(strength)`
+        /// （两个常量的 4B float 真值现读 → `报告/B9_W33FX3_震屏与进攻卡.md` §2·1）。
+        /// `DoSimpleShake` 本体（preset = `Shake Big`、`overwriteAmplitude = 1`）→
+        /// `WarpforgeVFX/Runtime/WFModuleScreenShake.cs:209`。</para>
+        ///
+        /// <para>🔴 **关键词在 `e.CardId`**（引擎把关键词塞第 4 个位置实参，⛔ 不是 `e.Keyword` ——
+        /// 见 `RuleEngine/Core/BattleEvent.cs` 的 `EvtKind.TraitRemoved` doc）。子标签在 `e.Effect`：
+        /// `"droppod-destroyed"` ⇒ **3.0**，其余（`"droppod-open"` / 缺省）⇒ **0.5**。</para>
+        ///
+        /// <para>⚠️ **今天不可观测**：当前 build 池内带 `droppod` 的卡 **0 张**（`B9_W33FX3` §2·3），
+        /// 且**引擎侧还没发**这两条子标签 —— `EffectResolver.EmitTraitRemoved` 今天不传 `effect`
+        /// （`RuleEngine/Core/EffectResolver.cs:7857`；加可选形参 + `RuleCore.OpenDropPod` 与两个破舱点
+        /// 发 `droppod-open` / `droppod-destroyed` 归 W27）。⇒ 本消费端先接上（引擎不发时走不到 = 无害），
+        /// W27 落地后整链可达。</para>
+        ///
+        /// <para>⚠️ 与别的 feel 同档：**只在真机演出档（`animateFeel`）跑** —— 批处理没有帧循环、
+        /// DOTween 不推进，会把相机 / HUD 留在推歪的位置（同 `ScheduleUnitShakes` 那条口径）。</para>
+        /// </summary>
+        void OnTraitRemovedShake(BattleEvent e)
+        {
+            if (e == null || e.Kind != EvtKind.TraitRemoved) return;
+            if (!animateFeel) return;
+            if (!string.Equals(e.CardId, KeywordTable.DropPod, System.StringComparison.Ordinal)) return;
+            WarpforgeVFX.WFModuleScreenShake.DoSimpleShake(e.Effect == "droppod-destroyed" ? 3f : 0.5f);
+        }
+
+        // ==================================================================
+        //  🆕 2026-10-27（`B9_W57BDR4` · 报告 `B9_W44HUD_战斗界面剩余C` §六·①②）
+        //  两件的**新成员**（`BattleDriver` 非 partial ⇒ 新成员一律追加到类尾，见 CLAUDE.md §三）
+        // ==================================================================
+        /// <summary>`enemyHand` 的屏幕锚点（@1080p **设计像素**；**左上原点、y 向下**）。
+        /// 判据 → `资料/完全复刻/判据/enemyHand屏幕锚点_判定.md` §一·1：`enemyHand.transform` =
+        /// `UpperAnchor/EnemyArea/HandArea`（`Transform_1295`），水平正中（960 = 1920/2）、距顶 50 px。
+        /// ⛔ 别拿 `HandLayout.EnemyBaselineY`（= 0.32 px）顶替 —— 那是**手牌布局基线**，reveal/展示位不用它。</summary>
+        const float EnemyHandScreenAnchorPxX = 960f;
+        const float EnemyHandScreenAnchorPxY = 50f;
+
+        /// <summary>**原版 `CardScript.GetEnemyCardPlayedDisplayPosition()` 的落点**（`LayoutSpace` 那一套世界坐标）。
+        /// <para>原版逐句（`decomp_full/CardScript__GetEnemyCardPlayedDisplayPosition.c:60-75`）：
+        /// `enemyHand.transform.position + Vector3.right × enemyCardDisplayXoffset(+0x54 = −26)
+        /// − Vector3.up × enemyCardDisplayYoffset(+0x50 = 24)`；小屏档 X 换 `+0x58 = +25`
+        /// （⚠️ **符号与桌面档相反** —— 两个字段，⛔ 不是笔误）。</para>
+        /// <para>换算只此一处：`VarsGlobal.PlayedCardDisplayOffsetPx(offensive: false, SmallScreenUI.Enabled, 1080f)`
+        /// （`RuleEngine/Core/GameplayVariables.cs:682`；14.835 px/世界单位 @1080p）
+        /// ⇒ 桌面档 `(960 − 385.7, 50 + 356.0)` = **(574, 406)**、小屏档 **(1331, 406)**。
+        /// ⛔ 别在调用点再写一份 ×14.835。</para>
+        /// <para>⚠️ 已知边界：`screenHeightPx` 传 1080（非 1080p 档的像素落点未算，与 `RevealEndPx` 同一口径）。</para></summary>
+        Vector3 EnemyCardPlayedDisplayPointWorld()
+        {
+            var offPx = VarsGlobal.PlayedCardDisplayOffsetPx(false, SmallScreenUI.Enabled, 1080f);
+            return LayoutSpace.FromPixel(EnemyHandScreenAnchorPxX + offPx.x, EnemyHandScreenAnchorPxY + offPx.y);
+        }
+
+        /// <summary>技能面板「可选目标」后缀用的 `maxTargets`（原版 `ActiveSkillDisplay.SetupActiveSkill` 里
+        /// `TargetCriteria.maxTargets` 那一格；`== 1` ⇒ 走「印唯一目标名 `(名字)`」那一支）。
+        /// <para>🔶 自己设计（非原版）：原版读的是 **ability 级 `targetsAvailableCounter.maxTargets`**
+        /// （`ActiveAbility+0x40`）—— 那一格 `CardDef` **没落**，而且本机现扫 1,351 张 SO 的
+        /// `activeAbility/alternativeAbility.targetsAvailableCounter` **全是** `targetsAffected = any` /
+        /// `maxTargets = 0` ⇒ 原版在那份数据上**从不拼后缀**。本面板只由 `Ability:` 文法（`EffectSpec`）驱动，
+        /// 而那条文法**每条只取一个格位**（`RuleCore.cs:11549` = `NeedsPick(...) ? Board[targetSlot] : null`，
+        /// 同一格 `:11153` 还用它当「要不要选目标」的闸）⇒ 上限 = 1；
+        /// 不需要点目标的（self / warlord / draw）= 0。调度台 2026-10-27 裁定。</para></summary>
+        int SkillPanelMaxTargets(UnitState u)
+        {
+            if (u == null || u.Ability == null) return 0;
+            return EffectTargets.NeedsPick(u.Ability.Target) ? 1 : 0;
+        }
+
+        /// <summary>技能面板「`(唯一目标名)`」那一格：**恰好一个**合法目标时返回它的卡名，否则 `null`。
+        /// <para>原版 `cpp2il/ActiveSkillDisplay.cs:172`：`maxTargets == 1 &amp;&amp; targets.Count &gt; 0` ⇒
+        /// `SupportMethods.GetTargetAvailableText(targets[0].GetLocalizedCardName())`（方法体 = `"(" + 名字 + ")"`）。</para>
+        /// <para>⚠️ 候选口与点亮/准星**同一个** <see cref="LegalTargetCode"/>（判据只此一处），且要求那张卡有视图
+        /// （与 `HighlightTargetsCore` 的计数口径一致 —— 否则会出现「数出来 1 个、却找不到是谁」）。
+        /// 卡名走 `CardDisplayName`（与技能标题同一个口，非中英语档也能命中官方词条）。</para></summary>
+        string SkillPanelSingleTargetName(int legalCount)
+        {
+            if (legalCount != 1 || Ctx == null || _selectedSlot < 0) return null;
+            int side = CommandTargetSide();
+            if (side < 0 || side >= Ctx.Players.Length) return null;
+            var views = side == _me ? _myUnits : _foeUnits;
+            for (int t = 0; t < BoardSpec.Size; t++)
+            {
+                CardView v;
+                if (!views.TryGetValue(t, out v) || v == null) continue;
+                if (LegalTargetCode(t) != RuleCodes.OK) continue;
+                var tu = Ctx.Players[side].Board[t];
+                if (tu == null) continue;
+                return CardDisplayName(tu.Card, tu.Name);
+            }
+            return null;
+        }
+
+        // ==================================================================
+        //  🆕 2026-10-27（执行代理 `B9_W72TIP` · 账「选目标提示」）：**选目标时的卡片提示**
+        // ==================================================================
+        //  原版唯一调用点（三源合判见 `资料/完全复刻/报告/B9_W61TARG_卡牌目标文本.md` §2·2）：
+        //  `BattleManager._ChooseUnitTarget_d__780__MoveNext.c`
+        //    `:34-37` `StartTrackingFrom(卡位, 3)` · `:43` 正文 = `RawCardScript.GetLocalizedTargetted()`
+        //    · `:44-55` `Get2DPosOfCard(卡)` + 小偏移 · `:60-61`
+        //    `EverguildTooltipManager.Show(battleTooltip, **标题 = 空串**, 正文, pos, 0, 0)`（⇒ anchor = 0 居中）
+        //    · `:62` `ShowPotentialTargets(card, 1)` 点亮候选 · `:71-75` 等 `UIstate == 9` · `:84-91` `Hide`。
+        //  进入闸（`BattleManager__NeedToChooseMinionTarget.c:12-18`）= `isPlayer ∧ cardType == 0（单位卡）
+        //    ∧ targeted ∧ matchType != 0xA0` ⇒ ⛔ **只有单位卡弹**：战术 / Whispers 卡那条选目标支
+        //    （`BattleManager__Update.c:626-793`）全篇 **0 处 `TooltipManager.Show`**（`grep` 实证）
+        //    ⇒ 196 张非单位 `targeted` 卡**一个字都不弹**（原版就是这样，⛔ 别顺手补）。
+        //  数据：`targetingTextReferenceId` 现读**还不在 `CardDef` 上**（另一路在出）⇒ 取值走
+        //    `TargetingTextReferenceIdOf`（反射 + 缓存一次）：**字段一到就自动工作**；没到就
+        //    **出声一次且不弹**（⛔ 不静默弹空串、⛔ 不硬编码文案）。
+        //    ⚠️ 反射是**过渡桥**（实现手段，不是设计口径）：`CardDef.TargetingTextReferenceId` 落地后
+        //       把 `TargetingTextReferenceIdOf` 换成直接读属性、删掉反射与那一格缓存。
+        //  位置：原版是 `Get2DPosOfCard(卡)`；我们用 `card.transform.position`（同一张卡的视图）——
+        //    那段小偏移没解（`DAT_1834b3400` 是 float 常量，见报告 §三·2）⇒ 如实标「近似」。
+
+        /// <summary>反射探到的 `CardDef.TargetingTextReferenceId`（属性优先、字段兜底）。
+        /// ⚠️ **过渡桥**：字段落进 `CardDef` 之后这里应当只剩一句 `def.TargetingTextReferenceId`。</summary>
+        static System.Reflection.PropertyInfo _tgtRefProp;
+        static System.Reflection.FieldInfo _tgtRefFld;
+        static bool _tgtRefProbed;
+        /// <summary>「取不到文案」那条告警只出声一次（一张牌一次都没有意义，会刷屏）。</summary>
+        bool _playTargetPromptMissingWarned;
+
+        /// <summary>读 `CardDef.TargetingTextReferenceId`（**过渡桥**，见上面那段注释）。
+        /// <returns>字符串（空串是**合法值** = 这张卡没有 ref ⇒ 原版回退到 `uniqueId`）；
+        /// <c>null</c> = **字段本身还不存在**（已出声一次，调用方不许弹）。</returns></summary>
+        static string TargetingTextReferenceIdOf(CardDef def)
+        {
+            if (def == null) return null;
+            if (!_tgtRefProbed)
+            {
+                _tgtRefProbed = true;
+                var t = typeof(CardDef);
+                const System.Reflection.BindingFlags F =
+                    System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance;
+                _tgtRefProp = t.GetProperty("TargetingTextReferenceId", F);
+                if (_tgtRefProp == null) _tgtRefFld = t.GetField("TargetingTextReferenceId", F);
+                if (_tgtRefProp == null && _tgtRefFld == null)
+                    Debug.LogWarning("[Battle] `CardDef.TargetingTextReferenceId` 还没落地 ⇒ 选目标 tooltip 暂不弹"
+                                   + "（数据在 `cards_raw.json` 的 `full_raw.targetingTextReferenceId`；"
+                                   + "字段一到本函数自动工作，判据 → `资料/完全复刻/报告/B9_W61TARG_卡牌目标文本.md`）");
+            }
+            if (_tgtRefProp != null) return (string)_tgtRefProp.GetValue(def) ?? "";
+            if (_tgtRefFld != null) return (string)_tgtRefFld.GetValue(def) ?? "";
+            return null;
+        }
+
+        /// <summary>把「请点一个目标」那句提示弹在这张卡的位置上（原版 `_ChooseUnitTarget…:60-61`）。
+        /// <para>⚠️ **只给单位卡调**（原版战术 / Whispers 卡那一支没有这句 tooltip，见上面那段）。</para>
+        /// <para>文案过 <c>CardIcons.RewriteMarks</c>：原版是 `GetTranslation` → `SupportMethods.ModifyLocalization`，
+        /// 后者负责展开 `((Deal_x_damage,2))` / `[[stun]]` 这类记号 ⇒ 与卡面正文**同一条链**
+        /// （本仓那一份在 `Core/CardIcons.cs`，⛔ 不在这里重复实现一套解析）。</para>
+        /// <para>🔴 **取不到就出声不弹**：缺键时 `Loc.T` 走它的缺键档会**返回键名**（那一处已经 `LogWarning` 一次），
+        /// 把 `Card_Targeted/…` 原样印到屏幕上比不弹更糟 ⇒ 这里拦一道（⛔ 但绝不静默）。</para></summary>
+        void ShowPlayTargetPrompt(CardDef def, CardView card)
+        {
+            if (def == null || card == null) return;
+            string refId = TargetingTextReferenceIdOf(def);
+            if (refId == null) return;                       // 字段还没落进 `CardDef`（上面已出声）
+            string key = Loc.TargetedKey(def.Id, refId);
+            string raw = Loc.TargetedText(def.Id, refId);          // 原样词条（含 `((…))` / `[[…]]` 记号）
+            if (string.IsNullOrEmpty(raw) || raw == key)            // 缺键时 `Loc.T` 回**键名** ⇒ 拦在这里（⛔ 别把键名印上屏）
+            {
+                if (!_playTargetPromptMissingWarned)
+                {
+                    _playTargetPromptMissingWarned = true;
+                    Debug.LogWarning("[Battle] 「" + CardText.Name(def) + "」的选目标提示取不到文案（键 `"
+                                   + key + "`）⇒ 这一档不弹 tooltip（原版 `GetLocalizedTargetted` 会回 term）");
+                }
+                return;
+            }
+            // 记号展开走 `CardIcons.RewriteMarks`（= 原版 `SupportMethods.ModifyLocalization` 那一跳）
+            string body = CardIcons.RewriteMarks(raw, CardText.Zh);
+            Tooltip.Show(body, card.transform.position);     // 原版 anchor = 0（居中）· offset 0（小偏移未解，见上面那段）
+        }
     }
 }

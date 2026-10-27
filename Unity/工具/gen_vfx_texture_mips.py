@@ -147,21 +147,37 @@ def main():
             print(f"    {n}: {a[3]} wrap({a[4]},{a[5]}) filter{a[6]} aniso{a[7]}  vs  "
                   f"{b[3]} wrap({b[4]},{b[5]}) filter{b[6]} aniso{b[7]}")
 
+    # 产物文本**先算进变量**（`--check` 用它逐字节比对；写盘再原样写出 —— 两边同一份，不会分叉）
+    lines = ["name\twidth\theight\tmipCount\tbundle\twrapU\twrapV\tfilterMode\taniso\tnpotScale"]
+    for name, v in out:
+        # npotScale：NPOT ⇒ 0 (None，原版真值)；POT ⇒ -1（无关，消费侧别动）
+        npv = 0 if not (_pot(v[0]) and _pot(v[1])) else -1
+        lines.append(f"{name}\t{v[0]}\t{v[1]}\t{v[2]}\t{v[3]}\t{v[4]}\t{v[5]}\t{v[6]}\t{v[7]}\t{npv}")
+    text = "".join(l + "\n" for l in lines)
+
     if check:
-        if os.path.exists(OUT):
-            old = io.open(OUT, encoding="utf-8").read().splitlines()[1:]
-            print(f"--check：现有表 {len(old)} 行，{'一致' if len(old) == len(out) else '**行数不一致，要重跑**'}")
-        else:
-            print(f"--check：{OUT} 不存在")
-        return 0
+        # 🔴 2026-10-27（B9_W45ARENA）：原来这里**只比行数、恒 rc0** —— 内容变了但行数不变时
+        #   一个字都报不出来（「看着有 check、其实啥都没查」）。现在改成**逐字节比内容**，
+        #   缺失/不一致一律点名 + rc=1（口径同 `工具/import_original_art.py:1714-1721`）。
+        if not os.path.exists(OUT):
+            print(f"--check：🔴 缺产物 {OUT}（重跑一次 `工具/gen_vfx_texture_mips.py`）")
+            return 1
+        old = io.open(OUT, encoding="utf-8").read()
+        if old == text:
+            print(f"--check：一致（{len(out)} 行） → {OUT}")
+            return 0
+        oldl, newl = old.splitlines(), text.splitlines()
+        print(f"--check：🔴 产物过期 {OUT}（盘上 {len(oldl) - 1} 行 / 重算 {len(newl) - 1} 行）")
+        for i in range(min(len(oldl), len(newl))):
+            if oldl[i] != newl[i]:
+                print(f"    第一处不同在第 {i + 1} 行：\n      盘上: {oldl[i]!r}\n      重算: {newl[i]!r}")
+                break
+        print("    ⇒ 重跑一次 `工具/gen_vfx_texture_mips.py` 生成（`--check` 只读、不写盘）。")
+        return 1
 
     os.makedirs(os.path.dirname(OUT), exist_ok=True)
     with io.open(OUT, "w", encoding="utf-8", newline="\n") as f:
-        f.write("name\twidth\theight\tmipCount\tbundle\twrapU\twrapV\tfilterMode\taniso\tnpotScale\n")
-        for name, v in out:
-            # npotScale：NPOT ⇒ 0 (None，原版真值)；POT ⇒ -1（无关，消费侧别动）
-            npv = 0 if not (_pot(v[0]) and _pot(v[1])) else -1
-            f.write(f"{name}\t{v[0]}\t{v[1]}\t{v[2]}\t{v[3]}\t{v[4]}\t{v[5]}\t{v[6]}\t{v[7]}\t{npv}\n")
+        f.write(text)
     print(f"写出 {OUT}（{len(out)} 行）")
     return 0
 

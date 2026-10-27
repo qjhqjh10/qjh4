@@ -51,7 +51,7 @@ namespace CardPresentation
         /// ⚠️ 条目内的次序照原版 `Campaign Army Item Button` 的子节点序：`HighlightBG` → `Icon` → `Slider`
         /// （**没有 `Arrow`** —— 这一变体没这个节点）。</summary>
         public const int QTabBg = 3030, QTabBgImage = 3031, QTabSel = 3032,
-                           QArmyItem = 3033, QArmyArrow = 3034, QArmyIcon = 3035, QArmySlider = 3036,
+                           QArmyItem = 3033, QArmyArrow = 3034, QArmyIcon = 3035, QArmySlider = 3036, QArmyBadge = 3037, QArmyBadgeText = 3038,
                            QTrackLine = 3040,
                            QNodePremium = 3041, QNodeBg = 3042, QNodeHighlight = 3043, QNodeItem = 3044,
                            QTabHeader = 3050, QHeaderIcon = 3051, QHeaderTitle = 3052, QHeaderPts = 3053, QHeaderInfo = 3054,
@@ -793,8 +793,15 @@ namespace CardPresentation
         /// `-1` = 还没建过（`BuildArmyItems` 建完才写）。</summary>
         int _armyAmountShown = -1;
 
-        /// <summary>「流光缺件」那条告警只报一次（每次领奖刷屏会把别的告警淹掉）。</summary>
+        /// <summary>「流光缺件」那条告警只报一次（每次领奖刷屏会把别的告警淹掉）。
+        /// <para>🔴 2026-10-27（`B9_W16SHINE`）**就地订正**：原来这后面跟着的 `PlayArmyIconShine()` 是个
+        /// 「未实现 + 出声」的空壳（缺 shader）。现在 shader 与等价层都有了（`WildcardShineLayer`），
+        /// 那个旗标随之**只剩「层建不出来时别刷屏」一个用途**。</para></summary>
         bool _armyShineSaid;
+
+        /// <summary>逐阵营的扫光层（键 = 阵营名）。`BuildArmyItems` 每次重建都换一批；
+        /// 旧层随 quad 销毁被 `WildcardShineLayer.StepAll` 回收（⛔ 不用手工释放）。</summary>
+        readonly Dictionary<string, WildcardShineLayer> _armyShine = new Dictionary<string, WildcardShineLayer>();
 
         /// <summary>此刻「阵营点数」该是多少 —— 与 <see cref="BuildArmySlider"/> 喂滑条的是**同一份算式**
         /// （只给「本地有内容」的阵营填；⛔ 别在别处再写一遍）。</summary>
@@ -840,21 +847,42 @@ namespace CardPresentation
         ///   `m_BlendType 1 / m_SrcBlendMode 1 / m_DstBlendMode 10` · `m_TransitionKeepAspectRatio 1` ·
         ///   `m_TransitionTex = PPtr(fileID **14**, pid **-6023190078349834598**)。</para>
         ///
-        /// <para>⛔ **为什么这里是空的**：Coffee `UIEffect` 的 `Hidden/UI/Default (UIEffect)` 着色器**不在我们工程里**
-        /// （`MyGame/Assets` 全树 0 命中）；调度台 2026-10-25 已裁定「**忠实移植 Shader、⛔ 不做加法 quad 近似**」、
-        /// 排在 P2（正本 → `资料/完全复刻/调度台日志.md` 里代理 C 那两节 + `C_dump_shader_blob修复_第1轮.md`）。
-        /// 前置已通一半：**DXBC 已能 dump**（`工具/dump_shader_blob.py "UIEffect"`）；**差**那张 transition 贴图
-        /// （在 `externals[14]`）。
-        /// ⇒ 着色器一到位，本方法体就三行：建/取那颗 Icon 上的 Shiny 层 → `rate = 0` → 按 `m_Duration 1.0` 线性推到 1。
-        /// **⛔ 现在别塞一个「看着像」的替代品**（那是发明观感，与裁定冲突）。</para></summary>
+        /// <para>✅ **2026-10-27（`B9_W16SHINE`）已实现** —— 原来是「未实现 + 出声」的空壳，挡在前面的两件都已落地：
+        /// ① `Resources/Shaders/WildcardShine.shader`（`TRANSITION_SHINY` 变体的忠实移植）；
+        /// ② 那张 transition 贴图**不必解** —— 它逐像素就是沿 y 的线性斜坡，`1-saturate(uv.y)` 是等价的
+        /// （判据 `报告/B9_W7COLL_收藏与卡面剩余C.md` §二·K-13 第 4 步）。</para></summary>
         void PlayArmyIconShine()
         {
+            // 🔴 2026-10-27（`B9_W16SHINE`）**已实现**：原版这一句的等价物 =
+            //   `WildcardShineLayer.Play(resetTime: true)`（0 → 1 线性、`m_Duration 1.0`、播一次）。
+            //   只播**当前选中阵营**那一格 —— 原版 `CampaignArmyUIDecorator` 是挂在**每个** `Army Item Button`
+            //   上的（逐格 `currentAmount`），而我们的点数只对选中的那个阵营有意义（`ArmyAmountNow`），
+            //   ⛔ 别为了「都闪一下」去播全部 13 格（原版没变过的格子不播）。
+            WildcardShineLayer layer;
+            if (_armyShine.TryGetValue(CampaignData.Selected ?? "", out layer) && layer != null)
+            {
+                layer.Play(true);
+                return;
+            }
             if (_armyShineSaid) return;
             _armyShineSaid = true;
-            Debug.LogWarning("[Campaign] 阵营图标流光**未实现**：原版 `CampaignArmyUIDecorator.shinyEffect.Play(resetTime:true)`"
-                           + "（Coffee `UIEffect` Transition(Shiny)，参数已读全 → `账/战役.tsv` `OnObjectUpdated` 那行的备注）。"
-                           + "缺的是那个着色器 + transition 贴图（调度台已裁定「忠实移植、不做近似」，P2）。"
-                           + "本条每次运行只报一次；届时补的是 `CampaignTab.PlayArmyIconShine()` 的函数体。");
+            Debug.LogWarning("[Campaign] 阵营图标流光没播出来：`" + (CampaignData.Selected ?? "?")
+                           + "` 那一格没有扫光层（图标 `Icon` 没建出来 / shader `CardPresentation/WildcardShine` 取不到）"
+                           + " ⇒ 原版 `CampaignArmyUIDecorator.shinyEffect.Play(resetTime:true)` 这一拍**看不见**。"
+                           + "见 `资料/完全复刻/报告/B9_W16SHINE_扫光统一.md`。");
+        }
+
+        /// <summary>`Campaign Army Item Button/Icon` 那层扫光（= 原版同节点上的 `UIEffect`(Shiny)）。
+        /// <para>判据（逐字段现读，见 `PlayArmyIconShine` 上面那段）：`m_TransitionRotation 120` ·
+        /// `m_TransitionWidth 0.25` · `m_TransitionSoftness 0.5` · `m_TransitionColor (1,1,1,1)` ·
+        /// `m_TransitionColorFilter 6` · `m_TransitionColorGlow 0` · `m_TransitionKeepAspectRatio 1` ·
+        /// tweener `m_Duration 1.0` · `m_WrapMode 0`（播一次）⇒ `WildcardShineLayer.Params.Icon`。</para></summary>
+        void AttachArmyShine(ImageQuad icon, string army)
+        {
+            if (icon == null) return;
+            var layer = WildcardShineLayer.AttachQuad(icon, WildcardShineLayer.Params.Icon);
+            if (layer == null) return;
+            _armyShine[army ?? ""] = layer;
         }
 
         void BuildArmyItems()
@@ -862,6 +890,7 @@ namespace CardPresentation
             // 🔴 **幂等（必须先清）**：滚动回调 `OnChanged` 会重入这里（同锻造页那条）
             for (int i = _armyContent.childCount - 1; i >= 0; i--)
                 Object.DestroyImmediate(_armyContent.GetChild(i).gameObject);
+            _armyShine.Clear();     // 旧层的 quad 刚被销毁 ⇒ 字典跟着清（层本身由 `WildcardShineLayer.StepAll` 回收）
             // 🔴 **偏移 + 裁切**（与锻造页同一条路，见 `MenuScroll` / `MenuWindowBase.Clip`）
             // 🔴🔴 **2026-10-13（A435 甲 · A198② 阶段 2）：三件套【改了载体】—— 这里原来那六行没了。**
             //   旧写法（A306 追加件 · W4·子3 · C）= 「存 `Clip`/`ClipPad`/`ClipSoftness` 三件 → 设成
@@ -896,9 +925,15 @@ namespace CardPresentation
                     _win.Rect(item, "40K_settings_button_hover",
                               new PxRect(r.x1, r.y1, r.x1 + ArmyItemW, r.y1 + ArmyHlH), "HighlightBG", QArmyItem,
                               new Color(1f, 0.631f, 0.2784f, 1f));      // 母版是**橙**（Forge 页那份才是品红）
-                _win.Rect(item, DeckRuntime.FactionIcon(army),
+                var armyIcon = _win.Rect(item, DeckRuntime.FactionIcon(army),
                           new PxRect(r.x1, r.y1 + ArmyIconDy, r.x1 + ArmyItemW, r.y1 + ArmyIconDy + ArmyIconH),
                           "Icon", QArmyIcon, null, true);
+                AttachArmyShine(armyIcon, army);      // = 原版 `Campaign Army Item Button/Icon` 上的 `UIEffect`(Shiny)
+                // `Badge Highlight`（原版这一变体**有**这颗节点：`menu_dump.py … "Campaign Army Item Button" --depth 3`
+                //   逐字段现读 = 35×35 · 锚 (1,1) 右上角 · pos (−17.5,−17.5) · `40K_notification_number` ·
+                //   子件 `OneText`）。**原来一颗没建**（只在 `ArmyItemW` 的注释里写着）⇒ 账 `收藏:15` 缺的就是它。
+                //   判据 / 逐项差异见类尾 `BuildArmyBadge`。
+                BuildArmyBadge(item, army, r);
                 // `Slider`（**这一页独有**）：在 `HighlightBG` 正下方，宽 = 条目宽 − 10
                 BuildArmySlider(item, army, new PxRect(r.x1 + ArmySliderInset, r.y1 + ArmyHlH,
                                                  r.x1 + ArmyItemW - ArmySliderInset, r.y1 + ArmyHlH + ArmySliderH));
@@ -1602,6 +1637,53 @@ namespace CardPresentation
                                             new Vector3(0f, LayoutSpace.Px(-80f), 0f));
             wb.onExit = Tooltip.Hide;
         }
+
+        // ============================================================ 阵营格上的「战役徽记」（账 `收藏:15`）
+        //
+        // 判据（🥇 方法体 + prefab 逐字段现读；2026-10-27 B9_W7COLL，⛔ 不是转抄账文）：
+        //  · 原版 `ArmyItemContainer.Initialize(CardArmy, ToggleGroup, ArmySelectorType)` 三段
+        //    （`ArmyItemContainer.cs:202`；机器码 `decomp_full/ArmyItemContainer__Initialize.c`）：
+        //      `parentType == Neutral(0)` ⇒ 直接 return（**不挂徽记** —— 收藏左抽屉那支就是它）；
+        //      `Campaign(1)` ⇒ `new CampaignBadge(army)`；`Forge(2)` ⇒ `new ForgeBadge(army)`；
+        //      两支最后都 `notificationBadge.AddNotificationType(new Notification[]{ badge })`
+        //      （= 把这一条「按阵营过滤的通知定义」挂到该格的 `UiBadgeNotification` 上）。
+        //  · 版式（`python 工具/menu_dump.py bundle_menus_assets_all "Campaign Army Item Button" --depth 3`）：
+        //      `Badge Highlight` 35×35 · 锚 `(1,1)`（右上角）· pos `(−17.5,−17.5)` · 图
+        //      `40K_notification_number`（贴图 65×65）· `Simple` + **preserveAspect** · 色 `(0.736,0.736,0.736,1)`
+        //      · 组件 `Image, UiBadgeNotification, EverguildButtonMaterialModifier`；
+        //      子件 `OneText`（TMP：`m_text ""` · fs **34** · base **36** · auto **[18,34]** · **Center/Middle** · 纯白）。
+        //      ⚠️ 那一版**没有** `Arrow`、`Icon` 是 120×100（顶边下 5）—— 别按 Forge 变体照搬。
+        //  ✅ **2026-10-27（`B9_W16SHINE`）那条「按阵营过滤」的差异已补齐**：`CampaignBadge` / `ForgeBadge`
+        //      都补上了 `army` 字段（`Shell/BadgeNotifications.cs`，`Validate` = 同类型 ∧ 同 army），
+        //      provider 逐条带上阵营，这里改成**带过滤的那一支** ⇒ 13 颗格子里只有该阵营那颗会亮。
+        //      判据 = `CampaignHandler._CheckNotification_d__21__MoveNext.c`（`new CampaignBadge(SelectedArmy)`）·
+        //      `ForgeHandler.__c___CheckNotification_b__9_0.c`（`Repeat(new …Badge(f.GetArmy()), …)`）。
+        //      ⛔ 仍别在窗口里另造一套计数（同一条规则只留一处）。
+        void BuildArmyBadge(Transform item, string army, PxRect r)
+        {
+            var br = UguiRect.Child(r, UguiRect.A11, UguiRect.A11, UguiRect.P50c, ArmyBadgePos, ArmyBadgeSz);
+            var quad = _win.Rect(item, "40K_notification_number", br, "Badge Highlight", QArmyBadge,
+                                 ArmyBadgeTint, true);
+            if (quad == null)
+            {
+                Debug.LogWarning("[CampaignTab] 阵营格「" + army + "」的 `Badge Highlight` 没建出来"
+                               + "（`40K_notification_number` 取不到）⇒ 这一格没有红点（出声，不静默）");
+                return;
+            }
+            var defs = new List<BadgeNotificationDefinition>(1);
+            // 原版 `AddNotificationType(new Notification[]{ new CampaignBadge(army) })`：**带阵营的过滤定义**
+            //   （`BadgeNotificationDefinition.Validate` ⇒ `n.Validate(filterCriteria)` ⇒ `CampaignBadge.Validate`
+            //    比类型 + army）⇒ 13 颗格子里只有**该阵营**那一条会算进去。
+            defs.Add(new BadgeNotificationDefinition(typeof(CampaignBadge), useFilter: true,
+                                                     filter: new CampaignBadge { army = army }));
+            BadgeWiring.Attach(quad, br, item, QArmyBadgeText, ArmyBadgeTint, defs, "CampaignArmyItem[" + army + "]");
+        }
+
+        /// <summary>`Badge Highlight` 的锚点 / 尺寸（原版 prefab 实读：锚 `(1,1)` 右上角 · pos `(−17.5,−17.5)` · 35×35）。</summary>
+        static readonly Vector2 ArmyBadgePos = new Vector2(-17.5f, -17.5f), ArmyBadgeSz = new Vector2(35f, 35f);
+        /// <summary>`Badge Highlight` 的底色（原版 `Image.m_Color = (0.7358,0.7358,0.7358,1)` = **中灰**；
+        /// 显隐靠 `UiBadgeNotification` 的 alpha 补间、不靠这个色）。</summary>
+        static readonly Color ArmyBadgeTint = new Color(0.7358f, 0.7358f, 0.7358f, 1f);
 
         public string Dump()
         {

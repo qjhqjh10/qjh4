@@ -305,12 +305,14 @@ namespace CardPresentation
         /// 「隐藏阵营/扩展 ⇒ 开它并返回 false」那两条支；我们全解锁 ⇒ 恒关，但**建着**、
         /// 将来接 FeatureConfig 时只改判据）。</summary>
         Label _mdWarn;
-        /// <summary>每条行的底图 quad / 行节点 / `New!` 文字，**按消息的数据下标（`idx`）索引**
+        /// <summary>每条行的底图 quad / 行节点 / 底图上的扫光层，**按消息的数据下标（`idx`）索引**
         /// （⚠️ 行是倒序建的，用 `List.Add` 会与 `_messages[i]` 错位 —— 这里按 idx 直接下标写）。
-        /// 底图换图那一位 = `MessageContainer.ToggleSelection` 的 `background.sprite = selected ? … : …`。</summary>
+        /// 底图换图那一位 = `MessageContainer.ToggleSelection` 的 `background.sprite = selected ? … : …`。
+        /// <para>🆕 2026-10-27（B9_W51SHINE2）：第三张表原来是 `Label[] _rowNew`（**未读那一下闪它的字**）——
+        /// 现在改成扫光层（原版那颗 `UIEffect` 扫的就是**底图**那张 `Image`，字恒定不动，判据见 `RowShineParams`）。</para></summary>
         ImageQuad[] _rowBgs = new ImageQuad[0];
         Transform[] _rowNodes = new Transform[0];
-        Label[] _rowNew = new Label[0];
+        WildcardShineLayer[] _rowShine = new WildcardShineLayer[0];
         /// <summary>当前选中的消息下标（`-1` = 没选）。原版 `MessageContainer.selected` 的那一位。</summary>
         int _current = -1;
         /// <summary>`Message List` 的滚动偏移变了 ⇒ 重建行；重建后**按 id 复原选中**（原版选中态长在
@@ -318,22 +320,30 @@ namespace CardPresentation
         string _selectedId;
 
         // ---- 条目入场动画（原版 `MessageContainer.AnimateIn`）----
-        // 参数逐字照原版 prefab（`Message Container` 的 MB）：
-        //   `animationDelay = 0.1` · `animationTime = 0.15` · `curve` = 原版那条 AnimationCurve。
-        //   ⚠️ 曲线**没解出数值**（`m_Curve` 在 MB 里、本件没读）⇒ 我们用 `EaseOutQuad` 等价，
-        // 🔶 自己设计（非原版）：收件箱条目入场动画曲线用 `EaseOutQuad` 等价 · 原版 `m_Curve` 没解出数值（原版判据拿不到） · TODO(谁定的)｜原注：如实标「曲线是我们挑的」（铁律 3）。原版还有 `DOScale(底图, localScale).From(localScale×0.5)`。
+        // 参数逐字照原版 prefab（`Message Container` 的 MB `-9188051066216764495`）：
+        //   `animationDelay = 0.1` · `animationTime = 0.15` · `curve` = **原版那条 3 键曲线**（逐键见类尾 `AnimCurve`）。
+        //   ✅ 2026-10-27（B9_W63WC）就地订正（铁律 5）：原文写「曲线**没解出数值** ⇒ 用 `EaseOutQuad` 等价」——**已过期**：
+        //   那份 MB 的 `curve` 是**完整 3 键 Clamp 曲线**（原版还有 `DOScale(底图, localScale).From(localScale×0.5)`；缓动**只挂在 DOScale 上**，`DOFade` 用 DOTween 默认 `Ease.OutQuad`）。
         public const float AnimDelay = 0.1f, AnimTime = 0.15f, AnimScaleFrom = 0.5f;
         float _animT = -1f;                      // <0 = 没在播
         int _animRows;                           // 这一轮有几行要入场
         bool _animPlayed;                        // 「入场播过没有」—— 行重建/滚动/选中都**不重播**（见 StartAnimateIn）
 
-        // ---- 未读行「闪一下」（原版 `MessageContainer.Update` 的 `shinyEffect.Play`）----
-        // 判据：`Update` 里 `timeSinceLastShine += dt; if (>= shineTime) { reset; shineTime =
-        // **3.0 × (1 + Random(-0.2, 0.2))**; shinyEffect.Play(resetTime: true); }`（`MessageContainer.cs:172-189`）。
-        // ⚠️ 原版那件是 Coffee.UIEffects 的 `UIEffectTweener`（扫光）；本工程**没有那一层**
-        //   ⇒ 等价实现 = 让 `New!` 那颗字的**亮度**在这 0.25s 内闪一档（⛔ 不冒充「扫光」）。
-        public const float ShineBase = 3.0f, ShineJitter = 0.2f, ShinePulse = 0.25f;
-        float _shineTimer, _shineNext = ShineBase, _shinePulse;
+        // ---- 未读行「扫一下」（原版 `MessageContainer.Update` 的 `shinyEffect.Play`）----
+        // 判据（🥇 机器码真体 = `d:/2/tools/decomp_full/Everguild.LiveOps.MessageContainer__Update.c`）：
+        //   `if (message != null) { if (!IsRead(message)) { timeSinceLastShine += dt;
+        //    if (timeSinceLastShine >= shineTime) { timeSinceLastShine = 0;
+        //      shineTime = effectTimer × (1 + Random.Range(-0.2, 0.2)); shinyEffect.Play(resetTime: true); } } }`
+        //   `effectTimer` = prefab 序列化 **3.0**（`bundle_menus_assets_all/MonoBehaviour/
+        //   MonoBehaviour_-9188051066216764495.json` 实读）；`shineTime` / `timeSinceLastShine` 是**非序列化**字段
+        //   （出厂 0）⇒ **建行后第一帧就扫一次**，之后每 3.0×(1±0.2) 秒一次。
+        // 🔴 **2026-10-27（B9_W51SHINE2）就地订正（铁律 5）**：这里原来写「原版那件是 Coffee.UIEffects 的
+        //   `UIEffectTweener`（扫光）；**本工程没有那一层** ⇒ 等价实现 = 把 `New!` 那颗字的**亮度**闪一档」——
+        //   **已过期**：扫光层（`Effects/UIEffectTogglerCoffeeEffects.cs` 的 `WildcardShineLayer`）与
+        //   `Resources/Shaders/WildcardShine.shader` 都已落地 ⇒ 现在走**真扫光**，挂在每条未读行的底图上
+        //   （参数见 `RowShineParams`）。那颗 `New!` 字**不再改色**（原版那颗字的颜色是恒定的）。
+        public const float ShineBase = 3.0f, ShineJitter = 0.2f;
+        float _shineTimer, _shineNext;      // `_shineNext` 出厂 0 ⇒ 第一帧就扫（= 原版那两个非序列化字段）
         readonly System.Random _rng = new System.Random(20261025);   // 定种子（不碰 UnityEngine.Random）
 
         /// <summary>有没有消息。🔴 **2026-10-25 起 = 真数据源的条数**（原版 `InboxWindow__Open` 的
@@ -702,6 +712,7 @@ namespace CardPresentation
         void LoadFromStore()
         {
             _animPlayed = false;                     // 换了一批消息 ⇒ 重新入场（见 StartAnimateIn）
+            _shineTimer = 0f; _shineNext = 0f;       // B9_W51SHINE2：换消息 ⇒ 扫光也从第一帧重来（原版每条都是新条目实例、计时器归零）
             _messages.Clear();
             var src = InboxData.Messages;
             for (int i = 0; i < src.Count; i++)
@@ -861,6 +872,7 @@ namespace CardPresentation
         public void Initialize(System.Collections.Generic.IList<Message> messages)
         {
             _animPlayed = false;                     // 同上：生产 API 灌一批新消息 ⇒ 重新入场
+            _shineTimer = 0f; _shineNext = 0f;       // B9_W51SHINE2：同上（扫光也从头，见 LoadFromStore 那一句）
             _messages.Clear();
             if (messages != null)
                 for (int i = 0; i < messages.Count; i++) if (messages[i] != null) _messages.Add(messages[i]);
@@ -905,7 +917,7 @@ namespace CardPresentation
             // 🆕 2026-10-25：选中态/动画那三张登记表**每次重建都重填**（按数据下标索引，见字段注释）
             _rowBgs = new ImageQuad[_messages.Count];
             _rowNodes = new Transform[_messages.Count];
-            _rowNew = new Label[_messages.Count];
+            _rowShine = new WildcardShineLayer[_messages.Count];
 
             // 🔴🔴 **2026-10-13（A435 甲 · A198② 阶段 2）：那六行没了。** 旧写法 = 「存 `Clip`/`ClipSoftness`/
             //   `ClipPad` 三件 → 设 `MsgList` / `ListSoft(0,25)` / `ListPad(0,0,0,0)` → 建完成对还原」。
@@ -935,7 +947,8 @@ namespace CardPresentation
         /// `canvasGroup.alpha = 0` → `AppendInterval((index + 1) × animationDelay)` → 播 slotting 音 →
         /// `DOFade(1, animationTime)` + `DOScale(底图, localScale).From(localScale × 0.5)`（带 curve 缓动）。
         /// <para>参数：`animationDelay = 0.1` · `animationTime = 0.15` · 缩放起点 = 原值 × **0.5**
-        /// （见 `AnimDelay` / `AnimTime` / `AnimScaleFrom` 的注释；曲线数值没解出 ⇒ 用 EaseOutQuad 等价）。</para>
+        /// （见 `AnimDelay` / `AnimTime` / `AnimScaleFrom` 的注释；曲线逐键见类尾 `AnimCurve`，
+        /// ⚠️ 它**只作用在 `DOScale`** 上 —— `DOFade` 那条没有 `SetEase`，走 DOTween 默认 `Ease.OutQuad`）。</para>
         /// <para>⚠️ 批处理下没有帧循环 ⇒ 与 `RewardWindow` 同一个做法：**本窗自带 `Tick(dt)`**，
         /// `Update()` 只是把 `Time.deltaTime` 转进去（自检可以直调 `Tick`）。</para></summary>
         void StartAnimateIn()
@@ -943,25 +956,28 @@ namespace CardPresentation
             // 🔴 只播**一次**：行是每次滚动/选中都重建的（`BuildMessageRows` 的幂等设计），
             //   原版只在 `MessageList.Initialize` 那一刻 `AnimateIn` 一遍 ⇒ 这里用一个「播过没有」的位挡住重播
             //   （`LoadFromStore` / `Initialize` 会把它清掉 = 换了一批消息才重新入场）。
-            if (_animPlayed || !Application.isPlaying) { for (int i = 0; i < _rowNodes.Length; i++) ApplyRowAnim(i, 1f); return; }   // 🔴 2026-10-26（B8_BN）：批处理/编辑器**没有帧循环** ⇒ `Tick` 一次都不会被推 ⇒ 入场动画**根本播不动**，行会**永久停在起点**（`localScale = AnimScaleFrom = 0.5`、底图 alpha 0）。实测代价：`Editor/ShellScene.cs` 的 A743 三态量到的文字右沿恰好是「全尺寸值 ×0.5 绕格心」= 571.10 / 429.32 / 684.38（原版全尺寸下是 728.28 / cutX / 954.83）⇒ 三条红，且建场截图里条目是**半尺寸 + 透明**。⇒ 非 Play 直接落到终态（`p = 1`）。⚠️ 同族口径：`Shell/CollectionWindow.cs:1337` 的「生产路径用 `Application.isPlaying`」· `Shell/DraftModeWindow.cs:2548` 的 `if (!Application.isPlaying) { node.localScale = Vector3.one; return; }`
+            if (_animPlayed || !Application.isPlaying) { for (int i = 0; i < _rowNodes.Length; i++) ApplyRowAnim(i, 1f, 1f); return; }   // 🔴 2026-10-26（B8_BN）：批处理/编辑器**没有帧循环** ⇒ `Tick` 一次都不会被推 ⇒ 入场动画**根本播不动**，行会**永久停在起点**（`localScale = AnimScaleFrom = 0.5`、底图 alpha 0）。实测代价：`Editor/ShellScene.cs` 的 A743 三态量到的文字右沿恰好是「全尺寸值 ×0.5 绕格心」= 571.10 / 429.32 / 684.38（原版全尺寸下是 728.28 / cutX / 954.83）⇒ 三条红，且建场截图里条目是**半尺寸 + 透明**。⇒ 非 Play 直接落到终态（`p = 1`）。⚠️ 同族口径：`Shell/CollectionWindow.cs:1337` 的「生产路径用 `Application.isPlaying`」· `Shell/DraftModeWindow.cs:2548` 的 `if (!Application.isPlaying) { node.localScale = Vector3.one; return; }`
             _animPlayed = true;
             _animRows = _messages.Count;
             _animT = _animRows > 0 ? 0f : -1f;
             // 起点：全透明 + 半尺寸（原版先写 alpha 0、再在 interval 之后才动；我们这里先把**初值**摆好，
             // `Tick` 里按「每行自己的 0.15s 窗口」推进 —— 等价于原版那条 Sequence）。
-            for (int i = 0; i < _rowNodes.Length; i++) ApplyRowAnim(i, 0f);
+            for (int i = 0; i < _rowNodes.Length; i++) ApplyRowAnim(i, 0f, 0f);
         }
 
-        void ApplyRowAnim(int i, float p)
+        /// <summary>按进度摆一行的两个量。**两个进度分开传**（原版的缓动**只挂在缩放上**，淡入是另一条 ease）：
+        /// <paramref name="pFade"/> = 底图 alpha 的进度（`Ease.OutQuad`）·
+        /// <paramref name="pScale"/> = 缩放进度（原版 `curve.Evaluate`，见类尾 `AnimCurve`）。</summary>
+        void ApplyRowAnim(int i, float pFade, float pScale)
         {
             if (i < 0 || i >= _rowNodes.Length) return;
             var node = _rowNodes[i];
             if (node != null)
             {
-                float s = Mathf.Lerp(AnimScaleFrom, 1f, p);
+                float s = Mathf.Lerp(AnimScaleFrom, 1f, pScale);
                 node.localScale = new Vector3(s, s, 1f);
             }
-            float a = Mathf.Clamp01(p);
+            float a = Mathf.Clamp01(pFade);
             var q = i < _rowBgs.Length ? _rowBgs[i] : null;
             if (q != null)
             {
@@ -975,14 +991,14 @@ namespace CardPresentation
             _animT += dt;
             for (int i = 0; i < _rowNodes.Length; i++)
             {
-                // 第 i 行：延迟 (i + 1) × AnimDelay 之后开始，AnimTime 内线性推到 1（EaseOutQuad）。
-                float t = (_animT - (i + 1) * AnimDelay) / AnimTime;
-                float p = t <= 0f ? 0f : (t >= 1f ? 1f : 1f - (1f - t) * (1f - t));
-                ApplyRowAnim(i, p);
+                // 第 i 行：延迟 (i + 1) × AnimDelay 之后开始，AnimTime 内推到 1（淡入 = OutQuad · 缩放 = 原版 curve）。
+                float tc = Mathf.Clamp01((_animT - (i + 1) * AnimDelay) / AnimTime);
+                float pf = 1f - (1f - tc) * (1f - tc);                  // 淡入：DOTween 默认 `Ease.OutQuad`（原版 `DOFade` 没 SetEase）
+                ApplyRowAnim(i, pf, AnimCurveEase(tc));                 // 缩放：原版 `SetEase(curve)` —— **只挂在 DOScale 上**
             }
             if (_animT > (AnimRows + 1f) * AnimDelay + AnimTime)
             {
-                for (int i = 0; i < _rowNodes.Length; i++) ApplyRowAnim(i, 1f);
+                for (int i = 0; i < _rowNodes.Length; i++) ApplyRowAnim(i, 1f, 1f);
                 RefreshSelection();          // 动画把 tint 写过 ⇒ 收尾按选中态再刷一次（含底图）
                 _animT = -1f;
             }
@@ -990,34 +1006,16 @@ namespace CardPresentation
 
         int AnimRows { get { return _animRows; } }
 
-        /// <summary>原版 `MessageContainer.Update` 的「未读行闪一下」：`timeSinceLastShine` 累加到
-        /// `shineTime` 就重置并把 `shineTime` 摇成 **3.0 × (1 + Random(-0.2, 0.2))**、播 `shinyEffect`。
-        /// ⚠️ 本工程没有 Coffee.UIEffects 的 `UIEffectTweener`（扫光）⇒ 等价实现 = 把 `New!` 那颗字的
-        /// **亮度**在这 0.25s 内抬一档（⛔ 不冒充扫光；参数/替代口径见 `ShineBase` 那几行）。</summary>
+        /// <summary>原版 `MessageContainer.Update` 的「未读行扫一下」：`timeSinceLastShine` 累加到
+        /// `shineTime` 就重置并把 `shineTime` 摇成 **3.0 × (1 + Random(-0.2, 0.2))**、播那颗 `shinyEffect`
+        /// （真扫光；参数/偏差口径见 `RowShineParams` 与那一整段注释）。</summary>
         void ShineTick(float dt)
         {
             _shineTimer += dt;
-            if (_shinePulse > 0f) _shinePulse = Mathf.Max(0f, _shinePulse - dt);
-            if (_shineTimer >= _shineNext)
-            {
-                _shineTimer = 0f;
-                _shineNext = ShineBase * (1f + ((float)_rng.NextDouble() * 2f - 1f) * ShineJitter);
-                _shinePulse = ShinePulse;
-            }
-            var c = RowNewColor;
-            if (_shinePulse > 0f)
-            {
-                float k = _shinePulse / ShinePulse;
-                c = Color.Lerp(RowNewColor, Color.white, k);
-            }
-            for (int i = 0; i < _rowNew.Length; i++)
-            {
-                var lb = _rowNew[i];
-                if (lb == null) continue;
-                // ⚠️ 只对**未读行**闪（原版那条 Update 也在未读分支里）
-                if (i < _messages.Count && !_messages[i].Unread) continue;
-                lb.SetColor(c);
-            }
+            if (_shineTimer < _shineNext) return;
+            _shineTimer = 0f;
+            _shineNext = ShineBase * (1f + ((float)_rng.NextDouble() * 2f - 1f) * ShineJitter);
+            PlayRowShine();
         }
 
         /// <summary>本窗的动画时钟（入场 + 未读闪共用；由 `Update` 推）。</summary>
@@ -1099,11 +1097,8 @@ namespace CardPresentation
             RowText(e, OR(RowDate), m.Date ?? "", RowDateColor, "Date", RowDateFont,
                     RowDateAutoMin, RowDateAutoBase, 1);
             if (m.Unread)
-            {
-                var nl = RowText(e, OR(RowNew), TxtUnread, RowNewColor, "New", RowNewFont,
-                                 RowNewAutoMin, RowNewAutoBase, 2);
-                if (idx >= 0 && idx < _rowNew.Length) _rowNew[idx] = nl;   // 🆕 未读那一下闪它（原版 shinyEffect）
-            }
+                RowText(e, OR(RowNew), TxtUnread, RowNewColor, "New", RowNewFont,
+                        RowNewAutoMin, RowNewAutoBase, 2);
             return e;
         }
 
@@ -1226,5 +1221,119 @@ namespace CardPresentation
             var wb = hit.GetComponent<WindowButton>();
             if (wb != null) wb.SetNormalTex(t);
         }
+
+        // ============================================================ 未读条目的 Shiny 扫光（原版 `MessageContainer.shinyEffect`）
+        //
+        // 【为什么参数写在这、不往 `WildcardShineLayer.Params` 里加预设】
+        //   本件只服务**一个**宿主（收件箱每条未读行的底图），而 `Effects/UIEffectTogglerCoffeeEffects.cs`
+        //   本波有别的写手在动 ⇒ 不往那个共用件里加成员（它也不在本件的白名单里）。
+        //
+        // 【逐字段真值（2026-10-27 现读，⛔ 别套 120 那组）】
+        //   `MonoBehaviour_-7763153431244756047.json`（`Message Container ▸ Content` 上那颗 `UIEffect`）＋
+        //   `MonoBehaviour_-3271889046122976335.json`（同 GO 的 `UIEffectTweener`，= `MessageContainer` 组件
+        //   MB `-9188051066216764495` 的 `shinyEffect` 指向的那一个）：
+        //     rotation **139** · width **0.213** · softness **0.533** · color **(2,2,2,1)** · filter **6** ·
+        //     glow 0 · reverse 0 · keepAspect 1 · autoPlay 0 · rate 1.0 · **duration 1.0 s** · **wrap 0 (Once)**。
+        //   🔴 **⛔ 别换成 `Params.WildcardDisplay`（120 / 0.25 / 0.5 / 白 / 0.75 s）** —— 那是收藏窗与
+        //   Deck 编辑窗那颗（判据 → `报告/B9_W36SHINEA_扫光断言与宿主.md` §2·4 / §2·5）。
+        //   挂在哪：`menu_dump.py bundle_menus_assets_all "Message Container" --depth 6` 的组件列实读
+        //   ⇒ `Content` = `Image, EverguildButton, EverguildButtonMaterialModifier, UIEffect, UIEffectTweener`
+        //   ⇒ 我们的等价物 = 每一行那颗底图 quad（`_rowBgs[i]`，原版 `Content` 那张 `Image`）。
+        //
+        // 【如实标注的两处偏差】
+        //   ① **计时器在【窗】上、原版在【行实例】上** —— 我们的行每次滚动/选中都重建（`BuildMessageRows`），
+        //      行级计时器会被重建不断重置 ⇒ 用一个窗级计时器（口径同改前的 `ShineTick`），重建只影响「扫哪几行」。
+        //   ② **随机源 = 定种子 `System.Random`**（`_rng`，2026-10-25 `N17` 定的），原版是 `UnityEngine.Random.Range`。
+        static readonly WildcardShineLayer.Params RowShineParams = new WildcardShineLayer.Params
+        {
+            rotation = 139f, width = 0.213f, softness = 0.533f, duration = 1f,
+            color = new Color(2f, 2f, 2f, 1f), colorFilter = 6f, colorGlow = 0f,
+            reverse = false, loop = false,
+        };
+
+        /// <summary>这一拍「扫一遍」：给每条**未读**行的底图挂层（第一次 / 行重建后）并 `Play(true)`。
+        /// <para>层随行一起死（`WildcardShineLayer.StepAll` 的 `PruneDead` 回收）⇒ 这里只判「层还在不在」：
+        /// `StillAttached` 假 = 那颗 quad 已经换了/没了 ⇒ 重挂一层。</para></summary>
+        void PlayRowShine()
+        {
+            if (_rowShine.Length != _rowBgs.Length) _rowShine = new WildcardShineLayer[_rowBgs.Length];
+            for (int i = 0; i < _rowBgs.Length; i++)
+            {
+                var q = _rowBgs[i];
+                if (q == null) continue;
+                // ⚠️ 只扫**未读行**（原版 `Update` 那条也在 `!IsRead` 分支里）
+                if (i >= _messages.Count || !_messages[i].Unread) continue;
+                var l = _rowShine[i];
+                if (l == null || !l.StillAttached)
+                {
+                    l = WildcardShineLayer.AttachQuad(q, RowShineParams);
+                    _rowShine[i] = l;
+                    if (l == null) return;       // shader 取不到（`WildcardShineLayer.Attach` 已出过声）
+                }
+                l.Play(true);
+            }
+        }
+
+        /// <summary>自检读口：第 <paramref name="row"/> 行那颗扫光到哪儿（0 = 带在起点 · 1 = 播完/不亮）；
+        /// `-1` = 这一行还没有层（已读 / 没建出来 / shader 取不到）。
+        /// <para>🔴 `1` 有**两种**含义（「没播」与「播完了」）⇒ 与 <see cref="RowShinePlaying"/> 并排看。</para></summary>
+        public float RowShineRate(int row)
+        {
+            return (row >= 0 && row < _rowShine.Length && _rowShine[row] != null) ? _rowShine[row].Rate : -1f;
+        }
+
+        /// <summary>自检读口：第 <paramref name="row"/> 行那颗扫光还在播吗（Once 播完 ⇒ false）。没层 ⇒ false。</summary>
+        public bool RowShinePlaying(int row)
+        {
+            return row >= 0 && row < _rowShine.Length && _rowShine[row] != null && _rowShine[row].Playing;
+        }
+
+        /// <summary>自检读口：现在挂着几层扫光（> 0 才算「这一窗的未读行确实挂上了」）。</summary>
+        public int RowShineCount
+        {
+            get
+            {
+                int n = 0;
+                for (int i = 0; i < _rowShine.Length; i++) if (_rowShine[i] != null) n++;
+                return n;
+            }
+        }
+
+        // ============================================================ 入场曲线（原版 `MessageContainer.curve`，逐键照抄）
+        //
+        // 【判据（2026-10-27 `B9_W63WC` 现读，🥇 一手）】
+        //   `d:/2/新解包资源/assets_full/bundle_menus_assets_all/MonoBehaviour/MonoBehaviour_-9188051066216764495.json`
+        //   的 `curve` 字段 —— **完整 3 键**、`m_PreInfinity = m_PostInfinity = 2 (Clamp)`、`m_RotationOrder = 4`：
+        //     ① t 0.0         v 0.0         in/outSlope  0.0            （`weightedMode 0` ⇒ `inWeight/outWeight` 不参与）
+        //     ② t 0.35165453  v 0.62446737  in/outSlope  1.53013289
+        //     ③ t 1.00219727  v 1.0         in/outSlope -0.40184420
+        //   谁在用它（🥇 机器码）：`Everguild.LiveOps.MessageContainer__AnimateIn.c` 里
+        //   `SetEase(DOScale(...), *(this + 0x78), …)` —— `+0x78` 就是本字段，**只喂给 `DOScale` 那一条**；
+        //   同一个 Sequence 里 `DOFade` 那条是 `Append(DOTweenModuleUI.DOFade(canvasGroup))`，**没有 `SetEase`**
+        //   ⇒ 淡入走 DOTween 默认 `Ease.OutQuad`（判据 = 原版 `DOTween.dll` v1.2.705 的
+        //   `DG.Tweening.DOTween.defaultEaseType = Ease.OutQuad`，且 `Tweener.DoStartup` 把它写进每一条 tween；⛔ 别把两条都换成曲线）。
+        //
+        // ⚠️ 末键 t = **1.00219727**（不是 1）—— 原版逐字如此，照抄：`curve.Evaluate(1)` 因此 ≈ **1.00088**
+        //   （略过 1）。收尾那一拍 `AnimTick` 会 `ApplyRowAnim(i, 1f, 1f)` 把缩放钉回 1，与原版 tween
+        //   结束时落到目标 `localScale` 等价 ⇒ **不要为了「看起来整齐」把末键改成 1.0**（那是改判据）。
+        static readonly AnimationCurve AnimCurve = BuildAnimCurve();
+
+        static AnimationCurve BuildAnimCurve()
+        {
+            var c = new AnimationCurve(
+                new Keyframe(0f, 0f, 0f, 0f),
+                new Keyframe(0.35165453f, 0.62446737f, 1.53013289f, 1.53013289f),
+                new Keyframe(1.00219727f, 1f, -0.40184420f, -0.40184420f));
+            c.preWrapMode = WrapMode.Clamp;      // prefab `m_PreInfinity = 2`
+            c.postWrapMode = WrapMode.Clamp;     // prefab `m_PostInfinity = 2`
+            return c;
+        }
+
+        /// <summary>原版那条曲线的取值（= DOTween `SetEase(curve)` 内部做的 `curve.Evaluate(t)`）。
+        /// <para>⚠️ **不裁到 [0,1]**：`t = 1` 给 ≈ 1.00088，原版也是这个值（见上面末键那条注释）。</para></summary>
+        static float AnimCurveEase(float t) { return AnimCurve.Evaluate(t); }
+
+        /// <summary>自检读口：原版曲线在某点的值（断言**期望值不取自被测实现** —— 逐键判据见上面注释）。</summary>
+        public static float AnimCurveAtForTest(float t) { return AnimCurveEase(t); }
     }
 }

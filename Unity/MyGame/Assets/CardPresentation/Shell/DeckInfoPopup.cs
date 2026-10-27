@@ -915,13 +915,13 @@ namespace CardPresentation
         {
             get { return OverrideDeck != null ? OverrideInfo : CollectionData.DeckAt(DeckIndex); }
         }
-        /// <summary>本窗展示的督军卡（`WarlordId` → `CardDef`；查不到给 null）。</summary>
+        /// <summary>本窗展示的督军卡（`WarlordId` → `CardDef`；查不到给 null）。🔴 异画督军（`#HB_SW1`）也要认 —— 本地 7 张异画**全是督军**（账 `HUD:92`/`HUD:93`）。</summary>
         public RuleEngine.CardDef CurWarlord
         {
             get
             {
                 string id = CurInfo.WarlordId;
-                return string.IsNullOrEmpty(id) ? null : CollectionData.Card(id);
+                return string.IsNullOrEmpty(id) ? null : CardDatabase.ResolveDeckEntry(id, CollectionData.Card);
             }
         }
 
@@ -1802,7 +1802,7 @@ namespace CardPresentation
                 foreach (var id in deck.CardIds)
                 {
                     if (string.IsNullOrEmpty(id)) continue;
-                    var c = CollectionData.Card(id);
+                    var c = CardDatabase.ResolveDeckEntry(id, CollectionData.Card);
                     if (c == null) continue;          // 卡表里查不到 ⇒ 不画（原版卡表里不会有这一档）
                     if (!count.ContainsKey(c.Id)) { count[c.Id] = 0; cards.Add(c); }
                     count[c.Id]++;
@@ -1818,7 +1818,7 @@ namespace CardPresentation
             //    （`deck + 0x48`）的卡 `List.Insert(0, …)` 进卡表 ⇒ 它**不是**从 `CardIds` 来的，
             //    本窗这份卡表**不等于** `CardIds` ⇒ 这里先把它并进**待排**列表（原版排在哪儿它就排在哪儿）。
             //    🔴 钉第 0 格那件事是**另一截**（卡身上的两截判据），见 §⑤ 后半。
-            var defensive = string.IsNullOrEmpty(deck.DefensiveId) ? null : CollectionData.Card(deck.DefensiveId);
+            var defensive = string.IsNullOrEmpty(deck.DefensiveId) ? null : CardDatabase.ResolveDeckEntry(deck.DefensiveId, CollectionData.Card);   // 防御卡也可能是异画条目（同 §① / `HUD:92/93`）
             if (defensive != null && !IsDefensiveRow(defensive)) cards.Add(defensive);
 
             // ② **排序 = 费用升序 → 本地化卡名**。原版 `DeckListDrawer__Reorder.c:33-40` =

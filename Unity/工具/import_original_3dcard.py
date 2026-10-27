@@ -92,8 +92,18 @@ def main():
         return 1
 
     if args.check:
-        print("\n--check：只体检，未写文件")
-        return 0
+        # 🔴 2026-10-27（执行代理 B9_W35CHECK）：`--check` 必须**连产物一起查** ——
+        #   原来只查「源在不在」（上面那个 `exist` 循环），产物缺失/过期一律静默绿。
+        #   判据同 工具/import_original_art.py `--only-altart`（`:1714-1721`）。
+        lack = [dst for _s, dst, _n in JOBS if not os.path.exists(os.path.join(DEST, dst))]
+        if lack:
+            print(f"\n🔴 产物缺失 {len(lack)}/{len(JOBS)}（{DEST}）—— 重跑不带 --check 落盘：")
+            for d in lack:
+                print("   缺:", d)
+        else:
+            print(f"\n✅ 产物齐全 {len(JOBS)}/{len(JOBS)}（{DEST}）")
+        print("--check：只体检，未写文件")
+        return 0 if not lack else 1
 
     os.makedirs(DEST, exist_ok=True)
     for src, dst, _ in JOBS:

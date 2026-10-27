@@ -1009,10 +1009,10 @@ namespace RuleEngine
             int need;
             if (type == "hero") need = set.IncludeHero;
             else if (type == "unit") need = set.IncludeMinions;
+            else if (type == "whispers") need = set.IncludeWhispers;   // `.c:29-34`（`cardType 0x28` ⇒ `+0x19`）
             else if (type == "tactic" || type == "defence" || type == "enchantment") need = set.IncludeSpells;
             else return null;                                  // 没建模的卡种
-            if (need == CardDef.CountSetSpec.Unknown) return null;
-            return need != 0;
+            return need == CardDef.CountSetSpec.Unknown ? (bool?)null : need != 0;
         }
 
         /// <summary>原版 `FilterMethods.RawCardMeetsTraitCriteria(RawCardScript, TargetCriteria, BattleManager, bool)`
@@ -1156,6 +1156,56 @@ namespace RuleEngine
                 case 3: return same || string.Equals(faction, "Neutral", StringComparison.OrdinalIgnoreCase);
                 default: return true;
             }
+        }
+
+        // ==========================================================================================
+        //  🆕 2026-10-27（完全复刻批次 9 · 执行代理 `B9_W27ENG`）：
+        //  **`conditionsFilter` / `excludeCondition` 在原版【根本不会被求值】的那些 `targetsAffected` 档**
+        // ==========================================================================================
+        //  🔴 **为什么需要这一份**：原版第 ⑧ 步（`CheckIfMeetsCriteria.c:298-303` → `MeetsConditionCriteria`）
+        //     **不在每一条 `ta` 上都跑**。两条互不相干的原因把一批 `ta` 变成「cond/ex 是死字段」：
+        //       ① **早返 switch**（`FilterMethods__CheckIfMeetsCriteria.c:57-157`）——
+        //          `ta ∈ {0, 20, 30, 40, 70, 80, 140, 200, 201, 235}` 在进 36 格之前就 `return` 了
+        //          （`30` = 只比 `候选 == targetCard`，判据 `:76-91`；`0 any` = `:57-59` 直接 `1`）。
+        //          ⇒ 见 <see cref="EarlyReturnTargetsAffected"/>。
+        //       ② **建池侧根本不筛**（`AbilityLogic__GetTargets.c`，本文件头 `:31-39` 那一族）——
+        //          `ta ∈ {120,130,160,161,162,170,190,220,230,240,245}` 建完池就 `goto` 出口，
+        //          连 `CheckIfMeetsCriteria` 都不经过 ⇒ 第 ⑧ 步同样到不了。
+        //          ⇒ 见 <see cref="NeverFilteredTargetsAffected"/>。
+        //    我们有一条**只按 cond 筛、不看 `ta` 的旁路**（`EffectResolver.ApplyStructuredConditionFilter`，
+        //    经 `ApplyTargetFilters` 被 `ResolveTargets` / `IsLegalPick` / `PlayTargetPool` 调用）——
+        //    它会把这两族上的死字段当活字段用。**实测病灶**：`BL64 Murderous Desires`
+        //    （`abilityLogic[0].targetCriteria = {ta:30, cond:341, ex:1}`）的友方池被筛空 ⇒
+        //    `ErrNoTargetAvailable` ⇒ 这张卡打不出去（判据全文 → `资料/完全复刻/判据/cond341_canUseDuty_ex语义.md` §1.6-A）。
+        //
+        //  🔴 **⛔ 别在调用点另写一份相同的数字表** —— 这两张表是**唯一判据**，
+        //     `EffectResolver.CondDeadByTa` 直接调 <see cref="ConditionIsDeadByTargetsAffected"/>。
+        //  ⚠️ **`90 / 100 / 150 / 180` 不在任何一张表里**：它们**会落到**常规 36 格（`90`/`150` 身
+        //     份相符后 `break`、`100` 走常规格再补一条相邻判据、`180` 只有 `filterSpecificCards` 非空才落常规格）
+        //     ⇒ `cond` 在这几档上是**活**的，⛔ 别顺手加进来。
+        //  ⚠️ `Unknown(-1)` **不在这两张表里**：它表示「没落 / 读不到」= **判不了**，由调用方**不闸并出声**。
+
+        /// <summary>① 早返 switch 那一族（`CheckIfMeetsCriteria.c:57-157`）：进不了常规格 ⇒ `cond`/`ex` 是死字段。
+        /// ⚠️ `140` 也不在 36 格里（它 `return List.Contains(...)`，见 `Matches` 的 `case 140`）。</summary>
+        public static readonly int[] EarlyReturnTargetsAffected = { 0, 20, 30, 40, 70, 80, 140, 200, 201, 235 };
+
+        /// <summary>② 建池侧根本不筛那一族（`AbilityLogic__GetTargets.c`，本文件头 `:31-39`）——
+        /// 连 `CheckIfMeetsCriteria` 都不经过 ⇒ `cond`/`ex` 同样是死字段。</summary>
+        public static readonly int[] NeverFilteredTargetsAffected = { 120, 130, 160, 161, 162, 170, 190, 220, 230, 240, 245 };
+
+        /// <summary>这一档 `targetsAffected` 上，原版**根本不会求值** `conditionsFilter`/`excludeCondition`。
+        /// <para>`true` ⇒ 调用方**不许**按结构化条件筛目标池（那是拿死字段筛活池）。</para>
+        /// <para>⚠️ `Unknown(-1)` 与任何表外值都返回 **false** ——
+        /// 那是「这一档确实要求值」（表外）**或**「判不了」（`-1`，调用方自己判）**两件事的合流**，
+        /// ⛔ 别把 `false` 读成「原版要求值」。</para></summary>
+        public static bool ConditionIsDeadByTargetsAffected(int targetsAffected)
+        {
+            if (targetsAffected == CardDef.CountSetSpec.Unknown) return false;
+            for (int i = 0; i < EarlyReturnTargetsAffected.Length; i++)
+                if (EarlyReturnTargetsAffected[i] == targetsAffected) return true;
+            for (int i = 0; i < NeverFilteredTargetsAffected.Length; i++)
+                if (NeverFilteredTargetsAffected[i] == targetsAffected) return true;
+            return false;
         }
     }
 }

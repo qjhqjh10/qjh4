@@ -299,8 +299,29 @@ namespace RuleEngine
                     AddLowestHealthUnit(list, ctx, thisSide, c);
                     return list;
                 }
+                case 230: // highestHealthWarlord（`AbilityLogic__GetTargets.c:811`，`iVar6 == 0xe6`）
+                {
+                    // ① 选法（`BattleManager__GetHighestHealthWarlord.c`，全文）：读两方督军当前血量
+                    //    （`CardScript+0x68`）—— `+0xc0`(=Player 0) 记 A、`+0xc8`(=Player 1) 记 B：
+                    //    B < A ⇒ A；B > A ⇒ B；**相等 ⇒ 返回 null**。
+                    // ② 消费端（`GetTargets.c:811` 的 ta=230 支）：GetHighestHealthWarlord 返回 null（相等）时
+                    //    **不退化成空表**，而是取 `BattleManager.GetHero(bm, 1)`（= `+0xc0` = Player 0 的督军）顶上。
+                    //    ⇒ 归纳 = 「Player 1 督军血量**严格大于** Player 0 ⇒ 取 Player 1；否则（含相等）取 Player 0」，
+                    //    **永远不会是空表**。
+                    //    ⚠️ 这一条比施工判据 §二 G16 写的「相等 ⇒ 空表」更全 —— 判据文件只读了
+                    //    GetHighestHealthWarlord 本体、没跟到 GetTargets 的 null 兜底；以 `.c` 为准（铁律 2）。
+                    // 🔴 映射：`+0xc0` = Player 0（`isPlayer`=真/友方）、`+0xc8` = Player 1（敌方）
+                    //    —— 判据 = `GetHero(bool playerHeroY)`：真 ⇒ `+0xc0`、假 ⇒ `+0xc8`
+                    //    （`资料/任务线/战斗线/任务/T05_逐卡演出与特效接线.md:170-171`：3 friendlyHero=`+0xc0` · 4 enemyHero=`+0xc8`）。
+                    var w0 = ctx.Players[0].Warlord;
+                    var w1 = ctx.Players[1].Warlord;
+                    // 原版直接读两格 `+0x68`（缺一方会 NRE）—— 我们不复制崩溃语义：缺 w0 时 AddUnit 空转。
+                    if (w1 != null && w0 != null && w1.Health > w0.Health) AddUnit(list, w1, 1);
+                    else AddUnit(list, w0, 0);
+                    break;   // 落通用筛选尾（ApplyFilters/Trim）—— 与 120/130 两个「取督军」支同口径
+                }
                 default:
-                    // 105 / 180 / 200 / 201 / 230 / 235 —— 判据/输入还没闭合（2026-10-24 现核）：
+                    // 105 / 180 / 200 / 201 / 235 —— 判据/输入还没闭合（2026-10-24 现核；230 已于 2026-10-27 G16 实现，从此表移除）：
                     //   · 105 —— 读的是**静态缓存表** `DAT_1842c3a28 + 0xb8`（`GetTargets.c:1010`），
                     //     同族 140/150 的写点已查明（`SetPreviousAbilityTargets`），**105 没有对应的写点**
                     //     ⇒ ⛔ 不猜；
@@ -308,7 +329,8 @@ namespace RuleEngine
                     //     引擎里没有这个输入；
                     //   · 200/201 —— `CardScript.referencedCards`(+0x278)，**我们卡表没有这一列**
                     //     （`cards_engine.json` 现读的 36 个键里没有）⇒ 差的是数据管线，不是实现；
-                    //   · 230 —— `GetHighestHealthWarlord` 的完整选法未读完（池内 ta 值里也没有 230）。
+                    //   · 230 —— ✅ 2026-10-27（W68ENG3 · G16）已实现（见上面的 `case 230`，不再落本 default）——
+                    //     `GetHighestHealthWarlord` 全文已读完，这里那句「完整选法未读完」已过期，就地订正（铁律 5）。
                     //   · **235 在 `GetTargets.c` 里没有任何分支**（现核 grep `0xeb` = 0 命中）
                     //     ⇒ 原版对 235 本来就返回空表 ⇒ 我们返回空**是对的**。
                     // 其余未列出的值同理：原版没有候选 ⇒ 空表（⛔ 不造兜底）。

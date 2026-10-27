@@ -3732,5 +3732,123 @@ namespace CardPresentation
             _loaded = true;
             _current = lang;
         }
+
+        // ============================================================ 目标提示文案（`Card_Targeted/*`）
+        // 🔴 2026-10-27（执行代理 `B9_W61TARG` · 账 `资料/完全复刻/账/战斗逻辑驱动.tsv:1241`）：
+        //  补齐原版 `RawCardScript.GetLocalizedTargetted()` —— **我们此前完全没实现**
+        //  （改前 `grep -rn "Card_Targeted" Assets --include=*.cs` = **0 命中**；只有
+        //   `Resources/official_loc_13lang.json` 数据侧那 31 条键，**一个消费者都没有**）。
+        //
+        //  · **原版方法体**（逐句；`cpp2il/out_cpp2il_dev_ilspy/RawCardScript.cs:2448-2458`。
+        //    `decomp_full/RawCardScript__GetLocalizedTargetted.c` 是同一份体，只是把返回值丢了）：
+        //      string text = string.IsNullOrEmpty(targetingTextReferenceId) ? uniqueId : targetingTextReferenceId;
+        //      string term = "Card_Targeted/" + text;
+        //      string translation = LocalizationManager.GetTranslation(term, FixForRTL: true, 0,
+        //                              ignoreRTLnumbers: true, applyParameters: false, …);
+        //      return SupportMethods.ModifyLocalization(translation);
+        //    ⇒ **键 = `Card_Targeted/` + (`targetingTextReferenceId` 非空 ? 它 : `uniqueId`)**。
+        //  · **唯一活调用点**（三源合判）：`out_cpp2il_dev_ilspy` 全树只有 `BattleManager.cs:1784`；
+        //    `decomp_full` 全树只有 `BattleManager._ChooseUnitTarget_d__780__MoveNext.c`。
+        //    那一段（`.c:37-62`）= `StartTrackingFrom(卡位,3)` → 取本方法 → `Get2DPosOfCard`
+        //    → `EverguildTooltipManager.Show(battleTooltip, 标题="", 本方法, 卡位)` → `ShowPotentialTargets(card,1)`
+        //    → 等点完；离开那一态（`.c:84-91`）`StopTracking` + `Hide`。
+        //    ⇒ ⛔ **它不是卡面、也不是技能面板**（`Battle/SkillPanel.cs` 是 `ActiveSkillDesc` 那条，无关），
+        //      是「**请你点一个目标**」的浮动提示。
+        //  · `ModifyLocalization` 那一跳在我们侧 = `Core/CardIcons.RewriteMarks`（同四族记号：
+        //    `((…))` / `$$…$$` / `[[…]]` / 费用记号）⇒ **本口只返回原样词条**，⛔ 不在这里重复实现记号渲染
+        //    （与 `T` / `BulkOr` 同口径）。
+        //  · **可达性（现数，⛔ 别抄成死数；口径 = `资料/完全复刻/报告/B9_W61TARG_卡牌目标文本.md`）**：
+        //    数据在 `资料/普查产出_1018/allcards_1350/cards_raw.json` 的 **`full_raw.targetingTextReferenceId`**
+        //    （1,351 张卡 SO 里 **51 张非空 / 18 种取值**）；其中「单位卡（`cardType==0`）∧ `targeted==1`」
+        //    = **50 张 / 17 种** —— 只有这一档会走进 `ChooseUnitTarget`
+        //    （闸 = `BattleManager__NeedToChooseMinionTarget.c:12-18`：`isPlayer ∧ cardType==0 ∧ targeted ∧ matchType!=0xA0`）。
+        //    官方表 `Card_Targeted/*` **31 条** ⇒ **17 条可达 · 14 条在原版数据里没有任何卡引用**。
+        //    ⚠️ **`uniqueId` 那条回退支在本 build 里 0 次命中**（「单位卡 ∧ targeted ∧ ref 空」= 0 张）
+        //    —— 但它是原版的一支，**照抄**，⛔ 别因为「今天走不到」删掉。
+
+        /// <summary>原版 `GetLocalizedTargetted` 的键前缀（`RawCardScript.cs:2451` 的字面量 `"Card_Targeted/"`）。</summary>
+        public const string TargetedTermPrefix = "Card_Targeted/";
+
+        /// <summary>原版 `GetLocalizedTargetted()` 的**键拼法**（唯一一处，逐字照抄 `RawCardScript.cs:2450-2451`）：
+        /// `Card_Targeted/` + （`targetingTextReferenceId` 非空 ⇒ **它**；否则 ⇒ `uniqueId`）。
+        /// <para>⚠️ `uniqueId` 那一支在本 build 现读 **0 次命中**（`cardType==0 ∧ targeted==1 ∧ ref 空` = 0 张），
+        /// 但原版有这一支 ⇒ 照抄，⛔ 别删。</para></summary>
+        public static string TargetedKey(string uniqueId, string targetingTextReferenceId)
+        {
+            string id = string.IsNullOrEmpty(targetingTextReferenceId) ? uniqueId : targetingTextReferenceId;
+            return TargetedTermPrefix + id;
+        }
+
+        /// <summary>按**当前语言**取「请点一个目标」那句提示（原版 `RawCardScript.GetLocalizedTargetted()`）。
+        /// <para>返回的是**原样词条**（可能含 `((…))` / `[[…]]` 记号）⇒ 调用方上屏前要过
+        /// <c>CardIcons.RewriteMarks</c>，与卡面正文同一条链（原版对应的是 `SupportMethods.ModifyLocalization`）。</para>
+        /// <para>缺键 ⇒ **走 <see cref="T"/> 的缺键档（返回键名 + 出声一次）** —— 与原版 I2「取不到就回 term」
+        /// 同形，⛔ 不在这里改判成空串（空串 = 一块空白 tooltip，那是本项目最忌讳的静默失败）。
+        /// 本 build 现读 **0 张卡**落这一档（见上面那段「可达性」）。</para></summary>
+        public static string TargetedText(string uniqueId, string targetingTextReferenceId)
+        {
+            return T(TargetedKey(uniqueId, targetingTextReferenceId));
+        }
+
+        /// <summary>这条「目标提示文案」**本地到底有没有**（自检 / 调用方判断用）。
+        /// ⚠️ 原版**没有**这道闸（`GetLocalizedTargetted` 取不到就回 term）⇒ ⛔ 别拿它当生产路径的分支；
+        /// 它只回答「本地数据里有不有这条键」。判据 = 官方 13 语言表的**英文列**（现读 10,854/10,862 非空，最全），
+        /// 所以**与当前语档无关**。⛔ 不改任何状态。</summary>
+        public static bool HasTargetedText(string uniqueId, string targetingTextReferenceId)
+        {
+            string key = TargetedKey(uniqueId, targetingTextReferenceId);
+            return !string.IsNullOrEmpty(key) && !string.IsNullOrEmpty(OfficialEnglish(key));
+        }
+
+        /// <summary>自检用：`Card_Targeted/*` 这条链的**灭自证**检查。
+        /// <returns>**空列表 = 全过**；每条失败是一句人话（直接丢进 `Check(...)` 的文案里即可）。</returns>
+        /// <para>⛔ 不改任何状态（**不会**让 `MissingCount` +1：只走已存在的键，不制造缺键）。</para>
+        /// <para>为什么这几条能防自证（`CLAUDE.md` §三「灭自证」那条）：</para>
+        /// <list type="number">
+        ///  <item>② 要求 `TargetedText` 对官方表里**每一条** `Card_Targeted/*` 都与 `T(key)` **逐字相等** ——
+        ///        31 条 = 31 个不同的值 ⇒ 「返回 id / 返回常量 / 不查表」的桩全部过不了。</item>
+        ///  <item>① 单独钉住「`ref` **压过** `uniqueId`」这一支（原版 `:2450` 的三元）：删掉它，
+        ///        这里会第一个红，报错能指到那一行。</item>
+        ///  <item>③ 反向对照：**本地不存在的 ref 必须取不到** —— 证明「能取到文案」不是本函数自己编的。</item>
+        /// </list></summary>
+        public static List<string> CheckTargetedText()
+        {
+            var bad = new List<string>();
+
+            // ① 键拼法两支（原版 `RawCardScript.cs:2450-2451`）
+            string kUid = TargetedKey("ZZTest", "");
+            string kRef = TargetedKey("ZZTest", "deal3Dmg");
+            if (kUid != TargetedTermPrefix + "ZZTest")
+                bad.Add("① `ref` 为空时应拼 `" + TargetedTermPrefix + "ZZTest`，实得 `" + kUid + "`");
+            if (kRef != TargetedTermPrefix + "deal3Dmg")
+                bad.Add("① `ref` 非空时应**压过** `uniqueId`（原版 `:2450` 的三元）拼 `"
+                        + TargetedTermPrefix + "deal3Dmg`，实得 `" + kRef + "`");
+
+            // ② 官方表里每一条 `Card_Targeted/*`：按 ref 走 `TargetedText` 必须取到**同一条**词条
+            var keys = Lang13Keys(TargetedTermPrefix);
+            if (keys.Length == 0)
+                bad.Add("② 官方 13 语言表里 `" + TargetedTermPrefix + "*` **一条都没有** ⇒ 本条链没有数据可吃");
+            foreach (string key in keys)
+            {
+                string refId = key.Substring(TargetedTermPrefix.Length);
+                string viaRef = TargetedText("__no_such_card_id__", refId);
+                string direct = T(key);
+                if (string.IsNullOrEmpty(viaRef))
+                    bad.Add("② `" + key + "` 取到**空串**");
+                else if (viaRef == key)
+                    bad.Add("② `" + key + "` 取到的仍是**键名**（= 根本没取到词条）");
+                else if (viaRef != direct)
+                    bad.Add("② `ref=\"" + refId + "\"` 走 `TargetedText` 实得「" + viaRef
+                            + "」，直取 `" + key + "` 是「" + direct + "」⇒ 拼键走岔了");
+            }
+
+            // ③ 反向对照（**灭自证**）：本地不存在的 ref 必须**取不到**
+            if (HasTargetedText("__no_such_card_id__", "zzz_this_targeted_ref_does_not_exist"))
+                bad.Add("③ 反向对照失败：本地不存在的 ref 被判成「有文案」⇒ `HasTargetedText` 只会回 true");
+            if (!HasTargetedText("__no_such_card_id__", "deal3Dmg"))
+                bad.Add("③ 反向对照失败：真实存在的 `deal3Dmg` 被判成「没有文案」");
+
+            return bad;
+        }
     }
 }

@@ -11,6 +11,23 @@
   · 目标格式 = 工程里已有的 `Assets/WarpforgeVFX/Animations/Booster Window - Background Shake On Open.anim`
     （`m_Legacy: 1` · `m_Compressed: 0` · `m_UseHighQualityCurve: 1` · `m_SampleRate: 60` · `m_WrapMode: 0` ·
      **`m_StopTime: 1`**（原版也是 1，⛔ 别改）· `inWeight/outWeight: 0.33333334` · `m_PreInfinity/m_PostInfinity: 2`）。
+  · 🔴 **`m_StopTime: 1` 不是 legacy clip 的运行时 length —— 2026-10-27 `B9_W37CLIP` 已证（⛔ 别再当缺陷去「修」）**：
+    ① AssetRipper 导出的原版 74 条 clip 里，**66 条 `m_Legacy: 1` 全部是 `m_StopTime: 1.0`**（含曲线到 **7.05 s** 的
+       `Godspear Warhead`），而 8 条 `m_Legacy: 0` 才是真值（0.8166 / 2.0 / 10.05 / 11.92 / 17.13 …）；
+    ② `m_StopTime` 落在 **`UnityEngine.CoreModule.dll` 里 0 命中**、只在 `UnityEditor.CoreModule.dll` 里出现
+       （`AnimationClipSettings` 7 处 / `stopTime` 1 处）⇒ 它是编辑器侧（Animation 窗口 / 导入器）的字段；
+    ③ 原版**依赖**这些 >1 s 的事件才能跑：`RankedEventDivisionChangeWindow__AnimationFinished`（3.9167 s）·
+       `CardDisplayLevelUpAnimationController__AnimationFinished`（3.4833 s）· `RemnantNecrons__AnimationResurrectionEnd`
+       （1.8 s）· `SwarmVFXController__OnAnimationEndEvent`（1.2 s）—— 截断到 1 s 它们一次都不会响。
+    ⇒ **legacy clip 的 length = 曲线最晚键**；`--check` 因此断的是「**事件时刻 ≤ 曲线跨度**」，⛔ 不是 `StopTime >= 事件`。
+  · 输出目录（2026-10-27 `B9_W37CLIP` 改）：三条升级 clip 写进 **`Assets/CardPresentation/Resources/Animations/`**
+    （运行期 `Resources.Load<AnimationClip>("Animations/<名字>")` 取得到；原来只写 `WarpforgeVFX/Animations/` = 全工程 0 引用、
+    运行期取不到）；`Booster Window - …` 留在原处（它的用途是判据，由 `BoosterPackOpenWindow` 采样驱动）。
+  · `.meta`：目标文件没有 `.meta` 时**顺带写一份**（guid = `md5("WarpforgeAnimClip/" + 名字)`，**确定性**）⇒ 重跑幂等；
+    已有 `.meta` **不覆盖**（保住 guid）。
+  · ⚠️ **`m_ScaleCurves` 有意不生成**：`Level Up Card` 的那条 path 是 `''`（= 挂在 clip 自己的根上）、值是 **250 → 288.98 → 250**
+    （⚠️ 2026-10-27 现核：那个根是 **`CardUI`**（`MainMenu Warpforge.unity` tran `&1516`），**不是 `Upgrade Panel`** —— 后者只是控制器 `CardDisplayLevelUpAnimationController` 的宿主；`250` 是「**1 卡单位 = 250 画布 px**」的静止量纲、**不是放大倍数**）—— 照搬会把**我们的窗根**放大 250 倍。`Rank Up` / `Division Up` 的两条绑
+    `Division Image` / `Rank Icon`（升级窗 `CardDetailPopup` 那棵树里没有这两个节点；段位窗 `RankedDivisionChangeWindow` 有，但那两条走 `division_clips.json`、不经本生成器）⇒ 天生绑不上。留待「原版节点 ↔ 我们节点」映射表，⛔ 别无脑加。
   · 🔴 **`floatProperty1/2` 那几条的 `script` 引用必须改成本工程那个组件**：
     原版是 `{m_FileID: 1, m_PathID: <原版 MonoScript>}` —— 那份脚本在 `Assembly-CSharp` 里，本工程解不到；
     照抄（或像 `Booster Window - …` 那样写 `guid: 0000…`）⇒ **曲线绑到空气、静默不生效**。
@@ -27,24 +44,27 @@
 写盘之后 **Unity 要自己 import 一次**（生成 `.meta`）；命令见报告。
 """
 import io
+import hashlib
 import json
 import os
 import sys
 
 ASSETS = 'd:/4/Unity/MyGame/Assets'
-OUT_DIR = os.path.join(ASSETS, 'WarpforgeVFX', 'Animations')
+OUT_VFX = os.path.join(ASSETS, 'WarpforgeVFX', 'Animations')
+OUT_RES = os.path.join(ASSETS, 'CardPresentation', 'Resources', 'Animations')
 SRC = 'd:/2/新解包资源/assets_full'
 SCRIPT_META = os.path.join(ASSETS, 'WarpforgeVFX', 'Runtime', 'AnimateUIMaterialProperty.cs.meta')
 
 CLIPS = [
-    ('Rank Up',        SRC + '/bundle_menus_assets_all/AnimationClip/AnimationClip_4418588262184220504.json'),
-    ('Division Up',    SRC + '/bundle_menus_assets_all/AnimationClip/AnimationClip_6413171015603015678.json'),
-    ('Level Up Card',  SRC + '/bundle_scenes_scenes_mainmenuwarpforge/AnimationClip/AnimationClip_10.json'),
+    # 三条升级 clip 写进 `Resources/`：运行期取得到（`CardDetailPopup.PlayUpgradeAnimation` → `EnsureUpgradeAnimation`）。
+    ('Rank Up',        SRC + '/bundle_menus_assets_all/AnimationClip/AnimationClip_4418588262184220504.json', OUT_RES),
+    ('Division Up',    SRC + '/bundle_menus_assets_all/AnimationClip/AnimationClip_6413171015603015678.json', OUT_RES),
+    ('Level Up Card',  SRC + '/bundle_scenes_scenes_mainmenuwarpforge/AnimationClip/AnimationClip_10.json', OUT_RES),
     # ⚠️ 这一条**工程里本来就有**（`BoosterPackAnim`/`BoosterPackOpenWindow` 引它但**没播**，见那两处注释）。
     #    它的 `script` 引用写的是 `guid: 0000…` ⇒ 真接线那天两条曲线会**绑到空气**（静默）。
     #    用同一份原版数据重写即可修掉；⛔ 它的 `.meta` guid 不动（重写的是内容）。
     ('Booster Window - Background Shake On Open',
-     SRC + '/bundle_menus_assets_all/AnimationClip/AnimationClip_-177604310092043705.json'),
+     SRC + '/bundle_menus_assets_all/AnimationClip/AnimationClip_-177604310092043705.json', OUT_VFX),
 ]
 
 BOUND = ('floatProperty1.value', 'floatProperty2.value',
@@ -164,7 +184,7 @@ def build(clip_name, src_path, guid):
         '    m_AdditiveReferencePoseClip: {fileID: 0}',
         '    m_AdditiveReferencePoseTime: 0',
         '    m_StartTime: 0',
-        '    m_StopTime: 1',            # 判据：原版也是 1，⛔ 别改
+        '    m_StopTime: 1',            # 原版 66/66 条 legacy clip 都是 1；**不是 length**（length = 曲线最晚键），⛔ 别改
         '    m_OrientationOffsetY: 0',
         '    m_Level: 0',
         '    m_CycleOffset: 0',
@@ -188,6 +208,38 @@ def build(clip_name, src_path, guid):
     return '\n'.join(lines) + '\n', report
 
 
+def max_curve_time(d):
+    """legacy clip 的运行时 length 判据 = 所有曲线键里最晚的那个 `time`（⛔ 不是 `m_StopTime`，见文件头）。"""
+    mt = 0.0
+    for key in ('m_FloatCurves', 'm_ScaleCurves', 'm_PositionCurves',
+                'm_RotationCurves', 'm_EulerCurves'):
+        for c in (d.get(key) or []):
+            for k in ((c.get('curve') or {}).get('m_Curve') or []):
+                t = k.get('time')
+                if t is not None and float(t) > mt:
+                    mt = float(t)
+    return mt
+
+
+def max_event_time(d):
+    return max([float(e.get('time', 0)) for e in (d.get('m_Events') or [])] or [0.0])
+
+
+def meta_text(name):
+    """`.meta` 的确定性 guid（重跑幂等；已有 `.meta` 不覆盖，保住 guid）。"""
+    g = hashlib.md5(('WarpforgeAnimClip/' + name).encode('utf-8')).hexdigest()
+    return ''.join([
+        'fileFormatVersion: 2\n',
+        'guid: %s\n' % g,
+        'NativeFormatImporter:\n',
+        '  externalObjects: {}\n',
+        '  mainObjectFileID: 0\n',
+        '  userData: \n',
+        '  assetBundleName: \n',
+        '  assetBundleVariant: \n',
+    ])
+
+
 def main():
     args = sys.argv[1:]
     check = '--check' in args
@@ -195,12 +247,21 @@ def main():
     guid = script_guid()
     print('AnimateUIMaterialProperty.cs guid =', guid)
     ok = True
-    for name, src in CLIPS:
+    for name, src, out_dir in CLIPS:
         text, report = build(name, src, guid)
-        dst = os.path.join(OUT_DIR, name + '.anim')
+        dst = os.path.join(out_dir, name + '.anim')
         print('=' * 8, name, '→', dst, '|', len(report), 'curves')
         for path, attr, cid, lands in report:
             print('   %-46s %-32s classID=%-4d %s' % (repr(path), attr, cid, lands))
+        d = json.load(io.open(src, encoding='utf-8'))
+        mt, me = max_curve_time(d), max_event_time(d)
+        print('   length(曲线最晚键) = %.7f s · 最晚事件 = %.7f s · m_StopTime = 1（原版同值，不是 length）'
+              % (mt, me))
+        if me > mt + 1e-5:
+            ok = False
+            print('   🔴 事件时刻 %.7f > 曲线跨度 %.7f ⇒ 播到片尾也**够不到**这条事件' % (me, mt))
+        elif me > 0:
+            print('   ✅ 事件都在曲线跨度之内（事件点 = 片尾）')
         if check:
             have = io.open(dst, 'rb').read().decode('utf-8') if os.path.exists(dst) else None
             if have != text:
@@ -210,8 +271,18 @@ def main():
                 print('   ✅ CHECK：逐字节一致')
             continue
         if write:
-            io.open(dst, 'wb').write(text.encode('utf-8'))
+            if not os.path.isdir(out_dir):
+                os.makedirs(out_dir)
+            data = text.encode('utf-8')          # ⚠️ 先算好再 write（`io.open(...,'wb')` 会先截断）
+            io.open(dst, 'wb').write(data)
             print('   WROTE')
+            meta = dst + '.meta'
+            if not os.path.exists(meta):
+                mdata = meta_text(name).encode('utf-8')
+                io.open(meta, 'wb').write(mdata)
+                print('   WROTE (meta, 新 guid)')
+            else:
+                print('   META 已存在，未覆盖（保住 guid）')
     if check:
         sys.exit(0 if ok else 1)
     if not write:

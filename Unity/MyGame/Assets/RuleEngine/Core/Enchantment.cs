@@ -138,8 +138,8 @@ namespace RuleEngine
         /// <summary>
         /// 附魔卡的 `spellType(+0x90)`（`EntityScript__HasSecretOrders.c:31` 读它：
         /// `enchantmentCard + 0x90 == 0x3c(60)` ⇒ 这一件是**密令**）。
-        /// ⚠️ **`-1` = 未知**（我们的卡表 `cards_engine.json` **没有 `spellType` 列**，
-        ///    见本文件末尾「没查清 / 还差什么」）—— ⛔ 别把 `-1` 当成某个具体值。
+        /// ✅ 2026-10-27 订正：`cards_engine.json` **已有 `spellType` 列**（1128/1128）、`CardDef.SpellType` 有值 —— 原文「卡表没有这一列」写于该列落地之前，已过期。
+        ///    ⛔ 仍成立：`-1` 是「未知」兜底值，别把它当成某个具体值。
         /// </summary>
         public int SpellType = -1;
 
@@ -487,10 +487,10 @@ namespace RuleEngine
         /// ⚠️ 计数位在**载体**上（`param_3`），不在附魔条目上 ⇒ 同一张牌的两条任务附魔共用一个计数器。</para>
         ///
         /// <para>**本仓的取舍**：
-        /// · 原版那个 `cardType == 40` 在 `CardDef` 里**没有对应字段**（`Type` 只有
-        ///   `unit/tactic/hero/defence` 四档，Whispers 卡**不进卡池**）。但**能挂到附魔层的卡片
-        ///   按定义就是原版的 Whispers**（`CardScript.AddEnchantment` 只由 `buffType 12/15/16` 触发，
-        ///   见本文件头）⇒ 这里只用 `SpellType == 120` 判，不加一个永远为假的 `Type` 串判断。
+        /// · 🔴 2026-10-27（W68ENG3 · G37）**就地订正**：原来写「原版 `cardType==40` 在 `CardDef` 里没有对应字段、
+        ///   只用 `SpellType` 判」—— 那句已过期：`CardDef.cs` 有 `CardTypeWhispers = 40`（`CardDef.CardType` 属性，
+        ///   原版 `RawCardScript.cardType@+0x94`）。原版**三条闸** `cardType==40 ∧ spellType==120 ∧ questTimes>1`
+        ///   现在照抄（见下面循环体那道判据），三条全过才动 `questCounter`。
         /// · `questTimes ∈ {-1, 0, 1}` ⇒ **原版那条闸不适用**（`1 < questTimes` 为假）⇒ 原样放行。
         ///   ⚠️ `-1` = 未知（旧表）⇒ **不猜**，按「不加闸」处理，并在日志里出声一次（下面那句）。</para>
         ///
@@ -512,7 +512,7 @@ namespace RuleEngine
                 int times = (e != null && e.Card != null) ? e.Card.QuestTimes : -1;
                 int st = e != null && e.Card != null ? e.Card.SpellType : -1;
                 // 只认「任务」那一种附魔 + `questTimes > 1`（原版那三条判据；未知一律不加闸）。
-                if (st != SpellTypeQuest || times <= 1)
+                if (e == null || e.Card == null || e.Card.CardType != CardDef.CardTypeWhispers || st != SpellTypeQuest || times <= 1)
                 {
                     if (kept != null) kept.Add(e);
                     continue;
@@ -1068,6 +1068,217 @@ namespace RuleEngine
             // 兜底（正常挂载路径走不到）：`Effect` 丢了也要把 `+0x110` 那条摘掉，⛔ 不留半条。
             if (carrier.Instance != null) carrier.Instance.ActiveEnchantments.Remove(e);
             return true;
+        }
+
+        // ================================================================================================
+        //  🆕 2026-10-27（批次 9 · 执行代理 `B9_W43DA42`）—— **`DA42 Reconnaissance Mission` 附魔链**
+        //
+        //  判据（第一权威 = 全量反编译 + `cards_truth.json`，全文 7 跳）：
+        //     `资料/完全复刻/判据/DA42与BroadcastHandWhen剩余_判定.md` §一·1 / §三（A2/A3/A5）。
+        //
+        //  一句话：打出 DA42 → 从**对手手牌**挑一张 → 给**那份手牌实例**挂一条 `buffType 15` 附魔 →
+        //    **那张牌被打出时**，附魔的 `trigger 0` 结算 `buffMana{3, enemyPlayer:1, questPoints:1}`
+        //    ⇒ **+3 任务点给「载体属主的对手」** → 再 `340 removeThisEnchantment` 把自己摘掉（FIFO：先加、后排摘）。
+        //
+        //  ⚠️ 这两段是**本链独有的接线端**（挂 / 派发）；「+3 落点」那一跳复用
+        //     `RuleCore.GrantQuestPointsToOpponentOfCarrier`（= `DoFactionResource` 的换边语义，⛔ 不另写一份）。
+        //  —— 本段全部追加在类尾（⛔ 别插到中间：`账/*.tsv` 按 `文件:行号` 引）。
+        // ================================================================================================
+
+        /// <summary>
+        /// `DA42` 的**附魔模板** uniqueId（= 我们卡池的 `id`）。
+        /// 判据 = `资料/普查产出_1018/allcards_1350/cards_raw.json` 的
+        /// `m_Name = Reconnaissance Mission`（`cardType 20` · `path_id` 见判据件 §一·2 P0）；
+        /// 它的 `abilities[0].logic` = `[{chosenAbility 60, manaBuff{3, enemyPlayer:1, questPoints:1}},
+        /// {chosenAbility 340, targetCriteria{targetsAffected 20}}]`，**两行都挂 `trigger 0`**
+        /// （`cards_truth.json` 亲读）。
+        /// <para>⛔ **今天不在池里**（`cards_engine.json` 1128 张查无此 id）：入池那一步是判据件 §三 **A1a**
+        /// （`gen_cards_engine.py` 的 `ENCHANTMENT_EXECUTORS`），**会改池指纹** ⇒ 只能由调度台在
+        /// 「没有账写手」的窗口做（本笔 ⛔ 不改数据、⛔ 不跑生成器）。</para>
+        /// </summary>
+        public const string DA42EnchantmentCardId = "e8cf1eb55ca41534abe38efc90b302e9";
+
+        /// <summary>打出这条链的**那张卡自己**的 `id`（`cards_engine.json` = `DA42`）。</summary>
+        public const string DA42CardId = "DA42";
+
+        /// <summary>附魔模板的显示名（**兜底判据**：按 id 找不到时才用，且必须同时是
+        /// <see cref="CardDef.IsEnchantment"/>）。⚠️ 它和战术卡 `DA42` 同名 —— 所以兜底**必须**
+        /// 带 `IsEnchantment` 闸，否则会把那张战术卡当成附魔模板（静默挂错卡）。</summary>
+        public const string DA42EnchantmentName = "Reconnaissance Mission";
+
+        /// <summary>
+        /// 这张附魔模板在本局卡池里（找不到返回 `null`）。**只按 id 认**，id 不中才退
+        /// 「名字 + `enchantment` 型」—— 形状照 <see cref="FindPrayCard"/>（同一条判据，⛔ 别各写一份）。
+        /// <para>⚠️ **A1a 之前恒 `null`**（模板不入池，见 <see cref="DA42EnchantmentCardId"/> 的 doc）——
+        /// 调用方必须**如实出声**，⛔ 不许把它当「这条链不适用」。</para>
+        /// </summary>
+        public static CardDef FindDA42Enchantment(BattleContext ctx)
+        {
+            if (ctx == null || ctx.CardPool == null) return null;
+            CardDef byName = null;
+            for (int i = 0; i < ctx.CardPool.Count; i++)
+            {
+                var c = ctx.CardPool[i];
+                if (c == null) continue;
+                if (c.Id == DA42EnchantmentCardId) return c;
+                if (byName == null && c.IsEnchantment && c.Name == DA42EnchantmentName) byName = c;
+            }
+            return byName;
+        }
+
+        /// <summary>
+        /// **这个载体身上，哪些附魔对这一条触发关键词有话说**（原版
+        /// `RawCardScript__TriggerAbilities.c:50-88` 把 `+0x110` 里每个附魔的 `cardAbilities(+0x290)`
+        /// 一起算进来）—— **与 <see cref="Matching"/> 同一条口径，但吃 `CardInstance`**。
+        ///
+        /// <para>⚠️ **为什么不能直接复用 <see cref="Matching"/>**：那个吃 `UnitState`（只覆盖棋盘），
+        /// 而 DA42 的载体是**手牌/刚打出的那一份实例**（判据件 §一·2 P2）。</para>
+        /// <para>🔴 **认能力的两条路（按序）**：
+        /// ① **卡面正文**（= <see cref="Matching"/> 的判据：`CardDef.TriggerOps` / `CardDef.Effect`）；
+        /// ② **id 白名单 + trigger 名**（DA42 模板**没有卡面正文** —— 它不在 `cards_engine` 的 OCR 层，
+        ///   所以 ① 对它**恒 false**，判据件 §四·4）。</para>
+        /// </summary>
+        public static List<ActiveEnchantment> MatchingForInstance(CardInstance carrier, string triggerName)
+        {
+            var r = new List<ActiveEnchantment>();
+            if (carrier == null || string.IsNullOrEmpty(triggerName)) return r;
+            foreach (var e in carrier.ActiveEnchantments)
+            {
+                if (e == null || e.Card == null) continue;
+                // ① 卡面正文（Pray 那一族与将来任何「自带正文」的附魔都走这里）
+                if (e.Card.TriggerOps(triggerName) != null || e.Card.Effect(triggerName) != null) { r.Add(e); continue; }
+                // ② id 白名单：DA42 模板的两条 ability 都挂 `trigger 0 = ThisCardPlayed`
+                if (IsDA42Enchantment(e.Card) && IsThisCardPlayed(triggerName)) { r.Add(e); continue; }
+            }
+            return r;
+        }
+
+        /// <summary>这张附魔卡是不是 DA42 那条模板（按 id；⛔ 不按名字 —— 名字与战术卡同名）。</summary>
+        public static bool IsDA42Enchantment(CardDef enchantmentCard)
+        {
+            return enchantmentCard != null && enchantmentCard.Id == DA42EnchantmentCardId;
+        }
+
+        /// <summary>`trigger 0` 的名字（`AbilityTrigger.ThisCardPlayed`，判据 = `CardDef` 的
+        /// trigger 名表 `{"ThisCardPlayed", 0}`）。大小写不敏感 —— 与 `ActionPump` 同口径。</summary>
+        static bool IsThisCardPlayed(string triggerName)
+        {
+            return string.Equals(triggerName, "ThisCardPlayed", System.StringComparison.OrdinalIgnoreCase);
+        }
+
+        /// <summary>
+        /// **承载卡被打出时，派发它身上 DA42 附魔的 `trigger 0`**
+        /// （原版 `RawCardScript__OnCardPlayedWithTarget.c:43` 的 `thisCard == cardPlayed` 支
+        /// → `TriggerAbilities(trigger 0, includeEnchantments: 1)` → `RawCardScript__TriggerAbilities.c:202`
+        /// 的共享尾块扫 `thisCard.activeEnchantments(+0x110)`）。
+        ///
+        /// <para>**逐跳照原版（判据件 §一·1 ⑤⑥⑦）**：
+        /// ① 每条命中的附魔 **入队** 一次「+3 任务点」——落点 = **`1 - carrierOwner`**
+        ///   （原版 `buffMana{manaAmount 3, enemyPlayer 1, questPoints 1}`：`ResolveManaBuff` 对
+        ///    `enemyPlayer` 非零**把那一格取反**，而 `isPlayer` 来自**载体**）；
+        /// ② 再 **入队** 摘掉那一条（原版 `chosenAbility 340` → `AddRemoveEnchantment` → `AddAutoActionToQueue`）。
+        ///   两条同一条道（缺省 `Instant`）FIFO ⇒ **先加、后排摘**。⚠️ 顺序反了 = 摘了才加（数值还是一样，
+        ///   但 `EvtKind.EnchantmentRemoved` 会早于 `GainQuest`，与原版的事件序相反）。</para>
+        ///
+        /// <para>⚠️ **幂等性**：原版每打出一次就扫一遍 `+0x110`、结算完就摘 ⇒ 同一件附魔**只响一次**；
+        /// 我们靠「排摘」达到同一结果（不需要 `Spend` —— 原版这一跳也不调 `SpendEnchantment`，
+        /// 那两处调用点只在 `spellType 130` / `chosenAbility 280`，与附魔自身结算无关）。</para>
+        ///
+        /// <para>调用点（判据件 §三 A4）：`EffectResolver.PlayTacticCore` 的 `BroadcastWhen(Play)` 之后、
+        /// `RuleCore.PlayCardCore` 的同名广播之后。</para>
+        /// </summary>
+        public static void OnCarrierPlayed(BattleContext ctx, CardInstance carrier, int carrierOwner)
+        {
+            if (ctx == null || carrier == null) return;
+            var hits = MatchingForInstance(carrier, "ThisCardPlayed");
+            if (hits.Count == 0) return;
+            int gainOwner = 1 - carrierOwner;   // 原版 `manaBuff.enemyPlayer`：相对【载体属主】取反
+            string carrierName = NameOf(carrier.Card);
+            for (int i = 0; i < hits.Count; i++)
+            {
+                var e = hits[i];
+                if (e == null) continue;
+                var eff = e.Effect;
+                // ① 先入队 +3（原版 `buffMana` → `AddManaBuff` → `AddAutoActionToQueue`）
+                RuleCore.EnqueueAbility(ctx, ActionPriority.Instant, "DA42附魔:+3任务点",
+                    () => RuleCore.GrantQuestPointsToOpponentOfCarrier(ctx, carrierOwner, 3,
+                                                                     "Reconnaissance Mission 附魔"));
+                ctx.Log($"附魔层：「{carrierName}」被打出 ⇒ 它身上的「{NameOf(e.Card)}」结算 `trigger 0`："
+                      + $"**{ctx.Players[gainOwner].Name} +3 任务点**"
+                      + $"（`buffMana.enemyPlayer` 相对载体属主取反 ⇒ 给 {gainOwner} 号玩家）");
+                // ② 再入队摘掉这一条（原版 `chosenAbility 340 removeThisEnchantment`；同道 FIFO ⇒ 先加后排摘）
+                if (eff != null)
+                    EnqueueRemove(ctx, carrier, eff, ActionPriority.Instant,
+                                  "removeEffect DA42 附魔：「" + NameOf(e.Card) + "」");
+            }
+        }
+
+        /// <summary>
+        /// **DA42 的挂载端**：把附魔模板挂到「刚才选中的那一份手牌实例」上
+        /// （原版 `AbilityLogic.PlayAbility` 的 `chosenAbility 30 buffOthers` → `CardScript__AddEffect`
+        /// `case 0xf(15) → AddEnchantment`，**无区域闸** ⇒ 手牌实例照挂；判据件 §一·1 ③）。
+        ///
+        /// <para>🔴 **只在「这次出牌结算的卡 = DA42」时动手**（<see cref="BattleContext.CardPlaySource"/>）；
+        /// 其余 `Choose a card in your opponent's hand` 的卡**一个字都不改**（它们今天仍是
+        /// 「只挑出来、什么都不做」）。</para>
+        /// <para>⚠️ **模板不在池里（A1a 之前）⇒ 不挂 + 如实出声**（⛔ 不静默、不拿别的卡顶替）。</para>
+        /// <para>⚠️ `trait` 传 **`""`**（明确没有）：原版 `CardEffect.trait` 取自**挂它的那条 buff**，
+        /// 而 DA42 的 buff 在 **DA42 自己**的 ability 里（`cards_truth` 那一行的 `logic[0]` 没有 `trait`）
+        /// —— ⛔ 别让它退到 <see cref="Attach"/> 的「读载体卡 `EnchantTrait`」那条路（那是 Pray 的约定，
+        /// 会把对手手牌那张卡的 enchantTrait 错记成这条附魔的 trait）。</para>
+        /// </summary>
+        public static ActiveCardEffect AttachDA42ToChosenHandCard(BattleContext ctx, CardInstance chosenHandInst)
+        {
+            if (ctx == null || chosenHandInst == null) return null;
+            var src = ctx.CardPlaySource;
+            if (src == null || src.Id != DA42CardId) return null;   // ⛔ 别的「从对手手牌选一张」的卡不受影响
+            var tmpl = FindDA42Enchantment(ctx);
+            if (tmpl == null)
+            {
+                ctx.Log("附魔层：⚠️ `DA42` 要挂附魔，但本局卡池里找不到模板「" + DA42EnchantmentName
+                      + "」（`id " + DA42EnchantmentCardId + "`）—— **这条附魔没挂上**，"
+                      + "那张牌被打出时**不会** +3 任务点（模板入池 = 判据件 §三 A1a，待调度台做；"
+                      + "⛔ 不静默退回「打出即 +3」）");
+                return null;
+            }
+            var eff = Attach(ctx, chosenHandInst, tmpl, BuffTypeSingleUse,
+                             source: src.Name, acting: null, trait: "");
+            if (eff != null)
+                ctx.Log("附魔层：「" + NameOf(chosenHandInst.Card) + "」（对手手牌）挂上「"
+                      + DA42EnchantmentName + "」—— **它被打出时才 +3 任务点**（打出当刻不结算）");
+            return eff;
+        }
+
+        /// <summary>
+        /// **A7 的结算层闸**（`B9_W43DA42`）：`DA42` 卡面那句 `When played, gain 3 Quest Points`
+        /// **不属于「打出这张卡时的正文」** —— 它是**附魔的触发条件**（原版：那句 buff 挂在
+        /// `cardAbilities[trigger 0].abilityLogic[]` 的 `buffEffect{enchantment → 模板}` 上，
+        /// 由 `CardScript__AddEffect` 挂到**承载卡**的 `+0x110`，**承载卡被打出时**才结算；
+        /// 判据件 §一·1 ③④⑤）。
+        ///
+        /// <para>🔴 **为什么不改解析器（与判据件 §三 A7 的字面口径有出入，如实写明）**：
+        /// 原计划是「让主解析器不再产 `gainquest`」。实测 `ruleprobe check` 的
+        /// **【输出指纹】哨兵**（`Program.PinnedParseMd5`）钉死了**整池解析输出的 md5**，
+        /// 而它「重生成基线也抹不掉」⇒ 动解析输出会让 `check` 永久 `rc=1`，且重钉要改
+        /// `工具/ruleprobe/**`（本波别人正在写）。⇒ 改成**结算层跳过**：解析输出逐字不变
+        /// （`scan` / 基线 / 指纹全绿），**行为**与原计划一致（打出当刻 +0 任务点）。</para>
+        ///
+        /// <para>闸门收得很紧：只认「**这次结算的来源卡是 DA42**」+「**op 是 `gainquest`**」+
+        /// 「**原句以 `When played` 开头**」三条同时成立 —— 现池里同时满足的只有**那一条 op**
+        /// （`cards_engine.json` 的 `DA42.desc` 亲读）。</para>
+        /// </summary>
+        public static bool IsEnchantTriggerClause(CardDef sourceCard, EffectOp op)
+        {
+            if (sourceCard == null || op == null) return false;
+            // 🔶 自己设计（非原版）：用「卡 id 白名单」代替原版的 `CardEffect.enchantment` PPtr 引用
+            //   · 为什么必须自己定：`cards_engine.json` 没有 `enchantment` 列、`CardDef` 也没有对应字段
+            //     （判据件 §一·2 P0），模板本身还要等 A1a 才入池 ⇒ 今天只能按 id 认；
+            //     A1b（通用被动 `abilityLogic` 解释器）落地后应改读数据列。
+            //   · 调度台 2026-10-27 裁定（本笔 A1a/A7 的口径）。
+            if (sourceCard.Id != DA42CardId) return false;
+            if (op.Verb != "gainquest") return false;
+            return op.Source != null
+                && op.Source.IndexOf("when played", System.StringComparison.OrdinalIgnoreCase) >= 0;
         }
     }
 }

@@ -269,9 +269,14 @@ namespace CardPresentation
         //   右栏 Punch `0.05×base / 0.4s / vibrato5 / elastic1`。
         // ⚠️ 原版那几条是 `PrebuiltPackUI.OpenAnim/SelectAnim/CloseAnim` + `DraftModeSelectPacksStateDemo.UpdateDeckInfoPanelAnimSync`；
         //    本仓此前把它们记成「只有 `DAT_*` 符号、查不到」（`PickPack` 里那条旧日志）—— **那条说法已作废**（铁律 5）。
-        /// <summary>`PrebuiltPackUI.OpenAnim`：出现时从 <c>0.6</c> 缩到 <c>1</c>（局部缩放）。</summary>
-        public const float PackOpenScaleFrom = 0.6f;
-        /// <summary>`OpenAnim` 时长（秒）。</summary>
+        /// <summary>`PrebuiltPackUI.OpenAnim`：出现时 `content.localScale` 从 <c>0</c> 长到 <c>1</c>。
+        /// 🔴 **2026-10-27（B9_W8PREB · 账 卡组:299）就地订正**：这里原来写 `0.6f`、doc 也写「0.6→1」—— **是错的**。
+        /// 判据 = `decomp_full/PrebuiltPackUI__OpenAnim.c`：`UnityEngine_Transform__set_localScale(lVar3, &local_28)`
+        /// 而 `local_28` 来自 `Vector3.zero` 那个静态量（三个分量各 × `DAT_1834b3180`）⇒ **`Vector3.zero`**；
+        /// 🥈 `cpp2il…/PrebuiltPackUI.cs:262-266` 写的是 `content.localScale = (Vector3)(&num2)` 且 `num2 = default`
+        /// （= `(0,0,0)`）。⛔ 0.6 那个数是**关包**（`CloseAnim`）与选包第二段的终值，别混。</summary>
+        public const float PackOpenScaleFrom = 0f;
+        /// <summary>`OpenAnim` 的缩放/淡入时长（秒；`DAT_1834b3158` 实读 `0.4`，两条共用）。</summary>
         public const float PackOpenDuration = 0.4f;
         /// <summary>`OpenAnim` 的**逐张步进**（第 i 张延迟 `i × 0.175s`）。</summary>
         public const float PackOpenStep = 0.175f;
@@ -281,8 +286,8 @@ namespace CardPresentation
         public const float PackSelectUpDuration = 0.3f;
         /// <summary>`SelectAnim` 第二段终值（再缩到 0.6 —— 原版这一刻它飞向 `Select Pack Anim Anchor`）。</summary>
         public const float PackSelectScaleDown = 0.6f;
-        /// <summary>`SelectAnim` 第二段时长（秒）。</summary>
-        public const float PackSelectDownDuration = 0.4f;
+        /// <summary>`SelectAnim` 第二段时长（秒）；`PackSelectFlyInterval` = 原版 `AppendInterval(0.2f)`（放大之后、开飞之前的停顿）。</summary>
+        public const float PackSelectDownDuration = 0.4f, PackSelectFlyInterval = 0.2f;
         /// <summary>`CloseAnim` 终值 / 时长（**其余**那些包被关掉时缩到 0.6）。</summary>
         public const float PackCloseScale = 0.6f, PackCloseDuration = 0.4f;
         /// <summary>右栏 `DOPunchScale` 的 punch 幅度（× 当前局部缩放）、时长、vibrato、elasticity。</summary>
@@ -1977,7 +1982,12 @@ namespace CardPresentation
         }
 
         /// <summary>点包卡**空白处** ⇒ 预览包里那几张卡（原版 `BackgroundClick` → `PackPreview(pack)`）。
-        /// ⚠️ 原版那颗 `previewPackSound` 的 clip 名查不到（S3 §五·4）⇒ 静音 + 出声一次。</summary>
+        /// 🔴 **2026-10-27（B9_W8PREB · 账 卡组:300）就地订正**：原 doc 写「`previewPackSound` 的 clip 名查不到 ⇒ 静音」
+        /// —— **那条已作废**。现读 `PrebuiltPackUI.previewPackSound`（`MonoBehaviour_-2302561337839276558`，
+        /// `m_FileID = 6` → externals[5] = `soundcollection_assets_all` 的 `CAB-62d1945b…`）⇒ cue 资产名
+        /// **`Draft Prebuilt Pack preview`**（`WindowSounds.DraftPrebuiltPackPreviewCue`，本地音效表**有**这条，
+        /// clip = `UI Click Card 3`）。原版 `PreviewButtonOnClick` 就是 `Play2D(previewPackSound)` 再开预览。
+        /// ⚠️ 音效排在**前置闸之后**（预览层没建 / 包不在这一轮 ⇒ 原版那颗钮根本不在，也不该响）。</summary>
         public bool ShowPackPreview(string packKey)
         {
             if (_previewRoot == null || _previewCards == null)
@@ -1994,6 +2004,8 @@ namespace CardPresentation
                                + "（原版只认 `packsUIContainer` 里那几张的 `PackPreview`）");
                 return false;
             }
+            // 原版 `PreviewButtonOnClick`：① `SoundManager.Play2D(previewPackSound)` ② `onPackPreview(currentPack)`
+            WindowSounds.PlayFx(WindowSounds.DraftPrebuiltPackPreviewCue, "[Draft] 点包卡空白处开预览（原版 `previewPackSound`）");
             for (int i = _previewCards.childCount - 1; i >= 0; i--)
                 RewardsWindow.DestroySafe(_previewCards.GetChild(i).gameObject);
             _previewCardViews.Clear();
@@ -2414,11 +2426,11 @@ namespace CardPresentation
             _packNodes.Add(node);                     // 与 `_offered` 同序（动画按包找节点）
             var content = MenuDraw.Node(node, "Content", r);
             // 包底 + 橙色描边（原版 `BackgroundImage` = `UI_Deck_Information_submenu_Back` 九宫 18,18,18,18
-            // · `Highlight` = `OctagonUI Border SDF` 九宫 52² 橙色 (1,0.558,0.078)）
+            // · `Highlight` = `OctagonUI Border SDF` 九宫 52² 橙色 (1,0.558,0.078) · 🆕 2026-10-27 `B9_W23DRAFT`：它的返回值**必须接** —— 原版 `Prebuilt Pack UI` 的 `UIEffectTogglerImage.images[0]` 就是这颗子件（⛔ 不是同节点）⇒ 类尾 `RegisterPackScan`）
             MenuDraw.Nine(content, Tex("UI_Deck_Information_submenu_Back"),
                           new PxRect(r.x1, r.y1, r.x2, r.y2), new Vector4(18f, 18f, 18f, 18f), 69f, 63f,
                           QPanelBack2, null, true, "BackgroundImage", new Vector4(9f, 9f, 9f, 9f));
-            MenuDraw.Nine(content, Tex("OctagonUI_Border_SDF"),
+            var hl = MenuDraw.Nine(content, Tex("OctagonUI_Border_SDF"),
                           new PxRect(r.x1 + 2f, r.y1 + 2f, r.x2 - 2f, r.y2 - 2f),
                           new Vector4(52f, 52f, 52f, 52f), 128f, 128f, QPanelArt,
                           new Color(1f, 0.558f, 0.078f, 1f), false, "Highlight", null, null, default(Vector2));
@@ -2478,8 +2490,8 @@ namespace CardPresentation
             MenuDraw.Hit(content, "BackgroundClick", new PxRect(r.x1, r.y1, r.x2, r.y2), QHitContentMin - 1,
                          () => ShowPackPreview(key), null, null, null, null);
 
-            // `PrebuiltPackUI.OpenAnim`：**出厂那一刻**从 0.6 缩到 1（0.4 s），第 i 张延迟 `i × 0.175`。
-            PlayPackOpenAnim(node, index);
+            // 原版 `PrebuiltPackUI.Setup()`（缓存 startingSize/startingPos）+ `OpenAnim(i)` —— 本体在类尾 `RegisterPackUi` / `PackPlayOpen`
+            RegisterPackUi(content, selNode, index, hl);   // `hl` = 扫光的目标（原版 `Prebuilt Pack UI` 的 `images[0]`）
         }
 
         // ------------------------------------------------------------ 轮抽的五个动画（真 Play 才播）
@@ -2487,38 +2499,35 @@ namespace CardPresentation
         // 「起补间」一律过 `Application.isPlaying` 闸（照 `Shell/CollectionWindow.PlayCardAnimateIn` 同一条口径），
         // 静态的 `Build*Tween` 留给自检用 `CardTween.Mode = Manual` + `CardTween.Advance(dt)` 推。
         /// <summary>`PrebuiltPackUI.OpenAnim`：`0.6 → 1`（0.4 s），第 <paramref name="index"/> 张延迟 `index × 0.175 s`。</summary>
-        public static DG.Tweening.Tween BuildPackOpenTween(Transform node, int index)
+        public DG.Tweening.Tween BuildPackOpenTween(Transform node, int index)
         {
-            if (node == null) return null;
-            node.localScale = Vector3.one * PackOpenScaleFrom;       // 原版的「先置到 0.6」
-            var seq = DG.Tweening.DOTween.Sequence();
-            DG.Tweening.TweenSettingsExtensions.AppendInterval(seq, index * PackOpenStep);
-            DG.Tweening.TweenSettingsExtensions.Append(seq,
-                DG.Tweening.ShortcutExtensions.DOScale(node, Vector3.one, PackOpenDuration));
-            return CardTween.Use(seq, DG.Tweening.Ease.Linear, node);
+            // 🆕 2026-10-27（B9_W8PREB · 账 卡组:299）：本体搬到类尾 `PackPlayOpen` —— 那一版才带
+            // fade / 禁用选包钮 / appearSound / 起始位复位（判据逐条在 `PackPlayOpen` 的方法头）。这里保留旧签名做转发。
+            var ui = PackUiOf(node);
+            if (ui == null) { Debug.LogWarning("[Draft] `BuildPackOpenTween` 收到没登记过的包节点 ⇒ 不起动画"); return null; }
+            return PackPlayOpen(ui, index);
         }
 
-        /// <summary>`PrebuiltPackUI.SelectAnim`：`1 → 1.2`（0.3 s）→ `0.6`（0.4 s）。</summary>
-        public static DG.Tweening.Tween BuildPackSelectTween(Transform node)
+        /// <summary>`PrebuiltPackUI.SelectAnimDummy` 的**第一段**：`Join(DOScale(content, 1.2f, 0.3f).SetEase(OutBack))`（账 卡组:302/303）。
+        /// 🔴 **原 doc 写「1→1.2（0.3s）→0.6（0.4s）两段串行」是错的**（铁律 5 就地订正）：原版第二段（0.6 / 0.4 s）
+        /// 是跟 `DOMove` / `DOFade` **同时 Join** 的，落在 `PackSelectFly` 里；⛔ 别在这里把两段串起来。
+        /// 判据 = `cpp2il/out_cpp2il_dev_ilspy/PrebuiltPackUI.cs:377-395`（`Sequence{ Join(scale1.2) · Toggle(shiny) ·
+        /// AppendInterval(0.2) · Append(DOMove) · Join(DOFade 0) · Join(DOScale 0.6) · AppendCallback(Destroy) }`）。</summary>
+        public static DG.Tweening.Tween BuildPackSelectTween(Transform content)
         {
-            if (node == null) return null;
-            var seq = DG.Tweening.DOTween.Sequence();
-            DG.Tweening.TweenSettingsExtensions.Append(seq,
-                DG.Tweening.ShortcutExtensions.DOScale(node, Vector3.one * PackSelectScaleUp, PackSelectUpDuration));
-            DG.Tweening.TweenSettingsExtensions.Append(seq,
-                DG.Tweening.ShortcutExtensions.DOScale(node, Vector3.one * PackSelectScaleDown, PackSelectDownDuration));
-            return CardTween.Use(seq, DG.Tweening.Ease.Linear, node);
-        }
-
-        /// <summary>`PrebuiltPackUI.CloseAnim`：`1 → 0.6`（0.4 s）。
-        /// ⚠️ S3 记的是「缩放 + 淡出」，但**淡出的 alpha 常量没读到**（任务表那行只给了缩放）⇒
-        /// 本版**只做缩放**，淡出如实标为未做（⛔ 不编一个 alpha 值）。</summary>
-        public static DG.Tweening.Tween BuildPackCloseTween(Transform node)
-        {
-            if (node == null) return null;
+            if (content == null) return null;
             return CardTween.Use(
-                DG.Tweening.ShortcutExtensions.DOScale(node, Vector3.one * PackCloseScale, PackCloseDuration),
-                DG.Tweening.Ease.Linear, node);
+                DG.Tweening.ShortcutExtensions.DOScale(content, Vector3.one * PackSelectScaleUp, PackSelectUpDuration),
+                DG.Tweening.Ease.OutBack, content);
+        }
+
+        /// <summary>`PrebuiltPackUI.CloseAnim`（账 `卡组:293`）：`DOKill(content)` → `scale = 1` · `alpha = 1`
+        /// → `DOFade(alpha, 0, 0.4)` ＋ `DOScale(0.6, 0.4)`（两条**同时**起）。本体搬到类尾 `PackPlayClose`。</summary>
+        public DG.Tweening.Tween BuildPackCloseTween(Transform node)
+        {
+            var ui = PackUiOf(node);
+            if (ui == null) { Debug.LogWarning("[Draft] `BuildPackCloseTween` 收到没登记过的包节点 ⇒ 不起动画"); return null; }
+            return PackPlayClose(ui);
         }
 
         /// <summary>右栏 `DOPunchScale(punch = 0.05 × 当前缩放, 0.4 s, vibrato 5, elasticity 1)`。
@@ -2541,11 +2550,20 @@ namespace CardPresentation
             return CardTween.Use(tw, DG.Tweening.Ease.OutBack, panel);
         }
 
-        static void PlayPackOpenAnim(Transform node, int index)
+        /// <summary>建包卡那一刻起 `OpenAnim`（原版 `Initialize` 之后立刻 `OpenAnim(i)`）。
+        /// ⛔ 别删下面那道闸：批处理/编辑器没有帧循环 ⇒ 起了补间就永久停在**起点**（= 0 尺寸 / 0 alpha ⇒ 整张包卡看不见）。</summary>
+        void PlayPackOpenAnim(Transform node, int index)
         {
             if (node == null) return;
-            // ⛔ 别删这道闸：批处理/编辑器没有帧循环 ⇒ 起了补间就永久停在 0.6。
-            if (!Application.isPlaying) { node.localScale = Vector3.one; return; }
+            var ui = PackUiOf(node);
+            if (!Application.isPlaying)
+            {
+                // 批处理：直接落终态（scale 1 / alpha 1 / 起始位 / 选包钮可点）
+                if (ui != null && ui.content != null) ui.content.localScale = Vector3.one;
+                if (ui != null && ui.fade != null) ui.fade.SetAlpha(1f);
+                PackEnableButton(ui);
+                return;
+            }
             BuildPackOpenTween(node, index);
         }
 
@@ -2559,8 +2577,9 @@ namespace CardPresentation
             {
                 var n = _packNodes[i];
                 if (n == null) continue;
-                if (i == pickedIndex) { BuildPackSelectTween(n); any = true; }
-                else { BuildPackCloseTween(n); any = true; }
+                // 原版 `pickingSequence`：选中的那张 `SelectAnim`（影子副本飞走 + 本体隐藏），其余 `CloseAnim`
+                if (i == pickedIndex) { if (PackPlaySelect(i) != null) any = true; }
+                else { if (BuildPackCloseTween(n) != null) any = true; }
             }
             if (BuildPanelPunchTween(_deckPanelRoot) != null) any = true;
             return any;
@@ -3248,12 +3267,14 @@ namespace CardPresentation
             return true;
         }
 
-        /// <summary>选包动画走完（`SelectAnim` 两段合计 0.7 s）之后再推进页面 —— 原版也是
+        /// <summary>选包动画走完后再推进页面 —— 原版也是
         /// `serverConfirmedPack && selectPackAnimFinish` 才 `UpdateDeckInfoPanelAnimSync`。
+        /// <para>时长 = `SelectAnim` 那条 Sequence 的**全长**（`0.3` 放大 ＋ `0.2` 间隔 ＋ `0.4` 飞行 = **0.9 s**；
+        /// 判据 = `PackSelectFly` 的方法头）。⚠️ 原来写的是「两段缩放 0.7 s」—— 那条口径已随 `SelectAnim` 一起订正。</para>
         /// <para>⚠️ 只在**真 Play** 会走到（批处理没有帧循环，`PlayPickPackAnims` 返回 false ⇒ 同步推进）。</para></summary>
         System.Collections.IEnumerator PickPackThenAdvance()
         {
-            yield return new WaitForSeconds(PackSelectUpDuration + PackSelectDownDuration);
+            yield return new WaitForSeconds(PackSelectUpDuration + PackSelectFlyInterval + PackSelectDownDuration);
             _packAnimating = false;
             // 窗可能在动画期间被关掉/销毁（`Close` 只 SetActive(false)，本协程仍会跑完 —— 那也没关系：
             // `UpdateState` 只改静态存档与页节点，重开时 `ResumeRun` 会按存档重新落页）。
@@ -3630,6 +3651,417 @@ namespace CardPresentation
                 if (BuildWarlordCardOutTween(cv) != null) any = true;
             }
             return any;
+        }
+
+        // ============================================================ 🆕 2026-10-27（B9_W8PREB · 账 卡组:293 / 299 / 300 / 302 / 303 / 305）
+        //  原版 `PrebuiltPackUI` 那一族（开包 / 选包 / 关包 / 预览音效 / `Setup` 缓存）的等价物。
+        //  判据 = 🥇 `decomp_full/PrebuiltPackUI__{Setup,OpenAnim,CloseAnim,SelectAnim,SelectAnimDummy,EnablePackButton}.c`
+        //       ＋ 🥈 `cpp2il/out_cpp2il_dev_ilspy/PrebuiltPackUI.cs`（那是有真方法体的那份）。
+        //  调用侧判据 = `cpp2il…/DraftModeSelectPacksStateDemo.cs:405-420`（`OpenAnim(i)` → `Join(pickingSequence)`，
+        //       并在 `Reset` 那一支 `OnComplete(EnablePackButton)`）、`:520-560`（选中那张 `SelectAnim(deckInfoPanel.position,
+        //       prebuiltPackAnimAnchor)`，其余 `CloseAnim`，整条 `OnComplete` 才 `selectPackAnimFinish = true`）。
+        //  ⚠️ **为什么整块追加在类尾**：本文件被账按 `文件:行号` 引用（`卡组编辑` / `日常_奖励` / `未分类_其他` /
+        //     `战斗逻辑驱动` 四个域，最远到 `:3139`）—— 新成员一律加在它们下面，别插进中间。
+
+        /// <summary>一个包卡的运行期状态 = 原版 `PrebuiltPackUI` 那几个实例字段
+        /// （`content` / `selectButton` / `canvasGroup` / `startingSize` / `startingPos`）。</summary>
+        public sealed class PackUi
+        {
+            /// <summary>`Prebuilt Pack UI` 那颗根（原版 `PrebuiltPackUI.gameObject`）。</summary>
+            public Transform node;
+            /// <summary>`Content`（原版 `content`）—— 所有补间都打在它身上。</summary>
+            public Transform content;
+            /// <summary>`Select Button` 上那颗 `WindowButton`（原版 `selectButton`，`EverguildButton`）。</summary>
+            public WindowButton selectBtn;
+            /// <summary>`CanvasGroup` 的等价物（世界空间 `MeshRenderer` 的 alpha 得逐个后端写，见 <see cref="PackFade"/>）。</summary>
+            public PackFade fade;
+            /// <summary>原版 `Setup()` 缓存的 `content.anchoredPosition`（账 `卡组:305`）。</summary>
+            public Vector2 startingPos;
+            /// <summary>原版 `Setup()` 缓存的 `content.sizeDelta`（账 `卡组:305`）。</summary>
+            public Vector2 startingSize;
+            /// <summary>`content` 建出来时的 `localPosition`（= `startingPos` 在世界空间的等价物；`DOKill` 之后复位用）。</summary>
+            public Vector3 restContentPos;
+            /// <summary>这个包当前那条补间（原版 `DOKill(content, complete: true)` 的把手）。</summary>
+            public DG.Tweening.Tween tween;
+        }
+
+        /// <summary>一轮「给出的包」的运行期状态，与 <see cref="_packNodes"/> / <see cref="_offered"/> **同序**。
+        /// 🔴 每轮 `RefreshPacksPage` 从 `index == 0` 重新登记 ⇒ 在 <see cref="RegisterPackUi"/> 里就地清（见那里的注释）。</summary>
+        readonly List<PackUi> _packUis = new List<PackUi>();
+
+        /// <summary>`content` 子树的「整块不透明度」把手 —— 原版是 `PrebuiltPackUI.canvasGroup`（`CanvasGroup`）。
+        /// <para>🔴 **为什么不止一个把手**：`CanvasGroup.alpha` 只乘得到 uGUI 的 `CanvasRenderer`，而本工程包卡里的
+        /// 九宫格底图 / 分隔线 / 文字 / 三张卡面**全是世界空间的 `MeshRenderer`**（`ImageQuad` / `Label` / `CardView`）
+        /// ⇒ 四路一起写，判据与写法照 `Shell/CollectionWindow.CellFade`（同一条坑，别另发明一套）。
+        /// ⚠️ 卡体内的 `ImageQuad` **要排掉**：它们已经吃 `CardView.SetAlpha`，再乘一次就是 α²。</para></summary>
+        public sealed class PackFade
+        {
+            internal CanvasGroup cg;
+            internal ImageQuad[] quads;
+            internal Color[] quadBase;
+            internal Label[] labels;
+            internal Color[] labelBase;
+            internal CardView[] cards;
+            /// <summary>当前不透明度（自检读它 —— 批处理里补间要手动推）。出厂 = 1（刚建出来是实心的）。</summary>
+            public float Alpha { get; private set; } = 1f;
+
+            public void SetAlpha(float a)
+            {
+                Alpha = Mathf.Clamp01(a);
+                if (cg != null) cg.alpha = Alpha;
+                if (quads != null)
+                    for (int i = 0; i < quads.Length; i++)
+                    {
+                        if (quads[i] == null) continue;
+                        var c = quadBase[i]; c.a *= Alpha; quads[i].SetTint(c);
+                    }
+                if (labels != null)
+                    for (int i = 0; i < labels.Length; i++)
+                    {
+                        if (labels[i] == null) continue;
+                        var c = labelBase[i]; c.a *= Alpha; labels[i].SetColor(c);
+                    }
+                if (cards != null)
+                    for (int i = 0; i < cards.Length; i++)
+                        if (cards[i] != null) cards[i].SetAlpha(Alpha);
+            }
+        }
+
+        /// <summary>把一颗 `Content` 子树挂上 <see cref="PackFade"/>（建完卡之后调 —— 它按当时的颜色记基线）。</summary>
+        static PackFade MakePackFade(Transform content)
+        {
+            if (content == null) return null;
+            var f = new PackFade { cg = content.GetComponent<CanvasGroup>() };
+            f.cards = content.GetComponentsInChildren<CardView>(true);
+            var qs = content.GetComponentsInChildren<ImageQuad>(true);
+            var list = new List<ImageQuad>();
+            for (int i = 0; i < qs.Length; i++)
+            {
+                var q = qs[i];
+                if (q == null) continue;
+                bool underCard = false;
+                for (int k = 0; k < f.cards.Length; k++)
+                    if (f.cards[k] != null && q.transform.IsChildOf(f.cards[k].transform)) { underCard = true; break; }
+                if (underCard) continue;                       // 见类头：别乘两次
+                list.Add(q);
+            }
+            f.quads = list.ToArray();
+            f.quadBase = new Color[f.quads.Length];
+            for (int i = 0; i < f.quads.Length; i++) f.quadBase[i] = f.quads[i].Tint;
+            f.labels = content.GetComponentsInChildren<Label>(true);
+            f.labelBase = new Color[f.labels.Length];
+            for (int i = 0; i < f.labels.Length; i++)
+                f.labelBase[i] = f.labels[i] != null ? f.labels[i].color : Color.white;
+            return f;
+        }
+
+        /// <summary>原版 `PrebuiltPackUI.Setup()`（账 `卡组:305`，**299/302/303 的前置**）：
+        /// ① `startingSize = content.sizeDelta`；② `startingPos = content.anchoredPosition`。
+        /// <para>原版在 `Initialize` 里调一次（`cpp2il…/PrebuiltPackUI.cs:127-133`）。⚠️ 它的用处是
+        /// 「`OpenAnim` / `SelectAnimDummy` 把 `content` 复位回起始位」—— 没有这两个数就没有「复位」可言。</para>
+        /// <para>⚠️ 我们这边 `content` 是 `MenuDraw.Node` 按 `PxRect` 建的：`sizeDelta` = 那块矩形、`anchoredPosition` 是
+        /// 它相对 `Prebuilt Pack UI` 根的位置（≈ 0）。**必须在布局已经落定之后取** —— `MenuDraw.Node` 建完即落定，
+        /// 所以这里（`BuildPackCard` 末句）是安全点；⛔ 别挪到 `MenuScroll`/`LayoutGroup` 底下再取（那会取到 0）。</para></summary>
+        void RegisterPackUi(Transform content, Transform selNode, int index, GameObject highlight)
+        {
+            if (content == null) return;
+            // 每轮 `RefreshPacksPage` 都是从 index == 0 重新逐个建 ⇒ 就地重置（省掉在刷新处再加一句，那会推下游行号）
+            if (index == 0) { _packUis.Clear(); _packTogglers.Clear(); }
+            var rt = content as RectTransform;
+            var ui = new PackUi
+            {
+                node = content.parent,
+                content = content,
+                selectBtn = selNode != null ? selNode.GetComponentInChildren<WindowButton>(true) : null,
+                fade = MakePackFade(content),
+                startingSize = rt != null ? rt.sizeDelta : Vector2.zero,
+                startingPos = rt != null ? rt.anchoredPosition : Vector2.zero,
+                restContentPos = content.localPosition,
+            };
+            _packUis.Add(ui);
+            RegisterPackScan(ui, highlight);           // 原版 `OnEnable` 首句的扫光初始态（见类尾；⛔ 别挪到 `OpenAnim` 之后）
+            PlayPackOpenAnim(ui.node, index);          // 原版 `Initialize(...)` 之后立刻 `OpenAnim(i)`
+        }
+
+        /// <summary>按 `Prebuilt Pack UI` 那颗根找它的运行期状态（找不到 = 没登记过 ⇒ 调用方出声）。</summary>
+        public static PackUi PackUiOfIn(List<PackUi> list, Transform node)
+        {
+            if (list == null || node == null) return null;
+            for (int i = 0; i < list.Count; i++)
+                if (list[i] != null && list[i].node == node) return list[i];
+            return null;
+        }
+        PackUi PackUiOf(Transform node) { return PackUiOfIn(_packUis, node); }
+
+        /// <summary>原版 `ShortcutExtensions.DOKill(content, complete: true)` 的等价物。</summary>
+        static void KillPackTween(PackUi ui)
+        {
+            if (ui == null || ui.tween == null) return;
+            DG.Tweening.TweenExtensions.Kill(ui.tween, true);
+            ui.tween = null;
+        }
+
+        /// <summary>原版 `PrebuiltPackUI.EnablePackButton()`：`selectButton.interactable = true`。</summary>
+        static void PackEnableButton(PackUi ui)
+        {
+            if (ui != null && ui.selectBtn != null) ui.selectBtn.Interactable = true;
+        }
+
+        /// <summary>原版 `PrebuiltPackUI.OpenAnim(int packIndex)`（账 `卡组:299`）的**本体**。
+        /// <para>逐条（🥇 `decomp_full/PrebuiltPackUI__OpenAnim.c` 整段）：① `gameObject.SetActive(true)`；
+        /// ② `DOKill(content, complete: true)`；③ `content.anchoredPosition = startingPos`；
+        /// ④ `selectButton.interactable = false`（`:268`）；⑤ `content.localScale = Vector3.zero` + `canvasGroup.alpha = 0`；
+        /// ⑥ `Sequence{ AppendInterval(packIndex × 0.175) → Play2DDelayed(appearSound, 同那个间隔) →
+        ///    Append(DOScale(content, 1, 0.4).SetEase(OutBack)) · Join(DOFade(alpha, 1, 0.4)) }`。
+        /// 调用侧再挂 `OnComplete(EnablePackButton)`（`DraftModeSelectPacksStateDemo.cs:661-662`）⇒ **动画走完才可点**。</para>
+        /// <para>🔴 **起点是 0 不是 0.6**（`PackOpenScaleFrom` 那条订正）。</para>
+        /// <para>⚠️ 音效：原版是 `SoundManager.Play2DDelayed(cue, delay)`（**独立于 Sequence** 排程）；
+        /// 我们挂在 `AppendInterval` 之后的 `AppendCallback` 上 —— 时序相同，但 Sequence 被 Kill 时这一声不会补发
+        /// （原版会）。如实标这条差异。</para></summary>
+        static DG.Tweening.Tween PackPlayOpen(PackUi ui, int index)
+        {
+            if (ui == null || ui.content == null) return null;
+            KillPackTween(ui);
+            ui.content.localPosition = ui.restContentPos;                       // ③ ≡ `anchoredPosition = startingPos`
+            if (ui.selectBtn != null) ui.selectBtn.Interactable = false;        // ④
+            ui.content.localScale = Vector3.zero;                               // ⑤
+            if (ui.fade != null) ui.fade.SetAlpha(0f);
+            var seq = DG.Tweening.DOTween.Sequence();
+            DG.Tweening.TweenSettingsExtensions.AppendInterval(seq, index * PackOpenStep);
+            DG.Tweening.TweenSettingsExtensions.AppendCallback(seq,
+                () => WindowSounds.PlayFx(WindowSounds.DraftPackAppearCue, "[Draft] 包卡出现（原版 `appearSound`）"));
+            DG.Tweening.TweenSettingsExtensions.Append(seq,
+                DG.Tweening.TweenSettingsExtensions.SetEase(
+                    DG.Tweening.ShortcutExtensions.DOScale(ui.content, 1f, PackOpenDuration),
+                    DG.Tweening.Ease.OutBack));
+            if (ui.fade != null)
+                DG.Tweening.TweenSettingsExtensions.Join(seq, DG.Tweening.DOTween.To(
+                    () => ui.fade.Alpha, v => { if (ui.fade != null) ui.fade.SetAlpha(v); }, 1f, PackOpenDuration));
+            var t = CardTween.Use(seq, DG.Tweening.Ease.Linear, ui.content);
+            DG.Tweening.TweenSettingsExtensions.OnComplete(t, () => { PackEnableButton(ui); ui.tween = null; });
+            ui.tween = t;
+            return t;
+        }
+
+        /// <summary>原版 `PrebuiltPackUI.CloseAnim()`（账 `卡组:293`）：`DOKill(content)` → `content.localScale = 1` ·
+        /// `canvasGroup.alpha = 1` → `DOFade(alpha, 0, 0.4f)` ＋ `DOScale(content, 0.6f, 0.4f)`（**同时**起）。
+        /// <para>判据 = `decomp_full/PrebuiltPackUI__CloseAnim.c` 整段（`DAT_1834b3158` = 0.4、终值 0.6 是立即数）。
+        /// ⚠️ 原 doc 写「淡出的 alpha 常量没读到 ⇒ 只做缩放」—— **已作废**：终值 0 / 时长 0.4 两个数都在 `.c` 里。</para></summary>
+        static DG.Tweening.Tween PackPlayClose(PackUi ui)
+        {
+            if (ui == null || ui.content == null) return null;
+            KillPackTween(ui);
+            ui.content.localScale = Vector3.one;
+            if (ui.fade != null) ui.fade.SetAlpha(1f);
+            var seq = DG.Tweening.DOTween.Sequence();
+            if (ui.fade != null)
+                DG.Tweening.TweenSettingsExtensions.Append(seq, DG.Tweening.DOTween.To(
+                    () => ui.fade.Alpha, v => { if (ui.fade != null) ui.fade.SetAlpha(v); },
+                    0f, PackCloseDuration));
+            DG.Tweening.TweenSettingsExtensions.Join(seq,
+                DG.Tweening.ShortcutExtensions.DOScale(ui.content, PackCloseScale, PackCloseDuration));
+            var t = CardTween.Use(seq, DG.Tweening.Ease.Linear, ui.content);
+            ui.tween = t;
+            return t;
+        }
+
+        /// <summary>原版 `PrebuiltPackUI.SelectAnim(Vector3 targetPosition, Transform anchor)`（账 `卡组:302`）：
+        /// ① `DOKill(content)`；② `Instantiate(自己, anchor)` 造**影子副本**、`副本.position = 本体.position`；
+        /// ③ **本体 `SetActive(false)`**；④ 副本的 `SelectAnimDummy(targetPosition)`。
+        /// <para>`targetPosition` 在调用侧 = `deckInfoPanel.transform.position`（`DraftModeSelectPacksStateDemo.cs:544`）
+        /// ⇒ 我们传 <c>_deckPanelRoot.position</c>（右栏那块的**世界**坐标）。</para>
+        /// <para>⚠️ 副本与本体**共用材质**（`Instantiate` 只复制 renderer、不复制 material 实例）。本体随后就 `SetActive(false)`
+        /// ⇒ 补间改的是「看不见的那一份」，画面正确；等到下一轮 `RefreshPacksPage` 把本体销毁。如实记这条实现差异。</para></summary>
+        DG.Tweening.Tween PackPlaySelect(int pickedIndex)
+        {
+            if (pickedIndex < 0 || pickedIndex >= _packUis.Count) return null;
+            var ui = _packUis[pickedIndex];
+            if (ui == null || ui.node == null) return null;
+            KillPackTween(ui);
+            // ② 影子副本：原版 `Instantiate(gameObject, prebuiltPackAnimAnchor)`
+            var anchor = transform.Find("Select Pack Anim Anchor (It must be out of Select Pack State)");
+            var copy = Instantiate(ui.node.gameObject, anchor != null ? anchor : transform);
+            if (copy == null)
+            {
+                Debug.LogWarning("[Draft] 选包影子副本没建出来 ⇒ 只做关包（原版这一步是 `Instantiate`）");
+                return PackPlayClose(ui);
+            }
+            copy.transform.position = ui.node.position;
+            var copyContent = copy.transform.Find("Content");
+            if (copyContent == null)
+            {
+                Debug.LogWarning("[Draft] 影子副本里找不到 `Content` ⇒ 撤掉副本，退回关包动画（原版这一步必成）");
+                UnityEngine.Object.Destroy(copy);
+                return PackPlayClose(ui);
+            }
+            var dup = new PackUi
+            {
+                node = copy.transform,
+                content = copyContent,
+                fade = MakePackFade(copyContent),
+                restContentPos = copyContent != null ? copyContent.localPosition : Vector3.zero,
+            };
+            // ③ 本体隐藏（原版 `base.gameObject.SetActive(false)`）
+            ui.node.gameObject.SetActive(false);
+            // ④ 副本走 `SelectAnimDummy`
+            Vector3 target = _deckPanelRoot != null ? _deckPanelRoot.position : copy.transform.position;
+            return PackSelectFly(dup, target);
+        }
+
+        /// <summary>原版 `PrebuiltPackUI.SelectAnimDummy(Vector3 targetPosition)`（账 `卡组:303`）。七步逐条：
+        /// ① 藏 `selectButton` 那颗；② `content.anchoredPosition = startingPos` · `scale = 1` · `alpha = 1`；
+        /// ③ `Join(DOScale(content, 1.2f, 0.3f).SetEase(OutBack))`；④ `uiEffectTogglerController.Toggle(true)`（扫光，**已接**：见 `PackScanToggle`）；
+        /// ⑤ `AppendInterval(0.2f)` → `Append(DOMove(content, target, 0.4f))`，`OnStart` 里播 `movementSound` 并把 shiny 关掉；
+        /// ⑥ `Join(DOFade(alpha, 0, 0.4f))` ＋ `Join(DOScale(content, 0.6f, 0.4f))`（`OnComplete` 播 `arrivalSound`）；
+        /// ⑦ `AppendCallback(Destroy(gameObject))`。
+        /// <para>判据 = `decomp_full/PrebuiltPackUI__SelectAnimDummy.c` 整段 ＋ 🥈 `cpp2il…/PrebuiltPackUI.cs:377-441`。
+        /// cue 名现读 prefab PPtr（`MonoBehaviour_-2302561337839276558`，`m_FileID = 6` → externals[5]）：
+        /// `movementSound` = **`Draft Pack Selected Moving`** · `arrivalSound` = **`Draft Pack Finish Animation`**
+        /// （两条都在本地音效表里，见 `WindowSounds` 的常量）。</para>
+        /// <para>🔴 **2026-10-27（`B9_W23DRAFT`）就地订正**：原写「shiny 跳过 = 等 K-13（Coffee `UIEffect Shiny` 的 shader）」—— **不成立**：字段类型是 `UIEffectTogglerController`，
+        /// 它驱的正是本节点上的 `UIEffectTogglerImage`（纯 α，**不依赖任何 shader**）⇒ 已接（`RegisterPackScan` / `PackScanToggle`）。</para></summary>
+        DG.Tweening.Tween PackSelectFly(PackUi dup, Vector3 targetWorld)
+        {
+            if (dup == null || dup.content == null) return null;
+            // ① 藏 `selectButton`（副本上那颗；`BuildPackCard` 把它建在 `Content` 底下，⛔ 不是 root 底下）
+            var sel = dup.content.Find("Select Button");
+            if (sel != null) sel.gameObject.SetActive(false);
+            // ② 复位到起始位 / 满尺寸 / 满 alpha
+            dup.content.localPosition = dup.restContentPos;
+            dup.content.localScale = Vector3.one;
+            if (dup.fade != null) dup.fade.SetAlpha(1f);
+            // ④ 扫光开（原版 `uiEffectTogglerController.Toggle(option: true)`，第二个实参不传 ⇒ 默认 0.3 s）：
+            //    判据 = `cpp2il dev PrebuiltPackUI.cs:386-388` ＋ `decomp_full/PrebuiltPackUI__SelectAnimDummy.c:59`
+            //    （`UIEffectTogglerController__Toggle(*(+0x60), 1, DAT_1834b2dc8, 0, 0)`）。先把副本的扫光目标
+            //    指到**副本自己**的描边（`Instantiate` 的引用重映射不赌，见 `PackScanRetarget`）。
+            PackScanRetarget(dup.node);
+            PackScanToggle(dup.node, true, PackScanFade);
+            var seq = DG.Tweening.DOTween.Sequence();
+            var up = BuildPackSelectTween(dup.content);          // ③ 1 → 1.2 / 0.3s / OutBack
+            if (up != null) DG.Tweening.TweenSettingsExtensions.Join(seq, up);
+            DG.Tweening.TweenSettingsExtensions.AppendInterval(seq, PackSelectFlyInterval);   // ⑤ 前的 0.2s 停顿
+            var move = DG.Tweening.ShortcutExtensions.DOMove(dup.content, targetWorld, PackSelectDownDuration);
+            DG.Tweening.TweenSettingsExtensions.OnStart(move,
+                () => { WindowSounds.PlayFx(WindowSounds.DraftPackSelectedMovingCue, "[Draft] 选中的包开始飞（原版 `movementSound`）");
+                        // ⑤ 扫光关（原版同一拍 `Toggle(false, sequenceStep2AnimTime = 0.4)`；`__SelectAnimDummy.c:65` 的 `0x3ecccccd` = 0.4）
+                        PackScanToggle(dup.node, false, PackSelectDownDuration); });
+            DG.Tweening.TweenSettingsExtensions.Append(seq, move);
+            if (dup.fade != null)                                                             // ⑥ 淡出
+                DG.Tweening.TweenSettingsExtensions.Join(seq, DG.Tweening.DOTween.To(
+                    () => dup.fade.Alpha, v => { if (dup.fade != null) dup.fade.SetAlpha(v); },
+                    0f, PackSelectDownDuration));
+            var down = DG.Tweening.ShortcutExtensions.DOScale(dup.content, PackSelectScaleDown, PackSelectDownDuration);
+            DG.Tweening.TweenSettingsExtensions.OnComplete(down,
+                () => WindowSounds.PlayFx(WindowSounds.DraftPackFinishAnimCue, "[Draft] 选中的包落位（原版 `arrivalSound`）"));
+            DG.Tweening.TweenSettingsExtensions.Join(seq, down);
+            // ⑦ 末尾销毁副本（原版 `AppendCallback(() => Destroy(gameObject))`）
+            DG.Tweening.TweenSettingsExtensions.AppendCallback(seq, () =>
+            {
+                if (dup.node != null) UnityEngine.Object.Destroy(dup.node.gameObject);
+            });
+            return CardTween.Use(seq, DG.Tweening.Ease.Linear, dup.content);
+        }
+
+        // ============================================================ 🆕 2026-10-27（`B9_W23DRAFT`）
+        //  原版 `Prebuilt Pack UI` 根上那颗扫光（`PrebuiltPackUI.uiEffectTogglerController`，字段在 `+0x60`）的接线。
+        //  判据 = 🥇 `decomp_full/PrebuiltPackUI__{OnEnable,OnDisable,SelectAnimDummy,OpenAnim,CloseAnim}.c`
+        //       ＋ 🥈 `cpp2il/out_cpp2il_dev_ilspy/PrebuiltPackUI.cs:93/144/386-388/400`；
+        //  组件挂法 = `B9_W14FX` §二·3 补丁 B ＋ 本代理现读 prefab（见 `RegisterPackScan` 的 doc）。
+        //  ⚠️ **为什么整块追加在类尾**：本文件被账按 `文件:行号` 引用，新成员一律加在它们下面。
+
+        /// <summary>扫光的淡入/淡出时长 = 原版 `UIEffectTogglerController.Toggle` 的形参默认值 **0.3**。
+        /// 判据：`SelectAnimDummy` 那一跳 `Toggle(option: true)` **没传第二个实参**（`__SelectAnimDummy.c:59`
+        /// 的第三参是 `DAT_1834b2dc8` = 默认值常量），而 `Toggle(false, …)` 那一跳显式给了 0.4。</summary>
+        public const float PackScanFade = 0.3f;
+
+        /// <summary>1:1 与 <see cref="_packUis"/> 同序的控制器（原版 `PrebuiltPackUI.uiEffectTogglerController`）。
+        /// ⚠️ 只有「包卡那棵树」的句柄；影子副本的控制器是 `Instantiate` 出来的**另一颗** ⇒ 一律用
+        /// <see cref="PackScanToggle"/> 按节点现查，⛔ 别复用这里的句柄。</summary>
+        readonly List<UIEffectTogglerController> _packTogglers = new List<UIEffectTogglerController>();
+
+        /// <summary>把原版 `Prebuilt Pack UI` 根上那两颗组件挂上，并把 `images[0]` = **子件 `Highlight`** 显式喂进去。
+        /// <para>判据（现读 prefab `bundle_menus_assets_all`）：该 toggler 的 `images[0]` = `m_PathID -8333113853195211278`
+        /// = GO `3832911137508339186`（`GameObject/Highlight_3832911137508339186.json`）上的 `Image`
+        /// ⇒ **目标在子件、⛔ 不是同节点**；`deactivateOnDisable = 1`（与我们 `UIEffectTogglerBase` 的默认一致）。</para>
+        /// <para>🔴 `RefreshTargets()` 与 `Rescan()` 两句都不能省：运行期 `AddComponent` 当场跑 `Awake → Capture()`
+        /// （那时 `fadeTargets` 还空 ⇒ 收到的是**根** ⇒ 淡/`SetActive` 的会是整个包卡）；而**编辑/批处理下
+        /// `AddComponent` 不触发 `Awake`** ⇒ 控制器 `togglers` 恒空、每次 `Toggle` 都空转。</para>
+        /// <para>初始态 = 原版 `PrebuiltPackUI.OnEnable` 首句 `uiEffectTogglerController.Toggle(option: false, 0f)`
+        /// （`cpp2il dev PrebuiltPackUI.cs:93` ／ `__OnEnable.c`）⇒ 橙色描边平时**关着**（`duration = 0` 是瞬间档：
+        /// `ToggleGameObjects(false)` 直接 `SetActive(false)`，与 `deactivateOnDisable` 无关）。</para></summary>
+        void RegisterPackScan(PackUi ui, GameObject highlight)
+        {
+            if (ui == null || ui.node == null) return;
+            // `MenuDraw.Nine` 在「整块在视口外」时返回 null（照它的契约）⇒ 没目标就**不挂**：
+            // ⛔ 挂一颗空表的 toggler 会退回「收自己」= 淡整个包卡，比不挂更糟。
+            if (highlight == null) return;
+            var img = ui.node.gameObject.AddComponent<UIEffectTogglerImage>();
+            int n = PackScanFeed(img, highlight);
+            if (n == 0)
+            {
+                // ⛔ 不静默：原版那一格是**实打实**一张 `Image`，我们这边一颗都没有 ⇒ 一定是我们建节点的方式变了。
+                Debug.LogWarning("[Draft] 包卡描边 `Highlight` 底下没有 `ImageQuad` ⇒ 扫光不挂"
+                               + "（原版 `Prebuilt Pack UI` 的 `images[0]` 就是那颗 Image）");
+                return;
+            }
+            var ctl = ui.node.gameObject.AddComponent<UIEffectTogglerController>();
+            ctl.Rescan();
+            ctl.Toggle(false, 0f);
+            _packTogglers.Add(ctl);
+        }
+
+        /// <summary>把「原版那一张 `Image`」映射成我们这套后端里的**可淡件清单**，并重收。
+        /// <para>🔴 **必须逐个喂子件、⛔ 不能只喂 <paramref name="highlight"/> 根节点**：原版 `images[0]` 是一张 `Image`
+        /// （一张图一次 draw）；我们的等价物是 `ImageQuad`，而 `MenuDraw.Nine` 返回的是**容器节点** ——
+        /// 九宫的那些 `ImageQuad` 全在**子件**上（`ImageQuad.CreateNineSlice` 先 `new GameObject(name)` 再造子块，
+        /// 根上**没有** `ImageQuad`）。`UIEffectTogglerImage.Add` 只 `GetComponent` 不递归（= 原版 `Image[] images` 的口径）
+        /// ⇒ 只喂根节点会得到 `TargetCount == 0`，`Toggle` **静默空转**。</para>
+        /// <para>返回收进几件（0 = 一件都没收到，调用方出声）。</para></summary>
+        static int PackScanFeed(UIEffectTogglerImage tg, GameObject highlight)
+        {
+            if (tg == null || highlight == null) return 0;
+            tg.fadeTargets.Clear();
+            var quads = highlight.GetComponentsInChildren<ImageQuad>(true);
+            for (int i = 0; i < quads.Length; i++)
+                if (quads[i] != null) tg.fadeTargets.Add(quads[i].gameObject);
+            tg.RefreshTargets();
+            return tg.fadeTargets.Count;
+        }
+
+        /// <summary>原版 `PrebuiltPackUI.uiEffectTogglerController.Toggle(option, duration)` 的那一跳（字段 `+0x60`）。
+        /// <para>时机（🥇 方法体逐条）：`OnEnable` → `Toggle(false, 0f)`（`__OnEnable.c:1-37`）·
+        /// `OnDisable` → 同上（`__OnDisable.c`）· `SelectAnimDummy` → `Toggle(true)`（默认 0.3 s，`:59`）
+        /// ＋ 飞行 `OnStart` → `Toggle(false, 0.4)`（`:65` 的 `0x3ecccccd`）。
+        /// 🔴 `OpenAnim` / `CloseAnim` 全文**没有** `UIEffectTogglerController__Toggle` 调用（两份 `.c` 逐行扫过）
+        /// ⇒ ⛔ 别在开包/关包上补一次，那会多出原版没有的一闪。</para>
+        /// <para>⚠️ 按**节点现查**控制器（本体与影子副本各一颗）；查不到就出声（⛔ 不静默）。</para></summary>
+        static void PackScanToggle(Transform node, bool on, float duration)
+        {
+            if (node == null) return;
+            var ctl = node.GetComponent<UIEffectTogglerController>();
+            if (ctl == null)
+            {
+                Debug.LogWarning("[Draft] `" + node.name + "` 上没有 `UIEffectTogglerController` ⇒ 扫光这一拍跳过"
+                               + "（原版 `PrebuiltPackUI.uiEffectTogglerController.Toggle`）");
+                return;
+            }
+            ctl.Toggle(on, duration);
+        }
+
+        /// <summary>影子副本的扫光目标要指到**副本自己**的 `Content/Highlight`。
+        /// <para>原版 `Instantiate` 会把组件的引用一起带过去；我们**不赌** Unity 对 `List&lt;GameObject&gt;` 的重映射 ——
+        /// 万一没重映射，副本淡的是**本体**那颗描边（本体随后 `SetActive(false)`）⇒ 副本上永远看不到扫光，而且**静默**。</para>
+        /// <para>🔶 自己设计（非原版）：原版没有这一段（它靠 `Instantiate` 的引用重映射）；这是我们的**适配层保险**，
+        /// 行为上与「重映射成功」等价。调度台 2026-10-27 裁定。</para></summary>
+        static void PackScanRetarget(Transform copyRoot)
+        {
+            if (copyRoot == null) return;
+            var tg = copyRoot.GetComponent<UIEffectTogglerImage>();
+            if (tg == null) return;
+            var hl = copyRoot.Find("Content/Highlight");
+            if (hl == null || PackScanFeed(tg, hl.gameObject) == 0)
+                Debug.LogWarning("[Draft] 影子副本里找不到 `Content/Highlight`（或它底下没有 `ImageQuad`）⇒ 扫光沿用"
+                               + "`Instantiate` 带过来的目标（可能指回本体那颗，画面会看不出扫光）");
         }
     }
 }

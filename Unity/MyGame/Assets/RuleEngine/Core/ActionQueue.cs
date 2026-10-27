@@ -158,6 +158,21 @@ namespace RuleEngine
         /// </summary>
         public System.Action Execute;
 
+        /// <summary>
+        /// 🆕 2026-10-27（执行代理 `B9_W68ENG3` · 引擎真缺口第一批 G19 = 账行 625 `WaitingForBlockingAction` 的查询口）：
+        /// **原版 `BattleAction.actionType` 的原始号**（`int`，⛔ 别用我们自己的枚举 —— 原版号本身就是数据：
+        /// `27 = transformUnit`、`25 = addHandEffect` …）。
+        ///
+        /// <para>**唯一用途**：让 <see cref="ActionQueue.Has"/> 能按原版号问「四条道里还有没有某一类动作」
+        /// —— 原版 `BattleManager.WaitingForBlockingAction(bool)` 就是扫四条队列找
+        /// `actionType == 27 (transformUnit)` 的一条（`d:/2/tools/decomp_full/BattleManager__WaitingForBlockingAction.c`：
+        /// `local_108[0] == 0x1b`(27) 命中即 `return 1`）。</para>
+        ///
+        /// <para>⚠️ **缺省 0 = 「未标类型」**（不是某个原版动作号）—— 今天**所有入队点都没写这一格** ⇒ 行为零变化；
+        /// 要用它时（消费端等 W57 / G02 `transformUnit`）在入队处回填原版号。</para>
+        /// </summary>
+        public int ActionType;
+
         public override string ToString()
             => (Label ?? "?") + "@" + Priority + "#" + Seq;
     }
@@ -298,6 +313,42 @@ namespace RuleEngine
         public void Clear()
         {
             for (int i = 0; i < LaneCount; i++) _lanes[i].Clear();
+        }
+
+        /// <summary>
+        /// 🆕 2026-10-27（执行代理 `B9_W68ENG3` · 引擎真缺口第一批 G19 = 账行 625）：
+        /// 原版 `BattleManager.WaitingForBlockingAction(bool showTips)` 的「队列查询口」——
+        /// 问「四条动作道里**有没有**任一动作满足这个条件」（典型用途：还有没有 `transformUnit(27)`）。
+        ///
+        /// <para>**判据（第一权威 · 现读）** = `d:/2/tools/decomp_full/BattleManager__WaitingForBlockingAction.c`：
+        /// `matchType == 0xa0(160 Replay)` ⇒ 直接返回 false；否则按 **`actionQueue(+0x350)` →
+        /// `instantQueue(+0x358)` → `interruptQueue(+0x368)` → `delayedInstantQueue(+0x360)`** 四条道逐条扫，
+        /// 任一条 `actionType(+0x00) == 27` 命中即返回 true。</para>
+        ///
+        /// <para>🔴 **扫描顺序说明（如实标注，铁律 2/5）**：施工判据 §二 G19 把原版描述成「**倒序**扫四条队列」，
+        /// 但 `.c` 里每条道内是 `iVar4 = 0; … iVar4 = iVar4 + 1`（**升序**，下标 0 → `Count-1`），
+        /// 四条道的先后则如上（`0x350→0x358→0x368→0x360`）。**本方法是布尔存在性查询**，前向/后向扫描对
+        /// 结果**没有可观测差别** ⇒ 按 `.c` 的实际顺序（道 0→1→2→3、道内升序）实现。
+        /// ⚠️ 若将来要返回「命中哪一条」而非 bool，必须先按 `.c` 定死顺序再改。</para>
+        ///
+        /// <para>⚠️ 道下标 `Player(0)/Instant(1)/Interrupt(2)/DelayedInstant(3)` 恰好等于原版那四条队列的
+        /// 扫描顺序（`_lanes[]` 的声明序同 <see cref="ActionPriority"/>），所以按 `lane = 0..3` 直扫即可，
+        /// ⛔ **不要**借 <see cref="TryDequeue"/> 的 `DequeueOrder`（那是**消费序**，与原版本函数的扫描序不同）。</para>
+        ///
+        /// <para>⚠️ 今天**0 消费者**（`transformUnit` 机制 = G02 还没做 ⇒ 拿 `ActionType==27` 问恒 false），
+        /// 且 `ActionType` 缺省 0 ⇒ 纯增量、行为零变化。</para>
+        /// </summary>
+        public bool Has(System.Predicate<QueuedAction> match)
+        {
+            if (match == null) return false;
+            // 道 0→1→2→3（Player/Instant/Interrupt/DelayedInstant）= 原版 `+0x350→+0x358→+0x368→+0x360`；道内升序。
+            for (int lane = 0; lane < LaneCount; lane++)
+            {
+                var list = _lanes[lane];
+                for (int i = 0; i < list.Count; i++)
+                    if (match(list[i])) return true;
+            }
+            return false;
         }
     }
 }

@@ -9,7 +9,7 @@
 //    · `Booster Opening - Card Open Rare.anim`（1.1666667 s）—— 稀有度 **3/5** 用
 //    · `Booster Opening - Card Open Legendary.anim`（1.5 s）—— 稀有度 **4** 用
 //    · `Booster Opening - Card Idle.anim`（8 s，`m_WrapMode = 2` = Loop）—— 翻开后回到它
-//    · `OpenCardbacks.anim`（0.25 s）—— **用途未查清，不接**（判据弱，见 `BoosterPackExporter.ClipNames` 末条）
+//    · `OpenCardbacks.anim`（0.25 s · `m_WrapMode = 1` = Once）—— **已查清（2026-10-27 `B9_W23DRAFT` 订正：原来这里写「用途未查清，不接」）** = `DeckGeneralInfoDemo.cardbacksAnimation`：卡背**两层入场**（内层 `anchoredPosition (0.3,0.3) → (11.2012,4.9016)`、两层 z 旋转到 **+1.60°** / 相对 **−3.43°**）；消费者 = `Shell/PracticeModePopup.BuildCardbacks`（⛔ 与开包窗无关，本文件不接它是**对的**）
 //    · `Booster Window - Background Shake On Open.anim`（0.9166667 s）—— 只动 `floatProperty1/2`
 //      （`AnimateUIMaterialProperty` 的材质属性，原版 shader 的逻辑本地没有）⇒ **没做**，见 §缺
 //

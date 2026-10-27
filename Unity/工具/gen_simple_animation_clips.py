@@ -114,9 +114,6 @@ def main():
     # 疑似：有 m_States 但没有 m_Clip 的（可能是别的组件）
     n = sum(len(v) for v in out.values())
     print(f"合计 {n} 个宿主（{len(out)} 个包）")
-    if check:
-        print(f"--check：{OUT} {'存在' if os.path.exists(OUT) else '不存在'}")
-        return 0
     doc = {
         "_note": "由 工具/gen_simple_animation_clips.py 生成。判据 = MonoBehaviour 上同时有 "
                  "m_States/m_Clip/m_PlayAutomatically（原版 AssetStore SimpleAnimation 的序列化形状）。"
@@ -124,6 +121,15 @@ def main():
                  "与 WarpforgeAnimatorBridge.TryGetClip。",
         "bundles": out,
     }
+    if check:
+        # 🔴 2026-10-27（执行代理 B9_W35CHECK）：`--check` 原来只打「存在/不存在」且恒 rc=0 ——
+        #   产物（`simple_animation_clips.json`）缺失/过期一律静默绿（运行时 WarpforgeAnimatorBridge 直接读）。
+        #   判据同 工具/import_original_art.py `--only-altart`（`:1714-1721`）。
+        text = json.dumps(doc, ensure_ascii=False, indent=1) + "\n"
+        old = io.open(OUT, encoding="utf-8", newline="").read() if os.path.exists(OUT) else None
+        same = old == text
+        print(f"--check：{OUT} {'一致 ✅' if same else '**缺失或过期** ❌（重跑一次即可）'}")
+        return 0 if same else 1
     os.makedirs(os.path.dirname(OUT), exist_ok=True)
     with io.open(OUT, "w", encoding="utf-8", newline="\n") as f:
         json.dump(doc, f, ensure_ascii=False, indent=1)

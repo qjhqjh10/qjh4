@@ -991,9 +991,9 @@ namespace CardPresentation
             bool _inPlayClickFlag;       // 原版 `+0x38`
             float _inPlayClickTime;      // 原版 `+0x3c`
             bool _displayingCardFlag;    // 原版 `+0x39`
-            bool _holdDisplayedThisPress;
+            bool _holdDisplayedThisPress;   // 🔶 自己设计（非原版）：原版靠 `BattleManager.DisplayCard`「同卡重复开窗幂等」避免「按住弹窗→松手又 toggle」；我们没复刻那条幂等（`CardDisplayWindow.Toggle` 是**真 toggle**）⇒ 用这一格挡一次（判据 = `BattleManager__DisplayCard.c:1-40` 的三支早退；替代语义覆盖 = 只挡「同一按」）· 调度台 2026-10-27 裁定
             bool _pressedBtnOn;
-            bool _pressedBtnHidePending;
+            bool _pressedBtnHidePending;    // 🔶 自己设计（非原版）：原版是 `DOVirtual.DelayedCall(0.4f, b__12_0)`（`ignoreTimeScale = 1` ⇒ **unscaled**）；我们收进 `Tick` 的同一台 `Clock`（= `Time.time`，**scaled**）⇒ 只有 `Time.timeScale != 1` 时看得出差别（本仓无全局时间缩放）· 判据 = `ActiveWarlordAbility___OnTouchUpAsButton_b__12_0.c:1-9` · 调度台 2026-10-27 裁定
             float _pressedBtnHideAt;
             bool _warnedDisplay, _warnedPressedBtn, _warnedSetup, _warnedUse;
 

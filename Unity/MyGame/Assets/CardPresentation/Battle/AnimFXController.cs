@@ -394,5 +394,67 @@ namespace CardPresentation
 
         /// <summary>解不出的 cue 名（去重；与 `WarpforgeEffectPlayer` 那边同一个做法：只报一次）。</summary>
         static readonly HashSet<string> _badCues = new HashSet<string>();
+
+        // ------------------------------------------------------------------
+        //  原版 `CardScript.PlayTriggerAnim(animPrefab, targetCard, traitValue)`
+        //  🆕 2026-10-27（执行代理 `B9_W3ANIM` · 账 `特效动画:513`）
+        // ------------------------------------------------------------------
+        //  判据（三份互证，逐句；⛔ 别再重新推一遍）：
+        //    · `d:/2/tools/cpp2il/out_il2csharp/Assembly-CSharp/CardScript.cs:10420-10450`（🥇 IL 级最干净）
+        //    · `d:/2/tools/decomp_full/CardScript__PlayTriggerAnim.c:1-57`（Ghidra）
+        //    · `d:/2/tools/cpp2il/out_cpp2il_dev_ilspy/CardScript.cs:17159-17200`（ILSpy）
+        //  真身四步（顺序不能换）：
+        //    ① `if (!animPrefab) { LogWarning("Trying to PlayTriggerAnim with null prefab"); return null; }`
+        //    ② `inst = Instantiate(animPrefab, CardUI.effectsAnchor)`（锚点在**卡侧** = `BattleCardUI.effectsAnchor(+0x1A0)`；
+        //       原版**不传** rot/pos ⇒ 保留 prefab 自带的 local 变换）
+        //    ③ `c = inst.GetComponent<AnimFXController>(); if (c) c.SetData(this, targetCard)`
+        //       🔴 **`traitValue` 不进 `SetData`** —— `AnimFXController__SetData.c` 只有
+        //       `(actingCard, targetCard)` 两个形参（两句字段写 + 逐模块 `Initialize`，槽 `0x178`）。
+        //       （账 `特效动画:513` 原来那句「`SetData(prefab, card, traitValue)`」是**读错了**，就地订正。）
+        //    ④ `t = inst.GetComponent<TraitEffectController>(); if (t) t.UpdateValue(traitValue)`
+        //       ⇒ **`traitValue` 的唯一消费者是这里**。
+        //    ⑤ `return inst`（原版把实例**返回给调用方**）。
+        //  唯一调用点（全量反编译只此一处）：`PlayerHand__PlaySentinelAnims`
+        //    → `card.PlayTriggerAnim(battleAnims.sentinelUnitAnim, null, 0)`（`targetCard = null`、`traitValue = 0`）。
+        //  ⚠️ **当前 build 的实况**：`BattleAnims.json` 里 `sentinelUnitAnim` / `sentinelDeckAnim` **都是空 PPtr**
+        //    （`assets_full/bundle_battleprefabs_vfxandmisc_assets_all/MonoBehaviour/BattleAnims.json`，`m_PathID: 0`）
+        //    ⇒ 原版**那两个 prefab 根本不存在**，唯一可达分支是 ①（一条警告 + 返回 null）。
+        //    铁律 11 例外①（**判据为空**）⇒ 不建那条特效；本方法存在的意义 = **机制复原**
+        //    （与本文件 `SetData` / `Exit` 同一验收口径），⛔ 不是「场景里会播」。
+        //  🔴 **接线前必读（⛔ 别搞错控制器线）**：我们卡侧特效 prefab 上的控制器是
+        //    **`WarpforgeVFX.WarpforgeEffectPlayer`**（见本文件头 A196 那节），**不是** `AnimFXController`
+        //    ⇒ 把本方法接到一件卡侧 prefab 上时，第 ③ 步 `GetComponent<AnimFXController>()` 会拿到 null
+        //    （原版对「prefab 上没这组件」也是静默跳过，所以这不算我们新加的静默失败；但**必须先看清楚**）。
+        //    真要给卡侧补「acting/target 卡上下文」，那条路是 `WFEffectCards`（`WarpforgeVFX` 线），⛔ 别在这里就地改。
+        //  🔶 自己设计（非原版）：**形参化**。原版从 `this.CardUI.effectsAnchor` 自己取锚点、拿 `this` 当 actingCard；
+        //    本仓没有 `CardScript`（卡的可比载体 = `CardView`）⇒ 锚点与 actingCard 由调用方显式传入
+        //    （锚点等价物 = `CardView.EffectAnchorBoard` / `EffectAnchorHand`，⛔ 别在本方法里替调用方挑一档）。
+        //    调度台 2026-10-27 裁定（本波白名单只到本文件）。
+        public static GameObject PlayTriggerAnim(GameObject animPrefab, Transform effectsAnchor,
+                                                 Transform actingCard, Transform targetCard, int traitValue = 0)
+        {
+            if (animPrefab == null)                    // 原版 `op_Implicit(animPrefab) == 0`
+            {
+                Debug.LogWarning("Trying to PlayTriggerAnim with null prefab");   // 原文照抄（原版就是这个串）
+                return null;
+            }
+            if (effectsAnchor == null)                 // 原版这里直接 deref `CardUI.effectsAnchor`（会 NRE）⇒ 我们出声后不建
+            {
+                Debug.LogWarning("[AnimFX] `PlayTriggerAnim` 没有锚点（原版 = `CardUI.effectsAnchor`；"
+                               + "我们的等价物 = `CardView.EffectAnchorBoard` / `EffectAnchorHand`）⇒ 这一条不建");
+                return null;
+            }
+
+            var inst = Instantiate(animPrefab, effectsAnchor);          // 原版 ②（不传 rot/pos）
+            if (inst == null) return null;
+
+            var fx = inst.GetComponent<AnimFXController>();              // 原版 ③
+            if (fx != null) fx.SetData(actingCard, targetCard);
+
+            var tec = inst.GetComponent<TraitEffectController>();        // 原版 ④ —— `traitValue` 只走这里
+            if (tec != null) tec.UpdateValue(traitValue);
+
+            return inst;                                                // 原版 ⑤
+        }
     }
 }

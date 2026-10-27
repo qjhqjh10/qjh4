@@ -5244,24 +5244,46 @@ public static class ArenaBuilder
     }
 
     /// <summary>精灵贴图**必须按 Sprite 导入**（`pixelsPerUnit` 决定世界尺寸）——
-    /// ⚠️ 不能放 `Textures/`：`ApplyTextureImportSettings` 会把那目录里的一切强制设成 `Default`。</summary>
-    static Sprite LoadSpriteAsset(string sceneName, string tex, float ptu)
+    /// ⚠️ 不能放 `Textures/`：`ApplyTextureImportSettings` 会把那目录里的一切强制设成 `Default`。
+    /// 🔴 2026-10-27（B9_W59ARENA）：`drawMode` 也要参与导入设置 —— **Sliced(1) / Tiled(2)** 这两种
+    ///   画法要求 Sprite 的 **Mesh Type = FullRect**（原版 `sororitas` 的 3 个 `Bottom Filler *` 是
+    ///   `m_DrawMode = 2`；Tight 网格下 Unity 会对 Sliced/Tiled 报错并按错的方式画）。
+    ///   判据 → `资料/完全复刻/报告/B9_W59ARENA_战场贴图清单修复.md`。</summary>
+    static Sprite LoadSpriteAsset(string sceneName, string tex, float ptu, int drawMode = 0)
     {
         if (string.IsNullOrEmpty(tex)) return null;
         var path = $"{ArenaDir(sceneName)}/Sprites/{tex}.png";
         if (!File.Exists(path)) { Debug.LogWarning($"[Arena] 精灵贴图不在：{path}"); return null; }
+        bool needFullRect = drawMode >= 1;                     // Sliced / Tiled / Filled 都按 FullRect 导
         var ti = AssetImporter.GetAtPath(path) as TextureImporter;
-        if (ti != null && (ti.textureType != TextureImporterType.Sprite
-                           || ti.spriteImportMode != SpriteImportMode.Single
-                           || Mathf.Abs(ti.spritePixelsPerUnit - ptu) > 0.01f))
+        if (ti != null)
         {
-            ti.textureType        = TextureImporterType.Sprite;
-            ti.spriteImportMode   = SpriteImportMode.Single;   // 原版 `m_Rect` 就是整张图
-            ti.spritePixelsPerUnit = ptu;                      // 原版 `m_PixelsToUnits`（这批是 25 / 100）
-            ti.spritePivot        = new Vector2(0.5f, 0.5f);   // 原版 `m_Pivot` = 0.5,0.5
-            ti.alphaIsTransparency = true;
-            ti.mipmapEnabled      = false;
-            ti.SaveAndReimport();
+            bool changed = ti.textureType != TextureImporterType.Sprite
+                        || ti.spriteImportMode != SpriteImportMode.Single
+                        || Mathf.Abs(ti.spritePixelsPerUnit - ptu) > 0.01f;
+            if (needFullRect)
+            {
+                // ⚠️ `spriteMeshType` **不在 `TextureImporter` 上**（Unity 6000.3 实测 CS1061），
+                //    只能走 `TextureImporterSettings` 读改写。
+                var tset = new TextureImporterSettings();
+                ti.ReadTextureSettings(tset);
+                if (tset.spriteMeshType != SpriteMeshType.FullRect)
+                {
+                    tset.spriteMeshType = SpriteMeshType.FullRect;
+                    ti.SetTextureSettings(tset);
+                    changed = true;
+                }
+            }
+            if (changed)
+            {
+                ti.textureType        = TextureImporterType.Sprite;
+                ti.spriteImportMode   = SpriteImportMode.Single;   // 原版 `m_Rect` 就是整张图
+                ti.spritePixelsPerUnit = ptu;                      // 原版 `m_PixelsToUnits`（这批是 25 / 100）
+                ti.spritePivot        = new Vector2(0.5f, 0.5f);   // 原版 `m_Pivot` = 0.5,0.5
+                ti.alphaIsTransparency = true;
+                ti.mipmapEnabled      = false;
+                ti.SaveAndReimport();
+            }
         }
         var sp = AssetDatabase.LoadAssetAtPath<Sprite>(path);
         if (sp == null) Debug.LogWarning($"[Arena] 读不出 Sprite：{path}");
@@ -5304,19 +5326,56 @@ public static class ArenaBuilder
         return fallback;
     }
 
-    /// <summary>把 `_sprites.json` 里的对象建出来（挂在 `root` 下）。返回建成功的个数。</summary>
+    /// <summary>把 `_sprites.json` 里的对象建出来（挂在 `root` 下）。返回建成功的个数。
+    /// 🔴 2026-10-27（B9_W59ARENA）：**三处「静默」全部改成出声**（本项目红线「不许静默失败」）：
+    ///   ① 旁挂文件不存在 —— 原来 `return 0;` **一行不打**（实测 13 场里 11 场缺这份）；
+    ///   ② 旁挂是**旧格式（条目缺 `active` 键）** —— 只是**催重生成**，**不改行为**：
+    ///      `JsonUtility` 对**缺的键**保留 C# 字段初始化值（`SpriteEntry.active = true`）
+    ///      ⇒ 旧格式等于「**所有条目都当 active**」⇒ 原版里关着的条目会被**多建**。
+    ///      ⚠️ **别再写成「读成 false ⇒ 整族跳过」** —— 那是 W45 报告的推断，已被产物实测推翻：
+    ///      astra 那份旧格式 json 在 2026-10-26 的建场里**建出了 9 个 SR**（场景与 prefab 各 9 个 `!u!212`），
+    ///      正好 = 10 条 − 1 条无贴图 ⇒ 缺键时 `active` 是 **true**。
+    ///   ③ 条目因**贴图读不出**被跳过 —— 原来只并进一行普通 `Log`。
+    ///   判据与实测 → `资料/完全复刻/报告/B9_W59ARENA_战场贴图清单修复.md`。</summary>
     static int BuildSprites(string sceneName, GameObject root)
     {
         var path = $"{ArenaDir(sceneName)}/{sceneName}_sprites.json";
-        if (!File.Exists(path)) return 0;
-        var f = JsonUtility.FromJson<SpriteFile>(File.ReadAllText(path));
-        if (f == null || f.sprites == null) return 0;
+        if (!File.Exists(path))
+        {
+            Debug.LogWarning($"[Arena] {sceneName}：**没有 `_sprites.json`**（{path}）"
+                           + $" ⇒ 这一场的 SpriteRenderer 一个都不会建；原版这一场有 sprite 就是漏建。"
+                           + $" 重跑 `工具/gen_arena_sprites.py {sceneName}` 生成。");
+            return 0;
+        }
+        var text = File.ReadAllText(path);
+        var f = JsonUtility.FromJson<SpriteFile>(text);
+        if (f == null || f.sprites == null)
+        {
+            Debug.LogWarning($"[Arena] {sceneName}：`_sprites.json` 里解析不出 `sprites` 表（{path}）"
+                           + " ⇒ 这一场的 SpriteRenderer 一个都不会建。");
+            return 0;
+        }
+        // ② 旧格式探测（**只出声、不改反序列化语义**）：`JsonUtility` 没有「这个键在不在」的 API，
+        //    用**条数配平**判 —— 生成器 `gen_arena_sprites.py` 对每条都写 `"active"`（`json.dumps` 的输出里
+        //    这个键是带引号出现的，值里不会出现同形串）。
+        // 🔴 缺键的语义（2026-10-27 产物实测）：**保持字段初始化值 `true`** ⇒ 旧格式 = 「全当 active」⇒
+        //    **原版关着的会被多建**。⛔ 别再写「读成 false ⇒ 整族跳过」（W45 报告的推断，已被 astra 的
+        //    9 个 `!u!212` 推翻）。这条 Warning 只是催重生成。
+        int nActiveKey = 0;
+        for (int at = text.IndexOf("\"active\"", System.StringComparison.Ordinal); at >= 0;
+             at = text.IndexOf("\"active\"", at + 1, System.StringComparison.Ordinal)) nActiveKey++;
+        if (nActiveKey < f.sprites.Length)
+            Debug.LogWarning($"[Arena] {sceneName}：`_sprites.json` 是**旧格式**"
+                           + $"（{f.sprites.Length} 条里只有 {nActiveKey} 条带 `active` 键）"
+                           + " ⇒ 缺的那些会**保持字段默认 true**，原版里关着的条目会被**多建**。"
+                           + $" 重跑 `工具/gen_arena_sprites.py {sceneName}` 重生成"
+                           + "（旁挂**加字段必须重生成全部 13 场**）。");
         int n = 0, nSkip = 0, nInactive = 0;
         foreach (var e in f.sprites)
         {
             if (e == null || string.IsNullOrEmpty(e.go)) continue;
             if (!e.active) { nInactive++; continue; }        // 原版关着的，不建（见 SpriteEntry.active）
-            var sp = LoadSpriteAsset(sceneName, e.tex, e.ptu);
+            var sp = LoadSpriteAsset(sceneName, e.tex, e.ptu, e.drawMode);
             if (sp == null) { nSkip++; continue; }
             var go = new GameObject(e.go);
             go.transform.SetParent(root.transform, false);
@@ -5329,6 +5388,12 @@ public static class ArenaBuilder
             sr.sortingOrder  = e.sortOrder;
             sr.sortingLayerID = e.sortLayer;
             sr.drawMode      = (SpriteDrawMode)Mathf.Clamp(e.drawMode, 0, 3);
+            // 🔴 2026-10-27（B9_W59ARENA）：`m_Size` 原来**根本没建**（JSON 里的 `size` 字段一直没被使用）。
+            //   Sliced/Tiled 下它才是真正的四边形尺寸（Simple 下 Unity 忽略它）——
+            //   原版 `sororitas` 的 3 个 `Bottom Filler *` 是 `m_DrawMode = 2` 且 `m_Size` 不是默认 (1,1)
+            //   ⇒ 不设就会画成另一块大小。判据 → 报告 `B9_W59ARENA_战场贴图清单修复.md`。
+            var sz = ToVec3(e.size, Vector3.one);
+            sr.size          = new Vector2(sz.x, sz.y);
             sr.sharedMaterial = GetOrCreateSpriteMaterial(sceneName, e);
             // 原版那份材质 → 运行时用原版 shader 重建（与网格同一条路：见 ArenaOriginalMaterial）
             var sm2 = (e.mats != null && e.mats.Length > 0) ? e.mats[0] : null;
@@ -5345,9 +5410,11 @@ public static class ArenaBuilder
             }
             n++;
         }
-        Debug.Log($"[Arena] {sceneName}：精灵（SpriteRenderer）建了 {n} 个"
+        var msg = $"[Arena] {sceneName}：精灵（SpriteRenderer）建了 {n} 个"
                 + (nInactive > 0 ? $"，**原版关着不建 {nInactive} 个**" : "")
-                + (nSkip > 0 ? $"，跳过 {nSkip} 个（贴图读不出）" : ""));
+                + (nSkip > 0 ? $"，**跳过 {nSkip} 个（贴图读不出）**" : "");
+        // ③ 有跳过 ⇒ 这场的画面与原版**不一样**，用 Warning 让它在日志里显眼（原来只是一行普通 Log）。
+        if (nSkip > 0) Debug.LogWarning(msg); else Debug.Log(msg);
         return n;
     }
 

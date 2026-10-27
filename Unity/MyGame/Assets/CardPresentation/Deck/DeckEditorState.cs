@@ -251,7 +251,7 @@ namespace CardPresentation
         public CardDef Find(string id)
         {
             CardDef c;
-            return (id != null && _byId.TryGetValue(id, out c)) ? c : null;
+            return (id != null && _byId.TryGetValue(id, out c)) ? c : PlayerDeck.ResolveEntry(id, FindPool, out _);
         }
 
         // ------------------------------------------------------------ 卡组
@@ -493,7 +493,7 @@ namespace CardPresentation
         {
             var w = Find(warlordId);
             if (w == null || w.Type != "hero") return 0;
-            Deck.WarlordId = w.Id;
+            Deck.WarlordId = PlayerDeck.IsAltArtEntry(warlordId) ? warlordId : w.Id;   // 传进来的若是异画条目，保住那个标记（账 `HUD:92/93`）
 
             int removed = 0;
             for (int i = Deck.CardIds.Count - 1; i >= 0; i--)
@@ -510,8 +510,8 @@ namespace CardPresentation
         public bool TryRemove(CardDef c)
         {
             if (c == null) return false;
-            if (c.Type == "hero") return Deck.WarlordId == c.Id && ClearWarlord();
-            if (c.Type == "defence") return Deck.DefensiveId == c.Id && ClearDefensive();
+            if (c.Type == "hero") return PlayerDeck.SameCardKey(Deck.WarlordId) == PlayerDeck.SameCardKey(c.Id) && ClearWarlord();
+            if (c.Type == "defence") return PlayerDeck.SameCardKey(Deck.DefensiveId) == PlayerDeck.SameCardKey(c.Id) && ClearDefensive();
             return Deck.RemoveCard(c.Id);
         }
 
@@ -1080,5 +1080,227 @@ namespace CardPresentation
             return DeckRuntime.DeckErrorText(e);
         }
 
+        /// <summary>`Find` 的**第二段**（只有异画副本条目 `#HB_SW1` 才会走到）：按原卡 id 在卡池索引里查。
+        /// <para>为什么要它：账 `HUD:92` / `HUD:93` 的卡组层 —— 异画副本是 `CardIds` 里 `#` 开头的一条，
+        /// 用它直接查 `_byId` 必然落空 ⇒ 卡组列表会**少一行**（`DeckRuntime.DeckEntries` 拿 null 就跳过）、
+        /// 份数/张数也数不对。判据 / 口径 → `RuleEngine/Core/DeckRules.cs` 里 `PlayerDeck` 类尾那段注。</para></summary>
+        CardDef FindPool(string id)
+        {
+            CardDef c;
+            return (id != null && _byId.TryGetValue(id, out c)) ? c : null;
+        }
+
+    }
+
+    /// <summary>
+    /// 账 `HUD:92` / `HUD:93` 的**卡组层**自检：异画副本进卡组（视图侧那一半早就接好了）。
+    ///
+    /// <para>**为什么住在这儿**（不在 `RuleEngine/Core/DeckRules.cs`）：本件要同时用
+    /// `DeckBuilder.FromDeck`（`RuleEngine/Data/`）与 `DeckLibrary.ExportString/ImportString`，
+    /// 而离线探针 `工具/ruleprobe` 的编译项只收 `RuleEngine/Core/*.cs`（见 `ruleprobe.csproj`）
+    /// ⇒ 放进 Core 会把探针整个编坏。这里属于**卡组层**、且 `using RuleEngine;`，两边都看得见。</para>
+    ///
+    /// <para>**怎么接**（宿主一行，调度台在同步点接）：
+    /// <c>AltArtDeckSelfCheck.Run(CheckTrue, pool, id =&gt; CardDatabase.FindById(pool, id), "SW1");</c>
+    /// —— 断言的真宿主仍然是 `DeckScene.Run` / `RuleEngineTest.Run`；本类只出「结论 + 证据」。</para>
+    ///
+    /// <para>🔴 **夹具口径（2026-10-27 收紧之后）**：正例 = **卡表里真有的那 7 张督军异画**之一（`#HB_SW1`）；
+    /// 负例 = `#HB_&lt;同阵营单位卡&gt;`（卡表**明确没有**这一条）⇒ 必须**不被认成异画**、且按「查不到」出声
+    /// （`Validate` → `UnknownCard` · `RemoveInvalidCards` 记进 `removed` · `FromDeck`/导入串 `LogError` + 落 dropped）。
+    /// ⚠️ 7 张异画今天**全是督军** ⇒ `CardIds` 里「合法的异画」无真值，那几支只能测负例（→ 报告「没查清的部分」）。
+    /// 🧨 灭自证：正例/负例各配一条**对照**（普通 id 必须照旧解析/保留），否则「恒真桩」「恒假桩」都能全绿。</para>
+    /// </summary>
+    public static class AltArtDeckSelfCheck
+    {
+        /// <param name="check">宿主的断言回调（`tag` / `ok` / `detail`），例如 `CheckTrue`。</param>
+        /// <param name="pool">卡池（`DeckBuilder.FromDeck` 要它）。</param>
+        /// <param name="lookup">按 id 查卡（`DeckRules.Validate` 要它）。</param>
+        /// <param name="warlordId">**真有异画的那张督军**的 id（本地 7 张任取，例 `SW1`）。</param>
+        /// <returns>失败条数（0 = 全过）。</returns>
+        public static int Run(Action<string, bool, string> check, IEnumerable<CardDef> pool,
+                              Func<string, CardDef> lookup, string warlordId)
+        {
+            int bad = 0;
+            if (check == null) return 0;
+            Action<string, bool, string> C = (tag, ok, detail) => { check(tag, ok, detail); if (!ok) bad++; };
+            if (pool == null || lookup == null)
+            {
+                C("异画自检前提：卡池与 lookup 都不能为空", false, "pool 或 lookup 是 null");
+                return bad;
+            }
+            var cards = new List<CardDef>(pool);
+            var wl = string.IsNullOrEmpty(warlordId) ? null : lookup(warlordId);
+            // 卡位那一支要一张**同阵营的单位卡**（督军只住 `WarlordId` 槽、进不了 `CardIds`）。
+            CardDef unit = null;
+            if (wl != null)
+                foreach (var c in cards)
+                    if (c != null && c.Type == "unit" && DeckRules.SameFaction(c.Faction, wl.Faction)
+                        && !DeckRules.CannotAddToDeck(c))   // ④c/⑤c 拿它当**照旧合法**的对照 ⇒ 必须是真能进卡组的那张
+                    { unit = c; break; }
+
+            // ---- 前提硬检查（不成立就**出声返回**：⛔ 别让结论句在空转里变绿）----
+            bool prem = wl != null && wl.Type == "hero" && unit != null;
+            C("异画自检前提：`" + warlordId + "` 是督军、且同阵营有一张单位卡", prem,
+              wl == null ? "卡池里没有这个 id" : (wl.Type != "hero" ? "它不是 hero" : "该阵营找不到单位卡"));
+            if (!prem) return bad;
+            // 前提② = **灭自证**：这两个异画 id 本身**不在池里**。若哪天它们进了池，
+            // 「解析成功」可能只是撞上了池里的同名 id ⇒ 后面全部断言失去区分力。
+            string wlAlt = "#HB_" + wl.Id, unitAlt = "#HB_" + unit.Id;
+            bool notInPool = lookup(wlAlt) == null && lookup(unitAlt) == null;
+            C("异画自检前提②：`" + wlAlt + "` / `" + unitAlt + "` **都不在卡池里**", notInPool,
+              notInPool ? "" : "异画 id 已进池 ⇒ 后面的断言证明不了什么");
+            if (!notInPool) return bad;
+            // 前提③（2026-10-27 收紧新增）：**正例的判据 = 「卡表里真有这一条」**。表里没登记/整列缺席时，
+            //   下面的「解析成功」证明不了「必须在表里」这条规则（它会落进「判不了 ⇒ 按认」那一档）。
+            bool registered = wl.AlternateArtsKnown && wl.HasAlternateArt(wlAlt);
+            C("异画自检前提③：卡表这一列**说了**、且 `" + wlAlt + "` 在表里登记（正例的判据）", registered,
+              !wl.AlternateArtsKnown ? "`AlternateArtsKnown == false`（整列缺席）⇒ 这一条判不了"
+                                     : "卡表里**没有**登记这条异画 ⇒ 不能当正例");
+            if (!registered) return bad;
+            // 前提④：**负例的判据 = 「卡表里明确没有」**（`Known == true` 且没列）。缺列是「判不了」，
+            //   ⛔ 别把缺列当负例 —— 那会把「整列缺席 ⇒ 按认」那一档静默做成「没有」。
+            bool unregistered = unit.AlternateArtsKnown && !unit.HasAlternateArt(unitAlt);
+            C("异画自检前提④：`" + unit.Id + "` 表里**明确没有**异画（`Known == true` 且没列）", unregistered,
+              unit.AlternateArtsKnown ? "卡表里竟然登记了它 ⇒ 不能当负例"
+                                      : "`AlternateArtsKnown == false`（整列缺席）⇒ 判不了，不能当负例");
+            if (!unregistered) return bad;
+
+            // ① 识别（普通 id 一个都不许被认成异画）
+            C("① `" + wlAlt + "` / `" + unitAlt + "` 认成异画条目；`" + wl.Id + "` / `" + unit.Id + "` 不认",
+              PlayerDeck.IsAltArtEntry(wlAlt) && PlayerDeck.IsAltArtEntry(unitAlt)
+              && !PlayerDeck.IsAltArtEntry(wl.Id) && !PlayerDeck.IsAltArtEntry(unit.Id), "");
+            // ①b **纯字符串那一层没有跟着收紧**（判据 = 原版 `CardDeck.CardCopiesInDeck` / `Has` 比的是
+            //    `GetOriginalId()`，那是 id 变换、**不查卡表**）⇒ 收紧只发生在 `ResolveEntry` 那一处。
+            C("①b `SameCardKey` / `AltArtBaseIdOf` 仍是**纯字符串归一**（不查卡表 ⇒ 与 `ResolveEntry` 不同档）",
+              PlayerDeck.SameCardKey(wlAlt) == wl.Id && PlayerDeck.AltArtBaseIdOf(wlAlt) == wl.Id
+              && PlayerDeck.SameCardKey(unitAlt) == unit.Id && PlayerDeck.AltArtBaseIdOf(unitAlt) == unit.Id,
+              "SameCardKey(" + unitAlt + ") = " + (PlayerDeck.SameCardKey(unitAlt) ?? "null"));
+
+            // ② 解析口：**表里登记的**异画条目 ⇒ 原卡那张 + isAltArt
+            bool altW, altU;
+            var rw = PlayerDeck.ResolveEntry(wlAlt, lookup, out altW);
+            var ru = PlayerDeck.ResolveEntry(unitAlt, lookup, out altU);
+            C("② 正例：`" + wlAlt + "`（表里登记）解析回原卡 `" + wl.Id + "`，isAltArt = true",
+              rw != null && rw.Id == wl.Id && altW,
+              "→ " + (rw == null ? "null" : rw.Id + "/alt=" + altW));
+            // ②b 负例 = **2026-10-27 收紧**本身：表里没登记的 `#HB_<单位卡>` 不再冒充异画
+            C("②b 负例：`" + unitAlt + "`（卡表明确没登记）**解析成 null**、isAltArt = false（⛔ 不静默当普通卡）",
+              ru == null && !altU, "→ " + (ru == null ? "null" : ru.Id + "/alt=" + altU)
+              + "｜🧨 去掉 `PlayerDeck.ResolveEntry` 里那条收紧 ⇒ 本条变红");
+            // ②c 对照：**普通 id 一个字没变**（否则 ②b 可能只是「ResolveEntry 整个坏了」）
+            bool p1 = false, p2 = false;   // 先给初值：短路过 `out` 调用时，下面那句 detail 仍会读它们
+            C("②c 对照：普通 id `" + wl.Id + "` / `" + unit.Id + "` 照旧解析、isAltArt = false",
+              PlayerDeck.ResolveEntry(wl.Id, lookup, out p1) != null && !p1
+              && PlayerDeck.ResolveEntry(unit.Id, lookup, out p2) != null && !p2,
+              "`" + wl.Id + "` alt=" + p1 + " · `" + unit.Id + "` alt=" + p2);
+
+            // ③ 份数口径 = 原版 `CardCopiesInDeck`（比 `GetOriginalId`）：普通一张 + 异画一张 = 同一张 ×2
+            //   ⚠️ 这条走的是**纯字符串**那层（不查卡表）⇒ 正例必须拿**表里真有**的那一条（`#HB_SW1`），
+            //   否则正例会依赖一条本来就不合法的条目（`#HB_<单位卡>` 现在是负例，见 ②b）。
+            var cnt = new PlayerDeck("异画份数自检", null, null, new[] { wl.Id, wlAlt }, 0);
+            C("③ 份数：`" + wl.Id + "` + `" + wlAlt + "` 算**同一张卡的 2 份**（两个 id 查都给 2）",
+              cnt.CountOf(wl.Id) == 2 && cnt.CountOf(wlAlt) == 2,
+              "CountOf(" + wl.Id + ")=" + cnt.CountOf(wl.Id) + " · CountOf(" + wlAlt + ")=" + cnt.CountOf(wlAlt));
+            var rm = new PlayerDeck("异画删牌自检", null, null, new[] { wl.Id, wlAlt }, 0);
+            C("③b 删一张 ⇒ 只少一份（`RemoveCard` 也按同一张卡认）", rm.RemoveCard(wl.Id) && rm.CardIds.Count == 1,
+              "剩 " + rm.CardIds.Count + " 条");
+
+            // ④ 摘不合法卡 · **正例**：表里登记的异画督军**不许**被当「查不到的 id」摘掉
+            //   （改前 = UnknownCard 清空督军槽；7 张异画全是督军 ⇒ 这一格是今天唯一有真值的正向路径）
+            var keepW = new PlayerDeck("异画督军自检", wlAlt, null, null, 0);
+            var removedW = DeckRules.RemoveInvalidCards(keepW, lookup);
+            C("④ 正例：`RemoveInvalidCards` 保留**表里登记的异画督军**（改前按 `UnknownCard` 清空督军槽）",
+              keepW.WarlordId == wlAlt && removedW.Count == 0,
+              "WarlordId = " + (keepW.WarlordId ?? "null") + " · 摘了 " + removedW.Count + " 条");
+            // ④b **负例**（2026-10-27 收紧）：卡位里没登记的那一条必须被摘、且理由 = `UnknownCard`（出声）
+            var keepBad = new PlayerDeck("异画负例自检", wl.Id, null, new[] { unitAlt }, 0);
+            var removedBad = DeckRules.RemoveInvalidCards(keepBad, lookup);
+            C("④b 负例：卡位里没登记的 `" + unitAlt + "` 被摘掉、理由 = `UnknownCard`（⛔ 不许静默留下当普通卡）",
+              keepBad.CardIds.Count == 0 && removedBad.Count == 1 && removedBad[0].Why == DeckError.UnknownCard,
+              "剩 " + keepBad.CardIds.Count + " 条 · 摘了 " + removedBad.Count + " 条"
+              + (removedBad.Count == 0 ? "" : " · why = " + removedBad[0].Why));
+            // ④c **对照**：同一个槽里放普通卡必须留着（否则 ④b 对「一律摘光」的桩也会绿）
+            var keepPlain = new PlayerDeck("异画对照自检", wl.Id, null, new[] { unit.Id }, 0);
+            var removedPlain = DeckRules.RemoveInvalidCards(keepPlain, lookup);
+            C("④c 对照：同一槽里的普通卡 `" + unit.Id + "` 留着、removed 为 0",
+              keepPlain.CardIds.Count == 1 && keepPlain.CardIds[0] == unit.Id && removedPlain.Count == 0,
+              "剩 " + keepPlain.CardIds.Count + " 条 · 摘了 " + removedPlain.Count + " 条");
+
+            // ⑤ 校验：**表里登记的**异画督军**不是** `UnknownCard`（改前 = 就是它）
+            var plainW = new PlayerDeck("督军对照", wl.Id, null, null, 0);
+            var altWDeck = new PlayerDeck("异画督军", wlAlt, null, null, 0);
+            var ep = DeckRules.Validate(plainW, lookup);
+            var ea = DeckRules.Validate(altWDeck, lookup);
+            C("⑤ 正例：`Validate` 给异画督军与普通督军**同一个错误码**，且都不是 `UnknownCard`",
+              ea == ep && ea != DeckError.UnknownCard, "普通 = " + ep + " · 异画 = " + ea);
+            // ⑤b 负例：卡位里没登记的条目 ⇒ `UnknownCard`（这是「出声」的那条通道）
+            var badDeck = new PlayerDeck("异画负例", wl.Id, null, new[] { unitAlt }, 0);
+            C("⑤b 负例：`Validate` 把 `" + unitAlt + "` 判成 `UnknownCard`（⛔ 不静默当普通卡）",
+              DeckRules.Validate(badDeck, lookup) == DeckError.UnknownCard,
+              "→ " + DeckRules.Validate(badDeck, lookup));
+            // ⑤c 对照：同一副牌换成普通卡 ⇒ 错误码**不是** `UnknownCard`（挡住「一律 UnknownCard」的桩）
+            var okDeck = new PlayerDeck("异画对照", wl.Id, null, new[] { unit.Id }, 0);
+            C("⑤c 对照：同一副牌里放普通卡 ⇒ 错误码不是 `UnknownCard`",
+              DeckRules.Validate(okDeck, lookup) != DeckError.UnknownCard,
+              "→ " + DeckRules.Validate(okDeck, lookup));
+
+            // ⑥ 张数不变（`FromDeck`）+ 展开出来的就是**原卡那张**
+            //   正例 = **表里登记的**异画督军（今天唯一有真值的正向路径）＋普通卡位；
+            //   负例 = 卡位里没登记的 `#HB_<单位卡>` ⇒ 必须**不被展开**（走 `Debug.LogError`，不静默当普通卡）。
+            var deckA = new PlayerDeck("对照", wl.Id, null, new List<string> { unit.Id, unit.Id }, 0);
+            var deckB = new PlayerDeck("异画", wlAlt, null, new List<string> { unit.Id, unit.Id }, 0);
+            var sk = new List<string>();
+            var la = DeckBuilder.FromDeck(cards, deckA);
+            var lb = DeckBuilder.FromDeck(cards, deckB, sk);
+            int aUnit = 0, bUnit = 0;
+            foreach (var c in la) if (c != null && c.Id == unit.Id) aUnit++;
+            foreach (var c in lb) if (c != null && c.Id == unit.Id) bUnit++;
+            C("⑥ 正例：带异画督军的卡组**展开张数不变**（改前少一张）", la.Count == lb.Count,
+              "对照 " + la.Count + " 张 · 异画 " + lb.Count + " 张");
+            C("⑥b 正例：异画督军展开成**原卡**（`" + unit.Id + "` 张数相同且都是 2）", aUnit == bUnit && bUnit == 2,
+              "对照 " + aUnit + " 张 · 异画 " + bUnit + " 张");
+            C("⑥c 正例：合法异画条目**不进 `skipped`**（⛔ 不许静默丢）", !sk.Contains(wlAlt),
+              sk.Count == 0 ? "" : ("skipped = " + string.Join(",", sk)));
+            C("⑥d 正例：督军那一格是**原卡**（异画只换立绘、不换卡）",
+              lb.Count > 0 && lb[0] != null && lb[0].Id == wl.Id,
+              (lb.Count == 0 || lb[0] == null) ? "第 0 张是 null" : lb[0].Id);
+            // ⑥e 负例：没登记的卡位条目**不被展开** ⇒ 张数比对照少 1、`unit` 只剩 1 张
+            var deckC = new PlayerDeck("异画负例", wl.Id, null, new List<string> { unitAlt, unit.Id }, 0);
+            var skBad = new List<string>();
+            var lc = DeckBuilder.FromDeck(cards, deckC, skBad);
+            int cUnit = 0;
+            foreach (var c in lc) if (c != null && c.Id == unit.Id) cUnit++;
+            C("⑥e 负例：卡位里没登记的 `" + unitAlt + "` **不被展开**（张数比对照少 1；出声 = `Debug.LogError`）",
+              lc.Count == la.Count - 1 && cUnit == 1,
+              "对照 " + la.Count + " 张 · 带负例 " + lc.Count + " 张 · `" + unit.Id + "` " + cUnit + " 张");
+
+            // ⑦ 分享串进出：`ExportString` 写成原版克隆 id（`HB_…`），`ImportString` 再换回 `#HB_…`
+            //   ⚠️ 正例只能是**督军位**（7 张异画全是督军）⇒ 这里测的是 `WarlordId` 的往返。
+            string s = DeckLibrary.ExportString(deckB);
+            var back = DeckLibrary.ImportString(s, lookup);
+            bool keptAlt = back != null && PlayerDeck.IsAltArtEntry(back.WarlordId)
+                           && PlayerDeck.SameCardKey(back.WarlordId) == wl.Id;
+            C("⑦ 正例：分享串往返，异画督军仍是异画（`ExportString` → `ImportString`）",
+              keptAlt, back == null ? "ImportString 返回 null"
+                                    : "导入后 WarlordId = " + (back.WarlordId ?? "null"));
+            // ⑦b 分享串里写的是**原版克隆 id**（不带 `#`）—— 解一次原文看一眼，别让 `#` 漏进分享串
+            string raw = "";
+            try { raw = Encoding.UTF8.GetString(Convert.FromBase64String(s)); } catch { raw = ""; }
+            C("⑦b `ExportString` 写的是原版克隆 id `HB_…`（不带 `#`）",
+              raw.Length > 0 && raw.Contains("HB_" + wl.Id) && !raw.Contains("#"),
+              raw.Length == 0 ? "分享串不是合法 Base64" : raw);
+            // ⑦c 负例：没登记的条目在导入时**被丢掉并记进 `LastDroppedIds`**（出声，⛔ 不静默当普通卡）
+            string sBad = DeckLibrary.ExportString(deckC);
+            var backBad = DeckLibrary.ImportString(sBad, lookup);
+            bool droppedBad = false;
+            foreach (var d in DeckLibrary.LastDroppedIds) if (d == "HB_" + unit.Id) droppedBad = true;
+            C("⑦c 负例：导入串里没登记的 `HB_" + unit.Id + "` 被丢掉、并记进 `LastDroppedIds`（出声）",
+              backBad != null && droppedBad && backBad.CardIds.Count == 1 && backBad.CardIds[0] == unit.Id,
+              backBad == null ? "ImportString 返回 null"
+                              : ("dropped = " + string.Join(",", DeckLibrary.LastDroppedIds)
+                                 + " · 剩 " + backBad.CardIds.Count + " 条"));
+
+            return bad;
+        }
     }
 }

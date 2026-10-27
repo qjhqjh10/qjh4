@@ -2116,63 +2116,131 @@ namespace CardPresentation
         //      else                              return Desc("-effect") ?? Desc();     // 裸键
         //  } else {
         //      if (ability != null && ability.needsLoading && HasRemovedTrait(reload))
-        //          return DescRemovingSiege();                                            // ← 后缀没解出来（内部还拼 5 个常量）
+        //          return DescRemovingSiege();                                            // ← 后缀 = 空串（见类尾 `AbilityRemovingSiege`）
         //      return Desc();                                                             // 裸键
         //  }
         //  ```
         //  `Desc(suffix)` = `RawCardScript.GetLocalizedAbilityDesc(suffix)`
-        //  （`RawCardScript__GetLocalizedAbilityDesc.c:19-27`：键 = `"Card_Description/" + (textReferenceId ?? uniqueId) + suffix`，
+        //  （`RawCardScript__GetLocalizedAbilityDesc.c:19-27`：键 = `"Card_Abilities/" + (textReferenceId ?? uniqueId) + suffix`，
         //   且 `IsNullOrEmpty` 的**返回 false** 才采信 —— 即「缺键 ⇒ 往下落」）。
-        //  ⚠️ **`RemovingSiege` 那一支没有后缀判据**（`RawCardScript__GetLocalizedAbilityDescRemovingSiege.c`
-        //  内部还拼 5 个常量）⇒ 我们**不猜**：出声一次 + 退回裸键（⛔ 别再拿一个自己想的后缀顶上）。
+        //  ⚠️ **`RemovingSiege` 那一支的 suffix = 空串、已解出**（ILSpy 内联出常量：`RawCardScript.cs:2408` 的默认值；
+        //  调用点 `CardScript__GetCurrentLocalizedAbilityDescription.c:32` 与裸键 `:67` 传的是同一个 `DAT_1842b80e0`）。
         // ==================================================================
-        static bool _warnedRemovingSiege;
-        /// <summary>三档后缀链的落地。`cardId == null` ⇒ **老口径**（`CardText.EffectSentence`，行为与改前逐字相同）。
-        /// <para>⚠️ 缺键判据用 `Loc.T(key) != key`（`Loc.HasEntry` **只认手写表**，`Card_Description/*`
-        /// 那一族在官方全表里 ⇒ 拿 `HasEntry` 会恒 false）。</para></summary>
+        static bool _warnedLoadKeyMiss;   // 2026-10-27 改名（原名 `_warnedRemovingSiege`：那一支后缀已解出、不再出声 ⇒ 本位只服务 `-load` 那一档）
+        /// <summary>🔶 自己设计（非原版）：**两条后缀键都缺时退回裸描述** —— 原版那一档直接印 `ModifyLocalization(Loc(Card_Abilities/GenericSiegeText))` 的返回值（缺键时=键名本身）· 调度台 2026-10-27 裁定。三档后缀链的落地。`cardId == null` ⇒ **老口径**（`CardText.EffectSentence`，行为与改前逐字相同）；
+        /// 有 `cardId` ⇒ **裸键 = `Card_Abilities/&lt;id&gt;`**（原版 `Desc()`），缺键才回 `CardText.EffectSentence`。
+        /// <para>⚠️ 缺键判据用 `Loc.T(key) != key`（`Loc.HasEntry` **只认手写表**，`Card_Abilities/*` 那一族在官方全表里 ⇒ 拿 `HasEntry` 会恒 false）。</para></summary>
         string AbilityDescription(EffectSpec ability, string cardId, bool requiresLoading,
                                   bool abilityLoaded, int abilityNeedsLoading, bool hasRemovedReload)
         {
-            string bare = CardText.EffectSentence(ability);
+            string bare = AbilityBareText(ability, cardId);
             if (string.IsNullOrEmpty(cardId)) return bare;
             if (requiresLoading)
             {
                 if (!abilityLoaded)
                 {
-                    string k1 = "Card_Description/" + cardId + "-load";
-                    string v1 = Loc.T(k1);
-                    if (!string.IsNullOrEmpty(v1) && v1 != k1) return v1;
+                    string k1 = "Card_Abilities/" + cardId + "-load";
+                    string v1 = AbilityTerm(k1);
+                    if (v1 != null) return v1;
                     const string kG = "Card_Abilities/GenericSiegeText";
-                    string vg = Loc.T(kG);
-                    if (!string.IsNullOrEmpty(vg) && vg != kG) return vg;
-                    if (!_warnedRemovingSiege)
+                    string vg = AbilityTerm(kG);
+                    if (vg != null) return vg;
+                    if (!_warnedLoadKeyMiss)
                     {
-                        _warnedRemovingSiege = true;
+                        _warnedLoadKeyMiss = true;
                         Debug.LogWarning("[SkillPanel] `" + k1 + "` 与 `" + kG + "` 两条都缺键 ⇒ 技能描述退回卡面的裸描述"
                                        + "（原版 `ModifyLocalization(Loc(Card_Abilities/GenericSiegeText))` 那一档）");
                     }
                     return bare;
                 }
-                string k2 = "Card_Description/" + cardId + "-effect";
-                string v2 = Loc.T(k2);
-                if (!string.IsNullOrEmpty(v2) && v2 != k2) return v2;
-                return bare;                                   // 原版这里落 `Desc()` 裸键
+                string k2 = "Card_Abilities/" + cardId + "-effect";
+                string v2 = AbilityTerm(k2);
+                if (v2 != null) return v2;
+                return bare;                                   // 原版这里落 `Desc()` 裸键（= 上面 `bare` 的第一档）
             }
             if (abilityNeedsLoading == 1 && hasRemovedReload)
-            {
-                // 原版 `GetLocalizedAbilityDescRemovingSiege()` —— 后缀**没解出来**（内部还拼 5 个常量）⇒ ⛔ 不猜
-                if (!_warnedRemovingSiege)
-                {
-                    _warnedRemovingSiege = true;
-                    Debug.LogWarning("[SkillPanel] 这一张走原版 `GetLocalizedAbilityDescRemovingSiege()` 那一支，"
-                                   + "但那个方法的**后缀没解出来**（`RawCardScript__GetLocalizedAbilityDescRemovingSiege.c` "
-                                   + "内部还拼 5 个常量）⇒ 退回裸描述，⛔ 不自造后缀");
-                }
-                return bare;
-            }
+                return AbilityRemovingSiege(bare, cardId);     // 原版 `GetLocalizedAbilityDescRemovingSiege()`
             return bare;                                       // 原版 else 支：`Desc()` 裸键
         }
-        /// <summary>自检口：把「RemovingSiege / 缺键已出声」那位清零。</summary>
-        public static void ResetAbilityDescWarnForTest() { _warnedRemovingSiege = false; }
+        /// <summary>自检口：把「`-load` 那一档缺键已出声」那位清零（`RemovingSiege` 的后缀已解出、不再出声）。</summary>
+        public static void ResetAbilityDescWarnForTest() { _warnedLoadKeyMiss = false; }
+
+        // ==================================================================
+        //  🆕 2026-10-27（`B9_W21SKILL` · 账 755）：`Card_Abilities/*` 的取词 + `[[reload]]` 闸
+        //  🥇 判据 = `RawCardScript.GetLocalizedAbilityDesc(suffix)` / `…RemovingSiege(suffix)`
+        //    （`cpp2il/out_cpp2il_dev_ilspy/RawCardScript.cs:2374-2446` ·
+        //     `decomp_full/RawCardScript__GetLocalizedAbilityDesc{,RemovingSiege}.c`）
+        //  · 键 = **`Card_Abilities/`** + (`activeAbilityTextReferenceId` ?? `uniqueId`) + suffix
+        //    —— 前缀**不是** `Card_Description/`（那一族是**卡面正文**，`BattleDriver.FaceTextFull` 在用）。
+        //  · `RemovingSiege` 的 suffix = 空串（见 `AbilityRemovingSiege` 的 doc）。
+        //  · 三条路最后都过原版 `SupportMethods.ModifyLocalization`（`:2405` / `:2445`）= 记号渲染层，
+        //    我们这层 = `CardIcons.RewriteMarks`（与 `BattleDriver` 的 `OfficialCurrent` + `RewriteMarks` 同一套四支）。
+        //  ⚠️ **id 那一半仍缺**：我们只有卡 id、没有 `activeAbilityTextReferenceId`（原版 `+0x248`）
+        //    ⇒ 官方表 120 条 `Card_Abilities/*` 里 **34 条拼不出来**（30 条 `Effect<名>` + 4 条非卡 id）。
+        //    要补只能走**数据侧**（1,351 个卡 SO 的那一列），⛔ 不是表现层能猜的。
+        // ==================================================================
+
+        /// <summary>`Card_Abilities/&lt;id&gt;` 裸键（原版 `Desc()`）；缺键才回 <see cref="CardText.EffectSentence"/>
+        /// （🔶 自己设计（非原版）：**缺 `Card_Abilities/<id>` 键时退回 `CardText.EffectSentence` 模板句** —— 原版 `Desc()` 会返回键名本身、空 id 那支直接 `throw`（ILSpy 误译）· 调度台 2026-10-27 裁定；后者是我们改前一直在用的，⛔ 不是原版那条路）。
+        /// <para>⚠️ 现读官方表 120 条 `Card_Abilities/*` 里 **86 条**能由卡 id 拼出 ⇒ 这 86 张卡的
+        /// 技能描述文本与改前不同（那正是本条要修的偏差）；其余落回模板句，与改前逐字相同。</para></summary>
+        string AbilityBareText(EffectSpec ability, string cardId)
+        {
+            string v = AbilityTerm(string.IsNullOrEmpty(cardId) ? null : "Card_Abilities/" + cardId);
+            return v != null ? v : CardText.EffectSentence(ability);
+        }
+
+        /// <summary>原版 `GetLocalizedAbilityDescRemovingSiege()`（suffix = 空串）：取 `Card_Abilities/&lt;id&gt;`，
+        /// 值里带 `[[reload]]` 时按原版**顺序**剥掉 4 个变体，再走记号渲染。
+        /// <para>判据：`RawCardScript.cs:2411`（键）+ `:2420-2441`（4 个 `Replace`，替换值全是**空串**；
+        /// 顺序 = `[[reload]]: ` → `[[reload]]:` → `[[reload]] : ` → `[[reload]] :`，上一支的产物被下一支继续处理）。
+        /// 只有 `Contains("[[reload]]")`（`:2420`）才剥，不带就原样返回。</para>
+        /// <para>🔶 自己设计（非原版）：**缺键时的处置** —— 原版那一支在 `translation == null` 时落一句 `throw`
+        /// （ILSpy 误译成 `return (string)(object)new NullReferenceException();`，`RawCardScript.cs:2443`；见 `CLAUDE.md` §三
+        /// 那条「ILSpy 对 `throw` 的误译」）⇒ 照抄就是一条必崩的路径，且无法确证原版真会走到那里。
+        /// ⇒ 退回 <paramref name="fallback"/>（= 裸键 / 模板句）· 调度台 2026-10-27 裁定（本波简报：⛔ 不自造后缀）。</para></summary>
+        string AbilityRemovingSiege(string fallback, string cardId)
+        {
+            string v = AbilityRaw(string.IsNullOrEmpty(cardId) ? null : "Card_Abilities/" + cardId);
+            if (v == null) return fallback;
+            if (v.IndexOf("[[reload]]", System.StringComparison.Ordinal) >= 0)
+                v = v.Replace("[[reload]]: ", "").Replace("[[reload]]:", "")
+                     .Replace("[[reload]] : ", "").Replace("[[reload]] :", "");
+            return AbilityMarked(v);
+        }
+
+        /// <summary>官方词条取一条（三档：手写表 → bulk → 官方全表，走 `Loc.T`）+ 记号渲染；缺键 ⇒ `null`。
+        /// <para>⚠️ 缺键判据用 `Loc.T(key) != key`（`Loc.HasEntry` **只认手写表** ⇒ 那一族恒 false）。</para></summary>
+        static string AbilityTerm(string key)
+        {
+            string v = AbilityRaw(key);
+            return v == null ? null : AbilityMarked(v);
+        }
+
+        /// <summary>官方词条的**原值**（未渲染记号）；缺键 ⇒ `null`。
+        /// <para>⚠️ **字体闸**：中文档但中文字体资产缺失（`CardText.Zh == false`）⇒ 取官方**英文**列
+        /// （与 `BattleDriver.FaceTextFull` / `CardText.TermOr` 同一条闸，⛔ 否则面板上会印方块）。</para></summary>
+        static string AbilityRaw(string key)
+        {
+            if (string.IsNullOrEmpty(key)) return null;
+            if (!CardText.Zh && Loc.Current == AvailableLanguages.Chinese)
+            {
+                string en = Loc.OfficialEnglish(key);
+                return string.IsNullOrEmpty(en) ? null : en;
+            }
+            string v = Loc.T(key);
+            return (!string.IsNullOrEmpty(v) && v != key) ? v : null;
+        }
+
+        /// <summary>记号渲染（原版 `SupportMethods.ModifyLocalization` 那一层）。**只在带原版记号时**走
+        /// `CardIcons.RewriteMarks`（`[[…]]` / `((…))` / `$$…$$`，与 `BattleDriver.FaceTextFull` 同一套四支），
+        /// 否则原样返回 —— 现读 120 条 `Card_Abilities/*` 里 **102 条**带记号，不过这层会把记号原样印上面板。
+        /// <para>⚠️ 那个 `zh` 位要连**字体闸**一起看：字体缺失时上面已改取英文列 ⇒ 记号里的子词条也必须取英文列。</para></summary>
+        static string AbilityMarked(string v)
+        {
+            if (string.IsNullOrEmpty(v)) return v;
+            bool zhCol = CardText.Zh && Loc.Current == AvailableLanguages.Chinese;
+            return CardIcons.HasOfficialMarks(v) ? CardIcons.RewriteMarks(v, zhCol) : v;
+        }
     }
 }

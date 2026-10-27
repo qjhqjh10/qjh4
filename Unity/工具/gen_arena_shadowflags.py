@@ -47,6 +47,42 @@ ARENAS_ROOT = G.ARENAS_ROOT
 ALL_ARENAS = G.ALL_ARENAS
 
 
+## 🆕 2026-10-27（B9_W45ARENA）`--check` 的**产物校验**（只读，不写盘）。
+#  原来这一族的 `--check` 是「只扫不写」（`if not check:` 才写）—— 盘上缺产物也恒 rc0，
+#  属「看着有 check、其实啥都没查」。口径照 `工具/import_original_art.py:1714-1721`：
+#  把**重算出来的内容**与盘上那份**逐字节比**；缺 = 缺产物 · 不一致 = 过期，末尾点名 + rc=1。
+def wf_check_artifact(dst, text, lack, stale):
+    if not os.path.isfile(dst):
+        lack.append(dst)
+        return
+    try:
+        old = io.open(dst, encoding='utf-8').read()
+    except Exception as e:
+        stale.append((dst, '读不出：%s' % e))
+        return
+    if old == text:
+        return
+    try:                     # 只差缩进/键序 ⇒ 语义一致，**不算过期**（`JsonUtility` 本来就不看键序）
+        if json.loads(old) == json.loads(text):
+            return
+    except Exception:
+        pass
+    stale.append((dst, '内容与重算结果不同'))
+
+
+def wf_report_artifacts(check, lack, stale, script):
+    """`--check` 收尾：有缺/过期就点名并让 main 返回 1。→ 该返回的 rc（无问题 = 0）。"""
+    if not check or not (lack or stale):
+        return 0
+    print('')
+    for p in lack:
+        print('  🔴 缺产物：%s' % p)
+    for p, why in stale:
+        print('  🔴 产物过期（%s）：%s' % (why, p))
+    print('  ⇒ 重跑一次 `python 工具/%s` 生成（`--check` 只读、不写盘）。' % script)
+    return 1
+
+
 def load_dir(bdir, kind):
     out = {}
     for f in glob.glob(os.path.join(bdir, kind, '%s_*.json' % kind)):
@@ -130,6 +166,7 @@ def main():
     check = '--check' in sys.argv
     arenas = args or ALL_ARENAS
     tot = cast_on = recv_on = gtot = 0
+    lack, stale = [], []
     for a in arenas:
         items, warns = scan_arena(a)
         if items is None:
@@ -146,13 +183,16 @@ def main():
         print(line)
         for w in warns[:4]:
             print('      ⚠️ ' + w)
-        if not check:
-            p = f'{ARENAS_ROOT}/{a}/{a}_shadowflags.json'
-            io.open(p, 'w', encoding='utf-8', newline='\n').write(
-                json.dumps({'arena': a, 'items': items}, ensure_ascii=False, indent=1))
+        p = f'{ARENAS_ROOT}/{a}/{a}_shadowflags.json'
+        text = json.dumps({'arena': a, 'items': items}, ensure_ascii=False, indent=1)
+        if check:
+            wf_check_artifact(p, text, lack, stale)
+            continue
+        io.open(p, 'w', encoding='utf-8', newline='\n').write(text)
     print('=== 合计：写 %d 条（cast=1 %d · receive=1 %d）· 缺口 %d ==='
           % (tot, cast_on, recv_on, gtot))
+    return wf_report_artifacts(check, lack, stale, 'gen_arena_shadowflags.py')
 
 
 if __name__ == '__main__':
-    main()
+    sys.exit(main())

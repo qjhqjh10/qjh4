@@ -7983,13 +7983,14 @@ namespace CardPresentation
             for (int i = StatMelee; i <= StatHealth; i++)
                 if (_ambushMark[i] != null) _ambushMark[i].color = Greyed(Color.white * _statFlash[i] * c);
 
-            // 🆕 2026-09-29：整组徽标自己的那个不透明度（原版 `NestedFadeGroup.alpha`）——
-            // 上面那个 foreach 已经把徽标各层刷成「状态色 × 整卡 α」了，这里再乘一层**只属于徽标**的。
-            ApplyBadgeAlpha();
-
             // 🆕 2026-09-29：四个数值的**闪现色**同理要重贴（上面那个 foreach 会把它刷成状态色，
-            // 不重贴的话受击变色撑不过一帧）。
+            // 不贴的话受击变色撑不过一帧）。
             ApplyStatFlashes();
+
+            // 🆕 2026-09-29 / 🔴 2026-10-27（执行代理 `B9_W4NFG`）：**按组根广播 alpha**（原版 9 个 `NestedFadeGroup`，
+            // 组根 α 广播给子树 SR/TMP，见类尾 `FadeGroup`）。⚠️ **必须在 `ApplyStatFlashes()` 之后** —— 那一步会把
+            // `_stats[]` 刷回「状态色 × 闪现色」，组 α 提前乘会被它抹掉（「只淡一组」就静默失效）。
+            ApplyBadgeAlpha();
         }
 
         /// <summary>整组徽标的不透明度（原版 `BoardTraitIcon.fadeGroup` 那个 `NestedFadeGroup.alpha`）。
@@ -7999,28 +8000,41 @@ namespace CardPresentation
 
         void ApplyBadgeAlpha()
         {
-            if (_badgeAlpha >= 1f) return;                  // 常态（1）不用动 —— 上面那个 foreach 已经刷好了
-            for (int i = 0; i < _badgeIcons.Count; i++)
+            // 🔴 2026-10-27（执行代理 `B9_W4NFG`）：**从「整卡一个标量」改成「按组根广播」**。
+            //  原版是 9 个 `NestedFadeGroup` 组根、每组一份 alpha，组根 α 广播给子树 SR/TMP
+            //  （判据 = `资料/完全复刻/判据/NestedFadeGroup_结构判定.md` 的整棵 `m_Children` 树；
+            //   组根 / 子件映射表在类尾 `FadeGroup` 那一段）⇒ 只淡某一组时**别的组一点都不动**。
+            //  ⚠️ 上面那个 foreach 已经把每层刷成「状态色 × 整卡 α」了，这里只在它之上再乘该组自己的 α。
+            for (int g = 0; g < FadeGroupCount; g++)
             {
-                if (_badgeIcons[i] != null && _badgeIcons[i].sharedMaterial != null)
+                float a = _fadeGroupAlpha[g];
+                if (g <= LastTraitGroup)
                 {
-                    var c = _badgeIcons[i].sharedMaterial.color;
-                    c.a *= _badgeAlpha;
-                    _badgeIcons[i].sharedMaterial.color = c;
+                    int slot = g;                       // 槽序 = 原版子节点序（左 1/2/3、右 1/2/3/4，见 `Badges.SlotAt`）
+                    MulLayerAlpha(slot < _badgePlates.Count ? _badgePlates[slot] : null, a);
+                    MulLayerAlpha(slot < _badgeIcons.Count ? _badgeIcons[slot] : null, a);
+                    MulLayerAlpha(slot < _badgeCrosses.Count ? _badgeCrosses[slot] : null, a);
+                    if (slot < _badgeCounters.Count && _badgeCounters[slot] != null)
+                    {
+                        // ⚠️ 角标文字**不在 `_layers` 里**（上面那个 foreach 刷不到它）⇒ 必须**赋绝对值**，
+                        //    写成 `c.a *= a` 会一次次叠乘（补间每帧调一次 ApplyTint）。
+                        var c = (Color)BadgeCounterInk;
+                        c.a = (BadgeCounterInk.a / 255f) * _alpha * a;
+                        _badgeCounters[slot].color = Greyed(c);   // A2139：整卡灰时角标字也去饱和（TMP 走顶点色）
+                    }
                 }
-                if (i < _badgePlates.Count && _badgePlates[i] != null && _badgePlates[i].sharedMaterial != null)
+                else if (g == (int)FadeGroup.BaseAttackCounters)
                 {
-                    var c = _badgePlates[i].sharedMaterial.color;
-                    c.a *= _badgeAlpha;
-                    _badgePlates[i].sharedMaterial.color = c;
+                    // 原版子树 = `Melee AttackText`[TMP] · `Highlight`[SR] · `Range Attack Text`[TMP] · `Highlight ranged`[SR]
+                    MulLayerAlpha(_stats[StatMelee], a);
+                    MulLayerAlpha(_stats[StatRanged], a);
+                    SetQuadAlpha(_glowMelee, a);
+                    SetQuadAlpha(_glowRanged, a);
                 }
-                if (i < _badgeCounters.Count && _badgeCounters[i] != null)
+                else
                 {
-                    // ⚠️ 角标文字**不在 `_layers` 里**（上面那个 foreach 刷不到它）⇒ 这里必须**赋绝对值**，
-                    //    写成 `c.a *= _badgeAlpha` 会一次次叠乘（补间每帧调一次 ApplyTint）。
-                    var c = (Color)BadgeCounterInk;
-                    c.a = (BadgeCounterInk.a / 255f) * _alpha * _badgeAlpha;
-                    _badgeCounters[i].color = Greyed(c);   // A2139：整卡灰时角标字也去饱和（TMP 走顶点色）
+                    // `Base Health Counters` 的子树只有一个 `HealthText`[TMP]
+                    MulLayerAlpha(_stats[StatHealth], a);
                 }
             }
         }
@@ -8041,12 +8055,20 @@ namespace CardPresentation
         {
             if (_badgeFade != null && _badgeFade.IsActive()) _badgeFade.Kill();
             // `DOTween.To` 用 getter 读**当前值**当起点 ⇒ 补间中途再叫一次是接力，不是跳回 0/1
-            _badgeFade = DOTween.To(() => _badgeAlpha, v => { _badgeAlpha = v; ApplyTint(); },
+            _badgeFade = DOTween.To(() => _badgeAlpha,
+                                    v =>
+                                    {
+                                        _badgeAlpha = v;
+                                        // 🔴 2026-10-27（`B9_W4NFG`）：原版 `FadeAllTraitsIcons` 是**逐个**
+                                        //   `BoardTraitIcon.DOFade` ⇒ 每个组根自己的 α 都跟到同一个目标值。
+                                        for (int g = FirstTraitGroup; g <= LastTraitGroup; g++) _fadeGroupAlpha[g] = v;
+                                        ApplyTint();
+                                    },
                                     Mathf.Clamp01(targetAlpha), time)
                                 .SetUpdate(CardTween.Mode);
         }
 
-        /// <summary>自检用：整组徽标现在的不透明度（原版 `NestedFadeGroup.alpha`）。</summary>
+        /// <summary>自检用：整组徽标那条**统一命令**的不透明度（原版 `FadeAllTraitsIcons` 的入参）。⚠️ 2026-10-27（`B9_W4NFG`）起真正的淡入粒度是**每组的 `_fadeGroupAlpha`**（见类尾 `FadeGroup`）；本属性 = 上次 `SetBadgeAlpha` / `FadeBadges` 那条统一命令的值，`SetFadeGroupAlpha` **不会**改它。</summary>
         public float BadgeAlpha { get { return _badgeAlpha; } }
 
         /// <summary>**立刻**把整组徽标设成某个不透明度（不补间）。
@@ -8055,6 +8077,9 @@ namespace CardPresentation
         {
             if (_badgeFade != null && _badgeFade.IsActive()) _badgeFade.Kill();
             _badgeAlpha = Mathf.Clamp01(a);
+            // 🔴 2026-10-27（`B9_W4NFG`）：这一句 = 原版 `FadeAllTraitsIcons` 的瞬时版 —— 把**7 个 trait 组根**
+            //   一起设成同一个 α（`Base Attack/Health Counters` 那两个组根原版没有任何驱动者，不受影响）。
+            for (int g = FirstTraitGroup; g <= LastTraitGroup; g++) _fadeGroupAlpha[g] = _badgeAlpha;
             ApplyTint();
         }
 
@@ -14611,8 +14636,8 @@ namespace CardPresentation
             bool isRemnant = RemnantBodyVisible || _originalRemnantCardShown;
             bool active = show && isRemnant && HasOriginalRemnantCardArmy(Data.faction);
             _originalRemnantCardShown = active;
-            // 不是残骸 ⇒ **一个开关都不动**（原版 4 个调用点本来就都带 `IsRemnant` 闸；
-            // 这里再兜一道，免得将来有裸调用把正常卡的卡身关掉 = 一张场上的卡凭空消失）
+            // 🔶 自己设计（非原版）：非残骸时**一个开关都不动** —— 原版 `show=false` 那一支**没有闸**、直接 SetActive(false)；
+            //   原版 4 个调用点本来就都带 `IsRemnant` 闸 ⇒ 这条分支永不可达、纯防御（免得裸调用把正常卡的卡身关掉）· 执行代理 W2K03 2026-10-26 定
             if (!isRemnant) return false;
             if (_body3D != null) Show(_body3D, active);
             // 🔶 自己设计（非原版）：原版只有 `body3D` 这一件；我们「取不到 3D 卡体」那条退回路里
@@ -14775,5 +14800,216 @@ namespace CardPresentation
             var tf = GetComponent<TraitFrames>();
             if (tf != null) tf.Clean(null, true);
         }
+        // ==================================================================
+        //  🔴 2026-10-27（执行代理 `B9_W4NFG`）**嵌套淡入组**（原版 `NestedFadeGroup`）
+        // ==================================================================
+        //
+        // **判据（一手：整棵 `m_Children` 树现算，不是转述）**
+        //   → `资料/完全复刻/判据/NestedFadeGroup_结构判定.md`
+        //   源 = `bundle_battleprefabs_vfxandmisc_assets_all` 的 `CardPrefab`（UnityPy 现读 57 个实例：
+        //   9 `NestedFadeGroup` + 38 `NestedFadeGroupSpriteRenderer` + 10 `NestedFadeGroupTextMeshPro`）。
+        //   9 个组根逐根展开（`SR`/`TMP` = 订阅该组根 alpha 的淡入子件）：
+        //     · `3DBody/Base Attack Counters`  → 4：`Melee AttackText`[TMP] `Highlight`[SR]
+        //                                             `Range Attack Text`[TMP] `Highlight ranged`[SR]
+        //     · `3DBody/Base Health Counters`  → 1：`HealthText`[TMP]
+        //     · `3DBody/TraitIcons/TraitIconContainer 1|2|3`         → 各 6
+        //     · `3DBody/TraitIcons/TraitIconContainer Right 1|2|3|4` → 各 6
+        //   7 个 trait 组根里那 6 件 = `IconBackground`[SR]
+        //     + `Without counter/{TraitIcon, Trait Not Active}`[SR]
+        //     + `With counter/{TraitIcon, TraitCounter[TMP], Trait Not Active[SR]}`
+        //   —— 两套 `TraitIcon` / `Trait Not Active` 是「**带角标 / 不带角标**」两个变体、原版靠 activeSelf 二选一
+        //   ⇒ **语义角色只有 4 个**（底板 / 图标 / 角标 / ✕）⇒ 我们每个槽的子件上限是 4，不是 6。
+        //   9 个组根**互不为父**（`parentChainNFG = 0`）；另有 1 个孤儿 `Armour Background`[SR]（无组根祖先）。
+        //   驱动：7 个 trait 组根各被同节点的 `BoardTraitIcon.fadeGroup` PPtr 引用；两个 `Base …Counters`
+        //   组根**没有任何序列化引用**（只有 `BattleCardUI.ResetTeleportCardOutOfBattle` 会
+        //   `GetComponentsInChildren<NestedFadeGroup>()` 把它们复位成 1）。
+        //
+        // **我们的映射**（`FadeGroup` 的序号 = 原版组根的出现顺序，即上面 9 行）
+        //   `Badges.SlotAt(i)` 的槽序**就是**原版子节点序「左 1/2/3、右 1/2/3/4」⇒ 槽 `i` 直接对应组根 `i`。
+        //   ⚠️ 原版组根是**真 `NestedFadeGroup` 组件**（`alpha` 由它自己持有并广播给子树）；
+        //      我们是**等价实现**：每组一个 `float` 通道 + 建层时**直接持有**各子件的
+        //      `MeshRenderer`/`TMP`/`ImageQuad` 引用（原版那 38+10 个桥组件是运行时
+        //      `AddMissingBridgeComponents()` 补挂出来的，我们每个子件在 `Build` 时就有了）。
+
+        /// <summary>原版 9 个 `NestedFadeGroup` 组根。序号 = 原版 prefab 里组根的出现顺序：
+        /// `TraitIconContainer 1/2/3` → `… Right 1/2/3/4` → `Base Attack Counters` → `Base Health Counters`。
+        /// ⚠️ 前 7 个是**徽标槽**（槽序见 `Badges.SlotAt` 的 doc），后 2 个是**场上数值**那一套。
+        /// <para>🔶 自己设计（非原版）：原版只有组件实例、没有运行时可枚举的 id（组根是按 GameObject 名认的）
+        /// ⇒ 这个枚举只是为了给调用点/自检一个稳定句柄；`0..6` 的**顺序照原版子节点顺序取**，不是我们挑的。
+        /// 调度台 2026-10-27 裁定。</para></summary>
+        public enum FadeGroup
+        {
+            TraitIcon1 = 0, TraitIcon2 = 1, TraitIcon3 = 2,
+            TraitIconRight1 = 3, TraitIconRight2 = 4, TraitIconRight3 = 5, TraitIconRight4 = 6,
+            BaseAttackCounters = 7, BaseHealthCounters = 8,
+        }
+
+        /// <summary>组根数量（原版现读 = 9）。</summary>
+        public const int FadeGroupCount = 9;
+        const int FirstTraitGroup = (int)FadeGroup.TraitIcon1;
+        const int LastTraitGroup = (int)FadeGroup.TraitIconRight4;
+
+        /// <summary>每组根**自己的** alpha（原版 `NestedFadeGroup.alpha`）。默认全 1
+        /// （原版 57 个实例序列化值都是 `alpha = 1` / `exclude = 0`）。
+        /// ⚠️ 数组默认元素是 **0 不是 1** ⇒ 必须靠 `NewFadeGroupAlpha()` 填 1，否则一建出来整卡全透明。</summary>
+        readonly float[] _fadeGroupAlpha = NewFadeGroupAlpha();
+        /// <summary>每组的补间句柄（`FadeGroupTo` 用；换目标时先杀旧的）。</summary>
+        readonly Tweener[] _fadeGroupFade = new Tweener[FadeGroupCount];
+
+        static float[] NewFadeGroupAlpha()
+        {
+            var a = new float[FadeGroupCount];
+            for (int i = 0; i < a.Length; i++) a[i] = 1f;
+            return a;
+        }
+
+        /// <summary>自检 / 调用点用：某个组根现在的 alpha。</summary>
+        public float GetFadeGroupAlpha(FadeGroup g)
+        {
+            int i = (int)g;
+            return (i >= 0 && i < FadeGroupCount) ? _fadeGroupAlpha[i] : 1f;
+        }
+
+        /// <summary>**立刻**把某个组根设成某个 alpha（不补间）—— **只动这一组**，别的组一点不变。
+        /// <para>这是「分组淡入」的真正入口（原版 `BoardTraitIcon.fadeGroup` 就只推**它自己那个**组根）。
+        /// ⚠️ 它**不会**同步 `BadgeAlpha` —— 那个属性的语义是「上次 `SetBadgeAlpha`/`FadeBadges`
+        /// 那条**统一命令**的值」，单推一组之后它就不再代表任何一组了（见 `BadgeAlpha` 的 doc）。</para></summary>
+        public void SetFadeGroupAlpha(FadeGroup g, float a)
+        {
+            int i = (int)g;
+            if (i < 0 || i >= FadeGroupCount) return;
+            if (_fadeGroupFade[i] != null && _fadeGroupFade[i].IsActive()) _fadeGroupFade[i].Kill();
+            _fadeGroupAlpha[i] = Mathf.Clamp01(a);
+            ApplyTint();
+        }
+
+        /// <summary>某个组根的**补间**（原版 `BoardTraitIcon.DOFade` 补的就是 `NestedFadeGroup.alpha`）。
+        /// <para>⚠️ 与 `FadeBadges` 的分工：`FadeBadges` = 原版 `FadeAllTraitsIcons`（一次推**全部 7 个**
+        /// trait 组根，唯一调用点 = 督军落场）；本方法 = 只推**一个**组根。</para>
+        /// <para>⚠️ 补间的推进方式跟 `CardTween.Mode` 走 —— 批处理里要先设 `UpdateType.Manual`
+        /// 再 `CardTween.Advance(dt)`（同 `FadeBadges`，否则补间停在起点）。</para></summary>
+        public void FadeGroupTo(FadeGroup g, float targetAlpha, float time)
+        {
+            int i = (int)g;
+            if (i < 0 || i >= FadeGroupCount) return;
+            if (_fadeGroupFade[i] != null && _fadeGroupFade[i].IsActive()) _fadeGroupFade[i].Kill();
+            // `DOTween.To` 用 getter 读**当前值**当起点 ⇒ 补间中途再叫一次是接力，不是跳回 0/1
+            _fadeGroupFade[i] = DOTween.To(() => _fadeGroupAlpha[i],
+                                           v => { _fadeGroupAlpha[i] = v; ApplyTint(); },
+                                           Mathf.Clamp01(targetAlpha), time)
+                                       .SetUpdate(CardTween.Mode);
+        }
+
+        /// <summary>把一个已由 `ApplyTint` 刷成「状态色 × 整卡 α」的层**再乘**一层组根 α。
+        /// <para>🔴 **必须是相对乘法，不是绝对赋值**：这一层的底色/纹理**是它自己说了算**的
+        /// （徽标底板 = 写死深灰 `BadgePlateInk`、徽标图标 = 灰化 shader 的 `_GreyScale`）——
+        /// 我们只该动 **alpha 一个分量**。踩过的坑见 `BadgePlateInk` 那段（整卡着色把白底板刷成白方块）。</para>
+        /// <para>`a >= 1` 直接返回：等于不动，省一次材质写（`ApplyTint` 的 foreach 已经刷好）。</para></summary>
+        static void MulLayerAlpha(MeshRenderer r, float a)
+        {
+            if (r == null || r.sharedMaterial == null || a >= 1f) return;
+            if (!r.sharedMaterial.HasProperty("_Color")) return;
+            var c = r.sharedMaterial.color;
+            c.a *= a;
+            r.sharedMaterial.color = c;
+        }
+
+        /// <summary>同一个意思的 `ImageQuad` 版（攻击类型底光 `Highlight` / `Highlight ranged`）。
+        /// 它的底色原版就是**白**（`Sprites/Default` 默认 `_Color`，全工程没有别处改它）⇒ 这里直接按 α 赋值。</summary>
+        static void SetQuadAlpha(ImageQuad q, float a)
+        {
+            if (q == null) return;
+            q.SetTint(new Color(1f, 1f, 1f, Mathf.Clamp01(a)));
+        }
+
+        /// <summary>把某个组根子树里的**渲染件**逐个交给 `each`（`null` 也照交 —— 自检要靠 null 判「这一件没建」）。
+        /// 三个句柄**至多一个非 null**；`name` = 原版 prefab 里那个子件的节点名（对照/报错都用它）。
+        /// <para>⚠️ 顺序 = 原版 `m_Children` 的 DFS 序（底板 → 图标 → ✕ → 角标；数值组按文本在前）。</para></summary>
+        void ForEachFadeGroupMember(int g, System.Action<MeshRenderer, TextMeshPro, ImageQuad, string> each)
+        {
+            if (g >= FirstTraitGroup && g <= LastTraitGroup)
+            {
+                int slot = g;
+                each(slot < _badgePlates.Count ? _badgePlates[slot] : null, null, null, "IconBackground");
+                each(slot < _badgeIcons.Count ? _badgeIcons[slot] : null, null, null, "TraitIcon");
+                each(slot < _badgeCrosses.Count ? _badgeCrosses[slot] : null, null, null, "Trait Not Active");
+                each(null, slot < _badgeCounters.Count ? _badgeCounters[slot] : null, null, "TraitCounter");
+                return;
+            }
+            if (g == (int)FadeGroup.BaseAttackCounters)
+            {
+                each(_stats[StatMelee], null, null, "Melee AttackText");
+                each(_stats[StatRanged], null, null, "Range Attack Text");
+                each(null, null, _glowMelee, "Highlight");
+                each(null, null, _glowRanged, "Highlight ranged");
+                return;
+            }
+            if (g == (int)FadeGroup.BaseHealthCounters) each(_stats[StatHealth], null, null, "HealthText");
+        }
+
+        /// <summary>原版那个组根的节点名（报错/对照表用；⛔ 不是运行时逻辑的判据）。</summary>
+        public string FadeGroupName(FadeGroup g)
+        {
+            switch ((int)g)
+            {
+                case 0: return "TraitIconContainer 1";
+                case 1: return "TraitIconContainer 2";
+                case 2: return "TraitIconContainer 3";
+                case 3: return "TraitIconContainer Right 1";
+                case 4: return "TraitIconContainer Right 2";
+                case 5: return "TraitIconContainer Right 3";
+                case 6: return "TraitIconContainer Right 4";
+                case 7: return "Base Attack Counters";
+                case 8: return "Base Health Counters";
+                default: return "(?)";
+            }
+        }
+
+        /// <summary>自检用：这个组根**我们真建出来的**子件数（原版每个根 4~6）。0 = 一件没建。</summary>
+        public int FadeGroupMemberCount(FadeGroup g)
+        {
+            int n = 0;
+            ForEachFadeGroupMember((int)g, (mr, tmp, q, nm) => { if (mr != null || tmp != null || q != null) n++; });
+            return n;
+        }
+
+        /// <summary>自检用：该组第 `k` 个子件**现在真正生效的 alpha**
+        /// （MR 材质 `_Color.a` / TMP 顶点色 α / `ImageQuad` 材质色 α）。
+        /// 越界或那一件没建 ⇒ **-1**（与「0 = 全透明」分开，⛔ 别混）。</summary>
+        public float FadeGroupMemberAlpha(FadeGroup g, int k)
+        {
+            float got = -1f; int i = 0;
+            ForEachFadeGroupMember((int)g, (mr, tmp, q, nm) =>
+            {
+                if (i++ != k) return;
+                if (mr != null && mr.sharedMaterial != null) got = mr.sharedMaterial.color.a;
+                else if (tmp != null) got = tmp.color.a;
+                else if (q != null) got = q.Tint.a;
+            });
+            return got;
+        }
+
+        /// <summary>自检用：该组第 `k` 个子件在**原版 prefab 里的节点名**（越界 ⇒ `"(?)"`）。</summary>
+        public string FadeGroupMemberName(FadeGroup g, int k)
+        {
+            string got = "(?)"; int i = 0;
+            ForEachFadeGroupMember((int)g, (mr, tmp, q, nm) => { if (i++ == k) got = nm; });
+            return got;
+        }
+
+        /// <summary>自检用：该组第 `k` 个子件**建出来没有**（`false` = 没建 ⇒ 断言要把它和「建了但看不见」分开）。</summary>
+        public bool FadeGroupMemberBuilt(FadeGroup g, int k)
+        {
+            bool built = false; int i = 0;
+            ForEachFadeGroupMember((int)g, (mr, tmp, q, nm) => { if (i++ == k) built = mr != null || tmp != null || q != null; });
+            return built;
+        }
+
+        /// <summary>自检读口：**阵营行那件 TMP 现在印的文本**（原版 `ArmyTextUnit` / `ArmyTextTactc`）。
+        /// `null` = 这一档没建（`TmpFont` 不可用 / 场上形态）。
+        /// <para>账 `HUD:189`（`BattleCardUI.ChangedLanguage` 重写的**四颗** TMP 之一）的断言只能从这里读
+        /// —— `RaceText` 有读口、卡名/描述有 `TitleText` / `KeywordsText`，阵营行原来**没有读口**。
+        /// ⚠️ 只是读口，不参与任何逻辑（⛔ 别在别处按它分支）。</para></summary>
+        public string ArmyText { get { return _army != null ? _army.text : null; } }
     }
 }

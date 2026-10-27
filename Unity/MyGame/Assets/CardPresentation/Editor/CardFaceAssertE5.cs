@@ -62,6 +62,15 @@ public static class CardFaceAssertE5
 
             RunSwapSound(pool);
 
+            // 🔴 2026-10-27（执行代理 `B9_W4NFG`）：**嵌套淡入组**（原版 `NestedFadeGroup`：9 组根 + 子树 SR/TMP）
+            RunNestedFadeGroups();
+
+            // 🆕 2026-10-27（执行代理 `B9_W15CVIEW` · 账 `HUD:108` / `HUD:153` / `HUD:148` / `HUD:189`）：
+            //   K-03 那四条（`Core/CardView.cs`）的断言 —— 判据与本组说明见 `RunK03Four` 的头注释。
+            //   ⚠️ 它会把 `Loc` 语言临时切到英文再切回（`PersistOverride` + `RestoreForTest`，**不碰 `PlayerPrefs`**）
+            //      ⇒ 排在 A–E 组**之后**（免得影响它们对中文文案的读数），且自己 `finally` 里一定恢复语档再往下走。
+            RunK03Four(pool);
+
             // 🆕 **2026-10-25（执行代理 `T` · 台账 `AUD` 那条「跑不到」）**：把**战斗侧**那套换位音断言
             //   （`SoundCueAssertT`：cue 存在 / 4 个 clip 名 / 参数 / 常量 / 两条负例 / `PlayFx` 走通 /
             //   **读源码**断战斗窗「恰好一处 + 顺序」/ 元断言）挂在**本宿主**跑一次。
@@ -561,6 +570,589 @@ public static class CardFaceAssertE5
         _pass += SoundCueAssertT.Passed;
         _fail += SoundCueAssertT.Failed;
         WindowSounds.ResetCounters();        // 兜底：本宿主收尾时窗口音计数归零
+    }
+
+    // ==================================================================
+    //  E · 嵌套淡入组（原版 `NestedFadeGroup`：9 组根 + 子树 SR/TMP）
+    // ==================================================================
+    //
+    // 🔴 判据（一手）：`资料/完全复刻/判据/NestedFadeGroup_结构判定.md`
+    //   —— 原版 `CardPrefab` 现读 57 个实例 = **9 组根 + 38 SR + 10 TMP**；9 个组根的子树子件数 =
+    //   `Base Attack Counters` 4 · `Base Health Counters` 1 · 7 个 `TraitIconContainer*` 各 6；
+    //   组根 α 一广播，**只淡那一组**（9 个组根互不为父，`parentChainNFG = 0`）。
+    //   ⚠️ 我们的结构是**等价实现**（每组一个 float 通道 + 建层时直接持有子件引用），
+    //   所以件数按「**语义角色**」数：trait 槽 4 件 —— 原版那 6 件里 `TraitIcon` / `Trait Not Active`
+    //   各有两套（`With counter` / `Without counter`），原版靠 activeSelf 二选一 ⇒ 角色只有 4 个。
+    //   ⛔ 期望值全部**写死在断言里**（原版字面量 9 / 4 / 1 / 名表），不读 `CardView` 的常量再和自己比。
+    static void RunNestedFadeGroups()
+    {
+        // 原版 9 个组根的节点名（判据件 §二/§三 逐个抄；⛔ 不是从 `CardView` 读出来的）
+        var wantNames = new[]
+        {
+            "TraitIconContainer 1", "TraitIconContainer 2", "TraitIconContainer 3",
+            "TraitIconContainer Right 1", "TraitIconContainer Right 2",
+            "TraitIconContainer Right 3", "TraitIconContainer Right 4",
+            "Base Attack Counters", "Base Health Counters",
+        };
+        // 原版每个组根子树里的子件数（`Base Attack` 4 · `Base Health` 1 · 7 个 trait 各 6）
+        var wantKids = new[] { 6, 6, 6, 6, 6, 6, 6, 4, 1 };
+        const int MaxK = 4;                     // 我们每组的枚举槽数（trait 4 / BaseAttack 4 / BaseHealth 1）
+
+        Check(CardView.FadeGroupCount == 9 && wantNames.Length == 9 && wantKids.Length == 9,
+              "E1 组根数量 = 原版的 **9**（`CardView.FadeGroupCount` 实得 " + CardView.FadeGroupCount + "）");
+
+        var root = new GameObject("E5_E_root");
+        var keepMode = CardTween.Mode;
+        try
+        {
+            CardTween.Mode = UpdateType.Manual;      // 批处理无帧循环 ⇒ 补间全走手动推进
+
+            // 4 枚徽标：最后一枚 `active = false` ⇒ 顺带把 `Trait Not Active`（那枚 ✕）也建出来
+            var badges = new List<Badge>
+            {
+                new Badge { sprite = "armour",     counter = 2, active = true  },
+                new Badge { sprite = "blast",      counter = 3, active = true  },
+                new Badge { sprite = "flying",     counter = 0, active = true  },
+                new Badge { sprite = "vulnerable", counter = 1, active = false },
+            };
+            var d = CardData.Simple("FadeGroupProbe", 3, 3, 4);
+            d.badges = badges;
+            var v = CardView.Create(root.transform, d, "FadeGroupProbe");
+            Check(v != null, "E2 前提：探针卡建出来了（`CardView.Create` 返回非 null）");
+            if (v == null) return;
+
+            // 点亮「这张卡自己的攻击类型」= 原版 `BasicCardUI.AttackTypeChanged` ⇒ 底光
+            // （`Highlight` / `Highlight ranged`）是**懒建**的，不点这一下 `Base Attack Counters` 只有 2 件、
+            // 另外 2 件（两个底光）永远建不出来。判据 = 原版那 4 件就挂在同一个组根下。
+            v.SetOwnAttackType(AttackTypes.Melee);
+
+            // ---- E1b 名表逐字对 ----
+            var nameBad = "";
+            for (int g = 0; g < CardView.FadeGroupCount; g++)
+            {
+                var nm = v.FadeGroupName((CardView.FadeGroup)g);
+                if (nm != wantNames[g]) nameBad += "[" + g + "] 期望 `" + wantNames[g] + "` 实得 `" + nm + "` ";
+            }
+            Check(nameBad.Length == 0,
+                  "E1b 9 个组根名与原版 prefab 的节点名**逐字一致**"
+                + (nameBad.Length == 0 ? "" : "（不一致：" + nameBad + "）"));
+
+            // ---- E2 组根 → 子件对照表（实际建出来几件、缺哪几件）----
+            var counts = new int[CardView.FadeGroupCount];
+            var table = "";
+            var told = "";
+            for (int g = 0; g < CardView.FadeGroupCount; g++)
+            {
+                int slots = (g == (int)CardView.FadeGroup.BaseHealthCounters) ? 1 : MaxK;
+                var built = "";
+                int n = 0;
+                for (int k = 0; k < slots; k++)
+                {
+                    if (v.FadeGroupMemberBuilt((CardView.FadeGroup)g, k))
+                    {
+                        n++;
+                        built += v.FadeGroupMemberName((CardView.FadeGroup)g, k) + " ";
+                    }
+                    else built += "〔缺:" + v.FadeGroupMemberName((CardView.FadeGroup)g, k) + "〕 ";
+                }
+                counts[g] = n;
+                table += "\n        · " + wantNames[g] + " → 实建 " + n + "/" + slots + "：" + built;
+                if (n < slots) told += wantNames[g] + "(" + n + "/" + slots + ") ";
+            }
+            Debug.Log("[E5] 组根 → 子件对照（原版每根 " + string.Join("/", wantKids) + "；我们按语义角色）" + table);
+            // 前 4 个槽有徽标 ⇒ 底板 + 图标 + 角标 三件必须有（✕ 只在未激活位建；
+            // 槽 4/5/6 本次没有徽标 ⇒ 一件不建是**正常**的，不在这里判）
+            var traitBad = "";
+            for (int g = 0; g < 4; g++)
+                if (counts[g] < 3) traitBad += wantNames[g] + "(" + counts[g] + ") ";
+            Check(traitBad.Length == 0,
+                  "E2 前 4 个徽标槽各自的子树都建出了 ≥3 件（底板 `IconBackground` + 图标 `TraitIcon` + 角标 `TraitCounter`）"
+                + (traitBad.Length == 0 ? "" : "；不足：" + traitBad));
+            // ✕（`Trait Not Active`）—— 第 4 枚徽标是未激活的 ⇒ 它必须建出来
+            Check(v.FadeGroupMemberBuilt((CardView.FadeGroup)3, 2)
+                  && v.FadeGroupMemberName((CardView.FadeGroup)3, 2) == "Trait Not Active",
+                  "E3 未激活那枚徽标把 `Trait Not Active`（✕）建出来了，且它挂在**同一个组根**下（槽 3 第 3 件）");
+            if (told.Length > 0)
+                Debug.Log("[E5] 本次没建的子件（不是缺陷，是这一档没建）：" + told);
+
+            // ---- E4 前提：数值组那两套载体必须建出来，否则下面两条判不了 ----
+            bool atkPrem = v.FadeGroupMemberBuilt((CardView.FadeGroup)7, 0)
+                        && v.FadeGroupMemberBuilt((CardView.FadeGroup)7, 1);
+            bool hpPrem = v.FadeGroupMemberBuilt((CardView.FadeGroup)8, 0);
+            Check(atkPrem && hpPrem,
+                  "E4 前提：`_stats[]` 四个数值层建出来了（近战=" + v.FadeGroupMemberBuilt((CardView.FadeGroup)7, 0)
+                + " 远程=" + v.FadeGroupMemberBuilt((CardView.FadeGroup)7, 1)
+                + " 生命=" + hpPrem + "）—— 没有它两条「数值组只淡自己」判不了（⛔ 不是通过）");
+
+            // 基线（全部组 × 全部槽）
+            var baseline = new float[CardView.FadeGroupCount, MaxK];
+            for (int g = 0; g < CardView.FadeGroupCount; g++)
+                for (int k = 0; k < MaxK; k++)
+                    baseline[g, k] = v.FadeGroupMemberAlpha((CardView.FadeGroup)g, k);
+
+            // 基线的硬前提：参与断言的每一件必须**本来就不透明**（α ≈ 1），否则 ×0.4 恒等于 ×0
+            var baseBad = "";
+            for (int g = 0; g < 7; g++)
+                for (int k = 0; k < MaxK; k++)
+                    if (baseline[g, k] >= 0f && baseline[g, k] < 0.99f)
+                        baseBad += wantNames[g] + "." + v.FadeGroupMemberName((CardView.FadeGroup)g, k)
+                                 + "=" + baseline[g, k].ToString("F3") + " ";
+            Check(baseBad.Length == 0,
+                  "E5 前提：9 个组根的每一件基线 α 都 ≈ 1（原版 57 个实例序列化值 `alpha = 1`）"
+                + (baseBad.Length == 0 ? "" : "；异常：" + baseBad));
+
+            // ---- E6 只淡组 A ⇒ 组 A 逐件 ×0.4、其余 8 组**逐位不变** ----
+            int A = (int)CardView.FadeGroup.TraitIcon2;            // 第 2 个 trait 组根（左列第 2 槽）
+            v.SetFadeGroupAlpha((CardView.FadeGroup)A, 0.4f);
+            var aBad = ""; float aWorst = 0f;
+            for (int k = 0; k < MaxK; k++)
+            {
+                float b0 = baseline[A, k];
+                if (b0 < 0f) continue;                              // 这一件没建
+                float now = v.FadeGroupMemberAlpha((CardView.FadeGroup)A, k);
+                float dev = Mathf.Abs(now - b0 * 0.4f);
+                if (dev > aWorst) aWorst = dev;
+                if (dev > 0.02f)
+                    aBad += v.FadeGroupMemberName((CardView.FadeGroup)A, k) + "(" + now.ToString("F4") + ") ";
+            }
+            Check(aBad.Length == 0,
+                  "E6 ★ 只淡组 A（`" + wantNames[A] + "` → 0.4）⇒ 它子树里**每一件** α 都 ≈ 0.4×基线"
+                + "（最大偏差 " + aWorst.ToString("F4") + (aBad.Length == 0 ? "）" : "；异常：" + aBad + "）"));
+
+            var bBad = "";
+            for (int g = 0; g < CardView.FadeGroupCount; g++)
+            {
+                if (g == A) continue;
+                for (int k = 0; k < MaxK; k++)
+                {
+                    float b0 = baseline[g, k];
+                    if (b0 < 0f) continue;
+                    float now = v.FadeGroupMemberAlpha((CardView.FadeGroup)g, k);
+                    if (now != b0)
+                        bBad += wantNames[g] + "." + v.FadeGroupMemberName((CardView.FadeGroup)g, k)
+                              + " " + b0.ToString("F4") + "→" + now.ToString("F4") + " ";
+                }
+            }
+            Check(bBad.Length == 0,
+                  "E7 ★ **只淡组 A ⇒ 其余 8 组的每一件 α【逐位不变】**"
+                + "｜🧨 旧的整卡单标量（`_badgeAlpha` 一乘全乘）在这条上**必然红** —— 这就是「分组淡入」与「一淡全淡」的分界"
+                + (bBad.Length == 0 ? "" : "；被一起改了：" + bBad));
+
+            // ---- E8 角标那一条**独立通道**（TMP 顶点色，不在 `_layers` 里）也要跟着组 α ----
+            int kCounter = 3;
+            bool counterBuilt = v.FadeGroupMemberBuilt((CardView.FadeGroup)A, kCounter)
+                             && v.FadeGroupMemberName((CardView.FadeGroup)A, kCounter) == "TraitCounter";
+            Check(counterBuilt,
+                  "E8 前提：组 A 的角标 `TraitCounter`（TMP）建出来了（原版 `With counter` 那一支）");
+            if (counterBuilt)
+            {
+                float cA = v.FadeGroupMemberAlpha((CardView.FadeGroup)A, kCounter);
+                int B = (int)CardView.FadeGroup.TraitIconRight2;
+                float cB = v.FadeGroupMemberAlpha((CardView.FadeGroup)B, kCounter);
+                Check(Mathf.Abs(cA - baseline[A, kCounter] * 0.4f) <= 0.02f
+                      && Mathf.Abs(cB - baseline[B, kCounter]) <= 1e-6f,
+                      "E8b ★ 角标字（TMP 通道）也跟着组 α：组 A 的角标 = 0.4×基线（实得 " + cA.ToString("F4")
+                    + "，基线 " + baseline[A, kCounter].ToString("F4") + "）、组 B 的角标不动（实得 "
+                    + cB.ToString("F4") + "）");
+            }
+
+            // ---- E9 淡到 0 ⇒ 那一组**真的全透明**（每一条通道都 0），别的组仍 1 ----
+            v.SetFadeGroupAlpha((CardView.FadeGroup)A, 0f);
+            var zBad = "";
+            for (int k = 0; k < MaxK; k++)
+            {
+                if (baseline[A, k] < 0f) continue;
+                float now = v.FadeGroupMemberAlpha((CardView.FadeGroup)A, k);
+                if (Mathf.Abs(now) > 1e-6f)
+                    zBad += v.FadeGroupMemberName((CardView.FadeGroup)A, k) + "(" + now.ToString("F4") + ") ";
+            }
+            Check(zBad.Length == 0,
+                  "E9 ★ 组 A 淡到 0 ⇒ 它子树里**每一条通道**（MR 材质 α / TMP 顶点 α）都 = 0"
+                + "｜🧨 只管材质、漏掉 TMP 角标 ⇒ 这里会剩 1（「该藏的时候没藏住」）"
+                + (zBad.Length == 0 ? "" : "；没归零：" + zBad));
+            v.SetFadeGroupAlpha((CardView.FadeGroup)A, 1f);
+
+            // ---- E10 回归保护：**逐组设 0.5** 与**旧的整卡淡入 `SetBadgeAlpha(0.5)`** 结果逐位相同 ----
+            for (int g = 0; g < 7; g++) v.SetFadeGroupAlpha((CardView.FadeGroup)g, 0.5f);
+            var perGroup = new float[7, MaxK];
+            for (int g = 0; g < 7; g++)
+                for (int k = 0; k < MaxK; k++) perGroup[g, k] = v.FadeGroupMemberAlpha((CardView.FadeGroup)g, k);
+            for (int g = 0; g < 7; g++) v.SetFadeGroupAlpha((CardView.FadeGroup)g, 1f);
+            v.SetBadgeAlpha(0.5f);                                   // ← 旧口：原版 `FadeAllTraitsIcons` 的瞬时版
+            var regBad = "";
+            for (int g = 0; g < 7; g++)
+                for (int k = 0; k < MaxK; k++)
+                {
+                    if (perGroup[g, k] < 0f) continue;
+                    float now = v.FadeGroupMemberAlpha((CardView.FadeGroup)g, k);
+                    if (Mathf.Abs(now - perGroup[g, k]) > 1e-6f)
+                        regBad += wantNames[g] + "." + v.FadeGroupMemberName((CardView.FadeGroup)g, k) + " ";
+                }
+            Check(regBad.Length == 0,
+                  "E10 ★ **回归保护**：`SetBadgeAlpha(0.5)`（原版 `FadeAllTraitsIcons`）= 把 7 个 trait 组根逐个设 0.5，"
+                + "两条路的结果**逐位相同**（7 组 × 4 件全比）"
+                + (regBad.Length == 0 ? "" : "；不一致：" + regBad));
+            Check(Mathf.Abs(v.BadgeAlpha - 0.5f) <= 1e-6f,
+                  "E10b 旧读口 `BadgeAlpha` 仍报统一命令的值（实得 " + v.BadgeAlpha.ToString("F4") + "）—— 旧调用点零影响");
+
+            // ---- E11 数值组：只淡自己那一组 ----
+            if (atkPrem && hpPrem)
+            {
+                float melee0 = baseline[7, 0], range0 = baseline[7, 1], hp0 = baseline[8, 0];
+                v.SetFadeGroupAlpha((CardView.FadeGroup)7, 0.5f);    // Base Attack Counters
+                float melee1 = v.FadeGroupMemberAlpha((CardView.FadeGroup)7, 0);
+                float range1 = v.FadeGroupMemberAlpha((CardView.FadeGroup)7, 1);
+                float hp1 = v.FadeGroupMemberAlpha((CardView.FadeGroup)8, 0);
+                Check(Mathf.Abs(melee1 - melee0 * 0.5f) <= 0.02f && Mathf.Abs(range1 - range0 * 0.5f) <= 0.02f,
+                      "E11 ★ `Base Attack Counters` 淡到 0.5 ⇒ 近战 / 远程那两格 α 减半（" + melee0.ToString("F4")
+                    + "→" + melee1.ToString("F4") + " · " + range0.ToString("F4") + "→" + range1.ToString("F4") + "）");
+                Check(Mathf.Abs(hp1 - hp0) <= 1e-6f,
+                      "E11b ★ 同一拍 `Base Health Counters`（生命）**一点没动**（" + hp0.ToString("F4")
+                    + "→" + hp1.ToString("F4") + "）—— 两个组根互不影响");
+                v.SetFadeGroupAlpha((CardView.FadeGroup)8, 0.5f);    // Base Health Counters
+                float hp2 = v.FadeGroupMemberAlpha((CardView.FadeGroup)8, 0);
+                float melee2 = v.FadeGroupMemberAlpha((CardView.FadeGroup)7, 0);
+                Check(Mathf.Abs(hp2 - hp0 * 0.5f) <= 0.02f && Mathf.Abs(melee2 - melee1) <= 1e-6f,
+                      "E11c ★ 反过来淡 `Base Health Counters` ⇒ 生命减半（" + hp0.ToString("F4") + "→" + hp2.ToString("F4")
+                    + "），近战保持上一拍的值（" + melee1.ToString("F4") + "→" + melee2.ToString("F4") + "）");
+            }
+            else Check(false, "E11 前提不成立（数值层没建）⇒ 「数值组只淡自己」没有验到（⛔ 不是通过）");
+
+            // ---- E12 复位：全部组设回 1 ⇒ 每一件都回到基线 ----
+            for (int g = 0; g < CardView.FadeGroupCount; g++) v.SetFadeGroupAlpha((CardView.FadeGroup)g, 1f);
+            v.SetBadgeAlpha(1f);
+            var resetBad = "";
+            for (int g = 0; g < CardView.FadeGroupCount; g++)
+                for (int k = 0; k < MaxK; k++)
+                {
+                    if (baseline[g, k] < 0f) continue;
+                    float now = v.FadeGroupMemberAlpha((CardView.FadeGroup)g, k);
+                    if (Mathf.Abs(now - baseline[g, k]) > 1e-6f)
+                        resetBad += wantNames[g] + "." + v.FadeGroupMemberName((CardView.FadeGroup)g, k) + " ";
+                }
+            Check(resetBad.Length == 0,
+                  "E12 ★ 9 个组根全部设回 1 ⇒ 每一件 α 都回到基线（**没有残留**，也没有叠乘）"
+                + "｜🧨 相对乘法写成逐帧叠乘 ⇒ 这条红"
+                + (resetBad.Length == 0 ? "" : "；没回位：" + resetBad));
+        }
+        catch (System.Exception e)
+        {
+            Check(false, "E 组抛异常（后面的断言**没跑到**，⛔ 别读成通过）："
+                       + e.GetType().Name + ": " + e.Message + "\n" + e.StackTrace);
+        }
+        finally
+        {
+            CardTween.Mode = keepMode;
+            Object.DestroyImmediate(root);
+        }
+    }
+    // ==================================================================
+    //  F · 账 `HUD:108` / `HUD:153` / `HUD:148` / `HUD:189`（`Core/CardView.cs`，K-03 五条里的四条）
+    // ==================================================================
+    //
+    // 🔴 判据（一手：反编译方法体逐行 + 原版材质 JSON 实读），**期望值全部写死成原版字面量**：
+    //   · `HUD:108` `decomp_full/BattleCardUI__ChooseDissolveMaterial.c` 全文 +
+    //     `CardScript__HasToUseLegendarySummonEffect.c` 全文 ⇒ `!HasCurrentTrait(ambush 0x4B0) && cardRarity == 4`
+    //     （`CardRarity.Legendary = 4`，`Assembly-CSharp/CardRarity.cs`）⇒ 传说那份；
+    //     两份原版材质唯一差别 = `_BorderColor` / `_BorderColor2`
+    //     （`bundle_battleprefabs_vfxandmisc_assets_all/Material/Material_-6651017123104198842.json` = 普通
+    //      `Card 3d WH40K Dissolve` · `…Material_-1409023286357856989.json` = 传说 `… Legendary`）。
+    //   · `HUD:153` `BattleCardUI__ShowOriginalRemnantCard.c` 全文 + `SupportMethods__ShouldShowOriginalRemnantCard.c`
+    //     全文 ⇒ `body3D.SetActive(show && isRemnant(+0x65) && cardArmy ∈ {Sautekh 40, SaimHann 30})`。
+    //     ⚠️ 原版 `show == false` 那一支**没有闸**；我们在它之前加了一道纯防御的早退（代码里已标 🔶 自己设计）
+    //     ⇒ 反例① 就钉「非残骸卡一个开关都不动」。
+    //   · `HUD:148` `BattleCardUI__ShowAvailableTargets.c:1-133` ⇒ 末句 `String.Concat(desc, "<i>", 那段, "</i>")`
+    //     （**无空格**；两个 DAT 就是 `<i>` / `</i>`）。
+    //   · `HUD:189` `BattleCardUI__ChangedLanguage.c` 全文（`SetCardTextsExcludingStats(rawCardData)` +
+    //     `cardState == inHand ⇒ SetCardTextInHand(true)`）+ `BattleHud__BroadcastChangedLanguage.c`
+    //     ⇒ **四颗 TMP** 按新语档重取、**数值一个字节不动**（`ExcludingStats`）。
+    //
+    // ⚠️ 本组**没有**跑过 Unity（子代理不许 `-executeMethod`）⇒ 每条断言都先写**前提硬检查**：
+    //    前提不成立会**红**（⛔ 不是静默跳过），日志里能一眼看出是「环境缺件」还是「实现坏了」。
+    static void RunK03Four(List<CardDef> pool)
+    {
+        Debug.Log("[E5] --- K-03 五条（CardView）：HUD:108 / HUD:153 / HUD:148 / HUD:189 ---");
+        RunK03DissolveLegendary(pool);
+        RunK03Remnant(pool);
+        RunK03DescSuffix(pool);
+        RunK03Language(pool);
+    }
+
+    /// <summary>`HUD:108` 原版 `BattleCardUI.ChooseDissolveMaterial()`：传说档 = 那两项颜色 + 材质名。
+    /// 三个观测点（施工单要求：「两条反例都要读，防恒真」）：传说单位 → 传说那份 / 伏击（面朝下）→ 普通 /
+    /// 普通稀有度 → 普通；外加**灭自证**：翻回正面再溶解必须回到传说档（缓存过档位 ⇒ 红）。</summary>
+    static void RunK03DissolveLegendary(List<CardDef> pool)
+    {
+        // 原版材质 JSON 的 `m_Colors` 原值（⛔ 不读 `CardView` 的常量再和自己比）
+        var legC1 = new Vector4(2.6390156745910645f, 2.4975879192352295f, 0.7184754610061646f, 0f);
+        var legC2 = new Vector4(0.5764706134796143f, 0.10125879943370819f, 0f, 0f);
+        var norC1 = new Vector4(0.714086651802063f, 1.91457998752594f, 2.6390156745910645f, 0f);
+        var norC2 = new Vector4(0f, 0.028591640293598175f, 0.5764706134796143f, 0f);
+        const string nameLeg = "Card 3d WH40K Dissolve Legendary";
+        const string nameNor = "Card 3d WH40K Dissolve";
+
+        CardDef leg = null, com = null;
+        foreach (var d in pool)
+        {
+            if (d == null || d.Type != "unit") continue;
+            if (leg == null && (d.Rarity ?? "").ToLowerInvariant() == "legendary") leg = d;
+            if (com == null && (d.Rarity ?? "").ToLowerInvariant() == "common") com = d;
+        }
+        Check(leg != null && com != null,
+              "K03/108 前提：样本齐（传说单位 + 普通单位；实得 leg=" + (leg != null) + " common=" + (com != null) + "）");
+        if (leg == null || com == null) return;
+
+        var root = new GameObject("E5_K03_108_root");
+        try
+        {
+            var a = CardView.Create(root.transform, BattleDriver.ToCardData(leg, leg.Faction), "K03Leg", CardFace.Board);
+            var m = a != null ? a.DissolveMatView : null;
+            Check(a != null && m != null,
+                  "K03/108 前提：传说卡（「" + leg.Name + "」）建出了溶解材质（取不到原版 shader ⇒ 本组判不了，⛔ 不是通过）");
+            if (m == null) return;
+
+            Check(a.HasToUseLegendarySummonEffect, "K03/108 传说单位（非伏击）⇒ `HasToUseLegendarySummonEffect` 为真");
+            Check(m.name == nameLeg, "K03/108 ★ 材质名 = 原版资产名 `" + nameLeg + "`（实得 `" + m.name + "`）");
+            Check(Vector4.Distance(m.GetVector("_BorderColor"), legC1) < 1e-3f
+                  && Vector4.Distance(m.GetVector("_BorderColor2"), legC2) < 1e-3f,
+                  "K03/108 ★ 两项颜色 = 传说材质 JSON 原值（`_BorderColor` 金 / `_BorderColor2` 橙红）"
+                + "｜现读 " + m.GetVector("_BorderColor") + " / " + m.GetVector("_BorderColor2"));
+            Check(a.BeginDissolve() && a.OnDissolveMaterial, "K03/108 `BeginDissolve` 真把溶解材质挂到了 3D 卡体上");
+            Check(a.DissolveMatView.name == nameLeg, "K03/108 ★ `BeginDissolve` 那一跳仍是**传说**档（实得 `"
+                  + a.DissolveMatView.name + "`）");
+
+            // 反例①：伏击 ⇒ 原版 `HasCurrentTrait(ambush 0x4B0)` 那一半
+            a.SetAmbush(true, false);
+            Check(!a.HasToUseLegendarySummonEffect, "K03/108 反例①：伏击（面朝下）的**传说**卡 ⇒ 判据为假");
+            a.BeginDissolve();
+            Check(a.DissolveMatView.name == nameNor, "K03/108 ★ 反例① 材质名 = **普通**那份（实得 `"
+                  + a.DissolveMatView.name + "`）｜🧨 漏掉伏击那一半 ⇒ 红");
+
+            // 灭自证：翻回正面再溶解 ⇒ 必须回到传说档
+            a.SetAmbush(false, false);
+            a.BeginDissolve();
+            Check(a.DissolveMatView.name == nameLeg,
+                  "K03/108 ★ 灭自证：翻回正面再 `BeginDissolve` ⇒ 回到**传说**档（实得 `"
+                  + a.DissolveMatView.name + "`）｜🧨 「材质只建一次、档位缓存住」⇒ 这里红");
+
+            // 反例②：普通稀有度
+            var b = CardView.Create(root.transform, BattleDriver.ToCardData(com, com.Faction), "K03Com", CardFace.Board);
+            var bm = b != null ? b.DissolveMatView : null;
+            Check(b != null && bm != null, "K03/108 前提：普通卡（「" + com.Name + "」）也建出了溶解材质");
+            if (bm != null)
+            {
+                Check(!b.HasToUseLegendarySummonEffect, "K03/108 反例②：普通稀有度 ⇒ 判据为假");
+                Check(bm.name == nameNor, "K03/108 ★ 反例② 材质名 = 普通那份（实得 `" + bm.name + "`）");
+                Check(Vector4.Distance(bm.GetVector("_BorderColor"), norC1) < 1e-3f
+                      && Vector4.Distance(bm.GetVector("_BorderColor2"), norC2) < 1e-3f,
+                      "K03/108 ★ 反例② 两项颜色 = 普通材质 JSON 原值｜现读 "
+                    + bm.GetVector("_BorderColor") + " / " + bm.GetVector("_BorderColor2"));
+            }
+        }
+        catch (System.Exception e)
+        {
+            Check(false, "K03/108 抛异常（后面的断言**没跑到**，⛔ 别读成通过）：" + e.GetType().Name + ": " + e.Message);
+        }
+        finally { Object.DestroyImmediate(root); }
+    }
+
+    /// <summary>`HUD:153` 原版 `BattleCardUI.ShowOriginalRemnantCard(bool)`：三条件
+    /// `show && isRemnant && 阵营 ∈ {SaimHann, Sautekh}`。四格全读 + 两条反例 + 一条「两处开关不互相覆盖」。</summary>
+    static void RunK03Remnant(List<CardDef> pool)
+    {
+        CardDef ae = null, other = null;
+        foreach (var d in pool)
+        {
+            if (d == null || d.Type != "unit") continue;
+            if (ae == null && d.Faction == "SaimHann") ae = d;
+            if (other == null && d.Faction != "SaimHann" && d.Faction != "Sautekh") other = d;
+        }
+        Check(ae != null && other != null,
+              "K03/153 前提：样本齐（灵族 + 非那两族；实得 ae=" + (ae != null) + " other=" + (other != null) + "）");
+        if (ae == null || other == null) return;
+
+        // 阵营闸（`SupportMethods.ShouldShowOriginalRemnantCard` 的后半句；枚举值 30 / 40）
+        Check(CardView.HasOriginalRemnantCardArmy("SaimHann")
+              && CardView.HasOriginalRemnantCardArmy("Sautekh")
+              && !CardView.HasOriginalRemnantCardArmy("Ultramarines")
+              && !CardView.HasOriginalRemnantCardArmy(null),
+              "K03/153 阵营闸：只 `SaimHann`(30) / `Sautekh`(40) 两族放行，其余（含 null）不放行");
+
+        var root = new GameObject("E5_K03_153_root");
+        try
+        {
+            var v = CardView.Create(root.transform, BattleDriver.ToCardData(ae, ae.Faction), "K03Rem", CardFace.Board);
+            Check(v != null && v.Body3DVisible, "K03/153 前提：场上有 3D 卡身（「" + ae.Name + "」/ " + ae.Faction + "）");
+            if (v == null) return;
+            v.SetRemnantBody(true, "RemnantBody3D Aeldari");
+            Check(v.RemnantBodyVisible,
+                  "K03/153 前提：残骸体建出来了（效果库里没有 `RemnantBody3D Aeldari` ⇒ 本组判不了，⛔ 不是通过）");
+            if (!v.RemnantBodyVisible) return;
+
+            Check(v.ShowOriginalRemnantCard(true), "K03/153 ★ 灵族残骸 + show=true ⇒ 亮出原卡卡身（返回真）");
+            Check(v.OriginalRemnantCardShown && v.Body3DVisible, "K03/153 ★ …锁存为真、且 `_body3D` 真的可见");
+            v.SetRemnantBody(true, "RemnantBody3D Aeldari");   // = `BattleDriver.SyncBoard` 每次刷新那一跳
+            Check(v.Body3DVisible,
+                  "K03/153 ★ 灭自证：棋盘刷新那一跳（`SetRemnantBody` 再来一次）**不许把刚亮的卡身关回去**"
+                + "（两处开关互相覆盖 ⇒ 红）");
+            Check(!v.ShowOriginalRemnantCard(false) && !v.OriginalRemnantCardShown && !v.Body3DVisible,
+                  "K03/153 show=false ⇒ 收回（返回假 / 锁存清零 / 卡身关）");
+
+            // 反例①：**非残骸** ⇒ 一个开关都不动（原版这一支没有闸；我们的早退是 🔶 防御，必须不改画面）
+            var n = CardView.Create(root.transform, BattleDriver.ToCardData(ae, ae.Faction), "K03Norm", CardFace.Board);
+            Check(n != null && !n.RemnantBodyVisible, "K03/153 前提：反例①那张**不是残骸**（没建残骸体）");
+            if (n != null)
+            {
+                bool wasBody = n.Body3DVisible;
+                Check(!n.ShowOriginalRemnantCard(true) && !n.OriginalRemnantCardShown && n.Body3DVisible == wasBody,
+                      "K03/153 反例①：非残骸 ⇒ 返回假、`_body3D` **一个开关都不动**"
+                    + "（⛔ 不许把正常卡的卡身关没；实得 `Body3DVisible` " + wasBody + "→" + n.Body3DVisible + "）");
+            }
+
+            // 反例②：残骸体在、但阵营不在那两族 ⇒ 闸不放行
+            var o = CardView.Create(root.transform, BattleDriver.ToCardData(other, other.Faction), "K03Other", CardFace.Board);
+            if (o != null) o.SetRemnantBody(true, "RemnantBody3D Aeldari");
+            Check(o != null && o.RemnantBodyVisible,
+                  "K03/153 前提：反例②那张也挂上了残骸体（「" + other.Name + "」/ " + other.Faction + "）");
+            if (o != null && o.RemnantBodyVisible)
+                Check(!o.ShowOriginalRemnantCard(true) && !o.OriginalRemnantCardShown && !o.Body3DVisible,
+                      "K03/153 反例②：残骸但阵营不在 {SaimHann, Sautekh} ⇒ **不亮**原卡卡身"
+                    + "｜🧨 阵营闸写成恒真 ⇒ 红");
+        }
+        catch (System.Exception e)
+        {
+            Check(false, "K03/153 抛异常（后面的断言**没跑到**，⛔ 别读成通过）：" + e.GetType().Name + ": " + e.Message);
+        }
+        finally { Object.DestroyImmediate(root); }
+    }
+
+    /// <summary>`HUD:148` 的**写口**那一半：`CardView.SetDescriptionSuffix` 必须把「可用目标」那段
+    /// 拼在**描述尾部**（`desc + "<i>" + 那段 + "</i>"`，无空格），并且**与刷新/复原两条路都不打架**。</summary>
+    static void RunK03DescSuffix(List<CardDef> pool)
+    {
+        var sample = FindByName(pool, "Howling Banshee Exarch");
+        Check(sample != null, "K03/148 前提：找到样本卡 `Howling Banshee Exarch`");
+        if (sample == null) return;
+
+        var root = new GameObject("E5_K03_148_root");
+        try
+        {
+            var v = CardView.Create(root.transform, BattleDriver.ToCardData(sample, sample.Faction), "K03Desc");
+            Check(v != null && v.KeywordsText != null,
+                  "K03/148 前提：非场上形态建出了**效果文字那颗 TMP**（`TmpFont` 不可用 ⇒ 本组判不了，⛔ 不是通过）");
+            if (v == null || v.KeywordsText == null) return;
+
+            string bare = v.KeywordsText.text;
+            Check(v.DescriptionSuffix == null, "K03/148 初始态：没有后缀（`DescriptionSuffix == null`）");
+            Check(!string.IsNullOrEmpty(bare), "K03/148 前提：裸描述非空（这张卡本来就有正文）");
+            if (string.IsNullOrEmpty(bare)) return;
+
+            v.SetDescriptionSuffix("(Boss Nob)");
+            Check(v.DescriptionSuffix == "(Boss Nob)", "K03/148 写口记下了后缀");
+            Check(v.KeywordsText.text == bare + "<i>(Boss Nob)</i>",
+                  "K03/148 ★ 描述尾部 = 原版那句 `desc + \"<i>\" + 那段 + \"</i>\"`（**无空格**）"
+                + "｜现读 `" + v.KeywordsText.text + "`");
+            string withSuffix = v.KeywordsText.text;
+
+            v.SetDescriptionSuffix("(Boss Nob)");
+            Check(v.KeywordsText.text == withSuffix, "K03/148 幂等：同一个后缀再调一次 ⇒ 文本逐字不变（不重复追加）");
+
+            v.SetData(BattleDriver.ToCardData(sample, sample.Faction));   // = 战场每次刷新走的那条路
+            Check(v.KeywordsText != null && v.KeywordsText.text == withSuffix,
+                  "K03/148 ★ 灭自证：`SetData`（每刷一次棋盘都走）之后后缀**仍在**"
+                + "｜🧨 只在建层时拼一次、`SetData` 那条路漏掉 ⇒ 红");
+
+            v.SetDescriptionSuffix(null);
+            Check(v.DescriptionSuffix == null && v.KeywordsText.text == bare, "K03/148 复原：传 null ⇒ 回到**裸描述**（逐字相同）");
+
+            // 场上形态没有文字层 ⇒ 写口是空操作（⛔ 别为它硬建一层）
+            var b = CardView.Create(root.transform, BattleDriver.ToCardData(sample, sample.Faction), "K03DescBoard", CardFace.Board);
+            Check(b != null, "K03/148 前提：场上形态那张建出来了");
+            if (b != null)
+            {
+                b.SetDescriptionSuffix("(x)");
+                Check(b.KeywordsText == null, "K03/148 场上形态没有文字层 ⇒ 写口空操作（一个层都不建）");
+            }
+        }
+        catch (System.Exception e)
+        {
+            Check(false, "K03/148 抛异常（后面的断言**没跑到**，⛔ 别读成通过）：" + e.GetType().Name + ": " + e.Message);
+        }
+        finally { Object.DestroyImmediate(root); }
+    }
+
+    /// <summary>`HUD:189` 原版 `BattleCardUI.ChangedLanguage()`（`BattleHud.BroadcastChangedLanguage` 的实现者）：
+    /// 换语档 ⇒ `SetCardTextsExcludingStats` 重写**四颗 TMP**（卡名/描述/兵种/阵营），**数值一个字节不动**。</summary>
+    static void RunK03Language(List<CardDef> pool)
+    {
+        // 样本：中英两列都有值、且**真的不同**的那张（前提写死；⛔ 别拿「表里没值」的卡判）
+        CardDef sample = null;
+        foreach (var d in pool)
+        {
+            if (d == null) continue;
+            if (string.IsNullOrEmpty(d.Name) || string.IsNullOrEmpty(d.NameZh) || d.NameZh == d.Name) continue;
+            if (string.IsNullOrEmpty(d.Desc) || string.IsNullOrEmpty(d.DescZh) || d.DescZh == d.Desc) continue;
+            sample = d; break;
+        }
+        Check(sample != null, "K03/189 前提：找到中英两列都有值且不同的样本（实得 "
+              + (sample != null ? sample.Name : "null") + "）");
+        if (sample == null) return;
+
+        var keepLang = Loc.Current;
+        bool keepPersist = Loc.PersistOverride;
+        var root = new GameObject("E5_K03_189_root");
+        try
+        {
+            Loc.PersistOverride = true;              // 只改内存（自检不许动玩家的真设置）
+            Loc.SetLanguage(AvailableLanguages.English);
+            Check(!CardText.Zh, "K03/189 前提：英文档下 `CardText.Zh == false`（否则下面的「变了」判不出来）");
+
+            var v = CardView.Create(root.transform, BattleDriver.ToCardData(sample, sample.Faction), "K03Loc");
+            Check(v != null && v.TitleText != null && v.KeywordsText != null,
+                  "K03/189 前提：卡名 / 描述两颗 TMP 建出来了");
+            if (v == null || v.TitleText == null || v.KeywordsText == null) return;
+
+            string enTitle = v.TitleText.text, enDesc = v.KeywordsText.text;
+            string enRace = v.RaceText, enArmy = v.ArmyText;
+            var statsBefore = new string[5];
+            for (int s = CardView.StatMelee; s <= CardView.StatHealth; s++) statsBefore[s] = v.FaceStatTextNow(s);
+
+            Loc.SetLanguage(AvailableLanguages.Chinese);
+            Check(CardText.Zh, "K03/189 前提：中文档下 `CardText.Zh == true`（中文语档 + 中文字体都在）");
+            Check(v.RefreshLocalizedText(), "K03/189 ★ `RefreshLocalizedText()` 返回真（= 真重建了文字层）");
+
+            Check(v.TitleText.text != enTitle && !string.IsNullOrEmpty(v.TitleText.text),
+                  "K03/189 ★ 卡名按新语档重取（英 `" + enTitle + "` → 中 `" + v.TitleText.text + "`）");
+            Check(v.KeywordsText.text != enDesc,
+                  "K03/189 ★ 描述按新语档重取（长度 " + (enDesc ?? "").Length + " → "
+                + (v.KeywordsText == null ? -1 : v.KeywordsText.text.Length) + "）");
+
+            bool statSame = true; string statDiff = "";
+            for (int s = CardView.StatMelee; s <= CardView.StatHealth; s++)
+            {
+                string now = v.FaceStatTextNow(s);
+                if (now != statsBefore[s]) { statSame = false; statDiff += s + ":`" + statsBefore[s] + "`→`" + now + "` "; }
+            }
+            Check(statSame,
+                  "K03/189 ★ 数值四格**逐字节不变**（原版 `SetCardTextsExcludingStats` 的 `ExcludingStats`）"
+                + "｜🧨 顺手重烘数值层 ⇒ 红" + (statSame ? "" : "；变了：" + statDiff));
+
+            Debug.Log("[E5] K03/189 兵种行 `" + enRace + "` → `" + v.RaceText + "`；阵营行 `" + enArmy + "` → `" + v.ArmyText + "`");
+            Check(!string.IsNullOrEmpty(v.RaceText) || string.IsNullOrEmpty(enRace),
+                  "K03/189 兵种行重建后**没有丢**（`" + v.RaceText + "`）");
+            Check(!string.IsNullOrEmpty(v.ArmyText) || string.IsNullOrEmpty(enArmy),
+                  "K03/189 阵营行重建后**没有丢**（`" + v.ArmyText + "`）");
+        }
+        catch (System.Exception e)
+        {
+            Check(false, "K03/189 抛异常（后面的断言**没跑到**，⛔ 别读成通过）：" + e.GetType().Name + ": " + e.Message);
+        }
+        finally
+        {
+            Loc.RestoreForTest(keepLang);            // ⛔ 不动 `PlayerPrefs`
+            Loc.PersistOverride = keepPersist;
+            Object.DestroyImmediate(root);
+        }
     }
 
     static CardDef FindByName(List<CardDef> pool, string name)

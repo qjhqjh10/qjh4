@@ -97,7 +97,7 @@ namespace CardPresentation
             return (row == MaxCostToDraw) ? (row + "+") : row.ToString();
         }
 
-        /// <summary>按费用数一遍（费用 0..8，越界夹到两端）。`find` = id → 卡（两边都传 `CollectionData.Card`）。</summary>
+        /// <summary>按费用数一遍（费用 0..8，越界夹到两端）。`find` = id → 卡（两边都传 `CollectionData.Card`）。🔴 条目走 `CardDatabase.ResolveDeckEntry`（异画 `#HB_…` 也算 1 张；账 `HUD:92`/`HUD:93`）。</summary>
         public static int[] Counts(PlayerDeck deck, Func<string, CardDef> find)
         {
             return Counts(deck != null ? deck.CardIds : null, find);
@@ -110,7 +110,7 @@ namespace CardPresentation
             foreach (var id in cardIds)
             {
                 if (string.IsNullOrEmpty(id)) continue;
-                var c = find(id);
+                var c = CardDatabase.ResolveDeckEntry(id, find);   // 异画副本条目（`#HB_SW1`）也解析回原卡那张
                 if (c == null) continue;
                 by[Mathf.Clamp(c.Cost, 0, Rows - 1)]++;
             }

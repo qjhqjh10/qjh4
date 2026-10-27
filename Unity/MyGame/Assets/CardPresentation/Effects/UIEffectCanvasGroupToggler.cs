@@ -47,16 +47,16 @@ namespace CardPresentation
         readonly List<float> _quadBase = new List<float>();
         readonly List<Color> _labelBase = new List<Color>();
         readonly List<Color> _graphicBase = new List<Color>();
-        bool _captured;
+        bool _captured; int _capturedTargets = -1;   // 🔶 自己设计（非原版）：`Capture()` 的幂等闸靠「上一轮收了几件」判（原版 `CanvasGroup[] canvasGroups` 是序列化数组、运行期不会变，我们没有这个前提）· 判据/原因见 `RefreshTargets()` · 调度台 2026-10-27 裁定
 
         void Awake() { Capture(); }
 
-        /// <summary>收集目标并记下各自的原 α（幂等）。</summary>
+        /// <summary>收集目标并记下各自的原 α（幂等）。⚠️ 幂等闸按 `fadeTargets.Count` 走（不是死锁的 bool）—— 运行期 `Add` 后会自动重收；同数**替换**目标要显式调 <see cref="RefreshTargets"/>。</summary>
         public void Capture()
         {
-            if (_captured) return;
-            _captured = true;
-            _quads.Clear(); _labels.Clear(); _graphics.Clear();
+            int want = fadeTargets != null ? fadeTargets.Count : 0;
+            if (_captured && want == _capturedTargets) return;
+            _captured = true; _capturedTargets = want; _quads.Clear(); _labels.Clear(); _graphics.Clear();
             _quadBase.Clear(); _labelBase.Clear(); _graphicBase.Clear();
 
             if (fadeTargets != null && fadeTargets.Count > 0)
@@ -154,6 +154,21 @@ namespace CardPresentation
             for (int i = 0; i < _quads.Count; i++) if (_quads[i] != null) _quads[i].gameObject.SetActive(option);
             for (int i = 0; i < _labels.Count; i++) if (_labels[i] != null) _labels[i].gameObject.SetActive(option);
             for (int i = 0; i < _graphics.Count; i++) if (_graphics[i] != null) _graphics[i].gameObject.SetActive(option);
+        }
+
+        /// <summary>🔶 自己设计（非原版）：改完 <see cref="fadeTargets"/> 之后**强制重收**一次。
+        /// <para>为什么必须自己定：原版的 `CanvasGroup[] canvasGroups` 是**序列化数组** —— 构建期定死、
+        /// 运行期不会变，所以「收一次就锁住」在原版永远是对的。我们的 `fadeTargets` 是**运行时**填的：
+        /// `AddComponent` 当场触发 `Awake → Capture()`（那时表还是空的 ⇒ 收的是**整棵子树 / 自己**），
+        /// 之后 `fadeTargets.Add(子件)` 若不重收，淡的/`SetActive` 的就是**根**而不是那个子件 —— **静默错对象**。
+        /// 同 bug 与同修法见 `Effects/UIEffectTogglerImage.RefreshTargets()`（那边先修，2026-10-27 `B9_W14FX`）。</para>
+        /// <para>⚠️ 接线方顺序：`AddComponent` → 填 `fadeTargets` → 本方法。</para>
+        /// <para>谁定的 + 日期：调度台 2026-10-27（B9_W20WIRE）。</para></summary>
+        public void RefreshTargets()
+        {
+            _captured = false;
+            _capturedTargets = -1;
+            Capture();
         }
     }
 }

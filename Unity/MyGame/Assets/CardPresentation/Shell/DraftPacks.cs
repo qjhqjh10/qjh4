@@ -51,6 +51,7 @@
 //     `BuildClosedDeck` **如实保留**（同一张卡在 12 张里出现两次是合法的），⛔ 别去重。
 using System;
 using System.Collections.Generic;
+using RuleEngine;
 using UnityEngine;
 
 namespace CardPresentation
@@ -329,8 +330,12 @@ namespace CardPresentation
         /// <param name="seed">本局的种子（由开局/联机同步决定，**必须可复现**）。</param>
         /// <param name="round">第几轮。**0 起**（原版 `CurrentDraftRound = selectedPacks.Count`，也是 0 起）。</param>
         /// <param name="excludePackIds">已选过的包（`key` 或裸 `packId`）。可 `null`。</param>
+        /// <param name="cardPool">查卡用的卡池（可 `null` = 用 <see cref="CardPool"/>）。
+        /// 🔴 只为**离线夹具/自检造负例**留的口（见 <see cref="ResolvedCardCount(string[], IList{CardDef})"/>）；
+        /// 产品路径一律传 `null`。</param>
         public static List<PackDto> RollRound(int seed, int round, int armyId, int count,
-                                             ICollection<string> excludePackIds = null)
+                                             ICollection<string> excludePackIds = null,
+                                             IList<CardDef> cardPool = null)
         {
             var cand = new List<PackDto>();
             var seenPackId = new HashSet<string>(StringComparer.Ordinal);
@@ -342,6 +347,23 @@ namespace CardPresentation
                 if (!seenPackId.Add(p.packId)) continue;          // 同 packId 只留第一条（数据已 enabled 优先）
                 if (excludePackIds != null
                     && (excludePackIds.Contains(p.key) || excludePackIds.Contains(p.packId))) continue;
+                // 🔴 2026-10-27（`B9_W23DRAFT` · 账 `卡组:290` 的**调用点**）：
+                //   原版那条活过滤是三截 `packEnabled && packArmy == warlord.cardArmy && pack.IsValid()`
+                //   （`Everguild.LiveOps/DraftEventBase.cs:378`）。前两截 = 上面的 `PacksForArmy(…, enabledOnly: true)`，
+                //   第三截就是这里。`IsValid()` 的条件① = `GetCardLibrary().Count == cardIds.Count`
+                //   （查不到的 id 原版**跳过**、不进结果表）⇒ 先用 `ResolvedCardCount` 数「查得到几张」再比条数。
+                //   条件②（`IsHidden()`）的判据在远端 `FeatureConfig`、本机 0 命中 ⇒ 传 `null`（理由见
+                //   `PrebuiltDecks.PackIsValid` 的 doc）。⛔ **判据只写这一处** —— 别在 `DraftModeWindow` 或
+                //   `BuildPackCard` 里再判第二次（两份判据迟早不一致）。
+                int resolved = ResolvedCardCount(p.cardIds, cardPool);
+                if (!PrebuiltDecks.PackIsValid(p.cardIds, resolved, null))
+                {
+                    // ⛔ 不静默失败：现池 882/882 全 valid ⇒ 这句平时不出声；一旦出声就是「卡表/包表坏了」。
+                    Debug.LogWarning("[Draft] 包 `" + p.packId + "` 过不了 `PrebuiltPack.IsValid()`：`cardIds` "
+                                   + (p.cardIds == null ? 0 : p.cardIds.Length) + " 条、卡池里只查到 " + resolved
+                                   + " 张 ⇒ 本轮**不放进候选池**（原版 `IsValid()` 同解）。核卡表/重跑生成器。");
+                    continue;
+                }
                 cand.Add(p);
             }
 
@@ -424,6 +446,48 @@ namespace CardPresentation
                 packIds = pids,
             };
             return true;
+        }
+
+        // ---------------------------------------------------------------- 卡池（账 `卡组:290` 的调用点用）
+
+        /// <summary>进程级卡池缓存。⚠️ `CardDatabase.Load()` **每次返回一份新的 `List` 浅拷贝**（判据 = 它在
+        /// `RuleEngine/Data/CardDatabase.cs:1049-1071` 的注释）⇒ 别在逐包逐卡的循环里直接调它。</summary>
+        static List<CardDef> _cardPool;
+
+        /// <summary>本类查卡用的卡池（= `CardDatabase.Load()`，进程级缓存）。读不到 = 空表
+        /// （那一路已经由 `CardDatabase.Load` **出声**，⛔ 这里不再静默兜底）。</summary>
+        public static IList<CardDef> CardPool()
+        {
+            if (_cardPool == null) _cardPool = CardDatabase.Load();
+            return _cardPool;
+        }
+
+        /// <summary>丢掉卡池缓存（编辑器改完卡表 / 自检要重读时用）。⚠️ 与 <see cref="InvalidateCache"/>
+        /// （包表缓存）**是两件事**，别混。</summary>
+        public static void InvalidateCardPool() { _cardPool = null; }
+
+        /// <summary>把 <paramref name="ids"/> 逐张在卡池里查，数出**查到的张数**。
+        /// = 原版 `PrebuiltPack.GetCardLibrary()` 的长度（它逐张 `FindById`，查不到的**跳过**、不进结果表），
+        /// 所以「少一张」就是 `resolved &lt; ids.Length`。
+        /// <para>⚠️ 空表/`null` ⇒ 0（原版 `cardIds == null` 会抛，那一路由
+        /// <see cref="PrebuiltDecks.PackIsValid"/> 判 false）。</para></summary>
+        public static int ResolvedCardCount(string[] ids)
+        {
+            return ResolvedCardCount(ids, null);
+        }
+
+        /// <summary>同上，但用**显式给的卡池**。🔴 这条是给**离线夹具/自检造负例**用的
+        /// （现池 882/882 全 valid ⇒ 不造负例就验不出这条过滤）：传一份只含 2 张卡的池，
+        /// 3 张卡的包就该算出 2 ⇒ `PackIsValid` 判 false。
+        /// <paramref name="pool"/> = `null` ⇒ 退回 <see cref="CardPool"/>。</summary>
+        public static int ResolvedCardCount(string[] ids, IList<CardDef> pool)
+        {
+            if (ids == null || ids.Length == 0) return 0;
+            var p = pool ?? CardPool();
+            int n = 0;
+            for (int i = 0; i < ids.Length; i++)
+                if (CardDatabase.FindById(p, ids[i]) != null) n++;
+            return n;
         }
     }
 }

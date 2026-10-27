@@ -39,6 +39,10 @@ gen_division_clips.py — 排位「升段窗」(`RankedEventDivisionChangeWindow
   🔴 `Particles Rank Up` **原版有**（纯 `Transform` 根，子件 `Sparks Burn` → `Glow Big` /
   `Promote Letter Effect` / `Sparks fast` / `Wave Shine`）—— 我们那扇窗**没建**它（本次补上）。
 
+- 🔴 **节点映射（2026-10-27 `B9_W53DIV` 接线）**：本文件大体是「原版 path / 原版值」的逐字搬运，
+  **唯一一处换算** = `Division Image/Rank Icon` 的 scale 三条 **÷ `RANK_ICON_REST_SCALE`（1.0903292）**；
+  其余 path 一律照抄（⛔ 别顺手乘除）。映射判据 → **`资料/完全复刻/判据/升级动画scale曲线_节点映射.md` §三·2 ④ / §五·B**。
+
 ## 🔴 为什么把 `inSlope/outSlope` 也存下来（同 `gen_camera_intro_clips.py` 的教训）
 只存 `(t, v)` 再用 `new Keyframe(t, v)` 重建，会把每一段都变成 **ease-in/out**。这三条里有大量
 **非零切线**（例：`Division Image` 的 5 键缩放，2.6 s→2.65 s 那一记「砸下去」的 `outSlope` 是 0.2035、
@@ -122,6 +126,16 @@ CLASS_MB = 114
 CLASS_PARTICLESYSTEM = 198
 CLASS_CANVASGROUP = 225
 
+## 🔴 节点映射判据 → `资料/完全复刻/判据/升级动画scale曲线_节点映射.md` §三·2 ④ / §五·B
+# 原版 `Division Image/Rank Icon` 的**静止** localScale = 1.0903292（prefab 序列化真值：
+# `Ranked Division Change Window.prefab` 里 tran `224743393880019028`）；而那条 scale 曲线的值是
+# 「**相对自身静止缩放**」的乘数 ⇒ 原版首键/末键恰好等于静止值 1.0903292。
+# 我们这边 `RankIconR` 已经把 1.0903292 **烘进了矩形**（73.51 px = 67.4182 × 1.0903292）、节点静止缩放是
+# **1** ⇒ 曲线里的值必须整体 **÷ 这个因子**，否则 `Rank Up` 播完永久大 9.02%（末键 1.0903292、无人复位），
+# 峰值也多放大 9%（×2.228 而不是 ×2.043）。两条驱动（原生 `SetCurve` 与手动 `ApplyChannels`）读同一份 JSON。
+RANK_ICON_PATH = "Division Image/Rank Icon"
+RANK_ICON_REST_SCALE = 1.0903291702270508
+
 # clip 名 → 运行期键（**运行期只按 key 查**，⛔ 不按 `m_Name`）
 KEYS = {
     "Division Config": "divisionConfig",
@@ -159,7 +173,15 @@ def _attr_of(class_id, script_pid):
 
 
 def _explode_scale(path, curve):
-    """ScaleCurves → 3 条标量曲线（`localScale.x/y/z`）。"""
+    """ScaleCurves → 3 条标量曲线（`localScale.x/y/z`）。
+
+    `Division Image/Rank Icon` 这一个 path 要 **÷ `RANK_ICON_REST_SCALE`**（见文件头那段判据注释）——
+    曲线值是「相对自身静止缩放」的乘数，原版静止 = 1.0903292、我们的静止 = 1（因子已烘进 `RankIconR` 的矩形）。
+    切线（`si`/`so`）同步除：它们是「值 / 秒」，值的量纲换了切线必须跟着换，否则曲线形状会变。
+    （该 path 现读 `si/so` **全 0** ⇒ 数值上无观察差异，但按量纲一并除才对。）
+    其余 path（`Division Image` 的两条）**逐字照抄**，⛔ 不动 —— 它们两边静止缩放都是 1，值本来就对。
+    """
+    div = RANK_ICON_REST_SCALE if path == RANK_ICON_PATH else 1.0
     out = []
     for i, ax in enumerate("xyz"):
         out.append({
@@ -170,11 +192,11 @@ def _explode_scale(path, curve):
             "srcAttribute": "",
             "classId": CLASS_TRANSFORM,
             "keys": [{
-                "t": _f(k["time"]),
-                "v": _f(k["value"][ax]),
-                "si": _f(k["inSlope"][ax]),
-                "so": _f(k["outSlope"][ax]),
-            } for k in curve["m_Curve"]],
+                "t": _f(kk["time"]),
+                "v": _f(kk["value"][ax]) / div,
+                "si": _f(kk["inSlope"][ax]) / div,
+                "so": _f(kk["outSlope"][ax]) / div,
+            } for kk in curve["m_Curve"]],
         })
     return out
 
@@ -416,10 +438,12 @@ def self_check(doc):
     assert "Particles Rank Up" in paths, "prefab 树里没有 `Particles Rank Up`"
     assert "Particles DivisionUp/Sparks Burn" in paths, "prefab 树里没有 `Particles DivisionUp/Sparks Burn`"
 
-    # ⑥ 缩放首键 = 0.8 且倍率 = 1.0（三条都从 0.8 起步；`Rank Up` 另有 `Rank Icon` 的 1.09033）
+    # ⑥ 缩放首键 = 0.8 且倍率 = 1.0（三条都从 0.8 起步；`Rank Up` 另有 `Rank Icon` 的**映射后**值）
+    # ⚠️ `Rank Icon` 这一格断的是 **映射后的值**：原版 1.09033 ÷ 静止缩放 1.0903292 = 1.0（我们的静止缩放是 1，
+    #    那个因子已经烘进 `RankIconR` 的 73.51 px 视觉框）。⛔ 别把原版值 1.09033 抄回来当期望。
     want = {
         "Division Config": [("Division Image", 0.8)],
-        "Rank Up": [("Division Image", 0.8), ("Division Image/Rank Icon", 1.09033)],
+        "Rank Up": [("Division Image", 0.8), ("Division Image/Rank Icon", 1.0)],
         "Division Up": [("Division Image", 0.8)],
     }
     for nm in EXPECT_CLIPS:
@@ -432,6 +456,19 @@ def self_check(doc):
             comps = sorted(cur["property"] for cur in by[nm]["curves"]
                            if cur["channel"] == "scale" and cur["path"] == p)
             assert comps == ["localScale.x", "localScale.y", "localScale.z"], (nm, p, comps)
+
+    # ⑥b `Rank Icon` 的三条 x/y/z：**映射后**的四个键都要对。
+    #    期望值取**判据文件**（`升级动画scale曲线_节点映射.md` §三·2 ④ 那张表 / §五·B 4）里的四舍五入值
+    #    （1 / 2.043 / 0.70832 / 1），⛔ 不拿 `RANK_ICON_REST_SCALE` 反算 —— 那会变成拿实现自证。
+    ri = [cur for cur in by["Rank Up"]["curves"]
+          if cur["path"] == RANK_ICON_PATH and cur["channel"] == "scale"]
+    assert len(ri) == 3, len(ri)
+    for cur in ri:
+        vs = [k["v"] for k in cur["keys"]]
+        assert len(vs) == 4, (cur["property"], vs)
+        assert abs(vs[0] - 1.0) < 1e-4 and abs(vs[3] - 1.0) < 1e-4, (cur["property"], vs)
+        assert abs(vs[1] - 2.043) < 1e-4, (cur["property"], vs[1])
+        assert abs(vs[2] - 0.70832) < 1e-4, (cur["property"], vs[2])
 
     print("[gen] 自检通过：3 条 legacy clip · 曲线 14/16/14 · 路径全部命中 prefab 树 · 非零切线已保留")
     for c in clips:

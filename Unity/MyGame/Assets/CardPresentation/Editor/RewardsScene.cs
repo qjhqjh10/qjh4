@@ -6844,7 +6844,11 @@ public static class RewardsScene
                     {
                         fader.DoScenarioBlend(new ScenarioBlendOptions
                         {
-                            duration = 1f, direction = true, targetValue = 0.5f,
+                            // 🔴 `duration` 必须是 **2**（不是 1）：α 从 1.0 推到 0.5、推进 0.5 s
+                            //   ⇒ 恒定速率（原版 `MoveTowards`，步长 = `dt/duration` 的**绝对 α 量**）走 **0.25** ⇒ α = **0.75**；
+                            //   若被写成 Lerp ⇒ t = 0.25 ⇒ α = **0.875** ⇒ 下面那条仍红。
+                            //   ⛔ `duration = 1` 时两种语义**都得 0.5**（差值恰好等于步长、一步贴到目标）⇒ 那条断言**零鉴别力**。
+                            duration = 2f, direction = true, targetValue = 0.5f,
                             filterOptions = new ScenarioBlendOptions.BlendFilterOptions(),
                         });
                         fader.Advance(0.5f);
@@ -6861,7 +6865,11 @@ public static class RewardsScene
                               $"★ A1967 残尾·ScenarioMaterialFader：源材质 alpha 没被写脏（实得 {srcFader.color.a:F4}）");
                     CheckTrue(instFader != null && Mathf.Abs(instFader.color.a - 0.75f) < 0.01f,
                               "★ A1967 残尾·ScenarioMaterialFader：实例 alpha 推到 0.75（实得 "
-                            + (instFader == null ? "null" : instFader.color.a.ToString("F4")) + "）");
+                            + (instFader == null ? "null" : instFader.color.a.ToString("F4")) + "）"
+                            + "｜🧨 探针是 `duration=2` + `target=0.5` + `Advance(0.5)`：恒定速率（原版 `MoveTowards`）得 **0.75**、"
+                            + "Lerp 得 **0.875** ⇒ 把 `ApplyFade` 里的 `Mathf.MoveTowards` 改成 `Mathf.Lerp` ⇒ 本条红；"
+                            + "⛔ 别把 `duration` 改回 1（那样两种语义都得 0.5、本条**失去鉴别力**，原版在 "
+                            + "`ScenarioMaterialFader__Update.c` 里是「步长 = `dt/blendTime` 的绝对 α 量」）");
 
                     Object.DestroyImmediate(goFader);
                     Object.DestroyImmediate(srcFader);
@@ -12338,6 +12346,116 @@ public static class RewardsScene
             DailyData.ReleaseMissionToastActions();
             Check(MenuActions.Count, qBefore, "（收尾）`ReleaseMissionToastActions` ⇒ 那条撤掉了");
             DailyData.AutoPopupInEditor = false;                 // ⚠️ 静态 ⇒ 必须还原
+        }
+
+        // ============================================================ 🆕 2026-10-27（`B9_W36SHINEA`）
+        //   账 `收藏:15`：`ArmyItemContainer.Initialize` 的**按阵营过滤**那一半 —— 阵营格的红点
+        //   **只有该阵营那颗会亮**（我们原来 `CampaignBadge` / `ForgeBadge` 没有 `army` ⇒ 13 颗一起亮）。
+        //   判据 → `资料/完全复刻/报告/B9_W16SHINE_扫光统一.md` §二·5 / §三·3：
+        //   `RewardsBadge.Validate` 同类型那一支**落到 record 的 `Equals`**，而 `CampaignBadge.Equals` 比 `+0x18` 的 army。
+        //   期望集合**从数据侧独立算**（`CampaignData.Claimable` / `ForgeData.StateAt`），⛔ 不从被测的红点系统反推。
+        //   🧨 灭自证：把 `CampaignBadge.Validate` / `ForgeBadge.Validate` 里的 `army` 比较删掉（退回「同类型即匹配」）
+        //      ⇒ 每颗格子的计数都变成**全体总数** ⇒ 「只有该阵营那颗亮」那几条**成片红**；
+        //      反过来把过滤写成「恒 false」⇒ 连该亮的那颗也不亮 ⇒ 同一条也红。
+        Section("B9 `收藏:15`：阵营格红点**按阵营过滤**（只有该阵营那颗亮；顶部页签那颗是**不带过滤**的对照组）");
+        {
+            BadgeWiring.RegisterDefaults();
+
+            // ---------------- ① 锻造页：期望集合 = 数据侧「哪个阵营有可领格」 ----------------
+            var fSelT = forge != null ? forge.Find("Forge Army Selector") : null;
+            var fVpT = fSelT != null ? fSelT.Find("Viewport") : null;
+            var fContentT = fVpT != null ? fVpT.Find("Army Content") : null;
+            CheckTrue(fContentT != null, "（前提）锻造页 `Forge Army Selector ▸ Viewport ▸ Army Content` 取得到");
+            var fLit = new List<string>();
+            for (int a = 0; a < ForgeData.Armies.Length; a++)
+                if (ForgeData.HasToCollect(ForgeData.Armies[a])) fLit.Add(ForgeData.Armies[a]);
+            int fChecked = 0, fMatched = 0; string fFirstBad = null;
+            if (fContentT != null)
+                for (int i = 0; i < ForgeData.Armies.Length; i++)
+                {
+                    string army = ForgeData.Armies[i];
+                    var cell = fContentT.Find("ForgeArmyItem_" + i);
+                    if (cell == null) continue;                     // 视口外的不建（= 原版 `RectMask2D` 裁掉）
+                    var badge = cell.GetComponentInChildren<UiBadgeNotification>(true);
+                    if (badge == null)
+                    { if (fFirstBad == null) fFirstBad = army + "：整格**没有** `UiBadgeNotification`"; continue; }
+                    badge.Recount();
+                    badge.SnapToTargetForTest();
+                    bool want = fLit.Contains(army);
+                    bool got = badge.CurrentCount > 0;
+                    fChecked++;
+                    if (want == got && Mathf.Abs(badge.CurrentAlpha - (want ? 1f : 0f)) < 0.02f) fMatched++;
+                    else if (fFirstBad == null)
+                        fFirstBad = army + "：期望" + (want ? "亮" : "灭") + "，实得计数 " + badge.CurrentCount
+                                  + " / alpha " + badge.CurrentAlpha.ToString("F3");
+                }
+            CheckTrue(fChecked >= 8, $"（前提）锻造页至少核到 8 颗阵营格的徽记（现读 {fChecked} 颗）");
+            CheckTrue(fLit.Count >= 1, $"（前提）数据侧至少有 1 个阵营有可领格（现读 {fLit.Count} 个：{string.Join("、", fLit)}）");
+            CheckTrue(fChecked > fLit.Count,
+                      $"（前提）**期望集合不是全部**（{fLit.Count} 亮 / 共核 {fChecked} 颗）—— 否则「13 颗全亮」也能蒙过");
+            Check(fMatched, fChecked,
+                  $"★ 锻造页：每颗格子的红点 == **该阵营自己**有没有可领"
+                + $"（`ForgeBadge{{army = 该格的阵营}}` 过滤；核了 {fChecked} 颗，该亮 {fLit.Count} 颗）"
+                + (fMatched == fChecked ? "" : "｜第一处不符：" + fFirstBad));
+            // 对照组：左栏那颗「锻造页签」的红点是**不带过滤**的（原版 `BadgeWiring.DefinitionsForTab` 那条）
+            {
+                var tabDefs = BadgeWiring.DefinitionsForTab("Forge Button");
+                Check(tabDefs.Count, 1, "（前提）`Forge Button` 页签红点有 1 条定义（`ForgeBadge`，**不带过滤**）");
+                int total = 0;
+                for (int a = 0; a < ForgeData.Armies.Length; a++)
+                    for (int lv = 0; lv < ForgeData.MaxLevel; lv++)
+                        if (ForgeData.StateAt(ForgeData.Armies[a], lv) == ForgeData.ToCollect) total++;
+                Check(UiBadgeNotificationManager.GetCount(tabDefs), total,
+                      $"★ 对照：**不带过滤**的那颗页签红点 = **全阵营可领总数 {total}**"
+                    + "（⛔ 不是 0/1 —— 它证明「过滤」不是靠把 provider 关掉做到的）");
+            }
+
+            // ---------------- ② 战役页：provider 只发**一条**，带 `CampaignData.Selected` ----------------
+            var cSelT = camp != null ? camp.Find("Campaign Army Selector") : null;
+            var cVpT = cSelT != null ? cSelT.Find("Viewport") : null;
+            var cContentT = cVpT != null ? cVpT.Find("Army Content") : null;
+            CheckTrue(cContentT != null, "（前提）战役页 `Campaign Army Selector ▸ Viewport ▸ Army Content` 取得到");
+            bool anyClaimable = false;
+            for (int i = 0; i < CampaignData.NodeCount; i++)
+                if (CampaignData.Claimable(i)) { anyClaimable = true; break; }
+            CheckTrue(CampaignData.HasContent(CampaignData.Selected),
+                      $"（前提）当前选中阵营 `{CampaignData.Selected}` **本地有战役内容**（只有 Ultramarines 有节点表）");
+            CheckTrue(anyClaimable,
+                      "（前提）此刻至少有一个**可领**的战役节点（`CampaignData.ResetForTest` 之后根节点就开着）"
+                    + " —— 否则「一颗都不亮」这件事分不出「过滤对」与「根本没有通知」");
+            string cLitArmy = CampaignData.Selected;
+            int cChecked = 0, cMatched = 0, cLit = 0; string cFirstBad = null;
+            if (cContentT != null)
+                for (int i = 0; i < CampaignData.Armies.Length; i++)
+                {
+                    string army = CampaignData.Armies[i];
+                    var cell = cContentT.Find("CampaignArmyItem_" + i);
+                    if (cell == null) continue;
+                    var badge = cell.GetComponentInChildren<UiBadgeNotification>(true);
+                    if (badge == null)
+                    { if (cFirstBad == null) cFirstBad = army + "：整格**没有** `UiBadgeNotification`"; continue; }
+                    badge.Recount();
+                    badge.SnapToTargetForTest();
+                    bool want = army == cLitArmy;
+                    bool got = badge.CurrentCount > 0;
+                    cChecked++;
+                    if (got) cLit++;
+                    if (want == got && Mathf.Abs(badge.CurrentAlpha - (want ? 1f : 0f)) < 0.02f) cMatched++;
+                    else if (cFirstBad == null)
+                        cFirstBad = army + "：期望" + (want ? "亮" : "灭") + "，实得计数 " + badge.CurrentCount
+                                  + " / alpha " + badge.CurrentAlpha.ToString("F3");
+                }
+            CheckTrue(cChecked >= 8, $"（前提）战役页至少核到 8 颗阵营格的徽记（现读 {cChecked} 颗）");
+            Check(cMatched, cChecked,
+                  $"★ 战役页：**只有选中阵营 `{cLitArmy}` 那一颗亮**，其余全灭（核了 {cChecked} 颗）"
+                + "｜🧨 `CampaignBadge` 丢掉 `army`（退回「同类型即匹配」）⇒ 每颗都数到那一条 ⇒ 12 颗假亮 ⇒ 红");
+            Check(cLit, 1, "★ …而且**亮的颗数恰好 = 1**（原版 `CampaignHandler.CheckNotification` 一个战役只发一条）");
+            {
+                var tabDefs = BadgeWiring.DefinitionsForTab("CampaignButton");
+                CheckTrue(tabDefs.Count >= 1, "（前提）`CampaignButton` 页签红点至少 1 条定义");
+                CheckTrue(UiBadgeNotificationManager.GetCount(tabDefs) >= 1,
+                          "★ 对照：**不带过滤**的战役页签红点仍数得到那一条（⛔ 不是 0 —— 它证明过滤不是靠关掉 provider）");
+            }
         }
 
         Debug.Log(P + win.Dump());

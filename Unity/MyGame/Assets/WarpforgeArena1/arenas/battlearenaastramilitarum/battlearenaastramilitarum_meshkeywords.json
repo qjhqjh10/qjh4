@@ -378,6 +378,14 @@
       ]
     },
     {
+      "go": "Generator ",
+      "mat": "Battle Arena Astra Militarum Texture Bake result-mat",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
       "go": "Crates 15",
       "mat": "Battle Arena Astra Militarum Texture Bake result-mat",
       "keywords": [
@@ -555,6 +563,14 @@
     },
     {
       "go": "Pipe 4",
+      "mat": "Battle Arena Astra Militarum Texture Bake result-mat",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Bunker Gun ",
       "mat": "Battle Arena Astra Militarum Texture Bake result-mat",
       "keywords": [
         "_APPLYAMBIENTCOLOR",

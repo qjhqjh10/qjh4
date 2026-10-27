@@ -57,6 +57,70 @@ PRIMARY = ('_BaseMap', '_MainTex')
 SKIP_SLOT = ('unity_',)
 
 
+## 🆕 2026-10-27（B9_W45ARENA）`--check` 的**产物校验**（只读，不写盘）。
+#  原来这一族的 `--check` 是「只扫不写」（`if check or not out: continue`）—— 盘上缺产物也恒 rc0，
+#  属「看着有 check、其实啥都没查」。口径照 `工具/import_original_art.py:1714-1721`。
+#  ⚠️ **本脚本不比 json 逐字节内容**：写盘那份 `keep_list` 只收**导出成功**的槽
+#     （`export_tex` 返回 False 时该槽被丢掉），而 `--check` 不许导出 ⇒ 静态重算必然多出那些槽 ⇒ 假红。
+#     改为两头兜：① json 里逐条点名的 `texFile` 必须在 `Textures/` 下（PNG 产物的存在性）
+#     ② 槽集合只在**盘上多出来**的方向报红（重算多出的只出声、不判红）。
+def wf_check_texslots(dst, texdir, out, ps_out, lack, stale):
+    # ⚠️ 与写盘侧同一条闸：写盘是 `if check or not out: continue` —— **只按 `out`（网格那一支）判**，
+    #    所以「期望有产物」也只能按 `out` 判（否则 `out` 空、`ps_out` 非空的场会假红）。
+    if not out:
+        if os.path.isfile(dst):
+            stale.append((dst, '原版这一场没有非主贴图槽（网格支）⇒ 产物多余'))
+        return
+    if not os.path.isfile(dst):
+        lack.append(dst)
+        return
+    try:
+        d = json.load(io.open(dst, encoding='utf-8'))
+    except Exception as e:
+        stale.append((dst, '读不出：%s' % e))
+        return
+    disk, n = set(), 0
+    for key in ('meshes', 'particles'):
+        for row in (d.get(key) or []):
+            for s in (row.get('slots') or []):
+                disk.add((row.get('go'), s.get('slot'), s.get('tex')))
+                tf = s.get('texFile')
+                if not tf:
+                    continue
+                n += 1
+                f = os.path.join(texdir, tf)
+                if not os.path.isfile(f):
+                    lack.append(f)
+    # 重算侧（只取「名字解析得出」的槽；导出成功与否 `--check` 不试 ⇒ 只在**盘上多出来的**方向报红）
+    calc = set()
+    for tab in (out, ps_out):
+        for go, slots in tab.items():
+            for s in slots:
+                if s.get('tex') and s.get('host'):
+                    calc.add((go, s['slot'], s['tex']))
+    extra = disk - calc
+    if extra:
+        stale.append((dst, '产物里有 %d 条重算不出来的槽（过期）：%s'
+                      % (len(extra), sorted(extra)[:4])))
+    print('    --check：`%s` 点名 %d 张贴图（逐个查 `Textures/` 存在性）· 槽 盘上 %d / 重算 %d'
+          % (os.path.basename(dst), n, len(disk), len(calc))
+          + ('（⚠️ 重算多出 %d 条：可能是上次导出失败，也可能产物没重跑）' % len(calc - disk)
+             if calc - disk else ''))
+
+
+def wf_report_artifacts(check, lack, stale, script):
+    """`--check` 收尾：有缺/过期就点名并让 main 返回 1。→ 该返回的 rc（无问题 = 0）。"""
+    if not check or not (lack or stale):
+        return 0
+    print('')
+    for p in lack:
+        print('  🔴 缺产物：%s' % p)
+    for p, why in stale:
+        print('  🔴 产物过期（%s）：%s' % (why, p))
+    print('  ⇒ 重跑一次 `python 工具/%s` 生成（`--check` 只读、不写盘）。' % script)
+    return 1
+
+
 def build_index(UnityPy, aa, verbose=True):
     """**一次遍历建两份索引**：
         · `tex[pathID] = [[bundle, CAB, 贴图名], …]` —— 🔴 **保留全部候选**，不是「最后一个赢家」
@@ -200,6 +264,7 @@ def main():
     idx = build_index(UnityPy, aa)
 
     total = 0
+    lack, stale = [], []
     for arena in arenas:
         bundle = 'scenes_scenes_%s.bundle' % arena
         if not os.path.isfile(os.path.join(aa, bundle)):
@@ -346,6 +411,17 @@ def main():
                         kind, go, s['slot'], s['tex'] or '❌解不出', '(本包)' if s['host'] == bundle else '(' + str(s['host']) + ')', s['mat']))
         total += len(out)
         if check or not out:
+            # `--check`：产物 = ① `<场>_texslots.json` ② 它逐条点名的 `Textures/<tex>.png`
+            #（`ArenaBuilder.GetTexture` 按 `texFile` 取图；缺了就只剩 `WarpforgeVFX/Textures/` 兜底或空）
+            if check:
+                texdir_c = os.path.join(ROOT, 'MyGame/Assets/WarpforgeArena1/arenas', arena, 'Textures')
+                wf_check_texslots(
+                    os.path.join(ROOT, 'MyGame/Assets/WarpforgeArena1/arenas', arena,
+                                 arena + '_texslots.json'),
+                    texdir_c, out, ps_out, lack, stale)
+                if ps_out and not out:
+                    print('    ⚠️ 粒子支有 %d 个对象、网格支 0 个 ⇒ 写盘那条闸（`not out`）会让这一场'
+                          '**什么都不写**（粒子槽静默丢）' % len(ps_out))
             continue
 
         texdir = os.path.join(ROOT, 'MyGame/Assets/WarpforgeArena1/arenas', arena, 'Textures')
@@ -377,7 +453,7 @@ def main():
                        ensure_ascii=False, indent=2))
         print('    → 写 %s（网格 %d 个 · 粒子 %d 个）' % (dst, len(keep_meshes), len(keep_ps)))
     print('合计：%d 个网格有非主贴图槽' % total)
-    return 0
+    return wf_report_artifacts(check, lack, stale, 'gen_arena_texslots.py')
 
 
 if __name__ == '__main__':

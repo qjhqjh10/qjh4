@@ -29,7 +29,16 @@
    "ts": 7.0,
    "tm": 0.0,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "ush": [
+    {
+     "t": 0,
+     "aw": 0,
+     "sz": 0,
+     "du": 1.0,
+     "dl": 0.0
+    }
+   ]
   },
   {
    "n": "Recall_Eldar_2",
@@ -549,7 +558,16 @@
    "mny": 0.0,
    "mxy": 0.0,
    "mnz": 0.0,
-   "mxz": 0.0
+   "mxz": 0.0,
+   "ush": [
+    {
+     "t": 0,
+     "aw": 30,
+     "sz": 0,
+     "du": 0.2,
+     "dl": 1.0
+    }
+   ]
   },
   {
    "n": "BulletImpact_artillery_arc",
@@ -562,7 +580,16 @@
    "ts": 0.0,
    "tm": 0.75,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "ush": [
+    {
+     "t": 0,
+     "aw": 30,
+     "sz": 0,
+     "du": 0.2,
+     "dl": 1.0
+    }
+   ]
   },
   {
    "n": "BulletImpact_artillery_big",
@@ -607,7 +634,16 @@
    "mny": 0.0,
    "mxy": 0.0,
    "mnz": 0.0,
-   "mxz": 0.0
+   "mxz": 0.0,
+   "ush": [
+    {
+     "t": 0,
+     "aw": 30,
+     "sz": 0,
+     "du": 0.2,
+     "dl": 1.0
+    }
+   ]
   },
   {
    "n": "BulletImpact_artillery_manticore_spread",
@@ -652,7 +688,16 @@
    "mny": 0.0,
    "mxy": 0.0,
    "mnz": 0.0,
-   "mxz": 0.0
+   "mxz": 0.0,
+   "ush": [
+    {
+     "t": 0,
+     "aw": 30,
+     "sz": 0,
+     "du": 0.2,
+     "dl": 1.0
+    }
+   ]
   },
   {
    "n": "Blast_Big_Ork_Missiles",
@@ -665,7 +710,16 @@
    "ts": 1.3,
    "tm": 0.0,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "ush": [
+    {
+     "t": 0,
+     "aw": 30,
+     "sz": 2,
+     "du": 0.4,
+     "dl": 0.1
+    }
+   ]
   },
   {
    "n": "Blast_Plasma",
@@ -753,7 +807,16 @@
    "ts": 0.3,
    "tm": 0.0,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "ush": [
+    {
+     "t": 0,
+     "aw": 30,
+     "sz": 0,
+     "du": 0.2,
+     "dl": 0.1
+    }
+   ]
   },
   {
    "n": "BulletImpact_1shotSniper_trail",
@@ -766,7 +829,16 @@
    "ts": 0.75,
    "tm": 0.0,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "ush": [
+    {
+     "t": 0,
+     "aw": 30,
+     "sz": 0,
+     "du": 0.2,
+     "dl": 0.1
+    }
+   ]
   },
   {
    "n": "BulletImpact_1shotSniper_trail",
@@ -779,7 +851,16 @@
    "ts": 0.75,
    "tm": 0.0,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "ush": [
+    {
+     "t": 0,
+     "aw": 30,
+     "sz": 0,
+     "du": 0.2,
+     "dl": 0.1
+    }
+   ]
   },
   {
    "n": "BulletImpact_1shot_random_EC",
@@ -792,7 +873,16 @@
    "ts": 0.75,
    "tm": 0.0,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "ush": [
+    {
+     "t": 0,
+     "aw": 30,
+     "sz": 0,
+     "du": 0.2,
+     "dl": 0.1
+    }
+   ]
   },
   {
    "n": "BulletImpact_1shot_trail_EC Daemon",
@@ -805,7 +895,16 @@
    "ts": 0.75,
    "tm": 0.0,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "ush": [
+    {
+     "t": 0,
+     "aw": 30,
+     "sz": 0,
+     "du": 0.2,
+     "dl": 0.1
+    }
+   ]
   },
   {
    "n": "BulletImpact_1shot_random_chaos",
@@ -818,7 +917,16 @@
    "ts": 0.75,
    "tm": 0.0,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "ush": [
+    {
+     "t": 0,
+     "aw": 30,
+     "sz": 0,
+     "du": 0.2,
+     "dl": 0.1
+    }
+   ]
   },
   {
    "n": "BulletImpact_1shot_random_chaos",
@@ -831,7 +939,16 @@
    "ts": 0.0,
    "tm": 0.0,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "ush": [
+    {
+     "t": 0,
+     "aw": 30,
+     "sz": 0,
+     "du": 0.2,
+     "dl": 0.1
+    }
+   ]
   },
   {
    "n": "BulletImpact_1shot_trail",
@@ -844,7 +961,16 @@
    "ts": 0.75,
    "tm": 0.0,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "ush": [
+    {
+     "t": 0,
+     "aw": 30,
+     "sz": 0,
+     "du": 0.2,
+     "dl": 0.1
+    }
+   ]
   },
   {
    "n": "BulletImpact_1hit_trail_ork",
@@ -857,7 +983,16 @@
    "ts": 0.65,
    "tm": 0.0,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "ush": [
+    {
+     "t": 0,
+     "aw": 30,
+     "sz": 0,
+     "du": 0.2,
+     "dl": 0.1
+    }
+   ]
   },
   {
    "n": "BulletImpact_1shot_trail",
@@ -870,7 +1005,16 @@
    "ts": 0.21,
    "tm": 0.0,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "ush": [
+    {
+     "t": 0,
+     "aw": 30,
+     "sz": 0,
+     "du": 0.2,
+     "dl": 0.1
+    }
+   ]
   },
   {
    "n": "BulletImpact_2shot_trail",
@@ -883,7 +1027,16 @@
    "ts": 0.75,
    "tm": 0.0,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "ush": [
+    {
+     "t": 0,
+     "aw": 30,
+     "sz": 0,
+     "du": 0.2,
+     "dl": 0.1
+    }
+   ]
   },
   {
    "n": "BulletImpact_2shot_trail_EC",
@@ -896,7 +1049,16 @@
    "ts": 0.75,
    "tm": 0.0,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "ush": [
+    {
+     "t": 0,
+     "aw": 30,
+     "sz": 0,
+     "du": 0.2,
+     "dl": 0.1
+    }
+   ]
   },
   {
    "n": "BulletImpact_2shot_trail_EC Daemon",
@@ -909,7 +1071,16 @@
    "ts": 0.75,
    "tm": 0.0,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "ush": [
+    {
+     "t": 0,
+     "aw": 30,
+     "sz": 0,
+     "du": 0.2,
+     "dl": 0.1
+    }
+   ]
   },
   {
    "n": "BulletImpact_2shot_Titus_AA",
@@ -922,7 +1093,16 @@
    "ts": 0.75,
    "tm": 0.0,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "ush": [
+    {
+     "t": 0,
+     "aw": 30,
+     "sz": 0,
+     "du": 0.2,
+     "dl": 0.1
+    }
+   ]
   },
   {
    "n": "BulletImpact_2shot_autocannon",
@@ -935,7 +1115,16 @@
    "ts": 0.75,
    "tm": 0.0,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "ush": [
+    {
+     "t": 0,
+     "aw": 30,
+     "sz": 0,
+     "du": 0.2,
+     "dl": 0.1
+    }
+   ]
   },
   {
    "n": "BulletImpact_2shot_trail_chaos",
@@ -948,7 +1137,16 @@
    "ts": 0.75,
    "tm": 0.0,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "ush": [
+    {
+     "t": 0,
+     "aw": 30,
+     "sz": 0,
+     "du": 0.2,
+     "dl": 0.1
+    }
+   ]
   },
   {
    "n": "BulletImpact_2shot_trail_chaos",
@@ -961,7 +1159,16 @@
    "ts": 0.3,
    "tm": 0.0,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "ush": [
+    {
+     "t": 0,
+     "aw": 30,
+     "sz": 0,
+     "du": 0.2,
+     "dl": 0.1
+    }
+   ]
   },
   {
    "n": "BulletImpact_2shot_trail_nurgle",
@@ -974,7 +1181,16 @@
    "ts": 0.75,
    "tm": 0.0,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "ush": [
+    {
+     "t": 0,
+     "aw": 30,
+     "sz": 0,
+     "du": 0.2,
+     "dl": 0.1
+    }
+   ]
   },
   {
    "n": "BulletImpact_2shot_trail_ork_NEW",
@@ -987,7 +1203,16 @@
    "ts": 0.75,
    "tm": 0.0,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "ush": [
+    {
+     "t": 0,
+     "aw": 30,
+     "sz": 0,
+     "du": 0.2,
+     "dl": 0.1
+    }
+   ]
   },
   {
    "n": "BulletImpact_2shot_pointblank_EC",
@@ -1013,7 +1238,16 @@
    "ts": 0.75,
    "tm": 0.0,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "ush": [
+    {
+     "t": 0,
+     "aw": 30,
+     "sz": 0,
+     "du": 0.2,
+     "dl": 0.1
+    }
+   ]
   },
   {
    "n": "BulletImpact_3shot_trail",
@@ -1026,7 +1260,16 @@
    "ts": 0.75,
    "tm": 0.0,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "ush": [
+    {
+     "t": 0,
+     "aw": 30,
+     "sz": 0,
+     "du": 0.2,
+     "dl": 0.1
+    }
+   ]
   },
   {
    "n": "BulletImpact_3shot_trail_EC",
@@ -1039,7 +1282,16 @@
    "ts": 0.75,
    "tm": 0.0,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "ush": [
+    {
+     "t": 0,
+     "aw": 30,
+     "sz": 0,
+     "du": 0.2,
+     "dl": 0.1
+    }
+   ]
   },
   {
    "n": "BulletImpact_3shot_trail_chaos",
@@ -1052,7 +1304,16 @@
    "ts": 0.75,
    "tm": 0.0,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "ush": [
+    {
+     "t": 0,
+     "aw": 30,
+     "sz": 0,
+     "du": 0.2,
+     "dl": 0.1
+    }
+   ]
   },
   {
    "n": "BulletImpact_3shot_trail_ork",
@@ -1065,7 +1326,16 @@
    "ts": 0.75,
    "tm": 0.0,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "ush": [
+    {
+     "t": 0,
+     "aw": 30,
+     "sz": 0,
+     "du": 0.2,
+     "dl": 0.1
+    }
+   ]
   },
   {
    "n": "BulletImpact_4shot_trail",
@@ -1078,7 +1348,16 @@
    "ts": 0.75,
    "tm": 0.0,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "ush": [
+    {
+     "t": 0,
+     "aw": 30,
+     "sz": 0,
+     "du": 0.2,
+     "dl": 0.1
+    }
+   ]
   },
   {
    "n": "BulletImpact_4shot_trail_EC",
@@ -1091,7 +1370,16 @@
    "ts": 0.75,
    "tm": 0.0,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "ush": [
+    {
+     "t": 0,
+     "aw": 30,
+     "sz": 0,
+     "du": 0.2,
+     "dl": 0.1
+    }
+   ]
   },
   {
    "n": "BulletImpact_stormbolter_4shots",
@@ -1104,7 +1392,16 @@
    "ts": 0.75,
    "tm": 0.0,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "ush": [
+    {
+     "t": 0,
+     "aw": 30,
+     "sz": 0,
+     "du": 0.2,
+     "dl": 0.1
+    }
+   ]
   },
   {
    "n": "BulletImpact_stormbolter_4shots_Logan_AA",
@@ -1117,7 +1414,16 @@
    "ts": 0.75,
    "tm": 0.0,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "ush": [
+    {
+     "t": 0,
+     "aw": 30,
+     "sz": 0,
+     "du": 0.2,
+     "dl": 0.1
+    }
+   ]
   },
   {
    "n": "BulletImpact_4shot_trail_chaos",
@@ -1130,7 +1436,16 @@
    "ts": 0.75,
    "tm": 0.0,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "ush": [
+    {
+     "t": 0,
+     "aw": 30,
+     "sz": 0,
+     "du": 0.2,
+     "dl": 0.1
+    }
+   ]
   },
   {
    "n": "BulletImpact_4shot_trail_nurgle",
@@ -1143,7 +1458,16 @@
    "ts": 0.75,
    "tm": 0.0,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "ush": [
+    {
+     "t": 0,
+     "aw": 30,
+     "sz": 0,
+     "du": 0.2,
+     "dl": 0.1
+    }
+   ]
   },
   {
    "n": "BulletImpact_4shot_trail_twinlink",
@@ -1156,7 +1480,16 @@
    "ts": 0.75,
    "tm": 0.0,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "ush": [
+    {
+     "t": 0,
+     "aw": 30,
+     "sz": 0,
+     "du": 0.2,
+     "dl": 0.1
+    }
+   ]
   },
   {
    "n": "BulletImpact_5shot_trail",
@@ -1169,7 +1502,16 @@
    "ts": 1.0,
    "tm": 0.0,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "ush": [
+    {
+     "t": 0,
+     "aw": 30,
+     "sz": 0,
+     "du": 0.2,
+     "dl": 0.1
+    }
+   ]
   },
   {
    "n": "BulletImpact_5shot_trail_EC",
@@ -1182,7 +1524,16 @@
    "ts": 1.0,
    "tm": 0.0,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "ush": [
+    {
+     "t": 0,
+     "aw": 30,
+     "sz": 0,
+     "du": 0.2,
+     "dl": 0.1
+    }
+   ]
   },
   {
    "n": "BulletImpact_5shot_trail_chaos",
@@ -1195,7 +1546,16 @@
    "ts": 1.0,
    "tm": 0.0,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "ush": [
+    {
+     "t": 0,
+     "aw": 30,
+     "sz": 0,
+     "du": 0.2,
+     "dl": 0.1
+    }
+   ]
   },
   {
    "n": "BulletImpact_gatling_1s",
@@ -1234,7 +1594,16 @@
    "ts": 1.0,
    "tm": 0.0,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "ush": [
+    {
+     "t": 0,
+     "aw": 30,
+     "sz": 0,
+     "du": 0.2,
+     "dl": 0.1
+    }
+   ]
   },
   {
    "n": "BulletImpact_5shot_trail_ork_low",
@@ -1247,7 +1616,16 @@
    "ts": 1.0,
    "tm": 0.0,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "ush": [
+    {
+     "t": 0,
+     "aw": 30,
+     "sz": 0,
+     "du": 0.2,
+     "dl": 0.1
+    }
+   ]
   },
   {
    "n": "BulletImpact_6shot_trail_EC Daemon",
@@ -1260,7 +1638,16 @@
    "ts": 0.75,
    "tm": 0.0,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "ush": [
+    {
+     "t": 0,
+     "aw": 30,
+     "sz": 0,
+     "du": 0.2,
+     "dl": 0.1
+    }
+   ]
   },
   {
    "n": "BulletImpact_stormbolter_6shots",
@@ -1273,7 +1660,16 @@
    "ts": 0.75,
    "tm": 0.0,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "ush": [
+    {
+     "t": 0,
+     "aw": 30,
+     "sz": 0,
+     "du": 0.2,
+     "dl": 0.1
+    }
+   ]
   },
   {
    "n": "BulletImpact_6shot_autocannon_EC",
@@ -1286,7 +1682,16 @@
    "ts": 0.75,
    "tm": 0.0,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "ush": [
+    {
+     "t": 0,
+     "aw": 30,
+     "sz": 0,
+     "du": 0.2,
+     "dl": 0.1
+    }
+   ]
   },
   {
    "n": "BulletImpact_9shot_trail",
@@ -1299,7 +1704,16 @@
    "ts": 2.0,
    "tm": 0.0,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "ush": [
+    {
+     "t": 0,
+     "aw": 30,
+     "sz": 0,
+     "du": 0.2,
+     "dl": 0.1
+    }
+   ]
   },
   {
    "n": "BulletImpact_9shot_trail_EC",
@@ -1335,7 +1749,16 @@
    "shka": 0.0,
    "shkf": 0.0,
    "shkoa": 0,
-   "shkof": 0
+   "shkof": 0,
+   "ush": [
+    {
+     "t": 0,
+     "aw": 30,
+     "sz": 0,
+     "du": 0.2,
+     "dl": 0.1
+    }
+   ]
   },
   {
    "n": "BulletImpact_9shot_trail_chaos",
@@ -1371,7 +1794,16 @@
    "shka": 0.0,
    "shkf": 0.0,
    "shkoa": 0,
-   "shkof": 0
+   "shkof": 0,
+   "ush": [
+    {
+     "t": 0,
+     "aw": 30,
+     "sz": 0,
+     "du": 0.2,
+     "dl": 0.1
+    }
+   ]
   },
   {
    "n": "BulletImpact_Abaddon_AA_StormBolter",
@@ -1384,7 +1816,16 @@
    "ts": 1.0,
    "tm": 0.0,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "ush": [
+    {
+     "t": 0,
+     "aw": 30,
+     "sz": 0,
+     "du": 0.2,
+     "dl": 0.1
+    }
+   ]
   },
   {
    "n": "BulletImpact_autocannon",
@@ -1397,7 +1838,16 @@
    "ts": 1.0,
    "tm": 0.0,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "ush": [
+    {
+     "t": 0,
+     "aw": 30,
+     "sz": 0,
+     "du": 0.2,
+     "dl": 0.1
+    }
+   ]
   },
   {
    "n": "BulletImpact_autocannon_Firestrike",
@@ -1436,7 +1886,16 @@
    "ts": 1.0,
    "tm": 0.0,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "ush": [
+    {
+     "t": 0,
+     "aw": 30,
+     "sz": 0,
+     "du": 0.2,
+     "dl": 0.1
+    }
+   ]
   },
   {
    "n": "BulletImpact_Chaos_Melta",
@@ -1514,7 +1973,16 @@
    "ts": 1.8,
    "tm": 0.0,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "ush": [
+    {
+     "t": 0,
+     "aw": 30,
+     "sz": 0,
+     "du": 0.2,
+     "dl": 0.1
+    }
+   ]
   },
   {
    "n": "BulletImpact_Bolter_Wide Area",
@@ -1527,7 +1995,16 @@
    "ts": 1.8,
    "tm": 0.0,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "ush": [
+    {
+     "t": 0,
+     "aw": 30,
+     "sz": 0,
+     "du": 0.2,
+     "dl": 0.1
+    }
+   ]
   },
   {
    "n": "BulletImpact_ChemVial",
@@ -1708,7 +2185,16 @@
    "ts": 0.75,
    "tm": 0.25,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "ush": [
+    {
+     "t": 0,
+     "aw": 30,
+     "sz": 0,
+     "du": 0.2,
+     "dl": 0.1
+    }
+   ]
   },
   {
    "n": "BulletImpact_DeathSpinner_spider",
@@ -1721,7 +2207,16 @@
    "ts": 0.75,
    "tm": 0.25,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "ush": [
+    {
+     "t": 0,
+     "aw": 30,
+     "sz": 0,
+     "du": 0.2,
+     "dl": 0.1
+    }
+   ]
   },
   {
    "n": "BulletImpact_DeathSpinner_spider_twinlink",
@@ -1734,7 +2229,16 @@
    "ts": 0.75,
    "tm": 0.25,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "ush": [
+    {
+     "t": 0,
+     "aw": 30,
+     "sz": 0,
+     "du": 0.2,
+     "dl": 0.1
+    }
+   ]
   },
   {
    "n": "BulletImpact_DeathSpinner_twinlink",
@@ -1747,7 +2251,16 @@
    "ts": 0.75,
    "tm": 0.25,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "ush": [
+    {
+     "t": 0,
+     "aw": 30,
+     "sz": 0,
+     "du": 0.2,
+     "dl": 0.1
+    }
+   ]
   },
   {
    "n": "BulletImpact_DeathSpinner_twinlink_large",
@@ -1760,7 +2273,16 @@
    "ts": 0.6,
    "tm": 0.0,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "ush": [
+    {
+     "t": 0,
+     "aw": 30,
+     "sz": 0,
+     "du": 0.2,
+     "dl": 0.1
+    }
+   ]
   },
   {
    "n": "BulletImpact_FusionGun",
@@ -1773,7 +2295,16 @@
    "ts": 1.5,
    "tm": 0.0,
    "te": 1.0,
-   "otv": 0
+   "otv": 0,
+   "ush": [
+    {
+     "t": 30,
+     "aw": 10,
+     "sz": 2,
+     "du": 0.5,
+     "dl": 1.0
+    }
+   ]
   },
   {
    "n": "WailingDoom",
@@ -1812,7 +2343,16 @@
    "ts": 0.75,
    "tm": 0.0,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "ush": [
+    {
+     "t": 0,
+     "aw": 30,
+     "sz": 0,
+     "du": 0.2,
+     "dl": 0.1
+    }
+   ]
   },
   {
    "n": "BulletImpact_Shuriken_Long",
@@ -1825,7 +2365,16 @@
    "ts": 0.75,
    "tm": 0.25,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "ush": [
+    {
+     "t": 0,
+     "aw": 30,
+     "sz": 0,
+     "du": 0.2,
+     "dl": 0.1
+    }
+   ]
   },
   {
    "n": "BulletImpact_Shuriken_Long_twinlink",
@@ -1838,7 +2387,16 @@
    "ts": 0.75,
    "tm": 0.25,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "ush": [
+    {
+     "t": 0,
+     "aw": 30,
+     "sz": 0,
+     "du": 0.2,
+     "dl": 0.1
+    }
+   ]
   },
   {
    "n": "BulletImpact_Shuriken_Pistol",
@@ -1851,7 +2409,16 @@
    "ts": 0.75,
    "tm": 0.25,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "ush": [
+    {
+     "t": 0,
+     "aw": 30,
+     "sz": 0,
+     "du": 0.2,
+     "dl": 0.1
+    }
+   ]
   },
   {
    "n": "BulletImpact_Shuriken_Short",
@@ -1864,7 +2431,16 @@
    "ts": 0.75,
    "tm": 0.25,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "ush": [
+    {
+     "t": 0,
+     "aw": 30,
+     "sz": 0,
+     "du": 0.2,
+     "dl": 0.1
+    }
+   ]
   },
   {
    "n": "BulletImpact_Shuriken_Short_twinlink",
@@ -1877,7 +2453,16 @@
    "ts": 0.75,
    "tm": 0.25,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "ush": [
+    {
+     "t": 0,
+     "aw": 30,
+     "sz": 0,
+     "du": 0.2,
+     "dl": 0.1
+    }
+   ]
   },
   {
    "n": "BulletImpact_Ghazghkull_AA",
@@ -1890,7 +2475,16 @@
    "ts": 1.0,
    "tm": 0.0,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "ush": [
+    {
+     "t": 0,
+     "aw": 30,
+     "sz": 0,
+     "du": 0.2,
+     "dl": 0.1
+    }
+   ]
   },
   {
    "n": "BulletImpact_Gordrang",
@@ -1903,7 +2497,16 @@
    "ts": 1.0,
    "tm": 0.0,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "ush": [
+    {
+     "t": 0,
+     "aw": 30,
+     "sz": 0,
+     "du": 0.2,
+     "dl": 0.1
+    }
+   ]
   },
   {
    "n": "BulletImpact_GrenadeLauncher",
@@ -1955,7 +2558,16 @@
    "ts": 0.75,
    "tm": 0.0,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "ush": [
+    {
+     "t": 0,
+     "aw": 30,
+     "sz": 0,
+     "du": 0.2,
+     "dl": 0.1
+    }
+   ]
   },
   {
    "n": "BulletImpact_Ork Missiles 1",
@@ -2085,7 +2697,16 @@
    "ts": 1.0,
    "tm": 0.0,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "ush": [
+    {
+     "t": 0,
+     "aw": 30,
+     "sz": 0,
+     "du": 0.2,
+     "dl": 0.1
+    }
+   ]
   },
   {
    "n": "Lasrifle_laspistol_Ursula_AA",
@@ -2098,7 +2719,16 @@
    "ts": 0.75,
    "tm": 0.0,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "ush": [
+    {
+     "t": 0,
+     "aw": 30,
+     "sz": 0,
+     "du": 0.2,
+     "dl": 0.1
+    }
+   ]
   },
   {
    "n": "Lasrifle_laspistol_quick",
@@ -2111,7 +2741,16 @@
    "ts": 0.75,
    "tm": 0.0,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "ush": [
+    {
+     "t": 0,
+     "aw": 30,
+     "sz": 0,
+     "du": 0.2,
+     "dl": 0.1
+    }
+   ]
   },
   {
    "n": "Lasrifle_basic",
@@ -2124,7 +2763,16 @@
    "ts": 0.4,
    "tm": 0.0,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "ush": [
+    {
+     "t": 0,
+     "aw": 30,
+     "sz": 0,
+     "du": 0.2,
+     "dl": 0.1
+    }
+   ]
   },
   {
    "n": "Lasrifle_3shots",
@@ -2137,7 +2785,16 @@
    "ts": 0.75,
    "tm": 0.0,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "ush": [
+    {
+     "t": 0,
+     "aw": 30,
+     "sz": 0,
+     "du": 0.2,
+     "dl": 0.1
+    }
+   ]
   },
   {
    "n": "Lasrifle_Hotshot_basic",
@@ -2150,7 +2807,16 @@
    "ts": 0.3,
    "tm": 0.0,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "ush": [
+    {
+     "t": 0,
+     "aw": 30,
+     "sz": 0,
+     "du": 0.2,
+     "dl": 0.1
+    }
+   ]
   },
   {
    "n": "Lasrifle_Hotshot_2shots",
@@ -2163,7 +2829,16 @@
    "ts": 0.6,
    "tm": 0.0,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "ush": [
+    {
+     "t": 0,
+     "aw": 30,
+     "sz": 0,
+     "du": 0.2,
+     "dl": 0.1
+    }
+   ]
   },
   {
    "n": "Lasrifle_Hotshot_3shots",
@@ -2176,7 +2851,16 @@
    "ts": 0.9,
    "tm": 0.0,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "ush": [
+    {
+     "t": 0,
+     "aw": 30,
+     "sz": 0,
+     "du": 0.2,
+     "dl": 0.1
+    }
+   ]
   },
   {
    "n": "Lasrifle_Hotshot_auto_burst",
@@ -2189,7 +2873,16 @@
    "ts": 0.9,
    "tm": 0.0,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "ush": [
+    {
+     "t": 0,
+     "aw": 30,
+     "sz": 0,
+     "du": 0.2,
+     "dl": 0.1
+    }
+   ]
   },
   {
    "n": "Lasrifle_Hotshot_pistol",
@@ -2202,7 +2895,16 @@
    "ts": 0.3,
    "tm": 0.0,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "ush": [
+    {
+     "t": 0,
+     "aw": 30,
+     "sz": 0,
+     "du": 0.2,
+     "dl": 0.1
+    }
+   ]
   },
   {
    "n": "Lasrifle_auto",
@@ -2215,7 +2917,16 @@
    "ts": 0.75,
    "tm": 0.0,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "ush": [
+    {
+     "t": 0,
+     "aw": 30,
+     "sz": 0,
+     "du": 0.2,
+     "dl": 0.1
+    }
+   ]
   },
   {
    "n": "BulletImpact_MagicMissile_EC",
@@ -2408,7 +3119,16 @@
    "ts": 1.0,
    "tm": 0.0,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "ush": [
+    {
+     "t": 0,
+     "aw": 30,
+     "sz": 0,
+     "du": 0.2,
+     "dl": 0.1
+    }
+   ]
   },
   {
    "n": "BulletImpact_Needle gun_1shot",
@@ -2421,7 +3141,16 @@
    "ts": 0.75,
    "tm": 0.0,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "ush": [
+    {
+     "t": 0,
+     "aw": 30,
+     "sz": 0,
+     "du": 0.2,
+     "dl": 0.1
+    }
+   ]
   },
   {
    "n": "BulletImpact_noisemarine",
@@ -2434,7 +3163,16 @@
    "ts": 0.75,
    "tm": 0.0,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "ush": [
+    {
+     "t": 0,
+     "aw": 30,
+     "sz": 0,
+     "du": 0.2,
+     "dl": 0.1
+    }
+   ]
   },
   {
    "n": "BulletImpact_Ork Heavy Lobba",
@@ -2574,7 +3312,16 @@
    "shka": 0.0,
    "shkf": 0.0,
    "shkoa": 0,
-   "shkof": 0
+   "shkof": 0,
+   "ush": [
+    {
+     "t": 30,
+     "aw": 10,
+     "sz": 0,
+     "du": 0.5,
+     "dl": 1.0
+    }
+   ]
   },
   {
    "n": "BulletImpact_Ork Missiles 1",
@@ -2626,7 +3373,16 @@
    "ts": 2.1,
    "tm": 0.0,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "ush": [
+    {
+     "t": 0,
+     "aw": 30,
+     "sz": 0,
+     "du": 0.2,
+     "dl": 0.1
+    }
+   ]
   },
   {
    "n": "RiftCannon_Laser",
@@ -2652,7 +3408,16 @@
    "ts": 0.75,
    "tm": 0.0,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "ush": [
+    {
+     "t": 0,
+     "aw": 30,
+     "sz": 0,
+     "du": 0.2,
+     "dl": 0.1
+    }
+   ]
   },
   {
    "n": "BulletImpact_SaboteurExplosive",
@@ -2697,7 +3462,16 @@
    "ts": 1.2,
    "tm": 0.0,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "ush": [
+    {
+     "t": 0,
+     "aw": 30,
+     "sz": 0,
+     "du": 0.2,
+     "dl": 0.1
+    }
+   ]
   },
   {
    "n": "BulletImpact_Sonic Weapon 1 Dual Pistol",
@@ -2710,7 +3484,16 @@
    "ts": 1.2,
    "tm": 0.0,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "ush": [
+    {
+     "t": 0,
+     "aw": 30,
+     "sz": 0,
+     "du": 0.2,
+     "dl": 0.1
+    }
+   ]
   },
   {
    "n": "BulletImpact_Sonic Weapon 2",
@@ -2723,7 +3506,16 @@
    "ts": 0.75,
    "tm": 0.0,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "ush": [
+    {
+     "t": 0,
+     "aw": 30,
+     "sz": 0,
+     "du": 0.2,
+     "dl": 0.1
+    }
+   ]
   },
   {
    "n": "BulletImpact_Sonic Weapon 2 Pistol",
@@ -2736,7 +3528,16 @@
    "ts": 0.75,
    "tm": 0.0,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "ush": [
+    {
+     "t": 0,
+     "aw": 30,
+     "sz": 0,
+     "du": 0.2,
+     "dl": 0.1
+    }
+   ]
   },
   {
    "n": "BulletImpact_Sonic Weapon 2 Twinlink",
@@ -2749,7 +3550,16 @@
    "ts": 0.75,
    "tm": 0.0,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "ush": [
+    {
+     "t": 0,
+     "aw": 30,
+     "sz": 0,
+     "du": 0.2,
+     "dl": 0.1
+    }
+   ]
   },
   {
    "n": "BulletImpact_Sonic Weapon 2 variant",
@@ -2762,7 +3572,16 @@
    "ts": 0.75,
    "tm": 0.0,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "ush": [
+    {
+     "t": 0,
+     "aw": 30,
+     "sz": 0,
+     "du": 0.2,
+     "dl": 0.1
+    }
+   ]
   },
   {
    "n": "BulletImpact_Sororitas_Melta",
@@ -2924,7 +3743,16 @@
    "ts": 0.75,
    "tm": 0.0,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "ush": [
+    {
+     "t": 0,
+     "aw": 30,
+     "sz": 0,
+     "du": 0.2,
+     "dl": 0.1
+    }
+   ]
   },
   {
    "n": "BulletImpact_Tau_IonAccelerator",
@@ -3189,7 +4017,16 @@
    "ts": 0.75,
    "tm": 0.0,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "ush": [
+    {
+     "t": 30,
+     "aw": 10,
+     "sz": 0,
+     "du": 0.2,
+     "dl": 0.4
+    }
+   ]
   },
   {
    "n": "BulletImpact_Thunderfire",
@@ -3238,7 +4075,16 @@
    "shka": 0.0,
    "shkf": 0.0,
    "shkoa": 0,
-   "shkof": 0
+   "shkof": 0,
+   "ush": [
+    {
+     "t": 30,
+     "aw": 10,
+     "sz": 0,
+     "du": 0.2,
+     "dl": 0.1
+    }
+   ]
   },
   {
    "n": "BulletImpact_Tyranid_Barblauncher",
@@ -3251,7 +4097,16 @@
    "ts": 0.75,
    "tm": 0.25,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "ush": [
+    {
+     "t": 0,
+     "aw": 30,
+     "sz": 0,
+     "du": 0.2,
+     "dl": 0.1
+    }
+   ]
   },
   {
    "n": "BulletImpact_Tyranid_Cannon",
@@ -3264,7 +4119,16 @@
    "ts": 1.0,
    "tm": 0.25,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "ush": [
+    {
+     "t": 30,
+     "aw": 10,
+     "sz": 0,
+     "du": 0.3,
+     "dl": 0.1
+    }
+   ]
   },
   {
    "n": "BulletImpact_Tyranid_Big",
@@ -3277,7 +4141,16 @@
    "ts": 0.75,
    "tm": 0.25,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "ush": [
+    {
+     "t": 0,
+     "aw": 30,
+     "sz": 0,
+     "du": 0.2,
+     "dl": 0.1
+    }
+   ]
   },
   {
    "n": "BulletImpact_Tyranid_Small",
@@ -3290,7 +4163,16 @@
    "ts": 0.75,
    "tm": 0.1,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "ush": [
+    {
+     "t": 0,
+     "aw": 30,
+     "sz": 0,
+     "du": 0.2,
+     "dl": 0.1
+    }
+   ]
   },
   {
    "n": "BulletImpact_Tyranid_Small_Dual",
@@ -3303,7 +4185,16 @@
    "ts": 0.75,
    "tm": 0.25,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "ush": [
+    {
+     "t": 0,
+     "aw": 30,
+     "sz": 0,
+     "du": 0.2,
+     "dl": 0.1
+    }
+   ]
   },
   {
    "n": "BulletImpact_Psychophage",
@@ -3339,7 +4230,16 @@
    "shka": 0.0,
    "shkf": 0.0,
    "shkoa": 0,
-   "shkof": 0
+   "shkof": 0,
+   "ush": [
+    {
+     "t": 30,
+     "aw": 10,
+     "sz": 0,
+     "du": 0.5,
+     "dl": 0.1
+    }
+   ]
   },
   {
    "n": "BulletImpact_Pyrovore",
@@ -3409,7 +4309,16 @@
    "shka": 0.0,
    "shkf": 0.0,
    "shkoa": 0,
-   "shkof": 0
+   "shkof": 0,
+   "ush": [
+    {
+     "t": 30,
+     "aw": 10,
+     "sz": 0,
+     "du": 0.5,
+     "dl": 1.0
+    }
+   ]
   },
   {
    "n": "BulletImpact_Pyrovore OLD",
@@ -3445,7 +4354,16 @@
    "shka": 0.0,
    "shkf": 0.0,
    "shkoa": 0,
-   "shkof": 0
+   "shkof": 0,
+   "ush": [
+    {
+     "t": 30,
+     "aw": 10,
+     "sz": 0,
+     "du": 0.2,
+     "dl": 0.1
+    }
+   ]
   },
   {
    "n": "BulletImpact_Screamer-Killer",
@@ -3481,7 +4399,16 @@
    "shka": 0.0,
    "shkf": 0.0,
    "shkoa": 0,
-   "shkof": 0
+   "shkof": 0,
+   "ush": [
+    {
+     "t": 30,
+     "aw": 10,
+     "sz": 0,
+     "du": 0.5,
+     "dl": 0.1
+    }
+   ]
   },
   {
    "n": "BulletImpact_Spore Launch",
@@ -3551,7 +4478,16 @@
    "shka": 0.0,
    "shkf": 0.0,
    "shkoa": 0,
-   "shkof": 0
+   "shkof": 0,
+   "ush": [
+    {
+     "t": 30,
+     "aw": 10,
+     "sz": 0,
+     "du": 0.5,
+     "dl": 1.0
+    }
+   ]
   },
   {
    "n": "BulletImpact_Tyranid_Stranglethorn",
@@ -3564,7 +4500,16 @@
    "ts": 0.75,
    "tm": 0.25,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "ush": [
+    {
+     "t": 0,
+     "aw": 30,
+     "sz": 0,
+     "du": 0.2,
+     "dl": 0.1
+    }
+   ]
   },
   {
    "n": "BulletImpact_Tyranid_Stranglethorn_Dual",
@@ -3577,7 +4522,16 @@
    "ts": 0.75,
    "tm": 0.25,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "ush": [
+    {
+     "t": 0,
+     "aw": 30,
+     "sz": 0,
+     "du": 0.2,
+     "dl": 0.1
+    }
+   ]
   },
   {
    "n": "BulletImpact_Tyranid_Stranglethorn",
@@ -3590,7 +4544,16 @@
    "ts": 0.75,
    "tm": 0.25,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "ush": [
+    {
+     "t": 0,
+     "aw": 30,
+     "sz": 0,
+     "du": 0.2,
+     "dl": 0.1
+    }
+   ]
   },
   {
    "n": "BulletImpact_DesolationMissile",
@@ -3655,7 +4618,16 @@
    "ts": 0.85,
    "tm": 0.0,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "ush": [
+    {
+     "t": 0,
+     "aw": 30,
+     "sz": 0,
+     "du": 0.2,
+     "dl": 0.1
+    }
+   ]
   },
   {
    "n": "Atk_BulletImpact_Vox-pulse digital",
@@ -3668,7 +4640,16 @@
    "ts": 0.85,
    "tm": 0.0,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "ush": [
+    {
+     "t": 0,
+     "aw": 30,
+     "sz": 0,
+     "du": 0.2,
+     "dl": 0.1
+    }
+   ]
   },
   {
    "n": "Atk_BulletImpact_Vox-pulse purple",
@@ -3681,7 +4662,16 @@
    "ts": 0.85,
    "tm": 0.0,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "ush": [
+    {
+     "t": 0,
+     "aw": 30,
+     "sz": 0,
+     "du": 0.2,
+     "dl": 0.1
+    }
+   ]
   },
   {
    "n": "BulletImpact_Webber",
@@ -3694,7 +4684,16 @@
    "ts": 0.75,
    "tm": 0.0,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "ush": [
+    {
+     "t": 0,
+     "aw": 30,
+     "sz": 0,
+     "du": 0.2,
+     "dl": 0.1
+    }
+   ]
   },
   {
    "n": "BulletImpact_autogun_1shot",
@@ -3707,7 +4706,16 @@
    "ts": 0.75,
    "tm": 0.0,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "ush": [
+    {
+     "t": 0,
+     "aw": 30,
+     "sz": 0,
+     "du": 0.2,
+     "dl": 0.1
+    }
+   ]
   },
   {
    "n": "BulletImpact_autogun_1shot",
@@ -3720,7 +4728,16 @@
    "ts": 0.0,
    "tm": 0.0,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "ush": [
+    {
+     "t": 0,
+     "aw": 30,
+     "sz": 0,
+     "du": 0.2,
+     "dl": 0.1
+    }
+   ]
   },
   {
    "n": "BulletImpact_autogun_2shot",
@@ -3733,7 +4750,16 @@
    "ts": 0.75,
    "tm": 0.0,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "ush": [
+    {
+     "t": 0,
+     "aw": 30,
+     "sz": 0,
+     "du": 0.2,
+     "dl": 0.1
+    }
+   ]
   },
   {
    "n": "BulletImpact_autogun_3shot",
@@ -3746,7 +4772,16 @@
    "ts": 0.75,
    "tm": 0.0,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "ush": [
+    {
+     "t": 0,
+     "aw": 30,
+     "sz": 0,
+     "du": 0.2,
+     "dl": 0.1
+    }
+   ]
   },
   {
    "n": "BulletImpact_autogun_4shot",
@@ -3759,7 +4794,16 @@
    "ts": 0.75,
    "tm": 0.0,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "ush": [
+    {
+     "t": 0,
+     "aw": 30,
+     "sz": 0,
+     "du": 0.2,
+     "dl": 0.1
+    }
+   ]
   },
   {
    "n": "BulletImpact_autogun_6shot",
@@ -3772,7 +4816,16 @@
    "ts": 1.0,
    "tm": 0.0,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "ush": [
+    {
+     "t": 0,
+     "aw": 30,
+     "sz": 0,
+     "du": 0.2,
+     "dl": 0.1
+    }
+   ]
   },
   {
    "n": "BulletImpact_autogun_6shot_twinlink",
@@ -3785,7 +4838,16 @@
    "ts": 1.0,
    "tm": 0.0,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "ush": [
+    {
+     "t": 0,
+     "aw": 30,
+     "sz": 0,
+     "du": 0.2,
+     "dl": 0.1
+    }
+   ]
   },
   {
    "n": "BulletImpact_autogun_8shot",
@@ -3798,7 +4860,16 @@
    "ts": 1.0,
    "tm": 0.0,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "ush": [
+    {
+     "t": 0,
+     "aw": 30,
+     "sz": 0,
+     "du": 0.2,
+     "dl": 0.1
+    }
+   ]
   },
   {
    "n": "BulletImpact_autogun_Automatic",
@@ -3811,7 +4882,16 @@
    "ts": 1.0,
    "tm": 0.0,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "ush": [
+    {
+     "t": 0,
+     "aw": 30,
+     "sz": 0,
+     "du": 0.2,
+     "dl": 0.1
+    }
+   ]
   },
   {
    "n": "BulletImpact_autogun_Shotgun",
@@ -3824,7 +4904,16 @@
    "ts": 0.0,
    "tm": 0.0,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "ush": [
+    {
+     "t": 0,
+     "aw": 30,
+     "sz": 0,
+     "du": 0.2,
+     "dl": 0.1
+    }
+   ]
   },
   {
    "n": "BulletImpact_autogun_Shotgun",
@@ -3837,7 +4926,16 @@
    "ts": 0.75,
    "tm": 0.0,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "ush": [
+    {
+     "t": 0,
+     "aw": 30,
+     "sz": 0,
+     "du": 0.2,
+     "dl": 0.1
+    }
+   ]
   },
   {
    "n": "BulletImpact_1shotSniper_trail",
@@ -3850,7 +4948,16 @@
    "ts": 0.5,
    "tm": 0.0,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "ush": [
+    {
+     "t": 0,
+     "aw": 30,
+     "sz": 0,
+     "du": 0.2,
+     "dl": 0.1
+    }
+   ]
   },
   {
    "n": "BulletImpact_autogun_1shotSniper",
@@ -3863,7 +4970,16 @@
    "ts": 0.25,
    "tm": 0.0,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "ush": [
+    {
+     "t": 0,
+     "aw": 30,
+     "sz": 0,
+     "du": 0.2,
+     "dl": 0.1
+    }
+   ]
   },
   {
    "n": "BulletImpact_1shotSniper_trail",
@@ -3876,7 +4992,16 @@
    "ts": 0.0,
    "tm": 0.0,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "ush": [
+    {
+     "t": 0,
+     "aw": 30,
+     "sz": 0,
+     "du": 0.2,
+     "dl": 0.1
+    }
+   ]
   },
   {
    "n": "BulletImpact_autogun_liberator_repeat",
@@ -3938,7 +5063,16 @@
    "shka": 0.0,
    "shkf": 0.0,
    "shkoa": 0,
-   "shkof": 0
+   "shkof": 0,
+   "ush": [
+    {
+     "t": 0,
+     "aw": 30,
+     "sz": 0,
+     "du": 0.2,
+     "dl": 0.1
+    }
+   ]
   },
   {
    "n": "Atk_ChemVial_2",
@@ -3985,7 +5119,16 @@
    "mny": 1.5,
    "mxy": 1.5,
    "mnz": 0.0,
-   "mxz": 0.0
+   "mxz": 0.0,
+   "ush": [
+    {
+     "t": 0,
+     "aw": 30,
+     "sz": 0,
+     "du": 0.3,
+     "dl": 1.0
+    }
+   ]
   },
   {
    "n": "BulletImpact_Combi_Flamer_Infernus",
@@ -3998,7 +5141,16 @@
    "ts": 0.75,
    "tm": 0.0,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "ush": [
+    {
+     "t": 0,
+     "aw": 0,
+     "sz": 0,
+     "du": 1.0,
+     "dl": 0.0
+    }
+   ]
   },
   {
    "n": "Cut Wulfen SW",
@@ -4024,7 +5176,16 @@
    "ts": 1.5,
    "tm": 0.0,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "ush": [
+    {
+     "t": 0,
+     "aw": 30,
+     "sz": 0,
+     "du": 0.2,
+     "dl": 1.0
+    }
+   ]
   },
   {
    "n": "BulletImpact_deathspinner_arc_alt",
@@ -4071,7 +5232,16 @@
    "mny": 0.0,
    "mxy": 0.0,
    "mnz": 0.0,
-   "mxz": 0.0
+   "mxz": 0.0,
+   "ush": [
+    {
+     "t": 0,
+     "aw": 30,
+     "sz": 0,
+     "du": 0.2,
+     "dl": 1.0
+    }
+   ]
   },
   {
    "n": "Atk_ExileGlaiveThrow Movement",
@@ -4118,7 +5288,16 @@
    "mny": 2.0,
    "mxy": 2.0,
    "mnz": 0.0,
-   "mxz": 0.0
+   "mxz": 0.0,
+   "ush": [
+    {
+     "t": 0,
+     "aw": 30,
+     "sz": 0,
+     "du": 0.2,
+     "dl": 1.0
+    }
+   ]
   },
   {
    "n": "FlamethrowerSingleAttack_1",
@@ -4131,7 +5310,16 @@
    "ts": 0.75,
    "tm": 0.0,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "ush": [
+    {
+     "t": 0,
+     "aw": 0,
+     "sz": 0,
+     "du": 1.0,
+     "dl": 0.0
+    }
+   ]
   },
   {
    "n": "BulletImpact_FlamethrowerSororitas",
@@ -4157,7 +5345,16 @@
    "ts": 0.75,
    "tm": 0.0,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "ush": [
+    {
+     "t": 0,
+     "aw": 0,
+     "sz": 0,
+     "du": 1.0,
+     "dl": 0.0
+    }
+   ]
   },
   {
    "n": "BulletImpact_FlamethrowerSororitas_long",
@@ -4183,7 +5380,16 @@
    "ts": 1.0,
    "tm": 0.0,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "ush": [
+    {
+     "t": 0,
+     "aw": 0,
+     "sz": 0,
+     "du": 1.0,
+     "dl": 0.0
+    }
+   ]
   },
   {
    "n": "BulletImpact_Flamethrower_HandFlamer",
@@ -4196,7 +5402,16 @@
    "ts": 0.75,
    "tm": 0.0,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "ush": [
+    {
+     "t": 0,
+     "aw": 0,
+     "sz": 0,
+     "du": 1.0,
+     "dl": 0.0
+    }
+   ]
   },
   {
    "n": "FlamethrowerBurna",
@@ -4232,7 +5447,16 @@
    "shka": 0.0,
    "shkf": 0.0,
    "shkoa": 0,
-   "shkof": 0
+   "shkof": 0,
+   "ush": [
+    {
+     "t": 0,
+     "aw": 0,
+     "sz": 0,
+     "du": 1.0,
+     "dl": 0.0
+    }
+   ]
   },
   {
    "n": "FlamethrowerSweepAttack_1",
@@ -4268,7 +5492,16 @@
    "shka": 0.0,
    "shkf": 0.0,
    "shkoa": 0,
-   "shkof": 0
+   "shkof": 0,
+   "ush": [
+    {
+     "t": 0,
+     "aw": 0,
+     "sz": 0,
+     "du": 1.0,
+     "dl": 0.0
+    }
+   ]
   },
   {
    "n": "FlamethrowerSweepAttack_sororitas",
@@ -4304,7 +5537,16 @@
    "shka": 0.0,
    "shkf": 0.0,
    "shkoa": 0,
-   "shkof": 0
+   "shkof": 0,
+   "ush": [
+    {
+     "t": 0,
+     "aw": 0,
+     "sz": 0,
+     "du": 1.0,
+     "dl": 0.0
+    }
+   ]
   },
   {
    "n": "FlamethrowerSweepAttack_sororitas",
@@ -4340,7 +5582,16 @@
    "shka": 0.0,
    "shkf": 0.0,
    "shkoa": 0,
-   "shkof": 0
+   "shkof": 0,
+   "ush": [
+    {
+     "t": 0,
+     "aw": 0,
+     "sz": 0,
+     "du": 1.0,
+     "dl": 0.0
+    }
+   ]
   },
   {
    "n": "BulletImpact_FlamethrowerSororitas",
@@ -4415,7 +5666,16 @@
    "ts": 0.75,
    "tm": 0.0,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "ush": [
+    {
+     "t": 30,
+     "aw": 10,
+     "sz": 0,
+     "du": 0.2,
+     "dl": 0.4
+    }
+   ]
   },
   {
    "n": "NecronGauss_Damaged Hexmark",
@@ -4428,7 +5688,16 @@
    "ts": 0.75,
    "tm": 0.0,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "ush": [
+    {
+     "t": 30,
+     "aw": 10,
+     "sz": 0,
+     "du": 0.4,
+     "dl": 0.4
+    }
+   ]
   },
   {
    "n": "NecronGauss_Deathmark",
@@ -4441,7 +5710,16 @@
    "ts": 0.75,
    "tm": 0.0,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "ush": [
+    {
+     "t": 30,
+     "aw": 10,
+     "sz": 0,
+     "du": 0.2,
+     "dl": 0.5
+    }
+   ]
   },
   {
    "n": "NecronGauss_Double",
@@ -4454,7 +5732,16 @@
    "ts": 0.75,
    "tm": 0.0,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "ush": [
+    {
+     "t": 30,
+     "aw": 10,
+     "sz": 0,
+     "du": 0.2,
+     "dl": 0.4
+    }
+   ]
   },
   {
    "n": "NecronGauss_Hexmark",
@@ -4467,7 +5754,16 @@
    "ts": 0.75,
    "tm": 0.0,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "ush": [
+    {
+     "t": 30,
+     "aw": 10,
+     "sz": 0,
+     "du": 0.4,
+     "dl": 0.4
+    }
+   ]
   },
   {
    "n": "NecronGauss_Imotekh_AA",
@@ -4480,7 +5776,16 @@
    "ts": 0.85,
    "tm": 0.0,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "ush": [
+    {
+     "t": 30,
+     "aw": 10,
+     "sz": 0,
+     "du": 0.2,
+     "dl": 0.4
+    }
+   ]
   },
   {
    "n": "NecronGauss_Large",
@@ -4493,7 +5798,16 @@
    "ts": 0.75,
    "tm": 0.0,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "ush": [
+    {
+     "t": 30,
+     "aw": 10,
+     "sz": 0,
+     "du": 0.5,
+     "dl": 0.4
+    }
+   ]
   },
   {
    "n": "NecronGauss_Tesla",
@@ -4506,7 +5820,28 @@
    "ts": 0.75,
    "tm": 0.0,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "ush": [
+    {
+     "t": 30,
+     "aw": 10,
+     "sz": 0,
+     "du": 0.4,
+     "dl": 0.4
+    }
+   ],
+   "macEn": 0,
+   "macD": 0.0,
+   "macs": [
+    {
+     "t": 10,
+     "clip": "0",
+     "d": 0.0,
+     "wc": 0,
+     "tf": 1,
+     "sr": 1
+    }
+   ]
   },
   {
    "n": "NecronGauss_Tesla_Annihilation Barge",
@@ -4519,7 +5854,28 @@
    "ts": 0.75,
    "tm": 0.0,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "ush": [
+    {
+     "t": 30,
+     "aw": 10,
+     "sz": 0,
+     "du": 0.4,
+     "dl": 0.4
+    }
+   ],
+   "macEn": 0,
+   "macD": 0.0,
+   "macs": [
+    {
+     "t": 10,
+     "clip": "0",
+     "d": 0.0,
+     "wc": 0,
+     "tf": 1,
+     "sr": 1
+    }
+   ]
   },
   {
    "n": "NecronGauss_Trilinked",
@@ -4532,7 +5888,16 @@
    "ts": 0.75,
    "tm": 0.0,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "ush": [
+    {
+     "t": 30,
+     "aw": 10,
+     "sz": 0,
+     "du": 0.3,
+     "dl": 0.4
+    }
+   ]
   },
   {
    "n": "NecronGauss_Trilinked",
@@ -4558,7 +5923,16 @@
    "ts": 0.75,
    "tm": 0.0,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "ush": [
+    {
+     "t": 30,
+     "aw": 10,
+     "sz": 0,
+     "du": 0.3,
+     "dl": 0.4
+    }
+   ]
   },
   {
    "n": "Atk_GrotGrenade",
@@ -4605,7 +5979,16 @@
    "mny": 2.5,
    "mxy": 2.5,
    "mnz": 0.0,
-   "mxz": 0.0
+   "mxz": 0.0,
+   "ush": [
+    {
+     "t": 0,
+     "aw": 30,
+     "sz": 0,
+     "du": 0.3,
+     "dl": 1.0
+    }
+   ]
   },
   {
    "n": "Atk_GrotRock",
@@ -4652,7 +6035,16 @@
    "mny": 1.0,
    "mxy": 1.0,
    "mnz": 0.0,
-   "mxz": 0.0
+   "mxz": 0.0,
+   "ush": [
+    {
+     "t": 0,
+     "aw": 30,
+     "sz": 0,
+     "du": 0.3,
+     "dl": 1.0
+    }
+   ]
   },
   {
    "n": "Hammer_Slam_SW",
@@ -4712,7 +6104,16 @@
    "mny": 2.0,
    "mxy": 2.0,
    "mnz": 0.0,
-   "mxz": 0.0
+   "mxz": 0.0,
+   "ush": [
+    {
+     "t": 0,
+     "aw": 30,
+     "sz": 0,
+     "du": 0.2,
+     "dl": 1.0
+    }
+   ]
   },
   {
    "n": "Atk_JainasMor",
@@ -4816,7 +6217,16 @@
    "mny": 2.0,
    "mxy": 2.0,
    "mnz": 0.0,
-   "mxz": 0.0
+   "mxz": 0.0,
+   "ush": [
+    {
+     "t": 0,
+     "aw": 30,
+     "sz": 0,
+     "du": 0.2,
+     "dl": 1.0
+    }
+   ]
   },
   {
    "n": "Laser_Red",
@@ -4842,7 +6252,16 @@
    "ts": 0.75,
    "tm": 0.0,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "ush": [
+    {
+     "t": 30,
+     "aw": 10,
+     "sz": 0,
+     "du": 0.2,
+     "dl": 0.4
+    }
+   ]
   },
   {
    "n": "MegaBlasta_Small",
@@ -4855,7 +6274,16 @@
    "ts": 0.75,
    "tm": 0.0,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "ush": [
+    {
+     "t": 30,
+     "aw": 10,
+     "sz": 0,
+     "du": 0.2,
+     "dl": 0.4
+    }
+   ]
   },
   {
    "n": "BulletImpact_MissileToTarget_Orks",
@@ -4917,7 +6345,16 @@
    "ts": 0.9,
    "tm": 0.0,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "ush": [
+    {
+     "t": 0,
+     "aw": 30,
+     "sz": 0,
+     "du": 0.2,
+     "dl": 0.1
+    }
+   ]
   },
   {
    "n": "Blast_Plasma_Sentinel",
@@ -5034,7 +6471,16 @@
    "ts": 0.75,
    "tm": 0.0,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "ush": [
+    {
+     "t": 30,
+     "aw": 10,
+     "sz": 0,
+     "du": 0.3,
+     "dl": 0.1
+    }
+   ]
   },
   {
    "n": "Plasma_basic_blue",
@@ -5211,7 +6657,16 @@
    "mny": 2.0,
    "mxy": 2.0,
    "mnz": 0.0,
-   "mxz": 0.0
+   "mxz": 0.0,
+   "ush": [
+    {
+     "t": 0,
+     "aw": 30,
+     "sz": 0,
+     "du": 0.2,
+     "dl": 1.0
+    }
+   ]
   },
   {
    "n": "Atk_Rokkit-Harpoon small",
@@ -5258,7 +6713,16 @@
    "mny": 2.0,
    "mxy": 2.0,
    "mnz": 0.0,
-   "mxz": 0.0
+   "mxz": 0.0,
+   "ush": [
+    {
+     "t": 0,
+     "aw": 30,
+     "sz": 0,
+     "du": 0.2,
+     "dl": 1.0
+    }
+   ]
   },
   {
    "n": "Psychic_Lightning_Purple",
@@ -5271,7 +6735,16 @@
    "ts": 0.2,
    "tm": 0.0,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "ush": [
+    {
+     "t": 30,
+     "aw": 10,
+     "sz": 0,
+     "du": 0.2,
+     "dl": 0.1
+    }
+   ]
   },
   {
    "n": "Psychic_Lightning",
@@ -5539,7 +7012,16 @@
    "mny": 2.0,
    "mxy": 2.0,
    "mnz": 0.0,
-   "mxz": 0.0
+   "mxz": 0.0,
+   "ush": [
+    {
+     "t": 0,
+     "aw": 30,
+     "sz": 0,
+     "du": 0.2,
+     "dl": 1.0
+    }
+   ]
   },
   {
    "n": "Atk_StikkaThrow Movement",
@@ -5633,7 +7115,16 @@
    "mny": 2.0,
    "mxy": 2.0,
    "mnz": 0.0,
-   "mxz": 0.0
+   "mxz": 0.0,
+   "ush": [
+    {
+     "t": 0,
+     "aw": 30,
+     "sz": 0,
+     "du": 0.2,
+     "dl": 1.0
+    }
+   ]
   },
   {
    "n": "Atk_StikkaThrow Movement",
@@ -5727,7 +7218,16 @@
    "mny": 2.5,
    "mxy": 2.5,
    "mnz": 0.0,
-   "mxz": 0.0
+   "mxz": 0.0,
+   "ush": [
+    {
+     "t": 0,
+     "aw": 30,
+     "sz": 0,
+     "du": 0.3,
+     "dl": 1.0
+    }
+   ]
   },
   {
    "n": "Sword_Slash_DA",
@@ -5740,7 +7240,16 @@
    "ts": 0.0,
    "tm": 0.5,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "ush": [
+    {
+     "t": 0,
+     "aw": 30,
+     "sz": 0,
+     "du": 0.8,
+     "dl": 0.0
+    }
+   ]
   },
   {
    "n": "Sword_Slash_DA_Heavy",
@@ -5753,7 +7262,16 @@
    "ts": 0.0,
    "tm": 1.5,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "ush": [
+    {
+     "t": 0,
+     "aw": 30,
+     "sz": 0,
+     "du": 0.8,
+     "dl": 0.0
+    }
+   ]
   },
   {
    "n": "Sword_Slash_User_DA",
@@ -5766,7 +7284,16 @@
    "ts": 0.0,
    "tm": 0.0,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "ush": [
+    {
+     "t": 0,
+     "aw": 30,
+     "sz": 0,
+     "du": 0.8,
+     "dl": 0.0
+    }
+   ]
   },
   {
    "n": "Sword_Slash_User_DA No Tween",
@@ -5779,7 +7306,16 @@
    "ts": 0.0,
    "tm": 0.0,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "ush": [
+    {
+     "t": 0,
+     "aw": 30,
+     "sz": 0,
+     "du": 0.8,
+     "dl": 0.0
+    }
+   ]
   },
   {
    "n": "Sword_Slash_EC",
@@ -5792,7 +7328,16 @@
    "ts": 0.0,
    "tm": 0.5,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "ush": [
+    {
+     "t": 0,
+     "aw": 30,
+     "sz": 0,
+     "du": 0.8,
+     "dl": 0.0
+    }
+   ]
   },
   {
    "n": "Sword_10x_EC",
@@ -5818,7 +7363,16 @@
    "ts": 0.0,
    "tm": 0.5,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "ush": [
+    {
+     "t": 0,
+     "aw": 30,
+     "sz": 0,
+     "du": 0.8,
+     "dl": 0.0
+    }
+   ]
   },
   {
    "n": "Sword_Slash_EC_User 7x",
@@ -5867,7 +7421,16 @@
    "shka": 0.0,
    "shkf": 0.0,
    "shkoa": 0,
-   "shkof": 0
+   "shkof": 0,
+   "ush": [
+    {
+     "t": 30,
+     "aw": 10,
+     "sz": 0,
+     "du": 0.2,
+     "dl": 0.1
+    }
+   ]
   },
   {
    "n": "BulletImpact_tank_baneblade",
@@ -5880,7 +7443,16 @@
    "ts": 0.75,
    "tm": 0.0,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "ush": [
+    {
+     "t": 30,
+     "aw": 10,
+     "sz": 0,
+     "du": 0.2,
+     "dl": 0.1
+    }
+   ]
   },
   {
    "n": "BulletImpact_tank_big",
@@ -5916,7 +7488,16 @@
    "shka": 0.0,
    "shkf": 0.0,
    "shkoa": 0,
-   "shkof": 0
+   "shkof": 0,
+   "ush": [
+    {
+     "t": 30,
+     "aw": 10,
+     "sz": 0,
+     "du": 0.2,
+     "dl": 0.1
+    }
+   ]
   },
   {
    "n": "BulletImpact_tank_huge",
@@ -5929,7 +7510,16 @@
    "ts": 0.75,
    "tm": 0.0,
    "te": 0.25,
-   "otv": 0
+   "otv": 0,
+   "ush": [
+    {
+     "t": 30,
+     "aw": 10,
+     "sz": 0,
+     "du": 0.2,
+     "dl": 0.1
+    }
+   ]
   },
   {
    "n": "BulletImpact_tank_small",
@@ -5965,7 +7555,16 @@
    "shka": 0.0,
    "shkf": 0.0,
    "shkoa": 0,
-   "shkof": 0
+   "shkof": 0,
+   "ush": [
+    {
+     "t": 30,
+     "aw": 10,
+     "sz": 0,
+     "du": 0.2,
+     "dl": 0.1
+    }
+   ]
   },
   {
    "n": "Ork_Trampla_Charge",
@@ -5991,7 +7590,16 @@
    "ts": 0.2,
    "tm": 0.0,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "ush": [
+    {
+     "t": 30,
+     "aw": 10,
+     "sz": 0,
+     "du": 0.2,
+     "dl": 0.1
+    }
+   ]
   },
   {
    "n": "Psychic_Lightning_Red",
@@ -6004,7 +7612,16 @@
    "ts": 0.2,
    "tm": 0.0,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "ush": [
+    {
+     "t": 30,
+     "aw": 10,
+     "sz": 0,
+     "du": 0.2,
+     "dl": 0.1
+    }
+   ]
   },
   {
    "n": "Aura_WhileInPlay_1",
@@ -6094,6 +7711,15 @@
     0.0,
     1.0,
     1.0
+   ],
+   "ush": [
+    {
+     "t": 0,
+     "aw": 0,
+     "sz": 2,
+     "du": 0.5,
+     "dl": 0.0
+    }
    ]
   },
   {
@@ -6113,6 +7739,15 @@
     0.0,
     1.0,
     1.0
+   ],
+   "ush": [
+    {
+     "t": 0,
+     "aw": 0,
+     "sz": 0,
+     "du": 0.2,
+     "dl": 0.0
+    }
    ]
   },
   {
@@ -6789,7 +8424,16 @@
    "ts": 0.0,
    "tm": 1.0,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "ush": [
+    {
+     "t": 0,
+     "aw": 50,
+     "sz": 0,
+     "du": 1.0,
+     "dl": 0.0
+    }
+   ]
   },
   {
    "n": "BlackCrusade_Battleground repeat",
@@ -7725,7 +9369,16 @@
    "ts": 0.0,
    "tm": 0.8,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "ush": [
+    {
+     "t": 0,
+     "aw": 30,
+     "sz": 0,
+     "du": 0.7,
+     "dl": 0.0
+    }
+   ]
   },
   {
    "n": "OrkBuffGreenWaaagh",
@@ -7738,7 +9391,16 @@
    "ts": 0.0,
    "tm": 0.8,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "ush": [
+    {
+     "t": 0,
+     "aw": 30,
+     "sz": 0,
+     "du": 0.7,
+     "dl": 0.0
+    }
+   ]
   },
   {
    "n": "Buff_Green",
@@ -9236,7 +10898,16 @@
    "shka": 0.0,
    "shkf": 0.0,
    "shkoa": 0,
-   "shkof": 0
+   "shkof": 0,
+   "ush": [
+    {
+     "t": 0,
+     "aw": 0,
+     "sz": 0,
+     "du": 0.5,
+     "dl": 0.0
+    }
+   ]
   },
   {
    "n": "BulletImpactBurst_crowd",
@@ -9255,6 +10926,22 @@
     0.0,
     1.0,
     1.0
+   ],
+   "ush": [
+    {
+     "t": 0,
+     "aw": 30,
+     "sz": 2,
+     "du": 0.5,
+     "dl": 0.0
+    },
+    {
+     "t": 0,
+     "aw": 10,
+     "sz": 2,
+     "du": 0.4,
+     "dl": 0.1
+    }
    ]
   },
   {
@@ -9274,6 +10961,22 @@
     0.0,
     1.0,
     1.0
+   ],
+   "ush": [
+    {
+     "t": 0,
+     "aw": 30,
+     "sz": 2,
+     "du": 0.5,
+     "dl": 0.0
+    },
+    {
+     "t": 0,
+     "aw": 10,
+     "sz": 2,
+     "du": 0.4,
+     "dl": 0.1
+    }
    ]
   },
   {
@@ -9293,6 +10996,22 @@
     0.0,
     1.0,
     1.0
+   ],
+   "ush": [
+    {
+     "t": 0,
+     "aw": 30,
+     "sz": 2,
+     "du": 0.5,
+     "dl": 0.0
+    },
+    {
+     "t": 0,
+     "aw": 10,
+     "sz": 2,
+     "du": 0.4,
+     "dl": 0.1
+    }
    ]
   },
   {
@@ -9306,7 +11025,23 @@
    "ts": 0.0,
    "tm": 0.4,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "ush": [
+    {
+     "t": 0,
+     "aw": 30,
+     "sz": 2,
+     "du": 0.5,
+     "dl": 0.0
+    },
+    {
+     "t": 0,
+     "aw": 10,
+     "sz": 0,
+     "du": 0.4,
+     "dl": 0.1
+    }
+   ]
   },
   {
    "n": "BulletImpact_3shot",
@@ -9319,7 +11054,23 @@
    "ts": 0.0,
    "tm": 0.4,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "ush": [
+    {
+     "t": 0,
+     "aw": 30,
+     "sz": 2,
+     "du": 0.5,
+     "dl": 0.0
+    },
+    {
+     "t": 0,
+     "aw": 10,
+     "sz": 2,
+     "du": 0.4,
+     "dl": 0.1
+    }
+   ]
   },
   {
    "n": "BulletImpact_4shot",
@@ -9332,7 +11083,23 @@
    "ts": 0.0,
    "tm": 0.4,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "ush": [
+    {
+     "t": 0,
+     "aw": 30,
+     "sz": 2,
+     "du": 0.5,
+     "dl": 0.0
+    },
+    {
+     "t": 0,
+     "aw": 10,
+     "sz": 2,
+     "du": 0.4,
+     "dl": 0.1
+    }
+   ]
   },
   {
    "n": "BulletImpact_5shot",
@@ -9345,7 +11112,23 @@
    "ts": 0.0,
    "tm": 0.5,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "ush": [
+    {
+     "t": 0,
+     "aw": 30,
+     "sz": 2,
+     "du": 0.5,
+     "dl": 0.0
+    },
+    {
+     "t": 0,
+     "aw": 10,
+     "sz": 2,
+     "du": 0.4,
+     "dl": 0.1
+    }
+   ]
   },
   {
    "n": "BulletImpact_9shot",
@@ -9358,7 +11141,23 @@
    "ts": 0.0,
    "tm": 1.0,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "ush": [
+    {
+     "t": 0,
+     "aw": 30,
+     "sz": 2,
+     "du": 0.5,
+     "dl": 0.0
+    },
+    {
+     "t": 0,
+     "aw": 10,
+     "sz": 2,
+     "du": 0.4,
+     "dl": 0.1
+    }
+   ]
   },
   {
    "n": "BulletTrail",
@@ -10089,6 +11888,15 @@
     0.0,
     1.0,
     1.0
+   ],
+   "ush": [
+    {
+     "t": 0,
+     "aw": 30,
+     "sz": 0,
+     "du": 0.7,
+     "dl": 0.0
+    }
    ]
   },
   {
@@ -10774,6 +12582,22 @@
     0.0,
     1.0,
     1.0
+   ],
+   "ush": [
+    {
+     "t": 10,
+     "aw": 30,
+     "sz": 0,
+     "du": 0.0,
+     "dl": 0.0
+    },
+    {
+     "t": 30,
+     "aw": 10,
+     "sz": 0,
+     "du": 0.0,
+     "dl": 1.0
+    }
    ]
   },
   {
@@ -11518,7 +13342,16 @@
    "ts": 0.0,
    "tm": 2.0,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "ush": [
+    {
+     "t": 0,
+     "aw": 30,
+     "sz": 0,
+     "du": 0.8,
+     "dl": 0.0
+    }
+   ]
   },
   {
    "n": "Ferocity_RecallToDeck",
@@ -11589,6 +13422,15 @@
     0.0,
     1.0,
     1.0
+   ],
+   "ush": [
+    {
+     "t": 0,
+     "aw": 30,
+     "sz": 0,
+     "du": 0.7,
+     "dl": 0.0
+    }
    ]
   },
   {
@@ -11608,6 +13450,15 @@
     0.0,
     1.0,
     1.0
+   ],
+   "ush": [
+    {
+     "t": 0,
+     "aw": 30,
+     "sz": 0,
+     "du": 0.7,
+     "dl": 0.0
+    }
    ]
   },
   {
@@ -11946,7 +13797,23 @@
    "ts": 5.5,
    "tm": 0.0,
    "te": 1.0,
-   "otv": 0
+   "otv": 0,
+   "ush": [
+    {
+     "t": 0,
+     "aw": 0,
+     "sz": 2,
+     "du": 1.0,
+     "dl": 2.0
+    },
+    {
+     "t": 0,
+     "aw": 0,
+     "sz": 2,
+     "du": 1.0,
+     "dl": 2.0
+    }
+   ]
   },
   {
    "n": "ArdAsNailsEffect",
@@ -11959,7 +13826,16 @@
    "ts": 0.0,
    "tm": 1.0,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "ush": [
+    {
+     "t": 0,
+     "aw": 0,
+     "sz": 0,
+     "du": 0.4,
+     "dl": 0.0
+    }
+   ]
   },
   {
    "n": "AttackSquigEffect",
@@ -11972,7 +13848,16 @@
    "ts": 0.0,
    "tm": 0.7,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "ush": [
+    {
+     "t": 0,
+     "aw": 0,
+     "sz": 0,
+     "du": 0.5,
+     "dl": 0.0
+    }
+   ]
   },
   {
    "n": "DaIrongobEffect",
@@ -11991,6 +13876,15 @@
     0.0,
     1.0,
     1.0
+   ],
+   "ush": [
+    {
+     "t": 0,
+     "aw": 0,
+     "sz": 0,
+     "du": 0.3,
+     "dl": 0.0
+    }
    ]
   },
   {
@@ -12052,6 +13946,15 @@
     0.0,
     1.0,
     1.0
+   ],
+   "ush": [
+    {
+     "t": 0,
+     "aw": 0,
+     "sz": 0,
+     "du": 1.0,
+     "dl": 0.0
+    }
    ]
   },
   {
@@ -12071,6 +13974,15 @@
     0.0,
     1.0,
     1.0
+   ],
+   "ush": [
+    {
+     "t": 0,
+     "aw": 0,
+     "sz": 0,
+     "du": 0.5,
+     "dl": 0.8
+    }
    ]
   },
   {
@@ -12160,6 +14072,15 @@
     0.0,
     1.0,
     1.0
+   ],
+   "ush": [
+    {
+     "t": 0,
+     "aw": 30,
+     "sz": 0,
+     "du": 0.8,
+     "dl": 0.0
+    }
    ]
   },
   {
@@ -12179,6 +14100,15 @@
     0.0,
     1.0,
     1.0
+   ],
+   "ush": [
+    {
+     "t": 0,
+     "aw": 30,
+     "sz": 0,
+     "du": 1.0,
+     "dl": 0.0
+    }
    ]
   },
   {
@@ -12198,6 +14128,15 @@
     0.0,
     1.0,
     1.0
+   ],
+   "ush": [
+    {
+     "t": 0,
+     "aw": 40,
+     "sz": 0,
+     "du": 1.0,
+     "dl": 0.0
+    }
    ]
   },
   {
@@ -12217,6 +14156,15 @@
     0.0,
     1.0,
     1.0
+   ],
+   "ush": [
+    {
+     "t": 0,
+     "aw": 40,
+     "sz": 0,
+     "du": 1.0,
+     "dl": 0.0
+    }
    ]
   },
   {
@@ -12230,7 +14178,16 @@
    "ts": 0.0,
    "tm": 0.6,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "ush": [
+    {
+     "t": 0,
+     "aw": 40,
+     "sz": 0,
+     "du": 1.0,
+     "dl": 0.0
+    }
+   ]
   },
   {
    "n": "Goff_WaaaghRed",
@@ -12249,6 +14206,15 @@
     0.0,
     1.0,
     1.0
+   ],
+   "ush": [
+    {
+     "t": 0,
+     "aw": 40,
+     "sz": 0,
+     "du": 1.0,
+     "dl": 0.0
+    }
    ]
   },
   {
@@ -12372,6 +14338,15 @@
     0.0,
     1.0,
     1.0
+   ],
+   "ush": [
+    {
+     "t": 0,
+     "aw": 30,
+     "sz": 0,
+     "du": 0.7,
+     "dl": 0.0
+    }
    ]
   },
   {
@@ -12391,6 +14366,15 @@
     0.0,
     1.0,
     1.0
+   ],
+   "ush": [
+    {
+     "t": 0,
+     "aw": 30,
+     "sz": 0,
+     "du": 0.7,
+     "dl": 0.0
+    }
    ]
   },
   {
@@ -12432,7 +14416,16 @@
    "mny": 1.0,
    "mxy": 1.5,
    "mnz": 0.0,
-   "mxz": 0.0
+   "mxz": 0.0,
+   "ush": [
+    {
+     "t": 0,
+     "aw": 30,
+     "sz": 0,
+     "du": 0.7,
+     "dl": 0.0
+    }
+   ]
   },
   {
    "n": "Healing_Projectile_Frost",
@@ -12473,7 +14466,16 @@
    "mny": 1.0,
    "mxy": 1.5,
    "mnz": 0.0,
-   "mxz": 0.0
+   "mxz": 0.0,
+   "ush": [
+    {
+     "t": 0,
+     "aw": 30,
+     "sz": 0,
+     "du": 0.7,
+     "dl": 0.0
+    }
+   ]
   },
   {
    "n": "Healing_Projectile",
@@ -12520,7 +14522,16 @@
    "mny": 1.0,
    "mxy": 1.5,
    "mnz": 0.0,
-   "mxz": 0.0
+   "mxz": 0.0,
+   "ush": [
+    {
+     "t": 0,
+     "aw": 30,
+     "sz": 0,
+     "du": 0.7,
+     "dl": 0.0
+    }
+   ]
   },
   {
    "n": "Healing_Projectile",
@@ -12567,7 +14578,16 @@
    "mny": 1.0,
    "mxy": 1.5,
    "mnz": 0.0,
-   "mxz": 0.0
+   "mxz": 0.0,
+   "ush": [
+    {
+     "t": 0,
+     "aw": 30,
+     "sz": 0,
+     "du": 0.7,
+     "dl": 0.0
+    }
+   ]
   },
   {
    "n": "Healing_Projectile_Frost",
@@ -12614,7 +14634,16 @@
    "mny": 1.0,
    "mxy": 1.5,
    "mnz": 0.0,
-   "mxz": 0.0
+   "mxz": 0.0,
+   "ush": [
+    {
+     "t": 0,
+     "aw": 30,
+     "sz": 0,
+     "du": 0.7,
+     "dl": 0.0
+    }
+   ]
   },
   {
    "n": "Healing_Projectile_Green",
@@ -12661,7 +14690,16 @@
    "mny": 1.0,
    "mxy": 1.5,
    "mnz": 0.0,
-   "mxz": 0.0
+   "mxz": 0.0,
+   "ush": [
+    {
+     "t": 0,
+     "aw": 30,
+     "sz": 0,
+     "du": 0.7,
+     "dl": 0.0
+    }
+   ]
   },
   {
    "n": "Healing_Projectile_Ork",
@@ -12708,7 +14746,16 @@
    "mny": 1.0,
    "mxy": 1.5,
    "mnz": 0.0,
-   "mxz": 0.0
+   "mxz": 0.0,
+   "ush": [
+    {
+     "t": 0,
+     "aw": 30,
+     "sz": 0,
+     "du": 0.7,
+     "dl": 0.0
+    }
+   ]
   },
   {
    "n": "HeldrakeStrike",
@@ -13149,6 +15196,15 @@
     0.0,
     1.0,
     1.0
+   ],
+   "ush": [
+    {
+     "t": 0,
+     "aw": 30,
+     "sz": 2,
+     "du": 0.4,
+     "dl": 0.1
+    }
    ]
   },
   {
@@ -13246,6 +15302,15 @@
     0.0,
     1.0,
     1.0
+   ],
+   "ush": [
+    {
+     "t": 0,
+     "aw": 30,
+     "sz": 0,
+     "du": 1.0,
+     "dl": 0.0
+    }
    ]
   },
   {
@@ -13512,6 +15577,15 @@
     0.0,
     1.0,
     1.0
+   ],
+   "ush": [
+    {
+     "t": 0,
+     "aw": 30,
+     "sz": 0,
+     "du": 1.0,
+     "dl": 0.0
+    }
    ]
   },
   {
@@ -13719,7 +15793,16 @@
    "ts": 0.0,
    "tm": 4.0,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "ush": [
+    {
+     "t": 0,
+     "aw": 30,
+     "sz": 0,
+     "du": 1.0,
+     "dl": 0.0
+    }
+   ]
   },
   {
    "n": "Orbital Bombardment Target",
@@ -13732,7 +15815,16 @@
    "ts": 0.0,
    "tm": 4.0,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "ush": [
+    {
+     "t": 0,
+     "aw": 30,
+     "sz": 0,
+     "du": 1.0,
+     "dl": 0.0
+    }
+   ]
   },
   {
    "n": "BeastSnagga_Summon",
@@ -13796,6 +15888,15 @@
     0.0,
     1.0,
     1.0
+   ],
+   "ush": [
+    {
+     "t": 0,
+     "aw": 30,
+     "sz": 2,
+     "du": 0.5,
+     "dl": 0.0
+    }
    ]
   },
   {
@@ -13815,6 +15916,22 @@
     0.0,
     1.0,
     1.0
+   ],
+   "ush": [
+    {
+     "t": 0,
+     "aw": 30,
+     "sz": 2,
+     "du": 0.5,
+     "dl": 0.0
+    },
+    {
+     "t": 0,
+     "aw": 10,
+     "sz": 2,
+     "du": 0.4,
+     "dl": 0.4
+    }
    ]
   },
   {
@@ -14022,6 +16139,15 @@
     0.0,
     1.0,
     1.0
+   ],
+   "ush": [
+    {
+     "t": 0,
+     "aw": 30,
+     "sz": 0,
+     "du": 0.0,
+     "dl": 0.0
+    }
    ]
   },
   {
@@ -14067,7 +16193,16 @@
    "ts": 0.0,
    "tm": 0.4,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "ush": [
+    {
+     "t": 0,
+     "aw": 30,
+     "sz": 2,
+     "du": 0.5,
+     "dl": 0.0
+    }
+   ]
   },
   {
    "n": "BulletImpact_2shot_pointblank_chaos",
@@ -14080,7 +16215,23 @@
    "ts": 0.0,
    "tm": 0.4,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "ush": [
+    {
+     "t": 0,
+     "aw": 30,
+     "sz": 2,
+     "du": 0.5,
+     "dl": 0.0
+    },
+    {
+     "t": 0,
+     "aw": 10,
+     "sz": 0,
+     "du": 0.4,
+     "dl": 0.1
+    }
+   ]
   },
   {
    "n": "BulletImpact_3shot_pointblank",
@@ -14093,7 +16244,23 @@
    "ts": 0.0,
    "tm": 0.4,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "ush": [
+    {
+     "t": 0,
+     "aw": 30,
+     "sz": 2,
+     "du": 0.5,
+     "dl": 0.0
+    },
+    {
+     "t": 0,
+     "aw": 10,
+     "sz": 0,
+     "du": 0.4,
+     "dl": 0.1
+    }
+   ]
   },
   {
    "n": "Pray_Exit",
@@ -14258,7 +16425,16 @@
    "ts": 0.0,
    "tm": 1.2,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "ush": [
+    {
+     "t": 0,
+     "aw": 30,
+     "sz": 0,
+     "du": 0.8,
+     "dl": 0.0
+    }
+   ]
   },
   {
    "n": "Rapacious_Hunger",
@@ -14271,7 +16447,16 @@
    "ts": 0.0,
    "tm": 0.1,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "ush": [
+    {
+     "t": 0,
+     "aw": 30,
+     "sz": 0,
+     "du": 0.8,
+     "dl": 0.0
+    }
+   ]
   },
   {
    "n": "Rapturous Ruination Board",
@@ -14740,6 +16925,15 @@
     0.0,
     1.0,
     1.0
+   ],
+   "ush": [
+    {
+     "t": 0,
+     "aw": 0,
+     "sz": 0,
+     "du": 2.0,
+     "dl": 0.3
+    }
    ]
   },
   {
@@ -14955,7 +17149,16 @@
     0.0
    ],
    "mmRzE": 0,
-   "mmRzM": 0.0
+   "mmRzM": 0.0,
+   "ush": [
+    {
+     "t": 0,
+     "aw": 10,
+     "sz": 2,
+     "du": 0.2,
+     "dl": 0.55
+    }
+   ]
   },
   {
    "n": "Scrapcode_aimed_target",
@@ -14968,7 +17171,16 @@
    "ts": 0.0,
    "tm": 0.5,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "ush": [
+    {
+     "t": 0,
+     "aw": 30,
+     "sz": 2,
+     "du": 0.5,
+     "dl": 0.0
+    }
+   ]
   },
   {
    "n": "Scream_SW_Ragnar",
@@ -15291,7 +17503,16 @@
    "mny": 1.0,
    "mxy": 1.5,
    "mnz": 0.0,
-   "mxz": 0.0
+   "mxz": 0.0,
+   "ush": [
+    {
+     "t": 0,
+     "aw": 30,
+     "sz": 0,
+     "du": 0.7,
+     "dl": 0.0
+    }
+   ]
   },
   {
    "n": "Shadow_Projectile_GSC_Invulnerable",
@@ -15338,7 +17559,16 @@
    "mny": 1.0,
    "mxy": 1.5,
    "mnz": 0.0,
-   "mxz": 0.0
+   "mxz": 0.0,
+   "ush": [
+    {
+     "t": 0,
+     "aw": 30,
+     "sz": 0,
+     "du": 0.7,
+     "dl": 0.0
+    }
+   ]
   },
   {
    "n": "Shadow_Projectile",
@@ -15385,7 +17615,16 @@
    "mny": 1.0,
    "mxy": 1.5,
    "mnz": 0.0,
-   "mxz": 0.0
+   "mxz": 0.0,
+   "ush": [
+    {
+     "t": 0,
+     "aw": 30,
+     "sz": 0,
+     "du": 0.7,
+     "dl": 0.0
+    }
+   ]
   },
   {
    "n": "Shadow_Projectile",
@@ -15432,7 +17671,16 @@
    "mny": 1.0,
    "mxy": 1.5,
    "mnz": 0.0,
-   "mxz": 0.0
+   "mxz": 0.0,
+   "ush": [
+    {
+     "t": 0,
+     "aw": 30,
+     "sz": 0,
+     "du": 0.7,
+     "dl": 0.0
+    }
+   ]
   },
   {
    "n": "ShieldTraitEffect_Idle",
@@ -15588,7 +17836,16 @@
    "ts": 0.2,
    "tm": 0.0,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "ush": [
+    {
+     "t": 30,
+     "aw": 10,
+     "sz": 0,
+     "du": 0.2,
+     "dl": 0.1
+    }
+   ]
   },
   {
    "n": "BulletImpact_Shuriken_Short",
@@ -15627,7 +17884,16 @@
    "ts": 0.0,
    "tm": 0.5,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "ush": [
+    {
+     "t": 0,
+     "aw": 30,
+     "sz": 0,
+     "du": 0.8,
+     "dl": 0.0
+    }
+   ]
   },
   {
    "n": "Slash Repeating 5x",
@@ -15640,7 +17906,16 @@
    "ts": 0.0,
    "tm": 1.0,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "ush": [
+    {
+     "t": 0,
+     "aw": 30,
+     "sz": 0,
+     "du": 0.8,
+     "dl": 0.0
+    }
+   ]
   },
   {
    "n": "SlayEffect",
@@ -16008,7 +18283,16 @@
     0.0
    ],
    "mmRzE": 0,
-   "mmRzM": 0.0
+   "mmRzM": 0.0,
+   "ush": [
+    {
+     "t": 0,
+     "aw": 10,
+     "sz": 2,
+     "du": 0.2,
+     "dl": 0.55
+    }
+   ]
   },
   {
    "n": "Spore Explosion",
@@ -16072,7 +18356,16 @@
    "shka": 0.0,
    "shkf": 0.0,
    "shkoa": 0,
-   "shkof": 0
+   "shkof": 0,
+   "ush": [
+    {
+     "t": 30,
+     "aw": 10,
+     "sz": 0,
+     "du": 0.2,
+     "dl": 0.1
+    }
+   ]
   },
   {
    "n": "StealthEffect",
@@ -16247,7 +18540,16 @@
    "ts": 0.0,
    "tm": 0.5,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "ush": [
+    {
+     "t": 0,
+     "aw": 50,
+     "sz": 0,
+     "du": 1.0,
+     "dl": 0.0
+    }
+   ]
   },
   {
    "n": "StunEffect_proc",
@@ -16381,7 +18683,16 @@
    "ts": 0.0,
    "tm": 0.2,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "ush": [
+    {
+     "t": 0,
+     "aw": 30,
+     "sz": 0,
+     "du": 0.8,
+     "dl": 0.0
+    }
+   ]
   },
   {
    "n": "Sword_Slash_EC_User 3x",
@@ -16394,7 +18705,16 @@
    "ts": 0.0,
    "tm": 0.2,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "ush": [
+    {
+     "t": 0,
+     "aw": 30,
+     "sz": 0,
+     "du": 0.8,
+     "dl": 0.0
+    }
+   ]
   },
   {
    "n": "Sword_Slash_EC_User 7x",
@@ -16407,7 +18727,16 @@
    "ts": 0.0,
    "tm": 0.0,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "ush": [
+    {
+     "t": 0,
+     "aw": 30,
+     "sz": 0,
+     "du": 0.8,
+     "dl": 0.0
+    }
+   ]
   },
   {
    "n": "Sword_Slash_EC_User",
@@ -16420,7 +18749,16 @@
    "ts": 0.0,
    "tm": 0.3,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "ush": [
+    {
+     "t": 0,
+     "aw": 30,
+     "sz": 0,
+     "du": 0.8,
+     "dl": 0.0
+    }
+   ]
   },
   {
    "n": "Sword_Slash_EC_User 3x",
@@ -16433,7 +18771,16 @@
    "ts": 0.0,
    "tm": 0.2,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "ush": [
+    {
+     "t": 0,
+     "aw": 30,
+     "sz": 0,
+     "du": 0.8,
+     "dl": 0.0
+    }
+   ]
   },
   {
    "n": "Sword_Slash_Simple",
@@ -16446,7 +18793,16 @@
    "ts": 0.0,
    "tm": 0.5,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "ush": [
+    {
+     "t": 0,
+     "aw": 30,
+     "sz": 0,
+     "du": 0.8,
+     "dl": 0.0
+    }
+   ]
   },
   {
    "n": "SynapseEffect",
@@ -17059,7 +19415,16 @@
    "shka": 0.0,
    "shkf": 0.0,
    "shkoa": 0,
-   "shkof": 0
+   "shkof": 0,
+   "ush": [
+    {
+     "t": 0,
+     "aw": 40,
+     "sz": 0,
+     "du": 1.0,
+     "dl": 0.0
+    }
+   ]
   },
   {
    "n": "UM_Buff",
@@ -17078,6 +19443,15 @@
     0.0,
     1.0,
     1.0
+   ],
+   "ush": [
+    {
+     "t": 0,
+     "aw": 30,
+     "sz": 0,
+     "du": 1.0,
+     "dl": 0.0
+    }
    ]
   },
   {
@@ -17097,6 +19471,15 @@
     0.0,
     1.0,
     1.0
+   ],
+   "ush": [
+    {
+     "t": 0,
+     "aw": 30,
+     "sz": 0,
+     "du": 0.3,
+     "dl": 0.0
+    }
    ]
   },
   {
@@ -17133,7 +19516,16 @@
    "shka": 0.0,
    "shkf": 0.0,
    "shkoa": 0,
-   "shkof": 0
+   "shkof": 0,
+   "ush": [
+    {
+     "t": 0,
+     "aw": 0,
+     "sz": 0,
+     "du": 1.0,
+     "dl": 0.3
+    }
+   ]
   },
   {
    "n": "UM_MasterOfArcanaEffect",
@@ -17222,6 +19614,15 @@
     0.0,
     1.0,
     1.0
+   ],
+   "ush": [
+    {
+     "t": 0,
+     "aw": 0,
+     "sz": 2,
+     "du": 0.5,
+     "dl": 0.0
+    }
    ]
   },
   {
@@ -17241,6 +19642,15 @@
     0.0,
     1.0,
     1.0
+   ],
+   "ush": [
+    {
+     "t": 0,
+     "aw": 0,
+     "sz": 0,
+     "du": 0.2,
+     "dl": 0.0
+    }
    ]
   },
   {
@@ -17260,6 +19670,15 @@
     0.0,
     1.0,
     1.0
+   ],
+   "ush": [
+    {
+     "t": 0,
+     "aw": 40,
+     "sz": 0,
+     "du": 1.0,
+     "dl": 0.0
+    }
    ]
   },
   {
@@ -17657,7 +20076,23 @@
    "ts": 1.5,
    "tm": 0.0,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "ush": [
+    {
+     "t": 0,
+     "aw": 0,
+     "sz": 2,
+     "du": 1.0,
+     "dl": 2.0
+    },
+    {
+     "t": 0,
+     "aw": 0,
+     "sz": 2,
+     "du": 1.0,
+     "dl": 2.0
+    }
+   ]
   },
   {
    "n": "WorstTemperEffect",

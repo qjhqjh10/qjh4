@@ -732,6 +732,52 @@ namespace RuleEngine
             }
             return sb.ToString();
         }
+
+        /// <summary>
+        /// 🆕 **2026-10-27（执行代理 `B9_W54ENG2`）：这一条 `Ability` 事件要播的**目标列表**
+        /// —— 原版 `AbilityLogic.PlayAbility` 里 `abilityTargets = GetTargets(...)` 的结果
+        /// （判据 = `d:/2/tools/decomp_full/AbilityLogic__PlayAbility.c:262`；`PlayAnim.c:194/203/215`
+        /// 再**逐目标**各解一次位置、`:217-222` 只有最后一个目标带 `waitAnimToApplyEffect`）。
+        ///
+        /// <para>**为什么要这一位**：我们原来只有 <see cref="TargetPlayer"/> / <see cref="TargetSlot"/> /
+        /// <see cref="TargetCardId"/> **一个**目标三位组 ⇒ 多目标能力只能播一份，而且拍序是
+        /// 「每目标 × 全部拍」而不是原版的「每拍 × 全部目标」
+        /// （缺口分析 → `资料/完全复刻/报告/B9_W10BDR_施工单8-9-12.md` §#9 `AbilityLogic.PlayAnim`）。</para>
+        ///
+        /// <para>⚠️ **与那三位组的分工（两件事，⛔ 别合并）**：`TargetPlayer` 那三位 =
+        /// 「**玩家点没点目标**」的判别式（原版 `CemeteryManager.GetActionText` case `0xF` 读
+        /// `+0x28` 那个引用是不是 `null` ⇒ `ActionTargetedAbility` / `ActionAbility` 二选一）；
+        /// 本列表 = 「**这次结算实际落到哪些牌上**」（原版 `GetTargets` 自己选的也算 ——
+        /// 例如目标选择方式是「随机一个」时）⇒ 一个玩家**没点**目标的能力，本列表**仍可能有 1 条**。</para>
+        ///
+        /// <para>⚠️ **`null` = 没写**（哨兵，与 <see cref="CardNames"/> 同一条约定）；
+        /// **空表** = 这一条能力没有目标（`Draw` 那一类）。今天只有 `EvtKind.Ability` 会填
+        /// （`RuleCore.EmitAbilityEvent` 一处，⛔ 别在别处再拼一份）。
+        /// ⚠️ **长度 = 目标个数**：今天我们的封闭文法（`EffectSpec` / `EffectTargets`）**每条能力至多一个目标**
+        /// ⇒ 现读只会是 **0 或 1**；多目标档要等文法扩档，本字段是那一层的**接口**（⛔ 别按它现在的长度
+        /// 反推「原版也只有 1 个」）。
+        /// ⚠️ 命名避开 `CardDef.AbilityTargets`（那是**卡表的 `abilityTargets` 判据行**，两回事）
+        /// 和 `ctx.AbilityTargetsSaved`（那是**一次 play 里所有 op 目标的并集** = 原版 `abilityTargetsToSave`）。
+        /// ⚠️ 它**不进录像 / 联机**（同 <see cref="CardNames"/>：`BattleEvent` 不进 `.json`）。</para>
+        /// </summary>
+        public System.Collections.Generic.List<BattleEventTarget> AbilityTargetList;
+    }
+
+    /// <summary>
+    /// 🆕 **2026-10-27（执行代理 `B9_W54ENG2`）：<see cref="BattleEvent.AbilityTargetList"/> 的一项**
+    /// —— 原版那个列表的元素是 `CardScript`（**实体引用**），我们的等价物 = 身份四元组。
+    ///
+    /// <para>⚠️ **必须四样一起带**：`Slot` 不是身份（单位离场/换位时格号会变，见
+    /// <see cref="BattleEvent.InstanceId"/> 的 doc），`InstanceId` 才是稳定号；
+    /// `CardId` 是留档用的（回看时那个格位可能已经换人了，同 <see cref="BattleEvent.TargetCardId"/>）。
+    /// `Slot = -1` = 不在棋盘上（本引擎的督军在 `BoardSpec.WarlordSlot` 上，所以正常不会有这种情况）。</para>
+    /// </summary>
+    public struct BattleEventTarget
+    {
+        public int Player;
+        public int Slot;
+        public string CardId;
+        public int InstanceId;
     }
 }
 // ==========================================================================================

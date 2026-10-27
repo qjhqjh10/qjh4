@@ -186,9 +186,6 @@ def main():
     print(f'徽记：量出下缘 {len(entries) - no_badge} 张（其中色差边兜底 {merged} 张）'
           f' · 量不出 {no_badge} 张（bb=0 ⇒ C# 退回旧固定点并告警）')
     print('样本：', entries[0])
-    if check:
-        print('--check：不写盘')
-        return 0
     data = {
         '_note': ('卡框贴图的不透明包围盒（离线表）。判据 = Core/CardView.FrameUv：alpha<=8 视为透明，'
                   'UV 公式 (x0+0.5)/W, (y0+0.5)/H, (x1-x0+1)/W, (y1-y0+1)/H。'
@@ -203,6 +200,14 @@ def main():
         'entries': entries,
     }
     text = json.dumps(data, ensure_ascii=False, indent=1)
+    if check:
+        # 🔴 2026-10-27（执行代理 B9_W35CHECK）：`--check` 原来只打「不写盘」就返回 —— 产物
+        #   （`Resources/frame_uv.json`，运行时 `Core/CardView.FrameUv` 直接读）缺失/过期一律静默绿。
+        #   判据同 工具/import_original_art.py `--only-altart`（`:1714-1721`）。
+        old = io.open(OUT, encoding='utf-8', newline='').read() if os.path.exists(OUT) else None
+        same = old == (text + '\n')
+        print('--check：盘上 %s %s' % (OUT, '一致 ✅' if same else '**缺失或过期** ❌（重跑一次即可）'))
+        return 0 if same else 1
     tmp = OUT + '.tmp'
     io.open(tmp, 'w', encoding='utf-8', newline='\n').write(text + '\n')
     os.replace(tmp, OUT)

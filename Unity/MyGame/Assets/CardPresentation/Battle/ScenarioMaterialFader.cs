@@ -127,7 +127,7 @@ namespace CardPresentation
 
         void ApplyFade(float t)
         {
-            SetAlpha(Mathf.Lerp(_fromA, _toA, t));
+            SetAlpha(Mathf.MoveTowards(_fromA, _toA, t));   // 原版是 `MoveTowards(a, targetFade, dt/blendTime)`（**恒定速率**），不是 Lerp
         }
 
         /// <summary>把每个渲染器的**私有实例材质**的 `color.a` 写成 `a`（r/g/b 原样）。
@@ -187,7 +187,7 @@ namespace CardPresentation
             if (disableOnFadeOut && !dir && renderers != null)
                 for (int i = 0; i < renderers.Length; i++)
                     if (renderers[i] != null) renderers[i].enabled = false;
-            base.Complete();
+            base.Complete(); _doFade = false;   // 🔴 2026-10-27（`B9_W17FX2`）：**原版完成时把 `doFade` 归零**（`ScenarioMaterialFader__Update.c:75`，在 `OnComplete` 回调与清 options 之后）—— 漏这一句 ⇒ 淡完一次之后 `_doFade` 恒为 true，**下一次 `DoScenarioBlend` 的取反会把它翻成 false ⇒ 那次淡被整条冻住**（`Advance` 首句 return，`OnComplete` 永不触发）。
         }
 
         void RestoreOriginalMaterials()

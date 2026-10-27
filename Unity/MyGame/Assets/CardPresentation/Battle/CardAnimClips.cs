@@ -178,6 +178,53 @@ namespace CardPresentation
             return CardAnimOrder.OffsetAt(OffsetAo ? 1 : 0, OffsetOnt ? 1 : 0,
                                           Ofx, Ofy, Ofz, t01, pEased, randomAmp);
         }
+
+        // ── 🆕 2026-10-27（执行代理 `B9_W12USHK`）：`unitsShake`（`+0x78`）与 `minionAnimationClipInfo`（`+0x68`）──
+        //   判据：字段表 `d:/2/tools/il2cpp_out/dump.cs:25239-25243` + `:25498-25511`（`UnitShake.UnitShakeInfo`）
+        //   + `:25310-25340` / `:25259-25305`（`MinionAnimClipInfo` 及其 Definition）；
+        //   消费点 `BattleManager._ResolveAnimInfoRangeAttack_d__468__MoveNext.c:64-108`（远程那一路）
+        //   与 `BattleManager._ResolveAnim_d__466__MoveNext.c:108-125`（**同一段代码**，play/ability/trigger/
+        //   attack_melee 那些桶也吃）—— 两处都是「`unitsShake` 非空 ⇒ 逐条 `ResolveUnitShake`，
+        //   **否则**（if/else）才 `tweenAnim`」。
+        //   数据 → `工具/gen_cardanim_clips.py` 的 `_unit_shake_block` / `_minion_clip_block`。
+
+        /// <summary>`AnimInfo.unitsShake`（`+0x78`）—— 这一拍**逐条**要抖 / 要弹开的单位列表
+        /// （原版遍历 List 逐条 `ResolveUnitShake`，**不是**只取第一条）。
+        /// 空 / `null` = 这一拍没有 unit shake（现读 1,067 行里 **257 行有**，共 271 条）。
+        /// 🔴 **两个口径别互相判红**：① **数据侧有效 = 36 条 / 35 个 CardAnim**（`TargetUnit ∈ {20,30}`；其余 235 条 `TargetUnit == 0` ⇒ 原版空转）；
+        /// ② **与卡池求交后可达 = 28 条 / 28 个 CardAnim**（`B9_W29BDR2` 复核）。这 28 条**全部**是 `(target=30, awayFrom=10)`
+        /// ⇒ 走的是**击退支**（`DoPushBack`），**不是** `DoUnitShake` 抖动支。⚠️ 消费口 = `CardFeel.ResolveUnitShake(...)`
+        /// —— **每个元素调一次**，顺序 = 数组顺序（= 原版 List 顺序）。</summary>
+        public CardAnimUnitShake[] UnitShakes;
+
+        /// <summary>`minionAnimationClipInfo.enable`（`+0x68`）—— **0 ⇒ 卡体 `AnimationClip` 这条链整段不执行**
+        /// （`_d__466:166-171` 是 `if (enable) ResolveAnimAnimationClip(...)`）。
+        /// 现读全池 **2 行且都是 0** ⇒ 今天这条链**一次都不会跑**（见 `CardAnimClips.BodyClipOf` 那段）。</summary>
+        public bool BodyClipEnabled;
+
+        /// <summary>`minionAnimationClipInfo.delay`（秒）。现读 2 行都是 0。</summary>
+        public float BodyClipDelay;
+
+        /// <summary>`minionAnimationClipInfo.minionClips[]`（`null` = 没有）。现读 2 条，
+        /// 且两条的 `AnimationClip` 引用**都是 null**（`m_PathID = 0`）⇒ 即便打开了 `enable` 也什么都不播。</summary>
+        public CardAnimBodyClip[] BodyClips;
+
+        /// <summary>这一拍**有没有一条真能生效**的 unit shake（`TargetUnit != 0`）。
+        /// <para>🔴 **「表里有这一条」≠「一定会抖」**：`targetUnit == 0(undefined)` 时原版
+        /// `BattleManagerSupport.GetTargetUnit` 对 0/其它值一律 `return null`
+        /// （`decomp_full/BattleManagerSupport__GetTargetUnit.c:13-16`）⇒ 协程第一个非空检查就
+        /// `return 0`（`_d__472:48-54`，只把 `shakeDelay` 白等掉）。现读 271 条里 **235 条是 `t == 0`**。
+        /// ⛔ 别为了方便拿 `targetCard` 去顶 `t == 0` —— 那是静默多抖一次。</para></summary>
+        public bool HasUnitShake
+        {
+            get
+            {
+                if (UnitShakes == null) return false;
+                for (int i = 0; i < UnitShakes.Length; i++)
+                    if (UnitShakes[i].Effective) return true;
+                return false;
+            }
+        }
     }
 
     /// <summary>一拍要播的技能动画（= <see cref="CardAnimPlacement"/> + `VfxMap` 解出来的名字/时长）。</summary>
@@ -236,6 +283,47 @@ namespace CardPresentation
             public int mmRxE, mmRyE, mmRzE;
             public float mmRxM, mmRyM, mmRzM;
             public float[] mmRxC, mmRyC, mmRzC;
+            // 🆕 2026-10-27（执行代理 `B9_W12USHK`）：两族原来**一整片零数据**的字段（判据见类尾那两个 DTO 的 doc）
+            //   · `ush`  ← `AnimInfo.unitsShake`（`+0x78`）：`{t,aw,sz,du,dl}` 的数组；现读 257 行 / 271 条。
+            //   · `mac*` ← `AnimInfo.minionAnimationClipInfo`（`+0x68`）：`macEn`/`macD`/`macs[]`；
+            //              现读 2 行（`macEn` 全 0、`macs[].clip` 全 "0" = null ⇒ 今天无可观测差）。
+            //   缺键 ⇒ `null` / 0 = 改前行为（`JsonUtility` 不给就保持默认）。
+            public RtUnitShake[] ush;
+            public int macEn;
+            public float macD;
+            public RtMinionClip[] macs;
+        }
+
+        /// <summary>`ush[]` 的一条 —— 原版 `UnitShake.UnitShakeInfo`（`dump.cs:25498-25511`）。
+        /// 字段名 = 生成器 `_unit_shake_block` 的短名，⛔ 别改名（改了两边一起改）。</summary>
+        [Serializable] public class RtUnitShake
+        {
+            /// <summary>`targetUnit`（`TargetUnit` 枚举**原样**：0 undefined · 10 self · 20 cardTarget ·
+            /// 30 abilityTarget · 40 friendlyHero · 50 enemyHero —— `dump.cs:45603-45613`）。**0 = 原版解不出目标 ⇒ 空转**。</summary>
+            public int t;
+            /// <summary>`awayFromUnit`（同上枚举）。非 0 且解出的卡 ≠ `t` 解出的卡 ⇒ 走**击退支**（不是抖动）。</summary>
+            public int aw;
+            /// <summary>`shakeSize`（`UnitSize` 枚举：0 small · **2 medium** · 3 big —— `dump.cs:101810-101817`）。
+            /// ⚠️ 不是 0/1/2 ⇒ 拿到 1 说明数据换过口径，别按「1 = medium」硬算。</summary>
+            public int sz;
+            /// <summary>`shakeDuration`（**秒**；只对抖动支生效 —— 击退支原版把 duration 写死 0.4）。</summary>
+            public float du;
+            /// <summary>`shakeDelay`（**秒**；>0 时先 `WaitForSeconds` 再判 `IsInPlay` 与二选一）。</summary>
+            public float dl;
+        }
+
+        /// <summary>`macs[]` 的一条 —— 原版 `MinionAnimClipInfo.MinionAnimClipInfoDefinition`（`dump.cs:25259-25305`）。</summary>
+        [Serializable] public class RtMinionClip
+        {
+            /// <summary>`target`（`TargetUnit` 枚举）。现读 2 条都是 10(self)。</summary>
+            public int t;
+            /// <summary>`animationClip.m_PathID` 的**十进制字符串**；`"0"` = **null 引用**（现读 2 条都是 "0"）。
+            /// ⛔ 只是个记录 —— 我们工程里没有那个 `AnimationClip` 资产，运行期解不出来（见 `BodyClipOf`）。</summary>
+            public string clip;
+            /// <summary>`delay`（秒）。</summary>
+            public float d;
+            /// <summary>`waitForCompletion` / `toggleFlyOff` / `safeResetOnEnd`（0/1）。</summary>
+            public int wc, tf, sr;
         }
         [Serializable] public class RtFile
         {
@@ -304,6 +392,9 @@ namespace CardPresentation
                     RotXOn = r.mmRxE != 0, RotXDeg = r.mmRxM, RotXCurve = r.mmRxC,
                     RotYOn = r.mmRyE != 0, RotYDeg = r.mmRyM, RotYCurve = r.mmRyC,
                     RotZOn = r.mmRzE != 0, RotZDeg = r.mmRzM, RotZCurve = r.mmRzC,
+                    // 🆕 2026-10-27（`B9_W12USHK`）：unit shake + 卡体 clip（缺键 ⇒ null / false / 0）
+                    UnitShakes = MapUnitShakes(r.ush),
+                    BodyClipEnabled = r.macEn != 0, BodyClipDelay = r.macD, BodyClips = MapBodyClips(r.macs),
                 };
             }
             Loaded = true;
@@ -452,6 +543,10 @@ namespace CardPresentation
         //     挂到卡体上**什么都不会动**，那是静默错（比不播更坏）。
         //  ⇒ `Card3DAnimationController` 的 `AnimationClip` 那一路**完整实现、可用**
         //     （自检用 `BuildProbeClip` 证明），生产路径走 `CardAnimPlayback.Prefab` 那一路。
+        //  🆕 2026-10-27（`B9_W12USHK`）：这一族**数据列已经有了**（`RtRow.macEn/macD/macs` ← 生成器
+        //     `_minion_clip_block`，现读 **2 行**：`macEn` 全 0、`macs[].clip` 全 `"0"`=null）⇒
+        //     上面那条结论**由数据本身证明**（不是「我们没写」）。读完仍返回 null 的原因见下一条：
+        //     我们工程里**没有**那些 `AnimationClip` 资产，「PathID → 资产」这一跳解不出来。
         static bool _spokeNoBodyClip;
         /// <summary>这张卡有没有卡体 `AnimationClip`。**今天恒 `null`**（原因见上面那一大段）。</summary>
         public static AnimationClip BodyClipOf(string cardIdOrName)
@@ -466,5 +561,116 @@ namespace CardPresentation
             }
             return null;
         }
+
+        // ============== 🆕 2026-10-27（`B9_W12USHK`）：`unitsShake` 的读数口 + 两个 DTO 的映射 ==============
+        //  🔴 **为什么新开一节（而不是把这些塞进上面那些方法之间）**：本文件被账按行号引用
+        //     （`账/特效动画.tsv` 的 `CardAnimClips.cs:329`），新成员一律**追加在类尾**（CLAUDE.md 那条纪律）。
+
+        /// <summary>这一拍要**逐个**处理的 unit shake 列表（原版 `unitsShake` 的顺序）。
+        /// <para>**返回值契约**：`null` = 这一拍没有（原版绝大多数件，也含「表里没有这条 CardAnim」——
+        /// 那种情况 `PlacementOf` 已经出声）；长度 ≥1 = **要逐条**交给
+        /// `CardFeel.ResolveUnitShake`（⛔ 别只取第一条，也⛔ 别在这里先按 `TargetUnit` 过滤 ——
+        /// 「解不出目标就空转」是**原版行为**，由 `ResolveUnitShake` 的调用方按 `Effective` 如实处理）。</para></summary>
+        public static CardAnimUnitShake[] UnitShakesOf(string cardAnim)
+        {
+            var p = PlacementOf(cardAnim);
+            return p.HasValue ? p.Value.UnitShakes : null;
+        }
+
+        /// <summary>`Resources/cardanim_clips.json` 的 `ush[]` → 运行期 `CardAnimUnitShake[]`。
+        /// 空 / `null` ⇒ `null`（= 没有这一族，⛔ 不造空数组，免得消费方把「有 0 条」当「有这一类但 0 条」）。</summary>
+        static CardAnimUnitShake[] MapUnitShakes(RtUnitShake[] src)
+        {
+            if (src == null || src.Length == 0) return null;
+            var buf = new CardAnimUnitShake[src.Length];
+            for (int i = 0; i < src.Length; i++)
+            {
+                var s = src[i];
+                if (s == null) continue;          // 理论上不会有；有也不炸（该条留默认 = TargetUnit 0 = 空转）
+                buf[i] = new CardAnimUnitShake
+                {
+                    TargetUnit = s.t, AwayFromUnit = s.aw, ShakeSize = s.sz,
+                    ShakeDuration = s.du, ShakeDelay = s.dl,
+                };
+            }
+            return buf;
+        }
+
+        /// <summary>`macs[]` → 运行期 `CardAnimBodyClip[]`（`null` = 没有）。只搬，不改语义。</summary>
+        static CardAnimBodyClip[] MapBodyClips(RtMinionClip[] src)
+        {
+            if (src == null || src.Length == 0) return null;
+            var buf = new CardAnimBodyClip[src.Length];
+            for (int i = 0; i < src.Length; i++)
+            {
+                var s = src[i];
+                if (s == null) continue;
+                buf[i] = new CardAnimBodyClip
+                {
+                    TargetUnit = s.t, ClipPathId = s.clip, Delay = s.d, WaitForCompletion = s.wc != 0,
+                    ToggleFlyOff = s.tf != 0, SafeResetOnEnd = s.sr != 0,
+                };
+            }
+            return buf;
+        }
+
+        /// <summary>`minionAnimationClipInfo.minionClips[]` 的记录（`null` = 没有这一族）。
+        /// <para>🔴 **今天全池只有 2 行，且两行的 `BodyClipEnabled` 都是 `false`、每条 `ClipPathId` 都是 `"0"`（null）**
+        /// ⇒ 调用方即便拿到也**不该播**（原版那道闸是 `enable`，`_d__466:166-171`）。
+        /// 这个口存在的意义是「判据留在表里，将来数据变了不用改代码」——
+        /// ⛔ 别为了让它有用途去拿 `WarpforgeVFX/Animations/*.anim` 顶（理由见 `BodyClipOf` 上面那一大段）。</para></summary>
+        public static CardAnimBodyClip[] BodyClipsOf(string cardAnim)
+        {
+            var p = PlacementOf(cardAnim);
+            return p.HasValue ? p.Value.BodyClips : null;
+        }
+    }
+
+    /// <summary>`AnimInfo.unitsShake` 的一条（原版 `UnitShake.UnitShakeInfo`，`dump.cs:25498-25511`；
+    /// 运行期那一份 `UnitShake` 由 `UnitShake..ctor(info, actingCard, targetCard)` 把两个枚举解成卡，
+    /// 判据 `decomp_full/UnitShake__.ctor.c:8-18`）。
+    /// <para>⚠️ 消费口 `CardFeel.ResolveUnitShake` 收的是**已经解出来的两张卡**，所以「枚举 → 卡」这一跳
+    /// （= `BattleManagerSupport.GetTargetUnit`：0/其它 ⇒ null · 10 ⇒ acting · 20/30 ⇒ target ·
+    /// 40 ⇒ 同阵营督军 · 50 ⇒ 敌方督军）**必须由调用方做** —— 给 `BattleManagerSupport__GetTargetUnit.c` 那一份判据就知道该传谁。</para></summary>
+    public struct CardAnimUnitShake
+    {
+        /// <summary>`TargetUnit` 枚举原值（0 undefined · 10 self · 20 cardTarget · 30 abilityTarget ·
+        /// 40 friendlyHero · 50 enemyHero）。</summary>
+        public int TargetUnit;
+        /// <summary>`TargetUnit` 枚举原值 —— 非 0 且解出的卡 ≠ `TargetUnit` 解出的那张 ⇒ 走**击退支**。</summary>
+        public int AwayFromUnit;
+        /// <summary>`UnitSize` 枚举原值（0 small · 2 medium · 3 big）。⚠️ `CardFeel.ShakeScaleOfUnitSize`
+        /// 就是把它换成 `DoUnitShake` 的 2/4/8 —— ⛔ 别在这里先换（那是抖动支才用的，击退支吃的是原值
+        /// `GetPushBackFactor(size)`）。</summary>
+        public int ShakeSize;
+        /// <summary>抖动支的时长（秒）。击退支不用它（`DoPushBack` 的 duration 原版写死 0.4）。</summary>
+        public float ShakeDuration;
+        /// <summary>先等这么久（秒）再判 `IsInPlay` 与二选一。</summary>
+        public float ShakeDelay;
+
+        /// <summary>`TargetUnit != 0` —— 只有它为真这条才可能做出动作（0 ⇒ `GetTargetUnit` 返 null ⇒ 整条空转）。
+        /// ⛔ 这只是「目标解得出」的必要条件，**不是**「一定抖」：`IsInPlay` 不过照样不播。</summary>
+        public bool Effective { get { return TargetUnit != 0; } }
+    }
+
+    /// <summary>`AnimInfo.minionAnimationClipInfo.minionClips[]` 的一条
+    /// （原版 `MinionAnimClipInfo.MinionAnimClipInfoDefinition`，`dump.cs:25259-25305`）。
+    /// <para>🔴 **今天这条链跑不到**：`enable` 全池为 0 ⇒ 原版 `_d__466:166-171` 根本不进这一支；
+    /// 唯二声明了 clips 的两条 `animationClip` 又都是 null。本结构只为**把判据留住**（数据已由生成器落表），
+    /// ⛔ 别为了「让字段有用途」去凭空造一个 `AnimationClip`。</para></summary>
+    public struct CardAnimBodyClip
+    {
+        /// <summary>`target`（`TargetUnit` 枚举）。</summary>
+        public int TargetUnit;
+        /// <summary>`animationClip.m_PathID` 的十进制字符串（`"0"` = null 引用）。</summary>
+        public string ClipPathId;
+        /// <summary>这条 clip 起播前等多久（秒）。</summary>
+        public float Delay;
+        /// <summary>等这条 clip 播完再继续。</summary>
+        public bool WaitForCompletion;
+        /// <summary>`toggleFlyOff` —— 播期间把「飞出去」的状态切一下。</summary>
+        public bool ToggleFlyOff;
+        /// <summary>`safeResetOnEnd` —— 收尾把对象上所有动画复位。</summary>
+        public bool SafeResetOnEnd;
     }
 }

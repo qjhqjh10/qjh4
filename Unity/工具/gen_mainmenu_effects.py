@@ -44,8 +44,20 @@ TARGETS = [
     "Side Border Left", "Side Border Right",
     "Ray Right", "Sparks R", "Sparks RL",
     "EffectElement", "EffectElement (1)", "EffectElement (2)", "EffectElement (3)", "EffectElement (4)",
-    "Cog", "Craft", "Level Up Effect Down", "Animated Loading Image",
+    "Cog", "Craft",
+    # 🔴 2026-10-27（B9_W28MOUNT）：补进 `Level Up Effect` —— 原版树里它是 `Level Up Effect Down` 的
+    #   **父容器**（`2DCard/Level Up Effect`，`m_IsActive = false`；子件 `…Down` 是 `true`，被父件关着）。
+    #   R2 那 21 条名单里漏了它 ⇒ 三条后果（全部在 `CardDisplayEffects` 那一侧）：
+    #   ① 子件的 rect 是「父矩形 + `m_SizeDelta`」的 stretch，父件不在册就算不出真尺寸；
+    #   ② `Level Up Card` clip 里 `Level Up Effect` 那几条 `m_IsActive` / `floatProperty1.value` 没有落点；
+    #   ③ 那两件的 `AnimateUIMaterialProperty`（`_Reveal`）没有挂载载体。
+    "Level Up Effect", "Level Up Effect Down", "Animated Loading Image",
 ]
+
+# 本层要出的**图件**（`CardDisplayEffects` 的 `images`）。名字逐字照 `GameObject/*.json`。
+# ⚠️ 顺序有意义：父件必须排在子件之前（`emit_runtime` 按这个顺序递推 rect，`CardDisplayEffects`
+#    按这个顺序建节点）。`Level Up Effect` 漏过一整轮，别把它删掉。
+IMAGE_NODES = ("Side Border Left", "Side Border Right", "Level Up Effect", "Level Up Effect Down")
 
 PS_MODULES = ["InitialModule", "ShapeModule", "EmissionModule", "SizeModule", "RotationModule", "ColorModule",
               "UVModule", "VelocityModule", "InheritVelocityModule", "LifetimeByEmitterSpeedModule",
@@ -58,8 +70,9 @@ USAGE = """用法（默认不写盘）：
       d:/4/Unity/工具/gen_mainmenu_effects.py --apply
   -h / --help   只打印本用法并退出（退出码 0）
 
-做的事：把主菜单 21 个「环境光效」的判据（父链 / active / 组件类 / 矩形 / 粒子模块 / 材质）摊成
-        `Resources/Art/mainmenu_effects.json`。只读 `d:/2/新解包资源/`，只写上面那一个文件。
+做的事：把主菜单那批「环境光效」的判据（父链 / active / 组件类 / 矩形 / 粒子模块 / 材质）摊成
+        `Resources/Art/mainmenu_effects.json`（+ 同一次运行顺带出 `card_display_effects.json`）。
+        只读 `d:/2/新解包资源/`，只写那两个文件。
 """
 
 
@@ -228,12 +241,12 @@ def emit_runtime(doc):
             "material": (mats[0] or {}).get("name") if mats else None,
         })
 
-    images = []
+    # ---- 图件（`Side Border*` / `Level Up Effect` 及其子件）--------------------------------
+    raw = {}
     for it in doc["items"]:
-        if it.get("particle") or it["sourceFile"] not in ("Level Up Effect Down", "Side Border Left",
-                                                          "Side Border Right"):
+        if it.get("particle") or it["sourceFile"] not in IMAGE_NODES:
             continue
-        rt, img, glow = {}, None, None
+        rt, img, glow, amp = {}, None, None, None
         for c in it["components"]:
             if c["type"] in ("RectTransform", "Transform"):
                 rt = c.get("rect") or {}
@@ -241,19 +254,90 @@ def emit_runtime(doc):
                 img = c.get("fields") or {}
             if c.get("class") == "UIBorderGlow":
                 glow = c.get("fields") or {}
-        pos = rt.get("m_AnchoredPosition") or {"x": 0.0, "y": 0.0}
-        size = rt.get("m_SizeDelta") or {"x": 0.0, "y": 0.0}
+            if c.get("class") == "AnimateUIMaterialProperty":
+                amp = c.get("fields") or {}
+        raw[it["sourceFile"]] = (rt, img, glow, amp,
+                                 (it["chain"][1]["node"] if len(it["chain"]) > 1 else ""))
+
+    cache = {}
+
+    def rect_in_card(name, depth=0):
+        """(矩形宽, 矩形高, 中心x, 中心y, 累计缩放x, 累计缩放y) —— 单位 = 本层最外层（原版 `2DCard`）的局部单位。
+
+        · `m_SizeDelta` / `m_AnchoredPosition` 都是 uGUI **父件局部**的量；节点的 `m_LocalScale`
+          把自己的矩形换算到父件、再逐级换算到本层最外层。
+        · 锚点**拉伸**（`anchorMax > anchorMin`）时 `rect = 父矩形 + sizeDelta`；重合点锚点则取 `sizeDelta`。
+        · 中心 = 父中心 + (`锚点中心 − 0.5`) × 父矩形 + `anchoredPosition`，后两项各乘**父的**累计缩放。
+        · ⚠️ **只有「父也在 `IMAGE_NODES` 里」时才递推**（本批只有 `…Down → Level Up Effect` 这一对）：
+          `Side Border*` 的父件是 `Borders`（1920×1080 **画布**空间、`Game UI` 那一级 scale 0），
+          与 `2DCard` 的 250 px/单位**不是一把尺** ⇒ 那两条沿用既有近似（原样吐 `sizeDelta`/`anchoredPosition`），
+          本批**有意不动**（见报告「没查清的部分」）。
+        """
+        if name in cache:
+            return cache[name]
+        rt, _img, _glow, _amp, parent = raw[name]
+        d = rt.get("m_SizeDelta") or {"x": 0.0, "y": 0.0}
+        amin = rt.get("m_AnchorMin") or {"x": 0.5, "y": 0.5}
+        amax = rt.get("m_AnchorMax") or {"x": 0.5, "y": 0.5}
+        anc = rt.get("m_AnchoredPosition") or {"x": 0.0, "y": 0.0}
+        scl = rt.get("m_LocalScale") or {"x": 1.0, "y": 1.0, "z": 1.0}
+        if parent in raw and parent != name and depth < 8:
+            pw, ph, pcx, pcy, pkx, pky = rect_in_card(parent, depth + 1)
+            plw = pw / pkx if pkx else 0.0          # 父件的「局部矩形」（加回它自己的缩放）
+            plh = ph / pky if pky else 0.0
+            stretch_x = (amax["x"] - amin["x"]) > 1e-6
+            stretch_y = (amax["y"] - amin["y"]) > 1e-6
+            w = (plw + d["x"]) if stretch_x else d["x"]
+            h = (plh + d["y"]) if stretch_y else d["y"]
+            cx = pcx + (((amin["x"] + amax["x"]) * 0.5) - 0.5) * plw * pkx + anc["x"] * pkx
+            cy = pcy + (((amin["y"] + amax["y"]) * 0.5) - 0.5) * plh * pky + anc["y"] * pky
+            out = (w * scl["x"] * pkx, h * scl["y"] * pky, cx, cy, pkx * scl["x"], pky * scl["y"])
+        else:
+            out = (d["x"] * scl["x"], d["y"] * scl["y"], anc["x"], anc["y"], scl["x"], scl["y"])
+        cache[name] = out
+        return out
+
+    images = []
+    for name in IMAGE_NODES:
+        if name not in raw:
+            continue
+        rt, img, glow, amp, parent = raw[name]
+        w, h, cx, cy, _kx, _ky = rect_in_card(name)
         col = (img or {}).get("m_Color") or {}
+        spr = (img or {}).get("m_Sprite") or {}
+        amin = rt.get("m_AnchorMin") or {"x": 0.5, "y": 0.5}
+        amax = rt.get("m_AnchorMax") or {"x": 0.5, "y": 0.5}
+        f1 = (amp or {}).get("floatProperty1") or {}
+        f2 = (amp or {}).get("floatProperty2") or {}
+        v2 = f2.get("vector4Value") or {}
         images.append({
-            "name": it["sourceFile"], "posX": pos["x"], "posY": pos["y"],
-            "sizeX": size["x"], "sizeY": size["y"],
+            "name": name,
+            # 父节点的**原版名字**（`2DCard` / `""` = 本层根）。`CardDisplayEffects` 靠它把子件挂回原位。
+            "parent": parent,
+            "posX": cx, "posY": cy, "sizeX": w, "sizeY": h,
+            "anchorMinX": amin["x"], "anchorMinY": amin["y"],
+            "anchorMaxX": amax["x"], "anchorMaxY": amax["y"],
             "colorR": col.get("r", 1.0), "colorG": col.get("g", 1.0),
             "colorB": col.get("b", 1.0), "colorA": col.get("a", 1.0),
             "glowTime": (glow or {}).get("animTime", 1.0),
             "glowDelay": (glow or {}).get("animDelay", 0.0),
             "glowPlayOnEnable": (glow or {}).get("playOnEnable", 0),
             # 这一件**有没有** `UIBorderGlow`（★ 不能靠 `glowTime` 猜 —— 缺组件时那个默认值也是 1.0）
-            "hasGlow": glow is not None})
+            "hasGlow": glow is not None,
+            # 🔴 原版 `Image.m_Sprite` 是不是**非空**。⭐ 这不是可有可无的一格：
+            #   uGUI 对 `m_Sprite = 0` 画的是「全白贴图 × `m_Color`」（= 纯色块，`Side Border*` 的黑边就是这么来的），
+            #   而 `m_Sprite ≠ 0` 画的是**那张贴图**。我们手里一条 sprite 都没有 ⇒ 两种情形必须分开处理
+            #   （纯色块照画；贴图那一档只能建载体、⛔ 不能拿纯色块冒充）。
+            "hasSprite": bool(spr.get("m_PathID")),
+            # `AnimateUIMaterialProperty`（原版 `Division Image` / `Level Up Effect` 一族用它驱动材质浮点）
+            "hasAmp": amp is not None,
+            "ampFloat1Property": f1.get("materialProperty") or "",
+            "ampFloat1Value": f1.get("value", 0.0),
+            "ampFloat2Property": f2.get("materialProperty") or "",
+            "ampFloat2Value": f2.get("value", 0.0),
+            "ampFloat2UseV4": bool(f2.get("useVector4", 0)),
+            "ampFloat2X": v2.get("x", 0.0), "ampFloat2Y": v2.get("y", 0.0),
+            "ampFloat2Z": v2.get("z", 0.0), "ampFloat2W": v2.get("w", 0.0)})
 
     txt = json.dumps({"note": "runtime DTO (gen = 工具/gen_mainmenu_effects.py --apply; judge = mainmenu_effects.json)",
                       "particles": parts, "images": images}, ensure_ascii=False, indent=1)
@@ -366,7 +450,7 @@ def main(apply):
 
     if not apply:
         print(USAGE)
-        print("[dry] 21 条已解析，未写盘。目标 =", OUT, "（%d 字节）" % len(text.encode("utf-8")))
+        print("[dry] %d 条已解析，未写盘。目标 =" % len(TARGETS), OUT, "（%d 字节）" % len(text.encode("utf-8")))
         for it in items:
             if it.get("error"):
                 print("  ! %s : %s" % (it["name"], it["error"]))

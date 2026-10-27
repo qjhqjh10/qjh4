@@ -37250,7 +37250,7 @@ public static partial class RuleEngineTest
         {
             var u = Place(ctx, 0, 0, Unit("B16_341", 1, 1, 5));
             CheckTrue(ConditionEval.MeetsUnit(ctx, u, 341) == true, "★ B-16 · 341 `canUseDuty`：职责没用过 ⇒ 真（`+0x4c == 0`）");
-            u.DutyUsed = true;
+            u.ActiveAbilityUsed = true;   // 🔴 2026-10-27 `B9_W27ENG`：`cond=341` 改读 `+0x4c`（`ActiveAbilityUsed`），不再是 `DutyUsed`
             CheckTrue(ConditionEval.MeetsUnit(ctx, u, 341) == false, "★ B-16 · 341：用过了 ⇒ 假");
 
             CheckTrue(ConditionEval.MeetsUnit(ctx, u, 342) == false, "★ B-16 · 342 `summonSickness`：没有召唤病 ⇒ 假");
@@ -38535,6 +38535,285 @@ public static partial class RuleEngineTest
             CheckTrue(SigOf(r10.Players[0]) != SigOf(plain.Players[0]),
                       "★ 反例（灭自证）：Ranked(10) **照原版默认要洗** —— 同一种子下必须与不洗的顺序不同"
                     + "｜🧨 若闸写成「一律不洗」或把 `Undefined` 判成不洗 ⇒ 这里红");
+        }
+
+        // ==================================================================
+        //  🆕 2026-10-27（`B9_W50ENGT` · **E4 组**）
+        //  `cond=341`（原版 `bool usedActiveAbility (+0x4C)`）的状态位
+        //  ＋ `targetsAffected` 的 `cond`/`ex` 短路闸 —— 这两条引擎改动落地时
+        //  **仓库内 0 断言**（只有仓库外夹具 `d:/tmp/wf_b9ta/` 证明过），本节把它们钉进自检。
+        //
+        //  📌 判据（⛔ 别在这里抄第二份）：
+        //    · 落地报告 `资料/完全复刻/报告/B9_W27ENG_ta短路与主动能力已用.md` §A / §B / §「正面证明」；
+        //    · 判据正本 `资料/完全复刻/判据/cond341_canUseDuty_ex语义.md` §1.4 / §1.6-A / §1.6-B；
+        //    · 原版 `FilterMethods__CheckIfMeetsCriteria.c:57-157`（早返 switch）·`:76-91`（`ta=30`）·
+        //      `:298-303`（第 ⑧ 步）· `FilterMethods__MeetsConditionCriteria.c:170-174`（341）·
+        //      `CardScript__UsedActiveAbility.c:29/34/41/50` · `CardScript__OnTurnEnd.c:209-210` ·
+        //      `CardScript__ResetToValuesInHand.c:131` · `BattleManager__ResolveResetDuty.c:6`。
+        //
+        //  ⚠️ 本节**只读**被测实现（`EffectResolver` / `ConditionEval` / `UnitState` / `RuleCore`）——
+        //     期望值一律来自上面那几处原版判据，⛔ 不从我们的实现里读回来（否则就是自证）。
+        //  ⚠️ 本节挂在**本方法尾部**是为了**零行号漂移**（账按 `文件:行号` 引用本文件）——
+        //     ⛔ 别把它搬去文件中间；要拆出去请连同方法一起拆。
+        // ==================================================================
+        Section("🆕 E4：`cond=341`（原版 `+0x4C`）状态位 · `targetsAffected` 短路闸 · 「判不了」出声");
+
+        // ---- (D1) `cond=341` **只跟 `ActiveAbilityUsed` 走**（三个「用过」位必须能互相分开）----
+        //  判据 = `MeetsConditionCriteria.c:170-174`：读 `bool usedActiveAbility(+0x4c) == 0`。
+        //  🔴 我们另外还有两个**同名不同义**的位，⛔ 别混：
+        //     · `DutyUsed`（`+0x50` 那一族里的 duty 专用位，只覆盖 23 张 duty 卡）；
+        //     · `UsedActiveAbilityThisTurn`（**按回合清**的那一位，`OnTurnEnd.c:209`）。
+        {
+            var ctx = ProbeBattle(new CardDef[0], new CardDef[0]);
+            var u341 = Place(ctx, 0, 1, Unit("E4_341", 1, 1, 5));
+            CheckTrue(!u341.ActiveAbilityUsed && !u341.DutyUsed && !u341.UsedActiveAbilityThisTurn,
+                      "（前提）`E4_341` 的三个「用过」位全是假 —— 否则下面几条分不出是**哪一个**在起作用");
+            CheckTrue(ConditionEval.MeetsUnit(ctx, u341, 341) == true,
+                      "★ B · 三个位全假 ⇒ 341 **真**（`+0x4c == 0`）");
+
+            u341.DutyUsed = true;
+            CheckTrue(ConditionEval.MeetsUnit(ctx, u341, 341) == true,
+                      "★ B · **只把 `DutyUsed` 置真** ⇒ 341 **仍然真** —— `+0x4c` 与 `+0x50` 是两个位"
+                    + "｜🧨 把 341 改回读 `DutyUsed`（= 2026-10-27 之前那一版）⇒ 本行变假");
+
+            u341.DutyUsed = false;
+            u341.ActiveAbilityUsed = true;
+            CheckTrue(ConditionEval.MeetsUnit(ctx, u341, 341) == false,
+                      "★ B · **只把 `ActiveAbilityUsed` 置真** ⇒ 341 **假**"
+                    + "｜🧨 341 不读这一位（例如仍读 `DutyUsed`）⇒ 本行变真");
+
+            u341.ActiveAbilityUsed = false;
+            u341.UsedActiveAbilityThisTurn = true;
+            CheckTrue(ConditionEval.MeetsUnit(ctx, u341, 341) == true,
+                      "★ B · **只把「按回合清」的那一位置真** ⇒ 341 **仍然真**"
+                    + "｜🧨 341 读成 `UsedActiveAbilityThisTurn` ⇒ 本行变假（那会让 `canUseDuty` **每回合复活**）");
+
+            // ---- 灭自证对偶 ① ----
+            // 同一对交错状态：「只有 ActiveAbilityUsed 真」⇒ 假 ∧「只有 DutyUsed 真」⇒ 真。
+            // ⛔ 任何**只读其中一个字段**的实现都无法同时满足（一条要求真、一条要求假）。
+            u341.ActiveAbilityUsed = true;  u341.DutyUsed = false;
+            bool onlyActive = ConditionEval.MeetsUnit(ctx, u341, 341) == false;
+            u341.ActiveAbilityUsed = false; u341.DutyUsed = true;
+            bool onlyDuty = ConditionEval.MeetsUnit(ctx, u341, 341) == true;
+            CheckTrue(onlyActive && onlyDuty,
+                      "★ **灭自证对偶①**：〔`ActiveAbilityUsed` 真 / `DutyUsed` 假 ⇒ 341 **假**〕 ∧ "
+                    + "〔`ActiveAbilityUsed` 假 / `DutyUsed` 真 ⇒ 341 **真**〕"
+                    + "｜🧨 这两个状态里**唯一的差别**就是 `ActiveAbilityUsed` ⇒ 只读 `DutyUsed` 的实现"
+                    + "必有且只有一条能过（不可能两条同时绿）");
+            u341.DutyUsed = false;
+        }
+
+        // ---- (D2) `+0x4C` **不随回合重置**（灭自证对偶 ②）----
+        //  判据 `CardScript__OnTurnEnd.c:209-210`：回合末只清 `+0x48` / `+0x50`，**`+0x4c` 不在那里**。
+        {
+            var ctx = ProbeBattle(new CardDef[0], new CardDef[0]);
+            var u = Place(ctx, 0, 1, Unit("E4_turn", 1, 1, 5));
+            u.ActiveAbilityUsed = true;
+            u.UsedActiveAbilityThisTurn = true;
+            u.DutyUsed = true;
+            u.RefreshForNewTurn();          // = `RuleCore.BeginTurn` 对**本回合行动方**每个在场单位做的事
+            CheckTrue(!u.UsedActiveAbilityThisTurn,
+                      "★ B · 回合开始：**按回合清**的那一位被清了（这一条同时是下一条的前提，⛔ 别写成 if）");
+            CheckTrue(u.ActiveAbilityUsed,
+                      "★ B · …而 `+0x4c`（**本局一次**）**没被清**"
+                    + "｜🧨 顺手在 `RefreshForNewTurn` 里补一句 `ActiveAbilityUsed = false`（最自然的「对称修法」）"
+                    + " ⇒ 本行红；反过来删掉 `UsedActiveAbilityThisTurn = false` ⇒ 上一条红 —— "
+                    + "**同一个改动不可能把这两条一起弄绿**");
+            CheckTrue(u.DutyUsed,
+                      "（配套读数）`DutyUsed` 也不随回合清 —— 与 `TestAlternativeActions` ① 的 `ErrDutyUsed` 那条一致");
+
+            // 端到端：真的走完一整个来回（P0 → P1 → P0），而不是只调一次 `RefreshForNewTurn`
+            var ctx2 = Battle(new CardDef[0], new CardDef[0]);
+            ToP1Turn(ctx2, 1);
+            var u2 = Place(ctx2, 0, 1, Unit("E4_turnE2E", 1, 1, 5));
+            u2.ActiveAbilityUsed = true;
+            CheckTrue(u2.ActiveAbilityUsed, "（前提）推进前它是真");
+            PassTurn(ctx2); PassTurn(ctx2);
+            CheckTrue(u2.ActiveAbilityUsed,
+                      "★ B · 真的推进了一整个来回（`BeginTurn` → `EndTurn` → `BeginTurn`）⇒ `+0x4c` **仍然真**"
+                    + "｜🧨 把它挪进 `RefreshForNewTurn` ⇒ 本行红（上面那条单测会先变红，这条端到端的是同一根因的第二个口）");
+        }
+
+        // ---- (D3) 清零两处：**装填 duty** / **`ResetToValuesInHand`** ----
+        {
+            // ① 装填：`BattleManager__ResolveResetDuty.c:6` ⇒ 我们 `EffectResolver.DoReloadDuty`
+            var reload = Tactic("E4_ReloadDuty", 3, "Reload the Duty abilities of all your units");
+            var dutyCard = new CardDef("E4_DutyUnit", "E4_DutyUnit", "unit", "", "common", "Test",
+                                       2, 3, 5, 0, new[] { "Duty" }, subtype: "Infantry");
+            var ctx = ProbeBattle(new[] { reload }, new[] { Unit("E4_EFoe", 1, 0, 9) });
+            ToP1Turn(ctx, 2);
+            var u = Place(ctx, 0, 3, dutyCard, exhausted: true);
+            u.ActiveAbilityUsed = true;
+            u.DutyUsed = true;
+            CheckTrue(u.ActiveAbilityUsed && u.DutyUsed, "（前提）装填前两个位都是真");
+            CheckCode(RuleCore.PlayTactic(ctx, 0, HandIdx(ctx, 0, "E4_ReloadDuty"), -1), RuleCodes.OK,
+                      "打出 `Reload the Duty abilities of all your units`");
+            CheckTrue(!u.DutyUsed, "（既有口径）装填把 `DutyUsed` 复位了");
+            CheckTrue(!u.ActiveAbilityUsed,
+                      "★ B · **装填也清 `+0x4c`** —— 原版那一条方法里 `usedActiveAbility` 与 duty 位一起写 0"
+                    + "（判据 `BattleManager__ResolveResetDuty.c:6`）"
+                    + "｜🧨 只在 `DutyUsed` 那条 `continue` **之后**清（带 duty 的单位会被整条跳过）⇒ 本行红");
+
+            // ② 变形回手牌：`CardScript__ResetToValuesInHand.c:131`
+            var u2 = Place(ctx, 0, 5, Unit("E4_Reset", 1, 1, 5));
+            u2.ActiveAbilityUsed = true;
+            u2.UsedActiveAbilityThisTurn = true;
+            CheckTrue(u2.ActiveAbilityUsed, "（前提）重置前它是真");
+            u2.ResetToValuesInHand(clearBacklash: false);
+            CheckTrue(!u2.ActiveAbilityUsed,
+                      "★ B · `ResetToValuesInHand` 把 `+0x4c` 清掉 —— 判据 `CardScript__ResetToValuesInHand.c:131`"
+                    + "（同一条方法里 `+0x4c` 与 `+0x50` **一起**清）"
+                    + "｜🧨 只清 `+0x50` 那一族、漏掉 `+0x4c` ⇒ 本行红（变过形的单位会「本局再也用不了主动能力」）");
+        }
+
+        // ---- (D4) **`pray` 不置** `+0x4c`，而 agenda/duty/ferocity/oath 都置（灭自证对偶 ③）----
+        //  判据 `CardScript__UsedActiveAbility.c:29/34/41/50` 只在 duty / oath / ferocity / agenda 四支里写；
+        //  `pray` 走 `BattleManager__ResolveTriggerPray.c` 那条链，那个文件里 `+0x4c` **0 命中**。
+        {
+            var prayCard = new CardDef("E4_PrayUnit", "E4_PrayUnit", "unit", "Pray: Gain +1 Health",
+                                       "common", "Test", 1, 1, 9, 0, new[] { "Pray" }, subtype: "Infantry");
+            var ctx = Battle(new[] { prayCard }, new[] { Unit("X", 1, 1, 5) });
+            ToP1Turn(ctx, 1);
+            var p = Place(ctx, 0, 3, prayCard, exhausted: true);
+            p.Exhausted = false;      // 祈祷是「慢的」：部署当回合用不了（见 `TestAlternativeActions` ③）
+            CheckTrue(!p.ActiveAbilityUsed, "（前提）祈祷之前 `+0x4c` 是假");
+            CheckCode(RuleCore.UseAlternative(ctx, 0, 3, "pray"), RuleCodes.OK, "真祈祷一次");
+            Check(p.Health, 10,
+                  "（前提）祈祷的正文**真的结算了**（9 → 10）—— ⛔ 否则下面那条只是"
+                + "「压根没发动所以也没置位」的**假绿**");
+            CheckTrue(!p.ActiveAbilityUsed,
+                      "★ B · **`pray` 不置 `+0x4c`**"
+                    + "｜🧨 把 `UseAlternativeCore` 里 `u.ActiveAbilityUsed |= keyword != KeywordTable.Pray;`"
+                    + "写成无条件 `= true` ⇒ 本行红");
+            CheckTrue(p.UsedActiveAbilityThisTurn,
+                      "（配套读数）**按回合的那一位照样置真** —— 两位口径不同，才说明 `|=` 那一句不是白写的");
+
+            // 对偶的另一半：`agenda` 走**同一个入口**，必须置真
+            var agCard = new CardDef("E4_AgendaUnit", "E4_AgendaUnit", "unit", "Agenda: Gain +1 Attack",
+                                     "common", "Test", 1, 1, 9, 0, new[] { "Agenda" }, subtype: "Infantry");
+            var ctx2 = Battle(new[] { agCard }, new[] { Unit("X", 1, 1, 5) });
+            ToP1Turn(ctx2, 1);
+            var a = Place(ctx2, 0, 3, agCard);
+            a.Exhausted = false;
+            CheckTrue(!a.ActiveAbilityUsed, "（前提）议程序之前 `+0x4c` 是假");
+            CheckCode(RuleCore.UseAlternative(ctx2, 0, 3, "agenda"), RuleCodes.OK, "真用一次议程");
+            CheckTrue(a.ActiveAbilityUsed,
+                      "★ B · **`agenda` 置 `+0x4c`** —— 与上一条（`pray` 不置）构成**灭自证对偶③**："
+                    + "「一律置真」会让 `pray` 那条红、「一律不置」会让本条红，"
+                    + "**同一处 `|=` 不可能同时错向两边**"
+                    + "｜🧨 把那句 `|=` 删成什么都不做 ⇒ 本行红");
+        }
+
+        // ---- (D5) `targetsAffected` 短路闸：`ta ∈ 短路集合` ⇒ 结构化条件**不参与筛** ----
+        //  判据 `FilterMethods__CheckIfMeetsCriteria.c:57-157`（早返 switch）：`ta ∈
+        //  {0,20,30,40,70,80,140,200,201,235}` 在进 36 格之前就 `return` 了 ⇒ **走不到** `:298-303`
+        //  的第 ⑧ 步 ⇒ `conditionsFilter`/`excludeCondition` 在那一档是**死字段**。
+        //  唯一判定口 = `TargetCriteriaEval.ConditionIsDeadByTargetsAffected`（⛔ 别在这里再写一张数字表）。
+        {
+            var ctx = ProbeBattle(new CardDef[0], new CardDef[0]);
+            var taA = Place(ctx, 0, 1, Unit("E4_taA", 1, 1, 5)); taA.Health = 2;   // 已受伤
+            var taB = Place(ctx, 0, 2, Unit("E4_taB", 1, 1, 5)); taB.Health = 3;   // 已受伤
+            var taC = Place(ctx, 0, 3, Unit("E4_taC", 1, 1, 5));                   // 满血
+            CheckTrue(taA.Health < taA.MaxHealth && taB.Health < taB.MaxHealth && taC.Health == taC.MaxHealth,
+                      "（前提）A/B 已受伤、C 满血 —— 这正是 `cond=40 damaged` 的判别式");
+            var spec = new EffectTargetSpec
+            { Raw = "(夹具：己方全体部队)", Side = "own", Kind = "troop", Count = 0, Auto = true };
+            var condDamaged = new CardDef.ConditionSpec { Role = "target", Condition = 40, Exclude = false };
+            var condArmour = new CardDef.ConditionSpec { Role = "target", Condition = 244, Exclude = false };
+            var opTa30 = new EffectOp { TargetCriteriaSet = new CardDef.CountSetSpec { TargetsAffected = 30 } };
+            var opTa10 = new EffectOp { TargetCriteriaSet = new CardDef.CountSetSpec { TargetsAffected = 10 } };
+
+            // ① 正例：`ta=30`（短路集合）⇒ 条件不参与筛 ⇒ 三个全在
+            var gated = RuleCore.ResolveTargets(ctx, 0, spec, null, null, condDamaged, opTa30);
+            Check(gated.Count, 3,
+                  "★ A · `ta=30`（在短路集合里）⇒ 结构化条件 `cond=40` **不参与筛** ⇒ 三个友方**全在**"
+                + "｜🧨 把 `CondDeadByTa` 那一句删掉（= 2026-10-27 之前）⇒ 只剩 2 个 —— "
+                + "那正是 `BL64 Murderous Desires` 打不出去（`ErrNoTargetAvailable`）的病灶");
+
+            // ② 反例（对偶 ④ 的另一半）：`ta=10`（表外）⇒ 照旧筛
+            var filtered = RuleCore.ResolveTargets(ctx, 0, spec, null, null, condDamaged, opTa10);
+            Check(filtered.Count, 2,
+                  "★ A（反例）· 同一条 `cond=40`、只把 `ta` 换成**表外**的 10 ⇒ **照旧筛** ⇒ 只剩 2 个"
+                + "｜🧨 闸写成「无条件跳过」⇒ 本行变 3；与上一条**同一次改动不可能同时弄绿**");
+            CheckTrue(filtered.Contains(taA) && filtered.Contains(taB) && !filtered.Contains(taC),
+                      "★ …而且筛掉的正是**满血**那个（不是「筛掉了另外两个」）");
+
+            // ③ 第二种形状：换一条会把池筛空的 cond —— 短路档「池不空」、表外档「池空」
+            var gated2 = RuleCore.ResolveTargets(ctx, 0, spec, null, null, condArmour, opTa30);
+            Check(gated2.Count, 3,
+                  "★ A · `ta=30` + `cond=244 hasArmour`（这三个都不带护甲）⇒ 池**没被筛空**"
+                + "｜🧨 漏掉短路闸 ⇒ 0（这就是「死字段筛活池」最刺眼的形状）");
+            var filtered2 = RuleCore.ResolveTargets(ctx, 0, spec, null, null, condArmour, opTa10);
+            Check(filtered2.Count, 0,
+                  "★ A · 同一条 `cond=244`、`ta=10` ⇒ 池**被筛空**（0）—— 与上一条是同一个对偶的第二种形状"
+                + "｜🧨 把 `ConditionIsDeadByTargetsAffected` 改成「恒真」⇒ 本行变 3");
+
+            // ④ `ta=30` 的语义**说清**：它在 `TargetCriteriaEval` 里 = 「候选 == targetCard」单一比较
+            var set30 = new CardDef.CountSetSpec { TargetsAffected = 30 };
+            string gap30;
+            CheckTrue(TargetCriteriaEval.Matches(ctx, 0, set30, taA, null, null, taA, out gap30) == true
+                   && TargetCriteriaEval.Matches(ctx, 0, set30, taB, null, null, taA, out gap30) == false,
+                      "★ A · `ta=30` 在 `TargetCriteriaEval` 里就是**「候选 == targetCard」**"
+                    + "（原版 `CheckIfMeetsCriteria.c:76-91`：比完身份**直接 `return`**，不再走 36 格）："
+                    + "点着 A ⇒ A 真、B 假"
+                    + "｜🧨 把 30 并进 90（身份相符后继续走常规格）⇒ 这一对里的 `true` 会变");
+            CheckTrue(TargetCriteriaEval.Matches(ctx, 0, set30, taA, null, null, null, out gap30) == null,
+                      "★ A · **没点选目标时它判不了（`null`）** ⇒ 上面 `gated == 3` 里**还叠着**"
+                    + "「`ApplyTargetCriteriaFilter` 遇 `null` ⇒ 整条不筛」这一层"
+                    + "（两处都放开才不筛）⇒ ⛔ 别把 `gated == 3` 单独读成「36 格也过了」");
+        }
+
+        // ---- (D6) 「判不了」两档 —— ⛔ 两件事别混 ----
+        //  ① `ta` 读不到（`op` 上没有 36 格 criteria）⇒ **闸门不生效**（`CondDeadByTa` 对 `Unknown` 返 false）
+        //     ⇒ **照旧筛**（= 维持旧行为），但**必须出声**；
+        //  ② `cond` **本身**判不了 ⇒ `ApplyStructuredConditionFilter` **整条不筛**（池保持原样）。
+        //  🔴 报告 §A 的「判不了 ⇒ **不闸** + 出声」指的是 ① 里的「**不加这道闸**」，
+        //     ⛔ 它**不是**「放行整个池子」（那是把 `Unknown` 当死字段，与本条正好相反）。
+        {
+            // 出声的口：`StructuredConditionNotice` 把去重键塞进 `_structuredConditionNotices`（私有静态表）。
+            // ⚠️ 本方法只证明「**出声那条路被走到了**」，⛔ 不等于「控制台真有一行」——
+            //    那一半由 `Debug.LogWarning` 保证（同一条语句里）。
+            int NoticeCount(string prefix)
+            {
+                var f = typeof(RuleCore).GetField("_structuredConditionNotices",
+                                                  BindingFlags.NonPublic | BindingFlags.Static);
+                var set = f != null ? f.GetValue(null) as HashSet<string> : null;
+                if (set == null) return -1;      // 字段改名/搬走 ⇒ -1 ⇒ 下面的断言**红**（⛔ 不是假绿）
+                int n = 0;
+                foreach (var k in set) if (k.StartsWith(prefix, StringComparison.Ordinal)) n++;
+                return n;
+            }
+
+            var ctx = ProbeBattle(new CardDef[0], new CardDef[0]);
+            var u1 = Place(ctx, 0, 1, Unit("E4_unkA", 1, 1, 5));
+            var u2 = Place(ctx, 0, 2, Unit("E4_unkB", 1, 1, 5));
+            var spec = new EffectTargetSpec
+            { Raw = "(夹具：己方全体部队)", Side = "own", Kind = "troop", Count = 0, Auto = true };
+
+            // ① `ta` 读不到：`op == null` ⇒ `TargetsAffectedOf` 返 `Unknown`
+            int before = NoticeCount("cond-ta-unknown|");
+            // `Ability/Logic` 只为了给去重键一个**本文件唯一**的形状（键 = `…|<role>|<ab>|<lg>|<cond>`）
+            var condArmourUnknownTa = new CardDef.ConditionSpec
+            { Role = "target", Condition = 244, Exclude = false, Ability = 71, Logic = 13 };
+            var noTa = RuleCore.ResolveTargets(ctx, 0, spec, null, null, condArmourUnknownTa, /*op*/ null);
+            Check(noTa.Count, 0,
+                  "★ A · `ta` **读不到** ⇒ 闸门**不生效** ⇒ **照旧筛** ⇒ `cond=244` 把两个候选都筛掉（0）"
+                + "（= 报告 §A「判不了 ⇒ 不闸」的真实口径：**不加这道闸**，⛔ 不是「放行整个池子」）"
+                + "｜🧨 把 `Unknown` 也当成短路集合的一员（`CondDeadByTa` 返 true）⇒ 本行变 2");
+            CheckTrue(NoticeCount("cond-ta-unknown|") > before,
+                      "★ A · 而且**出声**了：`StructuredConditionNotice` 的 `cond-ta-unknown|…` 落进了去重表"
+                    + "｜🧨 判不了时静默照旧筛（删掉那一句 `StructuredConditionNotice`）⇒ 本行红；"
+                    + "该字段改名 ⇒ 本行也红（`NoticeCount` 返 -1）—— ⛔ 不会静默变绿");
+
+            // ② `cond` 本身判不了：`110 protectedFromAttackDamage` 要施法者（这条链拿不到）
+            var cond110 = new CardDef.ConditionSpec { Role = "target", Condition = 110, Exclude = false };
+            var opTa10 = new EffectOp { TargetCriteriaSet = new CardDef.CountSetSpec { TargetsAffected = 10 } };
+            var unjudgeable = RuleCore.ResolveTargets(ctx, 0, spec, null, null, cond110, opTa10);
+            Check(unjudgeable.Count, 2,
+                  "★ A · 条件**本身**判不了 ⇒ **整条不筛** ⇒ 两个候选都在（⛔ 不空池、⛔ 不当成「不成立」）"
+                + "｜🧨 判不了时改成「全排除」⇒ 本行变 0。"
+                + "⚠️ 本行必须与上一条 `noTa == 0` **对读**：同样是「判不了」，两档的结论正好相反"
+                + "（`ta` 判不了 = 照旧筛；`cond` 判不了 = 整条不筛）");
         }
     }
 }

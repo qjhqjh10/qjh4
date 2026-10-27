@@ -1037,9 +1037,10 @@ namespace CardPresentation
             //   （判据 = `menu_dump.py bundle_menus_assets_all "CardsTab" --depth 7 --no-layout` 现读：
             //    `Background` 1550.0,**91.4**→1870.0,**135.4**，高 44；同一批 `Counters`/四组/`Icon`/`Counter` 全是这两个 y）。
             //   节点名也按原版：`Wildcard Bg` → **`Background`**（全仓只有本行建它，⛔ 不留两套名字）。
-            Nine(wcDisplay, "40k_topmarquee_currency_display_BW",
+            var wcBg = Nine(wcDisplay, "40k_topmarquee_currency_display_BW",
                  new PxRect(1550f, 91.4f, 1870f, 135.4f), new Vector4(15f, 15f, 15f, 15f), QPagePanel,
                  new Color(0.462f, 0.462f, 0.462f, 1f), true, "Background", null, 44f, 39f);
+            BuildWildcardShine(wcBg);   // 账 `收藏:348`：原版这颗 `Background` 上还挂着 `UIEffect`(Shiny)+`UIEffectTweener`
             // `WIldcard Display ▸ Counters`（原版 1555,91.4→1870,135.4 · 315×44）—— 纯容器，孩子仍是绝对设计 px。
             var wcCounters = Node(wcDisplay, "Counters", new PxRect(1555f, 91.4f, 1870f, 135.4f));
             string[] wcIc = { "40k_general_wildcard_common_small", "40k_general_wildcard_rare_small",
@@ -6333,6 +6334,7 @@ namespace CardPresentation
         public override void Close()
         {
             PointerLayer.UnregisterDragsOwnedBy(gameObject);
+            UnhookWildcardUpdate();     // B9_W63WC：`Inventories.Wildcards` 是**静态**单例 ⇒ 不退订就被按着（原版 `OnDisable` 的 `Signal.Unregister`）
             base.Close();
         }
 
@@ -6402,6 +6404,160 @@ namespace CardPresentation
             var ts = UnityEngine.InputSystem.Touchscreen.current;
             return ts != null && ts.primaryTouch.press.isPressed;
         }
+
+        // ============================================================ 账 `收藏:348`：`WildcardDisplay` 的 Shiny 扫光
+        //
+        // 【原版怎么算（一手判据，⛔ 不是照截图猜）】
+        //   `WildcardDisplay.OnEnable`（`WildcardDisplay.cs:58-75` 的真体）：
+        //     `if (currentArmy != CardArmy.Neutral) { shinyEffect.Play(resetTime: true); SetCountersText(); }`
+        //   而 `shinyEffect` = 那颗 `UIEffectTweener`（`m_Duration 0.75` · 线性 0→1 · `m_WrapMode 0` = 播一次），
+        //   它驱动的 `UIEffect` 挂在 **`WIldcard Display ▸ Background`** 上，参数 = 120° / 0.25 / 0.5 / 白 / filter 6
+        //   （判据 = `报告/B9_W7COLL_收藏与卡面剩余C.md` §二·K-13 的现读表；**⛔ 不是账里那张 W64 表的
+        //    139/0.213/0.533/1.0 s/(2,2,2,1)** —— 那套属于 `Deck Editing Menu ▸ WIldcard Counter`，是另一个实例）。
+        //
+        // 【我们这边为什么这样接】
+        //   那颗 `Background` 是 `Nine(...)` 建的 **9 个子 quad**（不是一颗 uGUI Image），
+        //   而 shader 的掩码按**顶点世界位置**算（见 `Resources/Shaders/WildcardShine.shader` 文件头 ④）
+        //   ⇒ **9 块共用一份材质即可、掩码天然连续**（⛔ 不需要给每块算 uv 仿射）。
+        //   ⚠️ 别改成 `GetComponent<ImageQuad>()`：根节点自己没有 `ImageQuad`（`WildcardShineLayer.AttachNine`
+        //     内部用的是 `GetComponentsInChildren`）。
+        //
+        // 【播放时机】建页 = 原版 `OnEnable` 那一拍 ⇒ 每次 `BuildCardsPage` 播一次；
+        //   `SetWildcardArmy`（= `Initialize`）**不播**（原版 Initialize 也不播）。换页/换筛选会重建页 ⇒ 会再播。
+        /// <summary>本页那颗 `WIldcard Display ▸ Background` 的扫光层（没建出来 = null）。</summary>
+        WildcardShineLayer _wcShine;
+
+        /// <summary>建页时挂上一次（`BuildCardsPage` 里 `Nine(...)` 之后一句）。</summary>
+        void BuildWildcardShine(GameObject bgRoot)
+        {
+            _wcShine = null; _wcArmyAtShineBuild = _wcArmy;    // 上一次那颗已随页树销毁 ⇒ 反正会被 StepAll 回收；🔴 后半句 = 自检快照（闸**那一刻**读到的阵营，见 `WildcardArmyAtShineBuildForTest`）
+            HookWildcardUpdate();                             // 原版 `OnEnable` 的另一半：`Signal.Register<WildcardUpdateSignal>`（见 `OnWildcardsUpdated`）
+            if (bgRoot == null)
+            {
+                Debug.LogWarning("[Collection] `WIldcard Display ▸ Background` 没建出来 ⇒ 万能卡那圈的 **Shiny 扫光**"
+                               + "不会出现（原版 `WildcardDisplay.OnEnable` 的 `shinyEffect.Play`）。出声，不静默。");
+                return;
+            }
+            _wcShine = WildcardShineLayer.AttachNine(bgRoot.transform, WildcardShineLayer.Params.WildcardDisplay);
+            if (_wcShine == null)
+            {
+                Debug.LogWarning("[Collection] Shiny 扫光层建不出来（`CardPresentation/WildcardShine` 取不到？）"
+                               + " ⇒ 那颗 `Background` 保持原样（无扫光）。见 `报告/B9_W16SHINE_扫光统一.md`。");
+                return;
+            }
+            // 原版闸：`currentArmy != Neutral` 才播。我们的出厂阵营 = Ultramarines（`WcArmyDefault`）⇒ 恒真。
+            if (!ArmyIcons.IsNeutral(_wcArmy)) _wcShine.Play(true);
+        }
+
+        /// <summary>自检读口：扫光现在到哪儿了（0 = 带在起点 · 1 = 播完/不亮）；没建出来 ⇒ `-1`。</summary>
+        public float WildcardShineRate { get { return _wcShine != null ? _wcShine.Rate : -1f; } }
+
+        /// <summary>自检专用：确定性推进（批处理没有帧循环 ⇒ 那条 `PlayerLoop` 泵不跑）。</summary>
+        public void StepWildcardShineForTest(float dt)
+        {
+            if (_wcShine != null) _wcShine.Tick(dt);
+        }
+
+        /// <summary>自检读口：扫光**还在播**吗（Once 播完 ⇒ false；Loop 恒 true 直到关）。没建出来 ⇒ false。
+        /// <para>🔴 为什么要它：`Rate == 1` 有**两种**含义（「刚建好还没播」之外的「已播完」），
+        /// 只看 `Rate` 分不出「没播」与「播完了」—— 断 `Neutral ⇒ 不播` 那一条必须两个一起看。</para></summary>
+        public bool WildcardShinePlayingForTest { get { return _wcShine != null && _wcShine.Playing; } }
+
+        /// <summary>自检专用：把徽记阵营置成 <paramref name="army"/> 再**重建 Cards 页**（= 重跑原版
+        /// `WildcardDisplay.OnEnable` 那一拍）—— 用来断 `currentArmy != CardArmy.Neutral` 那道闸。
+        /// <para>🔴 ⛔ 生产别调：它会重建整页（丢卡格池）。为什么不走 <see cref="SetWildcardArmy"/>：
+        /// 那条对 `Neutral` 会「阵营认不出 ⇒ 保留当前那张」直接 return（`ArmyIcons.IconName(0)` = null），
+        /// 压根到不了 `_wcArmy` 那一句。</para></summary>
+        public void RebuildCardsPageWithArmyForTest(int army)
+        {
+            _wcArmy = army;
+            RebuildCardsPage();
+        }
+
+        // ============================================================ 万能卡库存变动 ⇒ 重播扫光（原版 `WildcardDisplay.UpdateCounters`）
+        //
+        // 【原版（🥇 机器码真体，⛔ 不是照截图/账推的）】
+        //   `d:/2/tools/decomp_full/WildcardDisplay__UpdateCounters.c`：
+        //     `if (shinyEffect(+0x48) != 0) { UIEffectTweener__Play(+0x48, 1, 0); SetCountersText(this, 0); }`
+        //     （`+0x48` 为空时原版走 `FUN_1803f47a0()` = **抛异常**支）
+        //   · 谁注册它：`WildcardDisplay__OnEnable.c` 三行 —— `Signal.Register<WildcardUpdateSignal>(…UpdateCounters)`
+        //     （`WildcardDisplay__OnDisable.c` 里 `Signal.Unregister` 同一支）⇒ 生命周期 = **计数条露着的时候**。
+        //   · 谁发信号：只有 `WildcardInventory__UpdateItemCollection.c`
+        //     （`base.UpdateItemCollection(); Signal.Raise(updateSignal);`）⇒ **万能卡库存重建完**那一拍。
+        //   ⇒ 语义 = 「库存变了 ⇒ 计数条**重播一次扫光** + 刷那 4 个数字」（与 `OnEnable` 那一拍同形）。
+        //
+        // 【为什么账里那条 D 不成立（B9_W63WC 现查）】`账/收藏.tsv` 把 `UpdateCounters` 判 D、理由写的是
+        //   「信号回调本地可做吗」—— **本地可做**：`Shell/Inventory.cs` 的 `WildcardInventory` 已经把
+        //   `Signal.Raise(updateSignal)` 落成 `Updated` 事件（同一个类、同一句），订阅方零成本。
+        //   铁律 11 只允许两种「不做」：原版没有 / 用户拍板 ⇒ 本条**都不属于** ⇒ 改 C 并已做掉（本段）。
+        //
+        // 【我们这一侧】扫光层 = `_wcShine`（参数复用 `Params.WildcardDisplay`，⛔ 别新造第三组参数）；
+        //   `_wcShine == null`（shader 取不到 / 页还没建）⇒ **什么也不做**（原版那一支会抛，我们不出声：
+        //   静默的是「这一层本来就没有」，不是「该播没播」—— 那两处 `Debug.LogWarning` 已经在建层时出过声）。
+        //   ⚠️ **`SetCountersText` 那一半不做**：那 4 个数字 2026-09-28 用户拍板恒定 `99`
+        //   （缺的是**发放源**，不是这一跳；见 `BuildCardsPage` 里那条注释）。
+        //
+        // ⚠️ 如实标注的两处偏差：
+        //   ① 订阅时机 = **建 Cards 页**（`BuildWildcardShine`）、退订 = **关窗**（`Close`）——
+        //      原版跟着计数条的 `activeSelf`（切到别的页签会 `OnDisable`）。可见差异 = **0**：
+        //      页藏着时播，画面上一帧都看不到（`rate` 到 1 即停），回来时也不会多扫一遍。
+        //      若要逐字对齐，落点 = `RefreshHighlights`（基类 `ChangeTab` 会调）按 `CurrentTab` 订/退 ——
+        //      本波**没接**（那会改动切页行为，需 `CollectionScene` 自检同时补断言）。
+        //   ② **发放源缺口（不在本文件）**：本工程唯一会动通配符库存的地方是
+        //      `Shell/CardDetailPopup.cs` 的 `CardProgress.TrySpendWildcard`（合成扣 1 张），它**不调**
+        //      `Inventories.Wildcards.UpdateItemCollection()` ⇒ **生产路径上这条信号今天不会响**。
+        //      改动请求 → `报告/B9_W63WC_万能卡计数扫光.md` §五·1。
+        //   ⚠️ 三个小方法在 `Deck/DeckRuntime.cs` 有一份**同形**实现（两个宿主吃同一条静态事件，
+        //      共用件 `Effects/UIEffectTogglerCoffeeEffects.cs` 本波有别的写手 ⇒ 不往那里收口）。
+        //   🔶 自己设计（非原版）：信号层用 C# `event`（原版 `Scaffold.Core.Events.Signal`）·
+        //      订阅点等价映射到「建页/关窗」那一拍 · 理由：我们没事件总线 · 调度台 2026-10-27 裁定
+        bool _wcSignalOn;
+
+        /// <summary>订阅 `WildcardInventory.Updated`（幂等：重复调不会挂两遍 —— 页会重建多次）。</summary>
+        void HookWildcardUpdate()
+        {
+            if (_wcSignalOn) return;
+            Inventories.Wildcards.Updated += OnWildcardsUpdated;
+            _wcSignalOn = true;
+        }
+
+        /// <summary>退订（幂等）。`Inventories.Wildcards` 是**静态**单例 ⇒ 不退订 = 窗销毁后还被它按着。</summary>
+        void UnhookWildcardUpdate()
+        {
+            if (!_wcSignalOn) return;
+            Inventories.Wildcards.Updated -= OnWildcardsUpdated;
+            _wcSignalOn = false;
+        }
+
+        /// <summary>`WildcardUpdateSignal` 那一跳 = 原版 `WildcardDisplay.UpdateCounters`。</summary>
+        void OnWildcardsUpdated()
+        {
+            if (_wcShine == null) return;      // 这一页没挂扫光 ⇒ 无画面可播（见上面「我们这一侧」那条）
+            _wcShine.Play(true);               // 原版 `UIEffectTweener.Play(_, 1, 0)` = `Play(resetTime: true)`
+        }
+
+        /// <summary>自检读口：`Updated` 订着吗（原版 = `Signal` 注册着）。关窗后必须 false。</summary>
+        public bool WildcardSignalHookedForTest { get { return _wcSignalOn; } }
+
+        /// <summary>自检用：把那条信号**从本机现有入口**发一次（= 原版 `WildcardInventory.UpdateItemCollection`
+        /// 里那句 `Signal.Raise`；⛔ 不伪造第二套信号）。⚠️ 本工程的 `Wildcards` 背包**还没有条目**
+        /// （见 `Shell/Inventory.cs` 里 `Wildcards` 那一段），所以它只发信号、不改任何数量 —— 正好是自检要的。</summary>
+        public void RaiseWildcardSignalForTest() { Inventories.Wildcards.UpdateItemCollection(); }
+
+        // ============================================================ 万能卡扫光闸「那一拍」的阵营快照（2026-10-27 · F1ASRT）
+        //
+        // 🔴 为什么要它（判据 → `资料/完全复刻/报告/D3_deck_rewards_collection.md` ②）：
+        //   重建链**尾部**那一句 `CheckFocusedArmy()` 会按 `WcRef` 命中的**第一格**重新算 `_wcArmy`
+        //   （原版 `CardCollectionDisplay.RefreshCollection` 末尾同一句 = **原版行为**，⛔ 不是缺陷）
+        //   ⇒ 重建**之后**读 `_wcArmy` 读到的是**重算过的另一个值**，拿它断「中性 ⇒ 不播」那道闸
+        //   会红在「读得太晚」上。**闸真正读到的是 `BuildWildcardShine` 那一刻的 `_wcArmy`。**
+        //   ⛔ 别改成「读重建之后的 `_wcArmy`」，也别把 `_wcArmy = army` 挪到 `RebuildCardsPage()` 之后
+        //   —— 那样断的是「我们刚写进去的那个值」，闸读到什么变成不可知（自证）。
+        /// <summary>`BuildWildcardShine` **那一刻**读到的 `_wcArmy`；`int.MinValue` = 一次都没跑到。
+        /// <para>⛔ 生产别读它：它是**历史快照**，不代表此刻的阵营（此刻的阵营读 `WildcardArmyForTest`）。</para></summary>
+        public int WildcardArmyAtShineBuildForTest { get { return _wcArmyAtShineBuild; } }
+
+        int _wcArmyAtShineBuild = int.MinValue;
     }
 
 }

@@ -55,6 +55,42 @@ ARENAS = ['battlearena1', 'battlearena2', 'battlearena3', 'battlearenaaeldari',
           'battlearenasororitas', 'battlearenaspacewolves', 'battlearenatauviorla']
 
 
+## 🆕 2026-10-27（B9_W45ARENA）`--check` 的**产物校验**（只读，不写盘）。
+#  原来这一族的 `--check` 是「只扫不写」（`if not check:` 才写）—— 盘上缺产物也恒 rc0，
+#  属「看着有 check、其实啥都没查」。口径照 `工具/import_original_art.py:1714-1721`：
+#  把**重算出来的内容**与盘上那份**逐字节比**；缺 = 缺产物 · 不一致 = 过期，末尾点名 + rc=1。
+def wf_check_artifact(dst, text, lack, stale):
+    if not os.path.isfile(dst):
+        lack.append(dst)
+        return
+    try:
+        old = io.open(dst, encoding='utf-8').read()
+    except Exception as e:
+        stale.append((dst, '读不出：%s' % e))
+        return
+    if old == text:
+        return
+    try:                     # 只差缩进/键序 ⇒ 语义一致，**不算过期**（`JsonUtility` 本来就不看键序）
+        if json.loads(old) == json.loads(text):
+            return
+    except Exception:
+        pass
+    stale.append((dst, '内容与重算结果不同'))
+
+
+def wf_report_artifacts(check, lack, stale, script):
+    """`--check` 收尾：有缺/过期就点名并让 main 返回 1。→ 该返回的 rc（无问题 = 0）。"""
+    if not check or not (lack or stale):
+        return 0
+    print('')
+    for p in lack:
+        print('  🔴 缺产物：%s' % p)
+    for p, why in stale:
+        print('  🔴 产物过期（%s）：%s' % (why, p))
+    print('  ⇒ 重跑一次 `python 工具/%s` 生成（`--check` 只读、不写盘）。' % script)
+    return 1
+
+
 def main():
     import UnityPy
     check = '--check' in sys.argv
@@ -137,6 +173,7 @@ def main():
 
     print('=== renderMode=4 的粒子网格 ===')
     bad = []
+    lack, stale = [], []
     for a, rows in result.items():
         clean = {}
         for go, pid, name in rows:
@@ -149,12 +186,24 @@ def main():
                 bad.append('%s/%s(pid=%s)' % (a, go, pid))
             print('  %-24s %-34s %-22s -> %-20s (%s)' % (a, go, pid, name or '**解析不出**', src))
         dst = os.path.join(ROOT, 'MyGame/Assets/WarpforgeArena1/arenas', a, a + '_psmesh.json')
-        if not check:
-            io.open(dst, 'w', encoding='utf-8', newline='\n').write(
-                json.dumps(clean, ensure_ascii=False, indent=1) + '\n')
-            print('  → 已写 %s（%d 条）' % (dst, len(clean)))
+        text = json.dumps(clean, ensure_ascii=False, indent=1) + '\n'
+        if check:
+            wf_check_artifact(dst, text, lack, stale)
+            continue
+        io.open(dst, 'w', encoding='utf-8', newline='\n').write(text)
+        print('  → 已写 %s（%d 条）' % (dst, len(clean)))
+    if check:
+        # 原版这一场**没有** renderMode=4 的粒子 ⇒ 不该有产物；盘上还留着就是**多余**
+        # （`ArenaBuilder` 会照旧表把粒子按 Mesh 画）。
+        for a in ARENAS:
+            if a in result:
+                continue
+            p = os.path.join(ROOT, 'MyGame/Assets/WarpforgeArena1/arenas', a, a + '_psmesh.json')
+            if os.path.isfile(p):
+                stale.append((p, '原版这一场没有 renderMode=4 的粒子 ⇒ 产物多余'))
     print(('🔴 解析不出：%s' % ', '.join(bad)) if bad else '✅ 全部解析出来了')
+    return wf_report_artifacts(check, lack, stale, 'gen_arena_psmesh.py')
 
 
 if __name__ == '__main__':
-    main()
+    sys.exit(main())

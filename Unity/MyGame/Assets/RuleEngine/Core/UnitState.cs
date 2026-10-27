@@ -745,15 +745,15 @@ namespace RuleEngine
 
         /// <summary>🆕 2026-09-29 **本回合激活过主动能力**（含技能 / 誓约 / 替代行动）—— 重置于回合开始。
         ///
-        /// 原版出处：`EntityScript.usedActiveAbility`（**字段偏移 `+0x4C`**，
-        /// `d:/2/tools/il2cpp_out/dump.cs` 的 `EntityScript` 段：`0x4C usedActiveAbility`、
-        /// `0x50 usedActiveAbilityTimesPerTurn`）。
-        /// 写入点 = `CardScript__ResolveActiveAbilityPlayed.c:31-32`（`+0x50` 每次 ++、`+0x4c` 置 1），
-        /// 清零 = `CardScript__OnTurnEnd.c:209` —— 与上面 `OathUsesThisTurn` **同一处**、同一条注释链。
+        /// 🔴🆕 **2026-10-27 就地订正（铁律 5 · 执行代理 `B9_W27ENG`）**：本段原来把这一位写成
+        /// 「原版 `EntityScript.usedActiveAbility`，**偏移 `+0x4C`**，清零 = `CardScript__OnTurnEnd.c:209`」
+        /// —— **两句都错**（`+0x4C` 是**另一格**：**本局一次、不随回合重置**，见 <see cref="ActiveAbilityUsed"/>；
+        /// `OnTurnEnd.c:209-210` 清的是 `+0x48 attacksThisTurn` 与 `+0x50 usedActiveAbilityTimesPerTurn`）。
+        /// 本字段对应 **`+0x50` 那一族每回合计数位**的布尔化（「本回合已激活过」）—— 写入点仍是 `CardScript__ResolveActiveAbilityPlayed.c:31-32`（`+0x50` 每次 ++），清零 = `OnTurnEnd.c:209`。
         ///
-        /// 🔴 **谁在读它（这一位存在的唯一理由）**：`CardTraitDuty.IsActive(card)` ——
-        ///    `CardTraitDuty__IsActive.c:19` 就是 `return *(char *)(param_2 + 0x4c) == 0;`
-        ///    ⇒ **单位本回合用过主动能力之后，`Duty` 那个徽标要画成「未激活」（灰化）**。
+        /// ✅ **2026-10-27（`B9_W49BDR3`）已改完**：`CardPresentation/Battle/BattleDriver.cs:27866` 画 `Duty` 徽标
+        ///    已改读 `!u.ActiveAbilityUsed`（原版 `CardTraitDuty__IsActive.c:19` 读的是 `+0x4C`，不是这一位）。
+        ///    ⇒ 本字段**今天没有任何表现层/规则消费者**（剩下的读点只有引擎写入、清零与自检）。
         ///    `CardTraitOath.IsActive` 是另一条判据（`CardScript.CanUseOathAbility`），见 `Badges.For`。
         /// ⚠️ **别拿 `Exhausted` 顶替** —— 攻击也会置 `Exhausted`，而原版这里只认「主动能力」。
         /// </summary>
@@ -1657,6 +1657,17 @@ namespace RuleEngine
             /// ⚠️ 到期撤销 = **把这一格摘掉**（不是「减回去」）—— 见 <see cref="RevertBuffs"/>。
             /// </summary>
             public StatMod Mod;
+            /// <summary>
+            /// 🆕 **2026-10-27（B9 · S0-①）**：**限时关键词**在 <see cref="TraitEffects"/> 里的那条记录
+            /// （非关键词 / `val == 0` / `AddKeyword` 拒收时为 `null`）。
+            /// 判据 = 原版连限时那条也在 `activeEffects(+0x108)` 里留一条 `CardEffect`（五个 `until*` 位之一为真），
+            /// 而我们的限时路原来只 `AddKeyword`、不建记录 ⇒ 「一回合」的关键词在记录账里**没有来源**。
+            /// <para>⚠️ **到期必须一起收**：`RemoveKeyword` 只减关键词值，**不会**摘这条记录 ⇒
+            /// 三处撤法（<see cref="RevertBuffs"/> · <see cref="RemoveBuffsFromCard"/> ·
+            /// <see cref="RemoveAllAppliedEffectsForJam"/>）都要调 <see cref="ExpireTraitEffect"/>，
+            /// 否则会留下一本「到期了还在」的记录账（投影里那条会永远显示成「一回合」还挂着）。</para>
+            /// </summary>
+            public TraitEffectRecord TraitRec;
         }
 
         readonly List<TempBuff> _buffs = new List<TempBuff>();
@@ -1689,7 +1700,8 @@ namespace RuleEngine
                 bool due = atTurnEnd ? !b.UntilMyNextTurn : (b.UntilMyNextTurn && b.Owner == player);
                 if (!due) continue;
                 _buffs.RemoveAt(i);
-                if (b.IsKeyword) RemoveKeyword(b.Name, b.Value);
+                // 🆕 2026-10-27（B9 · S0-①）：关键词那条**记录**也要一起收（`RemoveKeyword` 只管值）。
+                if (b.IsKeyword) { RemoveKeyword(b.Name, b.Value); ExpireTraitEffect(b.TraitRec, b.Value); }
                 else
                 {
                     switch (b.Name)
@@ -1745,7 +1757,8 @@ namespace RuleEngine
                 var b = _buffs[i];
                 if (b == null || b.SourceCard != cardName) continue;
                 _buffs.RemoveAt(i);
-                if (b.IsKeyword) RemoveKeyword(b.Name, b.Value);
+                // 🆕 2026-10-27（B9 · S0-①）：同 `RevertBuffs` —— 关键词那条记录也一起收。
+                if (b.IsKeyword) { RemoveKeyword(b.Name, b.Value); ExpireTraitEffect(b.TraitRec, b.Value); }
                 else
                 {
                     switch (b.Name)
@@ -2222,7 +2235,8 @@ namespace RuleEngine
                 var b = _buffs[i];
                 _buffs.RemoveAt(i);
                 if (b == null) continue;
-                if (b.IsKeyword) { RemoveKeyword(b.Name, b.Value); }
+                // 🆕 2026-10-27（B9 · S0-①）：同 `RevertBuffs` —— 关键词那条记录也一起收。
+                if (b.IsKeyword) { RemoveKeyword(b.Name, b.Value); ExpireTraitEffect(b.TraitRec, b.Value); }
                 else
                 {
                     switch (b.Name)
@@ -2693,7 +2707,9 @@ namespace RuleEngine
 
             // ⑤ 每回合那几位
             AttacksThisTurn = 0;
-            UsedActiveAbilityThisTurn = false;
+            // 🔴🆕 2026-10-27（`B9_W27ENG`）：`ActiveAbilityUsed`（原版 `+0x4C`，**本局一次**）也在这一档清 ——
+            //   判据 `CardScript__ResetToValuesInHand.c:131`（原版那条方法里 `+0x4c` 与 `+0x50` 一起清）。
+            UsedActiveAbilityThisTurn = ActiveAbilityUsed = false;
             OathUsesThisTurn = 0;          // 原版 `+0x50 usedActiveAbilityTimesPerTurn`
 
             // ⑥ 摘 jam / stun / blind / stealth（`RemoveTraitSilently` ⇒ 不重算「能动/能攻击」）
@@ -3121,5 +3137,54 @@ namespace RuleEngine
             if (_recomputingAura) return;
             RuleCore.RecomputeActAndAttack(this);
         }
+
+        /// <summary>
+        /// 🆕 **2026-10-27（B9 · S0-①）**：**限时关键词到期时，把 <see cref="TraitEffectRecord"/> 那一笔扣掉。**
+        ///
+        /// <para>**为什么是「扣」而不是 <see cref="RemoveTraitEffect"/>**：那个口对应原版
+        /// `RemoveEffect`（按记录整条摘 + `RemoveTraitSilently`）—— 它会把**整条 trait 摘光**，
+        /// 而我们限时到期的语义是「只撤这一份的增量」（`RemoveKeyword(b.Name, b.Value)` 已经在做）。
+        /// 所以本方法**只动记录那一本账**、不碰 `_keywords`（两者分工与 `TempBuff.Mod` / `RemoveStatMod` 同形）。</para>
+        ///
+        /// <para>**为什么按 `value` 扣而不是整条删**：`add` 档合并语义下，两次同 `TimingBits` 的施加
+        /// 会并成**一条**记录（`traitValue = 两次之和`）⇒ 先到期那一份只能扣掉自己那一份；
+        /// 扣到 ≤ 0 才摘记录。`count` 档（`markOfChaos`）每次只 +1，所以扣 1。</para>
+        ///
+        /// <para>⚠️ **三处撤法都要调**（<see cref="RevertBuffs"/> · <see cref="RemoveBuffsFromCard"/> ·
+        /// <see cref="RemoveAllAppliedEffectsForJam"/>）—— 漏一处 = 那条记录永远留着（静默）。</para>
+        /// </summary>
+        public void ExpireTraitEffect(TraitEffectRecord rec, int value)
+        {
+            if (rec == null) return;
+            int n = (rec.StackType == TraitStackCount) ? 1 : (value > 0 ? value : 0);
+            rec.TraitValue -= n;
+            if (rec.TraitValue <= 0) _traitEffects.Remove(rec);
+        }
+
+        /// <summary>
+        /// 🆕 **2026-10-27（完全复刻批次 9 · 执行代理 `B9_W27ENG`）**：
+        /// **本【局】用过主动能力**（= 原版 `EntityScript.usedActiveAbility`，字段偏移 **`+0x4C`**）。
+        ///
+        /// <para>**与原版逐条对齐**（判据全文 → `资料/完全复刻/判据/cond341_canUseDuty_ex语义.md`）：</para>
+        /// <list type="bullet">
+        /// <item>**置位** = `CardScript__ResolveActiveAbilityPlayed.c:23-30`（`:36` `*(undefined1 *)(param_1 + 0x4c) = 1;`，
+        ///   闸只有 `hasActiveAbility(+0x220)`）⇒ **任何一次主动能力发动都置**：`duty` / `oath` / `ferocity` / `agenda`
+        ///   （四族在 `CardScript__UsedActiveAbility.c:29/34/41/50` **同一个方法**里分支）。</item>
+        /// <item>🔴 **`pray(1185)` 不置** —— 它走另一条 `ResolveTriggerPray`（`decomp_full/BattleManager__ResolveTriggerPray.c` 里 `+0x4c` **0 命中**）。</item>
+        /// <item>🔴 **不随回合重置**：`CardScript__OnTurnEnd.c:209-210` 只清 `+0x48 attacksThisTurn` 与 `+0x50 usedActiveAbilityTimesPerTurn`。
+        ///   ⛔ **别往 `RefreshForNewTurn` 里加清零**（那是 `+0x50` 那一族的位，不是这一位）。</item>
+        /// <item>**清零三处**：卡初始化（`CardScript__CardSetup.c:116-123`）· 变形回手牌（`CardScript__ResetToValuesInHand.c:131`；
+        ///   我们 = <see cref="ResetToValuesInHand"/>）· **装填 duty**（`BattleManager__ResolveResetDuty.c:6`，我们 = `EffectResolver.DoReloadDuty`）。</item>
+        /// </list>
+        ///
+        /// <para>**谁读它**：`ConditionEval` 的 `cond = 341 canUseDuty`（原版 `MeetsConditionCriteria.c:170-174` =
+        /// `*(char *)(param_1 + 0x4c) == '\0'`）；`+0x4c` 同时也是 `CardTraitDuty.IsActive`（`CardTraitDuty__IsActive.c:19`）
+        /// 与 `BattleManager.CanUseActiveAbility`（`BattleManager__CanUseActiveAbility.c:93-94`）读的那一位。</para>
+        ///
+        /// <para>🔴 **与 <see cref="DutyUsed"/> 的分工（⛔ 别合并）**：`DutyUsed` 兼着 `CanUseAlternative` 那道
+        /// 「职责本局一次」的闸（只对 `duty` 生效）；本字段是**四族共用**的原版状态位。
+        /// 与 <see cref="UsedActiveAbilityThisTurn"/> 的分工：那一位**每回合重置**（原版 `+0x50` 那一族），本字段不重置。</para>
+        /// </summary>
+        public bool ActiveAbilityUsed;
     }
 }

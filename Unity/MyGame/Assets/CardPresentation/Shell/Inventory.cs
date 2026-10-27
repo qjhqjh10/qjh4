@@ -1125,8 +1125,8 @@ namespace CardPresentation
         }
 
         // ⚠️ 原版还有 `GetOwnedCount<T>(LoadableReference<T>)` / `HasEnough<T>(LoadableReference<T>, int)` 两个重载 ——
-        //    它们只做一件事：`item.TargetId` → 转调 id 那一档。我们**没有 `LoadableRef<T>`**（`判据/泛型与启动链.md`
-        //    §三 #6 还没建）⇒ 这两个重载**不存在**，不是漏写。建了 `LoadableRef<T>` 之后各补三行即可。
+        //    它们只做一件事：`item.TargetId` → 转调 id 那一档。**2026-10-27 现读（B9_W7COLL）**：`Core/LoadableRef.cs`
+        //    已建，`HasEnough<T>(LoadableRef<T>, int)` 已补（本类类尾，账 `收藏:247`）；`GetOwnedCount<T>(LoadableRef<T>)` 仍没有（`收藏:244` 判 D）。
 
         /// <summary>原版 `TryGetItem&lt;T&gt;(string id, out IItemInfo&lt;T&gt;)`。</summary>
         public static bool TryGetItem<T>(string id, out ItemInfo<T> item) where T : class
@@ -1296,6 +1296,32 @@ namespace CardPresentation
             _raw = null;
             _virtualCurrencies = null;
             _finishedUnpack = false;
+        }
+
+        /// <summary>原版 `HasEnough&lt;T&gt;(LoadableReference&lt;T&gt; item, int amount)`（账 `收藏:247`）——
+        /// 只做一件事：拿 `item.TargetId` 转调 id 那一档，再比数量。
+        /// <para>判据：`cpp2il/out_cpp2il_dev_ilspy/InventoryManager.cs:1481-1501`；比较方向取同族真体
+        /// `decomp_full/InventoryManager__HasEnough_object_.c` 的末句 `return param_3 &lt;= iVar1;`（= `amount &lt;= owned`），
+        /// 与既有 `HasEnough&lt;T&gt;(T,int)` / `(string,int)` 的 `GetOwnedCount(...) &gt;= amount` 同向。
+        /// ⚠️ **`LoadableReference` 那一支的机器码产物没有单独导出**（只有 `object` / `Il2CppFullySharedGenericType`
+        /// 两份），所以「它和另外两支的比较式逐字相同」是**由同族两处一致性推来的**，不是直读 —— 如实记。</para>
+        /// <para>🔴 **`TargetId` 空 ⇒ 出声 + false**：`GetOwnedCount&lt;T&gt;("")` 返回 0，若照抄成
+        /// `0 &gt;= amount`，`amount == 0` 时会**静默 true**（「没填 id 就当成够」）—— 本项目红线，禁止。</para></summary>
+        public static bool HasEnough<T>(LoadableRef<T> item, int amount) where T : class
+        {
+            if (item == null)
+            {
+                Note("hasenough-ref:null", "`HasEnough<T>(LoadableRef<T>, int)` 收到 null 引用 ⇒ false（原版同一档会 NRE）");
+                return false;
+            }
+            string id = item.TargetId;
+            if (string.IsNullOrWhiteSpace(id))
+            {
+                Note("hasenough-ref:empty", "`HasEnough<T>(LoadableRef<T>, int)` 的 `TargetId` 是空 ⇒ false"
+                    + "（⛔ 不许静默 true：`GetOwnedCount(\"\")` 是 0，amount==0 时会看起来「够」）");
+                return false;
+            }
+            return GetOwnedCount<T>(id) >= amount;
         }
     }
 

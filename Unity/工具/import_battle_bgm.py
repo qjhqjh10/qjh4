@@ -234,8 +234,41 @@ def main():
         print(f"已拷 {copied} 首 · 已存在跳过 {skipped} 首 → {DST_AUDIO}")
         print(f"表已写：{DST_JSON}")
     else:
+        # 🔴 2026-10-27（执行代理 B9_W35CHECK）：`--check` 必须**连产物一起查** ——
+        #   原来这里只打「（--check：没有写盘）」；`have` 那行虽算了「要拷 N 首」却不点名、不报红。
+        #   判据同 工具/import_original_art.py `--only-altart`（`:1714-1721`）。
+        lack_json = None
+        if not os.path.exists(DST_JSON):
+            lack_json = f"{DST_JSON} 不存在"
+        else:
+            old = io.open(DST_JSON, encoding="utf-8", newline="").read()
+            if old != json.dumps(doc, ensure_ascii=False, indent=1):
+                lack_json = f"{DST_JSON} 已过期（与现生成不一致）"
+        lack_files = []
+        for c in uniq:
+            src = files.get(c)
+            if src is None:
+                continue          # 源里就没有 —— 上面已单独报过
+            ext = os.path.splitext(src)[1].lower()
+            dst = os.path.join(DST_AUDIO, c + ext)
+            if not os.path.exists(dst):
+                lack_files.append(c + ext)
+            elif os.path.getsize(dst) != os.path.getsize(src):
+                lack_files.append(c + ext + "（尺寸不符）")
+        if lack_json:
+            print("🔴 产物缺失/过期：" + lack_json)
+        if lack_files:
+            print(f"🔴 音频产物缺失 {len(lack_files)}/{len(uniq)} 首（{DST_AUDIO}）—— "
+                  f"重跑不带 --check 落盘：")
+            for b in lack_files[:50]:
+                print("   缺:", b)
+            if len(lack_files) > 50:
+                print(f"   …共 {len(lack_files)} 首")
+        if not lack_json and not lack_files:
+            print(f"✅ --check：产物齐全（表 {DST_JSON} · 音频 {len(uniq)} 首）")
         print("（--check：没有写盘）")
+        return 0 if (not lack_json and not lack_files) else 1
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())

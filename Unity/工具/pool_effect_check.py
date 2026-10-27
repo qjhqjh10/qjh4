@@ -720,13 +720,40 @@ def precise_match(fid, lg, lines, card_id, name_of):
     return None, ""
 
 
-def judge(row, main_row, bat_row, name_of, ctype, wake=None, picked=False, pick_none=False):
+def _is_self_cell_line(line, cid):
+    """这一行是不是**被测卡自己那一格**的变化（`✎ 改动 P0[2] <id> …` / `☠ 离场 …` / `✚ 落场 …`）。
+
+    🆕 `B9_W41S3B`（2026-10-27）：**`strip=` 那一档必须把它剔掉**。原因（本批实测的假阳性）：
+    对照局替身**少了被剥掉的那个关键词** ⇒ 它那张卡的**格位文字**与真卡不同
+    （`{armour1, unstable1}` vs `{armour1}`）⇒ 同一次掉血在 A 局与 B 局**逐字不同 ⇒ 不相消**
+    ⇒ 被测卡自己的每一次掉血/离场都会**假模假样地出现在净差里**（实测 `GOF10` 的 16 条净差里
+    前 4 条全是这个）。⛔ 那些行不能当「这一族生效了」的证据。
+    """
+    for pref in ("✎ 改动 ", "☠ 离场 ", "✚ 落场/生成 "):
+        if line.startswith(pref):
+            rest = line[len(pref):]
+            parts = rest.split(" ", 1)
+            if len(parts) < 2:
+                return False
+            after = parts[1]
+            left = after.split(" ", 1)[0]
+            right = ""
+            if "→" in after:
+                right = after.split("→", 1)[1].strip().split(" ", 1)[0]
+            return left == cid or right == cid
+    return False
+
+
+def judge(row, main_row, bat_row, name_of, ctype, wake=None, picked=False, pick_none=False,
+          hero_row=None, sweep=None):
     """→ (判定, 期望, 实得, 备注)
 
     🆕 `P3`：`wake = (dead, pick)` —— 调用方**已经把读数换成带 preset 的那一套**时传它，
     两条夹具闸（墓地空 / `ta=30` 落在单位上）随之失效。`None` = 基准夹具（一字节不变）。
     `picked` = 这一行真的**点定了一个目标**（dump 的 `pickTarget` 列非空）；
     `pick_none` = 走了 `pick=1` 但**目标池是空的**（夹具里没有合法目标 ⇒ 仍算夹具闸）。
+    🆕 `B9_W41S3B`（2026-10-27）：`hero_row` = 这一行的 **`H|` 督军档电池行**（`preset hero=1`）；
+    `sweep` = 这一行实际读的是哪一套（`"sd"` / `"big"` / `None`），只用来把通道写进备注。
     """
     fid = row["ca"]
     trig = row["trigger"]
@@ -743,6 +770,35 @@ def judge(row, main_row, bat_row, name_of, ctype, wake=None, picked=False, pick_
     exp = expected_text(fid, row, name_of)
     if fid == 320 and row.get("fsigs"):
         exp = "延后结算（同卡 410 行的载荷）：" + ",".join(row["fsigs"])
+
+    # ── 通道 0（🆕 `B9_W41S3B`）：**督军档电池**（`preset hero=1` 的 `H|` 行）
+    #   判据 / 为什么督军要一条**新宿主** → 探针 `PresetSpec.HeroBattery` 与 `RunHeroBattery` 的整段注释。
+    #   一句话：督军既不能「打出」，原来的 `E|` 电池又只跑 `type=unit` ⇒ 这一整族结构性看不见。
+    #   ⚠️ 只有**拿到了这一行的 `H|` 读数**才走这里；拿不到 ⇒ 落到下面原来的闸（⛔ 不假装验过）。
+    if ctype == "hero" and hero_row is not None:
+        net = split_lines(hero_row[13])
+        steps = hero_row[7] or ""
+        pv, pgot = precise_match(fid, row["lg"], net, row["id"], name_of)
+        if pv == "对":
+            return "对", exp, "督军电池：" + pgot, "通道=督军电池"
+        if pv == "错":
+            # 🔴 **不判「错」**（本批实测的假缺陷：`DA75 Master Zacharial`）：督军电池这一趟
+            #   把**同一张卡的所有行**都跑了（打天赋卡 + 全套电池步 + 主动能力）⇒ 牌库/手牌/棋盘
+            #   上出现的卡**不能只归给这一行**（实测：`DA75` 的「牌库 +filler28」是它的
+            #   **主动能力**（`Agenda: 把手里一张牌放回牌库`）干的，与本行 `ca=270` 无关）。
+            #   ⇒ 归 K 族（同卡其它效果噪声），如实把看到的卡打出来、交人复核。
+            return ("未验到", exp, "督军电池：" + pgot,
+                    "同卡其它效果产生差异，无法归因（督军宿主同时跑了天赋/电池步/主动能力）")
+
+        hit = [t for t in observable(sigs) if t in Sig(net).tags]
+        if hit:
+            return ("对", exp, "督军电池净差命中（%s，共 %s 条）" % (",".join(hit), hero_row[10]),
+                    "通道=督军电池")
+        if net:
+            return ("未验到", exp, "督军电池净差 %s 条但无该族签名" % hero_row[10],
+                    "同卡其它效果产生差异，无法归因")
+        return ("未验到", exp, "督军电池净差 0 条",
+                "闸：督军电池没抬起这一行（steps: %s）" % steps[:90])
 
     # ── 通道 1：主档（trigger 0 = 打出即结算）
     if trig == 0:
@@ -858,12 +914,22 @@ def judge(row, main_row, bat_row, name_of, ctype, wake=None, picked=False, pick_
         return "未验到", exp, "", "闸：该卡没有电池行"
     net = split_lines(bat_row[13])
     steps = bat_row[7] or ""
+    # 🆕 `B9_W41S3B`（2026-10-27）：**自毁档要剔掉「被测卡自己那一格」的行**（见 `_is_self_cell_line`）——
+    #   那一档的对照局替身**少了被剥掉的关键词** ⇒ 同一事件在 A/B 两局的格位文字不同、不相消 ⇒
+    #   被测卡每次掉血都会**冒充**「这一族的签名」。⛔ 剔掉之后只剩「别的单位身上的变化」，那才是证据。
+    if sweep == "sd":
+        net = [l for l in net if not _is_self_cell_line(l, row["id"])]
     if trig is None:
         # activeAbility / alternativeAbility 行
         if net:
             return "对", exp, "电池净差 %s 条（净伤 %s）" % (bat_row[10], bat_row[11]), "通道=电池（未逐族归因）"
         return "未验到", exp, "电池净差 0 条", "闸：电池没抬起这张卡的主动能力（steps: %s）" % steps[:80]
-    if trig not in BATTERY_TRIG:
+    # 🆕 `B9_W41S3B`（2026-10-27）：**`81 Unstable` 走「自毁档」**（`sweep == "sd"`）——
+    #   它不是「电池抬不起来」，而是**默认电池从不杀被测单位**（+ 对照局带着 `unstable` 关键词
+    #   一起自爆 ⇒ 净差恒 0）。判据 → 探针 `PresetSpec.SelfDies` / `PresetSpec.StripKw`。
+    #   ⇒ 这一档**按正常电池档判**（下面那段），⚠️ 但必须**先确认读的真是自毁档**
+    #     （`sweep == "sd"`）；否则仍走原来那条「trigger 81 电池不触发」的闸（⛔ 不假装验过）。
+    if trig not in BATTERY_TRIG and not (sweep == "sd" and trig == 81):
         # 被动光环那一族（`20 WhileInPlay` / `240 WhileInPlayVariable`）电池不「触发」，
         #   但它在**打出那一拍**就重算了 ⇒ 回主档看签名（有就算对，没有仍算未验到）
         if main_row is not None and main_row[3] == "0":
@@ -873,18 +939,20 @@ def judge(row, main_row, bat_row, name_of, ctype, wake=None, picked=False, pick_
                 return ("对", exp, "主档命中被动签名（%s）" % ",".join(hit0),
                         "通道=主档（被动光环在打出那一拍生效）")
         return "未验到", exp, "", "闸：trigger %s(%s) 电池不触发" % (trig, TRIG.get(trig, "?"))
+    _ch = "电池（自毁档）" if sweep == "sd" else "电池"
     pv, pgot = precise_match(fid, row["lg"], net, row["id"], name_of)
     if pv == "对":
-        return "对", exp, "电池：" + pgot, "通道=电池"
+        return "对", exp, _ch + "：" + pgot, "通道=" + _ch
     if pv == "错":
-        return "错", exp, "电池：" + pgot, "电池里落/造的卡不在 unitsToSummon 里，且不同名"
+        return "错", exp, _ch + "：" + pgot, "电池里落/造的卡不在 unitsToSummon 里，且不同名"
     s = Sig(net)
     hit = [t for t in sigs if t in s.tags]
     if hit:
-        return "对", exp, "电池净差命中（%s，共 %s 条）" % (",".join(hit), bat_row[10]), "通道=电池"
+        return "对", exp, "电池净差命中（%s，共 %s 条）" % (",".join(hit), bat_row[10]), "通道=" + _ch
     if net:
         return "未验到", exp, "电池净差 %s 条但无该族签名" % bat_row[10], "同卡其它事件产生差异，无法归因"
-    return "未验到", exp, "电池净差 0 条", "闸：电池未抬起该事件（steps: %s）" % steps[:80]
+    return ("未验到", exp, "电池净差 0 条",
+            "闸：电池未抬起该事件（%ssteps: %s）" % ("自毁档 · " if sweep == "sd" else "", steps[:80]))
 
 
 def run_probe(cache):
@@ -924,6 +992,42 @@ def run_probe(cache):
                        cwd=ROOT, capture_output=True, text=True, encoding="utf-8", errors="replace")
     if r.returncode != 0:
         print("[run] preset(chip) 扫描 rc=%s（第三套读数可能不可信）" % r.returncode)
+        sys.stderr.write((r.stdout or "")[-2000:])
+    # 🆕 `B9_W41S3B`（2026-10-27）：**第四套** —— 多一个 `big=1`（P1 摆一个「0 攻 / 30 血」的靶子）。
+    #   治 C1 那一档：`steps` 里 `softAtk=skip(would-kill)` = 夹具那一发非致命攻击**结构上打不出去**。
+    #   ⚠️ 只在**读数说它 skip** 时才被 `main` 采纳（见那段分派注释）⇒ 不会污染别的行。
+    dump_pdbig = cache + "/all_dump_pdbig.tsv"
+    pf_pdbig = cache + "/all_pf_pdbig.txt"
+    print("[run] ruleprobe play all pf/dump preset dead=1,pick=1,chipenemy=1,big=1（第四套夹具）…")
+    r = subprocess.run(["bash", PROBE, "play", "all", "pf", pf_pdbig, "dump", dump_pdbig,
+                        "preset", "dead=1,pick=1,chipenemy=1,big=1"],
+                       cwd=ROOT, capture_output=True, text=True, encoding="utf-8", errors="replace")
+    if r.returncode != 0:
+        print("[run] preset(big) 扫描 rc=%s（第四套读数可能不可信）" % r.returncode)
+        sys.stderr.write((r.stdout or "")[-2000:])
+    # 🆕 `B9_W41S3B`：**第五套** —— `selfdies=1,strip=unstable`（电池末尾把被测单位打死 +
+    #   对照局剥掉 `unstable`）。治 D 族 **81 Unstable**（17 行）：那一族的触发在「本单位死亡」上，
+    #   而默认电池从不杀被测单位；且 `Unstable` 的效果在**关键词分支**里（不在 `desc`） ⇒
+    #   对照局若也带这个关键词，两局一起自爆、净差恒 0（`strip=` 的判据见探针 `PresetSpec.StripKw`）。
+    dump_pdsd = cache + "/all_dump_pdsd.tsv"
+    pf_pdsd = cache + "/all_pf_pdsd.txt"
+    print("[run] ruleprobe play all pf/dump preset dead=1,pick=1,chipenemy=1,selfdies=1,strip=unstable（第五套夹具）…")
+    r = subprocess.run(["bash", PROBE, "play", "all", "pf", pf_pdsd, "dump", dump_pdsd,
+                        "preset", "dead=1,pick=1,chipenemy=1,selfdies=1,strip=unstable"],
+                       cwd=ROOT, capture_output=True, text=True, encoding="utf-8", errors="replace")
+    if r.returncode != 0:
+        print("[run] preset(selfdies) 扫描 rc=%s（第五套读数可能不可信）" % r.returncode)
+        sys.stderr.write((r.stdout or "")[-2000:])
+    # 🆕 `B9_W41S3B`：**第六套** —— `hero=1`（督军档电池宿主；结果写在 pf 文件的 `H|` 段）。
+    #   A1 族（144 行 / 56 张）在本表里**整族**改读这一套（见 `main` 里那段分派注释）。
+    dump_hero = cache + "/all_dump_hero.tsv"
+    pf_hero = cache + "/all_pf_hero.txt"
+    print("[run] ruleprobe play all pf/dump preset hero=1（第六套夹具·督军档电池）…")
+    r = subprocess.run(["bash", PROBE, "play", "all", "pf", pf_hero, "dump", dump_hero,
+                        "preset", "hero=1"],
+                       cwd=ROOT, capture_output=True, text=True, encoding="utf-8", errors="replace")
+    if r.returncode != 0:
+        print("[run] preset(hero) 扫描 rc=%s（第六套读数可能不可信）" % r.returncode)
         sys.stderr.write((r.stdout or "")[-2000:])
     return dump, pf
 
@@ -965,7 +1069,7 @@ def load_probe_preset(cache, suffix="pd"):
     """
     dump = cache + "/all_dump_" + suffix + ".tsv"
     pf = cache + "/all_pf_" + suffix + ".txt"
-    main, bat = {}, {}
+    main, bat, hero = {}, {}, {}
     if os.path.exists(dump):
         rows = [l.rstrip("\n").split("\t") for l in io.open(dump, encoding="utf-8")]
         hdr = rows[0]
@@ -982,18 +1086,47 @@ def load_probe_preset(cache, suffix="pd"):
                 continue
             if r[0].startswith("E|"):
                 bat[r[0][2:]] = r
+            elif r[0].startswith("H|"):
+                # 🆕 `B9_W41S3B`（2026-10-27）：**督军档电池**行（`preset hero=1` 那一套；
+                #   列与 `E|` **逐列相同**，见探针 `PfECols`）。⛔ 别混进 `bat` —— 夹具不是同一套。
+                hero[r[0][2:]] = r
             else:
                 main.setdefault(r[0], {})["pf"] = r
-    return main, bat
+    return main, bat, hero
 
 
-def iter_rows(truth, engine_by_id):
-    """逐 (卡 × ability 行) 展开，去重（同卡同 trigger 同族同载荷的重复条目只留一条）。"""
+def iter_rows(truth, engine_by_id, stats=None):
+    """逐 (卡 × ability 行) 展开，去重（同卡同 trigger 同族同载荷的重复条目只留一条）。
+
+    🆕 `B9_W41S3B`（2026-10-27）：**分母 = 池内 1,128 张**（`cards_engine.json` 的 `count`），
+    ⛔ 不是 `cards_truth.json` 的 1,351 个 SO。判据（`B9_W32S3` 分族表 §三·1 现读）：
+      · **B1 同名重复 SO（100 个 id / 123 条未并行）** —— 这些 id 的**名字**在池内存在
+        （异画 / 重复 SO）；池内那张同名卡**在 truth 里也有自己的一行** ⇒ 本表**已经**会验它
+        ⇒ 这些重复 SO **不另立行**（它们没有任何读数：`play all` 只跑池内 1,128 张）。
+      · **B2 名字也不在池（123 个 id）** —— 战役 / 生成 / 环境卡，本来就不在构筑池 ⇒ 出表。
+    ⚠️ 这一步只改**分母**：⛔ 不是夹具缺口（原表把它们标成「该卡不在池内」的 228 行
+      = 分母口径问题，不是「引擎没实现」）。
+    ⚠️ 两条都**出声**（`stats` 交回给 `main` 打印）—— 静默丢行正是本仓红线。
+    """
+    if stats is None:
+        stats = {}
+    stats.setdefault("b1_cards", 0)
+    stats.setdefault("b2_cards", 0)
+    engine_by_name = {}
+    for k, v in engine_by_id.items():
+        engine_by_name.setdefault(v.get("name") or "", set()).add(k)
     out = []
     for c in truth["cards"]:
-        e = engine_by_id.get(c["id"]) or {}
-        # `"?"` = **池外卡**（`cards_engine.json` 里根本没有它）· `""` = 池内但 `type` 列为空
-        ctype = e.get("type") or ("?" if not e else "")
+        e = engine_by_id.get(c["id"])
+        if not e:
+            # 池外：同名（B1）⇒ 折到池内同名卡（不另立行）· 不同名（B2）⇒ 出表
+            if (c.get("name") or "") in engine_by_name:
+                stats["b1_cards"] += 1
+            else:
+                stats["b2_cards"] += 1
+            continue
+        # `""` = 池内但 `type` 列为空
+        ctype = e.get("type") or ""
         seen = set()
         for src in ("abilities", "activeAbility", "alternativeAbility"):
             v = c.get(src)
@@ -1055,16 +1188,25 @@ def main():
 
     # 🆕 `P3`：**第二套/第三套读数**（带 preset，见文件头）。⛔ 缺了不许静默退回 ——
     #   退回会把「夹具口径」重新算成「未验到」，数字会悄悄回到改前那一个。
-    mainr_pd, batr_pd = load_probe_preset(args.cache, "pd")
-    mainr_pd3, batr_pd3 = load_probe_preset(args.cache, "pd3")
+    mainr_pd, batr_pd, _ = load_probe_preset(args.cache, "pd")
+    mainr_pd3, batr_pd3, _ = load_probe_preset(args.cache, "pd3")
+    # 🆕 `B9_W41S3B`（2026-10-27）：**第四/五/六套**（见 `run_probe` 与 `main` 里那段分派注释）
+    mainr_big, batr_big, _ = load_probe_preset(args.cache, "pdbig")
+    mainr_sd, batr_sd, _ = load_probe_preset(args.cache, "pdsd")
+    mainr_h, batr_h, hero_map = load_probe_preset(args.cache, "hero")
     HAVE_PD = bool(mainr_pd)
     HAVE_PD3 = bool(mainr_pd3)
+    HAVE_BIG = bool(batr_big)
+    HAVE_SD = bool(batr_sd)
+    HAVE_HERO = bool(hero_map)
 
     only = set(int(x) for x in args.only.split(",") if x.strip()) if args.only else None
 
     fsigs = follow_sigs_by_card(truth)      # 🆕 `P3`：320 那一族的期望签名（同卡 410 行）
 
-    rows = iter_rows(truth, engine_by_id)
+    DENOM = {}
+    rows = iter_rows(truth, engine_by_id, DENOM)
+    ALL_ROWS = rows          # 分母（`--only` 过滤之前）——「族数」那一行用它
     if only:
         rows = [r for r in rows if r["ca"] in only]
 
@@ -1073,6 +1215,9 @@ def main():
     pd_rows = 0
     pd3_rows = 0
     pd_missing = 0
+    sd_rows = 0
+    big_rows = 0
+    hero_rows_n = 0
     for row in rows:
         _entry = mainr.get(row["id"]) or {}
         _d = _entry.get("dump")
@@ -1090,7 +1235,39 @@ def main():
         chip = use_chip(row)
         picked = False
         pick_none = False
-        if chip or any(wake):
+        # ================================================================
+        #  🆕 `B9_W41S3B`（2026-10-27）：**第四/第五/第六套读数**的分派
+        #  ================================================================
+        #   · `sd`（自毁档）—— `trigger == 81 (Unstable)`：那一族的触发挂在「本单位死亡」上，
+        #     而默认电池**从不杀被测单位** ⇒ 只能读带 `selfdies=1,strip=unstable` 的那一套
+        #     （`strip` 的判据见 `PresetSpec.StripKw`：`Unstable` 的效果在关键词分支里、
+        #      对照局若也带它 ⇒ 两局一起自爆 ⇒ 净差恒 0）。
+        #   · `big`（靶子档）—— 基准/第二/第三套里这一行的 `softAtk` 是 `skip(would-kill)`
+        #     （= 夹具那一发非致命攻击**结构上打不出去**）⇒ 只有带 `big=1` 那一套里它才真的开火。
+        #     ⚠️ 判据是**读数**（`steps` 列里那串字），⛔ 不是卡名单 —— 名单会过期。
+        #   · `hero`（督军档）—— `type=hero` 的行**整族**改读 `H|` 行（`preset hero=1`）。
+        use_sd = HAVE_SD and row["trigger"] == 81
+        #   ⚠️ `big` 的判据是**两段读数一起看**：① 基准那一套里 `softAtk=skip(would-kill)`（打不出去）
+        #     ② 第四套里**不再 skip**（靶子真的把那一发解锁了）。只满足 ① 而 ② 仍 skip ⇒ **不换读数**
+        #     —— 换了只会把「多摆了一个单位」的噪声引进净差（那一档 big 帮不上，就别动它）。
+        #   🔴 **只在「基准那一套给不出 `对`」时才让 big 顶上来**（本批实测踩过）：换夹具会改掉
+        #     「那两发攻击打谁」（P1 多了一个 30 血单位）⇒ 有 2 行（`SW26` / `TL37`）基准本来是 `对`、
+        #     换成 big 之后签名没了 ⇒ **换夹具把已有读数弄丢了**。⇒ big 只**加分**、不减分。
+        _bbig = batr_big.get(row["id"]) if HAVE_BIG else None
+        can_big = (not use_sd) and row["ctype"] == "unit" and _bbig is not None \
+            and "softAtk=skip(would-kill)" in ((b[7] if b else "") or "") \
+            and "softAtk=skip" not in ((_bbig[7] if _bbig else "") or "")
+        hero_row = None
+        if row["ctype"] == "hero" and HAVE_HERO:
+            hero_row = hero_map.get(row["id"])
+        if hero_row is not None:
+            hero_rows_n += 1
+        if use_sd:
+            _pe = (mainr_sd.get(row["id"]) or {}) if HAVE_SD else {}
+            m = _pe.get("pf") or m
+            b = batr_sd.get(row["id"]) or b
+            sd_rows += 1
+        elif chip or any(wake):
             if chip:
                 ok = HAVE_PD3
                 _pe = (mainr_pd3.get(row["id"]) or {}) if ok else {}
@@ -1120,8 +1297,21 @@ def main():
                 pd_missing += 1
                 wake = (False, False)
                 chip = False
+        _sweep = "sd" if use_sd else None
         verdict, exp, got, note = judge(row, m, b, name_of, row["ctype"], tuple(wake) + (chip,),
-                                        picked=picked, pick_none=pick_none)
+                                        picked=picked, pick_none=pick_none,
+                                        hero_row=hero_row, sweep=_sweep)
+        # 🆕 `B9_W41S3B`：**靶子档只加分、不减分** —— 基准那一套已经给不出 `对` 时，
+        #   再拿 `big=1` 那一套试一次；**只有它给出 `对` 才采纳**（⛔ 否则保留基准那一份读数，
+        #   免得「换个夹具把已有签名弄丢」，实测 `SW26`/`TL37` 两行就是这么丢的）。
+        if can_big and verdict != "对":
+            _peb = (mainr_big.get(row["id"]) or {}) if HAVE_BIG else {}
+            _vb, _eb, _gb, _nb = judge(row, _peb.get("pf") or m, _bbig, name_of, row["ctype"],
+                                       tuple(wake) + (chip,), picked=picked, pick_none=pick_none,
+                                       hero_row=hero_row, sweep="big")
+            if _vb == "对":
+                big_rows += 1
+                verdict, exp, got, note = _vb, _eb, _gb, _nb
         fname, fsem, sigs, src = FAM.get(row["ca"], ("?", "?", [], ""))
         out.append([
             row["id"], row["name"], row["faction"], row["ca"],
@@ -1165,8 +1355,18 @@ def main():
           % (pd_rows, "" if HAVE_PD else "  🔴 **第二套读数缺失** ⇒ 分派表回退了 %d 行（见 `--run`）" % pd_missing))
     print("    其中读第三套夹具（多一个 chipenemy=1）的行: %d%s"
           % (pd3_rows, "" if HAVE_PD3 else "  🔴 **第三套读数缺失** ⇒ 「damaged 目标」那一档仍按夹具闸处理"))
+    # 🆕 `B9_W41S3B`（2026-10-27）：第四/五/六套 —— ⛔ 缺了必须出声（静默回退 = 数字悄悄回到改前）
+    print("  读第四套夹具（…,big=1 靶子）的行: %d%s"
+          % (big_rows, "" if HAVE_BIG else "  🔴 **第四套读数缺失** ⇒ C1 那一档仍打 `softAtk=skip(would-kill)`"))
+    print("  读第五套夹具（…,selfdies=1,strip=unstable）的行: %d%s"
+          % (sd_rows, "" if HAVE_SD else "  🔴 **第五套读数缺失** ⇒ Unstable(81) 那 17 行仍按「电池不触发」"))
+    print("  读第六套夹具（hero=1 督军档电池）的行: %d%s"
+          % (hero_rows_n, "" if HAVE_HERO else "  🔴 **第六套读数缺失** ⇒ A1 那 144 行仍按「电池只覆盖 unit」"))
+    # 🆕 `B9_W41S3B`：**分母口径**（见 `iter_rows` 的 doc）—— ⛔ 静默丢行是红线
+    print("  分母：池外卡出表/不另立行 —— B1 同名重复 SO %d 个 id（折到池内同名卡）· B2 名字也不在池 %d 个 id"
+          % (DENOM.get("b1_cards", 0), DENOM.get("b2_cards", 0)))
     print("  族数（本表覆盖）: %d / 池内 %d" % (len(set(r[3] for r in out)),
-                                            len(set(r["ca"] for r in iter_rows(truth, engine_by_id)))))
+                                            len(set(r["ca"] for r in ALL_ROWS))))
     byfam = Counter((r[3], r[7]) for r in out)
     print("  判「错」的族: " + (", ".join("%s×%d" % (k[0], v) for k, v in byfam.items() if k[1] == "错") or "（无）"))
     print("  写出: " + args.out)

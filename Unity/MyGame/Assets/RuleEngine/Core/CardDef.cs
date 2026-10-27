@@ -45,7 +45,7 @@ namespace RuleEngine
     ///   恒为空（下面构造函数里那道 `if (FromOriginalPool)` 就是这件事）—— ⛔ 别再把它的条数
     ///    当成「有多少张原版卡的正文跑不了」（那个数在 `EffectText.WillRunOps` 那一路）。
     /// </summary>
-    public class CardDef : ICardProvider
+    public partial class CardDef : ICardProvider
     {
         // 用只读自动属性而不是字段 —— 接口成员是属性，字段实现不了（会报 CS0535）
 
@@ -6650,6 +6650,78 @@ namespace RuleEngine
                 return null;
             }
             return _cardType == CardTypeTactic && SpellType == SpellTypeTrap;
+        }
+
+        // ==========================================================================================
+        //  异画副本（Alternate Art）—— **卡表那一列的唯一读侧**（账 `HUD:92` / `HUD:93`）
+        // ==========================================================================================
+        //  判据链（逐条现读，⛔ 别按我们的 `#` 口径反推原版）：
+        //    · 原版 `RawCardScript.alternateArts : AlternateArtCard[]`（**+0x80**）是 **PPtr 数组**
+        //      （`d:/2/tools/il2cpp_out/dump.cs:23244-23310`）；每一条指向一个 `AlternateArtCard`，
+        //      那个对象才有 `uniqueId = "#HB_<原卡 id>"`。落到我们卡表那一列的过程见
+        //      `工具/gen_cards_engine.py` 的 `alt_ids_of`（7 条真值 = `数据/索引/altart_index.json`）。
+        //    · 那 7 条现读 = `#HB_AM2` / `#HB_BL34` / `#HB_DA1` / `#HB_SAU35` / `#HB_GOF28` /
+        //      `#HB_SW1` / `#HB_UM76`，宿主卡 **7 张全是督军**（`type == hero`）
+        //      ⇒ 今天它们只可能住在 `PlayerDeck.WarlordId`，不会出现在 `CardIds` 里。
+        //    · 卡表 `cards_engine.json.alternateArts` 现读 **1128 行全有这一列**、其中 **7 行非空**。
+        //      生成器契约（`gen_cards_engine.py:1193`）：**`[]` = 这张卡没有异画 · `null` = 整列缺席**。
+        //
+        //  【本格是干什么用的】把「任意 `#HB_<合法 id>` 都被接受」**收紧成「必须在卡表里」**的
+        //    **唯一判据**（<see cref="HasAlternateArt"/>）。卡组条目那个 `#` 前缀口径
+        //    （🔶 自己设计 · 调度台 2026-10-27 裁定）只写在 `RuleEngine/Core/DeckRules.cs` 的
+        //    `PlayerDeck` 类尾那段注里，⛔ 别在这里重述、也别在这里解析卡组条目。
+        //
+        //  ⚠️ **三态**（本仓既有口径，与 `UseOverDraw` / `Initiative` 那几列同一套）：
+        //    表里**列了**它 ⇒ 有；表里**明确没有**（`AlternateArtsKnown == true` 且没列）⇒ 没有；
+        //    表里**没有这一列**（旧表 / 夹具直接 `new CardDef(...)`）⇒ **判不了**
+        //    ⇒ 调用方**判不了就不许静默变严**（按「接受」处置，⛔ 别把「缺列」读成「没有异画」）。
+        //  🔴 与构造函数那 40 处账落点有关：所以本格走「构造后挂载」（`AttachAlternateArts`），
+        //    **不新增构造参数** —— 先例 = `AttachCardTraits` / `AttachKeywordId` /
+        //    `AttachEnchantTrait` / `AttachCardType`（`CardDatabase.Parse` 里那段 v31 注）。
+
+        /// <summary>这张卡在原版卡表里登记的异画副本 id（形如 `#HB_SW1`；空表 = 没有 / 未知）。
+        /// <para>🔴 **由 <see cref="CardDatabase.Parse"/> 建完卡之后置上**（同构造后挂载那一族）；
+        /// 夹具直接 `new CardDef(...)` 时是 `null` ⇒ 那是「**判不了**」，见 <see cref="AlternateArtsKnown"/>。</para></summary>
+        public IReadOnlyList<string> AlternateArts { get; private set; }
+
+        /// <summary>`cards_engine.json` 那一行**到底有没有 `alternateArts` 键**
+        /// （`false` = 整列缺席 = 旧表 ⇒ **判不了**；`true` + 空表 = **明确没有异画**）。
+        /// ⚠️ 生成器契约见上面那段注，⛔ 别把两者混成一档。</summary>
+        public bool AlternateArtsKnown { get; private set; }
+
+        /// <summary>构造后挂载那一族的口（`CardDatabase.Parse` 调；⛔ 别在别处调）。
+        /// <para><paramref name="ids"/> == `null` ⇒ 「这一列缺席」(= 判不了)；非 null（含空数组）⇒
+        /// 「表里**说了**」—— 见 <see cref="AlternateArtsKnown"/>。</para></summary>
+        public void AttachAlternateArts(IEnumerable<string> ids)
+        {
+            AlternateArtsKnown = ids != null;
+            var buf = new List<string>();
+            if (ids != null)
+                foreach (var s in ids) if (!string.IsNullOrEmpty(s)) buf.Add(s);
+            AlternateArts = buf;
+        }
+
+        /// <summary>「**这张卡有没有这一份异画**」—— 收紧后的唯一判据（「必须在卡表里」）。
+        /// <para><paramref name="altEntryId"/> 收两种写法：`#HB_SW1`（我们的卡组条目）与
+        /// `HB_SW1`（原版分享串里的克隆 id，判据 = `AlternateArtCard.GetIdForClonedCard()` =
+        /// `uniqueId.Replace("#","")`）。比较前**只去掉一个前导 `#`**，其余按序号逐字比。</para>
+        /// <para>⚠️ 这是「**整条克隆 id**」的比较，与 `PlayerDeck.AltArtBaseIdOf`（取最后一个 `_` 之后
+        /// ⇒ 原卡 id）**不是同一个变换** ⇒ ⛔ 别以为这里又造了一套「剥前缀」。</para>
+        /// <para>🔴 `AlternateArtsKnown == false`（旧表 / 夹具）⇒ **恒 `false`** —— 那个 `false` 的语义是
+        /// 「表里没写」，**不是**「这张卡没有异画」。要看「判不了」请先读 <see cref="AlternateArtsKnown"/>，
+        /// 两格合用的标准写法 = `c.AlternateArtsKnown &amp;&amp; !c.HasAlternateArt(id)`（= 收紧口径下「不合法」）。</para></summary>
+        public bool HasAlternateArt(string altEntryId)
+        {
+            if (string.IsNullOrEmpty(altEntryId) || AlternateArts == null) return false;
+            string want = altEntryId[0] == '#' ? altEntryId.Substring(1) : altEntryId;
+            for (int i = 0; i < AlternateArts.Count; i++)
+            {
+                string s = AlternateArts[i];
+                if (string.IsNullOrEmpty(s)) continue;
+                string have = s[0] == '#' ? s.Substring(1) : s;
+                if (string.CompareOrdinal(have, want) == 0) return true;
+            }
+            return false;
         }
 
     }

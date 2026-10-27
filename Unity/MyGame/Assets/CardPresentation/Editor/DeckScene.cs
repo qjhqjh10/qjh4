@@ -1339,6 +1339,43 @@ public static class DeckScene
                 }
             }
 
+            // 🆕 2026-10-27（执行代理 `W46ALTD`）：账 `HUD:92`/`HUD:93` 的**卡组层**自检 ——
+            //   异画副本进卡组（`PlayerDeck` 的 `#HB_<原卡 id>` 表示）。件 = `CardPresentation/Deck/DeckEditorState.cs`
+            //   的 `AltArtDeckSelfCheck`（**21 条断言 + 4 条前提硬检查**，含「这些异画 id 本身不在池里」「正例必须在表里」「负例必须明确没有」那几条**灭自证前提**），
+            //   本宿主只出 `check` 委托 + 卡池 + 查卡口（它自己建场景以外的东西一件都不建）。
+            //   判据 / 口径 → 那个类的 doc 与 `RuleEngine/Core/DeckRules.cs` 里 `PlayerDeck` 类尾那段注。
+            //   ⚠️ 它**不改任何状态、不建节点**，所以放在收尾（`int total`）之前不影响上面任何一节。
+            Section("状态：异画副本进卡组（`AltArtDeckSelfCheck` · 账 `HUD:92`/`HUD:93`）");
+            {
+                var poolAlt = CardDatabase.Load();
+                AltArtDeckSelfCheck.Run(
+                    (tag, ok, detail) => CheckTrue(ok, string.IsNullOrEmpty(detail) ? tag : tag + " —— " + detail),
+                    poolAlt, id => CardDatabase.FindById(poolAlt, id), "SW1");
+
+                // 卡表 `alternateArts` 那一列的读侧 = 收紧判据「**异画必须在卡表里**」（`HUD:92/93`）。
+                //   🔴 **两个方向各一条**：只断「有异画的卡认得出」挡不住**恒真桩**，只断「没异画的卡认不出」
+                //   挡不住**恒假桩** ⇒ 两条合起来才不可能被一个桩同时满足。
+                var altOwner = CardDatabase.FindById(poolAlt, "SW1");
+                var noAltCard = CardDatabase.FindById(poolAlt, "ASH83");
+                CheckTrue(altOwner != null && noAltCard != null,
+                          "（前提）卡池里有 `SW1`（表里列了异画）与 `ASH83`（表里没有异画）—— 下面两条反向断言都靠它们");
+                if (altOwner != null && noAltCard != null)
+                {
+                    CheckTrue(altOwner.AlternateArtsKnown
+                              && altOwner.HasAlternateArt("#HB_SW1") && altOwner.HasAlternateArt("HB_SW1"),
+                              "★ `CardDef.HasAlternateArt`：`SW1` 表里列了异画；`#HB_SW1`（我们的卡组条目）与 "
+                            + "`HB_SW1`（原版分享串的克隆 id）**两种写法都认**");
+                    CheckTrue(noAltCard.AlternateArtsKnown && !noAltCard.HasAlternateArt("#HB_" + noAltCard.Id),
+                              $"★ …`{noAltCard.Id}` 表里**明确没有**异画 ⇒ `HasAlternateArt` 为假"
+                            + "（⚠️ `AlternateArtsKnown` 必须同时是 true：**缺列 ≠ 没有**，缺列是「判不了」）");
+                    Func<string, CardDef> lkAlt = k => CardDatabase.FindById(poolAlt, k);
+                    CheckTrue(PlayerDeck.ResolveEntry("#HB_SW1", lkAlt, out _) != null
+                              && PlayerDeck.ResolveEntry("#HB_" + noAltCard.Id, lkAlt, out _) == null,
+                              "★ 收紧生效：`#HB_SW1` 解析得回原卡、`#HB_<没异画的卡>` **解析成 null**"
+                            + "｜🧨 去掉 `PlayerDeck.ResolveEntry` 里那条收紧 ⇒ 后半变真 ⇒ 本条红（🔴 收紧只在这一处；`CardDatabase.ResolveDeckEntry` 已退化成纯转发，⛔ 别拿它当判别式）");
+                }
+            }
+
             int total = _sink.Pass + _sink.Fail;
             if (_sink.Fail == 0) Debug.Log(P + $"=== 结束：{_sink.Pass}/{total} 全过 ✅ ===");
             else
@@ -7012,6 +7049,87 @@ public static class DeckScene
                 Check(DeckLibrary.Load().Current.CardIds.Count, keepIds.Count, "（收尾）盘上仍是满编");
             }
 
+            // ============================================================ 🆕 2026-10-27（`B9_W36SHINEA`）
+            //   账 `特效动画:455` 的**实例 F**：`Deck Editing Menu ▸ … ▸ Sidebar ▸ Footer ▸ Done` 的 **Shiny 扫光**。
+            //   原版 `DeckEditingWindow.UpdateDoneButton`：`valid ? controller.Toggle(true, 0.3f) + DOPunchScale
+            //   : controller.Toggle(false, 0.3f)` ⇒ **扫光 ⟺ 这副卡组合法**（与 `Done Highlight` / 保存闸**同一条**
+            //   `ValidateDeck`）；参数 = 120° / 0.25 / 0.5 / **(3.4822,3.4822,3.4822,1)** / filter 6 / **1.0 s** / **Loop**。
+            //   判据 → `资料/完全复刻/报告/B9_W16SHINE_扫光统一.md` §三·2 ＋ `报告/B9_W5COF_Coffee搬运.md` §2·5/§2·6。
+            //   🔴 前提三道各写一条硬断言（shader / 层 / 材质），⛔ 不写 `if (前提) Check(结论)`。
+            //   🧨 灭自证：① 「合法 ⇒ 开」与「不合法 ⇒ 关」**两条并排**（把 `FootShine` 写成恒开/恒关都只能对一半）；
+            //      ② Loop 那条走 **1.10 s 绕回 0.10**（若改 Once 会停在 1.00 ⇒ 红；若真没在动会停在 0.25 ⇒ 也红）；
+            //      ③ 颜色钉的是**原版那颗的 (3.4822…)**（套成白/别的实例的值 ⇒ 红）。
+            Section("B9 实例 F：`Footer ▸ Done` 的 Shiny 扫光（合法才扫 · Loop · 原版参数 · 材质不随开关跑掉）");
+            {
+                CheckTrue(Shader.Find("CardPresentation/WildcardShine") != null,
+                          "（前提·不静默）`CardPresentation/WildcardShine` 取得到（不在 `Resources/` ⇒ player 包里恒 null ⇒ 扫光永不出现）");
+                var doneNode = _rt.Root != null ? FindDeep(_rt.Root, "foot_done") : null;
+                var doneQuad = doneNode != null ? doneNode.GetComponent<ImageQuad>() : null;
+                CheckTrue(doneQuad != null, "（前提）`foot_done` 节点上挂着 `ImageQuad`");
+                var doneMr = doneQuad != null ? doneQuad.GetComponent<MeshRenderer>() : null;
+                var doneMat = doneMr != null ? doneMr.sharedMaterial : null;
+                bool onA; float rA = _rt.DoneShineRate(out onA);
+                CheckTrue(rA >= 0f,
+                          $"（前提·不静默）扫光层建出来了（`DoneShineRate` 现读 {rA:F3}；-1 = `WildcardShineLayer.AttachQuad` 返回 null）");
+                Check(_rt.State.Validate(), DeckError.None, "（前提）此刻这副牌**合法**（下面要断「合法 ⇒ 扫」）");
+                CheckTrue(onA, "★ 卡组**合法 ⇒ 扫光开着**（原版 `UpdateDoneButton` 的 `controller.Toggle(valid, …)`）");
+                CheckNear(rA, 0f, 1e-4f,
+                          $"★ 开的那一拍从 **0** 起（`Play(resetTime:true)`；现读 {rA:F4}）"
+                        + "｜🧨 删掉 `FootShine` 里那句 `Play(true)` ⇒ 停在初值 1 ⇒ 红");
+                // 材质身份 + 原版参数（⛔ 期望值不取自 `WildcardShineLayer.Params`）
+                CheckTrue(doneMat != null && doneMat.shader != null
+                          && doneMat.shader.name == "CardPresentation/WildcardShine",
+                          "★ `foot_done` 上挂的就是扫光材质（🧨 没挂上 / 被 `RefreshGray` 换回 `Sprites/Default` ⇒ 红）");
+                CheckTrue(doneMat != null && doneMat.HasProperty("_TransitionColor"),
+                          "（前提）扫光材质有 `_TransitionColor`（shader 编不过时 `HasProperty` 是 false）");
+                if (doneMat != null && doneMat.HasProperty("_TransitionColor"))
+                {
+                    var dc = doneMat.GetColor("_TransitionColor");
+                    CheckNear(dc.r, 3.4822f, 5e-3f, "★ 扫光色 r = **3.4822**（原版 `m_TransitionColor` —— 5 个实例里唯一不同的那个）");
+                    CheckNear(dc.g, 3.4822f, 5e-3f, "…… g = 3.4822");
+                    CheckNear(dc.b, 3.4822f, 5e-3f, "…… b = 3.4822");
+                    CheckNear(doneMat.GetFloat("_TransitionWidth"), 0.25f, 1e-5f, "★ 带宽 = 0.25（原版）");
+                    CheckNear(doneMat.GetFloat("_TransitionSoftness"), 0.5f, 1e-5f, "★ 软边 = 0.5（原版）");
+                    var drot = doneMat.GetVector("_ShineRot");
+                    CheckNear(drot.x, -0.5f, 2e-3f, "★ `_ShineRot.x` = cos(120°) = −0.5（原版 `m_TransitionRotation = 120`）");
+                    CheckNear(drot.y, 0.8660254f, 2e-3f, "★ `_ShineRot.y` = sin(120°) = 0.8660");
+                }
+                // Loop：1.0 s 那一档 —— 走满之后**绕回**（⛔ 不是停在 1 —— Once 那档才停）
+                WildcardShineLayer.StepAll(0.25f);
+                bool onB; float rB = _rt.DoneShineRate(out onB);
+                CheckNear(rB, 0.25f, 2e-3f, $"★ 推进 0.25 s ⇒ rate = **0.25**（时长 1.0 s 那一档；实得 {rB:F4}）");
+                WildcardShineLayer.StepAll(0.85f);
+                bool onC; float rC = _rt.DoneShineRate(out onC);
+                CheckNear(rC, 0.10f, 2e-3f,
+                          $"★ 再推进 0.85 s（累计 1.10 s）⇒ rate **绕回 0.10**（原版 `m_WrapMode 1 (Loop)` 一直扫；实得 {rC:F4}）"
+                        + "｜🧨 把 `Params.DoneButton` 的 `loop` 改 false ⇒ 停在 1.00 ⇒ 红；若无帧泵也没 `StepAll` ⇒ 停在 0.25 ⇒ 红");
+                CheckTrue(onC, "★ ……而且一直开着（Loop 不会自己停）");
+                // 不合法 ⇒ 关（与 `Done Highlight` 同一条判据）
+                var liveF = _rt.State.Deck;
+                string keepFirst = liveF.CardIds.Count > 0 ? liveF.CardIds[0] : null;
+                CheckTrue(keepFirst != null, "（前提·不静默）这副牌至少有一张卡可摘（不然下面那半断不了）");
+                if (keepFirst != null)
+                {
+                    liveF.CardIds.RemoveAt(0);
+                    _rt.UiScrollPool(0f);                    // 逼一次 `RefreshHeader()`（批处理没有帧循环）
+                    Check(_rt.State.Validate(), DeckError.TooFewCards, "（前提）摘掉一张 ⇒ 不合法");
+                    bool onOff; float rOff = _rt.DoneShineRate(out onOff);
+                    CheckTrue(!onOff, "★ 卡组**不合法 ⇒ 扫光关掉**（原版那一支 `Toggle(false, …)`）"
+                                    + "｜🧨 把 `FootShine(err == DeckError.None)` 改成恒 `true` ⇒ 本条红");
+                    CheckNear(rOff, 1f, 1e-4f, "★ ……而且 rate 立刻回 **1**（= 不亮；`SetEnabled(false)` 那一跳）");
+                    var doneMr2 = doneQuad != null ? doneQuad.GetComponent<MeshRenderer>() : null;
+                    CheckTrue(doneMr2 != null && ReferenceEquals(doneMr2.sharedMaterial, doneMat),
+                              "★ 关掉时**材质还在原位**（原版是 `Behaviour.enabled = false`；🧨 改成把图换掉/隐藏 ⇒ 红）");
+                    // 收尾：补回去 ⇒ 又开（反证闸不是恒关 —— 与上一条并排，结构上不可能同时满足「恒开/恒关」）
+                    liveF.CardIds.Insert(0, keepFirst);
+                    _rt.UiScrollPool(0f);
+                    Check(_rt.State.Validate(), DeckError.None, "（收尾）补回那张 ⇒ 又合法");
+                    bool onBack; float rBack = _rt.DoneShineRate(out onBack);
+                    CheckTrue(onBack, "★ （收尾）扫光**又开了**（闸不是恒关）");
+                    CheckNear(rBack, 0f, 1e-4f, "（收尾）重开又从 **0** 起");
+                }
+            }
+
             // ======== 🆕 2026-10-12（A364）：卡组不合法 ⇒ **模态消息窗**（原版 `PopUpGameWindow`）========
             //   判据（逐句 → `d:/2/tools/decomp_full/DeckEditingWindow__TrySaveDeck.c`）：
             //     `:81-98` 不合法 ⇒ 建两颗 `GameWindowButton`（左 `MainMenu/General/Discard` / 右
@@ -9709,6 +9827,11 @@ public static class DeckScene
             //   （脏标记 / 落盘 / ESC）在本方法前面已经跑完 ⇒ 不会互相干扰。
             Section("状态：加不进卡 ⇒ 屏幕错误横幅（原版 `UIMessageController.ShowError` · `卡组:325`）");
             TestAddErrorBanner();
+
+            // 🆕 2026-10-27（B9 · W6DECK · 账 `卡组:75` + `收藏:273`）：**卡组抽屉点开卡组详情** + **点击音**。
+            //   ⚠️ 放在最后：本节会现建一格抽屉，并在收尾把 `WindowsManager` 那套宿主拆掉（`DestroyPopupScaffold`）。
+            Section("状态：卡组抽屉点开卡组详情 + 点击音（原版 `DeckDrawer` · `卡组:75` / `收藏:273`）");
+            TestItemDrawerDeckClick();
         }
 
         /// <summary>比一张具名图的 px 中心/尺寸（容差 0.6px —— 坐标是我们自己换算的，不该有误差）。</summary>
@@ -10070,5 +10193,143 @@ public static class DeckScene
             rt.RefreshAll();
             MessageToast.DisposeForTest();
             CheckTrue(MessageToast.Instance == null, "★ （收尾）横幅拆掉了（`Instance` 归 null ⇒ 不会被存进场景）");
+        }
+
+        /// <summary>🆕 2026-10-27（B9 · W6DECK · 账 `卡组:75` + `收藏:273`）：**卡组抽屉点开卡组详情** + **点击音**。
+        ///
+        /// <para>**判据（逐条）**：`cpp2il/out_cpp2il_dev_ilspy/DeckDrawer.cs:17-28` +
+        /// `decomp_full/DeckDrawer__HandlePointerClick.c` 那句
+        /// `DeckInfoContext___ctor(ctx, deck, **2**, 0, uVar1, 0, 0)`，其中 `uVar1 = *(param_1 + 0x70)` =
+        /// `[SerializeField] bool shouldCheckOwnership = true`（`DeckDrawer.cs:15`）；
+        /// 音效那条 = `out_cpp2il_dev_ilspy/ItemDrawer.cs:917-951` 末句 `inspectSound.Play2D()`
+        /// （cue `ButtonClick 1` → clip `UI Click 1`）。</para>
+        ///
+        /// <para>🔴 **这一格在真实游戏里还看不见**：本地 225 个 `PrebuiltDeck` 里**没有任何商店/奖励 SO
+        /// 以 `ObtainableItem` 形式发放它**（原版走远端目录）⇒ 本节**自己造**一格抽屉来验（施工单要求）。
+        /// 时间限定 = 本 build。</para>
+        ///
+        /// <para>🧨 **灭自证**：① 删掉 `ItemDrawerView.HandlePointerClick` 里新增的 `DeckClick()` 那半句
+        /// ⇒ 第二条红（开出来的是**物品**详情窗，`LastDeckInfo` 仍为 null）；② 把 `ShowDeckInfo` 改成
+        /// `CreateForPicked` ⇒「没有 `Select Deck`」那条红；③ 删掉 `IsPlayerDeck = false` ⇒ 第三条红；
+        /// ④ 把 `PlayInspectCue` 改回只出声 ⇒ 音效那条红。</para></summary>
+        static void TestItemDrawerDeckClick()
+        {
+            // ---- ① `收藏:273`：那一声的**资产前提**（cue 在表里 + clip 真的在 `Resources/` 里）----
+            CheckTrue(WarpforgeVFX.WFSoundBank.HasCue(WindowSounds.ButtonClick1Cue),
+                      "★ 抽屉点击音那条 cue 在表里（`" + WindowSounds.ButtonClick1Cue + "`）"
+                    + "｜🧨 `EXTRA_CUES` 少收这一条 ⇒ 表里没有它 ⇒ 本条红");
+            WarpforgeVFX.WFSoundCue cue;
+            if (WarpforgeVFX.WFSoundBank.TryGetCue(WindowSounds.ButtonClick1Cue, out cue) && cue != null)
+                CheckTrue(cue.clips != null && Array.IndexOf(cue.clips, "UI Click 1") >= 0,
+                          "★ …它的 clip = `UI Click 1`（原版 AudioCue 的 `clipList` 只有这一条；"
+                        + "实测 " + (cue.clips == null ? "<null>" : string.Join(",", cue.clips)) + "）");
+            CheckTrue(WarpforgeVFX.WFSoundBank.Clip("UI Click 1") != null,
+                      "★ …`UI Click 1.wav` 真在 `Resources/Art/audio/sfx/` 里加载得出来"
+                    + "｜🧨 删掉那个 wav ⇒ 只能退回「出声说明、不播」⇒ 本条红");
+
+            // ---- ② 夹具：造一格**预组卡组**抽屉（`PrebuiltDeck → DeckDrawer` 走真表那一跳）----
+            var all = PrebuiltDecks.All;
+            CheckTrue(all != null && all.Count > 0, "（前提）`PrebuiltDecks.All` 里有预组卡组（夹具要用一副真预组）");
+            if (all == null || all.Count == 0) return;
+            PrebuiltDecks.Deck deck = null;
+            for (int i = 0; i < all.Count; i++) if (all[i] != null) { deck = all[i]; break; }
+            CheckTrue(deck != null, "（前提）取到一副非空预组");
+            if (deck == null) return;
+
+            var holder = MenuDraw.Node(_root, "TestItemDrawerDeck_holder", new PxRect(0f, 0f, 240f, 240f));
+            var spec = new ItemSpec
+            {
+                Id = deck.deckId, Kind = ItemKind.Generic, Type = "PrebuiltDeck",
+                Deck = deck, WithCardback = false, Label = deck.DisplayName,
+            };
+            var style = ItemDrawerStyle.Default(10, 11, 12);
+            var view = ItemDrawer.DrawView(holder, new PxRect(0f, 0f, 240f, 240f), spec, 1,
+                                           DrawerOverride.Default, style);
+            CheckTrue(view != null && view.Drawer == ItemDrawer.DrawerDeck,
+                      "★ 预组物品选中的抽屉 = `DeckDrawer`（真表 `ItemTypeSets` 的 `PrebuiltDeck → DeckDrawer`；"
+                    + "实测 " + (view != null ? view.Drawer : "<null>") + "）");
+            if (view == null) { UnityEngine.Object.DestroyImmediate(holder.gameObject); return; }
+
+            // ---- ③ 第一道闸（`showItemInfoOnClick = false`）：不开窗、**也不响** ----
+            // 🔴 批处理**不真发声**（同 `WarpforgeArena1/Editor/AnimFXCheck.cs:342` 的先例）：
+            //   音频源池的 `isPlaying` 在批处理下永不回落 ⇒ 每播一条多租一颗；虽然 `WFSoundPlayer` 的根
+            //   已 `HideFlags.DontSave`（不会落盘），但这里本来就不需要真出声 —— `WindowSounds.LastCue`
+            //   在**拨到播放器之前**就记下了，判据不受影响。收尾原样还回去。
+            bool keepSfxEnabled = WarpforgeVFX.WFSoundPlayer.Enabled;
+            WarpforgeVFX.WFSoundPlayer.Enabled = false;
+            ItemDrawer.LastDeckInfo = null;
+            WindowSounds.ResetCounters();
+            view.SetShowInfoOnClick(false);
+            view.OnPointerClick();
+            CheckTrue(ItemDrawer.LastDeckInfo == null,
+                      "★ `showItemInfoOnClick = false` ⇒ 点它**不开任何窗**（原版 `OnPointerClick` 第一句就 return）"
+                    + "｜🧨 删掉 `OnPointerClick` 第一句 ⇒ 本条红");
+            CheckTrue(WindowSounds.LastCue == null,
+                      "★ …连那一声都**不响**（原版 `Play2D()` 写在闸后面；实测 cue = "
+                    + (WindowSounds.LastCue ?? "<null>") + "）");
+
+            // ---- ④ 真点：开卡组详情窗（View 态）+ 那一声 ----
+            view.SetShowInfoOnClick(true);
+            WindowSounds.ResetCounters();
+            view.OnPointerClick(); var cueAfterClick = WindowSounds.LastCue;   // 🔴 快照（见 10302 那条）：`dip.Close()` 会播关窗音把 `LastCue` 覆盖
+            var dip = ItemDrawer.LastDeckInfo;
+            CheckTrue(dip != null,
+                      "★ 点卡组抽屉 ⇒ 开出 `Deck info Popup`（原版 `DeckDrawer.HandlePointerClick`）"
+                    + "｜🧨 删掉 `DeckClick()` 那半句 ⇒ 开的是**物品**详情窗、`LastDeckInfo` 仍是 null ⇒ 本条红");
+            if (dip != null)
+            {
+                Check((int)dip.State, (int)DeckInfoPopup.DeckInfoState.View,
+                      "★ …`state = View(2)`（原版 `.c` 的第 2 个实参是**硬编码 2**）");
+                CheckTrue(!dip.IsPlayerDeck,
+                          "★ …`IsPlayerDeck = false`（原版 `InventoryManager.HasItem(预组)` 为假 ⇒ "
+                        + "`Share`/`Delete`/`Duplicate`/`Practice` 按判据藏）｜🧨 删掉 `IsPlayerDeck = false` ⇒ 本条红");
+                CheckTrue(dip.CheckOwnership,
+                          "★ …`CheckOwnership` = 抽屉字段 `shouldCheckOwnership`（原版初值 **true**）");
+                CheckTrue(!dip.SelectButtonProvided,
+                          "★ …`selectButton = null` ⇒ **没有 `Select Deck` 那颗钮**"
+                        + "｜🧨 改成 `DeckInfoPopup.CreateForPicked` ⇒ 那一支强制 true ⇒ 本条红");
+                Check(dip.CurDeck != null ? dip.CurDeck.WarlordId : "<无窗>", deck.heroId,
+                      "★ …打开的是**这一副预组**（督军 = 预组数据里的 `heroId` —— 期望值取**原始数据**，"
+                    + "⛔ 不拿 `ToPlayerDeck` 的产物反推 = 自证）");
+                var want = PrebuiltDecks.ToPlayerDeck(deck);
+                Check(dip.CurDeck != null ? dip.CurDeck.CardIds.Count : -1,
+                      want != null ? want.CardIds.Count : -2,
+                      "★ …卡表张数 = `PrebuiltDecks.ToPlayerDeck` 那一份（= `PlayerDeck` 口径，含我们补的防御卡）");
+                Check(dip.CurInfo.Name, deck.DisplayName,
+                      "★ …名字 = 这副预组的 `DisplayName`（= 原版 `GetItemName` 的 `PrebuiltDecks/<deckId>` 口）");
+                dip.Close();
+            }
+            CheckTrue(cueAfterClick == WindowSounds.ButtonClick1Cue,
+                      "★ 点一次 ⇒ 壳侧播放口收到的 cue = `" + WindowSounds.ButtonClick1Cue + "`"
+                    + "（原版 `inspectSound.Play2D()`）｜🧨 把 `PlayInspectCue` 改回只出声 ⇒ 本条红；实测 = "
+                    + (cueAfterClick ?? "<null>")
+                    + "［🔴 取值时机 = `OnPointerClick()` **之后、`dip.Close()` 之前**的快照：关窗音 `"
+                    + WindowSounds.DefaultCloseCue + "`（`GameWindow.PlayCloseSound`）是原版行为，"
+                    + "它会把 `WindowSounds.LastCue` 无条件覆盖（`WindowSounds.cs` 的 `LastCue = cueName`）"
+                    + "⇒ ⛔ 别在本条里读 `LastCue`（那是在断**关窗音**，不是点击音）］");
+
+            // ---- ⑤ `shouldCheckOwnership` 这个字段真的被读到（原版 `DeckDrawer.SetShowOwnership`）----
+            ItemDrawer.LastDeckInfo = null;
+            view.SetShowOwnership(false);
+            view.OnPointerClick();
+            CheckTrue(ItemDrawer.LastDeckInfo != null, "（前提）第二次点击也开得出窗（验字段用）");
+            if (ItemDrawer.LastDeckInfo != null)
+            {
+                CheckTrue(!ItemDrawer.LastDeckInfo.CheckOwnership,
+                          "★ `SetShowOwnership(false)` ⇒ 开出来的窗 `CheckOwnership = false`"
+                        + "（原版 `.c` 第 5 个实参 `uVar1 = *(param_1+0x70)`）");
+                ItemDrawer.LastDeckInfo.Close();
+            }
+
+            // ---- ⑥ 收尾：拆掉这一格 + `WindowsManager` 那套宿主（⛔ 别让它们被 `SaveScene()` 烘进场景）----
+            WarpforgeVFX.WFSoundPlayer.Enabled = keepSfxEnabled;
+            ItemDrawer.LastDeckInfo = null;
+            ItemDrawer.Release(view);
+            UnityEngine.Object.DestroyImmediate(holder.gameObject);
+            DestroyPopupScaffold();
+            Check(UnityEngine.Object.FindObjectsByType<DeckInfoPopup>(
+                      UnityEngine.FindObjectsInactive.Include, UnityEngine.FindObjectsSortMode.None).Length, 0,
+                  "★ （收尾）场景里一扇 `Deck info Popup` 都不剩（⛔ 会被 `SaveScene()` 写进 `DeckEditor.unity`）");
+            CheckTrue(WindowsManager.Instance == null, "★ （收尾）`WindowsManager` 宿主拆掉了（不会被存进场景）");
         }
 }

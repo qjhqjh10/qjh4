@@ -1193,7 +1193,7 @@ namespace CardPresentation
         /// **Unity 的「假 null」**（`Instance == null` 会判真，但字段本身不是 null；谁拿它当「有没有实例」用就会踩）。
         /// 今天 `grep DeckRuntime.Instance` = 0 读者 ⇒ 无害，但这是个**静默陷阱**，顺手堵掉。
         /// 判据 = 第二十四会话 `D9` 顺手发现（`待办判据_第二十五会话.md` §`A1738`）。</para></summary>
-        void OnDestroy() { if (Instance == this) Instance = null; }
+        void OnDestroy() { UnhookWildcardUpdate(); if (Instance == this) Instance = null; }   // B9_W63WC：`Inventories.Wildcards` 是**静态**的 ⇒ 不退订就被按着（同 `CollectionWindow.Close`）
 
         void Start()
         {
@@ -4866,7 +4866,10 @@ namespace CardPresentation
             // 🔴 **A330（2026-10-11）**：这一句与 `SaveAndSay()` 那道**保存闸**用的是**同一条判据**
             //   （原版 `__UpdateDoneButton.c:24` 与 `__TrySaveDeck.c:80` 是逐参数相同的同一个
             //   `DeckUtility.ValidateDeck(deck, out err, 1, 0)`）⇒ **灯亮 ⟺ Done/ESC 会真的存下去**。
-            SetOn(_doneHl, err == DeckError.None);          // 原版 `Done Highlight` 就是这个开关
+            ToggleDoneHighlight(err == DeckError.None);     // 原版 `Done Highlight` 就是这个开关（2026-10-27 接线：淡入淡出）
+            // 同一判据、另一个载体：Done 那颗按钮上的 **Shiny 扫光**（原版 `DeckEditingWindow.UpdateDoneButton`
+            // 里 `controller.Toggle(ValidateDeck(...), …)` ⇒ **合法才扫**，而且那颗是 `m_WrapMode 1 (Loop)` 一直扫）。
+            FootShine(err == DeckError.None);
 
             // 🔴 **2026-09-28 用户拍板：万能卡数字一律恒定 `99`**。
             // 原来这里写的是「卡池里四个稀有度各有几张」—— **语义是错的**：原版这 4 个数字是
@@ -7055,11 +7058,11 @@ namespace CardPresentation
 
         void SetTab(int t)
         {
-            _tab = Mathf.Clamp(t, 0, 2);
+            int oldTab = _tab; _tab = Mathf.Clamp(t, 0, 2);   // B9_W51SHINE2：旧页给扫光用
             _deckScroll = 0f;
             // ⚠️ 顺序：先 `RefreshDeckList`（它会 `RefreshTabVisibility`），再 `RefreshPool`
             //    —— 卡池的显隐判据里有 `_tab`（见 `RefreshPool`），切回 Cards 页要让它重开。
-            RefreshDeckList(); RefreshPool(); RefreshHeader();
+            RefreshDeckList(); RefreshPool(); RefreshHeader(); WildcardShineAfterTab(oldTab);   // B9_W51SHINE2：原版 `WildcardDisplay.OnEnable` 那一拍（见方法 doc）
         }
 
         // ============================================================ 交互：滚轮
@@ -8862,5 +8865,280 @@ namespace CardPresentation
             // 屏幕横幅：宿主在壳里（`MessageToast`），**不依赖战斗上下文**；返回 false 时那边已经出过声（⛔ 不静默）
             ErrorMessageBanner.ShowShellError(bannerText);
         }
+
+        // ═══════════ 2026-10-27（B9_W20WIRE）：原版 `Done Highlight` 的 `UIEffectTogglerImage` 接线 ═══════════
+        // 判据（`资料/完全复刻/报告/B9_W14FX_特效组件两族.md` §二·3 A）：原版 `bundle_menus_assets_all` 的
+        //   `Done Highlight` 那颗 GO 上同时有 `Image` + `UIEffectTogglerImage`（`images[0]` = 同节点那张 Image、
+        //   `deactivateOnDisable = 1`），由**祖先**节点上的 `UIEffectTogglerController` 逐帧推。
+        UIEffectTogglerController _doneHlCtl;
+        UIEffectTogglerImage _doneHlTg;   // 2026-10-27（B9_W34FEED）：那颗 toggler 的句柄 —— 判「它还在不在控制器表里」（`Build()` 重建 `foot_hl` 后会失效）
+        bool _doneHlCtlWarned;
+
+        /// <summary>原版 `Done Highlight` 的 `UIEffectTogglerImage` 淡入淡出（替换硬 `SetActive`）。
+        /// <para>🔴 2026-10-27（`B9_W34FEED`）：改成「**逐子件喂 + 收不到就出声**」（口径 = `DraftModeWindow.PackScanFeed`，
+        /// ⛔ 不另发明第二种）。原因：`UIEffectTogglerImage.Add` 只 `GetComponent`、**不递归**（= 原版 `Image[] images` 的口径），
+        /// 而 `MenuDraw.Nine` / `ImageQuad.CreateNineSlice` 返回的是**容器节点**（九宫块全在子件、根上没有 `ImageQuad`）
+        /// ⇒ 只喂根节点 `TargetCount == 0`、`Toggle` **静默空转**。今天 `foot_hl` 是 `Img()` 建的**单块** `ImageQuad`
+        /// （`Battle/ImageQuad.cs:127` `AddComponent<ImageQuad>()` 加在返回的 GO **自己**身上）⇒ 改前 `TargetCount` 已是 **1**、
+        /// 不是 0；本改动是**抗将来变容器**的加固 + 把「挂不上」从静默变成出声。</para>
+        /// <para>⚠️ 控制器必须挂在**常驻 active 的祖先**上：`deactivateOnDisable` 会把 `_doneHl` 自己
+        /// `SetActive(false)`，控制器若在它身上，淡入永远 tick 不起来（`Toggle` 里那句 `enabled = true`
+        /// 也救不了 inactive 的 GO）。🔶 挂在 `_doneHl.transform.parent` 是**我们的选择**、不是原版判据
+        /// （原版那级父链没查到，见 B9_W14FX 报告 §三·2）· 调度台 2026-10-27 裁定。</para>
+        /// <para>🔶 非运行期（编辑 / 批处理）`UIEffectTogglerController.Toggle` 会强制 `duration = 0`
+        /// ⇒ 行为与本来的硬切**等价**（`DurationZeroIsInstant` = 那个组件的既有口径）。</para></summary>
+        void ToggleDoneHighlight(bool on)
+        {
+            if (_doneHl == null) return;
+            // 首次 / `Build()` 重建后（它把 `Root` 的子件全销毁重建）⇒ 目标件不在控制器表里就重走接线。
+            if (_doneHlCtl == null || _doneHlTg == null || !_doneHlCtl.togglers.Contains(_doneHlTg))
+                SetupDoneHighlight();
+            if (_doneHlCtl != null) { _doneHlCtl.Toggle(on); return; }
+            // 挂不上 / 收不到可淡件 ⇒ **退回硬切**（红线：不许静默失败；出声在 `SetupDoneHighlight` 里）。
+            if (_doneHl.gameObject.activeSelf != on) _doneHl.gameObject.SetActive(on);
+        }
+
+        // ============================================================ Done 按钮的 Shiny 扫光（账 455 · 实例 F）
+        //
+        // 【原版怎么算（🥇 机器码真体，⛔ 不是转抄账文）】
+        //   `DeckEditingWindow__UpdateDoneButton.c`：
+        //     `valid = DeckUtility.ValidateDeck(deck, out err, 1, false)`（与 `Done Highlight` / 保存闸同一个调用）
+        //     `if (param_2 != 0) controller.Toggle(valid, 0)`            // 静默那条：立即
+        //     `else if (valid) controller.Toggle(true, 0.3f)` + `DOPunchScale`（点击那条：0.3 s 补间）
+        //     `else controller.Toggle(false, 0.3f)`
+        //   ⇒ **扫光跟着「这副卡组合不合法」走**，不合法就关。
+        //   那颗 `Footer/Done` 上的 `UIEffect`(Shiny) + `UIEffectTweener` 的逐字段值（`报告/B9_W5COF_Coffee搬运.md` §2·5/§2·6 实例 F）：
+        //     120° / 0.25 / 0.5 / **`m_TransitionColor = (3.4822,3.4822,3.4822,1)`**（5 个实例里唯一不同的那个色）·
+        //     `m_Duration 1.0` · **`m_WrapMode 1 (Loop)`**（一直扫）⇒ `WildcardShineLayer.Params.DoneButton`。
+        // ⚠️ 原版那个 `duration 0.3` 是喂给 `UIEffectTogglerController` 的补间时长；本类的 `DoUpdate` 是空桩
+        //   （`RVA 0x4B33B0`）⇒ 对**画面**没有作用（真正动的是 tweener 自己的 1.0 s + Loop）。⛔ 别把它接成层时长。
+        /// <summary>Done 按钮上的扫光层（惰性建；`foot_done` 还没建出来时是 null）。</summary>
+        WildcardShineLayer _footShine;
+
+        /// <summary>按「卡组合不合法」开/关 Done 那颗的扫光（`RefreshAll` 里紧挨 `ToggleDoneHighlight` 那一句）。</summary>
+        void FootShine(bool on)
+        {
+            // 材质被 `WindowButton.RefreshGray`（禁用态灰化）换走了 ⇒ **只有该亮的时候**才重挂
+            //   （灰着的时候重挂会立刻把灰底盖掉 —— 那颗钮就"看不见禁用"了）。
+            if (_footShine != null && !_footShine.StillAttached)
+            {
+                if (!on) return;
+                _footShine = null;
+            }
+            if (_footShine == null)
+            {
+                var q = Lookup("foot_done");
+                if (q == null) return;          // 还没建到页脚（或本窗没建）⇒ 下一次刷新再来
+                _footShine = WildcardShineLayer.AttachQuad(q, WildcardShineLayer.Params.DoneButton);
+                if (_footShine == null) return; // shader 取不到（`WildcardShineLayer` 已经出过声了）
+            }
+            if (_footShine.Enabled == on) return;
+            _footShine.SetEnabled(on);
+            if (on) _footShine.Play(true);
+        }
+
+        /// <summary>自检读口：Done 那颗扫光到哪儿了（`-1` = 层没建出来）；`on` 回填开关态。</summary>
+        public float DoneShineRate(out bool on)
+        {
+            on = _footShine != null && _footShine.Enabled;
+            return _footShine != null ? _footShine.Rate : -1f;
+        }
+
+        // ---- 2026-10-27（B9_W34FEED）：Done Highlight 接线的加固版（照 `DraftModeWindow.PackScanFeed` 口径）----
+
+        /// <summary>把 `Done Highlight` 接上 `UIEffectTogglerImage`（+ 祖先上的 `UIEffectTogglerController`）。
+        /// <para>🔴 **逐子件喂、⛔ 不能只喂根节点**：`Img()` 建的是**单块** `ImageQuad`（就在返回的 GO 自己身上），
+        /// 但同族宿主一旦换成 `MenuDraw.Nine` / `ImageQuad.CreateNineSlice`，九宫块全在**子件**、根上**没有** `ImageQuad`
+        /// ⇒ `UIEffectTogglerImage.Add` 只 `GetComponent`、不递归（= 原版 `Image[] images` 的口径）⇒ `TargetCount == 0`、`Toggle` 静默空转。
+        /// 口径与 `Shell/DraftModeWindow.PackScanFeed` 同一条（⛔ 不另发明）。</para>
+        /// <para>⚠️ 控制器必须挂在**常驻 active 的祖先**上：`deactivateOnDisable` 会把 `_doneHl` 自己 `SetActive(false)`，
+        /// 控制器若在它身上，淡入永远 tick 不起来。🔶 挂在 `_doneHl.transform.parent` 是**我们的选择**（原版那级父链没查到）· 调度台 2026-10-27 裁定。</para></summary>
+        void SetupDoneHighlight()
+        {
+            _doneHlCtl = null; _doneHlTg = null;
+            var host = _doneHl.transform.parent;
+            if (host != null)
+            {
+                var tg = _doneHl.gameObject.GetComponent<UIEffectTogglerImage>();
+                if (tg == null) tg = _doneHl.gameObject.AddComponent<UIEffectTogglerImage>();
+                int n = DoneHlFeed(tg, _doneHl.gameObject);
+                if (n > 0)
+                {
+                    var ctl = host.GetComponent<UIEffectTogglerController>();
+                    if (ctl == null) ctl = host.gameObject.AddComponent<UIEffectTogglerController>();
+                    // ⚠️ **不能省**：编辑 / 批处理模式下 `AddComponent` **不触发 `Awake`** ⇒ 控制器那份 `togglers` 恒空。
+                    ctl.Rescan();
+                    if (ctl.togglers.Contains(tg)) { _doneHlTg = tg; _doneHlCtl = ctl; }
+                }
+            }
+            // ⛔ 不静默：收不到可淡件 / 控制器挂不上 ⇒ 当场出声（退回硬 `SetActive` 由调用方做）。
+            if (_doneHlCtl == null && !_doneHlCtlWarned)
+            {
+                _doneHlCtlWarned = true;
+                Debug.LogWarning("[DeckRuntime] `Done Highlight` 接不上 `UIEffectTogglerImage`"
+                               + "（`foot_hl` 底下没有 `ImageQuad`，或没有可挂控制器的父节点）"
+                               + "⇒ 退回硬 `SetActive`，淡入淡出不生效。");
+            }
+        }
+
+        /// <summary>把「原版那一张 `Image`」映射成可淡件清单（同 `DraftModeWindow.PackScanFeed` 的逐子件口径）。
+        /// 返回收进几件（0 = 一件都没收到，调用方出声）。<para>⚠️ `GetComponentsInChildren` **含自身** ⇒
+        /// 今天 `foot_hl` 自己那块 `ImageQuad` 也会被收进来（`TargetCount` 仍 1，行为与改前逐位相同）。</para></summary>
+        static int DoneHlFeed(UIEffectTogglerImage tg, GameObject target)
+        {
+            if (tg == null || target == null) return 0;
+            tg.fadeTargets.Clear();
+            var quads = target.GetComponentsInChildren<ImageQuad>(true);
+            for (int i = 0; i < quads.Length; i++)
+                if (quads[i] != null) tg.fadeTargets.Add(quads[i].gameObject);
+            tg.RefreshTargets();
+            return tg.fadeTargets.Count;
+        }
+        // ============================================================ 通配符计数条的 Shiny 扫光（原版 `WildcardDisplay ▸ shinyEffect`）
+        //
+        // 【原版怎么算（一手判据）】
+        //   · 那颗 `UIEffect` 挂在 `Deck Editing Menu ▸ Content Area ▸ Header ▸ WIldcard Counter ▸ Background`
+        //     （= 本文件 `BuildHeader` 里 `MenuDraw.Nine(...)` 建的那块九宫底板 `hdr_wcbg`）。
+        //   · 逐字段真值（2026-10-27 现读）：rotation **120** · width **0.25** · softness **0.5** ·
+        //     color **(1,1,1,1)** · filter **6** · glow 0 · reverse 0 · autoPlay 0 · rate 1 ·
+        //     **duration 0.75 s** · **wrap 0 (Once)** —— 与收藏窗那颗**逐字段完全相同** ⇒
+        //     直接用 `WildcardShineLayer.Params.WildcardDisplay`（⛔ 别新建 139 那套：那是 `Message Container ▸ Content`）。
+        //     判据 → `资料/完全复刻/报告/B9_W36SHINEA_扫光断言与宿主.md` §2·4 / §2·5。
+        //   · 播放时机 = 原版 `WildcardDisplay__OnEnable`：`if (currentArmy != 0) shinyEffect.Play(resetTime: true);`
+        //     （`d:/2/tools/decomp_full/WildcardDisplay__OnEnable.c` 逐句：`if (*(int*)(this+0x50) != 0) {
+        //      Coffee_UIEffects_UIEffectTweener__Play(this+0x48, 1, 0); SetCountersText(0); }`）。
+        //     而 `OnEnable` 只在计数条**由关变开**那一拍才发 —— 判据链：
+        //       ① `DeckEditingWindow__ToggleDisplay.c` 唯一一处 `wildcards(0xd0).SetActive(param)`
+        //          （Cards / Deck info 页传 1、Cosmetics 页传 0）；
+        //       ② Unity 对**已激活**的 GO 再 `SetActive(true)` **不发** `OnEnable` ⇒ Cards ↔ Deck info
+        //          之间来回切**不重播**，只有 Cosmetics → Cards/Deck info 才播；
+        //       ③ ♻ 开窗那一拍也不播：原版 `DeckEditingWindow__TryOpen.c` 里 `ToggleDisplay(1)` 排在
+        //          `FilterToDeck`（→ `WildcardDisplay__Initialize(wildcards, army)`，它**只写 army、不 Play**）
+        //          **之前** ⇒ 那一刻 `currentArmy` 还是出厂 0 ⇒ `OnEnable` 里那道闸是关的。
+        //     ⚠️ 本窗没有「Neutral 也扫光」这一档要考虑：原版 `__TryOpen` 对 `deckArmy == 0` 传的是字面量
+        //        **10（Ultramarines）** ⇒ Initialize 之后 `currentArmy` 恒非 0。
+        //
+        // 🔶 自己设计（非原版）：扫光材质**惰性到第一次「由关变开」时才换上**（原版那张 `Image` 的材质从建起就带
+        //    这颗 UIEffect）。为什么：本件改动要求**零行数变化**（账里 74 处按 `文件:行号` 引用本文件），
+        //    而挂载点 `hdr_wcbg` 在 `BuildHeader`（行号 1693 附近）里 ⇒ 改成按名字惰性取根节点。
+        //    可见性影响 = **0**：静止态 `_TransitionRate = 1` ⇒ 掩码 0 ⇒ 两个材质逐像素相同。· 调度台 2026-10-27 裁定
+        /// <summary>通配符计数条那颗扫光层（`null` = 还没挂 / 挂不上）。</summary>
+        WildcardShineLayer _wcShine;
+        /// <summary>`hdr_wcbg` 取不到 / 层挂不上时的那条警告只出一次。</summary>
+        bool _wcShineWarned;
+
+        /// <summary>页签切换那一拍（`SetTab` 末句）：把计数条的扫光按原版 `WildcardDisplay.OnEnable` 开/关。
+        /// <para>⚠️ 参数 <paramref name="oldTab"/> = **切之前**那一页 —— 它同时答两件事：切前计数条露没露
+        /// （`oldTab != 2`）、这次切换是不是「由关变开」。完整的判据链见上面那一段注释。</para></summary>
+        void WildcardShineAfterTab(int oldTab)
+        {
+            if (CardDisplayPage)
+            {
+                // 切前就露着 ⇒ 原版 `SetActive(true)` 是空操作、不发 `OnEnable` ⇒ 不重播
+                //   （`oldTab == 2` = 切前在 Cosmetics 页、整条计数条是关着的）
+                if (oldTab != 2) return;
+                if (_wcShine == null || !_wcShine.StillAttached)
+                {
+                    var bar = WildcardBarRoot();
+                    if (bar == null)
+                    {
+                        if (!_wcShineWarned)
+                        {
+                            _wcShineWarned = true;
+                            Debug.LogWarning("[DeckRuntime] 找不到 `hdr_wcbg`（通配符计数条底板）⇒ 那颗 **Shiny 扫光**"
+                                           + "不会出现（原版 `WildcardDisplay.OnEnable` 的 `shinyEffect.Play`）。出声，不静默。");
+                        }
+                        return;
+                    }
+                    _wcShine = WildcardShineLayer.AttachNine(bar, WildcardShineLayer.Params.WildcardDisplay);
+                    if (_wcShine == null)
+                    {
+                        if (!_wcShineWarned)
+                        {
+                            _wcShineWarned = true;
+                            Debug.LogWarning("[DeckRuntime] `WIldcard Counter ▸ Background` 的扫光层建不出来"
+                                           + "（`CardPresentation/WildcardShine` 取不到？）⇒ 那块底板保持原样（无扫光）。"
+                                           + "见 `报告/B9_W16SHINE_扫光统一.md`。");
+                        }
+                        return;
+                    }
+                }
+                _wcShine.Play(true);      // 原版 `UIEffectTweener.Play(resetTime: true)`：从头播一次（Once，0.75 s）
+                HookWildcardUpdate();     // 原版 `OnEnable` 的另一半：`Signal.Register<WildcardUpdateSignal>(UpdateCounters)`
+                return;
+            }
+            // Cosmetics 页：原版 `ToggleDisplay(0)` 把整条 `SetActive(false)` ⇒ `OnDisable` 停下扫光
+            //   （材质仍在原处 —— 原版关的是 `Behaviour.enabled`，不是换图；⛔ 别改成隐藏/换材质）
+            if (_wcShine != null) _wcShine.SetEnabled(false);
+            UnhookWildcardUpdate();   // 原版 `OnDisable` 的 `Signal.Unregister`（计数条藏起来 ⇒ 不再跟着库存重播）
+        }
+
+        /// <summary>`hdr_wcbg` 的根节点（`MenuDraw.Nine` 建的**容器**：根上**没有** `ImageQuad`，九块全在子件）。
+        /// <para>找法 = 直接子件 → `FindDeep`（与本文件 `UiHasQuad` 那三步同源，只是这里不需要 `Lookup`
+        /// —— 根不进 `_named`）。</para></summary>
+        Transform WildcardBarRoot()
+        {
+            if (Root == null) return null;
+            var t = Root.Find("hdr_wcbg");
+            if (t != null) return t;
+            var g = FindDeep(Root, "hdr_wcbg");
+            return g != null ? g.transform : null;
+        }
+
+        /// <summary>自检读口：通配符计数条那颗扫光到哪儿（0 = 带在起点 · 1 = 播完/不亮）；`-1` = 层还没挂。
+        /// <para>🔴 `1` 有**两种**含义（「从没播」与「播完了」）⇒ 断「有没有在播」时要与
+        /// <see cref="WcShineEnabled"/> **两条并排**（同 `CollectionWindow.WildcardShinePlayingForTest` 的口径）。</para></summary>
+        public float WcShineRate { get { return _wcShine != null ? _wcShine.Rate : -1f; } }
+        /// <summary>自检读口：那颗扫光现在是开着吗（原版 `Behaviour.enabled`）。没挂上 ⇒ false。</summary>
+        public bool WcShineEnabled { get { return _wcShine != null && _wcShine.Enabled; } }
+
+        // ============================================================ 万能卡库存变动 ⇒ 计数条重播扫光（原版 `WildcardDisplay.UpdateCounters`）
+        //
+        // 【原版（🥇 机器码真体）】`d:/2/tools/decomp_full/WildcardDisplay__UpdateCounters.c`：
+        //   `if (shinyEffect(+0x48) != 0) { UIEffectTweener__Play(+0x48, 1, 0); SetCountersText(this, 0); }`
+        //   （`+0x48` 为空时原版走那条 `FUN_1803f47a0()` 的**抛异常**支）。
+        //   它的**唯一**触发 = `WildcardDisplay__OnEnable.c` 里那三行：
+        //   `Signal.Register<WildcardUpdateSignal>(new UIGenericEventCatcher...SourceDelegate(UpdateCounters))`，
+        //   而发这条信号的只有 `WildcardInventory__UpdateItemCollection.c`
+        //   （`base.UpdateItemCollection(); Signal.Raise(updateSignal);`）；`OnDisable` 里 `Signal.Unregister`。
+        //   ⇒ 「万能卡库存重建完 ⇒ 计数条**重播一次扫光** + 刷数字」。
+        //
+        // 【我们】`Shell/Inventory.cs` 的 `WildcardInventory` 已把那条信号落成 `Updated` 事件（同一句 `Raise`）。
+        //   本窗的订阅/退订**与计数条的显隐同一拍**（`WildcardShineAfterTab` 的两支 = 原版 `OnEnable`/`OnDisable`）
+        //   ⇒ 比收藏窗那一路更贴原版。
+        //   ⚠️ **只做 `Play`、不做 `SetCountersText`**：那 4 个数字 2026-09-28 用户拍板恒定 `99`
+        //   （缺口是**发放源**，不是这一跳），见 `Shell/CollectionWindow.cs` `OnWildcardsUpdated` 那一段。
+        //   ⚠️ **发放源缺口（不在本文件）**：本工程唯一会动通配符库存的是
+        //   `Shell/CardDetailPopup.cs` 的 `CardProgress.TrySpendWildcard`（合成扣 1 张），它**不调**
+        //   `Inventories.Wildcards.UpdateItemCollection()` ⇒ 这条信号**在生产路径上今天不会响**
+        //   （改动请求 → `报告/B9_W63WC_万能卡计数扫光.md` §五·1）。
+        //   ⚠️ 三个小方法在 `Shell/CollectionWindow.cs` 有一份**同形**实现（那两个宿主都要吃同一条静态事件，
+        //   而共用件 `Effects/UIEffectTogglerCoffeeEffects.cs` 本波有别的写手 ⇒ 不往那里收口）。
+        //   🔶 自己设计（非原版）：信号层用 C# `event`（原版 `Scaffold.Core.Events.Signal`）、
+        //   订阅点等价映射到「计数条显隐」那一拍 · 理由：我们没事件总线 · 调度台 2026-10-27 裁定
+        bool _wcSignalOn;
+
+        /// <summary>订阅 `WildcardInventory.Updated`（幂等：重复调不会挂两遍）。</summary>
+        void HookWildcardUpdate()
+        {
+            if (_wcSignalOn) return;
+            Inventories.Wildcards.Updated += OnWildcardsUpdated;
+            _wcSignalOn = true;
+        }
+        /// <summary>退订（幂等）。`Inventories.Wildcards` 是**静态**单例 ⇒ 不退订 = 窗销毁后还被它按着。</summary>
+        void UnhookWildcardUpdate()
+        {
+            if (!_wcSignalOn) return;
+            Inventories.Wildcards.Updated -= OnWildcardsUpdated;
+            _wcSignalOn = false;
+        }
+        /// <summary>`WildcardUpdateSignal` 那一跳（原版 `WildcardDisplay.UpdateCounters` 的等价物）。</summary>
+        void OnWildcardsUpdated()
+        {
+            if (_wcShine == null) return;   // 层没挂上（shader 取不到 / 还没切到过计数条可见的那一页）⇒ 无画面可播
+            _wcShine.Play(true);            // 原版 `UIEffectTweener.Play(_, 1, 0)` = `Play(resetTime: true)`
+        }
+        /// <summary>自检读口：`Updated` 订着吗（原版 = `Signal` 注册着）。</summary>
+        public bool WcSignalHookedForTest { get { return _wcSignalOn; } }
     }
 }

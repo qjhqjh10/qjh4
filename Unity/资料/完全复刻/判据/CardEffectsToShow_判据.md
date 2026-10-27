@@ -4,6 +4,12 @@
 > 主据 = `decomp_full/EntityScript__GetCardEffectsToShow.c`（迭代 `+0x108` 列表）。辅据 = `CardEffectsService__EnableEffects.c` / `CardEffectsService__DisableLeftoverSlots.c` / `CardEffectItem__LoadEffect.c` / `CardEffectItem__IsActive.c`。
 > 我方现状 = `CardPresentation/Battle/CardDisplayWindow.cs:851 RowsOf(IReadOnlyList<UnitState.TempBuff> buffs)`（项源是 **TempBuff**，见 §四）。
 
+> 🔴 **2026-10-27 就地订正（铁律 5 · `B9_R3CEFF` 现核；正文已按此改）**：
+> ① **`+0x78` 不是 trigger，是 `markOfChaosType`** —— §七 曾自纠，但 §一 正文当时没跟着改，现已逐处改掉。
+> ② **本文只记了第一道过滤**：`EntityScript.GetCardEffectsToShow` 之后，`CardDisplayWindow.DisplayCardEffects` **还会再删 4 类**（`buffType ∈ {6 changeRace, 30 addRace, 35 daemonHost}`，以及「卡上没有任何任务附魔（`spellType==120` 件数 0）时的 `16 choiceEnchantment`」）⇒ **按本文做会多印 4 类**。见下方 §一·补。
+> ③ 「type2/type3 排除」**只对非 mark 生效**，且 mark 分支前面还有一道外闸（见 §一·补）。
+> 完整施工细则 → `判据/GetCardEffectsToShow_施工细则.md`。
+
 ---
 
 ## 一、原版 `abilities(+0x108)` 里到底哪几类进这张表（逐类）
@@ -12,12 +18,20 @@
 
 | 类 | 判据（.c 行） | 进表方式 |
 |---|---|---|
-| **mark-of-chaos（混沌神）** | `+0x3c == 0x14a`（trait=mark，`:47`/`:185`）+ `+0x78`(trigger) ∈ **{10, 0x14, 0x1e, 0x28}**（`:53`/`:72`/`:92`/`:111`） | 每个神 **聚合一条**（`CreateMarkCardEffect(card, god)`，按神去重 `uVar6/7/8/9`）；计数累加到 `+0x40`（`:63-69` 等）⇒ **同神多条 → 一条、计数合并** |
-| **trigger==0 或 0x32 的** | `+0x78 == 0` 或 `== 0x32`（`:185` 附近 `goto LAB_18092f3b1`） | **也走 mark 分支**（需 `+0x3c==0x14a`，否则落空） |
+| **mark-of-chaos（混沌神）** | `+0x3c == 0x14a`（trait=mark，`:47`/`:185`）+ **`+0x78`(markOfChaosType) ∈ {10, 0x14, 0x1e, 0x28}**（`:53`/`:72`/`:92`/`:111`） | 每个神 **聚合一条**（`CreateMarkCardEffect(card, god)`，按神去重 `uVar6/7/8/9`）；计数累加到 `+0x40`（`:63-69` 等）⇒ **同神多条 → 一条、计数合并** |
+| **`markOfChaosType==0` 或 `0x32` 的** | `+0x78 == 0` 或 `== 0x32`（`:185` 附近 `goto LAB_18092f3b1`） | **也走 mark 分支**（需 `+0x3c==0x14a`，否则落空） |
 | **普通属性/其它 effect** | 非 mark 分支 → 若 `+0x38 == 2 && +0x68 == 0` **跳过**（`:135`）；若 `+0x38 == 3 && +0x3c ∈ {0x4fd,0x4fc,0x4fe}` **跳过**（`:146-161`）；**否则整条加入**（`:161` 的 `List.Add(uVar5)`） | **每条一行**（不聚合） |
 
-> 关键词 / 属性增减的**文字**渲染不在本方法，在 `CardEffectItem__LoadEffect.c`（按 `+0x38 ∈ {8,0x11}` 属性、`+0x78` trigger、`+0x90/+0x91` 的 isPlayer 掩码走 `Battle/Effect/*` 键或 `Card_Trait/*`）。
+> 关键词 / 属性增减的**文字**渲染不在本方法，在 `CardEffectItem__LoadEffect.c`（按 `+0x38 ∈ {8,0x11}` 属性、`+0x78` markOfChaosType、`+0x90/+0x91` 的 isPlayer 掩码走 `Battle/Effect/*` 键或 `Card_Trait/*`）。
 > ⇒ **一句话**：进表的 = `+0x108` 里**除「type2 且 flag0」与「type3 且 trait∈{4fc,4fd,4fe}」之外**的所有 effect；其中 mark 按神**聚合**，其余**逐条**。
+> ⚠️ **两个限定（2026-10-27 补）**：① 那两档排除**只对非 mark 生效**；mark 分支前面还有**外闸**：`markOfChaosType == 0 || == Random(50) || trait == markOfChaos(330)` 才继续（`.c:40/175-186`，与 ILSpy 一致）。
+
+### 一·补：**第二道过滤 + 整组闸**（原版不在 `GetCardEffectsToShow` 里，本文 2026-10-27 之前完全没记）
+`CardDisplayWindow__DisplayCardEffects.c:32-105` 拿到第一道的结果后**又删四类**：
+- `buffType ∈ {6 changeRace, 30 addRace, 35 daemonHost}`；
+- `16 choiceEnchantment` —— **仅当**卡上没有任何任务附魔（`spellType==120` 件数 0）时删。
+另有一道**整组闸**：被展示的卡若是**环境效果卡**（`RawCardScript__IsEnviromentaleffect.c:1-12`，`spellType ∈ {200, 210}`）⇒ **即使有条也整组隐藏**。
+⇒ 池内 `spellType==210` **39 张**（`Aspect Shrine` / `Webway Entrance` …，全 `type=defence`）⇒ **可达、必须做**。
 
 ---
 
@@ -58,7 +72,7 @@ public struct CardEffectShown {
 }
 ```
 - **合成序** = `ActiveEffects` + `HandEffects` 按各自 `List.Add` 序（谁先加谁先）—— 若两者无共同时序，退而按「先 ActiveEffects 后 HandEffects」（需在 RuleEngine 侧确认原版 `+0x108` 是否真的是**一条 list** 被我们拆成两条 ⇒ 若是拆的，合成时要还原原序；`Enchantment.cs:48-49` 说「按消费者拆开」，**原版是一条** ⇒ 合成顺序应还原原 `List` 序，⚠️ 这点要在 RuleEngine 侧坐实）。
-- **过滤（type2&flag0 / type3&trait∈{4fc,4fd,4fe}）与 mark 聚合**：建议**放在这个读口里做**（一次做对，表现层只渲染），或表现层做但必须拿全字段。推荐**读口做过滤+聚合、返回已规整的项**（与 `CardEffectItem.LoadEffect` 的输入对齐）。
+- **过滤（type2&flag0 / type3&trait∈{4fc,4fd,4fe}，**只对非 mark**）与 mark 聚合（**先过外闸**）**：建议**放在这个读口里做**（一次做对，表现层只渲染），或表现层做但必须拿全字段。推荐**读口做过滤+聚合、返回已规整的项**（与 `CardEffectItem.LoadEffect` 的输入对齐）。**第二道过滤 + 环境卡整组隐藏**见 §一·补，按原版属 `DisplayCardEffects` ⇒ 归表现层（`CardDisplayWindow`）。
 
 **现有 API 够不够**：`ActiveEffects`/`HandEffects` 有（但没合并、没按 `+0x108` 序、没聚合 mark）；`CardDef.Effects`（EffectSpec dict）是解析表、非「当前实例效果列表」；`UnitState.TempBuff` 是限时 buff、**不是** `+0x108`。⇒ **需要一个新读口**（如上面的 `GetEffectsToShow`）。
 
@@ -80,7 +94,7 @@ public struct CardEffectShown {
 
 ## 六、结论（施工口径，供文件释放后一次做）
 1. **项源换成 `+0x108` 合成列表**（`ActiveEffects`+`HandEffects`，按原序）—— 不是 TempBuff。
-2. **过滤**：排除 `type2&flag0`、`type3&trait∈{4fc,4fd,4fe}`；**mark 按神聚合计数**。
+2. **过滤**：排除 `type2&flag0`、`type3&trait∈{4fc,4fd,4fe}`（**只对非 mark 生效**）；mark 先过外闸（`markOfChaosType ∈ {0,50} || trait==330`）再**按神聚合计数**；**再加第二道过滤**（`buffType ∈ {6,30,35}`、无任务附魔时的 `16`）**与环境卡整组隐藏**（`spellType ∈ {200,210}`）—— 后者在原版属 `DisplayCardEffects`，不在 `GetCardEffectsToShow`。
 3. **序 = 添加序**（`+0x108` 索引序）。
 4. **渲染层保留 5 槽 / 空项占槽（留空洞）/ 槽满截断**（当前我们「空的不铸」是差异）。
 5. **接口**：`RuleEngine.CardInstance.GetEffectsToShow(isPlayer) → IReadOnlyList<CardEffectShown>`（字段见 §四）；合成序要在 RuleEngine 侧确认 `ActiveEffects`+`HandEffects` 是否真是原 `+0x108` 拆出来的（`Enchantment.cs:48-49` 说是）。

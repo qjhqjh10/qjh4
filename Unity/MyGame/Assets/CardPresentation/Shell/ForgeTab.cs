@@ -98,9 +98,9 @@ namespace CardPresentation
         /// 只有锻造页漏 ⇒ 在它上面插入一层，后面几层顺移 +1（层序仍严格递增）。</summary>
         public const int QSelBg = 3019;
         /// <summary>阵营格内部的几层（次序照原版 `Army Item Button` 的子节点序：
-        /// `HighlightBG` → `HighlightBG/Arrow` → `Icon` → `Badge Highlight`）。**同样每层一个队列。**</summary>
+        /// `HighlightBG` → `HighlightBG/Arrow` → `Icon` → `Badge Highlight` → 徽记计数 `OneText`）。**同样每层一个队列。**</summary>
         public const int QSelLine = 3020,
-                           QArmyHighlight = 3021, QArmyArrow = 3022, QArmyIcon = 3023, QArmyBadge = 3024;
+                           QArmyHighlight = 3021, QArmyArrow = 3022, QArmyIcon = 3023, QArmyBadge = 3024, QArmyBadgeText = 3031;
         public const int QTabDecor = 3025, QTabInfo = 3026, QTabHelp = 3027;
 
         // ============================================================ 页内各件的锚点五元组（照 `--cs` 原文）
@@ -724,6 +724,7 @@ namespace CardPresentation
             //    批处理下没有帧循环 ⇒ 用 `DestroyImmediate`（`Destroy` 不会立刻消失、会和新建的叠在一起）。
             for (int i = _armyContent.childCount - 1; i >= 0; i--)
                 Object.DestroyImmediate(_armyContent.GetChild(i).gameObject);
+            _armyShine.Clear();     // 旧层的 quad 刚被销毁 ⇒ 字典跟着清（层本身由 `WildcardShineLayer.StepAll` 回收）
             // 🔴 **偏移 + 裁切**：条目按**内容坐标**摆，再整体 `Shift` 到屏幕；越界部分由视口节点裁掉。
             //    为什么不「先裁再摆」：条目里的图标/高亮/箭头锚点都相对**条目矩形** —— 先裁会把它们一起挪走。
             // 🔴 `_selR` 就是原版那个 `Viewport` 的矩形（原版 `Forge Army Selector` 的 ScrollRect 与它的
@@ -760,14 +761,17 @@ namespace CardPresentation
                 }
 
                 // 图标（拉伸锚 + preserveAspect）。**两态都用同一张**（纪律⑥）
-                _win.Rect(item, DeckRuntime.FactionIcon(army), UguiRect.Child(r, Ic_A0, Ic_A1, UguiRect.P50c,
+                var armyIcon = _win.Rect(item, DeckRuntime.FactionIcon(army), UguiRect.Child(r, Ic_A0, Ic_A1, UguiRect.P50c,
                           Vector2.zero, Vector2.zero), "Icon", QArmyIcon, null, true);
+                // = 原版 `Forge Army Item Button/Icon` 上的 `UIEffect`(Shiny)；开关由 `Refresh()` 那一拍统一下发
+                //   （原版 = `ForgeRewardSelector.ToggleCollectReward` → `UIEffectTogglerController` → 逐个子 toggler）。
+                AttachArmyShine(armyIcon, army);
 
-                // `Badge Highlight`（出厂 `m_IsActive=1`，但**显隐走 alpha 补间**，同左栏四键那条 —— 我们初值 alpha 0）
+                // `Badge Highlight`：原来只建了个**永不亮的空壳**（tint α 0、无驱动）。现在走 `BuildArmyBadge`
+                //   = 原版 `ArmyItemContainer.Initialize` 的 `Forge` 支（`new ForgeBadge(army)` → `AddNotificationType`）。
+                //   判据 / 版式 / 逐项差异见类尾 `BuildArmyBadge`。
                 // 🔴 锚点是 **变体的 `(1,1)`（右上角）**，不是母版的「中心 + 负偏置」（见 `Bd_Pos` 的更正说明）
-                _win.Rect(item, "40K_notification_number",
-                          UguiRect.Child(r, UguiRect.A11, UguiRect.A11, UguiRect.P50c, Bd_Pos, Bd_Sz),
-                          "Badge Highlight", QArmyBadge, new Color(0.7358f, 0.7358f, 0.7358f, 0f));
+                BuildArmyBadge(item, army, r);
 
                 var armyHit = AddHit(item, "Hit", r, QArmyBadge, () => SelectArmy(army),
                                      clickCue: WindowSounds.SelectAvatarCue);
@@ -824,6 +828,9 @@ namespace CardPresentation
             //   默认 `duration = 0.3f`（`UIEffectTogglerController.Toggle` 的形参默认值）。
             if (_readyToggler != null) _readyToggler.Toggle(ForgeData.HasToCollect(a));
             else if (_readyRoot != null) _readyRoot.gameObject.SetActive(ForgeData.HasToCollect(a));   // 兜底：组件没建成时退回硬切
+            // 阵营条图标上的扫光：同一个判据、同一个时机（原版 `ForgeRewardSelector.ToggleCollectReward`
+            // 就在这一拍把 `UIEffectTogglerController` 的**全部子 toggler**（含 13 颗 `…/Icon`）一起开关）。
+            SyncArmyShine(ForgeData.HasToCollect(a));
         }
 
         // ============================================================ 奖励轨道（一格 = 一个等级）
@@ -1268,5 +1275,102 @@ namespace CardPresentation
         /// <para>⚠️ 它读的是**当前档**（`Refresh()` / `ApplyCollectLayout()` 之后才是最新值）——
         /// 换阵营后必须先 `Refresh()` 再读。</para></summary>
         public float TrackPadLeftNow { get { return TrackPadLNow; } }
+
+        // ============================================================ 阵营格上的「锻造徽记」（账 `收藏:15`）
+        //
+        // 判据（🥇 方法体 + prefab 逐字段现读；2026-10-27 B9_W7COLL，⛔ 不是转抄账文）：
+        //  · 原版 `ArmyItemContainer.Initialize(CardArmy, ToggleGroup, ArmySelectorType)` 三段
+        //    （`ArmyItemContainer.cs:202`；机器码 `decomp_full/ArmyItemContainer__Initialize.c`）：
+        //      `parentType == Neutral(0)` ⇒ 直接 return（**不挂徽记**）；
+        //      `Campaign(1)` ⇒ `new CampaignBadge(army)`；`Forge(2)` ⇒ `new ForgeBadge(army)`；
+        //      两支最后都 `notificationBadge.AddNotificationType(new Notification[]{ badge })`
+        //      （= 把这一条「按阵营过滤的通知定义」挂到该格的 `UiBadgeNotification` 上）。
+        //  · 版式（`python 工具/menu_dump.py bundle_menus_assets_all "Forge Army Item Button" --depth 3`）：
+        //      `Badge Highlight` 35×35 · 锚 `(1,1)`（右上角）· pos `(−17.5,−17.5)` · 图
+        //      `40K_notification_number`（贴图 65×65）· `Simple` + **preserveAspect** · 色 `(0.736,0.736,0.736,1)`
+        //      · 组件 `Image, UiBadgeNotification, EverguildButtonMaterialModifier`；
+        //      子件 `OneText`（TMP：`m_text ""` · fs **34** · base **36** · auto **[18,34]** · **Center/Middle** · 纯白）
+        //      —— 那行字由 `BadgeWiring.Attach` 按同一组数建（判据同上，别再手写一份）。
+        //  ✅ **2026-10-27（`B9_W16SHINE`）那条「按阵营过滤」的差异已补齐**：`ForgeBadge` 补上了 `army` 字段
+        //      （`Shell/BadgeNotifications.cs`，`Validate` = 同类型 ∧ 同 army）、provider 逐条带阵营、
+        //      这里改成**带过滤的那一支** ⇒ 13 颗格子里只有**有可领内容的那一格**会亮（原版就是这样）。
+        //      ⛔ 仍别在窗口里另造一套计数（同一条规则只留一处）。
+        //  ⚠️ 队列：徽记 `QArmyBadge`(3024)、计数 `QArmyBadgeText`(3031) —— 35×35 那块里没有别的件
+        //      ⇒ 与谁都不重叠（分层仍走渲染队列，⛔ 不用 z）。
+        void BuildArmyBadge(Transform item, string army, PxRect r)
+        {
+            var br = UguiRect.Child(r, UguiRect.A11, UguiRect.A11, UguiRect.P50c, Bd_Pos, Bd_Sz);
+            var quad = _win.Rect(item, "40K_notification_number", br, "Badge Highlight", QArmyBadge,
+                                 ArmyBadgeTint, true);
+            if (quad == null)
+            {
+                Debug.LogWarning("[ForgeTab] 阵营格「" + army + "」的 `Badge Highlight` 没建出来"
+                               + "（`40K_notification_number` 取不到）⇒ 这一格没有红点（出声，不静默）");
+                return;
+            }
+            var defs = new System.Collections.Generic.List<BadgeNotificationDefinition>(1);
+            // 原版 `AddNotificationType(new Notification[]{ new ForgeBadge(army) })`：**带阵营的过滤定义**
+            //   ⇒ 13 颗格子里只有**该阵营**的可领条数会算进去（判据 `ForgeHandler.__c___CheckNotification_b__9_0.c`）。
+            defs.Add(new BadgeNotificationDefinition(typeof(ForgeBadge), useFilter: true,
+                                                     filter: new ForgeBadge { army = army }));
+            BadgeWiring.Attach(quad, br, item, QArmyBadgeText, ArmyBadgeTint, defs, "ForgeArmyItem[" + army + "]");
+        }
+
+        /// <summary>`Badge Highlight` 的底色（原版 `Image.m_Color = (0.7358,0.7358,0.7358,1)` = **中灰**；
+        /// 显隐不靠它、靠 `UiBadgeNotification` 的 alpha 补间 —— 同主菜单那几颗）。</summary>
+        static readonly Color ArmyBadgeTint = new Color(0.7358f, 0.7358f, 0.7358f, 1f);
+
+        // ============================================================ 阵营条图标上的 Shiny 扫光（账 455 · 实例 G）
+        //
+        // 【原版怎么算（一手判据）】
+        //   `Forge Army Item Button/Icon` 上挂着 `UIEffect`(Transition = Shiny) + `UIEffectTweener`
+        //   （`报告/B9_W5COF_Coffee搬运.md` §2·5 的实例 G）· 开关者是 `ForgeRewardSelector.ToggleCollectReward(bool, Transform)`
+        //   —— 它调 `UIEffectTogglerController.Toggle(on, 0.3f)`，而那个 controller 是
+        //   `GetComponentsInChildren<UIEffectTogglerBase>()` 收来的（**含这一排 13 颗 `…/Icon` 上的 toggler**）
+        //   ⇒ **整排同开同关**，判据 = 当前锻造（`ForgeData.Selected`）有没有可领奖励
+        //   （`ForgeRewardSelector.FinishedSnapping` 传的是它自己缓存的 `hasToCollectReward`）。
+        //   参数 = 120° / 0.25 / 0.5 / 白 / filter 6 / `m_Duration 1.0` / `m_WrapMode 0`（播一次）
+        //   ⇒ `WildcardShineLayer.Params.Icon`。
+        // ⚠️ 与 `_readyToggler`（`canLevelUpEffect`，账里另一件）**不是同一个东西**：那件是格上的光效，
+        //   这件是图标上的扫光；两件判据相同、载体不同 —— ⛔ 别合并。
+
+        /// <summary>逐阵营的扫光层（键 = 阵营名）。`BuildArmyItems` 每次重建都换一批；
+        /// 旧层随 quad 销毁被 `WildcardShineLayer.StepAll` 回收（⛔ 不用手工释放）。</summary>
+        readonly System.Collections.Generic.Dictionary<string, WildcardShineLayer> _armyShine =
+            new System.Collections.Generic.Dictionary<string, WildcardShineLayer>();
+
+        /// <summary>建阵营格时给 `Icon` 挂一层（`BuildArmyItems` 里那句）。</summary>
+        void AttachArmyShine(ImageQuad icon, string army)
+        {
+            if (icon == null) return;
+            var layer = WildcardShineLayer.AttachQuad(icon, WildcardShineLayer.Params.Icon);
+            if (layer == null) return;
+            _armyShine[army ?? ""] = layer;
+        }
+
+        /// <summary>按「当前锻造有没有可领奖励」整排开/关（= 原版 `ToggleCollectReward` 那一拍）。
+        /// <para>⚠️ 只在**状态翻转**时才动层：`SetEnabled(true)` 之后每帧再 `Play()` 会把扫光从头打断
+        /// （`Refresh()` 在领奖/换档时会被调多次）。</para></summary>
+        void SyncArmyShine(bool on)
+        {
+            foreach (var kv in _armyShine)
+            {
+                var layer = kv.Value;
+                if (layer == null) continue;
+                if (layer.Enabled == on) continue;
+                layer.SetEnabled(on);
+                if (on) layer.Play(true);
+            }
+        }
+
+        /// <summary>自检读口：`army` 那格的扫光到哪儿了（`-1` = 没有这一层）；`on` 回填它的开关态。</summary>
+        public float ArmyShineRate(string army, out bool on)
+        {
+            WildcardShineLayer layer;
+            if (army != null && _armyShine.TryGetValue(army, out layer) && layer != null)
+            { on = layer.Enabled; return layer.Rate; }
+            on = false;
+            return -1f;
+        }
     }
 }

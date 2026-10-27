@@ -42,14 +42,21 @@ namespace CardPresentation
         readonly List<Color> _labelBase = new List<Color>();
         readonly List<Color> _graphicBase = new List<Color>();
         bool _captured;
+        // 🔶 自己设计（非原版）：上一次 Capture 时的 `fadeTargets.Count` —— 只用于「运行时又 Add 了目标」的自动重收，
+        //    原版 `Image[] images` 是序列化数组、运行期不会变，没有这个量。见 `RefreshTargets()`。
+        int _capturedTargets = -1;
 
         void Awake() { Capture(); }
 
-        /// <summary>收集目标并记原 α（幂等）。**默认只看本节点**（= 原版 `Image[] images` 的口径）。</summary>
+        /// <summary>收集目标并记原 α（幂等）。**默认只看本节点**（= 原版 `Image[] images` 的口径）。
+        /// ⚠️ 幂等闸按 `fadeTargets.Count` 走（不是死锁的 bool）—— 运行期 `Add` 后会自动重收；
+        /// 同数**替换**的话要显式调 <see cref="RefreshTargets"/>。</summary>
         public void Capture()
         {
-            if (_captured) return;
+            int want = fadeTargets != null ? fadeTargets.Count : 0;
+            if (_captured && want == _capturedTargets) return;
             _captured = true;
+            _capturedTargets = want;
             _quads.Clear(); _labels.Clear(); _graphics.Clear();
             _quadBase.Clear(); _labelBase.Clear(); _graphicBase.Clear();
             if (fadeTargets != null && fadeTargets.Count > 0)
@@ -130,6 +137,21 @@ namespace CardPresentation
             for (int i = 0; i < _quads.Count; i++) if (_quads[i] != null) _quads[i].gameObject.SetActive(option);
             for (int i = 0; i < _labels.Count; i++) if (_labels[i] != null) _labels[i].gameObject.SetActive(option);
             for (int i = 0; i < _graphics.Count; i++) if (_graphics[i] != null) _graphics[i].gameObject.SetActive(option);
+        }
+
+        /// <summary>🔶 自己设计（非原版）：改完 <see cref="fadeTargets"/> 之后**强制重收**一次。
+        /// <para>为什么必须自己定：原版的 `Image[] images` 是**序列化数组** —— 构建期定死、运行期不会变，
+        /// 所以「收一次就锁住」在原版永远是对的。我们的 `fadeTargets` 是**运行时**填的：
+        /// `AddComponent` 当场触发 `Awake → Capture()`（那时表还是空的 ⇒ 收的是**自己**），
+        /// 之后 `fadeTargets.Add(子件)` 若不重收，淡的/`SetActive` 的就是**根节点**而不是那个子件
+        /// （原版 `Prebuilt Pack UI` 的 `images[0]` 正是子件 `Highlight`）—— **静默错对象**。</para>
+        /// <para>⚠️ 接线方必须按这个顺序：`AddComponent` → 填 `fadeTargets` → 本方法（`capture 后再 Toggle`）。</para>
+        /// <para>谁定的 + 日期：调度台 2026-10-27（B9_W14FX）。</para></summary>
+        public void RefreshTargets()
+        {
+            _captured = false;
+            _capturedTargets = -1;
+            Capture();
         }
     }
 }
