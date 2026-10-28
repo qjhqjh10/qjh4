@@ -1630,6 +1630,11 @@ namespace CardPresentation
             var upBg = MenuDraw.Rect(content, CardArt.MenuUi("UI_Button_Mulligan"), bu, "Upgrade Bg", QCdRow);
             var upHit = Hit(content, "UpgradeHit", bu, () => { if (UpgradeAnimLocked) { Debug.Log("[CardDetail] 升级动画在播（`InputBlocked` + `AnimationWillRun`）⇒ 这一次点「升级」不处理（判据 → `UpgradeAnimLocked` 的 doc）"); return; } DoUpgrade(); }, QCdHit, upBg,
                             "UI_Button_Mulligan", clickCue: WindowSounds.PositiveCue);
+            // 🆕 **2026-10-29（B94_B18）**：这颗「升级」钮的**原版唯一 id** = `UpgradeCardButton`
+            //   （判据 → `判据/B94_B6_判据补全.md` §6：`mainmenuwarpforge` 场景 `MonoBehaviour_2248` 的 `id` 实读；
+            //   唯一消费者 = `TutorialPointerData.Target`）。原版由组件 `Awake` 自注册，本仓在建节点这一处显式登记。
+            //   ⚠️ 同一扇窗重建时会再建一颗（旧的那棵被销毁）⇒ `RegisterUnique` 负责摘掉旧登记。
+            MenuTutorialFlow.RegisterUnique("UpgradeCardButton", upHit);
             MenuDraw.Text(upHit, bu, "升级", Color.white, "Upgrade Text", 36f, QCdText);
             var upWb = upHit != null ? upHit.GetComponent<WindowButton>() : null;
             if (upWb != null)

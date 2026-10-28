@@ -373,7 +373,7 @@ namespace CardPresentation
 
             BuildTabs();
 
-            var panel = Node(transform, "Ranking Display", PanelR);
+            var panel = Node(transform, "Ranking Display", PanelR); if (panel != null && !FeatureChecker.IsEnabled(FeatureChecker.FactionRanking)) panel.gameObject.SetActive(false);   // 🔶 B94_Y2 2026-10-29：原版三扇榜弹窗的 `Ranking Display` 由 `FeatureChecker(FactionRanking).SetActive` 控（判据 → 报告 B94_Y2 §判据证据 3）
             Nine(panel, ArtPanel, PanelR, PanelBorder, "Generic Window Red Background Big", QBg);
             // 🆕 **2026-10-06（A94）：榜单面板底图吸收点击**。判据 = 原版 prefab
             //   `RankedSkirmishLeaderboardPopup > Ranking Display > Generic Window Red Background Big`
@@ -669,7 +669,7 @@ namespace CardPresentation
                     tabWb.allowClickWhenAlreadySelected = false;
                     tabWb.isOn = () => CurrentTab == tab;
                 }
-                TabCount++;
+                TabCount++; if (node != null && specs[i].Tab == LeaderboardTab.Alliances) node.gameObject.SetActive(FeatureChecker.IsEnabled(FeatureChecker.FactionLeaderboard) && (Kind == LeaderboardKind.Draft || FeatureChecker.IsEnabled(FeatureChecker.Alliances)));   // 🔶 B94_Y2 2026-10-29：`Alliances` 页签的原版门是**逐 prefab 不同**的 —— Draft 只有 `FactionLeaderboard` 那颗 checker（target=`Tab Buttons/Alliances`）、Skirmish 额外还有一颗 `Alliances` checker（同样 target=`Tab Buttons/Alliances`）⇒ Draft 只受 `FactionLeaderboard` 控、Skirmish 受两者「与」控（判据 → 报告 B94_Y2 §判据证据 2）
             }
         }
 

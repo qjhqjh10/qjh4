@@ -868,8 +868,40 @@ namespace CardPresentation
                 if (b.IsKeyword) what = CardText.KeywordDisplay(b.Name);   // 关键词：跟语档；⛔ 不是 `Battle/Effect/*`
                 else what = AttrText(b.Name, b.Value);
                 if (what == null) what = b.Name;      // 认不出来才**原样打出来**（不静默、不自造）；⚠️ **空串不回退** —— 原版「空文本占一槽」就是这一档（`AttrText` 数值 0 ⇒ `""`）
-                string who = b.DisplaySourceName;                   // 原版 `LoadEffect.c:110-140`：`EffectName` 优先、否则施加卡名
-                if (string.IsNullOrEmpty(who)) who = b.Src;         // 兜底；两个都空才留白（上面那半句还在）
+                string who;
+                // 🔴 **2026-10-29（`B94_B9`）：`buffType ∈ {markOfChaos(8), lastMarkOfChaos(17)}` 的「谁给的」走另一条**
+                //   判据 🥇 `d:/2/tools/decomp_full/CardEffectItem__LoadEffect.c:53-99`（现读）：
+                //     支入口 = `buffType == 8 || buffType == 0x11`；然后 `iVar1 = *(param+0x78)`（= `CardEffect.markOfChaosType`）
+                //     四档 10/20/30/40 各装箱成 **`DefinedTrait` 1060/1070/1080/1090**（`markOfKhorne`/`markOfNurgle`/
+                //     `markOfSlaanesh`/`markOfTzeentch`，`dump.cs:45826-45829`）→ `Enum.ToString()` → `"[[<神名>]]"` →
+                //     `SupportMethods.ModifyLocalization(...)`；其余神（none/Random）⇒ `text2 = ""`（**跳过专名、但仍走追加**）。
+                //     收尾 `if (1 < *(param+0x40))`（= `traitValue > 1`）⇒ 追加 `" (x" + N + ")"`（`:96-99`）。
+                //   🥈 `d:/2/tools/cpp2il/out_cpp2il_dev_ilspy/CardEffectItem.cs` 的 `LoadEffect` 逐句可读，
+                //     与 🥇 完全一致（`"[[…]]"` / `" (x"` / `")"` 三个字面量都在）。
+                //   ⚠️ **`what` 那一格原版仍走 `GetEffectDesc(effect)`**（`.c` 里 mark 支末尾 `goto IL_0527` 同样是
+                //     `effectText.text = GetEffectDesc(effect)`）⇒ 本行下面 `what` 那一段**不动**。
+                //   ⚠️ 原版 `GetEffectDesc` 的 `case 8/0x11`（`GameStaticData__GetEffectDesc.c:396-413`）拼的是
+                //     `"CardTraitDescription/" + <MarkOfChaosType 枚举名>`，而官方 10,862 键表里**只有**
+                //     `CardTraitDescription/markOfKhorne` 等四条、**没有** `…/Khorne` ⇒ 原版那一格到底回空串还是回键名，
+                //     本地判不了（`GetTranslation` 缺键的返回口径未证）⇒ ⛔ 不发明，`what` 保持现状并记账。
+                //   🔴 **今天的可达性如实写**：`TempBuffs` 里**没有** `buffType == 8/17` 的条目 ——
+                //     mark 的记录账是 `ApplyTraitEffect(buffType: **addTrait(3)**)`（`EffectResolver.cs:12537`），
+                //     而 buffType 8 的那条是 `EntityScript.CreateMarkCardEffect` 的**投影产物**（账 `特效动画:521`，未接）
+                //     ⇒ 本支**今天不可达、但不是死代码**：投影接上后它就是这个条件的唯一展示口。
+                if (EffectsToShow.IsMarkBuffType(b.BuffType))
+                {
+                    int god = b.TraitRec != null ? b.TraitRec.MarkOfChaosType : 0;   // `CardEffect.markOfChaosType(+0x78)`
+                    string godEnum = MarkGodTraitEnum(god);                          // 10→markOfKhorne … 其余 ⇒ null
+                    who = godEnum != null
+                        ? CardIcons.RewriteMarks("[[" + godEnum + "]]", Loc.Current == AvailableLanguages.Chinese)
+                        : "";                                                        // 原版那一支 `text2 = ""`
+                    if (b.TraitValue > 1) who += " (x" + b.TraitValue + ")";         // 原版 `+0x40 > 1` 追加
+                }
+                else
+                {
+                    who = b.DisplaySourceName;                      // 原版 `LoadEffect.c:110-140`：`EffectName` 优先、否则施加卡名
+                    if (string.IsNullOrEmpty(who)) who = b.Src;     // 兜底；两个都空才留白（上面那半句还在）
+                }
                 rows.Add(new EffectRow(who, what));
             }
             return rows;
@@ -1935,6 +1967,27 @@ namespace CardPresentation
             int c = 0;
             for (int i = 0; i < n && i < rows.Count; i++) if (!IsEmptyRow(rows[i])) c++;
             return c;
+        }
+
+        // ============================================================ 🆕 2026-10-29（`B94_B9`）：mark 专名那一档
+        //  ⚠️ **追加在类尾**（插进中间会让本文件 50+ 条 `文件:行号` 账落点整体漂移，见 CLAUDE.md 铁律 18·b）。
+        /// <summary>`CardEffect.markOfChaosType(+0x78)` → 它那两个兄弟字段里的 `DefinedTrait` 枚举名。
+        /// <para>判据 = `CardEffectItem__LoadEffect.c:56-79`（现读）：`markOfChaosType` 取 10/20/30/40 四档时，
+        /// 原版装的**不是** `MarkOfChaosType` 成员名，而是把 `DefinedTrait` 的
+        /// `markOfKhorne(1060)` / `markOfNurgle(1070)` / `markOfSlaanesh(1080)` / `markOfTzeentch(1090)`
+        /// 装箱后 `Enum.ToString()`（`dump.cs:45826-45829` 那四个值逐条对上，🥇 与 🥈 两档一致）。
+        /// ⇒ 拼出来的词条键是 `Card_Trait/markOfKhorne`（**不是** `Card_Trait/Khorne`）。
+        /// 其余（`none 0` / `Random 50` / 任何未知值）⇒ <c>null</c>（原版那一支跳过专名、直接把 `text2` 留空）。</para></summary>
+        static string MarkGodTraitEnum(int markOfChaosType)
+        {
+            switch (markOfChaosType)
+            {
+                case EffectsToShow.MarkKhorne: return "markOfKhorne";
+                case EffectsToShow.MarkNurgle: return "markOfNurgle";
+                case EffectsToShow.MarkSlaanesh: return "markOfSlaanesh";
+                case EffectsToShow.MarkTzeentch: return "markOfTzeentch";
+            }
+            return null;
         }
 
     }

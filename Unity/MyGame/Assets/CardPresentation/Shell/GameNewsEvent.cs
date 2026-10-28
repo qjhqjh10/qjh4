@@ -14,8 +14,10 @@
 //   （判据见上）⇒ 「已读」= **曾经把这条消息打开过**。`Claimed = claimedAt &gt; 0` 是另一格。
 //
 // ⚠️ 与原版的差异（⛔ 不是「已经一样」）：
-//   ① 原版 `SelectEvent()` 的开头几跳是**服务器动作**（`UiBadgeNotificationManager.Refresh&lt;InboxBadge&gt;`
-//      + 打云脚本 `CloudHandle.OpenInbox`）。本地没有服务器 ⇒ 保留**判据与顺序**、把云脚本那一跳出声跳过。
+//   ① 原版 `SelectEvent()` 五句里，**前四句是本地**（`Openned` 早退 / 写 `opennedAt = ServerTime` /
+//      `UiBadgeNotificationManager.Refresh&lt;InboxBadge&gt;` / `LocalInboxMessageData` 早退），**只有第五句云脚本**
+//      `CloudHandle.OpenInbox` 是服务器动作。本地没有服务器 ⇒ 前四句照抄、第五句出声跳过（顺序不变）。
+//      🔴 **2026-10-29（B94 · Y6）订正**：原来这里把「前几跳」整体当服务器动作是错的（见 `SelectEvent` 正文）。
 //   ② `BaseMessageData.behaviorWhenArmyIsHidden` 是个枚举（`BehaviorWhenArmyIsHidden`），
 //      本批 7 条账一行都不读它 ⇒ **没搬**（⛔ 别猜一个枚举值表出来）。
 //   ③ `RewardInfo[]` → `CampaignData.RewardSpec[]`（全工程口径，同 `Shell/ScoringEvent.cs`）。
@@ -128,28 +130,41 @@ namespace CardPresentation
             return d.startDate;
         }
 
-        /// <summary>原版 `public override void SelectEvent()`（`GameNewsEvent.cs:9-54`，**控制流可读**）：
+        /// <summary>原版 `public override void SelectEvent()`（真体 `out_b94/GameNewsEvent_object__object_.SelectEvent__1a65eb0.c`
+        /// + ILSpy `GameNewsEvent.cs:9-54`，**逐句**）：
         /// <code>
-        /// if (SaveGame.Openned) return;                       // ★ 已读 ⇒ 不再开
-        /// … TimeHelper.ServerTime;                            //   只为刷新「服务器时间」缓存
-        /// UiBadgeNotificationManager.Refresh&lt;InboxBadge&gt;();   //   徽记重算
-        /// if (Data is LocalInboxMessageData &amp;&amp; &lt;非空&gt;) return; //   本地消息不走向导（服务端回执才需要）
-        /// PlayfabWrapper.GenericCloudScriptHandler(CloudHandle.OpenInbox, new { eventId });
+        /// if (SaveGame.Openned) return;                                   // ★ 已读 ⇒ 什么都不做
+        /// SaveGame.+0x38 = TimeHelper.ServerTime;                         // ★ 写「首次打开时刻」（= GameMessagePersistence.opennedAt）
+        /// UiBadgeNotificationManager.Refresh&lt;InboxBadge&gt;();               // ★ 徽记重算
+        /// if (Data is LocalInboxMessageData &amp;&amp; Data.+0x90 != 0) return;   // 本地消息不走向导（云脚本）
+        /// payload = new { eventId = GetID() };
+        /// PlayfabWrapper.GenericCloudScriptHandler(CloudHandle.OpenInbox, payload);   // 云脚本
         /// </code>
-        /// <para>🔴 **`if (SaveGame.Openned) return;` 是第一句**（已读过就不再开）。
-        /// ✅ **2026-10-28（B93_E19）**：基类 `LiveOpsEvent.SelectEvent()` **已补**（`Shell/LiveOpsEvent.cs:1326`，B93_E12）
-        /// ⇒ 本方法改成 `override` 并调 `base.SelectEvent()`（原版那一跳的等价物 = `WindowsManager.OpenWindow(MainWindow /*10*/, this)`）。
-        /// 🔴 **⛔ 别再改回 `OpenWindow()`**：那一版按**状态**选 label（OnPreview⇒20 / Finished⇒21），而原版 `SelectEvent` **恒用 10**
-        /// ⇒ 经 `ILiveOps.SelectEvent` 虚分派时会**绕过**基类那一段（另多一条 `CS0114` 告警）。</para>
-        /// <para>⚠️ 徽记刷新（`UiBadgeNotificationManager`）与云脚本两跳都**没有落点**（前者属外壳线、
-        /// 后者是服务器）⇒ 出声一次，顺序不改。</para></summary>
+        /// 🔴 **2026-10-29（B94 · Y6）就地订正**：本方法原先是 `override` 且调 `base.SelectEvent()`
+        /// （= `LiveOpsEvent.SelectEvent` **开 `MainWindow`(10) 窗**）。**真体里没有那一跳** ——
+        /// `GameNewsEvent.SelectEvent` 是「标记消息已读 + 刷徽记 + 通知服务器」（**不开任何窗**），
+        /// 与 `PlayEvent.SelectEvent`（开活动窗）**语义不同** ⇒ 去掉 `base.SelectEvent()`，按真体五句重写。
+        /// ⚠️ 两处没有落点：`Data.+0x90`（`LocalInboxMessageData` 那个字段我们没建模 ⇒ 不判、只记）·
+        /// 云脚本 `OpenInbox`（服务器）⇒ 出声跳过（顺序不变）。</summary>
         public override void SelectEvent()
         {
-            if (SaveGame != null && SaveGame.Openned) return;    // ★ 原版第一句
+            if (SaveGame != null && SaveGame.Openned) return;     // ★ 原版第一句：已读 ⇒ 什么都不做
 
-            Debug.Log("[GameNewsEvent] SelectEvent：'" + GetID() + "' —— 徽记重算（UiBadgeNotificationManager）"
-                    + "与云脚本 OpenInbox 两跳都没有落点（前者属外壳线、后者是服务器）");
-            base.SelectEvent();                                  // ★ 判据 = 基类那一跳（恒 MainWindow(10)）
+            // ★ 原版第二句：写「首次打开时刻」（= 存档 `opennedAt`；原版 `TimeHelper.ServerTime`）。
+            if (SaveGame != null) SaveGame.opennedAt = LiveOpsEventTimeData.ToMs(LiveOpsClock.NowUtc);
+
+            // ★ 原版第三句：徽记重算（`UiBadgeNotificationManager.Refresh<InboxBadge>()`）。
+            UiBadgeNotificationManager.Refresh(typeof(InboxBadge));
+
+            // ★ 原版第四句：`Data is LocalInboxMessageData && Data.+0x90 != 0` ⇒ 早退（跳过云脚本）。
+            //   ⚠️ `LocalInboxMessageData.+0x90` 本地没建模 ⇒ 这一支判不了；云脚本又整段没落点，故两支本地等价。
+            if (Data is LocalInboxMessageData)
+                Debug.Log("[GameNewsEvent] SelectEvent：'" + GetID() + "' 是 `LocalInboxMessageData` —— 原版按 `+0x90` "
+                        + "判是否跳过云脚本；该字段本地没建模，且云脚本（OpenInbox）无落点 ⇒ 无差异");
+
+            // ★ 原版第五句：云脚本 `CloudHandle.OpenInbox`（服务器）—— 本地无后端 ⇒ 出声跳过（顺序不变）。
+            Debug.Log("[GameNewsEvent] SelectEvent：'" + GetID() + "' —— 原版打云脚本 OpenInbox（通知服务器已读）"
+                    + "，本地无服务器 ⇒ 跳过（已读位与徽记已在上两跳落地）");
         }
     }
 }

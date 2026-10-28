@@ -1,0 +1,19 @@
+{
+  "scene": "battlearenablacklegion",
+  "objects": [
+    {
+      "go": "Background_Ring_2.001",
+      "x": 0.0,
+      "y": 0.009999999776482582,
+      "z": 0.0,
+      "rate": 0.0
+    },
+    {
+      "go": "Background_Ring_1",
+      "x": 0.0,
+      "y": -0.019999999552965164,
+      "z": 0.0,
+      "rate": 0.0
+    }
+  ]
+}

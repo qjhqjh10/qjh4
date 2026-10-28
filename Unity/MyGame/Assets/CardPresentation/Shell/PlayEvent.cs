@@ -166,7 +166,7 @@ namespace CardPresentation
     // ============================================================ 原版 `PlayEventSaveGame`
     /// <summary>原版 `PlayEventSaveGame`（`PlayEventSaveGame.cs`，字段逐个抄）。
     /// <para>🔴 **`joinState` 是 private 字段 + 只读属性 `JoinState` + 写口 `UpdateLocalJoinState`**
-    /// （原版就是这么封的，⛔ 别把 setter 开出来 —— 写口只有一条）。</para>
+    /// （原版就是这么封的，⛔ 别把 setter 开出来 —— 写口只有一条）。⚠️ 但**序列化**上加了 `[SerializeField]`（见字段那行的 🔶：原版靠 Newtonsoft 带私有字段，我们 JsonUtility 不带 ⇒ 不标就丢）。</para>
     /// <para>⚠️ 差异：`armyStats` 是 `Dictionary` → 见 <see cref="ArmyStatsEntry"/> 的 🔶 说明。</para></summary>
     [Serializable]
     public class PlayEventSaveGame : LiveOpsSave
@@ -180,7 +180,7 @@ namespace CardPresentation
             Expired = 3,
         }
 
-        private JoinStates joinState;
+        [SerializeField] private JoinStates joinState;   // 🔶 自己设计（非原版）：joinState 序列化 · 原版靠 Newtonsoft 带私有字段，我们用 JsonUtility 需显式 [SerializeField] · 调度台 2026-10-29 裁定（不加 ⇒ 存档读回后 `JoinState` 恒 `NotJoined`）
 
         public string defaultDeckId;
         public int randomSeed;
@@ -525,13 +525,13 @@ namespace CardPresentation
             StartMatchNoCheck(deckId);
         }
 
-        /// <summary>原版 `StartMatchNoCheck(CardDeck)`：真正开局（`ChangeState(Joined)` + 记 `matchStarted`
-        /// + 把 `randomSeed` 抖出来 + 调匹配）。我们这里只做**事件级状态**那三件；
-        /// 「拉一场对局」是战斗/联机线的事（⛔ 本批不碰 `BattleDriver`）。
-        /// ⚠️ 原版 `randomSeed` 的来源是 `PlayerDataManager`/`UnityEngine.Random`；我们引擎侧要求
-        /// 「只用 `System.Random(seed)`」（CLAUDE.md §三），故这里只**存**种子不掷骰。
-        /// 🔶 自己设计（非原版）：`randomSeed` 取 `Environment.TickCount` 并在存档里落定，是为了让
-        /// 「同一局重连能复现」；原版那一路读的是服务器下发值（本地没有）。调度台 C1 2026-10-27 定。</summary>
+        /// <summary>原版 `StartMatchNoCheck(CardDeck)`：`SetAsCurrentlyPlayingEvent(this)` → `if (!UseMatchMaking) return;`
+        /// → 开 `SearchingMatchWindowDemo` →（在联盟里时排 `AlliancesManager.GetCurrentGroup`）→ `CreatePlayerBattleData` → `FindMatch`。
+        /// 🔴 **2026-10-29 就地订正（B94_Z4 · 铁律 5）**：原写「= `ChangeState(Joined)` + 记 `matchStarted` + 抖 `randomSeed`」**不成立** ——
+        /// `_tmp_view/decomp_b91/PlayEvent_object__object_.StartMatchNoCheck__1127900.c` 全文**不写 `+0x30/+0x40/+0x44`** 任何一格。
+        /// ⚠️ 本仓因为**没有匹配界面**，这里只做「事件级状态那三件」当**本地等价**（`joinState = Joined` + `matchStarted = true`
+        /// + `randomSeed` 兜底），并把落盘走 `SaveEventProgress`；⛔ 别再把这三句当成原版行为。
+        /// 🔶 自己设计（非原版）：`randomSeed` 取 `Environment.TickCount`；原版这一格**从未被写**（恒 0），本地抖它是为了让「同一局重连能复现」。</summary>
         public virtual void StartMatchNoCheck(string deckId)
         {
             if (SaveGame == null) return;
@@ -547,7 +547,7 @@ namespace CardPresentation
         /// `save.matchStarted(+0x44)=true` → 日志 `MatchFoundCallback, otherPlayerName X, OpponentId Y` → `save.lastOpponentInfo(+0x58) = MakeOpponentInfo(matchData)`（`matchData` = `PlayerDataManager.singletonManager.matchData`，本地等价 → <see cref="PlayEventMatchContext.Current"/>；存档 null 时原版 NRE，我们出声后只打日志）。</summary>
         protected virtual void OnMatchFound(string otherPlayerName)
         {
-            if (SaveGame != null) { SaveGame.matchStarted = true; SaveGame.lastOpponentInfo = MakeOpponentInfo(PlayEventMatchContext.Current); } else Debug.LogWarning("[PlayEvent] OnMatchFound：没有存档（原版这一跳 NRE）⇒ 两句没写");
+            if (SaveGame != null) { SaveGame.matchStarted = true; SaveGame.lastOpponentInfo = MakeOpponentInfo(PlayEventMatchContext.Current); SaveEventProgress(null, null); } else Debug.LogWarning("[PlayEvent] OnMatchFound：没有存档（原版这一跳 NRE）⇒ 两句没写");   // 🆕 `SaveEventProgress` = 写穿（原版这两句之后由服务器持久化，本地落地 = 本地存档）
             Debug.Log("[PlayEvent] MatchFoundCallback, otherPlayerName " + (otherPlayerName ?? "<null>") + ", OpponentId " + (PlayEventMatchContext.Current != null ? PlayEventMatchContext.Current.opponentId : "<null>"));
         }
 
@@ -576,7 +576,7 @@ namespace CardPresentation
             if (SaveGame != null)
             {
                 SaveGame.lastOpponentInfo = new LastOpponentInfo();   // ★ 原版赋的是**新建空对象**，不是 null（见上）
-                SaveGame.matchStarted = false;
+                SaveGame.matchStarted = false; SaveEventProgress(null, null);   // 🆕 写穿：原版这两句之后由云脚本 `0x448 OnCancelMatch` 在服务端持久化（P3）⇒ 本地落地 = 写本地存档
             }
             Debug.Log("[PlayEvent] CancelMatch：'" + GetID() + "'（原版会打 CloudHandle.OnCancelMatch，本地没有服务器）");
         }

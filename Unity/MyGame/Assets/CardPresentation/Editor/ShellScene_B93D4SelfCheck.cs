@@ -221,7 +221,7 @@ namespace CardPresentation
             C(t.GetMethod("CollectItemReward", new[] { typeof(RewardInfo) }) != null, "`CollectItemReward(RewardInfo)` 已建（账 679）");
             C(t.GetMethod("CollectItemReward", new[] { typeof(ICurrency), typeof(string), typeof(int) }) == null,
               "`CollectItemReward<ICurrency>` 是**泛型**入口（不是 ICurrency 特化重载）");
-            var g = t.GetMethod("CollectItemReward");
+            var g = System.Array.Find(t.GetMethods(), m => m.Name == "CollectItemReward" && m.IsGenericMethodDefinition);
             C(g != null, "`CollectItemReward` 名字在（泛型版）");
             C(t.GetMethod("CollectSingleReward", new[] { typeof(RewardInfo) }) != null, "`CollectSingleReward(RewardInfo)` 已建（账 681）");
             C(t.GetMethod("CollectCurrencyReward", new[] { typeof(ICurrency), typeof(int) }) != null, "`CollectCurrencyReward` 仍在（账 677）");

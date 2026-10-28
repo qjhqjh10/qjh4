@@ -202,21 +202,26 @@ namespace CardPresentation
             return !string.IsNullOrEmpty(id) && _byId.TryGetValue(id, out m) ? m : null;
         }
 
-        /// <summary>原版 `GetTitle()`：**优先用已解析的 `TitleText`**（出厂表那一份是 `FillArgs` 之后的结果）；
-        /// 只有它有词条键、没有直接文本时（例如将来从 SO 灌的那一路）才现解一次。</summary>
+        /// <summary>原版 `BaseInboxEvent.GetTitle()`（真体 `out_b94/BaseInboxEvent_object__object_.GetTitle__1589550.c`
+        /// / ILSpy `BaseInboxEvent.cs:152`）：**不是** 直接把 `GetMessageContent().title` 吐出来，
+        /// 而是再跑**三次占位符替换**（顺序照抄：`[[RewardName]]` → `[[PlayerName]]` → `[[AllianceName]]`）。
+        /// 🔴 **旧判据（B90-N3）写「三处替换在出厂表里已做完」是错的**：玩家名 / 联盟名是**运行时动态**的
+        /// （原版读 `PlayerDataManager.singletonManager.playerName` / `AlliancesManager.Instance.CurrentPlayerAllianceName`），
+        /// 烘进出厂表里不可能对 ⇒ 替换**必须**在运行时做（铁律 5 就地订正）。
+        /// 两段口径不变：先 `GetMessageContent` 拿已解析文本，再套三次替换（见 <see cref="FillPlaceholders"/>）。</summary>
         public static string Title(Msg m)
         {
             var c = GetMessageContent(m);
-            // 判据：原版 `GetTitle()` 就是 `GetMessageContent().title`（B90-N3）⇒ 本口转发那一份，⛔ 不再第二处解。
-            return c != null ? c.Title : "";
+            return c != null ? FillPlaceholders(m, c.Title) : "";
         }
 
-        /// <summary>原版 `GetMessage()`。同 <see cref="Title"/> 的两级口径。</summary>
+        /// <summary>原版 `BaseInboxEvent.GetMessage()`（真体 `…GetMessage__15892b0.c` / ILSpy `BaseInboxEvent.cs:218`）：
+        /// 与 <see cref="Title"/> **同构**，只是取 `content.message` 那一格，三次替换一模一样
+        /// （`[[RewardName]]` → `[[PlayerName]]` → `[[AllianceName]]`）。</summary>
         public static string Body(Msg m)
         {
             var c = GetMessageContent(m);
-            // 判据：原版 `GetMessage()` 就是 `GetMessageContent().message`（B90-N3）⇒ 同 `Title` 转发那一份。
-            return c != null ? c.Body : "";
+            return c != null ? FillPlaceholders(m, c.Body) : "";
         }
 
         /// <summary>这条消息带不带奖励（= 原版 `MessageDisplay.hasReward`）。</summary>
@@ -561,6 +566,58 @@ namespace CardPresentation
             c.Body = !string.IsNullOrEmpty(m.BodyText) ? m.BodyText
                     : (string.IsNullOrEmpty(m.BodyTerm) ? "" : LiveOpsLocalCatalog.TermText(m.BodyTerm));
             return c;
+        }
+
+        // ============================================================ 🆕 2026（B94 · Y6，追加在类尾）
+        // 🔴 运行时占位符替换 —— 真体推翻旧判据「出厂表里已做完」（见 Title / Body 头注释）。
+
+        /// <summary>原版 `GetTitle` / `GetMessage` 尾部那三跳 `String.Replace`（真体
+        /// `out_b94/BaseInboxEvent_object__object_.{GetTitle__1589550,GetMessage__15892b0}.c`）：
+        /// **顺序照抄** `[[RewardName]]` → `[[PlayerName]]` → `[[AllianceName]]`。
+        /// 各值来源：奖励名 = 第一条奖励的物品名（无奖励 ⇒ 空串，见 <see cref="FirstRewardDisplayName"/>）；
+        /// 玩家名 = <see cref="ProfileData.PlayerName"/>（原版 `PlayerDataManager.singletonManager.playerName`）；
+        /// 联盟名 = <see cref="SocialData.AllianceName"/>（原版 `AlliancesManager.Instance.CurrentPlayerAllianceName`，
+        /// 本地恒空 ⇒ 替换成空串）。
+        /// ⚠️ 原版在 `content == null || content.title == null` 时走 NRE；我们**不照抄缺陷**：
+        /// 文本为 null ⇒ 返回空串（红线：不许静默炸）。</summary>
+        static string FillPlaceholders(Msg m, string text)
+        {
+            if (text == null) return "";
+            string rewardName = FirstRewardDisplayName(m);
+            string s = text.Replace("[[RewardName]]", rewardName ?? "");
+            s = s.Replace("[[PlayerName]]", ProfileData.PlayerName ?? "");
+            s = s.Replace("[[AllianceName]]", SocialData.AllianceName ?? "");
+            return s;
+        }
+
+        /// <summary>原版 `GetRewards().FirstOrDefault()?.Item.&lt;LocalizedName&gt;` 的替身：取**第一条奖励**的
+        /// 显示名；没有奖励 ⇒ 空串（与原版「无奖励 ⇒ 空串」一致，`GetTitle` 那两个方法体里 `newValue` 的兜底支）。
+        /// ⚠️ 我们的 `Reward` 只存钱包键 `Art`（图名 / 货币 code），没有 `ObtainableItem.LocalizedName` ⇒
+        /// 走 <see cref="RewardDisplayName"/> 那张小表兜底。</summary>
+        static string FirstRewardDisplayName(Msg m)
+        {
+            if (m == null || m.Rewards == null || m.Rewards.Length == 0) return "";
+            return RewardDisplayName(m.Rewards[0].Art);
+        }
+
+        /// <summary>🔶 自己设计（非原版）：`Reward.Art` → 物品显示名。原版是 `ObtainableItem.LocalizedName`
+        /// （一个 `I2.Loc.LocalizedString` 词条），我们本地没有 `ObtainableItem` 这层 SO ⇒ 只能按 art 键查一条小表：
+        /// <list type="bullet">
+        /// <item>货币 code（`C2`/`C3`/`C5`）⇒ <see cref="CurrencyNames.Of"/>（官方词条）；</item>
+        /// <item>战役点（`40K_genearl_icon_Campaign_points[_big]`，⚠️ 原版拼写 `genearl`）⇒ 官方词条
+        ///       `Rewards Menu/CampaignPoints`（EN `Campaign Points` / ZH `战役点数`，
+        ///       判据 = `Resources/official_loc_13lang.json` 现读）。</item>
+        /// </list>
+        /// 其它 ⇒ 原样返回 art 键（原版是 LocalizedName；我们没有真名，⛔ 不编空串把占位静默吞掉）。
+        /// 缺的只有「其它奖励类型的真名」—— 本地没有那份 SO 名表；调度台 Y6 2026-10-29 定。</summary>
+        static string RewardDisplayName(string art)
+        {
+            if (string.IsNullOrEmpty(art)) return "";
+            string cur = CurrencyNames.Of(art);
+            if (!string.IsNullOrEmpty(cur)) return cur;
+            if (art == "40K_genearl_icon_Campaign_points_big" || art == "40K_genearl_icon_Campaign_points")
+                return Loc.T("Rewards Menu/CampaignPoints");
+            return art;
         }
     }
 }

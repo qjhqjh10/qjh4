@@ -405,10 +405,10 @@ namespace CardPresentation
         /// Ultra = 中间插一行 `Use super sampling(2)` ⇒ `Vsync(3) · FPS Limit(4)`。
         /// ⚠️ 我们**两支都落**（照上面那两种排法逐字实现）：当前画质档**不允许**超采样 ⇒ VeryLow–High 那支；
         /// **允许** ⇒ Ultra 那支。🔴 **2026-10-10（A176）就地订正**：本行原来写着「我们照 VeryLow–High 那一档落……
-        /// 与它那 5 档**没有对应关系 ⇒ 不硬映射**」—— A176 起**有映射了**（调度台裁的案 (a)）：
-        /// **我们的 `PC` 档 ≡ 原版的「非移动」那档**（`ProjectSettings/QualitySettings.asset` 里 `Mobile` 那档
-        /// `excludedTargetPlatforms: Standalone`，正好就是原版第一层门 `!Application.isMobilePlatform` 那条轴）
-        /// ⇒ 实测两档：`Mobile`(0) ⇒ 那一行**不在**；`PC`(1) ⇒ 那一行**在**。⛔ 别再用「不硬映射」当理由把它藏起来。</para>
+        /// 与它那 5 档**没有对应关系 ⇒ 不硬映射**」—— A176 起**有映射了**；🔴 **2026-10-29（W2）再订正**：
+        /// 旧映射（「`PC` 档 ≡ 原版非移动那档」= 案 (a)）**已作废** —— 画质档现在就是原版那五档
+        /// （`GameStaticData.graphicsQuality`）⇒ 门直接按原版算：`VeryLow…High` ⇒ 那一行**不在**、`Ultra` ⇒ **在**
+        /// （`allowSuperSampling` 0/0/0/0/1；判据 → `B94_R-G_画质档位映射.md` §三.2）。⛔ 别再用「不硬映射」当理由把它藏起来。</para>
         /// <para>🔴 第 0 行那一片 = 原版那颗 `EverguildToggle smallScreenToggle` +
         /// `GraphicsTab__SmallScreenToggleClick.c`（同时写 `GameStaticData` 的 `smallScreenUI` / `smallUIChosenManually`）
         /// ⇒ **就是 A165 补的那颗「Small Screen UI」开关**；第 1 行 = `autoZoom`（A172 补，见 `AutoZoom` 那个类）。</para>
@@ -1607,6 +1607,10 @@ namespace CardPresentation
             HideLoginWindow();
             base.Close();
             SuperSampling.ApplyIfDirty();
+            // 🆕 **2026-10-29（W2）**：= 原版 `SettingsMenu__Close.c:16-23` 的**第二段** ——
+            //   `if (ApplyGraphicsChangesOnClose) { QualitySettingsManager.ApplyGraphicsQuality(); … = 0; }`
+            //   （画质**下拉**改过值才走；与上面超采样那条脏位是两个不同的位，见 `ApplyGraphicsChangesOnClose` 的 doc）。
+            ApplyGraphicsQualityOnClose();
         }
 
         /// <summary>🆕 **A862（2026-10-17）**：`ESC` 先关**语言下拉列表**、再轮到关窗。
@@ -3881,56 +3885,89 @@ namespace CardPresentation
 
         // ---- 三颗下拉各自的「选项 / 当前值 / 选中动作」----
 
-        /// <summary>画质选项 = **我们引擎里真实存在的 QualitySettings 档**（`ProjectSettings/QualitySettings.asset`：
-        /// `Mobile` / `PC` 两档）。
-        /// <para>🔴 **如实记一处与原版的差**（铁律 11：记下来、之后完全复刻）：原版那颗的选项是
-        /// `EverguildQualitySetting` 五个枚举值 `VeryLow/Low/Medium/High/Ultra`，运行时由
-        /// `GraphicsTab__OnSetup.c:44-114` 用 `Enum.GetValues` + `Settings/Graphics/<名>` 词条填（引擎里能读到的
-        /// 真值，不是猜）。**我们工程只有 2 个 QualitySettings 档**，而 `资料/普查产出_1007/A170_设置窗滚动视图.md:246`
-        /// 已查定「`Mobile/PC` 与原版 `VeryLow…Ultra` **没有对应关系**」⇒ **硬编 5 项 = 自己发明一套画质系统**。
-        /// 所以这里列**引擎真有的两档**（点哪一档都真生效），⛔ **不编 5 个假选项**。</para></summary>
+        /// <summary>画质选项 = **原版 `EverguildQualitySetting` 的五个枚举值**（`VeryLow/Low/Medium/High/Ultra`），
+        /// 文案 = `Settings/Graphics/<枚举名>`（原版 `GraphicsTab__OnSetup.c:44-114` 用 `Enum.GetValues` +
+        /// 同一前缀拼词条；那 5 个键在我们的表里**全在**）。
+        /// <para>🔴 **2026-10-29（第九十四会话 · 代理 W2）就地改掉一处自设计**（铁律 5 + 2026-10-28 口径「一切照原版」）：
+        /// 原来这里列的是 Unity 的 `QualitySettings.names` —— 本工程只有 `Mobile`/`PC` **两档**，而
+        /// `资料/普查产出_1007/A170_设置窗滚动视图.md:246` 已查定那两档与原版 `VeryLow…Ultra` **没有对应关系**
+        /// ⇒ 列它们等于「自己发明一套画质系统」。现改成原版 5 档，值写进 `GameStaticData.graphicsQuality`(+0x120)
+        /// （见 `ChooseQualityOption`）。判据 → `资料/完全复刻/判据/B94_R-G_画质档位映射.md` §二 第 2 跳 / §四.4-2。</para></summary>
         static string[] QualityOptionLabels()
         {
-            var names = QualitySettings.names;
-            if (names == null || names.Length == 0)
+            // ⚠️ 顺序 = 枚举值顺序（原版 `Enum.GetValues` 也是这个序）⇒ **下拉行号 == (int)EverguildQualitySetting**
+            return new[]
             {
-                if (!_warnedNoQuality)
-                {
-                    _warnedNoQuality = true;
-                    Debug.LogWarning("[Settings] `QualitySettings.names` 是空的 ⇒ 画质下拉没有选项（不静默）。");
-                }
-                return new[] { "Level 0" };
-            }
-            return names;
+                QualTerm("Settings/Graphics/VeryLow", "Very low"),
+                QualTerm("Settings/Graphics/Low", "Low"),
+                QualTerm("Settings/Graphics/Medium", "Medium"),
+                QualTerm("Settings/Graphics/High", "High"),
+                QualTerm("Settings/Graphics/Ultra", "Ultra"),
+            };
         }
-        static bool _warnedNoQuality;
+        /// <summary>画质词条的出处标注（`UiTerm` 的缺键警告用）。</summary>
+        const string QualTermWhere = "设置窗图像页（Quality）";
 
+        /// <summary>画质词条取值 = `Loc.T`（⛔ 不用 <see cref="UiTerm"/>：那一条只看**手写 `Table`**，
+        /// 而 `Settings/Graphics/{VeryLow…Ultra}` 这 5 条**在官方全表里、不在手写表里**（`Loc.HasEntry` 会返 false
+        /// ⇒ `UiTerm` 会误报「键不在表里」并退英文）。`Loc.T` 的三档兜底（手写表 → bulk → 官方全表）能取到真值。
+        /// 取不到（返回键名 / 空）时才退 <paramref name="fallbackEn"/>，并**出声**（红线：不许静默失败）。</summary>
+        static string QualTerm(string key, string fallbackEn)
+        {
+            string v = Loc.T(key);
+            if (!string.IsNullOrEmpty(v) && v != key) return v;
+            if (!_warnedNoQualityKey)
+            {
+                _warnedNoQualityKey = true;
+                Debug.LogWarning($"[Settings] {QualTermWhere}的词条键 `{key}` **取不到**（`Loc.T` 返回键名本身）⇒ "
+                               + $"本格退原版英文原文「{fallbackEn}」—— 去 `Resources/official_loc_13lang.json` 补键。");
+            }
+            return fallbackEn;
+        }
+        static bool _warnedNoQualityKey;
+
+        /// <summary>当前值 = 原版 `GameStaticData.graphicsQuality`（`+0x120`）。
+        /// 🔴 **2026-10-29（W2）**：原来读 `QualitySettings.GetQualityLevel()`（我们自设计那两档）；
+        /// 现在 = 原版 `GraphicsTab__OnSetup` 的 `SetValueWithoutNotify((int)graphicsQuality)` 那一句。</summary>
         static int QualityOptionIndex()
         {
-            var names = QualitySettings.names;
-            int n = names == null ? 0 : names.Length;
-            return n <= 0 ? 0 : Mathf.Clamp(QualitySettings.GetQualityLevel(), 0, n - 1);
+            return Mathf.Clamp((int)GameStaticData.graphicsQuality, 0, 4);
         }
 
-        /// <summary>画质下拉选中 = 原版 `GraphicsTab__GraphicsQualityDropdownChange` 那一支的等价物：
-        /// `ApplyQuality(档)`（`SetQualityLevel` + `SuperSampling.Apply`）→ 重算超采样那一行（`RebuildGfxRows`）
-        /// → 状态行出声。原版把枚举名写进 `GameStaticData.graphicsQuality` 并置脏位；我们`QualitySettings` 自己存。</summary>
+        /// <summary>= 原版 `GraphicsTab.GraphicsQualityDropdownChange(int chosenQuality)`
+        /// （`d:/2/tools/decomp_full/GraphicsTab__GraphicsQualityDropdownChange.c` 全文 64 行；R-G §二 第 2 跳逐句）。
+        /// <para>原文四句：① **与当前值不同才**置脏位 `SettingsMenu.ApplyGraphicsChangesOnClose`；
+        /// ② 写 `GameStaticData.graphicsQuality`(+0x120)；③ 记「玩家手动选过」；④ `LogWarning` + 重算超采样那一行。</para>
+        /// <para>🔴 **2026-10-29（W2）就地改掉一处自设计**：原来这里是「`ApplyQuality`（真 `SetQualityLevel`）→
+        /// 当场生效」。原版**不当场应用** —— 只写值 + 置脏，真生效在**关设置窗**那一刻（`SettingsMenu.Close()` →
+        /// `QualitySettingsManager.ApplyGraphicsQuality()`）。我们的等价物 = `ApplyGraphicsQualityOnClose()`
+        /// （`Close()` 里那一跳）。⛔ 别在这里调 `SetQualityLevel`：本工程只有 2 档，写 2 会被 Unity **静默夹取**
+        /// （R-G §五①）。</para></summary>
         void ChooseQualityOption(int i)
         {
-            var names = QualitySettings.names;
-            if (names == null || i < 0 || i >= names.Length) { Debug.LogWarning($"[Settings] 画质档 {i} 越界"); return; }
-            if (i == QualitySettings.GetQualityLevel())
+            if (i < 0 || i > 4)
             {
-                Debug.Log($"[Settings] 画质已经是「{QualityName()}」—— 不变");
+                Debug.LogWarning($"[Settings] 画质档 {i} 越界（原版 `Enum.Parse` 会抛；本工程出声 + 不变）");
                 return;
             }
-            ApplyQuality(i);
+            var q = (GameStaticData.EverguildQualitySetting)i;
+            // ① 原版第一句：**与当前值不同才**置脏位（`GraphicsQualityDropdownChange.c:45`）
+            if (GameStaticData.graphicsQuality != q) ApplyGraphicsChangesOnClose = true;
+            // ② 写 `+0x120`
+            GameStaticData.graphicsQuality = q;
+            // ③ 原版 `GameStaticData.graphicsQualityChosenManually = true`（`+0x12C`）——
+            //    ⚠️ 我们这一格**没有**（`Shell/GameStaticData.cs` 不在本代理由改范围）⇒ 如实标注、不冒充；
+            //    它的消费者是 `LoadPlayerData`（判「读档时用存档还是用默认档」），本仓没有那条链 ⇒ 现在加也只是死格。
+            GraphicQuality.Save(q);                       // 🔶 持久化介质（原版写 `LocalPlayerData`；见 `GraphicQuality` 的注释）
+            // ④ 状态行 + 重算超采样那一行（原版尾部 `ConfigureSuperSamplingVisibility()`）
             if (_qualityLabel != null) _qualityLabel.SetText(QualityName());
-            // = 原版 `GraphicsQualityDropdownChange.c:58` 的 `ConfigureSuperSamplingVisibility()`：
-            //   换档之后**当场**重算「超采样那一行在不在」。
             RebuildGfxRows();
             _flash = string.Format(Loc.T(lkFlashQuality), QualityName());
-            Debug.Log("[Settings] " + _flash + "（超采样那一行：" + (SuperSampling.RowVisible ? "在" : "不在") + "）");
+            Debug.LogWarning("[Settings] Graphics quality changed in settings to " + q
+                           + "（原版 `CustomDebug.LogWarning` 同一句；超采样那一行现在"
+                           + (SuperSampling.RowVisible ? "在" : "不在")
+                           + "；真生效要等**关设置窗** —— `ApplyGraphicsChangesOnClose` = "
+                           + ApplyGraphicsChangesOnClose + "）");
         }
 
         /// <summary>窗口模式选项 —— 原版 `MediaTab__SetupVideoSettings.c:82` 的 `AddOptions` 两条：
@@ -4430,7 +4467,8 @@ namespace CardPresentation
             //   —— 与 dump 的 GO 名逐字一致），**在不在画面上由 `SetActive` 说了算** =
             //   原版 `GraphicsTab__ConfigureSuperSamplingVisibility.c:29` 那一句
             //   `SetActive(toggleGO, !isMobilePlatform & allowSuperSampling)`。
-            //   ⇒ 我们等价 = `SuperSampling.RowVisible`（调度台 2026-10-10 裁的案 (a)：`PC` 档 ≡ 原版「非移动」那档）。
+            //   ⇒ 我们的门 = `SuperSampling.RowVisible`（🔴 **2026-10-29（W2）**：直接读原版同一格
+            //   `GameStaticData.graphicsQuality == Ultra` ∧ `!isMobilePlatform`；旧的「案 (a)：`PC` 档等价物」已作废）。
             // ⚠️ 文案：原版那颗 `Label` 的 `m_text` 是**西班牙语** `'Sobremuestreo'`（TMP 挂的是 `Localize` 那一套，
             //   本地没有英文正式文案）⇒ 照文件头 ② 的口径写英文 `Use super sampling`（**我们的选择**）。
             // 🆕 2026-10-18（波 1b · A1062）：同上 —— 节点名仍是 `"Use super sampling"`（⛔ 不动），
@@ -4516,30 +4554,18 @@ namespace CardPresentation
             return n;
         }
 
+        /// <summary>画质档的**显示名** = `Settings/Graphics/<枚举名>`（原版那颗下拉的 caption 就是选中项的
+        /// 本地化文案 —— `GraphicsTab__OnSetup` 用同一串建选项）。
+        /// 🔴 **2026-10-29（W2）**：不再用 `QualitySettings.names`（那是我们自设计的两档 `Mobile`/`PC`）。</summary>
         static string QualityName()
         {
-            int lv = QualitySettings.GetQualityLevel();
-            var names = QualitySettings.names;
-            return (names != null && lv >= 0 && lv < names.Length) ? names[lv] : ("Level " + lv);
+            var q = (GameStaticData.EverguildQualitySetting)QualityOptionIndex();
+            return QualTerm("Settings/Graphics/" + q, q.ToString());
         }
 
-        /// <summary>🔴 **自检的注入点**（产品路径下是 null ⇒ 走真 `QualitySettings`）。
-        /// 为什么要它：`QualitySettings.SetQualityLevel` 在编辑器里会**把 `QualitySettings.asset` 写脏**
-        /// （2026-09-26 实测：跑一次自检，`m_CurrentQuality` 被改了、文件被 Unity 重新序列化），
-        /// 而**自检不该改工程设置**（同族规矩：自检不许动玩家的真存档）。</summary>
-        public static Action<int> QualitySetterOverride;
         /// <summary>同上，给 `VSync` 那行用（`QualitySettings.vSyncCount` 也会写脏工程设置）。</summary>
         public static Action<int> VSyncSetterOverride;
 
-        static void ApplyQuality(int level)
-        {
-            if (QualitySetterOverride != null) QualitySetterOverride(level);
-            else QualitySettings.SetQualityLevel(level, true);
-            // 🆕 **2026-10-10（A176）**：= 原版 `ApplyGraphicsQuality.c:65-66` —— `SetQualityLevel` 的**下一句**
-            // 就是 `ChangeResolution()`（写 `renderScale`）。⇒ 换档要**顺带**把超采样那一格重算一次
-            // （也才有 `ApplyGraphicsQuality.c:73-78` 那条「该档不允许 ⇒ 把开关清 0」）。
-            SuperSampling.Apply();
-        }
         static void ApplyVSync(int count)
         {
             if (VSyncSetterOverride != null) { VSyncSetterOverride(count); return; }
@@ -4557,8 +4583,9 @@ namespace CardPresentation
 
         // 🔴 **2026-10-17（T17）**：`CycleQuality()`（点一下换下一个）**已删** —— 那是旧实现，
         //   原版那颗是 `TMP_Dropdown`（点开列表、点哪项生效哪项）。等价动作搬进 `ChooseQualityOption()`：
-        //   `ApplyQuality(档)` → 重算超采样那一行（= 原版 `GraphicsQualityDropdownChange.c:58` 的
-        //   `ConfigureSuperSamplingVisibility()`）→ 状态行出声。⛔ 别再把它复活成循环。
+        //   写 `GameStaticData.graphicsQuality` + 置脏位 → 重算超采样那一行（= 原版
+        //   `GraphicsQualityDropdownChange.c:58` 的 `ConfigureSuperSamplingVisibility()`）→ 状态行出声。
+        //   （🔴 2026-10-29 W2：这里原来的 `ApplyQuality(档)` 已删 —— 原版**不当场应用**，见那个方法。⛔ 别复活成循环。）
 
         void ToggleVsync()
         {
@@ -6266,12 +6293,12 @@ namespace CardPresentation
     ///    ⇒ 2.0 合法，且 URP **原生**把 `renderScale > 1` 当 `ImageScalingMode.Downscaling` = 真超采样。
     ///    ⛔ `m_MSAA` 是**另一个旋钮**，原版的超采样**不动它**（我们那个 .asset 里它是 1 —— 保持原样）。</para>
     ///
-    /// <para>🔴 **我们的映射（调度台 2026-10-10 裁的「案 (a)」，⛔ 别重开）**：原版第一层门是「非移动平台」，
-    /// 而我们只有 **`Mobile`(0) / `PC`(1)** 两档（`ProjectSettings/QualitySettings.asset`；`Mobile` 那档写着
-    /// `excludedTargetPlatforms: Standalone`）⇒ **`PC` 档 ≡ 原版的「非移动」那档**，那一行挂在 `PC` 档，
-    /// 且我们把 `PC` 档的 `allowSuperSampling` 取真（原版五档 0/0/0/0/**1**，只 Ultra 为真）。
-    /// ⚠️ **没查清的一小块**（照实说）：`QualitySettings.SetQualityLevel(0)` 那个把 `Standalone` 排除掉的
-    /// `Mobile` 档**在 player 里到底生不生效**，静态读不出来 ⇒ 真 Play 待验（已写进报告，由调度台落盘）。</para>
+    /// <para>🔴 **2026-10-29（W2）就地订正（铁律 5）**：原来这里写「调度台 2026-10-10 裁的**案 (a)**：
+    /// `PC` 档 ≡ 原版「非移动」那档，超采样那一行挂在 `PC` 档」—— **已作废**：画质档现已照原版落成
+    /// `GameStaticData.graphicsQuality` 的五个枚举值（`Shell/SettingsWindow.cs` 的画质下拉 +
+    /// `Core/MaterialChangerByQuality`），⇒ 两层门**直接按原版**算：`!Application.isMobilePlatform`
+    /// ∧ `graphicsQuality == Ultra`（`allowSuperSampling` 五档 = 0/0/0/0/1，判据 → `B94_R-G_画质档位映射.md` §三.2）。
+    /// ⚠️ 因此 `QualitySettings` 那 2 档**完全不参与**这一层门了（我们也不再调 `SetQualityLevel`，见 §五①）。</para>
     ///
     /// <para>🔴 **落地时我们挑的那几处（不冒充原版）**：
     /// ① **持久化 = `PlayerPrefs`**（原版存玩家存档 / 服务器那一侧；我们没有存档系统）—— 同 `AutoZoom`；
@@ -6281,7 +6308,8 @@ namespace CardPresentation
     ///    （原版是 `EverguildSceneManager.SceneTransitionEnded`；我们的 `LoadScene` 散在 4 处业务代码里）
     ///    ⇒ **用最近的等价物**：`[RuntimeInitializeOnLoadMethod(AfterSceneLoad)]`（= **启动那一次**，
     ///    正对原版 `QualitySettingsManager.Initialize` 那一跳）+ **关窗**（`SettingsWindow.Close`）+
-    ///    **应用画质**（`ApplyQuality`）。**这是我们挑的等价时机，原版是 `SceneChanged()`。**
+    ///    **应用画质**（`SettingsWindow.ApplyGraphicsQualityOnClose`，原 `ApplyQuality(int)` 已删 —— 见那个方法的 doc）。
+    ///    **这是我们挑的等价时机，原版是 `SceneChanged()`。**
     /// ④ **写值前比一下现值**（现值 == 目标就不写）—— 原版**无条件写**；这是我们的守卫，专为避免
     ///    「在编辑器里把一个**真实存在的工程资产**标脏」（`PC_RPAsset` 是仓库里的文件）。
     ///    ⚠️ 改完仍会调用 `EditorUtility.ClearDirty` 兜一道（见 `Apply` 里那段 `#if UNITY_EDITOR`）。</para>
@@ -6295,18 +6323,9 @@ namespace CardPresentation
         /// ⛔ 别从被测实现里读它们当期望值（自检那边写的是**这两个数本身**）。</summary>
         public const float RenderScaleOff = 1f, RenderScaleOn = 2f;
 
-        /// <summary>我们这两档里 `PC` 那一档的序号（`ProjectSettings/QualitySettings.asset`：0 = `Mobile`、1 = `PC`）。</summary>
-        public const int PcQualityIndex = 1;
-
         /// <summary>🔴 **自检注入点**：true ⇒ <see cref="Set"/> 只改内存、**不写 `PlayerPrefs`**
         /// （本工程规矩：自检不许动玩家的真设置 —— 同 `SmallScreenUI.PersistOverride`）。</summary>
         public static bool PersistOverride;
-
-        /// <summary>🔴 **自检注入点：当前画质档**（产品路径下 null ⇒ 走真 `QualitySettings.GetQualityLevel()`）。
-        /// 为什么要它：自检要**两支都断**（允许 / 不允许），而 `QualitySettings.SetQualityLevel` 会把
-        /// `QualitySettings.asset` 写脏（见 `QualitySetterOverride` 那条），所以档位得能注入。
-        /// ⚠️ 它**只喂超采样这一层门**（`QualityName()` 那类仍走真值）—— 免得自检一改就把别的断言一起动。</summary>
-        public static Func<int> QualityLevelGetter;
 
         static bool _enabled, _loaded, _dirty;
 
@@ -6317,16 +6336,24 @@ namespace CardPresentation
             _enabled = PlayerPrefs.GetInt(PrefKey, 0) != 0;   // 没设过 ⇒ 0 = 原版 cctor 的出厂值
         }
 
-        /// <summary>当前画质档（`QualityLevelGetter` 有值时以它为准）。</summary>
-        public static int CurrentQualityLevel
-        {
-            get { return QualityLevelGetter != null ? QualityLevelGetter() : QualitySettings.GetQualityLevel(); }
-        }
+        /// <summary>当前画质档（= 原版 `GameStaticData.graphicsQuality`(+0x120)，我们画质下拉写的就是这一格）。</summary>
+        public static int CurrentQualityLevel { get { return (int)GameStaticData.graphicsQuality; } }
 
-        /// <summary>三层门里的**前两层**（`!isMobilePlatform ∧ allowSuperSampling`）—— 案 (a) 下两者都等于
-        /// 「当前档 == `PC`」。= 那一行**该不该显示**（原版 `ConfigureSuperSamplingVisibility` **只问这两层**，
-        /// 不看开关值本身）。</summary>
-        public static bool AllowedByQuality { get { return CurrentQualityLevel == PcQualityIndex; } }
+        /// <summary>三层门里的**前两层**：原版 = `!Application.isMobilePlatform ∧ 该档 allowSuperSampling(+0x2d)`，
+        /// 而 `allowSuperSampling` 五档 = **0/0/0/0/1**（只有 `Ultra` 为真；判据 = `B94_R-G_画质档位映射.md` §三.2 那张表）。
+        /// <para>= 那一行**该不该显示**（原版 `ConfigureSuperSamplingVisibility` **只问这两层**，不看开关值本身）。</para>
+        /// <para>🔴 **2026-10-29（W2）**：这一格原来读 `QualitySettings.GetQualityLevel() == PC(1)`
+        /// （调度台 2026-10-10 裁的「案 (a)：`PC` 档 ≡ 原版非移动那档」）—— 那是**当时的等价物**；
+        /// 现在画质档已照原版落成 `GameStaticData.graphicsQuality` 五个枚举值 ⇒ 门**直接读原版同一个字段**，
+        /// 不再需要等价物 ⇒ **案 (a) 作废**（`PcQualityIndex` 与 `QualityLevelGetter` 一并删除）。</para></summary>
+        public static bool AllowedByQuality
+        {
+            get
+            {
+                return !Application.isMobilePlatform
+                    && GameStaticData.graphicsQuality == GameStaticData.EverguildQualitySetting.Ultra;
+            }
+        }
 
         /// <summary>那一行现在该不该在画面上（= 原版 `GraphicsTab__ConfigureSuperSamplingVisibility.c:29`
         /// 那句 `SetActive(...)` 的实参）。</summary>
@@ -6683,5 +6710,105 @@ namespace CardPresentation
                     + "音量三档按存值重写 mixer · `targetFrameRate = " + Application.targetFrameRate
                     + "`（FPSLimit 档 " + idx + "）");
         }
+
+        // ============================================================ 🆕 2026-10-29（第九十四会话 · 代理 W2）：画质档「关窗才生效」
+        // 放在**文件末尾这个 partial 块**里（⛔ 不是随手放）—— 理由与上一批同一句：本文件被账按行号引用，
+        // 而落在 `AutoZoom` / `SuperSampling` 等后置类里、以及 `SettingsWindow` 类中段的账行都会被
+        // 「往中间插一段」整体下移。放在这里 ⇒ 既有行号一个不动。
+        //
+        // 判据 = 原版 `SettingsMenu` 的 **`ApplyGraphicsChangesOnClose`**（桩
+        //   `d:/2/Warpforge_code/Scripts/Assembly-CSharp/SettingsMenu.cs` 里那个 public bool；反编译里是
+        //   `[this+0x28]+0xC0`）：
+        //   · 写点 = `GraphicsTab__GraphicsQualityDropdownChange.c:45`（**与当前值不同才**置 1）；
+        //   · 读点 = `SettingsMenu__Close.c:16-23`（`if (+0xc0 != 0) { ApplyGraphicsQuality(); +0xc0 = 0; }`）。
+        // 🔴 **别**把它与 `SuperSampling.Dirty`（`QualitySettingsManager` 链上那个存盘脏位）合成一个字段 ——
+        //   原版是**两个**不同的位。R-G §二 第 2/3 跳逐句核过。
+
+        /// <summary>= 原版 `SettingsMenu.ApplyGraphicsChangesOnClose`：画质**下拉**改了值 ⇒ 置 1，
+        /// **关设置窗**时由 <see cref="ApplyGraphicsQualityOnClose"/> 读并清 0。
+        /// <para>⚠️ 产品路径下没有人直接读它（读点只有 `Close()` 那一处）—— 自检读它是为了断「置上了没有」。</para></summary>
+        public static bool ApplyGraphicsChangesOnClose;
+
+        /// <summary>= 原版 `QualitySettingsManager.ApplyGraphicsQuality()` 里**我们能落地的那一半**
+        /// （`d:/2/tools/decomp_full/QualitySettingsManager__ApplyGraphicsQuality.c` 全文；R-G §二 第 4 跳逐句）。
+        /// <para>🔴 **2026-10-29（W2）**：原来的 `ApplyQuality(int)`（`SetQualityLevel` + `SuperSampling.Apply`）
+        /// 已删 —— 原版那条链是「换 URP 资产（`GraphicsSettings.defaultRenderPipeline`）+ `SetQualityLevel(qualityNumber)`
+        /// + `ChangeResolution()`（renderScale）+ `SUPERSAMPLING_ON` 关键字 + `useSuperSampling` 闸」，而这几样
+        /// **只有 renderScale 在本工程有对应物**：原版那 6 档 `QualitySettings` 与 4 份 URP 资产我们**没有**
+        /// （R-G §五①），拿 `SetQualityLevel(2)` 去写会被 Unity **静默夹取**到我们那 2 档上 ⇒ 行为与原版不同
+        /// 而且**看不出来**。⇒ 这里只做 ① `ChangeResolution()` 的等价物 = `SuperSampling.Apply()`、② 清脏位、
+        /// ③ 把「还差哪几样」**说出来**（红线：不许静默失败）。</para>
+        /// <para>调用点只有一处：`Close()` 里（= 原版 `SettingsMenu__Close.c:16-23`「脏位在才应用」）。</para></summary>
+        public static void ApplyGraphicsQualityOnClose()
+        {
+            if (!ApplyGraphicsChangesOnClose) return;      // 原版那一句 `if (+0xc0 != 0)`
+            ApplyGraphicsChangesOnClose = false;
+
+            SuperSampling.Apply();                          // = 原版 `d.ChangeResolution()`（写 URP `renderScale`）
+
+            // ⚠️ 剩下那几样**照实说**（不是不做，是判据落在工程资产层、且写了会被静默夹取；见 R-G §五①）
+            Debug.Log("[Settings] `ApplyGraphicsQuality`（原版 `QualitySettingsManager` 那一跳）的**可落地部分**已应用"
+                    + "（`ChangeResolution()` 的等价物 = 超采样 renderScale）；**未应用**的三样在本工程没有对应物："
+                    + "① `GraphicsSettings.defaultRenderPipeline` 换 URP 资产、"
+                    + "② `QualitySettings.SetQualityLevel(qualityNumber)`（原版 6 档 / 我们 2 档 ⇒ 写了会被静默夹取）、"
+                    + "③ `SUPERSAMPLING_ON` 关键字。判据 → `资料/完全复刻/判据/B94_R-G_画质档位映射.md` §三 / §五①。"
+                    + "当前档 = " + GameStaticData.graphicsQuality + "。");
+        }
+    }
+
+    /// <summary>画质档的**持久化**（原版 `GameStaticData.graphicsQuality`(+0x120) 由
+    /// `PlayerDataManager.SavePlayerData` 写进 `LocalPlayerData.graphicsQuality`，读档时 `LoadPlayerData`
+    /// 再灌回来 —— R-G §二 第 1/3 跳）。
+    /// <para>🔶 **自己设计（非原版）· 持久化介质**：原版那一格住在**玩家存档 / 服务器侧**
+    /// （`LocalPlayerData` + PlayFab），那是 P3 那一层（关服后判据在远端、本地永远拿不到）⇒ 我们落 `PlayerPrefs`。
+    /// 依据 = 本窗既有同族先例（`SuperSampling` 类注释 ① / `SmallScreenUI` / `AutoZoom` 全是 `PlayerPrefs`）。
+    /// **谁定的**：调度台 2026-10-29 授权（铁律 18·0：只有与服务器有关的那一层才允许自定）。</para>
+    /// <para>⚠️ 原版还有一格 `graphicsQualityChosenManually`(+0x12C)（判「读档时用存档还是用默认档」），
+    /// 我们**没有**这一位：它的消费者（`PlayerDataManager.LoadPlayerData`）在本仓不存在（那是服务器存档链，P3）
+    /// ⇒ 加了也是死格。本类的等价物 = 「`PlayerPrefs` 里**有没有这个键**」。</para></summary>
+    public static class GraphicQuality
+    {
+        /// <summary>我们的持久化 key（原版走玩家存档 —— 见类注释）。</summary>
+        public const string PrefKey = "GraphicsQuality";
+
+        /// <summary>🔴 **自检注入点**：true ⇒ <see cref="Save"/> 只改内存、**不写 `PlayerPrefs`**
+        /// （本工程规矩：自检不许动玩家的真设置 —— 同 `SuperSampling.PersistOverride`）。</summary>
+        public static bool PersistOverride;
+
+        static bool _loaded;
+
+        /// <summary>读回玩家的选择（原版 `LoadPlayerData` 第 1 跳）。**没选过 ⇒ 不动** ——
+        /// 保持 `GameStaticData` 里的出厂值（= `DefaultQualitySetting` = `Ultra`）。</summary>
+        static void Load()
+        {
+            if (_loaded) return;
+            _loaded = true;
+            if (!PlayerPrefs.HasKey(PrefKey)) return;      // 原版 = `chosenManually == false` 那一支 ⇒ 用默认档
+            int v = PlayerPrefs.GetInt(PrefKey, (int)GameStaticData.DefaultQualitySetting);
+            GameStaticData.graphicsQuality = (GameStaticData.EverguildQualitySetting)Mathf.Clamp(v, 0, 4);
+        }
+
+        /// <summary>启动那一次读回来（= 原版 `PlayerDataManager.Awake → LoadPlayerData` 的等价时机；
+        /// ⚠️ 原版是「数据先于画质」，我们这里只有一个字段、先后无所谓）。</summary>
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
+        static void LoadAtStartup() { Load(); }
+
+        /// <summary>= 原版 `SavePlayerData` 里 `localPlayerData.graphicsQuality = GameStaticData.graphicsQuality`
+        /// 那一句（`:10237`）。⚠️ 介质是我们的（见类注释）。</summary>
+        public static void Save(GameStaticData.EverguildQualitySetting q)
+        {
+            _loaded = true;                                 // 已经载过/写过 ⇒ 不再让 `Load` 覆盖回去
+            if (PersistOverride) return;
+            PlayerPrefs.SetInt(PrefKey, (int)q);
+            PlayerPrefs.Save();
+        }
+
+        /// <summary>自检用：把内存态放回**出厂值**（`Ultra`）、并且**不**去碰 `PlayerPrefs`。</summary>
+        public static void ResetForTest()
+        {
+            _loaded = true;
+            GameStaticData.graphicsQuality = GameStaticData.DefaultQualitySetting;
+        }
     }
 }
+

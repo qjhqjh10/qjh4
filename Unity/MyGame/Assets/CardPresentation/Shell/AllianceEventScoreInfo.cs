@@ -33,7 +33,7 @@ using UnityEngine;
 namespace CardPresentation
 {
     /// <summary>原版 prefab `Alliance Event Score Info`（`AllianceScoreBar`）：竖进度条 + 5 档里程碑。</summary>
-    public class AllianceEventScoreInfo : MonoBehaviour
+    public partial class AllianceEventScoreInfo : MonoBehaviour
     {
         // 分层（渲染队列，⛔ 不是 z）—— 本件占 **3975–3981**
         //  ⚠️ 与 `EnergySinglePlayerOnlyEventWindow`（3935–3945）**不重叠**；⛔ 别挪进别人的段。
@@ -334,6 +334,106 @@ namespace CardPresentation
                 }
             }
             return Percentage(list[n - 1]);
+        }
+    }
+
+    // ============================================================ 原版另外那两个类的入口（B94_S3 · 2026-10-29）
+    // 🔴 追加在**类尾**（本文件被账按行号引用 153 / 181 / 248 ⇒ 插中间会让它们整体漂移）。
+    //
+    // 判据（逐句实读）：
+    //   · `decomp_full/MilestoneScoreBar__Initialize.c` + `__SetProgressBar.c` + ILSpy `MilestoneScoreBar.cs`
+    //   · `decomp_full/ProgressBar__SetProgress.c` + ILSpy `ProgressBar.cs`
+    //   · `decomp_full/ScoringDataInfo__get_{CurrentScore,PreviousLevelScore,NextLevelScore}.c`
+    //     （偏移 **+0x10 / +0x14 / +0x18** ⇒ `ProgressBar` 那个重载取的是 **CurrentScore(+0x10)** 与
+    //      **NextLevelScore(+0x18)**，中间那个 `PreviousLevelScore(+0x14)` **没被用**）
+    //   · 两个字面量：`0x426de28 = "{0}/{1}"` · 阈值超行那句
+    //     `"[ERROR] Alliances scoring bar: There are more scoring lines that thresholds"`（`0x42a1ae0`）
+    //
+    // ⚠️ **这一族在我们仓里没有 prefab**：我们建的那个 prefab 的根组件是 `AllianceScoreBar`
+    //    （`Alliance Event Score Info`），而 `MilestoneScoreBar` / `ProgressBar` 是**另一族**
+    //    （`Alliance Event Score Panel` 那一批的账号级记分条；本地没有它的 prefab ⇒ 见报告「没查清」）。
+    //    ⇒ 这里落的是**同名同语义的入口**，行为与我们那一族逐条对齐（进度公式同一个 `InterpolateMilestones`）。
+
+    public partial class AllianceEventScoreInfo
+    {
+        /// <summary>= 原版 `MilestoneScoreBar.Initialize(int currentScore, GenericScoringMilestone[] milestones, Sprite icon)`
+        /// 的**同名入口**（三步，逐句见 `.c`）：
+        /// <list type="number">
+        /// <item>`SetProgressBar(milestones, currentScore)`：`slider.wholeNumbers = false` ·
+        ///       `maxValue = 末档阈值` · `normalizedValue = InterpolateMilestones(currentScore, [0, 阈值…])`
+        ///       （`SetProgressBar.c` 尾部实读 —— 与我们 <see cref="InterpolateMilestones"/> **同一个公式**）。</item>
+        /// <item>按下标逐行 `scoringLines[i].Initialize(milestones[i], icon)`。</item>
+        /// <item>**行数多于阈值** ⇒ `CustomDebug.LogError("[ERROR] Alliances scoring bar: There are more scoring lines that thresholds")`
+        ///       后**返回**（后面的行不初始化）。</item>
+        /// </list>
+        /// <para>⚠️ 三步我们是**同一个方法**：<see cref="SetMilestones"/>（那一族 prefab 的行内效果是
+        /// `AllianceScoreBarLine`：写阈值文字 + 换开箱图 + 压暗，与本类的行一致）。这个入口只是把
+        /// 「原版叫什么」钉在账上（⛔ 不复制一份实现，改行为只改 `SetMilestones`）。</para></summary>
+        public void InitializeMilestoneBar(int currentScore, int[] thresholds)
+        {
+            SetMilestones(currentScore, thresholds);
+        }
+
+        /// <summary>= 原版 `ProgressBar.SetProgress(int value, int maxValue, string format = "{0}/{1}", bool useWholeNumbers = true)`
+        /// 之后的**归一进度**（`slider.value / slider.maxValue`；`maxValue &lt;= 0` ⇒ 0，⛔ 不除零、不猜）。
+        /// <para>⚠️ 与 <see cref="InterpolateMilestones"/> **不是一回事**：那个是「按档位等分」的账号级进度，
+        /// 这个是 `ProgressBar` 的「当前 / 上限」线性值 —— 两个 prefab 家族各用各的，⛔ 别互相顶替。</para></summary>
+        public void SetProgressByScore(int current, int max)
+        {
+            SetProgress(ScoreProgressBar.Normalized(current, max));
+        }
+    }
+
+    /// <summary>原版 `ProgressBar`（`MonoBehaviour`：`Slider` + 一颗 TMP）的**行为那一半**。
+    /// <para>判据 `ILSpy ProgressBar.cs` + `ProgressBar__SetProgress.c`：</para>
+    /// <code>
+    /// SetProgress(int value, int maxValue = 100, string format = "{0}/{1}", bool useWholeNumbers = true):
+    ///     slider.wholeNumbers = useWholeNumbers;  slider.maxValue = maxValue;  slider.value = value;
+    ///     if (text) text.text = String.Format(format, value, maxValue);
+    ///     IsFilled = value &gt;= maxValue;              // ILSpy 那串异或/减法是「无溢出比较」的标准形状
+    /// SetProgress(ScoringDataInfo d):  SetProgress(d.CurrentScore /*+0x10*/, d.NextLevelScore /*+0x18*/, "{0}/{1}", true)
+    /// </code>
+    /// <para>🔴 `useWholeNumbers` 那一格是 **ILSpy 丢常量**（它写成 `default`），`.c` 里实参是 **`1`** ⇒ true。</para></summary>
+    public static class ScoreProgressBar
+    {
+        /// <summary>`ProgressBar.SetProgress` 的格式串默认值（判据 `stringliteral.json` 地址 `0x426de28`）。</summary>
+        public const string Format = "{0}/{1}";
+        /// <summary>外层那个重载传下去的 `useWholeNumbers`（`.c` 实参 `1`；ILSpy 丢成 `default`）。</summary>
+        public const bool UseWholeNumbers = true;
+
+        /// <summary>`Slider.normalizedValue` = `value / maxValue`（clamp 到 0..1；`maxValue &lt;= 0` ⇒ 0）。</summary>
+        public static float Normalized(int value, int maxValue)
+        {
+            if (maxValue <= 0) return 0f;
+            return Mathf.Clamp01((float)value / (float)maxValue);
+        }
+
+        /// <summary>`text.text = String.Format(format, value, maxValue)`。</summary>
+        public static string Text(int value, int maxValue, string format = Format)
+        {
+            return string.Format(format ?? Format, value, maxValue);
+        }
+
+        /// <summary>`IsFilled = value &gt;= maxValue`（ILSpy 的 `flag3` 那一串化简结果）。</summary>
+        public static bool IsFilled(int value, int maxValue) { return value >= maxValue; }
+
+        /// <summary>= 原版 `ProgressBar.SetProgress(ScoringDataInfo)` 的**外层那一跳**（它自己没有别的行为）：
+        /// 只把 **`CurrentScore`（`+0x10`）** 与 **`NextLevelScore`（`+0x18`）** 传给内层，
+        /// 格式串恒 `"{0}/{1}"`、`useWholeNumbers` 恒 `true`。
+        /// <para>🔴 **`PreviousLevelScore`（`+0x14`）在整条链上一次都没被用**（偏移实读见类头）——
+        /// 这是那种「看起来该参与、实际不参与」的格子（铁律 5·c）。</para>
+        /// <para>`d == null` ⇒ 原版 NRE；我们 0（⛔ 不假装有进度）。</para></summary>
+        public static float NormalizedOf(ScoringDataInfo d)
+        {
+            if (d == null) return 0f;
+            return Normalized(d.CurrentScore, d.NextLevelScore);
+        }
+
+        /// <summary>同 <see cref="NormalizedOf"/> 的文本那一半（`String.Format("{0}/{1}", current, next)`）。</summary>
+        public static string TextOf(ScoringDataInfo d)
+        {
+            if (d == null) return null;
+            return Text(d.CurrentScore, d.NextLevelScore);
         }
     }
 }

@@ -122,13 +122,17 @@ def ok(name, cond, detail=""):
 def run(landing, do_fix=False, status="A", header=HDR):
     """把一条假账行喂给 `check_file`，返回分档结果。"""
     _write(CASEFILE, header + "%s\t%s\tFakeClass\tFakeMethod\t\n" % (status, landing))
-    total, fails, drifts, rewrites, getters, warns = C.check_file(CASEFILE, [APP], False, do_fix)
+    total, fails, drifts, rewrites, getters, warns, bstat = C.check_file(
+        CASEFILE, [APP], False, do_fix)
+    b_total, b_warns = bstat
     cls = "F" if fails else ("D" if drifts else ("W" if warns else "P"))
     return {
         "cls": cls, "total": total, "fails": fails, "drifts": drifts,
         "rewrites": rewrites, "getters": getters, "warns": warns,
+        "b_total": b_total, "b_warns": b_warns,
         "why": (fails or drifts or [(None, None, None, None, w[4]) for w in warns] or [(None, None, None, None, "")])[0],
         "kinds": set(w[3] for w in warns),
+        "bkinds": set(w[3] for w in b_warns),
     }
 
 
@@ -139,6 +143,21 @@ def case(name, landing, want, kind=None, do_fix=False):
         good = good and (kind in r["kinds"] if kind != "-" else not r["kinds"])
     det = "want=%s%s got=%s kinds=%s why=%s" % (
         want, ("+" + kind) if kind else "", r["cls"], sorted(r["kinds"]), str(r["why"])[:90])
+    ok(name, good, det)
+    return r
+
+
+def case_b(name, landing, want_kinds, do_fix=False, header=HDR):
+    """🆕 2026-10-29（B94_T1）：**B 行**用例 —— 判「只报告」的两条硬约束：
+    ① A 的六项（`total`/`fails`/`drifts`/`getters`/`warns`）**必须全空**（⛔ 不许溢进 A）；
+    ② B 桶里出现期望的档位。"""
+    r = run(landing, do_fix, status="B", header=header)
+    clean = (r["total"] == 0 and not r["fails"] and not r["drifts"]
+             and not r["getters"] and not r["warns"] and r["rewrites"] == [])
+    good = clean and (want_kinds <= r["bkinds"]) and r["b_total"] == 1
+    det = ("want_kinds=%s got=%s b_total=%s A 桶干净=%s b_why=%s"
+           % (sorted(want_kinds), sorted(r["bkinds"]), r["b_total"], clean,
+              str(r["b_warns"][:1])[:110]))
     ok(name, good, det)
     return r
 
@@ -266,10 +285,10 @@ def main():
         # 表头缺列 / 空账：不许抛异常（老版本返回 4 元组会解包崩）
         _write(CASEFILE, "只有一列\n")
         res = C.check_file(CASEFILE, [APP], False, False)
-        ok("基础：表头缺列 ⇒ 记 1 条失败、返回 6 元组", len(res) == 6 and len(res[1]) == 1, res)
+        ok("基础：表头缺列 ⇒ 记 1 条失败、返回 7 元组", len(res) == 7 and len(res[1]) == 1, res)
         _write(CASEFILE, "")
         res = C.check_file(CASEFILE, [APP], False, False)
-        ok("基础：空账 ⇒ 返回 6 元组、total=0", len(res) == 6 and res[0] == 0, res)
+        ok("基础：空账 ⇒ 返回 7 元组、total=0", len(res) == 7 and res[0] == 0, res)
 
         # ------------------------------------------------------------------
         # 四类判法在同一批里能分开
@@ -279,12 +298,15 @@ def main():
                + "A\t%s\tC2\tM2\t\n" % "X.cs:3（Refresh 方法）"            # 失败
                + "A\t%s\tC3\tM3\t\n" % "T.cs:5（`Survivor`）"              # 告警
                + "A\t%s\tC4\tM4\t\n" % "T.cs:7（`KwValue`）"               # 通过
-               + "B\t%s\tC5\tM5\t\n" % "Nope.cs:1（Foo）")                 # 非 A 行不参与
-        total, fails, drifts, rewrites, getters, warns = C.check_file(CASEFILE, [APP], False, False)
+               + "B\t%s\tC5\tM5\t\n" % "Nope.cs:1（Foo）")                 # B 行进 B 桶、不进 A
+        total, fails, drifts, rewrites, getters, warns, bstat = C.check_file(CASEFILE, [APP], False, False)
         ok("四类：A=4 / 失败 1 / 漂移 1 / 告警 1（通过含告警 = 3）",
            (total, len(fails), len(drifts), len(warns)) == (4, 1, 1, 1),
            (total, len(fails), len(drifts), len(warns)))
         ok("四类：getter 旧接口仍返回那一条", len(getters) == 1, getters)
+        # 🆕 2026-10-29（B94_T1）：那条 B 行**只进 B 桶**、⛔ 不进 A 的任何一项
+        ok("四类：B 行进 B 桶（b_total=1）且 ⛔ 不进 A 的 total/失败/漂移/告警",
+           bstat[0] == 1 and len(bstat[1]) == 1, (bstat,))
 
         # ------------------------------------------------------------------
         # 退出码语义：0 = 无失败（漂移/告警不算）· 1 = 有失败 · 2 = 参数错
@@ -474,6 +496,88 @@ def main():
            C.member_decl_kind("    int local = 5;") is None, C.member_decl_kind("    int local = 5;"))
         ok("B93-3- member_decl_kind：语句 ⇒ None", C.member_decl_kind("    Kw(local);") is None,
            C.member_decl_kind("    Kw(local);"))
+
+        # ==================================================================
+        # 🆕 2026-10-29（B94_T1）：**B 行纳入机检但只报告** + `WARN_ON_COMMENT`
+        #   判据 = `资料/完全复刻/判据/B94_R-T_B行落点体检.md` §五
+        #   起因：`check_file` 原来第一句是 `if status != "A": continue` ⇒ 只查 A 行；
+        #         R-T 实测 258 条 B 行里 13 条落点确实错（5%），**11 条是「点在紧邻的 doc 注释行」**，
+        #         全部静默。本组用例钉三条：① A 判法/数字不变 ② B 只报告、退出码不变
+        #         ③ 点在注释行要单独报 `ONCOMMENT`。
+        # ==================================================================
+        Y_CS = (
+            "class Y\n"                                   # 1
+            "{\n"                                         # 2
+            "    /// <summary>\n"                         # 3  ← 落点常被写在这里
+            "    /// 构建模式卡（原版 BuildModeCard）\n"   # 4
+            "    public void BuildModeCard()\n"           # 5  ← 真身
+            "    {\n"                                     # 6
+            "    }\n"                                     # 7
+            "}\n"                                         # 8
+        )
+        _write(os.path.join(APP, "Y.cs"), Y_CS)
+        ok("T1- is_comment_line：`///` / `//` / `*` ⇒ 真；声明行 ⇒ 假",
+           C.is_comment_line("    /// <summary>") and C.is_comment_line("    // x")
+           and C.is_comment_line("     * doc") and not C.is_comment_line("    public void BuildModeCard()")
+           and not C.is_comment_line(""))
+
+        # ---- ① A 行回归：判法一个字没变（点在注释行仍只是「漂移」，⛔ 不新增告警）----
+        r = case("T1-A 回归：A 行错 ⇒ 仍然失败（B 档改动 ⛔ 不许放松 A）", "X.cs:3（Refresh 方法）", "F")
+        r = case("T1-A 回归：A 行点在 doc 注释行 ⇒ 仍然只是漂移，⛔ 不新增 ONCOMMENT（A 汇总基线不变）",
+                 "Y.cs:3（`BuildModeCard`）", "D", "-")
+        ok("T1-A ...且漂移理由是「实际在 5 行」", "实际在 5 行" in str(r["why"]), r["why"])
+
+        # ---- ② B 行：按 A 的判法会失败 ⇒ 只报告（BFAIL），A 六项全空 ----
+        r = case_b("T1-B 名字对不上（A 会判失败）⇒ 只报 BFAIL，⛔ 不失败", "X.cs:3（Refresh 方法）",
+                   {C.WARN_BFAIL})
+        ok("T1-B ...BFAIL 文案里写明「名字对不上」", "名字对不上" in str(r["b_warns"][:1]), r["b_warns"][:1])
+        case_b("T1-B 文件不存在（A 会判失败）⇒ 只报 BFAIL", "Nope.cs:1（Foo）", {C.WARN_BFAIL})
+        case_b("T1-B 落点里没有 `文件:行`（bare）⇒ 只报 BFAIL", "只有散文落点", {C.WARN_BFAIL})
+
+        # ---- ③ 落点落在【注释行】⇒ ONCOMMENT（R-T 实测 13 处错里 11 处就是这个形态）----
+        r = case_b("T1-B 落在 `///` doc 注释行 ⇒ ONCOMMENT（+ 行号漂移 BDRIFT）",
+                   "Y.cs:3（`BuildModeCard`）", {C.WARN_ON_COMMENT, C.WARN_BDRIFT})
+        ok("T1-B ...ONCOMMENT 的理由里贴出那一行注释",
+           any("注释行" in w[4] for w in r["b_warns"]), r["b_warns"])
+        case_b("T1-B 落在 `//` 注释行（该行恰好提到了方法名）⇒ ONCOMMENT",
+               "S.cs:8（`Helper`）", {C.WARN_ON_COMMENT})
+        # 反例：不落在注释行 ⇒ ⛔ 不许乱报 ONCOMMENT
+        r = case_b("T1-B 反例：落在真声明行 ⇒ 无 ONCOMMENT", "S.cs:9（`Helper`）", set())
+        ok("T1-B 反例：...而且整条 B 行没有任何问题（bkinds 为空）", not r["bkinds"], r["bkinds"])
+
+        # ---- ④ B 行的次要落点也纳入 `check_extra_refs`（原来这段只跑 A 行）----
+        case_b("T1-B 次要落点指向空行（A 会判失败）⇒ 只报 BFAIL",
+               "S.cs:3（`Good`） · S.cs:7", {C.WARN_BFAIL})
+        case_b("T1-B 次要落点行号越界 ⇒ 只报 BFAIL", "S.cs:3（`Good`） · S.cs:9999", {C.WARN_BFAIL})
+        case_b("T1-B 次要落点文件不存在 ⇒ SECOND（只报）",
+               "S.cs:3（`Good`） · NoSuchFile.cs:3", {C.WARN_SECOND})
+
+        # ---- ⑤ 退出码：B 行再错也⛔ 不许把闸变红 ----
+        bfailf = os.path.join(TMP, "bfail.tsv")
+        _write(bfailf, HDR + "B\t%s\tC\tM\t\n" % "X.cs:3（Refresh 方法）")
+        bcleanf = os.path.join(TMP, "bclean.tsv")
+        _write(bcleanf, HDR + "A\t%s\tC\tM\t\n" % "T.cs:7（`KwValue`）"
+               + "B\t%s\tC2\tM2\t\n" % "X.cs:3（Refresh 方法）")
+        ok("T1 退出码：只有一条错的 B 行 ⇒ 0（⛔ B 不计失败）",
+           exit_of([bfailf, "--root", APP]) == 0)
+        ok("T1 退出码：A 通过 + B 错 ⇒ 0（B 不参与退出码）",
+           exit_of([bcleanf, "--root", APP]) == 0)
+        ok("T1 退出码：A 错 + B 错 ⇒ 仍是 1（A 的语义没变）",
+           exit_of([failf, "--root", APP]) == 1)
+
+        # ---- ⑥ `--fix` 一个字都不碰 B 行（名字匹配 ≠ 实现等价）----
+        bfixf = os.path.join(TMP, "bfix.tsv")
+        _write(bfixf, HDR + "B\t%s\tC\tM\t\n" % "T.cs:9（`KwValue`）")
+        before_b = io.open(bfixf, encoding="utf-8", newline="").read()
+        exit_of([bfixf, "--root", APP, "--fix"])
+        after_b = io.open(bfixf, encoding="utf-8", newline="").read()
+        ok("T1 --fix：B 行的漂移**一个字都不改**（9 ⛔ 不许被改成 7）", before_b == after_b, after_b.strip())
+        # 反证：同一形状的 A 行 `--fix` 照旧会改（A 的重定位语义没被动过）
+        afixf = os.path.join(TMP, "afix.tsv")
+        _write(afixf, HDR + "A\t%s\tC\tM\t\n" % "T.cs:9（`KwValue`）")
+        exit_of([afixf, "--root", APP, "--fix"])
+        ok("T1 --fix：同形状的 **A** 行照旧改正 9 -> 7（A 语义没被改坏）",
+           "T.cs:7（`KwValue`）" in io.open(afixf, encoding="utf-8", newline="").read())
     finally:
         shutil.rmtree(TMP, ignore_errors=True)
 

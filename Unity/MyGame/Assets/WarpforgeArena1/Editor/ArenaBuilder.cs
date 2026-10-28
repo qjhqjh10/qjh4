@@ -2126,6 +2126,14 @@ public static class ArenaBuilder
                            + " 跑一次 `python 工具/gen_arena_meshkeywords.py` 生成。");
         else
             Debug.Log($"[Arena] {mf.scene}：原版关键字旁挂点了 {meshKw.Count} 个网格");
+        // 🆕 2026-10-29（B94_X1 · 账 未分类:359/360）：**原版 `IconRotation`（背景环自转）** —— 旁挂 `_iconrotation.json`
+        //    判据 = `decomp_full/IconRotation__Start.c` / `__Update.c`（逐句见 `WarpforgeArena1/Runtime/ArenaIconRotation.cs`）。
+        //    原版只有 `battlearenablacklegion` 的两个背景环（`Background_Ring_1` y=−0.02 · `Background_Ring_2.001` y=+0.01，
+        //    `updateRate` 均 0 ⇒ **每帧都转**）。不接 = 两环不转（可观察缺口）。
+        var iconRot = LoadIconRotation(mf.scene);
+        int nIconRot = 0;
+        if (iconRot.Count > 0)
+            Debug.Log($"[Arena] {mf.scene}：原版 `IconRotation` 旁挂 {iconRot.Count} 个（背景环自转）");
         var psTexSlots = new Dictionary<string, TexSlotEntry[]>();     // 🆕 2026-09-30：粒子那一支
         var texSlots = LoadTexSlots(mf.scene, psTexSlots);
         if (texSlots.Count > 0 || psTexSlots.Count > 0)
@@ -2163,6 +2171,14 @@ public static class ArenaBuilder
                 //    绝不能再 `ApplyTransform` —— 再乘一遍等于平移 + 放大两次，全批飞出画面。
                 //    见 `MeshEntry.worldBaked` 的注释（判据 + 实测后果都在那儿）。
                 if (!e.worldBaked) ApplyTransform(holder.transform, e.pos, e.rot, e.scale);
+                // 🆕 2026-10-29（B94_X1 · 账 未分类:359/360）：原版 `IconRotation` —— 挂在**同名**对象上（旁挂表按 go 名索引），
+                //    ⚠️ 必须排在 `ApplyTransform` **之后**（组件在 `Update` 里逐帧 `transform.Rotate`，建场时那一次不能覆盖初始姿态）。
+                if (iconRot.TryGetValue(goName, out var ird))
+                {
+                    var rotComp = holder.AddComponent<WarpforgeVFX.ArenaIconRotation>();
+                    rotComp.xSpeed = ird.x; rotComp.ySpeed = ird.y; rotComp.zSpeed = ird.z; rotComp.updateRate = ird.rate;
+                    nIconRot++;
+                }
 
                 // 🔴 2026-10-08：**Unity 内置网格那一路**（见 `MeshEntry.builtinMesh`）。
                 //    ⚠️ **必须排在 `objFile` 那条路之前**：内置网格**没有 OBJ**（清单里 `objFile` 是 null），
@@ -2926,7 +2942,7 @@ public static class ArenaBuilder
         }
 
         Debug.Log($"[Arena] 内容：网格 {nMesh} 个（跳过 {nMeshSkip} · 按画质档不建 {nMeshQuality} · "
-                + $"挂原版关键字 {nMeshKw} 个）、粒子 {nPs} 个"
+                + $"挂原版关键字 {nMeshKw} 个 · 背景环自转 {nIconRot} 个）、粒子 {nPs} 个"
                 + $"（另跳过无贴图 {nPsNoTex} · 原版关着 {nPsInactive} · renderMode=None {nPsNone} 个）；"
                 + $"其中 sizeOverLifetime {nSol} · colorOverLifetime(RGBA) {nColLife} · "
                 + $"velocity {nVel} · clampVelocity {nClamp} · noise {nNoise} · rotation {nRot} · 子发射器 {nSubLinked}");
@@ -5230,6 +5246,31 @@ public static class ArenaBuilder
     /// 同名同位置、清单里**都是 `active=True`** ⇒ 门的效果翻倍（档 2 原版只开 High）。</summary>
     [System.Serializable] public class QualityToggleObj { public string go; public bool active = true; }
     [System.Serializable] public class QualityToggleFile { public string scene; public int quality; public QualityToggleObj[] objects; }
+
+    /// <summary>🆕 2026-10-29（B94_X1 · 账 未分类:359/360）：**背景环自转**（原版 `IconRotation`）。
+    /// 数据 = `arenas/&lt;场&gt;/&lt;场&gt;_iconrotation.json`（工具 `工具/gen_arena_iconrotation.py`，
+    /// 逐实例读原版组件的 `xSpeed` / `ySpeed` / `zSpeed` / `updateRate`）。
+    /// 🔴 不接 = 两环**不转**：`battlearenablacklegion` 的 `Background_Ring_1` / `Background_Ring_2.001`
+    /// （rate 都是 0 ⇒ 原版每帧都转）。判据 → `WarpforgeArena1/Runtime/ArenaIconRotation.cs` 文件头。</summary>
+    [System.Serializable] public class IconRotationObj
+    {
+        public string go; public float x; public float y; public float z; public float rate;
+    }
+    [System.Serializable] public class IconRotationFile { public string scene; public IconRotationObj[] objects; }
+
+    /// <summary>读 `&lt;场&gt;_iconrotation.json` → 按 GameObject 名字索引（与 `LoadMeshKeywords` 同口径：
+    /// 清单不带这一族，只能走旁挂）。同名后写覆盖（原版这两件名字不重）。</summary>
+    static Dictionary<string, IconRotationObj> LoadIconRotation(string sceneName)
+    {
+        var res = new Dictionary<string, IconRotationObj>();
+        var path = $"{ArenaDir(sceneName)}/{sceneName}_iconrotation.json";
+        if (!File.Exists(path)) return res;
+        var f = JsonUtility.FromJson<IconRotationFile>(File.ReadAllText(path));
+        if (f == null || f.objects == null) return res;
+        foreach (var o in f.objects)
+            if (o != null && !string.IsNullOrEmpty(o.go)) res[o.go] = o;
+        return res;
+    }
 
     public static HashSet<string> LoadInactiveByQuality(string sceneName)
     {

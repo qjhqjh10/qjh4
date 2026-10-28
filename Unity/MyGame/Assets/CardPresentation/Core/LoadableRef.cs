@@ -121,11 +121,11 @@ namespace CardPresentation
             }
         }
 
-        /// <summary>编辑器那份资产（原版 `GetReferenceObjEditor`）。没有就 null。</summary>
+        /// <summary>原版 `GetReferenceObjEditor()` / `SetReferenceObjEditor(UnityEngine.Object)` 那一对：getter = `reference == null ? null : (装箱后能赋给 UnityEngine.Object ? reference : null)`（判据 = `decomp_generic_trial/out/LoadableReference___Il2CppFullySharedGenericType___GetReferenceObjEditor__101ab70.c` 全文 —— 🔴 **整个方法体没有一次 `AssetDatabase` 调用**，账 `其他:292` 旧判据要点写的「AssetDatabase」是错的，2026-10-29 `B94_V1` 据 `.c` 订正）；setter = 判型可赋给 `T` ⇒ **写 `reference`（+0x20）**、否则 `LogError`（`…___SetReferenceObjEditor__101b6c0.c`）。⚠️ 两个方法都围绕 `reference`、**不碰** `genericObjectReference`（+0x10；原版那一格只由序列化填，本仓 0 读写者）⇒ ⛔ 别把 getter 改回去（改回去 = set→get 恒 null）。</summary>
         public UnityEngine.Object GenericObjectReference
         {
-            get { return genericObjectReference; }
-            set { genericObjectReference = value; }
+            get { return (object)reference as UnityEngine.Object; }
+            set { reference = value as T; if (value != null && reference == null) UnityEngine.Debug.LogError("[LoadableRef] `GenericObjectReference` 收到的对象不能赋给 `" + typeof(T).Name + "`（原版 `SetReferenceObjEditor` 同一支 `LogError`，照抄出声）"); }
         }
 
         /// <summary>🔶 自己设计（非原版）：同一份 id 只出声一次（本项目口径：不许静默失败，但也别刷屏）。</summary>

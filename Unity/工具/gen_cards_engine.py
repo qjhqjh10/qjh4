@@ -4503,6 +4503,169 @@ def ability_summon_of(cid, name, trow, report):
     report["cards"] += 1
     return out
 
+
+# ==========================================================================================
+#  🆕 v40（2026-10-29 · 第九十四会话 · 波 6 · 执行代理 `B23`）→ 逐卡 `abilityBuffs` 列
+#      = 原版 **`CardEffect`** 的**逐行原样落列**（数据侧；账 `战斗逻辑驱动:686` / `:1053`）
+# ==========================================================================================
+#  🔴 **为什么要这一列**（缺口 = `判据/B94_R-W_战斗38条分诊.md` §二 的 **B-3**）：
+#    我们今天的引擎**只从卡面正文解析**出效果（`give/gain/lose` → `PayloadOp` / `ApplyOneGain` 一族），
+#    而原版 `CardScript.AddEffect` 的输入是 **`CardEffect` 对象**（`RuleEngine/Core/EffectResolver.cs:11962`
+#    的 `ApplyOneGain` 只覆盖它的一部分）。**`CardEffect.buffType` 此前一个字都没落进卡表** ⇒
+#    分派器的 11 个 buffType 分支（`5 swapStats` · `6 changeRace` · `10 changeAbilityCost` ·
+#    `11 removeExtrinsic` · `25 ephemeralCopy` · `30 addRace` · `40 replaceAbility` ·
+#    `45 addStatsDropPod` · `70 setMeleeAttack` · `85 setRangeAttack` · `95 setCost`）**结构上产不出来**。
+#    ⇒ 本列把**整条 `CardEffect` 的引擎侧载荷**落进卡表，消费端（`EffectResolver` 那一族）才有输入。
+#
+#  判据（第一权威 = 全量反编译 `d:/2/tools/decomp_full/`，本代理 2026-10-29 逐句亲读）：
+#   · **分派器** = `CardScript__AddEffect.c:209-967`：`iVar16 = CardEffect.buffType(+0x38)`，
+#     先两道特判（`:198-208` `buffType == 0x14(20) doubleAttack` ⇒ **原地改成 1** 并把
+#     `get_CurrentMeleeAttack` 写进 `meleeAttackChange(+0x48)`；`:210-241` / `:242-329` 的两段区间分支），
+#     再进 `switch`。每支读的**就是本列落的那些字段**（偏移 → `dump.cs:119082-119105`）：
+#       `+0x3C trait` · `+0x40 traitValue` · `+0x44 newRace` ·
+#       `+0x48 meleeAttackChange` · `+0x50 rangeAttackChange` · `+0x58 armourChange` ·
+#       `+0x60 healthChange` · `+0x68 costChange` · `+0x70 randomValueChange` ·
+#       `+0x74 permanentBuff` · `+0x75 doNotStack` · `+0x78 markOfChaosType` ·
+#       `+0x7C daemonHostType` · `+0x80 mutationType` ·
+#       `+0x30 extrinsic` · `+0x31 extrinsicVariable` · `+0x32..0x36 until*` ·
+#       `+0x88 enchantment(PPtr)`（**那一格不进本列** —— 它是 v38 `enchantment` 列的活，⛔ 别落两份）。
+#     🔴 **`+0x4C/0x54/0x5C/0x64/0x6C`（五个 `ChooseValueOptions`）本列照落**：它们回答「这个数字
+#       是从谁身上取」，不是「数字是多少」；`valueOptions 101 (BaseRefCardMAttack)` 那一档就是
+#       2026-10-28 用户点名「**抄原版**」的那处（`CLAUDE.md` §18·0）。
+#   · **`buffType` 枚举** = `dump.cs:45430-45462`（27 档，**只抄这一份**，⛔ 别在别处再列一遍）。
+#   · **两处容器**：`abilityLogic[].buffEffect`（`CardEffect`）与 `abilityLogic[].handBuff.cardEffect`
+#     （同一个类型，只是挂在「手牌效果」下）—— 后者经 `PlayerHand.AddHandEffect` 走，**不是** `AddEffect`，
+#     所以行里必须带 `at` 区分（同 `permanentBuffs` / `enchantment` 那两列的 `at` 口径）。
+#
+#  形状（**与 `abilityDamage` / `abilitySummon` 同构**：同一 `(ab, lg)` 两把下标、同一个 `-1` 哨兵）：
+#    `[{"ab": i, "lg": j, "at": "buffEffect"|"handBuff", "buffType": n,
+#       "trait": … , "traitValue": … , … (见 `AB_BUFF_FIELDS`)}, …]`
+#    · `ab`：`cardAbilities` 下标；**`-1` = `activeAbility` · `-2` = `alternativeAbility`**
+#      （与 `abilityTargetCriteria` / `activeAbilityLogic` 同一套哨兵，⛔ 别另发明）。
+#    · **键名与 SO 字段名逐字一致**（`trait` / `meleeAttackChange` / …）⇒ `JsonUtility` 直读，
+#      **没有映射表**可写错（同 `AbilitySummonRowDto` 那条「字段名与 JSON 键名逐字一致」）。
+#    · 🔴 **每行都落全 26 个载荷字段**（[!] **不做稀疏**）：`setMeleeAttack(70)` / `setCost(95)` /
+#      `setCurrentHealth(100)` / `setHealth(9)` 这几档 **`0` 是合法且有语义的取值**
+#      （「设成 0」= 免费 / 归零），稀疏省掉 0 会把它们读成「没变」⇒ **静默做错**。
+#      这是本列与 `permanentBuffs`（稀疏）**故意不同**的地方。
+#    · **`buffType == 0 (none)` 的行不落**：`AddEffect.c` 的 `switch` 对它走 `default:` ⇒ 打一条
+#      `LogWarning` 后什么都不做（`:964-966`）⇒ 落下来只是噪声。这一条**只跳过 0**，
+#      其余任何数值（含枚举里没有的）**照落原值**并进 `report["unknown_bt"]`（⛔ 不静默丢真值）。
+#    · `None` = 真值里没有这张卡 ⇒ 调用方**不落列** = 未知；`[]` = 明确没有（与既有列同口径）。
+#
+#  ⚠️ **本列今天【零消费者】**：`CardDatabase.cs` 只做 DTO + 映射 + 挂载（`CardDatabase.AbilityBuffsOf`），
+#     引擎侧接线（`EffectResolver.ApplyOneGain` 那一族的 11 个分组）在**别的代理白名单**里。
+#     ⇒ 生成后**不改任何行为 / 不改指纹**（与 v37 的 `permanentBuffs`、v39 的 `abilitySummon` 同一档）。
+#
+#  📊 **现读规模**（`cards_raw.json` 1,351 张：`cardAbilities` + `activeAbility` + `alternativeAbility`，
+#     **不含 `full_raw`** —— 那份是同一棵树的重份，⛔ 一起扫会整表翻倍）：
+#     `buffType != 0` 的行 **1,187** 条（`buffEffect` 1,122 + `handBuff` 65）。
+#     出现过的 buffType = `1`495 · `3`368 · `2`75 · `12`75 · `15`44 · `8`29 · `4`14 · `16`13 ·
+#     `95`3 · `90`2 · `17`1 · `25`1 · `70`1 · `100`1。
+#     🔴 **分诊表点名的那 11 个分组里，只有 3 个在本 build 里有数据**（`25`×1 · `70`×1 · `95`×3）；
+#     `5 swapStats` / `6 changeRace` / `10 changeAbilityCost` / `11 removeExtrinsic` / `30 addRace` /
+#     `40 replaceAbility` / `45 addStatsDropPod` / `85 setRangeAttack` **全池 0 行**
+#     （`grep -o '"buffType": 5[,}]' cards_raw.json` 一类实测 = 0）⇒ 那 8 档落列之后仍是**休眠分支**。
+ABILITY_BUFFS_REPORT = {"cards": 0, "no_truth": 0, "rows": 0, "skipped_zero": 0,
+                        "by_buff": {}, "hand": 0, "bad": [], "unknown_bt": []}
+
+# 原版 `BuffType` 枚举（`dump.cs:45430-45462`）—— 🔴 **全工程只抄这一份**。
+BUFF_TYPE_NAMES = {
+    0: "none", 1: "addStats", 2: "changeCost", 3: "addTrait", 4: "removeTrait",
+    5: "swapStats", 6: "changeRace", 7: "skipCardDraw", 8: "markOfChaos", 9: "setHealth",
+    10: "changeAbilityCost", 11: "removeExtrinsic", 12: "enchantment",
+    15: "singleUseEnchantment", 16: "choiceEnchantment", 17: "lastMarkOfChaos",
+    20: "doubleAttack", 25: "ephemeralCopy", 26: "tideCopy", 30: "addRace",
+    35: "daemonHost", 40: "replaceAbility", 45: "addStatsDropPod", 70: "setMeleeAttack",
+    85: "setRangeAttack", 90: "addTraitRemnant", 95: "setCost", 100: "setCurrentHealth",
+}
+
+# `CardEffect` 的**引擎侧载荷**（26 格，键名 = SO 字段名；偏移见本节判据表）。
+# ⛔ `enchantment` 那一格**故意不在这里**（v38 `enchantment` 列的活）。
+AB_BUFF_FIELDS = (
+    "trait", "traitValue", "newRace",
+    "meleeAttackChange", "meleeAttackValueOptions",
+    "rangeAttackChange", "rangeAttackValueOptions",
+    "armourChange", "armourValueOptions",
+    "healthChange", "healthValueOptions",
+    "costChange", "costValueOptions",
+    "randomValueChange",
+    "permanentBuff", "doNotStack",
+    "markOfChaosType", "daemonHostType", "mutationType",
+    "extrinsic", "extrinsicVariable",
+    "untilEndOfTurn", "untilPlayerTurnStart", "untilEnemyTurnStart",
+    "untilFollowingPlayerTurnStart", "untilNextAttack",
+)
+
+
+def ability_buffs_of(cid, name, trow, report):
+    """一张卡 → `[{"ab":…, "lg":…, "at":…, "buffType":…, <26 格载荷>}, …]`；真值里没这张卡 ⇒ `None`。
+
+    口径 / 形状 / 为什么全量落 26 格、为什么跳过 `buffType == 0` → 上面那一段长注释（⛔ 别抄第二份）。
+    """
+    if trow is None:
+        report["no_truth"] += 1
+        return None
+
+    def _int(v):
+        """bool → 0/1（真值里 bool 一律存成 0/1）；认不出的值 → 0（SO 的默认值）。"""
+        if isinstance(v, bool):
+            return 1 if v else 0
+        return v if isinstance(v, int) else 0
+
+    def _row_of(at, ab, lg, ce):
+        """`CardEffect` dict → 一行（或 `None` = 这一格不落）。⛔ 只在这里判一次，别在外面再判。"""
+        if not isinstance(ce, dict):
+            return None
+        bt = ce.get("buffType")
+        if isinstance(bt, bool) or not isinstance(bt, int):
+            report["bad"].append((cid, name, "%s ab%d.lg%d" % (at, ab, lg),
+                                  "buffType 缺失/不是整数：%r" % (bt,)))
+            return None
+        if bt == 0:
+            report["skipped_zero"] += 1      # `AddEffect.c:964-966` 的 default 支：什么都不做
+            return None
+        if bt not in BUFF_TYPE_NAMES:
+            # ⛔ 不丢真值：照落原值，但记下来（将来枚举补档时能立刻看见）。
+            report["unknown_bt"].append((cid, name, at, ab, lg, bt))
+        row = {"ab": ab, "lg": lg, "at": at, "buffType": bt}
+        for f in AB_BUFF_FIELDS:
+            row[f] = _int(ce.get(f))
+        report["by_buff"][bt] = report["by_buff"].get(bt, 0) + 1
+        if at == "handBuff":
+            report["hand"] += 1
+        report["rows"] += 1
+        return row
+
+    out = []
+
+    def _scan_ability(ab, obj):
+        if not isinstance(obj, dict):
+            return
+        for j, lg in enumerate(obj.get("abilityLogic") or []):
+            if not isinstance(lg, dict):
+                continue
+            # ① `abilityLogic[].buffEffect` —— `CardEffect`（`AddEffect` 的输入）
+            r = _row_of("buffEffect", ab, j, lg.get("buffEffect"))
+            if r is not None:
+                out.append(r)
+            # ② `abilityLogic[].handBuff.cardEffect` —— **同一个类型**，走 `PlayerHand.AddHandEffect`
+            hb = lg.get("handBuff")
+            if isinstance(hb, dict):
+                r = _row_of("handBuff", ab, j, hb.get("cardEffect"))
+                if r is not None:
+                    out.append(r)
+
+    for i, a in enumerate(trow.get("cardAbilities") or []):
+        _scan_ability(i, a)
+    # `activeAbility` / `alternativeAbility`：`ab` 用 `-1` / `-2` 哨兵（与 `abilityTargetCriteria` 同一套）
+    _scan_ability(-1, trow.get("activeAbility"))
+    _scan_ability(-2, trow.get("alternativeAbility"))
+    out.sort(key=lambda r: (r["ab"], r["lg"], 0 if r["at"] == "buffEffect" else 1))
+    report["cards"] += 1
+    return out
+
+
 def _assert_enchant_index_consistent(cards, etpl_doc):
     """交叉核：卡表 `enchantment` 列（正向）vs 第二张表 `owners[]`（反向）。
 
@@ -4885,6 +5048,9 @@ def build_enchantment_entries(truth_cards, raw, cards, truth_by_path=None,
         # 🆕 v39（`A4`）：`abilitySummon` 七格（与 `abilityDamage` 同构；口径 / 分支表 → `ability_summon_of` 上面那段）
         _asum = ability_summon_of(uid, name, r, ABILITY_SUMMON_REPORT)
         if _asum is not None: entry["abilitySummon"] = _asum
+        # 🆕 v40（`B23`）：`abilityBuffs` —— 原版 `CardEffect` 的逐行载荷（口径 → `ability_buffs_of` 上面那段）
+        _abf = ability_buffs_of(uid, name, r, ABILITY_BUFFS_REPORT)
+        if _abf is not None: entry["abilityBuffs"] = _abf
         _alc = ability_level_criteria_of(uid, name, r, truth_by_path or {},
                                          ABILITY_LEVEL_CRITERIA_REPORT)
         if _alc is not None: entry["abilityLevelCriteria"] = _alc
@@ -5619,6 +5785,10 @@ def build():
         _asum = ability_summon_of(cid, name, trow, ABILITY_SUMMON_REPORT)
         if _asum is not None:
             entry["abilitySummon"] = _asum
+        # 🆕 v40（`B23`）：`abilityBuffs` —— 原版 `CardEffect` 的逐行载荷（口径 → `ability_buffs_of` 上面那段）
+        _abf = ability_buffs_of(cid, name, trow, ABILITY_BUFFS_REPORT)
+        if _abf is not None:
+            entry["abilityBuffs"] = _abf
         # ---- 🆕 v26（执行代理 `E2` · `A3-2`）：**ability 级** `targetCriteria`（36 格）------------
         # 判据 / 形状 / 为什么带 `ab`、为什么不落 `lg` → `ability_level_criteria_of` 上面那段长注释。
         # ⚠️ **每张卡都落**（没有行 = `[]`；真值里没有这张卡才不落列）。
@@ -6226,6 +6396,28 @@ def build():
           f" · keep **{_as_nz('keep')}** · cem **{_as_nz('cem')}** · enemy **{_as_nz('enemy')}**"
           f" · `no_truth` {ABILITY_SUMMON_REPORT['no_truth']}"
           f" · 坏格 **{len(ABILITY_SUMMON_REPORT['bad'])}** 处")
+    # ---- 🆕 v40（2026-10-29 · 执行代理 `B23`）：`abilityBuffs` 列的读数 ----
+    _abf_cards = [c for c in cards if "abilityBuffs" in c]
+    _abf_hit = [c for c in _abf_cards if c["abilityBuffs"]]
+    _abf_dist = " · ".join(f"`{k}`{BUFF_TYPE_NAMES.get(k, '?')}={v}"
+                           for k, v in sorted(ABILITY_BUFFS_REPORT["by_buff"].items()))
+    print(f"  · `abilityBuffs`（v40 · `B23`）：落列 **{len(_abf_cards)}/{len(cards)}** 张 · "
+          f"**非空 {len(_abf_hit)}** 张 · 行数 **{ABILITY_BUFFS_REPORT['rows']}**"
+          f"（`handBuff` {ABILITY_BUFFS_REPORT['hand']} 条）"
+          f" · 跳过 `buffType 0` **{ABILITY_BUFFS_REPORT['skipped_zero']}** 格"
+          f" · `no_truth` {ABILITY_BUFFS_REPORT['no_truth']}"
+          f" · 坏格 **{len(ABILITY_BUFFS_REPORT['bad'])}** 处")
+    print(f"             buffType 分布：{_abf_dist}")
+    # 🔴 分诊表（`判据/B94_R-W_战斗38条分诊.md` §二 B-3）点名的那 11 个分组，**本 build 只有 3 个有数据**。
+    #    ⛔ 不在这里硬编码「应该有哪些」—— 变的是数据不是代码；这里只把「点名但 0 行」的打出来。
+    _named = (5, 6, 10, 11, 25, 30, 40, 45, 70, 85, 95)
+    _dead = [n for n in _named if not ABILITY_BUFFS_REPORT["by_buff"].get(n)]
+    if _dead:
+        print("             ⚠️ 分诊表点名、但本 build **0 行**的分组（落列后仍是休眠分支）："
+              + " · ".join(f"`{n} {BUFF_TYPE_NAMES[n]}`" for n in _dead))
+    if ABILITY_BUFFS_REPORT["unknown_bt"]:
+        print("             ⚠️ 枚举里没有的 buffType（照落原值，⛔ 没丢）："
+              + " · ".join(str(x) for x in ABILITY_BUFFS_REPORT["unknown_bt"][:5]))
     # 🆕 2026-10-19（`E12` · `A2142`）：**天赋名 → 天赋卡 id** 的真值表（见 `build_talent_name_ids`）。
     #   仍在卡表里（不另立文件）：`CardDatabase` 把它交给 `TalentCardData` 当**兜底查表**用。
     talent_name_ids = build_talent_name_ids(truth_cards, truth_by_path, cards, talent_name_report)
@@ -6244,7 +6436,8 @@ def build():
         print("             ⚠️ 坏值：" + " · ".join(str(x) for x in _etpl["rows_bad"][:5]))
 
     return {
-        "version": 39,         # v39（2026-10-28 · 执行代理 `A4` · 判据 `判据/B91_P3_战斗数据列缺口.md`）= 加卡表 `abilitySummon` 列（原版 `SummonCriteria` 七格 `createAtPos` / `moveToPos` / `summonAllTargets` / `chooseCardInPlay` / `keepEffects` / `shouldRemoveFromCemetery` / `isForEnemy`；**只落数据、不接线**⇒ 不改指纹；口径 → `ability_summon_of` 上面那段）
+        "version": 40,         # v40（2026-10-29 · 执行代理 `B23` · 判据 `判据/B94_R-W_战斗38条分诊.md` §二 B-3）= 加卡表 `abilityBuffs` 列（原版 `CardEffect` 的**逐行引擎侧载荷**：`buffType` + 26 格 `trait/traitValue/newRace/6 个 change/5 个 *ValueOptions/permanentBuff/doNotStack/markOfChaosType/daemonHostType/mutationType/extrinsic*/until*`；`at` 区分 `buffEffect` 与 `handBuff.cardEffect`；`buffType 0` 不落；**只落数据、不接线** ⇒ 不改指纹；口径 → `ability_buffs_of` 上面那段）
+                               # v39（2026-10-28 · 执行代理 `A4` · 判据 `判据/B91_P3_战斗数据列缺口.md`）= 加卡表 `abilitySummon` 列（原版 `SummonCriteria` 七格 `createAtPos` / `moveToPos` / `summonAllTargets` / `chooseCardInPlay` / `keepEffects` / `shouldRemoveFromCemetery` / `isForEnemy`；**只落数据、不接线**⇒ 不改指纹；口径 → `ability_summon_of` 上面那段）
                                # v37（2026-10-28 · 第八十九会话 · 执行代理 `E6`）= 三族「数据侧」列（账 L234 / L867 / L1044 / L847）
                                #     ① `activeAbilityManaCost` / `activeAbilityPsychicCost` /
                                #        `activeAbilityPlasmaCost` / `activeAbilityTargeted`

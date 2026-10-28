@@ -5862,10 +5862,13 @@ public static class ShopScene
         //   这两行是它**唯一的调用点**（同族先例：`MainMenuScene.cs:8644-8645` 的 `ProfileWindowAssertE12`）。
         //   自证：日志里会出现 `[E13] ` 前缀的节标题与 `✓` 行，且本宿主 `合计` 的通过数把它们算在内。
         ShopFamilyAssertE13.Run();
-        _sink.Pass += ShopFamilyAssertE13.Pass; _sink.Fail += ShopFamilyAssertE13.Fail;
+        _sink.Pass += ShopFamilyAssertE13.Pass; _sink.Fail += ShopFamilyAssertE13.Fail; B94B5_Assert.Run(); _sink.Pass += B94B5_Assert.Pass; _sink.Fail += B94B5_Assert.Fail;   // 🆕 2026-10-29（调度台代接线）：B94_B5 的商店线断言（Premium 越界早退 + 开箱回包状态机）
         //   🆕 2026-10-28（执行代理 `B93_S1`）：商店族 28 条 B/C 里本轮新落地的那几族（5 组断言）。
         ShopFamilyAssertB93S1.Run();
         _sink.Pass += ShopFamilyAssertB93S1.Pass; _sink.Fail += ShopFamilyAssertB93S1.Fail;
+        //   🆕 2026-10-29（执行代理 `B94_S1`）：本波真改的 `Where get cards` 显隐闸 + 补 `ShopTab.SetStore` 刷新计时器分页闸。
+        ShopFamilyAssertB94S1.Run();
+        _sink.Pass += ShopFamilyAssertB94S1.Pass; _sink.Fail += ShopFamilyAssertB94S1.Fail;
 
         Debug.Log(P + $"=== 合计：{_sink.Pass} 通过 / {_sink.Fail} 失败 ===");
         // 🔴 **2026-10-11（A350 · 调度台裁定）**：这一串是失败表的【重列】（`Check` 里已经逐条打过）

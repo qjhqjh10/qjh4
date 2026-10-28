@@ -301,15 +301,15 @@ namespace RuleEngine
         /// 原版 `CardScript.IsInCemetery()`（🥇 `decomp_full/CardScript__IsInCemetery.c:1-7`，全文 7 行）：
         /// 状态位 `+0x228 == 6`（inCemetery）⇒ 真。
         ///
-        /// <para>**落点 / 机制差异**：原版是**单值状态机**、我们是「三张表之一」的成员资格；
-        /// 静息态一一对应（同一份实例同一时刻只在一张表里）。
-        /// ⚠️ 原版另有一个「正在从墓地取出」的 UI 标志位 `+0x24b`
-        /// （`decomp_full/CardScript__RemoveCardFromCemetery.c:1-8` 只把它清 0）——
-        /// 我们**没有这个中间态** ⇒ 那条方法**无等价落点**（账里仍是 `B`，不是漏做）。</para>
+        /// <para>**落点 / 机制差异**：原版是**单值状态机**、我们是「三张表之一」的成员资格；静息态一一对应。</para>
+        /// 🔴 2026-10-29 就地订正（铁律 5 · R-B1 现核）：`+0x24b` 真名 `shouldCheckIfIsInCemetery` = **永久放逐闩**
+        /// （`CardScript__Awake.c:40` 置1 · `__RemoveCardFromCemetery.c:5` 置0 · 全库无写回1）⇒ `GetCardsInCemetery.c:54` 按它过滤 ⇒ 放逐的牌从所有墓地查询消失。原「正在取出 / 可观测为零」**不成立**，账 534 按 **B**。
+        ///
+        /// 等价物 = 类尾 `_banishedFromCemetery` 闩 + `MarkRemovedFromCemetery` 写口（写口调用方在 F1/F2，未接）。
         /// </summary>
         public bool IsInCemetery(CardInstance inst)
         {
-            return inst != null && Discard.Contains(inst);
+            return inst != null && Discard.Contains(inst) && !_banishedFromCemetery.Contains(inst.Id);
         }
 
         /// <summary>
@@ -491,6 +491,71 @@ namespace RuleEngine
         public void RefillCustomMana(int manaToRefill)
         {
             Energy += manaToRefill;
+        }
+
+        // ==================================================================
+        //  🆕 2026-10-29（B94 · F4 · 账 534 / R-B1 补）：原版 `CardScript.RemoveCardFromCemetery`
+        //     的「永久放逐闩」等价物 —— **追加在类尾**（铁律 18·b：上面那些行号是账里落点，插中间会漂）。
+        //  判据：`decomp_full/CardScript__RemoveCardFromCemetery.c:5`（实体只一句 `+0x24b = 0`）；
+        //        `CardScript__Awake.c:40`（置 1）；`BattleManager__GetCardsInCemetery.c:54`（按它过滤）。
+        //  语义 → IsInCemetery 的 doc。写口调用方（把卡从墓地取走的路径）在 RuleCore/EffectResolver = F1/F2，未接。
+        // ==================================================================
+
+        /// <summary>
+        /// 原版 `CardScript.RemoveCardFromCemetery()`（🥇 `decomp_full/CardScript__RemoveCardFromCemetery.c:1-8`，
+        /// 全文只一句：`*(undefined1*)(card + 0x24b) = 0;`）的等价写口 —— **把这张卡永久放逐出墓地查询**。
+        /// <para>判据 / 语义 → <see cref="IsInCemetery"/> 的 doc（`+0x24b` = `shouldCheckIfIsInCemetery`，
+        /// 一次性置 0、全库无写回 1 ⇒ 永久闩）。⚠️ 调用方在 `RuleCore` / `EffectResolver`（F1 / F2 的文件）⇒
+        /// **本代理只提供写口、不接线**（账 534 记 B）。⛔ 别在别处另建第二份闩。</para>
+        /// </summary>
+        public void MarkRemovedFromCemetery(CardInstance inst)
+        {
+            if (inst == null) return;
+            _banishedFromCemetery.Add(inst.Id);
+        }
+
+        /// <summary>「永久放逐闩」的簿记（≡ 原版 `+0x24b`，见 <see cref="IsInCemetery"/>）。
+        /// 记的是**实例 id**（不是模板）—— 原版那格也是**逐卡实例**的状态位。</summary>
+        readonly HashSet<int> _banishedFromCemetery = new HashSet<int>();
+
+        // ==================================================================
+        //  🆕 2026-10-29（B94 · 波 2 · 执行代理 `B1` · 账 `MinionManager.GetMinionList` 的残差）：
+        //  **原版 `CardScript.IsInPlay()` 那一档过滤** —— 追加在类尾（铁律 18·b：`PlayerState.cs:172/206`
+        //  是账里落点，插中间会让它们整体漂移）。
+        //
+        //  判据（第一权威，2026-10-29 现读）：
+        //   · `MinionManager__GetMinionList.c:35`（左表 `leftMinions(+0x60)`）/ `:78`（右表 `rightMinions(+0x68)`）
+        //     —— **逐条** `CardScript.IsInPlay(card)` 为真才收进临时表，之后才 `OrderBy(orderInPlay)`；
+        //   · `CardScript__IsInPlay.c` 全文 = `cardState(+0x228) ∈ {2 inPlay, 15 inPlayTransforming,
+        //     3 inPlayAttacking, 17 inPlayAminingAttack}` ⇒ **`5 waitingToDie` 为假**
+        //     （`CardStateOptions` 枚举见 `d:/2/Warpforge_code/Scripts/Assembly-CSharp/CardStateOptions.cs`）。
+        //  ⇒ 我们的等价物 = `!ctx.IsPendingDeath(u)`（`BattleContext.IsPendingDeath` 的 doc 就是
+        //     「原版 `waitingToDie = 5`」）。**不带 `ctx` 的 `UnitsByPlayOrder()` 少了这一档**，本重载补上。
+        // ==================================================================
+
+        /// <summary>
+        /// 原版 `MinionManager.GetMinionList()` 的**完整判据版**：<see cref="UnitsByPlayOrder()"/> 的
+        /// 排序口径 ＋ **原版 `IsInPlay()` 那一档过滤**（`MinionManager__GetMinionList.c:35` / `:78`）。
+        ///
+        /// <para>🔴 **为什么必须单独一个重载**：不带 `ctx` 的那份拿不到「这一格是不是 `waitingToDie`」——
+        /// 待死单位**仍然挂在 `Board` 上**（见 `BattleContext.IsPendingDeath` 的 doc），不滤就会多收进种群。
+        /// 原版三个调用点里 `_ResolveForceAttackFriendly`（`BattleManager._ResolveForceAttackFriendly_d__506__MoveCount.c:39-59`）
+        /// 是 **`GetRandomInt(0, count)` 随机挑一个** ⇒ **种群多几席就会改变结果**，不是「只影响顺序」。
+        /// （另两个调用点 `BasicBattleEndSequence` / `DestroyUnitsAfterBattleEnd` 是收局摧场的演出顺序。）</para>
+        ///
+        /// <para>⚠️ **排序口径只此一处**：本方法先调 <see cref="UnitsByPlayOrder()"/> 再摘除待死项
+        /// （`RemoveAll` 不改变剩余元素的相对次序）⇒ ⛔ 别在这里重写一遍排序。</para>
+        ///
+        /// <para>⚠️ `ctx == null` ⇒ 逐字等价于 <see cref="UnitsByPlayOrder()"/>（纯数据/老夹具场景）。
+        /// ⚠️ `IsInPlay` 的等价物**只有** `!ctx.IsPendingDeath(u)` 这一个（⛔ 别在别处另写一份）。</para>
+        /// </summary>
+        public List<UnitState> UnitsByPlayOrder(BattleContext ctx)
+        {
+            // `UnitsByPlayOrder()` 每次都返回**新表** ⇒ 就地 `RemoveAll` 安全（不会动到棋盘或别的调用方的表）
+            var list = UnitsByPlayOrder();
+            if (ctx == null) return list;
+            list.RemoveAll(u => ctx.IsPendingDeath(u));      // 原版 IsInPlay() == false
+            return list;
         }
     }
 }

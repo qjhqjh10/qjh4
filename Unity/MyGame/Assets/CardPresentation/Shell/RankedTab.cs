@@ -640,10 +640,10 @@ namespace CardPresentation
             _rowIcons[i] = FactionIconQuad(row, ic, army);   // 有阵营 ⇒ 画徽记；取不到 ⇒ 透明块（见类尾）
             RatingRow(row, "Alliance Rating Display", ArtRankIcon,
                       new PxRect(r.x1 + RowRtL, r.y1 + RowRtT, r.x1 + RowRtL + RowRtW, r.y1 + RowRtT + RowRtH),
-                      SmallIconWBig, RowValPx, RowValAutoMin, ScoreSmallAutoMax, ScoreAutoBase);
+                      SmallIconWBig, RowValPx, RowValAutoMin, ScoreSmallAutoMax, ScoreAutoBase, false, FactionScoreText(i, false));
             RatingRow(row, "Alliance Rating Display (1)", ArtGalonIcon,
                       new PxRect(r.x1 + RowRtL, r.y1 + RowMxT, r.x1 + RowRtL + RowRtW, r.y1 + RowMxT + RowMxH),
-                      SmallIconWBig, RowMxPx, RowValAutoMin, ScoreSmallAutoMax, ScoreAutoBase);
+                      SmallIconWBig, RowMxPx, RowValAutoMin, ScoreSmallAutoMax, ScoreAutoBase, false, FactionScoreText(i, true));
         }
 
         // ============================================================ 交互 / 数据
@@ -742,6 +742,46 @@ namespace CardPresentation
                 return Rect(row, null, ic, "icon", L_Bg2, Transparent);   // 空态：节点在、画面无
             }
             return Rect(row, art, ic, "icon", L_Bg2, null);               // 有阵营 ⇒ 画徽记（拉伸到框，见上）
+        }
+
+        // ============================================================ 原版 `FactionScore.Initialize`（B94_S3 · 2026-10-29）
+        // 🔴 追加在**类尾**（本文件被账按行号引用 263/272/355/603/610/631/659 ⇒ 插中间会整体漂移）。
+        //
+        // 判据 = `d:/2/tools/decomp_full/FactionScore__Initialize.c` **全文**（逐句）：
+        //   ```
+        //   factionImage(+0x20).sprite = ArmyUtilities.GetArmyIcon(Instance, faction);   // 阵营徽记
+        //   allianceRatingDisplay(+0x28).Initialize(currentScore, null, …, disableIfZero: 1, …);
+        //   allianceRatingDisplay2(+0x30).Initialize(highestScore, null, …, disableIfZero: 1, …);
+        //   ```
+        //   ⇒ 三件：**一张徽记图 + 两颗 AllianceRatingDisplay 的分数**（`disableIfZero` 那一格 `.c` 实参是 `1`）。
+        // ⚠️ 我们这一侧的对应物 = `BuildRow`（`FactionScoreSmall` 那一行）：
+        //   徽记走 `FactionIconQuad`（`ArmyIcons.IconName` ⇒ 原版 `ArmyUtilities.GetArmyIcon`，判据在 `Core/ArmyIcons.cs`），
+        //   两颗分数走 `RatingRow`（`Alliance Rating Display` / `… (1)`）。**分数本身是服务器的**
+        //   （`RankedTab.InitializeFactionScores` 那一族）⇒ 没有数据时原样保留原版的空态 `------`。
+        //   🔶 自己设计（非原版）：`FactionScoreProvider` / `FactionHighestProvider` 这两个注入点 ——
+        //   原版分数由服务器下发（关服后判据在远端）⇒ 本地留一个「谁来喂」的口，默认 null = 没有数据 ·
+        //   调度台 2026-10-29 裁定（B94_S3）.
+
+        /// <summary>= 原版 `FactionScore.Initialize(faction, currentScore, …)` 的第 2 实参来源。
+        /// 形参 = 行下标（= `CampaignData.Armies` 的下标）。**返回 null = 没有数据**（画空态 `------`）。</summary>
+        public static System.Func<int, int?> FactionScoreProvider;
+        /// <summary>= 第 3 实参（`highestScore`）来源。语义同上。</summary>
+        public static System.Func<int, int?> FactionHighestProvider;
+
+        /// <summary>某一行的分数文本（`null` ⇒ <see cref="ScoreEmpty"/>，即原版那颗 display 的空态串）。
+        /// <paramref name="highest"/> = 取第 2 颗（`Alliance Rating Display (1)`）还是第 1 颗。</summary>
+        public static string FactionScoreText(int row, bool highest)
+        {
+            var f = highest ? FactionHighestProvider : FactionScoreProvider;
+            if (f == null) return null;                       // 没有数据源 ⇒ 交给 RatingRow 落空态
+            int? v = f(row);
+            return v.HasValue ? v.Value.ToString() : null;
+        }
+
+        /// <summary>自检口（两个静态注入点 ⇒ 每条断言收尾必须还原）。</summary>
+        public static void ResetFactionScoreForTest()
+        {
+            FactionScoreProvider = null; FactionHighestProvider = null;
         }
     }
 }

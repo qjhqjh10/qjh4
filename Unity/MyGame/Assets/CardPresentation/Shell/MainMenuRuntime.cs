@@ -859,7 +859,7 @@ namespace CardPresentation
         public static bool NavItemShown(int idx)
         {
             if (idx < 0 || idx >= 6) return false;
-            return idx < 2 || !OnlyPlayAndCollection;
+            return idx < 2 || (!OnlyPlayAndCollection && (idx != 4 || FeatureChecker.IsEnabled(FeatureChecker.Alliances)));   // 🔶 B94_Y2 2026-10-29：SOCIAL 那颗（idx 4）额外受原版 `FeatureChecker(Alliances)` 控 —— 判据 = `MainMenu Warpforge.unity` 的 `Main Menu Navigation Button - Social` 被那颗 `FeatureChecker(Alliances).SetActive` 控；⛔ 与用户口径 `OnlyPlayAndCollection` 取「与」（两者都在才显示）
         }
 
         /// <summary>**点亮左竖导航第 i 颗** —— 本仓的 `NavigationPanelController.SetToggle`（判据见上面那一段）。
@@ -1110,6 +1110,21 @@ namespace CardPresentation
             NavButton(holder, 3, "Rewards",    "40k_main_bt_rewards",    603.4f, 773.1f, "MainMenu/NavigationPanel/Rewards",    140.0f, 12.8f, 152.8f, 605.1f, 33f);
             // ⚠️ 第五颗：**键名是 `…/Friends`**（原版 `mTerm` 原文，⛔ 不是 `…/Social`）—— 屏上英文才是 `SOCIAL`。
             NavButton(holder, 4, "Social",     "40k_main_bt_friends",    756.7f, 926.4f, "MainMenu/NavigationPanel/Friends",    140.0f, 12.8f, 152.8f, 758.4f, 33f);
+
+            // 🆕 **2026-10-29（B94_B18）**：三颗导航钮的**原版唯一 id**（原版各挂一颗 `GameObjectUniqueIdentifier`，
+            //   `Awake` 自注册；本仓没有能挂的组件 —— 见 `MenuDraw.cs` 的 `MenuUniqueIds` 段）。
+            //   判据 → `判据/B94_B6_判据补全.md` §6：`mainmenuwarpforge` 场景的
+            //   `MonoBehaviour_2128 / 1978 / 1944` 三份 `id` 实读 = `HomeMenuButton` / `CollectionMenuButton` /
+            //   `RewardsMenuButton`（分别挂在 `Main Menu Navigation Button - Home / Collection / Rewards` 上）。
+            //   唯一消费者 = `Shell/TutorialPointerUi.cs` 的 `TutorialPointerData.Target`。
+            //   ⚠️ **为什么不放在 `NavButton(...)` 里**：那个方法同时也建第 6 颗 `Event Navigation Button`
+            //      （原版**没有** id），且 id 与 `idx` 的对应是**原版实例表**的事，集中在调用点更好核对。
+            if (_navBtns.Count > 3)
+            {
+                MenuTutorialFlow.RegisterUnique("HomeMenuButton",       _navBtns[0]);
+                MenuTutorialFlow.RegisterUnique("CollectionMenuButton", _navBtns[1]);
+                MenuTutorialFlow.RegisterUnique("RewardsMenuButton",    _navBtns[3]);
+            }
 
             // ============================================================ 🆕 **2026-10-23（活动线 `L01`/`L03` 收尾）：
             // **第 6 颗 = 「事件钮」**（原版 `NavigationPanelController.BuildEventButtons` 运行期
@@ -2620,13 +2635,13 @@ namespace CardPresentation
             //      ⛔ 别把这个 120 写成「原版 `m_ScrollSensitivity`」—— 原版值是 1.0、且那是横向的。
             _modeScroll = new MenuScroll(ModeViewport, CardCol0, ModeContentX2, 120f);
             _modeScroll.Owner = gameObject;
-            _modeScroll.OnChanged = RebuildModeCards;
+            _modeScroll.OnChanged = () => RebuildModeCards();   // ⚠️ 不能写成方法组：`RebuildModeCards` 新加了可选形参 `forceClean`，而 C# 的**方法组转换不看可选参数**（CS0123）⇒ 包一层 lambda
             PointerLayer.RegisterScroll(_modeScroll);
         }
 
-        /// <summary>滚动偏移变了 ⇒ 重建模式卡（`MenuScroll.OnChanged` 的约定；与 `ForgeTab` 那两处同一条路）。
+        /// <summary>滚动偏移变了 ⇒ 重建模式卡（`MenuScroll.OnChanged` 的约定；与 `ForgeTab` 那两处同一条路）。🔴 账 菜单:439 —— 形参 `forceClean` = 原版 `MainMenuWindow.RefreshLiveOpContainers(bool forceClean)` 的入参（`decomp_full/MainMenuWindow__RefreshSignal.c` 唯一产出点 = `PlayerDataManager.AllTutorialsCompleted()`）；⚠️ 我们恒走「整片重建」= 原版 `forceClean == true` 那一支，`false` 的**增量复用支未做**（账 427/434/438 判 B 同一卡点）⇒ 两支同路，⛔ 别以为传 false 会走增量。
         /// ⚠️ 只重建 `Content` 的子件 —— 页面 / 视口节点一个都不动（`MainMenuScene` 有引用它们后面的断言）。</summary>
-        void RebuildModeCards()
+        void RebuildModeCards(bool forceClean = false)
         {
             if (_modeContent == null || _placeAllCards == null) return;
             for (int i = _modeContent.childCount - 1; i >= 0; i--) DestroySafe(_modeContent.GetChild(i).gameObject);
@@ -2823,6 +2838,15 @@ namespace CardPresentation
             //   实例化的（本文件头「已知缺口」那条）⇒ 这里的矩形**是我们自己的**（= 下面 `Nine` 那一格
             //   `(x,y)→(x+w,y+h)`），⛔ 别去原版找这几个名字。
             var card = New(parent, name, w, h);
+            // 🆕 **2026-10-29（B94_B18）**：排位那张模式卡的**原版唯一 id** = `RankedModeMenuButton`。
+            //   判据 → `判据/B94_B6_判据补全.md` §6：原版实例 = `bundle_menus_assets_all` 的
+            //   `GameObject/Skirmish Ranked Game Mode Container 1x2.json`（其 `GameObjectUniqueIdentifier.id`
+            //   实读 = `RankedModeMenuButton`）；我们的对应节点名 = `Base Game Mode Container 1x2 - Ranked`
+            //   （见 `_placeAllCards` 的 `Put`）。唯一消费者 = `TutorialPointerData.Target`。
+            //   ⚠️ 滚动会**整片重摆**这张卡（`RebuildModeCards` ⇒ `_placeAllCards`）⇒ `RegisterUnique` 负责摘掉
+            //      上一棵树的旧登记（否则每次重排一条 `Duplicate Id` 的 LogError）。
+            if (name == "Base Game Mode Container 1x2 - Ranked")
+                MenuTutorialFlow.RegisterUnique("RankedModeMenuButton", card);
 
             // ① 卡图：原版是 `Background Image` 拉满 + `sizeDelta.y = +334.33`（⇒ 535×748.33）再被 **`RectMask2D` 裁到卡面**，
             //    且挂 `AspectRatioFitter(HeightControlsWidth, 1)` ⇒ 实际是 **748.33² 的正方形**，可见区 = 它**正中**的 535×414.4。
@@ -4177,7 +4201,7 @@ namespace CardPresentation
         public void RebuildNavForLiveOpsRefresh()
         {
             bool nav = RebuildNavPanel("LiveOps 活动刷新");
-            _liveOpsNavRebuilds++;
+            _liveOpsNavRebuilds++; RebuildModeCards(MenuTutorialFlow.AllTutorialsCompleted()); _modeCardRebuildRequests++;   // ★ 账 菜单:439 原版 `RefreshSignal` 唯一一句 = `RefreshLiveOpContainers(PlayerDataManager.AllTutorialsCompleted())` —— 它只重建左栏是不够的，活动换期时模式卡也要重摆（走 `forceClean` 那一支）；末尾那个计数只给自检
             if (nav)
                 Debug.Log("[Menu] 活动刷新 ⇒ 左栏重建 1 次（原版 `NavigationPanelController.OnEventsRefreshed`；"
                         + "第 6 颗活动钮按当前在期 Parent 事件重建，见 `BuildEventNavButtons`）");
@@ -4539,6 +4563,15 @@ namespace CardPresentation
             int n = h.IngestPracticeResults();
             Debug.Log("[Menu] 练习战绩回灌：吃了一 " + n + " 场（账 584/585 · 数据源 = `BattleLogData.All`）");
         }
+
+        // ============================================================ 账 菜单:439 的**自检读口**（类尾追加，防行号漂移）
+        /// <summary>`RebuildNavForLiveOpsRefresh` 发起过几次「模式卡重摆」请求（= 原版 `MainMenuWindow.RefreshSignal` 那一句）。
+        /// <para>⚠️ 它数的是**请求次数**，不是「真的重摆了」—— 菜单树不在时 `RebuildModeCards` 会早退（`_modeContent == null`），
+        /// 而早退是**正确行为**（原版那一跳同样要有容器）。自检据此证明「刷新信号 ⇒ 会发起重摆」这一条接线，
+        /// 不拿「页面真的重画了」当条件（那要整个主菜单树，宿主在 `MainMenuScene.Run`）。</para></summary>
+        int _modeCardRebuildRequests;
+        /// <summary>自检口：见 <see cref="_modeCardRebuildRequests"/>。</summary>
+        public int ModeCardRebuildRequestsForTest { get { return _modeCardRebuildRequests; } }
     }
 
     // ============================================================ 活动钮红点（类型 + provider）

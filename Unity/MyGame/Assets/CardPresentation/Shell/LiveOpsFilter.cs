@@ -533,16 +533,16 @@ namespace CardPresentation
     /// <para>成员逐个对位（签名桩 = `out_il2csharp/.../SignalEventTrigger.cs`）：
     /// `public T EventSignal;` · `private Action callback;` · `sealed override Register(Action)` ·
     /// `private void TryTrigger(T signal)` · `protected abstract bool ValidateSignal(T)` · `sealed override Unregister()`。</para>
-    /// <para>🔴 **`Register` / `Unregister` 的方法体在【四源全无】**（2026-10-28 B93·N2 把四源逐个数过：`decomp_full` 0 文件 ·
-    /// `decomp_generic_trial/out` 0 文件 · `out_cpp2il_dev_ilspy` 只剩 `Method not found @1818A6ED0` / `@180DA0A00`（那是 `il2cpp_codegen_initialize_method`，不是真调用）·
-    /// `out_il2csharp` = `NotImplementedException("Method body was not recovered.")`）⇒ 复原依据见**文件头 ①**。核心形状：
+    /// <para>✅ **方法体已在【第五源】找到并逐句核过**（2026-10-29 `B94_B4`）：泛型共享体
+    /// `decomp_generic_trial/out_b94/SignalEventTrigger_object_.{Register__12549a0,Unregister__1254b90,TryTrigger__1254a40}.c`
+    /// （旧记「四源全无」= 名单/产物口径问题，不是没有产物）⇒ 逐句结果见 <see cref="SignalEventTrigger{T}.Register"/> 的 doc。核心形状：
     /// <code>
     /// Register(cb) { callback = cb; Signal.Register&lt;T&gt;(TryTrigger); }
     /// TryTrigger(signal) { if (ValidateSignal(signal)) callback?.Invoke(); }
     /// Unregister() { Signal.Unregister&lt;T&gt;(TryTrigger); }
     /// </code>
     /// 三条独立证据：① ILSpy 里 `TryTrigger` **剩下的唯一**控制流 = 一次「类偏移 +198」的间接调用（抽象 `ValidateSignal`）后紧跟 `callback` 的 `invoke_impl`（⇒ 次序 = 先校验后回调，这条**有据**）；② `EventFilter.RegisterTriggers` 的体把**同一个闭包回调**逐条交给 `trigger.Register(Action)`（vtable 槽），且 `Unregister` 与它成对（`CleanupTriggers`）；③ 目标 API 形状对得上：本工程的 `LiveOpsSignal`（= 原版 `Scaffold.Core.Events.Signal`）**确实有** `Register<T>(Action<T>)` / `Unregister<T>(Action<T>)` 这一对（`LiveOpsFilter.cs:437` / `:459`），而 `TryTrigger` 的签名正好是 `Action<T>`。
-    /// ⇒ 「信号 → 校验 → 回调」**有据**；「挂在哪条泛型重载上」仍是**推的**（见文件头 ①「还差什么」：要补的话是给 `DecompG7.java` 名单加 `SignalEventTrigger` 跑一趟泛型导出）。</para>
+    /// ⇒ 「信号 → 校验 → 回调」有据；**「挂在哪条泛型重载上」也已坐实**（2026-10-29 `B94_B4` 读泛型共享体：`Scaffold_Core_Events_Signal__Register<object>` / `__Unregister<object>` 各一次，委托是 `Action<object>(this.TryTrigger)` ⇒ 就是 `Signal<T>.Register/Unregister`，`<object>` 只是「引用类型共享同一份泛型代码」的印法）。</para>
     /// <para>⚠️ `EventSignal` 字段（原版 `public T EventSignal`）在**我们复原的这条链里不参与**判断 —— 原版它大概是给
     /// Inspector 里填「要监听哪个信号实例」的（`T : ISignal` 是空接口 ⇒ 没有可比的成员）。**⛔ 别拿它做过滤**；
     /// 过滤一律走 `ValidateSignal`。</para></summary>
@@ -557,14 +557,14 @@ namespace CardPresentation
 
         protected SignalEventTrigger() { }
 
-        /// <summary>原版 `sealed override Register(Action callback)`。</summary>
+        /// <summary>原版 `sealed override Register(Action callback)` —— 逐句对齐泛型共享体（`out_b94/…Register__12549a0.c`）：① `*(this+0x18) = callback`（= 本行那句 `this.callback = callback`）② 取 `Signal<T>` 实例并 `Signal<T>.Register(new Action<T>(this.TryTrigger))` ⇒ 与本实现**逐句一致**。</summary>
         public sealed override void Register(Action callback)
         {
             this.callback = callback;
             LiveOpsSignal.Register<T>(TryTrigger);
         }
 
-        /// <summary>原版 `sealed override Unregister()`：把 `TryTrigger` 从总线上摘掉。
+        /// <summary>原版 `sealed override Unregister()`：把 `TryTrigger` 从总线上摘掉 —— 逐句对齐泛型共享体（`out_b94/…Unregister__1254b90.c`：不碰 `callback`，只 `Signal<T>.Unregister(new Action<T>(this.TryTrigger))`）。
         /// ⚠️ 委托相等性靠 `Delegate.Equals`（同一 `this` + 同一方法）⇒ 两次方法组转换出来的委托相等，`Remove` 能摘到。</summary>
         public sealed override void Unregister()
         {
@@ -1974,11 +1974,11 @@ namespace CardPresentation
                 // ══════════ ⑧ `ReleaseEventAssets` ══════════
                 {
                     int released = 0;
-                    var oldRelease = LiveOpsContainers.ReleaseAsset;
-                    LiveOpsContainers.ReleaseAsset = delegate (string g) { released++; };
+                    var oldRelease = LiveOpsAssetUtility.ReleaseAsset;
+                    LiveOpsAssetUtility.ReleaseAsset = delegate (string g) { released++; };
                     try
                     {
-                        LiveOpsContainers.ReleaseEventAssets(null);
+                        LiveOpsAssetUtility.ReleaseEventAssets(null);
                         C(released == 0, "⑧a ReleaseEventAssets(null)：直接返回（原版 `.c:30` 的 `if (param_1 == 0) return`，**不是** NRE）");
 
                         var any = LiveOpsLocalCatalog.Events != null && LiveOpsLocalCatalog.Events.Count > 0 ? LiveOpsLocalCatalog.Events[0] : null;
@@ -1989,11 +1989,11 @@ namespace CardPresentation
                             C(expect > 0, "⑧c 前提：'" + any.EventId + "' 的引用表非空（= " + expect + "；为 0 会让 ⑧d 空转绿）");
                             released = 0;
                             var inst = new FixtureEvent(new LiveOpsEventData { eventId = any.EventId, activationType = LiveOpsActivationType.Permanent });
-                            LiveOpsContainers.ReleaseEventAssets(inst);
+                            LiveOpsAssetUtility.ReleaseEventAssets(inst);
                             C(released == expect, "⑧d ReleaseEventAssets：释放次数 = Components + Assets = " + expect + "（漏掉任一段 ⇒ 红）");
                         }
                     }
-                    finally { LiveOpsContainers.ReleaseAsset = oldRelease; }
+                    finally { LiveOpsAssetUtility.ReleaseAsset = oldRelease; }
                 }
 
                 // ══════════ ⑨ `SignalEventTrigger<T>.Register` / `Unregister` ══════════

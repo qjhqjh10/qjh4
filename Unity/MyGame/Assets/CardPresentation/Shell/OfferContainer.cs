@@ -1185,7 +1185,7 @@ namespace CardPresentation
                 /// <item>`view = ItemDrawer.Draw(contentAnchor(+0x38), item, quantity, 0, 0)`</item>
                 /// <item>**`view == null` ⇒ 直接 return**（⛔ 不画、也不收进 `currentItemDrawers`）</item>
                 /// <item>`currentItemDrawers.Add(view)` → `view.ToggleShowInfoOnClick(false)`
-                ///      （⚠️ 后者在**原版里就是空方法体**，见 `ItemDrawer.ToggleShowInfoOnClick`，我们照抄）</item>
+                ///      （🔴 **2026-10-29 `R-K` 用 VA + 374 份 prefab 复扫证明它【不是】空体**：原版写的是 `this+0x44 = false` —— 即把那一格抽屉的点击闸**关掉**；ILSpy 把它读成 `{ }` 是丢了赋值。我们这一支经 `ItemDrawerView.ToggleShowInfoOnClick` 真置位）</item>
                 /// </list>
                 /// <para>🆕 2026-10-28（B93_S1）：本方法原来只是 `DrawOne` 那个私有函数（形状对、没有原版名），
                 /// 这一版**给了原版的方法名**，并补了「真的走 `ItemDrawer.Draw`」的重载（见下一个）。</para>
@@ -1197,7 +1197,7 @@ namespace CardPresentation
                     if (drawItemDrawer == null) return false;                                            // ① 没有抽屉
                     if (!drawItemDrawer(itemToDraw, quantity)) return false;                             // ② `view == null ⇒ return`
                     CurrentItemDrawers.Add(new Entry { Reward = itemToDraw, Quantity = quantity });      // ③ 收进表
-                    return true;                                                                         //    + `ToggleShowInfoOnClick(false)`（空实现）
+                    return true;                                                                         //    ⚠️ 这一支**拿不到 `view`**（工厂只回 bool）⇒ `ToggleShowInfoOnClick(false)` 由调用方在自己的视图上做（见下一个重载 :1213 那一条）
                 }
 
                 /// <summary>**真的接 `ItemDrawer.Draw`** 的那个重载（原版 `contentAnchor` 那一跳）。
@@ -1210,7 +1210,7 @@ namespace CardPresentation
                 {
                     var res = ItemDrawer.Draw(contentAnchor, box, item, quantity, drawerOverride, style);   // ①
                     if (res.Node == null) return false;                                                    // ②
-                    CurrentItemDrawers.Add(new Entry { Reward = rewardForEntry, Quantity = quantity, Node = res.Node });   // ③
+                    CurrentItemDrawers.Add(new Entry { Reward = rewardForEntry, Quantity = quantity, Node = res.Node }); if (res.View != null) res.View.ToggleShowInfoOnClick(false);   // ③ 收进表；末句 = 原版 `view.ToggleShowInfoOnClick(false)`（真置位：关掉这一格的点击闸）
                     return true;
                 }
             }
@@ -1730,6 +1730,259 @@ namespace CardPresentation
             }
             return "OfferContainer：变体 " + Variants.Length + " 个 · `Dynamic Content` 抽屉槽 " + slots
                    + " 个（其中出厂 INACT " + off + " 个）· `background` 下的槽 " + bgSlots + " 个";
+        }
+    }
+}
+
+// ============================================================ 通用容器族（B94_S3 · 2026-10-29）
+//
+// 判据（**逐句实读**，别再另找）：
+//   · `d:/2/tools/decomp_full/ContainerHolder__Clear.c` / `__GetContainers.c` / `__TryAdd.c` /
+//     `ContainerHolder__TryAdd_object_.c`（泛型那一支的真身，`TryAdd<object>`）
+//   · `d:/2/tools/cpp2il/out_cpp2il_dev_ilspy/ContainerBuilder.cs`（泛型静态类 `ContainerBuilder<TCont>` 的
+//     三个 `MakeContainer` 重载 —— ILSpy 那份**签名与重载关系清楚**，方法体有 `NoteDecompilerIssue`）
+//     ＋ `d:/2/tools/decomp_generic_trial/out/ContainerBuilder_object___MakeContainer__16893e0.c`
+//     （泛型类方法体的真地址那一份，只有 1 个重载）
+//   · `d:/2/tools/decomp_full/ContainerService__OpenOfferContainer.c` ＋ ILSpy 同一方法（三跳闭包链）
+//   · `cpp2il/out_cpp2il_dev_ilspy/{IContainerProvider,UiContainer}.cs`（接口面：`GetContainer()` /
+//     `ReleaseContainer()`；`UiContainer` 是 `MonoBehaviour`，有 `Initialize(object)`）
+//
+// 🔴 **为什么不是「原版类照搬」**：原版这族全是 `UiContainer` 泛型基础设施（`ContainerBuilder<TCont> where
+//    TCont : UiContainer`）。本工程**没有 `UiContainer` 实体** —— 只有 `Shell/LiveOpsEvent.cs` 里那个最小读口
+//    `IUiContainer { string ComponentId { get; } }` ＋ 两个装载注入点 `LiveOpsContainers.{Load,Unload,LoadForData}`。
+//    ⇒ 这里按 **行为** 复刻：容器表（纯数据、可断言）· 三段转发（注入点）· 服务端那一跳（🔶 本地出声）。
+//    ⛔ 不许假装有后端；⛔ 也别把 `IUiContainer` 当成原版 `UiContainer`（那是一个**最小读口**）。
+//
+// ⚠️ **三个如实标**（判据拿不到 / 原版就会抛）：
+//   ① `ContainerBuilder<TCont>.MakeContainer(evt, container, parent)` 建好实例之后有一次
+//      **via-class 的虚调用**（Ghidra `Indirect call: [Il2CppClass<TCont>+188]`，ILSpy 没解出方法名）
+//      ⇒ 留注入点 `ContainerBuilder.Initialize`，**没装就什么都不做**（⛔ 不猜成 `Initialize(data)`）。
+//   ② 原版那三处 `if (...) FUN_1803f47a0()` = **throw**（NRE / InvalidCast）：我们一律**出声 + 返回 null/false**
+//      （全工程口径：不许把崩溃当复刻）。
+//   ③ `ContainerService.OpenOfferContainer` 的成功链**依赖 `PlayfabWrapper.UnlockContainer`（服务端开箱）**
+//      ⇒ 关服后本地永远拿不到 ⇒ 🔶 本地只保留「三跳闭包链」的形状 + 注入点，默认**走 `onError` 并出声**。
+namespace CardPresentation
+{
+    /// <summary>原版 `IContainerProvider`（**只有两个成员**，`cpp2il/out_cpp2il_dev_ilspy/IContainerProvider.cs`
+    /// 全文实读：`IUiContainer GetContainer();` / `void ReleaseContainer();`）。
+    /// <para>⚠️ 本工程 `ILiveOps` 已**逐字**声明了这两个成员（`Shell/LiveOpsEvent.cs`，B87-C1/B92-N1 补的），
+    /// 但 C# 接口是**名义**的 ⇒ `ILiveOps` 并不会自动是 `IContainerProvider`。而 `LiveOpsEvent.cs` **不在本批
+    /// 文件所有权里** ⇒ 这里单开一个同样的接口，`ContainerBuilder`/`ContainerHolder` 按**原版签名**收它。</para></summary>
+    public interface IContainerProvider
+    {
+        IUiContainer GetContainer();
+        void ReleaseContainer();
+    }
+
+    /// <summary>原版 `ContainerHolder`（`MonoBehaviour`，两个字段：`maxAmount` `+0x20` / `containers` `+0x28`）
+    /// 的等价实现 —— **纯数据 + 一个建容器的委托**（这样才可断言、也不依赖帧循环）。
+    /// <para>判据 `ContainerHolder__Clear.c`（逐句）：`SupportMethods.DestroyAllChildren(transform)` →
+    /// **换一个新的 `List`**（`maxAmount &gt; 0` 时带容量，否则默认 ctor）写回 `+0x28`。</para>
+    /// <para>判据 `ContainerHolder__TryAdd_object_.c`（逐句）：`maxAmount &gt; 0 &amp;&amp; maxAmount &lt;= list.Count`
+    /// ⇒ `out = null` 且 **return false**（满了就**不再建**）；否则 `ContainerBuilder&lt;T&gt;.MakeContainer(provider, transform)`
+    /// → 写 out → 收进表 → **return true**（`maxAmount &lt;= 0` = 不限量）。</para></summary>
+    public sealed class ContainerHolder
+    {
+        /// <summary>= 原版 `ContainerHolder.maxAmount`（`+0x20`）。`&lt;= 0` ⇒ 不限量。</summary>
+        public int MaxAmount;
+        /// <summary>= 原版 `ContainerHolder.containers`（`+0x28`）。⚠️ 原版 `Clear()` 会**换一个新 List**
+        /// ⇒ 这里是 `readonly` 引用会与原版不同：我们用 `Clear()` 原地清（**对外引用不失效**，语义等价、更好断言）。</summary>
+        public readonly List<IUiContainer> Containers = new List<IUiContainer>();
+        /// <summary>= 原版 `ContainerBuilder&lt;T&gt;.MakeContainer(provider, transform)` 那一跳（`ContainerHolder` 自己
+        /// 不 new 容器，它把**自己的 transform** 当父件交出去）。</summary>
+        public Func<IContainerProvider, Transform, IUiContainer> MakeContainer;
+        /// <summary>= 原版 `get_transform()`（宿主自己的 transform；批处理里没有 can 就留 null）。</summary>
+        public Transform Host;
+
+        public ContainerHolder(int maxAmount = 0, Transform host = null)
+        {
+            MaxAmount = maxAmount;
+            Host = host;
+        }
+
+        /// <summary>= 原版 `ContainerHolder.Clear()`：先销毁全部子件（原版 `SupportMethods.DestroyAllChildren`），
+        /// 再把容器表清空（原版是**换新 List**，容量取 `maxAmount`）。</summary>
+        public void Clear(Action destroyAllChildren)
+        {
+            if (destroyAllChildren != null) destroyAllChildren();
+            Containers.Clear();
+            // 原版 `new List<T>(maxAmount)` 的容量意图：这里按 maxAmount 预留（`<= 0` 保持现状）
+            if (MaxAmount > 0 && Containers.Capacity != MaxAmount) Containers.Capacity = MaxAmount;
+        }
+
+        /// <summary>= 原版 `ContainerHolder.GetContainers()`（`ContainerHolder__GetContainers.c` =
+        /// `return *(longlong *)(this + 0x28)` —— **就是那一个表本身**，不是副本）。</summary>
+        public List<IUiContainer> GetContainers() { return Containers; }
+
+        /// <summary>= 原版 `ContainerHolder.TryAdd(provider)`（`ContainerHolder__TryAdd.c`）：
+        /// **只转调泛型那一支并丢掉 out**（`local_res10[0] = 0; TryAdd&lt;UiContainer&gt;(provider, ref dummy)`，
+        /// 而且 **`return` 值是 `void`** —— 原版这个重载不返回布尔）。我们照样返回 bool 方便调用方，
+        /// ⚠️ **这是我们的便利，不是原版**（原版丢了那个 bool）。</summary>
+        public bool TryAdd(IContainerProvider provider) { IUiContainer c; return TryAdd(provider, out c); }
+
+        /// <summary>= 原版 `ContainerHolder.TryAdd&lt;T&gt;(provider, out T container)`（`TryAdd_object_.c` 逐句）。</summary>
+        public bool TryAdd(IContainerProvider provider, out IUiContainer container)
+        {
+            container = null;
+            // .c: `if (0 < maxAmount) { if (list == null) throw; if (maxAmount <= list._size) { out = 0; return 0; } }`
+            if (MaxAmount > 0 && MaxAmount <= Containers.Count) return false;
+            container = MakeContainer != null ? MakeContainer(provider, Host) : null;
+            Containers.Add(container);
+            return true;
+        }
+    }
+
+    /// <summary>原版 `ContainerBuilder&lt;TCont&gt;`（**静态泛型类**，`where TCont : UiContainer`）的等价实现。
+    /// <para>三个重载（ILSpy 的顺序，判据见本节头）：</para>
+    /// <list type="number">
+    /// <item>`MakeContainer(evt, componentReferenceType, parent = null)`：`evt as ILiveOps` → `GetBaseData()` →
+    ///       `LiveOpsAssetUtility.LoadComponent&lt;UiContainer&gt;(data, type)` → 转调第 3 个。
+    ///       我们：走既有注入点 `LiveOpsContainers.Load(evt, type)`（**同一件事**，判据在 `LiveOpsEvent.cs`）。</item>
+    /// <item>`MakeContainer(evt, parent = null)`：`evt.GetComponent()`？**不** —— `.c` 那一下是
+    ///       `IContainerProvider.GetContainer()`（`FUN_1800021f0` = 接口方法调用，`IContainerProvider` 全文只有
+    ///       `GetContainer()` / `ReleaseContainer()` 两个成员，返回 `IUiContainer` 的只有前者）⇒ 转调第 3 个。</item>
+    /// <item>`MakeContainer(evt, container, parent = null)`（**private**）：`container == null` ⇒ return null；
+    ///       否则 `Instantiate(container, parent)` → 校验类型（失败 = 原版 throw）→ 一次虚调用。见如实标 ①。</item>
+    /// </list></summary>
+    public static class ContainerBuilder
+    {
+        /// <summary>= 原版 `UnityEngine.Object.Instantiate(container, parent)` 那一跳。
+        /// 返回 null = 实例化失败（原版随后会 InvalidCast/NRE）。</summary>
+        public static Func<IUiContainer, Transform, IUiContainer> Instantiate;
+        /// <summary>= 原版建好实例之后那一次 **via-class 虚调用**（`[Il2CppClass&lt;TCont&gt;+188]`，ILSpy 没给名）。
+        /// 形参 = (新实例, 那个 provider)。**没装就什么都不做**（⛔ 不猜成 `Initialize(data)`）。</summary>
+        public static Action<IUiContainer, IContainerProvider> Initialize;
+
+        static bool _loadSaid;
+        static bool _instSaid;
+
+        /// <summary>见类头第 1 条（`EventComponentReferenceType` 那一档）。</summary>
+        public static IUiContainer MakeContainer(IContainerProvider evt, int componentReferenceType, Transform parent = null)
+        {
+            if (evt == null) return null;                       // .c: `if (param_1 != 0)` 之外 ⇒ return 0
+            // 原版 ILSpy：`ILiveOps liveOps = default;` ⇒ 那是 `evt as ILiveOps` 的类型闸（不是 null 检查）
+            var liveOps = evt as ILiveOps;
+            if (liveOps == null) return null;
+            IUiContainer container = null;
+            if (LiveOpsContainers.Load != null) container = LiveOpsContainers.Load(liveOps, componentReferenceType);
+            else if (!_loadSaid)
+            {
+                _loadSaid = true;
+                Debug.LogError("[OfferContainer.ContainerBuilder] `MakeContainer(evt, type, parent)`：原版这一跳是 "
+                             + "`LiveOpsAssetUtility.LoadComponent<UiContainer>(evt.GetBaseData(), type)` —— 我们走注入点 "
+                             + "`LiveOpsContainers.Load`，**没装** ⇒ 容器取不到（返回 null）。");
+            }
+            return MakeContainer(evt, container, parent);
+        }
+
+        /// <summary>见类头第 2 条（`evt.GetContainer()` 那一档）。</summary>
+        public static IUiContainer MakeContainer(IContainerProvider evt, Transform parent = null)
+        {
+            if (evt == null) return null;
+            return MakeContainer(evt, evt.GetContainer(), parent);
+        }
+
+        /// <summary>见类头第 3 条（private 那一支）。</summary>
+        public static IUiContainer MakeContainer(IContainerProvider evt, IUiContainer container, Transform parent = null)
+        {
+            if (container == null) return null;                 // 原版 `if ((bool)container)` 之外 ⇒ return null
+            if (Instantiate == null)
+            {
+                if (!_instSaid)
+                {
+                    _instSaid = true;
+                    Debug.LogError("[OfferContainer.ContainerBuilder] `MakeContainer(evt, container, parent)`：原版这一跳是 "
+                                 + "`UnityEngine.Object.Instantiate(container, parent)` —— 我们走注入点 "
+                                 + "`ContainerBuilder.Instantiate`，**没装** ⇒ 返回 null（⛔ 不假装建出来了）。");
+                }
+                return null;
+            }
+            var inst = Instantiate(container, parent);
+            if (inst == null)
+            {
+                // 原版这里是 `throw new NullReferenceException()`（cast 失败那一支）；我们出声 + null
+                Debug.LogError("[OfferContainer.ContainerBuilder] 容器实例化失败（原版这一支是 throw）⇒ 返回 null。");
+                return null;
+            }
+            if (Initialize != null) Initialize(inst, evt);       // 如实标 ①：原版那一次虚调用（未解出名）
+            return inst;
+        }
+
+        /// <summary>自检口（静态注入点 ⇒ 跑完必须还原）。</summary>
+        public static void ResetForTest()
+        {
+            Instantiate = null; Initialize = null; _loadSaid = false; _instSaid = false;
+        }
+    }
+
+    /// <summary>原版 `ContainerService.OpenOfferContainer(location, offerId, containerInstanceId, offer,
+    /// onComplete, onError, autoCollect)` 的等价实现。
+    /// <para>**三跳闭包链**（`ContainerService__OpenOfferContainer.c` + ILSpy 同一方法，逐跳可读）：</para>
+    /// <code>
+    /// onOpen(rewards):   GameAnalytics.RecordTransaction(location, PURCHASE, rewards, [ItemInfo(offerId,1)], "") → onComplete(rewards)
+    /// onCollect(rewards):autoCollect ? RewardService.Collect(rewards, offer.ShowRewardOnPurchase, onOpen) : onOpen(rewards)
+    /// onUnlock(result):  onCollect(result.rewards)
+    /// PlayfabWrapper.UnlockContainer(containerInstanceId, onUnlock, onError)
+    /// </code>
+    /// <para>🔴 **依赖服务端**：`PlayfabWrapper.UnlockContainer` 是**开箱/报价领取的服务端调用**，关服后本地永远拿不到
+    /// ⇒ 默认（`UnlockContainer == null`）**走 `onError` 并出声**，⛔ 不假装开成功（铁律 18·0：只有服务器相关的才允许自己设计）。
+    /// 三个注入点都装上的话，整条链**逐跳可断言**（自检就是拿假后端跑这条链）。</para></summary>
+    public static class ContainerService
+    {
+        /// <summary>= 原版 `PlayfabWrapper.UnlockContainer(containerInstanceId, onComplete, onError)`。
+        /// 返回 = 有没有发起（本地默认 null = 没后端）。</summary>
+        public static Func<string, Action<IReadOnlyList<CampaignData.RewardSpec>>, Action<string>, bool> UnlockContainer;
+        /// <summary>= 原版 `GameAnalytics.RecordTransaction(location, TransactionType, rewards, items, offerId)`
+        /// （遥测；原版常量 `PURCHASE`）。</summary>
+        public static Action<int, string, IReadOnlyList<CampaignData.RewardSpec>> RecordTransaction;
+        /// <summary>= 原版 `RewardService.Collect(rewards, showRewardOnPurchase, onComplete, …)`。</summary>
+        public static Action<IReadOnlyList<CampaignData.RewardSpec>, bool, Action<IReadOnlyList<CampaignData.RewardSpec>>> Collect;
+
+        static bool _said;
+
+        /// <summary>见类头。**返回值** = 有没有真的发起开箱（false = 本地没有后端，已走 `onError`）。</summary>
+        public static bool OpenOfferContainer(int location, string offerId, string containerInstanceId,
+                                              bool showRewardOnPurchase, bool autoCollect,
+                                              Action<IReadOnlyList<CampaignData.RewardSpec>> onComplete,
+                                              Action<string> onError = null)
+        {
+            Action<IReadOnlyList<CampaignData.RewardSpec>> onOpen = rewards =>
+            {
+                if (RecordTransaction != null) RecordTransaction(location, offerId, rewards);
+                if (onComplete != null) onComplete(rewards);
+            };
+            Action<IReadOnlyList<CampaignData.RewardSpec>> onCollect = rewards =>
+            {
+                if (!autoCollect) { onOpen(rewards); return; }        // 原版 displayClass1 的 `!autoCollect` 支
+                if (Collect != null) { Collect(rewards, showRewardOnPurchase, onOpen); return; }
+                // 原版 `RewardService.Collect` 我们还没有 ⇒ 出声（一次）+ **直接走 onOpen**（⛔ 不吞奖励）
+                Debug.Log("[OfferContainer.ContainerService] 没有接 `RewardService.Collect` ⇒ 直接把奖励交给 `onOpen`"
+                        + "（原版这一跳会先弹领奖流程）。");
+                onOpen(rewards);
+            };
+            Action<IReadOnlyList<CampaignData.RewardSpec>> onUnlock = rewards => onCollect(rewards);
+
+            if (UnlockContainer == null)
+            {
+                if (!_said)
+                {
+                    _said = true;
+                    Debug.LogError("[OfferContainer.ContainerService] `OpenOfferContainer`：原版这一步是 "
+                                 + "`PlayfabWrapper.UnlockContainer(containerInstanceId, onUnlock, onError)` —— "
+                                 + "**服务端开箱**。关服后本地没有后端 ⇒ 走 `onError`（⛔ 不假装开成功）。"
+                                 + "🔶 自己设计（非原版）：本地把这条链做成「三个注入点 + 默认出声」，"
+                                 + "因为判据（服务端返回）在远端 · 调度台 2026-10-29 裁定（B94_S3）");
+                }
+                if (onError != null) onError("本地没有开箱后端（原版 `PlayfabWrapper.UnlockContainer`）");
+                return false;
+            }
+            return UnlockContainer(containerInstanceId, onUnlock, onError);
+        }
+
+        /// <summary>自检口（三个静态注入点 ⇒ 跑完必须还原）。</summary>
+        public static void ResetForTest()
+        {
+            UnlockContainer = null; RecordTransaction = null; Collect = null; _said = false;
         }
     }
 }

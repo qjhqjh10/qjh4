@@ -588,7 +588,7 @@ namespace CardPresentation
                 }
                 // 与上一段动画**同目标** ⇒ 不重启（否则每帧 Refresh 都会把 t 归零、数字永远滚不到）
                 if (c.Animating && c.Target == owned) continue;
-                c.From = c.Value;
+                c.From = c.Value; if (c.Label != null) c.Label.transform.localScale = CounterAnimStartScale;   // 🆕 B94_W1：animated 支在补间**之前**复位文本 localScale（原版 UIResourceCounter__SetQuantity.c 读 static Vector3.one，判据见 CounterAnimStartScale）
                 c.Target = owned;
                 c.T = 0f;
                 c.Animating = true;
@@ -1112,5 +1112,17 @@ namespace CardPresentation
             if (float.IsNaN(wWorld) || float.IsInfinity(wWorld) || wWorld <= 1e-6f) return -1f;
             return wWorld * (LayoutSpace.DesignPxH / LayoutSpace.DesignHeight);
         }
+
+        /// <summary>🆕 2026-10-29（执行代理 B94_W1 · 账 `其他_基础设施` `UIResourceCounter.SetQuantity`）：
+        /// animated 支在补间**之前**给文本 transform 设的 `localScale` 预设 = **`Vector3.one (1,1,1)`**。
+        /// <para>判据（`.c` 优先，2026-10-29 现读）：`decomp_full/UIResourceCounter__SetQuantity.c` 的 animated 支读
+        /// `*(DAT_1842da2a8 + 0xb8) + 0xc`（8 字节）+ `+0x14`（4 字节）= 一个 Vector3。
+        /// `DAT_1842da2a8` = **`UnityEngine.Vector3` 的 Il2CppClass**（metadata usage `0x42da2a8` = `UnityEngine.Vector3_TypeInfo`；
+        /// 另 `decomp_full/CustomTypes__DeserializeVector3.c` 同址）；`+0xb8` = `Il2CppClass.static_fields`
+        /// （`il2cpp.h` 的 `Il2CppClass_1` 合计 0xb8 字节，`static_fields` 紧随其后）；
+        /// `static_fields + 0xC` = **`oneVector`**（`dump.cs:537034-537035`：`zeroVector // 0x0` · `oneVector // 0xC` · `upVector // 0x18`）
+        /// ⇒ = **`Vector3.one`**。同址解读先例 → `资料/普查产出_1011/审查_W1.md` R4。</para>
+        /// <para>⚠️ 它是**常量预设**（每次 animated 前都写一遍），不是动画：补间只改数字文本（`OnUpdate` 写 `ceil`）。</para></summary>
+        public static readonly Vector3 CounterAnimStartScale = Vector3.one;
     }
 }

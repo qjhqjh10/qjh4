@@ -389,7 +389,7 @@ namespace RuleEngine
             else if (abilityActingGate && !string.IsNullOrEmpty(abilityTrigger))
             {
                 int aw, aslot;
-                FindBoardCell(ctx, actor, out aw, out aslot);
+                FindBoardCell(ctx, actor, out aw, out aslot); if (aw < 0 && actor != null && actor.OwnerSeat >= 0) { aw = actor.OwnerSeat; aslot = -1; }   // 【B94_B22 2026-10-29 · B24 接线 C1】离场后仍知道座位（账 647）；`aslot` 离场无意义 ⇒ -1，下游若用需判 <0
                 if (aw < 0)
                 {
                     AbilityActingCriteriaWarningsForTest++;
@@ -469,7 +469,7 @@ namespace RuleEngine
                 if (actor != null && actor.Card != null)
                 {
                     int aw, aslot;
-                    FindBoardCell(ctx, actor, out aw, out aslot);
+                    FindBoardCell(ctx, actor, out aw, out aslot); if (aw < 0 && actor != null && actor.OwnerSeat >= 0) { aw = actor.OwnerSeat; aslot = -1; }   // 【B94_B22 · B24 接线 C1】同上（第二处）
                     if (aw < 0)
                         seatWhy = $"载体「{actor.Name}」此刻不在棋盘上（求不出 `owner`）";
                     else
@@ -1814,12 +1814,12 @@ namespace RuleEngine
         //                      ⚠️ 另注：`PlayTacticBodyDeferred` 跑的是**解析出来的 op**，原版走的是
         //                      `TriggerAbilities(0)`（含 `CanTriggerAbility` 的 ability 级三道闸）——
         //                      那是**「卡面正文到达率」那条更大的账**，不在本行。
-        //    189/605 Courtesy   → ✅ **2026-10-26（批次 9 · 执行代理 `E7P06`）：映射 + 两段入口已落地**
-        //                      （改前是「整条没有」）。落点 = `ExtraTriggerName`（`courtesy` → `Courtesy`/43）
-        //                      ＋ `EnqueueGrantedTrigger`（= 原版 `AddTriggerCourtesy` 入队 ＋
-        //                      `ResolveTriggerCourtesy` 的 `IsInPlayOrDying` 闸 ＋ `OnTrigger(43)` 三槽）；
-        //                      判据与残余（`KeywordTable` 常量 / `EffectResolver` 的 `chosenAbility 400` 分派）
-        //                      → 类尾 §九。时间限定：接上前两句后**立刻可达**，`play check` 必须重比。
+        //    189/605 Courtesy   → ✅ **映射 + 两段入口已落地**（`E7P06` 2026-10-26，改前是「整条没有」）。
+        //                      落点 = `ExtraTriggerName`（`courtesy` → `Courtesy`/43）＋ `EnqueueGrantedTrigger`
+        //                      （= 原版 `AddTriggerCourtesy` 入队 ＋ `ResolveTriggerCourtesy` 的 `IsInPlayOrDying` 闸 ＋ `OnTrigger(43)` 三槽）。
+        //                      ✅ **两块残余都已闭合**（2026-10-29 `B94_B15` 现读）：① `KeywordTable.Courtesy` /
+        //                      `Prefixes.courtesy` 在 `CardDef.cs:7773/8682`；② `chosenAbility 400` 的 op 分派在
+        //                      `EffectResolver.RunActiveRowOpsOrGrantedTrigger`（`EffectResolver.cs:18480`）。
         //    190 Mob         → `:1104` `case KeywordTable.Mob`；触发口 `RuleCore.cs:6678/10201`；
         //                      `isAdditionalMobTrigger` 那第二档 type（81）我们不需要建模 ——
         //                      两条 type 在 Resolve 侧落到**同一个** `OnTrigger(300)`
@@ -1832,7 +1832,7 @@ namespace RuleEngine
         //                      已落地；两份 `.c` 与 Courtesy **逐字节同形**（`diff` 只剩函数名 / 一个标签 /
         //                      trigger id `0x2b(43)` vs `0xe6(230)`，actionType `0x41(65)` vs `0x3e(62)`）
         //                      ⇒ 一个入口同时覆盖两族，⛔ 别为它再写第二份。
-        //                      残余同 189（`KeywordTable` 常量 / `chosenAbility 370` 的 op 分派；判据 → 类尾 §九）。
+        //                      残余**已闭合**（同 189：`CardDef.cs:7773/8682` ＋ `EffectResolver.cs:18480` 的 `chosenAbility 370` 分派）；池内 0 张可达。
         //    196 Sacrifice   → `:1102` `case KeywordTable.Sacrifice`。
         //    197 Slay        → `:1100` `case KeywordTable.Slay`；出队复核 = `PumpActionQueues` 的
         //                      `RequireActorInPlayOrDying` 那一支（本文件 `:1536-1546`，判据
@@ -1900,9 +1900,9 @@ namespace RuleEngine
             //   「引擎关键词 → 这个枚举名」这一跳。没有它 ⇒ `TriggerNameOfKeyword` 返回 null ⇒
             //   `AbilityContextOfAbilityV14(card, null, "courtesy")` 拿不到名字 ⇒ 四道 ability 级闸
             //   **静默不判**（同 §八 里 `spentallmana` 那一格的形状）。
-            //   ⚠️ **写字符串字面量、不写 `KeywordTable.Courtesy`**：那两个常量还没建
-            //   （`KeywordTable` 在 `Core/CardDef.cs`，不在本件白名单）⇒ 等那边加了常量后
-            //   **这里改成引用**（⛔ 别两处各留一份字面量）。判据与残余 → 类尾 §九。
+            //   ✅ **已改成引用常量**（`KeywordTable.Courtesy` / `.Relentless` 在 `CardDef.cs:7773`；
+            //   2026-10-29 `B94_B15` 现读订正 —— 旧文「那两个常量还没建」**已过期**），`Prefixes` 也早已登记
+            //   `{"courtesy","courtesy"}` / `{"relentless","relentless"}`（`CardDef.cs:8682`）。判据与残余 → 类尾 §九。
             // ⚠️ 今天池内 **0 张**卡的 `keywords` 里真的有这两个词（`cards_engine.json` v32 现扫），
             //   所以本行**零行为变化**，补的是「卡面/数据一出现就自动生效」这一层（铁律 11）。
             if (keyword == KeywordTable.Courtesy) return "Courtesy";        // 43
@@ -1958,13 +1958,13 @@ namespace RuleEngine
         //       `relentless` → `Relentless(230)`）。**两段必须成对**：只做④不做②③ ⇒ 卡面认得出、
         //       但没人登记 ⇒ 永远不触发（那正是改前的形状）。
         //
-        //  ── 三、⏭ 还差什么（都在别的写手的文件里，⛔ 本件不动）────────────────────────────────
-        //    · **数据侧「认得出」**：`CardDef.KeywordTable` 仍没有 `Courtesy` / `Relentless` 常量；`Prefixes`
-        //      **`relentless` 2026-10-26 `B8_D` 已登记**（原文 = `new[]{"relentless","relentless"}`），**`courtesy` 仍缺**
-        //      ⇒ 卡数据真写 `courtesy` 会被 `Normalize` **静默丢弃** —— 落点 = `Core/CardDef.cs`（P-07，⛔ 本件不动）。
-        //    · **调用点**：`chosenAbility 370 / 400` 的 op 分派在 `EffectResolver`（P-02）。
-        //      今天池内这两档 **0 张卡**（`cards_truth.json` 1,351 张逐张扫 `chosenAbility`
-        //      = 370/375/390/400 **各 0**；`cards_engine.json` v32 的 1,128 张同）
+        //  ── 三、✅ 还差什么（2026-10-29 `B94_B15` 现读：**两块残余都已闭合**）──────────────────
+        //    · **数据侧「认得出」** ✅ **已闭合**：`CardDef.KeywordTable.Courtesy` / `.Relentless` = `CardDef.cs:7773`；
+        //      `Prefixes` 的 `{"relentless","relentless"}`（2026-10-26 `B8_D`）与 `{"courtesy","courtesy"}` 都在 `CardDef.cs:8682`。
+        //      （旧文写「常量没建 / `courtesy` 仍缺 ⇒ 被 `Normalize` 静默丢弃」= **已过期**，`B93_F4` 首订、本笔现读复核。）
+        //    · **调用点** ✅ **已闭合**：`chosenAbility 370 / 400` 的 op 分派 = `EffectResolver.RunActiveRowOpsOrGrantedTrigger`
+        //      （`EffectResolver.cs:18480-18520`，`B90·B1` 建；`RuleCore.cs:15424/15493` 是派发侧）。
+        //      今天池内这两档 **0 张卡**（`cards_truth.json` 1,351 张逐张扫 `chosenAbility` = 370/375/390/400 **各 0**）
         //      ⇒ **本件落地后 `play check` 指纹必须逐字节不变**（已验，见报告 §二）。
         //
         //  ── 四、池内可达性（时间限定）──────────────────────────────────────────────────────────
@@ -2072,18 +2072,18 @@ namespace RuleEngine
         /// CardScript targetCard = null, bool shouldIgnoreDestroy = false)` 的等价物 ——
         /// **对四条泳道各跑一次** <see cref="CancelEffectsFromDisappearingUnitFromQueue"/>。
         ///
-        /// <para>**调用点（原版四个，本批一个都没接 —— 待接点见下）**：
+        /// <para>**原版四个调用点（现状 = 已接 1 / 仍缺 2 / jam 支由同一处覆盖 —— 见下）**：
         /// `RemoveSelfBuffsFromQueues`（`CancelEffectsFromDisappearingUnit(bm, card, card, true)`）·
         /// `ResolveAction` 的 jam 支（`(bm, card, null, false)`）·
         /// `ResolveJamUnit`（`(bm, card, null, false)` —— **就是账 L832 那一格**）·
         /// `ResolveTransformUnit`（`(bm, card, card, true)`）。</para>
         ///
-        /// <para>🔴 **待接点（本批白名单只有 `ActionQueue.cs` / `ActionPump.cs`）**：
-        /// 账 L832 的落点是 `RuleEngine/Core/EffectResolver.cs` 的 `ResolveJamUnit`（属 E3），
-        /// 正确插入位置 = 它的 **⑤ 广播之后、⑥ 光环窄口重算之前**
-        /// （原版 `BattleManager__ResolveJamUnit.c:263` 就在 `BroadcastUnitJammed` 与
-        /// `UpdateCardEffects` 之间；`EffectResolver.cs` 里那一段的 doc 已经把顺序写死）。
-        /// 接的时候传 `ctx, jammed, targetCard: null, shouldIgnoreDestroy: false`（= 原版实参）。</para>
+        /// <para>🔴 **调用点现状（2026-10-29 `B94_B15` 现读订正：旧文「本批一个都没接」已过期）**：
+        /// **已接 1 / 4** = `EffectResolver.DoJam` 的 ⑤′（`Core/EffectResolver.cs:16144`，传 `(jammed, null, false)`，
+        /// 同时覆盖原版 `ResolveJamUnit` **与** `ResolveAction` 的 jam 支那两格，位置 = 广播之后、光环窄口之前）。
+        /// ⏭ **仍缺 2**：`RemoveSelfBuffsFromQueues`（原版 `(card, card, true)` —— 本仓**全树 0 调用者**，落 `EffectResolver`/`RuleCore`）
+        /// 与 `ResolveTransformUnit`（**状态层已建** = `Core/TransformUnit_B94B12.cs:178` 的 `RuleCore.TransformUnit`，但**无生产端**、也无 27 号动作道 ⇒ 账 L172 仍 C）。
+        /// ⚠️ ⑤′ 的 doc 自承「`ActionType` 未回填 ⇒ 撤不到三档豁免」**已部分过期**（账 L490 现读 11 处回填）；三档豁免的真正缺口见下面 `…FromQueue` 的豁免段。</para>
         /// </summary>
         /// <returns>四条道一共撤掉几条。</returns>
         public static int CancelEffectsFromDisappearingUnit(BattleContext ctx, UnitState disappearingUnit,
@@ -2126,10 +2126,10 @@ namespace RuleEngine
         /// ⓑ `actionType == 0x1a (26 recallToHand)`；
         /// ⓒ `shouldIgnoreDestroy` 为真 **且** `actionType == 0x2d (45)`。
         /// ⚠️ ⓐⓑⓒ 原版是**结束整条泳道的清扫**（不是跳过这一条）—— 照抄；工具侧若发现语义不合，
-        /// 回 `.c` 而不是就地改（铁律 11 例外①之外一律先记账）。</para>
+        /// 回 `.c` 而不是就地改（铁律 11 例外①之外一律先记账）。⚠️ **ⓐⓑ 今天都没有生产者**（2026-10-29 `B94_B15` 现读：全仓 `actionType:` 回填 **12 处** = 本文件 0x41/0x3e ＋ 其余 11 处 **1/1/4/16/16/51/61/77/77/79/87**，其中**无 0x2d(45) / 0x1a(26)**；`QueuedAction.DeathType` **全树 0 写点**）⇒ 两条豁免结构上走不到，纯增量。</para>
         ///
         /// <para>**撤之前会补副作用**（`attack` 的 `CancelAttack` / `createHandCard` 的 `SetActive(false)`）——
-        /// 由 `ActionQueue.RemoveQueuedActionAt` 统一做，⛔ 别在这里另写一份。</para>
+        /// 由 `ActionQueue.RemoveQueuedActionAt` → `ApplyCancelSideEffects` 统一做，⛔ 别在这里另写一份；⚠️ 那两个副作用**今天只出声（计数 `CancelSideEffectsPendingForTest`）、未接真调用**（账 L240 保持 B 的确切原因，落 `RuleCore` / 表现层）。</para>
         /// </summary>
         /// <returns>这条泳道撤掉几条。</returns>
         public static int CancelEffectsFromDisappearingUnitFromQueue(BattleContext ctx, UnitState jammedUnit,
@@ -2159,9 +2159,9 @@ namespace RuleEngine
 
                 UnityEngine.Debug.LogWarning(
                     "[ActionQueue] Removing action from queue from card " + (jammedUnit.Name ?? "?")
-                    + ", " + ((int)a.ActionType) + "（原版 `BattleManager.CancelEffectsFromDisappearingUnitFromQueue.c` "
+                    + ", " + ((BattleActionType)a.ActionType) + "（原版 `BattleManager.CancelEffectsFromDisappearingUnitFromQueue.c` "
                     + "同一句 `CustomDebug.LogWarning(\"Removing action from queue from card \" + cardName + \", \" + …)`；"
-                    + "原版打印的是 `BattleActionType` 名，我们打的是原版号 —— 我们还没建那个枚举）");
+                    + "原版打的是 `BattleActionType` 枚举名（`System.Enum::ToString`），我们同形；枚举 = `Core/TutorialScript.cs:96` 的 91 档（2026-10-29 `B94_B15` 现读订正：旧文「还没建那个枚举」已过期）");
                 if (q.RemoveQueuedActionAt(lane, i)) n++;
             }
             return n;

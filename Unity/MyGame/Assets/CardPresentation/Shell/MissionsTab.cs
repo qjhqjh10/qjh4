@@ -1513,9 +1513,9 @@ namespace CardPresentation
             //    footer ▸ TimerHolder ▸ Timer` = `auto[15~38] · base 36 · 折行 1`）
             var wkTimer = Txt(parent, tm, DailyData.WeeklyEndsIn(), new Color(0.57f, 0.57f, 0.59f, 1f), "Timer", 38f,
                               15f, 38f, 36f);
-            // 🆕 **2026-10-17（W_A_TimerDisplay）**：周常的刷新时刻**不在我们的数据模型里**
-            //   ⇒ 目标传 `null`：`TimerDisplay` 出一声 + 稳定显示 `Ends in --`（⛔ 不编日期）。
-            TimerDisplay.Attach(wkTimer, null, Loc.T("Missions/CollectCounter"), "周常 Timer",
+            // 🔴 **2026-10-29（`B94_B4`）**：描述串与 `DailyData.WeeklyEndsIn()` 同一条（原版 `MissionTimerDisplay.Update` 按 `IsComplete` 分档），⛔ 别再写死 `Missions/CollectCounter`。
+            //   目标时刻仍传 `null`（周常刷新时刻不在我们的数据模型里）⇒ `TimerDisplay` 出一声 + 稳定显示 `Ends in --`（⛔ 不编日期）。
+            TimerDisplay.Attach(wkTimer, null, MissionTimerDisplay.Description(false, DailyData.WeeklyClaimed()), "周常 Timer",
                                 "周常刷新时刻在本地数据模型里不存在（原版由服务端下发；`TryDailyReset` 不碰周常）");
         }
 
@@ -2546,6 +2546,46 @@ namespace CardPresentation
             // ⚠️ 改坏法：将来本仓若真的引入 `GameObjectUniqueIdentifier` 那一套，改名 / 挂 id 两句必须补在这里
             //    （判据 = `MissionContainer__OnInitialize.c:20-56`）。
             if (index < 0) return;
+        }
+
+        // ════════════════════════════════════════════════════════════════════════════════════════
+        //  追加区 · 2026-10-29（`B94_B4` · 账 `:526` 的判据从「未落地」收成「可执行纯函数」）
+        //  🔴 追加在**类尾**：本文件有多条账按 `文件:行号` 钉着（最大 = `:2542`）⇒ 往中间插一行就整片漂移。
+        // ════════════════════════════════════════════════════════════════════════════════════════
+
+        /// <summary>原版 `MissionsTab.InstantiateGridMissions(IEnumerable&lt;IMission&gt;)` 里**判得死的那一半**
+        /// （`decomp_full/MissionsTab__InstantiateGridMissions.c` 129 行，2026-10-29 `B94_B4` 逐句现读）。
+        /// <para>判据原文（`.c:53-67` 的 `iVar2` 分支，逐句）：
+        /// <code>
+        /// int n = Enumerable.Count(Enumerable.Where(missions, 谓词 DAT_18427ab10));
+        /// int columns = (n == 1 || n == 2) ? 2 : (n == 3 ? 1 : 0);
+        /// </code>
+        /// 🔴 **就地订正（铁律 5）**：账 `:526` 原来写「按 1/2/3 条写 1/2 格位」——
+        /// 方向对但**两个档位是同一个值**（`1 条` 与 `2 条` **都是 2 列**，只有 `3 条` 是 1 列），
+        /// ⛔ 别按「条数 = 列数」去理解。
+        /// <para>⚠️ 计数用的是 **`Where(谓词)` 之后**的条数（谓词体未解出），循环遍历的是 **`ToList()` 后的全表** ——
+        /// 这两者**不是同一个集合**（`.c:38-40` vs `:70-120`），照抄时别合并成一个。</para>
+        /// <para>逐项循环那一半（`.c:70-120`）= 对每条 mission 取它的挑战表（IMission 接口 key `1`、表在 `+0x48`）→
+        /// 逐条 `ContainerHolder.TryAdd(missionsHolder, mission, out container)` → 成功就
+        /// `MissionContainer.SetChallenge(container, 挑战)` 且序号 +1；每次迭代前还给该 mission 写一个
+        /// `bool = (columns &lt;= 序号)` 的开关（IMission 接口 key `9`，**成员语义未解 ⇒ ⛔ 不猜名字**）。
+        /// 🔴 **建树那一半仍然不落**：`missionsHolder` 与 `FlexibleGridLayout` 本工程都不存在、格子数据也不在本地
+        /// （见 <see cref="InstantiateGridMissions"/> 的 summary）⇒ 本类只承载**可以判死的那几条纯函数**。</para></summary>
+        public static class GridMissionLayoutLogic
+        {
+            /// <summary>原版 `.c:53-67`：**列数**。`1`/`2` 条 ⇒ 2 列；`3` 条 ⇒ 1 列；其它 ⇒ 0（原版那一支什么都不写）。</summary>
+            public static int ColumnCount(int filteredMissionCount)
+            {
+                if (filteredMissionCount == 1 || filteredMissionCount == 2) return 2;
+                if (filteredMissionCount == 3) return 1;
+                return 0;
+            }
+
+            /// <summary>原版 `.c:100` 那个布尔：`columns &lt;= index`（`index` = **全局**已加进 holder 的条数，不是本 mission 内的序号）。</summary>
+            public static bool WritesSwitch(int columns, int globalIndex)
+            {
+                return columns <= globalIndex;
+            }
         }
     }
 }

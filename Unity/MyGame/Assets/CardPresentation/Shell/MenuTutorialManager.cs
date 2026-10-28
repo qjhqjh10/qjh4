@@ -326,7 +326,7 @@ namespace CardPresentation
                 var d = MenuTutorialStages.At(i);
                 if (d == null || d.Id != MenuTutorialStageId.SelectArmy) continue;
                 if (string.IsNullOrEmpty(d.StageId)) return false;
-                return PlayerPrefs.GetInt(MenuTutorialFlow.PrefDonePrefix + d.StageId, 0) != 0;
+                return MenuTutorialFlow.IsStageCompleted(d);   // 完成位 2026-10-29 起住在 `DemoData`（旧 Prefs 兜底）
             }
             return false;
         }

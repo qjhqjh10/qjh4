@@ -1070,7 +1070,7 @@ namespace CardPresentation
     /// <para>🔶 自己设计（非原版）：`LiveOpsAssetUtility` 在原生仓库里没有等价物（我们只有
     /// `LiveOpsPopupPresenter` 那一个开窗口），而容器线不属本批 ⇒ 留注入点 + **没装就出声**。
     /// 调度台 C1 2026-10-27 定。</para></summary>
-    public static partial class LiveOpsContainers   // partial：`ReleaseEventAssets` 那半在文件尾（B93·N2 追加，⛔ 别插在中间——会顶掉下游账落点）
+    public static partial class LiveOpsContainers   // partial：`ReleaseEventAssets` 那半已于 2026-10-29（B94_T1）搬去 `LiveOpsAssetUtility`（见文件尾注记）
     {
         /// <summary>参数 = (事件, 组件引用类型)。返回 null = 装载失败（原版 `LoadComponent` 拿不到引用时也返回 null）。</summary>
         public static Func<ILiveOps, int, IUiContainer> Load;
@@ -1089,7 +1089,7 @@ namespace CardPresentation
         /// <summary>自检口（⚠️ 只给断言用）。</summary>
         public static void ResetForTest()
         {
-            Load = null; Unload = null; LoadForData = null; UnloadForData = null; ReleaseAsset = null;
+            Load = null; Unload = null; LoadForData = null; UnloadForData = null; LiveOpsAssetUtility.ReleaseAsset = null;
         }
     }
 
@@ -1341,73 +1341,9 @@ namespace CardPresentation
         }
     }
 
-    // ============================================================ 原版 `LiveOpsAssetUtility.ReleaseEventAssets`（B93·N2 · 2026-10-28 追加，**文件尾**）
-    // 判据（第一权威 = Ghidra `.c`；第二 = ILSpy，只用来取被 `.c` 吞掉的字面量）：
-    //   · `decomp_full/Everguild.LiveOps.LiveOpsAssetUtility__ReleaseEventAssets.c`（119 行）
-    //   · `decomp_full/Everguild.LiveOps.LiveOpsAssetUtility__LoadComponent_object_.c`（24 行）
-    //   · `cpp2il/out_cpp2il_dev_ilspy/Everguild.LiveOps/LiveOpsAssetUtility.cs:268`（LoadComponent）/ `:921`（ReleaseEventAssets）
-    // 🔴 落点说明（⛔ 不是「第二份实现」）：原版这个成员住在 `LiveOpsAssetUtility`，而那个类**已经**由 B89-R2b 建在
-    //   `Shell/LiveOpsLocalCatalog.cs:1149`（含 `GetEventLabel` / `GetAssetReference`）——**那个文件不在本代理名下** ⇒
-    //   本半挂在同一族的 `LiveOpsContainers` partial 上，⛔ 别另建第二个 `LiveOpsAssetUtility`（会 CS0260/歧义）。
-    //   交接：谁拥有 `LiveOpsLocalCatalog.cs`，就把这两个成员搬进那个 `LiveOpsAssetUtility`（它加 `partial` 即可）。
-    // 🔴 与 `LiveOpsContainers.{Load,Unload}` 的分工：那两个 = 原版 `LoadComponent<T>` / `Unload` 的**注入点**；
-    //   本段 = 同一类的**另一个成员** `ReleaseEventAssets` —— 它有**明确的生产态调用方**
-    //   （`EnergySinglePlayerOnlyEventWindow.OnDestroy` · `ExpansionPassEventWindow.OnClose/Reset`，判据见那两个文件）。
-    /// <summary>`LiveOpsContainers` 的第二半：原版 `public static void ReleaseEventAssets(ILiveOps liveOps)`。
-    /// <para>`.c` 逐句：`if (liveOps == null) return;` → `data = GetData&lt;LiveOpsEventData&gt;(liveOps)`（接口槽 15）→
-    /// `if (data == null || data.drawData == null || data.drawData.EventComponents == null) NRE;` →
-    /// `foreach (c in data.drawData.EventComponents) { r = c.&lt;+0x18&gt;; if (r == null) CustomDebug.LogError("Trying to unload null assetReference"); else AddressablesManager.Instance.Release(r); }` →
-    /// 对 `data.drawData.EventAssets` 再来一遍 → `return`。</para>
-    /// <para>⚠️ **差异（如实记）**：原版那两个列表在 `LiveOpsEventData.drawData` 上，而**我们的 `drawData` 不装那三格**
-    /// （铁律 6：本地目录 `LiveOpsLocalEvent` 已有 `Assets` / `Components`，⛔ 不建第二份表）⇒ 这里从
-    /// <see cref="LiveOpsLocalCatalog.Find"/> 取同一份数据的离线等价物。释放动作本身没有 Addressables 管线 ⇒
-    /// 走 <see cref="ReleaseAsset"/> 注入点，**没装就出声**（⛔ 不静默）。
-    /// 判 `null` 引用时那条错误文案**逐字照抄**原版字面量（ILSpy `LiveOpsAssetUtility.cs:921` 一带）。</para></summary>
-    public static partial class LiveOpsContainers
-    {
-        /// <summary>原版那一跳 = `AddressablesManager.Instance.Release(reference)`。
-        /// 🔶 自己设计（非原版）：本机没有 Addressables 管线 ⇒ 留注入点，**没装就出声**（⛔ 不静默）。
-        /// 调度台 B93 2026-10-28 定。</summary>
-        public static Action<string> ReleaseAsset;
-
-        /// <summary>原版那两遍遍历里共用的单条释放（`.c` 两个 `while` 体一模一样）。</summary>
-        internal static void ReleaseOneAssetRef(string guid, string where)
-        {
-            if (string.IsNullOrEmpty(guid))
-            {
-                Debug.LogError("[LiveOps] Trying to unload null assetReference（" + where + "）");
-                return;
-            }
-            if (ReleaseAsset == null)
-            {
-                Debug.Log("[LiveOps] ReleaseEventAssets：" + where + " 的资产引用（guid " + guid + "）没有释放 —— "
-                        + "没有接 `LiveOpsContainers.ReleaseAsset`（原版 = `AddressablesManager.Instance.Release(ref)`）");
-                return;
-            }
-            ReleaseAsset(guid);
-        }
-
-        /// <summary>原版 `LiveOpsAssetUtility.ReleaseEventAssets(ILiveOps)`。逐句与差异见本 `partial` 段头。</summary>
-        public static void ReleaseEventAssets(ILiveOps liveOps)
-        {
-            if (liveOps == null) return;                       // .c：`if (param_1 == 0) return;`（**不是** NRE）
-            string id = liveOps.GetID();
-            var local = LiveOpsLocalCatalog.Find(id);
-            if (local == null)
-            {
-                Debug.LogError("[LiveOps] ReleaseEventAssets：本地目录里没有事件 '" + (id ?? "<null>") + "' 的条目"
-                             + "（原版这一跳读 `liveOps.GetBaseData().drawData`，我们那张表在本地目录）⇒ 没有可释放的引用");
-                return;
-            }
-            // ① `drawData.EventComponents` 那半（`KeyValuePair<int,string>`：组件键 → guid）
-            if (local.Components != null)
-                for (int i = 0; i < local.Components.Length; i++)
-                    ReleaseOneAssetRef(local.Components[i].Value, "EventComponents[" + local.Components[i].Key + "]");
-            // ② `drawData.EventAssets` 那半
-            if (local.Assets != null)
-                for (int i = 0; i < local.Assets.Length; i++)
-                    ReleaseOneAssetRef(local.Assets[i] != null ? local.Assets[i].Guid : null,
-                                       "EventAssets[" + (local.Assets[i] != null ? local.Assets[i].Key.ToString() : "?") + "]");
-        }
-    }
+    // ============================================================ 原版 `LiveOpsAssetUtility.ReleaseEventAssets`（B93·N2 · 2026-10-28 追加）
+    // 🔴 **2026-10-29（B94_T1）已搬走**：那两个成员（`ReleaseAsset` / `ReleaseOneAssetRef` / `ReleaseEventAssets`）
+    //   原挂在上面那个 `LiveOpsContainers` partial 上，现按 B93·N2 留下的交接搬进**原版那个类**
+    //   `LiveOpsAssetUtility`（落点 = `Shell/LiveOpsLocalCatalog.cs` 文件尾的第二段 `partial`；逻辑逐字未改）。
+    //   ⇒ ⛔ 别在这里再建第二份（会 CS0111 重复定义）；`LiveOpsContainers` 只剩 `Load/Unload` 那一族注入点。
 }

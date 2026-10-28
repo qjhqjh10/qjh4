@@ -373,7 +373,7 @@ namespace CardPresentation
         public void Tick(float dt)
         {
             if (Cog == null) return;
-            _angle = Mathf.Repeat(_angle + SpinDegPerSecond * dt, 360f);
+            _angle = SimpleRotation.Step(_angle, SpinDegPerSecond, dt);   // = 原版 `SimpleRotation.Update` 的 z 那一轴
             Cog.transform.localRotation = Quaternion.Euler(0f, 0f, _angle);
         }
 
@@ -382,6 +382,43 @@ namespace CardPresentation
         {
             _angle = Mathf.Repeat(deg, 360f);
             if (Cog != null) Cog.transform.localRotation = Quaternion.Euler(0f, 0f, _angle);
+        }
+    }
+
+    // ============================================================ 原版 `SimpleRotation`（B94_S3 · 2026-10-29）
+    //
+    // 判据：`d:/2/tools/decomp_full/SimpleRotation__Update.c` **全文**（逐句）：
+    //   ```
+    //   euler = transform.eulerAngles;                                  // 读当前欧拉角（0..360）
+    //   euler.x += speed.x * Time.deltaTime;                            // 逐轴
+    //   euler.y += speed.y * Time.deltaTime;
+    //   euler.z += speed.z * Time.deltaTime;
+    //   transform.eulerAngles = euler;
+    //   ```
+    //   ⇒ **按帧连续转**（与 `IconRotation` 的「周期定步长」相反：那个是每周期跳一格，这个是每帧累加）。
+    //   · 资产侧 42 个实例 / 16 个文件 —— 13 个竞技场各 3 个（`Battle Arena 1.unity` 实读：3 个名为
+    //     `Highlight` 的物体 `speed = (0,0,100)`）· `ChooseNameWindow` 1 · `Main Menu Settings Window` 1 ·
+    //     主菜单场景 1（判据 → 账 `未分类/其他:584`）。
+    //   · `speed` 是 `Vector3`（字段 `+0x20/+0x24/+0x28`）；`Time.deltaTime` 是**缩放时间**（不是 unscaled）。
+    // ⚠️ **两个如实标**：
+    //   ① 原版读写的都是 `transform.eulerAngles`（**世界**欧拉角）；我们的齿轮挂在恒等父链上 ⇒ 用**局部**
+    //      角度做同一件事（同一结果）。其它 41 个实例我们还没建（不属本批）。
+    //   ② 原版不 `Repeat`，但 `eulerAngles` 本身每次读回来都归一到 0..360 ⇒ 我们显式 `Repeat` 与它等价，
+    //      而且避免角度无限增长（批处理没有帧循环，`_angle` 会被人工喂很多次）。
+    /// <summary>原版 `SimpleRotation`（每帧 `eulerAngles += speed * Time.deltaTime`）的**数学那一半**。</summary>
+    public static class SimpleRotation
+    {
+        /// <summary>逐轴相加（判据见本节头；`dt` 必须是**缩放**时间）。</summary>
+        public static Vector3 Update(Vector3 euler, Vector3 speed, float dt)
+        {
+            return euler + speed * dt;
+        }
+
+        /// <summary>单轴那一版（我们只有齿轮在转）：与 `Update` 同一个式子 + `Repeat` 归一到 0..360
+        /// （= 原版下一次读 `eulerAngles` 拿到的值域）。</summary>
+        public static float Step(float angle, float speed, float dt)
+        {
+            return Mathf.Repeat(angle + speed * dt, 360f);
         }
     }
 }

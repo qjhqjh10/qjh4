@@ -642,7 +642,7 @@ namespace CardPresentation
                 var h = _getCardsClick;          // 原版 `UnityEvent.Invoke()`：没有监听者 ⇒ 什么都不做
                 if (h != null) h();
             }, null, null, null, null, null, clickCue: WindowSounds.PositiveCue);
-            _getCardsBtn.gameObject.SetActive(true);
+            ApplyWhereToGetCardsVisible();   // 原版 `GachaEventTab.Initialize` 第 ⑥ 句（`CardsSpecialConfig` 驱动；见 `WhereToGetCardsVisible`）
 
             // `Video Player`（🆕 B93_E13：原来只建空节点；现在照 `GachaCratePanel.Awake` 五句接上
             //   `VideoPlayer` 本体 —— clip 未导入 ⇒ 出声，仍是同一个 `.webm` 口径。）
@@ -1426,13 +1426,13 @@ namespace CardPresentation
         {
             // 数据侧：`GachaEvent.CurrentOffer` 在本地**恒 null**（`CurrentContainer`/`CurrentOffer` 都是远端；
             // 见文件头「数据缺口」）。⛔ 不编一个「成功回调」出来 —— 那就成了假装开箱。
-            return false;
+            var hook = CratePurchaseHook; if (hook != null) { hook(OnCratePurchaseComplete); return true; } return false;   // 🆕 2026-10-29（B94_B5）：注入位 = 原版那一跳 `CurrentOffer.TryPurchaseOffer(onComplete, null, showRewardPopup:false)`；生产路径恒 null ⇒ 仍走「收摊」
         }
 
         /// <summary>= 原版 `GachaCratePanel.RewardWindowClosed()`（四句）：`videoPlayer.Stop()` ·
         /// `videoPlayer.enabled = false` · `videoBackground.SetActive(false)` · `RefreshVisuals()`。
-        /// <para>⚠️ `RefreshVisuals()` **本批不建**（箱体高亮的抖动 = 另一条账：`requiredOpeningsToSpecialItem`
-        /// 的进度与 `DOShakePosition` 循环），见 `报告/B93_E13.md`「没查清 / 顺手发现」。</para></summary>
+        /// <para>✅ 第 4 句 `RefreshVisuals()` **已建**（`RefreshVisuals`；2026-10-28 `B93_S1` 补上
+        /// `requiredOpeningsToSpecialItem` 的进度 + `DOShakePosition` 循环）—— 原文「本批不建」已过期，铁律 5 就地订正。</para></summary>
         public void RewardWindowClosed()
         {
             if (_videoPlayer != null) { _videoPlayer.Stop(); _videoPlayer.enabled = false; }
@@ -1619,5 +1619,60 @@ namespace CardPresentation
         /// <summary>播放态下的无限抖动句柄（非播放态恒 null）。</summary>
         DG.Tweening.Tweener _crateShake;
         bool _shakeSaid;
+
+        // 🆕 2026-10-29（B94_S1）—— = 原版 `GachaEventTab.Initialize` 第 ⑥ 句：
+        //   `getCardsButton.gameObject.SetActive(CardsSpecialConfig.whereToGetCardsData.expansionData.Length != 0)`。
+        //   判据（第一权威 = ILSpy）：`out_cpp2il_dev_ilspy/GachaEventTab.cs:166-178` —— `ConfigManager.GetConfig<CardsSpecialConfig>()`
+        //   → `config.whereToGetCardsData.expansionData` → `gameObject.SetActive(expansionData.Length != 0)`。
+        //   语义 = 「有expansion 卡表数据才显示 `Where get cards` 钮」。那份 `CardsSpecialConfig` 的**实例 SO 本机没有**
+        //   （`assets_full` 只有 MonoScript 类桩，`数据/` 无该表；`whereToGetCardsData.expansionData` 由远端 addressables 填）
+        //   ⇒ 那个「长度 != 0」的远端真值拿不到（见 `资料/完全复刻/报告/B94_S1.md`）。
+
+        /// 🔶 自己设计（非原版）：`Where get cards` 钮的显隐**默认值** —— 原版读 `CardsSpecialConfig.whereToGetCardsData.expansionData.Length != 0`，
+        /// 那份 config 的实例 SO 本机没有（远端 addressables）⇒ 取不到那个 bool。我们挑 **`true`**（钮显示），
+        /// 因为本地确实有 `WhereToGetCardsPopup` 可开（`OnGetCardsClicked` → `WindowsManager.OpenWhereToGetCards`）；要隐藏就设 `false`。
+        /// 谁定的：调度台 2026-10-29 裁定（依铁律 18 打标）。⚠️ 判据那道「原版按 config 决定」是真的，只有【默认值】是我们挑的。
+        public bool WhereToGetCardsVisible { get; set; } = true;
+
+        /// <summary>把 <see cref="WhereToGetCardsVisible"/> 应用到已建出的 `Where get cards` 钮（= 原版 `Initialize` 第 ⑥ 句）。
+        /// <para>⛔ 与 `BuildPage` 里那次调用是**同一个口**（两处写同一条规则 = 迟早不一致）—— `BuildPage` 末尾调它；
+        /// 运行时改 `WhereToGetCardsVisible` 之后再调一次即可重摆（自检用）。</para></summary>
+        public void ApplyWhereToGetCardsVisible()
+        {
+            if (_getCardsBtn != null) _getCardsBtn.gameObject.SetActive(WhereToGetCardsVisible);
+        }
+
+        /// <summary>自检读口：`Where get cards` 钮现在开着吗（`null` = 还没建 ⇒ 读不到）。</summary>
+        public bool? WhereToGetCardsButtonActive
+        {
+            get { return _getCardsBtn != null ? (bool?)_getCardsBtn.gameObject.activeSelf : null; }
+        }
+
+        // ============================================================ 🆕 2026-10-29（执行代理 `B94_B5`）
+        //   账 `商店:102` —— 原版 `GachaCratePanel.<OpenCrateButtonClick>b__14_0(IReadOnlyList<RewardInfo> rewards)`
+        //   的等价物。判据（第一权威 = `decomp_full/GachaCratePanel___OpenCrateButtonClick_b__14_0.c` 全文两句）：
+        //     `*(this + 0x70) = rewards;`（= `crateRewards`）→ `*(this + 0x68) = 1;`（= `crateOpenned`）。
+        //   ⚠️ 原版它**只由服务器回包调**（`ContainerOfferEvent.TryPurchaseOffer(onComplete, …)` 的 onComplete）
+        //     ⇒ 本地没有 liveops 后端 ⇒ 生产路径不会被调（`TryPurchaseCrate()` 的 hook 恒 null）。
+        //     **但接线点已在**（`CratePurchaseHook` → 本方法），回包一有就走原版那条链（⛔ 不是死代码、也不是转发口）。
+        //   为什么拆成「注入位 + 回调体」而不是一个空壳：原版那两句是**状态写入**，下面两行就是它；
+        //   注入位对应原版 `CurrentOffer`（远端报价对象），两者在本地都只缺**数据**、不缺**代码**。
+
+        /// <summary>= 原版 `GachaEvent.CurrentOffer.TryPurchaseOffer(onComplete, null, showRewardPopup:false)`
+        /// 的那一跳 —— **注入位**：调用方给一个「发起购买」函数，它把
+        /// <see cref="OnCratePurchaseComplete"/> 当 `onComplete` 传进去。
+        /// <para>生产路径 = `null`（本地没有 `CurrentOffer`）⇒ `TryPurchaseCrate()` 返回 false ⇒
+        /// `OpenCrateButtonClick` 按「等不到回包」收摊（原版会一直等，那是有意偏离，见该函数 doc）。</para></summary>
+        public System.Action<System.Action<CampaignData.RewardSpec[]>> CratePurchaseHook { get; set; }
+
+        /// <summary>= 原版 `GachaCratePanel._003COpenCrateButtonClick_003Eb__14_0`（服务器购买回包回调，**两句**）。
+        /// <para>判据 `decomp_full/GachaCratePanel___OpenCrateButtonClick_b__14_0.c`：`crateRewards = rewards` →
+        /// `crateOpenned = true`（字段 `+0x70` / `+0x68`）。⛔ order 别反：状态机 `CrateFlowStep` 的 state 1
+        /// 就是在等这一格变真（`if (!_crateOpened) return false;`）。</para></summary>
+        public void OnCratePurchaseComplete(CampaignData.RewardSpec[] rewards)
+        {
+            _crateRewards = rewards;      // 原版第 1 句 `crateRewards = rewards`
+            _crateOpened = true;          // 原版第 2 句 `crateOpenned = true`
+        }
     }
 }

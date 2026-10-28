@@ -8066,8 +8066,37 @@ public static class RewardsScene
         var badge1 = FindChild(FindChild(bar, "RewardsTabButton_1"), "Badge Highlight");
         CheckTrue(badge1 != null && badge1.gameObject.activeSelf,
                   "第 2 键的红点节点**是激活的**（原版出厂四个都 `active=1`）—— 这条正是「`SetActive` 不是判据」");
-        CheckNear(AlphaOf(badge1), 0f, 0.01f, "第 2 键（Campaign）的红点 **alpha = 0**（没有通知源 ⇒ 原版 `Hide()` 的样子）");
-        // 两态都验：开窗那一瞬（`ForceCollectableForTest` 还没跑）应当是 0；刷新之后应当变 1。🔴 2026-10-26（F3）δ：「没有可领」这个前提**必须自己造** —— 红点 provider 判据 = `DailyData.RewardsHasBadge`（`Shell/RewardsWindow.cs` 的 `RefreshBadges`：`idx==0 && CollectableMissionCount()>0`，四类源 = 三条每日 + 周常 + 骷髅 + 登录），而 `CanCollectLogin()` = `_loginState != Claimed` ⇒ 只要登录没被显式置成 `Claimed`，这个态**根本造不出来**（旧期望依据已不成立）。⛔ 与 `RewardsTabButton_0` 无关的是锻造红点（`RewardsMenu_ForgeButton` 的 `ForgeBadge` 挂在**锻造页那颗钮**上）。
+        // 🔴 **2026-10-29（B94_Z1 活 3）：这条断言的前提已过期，改成【真判据】。**
+        //   原文 = 「第 2 键（Campaign）的红点 alpha = 0（**没有通知源** ⇒ 原版 `Hide()` 的样子）」。
+        //   前提过期：2026-10-25 起 `BadgeWiring.RegisterDefaults()` 已登记 `CampaignNotificationProvider`
+        //   （`Shell/BadgeNotifications.cs`，判据 = 原版 `CampaignHandler.CheckNotification`）。
+        //   它以前之所以绿，靠的正是 `RewardsWindow.RefreshBadges()` 里那句「把 idx 1..3 强写 0」——
+        //   那句是缺陷（会压灭真红点），2026-10-29 已删（B94_T1 §4·1 / 本代理活 1）。
+        //   ⇒ 现在的期望值**从数据侧独立算**（⛔ 不读组件、不读被测实现）：
+        //     provider 发一条 `CampaignBadge` 的条件 = 当前阵营**本地有战役** ∧ **存在可领节点**
+        //     （`CampaignNotificationProvider.CheckNotification`：`Claimable(i)` 命中即 `yield break`，只发一条）。
+        BadgeWiring.RegisterDefaults();             // 幂等（`ProviderCount > 0` 直接返回）—— 不依赖前面那些块跑没跑
+        bool campHasContent = CampaignData.HasContent(CampaignData.Selected);
+        bool campClaimable = false;
+        for (int z1ci = 0; z1ci < CampaignData.NodeCount; z1ci++)
+            if (CampaignData.Claimable(z1ci)) { campClaimable = true; break; }
+        int campWantCount = (campHasContent && campClaimable) ? 1 : 0;
+        win.RefreshBadges();                        // 第 2 键按它自己的计重重算一次（组件的唯一写手）
+        var campComp = badge1 != null ? badge1.GetComponent<UiBadgeNotification>() : null;
+        CheckTrue(campComp != null,
+                  "第 2 键（Campaign）**挂了 `UiBadgeNotification`**（原版那颗红点就是它；"
+                + "`BadgeWiring.Attach` 在 `MainMenuSubmenuWindow.BuildTabButton` 里挂）—— 没有组件的话下面两条空转绿");
+        if (campComp != null)
+            Check(campComp.CurrentCount, campWantCount,
+                  $"第 2 键（Campaign）的**计数** = {campComp.CurrentCount}"
+                + $"（数据侧独立算：`CampaignData.HasContent(\"{CampaignData.Selected}\")`={campHasContent}"
+                + $" ∧ 有可领节点={campClaimable} ⇒ provider {(campWantCount > 0 ? "发 **1** 条 `CampaignBadge`" : "**一条都不发**")}）"
+                + "。🧨 改坏法：provider 不登记 / 改成发别的徽记 ⇒ 这里变 0 ⇒ 红");
+        CheckNear(AlphaOf(badge1), campWantCount > 0 ? 1f : 0f, 0.01f,
+                  "第 2 键（Campaign）的红点 **alpha = " + campWantCount + "**"
+                + "（有通知源且可领 ⇒ 原版 `Show()`；全不可领 ⇒ `Hide()`）"
+                + " —— 🔴 2026-10-29 订正：原句断言「恒 0 / 没有通知源」，那个前提已于 2026-10-25 过期");
+        // 两态都验：开窗那一瞬（`ForceCollectableForTest` 还没跑）应当是 0；刷新之后应当变 1。🔴 2026-10-26（F3）δ：「没有可领」这个前提**必须自己造** —— 红点 provider 判据 = `DailyData.RewardsHasBadge`（🔴 2026-10-29 就地订正（B94_Z1）：出处已不在 `RewardsWindow.RefreshBadges` —— 那里现在只转调组件；真出处 = `Shell/BadgeNotifications.cs` 的 `RewardsNotificationProvider.CheckNotification` ⇒ `DailyData.CollectableMissionCount()`，四类源 = 三条每日 + 周常 + 骷髅 + 登录），而 `CanCollectLogin()` = `_loginState != Claimed` ⇒ 只要登录没被显式置成 `Claimed`，这个态**根本造不出来**（旧期望依据已不成立）。⛔ 与 `RewardsTabButton_0` 无关的是锻造红点（`RewardsMenu_ForgeButton` 的 `ForgeBadge` 挂在**锻造页那颗钮**上）。
         { DailyData.ResetAllStatesForTest(); DailyData.ForceLoginStateForTest(DailyData.State.Claimed); DailyData.ForceSkullsStateForTest(DailyData.State.Claimed); win.RefreshBadges(); CheckNear(AlphaOf(badge0), 0f, 0.01f, "开窗时没有「可领」的任务 ⇒ 第 1 键红点 alpha = 0（四类源全不可领：三条每日 / 周常 `InProgress`、骷髅 / 登录已领）"); DailyData.ResetAllStatesForTest(); }
         DailyData.ForceCollectableForTest();
         win.RefreshBadges();
@@ -12815,7 +12844,7 @@ public static class RewardsScene
         }
 
         Debug.Log(P + win.Dump());
-        Debug.Log(P + $"=== 合计：{_sink.Pass} 通过 / {_sink.Fail} 失败 ===");
+        B94Z1_Assert.Run(); _sink.Pass += B94Z1_Assert.Pass; _sink.Fail += B94Z1_Assert.Fail; Debug.Log(P + $"=== 合计：{_sink.Pass} 通过 / {_sink.Fail} 失败 ===");   // 🆕 2026-10-29（调度台代接线）：`B94Z1_Assert`（26 条，红点写手收口）此前 0 宿主 —— 接在合计行之前，**同一行追加 ⇒ 行数零变化**
         // 🔴 **2026-10-11（A350 · 调度台裁定）**：这一串是失败表的【重列】（`Check` 里已经逐条打过）
         //   ⇒ 行首标记 = `失败重列：`，⛔ 不再是 `✗`（原来是 `✗` 时日志里 `✗` 行数 = 失败数 ×2）。
         //   同族四处一起改：`ShellScene` / `CollectionScene` / `ShopScene`（同一句形状）。

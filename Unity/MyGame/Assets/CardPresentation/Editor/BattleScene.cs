@@ -37879,6 +37879,97 @@ public static class BattleScene
             }
         }
 
+        // ================================================================
+        //  🆕 2026-10-29（执行代理 `B94_F3` · 第九十四会话 · 波 1）
+        //  本波三条「此前没有任何断言」的账，一次性补上：
+        //    · `其他_基础设施:586` —— `PlayerManager.SetQuestPointsWithDelay`（值即时 / 演出延后）
+        //    · `战斗逻辑驱动:930` —— `CardScript.StopAnimsInPlay`（把那批场上补间销毁）
+        //    · `战斗逻辑驱动:483` —— `BattleManager.RemoveSelfBuffsFromQueues`（按卡撤待播 `playAnim`）
+        //  ------------------------------------------------------------------
+        //  ⛔ 本段**自带一局**（种子与紧下面 A964 段同一个），跑完不还原局面也行 ——
+        //     A964 段自己会再 `Begin` 一次；但本段**自己把写过的引擎值还原**（⛔ 别留脏状态）。
+        //  ⛔ 期望值一律写死 / 从原版反编译读出的口径，⛔ 不从被测实现回读。
+        // ================================================================
+        {
+            var drvF3 = driver;
+            drvF3.Begin("Ultramarines", "Goff", 20260915);
+            if (drvF3.InMulligan) drvF3.SimulateMulliganDone();
+
+            // ---------- 账 586：`SetQuestPointsWithDelay` —— 「值立刻到、弹跳延后」 ----------
+            //  判据 = `decomp_full/PlayerManager__AddQuestPoints.c`：
+            //     先把新值写进引擎、紧接着 `ManaManager__SetQuestPoints(qp, 阈值, **animate: 0**)`（那一跳不弹），
+            //     然后才 `StartCoroutine(PlayerManager.SetQuestPointsWithDelay(delay, finishCallback))`；
+            //    协程体 = `decomp_full/PlayerManager._SetQuestPointsWithDelay_d__43__MoveNext.c:24-31` 的
+            //     `WaitForSeconds(delay)` → 再 `SetQuestPoints(qp, 阈值, **animate: 1**)`（弹跳 / 降向特效在这一跳）。
+            //  两档 delay（`AddQuestPoints.c` 两个 `LAB_18063d3fc` 上游）：非结算 **0.5** · 结算 **1.0**。
+            {
+                int seat586 = drvF3.MySeat;
+                var me586 = drvF3.Ctx.Players[seat586];
+                int qpBak586 = me586.QuestPoints;
+                drvF3.RefreshAll();                       // 前提：把「上次显示值」对齐到当前真值（首帧只记值）
+                int tw0 = drvF3.ManaHolderValueTweenCount;
+                me586.QuestPoints = qpBak586 + 1;         // 非结算档（余数变大 ⇒ 走 0.5 s 那一档）
+                drvF3.RefreshAll();
+                Check(drvF3.QpText.StartsWith((qpBak586 + 1) + "/"),
+                      "★ 账 586 ①：**数字立刻变**（原版 `AddQuestPoints` 那一跳是 `animate: 0`，不等 delay）"
+                    + $"（期望以「{qpBak586 + 1}/」开头，实得「{drvF3.QpText}」）"
+                    + "｜🧨 把数字也延后 0.5 s 才写 ⇒ 本条红");
+                Check(drvF3.ManaHolderValueTweenCount == tw0,
+                      $"★ 账 586 ②：此刻**还没演**（原版 `SetQuestPointsWithDelay` 的 `WaitForSeconds` 还没到点；"
+                    + $"演出计数 {tw0} → {drvF3.ManaHolderValueTweenCount}，期望不变）"
+                    + "｜🧨 改回「RefreshAll 当场弹」⇒ 本条红（那正是原版没有的那一跳）");
+                Step(0.6f);
+                Check(drvF3.ManaHolderValueTweenCount == tw0 + 1,
+                      $"★ 账 586 ③：0.6 s 之后延后那一跳**到点演了一次**（演出计数 {tw0} → {drvF3.ManaHolderValueTweenCount}，期望 +1）"
+                    + "｜🧨 把 delay 写死成 99（永远不到点）⇒ 本条红"
+                    + "（② ③ 一起才证明「值即时 / 演出延后」是分开的两层）");
+                me586.QuestPoints = qpBak586;             // 还原（⛔ 别把脏值留给下一段）
+                drvF3.RefreshAll();
+                Step(1.2f);                               // 让还原那一跳也被排掉，别把待播 cue 留给下一段
+            }
+
+            // ---------- 账 930：`StopAnimsInPlay` 真的把这张卡身上的补间杀掉 ----------
+            //  判据 = `decomp_full/CardScript__StopAnimsInPlay.c:5-6` + `BattleCardUI__StopAnimsInPlay.c:1-60`：
+            //     ① `CleanStatusAnims(true)` ② 倒序销毁 `activeAnimsInPlay`（我们这侧 = DOTween 补间本身）
+            //     ③ 清表。语义 = **销毁那批场上过渡对象**，不是复位位姿。
+            {
+                var v930 = drvF3.BoardViewAt(BoardSpec.WarlordSlot, true);
+                Check(v930 != null, "（前提）我方督军视图在 —— 账 930 要靠它量「还有几条补间在跑」");
+                if (v930 != null)
+                {
+                    CardTween.Use(DG.Tweening.ShortcutExtensions.DOPunchScale(
+                                      v930.transform, Vector3.one * 0.3f, 5f, 3, 0.5f),
+                                  DG.Tweening.Ease.Linear, v930);
+                    int n930 = v930.PlayingTweenCount();
+                    Check(n930 > 0, $"（前提）起了 5 s 长补间之后**确实在跑**（数到 {n930} 条）—— 不成立时下面那条等于没验");
+                    v930.StopInPlayAnims();
+                    Check(v930.PlayingTweenCount() == 0,
+                          $"★ 账 930：`StopAnimsInPlay` 之后这张卡（含各层）**一条补间都不剩**"
+                        + $"（实得 {v930.PlayingTweenCount()}）"
+                        + "｜🧨 把 `StopInPlayAnims` 里那次 `DOKill` 遍历删掉 ⇒ 本条红");
+                }
+            }
+
+            // ---------- 账 483：`RemoveSelfBuffsFromQueues` —— 只撤已在队列里的那条 `playAnim` ----------
+            //  判据 = `decomp_full/BattleManager__RemoveSelfBuffsFromQueues.c:5`（转调
+            //  `CancelEffectsFromDisappearingUnit(…, shouldIgnoreDestroy: 1)`）＋
+            //  `BattleManager__CancelAnimFromUnitFromQueue.c:25-81`（从队尾往前扫，只认 `actionType == 0xB playAnim`）。
+            //  ⚠️ **如实记**：原版那两个活调用点（`ResolveRemoveEffect.c:7-10` · `ResolveAction.c:1727-1734`）
+            //     都挂在「某张卡上的效果被移除」那一族，而我们**没有那一档 `EvtKind`** ⇒ 本方法今天**没有生产
+            //     调用点**；这条断言验的是**机制本身**（撤多少 = 时间线少多少、且撤过一次就不再撤）。
+            {
+                int pend483 = drvF3.TimelinePending;
+                int removed483 = drvF3.RemoveSelfBuffsFromQueues(drvF3.MySeat, BoardSpec.WarlordSlot);
+                Check(removed483 >= 0 && drvF3.TimelinePending == pend483 - removed483,
+                      $"★ 账 483 ①：撤掉的条数与时间线实际减少数**逐值一致**"
+                    + $"（撤 {removed483} 条 / 待播 {pend483} → {drvF3.TimelinePending}）"
+                    + "｜🧨 撤了却不 `RemoveAt`（或反之）⇒ 本条红 —— 那正是「计数对、队列没动」的静默失败");
+                Check(drvF3.RemoveSelfBuffsFromQueues(drvF3.MySeat, BoardSpec.WarlordSlot) == 0,
+                      "★ 账 483 ②（灭自证）：**只撤已排的、不禁播** —— 紧接着再撤一次必须是 **0** 条"
+                    + "（原版撤的是队列条目；🧨 实现成「给这张卡打个禁播标」⇒ 本条红）");
+            }
+        }
+
             // ================================================================
             //  🆕 2026-10-18（A964 · 战斗侧）：「命中区覆盖 / 藏起来还响应」普查探针
             // ------------------------------------------------------------------
@@ -46536,7 +46627,7 @@ public static class BattleScene
             PinFirstSeat(driver, null);       // 用完拔回（与前面 9b/9c 留下的状态一致）
         }
 
-        Debug.Log(P + $"=== 合计：{pass} 通过 / {fail} 失败 ===");
+        B93F5Assert.Run(); pass += B93F5Assert.Pass; fail += B93F5Assert.Fail; B94X2_Assert.Run(); pass += B94X2_Assert.Pass; fail += B94X2_Assert.Fail; B94V1_Assert.Run(); pass += B94V1_Assert.Pass; fail += B94V1_Assert.Fail; B94Y5_Assert.Run(); pass += B94Y5_Assert.Pass; fail += B94Y5_Assert.Fail; B94B9_Assert.Run(); pass += B94B9_Assert.Pass; fail += B94B9_Assert.Fail; Debug.Log(P + $"=== 合计：{pass} 通过 / {fail} 失败 ===");   // 🆕 2026-10-29（调度台代接线）：`B93F5Assert`（54 条）· `B94X2_Assert`（准星/弧线）· `B94V1_Assert`（LoadableRef + 错误横幅单例）· `B94Y5_Assert`（教程指针双点口）—— 此前均 0 宿主，接在合计行之前，**同一行追加 ⇒ 行数零变化**
 
         if (Application.isBatchMode) EditorApplication.Exit(fail == 0 ? 0 : 1);
     }

@@ -603,7 +603,7 @@ public static class SettingsScene
         NetConfig.Load();
 
         // 🔴 **A165**：自检**不许动玩家的真设置** —— 这颗「Small Screen UI」开关的持久化先关掉
-        //    （同族先例：`NetConfig.OverridePath` 指到临时文件 · `SettingsWindow.QualitySetterOverride`），
+        //    （同族先例：`NetConfig.OverridePath` 指到临时文件 · `GraphicQuality.PersistOverride`），
         //    并把内存态放回**出厂值**（原版 `GameStaticData.cctor` 写 0）——
         //    下面「这一格出厂画的是关的图」那条前提全靠它（玩家真存档里可能是开的）。
         SmallScreenUI.PersistOverride = true;
@@ -614,15 +614,19 @@ public static class SettingsScene
         AutoZoom.ResetForTest();
         // 🔴 **A176** 同理，而且它还多一样东西要护住：那颗开关**会写一个真实的工程资产**
         //    （`Assets/Settings/PC_RPAsset.asset` 的 `renderScale`）⇒ ① 自检期间掐掉 `PlayerPrefs`；
-        //    ② **当前画质档注入成可控值** —— 那一行的**显隐与生效**都看它，而自检**不许**真去
-        //    `QualitySettings.SetQualityLevel`（会把 `QualitySettings.asset` 写脏，见 `QualitySetterOverride`）。
-        //    ③ 注入初值取 **`Mobile`(0)**：本文件里那几节的 y 字面量都是**那一行不在**的那支（原版
+        //    ② **当前画质档要可控** —— 那一行的**显隐与生效**都看它。
+        //    ③ 初值取 **`VeryLow`(0)**：本文件里那几节的 y 字面量都是**那一行不在**的那支（原版
         //    VeryLow–High 排法，`Vsync` 在第 2 格 / `FPS` 在第 3 格 / 内容高 346.923）—— A176 那一节
         //    再把两态**都**断一遍（见那里）。
+        // 🔴 **2026-10-29（第九十四会话 · 代理 W2）就地改掉注入方式**：那层门**不再读 `QualitySettings`**，
+        //    而是读原版同一格 `GameStaticData.graphicsQuality`（`+0x120`，见 `SuperSampling.AllowedByQuality`）
+        //    ⇒ 自检的「档位」就是**那个字段本身**（`PlayerPrefs` 那条由 `GraphicQuality.PersistOverride` 挡住）。
         SuperSampling.PersistOverride = true;
         SuperSampling.ResetForTest();
-        int ssQuality = 0;                                  // 0 = `Mobile`（不允许超采样）；A176 那节改成 `PC`
-        SuperSampling.QualityLevelGetter = () => ssQuality;
+        GraphicQuality.PersistOverride = true;
+        GraphicQuality.ResetForTest();                      // 出厂 = `Ultra`（原版 `DefaultQualitySetting`）
+        SettingsWindow.ApplyGraphicsChangesOnClose = false;  // 同一条：脏位也放回出厂（同一次进程里重跑自检时它可能还留着）
+        GameStaticData.graphicsQuality = GameStaticData.EverguildQualitySetting.VeryLow;
 
         Debug.Log(P + "=== 「设置窗」自检 开始 ===");
         var win = Build(out var root, out var canvasAnchor);
@@ -1920,19 +1924,28 @@ public static class SettingsScene
             // ---------------- 图像页 ----------------
             Section("图像页：画质档 + VSync（**点了真去改设置**；自检用注入点，不改工程设置）");
             Click(Bar(root), "Graphics");
-            int q0 = QualitySettings.GetQualityLevel();
-            int qAsked = -1, vAsked = -1;
-            SettingsWindow.QualitySetterOverride = lv => qAsked = lv;
+            // 🔴 **2026-10-29（第九十四会话 · 代理 W2）整段改口径**：画质档现在 = 原版
+            //    `GameStaticData.graphicsQuality`(+0x120) 的**五个枚举值**（不再是 Unity 的 `Mobile`/`PC` 两档），
+            //    且**不当场应用**（原版 `GraphicsQualityDropdownChange` 只写值 + 置脏位，真生效在关窗）。
+            //    判据 → `资料/完全复刻/判据/B94_R-G_画质档位映射.md` §二 第 2 跳 / §四.4-2。
+            var q0 = GameStaticData.graphicsQuality;
+            int qsLevel0 = QualitySettings.GetQualityLevel();     // 工程那份 `QualitySettings.asset` 的当前档（本段不许动它）
+            int vAsked = -1;
             // 🔴 **2026-10-17（界面线 T17）**：画质档改成**真下拉**（`TMP_Dropdown`）⇒ 点行**不再切档**，
             //   而是**打开列表**；要切档得再点目标行（`DropdownRowHit`）。
-            //   期望值一个字没改（仍是「切到下一档」）。
             Click(FindChild(root, "Graphics Tab"), "QualityHit");
-            int qWant = (q0 + 1) % Mathf.Max(1, QualitySettings.names.Length);
+            int qWant = ((int)q0 + 1) % 5;                       // 原版 5 档，取「下一档」
             CheckTrue(win.DropdownOpen(SettingsWindow.DdQuality),
                       "点画质行 ⇒ **列表打开了**（真下拉，不是「点一下换一个」）");
+            CheckTrue(SettingsWindow.ApplyGraphicsChangesOnClose == false,
+                      "（前提）点开列表**不置脏位**（原版脏位只在**选中某一项**时置）");
             Click(win.DropdownRowHit(SettingsWindow.DdQuality, qWant));
-            SettingsWindow.QualitySetterOverride = null;
-            Check(qAsked, qWant, $"点画质行 + 选第 {qWant} 行 ⇒ 要求切到**下一档**（{q0} → {qAsked}，共 {QualitySettings.names.Length} 档）");
+            Check((int)GameStaticData.graphicsQuality, qWant,
+                  $"选第 {qWant} 行 ⇒ 写进 `GameStaticData.graphicsQuality`(+0x120) 的是 **{qWant}**"
+                + $"（{q0} → {GameStaticData.graphicsQuality}；5 档 = VeryLow/Low/Medium/High/Ultra）");
+            CheckTrue(SettingsWindow.ApplyGraphicsChangesOnClose,
+                      "★ …而且置了**「关窗才生效」脏位**（原版 `SettingsMenu.ApplyGraphicsChangesOnClose`；"
+                    + "改坏法：选中就当场应用 ⇒ 这条红 —— 原版真生效在 `SettingsMenu.Close()`）");
             // 🔴 **2026-10-19（波 1b）就地改掉「写死中文当需子串」**：这句 `_flash` 现在**跟着语言走**
             //    （`Shell/SettingsWindow.cs` 的 `string.Format(Loc.T("Settings/Graphics/Flash/Quality"), QualityName())`）
             //    ⇒ 旧写法 `Contains("画质")` 只在**中文档**成立，英文档那句是 `Quality → …` ⇒ 红。
@@ -1943,10 +1956,30 @@ public static class SettingsScene
                       $"点完**有话说**，而且那句是照**当前语档**拼的 `Settings/Graphics/Flash/Quality`"
                     + $"（前缀「{qFlashHead}」；实得「{win.Flash}」；"
                     + "改坏法：`_flash` 写死中文字面量 ⇒ 英文档这一条红）");
-            CheckTrue(win.QualityLabel != null && !string.IsNullOrEmpty(win.QualityLabel.Text),
-                      "画质行上显示了当前档名");
-            CheckNear(QualitySettings.GetQualityLevel(), q0, 0.01f,
-                      "🔴 **自检没有把工程的画质档改掉**（`QualitySettings.asset` 不许被自检写脏）");
+            // 档名 = `Settings/Graphics/<枚举名>`（原版那颗下拉的 caption 就是选中项的本地化文案）
+            CheckTrue(win.QualityLabel != null
+                      && win.QualityLabel.Text == Loc.T("Settings/Graphics/"
+                                                        + (GameStaticData.EverguildQualitySetting)qWant),
+                      $"画质行显示的是**新档名的本地化文案**（期望 `Loc.T(\"Settings/Graphics/"
+                    + $"{(GameStaticData.EverguildQualitySetting)qWant}\")`；实得「"
+                    + (win.QualityLabel != null ? win.QualityLabel.Text : "<null>") + "」）");
+            // 🔴 安全网：自检**绝不许**去写工程的 `QualitySettings`（那会把 `QualitySettings.asset` 写脏）。
+            //    判据 = 本段全过程**没有任何一处**调 `SetQualityLevel`（`SettingsWindow` 那边已删 `ApplyQuality`）；
+            //    这一条断的是「工程那份资产的值保持自检开始时那一档」。
+            CheckNear(QualitySettings.GetQualityLevel(), qsLevel0, 0.01f,
+                      "🔴 **自检没有把工程的画质档改掉**（`QualitySettings.asset` 不许被自检写脏 —— "
+                    + "本段一个字都没写它；原版那 6 档我们没有，写了会被 Unity 静默夹取，见 R-G §五①）");
+            // 收尾：把档位放回**本节进来时的值**、脏位清 0。
+            // 🔴 **2026-10-29（W2）**：这里原来写「放回出厂 `Ultra`」是**错的** —— 那一层的门现在**跟着
+            //    `graphicsQuality` 走**（不再是常量注入），而**下面 A170/A172 那几节的 y 字面量都是
+            //    「`Use super sampling` 那一行不在」的那一支**（原版 VeryLow–High 排法）。放回 `Ultra` 会让
+            //    那一行出现、后面那一整列的格位号与内容高全变 ⇒ 那些几何断言集体假红。
+            //    ⇒ 恢复到 `q0`（进本节时那一档，= 自检初始化时设的 `VeryLow`）。
+            GameStaticData.graphicsQuality = q0;
+            SettingsWindow.ApplyGraphicsChangesOnClose = false;
+            win.RebuildGfxRows();
+            CheckTrue(GameStaticData.graphicsQuality == q0 && !SettingsWindow.ApplyGraphicsChangesOnClose,
+                      "（收尾）档位放回本节进来时那一档 + 脏位清 0（后面各节按它做前提）");
 
             int v0 = QualitySettings.vSyncCount;
             SettingsWindow.VSyncSetterOverride = c => vAsked = c;
@@ -2997,7 +3030,7 @@ public static class SettingsScene
 
                 // ① **当前档不允许 ⇒ 那一行藏着**（原版 `SetActive(go, false)`）
                 //    ⚠️ 它**一直在**（原版 prefab 里那颗节点就在）—— 所以断的是 `activeSelf`，不是「找不找得到」。
-                ssQuality = 0;                                       // = `Mobile` 档
+                GameStaticData.graphicsQuality = GameStaticData.EverguildQualitySetting.VeryLow;   // 不允许超采样的档
                 win.RebuildGfxRows();
                 var ssOff = FindChild(gTab3, "Use super sampling");
                 CheckTrue(ssOff != null,
@@ -3016,7 +3049,7 @@ public static class SettingsScene
 
                 // ② **当前档允许 ⇒ 那一行在**，并且后面两行整体 +1 格（+80.641）、内容高 +80.641
                 //    （同一份代码、只换了注入的档位 ⇒ ① 与 ② 合起来才**分得出两态**；只断一态是弱断言）
-                ssQuality = SuperSampling.PcQualityIndex;             // = `PC` 档
+                GameStaticData.graphicsQuality = GameStaticData.EverguildQualitySetting.Ultra;     // 唯一允许超采样的档
                 win.RebuildGfxRows();
                 var ssOn = FindChild(gTab3, "Use super sampling");
                 CheckTrue(ssOn != null && ssOn.gameObject.activeSelf,
@@ -3084,43 +3117,43 @@ public static class SettingsScene
                           "⑤★ 再关窗 ⇒ `renderScale` 回到 **1.0**（两个方向都真的写到那份资产上了）");
 
                 // ⑥ = 原版 `ApplyGraphicsQuality.c:73-78`：应用到一个**不允许**超采样的档 ⇒ 把开关**强制清 0**
-                //    （走**产品那条路**：点画质行开下拉 → 点目标行 ⇒ `ApplyQuality` → `SuperSampling.Apply()`）
+                //    🔴 **2026-10-29（第九十四会话 · 代理 W2）改时机**：原版那两句**不在换档那一刻**跑 ——
+                //    `GraphicsQualityDropdownChange` 只做「写值 + 置脏 + `ConfigureSuperSamplingVisibility()`（藏那一行）」，
+                //    真正「清开关」发生在**关窗**（`SettingsMenu.Close → ApplyGraphicsQuality`）。
+                //    本段因此断**三步**：换档 ⇒ ①那一行当场藏起来 ②开关**还没**被清；关窗 ⇒ ③开关被清 + 脏位清 0。
                 win.Manager.OpenWindow(win);                     // ⑤ 关掉了 ⇒ 重开（`Click` 找的是 active 子树里的按钮）
                 SuperSampling.Set(true);
                 CheckTrue(SuperSampling.Enabled, "（前提）先把开关打开，再看换档会发生什么");
-                ssQuality = 0;                                   // 换到不允许的那一档（注入，不真改工程设置）
                 int qlBefore = QualitySettings.GetQualityLevel();
-                int qAsked6 = -1;                                // 记「下拉真的请求了哪一档」（挡住早退的假绿）
-                SettingsWindow.QualitySetterOverride = lv => { qAsked6 = lv; };   // 挡住真 `SetQualityLevel`（会把 `QualitySettings.asset` 写脏）
-                // 🔴 **2026-10-17（界面线 T17）**：真下拉 ⇒ 先开列表、再点一个**不等于 `ssQuality`** 的行
-                //   （`ssQuality` = 允许超采样的那一档；换到别的档才会把开关强制清 0）。
+                // 目标档 = 一个**不允许**超采样的档：当前是 `Ultra`（本段 ② 刚设的）⇒ 取 `VeryLow`
+                int qTarget = (int)GameStaticData.EverguildQualitySetting.VeryLow;
                 Click(FindChild(root, "Graphics Tab"), "QualityHit");
-                // 🔴 **2026-10-17（第四十八会话 · 桶 F）：目标档必须按【当前真实画质档】算。**
-                //   原来写 `(ssQuality + 1) % 2`，而本机 `QualitySettings.asset:7 m_CurrentQuality = 1`
-                //   ⇒ 算出来正好等于当前档 ⇒ `SettingsWindow` 把它当「点当前已选中行」**正当早退**
-                //   ⇒ `ApplyQuality` / `SuperSampling.Apply` / `RebuildGfxRows` 全没跑，三条断言假红。
-                //   判据 = 同文件里那一处早就是按 `GetQualityLevel()` 算的。
-                int qTarget = (QualitySettings.GetQualityLevel() + 1) % Mathf.Max(1, QualitySettings.names.Length);
                 Click(win.DropdownRowHit(SettingsWindow.DdQuality, qTarget));
-                SettingsWindow.QualitySetterOverride = null;
-                // 🔴 **2026-10-17（桶 F）灭自证**：光断言「开关被清 0」挡不住「整段根本没跑」——
-                //   上面那条当被告别用 `qTarget == 当前档` 时就会静默早退（`ChooseQualityOption` 的正当分支）。
-                //   这条咬住「下拉真的走到了 `ApplyQuality`」：请求档必须 = 目标档（早退时停在 −1）。
-                Check(qAsked6, qTarget,
-                      $"⑥ …下拉**真的走到了 `ApplyQuality`**（请求档 = {qTarget}；早退时停在 −1 ⇒ 红）");
-                CheckTrue(!SuperSampling.Enabled,
-                          "⑥★ 换到**不允许**超采样的档 ⇒ 那颗开关被**强制清 0**"
-                        + "（原版 `ApplyGraphicsQuality.c:73-78` 那一句；改坏法：不写这段 ⇒ 开关还留着 ⇒ 红）");
+                // 🔴 **灭自证**：光断言「那一行藏起来」挡不住「整段没跑」—— 这条咬住下拉**真的写进去了**
+                Check((int)GameStaticData.graphicsQuality, qTarget,
+                      $"⑥ 下拉真的走到了产品那条路：`graphicsQuality` = **{qTarget}**（`VeryLow`；"
+                    + "改坏法：`ChooseQualityOption` 不写 `+0x120` ⇒ 这条红）");
                 var ssAfter = FindChild(FindChild(root, "Graphics Tab"), "Use super sampling");
                 CheckTrue(ssAfter != null && !ssAfter.gameObject.activeSelf,
-                          "⑥ …而且那一行**当场藏起来**（原版 `GraphicsQualityDropdownChange.c:58` 尾部就调 "
+                          "⑥ …那一行**当场藏起来**（原版 `GraphicsQualityDropdownChange.c:58` 尾部就调 "
                         + "`ConfigureSuperSamplingVisibility`；改坏法：换档不重建 ⇒ 那一行还挂着 ⇒ 红）");
+                CheckTrue(SuperSampling.Enabled,
+                          "⑥★ …但**开关还没被清** —— 原版那两句要等**关窗**（`SettingsMenu.Close` → `ApplyGraphicsQuality`）；"
+                        + "改坏法：换档当场清 ⇒ 这条红（那是我们自己发明的时机）");
+                CheckTrue(SettingsWindow.ApplyGraphicsChangesOnClose,
+                          "⑥ …而且「关窗才生效」脏位置上了（原版 `SettingsMenu.ApplyGraphicsChangesOnClose`）");
+                win.Close();                                     // = 原版 `SettingsMenu.Close()` 那一刻
+                CheckTrue(!SuperSampling.Enabled,
+                          "⑥★★ **关窗之后**那颗开关被**强制清 0**"
+                        + "（原版 `ApplyGraphicsQuality.c:73-78` 那一句；改坏法：不写这段 ⇒ 开关还留着 ⇒ 红）");
+                CheckTrue(!SettingsWindow.ApplyGraphicsChangesOnClose,
+                          "⑥ …脏位也清掉了（原版 `SettingsMenu__Close.c` 末尾 `… = 0`）");
                 CheckNear(QualitySettings.GetQualityLevel(), qlBefore, 0.01f,
-                          "⑥ …🔴 自检**没有真去切工程的画质档**（注入点挡住了 `SetQualityLevel`，同上面那条）");
+                          "⑥ …🔴 自检**没有真去切工程的画质档**（`SettingsWindow` 那段已不调 `SetQualityLevel`）");
 
-                // 收尾：把注入的档位与那份资产放回原样（`finally` 里还会再兜一次）
-                ssQuality = 0;
-                win.RebuildGfxRows();
+                // 收尾：把档位与那份资产放回原样（`finally` 里还会再兜一次）
+                GameStaticData.graphicsQuality = GameStaticData.EverguildQualitySetting.VeryLow;
+                win.RebuildGfxRows(); win.Manager.OpenWindow(win);   // 🆕 ⑥ 段在 :3145 真把窗关掉了（新加的「关窗才生效」那条）⇒ 必须开回来：后面各节（联机页 / A208 矩形 / 吸收层）都在【开着】的窗上量，否则 activeInHierarchy 全假（形状照 :3104→:3109 / :3115→:3124 的成对写法）。
                 RestoreRenderScale();
                 CheckNear(urp != null ? urp.renderScale : -1f, 1f, 1e-4f,
                           "（收尾）那份 URP 资产放回出厂值 **1.0**（并清脏位 —— 自检不许把工程资产留在改过的状态）");
@@ -4482,13 +4515,13 @@ public static class SettingsScene
             {
                 var langB1 = Loc.Current;
                 bool perB1 = Loc.PersistOverride;
-                int ssB1 = ssQuality;                        // 进来时那一档（收尾逐值放回）
+                var ssB1 = GameStaticData.graphicsQuality;   // 进来时那一档（收尾逐值放回）
                 Loc.PersistOverride = true;                  // 切档不写盘
 
                 // ---- ① 先把图像页那一列摆成「超采样那一行在」那一态 ----
                 //   那一行的字只有它在树上时才量得到（`SetActive(withSS)`）；`RebuildGfxRows()` 会把整列
                 //   **重建** ⇒ 下面那些取节点的闭包必须**现取**（⛔ 别在外面先抓一批 `Transform`）。
-                ssQuality = SuperSampling.PcQualityIndex;    // = `PC` 档（允许超采样）
+                GameStaticData.graphicsQuality = GameStaticData.EverguildQualitySetting.Ultra;   // 允许超采样的那一档
                 win.RebuildGfxRows();
 
                 // ---- ② 逐处登记（名字 / 取节点 / 键 / 两档是否**该不同**）----
@@ -4883,7 +4916,7 @@ public static class SettingsScene
                 }
 
                 // ---- ⑧ 收尾：图像页那一列摆回进来时的档位 + 语言逐值放回 ----
-                ssQuality = ssB1;
+                GameStaticData.graphicsQuality = ssB1;
                 win.RebuildGfxRows();
                 Loc.SetLanguage(langB1);
                 Loc.PersistOverride = perB1;
@@ -5464,6 +5497,12 @@ public static class SettingsScene
                 Check(win.Current, tabWas, "（收尾）切回本段进来之前那一页 —— 与本段之前的现状一致");
             }
 
+            // ---------------- 🆕 2026-10-29（第九十四会话 · 代理 W2）：画质组件 + 画质下拉 5 档 ----------------
+            // 断言本体在 `Editor/B94W2_Assert.cs`（本宿主是它唯一的调用方）。
+            // 🔴 必须在**关窗之前**跑：那一段要在**开着**的窗上点下拉（它自己会 `OpenTab(Graphics)`，
+            //    并在 `finally` 里把档位 / 脏位 / 行集逐值放回）。
+            B94W2Assert.Run(_sink, win);
+
             // 关窗
             Click(FindChild(Area(root), "Generic Close Button"), "Hit");
             Check(win.CurrentState, WindowState.Closed, "点关闭钮 ⇒ 窗口进 Closed 态");
@@ -5492,8 +5531,10 @@ public static class SettingsScene
             // 🆕 A176：同上；另外把**那份 URP 资产**放回出厂值并清脏位 —— 自检绝不许把工程资产留在改过的状态
             //    （同族先例：`BattlePostFx` 那条「`battlearena1_PostFx.asset` 被自检弄脏」的教训）。
             SuperSampling.PersistOverride = false;
-            SuperSampling.QualityLevelGetter = null;
             SuperSampling.ResetForTest();
+            GraphicQuality.PersistOverride = false;    // 🆕 2026-10-29（W2）：同族注入点
+            GraphicQuality.ResetForTest();             //   档位放回出厂 `Ultra`（原版 `DefaultQualitySetting`）
+            SettingsWindow.ApplyGraphicsChangesOnClose = false;
             RestoreRenderScale();
             try { if (File.Exists(tmp)) File.Delete(tmp); } catch { }
         }

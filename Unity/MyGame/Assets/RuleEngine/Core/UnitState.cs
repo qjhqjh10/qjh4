@@ -3182,12 +3182,12 @@ namespace RuleEngine
         public bool ActiveAbilityHidden;
 
         /// <summary>「这一实例的主动能力现在能不能用」的合并只读视图 =
-        /// `CardDef.HasActiveAbility == 1 且 !ActiveAbilityHidden`。
+        /// `CardDef.HasActiveAbility == 1 且 !ActiveAbilityHidden 且 !ActiveAbilitySuppressed`。
         /// <para>⚠️ `NullCard`（<see cref="Card"/> == null）⇒ `false`（没有卡就没有能力）。
-        /// ⚠️ 它**不**读 <see cref="ActiveAbilitySuppressed"/>（jam 那条另算，见本文件上面那段）。</para></summary>
+        /// 🔴 **2026-10-29（`B94_B2` · 账 L1379/L720/L867）就地订正**：改前这里写「它**不**读 `ActiveAbilitySuppressed`（jam 那条另算）」—— **那条「另算」全仓没有落点**（`grep ActiveAbilitySuppressed` 除本文件 3 处赋值外 **0 个消费者**）⇒ jam 的压制位是死位。判据：原版 `hasActiveAbility(+0x220)` 是**同一个字段**，`ReactToUnitJammed.c:153` 与非督军那一支都把它写 0，而 `CanUseAbilityNow.c:26` 第一句就查它 ⇒ 两个来源必须一起判（字段仍然分开留，只在这条派生视图里合并）。</para></summary>
         public bool ActiveAbilityAvailable
         {
-            get { return Card != null && Card.HasActiveAbility == 1 && !ActiveAbilityHidden; }
+            get { return Card != null && Card.HasActiveAbility == 1 && !ActiveAbilityHidden && !ActiveAbilitySuppressed; }
         }
 
         // ================================================================================================
@@ -3453,6 +3453,123 @@ namespace RuleEngine
                 if (r.BuffType == BuffTypeAddTrait || r.BuffType == BuffTypeAddTraitRemnant) return true;
             }
             return false;
+        }
+
+        // ==================================================================
+        //  🆕 2026-10-29（`B94_B2` · 账 L1379 `set_hasActiveAbility` / L720 / L867）
+        //     **原版那对教程闸方法的【状态半边】** —— 追加在类尾（⛔ 别插到中间：本文件行号被 40+ 条账行引用）
+        // ==================================================================
+        //  判据（`d:/2/tools/decomp_full/` 两份全文现读 2026-10-29）：
+        //   · `CardScript__ShowWarlordActiveAbilityForTutorial.c`(= 12 行全文)：
+        //        `*(undefined1 *)(this + 0x220) = *(undefined1 *)(this->rawCardData + 0x2a9);`
+        //     ⇒ **不是无条件置 1**，而是**从卡面那一列恢复**（`RawCardScript.hasActiveAbility @+0x2a9`）。
+        //   · `CardScript__HideWarlordActiveAbilityForTutorial.c`(= 8 行全文)：`*(undefined1 *)(this + 0x220) = 0;`
+        //   · **谁调 Show**（唯一调用点，现读）：`decomp_full/AiScripted__ShowPlayerActionAnim.c:606`
+        //     —— 教程脚本「在玩家那张卡上播动作动画」时，对 `playerManager->warlord` 那张 `CardScript` 调它。
+        //   · **谁调 Hide**：`decomp_full` / `out_cpp2il_dev_ilspy` **双源 0 个静态调用点**
+        //     （只剩它自己的定义）⇒ 可能来自 `UnityEvent.m_MethodName` / 预制体字符串，**没查到，如实记**。
+        //  ⇒ 我们的等价物 = **实例位 `ActiveAbilityHidden` + 卡面列 `CardDef.HasActiveAbility`**：
+        //     · Hide ⇒ `ActiveAbilityHidden = true`（派生视图立刻变 false = `+0x220` 为 0）
+        //     · Show ⇒ `ActiveAbilityHidden = false`（派生视图回到卡面那一列 = 原版那句「从 +0x2a9 恢复」）
+        //  ⚠️ **为什么是实例位**：`CardDef` 是**共享不可变模板**，写它会污染全池（见上面 `ActiveAbilityHidden` 那段）。
+        //  ⛔ **写点（教程脚本那一跳）仍归教程/AI 脚本侧**（不在本文件）：本对方法只把「状态语义」摆正，
+        //     让将来的写点不必再各抄一份 `= true / = false`。
+
+        /// <summary>
+        /// 原版 `CardScript.ShowWarlordActiveAbilityForTutorial()` 的**状态半边** ——
+        /// 「把这一实例的主动能力图标**恢复成卡面那一列**」。
+        /// <para>判据：`CardScript__ShowWarlordActiveAbilityForTutorial.c` 全文只有一句
+        /// `+0x220 = rawCardData + 0x2a9`（⇒ **不是**置 1，是恢复卡面值）。
+        /// 我们的等价 = 清掉教程关闸 <see cref="ActiveAbilityHidden"/>，
+        /// 派生视图 <see cref="ActiveAbilityAvailable"/> 随即按 `Card.HasActiveAbility` 回答。</para>
+        /// </summary>
+        public void ShowWarlordActiveAbilityForTutorial()
+        {
+            ActiveAbilityHidden = false;
+        }
+
+        /// <summary>
+        /// 原版 `CardScript.HideWarlordActiveAbilityForTutorial()` 的**状态半边** ——
+        /// 「把这一实例的主动能力**关掉**」。
+        /// <para>判据：`CardScript__HideWarlordActiveAbilityForTutorial.c` 全文只有一句 `+0x220 = 0`。
+        /// 我们的等价 = 置教程关闸 <see cref="ActiveAbilityHidden"/>。
+        /// ⚠️ **⛔ 别与 <see cref="ActiveAbilitySuppressed"/>（jam）混用** —— 两条来源不同，
+        /// 将来要分开读（那个字段的 doc 已写明）。</para>
+        /// </summary>
+        public void HideWarlordActiveAbilityForTutorial()
+        {
+            ActiveAbilityHidden = true;
+        }
+
+        // ==================================================================
+        //  🆕 2026-10-29（B94_B24 · 账 647 / 1278）：**座位 / 归属位**
+        //     —— 原版 `EntityScript.isPlayer // +0x40` 的等价物（追加在类尾：本文件 40+ 条账行按行号引用）。
+        // ==================================================================
+        //  判据（`d:/2/tools/` 2026-10-29 现读 · 第一权威 + 字段表）：
+        //   · 字段：`il2cpp_out/dump.cs:21973` `private bool <isPlayer>k__BackingField; // 0x40`
+        //     （`EntityScript` 基类上，`CardScript` 继承得到）—— **存在卡上**，`bool`（0/1）。
+        //   · 写点（全量 `cpp2il/out_cpp2il_dev_ilspy/CardScript.cs` 现读，只有三处赋值）：
+        //       `:6462` `CardSetup(mainArmy, isPlayer)` → `base.isPlayer__BackingField = isPlayer`（造卡 / 发牌时定）；
+        //       `:6739` `SetAsPlayer(bool isPlayer, …)`（显式设座）；
+        //       `:11855` `ChangeOwner()` = `bool flag = !isPlayer; isPlayer = flag;`（**抢单位时翻面**；
+        //                调用点 = `BattleManager.cs:7072/7080/11419`，即 `_ResolveStealMinion` / `_ResolveExchangeMinion`）。
+        //   · 读点（存着用，不现扫 `playerManager`）：`CardScript__ResolveDamageDealt.c:69/118`
+        //       `GetHero(manager, isPlayer)` · `BattleManager.cs:37385`
+        //       `battleAction->isPlayer = ((EntityScript)actingCard).isPlayer__BackingField`（事件里施动卡的座位就是它）。
+        //  ⇒ 结论：**原版把座位【存在卡上】，不是每次从 `playerManager` 反查** ⇒ 照抄成实例字段。
+        //     ⇒ 关键性质：**卡离场后座位仍在**（`isPlayer` 不清零）。这正是账 647 缺的那一格 ——
+        //        我们的棋盘扫描（`EffectResolver.OwnerOf` / `ActionPump.FindBoardCell`）**离场即 −1**，
+        //        而原版此刻读 `actingCard.isPlayer` 仍拿得到，所以「施动者已离场」那一支（账 647 的「外加那一支」）
+        //        在我们这边**始终拿不到座位**。
+        //
+        //  🔶 口径（与 `BattleContext.TempControl` 那条既有 doc 的关系 —— ⛔ 不是第二份判据，是给它补一个离场态）：
+        //     · **在场时以棋盘为准**（本对象待在谁的 `Board[]` 里），`OwnerSeat` 应当与之一致；
+        //     · **离场后**棋盘扫描拿不到，读 `OwnerSeat`（`>= 0` 才算「知道」）。
+        //     ⇒ 消费方取座位一律写成 `u.OwnerSeat >= 0 ? u.OwnerSeat : <原有棋盘扫描>` ——
+        //        `-1`（未写）时**回落到原行为**，所以本字段没接线时**行为零变化**。
+        //  ⚠️ **写点**（部署那一跳 / `DoTakeControl`）在 `RuleCore` / `EffectResolver`（本轮别的写手在改）
+        //     ⇒ 本代理只建格 + 定口径，接线见 `报告/B94_B24.md` 的「交回的可粘贴代码」。
+
+        /// <summary>
+        /// 这个单位**归哪个座位**（`0` / `1`；`-1` = 还没写 = 未知）—— 原版 `EntityScript.isPlayer(+0x40)` 的等价物。
+        /// <para>🔴 **为什么要有它**：原版卡把座位**存在卡上**（`+0x40` bool），**离场不清**；
+        /// 我们的归属一直靠「待在谁的 `Board[]` 里」现扫（`OwnerOf` / `FindBoardCell`），
+        /// **离场即 `-1`** ⇒ 「施动者已离场仍要判它归属」那几支（账 647 的「外加那一支」/ ability 级
+        /// `actingCardCriteria`）永远拿不到。本字段补的就是「离场后仍记得的座位」。</para>
+        /// <para>⚠️ **`-1` 不是原版状态**（原版 `bool` 恒为 0/1）—— 它是我们「还没接线」的哨兵；
+        /// 消费方见到 `-1` **必须回落到原来的棋盘扫描**，⛔ 别把「不知道」当成「座位 0」。</para>
+        /// <para>写点见 <see cref="SetOwnerSeat"/>（发牌 / 部署 / `SetAsPlayer` 那三处）与
+        /// <see cref="ChangeOwner"/>（抢单位翻面）；⛔ 别在多处各写一个「翻座位」算式。</para>
+        /// </summary>
+        public int OwnerSeat = -1;
+
+        /// <summary>座位**已知**没有（`-1` = 还没接线 / 不是场上单位）⇔ 否则为 `0`/`1`。</summary>
+        public bool SeatKnown { get { return OwnerSeat == 0 || OwnerSeat == 1; } }
+
+        /// <summary>
+        /// 写座位 —— 原版三处赋值的等价物：
+        /// `CardScript__CardSetup.c` / `SetAsPlayer.c`（造卡 / 发牌 / 显式设座）以及 `ChangeOwner.c`（翻面，走 <see cref="ChangeOwner"/>）。
+        /// <para>⚠️ 原版字段是 `bool` ⇒ 只可能是 `0`/`1`；本方法**只接受 `0`/`1`**，
+        /// 其它值（含 `-1`）**不写**（保持原样）—— 传错数不会被静默当成某个座位。</para>
+        /// </summary>
+        public void SetOwnerSeat(int seat)
+        {
+            if (seat == 0 || seat == 1) OwnerSeat = seat;
+        }
+
+        /// <summary>
+        /// 翻转座位 —— 原版 `CardScript.ChangeOwner()` 全文 `bool flag = !isPlayer; isPlayer = flag;`（无条件取反）。
+        /// <para>调用点 = 抢单位 / 交换单位（`_ResolveStealMinion` / `_ResolveExchangeMinion`），
+        /// 我们对应 <c>EffectResolver.DoTakeControl</c>（把对象挪到对侧 `Board[]`）。</para>
+        /// <para>⚠️ **与棋盘移动必须成对**：原版翻面**不**顺带把卡挪到对面（移动另有一步）；
+        /// 我们的等价是「挪 `Board[]`（= 在场归属）+ 本方法（= 离场后仍记得的座位）」两件事，
+        /// ⛔ 只做一件会让「在场」与「离场」两个视角的座位打架。</para>
+        /// <para>⚠️ **`-1`（未知）时不翻**：原版 `bool` 没有未知态、翻面恒有结果；
+        /// 我们翻一个未知值只会**编造**一个座位（`-1 → 0` 是错的），所以保持 `-1`。</para>
+        /// </summary>
+        public void ChangeOwner()
+        {
+            if (OwnerSeat == 0 || OwnerSeat == 1) OwnerSeat = 1 - OwnerSeat;
         }
     }
 }

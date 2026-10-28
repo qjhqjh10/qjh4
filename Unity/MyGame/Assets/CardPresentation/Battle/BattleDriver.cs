@@ -9779,7 +9779,7 @@ namespace CardPresentation
             //    以及撤环境那条「回调计数到齐才 Destroy」）—— 判据（逐句读方法体）→
             //    `资料/加时与冲突模式_原版规格.md` 的 2026-09-30 那一节。
             //    ⚠️ **仍没接**：`ScenarioParticleSpawnerBlender`（4 个实例，要原版 `ParticleSystemAreaSpawner*`）。
-            ApplyEnvWarlordAbilityOnce(); if (_envApplier == null) _envApplier = gameObject.AddComponent<EnvironmentApplier>();   // 【B92_B3 2026-10-28】原版 `ApplyEnvEffect.c:14-15`：**先**督军触发、**再**换环境（见 `ApplyEnvWarlordAbilityOnce` 的 doc）
+            if (!ApplyEnvWarlordAbilityOnce()) return; if (_envApplier == null) _envApplier = gameObject.AddComponent<EnvironmentApplier>();   // 【B94_B22 2026-10-29 · 账 196】原版 `ApplyEnvEffect.c:14-15` 把「督军触发 + 换环境」**包在同一个 `if` 里**（gate = `playerMgr != null && heroCard != null`）⇒ 督军取不到时两步一起跳过（原来我们仍换环境）；先督军触发、再换环境（见 `ApplyEnvWarlordAbilityOnce` 的 doc）
             var envItem = EnvironmentConditions.Find(so);
             if (envItem == null)
             {
@@ -15997,7 +15997,7 @@ namespace CardPresentation
         {
             if (reticle == null) return;
             SyncReticleCameras();
-            _pointerWorld = world;
+            _pointerWorld = world; Vector3 pointer = world + new Vector3(0f, SpellDragAimYOffset, 0f);   // 🆕 B94_W1：原版 `MoveCrosshair` 的 param_3 = 指针 + `moveCardYOffset`（`.c:819/1017/1184/1247`，字段 `+0x40`）；准星与弧线终点都用它 ⇒ 统一带偏移
 
             // 状态没开（没选人）⇒ 收起。原版也是**状态结束才灭**
             // （`StopTracking` / `CancelActionStates` / `ResolveEndTurn`），不是「指针离开目标就灭」。
@@ -16017,8 +16017,8 @@ namespace CardPresentation
             // ① 准星：**一直跟着指针走**（原版 `BattleManager.Update` → `MoveCrosshair` 每帧喂），
             //    弧线终点 = 指针射线打到**地板 / 敌兵平面**最近的那个命中点（原版 `UpdateTrail`）。
             //    🔴 2026-09-29 改：以前是「指针压在合法目标上才 `Show`，否则 `Hide`」——**与原版相反**。
-            if (!reticle.Visible) reticle.Show(me.transform.position, reticle.ResolveAim(world), _command);
-            else reticle.Aim(me.transform.position, world, _command);
+            if (!reticle.Visible) reticle.Show(me.transform.position, reticle.ResolveAim(pointer), _command, pointer);   // 🆕 B94_W1：弧线终点 = 求交(pointer)、准星本体 = pointer（= 指针 + `moveCardYOffset`，原版 param_3）；`.c:819/1017/1184/1247` 四参口径统一
+            else reticle.Aim(me.transform.position, pointer, _command);   // 🆕 B94_W1：稳态 `Aim` 的入参也用 pointer（`Aim` 内部准星=入参、弧线=ResolveAim(入参)）；不补这项 ⇒ 首帧(pointer)与稳态(world)差 0.2 跳变
 
             // ② 「指针压着哪个**合法目标**」那一档（`selectedTargetInBoard` 橙 + 「这一下会打死它」图标）
             //    **仍然是指针驱动**的 —— 它是悬停反馈，与准星亮不亮是两件事。
@@ -16156,8 +16156,8 @@ namespace CardPresentation
             SyncReticleCameras();
             CardView me;
             if (!_myUnits.TryGetValue(_selectedSlot, out me) || me == null) return;
-            _pointerWorld = WorldPointer();
-            reticle.Show(me.transform.position, reticle.ResolveAim(_pointerWorld), _command);
+            _pointerWorld = WorldPointer(); Vector3 pointer = _pointerWorld + new Vector3(0f, SpellDragAimYOffset, 0f);   // 🆕 B94_W1：同 `UpdateReticle` —— 原版 param_3 = 指针 + `moveCardYOffset`（`.c:819/1017/1184/1247`）
+            reticle.Show(me.transform.position, reticle.ResolveAim(pointer), _command, pointer);   // 🆕 B94_W1：弧线终点 = 求交(pointer)、准星本体 = pointer（= 指针 + `moveCardYOffset`）；四参口径统一（`.c:819/1017/1184/1247`）
         }
 
         /// <summary>把准星要的两台相机同步过去。**每次用之前同步一次** ——
@@ -18700,7 +18700,7 @@ namespace CardPresentation
             }
             else
             {
-                a.ActingId = u.Card.Id; a.ActingIsHero = u.IsWarlord;
+                a.ActingId = u.Card.Id; a.ActingIsHero = u.IsWarlord; a.ActingSlot = slot;
                 a.ActingIsPlayerSide = side == _me;
             }
         }
@@ -18967,7 +18967,7 @@ namespace CardPresentation
             _aiAnimT = 0f;
             _aiAnimAct = act;
             // 原版 `PrepareMovement`：**先瞬移到起点**（弧线这时退化成一个点，与原版一致）
-            reticle.Show(_aiAnimFrom, _aiAnimFrom, kind);
+            reticle.Show(_aiAnimFrom, _aiAnimFrom, kind);   // 🆕 B94_W1：**AI 无指针** ⇒ 保持 3 参。判据 `BattleManager__EnemyTargetingAnim.c`：AI 走 `PrepareMovement(起点)`（准星=起点）+ `DoCrosshairMove(终点, 时长)`（DOMove 准星），**不经 `MoveCrosshair`/`UpdateTrail` 求交、不读指针** ⇒ 没有 `crossAt` 可言，⛔ 别硬套 4 参
             return true;
         }
 
@@ -25781,7 +25781,7 @@ namespace CardPresentation
                         RestoreBoardViewVisibility(key);   // 飞行期间关掉的渲染器逐件还原
                         if (v == null) return;             // 这一格在这 0.4 s 里被换掉了 ⇒ 不碰（落体会自己报缺）
                         if (use3DBoard) v.SetLayer(ArenaSlots.ArenaLayer);
-                        v.SetPose(aiAboveLocal, 0f, finalScale);
+                        v.SetPose(aiAboveLocal, 0f, finalScale); v.SetFace(CardFace.Hand); StartHandToBoardClip(v);   // 🆕 B94_W1（账 战斗界面_HUD:788 / 特效动画:507）：交接那一刻卡仍是 2D 手牌形态 ⇒ 起播 CardHandToBoard（原版 CardToMinionAnim 无形态判断，3D 体由 clip 自己开）
                     },
                 };
                 // 🆕 W（偏差 9 / autoPlay）：起飞那两拍分在两个 state ⇒ 这里把「飞向格位」整段
@@ -25861,7 +25861,7 @@ namespace CardPresentation
             }
 
             v.SetPose(startLocal, startRotZ, startScale);
-            v.SetLayer(0);                    // 飞行段归 HUD 正交相机画（同玩家那条：卡还在手牌那一层）
+            v.SetLayer(0); v.SetFace(CardFace.Hand);   // 飞行段归 HUD 正交相机画（同玩家那条：卡还在手牌那一层）；🆕 B94_W1：卡从头到尾是 2D 手牌形态（原版 CardToMinionAnim 全程 2D，3D 体由登场 clip 自己开）
             // 🆕 2026-10-19（`W57` · `T05(c)(d)`）：同手牌卡背那条 —— 0.4 s 换 3D 体、之后在竞技场空间落下。
             //   这一条的载体会就是**场上视图自己的 transform**（退路：手牌视图取不到）。
             Vector3 fbAboveLocal = use3DBoard
@@ -25876,7 +25876,7 @@ namespace CardPresentation
                     RestoreBoardViewVisibility(key);   // 退路那条没藏过 ⇒ 空操作，留着与手牌那条同形
                     if (v == null) return;             // 这一格在这 0.4 s 里被换掉了 ⇒ 不碰（落体会自己报缺）
                     if (use3DBoard) v.SetLayer(ArenaSlots.ArenaLayer);
-                    v.SetPose(fbAboveLocal, 0f, finalScale);
+                    v.SetPose(fbAboveLocal, 0f, finalScale); v.SetFace(CardFace.Hand); StartHandToBoardClip(v);   // 🆕 B94_W1（账 战斗界面_HUD:788 / 特效动画:507）：same as 手牌载体那一路 —— 交接点起播 CardHandToBoard
                 },
             };
             // 🆕 W（偏差 9 / autoPlay）：同手牌卡背那条 —— 起飞两条分两拍，中间夹居中展示。
@@ -26376,8 +26376,8 @@ namespace CardPresentation
                 //   ⇒ 出声一次（⛔ 不静默）；裁决原文 → `报告/B90_B2.md` §裁定。
                 //   ⚠️ 玩家部署那条路**已经**在 `StartHandToBoardClip` 里播过同一支（0.3 s 那一拍）⇒
                 //      这里**只服务 AI / 自动打出**，⛔ 别把同一个调用加到玩家那条（会播两遍）。
-                v.SetBody3DVisible(true);
-                WarnInvokeAnimNotWiredOnce();
+                if (v.Face == CardFace.Board) v.SetBody3DVisible(true);   // 🆕 B94_W1：3D 体由登场 clip 自己开（StartHandToBoardClip → CardFeel.HandToBoard 的 0.7 SetFace(Board)）；这里只在 clip 已收口时兜一下，落在它之前（Face 仍是 Hand）不抢
+                // 旧警告退役：交接点已起播 CardHandToBoard（见 StartHandToBoardClip / CardFeel.HandToBoard）；⛔ 别在这里再 SetBody3DVisible(true) 抢在 clip 之前
             }
             // 偏差 9：**落地**那两条 cue（原版 `CardScript.LandOnGround` 那一拍）
             PlayDeployLandingCues(evt);
@@ -32066,9 +32066,9 @@ namespace CardPresentation
             //   判据 = 原版 `ManaTypeHolder.SetMana` 的两跳（`:68-81` → `DoTextAnim` / `TryDOVfx`），
             //   而 13 个战场现读 `QuestPointsHolder` 的 `useTweenOnValueChange / useVfxOnValueChange`
             //   **都是 1**（`ManaHolder` / `SpiritStoneHolder` 都是 0，`FaithHolder` 只有 vfx=1）。
-            //   实现与逐项判据见类尾 `TickManaHolderValue` / `QuestDownVfxName` 那一段。
-            TickManaHolderValue(me.QuestPoints, ref _qpShownLastMe, _qpTextMe, QuestDownVfxName);
-            TickManaHolderValue(foe.QuestPoints, ref _qpShownLastFoe, _qpTextFoe, QuestDownVfxName);
+            //   实现与逐项判据见类尾 `TickManaHolderValue` / `QuestDownVfxName` 那一段（🆕 账 `其他_基础设施:586`：这两颗的演出按原版 `SetQuestPointsWithDelay` **延后** 0.5/1.0 s，见 `PlayManaHolderValueTween` 的 doc）。
+            TickManaHolderValue(me.QuestPoints, ref _qpShownLastMe, _qpTextMe, QuestDownVfxName, _qpShownLastMe != int.MinValue && me.QuestPoints < _qpShownLastMe ? 1f : 0.5f);
+            TickManaHolderValue(foe.QuestPoints, ref _qpShownLastFoe, _qpTextFoe, QuestDownVfxName, _qpShownLastFoe != int.MinValue && foe.QuestPoints < _qpShownLastFoe ? 1f : 0.5f);
 
             bool myTurn = Ctx.Active == _me && !Ctx.IsOver;
             // 🔴 **2026-10-18（第十三轮 · G2b）：字**每次刷 HUD 时都重取一遍。
@@ -32220,7 +32220,7 @@ namespace CardPresentation
                         // 🆕 2026-09-27：**同一处再写一条本地对局记录**（用户当天拍板要做）。
                         // 原版这一步在服务器（每局结束写 `PlayerDataManager.battleLogData`）——
                         // 本地没有服务器 ⇒ 由我们记，**这是加功能、不是复刻**（判据 → `Shell/BattleLogData.cs` 文件头）。
-                        RecordBattleLog(); NotifyPracticeMatchWonIfAny();   // 2026-10-28（B91_W3）账 `日常/奖励`「`PracticeEvent.OnMatchWon`」：练习首胜 ⇒ 解锁轮抽入口（判据见方法自己的注释）
+                        RecordBattleLog(); NotifyPracticeMatchWonIfAny(); RecordVictoryCounterIfAny();   // 2026-10-29（B94_W1）胜场计数；2026-10-28（B91_W3）账 `日常/奖励`「`PracticeEvent.OnMatchWon`」：练习首胜 ⇒ 解锁轮抽入口（判据见方法自己的注释）
                         // 🆕 2026-10-24（E13）：**同一处把战果记进成就进度**（用户当天点名：
                         //   成就界面的 102 条进度原来**恒 0**）。只统计这里**真的数到**的量 ——
                         //   映射表与「哪些没接」在 `AwardAchievements` 上面那一段。
@@ -33746,20 +33746,20 @@ namespace CardPresentation
         ///   = 原版没有的第二下。⇒ 本方法只处理 `now &lt; old`。</para>
         /// <para>⚠️ **首帧只记值、不弹不闪**：原版是事件式调用（值没变根本不会调 `SetMana`），
         ///   我们是每帧轮询 ⇒ 开局那一帧必须当成「记初值」。</para></summary>
-        void TickManaHolderValue(int now, ref int last, Label label, string downVfxName)
+        void TickManaHolderValue(int now, ref int last, Label label, string downVfxName, float delay = 0f)
         {
             if (last == int.MinValue) { last = now; return; }      // 首帧：只记值
             if (now == last) return;                               // 没变（`UpdateHud` 每帧都跑）
             int old = last;
             last = now;
-            if (label != null)
+            // 账 586（B94_F3 2026-10-29）：演出延后 —— 判据 / 两档 delay 见 `PlayManaHolderValueTween` 的 doc
+            if (delay > 0f)
             {
-                var tf = label.transform;
-                tf.localScale = Vector3.one;                       // 原版 `DoTextAnim` 先复位
-                CardTween.Use(tf.DOPunchScale(Vector3.one * 0.2f, 0.5f, 10, 1f), Ease.Linear, label);
+                var lab = label; string vfx = downVfxName; int was = old;
+                SchedulePresentationCallback(delay, () => PlayManaHolderValueTween(was, now, lab, vfx));
+                return;
             }
-            if (now < old && label != null && !string.IsNullOrEmpty(downVfxName))
-                CardEffects.Fire(downVfxName, label.transform.position);
+            PlayManaHolderValueTween(old, now, label, downVfxName);
         }
 
         // ------------------------------------------------------------------
@@ -34969,14 +34969,14 @@ namespace CardPresentation
             {
                 m.Present = true;
                 m.DeckName = deck.Name;
-                m.CardbackId = deck.CardbackId;
+                m.CardbackId = deck.CardbackId; m.Warcry = Loc.Warcry(deck.WarcryId);   // 账 `战斗逻辑驱动:393` 接线 —— 判据 `decomp_full/BattleManager__GetWarcry.c:59-79`（`CardDeck.warcry`(+0x60) 那件装饰取不到 ⇒ **默认 term**；取到 ⇒ `Concat("Chat_Messages/warcry-", 装饰.uniqueId)`）；两半本地都现成：`Loc.Warcry`（`Core/Loc.cs:3942`，空 id ⇒ 默认 term / 非空 ⇒ 前缀+id，与 `.c` 两条支同形）＋ `PlayerDeck.WarcryId`（`Core/DeckRules.cs:1057`）⇒ 下面 `missing.Add("warcry")` 从此不再命中。本行与上一行合并写 = **零行数变化**（本文件有 45 条账落点在此行之后）
             }
             // 头像 / 头像框 / 称号：本地档案（`Shell/ProfileData`）—— 原版这三格来自 `PlayerBattleData`，
             // 单机局服务器不下发，这是我们能拿到的**同义**来源（如实标：来源不同、语义同）。
             m.PlayerAvatar = ProfileData.AvatarArt;
             m.PlayerAvatarBorder = ProfileData.AvatarBorderOn ? "default" : "";
             m.PlayerTitle = ProfileData.TitleName;
-            // 服务器那几格（elo / 联盟 / 徽记 / warcry / currentDeckId）离线恒空 ⇒ 出声，一次一局。
+            // 服务器那几格（elo / 联盟 / 徽记 / currentDeckId）离线恒空 ⇒ 出声，一次一局。⚠️ `warcry` 已不在这一档（2026-10-29 账 `战斗逻辑驱动:393` 用它自己的本地来源接上了，见上面那一行）。
             var missing = new List<string>();
             if (string.IsNullOrEmpty(m.Warcry)) missing.Add("warcry");
             if (string.IsNullOrEmpty(m.CurrentDeckId)) missing.Add("currentDeckId");
@@ -36049,7 +36049,7 @@ namespace CardPresentation
             // 攻击方式恒 `None`（原版这一档 `MoveCrosshair` 的第 4 个实参就是 0 ⇒ 不换色、不 punch）
             if (!_spellDragReticleOn || !reticle.Visible)
             {
-                reticle.Show(from, reticle.ResolveAim(aim), AttackKind.None);
+                reticle.Show(from, reticle.ResolveAim(aim), AttackKind.None, aim);   // 🆕 B94_W1 · `.c` 回源：原版 `MoveCrosshair(hero.pos, pointer + moveCardYOffset)` 把**准星设成 param_3（=含偏移那份）**、`UpdateTrail` 再对它求交 ⇒ 偏移**也作用在准星** ⇒ crossAt = `aim`（含 `moveCardYOffset` 的点），⛔ 不是未偏移的 `world`（`TargetReticleController__MoveCrosshair.c` 首句 `set_position(param_3)`）
                 _spellDragReticleOn = true;
             }
             else reticle.Aim(from, aim, AttackKind.None);
@@ -36850,7 +36850,7 @@ namespace CardPresentation
         {
             if (Ctx == null) return false;
             var tut = Ctx.Tutorial;
-            if (tut == null || tut.CurrentTurn == null) return false;   // ⑤（CampaignStage 恒 null）
+            if (!TutorialScriptPredicatesB94B8.IsScriptedStageAvailable(Ctx) || tut == null || tut.CurrentTurn == null) return false;   // ⑤ = 原版 `BattleManager__IsScriptedStageAvailable.c:1-15`（`IsTutorialStageAvailable() || IsCampaignStageAvailable()`）**收口到引擎侧唯一判据**（账 `战斗逻辑驱动:424`；谓词见 `RuleEngine/Core/TutorialScriptPredicates_B94B8.cs`）。`tut/CurrentTurn` 那两半保留 = 本仓「教程取数口」的前置（下面 `TutorialRules.IsWaitingUseAbility` 要 `tut.CurrentTurn`，战役半本地无等价物）
             if (_selectedSlot < 0) return false;                        // ⑥ cardSelected != null
             if (_command != AttackKind.Ability) return false;           // 主动技面板在显示（本仓等价）
             if (Ctx.IsOver || Ctx.Active != _me) return false;          // ④ IsPlayerTurn()
@@ -37271,22 +37271,22 @@ namespace CardPresentation
         //    ⇒ `RuleCore.RunAbilityOfAnotherCard` 走到「正文解析不出来」那条。真正缺的机器 =
         //    「按 `chosenAbility 30/60/40/0` + `buffType 12/15` + `enchantmentId` 挂附魔模板」
         //    （41 行 logic 在表里、37 个模板在 `enchantment_templates.json`、载体是督军 ⇒ 判据 → `报告/B93_E16.md` §四·7/8）。
-        void ApplyEnvWarlordAbilityOnce()
+        bool ApplyEnvWarlordAbilityOnce()   // ☑ 返回「原版那道总闸过没过」：`false` ⇒ 调用方连「换环境」也一起跳过（账 196 · `ApplyEnvEffect.c:14-15`，gate 只管 pm/hero 两个非空）；其余分支一律 `true`。
         {
-            if (Ctx == null || !Ctx.OffensiveChosen) return;
+            if (Ctx == null || !Ctx.OffensiveChosen) return true;
             int seat = Ctx.OffensiveSeat;                      // 原版实参 `isPlayer = playerGoesFirst` ⇒ **先手方**
-            if (seat != 0 && seat != 1) return;
+            if (seat != 0 && seat != 1) return false;          // = 原版 `playerMgr == null` 那一档
             var pm = Ctx.Players[seat];
             var hero = pm != null ? pm.Warlord : null;          // 原版 `+0x28` = `heroCard`
             if (hero == null || hero.Card == null)
             {
                 Debug.LogWarning("[Battle] 进攻卡：先手方（P" + (seat + 1) + "）的督军取不到 ⇒ 原版那一跳跳过。"
                                + "⚠️ 原版的 `if (playerMgr != null && heroCard != null)` 把**督军触发与换环境一起**包着"
-                               + "（`.c` 落到那条 throw）⇒ 严格说环境这一步也该跳过；我们仍照旧换环境 —— **已知偏离，出声不静默**。");
-                return;
+                               + "（`.c` 落到那条 throw）⇒ 本函数返回 `false`，调用方**连环境也不换**（B94_B22 已对齐，出声不静默）。");
+                return false;
             }
             var envCard = ChosenOffensiveCardDef();
-            if (envCard == null) return;                        // 已经在 ChosenOffensiveCardDef 里出过声
+            if (envCard == null) return true;                   // 已经在 ChosenOffensiveCardDef 里出过声
             // ⚠️ 类名是 `RuleCore`（`EffectResolver.cs` 只是**文件名** —— 本仓**没有**叫 `EffectResolver` 的类，
             //    见 `EffectResolver.cs:8348` 那句原文）⇒ 这里必须写 `RuleCore.`，⛔ 别按文件名写成 `EffectResolver.`。
             bool ran = RuleCore.RunAbilityOfAnotherCard(
@@ -37298,7 +37298,7 @@ namespace CardPresentation
             Debug.Log("[Battle] 进攻卡「" + envCard.Name + "」⇒ 督军「" + hero.Name
                     + "」按 `ThisCardPlayed` 跑它自己的能力（原版 `ApplyEnvEffect.c:15` 的 "
                     + "`heroCard.TriggerOtherCardAbility(envCard)`）"
-                    + (ran ? " —— 已结算" : " —— ⛔ **这一跳没有生效**（原因见 `ctx` 日志）"));
+                    + (ran ? " —— 已结算" : " —— ⛔ **这一跳没有生效**（原因见 `ctx` 日志）")); return true;   // 总闸过没过只管 pm/hero 非空 ⇒ 走到这儿一律 true
         }
 
         /// <summary>本次选中的进攻卡对应的 <see cref="CardDef"/>；找不到 ⇒ 出声一次 + `null`。
@@ -37507,5 +37507,138 @@ namespace CardPresentation
         /// <summary>自检口：敌方手牌视图（卡背）有几张 —— 50 那一档的**前提**（空手牌时它按原版返回 false）。
         /// ⚠️ 它们是 `ImageQuad`（卡背），不是 `CardView`（原版敌方手牌同样是卡背）。</summary>
         public int FoeHandViewCountForTest { get { return _foeHandViews != null ? _foeHandViews.Count : 0; } }
+
+        // ==================================================================
+        //  🆕 2026-10-29（执行代理 `B94_F3`）账 `其他_基础设施:586` —— `ManaTypeHolder` 值变化演出的本体
+        //     （从 `TickManaHolderValue` 里抽出来，好让任务点那一档能**延后**到原版的 `WaitForSeconds` 之后）。
+        //
+        //  **判据链（三跳，全是现读）**：
+        //   ① `decomp_full/PlayerManager__AddQuestPoints.c` —— 它**先把新值写进引擎**（`+0xc4..0xd4` 那 5 个 int
+        //      的 `ObscuredInt`），紧接着 `ManaManager__SetQuestPoints(qp, 阈值, **animate: 0**)` ⇒ **数字即时到、
+        //      这一跳不弹**。之后才 `StartCoroutine(SetQuestPointsWithDelay(delay, finishCallback))`。
+        //   ② `decomp_full/PlayerManager._SetQuestPointsWithDelay_d__43__MoveNext.c:24-31` = `WaitForSeconds(delay)`；
+        //      `:52-83` = 按 `GameplayVariablesData.alternativeTraitLogic`(`+0x4b`) 取阈值
+        //      （`scenarioVariables+0x30` / `+0x2c`）× 再 `ManaManager__SetQuestPoints(qp, 阈值, **animate: 1**)`
+        //      ⇒ **弹跳 / 降向特效在这一跳才演**；末句调 `finishCallback`。
+        //   ③ 两档 delay 的实参在 `PlayerManager__AddQuestPoints.c` 的两个 `LAB_18063d3fc` 上游：
+        //      **非结算支** `DAT_1834b2bb4` = **0.5**（`工具/read_literal.py` 实读）；**结算支**
+        //      （`qp >= 阈值` ⇒ 先 `QP -= 阈值`、再 `RawCardScript.OnQuestResolved`）`DAT_1834b2bb8` = **1.0**。
+        //  ⇒ 我们这边「结算支」的可观测判据 = **余数变小**（结算支会把一个阈值从余数里扣掉）。
+        //
+        //  ⚠️ **未建模的一小格（如实记，⛔ 别当成已复刻）**：原版结算支里那个**中间值**（`qp` 先按
+        //     满阈值显示、一秒后才落到余数）在我们这边不存在 —— 引擎在 `QuestPointStepFor` 那侧已经把
+        //     阈值扣掉，HUD 读到的只有余数 ⇒ `n >= 阈值` 这种一次加满的情形，我们**不弹**（原版会先弹到满）。
+        //     要补得让引擎把「扣阈值前的值」一起带出来（`RuleEngine/**`，不在本件白名单）⇒ 记在报告 §六。
+        // ==================================================================
+
+        /// <summary>`ManaTypeHolder` 的「值已变」演出本体：原版 `DoTextAnim`（`DOPunchScale`）+ `TryDOVfx`（降向特效）。
+        /// 由 <see cref="TickManaHolderValue"/> 调用；`delay > 0` 时经 `SchedulePresentationCallback` 延后
+        /// （判据与两档字面量见上面那一段）。</summary>
+        void PlayManaHolderValueTween(int old, int now, Label label, string downVfxName)
+        {
+            ManaHolderValueTweenCount++;
+            if (label != null)
+            {
+                var tf = label.transform;
+                tf.localScale = Vector3.one;                       // 原版 `DoTextAnim` 先复位
+                CardTween.Use(tf.DOPunchScale(Vector3.one * 0.2f, 0.5f, 10, 1f), Ease.Linear, label);
+            }
+            if (now < old && label != null && !string.IsNullOrEmpty(downVfxName))
+                CardEffects.Fire(downVfxName, label.transform.position);
+        }
+
+        /// <summary>自检用（账 `其他_基础设施:586`）：`ManaTypeHolder` 值变化的**演出本体**真的播过几次。
+        /// 用法 = 拨值前后各读一次 —— 拨完**不涨**（延后档还没到点）、`Step(0.6f)` 之后 **+1**；
+        /// 两条一起才证明「值即时 / 演出延后」是分开的两层（改回「当场弹」则第一条红）。</summary>
+        public int ManaHolderValueTweenCount { get; private set; }
+
+        // ==================================================================
+        //  🆕 2026-10-29（执行代理 B94_W1 · 账 `其他_基础设施` set_victoryCounters / `个人资料_成就_排行`）
+        //  结算时把「这一场胜场」记进 `VictoryCountersStore`（`PlayerDataKey.VictoryCounters` 第 44 项）。
+        //
+        //  **判据（`.c` 优先，2026-10-29 现读）**：
+        //   · 原版**唯一的写点** = `PlayerDataManager.ProcessMatchResult`（`PlayerDataManager__ProcessMatchResult.c:8`
+        //     `*(this+0x2c8) = param_4+0x20` = 把**服务端回包** `matchResult.VictoryCounters` 整份替换给玩家）。
+        //     `PlayerDataManager.victoryCounters` 只有 `get/set`（`__get/set_victoryCounters.c` = 纯 load/store），
+        //     客户端**不自行累加** ⇒ 本地没有算胜场的代码。
+        //   · 那条写点的调用方 = 四个云脚本成功回调（`grep -rl PlayerDataManager__ProcessMatchResult`）：
+        //     `RecordRankedMatchFinished`(排位) · `RecordPracticeMatchFinished`(练习 0x96) ·
+        //     `FastModeBaseEvent.RecordMatchFinished`(遭遇 Skirmish) · `RecordEventMatchFinished`(活动)。
+        //     ⇒ **练习赛算**（`PlayerDataManager.__c__DisplayClass469_0___RecordPracticeMatchFinished_g__HandleSuccess_0.c`
+        //     里直接调 `ProcessMatchResult`）。
+        //   · **教程不算**：`PlayerDataManager___RecordTutorialFinished_g__HandleSuccess_464_0.c` 全文只有一句 `Log`、
+        //     **不调** `ProcessMatchResult` ⇒ 教程局不写胜场计数。
+        //  ⇒ 🔶 自己设计（非原版）：`RecordVictory` 走**本地累加**（原版是「服务端整份替换」）·
+        //    为什么必须自定：关服后判据在远端（P3，调度台 2026-10-26 授权判 D），本地拿不到权威整份 · 调度台 2026-10-29 裁定（B94_W1）。
+        //  ⚠️ 语义格（外层 key / `victoriesById` 内层 key）原版由**服务端**填、本地反编译读不出（见 `VictoryCountersStore.cs` 文件头）⇒
+        //    本实现按「外层 = 我方督军**原卡 id**、内层 = 同一张卡的**原始 id**」落地 ——
+        //    这正是 `PlayerInfo.GetVictoryCounters` 折叠 `原始 id → 原卡 id` 的形状，也让 `HighestCardId`
+        //    落到**我方督军**、与官方词条 `PlayerProfile/HighestWarlordMastery` = `Warlord Mastery` 自洽。
+        // ==================================================================
+
+        /// <summary>结算时**该不该记一场胜场**（纯判定，生产与自检共用同一份）。
+        /// <para>判据：只记**胜局**（`totalVictories` 是胜场）· **教程/回放不记**（原版教程成功回调不调
+        /// `ProcessMatchResult`；回放不是「真打完」）· 练习/排位/遭遇/活动**都记**（四个云脚本成功回调都调它）。</para></summary>
+        public static bool ShouldRecordVictory(GameMode mode, bool replay, int winner, int me)
+        {
+            if (replay) return false;                 // 回放不是「真打完」
+            if (winner != me + 1) return false;        // 平局(3)/败局不记（`totalVictories` 是胜场计数）
+            switch (mode)
+            {
+                case GameMode.Tutorial:                // 原版教程成功回调不调 `ProcessMatchResult`
+                case GameMode.TutorialReplay:
+                case GameMode.Replay:
+                    return false;
+            }
+            return true;
+        }
+
+        /// <summary>生产落点（结算那一跳调；调用点见 `UpdateHud` 的 `_settled` 支）。判据见本节头。</summary>
+        void RecordVictoryCounterIfAny()
+        {
+            if (Ctx == null) return;
+            var ps = Ctx.Players[_me];
+            var hero = (ps != null && ps.Warlord != null) ? ps.Warlord.Card : null;
+            RecordVictoryCore(Ctx.PlayMode, _replaySession, Ctx.Winner, _me, hero != null ? hero.Id : null);
+        }
+
+        /// <summary>判定 + 记录的唯一实现（生产 `RecordVictoryCounterIfAny` 与自检 `RecordVictoryForTest` 共用）。
+        /// <para>返回「是否真去记了一场胜场」。`VictoryRecordSinkForTest != null` 时**只交给自检口、不落盘**
+        /// （自检不许写玩家真存档）；否则走 `VictoryCountersStore.RecordVictory`。</para></summary>
+        static bool RecordVictoryCore(GameMode mode, bool replay, int winner, int me, string heroRawId)
+        {
+            if (!ShouldRecordVictory(mode, replay, winner, me)) return false;
+            if (string.IsNullOrEmpty(heroRawId))
+            {
+                Debug.LogWarning("[VictoryCounters] 结算时拿不到我方督军卡 id ⇒ 这一场胜场没记（⛔ 不静默）");
+                return false;
+            }
+            string original = PlayerDeck.SameCardKey(heroRawId);   // = 原版 `RawCardScript.GetOriginalId()`（异画 → 原卡 id）
+            VictoryRecordCallsForTest++;                           // 自检口（前提断言用；只在「真去记」时 +1）
+            if (VictoryRecordSinkForTest != null)
+            {
+                VictoryRecordSinkForTest(original, new[] { heroRawId }, 1);
+                return true;
+            }
+            bool ok = VictoryCountersStore.RecordVictory(original, new[] { heroRawId }, 1);
+            if (!ok) Debug.LogWarning("[VictoryCounters] `RecordVictory` 没落盘（warlord=`" + original + "`）⇒ 这一场胜场只在内存里丢了");
+            return ok;
+        }
+
+        /// <summary>自检口：非 null 时 `RecordVictoryCore` 把「本来要记的东西」交到这里、**不落盘**（默认 null = 正常落盘）。</summary>
+        public static System.Action<string, string[], int> VictoryRecordSinkForTest;
+
+        /// <summary>自检口：用给定参数驱动**生产那条记录路径**（`RecordVictoryCore`），不依赖真打一局；
+        /// 配合 <see cref="VictoryRecordSinkForTest"/> 可完全不碰盘。返回「是否真去记了一场」。</summary>
+        public static bool RecordVictoryForTest(GameMode mode, bool replay, int winner, int me, string heroRawId)
+        {
+            return RecordVictoryCore(mode, replay, winner, me, heroRawId);
+        }
+
+        /// <summary>自检口：把「真去记了一场胜场」的计数清零（每次自检前调）。</summary>
+        public static void ResetVictoryRecordCounterForTest() { VictoryRecordCallsForTest = 0; }
+
+        /// <summary>自检口：生产路径**真去记一场胜场**了几次（跨局累加，只增不减 —— 宿主用「前后差」判，见 `B94W1_Assert` §A）。</summary>
+        public static int VictoryRecordCallsForTest { get; private set; }
     }
 }

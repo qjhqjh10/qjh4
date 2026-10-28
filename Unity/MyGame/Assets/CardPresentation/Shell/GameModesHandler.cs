@@ -582,8 +582,8 @@ namespace CardPresentation
         public const string PracticeResultMode = "Practice";
 
         /// <summary>练习活动的本地存档（原版 `PracticeEventSaveGame : PlayEventSaveGame`）。
-        /// ⚠️ 原版这一份在服务器上（`PlayerDataManager` 持久化）；本地只活在本进程 + 由 `LiveOpsSaveStore` 那条
-        /// 常规路落盘（⛔ 本类没有专门的存档文件，别在这里造第二种存档格式）。</summary>
+        /// ⚠️ 原版这一份在服务器上（`PlayerDataManager` 持久化）。🔴 **2026-10-29 就地订正（B94_Z4 · 铁律 5）**：原写
+        /// 「由 `LiveOpsSaveStore` 那条常规路落盘」**不成立** —— 那一层只落**交给 handler 的 `TSave`**，本静态格从没交给任何 handler（`:910 Save` 的唯一调用方是 `LiveOpsHandler`）。⇒ 唯一落盘的是 `matchStarted` 一个布尔，见类尾。</summary>
         public static PlayEventSaveGame PracticeSave = new PlayEventSaveGame();
 
         /// <summary>已经算进战绩的练习场次（新→旧表的游标；`BattleLogData` **只留 50 条** ⇒ 与轮抽那条同族的负差闸）。</summary>
@@ -594,7 +594,7 @@ namespace CardPresentation
         {
             PracticeSave = new PlayEventSaveGame();
             _consumedPracticeMatches = 0;
-            DraftModeUnlocked = false;
+            DraftModeUnlocked = false; _practiceMatchStartedSynced = false; _practiceMatchStartedWritten = -1; _practiceMatchStartedFromDiskOngoing = false;
         }
 
         /// <summary>原版 `PracticeEvent.OnMatchFinished(matchWon, result, callback)` 的本地落地（账 584）。
@@ -609,7 +609,7 @@ namespace CardPresentation
             //    （同族写法 `Shell/FastModeBaseEvent.cs:334` = `SaveGame.matchStarted = false;`；
             //      `PracticeEvent` 的 `callbackOnSuccess` 体本地不可读）⇒ 本地等价 = 在这里清。
             //    ⛔ 不清会让 `InitializePracticeForMenuStart` 每一场都判「未收尾」⇒ 多记一负。
-            if (PracticeSave != null) PracticeSave.matchStarted = false;
+            if (PracticeSave != null) { if (!_practiceMatchStartedFromDiskOngoing) { PracticeSave.matchStarted = false; SavePracticeMatchStarted(); } }   // ★ 清位 + **写穿**；⚠️ 本进程是从盘上读回「还在打」时**不清** —— 回灌的都是**更旧**的场次（见类尾 🔴）
             LastPracticeMatchWonCells = matchWon;
             // ② 原版 `RecordPracticeMatchFinished(…)` = 云脚本（P3）⇒ 本地只把「这一场的结算输入」记下来并出声
             Debug.Log("[GameModes] 练习局收尾：winner = " + winner + " · matchWon = " + matchWon
@@ -633,7 +633,7 @@ namespace CardPresentation
         /// <returns>这次吃了几场（0 = 没有新的；⚠️ 不含 `Initialize` 那一支补记的那一场）。</returns></summary>
         public int IngestPracticeResults()
         {
-            int n = IngestPracticeResults(BattleLogData.All);      // ① 先吃已结算的（顺带清 `matchStarted`）
+            LoadPracticeMatchStarted(); int n = IngestPracticeResults(BattleLogData.All);   // ⓪ 先读回盘上的 `matchStarted`（原版：进主菜单时存档已从服务器取回）· ① 再吃已结算的
             InitializePracticeForMenuStart();                      // ② 再查「还有没有没收尾的」（原版 `PracticeEvent.Initialize`）
             return n;
         }
@@ -752,11 +752,11 @@ namespace CardPresentation
                 return;
             }
             s.UpdateLocalJoinState(PlayEventSaveGame.JoinStates.Joined);   // 原版 `ChangeState(Joined)`
-            s.matchStarted = true;                                         // ★ 原版 `+0x44`
-            if (s.randomSeed == 0) s.randomSeed = Environment.TickCount;    // 同 `PlayEvent.StartMatchNoCheck` 的本地口径
+            s.matchStarted = true; SavePracticeMatchStarted();              // ★ 原版写 `+0x44` 的**唯一**处是 `OnMatchFound`（见类尾判据）；本地练习没有匹配回包 ⇒ 等价点 = 这拍，顺手写穿
+            if (s.randomSeed == 0) s.randomSeed = Environment.TickCount;    // 🔶 自己设计（非原版）：practice randomSeed · **原版这格从未被写**（PlayEvent 全族无写点，恒 0）、我们回放/重连需要它 · 调度台 2026-10-29 裁定
             Debug.Log("[GameModes] 练习局开局：卡组 id = " + (deckId ?? "<null>") + " ⇒ `joinState = Joined` + "
-                    + "`matchStarted = true`（原版 `PracticeEvent` 继承的 `StartMatchNoCheck` 三句）；"
-                    + "原版随后那句 `onPracticeMatchStarted` 云脚本 = P3（本地没有服务器）");
+                    + "`matchStarted = true`（🔴 原版 `StartMatchNoCheck` 其实这三格**都不写**，见类尾判据；本地等价 = 这三句）"
+                    + "；原版随后那句 `onPracticeMatchStarted` 云脚本 = P3（本地没有服务器）");
         }
 
         /// <summary>原版 `PracticeEvent.Initialize()` 的本地落地（账 583）：**进主菜单时**若上一场练习局没收尾
@@ -773,8 +773,8 @@ namespace CardPresentation
                 Debug.LogError("[GameModes] InitializePracticeForMenuStart：`PracticeSave` 是 null（原版这一跳 NRE）⇒ 不判");
                 return false;
             }
-            if (!s.matchStarted) return false;          // ★ 原版那道闸（`+0x44`）
-            s.matchStarted = false;                     // 先清：否则下一次进主菜单还会再判一次（原版清位在结算回调里）
+            LoadPracticeMatchStarted(); if (!s.matchStarted) return false;   // ★ 原版那道闸（`+0x44`）；读盘 = 原版「重启后从服务器读回存档」
+            s.matchStarted = false; SavePracticeMatchStarted();              // 先清 + 写穿：否则下一次进主菜单还会再判一次（原版清位在结算回调里）
             Debug.LogWarning("[GameModes] 上一次练习局**没有收尾**（`matchStarted` 仍为 true）⇒ 按原版 `PracticeEvent.Initialize` "
                            + "判一次负并提示玩家（原版：`MatchFinished(battleWinner = Enemy)` + 弹 `" + PracticeOngoingMatchTerm + "`）");
             ApplyPracticeOutcome(BattleWinner.Enemy);   // = 原版 `base.MatchFinished(new RankedMatchResult{ Enemy }, null)`
@@ -784,6 +784,162 @@ namespace CardPresentation
             else
                 Debug.LogWarning("[GameModes] 没有 `WindowsManager` 实例 ⇒ 续局提示 '" + PracticeOngoingMatchTerm
                                + "' 只记日志（原版走 `MenuActions.QueueAction` → `WindowsManager.ShowPopUp`）");
+            return true;
+        }
+
+        // ============================================================ 账 其他:779 · CurrentSeasonNumber
+        /// <summary>原版 `GameModes.get_CurrentSeasonNumber()`（`decomp_full/GameModes__get_CurrentSeasonNumber.c` 全文）：
+        /// <code>
+        /// ev = GameModes.GetActiveEvent&lt;IRankedEvent&gt;(this);
+        /// if (ev != null) return ev.&lt;SeasonNumber&gt;;      // 原版读 `IRankedEvent` 的 +0x88（= Data.seasonNumber）
+        /// /* 否则 FUN_1803f47a0() —— 不返回 = 抛 NRE */
+        /// </code>
+        /// 🔴 原版**在期没有排位活动时直接抛 NRE**（那条 `Subroutine does not return`）；我们按本仓对 NRE 的
+        /// 统一口径处理：**出声 + 返回 0**（⛔ 不静默、也不假装有排位）。
+        /// <para>⚠️ 差异：原版 `GetActiveEvent&lt;IRankedEvent&gt;()` 会先撞 `typeof(IRankedEvent)` 的远端配置支
+        /// （`GameModesConfig.mainRankedType` = 服务器下发，本地恒空 ⇒ 原版那里同样是 NRE）；
+        /// 我们这一支由 <see cref="RankedEventInterfaceType"/> 注入控制，本地默认 null ⇒ 直接走 LINQ 扫在期事件
+        /// （等价于「按接口 `IsInstanceOfType` 筛」）。接口本体见 `Shell/RankedEventBase.cs` 的 `IRankedEvent`。</para></summary>
+        public int CurrentSeasonNumber
+        {
+            get
+            {
+                var ev = GetActiveEvent<IRankedEvent>();
+                if (ev != null) return ev.SeasonNumber;          // 原版 `IRankedEvent +0x88`
+                Debug.LogWarning("[GameModes] CurrentSeasonNumber：当前没有在期的排位活动（原版这一跳抛 NRE）⇒ 返回 0");
+                return 0;
+            }
+        }
+
+        // ============================================================ 账 583 残差① · `PracticeSave.matchStarted` 本地落盘（B94_Z4 · 2026-10-29 · 追加在类尾）
+        //
+        // 【判据 —— 原版这一格的写/读时机（2026-10-29 现读 `d:/4/_tmp_view/decomp_b91/PlayEvent_object__object_.*.c`）】
+        //   · 写 `true` —— **全库只有一处**：`OnMatchFound__1127660.c:17` `*(save+0x44) = 1;`（匹配回调里）。
+        //     🔴 `StartMatchNoCheck__1127900.c` 全文**不写 `+0x44`**（它只 `GameModes.set_CurrentPlayingEvent` →
+        //     开 `SearchingMatchWindowDemo` → `MatchMakerManager.FindMatch`），`randomSeed(+0x40)` 在 PlayEvent 里**从未被写**。
+        //   · 写 `false` —— `CancelMatch__11268a0.c:27`（`+0x44 = 0`，随后打云脚本 `0x448 OnCancelMatch`）；
+        //     另一处在**服务器**：`RecordPracticeMatchFinished` 的成功回调（P3）。
+        //   · 读 —— `Initialize__11272c0.c:17`（进主菜单）；`CheckPreviousMatch__1126a30.c:34`（两口闸 `+0x44` / `+0x58`）。
+        //   ⇒ 原版这一格**由服务端存档持久化**（客户端只改内存，重启后从服务器读回）。
+        //
+        // 🔶 自己设计（非原版）：matchStarted 本地落盘 · 原版经服务端持久化、关服后判据在远端 · 调度台 2026-10-29 裁定
+        // 【本地等价 = 写穿（write-through）】每次**改变这一格**就把布尔写进 `SaveCenter`（原版那一步是「服务器那边立刻持久」）⇒
+        //   时机照原版：开局那拍（= `OnMatchFound` 的本地对应物，练习没有匹配回包）/ 结算口 / 续局清位。
+        // 【读 = 本进程只同步一次】`LoadPracticeMatchStarted()` 在**吃回灌之前**跑（`IngestPracticeResults()` 第一句，
+        //   且 `InitializePracticeForMenuStart` 的闸前再调一次兜底）= 原版 `Initialize` 读到的是从服务器取回的存档。
+        //   ⚠️ 一旦本进程**改过**这一格，就以内存为准、不再拿盘上旧值覆盖（否则批处理/写盘失败那一路会用过期盘档把内存改回去）。
+        // 🔴 **为什么不能只存一个布尔**：本仓的回灌游标 `_consumedPracticeMatches` **不落盘** ⇒ 每次重启都会把
+        //   `BattleLogData` 里**全部**练习场次重放一遍、每次重放都走到「清位 + 写穿」⇒ 单存布尔的话，**任何重启后第一拍
+        //   就会被自己写回 false**，那一趟「续局」永远判不到（本功能等于没做）。所以同时存**开局那一拍对局记录里已有多少场练习**
+        //   （`practiceCountAtStart`）：读回时若「现在比那时多」⇒ 那场**已经打完**（= 原版服务器回包里清位）⇒ 按 false 起；
+        //   相等 ⇒ 一场新的都没记过 ⇒ 那场**还在打** ⇒ 按 true 起（交给 `InitializePracticeForMenuStart` 判负 + 提示）。
+        // 🔴 **还要挡住「旧场次重放」的清位**：按 true 起了以后，回灌里那些**更旧**的场次仍会一个个走到
+        //   `OnPracticeMatchFinished` 的「清位 + 写穿」⇒ 不挡就把刚读回的 true 又清掉。挡法 = `_practiceMatchStartedFromDiskOngoing`
+        //   （只在「从盘上读回仍在打」时置位；本进程自己开的局一落盘就把它清掉，那种情况照常清位）。
+        // ⚠️ **只落这一个布尔 + 那一个计数，不落 `PracticeSave` 的其余格**：胜/负/平三个计数器是**从 `BattleLogData` 回灌**出来的，
+        //   而回灌游标不落盘 ⇒ 若把计数一起写盘，重启后回灌会把同一批场次**再数一遍**。
+
+        /// <summary>`matchStarted` 的本地存档键。**我们自定 ⇒ 必带 `SaveKeys.OursPrefix`**（原版没有这个 key：
+        /// 它是服务端那份 `PracticeEventSaveGame` 持久化的一部分）。只允许字母/数字/下划线/点（`SaveKeys.IsAsciiKey`）。</summary>
+        public const string PracticeMatchStartedKey = SaveKeys.OursPrefix + "PracticeMatch";
+
+        /// <summary>落盘用的最小载荷。🔶 自己设计（非原版）：原版整份 `PracticeEventSaveGame` 存在服务器上；
+        /// 本地只镜像「这一格 + 一个区分标记」（为什么只镜像这些 → 见上面那段注释的末两条）。</summary>
+        [Serializable]
+        public sealed class PracticeMatchStartedPayload
+        {
+            /// <summary>`matchStarted` 原值。</summary>
+            public bool matchStarted;
+            /// <summary>写这个 `true` 的那一拍，对局记录里**已有多少场练习**（`0` = 那一场是第一次）。
+            /// 读回时用它区分「那场已经打完」与「那场还在打」—— 见上面那段注释里 🔴 那条。</summary>
+            public int practiceCountAtStart;
+        }
+
+        /// <summary>某个对局记录里有多少场练习（= `PracticeOutcomes(log).Count`；`log == null` 用全局那份）。</summary>
+        public static int PracticeMatchCountInLog(IList<BattleLogData.Match> log)
+        {
+            return PracticeOutcomes(log ?? BattleLogData.All).Count;
+        }
+
+        /// <summary>本进程是否已经就这一格同步过一次（`Load` 应用过 / 本进程写过 ⇒ 内存为准）。</summary>
+        static bool _practiceMatchStartedSynced;
+
+        /// <summary>当前那个 `true` 是不是**从盘上读回「还在打」**得来的（而不是本进程开的局）。
+        /// <para>🔴 为什么要这一格：重启后 `_consumedPracticeMatches` 归 0 ⇒ `IngestPracticeResults` 会把
+        /// `BattleLogData` 里**全部旧练习场次**重放一遍，每场都走到「清位」；那些场次**比这个还没收尾的局更旧**
+        /// ⇒ 不挡住就会把刚读回的 `true` 又清掉（这一支等于没做）。本进程自己开的局（`StartPracticeMatchNoCheck`）
+        /// 落盘后 `Save` 会把这一格清掉 ⇒ 那种情况照常清位。</para></summary>
+        static bool _practiceMatchStartedFromDiskOngoing;
+
+        /// <summary>最近一次**成功写进盘**的值：`-1` = 本进程还没写过；`0` = 写过 false；`1` = 写过 true。
+        /// 用来免掉「同一值反复写盘」（`IngestPracticeResults` 一次会连续过好几场）。</summary>
+        static int _practiceMatchStartedWritten = -1;
+
+        /// <summary>把 `PracticeSave.matchStarted` 写进本地存档（= 原版「服务器那边立刻持久」那一步的本地等价）。
+        /// <para><paramref name="log"/> = 计 `practiceCountAtStart` 用的对局记录（`null` ⇒ 全局 `BattleLogData.All`）。</para>
+        /// <returns>盘上现在是不是这个值（`false` 且盘上已经是 `false` ⇒ 直接 true、不重复写）。</returns>
+        /// ⚠️ 批处理 / 没设 `SaveCenter.OverrideRoot` 时 `SaveCenter` 自己会拒写并出声（`StoreOn`），**玩家真档一个字节都不碰**。</summary>
+        public static bool SavePracticeMatchStarted(IList<BattleLogData.Match> log = null)
+        {
+            if (PracticeSave == null)
+            {
+                Debug.LogError("[GameModes] SavePracticeMatchStarted：`PracticeSave` 是 null（原版这一跳 NRE）⇒ 不写");
+                return false;
+            }
+            int now = PracticeSave.matchStarted ? 1 : 0;
+            _practiceMatchStartedSynced = true;                  // 本进程改过 ⇒ 内存为准（见上面那段注释）
+            _practiceMatchStartedFromDiskOngoing = false;        // 一旦落过盘，内存就是权威 ⇒ 不再受「盘上读回的还在打」那条约束
+            // `false` 才免重复写；`true` 每次都要写（`practiceCountAtStart` 要取**这一次开局**那一刻的数）
+            if (now == 0 && _practiceMatchStartedWritten == 0) return true;
+            var payload = new PracticeMatchStartedPayload
+            {
+                matchStarted = now == 1,
+                practiceCountAtStart = PracticeMatchCountInLog(log),
+            };
+            bool ok = SaveCenter.Set(PracticeMatchStartedKey, payload);
+            if (ok) { _practiceMatchStartedWritten = now; }
+            else
+            {
+                Debug.LogWarning("[GameModes] `matchStarted = " + (now == 1) + "` **没能落盘**（" + (SaveCenter.LastWriteError ?? "未知原因")
+                               + "）⇒ 重启后这一格会退回盘上的旧值（原版这一步在服务器上，P3）");
+            }
+            return ok;
+        }
+
+        /// <summary>从本地存档把 `matchStarted` 读回 `PracticeSave`（= 原版「重启后从服务器读回存档」那一步的本地等价）。
+        /// <para>盘上说 `true` 时还要过一次「那场到底打没打完」的判别（见上面那段注释里 🔴 那条）：
+        /// 对局记录里的练习场次**比开局那拍多** ⇒ 已打完（按 `false` 起）；**相等** ⇒ 还在打（按 `true` 起）。</para>
+        /// <para><paramref name="log"/> = 判别用的对局记录（`null` ⇒ 全局 `BattleLogData.All`）。</para>
+        /// <returns>true = 盘上有值并已应用；false = 本进程已同步过 / 盘上没有 / 读不出来（**内存值保持原样**，进程刚起时 = false）。</returns>
+        /// <para>⚠️ `false` 的两种含义要分清：`_practiceMatchStartedSynced` 为真 ⇒ 「以内存为准」；否则 ⇒ 「第一次跑，盘上确实没有」。</para></summary>
+        public static bool LoadPracticeMatchStarted(IList<BattleLogData.Match> log = null)
+        {
+            if (PracticeSave == null)
+            {
+                Debug.LogError("[GameModes] LoadPracticeMatchStarted：`PracticeSave` 是 null（原版这一跳 NRE）⇒ 不读");
+                return false;
+            }
+            if (_practiceMatchStartedSynced) return false;        // 本进程已经有权威值（改过 / 读过）
+            _practiceMatchStartedSynced = true;                   // 无论读没读到，本进程只同步一次
+            var p = SaveCenter.Get<PracticeMatchStartedPayload>(PracticeMatchStartedKey);
+            if (p == null) return false;                          // 缺 key / 坏档 / 未来版本 ⇒ SaveCenter 已出声，不动内存
+            bool ongoing = p.matchStarted;
+            if (ongoing)
+            {
+                int now = PracticeMatchCountInLog(log);
+                if (now > p.practiceCountAtStart)
+                {
+                    ongoing = false;                               // 开局以来多出了练习场次 ⇒ 那一场已经打完（= 原版服务器回包里清位）
+                    Debug.Log("[GameModes] 盘上 `matchStarted = true` 但那一场**已经打完**（开局时记录里 "
+                            + p.practiceCountAtStart + " 场，现在 " + now + " 场）⇒ 按 false 起（原版这一步在服务器回包里）");
+                }
+            }
+            PracticeSave.matchStarted = ongoing;
+            _practiceMatchStartedFromDiskOngoing = ongoing;        // 「还在打」⇒ 挡住旧场次重放时的清位（见该字段的 doc）
+            // 盘上那个值和内存最终值不一致（上面把 true 判成 false）⇒ 把「已写过」清掉，让下一次落盘重写
+            _practiceMatchStartedWritten = (ongoing == p.matchStarted) ? (ongoing ? 1 : 0) : -1;
+            Debug.Log("[GameModes] 从本地存档读回练习活动 `matchStarted` = " + ongoing
+                    + "（原版这一步是从服务器取回 `PracticeEventSaveGame`）");
             return true;
         }
     }

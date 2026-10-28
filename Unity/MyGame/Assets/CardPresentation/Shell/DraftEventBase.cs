@@ -341,6 +341,15 @@ namespace CardPresentation
 
         /// <summary>现在能不能进轮抽（= 原版 `canEnterDraftMode` 的读取点）：注入为 null ⇒ **true**（允许，保持改前「轮抽恒可进」的行为）。</summary>
         public static bool CanEnterDraft { get { return CanEnterDraftMode == null || CanEnterDraftMode(); } }
+
+        // ============================================================ 类型化读口（账 轮抽:9）
+        /// <summary>原版 `public new DraftEventData GetBaseData()`（`out_cpp2il_dev_ilspy/Everguild.LiveOps/DraftEventBase.cs:4136`；
+        /// **泛型类方法 ⇒ `decomp_full` 无独立产物**，读 ILSpy）：先取基类 `PlayEvent.GetBaseData()` → `null ⇒ null` →
+        /// 判型可赋给 `DraftEventData` ⇒ 返回。**纯取值器**，没有任何副作用。
+        /// <para>⚠️ 本地等价成立：`LiveOpsEvent&lt;TSave,TData&gt;.Data`（`Shell/LiveOpsEvent.cs:731`）本身就是 `TData`，
+        /// 在此 = `DraftEventData`；父类那句 `GetBaseData()`（`Shell/PlayEvent.cs:445`）返回的也是**同一个字段**的向上转型
+        /// ⇒ 直接返回 `Data` 与「走基类再判型」结果一致。与 `PlayEvent.GetBaseData()` 同址形态（`Shell/PlayEvent.cs:445`）。</para></summary>
+        public new DraftEventData GetBaseData() { return Data; }
     }
 
     // 🔴 本文件**不给具体子类**：原版的两个具体子类（`DraftEvent` / `TimedDraftEvent`）各有自己的

@@ -280,7 +280,7 @@ namespace CardPresentation
 
         public override void Open()
         {
-            Build();
+            ApplyBotInfo(); Build();
             // 出厂落在 **`DefaultTabIndex`** 那一页（2026-10-24 真机 F13 起 = `Profile`，见它那条 doc；
             // ⛔ 别写成裸 `2`/`0` —— 自检与本句共用同一个常量）
             if (tabButtons != null) tabButtons.Click(DefaultTabIndex);
@@ -571,6 +571,57 @@ namespace CardPresentation
         public override void NotifyNotBuilt(string what)
         {
             Debug.Log("[Profile] `" + what + "` 还没实现");
+        }
+
+        // ============================================================ bot 档案（账 未分类:479 · 原版 `PlayerInfo.SetBotInfo`）
+        //   ⚠️ **一律追加在类尾**：本文件被账按 `文件:行号` 引用（274/281/292/429），插进中间会让下游行号整体漂移。
+
+        /// <summary>原版 `PlayerInfo.Name`（`+0x18`）在这一窗的落地：要看的那个 **bot 的名字**。
+        /// 空 ⇒ 不是 bot 档案（照旧走「自己 / 别人」两条路）。</summary>
+        public string BotName;
+
+        /// <summary>原版 `PlayerInfo.CurrentEloRating`（`+0x40`）在这一窗的落地。**0 = 「没给」**（≡ 原版「`botElo &lt;= 0` ⇒ 不写」）。</summary>
+        public int BotELO;
+
+        /// <summary>原版 `PlayerInfo.IsBot`（`+0x11`）：我们由「有没有 `BotName`」派生（同一条信息，⛔ 不留第二个同义字段）。</summary>
+        public bool IsBot { get { return !string.IsNullOrEmpty(BotName); } }
+
+        /// <summary>开一扇 **bot 档案**（= 原版 `PlayerProfileMenu` 的 `openData.BotName` / `openData.BotELO` 那条路：
+        /// `PlayerProfileMenu.cs:212` / `:270` 只在 `BotName` 非空时调 `PlayerInfo.SetBotInfo(...)`）。
+        /// 原版两个调用点都在「服务器回包把目标玩家填进 `PlayerDataCollection` 之后」；我们本地没有那份缓存
+        /// ⇒ 直接拿开窗数据铺（这一格的数据是**调用方给的**，不是服务器查的）。</summary>
+        public static PlayerProfileWindow CreateForBot(WindowsManager mgr, string botName, int botElo = 0)
+        {
+            var w = Create(mgr);          // ⚠️ 与 `CreateFor` 同一条建窗路（外壳/左栏/关闭钮一模一样）
+            w.BotName = botName;
+            w.BotELO = botElo;
+            return w;
+        }
+
+        /// <summary>原版 `PlayerInfo.SetBotInfo(string botName, int botElo)`（`decomp_full/PlayerInfo__SetBotInfo.c` 全文 4 句）：
+        /// <code>
+        /// Name           = botName;                        // +0x18
+        /// IsBot          = true;                           // +0x11
+        /// ProfileAllianceInfo = new ProfileAllianceInfo(); // +0xa0（= 一份**空**联盟信息）
+        /// if (0 &lt; botElo) CurrentEloRating = botElo;       // +0x40  ★ **elo 只在 &gt; 0 时写**
+        /// </code>
+        /// 🔴 第 4 句是**有闸的**：`botElo &lt;= 0` 时原版**保留原来那一格**（不写 0）。我们的等价 =
+        /// `BotELO` 保持调用方给的值（默认 0 = 没给）⇒ 界面侧**不显示** elo（= 「保留原值」在本窗的落法）。
+        /// <para>⚠️ 差异：原版第 3 句造一个 `ProfileAllianceInfo` 实例；本仓**没有** `ProfileAllianceInfo` 这一族
+        /// （`Shell/ProfileData.cs` 是称号/头像清单，不是玩家档案）⇒ 我们**没有联盟数据可填**（等价空实例），
+        /// 这里只出声、⛔ 不编一个联盟出来。</para></summary>
+        void ApplyBotInfo()
+        {
+            if (!IsBot) return;                              // 非 bot ⇒ 精确地什么都不做（原版那条路根本不进 SetBotInfo）
+            ViewedPlayer = BotName;                          // ★ 第 1 句：Name（本窗用它区分「别人的档案」那条渲染路）
+            // ★ 第 2 句 IsBot = true：由 `IsBot` 属性派生，无需写。
+            // ★ 第 3 句 ProfileAllianceInfo = new（空）：本仓无此类型 ⇒ 空等价，只记一句。
+            Debug.Log("[Profile] bot 档案 '" + BotName + "'：原版 `SetBotInfo` 会造一份**空** `ProfileAllianceInfo`（+0xa0）"
+                    + " —— 本仓没有 `ProfileAllianceInfo` 这一族 ⇒ 联盟那一格恒空（等价空实例，⛔ 不编数据）");
+            // ★ 第 4 句：`0 < botElo` 才写。
+            if (BotELO > 0) Debug.Log("[Profile] bot 档案 '" + BotName + "'：ELO = " + BotELO + "（原版 `+0x40`）");
+            else Debug.Log("[Profile] bot 档案 '" + BotName + "'：`botElo = " + BotELO
+                         + "` ⇒ 按原版**不写** ELO 那一格（`0 < botElo` 才写），界面不显示");
         }
     }
 

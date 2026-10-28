@@ -945,5 +945,88 @@ namespace RuleEngine
             }
             return ResolveTargets(ctx, owner, op.Target, null, chosen, op.TargetCondition, op);
         }
+
+        // ==========================================================================================
+        //  🆕 2026-10-29（第九十四会话 · 执行代理 `B94_F2`）：账 455 / 947 的两件等价位
+        //  （新成员一律追加在类尾 / 本文件尾 —— 避免给 `账/*.tsv` 的 `文件:行号` 落点造成漂移）
+        // ==========================================================================================
+
+        /// <summary>
+        /// **原版 `AbilityLogic.PlayAbility` 的 `chosenAbility 360 = playChosenCardAbility` 支**
+        /// （`decomp_full/AbilityLogic__PlayAbility.c:2014-2070`，逐句现读）。
+        ///
+        /// <para>**「选中的那张」存在哪**：原版 `bm.cardChosenInSelection(+0x2E8)`，写点 =
+        /// `BattleManager__ChoiceOfCardEnemy.c:47` / `BattleManager__ClickChosenCardDone.c:22`；
+        /// 我们 = `BattleContext.CardChosenInSelection`（写点 = `DoChooseCard`）。</para>
+        ///
+        /// <para>**原版逐句**：</para>
+        /// <list type="number">
+        /// <item>`:2015-2019` 取 `thatCard = bm.cardChosenInSelection`；为 `null` ⇒ **整支什么都不做**；</item>
+        /// <item>`:2025-2031` `thatCard` **卡面默认**带 `oath(0x4fb)` ⇒ `BattleManager.PayCardPlayedCostOath(bm, abilityData.actingCard, 0)`
+        ///   （`BattleManager__PayCardPlayedCostOath.c:11-24`：**按 actingCard 自己的 `oath` 值**扣法力 → `CheckIfCodexTriggered(shouldCheckCost:0)`）；</item>
+        /// <item>`:2032-2040` `thatCard.OnTriggerAlt(0 /* ThisCardPlayed */, bm, thisCard, actingCard, targetCard, …, isEnchantment=1, 0)` —— **第一次**；</item>
+        /// <item>`:2043-2057` 带 oath 时 `while (IsThereDoubleOathEffect(bm, actingCard.isPlayer) > i) { 再放一次; i++ }`
+        ///   ⇒ **总次数 = 1 + 同方场上带 `oathDouble(1277)` 的牌数**（我们 = `RuleCore.OathExtraReplays`，判据只此一处）；</item>
+        /// <item>`:2060-2068` 末尾把 `bm.cardChosenInSelection` **清空**。</item>
+        /// </list>
+        ///
+        /// <para>⚠️ **两条如实标着**：① 原版 `OnTriggerAlt` 的 `isEnchantment=1`（同一趟也跑这张卡挂着的附魔能力）
+        /// 我们只在正文解析不出来时才试 `Enchantments.RunGrantedEnvAbility`（见 `RunAbilityOfAnotherCard`），
+        /// **有正文时不跑附魔** —— 与账 1288 同一处缺口；② 目标那一格原版是 `abilityData.targetCard`，
+        /// 我们取调用方给的 `chosen`（= 玩家在主动能力里点定的那个）。</para>
+        ///
+        /// <para>📊 **可达性**：`chosenAbility 360` 池内 **18 张**（其中 10 张带 `oath`）——
+        /// **但上游 `UseActiveAbilityCore` 的 plan 还必须把 `ca == 360` 放进计划表**（那一行归 F1）⇒ 今天仍不达。</para>
+        /// </summary>
+        public static int RunPlayChosenCardAbility(BattleContext ctx, int p, UnitState u, UnitState chosen)   // `public`：自检宿主在**编辑器程序集**里（本仓**没有** `InternalsVisibleTo`，见 `EffectResolver.cs:7794` 那条记录）⇒ 要能被断言直调（先例 = `BroadcastUnitHealed` 也是 public）
+        {
+            if (ctx == null || u == null) return 0;
+            var cc = ctx.CardChosenInSelection;
+            if (cc == null)
+            {
+                ctx.Log($"「{u.Name}」的主动能力 `chosenAbility 360`（playChosenCardAbility）要看**选中的那张卡**，"
+                      + "但 `CardChosenInSelection` 是空的 ⇒ **这一支什么都不做**"
+                      + "（原版 `PlayAbility.c:2015-2019`：`bm.cardChosenInSelection == null` 直接返回）");
+                return 0;
+            }
+            bool oath = cc.Has(KeywordTable.Oath);                 // 原版 `:2025` `HasDefaultTrait(thatCard, oath)` = **卡面印的**
+            if (oath) PayCardPlayedCostOath(ctx, p, u.Instance);   // 原版 `:2032` —— 付的是 **actingCard** 自己的 oath（`PayCardPlayedCostOath.c:11`）
+            int times = oath ? 1 + RuleCore.OathExtraReplays(ctx, p) : 1;   // 原版 `:2043-2057` 的 while（只有带 oath 才补放）
+            int ran = 0;
+            // 🔴 正文键用 **`rally`**，不是 `"ThisCardPlayed"` —— 本仓 `CardDef.TriggerOps` 的键是**卡面触发词**，
+            //   而 `ThisCardPlayed(0)` 的卡面写法就是 `Rally:`（判据 = `ActionPump` 的 `AbilityTriggerNameOfKeyword`
+            //   `case KeywordTable.Rally: return "ThisCardPlayed"`，且池内 105/105 张带 rally 的卡 `abilityTriggers` 都有 0）。
+            //   传 `"ThisCardPlayed"` ⇒ `TriggerOps` 恒 `null` ⇒ 静默空转（本代理 2026-10-29 实测）。
+            for (int i = 0; i < times; i++)
+                if (RunAbilityOfAnotherCard(ctx, cc, KeywordTable.Rally, p, u, actingCard: u, targetCard: chosen, by: u.Name)) ran++;
+            ctx.CardChosenInSelection = null;                      // 原版 `:2060-2068`：`bm+0x2e8 = 0`
+            ctx.Log($"「{u.Name}」的主动能力 `chosenAbility 360`：让选中的「{cc.Name}」按 `ThisCardPlayed` 跑它自己的能力 "
+                  + $"**{ran}/{times}** 次" + (oath ? "（它带 `oath` ⇒ 已按誓约再付一次、并按 `oathDouble` 牌数补放）" : "（不带 `oath` ⇒ 只放一次、不付费）")
+                  + "；选中那一格已清空（原版 `AbilityLogic__PlayAbility.c:2014-2070`）");
+            return ran;
+        }
+
+        /// <summary>
+        /// **原版 `CardScript.TriggerOtherCardAbility(RawCardScript abilityCard)`** 的等价位
+        /// （`out_cpp2il_dev_ilspy/CardScript.cs:7718-7726` ＋ 真值 `out_il2csharp/CardScript.cs:2187-2189`）。
+        ///
+        /// <para>原版逐句：`if (abilityCard != null) abilityCard.OnTriggerEffectInCard(ThisCardPlayed, mgr, this, this, null);`
+        /// ⇒ **trigger 硬编码 `ThisCardPlayed`**、`thisCard = actingCard = 调用者`、`targetCard = null`
+        /// （`il2csharp` 的真值就是 `(ThisCardPlayed, mgr, this, this, 0)`）。</para>
+        ///
+        /// <para>5 个调用点（现读）：`BattleManager__ApplyEnvEffect.c:15` · `_StartBattlePhase_d__334__MoveNext.c:88/201` ·
+        /// `_ResolveSummonUnit_d__510__MoveNext.c:252` · `AbilityLogic__PlayAbility.c:2869`。</para>
+        ///
+        /// <para>⚠️ 账 947 的落点原来写 `EffectResolver.cs:237/334`（那是 **ability 级 `targetCriteria` 闸**，
+        /// 与本方法**无关**）⇒ 本口才是它的等价位（落点已订正）。</para>
+        /// </summary>
+        public static bool TriggerOtherCardAbility(BattleContext ctx, CardDef abilityCard, int owner,
+                                                   UnitState callerCard = null, string by = null)   // `public`：理由同上（编辑器程序集的断言宿主）
+        {
+            if (ctx == null || abilityCard == null) return false;
+            return RunAbilityOfAnotherCard(ctx, abilityCard, KeywordTable.Rally, owner,   // 正文键 = `rally`（= `ThisCardPlayed(0)` 的卡面写法，见上一条注释的判据）
+                                           abilityOwnerUnit: callerCard, actingCard: callerCard, targetCard: null,
+                                           by: by ?? (callerCard != null ? callerCard.Name : abilityCard.Name));
+        }
     }
 }

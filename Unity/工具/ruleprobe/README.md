@@ -480,6 +480,11 @@ bash d:/4/Unity/工具/ruleprobe.sh play UM2   preset chipenemy=1         # 敌�
 - `enemyhand=N` —— 往 **P1 手牌**放 N 张 `FIX_EH*` ⇒ 验 `ChooseAct = shuffle`（`ASH82`）的确定性候选。
 - `chipenemy=1` —— 把 P1 的**非督军**单位各扣 `FixtureChip` 血（走引擎 `ApplyDamage`）⇒
   验「给一个**受伤的**敌人」那一族（`UM2`）。
+- 🆕 `killbymate=1`（`B94_P1`，2026-10-29）—— 事件电池 ⑥ 的凶手**从被测单位之外**挑
+  （默认优先让被测单位当凶手，见 `PickKiller`）。治「`When an enemy dies, …` 的被测卡自己当凶手
+  ⇒ 引擎 `preCalled: actingCard` 把它一起排除 ⇒ 电池净差恒 0」。⛔ 只影响电池那一步、
+  不影响全池读数（`steps` 只在传它时多出 `killPick=` / `afterKill=` 两格诊断）。
+  `play all` 的 ⑧ 自检「敌方阵亡」那一对**内部**就用它（并配 `big=1` 给一个 0 攻/30 血活靶子）。
 ⚠️ 三条都 **⛔ 只用于单卡**：`play all` / `play check` 传 `preset` 会**出声并停**（rc=2）——
 全池读数必须保持同一套夹具，否则「全池对拍」失去意义。
 ⚠️ 预置出来的 `FIX_DEAD*` / `FIX_EH*` **不在卡池里**，是**量具干预**（与 `FixtureFaith` 同档），

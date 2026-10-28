@@ -270,7 +270,7 @@ public static partial class RuleEngineTest
     }
 
     // ==================================================================
-    //  T26 · **泵点集合 = 22 个 `BeginAction` 调用点**（审查第 8 条）
+    //  T26 · **泵点集合 = 26 个 `BeginAction` 调用点**（审查第 8 条；2026-10-29 现读 = 20 + 6）
     // ==================================================================
     /// <summary>
     /// 「漏一个泵点 = 静默丢一条动作」（审查第 1 / 第 5 条就是这么来的）⇒ 这个数必须钉住。
@@ -297,10 +297,13 @@ public static partial class RuleEngineTest
     ///      （⚠️ 这两个**行号 2026-10-27 现读已订正** —— 旧写的 `:8040` / `:7139` 既过期、后者还带着改名前的旧名）
     ///      再加 2026-10-24（引擎线 `A1` 第 4 件）新增的 `BeginTurnForReplayExpansion`（`RuleCore.cs:1690`）= 16；
     ///      再加上面那两处（`:6558` Landing 续攻出队 · `:8105` `RevealSecretOrders`）= 18；
-    ///      + 2026-10-27（`A3`）新增的 `UseActiveAbility`（泵点 `RuleCore.cs:15354`）= **19**。
+    ///      + 2026-10-27（`A3`）新增的 `UseActiveAbility`（泵点 `RuleCore.cs:15354`）= 19；
+    ///      + 2026-10-29（账 `B94_B22`）新增的 `ApplyDamage(…, out killedByVulnerable)` 壳（泵点 `RuleCore.cs:17050`）= **20**。
+    ///   ⇒ ⚠️ 上面那串行号是**当时的坐标**：2026-10-29 现读整体下移（`:6558`→`:6584` · `:8105`→`:8135` ·
+    ///      `:15354`→`:15381`）。**以 `W61CountPumpPoints` 现算为准**，⛔ 别照旧行号对号入座。
     /// 🧨 任何一处 `using (BeginAction…)` 被删 / 被注释掉 ⇒ 数字变小 ⇒ 红（= 那个顶层入口从此不泵队）。
     /// 🧨 **新增**顶层入口时本条也会红 —— 那是**故意的**：去确认新入口真的包了 `BeginAction`，
-    ///    再把这里的期望值 +1（⛔ 别改成「≥22」，那会让「漏一个」和「加一个」分不开）。
+    ///    再把这里的期望值 +1（⛔ 别改成「≥26」，那会让「漏一个」和「加一个」分不开）。
     /// </summary>
     static void W61T26PumpPointCount()
     {
@@ -318,14 +321,25 @@ public static partial class RuleEngineTest
         // 🔴 **2026-10-27（`B87_A3`）：18 → 19** —— 多的一处 = `RuleCore.cs:15354` `UseActiveAbility`
         //   （主动能力**顶层入口**，包了 `using (BeginAction(ctx)) return UseActiveAbilityCore(…)`）。
         //   🧨 判别力没变：任何一处 `using (BeginAction…)` 被删 / 被注释 ⇒ 数字变小 ⇒ 红。
-        Check(nRule, 19, "★ T26 `RuleCore.cs` 的 `using (BeginAction(ctx))` = 19"
-                     + "（2026-10-27 现读。`HEAD` 是 16，多的三处 = `:6558` Landing **续攻出队**那一拍 · "
-                     + "`:8105` `RevealSecretOrders` wrapper · `:15354` `UseActiveAbility`（`A3` 的主动能力入口）"
+        // 🔴 **2026-10-29（`B94_FX8` · DG1 #8/#9/#10）：19/4/23 → 20/6/26。**
+        //   ① `RuleCore.cs` 20 = 旧 19 + `:17050` 的 `ApplyDamage(…, out killedByVulnerable)` 壳（账 `B94_B22`）；
+        //   ② `EffectResolver.cs` 6 = 旧 4 + `HandHops`（`:18841`）+ `BroadcastUnitDamagedHandHops`（`:18983`）
+        //      （`B94_Z2`）；⚠️ 曾经是 7 —— 其中 `:18882 BroadcastTurnStartHandHops` 那一层已被 DG1 γ2 删掉
+        //      （T24 的「只入队」契约优先）。
+        //   数字全部是 `W61CountPumpPoints` 2026-10-29 现算的结果，不是估值；判别力未变。
+        Check(nRule, 20, "★ T26 `RuleCore.cs` 的 `using (BeginAction(ctx))` = 20"
+                     + "（2026-10-29 现读 = 20。比 2026-10-27 的 19 多的那一处 = `:17050` "
+                     + "`ApplyDamage(…, out killedByVulnerable)` 壳（账 `B94_B22`）；"
+                     + "上一档那三处现读 = `:6584` Landing **续攻出队**那一拍 · `:8135` `RevealSecretOrders` wrapper · "
+                     + "`:15381` `UseActiveAbility`（`A3` 的主动能力入口）"
                      + " —— 都是**该包的地方包了**，不是扫描器多算）");
-        Check(nEff, 4, "★ T26 `EffectResolver.cs` 的 `using (BeginAction(ctx))` = 4"
-                     + "（`PlayTacticCore` :2519 · `BroadcastWhen` 壳 :9870 · `GrantDarkPact` 壳 :12324 · **`BroadcastCreatedCardWithWarlordPreCall` :18139**（🔴 2026-10-28 `B89_RD` 订正：3→4 —— `E6` 账 L638/L639 的新件把「预调督军 + 棋盘广播」成对包进同一作用域，`ActionScope` 嵌套安全 `ActionPump.cs:88`）；"
-                     + "2026-10-27 现读 —— 旧写的 :2042/:8341/:10185 是**过期行号**）");
-        Check(nRule + nEff, 23, "★ T26 **泵点总数 = 23**（19 + 4；漏一个 ⇒ 那个顶层入口的触发永远不结算）");
+        Check(nEff, 6, "★ T26 `EffectResolver.cs` 的 `using (BeginAction(ctx))` = 6"
+                     + "（2026-10-29 现读 = 6：`PlayTacticCore` :2538 · `BroadcastWhen` 壳 :9892 · `GrantDarkPact` 壳 :12346 · "
+                     + "**`BroadcastCreatedCardWithWarlordPreCall` :18190**（2026-10-28 `B89_RD` 订正：3→4 —— `E6` 账 L638/L639 的新件把「预调督军 + 棋盘广播」成对包进同一作用域，`ActionScope` 嵌套安全 `ActionPump.cs:88`）· "
+                     + "`HandHops` :18841 · `BroadcastUnitDamagedHandHops` :18983（2026-10-29 `B94_Z2`）；"
+                     + "⚠️ 曾短暂是 7 —— 原 `:18882 BroadcastTurnStartHandHops` 那层作用域已按 DG1 γ2 删掉（T24「只入队」契约优先）；"
+                     + "旧写的 :2042/:8341/:10185 是**过期行号**）");
+        Check(nRule + nEff, 26, "★ T26 **泵点总数 = 26**（20 + 6；漏一个 ⇒ 那个顶层入口的触发永远不结算）");
     }
 
     /// <summary>`T26` 的行扫描：**整行正则** —— 行内**任意位置**出现

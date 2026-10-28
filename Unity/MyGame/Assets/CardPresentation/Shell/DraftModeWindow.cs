@@ -1034,7 +1034,7 @@ namespace CardPresentation
             //   否则资源条会一直压在别的窗上（`TopBar.ToggleOverlay` 是幂等的，重复调无副作用）。
             //   ⚠️ 原版紧跟的第二句 `LiveOpsAssetUtility.Unload(fgImage)` **我们没有对应物** ——
             //   本仓的窗体图走 `Resources`（常驻、无 Addressables 引用计数），没有「卸载」这一步可做。
-            TopBar.ToggleOverlay(TopBar.LastBuilt, false);
+            TopBar.ToggleOverlay(TopBar.LastBuilt, false); if (!string.IsNullOrEmpty(_warlordId)) CardArt.ReleaseFullHeroSprite(_warlordId);   // 账 `战斗逻辑驱动:1280`：原版 `DraftModeMenuDemo__ReleaseMenuWarlordImage`（`decomp_full/…:12-21`）＋ `DraftRunDisplay__OnDestroy`（`:13-33`）—— 那两件在我们这里是**同一扇窗** ⇒ 关窗放一次；实参 = `_warlordId`（本文件 `:2438`/`:2803` 喂 `CardArt.TryDeckHero(_warlordId,…)` 的**同一个** id ⇒ 取图链与放图链同源）。与上一句合并写 = **零行数变化**（本文件 158 条账落点在此行之后）
             base.Close();
         }
 
@@ -4201,7 +4201,7 @@ namespace CardPresentation
                 Debug.Log("[Draft] 联盟页 `40k_campaign_bar_end` 图取不到 ⇒ `end` 那格不画（🔴 不静默）");
             // counter（比分文本 —— 空态留空，服务端数据本地 0）
             MenuDraw.Text(bar, new PxRect(dx + 97.55f, dy + 124.70f, dx + 317.92f, dy + 189.45f), "", Color.white,
-                          "counter", 28f, QText, face: TmpFont.Face.LatinCardBody);
+                          "counter", 28f, QText, face: TmpFont.Face.LatinCardBody); { int armL, armR; DraftArmyPair(out armL, out armR); SetArmies(bar, armL, armR, new PxRect(dx + 34.33f, dy + 136.58f, dx + 108.11f, dy + 210.55f), new PxRect(dx + 308.87f, dy + 135.54f, dx + 382.93f, dy + 209.79f), QArt); }   // 🆕 2026-10-29（B94-S4 · 账 `未分类_其他:41`）：原版 `ArmyProgressBar.SetArmies` 的两格阵营图标（零行数变化：调用挤在本行；实现 = 类尾 `SetArmies`/`DraftArmyPair`）
 
             // ---- ③ `Alliance Event Score Panel`（复用 A103 的 `AllianceEventScorePanel`；🔴 m_LocalScale=0.9558）----
             var score = AllianceEventScorePanel.Create(detail, dx + 15.94f, dy + 217.00f);
@@ -4319,13 +4319,62 @@ namespace CardPresentation
                                 TimedArmyBarR.x1 + TimedArmyBarR.W * ratio, TimedArmyBarR.y2);
             MenuDraw.Rect(bar, CardArt.Solid(), fr, "Fill", QPanelArt, new Color(0.30f, 0.45f, 0.85f, 1f));
             MenuDraw.Text(bar, TimedArmyBarR, t0 + "/" + (t0 + t1), Color.white, "Counter", 28f, QText,
-                          TimedArmyBarR.W, 16f, 28f, 22f, face: TmpFont.Face.LatinCardBody);
+                          TimedArmyBarR.W, 16f, 28f, 22f, face: TmpFont.Face.LatinCardBody); SetArmies(bar, ArmyIcons.Id(TimedDraftLocal.Armies[0]), ArmyIcons.Id(TimedDraftLocal.Armies[1]), new PxRect(TimedArmyBarR.x1, TimedArmyBarR.y1, TimedArmyBarR.x1 + 72f, TimedArmyBarR.y2), new PxRect(TimedArmyBarR.x2 - 72f, TimedArmyBarR.y1, TimedArmyBarR.x2, TimedArmyBarR.y2), QArt);   // 🆕 2026-10-29（B94-S4 · 账 `轮抽:114` 的 `SetArmies` 那一半）：两格阵营图标（零行数变化；两格矩形 🔶 我们挑的 —— 这块 bar 的矩形本来就是自设计，见上方 `TimedArmyBarR`）
         }
 
         // 🔶 自己设计（非原版）：Timed Pay 页三块件的矩形 · 原版尺寸在 prefab（未逐颗量） · 调度台 2026-10-28 裁定
         static readonly PxRect TimedArmyBarR = new PxRect(966.91f, 828f, 1516f, 900f);
         static readonly PxRect TimedAllianceR = new PxRect(966.91f, 906f, 1516f, 962f);
         static readonly PxRect TimedEventImgR = new PxRect(1570f, 300f, 1880f, 760f);
+
+        // ============================================================ 账 `未分类_其他:41` · `ArmyProgressBar.SetArmies`
+        // 判据（🥇 `decomp_full/ArmyProgressBar__SetArmies.c` **全文 10 行**，2026-10-29 现读）：
+        //   ```
+        //   leftArmyImage.sprite  = ArmyUtilities.GetArmyIcon(leftArmy);
+        //   rightArmyImage.sprite = ArmyUtilities.GetArmyIcon(rightArmy);
+        //   ```
+        //   两支各自在 `if (图 == null)` 时走 `FUN_1803f47a0()`（= NRE）—— 我们不崩宿主，改为出声 + 不画（如实记差异）。
+        // 几何（`资料/完全复刻/判据/B90_C2b_远端prefab几何.md` §A-3，相对 `Alliance Detail View` 根）：
+        //   `leftArmyIcon` 34.33,136.58 → 108.11,210.55 · `rightArmyIcon` 308.87,135.54 → 382.93,209.79
+        //   （两颗都挂 `AspectRatioFitter`，高控宽 0.997387 ⇒ 下面 `keepAspect: true` 不是我们挑的）。
+        // 🔶 自己设计（非原版）：**哪两个阵营** —— 原版取 `TimedDraftData.specificArmies[2]`（服务端），
+        //   本地拿不到 ⇒ 用 `TimedDraftLocal.Armies`（我们模拟的那两个）；Demo 变体没有这一层 ⇒ 传 -1 = 不画 + 出声 ·
+        //   调度台 2026-10-29 裁定（B94-S4）。
+        // 🔴 追加在**类尾**（本文件被账按行号引用 ⇒ 既有落点零漂）。
+
+        /// <summary>上一次 <see cref="SetArmies"/> 画出几张阵营图标（0/1/2）—— 自检读口。</summary>
+        public static int LastArmyIconsDrawn { get; private set; }
+
+        /// <summary>= 原版 `ArmyProgressBar.SetArmies(CardArmy, CardArmy)`（判据见本节头）。返回画出来的张数。</summary>
+        public static int SetArmies(Transform bar, int leftArmy, int rightArmy, PxRect leftRect, PxRect rightRect, int q)
+        {
+            LastArmyIconsDrawn = 0;
+            if (bar == null)
+            {
+                Debug.LogWarning("[Draft] `ArmyProgressBar.SetArmies`：bar 是 null ⇒ 没画（原版这一支 NRE）");
+                return 0;
+            }
+            var lt = leftArmy == ArmyIcons.Neutral ? null : ArmyIcons.Texture(leftArmy);   // `ArmyUtilities.GetArmyIcon`
+            var rt = rightArmy == ArmyIcons.Neutral ? null : ArmyIcons.Texture(rightArmy);
+            if (lt == null) Debug.LogWarning("[Draft] `ArmyProgressBar.leftArmyImage` 取不到图（army=" + leftArmy
+                                          + "）⇒ 那一格不画（原版这一支 NRE；⛔ 不拿别的图顶）");
+            if (rt == null) Debug.LogWarning("[Draft] `ArmyProgressBar.rightArmyImage` 取不到图（army=" + rightArmy
+                                          + "）⇒ 那一格不画（原版这一支 NRE；⛔ 不拿别的图顶）");
+            if (lt != null && MenuDraw.Rect(bar, lt, leftRect, "leftArmyIcon", q, null, true) != null) LastArmyIconsDrawn++;
+            if (rt != null && MenuDraw.Rect(bar, rt, rightRect, "rightArmyIcon", q, null, true) != null) LastArmyIconsDrawn++;
+            return LastArmyIconsDrawn;
+        }
+
+        /// <summary>轮抽那两个对阵阵营（`CardArmy` 值）。Timed 才有一层部队过滤；Demo 变体没有 ⇒ `-1,-1`（= 不画）。
+        /// 🔶 自己设计（非原版）：原版取 `specificArmies`（服务端）· 见本节头。</summary>
+        public static void DraftArmyPair(out int left, out int right)
+        {
+            left = -1; right = -1;
+            if (!TimedDraftLocal.Enabled) return;
+            var a = TimedDraftLocal.Armies;
+            if (a != null && a.Length > 0) left = ArmyIcons.Id(a[0]);
+            if (a != null && a.Length > 1) right = ArmyIcons.Id(a[1]);
+        }
     }
 
     /// <summary>Timed 轮抽的**本地模拟配置**（原版 `TimedDraftData` + 排行榜 + Premium 价格 全在服务端，离线 build 取不到）。

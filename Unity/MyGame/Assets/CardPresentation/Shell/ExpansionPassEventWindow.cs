@@ -2757,7 +2757,7 @@ namespace CardPresentation
             //   ⛔ 否则会在每次建窗时白打一条告警、并把 `_getCardsClickBound` 提前置成 false。
             if (_content == null) return;
             var plan = ExpansionPassEventTabLogic.Reset(_event != null, _whereBtn != null);
-            Debug.LogWarning("[ExpansionPass] `Reset`：原版那句 `LogWarning` 的**原文没解出**（`DAT_1842926d0` 是字符串对象）"
+            Debug.LogWarning("[ExpansionPass] `Reset`：原版那句 `LogWarning` 的**原文没解出**（`DAT_1842afd40` 那个字面量全仓只此一处，⛔ 交叉不出；`DAT_1842926d0` 是 `Unload<Int32Enum>` 的泛型上下文、⛔ 不是字符串 —— 2026-10-29 `B94_B4` 就地订正）"
                            + " ⇒ 我们只出声、不编原文。要卸的 liveops 图 = " + string.Join("/", plan.AssetTypes)
                            + "（本地一张都没加载 ⇒ 空）；摘监听 = " + plan.RemovesGetCardsListener + "。");
             _getCardsClickBound = !plan.RemovesGetCardsListener;

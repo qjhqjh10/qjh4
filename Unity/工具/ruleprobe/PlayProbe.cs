@@ -572,6 +572,26 @@ class PlayProbe
         public int SelfDies;
 
         // ==================================================================
+        //  🆕 `B94_P1`（2026-10-29）：**⑥ 的凶手不得是被测单位**（`killbymate=1`）
+        // ==================================================================
+        //
+        // 🔴 **它治的是哪一条**（判据 → `判据/B94_R-Y_play自检红诊断.md` §一·3 / §四）：
+        //   引擎 `RuleCore.cs:10063` 的死亡广播带 `preCalled: actingCard`（原版
+        //   `BattleManagerSupport__BroadcastDeadUnit.c` 的「棋盘跳排除凶手」）⇒ **凶手不会被
+        //   自己这一记造成的死亡唤醒**。而电池 ⑥ 的 `PickKiller` **优先返回被测单位**
+        //   （夹具近战 3 > 0 ⇒ 恒真）⇒ 挂 `When an enemy dies, …` 的被测卡当**凶手兼监听者**
+        //   ⇒ 永远听不见 ⇒ ⑧ 自检的「敌方阵亡（⑥ 真击杀）」那一对**两条净差恒 0**（诚实、但没验到）。
+        //   ⇒ 本开关**只在那一对自检**里打开：⑥ 的凶手**从被测单位之外**挑
+        //   （`PickAttackerOnSide` 排除被测那一格）。
+        //
+        // ⚠️ **这是量具干预**（与 `selfdies=` / `dead=` / `big=` 同一档）：它不声称原版有这样的事件顺序；
+        //   它只回答「让**别人**打死这个敌人，挂 `When an enemy dies` 的那一族会不会响」。
+        // ⛔ **不传 `killbymate=1` 时 `steps` 与读数一个字节都不变** —— 这一步**不进**默认电池，
+        //   所以全池 `play check` 的 `PinnedPlayMd5` **不受影响**（⛔ 别把它改成无条件的一步）。
+        /// <summary>`killbymate=1` —— ⑥ 的凶手从**被测单位之外**挑（治 ⑧「敌方阵亡」那一对的量具盲区）。</summary>
+        public int KillByMate;
+
+        // ==================================================================
         //  🆕 `B9_W41S3B`（2026-10-27）：**督军档的电池宿主**（`hero=1`）
         // ==================================================================
         //
@@ -620,6 +640,7 @@ class PlayProbe
         public bool Any { get { return Dead > 0 || EnemyHand > 0 || ChipEnemy > 0
                                     || !string.IsNullOrEmpty(Substitute) || Legal > 0
                                     || HandListenMode || Big > 0 || SelfDies > 0 || HeroBattery > 0
+                                    || KillByMate > 0
                                     || !string.IsNullOrEmpty(StripKw); } }
 
         /// <summary>`dead[=N][:Subtype][,enemyhand=N][,chipenemy=1]`。⛔ 认不出的 token 一律**抛错**（不静默忽略 ——
@@ -670,6 +691,11 @@ class PlayProbe
                     //   （治 `Unstable 81`；见 `PresetSpec.SelfDies` 的整段注释）。
                     case "selfdies":
                         ps.SelfDies = string.IsNullOrEmpty(val) ? 1 : int.Parse(val);
+                        break;
+                    // 🆕 `B94_P1`（2026-10-29）：`killbymate=1` —— ⑥ 的凶手从**被测单位之外**挑
+                    //   （治 ⑧「敌方阵亡」那一对的量具盲区；见 `PresetSpec.KillByMate` 的整段注释）。
+                    case "killbymate":
+                        ps.KillByMate = string.IsNullOrEmpty(val) ? 1 : int.Parse(val);
                         break;
                     // 🆕 `B9_W41S3B`（2026-10-27）：`hero=1` —— 督军档的**电池宿主**
                     //   （治 A1 族；见 `PresetSpec.HeroBattery` 的整段注释）。
@@ -743,7 +769,7 @@ class PlayProbe
                         break;
                     default:
                         throw new ArgumentException("不认识的预置项 `" + raw + "`（只认 dead / enemyhand / chipenemy / sub / legal"
-                                                  + " / pick / tpick / big / selfdies / hero / aa"
+                                                  + " / pick / tpick / big / selfdies / killbymate / hero / aa"
                                                   + " / hand / handn / event / amount / legacy / face）"
                                                   + "　⚠️ `preset` 是用**逗号**分项的 ⇒ 卡名里带逗号的两张"
                                                   + "（`Varius, Lord Kakophonist` / `Xarahan, Daemon Prince`）"
@@ -2563,10 +2589,24 @@ class PlayProbe
             // ② 候选击杀者：被测单位优先（Slay 的凶手），其次己方攻击力最高的部队
             var killers = new List<int>();
             bool kRanged = false;
-            int k0 = PickKiller(ctx, 0, slot, out kRanged);
-            if (k0 >= 0) killers.Add(k0);
-            int k1 = PickAttackerOnSide(ctx, 0);
-            if (k1 >= 0 && !killers.Contains(k1)) killers.Add(k1);
+            if (preset != null && preset.KillByMate > 0)
+            {
+                // 🆕 `B94_P1`（2026-10-29）：**凶手不得是被测单位** —— 见 `PresetSpec.KillByMate`。
+                //   治的是「`When an enemy dies, …` 的被测卡自己当凶手 ⇒ `preCalled` 排除把它一起挡掉
+                //   ⇒ ⑧ 自检那一对两条净差恒 0」。诊断格：`def` = 默认会挑谁（= 被测单位），
+                //   `mate` = 排除被测格之后实际用的凶手 —— 前提「P0 还有别的攻击者」在这一格就能读出来。
+                int kdef = PickKiller(ctx, 0, slot, out kRanged);
+                int kmate = PickAttackerOnSide(ctx, 0, slot);
+                ep.Steps.Add("killPick=def" + kdef + "/mate" + kmate);
+                if (kmate >= 0) killers.Add(kmate);
+            }
+            else
+            {
+                int k0 = PickKiller(ctx, 0, slot, out kRanged);
+                if (k0 >= 0) killers.Add(k0);
+                int k1 = PickAttackerOnSide(ctx, 0);
+                if (k1 >= 0 && !killers.Contains(k1)) killers.Add(k1);
+            }
             var parts = new List<string>();
             foreach (int k in killers)
             {
@@ -2587,6 +2627,18 @@ class PlayProbe
             killStep = string.Join(";", parts) + "@tgt" + kv;
         }
         ep.Steps.Add("kill=" + killStep);
+        if (preset != null && preset.KillByMate > 0)
+        {
+            // 🔶 诊断（只在 killbymate=1）：杀完之后 P1 还剩几个非督军活部队
+            //   （「When an enemy dies, deal N damage to an enemy troop」这一族要不要一个活靶子）。
+            int alive = 0;
+            for (int s = 0; s < BoardSpec.Size; s++)
+            {
+                var t = ctx.Players[1].Board[s];
+                if (t != null && !t.IsWarlord && !t.IsRemnant && t.Health > 0) alive++;
+            }
+            ep.Steps.Add("afterKill=P1troop" + alive);
+        }
         var s7 = Capture(ctx);
 
         // ---- ⑦ 🆕 `B9_W41S3B`（2026-10-27）：`preset selfdies=1` ⇒ **把被测单位自己打死** ----
@@ -2735,13 +2787,17 @@ class PlayProbe
     }
 
     /// <summary>🆕 `A1965`：该侧一个**近战攻击力最高**的部队格（同攻取格号小者；`-1` = 没有）。
-    /// 用来让 P1 打死那个 1 血的路标石部队（`friendDies` 一步）—— 排序**定死**、不随机。</summary>
-    static int PickAttackerOnSide(BattleContext ctx, int p)
+    /// 用来让 P1 打死那个 1 血的路标石部队（`friendDies` 一步）—— 排序**定死**、不随机。
+    /// 🆕 `B94_P1`（2026-10-29）：`except` 非负时**跳过那一格**（⑥ 的 `killbymate=1` 用它把
+    ///   **被测单位**从凶手候选里剔掉 —— 否则夹具里它与 `FIX_B` 同为 3 攻、按「同攻取格号小者」
+    ///   会又落回被测单位那一格，等于没换凶手）。缺省 `-1` ⇒ 既有调用点逐字不变。</summary>
+    static int PickAttackerOnSide(BattleContext ctx, int p, int except = -1)
     {
         var b = ctx.Players[p].Board;
         int best = -1;
         for (int s = 0; s < BoardSpec.Size; s++)
         {
+            if (s == except) continue;
             var u = b[s];
             if (u == null || u.IsWarlord || u.IsRemnant || u.Attack <= 0) continue;
             if (best < 0 || u.Attack > b[best].Attack) best = s;
@@ -3998,7 +4054,15 @@ class PlayProbe
             new object[] { "Uprising（troop2）",     "Uprising: Deal 3 damage to an enemy troop",                            "Uprising: Deal 8 damage to an enemy troop",                            new[] { "Uprising" } },
             new object[] { "友军阵亡（friendDies）",  "When a friendly troop dies, deal 3 damage to an enemy troop",          "When a friendly troop dies, deal 8 damage to an enemy troop",          new string[0] },
             // 🆕 `A1965` 续工：第 ⑥ 步改成**真击杀路**之后补的这一对 —— 验「**敌方**阵亡」那一族。
-            new object[] { "敌方阵亡（⑥ 真击杀）",   "When an enemy dies, deal 3 damage to an enemy troop",                   "When an enemy dies, deal 8 damage to an enemy troop",                   new string[0] },
+            // 🆕 `B94_P1`（2026-10-29）：这一对**必须**让 ⑥ 的凶手是**别人**（不是被测卡），
+            //   否则 `RuleCore.cs:10063` 的 `preCalled: actingCard` 会把这个「凶手兼监听者」一起排除
+            //   ⇒ 两条净差恒 0（诚实、但没验到）。第 5 格 = 只在**这一对**生效的预设
+            //   （`killbymate=1`；⛔ 池内 `E|` 行的 `steps` 一个字节都不变，见 `PresetSpec.KillByMate`）。
+            //   🔴 `B94_P1` 第二笔：还要给「deal N damage to an enemy troop」留一个**活靶子** ——
+            //   ⑥ 那一记会把 P1 最后一个非督军部队打死（实测 `afterKill=P1troop0`）⇒ 正文就算响了
+            //   也没目标 ⇒ 两条净差照样 0。`big=1`（P1 一张 **0 攻 / 30 血**部队，`BigSlot`）常驻
+            //   ⇒ 死一个之后仍有敌人可打。⛔ 两局同夹具、同靶子 ⇒ 噪声照旧相减。
+            new object[] { "敌方阵亡（⑥ 真击杀）",   "When an enemy dies, deal 3 damage to an enemy troop",                   "When an enemy dies, deal 8 damage to an enemy troop",                   new string[0], new PresetSpec { KillByMate = 1, Big = 1 } },
             // ⚠️ **`收路标石` 这一对是看门狗 —— 它盯过一条真引擎缺陷，现已修好（2026-10-19 同日）。**
             //   本会话实测（第五十五会话 `E8`）：`collect` 那一步 **rc=0、残骸已形成**
             //   （`steps` 里 `collect=0@1/rem+way`），但两条正文的净差**都是 0**。
@@ -4023,8 +4087,10 @@ class PlayProbe
         {
             string what = (string)p[0], a = (string)p[1], b = (string)p[2];
             var kw = (string[])p[3];
-            var ra = MeasureEvents(pool, fx("FX-EBA", a, kw));
-            var rb = MeasureEvents(pool, fx("FX-EBA", b, kw));
+            // 🆕 `B94_P1`：第 5 格 = 这一对专用的预设（缺省 null ⇒ 与改前逐字相同）。
+            var pre = p.Length > 4 ? (PresetSpec)p[4] : null;
+            var ra = MeasureEvents(pool, fx("FX-EBA", a, kw), pre);
+            var rb = MeasureEvents(pool, fx("FX-EBA", b, kw), pre);
             string na = Norm(ra), nb = Norm(rb);
             bool diff = na != nb;
             Console.WriteLine("    " + (diff ? "✅" : "🔴") + " " + Pad(what, 22)
@@ -4275,7 +4341,7 @@ class PlayProbe
     //    ⛔ **另外三颗指纹原样不动**：`PinnedPoolMd5`（卡池没改）· `PinnedParseMd5`（`check` 现跑
     //      解析差异仍 0 行、输出指纹 ✓）· `PinnedBaselineMd5`（`基线/out_baseline.txt` 没重生成）。
     //    判据全文 → `资料/普查产出_1025/E6_十三行接闸.md` §五·2 / §六。
-    public const string PinnedPlayMd5 ="2f901cc9d0138bf968919054b00d29ef";   // 🔴 2026-10-28 重钉（第九十三会话 · 同步点 · 调度台串行 · **先测后钉**）：差异面**只有 3 张卡**（全在 ①-b 事件电池，①-a 主档 **1,129 张逐字节全等**）：`DA19` raw 49→48 / net 1→0 · `SAU32` raw 45→44 / netDmg 3→0 · `TAU70` 同类。**归因（`B93_F7` 634 第②条）= `RuleCore.cs:10063` 的死亡广播补 `preCalled: actingCard`** —— 原版 `BattleManagerSupport__BroadcastDeadUnit.c` 棋盘跳是 `if (unitsInPlay[i] != battleAction.actingCard)` ⇒ **凶手不会被自己这一记的死亡唤醒**；我们改前没有这道排除 ⇒ 这三张（`abilityTriggers` 都含 **90**，且电池那一步是「被它自己那一记攻击打死」）**多响了**，net→0 是修掉多响，**不是回归**。⚠️ 同会话另两笔（`559` 的 `TriggerSacrificeOnDeath`、`RuleCore.cs:10109` 那行）**池内 0 张可达**，不参与本指纹。上一版 = ef8a0249…（其归因：`DA72` 的 `create`+`decktop` 照抄原版随机）。   // 🔴 2026-10-28 重钉（第九十二会话 · 同步点 · 调度台串行 · **先测后钉**）：差异面**只有 1 张卡 `DA72`**（事件电池 `net 8→6`；①-a 主档 **1,129 张逐字节全等**）。归因 = `报告/B92_B2b.md` §2·2 的 W2「`create`+`decktop` 照抄原版随机」（`AddCardInPlayToDeck.c:48-51` 的 `toTop` 是**字面 0**、卡面却承诺 `at the top of your deck` ⇒ **原版 bug**，按 18·0 照抄，⛔ 别修好；全池只有 DA72 写 at the top）。同批另三件（W1 伴生卡 `ephemeral` / `IsUnitInPlay` 收紧 / `cardState` 写点）**结构上不在 `play check` 的可见窗口** ⇒ 由 `RuleEngineTest.Run` 覆盖，⛔ 别把这里的「只有 1 张变」当成「那三件没改」。上一版 = 6cbb80d7…（其归因：本批**两处有意改行为**，差异面**只有 2 张卡**（逐卡已核）：① `UM118`（主档 + 电池）—— `valueOptions 101` 按原版语义改（`referencedBaseCard` 1,351 张全空、唯一写点池内 0 行 ⇒ 原版这一格恒 null ⇒ 誓约伤害恒 0；调度台 2026-10-28 裁定「照抄原版」，⛔ 别改回近似）；② `GSC49`（电池）—— `stealMinion` 改回**永久**（原版 `ChangeOwner` 只取反 `isPlayer`、`EndTurn` 无归还路）；另有 `RuleCore` 回合末撤增益改「逐条入队」+ 一条 `ctx.Log` 文案订正（对指纹的贡献已含在上面两张里，其余 1,127 张逐字节不变）。上一版 = be75a11d…）   // 🔴 2026-10-28 重钉（第九十一会话 · 同步点 · 由调度台串行执行）：本批**两处有意改行为**，差异面**只有 2 张卡**（逐卡已核）：① `UM118`（主档 + 电池）—— `valueOptions 101` 按原版语义改（`referencedBaseCard` 1,351 张全空、唯一写点池内 0 行 ⇒ 原版这一格恒 null ⇒ 誓约伤害恒 0；调度台 2026-10-28 裁定「照抄原版」，⛔ 别改回近似）；② `GSC49`（电池）—— `stealMinion` 改回**永久**（原版 `ChangeOwner` 只取反 `isPlayer`、`EndTurn` 无归还路）；另有 `RuleCore` 回合末撤增益改「逐条入队」+ 一条 `ctx.Log` 文案订正（对指纹的贡献已含在上面两张里，其余 1,127 张逐字节不变）。上一版 = be75a11d…
+    public const string PinnedPlayMd5 ="228f43042d8eab318bcf40bd9b00cd5c";   // 🔴 2026-10-29 重钉（第九十四会话 · 同步点 · 调度台串行 · **先测后钉**）：差异面**只有 28 张卡**，形态**全部是「多付一次能量」**（`energyDelta` 更负 1~2 格、`other` 列 +1、`changesFull` 里出现「照卡面应付 N · 除付费外净 -M」）。**归因 = 本会话 `B94_F1` 的誓约出牌费 `RuleCore.PayCardPlayedCostOath`（`RuleCore.cs:16960`）+ `B94_Z3` 的 `chosenAbility 360` 支** —— 名单 = `UM89`–`UM118` 共 26 张 + 2 张带 `Oath N:` 的战术卡（`Angel's Wrath` / `Catechism of Death`）。判据 = 原版 `AbilityLogic__PlayAbility.c:2033`（`0x168=360` 支先 `PayCardPlayedCostOath` 再放）⇒ **这是补上的原版行为，不是回归**。⚠️ 同批 `B94_B21` 的 `BroadcastTurnSetup` / `Z2` 的手牌跳 / `B13` 的 `damageType` 全部**池内 0 张可达 ⇒ 不进指纹**（逐条已核）。另：`⑧ 事件电池自检` 本会话修好了夹具（`B94_P1`，`killbymate=1` + `big=1`），**池内 1073 条 steps 逐行未变**（已 cmp 验证），所以那次修复不参与本次重钉。上一版 = 2f901cc9…（其归因：`B93_F7` 的死亡广播补 `preCalled: actingCard`）   // 🔴 2026-10-28 重钉（第九十三会话 · 同步点 · 调度台串行 · **先测后钉**）：差异面**只有 3 张卡**（全在 ①-b 事件电池，①-a 主档 **1,129 张逐字节全等**）：`DA19` raw 49→48 / net 1→0 · `SAU32` raw 45→44 / netDmg 3→0 · `TAU70` 同类。**归因（`B93_F7` 634 第②条）= `RuleCore.cs:10063` 的死亡广播补 `preCalled: actingCard`** —— 原版 `BattleManagerSupport__BroadcastDeadUnit.c` 棋盘跳是 `if (unitsInPlay[i] != battleAction.actingCard)` ⇒ **凶手不会被自己这一记的死亡唤醒**；我们改前没有这道排除 ⇒ 这三张（`abilityTriggers` 都含 **90**，且电池那一步是「被它自己那一记攻击打死」）**多响了**，net→0 是修掉多响，**不是回归**。⚠️ 同会话另两笔（`559` 的 `TriggerSacrificeOnDeath`、`RuleCore.cs:10109` 那行）**池内 0 张可达**，不参与本指纹。上一版 = ef8a0249…（其归因：`DA72` 的 `create`+`decktop` 照抄原版随机）。   // 🔴 2026-10-28 重钉（第九十二会话 · 同步点 · 调度台串行 · **先测后钉**）：差异面**只有 1 张卡 `DA72`**（事件电池 `net 8→6`；①-a 主档 **1,129 张逐字节全等**）。归因 = `报告/B92_B2b.md` §2·2 的 W2「`create`+`decktop` 照抄原版随机」（`AddCardInPlayToDeck.c:48-51` 的 `toTop` 是**字面 0**、卡面却承诺 `at the top of your deck` ⇒ **原版 bug**，按 18·0 照抄，⛔ 别修好；全池只有 DA72 写 at the top）。同批另三件（W1 伴生卡 `ephemeral` / `IsUnitInPlay` 收紧 / `cardState` 写点）**结构上不在 `play check` 的可见窗口** ⇒ 由 `RuleEngineTest.Run` 覆盖，⛔ 别把这里的「只有 1 张变」当成「那三件没改」。上一版 = 6cbb80d7…（其归因：本批**两处有意改行为**，差异面**只有 2 张卡**（逐卡已核）：① `UM118`（主档 + 电池）—— `valueOptions 101` 按原版语义改（`referencedBaseCard` 1,351 张全空、唯一写点池内 0 行 ⇒ 原版这一格恒 null ⇒ 誓约伤害恒 0；调度台 2026-10-28 裁定「照抄原版」，⛔ 别改回近似）；② `GSC49`（电池）—— `stealMinion` 改回**永久**（原版 `ChangeOwner` 只取反 `isPlayer`、`EndTurn` 无归还路）；另有 `RuleCore` 回合末撤增益改「逐条入队」+ 一条 `ctx.Log` 文案订正（对指纹的贡献已含在上面两张里，其余 1,127 张逐字节不变）。上一版 = be75a11d…）   // 🔴 2026-10-28 重钉（第九十一会话 · 同步点 · 由调度台串行执行）：本批**两处有意改行为**，差异面**只有 2 张卡**（逐卡已核）：① `UM118`（主档 + 电池）—— `valueOptions 101` 按原版语义改（`referencedBaseCard` 1,351 张全空、唯一写点池内 0 行 ⇒ 原版这一格恒 null ⇒ 誓约伤害恒 0；调度台 2026-10-28 裁定「照抄原版」，⛔ 别改回近似）；② `GSC49`（电池）—— `stealMinion` 改回**永久**（原版 `ChangeOwner` 只取反 `isPlayer`、`EndTurn` 无归还路）；另有 `RuleCore` 回合末撤增益改「逐条入队」+ 一条 `ctx.Log` 文案订正（对指纹的贡献已含在上面两张里，其余 1,127 张逐字节不变）。上一版 = be75a11d…
 
 
     /// <summary>`play check` 的缺省基线 —— **按名字往上找**（形状照 `Program.CheckMain.DefaultBaseline`，

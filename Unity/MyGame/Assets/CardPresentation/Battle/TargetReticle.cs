@@ -506,14 +506,14 @@ namespace CardPresentation
 
         /// <summary>
         /// 把「准星世界位」这条射线打到两个平面上、**取近的那个命中点**（原版 `UpdateTrail` 的 ①～④）。
-        /// 两个平面都没打中（射线背对）⇒ **原样返回**，并把 `AimMisses` 记一笔（自检看得见，不静默）。
+        /// 两个平面都没打中（射线背对）⇒ 原版落点写 **世界原点**（双哨兵 `fVar9<=fVar10` 取第二平面默认值 `Vector3.zero`），并把 `AimMisses` 记一笔（自检看得见）。
         /// </summary>
         public Vector3 ResolveAim(Vector3 reticleWorld)
         {
             // 🔴 **没有独立的战场相机 ⇒ 不求交**（2D 兜底布局）：那种布局里「世界坐标」本来就是屏幕平面
             //    上的坐标，拿射线去撞平面等于把点搬走。原版那套几何只对**透视的 3D 战场**成立。
             //    （3D 战场由 `BattleScene` 建出来并把 `boardCam` 交给 `BattleDriver`。）
-            if (boardCam == null) { LastAim = reticleWorld; LastAimOnPlane = false; return reticleWorld; }
+            if (boardCam == null) { LastAim = reticleWorld; LastAimOnPlane = false; return reticleWorld; }   // 🔶 自己设计（非原版）：2D 兜底布局没有战场相机 ⇒ 不做平面求交（原版此处会 NRE）；调度台 2026-10-29 B94_X2
 
             var bc = boardCam;
             var hc = hudCam != null ? hudCam : Camera.main;
@@ -537,9 +537,9 @@ namespace CardPresentation
 
             float best = Mathf.Min(dFloor, dEnemy);
             if (best == float.MaxValue)
-            {
-                AimMisses++; LastAim = reticleWorld; LastAimOnPlane = false;
-                return reticleWorld;
+            {   // 原版两平面都打空 ⇒ 两个距离都是哨兵 float.MaxValue，`fVar9 <= fVar10`（相等）取第二平面那一支的默认点 = 静态 `Vector3.zero` ⇒ 落点写【世界原点】，⛔ 不是 reticleWorld（照抄原版怪值）
+                AimMisses++; LastAim = Vector3.zero; LastAimOnPlane = false;
+                return LastAim;
             }
             LastAim = ray.GetPoint(best);
             LastAimOnPlane = true;
@@ -567,7 +567,7 @@ namespace CardPresentation
             if (kind != _lastPunchKind) ApplyAttackType(kind);
             var aim = ResolveAim(pointerWorld);
             aim.z = Z;
-            if (_cross != null) _cross.transform.localPosition = aim + new Vector3(0f, 0f, -0.02f);
+            if (_cross != null) { var c = pointerWorld; c.z = Z; _cross.transform.localPosition = c + new Vector3(0f, 0f, -0.02f); }   // 🔴 准星本体跟【原始指针】走（原版 `MoveCrosshair.c` 第一句 set_position(targetPositionUISpace)）；弧线终点才是 `UpdateTrail` 求交点
             anchor.z = Z;
             UpdateArc(anchor, aim, kind);
         }
@@ -737,6 +737,37 @@ namespace CardPresentation
                     new GradientAlphaKey(0f, 1f),
                 });
             _line.colorGradient = g;
+        }
+
+        // ==================================================================
+        //  🆕 2026-10-29（`B94_X2` · 账 `战斗逻辑驱动:381`）：**准星本体与弧线终点分开喂**的重载。
+        //  判据 = 原版 `TargetReticleController` 是**两个不同的点**：
+        //    · 准星（HUD 画布帧）跟**原始指针** —— `TargetReticleController__MoveCrosshair.c` 第一句
+        //      `crosshair.transform.set_position(targetPositionUISpace)`（原始指针世界点）；
+        //    · 弧线终点（棋盘 3D 帧）才走 `UpdateTrail` 的双平面求交（`+0x64 desiredWorldPosition`）。
+        //  3 参 <see cref="Show"/> 把两者都当 `to`（求交点）—— 那是**旧的不精确口径**，保留只为既有调用点零改动；
+        //  调用方应改用本重载，并把**原始指针世界点**传 `crossAt`（弧线终点仍传 `to` = 求交点）。
+        // ==================================================================
+        public void Show(Vector3 from, Vector3 to, AttackKind kind, Vector3 crossAt)
+        {
+            Build();
+
+            from.z = Z; to.z = Z; crossAt.z = Z;
+
+            if (_cross != null)
+            {
+                _cross.gameObject.SetActive(true);
+                // 准星压在【原始指针】上（比弧线再靠前一点，别被线穿过去）
+                _cross.transform.localPosition = crossAt + new Vector3(0f, 0f, -0.02f);
+            }
+
+            ApplyAttackType(kind);
+            UpdateArc(from, to, kind);
+            Visible = true;
+            Cursor.visible = false;
+
+            _fadeDir = +1;
+            ApplyFade();
         }
     }
 }

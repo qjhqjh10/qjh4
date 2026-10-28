@@ -1355,5 +1355,30 @@ namespace CardPresentation
             if (fx != null) fx.DoDestroy();
             dict.Remove(key);                    // …但字典照样摘（原版 `Dictionary.Remove` 在判空之内）
         }
+
+        // ══════════════════════════════════════════════════════════════════════════════════════
+        //  🆕 2026-10-29（执行代理 `F5` · 账 `战斗逻辑驱动:992`）：原版 `CardTraitCollection.GetTraitEffects(trait)`
+        //  ══════════════════════════════════════════════════════════════════════════════════════
+        //  判据（🥇 `decomp_full/CardTraitCollection__GetTraitEffects.c:1-29`，逐句）：
+        //      字典按 `trait` 查到 entry 后，**直接返回 `entry + 0x38` 那一整列**
+        //      （即这个 trait 名下**全部** trigger 档的效果，**不分 2/3/5/6**；查不到 ⇒ 返回 0）。
+        //  我们这一侧把它**按 trigger 拆成了三本**（`_playBook` / `_triggerBook` / `_startBook`），
+        //  ⇒ 「整列」= 三本各自取到的行**拼起来**。本方法补的就是「整列」这个读口
+        //  （`GetTraitEffect` 那个「单条」档 = `PrefabFor(trait, trigger, army)`）。
+        //  ⚠️ 顺序：按数据表里**原始行序**（`_allRows` 的次序）—— 原版返回的是整列引用、调用方自己遍历，
+        //     没有「重排」这一步；这里也不重排。
+        /// <summary>原版 `CardTraitCollection.GetTraitEffects(trait)` 的等价物：这个 trait 名下**全部行**
+        /// （不分 trigger 档；= 我们的三本 `_playBook` + `_triggerBook` + `_startBook` 的并集，按数据原序）。
+        /// <para>空名 / 表里没有它 ⇒ **空数组**（原版那一档返回 0，调用方遍历 0 次 —— 同形）。</para></summary>
+        public static TraitEffectBinding[] AllRowsFor(string trait)
+        {
+            EnsureBindings();
+            var t = Norm(trait);
+            if (t.Length == 0) return new TraitEffectBinding[0];
+            var l = new List<TraitEffectBinding>();
+            for (int i = 0; i < _allRows.Length; i++)
+                if (string.Equals(_allRows[i].Trait, t, System.StringComparison.Ordinal)) l.Add(_allRows[i]);
+            return l.ToArray();
+        }
     }
 }

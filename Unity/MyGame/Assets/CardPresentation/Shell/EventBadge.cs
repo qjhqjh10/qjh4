@@ -16,7 +16,7 @@
 //      → `Join(icon.DORotate((0,0,+360), 0.4, WorldAxisAdd))` → `AppendInterval(2.0)`
 //      → `Append(holder.DOFillAmount(0, 0.4))` → `Join(icon.DORotate((0,0,−360), 0.4, WorldAxisAdd))`
 //
-// ============================ 本文件**没有**做的三格（⛔ 别当成「已复刻」）============================
+// ============================ 本文件**没有**做的几格（⛔ 别当成「已复刻」；③ 的两小格已于 2026-10-28/10-29 解掉）============================
 //   ① 🔴 **prefab 几何 / 节点树**：`assets_full` 全量按 `notificationHolder`/`notificationText` 字段名搜
 //      = **0 命中**（本 build 的 `EventBadge` prefab 不在离线包里；它是活动组件 `EventComponents[25]` 的远端引用）
 //      ⇒ **不建树**。本类改成「由宿主 `Bind(...)` 把 6 个件交进来」，没绑就出声（⛔ 不静默）。
@@ -29,8 +29,8 @@
 //      **`TweenSettingsExtensions.From<float,float,FloatOptions>(t, 0f, true, false)`**
 //      （判据 = `d:/2/tools/il2cpp_out/dump.cs:1010694` 的 `|-RVA: 0xDC57C0` 那一行）
 //      ⇒ 那条就是 `DOFillAmount(1, 0.4).From(0)`，= 我们已在做的「fill 从 0 补到 1」。⛔ 别再当成未解。
-//      **仍缺**：punch 的**基向量**来自一个**运行期才解的静态结构**（`.c`：`*(float*)(*(klass +0xb8 /*static_fields*/) + 0xc / +0x14)`）
-//      ⇒ 本机读不到它的值 ⇒ 做成**可覆写字段** `PunchBase`，默认 `Vector3.one`（DOTween 语义下 punch 是偏移，恒 0 = 什么都不动 ⇒ `Vector3.one` 是唯一非退化候选，**但这仍是我们挑的**）。
+//      ✅ **punch 的基向量已有判据（2026-10-29 · `B94_R-H` 用 VA + 元数据定的；全文 → `判据/B94_R-H_死亡回合谓词VA复核.md` §6.1）**：`.c` 里那个「运行期才解的静态结构」= **`UnityEngine.Vector3_TypeInfo` 的静态字段块 `+0xc`**（`DAT_1842da2a8` → `d:/2/tools/il2cpp_out/script.json` 的 `ScriptMetadata`「Address 0x42DA2A8」；取法 = `klass->static_fields(+0xb8)` 再 `+0xc`，一个 12 字节的 `Vector3`），而 `Vector3` 的静态字段声明序 = `zero 0x00 · one 0x0C · up 0x18 · down 0x24 · …`，且本 build 里 `+0xc` 被引用 **95 处**（`+0x18` 36 · `+0x48` 18 · `+0x3c` 9 · `+0x54` 3）⇒
+//      **`PunchBase = Vector3.one` 是原版值，不是我们挑的**（`public` 只留作探针/自检的覆写口；置信度高，但它**是按静态字段声明序推出来的**，要做成铁案得真机 dump 一次那块静态块 —— ⛔ 别拿「是推断」当「可以随便改」）。
 //   ④ `Image.fillAmount` 在本仓**没有等价物**（`Core/Battle/ImageQuad` 无 fill）⇒ `SetFill(f)` 用 **uv 左→右显影**（`SetUvRect(0,0,f,1)`）当等价物；原版 `m_FillMethod` 判据为空（EventBadge prefab 不在离线包里）⇒ 见 `SetFill` 的注释。
 using System;
 using System.Collections.Generic;
@@ -58,8 +58,8 @@ namespace CardPresentation
         /// <summary>+0x58 `ILiveOps liveOps`。</summary>
         public ILiveOps LiveOps { get; private set; }
 
-        /// <summary>punch 的基向量。🔶 **这是我们挑的**：原版那个分量是 `Vector3` 的一个静态字段（见文件头 ③），
-        /// 本机读不到 ⇒ 默认 `Vector3.one`（幅度由 ×0.2 给）。将来 VA 解出来就改这一行。</summary>
+        /// <summary>punch 的基向量 = **原版 `Vector3.one`**（判据 → 文件头 ③：VA 读出静态字段块 `+0xc`；⛔ 不是我们挑的）。
+        /// `public` 只留作探针/自检的覆写口，生产路径一个字都不写它。</summary>
         public Vector3 PunchBase = Vector3.one;
 
         // ---- 内部时间线（等价于原版那条 DOTween Sequence）----
@@ -150,7 +150,7 @@ namespace CardPresentation
 
         // ============================================================ ShowNotification（原版 :64-93；常量见文件头）
         /// <summary>原版 `ShowNotification(ToastNotificationContext context)`：`SetNotificationData` 后起那条 8 拍序列。
-        /// <para>⚠️ 时序已按 `.c` 逐拍复刻（见文件头常量）；⚠️ `DOFade` 之后那个 `FUN_180dc57c0`（未解）**没复刻**。</para></summary>
+        /// <para>⚠️ 时序已按 `.c` 逐拍复刻（见文件头常量）；✅ **2026-10-29（B94_S2 · 铁律 5 就地订正）**：原来这里写「`FUN_180dc57c0`（未解）没复刻」—— **已过期**，它 = `TweenSettingsExtensions.From<float,float,FloatOptions>(t,0f,true,false)`（`dump.cs:1010694` 的 `-RVA: 0xDC57C0`），挂在 `DOFillAmount` 上；B93_D4（2026-10-28）已解并接线。</para></summary>
         public void ShowNotification(ToastNotifications.Context context)
         {
             SetNotificationData(context);

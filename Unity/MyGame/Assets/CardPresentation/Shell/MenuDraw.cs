@@ -3641,4 +3641,102 @@ namespace CardPresentation
             = new System.Collections.Generic.List<Transform>(256);
     }
 
+    // ============================================================ 唯一 id 注册表（B94_S3 · 2026-10-29）
+    //
+    // 判据（逐句实读）：`d:/2/tools/decomp_full/GameObjectUniqueIdentifier__{Awake,OnDestroy,SetID,Find,FindComponent}.c`
+    //   ＋ `d:/2/tools/cpp2il/out_cpp2il_dev_ilspy/GameObjectUniqueIdentifier.cs`（字段名 `registry` / `id`）。
+    //
+    // 🔴 **为什么不是 `MonoBehaviour`**：原版 `GameObjectUniqueIdentifier` 是个挂件，`Awake` 里把自己登记进
+    //    `static Dictionary<string, GameObjectUniqueIdentifier> registry`。Unity **只给「类名 == 文件名」的类建脚本资产**
+    //    ⇒ 把它写在 `MenuDraw.cs` 里就 `AddComponent` 不了（那正是 `CLAUDE.md` 记过的 `!u!115` 存根坑）。
+    //    本批的文件所有权只有这 10 个 `.cs`（不许新建运行时文件）⇒ 这里复刻**注册表本身**：
+    //    `Register / Unregister / Find / FindComponent` 四个口，语义与那五个方法逐条对齐（见下面每个方法的 doc）。
+    //
+    // ⚠️ **与原版的两处差异（如实标）**：
+    //   ① 原版是**组件自注册**（`Awake`），我们得由建节点的人**显式调 `Register`** —— 没有挂件就没有自动那一跳。
+    //   ② 原版 `Find`/`FindComponent` 在 `registry == null` 时是 `return new NullReferenceException()`（= 反编译把 `throw`
+    //      误译成 return，见 `CLAUDE.md`）⇒ 那一支**实际是 NRE**。我们的 `registry` 是静态只读、永不 null，
+    //      所以那两支**不可达**（照原版也是不可达：cctor 里就先 new 了）。
+    /// <summary>原版 `GameObjectUniqueIdentifier` 的**注册表那一半**（`Awake` / `OnDestroy` / `SetID` / `Find` /
+    /// `FindComponent` 五条语义）。键 = 那个唯一 id 串。</summary>
+    public static class MenuUniqueIds
+    {
+        /// <summary>= 原版 `static Dictionary&lt;string, GameObjectUniqueIdentifier&gt; registry`
+        /// （`cctor` 里 `new` ⇒ 永不 null）。</summary>
+        static readonly System.Collections.Generic.Dictionary<string, Component> _registry
+            = new System.Collections.Generic.Dictionary<string, Component>();
+
+        /// <summary>当前登记条数（自检读口）。</summary>
+        public static int Count { get { return _registry.Count; } }
+
+        /// <summary>= 原版 `Awake()`：`id` 非空 ⇒ 若同名**已登记且那件还 activeAndEnabled** 就打 `LogError`
+        /// 报重复并**先 Remove 旧的**，再 `registry[id] = this`（后来的赢）；`id` 空 ⇒ 打那条 `has an empty Id` 告警、**不登记**。
+        /// <para>形参 = (id, 组件或节点)。`node` 传 `Component`（原版登记的就是组件本身）。</para></summary>
+        public static void Register(string id, Component node)
+        {
+            if (node == null) return;
+            if (string.IsNullOrEmpty(id))
+            {
+                // 原版原文：`[UniqueIdentifier] '<name>' has an empty Id. Skip this warning if you are adding the Component at runtime`
+                Debug.LogWarning("[UniqueIdentifier] '" + node.name + "' has an empty Id. "
+                               + "Skip this warning if you are adding the Component at runtime");
+                return;
+            }
+            Component old;
+            if (_registry.TryGetValue(id, out old))
+            {
+                // 原版：只有旧的 **isActiveAndEnabled** 才报冲突（别的行话：已禁用的旧登记会被静默顶掉）
+                bool alive = old is Behaviour ? ((Behaviour)(object)old).isActiveAndEnabled
+                                              : (old != null && old.gameObject.activeInHierarchy);
+                if (alive)
+                {
+                    Debug.LogError("[UniqueIdentifier] Duplicate Id '" + id + "' found on '" + node.name
+                                 + "'. Already used by '" + (old != null ? old.name : "<null>") + "'.");
+                    _registry.Remove(id);
+                }
+            }
+            _registry[id] = node;       // 原版 `dictionary.set_Item(id, this)`（后来的赢）
+        }
+
+        /// <summary>= 原版 `OnDestroy()`：**只有表里那一格还是自己**才 `Remove`（被别人顶掉过 ⇒ 什么都不做，
+        /// 免得把别人的登记删了）。</summary>
+        public static void Unregister(string id, Component node)
+        {
+            if (string.IsNullOrEmpty(id)) return;
+            Component cur;
+            if (_registry.TryGetValue(id, out cur) && ReferenceEquals(cur, node)) _registry.Remove(id);
+        }
+
+        /// <summary>= 原版 `SetID(string newID)`：非空 ⇒ 改 id 并立刻登记；空 ⇒ 打 `Cannot set ID to empty string.`。</summary>
+        public static void SetId(ref string id, string newId, Component node)
+        {
+            if (string.IsNullOrEmpty(newId))
+            {
+                Debug.LogWarning("Cannot set ID to empty string.");     // 原版原文
+                return;
+            }
+            id = newId;
+            if (!string.IsNullOrEmpty(id)) Register(id, node);
+        }
+
+        /// <summary>= 原版 `static GameObject Find(string id)`：`registry.TryGetValue` 命中且那件非空 ⇒
+        /// `((Component)v).gameObject`；未命中 ⇒ null。</summary>
+        public static GameObject Find(string id)
+        {
+            Component v;
+            if (!_registry.TryGetValue(id, out v)) return null;
+            return v != null ? v.gameObject : null;
+        }
+
+        /// <summary>= 原版 `static GameObjectUniqueIdentifier FindComponent(string id)`：命中 ⇒ 登记的那个组件本身；
+        /// 未命中 ⇒ null。（`registry == null` 那一支原版是 NRE，我们这里不可达 —— 见本节头差异 ②。）</summary>
+        public static Component FindComponent(string id)
+        {
+            Component v;
+            return _registry.TryGetValue(id, out v) ? v : null;
+        }
+
+        /// <summary>自检口（静态表 ⇒ 每轮断言收尾必须清）。</summary>
+        public static void ClearForTest() { _registry.Clear(); }
+    }
 }

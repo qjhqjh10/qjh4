@@ -798,11 +798,11 @@ namespace CardPresentation
             }
             var c = new Context(text, ToastNotificationType.MissionProgress);
             c.ShowProgress = true;
-            c.Progress01 = DailyData.DailyProgress01(dailyIndex);
             c.ProgressText = DailyData.DailyCounter(dailyIndex);
             c.RewardArt = DailyData.DailyRewardArt(dailyIndex);
             c.RewardText = DailyData.DailyRewardText(dailyIndex);
-            return ShowNotification(c);
+            c.Data = new MissionsData { MissionId = dailyIndex.ToString(), ProgressText = text, Progress01 = DailyData.DailyProgress01(dailyIndex) };   // 🆕 2026-10-29（B94_S2 · 账 745）：按原版形状把任务数据塞进 `Data`，再走 `InitializeMissionToast` 那一支（行数守恒 ⇒ 下游账落点零漂移）
+            return InitializeMissionToast(c, null);
         }
 
         // ============================================================ 追加区 · 2026-10-28（B93_D4 · 账 745）

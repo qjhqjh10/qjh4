@@ -160,7 +160,7 @@ namespace CardPresentation
             EnsureTabsSetup();
             // 默认落在 **Alliances**（`Alliances Tab` act T / `Friends Tab` act **F**，实测 `m_IsActive`）——
             // 走 `Click(0)` 而不是直接改字段：「点一下」才是状态的唯一入口（同奖励窗那条注释）。
-            if (tabButtons != null) tabButtons.Click(0);
+            if (tabButtons != null) tabButtons.Click(FeatureChecker.IsEnabled(FeatureChecker.Alliances) ? 0 : 1);   // 🔶 B94_Y2 2026-10-29：`Alliances` 页签被 `FeatureChecker(Alliances)` 关掉时默认页改落 `Friends`(index 1)（原版 `Alliances Tab Button` 由 `FeatureChecker(Alliances).SetActive` 控）
             RefreshHighlights();
             RefreshBadges();
             // 🔴 **2026-10-17（`A1641`）就地订正（铁律 5）**：本行原来写「原版 `updateNavPanel = 1` ⇒
@@ -198,7 +198,7 @@ namespace CardPresentation
 
             var res = BuildShell(transform, LocalizedButtons(), "SocialTabButton_", "Tabs", lastIsMaster: false);
             tabButtons = res.buttons;
-            _btnRoot = res.roots;
+            _btnRoot = res.roots; if (_btnRoot != null && _btnRoot.Length > 0 && _btnRoot[0] != null && !FeatureChecker.IsEnabled(FeatureChecker.Alliances)) _btnRoot[0].gameObject.SetActive(false);   // 🔶 B94_Y2 2026-10-29：原版 Social Submenu Variant/.../Tab Buttons/Alliances Tab Button 由 `FeatureChecker(Alliances).SetActive(自身)` 控 ⇒ Alliances 关则隐这颗页签钮
             _btnHighlight = res.highlight;
             _btnRes = res;
             _btnBadge = res.badge;
@@ -243,12 +243,22 @@ namespace CardPresentation
 
         /// <summary>两个键的红点。原版由 `UiBadgeNotificationManager` 事件驱动 ——
         /// **我们没有任何通知源**（邀请/好友请求都在服务器）⇒ 恒 alpha 0（= 不显示），如实出声。
-        /// 🔴 判据**只此一份**：本函数。别在页里再写一遍。</summary>
+        /// 🔴 判据**只此一份** = 每颗红点自己的 `UiBadgeNotification` 计重（`Recount()`）；别在页里再写一遍。
+        /// ⛔ 本函数**不再**直写 quad 的材质色（2026-10-29 `B94_Z1` 活 2：旧写法在**有源的那天**会压灭真红点）。</summary>
         public void RefreshBadges()
         {
+            // 🔴 2026-10-29（B94_T1 §4·2 / B94_Z1 活 2）：与 `Shell/RewardsWindow.RefreshBadges()` **同病同形** ——
+            //  旧写法无条件把两颗红点的材质色写成 alpha 0。今天两个 provider 都没源（计数恒 0 ⇒ 本来就该 0），
+            //  但一旦好友/联盟有了数据源，那一句会**压灭真红点**，而且组件补间一停就不再写 ⇒ 那个 0 永久留屏。
+            //  ⇒ 现在只做「让两颗各按自己的计重重算一次」，⛔ 别在这里写任何颜色（唯一写手 = `UiBadgeNotification`）。
             for (int i = 0; i < _btnBadge.Length; i++)
-                if (_btnBadge[i] != null)
-                    _btnBadge[i].SetTint(new Color(0.7373f, 0.7373f, 0.7373f, 0f));
+            {
+                if (_btnBadge[i] == null) continue;
+                var comp = _btnBadge[i].GetComponent<UiBadgeNotification>();
+                if (comp == null) continue;      // 原版这一键没有红点定义 ⇒ 没有组件 ⇒ alpha 恒 0（⛔ 不要在这里补写）
+                comp.Recount();
+                if (!Application.isPlaying) comp.SnapToTargetForTest();   // 批处理没有帧循环
+            }
         }
 
         /// <summary>开聊天窗（原版 `ChatPreview.OpenChat` → `WindowsManager.OpenWindow(chatWindow)`）。

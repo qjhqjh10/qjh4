@@ -1600,4 +1600,72 @@ namespace CardPresentation
             Application.Quit(0);
         }
     }
+
+    // ============================================================ 原版 `ReferralContainer.Refresh()`（B94_S3 · 2026-10-29）
+    //
+    // 判据（逐句实读）：
+    //   · `d:/2/tools/decomp_full/ReferralContainer__Refresh.c` **全文**：
+    //     ```
+    //     priceDisplayButton = this(+0x40);
+    //     string s = I2_Loc.LocalizationManager.GetTranslation(<键>, fixRTL:1, applyParameters:0, …);
+    //     priceDisplay(+0x30).Setup(s, 0, 0);       // 价签那一跳
+    //     ```
+    //   · 键名 = **字面量直读**：`il2cpp_out/stringliteral.json` 地址 `0x4276890` = `Demo/DraftMode/FreeButton`
+    //     ⇒ 官方表 en `Free` / zh-CN `免费`（`数据/游戏数据/官方本地化_en+zh-CN.json`）。
+    //     ⚠️ 同一个键在 `Shell/DraftModeWindow.cs` 也画过一次（草稿重抽的免费档）—— **同一个键，两处消费**。
+    //   · `cpp2il/out_cpp2il_dev_ilspy/ReferralContainer.cs`（字段名 `priceDisplayButton` / `priceDisplay`）。
+    //
+    // ⚠️ **两处如实标**：
+    //   ① 原版是 `MonoBehaviour` 上的实例方法（`+0x40` 是 `PriceDisplayButton`、`+0x30` 是它下面的 `PriceDisplay`）。
+    //      我们**没有 `PriceDisplay` 类**（另一条线还挂着），`ReferralPopupWindow` 也不带价签 ⇒ 这里把
+    //      「取译文 → 交给价签那一跳」做成**注入回调**，默认 `null` = 没有价签可刷（照样返回 false + 出声一次）。
+    //   ② 原版价签取不到时是 throw（`FUN_1803f47a0`）；我们出声 + 返回 false（全工程口径）。
+    //
+    // 🔴 **入口**：原版由 `ReferralContainer.OpenPopup()` 那条 LiveOps 容器链开窗（我们没建那个容器，
+    //   见 `WindowsManager.OpenReferralPopup` 的注释）⇒ 本类目前**无调用方**，由 `Editor/B93S3Assert.cs` 钉住。
+    /// <summary>原版 `ReferralContainer.Refresh()` 的等价实现：把「免费」那一条的**价签文案**刷上去。</summary>
+    public static class ReferralContainer
+    {
+        /// <summary>价签词条键（判据 `stringliteral.json` 地址 `0x4276890`）。</summary>
+        public const string PriceKey = "Demo/DraftMode/FreeButton";
+
+        static bool _said;
+
+        /// <summary>= 原版 `I2_Loc.LocalizationManager.GetTranslation(键, …)`（走工程唯一取词口 <see cref="Loc.T"/>）。
+        /// <para>⚠️ 缺键时 `Loc.T` 会**回落印键名** ⇒ 这里额外出声一次（⛔ 不静默把键名当文案）。</para></summary>
+        public static string PriceText()
+        {
+            string t = Loc.T(PriceKey);
+            if (t == PriceKey)
+            {
+                Debug.LogWarning("[Referral] 价签词条 `" + PriceKey + "` 在本地化表里**没有译文** ⇒ 界面上会印出键名。"
+                               + "（官方表 en `Free` / zh-CN `免费`；缺 = 表没并进来）");
+            }
+            return t;
+        }
+
+        /// <summary>= 原版 `ReferralContainer.Refresh()`。
+        /// <paramref name="priceDisplaySetup"/> = `PriceDisplay.Setup(译串, 0, 0)` 那一跳。
+        /// <returns>有没有真的刷上去（false = 没有价签可刷）。</returns></summary>
+        public static bool Refresh(System.Action<string> priceDisplaySetup)
+        {
+            string text = PriceText();
+            if (priceDisplaySetup == null)
+            {
+                if (!_said)
+                {
+                    _said = true;
+                    Debug.LogWarning("[Referral] `ReferralContainer.Refresh()`：价签那一跳没接"
+                                   + "（原版 `priceDisplayButton.priceDisplay.Setup(译串, 0, 0)`；取不到时原版会 throw）"
+                                   + " ⇒ 文案「" + text + "」只算出来、没刷到屏上。");
+                }
+                return false;
+            }
+            priceDisplaySetup(text);
+            return true;
+        }
+
+        /// <summary>自检口（`_said` 去重闩）。</summary>
+        public static void ResetForTest() { _said = false; }
+    }
 }

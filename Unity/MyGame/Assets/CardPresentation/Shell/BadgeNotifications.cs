@@ -107,8 +107,8 @@ namespace CardPresentation
         }
     }
     public sealed class FriendsBadge : BadgeNotification { }
-    public sealed class AlliancesBadge : BadgeNotification { }
-    public sealed class SupportBadge : BadgeNotification { }
+    public sealed class AlliancesNotificationBadge : BadgeNotification { }   // 🔴 B94_Y3 2026-10-29：原名 `AlliancesBadge`（自造）→ 原版类名（见文件尾「追加区 · B94_Y3」）
+    public sealed class SupportNotification : BadgeNotification { }          // 🔴 B94_Y3 2026-10-29：原名 `SupportBadge`（自造）→ 原版类名
 
     /// <summary>原版 `RewardsBadge`：带 `parentId`，**过滤语义 = parentId 相等**
     /// （`RewardsBadge__Validate.c`：`return this.parentId == ((RewardsBadge)other).parentId`）。</summary>
@@ -312,13 +312,13 @@ namespace CardPresentation
     {
         static int _lastSeenCollectable = -1;
 
-        public Type NotificationType { get { return typeof(RewardsBadge); } }
+        public Type NotificationType { get { return typeof(MissionsBadge); } }   // 🔴 B94_T1 2026-10-29：基类 → 派生类（判据见文件尾「追加区 · B94_T1」）
         public IEnumerable<INotificationProvider> ChildProviders { get { return null; } }
 
         public IEnumerable<BadgeNotification> CheckNotification()
         {
             int n = DailyData.CollectableMissionCount();
-            for (int i = 0; i < n; i++) yield return new RewardsBadge { parentId = "" };
+            for (int i = 0; i < n; i++) yield return new MissionsBadge { parentId = "" };   // 🔴 同上：发的是派生类 `MissionsBadge`
             if (_lastSeenCollectable >= 0 && n != _lastSeenCollectable)
                 Debug.Log("[Badges] 可领任务数变了：" + _lastSeenCollectable + " → " + n
                         + "（" + DailyData.DailyTaskCount + " 条每日 + 周常/骷髅/登录；按读时刷新，界面下次问就更新）");
@@ -449,7 +449,7 @@ namespace CardPresentation
             else if (instId.IndexOf("Friends", System.StringComparison.Ordinal) >= 0)
                 defs.Add(new BadgeNotificationDefinition(typeof(FriendsBadge)));
             else if (instId.IndexOf("Alliances", System.StringComparison.Ordinal) >= 0)
-                defs.Add(new BadgeNotificationDefinition(typeof(AlliancesBadge)));
+                defs.Add(new BadgeNotificationDefinition(typeof(AlliancesNotificationBadge)));   // 🔴 B94_Y3：原版 provider 泛型实参 = `AlliancesNotificationBadge`（AlliancesManager.cs:12）
             return defs;
         }
 
@@ -498,6 +498,14 @@ namespace CardPresentation
             {
                 if (counter != null) counter.SetText(s ?? "");
             };
+            // 🔴 **2026-10-29（B94_T1）**：把「这颗 quad 现在是什么 alpha」交回给组件 —— 组件靠它每帧判
+            //   **有没有别人偷改过材质色**（`RewardsWindow`/`SocialWindow` 两条遗留直写通道已由 B94_Z1 2026-10-29 删除，
+            //   这里保留为护栏）。判据与代价见 `UiBadgeNotification.ReassertAlpha` 的注记。
+            comp.GetAlpha = delegate
+            {
+                var mr = quad.GetComponent<MeshRenderer>();
+                return mr != null && mr.sharedMaterial != null ? mr.sharedMaterial.color.a : float.NaN;
+            };
 
             comp.SetAlpha(0f);          // 原版 `Awake` 第一句：`canvasGroup.alpha = 0`
             comp.Recount();
@@ -521,7 +529,7 @@ namespace CardPresentation
     //     （`[Serializable]`）。⇒ `storeId` 进相等性（record 语义）= 同类型 ∧ 同 storeId。
     //   · `ChallengeMatch : Notification`（`dump.cs:124081`）—— **零字段**（直接派生 `Notification`）。
     //
-    // ⚠️ 命名：原版基类叫 `Notification`，我们叫 `BadgeNotification`（上一轮就这么落的地，别为了对齐改名 —— 会牵动 12 个类与全部调用点）。
+    // ⚠️ 命名：原版基类叫 `Notification`，我们叫 `BadgeNotification`（上一轮就这么落的地，别为了对齐改名 —— 会牵动 16 个类与 240+ 处引用）。**具体徽章的类名**已按原版对齐（B94_Y3 2026-10-29：`AlliancesNotificationBadge` / `SupportNotification`；基类与继承关系见文件尾「追加区 · B94_Y3」）。
 
     /// <summary>原版 `BoosterPackBadge : InventoryBadge, IEquatable&lt;BoosterPackBadge&gt;`（`il2cpp_out/dump.cs:123483-123520`，**零字段**）。
     /// 用途 = 商店页签那颗红点：`ShopContainerInventory.CheckNotification()` 按「未开的卡包袋数」发 N 条。</summary>
@@ -550,4 +558,71 @@ namespace CardPresentation
     /// <summary>原版 `ChallengeMatch : Notification, IEquatable&lt;ChallengeMatch&gt;`（`dump.cs:124081-124140`，**零字段**）。
     /// 用途 = 社交页签：有人向你发起约战。⚠️ 本地 P2P 约战（`Net/*`）目前不发这条通知 ⇒ 今天 0 实例（如实记，不是「已接」）。</summary>
     public sealed class ChallengeMatch : BadgeNotification { }
+
+    // ============================================================ 追加区 · 2026-10-29（B94_T1 · 任务红点发的是**派生类**）
+    //
+    // 【改了什么】`RewardsNotificationProvider.NotificationType` `RewardsBadge`（基类）→ **`MissionsBadge`**（派生），
+    //   逐条发的东西也跟着从 `new RewardsBadge{parentId=""}` 换成 `new MissionsBadge{parentId=""}`。
+    //
+    // 【判据（一手）】
+    //   · 声明：`Missions : LiveOpsHandler<IMission>, INotificationProvider<MissionsBadge>`
+    //     —— `cpp2il/out_cpp2il_dev_ilspy/Everguild.LiveOps/Missions.cs:14`。
+    //   · 体：`Missions.CheckNotification()`（同上 `:2139`）**第一句就是 `new MissionsBadge()`**；逐条
+    //     `Enumerable.Repeat(element, num)`，`element` 缺省就是那个新实例（lambda 在 `:756` `_003CCheckNotification_003Eb__0`，
+    //     谓词 = `MissionChallengeProgress.canCollect && !IsComplete()`）。
+    //     ⚠️ Ghidra 那份 `Missions__CheckNotification.c` 把这句印成 `RewardsBadge___ctor(...,0)` —— 那是**派生类 ctor 里的基类调用**，
+    //     不是「原版发基类」（同族坑：`.c` 的 `FUN_`/类名不可逐字当语义，见 CLAUDE.md）。
+    //
+    // 【为什么必须改（真实缺陷，不是洁癖）】`MissionsRewardsButton` 的红点定义是 **`MissionsBadge`**
+    //   （`bundle_menus_assets_all` 的 `MonoBehaviour_1604463168230790911.json`）。而
+    //   `BadgeNotificationDefinition.Validate` 的「不过滤」那一支 = **`notificationType.IsInstanceOfType(item)`**
+    //   （`decomp_full/BadgeNotificationDefinition__Validate.c` + `ReflectionHelper__Is.c`，`Type` 虚槽 `0x448`）
+    //   ⇒ 发**基类**时 `MissionsBadge.IsInstanceOfType(RewardsBadge 实例)` **恒 false** ⇒ **Missions 页签的计数恒 0**。
+    //   （⚠️ 2026-10-29 B94_Z1 已删掉 `RewardsWindow.RefreshBadges()` 里那条**遗留布尔** `idx==0 && DailyData.RewardsHasBadge`
+    //   与「两条写手各写各的」通道 —— 红点现由组件独占；本条历史随 Z1 过期，留一句供追溯。）
+    //   改成派生类之后：导航「Rewards」那颗（定义 = `RewardsBadge` + useFilter `parentId=""`）**照样算中**
+    //   （`IsRelated` 双向 + `RewardsBadge.Validate` 比 `parentId`），Missions 页签那颗**才开始算中**。
+    //
+    // 【配套】`Shell/UiBadgeNotification.cs` 的 `ReassertAlpha()` + `BadgeWiring.Attach` 里装的 `comp.GetAlpha`
+    //   （红点 alpha 的唯一写手，挡住上面那条遗留通道）。断言 = `Editor/B94T1_Assert.cs`，报告 = `报告/B94_T1.md`。
+
+    // ============================================================ 追加区 · 2026-10-29（B94_Y3 · 徽章类名按原版对齐）
+    //
+    // 【改了什么】两个**具体徽章**的类名是我们自造的，已改成原版类名（改名 = 只改标识符，行号零漂移）：
+    //   · `AlliancesBadge` → `AlliancesNotificationBadge`（原版 `record AlliancesNotificationBadge : SocialBadge`）
+    //   · `SupportBadge`   → `SupportNotification`        （原版 `record SupportNotification : Notification`）
+    //
+    // 【为什么必须改（真实缺陷，不是洁癖）】红点计数走 `BadgeNotificationDefinition.Validate` 的
+    //   `notificationType.IsInstanceOfType(item)`（见本文件 :578 那段）。原版 provider 的类型是
+    //   `AlliancesManager : INotificationProvider<AlliancesNotificationBadge>`（`AlliancesManager.cs:12`）、
+    //   `HelpshiftManager : INotificationProvider<SupportNotification>`（`HelpshiftManager.cs:9`）
+    //   ⇒ 接上真 provider 那天，若我们发的类叫 `AlliancesBadge` 而定义/泛型实参叫 `AlliancesNotificationBadge`，
+    //     `IsInstanceOfType` **恒 false** ⇒ 计数恒 0（= Missions 那颗踩过的同一个坑，见 B94_T1）。
+    //   断言 = `Editor/B94Y3_Assert.cs`（"发出去的通知类型 == provider 声明的泛型实参"，名字不符就红）。
+    //
+    // 【原版 16 类的完整对照】（`cpp2il/out_cpp2il_dev_ilspy/Everguild.UI.Notifications/` 逐文件现读）
+    //   原版类名                          我们的类名（改后）              名字     | 原版派生
+    //   `Notification`（abstract record）  `BadgeNotification`（abstract）  ✗ 基类  | ——
+    //   `InboxBadge`                       `InboxBadge`                       ✓        | Notification
+    //   `CollectionBadge`                  `CollectionBadge`                  ✓        | Notification
+    //   `ShopBadge`                        `ShopBadge`                        ✓        | Notification
+    //   `InventoryBadge`                   `InventoryBadge`                   ✓        | Notification
+    //   `SocialBadge`                      `SocialBadge`                      ✓        | Notification
+    //   `FriendsBadge`                     `FriendsBadge`                     ✓        | Notification
+    //   `AlliancesNotificationBadge`       `AlliancesNotificationBadge`       ✓(B94_Y3)| **SocialBadge** ← 我们 : BadgeNotification
+    //   `SupportNotification`              `SupportNotification`              ✓(B94_Y3)| Notification
+    //   `RewardsBadge`                     `RewardsBadge`                     ✓        | Notification
+    //   `MissionsBadge`                    `MissionsBadge`                    ✓        | RewardsBadge
+    //   `CampaignBadge`                    `CampaignBadge`                    ✓        | **RewardsBadge** ← 我们 : BadgeNotification
+    //   `ForgeBadge`                       `ForgeBadge`                       ✓        | **RewardsBadge** ← 我们 : BadgeNotification
+    //   `BoosterPackBadge`                 `BoosterPackBadge`                 ✓        | InventoryBadge
+    //   `OfferBadge`                       `OfferBadge`                       ✓        | ShopBadge
+    //   `ChallengeMatch`                   `ChallengeMatch`                   ✓        | Notification
+    //
+    // 【两处**没改**、留给后续（非「类名」，属继承关系，本轮不动）】
+    //   · 基类 `BadgeNotification` 未改名成 `Notification`：不是过滤 bug（`NotificationType` 永远填**具体类**，
+    //     基类名从不进 `IsInstanceOfType`）；且会牵动 240+ 处引用与 16 个类（本文件 :532 有同样的记录）。
+    //   · 派生关系差三处（上表 `←` 标出的）：`AlliancesNotificationBadge` 应 : `SocialBadge`（现 : `BadgeNotification`）、
+    //     `CampaignBadge` / `ForgeBadge` 应 : `RewardsBadge`（现 : `BadgeNotification`）。**今天不影响计数**
+    //     （三者各自 override 了 `Validate`；`IsRelated` 双向可赋值仍认得出），但**不是原版形状** ⇒ 另案。
 }

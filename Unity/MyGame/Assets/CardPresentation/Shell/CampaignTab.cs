@@ -1511,7 +1511,7 @@ namespace CardPresentation
         public int PremiumPanelState { get { return _premState; } }
         int _premState = -1;
 
-        /// 🔶 自己设计（非原版）：Premium Panel 三态来源 · 原版两个输入都来自服务端（反编译 `CampaignPremiumPointsPanel.Initialize`） · TODO(谁定的)｜原注：<summary>**我们挑的**三态来源（⛔ 不是原版的）。原版 =
+        /// 🔶 自己设计（非原版）：Premium Panel 三态来源 · 原版两个输入都来自服务端（反编译 `CampaignPremiumPointsPanel.Initialize`：`Campaign.IsPremium` 与当日 `collected`）· 调度台 2026-10-29 裁定（服务端已关服 ⇒ 按本会话口径「本地模拟 + 出声」，不判 D）｜原注：<summary>**我们挑的**三态来源（⛔ 不是原版的）。原版 =
         /// `CampaignPremiumPointsPanel.Initialize` 里 `collected ? AlreadyCollected : (campaign.IsPremium ? PremiumPurchased : PremiumNotPurchased)`
         /// （反编译 `CampaignPremiumPointsPanel__Initialize.c:36-43`）—— 两个输入**都来自服务端**
         /// （`Campaign.IsPremium` 与当日 `collected`），而本地数据模型里**一个都没有**：
@@ -1535,10 +1535,10 @@ namespace CardPresentation
         /// （`pointsObject`(0x30) 开、`collectButton`(0x48) 开、`timerDisplay`(0x38) 关、按钮文字用
         /// `collectText`/`becomePremiumText`）；state 2 走 `:42-57`（三者**全反**）。
         /// 两条词条名 = prefab `MonoBehaviour_-4598054059081945715.json` 的 `mTerm` 原文。
-        /// ⚠️ **本方法不管**底图 sprite 与 `backgroundShinyEffect` —— 那两件我们**根本没建**（如实记在报告里）。</summary>
+        /// ⚠️ 底图 sprite 与 `backgroundShinyEffect` **不归本方法管** —— 由 `ApplyPremiumBackground` 负责（B93_S1 已补；原文「那两件我们根本没建」已过期 —— 铁律 5 就地订正）。</summary>
         public void ApplyPremiumState(int state)
         {
-            _premState = state; ApplyPremiumBackground(state);
+            _premState = state; if (state != PremStatePurchased && state != PremStateNotPurchased && state != PremStateCollected) return; ApplyPremiumBackground(state);   // 🔴 原版第 1 句先写 `currentState`(+0xa8)，**0/1/2 之外直接 `return`（一件都不动）** —— 别把越界当成「state != 2 那一档」（`CampaignPremiumPointsPanel__ChangeState.c:11-13` 的 `if (param_2 != 2) return;`）
             bool showAction = state == PremStatePurchased || state == PremStateNotPurchased;
             if (_premPoints != null) _premPoints.gameObject.SetActive(showAction);
             if (_premAction != null) _premAction.gameObject.SetActive(showAction);

@@ -1104,7 +1104,7 @@ namespace CardPresentation
         {
             /// <summary>要卸的 `EventAssetReferenceType` 列表（原版 `1` 与 `5` 两个）。</summary>
             public int[] AssetTypes;
-            /// <summary>`headerController == null` ⇒ 少卸一个（原版第三句的闸）。</summary>
+            /// <summary>`headerController == null` ⇒ 原版**抛空引用**（`FUN_1803f47a0`），⛔ 不是「少卸一个」（2026-10-29 `B94_B4` 现读 `.c:14-23` 就地订正）；我们不出抛 ⇒ 只卸 `1` 并出声。</summary>
             public bool HeaderUnloads;
         }
 

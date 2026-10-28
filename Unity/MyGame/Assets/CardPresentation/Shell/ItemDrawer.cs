@@ -1524,7 +1524,7 @@ namespace CardPresentation
         //    · `ToggleHighlight(bool)`（:907）＝ **转调 `TogglePremiumHighlight`**（同一个落点，不是第二套高亮）
         //    · `ToggleLock(bool)`（:912）＝ **转调 `ToggleClaimedWarning`**（同一个落点）
         //    · `OverridePremiumBadge(Sprite)`（:808）＝ `premiumBadge.sprite = sprite`（**非空才改**）
-        //    · `ToggleShowInfoOnClick(bool)`（:876）＝ **空方法体**（原版就是空的 ⇒ 我们也是空的，⛔ 别自造一个）
+        //    · `ToggleShowInfoOnClick(bool)`（:876）＝ **写那道点击闸** `this+0x44 = option`（🔴 2026-10-29 R-K 用 VA + 374 份 prefab 全量复扫证明：ILSpy 把它读成 `{ }` = **丢赋值**，同族坑；`OnPointerClick.c:13` 读的正是这一格）
         //    · `OverrideOnClickAction(Action)`（:880）＝ 存进 `+0x50` 那一格，点击时优先于默认
         //    · `OnPointerClick(eventData)`（:917）＝
         //        item 为空 ⇒ `LogError("[ERROR] We are trying to open a item display window without an item.
@@ -1648,8 +1648,8 @@ namespace CardPresentation
             if (q != null) q.SetTexture(tex);
         }
 
-        /// <summary>原版 `ToggleShowInfoOnClick(bool)` —— **原版方法体为空**，我们同样什么都不做。</summary>
-        public void ToggleShowInfoOnClick(bool option) { }
+        /// <summary>原版 `ToggleShowInfoOnClick(bool option)` = **写那道点击闸**（`this+0x44 = option`）—— 🔴 2026-10-29 `R-K` 用 VA + 374 份 prefab 全量复扫证明 **ILSpy 把它读成 `{ }` 是丢了赋值**（`OnPointerClick.c:13` 读的正是这一格；374 份里 `0=296 / 1=78`）。转调 <see cref="SetShowInfoOnClick"/>（同一个闸 + 同步命中区）。</summary>
+        public void ToggleShowInfoOnClick(bool option) { SetShowInfoOnClick(option); }
 
         /// <summary>原版 `OverrideOnClickAction(Action)`：覆写点击回调（优先于默认的「开物品详情窗」）。</summary>
         public void OverrideOnClickAction(Action onClick) { _onClick = onClick; }
@@ -1868,9 +1868,9 @@ namespace CardPresentation
     //   `if (!showItemInfoOnClick) return;` → `if (item != null) { if (onClick == null) HandlePointerClick();
     //   else onClick(); if (inspectSound != null) inspectSound.Play2D(); } else CustomDebug.LogError(…)`。
     //   🔴 **第一道闸是【序列化字段】`showItemInfoOnClick`**（`dump.cs:93379` `[SerializeField] protected bool`），
-    //      而 `ToggleShowInfoOnClick(bool)` 在 `:876-878` 是**空方法体** ⇒ 它那 4 个调用点
-    //      （`MissionRewardItem:20` / `EndBattleRewardHolder:15` / `GenericArmyItemDrawer:35` /
-    //       `CarouselOfferPopupDrawer:305`）**全是空转**。⛔ 所以不能「一律可点」，要按预制体实例的那个值来。
+    //      而 `ToggleShowInfoOnClick(bool)` 在 `:876-878` **不是空体**（🔴 2026-10-29 R-K 用 VA + 374 份 prefab 全量复扫证明：
+    //      原版写的是 `this+0x44 = option`，ILSpy 读成 `{ }` = 丢赋值；`OnPointerClick.c:13` 读的正是这一格）⇒ 它那 4 个调用点
+    //      （`MissionRewardItem:20` / `EndBattleRewardHolder:15` / `GenericArmyItemDrawer:35` / `CarouselOfferPopupDrawer:305`）是**真置位**。⛔ 但仍不能「一律可点」，要按预制体实例的那个值来。
     //   值从哪来（2026-10-26 现扫）：`assets_full` 全树 **374 份**带该字段的 MB ⇒ `0=296 / 1=78`；
     //      按 `m_Script` → `bundle_Waprforge_monoscripts/MonoScript_<pathID>.json` 的 `m_ClassName` 归类：
     //      CardDrawer 19/19=1 · WildcardDrawer 1/1=1 · DeckDrawer 1/1=1 · DeckAndCardbackDrawer 2/2=1 ·
@@ -2262,5 +2262,88 @@ namespace CardPresentation
         {
             int cur; return CampaignPointsLocal.TryGetValue(army, out cur) ? cur : 0;
         }
+    }
+
+    // ============================================================ 原版 `GenericArmyItem`（B94_S3 · 2026-10-29）
+    //
+    // 判据（逐句实读）：
+    //   · `d:/2/tools/decomp_full/GenericArmyItem__GetItem.c`（**无参那一支**：`LiveOpsManager.GetHandler<T>()`
+    //     → 非 null 就 `GetItem(handler + 0x7C)`，否则 `GetItem(0)`）
+    //   · `d:/2/tools/decomp_full/GenericArmyItem__get_CurrentArmy.c`（同一个跳：handler null ⇒ **返回 0**）
+    //   · `d:/2/tools/cpp2il/out_cpp2il_dev_ilspy/GenericArmyItem.cs`：类 = `ObtainableItem` 的子类；
+    //     嵌套 `record Entry { CardArmy army; ItemInfo<ObtainableItem> reward; }`；
+    //     谓词 `b__0` = `entry.army(+0x10) == 目标.army(+0x10)`（`DisplayClass5_0___GetItem_b__0.c` 实读）
+    //   · `GetItem(CardArmy army)` 的方法体**在 `decomp_full` 里没有**（只有无参那一份）⇒ 按 cpp2il 的
+    //     `entries.TryGetValue(army)` 否则 `values.FirstOrDefault(x.army == army)` 复刻（那一行是 ILSpy 现读）。
+    //
+    // ⚠️ **两处如实标**：
+    //   ① 原版 `handler` 是 `CampaignHandler`（我们仓里**没有这个类**）。它的「当前阵营」= `handler + 0x7C`，
+    //      而本工程的等价物早就定了 = `DailyData.HeaderArmyValue`（`DailyData.cs` 那一节写明
+    //      「≡ 原版 `CampaignHandler.SelectedArmy`，`DailyRewardPopup__Open.c` 读 `+0x7C`」）⇒ 默认走它。
+    //   ② 原版 `GetItem(army)` 找不到时 `FirstOrDefault` 返回 **null**（引用类型）；我们的 `ItemSpec` 是 `struct`
+    //      ⇒ 返回 `default`，**判据 = `Id == null`**（调用方按这个判「没有」）。
+    /// <summary>原版 `GenericArmyItem`（`ObtainableItem` 子类：按**当前阵营**取一条物品）的等价实现。
+    /// <para>它是「阵营 → 物品」那张表 + 两条取法：无参（当前阵营）与按阵营。</para>
+    /// <para>⚠️ 本工程**没有消费点**（原版挂在 LiveOps 商店的若干个 drawer 上）⇒ 判据齐、行为齐、无调用方，
+    /// 由 `Editor/B93S3Assert.cs` 钉住。</para></summary>
+    public sealed class GenericArmyItem
+    {
+        /// <summary>= 原版嵌套 `GenericArmyItem.Entry`（`CardArmy army` ＋ `ItemInfo&lt;ObtainableItem&gt; reward`）。</summary>
+        public struct Entry
+        {
+            public int Army;         // 原版 `army`（`+0x10`）
+            public ItemSpec Reward;  // 原版 `reward`（`ItemInfo<ObtainableItem>`；我们 = `ItemSpec`）
+            public Entry(int army, ItemSpec reward) { Army = army; Reward = reward; }
+        }
+
+        readonly System.Collections.Generic.List<Entry> _entries;
+
+        /// <summary>= 原版那个序列化的 `entries` 表（本机没有 SO ⇒ 由调用方喂）。
+        /// ⚠️ 原版是 `Dictionary&lt;CardArmy, …&gt;` 形状（`TryGetValue` 那一支）＋ `values` 线性兜底；
+        /// 我们只有一份 `List`，**两种取法都在它上面做**（`TryGetValue` 用首条匹配代替 —— 顺序只影响重复键，
+        /// 而原版 `Dictionary` 也不允许重复键 ⇒ 语义一致）。</summary>
+        public GenericArmyItem(System.Collections.Generic.IEnumerable<Entry> entries)
+        {
+            _entries = entries != null
+                     ? new System.Collections.Generic.List<Entry>(entries)
+                     : new System.Collections.Generic.List<Entry>();
+        }
+
+        /// <summary>= 原版 `GenericArmyItem.CurrentArmy`（`get_CurrentArmy.c`）：
+        /// `handler = LiveOpsManager.GetHandler&lt;CampaignHandler&gt;()` ⇒ `handler == null ? 0 : handler.CurrentArmy`。
+        /// <para>⚠️ 如实标 ①：`CampaignHandler` 我们仓里没有 ⇒ 走 <see cref="CurrentArmyProvider"/>；
+        /// **没装** = 原版「没有 handler」那一支 ⇒ **0**（Neutral）。</para></summary>
+        public static int CurrentArmy
+        {
+            get
+            {
+                if (CurrentArmyProvider == null) return 0;          // 原版 handler == null ⇒ return 0
+                int? a = CurrentArmyProvider();                      // null = 这一拍没有 handler
+                return a.HasValue ? a.Value : 0;
+            }
+        }
+
+        /// <summary>= 原版那个 `handler + 0x7C`（`CampaignHandler.SelectedArmy`）的本地来源。
+        /// 默认 = `DailyData.HeaderArmyValue`（本工程的等价物，判据见类头如实标 ①）。
+        /// **返回 `null`** = 这一拍没有 handler（原版那一支 ⇒ 阵营 0）。</summary>
+        public static Func<int?> CurrentArmyProvider = () => DailyData.HeaderArmyValue;
+
+        /// <summary>= 原版 `GenericArmyItem.GetItem()`：**按当前阵营取**。
+        /// <para>`.c` 逐句：`handler = LiveOpsManager.GetHandler&lt;CampaignHandler&gt;()`；
+        /// `if (handler != null) return GetItem(handler.CurrentArmy); return GetItem(0);`</para></summary>
+        public ItemSpec GetItem() { return GetItem(CurrentArmy); }
+
+        /// <summary>= 原版 `GenericArmyItem.GetItem(CardArmy army)`：先 `entries.TryGetValue(army)`，
+        /// 命中不到再 `values.FirstOrDefault(x.army == army)`。**都没有** ⇒ 原版 null，
+        /// 我们 `default(ItemSpec)`（判据 = `Id == null`）。</summary>
+        public ItemSpec GetItem(int army)
+        {
+            for (int i = 0; i < _entries.Count; i++)
+                if (_entries[i].Army == army) return _entries[i].Reward;
+            return default(ItemSpec);
+        }
+
+        /// <summary>自检口：把静态 provider 还原成默认（它是静态字段 ⇒ 每条断言收尾都要调）。</summary>
+        public static void ResetForTest() { CurrentArmyProvider = () => DailyData.HeaderArmyValue; }
     }
 }

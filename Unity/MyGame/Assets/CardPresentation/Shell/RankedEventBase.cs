@@ -92,7 +92,7 @@ namespace CardPresentation
     /// <summary>原版 `RankedEventBase&lt;TSave,TData&gt; : PlayEvent&lt;TSave,TData&gt;`
     /// （约束 `TSave : PlayEventSaveGame` / `TData : RankedBaseData`）。
     /// <para>它把「打一局」那一层（`PlayEvent`）补成「按积分算段位 + 排位开关 + 按阵营的战绩加成」。</para></summary>
-    public abstract class RankedEventBase<TSave, TData> : PlayEvent<TSave, TData>
+    public abstract class RankedEventBase<TSave, TData> : PlayEvent<TSave, TData>, IRankedEvent
         where TSave : PlayEventSaveGame
         where TData : RankedBaseData
     {
@@ -209,5 +209,32 @@ namespace CardPresentation
         {
             return RankedData.DivisionOf(points);
         }
+    }
+
+    // ============================================================ 原版 `IRankedEvent`（账 其他:779）
+    /// <summary>原版 `IRankedEvent`（`dump.cs:130514`，`TypeDefIndex 3541`）：
+    /// `IRankedEvent : IOwnDeckPlayEvent, IPlayEventWithLeaderboard, IPlayEvent, ILiveOps, IIdentifiable, IContainerProvider`。
+    /// <para>本仓只搬了**能落地的那一半**：① 父接口只留 `ILiveOps`（其余 5 个本仓未建，见下 ⚠️）；
+    /// ② 成员 = 原版 9 个具体成员里 `RankedEventBase&lt;,&gt;` 已实现的那 8 个 +
+    /// <see cref="RankedEventBase{TSave,TData}.SeasonNumber"/>（本条账要的那一格）。
+    /// ⚠️ **缺 1 个成员**：原版还有 `RankedDivision GetCurrentRankedDivision()`（接口**默认实现**，
+    /// `out_cpp2il_dev_ilspy/Everguild.LiveOps/IRankedEvent.cs:144-152`）—— 它的体里两次 `Method not found`
+    /// （`@1800021F0` / `@180002280`）⇒ **没有判据**，本仓不编（⛔ 不假装有）。</para>
+    /// <para>⚠️ 与原版的差异（⛔ 不是「已经一样」）：原版 6 个父接口在本仓只有 `ILiveOps` 存在；
+    /// 另 5 个（`IOwnDeckPlayEvent` / `IPlayEventWithLeaderboard` / `IPlayEvent` / `IIdentifiable` / `IContainerProvider`）
+    /// 本仓未建 ⇒ 这里只声明 `ILiveOps`（`GetActiveEvent&lt;T&gt;` 的泛型约束要它）。
+    /// 🔴 **放置位置**：原版该接口与 `IRankedData` 同址（文件前部）；我们**放文件尾**，只为**不移动已有成员的行号**
+    /// （`RankedEventBase.cs` 有账落点，插在中间会让 `check_ledger_points` 报漂移 —— `CLAUDE.md` §三 那条）。</para></summary>
+    public interface IRankedEvent : ILiveOps
+    {
+        DateTime SeasonEndDate { get; }
+        int SeasonNumber { get; }
+        int LegendaryElo { get; }
+        bool IsLegendaryElo { get; }
+        bool IsRanked { get; }
+        int MaxEloCap { get; }
+        new IRankedData GetBaseData();
+        void ToggleRankedMode(bool value);
+        RankedDivision GetDivisionByPoints(long points);
     }
 }

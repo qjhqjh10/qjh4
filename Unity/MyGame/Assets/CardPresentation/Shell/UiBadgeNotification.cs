@@ -85,8 +85,8 @@ namespace CardPresentation
             }
         }
 
-        /// <summary>原版 `Update`。批处理没有帧循环 ⇒ 自检/建场时用 <see cref="Step"/> 手推。</summary>
-        void Update() { Step(Time.deltaTime); }
+        /// <summary>原版 `Update`（🆕 2026-10-29 B94_T1 末尾加 `ReassertAlpha()`：显隐唯一写手，见类尾注记）。批处理没有帧循环 ⇒ 自检/建场时用 <see cref="Step"/> 手推。</summary>
+        void Update() { Step(Time.deltaTime); ReassertAlpha(); }
 
         /// <summary>alpha 逼近目标（3/s，`0.01` 贴值）。返回是否还在补间。</summary>
         public bool Step(float dt)
@@ -116,5 +116,31 @@ namespace CardPresentation
 
         /// <summary>自检读口：当前 alpha。</summary>
         public float CurrentAlpha { get { return _alpha; } }
+
+        // ============================================================ 显隐唯一写手（B94_T1 · 2026-10-29 追加，类尾）
+        // 🔶 自己设计（非原版）：**红点 quad 的 alpha 由本组件独占**，别的代码直写材质色会被下一帧纠回。
+        //   · 为什么必须自己定：原版 alpha 住在 `CanvasGroup` 上（`UiBadgeNotification.Awake` 的 `canvasGroup.alpha = 0`），
+        //     那份东西**只有本组件写**；我们的红点 quad 是**平铺 `ImageQuad` + 共享材质色**。历史上仓里曾有两条
+        //     遗留的直写通道（`RewardsWindow.RefreshBadges` · `SocialWindow.RefreshBadges`）——**已由 B94_Z1（2026-10-29）删除**；
+        //     本护栏保留下来，是为了挡住**将来任何**绕开组件直接 `SetTint` 到同一颗 quad 的写手
+        //     （谁后写谁赢；且本组件补间一停（`_fading == false`）就不再写 ⇒ 那个值会**永久留屏**）。
+        //     ⚠️ 它不是「原版行为」：原版 alpha 在 CanvasGroup 上由组件独占，这里是**载体不同**（材质色）的补偿。
+        //     本组件每帧自持，保证「屏幕上画出来的 = 计数算出来的」。
+        //   · 谁定的：调度台 2026-10-29（B94_T1 派活「修显隐链」）。
+        //   · 代价：每帧一次比较（只在**真的不一致**时才写一次材质色，不是无条件写）。
+        /// <summary>宿主给的**回读口**（= 红点 quad 现在的颜色 alpha）。设了才会做「自持」校正；不设 = 原版行为。</summary>
+        public Func<float> GetAlpha;
+
+        /// <summary>把外面偷改掉的 alpha 纠回 <see cref="_alpha"/>。见上面那段注记。</summary>
+        void ReassertAlpha()
+        {
+            if (GetAlpha == null || SetAlpha == null) return;
+            float cur = GetAlpha();
+            if (float.IsNaN(cur)) return;
+            if (Mathf.Abs(cur - _alpha) > 0.001f) SetAlpha(_alpha);
+        }
+
+        /// <summary>自检口：手动跑一次「自持校正」（批处理没有帧循环 ⇒ `Update` 不跑；语义与 `Update` 末尾那一跳同一份）。</summary>
+        public void ReassertForTest() { ReassertAlpha(); }
     }
 }

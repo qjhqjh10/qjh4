@@ -89,7 +89,12 @@ public static partial class RuleEngineTest
         // ---- 破坏：`Create a random Sabotage in the enemy hand`（`DoCreate` 的 `enemyhand` 支）----
         var tac = Tactic("T_X18Sab", 0, "Create a random Sabotage in the enemy hand");
         var sab = new CardDef("X18Sabotage", "X18Sabotage", "tactic", "", "common", "Test",
-                              0, 0, 0, 0, null, subtype: "Sabotage");
+                              0, 0, 0, 0, null, subtype: "Sabotage", spellType: 230);
+        // 🔴 2026-10-29（`B94_FX8` · DG1 γ3）：`B94_B14` 把「破坏」的判据从 **subtype 词**改成**数据面**
+        //   `rawCardData.spellType == 0xe6(230)`（`EffectResolver.cs:4216`，判据 `_ResolveCreateHandCard_d__512__MoveNext.c:90`）。
+        //   夹具只写 `subtype: "Sabotage"` 时 `CardDef` ctor 的 `spellType` 缺省是 **-1**（`CardDef.cs:912`）⇒ 闸不成立
+        //   ⇒ `AddSabotage` 根本没被调到 ⇒ 下面两条「1 / +1」一起红。**先硬检查前提，别让它静默跳过**。
+        Check(sab.SpellType, 230, "夹具前提：破坏卡的数据面 `spellType = 230`（⛔ 缺了它 `AddSabotage` 不会被调到）");
         var ctx2 = BattlePool(new[] { tac }, new[] { Unit("X18FoeSab", 1, 1, 9) },
                               new List<CardDef> { tac, sab });
         ToP1Turn(ctx2, 1);

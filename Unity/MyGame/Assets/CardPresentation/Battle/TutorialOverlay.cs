@@ -1074,15 +1074,15 @@ namespace CardPresentation
         /// <summary>指点光标（原版 `CheckForTutorialPointer`，只在 `playerAction == 1` 的时候走）。</summary>
         public void SetPointer(bool on, Vector3 world)
         {
+            // 🔴 2026-10-29（Y5）：改成**原版语义** —— 单点 = `clickInPosition`（循环两拍 + 偏移/朝向）。
+            //   判据 → 类尾 `SetPointer(bool,Vector3,Vector3,PointerOrient)` 那一段与 `.c` 逐句；
+            //   本方法保持**旧签名**（`BattleDriver` 两处调用点不动），行为升级为原版那台状态机。
             if (_pointer == null) return;
-            if (on)
-            {
-                // 🔴 **2026-10-16（`T09` 批 3）**：世界档那一句**逐字不变**（含那个 `0.06f`）；
-                //    画布档走 `CvPlace`（它独占一块 `OverHand`/10 的子画布，见文件头 ③）。
-                var p = new Vector3(world.x, world.y, ZPointer);
-                if (UguiMode) CvPlace(_pointer.gameObject, _cvPtr, p);
-                else _pointer.transform.position = p;
-            }
+            if (on) StartPointer(0, world, world, PointerOrient.Right);
+            else StopPointer();
+            // 原版 `StartPointer.c:14` 先 `SetActive(gameObject,true)`；`OnDisable` 收起来。
+            //   这一句保「开/关两态」即时生效（点完立刻可读 `PointerVisible`，不依赖第一帧 `Tick`）。
+            //   ⚠️ `null`（贴图缺、`_pointer` 没建）⇒ 上面已早退，这里不会 NRE。
             if (_pointer.gameObject.activeSelf != on) _pointer.gameObject.SetActive(on);
         }
 
@@ -1203,7 +1203,7 @@ namespace CardPresentation
         /// 由 `BattleDriver.Update` 与自检**显式喂 dt**。</summary>
         public void Tick(float dt)
         {
-            _shownFor += Mathf.Max(0f, dt);
+            _shownFor += Mathf.Max(0f, dt); TickPointer(dt);   // 🆕 2026-10-29（Y5）：指针状态机按 dt 步进
             float target = _wantVisible ? 1f : 0f;
             if (Mathf.Approximately(_fade, target)) return;
             float step = FadeDuration <= 0f ? 1f : Mathf.Max(0f, dt) / FadeDuration;
@@ -1236,5 +1236,264 @@ namespace CardPresentation
         public float ArrowLeftAlpha { get { return _arrowL != null ? _arrowL.Tint.a : -1f; } }
         /// <inheritdoc cref="ArrowLeftAlpha"/>
         public float ArrowRightAlpha { get { return _arrowR != null ? _arrowR.Tint.a : -1f; } }
+
+        // ==================================================================
+        //  🆕 2026-10-29（执行代理 `Y5` · 第九十四会话 · 波 1.5 · 账 `特效动画:524`）
+        //  **补 `TutorialPointer.StartPointer` 在战斗面的两条真差**（`G346`）：
+        //   ① **双点口**（`clickAndDrag`：起点 + 拖拽终点）—— 原版 `TutorialPointer._ClickAndDrag_d__25__MoveNext.c:1-93`
+        //      （`state0` 杀旧 tween → `ShowStartingPointer(start)` 等 `waitBeforeClick`；`state1` `ShowClickedPointer(start)`
+        //       等 `waitAfterClick × 0.5`；`state2` `DOMove(→ GetAdjustedPos(endPos), moveDuration, Linear)` 等 `moveDuration + 0.1`；
+        //       `state3` 回首）。我们原来是**单点口**（`SetPointer(bool, Vector3)`），终点画不出来。
+        //   ② **恒在闸**（原版那颗 `TutorialPointer` 恒在 + 「`activeAnim`/`animCount` 换动作就作废旧协程」）——
+        //      判据 `TutorialPointer__StartPointer.c:14-16`（`SetActive(gameObject,true)` · `animCount(+0x6c)++` · `activeAnim(+0x70)=1`）·
+        //      `TutorialPointer__OnDisable.c:1-27`（`activeAnim=0` · `Kill tween` · 收起）·
+        //      `ShowStartingPointer.c` 收尾 `SetActive(pointer, showPointer(+0x71))`。
+        //
+        //  🔴 **原版那三个协程改成按 `dt` 步进的显式状态机**（批处理没有帧循环；与 `Shell/TutorialPointerUi` 同口径）。
+        //  🔴 **「恒在」有两半**：① 组件**恒存在**（`BattleManager.tutorialPointerBattle` `+0x208`，**非教程局也在**——
+        //     账 `特效动画:524` 差异 ②）⇒ 那一半的闸在 `BattleDriver.EnsureTutorialOverlay`（**不在本件白名单**）；
+        //     本件补的是第二半：**一旦亮起就按 `activeAnim`/`animCount` 永久循环**（原版协程 `state 2→0` 回首、永不退出）。
+        //     ⚠️ 建层闸的接线见报告 `B94_Y5.md` §3（本件只做好能力，⛔ 不改别的文件）。
+        //
+        //  **值全部有判据**（⛔ 不是我们挑的）：
+        //   · prefab `bundle_scenes_scenes_battlearena1/MonoBehaviour/MonoBehaviour_4791.json`（13 场同值）序列化字段：
+        //     `waitBeforeClick = 0.5` · `waitAfterClick = 0.5` · `moveDuration = 0.7` · `clickScaleFactor = 0.7` ·
+        //     `xOffset = 2.0` · `yOffset = -2.0` · `useLocalPositions = 0`（世界坐标）；
+        //   · `read_literal` 现读 GameAssembly.dll：`0x1834b2bc8 = -1` · `0x1834b2bb8 = 1` · `0x1834b2bb4 = 0.5` ·
+        //     `0x1834b2dc4 = 0.1` · `0x1834b2dc0 = 0.0174533`（= π/180，把下面两个「度」折成弧度）·
+        //     `0x1834b2c80 = -0.0`（符号位 `0x80000000`，`GetAdjustedPos` 用它把 xOffset 取反）·
+        //     `0x1834b3350 = 40` · `0x1834b3358 = -180`（`ShowStartingPointer` 的 Euler 角，单位度）；
+        //   · 朝向枚举 `dump.cs` TypeDefIndex 2980：`right = 0` / `left = 1`。
+        // ==================================================================
+
+        /// <summary>原版 `PointerRelativePos`（`dump.cs` TypeDefIndex 2980）：`right = 0` / `left = 1`。
+        /// ⚠️ 嵌在这里是为了**零行号漂移**（类尾追加）—— 账按 `文件:行号` 引用本文件 40+ 处。</summary>
+        public enum PointerOrient { Right = 0, Left = 1 }
+
+        /// <summary>原版 `TutorialPointerActions`（`dump.cs` TypeDefIndex 2981）：三档动画。
+        /// 值逐条相等（`clickInPosition = 0` / `clickAndHold = 1` / `clickAndDrag = 2`）。</summary>
+        public enum PointerActionKind { ClickInPosition = 0, ClickAndHold = 1, ClickAndDrag = 2 }
+
+        // ---- 原版 prefab 序列化字段（`MonoBehaviour_4791.json`，逐值照抄，⛔ 别改）----
+        /// <summary>`waitBeforeClick = 0.5`（起手 → 点击态之间）。</summary>
+        public const float PointerWaitBeforeClick = 0.5f;
+        /// <summary>`waitAfterClick = 0.5`（点击态 → 下一拍）。</summary>
+        public const float PointerWaitAfterClick = 0.5f;
+        /// <summary>`moveDuration = 0.7`（`clickAndDrag` 的 `DOMove` 时长；`clickInPosition`/`clickAndHold` 不用）。</summary>
+        public const float PointerMoveDuration = 0.7f;
+        /// <summary>`clickScaleFactor = 0.7`（点击态缩放）。</summary>
+        public const float PointerClickScale = 0.7f;
+        /// <summary>`xOffset = 2.0`（世界单位；`left` 朝向时取反）。</summary>
+        public const float PointerOffsetX = 2.0f;
+        /// <summary>`yOffset = -2.0`（世界单位；两朝向都不变）。</summary>
+        public const float PointerOffsetY = -2.0f;
+        /// <summary>`ShowStartingPointer` 的 Euler 角（度）：z 恒 **40**（`DAT_1834b3350`）。</summary>
+        const float PointerRotZDeg = 40f;
+        /// <summary>`ShowStartingPointer` 的 Euler 角（度）：`left` 时 y = **-180**（`DAT_1834b3358`），`right` 时 0。</summary>
+        const float PointerRotYDegLeft = -180f;
+        /// <summary>`DOMove` 之后额外再等 `DAT_1834b2dc4 = 0.1` 秒（`clickAndDrag` state2）。</summary>
+        const float PointerDragTail = 0.1f;
+        /// <summary>`clickAndDrag` state1 的等待 = `waitAfterClick × DAT_1834b2bb4(0.5)` = 0.25s。</summary>
+        const float PointerDragHoldFactor = 0.5f;
+
+        // ---- 状态（原版字段 → 本地等价物）----
+        bool _ptrOn;                                             // 驱动位（≈ `pointer.gameObject.activeSelf`）
+        bool _ptrAnimActive;                                     // 原版 `activeAnim(+0x70)`
+        bool _ptrShow = true;                                    // 原版 `showPointer(+0x71)`（`SetTutorialText` 的形参；本件没有文字气泡 ⇒ 恒 true）
+        int _ptrAnimCount;                                       // 原版 `animCount(+0x6c)`：每次 `StartPointer` ++ ⇒ 旧相位作废
+        PointerActionKind _ptrMode = PointerActionKind.ClickInPosition;
+        PointerOrient _ptrOrient = PointerOrient.Right;
+        Vector3 _ptrFrom, _ptrTo;                                // 原版 `startPos` / `endPos`（**未加偏移**的 clickPos）
+        int _ptrPhase;                                           // 0..3（coroutine state）
+        float _ptrPhaseT;                                        // 当前相位的累计秒
+
+        /// <summary>双点口（原版 `StartPointer(clickAndDrag, from, to, orientation)`）。
+        /// `from`/`to` = **世界坐标**（与 `SetPointer(bool, Vector3)` 同一个帧）；`to` 走 `GetAdjustedPos` 后再 `DOMove`。
+        /// ⚠️ **`on == false` ⇒ 收起**（原版 `OnDisable`），不看后面三个参数。</summary>
+        public void SetPointer(bool on, Vector3 from, Vector3 to, PointerOrient orient = PointerOrient.Right)
+        {
+            SetPointer(on, PointerActionKind.ClickAndDrag, from, to, orient);
+        }
+
+        /// <summary>原版 `StartPointer` 的**全签名**等价物（三档动画都收）。战斗侧调用点（`BattleDriver`）今天只用
+        /// 单点/双点两个便捷口；这一口留给 `clickAndHold`（原版 `ShowPlayerActionAnim.c:525` 那一支）。</summary>
+        public void SetPointer(bool on, PointerActionKind action, Vector3 from, Vector3 to,
+                               PointerOrient orient = PointerOrient.Right)
+        {
+            if (_pointer == null) return;
+            if (!on) { StopPointer(); return; }
+            StartPointer((int)action, from, to, orient);
+        }
+
+        /// <summary>原版 `TutorialPointer.StartPointer`（`StartPointer.c:14-16`）：
+        /// `SetActive(gameObject,true)` → `animCount++` → `activeAnim = 1` → 起动画（这里 = 相位归 0）。
+        /// ⚠️ `animCount++` 是原版「换动作就作废旧协程」的机制 —— 旧相位发现计数不等就自行退出；
+        ///    我们用「每次 `StartPointer` 把 `_ptrPhase/_ptrPhaseT` 归零」表达（同一语义，批处理无协程）。</summary>
+        void StartPointer(int mode, Vector3 from, Vector3 to, PointerOrient orient)
+        {
+            if (_pointer == null) return;
+            _ptrOn = true;
+            _ptrAnimActive = true;
+            _ptrAnimCount++;
+            _ptrMode = (PointerActionKind)mode;
+            _ptrFrom = from; _ptrTo = to; _ptrOrient = orient;
+            _ptrPhase = 0; _ptrPhaseT = 0f;
+            ShowStartingPointer();                                   // 原版 state0 第一句
+        }
+
+        /// <summary>原版 `TutorialPointer.OnDisable`（`OnDisable.c:1-27`）：`activeAnim = 0` · `Kill tween` · `SetActive(false)`。
+        /// ⚠️ **幂等**（同原版）。</summary>
+        void StopPointer()
+        {
+            _ptrAnimActive = false; _ptrOn = false;
+            _ptrPhase = 0; _ptrPhaseT = 0f;
+            if (_pointer != null && _pointer.gameObject.activeSelf) _pointer.gameObject.SetActive(false);
+        }
+
+        /// <summary>按 `dt` 推进指针状态机（原版三个协程）。由 <see cref="Tick"/> 每帧喂。
+        /// **`_ptrAnimActive` 为假 ⇒ 什么也不做**（= 原版协程 `+0x70` 那个闸）；
+        /// 指针被外部收起（`HideAll` 的 `SetActive(false)`）⇒ 也自动停（同原版 `OnDisable` 的净效果）。</summary>
+        void TickPointer(float dt)
+        {
+            if (_pointer == null) { _ptrOn = false; _ptrAnimActive = false; return; }
+            if (!_pointer.gameObject.activeSelf) { _ptrOn = false; _ptrAnimActive = false; return; }
+            if (!_ptrOn || !_ptrAnimActive) return;
+            _ptrPhaseT += Mathf.Max(0f, dt);
+            switch (_ptrMode)
+            {
+                case PointerActionKind.ClickInPosition:           // 2 态循环（`_ClickInPosition_d__23__MoveNext.c`）
+                    if (_ptrPhase == 0)
+                    {
+                        if (_ptrPhaseT >= PointerWaitBeforeClick) { _ptrPhase = 1; _ptrPhaseT = 0f; ShowClickedPointer(); }
+                    }
+                    else if (_ptrPhase == 1)
+                    {
+                        if (_ptrPhaseT >= PointerWaitAfterClick) { _ptrPhase = 0; _ptrPhaseT = 0f; ShowStartingPointer(); }
+                    }
+                    else { _ptrPhase = 0; _ptrPhaseT = 0f; }
+                    break;
+
+                case PointerActionKind.ClickAndHold:              // 4 态循环（`_ClickAndHold_d__24__MoveNext.c`）
+                    if (_ptrPhase == 0)
+                    {
+                        if (_ptrPhaseT >= PointerWaitBeforeClick) { _ptrPhase = 1; _ptrPhaseT = 0f; ShowClickedPointer(); }
+                    }
+                    else if (_ptrPhase == 1)
+                    {
+                        if (_ptrPhaseT >= PointerWaitAfterClick) { _ptrPhase = 2; _ptrPhaseT = 0f; }
+                    }
+                    else if (_ptrPhase == 2)
+                    {
+                        // 原版第 3 拍 `Instantiate(clickAnim)` —— prefab `clickAnim = null` ⇒ 只多等、不实例化。
+                        if (_ptrPhaseT >= PointerWaitAfterClick) { _ptrPhase = 3; _ptrPhaseT = 0f; }
+                    }
+                    else if (_ptrPhase == 3)
+                    {
+                        if (_ptrPhaseT >= PointerWaitAfterClick) { _ptrPhase = 0; _ptrPhaseT = 0f; ShowStartingPointer(); }
+                    }
+                    else { _ptrPhase = 0; _ptrPhaseT = 0f; }
+                    break;
+
+                default:                                          // clickAndDrag —— 4 态循环（`_ClickAndDrag_d__25__MoveNext.c`）
+                    if (_ptrPhase == 0)
+                    {
+                        if (_ptrPhaseT >= PointerWaitBeforeClick) { _ptrPhase = 1; _ptrPhaseT = 0f; ShowClickedPointer(); }
+                    }
+                    else if (_ptrPhase == 1)
+                    {
+                        if (_ptrPhaseT >= PointerWaitAfterClick * PointerDragHoldFactor)
+                        {
+                            _ptrPhase = 2; _ptrPhaseT = 0f;
+                            ShowClickedPointer();
+                            PlacePointer(0f);                     // 拖拽起点（= `GetAdjustedPos(from)`）
+                        }
+                    }
+                    else if (_ptrPhase == 2)
+                    {
+                        float t = PointerMoveDuration <= 0f ? 1f : Mathf.Clamp01(_ptrPhaseT / PointerMoveDuration);
+                        PlacePointer(t);                          // 线性插值 → 终点（原版 `SetEase(Linear)`）
+                        if (_ptrPhaseT >= PointerMoveDuration + PointerDragTail) { _ptrPhase = 0; _ptrPhaseT = 0f; ShowStartingPointer(); }
+                    }
+                    else { _ptrPhase = 0; _ptrPhaseT = 0f; }
+                    break;
+            }
+        }
+
+        /// <summary>原版 `ShowStartingPointer`（`ShowStartingPointer.c:1-140`，逐句）：
+        /// 位置 = `GetAdjustedPos(clickPos)`；scale = **1**（right）/ **(-1,1,1)**（left）；
+        /// rotation = `Euler(0, 0|-180, 40)` 度；`bgLight` alpha 置 **0**；末句 `SetActive(pointer, showPointer)`。
+        /// <para>⚠️ **`bgLight` 那一半如实未做** —— 我们 `_pointer` 是**单图**（原版是 `Pointer` + `Pointer/light` 两张），
+        /// 没有独立的 light 子件可置 alpha（见报告「没查清/顺手发现」）。</para></summary>
+        void ShowStartingPointer()
+        {
+            PlacePointerAt(GetAdjustedPos(_ptrFrom));
+            bool left = _ptrOrient == PointerOrient.Left;
+            _pointer.transform.localScale = left ? new Vector3(-1f, 1f, 1f) : Vector3.one;
+            // 原版 `set_rotation`（world rotation）：Euler(0, 0|-180, 40)×(π/180)。我们照抄这两个角。
+            _pointer.transform.localEulerAngles =
+                new Vector3(0f, left ? PointerRotYDegLeft : 0f, PointerRotZDeg);
+            if (_pointer.gameObject.activeSelf != _ptrShow) _pointer.gameObject.SetActive(_ptrShow);
+        }
+
+        /// <summary>原版 `ShowClickedPointer`（`ShowClickedPointer.c:1-85`）：
+        /// 位置 = `GetAdjustedPos(clickPos)`；scale = **0.7**（right）/ **(-0.7,0.7,0.7)**（left）；
+        /// `bgLight` alpha 置 **1**；`clickAnim` 非空才 `Instantiate`（本 prefab = null ⇒ 不实例化）。
+        /// ⚠️ **原版这一支【不设 rotation】**（只缩放）—— 我们照此，旋转只在 `ShowStartingPointer` 里设。</summary>
+        void ShowClickedPointer()
+        {
+            PlacePointerAt(GetAdjustedPos(_ptrFrom));
+            bool left = _ptrOrient == PointerOrient.Left;
+            float s = PointerClickScale;
+            _pointer.transform.localScale = left ? new Vector3(-s, s, s) : new Vector3(s, s, s);
+            // `bgLight` 置 1 / `clickAnim` 实例化：两样本件都没有（见 `ShowStartingPointer` 的 ⚠️）。
+        }
+
+        /// <summary>原版 `GetAdjustedPos`（`GetAdjustedPos.c:1-45`，逐句）：`(clickPos.x + offX, clickPos.y + yOffset, z)`，
+        /// 其中 `offX = xOffset × (orientation==left ? -1 : 1)`（`^ 0x80000000` 符号位翻转）、`yOffset` 不变，
+        /// `z` 取指针**当前**的 z（我们恒 `ZPointer`，确定性等价）。</summary>
+        Vector3 GetAdjustedPos(Vector3 clickPos)
+        {
+            float ox = (_ptrOrient == PointerOrient.Left) ? -PointerOffsetX : PointerOffsetX;
+            return new Vector3(clickPos.x + ox, clickPos.y + PointerOffsetY, ZPointer);
+        }
+
+        /// <summary>把指针摆到某个**世界点**（两档同口：画布档折 px、世界档写 position）。</summary>
+        void PlacePointerAt(Vector3 world)
+        {
+            if (_pointer == null) return;
+            var q = new Vector3(world.x, world.y, ZPointer);
+            if (UguiMode) CvPlace(_pointer.gameObject, _cvPtr, q);
+            else _pointer.transform.position = q;
+        }
+
+        /// <summary>`clickAndDrag` state2 的线性插值：`t=0` → `GetAdjustedPos(from)`，`t=1` → `GetAdjustedPos(to)`。</summary>
+        void PlacePointer(float t)
+        {
+            PlacePointerAt(Vector3.Lerp(GetAdjustedPos(_ptrFrom), GetAdjustedPos(_ptrTo), Mathf.Clamp01(t)));
+        }
+
+        // ---- 自检读口（只读；本文件账按行号引用 40+ 处 ⇒ 全部追加在类尾）----
+        /// <summary>当前动画档（原版 `TutorialPointerActions`）。</summary>
+        public PointerActionKind PointerActionForTest { get { return _ptrMode; } }
+        /// <summary>当前相位（原版 coroutine state 0..3）。</summary>
+        public int PointerPhaseForTest { get { return _ptrPhase; } }
+        /// <summary>起点（**未加偏移**的 clickPos；= 原版 `StartPointer` 的 `startPos`）。</summary>
+        public Vector3 PointerFromForTest { get { return _ptrFrom; } }
+        /// <summary>拖拽终点（**未加偏移**；只有 `clickAndDrag` 才与起点不同）。</summary>
+        public Vector3 PointerToForTest { get { return _ptrTo; } }
+        /// <summary>朝向。</summary>
+        public PointerOrient PointerOrientForTest { get { return _ptrOrient; } }
+        /// <summary>原版 `activeAnim(+0x70)`：动画循环开着没有（= 「恒在」那一半的闸）。</summary>
+        public bool PointerAnimActiveForTest { get { return _ptrAnimActive; } }
+        /// <summary>原版 `animCount(+0x6c)`：`StartPointer` 被调过几次（每次 ++；自检断「换动作 = 归零相位」）。</summary>
+        public int PointerAnimCountForTest { get { return _ptrAnimCount; } }
+        /// <summary>原版 `showPointer(+0x71)`。</summary>
+        public bool PointerShowForTest { get { return _ptrShow; } }
+        /// <summary>指针当前的 `localScale.x`（自检断「点击态 = 0.7 / 起手 = 1 / left 取负」）。</summary>
+        public float PointerScaleXForTest { get { return _pointer != null ? _pointer.transform.localScale.x : 0f; } }
+        /// <summary>指针当前的世界坐标（自检断「`GetAdjustedPos` 的 +2/-2 偏移」与「拖拽真的走到终点」）。</summary>
+        public Vector3 PointerWorldPosForTest { get { return _pointer != null ? _pointer.transform.position : Vector3.zero; } }
+        /// <summary>自检用：强行推进一次状态机（批处理没有帧循环；`Tick` 已含它，这里只给「只推指针」用）。</summary>
+        public void TickPointerForTest(float dt) { TickPointer(dt); }
     }
 }

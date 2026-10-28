@@ -1269,6 +1269,15 @@ public static partial class RuleEngineTest
         Step(TestW6LevelCurve);
         Step(TestW6LoadableRefHooks);
 
+        // 🆕 2026-10-29（调度台代接线）：F4 的 `RuleEngineTest_EngineB94F4.cs` 此前**零 Step 引用**（7 个子测试一条都没跑过）。
+        //   ⚠️ 用真 `Step(...)` 而不是 `{ X(); }` 块 —— 它是 `Test*` 打头的用例方法，`gen_diag_runner` 要能看见
+        //   （否则 `VerifyDiagCoverage` 的「反射 vs 用例表」对账会红）。🔴 **2026-10-29（`B94_FX8` · DG1 #15）本块与下面那行 `Step(TestF2B94)` 整体上移到这里** —— 它们原来排在 `VerifyRunCaseCoverage()` 之后，而闸按 `_ranCases`（`:1379`）对账 ⇒ 看不见它们 ⇒ #15 红。
+        Step(TestB94F4EngineGaps);
+
+        // 🆕 2026-10-29（调度台代接线）：F2 的 `TestF2B94`（playChosenCardAbility 360 支 / TriggerOtherCardAbility / healed 的 actor-target）。
+        // ⚠️ `gen_diag_runner` 只认「一行一个 `Step(...)`」⇒ 不能与上一句挤同一行。🔴 2026-10-29（`B94_FX8` · DG1 #15）：已随上一条一起上移到覆盖闸**之前**。
+        Step(TestF2B94);
+
         // 🔴 **`Run()` 自己的「静默少跑」闸**（`A1591`）—— 必须在【汇总】之前跑，
         //    否则它的 `Check` 不计进 `_pass/_fail`（汇总行会漏掉它）。
         // ⚠️ **故意缩进深一层**：`工具/gen_diag_runner.py` 只把「**8 空格缩进的顶层语句**」当用例
@@ -1324,7 +1333,8 @@ public static partial class RuleEngineTest
         {
             CheckB93G1RandomOrderStratagem();
             CheckB93G1PlayedCardTail();
-        }
+        }   // 🆕 B94_F1（账 534/455）：墓地放逐闩 + 誓约出牌费 —— 断言全文在 `RuleEngineTest_EngineB94F1.cs`
+        { CheckB94F1CemeteryExileAndOathPay(); CheckB94Y1TroopKilled(); CheckB94W3DeathTurnPredicate(); B94B3EngineGaps(); CheckB94B2EngineGaps(); CheckB94B8Engine(); CheckB94Z3RuleCoreGaps(); CheckB94B1EngineGaps(); CheckB94Z2HandAbilityChannel(); CheckB94B12TransformUnit(); CheckB94B13RuleCoreWiring(); CheckB94B16Engine(); B94B15EngineGaps(); CheckB94B14EffectResolverGaps(); CheckB94B19TutorialGate(); CheckB94B21DormantBroadcasts(); CheckB94B20CreateAtPos(); CheckB94B24SeatAndActingCard(); CheckB94B23AbilityBuffs(); }   // 🆕 2026-10-29（调度台代接线）：Y1 的 `TroopKilled` 计数口径 · W3 的死亡回合谓词 · B3 的引擎小件（372/422）· B2 的 UnitState/CardDef（ActiveAbilitySuppressed 死位接进 + 教程闸状态半边）—— 非 Test/Report 前缀，走块语句 ⇒ 不进 Diag、行数零变化
 
         // ---- 汇总 ----
         int total = _pass + _fail;

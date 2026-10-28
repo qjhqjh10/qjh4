@@ -426,4 +426,165 @@ namespace CardPresentation
             if (go.activeSelf != on) go.SetActive(on);
         }
     }
+
+    // ============================================================ 原版 `Countdown` 组件（B94_S3 · 2026-10-29）
+    //
+    // 判据（逐句实读，别再另找）：
+    //   · `d:/2/tools/decomp_full/Countdown__{Activate,Update,ChangeSpeed,Stop,GetSecondsLeft}.c`
+    //   · 字段名/类型：`cpp2il/out_cpp2il_dev_ilspy/Countdown.cs`
+    //     （`timerText` · `lastStop` · `timeElapsedBeforeStop` · `speedAdjustedTimeElapsed` · `running` ·
+    //      `speedFactor = 1f` · `timeAvailable` · `soundPlayedFlag`）
+    //   · 两个字面量：`"0x4264910" = "{0:0}:{1:00}"`（`il2cpp_out/stringliteral.json`，= `Activate`/`Update` 的
+    //     `String.Format` 格式串）· `DAT_1834b2df4 = 5.0`（剩 5 秒那一档）· `DAT_1834b2f60 = 1.0`
+    //     （`TimeSpan.FromSeconds(1.0)`，读数前补的那一下）
+    //
+    // 🔴 **为什么不是 `MonoBehaviour`**：原版它挂在 GameObject 上、`Update()` 里 `DateTime.Now` 现取（**不可复现**）。
+    //    这里做成**普通类 + 注入时钟**：`Tick(DateTime now)` 给自检一个确定的时刻（`Tick()` 那一档才是
+    //    `DateTime.Now` = 原版形状）。文本写口也做成委托（原版是 `GetComponent<TextMesh>().text`，
+    //    我们这一层没有 `TextMesh`；消费点给 `Label.SetText` 即可）。
+    //
+    // ⚠️ **一处如实标**：
+    //   原版 `timerText`/`AudioSource` 为 null 时是 throw（`FUN_1803f47a0`）；我们出声 + 跳过（全工程口径）。
+    //   （2026-10-29 `B94_B6` 已把原来那条「乘式未拿到逐字节判据」**结案**：VA 反汇编坐实
+    //    「**先 `cvttss2si` 截断 `speedFactor`、再 `imul` 乘 ticks**」—— 判据全文见 `Scale` 的注释。）
+    //   ⚠️ 那条旧记录写的是「`Locale__GetText` 是 `TimeSpan.FromTicks` 的误识别」，**方向对**；
+    //      新判据只纠正了**运算次序**（先截断 vs 先相乘），其余一字未变。
+    /// <summary>原版 `Countdown`（`MonoBehaviour`：把一个总秒数按 `speedFactor` 倍速倒数，`mm:ss` 写进 `TextMesh`）。
+    /// <para>⚠️ **本工程没有消费点**（原版那边也是挂在少数 prefab 上；我们接的倒计时全走 <see cref="TimerDisplay"/>）
+    /// ⇒ 这一类是「判据齐、行为齐、无调用方」，由 `Editor/B93S3Assert.cs` 的断言钉住。</para></summary>
+    public sealed class Countdown
+    {
+        /// <summary>格式串（判据：`stringliteral.json` 地址 `0x4264910` = `{0:0}:{1:00}`）。
+        /// ⚠️ 是 `{0:0}`（至少 1 位）**不是** `{0:00}` —— 分钟那一格原版就是 1 位起。</summary>
+        public const string TextFormat = "{0:0}:{1:00}";
+        /// <summary>`Update` 里判「快到了」的那一档（`DAT_1834b2df4` = **5.0**）。</summary>
+        public const float LowSeconds = 5f;
+        /// <summary>读数前补上的那一段（`DAT_1834b2f60` = **1.0 秒**，`TimeSpan.FromSeconds(1.0)`）。</summary>
+        public static readonly System.TimeSpan RoundUp = System.TimeSpan.FromSeconds(1.0);
+
+        System.TimeSpan _timeAvailable;          // 原版 +0x48
+        System.TimeSpan _elapsedBeforeStop;      // +0x30
+        System.TimeSpan _elapsed;                // +0x38（speedAdjustedTimeElapsed）
+        System.DateTime _lastStop;               // +0x28
+        bool _running;                           // +0x40
+        float _speedFactor = 1f;                 // +0x44
+        bool _soundPlayed;                       // +0x50
+
+        /// <summary>文本写口（原版 `TextMesh.text`；⛔ 不静默：为 null 时出声一次）。</summary>
+        public System.Action<string> WriteText;
+        /// <summary>「剩 &lt; 5 秒」那一下的音效（原版 `GetComponent&lt;AudioSource&gt;().Play()`）。</summary>
+        public System.Action PlayAlert;
+        /// <summary>时钟（原版 `DateTime.Now`；自检注入固定时刻）。</summary>
+        public System.Func<System.DateTime> Clock;
+
+        static bool _said;
+
+        public Countdown(System.Action<string> writeText = null, System.Action playAlert = null,
+                         System.Func<System.DateTime> clock = null)
+        {
+            WriteText = writeText; PlayAlert = playAlert; Clock = clock;
+        }
+
+        public bool Running { get { return _running; } }
+        public float SpeedFactor { get { return _speedFactor; } }
+        /// <summary>总时长（原版 `timeAvailable` `+0x48`）。</summary>
+        public System.TimeSpan TimeAvailable { get { return _timeAvailable; } }
+        /// <summary>已走掉的「倍速后」时长（原版 `speedAdjustedTimeElapsed` `+0x38`）。</summary>
+        public System.TimeSpan Elapsed { get { return _elapsed; } }
+        /// <summary>上一次写出去的文本（自检读口）。</summary>
+        public string LastText { get; private set; }
+
+        /// <summary>原版 `Countdown.Activate(float speed, int secondsDuration)` —— 逐句：
+        /// `timerText = GetComponent&lt;TextMesh&gt;()` ·
+        /// `timeAvailable = new TimeSpan(0, 0, secondsDuration)`（**3 实参 ctor = 时/分/秒** ⇒ 真的 `secondsDuration` 秒）·
+        /// `text = Format(timeAvailable)` 先写一次 · `speedFactor = speed` · `lastStop = Now` ·
+        /// 两格 elapsed 归零 · `running = true` · `soundPlayedFlag = false`。
+        /// <para>⚠️ `.c` 那行看起来是 4 实参（`TimeSpan___ctor(this,0,0,param_3,0)`），末位那个 `0` 是
+        /// **MethodInfo 指针**不是第 4 个实参 ⇒ 仍是 3 实参 ctor（ILSpy 同结论）。</para></summary>
+        public void Activate(float speed, int secondsDuration)
+        {
+            _timeAvailable = new System.TimeSpan(0, 0, secondsDuration);
+            Write(Fmt(_timeAvailable));
+            _speedFactor = speed;
+            _lastStop = Now();
+            _elapsedBeforeStop = System.TimeSpan.Zero;
+            _elapsed = System.TimeSpan.Zero;
+            _running = true;
+            _soundPlayed = false;
+        }
+
+        /// <summary>原版 `Countdown.ChangeSpeed(float newSpeed)`：`timeElapsedBeforeStop = speedAdjustedTimeElapsed` ·
+        /// `speedFactor = newSpeed` · `lastStop = Now` · `running = true`。</summary>
+        public void ChangeSpeed(float newSpeed)
+        {
+            _elapsedBeforeStop = _elapsed;
+            _speedFactor = newSpeed;
+            _lastStop = Now();
+            _running = true;
+        }
+
+        /// <summary>原版 `Countdown.Stop()` = `running = false`。</summary>
+        public void Stop() { _running = false; }
+
+        /// <summary>原版 `Countdown.GetSecondsLeft()` = `(timeAvailable − speedAdjustedTimeElapsed).TotalSeconds`
+        /// （**不**带 `RoundUp` 那 1 秒）。</summary>
+        public double GetSecondsLeft() { return (_timeAvailable - _elapsed).TotalSeconds; }
+
+        /// <summary>原版 `Countdown.Update()`（用 `DateTime.Now`）。</summary>
+        public void Tick() { Tick(Now()); }
+
+        /// <summary>原版 `Countdown.Update()` 的可复现版（注入时刻）。逐句：
+        /// `if (!running) return;` · `elapsed = (now − lastStop) × speedFactor + elapsedBeforeStop` ·
+        /// `remaining = timeAvailable − elapsed + 1s` · `text = Format(remaining)` ·
+        /// `if (!soundPlayed && remaining.Seconds &lt; 5) { play; soundPlayed = true; }`。</summary>
+        public void Tick(System.DateTime now)
+        {
+            if (!_running) return;
+            _elapsed = Scale(now - _lastStop, _speedFactor) + _elapsedBeforeStop;
+            var remaining = _timeAvailable - _elapsed + RoundUp;
+            Write(Fmt(remaining));
+            if (!_soundPlayed && remaining.Seconds < LowSeconds)
+            {
+                _soundPlayed = true;
+                if (PlayAlert != null) PlayAlert();
+            }
+        }
+
+        /// <summary>原版那一下「乘倍速」—— **逐字节判据（2026-10-29 `B94_B6` · VA 反汇编）**：
+        /// `Countdown$$Update`（VA `0x180623EA0`）里就三条：
+        /// `movss xmm6,[rdi+0x44]` → **`cvttss2si rcx,xmm6`**（**先把 `speedFactor` 截断成 long**）→
+        /// **`imul rcx,rbx`**（再乘 `(now − lastStop).Ticks`）→ `call 0x180A89E90`；
+        /// 那个 callee 全文只有 `mov rax,rcx; ret` = **`TimeSpan.FromTicks(long)`**（= `new TimeSpan(ticks)`）。
+        /// ⇒ **先截断、再相乘**（⛔ 不是「乘完再截断」）：`speedFactor = 1.5` ⇒ 按 **1** 算；
+        /// `0 &lt; speedFactor &lt; 1`（例 0.5）⇒ `(long)0.5 = 0` ⇒ 计时**冻住**。**原版就是这个行为，⛔ 别"修"**。
+        /// ⚠️ `.c` 那行 `Locale__GetText((longlong)fVar1 * lVar5)` 是同一形状（callee 被误识别成
+        /// `Locale.GetText`）；ILSpy 把整条乘式丢了、只留 `cvttss2si rcx,xmm6` 的 note ⇒ 本条**只能靠指令流定**。
+        /// `imul` 溢出按补码回绕、`cvttss2si` 越界给 `long.MinValue` —— 两处都照原版，**不加** NaN/Inf 闸。</summary>
+        static System.TimeSpan Scale(System.TimeSpan ts, float factor)
+        {
+            return System.TimeSpan.FromTicks(unchecked((long)factor * ts.Ticks));
+        }
+
+        /// <summary>原版那两处 `String.Format("{0:0}:{1:00}", ts.Minutes, ts.Seconds)`。
+        /// ⚠️ 只印 **Minutes/Seconds 两格** ⇒ 超过 1 小时的部分（Hours）**丢掉**（原版就是这样，⛔ 别"修"）。</summary>
+        public static string Fmt(System.TimeSpan ts) { return string.Format(TextFormat, ts.Minutes, ts.Seconds); }
+
+        System.DateTime Now() { return Clock != null ? Clock() : System.DateTime.Now; }
+
+        void Write(string text)
+        {
+            LastText = text ?? "";
+            if (WriteText == null)
+            {
+                if (!_said)
+                {
+                    _said = true;
+                    Debug.LogWarning("[Countdown] 文本写口没给（原版 = `GetComponent<TextMesh>().text`，取不到时原版会 throw）"
+                                   + " ⇒ 只记账、不写屏。");
+                }
+                return;
+            }
+            WriteText(LastText);
+        }
+    }
 }

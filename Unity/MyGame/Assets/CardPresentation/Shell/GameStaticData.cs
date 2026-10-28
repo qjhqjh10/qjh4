@@ -102,7 +102,7 @@ namespace CardPresentation
         /// ⚠️ 消费者 = `SettingsWindow.GeneralFlags.TouchInput`。</summary>
         public static bool touchInput;
 
-        /// <summary>原版 `graphicsQuality`（`+0x120`）。默认 = `GetDefaultQualitySetting()` = **Ultra(4)**。</summary>
+        /// <summary>原版 `graphicsQuality`（`+0x120`）。默认 = `GetDefaultQualitySetting()` = **Ultra(4)**。🔴 2026-10-29（B94_B7）定案「两处值不一致」：`.cctor` 写的是 `High(3)`，但 `+0x120` 在 `PlayerDataManager.Awake → LoadPlayerData()` 里就被改写（读不到档走 `LoadStarterData`，`PlayerDataManager__LoadStarterData.c:65-66` 现读 = `get_DefaultQualitySetting()` ⇒ **4**），而紧接着的下一句才是 `QualitySettingsManager.Initialize()`（ILSpy `PlayerDataManager.cs:7807-7810`）⇒ **运行期生效的是 Ultra(4)**，`.cctor` 的 3 只在「类初始化后、`Awake` 前」可见。⇒ 本仓初始化器取 Ultra（单值口径；⛔ 别再照 `.cctor` 改成 High）。</summary>
         public static EverguildQualitySetting graphicsQuality = EverguildQualitySetting.Ultra;
 
         /// <summary>原版 `cardsTextInHandFormat`（`+0x140`）。默认 = `DefaultCardTextsInHandOptions`
@@ -222,5 +222,34 @@ namespace CardPresentation
         /// <para>⚠️ 「为什么要先翻全局再写设置值」的语义**没解出来**（机器码直读；施工单 `B88_R10` §六·4
         /// 也挂成「照抄即可、语义存疑」）—— 本类只提供**存储**，切换逻辑在 `NetConfig.SetAltPorts`（照抄）。</para></summary>
         public static bool DontUseAltPortSetting { get; set; }
+
+        // ============================================================ 2026-10-29（B94_B7）追加在类尾 —— 给 `LocalPlayerData` 总档用的 5 格
+        // 为什么现在才加：这 5 格在原版 `GameStaticData` 上**本来就有**（`dump.cs` 字段表），
+        // 但此前本仓**没有消费者**（没有 FPS 设置窗 / 没有超采样以外的画质链），
+        // 而 `Shell/LocalPlayerData.cs`（= 原版 `LocalPlayerData` 总档）是它们**第一个**（也是唯一一个）
+        // 读写方 ⇒ 到这一刻它们才有存在的理由（⛔ 不是「先加着以后用得上」）。
+        // 字段名 / 类型 / 出厂值 = `cpp2il/out_cpp2il_dev_ilspy/GameStaticData.cs:224`（声明）
+        //                            + `:2342-2370`（`.cctor`：`vsync = true` · `FPSLimit = 2` · `languageVersion = 0`；
+        //                              `useSuperSampling` / `graphicsExtendedCompatibility` **不在 `.cctor` 里**
+        //                              ⇒ 取零值 `false`）。
+
+        /// <summary>原版 `GameStaticData.languageVersion`（`.cctor` = **0**）。今天只被总档读/写。</summary>
+        public static int languageVersion;
+
+        /// <summary>原版 `GameStaticData.useSuperSampling`（`+0x124`，`.cctor` 不写 ⇒ **false**）。
+        /// ⚠️ 屏幕那侧的真开关在 `Shell/SettingsWindow.cs` 的 `SuperSampling`（它自己持久化）；
+        /// 本格是**镜像**（原版 `SavePlayerData` 就是从它读的）。</summary>
+        public static bool useSuperSampling;
+
+        /// <summary>原版 `GameStaticData.graphicsExtendedCompatibility`（`.cctor` 不写 ⇒ **false**）。今天只被总档读/写。</summary>
+        public static bool graphicsExtendedCompatibility;
+
+        /// <summary>原版 `GameStaticData.vsync`（`.cctor` = **true** —— 别按「关」猜）。今天只被总档读/写。</summary>
+        public static bool vsync = true;
+
+        /// <summary>原版 `GameStaticData.FPSLimit`（`.cctor` = **2** = 不限帧）。
+        /// 语义：`0 → 30` · `1 → 60` · `2 → -1(不限)` —— 换算在
+        /// `LocalPlayerDataStore.TargetFramerateFor`（判据 = `SavePlayerData` 末段那三行）。</summary>
+        public static int FPSLimit = 2;
     }
 }

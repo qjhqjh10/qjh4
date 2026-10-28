@@ -489,7 +489,7 @@ namespace CardPresentation
             go.transform.SetParent(ugui ? uguiHost : parent, false);
             var rt = (RectTransform)go.transform;
             var b = go.AddComponent<ErrorMessageBanner>();
-            b._ugui = ugui;                       // ⚠️ 必须在 `Build()` **之前**赋值（`Build` 里按它算单位）
+            b._ugui = ugui; if (!b.EnsureSingleton()) return Instance;   // ⚠️ 必须在 `Build()` **之前**赋值（`Build` 里按它算单位）；🆕 同场景已有横幅 ⇒ 原版 `Awake` 会销毁新来的这颗、工厂交回活着的那颗（见类尾「单例」段）
             if (ugui) HudCanvas.SetPxSize(rt, RootW, RootH);            // ⛔ 别用 `MenuDraw.SetPxSize`（那个 ÷108）
             else MenuDraw.SetPxSize(go.transform, RootW, RootH);
             // 根的位置 = 它的**矩形中心**（原版 anchor (0.5,1) + ap (0,−档.RootTopPx) ⇒ 中心 (960, 档上缘 + RootH/2)）
@@ -1081,5 +1081,73 @@ namespace CardPresentation
             }
             return MessageToast.ShowError(text, localize, fallback);
         }
+
+        // ==================================================================
+        //  🆕 2026-10-29（B94 · 执行代理 `V1` · 账 `未分类:689`）—— 原版 `UIMessageController` 的**单例**
+        // ==================================================================
+        //
+        //  【判据】`decomp_full/UIMessageController__Awake.c`：`Instance`（`Object.op_Implicit` 非空）且
+        //    `Instance != this` ⇒ `Destroy(this.gameObject)`；否则 `Instance = this`（`__set_Instance.c`）。
+        //    `decomp_full/UIMessageController__OnDestroy.c`：`Instance != null`（op_Implicit）且 `Instance == this`
+        //    ⇒ `Destroy(this.gameObject)`。
+        //
+        //  【🔴 作用域 = **场景**，不是进程唯一 —— 这一步是本件唯一要拍板的地方】原版那个静态 `Instance` 是
+        //    进程级的，但**原版每个场景各序列化一颗控制器**（13 个 `battlearena*` + `mainmenuwarpforge`，
+        //    见本文件头 ⑪ 与 `Shell/MessageToast.cs` 文件头 ②）；而且**旧场景卸载后那个静态指针会变成 Unity 空**
+        //    （`Object.op_Implicit` 判假）⇒ 新场景那颗照常 `Instance = this`。**⇒ 原版的可观察语义就是
+        //    「每个场景恰好一颗」。**
+        //    🔴 我们的架构不一样：壳是 `DontDestroyOnLoad`（`ShellRuntime.Awake`）⇒ 壳里那颗 `MessageToast`
+        //    会**活到战场场景里**（它也调本类的 `Create`，`Shell/MessageToast.cs:170`）。若照抄「进程唯一」，
+        //    进战斗时**战场那颗会被壳那颗杀掉** ⇒ ① `BattleDriver._errorBanner` 拿着一个已销毁的引用
+        //    （`ShowError` 抛 `MissingReferenceException`）② 玩家只会在**主菜单那个位置/字号**看到战斗里的错误横幅
+        //    （`MenuPreset` 的条心 311.64 vs 战斗档 510.24）。⇒ 单例守卫**按 `gameObject.scene` 分组**：
+        //    **同场景**已有才销毁新来的（= 原版 `Awake` 那一支），跨场景各留各的（= 原版的实际可观察行为）。
+        //    ⚠️ 推论：`Instance` 是「**最近一次领取**的那一颗」；壳里那颗请走 `MessageToast.Instance.Banner`
+        //    （那条链一直持有自己的引用），⛔ 别靠本属性去找壳那颗。
+        //
+        //  【🔶 自己设计（非原版）：`Create` 判为重复时**交回活着的那一颗**】原版没有工厂、只有 `Awake` 里那句
+        //    `Destroy`；我们的 `Create` 是调用方唯一入口（`BattleDriver.BuildErrorBanner` / `MessageToast.Ensure`
+        //    都拿返回值）⇒ 若把「已销毁的那颗」交回去，调用方下一次 `ShowError` 就抛 `MissingReferenceException`。
+        //    所以：**销毁新建的那颗、返回已存在的那颗**。判据为空（原版没有「工厂返回值」这一格）·
+        //    调度台 2026-10-29 裁定（派活单 `B94` · 执行代理 `V1` · 活 2「落地前必须先定单例作用域」）。
+        //
+        //  【编辑模式补偿】`AddComponent` 在编辑模式下**不触发 `Awake`**（`CLAUDE.md` §三）⇒ `Create` 里显式
+        //    再调一次 <see cref="EnsureSingleton"/>（两次都幂等；批处理自检就靠这一句）。
+
+        /// <summary>本场景里那一颗（原版静态 `Instance` 的等价物）。**作用域 = 场景**，见上面那一段。</summary>
+        public static ErrorMessageBanner Instance { get; private set; }
+
+        /// <summary>本颗是否已被单例守卫判为「同场景重复」（让 <see cref="EnsureSingleton"/> 在
+        /// `Destroy` 延迟生效的播放态下不会重复报警 / 重复销毁）。</summary>
+        bool _singletonRejected;
+
+        /// <summary>原版 `UIMessageController.Awake` 的单例守卫（两支）。返回「本颗被采纳了吗」。
+        /// <para>⚠️ 只处理单例那一段；**建池那一段由 <see cref="Build"/> 承担**（原版 `Awake` 的后半截）。</para></summary>
+        public bool EnsureSingleton()
+        {
+            if (_singletonRejected) return false;
+            if (this == null) return false;                 // 批处理 `DestroyImmediate` 之后
+            var cur = Instance;
+            if (cur != null && !ReferenceEquals(cur, this) && cur.gameObject.scene == gameObject.scene)
+            {
+                _singletonRejected = true;
+                Debug.LogWarning("[ErrorMessageBanner] 同一场景里已经有一颗横幅（原版 `UIMessageController.Awake`："
+                               + "`Instance != null && Instance != this ⇒ Destroy(gameObject)`）⇒ **销毁新来的这一颗**，"
+                               + "`Create` 交回活着的那一颗。");
+                // 批处理没有帧循环：`Destroy` 不生效（`CLAUDE.md` §三）
+                if (Application.isPlaying) Destroy(gameObject); else DestroyImmediate(gameObject);
+                return false;
+            }
+            Instance = this;
+            return true;
+        }
+
+        /// <summary>原版 `UIMessageController.Awake`（单例守卫那一段；建池在 <see cref="Build"/>）。</summary>
+        void Awake() { EnsureSingleton(); }
+
+        /// <summary>原版 `UIMessageController__OnDestroy.c`：`if (Instance != null && Instance == this) Destroy(gameObject)`
+        /// —— 那句在「自己正在被销毁」时是幂等的、没有别的可观察效果；等价物 = **把槽位放回去**
+        /// （原版没有显式清槽，靠 `Object.op_Implicit` 把已销毁对象判成空；我们显式清，可观察语义一致）。</summary>
+        void OnDestroy() { if (ReferenceEquals(Instance, this)) Instance = null; }
     }
 }

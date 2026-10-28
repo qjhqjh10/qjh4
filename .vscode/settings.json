@@ -1,3 +1,6 @@
 {
-    "dotnet.preferCSharpExtension": true
+    "dotnet.preferCSharpExtension": true,
+    // 只加载 Unity 工程这一份解决方案，别去加载 _tmp_view/ 下的第三方源码树
+    // （cpp2il_run 里的 global.json 钉死 SDK 10.0.100，本机只有 8.0.425 ⇒ C# 日志报「加载项目 Cpp2il.csproj 时出现问题」）
+    "dotnet.defaultSolution": "Unity/MyGame/MyGame.sln"
 }

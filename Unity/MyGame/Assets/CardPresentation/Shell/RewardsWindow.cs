@@ -247,14 +247,26 @@ namespace CardPresentation
         /// （`Missions.CheckNotification` → `INotificationProvider&lt;MissionsBadge>`）—— **是事件驱动的**。
         /// ⚠️ **我们还没有通知总线** ⇒ 只在 `Open()`（和自检）里各调一次；
         /// 真接了通知源之后应该改成订阅（⏭ 记在 `资料/日常_画面逐项对_0923.md` 的 D3）。
-        /// 🔴 判据**只此一份**：`idx == 0 &amp;&amp; DailyData.RewardsHasBadge`。
+        /// 🔴 **判据只此一份 = 每颗红点自己的 `UiBadgeNotification` 计重**（`Recount()`）；
+        ///    ⛔ 本函数**不再**直写 quad 的材质色（2026-10-29 `B94_Z1`：旧写法有两条后果，见方法体里的说明）。
         /// </summary>
         public void RefreshBadges()
         {
+            // 🔴 2026-10-29（B94_T1 §4·1 / B94_Z1 活 1）：**不再直写 quad 的材质色** —— 红点显隐的唯一写手是
+            //   `UiBadgeNotification`（原版 `Awake` 的 `canvasGroup.alpha = 0` 那一层，只有组件自己写）。
+            //   旧写法有两个后果（判据链见 `资料/完全复刻/报告/B94_T1.md` §5）：
+            //   ① `idx==0 && RewardsHasBadge` 把 **Missions** 那颗**由一条布尔**点着 —— 它绕开通知系统，
+            //      而组件补间一停（`_fading == false`）就不再写 ⇒ 那个 1 **永久留屏**（= 用户看到的「页签红点常亮」）；
+            //   ② 同一个循环把 idx 1..3 **强写 0** ⇒ 反过来把 Campaign / Forge 的**真红点压灭**。
+            //   ⇒ 现在只做「让四颗各按自己的计重重算一次」，⛔ 别在这里写任何颜色。
             for (int i = 0; i < _btnBadge.Length; i++)
-                if (_btnBadge[i] != null)
-                    _btnBadge[i].SetTint(new Color(0.7373f, 0.7373f, 0.7373f,
-                                                   (i == 0 && DailyData.RewardsHasBadge) ? 1f : 0f));
+            {
+                if (_btnBadge[i] == null) continue;
+                var comp = _btnBadge[i].GetComponent<UiBadgeNotification>();
+                if (comp == null) continue;      // 原版这一键没有红点定义 ⇒ 没有组件 ⇒ alpha 恒 0（⛔ 不要在这里补写）
+                comp.Recount();
+                if (!Application.isPlaying) comp.SnapToTargetForTest();   // 批处理没有帧循环
+            }
         }
 
         /// <summary>选中态：**只画选中的那一个**（原生四键出厂都亮，可见性由运行时驱动 —— 文件头纪律②）。

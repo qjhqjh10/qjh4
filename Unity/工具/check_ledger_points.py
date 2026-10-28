@@ -102,9 +102,37 @@
 🔴 **`.cs` 一律按二进制读**（`read_src_lines`）：文本模式的 universal newlines 会把**裸 `\\r`** 当换行
    ⇒ 文件里只要有一个 `\\r\\r\\n`，后面所有行号整体偏移（实测 `DeckRules.cs` 偏 +7 ⇒ 15 行账被改错且闸变绿）。
 
+🆕 **B 行也过同一套判法，但「只报告、⛔ 不计失败、⛔ 不进 `--fix`」**（2026-10-29 · B94_T1）
+------------------------------------------------------------------------------
+🔴 **修的是什么**：`check_file` 原来第一句就是 `if status != "A": continue` —— **只机检 A 行**，
+B/C/D 一条都不看。而 B 行（「有等价实现但仍有差异」）**恰恰是落点最容易随重构漂移的一档**
+（等价实现常被搬位置 / 改名 / 被 doc 注释包裹）。
+判据 = `判据/B94_R-T_B行落点体检.md` §五：实测 **258 条 B 行里 13 条落点确实错（5%）**，
+其中 **11 条是「点在紧邻的 doc 注释行」**（编者按旧行号写、代码加了 doc 后整体下移）——
+这些**全部静默**，下个会话照着错行号去读，读到的是别的函数/注释，却「看着有依据」。
+
+四条实现：
+  · **B 行跑完整套判法**，但凡是要 `fails.append` / `drifts.append` / `warn()` 的地方
+    一律改走 **B 桶**（`WARN_BFAIL` / `WARN_BDRIFT`）⇒ **不进 `gf`、⛔ 不影响退出码**；
+    ⛔ **`--fix` 一个字都不碰 B 行**（名字匹配 ≠ 实现等价，自动改风险高 —— R-T 明确不建议）。
+  · **B 行的次要落点也过 `check_extra_refs`**（原来它只跑在 A 行上）——
+    R-T 实测 `其他460` / `日常549` / `战斗227` / `战斗645` 的次要落点**全漂在注释行**。
+  · **`WARN_ON_COMMENT`**（落点那一行以 `//` / `///` / `*` / `/*` 开头）——
+    这是上面 11/13 错因的**直接判据**。⚠️ **只对 B 行报**：`.cs` 落点落在注释行时
+    `looks_like_decl` 本来就会判**失败**（A 行早已覆盖），再补一条告警只会重复计数、
+    改变 A 汇总基线（「A 的数字必须一字不变」是 B94_T1 的硬要求）。
+  · **A 的判法与退出码语义一个字没动**：`total` / `fails` / `drifts` / `getters` / `warns`
+    仍然**只装 A 行**，A 汇总那一行的每个数字都与改前一致；B 的统计走 `check_file` 的第 7 个
+    返回值 `(b_total, b_warns)`，由 `main()` 单独打一行。
+
 用法
 ----
-    python -I -X utf8 d:/4/Unity/工具/check_ledger_points.py [账本...] [--all-A] [--fix] [--root DIR] [--warn-getters]
+    python -I -X utf8 d:/4/Unity/工具/check_ledger_points.py [账本...] [--all-A] [--fix] [--root DIR] [--warn-getters] [--warn-b]
+
+`--warn-b`（2026-10-29 加，**只报、不算失败、退出码不变**）
+----------------------------------------------------------
+把 B 行的落点问题（`BFAIL` / `BDRIFT` / `ONCOMMENT` / `SECOND`）**明细**打出来。
+默认只在「B 档」那一行给计数 + 按档位分布。⛔ **它永远不改退出码**。
 
 `--warn-getters`（2026-10-25 加，**只报、不算失败、退出码不变**）
 ------------------------------------------------------------------
@@ -157,6 +185,19 @@ WARN_MEMBER = "MEMBER"
 # 🆕 2026-10-28（B93_E4 · 盲点①）：落点列里**次要落点**（第二处及以后的 `文件:行`）的候选
 #   —— 文件找不到（含原版源码引用）/ 声称的名字不在那一行。⛔ 不算失败（判法见 `check_extra_refs`）。
 WARN_SECOND = "SECOND"
+# 🆕 2026-10-29（B94_T1 · 判据 = `判据/B94_R-T_B行落点体检.md` §五）：**B 行**的两档「只报告」。
+#   B 行跑与 A 完全同一套判法，但任何「本该判失败 / 漂移」的结论**降级成这两档**：
+#   ⛔ 不进 `fails`/`drifts`（所以不改 A 汇总、不改退出码）、⛔ `--fix` 一个字都不碰
+#   （名字匹配 ≠ 实现等价，自动改 B 行风险高）。
+WARN_BFAIL = "BFAIL"
+WARN_BDRIFT = "BDRIFT"
+# 🆕 2026-10-29（B94_T1）：**落点那一行是注释行**（`//` / `///` / `*` / `/*` 开头）。
+#   这是 R-T 实测「B 行 13 处错里 11 处」的直接形态（编者按旧行号写、代码加 doc 后整体下移）。
+#   ⚠️ 只对 B 行报 —— `.cs` 落点落在注释行时 A 行那条路本来就会判**失败**（`looks_like_decl`），
+#      再补一条告警只会重复计数、改变 A 汇总基线（B94_T1 硬要求：A 的数字一字不变）。
+WARN_ON_COMMENT = "ONCOMMENT"
+# B 档明细的打印顺序（结构性问题先看）
+_B_WARN_PRINT_ORDER = (WARN_BFAIL, WARN_BDRIFT, WARN_ON_COMMENT, WARN_SECOND)
 WARN_TITLE = {
     WARN_GETTER: "落点那一行是属性 getter（原版可能就是属性 ⇒ 人读）",
     WARN_FORTEST: "落点是 `*ForTest` 自检 / 转发口（不是实现）",
@@ -164,6 +205,9 @@ WARN_TITLE = {
     WARN_PROSE: "括号是散文 ⇒ 名字没法对（只提示、不判失败）",
     WARN_MEMBER: "落点是字段/属性/嵌套类型声明（纯取值器/结构等价 ⇒ 只报、不算失败）",
     WARN_SECOND: "次要落点（第二处及以后的 `文件:行`）的候选：找不到文件 / 名字不在那一行",
+    WARN_BFAIL: "B 行落点「按 A 的判法会失败」（⛔ 只报告、不计失败、不进 --fix）",
+    WARN_BDRIFT: "B 行落点漂移（⛔ 只报告、不计失败、不进 --fix）",
+    WARN_ON_COMMENT: "落点那一行是注释行（可能漂到紧邻的声明：人读）",
 }
 # 告警打印顺序里 `MEMBER` 排在 `PROSE` 之前（结构性问题，人复核时先看它）。
 _WARN_PRINT_ORDER = (WARN_SECOND, WARN_MEMBER, WARN_PROSE, WARN_GETTER, WARN_FORTEST, WARN_SELFREF)
@@ -247,6 +291,17 @@ def name_lines(lines, name):
     """`name` 作为**标识符**出现在哪些行（1-based）。⛔ 用 `\\b` 卡边界，别让 `Init` 命中 `InitX`。"""
     pat = re.compile(r"\b" + re.escape(name) + r"\b")
     return [i for i, l in enumerate(lines, 1) if pat.search(l)]
+
+
+def is_comment_line(line):
+    """这一行是不是**注释行**（`//` / `///` / `*` / `/*` 开头）—— `WARN_ON_COMMENT` 的判据。
+
+    🔴 2026-10-29（B94_T1）：R-T 实测 B 行 13 处错落点里 **11 处是「点在紧邻的 doc 注释行」**
+    （编者按旧行号写、代码加了几行 doc 后整体下移）。注释行里**会出现方法名**，
+    所以「名字在不在这行」那种判法会**把它当成命中** ⇒ 必须单独认这一形态。
+    """
+    s = (line or "").strip()
+    return s.startswith("//") or s.startswith("/*") or s.startswith("*")
 
 
 def looks_like_decl(line):
@@ -694,64 +749,112 @@ def check_file(path, roots, show_pass=False, do_fix=False):
     `rewrites` = (行下标, 新落点)                 —— 只有 do_fix 且唯一命中时才有
     `getters` = (账, 类.方法, 落点, getter 名)    —— 旧接口（= warns 里 GETTER 那一档）
     `warns`  = (账, 类.方法, 落点, 档位, 说明)    —— 候选，**不算失败**
+    `bstat`  = `(B 行条数, [(账, 类.方法, 落点, 档位, 说明)…])` —— 🆕 B 行「只报告」桶
+
+    ⚠️ **前六项仍然只装 A 行**（B94_T1 硬要求：A 的数字一字不变）。B 行跑**同一套判法**，
+    但所有「本该失败 / 漂移」的结论一律降级进第 7 项 `bstat`（档位 `BFAIL` / `BDRIFT`），
+    ⛔ 不进 `gf`、⛔ 不影响退出码、⛔ `--fix` 不碰。
     """
     base = os.path.basename(path)
     rows = [l.rstrip(NL) for l in io.open(path, encoding="utf-8", newline="") if l.strip()]
     if not rows:
-        return 0, [], [], [], [], []
+        return 0, [], [], [], [], [], (0, [])
     hdr = rows[0].split("\t")
     try:
         i_status, i_land = hdr.index("状态"), hdr.index("我们的落点")
         i_cls, i_mtd = hdr.index("原版类"), hdr.index("方法")
     except ValueError:
-        return 0, [(base, "?", "?", "表头缺列（需要 状态/我们的落点/原版类/方法）")], [], [], [], []
+        return 0, [(base, "?", "?", "表头缺列（需要 状态/我们的落点/原版类/方法）")], [], [], [], [], (0, [])
 
     total = 0
+    b_total = 0
+    b_warns = []
     fails, drifts, rewrites, getters, warns = [], [], [], [], []
     for ri in range(1, len(rows)):
         c = rows[ri].split("\t")
         if len(c) <= max(i_status, i_land, i_cls, i_mtd):
             continue
-        if c[i_status].strip() != "A":
+        # 🔴 2026-10-29（B94_T1 · 判据 = `判据/B94_R-T_B行落点体检.md` §五）：
+        #   原来这里是 `if c[i_status].strip() != "A": continue` —— **只机检 A 行**，
+        #   于是 B 行落点写错**永远绿**（R-T 实测 258 条 B 行里 13 条确实错、11 条点在注释行）。
+        #   现在 **B 行跑完整同一套判法，但只报告**（下面前三个 `fail`/`drift`/`warn` 会分流）。
+        status = c[i_status].strip()
+        if status not in ("A", "B"):
             continue
-        total += 1
+        is_b = (status == "B")
+        if is_b:
+            b_total += 1
+        else:
+            total += 1
         who = "%s.%s" % (c[i_cls], c[i_mtd])
         land = c[i_land].strip()
 
+        def bwarn(kind, why):
+            """B 桶：**只报告**，⛔ 不进 `fails`/`drifts` ⇒ 不影响 A 汇总与退出码。"""
+            b_warns.append((base, who, land, kind, why))
+
         def warn(kind, why):
-            """同一行同一种告警只记一次。"""
+            """同一行同一种告警只记一次；**B 行的告警进 B 桶**（否则会改 A 的告警计数）。"""
             key = (ri, kind)
             if key in seen_warn:
                 return
             seen_warn.add(key)
-            warns.append((base, who, land, kind, why))
+            if is_b:
+                bwarn(kind, why)
+            else:
+                warns.append((base, who, land, kind, why))
+
+        def fail(why):
+            """A ⇒ 真的失败（退出码 1）；B ⇒ 降级成 `BFAIL`（⛔ 不算失败）。"""
+            if is_b:
+                bwarn(WARN_BFAIL, why)
+            else:
+                fails.append((base, who, land, why))
+
+        def drift(why):
+            """A ⇒ 漂移（退出码不变）；B ⇒ 降级成 `BDRIFT`（⛔ 不进 A 的漂移计数）。"""
+            if is_b:
+                bwarn(WARN_BDRIFT, why)
+            else:
+                drifts.append((base, who, land, why))
 
         seen_warn = set()
 
         r = REF.search(land)
         if not r:
-            fails.append((base, who, land, "落点里没有 `文件:行`"))
+            fail("落点里没有 `文件:行`")
             continue
         rel, ln = r.group(1), int(r.group(2))
         full = find_file(rel, roots)
         if full is None:
-            fails.append((base, who, land,
-                          "文件不存在（试过 原样 / Assets / Assets/CardPresentation / Unity）：" + rel))
+            fail("文件不存在（试过 原样 / Assets / Assets/CardPresentation / Unity）：" + rel)
             continue
         try:
             lines = read_src_lines(full)
         except Exception as e:
-            fails.append((base, who, land, "读不了文件：" + str(e)))
+            fail("读不了文件：" + str(e))
             continue
         is_cs = os.path.splitext(full)[1].lower() == ".cs"
+
+        # 🆕 2026-10-29（B94_T1）：**落点那一行是注释行** ⇒ `WARN_ON_COMMENT`。
+        #   这是 R-T 实测「B 行 13 处错里 11 处」的直接形态（编者按旧行号写、代码加 doc 后整体下移）。
+        #   ⚠️ **只对 B 报**：`.cs` 落点落在注释行时 A 那条路下面 `looks_like_decl` 本来就会判**失败**，
+        #      再补一条告警只会重复计数、改变 A 的 `告警` 基线（B94_T1 硬要求「A 的数字一字不变」）。
+        if is_cs and 1 <= ln <= len(lines) and is_comment_line(lines[ln - 1]):
+            if is_b:
+                bwarn(WARN_ON_COMMENT,
+                      "落点那一行是注释行：`%s` ⇒ 大概率漂到紧邻的声明（只报告、人读）"
+                      % lines[ln - 1].strip()[:50])
 
         # ---- 告警候选**先**记（⛔ 一条都不影响失败判定）----
         #   必须放在「按名重定位 / 像不像声明」之前 —— 否则 `（Foo）` 找不到声明会 `continue`，
         #   而账里最常见的正是 `get { return …` 那一行（它本来就会被判不合格）。
+        #   ⚠️ B 行的 getter 不进 `getters`（那是 A 的旧接口，进它会改 A 的返回值）。
         if is_cs and 1 <= ln <= len(lines):
             g = one_line_getter(lines, ln - 1)
             if g:
-                getters.append((base, who, land, g))
+                if not is_b:
+                    getters.append((base, who, land, g))
                 warn(WARN_GETTER, "getter `%s`（原版可能本来就是属性 ⇒ 人读，⛔ 不算失败）" % g)
 
         names, mode = paren_idents(land)
@@ -772,14 +875,12 @@ def check_file(path, roots, show_pass=False, do_fix=False):
             # 名字写在括号**之前**（`…:642 ShowError(text, …)`）：拿它比那一行声明的名字。
             dn = decl_name_at(lines[ln - 1]) if (is_cs and 1 <= ln <= len(lines)) else None
             if dn is not None and dn != hname:
-                fails.append((base, who, land,
-                              "行号后写的是 `%s`，但那一行声明的是 `%s`（名字对不上）" % (hname, dn)))
+                fail("行号后写的是 `%s`，但那一行声明的是 `%s`（名字对不上）" % (hname, dn))
                 continue
         elif mode == "exact" and strict_name:
             cands = find_decl_candidates(lines, strict_name)
             if not cands:
-                fails.append((base, who, land,
-                              "括号里写了声明名 `%s`，但文件里找不到这份声明" % strict_name))
+                fail("括号里写了声明名 `%s`，但文件里找不到这份声明" % strict_name)
                 continue
             if len(cands) > 1:
                 # 🔴 **多义一律不自动改**（`--fix` 保守）：只报，把判断交给人。
@@ -787,10 +888,9 @@ def check_file(path, roots, show_pass=False, do_fix=False):
                 if ln in cands:
                     pass                     # 账里写的那一行**本身**就是候选 ⇒ 通过
                 else:
-                    drifts.append((base, who, land,
-                                   "歧义（`%s` 有 %d 处声明：%s）—— **不自动改**，请人工确认"
-                                   % (strict_name, len(cands), ", ".join(map(str, cands[:6])))))
-                    if show_pass:
+                    drift("歧义（`%s` 有 %d 处声明：%s）—— **不自动改**，请人工确认"
+                          % (strict_name, len(cands), ", ".join(map(str, cands[:6]))))
+                    if show_pass and not is_b:
                         print("AMBIG| %-22s | %-52s | %s 有 %d 处声明"
                               % (base, who[:52], strict_name, len(cands)))
                     continue
@@ -798,10 +898,11 @@ def check_file(path, roots, show_pass=False, do_fix=False):
                 got = cands[0]
                 if got != ln:
                     note = fix_block_reason(lines, got)
-                    drifts.append((base, who, land, "漂移（实际在 %d 行；账里写 %d）%s" % (got, ln, note)))
-                    if do_fix and not note:
+                    drift("漂移（实际在 %d 行；账里写 %d）%s" % (got, ln, note))
+                    # ⛔ B 行**绝不**自动改（名字匹配 ≠ 实现等价；R-T 明确不建议）。
+                    if do_fix and not note and not is_b:
                         rewrites.append((ri, land[:r.start(2)] + str(got) + land[r.end(2):]))
-                    if show_pass:
+                    if show_pass and not is_b:
                         print("DRIFT| %-22s | %-52s | 账 %d -> 实际 %d"
                               % (base, who[:52], ln, got))
                     continue
@@ -812,9 +913,8 @@ def check_file(path, roots, show_pass=False, do_fix=False):
             dn = decl_name_at(lines[ln - 1]) if (is_cs and 1 <= ln <= len(lines)) else None
             if dn is not None:
                 if dn != names[0]:
-                    fails.append((base, who, land,
-                                  "括号里写的是 `%s`，但那一行声明的是 `%s`（名字对不上）"
-                                  % (names[0], dn)))
+                    fail("括号里写的是 `%s`，但那一行声明的是 `%s`（名字对不上）"
+                         % (names[0], dn))
                     continue
             else:
                 warn(WARN_PROSE, "括号里是 `%s`，但取不出那一行声明的名字 ⇒ 只验形态" % names[0])
@@ -825,7 +925,7 @@ def check_file(path, roots, show_pass=False, do_fix=False):
                      % (", ".join(names[:4]), dn))
 
         if ln < 1 or ln > len(lines):
-            fails.append((base, who, land, "行号越界（文件只有 %d 行）" % len(lines)))
+            fail("行号越界（文件只有 %d 行）" % len(lines))
             continue
         if is_cs:
             ok, why = looks_like_decl(lines[ln - 1])
@@ -837,7 +937,7 @@ def check_file(path, roots, show_pass=False, do_fix=False):
                 #   （`bool X` + 下一行 `{`，实测 `BattleDriver.cs:17310`）不再被判「不像声明」。
                 kind = member_decl_kind(lines[ln - 1], lines, ln - 1)
                 if kind is None:
-                    fails.append((base, who, land, "%s：`%s`" % (why, lines[ln - 1].strip()[:60])))
+                    fail("%s：`%s`" % (why, lines[ln - 1].strip()[:60]))
                     continue
                 warn(WARN_MEMBER, "落点是%s声明（纯取值器/结构等价 ⇒ 只报、不算失败；方案 §4.1 例外）"
                      % _MEMBER_KIND_CN.get(kind, kind))
@@ -849,22 +949,27 @@ def check_file(path, roots, show_pass=False, do_fix=False):
                     if dn.endswith("ForTest"):
                         warn(WARN_FORTEST, "落点声明的就是 `%s`（自检/转发口，不是实现）" % dn)
         elif not lines[ln - 1].strip():
-            fails.append((base, who, land, "数据文件那一行是空的"))
+            fail("数据文件那一行是空的")
             continue
         # ---- 🆕 2026-10-28（B93_E4 · 盲点①）：落点列里**第二处及以后**的 `文件:行` 也要机检 ----
         #   原来只查了 `REF.search` 的第一处 ⇒ 后面的（全库 551 条 A 行有）是**空转绿灯**。
         #   ⛔ 次要落点**从不产生 `--fix` 改写**（`--fix` 的重定位语义一个字没动），只报漂移 / 失败。
+        # 🆕 2026-10-29（B94_T1）：**B 行也过这里** —— R-T 实测 `其他460` / `日常549` / `战斗227` /
+        #   `战斗645` 的**次要落点全漂在注释行**，而原来这段只跑在 A 行上，一条都没报。
         ex_fails, ex_warns = check_extra_refs(
             land, roots, skip_key=(rel.replace("\\", "/"), int(r.group(2))))
         for _rel, _ln2, _why in ex_fails:
-            fails.append((base, who, land, "（次要落点）" + _why))
+            fail("（次要落点）" + _why)
         for _rel, _ln2, _why in ex_warns:
             # ⚠️ 直连 `warns`（不走 `warn()`）：它的去重键是 `(行, 档位)`，会把同一行里
             #    第二、三处次要落点的明细合并成一条 —— 这里每一条都要看得见。
-            warns.append((base, who, land, WARN_SECOND, "（次要落点）" + _why))
-        if show_pass and not ex_fails:
+            if is_b:
+                bwarn(WARN_SECOND, "（次要落点）" + _why)
+            else:
+                warns.append((base, who, land, WARN_SECOND, "（次要落点）" + _why))
+        if show_pass and not ex_fails and not is_b:
             print("OK   | %-22s | %-52s | %s" % (base, who[:52], land[:70]))
-    return total, fails, drifts, rewrites, getters, warns
+    return total, fails, drifts, rewrites, getters, warns, (b_total, b_warns)
 
 
 def read_src_lines(path):
@@ -933,6 +1038,7 @@ def main():
     show_pass = "--all-A" in sys.argv
     do_fix = "--fix" in sys.argv
     warn_getters = "--warn-getters" in sys.argv
+    warn_b = "--warn-b" in sys.argv          # 🆕 2026-10-29（B94_T1）：B 档明细
     roots = list(DEFAULT_ROOTS)
     if root_val:
         roots = [root_val] + roots
@@ -961,12 +1067,20 @@ def main():
                 return 2
 
     ga = gf = gd = gw = 0
-    all_f, all_d, all_g, all_w = [], [], [], []
+    gb = 0                                   # 🆕 B 行条数（只报告）
+    all_f, all_d, all_g, all_w, all_b = [], [], [], [], []
     print("= 账本 A 档落点机检（判法见文件头：失败 / 漂移 / 告警 / 通过）="
           + ("  [--fix：会改写漂移行号]" if do_fix else "")
-          + ("  [--warn-getters：印告警明细]" if warn_getters else ""))
+          + ("  [--warn-getters：印告警明细]" if warn_getters else "")
+          + ("  [--warn-b：印 B 档明细]" if warn_b else ""))
     for f in files:
-        total, fails, drifts, rewrites, getters, warns = check_file(f, roots, show_pass, do_fix)
+        total, fails, drifts, rewrites, getters, warns, bstat = check_file(
+            f, roots, show_pass, do_fix)
+        b_total, b_warns = bstat
+        gb += b_total
+        all_b.extend(b_warns)
+        # ⚠️ **只看 A 的 `total`** —— 这样「只有 B 行的账」不会新增一行 per-file 输出，
+        #    A 档那 21 行的每个数字与改前逐字一致（B94_T1 硬要求）。
         if total == 0:
             continue
         if do_fix and rewrites:
@@ -1015,6 +1129,35 @@ def main():
 
     print(NL + "合计：A %d 条 · 通过 %d（其中告警 %d 条）· 漂移 %d · 失败 %d%s"
           % (ga, ga - gf - gd, gw, gd, gf, "（漂移已就地改正，请复核 git diff）" if do_fix else ""))
+    # ---- 🆕 2026-10-29（B94_T1）：B 档单独一行（⛔ 不改上面 A 那行的任何一个数字）----
+    if gb:
+        _bkind = {}
+        for _f, _who, _land, _k, _why in all_b:
+            _bkind[_k] = _bkind.get(_k, 0) + 1
+        _on_comment = _bkind.get(WARN_ON_COMMENT, 0)
+        print("B 档（**只报告、⛔ 不计失败、⛔ 不进 --fix**）：B %d 条 · 落点问题 %d 条"
+              "（其中点在注释行 %d 条）" % (gb, len(all_b), _on_comment))
+        # ⚠️ **不能只遍历 `_B_WARN_PRINT_ORDER`**：B 桶里也可能出现 A 那几档
+        #   （`PROSE` / `GETTER` / `MEMBER` / `FORTEST` / `SELFREF` —— 它们由 `warn()` 分流进来）
+        #   ⇒ 漏掉就会「合计里有、分档里没有」（静默少报）。剩下的按档名排序补在后面。
+        for _k in (_B_WARN_PRINT_ORDER
+                   + tuple(sorted(k for k in _bkind if k not in _B_WARN_PRINT_ORDER))):
+            if _bkind.get(_k):
+                print("  · [%s] %s —— %d 条" % (_k, WARN_TITLE.get(_k, ""), _bkind[_k]))
+    if warn_b:
+        print(NL + "---- B 档明细（**只报告**；判据仍要人读）----")
+        if not all_b:
+            print("（无）")
+        else:
+            _bk = set(w[3] for w in all_b)
+            for kind in (_B_WARN_PRINT_ORDER
+                         + tuple(sorted(k for k in _bk if k not in _B_WARN_PRINT_ORDER))):
+                rows_k = [w for w in all_b if w[3] == kind]
+                if not rows_k:
+                    continue
+                print("  · [%s] %s —— %d 条" % (kind, WARN_TITLE.get(kind, ""), len(rows_k)))
+                for f, who, land, k, why in rows_k:
+                    print("    %-22s | %-52s | %-70s | %s" % (f, who[:52], land[:70], why))
     return 0 if gf == 0 else 1
 
 

@@ -398,5 +398,57 @@ namespace CardPresentation
                 return false;
             }
         }
+
+        // ============================================================ 🆕 2026-10-29（B94 · Y6 · 账 轮抽:30 / 补读:259）
+        //  原版 `DraftEventBase<TS,TD>.SetCustomMatchOptions(RoomOptions options, int currentELO)` 的**本地等价**。
+        //
+        //  真体逐句（`D:/2/tools/decomp_generic_trial/out_b94/DraftEventBase_object__object_.SetCustomMatchOptions__1813cb0.c`
+        //  + ILSpy `DraftEventBase.cs:4432`）：
+        //    base.SetCustomMatchOptions(options, currentELO);              // 基类 = 空体（0x4B33B0）
+        //    int won  = SaveGame.numberOfMatchesWon(+0x48);               // SaveGame = this+0x20；+0x48 = 胜场
+        //    int ls   = LiveOpsManager.GetHandler<GameModes>().LossStreak;
+        //    if (currentELO <= GameStaticData.newbieELO && won < 3) currentELO = 0;   // ★ 新手档清零
+        //    options.CustomRoomProperties["C1"] = won;                    // ★ 胜场
+        //    options.CustomRoomProperties["C4"] = currentELO;             // ★ （可能清零后的）ELO
+        //    options.CustomRoomProperties["C5"] = ls;                     // ★ 连败
+        //    options.CustomRoomPropertiesForLobby = new[]{"C1","C2","C3","C4","C5"};  // ★ 恰好 5 个键
+        //
+        //  3 个键的字符串（C1/C4/C5）与 5 键 lobby 表 = ILSpy `DraftEventBase.cs:4456/4465` 字面量逐字。
+        //  ⚠️ **我们 Net 层没有 Photon `RoomOptions` / `Hashtable`**（自建 TCP，房参数是另一套）⇒
+        //     这一跳落成**纯函数**：算出「该写哪三格 + 值 + lobby 键表」，由调用方套到自己的房间参数上
+        //     （⛔ 不发明一个假的 RoomOptions）。判据见上。
+
+        /// <summary>原版 `GameStaticData.newbieELO`（ILSpy `GameStaticData.cs:2424` 的 `.cctor` 写死 **800**；
+        /// 真体里是 `GameStaticData +0x264` 那个静态 int）。⚠️ `GameStaticData.cs` 不在本批白名单 ⇒ 值先放这里（值相同），
+        /// 将来那格若并进 `GameStaticData`，改指过去即可（⛔ 别在两处各存一份不同值）。</summary>
+        public const int DraftNewbieElo = 800;
+
+        /// <summary>原版 `DraftEventBase.SetCustomMatchOptions` 算出的「房间属性」三格 + lobby 键表。</summary>
+        public struct DraftMatchOptions
+        {
+            /// <summary>"C1" = 胜场（`SaveGame.numberOfMatchesWon`）。</summary>
+            public int Won;
+            /// <summary>"C4" = ELO（新手档 `<= 800 && won < 3` 时被清成 0）。</summary>
+            public int Elo;
+            /// <summary>"C5" = 连败（`GameModes.LossStreak`）。</summary>
+            public int LossStreak;
+            /// <summary>`CustomRoomPropertiesForLobby` = `{ "C1", "C2", "C3", "C4", "C5" }`（原版恰好 5 个键）。</summary>
+            public string[] LobbyKeys;
+        }
+
+        /// <summary><see cref="DraftMatchOptions"/> 的纯函数版（原版 `options.CustomRoomProperties[...] = ...` 的等价）。
+        /// `won` 传 `SaveGame.numberOfMatchesWon`、`lossStreak` 传 `GameModes.LossStreak`、`currentELO` 传匹配 ELO。</summary>
+        public static DraftMatchOptions ComputeDraftMatchOptions(int currentELO, int won, int lossStreak)
+        {
+            int elo = currentELO;
+            if (elo <= DraftNewbieElo && won < 3) elo = 0;   // ★ 原版：新手档（ELO ≤ 800）且胜场 < 3 ⇒ ELO 置 0
+            return new DraftMatchOptions
+            {
+                Won = won,
+                Elo = elo,
+                LossStreak = lossStreak,
+                LobbyKeys = new[] { "C1", "C2", "C3", "C4", "C5" },
+            };
+        }
     }
 }

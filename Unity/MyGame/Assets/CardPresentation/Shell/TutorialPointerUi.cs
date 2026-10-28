@@ -311,9 +311,9 @@ namespace CardPresentation
             _pointer = new GameObject("Pointer", typeof(RectTransform)).transform;
             _pointer.SetParent(_anchor, false);
             _pointer.localPosition = Vector3.zero;        // `_anchor` 的原点就是指尖
-            _pointerImg = MenuDraw.Rect(_pointer, Art(ArtPointer, "`Pointer` 的手形图"), pr, "Image", QPointer,
+            _pointerImg = MenuDraw.Rect(_pointer, Art(_cursorArt, "`Pointer` 的手形图"), pr, "Image", QPointer,
                                         null, true, MenuDraw.NoClip);
-            _lightImg = MenuDraw.Rect(_pointer, Art(ArtPointerGlow, "`Pointer/light` 的高光图"), pr, "light", QLight,
+            _lightImg = MenuDraw.Rect(_pointer, Art(_glowArt, "`Pointer/light` 的高光图"), pr, "light", QLight,
                                       LightTint, true, MenuDraw.NoClip);
             _pointer.gameObject.SetActive(_showPointer);
             ApplyPhase();
@@ -399,6 +399,165 @@ namespace CardPresentation
         static PxRect Centered(Vector2 c, float side)
         {
             return new PxRect(c.x - side * 0.5f, c.y - side * 0.5f, c.x + side * 0.5f, c.y + side * 0.5f);
+        }
+
+        // ============================================================ 按阵营换指针图（B94_S3 · 2026-10-29）
+        // 🔴 **追加在类尾**（本文件在账里被按 `文件:行号` 引用 198/231/206/274/167/284 ⇒ 插中间会整体漂移）。
+        // 判据 = 原版 `TutorialPointer.SetupCursor(cardArmy)` → `CursorByArmySO.GetCursor(army, out cursor, out highlight)`
+        // （`decomp_full/CursorByArmySO__GetCursor.c` 全文，逐句见下面 `CursorByArmy` 类）。
+
+        /// <summary>当前用的指针图名（= 原版 `CursorByArmySO` 给的那一张；出厂 = `Cursor_Space_Marine_01`）。
+        /// ⚠️ 带下划线是**我们 Resources 的落盘名**（导入器把原版名里的空格换成了 `_`）。</summary>
+        string _cursorArt = ArtPointer;
+        /// <summary>当前用的高光图名（同上；`null` = 这个阵营原版就没有高光（Dark Angels））。</summary>
+        string _glowArt = ArtPointerGlow;
+
+        public string CursorArtName { get { return _cursorArt; } }
+        public string GlowArtName { get { return _glowArt; } }
+
+        /// <summary>= 原版 `TutorialPointer.SetupCursor(CardArmy)`：按阵营取「指针图 + 高光图」两张。
+        /// <para>**找到** ⇒ 两张都换掉（下一帧 `Rebuild` 生效）；**找不到**（原版 `GetCursor` 返回 false =
+        /// 这一档阵营没有配指针）⇒ **保持不变**并出声（⛔ 不静默换回默认，也不拿别的阵营顶）。</para>
+        /// <returns>有没有换（= 原版 `GetCursor` 的返回值）。</returns></summary>
+        public bool SetArmy(int army)
+        {
+            string cursor, glow;
+            if (!CursorByArmy.GetCursor(army, out cursor, out glow))
+            {
+                Debug.LogWarning("[MenuTutorial] 阵营 " + army + " 在 `CursorByArmySO` 那张表里**没有指针**"
+                               + "（原版 `GetCursor` 扫完表会两个 out 都置 null 并返回 false）⇒ 沿用当前图 `"
+                               + _cursorArt + "`。");
+                return false;
+            }
+            _cursorArt = cursor;
+            _glowArt = glow;
+            if (_visible) Rebuild(LastPointPx, _bubbleText);     // 已经显示着 ⇒ 立刻换
+            return true;
+        }
+    }
+
+    /// <summary>原版 `CursorByArmySO.GetCursor(CardArmy cardArmy, out Sprite cursor, out Sprite highlight)` 的等价实现。
+    /// <para>判据（`decomp_full/CursorByArmySO__GetCursor.c` **逐句**）：</para>
+    /// <code>
+    /// entries = this(+0x18)                          // 一个 List&lt;Entry&gt;
+    /// for (i = 0; i &lt; entries.Count; i++) {
+    ///     entry = entries[i];
+    ///     if (entry.army(+0x10) == cardArmy) break;  // **命中就 break**
+    ///     cursor = null; highlight = null;           // 没命中那一拍把两个 out 都清一次
+    /// }
+    /// if (i == entries.Count) { cursor = null; highlight = null; return 0; }   // 扫完没有 ⇒ 0
+    /// if (entry.cursor(+0x18) != null) { cursor = Load(cursor);               // 只 Load 有值的那个
+    ///     if (entry.highlight(+0x20) != null) { highlight = Load(highlight); return 1; } }
+    /// // 其余 = throw（原版 NRE）
+    /// </code>
+    /// <para>⚠️ **数据来源**：`CursorByArmySO` 那个 SO **不在 `bundle_armycursors_assets_all` 里**
+    /// （那个包只有 21 张 `Sprite/`、没有 `MonoBehaviour/`）⇒ **entry 的字段值读不到**。
+    /// 但 21 张 Sprite 的**名字**把 11 个阵营一一列全了（`Cursor_&lt;阵营&gt;_01[Glow]`，见下表）——
+    /// 表就是照这份名字排的（**有判据**），而 `EmperorsChildren(120)` / `SpaceWolves(130)` / `Neutral(0)`
+    /// **一张都没有** ⇒ 原版对这三个阵营也是「扫完没有 ⇒ 返回 false」。</para>
+    /// <para>⚠️ **Dark Angels(110)** 只有一张 `Cursor_Dark Angels`、**没有 Glow** ⇒ 原版那一支会走到 throw；
+    /// 我们按「高光缺失 = 不画高光」返回 true 并出声一次（⛔ 不拿别的阵营的高光顶）。</para></summary>
+    public static class CursorByArmy
+    {
+        /// <summary>一条 = 原版 `CursorByArmySO` 的 `Entry`（`army` / `cursor` / `highlight` 三个字段）。
+        /// ⚠️ 图名用的是**我们 Resources 的落盘名**（原版名里的空格 → `_`）。</summary>
+        public struct Entry
+        {
+            public int Army;
+            public string Cursor;      // 原版 `entry.cursor`（`Sprite` 引用；我们存资源名）
+            public string Glow;        // 原版 `entry.highlight`（同上；null = 那一档没有）
+            public Entry(int army, string cursor, string glow) { Army = army; Cursor = cursor; Glow = glow; }
+        }
+
+        /// <summary>11 个阵营（**顺序无所谓** —— 原版是线性扫、命中即 break；这里按 `CardArmy` 值升序排）。
+        /// 判据 = `bundle_armycursors_assets_all/Sprite/` 的 21 个 json 文件名（现读）。</summary>
+        public static readonly Entry[] Table =
+        {
+            new Entry( 10, "Cursor_Space_Marine_01",   "Cursor_Space_Marine_01Glow"),   // Ultramarines
+            new Entry( 20, "Cursor_Ork_01",            "Cursor_Ork_01Glow"),            // Goff
+            new Entry( 30, "Cursor_Eldar_01",          "Cursor_Eldar_01Glow"),          // SaimHann
+            new Entry( 40, "Cursor_Necron_01",         "Cursor_Necron_01Glow"),         // Sautekh
+            new Entry( 50, "Cursor_Chaos_01",          "Cursor_Chaos_01Glow"),          // BlackLegion
+            new Entry( 60, "Cursor_Space_Tyranid_01",  "Cursor_Space_Tyranid_01Glow"),  // Leviathan
+            new Entry( 70, "Cursor_Tau_01",            "Cursor_Tau_01Glow"),            // TauEmpire
+            new Entry( 80, "Cursor_Sororitas",         "Cursor_Sororitas_Glow"),        // Sororitas
+            new Entry( 90, "Cursor_Genestealer_01",    "Cursor_Genestealer_01Glow"),    // Genestealers
+            new Entry(100, "Cursor_AstraMillitarum_01","Cursor_AstraMillitarum_01Glow"),// AstraMilitarum
+            new Entry(110, "Cursor_Dark_Angels",       null),                           // DarkAngels：原版只有 cursor
+        };
+
+        static bool _darkSaid;
+
+        /// <summary>= 原版 `CursorByArmySO.GetCursor(...)`。命中 ⇒ 两个 out 写资源名、返回 true；
+        /// 扫完没有 ⇒ 两个 out 都置 null、返回 false（**不是抛**）。</summary>
+        public static bool GetCursor(int army, out string cursor, out string glow)
+        {
+            cursor = null; glow = null;
+            for (int i = 0; i < Table.Length; i++)
+            {
+                if (Table[i].Army != army) continue;
+                cursor = Table[i].Cursor;
+                glow = Table[i].Glow;
+                if (glow == null && !_darkSaid)
+                {
+                    _darkSaid = true;
+                    Debug.LogWarning("[MenuTutorial] 阵营 " + army + " 的指针**没有高光图**"
+                                   + "（`bundle_armycursors_assets_all` 里只有 `Cursor_Dark Angels` 一张）"
+                                   + " ⇒ 只画指针、不画高光（原版这一支会 NRE；我们出声 + 继续）。");
+                }
+                return true;
+            }
+            return false;     // 原版：扫完没有 ⇒ 两个 out 都置 null 并 return 0
+        }
+    }
+
+    // ============================================================ 原版 `TutorialPointerData`（B94_B6 · 2026-10-29）
+    //
+    // 判据（三源同读，全部现读）：
+    //   · `d:/2/tools/cpp2il/out_il2csharp/Assembly-CSharp/TutorialPointerData.cs`（**体最干净**的一份）：
+    //     `public string id;` · `private Vector2 offset;` · `public bool filterRaycast;`
+    //     · `Target` getter 全文 = `GameObjectUniqueIdentifier.Find(id)` → 非 null 就 `return`；
+    //       否则 `CustomDebug.LogError(string.Concat("[ERROR] Tutorial. Can't find button with ID ", id))` → `return null`
+    //   · `decomp_full/TutorialPointerData__get_Offset.c` = `return *(undefined8 *)(param_1 + 0x18)` ——
+    //     就是那个字段本身（`+0x18` = `offset`），**没有任何加工**
+    //   · 错误串字面量 = `out_il2csharp/stringliteral.json` `"[ERROR] Tutorial. Can't find button with ID "`（逐字）
+    //
+    // 🔴 **它为什么重要**：这是 `GameObjectUniqueIdentifier`（见 `MenuDraw.cs:3662` 的 `MenuUniqueIds`）在**全二进制里唯一的消费者**
+    //   —— 三份产物（`decomp_full` / `out_cpp2il_dev_ilspy` / `out_il2csharp`）里 `Find`/`FindComponent` 的
+    //   外部调用点**只有 `TutorialPointerData.Target` 这一处**。⇒ 注册表那一半（B94_S3 已落地）缺的就是这一跳。
+    //
+    // ⚠️ **两处如实标**：
+    //   ① 原版 `offset` 是**私有且没有 `[SerializeField]`** ⇒ Unity 不序列化它 ⇒ 从 prefab/SO 里读到的**永远是 (0,0)**；
+    //      真正非零的偏移都来自调用点（`AddPointer(node, offset, filterRaycast: 1)` 的**实参**），⛔ 别指望 SO 里带偏移。
+    //   ② 原版 `Find` 走的是 `GameObjectUniqueIdentifier` 那个组件的 `Awake` 自注册表；本仓没有那个能挂的
+    //      `MonoBehaviour`（见 `MenuDraw.cs:3640` 的说明）⇒ 这里走 `MenuUniqueIds`（同一份语义）。
+    /// <summary>原版 `TutorialPointerData`（`[Serializable]`）：一条「指针该指哪」的数据
+    /// = `id` + `offset` + `filterRaycast`，以及唯一的行为 <see cref="Target"/>。</summary>
+    public sealed class TutorialPointerData
+    {
+        /// <summary>原版 `public string id`（`+0x10`）—— 唯一 id，交给注册表查节点。</summary>
+        public string id;
+        /// <summary>原版 `private Vector2 offset`（`+0x18`）—— ⚠️ 不序列化（见本节 ⚠️①）。</summary>
+        Vector2 offset;
+        /// <summary>原版 `public bool filterRaycast`（`+0x20`）—— 挂指针时要不要把射线限制到目标子树
+        /// （消费点 = `MenuTutorialFlow` 的 `AddPointerAction`，判据在那里）。</summary>
+        public bool filterRaycast;
+
+        /// <summary>原版 `public Vector2 Offset { get { return offset; } }`（`+0x18` 原样）。</summary>
+        public Vector2 Offset { get { return offset; } }
+
+        /// <summary>原版 `public GameObject Target { get {...} }`：
+        /// `Find(id)` → 命中即返回；未命中 ⇒ 打那条**逐字**错误串（`"[ERROR] Tutorial. Can't find button with ID " + id`）并返回 null。
+        /// <para>🧨 灭自证：把日志那一句删掉、或把「未命中回 null」改成「抛异常」⇒ 断言 N 区翻面（见 `Editor/B94B6_Assert.cs`）。</para></summary>
+        public GameObject Target
+        {
+            get
+            {
+                var go = MenuUniqueIds.Find(id);
+                if (go != null) return go;                       // 原版 `if ((bool)gameObject) return gameObject;`
+                Debug.LogError("[ERROR] Tutorial. Can't find button with ID " + id);   // 原版 `CustomDebug.LogError(string.Concat(...))`
+                return null;
+            }
         }
     }
 }

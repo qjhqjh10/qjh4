@@ -535,7 +535,7 @@ namespace RuleEngine
         /// 并给予它迅捷」）。
         /// **归属在我们这儿 = 这个对象待在谁的 `PlayerState.Board[]` 里**（原版就是一张牌上
         /// 可翻转的 bool，机器码 `+0x40`：`CardScript__SetAsPlayer.c:19` / `ChangeOwner.c:2-5`）
-        /// ⇒ 「抢」= 换数组、「还」= 换回去。**时长**照卡面写死的 `this turn`；
+        /// ⇒ 「抢」= 换数组、「还」= 换回去（**离场后**仍要记座位 ⇒ 见 `UnitState.OwnerSeat`，B94_B24 2026-10-29）。**时长**照卡面写死的 `this turn`；
         /// 原版的限时容器是 `CardEffect.untilEndOfTurn`（`0x32`）+ 回合末 `ClearEndOfTurnEffects`。
         /// ⚠️ 原版把这三件事串起来的调用点在 `ResolveStealMinion` 那个协程里、**本次导出没有** ⇒
         ///    「本回合末归还」是**照卡面 + 我们挑的**，别写成「原版就是这样」。
@@ -2444,5 +2444,74 @@ namespace RuleEngine
             var p = Players[b];
             if (p != null) p.Name = name;
         }
+
+        /// <summary>
+        /// 🆕 **2026-10-29（B94 · F4 · 账 455 `PayCardPlayedCostOath` 缺的前置格）**：原版
+        /// `BattleManager.cardChosenInSelection // +0x2E8（类型 `RawCardScript`）` 的等价物。
+        ///
+        /// <para>**判据（第一权威 · 现读）**：`d:/2/tools/il2cpp_out/dump.cs:30844`
+        /// `public RawCardScript cardChosenInSelection; // 0x2E8`；类型 `RawCardScript` ⇒ 我们的 **`CardDef`**。</para>
+        ///
+        /// <para>**它是什么**：一次「选择 UI 里选中的那张卡」的**一次性**暂存格 ——
+        /// 消费方取走后**立刻清空**（ILSpy `cpp2il/out_cpp2il_dev_ilspy/AbilityLogic.cs:1611-1612`：
+        /// `list.Add(manager.cardChosenInSelection); manager.cardChosenInSelection = null;`）。
+        /// 生产者（写点）= `BattleManager.cs:25387` `cardChosenInSelection = rawCardScript;`（选择确认那一跳）；
+        /// 其它读点 = `AbilityLogic.GetTargets`（`:1590` 空检查 / `:1611` 收进目标表后清）、
+        /// `BattleManager.GetChoiceIndexOfCard` 那一族（`:1693` / `:1699`）、
+        /// `buffType == choiceEnchantment(16) && cardChosenInSelection != null`（`BattleManager.cs:36427`）。</para>
+        ///
+        /// <para>🔴 **谁接线**（⛔ 本代理只建格、不接）：**写点归 F1**（`RuleCore` 选择确认那一跳），
+        /// **读点 / 分派归 F2**（`EffectResolver` 的 `GetTargets` 等价物 + choiceEnchantment 那一支）。
+        /// ⛔ 别在 `RuleEngine/` 之外另建同义格（两处存一份 ⇒ 迟早不一致）。</para>
+        ///
+        /// <para>⚠️ **`null` = 当前没有「选择中」的卡**（= 原版的 `null`）；⚠️ 它是**瞬态**，消费方必须
+        /// **用完即清**（照 `AbilityLogic.cs:1612`），⛔ 别当成常驻字段跨回合读。</para>
+        /// </summary>
+        public CardDef CardChosenInSelection;
+    }
+
+    // ==========================================================================================
+    //  🆕 2026-10-29（B94_B24 · 账 647 / 1278）：**事件施动卡槽**
+    //  为什么追加在文件末：`BattleContext.cs` 有 40+ 处账落点按【行号】引用 ⇒ 类体里插成员会让它们整体漂移；
+    //  `partial` 追加在全部落点之后 = 零漂移（先例 = B89/E6d、B92/B7 那两块）。
+    // ==========================================================================================
+    public partial class BattleContext
+    {
+        /// <summary>
+        /// **这次事件是【谁】干的**（原版 `BattleAction.actingCard // +0x8` · `DamageInfo.actingCard // +0x10`
+        /// 的等价物）—— 承载「干了这件事的那个 `UnitState`」，供 `actingCard` 级目标 / 触发条件判归属。
+        ///
+        /// <para>🔴 **判据（`d:/2/tools/` 2026-10-29 现读）**：
+        /// <c>il2cpp_out/dump.cs</c> 里 `BattleAction` 结构体同时带 **三个独立格** ——
+        /// `isPlayer // 0x4` · `actingCard // 0x8` · `targetCard // 0x10`（`DamageInfo` 也有自己的
+        /// `actingCard // 0x10` + `damageType // 0x1c`）。`BattleManager.cs:37385` 入队时
+        /// `battleAction->isPlayer = ((EntityScript)actingCard).isPlayer__BackingField` ——
+        /// **座位是从「施动卡」这个引用上读出来的**（卡上存座位，见 `UnitState.OwnerSeat` 的 doc）。
+        /// ⇒ 原版把「施动卡」与「宾语」当**两格**并存，⛔ 不是一格。</para>
+        ///
+        /// <para>⚠️ **与现有三个格的分工（⛔ 别混、别拿一个顶另一个）**：
+        /// · <see cref="EventTarget"/> = 事件**宾语**（被打的那个 / 被打出那句的 `it`）；
+        /// · <see cref="EventCard"/> = 发生这件事的**那张卡定义**（`CardDef`，`create a copy of it` 用）；
+        /// · <see cref="ActingUnit"/> = **正在结算的那条 op 的施放者**（`ResolveOne` 逐 op 设）；
+        /// · **本格 = 触发整件事的施动卡**（`BattleAction.actingCard`）。四者可以**互不相同** —— 例：
+        /// 监听者结算它的效果时 `ActingUnit` = 监听者自己，而本格 = 当初攻击的那个单位。</para>
+        ///
+        /// <para>🔴 **它解的是账 1278 的残余①**：原版 `OnTriggerEffectInCard` →
+        /// `TriggerAbilities(trigger, mgr, thisCard, **actingCard**, **targetCard**, …)` 两格并存，
+        /// 而我们 `ResolveOps` 只有 `source` + 一个 `seed` 两个槽 ⇒ 只能把 actingCard / targetCard
+        /// 挤进同一个 `seed`（只有 `target==null` 时才等价）。有了本格，消费方可以
+        /// `ctx.EventActingCard = actingCard;` 再 `ResolveOps(…, seed: targetCard)` ⇒ 两格分得开
+        /// （`TargetsAffected = 80 actingCard` / `40 attacker` 那几档才有东西可取，见
+        /// `EffectResolver.ResolveTargets` 里 `ta==80` 那句「本版没接这一档」）。</para>
+        ///
+        /// <para>🔴 **谁接线**（⛔ 本代理只建格 + 定口径、不接）：**写点 / 还原归 `EffectResolver`**
+        /// （照 `EventSlotsScope` 那套 save/restore 把本格一起种/还原 —— 与 `EventTarget`/`EventCard`
+        /// **同一套机制**，⛔ 别另立第二个 scope）；**读点归 `EffectResolver` / `ActionPump`**。
+        /// 配方见 `报告/B94_B24.md`「交回的可粘贴代码」。</para>
+        ///
+        /// <para>⚠️ `null` = 这条事件没有施动卡（例如无来源的死亡：毒 / 反噬 / 反击）；
+        /// ⚠️ 与 <see cref="EventTarget"/> 一样是**瞬态**，广播 / 结算完必须还原成进入前的值。</para>
+        /// </summary>
+        public UnitState EventActingCard;
     }
 }

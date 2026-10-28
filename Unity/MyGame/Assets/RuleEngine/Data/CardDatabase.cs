@@ -1746,7 +1746,7 @@ namespace RuleEngine
                 // 🆕 v36（2026-10-28 · 执行代理 `A1c`）：逐行 `damageCriteria`（`abilityDamage` 列）——
                 //   同样**构造后挂载**。缺列（< 36）⇒ 传 `null` = **整列未知** ⇒ 消费端一律不逐目标掷
                 //   （与加这一列之前**逐字相同**）。消费点 = `RuleCore.StampRollPerTarget`。
-                def.AttachAbilityDamage(MapAbilityDamage(c)); def.AttachWhileInPlayAnim(dto.version >= 37 ? c.whileInPlayAnim : -1); def.AttachPermanentBuffs(dto.version >= 37 ? MapPermanentBuffs(c) : null); def.AttachAbilitySummon(MapAbilitySummon(c));   // 🆕 v37（`E6`）：后两格同样「构造后挂载」（理由同上）；`null` = **未知**（旧表 < 37），⛔ 不要 `?? new[0]`。⚠️ 三条挤一行是**故意的**：加行会把 `:1799` 等下游 A 行账落点整体推走。
+                def.AttachAbilityDamage(MapAbilityDamage(c)); def.AttachWhileInPlayAnim(dto.version >= 37 ? c.whileInPlayAnim : -1); def.AttachPermanentBuffs(dto.version >= 37 ? MapPermanentBuffs(c) : null); def.AttachAbilitySummon(MapAbilitySummon(c)); RecordAbilityBuffs(def, c);   // 🆕 v37（`E6`）：后两格同样「构造后挂载」（理由同上）；`null` = **未知**（旧表 < 37），⛔ 不要 `?? new[0]`。⚠️ 三条挤一行是**故意的**：加行会把 `:1799` 等下游 A 行账落点整体推走。｜🆕 v40（`B23`）：`RecordAbilityBuffs` 写的是**旁表**（`_abilityBuffsById`，查询口 `CardDatabase.AbilityBuffsOf`）—— 因为 `RuleEngine/Core/**`（`CardDef`）不在该代理白名单；⛔ 别把数据改成 `def.Attach*`（会与旁表两处写同一条规则）。
                 list.Add(def);
             }
             // 🆕 v23（2026-10-24 · 引擎线 `G12`）：`activeAbilityLogic` 的**挂载读数**（一行，⛔ 不逐卡刷屏）。
@@ -4358,4 +4358,247 @@ namespace RuleEngine
         }
     }
 
+    // ==================================================================================================
+    //  🆕 v40（2026-10-29 · 第九十四会话 · 波 6 · 执行代理 `B94_B23`）：卡表 `abilityBuffs` 列
+    //     = 原版 **`CardEffect`** 的逐行引擎侧载荷（判据 → `资料/完全复刻/判据/B94_R-W_战斗38条分诊.md` §二 **B-3**）
+    //
+    //  🔴 **缺的是什么**：我们今天的引擎**只从卡面正文解析**出效果（`give/gain/lose` → `PayloadOp` /
+    //     `EffectResolver.ApplyOneGain` 一族），而原版 `CardScript.AddEffect`（`decomp_full/CardScript__AddEffect.c:209-967`）
+    //     的输入是 **`CardEffect` 对象**，分派键 = `CardEffect.buffType(+0x38)`。**这一格此前一个字都没落进卡表**
+    //     ⇒ 分派器的 11 个分组（`5 swapStats` · `6 changeRace` · `10 changeAbilityCost` · `11 removeExtrinsic` ·
+    //     `25 ephemeralCopy` · `30 addRace` · `40 replaceAbility` · `45 addStatsDropPod` · `70 setMeleeAttack` ·
+    //     `85 setRangeAttack` · `95 setCost`）**结构上产不出来**（账 `战斗逻辑驱动:686`）。`secretBuff/questBuff`
+    //     那一对（账 `:1053`）的生产者也在同一支（`AddEffect.c:853-855` / `:887`）。
+    //
+    //  🔴 **为什么不把属性挂在 `CardDef` 上**（本仓其余列都是 `def.AttachXxx(...)`）：
+    //     `RuleEngine/Core/**` **不在本代理白名单**（`CardDef` 会由别的代理按自己的落点改）。
+    //     ⇒ 本列走**旁表 + 静态查询口**（`CardDatabase.AbilityBuffsOf`），`CardDef.cs` 一个字节不动。
+    //     🔑 **将来若要把 `def.AbilityBuffs` 做成属性**：在 `Core/` 里加一句转发即可（`=> CardDatabase.AbilityBuffsOf(this)`），
+    //        **⛔ 别把数据本身搬过去**（两处写同一条规则，迟早不一致 —— 铁律「判据只留一处」）。
+    //
+    //  ⚠️ **本列今天【零消费者】**：只落数据 + 只挂载 ⇒ **零行为变化、不改 `PinnedPoolMd5` / `PinnedPlayMd5`**。
+    //     消费端（`EffectResolver` 那 11 个分组）在别的代理白名单里。
+    //  ⚠️ **挂载那一句挤在 `:1749` 原有那一行里**（故意不加行）—— 那一行自己的行尾注释已写明
+    //     「加行会把 `:1799` 等下游 A 行账落点整体推走」。⛔ 别为了排版把它拆成新行。
+    //  ⚠️ **本块追加在【文件最末】**：`账/*.tsv` 按【行号】引用本文件（现读最大落点 `:3772`），
+    //     在类中段插成员会让它们整体漂移（与上面 A4 / 进攻卡那两段同一条纪律）。
+    // ==================================================================================================
+    public static partial class CardDatabase
+    {
+        /// <summary>🆕 v40：`abilityBuffs` 的一行（= 原版 `CardEffect` 的引擎侧载荷）。
+        /// <para>🔴 **字段名与 JSON 键名逐字一致**（`JsonUtility` 直读，没有映射表可写错）。
+        /// 偏移 → `dump.cs:119082-119105`（`CardEffect`）；分派器 → `CardScript__AddEffect.c:209-967`。</para>
+        /// <para>⚠️ **载荷格一律是「原值」**（不是差值、也不是 `-1` 哨兵）：SO 里每一格都有确定的值。
+        /// `setMeleeAttack(70)` / `setCost(95)` / `setCurrentHealth(100)` / `setHealth(9)` 这几档
+        /// **`0` 是合法且有语义的**（「设成 0」），所以生成器**不稀疏**、每行都带全 26 格。</para></summary>
+        [Serializable]
+        public class AbilityBuffRowDto
+        {
+            /// <summary>`cardAbilities` 下标；**`-1` = `activeAbility` · `-2` = `alternativeAbility`**
+            /// （与 `abilityTargetCriteria` / `activeAbilityLogic` 同一套哨兵）。</summary>
+            public int ab = -1;
+            /// <summary>`abilityLogic` 下标。</summary>
+            public int lg = -1;
+            /// <summary>载荷在哪个容器：`"buffEffect"`（`CardEffect`，走 `AddEffect`）或
+            /// `"handBuff"`（`handBuff.cardEffect`，**同一个类型**，走 `PlayerHand.AddHandEffect`）。
+            /// 🔴 消费端**必须**分这一档：把 `handBuff` 当 `AddEffect` 结算 = 做多。</summary>
+            public string at;
+            /// <summary>原版 `CardEffect.buffType (+0x38)`（`BuffType`，枚举值抄在
+            /// `工具/gen_cards_engine.py` 的 `BUFF_TYPE_NAMES`）。`0 (none)` 的行**不落**（`AddEffect.c:964-966` 什么都不做）。</summary>
+            public int buffType;
+
+            /// <summary>`CardEffect.trait (+0x3C)`（`DefinedTrait`；`addTrait`/`removeTrait`/`addTraitRemnant`/附魔族用）。</summary>
+            public int trait;
+            /// <summary>`CardEffect.traitValue (+0x40)`。</summary>
+            public int traitValue;
+            /// <summary>`CardEffect.newRace (+0x44)`（`Keyword`；`changeRace(6)` / `addRace(30)` 用；**池内现读全 0**）。</summary>
+            public int newRace;
+
+            /// <summary>`CardEffect.meleeAttackChange (+0x48)`（近战增减；`doubleAttack(20)` 那一支也会被原地改写成它）。</summary>
+            public int meleeAttackChange;
+            /// <summary>`CardEffect.meleeAttackValueOptions (+0x4C)`（`ChooseValueOptions`：「这个数从谁身上取」）。</summary>
+            public int meleeAttackValueOptions;
+            /// <summary>`CardEffect.rangeAttackChange (+0x50)`。</summary>
+            public int rangeAttackChange;
+            /// <summary>`CardEffect.rangeAttackValueOptions (+0x54)`。</summary>
+            public int rangeAttackValueOptions;
+            /// <summary>`CardEffect.armourChange (+0x58)`。</summary>
+            public int armourChange;
+            /// <summary>`CardEffect.armourValueOptions (+0x5C)`。</summary>
+            public int armourValueOptions;
+            /// <summary>`CardEffect.healthChange (+0x60)`。</summary>
+            public int healthChange;
+            /// <summary>`CardEffect.healthValueOptions (+0x64)`。</summary>
+            public int healthValueOptions;
+            /// <summary>`CardEffect.costChange (+0x68)`（`changeCost(2)` / `setCost(95)` / `changeAbilityCost(10)` 用）。</summary>
+            public int costChange;
+            /// <summary>`CardEffect.costValueOptions (+0x6C)`。</summary>
+            public int costValueOptions;
+            /// <summary>`CardEffect.randomValueChange (+0x70)`。</summary>
+            public int randomValueChange;
+
+            /// <summary>`CardEffect.permanentBuff (+0x74)`（「不能被 jam」）。**与 v37 `permanentBuffs` 列不同源用途**：
+            /// 那列是「哪些行是永久」，本格是**这一行自己的**那个 bool（消费端按行判）。</summary>
+            public int permanentBuff;
+            /// <summary>`CardEffect.doNotStack (+0x75)`（「不叠加」）。</summary>
+            public int doNotStack;
+            /// <summary>`CardEffect.markOfChaosType (+0x78)`（`markOfChaos(8)` / `lastMarkOfChaos(17)` / 附魔族用）。</summary>
+            public int markOfChaosType;
+            /// <summary>`CardEffect.daemonHostType (+0x7C)`（`daemonHost(35)`；**池内现读全 0**）。</summary>
+            public int daemonHostType;
+            /// <summary>`CardEffect.mutationType (+0x80)`（`IsCumulativeMutation` 判 `== 0x14`；**池内现读全 0**）。</summary>
+            public int mutationType;
+
+            /// <summary>`CardEffect.extrinsic (+0x30)`（「效果绑在**施放者**而不是目标身上」）。</summary>
+            public int extrinsic;
+            /// <summary>`CardEffect.extrinsicVariable (+0x31)`。</summary>
+            public int extrinsicVariable;
+            /// <summary>`CardEffect.untilEndOfTurn (+0x32)`。</summary>
+            public int untilEndOfTurn;
+            /// <summary>`CardEffect.untilPlayerTurnStart (+0x33)`。</summary>
+            public int untilPlayerTurnStart;
+            /// <summary>`CardEffect.untilEnemyTurnStart (+0x34)`。</summary>
+            public int untilEnemyTurnStart;
+            /// <summary>`CardEffect.untilFollowingPlayerTurnStart (+0x35)`。</summary>
+            public int untilFollowingPlayerTurnStart;
+            /// <summary>`CardEffect.untilNextAttack (+0x36)`。</summary>
+            public int untilNextAttack;
+        }
+
+        public partial class CardDto
+        {
+            /// <summary>🆕 v40：这张卡**逐 `abilityLogic` 行**的 `CardEffect` 载荷（形状同 `abilityDamage` / `abilitySummon`）。
+            /// <para>`null` / 缺列 = **未知**（旧表 &lt; v40）；`[]` = 明确没有行。⛔ 不要 `?? new[0]`。</para></summary>
+            public AbilityBuffRowDto[] abilityBuffs;
+        }
+
+        /// <summary>🆕 v40：`abilityBuffs` 的一行（映射后的形状；语义逐字同 <see cref="AbilityBuffRowDto"/>，
+        /// 只是把「字符串 `at`」换成 <see cref="IsHandBuff"/>，省掉消费端的字符串比较）。</summary>
+        public sealed class AbilityBuffSpec
+        {
+            /// <summary>`cardAbilities` 下标；`-1` = `activeAbility` · `-2` = `alternativeAbility`。</summary>
+            public int Ab;
+            /// <summary>`abilityLogic` 下标。</summary>
+            public int Lg;
+            /// <summary>真 = `handBuff.cardEffect`（走 `PlayerHand.AddHandEffect`，⛔ **不是** `AddEffect`）。</summary>
+            public bool IsHandBuff;
+            /// <summary>原版 `CardEffect.buffType (+0x38)`（`0 (none)` 的行不会出现在这里）。</summary>
+            public int BuffType;
+
+            public int Trait, TraitValue, NewRace;
+            public int MeleeAttackChange, MeleeAttackValueOptions;
+            public int RangeAttackChange, RangeAttackValueOptions;
+            public int ArmourChange, ArmourValueOptions;
+            public int HealthChange, HealthValueOptions;
+            public int CostChange, CostValueOptions;
+            public int RandomValueChange;
+            public int PermanentBuff, DoNotStack;
+            public int MarkOfChaosType, DaemonHostType, MutationType;
+            public int Extrinsic, ExtrinsicVariable;
+            public int UntilEndOfTurn, UntilPlayerTurnStart, UntilEnemyTurnStart;
+            public int UntilFollowingPlayerTurnStart, UntilNextAttack;
+        }
+
+        /// <summary>🆕 v40：`id → 行[]`。**只在本类里写**（`RecordAbilityBuffs` 是唯一写口）。
+        /// <para>🔴 用 **id** 而不是 `CardDef` 做键：`Parse` 可能被调多次（自检/探针），
+        /// 每次都会造**新的** `CardDef` 实例 ⇒ 按实例建表会让「上一次拿到的 def」查不到自己的行。</para></summary>
+        static readonly Dictionary<string, AbilityBuffSpec[]> _abilityBuffsById =
+            new Dictionary<string, AbilityBuffSpec[]>(StringComparer.Ordinal);
+
+        /// <summary>🆕 v40：某个卡 id 的 `CardEffect` 行。**`null` = 未知**（旧表 &lt; v40 / 这张卡不在表里），
+        /// `空数组` = 明确没有行 —— 两者必须分得开（同 `CardDef.PermanentBuffs` 那套口径）。</summary>
+        public static IReadOnlyList<AbilityBuffSpec> AbilityBuffsOf(string cardId)
+        {
+            if (string.IsNullOrEmpty(cardId) || _abilityBuffsById == null) return null;
+            AbilityBuffSpec[] rows;
+            return _abilityBuffsById.TryGetValue(cardId, out rows) ? rows : null;
+        }
+
+        /// <summary>🆕 v40：按 `CardDef` 取（转发到 <see cref="AbilityBuffsOf(string)"/>）。
+        /// 将来 `CardDef` 那边要加属性就转调这里（⛔ 别把数据搬过去）。</summary>
+        public static IReadOnlyList<AbilityBuffSpec> AbilityBuffsOf(CardDef def)
+            => def == null ? null : AbilityBuffsOf(def.Id);
+
+        /// <summary>🆕 v40：`abilityBuffs` 列 → <see cref="AbilityBuffSpec"/>。
+        /// <para>⚠️ 行级坏值口径与 `MapAbilitySummon` / `MapAbilityDamage` **逐字同族**：
+        /// 缺 `ab`/`lg` ⇒ 出声 + 丢弃该行；同一 `(ab, lg, at)` 撞键 ⇒ 出声 + 丢弃后一条
+        /// （⛔ 撞键 = 谁赢都说不清）；`at` 认不出 ⇒ 出声 + 丢弃。</para>
+        /// <para>⚠️ `buffType == 0` 的行走**这一层**也丢（生成器已经不落它；这里再兜一次，
+        /// 防有人手工改表 —— `AddEffect.c:964-966` 对它什么都不做）。</para></summary>
+        static AbilityBuffSpec[] MapAbilityBuffs(CardDto c)
+        {
+            if (c == null || c.abilityBuffs == null) return null;   // 缺列 = 未知（⛔ 不是「没有行」）
+            var list = new List<AbilityBuffSpec>(c.abilityBuffs.Length);
+            var seen = new HashSet<long>();
+            foreach (var r in c.abilityBuffs)
+            {
+                if (r == null) continue;
+                if (r.ab < -2 || r.lg < 0)
+                {
+                    Debug.LogError($"[RuleEngine] 卡「{c.name}」（{c.id}）的 `abilityBuffs` 有一行下标不合法"
+                                 + $"（ab={r.ab}, lg={r.lg}）—— **该行丢弃**。重跑 工具/gen_cards_engine.py。");
+                    continue;
+                }
+                bool hand;
+                if (r.at == "buffEffect") hand = false;
+                else if (r.at == "handBuff") hand = true;
+                else
+                {
+                    Debug.LogError($"[RuleEngine] 卡「{c.name}」（{c.id}）的 `abilityBuffs` 有一行 `at` 认不出"
+                                 + $"（`{r.at ?? "(null)"}`，只认 `buffEffect` / `handBuff`）—— **该行丢弃**。");
+                    continue;
+                }
+                if (r.buffType == 0)
+                {
+                    Debug.LogError($"[RuleEngine] 卡「{c.name}」（{c.id}）的 `abilityBuffs` 有一行 `buffType == 0`"
+                                 + $"（ab={r.ab}, lg={r.lg}, at={r.at}）—— 原版 `CardScript__AddEffect.c:964-966`"
+                                 + " 对它什么都不做，**该行丢弃**。");
+                    continue;
+                }
+                // 撞键键 = (ab, lg, at)：同一个 (ab,lg) 的 buffEffect 与 handBuff 是**两条独立效果**。
+                long k = ((long)(r.ab + 2) << 40) ^ ((long)r.lg << 8) ^ (uint)(hand ? 1 : 0);
+                if (!seen.Add(k))
+                {
+                    Debug.LogError($"[RuleEngine] 卡「{c.name}」（{c.id}）的 `abilityBuffs` 有**重复的 "
+                                 + $"(ab={r.ab}, lg={r.lg}, at={r.at})** —— 后一条已丢弃（⛔ 撞键 = 谁赢都说不清）。"
+                                 + "重跑 工具/gen_cards_engine.py。");
+                    continue;
+                }
+                list.Add(new AbilityBuffSpec
+                {
+                    Ab = r.ab, Lg = r.lg, IsHandBuff = hand, BuffType = r.buffType,
+                    Trait = r.trait, TraitValue = r.traitValue, NewRace = r.newRace,
+                    MeleeAttackChange = r.meleeAttackChange,
+                    MeleeAttackValueOptions = r.meleeAttackValueOptions,
+                    RangeAttackChange = r.rangeAttackChange,
+                    RangeAttackValueOptions = r.rangeAttackValueOptions,
+                    ArmourChange = r.armourChange, ArmourValueOptions = r.armourValueOptions,
+                    HealthChange = r.healthChange, HealthValueOptions = r.healthValueOptions,
+                    CostChange = r.costChange, CostValueOptions = r.costValueOptions,
+                    RandomValueChange = r.randomValueChange,
+                    PermanentBuff = r.permanentBuff, DoNotStack = r.doNotStack,
+                    MarkOfChaosType = r.markOfChaosType, DaemonHostType = r.daemonHostType,
+                    MutationType = r.mutationType,
+                    Extrinsic = r.extrinsic, ExtrinsicVariable = r.extrinsicVariable,
+                    UntilEndOfTurn = r.untilEndOfTurn, UntilPlayerTurnStart = r.untilPlayerTurnStart,
+                    UntilEnemyTurnStart = r.untilEnemyTurnStart,
+                    UntilFollowingPlayerTurnStart = r.untilFollowingPlayerTurnStart,
+                    UntilNextAttack = r.untilNextAttack,
+                });
+            }
+            return list.ToArray();
+        }
+
+        /// <summary>🆕 v40：**唯一写口** —— 由 `Parse` 在每张卡构造完（`:1749` 那一句）调用一次。
+        /// <para>`null`（旧表）⇒ 不写进表 ⇒ `AbilityBuffsOf` 返回 `null`（= 未知）。
+        /// ⚠️ 同 id 重复调用 = `Parse` 被跑第二次 ⇒ 覆盖（同 id 内容相同，⛔ 不累加）。</para></summary>
+        static void RecordAbilityBuffs(CardDef def, CardDto c)
+        {
+            if (def == null || string.IsNullOrEmpty(def.Id)) return;
+            var rows = MapAbilityBuffs(c);
+            if (rows == null) return;                      // 缺列 = 未知 ⇒ 表里没有这个 id
+            if (_abilityBuffsById.ContainsKey(def.Id)) _abilityBuffsById[def.Id] = rows;
+            else _abilityBuffsById.Add(def.Id, rows);
+        }
+    }
 }

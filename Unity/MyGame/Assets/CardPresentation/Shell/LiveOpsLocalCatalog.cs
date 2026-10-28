@@ -1146,7 +1146,7 @@ namespace CardPresentation
     /// <para>🔶 自己设计（非原版）：`RuntimeKeyIsValid` 本地没有 Addressables runtime key ⇒ 以「能解析到子对象名
     /// （`LiveOpsLocalAsset.SubObjectName` 非空）」为有效代理 · 为什么必须自己定：原版校验的是 Addressables 的 runtime key、
     /// 本机没有那套装载层 · 调度台 2026-10-28（B89-R2b）裁定。</para></summary>
-    public static class LiveOpsAssetUtility
+    public static partial class LiveOpsAssetUtility
     {
         /// <summary>原版 `GetEventLabel(ILiveOps, EventLabelReferenceType)`：按 key 查 `EventLabel`；取不到 ⇒ `CustomDebug.LogWarning`。
         /// 判据 `decomp_full/Everguild.LiveOps.LiveOpsAssetUtility__GetEventLabel.c:38`。</summary>
@@ -1206,6 +1206,76 @@ namespace CardPresentation
                 if (d != null) outp.Add(d);
             }
             return outp;
+        }
+    }
+
+    // ============================================================ `LiveOpsAssetUtility` 第二半 · `ReleaseEventAssets`（B94_T1 · 2026-10-29 搬回）
+    // 判据（第一权威 = Ghidra `.c`；第二 = ILSpy，只用来取被 `.c` 吞掉的字面量）：
+    //   · `decomp_full/Everguild.LiveOps.LiveOpsAssetUtility__ReleaseEventAssets.c`（119 行）
+    //   · `decomp_full/Everguild.LiveOps.LiveOpsAssetUtility__LoadComponent_object_.c`（24 行）
+    //   · `cpp2il/out_cpp2il_dev_ilspy/Everguild.LiveOps/LiveOpsAssetUtility.cs:268`（LoadComponent）/ `:921`（ReleaseEventAssets）
+    // 🔴 **搬迁来历**：这两个成员原挂在 `LiveOpsContainers` 的 partial 上（B93·N2 追加，当时 `LiveOpsAssetUtility`
+    //   不在那个代理名下）⇒ 该文件尾的交接注释写明「谁拥有 `LiveOpsLocalCatalog.cs`，就把这两个成员搬进
+    //   `LiveOpsAssetUtility`（它加 `partial` 即可）」。本代理（B94_T1）即按那条交接做的搬迁，**逻辑逐字未改**。
+    //   ⚠️ 落点为什么在**文件尾**另起一个 `partial` 段：本文件有多条账按 `文件:行号` 钉着（688 / 691 等），
+    //   且下面还有 `EventDataAssetProvider` 那一段（B93_E12 · 账 row 162）⇒ 往中间插会顶掉下游落点（铁律 18·b）。
+    // 🔴 与 `LiveOpsContainers.{Load,Unload}` 的分工：那两个 = 原版 `LoadComponent<T>` / `Unload` 的**注入点**；
+    //   本段 = 同一类的**另一个成员** `ReleaseEventAssets` —— 它有**明确的生产态调用方**
+    //   （`EnergySinglePlayerOnlyEventWindow.OnDestroy` · `ExpansionPassEventWindow.OnClose/Reset`，判据见那两个文件）。
+    public static partial class LiveOpsAssetUtility
+    {
+        /// <summary>原版那一跳 = `AddressablesManager.Instance.Release(reference)`。
+        /// 🔶 自己设计（非原版）：本机没有 Addressables 管线 ⇒ 留注入点，**没装就出声**（⛔ 不静默）。
+        /// 调度台 B93 2026-10-28 定（B94_T1 2026-10-29 连成员一起搬到这里，语义未改）。</summary>
+        public static Action<string> ReleaseAsset;
+
+        /// <summary>原版那两遍遍历里共用的单条释放（`.c` 两个 `while` 体一模一样）。</summary>
+        internal static void ReleaseOneAssetRef(string guid, string where)
+        {
+            if (string.IsNullOrEmpty(guid))
+            {
+                Debug.LogError("[LiveOps] Trying to unload null assetReference（" + where + "）");
+                return;
+            }
+            if (ReleaseAsset == null)
+            {
+                Debug.Log("[LiveOps] ReleaseEventAssets：" + where + " 的资产引用（guid " + guid + "）没有释放 —— "
+                        + "没有接 `LiveOpsAssetUtility.ReleaseAsset`（原版 = `AddressablesManager.Instance.Release(ref)`）");
+                return;
+            }
+            ReleaseAsset(guid);
+        }
+
+        /// <summary>原版 `LiveOpsAssetUtility.ReleaseEventAssets(ILiveOps liveOps)`。
+        /// <para>`.c` 逐句：`if (liveOps == null) return;` → `data = GetData&lt;LiveOpsEventData&gt;(liveOps)`（接口槽 15）→
+        /// `if (data == null || data.drawData == null || data.drawData.EventComponents == null) NRE;` →
+        /// `foreach (c in data.drawData.EventComponents) { r = c.&lt;+0x18&gt;; if (r == null) CustomDebug.LogError("Trying to unload null assetReference"); else AddressablesManager.Instance.Release(r); }` →
+        /// 对 `data.drawData.EventAssets` 再来一遍 → `return`。</para>
+        /// <para>⚠️ **差异（如实记）**：原版那两个列表在 `LiveOpsEventData.drawData` 上，而**我们的 `drawData` 不装那三格**
+        /// （铁律 6：本地目录 `LiveOpsLocalEvent` 已有 `Assets` / `Components`，⛔ 不建第二份表）⇒ 这里从
+        /// <see cref="LiveOpsLocalCatalog.Find"/> 取同一份数据的离线等价物。释放动作本身没有 Addressables 管线 ⇒
+        /// 走 <see cref="ReleaseAsset"/> 注入点，**没装就出声**（⛔ 不静默）。
+        /// 判 `null` 引用时那条错误文案**逐字照抄**原版字面量（ILSpy `LiveOpsAssetUtility.cs:921` 一带）。</para></summary>
+        public static void ReleaseEventAssets(ILiveOps liveOps)
+        {
+            if (liveOps == null) return;                       // .c：`if (param_1 == 0) return;`（**不是** NRE）
+            string id = liveOps.GetID();
+            var local = LiveOpsLocalCatalog.Find(id);
+            if (local == null)
+            {
+                Debug.LogError("[LiveOps] ReleaseEventAssets：本地目录里没有事件 '" + (id ?? "<null>") + "' 的条目"
+                             + "（原版这一跳读 `liveOps.GetBaseData().drawData`，我们那张表在本地目录）⇒ 没有可释放的引用");
+                return;
+            }
+            // ① `drawData.EventComponents` 那半（`KeyValuePair<int,string>`：组件键 → guid）
+            if (local.Components != null)
+                for (int i = 0; i < local.Components.Length; i++)
+                    ReleaseOneAssetRef(local.Components[i].Value, "EventComponents[" + local.Components[i].Key + "]");
+            // ② `drawData.EventAssets` 那半
+            if (local.Assets != null)
+                for (int i = 0; i < local.Assets.Length; i++)
+                    ReleaseOneAssetRef(local.Assets[i] != null ? local.Assets[i].Guid : null,
+                                       "EventAssets[" + (local.Assets[i] != null ? local.Assets[i].Key.ToString() : "?") + "]");
         }
     }
 }

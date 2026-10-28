@@ -265,7 +265,7 @@ namespace CardPresentation
         /// （`LeaderboardButtonClick.c`：`playMode` 二选一 ⇒ `rankingPrefab` / `rankingPrefabClassic` ⇒ `OpenWindow`）。</summary>
         public void LeaderboardButtonClick()
         {
-            var kind = LeaderboardKindForMode;
+            if (!FeatureChecker.IsEnabled(FeatureChecker.PlayerLeaderboard)) { LeaderboardBlockedForTest++; Debug.Log("[Event] `LeaderboardButton` 不可点：`FeatureChecker(PlayerLeaderboard)` 关（原版 `RankedEventWindowV2/.../LeaderboardButton` 上那颗 `FeatureChecker(PlayerLeaderboard)` 调 `set_interactable(false)`）"); return; } var kind = LeaderboardKindForMode;   // 🔶 B94_Y2 2026-10-29：原版该钮由 `FeatureChecker(PlayerLeaderboard)` 控 `interactable`（判据 → 报告 B94_Y2 §判据证据 1）
             // 🆕 **2026-10-11（A177）**：改走 `WindowsManager.OpenByRef`（= 原版 `automaticallyLoadedWindows`
             // 命中就复用）—— 原来直调 `LeaderboardWindow.Create` ⇒ **连点两次叠出两扇榜**。
             // 🔑 键 = `LeaderboardWindow.NameOf(kind)`：**遭遇榜 / 经典榜是两棵 prefab**，名字本身就是键
@@ -477,5 +477,10 @@ namespace CardPresentation
         /// <summary>`ChangeRankedToggle/Image`（= 原版 `ToggleDisplay.toggleImage`；prefab 里那颗 `Image`
         /// `m_Sprite` 出厂 `40_main_bt_toggle_on`）。建在 `BuildLeftColumn`，由 <see cref="SetRankedToggle"/> 换图。</summary>
         ImageQuad _tgKnob;
+
+        // ============================================================ 类尾追加（B94_Y2 2026-10-29）
+        /// <summary>自检读口：`LeaderboardButtonClick()` 因 `FeatureChecker(PlayerLeaderboard)` 关闭而**早退**的次数。
+        /// <para>⚠️ 追加在**类尾**（⛔ 别插中段 —— 会让账按 `文件:行号` 的落点整体漂移）。</para></summary>
+        public int LeaderboardBlockedForTest { get; private set; }
     }
 }

@@ -778,7 +778,7 @@ namespace CardPresentation
                     BuildCharacterImage();
                 return;
             }
-            var tex = CurrentWarlordArt();
+            string newWid = CurrentDeck != null ? CurrentDeck.WarlordId : null; if (!string.IsNullOrEmpty(_charImgWarlordId) && _charImgWarlordId != newWid) CardArt.ReleaseFullHeroSprite(_charImgWarlordId); _charImgWarlordId = newWid; var tex = CurrentWarlordArt();   // 账 `战斗逻辑驱动:1280`：原版 `PlayerDeckDemoDeckInfoWrapper__UnloadCharacterImage`（`decomp_full/…:7-11`）是「换图前先放**上一张**」—— 我们只有一条按路径的登记，所以必须**自己记着上一张是谁**（`_charImgWarlordId`）；与本行末尾那句取图合并写 = **零行数变化**
             if (tex == null) { _charImg.gameObject.SetActive(false); return; }
             if (!_charImg.gameObject.activeSelf) _charImg.gameObject.SetActive(true);
             _charImg.SetTexture(tex, true);          // 只换图；比例由下一行**显式**给（keepAspect 不会改 `_aspect`）
@@ -1323,7 +1323,7 @@ namespace CardPresentation
                 PairIndex = -1;          // 🆕 2026-10-22：左列那一格的选中态（同 `PickedPrebuilt` 一起作废）
                 PrebuiltDecks.ClearPendingBattleDeck();
             }
-            base.Close();
+            if (!string.IsNullOrEmpty(_charImgWarlordId)) { CardArt.ReleaseFullHeroSprite(_charImgWarlordId); _charImgWarlordId = null; } base.Close();   // 账 `战斗逻辑驱动:1280`：原版 `PlayerDeckDemoDeckInfoWrapper__UnloadCharacterImage` 由 `DeckGeneralInfoDemo.OnDisable` 调（`out_cpp2il_dev_ilspy/DeckGeneralInfoDemo.cs:67-74`）= 本窗隐藏/关窗那一刻 ⇒ 放掉本窗那张督军整身立绘；与 `base.Close()` 合并写 = **零行数变化**
         }
 
         void Build()
@@ -3560,21 +3560,21 @@ namespace CardPresentation
                                + "」**没有 deckId** ⇒ 不写（⛔ 不编一个 id 塞进存档）");
                 return;
             }
-            var dto = new DemoDataDto { currentDeck = pre.deckId };
-            bool ok = SaveCenter.Set(SaveKeys.DemoData, dto);
+            bool ok = DemoDataStore.Mutate(d => d.currentDeck = pre.deckId);   // 唯一写口（⛔ 不再自建 DTO 写同一个 key）
+            // 失败原因 = `DemoDataStore.LastError`（`SaveCenter` 自己也会出声一次；⛔ 别在这里再判一遍）
             Debug.Log("[Practice] `SaveSelectedDeck` ⇒ `DemoData.currentDeck = " + pre.deckId + "`"
                     + "（原版 `SetDemoDeck(deckId)`；⚠️ 本 build 那两个读者 `IsSavedDeck`/`LoadSavedDeck` 是死代码"
                     + " ⇒ **只写不读**）" + (ok ? " · 已落盘" : " · **没落盘**（原因见紧邻的那条 `[SaveCenter]` 日志）"));
         }
 
-        /// <summary>🆕 2026-10-26（批次 6 · G15）：`DemoData` 的**最小本地形状**（只含我们真的会写的字段）。
-        /// 🔴 字段名照原版（`currentDeck`，`cpp2il/DemoData.cs:24` 那一列的第 5 个）——
-        /// 这是落盘格式，⛔ 别改名。其余 8 个字段**本工程尚未实现**（见 <see cref="SaveSelectedDeck"/> 的 doc）。</summary>
-        [System.Serializable]
-        class DemoDataDto
-        {
-            public string currentDeck;
-        }
+        // ============================================================ 2026-10-29（B94_B7）：`DemoDataDto` 已删除
+        // 为什么删：它和 `Shell/DemoData.cs` 的完整 `DemoData` **写同一个 `SaveKeys.DemoData`**，
+        // 而它只有 `currentDeck` 一个字段 ⇒ 谁后写谁就把对方那 9 格**清成默认值**（零报错、没有任何提示）。
+        // 现在唯一写口 = `DemoDataStore.Mutate(...)`（见上 `SaveSelectedDeck`），完整 DTO = `Shell/DemoData.cs`。
+        // 🔴 2026-10-26（批次 6 · G15）原注释的两个约束**仍然有效**：
+        //   · 字段名照原版（`currentDeck`，`cpp2il/DemoData.cs:24`）—— 落盘格式，⛔ 别改名；
+        //   · 其余 9 格**不许在这里塞默认值冒充**（会覆盖将来那些字段）⇒ 现在由完整 DTO 统一保管。
+        // （本段占位保持行数不变：本文件被账按行号引用，删类同时删行会让下游落点全漂。）
 
         /// <summary>`Game mode` 开关那一整颗节点（原版 `gameModeSelector`）—— `Build()` 末尾那道
         /// 「有 RankedV3 活动才显示」的闸要用它（判据见 <see cref="HasActiveRankedEvent"/>）。
@@ -3780,5 +3780,14 @@ namespace CardPresentation
             Debug.Log("[Practice] `Warlord Name` 装上原版 `RectSizeLimiter`（maxSize = (" + WarlordNameMaxW + ", 0) · minSize = (0, 0)）"
                     + " ⇒ 当前宽 " + (rt.rect.width / LayoutSpace.Px(1f)).ToString("F2") + " px（上限 " + WarlordNameMaxW + " px）");
         }
+
+        // ============================================================ 账 `战斗逻辑驱动:1280`（追加在类尾）
+        /// <summary>`Character Image` 上**现在挂着的那张整身立绘属于哪位督军**（`null` = 没有 / 走的是卡面插图兜底）。
+        /// <para>🔴 为什么非记不可：原版 `PlayerDeckDemoDeckInfoWrapper` 放的是**它自己持有的那个句柄**
+        /// （`PlayerDeckDemoDeckInfoWrapper__UnloadCharacterImage.c:7-11` 读 `this+0x58`），所以它天然知道「上一张是谁」；
+        /// 我们只有一条**按路径**的登记（`CardArt._cache`）⇒ 换卡组时**只知道新的、不知道旧的**
+        /// ⇒ 不记下这一个 id，换图那一刻就放不掉上一张（静默把旧图永久留在缓存里）。</para>
+        /// <para>写点只有两处：`RefreshCharacterImage()`（换图时改）与 `Close()`（放完置空）。</para></summary>
+        string _charImgWarlordId;
     }
 }

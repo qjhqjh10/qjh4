@@ -773,7 +773,14 @@ namespace WarpforgeVFX
             }
         }
 
-        /// <summary>把到点的条目播掉。`while` 而不是 `if` —— 一帧跨过好几个区间时不丢拍。</summary>
+        /// <summary>把到点的条目播掉。
+        /// <para>🔴 **2026-10-29（执行代理 `F5` · 账 `音频_语音:71`）改成「每个槽位每次 Update 最多播一条」**：
+        /// 原版 `PlaySoundOnTime.Update`（`decomp_full/PlaySoundOnTime__Update.c`）是
+        /// **一次调用只播一条**（末尾 `numberOfTimesPlayed += 1; return;`，`numberOfTimesPlayed` 是实例字段）
+        /// ⇒ 一帧跨过好几个间隔时它**只播第一条**，其余靠后续帧逐条追上。
+        /// 我们原来写的是 `while`（一帧把欠的全播掉）⇒ 低帧率下会**多播**、而且几条同时响。
+        /// 按 §18·0「默认复刻原版」改成 `if`（⛔ 别再改回 `while`）。
+        /// ⚠️ 逐槽位仍然每帧扫一遍 —— 原版每个槽位就是一个 `PlaySoundOnTime` 实例、各自 Update。</para></summary>
         void TickSounds()
         {
             for (int i = 0; i < _sounds.Count; i++)
@@ -790,9 +797,9 @@ namespace WarpforgeVFX
                 float elapsed = s.onExit ? (_exiting ? _time : -1f) : _time;
                 if (elapsed < 0f) continue;
 
-                while (s.played < s.total && elapsed >= s.time + s.played * s.interval)
+                if (s.played < s.total && elapsed >= s.time + s.played * s.interval)
                 {
-                    PlayOneSound(ref s);
+                    PlayOneSound(ref s);          // 一次 Update 只播一条（原版 `PlaySoundOnTime.Update` 同形）
                 }
                 _sounds[i] = s;
             }

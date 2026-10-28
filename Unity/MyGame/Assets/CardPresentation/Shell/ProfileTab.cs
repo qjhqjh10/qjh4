@@ -1217,7 +1217,7 @@ namespace CardPresentation
             //    改前它不仅标题错，`Title` 宽（280.40 而不是 483.05）与 `Badge`（440 而不是 123×104）
             //    也跟着错 —— 同一个 flag 承担了两件事的连带后果。
             BuildEventContainer(ev, "Warlord  Mastery Container", EvT, ArtSubmenuBack, true, true,
-                                TermOr(EvTermWarlord, EvTitleFallbackWarlord), EvLevelTermWarlord, 14f);
+                                TermOr(EvTermWarlord, EvTitleFallbackWarlord), EvLevelTermWarlord, 14f); FillWarlordMasteryContainer(ev);
             BuildEventContainer(ev, "Forge Profile Container", EvT + EvStep, ArtForgeBg, false, false,
                                 TermOr(EvTermForge, EvTitleFallbackForge), EvLevelTermOther, 13f); FillForgeContainer(ev);
             // 🔴 **2026-10-24（U2）：「当前战役」格的底图不是通用红底。**
@@ -1791,6 +1791,146 @@ namespace CardPresentation
                 if (lb != null && hasIcon)
                     lb.SetText(string.Format(TermOr(EvLevelTermOther, ""), ForgeData.LevelOf(army)));
             }
+        }
+
+        // ============================================================ 账 `个人资料_成就_排行:1367` · `WarlordMasteryContainer.OnInitialize`
+        // 判据（🥇 `decomp_full/WarlordMasteryContainer__OnInitialize.c` 全文 2026-10-29 现读 ＋
+        //       `out_cpp2il_dev_ilspy/WarlordMasteryContainer.cs:81-230` 交叉）六句：
+        //   ① `components.title.text = Loc("PlayerProfile/HighestWarlordMastery")`（`BuildEventContainer` 已写，本法不重复）
+        //   ② `highestGroup = context.GetVictoryCounters()`
+        //        .OrderByDescending(kv => kv.Value.totalVictories).FirstOrDefault()`
+        //   ③ `id = Logs.FirstOrDefault(x => x != null && x.ownHeroName != null
+        //             && highestGroup.Value.victoriesById.ContainsKey(x.ownHeroName))?.ownHeroName
+        //          ?? highestGroup.Value.HighestCardId`   （`.c:78-84` 的 `FirstOrDefault` + `HighestCardId` 两支）
+        //   ④ `asset = AssetLocator.GetAsset<RawCardScript>(id); 取不到 ⇒ GetAsset<RawCardScript>("UM47")`
+        //   ⑤ `asset` 非空 ⇒ `armyIcon.sprite = asset.fullHeroSprite` + `armyName.text = asset.GetLocalizedCardName()`
+        //   ⑥ `level.text = string.Format(Loc("PlayerProfile/VictoriesDisplay"), Math.Max(totalVictories, 1))`
+        //        —— ⑥ **无条件**写（`.c` 尾段在 `asset == null` 的那一支也会走到，见 `LAB_180754cc0`）
+        // 🔶 自己设计（非原版）：**数据来源** = 本地 `VictoryCountersStore`（`PlayerDataKey` 第 44 项）+ `BattleLogData`
+        //    （原版读的是 `PlayerInfo` —— 那是**服务端下发的玩家对象**，关服后本地永远拿不到）·
+        //    为什么必须自定：判据在服务端，本地只有「我们自己累计的」那一份 ·
+        //    调度台 2026-10-29 裁定（B94-S4）· 视觉差异：原版 `fullHeroSprite` 我们取 `CardArt.Portrait`（就是同一张立绘）。
+        // 🔴 追加在**类尾**（本文件被账按行号引用 ⇒ 既有落点零漂）。
+
+        /// <summary>原版 `AssetLocator.GetAsset&lt;RawCardScript&gt;("UM47")` 那个**字面量兜底**（`.c:85`）。</summary>
+        public const string WarlordMasteryFallbackCardId = "UM47";
+
+        /// <summary>`WarlordMasteryContainer.OnInitialize` 的**纯逻辑那一段**（②③④ 三句），与 UI 无关 —— 自检直接喂夹具。
+        /// <para>`cardExists` = 原版 `AssetLocator.GetAsset&lt;RawCardScript&gt;(id) != null` 的等价物（注入 ⇒ 不依赖卡池）。</para></summary>
+        public struct WarlordMasteryView
+        {
+            /// <summary>原版 `highestGroup` 有没有取到（表空 / 全是 null 值 ⇒ false ⇒ 整段什么都不写）。</summary>
+            public bool Has;
+            /// <summary>原版 `asset` 解析到的卡 id（= ③ 的结果，④ 的兜底已应用）；没解析出来 = null。</summary>
+            public string CardId;
+            /// <summary>`Math.Max(highestGroup.Value.totalVictories, 1)`（原版 ⑥ 的实参）。</summary>
+            public int Victories;
+            /// <summary>`AssetLocator.GetAsset` 取到没有（= 原版 ⑤ 的 `bVar10`）。</summary>
+            public bool CardResolved;
+        }
+
+        /// <summary>②③④ 三句的等价实现（判据见本节头）。⛔ 期望值一律由调用方/自检给，本函数不读全局态。</summary>
+        public static WarlordMasteryView ResolveWarlordMastery(
+            System.Collections.Generic.Dictionary<string, VictoryCounter> counters,
+            System.Collections.Generic.IList<string> logOwnHeroNames,
+            System.Func<string, bool> cardExists)
+        {
+            var view = default(WarlordMasteryView);
+            if (counters == null || counters.Count == 0 || cardExists == null) return view;   // 原版：`FirstOrDefault` 给 default ⇒ 后段 NRE；我们不崩宿主
+
+            // ② `OrderByDescending(kv => kv.Value.totalVictories).FirstOrDefault()`
+            //    ⚠️ 平手取**枚举顺序第一个**（原版 `OrderByDescending` 是稳定排序，字典序未定 —— 同形，不额外排序）
+            System.Collections.Generic.KeyValuePair<string, VictoryCounter> best = default(System.Collections.Generic.KeyValuePair<string, VictoryCounter>);
+            bool got = false; int bestN = int.MinValue;
+            foreach (var kv in counters)
+            {
+                if (kv.Value == null) continue;                       // 原版这一格会 NRE（`kv.Value.totalVictories`）
+                if (!got || kv.Value.totalVictories > bestN) { best = kv; bestN = kv.Value.totalVictories; got = true; }
+            }
+            if (!got) return view;
+
+            view.Has = true;
+            view.Victories = Mathf.Max(best.Value.totalVictories, 1);   // ⑥ `Math.Max(totalVictories, 1)`
+
+            // ③ 先看战斗日志（`ownHeroName` 在这位督军的 `victoriesById` 里 ⇒ 用他），否则退回 `HighestCardId`
+            string id = null;
+            var byId = best.Value.victoriesById;
+            if (logOwnHeroNames != null && byId != null)
+                for (int i = 0; i < logOwnHeroNames.Count; i++)
+                {
+                    var n = logOwnHeroNames[i];
+                    if (!string.IsNullOrEmpty(n) && byId.ContainsKey(n)) { id = n; break; }
+                }
+            if (string.IsNullOrEmpty(id)) id = best.Value.HighestCardId;
+
+            // ④ `GetAsset(id) ?? GetAsset("UM47")`
+            if (!string.IsNullOrEmpty(id) && cardExists(id)) { view.CardId = id; view.CardResolved = true; }
+            else if (cardExists(WarlordMasteryFallbackCardId)) { view.CardId = WarlordMasteryFallbackCardId; view.CardResolved = true; }
+            else view.CardId = id;                                    // 两支都取不到 ⇒ 只写 ⑥（原版同形）
+            return view;
+        }
+
+        /// <summary>把「战将精通」那一格填上（原版 `WarlordMasteryContainer.OnInitialize` 的 UI 那一半）。
+        /// <para>⚠️ 零行数变化接法：调用写在 `BuildEvents` 那条既有调用的**同一行末尾**；本方法在**类尾**（下方无账落点）。</para></summary>
+        void FillWarlordMasteryContainer(Transform ev)
+        {
+            if (ev == null) return;
+            var c = ev.Find("Warlord  Mastery Container");            // ⚠️ 两个空格是原版真值
+            if (c == null)
+            {
+                Debug.LogWarning("[Profile] `Warlord  Mastery Container` 没建出来 ⇒ 战将精通那三件没处填。");
+                return;
+            }
+
+            var counters = VictoryCountersStore.Load();
+            var cards = RuleEngine.CardDatabase.Load();
+            // 原版 `context.Logs` = 服务端战报；我们的等价物 = `BattleLogData`（`DisplayRows()` 会先 `EnsureLoaded`）
+            var logs = new System.Collections.Generic.List<string>();
+            try
+            {
+                var rows = BattleLogData.DisplayRows();
+                if (rows != null) for (int i = 0; i < rows.Count; i++) if (rows[i] != null) logs.Add(rows[i].OwnHeroName);
+            }
+            catch (System.Exception ex) { Debug.LogWarning("[Profile] 战将精通：读本地战报失败（" + ex.GetType().Name + "）⇒ 只走 `HighestCardId` 那一支"); }
+
+            var view = ResolveWarlordMastery(counters, logs, id => RuleEngine.CardDatabase.FindById(cards, id) != null);
+
+            float top = EvT;                                          // 与 `BuildEvents` 里那一格同一个 top
+            var badgeR = new PxRect(1397.12f, top - 233.32f, 1837.12f, top + 206.68f);   // warlord 那格 Badge = 440×440
+
+            var badge = c.Find("Badge");
+            var nameT = c.Find("ArmyName");
+            var levelT = c.Find("Level");
+
+            RuleEngine.CardDef def = (view.CardResolved && !string.IsNullOrEmpty(view.CardId)) ? RuleEngine.CardDatabase.FindById(cards, view.CardId) : null;
+            Texture2D iconTex = def != null ? CardArt.Portrait(def.Id) : null;
+            if (iconTex == null && def != null) iconTex = ArmyIcons.Texture(ArmyIcons.Id(def.Faction));
+            bool hasIcon = iconTex != null;                            // = 原版 ⑤ 的 `bVar10`
+
+            if (hasIcon && badge != null)
+                MenuDraw.Rect(badge, iconTex, badgeR, "Image", Q + L_Art, null, true);
+            else if (hasIcon)
+                Debug.LogWarning("[Profile] `Warlord  Mastery Container/Badge` 节点不在 ⇒ 战将立绘没画（⛔ 不静默）。");
+            else
+                Debug.LogWarning("[Profile] 「战将精通」那一格解析不到卡图（id=`" + (view.CardId ?? "null")
+                               + "` / 兜底 `" + WarlordMasteryFallbackCardId + "` 也不在卡池）⇒ 照原版只写胜利数、立绘与名字留空。");
+
+            if (badge != null) badge.gameObject.SetActive(hasIcon);
+            if (nameT != null)
+            {
+                nameT.gameObject.SetActive(hasIcon);
+                var lb = nameT.GetComponent<Label>();
+                if (lb != null) lb.SetText(hasIcon ? ((def.NameZh ?? def.Name) ?? "") : "");
+            }
+            // ⑥ **无条件**写（原版尾段在 `asset == null` 那一支也走 `LAB_180754cc0`）
+            if (levelT != null && view.Has)
+            {
+                levelT.gameObject.SetActive(true);
+                var lb = levelT.GetComponent<Label>();
+                if (lb != null) lb.SetText(string.Format(TermOr(EvLevelTermWarlord, ""), view.Victories));
+            }
+            else if (levelT != null)
+                levelT.gameObject.SetActive(false);                    // 没有战报档 ⇒ 保留 `BuildEventContainer` 的空态但不显示假的 0
         }
     }
 }

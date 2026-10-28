@@ -746,10 +746,10 @@ namespace CardPresentation
         /// <summary>`Weekly Mission / TimerHolder / Timer`（prefab 占位 `Ends in 12h 34 m`）。
         /// 🆕 **2026-10-17（W_A_TimerDisplay）**：目标时刻 = **未知** —— 我们的数据模型里**没有周常刷新时刻**
         /// （`TryDailyReset` 明确「只清当日那一族 ⇒ 周常不在内」，全仓也没有 `weeklyReset` 之类的字段；
-        /// 原版由服务端下发）⇒ 按用户口径**不编日期**：出声一次 + 稳定显示 `Ends in --`。</summary>
+        /// 原版由服务端下发）⇒ 按用户口径**不编日期**：出声一次 + 稳定显示 `Ends in --`。**2026-10-29（`B94_B4`）就地订正**：描述串原来写死 `Missions/CollectCounter`，而原版 `MissionTimerDisplay.Update` 按 `IsComplete` 分档（已领 ⇒ `Missions/CompleteCounter`）⇒ 周常领完后仍印「Ready to collect in」，另外三张卡却已分档（同一条规则两处口径）⇒ 改走 `MissionTimerDisplay.Description(false, WeeklyClaimed())`。</summary>
         public static string WeeklyEndsIn()
         {
-            return TimerDisplay.TextFor(null, Loc.T("Missions/CollectCounter"), "周常 Timer",
+            return TimerDisplay.TextFor(null, MissionTimerDisplay.Description(false, WeeklyClaimed()), "周常 Timer",
                                         "周常刷新时刻在本地数据模型里不存在（原版由服务端下发；`TryDailyReset` 不碰周常）");
         }
         /// <summary>`Timer`（`Resets in 12h 34 m` 那一族：每日行 / 登录卡 / 骷髅卡 / 每日奖励窗）。
@@ -813,7 +813,7 @@ namespace CardPresentation
                 : (_rewardTarget[i] <= RewardCurrentValue ? (int)RewardState.Unlocked : (int)RewardState.Locked);
             if (!premium) return (RewardState)normal;
             if (!_premiumOwned) return RewardState.PremiumLocked;
-            return (normal == (int)RewardState.Collected) ? RewardState.Unlocked : (RewardState)normal;
+            return normal != (int)RewardState.Collected ? (RewardState)normal : (_rewardPremClaimed[i] ? RewardState.Collected : RewardState.Unlocked);
         }
 
         /// <summary>`Gacha Reward Claimed` 上的 `Claimed Tex`。
@@ -850,7 +850,7 @@ namespace CardPresentation
             var st = RewardStateOf(day, premium);
             if (st != RewardState.Unlocked)
             { Say($"第 {day + 1} 天{(premium ? " Premium" : "")}奖励现在是 `{st}`，领不了"); return false; }
-            _rewardClaimed[RI(day)] = true;
+            if (premium) _rewardPremClaimed[RI(day)] = true; else _rewardClaimed[RI(day)] = true;
             string art = RewardIconOf(day, premium);
             int n = RewardAmount(day, premium);
             Wallet.Grant(art, n);
@@ -2831,7 +2831,7 @@ namespace CardPresentation
             var src = new System.Collections.Generic.List<MissionRewardsDisplay.Cell>(_loginRewardArt.Length);
             for (int i = 0; i < _loginRewardArt.Length; i++)
                 src.Add(new MissionRewardsDisplay.Cell { ItemId = _loginRewardArt[i], Quantity = _loginRewardCount[i] });
-            return MissionRewardsDisplay.MergeSameItem(src);
+            return MissionRewardsDisplay.Setup(src);   // = 原版同名入口（内部转调 `MergeSameItem`；🆕 2026-10-29 B94_S2 把休眠的 `Setup` 接上线，账 508）
         }
 
         // ============================================================ 每日奖励 · Premium 轨（🆕 2026-10-28 · `B93_N1`）
@@ -2869,6 +2869,23 @@ namespace CardPresentation
         /// <summary>自检口：把「已拥有 Premium」拨到指定态（**测试口，不在出厂路径上**；同 `ForceRewardClaimedForTest` 一族
         /// —— 自检之间不靠隐式状态）。⛔ 运行时别调。</summary>
         public static void ForcePremiumOwnedForTest(bool owned) { _premiumOwned = owned; }
+
+        // ============================================================ 每日奖励 · Premium 轨的「已领」记账（🆕 2026-10-29 · B94_S2）
+        //
+        //  🔴 **这是一个真缺陷的修复**（铁律 5·b / 11）：修前 `_rewardClaimed[]` **两条轨共用一格**，
+        //  而 `RewardStateOf(premium:true)` 把「普通轨已领」映射成 **`Unlocked`**（见它那一行）——
+        //  两者叠加的后果 = **Premium 抽屉可以无限领**：每一次都还是 `Unlocked`，每一领又只把
+        //  同一个 `_rewardClaimed[i]` 写成 `true`（它本来就是 `true`）⇒ 状态永不前进。
+        //
+        //  原版判据 = `DailyRewardItemContainer__GetCurrentState.c:18-46`：**两条轨各一格计数** ——
+        //  `param_3[+0x10]`（普通轨已领数）与 `*(int*)((longlong)param_3 + 0x14)`（**Premium 轨已领数**）；
+        //  末段 `if (cVar4 == 2 && playerData+0x14 <= index) cVar2 = 1;` ⇒ 「普通轨是 Collected **且**
+        //  Premium 轨这一格还没领」才给 `Unlocked(1)`。我们这一侧 **Premium 轨那一格就是本数组**。
+        //  ⚠️ 与 `_rewardClaimed` 是**两个数组、两条轨**，⛔ 别互相顶替（同 `_streakClaimed` 那对的纪律）。
+        static readonly bool[] _rewardPremClaimed = new bool[RewardDays];
+
+        /// <summary>自检口：Premium 轨第 day 格拨到「已领 / 未领」（同 `ForceRewardClaimedForTest` 一族）。⛔ 运行时别调。</summary>
+        public static void ForceRewardPremiumClaimedForTest(int day, bool claimed) { _rewardPremClaimed[RI(day)] = claimed; }
     }
 
     /// <summary>

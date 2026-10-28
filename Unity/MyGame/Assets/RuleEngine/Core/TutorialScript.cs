@@ -504,7 +504,7 @@ namespace RuleEngine
     /// 🔴 原版拿的是 `CardScript`（有 `get_cardType()` 和那个 `+0x40` 的「是不是玩家侧」），
     ///    我们拿的是**同一件事的三个布尔**（见 `RuleCore`/`BattleDriver` 怎么填）。
     /// </summary>
-    public struct TutorialAttempt
+    public partial struct TutorialAttempt
     {
         /// <summary>动作大类（原版 `BattleActionType`）。</summary>
         public BattleActionType Action;
@@ -1289,7 +1289,7 @@ namespace RuleEngine
                         int tu = d.target.unitType;
                         if (tu == (int)ScriptedActionUnit.PlayerMinionLeft || tu == (int)ScriptedActionUnit.PlayerMinionNotLeft)
                         {
-                            bool left = a.TargetSlot < BoardSpec.WarlordSlot;
+                            bool left = a.ActingSlot.HasValue ? TutorialPositioning.PositionWillBeAtLeft(a.TargetSlot - BoardSpec.WarlordSlot, a.ActingSlot.Value - BoardSpec.WarlordSlot, a.ActingIsHero) : (a.TargetSlot < BoardSpec.WarlordSlot);   // 🔴 2026-10-29 F4：`ActingSlot` 已接时按原版 `PositionWillBeAtLeft`（相对 refMinion 左一格）；未接时回退旧近似（`< WarlordSlot` = 整个左半场，**已知偏宽**，见 `TutorialPositioning` 的 doc / 账 1138）
                             if (tu == (int)ScriptedActionUnit.PlayerMinionLeft && !left) return false;
                             if (tu == (int)ScriptedActionUnit.PlayerMinionNotLeft && left) return false;
                         }

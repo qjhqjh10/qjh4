@@ -11019,7 +11019,8 @@ public static class ShellScene
 
         Debug.Log(P + "B93D4SelfCheck 跑 " + B93D4SelfCheck.Run((ok, msg) => CheckTrue(ok, msg)) + " 条断言");   // 🆕 2026-10-28（B93_D4）：断言本体在 `Editor/ShellScene_B93D4SelfCheck.cs`。打印返回条数 = 自证真被跑到。
         Debug.Log(P + "LiveOpsB93N2SelfCheck 跑 " + LiveOpsB93N2SelfCheck.Run((ok, msg) => CheckTrue(ok, msg)) + " 条断言");
-        Debug.Log(P + $"=== 合计：{_sink.Pass} 通过 / {_sink.Fail} 失败 ===");
+        Debug.Log(P + "B94S2SelfCheck 跑 " + B94S2SelfCheck.Run((ok, msg) => CheckTrue(ok, msg)) + " 条断言");   // 🆕 2026-10-29（B94_S2 · 日常/奖励）：断言本体在 `Editor/ShellScene_B94S2SelfCheck.cs`。接在**合计行之前** ⇒ 其后无账落点（本文件最大账落点 = `ShellScene.cs:10351`）。**打印返回条数 = 自证它真被跑到**。
+        B93S3Assert.Run(); _sink.Pass += B93S3Assert.Pass; _sink.Fail += B93S3Assert.Fail; B94Y6_Assert.Run(); _sink.Pass += B94Y6_Assert.Pass; _sink.Fail += B94Y6_Assert.Fail; B94B4Assert.Run((ok, msg) => CheckTrue(ok, msg)); B94B6Assert.Run(); _sink.Pass += B94B6Assert.Pass; _sink.Fail += B94B6Assert.Fail; B94B17Assert.Run(); _sink.Pass += B94B17Assert.Pass; _sink.Fail += B94B17Assert.Fail; Debug.Log(P + $"=== 合计：{_sink.Pass} 通过 / {_sink.Fail} 失败 ===");   // 🆕 2026-10-29（调度台代接线）：B94_B4 的日常线断言（GridMissionLayout 7 条 + 信号触发器 6 条 + 周常倒计时 3 条）—— `Run` 自带 sink 回调 ⇒ 直接进 `_sink`   // 🆕 2026-10-29（调度台代接线）：`B93S3Assert`（124 条）· `B94Y6_Assert`（收件箱占位符/ConfigProvider/GameNews）—— 此前全仓 0 宿主，接在合计行之前，**同一行追加 ⇒ 行数零变化**
         // 🔴 **2026-10-11（A350 · 调度台裁定）**：这一串是**失败表的【重列】**（每条失败在
         //   `Check` 里**已经打过一次**）⇒ 行首标记必须是 `失败重列：`、⛔ **不能再是 `✗`** ——
         //   原来是 `✗` 时日志里 `✗` 行数 = 失败数 **×2**，连「按行首标记数」都数不准

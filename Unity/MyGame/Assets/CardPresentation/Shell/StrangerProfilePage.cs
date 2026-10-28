@@ -50,9 +50,24 @@ namespace CardPresentation
                                    Color.white, "Stranger Note", 32f, Q + 1, 1400f, 18f);   // A1024③ 判不出（自建页）⇒ 保持 Cjk
             if (l2 != null) l2.SetRenderQueue(Q + 1);
 
+            // 🆕 账 未分类:479（原版 `PlayerInfo.SetBotInfo`）：**bot 档案**那一格 —— 名字已经走上面的 `who`
+            //   （`Open()` 的 `ApplyBotInfo()` 把 `ViewedPlayer` 铺成 `BotName`），这里补 ELO。
+            // 🔴 **只在 `BotELO > 0` 时显示**：原版第 4 句是 `if (0 < botElo) CurrentEloRating = botElo`
+            //   ⇒ `botElo <= 0` 时**不写那一格**（保留原值）；我们这边「保留原值」= 什么都不显示（没有原值可言）。
+            int botElo = (Win != null && Win.IsBot) ? Win.BotELO : 0;
+            if (botElo > 0)
+            {
+                var l3 = MenuDraw.Text(Root, new PxRect(cx - 700f, cy + 130f, cx + 700f, cy + 200f),
+                                       "ELO " + botElo, Color.white, "Bot Elo", 32f, Q + 2, 1400f, 18f);
+                if (l3 != null) l3.SetRenderQueue(Q + 2);
+            }
+
             Debug.Log("[Profile] 看**别人**的档案：「" + (who ?? "?") + "」的 " + Tabs[PageIdx]
-                      + " 页 —— 原版这一页的数据**全在服务器**（那个玩家的存档）"
-                      + "⇒ 我们**不拿本地自己那一份冒充他**，如实画一行说明（§三第29条 A3②）");
+                      + (Win != null && Win.IsBot
+                            ? " 页 —— 这是 **bot 档案**（原版 `PlayerInfo.SetBotInfo`）：名字来自开窗数据，"
+                              + (botElo > 0 ? "ELO = " + botElo : "ELO 未给（`botElo <= 0` ⇒ 原版不写那一格）")
+                            : " 页 —— 原版这一页的数据**全在服务器**（那个玩家的存档）"
+                              + "⇒ 我们**不拿本地自己那一份冒充他**，如实画一行说明（§三第29条 A3②）"));
         }
 
         public static readonly string[] Tabs =

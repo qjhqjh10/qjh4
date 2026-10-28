@@ -242,9 +242,9 @@ namespace CardPresentation
     /// ✅ **2026-10-28（`B93_N4`）判据闭合**：`.c:34` 是 `FUN_1800021f0(10, DAT_1842a8580, mission)`
     /// = 一次 **IMission 接口调用且结果为 bool**（同 helper 在别处确实解成接口调用）⇒ 只能是 `get_IsPremium`。</para>
     /// <para>🔴 **我们只落地「标题」那一半**：`tooltip`（内容 = 这条任务的描述）与 `gradientHeader`
-    /// （premium 渐变）**两个节点我们都没建** ⇒ 这两支**没有落点**（要补得改 `MissionsTab.BuildMissionHeader`）。
-    /// 我们卡头右边那颗 ⓘ 是**另一颗按钮**（`AddInfoTooltip` → `Missions/Info/DailyMissionsHelp`，
-    /// 判据 = `MissionsTab.BuildMissionHeader` 那段 `N73`），**不是**原版 `header.tooltip`。</para></summary>
+    /// （premium 渐变）**两支都没有落点**（tooltip 那颗节点我们**有** = `info`，差的是文案来源；
+    /// premium 渐变要补得改 `MissionsTab.BuildMissionHeader`）。🔴 **2026-10-29 `B94_B4` 更正**：原文写
+    /// 「我们那颗 ⓘ **不是**原版 `header.tooltip`」**不成立** —— prefab 实读 `tooltip` 就指向 `info` 节点。</para></summary>
     internal sealed class MissionHeaderDisplay : MissionInfoDisplay
     {
         /// <summary>原版 `TextMeshProUGUI title`（`this+0x28`）。</summary>
@@ -566,10 +566,9 @@ namespace CardPresentation
     /// ② = **没有落点**（`RewardEventHandler` 属账 676 `RewardService`，落点在 `DailyData`，不在本文件）
     ///    ⇒ 我们的奖励源是调用点给的 `Cell` 表（`DailyData.LoginRewardCellList`）；
     /// ③ = <see cref="MergeSameItem"/>（**同一份判据，本方法只是转调，⛔ 别写第二份**）。</para>
-    /// <para>⚠️ **本方法目前是「休眠」的**：生产路径（`DailyData.cs:2834`）直接调 <see cref="MergeSameItem"/>，
-    /// 语义与 `Setup` **完全相同**（`Setup` 就是它 + ② 那一段说明）。要让 ② 的缺口在生产路径上**出声**，
-    /// 把 `DailyData.LoginRewardCellList` 的最后一行从 `MergeSameItem(src)` 改成 `Setup(src)` 即可
-    /// —— 那在 `Shell/DailyData.cs`（`N1` 的文件），`B93_N4` 不动它。</para></summary>
+    /// <para>✅ **本方法已不再休眠**（2026-10-29 `B94_S2` 把 `DailyData.LoginRewardCellList` 的最后一行从
+    /// `MergeSameItem(src)` 改成 `Setup(src)`，账 `:508`）。语义与 `MergeSameItem` **完全相同**
+    /// （`Setup` 就是它 + ② 那一段说明）—— 现在的差别只是 ② 那句缺口**挂在生产路径上**了。</para></summary>
     internal sealed partial class MissionRewardsDisplay
     {
         /// <summary>原版 `Setup` 的第 ②③ 段（第 ① 段 = 建树期，见类注释）。
@@ -598,4 +597,20 @@ namespace CardPresentation
     // ② `MissionHeaderDisplay.Setup` 的 premium 支（账 `:492`）：判据同上（`FUN_1800021f0(10, …)` = `get_IsPremium`），
     //    动作 = `gradientHeader.EffectGradient = premiumColor`。**节点我们没建** ⇒ 无落点
     //    （要补得在 `MissionsTab.BuildMissionHeader` 里多建一层 `Gradient2`，那在 `N1` 的文件）。
+
+    // ============================================================ 判据更正 · 2026-10-29（`B94_B4`）
+    //
+    // ① 🔴 **`MissionHeaderDisplay` 的 `tooltip` 就是页头那颗 `info` 节点**（上面 `MissionHeaderDisplay`
+    //    类注释里「我们卡头右边那颗 ⓘ …**不是**原版 `header.tooltip`」**已过期**，就地订正 —— 铁律 5）：
+    //    prefab 实读 `bundle_menus_assets_all/MonoBehaviour/MonoBehaviour_-6158290902691785974.json` 的
+    //    `tooltip` = pathID `5316849761747358474` → `GameObject/info_-8160186231220055286.json`
+    //    ⇒ `MissionsTab.BuildMissionHeader` 的 `AddInfoTooltip(inf, "Missions/Info/DailyMissionsHelp")` 挂的是
+    //    **同一个节点**。⇒ 这一跳的残差**不是「节点没建」**，而是**文案来源**：原版 = `GetLabel(mission, Description)`
+    //    （每任务一份、服务端下发），我们 = 固定帮助词条。
+    // ② **premium 渐变的六键已读出**（同一份 JSON，`ExpansionPass`/`premiumColor` 那组）：
+    //    key0 = `(0.4745, 0.3059, 0.1529, 1)` · key1 = 同 rgb、α `0.098` · key2..5 = 白/黑 α `0`。
+    //    ⇒ 将来有 `IsPremium` 数据时**不必再回解一遍 prefab**；今天仍**无落点**（`MissionProgressView` 没有那一格）。
+    //
+    // ⚠️ 这两条不改代码，只改「判据/记录」——`MissionHeaderDisplay.Setup` 的行为**本来就只有写 title 一句**
+    //    （见它的 `Setup` 方法体），上面两条是**审计口径**的更正。
 }

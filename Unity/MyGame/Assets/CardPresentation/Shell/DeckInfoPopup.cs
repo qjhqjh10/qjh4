@@ -2981,5 +2981,24 @@ namespace CardPresentation
             DeleteInteractable = true;
             DeleteDeckNow();
         }
+
+        // ============================================================ 账 `战斗逻辑驱动:1280`：`RawCardScript.ReleaseFullHeroSprite` 的第 1 个宿主
+        /// <summary>原版 `DeckInfoPopup__Close`（`decomp_full/DeckInfoPopup__Close.c:19-22`）：
+        /// **首句**就把本窗那张督军整身立绘放掉（`RawCardScript__ReleaseFullHeroSprite`），
+        /// 之后才摘事件、`GameModesIconCollection.Release`、`GameWindow.Close`（`:53`）。
+        /// <para>🔴 实参必须与**取图那一处同源**：`Build()` 里 `CardArt.DeckHero(wl.Id)`（本文件 `:1329-1330`）
+        /// 用的是 `CurWarlord.Id`（= 已解析的引擎卡 id，异画键 `#HB_xx` 在这里已被 `ResolveDeckEntry` 换成原卡 id），
+        /// 而 `CardArt.ReleaseFullHeroSprite` 按 `_deckArtById`（键 = 引擎 id）找登记 ⇒ 传别的 id 会**放不掉**（静默）。</para>
+        /// <para>⚠️ **异画那一支本地无对应物**：原版先看 `alternateArtCard(+0x110)` 的 `fullHeroSprite`；
+        /// 我们这张 `_deckArtById` **不收异画立绘**（判据 → `Core/CardArt.cs:593`「那 8 张不进本表 —— 异画不是本局立绘」）
+        /// ⇒ 第二实参不传（`null`）。这是**载体缺失**，不是漏接。</para>
+        /// <para>⚠️ **顺序照原版**（先放图、再 `base.Close()`）：`GameWindow.Close` 头一句是 `!activeSelf ⇒ return`，
+        /// 若把放图放在它后面，「物体已不活」那一档就永远放不掉（原版那一刻也是先放图，见 `.c:19-22`）。</para></summary>
+        public override void Close()
+        {
+            var wl = CurWarlord;                       // ⚠️ `CurInfo` 是 **struct**（`CollectionData.DeckInfo`）⇒ 别写 `CurInfo != null`（CS0019）
+            if (wl != null) CardArt.ReleaseFullHeroSprite(wl.Id);
+            base.Close();
+        }
     }
 }

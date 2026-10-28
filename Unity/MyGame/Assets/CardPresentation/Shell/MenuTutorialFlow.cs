@@ -36,7 +36,7 @@
 //   ※ 本地原版没有这两份 SO，位置是推断) → TutorialFinished`。逐条证据 → `MenuTutorialStageDef.cs` 文件头。
 // · 进度存档：原版是 `TutorialV2SaveData.StageSaveData { string stageId; bool isCompleted; }` 数组，
 //   随 `PlayerDataManager.UploadTutorialV2SaveData` 上传到**远端 profile**（`TutorialV2SaveData__SaveStage.c`）。
-//   本仓没有后端 ⇒ **等价物 = `PlayerPrefs` 里「每个 stageId 一个完成位」**（键 = `WfMenuTutorial.Done.<stageID>`），
+//   🔴 **2026-10-29（B94_B7）起改存 `DemoData.tutorialsCompleted`**（原版就是那个实体，见 `Shell/DemoData.cs`）——键仍是 stageID；旧 `PlayerPrefs["WfMenuTutorial.Done.<stageID>"]` **只读兜底**（迁移用，⛔ 不再写）
 //   **形状照原版**（原版本来就是「按 stageId 记完成」，不是「记一个当前下标」）。
 //   🔴 存储位置不是原版的 —— 必须出声（见 `StartFlow` 的 `Debug.Log`）。
 using System.Collections.Generic;
@@ -71,16 +71,16 @@ namespace CardPresentation
 
         static bool IsCompleted(int i)
         {
-            var d = MenuTutorialStages.At(i);
-            var k = DoneKey(d);
-            return k != null && PlayerPrefs.GetInt(k, 0) != 0;
+            var k = DoneKey(MenuTutorialStages.At(i));
+            bool done;   // 新档（DemoData.tutorialsCompleted）优先；旧档（Prefs）**只读兜底**（迁移期，写永远只写新档）
+            return k != null && (DemoDataStore.TryGetTutorial(k, out done) ? done : PlayerPrefs.GetInt(k, 0) != 0);
         }
 
         static void MarkCompleted(int i)
         {
             var k = DoneKey(MenuTutorialStages.At(i));
             if (k == null) return;
-            PlayerPrefs.SetInt(k, 1);
+            DemoDataStore.SetTutorial(k, true);   // = 原版 `DemoData.tutorialsCompleted[key] = true`（唯一写口；账 497）
             PlayerPrefs.Save();
         }
 
@@ -389,13 +389,13 @@ namespace CardPresentation
 
         static void DeleteAllProgress()
         {
-            // 新格式：每个 stageId 一个完成位
+            // 旧档（Prefs）：每个 stageId 一个完成位，逐个删（迁移期清干净，别让旧值影响新逻辑）
             for (int i = 0; i < MenuTutorialStages.Count; i++)
             {
                 var k = DoneKey(MenuTutorialStages.At(i));
                 if (k != null) PlayerPrefs.DeleteKey(k);
             }
-            // v1 旧档（按下标 + 位图）—— 清掉，别让旧值影响新逻辑
+            DemoDataStore.ResetTutorial();   // = 原版 `DemoData.ResetTutorial`（换新字典 + gameAfterTutorialPlayed=false；账 511）
             PlayerPrefs.DeleteKey(PrefStageLegacy);
             PlayerPrefs.DeleteKey(PrefDoneLegacy);
             PlayerPrefs.DeleteKey(PrefSkip);
@@ -433,7 +433,7 @@ namespace CardPresentation
             for (int i = 0; i < MenuTutorialStages.Count; i++)
             {
                 var k = DoneKey(MenuTutorialStages.At(i));
-                if (k != null) PlayerPrefs.SetInt(k, 1);
+                if (k != null) DemoDataStore.SetTutorial(k, true);
             }
             PlayerPrefs.Save();
             if (_pointer != null) _pointer.Hide();
@@ -866,9 +866,15 @@ namespace CardPresentation
                 case MenuTutorialTargetKind.NavHome: return FindNode("Main Menu Navigation Button - Home");
                 case MenuTutorialTargetKind.ModeCardRanked: return FindNode("Base Game Mode Container 1x2 - Ranked");
                 case MenuTutorialTargetKind.RankedPlayButton:
+                {
                     // 原版 `playRankedButton.id = PlayRankedButton` → GO `To Battle Button`（menus 包实读）。
                     //   只在排位窗上找（遭遇战窗也有同名钮，但原版那一路只认 `RankedEventWindow(V2)`）。
-                    return FindUnder(top != null ? top.transform : null, "To Battle Button");
+                    var toBattle = FindUnder(top != null ? top.transform : null, "To Battle Button");
+                    // 🆕 **2026-10-29（B94_B18）**：原版那颗 id 就挂在 `To Battle Button` 上（实例 6 份，全在模式窗）。
+                    //   建它的是 `Shell/LiveOpsEventWindow.cs`（**不在本批白名单**）⇒ 在解析点补登记。
+                    RegisterUnique("PlayRankedButton", toBattle);
+                    return toBattle;
+                }
                 case MenuTutorialTargetKind.MissionClaimButton:
                 {
                     // 原版第三步 id = `CollectMissionTutorial_Challenge_0`（按唯一 id 找任务行的 Collect）。
@@ -904,7 +910,11 @@ namespace CardPresentation
                 {
                     // 原版 id `CampaignRewardUnlockBaseReward` → 基础列 `Unlock Button`（offset (0,20)）。
                     var cw = top as CampaignRewardWindow;
-                    return cw != null ? cw.TutorialClaimButton : null;
+                    var unlock = cw != null ? cw.TutorialClaimButton : null;
+                    // 🆕 **2026-10-29（B94_B18）**：建它的是 `Shell/CampaignRewardWindow.cs`（**不在本批白名单**）
+                    //   ⇒ 在解析点补登记（对象 = 指针要指的那一颗 `Unlock Button`）。
+                    RegisterUnique("CampaignRewardUnlockBaseReward", unlock);
+                    return unlock;
                 }
                 case MenuTutorialTargetKind.CampaignTrackNode:
                 {
@@ -936,6 +946,14 @@ namespace CardPresentation
             {
                 var o = opts[i];
                 if (o == null || o.type != type || o.button == null) continue;
+                // 🆕 **2026-10-29（B94_B18）**：这四颗页签钮在原版各挂一颗 `GameObjectUniqueIdentifier`
+                //   （`RewardsMenu_MissionsButton` / `RewardsMenu_CampaignButton` / `RewardsMenu_ForgeButton` /
+                //   `CollectionCardsButton`；判据 → `判据/B94_B6_判据补全.md` §6，GO 名实读 =
+                //   `MissionsRewardsButton` / `CampaignRewardsButton` / `Forge Button` / `Cards`）。
+                //   ⚠️ **与原版的一处差异（如实标）**：原版是组件 `Awake` 自注册；建这四颗的是
+                //   `GameWindowWithTabs.CreateTabButton`（**不在本批白名单**）⇒ 本仓只能在这个「解析点」补登记。
+                //   登记的对象就是**指针要指的那一颗** ⇒ 对唯一消费者 `TutorialPointerData.Target` 等价。
+                RegisterUnique(TabUniqueIdOf(type), o.button.transform);
                 return o.button.transform;
             }
             return null;
@@ -1113,5 +1131,55 @@ namespace CardPresentation
         /// `IsTutorialIndexCompleted(0) &amp;&amp; IsTutorialIndexCompleted(1)` —— 原版体逐句现读）。</summary>
         public static bool FirstTwoTutorialCompleted()
             => IsTutorialIndexCompleted(0) && IsTutorialIndexCompleted(1);
+
+        // ============================================================ 2026-10-29（B94_B7）追加在类尾
+        /// <summary>某一阶段（按 <see cref="MenuTutorialStageDef"/>）完成了吗 —— **公开读口**，
+        /// 给 `Shell/MenuTutorialManager.cs` 的 `HasFirstDeck()` 用（它原来直接读 `PlayerPrefs`，
+        /// 而完成位自 2026-10-29 起住在 `DemoData.tutorialsCompleted` ⇒ 直接读 Prefs 会**读不到新档**）。
+        /// <para>语义 = 私有 <c>IsCompleted(i)</c>：新档优先、旧档兜底。⛔ 别在调用点自己再判一遍（两处写同一条规则）。</para></summary>
+        public static bool IsStageCompleted(MenuTutorialStageDef d)
+        {
+            var k = DoneKey(d);
+            if (k == null) return false;
+            bool done;
+            return DemoDataStore.TryGetTutorial(k, out done) ? done : PlayerPrefs.GetInt(k, 0) != 0;
+        }
+
+        // ============================================================ 2026-10-29（B94_B18）追加在类尾
+        /// <summary>= 原版 `GameObjectUniqueIdentifier.Awake` 的**自注册那一跳**，给「建节点的人」显式调
+        /// （原版组件自己 `Awake`；本仓没有能挂的 `MonoBehaviour`，见 `MenuDraw.cs` 的 `MenuUniqueIds` 段）。
+        /// <para>🔴 **为什么先摘旧的**：原版那颗组件 `OnDestroy` 自己会 `Unregister`；我们的节点是**裸 `Transform`**
+        /// ⇒ 销毁时**没人替它摘**。而运行期的销毁是**延迟**的（`MainMenuRuntime.DestroySafe` 走 `Destroy`），
+        /// 重建那一瞬旧的还 `activeAndEnabled` ⇒ 直接 `Register` 会打一条 `Duplicate Id` 的 **`LogError`**
+        /// （左栏 / 模式卡每次滚动重排都会来一条）。这里先把旧那条摘掉 —— 净效果与「旧组件 `OnDestroy` 先跑」相同。</para>
+        /// <para>⚠️ `<paramref name="id"/>` 为空 / <paramref name="node"/> 为 null ⇒ **什么都不做**（原版 `Awake`
+        /// 对空 id 只打一条告警、不登记；那条告警仍由 `MenuUniqueIds.Register` 负责，这里不重复打）。</para>
+        /// <para>🔴 **与 `MenuUniqueIds.Find` 那处「命中但值 null」差异的结论（B6 顺带发现 · B18 现核，⛔ 别改行为）**：
+        /// 原版 `Find` 在「表里命中了、但那个值已是 null/已销毁」时落到 `((Component)v).gameObject` ⇒ **NRE**；
+        /// 我们 `Find` 回 null（全工程「出声不崩」口径）。**这一支在本仓不可观测**，理由两条：
+        /// ① 原版那颗组件 `OnDestroy` **总会先把自己摘掉** ⇒ 表里根本不会留着已销毁的条目，那一支在原版里也进不去；
+        /// ② 我们这边即使留了 stale 条目（没有 `OnDestroy` 那一跳），`Find` 回 null 与「原版先摘掉 ⇒ 查不到」**净效果相同**。
+        /// ⇒ 保持现状（回 null），只在文档里写死，⛔ 别为了「照抄 NRE」去抛。</para></summary>
+        public static void RegisterUnique(string id, Component node)
+        {
+            if (string.IsNullOrEmpty(id) || node == null) return;
+            var prev = MenuUniqueIds.FindComponent(id);
+            if (prev != null && !ReferenceEquals(prev, node)) MenuUniqueIds.Unregister(id, prev);
+            MenuUniqueIds.Register(id, node);
+        }
+
+        /// <summary>页签 → 原版唯一 id（判据 → `判据/B94_B6_判据补全.md` §6：那四颗页签钮上的
+        /// `GameObjectUniqueIdentifier.id` 逐条实读）。没有对应 id 的页签 ⇒ `null`（`RegisterUnique` 会跳过）。</summary>
+        public static string TabUniqueIdOf(WindowTabType type)
+        {
+            switch (type)
+            {
+                case WindowTabType.Missions: return "RewardsMenu_MissionsButton";
+                case WindowTabType.Campaign: return "RewardsMenu_CampaignButton";
+                case WindowTabType.Forge: return "RewardsMenu_ForgeButton";
+                case WindowTabType.CollectionCards: return "CollectionCardsButton";
+                default: return null;
+            }
+        }
     }
 }
