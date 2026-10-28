@@ -85,8 +85,8 @@ namespace CardPresentation
         ChatGlobal = 50, ChatAlliance = 51,
         /// <summary>🆕 **VIP 商店页（第三批 · 2026-10-27）** —— 商店窗的第 4 个页签。值从 **13** 起
         /// （紧跟 `ShopCards/Daily/Items` 那一组 10/11/12，不占别组的号段）。
-        /// ⚠️ 本行只是**枚举门槛**：VIP 页本体归商店线（`Shell/Shop*`）实现，⛔ 别在本文件里加页内容。</summary>
-        ShopVip = 13,
+        /// ⚠️ 本行只是**枚举门槛**：VIP 页本体归商店线（`Shell/Shop*`）实现，⛔ 别在本文件里加页内容。🆕 **2026-10-28（`B91_W5`）本行同时承载 `ShopCrates = 14`** = 商店**第 5 页 Boosters/Crates**（原版 `BoosterShopTab : ShopTab`，`ShopTabType.CratesShop = 0`）—— 同样只是枚举门槛，页本体在 `Shell/Shop*`（`ShopData.Pages[4]`）。</summary>
+        ShopVip = 13, ShopCrates = 14,
     }
 
     // ============================================================ 奖励窗口本体

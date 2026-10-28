@@ -5025,8 +5025,8 @@ namespace CardPresentation
             // ---- 拖拽中：让那一行跟着鼠标，松开时判定 ----
             if (_dragging && _dragQuad != null)
             {
-                _dragQuad.transform.position = new Vector3(wp.x, wp.y, _dragQuad.transform.position.z);
-                if (_dragText != null) _dragText.transform.position = new Vector3(wp.x, wp.y, _dragText.transform.position.z); DragAutoScroll(px.y, wp);   // 🆕 B89-R3d · 账 101：原版 `CheckScrollDrag`（50px / 10）
+                MoveDragPieces(wp);   // 🆕 B90-N4：**整行 7 件刚性跟随**（原版 `DragAndDropItem.OnDrag` = `pos = mouseWorld − offset`，offset 在 `OnBeginDrag` 记一次）—— 原来只搬「行底 + 行名」两颗 ⇒ 色条/描边/费用/份数 4 件**留在空槽里**（可见缺陷）
+                DragAutoScroll(px.y, wp);   // 🆕 B89-R3d · 账 101：原版 `CheckScrollDrag`（50px / 10）
                 if (!_draggingMoved && Mathf.Abs(wp.x - _dragOrigin.x) > 0.15f) _draggingMoved = true;
                 if (mouse.leftButton.wasReleasedThisFrame || !mouse.leftButton.isPressed) { EndDragAt(px.x, px.y); return; }   // 🆕 B89-R3e · 账 109：落点在列表内 ⇒ 重排（否则走原来的「拖出删除 / 没动开窗」）
                 return;
@@ -5343,12 +5343,12 @@ namespace CardPresentation
             _dragText = _deckRowName[viewRow];
             _dragOrigin = fromWorld;
             _dragging = true;
-            _draggingMoved = false;
+            _draggingMoved = false; CaptureDragPieces(viewRow, fromWorld);   // 🆕 B90-N4：记下整行每一件相对指针的偏移（= 原版 `OnBeginDrag` 那两句 `+0x4c/+0x54`）
         }
 
         void EndDrag(float screenX)
         {
-            _dragging = false;
+            _dragging = false; ClearDragPieces();   // 🆕 B90-N4：= 原版 `OnEndDrag` 把 `isDragging(+0x48)` 清零那一跳（占位件我们没有实体，见 `CaptureDragPieces` 的 doc）
             int row = _dragRow;
             _dragQuad = null; _dragText = null; _dragRow = -1;
 
@@ -9220,10 +9220,157 @@ namespace CardPresentation
             if (Mathf.Abs(next - _deckScroll) < 1e-4f) return;        // 已到顶/到底 ⇒ 不动（原版 ScrollRect 同样夹住）
             _deckScroll = next;
             RefreshDeckList();
-            if (_dragQuad != null)
+            MoveDragPieces(keepWorld, true);   // 🆕 B90-N4：刷行会把整行搬回槽里、并把队列写回行档 ⇒ 逐件贴回 + **再抬一次队列**（原版 reparent 到 root 的两个可观测面）
+            if (_dragPieces.Count == 0 && _dragQuad != null)
                 _dragQuad.transform.position = new Vector3(keepWorld.x, keepWorld.y, _dragQuad.transform.position.z);
-            if (_dragText != null)
+            if (_dragPieces.Count == 0 && _dragText != null)
                 _dragText.transform.position = new Vector3(keepWorld.x, keepWorld.y, _dragText.transform.position.z);
+        }
+
+        // ============================================================ 🆕 2026-10-28（B90-N4 · 账 row 194/196/197/198 · 菜单/外壳 DragAndDropItem）
+        //
+        // 判据（第一权威 = 反编译方法体，本批逐句现读）：
+        //   · `DragAndDropItem__OnBeginDrag.c`：`_offset = mouseWorld(at begin) − transform.position(at begin)`
+        //     （存 `+0x4c` = xy、`+0x54` = z）；随后**把件 reparent 到 root**（`set_parentInternal(transform, transform.root)`）
+        //     并把**静态占位件**摆回原槽（`CreateEmptyObject` + `SetSiblingIndex` + `SetActive(true)`）。
+        //   · `DragAndDropItem__OnDrag.c`：`transform.position = mouseWorld − _offset`（= **刚性跟随**，⛔ 不是「把中心吸到指针」）。
+        //   · `DragAndDropItem__OnEndDrag.c`：占位件 `SetActive(false)`、`isDragging(+0x48) = 0`、按最近的兄弟算落点。
+        //
+        // 🔴 **我方等价物，以及为什么不是「照抄一个 DragAndDropItem 类」**：
+        //   原版整件是**一个** transform（子件跟着走 ⇒ 「整件刚性移动」是免费的）；
+        //   而我方这一行的 7 件是**平铺在 `Root` 上的兄弟**（`_deckRowBg/_deckRowGrad/_deckRowBorder/_deckRowCost/
+        //   `_deckRowCostText/_deckRowCountText/_deckRowName`，判据见 `BuildDeckList` 与 `RegisterRowPiece`），
+        //   且「占位」在原版是**排版占位**（uGUI LayoutGroup 靠它不塌）；我方行位置由 `RefreshDeckList`
+        //   按数据下标现算 ⇒ **原槽天然留空**，不需要那颗空 GameObject。
+        //   ⇒ 等价实现 = **逐件各记一份偏移 + 逐帧刚性平移**（本段那两个函数）；占位件的唯一可见职能
+        //     （「原来那一格空了」）由「整行都走」达成。
+        //   🆕 **2026-10-28（B90-N4 · 第二件活）拖拽期把这一行抬到【最上层】** = 原版 reparent 到 canvas 根的
+        //     **可观测那一半**（原版那一跳的目的就是「拖出列表时画在所有面板之上」，不是内部结构洁癖）：
+        //     ① 队列档见下面 `QDragRow*`（3050..3054，高于本窗所有面板）；档内相对次序照原版兄弟序。
+        //     ② 🔴 **不能只在起拖设一次** —— `RefreshDeckList → Move(..., QRowBg/QGrad/...)` 每次刷新都会把队列
+        //        写回行档 ⇒ `MoveDragPieces` 多一个 `reapplyQueues` 参，`DragAutoScroll` 刷完行**再补一次**。
+        //     ③ 松手后由 `RefreshAll/RefreshDeckList` 自动写回原档（⛔ 不需要手工还原）。
+        //     ⚠️ 分层**必须用 `SetRenderQueue`、不能用 z**（`CLAUDE.md` §三：透明队列按到相机的 3D 距离排，
+        //        铺满屏的图会互相盖错；`ImageQuad` 每个 quad 一份私有材质 ⇒ 改队列不会串到别的件）。
+
+        /// <summary>拖拽期这一行的队列档 —— **高于本窗所有面板**（侧栏 `QSide` = 3000 · 筛选栏 `QFlt` = 3020-3023 ·
+        /// 已有的拖拽预览 `QDragPreview` = 3050）。档内次序 = 原版兄弟序（行底 &lt; 色条 &lt; 描边 &lt; 费用圆 &lt; 文字），
+        /// 与 `QRowBg/QGrad/QBorder/QRow/QText` **同一相对次序**（⛔ 别在这里重排）。</summary>
+        const int QDragRowBg = 3050, QDragRowGrad = 3051, QDragRowBorder = 3052, QDragRowCost = 3053, QDragRowText = 3054;
+
+        /// <summary>被拖的**一件**：世界偏移（原版 `+0x4c/+0x54` 那一格）+ 拖拽期队列档 + 设队列的口。
+        /// <para>为什么要 `setQueue` 这层间接：这一行 7 件的**载体类型不同** —— 行底/描边是**九宫格根**
+        /// （队列要逐块 `ImageQuad` 设）、色条/费用圆本身是 `ImageQuad`、行名/费用字/份数是 `Label`。</para></summary>
+        sealed class DragPiece
+        {
+            public Transform t;
+            public Vector3 offset;
+            public int queue;
+            public System.Action<int> setQueue;
+        }
+        readonly List<DragPiece> _dragPieces = new List<DragPiece>();
+
+        /// <summary>起拖那一刻：记偏移（= 原版 `OnBeginDrag` 的 `mouseWorld − position`，逐件）+ **抬队列**。
+        /// <para>⚠️ offsets 只记**这一次**、拖拽期不再更新 —— 这样「刷新把件搬回槽里」不会污染偏移
+        /// （`DragAutoScroll` 里 `RefreshDeckList` 之后各件的位置会变，但 `wp − offset` 仍是刚性平移）。</para></summary>
+        void CaptureDragPieces(int viewRow, Vector3 fromWorld)
+        {
+            _dragPieces.Clear();
+            var bgGo = RowBgGo(viewRow);         // 槽 0 有两套件 ⇒ 必须走 `RowBgGo` 那一族（`A1720`）
+            if (bgGo != null) AddDragPiece(bgGo.transform, QDragRowBg, bgGo);
+            var gradQuad = RowGradGo(viewRow);
+            if (gradQuad != null) AddDragPiece(gradQuad.transform, QDragRowGrad, gradQuad);
+            var borderGo = RowBorderGo(viewRow);
+            if (borderGo != null) AddDragPiece(borderGo.transform, QDragRowBorder, borderGo);
+            if (viewRow >= 0)
+            {
+                if (viewRow < _deckRowCost.Count && _deckRowCost[viewRow] != null) AddDragPiece(_deckRowCost[viewRow].transform, QDragRowCost, _deckRowCost[viewRow]);
+                if (viewRow < _deckRowCostText.Count && _deckRowCostText[viewRow] != null) AddDragPiece(_deckRowCostText[viewRow].transform, QDragRowText, _deckRowCostText[viewRow]);
+                if (viewRow < _deckRowCountText.Count && _deckRowCountText[viewRow] != null) AddDragPiece(_deckRowCountText[viewRow].transform, QDragRowText, _deckRowCountText[viewRow]);
+                if (viewRow < _deckRowName.Count && _deckRowName[viewRow] != null) AddDragPiece(_deckRowName[viewRow].transform, QDragRowText, _deckRowName[viewRow]);
+            }
+            for (int i = 0; i < _dragPieces.Count; i++)
+                _dragPieces[i].offset = fromWorld - _dragPieces[i].t.position;
+            ApplyDragQueues();                    // 起拖就把这一行抬到最上层（= 原版 reparent 到 canvas 根）
+        }
+
+        /// <param name="owner">载体本身（`GameObject` 九宫格根 / `ImageQuad` / `Label`）—— 用来决定「怎么设队列」。</param>
+        void AddDragPiece(Transform t, int queue, object owner)
+        {
+            if (t == null) return;
+            for (int i = 0; i < _dragPieces.Count; i++) if (_dragPieces[i].t == t) return;   // 去重（槽 0 两套件共用一个入口）
+            var dp = new DragPiece { t = t, queue = queue };
+            var single = owner as ImageQuad;
+            if (single != null) dp.setQueue = q => single.SetRenderQueue(q);
+            else
+            {
+                var lb = owner as Label;
+                if (lb != null) dp.setQueue = q => lb.SetRenderQueue(q);
+                else
+                {
+                    var go = owner as GameObject;
+                    if (go != null)
+                    {
+                        var quads = go.GetComponentsInChildren<ImageQuad>(true);   // ⚠️ 只在起拖查一次（逐帧查会每帧分配数组）
+                        dp.setQueue = q => { for (int k = 0; k < quads.Length; k++) quads[k].SetRenderQueue(q); };
+                    }
+                }
+            }
+            _dragPieces.Add(dp);
+        }
+
+        /// <summary>把被拖那几件的队列都设到它们的拖拽档（= 原版「在 canvas 根上」那一层）。</summary>
+        void ApplyDragQueues()
+        {
+            for (int i = 0; i < _dragPieces.Count; i++)
+            {
+                var dp = _dragPieces[i];
+                if (dp != null && dp.setQueue != null) dp.setQueue(dp.queue);
+            }
+        }
+
+        /// <summary>逐件刚性平移：`position = pointerWorld − offset`（= 原版 `OnDrag` 那一句，逐件）。
+        /// ⛔ **各件保留自己的 z**（渲染队列不靠 z，这里只别把原有的 z 覆盖掉）。
+        /// <paramref name="reapplyQueues"/> = 刚跑过 `RefreshDeckList`（它会把队列写回行档）⇒ 再抬一次。</summary>
+        void MoveDragPieces(Vector3 pointerWorld, bool reapplyQueues = false)
+        {
+            for (int i = 0; i < _dragPieces.Count; i++)
+            {
+                var dp = _dragPieces[i];
+                if (dp == null || dp.t == null) continue;     // 理论上不会（拖拽期不重建件），防御一句
+                var p = dp.t.position;
+                dp.t.position = new Vector3(pointerWorld.x - dp.offset.x, pointerWorld.y - dp.offset.y, p.z);
+            }
+            if (reapplyQueues) ApplyDragQueues();
+        }
+
+        /// <summary>松手/取消：清掉偏移（= 原版 `OnEndDrag` 里 `isDragging = 0`；原版还要销毁静态占位，
+        /// 我方没有那条实体，见本节头部的判据说明）。队列由紧随其后的 `RefreshAll/RefreshDeckList` 写回原档。</summary>
+        void ClearDragPieces() { _dragPieces.Clear(); }
+
+        /// <summary>自检读口：正在被拖的那一行**有几件**跟着走（0 = 没在拖）。
+        /// 判据 = 原版「整件刚性移动」⇒ 我方等价物必须是**整行**，只跟 2 件就是旧缺陷。</summary>
+        public int DragPiecesFollowingCount { get { return _dragPieces.Count; } }
+
+        /// <summary>自检读口：被拖那几件里**最高的渲染队列**（0 = 没在拖）。
+        /// 判据 = 原版 reparent 到 canvas 根 ⇒ 必须**高于本窗所有面板**（侧栏 `QSide` 3000 · 筛选栏 `QFlt` 3020-3023）。
+        /// <para>⚠️ 读的是 `ImageQuad.RenderQueue`（实际写进材质的那个值，不是我们自己记的整数）⇒ 这条断言
+        /// 验的是「材质上真的写着 3050+」，改坏法：把 `ApplyDragQueues()` 删掉 / 只在起拖设一次 ⇒ 刷新后回落 3002+ ⇒ 红。</para></summary>
+        public int DragTopRenderQueueForTest
+        {
+            get
+            {
+                int top = 0;
+                for (int i = 0; i < _dragPieces.Count; i++)
+                {
+                    var dp = _dragPieces[i];
+                    if (dp == null || dp.t == null) continue;
+                    var quads = dp.t.GetComponentsInChildren<ImageQuad>(true);
+                    for (int k = 0; k < quads.Length; k++)
+                        if (quads[k] != null && quads[k].RenderQueue > top) top = quads[k].RenderQueue;
+                }
+                return top;
+            }
         }
     }
 }

@@ -1,3 +1,4 @@
+# ⚠️ 2026-10-28（B91 · 判据代理 P2 就地订正 · 铁律 5）：本表 **B19(90) / B51(270) / B63(360) / B71(420) 四行原判 C（「未找到对应」）已过期 → 已实现**；**B25(120) / B41(230) 两行原判 A → 休眠**（池内 0 张）。错因 = ① 那四条是「休眠动词/常驻层/选一句」三族在 2026-10-26～10-28 陆续落地后没回来改（`DoBecome` / `DoChooseCard` 的 `todeck`+`decktop` / `DoChooseOne`+Oath）；② 那两条当年按「机制在不在」判 A，本轮按「池内有没有这张卡」重判 —— `cards_engine.json` 1129 张逐卡扫 `chosenAbility` = 0。逐码判决与池内张数见 `判据/B91_P2_chosenAbility逐码判据.tsv`（86 行）。⛔ 别再按旧 C 判去补「缺机制」。　【判定列图例】`A` = 已实现（有等价 handler）· `B` = 有落点但缺一格 · `C` = 真没做；`已实现` / `休眠` = 2026-10-28 B91-P2 复判后的两档（**已实现** = 逐码核过闭环；**休眠** = 机制在但池内 0 张 / 数据恒 0）。
 分支号	常量值(decimal/hex)	语义一句话	原版行号区间	我们的落点（文件:行号，现读）	判定	缺什么
 B01	0/0x00 drawCard	抽牌：按 playersAffected(+0x20) 分己方/敌方两档各调一次 AddDrawCard	1439-1453	RuleEngine/Core/EffectResolver.cs:3566（DoDraw）	A	无缺口（抽牌已实现；owner 参数覆盖己/敌两档）
 B02	3/0x03 doOnlyVfx	只打一条 Log、无任何效果	1456-1458	无对应（结构上不需要）	A	原版就是空操作，不需要实现
@@ -17,13 +18,13 @@ B15	72/0x48 summonUnitAndTriggerEffect	同 70（触发效果由 AddSummonUnit �
 B16	75/0x4b summonBuffedUnit	同 70 + buffEffect 副本（AdjustCardEffect/write ref）	722-878	RuleEngine/Core/EffectResolver.cs:3620（DoDeploy）	B	buff 副本参数需核
 B17	77/0x4d summonUnitDelayed	同 70，priority 固定 3（延迟上场）	722-878	RuleEngine/Core/EffectResolver.cs:3620（DoDeploy）	B	延迟 priority=3 需核
 B18	73/74/76/78/79 (0x49-0x4f)	未定义枚举空档，直接 return（无操作）	879-884	无对应（结构上不需要）	A	原版空操作
-B19	80/0x50 transformSelf	GetCardToSummon + AddTransformCard（自己变身，带 keepEffects +0x2a）	885-906	未找到对应	C	我们无「变身」机制（grep transform/TransformCard/TransformUnit 0 命中；只有 transformToRemnant）。账 L172 判 C
+B19	80/0x50 transformSelf	GetCardToSummon + AddTransformCard（自己变身，带 keepEffects +0x2a）	885-906	未找到对应	C	我们无「变身自己」机制（`become` 动词只覆盖 90 transformUnit 的「手牌 Stratagems become A or B」；`transformToRemnant` 是另一回事）。**池内 0 张**（`desc` 含 transform 0 命中）⇒ 休眠（数据恒 0）
 B20	85/0x55 transformSelfWithBuff	GetCardToSummon + AddTransformCardWithBuff	908-946	未找到对应	C	同上（账 L172 C）
-B21	90/0x5a transformUnit	遍历目标 AddTransformCard	950-984	未找到对应	C	同上
+B21	90/0x5a transformUnit	遍历目标 AddTransformCard	950-984	RuleEngine/Core/EffectResolver.cs:3491（DoBecome）· Engine/Core/EffectText.cs:3909（TryBecome）	已实现	无缺口（2026-10-28 就地改判 C→已实现 · B91-P2）：`Stratagems in your hand become A or B` 走 `become` 动词；`play SW18` 实测手牌 Stratagem → SW5 Hunting Wolf。池内 1 张（SW18）
 B22	100/0x64 createCardInHand	GetCardToSummon + GetPos + AddNewCardToHand	986-1037	RuleEngine/Core/EffectResolver.cs:3987（DoCreate）/4706（DoChooseCard）	B	「造卡进手」落点/位置参数需核
 B23	101/0x65 createCardInHandAndKeepEffects	GetCardScriptToSummon + AddNewCardToHand + 逐个 AddEffect（保留旧效果）	1107-1173	RuleEngine/Core/EffectResolver.cs:3987（DoCreate）	B	「保留效果」那一半需核
 B24	110/0x6e destroy	判 spell/unit（trait 0x136 闸）→ DestroyUnit	1040-1105	RuleEngine/Core/EffectResolver.cs:4150（DoDestroy）	A	无缺口
-B25	120/0x78 jam	遍历目标 JamUnit	625-640	RuleEngine/Core/EffectResolver.cs:15863（DoJam）	A	无缺口
+B25	120/0x78 jam	遍历目标 JamUnit	625-640	RuleEngine/Core/EffectResolver.cs:15998（DoJam，2026-10-26 已建）	休眠	休眠（2026-10-28 由 A 改判）：**池内 0 张** —— `cards_engine.json` 1129 张逐卡扫 `chosenAbility` 无 120；`desc` 匹配 `jam` 0 命中。机制在、数据没有 ⇒ 等数据（铁律 11，⛔ 不是砍掉）
 B26	130/0x82 stun	遍历目标 AddStun	642-657	RuleEngine/Core/EffectResolver.cs:4191（DoStun）	A	无缺口
 B27	135/0x87 stunMultiplier	Shuffle 候选后按 local_178 次数 AddStun（随机多次眩晕）	659-681	RuleEngine/Core/EffectResolver.cs:4191（DoStun）	B	随机多次眩晕（Shuffle + 次数）需核
 B28	140/0x8c recallToOwnerHand	遍历目标 AddRecallToHand（带回 owner 判断 +0x40）	541-566	RuleEngine/Core/EffectResolver.cs:6520（DoReturn）	B	owner vs caster 回手归属需核
@@ -31,15 +32,15 @@ B29	150/0x96 recallToCasterHand	同上（回 caster 的 hand）	568-586	RuleEngi
 B30	160/0xa0 discardFromHand	遍历目标 AddDiscardFromHand	588-603	未找到对应	C	无 discard-from-hand 动词/落点（EffectDispatch 无 discard；"discard" 仅出现在 CardDef token 白名单）
 B31	162/0xa2 disappearFromHand	遍历目标 AddDisappearFromHand	605-622	未找到对应	C	无对应（disappear 仅 TutorialScript 枚举）
 B32	165/0xa5 discardWholeHand	取敌方手牌整批 AddDiscardFromHand（含 IsPlayerAffected 双档）	293-347	未找到对应	C	无对应（"whole hand" 0 命中）
-B33	170/0xaa stealFromHand	遍历目标 AddStealFromHand	349-366	未找到对应	C	无对应（唯一 "steal" 命中是 stealth 误配）
-B34	175/0xaf stealFromDeck	遍历目标 AddStealFromDeck	368-383	未找到对应	C	无对应
+B33	170/0xaa stealFromHand	遍历目标 AddStealFromHand	349-366	RuleEngine/Core/EffectResolver.cs:17237（DoStealFromHand）· EffectDispatch 键 stealhand	B	verb 已在（2026-10-27 休眠动词批）；缺**解析层生产者**：EffectText 不产出 stealhand（池内 desc/descZh 的 steal 0 命中，唯一命中是 stealth 误配）⇒ 休眠，⛔ 不是整条机制缺失
+B34	175/0xaf stealFromDeck	遍历目标 AddStealFromDeck	368-383	RuleEngine/Core/EffectResolver.cs:17279（DoStealFromDeck）· EffectDispatch 键 stealdeck	B	verb 已在；缺解析层生产者 ⇒ 休眠
 B35	180/0xb4 stealMinion	遍历目标 AddStealMinion	385-402	RuleEngine/Core/EffectResolver.cs:9281（DoTakeControl）	B	DoTakeControl 目前覆盖「本回合临时」；永久偷单位需核
 B36	185/0xb9 stealMinionSelf	单张 AddStealMinion（+0x18）	406-413	RuleEngine/Core/EffectResolver.cs:9281（DoTakeControl）	B	同上
-B37	190/0xbe exchangeSelfForMinion	临时造 criteria 调 GetTargets + AddExchangeMinions（五跳：换主/替换/清除召唤病/更新 whileInPlay/重组）	415-536	未找到对应	C	整条 exchangeMinion 无对应（账 L136 判 C）
-B38	200/0xc8 exchangeRandomFriendlyMinion	GetTargets 随机友方 + AddStealMinion / AddExchangeMinions	462-536	未找到对应	C	同上（exchangeMinion 族）
-B39	210/0xd2 copyUnitInCemetery	遍历目标 CopyUnitInCemetery（复制一份、原卡留墓地）	442-460	未找到对应	C	无 CopyUnit（账 L270 判 C；⛔ 别拿 ReturnFromCemetery 当等价）
+B37	190/0xbe exchangeSelfForMinion	临时造 criteria 调 GetTargets + AddExchangeMinions（五跳：换主/替换/清除召唤病/更新 whileInPlay/重组）	415-536	RuleEngine/Core/EffectResolver.cs:17034（DoExchange）· EffectDispatch 键 exchange	B	verb 已在（换主/替换两跳有实现）；缺解析层生产者，且 exchangeMinion 五跳的逐跳对账未复核
+B38	200/0xc8 exchangeRandomFriendlyMinion	GetTargets 随机友方 + AddStealMinion / AddExchangeMinions	462-536	RuleEngine/Core/EffectResolver.cs:17034（DoExchange，部分）	B	「随机友方」那一档未核（随机点走 ctx.GetRandomInt 才对）；缺解析层生产者
+B39	210/0xd2 copyUnitInCemetery	遍历目标 CopyUnitInCemetery（复制一份、原卡留墓地）	442-460	RuleEngine/Core/EffectResolver.cs:17153（DoCopyUnitInCemetery）· EffectDispatch 键 copycemetery	B	verb 已在；缺解析层生产者（池内 0 命中）⇒ 休眠。⛔ 仍别拿 ReturnFromCemetery 当等价（原卡留墓地这一点不同）
 B40	220/0xdc resetActions	遍历目标 AddResetActions	2623-2638	RuleEngine/Core/RuleCore.cs:14515（ResetActions 相关）	B	完整 ResetActions 语义需核
-B41	230/0xe6 forceAttack	遍历目标 AddForceAttack(dontCount=0)	2641-2658	RuleEngine/Core/EffectResolver.cs:3123（DoForceAttack）	A	无缺口
+B41	230/0xe6 forceAttack	遍历目标 AddForceAttack(dontCount=0)	2641-2658	RuleEngine/Core/EffectResolver.cs:3207（DoForceAttack，含 dontCount/scripted/redirect 各档）	休眠	休眠（2026-10-28 由 A 改判）：**池内 0 张**（SO 也 0 条）；真正可达的是 231/235/236/237/238（池内 2/2/1/1/6 张）。机制在、本码无数据 ⇒ 等数据
 B42	231/0xe7 forceAttackDontCountAttack	AddForceAttack(dontCount=1)	2659-2674	RuleEngine/Core/EffectResolver.cs:3123（DoForceAttack）	B	dontCount 标志需核
 B43	233/0xe9 forceAttackFriendly	AddForceAttackFriendlyUnits	2679-2694	RuleEngine/Core/EffectResolver.cs:3123（DoForceAttack）	B	友方强制攻击支需核
 B44	235/0xeb scriptedSelfAttack	AddScriptedAttack（自己作为攻击方）	2695-2715	RuleEngine/Core/EffectResolver.cs:3123（DoForceAttack）	B	scripted 攻击需核
@@ -49,7 +50,7 @@ B47	238/0xee scriptedSelfCardAttackDontCount	AddScriptedForceAttack(actor=+0x10)
 B48	240/0xf0 disappearUnit	遍历目标 AddDisappearUnit	2780-2795	未找到对应	C	无对应（disappearUnit 仅 TutorialScript 枚举）
 B49	250/0xfa autoPlayFromHand	遍历目标 AddAutoPlayFromHand（自动从手牌打出）	2796-2814	EffectResolver.cs:3896（op.AutoPlay）+ RuleCore.cs:4869（DeploySource.AutoPlayFromHand）	A	已实现
 B50	260/0x104 triggerEffectInCard	收集目标后 TriggerOtherCardAbility（每个目标触发它自己的 ability）	2534-2555 + 2851-2877	RuleEngine/Core/EffectResolver.cs:14897（DoTriggerAbility）	A	无缺口
-B51	270/0x10e createCardInDeck	GetCardToSummon + GetPos + AddNewCardToDeck	2557-2622	未找到对应	C	无 add-new-card-to-deck（AddNewCardToDeck 0 命中）
+B51	270/0x10e createCardInDeck	GetCardToSummon + GetPos + AddNewCardToDeck	2557-2622	RuleEngine/Core/EffectResolver.cs:4792（DoChooseCard；"todeck" :5017 · "decktop" :5009 · "copies" :5115）	已实现	无缺口（2026-10-28 就地改判 C→已实现）：`AddNewCardToDeck` 的等价物 = `choosecard` 的 `todeck`/`decktop`/`copies` 三支；`play DA44`（Secret 随机插入牌库）· `play DA72`（复制进牌库）实测
 B52	280/0x118 revealOrder	AddRevealOrders + SpendEnchantment	2483-2512	RuleEngine/Core/RuleCore.cs:8149（ResolveRevealOrders 相关）	B	需核
 B53	290/0x122 missAction	遍历目标 AddMissAction	2514-2532	RuleEngine/Core/RuleCore.cs:14975（MissActions）	A	无缺口
 B54	300/0x12c recallToDeck	AddRecallToDeck(setItOnTop=0)	2164-2192	RuleEngine/Core/EffectResolver.cs:6520（DoReturn dest=deck）	B	回牌库支需核
@@ -61,7 +62,7 @@ B59	330/0x14a drawUntilEqual	比较双方手牌差 → AddDrawCard 补齐到与�
 B60	340/0x154 removeThisEnchantment	只摘指定那一个附魔（trigger 15/16 匹配 enchantCardId）	2250-2295	RuleEngine/Core/Enchantment.cs（EnchantmentRemoved 机制）	B	需核
 B61	345/0x159 removeEnchantment	遍历目标 AddRemoveEnchantment（按 enchantCardId 匹配）	2297-2371	RuleEngine/Core/Enchantment.cs	B	需核
 B62	350/0x15e removeFromCemetery	遍历目标 AddRemoveFromCemetery	1977-1992	未找到对应	C	无对应（RemoveFromCemetery 0 命中）
-B63	360/0x168 playChosenCardAbility	PayCardPlayedCostOath + OnTriggerAlt + double-oath 循环（誓约重放）	1994-2070	OathOps（BattleDriver，部分）	C	战术卡 oath 整支无出口（R4 L455 判 C）
+B63	360/0x168 playChosenCardAbility	PayCardPlayedCostOath + OnTriggerAlt + double-oath 循环（誓约重放）	1994-2070	RuleEngine/Core/EffectResolver.cs:4557（DoChooseOne）+ Oath 链（`BattleDriver` OathOps / `RuleCore.OathExtraReplays`）	已实现	无缺口（2026-10-28 就地改判 C→已实现）：原版 360 = `PayCardPlayedCostOath`+`OnTriggerAlt`+double-oath ⇒ 我们对应 `chooseone`（Choose one:）+ Oath；`play ASH71` / `play UM109` 实测都能结算
 B64	370/0x172 triggerRelentless	遍历目标 AddTriggerRelentless	1995-2012	EffectResolver.cs:14897（DoTriggerAbility，部分）	B	缺 relentless 关键词常量/op 分派（R4 L183）
 B65	375/0x177 triggerSacrifice	AddTriggerSacrifice	2111-2126	EffectResolver.cs:14897（DoTriggerAbility，sacrifice 支）	B	需核
 B66	380/0x17c setReferenceCard	给 actingCard.referencedCards 换新表并填本条目标（覆盖）	2128-2160	EffectResolver.cs:1307（SetReferenceCards）	A	结构已实现（无生产调用点，见其 doc）
@@ -69,7 +70,7 @@ B67	390/0x186 triggerRequiem	AddTriggerRequiem	2073-2089	EffectResolver.cs:14897
 B68	400/0x190 triggerCourtesy	AddTriggerCourtesy	2091-2109	EffectResolver.cs:14897（DoTriggerAbility，部分）	B	缺 courtesy 关键词常量/op 分派（R4 L178）
 B69	410/0x19a triggerCodex	AddTriggerCodex	1685-1700	EffectResolver.cs:14897（DoTriggerAbility，codex 支）	B	需核
 B70	411/0x19b triggerRegiment	AddTriggerRegiment	1702-1719	EffectResolver.cs:14897（DoTriggerAbility，regiment 支）	B	需核
-B71	420/0x1a4 setCardDeckToTop	AddSetCardToTop	1721-1735	未找到对应	C	无对应（SetCardToTop 0 命中）
+B71	420/0x1a4 setCardDeckToTop	AddSetCardToTop	1721-1735	RuleEngine/Core/EffectResolver.cs:5009（DoChooseCard case "decktop"；op 源 = EffectText.cs:6619 `ActIs("at the top of your deck")`）	已实现	无缺口（2026-10-28 就地改判 C→已实现）：池内 7 张（DA1/DA11/DA16/DA40/DA72/SW1/Master Chronomancer）正文都是 `put … at the top of your deck` ⇒ 与 `AddSetCardToTop` 同结果
 B72	430/0x1ae reanimate	AddTransformFromRemnant（从残骸复活）	1738-1763	RuleEngine/Core/EffectResolver.cs:15379（DoReanimate）	A	无缺口
 B73	440/0x1b8 triggerSpiritStone	AddTriggerSpiritStone	1767-1781	EffectResolver.cs:14897（DoTriggerAbility，SpiritStone 支）	A	无缺口
 B74	450/0x1c2 triggerSynapse	AddTriggerSynapse	1784-1800	EffectResolver.cs:14897（DoTriggerAbility，synapse 支）	B	需核
@@ -82,6 +83,6 @@ B80	466/0x1d2 triggerUprising	AddTriggerUprising	1878-1893	EffectResolver.cs:148
 B81	467/0x1d3 triggerSlay	AddTriggerSlay	1894-1909	EffectResolver.cs:14897（DoTriggerAbility，slay 支）	B	需核
 B82	468/0x1d4 triggerTeleport	AddTriggerTeleport	1910-1925	EffectResolver.cs:14897（DoTriggerAbility，teleport 支）	B	需核
 B83	470/0x1d6 showCardsWindow	AddShowCardsWindowAction	1926-1933	ShowCardsWindow（表现层，7 处命中）	B	需核（是表现层，规则侧是否已闭环）
-B84	475/0x1db resetDuty	AddResetDuty	1934-1959	未找到对应	C	无对应（ResetDuty 0 命中）
-B85	480/0x1e0 highlightBloodThirst	SendHighlightBloodThirstAction（高亮嗜血）	1960-1972	未找到对应	C	表现层，无对应
+B84	475/0x1db resetDuty	AddResetDuty	1934-1959	RuleEngine/Core/EffectResolver.cs:15196（DoReloadDuty；`reload` 由 EffectText.cs:4148 TryReloadDuty 产出）	已实现	无缺口（2026-10-28 就地改判 C→已实现 · B91-P2）：`reloadduty` 动词清 `ActiveAbilityUsed`+`DutyUsed`；池内 3 张（AM47 / Cadian Honour / Lead by Example）正文都是 `reload their Duty abilities`
+B85	480/0x1e0 highlightBloodThirst	SendHighlightBloodThirstAction（高亮嗜血）	1960-1972	RuleCore.EmitBloodThirst（Core/RuleCore.cs:12441）· 表现 Core → CardPresentation/Battle/BattleDriver.cs:24863（PlayTraitPulse）	B	只差生产点（2026-10-28 由 C 改判 · B91-P2）：表现链在（账 `战斗界面_HUD:759/766` 已 A）、`EmitBloodThirst` 也在，但它带原版 `ActivateBloodThirst` 的四道闸（`AttacksThisTurn==1` / `p==ctx.Active` / 非将死 / 带血渴）⇒ **不能顶替 480 行**（原版 `PlayAbility.c:1960-1972` 那一跳无闸）。补它要么新开一个 `EvtKind`（`BattleEvent.cs`）+ `BattleDriver` 分支，要么复用 `EvtKind.Trigger` 并接受成就计数/指纹变化 —— 详见 `判据/B91_P2_chosenAbility逐码判据.md` §四·①
 B86	其它（未列常量）	树外的值一律 return（未处理）	全树 default	无对应（结构上不需要）	A	原版无操作

@@ -206,17 +206,17 @@ namespace CardPresentation
         /// 只有它有词条键、没有直接文本时（例如将来从 SO 灌的那一路）才现解一次。</summary>
         public static string Title(Msg m)
         {
-            if (m == null) return "";
-            if (!string.IsNullOrEmpty(m.TitleText)) return m.TitleText;
-            return string.IsNullOrEmpty(m.TitleTerm) ? "" : LiveOpsLocalCatalog.TermText(m.TitleTerm);
+            var c = GetMessageContent(m);
+            // 判据：原版 `GetTitle()` 就是 `GetMessageContent().title`（B90-N3）⇒ 本口转发那一份，⛔ 不再第二处解。
+            return c != null ? c.Title : "";
         }
 
         /// <summary>原版 `GetMessage()`。同 <see cref="Title"/> 的两级口径。</summary>
         public static string Body(Msg m)
         {
-            if (m == null) return "";
-            if (!string.IsNullOrEmpty(m.BodyText)) return m.BodyText;
-            return string.IsNullOrEmpty(m.BodyTerm) ? "" : LiveOpsLocalCatalog.TermText(m.BodyTerm);
+            var c = GetMessageContent(m);
+            // 判据：原版 `GetMessage()` 就是 `GetMessageContent().message`（B90-N3）⇒ 同 `Title` 转发那一份。
+            return c != null ? c.Body : "";
         }
 
         /// <summary>这条消息带不带奖励（= 原版 `MessageDisplay.hasReward`）。</summary>
@@ -526,6 +526,41 @@ namespace CardPresentation
                 if (System.IO.File.Exists(t)) System.IO.File.Delete(t);
             }
             catch (Exception e) { Debug.LogError("[Inbox] 自检删档失败：" + e.Message); }
+        }
+
+        // ============================================================ 🆕 2026-10-28（B90 · N3，追加在类尾）
+        /// <summary>原版 `BaseInboxEvent.GetMessageContent()` 的产物（原版返回 `LocalizedMessage`：
+        /// `code` / `title` / `message` 三格）。
+        /// <para>判据 = `d:/2/tools/cpp2il/out_cpp2il_dev_ilspy/Everguild.LiveOps/BaseInboxEvent.cs` 的
+        /// `GetMessageContent()`（真体可读的那一段）+ 两个 lambda：`…b__0` = `m.code == currentCode`（
+        /// `LocalizationManager.CurrentLanguageCode`）、`…b__2_1` = `m.code == "en"` ⇒
+        /// **先取当前语言那一份，取不到回 `en`**。</para>
+        /// <para>🔴 **那条「当前语言 → en」的链在我们这儿没有第二份**（铁律 6）：`TitleTerm`/`BodyTerm` 是
+        /// **语言无关的官方词条键**，解析口 `Loc.T` 内部就是「当前语言 → `Loc.Fallback`（= English）」
+        /// （`Core/Loc.cs` 的 `Fallback` / `Effective` / `T()` 那三处）⇒ 本方法**只做「词条键 vs 已解析文本」的两级选择**，
+        /// ⛔ 别在这里再写一份语言回退（那会变成两处写同一条规则）。
+        /// ⚠️ 与原版的**形状差**（如实记）：原版一个消息带**多个 `LocalizedMessage`**（每种语言一条）；
+        /// 我们一条消息只存**一个键 + 一份明文兜底**（出厂那两条明文本就是 🔶 我们挑的）。</para>
+        public sealed class MessageContent
+        {
+            /// <summary>`title`（= `GetTitle()` 的口径）。</summary>
+            public string Title;
+            /// <summary>`message`（= `GetMessage()` 的口径）。</summary>
+            public string Body;
+        }
+
+        /// <summary>原版 `BaseInboxEvent.GetMessageContent()`。`Msg == null` ⇒ null（⛔ 不编一个空消息出来）。
+        /// 两级口径逐字段：有**已解析明文**用明文（= 出厂表那一条 `FillArgs` 之后的结果），否则现解词条键。
+        /// 两个字段**各自**走这两级 —— 与原版「一条 LocalizedMessage 同时给 title/message」等价。</summary>
+        public static MessageContent GetMessageContent(Msg m)
+        {
+            if (m == null) return null;
+            var c = new MessageContent();
+            c.Title = !string.IsNullOrEmpty(m.TitleText) ? m.TitleText
+                    : (string.IsNullOrEmpty(m.TitleTerm) ? "" : LiveOpsLocalCatalog.TermText(m.TitleTerm));
+            c.Body = !string.IsNullOrEmpty(m.BodyText) ? m.BodyText
+                    : (string.IsNullOrEmpty(m.BodyTerm) ? "" : LiveOpsLocalCatalog.TermText(m.BodyTerm));
+            return c;
         }
     }
 }

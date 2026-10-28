@@ -3409,8 +3409,7 @@ namespace CardPresentation
                 }
                 InitialDuplicatesAlreadyProcessed = true;
             }
-            int pending = cardsToSell != null ? cardsToSell.Count : 0;
-            PlayerInventoryOps.PendingCardsToSell = pending;
+            int pending = PlayerInventoryOps.PendingCardsToSell;   // 原版读的是**字段** `pendingCardsToSell.Keys.Count`（形参 `cardsToSell` 一次都没被读）；🔴 B91 修：原来先把形参条数写进字段再判 `pending == 0` ⇒ 非空表**永远**进不了 drain（卖卡从不发生）
             if (pending == 0 && !IsSellingCards && !WaitingSellCardCooldown)
             {
                 if (cardsToSell == null)
@@ -3419,6 +3418,7 @@ namespace CardPresentation
                                      + "但全库扫会把升级冗余一起卖光 ⇒ 我们**不出声地空转**，⛔ 不是原版行为）");
                     return;
                 }
+                PlayerInventoryOps.PendingCardsToSell = cardsToSell.Count;   // 「字段 = 待卖表」的等价物（原版存字典本身，我们只留 `Keys.Count`）
                 SellSpareCardsRecursive(cardsToSell);
             }
         }
@@ -3476,6 +3476,30 @@ namespace CardPresentation
             InitialDuplicatesAlreadyProcessed = false;
             LastSoldCopies = 0; LastSoldGold = 0;
             PlayerInventoryOps.ResetForTest();
+        }
+
+        /// <summary>原版 `PlayerDataManager.GetFilteredSpareCardsToSell(int numberOfCardsToInclude,
+        /// ref Dictionary&lt;string,int&gt; wholeList)`（账 392）：从 `wholeList` 里**按枚举序**取前
+        /// `numberOfCardsToInclude` 条放进返回表，并把这 N 条**从 `wholeList` 移除**（ref 形参就地改）。
+        /// <para>逐句判据 = `decomp_full/PlayerDataManager__GetFilteredSpareCardsToSell.c`：
+        /// 第一段循环「`numberOfCardsToInclude &lt;= i` 就 break，否则 `result.Add(key, wholeList[key])`」；
+        /// 第二段循环「遍历 `result.Keys` 逐个 `wholeList.Remove(key)`」。</para>
+        /// <para>与原版一致的**有序性**：只依赖 `Dictionary` 的枚举序，原版也是（没有排序、没有取最近）。
+        /// ⚠️ 与原版一并照抄「只取前 N 条、剩下的留在 `wholeList` 里等着下一批」（= 原版 `cardsPerCall` 分批卖）。</para></summary>
+        public static Dictionary<string, int> GetFilteredSpareCardsToSell(
+            int numberOfCardsToInclude, ref Dictionary<string, int> wholeList)
+        {
+            var result = new Dictionary<string, int>();
+            if (wholeList == null) return result;                 // 原版对 null 会 NRE（我们出声不崩，见同族口径）
+            int n = 0;
+            foreach (var key in wholeList.Keys)                   // 原版：只往 result 里加，不动 wholeList
+            {
+                if (n >= numberOfCardsToInclude) break;
+                result.Add(key, wholeList[key]);
+                n++;
+            }
+            foreach (var key in result.Keys) wholeList.Remove(key); // 原版第二段：把这批从源表移除
+            return result;
         }
     }
 }

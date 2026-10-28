@@ -27,8 +27,8 @@
 //     **错因**：这句是 2026-09-26 建文件时写的，第二天接线后**没人回头改这句**。
 //     ⇒ **列表不再恒空**（本机打过局之后就有记录）。⚠️ 仍成立的那半：**表默认是空的**（不编假数据，见上面用户口径）。
 //   · **`matchType` → 模式文案的映射查不到**（原版那条是服务端本地化键）⇒ 我们直接存字符串。
-//   · 原版 `BattleLogMatch` 还有 `season` / `ownExp` / `enemyExp` / `ownTotalExp` / `botAltid` /
-//     `replaysVersion` 等字段 —— **行里没有对应的格子**（普查 §B·2 那棵树只看得到这些）⇒ 不建。
+//   · 原版 `BattleLogMatch` 还有 season/ownExp/enemyExp/ownTotalExp/replaysVersion 等字段 ⇒ 不建；
+//     🔴 2026-10-28（账 433）订正：`botaltid` 原也「不建」，现建了（`Match.BotAltId` +0x98 + `ModifyBattleLogBotAltId`，见文件末 partial）。
 //
 // ---- 🆕 2026-10-24（E13）：**落盘 + 录像兜底** ----
 // 🔴 原文这里写「**纯内存**」—— 那句**已过期**（就地订正，铁律 5）：现在这张表**落盘**。
@@ -49,7 +49,7 @@ namespace CardPresentation
 {
     /// <summary>对局历史（本地）。**落盘**在 `persistentDataPath/WarpforgeBattleLog/battlelog.json`
     /// （🆕 2026-10-24 E13 —— 原来纯内存，见文件头那一节）。</summary>
-    public static class BattleLogData
+    public static partial class BattleLogData
     {
         /// <summary>一局的结果（原版三态：胜 / 负 / 平）。</summary>
         public enum Outcome { Victory = 0, Defeat = 1, Draw = 2 }
@@ -57,7 +57,7 @@ namespace CardPresentation
         /// <summary>一行（= 原版 `BattleLogMatch` 里**我们渲得出来的那部分**）。
         /// <para>⚠️ `[System.Serializable]` 是**落盘要的**（`JsonUtility` 只认标了它的自定义类）。</para></summary>
         [System.Serializable]
-        public class Match
+        public partial class Match
         {
             public Outcome Result;
             /// <summary>两边的督军名（原版 `ownHeroName` / `enemyHeroName`）。</summary>
@@ -590,6 +590,46 @@ namespace CardPresentation
             m.Triggers = _pendingTriggers.ToArray();
             _pendingTriggers.Clear();
             return n;
+        }
+    }
+
+    // ============================================================ 🆕 2026-10-28（账 433）· partial 追加（⛔ 不改既有行号）
+    // 原版 `BattleLogMatch.botAltid`（+0x98）原本没建（见文件头 2026-10-28 订正）；这里用 partial 把
+    // `Match.BotAltId` 与 `BattleLogData.ModifyBattleLogBotAltId` 一起追加在文件末，
+    // 既有成员的 `文件:行号` 落点（账 394/467/日常-41/561 引用 :66/:118-137/:172/:515）逐行不动。
+    public static partial class BattleLogData
+    {
+        /// <summary>原版 `BattleLogMatch.botAltid`（字段 `+0x98`）—— bot 对手的 alt id（由服务器在赛后写）。
+        /// <para>判据 = `decomp_full/PlayerDataManager__ModifyBattleLogBotAltId.c`（`*(lVar2 + 0x98) = param_3`）。
+        /// 🔶 落盘说明：`JsonUtility` 会把它当普通公开字段序列化；老档缺这一格 ⇒ 读成 `null`（向后兼容，不改版本号）。</para></summary>
+        public partial class Match
+        {
+            public string BotAltId;
+        }
+
+        /// <summary>原版 `PlayerDataManager.ModifyBattleLogBotAltId(string botName, string altId)`（账 433）：
+        /// 遍历整张表，对**每一条** `enemyName == botName` 的记录把 `botaltid` 写成 `altId`，
+        /// 返回**最后一个**命中项的下标（一条都没命中 ⇒ `-1`）。
+        /// <para>逐句判据 = `decomp_full/PlayerDataManager__ModifyBattleLogBotAltId.c`：
+        /// `for i in list: if (item.enemyName != null &amp;&amp; item.enemyName.Equals(botName)) { item+0x98 = altId; last = i; }`
+        /// —— ⚠️ **不在第一个命中处 break**（原版继续扫、覆盖后续同名项，返回最后一个下标）。</para>
+        /// <para>⚠️ 差异（同族）：原版这张表在服务器、写后由服务器持久化；我们本地落盘 ⇒ 命中时 <see cref="SaveIfAuto"/> 一次。</para></summary>
+        public static int ModifyBattleLogBotAltId(string botName, string altId)
+        {
+            EnsureLoaded();
+            int last = -1;
+            for (int i = 0; i < _all.Count; i++)
+            {
+                var m = _all[i];
+                if (m == null || m.EnemyName == null) continue;   // 原版：enemyName != null 才比
+                if (m.EnemyName.Equals(botName))
+                {
+                    m.BotAltId = altId;                           // 原版：item.botAltid(+0x98) = altId
+                    last = i;                                     // 原版不清零、继续扫 ⇒ 记最后一个命中
+                }
+            }
+            if (last >= 0) SaveIfAuto();                          // 本地落盘（原版服务器持久化）
+            return last;
         }
     }
 }

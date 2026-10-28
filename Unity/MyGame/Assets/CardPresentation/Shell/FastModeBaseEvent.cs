@@ -327,13 +327,13 @@ namespace CardPresentation
         /// </code>
         /// ⇒ 语义 = **服务器确认后**才把「这局」落进存档（我方 `matchStarted` 清、对手信息清、分数更新）。
         /// ⚠️ 本地等价：这些「服务器确认」的字段里，`NewRating` / `armyStats` 本来就在我们自己的
-        /// `RecordMatchFinished` 里写完了 ⇒ 这里只做**清局内态 + 落盘**，并出声说明「没有服务器确认」。</summary>
+        /// `RecordMatchFinished` 里写完了 ⇒ 这里只做**清局内态 + 落盘 + 本地榜计分**（`LeaderboardData.LocalScore` 已接），并出声说明「没有服务器确认」。</summary>
         protected virtual void OnMatchProcessSuccess(OnlineMatchResult result)
         {
             if (SaveGame == null) return;
             SaveGame.matchStarted = false;
             SaveGame.lastOpponentInfo = null;
-            if (result != null) SaveGame.currentRating = result.newRating;
+            if (result != null) { SaveGame.currentRating = result.newRating; if (!string.IsNullOrEmpty(Data.LeaderboardKey)) LeaderboardData.LocalScore(Data.LeaderboardKey, result.newRating, LeaderboardScoringMode.SetValue); }   // 原版同刻还有 `LeaderboardManager.LocalScore(key, NewRating, mode=2)`（`OnMatchProcessSuccess__1a110c0.c`）
             SaveEventProgress(null, null);
             Debug.Log("[FastMode] OnMatchProcessSuccess：'" + GetID() + "' 局内态已清、存档已落"
                     + "（原版这一跳是『服务器确认后』才走的；本地没有服务器 ⇒ 由 RecordMatchFinished 直接调进来）");
@@ -349,8 +349,8 @@ namespace CardPresentation
         /// </code>
         /// ⚠️ 「组件 21 那扇窗」我们没有（活动窗是 `LiveOpsEventWindow` 一族，按类分不是按组件引用）
         /// ⇒ 那一跳**没搬**，出声记一条。
-        /// ⚠️ `<虚方法 0x758>` 的身份读不出来（泛型共享跳）—— 形状上是「这个事件现在能不能开」。
-        /// 我们用 `EventState == Active` 当那一条的本地等价，**如实记为推断**（⛔ 不是已坐实）。</summary>
+        /// 🔴 `<虚方法 0x758>` **已坐实 = `CurrentScore`**（2026-10-28 W7）：`RankedFastMode__GetCurrentRankedDivision.c` 把它的返回值直接当 points 传进 `GetDivisionByPoints`；
+        /// `…TryCollect_b__0.c` = `virt() &lt; r.milestone` ⇒ 同一个量。故第二闸 = `CurrentScore == 0`，⛔ 不是「能不能开」。</summary>
         public override void Expire(Action onComplete)
         {
             if (SaveGame == null)
@@ -358,7 +358,7 @@ namespace CardPresentation
                 Debug.LogError("[FastMode] Expire：没有存档（原版这一跳 NRE）⇒ 不做事");
                 return;
             }
-            if (SaveGame.JoinState == PlayEventSaveGame.JoinStates.NotJoined && EventState != LiveOpState.Active)
+            if (SaveGame.JoinState == PlayEventSaveGame.JoinStates.NotJoined && CurrentScore == 0)
             {
                 base.Expire(onComplete);
                 return;
@@ -480,38 +480,38 @@ namespace CardPresentation
         }
 
         /// <summary>原版 `override string GetMatchmakingFilter(int currentElo, int tryCount, int gamesLost)`
-        /// （`GetMatchmakingFilter__1a10120.c`，逐跳照抄）：
+        /// （`GetMatchmakingFilter__1a10120.c`，逐跳照抄；🔴 2026-10-28 W7 复读订正两处，见下两行判据）：
         /// <code>
         /// arr = Data.RatingDifferenceForMatchMaking;                       // 非 null 才有过滤
-        /// delta = arr[gamesLost % arr.Length];                             // ★ 按下标取档（连败越多次窗口越大）
+        /// delta = arr[tryCount % 3];  // ★ 是 **tryCount**、且模 **常量 3**（⛔ 不是 gamesLost、不是 arr.Length）
         /// min = max(0, currentElo - delta);
         /// max = currentElo + delta;
-        /// if (gamesLost == 2) { /* 有「连胜/连败计数」在时把 max 收紧到 min(...) —— 那一跳的实参读不出来 */ }
-        /// isRanked = PlayerData.&lt;bool&gt;;  group = AlliancesManager.CurrentGroupId;
+        /// if (tryCount == 2) { ranked = Data as IRankedData; if (ranked != null &amp;&amp; ranked.LegendaryElo &lt;= currentElo) { max = Data.MaxEloCap; min = Math.Min(min, ranked.LegendaryElo); } }
+        /// isRanked = 数据接口槽 4 的 bool;  group = AlliancesManager.CurrentGroupId;
         /// blacklist = PlayerDataManager.GetSuspiciousIds().Append(自己的 id);
-        /// return "…" + GetSqlFilter(max, min, group, isRanked, blacklist, tryCount);
+        /// return "…" + GetSqlFilter(max, min, group, isRanked, blacklist, gamesLost);
         /// </code>
         /// ⚠️ 差异（如文件头差异③）：原版返回**PlayFab SQL 串**喂匹配器；我们 P2P 没有过滤层 ⇒
-        /// 本方法算**上下界**并按原版语义拼一可读串（`rating&gt;=min and rating&lt;=max`），
-        /// **没有消费方**（如实记：这是「算对了但用不上」）。
-        /// 🔶 自己设计（非原版）：`gamesLost == 2` 那一跳（收紧上界）实参读不出 ⇒ **没搬**，
-        /// 在日志里说明。调度台 C1 2026-10-27 定。</summary>
+        /// 本方法算**上下界**并按原版语义拼一可读串（`rating&gt;=min and rating&lt;=max`）、**没有消费方**（如实记）。
+        /// ⚠️ 仍未搬：`GetSqlFilter` 的联盟 / 黑名单两段（本机没有那几条线）。
+        /// 判据①：`.c` 里 `param_3`（= **tryCount**，IL2CPP 实参序 currentElo/tryCount/gamesLost）既做 `%3` 下标又做 `==2` 闸；
+        /// 判据②：收紧上界的两量 = `RankedBaseData` 字段序 `legendaryElo(+0x98)` / `maxEloCap(+0x9c)`（与 Ghidra 偏移逐一对上）。</summary>
         public override string GetMatchmakingFilter(int currentElo, int tryCount, int gamesLost)
         {
             var arr = Data == null ? null : Data.RatingDifferenceForMatchMaking;
-            if (arr == null || arr.Length == 0)
+            if (arr == null || arr.Length == 0) { Debug.LogWarning("[FastMode] GetMatchmakingFilter：'" + GetID() + "' 没有 ratingDifferenceForMatchMaking（原版此处 IndexOutOfRange）"); return ""; }
+            int idx = tryCount % 3;                          // 🔴 原版 = tryCount 模**常量 3**（⛔ 不是 gamesLost / arr.Length）
+            if (idx < 0) idx += 3;                           // C# 的 % 对负数给负值（原版无此支，兜一下）
+            if (idx >= arr.Length)                           // 原版此处抛 IndexOutOfRange ⇒ 档表应 ≥3 项
             {
-                Debug.LogWarning("[FastMode] GetMatchmakingFilter：'" + GetID() + "' 没有 ratingDifferenceForMatchMaking"
-                               + "（原版这一跳同样返回空）");
-                return "";
+                Debug.LogWarning("[FastMode] GetMatchmakingFilter：" + GetID() + " 的档表只有 " + arr.Length + " 项（原版要求 ≥3）");
+                idx = arr.Length - 1;
             }
-            int idx = gamesLost % arr.Length;                  // 🔴 原版是「按下标取档」，不是「取最大」
-            if (idx < 0) idx += arr.Length;                    // C# 的 % 对负数给负值（原版 C 语义不同，故兜一下）
             int delta = arr[idx];
             int min = currentElo - delta; if (min < 0) min = 0;
             int max = currentElo + delta;
-            if (gamesLost == 2)
-                Debug.LogWarning("[FastMode] GetMatchmakingFilter：gamesLost==2 时原版会收紧上界（实参读不出 ⇒ 没搬）");
+            var ranked = tryCount == 2 ? Data as IRankedData : null;   // 原版 = GetData<IRankedData>()：普通快模式 null ⇒ 跳过这一支
+            if (ranked != null && ranked.LegendaryElo <= currentElo) { max = Data.MaxEloCap; if (ranked.LegendaryElo < min) min = ranked.LegendaryElo; }
             return "rating>=" + min + " and rating<=" + max;
         }
 

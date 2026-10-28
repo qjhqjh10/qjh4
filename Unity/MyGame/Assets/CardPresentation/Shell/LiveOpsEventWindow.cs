@@ -345,7 +345,8 @@ namespace CardPresentation
         string FactionOfDeck(int i) { return CollectionData.DeckAt(i).Faction; }
 
         /// <summary>第 <paramref name="i"/> 套自有卡组在不在「选中阵营 ∧ 本窗模式」那张表里
-        /// （= 原版 `ChangeArmy` 的筛法，**全类唯一一份**）。</summary>
+        /// （= 原版 `ChangeArmy` 的 `Where`，**全类唯一一份**）。🔴 **不含合法性** —— 合法性是**下一跳**
+        /// `OrderByDescending` 的**排序键**（⛔ 不是过滤器），见类尾 `DeckIsLegal`（含 2026-10-28 的更正与判据）。</summary>
         bool InArmyDeckList(int i, string faction)
         {
             var raw = CollectionData.Raw(i);
@@ -364,18 +365,21 @@ namespace CardPresentation
         int FirstDeckInMode(int prefer) { return FirstDeckInArmy(SelectedArmyFaction, prefer); }
 
         /// <summary>`ChangeArmy` 那一下：该阵营那张表的**第一套**（从 <paramref name="prefer"/> 起绕一圈）。
-        /// 表空 ⇒ **−1**（= 空态）。</summary>
+        /// 表空 ⇒ **−1**（= 空态）。**排序照原版 `OrderByDescending(ValidateDeck)`**：合法的优先，全不合法才取
+        /// 表里第一套（`prefer` 那一套若在表里且合法 ⇒ 就是它自己 = 原版「保持当前这副」那一支）。</summary>
         int FirstDeckInArmy(string faction, int prefer)
         {
             int n = CollectionData.DeckCount();
             if (n <= 0) return -1;
-            int start = (prefer >= 0 && prefer < n) ? prefer : 0;
+            int start = (prefer >= 0 && prefer < n) ? prefer : 0, first = -1;
             for (int k = 0; k < n; k++)
             {
                 int i = (start + k) % n;
-                if (InArmyDeckList(i, faction)) return i;
+                if (!InArmyDeckList(i, faction)) continue;
+                if (first < 0) first = i;                    // 稳定序里的第一套（全不合法时用它）
+                if (DeckIsLegal(i)) return i;                // 合法优先 = `OrderByDescending` 之后的 `FirstOrDefault`
             }
-            return -1;
+            return first;
         }
 
         /// <summary>「选中阵营 ∧ 本窗模式」的卡组数（= 原版 `currentArmyCardDeckList.Count`，字段 `+0xa8`）。
@@ -414,7 +418,7 @@ namespace CardPresentation
             get
             {
                 if (ShownPrebuilt != null) return true;
-                return InArmyDeckList(DeckIndex, SelectedArmyFaction);
+                return DeckIsCurrentInArmy();      // 🆕 B90-N3：**不带合法性**（原版这一支只判 `deck != null`）
             }
         }
 
@@ -552,7 +556,7 @@ namespace CardPresentation
             //   🔴 改前是「按模式吸附到第一套、再 `ArmyIndex = -1`」—— 于是小冲突窗会画出**经典**卡组那一套
             //      （本机只有一套 `ASH1` 经典 ⇒ 用户看到「恒是灵族」）。
             //   ⚠️ 吸附**只在同一阵营内**（原版的表本来就带阵营条件），⛔ 不再跨阵营吸附。
-            int cur = CollectionData.CurrentIndex();
+            int cur = EventDeckIndex();     // 🆕 B90-N3：原版这一格 = `currentEvent.GetDeck()`（每活动各记各的）
             string fac0 = cur >= 0 ? FactionOfDeck(cur) : null;
             _armyFactionSel = string.IsNullOrEmpty(fac0) ? DeckRuntime.NoArmyFaction : fac0;
             DeckIndex = FirstDeckInMode(cur);        // 表空 ⇒ **−1 = 空态**（⛔ 不回落到别的模式 / 别的阵营）
@@ -892,14 +896,14 @@ namespace CardPresentation
             //     —— 两支见 `NoDeckMessage()`，⛔ 那句「它是我们写的」已过期）。
             //   ⛔ 节点名 `"Button Text"` 不动（`FindChild(钮,"Button Text")` 靠它）。
             MenuDraw.Text(cbtn, new PxRect(CreateTxL, CreateTxT, CreateTxR, CreateTxB),
-                          Loc.T("MainMenu/Ranked/GoToCreateDeck"),
+                          Loc.T(ArmyDeckCount() < 1 ? "MainMenu/Ranked/GoToCreateDeck" : "MainMenu/Ranked/GoToBoosterStore"),
                           Color.white, "Button Text", 55f, QText, face: TmpFont.Face.LatinCardBody);      // 原版 hAlign = Center ⇒ 不调 Align*
             // 🆕 A17：原版 `Ranked Deck Selection>No Deck Text>Generic Simplified UI Button` 是 SpriteSwap（普查 §块 4 第 16 行）
             // 🆕 **2026-10-18（音效线缺口 `AUD` §三 B10）**：原版
             //   `RankedEventWindowV2/Ranked Deck Selection/No Deck Text/Generic Simplified UI Button`（`SkirmishModeEventWindow`
             //   同名节点同 cue）= **`ButtonClick Positive`** ⇒ 补 `clickCue`（改前不传 = 默认 `ButtonClick`）。
             MenuDraw.Hit(none, "CreateDeckHit", new PxRect(CreateBtnL, CreateBtnT, CreateBtnR, CreateBtnB), QHit,
-                         CreateDeckInMode, cbtnBg, ArtMulligan, clickCue: WindowSounds.PositiveCue);
+                         OnNoDeckButtonClick, cbtnBg, ArtMulligan, clickCue: WindowSounds.PositiveCue);
             none.gameObject.SetActive(!hasDeck);
         }
 
@@ -1876,7 +1880,7 @@ namespace CardPresentation
             if (col == null) return;
             RewardsWindow.DestroySafe(col.gameObject);
             BuildDeckSelection(transform);
-            OnDeckColumnChanged();   // 2026-10-26（X4）：这一栏重建完 ⇒ 通知子类（判据见类尾那个虚钩子）
+            OnDeckColumnChanged(); RememberEventDeck();   // 2026-10-26（X4）：这一栏重建完 ⇒ 通知子类 ｜ B90-N3：并把「本活动这一副」记进每活动槽（类尾）
         }
 
         /// <summary>开 `Deck Selection Popup with Tabs`（原版 `RankedDeckSelector` 那颗换卡组钮）。</summary>
@@ -1913,7 +1917,7 @@ namespace CardPresentation
                     SyncArmyToShownDeck();  // 🆕 E11：同预组支
                     RefreshDeckColumn();
                 }
-            }, DeckGameMode);        // 🆕 2026-09-26：**「我的卡组」页按本窗模式筛**（原版 `DeckSelectionPopup` 的 context 筛选）
+            }, DeckGameMode, info => DeckRules.SameFaction(info.Faction, SelectedArmyFaction));   // 🆕 2026-09-26 模式筛 + 🆕 B90-N3：原版 `OnSelectDeckButtonClick` 的第 4 个实参谓词 `d.Army == currentArmy`
             Manager.OpenWindow(w);
             LastDeckSelection = w;
             Debug.Log("[Event] 开 `Deck Selection Popup with Tabs`");
@@ -1994,12 +1998,12 @@ namespace CardPresentation
         //   **原版 `LiveOpsEventWindow<T>.OnRefresh()` 的等价实现**
         //
         // 判据（逐句 → `d:/2/tools/cpp2il/out_cpp2il_dev_ilspy/LiveOpsEventWindow.cs` 的 `OnRefresh`）：
-        //   `var handler = <本窗的 ILiveOpsHandler>;  var ev = handler.GetEvent(<事件 id>);`
-        //   `if (ev 取不到)  Close();  else if (窗不在顶层) ToFocus();`  —— 并把事件进度刷进界面。
+        //   `var handler = <本窗的 ILiveOpsHandler>;  var ev = handler.GetEvent(<事件 id>) as T;`
+        //   `if (<ILiveOpsHandler 接口槽 4 的 bool>) Close(); else ToFocus();` —— 已坐实（判据见下）。
         //   ⚠️ 它是在 `InitializeWindow(ILiveOps)` 里挂到「事件刷新」回调上的（同一个方法末尾 `new Action(this, …)`）。
-        //   ⚠️ 本类的基类型是**泛型**，`decomp_full/` 里没有它的产物（`grep LiveOpsEventWindow` 只有
-        //      `__.ctor` / `__InitializeWindow`）⇒ 上面这份形状来自 ILSpy 版 + 账本
-        //      `日常_奖励.tsv` 第 374 行的 `差异` 列（两处一致）。
+        //   ✅ 2026-10-28 W7 找到真判据件（原判词「泛型无产物」**已作废**）：`decomp_generic_trial/out/LiveOpsEventWindow_object___OnRefresh__1016a30.c`
+        //      ＋ `cpp2il/out_cpp2il_dev_ilspy/LiveOpsEventWindow.cs:71-200`。两侧一致：闭窗/聚焦这一支**只在 `GetEvent` 成功之后**才走；
+        //      **取不到在原版是 throw**（NRE / cast 失败）⇒「取不到 ⇒ Close() + 出声」是我们**有意的差异**（⛔ 别当成原版行为）。
         //
         // 🔶 本地等价（原版两半都不可离线复刻，理由逐条写在这里）：
         //   ① **「重取事件」的替代** = 查离线目录 `LiveOpsLocalCatalog.Find(EventId)`：查不到，或
@@ -2067,6 +2071,132 @@ namespace CardPresentation
             if (_expiryRefresh == null) return;
             LiveOpsScheduler.Release(_expiryRefresh);
             _expiryRefresh = null;
+        }
+
+        // ============================================================ 🆕 2026-10-28（B90 · N3，追加在类尾）
+        //   原版 `RankedDeckSelector` 的**空态那颗钮的两条来路 + 每活动卡组槽**。判据（第一权威 = 反汇编方法体）：
+        //   · `RankedDeckSelector__OnCreateDeckButtonClick.c`：`OpenWindow(收藏窗, {event}, TypeReference(CollectionWindow))`
+        //     ⇒ **开收藏窗**（⛔ 不是「直接建一副再进编辑器」—— 那条近路是本类的旧实现，钮已不再走它）
+        //   · `RankedDeckSelector__OnGoToStoreButtonClick.c`：`OpenWindow(商店窗, {currentArmy(+0xa0)}, TypeReference(ShopWindow))`
+        //     ⇒ 开商店（🔴 **原版喂的是 booster 页**；我们 `ShopWindow.Create(mgr)` 不收页参数 ⇒ 差一档，见差异列）
+        //   · `RankedDeckSelector__ChangeDeck.c`：空态那颗钮的委托按 `count < 1` 二分（两处
+        //     `UIGenericEventCatcher_SourceDelegate___ctor` 的 method-info 分别指向这两个实例方法）。
+        //   ⛔ 这两个口**不新建视觉**：钮还是 `BuildDeckTexts` 里那一颗（`CreateDeckHit`），只换它的委托。
+
+        /// <summary>空态那颗钮（`No Deck Text > Generic Simplified UI Button`）的点击 —— 原版 `ChangeDeck` 的二分支：
+        /// `ArmyDeckCount() &lt; 1`（该阵营一套都没有）⇒ 建卡组（开收藏窗）；否则（有但都不合本模式 / 不合法）⇒ 去商店。</summary>
+        public void OnNoDeckButtonClick()
+        {
+            if (ArmyDeckCount() < 1) OnCreateDeckButtonClick();
+            else OnGoToStoreButtonClick();
+        }
+
+        /// <summary>原版 `RankedDeckSelector.OnCreateDeckButtonClick()` —— **开收藏窗**。
+        /// 同族先例 = `Shell/RankedDeckSelector.cs` 的 `OnCreateDeckButtonClick`（E13 建的那一份，判据同源）。
+        /// ⚠️ 旧的近路 `CreateDeckInMode()` **留着**（`Editor/MainMenuScene.cs:9527` 的断言直调它）——
+        ///   **钮已经不再走它**：原版是「先开收藏窗，用户自己在里面建」，不是「窗口替你建好」。</summary>
+        public void OnCreateDeckButtonClick()
+        {
+            if (Manager == null) { Debug.LogWarning("[Event] 没有 `WindowsManager` ⇒ 开不了收藏窗（原版 `OnCreateDeckButtonClick`）"); return; }
+            WindowsManager.OpenByRef("CollectionWindow", m => CollectionWindow.Create(m));
+            Debug.Log("[Event] 空态钮 ⇒ 建卡组：**开收藏窗**（原版 `RankedDeckSelector.OnCreateDeckButtonClick`）");
+        }
+
+        /// <summary>原版 `RankedDeckSelector.OnGoToStoreButtonClick()` —— 开商店的 **booster 页**。🆕 **2026-10-28（`B91_W5`）已对齐**：原版 = `OpenWindow(shopWindow, OpenData{army = currentArmy(+0xa0)}, …)` ＋ `GameWindowWithTabsOptions.startTab = TypeReference(BoosterShopTab)`（判据 → `判据/E7_…商店208条判据.md` §三）。
+        /// 我们这一跳 = `ShopWindow.Create(m, OpenData.ForFaction(SelectedArmyFaction))` ⇒ 落 **第 5 页 Crates/Boosters**，
+        /// 并把该阵营喂给 `BoosterShopTab.TryOpenContainerArmy` 的等价物（`Shell/ShopTabPage.TryOpenContainerArmy`）。
+        /// ⚠️ 我们的 `OpenData` 只带 `army`（本地没有 options 资产）⇒「落哪一页」由 `army != Neutral` 推，如实标成我们的换算。</summary>
+        public void OnGoToStoreButtonClick()
+        {
+            if (Manager == null) { Debug.LogWarning("[Event] 没有 `WindowsManager` ⇒ 开不了商店（原版 `OnGoToStoreButtonClick`）"); return; }
+            WindowsManager.OpenByRef("ShopWindow", m => ShopWindow.Create(m, ShopWindow.OpenData.ForFaction(SelectedArmyFaction)));
+            // 🆕 2026-10-28（B91_W5）：这两行原来是「开的是默认页 / Create 不收页参数」的 LogWarning —— **现在是假话**
+            //   （`Create` 已收 `OpenData`，这一跳直接落 booster 页并把阵营喂进去）⇒ 改成说明；⛔ 不删行（本文件账按行号钉着）。
+        }
+
+        // ------------------------------------------------------------ 每活动卡组槽（原版 `IPlayEvent.GetDeck/SetDeck`）
+        /// <summary>「活动 id → 该活动上次选的那副卡组名」。原版这一格住在**活动存档**里
+        /// （`IPlayEvent.GetDeck()` / `SetDeck(deck)`；判据 = `RankedDeckSelector__Initialize.c` 的接口槽 **9**、
+        /// `RankedDeckSelector__ChangeDeck.c` 里 `FUN_1800121a0(8, …)` 那一跳）；我们的活动对象在
+        /// `Shell/LiveOpsEvent.cs`（**不在本批白名单**）⇒ 这一格先放在本类。
+        /// <para>🔶 自己设计（非原版）：**只存内存、跨进程不持久**。为什么必须这样：落盘要走 `SaveCenter`，
+        /// 而它只收**键表里有的 key**（`SaveCenter.ValidateKey` → `SaveKeys.IsKnown`），`Shell/SaveKeys.cs`
+        /// 不在本批白名单 ⇒ 加不了新 key（⛔ 也不该借一个原版 key 混写）。后果：同一进程里两个活动交替玩
+        /// **已经各记各的**（= 原版语义），**重开游戏会丢**。谁定的 + 日期：调度台 B90 2026-10-28。</para></summary>
+        static readonly Dictionary<string, string> _eventDeckSlot = new Dictionary<string, string>();
+
+        /// <summary>`Open()` 用哪一套当「当前」：先查**本活动**记的那副（原版 `currentEvent.GetDeck()`）；
+        /// 没记过 / 没有 `EventId` / 那副已经不在库里 ⇒ 回落全局当前（= 改前的行为，⛔ 不是新语义）。</summary>
+        int EventDeckIndex()
+        {
+            if (!string.IsNullOrEmpty(EventId))
+            {
+                string name;
+                if (_eventDeckSlot.TryGetValue(EventId, out name) && !string.IsNullOrEmpty(name))
+                {
+                    int i = CollectionData.IndexOf(name);
+                    if (i >= 0) return i;
+                    Debug.Log("[Event] 活动 `" + EventId + "` 记的那副「" + name + "」已经不在库里 ⇒ 回落全局当前");
+                }
+            }
+            return CollectionData.CurrentIndex();
+        }
+
+        /// <summary>把「现在画着的这一副」记回本活动（= 原版 `currentEvent.SetDeck(deck)`）。
+        /// 由 `RefreshDeckColumn` 收尾调（改卡组的 4 条路都经过它）。
+        /// 预组档不记（原版 `SetDeck` 收的是 `CardDeck`，预组走我们另一条通道 `PickedPrebuilt`）；
+        /// 空态（没有卡组对象）也不记 —— ⛔ 别把「空」写成一条记录（那会让下次开窗误判成「记过」）。</summary>
+        void RememberEventDeck()
+        {
+            if (string.IsNullOrEmpty(EventId)) return;          // 没有事件实例 ⇒ 原版这一跳根本不存在
+            if (PickedPrebuilt != null) return;
+            var raw = CollectionData.Raw(DeckIndex);
+            if (raw == null || string.IsNullOrEmpty(raw.Name)) return;
+            _eventDeckSlot[EventId] = raw.Name;
+        }
+
+        /// <summary>自检口：读某活动记的那副卡组名（没记过 ⇒ null）。</summary>
+        public static string EventDeckSlotFor(string eventId)
+        {
+            string name;
+            return !string.IsNullOrEmpty(eventId) && _eventDeckSlot.TryGetValue(eventId, out name) ? name : null;
+        }
+
+        /// <summary>自检口：清空每活动槽（⚠️ 只给断言用；⛔ 正式代码别调）。</summary>
+        public static void ResetEventDeckSlotsForTest() { _eventDeckSlot.Clear(); }
+
+        /// <summary>`HasEffectiveDeck` 用的那一句（原版 `ChangeDeck` 的 `deck != null`）：
+        /// 「这一套自有卡组属于选中阵营 ∧ 本窗模式」——🔴 **不判合法性**（合法性只进 `FirstDeckInArmy` 的**排序**，
+        /// 见类尾 `DeckIsLegal`），决定不了「当前这一套画不画」；
+        /// 判据 = `RankedDeckSelector__ChangeDeck.c` 的 `cVar1 = CardDeck.op_Inequality(deck, null)`。</summary>
+        bool DeckIsCurrentInArmy()
+        {
+            var raw = CollectionData.Raw(DeckIndex);
+            return raw != null && DeckFitsMode(raw) && DeckRules.SameFaction(FactionOfDeck(DeckIndex), SelectedArmyFaction);
+        }
+
+        // ============================================================ 🆕 2026-10-28（B90 · F1，追加在类尾）
+        //   **`ChangeArmy` 的合法性判定 —— 它只是 `OrderByDescending` 的【排序键】，⛔ 不是过滤器。**
+        //
+        //   原版那一句（逐句现读 = `d:/2/tools/cpp2il/out_il2csharp/Assembly-CSharp/RankedDeckSelector.cs:195-207`）：
+        //     `Where(GetItemInstances(true), 阵营 ∧ 模式)`            ← 只有这一道 Where
+        //     → `OrderByDescending(<上式>, _ChangeArmy_b__29_1)`      ← 合法性在这里，**是排序键**
+        //     → `FirstOrDefault`                                     ← 合法的不合法的都在表里，只是排后面
+        //   谓词体 `:492-496` = `return DeckUtility.ValidateDeck(d, ref err, true);`；
+        //   四钮显隐 `:247-253` = `next/prev SetActive(Count > 1)` · `view/select SetActive(Count > 0)`；
+        //   「`i+1 / Count`」`对的是这张表的 `IndexOf` 与 `_size`（`:382-386`）⇒ **分母是表长**。
+        //   ⇒ **不合法卡组必须留在表里**，只影响「先挑谁」（`FirstDeckInArmy`）。
+        //
+        //   ⚠️ **2026-10-28 更正（铁律 5）**：改前这个判定被写进 `InArmyDeckList` 当「第二道 Where」，
+        //     于是「本阵营 ∧ 本模式」那张表被**过滤**掉了不合法卡组 ⇒ 表空 ⇒ 空态 / 四钮全关 / `0/0`
+        //     （`MainMenuScene.Run` 一次红 38 条：遭遇战段 6 · 排位段 16 · `[E11]` 16）。
+        //   ⚠️ **判据只认 `out_il2csharp`**：`decomp_full/RankedDeckSelector.__c___ChangeArmy_b__29_1.c`
+        //     把谓词的返回值打成 `void`（返回值被吞）⇒ 只看那份 `.c` 确实会把它当成 `Where` 的谓词。
+        //   ⛔ 别改成「合法才留」——那是把排序当过滤，与原版相反。
+        bool DeckIsLegal(int i)
+        {
+            var raw = CollectionData.Raw(i);
+            return raw != null && DeckRules.Validate(raw, CollectionData.Card, raw.IsSkirmish) == DeckError.None;
         }
     }
 }

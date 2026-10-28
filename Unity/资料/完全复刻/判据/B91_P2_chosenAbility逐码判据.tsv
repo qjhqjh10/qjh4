@@ -1,0 +1,87 @@
+码	原版枚举名	池内张数	原版行为(逐句)	判据出处	我们现状	结论	落点	依赖
+0	drawCard	76	两档各调一次 AddDrawCard：playersAffected(+0x20)∈{0,10} 抽自己一份、∈{0,20} 抽对手一份，次数 = local_178	decomp_full/AbilityLogic__PlayAbility.c:1439-1453	draw 动词已实现（DoDraw，含手牌上限/代词槽）；"Draw a <兵种>" 走 DoDrawType	已实现	Core/EffectResolver.cs:3652（DoDraw）·:1183（DoDrawType）	无
+3	doOnlyVfx	10	只打一条 CustomDebug.Log 就 return，不改棋盘/手牌/能量	decomp_full/AbilityLogic__PlayAbility.c:1456-1458	原版就是空操作；对应行不产出 op，等价	已实现	无（结构上不需要实现）	无
+10	doDamage	272	GetValueFromCriteria 取 damageCriteria 的值 → new DamageInfo → DealMultiDamage(isFast=false)	decomp_full/AbilityLogic__PlayAbility.c:1461-1510	deal 动词 DoDeal（逐目标掷/条件换值/超额量/击杀记账）	已实现	Core/EffectResolver.cs:3020（DoDeal）	无
+13	doDamageFast	0	同 10，只是把 isFast 传到 DealMultiDamage 第 8 参（branch 里比较 chosenAbility==0x0d）	decomp_full/AbilityLogic__PlayAbility.c:1461-1510（:1510 那一跳）	DoDeal 没有 isFast 位；池内 0 张（SO 有 2 条，均在池外）	休眠/不可达	Core/EffectResolver.cs:3020（DoDeal，无 fast 位）	数据恒 0：cards_engine 1129 张里 chosenAbility=13 的 0 张
+15	doDamageAndDestroySelf	0	同 10，改调 DealMultiDamageAndDestroySelf（打完来源自毁，多传 +0x18 那张）	decomp_full/AbilityLogic__PlayAbility.c:1629-1674	自毁那半未建模；池内 0（SO 1 条，池外）	休眠/不可达	Core/EffectResolver.cs:3020（DoDeal，无自毁）	数据恒 0：池内 0 张
+12	doDamageMultiRandom	4	循环 local_178 次：每次 GetTargets → GetValueFromCriteria 掷值 → 按目标累加到变体表 → 最后一次 DealMultiDamageVariable	decomp_full/AbilityLogic__PlayAbility.c:1511-1628	DoDeal + 「Repeat this effect」/「N times」回填；AM44 实打 4 次 ×1 已对拍	已实现	Core/EffectResolver.cs:3020（DoDeal）·:8428（repeat 回填）	无
+20	doHeal	63	GetValueFromCriteria 取值 → HealOneCharacter / HealMultipleCharacters	decomp_full/AbilityLogic__PlayAbility.c:1262-1308	heal 动词 DoHeal	已实现	Core/EffectResolver.cs:3626（DoHeal）	无
+30	buffOthers	420	new CardEffect 副本 → AddEffect（AlreadyContainsEffect 去重、0x41 出 ItemDrawerOptions）	decomp_full/AbilityLogic__PlayAbility.c:1182-1260	give/gain/lowercost → DoGive（含去重与手牌加成支）	已实现	Core/EffectResolver.cs:11642（DoGive）	无
+31	buffOthersNotResetPool	1	同 30 的「不重置 pool」持续变体（卡面形如 Friendly troops with <关键词> have Y）	decomp_full/AbilityLogic__PlayAbility.c:1182-1260	常驻层 Aura 承担（"X with <关键词> have Y"）；AM72 单张	已实现	Core/Aura.cs:273（Auras.TryParse）	无
+40	buffSelf	147	new CardEffect 副本（写 +0x30/+0x31/+0x98/+0xa4）→ AddEffect 给自己	decomp_full/AbilityLogic__PlayAbility.c:1310-1375	gain/give 无目标即自己（Subjectless）	已实现	Core/EffectResolver.cs:11642（DoGive）	无
+50	buffHand	18	HandEffect 副本 → AddHandEffect（英雄/单位两档 by +0x18）	decomp_full/AbilityLogic__PlayAbility.c:1377-1437	AttachHandEffect 三个登记点 + CardInstance.HandEffects	已实现	Core/EffectResolver.cs（AttachHandEffect）·Core/BattleContext.cs:594	无
+60	buffMana	53	new ManaBuff（倍率 ×local_178）→ AddManaBuff	decomp_full/AbilityLogic__PlayAbility.c:685-721	gainspirit/gainquest/gainfaith/gainenergy/refill	已实现	Core/EffectResolver.cs:12792（DoEnergy）·:12838（DoFactionResource）	无
+70	summonUnit	70	GetCardToSummon → GetNextSlotWithoutDisplacing → AddSummonUnit（槽位四支）	decomp_full/AbilityLogic__PlayAbility.c:722-878	deploy → DoDeploy→DoDeployOnce	已实现	Core/EffectResolver.cs:3706（DoDeploy）	无
+71	summonUnitAndSetRef	0	同 70 且写 +0x280（refCard）	decomp_full/AbilityLogic__PlayAbility.c:722-878	SetRef 无对应；池内 0（SO 也 0 条）	休眠/不可达	Core/EffectResolver.cs:3706（无 SetRef）	数据恒 0：池内与 SO 均 0 条
+72	summonUnitAndTriggerEffect	0	同 70（触发效果由 AddSummonUnit 该档处理）	decomp_full/AbilityLogic__PlayAbility.c:722-878	池内 0（SO 1 条，池外）	休眠/不可达	Core/EffectResolver.cs:3706	数据恒 0：池内 0 张
+75	summonBuffedUnit	11	同 70 + buffEffect 副本（AdjustCardEffect / 写 ref）	decomp_full/AbilityLogic__PlayAbility.c:722-878	deploy 后接 give（"Deploy ... and give them X"）	已实现	Core/EffectResolver.cs:3706（DoDeploy）	无
+77	summonUnitDelayed	2	同 70，priority 固定 3（延迟道）	decomp_full/AbilityLogic__PlayAbility.c:722-878	deploy 已实现；原版 priority=3 的延迟道未建模（同批结算，观测不到）	已实现	Core/EffectResolver.cs:3706（DoDeploy）	遗留：延迟道未建模（池内 2 张观测不到）
+73/74/76/78/79	（未定义枚举空档）	0	枚举空档：落到 return，无操作	decomp_full/AbilityLogic__PlayAbility.c:879-884	原版空操作，无需对应	已实现	无（结构上不需要实现）	无
+80	transformSelf	0	GetCardToSummon → AddTransformCard（自己变身，带 keepEffects +0x2a）	decomp_full/AbilityLogic__PlayAbility.c:885-906	无变身机制；池内 0（desc 含 transform 0 命中）	休眠/不可达	无（未建）	数据恒 0：池内 0 张
+85	transformSelfWithBuff	0	GetCardToSummon → AddTransformCardWithBuff	decomp_full/AbilityLogic__PlayAbility.c:908-946	无变身机制；池内 0	休眠/不可达	无（未建）	数据恒 0：池内 0 张
+90	transformUnit	1	遍历目标 AddTransformCard	decomp_full/AbilityLogic__PlayAbility.c:950-984	become → DoBecome；SW18 实测手牌 Stratagem 变 SW5	已实现	Core/EffectResolver.cs:3491（DoBecome）·Core/EffectText.cs:3909	无
+100	createCardInHand	164	GetCardToSummon → GetPos → AddNewCardToHand	decomp_full/AbilityLogic__PlayAbility.c:986-1037	create / choosecard（hand 支）	已实现	Core/EffectResolver.cs:4073（DoCreate）·:4792（DoChooseCard）	无
+101	createCardInHandAndKeepEffects	1	GetCardScriptToSummon → AddNewCardToHand → 逐个 AddEffect（保留旧效果）	decomp_full/AbilityLogic__PlayAbility.c:1107-1173	SAU74 实测：抽 1 + 复制 1 进手	已实现	Core/EffectResolver.cs:4073（DoCreate）	无
+110	destroy	23	判 spell/unit（trait 0x136 闸）→ DestroyUnit	decomp_full/AbilityLogic__PlayAbility.c:1040-1105	destroy → DoDestroy	已实现	Core/EffectResolver.cs:4236（DoDestroy）	无
+120	jam	0	遍历目标 JamUnit	decomp_full/AbilityLogic__PlayAbility.c:625-640	DoJam 已建（2026-10-26）；池内 0（desc 含 jam 0 命中）	休眠/不可达	Core/EffectResolver.cs:15998（DoJam）	数据恒 0：池内 0 张
+130	stun	28	遍历目标 AddStun	decomp_full/AbilityLogic__PlayAbility.c:642-657	stun → DoStun	已实现	Core/EffectResolver.cs:4277（DoStun）	无
+135	stunMultiplier	0	Shuffle 候选后按 local_178 次数 AddStun（随机多次眩晕）	decomp_full/AbilityLogic__PlayAbility.c:659-681	多次眩晕未建模；池内 0	休眠/不可达	Core/EffectResolver.cs:4277（DoStun，无多次）	数据恒 0：池内 0 张
+140	recallToOwnerHand	9	遍历目标 AddRecallToHand（带回 owner 判断 +0x40）	decomp_full/AbilityLogic__PlayAbility.c:541-566	return（dest=hand，归牌主）	已实现	Core/EffectResolver.cs:6606（DoReturn）	无
+150	recallToCasterHand	2	同上（回 caster 的 hand，不是牌主）	decomp_full/AbilityLogic__PlayAbility.c:568-586	return dest=hand	已实现	Core/EffectResolver.cs:6606（DoReturn）	差异档未建模：回谁的手只按牌主（池内 2 张都是自回，观测不到）
+160	discardFromHand	0	遍历目标 AddDiscardFromHand	decomp_full/AbilityLogic__PlayAbility.c:588-603	无 discard 动词；池内 0（SO 1 条 = Abaddon's Chosen，池外）	休眠/不可达	无（未建）	数据恒 0：池内 0 张
+162	disappearFromHand	0	遍历目标 AddDisappearFromHand	decomp_full/AbilityLogic__PlayAbility.c:605-622	无；池内 0	休眠/不可达	无（未建）	数据恒 0：池内 0 张
+165	discardWholeHand	0	取敌方手牌整批 AddDiscardFromHand（含 IsPlayerAffected 双档）	decomp_full/AbilityLogic__PlayAbility.c:293-347	无；池内 0	休眠/不可达	无（未建）	数据恒 0：池内 0 张
+170	stealFromHand	0	遍历目标 AddStealFromHand	decomp_full/AbilityLogic__PlayAbility.c:349-366	DoStealFromHand 已建（2026-10-27）；缺解析层生产者；池内与 SO 均 0	休眠/不可达	Core/EffectResolver.cs:17237（DoStealFromHand）	数据恒 0：池内 0 张
+175	stealFromDeck	0	遍历目标 AddStealFromDeck	decomp_full/AbilityLogic__PlayAbility.c:368-383	DoStealFromDeck 已建；缺生产者；池内 0	休眠/不可达	Core/EffectResolver.cs:17279（DoStealFromDeck）	数据恒 0：池内 0 张
+180	stealMinion	1	遍历目标 AddStealMinion	decomp_full/AbilityLogic__PlayAbility.c:385-402	takecontrol → DoTakeControl；GSC49「本回合临时」与卡面一致	已实现	Core/EffectResolver.cs:9369（DoTakeControl）	永久偷单位那一档未建模（池内唯 1 张是临时）
+185	stealMinionSelf	0	单张 AddStealMinion（+0x18）	decomp_full/AbilityLogic__PlayAbility.c:406-413	池内 0（SO 1 条，池外）；DoTakeControl 只建模本回合临时	休眠/不可达	Core/EffectResolver.cs:9369	数据恒 0：池内 0 张
+190	exchangeSelfForMinion	0	临时造 criteria → GetTargets → AddExchangeMinions（换主/替换/清召唤病/更新 whileInPlay/重组 五跳）	decomp_full/AbilityLogic__PlayAbility.c:415-536	DoExchange 已建（换主/替换两跳）；缺生产者；池内 0	休眠/不可达	Core/EffectResolver.cs:17034（DoExchange）	数据恒 0：池内 0 张
+200	exchangeRandomFriendlyMinion	0	GetTargets 随机友方 → AddStealMinion / AddExchangeMinions	decomp_full/AbilityLogic__PlayAbility.c:462-536	DoExchange（随机友方那一档未核）；池内 0	休眠/不可达	Core/EffectResolver.cs:17034（DoExchange）	数据恒 0：池内 0 张
+210	copyUnitInCemetery	0	遍历目标 CopyUnitInCemetery（复制一份、原卡留墓地）	decomp_full/AbilityLogic__PlayAbility.c:442-460	DoCopyUnitInCemetery 已建；缺生产者；池内 0	休眠/不可达	Core/EffectResolver.cs:17153（DoCopyUnitInCemetery）	数据恒 0：池内 0 张
+220	resetActions	0	遍历目标 AddResetActions	decomp_full/AbilityLogic__PlayAbility.c:2623-2638	只有强制攻击退还那一支（ForcedAttackRefund / AddResetDuty）；通用 ResetActions 未建；池内 0	休眠/不可达	Core/RuleCore.cs:14503·:15678（部分）	数据恒 0：池内 0 张
+230	forceAttack	0	遍历目标 AddForceAttack(dontCount=0)	decomp_full/AbilityLogic__PlayAbility.c:2641-2658	DoForceAttack 已建；池内 0（SO 也 0 条）	休眠/不可达	Core/EffectResolver.cs:3207（DoForceAttack）	数据恒 0：池内 0 张
+231	forceAttackDontCountAttack	2	AddForceAttack(dontCount=1)	decomp_full/AbilityLogic__PlayAbility.c:2659-2674	DoForceAttack + ForcedAttackRefund（{231,237,238} 退还）	已实现	Core/EffectResolver.cs:3207（DoForceAttack）	无
+233	forceAttackFriendly	0	AddForceAttackFriendlyUnits	decomp_full/AbilityLogic__PlayAbility.c:2679-2694	池内 0	休眠/不可达	Core/EffectResolver.cs:3207	数据恒 0：池内 0 张
+235	scriptedSelfAttack	2	AddScriptedAttack（攻击方 = 自己）	decomp_full/AbilityLogic__PlayAbility.c:2695-2715	DoForceAttack（scripted 支，不退还）	已实现	Core/EffectResolver.cs:3207	无
+236	scriptedActingCardAttack	1	AddRedirectedAttack（把攻击重定向到别的单位）	decomp_full/AbilityLogic__PlayAbility.c:2716-2747	TryRedirectAttackToBodyguard（SAU33 副官替督军挨打）	已实现	Core/RuleCore.cs:6066（TryRedirectAttackToBodyguard）	无
+237	scriptedTargetCardAttackDontCount	1	AddScriptedForceAttack(actor=+0x20)	decomp_full/AbilityLogic__PlayAbility.c:2748-2763	DoForceAttack + ForcedAttackRefund	已实现	Core/EffectResolver.cs:3207	无
+238	scriptedSelfCardAttackDontCount	6	AddScriptedForceAttack(actor=+0x10)	decomp_full/AbilityLogic__PlayAbility.c:2764-2779	DoForceAttack + ForcedAttackRefund	已实现	Core/EffectResolver.cs:3207	无
+240	disappearUnit	0	遍历目标 AddDisappearUnit	decomp_full/AbilityLogic__PlayAbility.c:2780-2795	无；池内 0	休眠/不可达	无（未建）	数据恒 0：池内 0 张
+250	autoPlayFromHand	4	遍历目标 AddAutoPlayFromHand（自动从手牌打出）	decomp_full/AbilityLogic__PlayAbility.c:2796-2814	deploy（DeploySource.AutoPlayFromHand）；BL55 实测 4 张落场	已实现	Core/EffectResolver.cs:3706·Core/RuleCore.cs:4856	无
+260	triggerEffectInCard	14	收集目标后 TriggerOtherCardAbility（每个目标触发它自己的 ability；卡面常写作 Repeat this effect）	decomp_full/AbilityLogic__PlayAbility.c:2534-2555 + :2851-2877	repeat / eachunitdeal；ASH46 实测按友方 Vehicle 数重复	已实现	Core/EffectResolver.cs:8428（repeat 回填）·:3546（DoEachUnitDeal）	无
+270	createCardInDeck	7	GetCardToSummon → GetPos → AddNewCardToDeck	decomp_full/AbilityLogic__PlayAbility.c:2557-2622	choosecard 的 todeck/decktop/copies；DA44 实测随机插入牌库、DA72 实测复制进牌库	已实现	Core/EffectResolver.cs:4792（DoChooseCard，"todeck":5017 · "decktop":5009）	无
+280	revealOrder	0	AddRevealOrders + SpendEnchantment	decomp_full/AbilityLogic__PlayAbility.c:2483-2512	RuleCore ResolveRevealOrders 已建；池内 0	休眠/不可达	Core/RuleCore.cs:8075	数据恒 0：池内 0 张
+290	missAction	0	遍历目标 AddMissAction	decomp_full/AbilityLogic__PlayAbility.c:2514-2532	RuleCore.MissActions 已建；池内 0	休眠/不可达	Core/RuleCore.cs:14991（MissActions）	数据恒 0：池内 0 张
+300	recallToDeck	5	AddRecallToDeck(setItOnTop=0)（洗回牌库）	decomp_full/AbilityLogic__PlayAbility.c:2164-2192	return dest=deck	已实现	Core/EffectResolver.cs:6606（DoReturn）	无
+301	recallToDeckToTop	1	AddRecallToDeck(setItOnTop=1)（放牌库顶）	decomp_full/AbilityLogic__PlayAbility.c:2194-2224	return dest=decktop；DA51 实测双方各回顶	已实现	Core/EffectResolver.cs:6606（DoReturn）	无
+310	displayFromHand	0	遍历目标 AddDisplayFromHand	decomp_full/AbilityLogic__PlayAbility.c:2227-2242	无；池内 0	休眠/不可达	无（未建）	数据恒 0：池内 0 张
+320	followAfterResolution	25	AddFollowAfterResolution（跟随上一条结算）	decomp_full/AbilityLogic__PlayAbility.c:2444-2479	FollowUpSchedulerOf 硬编码 25 张 + 事件广播	已实现	Core/EffectResolver.cs:7796（FollowUpSchedulerOf）	卡池换 id / 改能力时必须重生成那张表
+325	followResolutionIfPreviousMeetsCriteria	3	取 refCard + 打印序号 + PlayAnim（上一条满足条件才跟随）	decomp_full/AbilityLogic__PlayAbility.c:2419-2470	解析层条件二分句（"If …, …"）+ 同族跟进；ASH73 实测条件句执行	已实现	Core/EffectResolver.cs:7796 + Core/EffectText 条件句	DA29/DA14 原版本身不触发（已如实不收）
+330	drawUntilEqual	0	比较双方手牌差 → AddDrawCard 补齐到与对手相等	decomp_full/AbilityLogic__PlayAbility.c:2373-2418	无 until equal 解析；池内 0	休眠/不可达	无（未建）	数据恒 0：池内 0 张
+340	removeThisEnchantment	2	只摘指定那一个附魔（trigger 15/16 匹配 enchantCardId）	decomp_full/AbilityLogic__PlayAbility.c:2250-2295	唯一可达路要求 cardEffect.spellType==15，池内 0 张（ActionPump §七）	休眠/不可达	Core/Enchantment.cs:957（附魔摘除机制）	数据恒 0：spellType 15 = 池内 0 张（SO 7 条，5 条池外，2 条为空正文模板）
+345	removeEnchantment	0	遍历目标 AddRemoveEnchantment（按 enchantCardId 匹配）	decomp_full/AbilityLogic__PlayAbility.c:2297-2371	同上；池内 0	休眠/不可达	Core/Enchantment.cs:957	数据恒 0：池内 0 张
+350	removeFromCemetery	0	遍历目标 AddRemoveFromCemetery	decomp_full/AbilityLogic__PlayAbility.c:1977-1992	无；池内 0	休眠/不可达	无（未建）	数据恒 0：池内 0 张
+360	playChosenCardAbility	18	PayCardPlayedCostOath + OnTriggerAlt + double-oath 循环（誓约/择一重放）	decomp_full/AbilityLogic__PlayAbility.c:1994-2070	chooseone（DoChooseOne）+ Oath 机制；ASH71/UM109 实测	已实现	Core/EffectResolver.cs:4557（DoChooseOne）+ Oath 链	无
+370	triggerRelentless	0	遍历目标 AddTriggerRelentless	decomp_full/AbilityLogic__PlayAbility.c:1995-2012	RunGrantedTriggerRow 已建（2026-10-28 B90·B1）；池内与 SO 均 0	休眠/不可达	Core/EffectResolver.cs:18490（RunGrantedTriggerRow）	数据恒 0：池内 0 张
+375	triggerSacrifice	0	AddTriggerSacrifice	decomp_full/AbilityLogic__PlayAbility.c:2111-2126	keyword sacrifice 已进 RoutableTriggers + TriggerKeywordOf；池内 0	休眠/不可达	Core/RuleCore.cs:13299（TriggerKeywordOf）·Core/ActionPump.cs:1102	数据恒 0：池内 0 张
+380	setReferenceCard	3	给 actingCard.referencedCards 换新表并填本条目标（覆盖）	decomp_full/AbilityLogic__PlayAbility.c:2128-2160	SetReferenceCards 结构已建但无生产调用点；指代现由 ctx.LastTarget 承担	只差接线	Core/EffectResolver.cs:1366（SetReferenceCards）	需核 AM54/GOF93/GOF104 的 "it" 指代是否与 referencedCards 等价
+390	triggerRequiem	0	AddTriggerRequiem	decomp_full/AbilityLogic__PlayAbility.c:2073-2089	池内 0	休眠/不可达	Core/RuleCore.cs:13299（TriggerKeywordOf）	数据恒 0：池内 0 张
+400	triggerCourtesy	0	AddTriggerCourtesy	decomp_full/AbilityLogic__PlayAbility.c:2091-2109	RunGrantedTriggerRow 已建；池内与 SO 均 0	休眠/不可达	Core/EffectResolver.cs:18490（RunGrantedTriggerRow）	数据恒 0：池内 0 张
+410	triggerCodex	2	遍历目标 AddTriggerCodex	decomp_full/AbilityLogic__PlayAbility.c:1685-1700	triggerability(codex) + RuleCore.CheckCodex	已实现	Core/EffectResolver.cs:15024（DoTriggerAbility）·Core/RuleCore.cs:13226（CheckCodex）	无
+411	triggerRegiment	1	遍历目标 AddTriggerRegiment	decomp_full/AbilityLogic__PlayAbility.c:1702-1719	triggerability(regiment)	已实现	Core/EffectResolver.cs:15024	无
+420	setCardDeckToTop	7	遍历目标 AddSetCardToTop（把那张牌放回它主人的牌库顶）	decomp_full/AbilityLogic__PlayAbility.c:1721-1735	choosecard "decktop"（DA11/DA16/DA40/DA1 走这条）	已实现	Core/EffectResolver.cs:5009（DoChooseCard "decktop"）	无
+430	reanimate	8	遍历目标 AddTransformFromRemnant（从残骸复活）	decomp_full/AbilityLogic__PlayAbility.c:1738-1763	reanimate → DoReanimate	已实现	Core/EffectResolver.cs:15506（DoReanimate）	无
+440	triggerSpiritStone	1	遍历目标 AddTriggerSpiritStone	decomp_full/AbilityLogic__PlayAbility.c:1767-1781	triggerability(spiritstone) 显式分支（不付费）	已实现	Core/EffectResolver.cs:15024	无
+450	triggerSynapse	1	遍历目标 AddTriggerSynapse（630 TriggeredSynapse）	decomp_full/AbilityLogic__PlayAbility.c:1784-1800	extratrigger → DoExtraTrigger（"applies the effect twice" 解析在 EffectText:7895）	已实现	Core/EffectResolver.cs:9300（DoExtraTrigger）	无
+460	triggerMob	1	AddTriggerMob(additional=0)	decomp_full/AbilityLogic__PlayAbility.c:1805-1821	triggerability(mob)	已实现	Core/EffectResolver.cs:15024	无
+461	triggerMobAdditional	1	AddTriggerMob(additional=1)	decomp_full/AbilityLogic__PlayAbility.c:1822-1837	extratrigger → DoExtraTrigger（"triggers an additional time"）	已实现	Core/EffectResolver.cs:9300	无
+462	triggerPray	31	AddTriggerPray（让目标进入 isPraying 那一刻，不结算 Pray 正文）	decomp_full/AbilityLogic__PlayAbility.c:1838-1853	DoTriggerAbility 的 Pray 显式分支（置 Prayed + 广播 Prays）	已实现	Core/EffectResolver.cs:15024	无
+463/464/469/471/472/473/474	（未定义枚举空档）	0	枚举空档：return 无操作	decomp_full/AbilityLogic__PlayAbility.c:1854-1861	原版空操作	已实现	无（结构上不需要实现）	无
+465	triggerAmbush	1	AddTriggerAmbush	decomp_full/AbilityLogic__PlayAbility.c:1862-1877	triggerability(ambush)	已实现	Core/EffectResolver.cs:15024	无
+466	triggerUprising	1	AddTriggerUprising	decomp_full/AbilityLogic__PlayAbility.c:1878-1893	triggerability(uprising)	已实现	Core/EffectResolver.cs:15024	无
+467	triggerSlay	1	AddTriggerSlay	decomp_full/AbilityLogic__PlayAbility.c:1894-1909	triggerability(slay)	已实现	Core/EffectResolver.cs:15024	无
+468	triggerTeleport	2	AddTriggerTeleport	decomp_full/AbilityLogic__PlayAbility.c:1910-1925	triggerability(teleport)	已实现	Core/EffectResolver.cs:15024	无
+470	showCardsWindow	1	AddShowCardsWindowAction（建 0x56 动作 → 摊开一批卡给玩家看）	decomp_full/AbilityLogic__PlayAbility.c:1926-1933	ShowCardsWindowOf 硬编码 1 张 + EmitShowCardsWindow + BattleDriver.OpenShowCardsWindow	已实现	Core/EffectResolver.cs:7846·:2781·CardPresentation/Battle/BattleDriver.cs:13717	硬编码表：卡池改 id/能力需重生成
+475	resetDuty	3	遍历目标 AddResetDuty（把 +0x4c 置 0，可再次使用）	decomp_full/AbilityLogic__PlayAbility.c:1934-1959	reloadduty → DoReloadDuty（清 ActiveAbilityUsed + DutyUsed）	已实现	Core/EffectResolver.cs:15196（DoReloadDuty）	无
+480	highlightBloodThirst	1	对目标列表第一个 SendHighlightBloodThirstAction（表现层脉冲）	decomp_full/AbilityLogic__PlayAbility.c:1960-1972	引擎有 EmitBloodThirst（攻击/用能力时刻发），但 chosenAbility 480 那条被动行不触发它	只差接线	Core/RuleCore.cs:12441（EmitBloodThirst）·CardPresentation/Battle/BattleDriver.cs:24879（表现）	需在 Slay 正文结算后补一条 highlight，或确认已由 EmitBloodThirst 覆盖
+其它（default）	（树外常量）	—	树外常量一律 return（未处理）	decomp_full/AbilityLogic__PlayAbility.c 全树 default	原版无操作	已实现	无（结构上不需要实现）	无

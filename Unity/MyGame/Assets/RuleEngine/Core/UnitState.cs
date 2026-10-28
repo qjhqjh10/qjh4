@@ -1640,7 +1640,7 @@ namespace RuleEngine
             public string Name;              // 属性名（attack/health/armour/ranged）或关键词名
             public int Value;
             public int Owner;                // 施放者玩家号（`until your next turn` 按他的回合算）
-            public bool UntilMyNextTurn;     // true = 施放者的下回合开始撤；false = 本回合结束撤
+            public bool UntilMyNextTurn; public bool UntilOpponentNextTurn;   // 判据 = CardScript__OnTurnSetup.c:+0x33/+0x34/+0x35 三档。my-next-turn=true ⇒ 施放者下回合开始撤 · opponent-next-turn=true ⇒ **对面**回合开始撤（Owner≠player）· 两者都 false ⇒ 本回合结束撤；UntilOpponentNextTurn 优先
             public string Src;               // 来源卡名（日志用）
             /// <summary>
             /// **施加它的那张卡的卡名**（2026-09-13 A4 批 1 加）。
@@ -1676,7 +1676,7 @@ namespace RuleEngine
         /// <summary>
         /// 登记一条限时增益。
         /// 🔴 **2026-10-25（Stage 2）**：非关键词的那几条**在这里建修饰表那一格**（调用方不必自己建），
-        /// 除非调用方已经建好并塞进 <see cref="TempBuff.Mod"/>（`ApplyOneGain` 的带来源那条路）。
+        /// 除非调用方已经建好并塞进 <see cref="TempBuff.Mod"/>（`ApplyOneGain` 的带来源那条路）。⚠️ `IsKeyword=true` 只 `_buffs.Add`、**不写 `_keywords`** ⇒ <see cref="Has"/>（只读 `_keywords`）看不到它；关键词必须由调用方**先** `AddKeyword`/`ApplyTraitEffect` 挂上（现有三条生产者都如此：`EffectResolver.cs:11102 AddKeyword` / `:12004 ApplyTraitEffect`）；⛔ 别在这里补 `AddKeyword`，那会和调用方**双记**关键词值。
         /// </summary>
         public void AddTempBuff(TempBuff b)
         {
@@ -1697,38 +1697,9 @@ namespace RuleEngine
             for (int i = _buffs.Count - 1; i >= 0; i--)
             {
                 var b = _buffs[i];
-                bool due = atTurnEnd ? !b.UntilMyNextTurn : (b.UntilMyNextTurn && b.Owner == player);
+                bool due = atTurnEnd ? (!b.UntilMyNextTurn && !b.UntilOpponentNextTurn) : (b.UntilOpponentNextTurn ? (b.Owner != player) : (b.UntilMyNextTurn && b.Owner == player));   // 判据 = decomp_full/CardScript__OnTurnSetup.c 的 +0x34 档（对面回合撤）
                 if (!due) continue;
-                _buffs.RemoveAt(i);
-                // 🆕 2026-10-27（B9 · S0-①）：关键词那条**记录**也要一起收（`RemoveKeyword` 只管值）。
-                if (b.IsKeyword) { RemoveKeyword(b.Name, b.Value); ExpireTraitEffect(b.TraitRec, b.Value); }
-                else
-                {
-                    switch (b.Name)
-                    {
-                        // 🔴 **2026-10-25（Stage 2）**：`attack` / `ranged` **不再「减回去」** ——
-                        //   数值只在 `_statMods` 算一次，撤销 = 把那一格摘掉（投影自动变）。
-                        //   以前这句是 `Attack -= b.Value`：同一件事两处记账，改一处漏一处。
-                        case "attack": RemoveStatMod(b.Mod); break;
-                        case "ranged": RemoveStatMod(b.Mod); break;
-                        // 🔴 **2026-10-25（Stage 2 · 判据 §7·4）**：生命到期是**夹到新上限**，
-                        //   **不是减**（原版 `RemoveEffect.c:147-181`）。以前 `Health -= b.Value;
-                        //   MaxHealth -= b.Value` 会在「挂 buff 期间掉过血」时多掉一截。
-                        case "health": RemoveStatMod(b.Mod); ClampHealthToMax(); break;
-                        // 🔴 **2026-10-19（`T01 §六·6` 同族，顺手补）：护甲不能只回字段那一半。**
-                        //    本支是**限时属性护甲**（`+N Armour this turn`，`IsKeyword == false`
-                        //    ⇒ 当前这一格）—— 改前只减 `Armor`、关键词值还在，
-                        //    到期后 `KwValue("armour")` 仍是非 0（同一件事两种表示又脱节，
-                        //    与 `ApplyGrant` / `RemoveKeyword` 两处**同一条判据**）。
-                        //    ⇒ 走 `RemoveKeyword`（它现在会把 `Armor` 一起减）。
-                        //   ⚠️ 护甲**不进**修饰表（它本来就是关键词的一种表示）⇒ 本支不需要 `b.Mod`。
-                        case "armour": RemoveKeyword(KeywordTable.Armour, b.Value); break;
-                    }
-                }
-                n++;
-                // 🆕 2026-10-18（`W5`）：限时增益撤掉也会改攻值 ⇒ 重挑攻击型
-                //（原版 `UpdateAttackText.c:21-29` 会被 `ChangeBaseAttack` 那些地方调到）。
-                SyncAttackTypeAfterStatChange();
+                if (RemoveTempBuff(b)) n++;   // 撤除规则只在 RemoveTempBuff 一处（判据一份）；账 L722 的「逐条撤」也复用它
             }
             return n;
         }
@@ -1756,24 +1727,7 @@ namespace RuleEngine
             {
                 var b = _buffs[i];
                 if (b == null || b.SourceCard != cardName) continue;
-                _buffs.RemoveAt(i);
-                // 🆕 2026-10-27（B9 · S0-①）：同 `RevertBuffs` —— 关键词那条记录也一起收。
-                if (b.IsKeyword) { RemoveKeyword(b.Name, b.Value); ExpireTraitEffect(b.TraitRec, b.Value); }
-                else
-                {
-                    switch (b.Name)
-                    {
-                        // 同 `RevertBuffs`：Stage 2 之后数值只在 `_statMods` 算一次（摘格即可）。
-                        case "attack": RemoveStatMod(b.Mod); break;
-                        case "ranged": RemoveStatMod(b.Mod); break;
-                        // 同 `RevertBuffs`：生命是**夹到新上限**、不是减（判据 §7·4）。
-                        case "health": RemoveStatMod(b.Mod); ClampHealthToMax(); break;
-                        // 同 `RevertBuffs`：护甲走同一个口（`RemoveKeyword` 会同步减 `Armor`）。
-                        case "armour": RemoveKeyword(KeywordTable.Armour, b.Value); break;
-                    }
-                }
-                n++;
-                SyncAttackTypeAfterStatChange();   // 🆕 `W5`：同上（这一条是「撤某张卡给的全部增益」）
+                if (RemoveTempBuff(b)) n++;   // 🆕 2026-10-28（W4b）：撤除规则只在 RemoveTempBuff/RemoveTempBuffCore 一处（含 SyncAttackType，与改前逐条一致）
             }
             return n;
         }
@@ -2233,21 +2187,7 @@ namespace RuleEngine
             for (int i = _buffs.Count - 1; i >= 0; i--)
             {
                 var b = _buffs[i];
-                _buffs.RemoveAt(i);
-                if (b == null) continue;
-                // 🆕 2026-10-27（B9 · S0-①）：同 `RevertBuffs` —— 关键词那条记录也一起收。
-                if (b.IsKeyword) { RemoveKeyword(b.Name, b.Value); ExpireTraitEffect(b.TraitRec, b.Value); }
-                else
-                {
-                    switch (b.Name)
-                    {
-                        case "attack": RemoveStatMod(b.Mod); break;
-                        case "ranged": RemoveStatMod(b.Mod); break;
-                        case "health": RemoveStatMod(b.Mod); ClampHealthToMax(); break;
-                        case "armour": RemoveKeyword(KeywordTable.Armour, b.Value); break;
-                    }
-                }
-                n++;
+                if (RemoveTempBuffCore(b)) n++;   // 🆕 2026-10-28（W4b）：撤除规则一份；本路按现状**不**调 SyncAttackTypeAfterStatChange（保持既有行为，⛔ 别加）
             }
             // ② 关键词带出来的属性增益
             for (int i = _grants.Count - 1; i >= 0; i--)
@@ -3424,5 +3364,52 @@ namespace RuleEngine
         /// 本条是 `L866`（账：回手/洗回牌库要重置）的落地。</para>
         /// </summary>
         public bool AlreadyTriggeredBacklash;
+
+        /// <summary>
+        /// 🔴 **2026-10-28（批次 91 · `W4` · 账 L722）：把「撤某一条 tempBuff」抽成公开口** ——
+        /// W1 要把 `CardScript.ClearEndOfTurnEffects` 从「整批重算」改成「逐条 `SendRemoveEffect` 入队」，
+        /// 需要「按条撤」这一跳；本方法就是那个唯一口（`RevertBuffs` 已改成循环调它）。
+        /// <para>⚠️ **撤除规则只此一份**：关键词记录收缩（`RemoveKeyword`/`ExpireTraitEffect`）＋
+        /// `switch (b.Name)` 那串数值撤销（`attack`/`ranged`/`health`/`armour`）＋ 攻型重挑。
+        /// ⛔ 别在别处再抄一份（`RevertBuffs` 不再自己写撤法）。返回「这条真被撤掉」（`null` / 不在表里 ⇒ false）。</para>
+        /// </summary>
+        public bool RemoveTempBuff(TempBuff b)
+        {
+            if (!RemoveTempBuffCore(b)) return false;
+            // 🆕 2026-10-18（`W5`）：限时增益撤掉也会改攻值 ⇒ 重挑攻击型（原版 `UpdateAttackText.c:21-29`）。
+            SyncAttackTypeAfterStatChange();
+            return true;
+        }
+
+        /// <summary>
+        /// <see cref="RemoveTempBuff"/> 的**内核**：从 `_buffs` 摘掉（按引用 `LastIndexOf`）+ 关键词记录收缩
+        /// （`RemoveKeyword`/`ExpireTraitEffect`）+ `switch (b.Name)` 数值撤销（`attack`/`ranged`/`health`/`armour`）。
+        /// ⛔ **不含** `SyncAttackTypeAfterStatChange()` —— 那一步由调用方决定（`RemoveTempBuff` 会调；
+        /// `RemoveAllAppliedEffectsForJam` 那一路按**现状不调**，保住既有行为）。撤除规则**全仓只此一份**：
+        /// `RevertBuffs` / `RemoveBuffsFromCard` 走 `RemoveTempBuff`，`RemoveAllAppliedEffectsForJam` 走本内核。
+        /// </summary>
+        bool RemoveTempBuffCore(TempBuff b)
+        {
+            if (b == null) return false;
+            int i = _buffs.LastIndexOf(b);
+            if (i < 0) return false;
+            _buffs.RemoveAt(i);
+            // 🆕 2026-10-27（B9 · S0-①）：关键词那条**记录**也要一起收（`RemoveKeyword` 只管值）。
+            if (b.IsKeyword) { RemoveKeyword(b.Name, b.Value); ExpireTraitEffect(b.TraitRec, b.Value); }
+            else
+            {
+                switch (b.Name)
+                {
+                    // 🔴 **2026-10-25（Stage 2）**：`attack` / `ranged` **不再「减回去」** —— 数值只在 `_statMods` 算一次，撤销 = 把那一格摘掉（投影自动变）。原 `Attack -= b.Value` 是两处记账。
+                    case "attack": RemoveStatMod(b.Mod); break;
+                    case "ranged": RemoveStatMod(b.Mod); break;
+                    // 🔴 **2026-10-25（Stage 2 · 判据 §7·4）**：生命到期是**夹到新上限**、**不是减**（原版 `RemoveEffect.c:147-181`）。
+                    case "health": RemoveStatMod(b.Mod); ClampHealthToMax(); break;
+                    // 🔴 **2026-10-19（`T01 §六·6`）**：护甲走 `RemoveKeyword`（它会把 `Armor` 一起减）；护甲**不进**修饰表 ⇒ 不需要 `b.Mod`。
+                    case "armour": RemoveKeyword(KeywordTable.Armour, b.Value); break;
+                }
+            }
+            return true;
+        }
     }
 }

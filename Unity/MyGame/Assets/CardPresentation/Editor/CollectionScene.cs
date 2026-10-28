@@ -11837,7 +11837,7 @@ public static class CollectionScene
                 CheckTrue(del2 != null && del2.Contains(expectSaveErr2),
                           "★ A601：……而且**带上了真原因**（`DeckStore.SaveAll` 那条 `catch` 的**运行时原话**"
                         + "「" + expectSaveErr2 + "」—— 改坏法：把 `LastDeleteError` 换成写死的文案 ⇒ 这条红）");
-                Check(CollectionData.DeckCount(), nBefore - 1, "★ A601：……而内存里**确实少了一套**（两种失败因此分得开）");
+                Check(CollectionData.DeckCount(), nBefore, "★ A601：……而内存里**回插了一套**（`DeletedNotSaved` ⇒ 走的是原版 `InventoryManager__Add` 那条退回，重启不会多也不会少；两种失败仍由上面两句文案 + 下面 `del1 != del2` 分得开）");
                 CheckTrue(del1 != del2,
                           "★ A601：**删失败的两支报的是两句不同的话**"
                         + "（改坏法：退回旧那句「删不了（`DeckLibrary.Delete` 的规矩：只剩一套时不许删 / 下标越界）」"

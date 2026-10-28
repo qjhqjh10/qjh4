@@ -618,7 +618,8 @@ namespace CardPresentation.Net
         /// ② `ctx.Events` / `ActionLog` —— 表现层随时抽干（`StateHash` 的注）；
         /// ③ `CostMod.Criteria` 的**整对象 / 引用身份** —— 它是卡池里的共享筛选器对象，
         ///    没有规范化序列化 ⇒ 只取它那几个**字符串判据**（`KindWord`/`Keyword`/`Name`）+ `WarlordOnly`；
-        /// ④ `TempControls[i].Unit` 的**对象引用** —— 只取它的归属/回合/原格号（引用身份跨进程不可比）；
+        /// ④ `TempControls[i].Unit` 的**对象引用** —— 只取它的归属/回合/原格号（引用身份跨进程不可比）
+        ///    （⚠️ 这个列表自 2026-10-28 起**既无生产者也无消费者** = 休眠维，处置与理由见 `PlayerHash` 里那一段的注）；
         /// ⑤ `PlayerState.Name` / 玩家名 / `ProfileData` —— 那是**档案**，不是对局状态。</para>
         ///
         /// <para>🧨 **改坏法（灭自证）**：把下面任意一维删掉 ⇒ `Editor/BattleScene.cs` 第 21·2 节
@@ -727,7 +728,13 @@ namespace CardPresentation.Net
                     }
                 }
                 h = h * 31 + cm;
-                // 🆕 「抢来的单位」（`TempControls` 同样是**对局级**；归属 = 原主 `Owner`）
+                // 🔴 2026-10-28（`B91` · A1 + A2）：**这一维今天是【休眠维】** —— `TempControls` 既无生产者
+                //   （`EffectResolver.DoTakeControl` 已不再登记），也无消费者（`RuleCore.EndTurn` 的归还段已停用、
+                //   不再 `Clear()`）⇒ 列表恒空、本段只贡献一个常量 `tc = 0`。
+                //   **处置 = 留着，并且【不对它做任何假设】**（⛔ 不假设它空、也⛔ 不假设它会被清空）：来什么就把
+                //   原件（`Turn` / `Slot`）滚进指纹。理由：两端跑同一份代码 ⇒ 去/留都一致；留着可让**将来一旦
+                //   恢复生产者**时指纹不丢维度。⚠️ 那天必须同时决定「谁清空它」—— 否则列表只增不清、指纹会带上
+                //   过期条目（这就是 A2 停用 `Clear()` 之后留下的隐患，如实记着）。⛔ 别单独删掉本段。
                 int tc = 0;
                 for (int i = 0; i < ctx.TempControls.Count; i++)
                 {

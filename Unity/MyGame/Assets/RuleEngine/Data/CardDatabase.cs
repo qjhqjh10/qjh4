@@ -1104,7 +1104,7 @@ namespace RuleEngine
         static List<CardDef> _cache;
 
         /// <summary>🆕 2026-10-18（T09）：丢掉缓存 —— 编辑器里改完卡表、或自检要重读时用。</summary>
-        public static void InvalidateCache() { _cache = null; }
+        public static void InvalidateCache() { _cache = null; InvalidateEnchantmentGrants(); }
 
         /// <summary>从 Resources 读卡表。取不到返回空表（不抛异常 —— 让调用方能自己决定怎么报）。
         /// 🔴 **2026-10-18（T09）起有进程级缓存**（见 `_cache` 的说明）；读不到的那一路**不缓存**，
@@ -1119,7 +1119,7 @@ namespace RuleEngine
                              + "跑一下：\"D:/2/Warpforge_tools/py312/python.exe\" d:/4/Unity/工具/gen_cards_engine.py");
                 return new List<CardDef>();
             }
-            _cache = Parse(asset.text);
+            _cache = Parse(asset.text); EnsureEnchantmentGrantsFrom(asset.text);   // 🆕 v38（B90/B3）：顺手把 `enchantment` 列建成反查表（⛔ 不新增一次解析：复用这一份文本）
             return new List<CardDef>(_cache);       // 浅拷贝（见 `_cache` 的说明）
         }
 
@@ -1746,7 +1746,7 @@ namespace RuleEngine
                 // 🆕 v36（2026-10-28 · 执行代理 `A1c`）：逐行 `damageCriteria`（`abilityDamage` 列）——
                 //   同样**构造后挂载**。缺列（< 36）⇒ 传 `null` = **整列未知** ⇒ 消费端一律不逐目标掷
                 //   （与加这一列之前**逐字相同**）。消费点 = `RuleCore.StampRollPerTarget`。
-                def.AttachAbilityDamage(MapAbilityDamage(c)); def.AttachWhileInPlayAnim(dto.version >= 37 ? c.whileInPlayAnim : -1); def.AttachPermanentBuffs(dto.version >= 37 ? MapPermanentBuffs(c) : null);   // 🆕 v37（`E6`）：后两格同样「构造后挂载」（理由同上）；`null` = **未知**（旧表 < 37），⛔ 不要 `?? new[0]`。⚠️ 三条挤一行是**故意的**：加行会把 `:1799` 等下游 A 行账落点整体推走。
+                def.AttachAbilityDamage(MapAbilityDamage(c)); def.AttachWhileInPlayAnim(dto.version >= 37 ? c.whileInPlayAnim : -1); def.AttachPermanentBuffs(dto.version >= 37 ? MapPermanentBuffs(c) : null); def.AttachAbilitySummon(MapAbilitySummon(c));   // 🆕 v37（`E6`）：后两格同样「构造后挂载」（理由同上）；`null` = **未知**（旧表 < 37），⛔ 不要 `?? new[0]`。⚠️ 三条挤一行是**故意的**：加行会把 `:1799` 等下游 A 行账落点整体推走。
                 list.Add(def);
             }
             // 🆕 v23（2026-10-24 · 引擎线 `G12`）：`activeAbilityLogic` 的**挂载读数**（一行，⛔ 不逐卡刷屏）。
@@ -3576,7 +3576,7 @@ namespace RuleEngine
         /// 所以 `ruleprobe` / 夹具只要碰过本类，钩子就是通的。</para></summary>
         static CardDatabase()
         {
-            BattleContext.EnchantmentTemplatesProvider = LoadEnchantmentTemplates;
+            BattleContext.EnchantmentTemplatesProvider = LoadEnchantmentTemplates; Enchantments.GrantedEnchantmentsProvider = EnchantmentGrantsOf;   // 🆕 v38（B90/B3）：附魔「打出即挂」的数据源钩子（Core 不引用 Data ⇒ 只能这样注入）
         }
 
         /// <summary>第二张表的文件 DTO（字段名与 JSON 键名逐字一致，`JsonUtility` 直读）。</summary>
@@ -3713,5 +3713,219 @@ namespace RuleEngine
                 if (templates[i] != null && templates[i].WhileInPlayAnim == 1) n++;
             return n;
         }
+
+        // ==========================================================================================
+        //  🆕 v38（2026-10-28 · B90 波 2 · 执行代理 `B3`）：**卡表 `enchantment` 列**的装载端
+        // ==========================================================================================
+        //  🔴 为什么加**第三个 partial 段**、而不是改 `Parse()`：`账/*.tsv` 按【行号】引用本文件
+        //     （`1610` / `1611` / `1690` / `1744` / `1799` / `2303` / … / `3567`），`Parse()` 里插一行
+        //     会让它们整体漂移 ⇒ 新成员只许追加在**全部落点之后**（= 这里）。
+        //     ⇒ 索引不新增解析规则，而是**复用 `Load()` 刚解析出来的那份文本**（`Load()` 末尾那一行
+        //       追加了 `EnsureEnchantmentGrantsFrom(asset.text)`，⛔ 不是第二套 `FromJson` 口径）。
+        //  🔴 **`ruleprobe` 里的行为必须逐字保持**：桩 `Resources.Load`（`工具/ruleprobe/Stub.cs:25`）
+        //     恒 `null` ⇒ `Load()` 直接返回空表、**根本走不到**建索引那一步 ⇒ 索引为空 ⇒
+        //     `Enchantments.GrantedEnchantmentsProvider` 返回 `null` ⇒ 消费端退**白名单**（= 改前行为）
+        //     ⇒ `play all dump` / `play check` 的**指纹不变**。⛔ 别把「建不出来」改成「返回空表」，
+        //     那会让 `Enchantments.GrantedEnchantmentRowsOf` 误以为「这张卡确实不挂」而**跳过白名单兜底**。
+        //  📌 列形状 / 判据 / 为什么 `buffType 0/1/3` 不算 → `工具/gen_cards_engine.py` 的
+        //     `enchantment_grants_of` 上面那段长注释（铁律 6：⛔ 别在这里抄第二份）。
+        // ==========================================================================================
+
+        /// <summary>`enchantment` 列的一行（字段名与 JSON 键名逐字一致，`JsonUtility` 直读）。</summary>
+        [Serializable]
+        public class EnchantmentGrantRowDto
+        {
+            /// <summary>效果挂在哪个对象上（现读 58 行全是 `"buffEffect"`；`handBuff.cardEffect` 0 行）。</summary>
+            public string at;
+            /// <summary>`cardAbilities` 下标（只用于排查，⛔ 不参与判据）。</summary>
+            public int ab = -1;
+            /// <summary>`abilityLogic` 下标（同上）。</summary>
+            public int lg = -1;
+            /// <summary>原版 `CardEffect.buffType`（只有 `12` / `15` / `16` 三档才会走到 `AddEnchantment`）。</summary>
+            public int buffType = -1;
+            /// <summary>原版 `CardAbility.trigger`（`AbilityTrigger`；`0 = ThisCardPlayed`）。</summary>
+            public int trigger = -1;
+            /// <summary>原版 `targetCriteria.targetsAffected`（`-1` = 读不到）。**载体是谁**由它定：
+            /// `50 = inHandFiltered`（选中的手牌，`DA42` 那一档 ⇒ 专属链已接，⛔ 本钩子不许再挂）。</summary>
+            public int ta = -1;
+            /// <summary>被挂上去那张模板的 `uniqueId`（= 第二张表 `enchantment_templates.json` 的 `id`）。</summary>
+            public string token;
+        }
+
+        public partial class CardDto
+        {
+            /// <summary>🆕 v38：这张卡**自己**「挂附魔」的那些行（稀疏）。
+            /// <para>`null` / 缺列 = **未知**（旧表 &lt; v38 / 真值里没这张卡）；`[]` = 明确没有。</para></summary>
+            public EnchantmentGrantRowDto[] enchantment;
+        }
+
+        /// <summary>`uniqueId → 该卡的「挂附魔」数据行`（懒建；`null` = 还没建）。</summary>
+        static Dictionary<string, List<Enchantments.GrantedEnchantmentRow>> _enchantGrants;
+
+        /// <summary>「建不出来」只出声一次（每次出牌都会问到，别刷屏）。</summary>
+        static bool _enchantGrantsMissingLogged;
+
+        /// <summary>丢掉索引（`InvalidateCache()` 里一并调 —— 编辑器改完卡表重读时用）。</summary>
+        public static void InvalidateEnchantmentGrants() { _enchantGrants = null; }
+
+        /// <summary>这张卡（按 `uniqueId`）的「挂附魔」数据行；`null` = 没有 / 索引建不出来。</summary>
+        public static List<Enchantments.GrantedEnchantmentRow> EnchantmentGrantsOf(string cardId)
+        {
+            if (string.IsNullOrEmpty(cardId)) return null;
+            List<Enchantments.GrantedEnchantmentRow> rows;
+            return (_enchantGrants != null && _enchantGrants.TryGetValue(cardId, out rows)) ? rows : null;
+        }
+
+        /// <summary>把卡表文本里的 `enchantment` 列物化成一棵反查表（幂等；`Load()` 末尾调）。
+        /// <para>⚠️ 表太旧（&lt; v38）/ 解析失败 ⇒ **出声一次并保持空表**（消费端退白名单）——
+        /// ⛔ 不许静默把「读不到」当成「这张卡不挂附魔」。</para></summary>
+        public static void EnsureEnchantmentGrantsFrom(string json)
+        {
+            if (_enchantGrants != null || string.IsNullOrEmpty(json)) return;
+            var dto = JsonUtility.FromJson<FileDto>(json);
+            if (dto == null || dto.cards == null)
+            {
+                if (!_enchantGrantsMissingLogged)
+                {
+                    _enchantGrantsMissingLogged = true;
+                    Debug.LogError($"[RuleEngine] 卡表解析失败（{json.Length} 字符）—— 附魔「打出即挂」"
+                                 + "整条链**只剩白名单那 3 张**。");
+                }
+                return;
+            }
+            if (dto.version < 38)
+            {
+                if (!_enchantGrantsMissingLogged)
+                {
+                    _enchantGrantsMissingLogged = true;
+                    Debug.LogError($"[RuleEngine] 卡表 version={dto.version} < 38 —— 没有 `enchantment` 列"
+                                 + "（原版 `CardEffect.enchantment +0x88` ∧ `buffType ∈ {12,15,16}` ⇒ "
+                                 + "`CardScript__AddEnchantment`）。附魔「打出即挂」**只剩白名单那 3 张**；"
+                                 + "跑一下 gen_cards_engine.py --write 重生成。");
+                }
+                return;
+            }
+            var idx = new Dictionary<string, List<Enchantments.GrantedEnchantmentRow>>();
+            int bad = 0, rows = 0;
+            foreach (var c in dto.cards)
+            {
+                if (c == null || string.IsNullOrEmpty(c.id) || c.enchantment == null || c.enchantment.Length == 0)
+                    continue;
+                var list = new List<Enchantments.GrantedEnchantmentRow>(c.enchantment.Length);
+                foreach (var r in c.enchantment)
+                {
+                    if (r == null || string.IsNullOrEmpty(r.token))
+                    {
+                        bad++;
+                        continue;
+                    }
+                    list.Add(new Enchantments.GrantedEnchantmentRow
+                    {
+                        SourceCardId = c.id,
+                        TemplateCardId = r.token,
+                        BuffType = r.buffType,
+                        Trigger = r.trigger,
+                        TargetsAffected = r.ta,
+                        AbilityIndex = r.ab,
+                        LogicIndex = r.lg,
+                    });
+                    rows++;
+                }
+                if (list.Count > 0) idx[c.id] = list;
+            }
+            _enchantGrants = idx;
+            Debug.Log($"[RuleEngine] 附魔挂载索引 v{dto.version}：**{idx.Count}** 张卡 / **{rows}** 行"
+                    + $"（坏行 {bad}）—— 来自 `Resources/{ResourcePath}.json` 的 `enchantment` 列");
+            if (bad > 0)
+                Debug.LogError($"[RuleEngine] `enchantment` 列有 **{bad}** 行没有 `token` —— 已丢弃（不许静默）。");
+        }
     }
+
+    // ==================================================================================================
+    //  🆕 v39（2026-10-28 · 执行代理 `A4` · 判据 `资料/完全复刻/判据/B91_P3_战斗数据列缺口.md` §二·1 / §二·8）
+    //     —— 卡表 `abilitySummon` 列（原版 `SummonCriteria` 的 7 格）
+    //
+    //  🔴 **为什么另起一个 `partial` 块、写在【文件最末】**：本文件里已有 **23 处账落点按【行号】引用**
+    //     （现读最大 `CardDatabase.cs:3772`）⇒ 在类中段插成员会让它们整体漂移
+    //     （同族纪律 → `Core/CardDef.cs` 末尾 `E6` 那段的注释）。
+    //  ⚠️ 挂载那一句**挤在 `:1749` 原有那一行里**（故意不加行）—— 那一行自己的行尾注释已写明
+    //     「加行会把 `:1799` 等下游 A 行账落点整体推走」。⛔ 别为了排版把它拆成新行。
+    //  ⚠️ **本列只落数据 / 只挂载，没有任何消费者** ⇒ 零行为变化、不改指纹。
+    //     消费端（`RuleCore.DeployFreeCore` 的 `requestSlot` / `EffectResolver.DoDeploy`）在别的代理白名单里。
+    // ==================================================================================================
+    public static partial class CardDatabase
+    {
+        /// <summary>🆕 v39：`abilitySummon` 的一行（= 原版 `SummonCriteria` 的七格）。
+        /// 字段名与 JSON 键名**逐字一致**（`JsonUtility` 直读）。语义 → <see cref="CardDef.AbilitySummonSpec"/>。
+        /// <para>⚠️ 七格都用 `-1` 当「坏值/缺键」哨兵 —— `0` 是**合法取值**
+        /// （`cap = 0` 就是「贴施放者」那一档）。⛔ 别把缺键读成 0。</para></summary>
+        [Serializable]
+        public class AbilitySummonRowDto
+        {
+            /// <summary>`cardAbilities` 下标（`-1` = 缺键）。</summary>
+            public int ab = -1;
+            /// <summary>`abilityLogic` 下标（`-1` = 缺键）。</summary>
+            public int lg = -1;
+            /// <summary>原版 `SummonCriteria.createAtPos (+0x20)`：`0` self / `1` cardTarget / `3` friendlyHero /
+            /// **其余 ⇒ 出声 + 默认落点**（`14` 也在这一档，⛔ 不是「贴卡」）。</summary>
+            public int cap = -1;
+            /// <summary>原版 `SummonCriteria.moveToPos (+0x24)`（**只供演出取起点**，盘面不读）。</summary>
+            public int mv = -1;
+            /// <summary>原版 `SummonCriteria.summonAllTargets (+0x28)`：真 ⇒ 整张候选表全给；否则随机取一张。</summary>
+            public int all = -1;
+            /// <summary>原版 `SummonCriteria.chooseCardInPlay (+0x29)`：真 ⇒ `unitsToSummon` 空时改取 `GetTargets` 的目标集。</summary>
+            public int choose = -1;
+            /// <summary>原版 `SummonCriteria.keepEffects (+0x2A)`（`AddSummonUnit` 实参；池内全 0 = 休眠）。</summary>
+            public int keep = -1;
+            /// <summary>原版 `SummonCriteria.shouldRemoveFromCemetery (+0x2B)`：造完把候选从墓地移除。</summary>
+            public int cem = -1;
+            /// <summary>原版 `SummonCriteria.isForEnemy (+0x10)`：选卖哪个 `MinionArea`。</summary>
+            public int enemy = -1;
+        }
+
+        public partial class CardDto
+        {
+            /// <summary>🆕 v39：这张卡**逐 `abilityLogic` 行**的 `summonCriteria`（与 `abilityDamage` 同构）。
+            /// <para>`null` / 缺列 = **未知**（旧表 &lt; v39）；`[]` = 明确没有行。</para></summary>
+            public AbilitySummonRowDto[] abilitySummon;
+        }
+
+        /// <summary>🆕 v39：`abilitySummon` 列 → <see cref="CardDef.AbilitySummonSpec"/>。
+        /// <para>⚠️ 行级坏值口径与 `MapAbilityDamage` **逐字同族**：缺 `ab`/`lg` ⇒ 出声 + 丢弃该行；
+        /// 同一 `(ab,lg)` 撞键 ⇒ 出声 + 丢弃后一条（⛔ 撞键 = 谁赢都说不清）。</para></summary>
+        static CardDef.AbilitySummonSpec[] MapAbilitySummon(CardDto c)
+        {
+            if (c == null || c.abilitySummon == null) return null;   // 缺列 = 未知（⛔ 不是「没有行」）
+            var list = new List<CardDef.AbilitySummonSpec>(c.abilitySummon.Length);
+            var seen = new HashSet<long>();
+            foreach (var r in c.abilitySummon)
+            {
+                if (r == null) continue;
+                if (r.ab < 0 || r.lg < 0)
+                {
+                    Debug.LogError($"[RuleEngine] 卡「{c.name}」（{c.id}）的 `abilitySummon` 有一行缺 `ab`/`lg`"
+                                 + $"（ab={r.ab}, lg={r.lg}）—— **该行丢弃**。重跑 工具/gen_cards_engine.py。");
+                    continue;
+                }
+                long k2 = ((long)r.ab << 32) ^ (uint)r.lg;
+                if (!seen.Add(k2))
+                {
+                    Debug.LogError($"[RuleEngine] 卡「{c.name}」（{c.id}）的 `abilitySummon` 有**重复的 "
+                                 + $"(ab={r.ab}, lg={r.lg})** —— 后一条已丢弃（⛔ 撞键 = 谁赢都说不清）。"
+                                 + "重跑 工具/gen_cards_engine.py。");
+                    continue;
+                }
+                list.Add(new CardDef.AbilitySummonSpec
+                {
+                    Ab = r.ab, Lg = r.lg,
+                    CreateAtPos = r.cap, MoveToPos = r.mv,
+                    SummonAllTargets = r.all, ChooseCardInPlay = r.choose,
+                    KeepEffects = r.keep, ShouldRemoveFromCemetery = r.cem,
+                    IsForEnemy = r.enemy,
+                });
+            }
+            return list.ToArray();
+        }
+    }
+
 }

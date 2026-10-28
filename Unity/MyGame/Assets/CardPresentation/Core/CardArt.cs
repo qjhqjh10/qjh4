@@ -784,14 +784,14 @@ namespace CardPresentation
             tex.name = key;
             float rad = angleDeg * Mathf.Deg2Rad;
             // 🔴 `dy` 乘 `h/w` = 原版 `CompensateAspectRatio` 的等价物（判据见上面那段 doc）。
-            float dx = Mathf.Cos(rad), dy = Mathf.Sin(rad) * aspectHoverW;
+            float dx = Mathf.Cos(rad), dy = Mathf.Sin(rad) * aspectHoverW; float _glen = Mathf.Sqrt(dx * dx + dy * dy); if (_glen > 1e-5f) { dx /= _glen; dy /= _glen; }   // 🆕 B90-N4：单位化方向（判据 = `UIGradient__ModifyMesh.c:107-113` 先把 dir 除成单位长，再投影）
             var px = new Color[N * N];
             for (int y = 0; y < N; y++)
                 for (int x = 0; x < N; x++)
                 {
-                    // 把像素投到方向轴上，归一化到 0..1（再拉伸到满量程，免得整幅只用到一小段色域）
+                    // 把像素投到方向轴上（方向已单位化 ⇒ 斜向不再被压缩 1/1.41），超出 [0,1] 一律夹住（= 原版 clamp01）
                     float u = (x + 0.5f) / N - 0.5f, v = (y + 0.5f) / N - 0.5f;
-                    float t = Mathf.Clamp01((u * dx + v * dy) / Mathf.Max(0.0001f, Mathf.Abs(dx) + Mathf.Abs(dy)) + 0.5f);
+                    float t = Mathf.Clamp01(u * dx + v * dy + 0.5f);   // 🆕 B90-N4：**不做满量程重映射**（判据 = `UIGradient__ModifyMesh.c:150-158`：`t = pos·(dir/w,dir/h) + 平移` → 直接 `clamp01`；原来除以 `|dx|+|dy|` 是我们自加的拉伸 ⇒ 斜向渐变带宽与原版差 1–1.41 倍）
                     px[y * N + x] = Color.Lerp(c1, c2, t);
                 }
             tex.SetPixels(px);
@@ -836,13 +836,13 @@ namespace CardPresentation
             tex.name = k;
             float rad = angleDeg * Mathf.Deg2Rad;
             // 🔴 `dy` 乘 `h/w` = 原版 `CompensateAspectRatio` 的等价物（判据见 <see cref="Gradient"/> 的 doc）
-            float dx = Mathf.Cos(rad), dy = Mathf.Sin(rad) * aspectHoverW;
+            float dx = Mathf.Cos(rad), dy = Mathf.Sin(rad) * aspectHoverW; float _glen = Mathf.Sqrt(dx * dx + dy * dy); if (_glen > 1e-5f) { dx /= _glen; dy /= _glen; }   // 🆕 B90-N4：单位化方向（判据 = `UIGradient__ModifyMesh.c:107-113` 先把 dir 除成单位长，再投影）
             var px = new Color[N * N];
             for (int y = 0; y < N; y++)
                 for (int x = 0; x < N; x++)
                 {
                     float u = (x + 0.5f) / N - 0.5f, v = (y + 0.5f) / N - 0.5f;
-                    float t = Mathf.Clamp01((u * dx + v * dy) / Mathf.Max(0.0001f, Mathf.Abs(dx) + Mathf.Abs(dy)) + 0.5f);
+                    float t = Mathf.Clamp01(u * dx + v * dy + 0.5f);   // 🆕 B90-N4：**不做满量程重映射**（判据 = `UIGradient__ModifyMesh.c:150-158`：`t = pos·(dir/w,dir/h) + 平移` → 直接 `clamp01`；原来除以 `|dx|+|dy|` 是我们自加的拉伸 ⇒ 斜向渐变带宽与原版差 1–1.41 倍）
                     var c = Color.Lerp(c1, c2, t);
                     c.a = EvalAlphaKeys(t, at, aa);
                     px[y * N + x] = c;

@@ -205,5 +205,40 @@ namespace CardPresentation
             }
             return map;
         }
+
+        /// <summary>原版 `PlayerInfo.GetVictoryCounters()`（账 478）：把「**原始卡 id → 场次**」表
+        /// 按**原卡 id** 归并成 `Dictionary&lt;string, VictoryCounter&gt;`。
+        /// <para>逐句判据 = `decomp_full/PlayerInfo__GetVictoryCounters.c`：
+        /// 遍历 `this.__field_VictoryCounters`（`Dictionary&lt;string,int&gt;`：rawId→count）→
+        /// `AssetLocator.GetAsset&lt;RawCardScript&gt;(rawId).GetOriginalId()` 取原卡 id →
+        /// 结果表里没有该原卡 id 就 `new VictoryCounter()` → `totalVictories += count` → `victoriesById[rawId] = count`。</para>
+        /// <para>「原卡 id」的判据 = 原版 `RawCardScript.GetOriginalId()`（异画 → 原卡 id）⇒ 我们的等价 =
+        /// `RuleEngine.PlayerDeck.SameCardKey`（异画条目剥成原卡 id、其余原样）。
+        /// ⚠️ 差异（同族）：原版 `AssetLocator` 拿不到卡时 NRE；我们出声并**跳过**该条（坏数据不该让游戏崩）。</para></summary>
+        public static Dictionary<string, VictoryCounter> GetVictoryCounters(
+            IEnumerable<KeyValuePair<string, int>> rawVictories)
+        {
+            var result = new Dictionary<string, VictoryCounter>();
+            if (rawVictories == null) return result;
+            foreach (var kv in rawVictories)
+            {
+                if (string.IsNullOrEmpty(kv.Key))
+                {
+                    Debug.LogError("[VictoryCountersStore] GetVictoryCounters：原始卡 id 为空 ⇒ 跳过该条"
+                                 + "（原版 `AssetLocator.GetAsset` 拿不到卡会 NRE）");
+                    continue;
+                }
+                string originalId = RuleEngine.PlayerDeck.SameCardKey(kv.Key);   // = 原版 GetOriginalId()
+                VictoryCounter vc;
+                if (!result.TryGetValue(originalId, out vc))
+                {
+                    vc = new VictoryCounter();
+                    result[originalId] = vc;
+                }
+                vc.totalVictories += kv.Value;                 // 原版：totalVictories += count
+                vc.victoriesById[kv.Key] = kv.Value;           // 原版：victoriesById[rawId] = count
+            }
+            return result;
+        }
     }
 }

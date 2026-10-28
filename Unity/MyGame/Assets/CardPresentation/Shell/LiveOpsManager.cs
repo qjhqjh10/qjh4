@@ -283,10 +283,10 @@ namespace CardPresentation
         /// <summary>原版 `public Task BuildHandler(ILiveOpsHandler handler, LiveopsHandlerData handlerData, FeatureConfig)`（`:2038`）。
         /// **真身**（`_BuildHandler_d__17__MoveNext.c`）：`await &lt;handler 侧装填&gt;` → 用 `eventFactory` 逐个造事件
         /// （`RawEvents` 里的每一对）→ `await handler.SetupEvents(...)` → **`HandlerLookup[handler.GetType()] = handler`**。
-        /// <para>⚠️ **两处推断（账里都标了）**：① 「`RawEvents` 里哪些算 blocked」反编译读不出
-        /// （`RawLiveOpsHandlerPersistence` 只有 `PersistencesRaw` + `SharedData` 两个字典）⇒ 我们按
-        /// **`data.enabled == false` ⇒ 放进 blocked** 这个最小自洽解释；
-        /// ② `FeatureConfig` 真值拿不到 ⇒ 只用 `IsHandlerEnabled` 这一条。</para></summary>
+        /// <para>🔴 2026-10-28 B91_W7 现读订正（原写「两处推断」，其中两处现已坐实/改写）：① **顺序**：原版先
+        /// **`OrderByDescending(raw =&gt; raw.Data.priority)`**（`.c` 的遍历源 = `Enumerable.OrderByDescending`，选择器 = 闭包 `b__17_0`）⇒ 已补；
+        /// ② **逐事件特性闸**：原版每条读 `FeatureConfig.CheckFeature(config, raw.Data.eventId)`，没开就**整条跳过** ⇒ 已补（本地无远端配置 ⇒ 放行，见 `EventFeatureGate`）；
+        /// ③ **live/blocked 的判法仍未能定案**（`.c` 与 ILSpy 对「接口槽 4 真假各走哪一支」**互相矛盾**，且槽 4 指向 `IsActive()` 还是别的成员未坐实）⇒ 暂按 `data.enabled` 这个最小自洽解释，⛔ 别照本条猜着改。</para></summary>
         public async Task BuildHandler(ILiveOpsHandler handler, LiveopsHandlerData handlerData, LiveOpsFeatureConfig config)
         {
             if (handler == null) { Debug.LogError("[LiveOps] BuildHandler：handler 是 null"); return; }
@@ -300,13 +300,13 @@ namespace CardPresentation
 
             var ops = new List<ILiveOps>();
             var blockedOps = new List<ILiveOps>();
-            var raws = handlerData == null ? null : handlerData.RawEvents;
+            var raws = handlerData == null ? null : new List<RawEvent>(handlerData.RawEvents ?? new List<RawEvent>()); if (raws != null) raws.Sort((a, b) => Priority(b).CompareTo(Priority(a)));   // 原版 `OrderByDescending(raw => raw.Data.priority)`（b__17_0）：**先按优先降序再逐个造**
             if (raws != null)
             {
                 for (int i = 0; i < raws.Count; i++)
                 {
                     var r = raws[i];
-                    if (r == null || r.Data == null) continue;
+                    if (r == null || r.Data == null) continue; if (!EventFeatureEnabled(r.Data.eventId)) continue;   // 原版逐事件闸：`FeatureConfig.CheckFeature(config, raw.Data.eventId)`
                     var ev = eventFactory.CreateEvent(r.Data, r.Persistence, handler, LiveOpsValidationStrategy.Strict);
                     if (ev == null)
                     {
@@ -399,6 +399,31 @@ namespace CardPresentation
         {
             _instance = null;
             _bootLogged = false;
+        }
+
+        // ============================================================ 🆕 2026-10-28（B91_W7 · 账 406 · BuildHandler 那两跳补口）
+        //   ⚠️ 追加在**类尾**：本文件有多条账按 `文件:行号` 钉着（128 / 164 / 210 / 290），往上插一行就会集体漂移。
+
+        /// <summary>**逐事件**特性闸的可注入口（原版 = `FeatureConfig.CheckFeature(config, raw.Data.eventId)`；
+        /// 判据 `d:/2/tools/decomp_full/LiveOpsManager._BuildHandler_d__17__MoveNext.c:158-162`
+        /// —— `raw.Data` 是 `+0x10`、`eventId` 是 `LiveOpsEventData` 的 `+0x18`，两跳都在 `.c` 里读得到）。
+        /// <para>🔶 自己设计（非原版）：原版那份 `FeatureConfig` 来自远端配置；本机没有 ⇒ 默认**放行**，
+        /// 需要时由宿主注入一个按 eventId 判定的函数。⛔ 不编一套本地开关表（那会把「没配」伪装成「配了」）。
+        /// 调度台 2026-10-28 定。</para></summary>
+        public static Func<string, bool> EventFeatureGate;
+
+        /// <summary>`EventFeatureGate` 的空实现：没注入 ⇒ 恒 true（= 原版「这个特性开着」那一档）。</summary>
+        static bool EventFeatureEnabled(string eventId)
+        {
+            if (EventFeatureGate == null) return true;
+            return EventFeatureGate(eventId);
+        }
+
+        /// <summary>`OrderByDescending(raw =&gt; raw.Data.priority)` 的取值器（`Data` 为 null 的排到最后）。</summary>
+        static int Priority(RawEvent r)
+        {
+            if (r == null || r.Data == null) return int.MinValue;
+            return r.Data.priority;
         }
     }
 }

@@ -221,9 +221,23 @@ def main():
             k = (f[1].strip(), f[2].strip())
             hits = keyidx.get(k, [])
             if len(hits) > 1:
-                errors.append("%s:%d：%r 在 %d 份主表里都有（%s）⇒ 请人指定"
-                              % (pfn, i, k, len(hits), ", ".join(h[0] for h in hits)))
-                continue
+                # 🆕 2026-10-28（B91）：同一 (原版类,方法) 在 ≥2 份主表里都有的情况**是账面结构问题**
+                #   （典型 = 主题表 ↔ `泛型与启动链_补读.tsv` 的重复记账，实测 63 组）。
+                #   原来一律「报错跳过」⇒ 这些行**任何补丁都改不动**（Q2 实测）。
+                #   现在按补丁自己的 `域` 消歧：域归一后能命中恰好一份主表 ⇒ 就改那一份
+                #   （主题表优先，**⛔ 不动** `泛型与启动链_补读.tsv` 那半边，留给人一次性对齐）。
+                dom_norm = f[0].strip().replace("/", "_")
+                cand = [h for h in hits if h[0][:-4] == dom_norm]
+                if len(cand) == 1:
+                    hits = cand
+                elif len(cand) > 1:
+                    errors.append("%s:%d：%r 在 %d 份主表里都有、且域 `%s` 也命中 %d 份 ⇒ 请人指定"
+                                  % (pfn, i, k, len(hits), f[0].strip(), len(cand)))
+                    continue
+                else:
+                    errors.append("%s:%d：%r 在 %d 份主表里都有（%s）⇒ 请人指定"
+                                  % (pfn, i, k, len(hits), ", ".join(h[0] for h in hits)))
+                    continue
             if len(hits) == 1:
                 fn, ri = hits[0]
                 L = ledgers[fn]

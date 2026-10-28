@@ -576,7 +576,7 @@ namespace CardPresentation
             Build();
             int page = (_initialPage >= 0 && _initialPage < PageCount) ? _initialPage : 0;
             // 原版 `CheckAndOpenTab` 按「玩家是否已选阵营」决定落在哪页；那份数据在远端 ⇒ 默认第 1 页并出声。
-            SwitchPage(page);
+            SwitchPage(page); MainMenuRuntime.SetNavToggle(MainMenuRuntime.NavigationPanelToggleType.Event);   // 原版 `BaseParentEventWindow__Open.c` 末段：`GetToggle(5).m_IsOn` 为假 ⇒ `SetToggle(5)`（账 13）
             WarnOnce();
         }
 
@@ -1138,7 +1138,7 @@ namespace CardPresentation
         {
             // `Background`（**SkewedImage** + Mask + UICornersGradient）：斜切已接（`skewVector=(0.09,0)`）；
             //   `Mask` 本壳用 `ViewportClip` 等价、这一件没有裁切需求 ⇒ 不接；四角色照抄。
-            var bg = MenuDraw.Node(page, "Two Side Event Select Team " + (isA ? "A" : "B"), Scr(card));
+            var bg = MenuDraw.Node(page, "Two Side Event Select Team " + (isA ? "A" : "B"), Scr(card)); _teamCards[isA ? 0 : 1] = bg; TeamDataMissingNote();   // 🆕 B90-N3c：原版 `TwoSidesTeamDrawer` 的三格字段（判据见类尾）
             var bgQuad = MenuDraw.Rect(bg, CardArt.Solid(), Scr(card), "Background", QPageBg,
                                        null, false, null, default, skewX: 0.09f);
             if (bgQuad != null)
@@ -1146,8 +1146,8 @@ namespace CardPresentation
                                        isA ? TeamATr : TeamBTr, isA ? TeamATl : TeamBTl);
             MenuDraw.Tiled(bg, Tex(ArtNoise, "队伍卡的噪点"), Scr(noise), 1024f, QPageArt, "Background noise", TeamNoiseTint);
             // `Foreground Image`：`m_Sprite = null`（运行时灌阵营图）⇒ 只建容器，不出图（如实记录）
-            MenuDraw.Node(bg, "Foreground Image", Scr(new PxRect(
-                isA ? 200.2f : 846.2f, 164.0f, isA ? 1093.8f : 1739.8f, 1057.6f)));
+            _teamImageNodes[isA ? 0 : 1] = MenuDraw.Node(bg, "Foreground Image", Scr(isA ? P1TeamAForegroundR : P1TeamBForegroundR));
+            //   🆕 B90-N3c：这一格 = 原版 `TwoSidesTeamDrawer.teamImage`（`Foreground Image`，Image 无图）；运行时可填 → 类尾 `SetTeamImage`
             MenuDraw.Nine(bg, Tex(ArtBottomGlow, "队伍卡底部光晕"), Scr(glow),
                           new Vector4(3f, 0f, 3f, 0f), 32f, 32f, QPageArt, isA ? TeamAGlowTint : TeamBGlowTint,
                           true, "Bottom Glow");
@@ -1155,7 +1155,7 @@ namespace CardPresentation
             var bottom = MenuDraw.Node(bg, "Bottom Text", Scr(bottomText));
             var nm = MenuDraw.TextBox(bottom, Scr(nameR), P1TeamName, Color.white, "Team Name",
                                       P1TeamFont, P1TeamMin, QPageText, P1TeamMax, P1TeamBase, face: TmpFont.Face.LatinCardBody);
-            if (nm != null) MenuDraw.SetVAlign(nm, Label.VAlign.Capline, Scr(nameR));
+            if (nm != null) { MenuDraw.SetVAlign(nm, Label.VAlign.Capline, Scr(nameR)); _teamNameNodes[isA ? 0 : 1] = nm.transform; }   // 🆕 B90-N3c：= `teamNameText`
             var tap = MenuDraw.TextBox(bottom, Scr(tapR), P1TapText, P1TapInk, "Tap to select",
                                        P1TapFont, P1TapMin, QPageText, P1TapMax, P1TeamBase, face: TmpFont.Face.LatinCardBody);
             if (tap != null)
@@ -1174,7 +1174,7 @@ namespace CardPresentation
             var top = MenuDraw.Node(bg, "Top", Scr(topR));
             var cap = MenuDraw.TextBox(top, Scr(captainR), P1Captain, Color.white, "Team captain",
                                        P1TeamFont, P1TeamMin, QPageText, P1TeamMax, P1TeamBase, face: TmpFont.Face.LatinCardBody);
-            if (cap != null) MenuDraw.SetVAlign(cap, Label.VAlign.Capline, Scr(captainR));
+            if (cap != null) { MenuDraw.SetVAlign(cap, Label.VAlign.Capline, Scr(captainR)); _teamCaptainNodes[isA ? 0 : 1] = cap.transform; }   // 🆕 B90-N3c：= `teamCaptainText`
 
             // 整张队伍卡是 `EverguildButton` —— 原版选阵营 = `TwoSidesEvent_ChooseSideTab.TeamSelected`
             //   → `PlayfabWrapper.GenericCloudScriptHandler(0x45b, …)`（服务端写存档）。
@@ -1564,5 +1564,113 @@ namespace CardPresentation
             var backWb = backHit != null ? backHit.GetComponent<WindowButton>() : null;
             WindowHeaderWithBackButton.WireHeader(header, backWb, _p2HeaderTitle, onBack, P2HeaderTitle);
         }
+        // ============================================================ 🆕 2026-10-28（B90 · N3c，追加在类尾）
+        //   **原版 `TwoSidesTeamDrawer`（prefab 根 `Two Side Event Select Team`）的三格字段 + `Initialize(TeamInfo)` 的等价物。**
+        //   判据（唯一来源 → `资料/完全复刻/判据/B90_C2b_远端prefab几何.md` **§B**，逐节点实读）：
+        //     · 根 `Two Side Event Select Team` = **535×737.78**；组件 = `EverguildButton` + `TwoSidesEventSelectTeamContainer` + `TwoSidesTeamDrawer`；
+        //     · **字段仅 3 格**：`teamNameText`→`Team Name` · `teamCaptainText`→`Team captain` ·
+        //       `teamImage`→**`Foreground Image`**（Image，**无图**，运行时按队伍填）。
+        //   ✅ **几何早已等价**（本笔没动几何）：本节的屏坐标 rect 减掉卡片原点后与 §B 的 **prefab 局部矩形逐值吻合** ——
+        //      例 `Foreground Image`：我们 `200.2 − 379.5 = −179.3` / 起点 `164 − 164 = 0` / `893.6²`；§B = **−179.28 / 0 / 893.56²**。
+        //   ⚠️ **结构残差（如实记，本笔不动）**：原版那张卡里 `Background noise` / `Foreground Image` / `Bottom Glow` 是
+        //      **`Background` 节点的子件**；我们这三件是**卡片根**的直接子件（`Background` 在我们这儿只是那颗 quad 的节点名）
+        //      ⇒ 矩形/队列/画面一致，**层级浅一层**。动它会改既有断言 `QuadOf(tA)` 的命中序 ⇒ 留给「按 prefab 逐层重构」那一笔。
+        //   🔴 **数据口径**：`TwoSidesEventData.TeamInfo`（队名/队长/队图/战功/人数）**在服务端**、本机 0 份 ⇒ **不编数字**：
+        //      两块卡保持 **prefab 出厂态**（`Red Team` / `#squidmar` / 无图）并**出声一次**（<see cref="TeamDataMissingNote"/>）。
+        //      这与既有断言的期望值同源（「= prefab 出厂字（原版运行期灌 liveops 队伍名）」）。
+
+        /// <summary>`Foreground Image`（= 原版 `teamImage` 那一格）的屏坐标 rect，A/B 两张。
+        /// 判据 → 判据件 §B 的 prefab 局部 `−179.28,0 → 714.28,893.56`；屏坐标 = 卡片原点 + 该值
+        /// （与建树时喂给 <see cref="BuildTeamCard"/> 的那组**逐字相同**，⛔ 别在这儿改一个、那儿不改）。</summary>
+        public static readonly PxRect P1TeamAForegroundR = new PxRect(200.2f, 164.0f, 1093.8f, 1057.6f);
+        public static readonly PxRect P1TeamBForegroundR = new PxRect(846.2f, 164.0f, 1739.8f, 1057.6f);
+
+        Transform[] _teamCards = new Transform[2];          // 0 = A（红）· 1 = B（蓝）；= 原版那张 `Two Side Event Select Team`
+        Transform[] _teamNameNodes = new Transform[2];      // = `teamNameText`（`Bottom Text/Team Name`）
+        Transform[] _teamCaptainNodes = new Transform[2];   // = `teamCaptainText`（`Top/Team captain`）
+        Transform[] _teamImageNodes = new Transform[2];     // = `teamImage`（`Foreground Image`）
+        bool _teamDataNoteShown;
+
+        /// <summary>选边页那两块卡的根（0 = A · 1 = B）；没建 ⇒ null。</summary>
+        public Transform TeamCardRoot(int side) { return (side == 0 || side == 1) ? _teamCards[side] : null; }
+        /// <summary>= 原版 `TwoSidesTeamDrawer.teamNameText` 那颗（`Bottom Text/Team Name`）。</summary>
+        public Transform TeamNameNode(int side) { return (side == 0 || side == 1) ? _teamNameNodes[side] : null; }
+        /// <summary>= 原版 `TwoSidesTeamDrawer.teamCaptainText` 那颗（`Top/Team captain`）。</summary>
+        public Transform TeamCaptainNode(int side) { return (side == 0 || side == 1) ? _teamCaptainNodes[side] : null; }
+        /// <summary>= 原版 `TwoSidesTeamDrawer.teamImage` 那一格（`Foreground Image`）。</summary>
+        public Transform TeamImageNode(int side) { return (side == 0 || side == 1) ? _teamImageNodes[side] : null; }
+
+        /// <summary>= 原版 `teamImage.sprite = <队伍图>` 那一跳：把 `Foreground Image` 填成一张图。
+        /// <para>🔴 **为什么是「按需建载体」而不是「建树时就建一颗空 Image」**：原版那颗 `Image` 的 `m_Sprite = null`
+        /// ⇒ **一个像素都不画**；我们 `MenuDraw.Rect` 对 `tex == null` 会**静默返回 null**（不留空载体）。
+        /// ⇒ 没数据时留裸节点（= 与「`sprite = null`」同一条可观测结果），**第一次拿到图时才把载体建出来**。</para>
+        /// <para>`tex == null` ⇒ 把已有载体**关掉**（回到空态），不会留一张旧图。</para>
+        /// <returns>`false` = 那一格没建（选边页没建过）或建载体失败 —— 两种情况都**出声**。</returns></summary>
+        public bool SetTeamImage(int side, Texture2D tex)
+        {
+            var node = TeamImageNode(side);
+            if (node == null)
+            {
+                Debug.LogWarning("[Event] `SetTeamImage(" + side + ")`：`Foreground Image` 那一格不在（选边页没建？）⇒ 没填");
+                return false;
+            }
+            var q = node.GetComponentInChildren<ImageQuad>(true);
+            if (tex == null)
+            {
+                if (q != null) q.gameObject.SetActive(false);      // 空态：与 `sprite = null` 同一可观测结果
+                return true;
+            }
+            if (q == null)
+            {
+                q = MenuDraw.Rect(node, tex, Scr(side == 0 ? P1TeamAForegroundR : P1TeamBForegroundR),
+                                  "Image", QPageArt1, Color.white, false);
+                if (q == null)
+                {
+                    Debug.LogWarning("[Event] `SetTeamImage(" + side + ")`：`Foreground Image` 的载体**建不出来**"
+                                   + "（`MenuDraw.Rect` 返回 null）⇒ 队伍图没画");
+                    return false;
+                }
+            }
+            else { q.gameObject.SetActive(true); q.SetTexture(tex); }
+            return true;
+        }
+
+        /// <summary>≡ 原版 `TwoSidesTeamDrawer.Initialize(TwoSidesEventData.TeamInfo teamInfo)`：把这格的三个字段填上。
+        /// <para>⚠️ **原版入参是服务端队伍数据**（`TeamInfo` = 队名 / 队长 / 队图 / 战功 / 人数），本机 **0 份** ⇒
+        /// 我们的等价物把「一格」拆成三个显式实参；**任一为空 ⇒ 那一格保持 prefab 出厂态**（⛔ 不编数字，也不清空）。</para>
+        /// <para>原版 `teamInfo` 一定带名字与队长 ⇒ 真实运行期这两句**总会覆盖**；我们没数据时**不覆盖**，
+        /// 并把「为什么还是出厂字」出声一次（<see cref="TeamDataMissingNote"/>）。</para></summary>
+        /// <param name="side">0 = A（红）· 1 = B（蓝）。原版由 `teamInfo` 自带方向，我们的等价物 = 这个实参。</param>
+        public void ApplyTeamInfo(int side, string teamName, string captain, Texture2D teamImage)
+        {
+            if (side != 0 && side != 1) { Debug.LogWarning("[Event] `ApplyTeamInfo` 的 side 只能是 0/1（实得 " + side + "）⇒ 不动"); return; }
+            var nameNode = TeamNameNode(side);
+            var capNode = TeamCaptainNode(side);
+            var nameLb = nameNode != null ? nameNode.GetComponent<Label>() : null;
+            var capLb = capNode != null ? capNode.GetComponent<Label>() : null;
+            if (nameLb == null || capLb == null)
+            {
+                Debug.LogWarning("[Event] `ApplyTeamInfo(" + side + ")`：`Team Name` / `Team captain` 有一颗不在 ⇒ **整格跳过**（⛔ 不半填）");
+                return;
+            }
+            if (!string.IsNullOrEmpty(teamName)) nameLb.SetText(teamName);
+            if (!string.IsNullOrEmpty(captain)) capLb.SetText(captain);
+            if (teamImage != null) SetTeamImage(side, teamImage);
+            Debug.Log("[Event] 选边页第 " + (side == 0 ? "A（红）" : "B（蓝）") + " 格：队名 = "
+                    + (nameLb.Text ?? "") + " · 队长 = " + (capLb.Text ?? "")
+                    + " · 队图 = " + (teamImage != null ? teamImage.name : "<空>"));
+        }
+
+        /// <summary>「队伍数据本地没有」那条**只出声一次**的说明（= 本页两块卡的空态口径）。</summary>
+        void TeamDataMissingNote()
+        {
+            if (_teamDataNoteShown) return;
+            _teamDataNoteShown = true;
+            Debug.Log("[Event] 选边页两块队伍卡：`TwoSidesEventData.TeamInfo`（队名 / 队长 / 队图）**在服务端**、本机 0 份 ⇒ "
+                    + "两名保持 **prefab 出厂态**（`Red Team` / `#squidmar`）、`Foreground Image` 留空"
+                    + "（= 原版 `m_Sprite = null` 的同一可观测结果）—— ⛔ 不编数字；有数据时走 "
+                    + "`ApplyTeamInfo(side, name, captain, image)` 就地填（原版 `TwoSidesTeamDrawer.Initialize(TeamInfo)` 的等价物）。");
+        }
+
     }
 }

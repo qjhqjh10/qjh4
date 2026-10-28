@@ -96,6 +96,7 @@ public static partial class RuleEngineTest
         "TestE3AbilityActingCriteria", "TestE4TriggerTargetAndActivePick", "TestE5SmallEngineGaps", "TestPrayEnchantmentX13", "TestE7FourGates", "TestE6AbilityLevelGateFamilies",
         "TestE8AbilityOwnerAndListenerOrder", "TestEngineE9", "TestEngineX1", "TestEngineX2", "TestEngineX18", "TestEngineX6",
         "TestEngineX6b", "TestEngineX12", "TestR11Option5MightActGate", "TestR11Option35BaseInsideMultiplier", "TestR11ArmourIgnoredInDamageScore", "TestB4AiDiscriminants",
+        "TestW6PrebuiltDecks", "TestW6CardSell", "TestW6LevelCurve", "TestW6LoadableRefHooks",
     };
 
     // 本次诊断真正跑过的用例（顺序同 `RunCaseNames`）—— 只给对账用
@@ -600,6 +601,10 @@ public static partial class RuleEngineTest
         Safe("TestR11Option35BaseInsideMultiplier", () => TestR11Option35BaseInsideMultiplier());
         Safe("TestR11ArmourIgnoredInDamageScore", () => TestR11ArmourIgnoredInDamageScore());
         Safe("TestB4AiDiscriminants", () => TestB4AiDiscriminants());
+        Safe("TestW6PrebuiltDecks", () => TestW6PrebuiltDecks());
+        Safe("TestW6CardSell", () => TestW6CardSell());
+        Safe("TestW6LevelCurve", () => TestW6LevelCurve());
+        Safe("TestW6LoadableRefHooks", () => TestW6LoadableRefHooks());
 
         VerifyDiagCoverage();
 

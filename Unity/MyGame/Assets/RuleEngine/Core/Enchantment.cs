@@ -221,7 +221,7 @@ namespace RuleEngine
         /// 🔴 **2026-10-26（第八十四会话 · `W13EN` · 账 687）：原版 `:91` 的
         ///   `ActivateTraitsOnSummonOrEnchantment(carrier, onSummon: false)` **已补**（= 本方法末尾那一句）。
         ///   它重算的是**载体自己的** `CurrentTraits` 对「能动 / 能攻击」的影响（`fast`/`flank`/`ferocity`/`oath`），
-        ///   **不把附魔卡的 trait 并进载体**（旧记「缺『附魔卡 → 关键词』数据通路」是读错了那一跳，订正 → 报告 §五）。新增形参 `whileInPlayAnim` 见 `ActiveEnchantment.WhileInPlayAnim` 的 doc（等 P-07 落列后改缺省读 `CardDef`）。
+        ///   **不把附魔卡的 trait 并进载体**（旧记「缺『附魔卡 → 关键词』数据通路」是读错了那一跳，订正 → 报告 §五）。新增形参 `whileInPlayAnim` 见 `ActiveEnchantment.WhileInPlayAnim` 的 doc（等 P-07 落列后改缺省读 `CardDef`）。 🆕 2026-10-28（`A4` · 判据 `判据/B91_P3_战斗数据列缺口.md` §二·7）：新增形参 `permanent`（原版 `CardEffect.permanentBuff +0x74`）写进 `ActiveCardEffect.Permanent` —— 「摘不掉」那条闸本来就在 `Remove`（`:329`），以前**恒 false = 恒可摘**。⛔ 默认 `false`（共用件，别改缺省）。
         /// </summary>
         /// <param name="spellType">附魔卡的 `spellType(+0x90)`；**不知道就留 `-1`**（⛔ 别猜）。
         /// 密令判定（`SpellTypeSecretOrder`）只认显式给对的这一格。</param>
@@ -229,7 +229,7 @@ namespace RuleEngine
                                               CardDef enchantmentCard, int buffType = BuffTypeEnchantment,
                                               int spellType = -1, string source = null,
                                               UnitState acting = null, int whileInPlayAnim = UnknownWhileInPlayAnim,
-                                              string trait = null)
+                                              string trait = null, bool permanent = false)
         {
             if (enchantmentCard == null)
             {
@@ -280,7 +280,7 @@ namespace RuleEngine
                 Source = source,
                 ActingUnit = acting,
                 Enchantment = ench,
-                Trait = _tr,
+                Trait = _tr, Permanent = permanent,
             };
             ench.Effect = eff;
 
@@ -1626,16 +1626,125 @@ namespace RuleEngine
             if (ctx == null || playedInst == null || playedInst.Card == null || chosen == null) return 0;
             var carrier = chosen.Instance;
             if (carrier == null) return 0;
-            var grant = GrantedEnchantmentOf(playedInst.Card);
-            if (grant == null) return 0;
-            var tmpl = ctx.FindEnchantmentTemplate(grant.TemplateCardId);
-            if (tmpl == null) return 0;   // ⛔ 静默（理由见 doc）；G3 那条断言就是这一格的锁
-            var eff = Attach(ctx, carrier, tmpl, grant.BuffType,
-                             source: playedInst.Card.Name,
-                             acting: null,
-                             trait: "");   // 明确 `""`（= 没有 trait）：原版 `CardEffect.trait` 取自**挂它的那条 buff**，
-                                            // 而这三张的 enchant 行没有 `trait` ⇒ ⛔ 别退到载体的 `EnchantTrait`（那是 Pray 的约定）
-            return eff != null ? 1 : 0;
+            var rows = GrantedEnchantmentRowsOf(playedInst.Card);   // 🆕 v38（B90/B3）：数据源优先（卡表 `enchantment` 列），没数据才退白名单
+            if (rows == null || rows.Count == 0) return 0;
+            int attached = 0;
+            for (int i = 0; i < rows.Count; i++)
+            {
+                var g = rows[i];
+                if (g == null) continue;
+                // 🔴 本钩子只负责原版 `AbilityTrigger.ThisCardPlayed = 0` 那一档：`CardScript__AddEffect` 是
+                //    「**这条 ability 结算时**」调用的，trigger 20 / 410 / 655 … 各有各的钩子
+                //    ⇒ 在本钩子上把它们挂上去 = **时机错**（做多）。⛔ 别为了「覆盖数好看」放宽这一行。
+                if (g.Trigger != TriggerThisCardPlayed) { GrantedSkippedNonPlayTrigger++; continue; }
+                // 🔴 载体闸：`targetsAffected == 50 (inHandFiltered)` 指的是**选中的那张手牌**，而本钩子的
+                //    `chosen` 是**场上单位** ⇒ 挂上去就是挂错人。`DA42` 那一档有专属链
+                //    （`AttachDA42ToChosenHandCard`，已接线）⇒ 这里必须让开，⛔ 别把两条链都跑一遍（会双发）。
+                if (g.TargetsAffected == TargetsAffectedInHand) { GrantedSkippedHandTarget++; continue; }
+                // 同一次出牌里 `(模板, buffType, trigger)` 相同的行只挂一次：`TL47` 有 3 条同模板 logic，
+                // 而本钩子只拿得到**一个**目标 ⇒ 重复挂会让 `activeEnchantments` 多出原版不会有的记录。
+                bool dup = false;
+                for (int k = 0; k < i; k++)
+                    if (rows[k] != null && rows[k].Trigger == g.Trigger
+                        && rows[k].BuffType == g.BuffType && rows[k].TemplateCardId == g.TemplateCardId)
+                    { dup = true; break; }
+                if (dup) continue;
+                var tmpl = ctx.FindEnchantmentTemplate(g.TemplateCardId);
+                if (tmpl == null) { GrantedTemplateMissing++; continue; }   // ⛔ 静默（理由见 doc）；G3 那条断言就是这一格的锁
+                var eff = Attach(ctx, carrier, tmpl, g.BuffType,
+                                 source: playedInst.Card.Name,
+                                 acting: null,
+                                 trait: "");   // 明确 `""`（= 没有 trait）：原版 `CardEffect.trait` 取自**挂它的那条 buff**
+                if (eff != null) attached++;
+            }
+            return attached;
+        }
+
+        // ==========================================================================================
+        //  🆕 v38（2026-10-28 · B90 波 2 · 执行代理 `B3`）：附魔「打出即挂」的**数据驱动**通路
+        // ==========================================================================================
+        //  【为什么上一波只有 3 张】B89/E26 在这里写了一张 🔶 自己设计的 id 白名单 —— 因为当时
+        //    **Core 拿不到「谁挂哪张模板」这份数据**。本波把数据补齐了：
+        //    `cards_engine.json` v38 的 `enchantment` 列（per-ability：`trigger` / `buffType` / 模板 id；
+        //    反向视图 = `enchantment_templates.json` 的 `owners[]`），由 `Data/CardDatabase` 建成反查表，
+        //    再通过 <see cref="GrantedEnchantmentsProvider"/> 注入本文件。
+        //    ⇒ <see cref="PlayerGrantedEnchantments"/> **降级为兜底**（数据源没注册 / 表是旧的 /
+        //    `ruleprobe` 里读不到资源时用），⛔ 别在白名单上继续加卡（那是把缺口藏起来）。
+        //  📌 判据 → `CardScript__AddEffect.c:826-828`（`buffType ∈ {12,15,16}` ⇒ `AddEnchantment`）；
+        //    数据口径 → `工具/gen_cards_engine.py` 的 `enchantment_grants_of` 上面那段长注释。
+        //  📌 本段全部追加在**类尾**（`账/*.tsv` 按行号引用 `Enchantment.cs:1551…:1624`，⛔ 别插到中间）。
+        // ==========================================================================================
+
+        /// <summary>「这张牌被打出 ⇒ 给目标挂这张模板」的**数据行**（来源 = 卡表 `enchantment` 列）。</summary>
+        public sealed class GrantedEnchantmentRow
+        {
+            /// <summary>挂载者的 `uniqueId`（= 卡池 `CardDef.Id`）。</summary>
+            public string SourceCardId;
+            /// <summary>要挂上去的**附魔模板** `uniqueId`（= `enchantment_templates.json` 的 `id`）。</summary>
+            public string TemplateCardId;
+            /// <summary>原版 `CardEffect.buffType`（`12` / `15` / `16` 三档才会走到 `AddEnchantment`）。</summary>
+            public int BuffType;
+            /// <summary>原版 `CardAbility.trigger`（`AbilityTrigger`；`0 = ThisCardPlayed` = 打出即挂）。</summary>
+            public int Trigger;
+            /// <summary>原版 `targetCriteria.targetsAffected`（`-1` = 读不到）。**载体是谁**由它定：
+            /// `50 = inHandFiltered`（选中的手牌）⇒ 那种行**不走本钩子**（见 `AttachGrantedByPlayedCard` 的闸）。</summary>
+            public int TargetsAffected = -1;
+            /// <summary>`cardAbilities` 下标（排查用，⛔ 不参与判据）。</summary>
+            public int AbilityIndex = -1;
+            /// <summary>`abilityLogic` 下标（同上）。</summary>
+            public int LogicIndex = -1;
+        }
+
+        /// <summary>`AbilityTrigger.ThisCardPlayed = 0` —— 本文件唯一认的「打出即挂」时机。</summary>
+        public const int TriggerThisCardPlayed = 0;
+
+        /// <summary>`TargetsAffected.inHandFiltered = 50` —— 载体是**选中的那张手牌**，不是场上单位。
+        /// <para>`DA42 Reconnaissance Mission` 就是这一档，它有自己的专属链
+        /// <see cref="AttachDA42ToChosenHandCard"/>；本钩子的 `chosen` 是场上单位 ⇒ 挂上去就是**挂错人**。</para></summary>
+        public const int TargetsAffectedInHand = 50;
+
+        /// <summary>数据源钩子（`Data/CardDatabase` 的静态构造里登记）：`卡 uniqueId → 数据行`。
+        /// <para>`null` = 没人注册（`ruleprobe` 里就是这个状态）；返回 `null` / 空 = 数据里没有这张卡。</para>
+        /// <para>⚠️ 返回的是数据源自己的列表（⛔ 调用方不许改）。</para></summary>
+        public static System.Func<string, List<GrantedEnchantmentRow>> GrantedEnchantmentsProvider;
+
+        /// <summary>诊断计数（**不写 `ctx.Log`** —— 那会进 `ctx.Events`、进而改对局指纹）：
+        /// 「数据行的 trigger 不是 0，本钩子没挂」的次数。给断言读，⛔ 不参与任何判据。</summary>
+        public static int GrantedSkippedNonPlayTrigger;
+
+        /// <summary>诊断计数：数据行指向的模板在本局**查不到**（多半是第二张表没加载）的次数。</summary>
+        public static int GrantedTemplateMissing;
+        /// <summary>诊断计数：数据行的载体是**手牌**（`targetsAffected == 50`）⇒ 本钩子不挂（有专属链）。</summary>
+        public static int GrantedSkippedHandTarget;
+
+        /// <summary>这张卡**全部**「挂附魔」数据行：① 数据源；② 数据里没有它（或没有数据源）⇒ 退白名单。
+        /// <para>顺序有语义：数据源是权威，<see cref="PlayerGrantedEnchantments"/> 只是那 3 张的兜底。</para></summary>
+        public static List<GrantedEnchantmentRow> GrantedEnchantmentRowsOf(CardDef sourceCard)
+        {
+            if (sourceCard == null || string.IsNullOrEmpty(sourceCard.Id)) return null;
+            var p = GrantedEnchantmentsProvider;
+            if (p != null)
+            {
+                var fromData = p(sourceCard.Id);
+                if (fromData != null && fromData.Count > 0) return fromData;
+            }
+            var w = PlayerGrantedEnchantments;
+            for (int i = 0; i < w.Length; i++)
+            {
+                if (w[i] == null || w[i].SourceCardId != sourceCard.Id) continue;
+                var one = new List<GrantedEnchantmentRow>(1);
+                one.Add(new GrantedEnchantmentRow
+                {
+                    SourceCardId = w[i].SourceCardId,
+                    TemplateCardId = w[i].TemplateCardId,
+                    BuffType = w[i].BuffType,
+                    Trigger = TriggerThisCardPlayed,       // 白名单这 3 张全是 `trigger 0`（ThisCardPlayed）
+                    AbilityIndex = -1,
+                    LogicIndex = -1,
+                });
+                return one;
+            }
+            return null;
         }
     }
 }

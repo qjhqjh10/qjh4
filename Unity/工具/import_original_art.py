@@ -941,6 +941,18 @@ MENU_IMAGES = [
     ('40K_profile_campaign_bg_DarkAngels',        'atlasgroup_assets_all'),  # 110 DarkAngels
     ('40K_profile_campaign_bg_Emperors Children', 'atlasgroup_assets_all'),  # 120 EmperorsChildren → 落盘 …_Emperors_Children
     ('40K_profile_campaign_bg_SW',                'atlasgroup_assets_all'),  # 130 SpaceWolves
+    # ---- 🆕 2026-10-28（F5）：轮抽「2Armies Progress Bar」的**描边底图** ----------------
+    # 判据 = `bundle_atlasindividual_assets_0_mainmenu/Sprite/UI_Draft event result bar holder.json`
+    #   现读 `m_Rect = (0,0,633,282)` · `textureRectOffset = (0,0)` · `m_PixelsToUnits = 100`
+    #   ⇒ 与 PNG 实际尺寸一致，`copy_ui_sprite` 走 `'asis'`（逐字节拷，不补画布、不缩放）。
+    # 🔴 为什么必须登记：`Shell/DraftModeWindow.cs:4189` 的 `Tex("UI_Draft_event_result_bar_holder")`
+    #   一直 MISSING（本表从没登记过这个名字）⇒ 那层 `Outline` 退回实心兜底 + 出声，
+    #   且 `Editor/DraftWindowAssertD2.cs:414` 的 `MissingArt.Count == 0` 因此翻红。
+    # ⚠️ 源在 5 个 bundle 里都有、**5 份 md5 全同**（`f31501796ca11e2a530dbfd2050258df`），
+    #   与 `Art/原版/0_mainmenu/` 那张也一致 ⇒ 取哪一份都对；这里按同族条目
+    #   （`40K_Info_button_draft menu` / `40K_Cards_button_draft menu`）挑 `atlasindividual_assets_0_mainmenu`。
+    # ⚠️ 名字**带空格** ⇒ 落盘名按本表惯例 `name.replace(' ', '_')` = `UI_Draft_event_result_bar_holder.png`。
+    ('UI_Draft event result bar holder',      'atlasindividual_assets_0_mainmenu'),  # 轮抽进度条描边（633×282）
 ]
 
 # ---- 🆕 2026-10-18（E01 菜单侧新手引导）：三张指针件**只有 `Texture2D/`，`ui_extract` 里没有 Sprite PNG** ----

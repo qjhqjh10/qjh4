@@ -634,8 +634,8 @@ namespace CardPresentation
                         HideCombatPreview();
                         return;
                     }
-                    // ③ 「会不会死」那一层（原版 :104-120）
-                    _view.SetWillDie(info.WillDie);
+                    // ③ 「会不会死」那一层（原版 :104-120）—— 🔴 含 `:107-112` 那道闸：`self.IsAnimatingCombat(+0x248) != 0` 时原版**不调** `SetActive`（图标保持战斗起点 `SetCombatHighlights()` 关掉的状态）⇒ 等价 = 这一拍不点亮（2026-10-28 `B91_W3`，账「`CardScript.ToggleCombatState`」的残差 ②）
+                    _view.SetWillDie(info.WillDie && !IsAnimatingCombat);
                     // ④ 残骸体 ⇒ 展示原卡（原版 :124-127）
                     if (IsRemnant)
                     {

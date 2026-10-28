@@ -1,7 +1,9 @@
 // SaveCenter.cs — 中央存档（完全复刻 · Step 1「建中央层」）
 //
-// ⛔ **本文件是纯新增，不接入任何现有子系统**（那是 Step 4，要双写期 + 全字段 dump 相等）。
-//    它现在只是「一个可被调用的统一读写口」。现有 10 份旧档一个字节都不会因为它而改变。
+// ⛔ **原定「纯新增、不接入任何现有子系统」（Step 4 才切，要双写期 + 全字段 dump 相等）**——
+//    ⚠️ **2026-10-28 更正（`B90-N5`，铁律 5）**：**首个消费者已出现 = `Shell/ChatCache.cs`**（`SaveKeys.BlockedPlayers`）。
+//    那是「新功能直接用中央口」、不是「把旧档切过来」⇒ Step 4 的双写期纪律不变；但「没有任何子系统调用它」这句已不成立。
+//    ✅ 仍然成立：**现有 10 份旧档一个字节都不会因为它而改变**。
 //
 // 判据与出处
 //   · 原版是**两层**：① 云端中央存档 = PlayFab user data，按 `PlayerDataKey` 分 **51** 个 key
@@ -44,7 +46,7 @@ namespace CardPresentation
     /// <summary>中央存档的统一读写口（原版 `PlayerDataManager` 的本地等价物）。
     /// <para>接口：<see cref="Get{T}"/> / <see cref="GetRaw"/> / <see cref="Set{T}"/> / <see cref="SetRaw"/> /
     /// <see cref="Exists"/> / <see cref="Delete"/> / <see cref="Flush"/> / <see cref="RegisterMigration"/>。
-    /// ⛔ Step 1 阶段**没有任何子系统调用它**（Step 4 才切）。</para></summary>
+    /// ⚠️ 2026-10-28（`B90-N5`）：**已有首个消费者 = `Shell/ChatCache.cs`**（原写「Step 1 阶段没有任何子系统调用它」，已不成立）。</para></summary>
     public static class SaveCenter
     {
         /// <summary>`persistentDataPath` 下的根目录名（与 `WarpforgeDaily` / `WarpforgeDraft` 并列）。</summary>

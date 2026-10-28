@@ -226,17 +226,17 @@ namespace CardPresentation
             //   `WaitForSeconds(delay)` → `AudioCue.Play2D(cue, 3)`（**MixerType 3 = Jingles**）→ 再 `Play("Rank Up"/"Division Up")`。
             // ⇒ 现在改到 `PlayPromote()` 里、**紧挨着 promote clip 起播**（顺序与原版一致）。
             // ⚠️ 原来这里写「我们的升级动画没建 ⇒ 落在 `Open()`」——**那条理由已经不存在了**（动画已接）。
-            Build();
+            Build(); PointerLayer.SetInputEnabled(false);   // 🆕 B90-N1：原版 `Open()` 第一件事 = `EventSystemController.Toggle(false)`（判据见类尾 `SafetyInputEnabler`）
             StartSequence();     // = 原版 `Open()` 尾：`Play("Division Config")` + 起 promote 计时
         }
 
         /// <summary>换一份内容（复用同一扇窗时用；`GameWindow.TryOpen` 在 `Open` 态照原版早退 ⇒ 必须显式调本方法）。
-        /// ⚠️ 换内容**不重播**开场演出（原版没有这条入口）⇒ 只把动画停掉、停在 `Build()` 的出厂姿态。</summary>
+        /// ⚠️ 换内容**不重播**开场演出 ⇒ 只在序列**已过 promote 那一拍**时才停播（病史与判据 → 类尾 `B90-F2` 那段）。</summary>
         public void Show(Context? ctx = null)
         {
             _ctx = FillDef(ctx);
             Build();
-            StopAnimation();
+            if (_promoteDelay < 0f) StopAnimation();   // 🔴 B90-F2：promote 未起播时⛔不许掐序列（否则演出整段不播、输入只能等 10.4s 兜底）
         }
 
         // ============================================================ 建整棵树（顺序 = 原版兄弟序）
@@ -757,7 +757,7 @@ namespace CardPresentation
             // 印玺颗数一律用 **prefab 的 4 颗**（`StepR.Length`），⛔ 不用 `_sealFills.Count` ——
             //   后者在「图取不到」时会是 0（`MenuDraw.Rect` 对 `tex == null` 返回 null）⇒ 延迟会静默变短。
             //   原版这个 count 来自服务端 `TotalSeals`，我们只有 prefab 这一档（如实标注）。
-            _promoteDelay = PromoteDelay(StepR.Length);
+            _promoteDelay = PromoteDelay(StepR.Length); SafetyInputEnabler();   // 🆕 B90-N1：原版 `Open()` 在 `Toggle(false)` 之后紧接 `StartCoroutine(SafetyInputEnabler())`
         }
 
         /// <summary>停播（换内容 / 重开时调）。**不还原节点姿态** —— 还原交给下一次 `Build()` 或下一次播放。</summary>
@@ -822,7 +822,7 @@ namespace CardPresentation
         /// <summary>每帧推进（真机 `Update` / 自检 `TickForTest`）。</summary>
         void TickAnimation(float dt)
         {
-            if (dt < 0f) dt = 0f;
+            if (dt < 0f) dt = 0f; TickInputSafety(dt);   // 🆕 B90-N1：8/9 秒兜底（= 原版 `SafetyInputEnabler` 那条协程；本窗的 `Tick` 就是我们的协程泵）
             // ① 等 promote 那一拍（= 原版 `WaitForSeconds(delay)`）
             if (_promoteDelay >= 0f)
             {
@@ -849,7 +849,7 @@ namespace CardPresentation
             {
                 _playing = false;
                 if (_anim != null) _anim.Stop();
-                _lastFinishedKey = _playingKey;
+                _lastFinishedKey = _playingKey; DispatchClipEvents(_rt);   // 🆕 B90-N1：原版 clip 里的 `AnimationFinished` 动画事件（我们两条 clip 的事件时刻都 == clip 长度 ⇒ 落在这一跳）
                 // **播完就停在这一帧** —— clip 的末键就是原版的静态姿态（⛔ 别回退到 `Build()` 的出厂值）
             }
         }
@@ -1366,5 +1366,149 @@ namespace CardPresentation
             }
             return quad.transform;
         }
+
+        // ============================================================================================
+        //  🆕 2026-10-28（B90-N1）：**弹窗期间禁输入 / 关窗·演完·超时后解禁**那条横切链
+        //
+        //  【判据 —— 第一权威，逐句现读 2026-10-28】`d:/2/tools/decomp_full/`：
+        //   · `RankedEventDivisionChangeWindow__Open.c:38-52` / `…NewSystem__Open.c:228-240`：
+        //       `GameWindow.Open()` → `EventSystemController.Toggle(false)` → `StartCoroutine(SafetyInputEnabler())`
+        //   · `…__CloseButton.c:9-14` / `…NewSystem__CloseButton.c:9-14`：`Close()` → `Toggle(true)`
+        //   · `…__AnimationFinished.c` / `…NewSystem__AnimationFinished.c`：`Toggle(true)`（clip 的动画事件）
+        //   · `…_SafetyInputEnabler_d__15__MoveNext.c`：`WaitForSeconds(8f)` → `Toggle(true)`（**旧系统 = 8 秒定值**）
+        //     `…NewSystem._SafetyInputEnabler_d__29__MoveNext.c`：`WaitForSeconds(<总动画时长 − 0.25f> + 9f)` → `Toggle(true)`
+        //       （`0x1834b3208` = **9.0** · `0x1834b2e7c` = **0.25**，前者由 `工具/read_literal.py` 现读；
+        //        `<总动画时长 − 0.25>` 正是本窗的 `_promoteDelay`（`PromoteDelayTrim = 0.25f` 同源））
+        //   🔴 **反编译里那个调用显示成 `ChatPreviewMessage__Enable(this, v)` —— 那是 ICF 误标，不是聊天预览**：
+        //      `ChatPreviewMessage : MonoBehaviour`（`dump.cs:44782`，**没有 `Instance`**），而这里取的是
+        //      `SingletonBehaviour<object>.get_Instance(DAT_1842bdc50)` ⇒ 那个单例只能是
+        //      `EventSystemController : SingletonBehaviour<EventSystemController>`（`dump.cs:104632`）；
+        //      两个类的 `+0x20` 都是 `Behaviour`（`TextMeshProUGUI message` / `EventSystem eventSystem`）
+        //      ⇒ 方法体逐字相同 ⇒ 符号被折叠成先导出的那个名字。
+        //      旁证：`Shell/PointerLayer.cs` 的 `InputEnabled` doc 早就写着「`EventSystemController.Toggle` 与
+        //      `ChatPreviewMessage.Enable` 同体 ⇒ ICF」。
+        //   🔴 **范围也是现读出来的**：`RankedEventSeasonEndedWindow` / `…Old` / `RankedEventStartSeasonWindow`
+        //      **三扇都没有这条链**（`__Open.c` 里没有 `Toggle/Enable` 调用，`__CloseButton.c` 的体只有 `Close()`）
+        //      ⇒ 只有 `RankedEventDivisionChangeWindow` 与 `…NewSystem` 这两扇要禁输入。⛔ 别给另三扇也加上。
+        //
+        //  【我们的等价物】`PointerLayer.SetInputEnabled(bool)` = 原版 `EventSystemController.Toggle(bool)`
+        //   （本仓没有 UGUI `EventSystem`，那一位就是「ESC 第一道门槛 + 唯一输入路」，见 `PointerLayer.cs` 那段 doc）。
+        //  【形状差】原版是协程 + `WaitForSeconds`；我们没有帧循环以外的等待 ⇒ 用**同一个 `Tick` 里的倒计时**
+        //   （`SafetyInputEnabler()` 只负责算出秒数，`TickInputSafety(dt)` 负责推进）。
+        //  ⚠️ 两套系统的兜底时长不同（旧 8f 定值 / 新 `_promoteDelay + 9f`），本窗**一扇窗同时承载两套判据**
+        //   ⇒ 取**新系统那一档**（更晚的那个，绝不会在演出途中解禁）。旧系统的 8f 记在这里备查。
+
+        /// <summary>新系统兜底里的那个常数（判据 = `0x1834b3208` 现读 = 9.0）。</summary>
+        public const float SafetyExtraDelay = 9f;
+        /// <summary>旧系统兜底的定值（判据 = `…_SafetyInputEnabler_d__15__MoveNext.c` 的 `WaitForSeconds(8f)`）。</summary>
+        public const float SafetyFlatDelayOld = 8f;
+
+        float _inputSafetyLeft;
+
+        /// <summary>= 原版 `Open()` 尾那句 `StartCoroutine(SafetyInputEnabler())`：**起兜底倒计时**并返回秒数。
+        /// <para>时长 = `_promoteDelay + 9f`（新系统那一档；见类尾那段注释的两套值）。</para></summary>
+        public float SafetyInputEnabler()
+        {
+            float d = Mathf.Max(0f, _promoteDelay) + SafetyExtraDelay;
+            _inputSafetyLeft = d;
+            return d;
+        }
+
+        /// <summary>每帧推进兜底倒计时（由 `TickAnimation` 第一句调 ⇒ 与演出同一口时钟）。</summary>
+        void TickInputSafety(float dt)
+        {
+            if (_inputSafetyLeft <= 0f) return;
+            _inputSafetyLeft -= dt;
+            if (_inputSafetyLeft > 0f) return;
+            _inputSafetyLeft = 0f;
+            AnimationFinished();
+            Debug.LogWarning("[RankedDivChange] 演出**没有在超时前报完成** ⇒ 走**兜底解禁**"
+                           + "（= 原版 `SafetyInputEnabler` 那条 `WaitForSeconds`）；若每窗都出现这条，"
+                           + "说明 clip 的 `AnimationFinished` 事件没跑到 —— 先查 `Resources/division_clips.json` 的 `events`");
+        }
+
+        /// <summary>原版 `AnimationFinished()`（clip 动画事件的接收器）= **只做一件事：解禁输入**。
+        /// <para>🔴 账 `214`/`220` 原写「体 = `ChatPreviewMessage.Enable(true)`、我们从不关聊天预览 ⇒ 无需重开」——
+        /// **两句都过期**（铁律 5）：真身是 `EventSystemController.Toggle(true)`，而且我们**现在就关**（见 `Open()`）。</para></summary>
+        public void AnimationFinished()
+        {
+            PointerLayer.SetInputEnabled(true);
+        }
+
+        /// <summary>把 clip 的动画事件按时刻派发（= 原版 `AnimationEvent.functionName` 那一跳）。
+        /// <para>本窗两条 clip 的事件都是 `(t = length, "AnimationFinished")`（`Resources/division_clips.json` 现读）
+        /// ⇒ 等价落点 = clip 播完那一跳。遇到**不认识**的函数名 ⇒ 出声一次（⛔ 不静默）。</para></summary>
+        void DispatchClipEvents(RtClip rc)
+        {
+            if (rc == null || rc.data == null || rc.data.events == null) return;
+            for (int i = 0; i < rc.data.events.Length; i++)
+            {
+                var e = rc.data.events[i];
+                if (e == null || string.IsNullOrEmpty(e.function)) continue;
+                if (e.function == "AnimationFinished") { AnimationFinished(); continue; }
+                WarnChannel("clipEvent:" + e.function,
+                            "clip `" + rc.clip.name + "` 里的动画事件 `" + e.function + "` 我们**没有实现** ⇒ 这一拍什么都没做"
+                          + "（原版 `AnimationEvent` 会调同名的 MonoBehaviour 方法）。");
+            }
+        }
+
+        /// <summary>关窗 ⇒ 解禁（= 原版 `CloseButton()` 的第二句 `EventSystemController.Toggle(true)`）。
+        /// <para>⚠️ 挂在 `Close()` 覆写上、⛔ 不只在 `CloseButton()` 里：原版 `CloseButton` 只是「点暗底 / 点关钮」那条路，
+        /// 而本窗还能被 ESC / `WindowsManager.CloseWindow` 关掉 —— 任一条路漏接都会把**输入层永久留在停用态**。
+        /// 原版在 `Close()` 返回后**无条件** `Toggle(true)`（哪怕首句 `!activeSelf` 早退了）⇒ 我们照抄这个次序。</para></summary>
+        public override void Close()
+        {
+            base.Close();
+            PointerLayer.SetInputEnabled(true);
+        }
+
+        /// <summary>自检读口：兜底倒计时还剩几秒（0 = 已解禁）。</summary>
+        public float InputSafetyLeftForTest { get { return _inputSafetyLeft; } }
+
+        // ============================================================================================
+        //  🆕 2026-10-28（B90-F2）：**`Show()` 为什么不能无条件 `StopAnimation()`** —— 一次真·产品缺陷
+        //
+        //  【病史（现读证据）】生产入口只有一条：`Shell/WindowsManager.cs:1209` 的 `OpenRankedDivisionChange`
+        //   = `OpenByRef(...)` **之后紧跟** `win.Show(ctx)`（`:1212`）。而新建那一支 `OpenByRef` 内部已经跑完了
+        //   「`Create()` → `mgr.OpenWindow(win)` → `GameWindow.TryOpen` → `Open()`」（`WindowsManager.cs:914` / `:330`），
+        //   而 `Open()`（本文件 `:220`）= `Build(); PointerLayer.SetInputEnabled(false); StartSequence();`，
+        //   `StartSequence()`（`:753`）刚把 `_promoteDelay` 置成 `PromoteDelay(4) = 1.40s`、兜底 `_inputSafetyLeft = 10.40s`。
+        //   ⇒ 紧跟的 `Show()` 原来那句**无条件** `StopAnimation()` 把 `_promoteDelay` 抹成 `-1`（`:768`），
+        //   而它**不动 `_inputSafetyLeft`** ⇒ `TickAnimation` 的「① 等 promote 那一拍」那一支（`:827`）永远进不去
+        //   ⇒ `PlayClip(rankUp / divisionUp)` **一次都不播**，只剩 `TickInputSafety` 在跑 ⇒
+        //   **演出整段不播 + 输入要等 10.40 秒兜底才解禁**。
+        //   实测：`_tmp_view/menu.log` 有 `[RankedDivChange] 演出**没有在超时前报完成** ⇒ 走**兜底解禁**`；
+        //   自检实测「兜底还剩 0 秒 · 动画时间 0 / 时长 0.217 · 推了 521 步」——
+        //   521 × 0.02 = 10.42 ≈ 10.40，而 `0.217` 正是 `Division Config` 的长度（`Resources/division_clips.json` 现读）
+        //   ⇒ 证据链闭合：**停在了 config 那一条、promote 根本没起播**。
+        //
+        //  【判据为什么站在「保序列」这边】原版 `Open()`（`RankedEventDivisionChangeWindowNewSystem__Open.c:228-240`）
+        //   之后**没有任何「再关一次动画」的入口**；`StopAnimation` 这一跳**是我们为「复用换内容」补的**
+        //   （原版没有 `Show(ctx)` 这条入口，见该方法 doc；原版 `WindowsManager.OpenWindowCO` 只走 `TryOpen`）。
+        //   ⇒「换内容时停在出厂姿态」这条意图**只在序列已播完 / 已过 promote 时有意义**；
+        //   序列还没走到 promote 就掐掉 = **把原版会播的那段演出整个吞掉**（不是「停得更早」，是「一步都不走」）。
+        //
+        //  【改法（二选一里选了②）】只给那一句加闸：`if (_promoteDelay < 0f) StopAnimation();`
+        //   ⛔ 没有选方案①「`OpenRankedDivisionChange` 干脆不调 `Show(ctx)`」—— 那会**连带砍掉复用支的内容刷新**：
+        //   复用支的 `TryOpen` 在原版与本仓都是「一个字段都不写就 return」的早退（`GameWindow.cs:516-545`），
+        //   `Show(ctx)` 是那一路**唯一**把新 `ctx` 铺到树上的入口（`WindowsManager.cs:901-906` 那段注释正是为它写的）
+        //   ⇒ 删掉它 = 拿一个真缺陷换另一个真缺陷。
+        //   ✅ `Build()` 照旧每次都跑（换内容必须重建）；重建**不影响进行中的序列** ——
+        //   `_nodeCache` 由 `Build()` 清空（`:257`），`SampleAnimation` 与 `ApplyChannels`/`NodeAt` 都按 **path 每帧重解析**，
+        //   而原生 `Animation` 那份只是旁路（批处理里它本来就推不动，见 `PlayClip` 的 `WarnChannel`）。
+        //
+        //  【谁还会走到这里（`grep -rn "\.Show(\|StopAnimation()" Shell/ Editor/` 现读全量）】
+        //   · `Show(Context?)` 的**唯一**调用方 = `Shell/WindowsManager.cs:1212`。
+        //   · `StopAnimation()` 的调用方只有两处、都在本文件：`Show()`（本闸）与 `StartSequence()` 首句（`:755`）
+        //     —— 后者**必须**停：那是「重开一条新序列」的复位，不是「掐断一条没起播的演出」。
+        //   · 同族 `OpenTutorialMessage` / `OpenWelcome` / `OpenRankedNewSeason` / `OpenRankedSeasonEnded` /
+        //     `OpenGiveFeedback` 也是「`OpenByRef` 之后紧跟 `Show(ctx)`」，但那五扇的 `Show()` **里没有动画**（只 `Build()`）
+        //     ⇒ 本缺陷**只在升段窗这一扇**成立，⛔ 别顺手去改那五扇。
+        //
+        //  【还欠什么】① 反编译里**没有查到**与原版「重开时停播」对应的方法（`dump.cs` 里 `StopAnimation` 只在
+        //   `GameWindow` 家族），所以本闸的上界只能取「本仓自己的序列语义」—— 若将来查到原版另有一跳，要回来对齐；
+        //   ② 生产入口 `OpenRankedDivisionChange` 目前**还没接进活界面**（只有 `Editor/MainMenuScene.cs` 在调），
+        //   接上之后要真机看一次「`Division Change` 音效 → promote 演出 → 解禁」的次序。
+        // ============================================================================================
     }
 }

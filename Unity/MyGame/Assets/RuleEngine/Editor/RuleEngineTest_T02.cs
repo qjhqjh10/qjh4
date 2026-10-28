@@ -11,10 +11,10 @@
 //   ② **`Sacrifice:` 族 · 正文的落点**：全池 **0 张可达**（见下面那一格的说明），
 //      机制用**卡面文法造出来的夹具卡**端到端钉住 —— 「`Gain +1 Attack` 的 +1 落在被献祭那张自己身上」。
 //      改前 `DoGive` 的闸是 `!IsAlive`，而触发那一刻 `Health <= 0` ⇒ **+1 静默丢掉**。
-//   ③ **落位锚点族 · `A1692` 的另外两个写入点**：`A1692` 当年只给 `RuleCore.DeployFree` 加了
-//      「目标格被占 ⇒ 不许静默覆盖」的闸，而 `EffectResolver.DoTakeControl`（抢单位）与
-//      `RuleCore.EndTurn` 的「本回合控制到期、还回去」**走的是同一个 `NextWithoutDisplacing`**、
-//      **没有**那道闸 ⇒ 有洞棋盘上会**静默盖掉一个人**。判据收进 `BoardSlots.NextFreeWithoutDisplacing` 一处。
+//   ③ **落位锚点族 · `A1692` 的另一个写入点**：`A1692` 当年只给 `RuleCore.DeployFree` 加了
+//      「目标格被占 ⇒ 不许静默覆盖」的闸，而 `EffectResolver.DoTakeControl`（抢单位）与（🔴 2026-10-28 起
+//      **已停用**的）`RuleCore.EndTurn`「还回去」**走的是同一个 `NextWithoutDisplacing`** ⇒ 有洞棋盘上会
+//      **静默盖掉一个人**。判据收进 `BoardSlots.NextFreeWithoutDisplacing` 一处；③ 现钉「跨过 `EndTurn` **不归还**」。
 //   ④ 🆕 **2026-10-22（`W63` 普查）：`SimpleAI.FirstFreeSlot` 是落位判据的第四处写入点**，
 //      `T02` 当时没收口 ⇒ 有洞棋盘上它会返回**被占格**（同上后果）。判据同样是
 //      `BoardSlots.NextFreeWithoutDisplacing`（⛔ 不另写一份「空格 = 没单位」）。
@@ -165,15 +165,15 @@ public static partial class RuleEngineTest
     }
 
     // ==================================================================
-    //  ③ 落位锚点族 · `A1692` 的另外两个写入点（抢单位 / 控制到期还回去）
+    //  ③ 落位锚点族 · `A1692` 的另一个写入点（抢单位 / 控制到期**不**还回去）
     // ==================================================================
 
     /// <summary>
-    /// **落位锚点族 · `A1692` 的另外两个写入点**：`A1692` 当年只给 `RuleCore.DeployFree` 加了
-    /// 「目标格被占 ⇒ 不许静默覆盖」，而 `EffectResolver.DoTakeControl`（抢单位）与
-    /// `RuleCore.EndTurn`（本回合控制到期、还回去）**走同一个 `NextWithoutDisplacing`**、
-    /// 却没有那道闸 ⇒ 有洞棋盘上会**静默盖掉一个人**。判据现收在
-    /// `BoardSlots.NextFreeWithoutDisplacing` 一处（三处共用）。
+    /// **落位锚点族 · `A1692` 的另一个写入点**：`A1692` 当年只给 `RuleCore.DeployFree` 加了
+    /// 「目标格被占 ⇒ 不许静默覆盖」，而 `EffectResolver.DoTakeControl`（抢单位）**走同一个
+    /// `NextWithoutDisplacing`**、却没有那道闸 ⇒ 有洞棋盘上会**静默盖掉一个人**。判据现收在
+    /// `BoardSlots.NextFreeWithoutDisplacing` 一处（两处共用）。🔴 **2026-10-28（`B91`）：原第三处
+    /// `RuleCore.EndTurn`「归还」已停用**（原版抢来即永久）⇒ 下面 ③ 改钉「跨过 `EndTurn` 仍在抢它的人那儿」。
     ///
     /// **夹具共用的有洞局面**：右 index 0/2 有人（5、7 号格）、index 1（6 号）空着；
     /// 左侧摆 2 个（3、2 号格）⇒ 两侧人数打平 ⇒ `NextWithoutDisplacing` 选右（平手走右）
@@ -229,7 +229,7 @@ public static partial class RuleEngineTest
                       "★ 而且**出声**（本仓红线：不许静默失败）" + LogTail(ctx));
         }
 
-        // ---- ③ 「本回合控制到期、还回去」（`RuleCore.EndTurn`）:同一个闸 ----
+        // ---- ③ 抢来的单位**跨过回合末不归还**（`RuleCore.EndTurn` · 2026-10-28 新口径）----
         {
             var ctx = ProbeBattle(new CardDef[0], new CardDef[0]);
             ToP1Turn(ctx, 1);
@@ -248,14 +248,17 @@ public static partial class RuleEngineTest
             int logFrom = ctx.Events.Count;
             RuleCore.EndTurn(ctx);
 
-            Check(SlotOf(ctx, 1, "T02_RB_Unit"), 8,
-                  "★★ `T02`：还回去的单位落在**原主该侧最外的空格 8**（目标格 7 被占 ⇒ **不覆盖**）"
-                + "｜🧨 把 `RuleCore.EndTurn` 归还那一段改回裸 `NextWithoutDisplacing` ⇒ 实得 7"
-                + "（并且 7 号格上的人被静默抹掉）" + S23RTail(ctx, logFrom));
+            Check(SlotOf(ctx, 1, "T02_RB_Unit"), -1,
+                  "★★ `T02`：`EndTurn` **不再把抢来的单位还回去**（原版 `ChangeOwner` 只取反 `isPlayer`、`EndTurn` 无归还路）"
+                + " —— 原主那边**没有**它｜🧨 把 `RuleCore.EndTurn` 里那段归还恢复 ⇒ 它会落在 8 号格 ⇒ 实得 8 ⇒ 红" + S23RTail(ctx, logFrom));
+            Check(SlotOf(ctx, 0, "T02_RB_Unit"), 5,
+                  "★★ 它**还在抢它的人那边的 5 号格**（控制权不随回合结束回来）｜🧨 上一行恢复 ⇒ 实得 -1 ⇒ 红"
+                + S23RTail(ctx, logFrom));
             CheckTrue(Board(ctx, 1, 7) == outer,
-                      "★★ 灭自证：7 号格原来那个**还在、还是同一个对象**" + S23RTail(ctx, logFrom));
-            CheckTrue(HasLog(ctx, "不覆盖"),
-                      "★ 而且**出声**（不许静默失败）" + S23RTail(ctx, logFrom));
+                      "★★ 灭自证：原主 7 号格原来那个**还在、还是同一个对象**（没被静默抹掉）" + S23RTail(ctx, logFrom));
+            Check(ctx.TempControls.Count, 1,
+                  "★★ 灭自证（结构）：`EndTurn` **不消费 `ctx.TempControls`** —— 列表没被 `Clear()`"
+                + "｜🧨 把归还段恢复（末尾那句 `ctx.TempControls.Clear()`）⇒ 实得 0 ⇒ 红" + S23RTail(ctx, logFrom));
         }
     }
 
@@ -265,12 +268,12 @@ public static partial class RuleEngineTest
 
     /// <summary>
     /// **落位判据的第四个写入点 = `SimpleAI.FirstFreeSlot`**。`T02`（2026-10-21）把
-    /// `RuleCore.DeployFree` / `EffectResolver.DoTakeControl` / `RuleCore.EndTurn` 三处收口到
+    /// `RuleCore.DeployFree` / `EffectResolver.DoTakeControl` **两处**收口到
     /// `BoardSlots.NextFreeWithoutDisplacing`；2026-10-22 的 `W63` 普查查出**这一处还是裸的
     /// `NextWithoutDisplacing`**（`Data/SimpleAI.cs:1486`）⇒ 有洞棋盘上会返回**被占格**，
     /// 调用方（演示 / 自检 / `BattleDriver` 的拖放兜底）再把它喂给 `RuleCore.PlayCard`，
     /// `BoardSlots.Insert` 的「有洞降级」分支就会把外侧那个单位**静默抹掉**。
-    ///
+    /// 🔴 **2026-10-28（`B91` · 调度台裁定）**：原来第三处 `RuleCore.EndTurn`（归还）**已停用** —— 原版抢来即永久 ⇒ 下面 ③④ 改钉「**跨过 `EndTurn` 不归还**」，那套「归还落点」判据作废、⛔ 别恢复。
     /// 格号（`ourSlot = 4 + 有符号下标`）：左 `3 2 1 0`、督军 `4`、右 `5 6 7 8`。
     /// 判据出处 = `MinionManager__GetNextSlotWithoutDisplacing.c:14-30`（人少那侧的最外一格、
     /// 平手走右）＋ `BoardSlots.NextFreeWithoutDisplacing`（**唯一**的「真的可占」判据）。
@@ -656,7 +659,7 @@ public static partial class RuleEngineTest
     }
 
     // ==================================================================
-    //  ⑥ 归还侧 · 原版 `MinionManager.IsAvailableSlot` 收成唯一判据（`T02·P4`，2026-10-22）
+    //  ⑥ 归还侧 · 原版 `MinionManager.IsAvailableSlot` 收成唯一判据（`T02·P4`，2026-10-22；🔴 2026-10-28 归还段已停用 ⇒ ③④ 改钉「不归还」）
     // ==================================================================
 
     /// <summary>
@@ -722,7 +725,7 @@ public static partial class RuleEngineTest
                 + "（原版选侧是 `l < r ? 左 : 右`，`GetNextSlotWithoutDisplacing.c:14-30`，"
                 + "选中那侧满 ⇔ 两侧都满 —— 证明见 `BoardSlots.NextWithoutDisplacing` 的 remarks）");
 
-            // 全盘满 ⇒ 两条判据同时说「不行」（这就是归还侧那个 `-1` 分支的判据来源）
+            // 全盘满 ⇒ 两条判据同时说「不行」（原来「归还侧 `-1` 分支」的判据来源；🔴 2026-10-28 归还段已停用）
             Place(ctx, 1, 7, Unit("T02_AS_F6", 1, 1, 5));
             Place(ctx, 1, 8, Unit("T02_AS_F7", 1, 1, 5));
             CheckTrue(!BoardSlots.IsAvailableSlot(ctx.Players[1], 1),
@@ -736,11 +739,11 @@ public static partial class RuleEngineTest
             Check(blockedFull, -1, "★ 而且 `blockedSlot = -1` = **「两侧都满」**（不是「目标格被占」）—— 调用方据此说不同的话");
         }
 
-        // ---- ③ 归还侧端到端：目标格被占 + **正确答案是一个夹在两人中间的内洞**（灭自证）----
+        // ---- ③ `EndTurn` **不归还**：即便原主那边有一个夹在两人中间的内洞（灭自证）----
         //   夹具（原主 = P1）：左 3 号格有人、**2 号格空着（洞）**、1 号格有人、0 号格有人 ⇒ 左 3 个；
-        //   右 5/6/7/8 全满 ⇒ 右 4 个。
-        //   ⇒ 选侧：左 3 < 右 4 ⇒ 走左；裸算法给 index 3 = **0 号格（被占）**；
-        //     正确答案 = 从最外往里找到的第一个空格 = **2 号格**（它的两侧 3 与 1 **都有人**）。
+        //   右 5/6/7/8 全满 ⇒ 右 4 个。⇒ 若归还段被恢复，正确答案是 2 号格（两侧 3 与 1 都有人）——
+        //   所以「它没被还回去」这条**结构上挡得住**「有人把归还那段加回来」。
+        //   （`NextFreeWithoutDisplacing` 本体在这一格仍直接量，见下面 3 条前提断言。）
         {
             var ctx = ProbeBattle(new CardDef[0], new CardDef[0]);
             ToP1Turn(ctx, 1);
@@ -771,23 +774,25 @@ public static partial class RuleEngineTest
             int logFrom = ctx.Events.Count;
             RuleCore.EndTurn(ctx);
 
-            Check(SlotOf(ctx, 1, "T02_RS_Unit"), 2,
-                  "★★ `T02·P4`：还回去的单位落在 **2 号格**（夹在 3 与 1 之间的内洞）—— 不是被占的 0、也不是 1"
-                + "｜🧨 把 `RuleCore.EndTurn` 归还那一段改回裸 `NextWithoutDisplacing` ⇒ 实得 0"
-                + "（并且 0 号格上的人被静默抹掉）" + S23RTail(ctx, logFrom));
+            Check(SlotOf(ctx, 1, "T02_RS_Unit"), -1,
+                  "★★ `T02·P4`：`EndTurn` **不归还** —— 原主那边**没有**它（哪怕 2 号格正空着）"
+                + "｜🧨 把 `RuleCore.EndTurn` 里那段归还恢复 ⇒ 它会落在 2 号格（内洞）⇒ 实得 2 ⇒ 红"
+                + S23RTail(ctx, logFrom));
             CheckTrue(Board(ctx, 1, 3) == l0 && Board(ctx, 1, 1) == l2 && Board(ctx, 1, 0) == l3,
-                      "★★ 灭自证：2 号格**两侧**那三个人（3 / 1 / 0 号格）**都还在、还是原来那个对象** —— "
-                    + "这条断言不允许「碰巧落在一个本来就空着的边角」：正确答案是被两个人夹住的格"
+                      "★★ 灭自证：原主棋盘上那三个人（3 / 1 / 0 号格）**都还在、还是原来那个对象**"
+                    + "（这条只证明「没被抹掉」：归还段若被恢复，它会插到 2 号格、这三个人反而该原样不动）"
                     + S23RTail(ctx, logFrom));
-            CheckTrue(HasLog(ctx, "不覆盖"),
-                      "★ 而且**出声**（不许静默失败）" + S23RTail(ctx, logFrom));
-            CheckTrue(BoardSlots.IsContiguous(ctx.Players[1], out _),
-                      "★ 还回去之后这块棋盘**重新连续无洞**（左 4 / 右 4 全满）");
-            Check(SlotOf(ctx, 0, "T02_RS_Unit"), -1,
-                  "★ 它已经从「抢它的人」那边摘掉了（`RemoveMinion` ⇒ 补位）" + S23RTail(ctx, logFrom));
+            Check(ctx.TempControls.Count, 1,
+                  "★★ 灭自证（结构）：`EndTurn` **不消费 `ctx.TempControls`**（列表没被 `Clear()`）｜🧨 恢复归还段 ⇒ 实得 0 ⇒ 红"
+                + S23RTail(ctx, logFrom));
+            CheckTrue(!BoardSlots.IsContiguous(ctx.Players[1], out _),
+                      "★ 原主棋盘**仍然是那个有洞的样子**（2 号格还空着）—— 归还段恢复 ⇒ 它会重新连续 ⇒ 红"
+                    + S23RTail(ctx, logFrom));
+            Check(SlotOf(ctx, 0, "T02_RS_Unit"), 5,
+                  "★ 它**还在抢它的人那边的 5 号格**（控制权不随回合结束回来）" + S23RTail(ctx, logFrom));
         }
 
-        // ---- ④ 归还侧的另一支：**两侧都满** ⇒ 还不回去、人留在抢它的人那儿（`IsAvailableSlot` 假）----
+        // ---- ④ 原主**两侧都满**这一支：同样**不归还**（新口径下「满 / 不满」结果都一样）----
         {
             var ctx = ProbeBattle(new CardDef[0], new CardDef[0]);
             ToP1Turn(ctx, 1);
@@ -812,9 +817,9 @@ public static partial class RuleEngineTest
             RuleCore.EndTurn(ctx);
 
             Check(SlotOf(ctx, 0, "T02_RF_Unit"), 5,
-                  "★★ `T02·P4`：还接不住 ⇒ **人留在抢它的人那儿**（还在 P0 的 5 号格）"
-                + "｜🧨 把 `RuleCore.EndTurn` 归还段那个 `if (to < 0) continue;` 删掉 ⇒ "
-                + "会往 -1 号格写 ⇒ 越界/静默异常" + S23RTail(ctx, logFrom));
+                  "★★ `T02·P4`：**原主两侧都满也不归还** —— 人留在抢它的人那儿（P0 的 5 号格）"
+                + "｜🧨 恢复归还段 ⇒ 这一档会走 `if (to < 0) continue;` + 出声「还不回去」⇒ 下面那条红"
+                + S23RTail(ctx, logFrom));
             Check(SlotOf(ctx, 1, "T02_RF_Unit"), -1, "★ 原主那边**没有**这个人");
             bool intact = true;
             for (int i = 0; i < keep.Count; i++)
@@ -823,9 +828,9 @@ public static partial class RuleEngineTest
             CheckTrue(intact,
                       "★★ 灭自证：原主棋盘上那 8 个**一个都没被顶掉/挪走**（还是原来那些对象）"
                     + S23RTail(ctx, logFrom));
-            CheckTrue(HasLog(ctx, "还不回去"),
-                      "★ 而且**出声**（「部署位也满了」那一支，判据 = `IsAvailableSlot(1)` = 假）"
-                    + S23RTail(ctx, logFrom));
+            Check(ctx.TempControls.Count, 1,
+                  "★★ 灭自证（结构）：`EndTurn` **不消费 `ctx.TempControls`**（没人在归还段里 `Clear()`）"
+                + "｜🧨 恢复归还段 ⇒ 实得 0、并且会多一条「还不回去」⇒ 红" + S23RTail(ctx, logFrom));
         }
     }
 

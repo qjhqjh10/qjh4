@@ -2431,15 +2431,15 @@ namespace CardPresentation
         }
 
         /// <summary>= 原版 `<DeleteDeck>g__Delete|27_0`：**先关本窗**（`Close()`）→ 再真删。
-        /// <para>失败两支的判据与文案一字不动（A548/A610 的口径）：`CollectionData.DeleteDeck` 自己分
-        /// 「**没删**（下标越界）」与「**删了，但没写进存档**」，⛔ 别在这里再判一遍。</para></summary>
+        /// <para>失败两支的**文案与 `bool`** 仍由 `CollectionData.DeleteDeck` 定（A548/A610 口径，⛔ 别在这里再判一遍）；这里只读它的**结构化**出口
+        /// `LastDeleteOutcome` 决定「要不要退回」—— `DeletedNotSaved` ⇒ `CollectionData.RestoreDeck`（= 原版 `__DeleteDeck_b__27_3.c` 第 ② 步 `InventoryManager__Add(item,1)`）。</para></summary>
         public void DeleteDeckNow()
         {
             HideDeleteConfirm();
             if (OverrideDeck != null) { Debug.LogWarning("[DeckInfo] `Delete`：这一副是外面送进来的（没有库下标）⇒ **不删**"); return; }
-            if (Blocked("Delete", DeleteInteractable)) return;
+            if (Blocked("Delete", DeleteInteractable)) return; var doomedDeck = CollectionData.Raw(DeckIndex);   // 🆕 B90-N4：删之前先抓住那一副（= 原版被摘掉的那件库存道具），失败时要退回
             if (CollectionData.DeleteDeck(DeckIndex)) { Debug.Log("[DeckInfo] 已删除该卡组"); Close(); }
-            else { MessageToast.ShowError("MenuDeck/Error/FailedToDelete", true); Debug.LogWarning("[DeckInfo] 删卡组失败：" + CollectionData.LastDeleteError); }   // B89-E16c：原版 `__DeleteDeck_b__27_3.c:18` 先弹红横幅（键 = `DAT_1842cf1f0` → `0x42CF1F0`；道具退回那半本地无库存层，见报告 §5·2）
+            else { if (CollectionData.LastDeleteOutcome == CollectionData.DeckDeleteOutcome.DeletedNotSaved && doomedDeck != null) CollectionData.RestoreDeck(doomedDeck); MessageToast.ShowError("MenuDeck/Error/FailedToDelete", true); Debug.LogWarning("[DeckInfo] 删卡组失败：" + CollectionData.LastDeleteError); }   // B90-N4：① 原版 `__DeleteDeck_b__27_3.c:18` 红横幅（键 `DAT_1842cf1f0` → `0x42CF1F0`）② `:23-27` 道具退回 = `RestoreDeck`（判据/分工见本节 doc）
         }
 
         /// <summary>🆕 A10：点督军立绘 ⇒ 开**卡片详情窗**（原版 `Warlord Image` 上那个 `EverguildButton`）。</summary>

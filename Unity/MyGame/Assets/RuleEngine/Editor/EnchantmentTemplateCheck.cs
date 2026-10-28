@@ -53,6 +53,8 @@ public static class EnchantmentTemplateCheck
             SectionF_WiringProof();
             Debug.Log(P + "===== §G 真战斗里会不会挂上去（B89/E26：SAU53 / TL47） =====");
             SectionG_RealBattleAttach();
+            Debug.Log(P + "===== §H 数据驱动通路（B90/B3：卡表 v38 `enchantment` 列 · 54 张 / trigger 0 的 29 张） =====");
+            SectionH_DataDrivenGrant();
         }
         catch (Exception e)
         {
@@ -548,6 +550,138 @@ public static class EnchantmentTemplateCheck
 
         Debug.Log(P + "G·读数：`SAU53`/`TL47` 两条链已在**真战斗**（`RuleCore.NewBattle` + `RuleCore.PlayCard`）里走通；"
                      + "全池 114 张挂载者里**只有这 2 张（+ 休眠的 SW64）**接了 —— 其余 111 张仍是缺口");
+    }
+
+    // ==================================================================
+    //  §H 「打出即挂」的**数据驱动**通路 —— B90 波 2 · 执行代理 `B3`
+    //
+    //  🔴 这一节回答的是「缺口关掉多少」：改前只有白名单那 3 张（`B89/E26`），改后由卡表 **v38** 的
+    //    `enchantment` 列供给（`Data/CardDatabase` 建成反查表 → 静态钩子注入 Core）。
+    //  判据 = `CardScript__AddEffect.c:826-828`（`buffType ∈ {12,15,16}` ⇒ `CardScript__AddEnchantment`），
+    //    并且**只有 `trigger == 0 (AbilityTrigger.ThisCardPlayed)` 那一档**该在「打出」这一刻挂
+    //    （`trigger 20 / 410 / 655 …` 各有各的钩子 ⇒ 在本钩子上挂 = 时机错）。
+    //
+    //  🧨 每条都写了「什么改动能让它红」。
+    // ==================================================================
+    static void SectionH_DataDrivenGrant()
+    {
+        const string CadiaTemplateId = "44761bc257d1f1243ac5f6058459ede6";   // T13 AstraMilitarum-Cadia Stands_enchantment
+
+        // ---- H0 · 数据源钩子接通（Data → Core）----
+        Ok(Enchantments.GrantedEnchantmentsProvider != null,
+           "★ H0 `Enchantments.GrantedEnchantmentsProvider` 已注册（= `CardDatabase` 的静态构造跑过）"
+         + " —— 🧨 删掉 `CardDatabase` 静态构造里那一句 ⇒ H2 / H5 全红（只剩白名单那 3 张）");
+
+        var pool = CardDatabase.Load();
+
+        // ---- H1 · 覆盖率读数（白名单 3 张 → 数据列 54 张；其中 trigger 0 的 29 张）----
+        int withRows = 0, trigger0 = 0;
+        for (int i = 0; i < pool.Count; i++)
+        {
+            var rows = CardDatabase.EnchantmentGrantsOf(pool[i].Id);
+            if (rows == null || rows.Count == 0) continue;
+            withRows++;
+            for (int k = 0; k < rows.Count; k++)
+                if (rows[k] != null && rows[k].Trigger == Enchantments.TriggerThisCardPlayed) { trigger0++; break; }
+        }
+        Ok(withRows == 54,
+           $"★ H1 卡表 `enchantment` 列覆盖**池内 {withRows} 张**挂载者（期望 54）"
+         + " —— 🧨 生成器把 `buffType` 判据写松（把 0/1/3 那 15 行也算进来）会变 63；整列缺失 ⇒ 变 0");
+        Ok(trigger0 == 29,
+           $"★ H1（同族）其中 `trigger == 0`（ThisCardPlayed = 打出即挂）**{trigger0} 张**（期望 29）"
+         + " —— 🧨 把 655（Pray，已走 `AttachPray` 专属链）也算进来 ⇒ 变 52");
+
+        var am51 = FindById(pool, "AM51");       // Cadia Stands：**只有数据列覆盖**，白名单里没有它
+        if (!Ok(am51 != null, $"H2 前提：真卡池里有 `AM51 Cadia Stands`（现读 {pool.Count} 张）"
+                            + " —— ⛔ 缺了就让 H2/H3 变成「0 == 0」的假绿")) return;
+
+        // ---- H2 · 真战斗：打出 `AM51` ⇒ 目标身上挂上它那张模板 ----
+        {
+            BattleContext bctx; UnitState carrier;
+            int code = PlayTacticOnFixture(am51, 20261201, out bctx, out carrier);
+            Ok(code == RuleCodes.OK, $"H2 前提：`AM51` 打得出去（返回 {code}）");
+            if (code == RuleCodes.OK && carrier != null)
+            {
+                int n = carrier.Instance.ActiveEnchantments.Count;
+                Ok(n == 1 && carrier.Instance.ActiveEnchantments[0].Card != null
+                   && carrier.Instance.ActiveEnchantments[0].Card.Id == CadiaTemplateId,
+                   $"★ H2 `AM51` 打出 ⇒ 目标身上 **{n}** 条附魔，"
+                 + $"挂的是 `{(n > 0 && carrier.Instance.ActiveEnchantments[0].Card != null ? carrier.Instance.ActiveEnchantments[0].Card.Id : "null")}`"
+                 + $"（期望 1 条 · `{CadiaTemplateId}`）"
+                 + " —— 🧨 把 `AttachGrantedByPlayedCard` 换回只查白名单（`GrantedEnchantmentOf`）⇒ 变 0");
+            }
+        }
+
+        // ---- H3 · 灭自证：摘掉数据源 ⇒ 同一张牌**什么都不挂**（证明命中的是数据列、不是别的东西）----
+        {
+            var saved = Enchantments.GrantedEnchantmentsProvider;
+            try
+            {
+                Enchantments.GrantedEnchantmentsProvider = null;
+                BattleContext bctx2; UnitState carrier2;
+                int code2 = PlayTacticOnFixture(am51, 20261202, out bctx2, out carrier2);
+                Ok(code2 == RuleCodes.OK && carrier2 != null,
+                   $"★ H3 前提：摘掉数据源之后 `AM51` 照样打得出去（返回 {code2}）");
+                if (code2 == RuleCodes.OK && carrier2 != null)
+                    Ok(carrier2.Instance.ActiveEnchantments.Count == 0,
+                       $"★ H3（**灭自证**）摘掉数据源 ⇒ 目标身上挂了 "
+                     + $"**{carrier2.Instance.ActiveEnchantments.Count}** 条（期望 0）"
+                     + " —— 🧨 如果本条红（= 摘掉还挂上了），说明命中的根本不是卡表 `enchantment` 列");
+            }
+            finally { Enchantments.GrantedEnchantmentsProvider = saved; }
+        }
+
+        // ---- H4 · 时机闸：`trigger 410`（FollowUpResolution）的 `SW56 Let Loose` **不许**在打出时挂 ----
+        {
+            var sw56 = FindById(pool, "SW56");
+            if (Ok(sw56 != null, "H4 前提：真卡池里有 `SW56 Let Loose`（它唯一那条挂载行的 `trigger = 410`）"))
+            {
+                int before = Enchantments.GrantedSkippedNonPlayTrigger;
+                BattleContext bctx3; UnitState carrier3;
+                int code3 = PlayTacticOnFixture(sw56, 20261203, out bctx3, out carrier3);
+                Ok(code3 == RuleCodes.OK && carrier3 != null,
+                   $"★ H4 前提：`SW56` 打得出去（返回 {code3}）");
+                if (code3 == RuleCodes.OK && carrier3 != null)
+                {
+                    Ok(carrier3.Instance.ActiveEnchantments.Count == 0,
+                       $"★ H4（**时机闸**）`trigger 410` 的挂载行**没有**在「打出」这一刻挂上去"
+                     + $"（实得 {carrier3.Instance.ActiveEnchantments.Count} 条，期望 0）"
+                     + " —— 🧨 删掉 `AttachGrantedByPlayedCard` 里那句 `g.Trigger != TriggerThisCardPlayed` ⇒ 变 1（做多）");
+                    Ok(Enchantments.GrantedSkippedNonPlayTrigger > before,
+                       "★ H4（同族）`GrantedSkippedNonPlayTrigger` 计数 +1（「没挂」是**可观察**的，不是静默）"
+                     + $"（{before} → {Enchantments.GrantedSkippedNonPlayTrigger}）");
+                }
+            }
+        }
+
+        // ---- H5 · 去重：`TL47` 的 3 条同模板 logic ⇒ 只挂 **1** 条（本钩子只有一个目标）----
+        {
+            var tl47 = FindById(pool, "TL47");
+            if (Ok(tl47 != null, "H5 前提：真卡池里有 `TL47`（数据列里它有 3 条指向同一张模板的行）"))
+            {
+                BattleContext bctx4; UnitState carrier4;
+                int code4 = PlayTacticOnFixture(tl47, 20261204, out bctx4, out carrier4);
+                Ok(code4 == RuleCodes.OK && carrier4 != null, $"★ H5 前提：`TL47` 打得出去（返回 {code4}）");
+                if (code4 == RuleCodes.OK && carrier4 != null)
+                    Ok(carrier4.Instance.ActiveEnchantments.Count == 1,
+                       $"★ H5 `TL47` 的 3 条同模板行只挂 **1** 条（实得 {carrier4.Instance.ActiveEnchantments.Count}）"
+                     + " —— 🧨 删掉 `AttachGrantedByPlayedCard` 里那段 `dup` 去重 ⇒ 变 3（原版不会多出这两条）");
+            }
+        }
+
+        // ---- H6 · 载体闸的**数据前提**：`DA42` 那条挂载行的载体是**手牌**（`targetsAffected == 50`）----
+        {
+            var d42 = CardDatabase.EnchantmentGrantsOf("DA42");
+            int ta = (d42 != null && d42.Count > 0) ? d42[0].TargetsAffected : -999;
+            Ok(ta == Enchantments.TargetsAffectedInHand,
+               $"★ H6 `DA42` 的挂载行 `targetsAffected = {ta}`（期望 {Enchantments.TargetsAffectedInHand}"
+             + " = inHandFiltered = **选中的那张手牌**）—— 它的载体不是场上单位 ⇒ 由专属链"
+             + " `AttachDA42ToChosenHandCard` 负责，「打出即挂」那个钩子必须让开"
+             + "（🧨 删掉 `AttachGrantedByPlayedCard` 里 `g.TargetsAffected == TargetsAffectedInHand` 那道闸 ⇒ 挂错人 + 双发）");
+        }
+
+        Debug.Log(P + $"H·读数：卡表 `enchantment` 列 = 池内 {withRows} 张挂载者 / 其中 `trigger 0` {trigger0} 张；"
+                     + "白名单（3 张）仍是「数据源不可用」时的兜底");
     }
 
     /// <summary>G 节夹具：**真卡池** + 一张督军 + 一张要打出的战术卡（+ 可选：4 号格摆一个己方单位当目标）。

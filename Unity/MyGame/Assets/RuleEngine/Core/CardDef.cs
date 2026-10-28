@@ -3540,7 +3540,7 @@ namespace RuleEngine
                 case "destroy":  return verb == "destroy";
                 case "jam":      return verb == "jam" || verb == "blind";
                 case "stun":     return verb == "stun";
-                case "handmove": return verb == "choosecard" || verb == "return";
+                case "handmove": return verb == "choosecard" || verb == "return" || verb == "discardfromhand" || verb == "discardwholehand" || verb == "disappearunit" || verb == "stealminionself";   // 🆕 2026-10-28（`B91_A4` · 判据 `判据/B91_P1_五族机制判据.md` §七·#6）：后四个 = `B91_A1` 本轮在 `EffectResolver` 动词表里落地的四个 verb（`EffectResolver.cs:1158-1161`）—— 原版 `CardScript` 把 discard 族 / `disappearUnit` / `stealMinion` 都归「手牌·牌库搬移」这一族。⚠️ **今天零消费者，为完整而加**：现池 active ability 落在这五族的行数 = 0，且 `EffectText` 对这四个 verb **0 生产者**（`EffectResolver.cs:1161` 自承休眠件）⇒ 加完**行为不变**（所以本行不加行、不重钉）。⚠️ **仍未收录**（今天同样落到 `gap:kind-no-op`、但**可能有活消费者**、要 `play check` A/B 才敢加）：`exchange` / `stealhand` / `stealdeck` / `takecontrol` / `copycemetery`。
                 case "trigger":  return verb == "triggerability" || verb == "extratrigger" || verb == "reanimate";
                 default:         return false;
             }
@@ -7770,7 +7770,7 @@ namespace RuleEngine
         /// ⚠️ **没有进 `Implemented`**：全池 0 张卡带着它 ⇒ 不把它报成「已实现关键词」。🆕 2026-10-26（第 4 轮 `F3` · 任务 R3）**状态侧的整个组合口已补**：`UnitState.ApplyJam()`（照 `CardScript.ReactToUnitJammed` 的 ①②③④⑤ 逐句搬）+ `UnitState.RemoveAllAppliedEffectsForJam()` + `UnitState.RemoveExtrinsicEffectsFrom(卡名)`；
         /// 驱动侧（`ResolveJamUnit` / `BroadcastUnitJammed`）属 `F2`，已写改动请求（R3-F2）。
         /// </summary>
-        public const string Jam = "jam";
+        public const string Jam = "jam"; public const string Courtesy = "courtesy"; public const string Relentless = "relentless"; public const string TriggerOnceIfBoardCriteria = "triggeronceifboardcriteria";
 
         /// <summary>
         /// 🆕 **2026-10-26（完全复刻 · 第 4 轮 · 执行代理 `F3` · 任务 R4）：**安魂**（`requiem`）
@@ -8679,7 +8679,7 @@ namespace RuleEngine
             //  以这七个词开头的 **0 条** ⇒ `IsKeywordOnly`（要求**吃满整句**）也不会误判。
             //  改后 `ruleprobe check` 仍是「解析差异 0 行 · 哨兵合计 0」（见报告 §五）。
             new[] { "first strike", "firststrike" }, new[] { "firststrike", "firststrike" },
-            new[] { "large", "large" }, new[] { "relentless", "relentless" },
+            new[] { "large", "large" }, new[] { "relentless", "relentless" }, new[] { "courtesy", "courtesy" }, new[] { "triggeronceifboardcriteria", "triggeronceifboardcriteria" },
             new[] { "resolution", "resolution" }, new[] { "combo", "combo" },
             new[] { "support", "support" },
             new[] { "choose one", "chooseone" }, new[] { "chooseone", "chooseone" },
@@ -9080,6 +9080,117 @@ namespace RuleEngine
                 }
                 return false;
             }
+        }
+
+        // ==========================================================================================
+        //  🆕 2026-10-28（B90 · B1 · 账行 `RawCardScript.TriggerAbility(...)` 缺口 ①）
+        //  **`randomAbilityChoice` 的数据面** —— 原版 `CardAbility.randomAbilityChoice`（`+0x48`）
+        // ==========================================================================================
+        //  判据：`RawCardScript__TriggerAbility.c`（第一权威，逐句现读）——
+        //    取 `abilityLogic(+0x50)` 之后判 `ability+0x48`：**为真 ∧ 条数 > 1 ⇒ `GetRandomInt` 抽一条只跑它**；
+        //    否则逐条 `PlayAbility(logic, mgr, abilityData, trigger)`。`ignoreRandomTrigger` 那一跳跳过它。
+        //  我们能拿到的那一格 = `animTimes[].rc`（生成器已落：`CardDatabase.MapAnimTimes` 的
+        //    `RandomChoice = a.rc != 0`，同一条 `CardAnim` 属于哪一个原版 trigger 也一起落成 `TriggerName`）。
+        //  ⚠️ 现读全池只有 `GOF12 Spanner` 的 5 行 `Mob(300)` 是 `rc=1`；它的正文解析成**一条**
+        //    `chooseone + RandomPick` op（`EffectText.EmitEitherOr`），`LogicIndex` 读不到 ⇒ 本闸会
+        //    **主动放行**（见 `RuleCore.RandomAbilityChoiceOps` 的第三道拒绝），不会与它打架。
+        // ==========================================================================================
+        /// <summary>这张卡的<paramref name="triggerName"/>（原版 `AbilityTrigger` 枚举名，如 `Mob`）
+        /// 有没有 `randomAbilityChoice`（原版 `CardAbility.randomAbilityChoice // +0x48`）。</summary>
+        public bool TriggerRandomChoice(string triggerName)
+        {
+            if (string.IsNullOrEmpty(triggerName)) return false;
+            for (int i = 0; i < _animTimes.Count; i++)
+            {
+                var a = _animTimes[i];
+                if (a != null && a.RandomChoice
+                    && string.Equals(a.TriggerName, triggerName, System.StringComparison.OrdinalIgnoreCase))
+                    return true;
+            }
+            return false;
+        }
+    }
+
+
+    // ==================================================================================================
+    //  🆕 v39（2026-10-28 · 执行代理 `A4` · 判据 `资料/完全复刻/判据/B91_P3_战斗数据列缺口.md` §二·1 / §二·8）
+    //     —— `CardDef` 的**又一半**：`abilitySummon`（原版 `SummonCriteria` 的 7 格）
+    //
+    //  🔴 **为什么另起 `partial class CardDef` 块、写在【文件最末】**：完全同上面 `E6` 那段的理由 ——
+    //     本文件里已有 **81 处账落点按【行号】引用**（现读最大 `CardDef.cs:9100`）⇒ 在类尾插成员会让它们
+    //     整体漂移。追加在**文件最末**只增加尾部行号，上面一处都不动（＝预期零漂移）。
+    //
+    //  📌 本块**只加字段 + 解析口**（白名单：`CardDef.cs` 只加字段与解析）。
+    //     ⚠️ **今天没有任何消费者** ⇒ 接上之前**零行为变化**：
+    //        · `createAtPos` 的落点算法**已经落了**但 0 调用点（`Core/EffectResolverPartial_B88E2.cs` · 判据 `B91_P3` §二·1）；
+    //        · 要接线得改 `RuleCore.DeployFreeCore`（+`requestSlot` 形参）与 `EffectResolver.DoDeploy` —— 都在别的代理白名单里。
+    //     ⛔ 别把「卡表有值」当成「已经接了」（同 `E6` 那段对 `whileInPlayAnim` 的提醒）。
+    //
+    //  📌 原版分支表（逐行读过；⛔ 别在这里抄第二份 → `工具/gen_cards_engine.py` 的 `ability_summon_of` 上面那段）：
+    //     `createAtPos` 只认 `{0 self, 1 cardTarget, 3 friendlyHero}`；**其余（含 `14 nextFriendlyMinionSpot`）
+    //     走 `AddMinionOccupation(area, 0)` + `LogWarning`，落点 = 默认落点** —— 一键之差，⛔ 别按枚举名实现。
+    // ==================================================================================================
+    public partial class CardDef
+    {
+        /// <summary>🆕 v39：一行 `abilityLogic[].summonCriteria`（原版 `SummonCriteria`）。
+        /// 七格 `-1` = 缺键/坏值 —— ⛔ 不是 `0`（`0` 是合法取值：`CreateAtPos = self`）。</summary>
+        public sealed class AbilitySummonSpec
+        {
+            /// <summary>`cardAbilities` 下标。</summary>
+            public int Ab = -1;
+            /// <summary>`abilityLogic` 下标。</summary>
+            public int Lg = -1;
+            /// <summary>原版 `SummonCriteria.createAtPos (+0x20)`。
+            /// 消费端口径（`PlayAbility.c:759-793`）：`0` ⇒ 贴**施放者**那张卡；`1` ⇒ 贴**卡目标**；
+            /// `3` ⇒ 贴**自己督军**（而 `GetNextSlotToCard` 见 `cardType == 10` 直接返默认 ⇒ 与默认等价）；
+            /// **其余全部** ⇒ `LogWarning` + **默认落点**（`14 nextFriendlyMinionSpot` 就在这一档）。</summary>
+            public int CreateAtPos = -1;
+            /// <summary>原版 `SummonCriteria.moveToPos (+0x24)` —— **只供演出取起点**（`PlayAbility.c:2590`），盘面不读。</summary>
+            public int MoveToPos = -1;
+            /// <summary>原版 `SummonCriteria.summonAllTargets (+0x28)`：真 ⇒ 候选表**整表全给**；
+            /// 否则**随机取一张**。⚠️ 「目标数」= 候选表长度，**与 `furtherMultiplier` 无关**
+            /// （后者是 `PlayAbility` 的 `do{}while` 重复次数，另一件事）—— 判据 `GetCardToSummon.c:150-186`。</summary>
+            public int SummonAllTargets = -1;
+            /// <summary>原版 `SummonCriteria.chooseCardInPlay (+0x29)`：`unitsToSummon` 空时
+            /// 真 ⇒ 取 `GetTargets(...)` 的目标集；假 ⇒ 扫**整个收藏**按 criteria 过滤（`GetCardToSummon.c:47-149`）。</summary>
+            public int ChooseCardInPlay = -1;
+            /// <summary>原版 `SummonCriteria.keepEffects (+0x2A)`（`PlayAbility.c:903/939/977` 的 `AddSummonUnit` 实参）。</summary>
+            public int KeepEffects = -1;
+            /// <summary>原版 `SummonCriteria.shouldRemoveFromCemetery (+0x2B)`：造完把候选从墓地移除（`GetCardToSummon.c:138`）。</summary>
+            public int ShouldRemoveFromCemetery = -1;
+            /// <summary>原版 `SummonCriteria.isForEnemy (+0x10)`：决定喂哪个 `MinionArea`（`PlayAbility.c:745`）。</summary>
+            public int IsForEnemy = -1;
+        }
+
+        AbilitySummonSpec[] _abilitySummons;
+
+        /// <summary>`abilitySummon` 列**来自 v39 卡表**的正面信号。`false` ⇒ 整列**未知**
+        /// （旧表 / 手写夹具 / 真值里没这张卡）—— ⛔ 与「明确没有（`[]`）」不是一回事。</summary>
+        public bool HasAbilitySummon { get { return _abilitySummons != null; } }
+
+        /// <summary>由 `CardDatabase.Parse` 在**构造之后**挂载（与 `AttachAbilityDamage` / `AttachPermanentBuffs` 同族；
+        /// 理由 = `CardDef` 构造函数上那四十处账落点，⛔ 不往它加形参）。
+        /// `null` = 旧表（未知）⇒ 整列判不了。</summary>
+        public void AttachAbilitySummon(AbilitySummonSpec[] rows)
+        {
+            _abilitySummons = rows;
+        }
+
+        /// <summary>全部行（`null` = 未知）。消费端一般只要 <see cref="AbilitySummonAt"/>。</summary>
+        public AbilitySummonSpec[] AbilitySummons { get { return _abilitySummons; } }
+
+        /// <summary>第 <paramref name="ability"/> 条第 <paramref name="logic"/> 行的 `summonCriteria`。
+        /// `null` = 没有这一行 / 旧表 / 坏格 —— 消费端**按默认落点**（= 与加这一列之前逐字相同）。
+        /// ⚠️ 只有 `op.AbilityIndex/LogicIndex >= 0` 的 op 才查得到（同 `AbilityDamageAt`）。</summary>
+        public AbilitySummonSpec AbilitySummonAt(int ability, int logic)
+        {
+            if (_abilitySummons == null || ability < 0 || logic < 0) return null;
+            for (int i = 0; i < _abilitySummons.Length; i++)
+            {
+                var s = _abilitySummons[i];
+                if (s != null && s.Ab == ability && s.Lg == logic) return s;
+            }
+            return null;
         }
     }
 

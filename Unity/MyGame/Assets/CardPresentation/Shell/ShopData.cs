@@ -129,6 +129,8 @@ namespace CardPresentation
             //   · `TimerAsText = true`：本页 `TimeCounter` 的第一颗子件在 prefab 里就是 TMP `Refreshes in:`（实读）。
             //   ⚠️ 这一页的商品见 `_vip`；VIP 态见 `IsVip`（都是**我们编的**，原版在服务端）。
             new PageSpec("vip", "VIP", "40K_shop_bt_cards_vip", true, "Card Shop VIP Tab Variant"),
+            // 🆕 **2026-10-28（`B91_W5`）第 5 页 = Boosters/Crates**（原版 `BoosterShopTab : ShopTab`，`ShopTabType.CratesShop = 0`）：图标 `40K_shop_bt_boosters`（同族 + 母版键那张）· 文案走官方词条 `MenuShop/ShopItemType/Boosters` · 计时器**恒隐藏**（`BoosterShopTab` 不 override `CheckTimer` ⇒ 基类 false）· 商品 = 卡包四件（`Offers(4)` 与 Cards 页共用 `_cards`，⛔ 不复制）。⚠️ `Booster Shop Tab` **这个 prefab 本地不存在**（`assets_full` 按名 0 命中）—— 原版的每个 store 页签都是**同一个 `tabPrefab`** 实例化 + 挂不同 `ShopTab` 子类（`ShopWindow__CreateStoreTab.c`），而 `Shop Menu Variant/Tabs` 里序列化的那一个就是 **`Shop Tab`**（现读 `Tabs` 1752.83×1009.06 撑满、其 `daily shop header` = **167.2,70.9 → 1920.0,155.9**，与 `ShopTabPage.Header` 逐字相同）⇒ **本页沿用共用几何是对的**，`Prefab` 这一格只是诊断名。
+            new PageSpec("crates", "Boosters", "40K_shop_bt_boosters", true, "Booster Shop Tab"),
         };
 
         /// <summary>🆕 第 4 键是 `TabButtons.tabButtonPrefab` 的**母版**（照原版 `Initialize` 一进来就关掉）。
@@ -248,8 +250,8 @@ namespace CardPresentation
             {
                 case 0: return _cards;
                 case 1: return _daily;
-                case 3: return _vip;       // 🆕 VIP 页（见 `_vip` 的注释；原版这一页的报价同样在服务端）
-                default: return _items;
+                case 3: return _vip;   case 4: return _cards;   // case3 = 🆕 VIP 页（见 `_vip` 的注释；原版这一页的报价同样在服务端）· case4 = 🆕 2026-10-28（B91_W5）第 5 页 Crates/Boosters：与 Cards 页**共用同一份数组**（⛔ 不复制第二份）；⚠️ 因此**限购 `Available` 两页共享**（它存在数组那一格里），而**拥有数按页号各记**（`KeyOf(pageIndex, name)` = 一个 store 一份 TSave 的等价物）
+                default: return _items;    // 第 2 页 = Items；以及任何越界页（见 `Buy`/`GrantsOf` 的越界判据）
             }
         }
 

@@ -7375,8 +7375,8 @@ public static class MainMenuScene
                                      "锻造厂那格（底图 `40K_profile_ForgeLevel_bg` · Simple）");
                         CheckAtWorld(FindChild(evN, "Campaign Profile Container"), 1175.12f, 1730.12f, 687.71f, 862.71f,
                                      "战役那格");
-                        CheckText(TextOf(FindChild(FindChild(evN, "Forge Profile Container"), "ArmyName")), "",
-                                  "三格的**数据留空**（ArmyName / Level 都不编数字 —— 用户口径「数据可以空着」）");
+                        CheckText(TextOf(FindChild(FindChild(evN, "Forge Profile Container"), "ArmyName")), ArmyIcons.LocalizedName(ForgeData.Selected),
+                                  "锻造厂那格的阵营名 = 夹具输入 `ArmyIcons.LocalizedName(\"" + ForgeData.Selected + "\")`｜🧨 留空 ⇒ 红（原版 `decomp_full/ForgePlayerContainer__OnInitialize.c` 的 `GameStaticData.CardArmyToString` → `armyName.text`）");
                         // 🔴 **2026-10-24 订正（铁律 5 · `E12`）**：原来断「战役那格标题照抄预制体
                         //   `Current campaign`，Forge 那格原版也是这句（疑似复制粘贴，照抄不擅自改）」——
                         //   **不成立**：三格各有自己的官方词条（`HighestWarlordMastery` / `HighestForgeLevel` /
@@ -8713,7 +8713,7 @@ public static class MainMenuScene
                 {
                     libE14.Decks[0].GameMode = (int)GameMode.Skirmish;
                     libE14.Decks[2].WarlordId = "ASH2";                   // SaimHann（与第 0 套的 ASH1 同阵营）
-                    libE14.Decks[2].GameMode = (int)GameMode.Skirmish;
+                    libE14.Decks[2].GameMode = (int)GameMode.Skirmish; FillSkirmishFixtureDecks(libE14);   // 🆕 B90-N3（P0）：两套都填成**合法**的遭遇卡组（判据见类尾那一段）
                     libE14.Save();
                 }
                 CollectionData.ResetForTest();
@@ -17032,7 +17032,7 @@ public static class MainMenuScene
                 CheckTrue(dc.DivisionArtBlank && dq != null && dq.Length == 3 && dqLit == 0, "升段窗段位大图**不画**（`divisionIcon.m_Sprite = 0`，段位图名对照表本地没有）—— 目标态 = 三颗载体都在、但**每一颗都画不出东西**（`Tint.a <= 0` 或节点不自激活）；现读 quad 数 = " + (dq == null ? -1 : dq.Length) + "（期望 **3**：`Division Image` / `Rank Icon` / `Rank Icon Glow`，判据 = 原版那三份 `GameObject/*.json` 各带一颗 `Image`）、亮着且 α>0 的 = " + dqLit + "、DivisionArtBlank = " + dc.DivisionArtBlank + "｜🧨 把 `BuildDivisionImage`/`BuildRankIcon`/`BuildRankIconGlow` 退回 `MenuDraw.Node` ⇒ quad 数 < 3 ⇒ 红（材质挂载点又没了）；把两颗载体的 tint α 从 0 改回 1、或让 `Rank Icon Glow` 出厂就激活 ⇒ 「亮着且 α>0 的」> 0 ⇒ 红；⛔ 别改回 `ImageQuad 数 == 0`（载体已按原版组件序合法存在，那条只会假红）");
                 CheckTrue(dc.SealStepsNode != null && dc.SealStepsNode.childCount == 4,
                           "升段窗 `Mission Milestones Progress/steps` = **4 颗** `RankedSealStep`（prefab 实读）");
-                dc.Close();
+                RankedDivisionInputGate(dc);   // 🆕 B90-N3b：原版「弹窗期间禁输入」那条横切链的三条断言（内部会 `Close()`，见类尾那个方法）
             }
 
             // ---------------------------------------------------------- ② 新赛季窗 `Ranked New Season WIndow`
@@ -18054,7 +18054,7 @@ public static class MainMenuScene
                           "说明 = prefab 出厂原文（含 `<color=#E27E1B>` 那一段）");
                 CheckTrue(p1 != null && p1.Find("Back button/Hit") != null
                           && p1.Find("Back button/Hit").GetComponent<WindowButton>() != null,
-                          "第 1 页返回钮有命中区（= 原版 `Back button`）");
+                          "第 1 页返回钮有命中区（= 原版 `Back button`）"); CheckTeamDrawerSlots(pw);   // 🆕 B90-N3c：`TwoSidesTeamDrawer` 三格字段 + 运行时可填的 teamImage（本块最后一句 ⇒ 不影响前面那些文本断言）
 
                 // ---- ⑧ 第 2 页（On Going）内容：表头 / 5 档记分 / Collect / 队伍名 / 倒计时 ----
                 pw.OpenPage(ParentEventWindow.Page.OnGoing);
@@ -18438,7 +18438,7 @@ public static class MainMenuScene
             }
         }
 
-        Debug.Log(P + $"=== 合计：{_sink.Pass} 通过 / {_sink.Fail} 失败 ===");
+        Debug.Log(P + $"=== 合计：{_sink.Pass} 通过 / {_sink.Fail} 失败 ==="); EventContainerArtProbe(menu);   // 🆕 B90-N3b：事件容器图那条接线的一条断言（放在收尾之前 ⇒ 不改任何既有节点引用）
         // 🔴 **2026-10-12（A443 · 调度台裁定）**：这一串是**失败表的【重列】**（每条失败在 `Check()` 里
         //   **已经现场打过一次**，行首是真 `✗`，见本文件 `本文件`）⇒ 重列这里**不能再带 `✗`** ——
         //   原来是 `✗` 时日志里 `✗` 行数 = 失败数 **×2**，连「按行首标记数」都数不准
@@ -20259,4 +20259,304 @@ public static class MainMenuScene
         EditorBuildSettings.scenes = list.ToArray();
         Debug.Log(P + "  已加进 Build Settings（壳要靠它 `LoadScene`）");
     }
+
+    // ============================================================ 🆕 2026-10-28（B90 · N3 · P0，追加在类尾）
+    //   **把遭遇战那一节的两套夹具（第 0 / 2 套）填成「合法」的遭遇卡组。**
+    //
+    //   为什么必须填（这条是 B90-N3 补 `LiveOpsEventWindow.InArmyDeckList` 的第二道 Where 引出来的）：
+    //   原版 `RankedDeckSelector.ChangeArmy` 对「本阵营 ∧ 本模式」那张表要过**两道** Where ——
+    //   ① `deck.deckHero.cardArmy == currentArmy && deck.GameMode == EventPlayMode`；
+    //   ② `DeckUtility.ValidateDeck(deck, out err, 1, 0)` 作谓词（判据 = `RankedDeckSelector.__c___ChangeArmy_b__29_1.c`）。
+    //   我们原来只做了 ①（`InArmyDeckList` 只看阵营 + 模式），2026-10-28 补上了 ②。
+    //   而本节夹具的两套牌是「**4 张**（第 0 套，`:4989` 自己写着）」与「**0 张**（第 2 套，空卡组）」——
+    //   遭遇模式的 `deckSize = 12`（`DeckRules.CardCount(true)`）⇒ 两套都**不合法** ⇒ 都进不了那张表
+    //   ⇒ `ArmyDeckCount() == 0` ⇒ 本节整段掉进**空态**（督军立绘 / 卡组名 / `1/2` / 四颗圆钮 / 箭头全红）。
+    //   ⇒ **夹具补成合法**（本节要验的原版语义一点没变：验的是「表里有 2 套 ⇒ 四颗钮全开 + `1/2` + 箭头能走」）。
+    //   ⛔ **不许**为了变绿去放宽 `InArmyDeckList` —— 那是原版判据（原版真的会把这些牌挡在表外）。
+    //
+    //   填法 = 与「`菜单测试卡组 合法30`」（`:2758`）**同一套口径**：
+    //     · 只挑 `Type == "unit"`、与**自己那个督军**同阵营（两张督军 `ASH1`/`ASH2` 都是 SaimHann，实测 43 张可选）；
+    //     · **一张一名**（`Contains` 去重）⇒ 不碰同名上限（`DeckRules.Validate` 的 ⑦）；
+    //     · **跳过传说** ⇒ 遭遇模式传说总数恒 0 ≤ 上限 4（`Validate` 的 ⑧）；
+    //     · **跳过 `CannotAddToDeck`**（原版 `inventoryOptions` 那一档，`Validate` 的 ⑥b）；
+    //     · 防御卡不动（`Validate` 的 ③ 允许不带）。
+    //   填完**当场断言两套都过 `DeckRules.Validate(…, skirmish: true)`** —— 否则「表里有 2 套」这条前提又是假的
+    //   （本工程踩过「前提不成立 ⇒ 断言静默跳过」，见 CLAUDE.md §三 那条 `if (x != null) Check`）。
+    static void FillSkirmishFixtureDecks(DeckLibrary lib)
+    {
+        if (lib == null || lib.Decks.Count < 3) return;      // 上一段 `ok3` 已如实红过，别在这儿再抛
+        var pool = CardDatabase.Load();
+        int want = DeckRules.CardCount(true);                // 遭遇 12 张（唯一出处，⛔ 不写死 12）
+        for (int k = 0; k < 2; k++)
+        {
+            var d = lib.Decks[k == 0 ? 0 : 2];
+            if (!string.IsNullOrEmpty(d.Name) && d.Name.IndexOf("菜单测试卡组", System.StringComparison.Ordinal) < 0)
+            { CheckTrue(false, "（夹具）第 " + (k == 0 ? 0 : 2) + " 套不是「菜单测试卡组 …」而是「" + d.Name + "」⇒ 别用它当夹具"); continue; }
+            var hero = string.IsNullOrEmpty(d.WarlordId) ? null : CollectionData.Card(d.WarlordId);
+            if (hero == null)
+            { CheckTrue(false, "（夹具）第 " + (k == 0 ? 0 : 2) + " 套的督军「" + d.WarlordId + "」在卡池里查不到 ⇒ 填不出合法卡组"); continue; }
+            d.CardIds.Clear();
+            foreach (var c in pool)
+            {
+                if (d.CardIds.Count >= want) break;
+                if (c.Type != "unit") continue;
+                if (!DeckRules.SameFaction(c.Faction, hero.Faction)) continue;
+                if (d.CardIds.Contains(c.Id)) continue;          // 一张一名 ⇒ 不碰同名上限
+                if (DeckRules.IsLegendary(c.Rarity)) continue;    // 遭遇模式：传说总数上限 4，跳过 ⇒ 恒 0
+                if (DeckRules.CannotAddToDeck(c)) continue;       // 原版 `inventoryOptions` 那一档
+                d.CardIds.Add(c.Id);
+            }
+        }
+        // 硬前提断言：两套都必须**当下**是合法的遭遇卡组（⛔ 不静默跳过）
+        var e0 = DeckRules.Validate(lib.Decks[0], CollectionData.Card, true);
+        var e2 = DeckRules.Validate(lib.Decks[2], CollectionData.Card, true);
+        CheckTrue(e0 == DeckError.None && e2 == DeckError.None,
+                  "（夹具）本节那两套牌都过 `DeckRules.Validate(…, skirmish: true)`（= 原版 `DeckUtility.ValidateDeck`）"
+                + " —— 这是「本阵营 ∧ 本窗模式表里有 **2 套**」的硬前提（原版 `ChangeArmy` 的第二道 Where）；实得第 0 套 "
+                + e0 + "（" + lib.Decks[0].CardIds.Count + " 张） / 第 2 套 " + e2 + "（" + lib.Decks[2].CardIds.Count
+                + " 张）；🧨 这里红 ⇒ 夹具退化，**别**去放宽 `LiveOpsEventWindow.InArmyDeckList`（那是原版判据）");
+    }
+
+    // ============================================================ 🆕 2026-10-28（B90 · N3b，追加在类尾）
+    //   **排位升段窗「弹窗期间禁输入」那条横切链的三条断言**（施工 = B90-N1；宿主全在 `Editor/**` ⇒ 由本文件落）。
+    //   判据与断言原文 → `d:/4/Unity/资料/完全复刻/报告/B90_N1.md` **§六·二**（第一权威 = 反汇编）：
+    //     · `RankedEventDivisionChangeWindow__Open.c:38-52` → `GameWindow.Open()` → `Toggle(false)` → `StartCoroutine(SafetyInputEnabler())`
+    //     · `…__AnimationFinished.c` → `Toggle(true)`（**clip 的动画事件**，不是计时）
+    //     · `…__CloseButton.c:9-14` → `Close()` → `Toggle(true)`
+    //     · `…_SafetyInputEnabler_d__15__MoveNext.c` → `WaitForSeconds(8f)`（旧）/ 新系统 `_promoteDelay + 9f`（兜底解禁）
+    //   ⇒ 我们的等价物 = `PointerLayer.SetInputEnabled(bool)`（`Shell/PointerLayer.cs:763`）。
+    //
+    //   🔴 **两条「灭自证」的做法**（这一步是关键，别省）：
+    //     解禁的三条路里**两条会给出相同观测量**（`InputEnabled == true`）⇒ 只断 `true` 分不出「事件给的」还是「9 秒兜底给的」。
+    //     ⇒ 每条解禁断言都同时要求 `InputSafetyLeftForTest > 0`（兜底**还没到点**）：
+    //        · 关窗那一条：这一窗**一次都没 Tick 过** ⇒ 兜底那一跳根本没机会跑；
+    //        · 演完那一条：推进循环**只要兜底到点就立刻停**，所以走到断言时还剩 > 0 秒 ⟺ 解禁来自 `AnimationFinished`。
+    //
+    //   ⚠️ 顺序说明：先断①（开窗禁用）→ 再**先做关窗那一条**（③）→ 最后**另开一扇**做演完那一条（②）。
+    //     为什么②要另开一扇：③ 一旦 `Close()`，输入层已经 true；同一扇再往下推就分不出「谁解禁的」。
+    //     （`WindowsManager.OpenByRef` 在旧那扇已关时**新建一扇**，见 `WindowsManager.cs:914` 的复用判据 ⇒ 拿到的是干净实例。）
+    //   ⛔ 另三扇（`RankedSeasonEndedWindow` / `…Old` / `RankedNewSeasonWindow`）**原版就没有这条链**
+    //     （`__Open.c` 无 `Toggle/Enable`、`__CloseButton.c` 只有 `Close()`）⇒ **不给它们加输入闸**，也别在这儿断它们"禁输入"。
+    static void RankedDivisionInputGate(RankedDivisionChangeWindow dc)
+    {
+        // ---------- 硬前提（⛔ 不写成 `if (x != null) Check(...)`）----------
+        CheckTrue(dc != null && dc.CurrentState == WindowState.Open,
+                  "（前提·输入闸）升段窗在 `Open` 态 —— 下面三条的硬前提；🧨 这条红 ⇒ 窗没开出来，别去看下面三条");
+        if (dc == null || dc.CurrentState != WindowState.Open) return;
+        CheckTrue(dc.InputSafetyLeftForTest > 0f,
+                  "（前提·输入闸）兜底倒计时**已在跑**（= `Open()` 尾调过 `SafetyInputEnabler()`）；实测还剩 "
+                + dc.InputSafetyLeftForTest.ToString("0.###") + " 秒");
+
+        // ---------- ① 开窗即禁 ----------
+        Check(PointerLayer.InputEnabled, false,
+              "★ 升段窗 `Open()` ⇒ 输入层**停用**（`PointerLayer.InputEnabled == false`）"
+            + "｜判据 = `RankedEventDivisionChangeWindow__Open.c` 首句 `EventSystemController.Toggle(false)`"
+            + "｜🧨 `Open()` 里删掉 `PointerLayer.SetInputEnabled(false)` ⇒ 本条红");
+
+        // ---------- ③ 关窗即解禁（先做：这一窗一次没 Tick 过 ⇒ 兜底零机会）----------
+        dc.Close();
+        CheckTrue(PointerLayer.InputEnabled && dc.InputSafetyLeftForTest > 0f,
+                  "★ 升段窗**关窗即解禁**，且解禁时**兜底还没到点**（还剩 " + dc.InputSafetyLeftForTest.ToString("0.###")
+                + " 秒；这一扇**一次都没 `TickForTest` 过** ⇒ 兜底那一跳根本没机会跑）"
+                + " ⇒ 解禁只可能来自 `Close()` 覆写的那句 `SetInputEnabled(true)`"
+                + "｜判据 = `…__CloseButton.c:9-14` 的 `Close() → Toggle(true)`（我们挂在 `Close()` 覆写上以覆盖 ESC / 暗底 / `WindowsManager` 各条关窗路）"
+                + "｜🧨 删掉 `Close()` 里的解禁 ⇒ 本条红");
+
+        // ---------- ② 演完即解禁（另开一扇，事件驱动而非超时）----------
+        var dc2 = WindowsManager.OpenRankedDivisionChange();
+        CheckTrue(dc2 != null && dc2.CurrentState == WindowState.Open,
+                  "（前提·演完解禁）**另开**一扇升段窗成功（上一步已把前一扇关掉 ⇒ `OpenByRef` 会新建）");
+        if (dc2 == null || dc2.CurrentState != WindowState.Open) return;
+        bool before = PointerLayer.InputEnabled;
+        Check(before, false,
+              "（前提·演完解禁）这一扇 `Open()` 之后输入层**仍是停用**（若这里就 true ⇒ 状态从上一步漏过来了，下面的推进证明不了任何事）");
+        int guard = 0;
+        while (guard++ < 800 && !PointerLayer.InputEnabled && dc2.InputSafetyLeftForTest > 0f)
+            dc2.TickForTest(0.02f);
+        CheckTrue(PointerLayer.InputEnabled && dc2.InputSafetyLeftForTest > 0f,
+                  "★ 升段窗**演完即解禁**，且解禁时**兜底还没到点** ⇒ 解禁只可能来自 clip 的 `AnimationFinished` 动画事件（⛔ 不是 9 秒兜底）"
+                + "｜实测：`InputEnabled` = " + PointerLayer.InputEnabled
+                + " · 兜底还剩 " + dc2.InputSafetyLeftForTest.ToString("0.###") + " 秒"
+                + " · 动画时间 " + dc2.AnimationTime.ToString("0.###") + " / 时长 " + dc2.AnimationLength.ToString("0.###")
+                + " · 推了 " + guard + " 步（步长 0.02s）"
+                + "｜判据 = `…__AnimationFinished.c` 的 `Toggle(true)`（`Resources/division_clips.json` 里两条 clip 的事件都是 `(t = length, \"AnimationFinished\")`）"
+                + "｜🧨 红在「兜底还剩 0」⇒ 是**超时**解禁（clip 事件没跑到，查 `division_clips.json` 的 `events`）；"
+                + "红在 `InputEnabled = false` ⇒ `TickForTest` 推不动演出");
+        if (dc2.CurrentState == WindowState.Open) dc2.Close();     // 收尾：别把一扇开着的窗留给后面的段（关掉会解禁 ⇒ 状态干净）
+    }
+    // ============================================================ 🆕 2026-10-28（B90 · N3b，追加在类尾）
+    //   **事件容器图（`MainMenuContainerBackground`）那条接线的断言**（施工 = B90-N2；判据 → `报告/B90_N2.md` §六 裁定④）。
+    //
+    //   原版 `LiveopMenuContainer.OnInitialize` 拿到 baseData 之后会换这张卡的两张图
+    //   （`backgroundImage.sprite = LoadAsset(baseData, MainMenuContainerBackground)`，接着 foreground）。
+    //   我们的接线 = `MainMenuRuntime.BuildModeCardForCard` 的 `cardArt = EventContainerArtOf(owner, nm) ?? art`
+    //   （`Shell/MainMenuRuntime.cs:4005`）；归属来自 `ModeCardOwnerEvent`，其自检注入口 = `ModeCardOwnerOverrideForTest`（`:4034`）。
+    //
+    //   🔴 **这一条为什么要「两次重摆 + 反向腿」**：
+    //     只断「重摆后卡图 = 事件图」分不出「图真是注入口换的」还是「那张卡本来就长这样」⇒ 再加一条**灭自证**：
+    //     **撤掉注入口**再重摆一次 ⇒ 卡图必须回到**建树时那张手挑图**（≠ 事件图）。
+    //     重摆的触发口 = `Loc.SetLanguage(...)`（`Loc.LanguageChanged` → `OnLanguageChangedRebuild` → `RebuildModeCardsForLanguage`，
+    //     见 `Shell/MainMenuRuntime.cs` 的 `HookMenuRebuildBroadcasts`）—— 那是**生产路径**，⛔ 不为自检另开一个重建口。
+    //
+    //   ⚠️ 调用点 = `RunCore` 收尾（合计日志那一行同一行追加）⇒ 之后没有任何既有断言再读这棵树，
+    //     「整片重摆」不会让谁手里的节点引用变悬空。
+    static void EventContainerArtProbe(MainMenuRuntime menu)
+    {
+        const string CardNode = "Base Game Mode Container 1x2 - Ranked";
+        // GUID→图名 两行 = 与 `Shell/MainMenuRuntime.cs` 的 `MainMenuContainerArtByGuid` **同一份**（那张表是 private，
+        // 这里照抄字面量；⛔ 那边改了这里要跟着改 —— 判据源是 `判据/B9_有登记无实物_全量.tsv:1906/1951`）。
+        string[] guids = { "ad9725ac046204b7fbdee84edc37f65c", "93cda5b09dc454964bd61a51c4cc2606" };
+        string[] arts = { "Space_Wolves_Container_1x2", "UM_Guilliman_Container_1x2" };
+
+        // ---------- 硬前提（⛔ 不写成 `if (x != null) Check(...)`）----------
+        var card = menu != null ? menu.Find(CardNode) : null;
+        CheckTrue(card != null, "（前提·事件容器图）模式卡 `" + CardNode + "` 在菜单树里");
+        if (card == null) return;
+        var artNode = card.Find("Background Image");
+        var artQ = artNode != null ? artNode.GetComponent<ImageQuad>() : null;
+        CheckTrue(artQ != null && artQ.Texture != null,
+                  "（前提·事件容器图）那张卡的 `Background Image` 是一颗**有图**的 `ImageQuad`");
+        if (artQ == null || artQ.Texture == null) return;
+
+        LiveOpsLocalEvent ev = null; string wantArt = null;
+        foreach (var e in LiveOpsLocalCatalog.Events)
+        {
+            var bg = e.FindAsset((int)LiveOpsAssetRef.MainMenuContainerBackground);
+            if (bg == null || string.IsNullOrEmpty(bg.Guid)) continue;
+            int k = System.Array.IndexOf(guids, bg.Guid);
+            if (k < 0) continue;
+            if (CardArt.MenuUi(arts[k]) == null) continue;          // 图没导进 Resources ⇒ 这条链本来就退回手挑图
+            ev = e; wantArt = arts[k]; break;
+        }
+        CheckTrue(ev != null && !string.IsNullOrEmpty(wantArt),
+                  "（前提·事件容器图）离线目录里有一场事件带 `MainMenuContainerBackground`，且那张图已导进 `Resources/Art/ui_menu/`"
+                + "（两行 GUID→图名 = `MainMenuContainerArtByGuid`；今天 = `ExpansionUM1`/`SWRelease` 那一份）");
+        if (ev == null) return;
+        string wantTexName = CardArt.MenuUi(wantArt).name;
+        string handPicked = artQ.Texture.name;
+
+        var origLang = Loc.Current;
+        bool origPersist = Loc.PersistOverride;
+        var origClock = LiveOpsClock.NowProvider;
+        try
+        {
+            Loc.PersistOverride = true;                                  // 自检不许动玩家的真设置
+            LiveOpsClock.NowProvider = () => ev.StartUtc.AddHours(1);     // 钉在事件期内（原版取图与「在不在期」无关，但别让时钟漂）
+            MainMenuRuntime.ModeCardOwnerOverrideForTest = nm => nm == CardNode ? ev : null;
+
+            bool changed = Loc.SetLanguage(origLang == AvailableLanguages.Chinese ? AvailableLanguages.English : AvailableLanguages.Chinese);
+            CheckTrue(changed, "（前提·事件容器图）换语言**真的改了值**并广播（`Loc.LanguageChanged` ⇒ 模式卡整片重摆那一条生产路径）");
+            var q2n = menu.Find(CardNode);
+            var q2 = q2n != null ? q2n.Find("Background Image") : null;
+            var q2q = q2 != null ? q2.GetComponent<ImageQuad>() : null;
+            CheckTrue(q2q != null && q2q.Texture != null, "（前提·事件容器图）重摆之后那张卡与它的 `Background Image` 还在");
+            string withEvent = q2q != null && q2q.Texture != null ? q2q.Texture.name : "<无>";
+            CheckTrue(withEvent == wantTexName,
+                      "★ 模式卡**归属到事件** ⇒ 卡图换成**事件容器图**（原版 `LiveopMenuContainer.OnInitialize` 换 `backgroundImage.sprite`）"
+                    + "｜期望 `" + wantTexName + "`（GUID " + ev.EventId + " 那份事件资产的 `MainMenuContainerBackground`）"
+                    + "、实得 `" + withEvent + "`、建树时手挑的是 `" + handPicked + "`"
+                    + "｜🧨 删掉 `BuildModeCardForCard` 里的 `cardArt = EventContainerArtOf(...) ?? art` ⇒ 本条红");
+
+            // ---------- 灭自证：撤掉注入口 ⇒ 必须回到手挑图 ----------
+            MainMenuRuntime.ModeCardOwnerOverrideForTest = null;
+            Loc.SetLanguage(origLang);                                   // 换回 ⇒ 再广播一次 ⇒ 再重摆一次（这次没有归属）
+            var q3n = menu.Find(CardNode);
+            var q3 = q3n != null ? q3n.Find("Background Image") : null;
+            var q3q = q3 != null ? q3.GetComponent<ImageQuad>() : null;
+            string withoutEvent = q3q != null && q3q.Texture != null ? q3q.Texture.name : "<无>";
+            CheckTrue(withoutEvent == handPicked && withoutEvent != wantTexName,
+                      "★（灭自证）**撤掉归属注入口**再重摆 ⇒ 卡图回到**建树时那张手挑图**（≠ 事件图）"
+                    + "｜期望 `" + handPicked + "`、实得 `" + withoutEvent + "`（事件图是 `" + wantTexName + "`）"
+                    + "｜🧨 若这里也印事件图 ⇒ 上一条的「换图」证明不了是注入口给的（自证）");
+        }
+        catch (System.Exception ex)
+        {
+            // ⛔ 不静默、也不让异常把整个宿主掀掉（重摆 / 换语言都在生产路径上，真抛了要**红一条**并说清是哪一步）
+            CheckTrue(false, "（事件容器图探针）抛异常：" + ex.GetType().Name + "：" + ex.Message
+                           + "｜🧨 这条不是断言不成立，而是**重摆/换语言那条生产路径**在此宿主里抛了 —— 先修异常，别删这条");
+        }
+        finally
+        {
+            MainMenuRuntime.ModeCardOwnerOverrideForTest = null;
+            LiveOpsClock.NowProvider = origClock;
+            if (Loc.Current != origLang) Loc.SetLanguage(origLang);       // 还在 PersistOverride = true 时换回 ⇒ 不写盘
+            Loc.PersistOverride = origPersist;
+        }
+    }
+
+    // ============================================================ 🆕 2026-10-28（B90 · N3c，追加在类尾）
+    //   **选边页 `TwoSidesTeamDrawer` 三格字段 + 「`teamImage` 运行时可填」的断言**
+    //   （判据 → `资料/完全复刻/判据/B90_C2b_远端prefab几何.md` **§B**，逐节点实读；
+    //     施工实现 → `Shell/ParentEventWindow.cs` 类尾 `TeamCardRoot/TeamNameNode/TeamCaptainNode/TeamImageNode/SetTeamImage/ApplyTeamInfo`）。
+    //
+    //   🔴 三条要点（都是「⛔ 别假设」换来的）：
+    //     ① **三格字段都在卡片自己子树里** —— §B 的表里这一对 prefab 是「自我包含」的；
+    //        而**宽变体**那两份（`Team A` / `Teams B`，属 On Going 页、本轮不建）的 `teamNameText` 指向**兄弟节点**。
+    //        ⇒ 本条断的是「在自己子树里」，正好把这两种实现区分开。
+    //     ② **空态 = 不画**：原版 `teamImage` 那颗 `Image` 的 `m_Sprite = null` ⇒ 我们的 `Foreground Image` 在建树时**没有**载体，
+    //        第一次 `SetTeamImage` 才长出来；`SetTeamImage(side, null)` 要能**回到空态**（不留旧图）。
+    //     ③ **空值不覆盖**：原版 `Initialize(TeamInfo)` 的入参一定带队名/队长 ⇒ 我们没数据时**保持 prefab 出厂态**
+    //        （`Red Team` / `#squidmar`），⛔ 不把出厂字清成空、也⛔ 不编数字。
+    //   ⚠️ 本条在选边页那一块**最后一句**执行（前面那些「出厂字」断言已经跑完），并且**结尾还原**文本与图槽。
+    static void CheckTeamDrawerSlots(ParentEventWindow pw)
+    {
+        var page = pw != null ? pw.ChooseSidePage : null;
+        CheckTrue(page != null, "（前提·队伍卡三格）选边页（`ChooseSidePage`）在");
+        if (page == null) return;
+
+        var a = pw.TeamCardRoot(0); var b = pw.TeamCardRoot(1);
+        CheckTrue(a != null && b != null
+                  && a.name == "Two Side Event Select Team A" && b.name == "Two Side Event Select Team B",
+                  "★ 三格字段的宿主 = 那两张卡（`TeamCardRoot(0)`=`… A` / `TeamCardRoot(1)`=`… B`）");
+
+        var nmA = pw.TeamNameNode(0); var capA = pw.TeamCaptainNode(0); var imgA = pw.TeamImageNode(0);
+        CheckTrue(nmA != null && capA != null && imgA != null
+                  && nmA.IsChildOf(a) && capA.IsChildOf(a) && imgA.IsChildOf(a),
+                  "★ `teamNameText` / `teamCaptainText` / `teamImage` 三格**都在卡片自己子树里**"
+                + "（§B：这一对是自我包含的；⛔ 宽变体 `Team A`/`Teams B` 的 `teamNameText` 指向兄弟节点 —— 那条不适用本页）");
+        if (nmA == null || capA == null || imgA == null) return;
+
+        // ---- 空态：`Foreground Image` 上不应有载体（= 原版 `Image.m_Sprite = null`，一个像素都不画）----
+        CheckTrue(imgA.GetComponentInChildren<ImageQuad>(true) == null,
+                  "★ 没数据时 `Foreground Image` **不画任何东西**（= 原版 `Image.m_Sprite = null` 的同一可观测结果）");
+
+        // ---- 运行时可填：填 ⇒ 有图；两格独立；清 ⇒ 回空态 ----
+        var tex = CardArt.Solid();
+        CheckTrue(tex != null, "（前提·队伍卡三格）探针贴图取得到（`CardArt.Solid()`）");
+        if (tex == null) return;
+        bool okA = pw.SetTeamImage(0, tex);
+        var filledA = imgA.GetComponentInChildren<ImageQuad>(true);
+        CheckTrue(okA && filledA != null && filledA.Texture == tex && filledA.gameObject.activeSelf,
+                  "★ `SetTeamImage(0, tex)` ⇒ `Foreground Image` **长出载体并填上那张图**"
+                + "（= 原版 `teamImage.sprite = <队伍图>` 那一跳；判据 §B 的 `teamImage`→`Foreground Image`）");
+        var otherB = pw.TeamImageNode(1) != null ? pw.TeamImageNode(1).GetComponentInChildren<ImageQuad>(true) : null;
+        CheckTrue(otherB == null,
+                  "★ 两格**互不影响**：填 A 之后 B 仍空（原版每份抽屉各管自己那格，⛔ 别一份图铺两块）");
+        pw.SetTeamImage(0, null);
+        var backQ = imgA.GetComponentInChildren<ImageQuad>(true);
+        CheckTrue(backQ == null || !backQ.gameObject.activeSelf,
+                  "★ `SetTeamImage(0, null)` ⇒ **回到空态**（旧图不被留着）");
+
+        // ---- `Initialize(TeamInfo)` 的等价物：有值就填、空值不覆盖 ----
+        var nmLb = nmA.GetComponent<Label>(); var capLb = capA.GetComponent<Label>();
+        string nm0 = nmLb != null ? nmLb.Text : null, cap0 = capLb != null ? capLb.Text : null;
+        pw.ApplyTeamInfo(0, "Alpha Team", "captain-x", tex);
+        CheckTrue(nmLb != null && nmLb.Text == "Alpha Team" && capLb != null && capLb.Text == "captain-x",
+                  "★ `ApplyTeamInfo(0, 队名, 队长, 图)` 填上队名/队长（= 原版 `TwoSidesTeamDrawer.Initialize(TeamInfo)` 的前两格）");
+        CheckTrue(imgA.GetComponentInChildren<ImageQuad>(true) != null,
+                  "★ …第三格（`teamImage`）也一起填了");
+        pw.ApplyTeamInfo(0, null, null, null);
+        CheckTrue(nmLb != null && nmLb.Text == "Alpha Team" && capLb != null && capLb.Text == "captain-x",
+                  "★ **空值不覆盖**（⛔ 不把已有文本清空 —— 原版 `TeamInfo` 一定带这两串；我们的「没数据」= 保持原样）");
+
+        // ---- 收尾还原（不给后面那节 / 下次运行留脏数据）----
+        pw.SetTeamImage(0, null);
+        pw.ApplyTeamInfo(0, nm0, cap0, null);
+        var restoreQ = imgA.GetComponentInChildren<ImageQuad>(true);
+        CheckTrue(nmLb != null && nmLb.Text == nm0 && capLb != null && capLb.Text == cap0
+                  && (restoreQ == null || !restoreQ.gameObject.activeSelf),
+                  "（还原·队伍卡三格）文本回到断言前那一版、图槽回到空态"
+                + "（= `SetTeamImage(side, null)` 的可观测结果：载体可留、但必须关 —— 与上面 `backQ` 同一谓词；⛔ 别要求销毁载体）");
+    }
+
 }

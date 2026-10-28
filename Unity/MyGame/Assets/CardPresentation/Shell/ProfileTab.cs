@@ -1219,7 +1219,7 @@ namespace CardPresentation
             BuildEventContainer(ev, "Warlord  Mastery Container", EvT, ArtSubmenuBack, true, true,
                                 TermOr(EvTermWarlord, EvTitleFallbackWarlord), EvLevelTermWarlord, 14f);
             BuildEventContainer(ev, "Forge Profile Container", EvT + EvStep, ArtForgeBg, false, false,
-                                TermOr(EvTermForge, EvTitleFallbackForge), EvLevelTermOther, 13f);
+                                TermOr(EvTermForge, EvTitleFallbackForge), EvLevelTermOther, 13f); FillForgeContainer(ev);
             // 🔴 **2026-10-24（U2）：「当前战役」格的底图不是通用红底。**
             //   判据链（三条独立来源互证）：
             //   ① prefab 那颗 `Campaign Profile Container/Player Profile Container Base` 是 `UI_Deck_Information_submenu_Back`
@@ -1726,5 +1726,71 @@ namespace CardPresentation
         /// <summary>自检口（B89-E16d 追加在类尾；⛔ 生产路径别调）：`CopyPlayerIdToClipboard` 的公开转发
         /// —— Editor 是**另一个程序集**，那个私有方法调不到。</summary>
         public void CopyPlayerIdForTest() { CopyPlayerIdToClipboard(); }
+
+        // ============================================================ `Forge Profile Container` 的三处数据（2026-10-28 · B90-N1 补）
+        //
+        // 判据（第一权威，逐句）→ `decomp_full/ForgePlayerContainer__OnInitialize.c:1-150`（2026-10-28 现读）：
+        //   ① `title.text = I2("PlayerProfile/HighestForgeLevel")` —— 已在 `BuildEventContainer` 落地（那一格的行 `:1221-1222`）；
+        //   ② `army = Forge.GetArmy()`（虚表 `+0x1b8`）→ `ArmyUtilities.GetArmyIcon(army)` → `armyIcon.sprite = 那张图`；
+        //   ③ `armyName.text = GameStaticData.CardArmyToString(army)`；
+        //   ④ `level.text = string.Format(I2(<等级词条>), forge.<等级>)`（等级读的是 Forge 对象 `plVar5[4]+0x34`）；
+        //   ⑤ **三件的 `enabled = (那张阵营图取到没有)`**（`.c` 里 `bVar10 = sprite != null`）——
+        //      取不到 ⇒ `set_enabled(false)` 三件、**直接 return**（`armyName`/`level` 都不写）。
+        //
+        // 我们的等价物（全都是**唯一一份**的表，⛔ 别在这另建第二张）：
+        //   `ForgeData.Selected`（本地锻造进度里选中的阵营）· `ForgeData.LevelOf`（那一格的已领等级）·
+        //   `ArmyIcons.Texture` / `ArmyIcons.LocalizedName`（13 阵营徽记表 + 官方阵营词条，`Core/ArmyIcons.cs`）。
+        // ⚠️ 账 `锻造:73` 已就地订正过落点：这一格是 **Profile Tab › Events** 那一格，**与锻造厂页无关**。
+        // ⚠️ 零行数变化接法：调用写在 `BuildEvents` 那条既有调用的**同一行末尾**；本方法追加在**类尾**（下方无账落点）。
+        // ⚠️ `Badge` 那颗的 `Image` 在 prefab 里是 `<无图>` + **`preserveAspect`**（实读：
+        //   `工具/menu_dump.py bundle_menus_assets_all "Forge Profile Container" --depth 4`，
+        //   `1198.59,560.73→1321.65,665.02 = 123.07×104.28`）⇒ 这里 `keepAspect: true` 不是我们挑的。
+        void FillForgeContainer(Transform ev)
+        {
+            if (ev == null) return;
+            var c = ev.Find("Forge Profile Container");
+            if (c == null)
+            {
+                Debug.LogWarning("[Profile] `Forge Profile Container` 没建出来 ⇒ 那三处数据（徽记/阵营名/等级）没处填。");
+                return;
+            }
+
+            float top = EvT + EvStep;                    // 与 `BuildEvents` 里那一格同一个 top（507.71）
+            var badgeR = new PxRect(1198.59f, top + 53.02f, 1321.65f, top + 157.31f);
+            string army = ForgeData.Selected;
+            var iconTex = string.IsNullOrEmpty(army) ? null : ArmyIcons.Texture(ArmyIcons.Id(army));
+            bool hasIcon = iconTex != null;              // = 原版 `.c` 的 `bVar10`（「那张图取到没有」）
+
+            var badge = c.Find("Badge");
+            var nameT = c.Find("ArmyName");
+            var levelT = c.Find("Level");
+
+            if (hasIcon && badge != null)
+                MenuDraw.Rect(badge, iconTex, badgeR, "Image", Q + L_Art, null, true);
+            else if (hasIcon)
+                Debug.LogWarning("[Profile] `Forge Profile Container/Badge` 节点不在 ⇒ 阵营徽记没画（⛔ 不静默）。");
+            else
+                Debug.LogWarning("[Profile] 「最高锻造厂等级」那一格取不到阵营图（army=`" + army
+                               + "` · `ArmyIcons` id=" + ArmyIcons.Id(army) + "）⇒ 照原版把徽记/阵营名/等级**三件一起关**。");
+
+            // 三件显隐 = `bVar10`（原版 `Behaviour.set_enabled`；我们这侧的等价物 = `SetActive` ——
+            // `Label` 虽是 MonoBehaviour，但「隐藏一行字」在本工程一律走 GameObject 显隐，别混两套）
+            if (badge != null) badge.gameObject.SetActive(hasIcon);
+            if (nameT != null)
+            {
+                nameT.gameObject.SetActive(hasIcon);
+                var lb = nameT.GetComponent<Label>();
+                if (lb != null) lb.SetText(hasIcon ? (ArmyIcons.LocalizedName(army) ?? "") : "");
+            }
+            if (levelT != null)
+            {
+                levelT.gameObject.SetActive(hasIcon);
+                // 原版只在 `bVar10` 为真时才写这一行（`.c`：`bVar10 == false` 直接 return）；
+                // 为假时保留 `BuildEventContainer` 已经写好的空态（`词条 + '-'`），⛔ 不编一个 0 级
+                var lb = levelT.GetComponent<Label>();
+                if (lb != null && hasIcon)
+                    lb.SetText(string.Format(TermOr(EvLevelTermOther, ""), ForgeData.LevelOf(army)));
+            }
+        }
     }
 }

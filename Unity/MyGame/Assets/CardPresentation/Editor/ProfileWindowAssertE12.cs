@@ -156,8 +156,15 @@ public static class ProfileWindowAssertE12
         // `Events/*/Level`：战将格印**胜利数**、另两格印**等级**（参考图 `胜利 : 487` / `等级 : 32`）
         CheckTerm(prof.transform, "Events/Warlord  Mastery Container/Level",
                   ProfileTab.EvLevelTermWarlord, "-", "战将格的胜利数那一行");
+        // 🔴 2026-10-28（B90-F4）就地改期望值：锻造厂那格现在**真填**（`Shell/ProfileTab.cs:1748-1792 FillForgeContainer`）——
+        //   原版 `decomp_full/ForgePlayerContainer__OnInitialize.c`：`GameStaticData.CardArmyToString` → `armyName.text`、
+        //   `if (bVar10) Format(词条, 等级)`（`bVar10` =「那张阵营图取到没有」）。⇒ 期望值从**夹具输入**取
+        //   （`ForgeData.Selected` × `LevelOf`），⛔ 不读 `Label.Text` 反推（自证）。取不到图时生产侧保留出厂空态（`-`）。
+        string forgeArmyNow = ForgeData.Selected;
+        bool forgeHasIconNow = !string.IsNullOrEmpty(forgeArmyNow) && ArmyIcons.Texture(ArmyIcons.Id(forgeArmyNow)) != null;
         CheckTerm(prof.transform, "Events/Forge Profile Container/Level",
-                  ProfileTab.EvLevelTermOther, "-", "锻造厂格的等级那一行");
+                  ProfileTab.EvLevelTermOther, forgeHasIconNow ? ForgeData.LevelOf(forgeArmyNow).ToString() : "-",
+                  "锻造厂格的等级那一行（夹具 `ForgeData.LevelOf(\"" + forgeArmyNow + "\")` = " + ForgeData.LevelOf(forgeArmyNow) + "）");
         CheckTerm(prof.transform, "Events/Campaign Profile Container/Level",
                   ProfileTab.EvLevelTermOther, "-", "战役格的等级那一行");
 
@@ -168,6 +175,9 @@ public static class ProfileWindowAssertE12
         // 三格 `Title` 之外，`Level` 行**不该再是空串**（改前是 ""）—— 这一条防「词条没接上、静默空着」
         var lvl = TextOf(FindChild(prof.transform, "Events/Forge Profile Container/Level"));
         Ok(!string.IsNullOrEmpty(lvl), "P0-3：`Events/Forge Profile Container/Level` 有字（改前是空串）");
+
+        // 🔴 2026-10-28（B90-F4）：补一条**原来没有的反向断言** —— `hasIcon == false`（取不到阵营图）时三件一起关。
+        CheckForgeNoIconTurnsAllOff(prof);
     }
 
     /// <summary>取某节点的字，与「官方词条（+可选 `string.Format` 的值）」比。
@@ -352,5 +362,60 @@ public static class ProfileWindowAssertE12
     {
         if (cond) { Pass++; Debug.Log(P + "OK   " + msg); }
         else { Fail++; Debug.LogError(P + "FAIL " + msg); }
+    }
+
+    /// <summary>🔴 2026-10-28（B90-F4）**反向断言**（之前没人验）：`hasIcon == false`（取不到阵营图）时，
+    /// 徽标 / 阵营名 / 等级**三件一起关** —— 原版 `ForgePlayerContainer__OnInitialize.c` 的 `bVar10 = false` 那一支。
+    /// <para>做法 = **真的走生产代码**：临时把 `ForgeData.Selected` 拨到「取不到图」的值（`Neutral`：`ArmyIcons.Id` = −1
+    /// ⇒ 徽记表无 sprite ⇒ `bVar10 = false`），再用反射调**同一个** `ProfileTab.FillForgeContainer`，断言三件都关、
+    /// 名被清空；收尾把 `Selected` 拨回去并**手工复原**三件（⛔ 不再调一次 fill —— `MenuDraw.Rect` 每次都会
+    /// `ImageQuad.Create` 一个新 quad，会叠一份）。</para>
+    /// <para>⚠️ 期望值是**结构性的**（三件一起关 + 名清空），来自夹具（`Neutral` 无 sprite），⛔ 不读 `Label.Text` 反推（自证）。
+    /// 反射读写私有成员是本工程既有做法（`Editor/NetSelfTest.cs:204` 同样用反射读私有静态表）。</para></summary>
+    static void CheckForgeNoIconTurnsAllOff(ProfileTab prof)
+    {
+        var events = FindChild(prof.transform, "Events");
+        var badge = FindChild(prof.transform, "Events/Forge Profile Container/Badge");
+        var nameN = FindChild(prof.transform, "Events/Forge Profile Container/ArmyName");
+        var levelN = FindChild(prof.transform, "Events/Forge Profile Container/Level");
+        Ok(events != null && badge != null && nameN != null && levelN != null,
+           "P0-3（前置·反向）：`Events/Forge Profile Container` 的徽标/名/等级三件都取得到");
+        if (events == null || badge == null || nameN == null || levelN == null) return;
+
+        var fillMi = typeof(ProfileTab).GetMethod("FillForgeContainer",
+            System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
+        var selSet = typeof(ForgeData).GetProperty("Selected",
+            System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static)?.GetSetMethod(true);
+        Ok(fillMi != null && selSet != null,
+           "P0-3（前置·反向）：反射口取得到（`ProfileTab.FillForgeContainer` / `ForgeData.Selected` 的私有 setter）");
+        if (fillMi == null || selSet == null) return;
+
+        string savedArmy = ForgeData.Selected;
+        bool bAct = badge.gameObject.activeSelf, nAct = nameN.gameObject.activeSelf, lAct = levelN.gameObject.activeSelf;
+        string savedName = TextOf(nameN), savedLevel = TextOf(levelN);
+        try
+        {
+            selSet.Invoke(null, new object[] { "Neutral" });
+            Ok(ArmyIcons.IconName(ArmyIcons.Id(ForgeData.Selected)) == null,
+               "P0-3（前提·反向）：夹具值 `Neutral` 在原版徽记表里**没有 sprite**（⇒ `GetArmyIcon` = null ⇒ `bVar10 = false`）");
+            fillMi.Invoke(prof, new object[] { events });
+            Ok(!badge.gameObject.activeSelf && !nameN.gameObject.activeSelf && !levelN.gameObject.activeSelf,
+               "P0-3（反向）：`hasIcon == false` ⇒ **徽标 / 阵营名 / 等级三件一起关**（原版 `bVar10 = false` 那一支）"
+             + "｜🧨 只关其中一两件 / 一个都不关 ⇒ 红");
+            Ok(TextOf(nameN) == "",
+               "P0-3（反向）：`hasIcon == false` ⇒ 阵营名被清空（实得「" + TextOf(nameN) + "」；⛔ 留着上一个阵营的名 ⇒ 红）");
+        }
+        finally
+        {
+            selSet.Invoke(null, new object[] { savedArmy });
+            // 手工复原（⛔ 不再调 fill：`MenuDraw.Rect` 每调一次就 `ImageQuad.Create` 一个新 quad）
+            badge.gameObject.SetActive(bAct);
+            nameN.gameObject.SetActive(nAct);
+            levelN.gameObject.SetActive(lAct);
+            var nlb = nameN.GetComponent<Label>(); if (nlb != null && savedName != null) nlb.SetText(savedName);
+            var llb = levelN.GetComponent<Label>(); if (llb != null && savedLevel != null) llb.SetText(savedLevel);
+        }
+        Ok(badge.gameObject.activeSelf == bAct && nameN.gameObject.activeSelf == nAct && levelN.gameObject.activeSelf == lAct,
+           "P0-3（收尾·反向）：三件显隐复原到断言前那一版（不给后面的用例留脏状态）");
     }
 }

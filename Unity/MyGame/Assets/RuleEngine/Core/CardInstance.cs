@@ -208,7 +208,7 @@ namespace RuleEngine
             ///  `dump.cs:19557-19566` 那两格就是 `AbilityData` 上的 `+0x40/+0x41`）
             /// ⇒ **语义 = 「这条是【在场上才成立】的能力给的」**。
             /// </summary>
-            public bool Extrinsic;
+            public bool Extrinsic; public bool Permanent;   // 🆕 2026-10-28（B91·W4b）`Permanent` = 原版 `CardEffect.permanentBuff(+0x74)` —— 该条【摘不掉】（判据 = `CardScript__RemoveEffect.c` 第一句 `permanentBuff != 0 ⇒ return` / `RemoveBuffHandCostEffects.c:35` 最外层闸）。⚠️ 数据槽而已：生产点 = `RuleCore.AttachHandEffect`、消费点 = `RuleCore.ExpireHandBuffs` / `ClearHandEffect`（均 W1 的文件）—— 账 L846 的「记录层灌值」另一半在那两处，⛔ 别在此文件另造判断
 
             /// <summary>
             /// 🆕 **2026-10-23（`W64 B-09`）：这条记录只补给【这一份】实例**（`0` = 不限）。

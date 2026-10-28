@@ -490,9 +490,9 @@ namespace CardPresentation
         //                        ⇒ normal **(0,0,−1)**、distance = **+pos.z**
         //   · （同族的 `playerMinionPlane` `+0x80` = `Plane(Vector3.forward, playerMinionManager.position)`
         //      只有 `RaycastToWorld` 的 `isPlayer` 那一支用，**`UpdateTrail` 不碰它**）
-        //  ⚠️ 原版那两处的 `position` 值在预制体/场景里（`floorReference` 还是 `[SerializeField]`），
-        //     代码里没有数字 ⇒ 我们取**本工程实测的那两个**：地面 `y = 0`（卡站在地面上，见
-        //     `BattleDriver` 里 3D 落点那一段），敌兵行 `z = ArenaSlots.EnemyZ`（`MinionArea` 的 local z）。
+        //  ⚠️ 原版那两处的 `position` 值在预制体/场景里（`floorReference` 还是 `[SerializeField]`）⇒ 我们取**本工程实测的那两个**：
+        //     地面 `y = 0`（卡站在地面上，见 `BattleDriver` 里 3D 落点那一段）、敌兵行 `z = ArenaSlots.EnemyZ`（`MinionArea` 的 local z）。
+        //  🔴 **2026-10-28（`B91`）**：本支的判据是 `TargetReticleController.UpdateTrail`（两条 `Plane__Raycast`，`:89/:117`），⛔ **不是** `BattleManager.GetTargetInPos` —— 后者的 2D 支传 `Physics2D.GetRayIntersectionNonAlloc(..., -1f)` ⇒ **恒 0 命中**（负距离 = 原版怪值，照抄、⛔ 别改成 `Mathf.Infinity`），真生效的是它自己的 3D 回退支（见 `CardInteraction.Frontmost` 的注）。
         // ==================================================================
 
         /// <summary>原版 `boardCamera`（透视/正交的**战场**相机）—— `WorldToScreenPoint` 用它</summary>

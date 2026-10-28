@@ -92,7 +92,7 @@ namespace CardPresentation
         /// 里面所有子件坐标都按「根在 (0,0)」的现读值再加 `at` 的原点算出来的。</summary>
         public static AllianceEventScoreInfo Create(Transform parent, PxRect at, string name = "Alliance Event Score Info")
         {
-            var go = new GameObject(name);
+            var go = new GameObject(name, typeof(RectTransform));   // 🔴 2026-10-28（B91）同 `AllianceEventScorePanel`：原来不带 RectTransform ⇒ `ApplyPxRect` 的 `SetPxSize` 早退、根框恒 0
             var c = go.AddComponent<AllianceEventScoreInfo>();
             c._root = go.transform;
             go.transform.SetParent(parent, false);

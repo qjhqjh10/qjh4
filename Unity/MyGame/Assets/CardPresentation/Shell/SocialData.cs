@@ -462,5 +462,65 @@ namespace CardPresentation
             allianceName = AllianceName ?? "";
             return AllianceName != null;
         }
+
+        // ============================================================ 🆕 两个下拉**喂给盒子的**选项字（账 101）
+
+        /// <summary>🆕 **2026-10-28（`B90-N5` · 账 101）**：下拉选项的**显示字**。原版 `AllianceView.Start` 把
+        /// `GroupLanguages` 映射成 `GetTermTranslation("SocialMenu/Alliances/Language/" + lang)` 再 `AddOptions`
+        /// （隐私同理 `"SocialMenu/Alliances/Privacy/" + Enum.GetNames(typeof(GroupPrivacy))`）——
+        /// 判据 = `out_cpp2il_dev_ilspy/AllianceView.cs:104-175` ⇒ **下拉里印的是词条译文，不是英文原名**。
+        /// （14 + 2 条键在官方 13 语表 `数据/游戏数据/官方本地化_13lang.json` 里 **16/16 全在**，`B90-N5` 现核。）
+        /// <para>🔴 **⛔ 别改 <see cref="GroupLanguages"/> / <see cref="GroupPrivacyNames"/> 本身**：那两张表同时是
+        /// `AllianceView.OnToggleEditClicked` 里 `IndexOf(GroupLanguages, alliance.region)` 的输入 ——
+        /// 换成译文会让 `.value` 恒 −1。**只在这一层映射**（喂盒子那一刻）。</para>
+        /// <para>缺键 ⇒ 退回英文原名 + **出声**（红线：⛔ 不许把键名印到屏幕上）。</para></summary>
+        public static string[] LanguageOptionLabels() { return MapOptionLabels(GroupLanguages, "SocialMenu/Alliances/Language/"); }
+
+        /// <summary>隐私那两条（`Open` / `Private`），映射与出处同 <see cref="LanguageOptionLabels"/>。</summary>
+        public static string[] PrivacyOptionLabels() { return MapOptionLabels(GroupPrivacyNames, "SocialMenu/Alliances/Privacy/"); }
+
+        static string[] MapOptionLabels(string[] names, string keyPrefix)
+        {
+            var outp = new string[names.Length];
+            for (int i = 0; i < names.Length; i++)
+            {
+                string key = keyPrefix + names[i];
+                string s = Loc.T(key);
+                if (string.IsNullOrEmpty(s) || s == key)
+                {
+                    UnityEngine.Debug.LogWarning("[SocialData] 下拉选项词条缺键 `" + key + "` ⇒ 该条退回英文原名 `"
+                                               + names[i] + "`（⛔ 不印键名）");
+                    s = names[i];
+                }
+                outp[i] = s;
+            }
+            return outp;
+        }
+
+        // ============================================================ 🆕 2026-10-28（B91-R3 批）
+        // 🔴 纪律：追加在类尾（本文件被账按行号引用 —— 既有落点最高到 `:477`，本段全在其后 ⇒ 零漂）。
+
+        /// <summary>邀请缓存的写入时刻（原版 `AlliancesController.invitationsCachedAt(+0x98)`；
+        /// 原版存**服务器时间** `ServerDateTime`，本地没有服务器时钟 ⇒ 用 `DateTime.UtcNow`，与
+        /// `SetCurrentGroupCached` 那一格同一口径）。</summary>
+        public static System.DateTime InvitationsCachedAt;
+
+        /// <summary>= 原版 `AlliancesController.SetInvitationsCached(IEnumerable&lt;GroupInvitation&gt; g)`（**逐句**，
+        /// 判据 `decomp_full/AlliancesController__SetInvitationsCached.c` + `out_cpp2il_dev_ilspy/AlliancesController.cs:1529`）：
+        /// 把传入集合**整表替换**进邀请缓存（`g == null` ⇒ 空表；非空 ⇒ `ToList()` 语义），并记缓存时刻。
+        /// <para>原版那串 `Where(...).Concat(...).ToList()` 是编译器缓存的 identity 委托 —— 语义 = `g==null` 走空表支、
+        /// 否则 `ToList`；末尾 `this.groupInvitationsCache(+0x90) = 列表` · `invitationsCachedAt(+0x98) = ServerDateTime`
+        /// ⇒ 本仓 <see cref="_invitations"/> 整表替换 + <see cref="InvitationsCachedAt"/>（本地用 `DateTime.UtcNow`）。</para>
+        /// <para>⚠️ 原版是 private、只被 `FetchGroupInvitations` 那类服务端拉取链调用（P3，本仓没有那条链）⇒ 离线
+        /// **没有调用者**；这里是「**方法级等价口**」，方法体本身已闭环（零调用者也判 A：按铁律「静默失败」红线
+        /// 只要求「不假装有数据源」，不要求造一个假服务端）。真数据到位时由拉取链的本地替身调它即可。</para></summary>
+        public static void SetInvitations(IEnumerable<Invitation> g)
+        {
+            _invitations.Clear();
+            if (g != null)
+                foreach (var it in g)
+                    if (it != null) _invitations.Add(it);
+            InvitationsCachedAt = System.DateTime.UtcNow;
+        }
     }
 }

@@ -867,13 +867,13 @@ namespace CardPresentation
         /// `GroupBadge allianceBadge`（`BattleAlliancePanel.cs:55`）。我们收的是**拆平后的两格**：
         /// `badgeId` = `GroupBadge.featuredTrophy.reward.uniqueId`、`badgeTier` = `GroupBadge.tierLevel`
         /// （id → 图 见 `AllianceBadgeArt`）。`badgeId` 为空 ⇒ **原版同一条回落**（`DefaultTrophy`），⛔ 不是我们挑的图。</summary>
-        public void Open(string playerName, string title, string allianceName, string badgeId, int badgeTier)
+        public void Open(string playerName, string title, string allianceName, string badgeId, int badgeTier, int playerScore = -1, int allianceScore = -1)
         {
             // 🆕 2026-10-20（A3-e）：上一扇（或上一次点击）留下的「待关」**不许**落到刚开的这一扇上
             //   —— 没有这一句时，「关窗点击落账 → 同帧有人又 Open」会让新窗在 `LateUpdate` 立刻被关掉。
             _closePending = false;
             gameObject.SetActive(true);
-            Apply(playerName, title, allianceName, badgeId, badgeTier);
+            Apply(playerName, title, allianceName, badgeId, badgeTier, playerScore, allianceScore);
             StartAppear();          // 🆕 2026-10-27（E9 · 账 187①）：原版末尾的 DOFade + DOScale
             _visible = true;
         }
@@ -1062,7 +1062,8 @@ namespace CardPresentation
         }
 
         void Apply(string playerName, string title, string allianceName,
-                   string badgeId = null, int badgeTier = 0)
+                   string badgeId = null, int badgeTier = 0,
+                   int playerScore = -1, int allianceScore = -1)
         {
             if (_nameLb != null) _nameLb.SetText(playerName ?? "");
             bool hasTitle = !string.IsNullOrEmpty(title);
@@ -1100,6 +1101,33 @@ namespace CardPresentation
             //    `anchor` 是 **(0, 0.5)**（见 `Txt`）⇒ `RefreshBounds` 让**字形块左缘恒贴节点 x**
             //    （同一个函数里 `-anchor.x*W` 那一项），换字重排也自动贴住。⛔ 调 `MenuDraw.AlignLeft`
             //    反而会把节点整颗挪走（那个口喂的是**世界单位**）。
+            // 🆕 **2026-10-28（`B90-N5` · 账 187④）**：两处评级的**数值** —— 原版 `Open` 里那两句
+            //   `AllianceRatingDisplay__Initialize(playerRating 0x40, param_4 = playerScore, …, 0,1,1)` /
+            //   `(allianceRating 0x58, param_8 = allianceScore, 0, 0,0,0,1)`（`BattleAlliancePanel__Open.c:78-81`）。
+            //   `Initialize` 的取值分支（`decomp_full/AllianceRatingDisplay__Initialize.c`）：
+            //   · `.c:57-59` 有活跃 LiveOps 活动 ⇒ 走「段位 + 档」的**格式化串**（远端；我们 13 个活动 SO 都没有 key=6 资产）；
+            //   · `.c:60-66`（`LAB_1807ac910`）**否则 `text = score.ToString()`** ⇒ **本地恒走这一支**，
+            //     且联盟那一格 `param_5 = 0` 直接跳到同一支（`.c:69`）⇒ 两格都是「int 转串」。
+            //   ⚠️ 形参 **-1 = 我们不知道**（`BattleDriver` 今天那两处就是）⇒ 保留 prefab 的空态串 + 由
+            //      `WarnRatingOnce` 出声一次，⛔ 不编数值。**`0` 是合法值**（原版会印 `"0"`）⇒ 别拿 0 当哨兵。
+            //   ⚠️ 索引 0/1 = `Build` 里 `RatingDisplay(...)` 的**创建序**（先 `Player Rating Display`、后 `Alliance`），
+            //      与 `RatingValueForTest(i)` 同一个口径。
+            bool scoredPlayer = playerScore >= 0 && _ratingValues.Count > 0 && _ratingValues[0] != null;
+            bool scoredAlliance = allianceScore >= 0 && _ratingValues.Count > 1 && _ratingValues[1] != null;
+            if (scoredPlayer) _ratingValues[0].SetText(playerScore.ToString());
+            if (scoredAlliance) _ratingValues[1].SetText(allianceScore.ToString());
+            if (!_ugui && gameObject.activeInHierarchy && (scoredPlayer || scoredAlliance))
+            {
+                // 与下面那三颗同一个理由：`Label.SetText` 会重排，世界档的字墨是**居中**到锚点上的
+                // ⇒ 换过字必须重新左对齐一次（画布档枢轴已是 (0,0.5)，⛔ 别调）。
+                if (scoredPlayer)
+                    MenuDraw.AlignLeft(_ratingValues[0],
+                        new PxRect(PlayerRatingR.x1 + RatingIconW, PlayerRatingR.y1, PlayerRatingR.x2, PlayerRatingR.y2));
+                if (scoredAlliance)
+                    MenuDraw.AlignLeft(_ratingValues[1],
+                        new PxRect(AllianceRatingR.x1 + RatingIconW, AllianceRatingR.y1, AllianceRatingR.x2, AllianceRatingR.y2));
+            }
+
             if (!_ugui && gameObject.activeInHierarchy)
             {
                 MenuDraw.AlignLeft(_nameLb, NameTextR);

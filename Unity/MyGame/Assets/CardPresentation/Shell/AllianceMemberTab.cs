@@ -1438,14 +1438,14 @@ namespace CardPresentation
                 // ---- 已入盟支那一棵（act T）：五个子件**全建** ----
                 //   `Config fields` 是 `HorizontalLayoutGroup`（spacing 14.5）；
                 //   ⚠️ 五件的 x 是布局跑出来的（逐值照普查 `:281-315`；相邻两件之间正好 = spacing 14.5）。
-                //   ⚠️ 下拉的展开要靠 Unity 内置 `Template` —— 我们不建它（同 `AlliancesTab.CreateAllianceMenu` 那两处的处理）。
+                //   ✅ 2026-10-28（`B90-N5`）：展开面**已建**（`AllianceDropdownBox`）—— 原写「靠 Unity 内置 `Template`、不建」已作废。
                 var chrome = new EditChrome();
                 langNode = Dropdown(v, cf, "LanguagesDropdown",
                          new PxRect(1130.90f, 210.41f, 1380.90f, 269.81f),      // :281
-                         new PxRect(1355.90f, 230.11f, 1375.90f, 250.11f));      // :283
+                         new PxRect(1355.90f, 230.11f, 1375.90f, 250.11f), SocialData.LanguageOptionLabels());      // :283
                 privNode = Dropdown(v, cf, "Privacy Dropdown",
                          new PxRect(1395.40f, 210.41f, 1645.40f, 269.81f),      // :294
-                         new PxRect(1620.40f, 230.11f, 1640.40f, 250.11f));      // :296
+                         new PxRect(1620.40f, 230.11f, 1640.40f, 250.11f), SocialData.PrivacyOptionLabels());      // :296
                 editNode = YellowBtn(v, cf, "Edit button",
                           new PxRect(1659.90f, 209.81f, 1718.05f, 269.81f),      // :307
                           "40k_general_bt_yellow_edit",
@@ -1573,23 +1573,23 @@ namespace CardPresentation
             return nameLabel;
         }
 
-        /// <summary>一个**合上的下拉**（`Config fields` 里那两个）：九宫底 + 箭头 + 一个出声的命中区。
-        /// ⚠️ 原版那两件的 `Label` **出厂是空串**（运行期由 `AllianceView.Start` 从本地化服务里填语言名 /
-        ///    隐私枚举名 —— §C·2）⇒ 我们**不编**：底 + 箭头照建，文字留空、点了出声。
-        /// ⚠️ 展开要 `Template`（Unity 内置模板，§B·13 明说别当业务节点）⇒ 不建。
-        /// 底图/箭头与染色**逐值照普查**（`:281-283`）：`40K_dropdown_field_closed` 727×102 九宫 (60,35,60,35)
-        /// · 染色 `(1,0.475,0.098,1)`；`40K_dropdown_arrow_closed` 46×19 · 染色 `(0.361,0.188,0.0588,1)`。</summary>
-        static Transform Dropdown(SocialView v, Transform parent, string name, PxRect fieldR, PxRect arrowR)
+        /// <summary>一个**可展开**的下拉（`Config fields` 里那两个 / 建盟页那两个）：九宫底 + 箭头 + 展开列表。
+        /// ⚠️ 底图/箭头与染色**逐值照普查**（`:281-283`）：`40K_dropdown_field_closed` 727×102 九宫 (60,35,60,35)
+        /// · 染色 `(1,0.475,0.098,1)`；`40K_dropdown_arrow_closed` 46×19 · 染色 `(0.361,0.188,0.0588,1)`。
+        /// 🔴 **2026-10-28（`B90-N5`）就地订正**：旧注释写「展开要 `Template`（Unity 内置模板，§B·13 明说别当业务节点）⇒ 不建」
+        /// —— **不成立**（`Template` 是原版 prefab **真有的子树**，rect/贴图/九宫/字号见 `普查产出_0927/社交_联盟与好友页.md:284-300`）
+        /// ⇒ 现在真能展开；几何/素材/开合全在 `AllianceDropdownBox`（⛔ 别在这儿抄第二份），`options` = 展开后那几行。</summary>
+        static Transform Dropdown(SocialView v, Transform parent, string name, PxRect fieldR, PxRect arrowR, string[] options)
         {
-            var f = Node(parent, name, fieldR);
-            v.Nine(f, "40K_dropdown_field_closed", fieldR, new Vector4(60f, 35f, 60f, 35f), "Bg", 0,
-                   new Color(1f, 0.475f, 0.098f, 1f));
-            v.Rect(f, "40K_dropdown_arrow_closed", arrowR, "Arrow", 2,
-                   new Color(0.361f, 0.188f, 0.0588f, 1f), true);
-            v.Hit(f, "Hit", fieldR, 3, () => SocialPage.Say(
-                $"`{name}` 下拉：**打不开**（展开要 Unity 内置 `Template`；选中的值由 `AllianceView.Start` "
-              + "从本地化服务 / 隐私枚举里填，本地没有那个源 —— 改盟设置也要服务器）。"));
-            return f;   // 🆕 2026-10-28（B89-E22）：改盟设置那一态的梯子要按句柄切显隐（原版 `languageDropdown` / `privacyDropdown`）
+            // ⚠️ `arrowR` 留着只为「两处实参与原版实值对得上」这一条可核（`AllianceDropdownBox` 内部
+            //   按 `fieldR` 算同一个矩形：`x2−25 … x2−5`、`cy±10`）—— 两处调用点传的值与它逐值相同。
+            // ⚠️ 字号/内缩/列表框几何/条目底与悬停·选中图**全部**在 `AllianceDropdownBox`（一份判据一处）。
+            // ⚠️ 展开列表**第一次点开才建**（原版 `Template` 在 prefab 里就是 act F）；列表与那块「点别处收起」的
+            //   全屏挡板都挂在**这个节点**下面 ⇒ 编辑态一切走（`SetActive(false)`）时连挡板一起失效，
+            //   不会留下吃点击的隐形层（`PointerLayer.HitQuad` 那条 `activeInHierarchy`）。
+            // ⚠️ 本方法**不加行**：下游还有 5 条 A 行按行号指着（`AllianceMemberEntry` / `AllianceMemberList` 等）。
+            var box = AllianceDropdownBox.Create(v, parent, name, fieldR, options);
+            return box.Node;             // `Create` 恒非 null（节点建不出来时它自己出声）
         }
 
         /// <summary>一颗黄圆钮（`Edit` / `Confirm` / `Cancel`）：`40k_general_bt_yellow`（71×71 · Simple ·
@@ -2117,6 +2117,272 @@ namespace CardPresentation
             var border = on ? BorderOn : BorderOff;
             MenuDraw.Nine(node, tex, r, border, tex.width, tex.height, page.Q + qOff,
                           on ? onCol : offCol, true, "Image", border / PpuMul);
+        }
+    }
+
+    // ==================================================================
+    //  下拉的**展开面**（原版 `TMP_Dropdown` 的 `Template` 子树）
+    // ==================================================================
+
+    /// <summary>一个**可展开**的下拉（合上面 + `Template` 列表 + 选中语义）。
+    /// <para>🔴 **判据（2026-10-28 `B90-N5` 现读，全部来自 prefab，⛔ 不是猜的）**：</para>
+    /// <para>**几何** —— `资料/普查产出_0927/社交_联盟与好友页.md` 的 `Template` 子树（act T 那份 `:284-300`，
+    /// 建盟页那份 `:191-205` 同值；两处的「field → list」相对关系**逐项相同**）：</para>
+    /// <list type="bullet">
+    /// <item>`Template`（列表根）= 250×573.96 的框，**挂在 field 上**：`list.x1 = field.x1`、
+    ///   `list.x2 = field.x2 − 5`、`list.top = field.center.y + 22`
+    ///   （判据：`m_AnchorMin/Max (0,0.5)-(1,0.5)` + `m_Pivot (0.5,1)` + `m_AnchoredPosition (−2.5,−22)` +
+    ///   `m_SizeDelta (−4.9998, 573.96)`；两处实值 = `1130.90,262.11→1375.90,836.07` / `1129.90,235.32→1374.90,809.28`）。</item>
+    /// <item>`Viewport` = 列表左侧 **228** 宽（= 列表宽 − 17，右边那 17 是 `Scrollbar` 的 `Background` 宽）。</item>
+    /// <item>`Item` 高 **40.8707**（`m_SizeDelta (0, 40.8707)`），条目自顶向下紧排（uGUI `Dropdown.AddItem` 的
+    ///   `anchoredPosition = (0, −i·itemHeight)`）。</item>
+    /// <item>`Item Label` 相对 Item：`x1+20 / x2−10 / y1+1 / y2−2`（由 `m_AnchorMin/Max (0,0)-(1,1)` +
+    ///   `m_SizeDelta (−30,−3)` + `m_AnchoredPosition (5,−0.5)` 解出，**与实值 `1149.90…1347.90` 对得上**）；
+    ///   字号 **30** · `auto[18~40]` · 色 `(0.783,0.783,0.783,1)` · `Left/Midline` · 折行=1。</item>
+    /// <item>`Item Background` = 整条 Item，`40K_dropdown_item`（717×92，Simple 不切片）。</item>
+    /// </list>
+    /// <para>**列表高度**：`min(选项数, 14) × 40.8707` —— 14 = `floor(573.96 / 40.8707)`，即 prefab 那份
+    /// `Template` 框**自己装得下的行数**（uGUI `Dropdown.Show()` 就是按 `itemHeight × 可见行数` 改
+    /// `m_Template.sizeDelta.y`）。我们的两张表（语言 14 / 隐私 2）**都 ≤ 14** ⇒ **内容永不滚动**。</para>
+    /// <para>⚠️ **因此 `Scrollbar`（`Background` 32×32 / `Handle` = `UISprite` 32×32）不建**，理由两条：
+    /// ① 那两张是 **Unity 内置图**（`m_Sprite` 名就是 `Background` / `UISprite`，不在 `assets_full` 里）⇒ **判据为空**；
+    /// ② 内容装得下 ⇒ 滚条恒为「满条」、功能上无差异（**视觉上少一条轨**，如实记）。</para>
+    /// <para>⚠️ `Item Checkmark` 同样**不建**：它是 `Checkmark`（Unity 内置 40×40）⇒ 判据为空。
+    /// 「当前选中哪一条」改用我们**手上有的** `40K_dropdown_item_selected` 底图表达。</para>
+    /// <para>🔶 **自己设计（非原版）**：**哪个状态配哪张图** —— `_selected` 标当前值、`_hover` 标悬停、
+    /// 其余 `40K_dropdown_item`。为什么必须自己定：原版那三张图的切换写在 `Toggle` 的
+    /// `m_SpriteState` / `m_Colors` 里，**本机那份 dump 对 `Item` 只给了 `Toggle ; isOn=1`、没给这两组字段**
+    /// （普查 `:297` 那一行的「字段:」列是空的）⇒ 判据拿不到。裁定：调度台 2026-10-28（`B90-N5` 授权「必要时自行决策」）。</para>
+    /// <para>**开合行为**（uGUI `Dropdown` 的标准机制，原版就是它）：
+    /// 点合上面 ⇒ 展开；展开时点**任何别处** ⇒ 只收起（`Dropdown.CreateBlocker()` 造一块**全屏挡板**，
+    /// 那块挡板吃下这一下、不传给底下的控件）；点某一条 ⇒ 记住值 + 收起 + 写合上面的字。
+    /// 挡板与列表都是 **field 的子节点** ⇒ 离开编辑态（`SetActive(false)`）时**连挡板一起失效**
+    /// （`PointerLayer.HitQuad` 里 `activeInHierarchy` 那一关，见它 ③）。</para></summary>
+    public sealed class AllianceDropdownBox
+    {
+        // ---- 几何（逐值见类头；单位 = 设计 px、y 向下）----
+        public const float ItemH = 40.8707f;
+        public const float ListTopGap = 22f;        // list.top = field.cy + 22
+        public const float ListWidthLoss = 5f;      // list 宽 = field 宽 − 5
+        public const float ScrollbarW = 17f;        // item 宽 = list 宽 − 17
+        public const int MaxVisibleRows = 14;       // floor(573.96 / 40.8707)
+
+        // ---- 渲染队列（🔴 **绝对档**，理由见下）----
+        //   ⚠️ 这里**不走** `SocialView.*` 的 `QOff + qOff`：那个偏移是**私有**的（`SocialView.QOff` 是
+        //   `protected abstract`），而本类要给自检/两个宿主页共用 ⇒ 用绝对档并把区间钉死。
+        //   📌 区间 = **3331–3334**（`SocialWindow` 那张层带地图里 3327–3399 是空的；必须在页带 3200–3209
+        //   与奖杯格 3210–3299 **之上**，否则展开的列表会被同一页的东西压住）。
+        const int QBlocker = 3331;      // 全屏挡板（**必须**低于条目命中档，否则点不动条目）
+        const int QListBg = 3332;
+        const int QItemBg = 3333;
+        const int QItemText = 3334;
+
+        static readonly PxRect FullR = new PxRect(0f, 0f, 1920f, 1080f);
+
+        readonly Transform _field;
+        readonly PxRect _fieldR;
+        readonly string[] _options;
+        readonly System.Action<int> _onChanged;
+        readonly System.Func<string, Texture2D> _art;
+        readonly Label _caption;
+        // 合上面那两对「合上 / 展开」的图**各建一份、按开合切 `SetActive`**（⛔ 不换纹理）：
+        //   九宫那张是 `CreateNineSlice` 的 9 颗子件（`MenuDraw.Nine` 返回 `GameObject`，不是单颗 quad），
+        //   逐颗换纹理会把切片拆散；而两版贴图**同尺寸**（727×102 / 46×19）⇒ 各建一份最省事也最不容易错。
+        readonly GameObject _bgClosed, _bgOpen;
+        readonly ImageQuad _arrowClosed, _arrowOpen;
+
+        Transform _list, _blocker;
+        readonly System.Collections.Generic.List<Transform> _itemBgs = new System.Collections.Generic.List<Transform>();
+        readonly System.Collections.Generic.List<ImageQuad> _itemQuads = new System.Collections.Generic.List<ImageQuad>();
+        int _value = -1;
+        bool _open;
+
+        /// <summary>展开着吗（自检读）。</summary>
+        public bool IsOpen { get { return _open; } }
+        /// <summary>当前选项下标；`-1` = 还没选过（原版缺省也是 -1，`Dropdown.value` 的初值）。</summary>
+        public int Value { get { return _value; } }
+        /// <summary>合上面那颗框节点（= 原版 `languageDropdown` / `privacyDropdown` 这个 GO，显隐梯子切它）。</summary>
+        public Transform Node { get { return _field; } }
+
+        AllianceDropdownBox(Transform field, PxRect fieldR, Label caption, GameObject bgClosed, GameObject bgOpen,
+                            ImageQuad arrowClosed, ImageQuad arrowOpen,
+                            string[] options, System.Action<int> onChanged, System.Func<string, Texture2D> art)
+        {
+            _field = field; _fieldR = fieldR; _caption = caption;
+            _bgClosed = bgClosed; _bgOpen = bgOpen; _arrowClosed = arrowClosed; _arrowOpen = arrowOpen;
+            _options = options ?? new string[0];
+            _onChanged = onChanged; _art = art;
+        }
+
+        /// <summary>建一个下拉（**合上面**现在就建；**展开面**第一次打开时才建 —— 原版 `Template` 是 act F、
+        /// 运行期由 `Dropdown.Show()` 实例化条目）。
+        /// <paramref name="fieldR"/> = 合上面那个框的**绝对矩形**。</summary>
+        public static AllianceDropdownBox Create(SocialView v, Transform parent, string name, PxRect fieldR,
+                                                 string[] options, System.Action<int> onChanged = null)
+        {
+            var f = MenuDraw.Node(parent, name, fieldR);
+            var art = (System.Func<string, Texture2D>)(n => v.Page != null ? v.Page.ArtOf(n) : null);
+            // 合上面的底：`40K_dropdown_field_closed`（727×102 · 九宫 (60,35,60,35) · 染色 (1,0.475,0.098,1)），
+            //   展开态换成 `…_opened`（同尺寸）——「各建一份按开合切」的理由见字段那一段。
+            GameObject bgClosed = null, bgOpen = null;
+            var bgTex = art("40K_dropdown_field_closed");
+            if (bgTex != null) bgClosed = MenuDraw.Nine(f, bgTex, fieldR, new Vector4(60f, 35f, 60f, 35f),
+                                                        bgTex.width, bgTex.height, QListBg - 1,
+                                                        new Color(1f, 0.475f, 0.098f, 1f), true, "Bg");
+            var bgTexOpen = art("40K_dropdown_field_opened");
+            if (bgTexOpen != null) bgOpen = MenuDraw.Nine(f, bgTexOpen, fieldR, new Vector4(60f, 35f, 60f, 35f),
+                                                          bgTexOpen.width, bgTexOpen.height, QListBg - 1,
+                                                          new Color(1f, 0.475f, 0.098f, 1f), true, "Bg Opened");
+            if (bgOpen != null) bgOpen.SetActive(false);
+            // 合上面的字（原版 `Label`：内缩 左10/上7/右10/下6 · 字号 14 · auto[10~45] · 色 0.67 · Left/Midline · 折行=0）
+            var capR = new PxRect(fieldR.x1 + 10f, fieldR.y1 + 7f, fieldR.x2 - 10f, fieldR.y2 - 6f);
+            var cap = MenuDraw.TextBox(f, capR, "", new Color(0.67f, 0.67f, 0.67f, 1f), "Label", 14f, 10f,
+                                       QItemText, 45f, 0f);
+            if (cap != null) MenuDraw.SetVAlign(cap, Label.VAlign.Midline, capR);
+            var arrowTex = art("40K_dropdown_arrow_closed");
+            // 箭头矩形 = 实值（`field.x2−25 … field.x2−5`、`cy±10`；判据：`1355.90,230.11→1375.90,250.11` 对
+            //   `field 1130.90..1380.90 / 210.41..269.81`），46×19 原图带 `preserveAspect`。
+            var arrowR = new PxRect(fieldR.x2 - 25f, fieldR.CY - 10f, fieldR.x2 - 5f, fieldR.CY + 10f);
+            ImageQuad arrowClosed = null, arrowOpen = null;
+            if (arrowTex != null)
+                arrowClosed = MenuDraw.Rect(f, arrowTex, arrowR, "Arrow", QItemText,
+                                            new Color(0.361f, 0.188f, 0.0588f, 1f), true);
+            var arrowTexOpen = art("40K_dropdown_arrow_opened");
+            if (arrowTexOpen != null)
+                arrowOpen = MenuDraw.Rect(f, arrowTexOpen, arrowR, "Arrow Opened", QItemText,
+                                          new Color(0.361f, 0.188f, 0.0588f, 1f), true);
+            if (arrowOpen != null) arrowOpen.gameObject.SetActive(false);
+            var box = new AllianceDropdownBox(f, fieldR, cap, bgClosed, bgOpen, arrowClosed, arrowOpen,
+                                              options, onChanged, art);
+            // 合上面自己那颗命中区（原版 `TMP_Dropdown` 就是一个 `IPointerClickHandler`）：
+            //   展开时它被**全屏挡板**压在下面 ⇒ 吃到的是挡板（= 收起），与原版「再点一下也收起」同一个结果。
+            MenuDraw.Hit(f, "Hit", fieldR, QItemBg, box.Toggle);
+            return box;
+        }
+
+        /// <summary>开 / 关（点合上面那颗）。</summary>
+        public void Toggle() { if (_open) Close(); else Open(); }
+
+        /// <summary>展开：第一次会现建列表。</summary>
+        public void Open()
+        {
+            if (_open) return;
+            if (_options.Length == 0) { SocialPage.Say("[Social] 下拉没有任何选项 ⇒ 打不开。"); return; }
+            if (_list == null) BuildList();
+            if (_list == null) return;
+            _open = true;
+            _list.gameObject.SetActive(true);
+            SetOpenVisual(true);
+            if (_blocker != null) _blocker.gameObject.SetActive(true);
+        }
+
+        /// <summary>收起（点条目 / 点别处 / 程序调）。</summary>
+        public void Close()
+        {
+            if (!_open) return;
+            _open = false;
+            if (_list != null) _list.gameObject.SetActive(false);
+            SetOpenVisual(false);
+        }
+
+        /// <summary>设值（**不**触发 `onChanged`，与原版 `Dropdown.SetValueWithoutNotify` 同义）。
+        /// <paramref name="i"/> 越界 ⇒ 出声 + 不动。</summary>
+        public void SetValue(int i)
+        {
+            if (i < -1 || i >= _options.Length)
+            {
+                SocialPage.Say("[Social] 下拉设值 " + i + " 越界（共 " + _options.Length + " 项）⇒ 不改。");
+                return;
+            }
+            _value = i;
+            if (_caption != null) _caption.SetText(i >= 0 ? _options[i] : "");
+            RefreshItemArt();
+        }
+
+        /// <summary>选第 <paramref name="i"/> 条：记值 + 收起 + 回调（原版 `Dropdown.onValueChanged`）。
+        /// ⚠️ 原版 `Dropdown` 只在**值真的变了**时才发 `onValueChanged` ⇒ 这里同口径。
+        /// 选完**一定收起**（uGUI `AddItem` 的 lambda 里 `Hide()`）。</summary>
+        public void Pick(int i)
+        {
+            bool changed = i != _value;
+            SetValue(i);
+            Close();
+            if (changed && _onChanged != null) _onChanged(i);
+        }
+
+        // ---------------------------------------------------------------- 内部
+
+        void BuildList()
+        {
+            int n = _options.Length;
+            int rows = n < MaxVisibleRows ? n : MaxVisibleRows;
+            float w = _fieldR.W - ListWidthLoss;
+            float top = _fieldR.CY + ListTopGap;
+            var listR = new PxRect(_fieldR.x1, top, _fieldR.x1 + w, top + rows * ItemH);
+            _list = MenuDraw.Node(_field, "Template", listR);
+            if (_list == null) { SocialPage.Say("[Social] 下拉列表节点建不出来 ⇒ 打不开。"); return; }
+            var bgTex = _art("40K_dropdown_bg");
+            if (bgTex != null)
+                MenuDraw.Nine(_list, bgTex, listR, new Vector4(23f, 20f, 23f, 20f), bgTex.width, bgTex.height,
+                              QListBg, new Color(1f, 0.475f, 0.098f, 1f), true, "Bg");
+            var itemTex = _art("40K_dropdown_item");
+            if (itemTex == null)
+                SocialPage.Say("[Social] `40K_dropdown_item` 取不到 ⇒ 列表只有字、没有条目底（判据图缺）。");
+            float itemW = w - ScrollbarW;
+            for (int i = 0; i < rows; i++)
+            {
+                float y1 = top + i * ItemH;
+                var row = MenuDraw.Node(_list, "Item " + i, new PxRect(listR.x1, y1, listR.x1 + itemW, y1 + ItemH));
+                ImageQuad q = null;
+                if (itemTex != null && row != null)
+                    q = MenuDraw.Rect(row, itemTex, new PxRect(listR.x1, y1, listR.x1 + itemW, y1 + ItemH),
+                                      "Item Background", QItemBg, null, false);
+                var lbR = new PxRect(listR.x1 + 20f, y1 + 1f, listR.x1 + itemW - 10f, y1 + ItemH - 2f);
+                var lb = MenuDraw.TextBox(row, lbR, _options[i], new Color(0.783f, 0.783f, 0.783f, 1f),
+                                          "Item Label", 30f, 18f, QItemText, 40f, 0f);
+                if (lb != null) MenuDraw.AlignLeft(lb, lbR);
+                int idx = i;
+                // 命中：队列必须高于挡板（QBlocker），否则点条目会落到「点别处 ⇒ 收起」那一支。
+                MenuDraw.Hit(row, "Hit", new PxRect(listR.x1, y1, listR.x1 + itemW, y1 + ItemH), QItemBg + 1,
+                             () => Pick(idx), q, null, "40K_dropdown_item_hover", null);
+                _itemBgs.Add(row);
+                _itemQuads.Add(q);
+            }
+            // 全屏挡板（原版 `Dropdown.CreateBlocker()`）：**最后建**、档最低 ⇒ 条目与合上面都压得住它。
+            _blocker = MenuDraw.Hit(_list, "Blocker", FullR, QBlocker, Close);
+            if (_blocker == null) SocialPage.Say("[Social] 下拉挡板建不出来 ⇒ 展开后点别处收不起来。");
+            _list.gameObject.SetActive(false);
+            RefreshItemArt();
+        }
+
+        /// <summary>把每个条目的底图刷成「当前值 / 其它」（🔶 映射见类头）。</summary>
+        void RefreshItemArt()
+        {
+            for (int i = 0; i < _itemQuads.Count; i++)
+            {
+                if (_itemQuads[i] == null) continue;
+                SwapArt(_itemQuads[i], i == _value ? "40K_dropdown_item_selected" : "40K_dropdown_item");
+            }
+        }
+
+        /// <summary>开合两态的四颗图切换（各两份、切 `SetActive`；理由见字段那一段）。</summary>
+        void SetOpenVisual(bool open)
+        {
+            if (_bgClosed != null) _bgClosed.SetActive(!open);
+            if (_bgOpen != null) _bgOpen.SetActive(open);
+            if (_arrowClosed != null) _arrowClosed.gameObject.SetActive(!open);
+            if (_arrowOpen != null) _arrowOpen.gameObject.SetActive(open);
+        }
+
+        /// <summary>换条目底图（**同尺寸变体**：`40K_dropdown_item` / `_hover` / `_selected` 都是 717×92
+        /// ⇒ `SetTexture` 冲掉 `_aspect` 也冲成同一个值，不需要拉回 —— 那是 `ChatPanel.RefreshHighlights`
+        /// 那条「换图后要 `SetAspect`」的同族教训**唯一不适用**的情形，理由就是尺寸相同）。</summary>
+        void SwapArt(ImageQuad q, string name)
+        {
+            if (q == null) return;
+            var tex = _art(name);
+            if (tex == null) return;              // 取不到就留在旧图上（`MissingArt` 已记）
+            q.SetTexture(tex);
         }
     }
 }

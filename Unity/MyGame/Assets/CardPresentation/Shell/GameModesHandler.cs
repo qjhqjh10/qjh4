@@ -491,5 +491,62 @@ namespace CardPresentation
 
         // ⚠️ **本类没有构造函数**：草稿闸的注入必须点名闭合类型（见上面 `InstallDraftGate<TS,TD>`），
         //    而本机还没有那个子类 ⇒ 不在构造里装作装上了。这一整段都放在类尾，前面成员的 `文件:行号` 落点不受影响。
+
+        // ============================================================ 账 776 / 777 / 778 · 上赛季读口族（原版 `:317` / `:330` / `:343`）
+        // 判据（🥇 现读 2026-10-28，`cpp2il/out_cpp2il_dev_ilspy/GameModes.cs:317-360`）：
+        //   · `get_PreviousSeasonClassicLeaderboardKey()` = `RankedSharedData(+0x80).previousLeaderboard`   （null ⇒ NRE）
+        //   · `get_PreviousSeasonFastLeaderboardKey()`    = `FastSharedData(+0x88).previousLeaderboard`     （null ⇒ NRE）
+        //   · `get_LastPlayedSeason()` = `Math.Max(FastSharedData(+0x88).lastPlayedSeason, RankedSharedData(+0x80).lastPlayedSeason)`
+        // 🔴 最容易写错的两点：① Fast 那条读 **FastSharedData**（+0x88），**不是** RankedSharedData；
+        //    ② LastPlayedSeason 是**两表取 Max**，不是只取 Ranked 一张。
+        // ⚠️ 差异（同 `LossStreak` / `IsHuman`）：数据类为 null 时原版 NRE，我们出声后返回兜底（null / 0）。
+
+        /// <summary>原版 `GameModes.PreviousSeasonClassicLeaderboardKey`（`GameModes.cs:317`）：
+        /// `<see cref="RankedSharedData"/>.previousLeaderboard`（+0x80 → 该表 +0x10）。
+        /// <para>⚠️ 差异：`RankedSharedData` 为 null 时原版 NRE，我们出声后返回 null。</para></summary>
+        public string PreviousSeasonClassicLeaderboardKey
+        {
+            get
+            {
+                var d = RankedSharedData;
+                if (d != null) return d.previousLeaderboard;
+                Debug.LogError("[GameModes] PreviousSeasonClassicLeaderboardKey：`RankedSharedData` 是 null（原版这里 NRE）⇒ 返回 null");
+                return null;
+            }
+        }
+
+        /// <summary>原版 `GameModes.PreviousSeasonFastLeaderboardKey`（`GameModes.cs:330`）：
+        /// **`FastSharedData`（+0x88）**.previousLeaderboard —— ⛔ **不是** `RankedSharedData`。
+        /// <para>⚠️ 差异：`FastSharedData` 为 null 时原版 NRE，我们出声后返回 null。</para></summary>
+        public string PreviousSeasonFastLeaderboardKey
+        {
+            get
+            {
+                var d = FastSharedData;
+                if (d != null) return d.previousLeaderboard;
+                Debug.LogError("[GameModes] PreviousSeasonFastLeaderboardKey：`FastSharedData` 是 null（原版这里 NRE）⇒ 返回 null");
+                return null;
+            }
+        }
+
+        /// <summary>原版 `GameModes.LastPlayedSeason`（`GameModes.cs:343`）：
+        /// `Math.Max(FastSharedData.lastPlayedSeason, RankedSharedData.lastPlayedSeason)` —— **两表取 Max**
+        /// （不是只取 Ranked 那张）。
+        /// <para>⚠️ 差异：任一表为 null 时原版 NRE，我们把 null 那半按 int 兜底（`int.MinValue`）后仍取 Max 并出声。</para></summary>
+        public int LastPlayedSeason
+        {
+            get
+            {
+                var fast = FastSharedData;
+                var ranked = RankedSharedData;
+                if (fast != null && ranked != null)
+                    return Math.Max(fast.lastPlayedSeason, ranked.lastPlayedSeason);
+                Debug.LogError("[GameModes] LastPlayedSeason：`FastSharedData`/`RankedSharedData` 有为 null 的"
+                             + "（原版这里 NRE）⇒ 按现存那半兜底取 Max");
+                if (fast != null) return fast.lastPlayedSeason;
+                if (ranked != null) return ranked.lastPlayedSeason;
+                return 0;
+            }
+        }
     }
 }

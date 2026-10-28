@@ -553,20 +553,20 @@ namespace CardPresentation
                 else Debug.LogWarning("[Chat] 没有 `WindowsManager`，挑战弹窗开不了");
                 return;
             }
-            // 🔴 **2026-10-25（N9 · 账 329）**：原版 `Block player` / `Report message` / `Add as a friend`
-            //   三条**先弹一次二次确认**（`ChatPlayerOptionsPanel.ShowConfirmation(text, onConfirm)`，
-            //   判据 `ChatPlayerOptionsPanel.cs:168-221`：`WindowsManager.ShowPopUp(text, localizeTexts:false,
-            //   closeOnEsc:false, OK/Cancel)`）。**这一步纯客户端、不碰服务器** ⇒ 本地可复刻
-            //   ⇒ 现在真的会弹；点 OK 之后才落到下面那句「要服务器」（原来三条一概直接出声、确认框整个没有）。
+            // 🔴 **2026-10-25（N9 · 账 329）**：原版 `Block player` / `Report message` / `Add as a friend` 三条**先弹一次二次确认**
+            //   （`ChatPlayerOptionsPanel.ShowConfirmation`，判据 `ChatPlayerOptionsPanel.cs:168-221`：`ShowPopUp(text, localizeTexts:false, closeOnEsc:false, OK/Cancel)`）
+            //   ——**这一步纯客户端、不碰服务器** ⇒ 本地可复刻、现在真的会弹（原来三条一概直接出声、确认框整个没有）。
+            // 🆕 **2026-10-28（`B90-N5`）：`Block player` 的 onConfirm 也本地化了** —— 原版 = `instance.BlockPlayer(messageData.playerId)`
+            //   （ILSpy `:245`），而它方法体 **0 处后端调用**（`ChatGlobalManager__BlockPlayer.c:27-77`）⇒ `Shell/ChatCache.BlockPlayer`；另两条仍要服务器。
             if (act == "Block player" || act == "Report message" || act == "Add as a friend")
             {
-                ShowConfirmation(ConfirmTextOf(act), () => LogServerOnly(act));
+                ShowConfirmation(ConfirmTextOf(act), () => { if (act == "Block player") ChatCache.BlockPlayer(OptionsFor != null ? OptionsFor.PlayerId : null); else LogServerOnly(act); });
                 return;
             }
             LogServerOnly(act);
         }
 
-        /// <summary>确认之后那一步 —— 原版是服务器调用（`BlockPlayer` / `SendReportMessage` / `AddFriendToList`）。</summary>
+        /// <summary>确认之后**仍要服务器**的那两条（`SendReportMessage` / `AddFriendToList`）—— ⚠️ 2026-10-28（`B90-N5`）就地订正：原文把 `BlockPlayer` 也算在内，而它方法体 0 处后端调用、现已走 `Shell/ChatCache.BlockPlayer`。</summary>
         void LogServerOnly(string act)
         {
             Debug.Log("[Chat] `" + act + "`：要**服务器**（原版 `ChatPlayerOptionsPanel." + act.Replace(" ", "") + "`）。");

@@ -901,10 +901,12 @@ namespace CardPresentation
             //   ⚠️ 两处都在 `BuildCreateView()`（**建窗时**求值，不是 static 初始化）⇒ 与其它窗同口径。
             Dropdown(_createView, "Select Language", Loc.T("SocialMenu/Alliances/SelectLanguage"),
                      new PxRect(1440.43f, 250.87f, 1690.43f, 307.65f),
-                     new PxRect(1440.43f, 307.64f, 1690.43f, 367.04f), "LanguagesDropdown");
+                     new PxRect(1440.43f, 307.64f, 1690.43f, 367.04f), "LanguagesDropdown",
+                     SocialData.LanguageOptionLabels());
             Dropdown(_createView, "Select Privacy", Loc.T("SocialMenu/Alliances/SelectPrivacy"),
                      new PxRect(1440.43f, 397.50f, 1690.43f, 454.28f),
-                     new PxRect(1440.43f, 454.28f, 1690.43f, 513.68f), "Privacy Dropdown");
+                     new PxRect(1440.43f, 454.28f, 1690.43f, 513.68f), "Privacy Dropdown",
+                     SocialData.PrivacyOptionLabels());
         }
 
         /// <summary>一个「标题 + 输入框」组（建盟页那两组）。输入框是 `40K_dropdown_bg` 九宫。⚠️ 打不了字。</summary>
@@ -922,21 +924,22 @@ namespace CardPresentation
                 $"`{boxName}` **输入框打不了字** —— 我们这套外壳没有文字输入系统。"));
         }
 
-        /// <summary>一个下拉的合上面（`40K_dropdown_field_closed` 727×102 · 九宫 (60,35,60,35) + 箭头
-        /// `40K_dropdown_arrow_closed`）。⚠️ 点开要 `Template`，那是 Unity 内置模板 ⇒ 我们**不建**。</summary>
-        void Dropdown(Transform parent, string name, string title, PxRect titleR, PxRect fieldR, string fieldName)
+        /// <summary>一个**可展开**的下拉（标题 + 合上面 + `Template` 列表）。🔴 **2026-10-28（`B90-N5`）就地订正**：
+        /// 原写「点开要 `Template`，那是 Unity 内置模板 ⇒ 我们**不建**」—— **不成立**，`Template` 是原版 prefab 真有的子树
+        /// （rect/贴图/九宫/字号见 `普查产出_0927/社交_联盟与好友页.md:191-205`）⇒ 现在真能展开；几何/素材/开合全在
+        /// `AllianceDropdownBox`（⛔ 别在这儿抄第二份）。`options` = 展开后那几行。</summary>
+        void Dropdown(Transform parent, string name, string title, PxRect titleR, PxRect fieldR, string fieldName,
+                      string[] options)
         {
             Text(parent, titleR, title, Color.white, name, 40f, L_Text, 18f, wrap: true, alignLeft: true,
                  autoMaxPx: 40f, autoBasePx: 36f);   // A414（表 #15）原版 `auto[18~40] 基准=36.0`
             // ☝ A258：原版 `折行=1`；🆕 A323：原版 `Select Language`/`Select Privacy` 两处都是 `Left/Middle` ⇒ `alignLeft: true`
-            var f = Node(parent, fieldName, fieldR);
-            Nine(f, "40K_dropdown_field_closed", fieldR, new Vector4(60f, 35f, 60f, 35f), "Bg", L_Panel,
-                 new Color(1f, 0.475f, 0.098f, 1f));
-            Rect(f, "40K_dropdown_arrow_closed",
-                 new PxRect(fieldR.x1 + 225f, fieldR.y1 + 19.7f, fieldR.x1 + 245f, fieldR.y1 + 39.7f),
-                 "Arrow", L_Art, null, true);
-            Hit(f, "Hit", fieldR, L_Hit, () => Say(
-                $"`{fieldName}` 下拉：**没接**（选了也没用 —— 建盟要服务器；原版的展开靠 Unity 内置 `Template`）。"));
+            // 🆕 2026-10-28（`B90-N5`）：合上面（九宫底 + 箭头 + 空 Label）与**展开列表**都交给 `AllianceDropdownBox`
+            //   —— 两处（本页 / `AllianceMemberTab` 改盟设置那一态）用**同一份**几何与开合逻辑。
+            //   原版这两颗的箭头矩形 = `fieldR.x1 + 225 … + 245`、`fieldR.y1 + 19.7 … + 39.7`，与那个类按
+            //   `x2−25 / cy±10` 算出来的**逐值相同**（fieldR 宽 250）⇒ 传不传那一对都一样，故不再单传。
+            //    ⚠️ `Create` 恒返回非 null（节点建不出来时它自己出声）⇒ 这里不判空，也别再补一个空分支。
+            AllianceDropdownBox.Create(this, parent, fieldName, fieldR, options);
         }
     }
 }

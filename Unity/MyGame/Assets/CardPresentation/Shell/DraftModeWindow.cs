@@ -801,7 +801,7 @@ namespace CardPresentation
                 _run = dto.run;
                 // 数组可能被手改成 null ⇒ 补空（下游到处 `.Length`，null 会抛）
                 if (_run.pickedKeys == null) _run.pickedKeys = new string[0];
-                if (_run.selectedCards == null) _run.selectedCards = new string[0];
+                _run = DraftRunRepair.Validate(_run, path);   // ★ 原版 `DraftEventBase.Validate` 的修复支（有选包、卡表为空 ⇒ 由包重建 + 警告）
                 Debug.Log("[Draft] 读回一局存档（`" + path + "`）：种子 " + _run.seed
                         + " · 战将 " + (_run.warlordId ?? "<未选>") + " · 已选 " + _run.pickedKeys.Length + " 包 / "
                         + _run.selectedCards.Length + " 张 · 战绩 " + _run.matchesWon + " 胜 " + _run.matchesLost + " 负"
@@ -1180,6 +1180,7 @@ namespace CardPresentation
             // 🆕 (A) 卡包预览层（原版 `Generic Multi Card Display`）—— 建好即**隐藏**（原版 `UIMultiCardDisplay.Awake`
             //    第一句就是 `referenceCard.gameObject.SetActive(false)`/整窗关着；我们的整层默认关）。
             _previewRoot = BuildPackPreview(root);
+            BuildTimedFamily(root);   // 🆕 2026-10-28（B90-N6）Timed 付费页族（gated by TimedDraftLocal.Enabled；默认关）
         }
 
         // ------------------------------------------------------------ 背景（S3 §2.1 现读的四层）
@@ -1265,6 +1266,12 @@ namespace CardPresentation
             MenuDraw.Hit(freeNode, "Hit", FreeBtnR, QHit, ClickFree, freeBg, "UI_Button_Mulligan",
                          "UI_Button_Mulligan_hover", "UI_Button_Mulligan_Pressed",
                          clickCue: WindowSounds.PositiveCue);
+            // 🆕 2026-10-28（B90-N6）补回原版 Demo Pay 页另两颗钮 —— `premiumButton` / `premiumTenButton`
+            //   （判据 `DraftModeMenuPayStateDemo` 字段表：`premiumButton` / `premiumTenButton` / `premiumButtonText` /
+            //    `premiumButton10xText`；`DraftModeMenuPayStateTimed` 直接继承它们）。点它们 = **扣本地固定资源**后报名。
+            //   🔶 自己设计（非原版）：两颗钮的矩形 / 文案 / 价格 · 原版尺寸在 prefab、价格在服务端 · 调度台 2026-10-28 裁定
+            BuildPremiumButton(btns, new PxRect(1146.91f, 707.25f, 1316.91f, 768.77f), "Premium", false);
+            BuildPremiumButton(btns, new PxRect(1326.91f, 707.25f, 1496.91f, 768.77f), "Premium 10x", true);
             // ⚠️ 原版 `FreeTimeText`（170×70 @ (0,-75)，「Available in …」）是**免费时段未开放**那一支
             // （`GetFreeButtonInteractable` + `Update()` 刷倒计时）。我们没有「免费时段」这条服务端配置
             // ⇒ 不建（建了就得编一个倒计时）。原版那时它 `SetActive(false)` 之外的路径也读不到。
@@ -1952,12 +1959,9 @@ namespace CardPresentation
             _deckListScroll.OnChanged = RebuildDeckListRows;   // 滚轮只改 Offset ⇒ 画是调用方的事
             SocialPage.RegisterScroll(_deckListScroll);     // 走会出声的那条（同 `BattleLogPopup`）
 
-            // ---- Alliance 页的自拟提示（原版那一页要服务端数据；本机没有）----
-            _deckAllianceHint = MenuDraw.Text(holder, DeckScrollR,
-                          OurText("联盟信息要服务端的联盟/排行榜数据，本机没有（这一句是我们自拟的）",
-                                  "Alliance info needs server-side alliance and ranking data."),
-                          new Color(1f, 0.85f, 0.4f, 1f), "Alliance Hint", 26f, QText, DeckScrollR.W,
-                          16f, 26f, 24f, face: TmpFont.Face.LatinCardBody).transform;
+            // ---- Alliance 页（🆕 2026-10-28 B90-N6：三块实件，替掉原来的自拟提示）----
+            //   `_deckAllianceHint` 字段名沿用（现在它指向 `Alliance Detail View` 根 ⇒ `SetDeckTab` 的切页开关不变）。
+            _deckAllianceHint = BuildAlliancePage(holder);
             // 出厂全关（`RefreshDeckPanel` 每次按当前页开关）
             SetOn(_deckListName != null ? _deckListName.transform : null, false);
             SetOn(_deckWarlordHit, false);
@@ -2871,7 +2875,7 @@ namespace CardPresentation
                 _deckAllianceSaid = true;
                 AllianceHintLogCountForTest++;
                 Debug.Log("[Draft] `Alliance Info` 页要 `LeaderboardManager.GetCachedLeaderboard(...)` 的数据"
-                        + "（原版那段调用见 S3 §2.9）—— 本机没有服务器 ⇒ **页留空 + 一句自拟提示**（⛔ 不编联盟数据）。");
+                        + "（原版那段调用见 S3 §2.9）—— 本机没有服务器 ⇒ **三块实件已建、联盟/比分留空态**（⛔ 不编联盟数据）。");
             }
         }
 
@@ -4159,6 +4163,245 @@ namespace CardPresentation
             ParentEventWindow.EnsureHeaderTitleResolver();
             WindowHeaderWithBackButton.WireByPath(root, WindowHeader.RootNameGameMode, onBack,
                                                   Loc.T("Demo/DraftMode/Title"));
+        }
+
+        // ============================================================ 🆕 2026-10-28（B90-N6）联盟页三块实件
+        /// <summary>联盟页三块实件（原版 `DeckInfoAllianceTab` 那棵）—— 替掉原来的自拟提示。
+        /// <para>判据 = `资料/完全复刻/判据/B90_C2b_远端prefab几何.md` **§A**（逐颗矩形 / 组件 / sprite / 兄弟序 / pathID）：
+        /// ① `Alliance Detail View`（`DeckInfoAllianceTab`，根 1490.62,105.20→1906.08,890.92）；
+        /// ② `2Armies Progress Bar`（`Slider`+`ArmyProgressBar`）；③ `Alliance Event Score Panel`（`AlliancesEventScorePanel`，
+        /// `m_LocalScale=0.9558`）。子件矩形一律以 **Alliance Detail View 根 = (1490.62,105.20)** 为基准（§A A-3 的 rel + 基准）。</para>
+        /// <para>🔴 数据口径：联盟 / 事件比分在服务端 ⇒ **不编数字**，只补 UI 壳；`Alliance Event Score Panel` 复用
+        /// `Shell/AllianceEventScorePanel.Create`（A103 已建 + 自检），不在联盟 ⇒ `SetInAlliance(false)` 空态；
+        /// 双阵营图标 / 比分 / 计数器留空 + **出声一次**。</para>
+        /// <para>返回 `Alliance Detail View` 根（调用方 `_deckAllianceHint` 复用它做切页开关）。</para></summary>
+        Transform BuildAlliancePage(Transform holder)
+        {
+            // 基准根 = Alliance Detail View 根（§A：以其根 = 0,0；绝对 = 1490.62,105.20）
+            const float dx = 1490.62f, dy = 105.20f;
+            var detail = MenuDraw.Node(holder, "Alliance Detail View",
+                                       new PxRect(1490.62f, 105.20f, 1906.08f, 890.92f));
+
+            // ---- ② `2Armies Progress Bar`（`Slider` + `ArmyProgressBar`；子件 rel 见 §A A-3，加基准 dx/dy）----
+            var bar = MenuDraw.Node(detail, "2Armies Progress Bar",
+                                    new PxRect(dx + 24.09f, dy + 85.86f, dx + 391.38f, dy + 215.34f));
+            // Outline（sprite `UI_Draft event result bar holder` 633×282）—— 该图 2026-10-28 已补导进 `Resources/Art/ui_menu/`（判据同 `MENU_IMAGES`）；图缺失时仍走实心兜底 + 出声（不静默）
+            var outlineTex = Tex("UI_Draft_event_result_bar_holder");
+            var outlineR = new PxRect(dx + 24.09f, dy + 58.28f, dx + 391.38f, dy + 241.39f);
+            if (outlineTex != null) MenuDraw.Rect(bar, outlineTex, outlineR, "Outline", QPanelArt);
+            else MenuDraw.Rect(bar, CardArt.Solid(), outlineR, "Outline", QPanelArt, new Color(0.28f, 0.20f, 0.10f, 1f));
+            // Background（滑块底槽，无图）
+            MenuDraw.Rect(bar, CardArt.Solid(), new PxRect(dx + 108.76f, dy + 162.80f, dx + 306.76f, dy + 178.35f),
+                          "Background", QArt, new Color(0.15f, 0.15f, 0.18f, 1f));
+            // end（sprite `40k_campaign_bar_end` 22×18）
+            var endTex = Tex("40k_campaign_bar_end");
+            if (endTex != null)
+                MenuDraw.Rect(bar, endTex, new PxRect(dx + 85.03f, dy + 163.42f, dx + 114.46f, dy + 195.28f), "end", QArt);
+            else
+                Debug.Log("[Draft] 联盟页 `40k_campaign_bar_end` 图取不到 ⇒ `end` 那格不画（🔴 不静默）");
+            // counter（比分文本 —— 空态留空，服务端数据本地 0）
+            MenuDraw.Text(bar, new PxRect(dx + 97.55f, dy + 124.70f, dx + 317.92f, dy + 189.45f), "", Color.white,
+                          "counter", 28f, QText, face: TmpFont.Face.LatinCardBody);
+
+            // ---- ③ `Alliance Event Score Panel`（复用 A103 的 `AllianceEventScorePanel`；🔴 m_LocalScale=0.9558）----
+            var score = AllianceEventScorePanel.Create(detail, dx + 15.94f, dy + 217.00f);
+            if (score != null)
+            {
+                score.transform.localScale = new Vector3(0.95581f, 0.95581f, 0.95581f);   // 原版三轴缩放（⛔ 别当 1）
+                score.SetInAlliance(false);                                              // 本地不在联盟 ⇒ No Alliance 空态
+            }
+            else
+                Debug.LogWarning("[Draft] 联盟页 `Alliance Event Score Panel` 没建出来（`AllianceEventScorePanel.Create` 返回 null）");
+
+            Debug.Log("[Draft] 联盟页：三块实件已建（`Alliance Detail View` / `2Armies Progress Bar` / "
+                    + "`Alliance Event Score Panel` ×0.9558）。🔴 联盟 / 事件比分在服务端（本地 0）⇒ 双阵营图标、比分、"
+                    + "计数器留空态，**不编数字**（本句出声一次）。");
+            return detail;
+        }
+
+        // ============================================================ 🆕 2026-10-28（B90-N6）Timed 付费页族
+        //  判据：`DraftModeMenuPayStateTimed.OnOpen`（ILSpy `DraftModeMenuPayStateTimed.cs:17-60`）：
+        //    `base.OnOpen()`（= Demo Pay 页）→ 取 `TimedDraftData`、`GetCachedLeaderboard` → `specificArmies[2]`
+        //    的 `GetTotalByArmy` → `armySlider.SetProgress(t0, t0+t1, "{0}/{1}")` + `SetArmies(a0,a1)` →
+        //    `allianceScorePanel.Initialize(eventData)` → `eventUISpecialImageController.Initialize(drawData.EventAssets)`。
+        //  以及 `DraftModeWarlordSelectionStateTimed.OnOpen`（ILSpy 同名文件）：`title = GetLabel(Title)` +
+        //    按 `specificArmies` 过滤卡池（`GroupBy(w => w.cardArmy)`）。
+        //  🔶 自己设计（非原版）：specificArmies / 排行榜总数 / Premium 价格·文案·矩形 / 事件图 全来自服务端或 prefab（本地取不到）·
+        //    我们用 `TimedDraftLocal` 的本地模拟值顶，结构照原版、数值是我们挑的 · 调度台 2026-10-28 裁定
+
+        /// <summary>Demo Pay 页那颗 `Premium` / `Premium 10x` 钮（原版 `premiumButton` / `premiumTenButton`）——
+        /// 点了 = **扣本地固定资源**（`Wallet`）后报名（`payState = Premium / PremiumTen`）。见 <see cref="ClickPremiumDraft"/>。</summary>
+        void BuildPremiumButton(Transform parent, PxRect r, string label, bool ten)
+        {
+            var node = MenuDraw.Node(parent, ten ? "Premium 10x Button" : "Premium Button", r);
+            var bg = MenuDraw.Rect(node, Tex("UI_Button_Mulligan"), r, "Bg", QArt, null, true);
+            var tx = MenuDraw.Text(node, r, label, Color.white, "Button Text", 32f, QText,
+                                   face: TmpFont.Face.LatinCardBody);
+            MenuDraw.SetVAlign(tx, Label.VAlign.Capline, r);
+            MenuDraw.Hit(node, "Hit", r, QHit, () => ClickPremiumDraft(ten), bg, "UI_Button_Mulligan",
+                         "UI_Button_Mulligan_hover", "UI_Button_Mulligan_Pressed",
+                         clickCue: WindowSounds.PositiveCue);
+        }
+
+        /// <summary>点 `Premium` / `Premium 10x`：扣本地固定资源（`Wallet.Grant(cur, -cost)`）后报名。
+        /// <para>🔶 自己设计（非原版）：价格 / 货币键 · 原版价格在服务端 `DraftEventData`，本地 0 · 调度台 2026-10-28 裁定。</para>
+        /// <para>余额不足 ⇒ **不扣、不报名 + 出声**（红线：不许静默失败）。</para></summary>
+        public bool ClickPremiumDraft(bool ten)
+        {
+            if (State != DraftModeState.PayScreen && State != DraftModeState.Intro)
+            {
+                Debug.LogWarning("[Draft] `Premium` 只在 Pay 页有效（当前 " + State + "）");
+                return false;
+            }
+            int cost = ten ? TimedDraftLocal.PremiumTenCost : TimedDraftLocal.PremiumCost;
+            string cur = TimedDraftLocal.PremiumCurrency;
+            int have = Wallet.Of(cur);
+            if (have < cost)
+            {
+                Debug.LogWarning("[Draft] Premium 报名余额不足：有 " + have + " < 价格 " + cost
+                               + "（🔶 价格是我们挑的）⇒ 不扣、不报名");
+                return false;
+            }
+            Wallet.Grant(cur, -cost);                    // ← 扣本地固定资源
+            if (_run != null)
+            {
+                _run.joinState = (int)DraftJoinState.Joined;
+                _run.payState = ten ? (int)DraftPayState.PremiumTen : (int)DraftPayState.Premium;
+                SyncRun("Premium 报名成功");
+            }
+            Debug.Log("[Draft] Premium 报名（" + (ten ? "10x" : "1x") + "）扣 " + cost + " " + cur
+                    + "，余额 " + Wallet.Of(cur) + "；payState=" + (_run != null ? _run.payState : -1));
+            UpdateState();
+            return true;
+        }
+
+        /// <summary>Timed 付费页族（原版 `DraftModeMenuPayStateTimed` / `DraftModeWarlordSelectionStateTimed`）。
+        /// 仅在 <see cref="TimedDraftLocal.Enabled"/> 时生效（默认关 —— 本仓 `DraftModeWindow` 是原版 **Demo** 变体，
+        /// Timed 是另一个类、事件源本地没有）。见上方那段判据注释；🔶 数值/结构自己设计。</summary>
+        void BuildTimedFamily(Transform root)
+        {
+            if (!TimedDraftLocal.Enabled) return;
+            if (_pagePay != null)
+            {
+                BuildTimedArmyBar(_pagePay);
+                // 联盟计分面板（原版 `AlliancesEventScorePanel.Initialize`）—— 🔶 服务端排行榜本地 0 ⇒ 占位文本
+                MenuDraw.Text(_pagePay, TimedAllianceR, "Alliance Score（本地模拟 · 原版=服务端排行榜）",
+                              new Color(1f, 0.85f, 0.4f, 1f), "Alliance Score Panel", 26f, QText,
+                              TimedAllianceR.W, face: TmpFont.Face.LatinCardBody);
+                // 事件图（原版 `drawData.EventAssets`）—— 取不到就不画 + 出声（⛔ 不静默）
+                var evt = Tex(TimedDraftLocal.EventImage);
+                if (evt == null)
+                    Debug.Log("[Draft] Timed 事件图 `" + TimedDraftLocal.EventImage + "` 取不到 ⇒ 不画（🔶 事件资产本地 0）");
+                else
+                    MenuDraw.Rect(_pagePay, evt, TimedEventImgR, "Event Image", QArt, null, true);
+            }
+            // 选将页：卡池按 specificArmies 过滤（原版 `DraftModeWarlordSelectionStateTimed.OnOpen` 的 GroupBy 过滤）
+            if (_warlords != null && TimedDraftLocal.Armies != null && TimedDraftLocal.Armies.Length > 0)
+            {
+                int removed = _warlords.RemoveAll(d =>
+                    d == null || System.Array.IndexOf(TimedDraftLocal.Armies, d.Faction) < 0);
+                Debug.Log("[Draft] Timed 选将：按 specificArmies 过滤卡池（去掉 " + removed + " 张；剩余 "
+                        + _warlords.Count + " 张；🔶 armies 是我们模拟的）");
+                RebuildWarlordCards();
+            }
+        }
+
+        /// <summary>Timed Pay 页的「双阵营进度条」（原版 `armySlider.SetProgress(t0, t0+t1, "{0}/{1}")` +
+        /// `SetArmies(a0,a1)`）。🔶 两条总数值 / 两个阵营本地模拟（服务端排行榜取不到）。</summary>
+        void BuildTimedArmyBar(Transform page)
+        {
+            var bar = MenuDraw.Node(page, "Alliance Army Progress Bar", TimedArmyBarR);
+            MenuDraw.Rect(bar, CardArt.Solid(), TimedArmyBarR, "Track", QArt,
+                          new Color(0.15f, 0.18f, 0.28f, 1f));
+            int t0 = TimedDraftLocal.Totals[0], t1 = TimedDraftLocal.Totals[1];
+            float ratio = (t0 + t1) > 0 ? (float)t0 / (t0 + t1) : 0.5f;
+            var fr = new PxRect(TimedArmyBarR.x1, TimedArmyBarR.y1,
+                                TimedArmyBarR.x1 + TimedArmyBarR.W * ratio, TimedArmyBarR.y2);
+            MenuDraw.Rect(bar, CardArt.Solid(), fr, "Fill", QPanelArt, new Color(0.30f, 0.45f, 0.85f, 1f));
+            MenuDraw.Text(bar, TimedArmyBarR, t0 + "/" + (t0 + t1), Color.white, "Counter", 28f, QText,
+                          TimedArmyBarR.W, 16f, 28f, 22f, face: TmpFont.Face.LatinCardBody);
+        }
+
+        // 🔶 自己设计（非原版）：Timed Pay 页三块件的矩形 · 原版尺寸在 prefab（未逐颗量） · 调度台 2026-10-28 裁定
+        static readonly PxRect TimedArmyBarR = new PxRect(966.91f, 828f, 1516f, 900f);
+        static readonly PxRect TimedAllianceR = new PxRect(966.91f, 906f, 1516f, 962f);
+        static readonly PxRect TimedEventImgR = new PxRect(1570f, 300f, 1880f, 760f);
+    }
+
+    /// <summary>Timed 轮抽的**本地模拟配置**（原版 `TimedDraftData` + 排行榜 + Premium 价格 全在服务端，离线 build 取不到）。
+    /// <para>🔶 自己设计（非原版）：`Armies` / `Totals` / `PremiumCost` / `PremiumTenCost` / `PremiumCurrency` / `EventImage`
+    /// 全是我们挑的本地模拟值 —— 为什么拿不到：原版这些来自 LiveOps 事件数据与排行榜缓存（本地 0）· 调度台 2026-10-28 裁定。</para>
+    /// <para>`Enabled` 默认 **false**：本仓的 `DraftModeWindow` 是原版 **Demo** 变体（Timed 是另一个类、另一个事件）；
+    /// 打开它即可在 Demo 窗上叠出 Timed 那几件（<see cref="EnableForDemo"/> 是入口）。Premium / Premium 10x 两颗钮
+    /// **不**受这个开关控制（它们是 Demo 页本来就有的三颗钮里的两颗），随时可点、点即扣本地固定资源。</para></summary>
+    public static class TimedDraftLocal
+    {
+        public static bool Enabled;
+        /// <summary>🔶 两个参赛阵营（原版 `specificArmies[2]`）。</summary>
+        public static string[] Armies = { "Ultramarines", "Goff" };
+        /// <summary>🔶 两阵营的总分（原版 `LeaderboardManager.GetCachedLeaderboard(...).GetTotalByArmy`，本地 0）。</summary>
+        public static int[] Totals = { 0, 0 };
+        /// <summary>🔶 Premium 报名价格（原版在服务端 `DraftEventData`，本地 0）。</summary>
+        public static int PremiumCost = 150;
+        /// <summary>🔶 Premium 10x 报名价格。</summary>
+        public static int PremiumTenCost = 1500;
+        /// <summary>🔶 扣哪种货币（`Wallet` 的键；本工程货币图名）。</summary>
+        public static string PremiumCurrency = "40k_topmarquee_currency_crystal";
+        /// <summary>🔶 事件图名（原版 `drawData.EventAssets`，本地 0）。</summary>
+        public static string EventImage = "40K_Chat_icon_Alliance_v2";
+
+        /// <summary>测试/演示入口：打开 Timed 特性并设两阵营（🔶）。须在开窗前调（`BuildTimedFamily` 只在 Open 时叠）。</summary>
+        public static void EnableForDemo(string a0, string a1)
+        {
+            Enabled = true;
+            Armies = new[] { a0, a1 };
+        }
+    }
+
+    /// <summary>轮抽存档的「卡表缺失」修复 —— 原版 `DraftEventBase&lt;TS,TD&gt;.Validate(TS save)` 的**修复支**。
+    /// <para>判据（2026-10-28 补导的真体）：`_tmp_view/decomp_b91/DraftEventBase_object__object_.Validate__18143f0.c`，
+    /// 逐步（ILSpy 同址 `Everguild.LiveOps/DraftEventBase.cs:1318` 一致）：
+    /// <code>
+    /// if (save == null) NRE;
+    /// if (save.pickedPacks(+0x90) == null || save.pickedPacks.Count &lt;= 0) return true;      // 一个包都没选 ⇒ 什么都不用修
+    /// if (save.selectedCards(+0x98) == null) NRE;                                            // ★ 原版这里**没有 null 检查**（隐式解引用）
+    /// if (save.selectedCards.Count != 0) return true;                                        // 卡表已经有了
+    /// cards = GetCardsFromPacks(save);                                                       // 由已选包重建
+    /// SaveCards(save, cards, save.eventId(+0x10), null, null, handler+0x88);                 // 写回（原版写服务器）
+    /// LogWarning("Haven't found cardlist on the draft mode with id {eventId}. Fixing it now");
+    /// return true;
+    /// </code>
+    /// 🔴 **`selectedCards == null` 在原版是 NRE、不是「也去修」**（两个反编译器在这一点上一致）。
+    /// ⚠️ 我们这里是**调用方先补过 null**（`LoadRunFromDisk` 的「数组可能被手改成 null ⇒ 补空」）⇒ null 与空在本地等价，
+    /// 都会走到修复支；这比原版宽松一格，如实记在账 779 的差异列（⛔ 别以为我们复刻了那条 NRE）。
+    /// ⚠️ 警告串里的 `{eventId}`：原版取 `save.eventId(+0x10)`，我们的 `DraftRunSave` **没有**那一格 ⇒ 打存档路径 + 出声说明（⛔ 不静默）。
+    /// <para>本类放文件末尾的独立静态类里，**不改 `DraftModeWindow` 的行号**（那个类有账行按行号钉着）。</para></summary>
+    public static class DraftRunRepair
+    {
+        /// <summary>跑一遍原版 `Validate` 的修复支；返回（可能被补过卡表的）同一份存档。</summary>
+        public static DraftRunSave Validate(DraftRunSave run, string path)
+        {
+            if (run == null) return null;                      // 原版 save==null ⇒ NRE；调用方已经拦过，这里只兜底
+            if (run.selectedCards == null) run.selectedCards = new string[0];   // ⚠️ 原版这格为 null 是 NRE，见类型注释
+            if (run.pickedKeys == null || run.pickedKeys.Length == 0) return run;   // 原版：pickedPacks 空 ⇒ 直接 true
+            if (run.selectedCards.Length != 0) return run;                            // 原版：卡表已有 ⇒ 直接 true
+
+            var cards = new List<string>();
+            for (int i = 0; i < run.pickedKeys.Length; i++)
+            {
+                var p = DraftPacks.Resolve(run.pickedKeys[i]);          // = 原版 `GetCardsFromPacks`（由已选包取卡）
+                if (p == null || p.cardIds == null)
+                {
+                    Debug.LogWarning("[Draft] 重建卡表：包 `" + (run.pickedKeys[i] ?? "<null>") + "` 在包表里查不到 ⇒ 这一包没贡献卡");
+                    continue;
+                }
+                cards.AddRange(p.cardIds);
+            }
+            run.selectedCards = cards.ToArray();
+            DraftModeWindow.SaveRunNow();                              // = 原版 `SaveCards(...)`（本地落盘）
+            Debug.LogWarning("[Draft] Haven't found cardlist on the draft mode with id " + "<DraftRunSave:" + (path ?? "<no-path>") + ">"
+                           + ". Fixing it now（原版这一句里的 eventId 取自 `save+0x10`，我们存档没有那一格 ⇒ 打路径）");
+            return run;
         }
     }
 }

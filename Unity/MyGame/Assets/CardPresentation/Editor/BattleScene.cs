@@ -9876,6 +9876,70 @@ public static class BattleScene
             else Debug.Log(P + "   （场上位置不够，跳过棋盘轻点用例）");
         }
 
+        // ---- 5b′. 攻击预览的**反击豁免闸**（原版 `CardHighlight__ToggleCombatPreviewHighlight.c:53`）----
+        //   判据：原版先 `EnemyReturnsAttack(攻方, 守方, isAttacker, 0, 0)`，**真**才把守方那一击塞进条目表；
+        //   假 ⇒ 条目表为空 ⇒ 预览判「不会死」。落点 = `BattleDriver.BattleBoardPreview` 的 `if (isAttacker)` 支。
+        //   灭自证：同一张攻方，**同一局同一张守方**，只差攻方身上那一条 `sneakAttack` ⇒ 两格结论必须相反。
+        Debug.Log(P + "--- 攻击预览：反击豁免闸（sneakAttack）---");
+        ClearEffects();
+        {
+            int pmSlot = FreeSlot(ctx, 0), pfSlot = FreeSlot(ctx, 1);
+            Check(pmSlot >= 0 && pfSlot >= 0, "前置：棋盘两侧各有一个空位（攻击预览豁免闸用例）");
+            if (pmSlot >= 0 && pfSlot >= 0)
+            {
+                var pAtk = new UnitState(CardByName(StarterCards.Tide(), "Ballista"), false) { Exhausted = false };
+                var pTgt = new UnitState(CardByName(StarterCards.Tide(), "Ballista"), false) { Exhausted = false };
+                pAtk.Health = 1; pAtk.Armor = 0;                 // 只要守方反击就一定死
+                pTgt.AttackBase = 99; pTgt.RangedAttackBase = 99; // 守方反击力给足（远近两档都打死）
+                ctx.Players[0].Board[pmSlot] = pAtk;
+                ctx.Players[1].Board[pfSlot] = pTgt;
+                driver.RefreshAll();
+
+                var withCounter = driver.BoardPreviewForTest(0, pmSlot, 1, pfSlot, true, false, false);
+                Check(withCounter.Valid, "预览可算（Valid）");
+                Check(withCounter.WillDie, "攻方**没有**豁免 ⇒ 原版 `EnemyReturnsAttack` 为真 ⇒ 预览判「会被反击打死」");
+
+                // 🔴 2026-10-28（B90-F4）就地改夹具：原 `AddTempBuff{IsKeyword=true}` 只进 `_buffs`、**不写 `_keywords`**
+                //   （`UnitState.cs:1681-1686`）；`IsKeyword` 仅在 `RevertBuffs` 里用于 `RemoveKeyword` 记账 ⇒ `Has`（`:968-972`）
+                //   只读 `_keywords` 仍 false ⇒ 豁免闸不成立。正规挂词口 = `AddKeyword`（`:1120/1139` 写 `_keywords[keyword]`）；
+                //   旁证：对照组（攻方没豁免 ⇒ 预览判被打死）✓ ⇒ **闸的实现本身没坏**，是夹具没挂上。
+                pAtk.AddKeyword(RuleEngine.KeywordTable.SneakAttack, 1);
+                var noCounter = driver.BoardPreviewForTest(0, pmSlot, 1, pfSlot, true, false, false);
+                Check(noCounter.Valid, "豁免档也可算（Valid）");
+                Check(!noCounter.WillDie,
+                      "攻方带 sneakAttack ⇒ 原版豁免 ⇒ 条目表为空 ⇒ 预览判「不会死」"
+                    + "（灭自证：与上一格结构上不可能同时成立）");
+
+                ctx.Players[0].Board[pmSlot] = null;
+                ctx.Players[1].Board[pfSlot] = null;
+                driver.RefreshAll();
+            }
+        }
+
+        // ---- 5b″. 开大卡窗的 5 态闸（原版 `BattleManager__DisplayCard.c:14-18` 只挡 {0,7,8,11,12}）----
+        //   原版 5 态 ↔ 我们的闸（对照表见 `报告/B90_B2.md` §693）：
+        //     0 inactive / 7 finishBattleSequence / 8 postBattle ⇒ `Ctx==null || Ctx.IsOver`
+        //     11 mulligan ⇒ `HudButtonsBlocked` 的 `_mulligan.Visible`；12 mulliganFinished = 转瞬态（无对应档）
+        //   两者都并进 `Hand/CardInteraction.cs:307 FullBlocked()`（+ `:638 BlockedThisFrame`）—— 本波⛔ 不改那份文件，
+        //   这里断的是**它的公开读口**（`BattleStateBlockedNow`）与真状态的关系（⛔ 不用 `…ForTest` 钉值，那是自证）。
+        Debug.Log(P + "--- 开大卡窗的 5 态闸（normalBattle 那一族）---");
+        {
+            Check(driver.interaction != null, "前置：交互层在（5 态闸用例）");
+            if (driver.interaction != null)
+            {
+                Check(!driver.interaction.BattleStateBlockedNow,
+                      "normalBattle ⇒ 开窗闸为假（轻点手牌照旧能开大卡窗）");
+                Check(driver.SimulateOpenSettings() && driver.Settings != null && driver.Settings.Visible,
+                      "前置：设置窗打开（模态窗夹具）");
+                Check(driver.interaction.BattleStateBlockedNow,
+                      "模态窗开着 ⇒ 整帧硬闸生效（原版那 8 扇窗的压暗层吃射线，等价于 7/8/11 那一族不许开窗）");
+                Check(driver.PointerOverBlockingUi() && driver.PointerOverAnyUi(),
+                      "同一时刻 `PointerOverBlockingUi` / `PointerOverAnyUi` 都真（后者 = 原版 `IsPointerOverUIObject` 的口）");
+                if (driver.Settings != null) driver.Settings.Hide();
+                Check(!driver.interaction.BattleStateBlockedNow, "关窗后 ⇒ 开窗闸恢复为假（灭自证：与上一格结构上不可能同时成立）");
+            }
+        }
+
         // ---- 5c. 选目标反馈：准星 + 弧线（原版 `NoCanvas2D/Attack Target Reticle`）----
         Debug.Log(P + "--- 选目标反馈：准星 + 弧线 ---");
         ClearEffects();
@@ -32586,11 +32650,16 @@ public static class BattleScene
                                   () => hc.CostMods.RemoveAt(hc.CostMods.Count - 1)),
                               $"★ 新账-88②：**费用修正 `CostMods`**（{hb} → {ha} → 复原 {hr}）"
                             + "｜🧨 删掉那一段 ⇒ 红");
+                        // 🔴 2026-10-28（`B91` · A1 + A2）：`TempControls` 今天**既无生产者**（`EffectResolver.DoTakeControl`
+                        //   不再登记）**也无消费者**（`RuleCore.EndTurn` 归还段停用、不再 `Clear()`）⇒ 恒空 = 休眠维。
+                        //   本行验的**不是**「有东西会被还回去」，而是「**状态哈希仍覆盖这一维**」（将来若恢复生产者，
+                        //   指纹不丢维度；⛔ 别因为「今天恒空」就把它从 `NetProtocol.PlayerHash` 里删掉）。
                         Check(mut(() => hc.TempControls.Add(new RuleEngine.BattleContext.TempControl
                                       { Owner = 1, Turn = hc.Turn, Slot = 0 }),
                                   () => hc.TempControls.RemoveAt(hc.TempControls.Count - 1)),
-                              $"★ 新账-88②：**抢来的单位 `TempControls`**（{hb} → {ha} → 复原 {hr}）"
-                            + "｜🧨 删掉那一段 ⇒ 红");
+                              $"★ 新账-88②：**抢来的单位 `TempControls`（休眠维 —— 恒空，但指纹仍覆盖它）**"
+                            + $"（{hb} → {ha} → 复原 {hr}）"
+                            + "｜🧨 把它从 `NetProtocol.PlayerHash` 删掉 ⇒ 两次读数相等 ⇒ 红");
                         f0 = hc.EnchantmentsUsed;
                         Check(mut(() => hc.EnchantmentsUsed = f0 + 1, () => hc.EnchantmentsUsed = f0),
                               $"★ 新账-88②：**附魔计数 `EnchantmentsUsed`**（{hb} → {ha} → 复原 {hr}）"

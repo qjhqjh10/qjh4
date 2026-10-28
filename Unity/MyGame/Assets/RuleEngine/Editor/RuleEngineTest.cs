@@ -1253,6 +1253,17 @@ public static partial class RuleEngineTest
         Section("🆕 B4 · AI 判别式（ScoreStun 四档 · Tweak 多轮重扫重掷 · ambush 反击常数 4）");
         Step(TestB4AiDiscriminants);
 
+        // 🆕 2026-10-28（写手 `W6`）：`其他_基础设施` 那 17 条「实现已落、断言未加」＋ `LoadableRef` 三条序列化钩子
+        //   ＋ 新加的 `==`/`!=` 一对。测试体全在 `Editor/RuleEngineTest_W6.cs`（同一 partial 类）。
+        //   ⚠️ **这四步必须留在 `Run()` 末尾**：`TestW6CardSell` 会关掉 `CardProgress` 的落盘、
+        //   `TestW6CardSell` 里的 506 那一组会把 `InventoryManager` 的解包闸置真 —— 都是进程级状态。
+        //   删掉任一行 ⇒ `VerifyRunCaseCoverage` 会点名它。
+        Section("🆕 W6 · 基础设施 17 条 + LoadableRef 三钩子/==、!=（预组六条 · 卖卡四条 · 等级七条 · 序列化四条）");
+        Step(TestW6PrebuiltDecks);
+        Step(TestW6CardSell);
+        Step(TestW6LevelCurve);
+        Step(TestW6LoadableRefHooks);
+
         // 🔴 **`Run()` 自己的「静默少跑」闸**（`A1591`）—— 必须在【汇总】之前跑，
         //    否则它的 `Check` 不计进 `_pass/_fail`（汇总行会漏掉它）。
         // ⚠️ **故意缩进深一层**：`工具/gen_diag_runner.py` 只把「**8 空格缩进的顶层语句**」当用例
@@ -17477,13 +17488,13 @@ public static partial class RuleEngineTest
                           "★ `and give it Fast` ⇒ **现在就能动**（`Exhausted` 被显式清掉 ——"
                           + "`AddKeyword(\"fast\")` 只写关键词、不会自己解锁）");
 
-                // ⚠️ 「还回去之后置 Exhausted」那一条**不能在 `PassTurn` 之后量**：
-                //    归还发生在 `EndTurn` 里，紧接着 `BeginTurn` 的 `RefreshForNewTurn` 会把它清掉。
-                //    ⇒ 直接调 `EndTurn`、量那一刻（这才是归还真正生效的时点）。
+                // 🔴 **2026-10-28（`B91` · 调度台裁定 · 照抄原版）**：`EndTurn` 里**没有归还那一跳**
+                //    （原版 `ChangeOwner` 只取反 `isPlayer`）⇒ 下面量的是「**跨过 `EndTurn` 它仍在**」。
+                //    卡面 `GSC49` 写 `this turn` 是**原版自己**的差异，按「原版有 bug ⇒ 照抄、⛔ 别修好」处理。
                 RuleCore.EndTurn(ctx);
-                CheckTrue(SlotOf(ctx, 1, "EVictim2") >= 0,
-                          "★ `EndTurn` 把它**归还**给原主（卡面 `this turn`）");
-                CheckTrue(SlotOf(ctx, 0, "EVictim2") < 0, "……你这边也没留下");
+                CheckTrue(SlotOf(ctx, 0, "EVictim2") >= 0,
+                          "★ `EndTurn` **不归还** —— 它**还在你的棋盘上**（控制权不随回合结束回来）");
+                CheckTrue(SlotOf(ctx, 1, "EVictim2") < 0, "……对面那边**也没有**它｜🧨 把归还段恢复 ⇒ 实得 ≥0 ⇒ 红");
                 // 🔴 **2026-10-18（`A1093`）就地订正（铁律 5）**：本条原来钉的是
                 //    `CheckTrue(foe.Exhausted, …)`（=「还回去之后**无条件**置疲劳」）——**那一版不成立**：
                 //    原版 `ResetSummonSickness`（`CardScript__ResetSummonSickness.c`，方法体两条）是
@@ -17497,10 +17508,10 @@ public static partial class RuleEngineTest
                 CheckTrue(foe.Has("fast"),
                           "（前提）它还带着 `fast`（卡面尾句 `and give it Fast` 给的关键词）");
                 CheckTrue(foe.SummonSickness,
-                          "★ 还回去那一刻**写了 `+0x58` 那一位**（原版 `ResetSummonSickness.c:8` 无条件写 1）"
+                          "★ **抢的那一跳**写了 `+0x58` 那一位（原版 `ResetSummonSickness.c:8` 无条件写 1），而 `EndTurn` **没有**归还那一跳会重写它 ⇒ 跨过回合末仍是那个值"
                         + "｜🧨 把 `RuleCore.ResetSummonSickness(u)` 换回 `u.Exhausted = true;` ⇒ 本行红");
                 CheckTrue(!foe.Exhausted,
-                          "★ 而它带 `fast` ⇒ **召唤病不成立 ⇒ 还回去之后仍能动**"
+                          "★ 它带 `fast` ⇒ **召唤病不成立 ⇒ 仍能动**（`EndTurn` 也不动它：它在**抢它的人**那边，`RefreshForNewTurn` 只刷当前行动方）"
                         + "（原版 `displaySummonSickness` 要 `+0x58 && !fast(40) && !flank(460)` ——"
                         + " 正好对上卡面 `and give it Fast`）"
                         + "｜🧨 把 `RuleCore.ResetSummonSickness` 里那句 `RecomputeActAndAttack(u)`"
@@ -17668,23 +17679,23 @@ public static partial class RuleEngineTest
                     + " 所以本行与上一行**不可能被同一个常量同时满足**）"
                     + "｜🧨 把那一行改成无条件 `t.Exhausted = false;` ⇒ 本行红");
 
-            // 归还那一处（`RuleCore.EndTurn`）**走的是同一个调用**，两条腿各再读一次
+            // 🔴 2026-10-28（`B91`）：`RuleCore.EndTurn` **没有归还那一跳**（原版 `ChangeOwner` 只取反 `isPlayer`）
             RuleCore.EndTurn(ctx);
-            CheckTrue(SlotOf(ctx, 1, "EVictimF2") >= 0 && SlotOf(ctx, 1, "EVictimB2") >= 0,
-                      "（前提）两个都归还给原主了" + LogTail(ctx));
+            CheckTrue(SlotOf(ctx, 0, "EVictimF2") >= 0 && SlotOf(ctx, 0, "EVictimB2") >= 0,
+                      "（前提）两个**都还在你这边**（`EndTurn` 不归还）｜🧨 恢复归还段 ⇒ 实得 -1 ⇒ 红" + LogTail(ctx));
+            CheckTrue(SlotOf(ctx, 1, "EVictimF2") < 0 && SlotOf(ctx, 1, "EVictimB2") < 0,
+                      "（前提）原主那边**两个都没有** —— 本行就是这一格的⌈灭自证⌉" + LogTail(ctx));
             CheckTrue(fast.SummonSickness && bare.SummonSickness,
-                      "★ 归还那一刻**两个也都写了 `+0x58`**（原版：凡是转移归属都当场 `ResetSummonSickness`）"
-                    + " —— 我们两处**共用同一个调用** `RuleCore.ResetSummonSickness`"
-                    + "｜🧨 把 `RuleCore.EndTurn` 那句 `ResetSummonSickness(u)` 换回 `u.Exhausted = true;`"
-                    + " ⇒ 本行红");
+                      "★ `EndTurn` 之后两个**仍然**带着 `+0x58`（今天**没有**归还那一跳会重写它 —— 原版凡是转移归属"
+                    + " 才当场 `ResetSummonSickness`，而 `EndTurn` **不转移归属**）｜🧨 恢复归还段 ⇒ 这行仍绿 ⇒"
+                    + " **灭自证在上面那两条 `SlotOf`**（本行不是灭自证，如实标着）");
             CheckTrue(!fast.Exhausted,
-                      "★ 带 `fast` ⇒ 还回去之后**仍能动**"
-                    + "（⚠️ 原文写「还回去之后置已行动」，那是「无条件置」那一版的错记录 ——"
-                    + " **改前这里实得 `True`**）"
+                      "★ 带 `fast` ⇒ **仍能动**（`EndTurn` 不碰它：它在**抢它的人**那边，`RefreshForNewTurn` 只刷当前行动方）"
+                    + "（⚠️ 原文写「还回去之后置已行动」，那是「无条件置」那一版的错记录 —— **改前这里实得 `True`**）"
                     + "｜🧨 把 `ResetSummonSickness` 里那句 `RecomputeActAndAttack(u)`"
                     + "（2026-10-25 之前是 `u.Exhausted = !HasDeployExemption(u)`）改回 `u.Exhausted = true;` ⇒ 本行红");
             CheckTrue(bare.Exhausted,
-                      "★ 不带 `fast` ⇒ 还回去之后**不能动**（同上，本行与上一行不可能同时被一个常量满足）"
+                      "★ 不带 `fast` ⇒ **仍不能动**（同上；`EndTurn` 不动它 —— 下一轮**它所在那方**的 `RefreshForNewTurn` 才会解）"
                     + "｜🧨 同上把那句改成 `= false` ⇒ 本行红");
         }
 
@@ -28197,12 +28208,56 @@ public static partial class RuleEngineTest
         CheckCode(RuleCore.CanUseAbility(ctx, 0, 0), RuleCodes.ErrNotUnit, "空格上放技能");
         CheckCode(RuleCore.CanUseAbility(ctx, 0, 99), RuleCodes.ErrNotUnit, "越界格位");
 
-        // ⚠️「能不能开始放」和「这个目标行不行」是两件事。
-        //    要选目标的技能，表现层得先**进入选目标状态**（那一步还没选呢）——
-        //    拿要求目标的判据去问只会得到 ErrTarget，于是永远进不了那个状态（踩过）。
+        // ⚠️「能不能开始放」和「这个目标行不行」是**两问**：
+        //    · `CanStartAbility` = **不判目标**（表现层靠它进入「选目标」状态）；
+        //    · `CanUseAbility(不带目标)` = **候选集非空**（还没选呢，问的是「有没有得选」）；
+        //    · `CanUseAbility(带目标)` / `CanUseAbilityTarget` = **指定的那一个合不合法**。
+        //
+        //    🔴 **2026-10-28（批次 91 · `W1` · 账 `战斗逻辑驱动` L1209）就地订正本段**：
+        //    原来这里断言「`CanUseAbility` 不带目标 ⇒ `ErrTarget`（= 还没选目标）」，并把它当成
+        //    「于是永远进不了选目标状态（踩过）」的那条坑 —— **那个口径已经过期**：它把
+        //    「候选集非空」和「目标合法」混成了同一句 `ErrTarget`，于是「有候选」这一档永远绿不了。
+        //    现在的判据 = 原版 `RawCardScript__CanPlayAbilities.c:10-35`（逐条 `AbilityLogic.CanPlayAbility`
+        //    的 **OR**；后者对 `targetsAffected ∈ {10,12,13,15,20,30,31}` 判的正是 `GetTargets(...).Count > 0`）
+        //    ⇒ 不带目标 = 「**候选集非空**」；「指定的那个目标行不行」只走 `CanUseAbilityTarget`（判据只此一份）。
         CheckCode(RuleCore.CanStartAbility(ctx, 0, 3), RuleCodes.OK, "CanStartAbility 不判目标");
-        CheckCode(RuleCore.CanUseAbility(ctx, 0, 3), RuleCodes.ErrTarget,
-                  "CanUseAbility 不带目标 → 「还没选目标」");
+        CheckCode(RuleCore.CanUseAbility(ctx, 0, 3), RuleCodes.OK,
+                  "CanUseAbility 不带目标 = 「**候选集非空**」那一问：本棋盘敌方有 Guard / Bird / 督军可点 ⇒ 放行"
+                + "｜🧨 退回改前的「不带目标一律 `ErrTarget`」⇒ 红（那会把「有候选」这一档永远判成不可放，"
+                + "表现层也就永远进不了选目标状态 —— 那条坑的真因是**判据混了两问**，不是「不带目标必须拒」）");
+
+        // ⌈灭自证⌉ 反例（**同一入口**、候选集**为空**那一档）：
+        //   候选侧 36 格里 `includeHero = 0` + 敌方棋盘上**只剩督军** ⇒ 一个候选都没有 ⇒ 拒。
+        //   ⚠️ 必须与上面那条**一起**看：只断「有候选 ⇒ 放行」的话，把闸写成恒 `OK` 也能全绿。
+        {
+            var enemyOnly = E2Criteria10(1, 0);      // `enemyUnits = 1` / `friendlyUnits = 0` ⇒ 候选侧 = 敌方（不是 `Any`）
+            enemyOnly.IncludeHero = 0;               // 督军不算候选（真正挡它的就是这一格，见 `E5` ②·b）
+            enemyOnly.IncludeMinions = 1;
+            var nocand = E5AbilityCard("W6NoCand", enemyOnly, null, true);
+
+            var ctxN = ProbeBattle(new CardDef[0], new CardDef[0]);
+            if (ctxN.Turn == 0) RuleCore.BeginTurn(ctxN);
+            int meN = ctxN.Active;
+            var casterN = Place(ctxN, meN, 3, nocand);
+            int csN = E4SlotOf(ctxN, meN, casterN);
+
+            string sideWhy;
+            Check(RuleCore.AbilityPickSideOf(ctxN, meN, casterN, out sideWhy), RuleCore.AbilityPickSide.Enemy,
+                  "（前提）候选侧判成**敌方**（`enemyUnits = 1 ∧ friendlyUnits = 0`；只有 `Any` 才会把己方也算进候选池）");
+            CheckCode(RuleCore.CanUseAbilityTarget(ctxN, meN, casterN, 1 - meN, BoardSpec.WarlordSlot),
+                      RuleCodes.ErrTarget,
+                      "（前提）敌方督军**不是**候选（`includeHero = 0` ⇒ 36 格把它筛掉）");
+            int enemyOnBoard = 0;
+            for (int s = 0; s < BoardSpec.Size; s++) if (ctxN.Players[1 - meN].Board[s] != null) enemyOnBoard++;
+            Check(enemyOnBoard, 1,
+                  "（前提）敌方棋盘上只有督军这一个对象 —— 否则「候选集为空」这个前提不成立（下面的反例就成了空转）");
+
+            CheckCode(RuleCore.CanStartAbility(ctxN, meN, csN), RuleCodes.OK,
+                      "反例 · 入口照旧放行（`CanStartAbility` 本来就不判目标、也不判候选）");
+            CheckCode(RuleCore.CanUseAbility(ctxN, meN, csN), RuleCodes.ErrTarget,
+                      "反例 · `CanUseAbility` 不带目标：**候选集为空 ⇒ 拒**（敌方只剩督军，而督军被 `includeHero = 0` 挡掉）"
+                    + "｜🧨 把那一句改成恒 `OK`（= 把「候选集非空」当摆设）⇒ 本条红");
+        }
     }
 
     /// <summary>
@@ -33402,27 +33457,27 @@ public static partial class RuleEngineTest
 
             // ⚠️ **先做计数器反制**（照 `DrawBodyOrder` 那条自检的先例）：扫出来的数字若本身不可信，
             //    下面两条就是假绿。
-            //   🔴 样本的**真值必须不是下面那个期望值**（这里 4 ≠ 3）——
+            //   🔴 样本的**真值必须不是下面那些期望值**（这里 4 ≠ 2、4 ≠ 3）——
             //      否则「恒返回 3」的坏实现**照样绿**，这条反制就没钉住任何东西。
             Check(CountOf("a EvtKind.Play b EvtKind.Play c EvtKind.Play d EvtKind.Play", "EvtKind.Play"), 4,
                   "★ 反制：计数器在合成样本上**数得对**（4 处，不是 3）"
                 + "｜🧨 把 `CountOf` 改成**恒返回 3** ⇒ 本行红");
             Check(CountOf("这句话里一处都没有", "EvtKind.Play"), 0,
                   "★ 反制：**一处都没有**时数出 **0**"
-                + "｜🧨 让 `CountOf` 在认不出时返回 3（那正是下面两条变成假绿的方式）⇒ 本行红");
+                + "｜🧨 让 `CountOf` 在认不出时返回 3（那正是下面【全目录】那条变成假绿的方式）⇒ 本行红");
 
             string two = Read("RuleCore.cs") + Read("EffectResolver.cs");
-            // 🔴🔴 **2026-10-27（`W20AS` · `D1DG` 定性 α）就地改期望值 2 → 3（铁律 5）**：
-            //   今天新增的那一处**不是发出点**，是**读点** —— `RuleCore.CardsPlayedString`
-            //   （`RuleCore.cs:14828`：`if (e.Kind == EvtKind.Play && e.Player == seat && e.CardId != null)`，
-            //   = 原版「这一回合打出过哪些牌」那个查询，等价物 `GetCardsPlayPlayer`）。
+            // 🔴🔴 **2026-10-28（B90 · 执行代理 `F3`）就地改期望值 3 → 2（铁律 5；订正 2026-10-27 `W20AS` 那条）**：
+            //   那个读点**已经不在** `CardsPlayedString` 里了 —— 它改成 `return GameStatePlayed(ctx, seat);`
+            //   （`RuleCore.cs:14893-14900`），真拼装在 `:16191`（枚举**当前场上本方部队**）。
+            //   这正是原版：`BattleManager__GetCardsPlayPlayer` 枚举 `unitsInPlay(+0x470)`，**不读** `EvtKind.Play`。
             //   发出点仍是 **2** 处：单位卡（`RuleCore.PlayCard`）+ 战术卡（`EffectResolver.PlayTactic`）。
-            Check(CountOf(two, "EvtKind.Play"), 3,
-                  "★ ⑦ 会发事件的那两个文件里，`EvtKind.Play` 恰好 **3 处** = **2 个发出点**"
+            Check(CountOf(two, "EvtKind.Play"), 2,
+                  "★ ⑦ 会发事件的那两个文件里，`EvtKind.Play` 恰好 **2 处** = **2 个发出点**"
                 + "（单位卡 `RuleCore.PlayCard` + 战术卡 `EffectResolver.PlayTactic`）"
-                + " + **1 个读点** `RuleCore.CardsPlayedString`（`RuleCore.cs:14828`，按 `== EvtKind.Play` 过滤，"
-                + "**不是** `Emit` —— 2026-10-27 新增）"
-                + "｜🧨 新增第 4 处（**尤其是新的发出点**，且不填 `PlayAmbush` / 不在这里登记）⇒ 本行红");
+                + "（⛔ **不含读点**：`RuleCore.CardsPlayedString` 已按原版 `GetCardsPlayPlayer` 改成"
+                + "枚举场上部队，体内不再出现 `EvtKind.Play` —— 2026-10-28 `F3`）"
+                + "｜🧨 新增第 3 处（**尤其是新的发出点**，且不填 `PlayAmbush` / 不在这里登记）⇒ 本行红");
             // 🔴 **2026-10-14 就地改期望值 2 → 3（铁律 5 · 账 `A1888`）**：`W15` 按原版
             //   `ResolveActiveAbilityPlayed` 给 **`UseAlternative`（`Duty`/`Ferocity`/`Pray`/`Agenda`）**
             //   也补发了 `EvtKind.Ability` ⇒ 发出点从 2 处变 3 处。
@@ -33431,21 +33486,21 @@ public static partial class RuleEngineTest
                 + "（2026-10-27 `B87_A3` 按原版 `ResolveActiveAbilityPlayed` 补的第 4 个发出点）"
                 + "｜🧨 新增第 5 个发出点（且不在这里登记）⇒ 本行红");
 
-            // 全目录合计：`Play` **4** / `Ability` **5**（= 上面 `Play` **2 个**、`Ability` **4 个**发出点
-            //   + `Play` **2 处**、`Ability` **1 处**消费：
+            // 全目录合计：`Play` **3** / `Ability` **5**（= 上面 `Play` **2 个**、`Ability` **4 个**发出点
+            //   + `Play` **1 处**、`Ability` **1 处**消费：
             //   `BattleContext.AppendLog` 的 `last.Kind == EvtKind.Play`（出单位卡时把 Play+Deploy
-            //   合并成一行）· **`RuleCore.CardsPlayedString` 的 `e.Kind == EvtKind.Play`**
-            //   （2026-10-27 新增的读点，`RuleCore.cs:14828`）· `BattleEvent.ToString()` 的
-            //   `case EvtKind.Ability:`）。
+            //   合并成一行）· ~~`RuleCore.CardsPlayedString` 的读点~~ **2026-10-28 已删**
+            //   （它按原版 `GetCardsPlayPlayer` 改成枚举场上部队，体内不再有 `EvtKind.Play`）·
+            //   `BattleEvent.ToString()` 的 `case EvtKind.Ability:`）。
             // ⚠️ **如实标着扫描范围的边界**：这一条盯的是「`Core/` 里再多出一处 `EvtKind.Play`」，
             //    但若将来新增的第 3 个**发出点**落在 `Core/` **之外**（比如表现层自己 `Emit`），
             //    这一条扫不到 —— 那时要一起扩。
             var sbAll = new StringBuilder();
             foreach (var f in System.IO.Directory.GetFiles(dir, "*.cs"))
                 sbAll.Append(StripCsComments(System.IO.File.ReadAllText(f)));
-            Check(CountOf(sbAll.ToString(), "EvtKind.Play"), 4,
-                  "★ ⑦ 整个 `Core/` 里 `EvtKind.Play` 合计 **4** = **2 个发出点** + **2 处消费**"
-                + "（`BattleContext.AppendLog` 那 1 处 Play+Deploy 合并 · `RuleCore.CardsPlayedString` 那 1 处读点）"
+            Check(CountOf(sbAll.ToString(), "EvtKind.Play"), 3,
+                  "★ ⑦ 整个 `Core/` 里 `EvtKind.Play` 合计 **3** = **2 个发出点** + **1 处消费**"
+                + "（`BattleContext.AppendLog` 那 1 处 Play+Deploy 合并；`RuleCore.CardsPlayedString` 的读点已于 2026-10-28 按原版删掉）"
                 + "｜🧨 任何地方多一处 ⇒ 红");
             Check(CountOf(sbAll.ToString(), "EvtKind.Ability"), 5,
                   "★ ⑦ ……`EvtKind.Ability` 全目录合计 **5** = **4 个发出点**（`UseAbility`/`UseOathAbility`/`UseAlternative`/`UseActiveAbility`）"

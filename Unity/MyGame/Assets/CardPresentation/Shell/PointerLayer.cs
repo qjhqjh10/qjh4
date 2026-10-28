@@ -753,9 +753,9 @@ namespace CardPresentation
         /// <para>出厂值 `true`（= 原版那台 EventSystem 出厂是启用的）。原版改这一位的是
         /// `EventSystemController.Toggle(bool)`（虚表实读 = `eventSystem.enabled = option`，与
         /// `ChatPreviewMessage.Enable` 同体 ⇒ ICF），我们对应 `SetInputEnabled`。</para>
-        /// <para>⚠️ 今天生产上**没有**任何一处把它置 `false`（`grep -rl "EventSystemController__Toggle"`
-        /// 全量反编译 **0 命中** ⇒ 原版那边同样没人关它）⇒ 运行时恒 `true`；
-        /// 它存在是为了**这道门槛本身**（自检两态都断，见 `Editor/ShellScene.cs` ⑤·j）。</para></summary>
+        /// <para>⚠️ **2026-10-28 更正（B90-N1 · 铁律 5）**：原写「生产上无一处置 `false`；按 `EventSystemController__Toggle` 全量反编译 0 命中 ⇒ 原版也没人关」—— **两句都错**：① `RankedEventDivisionChangeWindow[NewSystem].Open()` 就置 `false`（`…__Open.c:38-52`；本仓 = `Shell/RankedDivisionChangeWindow.cs` 的 `Open()/Close()/AnimationFinished()` 三处）；
+        /// ② 后半句是**按名字 grep 的假阴性** —— 那个调用被 ICF 折叠成 `ChatPreviewMessage__Enable`（真身仍是 `EventSystemController`，见 `dump.cs:44782/:104632`）。
+        /// ⇒ 运行时**不再恒 `true`**：排位升段窗开着 = `false`。</para></summary>
         public static bool InputEnabled { get { return _inputEnabled; } }
 
         /// <summary>开关输入层（= 原版 `EventSystemController.Toggle(bool)`）。出声（红线：不许静默失败）——

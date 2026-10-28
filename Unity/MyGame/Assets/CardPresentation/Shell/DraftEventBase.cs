@@ -146,53 +146,53 @@ namespace CardPresentation
         }
 
         // ============================================================ 匹配过滤串（账 P2）
-        /// <summary>🔶 **自己设计（非原版）**：原版 `GetMatchmakingFilter` 里那个 ELO 窗口半径
-        /// 是一个**乘常量**（反汇编 `imul esi`，常量没被跟到 ⇒ 读不出来），`tryCount` / `gamesLost` 两个形参
-        /// 在可读方法体里**没有使用点**。
-        /// ⇒ 这里用一个显式的常量当半径，**并留 <see cref="EloWindowRadiusOverride"/> 给「真读到那个常量」时替换**。
-        /// 谁定的：调度台 C2 2026-10-27 定（判据缺口 = 那个乘法常量本批没解出）。</summary>
-        public const int EloWindowRadius = 1000;
-
-        /// <summary>读到真的窗口半径时注入它（`(currentElo) =&gt; 半径`）。null ⇒ 用
-        /// <see cref="EloWindowRadius"/>。</summary>
-        public static Func<int, int> EloWindowRadiusOverride;
-
         /// <summary>原版 `public override string GetMatchmakingFilter(int currentElo, int tryCount, int gamesLost)`
-        /// （`DraftEventBase.cs:4403`，**骨架可读**）：
+        /// （`DraftEventBase.cs:4403`；**2026-10-28 真体已补导** → `_tmp_view/decomp_b91/DraftEventBase_object__object_.GetMatchmakingFilter__1810840.c`，ILSpy 同址**格式串逐字可读**）。逐句：
         /// <code>
-        /// if (eventDeck == null) NRE;
-        /// string s = $"C1 &lt; {max} AND C1 &gt; {min}";                       // max/min = imul 出来的那一对（常量未解）
-        /// s += " AND C2 != \"" + PlayerDataManager.singletonManager.notMatchWithPlayer + "\" ";
-        /// if (!FeatureConfig.ShouldDisableNewMatchMaking()) s += $" AND C5 == {&lt;某值&gt;}";
+        /// if (save == null) NRE;
+        /// n   = tryCount % 3;
+        /// max = save.numberOfMatchesWon(+0x48) + 2n;
+        /// min = save.numberOfMatchesWon(+0x48) - 2n;
+        /// s   = $"C1 &lt; {max} AND C1 &gt; {min}";
+        /// s  += " AND C2 != \"" + PlayerDataManager.singletonManager.notMatchWithPlayer + "\" ";   // ★ 引号 + 尾空格都要留
+        /// if (!FeatureConfig.ShouldDisableNewMatchMaking()) s += $" AND C5 == {gamesLost}";
         /// return s;
         /// </code>
-        /// 🔴 **三段照抄**：① 区间（`C1 &lt; max AND C1 &gt; min`）② 排除上一个对手（`C2 != "…"`，**串里带引号与尾空格**）
-        /// ③ 新匹配下再加一段 `C5 == …`。
-        /// ⚠️ 三处没有落点：`FeatureConfig.ShouldDisableNewMatchMaking()`（远端开关，我们恒当「不禁用」）、
-        /// `C5 ==` 后面那个值（反汇编里是 `il2cpp_value_box`，值没解出）、`notMatchWithPlayer`
-        /// （用 `RankedData.LastOpponentName` 顶替）。⇒ 见下面各句的出声。</summary>
+        /// 🔴 **形参 `currentElo` 全程未使用**（.c 里它一个读点都没有）。
+        /// 🔴 **与 2026-10-27 那次读数相反**：`tryCount` **有**使用点（取模 3 当半径），`gamesLost` **有**使用点（`C5` 的值），只有 `currentElo` 没有。
+        /// 🔴 **2026-10-27 那份 🔶 自编整体退役**（铁律 5 就地订正）：原写「半径常量 `EloWindowRadius = 1000` + 中心用 `currentElo` +
+        /// `C5FilterValue`（null 就不加）」—— 真体证明**三个参数全错**：中心是 `numberOfMatchesWon`、半径是 `2*(tryCount%3)`、`C5` 是 `gamesLost`。
+        /// 那三个常量（`EloWindowRadius` / `EloWindowRadiusOverride` / `C5FilterValue`）**已删除**（退役前 `grep` 核过全仓无引用，⛔ 别加回来）。
+        /// ⚠️ 两处本地等价（都不静默）：① `notMatchWithPlayer` → `RankedData.LastOpponentName`（原版是 `PlayerDataManager` 那格字符串）；
+        /// ② `FeatureConfig.ShouldDisableNewMatchMaking()` 读**远端** FeatureConfig 的 bool（`+0x70`），服务器已关服 ⇒ 按「拿不到 config ⇒ false」那一支取常量，见 <see cref="DisableNewMatchMaking"/>。</summary>
         public override string GetMatchmakingFilter(int currentElo, int tryCount, int gamesLost)
         {
-            int r = EloWindowRadiusOverride != null ? EloWindowRadiusOverride(currentElo) : EloWindowRadius;
-            int max = currentElo + r;
-            int min = currentElo - r;
-            var sb = new System.Text.StringBuilder();
-            sb.Append("C1 < ").Append(max).Append(" AND C1 > ").Append(min);
+            if (SaveGame == null)
+            {
+                Debug.LogError("[DraftEventBase] GetMatchmakingFilter：没有存档（原版这一跳 NRE）⇒ 返回空串");
+                return string.Empty;
+            }
+            int n = tryCount % 3;                                   // ★ 原版：取模 3（不是 ELO 窗口半径，也不是 currentElo）
+            int won = SaveGame.numberOfMatchesWon;                   // ★ 原版 `save+0x48`
+            int max = won + 2 * n;                                   // ★ 原版 `iVar1 + n*2`
+            int min = won - 2 * n;                                   // ★ 原版 `iVar1 + n*-2`
+            string s = "C1 < " + max + " AND C1 > " + min;            // ★ 原版 `$"C1 < {max} AND C1 > {min}"`
 
-            string avoid = RankedData.LastOpponentName;
-            sb.Append(" AND C2 != \"").Append(avoid ?? string.Empty).Append("\" ");
+            string avoid = RankedData.LastOpponentName;              // 原版 `PlayerDataManager.singletonManager.notMatchWithPlayer`
+            s += " AND C2 != \"" + (avoid ?? string.Empty) + "\" ";  // ★ 引号 + **尾空格**都要留
 
-            if (C5FilterValue.HasValue) sb.Append(" AND C5 == ").Append(C5FilterValue.Value);
-            else
-                WarnOnce("c5", "[DraftEventBase] GetMatchmakingFilter：原版还会追加 ` AND C5 == <某值>`"
-                             + "（那个值本批没解出）⇒ 这一段**没加**。读到那个值时设 `DraftEventBase.C5FilterValue`");
-
-            return sb.ToString();
+            if (!DisableNewMatchMaking) s += " AND C5 == " + gamesLost;   // ★ 原版 `$"{text2} AND C5 == {gamesLost}"`（只在「没禁用新匹配」时加）
+            return s;
         }
 
-        /// <summary>原版 `AND C5 == {x}` 那个 `x`（反汇编里是 `il2cpp_value_box`，值未解出）。
-        /// null ⇒ 不加那一段。⚠️ 这是**缺口的口**，不是「原版没有这一段」。</summary>
-        public static int? C5FilterValue;
+        /// <summary>原版 `FeatureConfig.ShouldDisableNewMatchMaking()`（`FeatureConfig.cs:851`）：
+        /// `if (ConfigManager.GetConfig&lt;FeatureConfig&gt;() == null) return false;` 否则返回远端那个 bool（`+0x70`）。
+        /// 🔶 自己设计（非原版）：那一格来自**远端配置**（服务器已关服 ⇒ 判据在远端）⇒ 按「拿不到 config」那一支恒取 `false`
+        /// （= 新匹配启用 ⇒ **加** C5 段）；留一个静态可写位给「将来接上配置」用（⛔ 别在没有判据时改成 true）。A3 2026-10-28 裁定。</summary>
+        public static bool DisableNewMatchMaking = false;
+
+        // ⚠️ 本节原来还有三个 🔶 自编常量（`EloWindowRadius` / `EloWindowRadiusOverride` / `C5FilterValue`），2026-10-28 已随真体退役。
+        // 🔴 别看漏：真体是**纯函数**（`numberOfMatchesWon` + `tryCount % 3` + `gamesLost`），没有任何「需要我们自己挑」的参数；将来若接远端 config，只改上面那格默认值，⛔ 别改方法体。
 
         // ============================================================ 匹配成功（账 P2）
         /// <summary>原版 `protected override void OnMatchFound(string otherPlayerName)`

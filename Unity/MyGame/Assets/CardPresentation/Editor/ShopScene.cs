@@ -1129,7 +1129,7 @@ public static class ShopScene
     /// 反过来 `SetCharSpacing`（`CardPresentation/Battle/Label.cs`）· `SetFontSize`（`CardPresentation/Battle/Label.cs`）这一族**只重排 mesh、不刷新缓存**
     /// ⇒ 谁在末次刷缓存之后重排一次，旧口**照旧报旧值**（实现与检测器共用一个口 = 自证）。
     /// 本助手读的是 TMP 自己的 `textBounds`（mesh 的**活值**），**不在实现那条链上**。</para>
-    /// <para>⚠️ **取组件带 `true`（含 inactive）** —— 左栏第 4 键是**关着的母版**（`tabButtonPrefab`），
+    /// <para>⚠️ **取组件带 `true`（含 inactive）** —— 左栏最后一键是**关着的母版**（`tabButtonPrefab`；🆕 2026-10-28 加第 5 页后是第 6 键 `ShopTabButton_5`），
     /// 单参那版只找激活的对象，正好会在这里踩坑。
     /// ⚠️ **量不到时（`t` 不在 / 底下没有 TMP）返回 `false`、四个 out 全 0**（与 `RectOf` 同一契约）
     /// ⇒ 调用方**必须先判它**，否则 `0 ≤ 期望值` 会**假绿**。
@@ -1375,14 +1375,14 @@ public static class ShopScene
             }
         }
 
-        // 🔴 **2026-10-27（第八十八会话 · `B88_E12` 加 VIP 页后就地订正）**：页数 3 → **4**（`ShopVip = 13`），
-        //   所以左栏键 4 → **5**（4 页 + 1 母版）、可见 3 → **4**、母版从 `ShopTabButton_3` 挪到 **`ShopTabButton_4`**。
-        //   ⛔ 别改回去 —— 加页必须同步这四个数，否则 `ShopScene.Run` 会直接抛异常中止。
-        Section("左栏键（4 个页 + 1 个母版；**母版照建但关着**）");
-        Check(CountByPrefix(bar, "ShopTabButton_"), 5, "建了 **5** 个键（4 页 + `tabButtonPrefab` 母版）");
-        Check(CountVisible(bar, "ShopTabButton_"), 4, "**可见的键恰好 4 个**（母版照原版 `TabButtons.Initialize` 关掉）");
-        CheckTrue(FindChild(bar, "ShopTabButton_4") != null && !FindChild(bar, "ShopTabButton_4").gameObject.activeSelf,
-                  "第 5 键（母版）**建成但关着**");
+        // 🔴 **2026-10-28（`B91_W5` 加第 5 页 Crates/Boosters 后就地订正）**：页数 4 → **5**（`ShopCrates = 14`），
+        //   所以左栏键 5 → **6**（5 页 + 1 母版）、可见 4 → **5**、母版从 `ShopTabButton_4` 挪到 **`ShopTabButton_5`**。
+        //   ⛔ 别改回去 —— 加页必须同步这几个数（**外加 `tabTerms[]`**），否则 `ShopScene.Run` 会直接抛异常中止。
+        Section("左栏键（5 个页 + 1 个母版；**母版照建但关着**）");
+        Check(CountByPrefix(bar, "ShopTabButton_"), 6, "建了 **6** 个键（5 页 + `tabButtonPrefab` 母版）");
+        Check(CountVisible(bar, "ShopTabButton_"), 5, "**可见的键恰好 5 个**（母版照原版 `TabButtons.Initialize` 关掉）");
+        CheckTrue(FindChild(bar, "ShopTabButton_5") != null && !FindChild(bar, "ShopTabButton_5").gameObject.activeSelf,
+                  "第 6 键（母版）**建成但关着**");
 
         // ---------------- 左栏 VLG：padTop / spacing（🆕 2026-10-23 · A6 · 界面线第二批）----------------
         //  判据（解包资源现读，⛔ 不是我们的常量）：
@@ -1399,15 +1399,15 @@ public static class ShopScene
             var k0 = FindChild(bar, "ShopTabButton_0");
             var k1 = FindChild(bar, "ShopTabButton_1");
             var k2 = FindChild(bar, "ShopTabButton_2");
-            // 🔴 2026-10-27（`B88_E12` 加 VIP 页后）：`_3` 现在是**第 4 页（VIP）**、可见；**母版挪到 `_4`**。
+            // 🔴 2026-10-28（`B91_W5` 加第 5 页后）：`_3` = 第 4 页（VIP）· `_4` = **第 5 页（Crates/Boosters，可见）** · **母版挪到 `_5`**。
             var k3 = FindChild(bar, "ShopTabButton_3");
-            var k4 = FindChild(bar, "ShopTabButton_4");
+            var k4 = FindChild(bar, "ShopTabButton_4"); var k5 = FindChild(bar, "ShopTabButton_5");
             // 期望矩形 = 条顶 70.94 + padTop 20 = **90.94**；步长 **160**（键高仍 180 ⇒ 相邻重叠 20）
             CheckAt(k0, 167.17f, 332.17f, 90.94f, 270.94f, "★ 首键 `ShopTabButton_0`（原版 `Shop Icon` 同矩形）");
             CheckAt(k1, 167.17f, 332.17f, 250.94f, 430.94f, "★ 第 2 键（首键 + 步长 160）");
             CheckAt(k2, 167.17f, 332.17f, 410.94f, 590.94f, "★ 第 3 键（首键 + 2×160）");
             CheckAt(k3, 167.17f, 332.17f, 570.94f, 750.94f, "★ 第 4 键 = VIP 页（首键 + 3×160；**可见**）");
-            CheckAt(k4, 167.17f, 332.17f, 730.94f, 910.94f, "★ 第 5 键 = 母版（首键 + 4×160；**关着**，但矩形在）");
+            CheckAt(k4, 167.17f, 332.17f, 730.94f, 910.94f, "★ 第 5 键 = Crates/Boosters 页（首键 + 4×160；**可见**）"); CheckAt(k5, 167.17f, 332.17f, 890.94f, 1070.94f, "★ 第 6 键 = 母版（首键 + 5×160；**关着**，但矩形在）");
             // `padTop` / `spacing` **逐值**：都从**量到的世界坐标**反推 —— 不读上面那两个覆写，所以不是自证。
             // ⚠️ 半高用**原版读数**（条 1009.06 / 键 180），不读实现里的 `TabBtnH`。
             if (k0 != null && k1 != null && bar != null)
@@ -1449,9 +1449,9 @@ public static class ShopScene
             "MenuShop/ShopItemType/BoosterPacks",
             "MenuShop/ShopItemType/Gold",
             "MenuShop/ShopItemType/Cosmetics",
-            // 🔴 2026-10-27（`B88_E12`）：第 4 页 = VIP（`ShopVip = 13`），词条走 `MenuShop/VIPCardStore/Title`。
-            //   ⚠️ 这一行**必须有** —— 循环边界是 `ShopData.Pages.Length`，少一项就 `tabTerms[3]` 越界、整条 Run 抛异常。
-            "MenuShop/VIPCardStore/Title",
+            // 🔴 2026-10-27（`B88_E12`）：第 4 页 = VIP（`ShopVip = 13`），词条走 `MenuShop/VIPCardStore/Title`；🆕 2026-10-28（`B91_W5`）第 5 页 = Crates/Boosters，词条走官方 `MenuShop/ShopItemType/Boosters`（写在同一行，为了不挪本文件后面的账行）。
+            //   ⚠️ 这一行**必须有** —— 循环边界是 `ShopData.Pages.Length`，少一项就 `tabTerms[4]` 越界、整条 Run 抛异常。
+            "MenuShop/VIPCardStore/Title", "MenuShop/ShopItemType/Boosters",
         };
         for (int i = 0; i < ShopData.Pages.Length; i++)
         {
@@ -1466,17 +1466,17 @@ public static class ShopScene
         //   判据 = 原版四窗左栏键文案的 `m_TextWrappingMode` **一律 `0`（`NoWrap`）**—— 逐窗现读的四窗表
         //   只写一处：`Shell/MainMenuSubmenuWindow.cs` 的 `BuildTabButton`（此处不抄第二份，铁律 6）。
         //   ⚠️ 本窗原版**只序列化了一只母版**（`Shop Icon > Label > TabButtonLabel`，`'Pacotes'`，`折行=0`）——
-        //   三个页键由 `ShopWindow.CreateStoreTab` 在运行期克隆母版 ⇒ 同样吃这个 0；我们四个键都走
-        //   `MainMenuSubmenuWindow.BuildTabButton` ⇒ 一起断（含第 4 键那只母版）。
+        //   五个页键（🆕 2026-10-28 加第 5 页）由 `ShopWindow.CreateStoreTab` 在运行期克隆母版 ⇒ 同样吃这个 0；我们所有键都走
+        //   `MainMenuSubmenuWindow.BuildTabButton` ⇒ 一起断（含第 6 键那只母版，`ShopTabButton_5`）。
         //   ⛔ **为什么必须量渲染、不能只比字号**：`SetAutoFitBox` 只把 `fontSizeMin/Max` 交出去，
         //   **装不装得下由 TMP 算** ⇒ 字号对而字冲出去，自检照样全绿（`AutoFitBox` 那条教训，2026-09-22 踩过）。
         //   框宽 **155** = 原版 `Tab Buttons/*/Label` 的 `sz=(155,37.86)`
         //   （⛔ 不读 `BuildTabButton` 的 `labW` —— 那也是被测实现里的数，读了就是自证）。
         //   **改坏法**：删掉 `MainMenuSubmenuWindow.BuildTabButton` 末句 `txt.SetWrapping(false)` ⇒
-        //   ① `折行=` 那条立刻红（0 → 1）；② 第 4 键的 `BOOSTER PACKS` 带空格 ⇒ 折成两行 ⇒ 「就一行」那条也红。
+        //   ① `折行=` 那条立刻红（0 → 1）；② 母版那颗 `BOOSTER PACKS` 带空格 ⇒ 折成两行 ⇒ 「就一行」那条也红。
         {
             int tabN = 0;
-            for (int i = 0; i < 4; i++)                     // 0..2 = 三个页键 · 3 = 母版（`tabButtonPrefab`）
+            for (int i = 0; i < 5; i++)                     // 0..4 = 五个页键 · 5 = 母版（`tabButtonPrefab`）
             {
                 var k = FindChild(bar, "ShopTabButton_" + i);
                 var klb = k != null ? k.GetComponentInChildren<Label>() : null;
@@ -1503,8 +1503,8 @@ public static class ShopScene
                 //    TMP 是 `Label` 的子件 —— `Battle/Label.cs` 的 `Create` 里 `TmpFont.NewText` 那一句 `TmpFont.NewText(transform, …)`）。
                 //    ⛔ 别改成 `TmpRenderedRect(k, …)`：那会捞 `k` 子树里**第一颗 TMP（含 inactive）**，
                 //    与「只找激活」的 `Label` **未必是同一颗** ⇒ 会把「节点不在（红）」与「量到了别一颗（绿）」混成一档。
-                //    ⚠️ 第 4 键（母版 `ShopTabButton_3`）是**关着**的 —— `Label` 那一半照样取得到
-                //    （实测 `_tmp_view/shop.log`：「第 4 键的文案 `Label` 取得到 ✓」），本助手取 TMP 时**带 `true`**，
+                //    ⚠️ 第 6 键（母版 `ShopTabButton_5`，🆕 2026-10-28 加第 5 页后）是**关着**的 —— `Label` 那一半照样取得到
+                //    （实测 `_tmp_view/shop.log`：「母版那颗的文案 `Label` 取得到 ✓」），本助手取 TMP 时**带 `true`**，
                 //    所以这一档也量得到。
                 // **改坏法（只咬旧口）**：在 `Shell/MainMenuSubmenuWindow.cs` 的 `BuildTabButton` 里那句 `SetWrapping(false)` 那句
                 //    `if (txt != null) txt.SetWrapping(false);` **之后**插一句 `if (txt != null) txt.SetCharSpacing(5f);`
@@ -1534,11 +1534,11 @@ public static class ShopScene
                     }
                 }
             }
-            Check(tabN, 4, "四颗键的文案都量到了（少于 4 ⇒ 上面那几条等于没查）");
+            Check(tabN, 5, "五颗键的文案都量到了（少于 5 ⇒ 上面那几条等于没查）");
         }
 
         // ---------------- 页签：切页 ----------------
-        Section("页签切换（三个页各自的层 × 参数）");
+        Section("页签切换（五个页各自的层 × 参数）");
         for (int p = 0; p < ShopData.Pages.Length; p++)
         {
             win.tabButtons.Click(p);
@@ -2219,11 +2219,11 @@ public static class ShopScene
 
             // ★ ④ 数据层的**可观测口径**：`Dump()` 里那一段（⛔ 不是静默数据、⛔ 不是读 `Grants.Length` 自证）
             string dump439 = ShopData.Dump();
-            // 🔴 **2026-10-27（`B88_E12` 加 VIP 页后就地订正）**：`6/10` → **`7/12`**（VIP 页多了 2 件、其中 1 件有 `Grants`）。
+            // 🔴 **2026-10-28（`B91_W5` 加第 5 页后就地订正）**：`7/12` → **`7/16`**（Crates/Boosters 页与 Cards 页共用那 4 件卡包 ⇒ 件数 +4、`Grants` 一个不增）。
             //   ⚠️ 每页件数变了这一格要跟着变，⛔ 别把断言放宽成 `Contains("有奖励表")`（那就抓不到回归了）。
-            CheckTrue(dump439.Contains("有奖励表 7/12 件"),
-                      "★ ④ `ShopData.Dump()` 报「有奖励表 7/12 件」（4 页 12 件里 7 件填了 `Grants`）"
-                      + "—— 给卡包那四件也填 ⇒ 变 11/12 ⇒ 红（实读：" + dump439 + "）");
+            CheckTrue(dump439.Contains("有奖励表 7/16 件"),
+                      "★ ④ `ShopData.Dump()` 报「有奖励表 7/16 件」（5 页 16 件里 7 件填了 `Grants`）"
+                      + "—— 给卡包那四件也填 ⇒ 变 11/16 ⇒ 红（实读：" + dump439 + "）");
 
             // ★ ⑤ **红线**：商品档却**没有奖励表** ⇒ 必须**出声**（不许静默失败）
             //   ⚠️ 用**越界**那一支造出这个状态（本店 10 件都填齐了，而 `Shell/ShopData.cs` 不在本件白名单

@@ -142,7 +142,10 @@ namespace CardPresentation
         /// `lastPlayedSeason/savedTier` 整份在 `PlayerSeason`，本轮未拆）。</summary>
         public const string LastSeasonPosition = "LastSeasonPosition";
 
-        /// <summary>29 · `PlayerDataKey.cs:32` —— 原版屏蔽名单。【我们】**空缺**（屏蔽不落盘）。</summary>
+        /// <summary>29 · `PlayerDataKey.cs:32` —— 原版屏蔽名单。【我们】`Shell/ChatCache.cs`（`ChatCache.BlockPlayer` 写、`CheckBlockedList` 读；payload 形状 `{"playerIds":[...]}`）。
+        /// <para>⚠️ **2026-10-28 更正（`B90-N5`，铁律 5）**：原写「【我们】**空缺**（屏蔽不落盘）」—— 实际自本日起由 `ChatCache` 落盘。
+        /// 原版读点是 `ChatGlobalManager.Initialize`（`GetOnlineData&lt;List&lt;string&gt;&gt;(PlayerDataKey.BlockedPlayers, checkPublicData: true)`），
+        /// 我们是懒加载（本仓没有「聊天初始化」那一刻）。</para></summary>
         public const string BlockedPlayers = "BlockedPlayers";
 
         /// <summary>30 · `PlayerDataKey.cs:33` —— 原版举报名单。【我们】**空缺**。</summary>

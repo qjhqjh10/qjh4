@@ -94,24 +94,24 @@ public static partial class RuleEngineTest
         // 🔴 2026-10-26（执行代理 `B8_BM` · 铁律 5 就地订正）：同会话的 `B8_AH` 加了 **`keyword` 一列**
         //   （v31）、`B8_BM` 又加了 **`chosenAbility` 一列**（v32）⇒ 表 bump 到 **32**。
         //   归因 → `资料/完全复刻/报告/B8_BM_强制攻击退还数据化.md`。
-        // 🔴 2026-10-27（批次 9 · 执行代理 `E7ENG` · 铁律 5 就地订正）：又加了两列 ⇒ 表 bump 到 **34** ——
-        //   **v33 = 加 `enchantTrait` 一列** · **v34 = 加 `cardType` 一列**（消费点 `CardDef.IsTrapCard` → `CardInstance.ArmedTrap`）。
-        //   归因 → `工具/gen_cards_engine.py:5619`（`"version": 35`；⚠️ 2026-10-27 现读，v33/v34 的注就在它下面几行）
-        //   —— 原来这里写的 `:5572`/`:5580` 是 v34 那一版的行号，加列之后整体下移（铁律 5 就地订正）。
-        Check(dto.version, 37,
-              "★ A1 卡表 `version` = **37**（🔴 2026-10-28 第八十九会话 · 执行代理 `E6` = 三族「数据侧」列（账 L234 / L867 / L1044 / L847）；上一档 v36 = 执行代理 `A1c` = 加 `abilityDamage` 一列 "
+        // 🔴 2026-10-28（B91 · 执行代理 `A4` · 铁律 5 就地改期望值 38 → 39）：
+        //   **v39 = 加卡表 `abilitySummon` 一列**（原版 `SummonCriteria` 七格：`createAtPos` / `moveToPos` / `summonAllTargets` /
+        //   `chooseCardInPlay` / `keepEffects` / `shouldRemoveFromCemetery` / `isForEnemy`；**只落数据、不接线**）—— 生成器
+        //   `工具/gen_cards_engine.py:6247` 现读就是 `"version": 39`（口径 → `ability_summon_of` 上面那段）；上一档 **v38**（B90 波 2 · 执行代理 `F3`）= 加卡表 `enchantment` 一列（附魔「打出即挂」的正向数据）；
+        //   v33 = `enchantTrait` · v34 = `cardType`（消费点 `CardDef.IsTrapCard` → `CardInstance.ArmedTrap`）各列照旧；v35/v36/v37 的来历见下面那条断言的文案。
+        Check(dto.version, 39,
+              "★ A1 卡表 `version` = **39**（🔴 2026-10-28 B91 · 执行代理 `A4` = 加 `abilitySummon` 一列（原版 `SummonCriteria` 七格，**只落数据、不接线**）；上一档 v38 = B90 波 2 · 执行代理 `B3` = 加 `enchantment` 一列；再上一档 v37 = 第八十九会话 · 执行代理 `E6` = 三族「数据侧」列（账 L234 / L867 / L1044 / L847）；v36 = 执行代理 `A1c` = 加 `abilityDamage` 一列 "
             + "（`damageCriteria` 四格 `min/max/opt/type`，80/90 档 per-target 掷骰的数据面）；"
             + "🔴 2026-10-27 批次 A（执行代理 `G1`）= 加三列 "
             + "`cardDescriptionTextReferenceId` / `activeAbilityTextReferenceId` / `targetingTextReferenceId`"
             + "（池内非空 15 / 2 / 51；⚠️ 那一版**只加数据列、零引擎行为**，消费端是批次 B）；"
             + "v34 = 加 `cardType` 一列 · v33 = 加 `enchantTrait` 一列；"
-            + "v32 = 加 `chosenAbility` 一列（「强制攻击退不退还行动额度」的判据来源 = `ForcedAttackRefund`）；"
-            + "v31 = 加 `keyword` 一列；"
+            + "v32 = 加 `chosenAbility` 一列（「强制攻击退不退还行动额度」的判据来源 = `ForcedAttackRefund`）；v31 = 加 `keyword` 一列；"
             + "v30 = **加卡不加列**：池内新增隐藏附魔模板 `Pray Enchantment`；"
             + "v29 `abilityLevelCriteria` 的 `ca` 一格 / v28 `activeAbilityPickCriteria` / v27 "
             + "`abilityActingCriteria` / v26 / v25 各列照旧；"
             + "⛔ 不 bump 的话卡池/新列的变更没有版本可认）"
-            + "｜🧨 生成器 return 里改回 35（或忘了 bump）⇒ 红");
+            + "｜🧨 生成器 return 里改回 38（或忘了 bump）⇒ 红");
 
         // ---- A2 · 两列「每张卡都落」：`null` 与空数组必须分得开 ----
         int aatNull = 0, atcNull = 0;

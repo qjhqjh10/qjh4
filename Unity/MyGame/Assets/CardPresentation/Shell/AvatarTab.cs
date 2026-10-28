@@ -582,7 +582,7 @@ namespace CardPresentation
                 Debug.Log("[Profile] `Select`（头像页）：**还没预览任何一张**");
                 return;
             }
-            ProfileData.AvatarIndex = PreviewIndex;
+            ProfileData.AvatarIndex = PreviewIndex; ProfileData.SetEquippedBorder(ProfileData.EquippedBorderIndex);   // 🆕 B90-N1（FP-PROFILE-02）：原版 `PlayerAvatarDataManager.SetCurrentItem` 会把整份外观写回 `CosmeticData` ⇒ 我们借这一拍把边框那一格也落盘（同值 flush；写口 = `ProfileData.SetEquippedBorder`）
             Refresh();
             Debug.Log("[Profile] 已装备头像「" + Avatars[PreviewIndex].Name + "」（# " + PreviewIndex
                     + "）—— 写进 `ProfileData.AvatarIndex`（顶栏读它），并落盘到 "
@@ -675,6 +675,24 @@ namespace CardPresentation
             if (_toggleBorderNode == null) return;
             var active = ProfileData.FindActiveAvatarBorder();
             _toggleBorderNode.gameObject.SetActive(active != null);
+        }
+
+        // ============================================================ `DoBorderRefresh`（2026-10-28 · B90-N1 补）
+        // 判据（🥇 `decomp_full/AvatarTab__DoBorderRefresh.c` 全文，2026-10-28 现读）——
+        //   `if (this != null) { var go = gameObject; if (go.activeInHierarchy) RefreshDisplays(); }`
+        //   （`RefreshDisplays` 那一跳见 `AvatarTab__RefreshDisplays.c`；本页 `Refresh()` 就是它的等价物，见 `:609` 那段 doc）
+        // 🔴 **账 `个人资料_成就_排行:76` 原写「只在【活动期间】才重刷边框（活动态在 LiveOps）」—— 那句是错的**：
+        //   该 `.c` 里**没有任何活动态判断**、也**没有** `LiveOpsManager` 引用。同族的
+        //   `AvatarTab___ToggleAvatarBorder_b__20_0.c` 与它**逐字相同**（两者都是 `SetCurrentItem(…, callback)` 的回调形状）。
+        //   已就地订正（铁律 5），并照真判据落地。
+        /// <summary>原版 `AvatarTab.DoBorderRefresh()`：**本页此刻在层级里活动着**才重刷（否则什么都不做）。
+        /// <para>⚠️ 状态机口径：原版两句守卫是 `this != null` + `gameObject.activeInHierarchy`；
+        /// 我们这边第二句等价物 = `activeInHierarchy`（Unity 同一个属性，逐字照抄）。</para></summary>
+        public void DoBorderRefresh()
+        {
+            if (this == null) return;                      // 原版第一句 `Object.op_Equality(this, null)`
+            if (!gameObject.activeInHierarchy) return;      // 原版第二句 `GameObject.get_activeInHierarchy`
+            Refresh();
         }
     }
 }

@@ -1352,16 +1352,43 @@ public static class DraftAssertD3
            "⑥ 切到 Card List 页 ⇒ `Energy View panel` 的内容被收掉（原版三页 `SetActive` 互斥）"
          + "🧨 怎么改会红：把卡背/费用分布挂到面板根上（那样三页同时显示）");
 
-        // ---- ⑦ 🆕 D6（2026-10-25）：Alliance Info 页 = 提示节点在 + **出声恰好一次** ----
+        // ---- ⑦ 🆕 2026-10-28（B90-N6）：Alliance Info 页 = 三块实件 + **出声恰好一次** ----
+        //   （替掉原来的 `Alliance Hint` 自拟提示；判据 `B90_C2b_远端prefab几何.md` §A）
         int hintBefore = DraftModeWindow.AllianceHintLogCountForTest;
         win.SetDeckTab(2);
         var tabHolder2 = win.transform.Find("Draft Mode Deck Info Panel/Cards in deck panel");
-        var hint = tabHolder2 != null ? tabHolder2.Find("Alliance Hint") : null;
-        Ok(hint != null && hint.gameObject.activeSelf,
-           "⑦ 切到第 3 页（Alliance Info）⇒ **`Alliance Hint` 节点在且显示**（原版这一页要服务端数据，本地留空 + 一句自拟提示）");
+        // 🔴 硬前提先断（⛔ 别写成 `if (x != null) Ok(...)` —— 前提不成立会静默跳过，本项目撞过 3 次）
+        var detail = tabHolder2 != null ? tabHolder2.Find("Alliance Detail View") : null;
+        Ok(detail != null && detail.gameObject.activeSelf,
+           "⑦ 切到第 3 页（Alliance Info）⇒ **`Alliance Detail View` 在且显示**（三块实件根；此件已替掉原自拟提示）");
+        var barNode = detail != null ? detail.Find("2Armies Progress Bar") : null;
+        Ok(barNode != null, "⑦ `2Armies Progress Bar` 在（原版 `ArmyProgressBar`）");
+        var scoreNode = detail != null ? detail.Find("Alliance Event Score Panel") : null;
+        Ok(scoreNode != null, "⑦ `Alliance Event Score Panel` 在（原版类 `AlliancesEventScorePanel`）");
+        Ok(scoreNode != null
+           && Mathf.Abs(scoreNode.localScale.x - 0.95581f) < 1e-3f
+           && Mathf.Abs(scoreNode.localScale.y - 0.95581f) < 1e-3f
+           && Mathf.Abs(scoreNode.localScale.z - 0.95581f) < 1e-3f,
+           "⑦ 面板三轴 `localScale ≈ 0.95581`（原版 `m_LocalScale`；⛔ 别当 1）");
+        var scoreRt = scoreNode as RectTransform;
+        // 🔴 2026-10-28（B90-F4 → 第九十一会话就地改口径）：本节点是**拉伸锚点**（anchorMin≠anchorMax），
+        //   此时 `sizeDelta` 是「相对父框的内缩量」不是设计尺寸（实测 ×108 得 -1×-1，必红）
+        //   ⇒ 设计 px 只能量 `rect.rect.width/height × 108`（`LayoutSpace.Px(w)=w/108`，`Core/LayoutSpace.cs:208-211`）。
+        //   ⚠️ 只量 `rect.rect`、**不乘** `localScale`（缩放在上一条单独断；两者是两个量，⛔ 别乘到一起）。
+        //   非拉伸锚点下两者等价，所以这条口径对两类节点都成立。
+        float swPx = scoreRt != null ? scoreRt.rect.width * 108f : -1f;
+        float shPx = scoreRt != null ? scoreRt.rect.height * 108f : -1f;
+        Ok(scoreRt != null
+           && Mathf.Abs(swPx - 383.59f) < 0.5f
+           && Mathf.Abs(shPx - 511.52f) < 0.5f,
+           "⑦ 面板 `rect.rect × 108` = 383.59×511.52 设计 px（实测 " + swPx.ToString("F2") + "×" + shPx.ToString("F2")
+         + "；判据 `B90_C2b_远端prefab几何.md` §A）；"
+         + "布局框右下角 = (1890.15, 833.72)（§A 基准根 1490.62,105.20）。"
+         + "⚠️ 此数与账 `轮抽.tsv:58` 的 1889.1,869.8 差 36.08，是**另一个基准根**，⛔ 别混用"
+         + "｜🧨 拿裸 `sizeDelta` 直接比设计 px（不乘 108）⇒ 量纲错 ⇒ 红");
         win.SetDeckTab(2);                            // 同一页再刷一次 ⇒ 不该再出声
         Eq(DraftModeWindow.AllianceHintLogCountForTest - hintBefore, 1,
-           "⑦ 「本机没有联盟/排行榜数据」那条日志**恰好出声一次**（同页重复刷新不刷屏）"
+           "⑦ 「Alliance Info 页要服务端联盟/排行榜数据」那条日志**恰好出声一次**（同页重复刷新不刷屏）"
          + "🧨 把 `_deckAllianceSaid` 那道闸删掉 ⇒ 本条红");
 
         win.SetDeckTab(0);

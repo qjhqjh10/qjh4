@@ -286,7 +286,7 @@ namespace RuleEngine
                                           UnitState abilityActingCard = null,
                                           bool abilityActingGate = false,
                                           CardDef abilityHostCard = null,
-                                          int abilityOwnerSeat = -1)
+                                          int abilityOwnerSeat = -1, int actionType = 0)
         {
             if (ctx == null || body == null) return false;
             // ============================================================
@@ -540,7 +540,7 @@ namespace RuleEngine
             {
                 Label = label, Execute = body,
                 Actor = actor, Target = abilityTarget, RequireActorInPlay = requireActorInPlay,
-                AbilityContext = abilityContext,
+                AbilityContext = abilityContext, ActionType = actionType,   // 账 L490：原版 `BattleActionType` 号回填（缺省 0 = 未标；消费者见 `ActionQueue.RemoveQueuedActionAt` 的副作用 switch 与 `CancelEffectsFromDisappearingUnitFromQueue` 的三档豁免）
                 // 🔴🆕 **2026-10-23（`Slay` 就地结算复核）**：出队时按原版
                 //   `CardScript.IsInPlayOrDying`（含 `waitingToDie`）复核载体 ——
                 //   判据 `BattleManager__ResolveTriggerSlay.c:116-226`；今天只有 Slay 那一跳传 `true`。
@@ -1488,7 +1488,7 @@ namespace RuleEngine
                 if (act != null && act.Actor != null
                     && act.AbilityContext != CardDef.AbilityContextUnknown)
                 {
-                    if (CarrierReplacedByRemnant(ctx, act.Actor))
+                    if (CarrierReplacedByRemnant(ctx, act.Actor) && act.ActionType != 0x2d && act.ActionType != 0x1a)   // 判据 = decomp_full/BattleManager__CancelEffectsFromDisappearingUnitFromQueue.c:77-91（原版对 destroyUnit / recallToHand **保留**：`:84-86` 0x1a=26 全豁免 · `:77-81` 0x2d=45 且 deathType 0x28 poison · `:88-91` shouldIgnoreDestroy 且 0x2d）。按调度台 2026-10-28 裁定简化为「0x2d / 0x1a 一律不撤」（常量现读确认 0x2d=45 destroyUnit、0x1a=26 recallToHand，同 ActionQueue.cs:2156-2157）
                     {
                         UnityEngine.Debug.LogWarning(
                             $"[ActionQueue] **取消**一条待结算动作「{act.Label}」（{act.Priority} 道）—— "
@@ -1905,8 +1905,8 @@ namespace RuleEngine
             //   **这里改成引用**（⛔ 别两处各留一份字面量）。判据与残余 → 类尾 §九。
             // ⚠️ 今天池内 **0 张**卡的 `keywords` 里真的有这两个词（`cards_engine.json` v32 现扫），
             //   所以本行**零行为变化**，补的是「卡面/数据一出现就自动生效」这一层（铁律 11）。
-            if (keyword == "courtesy") return "Courtesy";        // 43
-            if (keyword == "relentless") return "Relentless";    // 230
+            if (keyword == KeywordTable.Courtesy) return "Courtesy";        // 43
+            if (keyword == KeywordTable.Relentless) return "Relentless"; if (keyword == KeywordTable.TriggerOnceIfBoardCriteria) return "TriggerOnceIfBoardCriteria";   // 230 / 200（200 这一格 = B90·B1 补：`RawCardScript__UpdateTriggerOnce.c:13` 那一趟的名字）
             return null;
         }
 
@@ -2042,7 +2042,7 @@ namespace RuleEngine
                                   actor: target,
                                   // ② = 原版 `Resolve*` 的出队闸 `CardScript.IsInPlayOrDying`
                                   // （`ResolveTriggerCourtesy.c:28-31`）—— 判据只此一份（泵点那一支）。
-                                  requireActorInPlayOrDying: true);
+                                  requireActorInPlayOrDying: true, actionType: keyword == KeywordTable.Courtesy ? 0x41 : keyword == KeywordTable.Relentless ? 0x3e : 0);   // 账 L490 · ActionType 回填：courtesy=triggerCourtesy 0x41=65 · relentless=triggerRelentless 0x3e=62（判据 W2 §附录 A）
         }
 
         // ==========================================================================================

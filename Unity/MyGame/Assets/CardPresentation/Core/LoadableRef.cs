@@ -14,8 +14,13 @@
 //      `OnBeforeRead` / `OnBeforeWrite` + `implicit operator T` / `implicit operator string`（类尾，判据 =
 //      `D:/2/tools/decomp_generic_trial/out/LoadableReference_object___*.c`，逐句照抄）。⚠️ 原版的
 //      `ICustomWrite` / `IBeforeRead` / `IBeforeWrite` 三个接口我们**没有**（无 Newtonsoft）⇒ 只建方法本体、不实现接口。
+//   ✅ **2026-10-28（写手 `W6`）补的一对**：`operator ==` / `operator !=`（判据 =
+//      `判据/E7_泛型启动链与商店208条判据.md:29`「一对（C# 强制成对）」＋
+//      `decomp_generic_trial/out/LoadableReference_object___op_Equality__101c3f0.c` / `…__op_Inequality__101cec0.c`）。
+//      🔴 它让本类的 `==` 变成**比 `targetId` 字符串、且 null 安全**（与 `Equals(T)` 传 null 必 NRE 不同）
+//      ⇒ 类内凡是要判「引用本身是不是 null」的地方一律改用 `ReferenceEquals`（已逐处改掉，见各处注释）。
 //   ⛔ **仍然没做**：`ValidateReferences()`（原版空体）· `GetReferenceObjEditor()` / `SetReferenceObjEditor()`
-//      （编辑器 + Addressables 胶水）· `==`/`!=`（不在本批账里）· `implicit operator LoadableReference<T>(T|string)`
+//      （编辑器 + Addressables 胶水）· `implicit operator LoadableReference<T>(T|string)`
 //      两支（原版有、账里没有；我们已有对应 ctor）—— 逐条记在 `报告/B89_E9_LoadableRef12条.md` §3。
 //   🔶 自己设计（非原版）：**取 id 的口注入** —— 原版 `T : IIdentifiable` 自带 `GetID()`，我们的 T 是普通 class
 //      ⇒ 构造时注入 `Func<T,string> idOf`。**与 `Shell/Inventory.cs` 文件头「差异 ①」同一套做法**（同一个理由）。
@@ -238,7 +243,9 @@ namespace CardPresentation
         /// 这一支与下面 `operator string` 会撞成同一目标类型；本仓当前只有 `LoadableRef&lt;Currency&gt;` 与断言夹具 `LoadableRef&lt;Item&gt;`（`Editor/LoadableRefCheck.cs`）。</para></summary>
         public static implicit operator T(LoadableRef<T> instanceRef)
         {
-            if (instanceRef == null) return null;
+            // ⚠️ 用 `ReferenceEquals` 而不是 `==`：本类类尾重载了 `==`（比 `targetId` 字符串），
+            //    这里要的是「引用本身是不是 null」（原版 `if (instanceRef == null)` 是引用比较）。
+            if (ReferenceEquals(instanceRef, null)) return null;
             if (instanceRef.TargetId == null) return null;
             return instanceRef.Reference;
         }
@@ -248,9 +255,36 @@ namespace CardPresentation
         /// —— 判空用 `TargetId`（getter 会先回填），**返回的是 `targetId` 字段本身**（原版 `*(r+0x18)`）。</summary>
         public static implicit operator string(LoadableRef<T> instanceRef)
         {
-            if (instanceRef == null) return null;
+            // ⚠️ 这里**必须**用 `ReferenceEquals`：本类已重载 `==`（见类尾），写 `instanceRef == null`
+            //    会去比 `targetId`（空 id 的引用会被判成「等于 null」），语义完全不同。
+            if (ReferenceEquals(instanceRef, null)) return null;
             string id = instanceRef.TargetId;      // 原版：先过一遍 TargetId（回填）
             return id == null ? null : instanceRef.targetId;
         }
+
+        /// <summary>原版 `op_Equality(LoadableReference&lt;T&gt;, LoadableReference&lt;T&gt;)`
+        /// （`D:/2/tools/decomp_generic_trial/out/LoadableReference_object___op_Equality__101c3f0.c` 全文）：
+        /// <code>
+        /// uVar1 = null;  if (a != 0) { if (a.reference != null) a.targetId = a.reference.GetID(); uVar1 = a.targetId; }
+        /// uVar2 = null;  if (b != 0) { if (b.reference != null) b.targetId = b.reference.GetID(); uVar2 = b.targetId; }
+        /// return String.Equals(uVar1, uVar2);
+        /// </code>
+        /// 🔴 **两点与 `Equals(LoadableRef&lt;T&gt;)` 不同（都是照抄，⛔ 别「统一」掉）**：
+        /// ① **null 安全** —— 原版两侧都先判 `!= 0` 再取值 ⇒ `null == null` 是 **true**（`String.Equals(null,null)`），
+        ///    而 `Equals(T)` 传 null 会 **NRE**；
+        /// ② 比的是 **`targetId` 字符串**，不是引用 ⇒ 两份不同实例、同 id ⇒ 相等（`List&lt;…&gt;.Contains` 靠它）。
+        /// ⚠️ 推论（照抄原版、不是 bug）：**`targetId` 为空的非 null 引用与 `null` 相等**。
+        /// 判据来源 = 2026-10-28 `判据/E7_泛型启动链与商店208条判据.md:29`「`operator ==` / `operator !=` —— **一对**（C# 强制成对）」。</summary>
+        public static bool operator ==(LoadableRef<T> x, LoadableRef<T> y)
+        {
+            // ⚠️ 本算子体内**必须**用 `ReferenceEquals`：写 `x == null` 会递归回本算子（无限递归 = 栈溢出）。
+            string a = ReferenceEquals(x, null) ? null : x.TargetId;   // 原版首句：先从本体回填 targetId，再取值
+            string b = ReferenceEquals(y, null) ? null : y.TargetId;
+            return string.Equals(a, b);                                // 原版末句 `String.Equals(uVar1, uVar2)`
+        }
+
+        /// <summary>原版 `op_Inequality`（`…___op_Inequality__101cec0.c` 末句 `return cVar1 == '\0';`）——
+        /// 就是 `!(==)`，⛔ 别单独写一套判据（两处写同一条规则 = 迟早不一致）。</summary>
+        public static bool operator !=(LoadableRef<T> x, LoadableRef<T> y) { return !(x == y); }
     }
 }

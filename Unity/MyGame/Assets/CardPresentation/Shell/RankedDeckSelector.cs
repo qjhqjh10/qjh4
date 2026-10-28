@@ -262,7 +262,7 @@ namespace CardPresentation
                 {
                     if (_noDeckText != null)
                         _noDeckText.SetText(string.Format(Loc.T("MenuDeck/Error/NoDeckForMode"), ArmyIcons.LocalizedName(CurrentArmy)));
-                    if (_goToCreateLabel != null) _goToCreateLabel.SetText(Loc.T("MainMenu/Ranked/GoToCreateDeck"));
+                    if (_goToCreateLabel != null) _goToCreateLabel.SetText(Loc.T("MainMenu/Ranked/GoToBoosterStore"));
                     _goToAction = OnGoToStoreButtonClick;
                 }
             }

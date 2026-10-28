@@ -491,7 +491,7 @@ namespace CardPresentation
                 // 原版 `对齐=Left/Top`：水平那半走现成的口（`MenuDraw.AlignLeft`），
                 // 垂直那半 = `Label.VAlign.Top`（`MenuDraw.SetVAlign`）。
                 MenuDraw.AlignLeft(_mdBody, MdBody);
-                MenuDraw.SetVAlign(_mdBody, Label.VAlign.Top, MdBody);
+                MenuDraw.SetVAlign(_mdBody, Label.VAlign.Top, MdBody); _mdHit = MenuDraw.Hit(mdVpContent, "MessageText Hit", MdBody, QText + 1, null); if (_mdHit != null) { var _wb = _mdHit.GetComponent<WindowButton>(); if (_wb != null) { _wb.tintOnHover = false; _wb.playClickSound = false; _wb.onDown = OnMessageBodyClick; } }   // 🆕 B90-N3：正文链接（原版 `MessageDisplay.OnPointerClick`）
             }
             _mdFooter = MenuDraw.Node(mdVpContent, "Footer", MdFooter);
             MenuDraw.Rect(_mdFooter, null, MdFooter, "Image", QContent, null, true);
@@ -1335,5 +1335,58 @@ namespace CardPresentation
 
         /// <summary>自检读口：原版曲线在某点的值（断言**期望值不取自被测实现** —— 逐键判据见上面注释）。</summary>
         public static float AnimCurveAtForTest(float t) { return AnimCurveEase(t); }
+
+        // ============================================================ 🆕 2026-10-28（B90 · N3，追加在类尾）
+        //  **原版 `MessageDisplay.OnPointerClick(PointerEventData)`** —— 正文里的链接。
+        //  判据（第一权威 = 反汇编）：
+        //   · `Everguild.LiveOps.MessageDisplay__OnPointerClick.c` **全 body 一句**：
+        //       `TextLinkProcessing.TryProcessText(this.text(+0x28), eventData);`
+        //   · `TextLinkProcessing__TryProcessText.c`：`TMP_TextUtilities.FindIntersectingLink(text, 指针, Camera.main)`
+        //       → `-1` ⇒ 什么都不做；否则 `textInfo.linkInfo[i].GetLinkID()` → `Split(';')` → 取第 0 段：
+        //         **`int.TryParse` 失败 ⇒ `Application.OpenURL(那一段)` 并 return true**；
+        //         成功 ⇒ `List.RemoveAt(0)` 后 return true —— 而下一个消费者
+        //         `TextLinkProcessing__ProcessText.c` 是**共享空桩**（机器码只有 `ret`）⇒ **数字型链接点了什么都不做**。
+        //  ⇒ 我们只实现 URL 那一支（可观测行为的全部）；数字型那一支原版自己就是空桩。
+        //  ⚠️ 命中那一步**不写第二份**：走 `Label.LinkAt(world, cam)`（`Battle/Label.cs` → `TmpFont.LinkAt`，
+        //    内部就是同一个 `TMP_TextUtilities.FindIntersectingLink`）；先例 = `Shell/PopUpGameWindow.CheckLinkText`。
+
+        /// <summary>正文那颗命中区（`MessageText Hit`）。自检拿它核「建出来了 + `onDown` 接的是本方法」。</summary>
+        Transform _mdHit;
+        /// <summary>自检口：正文命中区（没建出来 ⇒ null）。</summary>
+        public Transform MessageHitNode { get { return _mdHit; } }
+
+        /// <summary>原版 `MessageDisplay.OnPointerClick` —— 指针压在正文的 `<link=…>` 上就打开那个 URL。
+        /// 没压中链接 ⇒ 什么都不做（原版 `FindIntersectingLink == -1` 那一支）。</summary>
+        public void OnMessageBodyClick()
+        {
+            if (_mdBody == null) return;
+            var cam = Camera.main;
+            if (cam == null) return;                        // 原版 `GetUICamera()` 取不到 ⇒ 不做
+            Vector3 m = PointerScreenForLink();
+            float z = cam.WorldToScreenPoint(_mdBody.transform.position).z;
+            string url = _mdBody.LinkAt(cam.ScreenToWorldPoint(new Vector3(m.x, m.y, z)), cam);
+            if (string.IsNullOrEmpty(url)) return;           // 没压在链接上 ⇒ 不动作（⛔ 不出声：原版这一支完全静默）
+            if (int.TryParse(url, out int _))
+            {
+                // 原版数字型链接的下一个消费者是**空桩**（`TextLinkProcessing__ProcessText.c` 只有 `ret`）⇒ 照抄「什么都不做」。
+                Debug.Log("[Inbox] 正文链接 `" + url + "` 是**数字型动作** —— 原版 `TextLinkProcessing.ProcessText` 是空桩 ⇒ 不动作");
+                return;
+            }
+            Application.OpenURL(url);
+            Debug.Log("[Inbox] 正文链接 ⇒ 打开 URL「" + url + "」（原版 `TextLinkProcessing.TryProcessText`）");
+        }
+
+        /// <summary>屏幕指针（**屏幕像素、原点左下**，与 legacy `Input.mousePosition` 同口径）。
+        /// 🔴 本工程 `activeInputHandler: 1`（只启用 Input System 包）⇒ **不许读 `Input.mousePosition`**（一调就抛）。
+        /// 读数口径照抄 `Shell/PopUpGameWindow.PointerScreenForLink`（同一条链的既有实现）。
+        /// ⚠️ 批处理/自检里没有鼠标设备 ⇒ 退回 `(0,0)` ⇒ 这条链**只能在真机上点**（自检改核「命中区建出来 + `onDown` 接的是本方法」）。</summary>
+        static Vector3 PointerScreenForLink()
+        {
+            var m = UnityEngine.InputSystem.Mouse.current;
+            if (m != null) return m.position.ReadValue();
+            var ts = UnityEngine.InputSystem.Touchscreen.current;
+            if (ts != null) return ts.primaryTouch.position.ReadValue();
+            return Vector3.zero;
+        }
     }
 }

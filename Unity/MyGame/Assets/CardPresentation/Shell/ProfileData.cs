@@ -990,7 +990,7 @@ namespace CardPresentation
             public int avatarIndex = 0;
             /// <summary>−1 = 没选（与 `TitleIndex` 同义）。</summary>
             public int titleIndex = -1;
-            public bool avatarBorderOn = true;
+            public bool avatarBorderOn = true; public int equippedBorderIndex = 0;   // 🆕 2026-10-28（B90-N1 · FP-PROFILE-02）：已装备边框下标（`borders[]`；0 = `Default`，越界由读口按 0 处理）。⚠️ 与 `avatarBorderOn` 同一行是为了**零行数变化**（`SaveDto` 在文件中段，加行会让下游 ~45 处账落点整体下移）
             /// <summary>成就进度：与 <see cref="achValues"/> 同下标配对（`Ach_N`）。</summary>
             public string[] achIds = new string[0];
             public int[] achValues = new int[0];
@@ -1067,7 +1067,7 @@ namespace CardPresentation
                 }
                 var d = JsonUtility.FromJson<SaveDto>(text);
                 if (d == null) return;
-                _save = d;
+                _save = d; EquippedBorderIndex = d.equippedBorderIndex;   // 🆕 2026-10-28（B90-N1 · FP-PROFILE-02）：旧档没有这个键 ⇒ `JsonUtility` 给 0 = `Default`（= 原版「没拿到过边框」那一档），⛔ 不清档
                 _nameOverride = string.IsNullOrEmpty(d.playerName) ? null : d.playerName;
                 _avatarIndex = d.avatarIndex;
                 _titleIndex = d.titleIndex;
@@ -1098,7 +1098,7 @@ namespace CardPresentation
                 if (_avatarIndex < 0 || _avatarIndex >= _avatars.Count) _save.avatarIndex = 0;
                 else _save.avatarIndex = _avatarIndex;
             }
-            _save.playerName = _nameOverride ?? "";
+            _save.playerName = _nameOverride ?? ""; _save.equippedBorderIndex = EquippedBorderIndex;   // 🆕 2026-10-28（B90-N1 · FP-PROFILE-02）：边框下标随整份 payload 一起写（双写中央档 + `profile.json`）
             var ids = new List<string>(); var vals = new List<int>();
             foreach (var kv in _achProgress) { ids.Add(kv.Key); vals.Add(kv.Value); }
             _save.achIds = ids.ToArray(); _save.achValues = vals.ToArray();
@@ -1328,11 +1328,11 @@ namespace CardPresentation
                                + "生成器：`工具/gen_profile_cosmetics.py` 的 `load_borders()`");
         }
 
-        /// <summary>已装备边框的下标（0 = `Default`）。
+        /// <summary>已装备边框的下标（0 = `Default`）。🆕 **2026-10-28（B90-N1 · FP-PROFILE-02）起【落盘】**。
         /// <para>🔶 自己设计（非原版）：原版「当前边框」在**服务器背包**里（`PlayerAvatarDataManager.SetCurrentItem`，
-        /// 判据 → `CosmeticItemAvatarBorder__HandleOnCollect.c:12-20`），本地**没有「获得边框」这个动作**
-        /// （领奖/活动链未做）⇒ 只留一个内存下标、**不落盘**（`SaveDto` 在文件中部，加字段会让下游账落点整体下移）。
-        /// 谁的默认值是 0：原版那条 `Default`（`autoAssign=0`、无父活动）· 调度台 2026-10-28 裁定。</para></summary>
+        /// 判据 → `CosmeticItemAvatarBorder__HandleOnCollect.c:12-20`），本地**没有「获得边框」这个动作**（领奖/活动链未做）；
+        /// **存哪儿也是我们挑的** = `SaveDto.equippedBorderIndex`（跟 `profile.json` 双写走），唯一写口 = `SetEquippedBorder`。
+        /// 默认 0 = 原版那条 `Default`（`autoAssign=0`、无父活动）· 调度台 2026-10-28 裁定；越界由读口按 0 处理。</para></summary>
         public static int EquippedBorderIndex;
 
         /// <summary>已装备的那一条（越界/清单空 ⇒ `null`，调用方回落常量）。</summary>
@@ -1340,7 +1340,7 @@ namespace CardPresentation
         {
             get
             {
-                var list = Borders;
+                EnsureSave(); var list = Borders;   // 🆕 B90-N1：下标现在住在存档里（`LoadFromDisk` 才写进字段）⇒ 读口必须先保证已读盘
                 if (list == null || list.Count == 0) return null; RefreshExpiredBorders(LiveOpsLocalCatalog.NowUtc);   // 🆕 B89-E30（账 `L141`）：读到就扫一次（原版在登录/开窗时扫；那两个调用点不在本批白名单 ⇒ 挂在唯一读口上，见类尾那段说明）
                 int i = EquippedBorderIndex;
                 if (i < 0 || i >= list.Count) i = 0;
@@ -1359,16 +1359,40 @@ namespace CardPresentation
             }
         }
 
-        /// <summary>原版 `AvatarTab.FindActiveAvatarBorder()` 的等价物。
-        /// <para>原版 = 遍历**背包**里所有 `CosmeticItemAvatarBorder`，返回第一条
-        /// `IsParentEventActive()` 为真的（判据 → `AvatarTab.cs` 的 `FindActiveAvatarBorder`，ILSpy `:4937` 那段）。</para>
-        /// <para>🔶 自己设计（非原版）：我们没有「背包拥有态」也没有**活动态查询层**（活动线 P1 未做）⇒
-        /// 等价物 = **已装备的那一条**（`EquippedBorder`）；`aa` 四条活动边框在活动没开时本就不该出现，
-        /// 我们这边它们永远选不中（`EquippedBorderIndex` 恒 0）· 调度台 2026-10-28 裁定。
-        /// ⚠️ 可观测差别：原版「有活动边框在开」时这里返回事件边框，我们恒返回 `Default` —— 那一条要等活动线。</para></summary>
+        /// <summary>原版 `AvatarTab.FindActiveAvatarBorder()` 的等价物（🥇 `decomp_full/AvatarTab__FindActiveAvatarBorder.c`
+        /// 全文现读 2026-10-28）：遍历**背包**里的 `CosmeticItemAvatarBorder`，返回**第一条 `IsParentEventActive()` 为真的**；
+        /// 一条都没有 ⇒ **返回 null**（`.c` 尾部 `return 0`）。本机没有「背包拥有态」（用户 2026-09-17 全解锁口径
+        /// ⇒ `borders` 5 条全视为拥有，与 `Avatars`/`Titles` 同一条口径）。
+        /// <para>我们这侧 = 遍历 <see cref="Borders"/>：**先**找「父活动此刻开着」的那条
+        /// （`LiveOpsLocalCatalog.Find(pe)` + `LiveOpsLocalEvent.IsCurrentlyActive`），**再**兜底「无父活动」那条（`Default`）。</para>
+        /// <para>🔶 自己设计（非原版）：**两遍的顺序**（活动优先、`Default` 兜底）。为什么必须自己定 ——
+        /// 原版 `Default` 那一条的 `parentEvent` 为空，`IsParentEventActive()` 对它**会抛空引用**
+        /// （`CosmeticItemAvatarBorder__IsParentEventActive.c:14-27`；对照 `…__get_ParentEvent.c` 是 null 安全的）
+        /// ⇒ 「原版在没有活动边框时到底返回 null、还是把「边框钮」留在 prefab 态」这半条判据读不到。
+        /// 「活动优先」那半有实据（`B88_E10`：原版返回事件边框、我们原来恒返回 `Default`）。
+        /// ⇒ 取「活动优先 + `Default` 兜底」这一档，⛔ 不凭半条判据把可见的「边框钮」藏掉（那会造出原版未必有的行为）。
+        /// · B90-N1 2026-10-28，**待调度台复核**。</para>
+        /// <para>⚠️ 今天可观测值**不变**（本地那 4 条限时边框的父活动都在 2025 / 2026-01
+        /// ⇒ 第 1 遍一条都不中 ⇒ 仍返回 `Default`）；活动线落地后这里会自动开始返回事件边框
+        /// （= 原版 `AvatarBorderController` 画的那张金框，4 条活动边框共用同一张图）。</para></summary>
         public static BorderItem FindActiveAvatarBorder()
         {
-            return EquippedBorder;
+            var list = Borders;
+            if (list == null || list.Count == 0) return null;
+            var now = LiveOpsLocalCatalog.NowUtc;
+            // pass 0 = 父活动此刻开着的那条（原版语义）；pass 1 = 无父活动的那条（`Default`）兜底
+            for (int pass = 0; pass < 2; pass++)
+                for (int i = 0; i < list.Count; i++)
+                {
+                    var b = list[i];
+                    if (b == null) continue;
+                    bool noParent = string.IsNullOrEmpty(b.pe);
+                    if (pass == 1) { if (noParent) return b; continue; }
+                    if (noParent) continue;                       // 活动那一遍跳过 `Default`（它没有父活动）
+                    var ev = LiveOpsLocalCatalog.Find(b.pe);
+                    if (ev != null && ev.IsCurrentlyActive(now)) return b;
+                }
+            return null;                                          // 原版尾部 `return 0`
         }
 
         // ============================================================================================
@@ -1437,7 +1461,7 @@ namespace CardPresentation
                 if (IsBorderUsable(list[i], utc, out why)) continue;
                 expired++;
                 if (EquippedBorderIndex != i) continue;
-                EquippedBorderIndex = 0;                                 // `Default`（原版同样回默认项）
+                EquippedBorderIndex = 0; SaveIfAuto();                   // `Default`（原版同样回默认项）｜🆕 B90-N1：卸下要**落盘**（否则重启又装回那条过期边框）
                 Debug.Log("[Profile] 限时边框 `" + list[i].n + "` 已不可用 ⇒ **卸下**、回到 `Default`（" + why
                         + "；原版 `PlayerAvatarDataManager.RefreshExpiredBorders`）");
             }
@@ -1457,6 +1481,123 @@ namespace CardPresentation
                 if (IsBorderUsable(list[i], utc, out why)) n++;
             }
             return n;
+        }
+
+        // ============================================================================================
+        //  🆕 2026-10-28（B90-N1 · FP-PROFILE-02）：**装备边框 + 落盘**这最后一格
+        //
+        //  判据（第一权威）→ `CosmeticItemAvatarBorder__HandleOnCollect.c:12-20`：原版收到边框奖励后
+        //    `PlayerAvatarDataManager.SetCurrentItem(this, …)` —— 「当前那一件」是**持久化**的（`CosmeticData` key 13）。
+        //  账里的残差是「`EquippedBorderIndex` 全仓零写入点 ⇒ 换边框后重进游戏回 `Default`」。
+        //  ⇒ 本笔：① 下标搬进 `SaveDto.equippedBorderIndex`（跟着 `profile.json` + 中央档 `CosmeticData` 双写走）
+        //          ② 唯一写口 = 下面这个 `SetEquippedBorder`（越界/未知 id ⇒ 拒绝并出声，⛔ 不静默回落）
+        //          ③ `AvatarTab.ConfirmSelect()` 里调一次（原版 `SetCurrentItem` 那一路会顺带整份写回）。
+        //  ⚠️ 旧档没有这个键 ⇒ `JsonUtility` 给默认 0 = `Default`，**正好是原版「没拿到过边框」那一档**；
+        //     ⛔ **别把它加进 `LegacySaveReader.ProfileFields`**：那 7 个键是「少一个就不许写盘」的闸，
+        //     加进去会把**这批老档**判成「字段不全」⇒ 触发 `ImportProfile` 的补缺重序列化路径
+        //     （那条路按 `LegacyProfileFields` 重建 payload，会把本键丢掉）。
+        // ============================================================================================
+
+        /// <summary>装备一条边框（按 `borders[]` 下标）并**落盘**。返回是否真的写进去了。
+        /// <para>`index` 越界 / 清单为空 ⇒ **拒绝 + 出声**（⛔ 不静默回落成 `Default`：那会让「没装上」看起来像「装上了」）。</para>
+        /// <para>⚠️ 批处理（`-batchmode`）下 `SaveIfAuto` 被挡 ⇒ 只改内存；自检要验落盘请接
+        /// <see cref="SaveNowForTest"/> + <see cref="ReloadSaveForTest"/>（与 `AvatarIndex`/`TitleIndex` 同一套）。</para></summary>
+        public static bool SetEquippedBorder(int index)
+        {
+            EnsureSave();
+            var list = Borders;
+            if (list == null || list.Count == 0)
+            {
+                Debug.LogWarning("[Profile] `SetEquippedBorder(" + index + ")`：`borders` 清单是空的 ⇒ 什么都没做。");
+                return false;
+            }
+            if (index < 0 || index >= list.Count)
+            {
+                Debug.LogWarning("[Profile] `SetEquippedBorder(" + index + ")` 越界（清单 " + list.Count
+                               + " 条）⇒ 拒绝，当前仍是 `" + (list[Mathf.Clamp(EquippedBorderIndex, 0, list.Count - 1)].n) + "`");
+                return false;
+            }
+            EquippedBorderIndex = index;      // 唯一写口（`SaveNow` 会把它抄进 `SaveDto.equippedBorderIndex`）
+            SaveIfAuto();
+            Debug.Log("[Profile] 已装备头像边框 = `" + list[index].n + "`（# " + index + "）⇒ 已写入 `SaveDto.equippedBorderIndex`"
+                    + (Application.isBatchMode ? "（批处理：只在内存里，没写盘）" : "（`profile.json` + 中央档 `CosmeticData`）"));
+            return true;
+        }
+
+        /// <summary>按 id（= 原版 `uniqueId`）装备；找不到 ⇒ 拒绝 + 出声。给「活动发了哪个边框」那条链用。</summary>
+        public static bool SetEquippedBorderById(string borderId)
+        {
+            var list = Borders;
+            if (list != null)
+                for (int i = 0; i < list.Count; i++)
+                    if (list[i] != null && list[i].id == borderId) return SetEquippedBorder(i);
+            Debug.LogWarning("[Profile] `SetEquippedBorderById(\"" + borderId + "\")`：清单里没有这条 ⇒ 什么都没做。");
+            return false;
+        }
+
+        // ============================================================ 387 GetCosmeticItem（B91_R2 追加在类尾 —— 不挪前面成员的行号）
+        /// <summary>原版 `PlayerDataManager.GetCosmeticItem(string cosmeticId)`（账 387）。
+        /// <para>逐句判据 = `decomp_full/PlayerDataManager__GetCosmeticItem.c`（全文现读 2026-10-28）：
+        /// 取 `PlayerCosmeticsDataManager` 单例的**装饰品总表**（单例 `+0x38`），
+        /// 造一个闭包（捕获 `cosmeticId`）→ `List&lt;CosmeticItem&gt;.Find(x =&gt; x.id == cosmeticId)` —— **线性找第一命中**。
+        /// 找不到 ⇒ `Find` 返回 null（不抛）；单例/表为空 ⇒ 原版 NRE（`FUN_1803f47a0`）。</para>
+        /// <para>⚠️ 我们的等价：装饰品在二分清单里 —— <see cref="Avatars"/>（头像）与 <see cref="Titles"/>（称号），
+        /// 每条的 <see cref="Item.Id"/> 就是原版 `uniqueId`（现读 `Fill` 里 `Id = src[i].id`）。
+        /// 原版是一张**总表**、我们是两张分表 ⇒ 这里**按原版次序先扫头像再扫称号**、返回第一命中。
+        /// ⛔ **不返回边框 / 卡背**：它们不是 <see cref="Item"/>（`BorderItem` 另一套字段），
+        /// 且原版 `GetCosmeticItem` 的消费方（`BattleManager.GetCardback`）要的是 `CardBack` 那种装饰品，不在本法范围内。</para>
+        /// <para>⚠️ 与原版的唯一差异：`cosmeticId` 为 null/空、或两张表都没命中 ⇒ 返回 `null`（原版单例缺失时抛 NRE —— 我们**不崩宿主**）。
+        /// 全仓**今天 0 个消费方**（界面都按索引取），留着是把账落地（铁律 11：不因「没人用」就判不做）。</para></summary>
+        public static Item GetCosmeticItem(string cosmeticId)
+        {
+            if (string.IsNullOrEmpty(cosmeticId)) return null;
+            var avatars = Avatars;
+            if (avatars != null)
+                for (int i = 0; i < avatars.Count; i++)
+                    if (avatars[i] != null && avatars[i].Id == cosmeticId) return avatars[i];
+            var titles = Titles;
+            if (titles != null)
+                for (int i = 0; i < titles.Count; i++)
+                    if (titles[i] != null && titles[i].Id == cosmeticId) return titles[i];
+            return null;
+        }
+
+        // ============================================================ 486 SetCosmeticTitle（B91_R2 追加在类尾）
+        /// <summary>原版 `PlayerDataManager.SetCosmeticTitle(CosmeticItemTitle title)`（账 486）。
+        /// <para>逐句判据 = `decomp_full/PlayerDataManager__SetCosmeticTitle.c`（全文现读 2026-10-28）：
+        /// ① `demoData(+0x250).playerTitle(+0x30) = LoadableReference.op_Implicit(title)`（写选中称号）
+        /// ② `UploadOnlineDemoData()`（上传 —— **P3，本地没有服务器**）。
+        /// 无返回值；`demoData` 为 null 时原版 NRE。</para>
+        /// <para>我们的等价 = 把 <see cref="TitleIndex"/> 指到 <paramref name="title"/> 在 <see cref="Titles"/> 里的下标并落盘
+        /// （选中态的唯一写口，见 <see cref="TitleIndex"/> 的注释）；上传那半是 P3 ⇒ **出声不做**（⛔ 不静默成功）。
+        /// 找不到该称号 / 清单为空 ⇒ 拒绝 + 出声（⛔ 不回落成「装上了」，同 <see cref="SetEquippedBorder"/> 口径）。</para></summary>
+        public static bool SetCosmeticTitle(Item title)
+        {
+            if (title == null)
+            {
+                Debug.LogWarning("[Profile] `SetCosmeticTitle(null)`：原版这里写一个空 LoadableReference（= 卸下称号？语义存疑）"
+                               + " ⇒ 我们拒绝，什么都不做。");
+                return false;
+            }
+            var list = Titles;
+            if (list == null || list.Count == 0)
+            {
+                Debug.LogWarning("[Profile] `SetCosmeticTitle`：称号清单是空的 ⇒ 没装。");
+                return false;
+            }
+            int idx = -1;
+            for (int i = 0; i < list.Count; i++)
+                if (list[i] == title || (list[i] != null && list[i].Id == title.Id)) { idx = i; break; }
+            if (idx < 0)
+            {
+                Debug.LogWarning("[Profile] `SetCosmeticTitle(\"" + title.Name + "\")`：清单里没有这条 ⇒ 没装。");
+                return false;
+            }
+            TitleIndex = idx;                             // 原版：demoData.playerTitle = title（唯一写口）
+            SaveIfAuto();
+            Debug.Log("[Profile] 已装备称号 = `" + list[idx].Name + "`（# " + idx + "）"
+                    + "；原版随后 `UploadOnlineDemoData()` 上传（P3，本地无服务器）");
+            return true;
         }
     }
 }

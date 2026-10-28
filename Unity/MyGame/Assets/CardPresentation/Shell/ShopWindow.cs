@@ -89,7 +89,9 @@ namespace CardPresentation
                 //   文案走官方词条 `MenuShop/VIPCardStore/Title`（en `VIP Card store` / zh `VIP 张牌商店`）。
                 new TabBtnSpec(ShopData.Pages[3].Icon, ShopData.Pages[3].Label, 36f, 5f, 36f,
                                "ShopMenu_VipButton", term: "MenuShop/VIPCardStore/Title"),
-                // 第 4 个 = 母版（原版 `TabButtons.tabButtonPrefab`）：**照建但关着**。
+                // 🆕 **2026-10-28（`B91_W5`）第 5 颗键 = Boosters/Crates 页**（原版 `BoosterShopTab : ShopTab`）：图标/文案照 `Pages[4]`，文案走官方词条 `MenuShop/ShopItemType/Boosters`（en `Boosters` / zh `增强包`）；实例 ID 是我们的诊断名（`BadgeWiring` 里没有它的徽记定义）。
+                new TabBtnSpec(ShopData.Pages[4].Icon, ShopData.Pages[4].Label, 36f, 5f, 36f, "ShopMenu_BoostersButton", term: "MenuShop/ShopItemType/Boosters"),
+                // 第 5 个 = 母版（原版 `TabButtons.tabButtonPrefab`）：**照建但关着**。
                 new TabBtnSpec(ShopData.MasterKeyIcon, "Booster Packs", 25.65f, 12f, 33f, "", 47.9f),
             };
         }
@@ -118,7 +120,7 @@ namespace CardPresentation
             visualTypes.Add(WindowTabType.ShopDaily);
             visualTypes.Add(WindowTabType.ShopItems);
             visualTypes.Add(WindowTabType.ShopVip);      // 🆕 2026-10-27（B88_E12）第 4 颗 = VIP 页（枚举成员在 `RewardsWindow.cs` 的 `WindowTabType`）
-            visualTypes.Add(WindowTabType.None);
+            visualTypes.AddRange(new[] { WindowTabType.ShopCrates, WindowTabType.None });   // 🆕 2026-10-28（B91_W5）第 5 颗 = Boosters/Crates 页（枚举门槛在 `RewardsWindow.cs`）；最后一格仍是母版那一格（`None`）
         }
 
         public static ShopWindow Create(WindowsManager mgr)
@@ -176,6 +178,7 @@ namespace CardPresentation
         /// ⇒ 它永远不是 `CurrentTab`；`CurrentTab == None` 只在「新建实例」出现 ⇒ 回落第 0 页。</para></summary>
         int StartVisualIndex()
         {
+            if (Context != null && Context.army != ArmyIcons.Neutral) { int crates = visualTypes != null ? visualTypes.IndexOf(WindowTabType.ShopCrates) : -1; if (crates >= 0) return crates; }   // 🆕 2026-10-28（B91_W5）带阵营提示 ⇒ 落 **Boosters/Crates** 页（原版走 `GameWindowWithTabsOptions.startTab`，本地无 options 资产 ⇒ 用 `army != Neutral` 顶这根信号；判据见类尾 `OpenData` 的注释）
             if (CurrentTab == WindowTabType.None) return 0;
             int keep = visualTypes != null ? visualTypes.IndexOf(CurrentTab) : -1;
             return keep >= 0 ? keep : 0;
@@ -270,6 +273,71 @@ namespace CardPresentation
             sb.Append($"Shop：页签 {CurrentTab} · 页 {tabs.Count} 个 · 左栏 {ButtonsNow().Length} 键");
             sb.Append(" · 取不到的图 ").Append(MissingArt.Count).Append(" 张");
             return sb.ToString();
+        }
+
+        // ============================================================ 🆕 2026-10-28（B91_W5）：开窗上下文 `OpenData`（原版形状）
+        // 判据（`ShopWindow.cs` 类桩 + `cpp2il/out_cpp2il_dev_ilspy/ShopWindow.cs:8-18/487-518`）：
+        //   原版 `public class OpenData { public CardArmy army; public bool forcedOpened; }` ·
+        //   `public OpenData Context => data as OpenData;`（读的是基类 `GameWindow.data` 那个字段）。
+        // 🔴 **本机唯一的生产者** = `RankedDeckSelector.OnGoToStoreButtonClick`（`out_cpp2il_dev_ilspy/RankedDeckSelector.cs:527-545`）：
+        //   `var openData = new ShopWindow.OpenData { army = currentArmy };` ＋ **另一个参数**
+        //   `GameWindowWithTabsOptions.startTab = TypeReference(typeof(BoosterShopTab))` ⇒ 开商店**直奔卡包页**。
+        //   ⚠️ 我们的 `Create` 只有一个 `OpenData` 形参（本地没有 options 资产）⇒ 「落哪一页」由
+        //   `army != Neutral` 推（见 `StartVisualIndex`），如实标成**我们的换算**，⛔ 不写成原版行为。
+
+        /// <summary>原版 `ShopWindow.OpenData`。**形状照抄**（只有这两个字段）。
+        /// <para>⚠️ `forcedOpened`：原版这**两个字段本地都没有读写点**（全量产物里只有它的声明与默认值）⇒
+        /// 我们**原样携带、不发明语义**；谁把它设成 `true`，`Create` 会**出声**一次（红线：不许静默失败）。</para></summary>
+        public class OpenData
+        {
+            /// <summary>`CardArmy` 枚举值（`0 = Neutral` = 没带阵营提示）。</summary>
+            public int army;
+            /// <summary>原版字段（本地未解出用途，见类注释）。</summary>
+            public bool forcedOpened;
+
+            public OpenData() { }
+            public OpenData(int army) { this.army = army; }
+
+            /// <summary>🔶 自己设计（非原版）：按**阵营名字符串**建一份上下文 · 原版形参是 `CardArmy` 枚举，而我们的 UI 层（`LiveOpsEventWindow.SelectedArmyFaction` 等）用的是 `CardDef.Faction` 字符串 ⇒ 给一个**唯一**换算口（⛔ 别让每个调用点各写一次 `ArmyIcons.Id`，两处换算迟早不一致）· B91_W5 2026-10-28。</summary>
+            public static OpenData ForFaction(string faction)
+            {
+                int id = ArmyIcons.Id(faction);
+                if (string.IsNullOrEmpty(faction) || id < 0)
+                {
+                    Debug.LogWarning("[Shop] `OpenData.ForFaction(\"" + faction + "\")` 认不出这个阵营 ⇒ 当 `Neutral`"
+                                   + "（不落 crates 页、也不自动开任何卡包）");
+                    return new OpenData();
+                }
+                return new OpenData(id);
+            }
+        }
+
+        /// <summary>原版 `ShopWindow.Context`（`= data as OpenData`）—— 页那边（`ShopTabPage`）读它来跑
+        /// `BoosterShopTab.TryOpenContainerArmy`。
+        /// <para>🔴 **为什么还要留一份自己的字段**（`_openData`）：本仓开商店**只走 `WindowsManager.OpenByRef`**
+        /// （`ShellScene` 的窗口表 / `LiveOpsEventWindow.OnGoToStoreButtonClick` / `MainMenuRuntime`），而它最后一句是
+        /// `wm.OpenWindow(win, **null**, closeAll)` ⇒ `TryOpen(null)` → `SetupData(null)` 会把基类 `Data` **清空**
+        /// （`Shell/WindowsManager.cs:940`）。原版那一跳是 `OpenWindow(shopWindow, openData, …)`（带 data），我们没有那条路
+        /// ⇒ **把同一份 `OpenData` 另存一份**，`Data` 那条照旧留给 `OpenWindow(win, data)` 的调用方。两者语义相同、只取一个。</para></summary>
+        public OpenData Context { get { return _openData ?? (Data as OpenData); } }
+
+        /// <summary>`Context` 的那一份（见上一条 doc：`OpenByRef` 会把基类 `Data` 清成 null）。</summary>
+        OpenData _openData;
+
+        /// <summary>🆕 `Create(WindowsManager, OpenData)`（原版 `OpenWindow(shopWindow, openData, …)` 那一跳）。
+        /// <para>与 <see cref="Create(WindowsManager)"/> 的差别：**只在建窗那一刻记下 `OpenData`**
+        /// （`SetupData` 走原版那一条 = 只写 `data` 字段、一个 UI 字段都不碰；另存一份给 `Context`，理由见上）。</para>
+        /// <para>⚠️ 调用方**直接用 `WindowsManager.OpenByRef("ShopWindow", m => ShopWindow.Create(m, data))` 即可** ——
+        /// `OpenByRef` 随后那次 `OpenWindow(win, null)` 只会把 `Data` 清空，`_openData` 不受影响。</para></summary>
+        public static ShopWindow Create(WindowsManager mgr, OpenData data)
+        {
+            var w = Create(mgr);
+            w.SetupData(data);          // = 原版 `GameWindow.SetupData`（只写 `data`）
+            w._openData = data;         // 见 `Context` 的 doc：`OpenByRef` 会把 `Data` 清掉
+            if (data != null && data.forcedOpened)
+                Debug.Log("[Shop] `OpenData.forcedOpened = true` —— 原版这根字段**本地无读写点**（唯一构造点只赋 `army`）"
+                        + " ⇒ 我们原样携带、**不改变行为**（⛔ 不发明语义）");
+            return w;
         }
     }
 

@@ -2805,7 +2805,8 @@ namespace CardPresentation
         /// <summary>按 §九 9·4 的「最小清单」建一张卡（1x1 与 1x2 共用；1x2 只是更高）。
         /// <paramref name="modeKind"/> 非空 ⇒ 这张卡**可点**（点它进对应模式的界面；见 `OpenMode`）。</summary>
         void BuildModeCard(Transform parent, string name, float x, float y, float w, float h, string art, string title,
-                           string modeKind = null, PxRect? clip = null, System.DateTime? timerEndUtc = null)
+                           string modeKind = null, PxRect? clip = null, System.DateTime? timerEndUtc = null,
+                           string timerLocKey = null)
         {
             // 🔴 **2026-10-17（界面线 `T12`）：视口裁切。** 横向滚动之后卡片会跨过视口左缘
             //   （`GameModes` 的 x1 = 167.04，左边就是左竖导航）—— 不裁的话，卡的暗带 / 边框 / 标题
@@ -3000,7 +3001,17 @@ namespace CardPresentation
                 //   中文原版实拍（桌面参考图 `主界面参考图.png`）显示的是 **「结束于：」** ⇒ 用官方
                 //   `Event_Description/General/EndsIn`（EN `Ends in:` / ZH `结束于：`），⛔ 别再写死英文。
                 //   宽度也照原版 `CSF PreferredSize` 现量（原来 184.9563 是从英文串反推的定值）。
-                var timerDesc = Text(card, Loc.T("Event_Description/General/EndsIn"),
+                // 🔴 **2026-10-28（B90-N2 现核 → 同日接通）**：原版这一句是
+                //   `timer.InitializeWitLocKey(endDate, playEvent.GetTimeDescriptionTextKey())`
+                //   （`LiveopMenuContainer__OnInitialize` 现读）—— 词条**由事件状态决定**，三档 =
+                //   `Event_Description/General/TimeStartsIn` / `TimeEndsIn` / `TimeFinished`，**空串 = 这一档不显示前缀**。
+                //   ✅ 现在由调用点把 `evt.GetTimeDescriptionTextKey()` 经 `timerLocKey` 传进来
+                //   （实现 = `Shell/LiveOpsState.cs` 文件尾的 partial 段，与 `Shell/LiveOpsEvent.cs:1208` 逐字同键）
+                //   ⇒ ⛔ **别在本文件再写一份三档映射**（同一条规则写第二份 = 迟早不一致）。
+                //   `timerLocKey == null` 时用的 `EndsIn` 只是**不可达兜底**：没有归属活动时 `end` 为 null
+                //   ⇒ 这一整行压根不建（`hasTimerRow`）。
+                string timerDescKey = timerLocKey ?? "Event_Description/General/EndsIn";
+                var timerDesc = Text(card, string.IsNullOrEmpty(timerDescKey) ? string.Empty : Loc.T(timerDescKey),
                                      tx0, tx0 + descWMax, rowTop, rowTop + timerRowH, 8,
                                      Color.white, "Timer Description", 42.95f, QText,
                                      0f, 18f, 44f, 45f, face: TmpFont.Face.LatinCardBody);
@@ -3325,6 +3336,9 @@ namespace CardPresentation
 
         /// <summary>本地这一屏排位卡落哪一支。**默认 = 参考图那一态**（非传奇 ⇒ 印玺行开 / `Global Rating` 关）
         /// —— 选择与三条理由写在上面那段长注释里，⛔ 别静默改这个默认值。
+        /// <para>🔴 **2026-10-28 调度台裁定（账 `个人资料 270` / `ToggleLegendaryRankInfo`）**：本地落
+        /// **「关」那一支**（本地无名次/ranked 事件数据 ⇒ 等价于原版 `position == 0` / `playEvent == null` 的关），
+        /// 并且**必须出声**（`ApplyRankedRatingBranch` 那条 `Debug.Log`）—— ⛔ **别为了让画面「更丰富」选开**。</para>
         /// ⚠️ **实例字段，不是 `static`** —— 同 <see cref="SelectedNav"/>（static 会跨自检 / 跨场景残留）；
         /// 自检要验另一支时：在拿到的 `MainMenuRuntime` 实例上设这个字段、再走同一条建树路（⛔ 别读它当真值断 ——
         /// 那是同义反复，期望值该写**原版那两行判据**）。</summary>
@@ -3473,7 +3487,11 @@ namespace CardPresentation
                               face: TmpFont.Face.LatinCardBody);
             float wPos = LabelW(posVal), wInd = LabelW(indVal);
             // 内容宽 = `#` + 名次串 + `Main Icon` + 分数串（`Secondary Icon` 出厂关着 ⇒ **不进布局**）
-            float total = HashW + wPos + MainW + wInd;
+            // ⚠️ 名次那两颗**只在 `RankedPositionKnown` 时进布局** —— 原版 `TogglePositionDisplay(option)` 把它们
+            //    `SetActive(option)`，而 uGUI 的 HLG 会**跳过 inactive**（inactive 不进 `rectChildren` 的尺寸）⇒
+            //    关着时内容宽就只剩 `Main Icon` + 分数串、并且**整体重新居中**（判据 → 本方法上方 doc 与
+            //    `RankedMenuContainer__TogglePositionDisplay.c`）。
+            float total = (RankedPositionKnown ? HashW + wPos : 0f) + MainW + wInd;
             float left = (stripL + stripR) * 0.5f - total * 0.5f;         // 内容整体居中（原版 align 4 MiddleCenter）
             if (total <= 1f)
             {
@@ -3486,7 +3504,8 @@ namespace CardPresentation
 
             // ② `Position #` —— 原版 `m_HorizontalAlignment = Center` / `m_VerticalAlignment = Midline`
             //    ⇒ **居中摆是对的**（不是左对齐）；无自适应 ⇒ 只给字号、不给 autofit 框。
-            Text(gr, "#", left, left + HashW, midY - HashPx * 0.5f, midY + HashPx * 0.5f, 8, Color.white,
+            //    （句柄留着 `TogglePositionDisplay` 用 —— 原版那两颗是 `legendaryRankDivisionInfoObjects` 的成员。）
+            var hashLb = Text(gr, "#", left, left + HashW, midY - HashPx * 0.5f, midY + HashPx * 0.5f, 8, Color.white,
                  "Position #", HashPx, QContent, face: TmpFont.Face.LatinCardBody);
 
             // ③ 大段位图（`Main Icon`）—— 与 `Secondary Icon` 同一张 `40k_UI_icon_ranked_Skirmish`（128²）
@@ -3494,7 +3513,7 @@ namespace CardPresentation
             if (rankTex == null)
                 Debug.LogWarning("[Menu] 排位卡 `Rating ▸ Global Rating`：`40k_UI_icon_ranked_Skirmish` 取不到 ⇒ "
                                + "**大段位图与 `Secondary Icon` 都不画**（⛔ 不拿别的图顶替）；两段数字照画。");
-            float iconL = left + HashW + wPos;
+            float iconL = left + (RankedPositionKnown ? HashW + wPos : 0f);
             if (rankTex != null)
                 RectTex(gr, rankTex, iconL, iconL + MainW, midY - MainH * 0.5f, midY + MainH * 0.5f,
                         "Main Icon", QContent, true);                 // 原版 `m_PreserveAspect = 1`（128² 内接进 81×84）
@@ -3527,10 +3546,19 @@ namespace CardPresentation
                 if (sec != null) sec.gameObject.SetActive(false);
             }
 
+            // 原版 `RankedMenuContainer.Refresh` 里紧跟的一句：`TogglePositionDisplay(position != 0 && 符号一致)`
+            // （作用点 = `Position #` / `Position Value` 两颗；判据 `RankedMenuContainer__TogglePositionDisplay.c`
+            //  = `foreach (go in legendaryRankDivisionInfoObjects) go.SetActive(option)`）。
+            _rankedPosHash = hashLb != null ? hashLb.transform : null;
+            _rankedPosValue = posVal != null ? posVal.transform : null;
+            TogglePositionDisplay(RankedPositionKnown);
+
             // 🔴 **出声**（红线）：这一段的数据本地一份都没有 —— 如实说，⛔ 别让画面看起来像「有数据」。
             Debug.Log("[Menu] 排位卡 `Rating ▸ Global Rating`（原版 `AllianceRatingDisplay`）：**结构建了**，"
                     + "但**名次 / 单场 elo 两段数据本地一份都没有**（原版由 `RankedMenuContainer.RefreshContentDisplay` 灌）"
                     + "⇒ 两段都画**空值占位** `" + RankedTab.ScoreEmpty + "`。"
+                    + "名次那一对（`Position #` / `Position Value`）按原版 `TogglePositionDisplay("
+                    + (RankedPositionKnown ? "true" : "false") + ")` 摆 —— 本地无名次数据 ⇒ 落原版 `position == 0` 那一支（**两颗关着**）。"
                     + "⚠️ 这一支**默认关着**（本卡默认落「非传奇」那一态）—— 判据与选择理由 → `BuildRankedSealRow` 上方那段长注释。");
             return gr;
         }
@@ -3971,9 +3999,19 @@ namespace CardPresentation
                                   string title, string kind)
         {
             var owner = ModeCardOwnerEvent(nm, LiveOpsClock.NowUtc);
-            string cardTitle = (owner != null ? EventNavTitleOf(owner) : null) ?? title;
+            // 🔴 标题走**容器自己那条**（`LiveopMenuContainer.SetText` = `GetLabel(ev, Title(0))`，**没有**导航条的
+            //    `NavigationBarTitle(4)` 回退；判据 `LiveopMenuContainer.cs:35-43`）—— 原来借用 `EventNavTitleOf`
+            //    （4 ?? 0）会把「只有导航条标题」的活动印成卡名，与原版不同（铁律 5 就地订正）。
+            string cardTitle = owner != null ? (EventCardTitleOf(owner) ?? string.Empty) : title;
             System.DateTime? end = owner != null && owner.EndUtc > LiveOpsClock.NowUtc ? owner.EndUtc : (System.DateTime?)null;
-            BuildModeCard(parent, nm, x, y, w, h, art, cardTitle, kind, ModeViewport, end);
+            // 🆕 B90-N2：原版 `LiveopMenuContainer.OnInitialize` 在拿到 baseData 之后**还会换这张卡的图**
+            //   （`backgroundImage.sprite = LoadAsset(baseData, MainMenuContainerBackground)`，
+            //    判据 → 类尾 `EventContainerArtOf`）。有归属 ⇒ 用事件的图；取不到 ⇒ 保持建树时那张手挑图。
+            string cardArt = owner != null ? (EventContainerArtOf(owner, nm) ?? art) : art;
+            // 倒计时**前缀词条**同样来自事件（原版 `InitializeWitLocKey(end, evt.GetTimeDescriptionTextKey())`，
+            // 三档 `TimeStartsIn`/`TimeEndsIn`/`TimeFinished`，空串 = 不显示前缀）—— 正本 → `Shell/LiveOpsState.cs` 那份实现。
+            BuildModeCard(parent, nm, x, y, w, h, cardArt, cardTitle, kind, ModeViewport, end,
+                          owner != null ? owner.GetTimeDescriptionTextKey() : null);
         }
 
         /// <summary>`EventComponents[MainMenuContainer]`（= 35）的 **GUID → 容器 prefab 根名**。
@@ -4187,5 +4225,111 @@ namespace CardPresentation
         public int LanguageRebuildsForTest { get { return _languageRebuilds; } }
         /// <summary>自检读口：活动刷新重建跑过几次（账 `L477`）。</summary>
         public int LiveOpsNavRebuildsForTest { get { return _liveOpsNavRebuilds; } }
+
+        // ============================================================ 类尾（B90-N2 · 账 `个人资料 271`）
+        //   ⚠️ **一律追加在类尾**：本文件被账按 `文件:行号` 引用，新成员插进中间会让下游行号整体漂移。
+
+        /// <summary>名次（`Position #` / `Position Value`）那两颗**要不要显示**。
+        /// <para>= 原版 `RankedMenuContainer.Refresh` 里算 `TogglePositionDisplay` 入参的那一格
+        /// （`option = currentStats.position != 0 &amp;&amp; 符号一致`）。</para>
+        /// <para>🔴 **本地恒 `false`**：名次号是玩家数据（服务器），本地一份都没有 ⇒ 恰好走原版
+        /// 「`position == 0` ⇒ 两颗关着」那一支（⛔ 不是「我们选了 0」，是数据不可得 —— 已出声）。
+        /// ⚠️ 留成**实例字段**只为自检能证明「两颗**会**跟着开」（置 `true` 后走同一条建树路）。</para></summary>
+        public bool RankedPositionKnown;
+
+        Transform _rankedPosHash, _rankedPosValue;
+
+        /// <summary>= 原版 `RankedMenuContainer.TogglePositionDisplay(bool option)`（**逐句**，
+        /// 判据 → `d:/2/tools/decomp_full/RankedMenuContainer__TogglePositionDisplay.c`）：
+        /// `foreach (go in legendaryRankDivisionInfoObjects) go.SetActive(option);`
+        /// <para>⚠️ 那两个成员**实读只指向 `Position #` 与 `Position Value`**（`legendaryRankDivisionInfoObjects`
+        /// 名字唬人，**不是**印玺那一排，也不是某个叫 `Legendary` 的节点）。</para>
+        /// <para>⚠️ 原版 `ToggleLegendaryRankInfo` 也动这一对（**原版就是重复的**）⇒ 那一条走
+        /// `ApplyRankedRatingBranch` 对整支 `Global Rating` 的 `SetActive`（父关子藏）⇒ ⛔ 别「优化」成一份。</para></summary>
+        public void TogglePositionDisplay(bool option)
+        {
+            if (_rankedPosHash != null && _rankedPosHash.gameObject.activeSelf != option)
+                _rankedPosHash.gameObject.SetActive(option);
+            if (_rankedPosValue != null && _rankedPosValue.gameObject.activeSelf != option)
+                _rankedPosValue.gameObject.SetActive(option);
+        }
+
+        /// <summary>模式卡（原版 `LiveopMenuContainer`）那张卡的标题 = 原版
+        /// `LiveOpsAssetUtility.GetLabel(liveOpsEvent, EventLabelReferenceType.Title /* = 0 */)`，
+        /// 判据 → `out_cpp2il_dev_ilspy/LiveopMenuContainer.cs:35-43`（`SetText`）·
+        /// `Everguild/LiveOps/EventLabelReferenceType.cs:5`（`Title = 0`）。
+        /// <para>🔴 **与 <see cref="EventNavTitleOf"/> 的区别是【没有 `NavigationBarTitle(4)` 回退】** ——
+        /// 那一条属于 `OpenEventButton.SetButtonInfo` / 导航钮（另一个入口，见 `NavigationPanelController.cs:160` 的 `BuildEventButtons`）。
+        /// 原来这两条共用一个函数 ⇒ 「只有导航条标题、没有 Title」的活动会把导航条文案印到模式卡上（与原版不同）。</para>
+        /// <para>取不到 ⇒ **null**（原版 `title.text = null` ⇒ 那行是空的，⛔ 不拿我们的手挑卡名去顶）。</para></summary>
+        internal static string EventCardTitleOf(LiveOpsLocalEvent ev)
+        {
+            if (ev == null) return null;
+            LiveOpsLocalLabel l;
+            if (!ev.TryGetLabel(0, out l)) return null;
+            if (string.IsNullOrEmpty(l.Term)) return null;
+            return LiveOpsLocalCatalog.TermText(l.Term);
+        }
+
+        // ---------------------------------------------------------------- 🆕 B90-N2：模式卡的事件图（账 `菜单 411`）
+
+        static readonly HashSet<string> _containerArtWarned = new HashSet<string>();
+
+        /// <summary>`MainMenuContainerBackground` 的 **GUID → 已导入的图名**。
+        /// <para>只收本机真的解出来、且**已导进** `Resources/Art/ui_menu/` 的那两张。判据（现读）：
+        /// `判据/B9_有登记无实物_全量.tsv:1906` = `93cda5b0…` → `liveopsmenuimages_assets_all/UM Guilliman Container 1x2`
+        /// · `:1951` = `ad9725ac…` → `…/Space Wolves Container 1x2`；两张都 1024²、`Sprite/*.json` 的
+        /// `m_Rect` = 整图（⇒ **不裁**），原图已拷成 `Resources/Art/ui_menu/{UM_Guilliman_Container_1x2,Space_Wolves_Container_1x2}.png`
+        /// （源 = `assets_full/bundle_liveopsmenuimages_assets_all/Texture2D/*.png`，**只读**，⛔ 没动 `d:/2`）。</para>
+        /// <para>⚠️ 这张表**本该并进** `Shell/OfferArt.cs` 的 `KnownEventArt`（全工程唯一那一份「GUID → 图名」表）——
+        /// 那个文件不在本代理白名单，暂落在这里；合并时一并搬过去（⛔ 别在两处长期并存）。</para></summary>
+        static readonly Dictionary<string, string> MainMenuContainerArtByGuid = new Dictionary<string, string>
+        {
+            { "93cda5b09dc454964bd61a51c4cc2606", "UM_Guilliman_Container_1x2" },
+            { "ad9725ac046204b7fbdee84edc37f65c", "Space_Wolves_Container_1x2" },
+        };
+
+        /// <summary>= 原版 `LiveOpsAssetUtility.LoadAsset(baseData, EventAssetReferenceType.MainMenuContainerBackground)`
+        /// 那一跳（`out_cpp2il_dev_ilspy/LiveopMenuContainer.cs:88-104`：先写 `backgroundImage.sprite`，
+        /// 紧接着写 `foregroundImage.sprite`）。返回**已导入的图名**；`null` ⇒ 调用点保持建树时那张手挑图。
+        /// <para>⚠️ **不许静默**：三种取不到各出声一次（活动没有这一格资产 / GUID 没登记 / 图名导了但 `Resources` 里没有）。</para>
+        /// <para>⚠️ `foreground` 那一格本地**一份都没有**（13 份 SO 的 `EventAssets` 逐条现读）⇒ 只出声、不画（⛔ 不编图）。</para></summary>
+        internal static string EventContainerArtOf(LiveOpsLocalEvent ev, string cardName)
+        {
+            if (ev == null) return null;
+            var bg = ev.FindAsset((int)LiveOpsAssetRef.MainMenuContainerBackground);
+            if (bg == null)
+            {
+                if (_containerArtWarned.Add("none:" + ev.EventId))
+                    Debug.Log("[Menu] 模式卡 `" + cardName + "` 归属活动 `" + ev.EventId + "`：没有 `MainMenuContainerBackground`"
+                            + " 这一格资产 ⇒ 保持建树时那张手挑卡图（原版此处 `LoadAsset` 拿不到、sprite 也不会被换）。");
+                return null;
+            }
+            string n = null;
+            if (!string.IsNullOrEmpty(bg.Guid)) MainMenuContainerArtByGuid.TryGetValue(bg.Guid, out n);
+            if (string.IsNullOrEmpty(n)) n = OfferContainer.ArtForAsset(bg);      // 中央表（`Shell/OfferArt.cs`）
+            if (string.IsNullOrEmpty(n))
+            {
+                if (_containerArtWarned.Add("guid:" + ev.EventId + ":" + (bg.Guid ?? "<null>")))
+                    Debug.LogWarning("[Menu] 模式卡 `" + cardName + "` 的 `MainMenuContainerBackground` GUID `"
+                                   + (bg.Guid ?? "<null>") + "` 查不到已导入的图名 ⇒ 保持手挑卡图（⛔ 不拿别的图顶替）。");
+                return null;
+            }
+            if (CardArt.MenuUi(n) == null)
+            {
+                if (_containerArtWarned.Add("tex:" + n))
+                    Debug.LogWarning("[Menu] 模式卡事件图 `" + n + "` 不在 `Resources/Art/ui_menu/` ⇒ 退回手挑卡图"
+                                   + "（导入口：`assets_full/bundle_liveopsmenuimages_assets_all/Texture2D/<原名>.png`）。");
+                return null;
+            }
+            if (ev.FindAsset((int)LiveOpsAssetRef.MainMenuContainerForeground) == null
+                && _containerArtWarned.Add("fg:" + ev.EventId))
+                Debug.Log("[Menu] 模式卡 `" + cardName + "`：原版同一跳还会换 `MainMenuContainerForeground`"
+                        + "（`LiveopMenuContainer.cs:97-104`），本地活动数据里**没有这一格** ⇒ 不画前景层（⛔ 不编图）。");
+            if (_containerArtWarned.Add("ok:" + ev.EventId))
+                Debug.Log("[Menu] 模式卡 `" + cardName + "` 改用归属活动 `" + ev.EventId
+                        + "` 的 `MainMenuContainerBackground` = `" + n + "`（原版 `LiveopMenuContainer.OnInitialize` 那一跳）。");
+            return n;
+        }
     }
 }

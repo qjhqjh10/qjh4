@@ -1612,9 +1612,9 @@ namespace CardPresentation
 
         /// <summary>🔴 2026-10-19（`A1668`）：手牌 / 换牌区「点到哪一张」的**唯一判据** ——
         /// 命中集合里取 **z 最小（最前）** 的那张。
-        /// <para>判据 = 原版 `BattleManager__GetTargetInPos.c:104-130`：
-        /// `Physics2D.GetRayIntersectionNonAlloc(...)` 之后**只取返回数组的第 [0] 项**，
-        /// **没有任何排序/比较** ⇒ 原版把「谁在最上面」交给物理层（`CardCollider2D` 那条）。
+        /// <para>判据 = 原版 `BattleManager__GetTargetInPos.c:104-196`（2D 支）：`GetRayIntersectionNonAlloc` 之后**只取第 [0] 项**、**无排序** ⇒ 原版把「谁在最上面」交给物理层。
+        /// 🔴 **2026-10-28（`B91` · W2 §3② / `B89-R1b`）**：那一支原版传的是 `-1f`（`Physics2D.GetRayIntersectionNonAlloc(ray, buf, -1f)`）⇒ 负距离 ⇒ **恒 0 命中**（原版怪值，照抄、⛔ 别改成 `Mathf.Infinity`）⇒ 原版**永远走不到**这条 2D 路；真正生效的是它自己的 3D 回退支（`boardCamera.ScreenPointToRay(TouchInputManager.TouchPosition)` → `Physics.RaycastNonAlloc(..., 200f, BoardElements)` → `GetComponentInParent<CardScript>()`，`.c:204-265`）。
+        /// ⇒ 我们这条「逐卡 collider 取 z 最小」是原版那条**语义**的对应物，但**不是原版实际走的那条路**（出射相机 / 层掩码都不同）—— 如实标着，⛔ 别拿 `.c:104-130` 当「原版 2D 支可达」的证据。
         /// `Physics2D` 的 `OverlapPoint` **没有 z**（前后叠着的卡会同时命中、顺序也不保证）⇒
         /// 「z 最小」仍是原版那条语义的对应物（离相机最近 = 最先被射线打到），必须自己排。</para>
         /// <para>🔴🔴 **2026-10-19（`T09` 步骤 B · `W57` · B2a）起命中口 = 真 collider**：逐张问
@@ -2189,5 +2189,44 @@ namespace CardPresentation
         //       真要接，得先有「敌方手牌翻面成可点的 `CardView`」这条**新链路**（那是 `BattleDriver` 的活，不是本类）。
         //     ⇒ 本波**零改动**，反证留给账（`B89_R4b` 报告的 §1·761）。
         // ════════════════════════════════════════════════════════════════════════════════════
+
+        // ==================================================================
+        //  🆕 2026-10-28（账 745）· 原版 `VarsDevice.GetCardInHandYOffsetTouchInput()`
+        // ==================================================================
+        //  原版（`d:/2/tools/decomp_full/VarsDevice__GetCardInHandYOffsetTouchInput.c` 逐句）：
+        //    `if (ScreenUtilities.GetScreenPhysicalSize() > 7.0f) return cardInHandShownYOffsetMin(+0x20);
+        //     return cardInHandShownYOffset(+0x1c);`
+        //  其中 `GetScreenPhysicalSize()`（`decomp_full/ScreenUtilities__GetScreenPhysicalSize.c`）=
+        //    `sqrt(w²+h²) / max(Screen.dpi, 100.0f)`（那个 dpi 下限常量 `read_literal.py 0x1834b2e08` = **100**）。
+        //  ⚠️ 两个字段值：ctor 里只设了 `cardInHandShownYOffsetMin = 20.0f`，**没设 `cardInHandShownYOffset`**
+        //     （⇒ 出厂 0）；`VarsDevice` 是 SO，资产侧可能覆盖 → 本机 `assets_full` 里没按名找到那份 SO
+        //     ⇒ 用 ctor 出厂值（0 / 20）并如实标明「资产值未读到」。
+        //  🔴 消费者（原版）= `CardScript.ShowCardInHand` 触摸支：卡片世界 Y = ScreenToWorldPoint.y + 本偏置。
+        //     我们这一档**没有「抬牌跟指针重定位」那条路**（触摸悬停走 `Relayout` 的正常手牌位，不跟手）
+        //     ⇒ 本读数先落地（自检可读），真正的消费点在抬牌跟手路径建成后才有（机制差，如实记）。
+        //  ⚠️ 桌面无触摸 ⇒ 这一支在开发机上取不到真值（`Screen.dpi` 也常为 0）⇒ 只保证「逻辑与原版同形」。
+
+        /// <summary>原版 `VarsDevice.cardInHandShownYOffset`（`+0x1c`，ctor 未设 ⇒ 出厂 0）。⚠️ SO 资产值未读到。</summary>
+        public const float CardInHandShownYOffset = 0f;
+        /// <summary>原版 `VarsDevice.cardInHandShownYOffsetMin`（`+0x20`，ctor = 20.0f）。</summary>
+        public const float CardInHandShownYOffsetMin = 20f;
+        /// <summary>原版 `GetCardInHandYOffsetTouchInput` 的屏幕对角阈值（`7.0f` 英寸）。</summary>
+        public const float PhysicalSizeThreshold = 7f;
+        /// <summary>`ScreenUtilities.GetScreenPhysicalSize()` 的 dpi 下限（`read_literal.py 0x1834b2e08` = 100）。</summary>
+        public const float MinDpi = 100f;
+
+        /// <summary>原版 `ScreenUtilities.GetScreenPhysicalSize()` = `sqrt(w²+h²) / max(dpi, 100)`（英寸）。</summary>
+        public static float GetScreenPhysicalSize()
+        {
+            float w = Screen.width, h = Screen.height;
+            float dpi = Screen.dpi;
+            if (dpi < MinDpi) dpi = MinDpi;          // 原版：`if (100 <= dpi) use dpi else 100`
+            return Mathf.Sqrt(w * w + h * h) / dpi;
+        }
+
+        /// <summary>原版 `VarsDevice.GetCardInHandYOffsetTouchInput()`：大屏（&gt; 7 英寸）用 `…Min`（20），
+        /// 否则用 `…`（0）。消费者 = 抬牌跟手那条路（本类尚未建成，见上文）。</summary>
+        public static float GetCardInHandYOffsetTouchInput()
+            => GetScreenPhysicalSize() > PhysicalSizeThreshold ? CardInHandShownYOffsetMin : CardInHandShownYOffset;
     }
 }

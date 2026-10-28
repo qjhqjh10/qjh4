@@ -537,9 +537,9 @@ namespace CardPresentation
         /// HandleBeforeRefresh();
         /// await &lt;虚调用, 单参 = 字段 +0x60&gt;;   // ← 见下面的「⚠️」
         /// </code>
-        /// ⚠️ 那个虚调用取的是 `this+0x60` = `handlerCache`，而我们按语义走
-        /// `RefreshHandler(handlerCache)`（`protected virtual Task RefreshHandler(LiveopsHandlerData)`）——
-        /// **两读法只差一次参数取值，未坐实**，账里标了 B。</summary>
+        /// ✅ 2026-10-28 W7 坐实（`…_RefreshHandlerLocally_d__27_object___MoveNext.c:44`）：`(**(code**)(*this + 0x2a8))(this, plVar1[0xc], …)` —— 虚槽 `0x2a8` = `RefreshHandler(LiveopsHandlerData)`，
+        /// 第 1 实参读的就是 **this+0x60**（`plVar1[0xc]`）⇒ 与我们传的 `handlerCache` 是同一个槽（⛔ 原判词「只差一次取值，未坐实」已作废）。
+        /// 残余只有「+0x60 的字段名是不是 `handlerCache`」这一层命名对应（布局对不上 dump）⇒ 账可从 B 提到「等价」。</summary>
         public virtual Task RefreshHandlerLocally()
         {
             HandleBeforeRefresh();
@@ -1351,7 +1351,7 @@ namespace CardPresentation
         /// 每条动作在**一次** drain 里最多触发一次（防 `Recurring` 自旋）。</summary>
         public static void TryDrain()
         {
-            if (draining) return;
+            if (draining || MenuActionsPause.Paused) return;      // 🆕 B90-N3：原版 `StopMenuActions` 期间队列不跑
             draining = true;
             try
             {
@@ -1592,5 +1592,63 @@ namespace CardPresentation
             Debug.Log("[LiveOps] 事件弹窗 ⇒ `" + BaseEventPopup.RootNameOf(variant) + "`（事件 " + ev.GetID() + " · label " + opts.PopupLabel + "）");
             return win;
         }
+    }
+}
+// ============================================================ 🆕 2026-10-28（B90 · N3，追加在文件尾）
+//   **原版 `MenuActions.StopMenuActions(string sceneTarget)` / `ResumeMenuActions(string scene)` 的等价物。**
+//
+//   判据（第一权威 = 反汇编方法体，逐句）：
+//   · `MenuActions__StopMenuActions.c`：① 从 `WindowsManager.Instance` 的**场景加载委托**(`+0x70`) 上
+//     `Delegate.Remove` 掉这一跳；② `StopCoroutine(this+0x20)`（在跑的那条 `Routine`）；③ `this+0x20 = null`。
+//     ⇒ 语义 = 「**这个场景期间队列不要再跑**」。
+//   · `MenuActions__ResumeMenuActions.c`：① `this+0x28` 那两字节清零（= `blockAllActions` 一族）；
+//     ② `usedGroups(this+0x30).Clear()`；③ 把委托 `Delegate.Combine` 回 `+0x70`；④ 收尾 `CheckActiveMenus`
+//     ⇒ 语义 = 「清掉封锁记忆 + 重新开始排」。
+//
+//   ⚠️ **如实简化（⛔ 不是「已经一样」）**：原版那对**委托**挂在「某个具体场景加载完」上（参数 `sceneTarget`
+//     就是那条的过滤键）；我们仓里没有同一根场景加载总线接得到那个位置 ⇒ 这里落成**一个显式闸**
+//     （`Paused`）+ 记住「为哪个场景停的」，由 `TryDrain` 首句判它（`Shell/LiveOpsHandler.cs` 的 `MenuActions.TryDrain`）。
+//     ⇒ 行为上「Stop 之后入队/每帧泵都不触发、Resume 之后照旧触发」与原版一致；差别只在**谁是恢复的触发者**
+//     （原版 = 场景加载完成；我们 = 调用方显式 `ResumeMenuActions`）。
+//   ⛔ 没做成 `MenuActions` 的成员：那会插在 `MenuActions` 类中间/类尾，而类尾之后还有别的类挂着账的落点
+//     （`日常_奖励.tsv` 指进 `LiveOpsHandler.cs:1538/1561/1580/1588/1597`）⇒ 加行会让它们整体漂移。
+namespace CardPresentation
+{
+    /// <summary>菜单动作队列的「暂停」闸（原版 `MenuActions.StopMenuActions` / `ResumeMenuActions`）。
+    /// 判据与两处如实简化 → 文件尾那段注释。</summary>
+    public static class MenuActionsPause
+    {
+        /// <summary>暂停中（= 原版 `StopMenuActions` 已把场景委托摘掉、协程也停了）。`MenuActions.TryDrain` 首句判它。</summary>
+        public static bool Paused { get; private set; }
+        /// <summary>为哪个场景停的（原版 `sceneTarget` 实参）。诊断/断言用。</summary>
+        public static string PausedFor { get; private set; }
+
+        /// <summary>原版 `MenuActions.StopMenuActions(string sceneTarget)` —— 摘场景委托 + 停协程。
+        /// 我们的等价物 = 置闸（`TryDrain` 首句看它）+ 记住场景名。幂等（原版 `Delegate.Remove` 也是幂等）。</summary>
+        public static void StopMenuActions(string sceneTarget)
+        {
+            if (Paused && PausedFor == sceneTarget) return;
+            Paused = true;
+            PausedFor = sceneTarget;
+            Debug.Log("[MenuActions] 暂停菜单动作（原版 `StopMenuActions`）—— 场景 `"
+                    + (sceneTarget ?? "<null>") + "` 期间队列不跑（已排的 " + MenuActions.Count + " 条留在队列里）");
+        }
+
+        /// <summary>原版 `MenuActions.ResumeMenuActions(string scene)` —— `blockAllActions` 清零 +
+        /// `usedGroups.Clear()` + 挂回场景委托 + `CheckActiveMenus`。我们的等价物 =
+        /// 清闸 → `MenuActions.ResetBlocking()`（就是那两句）→ `TryDrain()`（= `CheckActiveMenus`）。</summary>
+        public static void ResumeMenuActions(string scene)
+        {
+            bool was = Paused;
+            Paused = false;
+            PausedFor = null;
+            MenuActions.ResetBlocking();      // 原版 Resume 的头两句（`blockAllActions` + `usedGroups` 清零）
+            MenuActions.TryDrain();           // 原版末句 `CheckActiveMenus`
+            Debug.Log("[MenuActions] 恢复菜单动作（原版 `ResumeMenuActions`，场景 `" + (scene ?? "<null>")
+                    + "`）—— 之前是" + (was ? "暂停" : "未暂停") + "，队列现 " + MenuActions.Count + " 条");
+        }
+
+        /// <summary>自检收尾（⚠️ 只给断言用）。</summary>
+        public static void ResetForTest() { Paused = false; PausedFor = null; }
     }
 }

@@ -1410,6 +1410,8 @@ namespace CardPresentation
             try { SetAutoFitBox(w, h, lo, hi, bc); }
             finally { _fitReplaying = false; }
             if (wrap >= 0) SetWrappingMode(wrap);   // 重放会经 `SetWrapWidth` 开回 Normal ⇒ 这里还原
+            // 🆕 B90-N2：换面重放会用**常规档**的 `maxPx` 重写 `fontSizeMax` ⇒ 小屏档要按新面再落一次（同 223 那条）。
+            if (_ssMaxPx > 0f || _ssMinPx > 0f) ApplySmallScreenTextSize();
         }
 
         /// <summary>`cur`（= <see cref="TmpFontSize"/> 那一档）折算成**画布像素** —— 也就是调用方要的那个字号，
@@ -2450,6 +2452,77 @@ namespace CardPresentation
             m.triangles = new[] { 0, 2, 1, 0, 3, 2 };
             m.RecalculateBounds();
             _mf.sharedMesh = m;
+        }
+
+        // ============================================================ 类尾（B90-N2 · 账 `菜单 223`）
+        //   ⚠️ **一律追加在类尾**：本文件被账按 `文件:行号` 引用（`:367` / `:1117` 两处），插进中间会让下游行号漂移。
+
+        float _ssMaxPx, _ssMinPx;          // 原版 `smallScreenMaxFontSize` / `smallScreenMinFontSize`（同一个 px 口径 = 原版 `m_fontSize` 的单位）
+
+        /// <summary>小屏档**真的落下去了吗**（自检/真机读口）。
+        /// ⚠️ 编辑器批处理里恒 `false` —— 原版第一道闸就是 `Application.isPlaying`（见 <see cref="ApplySmallScreenTextSize"/>）。</summary>
+        public bool SmallScreenSizeAppliedForTest { get; private set; }
+
+        /// <summary>= 原版 `EverguildTextMeshPro.smallScreenMaxFontSize` / `smallScreenMinFontSize` **两格**（序列化字段），
+        /// 存下并**立刻按当时的开关落一次**。`px` 口径 = **原版那颗 TMP 的 `m_fontSize`**（与本类
+        /// `SetAutoFitBox` 的 `minPx/maxPx` 同一套，内部按 `cur × px/nomPx` 折成 TMP 的 fontSize 单位）。
+        /// <para>⚠️ **必须排在基线字号 / 自适应框之后**调（原版这两格是在 `Awake` **末尾**才生效的）——
+        /// 早调会被随后的 `SetAutoFitBox` 用常规档覆盖掉。</para>
+        /// <para>🌐 数据来源：原版 663 颗带该字段的 TMP 里只有 **79 颗**两格有值（`判据/B90_N2_小屏字号实例.tsv`，
+        /// 现读；旧账写的 86 已过期），且那 79 颗 **`m_enableAutoSizing` 全 = 1** ⇒ 实际只走「改 `fontSizeMax`」那一支
+        /// （24 颗另带 `fontSizeMin`）。</para></summary>
+        public void SetSmallScreenFontSizes(float maxPx, float minPx)
+        {
+            _ssMaxPx = maxPx;
+            _ssMinPx = minPx;
+            ApplySmallScreenTextSize();
+        }
+
+        /// <summary>= 原版 `EverguildTextMeshPro.UpdateTextSizeSmallScreen()`（逐句）：
+        /// <code>
+        /// if (!Application.isPlaying || !GameStaticData.smallScreenUI) return;
+        /// if (smallScreenMaxFontSize &gt; 0) { if (m_enableAutoSizing) fontSizeMax = v; else fontSize = v; }
+        /// if (smallScreenMinFontSize &gt; 0) fontSizeMin = v;
+        /// </code>
+        /// <para>🔴 **落地时刻 = `Awake()` 末尾**，不是别处：那个私有方法在全量反编译里**没有独立调用点**，
+        /// 而 `decomp_full/EverguildTextMeshPro__Awake.c:56-70` 是**同一段体的内联副本**（读 `+0x11c` / `+2000` / `+0x7d4`）
+        /// ⇒ 原版**只在组件 Awake 时跑一次**；`GraphicsTab.SmallScreenToggleClick` 只写那两个静态开关、
+        /// **不会**回头重刷已有文本（所以运行中拨开关，老文本不变 —— 我们同此）。</para>
+        /// <para>⚠️ `GameStaticData.smallScreenUI(+0x11c)` 的等价物 = <see cref="SmallScreenUI.Enabled"/>
+        /// （`Shell/TransformScalerBySmallScreenUI.cs`，全工程唯一来源）。</para>
+        /// <para>⚠️ **不改行盒、不改窗口布局**（原版只动字号）：所以这里**不碰** `sizeDelta` / 折行宽 ——
+        /// 换字号之后只 `ForceMeshUpdate` + `RefreshBounds`（后者只刷新缓存尺寸，不改框）。</para></summary>
+        public void ApplySmallScreenTextSize()
+        {
+            if (!Application.isPlaying) return;                 // 原版第一句（批处理 / 编辑器里恒 false）
+            if (!SmallScreenUI.Enabled) return;                 // 原版 `GameStaticData.smallScreenUI`
+            if (!(_ssMaxPx > 0f) && !(_ssMinPx > 0f)) return;   // 两格都没配 ⇒ 原版什么都不做（不报）
+            if (_tmp == null)
+            {
+                NoteDotBackendLacks("小屏字号档", "点阵后端没有字号档",
+                                    "smallScreenMax=" + _ssMaxPx + " / smallScreenMin=" + _ssMinPx + " px",
+                                    "没生效（字号停在标称档）");
+                return;
+            }
+            float nomPx = NominalPx();
+            float cur = TmpFontSize();
+            if (nomPx <= 0f || cur <= 0f)
+            {
+                NoteArgInvalid("小屏字号档折算", "nomPx = " + nomPx + " · cur = " + cur,
+                               "smallScreenMax=" + _ssMaxPx + " / smallScreenMin=" + _ssMinPx + " px",
+                               "没生效（折不成 TMP 的 fontSize 单位）");
+                return;
+            }
+            if (_ssMaxPx > 0f)
+            {
+                float v = cur * (_ssMaxPx / nomPx);
+                if (_tmp.enableAutoSizing) _tmp.fontSizeMax = v;  // 原版：开自适应 ⇒ 改 `fontSizeMax`
+                else _tmp.fontSize = v;                           // 原版：没开 ⇒ 直接改 `fontSize`（顺带回写 base）
+            }
+            if (_ssMinPx > 0f) _tmp.fontSizeMin = cur * (_ssMinPx / nomPx);
+            _tmp.ForceMeshUpdate();
+            RefreshBounds();
+            SmallScreenSizeAppliedForTest = true;
         }
     }
 }

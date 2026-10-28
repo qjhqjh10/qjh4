@@ -210,10 +210,10 @@ namespace CardPresentation
             LastDeleteError = "";
             int before = Lib.Decks.Count;
             bool ok = Lib.Delete(i);          // ⛔ 别在后面再加一次 `Lib.Save()`（A398 起它自己 `return Save();`）
-            if (ok) return true;
-            LastDeleteError = Lib.Decks.Count < before
-                ? "删了，但**没写进存档**：" + SaveFailReason() + "（内存里已经少了这一套、盘上还在 ⇒ 重启它又回来）"
-                : "**没删** —— 下标 " + i + " 越界（库里现在 " + before + " 套）";
+            if (ok) { LastDeleteOutcome = DeckDeleteOutcome.Ok; return true; }
+            bool removed = Lib.Decks.Count < before; LastDeleteOutcome = removed ? DeckDeleteOutcome.DeletedNotSaved : DeckDeleteOutcome.NotDeleted;
+            LastDeleteError = removed
+                ? "删了，但**没写进存档**：" + SaveFailReason() + "（内存里已经少了这一套、盘上还在 ⇒ 重启它又回来）" : "**没删** —— 下标 " + i + " 越界（库里现在 " + before + " 套）";
             Debug.LogWarning("[CollectionData] 删卡组失败：" + LastDeleteError);
             return false;
         }
@@ -508,6 +508,46 @@ namespace CardPresentation
                 return false;
             }
             return true;
+        }
+        // ============================================================ 🆕 2026-10-28（B90-N4 · 账 `卡组编辑` `DeckInfoPopup._003CDeleteDeck_003Eb__27_3`)
+        //  原版失败回调 `DeckInfoPopup___DeleteDeck_b__27_3.c` 的 **第 ② 步 = 把道具退回库存**：
+        //    `item + 0x60 = 0`（清脏位）→ `InventoryManager__Add(item, 1)`。
+        //  它退的那件 = 「**已经从库存摘掉、后端删除失败**」的 `CardDeck` ⇒ 我方对应状态 = `DeckLibrary.Delete` 的
+        //    `return Save()` 返 false 而 `_decks` 里已经 `RemoveAt` 过（= 「删了，但**没写进存档**」）——
+        //    那一刻**内存与盘分叉**，不退回的话玩家看到的「已删」重启就回来了。
+        //  ⚠️ 退回走 `DeckLibrary.Insert`（`RuleEngine/Data/DeckLibrary.cs:206`，= `_decks.Add` + `Save()`）⇒
+        //    **追加在表尾**（原版 `InventoryManager.Add` 也是追加）。⚠️ 它会顺手把 `_current` 指到这一副 ——
+        //    与原版「退回后当前选中仍是它」自洽。
+        //  ⛔ `DeleteDeck` 的 bool / `LastDeleteError` 语义**一个字没改**（`Editor/CollectionScene.cs:11590-11594` 的 A503 是**直调**断言，仍钉着「删了没落盘 ⇒ 内存少一套」—— 直调不经过退回）
+        //    ⇒ 退回只在**调用方**（= 原版那个回调的位置）做。🔴 2026-10-28 `F3` 订正：原文写 `:11586-11599` 且暗示 A601 也走这条路 —— **A601 走的是弹窗**（原版回调位置），回插会生效，它的期望已改成 `nBefore`。
+
+        /// <summary>`DeleteDeck` 到底发生了哪一件事（= 原版那两条失败支的**结构化出口**）。
+        /// <para>⚠️ 与 <see cref="LastDeleteError"/> 分工：那个是**给人看的话**，这个是**给代码判的档**；
+        /// ⛔ 别拿 `LastDeleteError.Contains("没写进存档")` 去判 —— 那是把同一条规则写第二份。</para></summary>
+        public enum DeckDeleteOutcome
+        {
+            /// <summary>删掉了且落盘成功。</summary>
+            Ok,
+            /// <summary>**没删**（下标越界 / 库拒收）—— 内存里一套没少。</summary>
+            NotDeleted,
+            /// <summary>**删了，但没写进存档** —— 内存里少了、盘上还在。原版据此把道具退回库存。</summary>
+            DeletedNotSaved,
+        }
+
+        /// <summary>上一次 <see cref="DeleteDeck"/> 的档（初值 <see cref="DeckDeleteOutcome.Ok"/> 无意义，先调再用）。</summary>
+        public static DeckDeleteOutcome LastDeleteOutcome { get; private set; }
+
+        /// <summary>把一副卡组**退回内存库**（= 原版 `__DeleteDeck_b__27_3.c` 第 ② 步 `InventoryManager__Add(item, 1)`）。
+        /// <para>🔴 **只在 <see cref="LastDeleteOutcome"/> == <see cref="DeckDeleteOutcome.DeletedNotSaved"/> 时调** —
+        /// 那一档才与原版「摘掉了但删除失败」同状态。返回 `false` = 又没落盘（内存已退回、盘上本来就有 ⇒ 仍一致）。</para>
+        /// <para>⚠️ 原版退回前先清 `item + 0x60`（`CardDeck.syncedToServer` 那个脏位）；我方 `PlayerDeck` 没有这一格
+        /// （见 `DeckRuntime` 那条「编辑窗改脏了没有」），**没有可清的东西**。</para></summary>
+        public static bool RestoreDeck(PlayerDeck deck)
+        {
+            if (deck == null) return false;
+            bool ok = Lib.Insert(deck);
+            if (!ok) Debug.LogWarning("[CollectionData] 卡组已退回内存，但落盘又失败了一次：" + SaveFailReason());
+            return ok;
         }
     }
 }

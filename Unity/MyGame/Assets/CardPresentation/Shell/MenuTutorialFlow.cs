@@ -1085,5 +1085,33 @@ namespace CardPresentation
                 if (ForgeData.HasToCollect(armies[i])) return armies[i];
             return null;
         }
+
+        // ============================================================ 原版 `PlayerDataManager` 的教程完成谓词族（账 348 / 379 / 424）
+        // 判据（🥇 现读 2026-10-28）：
+        //   · `PlayerDataManager__IsTutorialIndexCompleted.c` = 从「活跃活动数据字典」(`GetActiveEvent().Data+0x70`)
+        //     里 `ContainsKey(index.ToString())` ⇒ 返回其 bool（键 = 教程下标字符串，值 = 是否完成）。
+        //   · `PlayerDataManager__FirstTwoTutorialCompleted.c` = `IsTutorialIndexCompleted(0) && IsTutorialIndexCompleted(1)`。
+        //   · `PlayerDataManager__AllTutorialsCompleted.c` = `*(int*)(*(this+0xF8)+0x18) == 活动数据字典.Count`（**数 key、不看 value**）。
+        // 我们的等价物：原版把「按 stageId/index 记完成」存进远端 profile；本仓**同一形状**落在
+        //   `PlayerPrefs["WfMenuTutorial.Done.<stageId>"]`（见文件头）；下标 = 菜单 FTUE 阶段序（`MenuTutorialStages`）。
+        // 🔴 2026-10-28 B91_R2 就地订正（铁律 5）：原版 index 是**战斗教程**的下标 —— `PlayerDataManager.tutorialStages`（`+0xF8`）
+        //   元素类型 = `TutorialStage`（dump.cs:42050，脚本战斗场景），与菜单 FTUE 的 `FlowTutorialStage`（dump.cs:89835）是**两个类**。
+
+        /// <summary>第 `tutorialIndex` 个教程阶段是否完成（= 原版 `PlayerDataManager.IsTutorialIndexCompleted(int)`）。
+        /// 原版读活跃活动数据字典；我们读同一形状的 `PlayerPrefs` 完成位（`IsCompleted` 的 public 读口）。</summary>
+        public static bool IsTutorialIndexCompleted(int tutorialIndex) => IsCompleted(tutorialIndex);
+
+        /// <summary>所有教程阶段都完成（= 原版 `PlayerDataManager.AllTutorialsCompleted()`：`tutorialStages.Length == 活动数据字典.Count` —— **数 key、不看 value**；本仓 Done 位 set 即 true ⇒ 数 Done 位 ≡ 数 key）。</summary>
+        public static bool AllTutorialsCompleted()
+        {
+            int done = 0;
+            for (int i = 0; i < MenuTutorialStages.Count; i++) if (IsCompleted(i)) done++;   // 数 key、不看 value（原版 dict.Count）
+            return done == MenuTutorialStages.Count;                                          // 原版 = tutorialStages.Length == dict.Count
+        }
+
+        /// <summary>前两个教程阶段都完成（= 原版 `PlayerDataManager.FirstTwoTutorialCompleted()`：
+        /// `IsTutorialIndexCompleted(0) &amp;&amp; IsTutorialIndexCompleted(1)` —— 原版体逐句现读）。</summary>
+        public static bool FirstTwoTutorialCompleted()
+            => IsTutorialIndexCompleted(0) && IsTutorialIndexCompleted(1);
     }
 }

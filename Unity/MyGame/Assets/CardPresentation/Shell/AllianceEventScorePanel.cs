@@ -93,7 +93,7 @@ namespace CardPresentation
         public static AllianceEventScorePanel Create(Transform parent, float x1, float y1,
                                                      string name = "Alliance Event Score Panel")
         {
-            var go = new GameObject(name);
+            var go = new GameObject(name, typeof(RectTransform));   // 🔴 2026-10-28（B91）原来不带 RectTransform ⇒ 裸 `Transform` 没有 rect ⇒ `SetPxSize` 早退、根框恒 0（[D3] ⑦ 量出 −1×−1）。写法见 `MenuDraw.cs:154`
             var c = go.AddComponent<AllianceEventScorePanel>();
             c._root = go.transform;
             go.transform.SetParent(parent, false);

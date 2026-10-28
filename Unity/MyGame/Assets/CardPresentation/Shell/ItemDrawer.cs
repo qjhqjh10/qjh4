@@ -724,7 +724,7 @@ namespace CardPresentation
         public static readonly string[] DrawerImpls =
         {
             "WildcardDrawer:" + DrawerWildcard,          // 原版 `WildcardDrawer : ItemDrawer<Wildcard>`
-            "WildcardIconDrawer:" + DrawerWildcardIcon, "DeckDrawer:" + DrawerDeck, "DeckAndCardbackDrawer:" + DrawerDeckAndCardback,  // 原版 `WildcardIconDrawer : ItemDrawer<Wildcard>`；后两条 = 2026-10-26（批次 3 · Q1）新建（判据 = `DeckDrawer.cs:7` `DeckAndCardbackDrawer : DeckDrawer`）
+            "WildcardIconDrawer:" + DrawerWildcardIcon, "DeckDrawer:" + DrawerDeck, "DeckAndCardbackDrawer:" + DrawerDeckAndCardback, "CampaignPointDrawer:" + DrawerCampaignPoint,  // 原版 `WildcardIconDrawer : ItemDrawer<Wildcard>`；后两条 = 2026-10-26（批次 3 · Q1）新建（判据 = `DeckDrawer.cs:7` `DeckAndCardbackDrawer : DeckDrawer`）；`CampaignPointDrawer` = 2026-10-28（B90-N6，账 战役:53/55）
         };
 
         /// <summary>原版抽屉类 → 我们的实现（表里查不到 ⇒ `null` = **这个抽屉我们没实现**）。</summary>
@@ -851,7 +851,7 @@ namespace CardPresentation
 
             switch (drawer)                                                        // ④ 抽屉自己的 Draw（实现只此一份 = `Dispatch`，`Refresh()` 也走它）
             {
-                case DrawerWildcard: case DrawerWildcardIcon: case DrawerIcon: case DrawerDeck: case DrawerDeckAndCardback:
+                case DrawerWildcard: case DrawerWildcardIcon: case DrawerIcon: case DrawerDeck: case DrawerDeckAndCardback: case DrawerCampaignPoint:
                     Dispatch(drawer, res.Node, box, item, quantity, style, ref res); break;
                 default: Placeholder(res.Node, box, item, quantity, style, ref res); break;
             }
@@ -1922,7 +1922,7 @@ namespace CardPresentation
                 case DrawerWildcardIcon: WildcardIcon(node, box, item, quantity, style, ref res); break;
                 case DrawerIcon: Icon(node, box, item, quantity, style, ref res); break;
                 case DrawerDeck: Deck(node, box, item, quantity, style, ref res); break;
-                case DrawerDeckAndCardback: DeckAndCardback(node, box, item, quantity, style, ref res); break;
+                case DrawerDeckAndCardback: DeckAndCardback(node, box, item, quantity, style, ref res); break; case DrawerCampaignPoint: CampaignPoint(node, box, item, quantity, style, ref res); break;   // 🆕 2026-10-28（B90-N6）
                 default: Placeholder(node, box, item, quantity, style, ref res); break;
             }
         }
@@ -2147,6 +2147,120 @@ namespace CardPresentation
         {
             if (Drawer != ItemDrawer.DrawerDeck && Drawer != ItemDrawer.DrawerDeckAndCardback) return false;
             return ItemDrawer.ShowDeckInfo(Spec, _showOwnership);
+        }
+    }
+
+    public static partial class ItemDrawer
+    {
+        // 🆕 2026-10-28（B90-N6）原版 `CampaignPointDrawer` 的等价实现（账 `战役:53 DrawForArmy` / `战役:55 GetIcon`）。
+        //   判据：① `CampaignPointDrawer.cs:26`（`DrawForArmy(army)`：`armyText = CardArmyToString(army)` +
+        //         `ArmyUtilities.GetArmyIcon(army)`；`image.enabled = image.m_Sprite`；`Draw` 默认 `CardArmy.Neutral`）；
+        //         ② `CampaignPoints.cs:46`（`GetIcon(size)`：Small→`smallIcon`、Large→`bigIcon`）。
+        //   两张图本仓都已在 `Resources/Art/ui_menu/`（`40K_genearl_icon_Campaign_points` = small ·
+        //   `40K_genearl_icon_Campaign_points_big` = big；⚠️ 原版拼写就是 `genearl`）。
+        //   ⚠️ 可达性（如实）：我方数据里战役点是标量计数，当前没有「战役点作为奖励 item」流过 `ItemDrawer.Draw`
+        //      ⇒ 这条抽屉今天**零可观测**（账 `战役:53` 的 B89-R1d 结论仍成立）。建它是按铁律 11
+        //      「只分先后、不分做不做」补全抽屉库，落点与几何照同族 `Wildcard`（⛔ 不是照 prefab 量的 ——
+        //      原版抽屉几何我们没量，见本文件头 ②）。
+
+        /// <summary>原版抽屉类名（`ItemTypeSets` 里 `CampaignPoints` 的 `IconDrawer` 档就是它）。</summary>
+        public const string DrawerCampaignPoint = "CampaignPointDrawer";
+
+        /// <summary>原版 `CampaignPoints.GetIcon(IconSize)` 的等价物：`large` ⇒ `bigIcon`、否则 `smallIcon`。
+        /// 两个落盘名都在 `Resources/Art/ui_menu/`（⚠️ 原版拼写 `genearl`）。</summary>
+        public static string CampaignPointIconName(bool large)
+        {
+            return large ? "40K_genearl_icon_Campaign_points_big" : "40K_genearl_icon_Campaign_points";
+        }
+
+        /// <summary>原版 `CampaignPointDrawer.Draw` / `DrawForArmy` 的等价实现：
+        /// 主图 = `GetIcon(Large)`（big）；`item.CardArmy` 非 `Neutral` 时再叠 `DrawForArmy` 那两层（阵营徽记 + 阵营名）。
+        /// ⚠️ 三层矩形照同族 `Wildcard`（`IconFill` / `ArmyFill` / `NameStrip`），是我们挑的（原版抽屉几何没量）。</summary>
+        static void CampaignPoint(Transform node, PxRect box, ItemSpec item, int qty, ItemDrawerStyle st, ref ItemDrawResult res)
+        {
+            string art = CampaignPointIconName(true);
+            var tex = Tex(art);
+            if (tex == null)
+            {
+                Placeholder(node, box, item, qty, st, ref res);
+                res.MissingArt = true;
+                return;
+            }
+            res.Art = art;
+            MenuDraw.Rect(node, tex, Square(box, st.IconFill), NodeIcon, st.QArt, null, true, st.Clip, st.ClipSoftness);
+
+            // `DrawForArmy`：阵营徽记 + 阵营名（`army == Neutral(0)` ⇒ 两层都不画 —— 原版那张 `Image` 本就为空）
+            string fac = ArmyName(item.CardArmy);
+            if (fac != null)
+            {
+                var fatex = Tex(DeckRuntime.FactionIcon(fac));
+                if (fatex == null) res.MissingArt = true;
+                else MenuDraw.Rect(node, fatex, Square(box, st.ArmyFill), NodeArmyIcon, st.QArt, null, true, st.Clip, st.ClipSoftness);
+                float k = box.H / DecorRefH;
+                if (st.NamePx > 0f)
+                    ClippedText(node, NameStrip(box, st.NamePx), Loc.T("Armies/" + fac), Color.white, NodeArmyName,
+                                st.NamePx, st.QText, box.W - 20f, st, 0, 12f * k, 75f * k, 36f * k);
+            }
+            if (st.QuantityPx > 0f && ItemDrawerOptions.Stackable(item)) Quantity(node, box, qty, st);
+        }
+
+        // ============================================================ 🆕 2026-10-28（B90-N6）战役点「奖励 item」数据路径 + 本地累计账
+        //  目的：让「战役点」作为**奖励 item** 真的能流进 `ItemDrawer`（原版 `CampaignPointDrawer` 就是被
+        //  `CampaignPoints` 奖励流调到的）。`CampaignPointSpec` 给出 `Type="CampaignPoints"` ⇒ PickDrawer 走真表 → `CampaignPointDrawer`。
+        //  🔶 自己设计（非原版）：本地累计账 + 阵营默认值 + 标签文案 —— 原版战役点是服务端 `PlayerData` 标量（本地 0）·
+        //     上游服务端发奖按 b 档本地模拟 · 调度台 2026-10-28 裁定
+
+        /// <summary>造一条「战役点奖励」的 <see cref="ItemSpec"/>（`Type="CampaignPoints"` ⇒ `PickDrawer` 走真表 → `CampaignPointDrawer`）。
+        /// <paramref name="army"/> = 原版 `CampaignPointDrawer.DrawForArmy(army)` 的阵营（`0`=Neutral ⇒ 只画点图标、不画徽记）。</summary>
+        public static ItemSpec CampaignPointSpec(int army, int amount)
+        {
+            return new ItemSpec
+            {
+                Id = "CampaignPoints",
+                Kind = ItemKind.Generic,
+                Type = "CampaignPoints",       // 原版类型名（`ItemTypeSets` 的键）⇒ 走真表 → CampaignPointDrawer
+                CardArmy = army,
+                Art = CampaignPointIconName(true),
+                Label = "Campaign Points",
+            };
+        }
+
+        /// <summary>把一条「战役点奖励」画进 <paramref name="parent"/>（走 `Draw` 那条四步链）。
+        /// 返回结果；`res.Drawer == DrawerCampaignPoint` 表示这一票真的走到了 `CampaignPointDrawer`。
+        /// <para>⚠️ **画 ≠ 发奖**：本方法只画。真正的「本地累计」在 <see cref="GrantCampaignPointsLocal"/>，
+        /// 由**领取那一刻**的调用方调（原版是服务端发奖；本地按 b 档模拟）。</para></summary>
+        public static ItemDrawResult DrawCampaignPointsReward(Transform parent, PxRect box, int amount, int army,
+                                                              ItemDrawerStyle style)
+        {
+            if (parent == null || box.W <= 0.01f || box.H <= 0.01f)
+                return new ItemDrawResult { Id = "CampaignPoints", Kind = ItemKind.Generic };
+            return Draw(parent, box, CampaignPointSpec(army, amount), amount, DrawerOverride.Default, style);
+        }
+
+        /// <summary>🔶 本地战役点账（原版 = 服务端 `PlayerData` 标量）。键 = 阵营（`CardArmy` 值，`0`=Neutral）。</summary>
+        public static readonly System.Collections.Generic.Dictionary<int, int> CampaignPointsLocal
+            = new System.Collections.Generic.Dictionary<int, int>();
+        static bool _cpSaidOnce;
+
+        /// <summary>🔶 本地给战役点（模拟服务端发奖）。只记账 + **出声一次**（⛔ 不静默）。
+        /// 调用点 = 战役奖励「领取」那一刻（落在 `Shell/CampaignRewardWindow.cs` / `Shell/CampaignData.cs`，本代理白名单外 ⇒ 见报告 §需要别的代理做的）。</summary>
+        public static void GrantCampaignPointsLocal(int army, int amount)
+        {
+            if (amount <= 0) return;
+            int cur; CampaignPointsLocal.TryGetValue(army, out cur);
+            CampaignPointsLocal[army] = cur + amount;
+            if (!_cpSaidOnce)
+            {
+                _cpSaidOnce = true;
+                Debug.Log("[ItemDrawer] 战役点本地记账：阵营 " + army + " +" + amount + " ⇒ " + CampaignPointsLocal[army]
+                        + "（🔶 原版是服务端 PlayerData 标量，本地模拟；本条只出声一次）");
+            }
+        }
+
+        /// <summary>🔶 本地战役点读数（自检/展示用）。</summary>
+        public static int CampaignPointsLocalOf(int army)
+        {
+            int cur; return CampaignPointsLocal.TryGetValue(army, out cur) ? cur : 0;
         }
     }
 }

@@ -466,7 +466,7 @@ namespace CardPresentation
         /// <summary>原版 `CheckPreviousMatch()`（`PlayEvent.cs:433`，控制流可读；DisplayClass12_0 的 `.c` 佐证）：
         /// <code>
         /// if (SaveGame == null) return;
-        /// if (SaveGame.lastOpponentInfo == null) return;
+        /// if (!SaveGame.matchStarted(+0x44) || SaveGame.lastOpponentInfo(+0x58) == null) return;   // ★ 2026-10-28 补：matchStarted 这口闸在 null 判据**之前**
         /// LogWarning("Found ongoing match data");
         /// key = Result==1 ? "Demo/MainMenu/OngoingMatchVictory"
         ///     : Result==2 ? "Demo/MainMenu/OngoingMatchDraw"
@@ -479,7 +479,7 @@ namespace CardPresentation
         /// 这个可注入的口（null 时**只记日志**，⛔ 不静默）。</summary>
         protected virtual void CheckPreviousMatch()
         {
-            if (SaveGame == null) return;
+            if (SaveGame == null || !SaveGame.matchStarted) return;   // ★ 原版两口闸（+0x44 先、+0x58 后），⛔ 别只留 null 那口
             var info = SaveGame.lastOpponentInfo;
             if (info == null) return;
             Debug.LogWarning("[PlayEvent] Found ongoing match data（'" + GetID() + "' 上一次对局没结算）");
@@ -543,17 +543,17 @@ namespace CardPresentation
                     + "（本地等价：只落事件级状态；拉对局是战斗/联机线）");
         }
 
-        /// <summary>原版 `OnMatchFound(string otherPlayerName)` 的**本地等价**：
-        /// 记日志 + 存 `LastOpponentInfo`（原版还会写 `MatchFoundCallback`、拉对手 id/段位/头像）。
-        /// 判据 `PlayEvent.cs:854`；DisplayClass16_0 的 `.c` 显示它建 `LastOpponentInfo` 并调两个回调。</summary>
+        /// <summary>原版 `OnMatchFound(string otherPlayerName)`（判据 = 2026-10-28 补导的 `decomp_b91/PlayEvent_object__object_.OnMatchFound__1127660.c`，逐句）：
+        /// `save.matchStarted(+0x44)=true` → 日志 `MatchFoundCallback, otherPlayerName X, OpponentId Y` → `save.lastOpponentInfo(+0x58) = MakeOpponentInfo(matchData)`（`matchData` = `PlayerDataManager.singletonManager.matchData`，本地等价 → <see cref="PlayEventMatchContext.Current"/>；存档 null 时原版 NRE，我们出声后只打日志）。</summary>
         protected virtual void OnMatchFound(string otherPlayerName)
         {
-            Debug.Log("[PlayEvent] MatchFound：'" + GetID() + "' 对手 = " + (otherPlayerName ?? "<null>"));
+            if (SaveGame != null) { SaveGame.matchStarted = true; SaveGame.lastOpponentInfo = MakeOpponentInfo(PlayEventMatchContext.Current); } else Debug.LogWarning("[PlayEvent] OnMatchFound：没有存档（原版这一跳 NRE）⇒ 两句没写");
+            Debug.Log("[PlayEvent] MatchFoundCallback, otherPlayerName " + (otherPlayerName ?? "<null>") + ", OpponentId " + (PlayEventMatchContext.Current != null ? PlayEventMatchContext.Current.opponentId : "<null>"));
         }
 
-        /// <summary>原版 `MakeOpponentInfo(MatchData)`（`PlayEvent.cs:871`）：由 `MatchData` 组
-        /// `LastOpponentInfo`（对手 id/名/英雄/联盟/段位/赛季）。
-        /// ⚠️ 差异：原版还会读 `RankedV3` 当前赛季（本机没有那条线）⇒ `Season` 抄 `matchData.season`。</summary>
+        /// <summary>原版 `MakeOpponentInfo(MatchData)`（判据 = `decomp_b91/PlayEvent_object__object_.MakeOpponentInfo__11273c0.c`，逐格）：
+        /// `OpponentId(+0x10)` / `OpponentName(+0x18 = enemyRawBattleData.deckName)` / `PlayerHeroId(+0x20)` / `OpponentHeroId(+0x28)` / `Result(+0x40)=0` /
+        /// `RankedGame(+0x58)` / `Season(+0x44)`（原版那格是 `int?`）。⚠️ 后两格原版的函数名未解（VA `0x18042E360` → `0x1800021F0`，key=4 / key=1）⇒ 见下面那行的 🔶。</summary>
         protected virtual LastOpponentInfo MakeOpponentInfo(MatchData matchData)
         {
             var info = new LastOpponentInfo();
@@ -564,18 +564,18 @@ namespace CardPresentation
             info.OpponentAlliance = matchData.opponentAlliance;
             info.PlayerHeroId = matchData.playerHeroId;
             info.PlayerAlliance = matchData.playerAlliance;
-            info.Season = matchData.season;
+            info.RankedGame = RankedData.IsRanked ? 1 : 0; info.Season = RankedData.SeasonNumber;   // 🔶 自己设计（非原版）：原版这两格来自 ranked 对象的两跳（函数名未解：VA 0x18042E360→0x1800021F0，key=4 命中?1:0 / key=1 的 int）⇒ 本地近似 = RankedData.IsRanked / SeasonNumber · A3 2026-10-28
             return info;
         }
 
-        /// <summary>原版 `CancelMatch()`（`PlayEvent.cs:952`）：清 `lastOpponentInfo` + 打云脚本
-        /// `OnCancelMatch{eventId}` + `CustomDebug.Log("CancelMatch")`。
-        /// ⚠️ 本地等价：**只清本地那两格并出声**（没有云脚本）。</summary>
+        /// <summary>原版 `CancelMatch()`（判据 = `decomp_b91/PlayEvent_object__object_.CancelMatch__11268a0.c`）：
+        /// `save.lastOpponentInfo(+0x58) = **new LastOpponentInfo()**`（不是 null！）→ `save.matchStarted(+0x44) = false` → `CustomDebug.Log("CancelMatch")` → 云脚本 `0x448 OnCancelMatch{eventId}`。
+        /// ⚠️ 本地等价：前两句照抄 + 出声；云脚本那一跳没有服务器（P3）⇒ 出声跳过。🔴 赋**非 null** 正是为了让 `CheckPreviousMatch` 的 null 判据失效、改由 `matchStarted` 表达状态（三口闸一起改）。</summary>
         public virtual void CancelMatch()
         {
             if (SaveGame != null)
             {
-                SaveGame.lastOpponentInfo = null;
+                SaveGame.lastOpponentInfo = new LastOpponentInfo();   // ★ 原版赋的是**新建空对象**，不是 null（见上）
                 SaveGame.matchStarted = false;
             }
             Debug.Log("[PlayEvent] CancelMatch：'" + GetID() + "'（原版会打 CloudHandle.OnCancelMatch，本地没有服务器）");
@@ -678,18 +678,18 @@ namespace CardPresentation
         /// 匹配过滤串。没有实现的活动**必须**给出自己的（⛔ 别在基类编一个默认串）。</summary>
         public abstract string GetMatchmakingFilter(int currentElo, int tryCount, int gamesLost);
 
-        /// <summary>原版 `GetEventDeck()`（`PlayEvent.cs:1094`，控制流可读）：
+        /// <summary>原版 `GetEventDeck()`（判据 = 2026-10-28 补导的 `decomp_b91/PlayEvent_object__object_.GetEventDeck__1127000.c`，95 行，逐支）：
         /// <code>
         /// if (SaveGame == null) NRE;
-        /// if (!string.IsNullOrWhiteSpace(SaveGame.defaultDeckId)) {
-        ///     deck = 按 id 取卡组;
-        ///     if (deck != null &amp;&amp; deck.GameMode == EventPlayMode &amp;&amp; ValidateDeck(deck)) return deck;
-        /// }
-        /// if (Handler != null) { … 取 ranked 活动那一副 … }        // ← 本机无那条线（见下）
-        /// return 所有卡组.FirstOrDefault(b__26_0);                  // 模式对 ∧ 可打
+        /// ① if (!string.IsNullOrWhiteSpace(save.defaultDeckId(+0x38))) { deck = AssetLocator.GetAsset(...);
+        ///        if (deck != null &amp;&amp; deck.GameMode == EventPlayMode &amp;&amp; ValidateDeck(deck)) return deck; }
+        /// ② if (&lt;handler != null&gt;) return 所有卡组.FirstOrDefault(b__26_0);   // 模式对 ∧ 可打（★ 这一支**直接 return**，不进 ③）
+        /// ③ return GameModes.GetActiveEvent&lt;IRankedEvent&gt;().GetEventDeck();  // ★ 只在 ② 的 handler 为空时才走
         /// </code>
-        /// ⚠️ 「Handler 那条支」读的是 `Handler.GetActiveEvent&lt;IRankedEvent&gt;()`（排位活动正在用的那副）——
-        /// 我们没有 `IRankedEvent` 层 ⇒ **该支没搬**，直接在下面出声说明（⛔ 不静默跳过）。</summary>
+        /// ⚠️ 本地等价：②/③ 之间那道闸（handler 是不是空）我们没有对应物 ⇒ ③ 放在 ② 扫表之后当**兜底**
+        /// （多出来的行为如实记在账 281 的差异列）。
+        /// ③ 的取口 = <see cref="PlayEventRankedDeck.Source"/>（本机没有 `IRankedEvent` 接口、也没有 `GameModes` 单例
+        /// ⇒ 由排位线注入；null 时出声一次再回 null，⛔ 不静默）。</summary>
         public virtual string GetEventDeck()
         {
             var src = PlayEventDecks.Source;
@@ -704,10 +704,10 @@ namespace CardPresentation
                 if (i >= 0 && src.GameModeAt(i) == EventPlayMode && src.IsPlayableAt(i))
                     return src.IdAt(i);
             }
-            // ⚠️ 原版这里还有一支「问 ranked handler 当前活动那副」—— 本机无 IRankedEvent 层，没搬（见文件头差异②）
+            // ② 原版这一支 = 「扫全表取 FirstOrDefault(b__26_0)」（模式对 ∧ 可打）；★ 原版 ② 有结果时**直接 return**，不进 ③
             for (int i = 0; i < src.Count; i++)
                 if (GetEventDeckPredicate(src.IdAt(i))) return src.IdAt(i);
-            return null;
+            return PlayEventRankedDeck.TryGet();       // ③ 原版 `GameModes.GetActiveEvent<IRankedEvent>().GetEventDeck()`
         }
 
         /// <summary>原版 `GetEventDeck(CardArmy army)`（`PlayEvent.cs:1286`）：
@@ -798,5 +798,56 @@ namespace CardPresentation
             if (OnErrorPopup != null) { OnErrorPopup(locKey); return; }
             Debug.LogWarning("[PlayEvent] 要弹的提示 '" + locKey + "' 没有接弹窗口（原版 WindowsManager.ShowPopUp）");
         }
+    }
+
+    /// <summary>「当前对局数据」那一格（原版 `PlayerDataManager.singletonManager.matchData`）的本地替身。
+    /// 🔶 自己设计（非原版）：原版 `OnMatchFound` 从 `PlayerDataManager.singletonManager.matchData`（`+0x20`）取
+    /// `MatchData` 再交给 `MakeOpponentInfo`（判据 = `decomp_b91/PlayEvent_object__object_.OnMatchFound__1127660.c`）；
+    /// 本地没有那一格（大厅/联机是我们自有的 P2P，`MatchData` 本身也是我们的替身，见它的注释）
+    /// ⇒ 由大厅/联机线在「匹配成功」时写进来。null ⇒ `MakeOpponentInfo(null)` 回一份**全默认**的 `LastOpponentInfo`
+    /// （原版这一跳 NRE，我们出声不崩）。
+    /// ⚠️ 放在**非泛型**静态类里：泛型类的 `static` 是**按闭合类型各一份**（`GameModesHandler.cs:443` 记的那条坑），
+    /// 那种「全局一格」放泛型类里会静默变成三份。A3 2026-10-28 裁定。</summary>
+    public static class PlayEventMatchContext
+    {
+        /// <summary>当前这一场的 `MatchData`（`null` = 还没有/未知）。</summary>
+        public static MatchData Current;
+
+        /// <summary>自检口：清干净（否则下一个自检会读到上一场的数据）。</summary>
+        public static void ResetForTest() { Current = null; }
+    }
+
+    /// <summary>原版 `PlayEvent.GetEventDeck()` **第 ③ 支**（`GameModes.GetActiveEvent&lt;IRankedEvent&gt;().GetEventDeck()`）的取口。
+    /// 🔶 自己设计（非原版）：本机没有 `IRankedEvent` 接口、也没有 `GameModes` 单例（`GetActiveEvent` 要实例状态）
+    /// ⇒ 由排位线注入「排位活动当前那副卡组的 id」。null ⇒ **出声一次**再返回 null（⛔ 不静默失败）。
+    /// ⚠️ 同 <see cref="PlayEventMatchContext"/>：放非泛型静态类，避免「按闭合类型各一份」。
+    /// A3 2026-10-28 裁定（判据：`decomp_b91/PlayEvent_object__object_.GetEventDeck__1127000.c` 末段）。</summary>
+    public static class PlayEventRankedDeck
+    {
+        /// <summary>`() =&gt; 排位活动当前卡组的 id`（认不出/没有 ⇒ 回 null/空串）。</summary>
+        public static Func<string> Source;
+
+        /// <summary>取 ③ 那一支的卡组；没接就出声一次并回 null（= 原版 `GetActiveEvent&lt;IRankedEvent&gt;()` 为 null 那一支）。</summary>
+        public static string TryGet()
+        {
+            if (Source == null)
+            {
+                if (!_warned) { _warned = true; Debug.LogWarning("[PlayEvent] GetEventDeck：③ 原版这一支问 `GameModes.GetActiveEvent<IRankedEvent>().GetEventDeck()`，"
+                                                              + "本地没有那条链（`PlayEventRankedDeck.Source` 没接）⇒ 回 null"); }
+                return null;
+            }
+            string deck = Source();
+            if (string.IsNullOrEmpty(deck) && !_warned)
+            {
+                _warned = true;
+                Debug.LogWarning("[PlayEvent] GetEventDeck：③ 取口接上了，但排位活动当下没有返回卡组 ⇒ 回 null");
+            }
+            return string.IsNullOrEmpty(deck) ? null : deck;
+        }
+
+        static bool _warned;
+
+        /// <summary>自检口：清注入口 + 告警去重。</summary>
+        public static void ResetForTest() { Source = null; _warned = false; }
     }
 }

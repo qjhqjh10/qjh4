@@ -1234,7 +1234,7 @@ namespace CardPresentation
         {
             if (b == null) return;
             if (b.audio != null) b.audio.Stop();                       // 原版 ①（.c:9）
-            if (b.text != null) b.text.SetMaxVisibleCharacters(0);     // 原版 ⑤（.c:22）
+            if (b.text != null) { b.text.SetText(""); b.text.SetMaxVisibleCharacters(0); }   // 原版 ⑤（.c:20-24：先清字、再置 0）
             b.SetActive(false);                                        // 原版 ④（.c:15）
             b.ResetState();                                            // 原版 ②（.c:10，`isPlaying` 在 ResetState 里清）
         }
@@ -1257,8 +1257,8 @@ namespace CardPresentation
         }
 
         /// <summary>🆕 2026-10-20（W58 · G 组）：把三颗气泡挂的语音也**停掉**。
-        /// <para>`HideAll` 按既有口径**只收气泡、不碰音频**（见 `BattleDriver.CloseTutorialChatBoxes`
-        /// 那段注释：原版 `CloseChatBox` 是否停音没核到 ⇒ 别改 `HideAll` 的语义）。而「新一局 = 新场景」
+        /// <para>🔴 **2026-10-28（`B90-N5`）就地订正（铁律 5）**：原文写「`HideAll` 只收气泡、不碰音频」—— **已不成立**
+        /// （2026-10-27 起 `HideBubble` 就 `AudioSource.Stop()`，判据 `UnitsVoiceLinesPanel__HideChatBox.c:11`）。「新一局 = 新场景」
         /// 这一档必须把上一局的语音收掉（原版换场景连 AudioSource 一起没了），否则上一局的台词会串到
         /// 下一局开场（还会挡住 `BattleDriver.TickIntroMonologue` 的「等上一条播完」闸）。</para>
         /// <para>调用点只有 `BattleDriver.Begin`（本局账不跨局那一族）—— ⛔ 别拿它替换 `HideAll`。</para></summary>

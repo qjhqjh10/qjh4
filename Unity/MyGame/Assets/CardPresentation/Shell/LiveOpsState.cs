@@ -180,13 +180,13 @@ namespace CardPresentation
         /// <summary>原版 `Evaluation.Check(string raw, Evaluation.Operation op, string value)`。
         /// 参数 = (原值, 运算的 int 值, 目标值)。</summary>
         public static Func<string, int, string, bool> EvaluationCheck;
-        /// <summary>原版 `PlayerDataManager.singletonManager.CurrentLevel`。</summary>
-        public static Func<int> PlayerLevel;
+        /// <summary>原版 `PlayerDataManager.singletonManager.CurrentLevel`。🆕 2026-10-28（B90·N3）：**默认接本地口**（改前裸 null + 全仓 0 处赋值 ⇒ 恒 `Missing→false`）。</summary>
+        public static Func<int> PlayerLevel = LiveOpsConditionBindingsLocal.PlayerLevel;
         /// <summary>原版 `InventoryManager.HasItem(item)` —— 按**物品 id** 查（类型无关的等价物；
-        /// 原版按 `LoadableReference&lt;ObtainableItem&gt;` 的 runtime type 选背包）。</summary>
-        public static Func<string, bool> HasItemById;
-        /// <summary>原版 `InventoryManager.GetInventory&lt;CardDeck&gt;().GetWhere(d =&gt; d.prebuiltDeckId == targetId).Any()`。</summary>
-        public static Func<string, bool> HasDeckByPrebuiltId;
+        /// 原版按 `LoadableReference&lt;ObtainableItem&gt;` 的 runtime type 选背包）。🆕 2026-10-28（B90·N3）：默认接上。</summary>
+        public static Func<string, bool> HasItemById = LiveOpsConditionBindingsLocal.HasItemById;
+        /// <summary>原版 `InventoryManager.GetInventory&lt;CardDeck&gt;().GetWhere(d =&gt; d.prebuiltDeckId == targetId).Any()`。🆕 2026-10-28 同上：默认接上。</summary>
+        public static Func<string, bool> HasDeckByPrebuiltId = LiveOpsConditionBindingsLocal.HasDeckByPrebuiltId;
 
         static readonly System.Collections.Generic.HashSet<string> _warned =
             new System.Collections.Generic.HashSet<string>();
@@ -340,6 +340,97 @@ namespace CardPresentation
                 if (!LiveOpsConditionBindings.EvaluationCheck(raw, o.operation, o.value)) return false;
             }
             return true;
+        }
+    }
+}
+
+// ============================================================ 🆕 2026-10-28（B90 · N3，追加在文件尾）
+//   `LiveOpsConditionBindings` 那三个「本地有数据源」的口的**默认实现**。
+//   🔴 为什么要有它（铁律 5·b / 判据见账）：`收藏.tsv` 的 `InventoryCondition.Validate` 与
+//      `卡组编辑.tsv` 的 `HasDeckCondition.Validate` 方法体早就逐句落地了，但**输入口从未被注入**
+//      （全仓 `grep LiveOpsConditionBindings` 只有定义与 `Missing(...)`，**0 处赋值**）⇒ 生产上这两个条件
+//      **恒 fail-closed**，与「原版会真判」不一致（B88-F8 因此把两条从 A 降成 B）。
+//   做法：不新开注入总线（本批白名单里没有启动点），把默认实现直接挂在字段初始化上
+//      （`LiveOpsConditionBindings.PlayerLevel = LiveOpsConditionBindingsLocal.PlayerLevel` …）——
+//      仍然是**可注入**的（谁都可以再赋一个覆盖），但「什么都不做」时**已经是接上的**。
+//   ⚠️ 另外三个口（`CheckTag` / `GetRawAttribute` / `EvaluationCheck`）**故意不接**：本机没有
+//      `SegmentationController` / `Evaluation` 的等价物（判据 → `报告/B88_J3_活动线判据.md` §2·3）⇒ 保持 fail-closed + 出声。
+namespace CardPresentation
+{
+    /// <summary>三个「本地有数据源」的条件输入口的默认实现。判据与差异逐条写在每个成员上。</summary>
+    public static class LiveOpsConditionBindingsLocal
+    {
+        /// <summary>原版 `PlayerDataManager.singletonManager.CurrentLevel`（= 玩家收藏等级）。
+        /// 本地等价物 = `CardTierConfig.PlayerLevel`（`Shell/CardTierConfig.cs:203`，顶栏 / 档案页在用的那一个口）。
+        /// <para>⚠️ **不是**「账号等级」（原版那个也来自服务器）；取值口径 = 同一份本地算出来的收藏等级。</para></summary>
+        public static int PlayerLevel() { return CardTierConfig.PlayerLevel; }
+
+        /// <summary>原版 `InventoryManager.HasItem(item)`：按 **`ObtainableItem` 的 runtime type** 选背包再查 id。
+        /// 我们的等价物 = **把四份已登记背包逐个探一遍**（id 在各背包间唯一，逐探与「按类型选」同解）。
+        /// <para>⚠️ 先摸一下 <see cref="Inventories.Cards"/>：四份背包是在那个类的**静态构造**里登记的
+        /// （`Inventory.cs` 的 `static Inventories()`）—— 不先摸，`GetInventory&lt;T&gt;()` 会说「没登记」并报 Error。</para></summary>
+        public static bool HasItemById(string id)
+        {
+            if (string.IsNullOrEmpty(id)) return false;
+            var _ = Inventories.Cards;                       // 触发静态构造 ⇒ 四份背包登记进 `InventoryManager`
+            return InventoryManager.HasItemByID<RuleEngine.CardDef>(id)
+                || InventoryManager.HasItemByID<ShopItem>(id)
+                || InventoryManager.HasItemByID<AltArtUnlock>(id)
+                || InventoryManager.HasItemByID<InventoryWildcard>(id);
+        }
+
+        /// <summary>原版 `InventoryManager.GetInventory&lt;CardDeck&gt;().GetWhere(d =&gt; d.prebuiltDeckId == targetId).Any()`
+        /// —— 「玩家**拥有**这副预组卡组吗」。
+        /// 🔶 自己设计（非原版）：本地判据 = 「`targetId` 在**本地预组目录**里」（`PrebuiltDecks.All` 的 `deckId`）。
+        /// 为什么必须自己定：原版那一格是「活动发过给你的那副预组卡组实例」（`CardDeck.prebuiltDeckId`），
+        /// 我们**没有预组卡组的持有/发放链** —— 项目边界是「卡池/预组全解锁」（CLAUDE.md §四 ②）⇒
+        /// 「目录里有」= 「玩家拿得到」。⚠️ 差异：原版可以「目录里有但你这号没拿到」⇒ 本口会把那种档判成 true。
+        /// 谁定的 + 日期：调度台 B90 2026-10-28。</summary>
+        public static bool HasDeckByPrebuiltId(string targetId)
+        {
+            if (string.IsNullOrEmpty(targetId)) return false;
+            var all = PrebuiltDecks.All;
+            for (int i = 0; i < all.Count; i++)
+                if (all[i] != null && all[i].deckId == targetId) return true;
+            return false;
+        }
+    }
+}
+
+// ============================================================ 🆕 2026-10-28（B90 · N3b，追加在文件尾）
+//   `LiveOpsLocalEvent.GetTimeDescriptionTextKey()` —— 原版 `LiveOpsEvent.GetTimeDescriptionTextKey()`
+//   （`d:/2/tools/decomp_full/Everguild.LiveOps.LiveOpsEvent__GetTimeDescriptionTextKey.c`：
+//    `case 1 ⇒ TimeStartsIn 键 / case 2 ⇒ TimeEndsIn 键 / case 3 ⇒ TimeFinished 键 / 其余 ⇒ 空串`）。
+//
+//   为什么需要它：`LiveopMenuContainer.OnInitialize` 现在**写死「结束于」前缀**，原版按**状态**三档取前缀
+//   ⇒ `OnPreview` 状态的活动卡会印错（应为「开始于」）。有了这一跳，调用点就能按状态取键。
+//
+//   ⚠️ **不另造键名**：三个键与本仓已有的 `LiveOpsEvent.GetTimeDescriptionTextKey()`
+//   （`Shell/LiveOpsEvent.cs:1208`，另一条类层次 `LiveOpsEvent`）**逐字相同** ——
+//   `Event_Description/General/{TimeStartsIn,TimeEndsIn,TimeFinished}`。
+//   ⛔ 别在两份 partial 里各写一套键名（铁律 6：两处写同一条规则 = 迟早不一致）。
+//   🔶 那份实现里已如实标注：「三个键名是按语义对位出来的、不是从字面量读出来的」（判据链见那边的 doc）。
+//
+//   ⚠️ 本方法与 `LiveOpsEvent` 那份的**唯一差别**：数据源是离线目录模型（`GetState` 已在本类，`Shell/LiveOpsState.cs:120`），
+//   `LiveOpState` 的枚举值与原版逐值一致 ⇒ switch 可以逐档照抄。
+namespace CardPresentation
+{
+    public sealed partial class LiveOpsLocalEvent
+    {
+        /// <summary>原版 `ILiveOps.GetTimeDescriptionTextKey()`：状态 → 词条键（**空串 = 这一档不显示前缀**）。
+        /// <para>三档与键：`OnPreview(1)` → `Event_Description/General/TimeStartsIn` · `Active(2)` → `…/TimeEndsIn` ·
+        /// `Finished(3)` → `…/TimeFinished` · `Planned(0)` / `Expired(4)` / `NotAvailable(-1)` → `""`。</para>
+        /// <para>⚠️ 时钟走 <see cref="LiveOpsClock.NowUtc"/>（= 原版 `DateTime.Now` 的那个口，自检可用
+        /// `LiveOpsClock.NowProvider` 钉死；⛔ 别在这类纯函数里直接读 `DateTime.UtcNow`，那样自检钉不住）。</para></summary>
+        public string GetTimeDescriptionTextKey()
+        {
+            switch (GetState(LiveOpsClock.NowUtc))
+            {
+                case LiveOpState.OnPreview: return "Event_Description/General/TimeStartsIn";
+                case LiveOpState.Active: return "Event_Description/General/TimeEndsIn";
+                case LiveOpState.Finished: return "Event_Description/General/TimeFinished";
+                default: return "";        // Planned / Expired / NotAvailable 都不显示前缀（原版同一句）
+            }
         }
     }
 }

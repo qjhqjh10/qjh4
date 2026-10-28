@@ -1,0 +1,85 @@
+# B90_N2_小屏字号实例.tsv —— 原版 `EverguildTextMeshPro.smallScreenMaxFontSize/MinFontSize > 0` 的逐颗普查
+# 数据源 = d:/2/新解包资源/assets_full/bundle_menus_assets_all/（menus 包）逐 MB + GameObject + Transform 现读（2026-10-28 · B90-N2 生成）
+# 判据 = decomp_full/EverguildTextMeshPro__UpdateTextSizeSmallScreen.c（体）+ EverguildTextMeshPro__Awake.c:56-70（唯一的落地时刻：Awake 内联）
+# 合计：带该字段的 MB 663 颗 / 其中 max>0 或 min>0 = 79 颗（⚠️ 旧账写的 86 是过期口径，铁律 5 订正）
+# ⚠️ 79 颗的 m_enableAutoSizing 全 = 1 ⇒ 原版只会写 fontSizeMax（+ 24 颗的 fontSizeMin），**fontSize 那一支从不触发**
+叶子名	节点路径	m_GameObject	smallScreenMaxFontSize	smallScreenMinFontSize	m_enableAutoSizing	m_fontSize	m_fontSizeMax	m_fontSizeMin	资产文件名
+<null>	<null>/<null>/<null>	629549503951649252	45.0	10.0	1	40.0	40.0	18.0	MonoBehaviour_-7428901971334088220.json
+<null>	Alliance Member Entry/Ratings/<null>/<null>	-9171783961317431374	45.0	0	1	42.0	42.0	18.0	MonoBehaviour_5962791513722300338.json
+Descripton	<null>/window/<null>/Descripton	-4309141391194825603	35.0	15.0	1	35.0	35.0	15.0	MonoBehaviour_1714388208417266813.json
+Individual rating value	<null>/<null>/<null>/<null>/<null>/<null>/<null>/<null>/<null>/Individual rating value	7299115851256134194	45.0	0	1	37.400001525878906	40.0	18.0	MonoBehaviour_2245059837130865202.json
+Individual rating value	<null>/<null>/<null>/<null>/<null>/<null>/<null>/viewport/content/<null>/<null>/Individual rating value	-1617684142193149390	110.0	0	1	76.3499984741211	90.0	18.0	MonoBehaviour_2373845895433976370.json
+Individual rating value	<null>/<null>/<null>/<null>/<null>/<null>/<null>/viewport/content/<null>/Alliance Rating Display (1)/Individual rating value	-1734861393233085902	110.0	0	1	76.3499984741211	90.0	18.0	MonoBehaviour_-3553456426528966094.json
+Individual rating value	<null>/<null>/<null>/<null>/<null>/<null>/<null>/viewport/content/<null>/Alliance Rating Display (1)/Individual rating value	-8202326509114394062	110.0	0	1	76.3499984741211	90.0	18.0	MonoBehaviour_-8564197241217975758.json
+Individual rating value	<null>/<null>/<null>/<null>/<null>/<null>/<null>/viewport/content/<null>/Alliance Rating Display/Individual rating value	-1702074487310550478	110.0	0	1	90.0	90.0	18.0	MonoBehaviour_-7522256853170292174.json
+Individual rating value	<null>/<null>/<null>/<null>/<null>/<null>/<null>/viewport/content/<null>/Alliance Rating Display/Individual rating value	-1181173077478376910	110.0	0	1	90.0	90.0	18.0	MonoBehaviour_7263516174831942194.json
+Individual rating value	<null>/<null>/<null>/<null>/<null>/<null>/<null>/viewport/content/<null>/Alliance Rating Display/Individual rating value	-2063247252880459214	110.0	0	1	90.0	90.0	18.0	MonoBehaviour_8470609939303004722.json
+Individual rating value	<null>/<null>/<null>/<null>/<null>/<null>/<null>/viewport/content/FactionScoreSmall/Alliance Rating Display (1)/Individual rating value	2858414791675902514	110.0	0	1	76.3499984741211	90.0	18.0	MonoBehaviour_6082404909108656690.json
+Individual rating value	<null>/<null>/<null>/<null>/<null>/<null>/<null>/viewport/content/FactionScoreSmall/Alliance Rating Display/Individual rating value	-5024824258043413966	110.0	0	1	90.0	90.0	18.0	MonoBehaviour_-4369289784403854798.json
+Individual rating value	<null>/<null>/<null>/<null>/<null>/<null>/content/<null>/<null>/Alliance Rating Display/Individual rating value	1322711926670981682	45.0	0	1	40.0	40.0	18.0	MonoBehaviour_-2626512631818651086.json
+Individual rating value	<null>/<null>/<null>/<null>/<null>/<null>/content/<null>/<null>/Alliance Rating Display/Individual rating value	-8960268765626598862	45.0	0	1	40.0	40.0	18.0	MonoBehaviour_-6366039746929919438.json
+Individual rating value	<null>/<null>/<null>/<null>/<null>/<null>/content/<null>/<null>/Alliance Rating Display/Individual rating value	5000189913253640754	45.0	0	1	40.0	40.0	18.0	MonoBehaviour_3499913542471809586.json
+Individual rating value	<null>/<null>/<null>/<null>/<null>/<null>/content/<null>/<null>/Alliance Rating Display/Individual rating value	5887288424315714098	45.0	0	1	40.0	40.0	18.0	MonoBehaviour_3519893153274100274.json
+Individual rating value	<null>/<null>/<null>/<null>/<null>/<null>/content/<null>/<null>/MaxRating/Individual rating value	8505603484555049522	45.0	0	1	28.200000762939453	40.0	18.0	MonoBehaviour_-428657824007226830.json
+Individual rating value	<null>/<null>/<null>/<null>/<null>/<null>/content/<null>/<null>/MaxRating/Individual rating value	7393720719178103346	45.0	0	1	28.200000762939453	40.0	18.0	MonoBehaviour_2292638129172937266.json
+Individual rating value	<null>/<null>/<null>/<null>/<null>/<null>/content/<null>/<null>/MaxRating/Individual rating value	2697950713796590130	45.0	0	1	28.200000762939453	40.0	18.0	MonoBehaviour_5869845227941755442.json
+Individual rating value	<null>/<null>/<null>/<null>/<null>/<null>/content/<null>/<null>/MaxRating/Individual rating value	591922936413911602	45.0	0	1	28.200000762939453	40.0	18.0	MonoBehaviour_7962668260064852530.json
+Individual rating value	<null>/<null>/<null>/<null>/<null>/<null>/content/<null>/footer/<null>/Global Rating/Individual rating value	-5090598092689671630	45.0	0	1	40.0	40.0	18.0	MonoBehaviour_-2225333006316045774.json
+Individual rating value	<null>/<null>/<null>/<null>/<null>/Player Info/Info Section with Alliance/Alliance Info/Alliance Rating Display/Individual rating value	2953097658742110770	45.0	0	1	37.400001525878906	40.0	18.0	MonoBehaviour_-2968698772133807566.json
+Individual rating value	<null>/<null>/<null>/<null>/<null>/Ranking/<null>/Content/<null>/Rating Text/Individual rating value	-6198739874097956302	45.0	0	1	32.0	32.0	18.0	MonoBehaviour_-5243686529362331086.json
+Individual rating value	<null>/<null>/<null>/<null>/<null>/Ranking/<null>/Content/<null>/Rating Text/Individual rating value	-3933461894157993422	45.0	0	1	32.0	32.0	18.0	MonoBehaviour_-8755830267165574606.json
+Individual rating value	<null>/<null>/<null>/<null>/<null>/Ranking/<null>/Content/footer/Highest Faction Rating/Rating Text/Individual rating value	-4582003148234393038	45.0	0	1	40.0	40.0	18.0	MonoBehaviour_7255077129811556914.json
+Individual rating value	<null>/<null>/<null>/<null>/<null>/Ranking/<null>/Content/footer/Highest Faction Rating/Rating Text/Individual rating value	-1725581144483071438	45.0	0	1	37.849998474121094	40.0	18.0	MonoBehaviour_8214307650109602354.json
+Individual rating value	<null>/<null>/<null>/<null>/<null>/Ranking/<null>/Content/footer/MainRating/Global Rating/Individual rating value	-2939622064535995854	45.0	0	1	36.29999923706055	40.0	18.0	MonoBehaviour_-7497539285773288910.json
+Individual rating value	<null>/<null>/<null>/<null>/<null>/Ranking/<null>/Content/footer/MainRating/Global Rating/Individual rating value	8302043474946259506	45.0	0	1	40.0	40.0	18.0	MonoBehaviour_3737675315791362610.json
+Individual rating value	<null>/<null>/Global Rating/Individual rating value	-1205615205220579108	78.0	0	1	78.0	78.0	20.0	MonoBehaviour_7946091291249248476.json
+Individual rating value	<null>/<null>/Individual rating value	4120070059433948279	45.0	0	1	28.200000762939453	40.0	18.0	MonoBehaviour_-3477132969538390921.json
+Individual rating value	<null>/<null>/Tabs/<null>/<null>/<null>/Content/<null>/Individual rating value	-6362572999322705757	45.0	0	1	42.0	42.0	18.0	MonoBehaviour_7676139565442523299.json
+Individual rating value	<null>/<null>/Tabs/<null>/<null>/<null>/Content/Alliance Rating Display/Individual rating value	1413123972061782179	45.0	0	1	42.0	42.0	18.0	MonoBehaviour_-69344794122919773.json
+Individual rating value	<null>/<null>/Tabs/<null>/<null>/<null>/Content/MemberList/Scroll View/Viewport/Content/<null>/Ratings/<null>/Individual rating value	5988599772931088547	45.0	0	1	42.0	42.0	18.0	MonoBehaviour_1893072596411211939.json
+Individual rating value	<null>/<null>/Tabs/<null>/<null>/<null>/Content/MemberList/Scroll View/Viewport/Content/<null>/Ratings/Ranked Rating/Individual rating value	-4368603860087938909	45.0	0	1	45.0	45.0	18.0	MonoBehaviour_-2287828763252367197.json
+Individual rating value	<null>/<null>/Tabs/<null>/<null>/GeneralDetails/Content/<null>/Scroll View/Viewport/Content/Alliance Member Entry/<null>/Draft Rating/Individual rating value	-6228927955181772637	45.0	0	1	42.0	42.0	18.0	MonoBehaviour_-6736837615115902813.json
+Individual rating value	<null>/<null>/Tabs/<null>/<null>/GeneralDetails/Content/<null>/Scroll View/Viewport/Content/Alliance Member Entry/<null>/Ranked Rating/Individual rating value	-8269171404888481629	45.0	0	1	18.0	45.0	18.0	MonoBehaviour_8880799295205531811.json
+Individual rating value	<null>/<null>/Tabs/<null>/<null>/GeneralDetails/Content/Alliance Rating Display/Individual rating value	5368371828830625955	45.0	0	1	42.0	42.0	18.0	MonoBehaviour_-7031947786318323549.json
+Individual rating value	<null>/<null>/Tabs/<null>/<null>/GeneralDetails/Content/Draft Rating Display/Individual rating value	7627843671455555747	45.0	0	1	42.0	42.0	18.0	MonoBehaviour_248079680431906979.json
+Individual rating value	<null>/Alliance Rating Display (1)/Individual rating value	5232335021097416066	110.0	0	1	76.3499984741211	90.0	18.0	MonoBehaviour_-7710556374522792574.json
+Individual rating value	<null>/Alliance Rating Display/Individual rating value	3935059565022835831	45.0	0	1	40.0	40.0	18.0	MonoBehaviour_-7615314744230579081.json
+Individual rating value	<null>/Alliance Rating Display/Individual rating value	-6748308286954211966	110.0	0	1	90.0	90.0	18.0	MonoBehaviour_156995735355782530.json
+Individual rating value	<null>/Content/<null>/<null>/Individual rating value	6539354447630487358	45.0	0	1	40.0	40.0	18.0	MonoBehaviour_340283963913260862.json
+Individual rating value	<null>/Content/footer/<null>/Rating Text/Individual rating value	868348800040543588	45.0	0	1	40.0	40.0	18.0	MonoBehaviour_6357340771156665700.json
+Individual rating value	<null>/Content/footer/MainRating/<null>/Individual rating value	5952452059420927332	45.0	0	1	40.0	40.0	18.0	MonoBehaviour_2253442499703383396.json
+Individual rating value	<null>/Ranked Division Info/Content/footer/FactionScoreSmall/Alliance Rating Display (1)/Individual rating value	8943499127524591536	110.0	0	1	76.3499984741211	90.0	18.0	MonoBehaviour_-828684035210704976.json
+Individual rating value	<null>/Ranked Division Info/Content/footer/FactionScoreSmall/Alliance Rating Display (1)/Individual rating value	2575562418370093781	110.0	0	1	76.3499984741211	90.0	18.0	MonoBehaviour_1644312000828252885.json
+Individual rating value	<null>/Ranked Division Info/Content/footer/FactionScoreSmall/Alliance Rating Display/Individual rating value	3490505094419023792	110.0	0	1	90.0	90.0	18.0	MonoBehaviour_-3308915792832985168.json
+Individual rating value	<null>/Ranked Division Info/Content/footer/FactionScoreSmall/Alliance Rating Display/Individual rating value	7053613965656629973	110.0	0	1	90.0	90.0	18.0	MonoBehaviour_654011744826467029.json
+Individual rating value	<null>/Ranked Division Info/Content/footer/Highest Faction Rating/Rating Text/Individual rating value	8527834769690239701	45.0	0	1	40.0	40.0	18.0	MonoBehaviour_-7085522716505365803.json
+Individual rating value	<null>/Ranked Division Info/Content/footer/Highest Faction Rating/Rating Text/Individual rating value	-5595846706410584144	45.0	0	1	45.0	45.0	18.0	MonoBehaviour_8434235632468985776.json
+Individual rating value	<null>/Ranked Division Info/Content/footer/MainRating/<null>/<null>/Individual rating value	6150891229572007856	45.0	0	1	45.0	45.0	18.0	MonoBehaviour_7401786696103921584.json
+Individual rating value	<null>/Ranked Division Info/Content/footer/MainRating/<null>/Global Rating/Individual rating value	5345648574538811312	45.0	0	1	45.0	45.0	18.0	MonoBehaviour_-2847881091732699216.json
+Individual rating value	<null>/Ranked Division Info/Content/footer/MainRating/Global Rating/Individual rating value	-1518701518990302507	45.0	0	1	40.0	40.0	18.0	MonoBehaviour_8620259356705923797.json
+Individual rating value	<null>/Rating/Global Rating/Individual rating value	-1142316776525489650	78.0	0	1	78.0	78.0	20.0	MonoBehaviour_5366432577838881294.json
+Individual rating value	Alliance Member Entry/Ratings/Draft Rating/Individual rating value	8272007997449086898	45.0	0	1	42.0	42.0	18.0	MonoBehaviour_7763431905328867250.json
+Individual rating value	Legendary Display Profile/Content/Legendary Counter/<null>/Individual rating value	-4069902047404318112	45.0	0	1	32.0	32.0	18.0	MonoBehaviour_-757498980584152480.json
+Individual rating value	Profile Player Info/Info Section with Alliance/Alliance Info/Alliance Rating Display/Individual rating value	-6274349713642507978	45.0	0	1	37.400001525878906	40.0	18.0	MonoBehaviour_-2217535361698516682.json
+Join Alliance text	<null>/<null>/<null>/No Alliance/Join Alliance text	4337099432337500906	40.0	15.0	1	35.0	35.0	15.0	MonoBehaviour_6845582783921941226.json
+Last Season Text	<null>/Last Season Text	2105810341556432114	45.0	10.0	1	40.0	40.0	18.0	MonoBehaviour_-5548296524073620238.json
+Last Season Text	<null>/Ranking Display/Last Season Text	664938715324148706	45.0	10.0	1	40.0	40.0	18.0	MonoBehaviour_-1334477013583139870.json
+Last Season Text	<null>/Ranking Display/Last Season Text	5077245285758674283	45.0	10.0	1	40.0	40.0	18.0	MonoBehaviour_6981954353622230379.json
+Timer	<null>/<null>/<null>/<null>/<null>/Ranking/<null>/Content/Timer/Timer	-6687262893412484558	38.0	10.0	1	32.0	32.0	18.0	MonoBehaviour_-6063519307676157390.json
+Timer	<null>/<null>/<null>/<null>/<null>/Ranking/<null>/Content/Timer/Timer	-7436676213557265870	38.0	10.0	1	32.0	32.0	18.0	MonoBehaviour_6629231617356233266.json
+Timer	<null>/<null>/MainContent/Scaled Content/Timer/Timer	-6311333104887633174	38.0	10.0	1	38.0	38.0	10.0	MonoBehaviour_-6309545008130266390.json
+Timer	<null>/<null>/Scale menu/Timer/Timer	-3379013463637857558	38.0	10.0	1	38.0	38.0	10.0	MonoBehaviour_-507264892691584278.json
+Timer	<null>/<null>/Timer/Timer	5095829556712421860	45.0	10.0	1	40.0	40.0	18.0	MonoBehaviour_6985647240877685220.json
+Timer	<null>/Content/Timer/Timer	-6014156590293670556	38.0	10.0	1	32.0	32.0	18.0	MonoBehaviour_5325101534550467940.json
+Timer	<null>/Draft Mode Ongoing State/MainContent/<null>/Timer/Timer	2192230094524545733	38.0	10.0	1	38.0	38.0	10.0	MonoBehaviour_4443669973470444229.json
+Timer	<null>/Draft Mode Pay State/<null>/Timer/Timer	-3012919589868045627	38.0	10.0	1	38.0	38.0	10.0	MonoBehaviour_7021309893329451717.json
+Timer	<null>/Ranked Division Info/Content/Timer/Timer	3327478336848306901	38.0	10.0	1	32.0	32.0	18.0	MonoBehaviour_-2606658207867362603.json
+Timer	<null>/Ranked Division Info/Content/Timer/Timer	-1616443368984377424	38.0	10.0	1	38.0	38.0	10.0	MonoBehaviour_3917023090973640624.json
+Timer	<null>/Ranking Display/Timer/Timer	4512020573449481186	45.0	10.0	1	40.0	40.0	18.0	MonoBehaviour_-8140250745000498206.json
+Timer	<null>/Ranking Display/Timer/Timer	1558607395757892971	45.0	10.0	1	40.0	40.0	18.0	MonoBehaviour_2346380124973376875.json
+Timer	<null>/Timer/Timer	1165498151665547953	38.0	10.0	1	38.0	38.0	10.0	MonoBehaviour_1436820707855317681.json
+Timer	<null>/Timer/Timer	514656485843447026	45.0	10.0	1	40.0	40.0	18.0	MonoBehaviour_3520782122756713714.json
+Timer	<null>/Timer/Timer	-6523465099772605070	38.0	10.0	1	38.0	38.0	10.0	MonoBehaviour_4595548534645214578.json
+Timer	<null>/Timer/Timer	6647123181455455011	38.0	10.0	1	38.0	38.0	10.0	MonoBehaviour_7897200385653912355.json
+Timer	Draft Mode Ongoing State/<null>/Timer/Timer	6073885382712263518	38.0	10.0	1	38.0	38.0	10.0	MonoBehaviour_-8952702079165562018.json
+Title	<null>/window/<null>/Title	8910681718220545149	40.0	3.0	1	40.0	40.0	3.0	MonoBehaviour_2410309707926101117.json

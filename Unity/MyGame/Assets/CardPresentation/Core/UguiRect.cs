@@ -220,4 +220,80 @@ namespace CardPresentation
             return new PxRect(container.CX - w * 0.5f, container.y1, container.CX + w * 0.5f, container.y2);
         }
     }
+
+    /// <summary>
+    /// **矩形工具族** —— 逐条照原版 `RectExtensions` / `RendererExtensions` 抄（账 505 / 544 / 546）。
+    /// 原版是 `RectTransform` + 世界坐标；本工程界面是 `ImageQuad` 过程化网格（**没有 uGUI RectTransform 层级**），
+    /// ⇒ 判定本体做成 **`PxRect`（左上原点、y 向下，单位 = 设计像素）** 的纯算术，行为与原版逐句对位：
+    ///   · `Overlaps` = **严格不等的 AABB**（贴边不算相交，`a.x1 &lt; b.x2 &amp;&amp; b.x1 &lt; a.x2 &amp;&amp; a.y1 &lt; b.y2 &amp;&amp; b.y1 &lt; a.y2`）。
+    ///     判据 = `decomp_full/RectExtensions__OverlapsAny.c`（`fVar13+fVar11 &lt;= fVar12` 那三条「不交」取反）
+    ///     ＋ `out_cpp2il_dev_ilspy/RectExtensions.cs:69-244`，两份一致；
+    ///     旁证 = `Shell/CollectionWindow.cs:5116`（早先手写内联的就是这条同式）。
+    ///   · `OverlapsAny` = **按传入 `rects` 的枚举顺序，返回第一个相交的**（原版 `if (bVar1) { *param_3 = …; return 1; }`），
+    ///     ⛔ **不排序、不取最近**。
+    /// </summary>
+    public static class RectExtensions
+    {
+        /// <summary>两个 `PxRect` 是否**严格**相交（AABB；贴边不算）。原版 `RectExtensions.OverlapsAny` 的相交判据。</summary>
+        public static bool Overlaps(PxRect a, PxRect b)
+            => a.x1 < b.x2 && b.x1 < a.x2 && a.y1 < b.y2 && b.y1 < a.y2;
+
+        /// <summary>在 `rects` 里找**第一个**与 `rect` 严格相交的矩形（按枚举序），命中就写进 `overlap` 并返回真。
+        /// 原版 `RectExtensions.OverlapsAny(RectTransform, IEnumerable&lt;RectTransform&gt;, out RectTransform)`：
+        /// **按传入序返回第一个相交的**，不相交就继续 —— 没有排序 / 没有取最近（判据见本类头）。</summary>
+        public static bool OverlapsAny(PxRect rect, System.Collections.Generic.IEnumerable<PxRect> rects, out PxRect overlap)
+        {
+            if (rects != null)
+            {
+                foreach (var b in rects)
+                {
+                    if (Overlaps(rect, b)) { overlap = b; return true; }
+                }
+            }
+            overlap = default(PxRect);
+            return false;
+        }
+
+        /// <summary>只要「有没有命中」那一档（不需要命中物本体时的便捷重载）。</summary>
+        public static bool OverlapsAny(PxRect rect, System.Collections.Generic.IEnumerable<PxRect> rects)
+        {
+            PxRect ignored;
+            return OverlapsAny(rect, rects, out ignored);
+        }
+    }
+
+    /// <summary>
+    /// **屏幕可见性判定族** —— 逐条照原版 `RendererExtensions` 抄（账 544 / 546；545 属原版 D 行一并补齐）。
+    /// 原版签名 = `(RectTransform, Camera)`：`GetWorldCorners` 取四角 → 逐个 `Camera.WorldToScreenPoint`
+    /// → 统计落在**屏幕矩形 `[0,Screen.width) × [0,Screen.height)`** 内的角数。
+    /// 判据 = `decomp_full/RendererExtensions__CountCornersVisibleFrom.c`（四个越界 `if` 依次排除，
+    /// **只有四角全在屏内那一支才 `num4 + 1`**；il2csharp 版同名方法取值被反编译器搅乱，以 `.c` 为准）。
+    /// ⚠️ 消费者 = 原版收件箱 `MessageContainer` 的「真在屏幕内才播 slotting 音效」；
+    ///    本工程该宿主在 `Shell/InboxWindow.cs`（不在本批白名单）⇒ 方法先落地，接线另行。
+    /// </summary>
+    public static class RendererExtensions
+    {
+        /// <summary>四角里**落在屏幕矩形内**（`0 &lt;= sp.x &lt; width` 且 `0 &lt;= sp.y &lt; height`）的个数（0..4）。</summary>
+        public static int CountCornersVisibleFrom(RectTransform rectTransform, Camera camera)
+        {
+            if (rectTransform == null || camera == null) return 0;
+            var corners = new Vector3[4];
+            rectTransform.GetWorldCorners(corners);
+            int w = Screen.width, h = Screen.height, count = 0;
+            for (int i = 0; i < corners.Length; i++)
+            {
+                Vector3 sp = camera.WorldToScreenPoint(corners[i]);
+                if (sp.x >= 0f && sp.x < w && sp.y >= 0f && sp.y < h) count++;
+            }
+            return count;
+        }
+
+        /// <summary>至少有一个角在屏内（`Count &gt; 0`）。原版 `RendererExtensions.IsVisibleFrom`。</summary>
+        public static bool IsVisibleFrom(RectTransform rectTransform, Camera camera)
+            => CountCornersVisibleFrom(rectTransform, camera) > 0;
+
+        /// <summary>四角全在屏内（`Count == 4`）。原版 `RendererExtensions.IsFullyVisibleFrom`（原版 D 行：出货 0 调用）。</summary>
+        public static bool IsFullyVisibleFrom(RectTransform rectTransform, Camera camera)
+            => CountCornersVisibleFrom(rectTransform, camera) == 4;
+    }
 }

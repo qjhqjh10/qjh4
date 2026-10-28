@@ -18,7 +18,7 @@ namespace CardPresentation
                 {
                     case 0: return WindowTabType.ShopCards;
                     case 1: return WindowTabType.ShopDaily;
-                    default: return _page == VipPage ? WindowTabType.ShopVip : WindowTabType.ShopItems;   // 第 4 页 = VIP（见类尾那一段）
+                    default: return _page == VipPage ? WindowTabType.ShopVip : (_page == CratesPage ? WindowTabType.ShopCrates : WindowTabType.ShopItems);   // 第 4 页 = VIP（见类尾那一段）· 🆕 2026-10-28（B91_W5）第 5 页 = Crates/Boosters（枚举门槛在 `RewardsWindow.cs`）
                 }
             }
         }
@@ -280,7 +280,7 @@ namespace CardPresentation
             // 我们的每一页都有商品 ⇒ **恒不显示**（留着是为了将来真出现空列表时能用）
             ew.gameObject.SetActive(false);
 
-            if (NoArtOffers.Count > 0) WarnNoArt();
+            if (NoArtOffers.Count > 0) WarnNoArt(); if (_page == CratesPage && _win != null && _win.CurrentTab == WindowTabType.ShopCrates) TryOpenContainerArmy();   // 🆕 2026-10-28（B91_W5）crates 支 —— 判据/时机/为什么带 `CurrentTab` 闸，见 `TryOpenContainerArmy` 的 doc（⛔ 别把这两句拆成两行：本文件多处账按 `文件:行号` 钉着）
         }
 
         /// <summary>`TimeCounter`（`HorizontalLayoutGroup`：spacing 5 · `ChildControlW/H=1` ·
@@ -1003,10 +1003,10 @@ namespace CardPresentation
         /// <summary>原版 `VIPCardShopTab.OnOpen` = `RefreshOffers(); CheckVIPState();`
         /// ＋ 调试钮闸（玩家面恒假 ⇒ 不建，见本节头）＋ `vipTimer.OnRunOutOfTime += VipTimerOnOnRunOutOfTime`。
         /// ⚠️ 我们这两步都落在 `Setup()` 里（`RefreshOffers` = 重建货架；`CheckVIPState` = 按 VIP 态建状态行 / 遮罩），
-        /// 订阅在 <see cref="BuildVipStatus"/> 里挂 —— ⛔ 别在别处再造一套（两处写同一条规则 = 迟早不一致）。</summary>
+        /// 订阅在 <see cref="BuildVipStatus"/> 里挂 —— ⛔ 别在别处再造一套（两处写同一条规则 = 迟早不一致）。🆕 2026-10-28（`B91_W5`）：**crates 页**同 VIP —— 这一跳是原版 `BoosterShopTab.OnOpen` 的 `RefreshOffers()`；它那第二句 `TryOpenContainerArmy()` 挂在 `Setup()` 末尾。</summary>
         public override void OnOpen()
         {
-            if (_page == VipPage) Setup();
+            if (_page == VipPage || _page == CratesPage) Setup();
         }
 
         /// <summary>原版 `VIPCardShopTab.OnClose` 全文一句：`vipTimer.OnRunOutOfTime -= VipTimerOnOnRunOutOfTime;`</summary>
@@ -1163,5 +1163,60 @@ namespace CardPresentation
         /// 判据 = `PopUpGameWindow__ConfigurePopUp(3 参)` 对每颗 `LiveButtons` 调 `SetActive(false)`；
         /// 详见 <see cref="PopUpGameWindow.PrimaryVisible"/>。</summary>
         public static bool LastWaitingPopupHadNoButton;
+
+        // ============================================================ 🆕 2026-10-28（B91_W5）：Crates/Boosters 页（原版 `BoosterShopTab : ShopTab`）
+        // ⚠️ 一律追加在类尾（本文件有十几条账按 `文件:行号` 钉着）。
+
+        /// <summary>Crates/Boosters 页在 `ShopData.Pages` 里的下标（**第 5 页**，原版 `ShopTabType.CratesShop = 0`）。</summary>
+        public const int CratesPage = 4;
+
+        /// <summary>自检读口：本页是不是 Crates/Boosters 页。</summary>
+        public bool IsCratesPageForTest { get { return _page == CratesPage; } }
+
+        /// <summary>自检读口：最近一次「按 `OpenData.army` 自动开容器」命中的商品下标（−1 = 没命中 / 没跑）。</summary>
+        public int LastAutoOpenedOffer { get; private set; } = -1;
+
+        /// <summary>原版 `BoosterShopTab.TryOpenContainerArmy(ShopWindow.OpenData context)` 的等价物。
+        /// <para>判据（第一权威 = 反汇编方法体 `decomp_full/BoosterShopTab__TryOpenContainerArmy.c`；
+        /// 源码级旁证 `cpp2il/out_cpp2il_dev_ilspy/BoosterShopTab.cs:89-140`）逐句：</para>
+        /// <list type="number">
+        /// <item>`context.army == CardArmy.Neutral` ⇒ **直接 return**（`.c` 第一句 `if (*(int *)(param_2 + 0x10) != 0)` 的反面）；</item>
+        /// <item>否则遍历本页的报价容器，取每件的**阵营**与 `context.army` **逐件比**（`.c` 里 `(**(vtable+0x1b8))(…)` 那个虚调用 = `ObtainableItem.cardArmy`）；</item>
+        /// <item>命中的那一件调 `ShopOfferContainer.OpenContainer()`（**开那件报价的窗口**，不是「买 + 拆包」——
+        ///   `ShopOfferContainer__OpenContainer.c` 全文 = `GetComponentReference(…, 0xc)` → `WindowsManager.OpenWindow(…)`，
+        ///   **只有**那条 `CanXxx` 为假时才落 `base.OnClick()` 那条购买路）；</item>
+        /// <item>随后 `*(int *)(param_2 + 0x10) = 0;` —— **把这次提示消费掉**（原文如此），⇒ 再切回本页不会重复开。</item>
+        /// </list>
+        /// <para>🔴 **我们这一侧的落点（如实标）**：
+        /// · 「开那件报价的窗口」= <see cref="OpenBoosterInfo"/>（`Shell/BoosterInfoPopup.cs` 文件头已认定：**它就是
+        ///   `ShopOfferContainer.OpenContainer` 那一跳的等价物**）；⛔ **不是** <see cref="OpenBoosterPack"/>（那是**买完拆包**，原版在服务端回执之后）。
+        /// · 「每件的阵营」= **主图名反查**（`BoosterPackOpenWindow.ArmyOfArt`，全工程唯一那张 商品主图 → 阵营 的表）；
+        ///   原版比的是 `ObtainableItem.cardArmy`（服务端 SO 给），本机没有那批 SO ⇒ 这是我们挑的替代，⛔ 别在这里再写第二份表。</para>
+        /// <para>⚠️ **没命中时原版不出声**；我们补一条 `LogWarning`（红线：不许静默失败），且**不**清掉 `army`
+        /// （原版只在命中那一支写 0 —— 照抄，⛔ 别"顺手清掉"）。</para></summary>
+        void TryOpenContainerArmy()
+        {
+            LastAutoOpenedOffer = -1;
+            var sw = _win as ShopWindow;
+            var ctx = sw != null ? sw.Context : null;
+            if (ctx == null) return;                                   // 原版：`Context` 为 null ⇒ 整段跳过
+            if (ctx.army == ArmyIcons.Neutral) return;                  // ① 原版 `.c` 第一句：Neutral ⇒ return
+            var offers = ShopData.Offers(_page);
+            for (int i = 0; i < offers.Length; i++)                     // ② 逐件比阵营
+            {
+                string fac = BoosterPackOpenWindow.ArmyOfArt(offers[i].Art);
+                if (string.IsNullOrEmpty(fac)) continue;                // 非「按阵营分」的卡包（如 generic）⇒ 不匹配
+                if (ArmyIcons.Id(fac) != ctx.army) continue;
+                LastAutoOpenedOffer = i;
+                OpenBoosterInfo(i);                                     // ③ 原版 `ShopOfferContainer.OpenContainer()`
+                Debug.Log("[Shop] crates 页：按 `OpenData.army = " + ctx.army + "`（" + (ArmyIcons.Faction(ctx.army) ?? "认不出")
+                        + "）自动开了第 " + (i + 1) + " 件（`" + offers[i].Name + "`）的详情窗；随后把这次提示消费掉"
+                        + "（原版 `BoosterShopTab__TryOpenContainerArmy.c` 末句 `context.army = 0`）");
+                ctx.army = ArmyIcons.Neutral;                           // ④ 原版消费掉这次提示（⛔ 别挪到 Log 之前，否则日志印 0）
+                return;
+            }
+            Debug.LogWarning("[Shop] crates 页：`OpenData.army = " + ctx.army + "`（" + (ArmyIcons.Faction(ctx.army) ?? "认不出")
+                           + "）在本页 " + offers.Length + " 件里**没有对应的卡包** ⇒ 不弹窗（原版这一支也不出声）");
+        }
     }
 }
